@@ -1,52 +1,58 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [PATCH 05/18] net, bluetooth: convert rfcomm_dlc.refcnt from
- atomic_t to refcount_t
-Date: Mon, 27 Mar 2017 16:05:34 +0200
-Message-ID: <54BFC171-C8E2-47BB-811D-6E9832246256@holtmann.org>
-References: <1489749179-12063-1-git-send-email-elena.reshetova@intel.com>
- <1489749179-12063-6-git-send-email-elena.reshetova@intel.com>
+From: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+Subject: Re: [PATCH v7 0/6] Bluetooth: 6LoWPAN: Fix lladdr length
+Date: Mon, 27 Mar 2017 16:11:31 +0200
+Message-ID: <2401EDE0-D958-4158-B862-29091259BBC5@holtmann.org>
+References: <20170312081938.11700-1-luiz.dentz@gmail.com>
 Mime-Version: 1.0 (Mac OS X Mail 10.2 \(3259\))
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Network Development <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        linux-decnet-user@lists.sourceforge.net,
-        "David S. Miller" <davem@davemloft.net>,
-        James Morris <jmorris@namei.org>,
-        Patrick McHardy <kaber@trash.net>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, 3chas3@gmail.com,
-        ralf@linux-mips.org, stephen@networkplumber.org,
-        jchapman@katalix.com, jhs@mojatatu.com,
-        bridge@lists.linux-foundation.org, linux-hams@vger.kernel.org,
-        linux-x25@vger.kernel.org, linux-bluetooth@vger.kernel.org,
-        Johan Hedberg <johan.hedberg@gmail.com>, peterz@infradead.org,
-        keescook@chromium.org, Hans Liljestrand <ishkamiel@gmail.com>,
-        David Windsor <dwindsor@gmail.com>
-To: Elena Reshetova <elena.reshetova@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1489749179-12063-6-git-send-email-elena.reshetova@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Transfer-Encoding: 8BIT
+Cc: linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, patrik.flykt-VuQAYsv1563Yd54FQh9/CA@public.gmane.org,
+        aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org, jukka.rissanen-VuQAYsv1563Yd54FQh9/CA@public.gmane.org,
+        linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Luiz Augusto von Dentz <luiz.dentz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170312081938.11700-1-luiz.dentz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi Elena,
+Hi Luiz,
 
-> refcount_t type and corresponding API should be
-> used instead of atomic_t when the variable is used as
-> a reference counter. This allows to avoid accidental
-> refcounter overflows that might lead to use-after-free
-> situations.
+> These patches fixes lladdr length to be 6 bytes long and not 8 which cause
+> neighbor advertisement to be sent with wrong lladdr including FF:FE filler
+> bytes for eui64.
 > 
-> Signed-off-by: Elena Reshetova <elena.reshetova@intel.com>
-> Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
-> Signed-off-by: Kees Cook <keescook@chromium.org>
-> Signed-off-by: David Windsor <dwindsor@gmail.com>
-> ---
-> include/net/bluetooth/rfcomm.h | 8 +++++---
-> net/bluetooth/rfcomm/core.c    | 4 ++--
-> 2 files changed, 7 insertions(+), 5 deletions(-)
+> Note: This does not fix some of the existing crashes which I hope to address
+> in a different set.
+> 
+> v2: Make all code paths that generate a link-local from lladdr use the same
+> code.
+> v3: Use lowpan_iphc_uncompress_eui48_lladdr to generate the remote ip address.
+> v4: Handle comments from Stefan Schmidt.
+> v5: Add patch to fix IID format for Bluetooth
+> v6: Fix addrconf_ifid_eui48 to follow IID format for Bluetooth
+> v7: Rework addrconf_ifid_6lowpan so it doesn't use addrconf_ifid_eui48
+> 
+> Alexander Aring (2):
+>  6lowpan: iphc: override l2 packet information
+>  ipv6: addrconf: fix 48 bit 6lowpan autoconfiguration
+> 
+> Luiz Augusto von Dentz (2):
+>  6lowpan: Use netdev addr_len to determine lladdr len
+>  6lowpan: Fix IID format for Bluetooth
+> 
+> Patrik Flykt (2):
+>  bluetooth: Set 6 byte device addresses
+>  6lowpan: Set MAC address length according to LOWPAN_LLTYPE
+> 
+> include/net/6lowpan.h   |  15 ++++++
+> net/6lowpan/core.c      |  11 +++-
+> net/6lowpan/iphc.c      |  57 +++++++++++++++++----
+> net/bluetooth/6lowpan.c | 130 ++++++++----------------------------------------
+> net/ipv6/addrconf.c     |  23 ++++++---
+> 5 files changed, 109 insertions(+), 127 deletions(-)
 
-patch has been applied to bluetooth-next tree.
+all 6 patches have been applied to bluetooth-next tree.
 
 Regards
 
