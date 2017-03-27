@@ -1,199 +1,217 @@
-From: Benjamin LaHaise <benjamin.lahaise@netronome.com>
-Subject: Re: [PATCH net-next 2/2] cls_flower: add support for matching MPLS
- labels
-Date: Mon, 27 Mar 2017 16:49:07 -0400
-Message-ID: <20170327204907.GB3230@nvt-d.home.kvack.org>
-References: <20170327181342.GA3230@nvt-d.home.kvack.org>
- <20170327181602.GA3260@nvt-d.home.kvack.org>
- <20170327203041.GH1869@nanopsycho.orion>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Jiri Pirko <jiri@resnulli.us>, Jamal Hadi Salim <jhs@mojatatu.com>
+From: Saeed Mahameed <saeedm@mellanox.com>
+Subject: [net-next 11/14] net/mlx5e: Fail safe ethtool settings
+Date: Mon, 27 Mar 2017 23:49:07 +0300
+Message-ID: <20170327204910.20287-12-saeedm@mellanox.com>
+References: <20170327204910.20287-1-saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f171.google.com ([209.85.216.171]:36257 "EHLO
-        mail-qt0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751677AbdC0UtM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 27 Mar 2017 16:49:12 -0400
-Received: by mail-qt0-f171.google.com with SMTP id r45so48631579qte.3
-        for <netdev@vger.kernel.org>; Mon, 27 Mar 2017 13:49:11 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20170327203041.GH1869@nanopsycho.orion>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:44899 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1752233AbdC0Ut5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 27 Mar 2017 16:49:57 -0400
+In-Reply-To: <20170327204910.20287-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 27, 2017 at 10:30:41PM +0200, Jiri Pirko wrote:
-> Mon, Mar 27, 2017 at 08:16:02PM CEST, benjamin.lahaise@netronome.com wrote:
-> >Add support to tc flower to match based on fields in MPLS labels (TTL, 
-> >Bottom of Stack, TC field, Label).
-> 
-> Please use scripts/get_maintainer.pl to get list of ccs for the patches
-> you submit.
+Use the new fail-safe channels switch mechanism to set new ethtool
+settings:
+ - ring parameters
+ - coalesce parameters
+ - tx copy break parameters
 
-Oops.  Adding Jamal to the Cc -- please holler if you want me to resend.
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Reviewed-by: Tariq Toukan <tariqt@mellanox.com>
+---
+ .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   | 120 +++++++++++++--------
+ 1 file changed, 73 insertions(+), 47 deletions(-)
 
-		-ben
-
-> 
-> >
-> >Signed-off-by: Benjamin LaHaise <benjamin.lahaise@netronome.com>
-> >Signed-off-by: Benjamin LaHaise <bcrl@kvack.org>
-> >Reviewed-by: Simon Horman <simon.horman@netronome.com>
-> >Reviewed-by: Jakub Kicinski <jakub.kicinski@netronome.com>
-> >
-> >diff --git a/include/uapi/linux/pkt_cls.h b/include/uapi/linux/pkt_cls.h
-> >index 7a69f2a..f1129e3 100644
-> >--- a/include/uapi/linux/pkt_cls.h
-> >+++ b/include/uapi/linux/pkt_cls.h
-> >@@ -432,6 +432,11 @@ enum {
-> > 	TCA_FLOWER_KEY_ARP_THA,		/* ETH_ALEN */
-> > 	TCA_FLOWER_KEY_ARP_THA_MASK,	/* ETH_ALEN */
-> > 
-> >+	TCA_FLOWER_KEY_MPLS_TTL,	/* u8 - 8 bits */
-> >+	TCA_FLOWER_KEY_MPLS_BOS,	/* u8 - 1 bit */
-> >+	TCA_FLOWER_KEY_MPLS_TC,		/* u8 - 3 bits */
-> >+	TCA_FLOWER_KEY_MPLS_LABEL,	/* be32 - 20 bits */
-> >+
-> > 	__TCA_FLOWER_MAX,
-> > };
-> > 
-> >diff --git a/net/sched/cls_flower.c b/net/sched/cls_flower.c
-> >index 9d0c99d..24619f9 100644
-> >--- a/net/sched/cls_flower.c
-> >+++ b/net/sched/cls_flower.c
-> >@@ -18,6 +18,7 @@
-> > #include <linux/if_ether.h>
-> > #include <linux/in6.h>
-> > #include <linux/ip.h>
-> >+#include <linux/mpls.h>
-> > 
-> > #include <net/sch_generic.h>
-> > #include <net/pkt_cls.h>
-> >@@ -47,6 +48,7 @@ struct fl_flow_key {
-> > 		struct flow_dissector_key_ipv6_addrs enc_ipv6;
-> > 	};
-> > 	struct flow_dissector_key_ports enc_tp;
-> >+	struct flow_dissector_key_mpls mpls;
-> > } __aligned(BITS_PER_LONG / 8); /* Ensure that we can do comparisons as longs. */
-> > 
-> > struct fl_flow_mask_range {
-> >@@ -423,6 +425,10 @@ static const struct nla_policy fl_policy[TCA_FLOWER_MAX + 1] = {
-> > 	[TCA_FLOWER_KEY_ARP_SHA_MASK]	= { .len = ETH_ALEN },
-> > 	[TCA_FLOWER_KEY_ARP_THA]	= { .len = ETH_ALEN },
-> > 	[TCA_FLOWER_KEY_ARP_THA_MASK]	= { .len = ETH_ALEN },
-> >+	[TCA_FLOWER_KEY_MPLS_TTL]	= { .type = NLA_U8 },
-> >+	[TCA_FLOWER_KEY_MPLS_BOS]	= { .type = NLA_U8 },
-> >+	[TCA_FLOWER_KEY_MPLS_TC]	= { .type = NLA_U8 },
-> >+	[TCA_FLOWER_KEY_MPLS_LABEL]	= { .type = NLA_U32 },
-> > };
-> > 
-> > static void fl_set_key_val(struct nlattr **tb,
-> >@@ -438,6 +444,36 @@ static void fl_set_key_val(struct nlattr **tb,
-> > 		memcpy(mask, nla_data(tb[mask_type]), len);
-> > }
-> > 
-> >+static void fl_set_key_mpls(struct nlattr **tb,
-> >+			    struct flow_dissector_key_mpls *key_val,
-> >+			    struct flow_dissector_key_mpls *key_mask)
-> >+{
-> >+#define MPLS_TTL_MASK	(MPLS_LS_TTL_MASK >> MPLS_LS_TTL_SHIFT)
-> >+#define MPLS_BOS_MASK	(MPLS_LS_S_MASK >> MPLS_LS_S_SHIFT)
-> >+#define MPLS_TC_MASK	(MPLS_LS_TC_MASK >> MPLS_LS_TC_SHIFT)
-> >+#define MPLS_LABEL_MASK	(MPLS_LS_LABEL_MASK >> MPLS_LS_LABEL_SHIFT)
-> >+
-> >+	if (tb[TCA_FLOWER_KEY_MPLS_TTL]) {
-> >+		key_val->mpls_ttl = nla_get_u8(tb[TCA_FLOWER_KEY_MPLS_TTL]);
-> >+		key_mask->mpls_ttl = MPLS_TTL_MASK;
-> >+	}
-> >+	if (tb[TCA_FLOWER_KEY_MPLS_BOS]) {
-> >+		key_val->mpls_bos = nla_get_u8(tb[TCA_FLOWER_KEY_MPLS_BOS]);
-> >+		key_mask->mpls_bos = MPLS_BOS_MASK;
-> >+	}
-> >+	if (tb[TCA_FLOWER_KEY_MPLS_TC]) {
-> >+		key_val->mpls_tc =
-> >+			nla_get_u8(tb[TCA_FLOWER_KEY_MPLS_TC]) & MPLS_TC_MASK;
-> >+		key_mask->mpls_tc = MPLS_TC_MASK;
-> >+	}
-> >+	if (tb[TCA_FLOWER_KEY_MPLS_LABEL]) {
-> >+		key_val->mpls_label =
-> >+			nla_get_u32(tb[TCA_FLOWER_KEY_MPLS_LABEL]) &
-> >+			MPLS_LABEL_MASK;
-> >+		key_mask->mpls_label = MPLS_LABEL_MASK;
-> >+	}
-> >+}
-> >+
-> > static void fl_set_key_vlan(struct nlattr **tb,
-> > 			    struct flow_dissector_key_vlan *key_val,
-> > 			    struct flow_dissector_key_vlan *key_mask)
-> >@@ -594,6 +630,9 @@ static int fl_set_key(struct net *net, struct nlattr **tb,
-> > 			       &mask->icmp.code,
-> > 			       TCA_FLOWER_KEY_ICMPV6_CODE_MASK,
-> > 			       sizeof(key->icmp.code));
-> >+	} else if (key->basic.n_proto == htons(ETH_P_MPLS_UC) ||
-> >+		   key->basic.n_proto == htons(ETH_P_MPLS_MC)) {
-> >+		fl_set_key_mpls(tb, &key->mpls, &mask->mpls);
-> > 	} else if (key->basic.n_proto == htons(ETH_P_ARP) ||
-> > 		   key->basic.n_proto == htons(ETH_P_RARP)) {
-> > 		fl_set_key_val(tb, &key->arp.sip, TCA_FLOWER_KEY_ARP_SIP,
-> >@@ -730,6 +769,8 @@ static void fl_init_dissector(struct cls_fl_head *head,
-> > 	FL_KEY_SET_IF_MASKED(&mask->key, keys, cnt,
-> > 			     FLOW_DISSECTOR_KEY_ARP, arp);
-> > 	FL_KEY_SET_IF_MASKED(&mask->key, keys, cnt,
-> >+			     FLOW_DISSECTOR_KEY_MPLS, mpls);
-> >+	FL_KEY_SET_IF_MASKED(&mask->key, keys, cnt,
-> > 			     FLOW_DISSECTOR_KEY_VLAN, vlan);
-> > 	FL_KEY_SET_IF_MASKED(&mask->key, keys, cnt,
-> > 			     FLOW_DISSECTOR_KEY_ENC_KEYID, enc_key_id);
-> >@@ -994,6 +1035,41 @@ static int fl_dump_key_val(struct sk_buff *skb,
-> > 	return 0;
-> > }
-> > 
-> >+static int fl_dump_key_mpls(struct sk_buff *skb,
-> >+			    struct flow_dissector_key_mpls *mpls_key,
-> >+			    struct flow_dissector_key_mpls *mpls_mask)
-> >+{
-> >+	int err;
-> >+
-> >+	if (!memchr_inv(mpls_mask, 0, sizeof(*mpls_mask)))
-> >+		return 0;
-> >+	if (mpls_mask->mpls_ttl) {
-> >+		err = nla_put_u8(skb, TCA_FLOWER_KEY_MPLS_TTL,
-> >+				 mpls_key->mpls_ttl);
-> >+		if (err)
-> >+			return err;
-> >+	}
-> >+	if (mpls_mask->mpls_tc) {
-> >+		err = nla_put_u8(skb, TCA_FLOWER_KEY_MPLS_TC,
-> >+				 mpls_key->mpls_tc);
-> >+		if (err)
-> >+			return err;
-> >+	}
-> >+	if (mpls_mask->mpls_label) {
-> >+		err = nla_put_u32(skb, TCA_FLOWER_KEY_MPLS_LABEL,
-> >+				  mpls_key->mpls_label);
-> >+		if (err)
-> >+			return err;
-> >+	}
-> >+	if (mpls_mask->mpls_bos) {
-> >+		err = nla_put_u8(skb, TCA_FLOWER_KEY_MPLS_BOS,
-> >+				 mpls_key->mpls_bos);
-> >+		if (err)
-> >+			return err;
-> >+	}
-> >+	return 0;
-> >+}
-> >+
-> > static int fl_dump_key_vlan(struct sk_buff *skb,
-> > 			    struct flow_dissector_key_vlan *vlan_key,
-> > 			    struct flow_dissector_key_vlan *vlan_mask)
-> >@@ -1099,6 +1175,9 @@ static int fl_dump(struct net *net, struct tcf_proto *tp, unsigned long fh,
-> > 			    sizeof(key->basic.n_proto)))
-> > 		goto nla_put_failure;
-> > 
-> >+	if (fl_dump_key_mpls(skb, &key->mpls, &mask->mpls))
-> >+		goto nla_put_failure;
-> >+
-> > 	if (fl_dump_key_vlan(skb, &key->vlan, &mask->vlan))
-> > 		goto nla_put_failure;
-> > 
-> >
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+index e5cee400a4d3..457a796cc248 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+@@ -457,8 +457,8 @@ static int mlx5e_set_ringparam(struct net_device *dev,
+ {
+ 	struct mlx5e_priv *priv = netdev_priv(dev);
+ 	int rq_wq_type = priv->channels.params.rq_wq_type;
++	struct mlx5e_channels new_channels = {};
+ 	u32 rx_pending_wqes;
+-	bool was_opened;
+ 	u32 min_rq_size;
+ 	u32 max_rq_size;
+ 	u8 log_rq_size;
+@@ -527,16 +527,22 @@ static int mlx5e_set_ringparam(struct net_device *dev,
+ 
+ 	mutex_lock(&priv->state_lock);
+ 
+-	was_opened = test_bit(MLX5E_STATE_OPENED, &priv->state);
+-	if (was_opened)
+-		mlx5e_close_locked(dev);
++	new_channels.params = priv->channels.params;
++	new_channels.params.log_rq_size = log_rq_size;
++	new_channels.params.log_sq_size = log_sq_size;
+ 
+-	priv->channels.params.log_rq_size = log_rq_size;
+-	priv->channels.params.log_sq_size = log_sq_size;
++	if (!test_bit(MLX5E_STATE_OPENED, &priv->state)) {
++		priv->channels.params = new_channels.params;
++		goto unlock;
++	}
+ 
+-	if (was_opened)
+-		err = mlx5e_open_locked(dev);
++	err = mlx5e_open_channels(priv, &new_channels);
++	if (err)
++		goto unlock;
++
++	mlx5e_switch_priv_channels(priv, &new_channels);
+ 
++unlock:
+ 	mutex_unlock(&priv->state_lock);
+ 
+ 	return err;
+@@ -623,36 +629,13 @@ static int mlx5e_get_coalesce(struct net_device *netdev,
+ 	return 0;
+ }
+ 
+-static int mlx5e_set_coalesce(struct net_device *netdev,
+-			      struct ethtool_coalesce *coal)
++static void
++mlx5e_set_priv_channels_coalesce(struct mlx5e_priv *priv, struct ethtool_coalesce *coal)
+ {
+-	struct mlx5e_priv *priv    = netdev_priv(netdev);
+ 	struct mlx5_core_dev *mdev = priv->mdev;
+-	bool restart =
+-		!!coal->use_adaptive_rx_coalesce != priv->channels.params.rx_am_enabled;
+-	bool was_opened;
+-	int err = 0;
+ 	int tc;
+ 	int i;
+ 
+-	if (!MLX5_CAP_GEN(mdev, cq_moderation))
+-		return -EOPNOTSUPP;
+-
+-	mutex_lock(&priv->state_lock);
+-
+-	was_opened = test_bit(MLX5E_STATE_OPENED, &priv->state);
+-	if (was_opened && restart) {
+-		mlx5e_close_locked(netdev);
+-		priv->channels.params.rx_am_enabled = !!coal->use_adaptive_rx_coalesce;
+-	}
+-
+-	priv->channels.params.tx_cq_moderation.usec = coal->tx_coalesce_usecs;
+-	priv->channels.params.tx_cq_moderation.pkts = coal->tx_max_coalesced_frames;
+-	priv->channels.params.rx_cq_moderation.usec = coal->rx_coalesce_usecs;
+-	priv->channels.params.rx_cq_moderation.pkts = coal->rx_max_coalesced_frames;
+-
+-	if (!was_opened || restart)
+-		goto out;
+ 	for (i = 0; i < priv->channels.num; ++i) {
+ 		struct mlx5e_channel *c = priv->channels.c[i];
+ 
+@@ -667,11 +650,50 @@ static int mlx5e_set_coalesce(struct net_device *netdev,
+ 					       coal->rx_coalesce_usecs,
+ 					       coal->rx_max_coalesced_frames);
+ 	}
++}
+ 
+-out:
+-	if (was_opened && restart)
+-		err = mlx5e_open_locked(netdev);
++static int mlx5e_set_coalesce(struct net_device *netdev,
++			      struct ethtool_coalesce *coal)
++{
++	struct mlx5e_priv *priv    = netdev_priv(netdev);
++	struct mlx5_core_dev *mdev = priv->mdev;
++	struct mlx5e_channels new_channels = {};
++	int err = 0;
++	bool reset;
+ 
++	if (!MLX5_CAP_GEN(mdev, cq_moderation))
++		return -EOPNOTSUPP;
++
++	mutex_lock(&priv->state_lock);
++	new_channels.params = priv->channels.params;
++
++	new_channels.params.tx_cq_moderation.usec = coal->tx_coalesce_usecs;
++	new_channels.params.tx_cq_moderation.pkts = coal->tx_max_coalesced_frames;
++	new_channels.params.rx_cq_moderation.usec = coal->rx_coalesce_usecs;
++	new_channels.params.rx_cq_moderation.pkts = coal->rx_max_coalesced_frames;
++	new_channels.params.rx_am_enabled         = !!coal->use_adaptive_rx_coalesce;
++
++	if (!test_bit(MLX5E_STATE_OPENED, &priv->state)) {
++		priv->channels.params = new_channels.params;
++		goto out;
++	}
++	/* we are opened */
++
++	reset = !!coal->use_adaptive_rx_coalesce != priv->channels.params.rx_am_enabled;
++	if (!reset) {
++		mlx5e_set_priv_channels_coalesce(priv, coal);
++		priv->channels.params = new_channels.params;
++		goto out;
++	}
++
++	/* open fresh channels with new coal parameters */
++	err = mlx5e_open_channels(priv, &new_channels);
++	if (err)
++		goto out;
++
++	mlx5e_switch_priv_channels(priv, &new_channels);
++
++out:
+ 	mutex_unlock(&priv->state_lock);
+ 	return err;
+ }
+@@ -1119,9 +1141,11 @@ static int mlx5e_set_tunable(struct net_device *dev,
+ {
+ 	struct mlx5e_priv *priv = netdev_priv(dev);
+ 	struct mlx5_core_dev *mdev = priv->mdev;
+-	bool was_opened;
+-	u32 val;
++	struct mlx5e_channels new_channels = {};
+ 	int err = 0;
++	u32 val;
++
++	mutex_lock(&priv->state_lock);
+ 
+ 	switch (tuna->id) {
+ 	case ETHTOOL_TX_COPYBREAK:
+@@ -1131,24 +1155,26 @@ static int mlx5e_set_tunable(struct net_device *dev,
+ 			break;
+ 		}
+ 
+-		mutex_lock(&priv->state_lock);
++		new_channels.params = priv->channels.params;
++		new_channels.params.tx_max_inline = val;
+ 
+-		was_opened = test_bit(MLX5E_STATE_OPENED, &priv->state);
+-		if (was_opened)
+-			mlx5e_close_locked(dev);
+-
+-		priv->channels.params.tx_max_inline = val;
++		if (!test_bit(MLX5E_STATE_OPENED, &priv->state)) {
++			priv->channels.params = new_channels.params;
++			break;
++		}
+ 
+-		if (was_opened)
+-			err = mlx5e_open_locked(dev);
++		err = mlx5e_open_channels(priv, &new_channels);
++		if (err)
++			break;
++		mlx5e_switch_priv_channels(priv, &new_channels);
+ 
+-		mutex_unlock(&priv->state_lock);
+ 		break;
+ 	default:
+ 		err = -EINVAL;
+ 		break;
+ 	}
+ 
++	mutex_unlock(&priv->state_lock);
+ 	return err;
+ }
+ 
+-- 
+2.11.0
