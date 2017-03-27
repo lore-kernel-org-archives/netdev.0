@@ -1,219 +1,194 @@
-From: Thomas Scariah <thomasscariah@gmail.com>
-Subject: [PATCH 1/1]  ethtool : added get_phy_stats,get_strings,get_sset_count
-Date: Mon, 27 Mar 2017 15:42:50 +0530
-Message-ID: <1490609570-3571-1-git-send-email-thomasscariah@gmail.com>
-Cc: nsekhar@ti.com, grygorii.strashko@ti.com, davem@davemloft.net,
-        drivshin@allworx.com, mugunthanvnm@ti.com,
-        ivan.khoronzhuk@linaro.org, thomas.scariah@harman.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        thomasscariah@gmail.com
-To: f.fainelli@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Arend Van Spriel <arend.vanspriel@broadcom.com>
+Subject: Re: [4.9.13] brcmf use-after-free on resume
+Date: Mon, 27 Mar 2017 12:09:26 +0200
+Message-ID: <3c013590-258d-1fec-efc5-0ba2ee2736a5@broadcom.com>
+References: <CAMVG2sv4CFvCBUZFnbTzoX5M+_FCcrojrCnZMGx6iSKPcTTvow@mail.gmail.com>
+ <c0e2de87-eb19-22bd-290a-a914ea18e52f@broadcom.com>
+ <CAF7Mx6pjfhPrLf0V4HKYDqrQ_32Qbvh_4161EfbYr7XBA2EMRg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Netdev <netdev@vger.kernel.org>,
+        linux-wireless <linux-wireless@vger.kernel.org>,
+        "open list:BROADCOM BRCM80211 IEEE802.11n WIRELESS DRIVER"
+        <brcm80211-dev-list.pdl@broadcom.com>
+To: Daniel J Blueman <daniel@quora.org>,
+        Johannes Berg <johannes@sipsolutions.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f182.google.com ([209.85.220.182]:36204 "EHLO
+        mail-qk0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752176AbdC0KRB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 27 Mar 2017 06:17:01 -0400
+Received: by mail-qk0-f182.google.com with SMTP id p22so33850694qka.3
+        for <netdev@vger.kernel.org>; Mon, 27 Mar 2017 03:16:55 -0700 (PDT)
+In-Reply-To: <CAF7Mx6pjfhPrLf0V4HKYDqrQ_32Qbvh_4161EfbYr7XBA2EMRg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Scariah, Thomas" <thomas.scariah@harman.com>
-
- Added functions to support ethtool to print the phy statistics and error
- information along with other ethtool statistics. This will help ethtool
- information to know the error is from physical layer or MAC layer.
- This is an enahancement for ethtool to accommodate phy statistics
-
-Signed-off-by: Thomas Scariah <thomasscariah@gmail.com>
+On 27-3-2017 11:24, Arend Van Spriel wrote:
+> + Johannes
+> 
+> On 6-3-2017 11:48, Arend Van Spriel wrote:
+>> + linux-wireless
+>>
+>> On 6-3-2017 8:04, Daniel J Blueman wrote:
+>>> When resuming from suspend with a BCM43602 on Ubuntu 16.04 with
+>>> 4.9.13, we see use after free [1].
+>>>
+>>> We see the struct cfg80211_ops is accessed in the resume path, after
+>>> it was previously freed:
+>>>
+>>> (gdb) list *(brcmf_cfg80211_attach+0x10b)
+>>> 0x1d77b is in brcmf_cfg80211_attach
+>>> (drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c:6861).
+>>> 6856            brcmf_err("ndev is invalid\n");
+>>> 6857            return NULL;
+>>> 6858        }
+>>> 6859
+>>> 6860        ops = kmemdup(&brcmf_cfg80211_ops, sizeof(*ops), GFP_KERNEL);
+>>> 6861        if (!ops)
+>>> 6862            return NULL;
+>>> 6863
+>>> 6864        ifp = netdev_priv(ndev);
+>>> 6865    #ifdef CONFIG_PM
+>>>
+>>> (gdb) list *(wiphy_resume+0x591)
+>>> 0xb751 is in wiphy_resume (net/wireless/sysfs.c:133).
+>>> 128        int ret = 0;
+>>> 129
+>>> 130        /* Age scan results with time spent in suspend */
+>>> 131        cfg80211_bss_age(rdev, get_seconds() - rdev->suspend_at);
+>>> 132
+>>> 133        if (rdev->ops->resume) {
+>>> 134            rtnl_lock();
+>>> 135            if (rdev->wiphy.registered)
+>>> 136                ret = rdev_resume(rdev);
+>>> 137            rtnl_unlock();
+>>>
+>>> I'm unsure if this relates to the ordering of callbacks processed by
+>>> dpm_run_callback.
+>>
+>> The problem is that our driver can not access the device as it has been
+>> powered off during suspend. So in the resume we cleanup everything
+>> calling wiphy_unregister() and wiphy_free(). This means the rdev in
+>> wiphy_resume() above is already freed. Not sure how to handle this
+>> properly. Probably we should do a proper rebind.
+>>
+>> Regards,
+>> Arend
+>>
+>>> Thanks,
+>>>   Daniel
+>>>
+>>> -- [1]
+>>>
+>>> BUG: KASAN: use-after-free in wiphy_resume+0x591/0x5a0 [cfg80211] at
+>>> addr ffff8803fefebb30
+>>> Read of size 8 by task kworker/u16:15/3066
+>>> CPU: 0 PID: 3066 Comm: kworker/u16:15 Not tainted 4.9.13-debug+ #7
+>>> Hardware name: Dell Inc. XPS 15 9550/0N7TVV, BIOS 1.2.19 12/22/2016
+>>> Workqueue: events_unbound async_run_entry_fn
+>>>  ffff8803bffdf9d8 ffffffff880db6e1 ffff88042740ef00 ffff8803fefebb28
+>>>  ffff8803bffdfa00 ffffffff87a4d941 ffff8803bffdfa98 ffff8803fefebb20
+>>>  ffff88042740ef00 ffff8803bffdfa88 ffffffff87a4dbda ffff8803fb132360
+>>> Call Trace:
+>>>  [<ffffffff880db6e1>] dump_stack+0x85/0xc4
+>>>  [<ffffffff87a4d941>] kasan_object_err+0x21/0x70
+>>>  [<ffffffff87a4dbda>] kasan_report_error+0x1fa/0x500
+>>>  [<ffffffff8768d47e>] ? trace_hardirqs_on_caller+0x3fe/0x580
+>>>  [<ffffffffc151783a>] ? cfg80211_bss_age+0x9a/0xc0 [cfg80211]
+>>>  [<ffffffff8768d60d>] ? trace_hardirqs_on+0xd/0x10
+>>>  [<ffffffffc14f31c0>] ? wiphy_suspend+0xc70/0xc70 [cfg80211]
+>>>  [<ffffffff87a4e091>] __asan_report_load8_noabort+0x61/0x70
+>>>  [<ffffffffc14f3100>] ? wiphy_suspend+0xbb0/0xc70 [cfg80211]
+>>>  [<ffffffffc14f3751>] ? wiphy_resume+0x591/0x5a0 [cfg80211]
+>>>  [<ffffffffc14f3751>] wiphy_resume+0x591/0x5a0 [cfg80211]
+>>>  [<ffffffffc14f31c0>] ? wiphy_suspend+0xc70/0xc70 [cfg80211]
+>>>  [<ffffffff885b220e>] dpm_run_callback+0x6e/0x4f0
+>>>  [<ffffffff885b3352>] device_resume+0x1c2/0x670
+>>>  [<ffffffff885b381d>] async_resume+0x1d/0x50
+>>>  [<ffffffff875ee9ee>] async_run_entry_fn+0xfe/0x610
+>>>  [<ffffffff875d0806>] process_one_work+0x716/0x1a50
+>>>  [<ffffffff875d0769>] ? process_one_work+0x679/0x1a50
+>>>  [<ffffffff88fd7bad>] ? _raw_spin_unlock_irq+0x3d/0x60
+>>>  [<ffffffff875d00f0>] ? pwq_dec_nr_in_flight+0x2b0/0x2b0
+>>>  [<ffffffff875d1c20>] worker_thread+0xe0/0x1460
+>>>  [<ffffffff875d1b40>] ? process_one_work+0x1a50/0x1a50
+>>>  [<ffffffff875e5662>] kthread+0x222/0x2e0
+>>>  [<ffffffff875e5440>] ? kthread_park+0x80/0x80
+>>>  [<ffffffff875e5440>] ? kthread_park+0x80/0x80
+>>>  [<ffffffff875e5440>] ? kthread_park+0x80/0x80
+>>>  [<ffffffff88fd86ea>] ret_from_fork+0x2a/0x40
+> 
+> So the wiphy instance is unregistered *and* freed in our
+> brcmf_pcie_resume() callback. However, the wiphy_resume() for this
+> instance still comes right after that. I tried several fixes using API
+> calls into driver core, but to no avail. So I came up with the fix
+> below.
+> 
+> Regards,
+> Arend
+> ---
+resending with proper indentation (I hope).
 ---
- drivers/net/ethernet/ti/cpsw.c |   16 ++++++++++++-
- drivers/net/phy/micrel.c       |   50 ++++++++++++++++++++++++++++++++++++++++
- drivers/net/phy/phy.c          |   23 ++++++++++++++++++
- include/linux/phy.h            |   14 +++++++++++
- 4 files changed, 102 insertions(+), 1 deletion(-)
+diff --git a/net/wireless/core.c b/net/wireless/core.c
+index d888613..3af9c2e 100644
+--- a/net/wireless/core.c
++++ b/net/wireless/core.c
+@@ -1096,6 +1096,17 @@ void cfg80211_stop_iface(struct wiphy *wiphy,
+struct wireless_dev *wdev,
+ }
+ EXPORT_SYMBOL(cfg80211_stop_iface);
 
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index 3f48bb9..26d2dc5 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -1001,9 +1001,16 @@ update_return:
- 
- static int cpsw_get_sset_count(struct net_device *ndev, int sset)
++bool cfg80211_dev_in_list_rtnl(struct cfg80211_registered_device *rdev)
++{
++	struct cfg80211_registered_device *item;
++
++	list_for_each_entry(item, &cfg80211_rdev_list, list) {
++		if (item == rdev)
++			return true;
++	}
++	return false;
++}
++
+ static int cfg80211_netdev_notifier_call(struct notifier_block *nb,
+ 					 unsigned long state, void *ptr)
  {
-+	struct cpsw_priv *priv = netdev_priv(ndev);
-+	int slave_no = cpsw_slave_index(priv);
-+	int count;
+diff --git a/net/wireless/core.h b/net/wireless/core.h
+index e9afbc7..0407841 100644
+--- a/net/wireless/core.h
++++ b/net/wireless/core.h
+@@ -286,6 +286,7 @@ struct cfg80211_cqm_config {
+
+ int cfg80211_dev_rename(struct cfg80211_registered_device *rdev,
+ 			char *newname);
++bool cfg80211_dev_in_list_rtnl(struct cfg80211_registered_device *rdev);
+
+ void ieee80211_set_bitrate_flags(struct wiphy *wiphy);
+
+diff --git a/net/wireless/sysfs.c b/net/wireless/sysfs.c
+index 16b6b59..e92459f 100644
+--- a/net/wireless/sysfs.c
++++ b/net/wireless/sysfs.c
+@@ -129,16 +129,19 @@ static int wiphy_resume(struct device *dev)
+ 	struct cfg80211_registered_device *rdev = dev_to_rdev(dev);
+ 	int ret = 0;
+
++	rtnl_lock();
++	if (!cfg80211_dev_in_list_rtnl(rdev))
++		goto done;
 +
- 	switch (sset) {
- 	case ETH_SS_STATS:
--		return CPSW_STATS_LEN;
-+		count = CPSW_STATS_LEN;
-+		count += phy_ethtool_get_sset_count(priv->slaves[slave_no].phy,
-+						    sset);
-+		return count;
- 	default:
- 		return -EOPNOTSUPP;
+ 	/* Age scan results with time spent in suspend */
+ 	cfg80211_bss_age(rdev, get_seconds() - rdev->suspend_at);
+
+ 	if (rdev->ops->resume) {
+-		rtnl_lock();
+ 		if (rdev->wiphy.registered)
+ 			ret = rdev_resume(rdev);
+-		rtnl_unlock();
  	}
-@@ -1011,6 +1018,8 @@ static int cpsw_get_sset_count(struct net_device *ndev, int sset)
- 
- static void cpsw_get_strings(struct net_device *ndev, u32 stringset, u8 *data)
- {
-+	struct cpsw_priv *priv = netdev_priv(ndev);
-+	int slave_no = cpsw_slave_index(priv);
- 	u8 *p = data;
- 	int i;
- 
-@@ -1021,6 +1030,8 @@ static void cpsw_get_strings(struct net_device *ndev, u32 stringset, u8 *data)
- 			       ETH_GSTRING_LEN);
- 			p += ETH_GSTRING_LEN;
- 		}
-+		phy_ethtool_get_strings(priv->slaves[slave_no].phy,
-+					stringset, p);
- 		break;
- 	}
+-
++done:
++	rtnl_unlock();
+ 	return ret;
  }
-@@ -1031,6 +1042,7 @@ static void cpsw_get_ethtool_stats(struct net_device *ndev,
- 	struct cpsw_priv *priv = netdev_priv(ndev);
- 	struct cpdma_chan_stats rx_stats;
- 	struct cpdma_chan_stats tx_stats;
-+	int slave_no = cpsw_slave_index(priv);
- 	u32 val;
- 	u8 *p;
- 	int i, ret;
-@@ -1067,6 +1079,8 @@ static void cpsw_get_ethtool_stats(struct net_device *ndev,
- 		}
- 	}
- 
-+	phy_ethtool_get_stats(priv->slaves[slave_no].phy, stats,
-+			      &data[CPSW_STATS_LEN]);
- 	pm_runtime_put(&priv->pdev->dev);
- }
- 
-diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
-index e13ad6c..492acbf 100644
---- a/drivers/net/phy/micrel.c
-+++ b/drivers/net/phy/micrel.c
-@@ -287,6 +287,53 @@ static int kszphy_config_init(struct phy_device *phydev)
- 	return 0;
- }
- 
-+struct ks8051_phy_stat {
-+	char name[ETH_GSTRING_LEN];
-+	u16 offset;
-+};
-+
-+static const struct ks8051_phy_stat ks8051_phy_stats[] = {
-+	{ "PHY RX Error Counter", 0x15 },
-+};
-+
-+#define KS8051_STATS_LEN ARRAY_SIZE(ks8051_phy_stats)
-+
-+static int ks8051_get_sset_count(struct phy_device *phydev, int sset)
-+{
-+	switch (sset) {
-+	case ETH_SS_STATS:
-+		return KS8051_STATS_LEN;
-+	default:
-+		return 0;
-+	}
-+}
-+
-+static void ks8051_get_strings(struct phy_device *phydev, u32 stringset,
-+			       u8 *data)
-+{
-+	int i;
-+
-+	switch (stringset) {
-+	case ETH_SS_STATS:
-+		for (i = 0; i < KS8051_STATS_LEN; i++)
-+			memcpy(data + i * ETH_GSTRING_LEN,
-+			       ks8051_phy_stats[i].name, ETH_GSTRING_LEN);
-+	break;
-+	}
-+}
-+
-+static void ks8051_get_phy_stats(struct phy_device *phydev,
-+				 struct ethtool_stats *stats, u64 *data)
-+{
-+	u32 i;
-+	u32 val;
-+
-+	for (i = 0; i < KS8051_STATS_LEN; i++) {
-+		val = phy_read(phydev, ks8051_phy_stats[i].offset);
-+		data[i] = val;
-+	}
-+}
-+
- static int ksz9021_load_values_from_of(struct phy_device *phydev,
- 				       const struct device_node *of_node,
- 				       u16 reg,
-@@ -724,6 +771,9 @@ static struct phy_driver ksphy_driver[] = {
- 	.probe		= kszphy_probe,
- 	.config_init	= kszphy_config_init,
- 	.config_aneg	= genphy_config_aneg,
-+	.get_phy_stats  = ks8051_get_phy_stats,
-+	.get_strings    = ks8051_get_strings,
-+	.get_sset_count = ks8051_get_sset_count,
- 	.read_status	= genphy_read_status,
- 	.ack_interrupt	= kszphy_ack_interrupt,
- 	.config_intr	= kszphy_config_intr,
-diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-index 47cd306..25b66cd 100644
---- a/drivers/net/phy/phy.c
-+++ b/drivers/net/phy/phy.c
-@@ -1262,3 +1262,26 @@ void phy_ethtool_get_wol(struct phy_device *phydev, struct ethtool_wolinfo *wol)
- 		phydev->drv->get_wol(phydev, wol);
- }
- EXPORT_SYMBOL(phy_ethtool_get_wol);
-+
-+int phy_ethtool_get_sset_count(struct phy_device *phydev, int sset)
-+{
-+	if (phydev->drv->get_sset_count)
-+		return phydev->drv->get_sset_count(phydev, sset);
-+	return 0;
-+}
-+EXPORT_SYMBOL(phy_ethtool_get_sset_count);
-+
-+void phy_ethtool_get_strings(struct phy_device *phydev, u32 stringset, u8 *data)
-+{
-+	if (phydev->drv->get_strings)
-+		phydev->drv->get_strings(phydev, stringset, data);
-+}
-+EXPORT_SYMBOL(phy_ethtool_get_strings);
-+
-+void phy_ethtool_get_stats(struct phy_device *phydev,
-+			   struct ethtool_stats *stats, u64 *data)
-+{
-+	if (phydev->drv->get_phy_stats)
-+		phydev->drv->get_phy_stats(phydev, stats, data);
-+}
-+EXPORT_SYMBOL(phy_ethtool_get_stats);
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index 05fde31..4f14368 100644
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -589,6 +589,15 @@ struct phy_driver {
- 	int (*module_eeprom)(struct phy_device *dev,
- 			     struct ethtool_eeprom *ee, u8 *data);
- 
-+	/* Request for phy statitsics information and printing statistics
-+	 * information from ethtool stats. So Rx stats, Tx stats and error
-+	 * information can be read from
-+	 */
-+	void (*get_phy_stats)(struct phy_device *, struct ethtool_stats *,
-+			      u64 *);
-+	void (*get_strings)(struct phy_device *, u32 stringset, u8 *);
-+	int  (*get_sset_count)(struct phy_device *, int);
-+
- 	struct device_driver driver;
- };
- #define to_phy_driver(d) container_of(d, struct phy_driver, driver)
-@@ -816,6 +825,11 @@ int phy_ethtool_get_eee(struct phy_device *phydev, struct ethtool_eee *data);
- int phy_ethtool_set_wol(struct phy_device *phydev, struct ethtool_wolinfo *wol);
- void phy_ethtool_get_wol(struct phy_device *phydev,
- 			 struct ethtool_wolinfo *wol);
-+int phy_ethtool_get_sset_count(struct phy_device *phydev, int sset);
-+void phy_ethtool_get_strings(struct phy_device *phydev, u32 stringset,
-+			     u8 *data);
-+void phy_ethtool_get_stats(struct phy_device *phydev,
-+			   struct ethtool_stats *stats, u64 *data);
- 
- int __init mdio_bus_init(void);
- void mdio_bus_exit(void);
--- 
-1.7.9.5
