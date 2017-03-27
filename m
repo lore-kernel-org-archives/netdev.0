@@ -1,97 +1,39 @@
-From: David Daney <ddaney.cavm@gmail.com>
-Subject: Re: [PATCH 5/5] PCI: remove pci_enable_msix
-Date: Mon, 27 Mar 2017 09:59:35 -0700
-Message-ID: <83f97789-0817-7549-bfa9-1f8dcb0c26d9@gmail.com>
-References: <20170327082936.6830-1-hch@lst.de>
- <20170327082936.6830-6-hch@lst.de>
+From: Russell King - ARM Linux <linux@armlinux.org.uk>
+Subject: Re: [PATCH RFC v2 3/3] net: phy: allow EEE with SGMII interface modes
+Date: Mon, 27 Mar 2017 18:00:19 +0100
+Message-ID: <20170327170019.GR7909@n2100.armlinux.org.uk>
+References: <20170327095826.GA2310@n2100.armlinux.org.uk>
+ <E1csRQT-0004rM-Tq@rmk-PC.armlinux.org.uk>
+ <5d3c3ce0-fabc-6b96-c7e9-c2e46ffe4d23@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-pci@vger.kernel.org
-To: Christoph Hellwig <hch@lst.de>, bhelgaas@google.com,
-        davem@davemloft.net, netanel@annapurnalabs.com, jcliburn@gmail.com,
-        chris.snook@gmail.com, sgoutham@cavium.com, rric@kernel.org
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <20170327082936.6830-6-hch@lst.de>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        Andrew Lunn <andrew@lunn.ch>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from pandora.armlinux.org.uk ([78.32.30.218]:41276 "EHLO
+        pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751536AbdC0RBE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 27 Mar 2017 13:01:04 -0400
+Content-Disposition: inline
+In-Reply-To: <5d3c3ce0-fabc-6b96-c7e9-c2e46ffe4d23@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/27/2017 01:29 AM, Christoph Hellwig wrote:
-> Unused now that all callers switched to pci_alloc_irq_vectors.
->
+On Mon, Mar 27, 2017 at 09:47:31AM -0700, Florian Fainelli wrote:
+> On 03/27/2017 02:59 AM, Russell King wrote:
+> > As EEE is able to work in SGMII mode as well, add it to the list of
+> > permissable EEE modes that phy_init_eee() will accept.  This is
+> > necessary so that EEE can work with an 88E1512 connected in SGMII mode.
+> 
+> As you mention in your cover letter, we should probably reverse this
+> test and make it reject modes where EEE has no chance of being supported
+> at all.
 
-And you are aware that the ThunderX GPIO driver that I am attempting to 
-merge uses this interface.
+Want me to re-spin?  Any thought on which interface modes we should
+explicitly exclude?
 
-If this patch gets merged, should I ask to revert it when the GPIO 
-driver goes in?
-
-You offer no solution for drivers that would benefit from using a sparse 
-sub set of the available MSI-X vectors.
-
-
-David Daney
-
-
-
-> Signed-off-by: Christoph Hellwig <hch@lst.de>
-> ---
->  drivers/pci/msi.c   | 21 ---------------------
->  include/linux/pci.h |  4 ----
->  2 files changed, 25 deletions(-)
->
-> diff --git a/drivers/pci/msi.c b/drivers/pci/msi.c
-> index d571bc330686..0042c365b29b 100644
-> --- a/drivers/pci/msi.c
-> +++ b/drivers/pci/msi.c
-> @@ -973,27 +973,6 @@ static int __pci_enable_msix(struct pci_dev *dev, struct msix_entry *entries,
->  	return msix_capability_init(dev, entries, nvec, affd);
->  }
->
-> -/**
-> - * pci_enable_msix - configure device's MSI-X capability structure
-> - * @dev: pointer to the pci_dev data structure of MSI-X device function
-> - * @entries: pointer to an array of MSI-X entries (optional)
-> - * @nvec: number of MSI-X irqs requested for allocation by device driver
-> - *
-> - * Setup the MSI-X capability structure of device function with the number
-> - * of requested irqs upon its software driver call to request for
-> - * MSI-X mode enabled on its hardware device function. A return of zero
-> - * indicates the successful configuration of MSI-X capability structure
-> - * with new allocated MSI-X irqs. A return of < 0 indicates a failure.
-> - * Or a return of > 0 indicates that driver request is exceeding the number
-> - * of irqs or MSI-X vectors available. Driver should use the returned value to
-> - * re-send its request.
-> - **/
-> -int pci_enable_msix(struct pci_dev *dev, struct msix_entry *entries, int nvec)
-> -{
-> -	return __pci_enable_msix(dev, entries, nvec, NULL);
-> -}
-> -EXPORT_SYMBOL(pci_enable_msix);
-> -
->  void pci_msix_shutdown(struct pci_dev *dev)
->  {
->  	struct msi_desc *entry;
-> diff --git a/include/linux/pci.h b/include/linux/pci.h
-> index eb3da1a04e6c..82dec36845e6 100644
-> --- a/include/linux/pci.h
-> +++ b/include/linux/pci.h
-> @@ -1300,7 +1300,6 @@ int pci_msi_vec_count(struct pci_dev *dev);
->  void pci_msi_shutdown(struct pci_dev *dev);
->  void pci_disable_msi(struct pci_dev *dev);
->  int pci_msix_vec_count(struct pci_dev *dev);
-> -int pci_enable_msix(struct pci_dev *dev, struct msix_entry *entries, int nvec);
->  void pci_msix_shutdown(struct pci_dev *dev);
->  void pci_disable_msix(struct pci_dev *dev);
->  void pci_restore_msi_state(struct pci_dev *dev);
-> @@ -1330,9 +1329,6 @@ static inline int pci_msi_vec_count(struct pci_dev *dev) { return -ENOSYS; }
->  static inline void pci_msi_shutdown(struct pci_dev *dev) { }
->  static inline void pci_disable_msi(struct pci_dev *dev) { }
->  static inline int pci_msix_vec_count(struct pci_dev *dev) { return -ENOSYS; }
-> -static inline int pci_enable_msix(struct pci_dev *dev,
-> -				  struct msix_entry *entries, int nvec)
-> -{ return -ENOSYS; }
->  static inline void pci_msix_shutdown(struct pci_dev *dev) { }
->  static inline void pci_disable_msix(struct pci_dev *dev) { }
->  static inline void pci_restore_msi_state(struct pci_dev *dev) { }
->
+-- 
+RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
+FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
+according to speedtest.net.
