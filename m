@@ -1,105 +1,72 @@
-From: Mark Rutland <mark.rutland@arm.com>
-Subject: [PATCH] net: ipconfig: fix ic_close_devs() use-after-free
-Date: Mon, 27 Mar 2017 18:00:14 +0100
-Message-ID: <1490634014-23098-1-git-send-email-mark.rutland@arm.com>
-Cc: Mark Rutland <mark.rutland@arm.com>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        "David S. Miller" <davem@davemloft.net>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        James Morris <jmorris@namei.org>,
-        Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Corentin Labbe <clabbe.montjoie@gmail.com>
+Subject: Re: [PATCH net-next 2/2] net: stmmac: fix number of tx queues in
+ stmmac_poll
+Date: Mon, 27 Mar 2017 19:00:58 +0200
+Message-ID: <20170327170058.GA8441@Red>
+References: <cover.1490375512.git.jpinto@synopsys.com>
+ <b6f44c16abea1693dcc1333517778bd7a3e0b0f5.1490375512.git.jpinto@synopsys.com>
+ <20170325072621.GA20997@Red>
+ <74765cbf-897a-67a1-7f42-337bf7dff6a8@synopsys.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: davem@davemloft.net, peppe.cavallaro@st.com,
+        alexandre.torgue@st.com, thierry.reding@gmail.com,
+        sergei.shtylyov@cogentembedded.com, f.fainelli@gmail.com,
+        niklas.cassel@axis.com, netdev@vger.kernel.org
+To: Joao Pinto <Joao.Pinto@synopsys.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f195.google.com ([209.85.128.195]:32937 "EHLO
+        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751294AbdC0RBc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 27 Mar 2017 13:01:32 -0400
+Received: by mail-wr0-f195.google.com with SMTP id 20so15023412wrx.0
+        for <netdev@vger.kernel.org>; Mon, 27 Mar 2017 10:01:12 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <74765cbf-897a-67a1-7f42-337bf7dff6a8@synopsys.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Our chosen ic_dev may be anywhere in our list of ic_devs, and we may
-free it before attempting to close others. When we compare d->dev and
-ic_dev->dev, we're potentially dereferencing memory returned to the
-allocator. This causes KASAN to scream for each subsequent ic_dev we
-check.
+On Mon, Mar 27, 2017 at 04:26:48PM +0100, Joao Pinto wrote:
+> Hi David,
+> 
+> Às 7:26 AM de 3/25/2017, Corentin Labbe escreveu:
+> > On Fri, Mar 24, 2017 at 05:16:45PM +0000, Joao Pinto wrote:
+> >> For cores that have more than 1 TX queue configured, the kernel would crash,
+> >> since only one TX queue is permitted by default.
+> >>
+> >> Signed-off-by: Joao Pinto <jpinto@synopsys.com>
+> >> ---
+> >>  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 2 +-
+> >>  1 file changed, 1 insertion(+), 1 deletion(-)
+> >>
+> >> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> >> index 3827952..1eab084 100644
+> >> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> >> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> >> @@ -3429,7 +3429,7 @@ static int stmmac_poll(struct napi_struct *napi, int budget)
+> >>  	struct stmmac_rx_queue *rx_q =
+> >>  		container_of(napi, struct stmmac_rx_queue, napi);
+> >>  	struct stmmac_priv *priv = rx_q->priv_data;
+> >> -	u32 tx_count = priv->dma_cap.number_tx_queues;
+> >> +	u32 tx_count = priv->plat->tx_queues_to_use;
+> >>  	u32 chan = rx_q->queue_index;
+> >>  	u32 work_done = 0;
+> >>  	u32 queue = 0;
+> >> -- 
+> >> 2.9.3
+> >>
+> > 
+> > This patch fix the performance issue on dwmac-sun8i only.
+> > The dwmac-sunxi is still broken.
+> > 
+> 
+> This patch series can be upstreamed please, since they make 2 fixes, one of them
+> solving the problem in dwmac-sun8i.
+> 
+> Thanks.
 
-As there's a 1-1 mapping between ic_devs and netdevs, we can instead
-compare d and ic_dev directly, which implicitly handles the !ic_dev
-case, and avoids the use-after-free. The ic_dev pointer may be stale,
-but we will not dereference it.
+As I said in a previous answer, finaly dwmac-sun8i is still broken.
+Adding thoses 2 patch will just made the revert harder.
 
-Original splat:
-
-[    6.487446] ==================================================================
-[    6.494693] BUG: KASAN: use-after-free in ic_close_devs+0xc4/0x154 at addr ffff800367efa708
-[    6.503013] Read of size 8 by task swapper/0/1
-[    6.507452] CPU: 5 PID: 1 Comm: swapper/0 Not tainted 4.11.0-rc3-00002-gda42158 #8
-[    6.514993] Hardware name: AppliedMicro Mustang/Mustang, BIOS 3.05.05-beta_rc Jan 27 2016
-[    6.523138] Call trace:
-[    6.525590] [<ffff200008094778>] dump_backtrace+0x0/0x570
-[    6.530976] [<ffff200008094d08>] show_stack+0x20/0x30
-[    6.536017] [<ffff200008bee928>] dump_stack+0x120/0x188
-[    6.541231] [<ffff20000856d5e4>] kasan_object_err+0x24/0xa0
-[    6.546790] [<ffff20000856d924>] kasan_report_error+0x244/0x738
-[    6.552695] [<ffff20000856dfec>] __asan_report_load8_noabort+0x54/0x80
-[    6.559204] [<ffff20000aae86ac>] ic_close_devs+0xc4/0x154
-[    6.564590] [<ffff20000aaedbac>] ip_auto_config+0x2ed4/0x2f1c
-[    6.570321] [<ffff200008084b04>] do_one_initcall+0xcc/0x370
-[    6.575882] [<ffff20000aa31de8>] kernel_init_freeable+0x5f8/0x6c4
-[    6.581959] [<ffff20000a16df00>] kernel_init+0x18/0x190
-[    6.587171] [<ffff200008084710>] ret_from_fork+0x10/0x40
-[    6.592468] Object at ffff800367efa700, in cache kmalloc-128 size: 128
-[    6.598969] Allocated:
-[    6.601324] PID = 1
-[    6.603427]  save_stack_trace_tsk+0x0/0x418
-[    6.607603]  save_stack_trace+0x20/0x30
-[    6.611430]  kasan_kmalloc+0xd8/0x188
-[    6.615087]  ip_auto_config+0x8c4/0x2f1c
-[    6.619002]  do_one_initcall+0xcc/0x370
-[    6.622832]  kernel_init_freeable+0x5f8/0x6c4
-[    6.627178]  kernel_init+0x18/0x190
-[    6.630660]  ret_from_fork+0x10/0x40
-[    6.634223] Freed:
-[    6.636233] PID = 1
-[    6.638334]  save_stack_trace_tsk+0x0/0x418
-[    6.642510]  save_stack_trace+0x20/0x30
-[    6.646337]  kasan_slab_free+0x88/0x178
-[    6.650167]  kfree+0xb8/0x478
-[    6.653131]  ic_close_devs+0x130/0x154
-[    6.656875]  ip_auto_config+0x2ed4/0x2f1c
-[    6.660875]  do_one_initcall+0xcc/0x370
-[    6.664705]  kernel_init_freeable+0x5f8/0x6c4
-[    6.669051]  kernel_init+0x18/0x190
-[    6.672534]  ret_from_fork+0x10/0x40
-[    6.676098] Memory state around the buggy address:
-[    6.680880]  ffff800367efa600: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-[    6.688078]  ffff800367efa680: fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc
-[    6.695276] >ffff800367efa700: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
-[    6.702469]                       ^
-[    6.705952]  ffff800367efa780: fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc
-[    6.713149]  ffff800367efa800: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
-[    6.720343] ==================================================================
-[    6.727536] Disabling lock debugging due to kernel taint
-
-Signed-off-by: Mark Rutland <mark.rutland@arm.com>
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Cc: David S. Miller <davem@davemloft.net>
-Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-Cc: James Morris <jmorris@namei.org>
-Cc: Patrick McHardy <kaber@trash.net>
-Cc: netdev@vger.kernel.org
----
- net/ipv4/ipconfig.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/ipv4/ipconfig.c b/net/ipv4/ipconfig.c
-index fd9f34b..dfb2ab2 100644
---- a/net/ipv4/ipconfig.c
-+++ b/net/ipv4/ipconfig.c
-@@ -306,7 +306,7 @@ static void __init ic_close_devs(void)
- 	while ((d = next)) {
- 		next = d->next;
- 		dev = d->dev;
--		if ((!ic_dev || dev != ic_dev->dev) && !netdev_uses_dsa(dev)) {
-+		if (d != ic_dev && !netdev_uses_dsa(dev)) {
- 			pr_debug("IP-Config: Downing %s\n", dev->name);
- 			dev_change_flags(dev, d->flags);
- 		}
--- 
-1.9.1
+Regards
