@@ -1,52 +1,39 @@
-From: Zhu Yanjun <yanjun.zhu@oracle.com>
-Subject: [PATCH 2/5] rds: rdma: fix memory leak error
-Date: Mon, 27 Mar 2017 03:06:27 -0400
-Message-ID: <1490598390-13812-3-git-send-email-yanjun.zhu@oracle.com>
+From: Zhu Yanjun <yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH 1/5] rds: tcp: release the created connection
+Date: Mon, 27 Mar 2017 03:06:26 -0400
+Message-ID: <1490598390-13812-2-git-send-email-yanjun.zhu@oracle.com>
 References: <1490598390-13812-1-git-send-email-yanjun.zhu@oracle.com>
-To: yanjun.zhu@oracle.com, santosh.shilimkar@oracle.com,
-        netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
-        rds-devel@oss.oracle.com, junxiao.bi@oracle.com, joe.jin@oracle.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:22570 "EHLO
-        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751633AbdC0HH0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 27 Mar 2017 03:07:26 -0400
-In-Reply-To: <1490598390-13812-1-git-send-email-yanjun.zhu@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org, santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org, junxiao.bi-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org, joe.jin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1490598390-13812-1-git-send-email-yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-In the function __rds_rdma_map, the allocated memory and other
-resources should be freed when some error occurs.
+When some error occurs, the created connection should be destroyed.
 
-Signed-off-by: Zhu Yanjun <yanjun.zhu@oracle.com>
+Signed-off-by: Zhu Yanjun <yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
 ---
- net/rds/rdma.c | 7 +++++++
- 1 file changed, 7 insertions(+)
+ net/rds/tcp_listen.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/net/rds/rdma.c b/net/rds/rdma.c
-index f06fac4..ad9b6bd 100644
---- a/net/rds/rdma.c
-+++ b/net/rds/rdma.c
-@@ -253,6 +253,8 @@ static int __rds_rdma_map(struct rds_sock *rs, struct rds_get_mr_args *args,
- 	sg = kcalloc(nents, sizeof(*sg), GFP_KERNEL);
- 	if (!sg) {
- 		ret = -ENOMEM;
-+		for (i = 0; i < nents; i++)
-+			put_page(pages[i]);
- 		goto out;
- 	}
- 	WARN_ON(!nents);
-@@ -293,6 +295,11 @@ static int __rds_rdma_map(struct rds_sock *rs, struct rds_get_mr_args *args,
- 		*cookie_ret = cookie;
- 
- 	if (args->cookie_addr && put_user(cookie, (u64 __user *)(unsigned long) args->cookie_addr)) {
-+		for (i = 0; i < nents; i++)
-+			put_page(sg_page(&sg[i]));
-+		kfree(sg);
-+		mr->r_trans->free_mr(mr->r_trans_private, 1);
-+		mr->r_trans_private = NULL;
- 		ret = -EFAULT;
- 		goto out;
- 	}
+diff --git a/net/rds/tcp_listen.c b/net/rds/tcp_listen.c
+index 5076788..58aa5bc 100644
+--- a/net/rds/tcp_listen.c
++++ b/net/rds/tcp_listen.c
+@@ -196,6 +196,7 @@ int rds_tcp_accept_one(struct socket *sock)
+ rst_nsk:
+ 	/* reset the newly returned accept sock and bail */
+ 	kernel_sock_shutdown(new_sock, SHUT_RDWR);
++	rds_conn_destroy(conn);
+ 	ret = 0;
+ out:
+ 	if (rs_tcp)
 -- 
 2.7.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
