@@ -1,169 +1,128 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net-next 10/14] net/mlx5e: Introduce switch channels
-Date: Mon, 27 Mar 2017 23:49:06 +0300
-Message-ID: <20170327204910.20287-11-saeedm@mellanox.com>
-References: <20170327204910.20287-1-saeedm@mellanox.com>
+Subject: [pull request][net-next 00/14] Mellanox mlx5e Fail-safe config
+Date: Mon, 27 Mar 2017 23:48:56 +0300
+Message-ID: <20170327204910.20287-1-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:44896 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:44884 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1752215AbdC0Ut5 (ORCPT
+        with ESMTP id S1751801AbdC0Ut5 (ORCPT
         <rfc822;netdev@vger.kernel.org>); Mon, 27 Mar 2017 16:49:57 -0400
-In-Reply-To: <20170327204910.20287-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A fail safe helper functions that allows switching to new channels on the
-fly,  In simple words:
+Hi Dave,
+
+This series provides a fail-safe mechanism to allow safely re-configuring
+mlx5e netdevice and provides a resiliency against sporadic
+configuration failures.
+
+For additional information please see below.
+
+Please pull and let me know if there's any problem.
+
+Thanks,
+Saeed.
+
+---
+
+The following changes since commit 88275ed0cb3ac89ed869a925337b951801b154d7:
+
+  Merge branch 'netvsc-next' (2017-03-25 20:15:56 -0700)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/saeed/linux.git tags/mlx5e-failsafe
+
+for you to fetch changes up to 2e20a151205be8e7efa9644cdb942381e7bec787:
+
+  net/mlx5e: Fail safe mtu and lro setting (2017-03-27 15:08:24 +0300)
+
+----------------------------------------------------------------
+mlx5e-failsafe 27-03-2017
+
+This series provides a fail-safe mechanism to allow safely re-configuring
+mlx5e netdevice and provides a resiliency against sporadic
+configuration failures.
+
+To enable this we do some refactoring and code reorganizing to allow
+breaking the drivers open/close flows to stages:
+      open -> activate -> deactivate -> close.
+
+In addition we need to allow creating fresh HW ring resources
+(mlx5e_channels) with their own "new" set of parameters, while keeping
+the current ones running and active until the new channels are
+successfully created with the new configuration, and only then we can
+safly replace (switch) old channels with new ones.
+
+For that we introduce mlx5e_channels object and an API to manage it:
+ - channels = open_channels(new_params):
+   open fresh TX/RX channels
+ - activate_channels(channels):
+   redirect traffic to them and attach them to the netdev
+ - deactivate_channes(channels)
+   stop traffic and detach from netdev
+ - close(channels)
+   Free the TX/RX HW resources of those channels
+
+With the above strategy it is straightforward to achieve the desired
+behavior of fail-safe configuration.  In pseudo code:
 
 make_new_config(new_params)
 {
-    new_channels = open_channels(new_params);
-    if (!new_channels)
-         return "Failed, but current channels are still active :)"
+	old_channels = current_active_channels;
+	new_channels = create_channels(new_params);
+	if (!new_channels)
+		return "Failed, but current channels are still active :)"
 
-    switch_channels(new_channels);
+	deactivate_channels(old_channels); /* Can't fail */
+	set_hw_new_state();                /* If needed  */
+	activate_channels(new_channels);   /* Can't fail */
+	close_channels(old_channels);
+	current_active_channels = new_channels;
 
-    return "SUCCESS";
+        return "SUCCESS";
 }
 
-Demonstrate mlx5e_switch_priv_channels usage in set channels ethtool
-callback and make it fail-safe using the new switch channels mechanism.
+At the top of this series, we change the following flows to be fail-safe:
+ethtool:
+   - ring parameters
+   - coalesce parameters
+   - tx copy break parameters
+   - cqe compressing/moderation mode setting (priv flags)
+ndos:
+   - tc setup
+   - set features: LRO
+   - change mtu
 
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
-Reviewed-by: Tariq Toukan <tariqt@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx5/core/en.h       |  7 +++++
- .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   | 29 ++++++++++++---------
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c  | 30 +++++++++++++++++++---
- 3 files changed, 51 insertions(+), 15 deletions(-)
+----------------------------------------------------------------
+Saeed Mahameed (14):
+      net/mlx5e: Set SQ max rate on mlx5e_open_txqsq rather on open_channel
+      net/mlx5e: Set netdev->rx_cpu_rmap on netdev creation
+      net/mlx5e: Introduce mlx5e_channels
+      net/mlx5e: Redirect RQT refactoring
+      net/mlx5e: Refactor refresh TIRs
+      net/mlx5e: Split open/close channels to stages
+      net/mlx5e: Isolate open_channels from priv->params
+      net/mlx5e: CQ and RQ don't need priv pointer
+      net/mlx5e: Minimize mlx5e_{open/close}_locked
+      net/mlx5e: Introduce switch channels
+      net/mlx5e: Fail safe ethtool settings
+      net/mlx5e: Fail safe cqe compressing/moderation mode setting
+      net/mlx5e: Fail safe tc setup
+      net/mlx5e: Fail safe mtu and lro setting
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-index 44c454b34754..2f259dfbf844 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-@@ -863,6 +863,13 @@ void mlx5e_build_indir_tir_ctx_hash(struct mlx5e_params *params,
- 
- int mlx5e_open_locked(struct net_device *netdev);
- int mlx5e_close_locked(struct net_device *netdev);
-+
-+int mlx5e_open_channels(struct mlx5e_priv *priv,
-+			struct mlx5e_channels *chs);
-+void mlx5e_close_channels(struct mlx5e_channels *chs);
-+void mlx5e_switch_priv_channels(struct mlx5e_priv *priv,
-+				struct mlx5e_channels *new_chs);
-+
- void mlx5e_build_default_indir_rqt(struct mlx5_core_dev *mdev,
- 				   u32 *indirection_rqt, int len,
- 				   int num_channels);
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-index b2cd0ef7921e..e5cee400a4d3 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-@@ -556,8 +556,8 @@ static int mlx5e_set_channels(struct net_device *dev,
- {
- 	struct mlx5e_priv *priv = netdev_priv(dev);
- 	unsigned int count = ch->combined_count;
-+	struct mlx5e_channels new_channels = {};
- 	bool arfs_enabled;
--	bool was_opened;
- 	int err = 0;
- 
- 	if (!count) {
-@@ -571,22 +571,27 @@ static int mlx5e_set_channels(struct net_device *dev,
- 
- 	mutex_lock(&priv->state_lock);
- 
--	was_opened = test_bit(MLX5E_STATE_OPENED, &priv->state);
--	if (was_opened)
--		mlx5e_close_locked(dev);
-+	new_channels.params = priv->channels.params;
-+	new_channels.params.num_channels = count;
-+	mlx5e_build_default_indir_rqt(priv->mdev, new_channels.params.indirection_rqt,
-+				      MLX5E_INDIR_RQT_SIZE, count);
-+
-+	if (!test_bit(MLX5E_STATE_OPENED, &priv->state)) {
-+		priv->channels.params = new_channels.params;
-+		goto out;
-+	}
-+
-+	/* Create fresh channels with new parameters */
-+	err = mlx5e_open_channels(priv, &new_channels);
-+	if (err)
-+		goto out;
- 
- 	arfs_enabled = dev->features & NETIF_F_NTUPLE;
- 	if (arfs_enabled)
- 		mlx5e_arfs_disable(priv);
- 
--	priv->channels.params.num_channels = count;
--	mlx5e_build_default_indir_rqt(priv->mdev, priv->channels.params.indirection_rqt,
--				      MLX5E_INDIR_RQT_SIZE, count);
--
--	if (was_opened)
--		err = mlx5e_open_locked(dev);
--	if (err)
--		goto out;
-+	/* Switch to new channels, set new parameters and close old ones */
-+	mlx5e_switch_priv_channels(priv, &new_channels);
- 
- 	if (arfs_enabled) {
- 		err = mlx5e_arfs_enable(priv);
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index a94f84ec2c1a..97e153209834 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -1972,8 +1972,8 @@ static void mlx5e_build_channel_param(struct mlx5e_priv *priv,
- 	mlx5e_build_ico_cq_param(priv, icosq_log_wq_sz, &cparam->icosq_cq);
- }
- 
--static int mlx5e_open_channels(struct mlx5e_priv *priv,
--			       struct mlx5e_channels *chs)
-+int mlx5e_open_channels(struct mlx5e_priv *priv,
-+			struct mlx5e_channels *chs)
- {
- 	struct mlx5e_channel_param *cparam;
- 	int err = -ENOMEM;
-@@ -2037,7 +2037,7 @@ static void mlx5e_deactivate_channels(struct mlx5e_channels *chs)
- 		mlx5e_deactivate_channel(chs->c[i]);
- }
- 
--static void mlx5e_close_channels(struct mlx5e_channels *chs)
-+void mlx5e_close_channels(struct mlx5e_channels *chs)
- {
- 	int i;
- 
-@@ -2533,6 +2533,30 @@ static void mlx5e_deactivate_priv_channels(struct mlx5e_priv *priv)
- 	mlx5e_deactivate_channels(&priv->channels);
- }
- 
-+void mlx5e_switch_priv_channels(struct mlx5e_priv *priv,
-+				struct mlx5e_channels *new_chs)
-+{
-+	struct net_device *netdev = priv->netdev;
-+	int new_num_txqs;
-+
-+	new_num_txqs = new_chs->num * new_chs->params.num_tc;
-+
-+	netif_carrier_off(netdev);
-+
-+	if (new_num_txqs < netdev->real_num_tx_queues)
-+		netif_set_real_num_tx_queues(netdev, new_num_txqs);
-+
-+	mlx5e_deactivate_priv_channels(priv);
-+	mlx5e_close_channels(&priv->channels);
-+
-+	priv->channels = *new_chs;
-+
-+	mlx5e_refresh_tirs(priv, false);
-+	mlx5e_activate_priv_channels(priv);
-+
-+	mlx5e_update_carrier(priv);
-+}
-+
- int mlx5e_open_locked(struct net_device *netdev)
- {
- 	struct mlx5e_priv *priv = netdev_priv(netdev);
--- 
-2.11.0
+ drivers/net/ethernet/mellanox/mlx5/core/en.h       |  106 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_clock.c |   10 +-
+ .../net/ethernet/mellanox/mlx5/core/en_common.c    |   17 +-
+ .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |  336 +++---
+ .../ethernet/mellanox/mlx5/core/en_fs_ethtool.c    |    2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c  | 1172 +++++++++++---------
+ drivers/net/ethernet/mellanox/mlx5/core/en_rep.c   |   83 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_rx.c    |   22 -
+ drivers/net/ethernet/mellanox/mlx5/core/en_rx_am.c |    2 +-
+ .../net/ethernet/mellanox/mlx5/core/en_selftest.c  |    9 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_tx.c    |   11 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c  |    3 +-
+ 12 files changed, 984 insertions(+), 789 deletions(-)
