@@ -1,37 +1,69 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH RFC v2 3/3] net: phy: allow EEE with SGMII interface modes
-Date: Mon, 27 Mar 2017 09:47:31 -0700
-Message-ID: <5d3c3ce0-fabc-6b96-c7e9-c2e46ffe4d23@gmail.com>
-References: <20170327095826.GA2310@n2100.armlinux.org.uk>
- <E1csRQT-0004rM-Tq@rmk-PC.armlinux.org.uk>
+From: Matthew Wilcox <willy@infradead.org>
+Subject: in_irq_or_nmi()
+Date: Mon, 27 Mar 2017 09:58:17 -0700
+Message-ID: <20170327165817.GA28494@bombadil.infradead.org>
+References: <20170322234004.kffsce4owewgpqnm@techsingularity.net>
+ <20170323144347.1e6f29de@redhat.com>
+ <20170323145133.twzt4f5ci26vdyut@techsingularity.net>
+ <779ab72d-94b9-1a28-c192-377e91383b4e@gmail.com>
+ <1fc7338f-2b36-75f7-8a7e-8321f062207b@gmail.com>
+ <2123321554.7161128.1490599967015.JavaMail.zimbra@redhat.com>
+ <20170327105514.1ed5b1ba@redhat.com>
+ <20170327143947.4c237e54@redhat.com>
+ <20170327141518.GB27285@bombadil.infradead.org>
+ <20170327171500.4beef762@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 8bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Andrew Lunn <andrew@lunn.ch>
-To: Russell King <rmk+kernel@armlinux.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f195.google.com ([209.85.216.195]:32813 "EHLO
-        mail-qt0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751333AbdC0Qrj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 27 Mar 2017 12:47:39 -0400
-Received: by mail-qt0-f195.google.com with SMTP id r45so8414312qte.0
-        for <netdev@vger.kernel.org>; Mon, 27 Mar 2017 09:47:38 -0700 (PDT)
-In-Reply-To: <E1csRQT-0004rM-Tq@rmk-PC.armlinux.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Pankaj Gupta <pagupta@redhat.com>,
+	Tariq Toukan <ttoukan.linux@gmail.com>,
+	Mel Gorman <mgorman@techsingularity.net>,
+	Tariq Toukan <tariqt@mellanox.com>, netdev@vger.kernel.org,
+	akpm@linux-foundation.org, linux-mm <linux-mm@kvack.org>,
+	Saeed Mahameed <saeedm@mellanox.com>, linux-kernel@vger.kernel.org
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <20170327171500.4beef762@redhat.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On 03/27/2017 02:59 AM, Russell King wrote:
-> As EEE is able to work in SGMII mode as well, add it to the list of
-> permissable EEE modes that phy_init_eee() will accept.  This is
-> necessary so that EEE can work with an 88E1512 connected in SGMII mode.
+On Mon, Mar 27, 2017 at 05:15:00PM +0200, Jesper Dangaard Brouer wrote:
+> And I also verified it worked:
+> 
+>   0.63 │       mov    __preempt_count,%eax
+>        │     free_hot_cold_page():
+>   1.25 │       test   $0x1f0000,%eax
+>        │     ↓ jne    1e4
+> 
+> And this simplification also made the compiler change this into a
+> unlikely branch, which is a micro-optimization (that I will leave up to
+> the compiler).
 
-As you mention in your cover letter, we should probably reverse this
-test and make it reject modes where EEE has no chance of being supported
-at all.
+Excellent!  That said, I think we should define in_irq_or_nmi() in
+preempt.h, rather than hiding it in the memory allocator.  And since we're
+doing that, we might as well make it look like the other definitions:
 
-Other than that:
+diff --git a/include/linux/preempt.h b/include/linux/preempt.h
+index 7eeceac52dea..af98c29abd9d 100644
+--- a/include/linux/preempt.h
++++ b/include/linux/preempt.h
+@@ -81,6 +81,7 @@
+ #define in_interrupt()		(irq_count())
+ #define in_serving_softirq()	(softirq_count() & SOFTIRQ_OFFSET)
+ #define in_nmi()		(preempt_count() & NMI_MASK)
++#define in_irq_or_nmi()		(preempt_count() & (HARDIRQ_MASK | NMI_MASK))
+ #define in_task()		(!(preempt_count() & \
+ 				   (NMI_MASK | HARDIRQ_MASK | SOFTIRQ_OFFSET)))
+ 
 
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
--- 
-Florian
+I think there are some genuine questions to be asked about the other
+users of in_irq() whether they really want to use in_irq_or_nmi().
+There's fewer than a hundred of them, so somebody sufficiently motivated
+could take a look in a few days.
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
