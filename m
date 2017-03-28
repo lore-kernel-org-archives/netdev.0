@@ -1,105 +1,43 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net-next 06/12] net/mlx5: Reorder few command cases to reflect their natural order
-Date: Wed, 29 Mar 2017 02:27:07 +0300
-Message-ID: <20170328232713.29894-7-saeedm@mellanox.com>
-References: <20170328232713.29894-1-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Amir Vadai <amir@vadai.me>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Daurnimator <quae@daurnimator.com>
+Subject: Re: EINVAL when using connect() for udp sockets
+Date: Wed, 29 Mar 2017 10:44:22 +1100
+Message-ID: <CAEnbY+cz6jSLrqmE53nxScF92tRNv9HE7620tpjJ28E57_dPVQ@mail.gmail.com>
+References: <CAEnbY+cYpX8naDpRkXgwCP=i64AwWgK9=_7AacmYip-ykot7mQ@mail.gmail.com>
+ <CAEnbY+fPLamzXF8nOF-SEFE8LaE88XAyKNt81zs6bM866R4oGg@mail.gmail.com>
+ <1490246287.16816.201.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAM_iQpVVBfwd7P0-dY08Bw7QNr_w77va4AEMFj5xMuOddQoq2g@mail.gmail.com>
+ <1490397560.24891.0.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAM_iQpUQ52aiKQntMsrm2aMQ56G=tHCpN93A0+mffss+6m39jw@mail.gmail.com> <1490742712.24891.25.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        William Ahern <william@25thandclement.com>,
+        "Santi T." <santitm99@gmail.com>,
+        Michael Kerrisk-manpages <mtk.manpages@gmail.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:42836 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S932547AbdC1X2B (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 28 Mar 2017 19:28:01 -0400
-In-Reply-To: <20170328232713.29894-1-saeedm@mellanox.com>
+Received: from mail-it0-f54.google.com ([209.85.214.54]:37313 "EHLO
+        mail-it0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932088AbdC1XoZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 28 Mar 2017 19:44:25 -0400
+Received: by mail-it0-f54.google.com with SMTP id 190so38290815itm.0
+        for <netdev@vger.kernel.org>; Tue, 28 Mar 2017 16:44:24 -0700 (PDT)
+Received: from mail-it0-f49.google.com (mail-it0-f49.google.com. [209.85.214.49])
+        by smtp.gmail.com with ESMTPSA id m125sm2812142iom.38.2017.03.28.16.44.23
+        for <netdev@vger.kernel.org>
+        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+        Tue, 28 Mar 2017 16:44:23 -0700 (PDT)
+Received: by mail-it0-f49.google.com with SMTP id 190so38290323itm.0
+        for <netdev@vger.kernel.org>; Tue, 28 Mar 2017 16:44:23 -0700 (PDT)
+In-Reply-To: <1490742712.24891.25.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
+On 29 March 2017 at 10:11, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> Should we also fix IPv6 or is this bug only about IPv4 ?
 
-Move the commands related to scheduling elements and vport qos to
-a suitable location (according to the MLX5_CMD_OP enum values) in
-the command string and internal error helpers.
-
-This patch doesn't change any functionality.
-
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
-Reviewed-by: Hadar Hen Zion <hadarh@mellanox.com>
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx5/core/cmd.c | 24 ++++++++++++------------
- 1 file changed, 12 insertions(+), 12 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
-index a380353a78c2..c3c6e931cc35 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
-@@ -279,6 +279,8 @@ static int mlx5_internal_err_ret_value(struct mlx5_core_dev *dev, u16 op,
- 	case MLX5_CMD_OP_DESTROY_XRC_SRQ:
- 	case MLX5_CMD_OP_DESTROY_DCT:
- 	case MLX5_CMD_OP_DEALLOC_Q_COUNTER:
-+	case MLX5_CMD_OP_DESTROY_SCHEDULING_ELEMENT:
-+	case MLX5_CMD_OP_DESTROY_QOS_PARA_VPORT:
- 	case MLX5_CMD_OP_DEALLOC_PD:
- 	case MLX5_CMD_OP_DEALLOC_UAR:
- 	case MLX5_CMD_OP_DETACH_FROM_MCG:
-@@ -305,8 +307,6 @@ static int mlx5_internal_err_ret_value(struct mlx5_core_dev *dev, u16 op,
- 	case MLX5_CMD_OP_SET_FLOW_TABLE_ENTRY:
- 	case MLX5_CMD_OP_SET_FLOW_TABLE_ROOT:
- 	case MLX5_CMD_OP_DEALLOC_ENCAP_HEADER:
--	case MLX5_CMD_OP_DESTROY_SCHEDULING_ELEMENT:
--	case MLX5_CMD_OP_DESTROY_QOS_PARA_VPORT:
- 		return MLX5_CMD_STAT_OK;
- 
- 	case MLX5_CMD_OP_QUERY_HCA_CAP:
-@@ -363,6 +363,10 @@ static int mlx5_internal_err_ret_value(struct mlx5_core_dev *dev, u16 op,
- 	case MLX5_CMD_OP_QUERY_Q_COUNTER:
- 	case MLX5_CMD_OP_SET_RATE_LIMIT:
- 	case MLX5_CMD_OP_QUERY_RATE_LIMIT:
-+	case MLX5_CMD_OP_CREATE_SCHEDULING_ELEMENT:
-+	case MLX5_CMD_OP_QUERY_SCHEDULING_ELEMENT:
-+	case MLX5_CMD_OP_MODIFY_SCHEDULING_ELEMENT:
-+	case MLX5_CMD_OP_CREATE_QOS_PARA_VPORT:
- 	case MLX5_CMD_OP_ALLOC_PD:
- 	case MLX5_CMD_OP_ALLOC_UAR:
- 	case MLX5_CMD_OP_CONFIG_INT_MODERATION:
-@@ -414,10 +418,6 @@ static int mlx5_internal_err_ret_value(struct mlx5_core_dev *dev, u16 op,
- 	case MLX5_CMD_OP_ALLOC_FLOW_COUNTER:
- 	case MLX5_CMD_OP_QUERY_FLOW_COUNTER:
- 	case MLX5_CMD_OP_ALLOC_ENCAP_HEADER:
--	case MLX5_CMD_OP_CREATE_SCHEDULING_ELEMENT:
--	case MLX5_CMD_OP_QUERY_SCHEDULING_ELEMENT:
--	case MLX5_CMD_OP_MODIFY_SCHEDULING_ELEMENT:
--	case MLX5_CMD_OP_CREATE_QOS_PARA_VPORT:
- 		*status = MLX5_DRIVER_STATUS_ABORTED;
- 		*synd = MLX5_DRIVER_SYND;
- 		return -EIO;
-@@ -501,6 +501,12 @@ const char *mlx5_command_str(int command)
- 	MLX5_COMMAND_STR_CASE(QUERY_Q_COUNTER);
- 	MLX5_COMMAND_STR_CASE(SET_RATE_LIMIT);
- 	MLX5_COMMAND_STR_CASE(QUERY_RATE_LIMIT);
-+	MLX5_COMMAND_STR_CASE(CREATE_SCHEDULING_ELEMENT);
-+	MLX5_COMMAND_STR_CASE(DESTROY_SCHEDULING_ELEMENT);
-+	MLX5_COMMAND_STR_CASE(QUERY_SCHEDULING_ELEMENT);
-+	MLX5_COMMAND_STR_CASE(MODIFY_SCHEDULING_ELEMENT);
-+	MLX5_COMMAND_STR_CASE(CREATE_QOS_PARA_VPORT);
-+	MLX5_COMMAND_STR_CASE(DESTROY_QOS_PARA_VPORT);
- 	MLX5_COMMAND_STR_CASE(ALLOC_PD);
- 	MLX5_COMMAND_STR_CASE(DEALLOC_PD);
- 	MLX5_COMMAND_STR_CASE(ALLOC_UAR);
-@@ -576,12 +582,6 @@ const char *mlx5_command_str(int command)
- 	MLX5_COMMAND_STR_CASE(MODIFY_FLOW_TABLE);
- 	MLX5_COMMAND_STR_CASE(ALLOC_ENCAP_HEADER);
- 	MLX5_COMMAND_STR_CASE(DEALLOC_ENCAP_HEADER);
--	MLX5_COMMAND_STR_CASE(CREATE_SCHEDULING_ELEMENT);
--	MLX5_COMMAND_STR_CASE(DESTROY_SCHEDULING_ELEMENT);
--	MLX5_COMMAND_STR_CASE(QUERY_SCHEDULING_ELEMENT);
--	MLX5_COMMAND_STR_CASE(MODIFY_SCHEDULING_ELEMENT);
--	MLX5_COMMAND_STR_CASE(CREATE_QOS_PARA_VPORT);
--	MLX5_COMMAND_STR_CASE(DESTROY_QOS_PARA_VPORT);
- 	default: return "unknown command opcode";
- 	}
- }
--- 
-2.11.0
+In IPv6 the second connect() returns ENETUNREACH (rather than failing
+yet returning 0 as it does in IPv4).
+This should probably incorrect behaviour and should the operation
+should succeed.
