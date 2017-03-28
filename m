@@ -1,44 +1,33 @@
-From: Daurnimator <quae@daurnimator.com>
-Subject: Re: EINVAL when using connect() for udp sockets
-Date: Wed, 29 Mar 2017 10:45:50 +1100
-Message-ID: <CAEnbY+e0to_bkJd4L5fB7QZ9sswkmgK2Fr2NGZ__EhoH77foTg@mail.gmail.com>
-References: <CAEnbY+cYpX8naDpRkXgwCP=i64AwWgK9=_7AacmYip-ykot7mQ@mail.gmail.com>
- <CAEnbY+fPLamzXF8nOF-SEFE8LaE88XAyKNt81zs6bM866R4oGg@mail.gmail.com>
- <1490246287.16816.201.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAM_iQpVVBfwd7P0-dY08Bw7QNr_w77va4AEMFj5xMuOddQoq2g@mail.gmail.com>
- <1490397560.24891.0.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAM_iQpUQ52aiKQntMsrm2aMQ56G=tHCpN93A0+mffss+6m39jw@mail.gmail.com>
- <1490742712.24891.25.camel@edumazet-glaptop3.roam.corp.google.com> <CAEnbY+cz6jSLrqmE53nxScF92tRNv9HE7620tpjJ28E57_dPVQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        William Ahern <william@25thandclement.com>,
-        "Santi T." <santitm99@gmail.com>,
-        Michael Kerrisk-manpages <mtk.manpages@gmail.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Michael Chan <michael.chan@broadcom.com>
+Subject: [PATCH net 0/3] bnxt_en: Small misc. fixes.
+Date: Tue, 28 Mar 2017 19:47:28 -0400
+Message-ID: <1490744851-19985-1-git-send-email-michael.chan@broadcom.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f54.google.com ([209.85.214.54]:37919 "EHLO
-        mail-it0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932242AbdC1Xp7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 28 Mar 2017 19:45:59 -0400
-Received: by mail-it0-f54.google.com with SMTP id y18so39640326itc.1
-        for <netdev@vger.kernel.org>; Tue, 28 Mar 2017 16:45:57 -0700 (PDT)
-Received: from mail-it0-f52.google.com (mail-it0-f52.google.com. [209.85.214.52])
-        by smtp.gmail.com with ESMTPSA id r133sm2413109ith.9.2017.03.28.16.45.51
-        for <netdev@vger.kernel.org>
-        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Tue, 28 Mar 2017 16:45:51 -0700 (PDT)
-Received: by mail-it0-f52.google.com with SMTP id y18so39639959itc.1
-        for <netdev@vger.kernel.org>; Tue, 28 Mar 2017 16:45:51 -0700 (PDT)
-In-Reply-To: <CAEnbY+cz6jSLrqmE53nxScF92tRNv9HE7620tpjJ28E57_dPVQ@mail.gmail.com>
+Received: from mail-wr0-f172.google.com ([209.85.128.172]:32768 "EHLO
+        mail-wr0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932088AbdC1XsD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 28 Mar 2017 19:48:03 -0400
+Received: by mail-wr0-f172.google.com with SMTP id w43so77630wrb.0
+        for <netdev@vger.kernel.org>; Tue, 28 Mar 2017 16:48:01 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 29 March 2017 at 10:44, Daurnimator <quae@daurnimator.com> wrote:
-> This should probably incorrect behaviour and should the operation
-> should succeed.
+Fix a NULL pointer crash in open failure path, wrong arguments when
+printing error messages, and a DMA unmap bug in XDP shutdown path.
 
-Uh, not sure why there are so many "should"s in that message.
+Michael Chan (1):
+  bnxt_en: Fix DMA unmapping of the RX buffers in XDP mode during
+    shutdown.
 
-This is probably incorrect behaviour and the operation should succeed.
+Sankar Patchineelam (2):
+  bnxt_en: Fix NULL pointer dereference in reopen failure path
+  bnxt_en: Correct the order of arguments to netdev_err() in
+    bnxt_set_tpa()
+
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c | 30 ++++++++++++++++++++++++------
+ 1 file changed, 24 insertions(+), 6 deletions(-)
+
+-- 
+1.8.3.1
