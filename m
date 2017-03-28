@@ -1,29 +1,41 @@
-From: Jonas Jensen <jonas.jensen@gmail.com>
-Subject: Re: [PATCH v2] net: moxa: fix TX overrun memory leak
-Date: Tue, 28 Mar 2017 12:18:04 +0200
-Message-ID: <CACmBeS1E4TrUzq5-L_y0=dFY6=HdGAJSbsaBW2mfmvxctWvX2A@mail.gmail.com>
-References: <1490617879-14014-1-git-send-email-jonas.jensen@gmail.com> <20170327.205026.1935467634311224337.davem@davemloft.net>
+From: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
+Subject: [PATCH net-next v1 0/2] tipc: subscription
+	refcount simplifications
+Date: Tue, 28 Mar 2017 12:28:26 +0200
+Message-ID: <1490696908-7790-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-        "linux-arm-kernel@lists.infradead.org"
-        <linux-arm-kernel@lists.infradead.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f196.google.com ([209.85.128.196]:34278 "EHLO
-        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754976AbdC1KSM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 28 Mar 2017 06:18:12 -0400
-In-Reply-To: <20170327.205026.1935467634311224337.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: jon.maloy@ericsson.com, tipc-discussion@lists.sourceforge.net
+To: <netdev@vger.kernel.org>
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On 28 March 2017 at 05:50, David Miller <davem@davemloft.net> wrote:
-> Doing the wakeup unconditionally is very wasteful, you just need to do it
-> when enough space has been made available.
+The first patch makes the subscription refcount cleanup lockless and
+the second updates the subscription refcount policy.
 
-Thanks, please see v3.
+Ying Xue (2):
+  tipc: advance the time of deleting subscription from
+    subscriber->subscrp_list
+  tipc: adjust the policy of holding subscription kref
+
+ net/tipc/name_table.c |  2 ++
+ net/tipc/subscr.c     | 17 ++++-------------
+ net/tipc/subscr.h     |  3 +++
+ 3 files changed, 9 insertions(+), 13 deletions(-)
+
+-- 
+2.1.4
 
 
-   Jonas
+------------------------------------------------------------------------------
+Check out the vibrant tech community on one of the world's most
+engaging tech sites, Slashdot.org! http://sdm.link/slashdot
