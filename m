@@ -1,47 +1,48 @@
-From: Stefan Wahren <stefan.wahren@i2se.com>
-Subject: Re: [PATCH RFC v4 10/10] tty: serdev: add functions to retrieve
- common UART settings
-Date: Tue, 28 Mar 2017 18:33:45 +0200
-Message-ID: <0e62c3e6-e225-f958-a4af-2f43093beb5b@i2se.com>
-References: <1490621848-24828-1-git-send-email-stefan.wahren@i2se.com>
- <1490621848-24828-11-git-send-email-stefan.wahren@i2se.com>
- <CAL_JsqJ3b2zTGNHNVtt6Y+k23iw+2G2z-Jm2786a8CEzZBS7=g@mail.gmail.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH 1/7] Documentation: dt: net: Update the ath9k binding for
+ SoC devices
+Date: Tue, 28 Mar 2017 18:41:59 +0200
+Message-ID: <20170328164159.GB29742@lunn.ch>
+References: <1489439116-4233-1-git-send-email-albeu@free.fr>
+ <2357006.NGKQYCh4BG@debian64>
+ <20170328151837.GC3152@lunn.ch>
+ <8622591.q4sXytZqXW@debian64>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Mark Rutland <mark.rutland@arm.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        Jiri Slaby <jslaby@suse.com>,
-        Marcel Holtmann <marcel@holtmann.org>,
-        Sebastian Reichel <sre@kernel.org>,
-        netdev <netdev@vger.kernel.org>,
-        "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-        "linux-serial@vger.kernel.org" <linux-serial@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Rob Herring <robh+dt@kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Alban <albeu@free.fr>,
+        QCA ath9k Development <ath9k-devel@qca.qualcomm.com>,
+        John Crispin <john@phrozen.org>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
+        m@kresin.me
+To: Christian Lamparter <chunkeey@googlemail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAL_JsqJ3b2zTGNHNVtt6Y+k23iw+2G2z-Jm2786a8CEzZBS7=g@mail.gmail.com>
+Content-Disposition: inline
+In-Reply-To: <8622591.q4sXytZqXW@debian64>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Am 27.03.2017 um 22:00 schrieb Rob Herring:
-> On Mon, Mar 27, 2017 at 8:37 AM, Stefan Wahren <stefan.wahren@i2se.com> wrote:
->> Currently serdev core doesn't provide functions to retrieve common
->> UART settings like data bits, stop bits or parity. This patch adds
->> the interface to the core and the necessary implementation for
->> serdev-ttyport.
-> It doesn't provide them because why do you need to know? The attached
-> device should request the settings it needs and be done with it. Maybe
-> some devices can support a number of settings and you could want
-> negotiate the settings with the UART, though surely 8N1 is in that
-> list. It's rare to see something that's not 8N1 from what I've seen.
+> Oh, in that case you should probably go "all out" and ask on the 
+> LKML to remove all of the ath9k and ath10k ahb work. From what I
+> know all the "users" are running some sort of OpenWRT/LEDE or a 
+> derivative. This is because Atheros/QCA provided a SDK based on
+> OpenWRT.
+> 
+> Alban has been trying to convert the platform to device-tree
+> and add them to the mainline for a while now:
+>  
+> https://patchwork.kernel.org/patch/6514551/
+> 
+> So, you are questioning this work as well.
 
-During development it's very helpful to check the current UART settings
-and error counter. Currently i can't see a replacement for
-/sys/class/tty/ttyXYZ .
+Not at all. Ralph Sennhauser has been doing a great job of getting all
+the Marvell devices into Mainline, and i help as much as i can, being
+one of the Marvell SoC Maintainers.
 
-Are there any plans about it?
+I'm just saying, get a few boards which require these facilities into
+the mainline, and then you have a much stranger base to argue from.
 
->
-> Rob
+    Andrew
