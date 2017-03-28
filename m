@@ -1,58 +1,62 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: Bisected softirq accounting issue in v4.11-rc1~170^2~28
-Date: Tue, 28 Mar 2017 15:18:54 +0200
-Message-ID: <20170328151854.5c50dbd4@redhat.com>
-References: <20170328101403.34a82fbf@redhat.com>
-	<CANRm+Cwb3uAiZdufqDsyzQ1GZYh3nUr2uTyg1Hb2oVoxJZKMvg@mail.gmail.com>
-	<20170328122642.dhw2zkjbghfw4fzn@hirez.programming.kicks-ass.net>
-	<20170328130602.GA4216@lerouge>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Peter Zijlstra <peterz@infradead.org>, Wanpeng Li <kernellwp@gmail.com>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>, linux-mm
- <linux-mm@kvack.org>, Mel Gorman <mgorman@techsingularity.net>, Tariq
- Toukan <tariqt@mellanox.com>, Tariq Toukan <ttoukan.linux@gmail.com>, Rik
- van Riel <riel@redhat.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo
- Molnar <mingo@kernel.org>, brouer@redhat.com
-To: Frederic Weisbecker <fweisbec@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20170328130602.GA4216@lerouge>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+From: Saeed Mahameed <saeedm@mellanox.com>
+Subject: [PATCH net 1/1] net/mlx5: Avoid dereferencing uninitialized pointer
+Date: Tue, 28 Mar 2017 16:13:41 +0300
+Message-ID: <20170328131341.11601-1-saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, Talat Batheesh <talatb@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:46366 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1753569AbdC1NZd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 28 Mar 2017 09:25:33 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 28 Mar 2017 15:06:04 +0200
-Frederic Weisbecker <fweisbec@gmail.com> wrote:
+From: Talat Batheesh <talatb@mellanox.com>
 
-> On Tue, Mar 28, 2017 at 02:26:42PM +0200, Peter Zijlstra wrote:
-> > On Tue, Mar 28, 2017 at 06:34:52PM +0800, Wanpeng Li wrote:  
-> > > 
-> > > sched_clock_cpu(cpu) should be converted from cputime to ns.  
-> > 
-> > Uhm, no. sched_clock_cpu() returns u64 in ns.  
-> 
-> Yes, and most of the cputime_t have been converted to u64 so there
-> should be no such conversion issue between u64 and cputime_t anymore.
-> 
-> Perhaps my commit has another side effect on softirq time accounting,
-> I'll see if I can reproduce.
+In NETDEV_CHANGEUPPER event the upper_info field is valid
+only when linking is true. Otherwise it should be ignored.
 
-(Disclaimer without knowing anything about the scheduler code)
-my theory is that irqtime_account_irq() does not get invoked often
-enough, as in my pktgen "overload" use-case keeps softirq always
-running. And your change moved updating cpustat[CPUTIME_SOFTIRQ] here.
-Before it got updated by account_other_time() which gets invoked from
-irqtime_account_process_tick().
+Fixes: 7907f23adc18 (net/mlx5: Implement RoCE LAG feature)
+Signed-off-by: Talat Batheesh <talatb@mellanox.com>
+Reviewed-by: Aviv Heller <avivh@mellanox.com>
+Reviewed-by: Moni Shoua <monis@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+---
 
+Hi Dave,
+
+I will appreciate it if you queue up this patch for v4.9-stable.
+
+Thanks in advance,
+Saeed.
+
+ drivers/net/ethernet/mellanox/mlx5/core/lag.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/lag.c b/drivers/net/ethernet/mellanox/mlx5/core/lag.c
+index 55957246c0e8..b5d5519542e8 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/lag.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/lag.c
+@@ -294,7 +294,7 @@ static int mlx5_handle_changeupper_event(struct mlx5_lag *ldev,
+ 					 struct netdev_notifier_changeupper_info *info)
+ {
+ 	struct net_device *upper = info->upper_dev, *ndev_tmp;
+-	struct netdev_lag_upper_info *lag_upper_info;
++	struct netdev_lag_upper_info *lag_upper_info = NULL;
+ 	bool is_bonded;
+ 	int bond_status = 0;
+ 	int num_slaves = 0;
+@@ -303,7 +303,8 @@ static int mlx5_handle_changeupper_event(struct mlx5_lag *ldev,
+ 	if (!netif_is_lag_master(upper))
+ 		return 0;
+ 
+-	lag_upper_info = info->upper_info;
++	if (info->linking)
++		lag_upper_info = info->upper_info;
+ 
+ 	/* The event may still be of interest if the slave does not belong to
+ 	 * us, but is enslaved to a master which has one or more of our netdevs
 -- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+2.11.0
