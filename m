@@ -1,201 +1,188 @@
-From: Felix Manlunas <felix.manlunas@cavium.com>
-Subject: [PATCH net-next] liquidio: add automatic packet steering support
-Date: Tue, 28 Mar 2017 12:40:02 -0700
-Message-ID: <20170328194002.GA1066@felix-thinkpad.cavium.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
-        derek.chickles@cavium.com, satananda.burla@cavium.com,
-        veerasenareddy.burru@cavium.com
-To: davem@davemloft.net
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next] net: phy: Allow building mdio-boardinfo into the kernel
+Date: Tue, 28 Mar 2017 12:57:09 -0700
+Message-ID: <20170328195709.13549-1-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, arnd@arndb.de, andrew@lunn.ch,
+        rmk+kernel@armlinux.org.uk, Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-cys01nam02on0076.outbound.protection.outlook.com ([104.47.37.76]:62080
-        "EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1755402AbdC1Tke (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 28 Mar 2017 15:40:34 -0400
-Content-Disposition: inline
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:35190 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751943AbdC1T5S (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 28 Mar 2017 15:57:18 -0400
+Received: by mail-wm0-f65.google.com with SMTP id z133so1542466wmb.2
+        for <netdev@vger.kernel.org>; Tue, 28 Mar 2017 12:57:17 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: VSR Burru <veerasenareddy.burru@cavium.com>
+mdio-boardinfo contains code that is helpful for platforms to register
+specific MDIO bus devices independent of how CONFIG_MDIO_DEVICE or
+CONFIG_PHYLIB will be selected (modular or built-in). In order to make
+that possible, let's do the following:
 
-Add automatic packet steering support.  NIC firmware does the actual work;
-host driver helps by instructing Octeon's Packet Interface Unit (PKI) to
-calculate 5-tuple hash (source ip, destination ip, source port, destination
-port, protocol) for egress packets, which the firmware uses to map a flow
-to an egress queue. For ingress traffic, same 5-tuple hash is calculated
-and reverse mapped to get the matching queue.
+- descend into drivers/net/phy/ unconditionally
 
-Packet steering can be enabled or disabled via ethtool like this:
+- make mdiobus_setup_mdiodev_from_board_info() take a callback argument
+  which allows us not to expose the internal MDIO board info list and
+  mutex, yet maintain the logic within the same file
 
-    ethtool --set-priv-flags ethX pkt_steering on|off
+- relocate the code that creates a MDIO device into
+  drivers/net/phy/mdio_bus.c
 
-Also, remove deprecated OCT_PRIV_FLAG_TX_BYTES private flag.
+- build mdio-boardinfo.o into the kernel as soon as MDIO_DEVICE is
+  defined (y or m)
 
-Signed-off-by: VSR Burru <veerasenareddy.burru@cavium.com>
-Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
-Signed-off-by: Derek Chickles <derek.chickles@cavium.com>
+Fixes: 90eff9096c01 ("net: phy: Allow splitting MDIO bus/device support from PHYs")
+Fixes: 648ea0134069 ("net: phy: Allow pre-declaration of MDIO devices")
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/ethernet/cavium/liquidio/lio_core.c      | 14 ++++++++++++++
- drivers/net/ethernet/cavium/liquidio/lio_ethtool.c   | 20 +++++++++++++++-----
- drivers/net/ethernet/cavium/liquidio/lio_main.c      |  4 ++++
- drivers/net/ethernet/cavium/liquidio/lio_vf_main.c   |  2 ++
- .../net/ethernet/cavium/liquidio/liquidio_common.h   |  2 ++
- drivers/net/ethernet/cavium/liquidio/octeon_device.h |  4 ++--
- drivers/net/ethernet/cavium/liquidio/octeon_nic.h    |  8 ++++----
- 7 files changed, 43 insertions(+), 11 deletions(-)
+ drivers/net/Makefile             |  2 +-
+ drivers/net/phy/Makefile         |  6 +++++-
+ drivers/net/phy/mdio-boardinfo.c | 21 +++++++--------------
+ drivers/net/phy/mdio-boardinfo.h |  5 ++++-
+ drivers/net/phy/mdio_bus.c       | 32 +++++++++++++++++++++++++++++++-
+ 5 files changed, 48 insertions(+), 18 deletions(-)
 
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_core.c b/drivers/net/ethernet/cavium/liquidio/lio_core.c
-index f629c2f..79dbf71 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_core.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_core.c
-@@ -248,6 +248,20 @@ void liquidio_link_ctrl_cmd_completion(void *nctrl_ptr)
- 		netif_info(lio, probe, lio->netdev, "Set RX/TX flow control parameters\n");
- 		break;
+diff --git a/drivers/net/Makefile b/drivers/net/Makefile
+index 55f75aea283c..57fc47ad5ab3 100644
+--- a/drivers/net/Makefile
++++ b/drivers/net/Makefile
+@@ -18,7 +18,7 @@ obj-$(CONFIG_MII) += mii.o
+ obj-$(CONFIG_MDIO) += mdio.o
+ obj-$(CONFIG_NET) += Space.o loopback.o
+ obj-$(CONFIG_NETCONSOLE) += netconsole.o
+-obj-$(CONFIG_MDIO_DEVICE) += phy/
++obj-y += phy/
+ obj-$(CONFIG_RIONET) += rionet.o
+ obj-$(CONFIG_NET_TEAM) += team/
+ obj-$(CONFIG_TUN) += tun.o
+diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
+index 0e1ec0438c23..e36db9a2ba38 100644
+--- a/drivers/net/phy/Makefile
++++ b/drivers/net/phy/Makefile
+@@ -1,7 +1,11 @@
+ # Makefile for Linux PHY drivers and MDIO bus drivers
  
-+	case OCTNET_CMD_PKT_STEERING_ENABLE:
-+		netif_info(lio, probe, lio->netdev,
-+			   "%s Packet Steering Enabled\n", netdev->name);
-+		lio_set_priv_flag(lio->oct_dev, OCT_PRIV_FLAG_PKT_STEERING,
-+				  true);
-+		break;
+ libphy-y			:= phy.o phy-core.o phy_device.o
+-mdio-bus-y			+= mdio_bus.o mdio_device.o mdio-boardinfo.o
++mdio-bus-y			+= mdio_bus.o mdio_device.o
 +
-+	case OCTNET_CMD_PKT_STEERING_DISABLE:
-+		netif_info(lio, probe, lio->netdev,
-+			   "%s Packet Steering Disabled\n", netdev->name);
-+		lio_set_priv_flag(lio->oct_dev, OCT_PRIV_FLAG_PKT_STEERING,
-+				  false);
-+		break;
-+
- 	default:
- 		dev_err(&oct->pci_dev->dev, "%s Unknown cmd %d\n", __func__,
- 			nctrl->ncmd.s.cmd);
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c b/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c
-index 50384ce..a2e7663 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c
-@@ -202,6 +202,7 @@ static const char oct_droq_stats_strings[][ETH_GSTRING_LEN] = {
++ifdef CONFIG_MDIO_DEVICE
++obj-y				+= mdio-boardinfo.o
++endif
  
- /* LiquidIO driver private flags */
- static const char oct_priv_flags_strings[][ETH_GSTRING_LEN] = {
-+	"pkt_steering",
+ # PHYLIB implies MDIO_DEVICE, in that case, we have a bunch of circular
+ # dependencies that does not make it possible to split mdio-bus objects into a
+diff --git a/drivers/net/phy/mdio-boardinfo.c b/drivers/net/phy/mdio-boardinfo.c
+index 61941e29daae..1861f387820d 100644
+--- a/drivers/net/phy/mdio-boardinfo.c
++++ b/drivers/net/phy/mdio-boardinfo.c
+@@ -24,10 +24,12 @@ static DEFINE_MUTEX(mdio_board_lock);
+  * @mdiodev: MDIO device pointer
+  * Context: can sleep
+  */
+-void mdiobus_setup_mdiodev_from_board_info(struct mii_bus *bus)
++void mdiobus_setup_mdiodev_from_board_info(struct mii_bus *bus,
++					   int (*cb)
++					   (struct mii_bus *bus,
++					    struct mdio_board_info *bi))
+ {
+ 	struct mdio_board_entry *be;
+-	struct mdio_device *mdiodev;
+ 	struct mdio_board_info *bi;
+ 	int ret;
+ 
+@@ -38,23 +40,14 @@ void mdiobus_setup_mdiodev_from_board_info(struct mii_bus *bus)
+ 		if (strcmp(bus->id, bi->bus_id))
+ 			continue;
+ 
+-		mdiodev = mdio_device_create(bus, bi->mdio_addr);
+-		if (IS_ERR(mdiodev))
++		ret = cb(bus, bi);
++		if (ret)
+ 			continue;
+ 
+-		strncpy(mdiodev->modalias, bi->modalias,
+-			sizeof(mdiodev->modalias));
+-		mdiodev->bus_match = mdio_device_bus_match;
+-		mdiodev->dev.platform_data = (void *)bi->platform_data;
+-
+-		ret = mdio_device_register(mdiodev);
+-		if (ret) {
+-			mdio_device_free(mdiodev);
+-			continue;
+-		}
+ 	}
+ 	mutex_unlock(&mdio_board_lock);
+ }
++EXPORT_SYMBOL(mdiobus_setup_mdiodev_from_board_info);
+ 
+ /**
+  * mdio_register_board_info - register MDIO devices for a given board
+diff --git a/drivers/net/phy/mdio-boardinfo.h b/drivers/net/phy/mdio-boardinfo.h
+index 00f98163e90e..3a7f143904e8 100644
+--- a/drivers/net/phy/mdio-boardinfo.h
++++ b/drivers/net/phy/mdio-boardinfo.h
+@@ -14,6 +14,9 @@ struct mdio_board_entry {
+ 	struct mdio_board_info	board_info;
  };
  
- #define OCTNIC_NCMD_AUTONEG_ON  0x1
-@@ -2461,6 +2462,18 @@ static void lio_get_regs(struct net_device *dev,
- 	}
- }
+-void mdiobus_setup_mdiodev_from_board_info(struct mii_bus *bus);
++void mdiobus_setup_mdiodev_from_board_info(struct mii_bus *bus,
++					   int (*cb)
++					   (struct mii_bus *bus,
++					    struct mdio_board_info *bi));
  
-+void lio_set_pkt_steering(struct net_device *netdev, bool flag)
+ #endif /* __MDIO_BOARD_INFO_H */
+diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
+index 46b468eb6e12..5a214f3b8671 100644
+--- a/drivers/net/phy/mdio_bus.c
++++ b/drivers/net/phy/mdio_bus.c
+@@ -290,6 +290,36 @@ static inline void of_mdiobus_link_mdiodev(struct mii_bus *mdio,
+ #endif
+ 
+ /**
++ * mdiobus_create_device_from_board_info - create a full MDIO device given
++ * a mdio_board_info structure
++ * @bus: MDIO bus to create the devices on
++ * @bi: mdio_board_info structure describing the devices
++ *
++ * Returns 0 on success or < 0 on error.
++ */
++static int mdiobus_create_device(struct mii_bus *bus,
++				 struct mdio_board_info *bi)
 +{
-+	int cmd;
++	struct mdio_device *mdiodev;
++	int ret = 0;
 +
-+	if (flag)
-+		cmd = OCTNET_CMD_PKT_STEERING_ENABLE;
-+	else
-+		cmd = OCTNET_CMD_PKT_STEERING_DISABLE;
++	mdiodev = mdio_device_create(bus, bi->mdio_addr);
++	if (IS_ERR(mdiodev))
++		return -ENODEV;
 +
-+	liquidio_set_feature(netdev, cmd, 0);
++	strncpy(mdiodev->modalias, bi->modalias,
++		sizeof(mdiodev->modalias));
++	mdiodev->bus_match = mdio_device_bus_match;
++	mdiodev->dev.platform_data = (void *)bi->platform_data;
++
++	ret = mdio_device_register(mdiodev);
++	if (ret)
++		mdio_device_free(mdiodev);
++
++	return ret;
 +}
 +
- static u32 lio_get_priv_flags(struct net_device *netdev)
- {
- 	struct lio *lio = GET_LIO(netdev);
-@@ -2470,11 +2483,8 @@ static u32 lio_get_priv_flags(struct net_device *netdev)
- 
- static int lio_set_priv_flags(struct net_device *netdev, u32 flags)
- {
--	struct lio *lio = GET_LIO(netdev);
--	bool intr_by_tx_bytes = !!(flags & (0x1 << OCT_PRIV_FLAG_TX_BYTES));
--
--	lio_set_priv_flag(lio->oct_dev, OCT_PRIV_FLAG_TX_BYTES,
--			  intr_by_tx_bytes);
-+	lio_set_pkt_steering(netdev, !!(flags &
-+					(0x1 << OCT_PRIV_FLAG_PKT_STEERING)));
- 	return 0;
- }
- 
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-index be9c0e3..b2d1117 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-@@ -4119,6 +4119,10 @@ static int setup_nic_devices(struct octeon_device *octeon_dev)
- 			liquidio_set_feature(netdev,
- 					     OCTNET_CMD_VERBOSE_ENABLE, 0);
- 
-+		if (OCTEON_CN23XX_PF(octeon_dev))
-+			liquidio_set_feature(netdev,
-+					     OCTNET_CMD_PKT_STEERING_ENABLE, 0);
-+
- 		if (setup_link_status_change_wq(netdev))
- 			goto setup_nic_dev_fail;
- 
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-index 9d5e035..3592b65 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-@@ -2994,6 +2994,8 @@ static int setup_nic_devices(struct octeon_device *octeon_dev)
- 			liquidio_set_feature(netdev, OCTNET_CMD_VERBOSE_ENABLE,
- 					     0);
- 
-+		liquidio_set_feature(netdev, OCTNET_CMD_PKT_STEERING_ENABLE, 0);
-+
- 		if (setup_link_status_change_wq(netdev))
- 			goto setup_nic_dev_fail;
- 
-diff --git a/drivers/net/ethernet/cavium/liquidio/liquidio_common.h b/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
-index 294c6f3..26cfe81 100644
---- a/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
-+++ b/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
-@@ -217,6 +217,8 @@ static inline void add_sg_size(struct octeon_sg_entry *sg_entry,
- 
- #define   OCTNET_CMD_SET_UC_LIST       0x1b
- #define   OCTNET_CMD_SET_VF_LINKSTATE  0x1c
-+#define   OCTNET_CMD_PKT_STEERING_ENABLE  0x1e
-+#define   OCTNET_CMD_PKT_STEERING_DISABLE 0x1f
- #define   OCTNET_CMD_VXLAN_PORT_ADD    0x0
- #define   OCTNET_CMD_VXLAN_PORT_DEL    0x1
- #define   OCTNET_CMD_RXCSUM_ENABLE     0x0
-diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_device.h b/drivers/net/ethernet/cavium/liquidio/octeon_device.h
-index c301a38..6a0d04a 100644
---- a/drivers/net/ethernet/cavium/liquidio/octeon_device.h
-+++ b/drivers/net/ethernet/cavium/liquidio/octeon_device.h
-@@ -805,9 +805,9 @@ void octeon_free_ioq_vector(struct octeon_device *oct);
- int octeon_allocate_ioq_vector(struct octeon_device  *oct);
- void lio_enable_irq(struct octeon_droq *droq, struct octeon_instr_queue *iq);
- 
--/* LiquidIO driver pivate flags */
-+/* LiquidIO driver private flags */
- enum {
--	OCT_PRIV_FLAG_TX_BYTES = 0, /* Tx interrupts by pending byte count */
-+	OCT_PRIV_FLAG_PKT_STEERING,
- };
- 
- #define OCT_PRIV_FLAG_DEFAULT 0x0
-diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_nic.h b/drivers/net/ethernet/cavium/liquidio/octeon_nic.h
-index 0c7a5c9..3417ca1 100644
---- a/drivers/net/ethernet/cavium/liquidio/octeon_nic.h
-+++ b/drivers/net/ethernet/cavium/liquidio/octeon_nic.h
-@@ -203,8 +203,8 @@ octnet_prepare_pci_cmd_o3(struct octeon_device *oct,
++/**
+  * __mdiobus_register - bring up all the PHYs on a given bus and attach them to bus
+  * @bus: target mii_bus
+  * @owner: module containing bus accessor functions
+@@ -345,7 +375,7 @@ int __mdiobus_register(struct mii_bus *bus, struct module *owner)
+ 		}
  	}
  
- 	pki_ih3->w       = 1;
--	pki_ih3->raw     = 1;
--	pki_ih3->utag    = 1;
-+	pki_ih3->raw     = 0;
-+	pki_ih3->utag    = 0;
- 	pki_ih3->utt     = 1;
- 	pki_ih3->uqpg    = oct->instr_queue[setup->s.iq_no]->txpciq.s.use_qpg;
+-	mdiobus_setup_mdiodev_from_board_info(bus);
++	mdiobus_setup_mdiodev_from_board_info(bus, mdiobus_create_device);
  
-@@ -217,8 +217,8 @@ octnet_prepare_pci_cmd_o3(struct octeon_device *oct,
- 
- 	pki_ih3->tagtype = ORDERED_TAG;
- 	pki_ih3->qpg     = oct->instr_queue[setup->s.iq_no]->txpciq.s.qpg;
--	pki_ih3->pm      = 0x7; /*0x7 - meant for Parse nothing, uninterpreted*/
--	pki_ih3->sl      = 8;   /* sl will be sizeof(pki_ih3)*/
-+	pki_ih3->pm      = 0x0; /* parse from L2 */
-+	pki_ih3->sl      = ih3->fsz;
- 
- 	irh = (struct octeon_instr_irh *)&cmd->cmd3.irh;
- 
+ 	bus->state = MDIOBUS_REGISTERED;
+ 	pr_info("%s: probed\n", bus->name);
+-- 
+2.9.3
