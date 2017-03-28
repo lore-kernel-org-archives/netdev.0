@@ -1,102 +1,53 @@
-From: Frederic Weisbecker <fweisbec@gmail.com>
-Subject: Re: Bisected softirq accounting issue in v4.11-rc1~170^2~28
-Date: Tue, 28 Mar 2017 16:34:36 +0200
-Message-ID: <20170328143431.GB4216@lerouge>
-References: <20170328101403.34a82fbf@redhat.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 0/4] net: mpls: Allow users to configure more
+ labels per route
+Date: Tue, 28 Mar 2017 08:39:42 -0600
+Message-ID: <ef8c79ec-11e2-680b-8be5-c1476bf95a7d@cumulusnetworks.com>
+References: <1490461408-9551-1-git-send-email-dsa@cumulusnetworks.com>
+ <87shm1np5h.fsf@xmission.com>
+ <5fe416c3-3e56-4e31-f92b-33e3e7b2e3c0@brocade.com>
+ <608c60ac-7669-86f0-b0ef-02add5287009@cumulusnetworks.com>
+ <871stiayie.fsf@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	linux-mm <linux-mm@kvack.org>,
-	Mel Gorman <mgorman@techsingularity.net>,
-	Tariq Toukan <tariqt@mellanox.com>,
-	Tariq Toukan <ttoukan.linux@gmail.com>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Rik van Riel <riel@redhat.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@kernel.org>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20170328101403.34a82fbf@redhat.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Robert Shearman <rshearma@brocade.com>, netdev@vger.kernel.org,
+        roopa@cumulusnetworks.com
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f41.google.com ([74.125.83.41]:35071 "EHLO
+        mail-pg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751712AbdC1Oj7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 28 Mar 2017 10:39:59 -0400
+Received: by mail-pg0-f41.google.com with SMTP id 81so60108634pgh.2
+        for <netdev@vger.kernel.org>; Tue, 28 Mar 2017 07:39:53 -0700 (PDT)
+In-Reply-To: <871stiayie.fsf@xmission.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 28, 2017 at 10:14:03AM +0200, Jesper Dangaard Brouer wrote:
+On 3/27/17 9:08 PM, Eric W. Biederman wrote:
 > 
-> (While evaluating some changes to the page allocator) I ran into an
-> issue with ksoftirqd getting too much CPU sched time.
+> Overall I like what is being accomplished by this patchset.
+> I especially like the fact that the forwarding path is left
+> essentially unchanged, and that the struct mpls_route shirnks a little
+> for the common case.
 > 
-> I bisected the problem to
->  a499a5a14dbd ("sched/cputime: Increment kcpustat directly on irqtime account")
+> I believe we should just kill MAX_NEW_LABELS.
 > 
->  a499a5a14dbd1d0315a96fc62a8798059325e9e6 is the first bad commit
->  commit a499a5a14dbd1d0315a96fc62a8798059325e9e6
->  Author: Frederic Weisbecker <fweisbec@gmail.com>
->  Date:   Tue Jan 31 04:09:32 2017 +0100
+> I think the only significant change from your patch is the removal of an
+> array from mpls_route_config.
 > 
->     sched/cputime: Increment kcpustat directly on irqtime account
->     
->     The irqtime is accounted is nsecs and stored in
->     cpu_irq_time.hardirq_time and cpu_irq_time.softirq_time. Once the
->     accumulated amount reaches a new jiffy, this one gets accounted to the
->     kcpustat.
->     
->     This was necessary when kcpustat was stored in cputime_t, which could at
->     worst have jiffies granularity. But now kcpustat is stored in nsecs
->     so this whole discretization game with temporary irqtime storage has
->     become unnecessary.
->     
->     We can now directly account the irqtime to the kcpustat.
->     
->     Signed-off-by: Frederic Weisbecker <fweisbec@gmail.com>
->     Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
->     Cc: Fenghua Yu <fenghua.yu@intel.com>
->     Cc: Heiko Carstens <heiko.carstens@de.ibm.com>
->     Cc: Linus Torvalds <torvalds@linux-foundation.org>
->     Cc: Martin Schwidefsky <schwidefsky@de.ibm.com>
->     Cc: Michael Ellerman <mpe@ellerman.id.au>
->     Cc: Paul Mackerras <paulus@samba.org>
->     Cc: Peter Zijlstra <peterz@infradead.org>
->     Cc: Rik van Riel <riel@redhat.com>
->     Cc: Stanislaw Gruszka <sgruszka@redhat.com>
->     Cc: Thomas Gleixner <tglx@linutronix.de>
->     Cc: Tony Luck <tony.luck@intel.com>
->     Cc: Wanpeng Li <wanpeng.li@hotmail.com>
->     Link: http://lkml.kernel.org/r/1485832191-26889-17-git-send-email-fweisbec@gmail.com
->     Signed-off-by: Ingo Molnar <mingo@kernel.org>
-> 
-> The reproducer is running a userspace udp_sink[1] program, and taskset
-> pinning the process to the same CPU as softirq RX is running on, and
-> starting a UDP flood with pktgen (tool part of kernel tree:
-> samples/pktgen/pktgen_sample03_burst_single_flow.sh).
+> With the removal of MAX_NEW_LABELS I would replace it by a sanity check
+> in mpls_rt_alloc that verifies that the amount we are going to allocate
+> for struct mpls_route is < PAGE_SIZE.  Anything larger is just
+> asking for trouble.
 
-So that means I need to run udp_sink on the same CPU than pktgen?
+Sure. We would want a consistent API across architectures. As I recall
+some of them have 64kB page sizes, so rather than page size let's limit
+to the number 4096 rather than PAGE_SIZE.
 
 > 
-> [1] udp_sink
->  https://github.com/netoptimizer/network-testing/blob/master/src/udp_sink.c
-> 
-> The expected results (after commit 4cd13c21b207 ("softirq: Let
-> ksoftirqd do its job")) is that the scheduler split the CPU time 50/50
-> between udp_sink and ksoftirqd.
+> That should put our practical limit just a little bit below 32 nexthops
+> adding 32 labels each.
 
-I guess you mean that this is what happened before this commit?
-
-> 
-> After this commit, the udp_sink program does not get any sched CPU
-> time, and no packets are delivered to userspace.  (All packets are
-> dropped by softirq due to a full socket queue, nstat UdpRcvbufErrors).
-> 
-> A related symptom is that ksoftirqd no longer get accounted in top.
-
-That's indeed what I observe. udp_sink has almost no CPU time, neither has
-ksoftirqd but kpktgend_0 has everything.
-
-Finally a bug I can reproduce!
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+I send out a v2 soon.
