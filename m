@@ -1,7 +1,7 @@
 From: Aviad Yehezkel <aviadye@mellanox.com>
-Subject: [RFC TLS Offload Support 03/15] tcp: export tcp_rate_check_app_limited function
-Date: Tue, 28 Mar 2017 16:26:20 +0300
-Message-ID: <1490707592-1430-4-git-send-email-aviadye@mellanox.com>
+Subject: [RFC TLS Offload Support 13/15] crypto: Add gcm template for rfc5288
+Date: Tue, 28 Mar 2017 16:26:30 +0300
+Message-ID: <1490707592-1430-14-git-send-email-aviadye@mellanox.com>
 References: <1490707592-1430-1-git-send-email-aviadye@mellanox.com>
 Cc: matanb@mellanox.com, liranl@mellanox.com, haggaie@mellanox.com,
         tom@herbertland.com, herbert@gondor.apana.org.au, nmav@gnults.org,
@@ -10,28 +10,319 @@ Cc: matanb@mellanox.com, liranl@mellanox.com, haggaie@mellanox.com,
         saeedm@mellanox.com, aviadye@dev.mellanox.co.il
 To: davem@davemloft.net, aviadye@mellanox.com, ilyal@mellanox.com,
         borisp@mellanox.com, davejwatson@fb.com, netdev@vger.kernel.org
-Return-path: <linux-crypto-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:47840 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S932497AbdC1N07 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 28 Mar 2017 09:26:59 -0400
 In-Reply-To: <1490707592-1430-1-git-send-email-aviadye@mellanox.com>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-We will use it via tls new code.
+From: Dave Watson <davejwatson@fb.com>
 
-Signed-off-by: Aviad Yehezkel <aviadye@mellanox.com>
-Signed-off-by: Ilya Lesokhin <ilyal@mellanox.com>
-Signed-off-by: Boris Pismenny <borisp@mellanox.com>
+AAD data length is 13 bytes, tag is 16.
+
+Signed-off-by: Dave Watson <davejwatson@fb.com>
 ---
- net/ipv4/tcp_rate.c | 1 +
- 1 file changed, 1 insertion(+)
+ crypto/gcm.c     | 122 +++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ crypto/tcrypt.c  |  14 ++++---
+ crypto/testmgr.c |  16 ++++++++
+ crypto/testmgr.h |  47 +++++++++++++++++++++
+ 4 files changed, 194 insertions(+), 5 deletions(-)
 
-diff --git a/net/ipv4/tcp_rate.c b/net/ipv4/tcp_rate.c
-index 9be1581..a226f76 100644
---- a/net/ipv4/tcp_rate.c
-+++ b/net/ipv4/tcp_rate.c
-@@ -184,3 +184,4 @@ void tcp_rate_check_app_limited(struct sock *sk)
- 		tp->app_limited =
- 			(tp->delivered + tcp_packets_in_flight(tp)) ? : 1;
+diff --git a/crypto/gcm.c b/crypto/gcm.c
+index f624ac9..07c2805 100644
+--- a/crypto/gcm.c
++++ b/crypto/gcm.c
+@@ -1016,6 +1016,120 @@ static struct crypto_template crypto_rfc4106_tmpl = {
+ 	.module = THIS_MODULE,
+ };
+ 
++static int crypto_rfc5288_encrypt(struct aead_request *req)
++{
++	if (req->assoclen != 21)
++		return -EINVAL;
++
++	req = crypto_rfc4106_crypt(req);
++
++	return crypto_aead_encrypt(req);
++}
++
++static int crypto_rfc5288_decrypt(struct aead_request *req)
++{
++	if (req->assoclen != 21)
++		return -EINVAL;
++
++	req = crypto_rfc4106_crypt(req);
++
++	return crypto_aead_decrypt(req);
++}
++
++static int crypto_rfc5288_create(struct crypto_template *tmpl,
++				 struct rtattr **tb)
++{
++	struct crypto_attr_type *algt;
++	struct aead_instance *inst;
++	struct crypto_aead_spawn *spawn;
++	struct aead_alg *alg;
++	const char *ccm_name;
++	int err;
++
++	algt = crypto_get_attr_type(tb);
++	if (IS_ERR(algt))
++		return PTR_ERR(algt);
++
++	if ((algt->type ^ CRYPTO_ALG_TYPE_AEAD) & algt->mask)
++		return -EINVAL;
++
++	ccm_name = crypto_attr_alg_name(tb[1]);
++	if (IS_ERR(ccm_name))
++		return PTR_ERR(ccm_name);
++
++	inst = kzalloc(sizeof(*inst) + sizeof(*spawn), GFP_KERNEL);
++	if (!inst)
++		return -ENOMEM;
++
++	spawn = aead_instance_ctx(inst);
++	crypto_set_aead_spawn(spawn, aead_crypto_instance(inst));
++	err = crypto_grab_aead(spawn, ccm_name, 0,
++			       crypto_requires_sync(algt->type, algt->mask));
++	if (err)
++		goto out_free_inst;
++
++	alg = crypto_spawn_aead_alg(spawn);
++
++	err = -EINVAL;
++
++	/* Underlying IV size must be 12. */
++	if (crypto_aead_alg_ivsize(alg) != 12)
++		goto out_drop_alg;
++
++	/* Not a stream cipher? */
++	if (alg->base.cra_blocksize != 1)
++		goto out_drop_alg;
++
++	err = -ENAMETOOLONG;
++	if (snprintf(inst->alg.base.cra_name, CRYPTO_MAX_ALG_NAME,
++		     "rfc5288(%s)", alg->base.cra_name) >=
++	    CRYPTO_MAX_ALG_NAME ||
++	    snprintf(inst->alg.base.cra_driver_name, CRYPTO_MAX_ALG_NAME,
++		     "rfc5288(%s)", alg->base.cra_driver_name) >=
++	    CRYPTO_MAX_ALG_NAME)
++		goto out_drop_alg;
++
++	inst->alg.base.cra_flags = alg->base.cra_flags & CRYPTO_ALG_ASYNC;
++	inst->alg.base.cra_priority = alg->base.cra_priority;
++	inst->alg.base.cra_blocksize = 1;
++	inst->alg.base.cra_alignmask = alg->base.cra_alignmask;
++
++	inst->alg.base.cra_ctxsize = sizeof(struct crypto_rfc4106_ctx);
++
++	inst->alg.ivsize = 8;
++	inst->alg.chunksize = crypto_aead_alg_chunksize(alg);
++	inst->alg.maxauthsize = crypto_aead_alg_maxauthsize(alg);
++
++	inst->alg.init = crypto_rfc4106_init_tfm;
++	inst->alg.exit = crypto_rfc4106_exit_tfm;
++
++	inst->alg.setkey = crypto_rfc4106_setkey;
++	inst->alg.setauthsize = crypto_rfc4106_setauthsize;
++	inst->alg.encrypt = crypto_rfc5288_encrypt;
++	inst->alg.decrypt = crypto_rfc5288_decrypt;
++
++	inst->free = crypto_rfc4106_free;
++
++	err = aead_register_instance(tmpl, inst);
++	if (err)
++		goto out_drop_alg;
++
++out:
++	return err;
++
++out_drop_alg:
++	crypto_drop_aead(spawn);
++out_free_inst:
++	kfree(inst);
++	goto out;
++}
++
++static struct crypto_template crypto_rfc5288_tmpl = {
++	.name = "rfc5288",
++	.create = crypto_rfc5288_create,
++	.module = THIS_MODULE,
++};
++
+ static int crypto_rfc4543_setkey(struct crypto_aead *parent, const u8 *key,
+ 				 unsigned int keylen)
+ {
+@@ -1284,8 +1398,14 @@ static int __init crypto_gcm_module_init(void)
+ 	if (err)
+ 		goto out_undo_rfc4106;
+ 
++	err = crypto_register_template(&crypto_rfc5288_tmpl);
++	if (err)
++		goto out_undo_rfc4543;
++
+ 	return 0;
+ 
++out_undo_rfc4543:
++	crypto_unregister_template(&crypto_rfc4543_tmpl);
+ out_undo_rfc4106:
+ 	crypto_unregister_template(&crypto_rfc4106_tmpl);
+ out_undo_gcm:
+@@ -1302,6 +1422,7 @@ static void __exit crypto_gcm_module_exit(void)
+ 	kfree(gcm_zeroes);
+ 	crypto_unregister_template(&crypto_rfc4543_tmpl);
+ 	crypto_unregister_template(&crypto_rfc4106_tmpl);
++	crypto_unregister_template(&crypto_rfc5288_tmpl);
+ 	crypto_unregister_template(&crypto_gcm_tmpl);
+ 	crypto_unregister_template(&crypto_gcm_base_tmpl);
  }
-+EXPORT_SYMBOL(tcp_rate_check_app_limited);
+@@ -1315,4 +1436,5 @@ MODULE_AUTHOR("Mikko Herranen <mh1@iki.fi>");
+ MODULE_ALIAS_CRYPTO("gcm_base");
+ MODULE_ALIAS_CRYPTO("rfc4106");
+ MODULE_ALIAS_CRYPTO("rfc4543");
++MODULE_ALIAS_CRYPTO("rfc5288");
+ MODULE_ALIAS_CRYPTO("gcm");
+diff --git a/crypto/tcrypt.c b/crypto/tcrypt.c
+index ae22f05..22538a7 100644
+--- a/crypto/tcrypt.c
++++ b/crypto/tcrypt.c
+@@ -1338,26 +1338,30 @@ static int do_test(const char *alg, u32 type, u32 mask, int m)
+ 		break;
+ 
+ 	case 152:
+-		ret += tcrypt_test("rfc4543(gcm(aes))");
++		ret += tcrypt_test("rfc5288(gcm(aes))");
+ 		break;
+ 
+ 	case 153:
+-		ret += tcrypt_test("cmac(aes)");
++		ret += tcrypt_test("rfc4543(gcm(aes))");
+ 		break;
+ 
+ 	case 154:
+-		ret += tcrypt_test("cmac(des3_ede)");
++		ret += tcrypt_test("cmac(aes)");
+ 		break;
+ 
+ 	case 155:
+-		ret += tcrypt_test("authenc(hmac(sha1),cbc(aes))");
++		ret += tcrypt_test("cmac(des3_ede)");
+ 		break;
+ 
+ 	case 156:
+-		ret += tcrypt_test("authenc(hmac(md5),ecb(cipher_null))");
++		ret += tcrypt_test("authenc(hmac(sha1),cbc(aes))");
+ 		break;
+ 
+ 	case 157:
++		ret += tcrypt_test("authenc(hmac(md5),ecb(cipher_null))");
++		break;
++
++	case 158:
+ 		ret += tcrypt_test("authenc(hmac(sha1),ecb(cipher_null))");
+ 		break;
+ 	case 181:
+diff --git a/crypto/testmgr.c b/crypto/testmgr.c
+index 62dffa0..4cae414 100644
+--- a/crypto/testmgr.c
++++ b/crypto/testmgr.c
+@@ -3748,6 +3748,22 @@ static const struct alg_test_desc alg_test_descs[] = {
+ 			}
+ 		}
+ 	}, {
++		.alg = "rfc5288(gcm(aes))",
++		.test = alg_test_aead,
++		.fips_allowed = 1,
++		.suite = {
++			.aead = {
++				.enc = {
++					.vecs = aes_gcm_rfc5288_enc_tv_template,
++					.count = AES_GCM_5288_ENC_TEST_VECTORS
++				},
++				.dec = {
++					.vecs = aes_gcm_rfc5288_dec_tv_template,
++					.count = AES_GCM_5288_DEC_TEST_VECTORS
++				}
++			}
++		}
++	}, {
+ 		.alg = "rfc7539(chacha20,poly1305)",
+ 		.test = alg_test_aead,
+ 		.suite = {
+diff --git a/crypto/testmgr.h b/crypto/testmgr.h
+index e64a4ef..65d725a 100644
+--- a/crypto/testmgr.h
++++ b/crypto/testmgr.h
+@@ -15193,6 +15193,8 @@ static struct cipher_testvec cast6_xts_dec_tv_template[] = {
+ #define AES_GCM_DEC_TEST_VECTORS 8
+ #define AES_GCM_4106_ENC_TEST_VECTORS 23
+ #define AES_GCM_4106_DEC_TEST_VECTORS 23
++#define AES_GCM_5288_ENC_TEST_VECTORS 1
++#define AES_GCM_5288_DEC_TEST_VECTORS 1
+ #define AES_GCM_4543_ENC_TEST_VECTORS 1
+ #define AES_GCM_4543_DEC_TEST_VECTORS 2
+ #define AES_CCM_ENC_TEST_VECTORS 8
+@@ -21932,6 +21934,7 @@ static struct aead_testvec aes_gcm_rfc4106_dec_tv_template[] = {
+ 		.assoc  = "\x01\x01\x01\x01\x01\x01\x01\x01"
+ 			  "\x00\x00\x00\x00\x00\x00\x00\x00",
+ 		.alen   = 16,
++
+ 		.result = "\x01\x01\x01\x01\x01\x01\x01\x01"
+ 			  "\x01\x01\x01\x01\x01\x01\x01\x01",
+ 		.rlen   = 16,
+@@ -22485,6 +22488,50 @@ static struct aead_testvec aes_gcm_rfc4106_dec_tv_template[] = {
+ 	}
+ };
+ 
++static struct aead_testvec aes_gcm_rfc5288_enc_tv_template[] = {
++	{
++		.key	= "\x34\x19\x96\x6e\xc5\x8c\x17\x9c"
++			  "\x56\x78\x5e\xbb\x30\x52\x21\x89"
++			  "\xea\xbc\x6e\x50",
++		.klen	= 20,
++		.iv	= "\x00\x00\x00\x00\x00\x00\x00\x01"
++			  "\x5f\x73\x65\x73",
++		.assoc	= "\x00\x00\x00\x00\x00\x00\x00\x01"
++			  "\x17\x03\x03\x00\x10\x00\x00\x00"
++			  "\x00\x00\x00\x00\x00",
++		.alen	= 21,
++		.input	= zeroed_string,
++		.ilen	= 16,
++		.result	= "\xa5\x2b\x6c\x6e\x2d\x78\x6f\x80"
++			  "\x0e\x65\x69\x70\x0a\xe8\x86\xed"
++			  "\x6d\x38\x29\x1d\x35\x3f\x62\xcf"
++			  "\x46\x9c\x19\x78\x00\x0d\x67\xaa",
++		.rlen	= 32,
++	}
++};
++
++static struct aead_testvec aes_gcm_rfc5288_dec_tv_template[] = {
++	{
++		.key	= "\x73\xf0\xfa\x44\x76\xf5\xd5\x17"
++			  "\x00\x12\x42\x85\xcb\x4f\x92\x1f"
++			  "\x7d\x63\x9f\xc6",
++		.klen	= 20,
++		.iv	= "\x00\x00\x00\x00\x00\x00\x00\x01"
++			  "\x74\x61\x73\x6b",
++		.assoc	= "\x00\x00\x00\x00\x00\x00\x00\x01"
++			  "\x17\x03\x03\x00\x10\x00\x00\x00"
++			  "\x00\x00\x00\x00\x00",
++		.alen	= 21,
++		.input	= "\x05\x56\x46\x23\x1c\x86\x5e\xd0"
++			  "\x12\x37\x2a\xa3\x65\x8b\x8c\x90"
++			  "\xab\xbd\xca\xda\xae\x6e\xc0\xb2"
++			  "\x91\x1b\x9b\x34\xe3\xea\x86\x8f",
++		.ilen	= 32,
++		.result	= zeroed_string,
++		.rlen	= 16,
++	},
++};
++
+ static struct aead_testvec aes_gcm_rfc4543_enc_tv_template[] = {
+ 	{ /* From draft-mcgrew-gcm-test-01 */
+ 		.key	= "\x4c\x80\xcd\xef\xbb\x5d\x10\xda"
 -- 
 2.7.4
