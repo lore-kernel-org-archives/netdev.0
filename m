@@ -1,42 +1,46 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: genphy_read_status() vs. 1000bT Pause capability
-Date: Tue, 28 Mar 2017 22:11:24 +1100
-Message-ID: <1490699484.3177.120.camel@kernel.crashing.org>
-References: <1490662190.3177.91.camel@kernel.crashing.org>
-         <20170328010940.GG25549@lunn.ch>
-         <1490668137.3177.98.camel@kernel.crashing.org>
-         <1490669734.3177.100.camel@au1.ibm.com>
-         <20170328041405.045FEB206B@b01ledav03.gho.pok.ibm.com>
-         <1490678238.3177.102.camel@kernel.crashing.org>
-         <20170328094252.GV7909@n2100.armlinux.org.uk>
+From: Niklas Cassel <niklas.cassel@axis.com>
+Subject: Re: [PATCH net-next 0/2] net: stmmac: multiple queue fixes
+Date: Tue, 28 Mar 2017 13:23:21 +0200
+Message-ID: <8eed041a-a67e-3d18-e1a7-04d53f03737e@axis.com>
+References: <cover.1490375512.git.jpinto@synopsys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>, netdev@vger.kernel.org
-To: Russell King - ARM Linux <linux@armlinux.org.uk>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <peppe.cavallaro@st.com>, <alexandre.torgue@st.com>,
+        <clabbe.montjoie@gmail.com>, <thierry.reding@gmail.com>,
+        <sergei.shtylyov@cogentembedded.com>, <f.fainelli@gmail.com>,
+        <netdev@vger.kernel.org>
+To: Joao Pinto <Joao.Pinto@synopsys.com>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:38201 "EHLO gate.crashing.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755092AbdC1LL4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 28 Mar 2017 07:11:56 -0400
-In-Reply-To: <20170328094252.GV7909@n2100.armlinux.org.uk>
+Received: from bastet.se.axis.com ([195.60.68.11]:35893 "EHLO
+        bastet.se.axis.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932248AbdC1LfG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 28 Mar 2017 07:35:06 -0400
+In-Reply-To: <cover.1490375512.git.jpinto@synopsys.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2017-03-28 at 10:42 +0100, Russell King - ARM Linux wrote:
-> The 1000X definitions are for 1000BaseX (fiber), not for 1000BaseT
-> (copper).
+On 03/24/2017 06:16 PM, Joao Pinto wrote:
+> This patch set contains two fixes for problems I detected when ran the driver
+> in single queue mode.
 > 
-> I have a working setup here with gigabit pause.  The pause bits come
-> from bits 11 and 10, just like for older copper PHYs.  Your link
-> parter is indicating that it has no pause capability.  That means
-> you can't use pause.
+> Please test in your setups to check if you get better results.
+> 
+> Joao Pinto (2):
+>   net: stmmac: fix netdev release
+>   net: stmmac: fix number of tx queues in stmmac_poll
+> 
+>  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 18 +++++++++++-------
+>  1 file changed, 11 insertions(+), 7 deletions(-)
+> 
 
-Interesting. I tried and it worked :-) Could be something funny in
-the config of our switches.
+Hello Joao,
 
-Thanks for the explanation.
+I think that it would be helpful if these commit messages were a
+little more elaborate.
+Both of these commit messages just say "fixes kernel crash".
+Please include the relevant part of the stack trace so that others
+will know if the bug you are fixing is the same as theirs.
 
-Cheers,
-Ben.
+Regards,
+Niklas
