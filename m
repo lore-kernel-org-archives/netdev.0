@@ -1,7 +1,7 @@
 From: Andrey Konovalov <andreyknvl@google.com>
-Subject: [PATCH 1/5] net/packet: fix overflow in check for priv area size
-Date: Tue, 28 Mar 2017 16:00:42 +0200
-Message-ID: <56da2aa1dec51c258eb25693ed87e4de72413463.1490709552.git.andreyknvl@google.com>
+Subject: [PATCH v4 3/9] kasan: change allocation and freeing stack traces headers
+Date: Tue, 28 Mar 2017 16:00:45 +0200
+Message-ID: <7191548e9fda9658cea0d6a2313bc8ba0424e5c4.1490383597.git.andreyknvl__49933.8011876263$1490709697$gmane$org@google.com>
 References: <cover.1490709552.git.andreyknvl@google.com>
 Cc: netdev@vger.kernel.org, Dmitry Vyukov <dvyukov@google.com>,
         Kostya Serebryany <kcc@google.com>,
@@ -11,46 +11,62 @@ To: "David S . Miller" <davem@davemloft.net>,
         Willem de Bruijn <willemb@google.com>,
         Craig Gallek <cgallek@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f175.google.com ([209.85.128.175]:36003 "EHLO
-        mail-wr0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752667AbdC1OBR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 28 Mar 2017 10:01:17 -0400
-Received: by mail-wr0-f175.google.com with SMTP id w11so88287414wrc.3
-        for <netdev@vger.kernel.org>; Tue, 28 Mar 2017 07:01:11 -0700 (PDT)
+Received: from mail-wr0-f182.google.com ([209.85.128.182]:34691 "EHLO
+        mail-wr0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751711AbdC1OBH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 28 Mar 2017 10:01:07 -0400
+Received: by mail-wr0-f182.google.com with SMTP id l43so106456672wre.1
+        for <netdev@vger.kernel.org>; Tue, 28 Mar 2017 07:01:06 -0700 (PDT)
 In-Reply-To: <cover.1490709552.git.andreyknvl@google.com>
-In-Reply-To: <cover.1490709552.git.andreyknvl@google.com>
-References: <cover.1490709552.git.andreyknvl@google.com>
+In-Reply-To: <cover.1490383597.git.andreyknvl@google.com>
+References: <cover.1490383597.git.andreyknvl@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Subtracting tp_sizeof_priv from tp_block_size and casting to int
-to check whether one is less then the other doesn't always work
-(both of them are unsigned ints).
+Change stack traces headers from:
 
-Compare them as is instead.
+Allocated:
+PID = 42
 
-Also cast tp_sizeof_priv to u64 before using BLK_PLUS_PRIV, as
-it can overflow inside BLK_PLUS_PRIV otherwise.
+to:
+
+Allocated by task 42:
+
+Makes the report one line shorter and look better.
 
 Signed-off-by: Andrey Konovalov <andreyknvl@google.com>
 ---
- net/packet/af_packet.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ mm/kasan/report.c | 10 ++++------
+ 1 file changed, 4 insertions(+), 6 deletions(-)
 
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index a0dbe7ca8f72..2323ee35dc09 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -4193,8 +4193,8 @@ static int packet_set_ring(struct sock *sk, union tpacket_req_u *req_u,
- 		if (unlikely(!PAGE_ALIGNED(req->tp_block_size)))
- 			goto out;
- 		if (po->tp_version >= TPACKET_V3 &&
--		    (int)(req->tp_block_size -
--			  BLK_PLUS_PRIV(req_u->req3.tp_sizeof_priv)) <= 0)
-+		    req->tp_block_size <=
-+			  BLK_PLUS_PRIV((u64)req_u->req3.tp_sizeof_priv))
- 			goto out;
- 		if (unlikely(req->tp_frame_size < po->tp_hdrlen +
- 					po->tp_reserve))
+diff --git a/mm/kasan/report.c b/mm/kasan/report.c
+index fc0577d15671..382d4d2b9052 100644
+--- a/mm/kasan/report.c
++++ b/mm/kasan/report.c
+@@ -175,9 +175,9 @@ static void kasan_end_report(unsigned long *flags)
+ 	kasan_enable_current();
+ }
+ 
+-static void print_track(struct kasan_track *track)
++static void print_track(struct kasan_track *track, const char *prefix)
+ {
+-	pr_err("PID = %u\n", track->pid);
++	pr_err("%s by task %u:\n", prefix, track->pid);
+ 	if (track->stack) {
+ 		struct stack_trace trace;
+ 
+@@ -199,10 +199,8 @@ static void kasan_object_err(struct kmem_cache *cache, void *object)
+ 	if (!(cache->flags & SLAB_KASAN))
+ 		return;
+ 
+-	pr_err("Allocated:\n");
+-	print_track(&alloc_info->alloc_track);
+-	pr_err("Freed:\n");
+-	print_track(&alloc_info->free_track);
++	print_track(&alloc_info->alloc_track, "Allocated");
++	print_track(&alloc_info->free_track, "Freed");
+ }
+ 
+ void kasan_report_double_free(struct kmem_cache *cache, void *object,
 -- 
-2.12.2.564.g063fe858b8-goog
+2.12.1.578.ge9c3154ca4-goog
