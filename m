@@ -1,7 +1,7 @@
 From: Yuval Mintz <Yuval.Mintz@cavium.com>
-Subject: [PATCH net-next 3/7] qed: Move to new load request scheme
-Date: Tue, 28 Mar 2017 15:12:52 +0300
-Message-ID: <1490703176-429-4-git-send-email-Yuval.Mintz@cavium.com>
+Subject: [PATCH net-next 6/7] qed: Utilize resource-lock based scheme
+Date: Tue, 28 Mar 2017 15:12:55 +0300
+Message-ID: <1490703176-429-7-git-send-email-Yuval.Mintz@cavium.com>
 References: <1490703176-429-1-git-send-email-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,10 +9,10 @@ Cc: Tomer Tayar <Tomer.Tayar@cavium.com>,
         Yuval Mintz <Yuval.Mintz@cavium.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:41204 "EHLO
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:41213 "EHLO
         mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1752200AbdC1MN6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 28 Mar 2017 08:13:58 -0400
+        by vger.kernel.org with ESMTP id S1752318AbdC1MOP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 28 Mar 2017 08:14:15 -0400
 In-Reply-To: <1490703176-429-1-git-send-email-Yuval.Mintz@cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -20,786 +20,897 @@ List-ID: <netdev.vger.kernel.org>
 From: Tomer Tayar <Tomer.Tayar@cavium.com>
 
 Management firmware is used as an arbiter between the various PFs
-in regard to loading - it causes the various PFs to load/unload
-sequentially and informs each of its appropriate rule in the init.
+in matters of resources, but some of the resources that need to
+be divided are dependent on the non-management firmware used,
+so management firmware first needs to be told how many resources
+there are before trying to divide them.
 
-But the existing flow is too weak to handle some scenarios where
-PFs aren't properly cleaned prior to loading.
-The significant scenarios falling under this criteria:
-  a. Preboot drivers in some environment can't properly unload.
-  b. Unexpected driver replacement [kdump, PDA].
-
-Modern management firmware supports a more intricate loading flow,
-where the driver has the ability to overcome previous limitations.
-This moves qed into using this newer scheme.
-
-Notice new scheme is backward compatible, so new drivers would
-still be able to load properly on top of older management firmwares
-and vice versa.
+As part of the initialization sequence, driver would first inform
+the management firmware of the available resources under
+a dedicated resource lock, and afterwards request for various
+resources which might be based on the previous set values.
 
 Signed-off-by: Tomer Tayar <Tomer.Tayar@cavium.com>
 Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
 ---
- drivers/net/ethernet/qlogic/qed/qed.h         |  29 ++-
- drivers/net/ethernet/qlogic/qed/qed_dcbx.h    |   3 -
- drivers/net/ethernet/qlogic/qed/qed_dev.c     |  35 ++-
- drivers/net/ethernet/qlogic/qed/qed_dev_api.h |  32 +++
- drivers/net/ethernet/qlogic/qed/qed_hsi.h     |  50 +++-
- drivers/net/ethernet/qlogic/qed/qed_main.c    |   9 +
- drivers/net/ethernet/qlogic/qed/qed_mcp.c     | 356 ++++++++++++++++++++++++--
- drivers/net/ethernet/qlogic/qed/qed_mcp.h     |  41 +--
- 8 files changed, 497 insertions(+), 58 deletions(-)
+ drivers/net/ethernet/qlogic/qed/qed.h         |   1 +
+ drivers/net/ethernet/qlogic/qed/qed_dev.c     | 368 ++++++++++++++++----------
+ drivers/net/ethernet/qlogic/qed/qed_dev_api.h |   2 +
+ drivers/net/ethernet/qlogic/qed/qed_hsi.h     |   8 +-
+ drivers/net/ethernet/qlogic/qed/qed_mcp.c     | 206 ++++++++++++--
+ drivers/net/ethernet/qlogic/qed/qed_mcp.h     |  49 +++-
+ 6 files changed, 468 insertions(+), 166 deletions(-)
 
 diff --git a/drivers/net/ethernet/qlogic/qed/qed.h b/drivers/net/ethernet/qlogic/qed/qed.h
-index 90a1988..187a84b 100644
+index 187a84b..cf71295 100644
 --- a/drivers/net/ethernet/qlogic/qed/qed.h
 +++ b/drivers/net/ethernet/qlogic/qed/qed.h
-@@ -51,7 +51,19 @@
- #include "qed_hsi.h"
- 
- extern const struct qed_common_ops qed_common_ops_pass;
--#define DRV_MODULE_VERSION "8.10.10.21"
-+
-+#define QED_MAJOR_VERSION               8
-+#define QED_MINOR_VERSION               10
-+#define QED_REVISION_VERSION            10
-+#define QED_ENGINEERING_VERSION 21
-+
-+#define QED_VERSION						 \
-+	((QED_MAJOR_VERSION << 24) | (QED_MINOR_VERSION << 16) | \
-+	 (QED_REVISION_VERSION << 8) | QED_ENGINEERING_VERSION)
-+
-+#define STORM_FW_VERSION				       \
-+	((FW_MAJOR_VERSION << 24) | (FW_MINOR_VERSION << 16) | \
-+	 (FW_REVISION_VERSION << 8) | FW_ENGINEERING_VERSION)
- 
- #define MAX_HWFNS_PER_DEVICE    (4)
- #define NAME_SIZE 16
-@@ -76,6 +88,15 @@ enum qed_coalescing_mode {
- enum qed_mcp_protocol_type;
- 
- /* helpers */
-+#define QED_MFW_GET_FIELD(name, field) \
-+	(((name) & (field ## _MASK)) >> (field ## _SHIFT))
-+
-+#define QED_MFW_SET_FIELD(name, field, value)				       \
-+	do {								       \
-+		(name)	&= ~((field ## _MASK) << (field ## _SHIFT));	       \
-+		(name)	|= (((value) << (field ## _SHIFT)) & (field ## _MASK));\
-+	} while (0)
-+
- static inline u32 qed_db_addr(u32 cid, u32 DEMS)
- {
- 	u32 db_addr = FIELD_VALUE(DB_LEGACY_ADDR_DEMS, DEMS) |
-@@ -355,6 +376,12 @@ struct qed_fw_data {
- 	u32			init_ops_size;
+@@ -219,6 +219,7 @@ enum qed_resources {
+ 	QED_LL2_QUEUE,
+ 	QED_CMDQS_CQS,
+ 	QED_RDMA_STATS_QUEUE,
++	QED_BDQ,
+ 	QED_MAX_RESC,
  };
  
-+#define DRV_MODULE_VERSION		      \
-+	__stringify(QED_MAJOR_VERSION) "."    \
-+	__stringify(QED_MINOR_VERSION) "."    \
-+	__stringify(QED_REVISION_VERSION) "." \
-+	__stringify(QED_ENGINEERING_VERSION)
-+
- struct qed_simd_fp_handler {
- 	void	*token;
- 	void	(*func)(void *);
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_dcbx.h b/drivers/net/ethernet/qlogic/qed/qed_dcbx.h
-index 0fabe97..2eb988f 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_dcbx.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_dcbx.h
-@@ -85,9 +85,6 @@ struct qed_dcbx_app_metadata {
- 	enum qed_pci_personality personality;
- };
- 
--#define QED_MFW_GET_FIELD(name, field) \
--	(((name) & (field ## _MASK)) >> (field ## _SHIFT))
--
- struct qed_dcbx_info {
- 	struct lldp_status_params_s lldp_remote[LLDP_MAX_LLDP_AGENTS];
- 	struct lldp_config_params_s lldp_local[LLDP_MAX_LLDP_AGENTS];
 diff --git a/drivers/net/ethernet/qlogic/qed/qed_dev.c b/drivers/net/ethernet/qlogic/qed/qed_dev.c
-index 1092998..759b819 100644
+index e4b1450..e75c833 100644
 --- a/drivers/net/ethernet/qlogic/qed/qed_dev.c
 +++ b/drivers/net/ethernet/qlogic/qed/qed_dev.c
-@@ -1106,8 +1106,22 @@ static void qed_reset_mb_shadow(struct qed_hwfn *p_hwfn,
- 	       p_hwfn->mcp_info->mfw_mb_cur, p_hwfn->mcp_info->mfw_mb_length);
+@@ -1565,187 +1565,222 @@ static void qed_hw_set_feat(struct qed_hwfn *p_hwfn)
+ 		   RESC_NUM(p_hwfn, QED_SB));
  }
  
-+static void
-+qed_fill_load_req_params(struct qed_load_req_params *p_load_req,
-+			 struct qed_drv_load_params *p_drv_load)
-+{
-+	memset(p_load_req, 0, sizeof(*p_load_req));
-+
-+	p_load_req->drv_role = p_drv_load->is_crash_kernel ?
-+			       QED_DRV_ROLE_KDUMP : QED_DRV_ROLE_OS;
-+	p_load_req->timeout_val = p_drv_load->mfw_timeout_val;
-+	p_load_req->avoid_eng_reset = p_drv_load->avoid_eng_reset;
-+	p_load_req->override_force_load = p_drv_load->override_force_load;
+-static enum resource_id_enum qed_hw_get_mfw_res_id(enum qed_resources res_id)
++const char *qed_hw_get_resc_name(enum qed_resources res_id)
+ {
+-	enum resource_id_enum mfw_res_id = RESOURCE_NUM_INVALID;
+-
+ 	switch (res_id) {
+-	case QED_SB:
+-		mfw_res_id = RESOURCE_NUM_SB_E;
+-		break;
+ 	case QED_L2_QUEUE:
+-		mfw_res_id = RESOURCE_NUM_L2_QUEUE_E;
+-		break;
++		return "L2_QUEUE";
+ 	case QED_VPORT:
+-		mfw_res_id = RESOURCE_NUM_VPORT_E;
+-		break;
++		return "VPORT";
+ 	case QED_RSS_ENG:
+-		mfw_res_id = RESOURCE_NUM_RSS_ENGINES_E;
+-		break;
++		return "RSS_ENG";
+ 	case QED_PQ:
+-		mfw_res_id = RESOURCE_NUM_PQ_E;
+-		break;
++		return "PQ";
+ 	case QED_RL:
+-		mfw_res_id = RESOURCE_NUM_RL_E;
+-		break;
++		return "RL";
+ 	case QED_MAC:
++		return "MAC";
+ 	case QED_VLAN:
+-		/* Each VFC resource can accommodate both a MAC and a VLAN */
+-		mfw_res_id = RESOURCE_VFC_FILTER_E;
+-		break;
++		return "VLAN";
++	case QED_RDMA_CNQ_RAM:
++		return "RDMA_CNQ_RAM";
+ 	case QED_ILT:
+-		mfw_res_id = RESOURCE_ILT_E;
+-		break;
++		return "ILT";
+ 	case QED_LL2_QUEUE:
+-		mfw_res_id = RESOURCE_LL2_QUEUE_E;
+-		break;
+-	case QED_RDMA_CNQ_RAM:
++		return "LL2_QUEUE";
+ 	case QED_CMDQS_CQS:
+-		/* CNQ/CMDQS are the same resource */
+-		mfw_res_id = RESOURCE_CQS_E;
+-		break;
++		return "CMDQS_CQS";
+ 	case QED_RDMA_STATS_QUEUE:
+-		mfw_res_id = RESOURCE_RDMA_STATS_QUEUE_E;
+-		break;
++		return "RDMA_STATS_QUEUE";
++	case QED_BDQ:
++		return "BDQ";
++	case QED_SB:
++		return "SB";
+ 	default:
+-		break;
++		return "UNKNOWN_RESOURCE";
++	}
 +}
 +
- int qed_hw_init(struct qed_dev *cdev, struct qed_hw_init_params *p_params)
++static int
++__qed_hw_set_soft_resc_size(struct qed_hwfn *p_hwfn,
++			    struct qed_ptt *p_ptt,
++			    enum qed_resources res_id,
++			    u32 resc_max_val, u32 *p_mcp_resp)
++{
++	int rc;
++
++	rc = qed_mcp_set_resc_max_val(p_hwfn, p_ptt, res_id,
++				      resc_max_val, p_mcp_resp);
++	if (rc) {
++		DP_NOTICE(p_hwfn,
++			  "MFW response failure for a max value setting of resource %d [%s]\n",
++			  res_id, qed_hw_get_resc_name(res_id));
++		return rc;
+ 	}
+ 
+-	return mfw_res_id;
++	if (*p_mcp_resp != FW_MSG_CODE_RESOURCE_ALLOC_OK)
++		DP_INFO(p_hwfn,
++			"Failed to set the max value of resource %d [%s]. mcp_resp = 0x%08x.\n",
++			res_id, qed_hw_get_resc_name(res_id), *p_mcp_resp);
++
++	return 0;
+ }
+ 
+-static u32 qed_hw_get_dflt_resc_num(struct qed_hwfn *p_hwfn,
+-				    enum qed_resources res_id)
++static int
++qed_hw_set_soft_resc_size(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
++{
++	bool b_ah = QED_IS_AH(p_hwfn->cdev);
++	u32 resc_max_val, mcp_resp;
++	u8 res_id;
++	int rc;
++
++	for (res_id = 0; res_id < QED_MAX_RESC; res_id++) {
++		switch (res_id) {
++		case QED_LL2_QUEUE:
++			resc_max_val = MAX_NUM_LL2_RX_QUEUES;
++			break;
++		case QED_RDMA_CNQ_RAM:
++			/* No need for a case for QED_CMDQS_CQS since
++			 * CNQ/CMDQS are the same resource.
++			 */
++			resc_max_val = NUM_OF_CMDQS_CQS;
++			break;
++		case QED_RDMA_STATS_QUEUE:
++			resc_max_val = b_ah ? RDMA_NUM_STATISTIC_COUNTERS_K2
++			    : RDMA_NUM_STATISTIC_COUNTERS_BB;
++			break;
++		case QED_BDQ:
++			resc_max_val = BDQ_NUM_RESOURCES;
++			break;
++		default:
++			continue;
++		}
++
++		rc = __qed_hw_set_soft_resc_size(p_hwfn, p_ptt, res_id,
++						 resc_max_val, &mcp_resp);
++		if (rc)
++			return rc;
++
++		/* There's no point to continue to the next resource if the
++		 * command is not supported by the MFW.
++		 * We do continue if the command is supported but the resource
++		 * is unknown to the MFW. Such a resource will be later
++		 * configured with the default allocation values.
++		 */
++		if (mcp_resp == FW_MSG_CODE_UNSUPPORTED)
++			return -EINVAL;
++	}
++
++	return 0;
++}
++
++static
++int qed_hw_get_dflt_resc(struct qed_hwfn *p_hwfn,
++			 enum qed_resources res_id,
++			 u32 *p_resc_num, u32 *p_resc_start)
  {
-+	struct qed_load_req_params load_req_params;
- 	u32 load_code, param, drv_mb_param;
- 	bool b_default_mtu = true;
- 	struct qed_hwfn *p_hwfn;
-@@ -1145,17 +1159,21 @@ int qed_hw_init(struct qed_dev *cdev, struct qed_hw_init_params *p_params)
- 		if (rc)
- 			return rc;
+ 	u8 num_funcs = p_hwfn->num_funcs_on_engine;
+ 	bool b_ah = QED_IS_AH(p_hwfn->cdev);
+ 	struct qed_sb_cnt_info sb_cnt_info;
+-	u32 dflt_resc_num = 0;
  
--		rc = qed_mcp_load_req(p_hwfn, p_hwfn->p_main_ptt, &load_code);
-+		qed_fill_load_req_params(&load_req_params,
-+					 p_params->p_drv_load_params);
-+		rc = qed_mcp_load_req(p_hwfn, p_hwfn->p_main_ptt,
-+				      &load_req_params);
- 		if (rc) {
--			DP_NOTICE(p_hwfn, "Failed sending LOAD_REQ command\n");
-+			DP_NOTICE(p_hwfn, "Failed sending a LOAD_REQ command\n");
- 			return rc;
- 		}
- 
--		qed_reset_mb_shadow(p_hwfn, p_hwfn->p_main_ptt);
+ 	switch (res_id) {
+-	case QED_SB:
+-		memset(&sb_cnt_info, 0, sizeof(sb_cnt_info));
+-		qed_int_get_num_sbs(p_hwfn, &sb_cnt_info);
+-		dflt_resc_num = sb_cnt_info.sb_cnt;
+-		break;
+ 	case QED_L2_QUEUE:
+-		dflt_resc_num = (b_ah ? MAX_NUM_L2_QUEUES_K2
+-				      : MAX_NUM_L2_QUEUES_BB) / num_funcs;
++		*p_resc_num = (b_ah ? MAX_NUM_L2_QUEUES_K2 :
++			       MAX_NUM_L2_QUEUES_BB) / num_funcs;
+ 		break;
+ 	case QED_VPORT:
+-		dflt_resc_num = MAX_NUM_VPORTS_BB / num_funcs;
+-		dflt_resc_num = (b_ah ? MAX_NUM_VPORTS_K2
+-				      : MAX_NUM_VPORTS_BB) / num_funcs;
++		*p_resc_num = (b_ah ? MAX_NUM_VPORTS_K2 :
++			       MAX_NUM_VPORTS_BB) / num_funcs;
+ 		break;
+ 	case QED_RSS_ENG:
+-		dflt_resc_num = (b_ah ? ETH_RSS_ENGINE_NUM_K2
+-				      : ETH_RSS_ENGINE_NUM_BB) / num_funcs;
++		*p_resc_num = (b_ah ? ETH_RSS_ENGINE_NUM_K2 :
++			       ETH_RSS_ENGINE_NUM_BB) / num_funcs;
+ 		break;
+ 	case QED_PQ:
+-		/* The granularity of the PQs is 8 */
+-		dflt_resc_num = (b_ah ? MAX_QM_TX_QUEUES_K2
+-				      : MAX_QM_TX_QUEUES_BB) / num_funcs;
+-		dflt_resc_num &= ~0x7;
++		*p_resc_num = (b_ah ? MAX_QM_TX_QUEUES_K2 :
++			       MAX_QM_TX_QUEUES_BB) / num_funcs;
++		*p_resc_num &= ~0x7;	/* The granularity of the PQs is 8 */
+ 		break;
+ 	case QED_RL:
+-		dflt_resc_num = MAX_QM_GLOBAL_RLS / num_funcs;
++		*p_resc_num = MAX_QM_GLOBAL_RLS / num_funcs;
+ 		break;
+ 	case QED_MAC:
+ 	case QED_VLAN:
+ 		/* Each VFC resource can accommodate both a MAC and a VLAN */
+-		dflt_resc_num = ETH_NUM_MAC_FILTERS / num_funcs;
++		*p_resc_num = ETH_NUM_MAC_FILTERS / num_funcs;
+ 		break;
+ 	case QED_ILT:
+-		dflt_resc_num = (b_ah ? PXP_NUM_ILT_RECORDS_K2
+-				      : PXP_NUM_ILT_RECORDS_BB) / num_funcs;
++		*p_resc_num = (b_ah ? PXP_NUM_ILT_RECORDS_K2 :
++			       PXP_NUM_ILT_RECORDS_BB) / num_funcs;
+ 		break;
+ 	case QED_LL2_QUEUE:
+-		dflt_resc_num = MAX_NUM_LL2_RX_QUEUES / num_funcs;
++		*p_resc_num = MAX_NUM_LL2_RX_QUEUES / num_funcs;
+ 		break;
+ 	case QED_RDMA_CNQ_RAM:
+ 	case QED_CMDQS_CQS:
+ 		/* CNQ/CMDQS are the same resource */
+-		dflt_resc_num = NUM_OF_CMDQS_CQS / num_funcs;
++		*p_resc_num = NUM_OF_CMDQS_CQS / num_funcs;
+ 		break;
+ 	case QED_RDMA_STATS_QUEUE:
+-		dflt_resc_num = (b_ah ? RDMA_NUM_STATISTIC_COUNTERS_K2
+-				      : RDMA_NUM_STATISTIC_COUNTERS_BB) /
+-				num_funcs;
 -
-+		load_code = load_req_params.load_code;
- 		DP_VERBOSE(p_hwfn, QED_MSG_SP,
--			   "Load request was sent. Resp:0x%x, Load code: 0x%x\n",
--			   rc, load_code);
-+			   "Load request was sent. Load code: 0x%x\n",
-+			   load_code);
-+
-+		qed_reset_mb_shadow(p_hwfn, p_hwfn->p_main_ptt);
++		*p_resc_num = (b_ah ? RDMA_NUM_STATISTIC_COUNTERS_K2 :
++			       RDMA_NUM_STATISTIC_COUNTERS_BB) / num_funcs;
+ 		break;
+-	default:
++	case QED_BDQ:
++		if (p_hwfn->hw_info.personality != QED_PCI_ISCSI &&
++		    p_hwfn->hw_info.personality != QED_PCI_FCOE)
++			*p_resc_num = 0;
++		else
++			*p_resc_num = 1;
+ 		break;
++	case QED_SB:
++		memset(&sb_cnt_info, 0, sizeof(sb_cnt_info));
++		qed_int_get_num_sbs(p_hwfn, &sb_cnt_info);
++		*p_resc_num = sb_cnt_info.sb_cnt;
++		break;
++	default:
++		return -EINVAL;
+ 	}
  
- 		p_hwfn->first_on_engine = (load_code ==
- 					   FW_MSG_CODE_DRV_LOAD_ENGINE);
-@@ -1224,10 +1242,7 @@ int qed_hw_init(struct qed_dev *cdev, struct qed_hw_init_params *p_params)
+-	return dflt_resc_num;
+-}
+-
+-static const char *qed_hw_get_resc_name(enum qed_resources res_id)
+-{
+ 	switch (res_id) {
+-	case QED_SB:
+-		return "SB";
+-	case QED_L2_QUEUE:
+-		return "L2_QUEUE";
+-	case QED_VPORT:
+-		return "VPORT";
+-	case QED_RSS_ENG:
+-		return "RSS_ENG";
+-	case QED_PQ:
+-		return "PQ";
+-	case QED_RL:
+-		return "RL";
+-	case QED_MAC:
+-		return "MAC";
+-	case QED_VLAN:
+-		return "VLAN";
+-	case QED_RDMA_CNQ_RAM:
+-		return "RDMA_CNQ_RAM";
+-	case QED_ILT:
+-		return "ILT";
+-	case QED_LL2_QUEUE:
+-		return "LL2_QUEUE";
+-	case QED_CMDQS_CQS:
+-		return "CMDQS_CQS";
+-	case QED_RDMA_STATS_QUEUE:
+-		return "RDMA_STATS_QUEUE";
++	case QED_BDQ:
++		if (!*p_resc_num)
++			*p_resc_start = 0;
++		else if (p_hwfn->cdev->num_ports_in_engines == 4)
++			*p_resc_start = p_hwfn->port_id;
++		else if (p_hwfn->hw_info.personality == QED_PCI_ISCSI)
++			*p_resc_start = p_hwfn->port_id;
++		else if (p_hwfn->hw_info.personality == QED_PCI_FCOE)
++			*p_resc_start = p_hwfn->port_id + 2;
++		break;
+ 	default:
+-		return "UNKNOWN_RESOURCE";
++		*p_resc_start = *p_resc_num * p_hwfn->enabled_func_idx;
++		break;
+ 	}
++
++	return 0;
+ }
  
- 	if (IS_PF(cdev)) {
- 		p_hwfn = QED_LEADING_HWFN(cdev);
--		drv_mb_param = (FW_MAJOR_VERSION << 24) |
--			       (FW_MINOR_VERSION << 16) |
--			       (FW_REVISION_VERSION << 8) |
--			       (FW_ENGINEERING_VERSION);
-+		drv_mb_param = STORM_FW_VERSION;
- 		rc = qed_mcp_cmd(p_hwfn, p_hwfn->p_main_ptt,
- 				 DRV_MSG_CODE_OV_UPDATE_STORM_FW_VER,
- 				 drv_mb_param, &load_code, &param);
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_dev_api.h b/drivers/net/ethernet/qlogic/qed/qed_dev_api.h
-index 8f45f46..cb97349 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_dev_api.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_dev_api.h
-@@ -82,6 +82,35 @@ void qed_init_dp(struct qed_dev *cdev,
-  */
- void qed_resc_setup(struct qed_dev *cdev);
- 
-+enum qed_override_force_load {
-+	QED_OVERRIDE_FORCE_LOAD_NONE,
-+	QED_OVERRIDE_FORCE_LOAD_ALWAYS,
-+	QED_OVERRIDE_FORCE_LOAD_NEVER,
-+};
-+
-+struct qed_drv_load_params {
-+	/* Indicates whether the driver is running over a crash kernel.
-+	 * As part of the load request, this will be used for providing the
-+	 * driver role to the MFW.
-+	 * In case of a crash kernel over PDA - this should be set to false.
-+	 */
-+	bool is_crash_kernel;
-+
-+	/* The timeout value that the MFW should use when locking the engine for
-+	 * the driver load process.
-+	 * A value of '0' means the default value, and '255' means no timeout.
-+	 */
-+	u8 mfw_timeout_val;
-+#define QED_LOAD_REQ_LOCK_TO_DEFAULT    0
-+#define QED_LOAD_REQ_LOCK_TO_NONE       255
-+
-+	/* Avoid engine reset when first PF loads on it */
-+	bool avoid_eng_reset;
-+
-+	/* Allow overriding the default force load behavior */
-+	enum qed_override_force_load override_force_load;
-+};
-+
- struct qed_hw_init_params {
- 	/* Tunneling parameters */
- 	struct qed_tunn_start_params *p_tunn;
-@@ -96,6 +125,9 @@ struct qed_hw_init_params {
- 
- 	/* Binary fw data pointer in binary fw file */
- 	const u8 *bin_fw_data;
-+
-+	/* Driver load parameters */
-+	struct qed_drv_load_params *p_drv_load_params;
- };
- 
- /**
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_hsi.h b/drivers/net/ethernet/qlogic/qed/qed_hsi.h
-index e9acdc9..bf2b201 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_hsi.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_hsi.h
-@@ -9887,9 +9887,11 @@ struct public_func {
- #define DRV_ID_PDA_COMP_VER_MASK	0x0000ffff
- #define DRV_ID_PDA_COMP_VER_SHIFT	0
- 
-+#define LOAD_REQ_HSI_VERSION		2
- #define DRV_ID_MCP_HSI_VER_MASK		0x00ff0000
- #define DRV_ID_MCP_HSI_VER_SHIFT	16
--#define DRV_ID_MCP_HSI_VER_CURRENT	(1 << DRV_ID_MCP_HSI_VER_SHIFT)
-+#define DRV_ID_MCP_HSI_VER_CURRENT	(LOAD_REQ_HSI_VERSION << \
-+					 DRV_ID_MCP_HSI_VER_SHIFT)
- 
- #define DRV_ID_DRV_TYPE_MASK		0x7f000000
- #define DRV_ID_DRV_TYPE_SHIFT		24
-@@ -10001,6 +10003,46 @@ struct resource_info {
- #define RESOURCE_ELEMENT_STRICT (1 << 0)
- };
- 
-+#define DRV_ROLE_NONE           0
-+#define DRV_ROLE_PREBOOT        1
-+#define DRV_ROLE_OS             2
-+#define DRV_ROLE_KDUMP          3
-+
-+struct load_req_stc {
-+	u32 drv_ver_0;
-+	u32 drv_ver_1;
-+	u32 fw_ver;
-+	u32 misc0;
-+#define LOAD_REQ_ROLE_MASK              0x000000FF
-+#define LOAD_REQ_ROLE_SHIFT             0
-+#define LOAD_REQ_LOCK_TO_MASK           0x0000FF00
-+#define LOAD_REQ_LOCK_TO_SHIFT          8
-+#define LOAD_REQ_LOCK_TO_DEFAULT        0
-+#define LOAD_REQ_LOCK_TO_NONE           255
-+#define LOAD_REQ_FORCE_MASK             0x000F0000
-+#define LOAD_REQ_FORCE_SHIFT            16
-+#define LOAD_REQ_FORCE_NONE             0
-+#define LOAD_REQ_FORCE_PF               1
-+#define LOAD_REQ_FORCE_ALL              2
-+#define LOAD_REQ_FLAGS0_MASK            0x00F00000
-+#define LOAD_REQ_FLAGS0_SHIFT           20
-+#define LOAD_REQ_FLAGS0_AVOID_RESET     (0x1 << 0)
-+};
-+
-+struct load_rsp_stc {
-+	u32 drv_ver_0;
-+	u32 drv_ver_1;
-+	u32 fw_ver;
-+	u32 misc0;
-+#define LOAD_RSP_ROLE_MASK              0x000000FF
-+#define LOAD_RSP_ROLE_SHIFT             0
-+#define LOAD_RSP_HSI_MASK               0x0000FF00
-+#define LOAD_RSP_HSI_SHIFT              8
-+#define LOAD_RSP_FLAGS0_MASK            0x000F0000
-+#define LOAD_RSP_FLAGS0_SHIFT           16
-+#define LOAD_RSP_FLAGS0_DRV_EXISTS      (0x1 << 0)
-+};
-+
- union drv_union_data {
- 	u32 ver_str[MCP_DRV_VER_STR_SIZE_DWORD];
- 	struct mcp_mac wol_mac;
-@@ -10032,6 +10074,7 @@ struct public_drv_mb {
- #define DRV_MSG_CODE_LOAD_REQ			0x10000000
- #define DRV_MSG_CODE_LOAD_DONE			0x11000000
- #define DRV_MSG_CODE_INIT_HW			0x12000000
-+#define DRV_MSG_CODE_CANCEL_LOAD_REQ            0x13000000
- #define DRV_MSG_CODE_UNLOAD_REQ			0x20000000
- #define DRV_MSG_CODE_UNLOAD_DONE		0x21000000
- #define DRV_MSG_CODE_INIT_PHY			0x22000000
-@@ -10167,8 +10210,11 @@ struct public_drv_mb {
- #define FW_MSG_CODE_DRV_LOAD_PORT		0x10110000
- #define FW_MSG_CODE_DRV_LOAD_FUNCTION		0x10120000
- #define FW_MSG_CODE_DRV_LOAD_REFUSED_PDA	0x10200000
--#define FW_MSG_CODE_DRV_LOAD_REFUSED_HSI	0x10210000
-+#define FW_MSG_CODE_DRV_LOAD_REFUSED_HSI_1	0x10210000
- #define FW_MSG_CODE_DRV_LOAD_REFUSED_DIAG	0x10220000
-+#define FW_MSG_CODE_DRV_LOAD_REFUSED_HSI        0x10230000
-+#define FW_MSG_CODE_DRV_LOAD_REFUSED_REQUIRES_FORCE 0x10300000
-+#define FW_MSG_CODE_DRV_LOAD_REFUSED_REJECT     0x10310000
- #define FW_MSG_CODE_DRV_LOAD_DONE		0x11100000
- #define FW_MSG_CODE_DRV_UNLOAD_ENGINE		0x20110000
- #define FW_MSG_CODE_DRV_UNLOAD_PORT		0x20120000
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_main.c b/drivers/net/ethernet/qlogic/qed/qed_main.c
-index ae0ab3b..d4edb99 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_main.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_main.c
-@@ -45,6 +45,7 @@
- #include <linux/ethtool.h>
- #include <linux/etherdevice.h>
- #include <linux/vmalloc.h>
-+#include <linux/crash_dump.h>
- #include <linux/qed/qed_if.h>
- #include <linux/qed/qed_ll2_if.h>
- 
-@@ -901,6 +902,7 @@ static void qed_update_pf_params(struct qed_dev *cdev,
- static int qed_slowpath_start(struct qed_dev *cdev,
- 			      struct qed_slowpath_params *params)
+-static int qed_hw_set_resc_info(struct qed_hwfn *p_hwfn,
+-				enum qed_resources res_id)
++static int __qed_hw_set_resc_info(struct qed_hwfn *p_hwfn,
++				  enum qed_resources res_id)
  {
-+	struct qed_drv_load_params drv_load_params;
- 	struct qed_hw_init_params hw_init_params;
- 	struct qed_tunn_start_params tunn_info;
- 	struct qed_mcp_drv_version drv_version;
-@@ -974,6 +976,13 @@ static int qed_slowpath_start(struct qed_dev *cdev,
- 	hw_init_params.allow_npar_tx_switch = true;
- 	hw_init_params.bin_fw_data = data;
+-	u32 dflt_resc_num = 0, dflt_resc_start = 0, mcp_resp, mcp_param;
+-	u32 *p_resc_num, *p_resc_start;
+-	struct resource_info resc_info;
++	u32 dflt_resc_num = 0, dflt_resc_start = 0;
++	u32 mcp_resp, *p_resc_num, *p_resc_start;
+ 	int rc;
  
-+	memset(&drv_load_params, 0, sizeof(drv_load_params));
-+	drv_load_params.is_crash_kernel = is_kdump_kernel();
-+	drv_load_params.mfw_timeout_val = QED_LOAD_REQ_LOCK_TO_DEFAULT;
-+	drv_load_params.avoid_eng_reset = false;
-+	drv_load_params.override_force_load = QED_OVERRIDE_FORCE_LOAD_NONE;
-+	hw_init_params.p_drv_load_params = &drv_load_params;
-+
- 	rc = qed_hw_init(cdev, &hw_init_params);
- 	if (rc)
- 		goto err2;
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_mcp.c b/drivers/net/ethernet/qlogic/qed/qed_mcp.c
-index f2e5ab9..1a820b4 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_mcp.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_mcp.c
-@@ -598,48 +598,352 @@ int qed_mcp_nvm_rd_cmd(struct qed_hwfn *p_hwfn,
+ 	p_resc_num = &RESC_NUM(p_hwfn, res_id);
+ 	p_resc_start = &RESC_START(p_hwfn, res_id);
+ 
+-	/* Default values assumes that each function received equal share */
+-	dflt_resc_num = qed_hw_get_dflt_resc_num(p_hwfn, res_id);
+-	if (!dflt_resc_num) {
++	rc = qed_hw_get_dflt_resc(p_hwfn, res_id, &dflt_resc_num,
++				  &dflt_resc_start);
++	if (rc) {
+ 		DP_ERR(p_hwfn,
+ 		       "Failed to get default amount for resource %d [%s]\n",
+ 		       res_id, qed_hw_get_resc_name(res_id));
+-		return -EINVAL;
+-	}
+-	dflt_resc_start = dflt_resc_num * p_hwfn->enabled_func_idx;
+-
+-	memset(&resc_info, 0, sizeof(resc_info));
+-	resc_info.res_id = qed_hw_get_mfw_res_id(res_id);
+-	if (resc_info.res_id == RESOURCE_NUM_INVALID) {
+-		DP_ERR(p_hwfn,
+-		       "Failed to match resource %d [%s] with the MFW resources\n",
+-		       res_id, qed_hw_get_resc_name(res_id));
+-		return -EINVAL;
++		return rc;
+ 	}
+ 
+-	rc = qed_mcp_get_resc_info(p_hwfn, p_hwfn->p_main_ptt, &resc_info,
+-				   &mcp_resp, &mcp_param);
++	rc = qed_mcp_get_resc_info(p_hwfn, p_hwfn->p_main_ptt, res_id,
++				   &mcp_resp, p_resc_num, p_resc_start);
+ 	if (rc) {
+ 		DP_NOTICE(p_hwfn,
+ 			  "MFW response failure for an allocation request for resource %d [%s]\n",
+@@ -1758,13 +1793,12 @@ static int qed_hw_set_resc_info(struct qed_hwfn *p_hwfn,
+ 	 * - There is an internal error in the MFW while processing the request
+ 	 * - The resource ID is unknown to the MFW
+ 	 */
+-	if (mcp_resp != FW_MSG_CODE_RESOURCE_ALLOC_OK &&
+-	    mcp_resp != FW_MSG_CODE_RESOURCE_ALLOC_DEPRECATED) {
+-		DP_NOTICE(p_hwfn,
+-			  "Resource %d [%s]: No allocation info was received [mcp_resp 0x%x]. Applying default values [num %d, start %d].\n",
+-			  res_id,
+-			  qed_hw_get_resc_name(res_id),
+-			  mcp_resp, dflt_resc_num, dflt_resc_start);
++	if (mcp_resp != FW_MSG_CODE_RESOURCE_ALLOC_OK) {
++		DP_INFO(p_hwfn,
++			"Failed to receive allocation info for resource %d [%s]. mcp_resp = 0x%x. Applying default values [%d,%d].\n",
++			res_id,
++			qed_hw_get_resc_name(res_id),
++			mcp_resp, dflt_resc_num, dflt_resc_start);
+ 		*p_resc_num = dflt_resc_num;
+ 		*p_resc_start = dflt_resc_start;
+ 		goto out;
+@@ -1772,13 +1806,9 @@ static int qed_hw_set_resc_info(struct qed_hwfn *p_hwfn,
+ 
+ 	/* Special handling for status blocks; Would be revised in future */
+ 	if (res_id == QED_SB) {
+-		resc_info.size -= 1;
+-		resc_info.offset -= p_hwfn->enabled_func_idx;
++		*p_resc_num -= 1;
++		*p_resc_start -= p_hwfn->enabled_func_idx;
+ 	}
+-
+-	*p_resc_num = resc_info.size;
+-	*p_resc_start = resc_info.offset;
+-
+ out:
+ 	/* PQs have to divide by 8 [that's the HW granularity].
+ 	 * Reduce number so it would fit.
+@@ -1796,18 +1826,85 @@ static int qed_hw_set_resc_info(struct qed_hwfn *p_hwfn,
  	return 0;
  }
  
--int qed_mcp_load_req(struct qed_hwfn *p_hwfn,
--		     struct qed_ptt *p_ptt, u32 *p_load_code)
-+static bool
-+qed_mcp_can_force_load(u8 drv_role,
-+		       u8 exist_drv_role,
-+		       enum qed_override_force_load override_force_load)
-+{
-+	bool can_force_load = false;
+-static int qed_hw_get_resc(struct qed_hwfn *p_hwfn)
++static int qed_hw_set_resc_info(struct qed_hwfn *p_hwfn)
+ {
+-	bool b_ah = QED_IS_AH(p_hwfn->cdev);
+-	u8 res_id;
+ 	int rc;
++	u8 res_id;
+ 
+ 	for (res_id = 0; res_id < QED_MAX_RESC; res_id++) {
+-		rc = qed_hw_set_resc_info(p_hwfn, res_id);
++		rc = __qed_hw_set_resc_info(p_hwfn, res_id);
+ 		if (rc)
+ 			return rc;
+ 	}
+ 
++	return 0;
++}
 +
-+	switch (override_force_load) {
-+	case QED_OVERRIDE_FORCE_LOAD_ALWAYS:
-+		can_force_load = true;
++#define QED_RESC_ALLOC_LOCK_RETRY_CNT           10
++#define QED_RESC_ALLOC_LOCK_RETRY_INTVL_US      10000	/* 10 msec */
++
++static int qed_hw_get_resc(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
++{
++	struct qed_resc_unlock_params resc_unlock_params;
++	struct qed_resc_lock_params resc_lock_params;
++	bool b_ah = QED_IS_AH(p_hwfn->cdev);
++	u8 res_id;
++	int rc;
++
++	/* Setting the max values of the soft resources and the following
++	 * resources allocation queries should be atomic. Since several PFs can
++	 * run in parallel - a resource lock is needed.
++	 * If either the resource lock or resource set value commands are not
++	 * supported - skip the the max values setting, release the lock if
++	 * needed, and proceed to the queries. Other failures, including a
++	 * failure to acquire the lock, will cause this function to fail.
++	 */
++	memset(&resc_lock_params, 0, sizeof(resc_lock_params));
++	resc_lock_params.resource = QED_RESC_LOCK_RESC_ALLOC;
++	resc_lock_params.retry_num = QED_RESC_ALLOC_LOCK_RETRY_CNT;
++	resc_lock_params.retry_interval = QED_RESC_ALLOC_LOCK_RETRY_INTVL_US;
++	resc_lock_params.sleep_b4_retry = true;
++	memset(&resc_unlock_params, 0, sizeof(resc_unlock_params));
++	resc_unlock_params.resource = QED_RESC_LOCK_RESC_ALLOC;
++
++	rc = qed_mcp_resc_lock(p_hwfn, p_ptt, &resc_lock_params);
++	if (rc && rc != -EINVAL) {
++		return rc;
++	} else if (rc == -EINVAL) {
++		DP_INFO(p_hwfn,
++			"Skip the max values setting of the soft resources since the resource lock is not supported by the MFW\n");
++	} else if (!rc && !resc_lock_params.b_granted) {
++		DP_NOTICE(p_hwfn,
++			  "Failed to acquire the resource lock for the resource allocation commands\n");
++		return -EBUSY;
++	} else {
++		rc = qed_hw_set_soft_resc_size(p_hwfn, p_ptt);
++		if (rc && rc != -EINVAL) {
++			DP_NOTICE(p_hwfn,
++				  "Failed to set the max values of the soft resources\n");
++			goto unlock_and_exit;
++		} else if (rc == -EINVAL) {
++			DP_INFO(p_hwfn,
++				"Skip the max values setting of the soft resources since it is not supported by the MFW\n");
++			rc = qed_mcp_resc_unlock(p_hwfn, p_ptt,
++						 &resc_unlock_params);
++			if (rc)
++				DP_INFO(p_hwfn,
++					"Failed to release the resource lock for the resource allocation commands\n");
++		}
++	}
++
++	rc = qed_hw_set_resc_info(p_hwfn);
++	if (rc)
++		goto unlock_and_exit;
++
++	if (resc_lock_params.b_granted && !resc_unlock_params.b_released) {
++		rc = qed_mcp_resc_unlock(p_hwfn, p_ptt, &resc_unlock_params);
++		if (rc)
++			DP_INFO(p_hwfn,
++				"Failed to release the resource lock for the resource allocation commands\n");
++	}
++
+ 	/* Sanity for ILT */
+ 	if ((b_ah && (RESC_END(p_hwfn, QED_ILT) > PXP_NUM_ILT_RECORDS_K2)) ||
+ 	    (!b_ah && (RESC_END(p_hwfn, QED_ILT) > PXP_NUM_ILT_RECORDS_BB))) {
+@@ -1819,8 +1916,6 @@ static int qed_hw_get_resc(struct qed_hwfn *p_hwfn)
+ 
+ 	qed_hw_set_feat(p_hwfn);
+ 
+-	DP_VERBOSE(p_hwfn, NETIF_MSG_PROBE,
+-		   "The numbers for each resource are:\n");
+ 	for (res_id = 0; res_id < QED_MAX_RESC; res_id++)
+ 		DP_VERBOSE(p_hwfn, NETIF_MSG_PROBE, "%s = %d start = %d\n",
+ 			   qed_hw_get_resc_name(res_id),
+@@ -1828,6 +1923,11 @@ static int qed_hw_get_resc(struct qed_hwfn *p_hwfn)
+ 			   RESC_START(p_hwfn, res_id));
+ 
+ 	return 0;
++
++unlock_and_exit:
++	if (resc_lock_params.b_granted && !resc_unlock_params.b_released)
++		qed_mcp_resc_unlock(p_hwfn, p_ptt, &resc_unlock_params);
++	return rc;
+ }
+ 
+ static int qed_hw_get_nvm_info(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
+@@ -2158,7 +2258,7 @@ static void qed_hw_info_port_num(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
+ 	if (qed_mcp_is_init(p_hwfn))
+ 		p_hwfn->hw_info.mtu = p_hwfn->mcp_info->func_info.mtu;
+ 
+-	return qed_hw_get_resc(p_hwfn);
++	return qed_hw_get_resc(p_hwfn, p_ptt);
+ }
+ 
+ static int qed_get_dev_info(struct qed_dev *cdev)
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_dev_api.h b/drivers/net/ethernet/qlogic/qed/qed_dev_api.h
+index cb97349..2c6637f 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_dev_api.h
++++ b/drivers/net/ethernet/qlogic/qed/qed_dev_api.h
+@@ -470,4 +470,6 @@ int qed_set_rxq_coalesce(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt,
+  */
+ int qed_set_txq_coalesce(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt,
+ 			 u16 coalesce, u8 qid, u16 sb_id);
++
++const char *qed_hw_get_resc_name(enum qed_resources res_id);
+ #endif
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_hsi.h b/drivers/net/ethernet/qlogic/qed/qed_hsi.h
+index 4346399..c6b9a3f 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_hsi.h
++++ b/drivers/net/ethernet/qlogic/qed/qed_hsi.h
+@@ -9986,6 +9986,7 @@ enum resource_id_enum {
+ 	RESOURCE_NUM_RSS_ENGINES_E = 14,
+ 	RESOURCE_LL2_QUEUE_E = 15,
+ 	RESOURCE_RDMA_STATS_QUEUE_E = 16,
++	RESOURCE_BDQ_E = 17,
+ 	RESOURCE_MAX_NUM,
+ 	RESOURCE_NUM_INVALID = 0xFFFFFFFF
+ };
+@@ -10087,12 +10088,13 @@ struct public_drv_mb {
+ #define DRV_MSG_CODE_OV_UPDATE_DRIVER_STATE     0x31000000
+ #define DRV_MSG_CODE_BW_UPDATE_ACK              0x32000000
+ #define DRV_MSG_CODE_OV_UPDATE_MTU              0x33000000
++#define DRV_MSG_GET_RESOURCE_ALLOC_MSG		0x34000000
++#define DRV_MSG_SET_RESOURCE_VALUE_MSG		0x35000000
+ #define DRV_MSG_CODE_OV_UPDATE_WOL              0x38000000
+ #define DRV_MSG_CODE_OV_UPDATE_ESWITCH_MODE     0x39000000
+ 
+ #define DRV_MSG_CODE_BW_UPDATE_ACK		0x32000000
+ #define DRV_MSG_CODE_NIG_DRAIN			0x30000000
+-#define DRV_MSG_GET_RESOURCE_ALLOC_MSG          0x34000000
+ #define DRV_MSG_CODE_INITIATE_PF_FLR            0x02010000
+ #define DRV_MSG_CODE_VF_DISABLED_DONE		0xc0000000
+ #define DRV_MSG_CODE_CFG_VF_MSIX		0xc0010000
+@@ -10263,6 +10265,10 @@ struct public_drv_mb {
+ #define FW_MSG_SEQ_NUMBER_MASK			0x0000ffff
+ 
+ 	u32 fw_mb_param;
++#define FW_MB_PARAM_RESOURCE_ALLOC_VERSION_MAJOR_MASK	0xFFFF0000
++#define FW_MB_PARAM_RESOURCE_ALLOC_VERSION_MAJOR_SHIFT	16
++#define FW_MB_PARAM_RESOURCE_ALLOC_VERSION_MINOR_MASK	0x0000FFFF
++#define FW_MB_PARAM_RESOURCE_ALLOC_VERSION_MINOR_SHIFT	0
+ 
+ 	/* get pf rdma protocol command responce */
+ #define FW_MB_PARAM_GET_PF_RDMA_NONE		0x0
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_mcp.c b/drivers/net/ethernet/qlogic/qed/qed_mcp.c
+index ddcbc24..619eac8 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_mcp.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_mcp.c
+@@ -2220,46 +2220,212 @@ int qed_mcp_bist_nvm_test_get_image_att(struct qed_hwfn *p_hwfn,
+ 	return rc;
+ }
+ 
+-#define QED_RESC_ALLOC_VERSION_MAJOR    1
++static enum resource_id_enum qed_mcp_get_mfw_res_id(enum qed_resources res_id)
++{
++	enum resource_id_enum mfw_res_id = RESOURCE_NUM_INVALID;
++
++	switch (res_id) {
++	case QED_SB:
++		mfw_res_id = RESOURCE_NUM_SB_E;
 +		break;
-+	case QED_OVERRIDE_FORCE_LOAD_NEVER:
-+		can_force_load = false;
++	case QED_L2_QUEUE:
++		mfw_res_id = RESOURCE_NUM_L2_QUEUE_E;
++		break;
++	case QED_VPORT:
++		mfw_res_id = RESOURCE_NUM_VPORT_E;
++		break;
++	case QED_RSS_ENG:
++		mfw_res_id = RESOURCE_NUM_RSS_ENGINES_E;
++		break;
++	case QED_PQ:
++		mfw_res_id = RESOURCE_NUM_PQ_E;
++		break;
++	case QED_RL:
++		mfw_res_id = RESOURCE_NUM_RL_E;
++		break;
++	case QED_MAC:
++	case QED_VLAN:
++		/* Each VFC resource can accommodate both a MAC and a VLAN */
++		mfw_res_id = RESOURCE_VFC_FILTER_E;
++		break;
++	case QED_ILT:
++		mfw_res_id = RESOURCE_ILT_E;
++		break;
++	case QED_LL2_QUEUE:
++		mfw_res_id = RESOURCE_LL2_QUEUE_E;
++		break;
++	case QED_RDMA_CNQ_RAM:
++	case QED_CMDQS_CQS:
++		/* CNQ/CMDQS are the same resource */
++		mfw_res_id = RESOURCE_CQS_E;
++		break;
++	case QED_RDMA_STATS_QUEUE:
++		mfw_res_id = RESOURCE_RDMA_STATS_QUEUE_E;
++		break;
++	case QED_BDQ:
++		mfw_res_id = RESOURCE_BDQ_E;
 +		break;
 +	default:
-+		can_force_load = (drv_role == DRV_ROLE_OS &&
-+				  exist_drv_role == DRV_ROLE_PREBOOT) ||
-+				 (drv_role == DRV_ROLE_KDUMP &&
-+				  exist_drv_role == DRV_ROLE_OS);
 +		break;
 +	}
 +
-+	return can_force_load;
++	return mfw_res_id;
 +}
 +
-+static int qed_mcp_cancel_load_req(struct qed_hwfn *p_hwfn,
-+				   struct qed_ptt *p_ptt)
-+{
-+	u32 resp = 0, param = 0;
-+	int rc;
++#define QED_RESC_ALLOC_VERSION_MAJOR    2
+ #define QED_RESC_ALLOC_VERSION_MINOR    0
+ #define QED_RESC_ALLOC_VERSION				     \
+ 	((QED_RESC_ALLOC_VERSION_MAJOR <<		     \
+ 	  DRV_MB_PARAM_RESOURCE_ALLOC_VERSION_MAJOR_SHIFT) | \
+ 	 (QED_RESC_ALLOC_VERSION_MINOR <<		     \
+ 	  DRV_MB_PARAM_RESOURCE_ALLOC_VERSION_MINOR_SHIFT))
+-int qed_mcp_get_resc_info(struct qed_hwfn *p_hwfn,
+-			  struct qed_ptt *p_ptt,
+-			  struct resource_info *p_resc_info,
+-			  u32 *p_mcp_resp, u32 *p_mcp_param)
 +
-+	rc = qed_mcp_cmd(p_hwfn, p_ptt, DRV_MSG_CODE_CANCEL_LOAD_REQ, 0,
-+			 &resp, &param);
-+	if (rc)
-+		DP_NOTICE(p_hwfn,
-+			  "Failed to send cancel load request, rc = %d\n", rc);
-+
-+	return rc;
-+}
-+
-+#define CONFIG_QEDE_BITMAP_IDX		BIT(0)
-+#define CONFIG_QED_SRIOV_BITMAP_IDX	BIT(1)
-+#define CONFIG_QEDR_BITMAP_IDX		BIT(2)
-+#define CONFIG_QEDF_BITMAP_IDX		BIT(4)
-+#define CONFIG_QEDI_BITMAP_IDX		BIT(5)
-+#define CONFIG_QED_LL2_BITMAP_IDX	BIT(6)
-+
-+static u32 qed_get_config_bitmap(void)
-+{
-+	u32 config_bitmap = 0x0;
-+
-+	if (IS_ENABLED(CONFIG_QEDE))
-+		config_bitmap |= CONFIG_QEDE_BITMAP_IDX;
-+
-+	if (IS_ENABLED(CONFIG_QED_SRIOV))
-+		config_bitmap |= CONFIG_QED_SRIOV_BITMAP_IDX;
-+
-+	if (IS_ENABLED(CONFIG_QED_RDMA))
-+		config_bitmap |= CONFIG_QEDR_BITMAP_IDX;
-+
-+	if (IS_ENABLED(CONFIG_QED_FCOE))
-+		config_bitmap |= CONFIG_QEDF_BITMAP_IDX;
-+
-+	if (IS_ENABLED(CONFIG_QED_ISCSI))
-+		config_bitmap |= CONFIG_QEDI_BITMAP_IDX;
-+
-+	if (IS_ENABLED(CONFIG_QED_LL2))
-+		config_bitmap |= CONFIG_QED_LL2_BITMAP_IDX;
-+
-+	return config_bitmap;
-+}
-+
-+struct qed_load_req_in_params {
-+	u8 hsi_ver;
-+#define QED_LOAD_REQ_HSI_VER_DEFAULT	0
-+#define QED_LOAD_REQ_HSI_VER_1		1
-+	u32 drv_ver_0;
-+	u32 drv_ver_1;
-+	u32 fw_ver;
-+	u8 drv_role;
-+	u8 timeout_val;
-+	u8 force_cmd;
-+	bool avoid_eng_reset;
++struct qed_resc_alloc_in_params {
++	u32 cmd;
++	enum qed_resources res_id;
++	u32 resc_max_val;
 +};
 +
-+struct qed_load_req_out_params {
-+	u32 load_code;
-+	u32 exist_drv_ver_0;
-+	u32 exist_drv_ver_1;
-+	u32 exist_fw_ver;
-+	u8 exist_drv_role;
-+	u8 mfw_hsi_ver;
-+	bool drv_exists;
++struct qed_resc_alloc_out_params {
++	u32 mcp_resp;
++	u32 mcp_param;
++	u32 resc_num;
++	u32 resc_start;
++	u32 vf_resc_num;
++	u32 vf_resc_start;
++	u32 flags;
 +};
 +
 +static int
-+__qed_mcp_load_req(struct qed_hwfn *p_hwfn,
-+		   struct qed_ptt *p_ptt,
-+		   struct qed_load_req_in_params *p_in_params,
-+		   struct qed_load_req_out_params *p_out_params)
++qed_mcp_resc_allocation_msg(struct qed_hwfn *p_hwfn,
++			    struct qed_ptt *p_ptt,
++			    struct qed_resc_alloc_in_params *p_in_params,
++			    struct qed_resc_alloc_out_params *p_out_params)
  {
--	struct qed_dev *cdev = p_hwfn->cdev;
  	struct qed_mcp_mb_params mb_params;
--	union drv_union_data union_data;
-+	struct load_req_stc load_req;
-+	struct load_rsp_stc load_rsp;
-+	u32 hsi_ver;
++	struct resource_info mfw_resc_info;
  	int rc;
  
-+	memset(&load_req, 0, sizeof(load_req));
-+	load_req.drv_ver_0 = p_in_params->drv_ver_0;
-+	load_req.drv_ver_1 = p_in_params->drv_ver_1;
-+	load_req.fw_ver = p_in_params->fw_ver;
-+	QED_MFW_SET_FIELD(load_req.misc0, LOAD_REQ_ROLE, p_in_params->drv_role);
-+	QED_MFW_SET_FIELD(load_req.misc0, LOAD_REQ_LOCK_TO,
-+			  p_in_params->timeout_val);
-+	QED_MFW_SET_FIELD(load_req.misc0, LOAD_REQ_FORCE,
-+			  p_in_params->force_cmd);
-+	QED_MFW_SET_FIELD(load_req.misc0, LOAD_REQ_FLAGS0,
-+			  p_in_params->avoid_eng_reset);
++	memset(&mfw_resc_info, 0, sizeof(mfw_resc_info));
 +
-+	hsi_ver = (p_in_params->hsi_ver == QED_LOAD_REQ_HSI_VER_DEFAULT) ?
-+		  DRV_ID_MCP_HSI_VER_CURRENT :
-+		  (p_in_params->hsi_ver << DRV_ID_MCP_HSI_VER_SHIFT);
-+
- 	memset(&mb_params, 0, sizeof(mb_params));
--	/* Load Request */
- 	mb_params.cmd = DRV_MSG_CODE_LOAD_REQ;
--	mb_params.param = PDA_COMP | DRV_ID_MCP_HSI_VER_CURRENT |
--			  cdev->drv_type;
--	memcpy(&union_data.ver_str, cdev->ver_str, MCP_DRV_VER_STR_SIZE);
--	mb_params.p_data_src = &union_data;
--	mb_params.data_src_size = sizeof(union_data.ver_str);
--	rc = qed_mcp_cmd_and_union(p_hwfn, p_ptt, &mb_params);
-+	mb_params.param = PDA_COMP | hsi_ver | p_hwfn->cdev->drv_type;
-+	mb_params.p_data_src = &load_req;
-+	mb_params.data_src_size = sizeof(load_req);
-+	mb_params.p_data_dst = &load_rsp;
-+	mb_params.data_dst_size = sizeof(load_rsp);
- 
--	/* if mcp fails to respond we must abort */
-+	DP_VERBOSE(p_hwfn, QED_MSG_SP,
-+		   "Load Request: param 0x%08x [init_hw %d, drv_type %d, hsi_ver %d, pda 0x%04x]\n",
-+		   mb_params.param,
-+		   QED_MFW_GET_FIELD(mb_params.param, DRV_ID_DRV_INIT_HW),
-+		   QED_MFW_GET_FIELD(mb_params.param, DRV_ID_DRV_TYPE),
-+		   QED_MFW_GET_FIELD(mb_params.param, DRV_ID_MCP_HSI_VER),
-+		   QED_MFW_GET_FIELD(mb_params.param, DRV_ID_PDA_COMP_VER));
-+
-+	if (p_in_params->hsi_ver != QED_LOAD_REQ_HSI_VER_1) {
-+		DP_VERBOSE(p_hwfn, QED_MSG_SP,
-+			   "Load Request: drv_ver 0x%08x_0x%08x, fw_ver 0x%08x, misc0 0x%08x [role %d, timeout %d, force %d, flags0 0x%x]\n",
-+			   load_req.drv_ver_0,
-+			   load_req.drv_ver_1,
-+			   load_req.fw_ver,
-+			   load_req.misc0,
-+			   QED_MFW_GET_FIELD(load_req.misc0, LOAD_REQ_ROLE),
-+			   QED_MFW_GET_FIELD(load_req.misc0,
-+					     LOAD_REQ_LOCK_TO),
-+			   QED_MFW_GET_FIELD(load_req.misc0, LOAD_REQ_FORCE),
-+			   QED_MFW_GET_FIELD(load_req.misc0, LOAD_REQ_FLAGS0));
-+	}
-+
-+	rc = qed_mcp_cmd_and_union(p_hwfn, p_ptt, &mb_params);
- 	if (rc) {
--		DP_ERR(p_hwfn, "MCP response failure, aborting\n");
-+		DP_NOTICE(p_hwfn, "Failed to send load request, rc = %d\n", rc);
- 		return rc;
- 	}
- 
--	*p_load_code = mb_params.mcp_resp;
-+	DP_VERBOSE(p_hwfn, QED_MSG_SP,
-+		   "Load Response: resp 0x%08x\n", mb_params.mcp_resp);
-+	p_out_params->load_code = mb_params.mcp_resp;
- 
--	/* If MFW refused (e.g. other port is in diagnostic mode) we
--	 * must abort. This can happen in the following cases:
--	 * - Other port is in diagnostic mode
--	 * - Previously loaded function on the engine is not compliant with
--	 *   the requester.
--	 * - MFW cannot cope with the requester's DRV_MFW_HSI_VERSION.
--	 *      -
-+	if (p_in_params->hsi_ver != QED_LOAD_REQ_HSI_VER_1 &&
-+	    p_out_params->load_code != FW_MSG_CODE_DRV_LOAD_REFUSED_HSI_1) {
-+		DP_VERBOSE(p_hwfn,
-+			   QED_MSG_SP,
-+			   "Load Response: exist_drv_ver 0x%08x_0x%08x, exist_fw_ver 0x%08x, misc0 0x%08x [exist_role %d, mfw_hsi %d, flags0 0x%x]\n",
-+			   load_rsp.drv_ver_0,
-+			   load_rsp.drv_ver_1,
-+			   load_rsp.fw_ver,
-+			   load_rsp.misc0,
-+			   QED_MFW_GET_FIELD(load_rsp.misc0, LOAD_RSP_ROLE),
-+			   QED_MFW_GET_FIELD(load_rsp.misc0, LOAD_RSP_HSI),
-+			   QED_MFW_GET_FIELD(load_rsp.misc0, LOAD_RSP_FLAGS0));
-+
-+		p_out_params->exist_drv_ver_0 = load_rsp.drv_ver_0;
-+		p_out_params->exist_drv_ver_1 = load_rsp.drv_ver_1;
-+		p_out_params->exist_fw_ver = load_rsp.fw_ver;
-+		p_out_params->exist_drv_role =
-+		    QED_MFW_GET_FIELD(load_rsp.misc0, LOAD_RSP_ROLE);
-+		p_out_params->mfw_hsi_ver =
-+		    QED_MFW_GET_FIELD(load_rsp.misc0, LOAD_RSP_HSI);
-+		p_out_params->drv_exists =
-+		    QED_MFW_GET_FIELD(load_rsp.misc0, LOAD_RSP_FLAGS0) &
-+		    LOAD_RSP_FLAGS0_DRV_EXISTS;
-+	}
-+
-+	return 0;
-+}
-+
-+static int eocre_get_mfw_drv_role(struct qed_hwfn *p_hwfn,
-+				  enum qed_drv_role drv_role,
-+				  u8 *p_mfw_drv_role)
-+{
-+	switch (drv_role) {
-+	case QED_DRV_ROLE_OS:
-+		*p_mfw_drv_role = DRV_ROLE_OS;
-+		break;
-+	case QED_DRV_ROLE_KDUMP:
-+		*p_mfw_drv_role = DRV_ROLE_KDUMP;
-+		break;
-+	default:
-+		DP_ERR(p_hwfn, "Unexpected driver role %d\n", drv_role);
++	mfw_resc_info.res_id = qed_mcp_get_mfw_res_id(p_in_params->res_id);
++	if (mfw_resc_info.res_id == RESOURCE_NUM_INVALID) {
++		DP_ERR(p_hwfn,
++		       "Failed to match resource %d [%s] with the MFW resources\n",
++		       p_in_params->res_id,
++		       qed_hw_get_resc_name(p_in_params->res_id));
 +		return -EINVAL;
 +	}
 +
++	switch (p_in_params->cmd) {
++	case DRV_MSG_SET_RESOURCE_VALUE_MSG:
++		mfw_resc_info.size = p_in_params->resc_max_val;
++		/* Fallthrough */
++	case DRV_MSG_GET_RESOURCE_ALLOC_MSG:
++		break;
++	default:
++		DP_ERR(p_hwfn, "Unexpected resource alloc command [0x%08x]\n",
++		       p_in_params->cmd);
++		return -EINVAL;
++	}
++
+ 	memset(&mb_params, 0, sizeof(mb_params));
+-	mb_params.cmd = DRV_MSG_GET_RESOURCE_ALLOC_MSG;
++	mb_params.cmd = p_in_params->cmd;
+ 	mb_params.param = QED_RESC_ALLOC_VERSION;
++	mb_params.p_data_src = &mfw_resc_info;
++	mb_params.data_src_size = sizeof(mfw_resc_info);
++	mb_params.p_data_dst = mb_params.p_data_src;
++	mb_params.data_dst_size = mb_params.data_src_size;
++
++	DP_VERBOSE(p_hwfn,
++		   QED_MSG_SP,
++		   "Resource message request: cmd 0x%08x, res_id %d [%s], hsi_version %d.%d, val 0x%x\n",
++		   p_in_params->cmd,
++		   p_in_params->res_id,
++		   qed_hw_get_resc_name(p_in_params->res_id),
++		   QED_MFW_GET_FIELD(mb_params.param,
++				     DRV_MB_PARAM_RESOURCE_ALLOC_VERSION_MAJOR),
++		   QED_MFW_GET_FIELD(mb_params.param,
++				     DRV_MB_PARAM_RESOURCE_ALLOC_VERSION_MINOR),
++		   p_in_params->resc_max_val);
+ 
+-	mb_params.p_data_src = p_resc_info;
+-	mb_params.data_src_size = sizeof(*p_resc_info);
+-	mb_params.p_data_dst = p_resc_info;
+-	mb_params.data_dst_size = sizeof(*p_resc_info);
+ 	rc = qed_mcp_cmd_and_union(p_hwfn, p_ptt, &mb_params);
+ 	if (rc)
+ 		return rc;
+ 
+-	/* Copy the data back */
+-	*p_mcp_resp = mb_params.mcp_resp;
+-	*p_mcp_param = mb_params.mcp_param;
++	p_out_params->mcp_resp = mb_params.mcp_resp;
++	p_out_params->mcp_param = mb_params.mcp_param;
++	p_out_params->resc_num = mfw_resc_info.size;
++	p_out_params->resc_start = mfw_resc_info.offset;
++	p_out_params->vf_resc_num = mfw_resc_info.vf_size;
++	p_out_params->vf_resc_start = mfw_resc_info.vf_offset;
++	p_out_params->flags = mfw_resc_info.flags;
+ 
+ 	DP_VERBOSE(p_hwfn,
+ 		   QED_MSG_SP,
+-		   "MFW resource_info: version 0x%x, res_id 0x%x, size 0x%x, offset 0x%x, vf_size 0x%x, vf_offset 0x%x, flags 0x%x\n",
+-		   *p_mcp_param,
+-		   p_resc_info->res_id,
+-		   p_resc_info->size,
+-		   p_resc_info->offset,
+-		   p_resc_info->vf_size,
+-		   p_resc_info->vf_offset, p_resc_info->flags);
++		   "Resource message response: mfw_hsi_version %d.%d, num 0x%x, start 0x%x, vf_num 0x%x, vf_start 0x%x, flags 0x%08x\n",
++		   QED_MFW_GET_FIELD(p_out_params->mcp_param,
++				     FW_MB_PARAM_RESOURCE_ALLOC_VERSION_MAJOR),
++		   QED_MFW_GET_FIELD(p_out_params->mcp_param,
++				     FW_MB_PARAM_RESOURCE_ALLOC_VERSION_MINOR),
++		   p_out_params->resc_num,
++		   p_out_params->resc_start,
++		   p_out_params->vf_resc_num,
++		   p_out_params->vf_resc_start, p_out_params->flags);
++
 +	return 0;
 +}
 +
-+enum qed_load_req_force {
-+	QED_LOAD_REQ_FORCE_NONE,
-+	QED_LOAD_REQ_FORCE_PF,
-+	QED_LOAD_REQ_FORCE_ALL,
-+};
-+
-+static void qed_get_mfw_force_cmd(struct qed_hwfn *p_hwfn,
-+
-+				  enum qed_load_req_force force_cmd,
-+				  u8 *p_mfw_force_cmd)
++int
++qed_mcp_set_resc_max_val(struct qed_hwfn *p_hwfn,
++			 struct qed_ptt *p_ptt,
++			 enum qed_resources res_id,
++			 u32 resc_max_val, u32 *p_mcp_resp)
 +{
-+	switch (force_cmd) {
-+	case QED_LOAD_REQ_FORCE_NONE:
-+		*p_mfw_force_cmd = LOAD_REQ_FORCE_NONE;
-+		break;
-+	case QED_LOAD_REQ_FORCE_PF:
-+		*p_mfw_force_cmd = LOAD_REQ_FORCE_PF;
-+		break;
-+	case QED_LOAD_REQ_FORCE_ALL:
-+		*p_mfw_force_cmd = LOAD_REQ_FORCE_ALL;
-+		break;
-+	}
-+}
-+
-+int qed_mcp_load_req(struct qed_hwfn *p_hwfn,
-+		     struct qed_ptt *p_ptt,
-+		     struct qed_load_req_params *p_params)
-+{
-+	struct qed_load_req_out_params out_params;
-+	struct qed_load_req_in_params in_params;
-+	u8 mfw_drv_role, mfw_force_cmd;
++	struct qed_resc_alloc_out_params out_params;
++	struct qed_resc_alloc_in_params in_params;
 +	int rc;
 +
 +	memset(&in_params, 0, sizeof(in_params));
-+	in_params.hsi_ver = QED_LOAD_REQ_HSI_VER_DEFAULT;
-+	in_params.drv_ver_0 = QED_VERSION;
-+	in_params.drv_ver_1 = qed_get_config_bitmap();
-+	in_params.fw_ver = STORM_FW_VERSION;
-+	rc = eocre_get_mfw_drv_role(p_hwfn, p_params->drv_role, &mfw_drv_role);
-+	if (rc)
-+		return rc;
-+
-+	in_params.drv_role = mfw_drv_role;
-+	in_params.timeout_val = p_params->timeout_val;
-+	qed_get_mfw_force_cmd(p_hwfn,
-+			      QED_LOAD_REQ_FORCE_NONE, &mfw_force_cmd);
-+
-+	in_params.force_cmd = mfw_force_cmd;
-+	in_params.avoid_eng_reset = p_params->avoid_eng_reset;
-+
++	in_params.cmd = DRV_MSG_SET_RESOURCE_VALUE_MSG;
++	in_params.res_id = res_id;
++	in_params.resc_max_val = resc_max_val;
 +	memset(&out_params, 0, sizeof(out_params));
-+	rc = __qed_mcp_load_req(p_hwfn, p_ptt, &in_params, &out_params);
++	rc = qed_mcp_resc_allocation_msg(p_hwfn, p_ptt, &in_params,
++					 &out_params);
 +	if (rc)
 +		return rc;
 +
-+	/* First handle cases where another load request should/might be sent:
-+	 * - MFW expects the old interface [HSI version = 1]
-+	 * - MFW responds that a force load request is required
- 	 */
--	if (!(*p_load_code) ||
--	    ((*p_load_code) == FW_MSG_CODE_DRV_LOAD_REFUSED_HSI) ||
--	    ((*p_load_code) == FW_MSG_CODE_DRV_LOAD_REFUSED_PDA) ||
--	    ((*p_load_code) == FW_MSG_CODE_DRV_LOAD_REFUSED_DIAG)) {
--		DP_ERR(p_hwfn, "MCP refused load request, aborting\n");
-+	if (out_params.load_code == FW_MSG_CODE_DRV_LOAD_REFUSED_HSI_1) {
-+		DP_INFO(p_hwfn,
-+			"MFW refused a load request due to HSI > 1. Resending with HSI = 1\n");
++	*p_mcp_resp = out_params.mcp_resp;
 +
-+		in_params.hsi_ver = QED_LOAD_REQ_HSI_VER_1;
-+		memset(&out_params, 0, sizeof(out_params));
-+		rc = __qed_mcp_load_req(p_hwfn, p_ptt, &in_params, &out_params);
-+		if (rc)
-+			return rc;
-+	} else if (out_params.load_code ==
-+		   FW_MSG_CODE_DRV_LOAD_REFUSED_REQUIRES_FORCE) {
-+		if (qed_mcp_can_force_load(in_params.drv_role,
-+					   out_params.exist_drv_role,
-+					   p_params->override_force_load)) {
-+			DP_INFO(p_hwfn,
-+				"A force load is required [{role, fw_ver, drv_ver}: loading={%d, 0x%08x, x%08x_0x%08x}, existing={%d, 0x%08x, 0x%08x_0x%08x}]\n",
-+				in_params.drv_role, in_params.fw_ver,
-+				in_params.drv_ver_0, in_params.drv_ver_1,
-+				out_params.exist_drv_role,
-+				out_params.exist_fw_ver,
-+				out_params.exist_drv_ver_0,
-+				out_params.exist_drv_ver_1);
++	return 0;
++}
 +
-+			qed_get_mfw_force_cmd(p_hwfn,
-+					      QED_LOAD_REQ_FORCE_ALL,
-+					      &mfw_force_cmd);
++int
++qed_mcp_get_resc_info(struct qed_hwfn *p_hwfn,
++		      struct qed_ptt *p_ptt,
++		      enum qed_resources res_id,
++		      u32 *p_mcp_resp, u32 *p_resc_num, u32 *p_resc_start)
++{
++	struct qed_resc_alloc_out_params out_params;
++	struct qed_resc_alloc_in_params in_params;
++	int rc;
 +
-+			in_params.force_cmd = mfw_force_cmd;
-+			memset(&out_params, 0, sizeof(out_params));
-+			rc = __qed_mcp_load_req(p_hwfn, p_ptt, &in_params,
-+						&out_params);
-+			if (rc)
-+				return rc;
-+		} else {
-+			DP_NOTICE(p_hwfn,
-+				  "A force load is required [{role, fw_ver, drv_ver}: loading={%d, 0x%08x, x%08x_0x%08x}, existing={%d, 0x%08x, 0x%08x_0x%08x}] - Avoid\n",
-+				  in_params.drv_role, in_params.fw_ver,
-+				  in_params.drv_ver_0, in_params.drv_ver_1,
-+				  out_params.exist_drv_role,
-+				  out_params.exist_fw_ver,
-+				  out_params.exist_drv_ver_0,
-+				  out_params.exist_drv_ver_1);
-+			DP_NOTICE(p_hwfn,
-+				  "Avoid sending a force load request to prevent disruption of active PFs\n");
++	memset(&in_params, 0, sizeof(in_params));
++	in_params.cmd = DRV_MSG_GET_RESOURCE_ALLOC_MSG;
++	in_params.res_id = res_id;
++	memset(&out_params, 0, sizeof(out_params));
++	rc = qed_mcp_resc_allocation_msg(p_hwfn, p_ptt, &in_params,
++					 &out_params);
++	if (rc)
++		return rc;
 +
-+			qed_mcp_cancel_load_req(p_hwfn, p_ptt);
-+			return -EBUSY;
-+		}
++	*p_mcp_resp = out_params.mcp_resp;
++
++	if (*p_mcp_resp == FW_MSG_CODE_RESOURCE_ALLOC_OK) {
++		*p_resc_num = out_params.resc_num;
++		*p_resc_start = out_params.resc_start;
 +	}
-+
-+	/* Now handle the other types of responses.
-+	 * The "REFUSED_HSI_1" and "REFUSED_REQUIRES_FORCE" responses are not
-+	 * expected here after the additional revised load requests were sent.
-+	 */
-+	switch (out_params.load_code) {
-+	case FW_MSG_CODE_DRV_LOAD_ENGINE:
-+	case FW_MSG_CODE_DRV_LOAD_PORT:
-+	case FW_MSG_CODE_DRV_LOAD_FUNCTION:
-+		if (out_params.mfw_hsi_ver != QED_LOAD_REQ_HSI_VER_1 &&
-+		    out_params.drv_exists) {
-+			/* The role and fw/driver version match, but the PF is
-+			 * already loaded and has not been unloaded gracefully.
-+			 */
-+			DP_NOTICE(p_hwfn,
-+				  "PF is already loaded\n");
-+			return -EINVAL;
-+		}
-+		break;
-+	default:
-+		DP_NOTICE(p_hwfn,
-+			  "Unexpected refusal to load request [resp 0x%08x]. Aborting.\n",
-+			  out_params.load_code);
- 		return -EBUSY;
- 	}
  
-+	p_params->load_code = out_params.load_code;
-+
  	return 0;
  }
- 
 diff --git a/drivers/net/ethernet/qlogic/qed/qed_mcp.h b/drivers/net/ethernet/qlogic/qed/qed_mcp.h
-index 7d067d0..f76afec 100644
+index 8673ac1..ac7d406 100644
 --- a/drivers/net/ethernet/qlogic/qed/qed_mcp.h
 +++ b/drivers/net/ethernet/qlogic/qed/qed_mcp.h
-@@ -39,6 +39,7 @@
- #include <linux/spinlock.h>
- #include <linux/qed/qed_fcoe_if.h>
- #include "qed_hsi.h"
-+#include "qed_dev_api.h"
+@@ -743,33 +743,60 @@ int qed_mcp_mask_parities(struct qed_hwfn *p_hwfn,
+ 			  struct qed_ptt *p_ptt, u32 mask_parities);
  
- struct qed_mcp_link_speed_params {
- 	bool    autoneg;
-@@ -570,27 +571,35 @@ void qed_mcp_cmd_port_init(struct qed_hwfn *p_hwfn,
- int qed_mcp_handle_events(struct qed_hwfn *p_hwfn,
- 			  struct qed_ptt *p_ptt);
- 
-+enum qed_drv_role {
-+	QED_DRV_ROLE_OS,
-+	QED_DRV_ROLE_KDUMP,
-+};
-+
-+struct qed_load_req_params {
-+	/* Input params */
-+	enum qed_drv_role drv_role;
-+	u8 timeout_val;
-+	bool avoid_eng_reset;
-+	enum qed_override_force_load override_force_load;
-+
-+	/* Output params */
-+	u32 load_code;
-+};
-+
  /**
-- * @brief Sends a LOAD_REQ to the MFW, and in case operation
-- *        succeed, returns whether this PF is the first on the
-- *        chip/engine/port or function. This function should be
-- *        called when driver is ready to accept MFW events after
-- *        Storms initializations are done.
-+ * @brief Sends a LOAD_REQ to the MFW, and in case the operation succeeds,
-+ *        returns whether this PF is the first on the engine/port or function.
+- * @brief Send eswitch mode to MFW
++ * @brief - Sets the MFW's max value for the given resource
   *
-- * @param p_hwfn       - hw function
-- * @param p_ptt        - PTT required for register access
-- * @param p_load_code  - The MCP response param containing one
-- *      of the following:
-- *      FW_MSG_CODE_DRV_LOAD_ENGINE
-- *      FW_MSG_CODE_DRV_LOAD_PORT
-- *      FW_MSG_CODE_DRV_LOAD_FUNCTION
-- * @return int -
-- *      0 - Operation was successul.
-- *      -EBUSY - Operation failed
-+ * @param p_hwfn
-+ * @param p_ptt
-+ * @param p_params
-+ *
-+ * @return int - 0 - Operation was successful.
+  *  @param p_hwfn
+  *  @param p_ptt
+- *  @param eswitch - eswitch mode
++ *  @param res_id
++ *  @param resc_max_val
++ *  @param p_mcp_resp
+  *
+  * @return int - 0 - operation was successful.
   */
- int qed_mcp_load_req(struct qed_hwfn *p_hwfn,
- 		     struct qed_ptt *p_ptt,
--		     u32 *p_load_code);
-+		     struct qed_load_req_params *p_params);
+-int qed_mcp_ov_update_eswitch(struct qed_hwfn *p_hwfn,
+-			      struct qed_ptt *p_ptt,
+-			      enum qed_ov_eswitch eswitch);
++int
++qed_mcp_set_resc_max_val(struct qed_hwfn *p_hwfn,
++			 struct qed_ptt *p_ptt,
++			 enum qed_resources res_id,
++			 u32 resc_max_val, u32 *p_mcp_resp);
  
  /**
-  * @brief Sends a UNLOAD_REQ message to the MFW
+  * @brief - Gets the MFW allocation info for the given resource
+  *
+  *  @param p_hwfn
+  *  @param p_ptt
+- *  @param p_resc_info - descriptor of requested resource
++ *  @param res_id
+  *  @param p_mcp_resp
+- *  @param p_mcp_param
++ *  @param p_resc_num
++ *  @param p_resc_start
+  *
+  * @return int - 0 - operation was successful.
+  */
+-int qed_mcp_get_resc_info(struct qed_hwfn *p_hwfn,
+-			  struct qed_ptt *p_ptt,
+-			  struct resource_info *p_resc_info,
+-			  u32 *p_mcp_resp, u32 *p_mcp_param);
++int
++qed_mcp_get_resc_info(struct qed_hwfn *p_hwfn,
++		      struct qed_ptt *p_ptt,
++		      enum qed_resources res_id,
++		      u32 *p_mcp_resp, u32 *p_resc_num, u32 *p_resc_start);
++
++/**
++ * @brief Send eswitch mode to MFW
++ *
++ *  @param p_hwfn
++ *  @param p_ptt
++ *  @param eswitch - eswitch mode
++ *
++ * @return int - 0 - operation was successful.
++ */
++int qed_mcp_ov_update_eswitch(struct qed_hwfn *p_hwfn,
++			      struct qed_ptt *p_ptt,
++			      enum qed_ov_eswitch eswitch);
++
++#define QED_MCP_RESC_LOCK_MIN_VAL       RESOURCE_DUMP
++#define QED_MCP_RESC_LOCK_MAX_VAL       31
++
++enum qed_resc_lock {
++	QED_RESC_LOCK_DBG_DUMP = QED_MCP_RESC_LOCK_MIN_VAL,
++	QED_RESC_LOCK_RESC_ALLOC = QED_MCP_RESC_LOCK_MAX_VAL
++};
+ 
+ /**
+  * @brief - Initiates PF FLR
 -- 
 1.9.3
