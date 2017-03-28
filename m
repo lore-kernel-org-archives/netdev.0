@@ -1,126 +1,192 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: Bisected softirq accounting issue in v4.11-rc1~170^2~28
-Date: Tue, 28 Mar 2017 17:23:03 +0200
-Message-ID: <20170328172303.78a3c6d4@redhat.com>
-References: <20170328101403.34a82fbf@redhat.com>
-	<20170328143431.GB4216@lerouge>
+From: Masami Hiramatsu <mhiramat@kernel.org>
+Subject: Re: [PATCH v1] tracing/kprobes: expose maxactive for kretprobe in
+ kprobe_events
+Date: Wed, 29 Mar 2017 00:23:35 +0900
+Message-ID: <20170329002335.1d1fcc491765b632f470f99b@kernel.org>
+References: <1490709142-8856-1-git-send-email-alban@kinvolk.io>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, "netdev@vger.kernel.org"
- <netdev@vger.kernel.org>, linux-mm <linux-mm@kvack.org>, Mel Gorman
- <mgorman@techsingularity.net>, Tariq Toukan <tariqt@mellanox.com>, Tariq
- Toukan <ttoukan.linux@gmail.com>, Peter Zijlstra <peterz@infradead.org>,
- Rik van Riel <riel@redhat.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo
- Molnar <mingo@kernel.org>, brouer@redhat.com
-To: Frederic Weisbecker <fweisbec@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20170328143431.GB4216@lerouge>
-Sender: owner-linux-mm@kvack.org
+Cc: Alban Crequy <alban@kinvolk.io>,
+        Alexei Starovoitov <ast@kernel.org>,
+        Jonathan Corbet <corbet@lwn.net>,
+        Steven Rostedt <rostedt@goodmis.org>,
+        Ingo Molnar <mingo@redhat.com>,
+        Masami Hiramatsu <mhiramat@kernel.org>,
+        Arnaldo Carvalho de Melo <acme@redhat.com>,
+        Omar Sandoval <osandov@fb.com>, linux-doc@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        iago@kinvolk.io, michael@kinvolk.io,
+        "Dorau, Lukasz" <lukasz.dorau@intel.com>
+To: Alban Crequy <alban.crequy@gmail.com>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <1490709142-8856-1-git-send-email-alban@kinvolk.io>
+Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 28 Mar 2017 16:34:36 +0200
-Frederic Weisbecker <fweisbec@gmail.com> wrote:
+On Tue, 28 Mar 2017 15:52:22 +0200
+Alban Crequy <alban.crequy@gmail.com> wrote:
 
-> On Tue, Mar 28, 2017 at 10:14:03AM +0200, Jesper Dangaard Brouer wrote:
-> > 
-> > (While evaluating some changes to the page allocator) I ran into an
-> > issue with ksoftirqd getting too much CPU sched time.
-> > 
-> > I bisected the problem to
-> >  a499a5a14dbd ("sched/cputime: Increment kcpustat directly on irqtime account")
-> > 
-> >  a499a5a14dbd1d0315a96fc62a8798059325e9e6 is the first bad commit
-> >  commit a499a5a14dbd1d0315a96fc62a8798059325e9e6
-> >  Author: Frederic Weisbecker <fweisbec@gmail.com>
-> >  Date:   Tue Jan 31 04:09:32 2017 +0100
-> > 
-> >     sched/cputime: Increment kcpustat directly on irqtime account
-> >     
-> >     The irqtime is accounted is nsecs and stored in
-> >     cpu_irq_time.hardirq_time and cpu_irq_time.softirq_time. Once the
-> >     accumulated amount reaches a new jiffy, this one gets accounted to the
-> >     kcpustat.
-> >     
-> >     This was necessary when kcpustat was stored in cputime_t, which could at
-> >     worst have jiffies granularity. But now kcpustat is stored in nsecs
-> >     so this whole discretization game with temporary irqtime storage has
-> >     become unnecessary.
-> >     
-> >     We can now directly account the irqtime to the kcpustat.
-> >     
-> >     Signed-off-by: Frederic Weisbecker <fweisbec@gmail.com>
-> >     Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-> >     Cc: Fenghua Yu <fenghua.yu@intel.com>
-> >     Cc: Heiko Carstens <heiko.carstens@de.ibm.com>
-> >     Cc: Linus Torvalds <torvalds@linux-foundation.org>
-> >     Cc: Martin Schwidefsky <schwidefsky@de.ibm.com>
-> >     Cc: Michael Ellerman <mpe@ellerman.id.au>
-> >     Cc: Paul Mackerras <paulus@samba.org>
-> >     Cc: Peter Zijlstra <peterz@infradead.org>
-> >     Cc: Rik van Riel <riel@redhat.com>
-> >     Cc: Stanislaw Gruszka <sgruszka@redhat.com>
-> >     Cc: Thomas Gleixner <tglx@linutronix.de>
-> >     Cc: Tony Luck <tony.luck@intel.com>
-> >     Cc: Wanpeng Li <wanpeng.li@hotmail.com>
-> >     Link: http://lkml.kernel.org/r/1485832191-26889-17-git-send-email-fweisbec@gmail.com
-> >     Signed-off-by: Ingo Molnar <mingo@kernel.org>
-> > 
-> > The reproducer is running a userspace udp_sink[1] program, and taskset
-> > pinning the process to the same CPU as softirq RX is running on, and
-> > starting a UDP flood with pktgen (tool part of kernel tree:
-> > samples/pktgen/pktgen_sample03_burst_single_flow.sh).  
+> When a kretprobe is installed on a kernel function, there is a maximum
+> limit of how many calls in parallel it can catch (aka "maxactive"). A
+> kernel module could call register_kretprobe() and initialize maxactive
+> (see example in samples/kprobes/kretprobe_example.c).
 > 
-> So that means I need to run udp_sink on the same CPU than pktgen?
+> But that is not exposed to userspace and it is currently not possible to
+> choose maxactive when writing to /sys/kernel/debug/tracing/kprobe_events
 
-No, you misunderstood.  I run pktgen on another physical machine, which
-is sending UDP packets towards my Device-Under-Test (DUT) target.  The
-DUT-target is receiving packets and I observe which CPU the NIC is
-delivering these packets to.
+I see, I found same issue last week...
 
-E.g determine RX-CPU via mpstat command:
- mpstat -P ALL -u -I SCPU -I SUM 2
-
-I then start udp_sink, pinned to the RX-CPU, like:
- sudo taskset -c 2 ./udp_sink --port 9 --count $((10**6)) --recvmsg --repeat 1000
-
-
-> > [1] udp_sink
-> >  https://github.com/netoptimizer/network-testing/blob/master/src/udp_sink.c
-> > 
-> > The expected results (after commit 4cd13c21b207 ("softirq: Let
-> > ksoftirqd do its job")) is that the scheduler split the CPU time 50/50
-> > between udp_sink and ksoftirqd.  
 > 
-> I guess you mean that this is what happened before this commit?
-
-Yes. (I just pointed out the kernel had another softirq bug, that I was
-involved in fixing)
- 
-> > 
-> > After this commit, the udp_sink program does not get any sched CPU
-> > time, and no packets are delivered to userspace.  (All packets are
-> > dropped by softirq due to a full socket queue, nstat
-> > UdpRcvbufErrors).
-> > 
-> > A related symptom is that ksoftirqd no longer get accounted in
-> > top.  
+> The default maxactive can be as low as 1 on single-core with a
+> non-preemptive kernel. This is too low and we need to increase it not
+> only for recursive functions, but for functions that sleep or resched.
 > 
-> That's indeed what I observe. udp_sink has almost no CPU time,
-> neither has ksoftirqd but kpktgend_0 has everything.
-> 
-> Finally a bug I can reproduce!
+> This patch updates the format of the command that can be written to
+> kprobe_events so that maxactive can be optionally specified.
 
-Good to hear you can reproduce it! :-)
+Good! this is completely same what I'm planning to add.
+
+> 
+> I need this for a bpf program attached to the kretprobe of
+> inet_csk_accept, which can sleep for a long time.
+
+I'm also preparing another patch for using kmalloc(GFP_ATOMIC) in
+kretprobe_pre_handler(), since this manual way is sometimes hard to
+estimate how many instances needed. Anyway, since that may involve
+unwilling memory allocation, this patch also needed.
+
+> 
+> BugLink: https://github.com/iovisor/bcc/issues/1072
+
+Could you also add Lukasz to Cc list, since he had reported an issue
+related this one.
+
+https://www.spinics.net/lists/linux-trace/msg00448.html
+
+Please see my comments below.
+
+> Signed-off-by: Alban Crequy <alban@kinvolk.io>
+> ---
+>  Documentation/trace/kprobetrace.txt |  4 +++-
+>  kernel/trace/trace_kprobe.c         | 34 +++++++++++++++++++++++++++++-----
+>  2 files changed, 32 insertions(+), 6 deletions(-)
+> 
+> diff --git a/Documentation/trace/kprobetrace.txt b/Documentation/trace/kprobetrace.txt
+> index 41ef9d8..655ca7e 100644
+> --- a/Documentation/trace/kprobetrace.txt
+> +++ b/Documentation/trace/kprobetrace.txt
+> @@ -23,7 +23,7 @@ current_tracer. Instead of that, add probe points via
+>  Synopsis of kprobe_events
+>  -------------------------
+>    p[:[GRP/]EVENT] [MOD:]SYM[+offs]|MEMADDR [FETCHARGS]	: Set a probe
+> -  r[:[GRP/]EVENT] [MOD:]SYM[+0] [FETCHARGS]		: Set a return probe
+> +  r[MAXACTIVE][:[GRP/]EVENT] [MOD:]SYM[+0] [FETCHARGS]	: Set a return probe
+>    -:[GRP/]EVENT						: Clear a probe
+>  
+>   GRP		: Group name. If omitted, use "kprobes" for it.
+> @@ -32,6 +32,8 @@ Synopsis of kprobe_events
+>   MOD		: Module name which has given SYM.
+>   SYM[+offs]	: Symbol+offset where the probe is inserted.
+>   MEMADDR	: Address where the probe is inserted.
+> + MAXACTIVE	: Maximum number of instances of the specified function that
+> +		  can be probed simultaneously, or 0 for the default.(*)
+
+Here, yoy don't need (*), since [MAXACTIVE] is not a FETCHARGS.
+
+>  
+>   FETCHARGS	: Arguments. Each probe can have up to 128 args.
+>    %REG		: Fetch register REG
+> diff --git a/kernel/trace/trace_kprobe.c b/kernel/trace/trace_kprobe.c
+> index 5f688cc..807e01c 100644
+> --- a/kernel/trace/trace_kprobe.c
+> +++ b/kernel/trace/trace_kprobe.c
+> @@ -282,6 +282,7 @@ static struct trace_kprobe *alloc_trace_kprobe(const char *group,
+>  					     void *addr,
+>  					     const char *symbol,
+>  					     unsigned long offs,
+> +					     int maxactive,
+>  					     int nargs, bool is_return)
+>  {
+>  	struct trace_kprobe *tk;
+> @@ -309,6 +310,8 @@ static struct trace_kprobe *alloc_trace_kprobe(const char *group,
+>  	else
+>  		tk->rp.kp.pre_handler = kprobe_dispatcher;
+>  
+> +	tk->rp.maxactive = maxactive;
+> +
+>  	if (!event || !is_good_name(event)) {
+>  		ret = -EINVAL;
+>  		goto error;
+> @@ -598,8 +601,10 @@ static int create_trace_kprobe(int argc, char **argv)
+>  {
+>  	/*
+>  	 * Argument syntax:
+> -	 *  - Add kprobe: p[:[GRP/]EVENT] [MOD:]KSYM[+OFFS]|KADDR [FETCHARGS]
+> -	 *  - Add kretprobe: r[:[GRP/]EVENT] [MOD:]KSYM[+0] [FETCHARGS]
+> +	 *  - Add kprobe:
+> +	 *      p[:[GRP/]EVENT] [MOD:]KSYM[+OFFS]|KADDR [FETCHARGS]
+> +	 *  - Add kretprobe:
+> +	 *      r[MAXACTIVE][:[GRP/]EVENT] [MOD:]KSYM[+0] [FETCHARGS]
+>  	 * Fetch args:
+>  	 *  $retval	: fetch return value
+>  	 *  $stack	: fetch stack address
+> @@ -619,6 +624,7 @@ static int create_trace_kprobe(int argc, char **argv)
+>  	int i, ret = 0;
+>  	bool is_return = false, is_delete = false;
+>  	char *symbol = NULL, *event = NULL, *group = NULL;
+> +	int maxactive = 0;
+>  	char *arg;
+>  	unsigned long offset = 0;
+>  	void *addr = NULL;
+> @@ -637,8 +643,26 @@ static int create_trace_kprobe(int argc, char **argv)
+>  		return -EINVAL;
+>  	}
+>  
+> -	if (argv[0][1] == ':') {
+> +	if (is_return && isdigit(argv[0][1]) && strchr(&argv[0][1], ':')) {
+
+This only supports r[MAXACTIVE:[GRP/]EVENT]. e.g "r100" without event name.
+
+Thank you,
+
+> +		event = strchr(&argv[0][1], ':') + 1;
+> +		event[-1] = '\0';
+> +		ret = kstrtouint(&argv[0][1], 0, &maxactive);
+> +		if (ret) {
+> +			pr_info("Failed to parse maxactive.\n");
+> +			return ret;
+> +		}
+> +		/* kretprobes instances are iterated over via a list. The
+> +		 * maximum should stay reasonable.
+> +		 */
+> +		if (maxactive > 1024) {
+> +			pr_info("Maxactive is too big.\n");
+> +			return -EINVAL;
+> +		}
+> +	} else if (argv[0][1] == ':') {
+>  		event = &argv[0][2];
+> +	}
+> +
+> +	if (event) {
+>  		if (strchr(event, '/')) {
+>  			group = event;
+>  			event = strchr(group, '/') + 1;
+> @@ -718,8 +742,8 @@ static int create_trace_kprobe(int argc, char **argv)
+>  				 is_return ? 'r' : 'p', addr);
+>  		event = buf;
+>  	}
+> -	tk = alloc_trace_kprobe(group, event, addr, symbol, offset, argc,
+> -			       is_return);
+> +	tk = alloc_trace_kprobe(group, event, addr, symbol, offset, maxactive,
+> +			       argc, is_return);
+>  	if (IS_ERR(tk)) {
+>  		pr_info("Failed to allocate trace_probe.(%d)\n",
+>  			(int)PTR_ERR(tk));
+> -- 
+> 2.7.4
+> 
+
 
 -- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Masami Hiramatsu <mhiramat@kernel.org>
