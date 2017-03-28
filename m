@@ -1,192 +1,105 @@
-From: Masami Hiramatsu <mhiramat@kernel.org>
-Subject: Re: [PATCH v1] tracing/kprobes: expose maxactive for kretprobe in
- kprobe_events
-Date: Wed, 29 Mar 2017 00:23:35 +0900
-Message-ID: <20170329002335.1d1fcc491765b632f470f99b@kernel.org>
-References: <1490709142-8856-1-git-send-email-alban@kinvolk.io>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Alban Crequy <alban@kinvolk.io>,
-        Alexei Starovoitov <ast@kernel.org>,
-        Jonathan Corbet <corbet@lwn.net>,
-        Steven Rostedt <rostedt@goodmis.org>,
-        Ingo Molnar <mingo@redhat.com>,
-        Masami Hiramatsu <mhiramat@kernel.org>,
-        Arnaldo Carvalho de Melo <acme@redhat.com>,
-        Omar Sandoval <osandov@fb.com>, linux-doc@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        iago@kinvolk.io, michael@kinvolk.io,
-        "Dorau, Lukasz" <lukasz.dorau@intel.com>
-To: Alban Crequy <alban.crequy@gmail.com>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <1490709142-8856-1-git-send-email-alban@kinvolk.io>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next v2 0/8] Add support for pipeline debug (dpipe)
+Date: Tue, 28 Mar 2017 17:24:09 +0200
+Message-ID: <1490714657-6116-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, arkadis@mellanox.com, idosch@mellanox.com,
+        mlxsw@mellanox.com, jhs@mojatatu.com, ivecera@redhat.com,
+        roopa@cumulusnetworks.com, f.fainelli@gmail.com,
+        vivien.didelot@savoirfairelinux.com, john.fastabend@gmail.com,
+        andrew@lunn.ch, simon.horman@netronome.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f194.google.com ([209.85.128.194]:36348 "EHLO
+        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752114AbdC1PYg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 28 Mar 2017 11:24:36 -0400
+Received: by mail-wr0-f194.google.com with SMTP id u1so23554522wra.3
+        for <netdev@vger.kernel.org>; Tue, 28 Mar 2017 08:24:30 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 28 Mar 2017 15:52:22 +0200
-Alban Crequy <alban.crequy@gmail.com> wrote:
+From: Jiri Pirko <jiri@mellanox.com>
 
-> When a kretprobe is installed on a kernel function, there is a maximum
-> limit of how many calls in parallel it can catch (aka "maxactive"). A
-> kernel module could call register_kretprobe() and initialize maxactive
-> (see example in samples/kprobes/kretprobe_example.c).
-> 
-> But that is not exposed to userspace and it is currently not possible to
-> choose maxactive when writing to /sys/kernel/debug/tracing/kprobe_events
+Arkadi says:
 
-I see, I found same issue last week...
+While doing the hardware offloading process much of the hardware
+specifics cannot be presented. An example for such is the routing
+LPM algorithm which differ in hardware implementation from the
+kernel software implementation. The only information the user receives
+is whether specific route is offloaded or not, but he cannot really
+understand the underlying implementation nor get the specific statistics
+related to that process.
 
-> 
-> The default maxactive can be as low as 1 on single-core with a
-> non-preemptive kernel. This is too low and we need to increase it not
-> only for recursive functions, but for functions that sleep or resched.
-> 
-> This patch updates the format of the command that can be written to
-> kprobe_events so that maxactive can be optionally specified.
+Another example is ACL offload using TC which is commonly implemented
+using TCAM memory. Currently there is no capability to gain visibility
+into the TCAM structure and to debug suboptimal resource allocation.
 
-Good! this is completely same what I'm planning to add.
+This patchset introduces capability for exporting the ASICs pipeline
+abstraction via devlink infrastructure, which should serve as an
+complementary tool. This infrastructure allows the user to get visibility
+into the ASIC by modeling it as a set of match/action tables.
 
-> 
-> I need this for a bpf program attached to the kretprobe of
-> inet_csk_accept, which can sleep for a long time.
+The main objects defined:
+Table - abstraction for a single pipeline stage. Contains the
+        available match/actions and counter availability.
+Entry - entry in a specific table with specific matches/actions
+        values and dedicated counter.
+Header/field - tuples which describes the tables behavior.
 
-I'm also preparing another patch for using kmalloc(GFP_ATOMIC) in
-kretprobe_pre_handler(), since this manual way is sometimes hard to
-estimate how many instances needed. Anyway, since that may involve
-unwilling memory allocation, this patch also needed.
+As an example one of the ASIC's L3 blocks will be modeled. The egress
+rif (router interface) table is the final step in the L3 pipeline
+processing which does match on the internal rif index which was
+determined before by the routing logic. The erif table determines
+whether to forward or drop the packet and updates the corresponding
+rif L3 statistics.
 
-> 
-> BugLink: https://github.com/iovisor/bcc/issues/1072
+To expose this internal resources a special metadata header will
+be introduced that describes the internal information gathered by
+the ASIC's pipeline and contains the following fields: rif_port_index,
+forward and drop.
 
-Could you also add Lukasz to Cc list, since he had reported an issue
-related this one.
+Some internal hardware resources have direct mapping to kernel
+objects. For example the rif_port_index is mapped to the net-devices
+ifindex. By providing this mapping the users gains visibility into
+the offloading process.
 
-https://www.spinics.net/lists/linux-trace/msg00448.html
+Follow-up work will include exporting more L3 tables which will give
+visibility into the routing process.
 
-Please see my comments below.
+First stage is adding support for dpipe in devlink. Next add support
+in spectrum driver. Finally implement egress router interface
+(erif) table for spectrum ASIC as an example.
 
-> Signed-off-by: Alban Crequy <alban@kinvolk.io>
-> ---
->  Documentation/trace/kprobetrace.txt |  4 +++-
->  kernel/trace/trace_kprobe.c         | 34 +++++++++++++++++++++++++++++-----
->  2 files changed, 32 insertions(+), 6 deletions(-)
-> 
-> diff --git a/Documentation/trace/kprobetrace.txt b/Documentation/trace/kprobetrace.txt
-> index 41ef9d8..655ca7e 100644
-> --- a/Documentation/trace/kprobetrace.txt
-> +++ b/Documentation/trace/kprobetrace.txt
-> @@ -23,7 +23,7 @@ current_tracer. Instead of that, add probe points via
->  Synopsis of kprobe_events
->  -------------------------
->    p[:[GRP/]EVENT] [MOD:]SYM[+offs]|MEMADDR [FETCHARGS]	: Set a probe
-> -  r[:[GRP/]EVENT] [MOD:]SYM[+0] [FETCHARGS]		: Set a return probe
-> +  r[MAXACTIVE][:[GRP/]EVENT] [MOD:]SYM[+0] [FETCHARGS]	: Set a return probe
->    -:[GRP/]EVENT						: Clear a probe
->  
->   GRP		: Group name. If omitted, use "kprobes" for it.
-> @@ -32,6 +32,8 @@ Synopsis of kprobe_events
->   MOD		: Module name which has given SYM.
->   SYM[+offs]	: Symbol+offset where the probe is inserted.
->   MEMADDR	: Address where the probe is inserted.
-> + MAXACTIVE	: Maximum number of instances of the specified function that
-> +		  can be probed simultaneously, or 0 for the default.(*)
+---
+v1->v2: Please see individual patches
 
-Here, yoy don't need (*), since [MAXACTIVE] is not a FETCHARGS.
+Arkadi Sharshevsky (8):
+  devlink: Support for pipeline debug (dpipe)
+  mlxsw: reg: Add counter fields to RITR register
+  mlxsw: spectrum: Add placeholder for dpipe
+  mlxsw: spectrum: Add definition for egress rif table
+  mlxsw: reg: Add Router Interface Counter Register
+  mlxsw: spectrum: Support for counters on router interfaces
+  mlxsw: spectrum_router: Add rif helper functions
+  mlxsw: spectrum: Add Support for erif table entries access
 
->  
->   FETCHARGS	: Arguments. Each probe can have up to 128 args.
->    %REG		: Fetch register REG
-> diff --git a/kernel/trace/trace_kprobe.c b/kernel/trace/trace_kprobe.c
-> index 5f688cc..807e01c 100644
-> --- a/kernel/trace/trace_kprobe.c
-> +++ b/kernel/trace/trace_kprobe.c
-> @@ -282,6 +282,7 @@ static struct trace_kprobe *alloc_trace_kprobe(const char *group,
->  					     void *addr,
->  					     const char *symbol,
->  					     unsigned long offs,
-> +					     int maxactive,
->  					     int nargs, bool is_return)
->  {
->  	struct trace_kprobe *tk;
-> @@ -309,6 +310,8 @@ static struct trace_kprobe *alloc_trace_kprobe(const char *group,
->  	else
->  		tk->rp.kp.pre_handler = kprobe_dispatcher;
->  
-> +	tk->rp.maxactive = maxactive;
-> +
->  	if (!event || !is_good_name(event)) {
->  		ret = -EINVAL;
->  		goto error;
-> @@ -598,8 +601,10 @@ static int create_trace_kprobe(int argc, char **argv)
->  {
->  	/*
->  	 * Argument syntax:
-> -	 *  - Add kprobe: p[:[GRP/]EVENT] [MOD:]KSYM[+OFFS]|KADDR [FETCHARGS]
-> -	 *  - Add kretprobe: r[:[GRP/]EVENT] [MOD:]KSYM[+0] [FETCHARGS]
-> +	 *  - Add kprobe:
-> +	 *      p[:[GRP/]EVENT] [MOD:]KSYM[+OFFS]|KADDR [FETCHARGS]
-> +	 *  - Add kretprobe:
-> +	 *      r[MAXACTIVE][:[GRP/]EVENT] [MOD:]KSYM[+0] [FETCHARGS]
->  	 * Fetch args:
->  	 *  $retval	: fetch return value
->  	 *  $stack	: fetch stack address
-> @@ -619,6 +624,7 @@ static int create_trace_kprobe(int argc, char **argv)
->  	int i, ret = 0;
->  	bool is_return = false, is_delete = false;
->  	char *symbol = NULL, *event = NULL, *group = NULL;
-> +	int maxactive = 0;
->  	char *arg;
->  	unsigned long offset = 0;
->  	void *addr = NULL;
-> @@ -637,8 +643,26 @@ static int create_trace_kprobe(int argc, char **argv)
->  		return -EINVAL;
->  	}
->  
-> -	if (argv[0][1] == ':') {
-> +	if (is_return && isdigit(argv[0][1]) && strchr(&argv[0][1], ':')) {
-
-This only supports r[MAXACTIVE:[GRP/]EVENT]. e.g "r100" without event name.
-
-Thank you,
-
-> +		event = strchr(&argv[0][1], ':') + 1;
-> +		event[-1] = '\0';
-> +		ret = kstrtouint(&argv[0][1], 0, &maxactive);
-> +		if (ret) {
-> +			pr_info("Failed to parse maxactive.\n");
-> +			return ret;
-> +		}
-> +		/* kretprobes instances are iterated over via a list. The
-> +		 * maximum should stay reasonable.
-> +		 */
-> +		if (maxactive > 1024) {
-> +			pr_info("Maxactive is too big.\n");
-> +			return -EINVAL;
-> +		}
-> +	} else if (argv[0][1] == ':') {
->  		event = &argv[0][2];
-> +	}
-> +
-> +	if (event) {
->  		if (strchr(event, '/')) {
->  			group = event;
->  			event = strchr(group, '/') + 1;
-> @@ -718,8 +742,8 @@ static int create_trace_kprobe(int argc, char **argv)
->  				 is_return ? 'r' : 'p', addr);
->  		event = buf;
->  	}
-> -	tk = alloc_trace_kprobe(group, event, addr, symbol, offset, argc,
-> -			       is_return);
-> +	tk = alloc_trace_kprobe(group, event, addr, symbol, offset, maxactive,
-> +			       argc, is_return);
->  	if (IS_ERR(tk)) {
->  		pr_info("Failed to allocate trace_probe.(%d)\n",
->  			(int)PTR_ERR(tk));
-> -- 
-> 2.7.4
-> 
-
+ drivers/net/ethernet/mellanox/mlxsw/Makefile       |   2 +-
+ drivers/net/ethernet/mellanox/mlxsw/reg.h          | 178 +++++
+ drivers/net/ethernet/mellanox/mlxsw/resources.h    |   2 +
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c     |  10 +
+ drivers/net/ethernet/mellanox/mlxsw/spectrum_cnt.c |   9 +
+ drivers/net/ethernet/mellanox/mlxsw/spectrum_cnt.h |   1 +
+ .../net/ethernet/mellanox/mlxsw/spectrum_dpipe.c   | 351 +++++++++
+ .../net/ethernet/mellanox/mlxsw/spectrum_dpipe.h   |  43 ++
+ .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 174 +++++
+ .../net/ethernet/mellanox/mlxsw/spectrum_router.h  |  58 ++
+ include/net/devlink.h                              | 259 +++++++
+ include/uapi/linux/devlink.h                       |  67 +-
+ net/core/devlink.c                                 | 836 +++++++++++++++++++++
+ 13 files changed, 1988 insertions(+), 2 deletions(-)
+ create mode 100644 drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.h
+ create mode 100644 drivers/net/ethernet/mellanox/mlxsw/spectrum_router.h
 
 -- 
-Masami Hiramatsu <mhiramat@kernel.org>
+2.7.4
