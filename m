@@ -1,100 +1,56 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 2/8] mlxsw: reg: Add counter fields to RITR register
-Date: Tue, 28 Mar 2017 17:24:11 +0200
-Message-ID: <1490714657-6116-3-git-send-email-jiri@resnulli.us>
-References: <1490714657-6116-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, arkadis@mellanox.com, idosch@mellanox.com,
-        mlxsw@mellanox.com, jhs@mojatatu.com, ivecera@redhat.com,
-        roopa@cumulusnetworks.com, f.fainelli@gmail.com,
-        vivien.didelot@savoirfairelinux.com, john.fastabend@gmail.com,
-        andrew@lunn.ch, simon.horman@netronome.com
-To: netdev@vger.kernel.org
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [Outreachy kernel] [PATCH] net: netfilter: Remove complexity
+Date: Tue, 28 Mar 2017 17:26:07 +0200
+Message-ID: <20170328152607.GA1735@salvia>
+References: <20170328130032.GA5009@arushi-HP-Pavilion-Notebook>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>, davem@davemloft.net,
+        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        outreachy-kernel@googlegroups.com
+To: Arushi Singhal <arushisinghal19971997@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:33793 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752448AbdC1PZC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 28 Mar 2017 11:25:02 -0400
-Received: by mail-wm0-f66.google.com with SMTP id u132so305798wmg.1
-        for <netdev@vger.kernel.org>; Tue, 28 Mar 2017 08:24:47 -0700 (PDT)
-In-Reply-To: <1490714657-6116-1-git-send-email-jiri@resnulli.us>
+Received: from mail.us.es ([193.147.175.20]:46790 "EHLO mail.us.es"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751476AbdC1P0U (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 28 Mar 2017 11:26:20 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+        by mail.us.es (Postfix) with ESMTP id F1AD252437
+        for <netdev@vger.kernel.org>; Tue, 28 Mar 2017 17:26:10 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id DAC47B7FE7
+        for <netdev@vger.kernel.org>; Tue, 28 Mar 2017 17:26:10 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 69F8BBAAD5
+        for <netdev@vger.kernel.org>; Tue, 28 Mar 2017 17:26:07 +0200 (CEST)
+Content-Disposition: inline
+In-Reply-To: <20170328130032.GA5009@arushi-HP-Pavilion-Notebook>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Arkadi Sharshevsky <arkadis@mellanox.com>
+On Tue, Mar 28, 2017 at 06:30:56PM +0530, Arushi Singhal wrote:
+> To remove complexity of code the function is added in nfnetlink.h
+> to make code more clear and readable.
 
-Update RITR for counter support. This allows adding counters for
-ASIC's router ports.
+Patch looks good, you can also use this new function from other
+_fill_info() functions in the netfilter code, eg.
 
-Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlxsw/reg.h | 54 +++++++++++++++++++++++++++++++
- 1 file changed, 54 insertions(+)
+        nfnl_cthelper_fill_info()
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-index e7a652c..82aaa3e 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-@@ -4125,6 +4125,60 @@ MLXSW_ITEM32(reg, ritr, sp_if_system_port, 0x08, 0, 16);
-  */
- MLXSW_ITEM32(reg, ritr, sp_if_vid, 0x18, 0, 12);
- 
-+/* Shared between ingress/egress */
-+enum mlxsw_reg_ritr_counter_set_type {
-+	/* No Count. */
-+	MLXSW_REG_RITR_COUNTER_SET_TYPE_NO_COUNT = 0x0,
-+	/* Basic. Used for router interfaces, counting the following:
-+	 *	- Error and Discard counters.
-+	 *	- Unicast, Multicast and Broadcast counters. Sharing the
-+	 *	  same set of counters for the different type of traffic
-+	 *	  (IPv4, IPv6 and mpls).
-+	 */
-+	MLXSW_REG_RITR_COUNTER_SET_TYPE_BASIC = 0x9,
-+};
-+
-+/* reg_ritr_ingress_counter_index
-+ * Counter Index for flow counter.
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, ritr, ingress_counter_index, 0x38, 0, 24);
-+
-+/* reg_ritr_ingress_counter_set_type
-+ * Igress Counter Set Type for router interface counter.
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, ritr, ingress_counter_set_type, 0x38, 24, 8);
-+
-+/* reg_ritr_egress_counter_index
-+ * Counter Index for flow counter.
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, ritr, egress_counter_index, 0x3C, 0, 24);
-+
-+/* reg_ritr_egress_counter_set_type
-+ * Egress Counter Set Type for router interface counter.
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, ritr, egress_counter_set_type, 0x3C, 24, 8);
-+
-+static inline void mlxsw_reg_ritr_counter_pack(char *payload, u32 index,
-+					       bool enable, bool egress)
-+{
-+	enum mlxsw_reg_ritr_counter_set_type set_type;
-+
-+	if (enable)
-+		set_type = MLXSW_REG_RITR_COUNTER_SET_TYPE_BASIC;
-+	else
-+		set_type = MLXSW_REG_RITR_COUNTER_SET_TYPE_NO_COUNT;
-+	mlxsw_reg_ritr_egress_counter_set_type_set(payload, set_type);
-+
-+	if (egress)
-+		mlxsw_reg_ritr_egress_counter_index_set(payload, index);
-+	else
-+		mlxsw_reg_ritr_ingress_counter_index_set(payload, index);
-+}
-+
- static inline void mlxsw_reg_ritr_rif_pack(char *payload, u16 rif)
- {
- 	MLXSW_REG_ZERO(ritr, payload);
--- 
-2.7.4
+Take the time to make a careful look at the netfilter tree to see if
+we can have a good bunch of new clients of this function in one go.
+Most likely many of the nfnetlink_*.c files can use this.
+
+BTW, you can also indicate in your patch description that this is
+opencoded in a way that makes it error prone for future netfilter
+netlink subsystems.
+
+Please search for a better patch title, this one is too generic. I
+understand selecting a good patch title is something that exercise.
+
+I'd suggest this:
+
+        netfilter: add nfnl_msg_type() helper function
+
+Never give up, revamp and resubmit, thanks!
