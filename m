@@ -1,60 +1,95 @@
-From: Ivan Vecera <ivecera@redhat.com>
-Subject: Re: [patch net-next 0/8] Add support for pipeline debug (dpipe)
-Date: Tue, 28 Mar 2017 10:10:23 +0200
-Message-ID: <96ad92ca-c3ad-8e31-9802-46f298bbc9fa@redhat.com>
-References: <1490427342-2061-1-git-send-email-jiri@resnulli.us>
- <20170327.154834.1733255928137862540.davem@davemloft.net>
- <20170328071051.GB1873@nanopsycho.orion>
- <251a02fa-4c4a-bd69-1411-74a0c79726a2@redhat.com>
- <20170328075722.GC1873@nanopsycho.orion>
- <20170328075909.GD1873@nanopsycho.orion>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Bisected softirq accounting issue in v4.11-rc1~170^2~28
+Date: Tue, 28 Mar 2017 10:14:03 +0200
+Message-ID: <20170328101403.34a82fbf@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-        arkadis@mellanox.com, idosch@mellanox.com, mlxsw@mellanox.com,
-        jhs@mojatatu.com, roopa@cumulusnetworks.com, f.fainelli@gmail.com,
-        vivien.didelot@savoirfairelinux.com, john.fastabend@gmail.com,
-        andrew@lunn.ch, simon.horman@netronome.com
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:39538 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754612AbdC1IKj (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 28 Mar 2017 04:10:39 -0400
-In-Reply-To: <20170328075909.GD1873@nanopsycho.orion>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: brouer@redhat.com, "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ linux-mm <linux-mm@kvack.org>, Mel Gorman <mgorman@techsingularity.net>,
+ Tariq Toukan <tariqt@mellanox.com>, Tariq Toukan <ttoukan.linux@gmail.com>,
+ Peter Zijlstra <peterz@infradead.org>, Rik van Riel <riel@redhat.com>,
+ Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@kernel.org>
+To: Frederic Weisbecker <fweisbec@gmail.com>, linux-kernel@vger.kernel.org
+Return-path: <owner-linux-mm@kvack.org>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Dne 28.3.2017 v 09:59 Jiri Pirko napsal(a):
-> Tue, Mar 28, 2017 at 09:57:22AM CEST, jiri@resnulli.us wrote:
->> Tue, Mar 28, 2017 at 09:42:58AM CEST, ivecera@redhat.com wrote:
->>> Dne 28.3.2017 v 09:10 Jiri Pirko napsal(a):
->>>> Tue, Mar 28, 2017 at 12:48:34AM CEST, davem@davemloft.net wrote:
->>>>>
->>>>> Please fix up these warnings and resubmit:
->>>>>
->>>>> drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c: In function ‘mlxsw_sp_rif_counter_free’:
->>>>> drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c:208:2: warning: ‘p_counter_index’ may be used uninitialized in this function [-Wmaybe-uninitialized]
->>>>>  mlxsw_sp_rif_counter_edit(mlxsw_sp, rif->rif_index,
->>>>>  ^
->>>>
->>>> This is I believe also gcc bug. Code looks fine. I'm not getting the warning
->>>> with gcc 6
->>>>
->>> No it is not a gcc bug. The function mlxsw_sp_rif_counter_free() is not
->>> static so the compiler cannot know all its callers and so 'dir' parameter can
->>> be theoretically anything.
->>> You call mlxsw_sp_rif_p_counter_get() there it assumes dir can be only
->>> MLXSW_SP_RIF_COUNTER_EGRESS or MLXSW_SP_RIF_COUNTER_INGRESS so initializes
->>> *pp_counter_index only for them. For any other value the value is
->>> uninitialized.
->>
->> Interesting, why gcc 6.2.1 is silent then?
->
-> Oh, I see that it is not :) My bad, will fix, thanks!
->
-Probably because 'dir' is enumeration and this gcc assumes that any caller uses 
-only defined enum values.
 
-Ivan
+(While evaluating some changes to the page allocator) I ran into an
+issue with ksoftirqd getting too much CPU sched time.
+
+I bisected the problem to
+ a499a5a14dbd ("sched/cputime: Increment kcpustat directly on irqtime account")
+
+ a499a5a14dbd1d0315a96fc62a8798059325e9e6 is the first bad commit
+ commit a499a5a14dbd1d0315a96fc62a8798059325e9e6
+ Author: Frederic Weisbecker <fweisbec@gmail.com>
+ Date:   Tue Jan 31 04:09:32 2017 +0100
+
+    sched/cputime: Increment kcpustat directly on irqtime account
+    
+    The irqtime is accounted is nsecs and stored in
+    cpu_irq_time.hardirq_time and cpu_irq_time.softirq_time. Once the
+    accumulated amount reaches a new jiffy, this one gets accounted to the
+    kcpustat.
+    
+    This was necessary when kcpustat was stored in cputime_t, which could at
+    worst have jiffies granularity. But now kcpustat is stored in nsecs
+    so this whole discretization game with temporary irqtime storage has
+    become unnecessary.
+    
+    We can now directly account the irqtime to the kcpustat.
+    
+    Signed-off-by: Frederic Weisbecker <fweisbec@gmail.com>
+    Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+    Cc: Fenghua Yu <fenghua.yu@intel.com>
+    Cc: Heiko Carstens <heiko.carstens@de.ibm.com>
+    Cc: Linus Torvalds <torvalds@linux-foundation.org>
+    Cc: Martin Schwidefsky <schwidefsky@de.ibm.com>
+    Cc: Michael Ellerman <mpe@ellerman.id.au>
+    Cc: Paul Mackerras <paulus@samba.org>
+    Cc: Peter Zijlstra <peterz@infradead.org>
+    Cc: Rik van Riel <riel@redhat.com>
+    Cc: Stanislaw Gruszka <sgruszka@redhat.com>
+    Cc: Thomas Gleixner <tglx@linutronix.de>
+    Cc: Tony Luck <tony.luck@intel.com>
+    Cc: Wanpeng Li <wanpeng.li@hotmail.com>
+    Link: http://lkml.kernel.org/r/1485832191-26889-17-git-send-email-fweisbec@gmail.com
+    Signed-off-by: Ingo Molnar <mingo@kernel.org>
+
+The reproducer is running a userspace udp_sink[1] program, and taskset
+pinning the process to the same CPU as softirq RX is running on, and
+starting a UDP flood with pktgen (tool part of kernel tree:
+samples/pktgen/pktgen_sample03_burst_single_flow.sh).
+
+[1] udp_sink
+ https://github.com/netoptimizer/network-testing/blob/master/src/udp_sink.c
+
+The expected results (after commit 4cd13c21b207 ("softirq: Let
+ksoftirqd do its job")) is that the scheduler split the CPU time 50/50
+between udp_sink and ksoftirqd.
+
+After this commit, the udp_sink program does not get any sched CPU
+time, and no packets are delivered to userspace.  (All packets are
+dropped by softirq due to a full socket queue, nstat UdpRcvbufErrors).
+
+A related symptom is that ksoftirqd no longer get accounted in top.
+
+$ grep CONFIG_IRQ_TIME_ACCOUNTING .config
+CONFIG_IRQ_TIME_ACCOUNTING=y
+
+Full .config uploaded here[2]:
+ [2] http://people.netfilter.org/hawk/kconfig/config02-bisect-softirq-a499a5a14dbd
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
