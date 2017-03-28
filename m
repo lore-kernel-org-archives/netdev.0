@@ -1,70 +1,61 @@
-From: Saeed Mahameed <saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
-Subject: Re: [BUG] ethernet:mellanox:mlx5: Oops in health_recover get_nic_state(dev)
-Date: Tue, 28 Mar 2017 12:11:44 +0300
-Message-ID: <CALzJLG-6pEXgukQdS0AEW40RZGeT_MNQmDV99GkgmC+wHbA4eA@mail.gmail.com>
-References: <4a3539ba-6ce0-8ecf-1b1b-3c70cace6c2a@codeaurora.org>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH 06/16] drivers, net, mlx5: convert mlx5_cq.refcount from
+ atomic_t to refcount_t
+Date: Tue, 28 Mar 2017 09:33:21 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DCFFBE8AF@AcuExch.aculab.com>
+References: <1490691403-4016-1-git-send-email-elena.reshetova@intel.com>
+ <1490691403-4016-7-git-send-email-elena.reshetova@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, shankerd-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
-        rruigrok-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org
-To: "Goel, Sameer" <sgoel-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-        Mohamad Haj Yahia <mohamad-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Daniel Jurgens <danielj-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4a3539ba-6ce0-8ecf-1b1b-3c70cace6c2a-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "peterz@infradead.org" <peterz@infradead.org>,
+ "matanb@mellanox.com" <matanb@mellanox.com>,
+ "paulus@samba.org" <paulus@samba.org>, "nbd@openwrt.org" <nbd@openwrt.org>,
+ "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
+ "saeedm@mellanox.com" <saeedm@mellanox.com>,
+ "ganeshgr@chelsio.com" <ganeshgr@chelsio.com>,
+ Hans Liljestrand <ishkamiel@gmail.com>, David
+ Windsor <dwindsor@gmail.com>, "keescook@chromium.org" <keescook@chromium.org>,
+ "j@w1.fi" <j@w1.fi>, "ajk@comnets.uni-bremen.de" <ajk@comnets.uni-bremen.de>,
+ "leonro@mellanox.com" <leonro@mellanox.com>,
+ "matthias.bgg@gmail.com" <matthias.bgg@gmail.com>,
+ "linux-hams@vger.kernel.org" <linux-hams@vger.kernel.org>,
+ "kvalo@codeaurora.org" <kvalo@codeaurora.org>,
+ "blogic@openwrt.org" <blogic@openwrt.org>,
+ "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>,
+ "linux-ppp@vger.kernel.org" <linux-
+To: 'Elena Reshetova' <elena.reshetova@intel.com>, "netdev@vger.kernel.org"
+ <netdev@vger.kernel.org>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <1490691403-4016-7-git-send-email-elena.reshetova@intel.com>
+Content-Language: en-US
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 28, 2017 at 2:45 AM, Goel, Sameer <sgoel-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org> wrote:
-> Stack frame:
-> [ 1744.418958] [<ffff00000328936c>] get_nic_state+0x24/0x40 [mlx5_core]
-> [ 1744.425273] [<ffff0000032899c0>] health_recover+0x28/0x80 [mlx5_core]
-> [ 1744.431496] [<ffff0000080e3280>] process_one_work+0x150/0x460
-> [ 1744.437218] [<ffff0000080e35e0>] worker_thread+0x50/0x4b8
-> [ 1744.442609] [<ffff0000080e9b98>] kthread+0xd8/0xf0
-> [ 1744.447377] [<ffff000008083330>] ret_from_fork+0x10/0x20
->
-> Summary:
-> This issue was seen on QDF2400 system 30 mins after while running speccpu 2006. During the test a recoverable PCIe error was seen that gave the following log:
-> [ 1673.170969] pcieport 0002:00:00.0: aer_status: 0x00004000, aer_mask: 0x00400000
-> [ 1673.177961] pcieport 0002:00:00.0: aer_layer=Transaction Layer, aer_agent=Requester ID
-> [ 1673.185832] pcieport 0002:00:00.0: aer_uncor_severity: 0x00462030
-> [ 1675.536391] mlx5_core 0002:01:00.0: assert_var[0] 0xffffffff
-> [ 1675.541093] mlx5_core 0002:01:00.0: assert_var[1] 0xffffffff
-> [ 1675.546750] mlx5_core 0002:01:00.0: assert_var[2] 0xffffffff
-> [ 1675.552377] mlx5_core 0002:01:00.0: assert_var[3] 0xffffffff
-> [ 1675.558040] mlx5_core 0002:01:00.0: assert_var[4] 0xffffffff
-> [ 1675.563661] mlx5_core 0002:01:00.0: assert_exit_ptr 0xffffffff
-> [ 1675.569488] mlx5_core 0002:01:00.0: assert_callra 0xffffffff
-> [ 1675.575120] mlx5_core 0002:01:00.0: fw_ver 15.4095.65535
-> [ 1675.580426] mlx5_core 0002:01:00.0: hw_id 0xffffffff
-> [ 1675.585363] mlx5_core 0002:01:00.0: irisc_index 255
-> [ 1675.590242] mlx5_core 0002:01:00.0: synd 0xff: unrecognized error
-> [ 1675.596301] mlx5_core 0002:01:00.0: ext_synd 0xffff
-> [ 1675.601209] mlx5_core 0002:01:00.0: mlx5_enter_error_state:120:(pid 7205): start
-> [ 1675.608613] mlx5_core 0002:01:00.0: mlx5_enter_error_state:127:(pid 7205): end
->
-> After the above log we see the above stackframe and a page fault due to invalid dev pointer.
->
-> So the the recovery work is queued and the timer is stopped. Somehow the workqueue is not cleared and when it runs the dev pointer is invalid.
->
-> This issue was difficult to repro and was seen only once in multiple runs on a specific device.
+From: Elena Reshetova
+> Sent: 28 March 2017 09:57
+> 
+> refcount_t type and corresponding API should be
+> used instead of atomic_t when the variable is used as
+> a reference counter. This allows to avoid accidental
+> refcounter overflows that might lead to use-after-free
+> situations.
 
-Hi Sameer,
+I can't help feeling that you ought to find a scheme
+that will detect extra decrements and extra increments
+before the counter wraps 32 bits.
 
-Thanks for the report,
-adding more relevant ppl
+If an extra reference is requested every 100us it takes 4.8 days
+for the counter to increment back to zero.
+Simple tests aren't doing to find that - but it can easily happen
+on a system that is running for several years.
 
-Mohamad/Daniel Does the above ring a bell ?
-can you check ?
-
-Thanks
-Saeed.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+	David
