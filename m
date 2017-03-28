@@ -1,83 +1,78 @@
-From: Elena Reshetova <elena.reshetova@intel.com>
-Subject: [PATCH 11/16] drivers, net: convert masces_tx_sa.refcnt from atomic_t to refcount_t
-Date: Tue, 28 Mar 2017 11:56:38 +0300
-Message-ID: <1490691403-4016-12-git-send-email-elena.reshetova@intel.com>
-References: <1490691403-4016-1-git-send-email-elena.reshetova@intel.com>
-Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-        linux-rdma@vger.kernel.org, linux-hams@vger.kernel.org,
-        linux-ppp@vger.kernel.org, linux-wireless@vger.kernel.org,
-        ganeshgr@chelsio.com, nbd@openwrt.org, blogic@openwrt.org,
-        matthias.bgg@gmail.com, yishaih@mellanox.com, saeedm@mellanox.com,
-        matanb@mellanox.com, leonro@mellanox.com,
-        ajk@comnets.uni-bremen.de, paulus@samba.org, j@w1.fi,
-        kvalo@codeaurora.org, peterz@infradead.org, keescook@chromium.org,
-        gregkh@linuxfoundation.org,
-        Elena Reshetova <elena.reshetova@intel.com>,
-        Hans Liljestrand <ishkamiel@gmail.com>,
-        David Windsor <dwindsor@gmail.com>
-To: netdev@vger.kernel.org
+From: simran singhal <singhalsimran0@gmail.com>
+Subject: [PATCH v3] netfilter: Compress return logic
+Date: Tue, 28 Mar 2017 14:36:33 +0530
+Message-ID: <20170328090633.GA22149@singhal-Inspiron-5558>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: kadlec@blackhole.kfki.hu, davem@davemloft.net,
+        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        gregkh@linuxfoundation.org, outreachy-kernel@googlegroups.com,
+        wensong@linux-vs.org, horms@verge.net.au, ja@ssi.bg
+To: pablo@netfilter.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga05.intel.com ([192.55.52.43]:27969 "EHLO mga05.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754756AbdC1I62 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 28 Mar 2017 04:58:28 -0400
-In-Reply-To: <1490691403-4016-1-git-send-email-elena.reshetova@intel.com>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:35238 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932100AbdC1JHB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 28 Mar 2017 05:07:01 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-refcount_t type and corresponding API should be
-used instead of atomic_t when the variable is used as
-a reference counter. This allows to avoid accidental
-refcounter overflows that might lead to use-after-free
-situations.
+Simplify function returns by merging assignment and return into one
+statement.
 
-Signed-off-by: Elena Reshetova <elena.reshetova@intel.com>
-Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
-Signed-off-by: Kees Cook <keescook@chromium.org>
-Signed-off-by: David Windsor <dwindsor@gmail.com>
+Signed-off-by: simran singhal <singhalsimran0@gmail.com>
 ---
- drivers/net/macsec.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ v3:
+   -change commit message.
+   -merge two patches into one.
+ v2:
+   -Change the subject of cover patch
 
-diff --git a/drivers/net/macsec.c b/drivers/net/macsec.c
-index 1869223..2851dda 100644
---- a/drivers/net/macsec.c
-+++ b/drivers/net/macsec.c
-@@ -188,7 +188,7 @@ struct macsec_tx_sa {
- 	struct macsec_key key;
- 	spinlock_t lock;
- 	u32 next_pn;
--	atomic_t refcnt;
-+	refcount_t refcnt;
- 	bool active;
- 	struct macsec_tx_sa_stats __percpu *stats;
- 	struct rcu_head rcu;
-@@ -362,7 +362,7 @@ static struct macsec_tx_sa *macsec_txsa_get(struct macsec_tx_sa __rcu *ptr)
- 	if (!sa || !sa->active)
- 		return NULL;
- 
--	if (!atomic_inc_not_zero(&sa->refcnt))
-+	if (!refcount_inc_not_zero(&sa->refcnt))
- 		return NULL;
- 
- 	return sa;
-@@ -379,7 +379,7 @@ static void free_txsa(struct rcu_head *head)
- 
- static void macsec_txsa_put(struct macsec_tx_sa *sa)
+ net/netfilter/ipset/ip_set_list_set.c | 5 +----
+ net/netfilter/ipvs/ip_vs_ftp.c        | 5 +----
+ 2 files changed, 2 insertions(+), 8 deletions(-)
+
+diff --git a/net/netfilter/ipset/ip_set_list_set.c b/net/netfilter/ipset/ip_set_list_set.c
+index 178d4eb..2fff6b5 100644
+--- a/net/netfilter/ipset/ip_set_list_set.c
++++ b/net/netfilter/ipset/ip_set_list_set.c
+@@ -453,7 +453,6 @@ static size_t
+ list_set_memsize(const struct list_set *map, size_t dsize)
  {
--	if (atomic_dec_and_test(&sa->refcnt))
-+	if (refcount_dec_and_test(&sa->refcnt))
- 		call_rcu(&sa->rcu, free_txsa);
+ 	struct set_elem *e;
+-	size_t memsize;
+ 	u32 n = 0;
+ 
+ 	rcu_read_lock();
+@@ -461,9 +460,7 @@ list_set_memsize(const struct list_set *map, size_t dsize)
+ 		n++;
+ 	rcu_read_unlock();
+ 
+-	memsize = sizeof(*map) + n * dsize;
+-
+-	return memsize;
++	return (sizeof(*map) + n * dsize);
  }
  
-@@ -1422,7 +1422,7 @@ static int init_tx_sa(struct macsec_tx_sa *tx_sa, char *sak, int key_len,
- 	}
+ static int
+diff --git a/net/netfilter/ipvs/ip_vs_ftp.c b/net/netfilter/ipvs/ip_vs_ftp.c
+index d30c327..c93c937 100644
+--- a/net/netfilter/ipvs/ip_vs_ftp.c
++++ b/net/netfilter/ipvs/ip_vs_ftp.c
+@@ -482,11 +482,8 @@ static struct pernet_operations ip_vs_ftp_ops = {
  
- 	tx_sa->active = false;
--	atomic_set(&tx_sa->refcnt, 1);
-+	refcount_set(&tx_sa->refcnt, 1);
- 	spin_lock_init(&tx_sa->lock);
+ static int __init ip_vs_ftp_init(void)
+ {
+-	int rv;
+-
+-	rv = register_pernet_subsys(&ip_vs_ftp_ops);
+ 	/* rcu_barrier() is called by netns on error */
+-	return rv;
++	return register_pernet_subsys(&ip_vs_ftp_ops);
+ }
  
- 	return 0;
+ /*
 -- 
 2.7.4
