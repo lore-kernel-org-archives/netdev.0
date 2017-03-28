@@ -1,7 +1,7 @@
 From: Aviad Yehezkel <aviadye@mellanox.com>
-Subject: [RFC TLS Offload Support 14/15] crypto: rfc5288 aesni optimized intel routines
-Date: Tue, 28 Mar 2017 16:26:31 +0300
-Message-ID: <1490707592-1430-15-git-send-email-aviadye@mellanox.com>
+Subject: [RFC TLS Offload Support 02/15] tcp: export do_tcp_sendpages function
+Date: Tue, 28 Mar 2017 16:26:19 +0300
+Message-ID: <1490707592-1430-3-git-send-email-aviadye@mellanox.com>
 References: <1490707592-1430-1-git-send-email-aviadye@mellanox.com>
 Cc: matanb@mellanox.com, liranl@mellanox.com, haggaie@mellanox.com,
         tom@herbertland.com, herbert@gondor.apana.org.au, nmav@gnults.org,
@@ -10,276 +10,56 @@ Cc: matanb@mellanox.com, liranl@mellanox.com, haggaie@mellanox.com,
         saeedm@mellanox.com, aviadye@dev.mellanox.co.il
 To: davem@davemloft.net, aviadye@mellanox.com, ilyal@mellanox.com,
         borisp@mellanox.com, davejwatson@fb.com, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:47823 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1753569AbdC1N1M (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 28 Mar 2017 09:27:12 -0400
+Return-path: <linux-crypto-owner@vger.kernel.org>
 In-Reply-To: <1490707592-1430-1-git-send-email-aviadye@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Dave Watson <davejwatson@fb.com>
+We will use it via tls new code.
 
-The assembly routines require the AAD data to be padded out
-to the nearest 4 bytes.
-Copy the 13 byte tag to a spare assoc data area when necessary
-
-Signed-off-by: Dave Watson <davejwatson@fb.com>
+Signed-off-by: Aviad Yehezkel <aviadye@mellanox.com>
+Signed-off-by: Ilya Lesokhin <ilyal@mellanox.com>
+Signed-off-by: Boris Pismenny <borisp@mellanox.com>
 ---
- arch/x86/crypto/aesni-intel_asm.S        |   6 ++
- arch/x86/crypto/aesni-intel_avx-x86_64.S |   4 ++
- arch/x86/crypto/aesni-intel_glue.c       | 105 ++++++++++++++++++++++++++-----
- 3 files changed, 99 insertions(+), 16 deletions(-)
+ include/net/tcp.h | 2 ++
+ net/ipv4/tcp.c    | 5 +++--
+ 2 files changed, 5 insertions(+), 2 deletions(-)
 
-diff --git a/arch/x86/crypto/aesni-intel_asm.S b/arch/x86/crypto/aesni-intel_asm.S
-index 383a6f8..4e80bb8 100644
---- a/arch/x86/crypto/aesni-intel_asm.S
-+++ b/arch/x86/crypto/aesni-intel_asm.S
-@@ -229,6 +229,9 @@ XMM2 XMM3 XMM4 XMMDst TMP6 TMP7 i i_seq operation
-         MOVADQ     SHUF_MASK(%rip), %xmm14
- 	mov	   arg7, %r10           # %r10 = AAD
- 	mov	   arg8, %r12           # %r12 = aadLen
-+	add        $3, %r12
-+	and        $~3, %r12
-+
- 	mov	   %r12, %r11
- 	pxor	   %xmm\i, %xmm\i
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 207147b..3a72d4c 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -348,6 +348,8 @@ int tcp_v4_tw_remember_stamp(struct inet_timewait_sock *tw);
+ int tcp_sendmsg(struct sock *sk, struct msghdr *msg, size_t size);
+ int tcp_sendpage(struct sock *sk, struct page *page, int offset, size_t size,
+ 		 int flags);
++ssize_t do_tcp_sendpages(struct sock *sk, struct page *page, int offset,
++		 size_t size, int flags);
+ void tcp_release_cb(struct sock *sk);
+ void tcp_wfree(struct sk_buff *skb);
+ void tcp_write_timer_handler(struct sock *sk);
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 1149b48..302fee9 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -873,8 +873,8 @@ static int tcp_send_mss(struct sock *sk, int *size_goal, int flags)
+ 	return mss_now;
+ }
  
-@@ -454,6 +457,9 @@ XMM2 XMM3 XMM4 XMMDst TMP6 TMP7 i i_seq operation
-         MOVADQ     SHUF_MASK(%rip), %xmm14
- 	mov	   arg7, %r10           # %r10 = AAD
- 	mov	   arg8, %r12           # %r12 = aadLen
-+	add        $3, %r12
-+	and        $~3, %r12
-+
- 	mov	   %r12, %r11
- 	pxor	   %xmm\i, %xmm\i
- _get_AAD_loop\num_initial_blocks\operation:
-diff --git a/arch/x86/crypto/aesni-intel_avx-x86_64.S b/arch/x86/crypto/aesni-intel_avx-x86_64.S
-index 522ab68..0756e4a 100644
---- a/arch/x86/crypto/aesni-intel_avx-x86_64.S
-+++ b/arch/x86/crypto/aesni-intel_avx-x86_64.S
-@@ -360,6 +360,8 @@ VARIABLE_OFFSET = 16*8
- 
-         mov     arg6, %r10                      # r10 = AAD
-         mov     arg7, %r12                      # r12 = aadLen
-+        add     $3, %r12
-+        and     $~3, %r12
- 
- 
-         mov     %r12, %r11
-@@ -1619,6 +1621,8 @@ ENDPROC(aesni_gcm_dec_avx_gen2)
- 
-         mov     arg6, %r10                       # r10 = AAD
-         mov     arg7, %r12                       # r12 = aadLen
-+        add     $3, %r12
-+        and     $~3, %r12
- 
- 
-         mov     %r12, %r11
-diff --git a/arch/x86/crypto/aesni-intel_glue.c b/arch/x86/crypto/aesni-intel_glue.c
-index 4ff90a7..dcada94 100644
---- a/arch/x86/crypto/aesni-intel_glue.c
-+++ b/arch/x86/crypto/aesni-intel_glue.c
-@@ -957,6 +957,8 @@ static int helper_rfc4106_encrypt(struct aead_request *req)
+-static ssize_t do_tcp_sendpages(struct sock *sk, struct page *page, int offset,
+-				size_t size, int flags)
++ssize_t do_tcp_sendpages(struct sock *sk, struct page *page, int offset,
++			 size_t size, int flags)
  {
- 	u8 one_entry_in_sg = 0;
- 	u8 *src, *dst, *assoc;
-+	u8 *assocmem = NULL;
-+
- 	__be32 counter = cpu_to_be32(1);
- 	struct crypto_aead *tfm = crypto_aead_reqtfm(req);
- 	struct aesni_rfc4106_gcm_ctx *ctx = aesni_rfc4106_gcm_ctx_get(tfm);
-@@ -966,12 +968,8 @@ static int helper_rfc4106_encrypt(struct aead_request *req)
- 	struct scatter_walk src_sg_walk;
- 	struct scatter_walk dst_sg_walk = {};
- 	unsigned int i;
--
--	/* Assuming we are supporting rfc4106 64-bit extended */
--	/* sequence numbers We need to have the AAD length equal */
--	/* to 16 or 20 bytes */
--	if (unlikely(req->assoclen != 16 && req->assoclen != 20))
--		return -EINVAL;
-+	unsigned int padded_assoclen = (req->assoclen + 3) & ~3;
-+	u8 assocbuf[24];
- 
- 	/* IV below built */
- 	for (i = 0; i < 4; i++)
-@@ -996,7 +994,8 @@ static int helper_rfc4106_encrypt(struct aead_request *req)
- 	} else {
- 		/* Allocate memory for src, dst, assoc */
- 		assoc = kmalloc(req->cryptlen + auth_tag_len + req->assoclen,
--			GFP_ATOMIC);
-+				GFP_ATOMIC);
-+		assocmem = assoc;
- 		if (unlikely(!assoc))
- 			return -ENOMEM;
- 		scatterwalk_map_and_copy(assoc, req->src, 0,
-@@ -1005,6 +1004,14 @@ static int helper_rfc4106_encrypt(struct aead_request *req)
- 		dst = src;
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	int mss_now, size_goal;
+@@ -1003,6 +1003,7 @@ static ssize_t do_tcp_sendpages(struct sock *sk, struct page *page, int offset,
  	}
- 
-+	if (req->assoclen != padded_assoclen) {
-+		scatterwalk_map_and_copy(assocbuf, req->src, 0,
-+					 req->assoclen, 0);
-+		memset(assocbuf + req->assoclen, 0,
-+		       padded_assoclen - req->assoclen);
-+		assoc = assocbuf;
-+	}
-+
- 	kernel_fpu_begin();
- 	aesni_gcm_enc_tfm(aes_ctx, dst, src, req->cryptlen, iv,
- 			  ctx->hash_subkey, assoc, req->assoclen - 8,
-@@ -1025,7 +1032,7 @@ static int helper_rfc4106_encrypt(struct aead_request *req)
- 	} else {
- 		scatterwalk_map_and_copy(dst, req->dst, req->assoclen,
- 					 req->cryptlen + auth_tag_len, 1);
--		kfree(assoc);
-+		kfree(assocmem);
- 	}
- 	return 0;
+ 	return sk_stream_error(sk, flags, err);
  }
-@@ -1034,6 +1041,7 @@ static int helper_rfc4106_decrypt(struct aead_request *req)
- {
- 	u8 one_entry_in_sg = 0;
- 	u8 *src, *dst, *assoc;
-+	u8 *assocmem = NULL;
- 	unsigned long tempCipherLen = 0;
- 	__be32 counter = cpu_to_be32(1);
- 	int retval = 0;
-@@ -1043,16 +1051,11 @@ static int helper_rfc4106_decrypt(struct aead_request *req)
- 	unsigned long auth_tag_len = crypto_aead_authsize(tfm);
- 	u8 iv[16] __attribute__ ((__aligned__(AESNI_ALIGN)));
- 	u8 authTag[16];
-+	u8 assocbuf[24];
- 	struct scatter_walk src_sg_walk;
- 	struct scatter_walk dst_sg_walk = {};
- 	unsigned int i;
--
--	if (unlikely(req->assoclen != 16 && req->assoclen != 20))
--		return -EINVAL;
--
--	/* Assuming we are supporting rfc4106 64-bit extended */
--	/* sequence numbers We need to have the AAD length */
--	/* equal to 16 or 20 bytes */
-+	unsigned int padded_assoclen = (req->assoclen + 3) & ~3;
++EXPORT_SYMBOL(do_tcp_sendpages);
  
- 	tempCipherLen = (unsigned long)(req->cryptlen - auth_tag_len);
- 	/* IV below built */
-@@ -1079,6 +1082,7 @@ static int helper_rfc4106_decrypt(struct aead_request *req)
- 	} else {
- 		/* Allocate memory for src, dst, assoc */
- 		assoc = kmalloc(req->cryptlen + req->assoclen, GFP_ATOMIC);
-+		assocmem = assoc;
- 		if (!assoc)
- 			return -ENOMEM;
- 		scatterwalk_map_and_copy(assoc, req->src, 0,
-@@ -1087,6 +1091,14 @@ static int helper_rfc4106_decrypt(struct aead_request *req)
- 		dst = src;
- 	}
- 
-+	if (req->assoclen != padded_assoclen) {
-+		scatterwalk_map_and_copy(assocbuf, req->src,
-+					 0, req->assoclen, 0);
-+		memset(assocbuf + req->assoclen, 0,
-+		       padded_assoclen - req->assoclen);
-+		assoc = assocbuf;
-+	}
-+
- 	kernel_fpu_begin();
- 	aesni_gcm_dec_tfm(aes_ctx, dst, src, tempCipherLen, iv,
- 			  ctx->hash_subkey, assoc, req->assoclen - 8,
-@@ -1109,7 +1121,7 @@ static int helper_rfc4106_decrypt(struct aead_request *req)
- 	} else {
- 		scatterwalk_map_and_copy(dst, req->dst, req->assoclen,
- 					 tempCipherLen, 1);
--		kfree(assoc);
-+		kfree(assocmem);
- 	}
- 	return retval;
- }
-@@ -1151,6 +1163,12 @@ static int rfc4106_encrypt(struct aead_request *req)
- 
- 	aead_request_set_tfm(req, tfm);
- 
-+	/* Assuming we are supporting rfc4106 64-bit extended */
-+	/* sequence numbers We need to have the AAD length */
-+	/* equal to 16 or 20 bytes */
-+	if (unlikely(req->assoclen != 16 && req->assoclen != 20))
-+		return -EINVAL;
-+
- 	return crypto_aead_encrypt(req);
- }
- 
-@@ -1167,6 +1185,43 @@ static int rfc4106_decrypt(struct aead_request *req)
- 
- 	aead_request_set_tfm(req, tfm);
- 
-+	/* Assuming we are supporting rfc4106 64-bit extended */
-+	/* sequence numbers We need to have the AAD length */
-+	/* equal to 16 or 20 bytes */
-+	if (unlikely(req->assoclen != 16 && req->assoclen != 20))
-+		return -EINVAL;
-+
-+	return crypto_aead_decrypt(req);
-+}
-+
-+static int rfc5288_encrypt(struct aead_request *req)
-+{
-+	struct crypto_aead *tfm = crypto_aead_reqtfm(req);
-+	struct cryptd_aead **ctx = crypto_aead_ctx(tfm);
-+	struct cryptd_aead *cryptd_tfm = *ctx;
-+
-+	if (unlikely(req->assoclen != 21))
-+		return -EINVAL;
-+
-+	aead_request_set_tfm(req, irq_fpu_usable() ?
-+				  cryptd_aead_child(cryptd_tfm) :
-+				  &cryptd_tfm->base);
-+
-+	return crypto_aead_encrypt(req);
-+}
-+
-+static int rfc5288_decrypt(struct aead_request *req)
-+{
-+	struct crypto_aead *tfm = crypto_aead_reqtfm(req);
-+	struct cryptd_aead **ctx = crypto_aead_ctx(tfm);
-+	struct cryptd_aead *cryptd_tfm = *ctx;
-+
-+	if (unlikely(req->assoclen != 21))
-+		return -EINVAL;
-+
-+	aead_request_set_tfm(req, irq_fpu_usable() ?
-+				  cryptd_aead_child(cryptd_tfm) :
-+				  &cryptd_tfm->base);
- 	return crypto_aead_decrypt(req);
- }
- #endif
-@@ -1506,6 +1561,24 @@ static struct aead_alg aesni_aead_algs[] = { {
- 		.cra_blocksize		= 1,
- 		.cra_ctxsize		= sizeof(struct aesni_rfc4106_gcm_sync_ctx),
- 		.cra_module		= THIS_MODULE,
-+		},
-+}, {
-+	.init			= rfc4106_init,
-+	.exit			= rfc4106_exit,
-+	.setkey			= rfc4106_set_key,
-+	.setauthsize		= rfc4106_set_authsize,
-+	.encrypt		= rfc5288_encrypt,
-+	.decrypt		= rfc5288_decrypt,
-+	.ivsize			= 8,
-+	.maxauthsize		= 16,
-+	.base = {
-+		.cra_name		= "rfc5288(gcm(aes))",
-+		.cra_driver_name	= "rfc5288-gcm-aesni",
-+		.cra_priority		= 400,
-+		.cra_flags		= CRYPTO_ALG_ASYNC,
-+		.cra_blocksize		= 1,
-+		.cra_ctxsize		= sizeof(struct cryptd_aead *),
-+		.cra_module		= THIS_MODULE,
- 	},
- } };
- #else
+ int tcp_sendpage(struct sock *sk, struct page *page, int offset,
+ 		 size_t size, int flags)
 -- 
 2.7.4
