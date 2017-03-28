@@ -1,48 +1,109 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH 1/7] Documentation: dt: net: Update the ath9k binding for
- SoC devices
-Date: Tue, 28 Mar 2017 18:41:59 +0200
-Message-ID: <20170328164159.GB29742@lunn.ch>
-References: <1489439116-4233-1-git-send-email-albeu@free.fr>
- <2357006.NGKQYCh4BG@debian64>
- <20170328151837.GC3152@lunn.ch>
- <8622591.q4sXytZqXW@debian64>
+From: Ivan Vecera <ivecera@redhat.com>
+Subject: Re: [patch net-next v2 0/8] Add support for pipeline debug (dpipe)
+Date: Tue, 28 Mar 2017 18:41:55 +0200
+Message-ID: <d567d359-776c-882c-5240-648e1a3aea21@redhat.com>
+References: <1490714657-6116-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alban <albeu@free.fr>,
-        QCA ath9k Development <ath9k-devel@qca.qualcomm.com>,
-        John Crispin <john@phrozen.org>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
-        m@kresin.me
-To: Christian Lamparter <chunkeey@googlemail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <8622591.q4sXytZqXW@debian64>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, arkadis@mellanox.com, idosch@mellanox.com,
+        mlxsw@mellanox.com, jhs@mojatatu.com, roopa@cumulusnetworks.com,
+        f.fainelli@gmail.com, vivien.didelot@savoirfairelinux.com,
+        john.fastabend@gmail.com, andrew@lunn.ch,
+        simon.horman@netronome.com
+To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:51784 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752585AbdC1Qmr (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 28 Mar 2017 12:42:47 -0400
+In-Reply-To: <1490714657-6116-1-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> Oh, in that case you should probably go "all out" and ask on the 
-> LKML to remove all of the ath9k and ath10k ahb work. From what I
-> know all the "users" are running some sort of OpenWRT/LEDE or a 
-> derivative. This is because Atheros/QCA provided a SDK based on
-> OpenWRT.
-> 
-> Alban has been trying to convert the platform to device-tree
-> and add them to the mainline for a while now:
->  
-> https://patchwork.kernel.org/patch/6514551/
-> 
-> So, you are questioning this work as well.
+Dne 28.3.2017 v 17:24 Jiri Pirko napsal(a):
+> From: Jiri Pirko <jiri@mellanox.com>
+>
+> Arkadi says:
+>
+> While doing the hardware offloading process much of the hardware
+> specifics cannot be presented. An example for such is the routing
+> LPM algorithm which differ in hardware implementation from the
+> kernel software implementation. The only information the user receives
+> is whether specific route is offloaded or not, but he cannot really
+> understand the underlying implementation nor get the specific statistics
+> related to that process.
+>
+> Another example is ACL offload using TC which is commonly implemented
+> using TCAM memory. Currently there is no capability to gain visibility
+> into the TCAM structure and to debug suboptimal resource allocation.
+>
+> This patchset introduces capability for exporting the ASICs pipeline
+> abstraction via devlink infrastructure, which should serve as an
+> complementary tool. This infrastructure allows the user to get visibility
+> into the ASIC by modeling it as a set of match/action tables.
+>
+> The main objects defined:
+> Table - abstraction for a single pipeline stage. Contains the
+>         available match/actions and counter availability.
+> Entry - entry in a specific table with specific matches/actions
+>         values and dedicated counter.
+> Header/field - tuples which describes the tables behavior.
+>
+> As an example one of the ASIC's L3 blocks will be modeled. The egress
+> rif (router interface) table is the final step in the L3 pipeline
+> processing which does match on the internal rif index which was
+> determined before by the routing logic. The erif table determines
+> whether to forward or drop the packet and updates the corresponding
+> rif L3 statistics.
+>
+> To expose this internal resources a special metadata header will
+> be introduced that describes the internal information gathered by
+> the ASIC's pipeline and contains the following fields: rif_port_index,
+> forward and drop.
+>
+> Some internal hardware resources have direct mapping to kernel
+> objects. For example the rif_port_index is mapped to the net-devices
+> ifindex. By providing this mapping the users gains visibility into
+> the offloading process.
+>
+> Follow-up work will include exporting more L3 tables which will give
+> visibility into the routing process.
+>
+> First stage is adding support for dpipe in devlink. Next add support
+> in spectrum driver. Finally implement egress router interface
+> (erif) table for spectrum ASIC as an example.
+>
+> ---
+> v1->v2: Please see individual patches
+>
+> Arkadi Sharshevsky (8):
+>   devlink: Support for pipeline debug (dpipe)
+>   mlxsw: reg: Add counter fields to RITR register
+>   mlxsw: spectrum: Add placeholder for dpipe
+>   mlxsw: spectrum: Add definition for egress rif table
+>   mlxsw: reg: Add Router Interface Counter Register
+>   mlxsw: spectrum: Support for counters on router interfaces
+>   mlxsw: spectrum_router: Add rif helper functions
+>   mlxsw: spectrum: Add Support for erif table entries access
+>
+>  drivers/net/ethernet/mellanox/mlxsw/Makefile       |   2 +-
+>  drivers/net/ethernet/mellanox/mlxsw/reg.h          | 178 +++++
+>  drivers/net/ethernet/mellanox/mlxsw/resources.h    |   2 +
+>  drivers/net/ethernet/mellanox/mlxsw/spectrum.c     |  10 +
+>  drivers/net/ethernet/mellanox/mlxsw/spectrum_cnt.c |   9 +
+>  drivers/net/ethernet/mellanox/mlxsw/spectrum_cnt.h |   1 +
+>  .../net/ethernet/mellanox/mlxsw/spectrum_dpipe.c   | 351 +++++++++
+>  .../net/ethernet/mellanox/mlxsw/spectrum_dpipe.h   |  43 ++
+>  .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 174 +++++
+>  .../net/ethernet/mellanox/mlxsw/spectrum_router.h  |  58 ++
+>  include/net/devlink.h                              | 259 +++++++
+>  include/uapi/linux/devlink.h                       |  67 +-
+>  net/core/devlink.c                                 | 836 +++++++++++++++++++++
+>  13 files changed, 1988 insertions(+), 2 deletions(-)
+>  create mode 100644 drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.c
+>  create mode 100644 drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.h
+>  create mode 100644 drivers/net/ethernet/mellanox/mlxsw/spectrum_router.h
+>
 
-Not at all. Ralph Sennhauser has been doing a great job of getting all
-the Marvell devices into Mainline, and i help as much as i can, being
-one of the Marvell SoC Maintainers.
-
-I'm just saying, get a few boards which require these facilities into
-the mainline, and then you have a much stranger base to argue from.
-
-    Andrew
+Reviewed-by: Ivan Vecera <ivecera@redhat.com>
