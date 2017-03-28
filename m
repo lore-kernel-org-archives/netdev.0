@@ -1,38 +1,63 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next 0/8] Add support for pipeline debug (dpipe)
-Date: Tue, 28 Mar 2017 09:10:51 +0200
-Message-ID: <20170328071051.GB1873@nanopsycho.orion>
-References: <1490427342-2061-1-git-send-email-jiri@resnulli.us>
- <20170327.154834.1733255928137862540.davem@davemloft.net>
+From: Tariq Toukan <ttoukan.linux@gmail.com>
+Subject: Re: Page allocator order-0 optimizations merged
+Date: Tue, 28 Mar 2017 10:32:19 +0300
+Message-ID: <0873b65b-2217-005d-0b42-4af6ad66cc0f@gmail.com>
+References: <d4c1625e-cacf-52a9-bfcb-b32a185a2008@mellanox.com>
+ <83a0e3ef-acfa-a2af-2770-b9a92bda41bb@mellanox.com>
+ <20170322234004.kffsce4owewgpqnm@techsingularity.net>
+ <20170323144347.1e6f29de@redhat.com>
+ <20170323145133.twzt4f5ci26vdyut@techsingularity.net>
+ <779ab72d-94b9-1a28-c192-377e91383b4e@gmail.com>
+ <1fc7338f-2b36-75f7-8a7e-8321f062207b@gmail.com>
+ <2123321554.7161128.1490599967015.JavaMail.zimbra@redhat.com>
+ <20170327105514.1ed5b1ba@redhat.com> <20170327143947.4c237e54@redhat.com>
+ <20170327133212.6azfgrariwocdzzd@techsingularity.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, arkadis@mellanox.com, idosch@mellanox.com,
-        mlxsw@mellanox.com, jhs@mojatatu.com, ivecera@redhat.com,
-        roopa@cumulusnetworks.com, f.fainelli@gmail.com,
-        vivien.didelot@savoirfairelinux.com, john.fastabend@gmail.com,
-        andrew@lunn.ch, simon.horman@netronome.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f175.google.com ([209.85.128.175]:35318 "EHLO
-        mail-wr0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754313AbdC1HK4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 28 Mar 2017 03:10:56 -0400
-Received: by mail-wr0-f175.google.com with SMTP id u1so89418747wra.2
-        for <netdev@vger.kernel.org>; Tue, 28 Mar 2017 00:10:53 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20170327.154834.1733255928137862540.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Pankaj Gupta <pagupta@redhat.com>, Tariq Toukan <tariqt@mellanox.com>,
+ netdev@vger.kernel.org, akpm@linux-foundation.org,
+ linux-mm <linux-mm@kvack.org>, Saeed Mahameed <saeedm@mellanox.com>
+To: Mel Gorman <mgorman@techsingularity.net>,
+ Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20170327133212.6azfgrariwocdzzd@techsingularity.net>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Tue, Mar 28, 2017 at 12:48:34AM CEST, davem@davemloft.net wrote:
->
->Please fix up these warnings and resubmit:
->
->drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c: In function ‘mlxsw_sp_rif_counter_free’:
->drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c:208:2: warning: ‘p_counter_index’ may be used uninitialized in this function [-Wmaybe-uninitialized]
->  mlxsw_sp_rif_counter_edit(mlxsw_sp, rif->rif_index,
->  ^
 
-This is I believe also gcc bug. Code looks fine. I'm not getting the warning
-with gcc 6
+
+On 27/03/2017 4:32 PM, Mel Gorman wrote:
+> On Mon, Mar 27, 2017 at 02:39:47PM +0200, Jesper Dangaard Brouer wrote:
+>> On Mon, 27 Mar 2017 10:55:14 +0200
+>> Jesper Dangaard Brouer <brouer@redhat.com> wrote:
+>>
+>>> A possible solution, would be use the local_bh_{disable,enable} instead
+>>> of the {preempt_disable,enable} calls.  But it is slower, using numbers
+>>> from [1] (19 vs 11 cycles), thus the expected cycles saving is 38-19=19.
+>>>
+>>> The problematic part of using local_bh_enable is that this adds a
+>>> softirq/bottom-halves rescheduling point (as it checks for pending
+>>> BHs).  Thus, this might affects real workloads.
+>>
+>> I implemented this solution in patch below... and tested it on mlx5 at
+>> 50G with manually disabled driver-page-recycling.  It works for me.
+>>
+>> To Mel, that do you prefer... a partial-revert or something like this?
+>>
+>
+> If Tariq confirms it works for him as well, this looks far safer patch
+
+Great.
+I will test Jesper's patch today in the afternoon.
+
+> than having a dedicate IRQ-safe queue. Your concern about the BH
+> scheduling point is valid but if it's proven to be a problem, there is
+> still the option of a partial revert.
+>
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
