@@ -1,48 +1,65 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH next 0/5] link-status fixes for mii-monitoring
-Date: Mon, 27 Mar 2017 21:12:10 -0700 (PDT)
-Message-ID: <20170327.211210.674299237092414810.davem@davemloft.net>
-References: <20170327183725.30565-1-mahesh@bandewar.net>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: genphy_read_status() vs. 1000bT Pause capability
+Date: Mon, 27 Mar 2017 21:14:00 -0700
+Message-ID: <ad5368cf-8f89-c884-607d-8ac560ccc860@gmail.com>
+References: <1490662190.3177.91.camel@kernel.crashing.org>
+ <20170328010940.GG25549@lunn.ch>
+ <1490668137.3177.98.camel@kernel.crashing.org>
+ <1490669734.3177.100.camel@au1.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: j.vosburgh@gmail.com, andy@greyhouse.net, vfalico@gmail.com,
-        nikolay@redhat.com, edumazet@google.com, netdev@vger.kernel.org,
-        maheshb@google.com
-To: mahesh@bandewar.net
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, Russell King <rmk+kernel@armlinux.org.uk>
+To: benh@au1.ibm.com, Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:54800 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750827AbdC1EMM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 28 Mar 2017 00:12:12 -0400
-In-Reply-To: <20170327183725.30565-1-mahesh@bandewar.net>
+Received: from mail-oi0-f68.google.com ([209.85.218.68]:35287 "EHLO
+        mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750827AbdC1EOb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 28 Mar 2017 00:14:31 -0400
+Received: by mail-oi0-f68.google.com with SMTP id t7so905892oig.2
+        for <netdev@vger.kernel.org>; Mon, 27 Mar 2017 21:14:01 -0700 (PDT)
+In-Reply-To: <1490669734.3177.100.camel@au1.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mahesh Bandewar <mahesh@bandewar.net>
-Date: Mon, 27 Mar 2017 11:37:24 -0700
+Hi Ben,
 
-> From: Mahesh Bandewar <maheshb@google.com>
+On 03/27/2017 07:55 PM, Benjamin Herrenschmidt wrote:
+> On Tue, 2017-03-28 at 13:28 +1100, Benjamin Herrenschmidt wrote:
+>>
+>>> Hi Ben
+>>>
+>>> It is worth reading Documentation/networking/phy.txt
+>>>
+>>> The MAC should set SUPPORTED_Pause and SUPPORTED_Asym_Pause if the MAC
+>>> supports these features. The PHY will then negotiate them.
+>>
+> Haha ! The OpenBMC kernel is still at 4.7 which was still saying you
+> should only clear bits in there :-) I think that's what I initially
+> read.
 > 
-> The mii monitoring is divided into two phases - inspect and commit. The
-> inspect phase technically should not make any changes to the state and
-> defer it to the commit phase. However detected link state inconsistencies
-> on several machines and discovered that it's the result of some
-> inconsistent update to link states and assumption that you *always* get
-> rtnl-mutex. In reality when trylock() fails to acquire rtnl-mutex, the
-> commit phase is postponed until next mii-mon run. At the next round
-> because of the state change performed in the previous inspect-run, this
-> round does not detect any changes and would skip calling commit phase.
-> This would result in an inconsistent state until next link event happens
-> (if it ever happens).
+> Thanks for the pointer.
 > 
-> During the the commit phase, it's always assumed that speed and duplex
-> fetch is always successful, but that's always not the case. However the
-> slave state is marked UP irrespective of speed / duplex fetch operation.
-> If the speed / duplex fetch operation results in insane values for either
-> of these two fields, then keeping internal link state UP is not going to
-> provide fruitful results either.
-> 
-> Please see into individual patches for more details.
+> Doesn't fix my other problem with Pause in 1000bT land. Do you know if
+> that way of reflecting the pause capability by hijacking the old
+> LPA bits is widely implemented enough that we should put it in
+> genphy_read_status() ?
 
-Looks good, series applied, thanks.
+Not sure I follow you here? The link partner pause capability is
+reflected in phydev->pause and phydev->asym_pause (yes, these are
+terrible names) when the link is established. An Ethernet driver is
+still supposed to reconcile the locally advertised pause parameters
+(auto negotiated, or manually configured) from ethtool_{get,set}_param
+and then decide what to do in return (typically advertise or not the
+support for pause frames).
+
+The plan is eventually to provide better helper function for PHYLIB
+aware Ethernet MAC drivers such that given the local pause settings of
+the driver (resolved via ethtool), advertisement and auto-(re)negotation
+works as expected, essentially providing something generic ala
+tg3_set_pauseparam().
+
+Have not gotten the time to get there yet so if you, or Russell beat me
+to it, I'd happily review such patches.
+-- 
+Florian
