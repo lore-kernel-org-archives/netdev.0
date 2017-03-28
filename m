@@ -1,17 +1,21 @@
 From: Arushi Singhal <arushisinghal19971997@gmail.com>
-Subject: [PATCH v2] net: netfilter: add nfnl_msg_type() helper function
-Date: Tue, 28 Mar 2017 22:25:00 +0530
-Message-ID: <20170328165500.GA11580@arushi-HP-Pavilion-Notebook>
+Subject: [PATCH v3] net: netfilter: Add nfnl_msg_type() helper function
+Date: Tue, 28 Mar 2017 22:27:32 +0530
+Message-ID: <20170328165732.GA11602@arushi-HP-Pavilion-Notebook>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>, davem@davemloft.net,
         netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
         linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+To: outreachy-kernel@googlegroups.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:33020 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755159AbdC1Q5s (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 28 Mar 2017 12:57:48 -0400
 Content-Disposition: inline
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 To remove complexity of code the function is added in nfnetlink.h
 to make code more clear and readable.
@@ -20,9 +24,8 @@ netfilter netlink subsystems.
 
 Signed-off-by: Arushi Singhal <arushisinghal19971997@gmail.com>
 ---
-changes in v2
- - make the patch title more relevant
- - make the changes more wider.
+changes in v3
+ -make the subject more clear.
 
  include/linux/netfilter/nfnetlink.h  |  6 ++++++
  net/netfilter/nf_conntrack_netlink.c | 12 +++++++-----
@@ -149,4 +152,3 @@ index 139e0867e56e..6d76172117e4 100644
  		goto nlmsg_failure;
 -- 
 2.11.0
-
