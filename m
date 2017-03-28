@@ -1,57 +1,77 @@
-From: Pankaj Gupta <pagupta@redhat.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
 Subject: Re: Page allocator order-0 optimizations merged
-Date: Tue, 28 Mar 2017 04:28:51 -0400 (EDT)
-Message-ID: <880114946.7747224.1490689731036.JavaMail.zimbra@redhat.com>
-References: <d4c1625e-cacf-52a9-bfcb-b32a185a2008@mellanox.com> <20170323145133.twzt4f5ci26vdyut@techsingularity.net> <779ab72d-94b9-1a28-c192-377e91383b4e@gmail.com> <1fc7338f-2b36-75f7-8a7e-8321f062207b@gmail.com> <2123321554.7161128.1490599967015.JavaMail.zimbra@redhat.com> <20170327105514.1ed5b1ba@redhat.com> <20170327143947.4c237e54@redhat.com> <20170327133212.6azfgrariwocdzzd@techsingularity.net>
+Date: Tue, 28 Mar 2017 10:29:10 +0200
+Message-ID: <20170328102910.050cf675@redhat.com>
+References: <d4c1625e-cacf-52a9-bfcb-b32a185a2008@mellanox.com>
+	<83a0e3ef-acfa-a2af-2770-b9a92bda41bb@mellanox.com>
+	<20170322234004.kffsce4owewgpqnm@techsingularity.net>
+	<20170323144347.1e6f29de@redhat.com>
+	<20170323145133.twzt4f5ci26vdyut@techsingularity.net>
+	<779ab72d-94b9-1a28-c192-377e91383b4e@gmail.com>
+	<1fc7338f-2b36-75f7-8a7e-8321f062207b@gmail.com>
+	<2123321554.7161128.1490599967015.JavaMail.zimbra@redhat.com>
+	<20170327105514.1ed5b1ba@redhat.com>
+	<20170327143947.4c237e54@redhat.com>
+	<20170327133212.6azfgrariwocdzzd@techsingularity.net>
+	<0873b65b-2217-005d-0b42-4af6ad66cc0f@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
-	Tariq Toukan <ttoukan.linux@gmail.com>,
-	Tariq Toukan <tariqt@mellanox.com>, netdev@vger.kernel.org,
-	akpm@linux-foundation.org, linux-mm <linux-mm@kvack.org>,
-	Saeed Mahameed <saeedm@mellanox.com>
-To: Mel Gorman <mgorman@techsingularity.net>
+Cc: Mel Gorman <mgorman@techsingularity.net>, Pankaj Gupta
+ <pagupta@redhat.com>, Tariq Toukan <tariqt@mellanox.com>,
+ netdev@vger.kernel.org, akpm@linux-foundation.org, linux-mm
+ <linux-mm@kvack.org>, Saeed Mahameed <saeedm@mellanox.com>,
+ brouer@redhat.com
+To: Tariq Toukan <ttoukan.linux@gmail.com>
 Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20170327133212.6azfgrariwocdzzd@techsingularity.net>
+In-Reply-To: <0873b65b-2217-005d-0b42-4af6ad66cc0f@gmail.com>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
+On Tue, 28 Mar 2017 10:32:19 +0300
+Tariq Toukan <ttoukan.linux@gmail.com> wrote:
 
+> On 27/03/2017 4:32 PM, Mel Gorman wrote:
+> > On Mon, Mar 27, 2017 at 02:39:47PM +0200, Jesper Dangaard Brouer wrote:  
+> >> On Mon, 27 Mar 2017 10:55:14 +0200
+> >> Jesper Dangaard Brouer <brouer@redhat.com> wrote:
+> >>  
+> >>> A possible solution, would be use the local_bh_{disable,enable} instead
+> >>> of the {preempt_disable,enable} calls.  But it is slower, using numbers
+> >>> from [1] (19 vs 11 cycles), thus the expected cycles saving is 38-19=19.
+> >>>
+> >>> The problematic part of using local_bh_enable is that this adds a
+> >>> softirq/bottom-halves rescheduling point (as it checks for pending
+> >>> BHs).  Thus, this might affects real workloads.  
+> >>
+> >> I implemented this solution in patch below... and tested it on mlx5 at
+> >> 50G with manually disabled driver-page-recycling.  It works for me.
+> >>
+> >> To Mel, that do you prefer... a partial-revert or something like this?
+> >>  
+> >
+> > If Tariq confirms it works for him as well, this looks far safer patch  
 > 
-> On Mon, Mar 27, 2017 at 02:39:47PM +0200, Jesper Dangaard Brouer wrote:
-> > On Mon, 27 Mar 2017 10:55:14 +0200
-> > Jesper Dangaard Brouer <brouer@redhat.com> wrote:
-> > 
-> > > A possible solution, would be use the local_bh_{disable,enable} instead
-> > > of the {preempt_disable,enable} calls.  But it is slower, using numbers
-> > > from [1] (19 vs 11 cycles), thus the expected cycles saving is 38-19=19.
-> > > 
-> > > The problematic part of using local_bh_enable is that this adds a
-> > > softirq/bottom-halves rescheduling point (as it checks for pending
-> > > BHs).  Thus, this might affects real workloads.
-> > 
-> > I implemented this solution in patch below... and tested it on mlx5 at
-> > 50G with manually disabled driver-page-recycling.  It works for me.
-> > 
-> > To Mel, that do you prefer... a partial-revert or something like this?
-> > 
-> 
-> If Tariq confirms it works for him as well, this looks far safer patch
-> than having a dedicate IRQ-safe queue. Your concern about the BH
-> scheduling point is valid but if it's proven to be a problem, there is
-> still the option of a partial revert.
+> Great.
+> I will test Jesper's patch today in the afternoon.
 
-I also feel the same.
+Good to hear :-)
 
-Thanks,
-Pankaj
+> > than having a dedicate IRQ-safe queue. Your concern about the BH
+> > scheduling point is valid but if it's proven to be a problem, there is
+> > still the option of a partial revert.
 
-> 
-> --
-> Mel Gorman
-> SUSE Labs
-> 
+I wanted to evaluate my own BH scheduling point concern, but I could
+not, because I ran into a softirq acct regression (which I bisected
+see[1]).  AFAIK this should not affect Tariq's multi-TCP-stream test
+(netperf TCP stream testing works fine on my testlab).
+
+[1] http://lkml.kernel.org/r/20170328101403.34a82fbf@redhat.com
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
 
 --
 To unsubscribe, send a message with 'unsubscribe linux-mm' in
