@@ -1,51 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net: moxa: fix TX overrun memory leak
-Date: Mon, 27 Mar 2017 20:50:26 -0700 (PDT)
-Message-ID: <20170327.205026.1935467634311224337.davem@davemloft.net>
-References: <1490617879-14014-1-git-send-email-jonas.jensen@gmail.com>
+Subject: Re: [PATCH] net: ipconfig: fix ic_close_devs() use-after-free
+Date: Mon, 27 Mar 2017 21:07:24 -0700 (PDT)
+Message-ID: <20170327.210724.753199024787667111.davem@davemloft.net>
+References: <1490634014-23098-1-git-send-email-mark.rutland@arm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-        linux-kernel@vger.kernel.org
-To: jonas.jensen@gmail.com
+Cc: linux-kernel@vger.kernel.org, kuznet@ms2.inr.ac.ru,
+        yoshfuji@linux-ipv6.org, jmorris@namei.org, kaber@trash.net,
+        netdev@vger.kernel.org
+To: mark.rutland@arm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:54666 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:54764 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751288AbdC1Dub (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 27 Mar 2017 23:50:31 -0400
-In-Reply-To: <1490617879-14014-1-git-send-email-jonas.jensen@gmail.com>
+        with ESMTP id S1750816AbdC1EHf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 28 Mar 2017 00:07:35 -0400
+In-Reply-To: <1490634014-23098-1-git-send-email-mark.rutland@arm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jonas Jensen <jonas.jensen@gmail.com>
-Date: Mon, 27 Mar 2017 14:31:19 +0200
+From: Mark Rutland <mark.rutland@arm.com>
+Date: Mon, 27 Mar 2017 18:00:14 +0100
 
-> @@ -25,6 +25,7 @@
->  #include <linux/of_irq.h>
->  #include <linux/crc32.h>
->  #include <linux/crc32c.h>
-> +#include <linux/circ_buf.h>
->  
->  #include "moxart_ether.h"
->  
-> @@ -297,6 +298,7 @@ static void moxart_tx_finished(struct net_device *ndev)
->  		tx_tail = TX_NEXT(tx_tail);
->  	}
->  	priv->tx_tail = tx_tail;
-> +	netif_wake_queue(ndev);
->  }
->  
->  static irqreturn_t moxart_mac_interrupt(int irq, void *dev_id)
+> Our chosen ic_dev may be anywhere in our list of ic_devs, and we may
+> free it before attempting to close others. When we compare d->dev and
+> ic_dev->dev, we're potentially dereferencing memory returned to the
+> allocator. This causes KASAN to scream for each subsequent ic_dev we
+> check.
+> 
+> As there's a 1-1 mapping between ic_devs and netdevs, we can instead
+> compare d and ic_dev directly, which implicitly handles the !ic_dev
+> case, and avoids the use-after-free. The ic_dev pointer may be stale,
+> but we will not dereference it.
+> 
+> Original splat:
+ ...
+> Signed-off-by: Mark Rutland <mark.rutland@arm.com>
 
-Doing the wakeup unconditionally is very wasteful, you just need to do it
-when enough space has been made available.
-
-Therefore the wakeup should be more like:
-
-	if (netif_queue_stopped(ndev) &&
-	    moxart_tx_queue_space(ndev) >= MOXART_TX_WAKEUP_THRESHOLD)
-		netif_wake_queue();
-
-Otherwise you're just going to flap back and forth under high load and
-get almost not packet batching at all, hurting performance.
+Applied, thanks.
