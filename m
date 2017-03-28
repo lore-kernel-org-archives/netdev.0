@@ -1,109 +1,152 @@
-From: Ivan Vecera <ivecera@redhat.com>
-Subject: Re: [patch net-next v2 0/8] Add support for pipeline debug (dpipe)
-Date: Tue, 28 Mar 2017 18:41:55 +0200
-Message-ID: <d567d359-776c-882c-5240-648e1a3aea21@redhat.com>
-References: <1490714657-6116-1-git-send-email-jiri@resnulli.us>
+From: Arushi Singhal <arushisinghal19971997@gmail.com>
+Subject: [PATCH v2] net: netfilter: add nfnl_msg_type() helper function
+Date: Tue, 28 Mar 2017 22:25:00 +0530
+Message-ID: <20170328165500.GA11580@arushi-HP-Pavilion-Notebook>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, arkadis@mellanox.com, idosch@mellanox.com,
-        mlxsw@mellanox.com, jhs@mojatatu.com, roopa@cumulusnetworks.com,
-        f.fainelli@gmail.com, vivien.didelot@savoirfairelinux.com,
-        john.fastabend@gmail.com, andrew@lunn.ch,
-        simon.horman@netronome.com
-To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:51784 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752585AbdC1Qmr (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 28 Mar 2017 12:42:47 -0400
-In-Reply-To: <1490714657-6116-1-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>, davem@davemloft.net,
+        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: pablo@netfilter.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Dne 28.3.2017 v 17:24 Jiri Pirko napsal(a):
-> From: Jiri Pirko <jiri@mellanox.com>
->
-> Arkadi says:
->
-> While doing the hardware offloading process much of the hardware
-> specifics cannot be presented. An example for such is the routing
-> LPM algorithm which differ in hardware implementation from the
-> kernel software implementation. The only information the user receives
-> is whether specific route is offloaded or not, but he cannot really
-> understand the underlying implementation nor get the specific statistics
-> related to that process.
->
-> Another example is ACL offload using TC which is commonly implemented
-> using TCAM memory. Currently there is no capability to gain visibility
-> into the TCAM structure and to debug suboptimal resource allocation.
->
-> This patchset introduces capability for exporting the ASICs pipeline
-> abstraction via devlink infrastructure, which should serve as an
-> complementary tool. This infrastructure allows the user to get visibility
-> into the ASIC by modeling it as a set of match/action tables.
->
-> The main objects defined:
-> Table - abstraction for a single pipeline stage. Contains the
->         available match/actions and counter availability.
-> Entry - entry in a specific table with specific matches/actions
->         values and dedicated counter.
-> Header/field - tuples which describes the tables behavior.
->
-> As an example one of the ASIC's L3 blocks will be modeled. The egress
-> rif (router interface) table is the final step in the L3 pipeline
-> processing which does match on the internal rif index which was
-> determined before by the routing logic. The erif table determines
-> whether to forward or drop the packet and updates the corresponding
-> rif L3 statistics.
->
-> To expose this internal resources a special metadata header will
-> be introduced that describes the internal information gathered by
-> the ASIC's pipeline and contains the following fields: rif_port_index,
-> forward and drop.
->
-> Some internal hardware resources have direct mapping to kernel
-> objects. For example the rif_port_index is mapped to the net-devices
-> ifindex. By providing this mapping the users gains visibility into
-> the offloading process.
->
-> Follow-up work will include exporting more L3 tables which will give
-> visibility into the routing process.
->
-> First stage is adding support for dpipe in devlink. Next add support
-> in spectrum driver. Finally implement egress router interface
-> (erif) table for spectrum ASIC as an example.
->
-> ---
-> v1->v2: Please see individual patches
->
-> Arkadi Sharshevsky (8):
->   devlink: Support for pipeline debug (dpipe)
->   mlxsw: reg: Add counter fields to RITR register
->   mlxsw: spectrum: Add placeholder for dpipe
->   mlxsw: spectrum: Add definition for egress rif table
->   mlxsw: reg: Add Router Interface Counter Register
->   mlxsw: spectrum: Support for counters on router interfaces
->   mlxsw: spectrum_router: Add rif helper functions
->   mlxsw: spectrum: Add Support for erif table entries access
->
->  drivers/net/ethernet/mellanox/mlxsw/Makefile       |   2 +-
->  drivers/net/ethernet/mellanox/mlxsw/reg.h          | 178 +++++
->  drivers/net/ethernet/mellanox/mlxsw/resources.h    |   2 +
->  drivers/net/ethernet/mellanox/mlxsw/spectrum.c     |  10 +
->  drivers/net/ethernet/mellanox/mlxsw/spectrum_cnt.c |   9 +
->  drivers/net/ethernet/mellanox/mlxsw/spectrum_cnt.h |   1 +
->  .../net/ethernet/mellanox/mlxsw/spectrum_dpipe.c   | 351 +++++++++
->  .../net/ethernet/mellanox/mlxsw/spectrum_dpipe.h   |  43 ++
->  .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 174 +++++
->  .../net/ethernet/mellanox/mlxsw/spectrum_router.h  |  58 ++
->  include/net/devlink.h                              | 259 +++++++
->  include/uapi/linux/devlink.h                       |  67 +-
->  net/core/devlink.c                                 | 836 +++++++++++++++++++++
->  13 files changed, 1988 insertions(+), 2 deletions(-)
->  create mode 100644 drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.c
->  create mode 100644 drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.h
->  create mode 100644 drivers/net/ethernet/mellanox/mlxsw/spectrum_router.h
->
+To remove complexity of code the function is added in nfnetlink.h
+to make code more clear and readable.
+This is opencoded in a way that makes it error prone for future
+netfilter netlink subsystems.
 
-Reviewed-by: Ivan Vecera <ivecera@redhat.com>
+Signed-off-by: Arushi Singhal <arushisinghal19971997@gmail.com>
+---
+changes in v2
+ - make the patch title more relevant
+ - make the changes more wider.
+
+ include/linux/netfilter/nfnetlink.h  |  6 ++++++
+ net/netfilter/nf_conntrack_netlink.c | 12 +++++++-----
+ net/netfilter/nfnetlink_acct.c       |  2 +-
+ net/netfilter/nfnetlink_cthelper.c   |  2 +-
+ net/netfilter/nfnetlink_cttimeout.c  |  4 ++--
+ 5 files changed, 17 insertions(+), 9 deletions(-)
+
+diff --git a/include/linux/netfilter/nfnetlink.h b/include/linux/netfilter/nfnetlink.h
+index 1b49209dd5c7..9a36a7c3145d 100644
+--- a/include/linux/netfilter/nfnetlink.h
++++ b/include/linux/netfilter/nfnetlink.h
+@@ -50,6 +50,12 @@ static inline bool lockdep_nfnl_is_held(__u8 subsys_id)
+ {
+ 	return true;
+ }
++
++static inline u16 nfnl_msg_type(u8 subsys, u8 msg_type)
++{
++	return subsys << 8 | msg_type;
++}
++
+ #endif /* CONFIG_PROVE_LOCKING */
+ 
+ /*
+diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
+index aa344c5868c5..67f6f88a3e92 100644
+--- a/net/netfilter/nf_conntrack_netlink.c
++++ b/net/netfilter/nf_conntrack_netlink.c
+@@ -467,7 +467,7 @@ ctnetlink_fill_info(struct sk_buff *skb, u32 portid, u32 seq, u32 type,
+ 	struct nlattr *nest_parms;
+ 	unsigned int flags = portid ? NLM_F_MULTI : 0, event;
+ 
+-	event = NFNL_SUBSYS_CTNETLINK << 8 | IPCTNL_MSG_CT_NEW;
++	event = nfnl_msg_type(NFNL_SUBSYS_CTNETLINK, IPCTNL_MSG_CT_NEW);
+ 	nlh = nlmsg_put(skb, portid, seq, event, sizeof(*nfmsg), flags);
+ 	if (nlh == NULL)
+ 		goto nlmsg_failure;
+@@ -1983,7 +1983,8 @@ ctnetlink_ct_stat_cpu_fill_info(struct sk_buff *skb, u32 portid, u32 seq,
+ 	struct nfgenmsg *nfmsg;
+ 	unsigned int flags = portid ? NLM_F_MULTI : 0, event;
+ 
+-	event = NFNL_SUBSYS_CTNETLINK << 8 | IPCTNL_MSG_CT_GET_STATS_CPU;
++	event = nfnl_msg_type(NFNL_SUBSYS_CTNETLINK,
++			      IPCTNL_MSG_CT_GET_STATS_CPU);
+ 	nlh = nlmsg_put(skb, portid, seq, event, sizeof(*nfmsg), flags);
+ 	if (nlh == NULL)
+ 		goto nlmsg_failure;
+@@ -2066,7 +2067,7 @@ ctnetlink_stat_ct_fill_info(struct sk_buff *skb, u32 portid, u32 seq, u32 type,
+ 	unsigned int flags = portid ? NLM_F_MULTI : 0, event;
+ 	unsigned int nr_conntracks = atomic_read(&net->ct.count);
+ 
+-	event = NFNL_SUBSYS_CTNETLINK << 8 | IPCTNL_MSG_CT_GET_STATS;
++	event = nfnl_msg_type(NFNL_SUBSYS_CTNETLINK, IPCTNL_MSG_CT_GET_STATS);
+ 	nlh = nlmsg_put(skb, portid, seq, event, sizeof(*nfmsg), flags);
+ 	if (nlh == NULL)
+ 		goto nlmsg_failure;
+@@ -2576,7 +2577,7 @@ ctnetlink_exp_fill_info(struct sk_buff *skb, u32 portid, u32 seq,
+ 	struct nfgenmsg *nfmsg;
+ 	unsigned int flags = portid ? NLM_F_MULTI : 0;
+ 
+-	event |= NFNL_SUBSYS_CTNETLINK_EXP << 8;
++	event = nfnl_msg_type(NFNL_SUBSYS_CTNETLINK_EXP, event);
+ 	nlh = nlmsg_put(skb, portid, seq, event, sizeof(*nfmsg), flags);
+ 	if (nlh == NULL)
+ 		goto nlmsg_failure;
+@@ -3223,7 +3224,8 @@ ctnetlink_exp_stat_fill_info(struct sk_buff *skb, u32 portid, u32 seq, int cpu,
+ 	struct nfgenmsg *nfmsg;
+ 	unsigned int flags = portid ? NLM_F_MULTI : 0, event;
+ 
+-	event = NFNL_SUBSYS_CTNETLINK << 8 | IPCTNL_MSG_EXP_GET_STATS_CPU;
++	event = nfnl_msg_type(NFNL_SUBSYS_CTNETLINK,
++			      IPCTNL_MSG_EXP_GET_STATS_CPU);
+ 	nlh = nlmsg_put(skb, portid, seq, event, sizeof(*nfmsg), flags);
+ 	if (nlh == NULL)
+ 		goto nlmsg_failure;
+diff --git a/net/netfilter/nfnetlink_acct.c b/net/netfilter/nfnetlink_acct.c
+index d44d89b56127..ae0aef6cb7ee 100644
+--- a/net/netfilter/nfnetlink_acct.c
++++ b/net/netfilter/nfnetlink_acct.c
+@@ -138,7 +138,7 @@ nfnl_acct_fill_info(struct sk_buff *skb, u32 portid, u32 seq, u32 type,
+ 	u64 pkts, bytes;
+ 	u32 old_flags;
+ 
+-	event |= NFNL_SUBSYS_ACCT << 8;
++	event = nfnl_msg_type(NFNL_SUBSYS_ACCT, event);
+ 	nlh = nlmsg_put(skb, portid, seq, event, sizeof(*nfmsg), flags);
+ 	if (nlh == NULL)
+ 		goto nlmsg_failure;
+diff --git a/net/netfilter/nfnetlink_cthelper.c b/net/netfilter/nfnetlink_cthelper.c
+index de8782345c86..e2c443c43cb9 100644
+--- a/net/netfilter/nfnetlink_cthelper.c
++++ b/net/netfilter/nfnetlink_cthelper.c
+@@ -416,7 +416,7 @@ nfnl_cthelper_fill_info(struct sk_buff *skb, u32 portid, u32 seq, u32 type,
+ 	unsigned int flags = portid ? NLM_F_MULTI : 0;
+ 	int status;
+ 
+-	event |= NFNL_SUBSYS_CTHELPER << 8;
++	event = nfnl_msg_type(NFNL_SUBSYS_CTHELPER, event);
+ 	nlh = nlmsg_put(skb, portid, seq, event, sizeof(*nfmsg), flags);
+ 	if (nlh == NULL)
+ 		goto nlmsg_failure;
+diff --git a/net/netfilter/nfnetlink_cttimeout.c b/net/netfilter/nfnetlink_cttimeout.c
+index 139e0867e56e..6d76172117e4 100644
+--- a/net/netfilter/nfnetlink_cttimeout.c
++++ b/net/netfilter/nfnetlink_cttimeout.c
+@@ -158,7 +158,7 @@ ctnl_timeout_fill_info(struct sk_buff *skb, u32 portid, u32 seq, u32 type,
+ 	unsigned int flags = portid ? NLM_F_MULTI : 0;
+ 	struct nf_conntrack_l4proto *l4proto = timeout->l4proto;
+ 
+-	event |= NFNL_SUBSYS_CTNETLINK_TIMEOUT << 8;
++	event = nfnl_msg_type(NFNL_SUBSYS_CTNETLINK_TIMEOUT, event);
+ 	nlh = nlmsg_put(skb, portid, seq, event, sizeof(*nfmsg), flags);
+ 	if (nlh == NULL)
+ 		goto nlmsg_failure;
+@@ -431,7 +431,7 @@ cttimeout_default_fill_info(struct net *net, struct sk_buff *skb, u32 portid,
+ 	struct nfgenmsg *nfmsg;
+ 	unsigned int flags = portid ? NLM_F_MULTI : 0;
+ 
+-	event |= NFNL_SUBSYS_CTNETLINK_TIMEOUT << 8;
++	event = nfnl_msg_type(NFNL_SUBSYS_CTNETLINK_TIMEOUT, event);
+ 	nlh = nlmsg_put(skb, portid, seq, event, sizeof(*nfmsg), flags);
+ 	if (nlh == NULL)
+ 		goto nlmsg_failure;
+-- 
+2.11.0
+
