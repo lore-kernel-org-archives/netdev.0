@@ -1,32 +1,84 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net v2] openvswitch: Fix ovs_flow_key_update()
-Date: Thu, 30 Mar 2017 22:06:14 +0200
-Message-ID: <20170330220614.7079d316@griffin>
-References: <1490902563-19288-1-git-send-email-yihung.wei@gmail.com>
+From: Rene Rebe <rene@exactcode.com>
+Subject: [PATCH] r8152: The Microsoft Surface docks also use R8152 v2
+Date: Tue, 28 Mar 2017 07:56:51 +0200 (CEST)
+Message-ID: <20170328.075651.1863370888471526975.rene@exactcode.com>
+References: <20160113.154941.1886033351271894428.davem@davemloft.net>
+        <20170328.064215.1055636797214516339.rene@exactcode.com>
+        <1490893565.24247.9.camel@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: joe@ovn.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Yi-Hung Wei <yihung.wei@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1490902563-19288-1-git-send-email-yihung.wei@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
+Cc: davem@davemloft.net, netdev@vger.kernel.org, nic_swsd@realtek.com
+To: dcbw@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx.exactcode.de ([144.76.154.42]:50328 "EHLO mx.exactcode.de"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754586AbdC3U5T (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 30 Mar 2017 16:57:19 -0400
+In-Reply-To: <1490893565.24247.9.camel@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 30 Mar 2017 12:36:03 -0700, Yi-Hung Wei wrote:
-> ovs_flow_key_update() is called when the flow key is invalid, and it is
-> used to update and revalidate the flow key. Commit 329f45bc4f19
-> ("openvswitch: add mac_proto field to the flow key") introduces mac_proto
-> field to flow key and use it to determine whether the flow key is valid.
-> However, the commit does not update the code path in ovs_flow_key_update()
-> to revalidate the flow key which may cause BUG_ON() on execute_recirc().
-> This patch addresses the aforementioned issue.
-> 
-> Fixes: 329f45bc4f19 ("openvswitch: add mac_proto field to the flow key")
-> Signed-off-by: Yi-Hung Wei <yihung.wei@gmail.com>
+Without this the generic cdc_ether grabs the device,
+and does not really work.
 
-Acked-by: Jiri Benc <jbenc@redhat.com>
+Signed-off-by: René Rebe <rene@exactcode.de>
 
-Thanks!
+diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
+index f5552aa..f3ae88f 100644
+--- a/drivers/net/usb/cdc_ether.c
++++ b/drivers/net/usb/cdc_ether.c
+@@ -532,6 +532,7 @@ static const struct driver_info wwan_info = {
+ #define LENOVO_VENDOR_ID	0x17ef
+ #define NVIDIA_VENDOR_ID	0x0955
+ #define HP_VENDOR_ID		0x03f0
++#define MICROSOFT_VENDOR_ID	0x045e
+ 
+ static const struct usb_device_id	products[] = {
+ /* BLACKLIST !!
+@@ -761,6 +762,20 @@ static const struct usb_device_id	products[] = {
+ 	.driver_info = 0,
+ },
+ 
++/* Microsoft Surface 2 dock (based on Realtek RTL8152) */
++{
++	USB_DEVICE_AND_INTERFACE_INFO(MICROSOFT_VENDOR_ID, 0x07ab, USB_CLASS_COMM,
++			USB_CDC_SUBCLASS_ETHERNET, USB_CDC_PROTO_NONE),
++	.driver_info = 0,
++},
++
++/* Microsoft Surface 3 dock (based on Realtek RTL8153) */
++{
++	USB_DEVICE_AND_INTERFACE_INFO(MICROSOFT_VENDOR_ID, 0x07c6, USB_CLASS_COMM,
++			USB_CDC_SUBCLASS_ETHERNET, USB_CDC_PROTO_NONE),
++	.driver_info = 0,
++},
++
+ /* WHITELIST!!!
+  *
+  * CDC Ether uses two interfaces, not necessarily consecutive.
+diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
+index c34df33..07f788c 100644
+--- a/drivers/net/usb/r8152.c
++++ b/drivers/net/usb/r8152.c
+@@ -517,6 +517,7 @@ enum rtl8152_flags {
+ 
+ /* Define these values to match your device */
+ #define VENDOR_ID_REALTEK		0x0bda
++#define VENDOR_ID_MICROSOFT		0x045e
+ #define VENDOR_ID_SAMSUNG		0x04e8
+ #define VENDOR_ID_LENOVO		0x17ef
+ #define VENDOR_ID_NVIDIA		0x0955
+@@ -4521,6 +4522,8 @@ static void rtl8152_disconnect(struct usb_interface *intf)
+ static struct usb_device_id rtl8152_table[] = {
+ 	{REALTEK_USB_DEVICE(VENDOR_ID_REALTEK, 0x8152)},
+ 	{REALTEK_USB_DEVICE(VENDOR_ID_REALTEK, 0x8153)},
++	{REALTEK_USB_DEVICE(VENDOR_ID_MICROSOFT, 0x07ab)},
++	{REALTEK_USB_DEVICE(VENDOR_ID_MICROSOFT, 0x07c6)},
+ 	{REALTEK_USB_DEVICE(VENDOR_ID_SAMSUNG, 0xa101)},
+ 	{REALTEK_USB_DEVICE(VENDOR_ID_LENOVO,  0x304f)},
+ 	{REALTEK_USB_DEVICE(VENDOR_ID_LENOVO,  0x3062)},
 
- Jiri
+-- 
+  René Rebe, ExactCODE GmbH, Lietzenburger Str. 42, DE-10789 Berlin
+  http://exactcode.com | http://t2-project.org | http://rene.rebe.de
