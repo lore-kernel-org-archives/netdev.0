@@ -1,95 +1,45 @@
-From: Arushi Singhal <arushisinghal19971997@gmail.com>
-Subject: [PATCH] net: netfilter: Remove complexity
-Date: Tue, 28 Mar 2017 18:30:56 +0530
-Message-ID: <20170328130032.GA5009@arushi-HP-Pavilion-Notebook>
+From: Frederic Weisbecker <fweisbec@gmail.com>
+Subject: Re: Bisected softirq accounting issue in v4.11-rc1~170^2~28
+Date: Tue, 28 Mar 2017 15:06:04 +0200
+Message-ID: <20170328130602.GA4216@lerouge>
+References: <20170328101403.34a82fbf@redhat.com>
+ <CANRm+Cwb3uAiZdufqDsyzQ1GZYh3nUr2uTyg1Hb2oVoxJZKMvg@mail.gmail.com>
+ <20170328122642.dhw2zkjbghfw4fzn@hirez.programming.kicks-ass.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>, davem@davemloft.net,
-        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        outreachy-kernel@googlegroups.com
-To: pablo@netfilter.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: Wanpeng Li <kernellwp@gmail.com>,
+	Jesper Dangaard Brouer <brouer@redhat.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linux-mm <linux-mm@kvack.org>,
+	Mel Gorman <mgorman@techsingularity.net>,
+	Tariq Toukan <tariqt@mellanox.com>,
+	Tariq Toukan <ttoukan.linux@gmail.com>,
+	Rik van Riel <riel@redhat.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@kernel.org>
+To: Peter Zijlstra <peterz@infradead.org>
+Return-path: <owner-linux-mm@kvack.org>
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <20170328122642.dhw2zkjbghfw4fzn@hirez.programming.kicks-ass.net>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-To remove complexity of code the function is added in nfnetlink.h
-to make code more clear and readable.
+On Tue, Mar 28, 2017 at 02:26:42PM +0200, Peter Zijlstra wrote:
+> On Tue, Mar 28, 2017 at 06:34:52PM +0800, Wanpeng Li wrote:
+> > 
+> > sched_clock_cpu(cpu) should be converted from cputime to ns.
+> 
+> Uhm, no. sched_clock_cpu() returns u64 in ns.
 
-Signed-off-by: Arushi Singhal <arushisinghal19971997@gmail.com>
----
- include/linux/netfilter/nfnetlink.h  |  6 ++++++
- net/netfilter/nf_conntrack_netlink.c | 12 +++++++-----
- 2 files changed, 13 insertions(+), 5 deletions(-)
+Yes, and most of the cputime_t have been converted to u64 so there
+should be no such conversion issue between u64 and cputime_t anymore.
 
-diff --git a/include/linux/netfilter/nfnetlink.h b/include/linux/netfilter/nfnetlink.h
-index 1b49209dd5c7..9a36a7c3145d 100644
---- a/include/linux/netfilter/nfnetlink.h
-+++ b/include/linux/netfilter/nfnetlink.h
-@@ -50,6 +50,12 @@ static inline bool lockdep_nfnl_is_held(__u8 subsys_id)
- {
- 	return true;
- }
-+
-+static inline u16 nfnl_msg_type(u8 subsys, u8 msg_type)
-+{
-+	return subsys << 8 | msg_type;
-+}
-+
- #endif /* CONFIG_PROVE_LOCKING */
- 
- /*
-diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
-index aa344c5868c5..67f6f88a3e92 100644
---- a/net/netfilter/nf_conntrack_netlink.c
-+++ b/net/netfilter/nf_conntrack_netlink.c
-@@ -467,7 +467,7 @@ ctnetlink_fill_info(struct sk_buff *skb, u32 portid, u32 seq, u32 type,
- 	struct nlattr *nest_parms;
- 	unsigned int flags = portid ? NLM_F_MULTI : 0, event;
- 
--	event = NFNL_SUBSYS_CTNETLINK << 8 | IPCTNL_MSG_CT_NEW;
-+	event = nfnl_msg_type(NFNL_SUBSYS_CTNETLINK, IPCTNL_MSG_CT_NEW);
- 	nlh = nlmsg_put(skb, portid, seq, event, sizeof(*nfmsg), flags);
- 	if (nlh == NULL)
- 		goto nlmsg_failure;
-@@ -1983,7 +1983,8 @@ ctnetlink_ct_stat_cpu_fill_info(struct sk_buff *skb, u32 portid, u32 seq,
- 	struct nfgenmsg *nfmsg;
- 	unsigned int flags = portid ? NLM_F_MULTI : 0, event;
- 
--	event = NFNL_SUBSYS_CTNETLINK << 8 | IPCTNL_MSG_CT_GET_STATS_CPU;
-+	event = nfnl_msg_type(NFNL_SUBSYS_CTNETLINK,
-+			      IPCTNL_MSG_CT_GET_STATS_CPU);
- 	nlh = nlmsg_put(skb, portid, seq, event, sizeof(*nfmsg), flags);
- 	if (nlh == NULL)
- 		goto nlmsg_failure;
-@@ -2066,7 +2067,7 @@ ctnetlink_stat_ct_fill_info(struct sk_buff *skb, u32 portid, u32 seq, u32 type,
- 	unsigned int flags = portid ? NLM_F_MULTI : 0, event;
- 	unsigned int nr_conntracks = atomic_read(&net->ct.count);
- 
--	event = NFNL_SUBSYS_CTNETLINK << 8 | IPCTNL_MSG_CT_GET_STATS;
-+	event = nfnl_msg_type(NFNL_SUBSYS_CTNETLINK, IPCTNL_MSG_CT_GET_STATS);
- 	nlh = nlmsg_put(skb, portid, seq, event, sizeof(*nfmsg), flags);
- 	if (nlh == NULL)
- 		goto nlmsg_failure;
-@@ -2576,7 +2577,7 @@ ctnetlink_exp_fill_info(struct sk_buff *skb, u32 portid, u32 seq,
- 	struct nfgenmsg *nfmsg;
- 	unsigned int flags = portid ? NLM_F_MULTI : 0;
- 
--	event |= NFNL_SUBSYS_CTNETLINK_EXP << 8;
-+	event = nfnl_msg_type(NFNL_SUBSYS_CTNETLINK_EXP, event);
- 	nlh = nlmsg_put(skb, portid, seq, event, sizeof(*nfmsg), flags);
- 	if (nlh == NULL)
- 		goto nlmsg_failure;
-@@ -3223,7 +3224,8 @@ ctnetlink_exp_stat_fill_info(struct sk_buff *skb, u32 portid, u32 seq, int cpu,
- 	struct nfgenmsg *nfmsg;
- 	unsigned int flags = portid ? NLM_F_MULTI : 0, event;
- 
--	event = NFNL_SUBSYS_CTNETLINK << 8 | IPCTNL_MSG_EXP_GET_STATS_CPU;
-+	event = nfnl_msg_type(NFNL_SUBSYS_CTNETLINK,
-+			      IPCTNL_MSG_EXP_GET_STATS_CPU);
- 	nlh = nlmsg_put(skb, portid, seq, event, sizeof(*nfmsg), flags);
- 	if (nlh == NULL)
- 		goto nlmsg_failure;
--- 
-2.11.0
+Perhaps my commit has another side effect on softirq time accounting,
+I'll see if I can reproduce.
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
