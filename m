@@ -1,66 +1,58 @@
-From: Jarno Rajahalme <jarno@ovn.org>
-Subject: [PATCH net] openvswitch: Fix refcount leak on force commit.
-Date: Tue, 28 Mar 2017 11:25:26 -0700
-Message-ID: <1490725526-21075-1-git-send-email-jarno@ovn.org>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH net-next 1/4] net: mpls: Convert number of nexthops to u8
+Date: Tue, 28 Mar 2017 13:39:57 -0500
+Message-ID: <87k2799req.fsf@xmission.com>
+References: <1490461408-9551-1-git-send-email-dsa@cumulusnetworks.com>
+        <1490461408-9551-2-git-send-email-dsa@cumulusnetworks.com>
+        <871stjmn0o.fsf@xmission.com>
+        <b370c097-d0ad-95c5-2687-264da22d37d6@cumulusnetworks.com>
+        <87wpbagwk5.fsf@xmission.com>
+        <78820aeb-6c41-5f71-90b6-ff41a91ca088@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: jarno@ovn.org, joe@ovn.org, pshelar@ovn.org
-To: netdev@vger.kernel.org
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
+        rshearma@brocade.com
+To: David Ahern <dsa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from slow1-d.mail.gandi.net ([217.70.178.86]:54800 "EHLO
-        slow1-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755487AbdC1SdX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 28 Mar 2017 14:33:23 -0400
-Received: from relay7-d.mail.gandi.net (relay7-d.mail.gandi.net [217.70.183.200])
-        by slow1-d.mail.gandi.net (Postfix) with ESMTP id 1B86A487215
-        for <netdev@vger.kernel.org>; Tue, 28 Mar 2017 20:25:50 +0200 (CEST)
+Received: from out01.mta.xmission.com ([166.70.13.231]:57543 "EHLO
+        out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752617AbdC1SpN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 28 Mar 2017 14:45:13 -0400
+In-Reply-To: <78820aeb-6c41-5f71-90b6-ff41a91ca088@cumulusnetworks.com> (David
+        Ahern's message of "Tue, 28 Mar 2017 09:25:54 -0600")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The reference count held for skb needs to be released when the skb's
-nfct pointer is cleared regardless of if nf_ct_delete() is called or
-not.
+David Ahern <dsa@cumulusnetworks.com> writes:
 
-Failing to release the skb's reference cound led to deferred conntrack
-cleanup spinning forever within nf_conntrack_cleanup_net_list() when
-cleaning up a network namespace:
+> On 3/27/17 4:54 PM, Eric W. Biederman wrote:
+>> It is absolutely a no-brainer to change rt_nhn to a u8.  And I very much
+>> appreciate all work to keep mpls_route into a single cache line.  As in
+>> practices that is one of the most important parts to performance.
+>> 
+>> Which leads to the functions mpls_ifup, mpls_ifdown, and
+>> mpls_select_multipath.
+>> 
+>> To make this all work correctly we need a couple of things.
+>> - A big fat comment on struct mpls_route and mpls_nh about how
+>>   and why these structures are modified and not replaced during
+>>   nexthop processing.  Including the fact that it all modifications
+>>   may only happen with rntl_lock held.
+>> 
+>> - The use of READ_ONCE and WRITE_ONCE on all rt->rt_nhn_alive accesses,
+>>   that happen after the route is installed (and is thus rcu reachable).
+>> 
+>> - The use of READ_ONCE and WRITE_ONCE on all nh->nh_flags accesses,
+>>   that happen after the route is installed (and is thus rcu reachable).
+>
+> For both of these, mpls_select_multipath does need to use READ_ONCE to
+> read the nh_flags and rt_nhn_alive. In this case it is reading a value
+> that could change behind its back.
+>
+> The READ_ONCE is not necessary for mpls_ifdown or mpls_ifup as these are
+> the functions that change the values. These 2 functions only need a
+> WRITE_ONCE for both struct members.
 
-   kworker/u16:0-19025 [004] 45981067.173642: sched_switch: kworker/u16:0:19025 [120] R ==> rcu_preempt:7 [120]
-   kworker/u16:0-19025 [004] 45981067.173651: kernel_stack: <stack trace>
-=> ___preempt_schedule (ffffffffa001ed36)
-=> _raw_spin_unlock_bh (ffffffffa0713290)
-=> nf_ct_iterate_cleanup (ffffffffc00a4454)
-=> nf_conntrack_cleanup_net_list (ffffffffc00a5e1e)
-=> nf_conntrack_pernet_exit (ffffffffc00a63dd)
-=> ops_exit_list.isra.1 (ffffffffa06075f3)
-=> cleanup_net (ffffffffa0607df0)
-=> process_one_work (ffffffffa0084c31)
-=> worker_thread (ffffffffa008592b)
-=> kthread (ffffffffa008bee2)
-=> ret_from_fork (ffffffffa071b67c)
+True.  We don't need READ_ONCE under rtnl_lock which we use to protect writes.
 
-Fixes: dd41d33f0b03 ("openvswitch: Add force commit.")
-Reported-by: Yang Song <yangsong@vmware.com>
-Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
----
- net/openvswitch/conntrack.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
-index e0a8777..7b2c2fc 100644
---- a/net/openvswitch/conntrack.c
-+++ b/net/openvswitch/conntrack.c
-@@ -643,8 +643,8 @@ static bool skb_nfct_cached(struct net *net,
- 		 */
- 		if (nf_ct_is_confirmed(ct))
- 			nf_ct_delete(ct, 0, 0);
--		else
--			nf_conntrack_put(&ct->ct_general);
-+
-+		nf_conntrack_put(&ct->ct_general);
- 		nf_ct_set(skb, NULL, 0);
- 		return false;
- 	}
--- 
-2.1.4
+Eric
