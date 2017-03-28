@@ -1,51 +1,91 @@
-From: Robert Shearman <rshearma@brocade.com>
-Subject: Re: [PATCH net-next 0/4] net: mpls: Allow users to configure more
- labels per route
-Date: Tue, 28 Mar 2017 10:59:58 +0100
-Message-ID: <bffa473b-ffbe-3887-7247-33ee6187487c@brocade.com>
-References: <1490461408-9551-1-git-send-email-dsa@cumulusnetworks.com>
+From: Roger Quadros <rogerq@ti.com>
+Subject: Re: [PATCH v3 1/2] net: phy: Fix PHY AN done state machine for
+ interrupt driven PHYs
+Date: Tue, 28 Mar 2017 13:05:40 +0300
+Message-ID: <bfaac2be-175b-c370-43ce-7a11b2933e1c@ti.com>
+References: <1490180524-28675-1-git-send-email-rogerq@ti.com>
+ <1490180524-28675-2-git-send-email-rogerq@ti.com>
+ <078917ad-77a1-a722-1688-6203ae183a46@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <roopa@cumulusnetworks.com>, <ebiederm@xmission.com>
-To: David Ahern <dsa@cumulusnetworks.com>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:51925 "EHLO
-        mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1753932AbdC1KBD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 28 Mar 2017 06:01:03 -0400
-In-Reply-To: <1490461408-9551-1-git-send-email-dsa@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 8bit
+Cc: <davem@davemloft.net>, <kyle.roeschley@ni.com>, <nsekhar@ti.com>,
+        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        "stable # v4 . 9+" <stable@vger.kernel.org>,
+        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        "Andrew F. Davis" <afd@ti.com>, "Nori, Sekhar" <nsekhar@ti.com>
+To: <f.fainelli@gmail.com>, <andrew@lunn.ch>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <078917ad-77a1-a722-1688-6203ae183a46@ti.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 25/03/17 17:03, David Ahern wrote:
-> Bump the maximum number of labels for MPLS routes from 2 to 12. To keep
-> memory consumption in check the labels array is moved to the end of mpls_nh
-> and mpls_iptunnel_encap structs as a 0-sized array. Allocations use the
-> maximum number of labels across all nexthops in a route for LSR and the
-> number of labels configured for LWT.
->
-> The mpls_route layout is changed to:
-...
-> Meaning the via follows its mpls_nh providing better locality as the
-> number of labels increases. UDP_RR tests with namespaces shows no impact
-> to a modest performance increase with this layout for 1 or 2 labels and
-> 1 or 2 nexthops.
->
-> The new limit is set to 12 to cover all currently known segment
-> routing use cases.
->
-> David Ahern (4):
->   mpls: Convert number of nexthops to u8
->   net: mpls: change mpls_route layout
->   net: mpls: bump maximum number of labels
->   net: mpls: Increase max number of labels for lwt encap
->
->  include/net/mpls_iptunnel.h |   4 +-
->  net/mpls/af_mpls.c          | 108 ++++++++++++++++++++++++++------------------
->  net/mpls/internal.h         |  52 ++++++++++++++-------
->  net/mpls/mpls_iptunnel.c    |  13 ++++--
->  4 files changed, 112 insertions(+), 65 deletions(-)
->
++Andrew Davis & Sekhar.
 
-Acked-by: Robert Shearman <rshearma@brocade.com>
+Hi,
+
+Andrew Davis posted a few comments offline which I'm clarifying here.
+
+On 27/03/17 14:59, Roger Quadros wrote:
+> The Ethernet link on an interrupt driven PHY was not coming up if the
+> Ethernet cable was plugged before the Ethernet interface was brought up.
+> 
+> The PHY state machine seems to be stuck from RUNNING to AN state
+> with no new interrupts from the PHY. So it doesn't know when the
+> PHY Auto-negotiation has been completed and doesn't transition to RUNNING
+> state with ANEG done thus netif_carrier_on() is never called.
+> 
+> NOTE: genphy_config_aneg() will not restart PHY Auto-negotiation of
+> advertisement parameters didn't change.
+
+Is phy->config_aneg expected to *always* restart auto-negotiation even if
+advertisement parameters didn't change?
+If so then we'll need to fix genphy_config_aneg().
+
+> 
+> Fix this by scheduling the PHY state machine in phy_start_aneg().
+> There is no way of knowing in phy.c whether auto-negotiation was
+> restarted or not by the PHY driver so we just wait for the next
+> poll/interrupt to update the PHY state machine.
+> 
+> Fixes: 3c293f4e08b5 ("net: phy: Trigger state machine on state change and not polling.")
+> Cc: stable <stable@vger.kernel.org> # v4.9+
+> Signed-off-by: Roger Quadros <rogerq@ti.com>
+> ---
+> v3: Fix typo in commit message
+> 
+>  drivers/net/phy/phy.c | 4 ++++
+>  1 file changed, 4 insertions(+)
+> 
+> diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+> index 1be69d8..49dedf8 100644
+> --- a/drivers/net/phy/phy.c
+> +++ b/drivers/net/phy/phy.c
+> @@ -630,6 +630,10 @@ int phy_start_aneg(struct phy_device *phydev)
+>  
+>  out_unlock:
+>  	mutex_unlock(&phydev->lock);
+> +	if (!err && phy_interrupt_is_valid(phydev))
+> +		queue_delayed_work(system_power_efficient_wq,
+> +				   &phydev->state_queue, HZ);
+> +
+>  	return err;
+>  }
+>  EXPORT_SYMBOL(phy_start_aneg);
+> 
+
+There is still room for optimization for interrupt driven PHYs as I still
+see a delay of 1 second between "ifconfig ethx up" and link status coming up
+if cable was already plugged in. In fact if Auto-negotiation was already completed
+and not required to be restarted, the PHY state machine should have move from
+AN to RUNNING instantly without expecting a PHY interrupt.
+
+How can we get rid of the unnecessary delay in the case where auto-negotiation
+is not restarted?
+Should we check for phy_aneg_done() immediately after issuing a phy_start_aneg()
+in phy_state_machine() and switch from PHY_AN to PHY_RUNNING?
+
+This should avoid the need to re-schedule the state machine in phy_start_angeg().
+
+cheers,
+-roger
