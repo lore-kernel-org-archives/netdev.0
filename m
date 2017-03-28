@@ -1,168 +1,111 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Subject: Re: [PATCH v1] tracing/kprobes: expose maxactive for kretprobe in
- kprobe_events
-Date: Tue, 28 Mar 2017 11:11:36 -0400
-Message-ID: <20170328111136.3c127e17@gandalf.local.home>
-References: <1490709142-8856-1-git-send-email-alban@kinvolk.io>
+From: Andrey Konovalov <andreyknvl@google.com>
+Subject: Re: [PATCH 4/5] net/packet: fix overflow in check for tp_reserve
+Date: Tue, 28 Mar 2017 17:11:54 +0200
+Message-ID: <CAAeHK+yX=3TTX+fYZCi5vPqa9=Fi2hyfybcbJo_iEFM4CLvWrw@mail.gmail.com>
+References: <cover.1490709552.git.andreyknvl@google.com> <0f3f9342c09be4d97a820cf9abeb9dabed8eb69f.1490709552.git.andreyknvl@google.com>
+ <CAF=yD-JJVYj0szu2=Pod2MtK6kYpoU=agwnNnn4yQegk6t4u7Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Alban Crequy <alban@kinvolk.io>,
-        Alexei Starovoitov <ast@kernel.org>,
-        Jonathan Corbet <corbet@lwn.net>,
-        Ingo Molnar <mingo@redhat.com>,
-        Masami Hiramatsu <mhiramat@kernel.org>,
-        Arnaldo Carvalho de Melo <acme@redhat.com>,
-        Omar Sandoval <osandov@fb.com>, linux-doc@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        iago@kinvolk.io, michael@kinvolk.io
-To: Alban Crequy <alban.crequy@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S . Miller" <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        Willem de Bruijn <willemb@google.com>,
+        Craig Gallek <cgallek@google.com>,
+        Network Development <netdev@vger.kernel.org>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Kostya Serebryany <kcc@google.com>
+To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.136]:54356 "EHLO mail.kernel.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751417AbdC1PMC (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 28 Mar 2017 11:12:02 -0400
-In-Reply-To: <1490709142-8856-1-git-send-email-alban@kinvolk.io>
+Received: from mail-pg0-f54.google.com ([74.125.83.54]:33864 "EHLO
+        mail-pg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752012AbdC1PMt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 28 Mar 2017 11:12:49 -0400
+Received: by mail-pg0-f54.google.com with SMTP id 21so75495745pgg.1
+        for <netdev@vger.kernel.org>; Tue, 28 Mar 2017 08:12:29 -0700 (PDT)
+In-Reply-To: <CAF=yD-JJVYj0szu2=Pod2MtK6kYpoU=agwnNnn4yQegk6t4u7Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, Mar 28, 2017 at 5:00 PM, Willem de Bruijn
+<willemdebruijn.kernel@gmail.com> wrote:
+> On Tue, Mar 28, 2017 at 10:00 AM, Andrey Konovalov
+> <andreyknvl@google.com> wrote:
+>> When calculating po->tp_hdrlen + po->tp_reserve the result can overflow.
+>>
+>> Fix by checking that tp_reserve <= INT_MAX on assign.
+>>
+>> This also takes cared of an overflow when calculating
+>>  macoff = TPACKET_ALIGN(po->tp_hdrlen) + 16 + po->tp_reserve
+>>  snaplen = skb->len
+>>  macoff + snaplen
+>> since macoff ~ INT_MAX and snaplen < SKB_MAX_ALLOC.
+>
+> This refers to the overflow of macoff + snaplen?
+>
+> Note that macoff is unsigned short, so will truncate any overflow from
+> tp_reserve.
 
-"[PATCH v1]" I like your confidence, or lack of, that there isn't going
-to be a v2 or v3 ;-)
+Yes, you're right.
+Should I make macoff unsigned int to fix this?
 
+>
+>> Signed-off-by: Andrey Konovalov <andreyknvl@google.com>
+>> ---
+>>  net/packet/af_packet.c | 7 ++++---
+>>  1 file changed, 4 insertions(+), 3 deletions(-)
+>>
+>> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+>> index c5c43fff8c01..28b49749d1af 100644
+>> --- a/net/packet/af_packet.c
+>> +++ b/net/packet/af_packet.c
+>> @@ -3665,6 +3665,8 @@ packet_setsockopt(struct socket *sock, int level, int optname, char __user *optv
+>>                         return -EBUSY;
+>>                 if (copy_from_user(&val, optval, sizeof(val)))
+>>                         return -EFAULT;
+>> +               if (val > INT_MAX)
+>> +                       return -EINVAL;
+>
+> This change on its own is sufficient to avoid the overflow. For net
+> and backports to stable, this minimal patch is preferable.
 
-Masami, what do you think of this?
+I will put it into a separate patch then.
 
--- Steve
+>
+>>                 po->tp_reserve = val;
+>>                 return 0;
+>>         }
+>> @@ -4200,6 +4202,8 @@ static int packet_set_ring(struct sock *sk, union tpacket_req_u *req_u,
+>>                 if (unlikely((u64)req->tp_block_size * req->tp_block_nr >
+>>                                         UINT_MAX))
+>>                         goto out;
+>> +               if (unlikely(po->tp_reserve >= req->tp_frame_size))
+>> +                       goto out;
+>>
+>>                 if (unlikely(!PAGE_ALIGNED(req->tp_block_size)))
+>>                         goto out;
+>> @@ -4207,9 +4211,6 @@ static int packet_set_ring(struct sock *sk, union tpacket_req_u *req_u,
+>>                     req->tp_block_size <=
+>>                           BLK_PLUS_PRIV((u64)req_u->req3.tp_sizeof_priv))
+>>                         goto out;
+>> -               if (unlikely(req->tp_frame_size < po->tp_hdrlen +
+>> -                                       po->tp_reserve))
+>> -                       goto out;
+>
+> Is there a reason that the test is moved up? It is probably not
+> correct to remove tp_hdrlen from the test.
 
-On Tue, 28 Mar 2017 15:52:22 +0200
-Alban Crequy <alban.crequy@gmail.com> wrote:
+Just to group together all checks of tp_frame_size and tp_block_size.
 
-> When a kretprobe is installed on a kernel function, there is a maximum
-> limit of how many calls in parallel it can catch (aka "maxactive"). A
-> kernel module could call register_kretprobe() and initialize maxactive
-> (see example in samples/kprobes/kretprobe_example.c).
-> 
-> But that is not exposed to userspace and it is currently not possible to
-> choose maxactive when writing to /sys/kernel/debug/tracing/kprobe_events
-> 
-> The default maxactive can be as low as 1 on single-core with a
-> non-preemptive kernel. This is too low and we need to increase it not
-> only for recursive functions, but for functions that sleep or resched.
-> 
-> This patch updates the format of the command that can be written to
-> kprobe_events so that maxactive can be optionally specified.
-> 
-> I need this for a bpf program attached to the kretprobe of
-> inet_csk_accept, which can sleep for a long time.
-> 
-> BugLink: https://github.com/iovisor/bcc/issues/1072
-> Signed-off-by: Alban Crequy <alban@kinvolk.io>
-> ---
->  Documentation/trace/kprobetrace.txt |  4 +++-
->  kernel/trace/trace_kprobe.c         | 34 +++++++++++++++++++++++++++++-----
->  2 files changed, 32 insertions(+), 6 deletions(-)
-> 
-> diff --git a/Documentation/trace/kprobetrace.txt b/Documentation/trace/kprobetrace.txt
-> index 41ef9d8..655ca7e 100644
-> --- a/Documentation/trace/kprobetrace.txt
-> +++ b/Documentation/trace/kprobetrace.txt
-> @@ -23,7 +23,7 @@ current_tracer. Instead of that, add probe points via
->  Synopsis of kprobe_events
->  -------------------------
->    p[:[GRP/]EVENT] [MOD:]SYM[+offs]|MEMADDR [FETCHARGS]	: Set a probe
-> -  r[:[GRP/]EVENT] [MOD:]SYM[+0] [FETCHARGS]		: Set a return probe
-> +  r[MAXACTIVE][:[GRP/]EVENT] [MOD:]SYM[+0] [FETCHARGS]	: Set a return probe
->    -:[GRP/]EVENT						: Clear a probe
->  
->   GRP		: Group name. If omitted, use "kprobes" for it.
-> @@ -32,6 +32,8 @@ Synopsis of kprobe_events
->   MOD		: Module name which has given SYM.
->   SYM[+offs]	: Symbol+offset where the probe is inserted.
->   MEMADDR	: Address where the probe is inserted.
-> + MAXACTIVE	: Maximum number of instances of the specified function that
-> +		  can be probed simultaneously, or 0 for the default.(*)
->  
->   FETCHARGS	: Arguments. Each probe can have up to 128 args.
->    %REG		: Fetch register REG
-> diff --git a/kernel/trace/trace_kprobe.c b/kernel/trace/trace_kprobe.c
-> index 5f688cc..807e01c 100644
-> --- a/kernel/trace/trace_kprobe.c
-> +++ b/kernel/trace/trace_kprobe.c
-> @@ -282,6 +282,7 @@ static struct trace_kprobe *alloc_trace_kprobe(const char *group,
->  					     void *addr,
->  					     const char *symbol,
->  					     unsigned long offs,
-> +					     int maxactive,
->  					     int nargs, bool is_return)
->  {
->  	struct trace_kprobe *tk;
-> @@ -309,6 +310,8 @@ static struct trace_kprobe *alloc_trace_kprobe(const char *group,
->  	else
->  		tk->rp.kp.pre_handler = kprobe_dispatcher;
->  
-> +	tk->rp.maxactive = maxactive;
-> +
->  	if (!event || !is_good_name(event)) {
->  		ret = -EINVAL;
->  		goto error;
-> @@ -598,8 +601,10 @@ static int create_trace_kprobe(int argc, char **argv)
->  {
->  	/*
->  	 * Argument syntax:
-> -	 *  - Add kprobe: p[:[GRP/]EVENT] [MOD:]KSYM[+OFFS]|KADDR [FETCHARGS]
-> -	 *  - Add kretprobe: r[:[GRP/]EVENT] [MOD:]KSYM[+0] [FETCHARGS]
-> +	 *  - Add kprobe:
-> +	 *      p[:[GRP/]EVENT] [MOD:]KSYM[+OFFS]|KADDR [FETCHARGS]
-> +	 *  - Add kretprobe:
-> +	 *      r[MAXACTIVE][:[GRP/]EVENT] [MOD:]KSYM[+0] [FETCHARGS]
->  	 * Fetch args:
->  	 *  $retval	: fetch return value
->  	 *  $stack	: fetch stack address
-> @@ -619,6 +624,7 @@ static int create_trace_kprobe(int argc, char **argv)
->  	int i, ret = 0;
->  	bool is_return = false, is_delete = false;
->  	char *symbol = NULL, *event = NULL, *group = NULL;
-> +	int maxactive = 0;
->  	char *arg;
->  	unsigned long offset = 0;
->  	void *addr = NULL;
-> @@ -637,8 +643,26 @@ static int create_trace_kprobe(int argc, char **argv)
->  		return -EINVAL;
->  	}
->  
-> -	if (argv[0][1] == ':') {
-> +	if (is_return && isdigit(argv[0][1]) && strchr(&argv[0][1], ':')) {
-> +		event = strchr(&argv[0][1], ':') + 1;
-> +		event[-1] = '\0';
-> +		ret = kstrtouint(&argv[0][1], 0, &maxactive);
-> +		if (ret) {
-> +			pr_info("Failed to parse maxactive.\n");
-> +			return ret;
-> +		}
-> +		/* kretprobes instances are iterated over via a list. The
-> +		 * maximum should stay reasonable.
-> +		 */
-> +		if (maxactive > 1024) {
-> +			pr_info("Maxactive is too big.\n");
-> +			return -EINVAL;
-> +		}
-> +	} else if (argv[0][1] == ':') {
->  		event = &argv[0][2];
-> +	}
-> +
-> +	if (event) {
->  		if (strchr(event, '/')) {
->  			group = event;
->  			event = strchr(group, '/') + 1;
-> @@ -718,8 +742,8 @@ static int create_trace_kprobe(int argc, char **argv)
->  				 is_return ? 'r' : 'p', addr);
->  		event = buf;
->  	}
-> -	tk = alloc_trace_kprobe(group, event, addr, symbol, offset, argc,
-> -			       is_return);
-> +	tk = alloc_trace_kprobe(group, event, addr, symbol, offset, maxactive,
-> +			       argc, is_return);
->  	if (IS_ERR(tk)) {
->  		pr_info("Failed to allocate trace_probe.(%d)\n",
->  			(int)PTR_ERR(tk));
+I'm not sure there's any difference between checking against
+po->tp_hdrlen + po->tp_reserve and just po->tp_reserve.
+I guess the correct check should be against
+TPACKET_ALIGN(po->tp_hdrlen) + 16 + po->tp_reserve.
+
+Should I use this value?
+
+>
+>>                 if (unlikely(req->tp_frame_size & (TPACKET_ALIGNMENT - 1)))
+>>                         goto out;
+>>
+>> --
+>> 2.12.2.564.g063fe858b8-goog
+>>
