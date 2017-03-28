@@ -1,44 +1,56 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: genphy_read_status() vs. 1000bT Pause capability
-Date: Tue, 28 Mar 2017 13:28:57 +1100
-Message-ID: <1490668137.3177.98.camel@kernel.crashing.org>
-References: <1490662190.3177.91.camel@kernel.crashing.org>
-         <20170328010940.GG25549@lunn.ch>
+From: Jisheng Zhang <jszhang@marvell.com>
+Subject: Re: [PATCH] net: mvneta: set rx mode during resume if interface is
+ running
+Date: Tue, 28 Mar 2017 10:27:20 +0800
+Message-ID: <20170328102720.71f530f8@xhacker>
+References: <20170327105905.1404-1-jszhang@marvell.com>
+ <20170327.161534.60442857212281980.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:50960 "EHLO gate.crashing.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753778AbdC1C3G (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 27 Mar 2017 22:29:06 -0400
-In-Reply-To: <20170328010940.GG25549@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: thomas.petazzoni@free-electrons.com, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <20170327.161534.60442857212281980.davem@davemloft.net>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2017-03-28 at 03:09 +0200, Andrew Lunn wrote:
-> On Tue, Mar 28, 2017 at 11:49:50AM +1100, Benjamin Herrenschmidt wrote:
-> > Hi !
+Dear David,
+
+On Mon, 27 Mar 2017 16:15:34 -0700 David Miller wrote:
+
+> From: Jisheng Zhang <jszhang@marvell.com>
+> Date: Mon, 27 Mar 2017 18:59:05 +0800
+> 
+> > I found a bug by:
 > > 
-> > I noticed that flow control isn't being enabled on a system I'm
-> > working on by default. I've tracked it down to two things:
+> > 0. boot and start dhcp client
+> > 1. echo mem > /sys/power/state
+> > 2. resume back immediately
+> > 3. don't touch dhcp client to renew the lease
+> > 4. ping the gateway. No acks
 > > 
-> >  - The realtec.c PHY driver doesn't have Pause or Asym_Pause in
-> > its exposed capabilities. This is in part because PHY_GBIT_FEATURES
-> > does not include SUPPORTED_Pause and SUPPORTED_Asym_Pause. Is there
-> > a specific reason for that ?
+> > Usually, after step2, the DHCP lease isn't expired, so in theory we
+> > should resume all back. But in fact, it doesn't. It turns out
+> > the rx mode isn't resumed correctly. This patch fixes it by adding
+> > mvneta_set_rx_mode(dev) in the resume hook if interface is running.
+> > 
+> > Signed-off-by: Jisheng Zhang <jszhang@marvell.com>  
 > 
-> Hi Ben
-> 
-> It is worth reading Documentation/networking/phy.txt
-> 
-> The MAC should set SUPPORTED_Pause and SUPPORTED_Asym_Pause if the MAC
-> supports these features. The PHY will then negotiate them.
+> This doesn't apply cleanly to the net tree, please respin.
 
-Ok. I had added them but hit the other issue with the 1000bT  style
-pause.
+This patch is generated against net-next, for mvneta suspend/resume support
+is added into net-next recently. I did need to use the "[PATCH net-next]" for
+the patch title, will take care in the future.
 
-Cheers,
-Ben.
+Sorry for confusion,
+Jisheng
