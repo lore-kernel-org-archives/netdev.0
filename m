@@ -1,49 +1,88 @@
-From: Russell King - ARM Linux <linux@armlinux.org.uk>
-Subject: Re: genphy_read_status() vs. 1000bT Pause capability
-Date: Tue, 28 Mar 2017 10:42:52 +0100
-Message-ID: <20170328094252.GV7909@n2100.armlinux.org.uk>
-References: <1490662190.3177.91.camel@kernel.crashing.org>
- <20170328010940.GG25549@lunn.ch>
- <1490668137.3177.98.camel@kernel.crashing.org>
- <1490669734.3177.100.camel@au1.ibm.com>
- <20170328041405.045FEB206B@b01ledav03.gho.pok.ibm.com>
- <1490678238.3177.102.camel@kernel.crashing.org>
+From: Robert Shearman <rshearma@brocade.com>
+Subject: Re: [PATCH net-next 0/4] net: mpls: Allow users to configure more
+ labels per route
+Date: Tue, 28 Mar 2017 10:52:10 +0100
+Message-ID: <b0f95463-8927-e9b7-0a59-f1e0b3bc1072@brocade.com>
+References: <1490461408-9551-1-git-send-email-dsa@cumulusnetworks.com>
+ <87shm1np5h.fsf@xmission.com>
+ <5fe416c3-3e56-4e31-f92b-33e3e7b2e3c0@brocade.com>
+ <608c60ac-7669-86f0-b0ef-02add5287009@cumulusnetworks.com>
+ <871stiayie.fsf@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>, netdev@vger.kernel.org
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <roopa@cumulusnetworks.com>
+To: "Eric W. Biederman" <ebiederm@xmission.com>,
+        David Ahern <dsa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.armlinux.org.uk ([78.32.30.218]:52898 "EHLO
-        pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752770AbdC1JoF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 28 Mar 2017 05:44:05 -0400
-Content-Disposition: inline
-In-Reply-To: <1490678238.3177.102.camel@kernel.crashing.org>
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:50458 "EHLO
+        mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1754217AbdC1Jwg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 28 Mar 2017 05:52:36 -0400
+In-Reply-To: <871stiayie.fsf@xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 28, 2017 at 04:17:18PM +1100, Benjamin Herrenschmidt wrote:
-> I added a printk inside genphy_read_status() to inspect the result
-> of the negociation, and this is what I read:
-> 
-> lpa=c1e1 lpagb=3800 adv=de1 common_adv=1e1 common_adv_gb=800
-> 
-> As you can see, LPA doesn't have the Pause bits. *However* it does
-> have bit 0x80 which can mean ADVERTISE_100HALF, but according to
-> our own mii.h can also mean ADVERTISE_1000XPAUSE. Similarily it 
-> has bit 0x100 which can mean ADVERTISE_100FULL but also can mean
-> ADVERTISE_1000XPSE_ASYM.
+On 28/03/17 04:08, Eric W. Biederman wrote:
+> David Ahern <dsa@cumulusnetworks.com> writes:
+>
+>> On 3/27/17 4:39 AM, Robert Shearman wrote:
+>>> On 25/03/17 19:15, Eric W. Biederman wrote:
+>>>> David Ahern <dsa@cumulusnetworks.com> writes:
+>>>>
+>>>>> Bump the maximum number of labels for MPLS routes from 2 to 12. To keep
+>>>>> memory consumption in check the labels array is moved to the end of
+>>>>> mpls_nh
+>>>>> and mpls_iptunnel_encap structs as a 0-sized array. Allocations use the
+>>>>> maximum number of labels across all nexthops in a route for LSR and the
+>>>>> number of labels configured for LWT.
+>>>>>
+>>>>> The mpls_route layout is changed to:
+>>>>>
+>>>>>    +----------------------+
+>>>>>    | mpls_route           |
+>>>>>    +----------------------+
+>>>>>    | mpls_nh 0            |
+>>>>>    +----------------------+
+>>>>>    | alignment padding    |   4 bytes for odd number of labels; 0 for
+>>>>> even
+>>>>>    +----------------------+
+>>>>>    | via[rt_max_alen] 0   |
+>>>>>    +----------------------+
+>>>>>    | alignment padding    |   via's aligned on sizeof(unsigned long)
+>>>>>    +----------------------+
+>>>>>    | ...                  |
+>>>>>
+>>>>> Meaning the via follows its mpls_nh providing better locality as the
+>>>>> number of labels increases. UDP_RR tests with namespaces shows no impact
+>>>>> to a modest performance increase with this layout for 1 or 2 labels and
+>>>>> 1 or 2 nexthops.
+>>>>>
+>>>>> The new limit is set to 12 to cover all currently known segment
+>>>>> routing use cases.
+>>>>
+>>>> How does this compare with running the packet a couple of times through
+>>>> the mpls table to get all of the desired labels applied?
+>>>
+>>> At the moment (i.e setting output interface for a route to the loopback
+>>> interface) the TTL would currently be calculated incorrectly since it'll
+>>> be decremented each time the packet is run through the input processing.
+>>> If that was avoided, then the only issue would be the lower performance.
+>>
+>> We have the infrastructure to add all the labels on one pass. It does
+>> not make sense to recirculate the packet to get the same effect.
+>
+> I was really asking what are the advantages and disadvantages of this
+> change rather than suggesting it was a bad idea.  The information about
+> ttl is useful.
+>
+> Adding that this will route packets with more labels more quickly than
+> the recirculation method is also useful to know.
 
-The 1000X definitions are for 1000BaseX (fiber), not for 1000BaseT
-(copper).
+I should also add that not recirculating also avoids having to allocate 
+extra local labels, which may be limited in supply in some deployments, 
+and avoids the extra control plane/user complexity associated with 
+managing the routes associated with the recirculation.
 
-I have a working setup here with gigabit pause.  The pause bits come
-from bits 11 and 10, just like for older copper PHYs.  Your link
-parter is indicating that it has no pause capability.  That means
-you can't use pause.
-
--- 
-RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
-FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
-according to speedtest.net.
+Thanks,
+Rob
