@@ -1,47 +1,48 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: genphy_read_status() vs. 1000bT Pause capability
-Date: Wed, 29 Mar 2017 07:32:34 +1100
-Message-ID: <1490733154.3177.130.camel@kernel.crashing.org>
-References: <1490662190.3177.91.camel@kernel.crashing.org>
-         <20170328010940.GG25549@lunn.ch>
-         <1490668137.3177.98.camel@kernel.crashing.org>
-         <1490669734.3177.100.camel@au1.ibm.com>
-         <20170328041405.045FEB206B@b01ledav03.gho.pok.ibm.com>
-         <1490678238.3177.102.camel@kernel.crashing.org>
-         <20170328094252.GV7909@n2100.armlinux.org.uk>
-         <1490699484.3177.120.camel@kernel.crashing.org>
-         <20170328113104.GY7909@n2100.armlinux.org.uk>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH net-next] net: phy: Allow building mdio-boardinfo into the kernel
+Date: Tue, 28 Mar 2017 22:43:51 +0200
+Message-ID: <CAK8P3a1ZQTgBDxO+k=ebXAA=g_fd_5ht7BNxB+=NgB3oM_6sTw@mail.gmail.com>
+References: <20170328195709.13549-1-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>, netdev@vger.kernel.org
-To: Russell King - ARM Linux <linux@armlinux.org.uk>
+Content-Type: text/plain; charset=UTF-8
+Cc: Networking <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        Andrew Lunn <andrew@lunn.ch>, rmk+kernel@armlinux.org.uk
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:51508 "EHLO gate.crashing.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751882AbdC1UdM (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 28 Mar 2017 16:33:12 -0400
-In-Reply-To: <20170328113104.GY7909@n2100.armlinux.org.uk>
+Received: from mail-oi0-f67.google.com ([209.85.218.67]:36200 "EHLO
+        mail-oi0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752605AbdC1Unx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 28 Mar 2017 16:43:53 -0400
+Received: by mail-oi0-f67.google.com with SMTP id b187so1757457oif.3
+        for <netdev@vger.kernel.org>; Tue, 28 Mar 2017 13:43:52 -0700 (PDT)
+In-Reply-To: <20170328195709.13549-1-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2017-03-28 at 12:31 +0100, Russell King - ARM Linux wrote:
-> > Interesting. I tried and it worked :-) Could be something funny in
-> > the config of our switches.
-> 
-> It could be that the switch supports pause frames, but it's not
-> advertised because there's some corner cases that it doesn't work.  I
-> know that SolidRun have run into switches that corrupt ethernet frames
-> when pause is used.  (I don't know off hand which they are, but I could
-> ask the question.)
+On Tue, Mar 28, 2017 at 9:57 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+> mdio-boardinfo contains code that is helpful for platforms to register
+> specific MDIO bus devices independent of how CONFIG_MDIO_DEVICE or
+> CONFIG_PHYLIB will be selected (modular or built-in). In order to make
+> that possible, let's do the following:
+>
+> - descend into drivers/net/phy/ unconditionally
+>
+> - make mdiobus_setup_mdiodev_from_board_info() take a callback argument
+>   which allows us not to expose the internal MDIO board info list and
+>   mutex, yet maintain the logic within the same file
+>
+> - relocate the code that creates a MDIO device into
+>   drivers/net/phy/mdio_bus.c
+>
+> - build mdio-boardinfo.o into the kernel as soon as MDIO_DEVICE is
+>   defined (y or m)
+>
+> Fixes: 90eff9096c01 ("net: phy: Allow splitting MDIO bus/device support from PHYs")
+> Fixes: 648ea0134069 ("net: phy: Allow pre-declaration of MDIO devices")
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 
-I think this is Cisco gear, I'll check with our lab guy today. In the
-meantime I'll test my driver back to back with some other machines, I
-should find something that does pause eventually :-)
+Looks good at first glance. I've added this to my randconfig build setup,
+let's see if there are any remaining corner cases I can hit.
 
-It's handy when you have a gigabit MAC on a 400Mhz ARM9 to be able to
-throttle the peer despite all the other problems with Pause :-)
-
-Cheers,
-Ben.
+        Arnd
