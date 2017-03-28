@@ -1,61 +1,49 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH 06/16] drivers, net, mlx5: convert mlx5_cq.refcount from
- atomic_t to refcount_t
-Date: Tue, 28 Mar 2017 09:33:21 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DCFFBE8AF@AcuExch.aculab.com>
-References: <1490691403-4016-1-git-send-email-elena.reshetova@intel.com>
- <1490691403-4016-7-git-send-email-elena.reshetova@intel.com>
+From: Russell King - ARM Linux <linux@armlinux.org.uk>
+Subject: Re: genphy_read_status() vs. 1000bT Pause capability
+Date: Tue, 28 Mar 2017 10:42:52 +0100
+Message-ID: <20170328094252.GV7909@n2100.armlinux.org.uk>
+References: <1490662190.3177.91.camel@kernel.crashing.org>
+ <20170328010940.GG25549@lunn.ch>
+ <1490668137.3177.98.camel@kernel.crashing.org>
+ <1490669734.3177.100.camel@au1.ibm.com>
+ <20170328041405.045FEB206B@b01ledav03.gho.pok.ibm.com>
+ <1490678238.3177.102.camel@kernel.crashing.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "peterz@infradead.org" <peterz@infradead.org>,
- "matanb@mellanox.com" <matanb@mellanox.com>,
- "paulus@samba.org" <paulus@samba.org>, "nbd@openwrt.org" <nbd@openwrt.org>,
- "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
- "saeedm@mellanox.com" <saeedm@mellanox.com>,
- "ganeshgr@chelsio.com" <ganeshgr@chelsio.com>,
- Hans Liljestrand <ishkamiel@gmail.com>, David
- Windsor <dwindsor@gmail.com>, "keescook@chromium.org" <keescook@chromium.org>,
- "j@w1.fi" <j@w1.fi>, "ajk@comnets.uni-bremen.de" <ajk@comnets.uni-bremen.de>,
- "leonro@mellanox.com" <leonro@mellanox.com>,
- "matthias.bgg@gmail.com" <matthias.bgg@gmail.com>,
- "linux-hams@vger.kernel.org" <linux-hams@vger.kernel.org>,
- "kvalo@codeaurora.org" <kvalo@codeaurora.org>,
- "blogic@openwrt.org" <blogic@openwrt.org>,
- "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>,
- "linux-ppp@vger.kernel.org" <linux-
-To: 'Elena Reshetova' <elena.reshetova@intel.com>, "netdev@vger.kernel.org"
- <netdev@vger.kernel.org>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1490691403-4016-7-git-send-email-elena.reshetova@intel.com>
-Content-Language: en-US
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>, netdev@vger.kernel.org
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from pandora.armlinux.org.uk ([78.32.30.218]:52898 "EHLO
+        pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752770AbdC1JoF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 28 Mar 2017 05:44:05 -0400
+Content-Disposition: inline
+In-Reply-To: <1490678238.3177.102.camel@kernel.crashing.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Elena Reshetova
-> Sent: 28 March 2017 09:57
+On Tue, Mar 28, 2017 at 04:17:18PM +1100, Benjamin Herrenschmidt wrote:
+> I added a printk inside genphy_read_status() to inspect the result
+> of the negociation, and this is what I read:
 > 
-> refcount_t type and corresponding API should be
-> used instead of atomic_t when the variable is used as
-> a reference counter. This allows to avoid accidental
-> refcounter overflows that might lead to use-after-free
-> situations.
+> lpa=c1e1 lpagb=3800 adv=de1 common_adv=1e1 common_adv_gb=800
+> 
+> As you can see, LPA doesn't have the Pause bits. *However* it does
+> have bit 0x80 which can mean ADVERTISE_100HALF, but according to
+> our own mii.h can also mean ADVERTISE_1000XPAUSE. Similarily it 
+> has bit 0x100 which can mean ADVERTISE_100FULL but also can mean
+> ADVERTISE_1000XPSE_ASYM.
 
-I can't help feeling that you ought to find a scheme
-that will detect extra decrements and extra increments
-before the counter wraps 32 bits.
+The 1000X definitions are for 1000BaseX (fiber), not for 1000BaseT
+(copper).
 
-If an extra reference is requested every 100us it takes 4.8 days
-for the counter to increment back to zero.
-Simple tests aren't doing to find that - but it can easily happen
-on a system that is running for several years.
+I have a working setup here with gigabit pause.  The pause bits come
+from bits 11 and 10, just like for older copper PHYs.  Your link
+parter is indicating that it has no pause capability.  That means
+you can't use pause.
 
-	David
+-- 
+RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
+FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
+according to speedtest.net.
