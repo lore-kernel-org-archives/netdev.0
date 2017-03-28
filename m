@@ -1,71 +1,70 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH 5/5] PCI: remove pci_enable_msix
-Date: Tue, 28 Mar 2017 09:07:28 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DCFFBE7F3@AcuExch.aculab.com>
-References: <20170327082936.6830-1-hch@lst.de>
- <20170327082936.6830-6-hch@lst.de>
- <83f97789-0817-7549-bfa9-1f8dcb0c26d9@gmail.com>
- <20170327171148.GB28815@lst.de>
- <1eaa46ad-9890-c738-3a85-6468161284ba@gmail.com>
+From: Saeed Mahameed <saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
+Subject: Re: [BUG] ethernet:mellanox:mlx5: Oops in health_recover get_nic_state(dev)
+Date: Tue, 28 Mar 2017 12:11:44 +0300
+Message-ID: <CALzJLG-6pEXgukQdS0AEW40RZGeT_MNQmDV99GkgmC+wHbA4eA@mail.gmail.com>
+References: <4a3539ba-6ce0-8ecf-1b1b-3c70cace6c2a@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "bhelgaas@google.com" <bhelgaas@google.com>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "netanel@annapurnalabs.com" <netanel@annapurnalabs.com>,
-        "jcliburn@gmail.com" <jcliburn@gmail.com>,
-        "chris.snook@gmail.com" <chris.snook@gmail.com>,
-        "sgoutham@cavium.com" <sgoutham@cavium.com>,
-        "rric@kernel.org" <rric@kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>
-To: 'David Daney' <ddaney.cavm@gmail.com>,
-        Christoph Hellwig <hch@lst.de>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <1eaa46ad-9890-c738-3a85-6468161284ba@gmail.com>
-Content-Language: en-US
-Sender: linux-pci-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, shankerd-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
+        rruigrok-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org
+To: "Goel, Sameer" <sgoel-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+        Mohamad Haj Yahia <mohamad-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Daniel Jurgens <danielj-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4a3539ba-6ce0-8ecf-1b1b-3c70cace6c2a-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: David Daney
-> Sent: 27 March 2017 18:31
-> On 03/27/2017 10:11 AM, Christoph Hellwig wrote:
-> > On Mon, Mar 27, 2017 at 09:59:35AM -0700, David Daney wrote:
-> >> On 03/27/2017 01:29 AM, Christoph Hellwig wrote:
-> >>> Unused now that all callers switched to pci_alloc_irq_vectors.
-> >>>
-> >>
-> >> And you are aware that the ThunderX GPIO driver that I am attempting to
-> >> merge uses this interface.
-> >>
-> >> If this patch gets merged, should I ask to revert it when the GPIO driver
-> >> goes in?
-> >
-> > No.  You should not use pci_enable_msix in your new driver as I told
-> > you before.
-> >
-> >> You offer no solution for drivers that would benefit from using a sparse
-> >> sub set of the available MSI-X vectors.
-> >
-> > Use pci_enable_msix_{exact,range} for now, as I told you before.
-> >
-> 
-> That still results in twice as many MSI-X being provisioned than are needed.
-> 
-> For drivers that use a contiguous range of MSI-X, your suggestion is
-> usable, but for others you are forcing resources to be wasted.  For what
-> end?
+On Tue, Mar 28, 2017 at 2:45 AM, Goel, Sameer <sgoel-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org> wrote:
+> Stack frame:
+> [ 1744.418958] [<ffff00000328936c>] get_nic_state+0x24/0x40 [mlx5_core]
+> [ 1744.425273] [<ffff0000032899c0>] health_recover+0x28/0x80 [mlx5_core]
+> [ 1744.431496] [<ffff0000080e3280>] process_one_work+0x150/0x460
+> [ 1744.437218] [<ffff0000080e35e0>] worker_thread+0x50/0x4b8
+> [ 1744.442609] [<ffff0000080e9b98>] kthread+0xd8/0xf0
+> [ 1744.447377] [<ffff000008083330>] ret_from_fork+0x10/0x20
+>
+> Summary:
+> This issue was seen on QDF2400 system 30 mins after while running speccpu 2006. During the test a recoverable PCIe error was seen that gave the following log:
+> [ 1673.170969] pcieport 0002:00:00.0: aer_status: 0x00004000, aer_mask: 0x00400000
+> [ 1673.177961] pcieport 0002:00:00.0: aer_layer=Transaction Layer, aer_agent=Requester ID
+> [ 1673.185832] pcieport 0002:00:00.0: aer_uncor_severity: 0x00462030
+> [ 1675.536391] mlx5_core 0002:01:00.0: assert_var[0] 0xffffffff
+> [ 1675.541093] mlx5_core 0002:01:00.0: assert_var[1] 0xffffffff
+> [ 1675.546750] mlx5_core 0002:01:00.0: assert_var[2] 0xffffffff
+> [ 1675.552377] mlx5_core 0002:01:00.0: assert_var[3] 0xffffffff
+> [ 1675.558040] mlx5_core 0002:01:00.0: assert_var[4] 0xffffffff
+> [ 1675.563661] mlx5_core 0002:01:00.0: assert_exit_ptr 0xffffffff
+> [ 1675.569488] mlx5_core 0002:01:00.0: assert_callra 0xffffffff
+> [ 1675.575120] mlx5_core 0002:01:00.0: fw_ver 15.4095.65535
+> [ 1675.580426] mlx5_core 0002:01:00.0: hw_id 0xffffffff
+> [ 1675.585363] mlx5_core 0002:01:00.0: irisc_index 255
+> [ 1675.590242] mlx5_core 0002:01:00.0: synd 0xff: unrecognized error
+> [ 1675.596301] mlx5_core 0002:01:00.0: ext_synd 0xffff
+> [ 1675.601209] mlx5_core 0002:01:00.0: mlx5_enter_error_state:120:(pid 7205): start
+> [ 1675.608613] mlx5_core 0002:01:00.0: mlx5_enter_error_state:127:(pid 7205): end
+>
+> After the above log we see the above stackframe and a page fault due to invalid dev pointer.
+>
+> So the the recovery work is queued and the timer is stopped. Somehow the workqueue is not cleared and when it runs the dev pointer is invalid.
+>
+> This issue was difficult to repro and was seen only once in multiple runs on a specific device.
 
-There are also drivers that only need some interrupts after a specific
-device is opened, and could free them when closed.
+Hi Sameer,
 
-This could even be network devices with lots of queues, or a driver
-realising that the workload is high and per-cpu interrupts make sense.
+Thanks for the report,
+adding more relevant ppl
 
-So any real change to the interface should allow drivers to allocate
-and free individual MSI-X vectors.
+Mohamad/Daniel Does the above ring a bell ?
+can you check ?
 
-I remember a lot of discussions when pci_enable_msix_range() was added,
-but almost nothing about this change.
-
-	David
+Thanks
+Saeed.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
