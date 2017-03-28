@@ -1,78 +1,27 @@
-From: Sean Wang <sean.wang@mediatek.com>
-Subject: Re: [PATCH net-next v2 5/5] net-next: dsa: add dsa support for
- Mediatek MT7530 switch
-Date: Tue, 28 Mar 2017 14:05:13 +0800
-Message-ID: <1490681113.14184.39.camel@mtkswgap22>
-References: <1490088910-19405-1-git-send-email-sean.wang@mediatek.com>
-         <1490088910-19405-6-git-send-email-sean.wang@mediatek.com>
-         <20170324140215.GG28518@lunn.ch>
+From: Christoph Hellwig <hch@lst.de>
+Subject: Re: [PATCH 5/5] PCI: remove pci_enable_msix
+Date: Tue, 28 Mar 2017 08:41:48 +0200
+Message-ID: <20170328064148.GA20271@lst.de>
+References: <20170327082936.6830-1-hch@lst.de> <20170327082936.6830-6-hch@lst.de> <83f97789-0817-7549-bfa9-1f8dcb0c26d9@gmail.com> <20170327171148.GB28815@lst.de> <1eaa46ad-9890-c738-3a85-6468161284ba@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <f.fainelli@gmail.com>, <vivien.didelot@savoirfairelinux.com>,
-        <matthias.bgg@gmail.com>, <robh+dt@kernel.org>,
-        <mark.rutland@arm.com>, <devicetree@vger.kernel.org>,
-        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-        <linux-mediatek@lists.infradead.org>, <davem@davemloft.net>,
-        <Landen.Chao@mediatek.com>, <keyhaede@gmail.com>,
-        <objelf@gmail.com>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170324140215.GG28518@lunn.ch>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Christoph Hellwig <hch@lst.de>, bhelgaas@google.com,
+        davem@davemloft.net, netanel@annapurnalabs.com, jcliburn@gmail.com,
+        chris.snook@gmail.com, sgoutham@cavium.com, rric@kernel.org,
+        netdev@vger.kernel.org, linux-pci@vger.kernel.org
+To: David Daney <ddaney.cavm@gmail.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1eaa46ad-9890-c738-3a85-6468161284ba@gmail.com>
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Mon, Mar 27, 2017 at 10:30:46AM -0700, David Daney wrote:
+>> Use pci_enable_msix_{exact,range} for now, as I told you before.
+>>
+>
+> That still results in twice as many MSI-X being provisioned than are needed.
 
-Hi Andrew,
-
-Add comment as below inline
-
-
-On Fri, 2017-03-24 at 15:02 +0100, Andrew Lunn wrote:
-> Hi Sean
-> 
-> > +	regmap = devm_regmap_init(ds->dev, NULL, priv,
-> > +				  &mt7530_regmap_config);
-> > +	if (IS_ERR(regmap))
-> > +		dev_warn(priv->dev, "phy regmap initialization failed");
-> > +
-> 
-> Shouldn't this be a fatal error? If you keep going when there is an
-> error, what happens when you actually try to use the regmap?
-> 
-
-Initial thought is that it is just for debugging purpose so if it fails,
-it should break any functionality of switch and only have implication as
-a warning message. 
-
-Anyway, i will remove it in the next one since it seems better being
-kept in private place as you suggested in the previous mail.  
-
-> > +	phy_mode = of_get_phy_mode(ds->ports[ds->dst->cpu_port].dn);
-> > +	if (phy_mode < 0) {
-> > +		dev_err(priv->dev, "Can't find phy-mode for master device\n");
-> > +		return phy_mode;
-> > +	}
-> > +	dev_info(priv->dev, "phy-mode for master device = %x\n", phy_mode);
-> 
-> dev_dbg? 
-> 
-
-Sorry. i forgot turned it into dev_dbg
-
-> > +
-> > +	id = mt7530_read(priv, MT7530_CREV);
-> > +	id >>= CHIP_NAME_SHIFT;
-> > +	if (id != MT7530_ID)
-> > +		return -ENODEV;
-> 
-> It might be helpful to say what ID has been found, if it is not the
-> supported ID.
-
-
-I will fix it up to make users know what was going on 
-
-thanks for taking your time on those reviewing again!
-
-
-> 	Andrew
+How so?  Except for the return value, a pci_enable_msix_exact call with the
+same arguments as your previous pci_enable_msix will work exactly the
+same.
