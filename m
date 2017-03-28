@@ -1,8 +1,8 @@
 From: Elena Reshetova <elena.reshetova@intel.com>
-Subject: [PATCH 04/16] drivers, net,
- mlx4: convert mlx4_qp.refcount from atomic_t to refcount_t
-Date: Tue, 28 Mar 2017 11:56:31 +0300
-Message-ID: <1490691403-4016-5-git-send-email-elena.reshetova@intel.com>
+Subject: [PATCH 13/16] drivers, net,
+ ppp: convert ppp_file.refcnt from atomic_t to refcount_t
+Date: Tue, 28 Mar 2017 11:56:40 +0300
+Message-ID: <1490691403-4016-14-git-send-email-elena.reshetova@intel.com>
 References: <1490691403-4016-1-git-send-email-elena.reshetova@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -42,62 +42,92 @@ Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
 Signed-off-by: Kees Cook <keescook@chromium.org>
 Signed-off-by: David Windsor <dwindsor@gmail.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/qp.c | 8 ++++----
- include/linux/mlx4/device.h             | 2 +-
- 2 files changed, 5 insertions(+), 5 deletions(-)
+ drivers/net/ppp/ppp_generic.c | 17 +++++++++--------
+ 1 file changed, 9 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/qp.c b/drivers/net/ethernet/mellanox/mlx4/qp.c
-index 2d6abd4..6017316 100644
---- a/drivers/net/ethernet/mellanox/mlx4/qp.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/qp.c
-@@ -55,7 +55,7 @@ void mlx4_qp_event(struct mlx4_dev *dev, u32 qpn, int event_type)
+diff --git a/drivers/net/ppp/ppp_generic.c b/drivers/net/ppp/ppp_generic.c
+index f9c0e62..7b1352c 100644
+--- a/drivers/net/ppp/ppp_generic.c
++++ b/drivers/net/ppp/ppp_generic.c
+@@ -51,6 +51,7 @@
+ #include <asm/unaligned.h>
+ #include <net/slhc_vj.h>
+ #include <linux/atomic.h>
++#include <linux/refcount.h>
  
- 	qp = __mlx4_qp_lookup(dev, qpn);
- 	if (qp)
--		atomic_inc(&qp->refcount);
-+		refcount_inc(&qp->refcount);
+ #include <linux/nsproxy.h>
+ #include <net/net_namespace.h>
+@@ -84,7 +85,7 @@ struct ppp_file {
+ 	struct sk_buff_head xq;		/* pppd transmit queue */
+ 	struct sk_buff_head rq;		/* receive queue for pppd */
+ 	wait_queue_head_t rwait;	/* for poll on reading /dev/ppp */
+-	atomic_t	refcnt;		/* # refs (incl /dev/ppp attached) */
++	refcount_t	refcnt;		/* # refs (incl /dev/ppp attached) */
+ 	int		hdrlen;		/* space to leave for headers */
+ 	int		index;		/* interface unit / channel number */
+ 	int		dead;		/* unit/channel has been shut down */
+@@ -407,7 +408,7 @@ static int ppp_release(struct inode *unused, struct file *file)
+ 				unregister_netdevice(ppp->dev);
+ 			rtnl_unlock();
+ 		}
+-		if (atomic_dec_and_test(&pf->refcnt)) {
++		if (refcount_dec_and_test(&pf->refcnt)) {
+ 			switch (pf->kind) {
+ 			case INTERFACE:
+ 				ppp_destroy_interface(PF_TO_PPP(pf));
+@@ -880,7 +881,7 @@ static int ppp_unattached_ioctl(struct net *net, struct ppp_file *pf,
+ 		mutex_lock(&pn->all_ppp_mutex);
+ 		ppp = ppp_find_unit(pn, unit);
+ 		if (ppp) {
+-			atomic_inc(&ppp->file.refcnt);
++			refcount_inc(&ppp->file.refcnt);
+ 			file->private_data = &ppp->file;
+ 			err = 0;
+ 		}
+@@ -895,7 +896,7 @@ static int ppp_unattached_ioctl(struct net *net, struct ppp_file *pf,
+ 		spin_lock_bh(&pn->all_channels_lock);
+ 		chan = ppp_find_channel(pn, unit);
+ 		if (chan) {
+-			atomic_inc(&chan->file.refcnt);
++			refcount_inc(&chan->file.refcnt);
+ 			file->private_data = &chan->file;
+ 			err = 0;
+ 		}
+@@ -2641,7 +2642,7 @@ ppp_unregister_channel(struct ppp_channel *chan)
  
- 	spin_unlock(&qp_table->lock);
- 
-@@ -66,7 +66,7 @@ void mlx4_qp_event(struct mlx4_dev *dev, u32 qpn, int event_type)
- 
- 	qp->event(qp, event_type);
- 
--	if (atomic_dec_and_test(&qp->refcount))
-+	if (refcount_dec_and_test(&qp->refcount))
- 		complete(&qp->free);
+ 	pch->file.dead = 1;
+ 	wake_up_interruptible(&pch->file.rwait);
+-	if (atomic_dec_and_test(&pch->file.refcnt))
++	if (refcount_dec_and_test(&pch->file.refcnt))
+ 		ppp_destroy_channel(pch);
  }
  
-@@ -406,7 +406,7 @@ int mlx4_qp_alloc(struct mlx4_dev *dev, int qpn, struct mlx4_qp *qp, gfp_t gfp)
- 	if (err)
- 		goto err_icm;
+@@ -3011,7 +3012,7 @@ init_ppp_file(struct ppp_file *pf, int kind)
+ 	pf->kind = kind;
+ 	skb_queue_head_init(&pf->xq);
+ 	skb_queue_head_init(&pf->rq);
+-	atomic_set(&pf->refcnt, 1);
++	refcount_set(&pf->refcnt, 1);
+ 	init_waitqueue_head(&pf->rwait);
+ }
  
--	atomic_set(&qp->refcount, 1);
-+	refcount_set(&qp->refcount, 1);
- 	init_completion(&qp->free);
+@@ -3128,7 +3129,7 @@ ppp_connect_channel(struct channel *pch, int unit)
+ 	list_add_tail(&pch->clist, &ppp->channels);
+ 	++ppp->n_channels;
+ 	pch->ppp = ppp;
+-	atomic_inc(&ppp->file.refcnt);
++	refcount_inc(&ppp->file.refcnt);
+ 	ppp_unlock(ppp);
+ 	ret = 0;
  
- 	return 0;
-@@ -500,7 +500,7 @@ EXPORT_SYMBOL_GPL(mlx4_qp_remove);
- 
- void mlx4_qp_free(struct mlx4_dev *dev, struct mlx4_qp *qp)
- {
--	if (atomic_dec_and_test(&qp->refcount))
-+	if (refcount_dec_and_test(&qp->refcount))
- 		complete(&qp->free);
- 	wait_for_completion(&qp->free);
- 
-diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
-index 5fea001..756ca22 100644
---- a/include/linux/mlx4/device.h
-+++ b/include/linux/mlx4/device.h
-@@ -754,7 +754,7 @@ struct mlx4_qp {
- 
- 	int			qpn;
- 
--	atomic_t		refcount;
-+	refcount_t		refcount;
- 	struct completion	free;
- };
- 
+@@ -3159,7 +3160,7 @@ ppp_disconnect_channel(struct channel *pch)
+ 		if (--ppp->n_channels == 0)
+ 			wake_up_interruptible(&ppp->file.rwait);
+ 		ppp_unlock(ppp);
+-		if (atomic_dec_and_test(&ppp->file.refcnt))
++		if (refcount_dec_and_test(&ppp->file.refcnt))
+ 			ppp_destroy_interface(ppp);
+ 		err = 0;
+ 	}
 -- 
 2.7.4
