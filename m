@@ -1,92 +1,79 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: EINVAL when using connect() for udp sockets
-Date: Mon, 27 Mar 2017 21:22:44 -0700
-Message-ID: <CAM_iQpUQ52aiKQntMsrm2aMQ56G=tHCpN93A0+mffss+6m39jw@mail.gmail.com>
-References: <CAEnbY+cYpX8naDpRkXgwCP=i64AwWgK9=_7AacmYip-ykot7mQ@mail.gmail.com>
- <CAEnbY+fPLamzXF8nOF-SEFE8LaE88XAyKNt81zs6bM866R4oGg@mail.gmail.com>
- <1490246287.16816.201.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAM_iQpVVBfwd7P0-dY08Bw7QNr_w77va4AEMFj5xMuOddQoq2g@mail.gmail.com> <1490397560.24891.0.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: genphy_read_status() vs. 1000bT Pause capability
+Date: Tue, 28 Mar 2017 16:17:18 +1100
+Message-ID: <1490678238.3177.102.camel@kernel.crashing.org>
+References: <1490662190.3177.91.camel@kernel.crashing.org>
+         <20170328010940.GG25549@lunn.ch>
+         <1490668137.3177.98.camel@kernel.crashing.org>
+         <1490669734.3177.100.camel@au1.ibm.com>
+         <20170328041405.045FEB206B@b01ledav03.gho.pok.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Daurnimator <quae@daurnimator.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        William Ahern <william@25thandclement.com>,
-        "Santi T." <santitm99@gmail.com>,
-        Michael Kerrisk-manpages <mtk.manpages@gmail.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Russell King <rmk+kernel@armlinux.org.uk>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f170.google.com ([209.85.128.170]:35795 "EHLO
-        mail-wr0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750883AbdC1EXy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 28 Mar 2017 00:23:54 -0400
-Received: by mail-wr0-f170.google.com with SMTP id u1so85020209wra.2
-        for <netdev@vger.kernel.org>; Mon, 27 Mar 2017 21:23:34 -0700 (PDT)
-In-Reply-To: <1490397560.24891.0.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from gate.crashing.org ([63.228.1.57]:48859 "EHLO gate.crashing.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753051AbdC1FSC (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 28 Mar 2017 01:18:02 -0400
+In-Reply-To: <20170328041405.045FEB206B@b01ledav03.gho.pok.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 24, 2017 at 4:19 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Fri, 2017-03-24 at 15:34 -0700, Cong Wang wrote:
->> (Cc'ing Michael Kerrisk)
->>
->> On Wed, Mar 22, 2017 at 10:18 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->> > On Thu, 2017-03-23 at 13:22 +1100, Daurnimator wrote:
->> >> On 9 March 2017 at 14:10, Daurnimator <quae@daurnimator.com> wrote:
->> >> > When debugging https://github.com/daurnimator/lua-http/issues/73 which
->> >> > uses https://github.com/wahern/dns we ran into an issue where modern
->> >> > linux kernels return EINVAL if you try and re-use a udp socket.
->> >> > The issue seems to occur if you go from a local destination ip to a
->> >> > non-local one.
->> >>
->> >> Did anyone get a chance to look into this issue?
->> >
->> > I believe man page is not complete.
->> >
->> > A disconnect is needed before another connect()
->>
->> Is it? Making connect() reentrant is reasonable for connection-less
->> protocol like UDP, but I don't dig POSIX for the details. If so we need
->> something like below...
->>
->> --- a/net/ipv4/datagram.c
->> +++ b/net/ipv4/datagram.c
->> @@ -40,7 +40,7 @@ int __ip4_datagram_connect(struct sock *sk, struct
->> sockaddr *uaddr, int addr_len
->>         sk_dst_reset(sk);
->>
->>         oif = sk->sk_bound_dev_if;
->> -       saddr = inet->inet_saddr;
->> +       saddr = inet->inet_saddr = 0;
->>         if (ipv4_is_multicast(usin->sin_addr.s_addr)) {
->>                 if (!oif)
->>                         oif = inet->mc_index;
->
-> Wont this break bind() ?
->
+On Mon, 2017-03-27 at 21:14 -0700, Florian Fainelli wrote:
+> > Doesn't fix my other problem with Pause in 1000bT land. Do you know if
+> > that way of reflecting the pause capability by hijacking the old
+> > LPA bits is widely implemented enough that we should put it in
+> > genphy_read_status() ?
+> 
+> Not sure I follow you here? The link partner pause capability is
+> reflected in phydev->pause and phydev->asym_pause (yes, these are
+> terrible names) when the link is established. 
 
-Right. We need to distinguish bind() and connect(), something
-like below?
+Right. The problem is that they aren't for some gigabit links :-)
 
---- a/net/ipv4/datagram.c
-+++ b/net/ipv4/datagram.c
-@@ -26,7 +26,7 @@ int __ip4_datagram_connect(struct sock *sk, struct
-sockaddr *uaddr, int addr_len
-        struct sockaddr_in *usin = (struct sockaddr_in *) uaddr;
-        struct flowi4 *fl4;
-        struct rtable *rt;
--       __be32 saddr;
-+       __be32 saddr = 0;
-        int oif;
-        int err;
+Basically, in my setup with a PHY which uses genphy_read_status()
+(like most of them), I never get those advertised despite the fact
+that, I *think* they are supported by the other end (even after fixing
+my side of the advertising).
 
-@@ -40,7 +40,8 @@ int __ip4_datagram_connect(struct sock *sk, struct
-sockaddr *uaddr, int addr_len
-        sk_dst_reset(sk);
+I added a printk inside genphy_read_status() to inspect the result
+of the negociation, and this is what I read:
 
-        oif = sk->sk_bound_dev_if;
--       saddr = inet->inet_saddr;
-+       if (sk->sk_userlocks & SOCK_BINDADDR_LOCK)
-+               saddr = inet->inet_saddr;
-        if (ipv4_is_multicast(usin->sin_addr.s_addr)) {
-                if (!oif)
-                        oif = inet->mc_index;
+lpa=c1e1 lpagb=3800 adv=de1 common_adv=1e1 common_adv_gb=800
+
+As you can see, LPA doesn't have the Pause bits. *However* it does
+have bit 0x80 which can mean ADVERTISE_100HALF, but according to
+our own mii.h can also mean ADVERTISE_1000XPAUSE. Similarily it 
+has bit 0x100 which can mean ADVERTISE_100FULL but also can mean
+ADVERTISE_1000XPSE_ASYM.
+
+In fact we appear to have two functions to interpret them as
+such inn the non-uapi mii.h:
+
+	ethtool_adv_to_mii_adv_x
+	mii_adv_to_ethtool_adv_x
+
+However they aren't used much in the tree and not at all by the
+"genphy" code.
+
+So my question is... when we observe that we have a 1000 link
+established, should we use these to "interpret" the LPA bits as
+above ?
+
+As it is, we never seem to advertise the capability because we never
+decode the above (tried with 2 different PHYs, a Realtek and a
+Broadcom) while my Cisco switches, I think, do support Pause.
+
+Hence my question ... how "standard" is the re-use of the LPA bits
+for these alternate meanings in 1000bT and should we update genphy
+to perform that decoding ?
+
+(I'm trying to download the 802.3 document referenced in the phy.txt
+to see if it says anything about it but it's taking forever for some
+reason).
+
+Cheers,
+Ben.
