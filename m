@@ -1,7 +1,7 @@
 From: Andrey Konovalov <andreyknvl@google.com>
-Subject: [PATCH v4 8/9] kasan: improve double-free report format
-Date: Tue, 28 Mar 2017 16:00:53 +0200
-Message-ID: <0b6ea716d5d0787ba6ccdf517c2cea3336b5cfd8.1490383597.git.andreyknvl__33680.6630868979$1490709703$gmane$org@google.com>
+Subject: [PATCH 5/5] net/packet: reorder checks for ring buffer parameters
+Date: Tue, 28 Mar 2017 16:00:50 +0200
+Message-ID: <c2f4929f3fcdc610c49dbf3d86f7312e84be8579.1490709552.git.andreyknvl@google.com>
 References: <cover.1490709552.git.andreyknvl@google.com>
 Cc: netdev@vger.kernel.org, Dmitry Vyukov <dvyukov@google.com>,
         Kostya Serebryany <kcc@google.com>,
@@ -11,209 +11,66 @@ To: "David S . Miller" <davem@davemloft.net>,
         Willem de Bruijn <willemb@google.com>,
         Craig Gallek <cgallek@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f178.google.com ([209.85.128.178]:33015 "EHLO
-        mail-wr0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752258AbdC1OBb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 28 Mar 2017 10:01:31 -0400
-Received: by mail-wr0-f178.google.com with SMTP id w43so92175537wrb.0
-        for <netdev@vger.kernel.org>; Tue, 28 Mar 2017 07:01:11 -0700 (PDT)
+Received: from mail-wr0-f176.google.com ([209.85.128.176]:34723 "EHLO
+        mail-wr0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751711AbdC1OBJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 28 Mar 2017 10:01:09 -0400
+Received: by mail-wr0-f176.google.com with SMTP id l43so106458047wre.1
+        for <netdev@vger.kernel.org>; Tue, 28 Mar 2017 07:01:08 -0700 (PDT)
 In-Reply-To: <cover.1490709552.git.andreyknvl@google.com>
-In-Reply-To: <cover.1490383597.git.andreyknvl@google.com>
-References: <cover.1490383597.git.andreyknvl@google.com>
+In-Reply-To: <cover.1490709552.git.andreyknvl@google.com>
+References: <cover.1490709552.git.andreyknvl@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Changes double-free report header from:
+No semantic changes.
 
-BUG: Double free or freeing an invalid pointer
-Unexpected shadow byte: 0xFB
-
-to:
-
-BUG: KASAN: double-free or invalid-free in kmalloc_oob_left+0xe5/0xef
-
-This makes a bug uniquely identifiable by the first report line.
-To account for removing of the unexpected shadow value, print shadow
-bytes at the end of the report as in reports for other kinds of bugs.
-
-To print caller funtion name in the report header, the caller address
-is passed from SLUB/SLAB free handlers.
+Improves readability.
 
 Signed-off-by: Andrey Konovalov <andreyknvl@google.com>
 ---
- include/linux/kasan.h |  2 +-
- mm/kasan/kasan.c      |  5 +++--
- mm/kasan/kasan.h      |  2 +-
- mm/kasan/report.c     | 30 ++++++++++++++----------------
- mm/slab.c             |  2 +-
- mm/slub.c             | 12 +++++++-----
- 6 files changed, 27 insertions(+), 26 deletions(-)
+ net/packet/af_packet.c | 17 +++++++++--------
+ 1 file changed, 9 insertions(+), 8 deletions(-)
 
-diff --git a/include/linux/kasan.h b/include/linux/kasan.h
-index 5734480c9590..554f843f1625 100644
---- a/include/linux/kasan.h
-+++ b/include/linux/kasan.h
-@@ -62,7 +62,7 @@ void kasan_kmalloc(struct kmem_cache *s, const void *object, size_t size,
- void kasan_krealloc(const void *object, size_t new_size, gfp_t flags);
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 28b49749d1af..de25736a7988 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -4191,6 +4191,11 @@ static int packet_set_ring(struct sock *sk, union tpacket_req_u *req_u,
  
- void kasan_slab_alloc(struct kmem_cache *s, void *object, gfp_t flags);
--bool kasan_slab_free(struct kmem_cache *s, void *object);
-+bool kasan_slab_free(struct kmem_cache *s, void *object, unsigned long pc);
+ 		err = -EINVAL;
  
- struct kasan_cache {
- 	int alloc_meta_offset;
-diff --git a/mm/kasan/kasan.c b/mm/kasan/kasan.c
-index 98b27195e38b..83cc011bb9bc 100644
---- a/mm/kasan/kasan.c
-+++ b/mm/kasan/kasan.c
-@@ -567,7 +567,8 @@ static void kasan_poison_slab_free(struct kmem_cache *cache, void *object)
- 	kasan_poison_shadow(object, rounded_up_size, KASAN_KMALLOC_FREE);
- }
- 
--bool kasan_slab_free(struct kmem_cache *cache, void *object)
-+bool kasan_slab_free(struct kmem_cache *cache, void *object,
-+		     unsigned long pc)
- {
- 	s8 shadow_byte;
- 
-@@ -577,7 +578,7 @@ bool kasan_slab_free(struct kmem_cache *cache, void *object)
- 
- 	shadow_byte = READ_ONCE(*(s8 *)kasan_mem_to_shadow(object));
- 	if (shadow_byte < 0 || shadow_byte >= KASAN_SHADOW_SCALE_SIZE) {
--		kasan_report_double_free(cache, object, shadow_byte);
-+		kasan_report_double_free(cache, object, pc);
- 		return true;
- 	}
- 
-diff --git a/mm/kasan/kasan.h b/mm/kasan/kasan.h
-index 1c260e6b3b3c..75729173ade9 100644
---- a/mm/kasan/kasan.h
-+++ b/mm/kasan/kasan.h
-@@ -104,7 +104,7 @@ static inline bool kasan_report_enabled(void)
- void kasan_report(unsigned long addr, size_t size,
- 		bool is_write, unsigned long ip);
- void kasan_report_double_free(struct kmem_cache *cache, void *object,
--			s8 shadow);
-+					void *ip);
- 
- #if defined(CONFIG_SLAB) || defined(CONFIG_SLUB)
- void quarantine_put(struct kasan_free_meta *info, struct kmem_cache *cache);
-diff --git a/mm/kasan/report.c b/mm/kasan/report.c
-index e0f7dbf9e883..2368b8cf5f95 100644
---- a/mm/kasan/report.c
-+++ b/mm/kasan/report.c
-@@ -224,22 +224,8 @@ static void describe_object(struct kmem_cache *cache, void *object,
- 	describe_object_addr(cache, object, addr);
- }
- 
--void kasan_report_double_free(struct kmem_cache *cache, void *object,
--			s8 shadow)
--{
--	unsigned long flags;
--
--	kasan_start_report(&flags);
--	pr_err("BUG: Double free or freeing an invalid pointer\n");
--	pr_err("Unexpected shadow byte: 0x%hhX\n", shadow);
--	dump_stack();
--	describe_object(cache, object, NULL);
--	kasan_end_report(&flags);
--}
--
--static void print_address_description(struct kasan_access_info *info)
-+static void print_address_description(void *addr)
- {
--	void *addr = (void *)info->access_addr;
- 	struct page *page = addr_to_page(addr);
- 
- 	dump_stack();
-@@ -314,6 +300,18 @@ static void print_shadow_for_address(const void *addr)
- 	}
- }
- 
-+void kasan_report_double_free(struct kmem_cache *cache, void *object,
-+				void *ip)
-+{
-+	unsigned long flags;
++		if (unlikely(!PAGE_ALIGNED(req->tp_block_size)))
++			goto out;
++		if (unlikely(req->tp_frame_size & (TPACKET_ALIGNMENT - 1)))
++			goto out;
 +
-+	kasan_start_report(&flags);
-+	pr_err("BUG: KASAN: double-free or invalid-free in %pS\n", ip);
-+	print_address_description(object);
-+	print_shadow_for_address(object);
-+	kasan_end_report(&flags);
-+}
+ 		if (unlikely(req->tp_block_size > INT_MAX))
+ 			goto out;
+ 		if (unlikely(req->tp_block_size == 0))
+@@ -4205,19 +4210,15 @@ static int packet_set_ring(struct sock *sk, union tpacket_req_u *req_u,
+ 		if (unlikely(po->tp_reserve >= req->tp_frame_size))
+ 			goto out;
+ 
+-		if (unlikely(!PAGE_ALIGNED(req->tp_block_size)))
++		rb->frames_per_block = req->tp_block_size / req->tp_frame_size;
++		if (unlikely((rb->frames_per_block * req->tp_block_nr) !=
++					req->tp_frame_nr))
+ 			goto out;
 +
- static void kasan_report_error(struct kasan_access_info *info)
- {
- 	unsigned long flags;
-@@ -325,7 +323,7 @@ static void kasan_report_error(struct kasan_access_info *info)
- 	if (!addr_has_shadow(info)) {
- 		dump_stack();
- 	} else {
--		print_address_description(info);
-+		print_address_description((void *)info->access_addr);
- 		print_shadow_for_address(info->first_bad_addr);
- 	}
+ 		if (po->tp_version >= TPACKET_V3 &&
+ 		    req->tp_block_size <=
+ 			  BLK_PLUS_PRIV((u64)req_u->req3.tp_sizeof_priv))
+ 			goto out;
+-		if (unlikely(req->tp_frame_size & (TPACKET_ALIGNMENT - 1)))
+-			goto out;
+-
+-		rb->frames_per_block = req->tp_block_size / req->tp_frame_size;
+-		if (unlikely((rb->frames_per_block * req->tp_block_nr) !=
+-					req->tp_frame_nr))
+-			goto out;
  
-diff --git a/mm/slab.c b/mm/slab.c
-index 807d86c76908..aba5f30ea63e 100644
---- a/mm/slab.c
-+++ b/mm/slab.c
-@@ -3508,7 +3508,7 @@ static inline void __cache_free(struct kmem_cache *cachep, void *objp,
- 				unsigned long caller)
- {
- 	/* Put the object into the quarantine, don't touch it for now. */
--	if (kasan_slab_free(cachep, objp))
-+	if (kasan_slab_free(cachep, objp, caller))
- 		return;
- 
- 	___cache_free(cachep, objp, caller);
-diff --git a/mm/slub.c b/mm/slub.c
-index 7f4bc7027ed5..763570a0b15e 100644
---- a/mm/slub.c
-+++ b/mm/slub.c
-@@ -1325,7 +1325,8 @@ static inline void kfree_hook(const void *x)
- 	kasan_kfree_large(x);
- }
- 
--static inline void *slab_free_hook(struct kmem_cache *s, void *x)
-+static inline void *slab_free_hook(struct kmem_cache *s, void *x,
-+				   unsigned long addr)
- {
- 	void *freeptr;
- 
-@@ -1354,12 +1355,13 @@ static inline void *slab_free_hook(struct kmem_cache *s, void *x)
- 	 * kasan_slab_free() may put x into memory quarantine, delaying its
- 	 * reuse. In this case the object's freelist pointer is changed.
- 	 */
--	kasan_slab_free(s, x);
-+	kasan_slab_free(s, x, addr);
- 	return freeptr;
- }
- 
- static inline void slab_free_freelist_hook(struct kmem_cache *s,
--					   void *head, void *tail)
-+					   void *head, void *tail,
-+					   unsigned long addr)
- {
- /*
-  * Compiler cannot detect this function can be removed if slab_free_hook()
-@@ -1376,7 +1378,7 @@ static inline void slab_free_freelist_hook(struct kmem_cache *s,
- 	void *freeptr;
- 
- 	do {
--		freeptr = slab_free_hook(s, object);
-+		freeptr = slab_free_hook(s, object, addr);
- 	} while ((object != tail_obj) && (object = freeptr));
- #endif
- }
-@@ -2958,7 +2960,7 @@ static __always_inline void slab_free(struct kmem_cache *s, struct page *page,
- 				      void *head, void *tail, int cnt,
- 				      unsigned long addr)
- {
--	slab_free_freelist_hook(s, head, tail);
-+	slab_free_freelist_hook(s, head, tail, addr);
- 	/*
- 	 * slab_free_freelist_hook() could have put the items into quarantine.
- 	 * If so, no need to free them.
+ 		err = -ENOMEM;
+ 		order = get_order(req->tp_block_size);
 -- 
-2.12.1.578.ge9c3154ca4-goog
+2.12.2.564.g063fe858b8-goog
