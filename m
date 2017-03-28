@@ -1,7 +1,8 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 0/8] Add support for pipeline debug (dpipe)
-Date: Tue, 28 Mar 2017 17:24:09 +0200
-Message-ID: <1490714657-6116-1-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v2 4/8] mlxsw: spectrum: Add definition for egress rif table
+Date: Tue, 28 Mar 2017 17:24:13 +0200
+Message-ID: <1490714657-6116-5-git-send-email-jiri@resnulli.us>
+References: <1490714657-6116-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, arkadis@mellanox.com, idosch@mellanox.com,
         mlxsw@mellanox.com, jhs@mojatatu.com, ivecera@redhat.com,
         roopa@cumulusnetworks.com, f.fainelli@gmail.com,
@@ -9,97 +10,185 @@ Cc: davem@davemloft.net, arkadis@mellanox.com, idosch@mellanox.com,
         andrew@lunn.ch, simon.horman@netronome.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f194.google.com ([209.85.128.194]:36348 "EHLO
-        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752114AbdC1PYg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 28 Mar 2017 11:24:36 -0400
-Received: by mail-wr0-f194.google.com with SMTP id u1so23554522wra.3
-        for <netdev@vger.kernel.org>; Tue, 28 Mar 2017 08:24:30 -0700 (PDT)
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:36737 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752238AbdC1PY4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 28 Mar 2017 11:24:56 -0400
+Received: by mail-wm0-f65.google.com with SMTP id x124so310037wmf.3
+        for <netdev@vger.kernel.org>; Tue, 28 Mar 2017 08:24:45 -0700 (PDT)
+In-Reply-To: <1490714657-6116-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@mellanox.com>
+From: Arkadi Sharshevsky <arkadis@mellanox.com>
 
-Arkadi says:
+Add definition for egress router interface table. This table describes
+the final part in the routing pipeline. This table matches the egress
+interface index (rif index, which is set by the previous stages and
+determine the out port) and makes the decision of forwarding the packet
+towards the L2 logic or dropping it.
 
-While doing the hardware offloading process much of the hardware
-specifics cannot be presented. An example for such is the routing
-LPM algorithm which differ in hardware implementation from the
-kernel software implementation. The only information the user receives
-is whether specific route is offloaded or not, but he cannot really
-understand the underlying implementation nor get the specific statistics
-related to that process.
+The metadata header is added to represent this internal information.
+The rif index field is mapped logically to netdevice ifindex.
 
-Another example is ACL offload using TC which is commonly implemented
-using TCAM memory. Currently there is no capability to gain visibility
-into the TCAM structure and to debug suboptimal resource allocation.
-
-This patchset introduces capability for exporting the ASICs pipeline
-abstraction via devlink infrastructure, which should serve as an
-complementary tool. This infrastructure allows the user to get visibility
-into the ASIC by modeling it as a set of match/action tables.
-
-The main objects defined:
-Table - abstraction for a single pipeline stage. Contains the
-        available match/actions and counter availability.
-Entry - entry in a specific table with specific matches/actions
-        values and dedicated counter.
-Header/field - tuples which describes the tables behavior.
-
-As an example one of the ASIC's L3 blocks will be modeled. The egress
-rif (router interface) table is the final step in the L3 pipeline
-processing which does match on the internal rif index which was
-determined before by the routing logic. The erif table determines
-whether to forward or drop the packet and updates the corresponding
-rif L3 statistics.
-
-To expose this internal resources a special metadata header will
-be introduced that describes the internal information gathered by
-the ASIC's pipeline and contains the following fields: rif_port_index,
-forward and drop.
-
-Some internal hardware resources have direct mapping to kernel
-objects. For example the rif_port_index is mapped to the net-devices
-ifindex. By providing this mapping the users gains visibility into
-the offloading process.
-
-Follow-up work will include exporting more L3 tables which will give
-visibility into the routing process.
-
-First stage is adding support for dpipe in devlink. Next add support
-in spectrum driver. Finally implement egress router interface
-(erif) table for spectrum ASIC as an example.
-
+Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
-v1->v2: Please see individual patches
+v1->v2:
+- fix l2/l3 typo
+---
+ .../net/ethernet/mellanox/mlxsw/spectrum_dpipe.c   | 117 ++++++++++++++++++++-
+ .../net/ethernet/mellanox/mlxsw/spectrum_dpipe.h   |   2 +
+ 2 files changed, 115 insertions(+), 4 deletions(-)
 
-Arkadi Sharshevsky (8):
-  devlink: Support for pipeline debug (dpipe)
-  mlxsw: reg: Add counter fields to RITR register
-  mlxsw: spectrum: Add placeholder for dpipe
-  mlxsw: spectrum: Add definition for egress rif table
-  mlxsw: reg: Add Router Interface Counter Register
-  mlxsw: spectrum: Support for counters on router interfaces
-  mlxsw: spectrum_router: Add rif helper functions
-  mlxsw: spectrum: Add Support for erif table entries access
-
- drivers/net/ethernet/mellanox/mlxsw/Makefile       |   2 +-
- drivers/net/ethernet/mellanox/mlxsw/reg.h          | 178 +++++
- drivers/net/ethernet/mellanox/mlxsw/resources.h    |   2 +
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c     |  10 +
- drivers/net/ethernet/mellanox/mlxsw/spectrum_cnt.c |   9 +
- drivers/net/ethernet/mellanox/mlxsw/spectrum_cnt.h |   1 +
- .../net/ethernet/mellanox/mlxsw/spectrum_dpipe.c   | 351 +++++++++
- .../net/ethernet/mellanox/mlxsw/spectrum_dpipe.h   |  43 ++
- .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 174 +++++
- .../net/ethernet/mellanox/mlxsw/spectrum_router.h  |  58 ++
- include/net/devlink.h                              | 259 +++++++
- include/uapi/linux/devlink.h                       |  67 +-
- net/core/devlink.c                                 | 836 +++++++++++++++++++++
- 13 files changed, 1988 insertions(+), 2 deletions(-)
- create mode 100644 drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.c
- create mode 100644 drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.h
- create mode 100644 drivers/net/ethernet/mellanox/mlxsw/spectrum_router.h
-
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.c
+index 7c87bc8..5dde222 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.c
+@@ -38,20 +38,129 @@
+ #include "spectrum.h"
+ #include "spectrum_dpipe.h"
+ 
+-static struct devlink_dpipe_header *mlxsw_dpipe_headers[] = {};
++enum mlxsw_sp_field_metadata_id {
++	MLXSW_SP_DPIPE_FIELD_METADATA_ERIF_PORT,
++	MLXSW_SP_DPIPE_FIELD_METADATA_L3_FORWARD,
++	MLXSW_SP_DPIPE_FIELD_METADATA_L3_DROP,
++};
++
++static struct devlink_dpipe_field mlxsw_sp_dpipe_fields_metadata[] = {
++	{ .name = "erif_port",
++	  .id = MLXSW_SP_DPIPE_FIELD_METADATA_ERIF_PORT,
++	  .bitwidth = 32,
++	  .mapping_type = DEVLINK_DPIPE_FIELD_MAPPING_TYPE_IFINDEX,
++	},
++	{ .name = "l3_forward",
++	  .id = MLXSW_SP_DPIPE_FIELD_METADATA_L3_FORWARD,
++	  .bitwidth = 1,
++	},
++	{ .name = "l3_drop",
++	  .id = MLXSW_SP_DPIPE_FIELD_METADATA_L3_DROP,
++	  .bitwidth = 1,
++	},
++};
++
++enum mlxsw_sp_dpipe_header_id {
++	MLXSW_SP_DPIPE_HEADER_METADATA,
++};
++
++static struct devlink_dpipe_header mlxsw_sp_dpipe_header_metadata = {
++	.name = "mlxsw_meta",
++	.id = MLXSW_SP_DPIPE_HEADER_METADATA,
++	.fields = mlxsw_sp_dpipe_fields_metadata,
++	.fields_count = ARRAY_SIZE(mlxsw_sp_dpipe_fields_metadata),
++};
++
++static struct devlink_dpipe_header *mlxsw_dpipe_headers[] = {
++	&mlxsw_sp_dpipe_header_metadata,
++};
+ 
+ static struct devlink_dpipe_headers mlxsw_sp_dpipe_headers = {
+ 	.headers = mlxsw_dpipe_headers,
+ 	.headers_count = ARRAY_SIZE(mlxsw_dpipe_headers),
+ };
+ 
++static int mlxsw_sp_dpipe_table_erif_actions_dump(void *priv,
++						  struct sk_buff *skb)
++{
++	struct devlink_dpipe_action action = {0};
++	int err;
++
++	action.type = DEVLINK_DPIPE_ACTION_TYPE_FIELD_MODIFY;
++	action.header = &mlxsw_sp_dpipe_header_metadata;
++	action.field_id = MLXSW_SP_DPIPE_FIELD_METADATA_L3_FORWARD;
++
++	err = devlink_dpipe_action_put(skb, &action);
++	if (err)
++		return err;
++
++	action.type = DEVLINK_DPIPE_ACTION_TYPE_FIELD_MODIFY;
++	action.header = &mlxsw_sp_dpipe_header_metadata;
++	action.field_id = MLXSW_SP_DPIPE_FIELD_METADATA_L3_DROP;
++
++	return devlink_dpipe_action_put(skb, &action);
++}
++
++static int mlxsw_sp_dpipe_table_erif_matches_dump(void *priv,
++						  struct sk_buff *skb)
++{
++	struct devlink_dpipe_match match = {0};
++
++	match.type = DEVLINK_DPIPE_MATCH_TYPE_FIELD_EXACT;
++	match.header = &mlxsw_sp_dpipe_header_metadata;
++	match.field_id = MLXSW_SP_DPIPE_FIELD_METADATA_ERIF_PORT;
++
++	return devlink_dpipe_match_put(skb, &match);
++}
++
++static struct devlink_dpipe_table_ops mlxsw_sp_erif_ops = {
++	.matches_dump = mlxsw_sp_dpipe_table_erif_matches_dump,
++	.actions_dump = mlxsw_sp_dpipe_table_erif_actions_dump,
++};
++
++static int mlxsw_sp_dpipe_erif_table_init(struct mlxsw_sp *mlxsw_sp)
++{
++	struct devlink *devlink = priv_to_devlink(mlxsw_sp->core);
++	u64 table_size;
++
++	table_size = MLXSW_CORE_RES_GET(mlxsw_sp->core, MAX_RIFS);
++	return devlink_dpipe_table_register(devlink,
++					    MLXSW_SP_DPIPE_TABLE_NAME_ERIF,
++					    &mlxsw_sp_erif_ops,
++					    mlxsw_sp, table_size,
++					    false);
++}
++
++static void mlxsw_sp_dpipe_erif_table_fini(struct mlxsw_sp *mlxsw_sp)
++{
++	struct devlink *devlink = priv_to_devlink(mlxsw_sp->core);
++
++	devlink_dpipe_table_unregister(devlink, MLXSW_SP_DPIPE_TABLE_NAME_ERIF);
++}
++
+ int mlxsw_sp_dpipe_init(struct mlxsw_sp *mlxsw_sp)
+ {
+-	return devlink_dpipe_headers_register(priv_to_devlink(mlxsw_sp->core),
+-					      &mlxsw_sp_dpipe_headers);
++	struct devlink *devlink = priv_to_devlink(mlxsw_sp->core);
++	int err;
++
++	err = devlink_dpipe_headers_register(devlink,
++					     &mlxsw_sp_dpipe_headers);
++	if (err)
++		return err;
++	err = mlxsw_sp_dpipe_erif_table_init(mlxsw_sp);
++	if (err)
++		goto err_erif_register;
++	return 0;
++
++err_erif_register:
++	devlink_dpipe_headers_unregister(priv_to_devlink(mlxsw_sp->core));
++	return err;
+ }
+ 
+ void mlxsw_sp_dpipe_fini(struct mlxsw_sp *mlxsw_sp)
+ {
+-	devlink_dpipe_headers_unregister(priv_to_devlink(mlxsw_sp->core));
++	struct devlink *devlink = priv_to_devlink(mlxsw_sp->core);
++
++	mlxsw_sp_dpipe_erif_table_fini(mlxsw_sp);
++	devlink_dpipe_headers_unregister(devlink);
+ }
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.h
+index ad16259..d208929 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.h
+@@ -38,4 +38,6 @@
+ int mlxsw_sp_dpipe_init(struct mlxsw_sp *mlxsw_sp);
+ void mlxsw_sp_dpipe_fini(struct mlxsw_sp *mlxsw_sp);
+ 
++#define MLXSW_SP_DPIPE_TABLE_NAME_ERIF "mlxsw_erif"
++
+ #endif /* _MLXSW_PIPELINE_H_*/
 -- 
 2.7.4
