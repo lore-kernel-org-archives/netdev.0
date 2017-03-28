@@ -1,62 +1,40 @@
-From: "Von Dentz, Luiz" <luiz.von.dentz@intel.com>
-Subject: Re: [PATCH] 6lowpan: set peer_addr correctly again
-Date: Tue, 28 Mar 2017 16:42:50 +0300
-Message-ID: <CACumGO+QvuyDg21yogaUn1WCHv2S3=_DXD+My0Q6ANYE1NYKzg@mail.gmail.com>
-References: <20170328132935.382216-1-arnd@arndb.de> <368A8A18-0B9B-4733-86EF-D44C8E9CAE36@holtmann.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Arnd Bergmann <arnd@arndb.de>,
-        "Gustavo F. Padovan" <gustavo@padovan.org>,
-        Johan Hedberg <johan.hedberg@gmail.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Stefan Schmidt <stefan@osg.samsung.com>,
-        Jukka Rissanen <jukka.rissanen@linux.intel.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Patrik Flykt <patrik.flykt@linux.intel.com>,
-        Alexander Aring <aar@pengutronix.de>,
-        Glenn Ruben Bakke <glennrubenbakke@nordicsemi.no>,
-        "linux-bluetooth@vger.kernel.org" <linux-bluetooth@vger.kernel.org>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Marcel Holtmann <marcel@holtmann.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f41.google.com ([209.85.215.41]:34422 "EHLO
-        mail-lf0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933116AbdC1NnD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 28 Mar 2017 09:43:03 -0400
-Received: by mail-lf0-f41.google.com with SMTP id z15so38478115lfd.1
-        for <netdev@vger.kernel.org>; Tue, 28 Mar 2017 06:42:56 -0700 (PDT)
-In-Reply-To: <368A8A18-0B9B-4733-86EF-D44C8E9CAE36@holtmann.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+Subject: Re: [PATCH] 6lowpan: fix assignment of peer_addr
+Date: Tue, 28 Mar 2017 15:36:31 +0200
+Message-ID: <CCFA5E70-E7CA-40C0-B051-FE7FFE74D16E@holtmann.org>
+References: <20170328121129.18421-1-colin.king@canonical.com>
+Mime-Version: 1.0 (Mac OS X Mail 10.3 \(3273\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: "Gustavo F. Padovan" <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>,
+        Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Bluez mailing list <linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Colin King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170328121129.18421-1-colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi Marcel,
+Hi Colin,
 
-On Tue, Mar 28, 2017 at 4:37 PM, Marcel Holtmann <marcel@holtmann.org> wrot=
-e:
-> Hi Arnd,
->
->> A bugfix accidentally changed one line to return the peer_addr
->> from setup_header, causing it to become unused:
->>
->> net/bluetooth/6lowpan.c: In function 'setup_header':
->> net/bluetooth/6lowpan.c:402:14: error: parameter 'peer_addr' set but not=
- used [-Werror=3Dunused-but-set-parameter]
->>
->> The only user of the variable is a subsequent printk(), and
->> it is not otherwise initialized, so reverting the changed line
->> looks like the right fix.
->>
->> Fixes: fb6f2f606ce8 ("6lowpan: Fix IID format for Bluetooth")
->> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
->> ---
->> net/bluetooth/6lowpan.c | 2 +-
->> 1 file changed, 1 insertion(+), 1 deletion(-)
->
-> I took Colin=E2=80=99s patch since it showed up first in my inbox.
+> The data from peer->chan->dst is not being copied to peer_addr, the
+> current code just updates the pointer and not the contents of what
+> it points to.  Fix this with the intended assignment.
+> 
+> Detected by CoverityScan, CID#1422111 ("Parse warning
+> (PW.PARAM_SET_BUT_NOT_USED)")
+> 
+> Fixes: fb6f2f606ce8 ("6lowpan: Fix IID format for Bluetooth")
+> Signed-off-by: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+> ---
+> net/bluetooth/6lowpan.c | 2 +-
+> 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Thanks, I might be missing something since the error doesn't show up for me=
-:
+patch has been applied to bluetooth-next tree.
 
-  CC [M]  net/bluetooth/6lowpan.o
-  LD [M]  net/bluetooth/bluetooth_6lowpan.o
+Regards
+
+Marcel
