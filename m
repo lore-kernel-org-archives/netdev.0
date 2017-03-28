@@ -1,51 +1,66 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: genphy_read_status() vs. 1000bT Pause capability
-Date: Tue, 28 Mar 2017 11:49:50 +1100
-Message-ID: <1490662190.3177.91.camel@kernel.crashing.org>
+From: Chris Kuiper <ckuiper@google.com>
+Subject: Re: [PATCH] net: udp: add socket option to report RX queue level
+Date: Mon, 27 Mar 2017 18:08:17 -0700
+Message-ID: <CA+BVk2evqfsaG68AUKFm-j6JfeYVYT7tJSxrDkPc3PQZ=kmLMw@mail.gmail.com>
+References: <20170317211312.38117-1-ckuiper@google.com> <1489788070.28631.322.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Josh Hunt <johunt@akamai.com>, netdev@vger.kernel.org,
+        Petri Gynther <pgynther@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:59084 "EHLO gate.crashing.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753677AbdC1AuO (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 27 Mar 2017 20:50:14 -0400
-Received: from localhost.localdomain (localhost.localdomain [127.0.0.1])
-        by gate.crashing.org (8.14.1/8.13.8) with ESMTP id v2S0noi8016162
-        for <netdev@vger.kernel.org>; Mon, 27 Mar 2017 19:49:52 -0500
+Received: from mail-yw0-f176.google.com ([209.85.161.176]:32848 "EHLO
+        mail-yw0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753413AbdC1BIT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 27 Mar 2017 21:08:19 -0400
+Received: by mail-yw0-f176.google.com with SMTP id v76so43784980ywg.0
+        for <netdev@vger.kernel.org>; Mon, 27 Mar 2017 18:08:18 -0700 (PDT)
+In-Reply-To: <1489788070.28631.322.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi !
+Sorry, I have been transferring jobs and had no time to look at this.
 
-I noticed that flow control isn't being enabled on a system I'm
-working on by default. I've tracked it down to two things:
+Josh Hunt's change seems to solve a different problem. I was looking
+for something that works the same way as SO_RXQ_OVERFL, providing
+information as ancillary data to the recvmsg() call. The problem with
+SO_RXQ_OVERFL alone is that it tells you when things have already gone
+wrong (you dropped data), so the new option SO_RX_ALLOC acts as a
+leading indicator to check if you are getting close to hitting such
+problem.
 
- - The realtec.c PHY driver doesn't have Pause or Asym_Pause in
-its exposed capabilities. This is in part because PHY_GBIT_FEATURES
-does not include SUPPORTED_Pause and SUPPORTED_Asym_Pause. Is there
-a specific reason for that ?
+Regarding only UDP being supported, it is only meaningful for UDP. TCP
+doesn't drop data and if its buffer gets full it just stops the sender
+from sending more. The buffer level in that case doesn't even tell you
+the whole picture, since it doesn't include any information on how
+much additional buffering is done at the sender side.
 
- - After I've hacked the above, I get in genphy_read_status():
+In terms of "a lot overhead", logically the overhead of adding
+additional getsockopt() calls after each recvmsg() is significantly
+larger than just getting the information as part of recvmsg(). If you
+don't need it, then don't enable this option. Admitted you can reduce
+the frequency of calling getsockopt() relative to recvmsg(), but that
+also increases your risk of missing the point where data is dropped.
 
-lpa=c1e1 lpagb=3800 adv=de1 common_adv=1e1 common_adv_gb=800
+-Chris
 
-So we have negociated 1000bT full duplex. LPA_PAUSE's aren't set
-but I was under the impression that in Gigabit mode, LPA bit 0x80
-which *is* set, meant ADVERTISE_1000XPAUSE which is the pause
-capability isn't it ? Or am I confusing with something else ?
-This seems to be how mii_adv_to_ethtool_adv_x() decodes them
-but that function is not called by genphy_read_status()...
 
-Now it's been a while since I hacked network drivers and back then
-everybody did their own salad with gigabit PHYs so it's very possible
-that I missed something here.
-
-Should we update genphy_read_status() to grab the pause details
-from mii_adv_to_ethtool_adv_x() when in 1000bT mode ?
-
-Thanks !
-
-Cheers,
-Ben.
+On Fri, Mar 17, 2017 at 3:01 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Fri, 2017-03-17 at 14:13 -0700, Chris Kuiper wrote:
+>> This adds a new socket option "SO_RXQ_ALLOC" that enables providing
+>> the RX queue buffer allocation as ancillary data from the recvmsg()
+>> system call. The value reported is a byte number and together with
+>> the RX queue size (obtained via getsockopt(SO_RCVBUF) can be used to
+>> calculate a percentage value on how full the socket buffer is.
+>> ---
+>
+> Seems a lot of overhead, and only UDP would be supported.
+>
+> I very much prefer Josh Hunt proposal
+> ( https://patchwork.ozlabs.org/patch/738250/ )
+>
+> Ie using a separate getsockopt() call instead of adding code to UDP fast
+> path ?
+>
+>
+>
