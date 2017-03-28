@@ -1,51 +1,162 @@
-From: Russell King - ARM Linux <linux@armlinux.org.uk>
-Subject: Re: genphy_read_status() vs. 1000bT Pause capability
-Date: Tue, 28 Mar 2017 12:31:05 +0100
-Message-ID: <20170328113104.GY7909@n2100.armlinux.org.uk>
-References: <1490662190.3177.91.camel@kernel.crashing.org>
- <20170328010940.GG25549@lunn.ch>
- <1490668137.3177.98.camel@kernel.crashing.org>
- <1490669734.3177.100.camel@au1.ibm.com>
- <20170328041405.045FEB206B@b01ledav03.gho.pok.ibm.com>
- <1490678238.3177.102.camel@kernel.crashing.org>
- <20170328094252.GV7909@n2100.armlinux.org.uk>
- <1490699484.3177.120.camel@kernel.crashing.org>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: Bisected softirq accounting issue in v4.11-rc1~170^2~28
+Date: Tue, 28 Mar 2017 13:49:49 +0200
+Message-ID: <20170328134949.540e385f@redhat.com>
+References: <20170328101403.34a82fbf@redhat.com>
+	<CANRm+Cwb3uAiZdufqDsyzQ1GZYh3nUr2uTyg1Hb2oVoxJZKMvg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>, netdev@vger.kernel.org
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.armlinux.org.uk ([78.32.30.218]:54518 "EHLO
-        pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932192AbdC1LhW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 28 Mar 2017 07:37:22 -0400
-Content-Disposition: inline
-In-Reply-To: <1490699484.3177.120.camel@kernel.crashing.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Frederic Weisbecker <fweisbec@gmail.com>, "linux-kernel@vger.kernel.org"
+ <linux-kernel@vger.kernel.org>, "netdev@vger.kernel.org"
+ <netdev@vger.kernel.org>, linux-mm <linux-mm@kvack.org>, Mel Gorman
+ <mgorman@techsingularity.net>, Tariq Toukan <tariqt@mellanox.com>, Tariq
+ Toukan <ttoukan.linux@gmail.com>, Peter Zijlstra <peterz@infradead.org>,
+ Rik van Riel <riel@redhat.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo
+ Molnar <mingo@kernel.org>, brouer@redhat.com
+To: Wanpeng Li <kernellwp@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <CANRm+Cwb3uAiZdufqDsyzQ1GZYh3nUr2uTyg1Hb2oVoxJZKMvg@mail.gmail.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 28, 2017 at 10:11:24PM +1100, Benjamin Herrenschmidt wrote:
-> On Tue, 2017-03-28 at 10:42 +0100, Russell King - ARM Linux wrote:
-> > The 1000X definitions are for 1000BaseX (fiber), not for 1000BaseT
-> > (copper).
-> > 
-> > I have a working setup here with gigabit pause.  The pause bits come
-> > from bits 11 and 10, just like for older copper PHYs.  Your link
-> > parter is indicating that it has no pause capability.  That means
-> > you can't use pause.
+On Tue, 28 Mar 2017 18:34:52 +0800
+Wanpeng Li <kernellwp@gmail.com> wrote:
+
+> 2017-03-28 16:14 GMT+08:00 Jesper Dangaard Brouer <brouer@redhat.com>:
+> >
+> > (While evaluating some changes to the page allocator) I ran into an
+> > issue with ksoftirqd getting too much CPU sched time.
+> >
+> > I bisected the problem to
+> >  a499a5a14dbd ("sched/cputime: Increment kcpustat directly on irqtime account")
+> >
+> >  a499a5a14dbd1d0315a96fc62a8798059325e9e6 is the first bad commit
+> >  commit a499a5a14dbd1d0315a96fc62a8798059325e9e6
+> >  Author: Frederic Weisbecker <fweisbec@gmail.com>
+> >  Date:   Tue Jan 31 04:09:32 2017 +0100
+> >
+> >     sched/cputime: Increment kcpustat directly on irqtime account
+> >
+> >     The irqtime is accounted is nsecs and stored in
+> >     cpu_irq_time.hardirq_time and cpu_irq_time.softirq_time. Once the
+> >     accumulated amount reaches a new jiffy, this one gets accounted to the
+> >     kcpustat.
+> >
+> >     This was necessary when kcpustat was stored in cputime_t, which could at
+> >     worst have jiffies granularity. But now kcpustat is stored in nsecs
+> >     so this whole discretization game with temporary irqtime storage has
+> >     become unnecessary.
+> >
+> >     We can now directly account the irqtime to the kcpustat.
+> >
+> >     Signed-off-by: Frederic Weisbecker <fweisbec@gmail.com>
+> >     Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+> >     Cc: Fenghua Yu <fenghua.yu@intel.com>
+> >     Cc: Heiko Carstens <heiko.carstens@de.ibm.com>
+> >     Cc: Linus Torvalds <torvalds@linux-foundation.org>
+> >     Cc: Martin Schwidefsky <schwidefsky@de.ibm.com>
+> >     Cc: Michael Ellerman <mpe@ellerman.id.au>
+> >     Cc: Paul Mackerras <paulus@samba.org>
+> >     Cc: Peter Zijlstra <peterz@infradead.org>
+> >     Cc: Rik van Riel <riel@redhat.com>
+> >     Cc: Stanislaw Gruszka <sgruszka@redhat.com>
+> >     Cc: Thomas Gleixner <tglx@linutronix.de>
+> >     Cc: Tony Luck <tony.luck@intel.com>
+> >     Cc: Wanpeng Li <wanpeng.li@hotmail.com>
+> >     Link: http://lkml.kernel.org/r/1485832191-26889-17-git-send-email-fweisbec@gmail.com
+> >     Signed-off-by: Ingo Molnar <mingo@kernel.org>
+> >
+> > The reproducer is running a userspace udp_sink[1] program, and taskset
+> > pinning the process to the same CPU as softirq RX is running on, and
+> > starting a UDP flood with pktgen (tool part of kernel tree:
+> > samples/pktgen/pktgen_sample03_burst_single_flow.sh).
+> >
+> > [1] udp_sink
+> >  https://github.com/netoptimizer/network-testing/blob/master/src/udp_sink.c
+> >
+> > The expected results (after commit 4cd13c21b207 ("softirq: Let
+> > ksoftirqd do its job")) is that the scheduler split the CPU time 50/50
+> > between udp_sink and ksoftirqd.
+> >
+> > After this commit, the udp_sink program does not get any sched CPU
+> > time, and no packets are delivered to userspace.  (All packets are
+> > dropped by softirq due to a full socket queue, nstat UdpRcvbufErrors).
+> >
+> > A related symptom is that ksoftirqd no longer get accounted in top.
+> >
+> > $ grep CONFIG_IRQ_TIME_ACCOUNTING .config
+> > CONFIG_IRQ_TIME_ACCOUNTING=y
+> >
+> > Full .config uploaded here[2]:
+> >  [2] http://people.netfilter.org/hawk/kconfig/config02-bisect-softirq-a499a5a14dbd  
 > 
-> Interesting. I tried and it worked :-) Could be something funny in
-> the config of our switches.
+> void irqtime_account_irq(struct task_struct *curr)
+> {
+>     struct irqtime *irqtime = this_cpu_ptr(&cpu_irqtime);
+>     u64 *cpustat = kcpustat_this_cpu->cpustat;
+>     s64 delta;
+>     int cpu;
+> 
+>     if (!sched_clock_irqtime)
+>         return;
+> 
+>     cpu = smp_processor_id();
+>     delta = sched_clock_cpu(cpu) - irqtime->irq_start_time;
+> 
+> sched_clock_cpu(cpu) should be converted from cputime to ns. However,
+> cputime_to_nsecs() API is removed by
+> https://lkml.org/lkml/2017/1/22/230 for generic usage, so could you
+> try the below patch just for testing?
 
-It could be that the switch supports pause frames, but it's not
-advertised because there's some corner cases that it doesn't work.  I
-know that SolidRun have run into switches that corrupt ethernet frames
-when pause is used.  (I don't know off hand which they are, but I could
-ask the question.)
+Sure... it didn't solve the problem :-(
+
+
+> diff --git a/include/linux/sched/cputime.h b/include/linux/sched/cputime.h
+> index 4c5b973..166efba 100644
+> --- a/include/linux/sched/cputime.h
+> +++ b/include/linux/sched/cputime.h
+> @@ -7,14 +7,14 @@
+>   * cputime accounting APIs:
+>   */
+> 
+> -#ifdef CONFIG_VIRT_CPU_ACCOUNTING_NATIVE
+> -#include <asm/cputime.h>
+> +#define cputime_div(__ct, divisor) div_u64((__force u64)__ct, divisor)
+> +#define cputime_to_usecs(__ct) \
+> +    cputime_div(__ct, NSEC_PER_USEC)
+> 
+>  #ifndef cputime_to_nsecs
+>  # define cputime_to_nsecs(__ct)    \
+>      (cputime_to_usecs(__ct) * NSEC_PER_USEC)
+>  #endif
+> -#endif /* CONFIG_VIRT_CPU_ACCOUNTING_NATIVE */
+> 
+>  #ifdef CONFIG_VIRT_CPU_ACCOUNTING_GEN
+>  extern void task_cputime(struct task_struct *t,
+> diff --git a/kernel/sched/cputime.c b/kernel/sched/cputime.c
+> index f3778e2b..68064d1 100644
+> --- a/kernel/sched/cputime.c
+> +++ b/kernel/sched/cputime.c
+> @@ -49,7 +49,7 @@ void irqtime_account_irq(struct task_struct *curr)
+>          return;
+> 
+>      cpu = smp_processor_id();
+> -    delta = sched_clock_cpu(cpu) - irqtime->irq_start_time;
+> +    delta = cputime_to_nsecs(sched_clock_cpu(cpu)) - irqtime->irq_start_time;
+>      irqtime->irq_start_time += delta;
+> 
+>      u64_stats_update_begin(&irqtime->sync);
+
 
 -- 
-RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
-FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
-according to speedtest.net.
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
