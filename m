@@ -1,126 +1,113 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net-next 11/12] net/mlx5e: Add offloading of NIC TC pedit (header re-write) actions
-Date: Wed, 29 Mar 2017 02:27:12 +0300
-Message-ID: <20170328232713.29894-12-saeedm@mellanox.com>
-References: <20170328232713.29894-1-saeedm@mellanox.com>
+Subject: [pull request][net-next 00/12] Mellanox mlx5 offloading of TC pedit (header re-write) action
+Date: Wed, 29 Mar 2017 02:27:01 +0300
+Message-ID: <20170328232713.29894-1-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Amir Vadai <amir@vadai.me>,
         Or Gerlitz <ogerlitz@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:42859 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:42826 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1753379AbdC1X2Q (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 28 Mar 2017 19:28:16 -0400
-In-Reply-To: <20170328232713.29894-1-saeedm@mellanox.com>
+        with ESMTP id S932396AbdC1X2B (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 28 Mar 2017 19:28:01 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
+Hi Dave,
 
-This includes calling the parsing code that translates from pedit
-speak to the HW API, allocation (deallocation) of a modify header
-context and setting the modify header id associated with this
-context to the FTE of that flow.
+The following changes from Or Gerlitz provide mlx5 offloading support of
+TC pedit (header re-write) action.
 
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
-Reviewed-by: Hadar Hen Zion <hadarh@mellanox.com>
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+For more information please see below.
+
+Please pull and let me know if there's any problem.
+
+Thanks,
+Saeed.
+
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_tc.c | 35 +++++++++++++++++++++++++
- 1 file changed, 35 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-index 3a31195f0d9c..4045b4768294 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-@@ -52,6 +52,7 @@
- struct mlx5_nic_flow_attr {
- 	u32 action;
- 	u32 flow_tag;
-+	u32 mod_hdr_id;
- };
- 
- enum {
-@@ -97,10 +98,12 @@ mlx5e_tc_add_nic_flow(struct mlx5e_priv *priv,
- 		.action = attr->action,
- 		.flow_tag = attr->flow_tag,
- 		.encap_id = 0,
-+		.modify_id = attr->mod_hdr_id,
- 	};
- 	struct mlx5_fc *counter = NULL;
- 	struct mlx5_flow_handle *rule;
- 	bool table_created = false;
-+	int err;
- 
- 	if (attr->action & MLX5_FLOW_CONTEXT_ACTION_FWD_DEST) {
- 		dest.type = MLX5_FLOW_DESTINATION_TYPE_FLOW_TABLE;
-@@ -114,6 +117,18 @@ mlx5e_tc_add_nic_flow(struct mlx5e_priv *priv,
- 		dest.counter = counter;
- 	}
- 
-+	if (attr->action & MLX5_FLOW_CONTEXT_ACTION_MOD_HDR) {
-+		err = mlx5_modify_header_alloc(dev, MLX5_FLOW_NAMESPACE_KERNEL,
-+					       parse_attr->num_mod_hdr_actions,
-+					       parse_attr->mod_hdr_actions,
-+					       &attr->mod_hdr_id);
-+		kfree(parse_attr->mod_hdr_actions);
-+		if (err) {
-+			rule = ERR_PTR(err);
-+			goto err_create_mod_hdr_id;
-+		}
-+	}
-+
- 	if (IS_ERR_OR_NULL(priv->fs.tc.t)) {
- 		priv->fs.tc.t =
- 			mlx5_create_auto_grouped_flow_table(priv->fs.ns,
-@@ -146,6 +161,10 @@ mlx5e_tc_add_nic_flow(struct mlx5e_priv *priv,
- 		priv->fs.tc.t = NULL;
- 	}
- err_create_ft:
-+	if (attr->action & MLX5_FLOW_CONTEXT_ACTION_MOD_HDR)
-+		mlx5_modify_header_dealloc(priv->mdev,
-+					   attr->mod_hdr_id);
-+err_create_mod_hdr_id:
- 	mlx5_fc_destroy(dev, counter);
- 
- 	return rule;
-@@ -164,6 +183,10 @@ static void mlx5e_tc_del_nic_flow(struct mlx5e_priv *priv,
- 		mlx5_destroy_flow_table(priv->fs.tc.t);
- 		priv->fs.tc.t = NULL;
- 	}
-+
-+	if (flow->nic_attr->action & MLX5_FLOW_CONTEXT_ACTION_MOD_HDR)
-+		mlx5_modify_header_dealloc(priv->mdev,
-+					   flow->nic_attr->mod_hdr_id);
- }
- 
- static void mlx5e_detach_encap(struct mlx5e_priv *priv,
-@@ -955,6 +978,7 @@ static int parse_tc_nic_actions(struct mlx5e_priv *priv, struct tcf_exts *exts,
- 	struct mlx5_nic_flow_attr *attr = flow->nic_attr;
- 	const struct tc_action *a;
- 	LIST_HEAD(actions);
-+	int err;
- 
- 	if (tc_no_actions(exts))
- 		return -EINVAL;
-@@ -976,6 +1000,17 @@ static int parse_tc_nic_actions(struct mlx5e_priv *priv, struct tcf_exts *exts,
- 			continue;
- 		}
- 
-+		if (is_tcf_pedit(a)) {
-+			err = parse_tc_pedit_action(priv, a, MLX5_FLOW_NAMESPACE_KERNEL,
-+						    parse_attr);
-+			if (err)
-+				return err;
-+
-+			attr->action |= MLX5_FLOW_CONTEXT_ACTION_MOD_HDR |
-+					MLX5_FLOW_CONTEXT_ACTION_FWD_DEST;
-+			continue;
-+		}
-+
- 		if (is_tcf_skbedit_mark(a)) {
- 			u32 mark = tcf_skbedit_mark(a);
- 
--- 
-2.11.0
+The following changes since commit cc628c9680c212d9dbf68785fbf5d454ccb2313e:
+
+  Merge tag 'mlx5e-failsafe' of git://git.kernel.org/pub/scm/linux/kernel/git/saeed/linux (2017-03-27 21:16:03 -0700)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/saeed/linux.git tags/mlx5e-pedit
+
+for you to fetch changes up to d7e75a325cb2d2b72e7ac9a185abc1cd59bc9922:
+
+  net/mlx5e: Add offloading of E-Switch TC pedit (header re-write) actions (2017-03-28 15:34:10 +0300)
+
+----------------------------------------------------------------
+mlx5e-pedit 2017-03-28
+
+Or Gerlitz says:
+
+This series adds support for offloading modifications of packet headers using
+ConnectX-5 HW header re-write as an action applied during packet steering.
+
+The offloaded SW mechanism is TC's pedit action. The offloading is
+supported for E-Switch steering of VF traffic in the SRIOV
+switchdev mode and for NIC (non eswitch) RX.
+
+One use-case for this offload on virtual networks, is when the hypervisor
+implements flow based router such as Open-Stack's DVR, where L2 headers
+of guest packets re-written with routers' MAC addresses and the IP TTL
+is decremented.
+
+Another use case (which can be applied in parallel with routing) is
+stateless NAT where guest L3/L4 headers are re-written.
+
+The series is built as follows: the 1st six patches are preperations which
+don't yet add new functionality, patches 7-8 add the FW APIs (data-structures
+and commands) for header re-write, and patch nine allows offloading driver
+to access pedit keys.
+
+The 10th patch is somehow the core of the series, where we translate from
+the pedit way to represent set of header modification elements to the FW
+API for that same matter.
+
+Once a set of HW modification is established, we register it with the FW
+and get a modify header ID. When this ID is used with an action during
+packet steering, the HW applies the header modification on the packet.
+
+Patches 11 and 12 implement the above logic as an offload for pedit action
+for the NIC and E-Switch use-cases.
+
+I'd like to thanks Elijah Shakkour <elijahs@mellanox.com> for implementing
+and helping me testing this functionality on HW simulator, before it could
+be done with FW.
+
+- Or.
+
+----------------------------------------------------------------
+Or Gerlitz (12):
+      net/mlx5e: Add prefix for e-switch offloaded TC flow attributes
+      net/mlx5e: Add NIC attributes for offloaded TC flows
+      net/mlx5e: Add intermediate struct for TC flow parsing attributes
+      net/mlx5e: Properly deal with resource cleanup when adding TC flow fails
+      net/mlx5: Add helper to initialize a flow steering actions struct instance
+      net/mlx5: Reorder few command cases to reflect their natural order
+      net/mlx5: Introduce modify header structures, commands and steering action definitions
+      net/mlx5: Introduce alloc/dealloc modify header context commands
+      net/sched: Add accessor functions to pedit keys for offloading drivers
+      net/mlx5e: Add parsing of TC pedit actions to HW format
+      net/mlx5e: Add offloading of NIC TC pedit (header re-write) actions
+      net/mlx5e: Add offloading of E-Switch TC pedit (header re-write) actions
+
+ drivers/net/ethernet/mellanox/mlx5/core/cmd.c      |  28 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_arfs.c  |  14 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_fs.c    |  18 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.c    | 473 ++++++++++++++++++---
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.h  |   5 +-
+ .../ethernet/mellanox/mlx5/core/eswitch_offloads.c |  28 +-
+ drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c   |  67 +++
+ drivers/net/ethernet/mellanox/mlx5/core/fs_core.c  |   1 +
+ drivers/net/ethernet/mellanox/mlx5/core/fs_core.h  |   1 +
+ .../net/ethernet/mellanox/mlx5/core/mlx5_core.h    |   5 +
+ include/linux/mlx5/fs.h                            |   6 +-
+ include/linux/mlx5/mlx5_ifc.h                      | 113 ++++-
+ include/net/tc_act/tc_pedit.h                      |  45 ++
+ 13 files changed, 698 insertions(+), 106 deletions(-)
