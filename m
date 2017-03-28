@@ -1,8 +1,8 @@
 From: Elena Reshetova <elena.reshetova@intel.com>
-Subject: [PATCH 02/16] drivers, net,
- ethernet: convert mtk_eth.dma_refcnt from atomic_t to refcount_t
-Date: Tue, 28 Mar 2017 11:56:29 +0300
-Message-ID: <1490691403-4016-3-git-send-email-elena.reshetova@intel.com>
+Subject: [PATCH 05/16] drivers, net,
+ mlx4: convert mlx4_srq.refcount from atomic_t to refcount_t
+Date: Tue, 28 Mar 2017 11:56:32 +0300
+Message-ID: <1490691403-4016-6-git-send-email-elena.reshetova@intel.com>
 References: <1490691403-4016-1-git-send-email-elena.reshetova@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -42,65 +42,62 @@ Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
 Signed-off-by: Kees Cook <keescook@chromium.org>
 Signed-off-by: David Windsor <dwindsor@gmail.com>
 ---
- drivers/net/ethernet/mediatek/mtk_eth_soc.c | 8 +++++---
- drivers/net/ethernet/mediatek/mtk_eth_soc.h | 4 +++-
- 2 files changed, 8 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/srq.c | 8 ++++----
+ include/linux/mlx4/device.h              | 2 +-
+ 2 files changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index bf6317e..d27f9d9 100644
---- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-+++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -1725,7 +1725,7 @@ static int mtk_open(struct net_device *dev)
- 	struct mtk_eth *eth = mac->hw;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/srq.c b/drivers/net/ethernet/mellanox/mlx4/srq.c
+index f44d089..3369f65 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/srq.c
++++ b/drivers/net/ethernet/mellanox/mlx4/srq.c
+@@ -49,7 +49,7 @@ void mlx4_srq_event(struct mlx4_dev *dev, u32 srqn, int event_type)
+ 	srq = radix_tree_lookup(&srq_table->tree, srqn & (dev->caps.num_srqs - 1));
+ 	rcu_read_unlock();
+ 	if (srq)
+-		atomic_inc(&srq->refcount);
++		refcount_inc(&srq->refcount);
+ 	else {
+ 		mlx4_warn(dev, "Async event for bogus SRQ %08x\n", srqn);
+ 		return;
+@@ -57,7 +57,7 @@ void mlx4_srq_event(struct mlx4_dev *dev, u32 srqn, int event_type)
  
- 	/* we run 2 netdevs on the same dma ring so we only bring it up once */
--	if (!atomic_read(&eth->dma_refcnt)) {
-+	if (!refcount_read(&eth->dma_refcnt)) {
- 		int err = mtk_start_dma(eth);
+ 	srq->event(srq, event_type);
  
- 		if (err)
-@@ -1735,8 +1735,10 @@ static int mtk_open(struct net_device *dev)
- 		napi_enable(&eth->rx_napi);
- 		mtk_irq_enable(eth, MTK_QDMA_INT_MASK, MTK_TX_DONE_INT);
- 		mtk_irq_enable(eth, MTK_PDMA_INT_MASK, MTK_RX_DONE_INT);
-+		refcount_set(&eth->dma_refcnt, 1);
- 	}
--	atomic_inc(&eth->dma_refcnt);
-+	else
-+		refcount_inc(&eth->dma_refcnt);
+-	if (atomic_dec_and_test(&srq->refcount))
++	if (refcount_dec_and_test(&srq->refcount))
+ 		complete(&srq->free);
+ }
  
- 	phy_start(dev->phydev);
- 	netif_start_queue(dev);
-@@ -1776,7 +1778,7 @@ static int mtk_stop(struct net_device *dev)
- 	phy_stop(dev->phydev);
+@@ -203,7 +203,7 @@ int mlx4_srq_alloc(struct mlx4_dev *dev, u32 pdn, u32 cqn, u16 xrcd,
+ 	if (err)
+ 		goto err_radix;
  
- 	/* only shutdown DMA if this is the last user */
--	if (!atomic_dec_and_test(&eth->dma_refcnt))
-+	if (!refcount_dec_and_test(&eth->dma_refcnt))
- 		return 0;
+-	atomic_set(&srq->refcount, 1);
++	refcount_set(&srq->refcount, 1);
+ 	init_completion(&srq->free);
  
- 	mtk_irq_disable(eth, MTK_QDMA_INT_MASK, MTK_TX_DONE_INT);
-diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.h b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
-index 99b1c8e..e5b99b7 100644
---- a/drivers/net/ethernet/mediatek/mtk_eth_soc.h
-+++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
-@@ -15,6 +15,8 @@
- #ifndef MTK_ETH_H
- #define MTK_ETH_H
+ 	return 0;
+@@ -232,7 +232,7 @@ void mlx4_srq_free(struct mlx4_dev *dev, struct mlx4_srq *srq)
+ 	radix_tree_delete(&srq_table->tree, srq->srqn);
+ 	spin_unlock_irq(&srq_table->lock);
  
-+#include <linux/refcount.h>
-+
- #define MTK_QDMA_PAGE_SIZE	2048
- #define	MTK_MAX_RX_LENGTH	1536
- #define MTK_TX_DMA_BUF_LEN	0x3fff
-@@ -541,7 +543,7 @@ struct mtk_eth {
- 	struct regmap			*pctl;
- 	u32				chip_id;
- 	bool				hwlro;
--	atomic_t			dma_refcnt;
-+	refcount_t			dma_refcnt;
- 	struct mtk_tx_ring		tx_ring;
- 	struct mtk_rx_ring		rx_ring[MTK_MAX_RX_RING_NUM];
- 	struct napi_struct		tx_napi;
+-	if (atomic_dec_and_test(&srq->refcount))
++	if (refcount_dec_and_test(&srq->refcount))
+ 		complete(&srq->free);
+ 	wait_for_completion(&srq->free);
+ 
+diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
+index 756ca22..8998807 100644
+--- a/include/linux/mlx4/device.h
++++ b/include/linux/mlx4/device.h
+@@ -766,7 +766,7 @@ struct mlx4_srq {
+ 	int			max_gs;
+ 	int			wqe_shift;
+ 
+-	atomic_t		refcount;
++	refcount_t		refcount;
+ 	struct completion	free;
+ };
+ 
 -- 
 2.7.4
