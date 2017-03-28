@@ -1,119 +1,149 @@
-From: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
-Subject: [PATCH net-next v1 2/2] tipc: adjust the policy of holding subscription kref
-Date: Tue, 28 Mar 2017 12:28:28 +0200
-Message-ID: <1490696908-7790-3-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
-References: <1490696908-7790-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
+From: Wanpeng Li <kernellwp@gmail.com>
+Subject: Re: Bisected softirq accounting issue in v4.11-rc1~170^2~28
+Date: Tue, 28 Mar 2017 18:34:52 +0800
+Message-ID: <CANRm+Cwb3uAiZdufqDsyzQ1GZYh3nUr2uTyg1Hb2oVoxJZKMvg@mail.gmail.com>
+References: <20170328101403.34a82fbf@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <tipc-discussion@lists.sourceforge.net>, <jon.maloy@ericsson.com>,
-        <maloy@donjonn.com>, <ying.xue@windriver.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sessmg23.ericsson.net ([193.180.251.45]:44896 "EHLO
-        sessmg23.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754572AbdC1Kaa (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 28 Mar 2017 06:30:30 -0400
-In-Reply-To: <1490696908-7790-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Frederic Weisbecker <fweisbec@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>, linux-mm <linux-mm@kvack.org>,
+	Mel Gorman <mgorman@techsingularity.net>, Tariq Toukan <tariqt@mellanox.com>,
+	Tariq Toukan <ttoukan.linux@gmail.com>, Peter Zijlstra <peterz@infradead.org>,
+	Rik van Riel <riel@redhat.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@kernel.org>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20170328101403.34a82fbf@redhat.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-From: Ying Xue <ying.xue@windriver.com>
+2017-03-28 16:14 GMT+08:00 Jesper Dangaard Brouer <brouer@redhat.com>:
+>
+> (While evaluating some changes to the page allocator) I ran into an
+> issue with ksoftirqd getting too much CPU sched time.
+>
+> I bisected the problem to
+>  a499a5a14dbd ("sched/cputime: Increment kcpustat directly on irqtime account")
+>
+>  a499a5a14dbd1d0315a96fc62a8798059325e9e6 is the first bad commit
+>  commit a499a5a14dbd1d0315a96fc62a8798059325e9e6
+>  Author: Frederic Weisbecker <fweisbec@gmail.com>
+>  Date:   Tue Jan 31 04:09:32 2017 +0100
+>
+>     sched/cputime: Increment kcpustat directly on irqtime account
+>
+>     The irqtime is accounted is nsecs and stored in
+>     cpu_irq_time.hardirq_time and cpu_irq_time.softirq_time. Once the
+>     accumulated amount reaches a new jiffy, this one gets accounted to the
+>     kcpustat.
+>
+>     This was necessary when kcpustat was stored in cputime_t, which could at
+>     worst have jiffies granularity. But now kcpustat is stored in nsecs
+>     so this whole discretization game with temporary irqtime storage has
+>     become unnecessary.
+>
+>     We can now directly account the irqtime to the kcpustat.
+>
+>     Signed-off-by: Frederic Weisbecker <fweisbec@gmail.com>
+>     Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+>     Cc: Fenghua Yu <fenghua.yu@intel.com>
+>     Cc: Heiko Carstens <heiko.carstens@de.ibm.com>
+>     Cc: Linus Torvalds <torvalds@linux-foundation.org>
+>     Cc: Martin Schwidefsky <schwidefsky@de.ibm.com>
+>     Cc: Michael Ellerman <mpe@ellerman.id.au>
+>     Cc: Paul Mackerras <paulus@samba.org>
+>     Cc: Peter Zijlstra <peterz@infradead.org>
+>     Cc: Rik van Riel <riel@redhat.com>
+>     Cc: Stanislaw Gruszka <sgruszka@redhat.com>
+>     Cc: Thomas Gleixner <tglx@linutronix.de>
+>     Cc: Tony Luck <tony.luck@intel.com>
+>     Cc: Wanpeng Li <wanpeng.li@hotmail.com>
+>     Link: http://lkml.kernel.org/r/1485832191-26889-17-git-send-email-fweisbec@gmail.com
+>     Signed-off-by: Ingo Molnar <mingo@kernel.org>
+>
+> The reproducer is running a userspace udp_sink[1] program, and taskset
+> pinning the process to the same CPU as softirq RX is running on, and
+> starting a UDP flood with pktgen (tool part of kernel tree:
+> samples/pktgen/pktgen_sample03_burst_single_flow.sh).
+>
+> [1] udp_sink
+>  https://github.com/netoptimizer/network-testing/blob/master/src/udp_sink.c
+>
+> The expected results (after commit 4cd13c21b207 ("softirq: Let
+> ksoftirqd do its job")) is that the scheduler split the CPU time 50/50
+> between udp_sink and ksoftirqd.
+>
+> After this commit, the udp_sink program does not get any sched CPU
+> time, and no packets are delivered to userspace.  (All packets are
+> dropped by softirq due to a full socket queue, nstat UdpRcvbufErrors).
+>
+> A related symptom is that ksoftirqd no longer get accounted in top.
+>
+> $ grep CONFIG_IRQ_TIME_ACCOUNTING .config
+> CONFIG_IRQ_TIME_ACCOUNTING=y
+>
+> Full .config uploaded here[2]:
+>  [2] http://people.netfilter.org/hawk/kconfig/config02-bisect-softirq-a499a5a14dbd
 
-When a new subscription object is inserted into name_seq->subscriptions
-list, it's under name_seq->lock protection; when a subscription is
-deleted from the list, it's also under the same lock protection;
-similarly, when accessing a subscription by going through subscriptions
-list, the entire process is also protected by the name_seq->lock.
+void irqtime_account_irq(struct task_struct *curr)
+{
+    struct irqtime *irqtime = this_cpu_ptr(&cpu_irqtime);
+    u64 *cpustat = kcpustat_this_cpu->cpustat;
+    s64 delta;
+    int cpu;
 
-Therefore, if subscription refcount is increased before it's inserted
-into subscriptions list, and its refcount is decreased after it's
-deleted from the list, it will be unnecessary to hold refcount at all
-before accessing subscription object which is obtained by going through
-subscriptions list under name_seq->lock protection.
+    if (!sched_clock_irqtime)
+        return;
 
-Signed-off-by: Ying Xue <ying.xue@windriver.com>
-Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
----
- net/tipc/name_table.c | 2 ++
- net/tipc/subscr.c     | 8 ++------
- net/tipc/subscr.h     | 3 +++
- 3 files changed, 7 insertions(+), 6 deletions(-)
+    cpu = smp_processor_id();
+    delta = sched_clock_cpu(cpu) - irqtime->irq_start_time;
 
-diff --git a/net/tipc/name_table.c b/net/tipc/name_table.c
-index 9be6592e4a6f..bd0aac87b41a 100644
---- a/net/tipc/name_table.c
-+++ b/net/tipc/name_table.c
-@@ -416,6 +416,7 @@ static void tipc_nameseq_subscribe(struct name_seq *nseq,
- 
- 	tipc_subscrp_convert_seq(&s->evt.s.seq, s->swap, &ns);
- 
-+	tipc_subscrp_get(s);
- 	list_add(&s->nameseq_list, &nseq->subscriptions);
- 
- 	if (!sseq)
-@@ -787,6 +788,7 @@ void tipc_nametbl_unsubscribe(struct tipc_subscription *s)
- 	if (seq != NULL) {
- 		spin_lock_bh(&seq->lock);
- 		list_del_init(&s->nameseq_list);
-+		tipc_subscrp_put(s);
- 		if (!seq->first_free && list_empty(&seq->subscriptions)) {
- 			hlist_del_init_rcu(&seq->ns_list);
- 			kfree(seq->sseqs);
-diff --git a/net/tipc/subscr.c b/net/tipc/subscr.c
-index 0649bc29c6bb..0bf91cd3733c 100644
---- a/net/tipc/subscr.c
-+++ b/net/tipc/subscr.c
-@@ -54,8 +54,6 @@ struct tipc_subscriber {
- 
- static void tipc_subscrp_delete(struct tipc_subscription *sub);
- static void tipc_subscrb_put(struct tipc_subscriber *subscriber);
--static void tipc_subscrp_put(struct tipc_subscription *subscription);
--static void tipc_subscrp_get(struct tipc_subscription *subscription);
- 
- /**
-  * htohl - convert value to endianness used by destination
-@@ -125,7 +123,6 @@ void tipc_subscrp_report_overlap(struct tipc_subscription *sub, u32 found_lower,
- {
- 	struct tipc_name_seq seq;
- 
--	tipc_subscrp_get(sub);
- 	tipc_subscrp_convert_seq(&sub->evt.s.seq, sub->swap, &seq);
- 	if (!tipc_subscrp_check_overlap(&seq, found_lower, found_upper))
- 		return;
-@@ -135,7 +132,6 @@ void tipc_subscrp_report_overlap(struct tipc_subscription *sub, u32 found_lower,
- 
- 	tipc_subscrp_send_event(sub, found_lower, found_upper, event, port_ref,
- 				node);
--	tipc_subscrp_put(sub);
- }
- 
- static void tipc_subscrp_timeout(unsigned long data)
-@@ -183,12 +179,12 @@ static void tipc_subscrp_kref_release(struct kref *kref)
- 	tipc_subscrb_put(subscriber);
- }
- 
--static void tipc_subscrp_put(struct tipc_subscription *subscription)
-+void tipc_subscrp_put(struct tipc_subscription *subscription)
- {
- 	kref_put(&subscription->kref, tipc_subscrp_kref_release);
- }
- 
--static void tipc_subscrp_get(struct tipc_subscription *subscription)
-+void tipc_subscrp_get(struct tipc_subscription *subscription)
- {
- 	kref_get(&subscription->kref);
- }
-diff --git a/net/tipc/subscr.h b/net/tipc/subscr.h
-index ffdc214c117a..ee52957dc952 100644
---- a/net/tipc/subscr.h
-+++ b/net/tipc/subscr.h
-@@ -78,4 +78,7 @@ u32 tipc_subscrp_convert_seq_type(u32 type, int swap);
- int tipc_topsrv_start(struct net *net);
- void tipc_topsrv_stop(struct net *net);
- 
-+void tipc_subscrp_put(struct tipc_subscription *subscription);
-+void tipc_subscrp_get(struct tipc_subscription *subscription);
-+
+sched_clock_cpu(cpu) should be converted from cputime to ns. However,
+cputime_to_nsecs() API is removed by
+https://lkml.org/lkml/2017/1/22/230 for generic usage, so could you
+try the below patch just for testing?
+
+diff --git a/include/linux/sched/cputime.h b/include/linux/sched/cputime.h
+index 4c5b973..166efba 100644
+--- a/include/linux/sched/cputime.h
++++ b/include/linux/sched/cputime.h
+@@ -7,14 +7,14 @@
+  * cputime accounting APIs:
+  */
+
+-#ifdef CONFIG_VIRT_CPU_ACCOUNTING_NATIVE
+-#include <asm/cputime.h>
++#define cputime_div(__ct, divisor) div_u64((__force u64)__ct, divisor)
++#define cputime_to_usecs(__ct) \
++    cputime_div(__ct, NSEC_PER_USEC)
+
+ #ifndef cputime_to_nsecs
+ # define cputime_to_nsecs(__ct)    \
+     (cputime_to_usecs(__ct) * NSEC_PER_USEC)
  #endif
--- 
-2.1.4
+-#endif /* CONFIG_VIRT_CPU_ACCOUNTING_NATIVE */
+
+ #ifdef CONFIG_VIRT_CPU_ACCOUNTING_GEN
+ extern void task_cputime(struct task_struct *t,
+diff --git a/kernel/sched/cputime.c b/kernel/sched/cputime.c
+index f3778e2b..68064d1 100644
+--- a/kernel/sched/cputime.c
++++ b/kernel/sched/cputime.c
+@@ -49,7 +49,7 @@ void irqtime_account_irq(struct task_struct *curr)
+         return;
+
+     cpu = smp_processor_id();
+-    delta = sched_clock_cpu(cpu) - irqtime->irq_start_time;
++    delta = cputime_to_nsecs(sched_clock_cpu(cpu)) - irqtime->irq_start_time;
+     irqtime->irq_start_time += delta;
+
+     u64_stats_update_begin(&irqtime->sync);
+
+Regards,
+Wanpeng Li
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
