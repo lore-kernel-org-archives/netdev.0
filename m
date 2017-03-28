@@ -1,88 +1,50 @@
-From: Robert Shearman <rshearma@brocade.com>
-Subject: Re: [PATCH net-next 0/4] net: mpls: Allow users to configure more
- labels per route
-Date: Tue, 28 Mar 2017 10:52:10 +0100
-Message-ID: <b0f95463-8927-e9b7-0a59-f1e0b3bc1072@brocade.com>
-References: <1490461408-9551-1-git-send-email-dsa@cumulusnetworks.com>
- <87shm1np5h.fsf@xmission.com>
- <5fe416c3-3e56-4e31-f92b-33e3e7b2e3c0@brocade.com>
- <608c60ac-7669-86f0-b0ef-02add5287009@cumulusnetworks.com>
- <871stiayie.fsf@xmission.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <roopa@cumulusnetworks.com>
-To: "Eric W. Biederman" <ebiederm@xmission.com>,
-        David Ahern <dsa@cumulusnetworks.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] [net-next] stmmac: use netif_set_real_num_{rx,tx}_queues
+Date: Tue, 28 Mar 2017 11:48:21 +0200
+Message-ID: <20170328094856.3457886-1-arnd@arndb.de>
+Cc: Arnd Bergmann <arnd@arndb.de>,
+        "David S. Miller" <davem@davemloft.net>,
+        Joao Pinto <Joao.Pinto@synopsys.com>,
+        LABBE Corentin <clabbe.montjoie@gmail.com>,
+        Thierry Reding <treding@nvidia.com>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+        Alexandre Torgue <alexandre.torgue@st.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:50458 "EHLO
-        mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1754217AbdC1Jwg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 28 Mar 2017 05:52:36 -0400
-In-Reply-To: <871stiayie.fsf@xmission.com>
+Received: from mout.kundenserver.de ([212.227.17.10]:50017 "EHLO
+        mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753702AbdC1J51 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 28 Mar 2017 05:57:27 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 28/03/17 04:08, Eric W. Biederman wrote:
-> David Ahern <dsa@cumulusnetworks.com> writes:
->
->> On 3/27/17 4:39 AM, Robert Shearman wrote:
->>> On 25/03/17 19:15, Eric W. Biederman wrote:
->>>> David Ahern <dsa@cumulusnetworks.com> writes:
->>>>
->>>>> Bump the maximum number of labels for MPLS routes from 2 to 12. To keep
->>>>> memory consumption in check the labels array is moved to the end of
->>>>> mpls_nh
->>>>> and mpls_iptunnel_encap structs as a 0-sized array. Allocations use the
->>>>> maximum number of labels across all nexthops in a route for LSR and the
->>>>> number of labels configured for LWT.
->>>>>
->>>>> The mpls_route layout is changed to:
->>>>>
->>>>>    +----------------------+
->>>>>    | mpls_route           |
->>>>>    +----------------------+
->>>>>    | mpls_nh 0            |
->>>>>    +----------------------+
->>>>>    | alignment padding    |   4 bytes for odd number of labels; 0 for
->>>>> even
->>>>>    +----------------------+
->>>>>    | via[rt_max_alen] 0   |
->>>>>    +----------------------+
->>>>>    | alignment padding    |   via's aligned on sizeof(unsigned long)
->>>>>    +----------------------+
->>>>>    | ...                  |
->>>>>
->>>>> Meaning the via follows its mpls_nh providing better locality as the
->>>>> number of labels increases. UDP_RR tests with namespaces shows no impact
->>>>> to a modest performance increase with this layout for 1 or 2 labels and
->>>>> 1 or 2 nexthops.
->>>>>
->>>>> The new limit is set to 12 to cover all currently known segment
->>>>> routing use cases.
->>>>
->>>> How does this compare with running the packet a couple of times through
->>>> the mpls table to get all of the desired labels applied?
->>>
->>> At the moment (i.e setting output interface for a route to the loopback
->>> interface) the TTL would currently be calculated incorrectly since it'll
->>> be decremented each time the packet is run through the input processing.
->>> If that was avoided, then the only issue would be the lower performance.
->>
->> We have the infrastructure to add all the labels on one pass. It does
->> not make sense to recirculate the packet to get the same effect.
->
-> I was really asking what are the advantages and disadvantages of this
-> change rather than suggesting it was a bad idea.  The information about
-> ttl is useful.
->
-> Adding that this will route packets with more labels more quickly than
-> the recirculation method is also useful to know.
+A driver must not access the two fields directly but should instead use
+the helper functions to set the values and keep a consistent internal
+state:
 
-I should also add that not recirculating also avoids having to allocate 
-extra local labels, which may be limited in supply in some deployments, 
-and avoids the extra control plane/user complexity associated with 
-managing the routes associated with the recirculation.
+ethernet/stmicro/stmmac/stmmac_main.c: In function 'stmmac_dvr_probe':
+ethernet/stmicro/stmmac/stmmac_main.c:4083:8: error: 'struct net_device' has no member named 'real_num_rx_queues'; did you mean 'real_num_tx_queues'?
 
-Thanks,
-Rob
+Fixes: a8f5102af2a7 ("net: stmmac: TX and RX queue priority configuration")
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+---
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index c78f444ad423..fe1d9592956f 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -4080,8 +4080,8 @@ int stmmac_dvr_probe(struct device *device,
+ 		goto error_hw_init;
+ 
+ 	/* Configure real RX and TX queues */
+-	ndev->real_num_rx_queues = priv->plat->rx_queues_to_use;
+-	ndev->real_num_tx_queues = priv->plat->tx_queues_to_use;
++	netif_set_real_num_rx_queues(ndev, priv->plat->rx_queues_to_use);
++	netif_set_real_num_tx_queues(ndev, priv->plat->tx_queues_to_use);
+ 
+ 	priv->dma_buf_sz = STMMAC_ALIGN(buf_sz);
+ 
+-- 
+2.9.0
