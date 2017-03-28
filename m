@@ -1,53 +1,56 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next 1/4] net: mpls: Convert number of nexthops to u8
-Date: Tue, 28 Mar 2017 09:25:54 -0600
-Message-ID: <78820aeb-6c41-5f71-90b6-ff41a91ca088@cumulusnetworks.com>
-References: <1490461408-9551-1-git-send-email-dsa@cumulusnetworks.com>
- <1490461408-9551-2-git-send-email-dsa@cumulusnetworks.com>
- <871stjmn0o.fsf@xmission.com>
- <b370c097-d0ad-95c5-2687-264da22d37d6@cumulusnetworks.com>
- <87wpbagwk5.fsf@xmission.com>
+From: Kris Murphy <kriskend@linux.vnet.ibm.com>
+Subject: Re: [PATCH v2] openvswitch: Add missing case OVS_TUNNEL_KEY_ATTR_PAD
+Date: Tue, 28 Mar 2017 10:32:40 -0500
+Message-ID: <57d89150-eba9-79cf-c152-aa3b71bfca7b@linux.vnet.ibm.com>
+References: <1b8ba07efdee3db310d4504462924565684ebd64.1489677257.git.kriskend@linux.vnet.ibm.com>
+ <1489679488-18874-1-git-send-email-kriskend@linux.vnet.ibm.com>
+ <20170316.120028.1195095010958027326.davem@davemloft.net>
+ <afef481c-1e03-3cce-dbd8-4cdb192596f0@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
-        rshearma@brocade.com
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Cc: netdev@vger.kernel.org, seroyer@linux.vnet.ibm.com,
+        adreznec@linux.vnet.ibm.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f42.google.com ([74.125.83.42]:35166 "EHLO
-        mail-pg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751908AbdC1PdD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 28 Mar 2017 11:33:03 -0400
-Received: by mail-pg0-f42.google.com with SMTP id 81so61520151pgh.2
-        for <netdev@vger.kernel.org>; Tue, 28 Mar 2017 08:33:02 -0700 (PDT)
-In-Reply-To: <87wpbagwk5.fsf@xmission.com>
+Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:41319 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751410AbdC1Pc6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 28 Mar 2017 11:32:58 -0400
+Received: from pps.filterd (m0098399.ppops.net [127.0.0.1])
+        by mx0a-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v2SFNxTH101334
+        for <netdev@vger.kernel.org>; Tue, 28 Mar 2017 11:32:52 -0400
+Received: from e33.co.us.ibm.com (e33.co.us.ibm.com [32.97.110.151])
+        by mx0a-001b2d01.pphosted.com with ESMTP id 29ft0b2c5y-1
+        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Tue, 28 Mar 2017 11:32:51 -0400
+Received: from localhost
+        by e33.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        for <netdev@vger.kernel.org> from <kriskend@linux.vnet.ibm.com>;
+        Tue, 28 Mar 2017 09:32:51 -0600
+In-Reply-To: <afef481c-1e03-3cce-dbd8-4cdb192596f0@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 3/27/17 4:54 PM, Eric W. Biederman wrote:
-> It is absolutely a no-brainer to change rt_nhn to a u8.  And I very much
-> appreciate all work to keep mpls_route into a single cache line.  As in
-> practices that is one of the most important parts to performance.
-> 
-> Which leads to the functions mpls_ifup, mpls_ifdown, and
-> mpls_select_multipath.
-> 
-> To make this all work correctly we need a couple of things.
-> - A big fat comment on struct mpls_route and mpls_nh about how
->   and why these structures are modified and not replaced during
->   nexthop processing.  Including the fact that it all modifications
->   may only happen with rntl_lock held.
-> 
-> - The use of READ_ONCE and WRITE_ONCE on all rt->rt_nhn_alive accesses,
->   that happen after the route is installed (and is thus rcu reachable).
-> 
-> - The use of READ_ONCE and WRITE_ONCE on all nh->nh_flags accesses,
->   that happen after the route is installed (and is thus rcu reachable).
+Sorry that was incorrect, the commit that added the attribute was in 4.7 
+so please add cc: Stable@vger.kernel.org #4.7+
 
-For both of these, mpls_select_multipath does need to use READ_ONCE to
-read the nh_flags and rt_nhn_alive. In this case it is reading a value
-that could change behind its back.
 
-The READ_ONCE is not necessary for mpls_ifdown or mpls_ifup as these are
-the functions that change the values. These 2 functions only need a
-WRITE_ONCE for both struct members.
+On 3/28/2017 10:22 AM, Kris Murphy wrote:
+> The issue exists starting with 4.6 so can you add cc: 
+> Stable@vger.kernel.org #4.6+
+>
+>
+> On 3/16/2017 2:00 PM, David Miller wrote:
+>> From: Kris Murphy <kriskend@linux.vnet.ibm.com>
+>> Date: Thu, 16 Mar 2017 10:51:28 -0500
+>>
+>>> Added a case for OVS_TUNNEL_KEY_ATTR_PAD to the switch statement
+>>> in ip_tun_from_nlattr in order to prevent the default case
+>>> returning an error.
+>>>
+>>> Fixes: b46f6ded906e ("libnl: nla_put_be64(): align on a 64-bit area")
+>>> Signed-off-by: Kris Murphy <kriskend@linux.vnet.ibm.com>
+>> Applied and queued up for -stable, thanks.
+>>
+>
