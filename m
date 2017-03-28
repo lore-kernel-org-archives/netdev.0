@@ -1,64 +1,48 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH 1/1] ethtool : added
- get_phy_stats,get_strings,get_sset_count
-Date: Tue, 28 Mar 2017 14:10:29 +0200
-Message-ID: <20170328121029.GB3152@lunn.ch>
-References: <1490609570-3571-1-git-send-email-thomasscariah@gmail.com>
- <5153db09-092f-55b1-a8fc-aa23433c52a0@gmail.com>
- <CA+1hMaGV-trVT+ZisgTtyRAVz=ZqopmwmpWyqHvWQMrkmv-96A@mail.gmail.com>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH] 6lowpan: fix assignment of peer_addr
+Date: Tue, 28 Mar 2017 13:11:29 +0100
+Message-ID: <20170328121129.18421-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>, nsekhar@ti.com,
-        grygorii.strashko@ti.com, davem@davemloft.net,
-        drivshin@allworx.com, mugunthanvnm@ti.com,
-        ivan.khoronzhuk@linaro.org,
-        Thomas Scariah <thomas.scariah@harman.com>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Thomas Scariah <thomasscariah@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CA+1hMaGV-trVT+ZisgTtyRAVz=ZqopmwmpWyqHvWQMrkmv-96A@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Marcel Holtmann <marcel@holtmann.org>,
+        Gustavo Padovan <gustavo@padovan.org>,
+        Johan Hedberg <johan.hedberg@gmail.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 28, 2017 at 11:56:40AM +0530, Thomas Scariah wrote:
-> Hello Florian/Andrew,
-> 
-> 
-> On Mon, Mar 27, 2017 at 10:14 PM, Florian Fainelli <f.fainelli@gmail.com>
-> wrote:
-> 
-> > Hello,
-> >
-> > On 03/27/2017 03:12 AM, Thomas Scariah wrote:
-> > > From: "Scariah, Thomas" <thomas.scariah@harman.com>
-> > >
-> > >  Added functions to support ethtool to print the phy statistics and error
-> > >  information along with other ethtool statistics. This will help ethtool
-> > >  information to know the error is from physical layer or MAC layer.
-> > >  This is an enahancement for ethtool to accommodate phy statistics
-> >
-> > It sounds like your patch should actually be 3 different patches:
-> >
-> > - add helper function to the core PHY library
-> > - add statistics support to the Micrel PHY driver
-> > - hook the proper ndo operations in cpsw to allow querying the PHY
-> > driver's statistics
-> >
-> 
-> Yes agreed. This can be 3 different patches .
-> Anyway the latest kernel already has the same change.
-> I have developed this patch against Kernel 4.4.14 and the similar
-> functionality was not available.
+From: Colin Ian King <colin.king@canonical.com>
 
-Hi Thomas
+The data from peer->chan->dst is not being copied to peer_addr, the
+current code just updates the pointer and not the contents of what
+it points to.  Fix this with the intended assignment.
 
-O.K, using v4.4 explains a lot. However, we only accept patches
-against:
+Detected by CoverityScan, CID#1422111 ("Parse warning
+(PW.PARAM_SET_BUT_NOT_USED)")
 
-git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git
+Fixes: fb6f2f606ce8 ("6lowpan: Fix IID format for Bluetooth")
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ net/bluetooth/6lowpan.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-I still suggest you only do the PHY driver parts, and don't touch the
-MAC driver.
+diff --git a/net/bluetooth/6lowpan.c b/net/bluetooth/6lowpan.c
+index 24348c8579dd..ba28c7b1557f 100644
+--- a/net/bluetooth/6lowpan.c
++++ b/net/bluetooth/6lowpan.c
+@@ -432,7 +432,7 @@ static int setup_header(struct sk_buff *skb, struct net_device *netdev,
+ 		}
+ 
+ 		daddr = peer->lladdr;
+-		peer_addr = &peer->chan->dst;
++		*peer_addr = peer->chan->dst;
+ 		*peer_addr_type = peer->chan->dst_type;
+ 		lowpan_cb(skb)->chan = peer->chan;
+ 
+-- 
+2.11.0
 
-	Andrew
