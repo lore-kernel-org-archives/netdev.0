@@ -1,148 +1,127 @@
-From: Alban Crequy <alban.crequy@gmail.com>
-Subject: [PATCH v1] tracing/kprobes: expose maxactive for kretprobe in kprobe_events
-Date: Tue, 28 Mar 2017 15:52:22 +0200
-Message-ID: <1490709142-8856-1-git-send-email-alban@kinvolk.io>
-Cc: Masami Hiramatsu <mhiramat@kernel.org>,
-        Arnaldo Carvalho de Melo <acme@redhat.com>,
-        Omar Sandoval <osandov@fb.com>, linux-doc@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        iago@kinvolk.io, michael@kinvolk.io
-To: Alban Crequy <alban@kinvolk.io>,
-        Alexei Starovoitov <ast@kernel.org>,
-        Jonathan Corbet <corbet@lwn.net>,
-        Steven Rostedt <rostedt@goodmis.org>,
-        Ingo Molnar <mingo@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Thierry Reding <thierry.reding@gmail.com>
+Subject: [PATCH 3/3] net: stmmac: Prefer kcalloc() over kmalloc_array()
+Date: Tue, 28 Mar 2017 15:57:06 +0200
+Message-ID: <20170328135706.7605-3-thierry.reding@gmail.com>
+References: <71d841cd-b07b-2635-c2cf-f7af5f5ed2c9@axis.com>
+ <20170328135706.7605-1-thierry.reding@gmail.com>
+Cc: Joao Pinto <Joao.Pinto@synopsys.com>,
+        David Miller <davem@davemloft.net>, clabbe.montjoie@gmail.com,
+        peppe.cavallaro@st.com, alexandre.torgue@st.com,
+        sergei.shtylyov@cogentembedded.com, f.fainelli@gmail.com,
+        netdev@vger.kernel.org
+To: Niklas Cassel <niklas.cassel@axis.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f195.google.com ([209.85.128.195]:33778 "EHLO
+        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755671AbdC1N6I (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 28 Mar 2017 09:58:08 -0400
+Received: by mail-wr0-f195.google.com with SMTP id u18so3521044wrc.0
+        for <netdev@vger.kernel.org>; Tue, 28 Mar 2017 06:57:26 -0700 (PDT)
+In-Reply-To: <20170328135706.7605-1-thierry.reding@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When a kretprobe is installed on a kernel function, there is a maximum
-limit of how many calls in parallel it can catch (aka "maxactive"). A
-kernel module could call register_kretprobe() and initialize maxactive
-(see example in samples/kprobes/kretprobe_example.c).
+From: Thierry Reding <treding@nvidia.com>
 
-But that is not exposed to userspace and it is currently not possible to
-choose maxactive when writing to /sys/kernel/debug/tracing/kprobe_events
+Some of the data in the new queue structures seems to not be properly
+initialized, causing undefined behaviour (networking will work about 2
+out of 10 tries). kcalloc() will zero the allocated memory and results
+in 10 out of 10 successful boots.
 
-The default maxactive can be as low as 1 on single-core with a
-non-preemptive kernel. This is too low and we need to increase it not
-only for recursive functions, but for functions that sleep or resched.
-
-This patch updates the format of the command that can be written to
-kprobe_events so that maxactive can be optionally specified.
-
-I need this for a bpf program attached to the kretprobe of
-inet_csk_accept, which can sleep for a long time.
-
-BugLink: https://github.com/iovisor/bcc/issues/1072
-Signed-off-by: Alban Crequy <alban@kinvolk.io>
+Signed-off-by: Thierry Reding <treding@nvidia.com>
 ---
- Documentation/trace/kprobetrace.txt |  4 +++-
- kernel/trace/trace_kprobe.c         | 34 +++++++++++++++++++++++++++++-----
- 2 files changed, 32 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 37 +++++++++++------------
+ 1 file changed, 17 insertions(+), 20 deletions(-)
 
-diff --git a/Documentation/trace/kprobetrace.txt b/Documentation/trace/kprobetrace.txt
-index 41ef9d8..655ca7e 100644
---- a/Documentation/trace/kprobetrace.txt
-+++ b/Documentation/trace/kprobetrace.txt
-@@ -23,7 +23,7 @@ current_tracer. Instead of that, add probe points via
- Synopsis of kprobe_events
- -------------------------
-   p[:[GRP/]EVENT] [MOD:]SYM[+offs]|MEMADDR [FETCHARGS]	: Set a probe
--  r[:[GRP/]EVENT] [MOD:]SYM[+0] [FETCHARGS]		: Set a return probe
-+  r[MAXACTIVE][:[GRP/]EVENT] [MOD:]SYM[+0] [FETCHARGS]	: Set a return probe
-   -:[GRP/]EVENT						: Clear a probe
- 
-  GRP		: Group name. If omitted, use "kprobes" for it.
-@@ -32,6 +32,8 @@ Synopsis of kprobe_events
-  MOD		: Module name which has given SYM.
-  SYM[+offs]	: Symbol+offset where the probe is inserted.
-  MEMADDR	: Address where the probe is inserted.
-+ MAXACTIVE	: Maximum number of instances of the specified function that
-+		  can be probed simultaneously, or 0 for the default.(*)
- 
-  FETCHARGS	: Arguments. Each probe can have up to 128 args.
-   %REG		: Fetch register REG
-diff --git a/kernel/trace/trace_kprobe.c b/kernel/trace/trace_kprobe.c
-index 5f688cc..807e01c 100644
---- a/kernel/trace/trace_kprobe.c
-+++ b/kernel/trace/trace_kprobe.c
-@@ -282,6 +282,7 @@ static struct trace_kprobe *alloc_trace_kprobe(const char *group,
- 					     void *addr,
- 					     const char *symbol,
- 					     unsigned long offs,
-+					     int maxactive,
- 					     int nargs, bool is_return)
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index ec5bba85c529..845320bc3333 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -1412,13 +1412,12 @@ static void free_dma_desc_resources(struct stmmac_priv *priv)
+ static int alloc_rx_dma_desc_resources(struct stmmac_priv *priv)
  {
- 	struct trace_kprobe *tk;
-@@ -309,6 +310,8 @@ static struct trace_kprobe *alloc_trace_kprobe(const char *group,
- 	else
- 		tk->rp.kp.pre_handler = kprobe_dispatcher;
+ 	u32 rx_count = priv->plat->rx_queues_to_use;
++	struct stmmac_rx_queue *rx_q;
+ 	int ret = -ENOMEM;
+ 	u32 queue = 0;
  
-+	tk->rp.maxactive = maxactive;
-+
- 	if (!event || !is_good_name(event)) {
- 		ret = -EINVAL;
- 		goto error;
-@@ -598,8 +601,10 @@ static int create_trace_kprobe(int argc, char **argv)
+ 	/* Allocate RX queues array */
+-	priv->rx_queue = kmalloc_array(rx_count,
+-				       sizeof(struct stmmac_rx_queue),
+-				       GFP_KERNEL);
++	priv->rx_queue = kcalloc(rx_count, sizeof(*rx_q), GFP_KERNEL);
+ 	if (!priv->rx_queue) {
+ 		kfree(priv->rx_queue);
+ 		return -ENOMEM;
+@@ -1426,20 +1425,19 @@ static int alloc_rx_dma_desc_resources(struct stmmac_priv *priv)
+ 
+ 	/* RX queues buffers and DMA */
+ 	for (queue = 0; queue < rx_count; queue++) {
+-		struct stmmac_rx_queue *rx_q = &priv->rx_queue[queue];
++		rx_q = &priv->rx_queue[queue];
+ 
+ 		rx_q->queue_index = queue;
+ 		rx_q->priv_data = priv;
+ 
+-		rx_q->rx_skbuff_dma = kmalloc_array(DMA_RX_SIZE,
+-							sizeof(dma_addr_t),
+-							GFP_KERNEL);
++		rx_q->rx_skbuff_dma = kcalloc(DMA_RX_SIZE, sizeof(dma_addr_t),
++					      GFP_KERNEL);
+ 		if (!rx_q->rx_skbuff_dma)
+ 			goto err_dma_buffers;
+ 
+-		rx_q->rx_skbuff = kmalloc_array(DMA_RX_SIZE,
+-						    sizeof(struct sk_buff *),
+-						    GFP_KERNEL);
++		rx_q->rx_skbuff = kcalloc(DMA_RX_SIZE,
++					  sizeof(struct sk_buff *),
++					  GFP_KERNEL);
+ 		if (!rx_q->rx_skbuff)
+ 			goto err_dma_buffers;
+ 
+@@ -1477,33 +1475,32 @@ static int alloc_rx_dma_desc_resources(struct stmmac_priv *priv)
+ static int alloc_tx_dma_desc_resources(struct stmmac_priv *priv)
  {
- 	/*
- 	 * Argument syntax:
--	 *  - Add kprobe: p[:[GRP/]EVENT] [MOD:]KSYM[+OFFS]|KADDR [FETCHARGS]
--	 *  - Add kretprobe: r[:[GRP/]EVENT] [MOD:]KSYM[+0] [FETCHARGS]
-+	 *  - Add kprobe:
-+	 *      p[:[GRP/]EVENT] [MOD:]KSYM[+OFFS]|KADDR [FETCHARGS]
-+	 *  - Add kretprobe:
-+	 *      r[MAXACTIVE][:[GRP/]EVENT] [MOD:]KSYM[+0] [FETCHARGS]
- 	 * Fetch args:
- 	 *  $retval	: fetch return value
- 	 *  $stack	: fetch stack address
-@@ -619,6 +624,7 @@ static int create_trace_kprobe(int argc, char **argv)
- 	int i, ret = 0;
- 	bool is_return = false, is_delete = false;
- 	char *symbol = NULL, *event = NULL, *group = NULL;
-+	int maxactive = 0;
- 	char *arg;
- 	unsigned long offset = 0;
- 	void *addr = NULL;
-@@ -637,8 +643,26 @@ static int create_trace_kprobe(int argc, char **argv)
- 		return -EINVAL;
- 	}
+ 	u32 tx_count = priv->plat->tx_queues_to_use;
++	struct stmmac_tx_queue *tx_q;
+ 	int ret = -ENOMEM;
+ 	u32 queue = 0;
  
--	if (argv[0][1] == ':') {
-+	if (is_return && isdigit(argv[0][1]) && strchr(&argv[0][1], ':')) {
-+		event = strchr(&argv[0][1], ':') + 1;
-+		event[-1] = '\0';
-+		ret = kstrtouint(&argv[0][1], 0, &maxactive);
-+		if (ret) {
-+			pr_info("Failed to parse maxactive.\n");
-+			return ret;
-+		}
-+		/* kretprobes instances are iterated over via a list. The
-+		 * maximum should stay reasonable.
-+		 */
-+		if (maxactive > 1024) {
-+			pr_info("Maxactive is too big.\n");
-+			return -EINVAL;
-+		}
-+	} else if (argv[0][1] == ':') {
- 		event = &argv[0][2];
-+	}
-+
-+	if (event) {
- 		if (strchr(event, '/')) {
- 			group = event;
- 			event = strchr(group, '/') + 1;
-@@ -718,8 +742,8 @@ static int create_trace_kprobe(int argc, char **argv)
- 				 is_return ? 'r' : 'p', addr);
- 		event = buf;
- 	}
--	tk = alloc_trace_kprobe(group, event, addr, symbol, offset, argc,
--			       is_return);
-+	tk = alloc_trace_kprobe(group, event, addr, symbol, offset, maxactive,
-+			       argc, is_return);
- 	if (IS_ERR(tk)) {
- 		pr_info("Failed to allocate trace_probe.(%d)\n",
- 			(int)PTR_ERR(tk));
+ 	/* Allocate TX queues array */
+-	priv->tx_queue = kmalloc_array(tx_count,
+-				       sizeof(struct stmmac_tx_queue),
+-				       GFP_KERNEL);
++	priv->tx_queue = kcalloc(tx_count, sizeof(*tx_q), GFP_KERNEL);
+ 	if (!priv->tx_queue)
+ 		return -ENOMEM;
+ 
+ 	/* TX queues buffers and DMA */
+ 	for (queue = 0; queue < tx_count; queue++) {
+-		struct stmmac_tx_queue *tx_q = &priv->tx_queue[queue];
++		tx_q = &priv->tx_queue[queue];
+ 
+ 		tx_q->queue_index = queue;
+ 		tx_q->priv_data = priv;
+ 
+-		tx_q->tx_skbuff_dma = kmalloc_array(DMA_TX_SIZE,
+-					  sizeof(struct stmmac_tx_info),
+-					  GFP_KERNEL);
++		tx_q->tx_skbuff_dma = kcalloc(DMA_TX_SIZE,
++					      sizeof(struct stmmac_tx_info),
++					      GFP_KERNEL);
+ 
+ 		if (!tx_q->tx_skbuff_dma)
+ 			goto err_dma_buffers;
+ 
+-		tx_q->tx_skbuff = kmalloc_array(DMA_TX_SIZE,
+-						    sizeof(struct sk_buff *),
+-						    GFP_KERNEL);
++		tx_q->tx_skbuff = kcalloc(DMA_TX_SIZE,
++					  sizeof(struct sk_buff *),
++					  GFP_KERNEL);
+ 		if (!tx_q->tx_skbuff)
+ 			goto err_dma_buffers;
+ 
 -- 
-2.7.4
+2.12.0
