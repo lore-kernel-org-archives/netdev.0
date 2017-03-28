@@ -1,7 +1,7 @@
 From: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>
-Subject: [PATCH net-next v6 08/11] bpf: Add a Landlock sandbox example
-Date: Wed, 29 Mar 2017 01:46:47 +0200
-Message-ID: <20170328234650.19695-9-mic@digikod.net>
+Subject: [PATCH net-next v6 06/11] seccomp,landlock: Handle Landlock events per process hierarchy
+Date: Wed, 29 Mar 2017 01:46:45 +0200
+Message-ID: <20170328234650.19695-7-mic@digikod.net>
 References: <20170328234650.19695-1-mic@digikod.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -24,7 +24,7 @@ Cc: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>,
         "Serge E . Hallyn" <serge@hallyn.com>, Shuah Khan <shuah@kernel.org>,
         Tejun Heo <tj@kernel.or
 To: linux-kernel@vger.kernel.org
-Return-path: <kernel-hardening-return-7140-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+Return-path: <kernel-hardening-return-7141-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
 List-Post: <mailto:kernel-hardening@lists.openwall.com>
 List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
 List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
@@ -32,349 +32,591 @@ List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
 In-Reply-To: <20170328234650.19695-1-mic@digikod.net>
 List-Id: netdev.vger.kernel.org
 
-Add a basic sandbox tool to create a process isolated from some part of
-the system. This sandbox create a read-only environment. It is only
-allowed to write to a character device such as a TTY:
+The seccomp(2) syscall can be used by a task to apply a Landlock rule to
+itself. As a seccomp filter, a Landlock rule is enforced for the current
+task and all its future children. A rule is immutable and a task can
+only add new restricting rules to itself, forming a chain of rules.
 
-  # :> X
-  # echo $?
-  0
-  # ./samples/bpf/landlock1 /bin/sh -i
-  Launching a new sandboxed process.
-  # :> Y
-  cannot create Y: Operation not permitted
+A Landlock rule is tied to a Landlock event. If the use of a kernel
+object is allowed by the other Linux security mechanisms (e.g. DAC,
+capabilities, other LSM), then a Landlock event related to this kind of
+object is triggered. The chain of rules for this event is then
+evaluated. Each rule return a 32-bit value which can deny the use of a
+kernel object with a non-zero value. If every rules of the chain return
+zero, then the use of the object is allowed.
 
 Changes since v5:
-* cosmetic fixes
-* rebase
+* remove struct landlock_node and use a similar inheritance mechanisme
+  as seccomp-bpf (requested by Andy Lutomirski)
+* rename SECCOMP_ADD_LANDLOCK_RULE to SECCOMP_APPEND_LANDLOCK_RULE
+* rename file manager.c to providers.c
+* add comments
+* typo and cosmetic fixes
 
 Changes since v4:
-* write Landlock rule in C and compiled it with LLVM
-* remove cgroup handling
-* remove path handling: only handle a read-only environment
-* remove errno return codes
+* merge manager and seccomp patches
+* return -EFAULT in seccomp(2) when user_bpf_fd is null to easely check
+  if Landlock is supported
+* only allow a process with the global CAP_SYS_ADMIN to use Landlock
+  (will be lifted in the future)
+* add an early check to exit as soon as possible if the current process
+  does not have Landlock rules
 
 Changes since v3:
-* remove seccomp and origin field: completely free from seccomp programs
-* handle more FS-related hooks
-* handle inode hooks and directory traversal
-* add faked but consistent view thanks to ENOENT
-* add /lib64 in the example
-* fix spelling
-* rename some types and definitions (e.g. SECCOMP_ADD_LANDLOCK_RULE)
+* remove the hard link with seccomp (suggested by Andy Lutomirski and
+  Kees Cook):
+  * remove the cookie which could imply multiple evaluation of Landlock
+    rules
+  * remove the origin field in struct landlock_data
+* remove documentation fix (merged upstream)
+* rename the new seccomp command to SECCOMP_ADD_LANDLOCK_RULE
+* internal renaming
+* split commit
+* new design to be able to inherit on the fly the parent rules
 
 Changes since v2:
-* use BPF_PROG_ATTACH for cgroup handling
+* Landlock programs can now be run without seccomp filter but for any
+  syscall (from the process) or interruption
+* move Landlock related functions and structs into security/landlock/*
+  (to manage cgroups as well)
+* fix seccomp filter handling: run Landlock programs for each of their
+  legitimate seccomp filter
+* properly clean up all seccomp results
+* cosmetic changes to ease the understanding
+* fix some ifdef
 
 Signed-off-by: Mickaël Salaün <mic@digikod.net>
 Cc: Alexei Starovoitov <ast@kernel.org>
+Cc: Andrew Morton <akpm@linux-foundation.org>
 Cc: Andy Lutomirski <luto@amacapital.net>
-Cc: Daniel Borkmann <daniel@iogearbox.net>
-Cc: David S. Miller <davem@davemloft.net>
 Cc: James Morris <james.l.morris@oracle.com>
 Cc: Kees Cook <keescook@chromium.org>
 Cc: Serge E. Hallyn <serge@hallyn.com>
+Cc: Will Drewry <wad@chromium.org>
+Link: https://lkml.kernel.org/r/c10a503d-5e35-7785-2f3d-25ed8dd63fab@digikod.net
 ---
- samples/bpf/Makefile         |   4 ++
- samples/bpf/bpf_load.c       |  31 +++++++++++--
- samples/bpf/landlock1_kern.c |  46 +++++++++++++++++++
- samples/bpf/landlock1_user.c | 102 +++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 179 insertions(+), 4 deletions(-)
- create mode 100644 samples/bpf/landlock1_kern.c
- create mode 100644 samples/bpf/landlock1_user.c
+ include/linux/landlock.h      |  36 +++++++
+ include/linux/seccomp.h       |   8 ++
+ include/uapi/linux/seccomp.h  |   1 +
+ kernel/fork.c                 |  14 ++-
+ kernel/seccomp.c              |   8 ++
+ security/landlock/Makefile    |   2 +-
+ security/landlock/hooks.c     |  37 +++++++
+ security/landlock/hooks.h     |   5 +
+ security/landlock/init.c      |   3 +-
+ security/landlock/providers.c | 232 ++++++++++++++++++++++++++++++++++++++++++
+ 10 files changed, 342 insertions(+), 4 deletions(-)
+ create mode 100644 security/landlock/providers.c
 
-diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
-index d42b495b0992..4743674a3fa3 100644
---- a/samples/bpf/Makefile
-+++ b/samples/bpf/Makefile
-@@ -36,6 +36,7 @@ hostprogs-y += lwt_len_hist
- hostprogs-y += xdp_tx_iptunnel
- hostprogs-y += test_map_in_map
- hostprogs-y += per_socket_stats_example
-+hostprogs-y += landlock1
+diff --git a/include/linux/landlock.h b/include/linux/landlock.h
+index 53013dc374fe..c40ee78e86e0 100644
+--- a/include/linux/landlock.h
++++ b/include/linux/landlock.h
+@@ -12,6 +12,9 @@
+ #define _LINUX_LANDLOCK_H
+ #ifdef CONFIG_SECURITY_LANDLOCK
  
- # Libbpf dependencies
- LIBBPF := ../../tools/lib/bpf/bpf.o
-@@ -76,6 +77,7 @@ lwt_len_hist-objs := bpf_load.o $(LIBBPF) lwt_len_hist_user.o
- xdp_tx_iptunnel-objs := bpf_load.o $(LIBBPF) xdp_tx_iptunnel_user.o
- test_map_in_map-objs := bpf_load.o $(LIBBPF) test_map_in_map_user.o
- per_socket_stats_example-objs := $(LIBBPF) cookie_uid_helper_example.o
-+landlock1-objs := bpf_load.o $(LIBBPF) landlock1_user.o
- 
- # Tell kbuild to always build the programs
- always := $(hostprogs-y)
-@@ -111,6 +113,7 @@ always += lwt_len_hist_kern.o
- always += xdp_tx_iptunnel_kern.o
- always += test_map_in_map_kern.o
- always += cookie_uid_helper_example.o
-+always += landlock1_kern.o
- 
- HOSTCFLAGS += -I$(objtree)/usr/include
- HOSTCFLAGS += -I$(srctree)/tools/lib/
-@@ -146,6 +149,7 @@ HOSTLOADLIBES_tc_l2_redirect += -l elf
- HOSTLOADLIBES_lwt_len_hist += -l elf
- HOSTLOADLIBES_xdp_tx_iptunnel += -lelf
- HOSTLOADLIBES_test_map_in_map += -lelf
-+HOSTLOADLIBES_landlock1 += -lelf
- 
- # Allows pointing LLC/CLANG to a LLVM backend with bpf support, redefine on cmdline:
- #  make samples/bpf/ LLC=~/git/llvm/build/bin/llc CLANG=~/git/llvm/build/bin/clang
-diff --git a/samples/bpf/bpf_load.c b/samples/bpf/bpf_load.c
-index 4a3460d7c01f..3713e5e2e998 100644
---- a/samples/bpf/bpf_load.c
-+++ b/samples/bpf/bpf_load.c
-@@ -29,6 +29,8 @@
- 
- static char license[128];
- static int kern_version;
-+static union bpf_prog_subtype subtype = {};
-+static bool has_subtype;
- static bool processed_sec[128];
- char bpf_log_buf[BPF_LOG_BUF_SIZE];
- int map_fd[MAX_MAPS];
-@@ -68,6 +70,7 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size)
- 	bool is_perf_event = strncmp(event, "perf_event", 10) == 0;
- 	bool is_cgroup_skb = strncmp(event, "cgroup/skb", 10) == 0;
- 	bool is_cgroup_sk = strncmp(event, "cgroup/sock", 11) == 0;
-+	bool is_landlock = strncmp(event, "landlock", 8) == 0;
- 	size_t insns_cnt = size / sizeof(struct bpf_insn);
- 	enum bpf_prog_type prog_type;
- 	char buf[256];
-@@ -94,6 +97,13 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size)
- 		prog_type = BPF_PROG_TYPE_CGROUP_SKB;
- 	} else if (is_cgroup_sk) {
- 		prog_type = BPF_PROG_TYPE_CGROUP_SOCK;
-+	} else if (is_landlock) {
-+		prog_type = BPF_PROG_TYPE_LANDLOCK;
-+		if (!has_subtype) {
-+			printf("No subtype\n");
-+			return -1;
-+		}
-+		st = &subtype;
- 	} else {
- 		printf("Unknown event '%s'\n", event);
- 		return -1;
-@@ -108,7 +118,8 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size)
- 
- 	prog_fd[prog_cnt++] = fd;
- 
--	if (is_xdp || is_perf_event || is_cgroup_skb || is_cgroup_sk)
-+	if (is_xdp || is_perf_event || is_cgroup_skb || is_cgroup_sk ||
-+	    is_landlock)
- 		return 0;
- 
- 	if (is_socket) {
-@@ -294,6 +305,7 @@ int load_bpf_file(char *path)
- 	kern_version = 0;
- 	memset(license, 0, sizeof(license));
- 	memset(processed_sec, 0, sizeof(processed_sec));
-+	has_subtype = false;
- 
- 	if (elf_version(EV_CURRENT) == EV_NONE)
- 		return 1;
-@@ -339,6 +351,16 @@ int load_bpf_file(char *path)
- 			processed_sec[i] = true;
- 			if (load_maps(data->d_buf, data->d_size))
- 				return 1;
-+		} else if (strcmp(shname, "subtype") == 0) {
-+			processed_sec[i] = true;
-+			if (data->d_size != sizeof(union bpf_prog_subtype)) {
-+				printf("invalid size of subtype section %zd\n",
-+				       data->d_size);
-+				return 1;
-+			}
-+			memcpy(&subtype, data->d_buf,
-+			       sizeof(union bpf_prog_subtype));
-+			has_subtype = true;
- 		} else if (shdr.sh_type == SHT_SYMTAB) {
- 			symbols = data;
- 		}
-@@ -376,14 +398,14 @@ int load_bpf_file(char *path)
- 			    memcmp(shname_prog, "xdp", 3) == 0 ||
- 			    memcmp(shname_prog, "perf_event", 10) == 0 ||
- 			    memcmp(shname_prog, "socket", 6) == 0 ||
--			    memcmp(shname_prog, "cgroup/", 7) == 0)
-+			    memcmp(shname_prog, "cgroup/", 7) == 0 ||
-+			    memcmp(shname_prog, "landlock", 8) == 0)
- 				load_and_attach(shname_prog, insns, data_prog->d_size);
- 		}
- 	}
- 
- 	/* load programs that don't use maps */
- 	for (i = 1; i < ehdr.e_shnum; i++) {
--
- 		if (processed_sec[i])
- 			continue;
- 
-@@ -396,7 +418,8 @@ int load_bpf_file(char *path)
- 		    memcmp(shname, "xdp", 3) == 0 ||
- 		    memcmp(shname, "perf_event", 10) == 0 ||
- 		    memcmp(shname, "socket", 6) == 0 ||
--		    memcmp(shname, "cgroup/", 7) == 0)
-+		    memcmp(shname, "cgroup/", 7) == 0 ||
-+		    memcmp(shname, "landlock", 8) == 0)
- 			load_and_attach(shname, data->d_buf, data->d_size);
- 	}
- 
-diff --git a/samples/bpf/landlock1_kern.c b/samples/bpf/landlock1_kern.c
-new file mode 100644
-index 000000000000..b8a9b0ca84c9
---- /dev/null
-+++ b/samples/bpf/landlock1_kern.c
-@@ -0,0 +1,46 @@
-+/*
-+ * Landlock rule - partial read-only filesystem
-+ *
-+ * Copyright © 2017 Mickaël Salaün <mic@digikod.net>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2, as
-+ * published by the Free Software Foundation.
-+ */
++#include <linux/bpf.h>	/* _LANDLOCK_SUBTYPE_EVENT_LAST */
++#include <linux/types.h> /* atomic_t */
 +
-+#define KBUILD_MODNAME "foo"
-+#include <uapi/linux/bpf.h>
-+#include <uapi/linux/stat.h> /* S_ISCHR() */
-+#include "bpf_helpers.h"
-+
-+SEC("landlock1")
-+static int landlock_fs_prog1(struct landlock_context *ctx)
-+{
-+	char fmt_error[] = "landlock1: error: get_mode:%lld\n";
-+	char fmt_name[] = "landlock1: syscall:%d\n";
-+	long long ret;
-+
-+	if (!(ctx->arg2 & LANDLOCK_ACTION_FS_WRITE))
-+		return 0;
-+	ret = bpf_handle_fs_get_mode((void *)ctx->arg1);
-+	if (ret < 0) {
-+		bpf_trace_printk(fmt_error, sizeof(fmt_error), ret);
-+		return 1;
-+	}
-+	if (S_ISCHR(ret))
-+		return 0;
-+	bpf_trace_printk(fmt_name, sizeof(fmt_name), ctx->syscall_nr);
-+	return 1;
-+}
-+
-+SEC("subtype")
-+static union bpf_prog_subtype _subtype = {
-+	.landlock_rule = {
-+		.version = 1,
-+		.event = LANDLOCK_SUBTYPE_EVENT_FS,
-+		.ability = LANDLOCK_SUBTYPE_ABILITY_DEBUG,
-+	}
-+};
-+
-+SEC("license")
-+static const char _license[] = "GPL";
-diff --git a/samples/bpf/landlock1_user.c b/samples/bpf/landlock1_user.c
-new file mode 100644
-index 000000000000..6f79eb0ee6db
---- /dev/null
-+++ b/samples/bpf/landlock1_user.c
-@@ -0,0 +1,102 @@
-+/*
-+ * Landlock sandbox - partial read-only filesystem
-+ *
-+ * Copyright © 2017 Mickaël Salaün <mic@digikod.net>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2, as
-+ * published by the Free Software Foundation.
-+ */
-+
-+#include "bpf_load.h"
-+#include "libbpf.h"
-+
-+#define _GNU_SOURCE
-+#include <errno.h>
-+#include <fcntl.h> /* open() */
-+#include <linux/bpf.h>
-+#include <linux/filter.h>
-+#include <linux/prctl.h>
-+#include <linux/seccomp.h>
-+#include <stddef.h>
-+#include <stdio.h>
-+#include <stdlib.h>
-+#include <string.h>
-+#include <sys/prctl.h>
-+#include <sys/syscall.h>
-+#include <unistd.h>
-+
-+#ifndef seccomp
-+static int seccomp(unsigned int op, unsigned int flags, void *args)
-+{
-+	errno = 0;
-+	return syscall(__NR_seccomp, op, flags, args);
-+}
-+#endif
-+
-+#define ARRAY_SIZE(a)	(sizeof(a) / sizeof(a[0]))
-+#define MAX_ERRNO	4095
-+
-+
+ /*
+  * This is not intended for the UAPI headers. Each userland software should use
+  * a static minimal version for the required features as explained in the
+@@ -19,5 +22,38 @@
+  */
+ #define LANDLOCK_VERSION 1
+ 
 +struct landlock_rule {
-+	enum landlock_subtype_event event;
-+	struct bpf_insn *bpf;
-+	size_t size;
++	atomic_t usage;
++	struct landlock_rule *prev;
++	struct bpf_prog *prog;
 +};
 +
-+static int apply_sandbox(int prog_fd)
++/**
++ * struct landlock_events - Landlock event rules enforced on a thread
++ *
++ * This is used for low performance impact when forking a process. Instead of
++ * copying the full array and incrementing the usage of each entries, only
++ * create a pointer to &struct landlock_events and increments its usage. When
++ * appending a new rule, if &struct landlock_events is shared with other tasks,
++ * then duplicate it and append the rule to this new &struct landlock_events.
++ *
++ * @usage: reference count to manage the object lifetime. When a thread need to
++ *         add Landlock rules and if @usage is greater than 1, then the thread
++ *         must duplicate &struct landlock_events to not change the children's
++ *         rules as well.
++ * @rules: array of non-NULL &struct landlock_rule pointers
++ */
++struct landlock_events {
++	atomic_t usage;
++	struct landlock_rule *rules[_LANDLOCK_SUBTYPE_EVENT_LAST];
++};
++
++void put_landlock_events(struct landlock_events *events);
++
++#ifdef CONFIG_SECCOMP_FILTER
++int landlock_seccomp_append_prog(unsigned int flags,
++		const char __user *user_bpf_fd);
++#endif /* CONFIG_SECCOMP_FILTER */
++
+ #endif /* CONFIG_SECURITY_LANDLOCK */
+ #endif /* _LINUX_LANDLOCK_H */
+diff --git a/include/linux/seccomp.h b/include/linux/seccomp.h
+index e25aee2cdfc0..9a38de3c0e72 100644
+--- a/include/linux/seccomp.h
++++ b/include/linux/seccomp.h
+@@ -10,6 +10,10 @@
+ #include <linux/thread_info.h>
+ #include <asm/seccomp.h>
+ 
++#if defined(CONFIG_SECCOMP_FILTER) && defined(CONFIG_SECURITY_LANDLOCK)
++struct landlock_events;
++#endif /* CONFIG_SECCOMP_FILTER && CONFIG_SECURITY_LANDLOCK */
++
+ struct seccomp_filter;
+ /**
+  * struct seccomp - the state of a seccomp'ed process
+@@ -18,6 +22,7 @@ struct seccomp_filter;
+  *         system calls available to a process.
+  * @filter: must always point to a valid seccomp-filter or NULL as it is
+  *          accessed without locking during system call entry.
++ * @landlock_events: contains an array of Landlock rules.
+  *
+  *          @filter must only be accessed from the context of current as there
+  *          is no read locking.
+@@ -25,6 +30,9 @@ struct seccomp_filter;
+ struct seccomp {
+ 	int mode;
+ 	struct seccomp_filter *filter;
++#if defined(CONFIG_SECCOMP_FILTER) && defined(CONFIG_SECURITY_LANDLOCK)
++	struct landlock_events *landlock_events;
++#endif /* CONFIG_SECCOMP_FILTER && CONFIG_SECURITY_LANDLOCK */
+ };
+ 
+ #ifdef CONFIG_HAVE_ARCH_SECCOMP_FILTER
+diff --git a/include/uapi/linux/seccomp.h b/include/uapi/linux/seccomp.h
+index 0f238a43ff1e..74891cf60ca6 100644
+--- a/include/uapi/linux/seccomp.h
++++ b/include/uapi/linux/seccomp.h
+@@ -13,6 +13,7 @@
+ /* Valid operations for seccomp syscall. */
+ #define SECCOMP_SET_MODE_STRICT	0
+ #define SECCOMP_SET_MODE_FILTER	1
++#define SECCOMP_APPEND_LANDLOCK_RULE	2
+ 
+ /* Valid flags for SECCOMP_SET_MODE_FILTER */
+ #define SECCOMP_FILTER_FLAG_TSYNC	1
+diff --git a/kernel/fork.c b/kernel/fork.c
+index a27d8e67ce33..14c09486c565 100644
+--- a/kernel/fork.c
++++ b/kernel/fork.c
+@@ -47,6 +47,7 @@
+ #include <linux/security.h>
+ #include <linux/hugetlb.h>
+ #include <linux/seccomp.h>
++#include <linux/landlock.h>
+ #include <linux/swap.h>
+ #include <linux/syscalls.h>
+ #include <linux/jiffies.h>
+@@ -528,7 +529,10 @@ static struct task_struct *dup_task_struct(struct task_struct *orig, int node)
+ 	 * the usage counts on the error path calling free_task.
+ 	 */
+ 	tsk->seccomp.filter = NULL;
+-#endif
++#ifdef CONFIG_SECURITY_LANDLOCK
++	tsk->seccomp.landlock_events = NULL;
++#endif /* CONFIG_SECURITY_LANDLOCK */
++#endif /* CONFIG_SECCOMP */
+ 
+ 	setup_thread_stack(tsk, orig);
+ 	clear_user_return_notifier(tsk);
+@@ -1405,7 +1409,13 @@ static void copy_seccomp(struct task_struct *p)
+ 
+ 	/* Ref-count the new filter user, and assign it. */
+ 	get_seccomp_filter(current);
+-	p->seccomp = current->seccomp;
++	p->seccomp.mode = current->seccomp.mode;
++	p->seccomp.filter = current->seccomp.filter;
++#if defined(CONFIG_SECCOMP_FILTER) && defined(CONFIG_SECURITY_LANDLOCK)
++	p->seccomp.landlock_events = current->seccomp.landlock_events;
++	if (p->seccomp.landlock_events)
++		atomic_inc(&p->seccomp.landlock_events->usage);
++#endif /* CONFIG_SECCOMP_FILTER && CONFIG_SECURITY_LANDLOCK */
+ 
+ 	/*
+ 	 * Explicitly enable no_new_privs here in case it got set
+diff --git a/kernel/seccomp.c b/kernel/seccomp.c
+index 326f79e32127..d122829e6da1 100644
+--- a/kernel/seccomp.c
++++ b/kernel/seccomp.c
+@@ -34,6 +34,7 @@
+ #include <linux/security.h>
+ #include <linux/tracehook.h>
+ #include <linux/uaccess.h>
++#include <linux/landlock.h>
+ 
+ /**
+  * struct seccomp_filter - container for seccomp BPF programs
+@@ -494,6 +495,9 @@ static void put_seccomp_filter(struct seccomp_filter *filter)
+ void put_seccomp(struct task_struct *tsk)
+ {
+ 	put_seccomp_filter(tsk->seccomp.filter);
++#ifdef CONFIG_SECURITY_LANDLOCK
++	put_landlock_events(tsk->seccomp.landlock_events);
++#endif /* CONFIG_SECURITY_LANDLOCK */
+ }
+ 
+ static void seccomp_init_siginfo(siginfo_t *info, int syscall, int reason)
+@@ -813,6 +817,10 @@ static long do_seccomp(unsigned int op, unsigned int flags,
+ 		return seccomp_set_mode_strict();
+ 	case SECCOMP_SET_MODE_FILTER:
+ 		return seccomp_set_mode_filter(flags, uargs);
++#if defined(CONFIG_SECCOMP_FILTER) && defined(CONFIG_SECURITY_LANDLOCK)
++	case SECCOMP_APPEND_LANDLOCK_RULE:
++		return landlock_seccomp_append_prog(flags, uargs);
++#endif /* CONFIG_SECCOMP_FILTER && CONFIG_SECURITY_LANDLOCK */
+ 	default:
+ 		return -EINVAL;
+ 	}
+diff --git a/security/landlock/Makefile b/security/landlock/Makefile
+index c0db504a6335..da8ba8b5183e 100644
+--- a/security/landlock/Makefile
++++ b/security/landlock/Makefile
+@@ -2,4 +2,4 @@ ccflags-$(CONFIG_SECURITY_LANDLOCK) += -Werror=unused-function
+ 
+ obj-$(CONFIG_SECURITY_LANDLOCK) := landlock.o
+ 
+-landlock-y := init.o hooks.o hooks_fs.o
++landlock-y := init.o providers.o hooks.o hooks_fs.o
+diff --git a/security/landlock/hooks.c b/security/landlock/hooks.c
+index eaee8162ff70..4fa7d0b38d41 100644
+--- a/security/landlock/hooks.c
++++ b/security/landlock/hooks.c
+@@ -95,6 +95,38 @@ bool landlock_is_valid_access(int off, int size, enum bpf_access_type type,
+ 	return true;
+ }
+ 
++/**
++ * landlock_event_deny - run Landlock rules tied to an event
++ *
++ * @event_idx: event index in the rules array
++ * @ctx: non-NULL eBPF context
++ * @events: Landlock events pointer
++ *
++ * Return true if at least one rule deny the event.
++ */
++static bool landlock_event_deny(u32 event_idx, const struct landlock_context *ctx,
++		struct landlock_events *events)
 +{
-+	int ret = 0;
++	struct landlock_rule *rule;
 +
-+	/* set up the test sandbox */
-+	if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0)) {
-+		perror("prctl(no_new_priv)");
-+		return 1;
-+	}
-+	if (seccomp(SECCOMP_APPEND_LANDLOCK_RULE, 0, &prog_fd)) {
-+		perror("seccomp(set_hook)");
-+		ret = 1;
-+	}
-+	close(prog_fd);
++	if (!events)
++		return false;
 +
++	for (rule = events->rules[event_idx]; rule; rule = rule->prev) {
++		u32 ret;
++
++		if (WARN_ON(!rule->prog))
++			continue;
++		rcu_read_lock();
++		ret = BPF_PROG_RUN(rule->prog, (void *)ctx);
++		rcu_read_unlock();
++		/* deny access if a program returns a value different than 0 */
++		if (ret)
++			return true;
++	}
++	return false;
++}
++
+ int landlock_decide(enum landlock_subtype_event event,
+ 		__u64 ctx_values[CTX_ARG_NB], u32 cmd, const char *hook)
+ {
+@@ -111,5 +143,10 @@ int landlock_decide(enum landlock_subtype_event event,
+ 		.arg2 = ctx_values[1],
+ 	};
+ 
++#ifdef CONFIG_SECCOMP_FILTER
++	deny = landlock_event_deny(event_idx, &ctx,
++			current->seccomp.landlock_events);
++#endif /* CONFIG_SECCOMP_FILTER */
++
+ 	return deny ? -EPERM : 0;
+ }
+diff --git a/security/landlock/hooks.h b/security/landlock/hooks.h
+index 2e180f6ed86b..dd0486a4c284 100644
+--- a/security/landlock/hooks.h
++++ b/security/landlock/hooks.h
+@@ -12,6 +12,7 @@
+ #include <linux/bpf.h> /* enum bpf_access_type */
+ #include <linux/lsm_hooks.h>
+ #include <linux/sched.h> /* struct task_struct */
++#include <linux/seccomp.h>
+ 
+ /* separators */
+ #define SEP_COMMA() ,
+@@ -163,7 +164,11 @@ WRAP_TYPE_RAW_C;
+ 
+ static inline bool landlocked(const struct task_struct *task)
+ {
++#ifdef CONFIG_SECCOMP_FILTER
++	return !!(task->seccomp.landlock_events);
++#else
+ 	return false;
++#endif /* CONFIG_SECCOMP_FILTER */
+ }
+ 
+ __init void landlock_register_hooks(struct security_hook_list *hooks, int count);
+diff --git a/security/landlock/init.c b/security/landlock/init.c
+index 1c2750e12dfa..ef8a3da69860 100644
+--- a/security/landlock/init.c
++++ b/security/landlock/init.c
+@@ -135,7 +135,8 @@ static struct bpf_prog_type_list bpf_landlock_type __ro_after_init = {
+ 
+ void __init landlock_add_hooks(void)
+ {
+-	pr_info("landlock: Version %u", LANDLOCK_VERSION);
++	pr_info("landlock: Version %u, ready to sandbox with %s\n",
++			LANDLOCK_VERSION, "seccomp");
+ 	landlock_add_hooks_fs();
+ 	security_add_hooks(NULL, 0, "landlock");
+ 	bpf_register_prog_type(&bpf_landlock_type);
+diff --git a/security/landlock/providers.c b/security/landlock/providers.c
+new file mode 100644
+index 000000000000..6d867a39c947
+--- /dev/null
++++ b/security/landlock/providers.c
+@@ -0,0 +1,232 @@
++/*
++ * Landlock LSM - seccomp provider
++ *
++ * Copyright © 2017 Mickaël Salaün <mic@digikod.net>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2, as
++ * published by the Free Software Foundation.
++ */
++
++#include <asm/page.h> /* PAGE_SIZE */
++#include <linux/atomic.h> /* atomic_*(), smp_store_release() */
++#include <linux/bpf.h> /* bpf_prog_put() */
++#include <linux/filter.h> /* struct bpf_prog */
++#include <linux/kernel.h> /* round_up() */
++#include <linux/landlock.h>
++#include <linux/sched.h> /* current_cred(), task_no_new_privs() */
++#include <linux/security.h> /* security_capable_noaudit() */
++#include <linux/slab.h> /* alloc(), kfree() */
++#include <linux/types.h> /* atomic_t */
++#include <linux/uaccess.h> /* copy_from_user() */
++
++#include "common.h"
++
++static void put_landlock_rule(struct landlock_rule *rule)
++{
++	struct landlock_rule *orig = rule;
++
++	/* clean up single-reference branches iteratively */
++	while (orig && atomic_dec_and_test(&orig->usage)) {
++		struct landlock_rule *freeme = orig;
++
++		bpf_prog_put(orig->prog);
++		orig = orig->prev;
++		kfree(freeme);
++	}
++}
++
++void put_landlock_events(struct landlock_events *events)
++{
++	if (events && atomic_dec_and_test(&events->usage)) {
++		size_t i;
++
++		for (i = 0; i < ARRAY_SIZE(events->rules); i++)
++			/* XXX: Do we need to use lockless_dereference() here? */
++			put_landlock_rule(events->rules[i]);
++		kfree(events);
++	}
++}
++
++static struct landlock_events *new_landlock_events(void)
++{
++	struct landlock_events *ret;
++
++	/* array filled with NULL values */
++	ret = kzalloc(sizeof(*ret), GFP_KERNEL);
++	if (!ret)
++		return ERR_PTR(-ENOMEM);
++	atomic_set(&ret->usage, 1);
 +	return ret;
 +}
 +
-+int main(int argc, char * const argv[], char * const *envp)
++static void add_landlock_rule(struct landlock_events *events,
++		struct landlock_rule *rule)
 +{
-+	char filename[256];
-+	char *cmd_path;
-+	char * const *cmd_argv;
++	/* subtype.landlock_rule.event > 0 for loaded programs */
++	u32 event_idx = get_index(rule->prog->subtype.landlock_rule.event);
 +
-+	if (argc < 2) {
-+		fprintf(stderr, "usage: %s <cmd> [args]...\n\n", argv[0]);
-+		fprintf(stderr, "Launch a command in a read-only environment "
-+				"(except for character devices).\n");
-+		fprintf(stderr, "Display debug with: "
-+				"cat /sys/kernel/debug/tracing/trace_pipe &\n");
-+		return 1;
-+	}
-+
-+	snprintf(filename, sizeof(filename), "%s_kern.o", argv[0]);
-+	if (load_bpf_file(filename)) {
-+		printf("%s", bpf_log_buf);
-+		return 1;
-+	}
-+	if (!prog_fd[0]) {
-+		if (errno) {
-+			printf("load_bpf_file: %s\n", strerror(errno));
-+		} else {
-+			printf("load_bpf_file: Error\n");
-+		}
-+		return 1;
-+	}
-+
-+	if (apply_sandbox(prog_fd[0]))
-+		return 1;
-+	cmd_path = argv[1];
-+	cmd_argv = argv + 1;
-+	fprintf(stderr, "Launching a new sandboxed process.\n");
-+	execve(cmd_path, cmd_argv, envp);
-+	perror("execve");
-+	return 1;
++	rule->prev = events->rules[event_idx];
++	WARN_ON(atomic_read(&rule->usage));
++	atomic_set(&rule->usage, 1);
++	/* do not increment the previous rule usage */
++	smp_store_release(&events->rules[event_idx], rule);
 +}
++
++/* limit Landlock events to 256KB */
++#define LANDLOCK_EVENTS_MAX_PAGES (1 << 6)
++
++/**
++ * landlock_append_prog - attach a Landlock rule to @current_events
++ *
++ * @current_events: landlock_events pointer, must be locked (if needed) to
++ *                  prevent a concurrent put/free. This pointer must not be
++ *                  freed after the call.
++ * @prog: non-NULL Landlock rule to append to @current_events. @prog will be
++ *        owned by landlock_append_prog() and freed if an error happened.
++ *
++ * Return @current_events or a new pointer when OK. Return a pointer error
++ * otherwise.
++ */
++static struct landlock_events *landlock_append_prog(
++		struct landlock_events *current_events, struct bpf_prog *prog)
++{
++	struct landlock_events *new_events = current_events;
++	unsigned long pages;
++	struct landlock_rule *rule;
++	u32 event_idx;
++
++	if (prog->type != BPF_PROG_TYPE_LANDLOCK) {
++		new_events = ERR_PTR(-EINVAL);
++		goto put_prog;
++	}
++
++	/* validate memory size allocation */
++	pages = prog->pages;
++	if (current_events) {
++		size_t i;
++
++		for (i = 0; i < ARRAY_SIZE(current_events->rules); i++) {
++			struct landlock_rule *walker_r;
++
++			for (walker_r = current_events->rules[i]; walker_r;
++					walker_r = walker_r->prev)
++				pages += walker_r->prog->pages;
++		}
++		/* count a struct landlock_events if we need to allocate one */
++		if (atomic_read(&current_events->usage) != 1)
++			pages += round_up(sizeof(*current_events), PAGE_SIZE) /
++				PAGE_SIZE;
++	}
++	if (pages > LANDLOCK_EVENTS_MAX_PAGES) {
++		new_events = ERR_PTR(-E2BIG);
++		goto put_prog;
++	}
++
++	rule = kzalloc(sizeof(*rule), GFP_KERNEL);
++	if (!rule) {
++		new_events = ERR_PTR(-ENOMEM);
++		goto put_prog;
++	}
++	rule->prog = prog;
++
++	/* subtype.landlock_rule.event > 0 for loaded programs */
++	event_idx = get_index(rule->prog->subtype.landlock_rule.event);
++
++	if (!new_events) {
++		/*
++		 * If there is no Landlock events used by the current task,
++		 * then create a new one.
++		 */
++		new_events = new_landlock_events();
++		if (IS_ERR(new_events))
++			goto put_rule;
++	} else if (atomic_read(&current_events->usage) > 1) {
++		/*
++		 * If the current task is not the sole user of its Landlock
++		 * events, then duplicate them.
++		 */
++		size_t i;
++
++		new_events = new_landlock_events();
++		if (IS_ERR(new_events))
++			goto put_rule;
++		for (i = 0; i < ARRAY_SIZE(new_events->rules); i++) {
++			new_events->rules[i] =
++				lockless_dereference(current_events->rules[i]);
++			if (new_events->rules[i])
++				atomic_inc(&new_events->rules[i]->usage);
++		}
++
++		/*
++		 * Landlock events from the current task will not be freed here
++		 * because the usage is strictly greater than 1. It is only
++		 * prevented to be freed by another subject thanks to the
++		 * caller of landlock_append_prog() which should be locked if
++		 * needed.
++		 */
++		put_landlock_events(current_events);
++	}
++	add_landlock_rule(new_events, rule);
++	return new_events;
++
++put_prog:
++	bpf_prog_put(prog);
++	return new_events;
++
++put_rule:
++	put_landlock_rule(rule);
++	return new_events;
++}
++
++/**
++ * landlock_seccomp_append_prog - attach a Landlock rule to the current process
++ *
++ * current->seccomp.landlock_events is lazily allocated. When a process fork,
++ * only a pointer is copied. When a new event is added by a process, if there
++ * is other references to this process' landlock_events, then a new allocation
++ * is made to contain an array pointing to Landlock rule lists. This design
++ * enable low-performance impact and is memory efficient while keeping the
++ * property of append-only rules.
++ *
++ * @flags: not used for now, but could be used for TSYNC
++ * @user_bpf_fd: file descriptor pointing to a loaded Landlock rule
++ */
++#ifdef CONFIG_SECCOMP_FILTER
++int landlock_seccomp_append_prog(unsigned int flags,
++		const char __user *user_bpf_fd)
++{
++	struct landlock_events *new_events;
++	struct bpf_prog *prog;
++	int bpf_fd;
++
++	/* force no_new_privs to limit privilege escalation */
++	if (!task_no_new_privs(current))
++		return -EPERM;
++	/* will be removed in the future to allow unprivileged tasks */
++	if (!capable(CAP_SYS_ADMIN))
++		return -EPERM;
++	/* enable to check if Landlock is supported with early EFAULT */
++	if (!user_bpf_fd)
++		return -EFAULT;
++	if (flags)
++		return -EINVAL;
++	if (copy_from_user(&bpf_fd, user_bpf_fd, sizeof(bpf_fd)))
++		return -EFAULT;
++	prog = bpf_prog_get(bpf_fd);
++	if (IS_ERR(prog))
++		return PTR_ERR(prog);
++
++	/*
++	 * We don't need to lock anything for the current process hierarchy,
++	 * everything is guarded by the atomic counters.
++	 */
++	new_events = landlock_append_prog(current->seccomp.landlock_events,
++			prog);
++	/* @prog is managed/freed by landlock_append_prog() */
++	if (IS_ERR(new_events))
++		return PTR_ERR(new_events);
++	current->seccomp.landlock_events = new_events;
++	return 0;
++}
++#endif /* CONFIG_SECCOMP_FILTER */
 -- 
 2.11.0
