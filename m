@@ -1,56 +1,66 @@
-From: Salam Noureddine <noureddine@arista.com>
-Subject: Null pointer dereference in tg3_poll_work running linux-3.4
-Date: Tue, 28 Mar 2017 11:32:40 -0700
-Message-ID: <CAO7SqHCqADHoZMy7+quaF83-Ln24A=xx10D1Tv9=SX5DFsncpg@mail.gmail.com>
+From: Jarno Rajahalme <jarno@ovn.org>
+Subject: [PATCH net] openvswitch: Fix refcount leak on force commit.
+Date: Tue, 28 Mar 2017 11:25:26 -0700
+Message-ID: <1490725526-21075-1-git-send-email-jarno@ovn.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: mchan@broadcom.com, prashant@broadcom.com, siva.kallam@broadcom.com
-To: Network Development <netdev@vger.kernel.org>
+Content-Transfer-Encoding: 8bit
+Cc: jarno@ovn.org, joe@ovn.org, pshelar@ovn.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f53.google.com ([209.85.213.53]:36228 "EHLO
-        mail-vk0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755487AbdC1SdP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 28 Mar 2017 14:33:15 -0400
-Received: by mail-vk0-f53.google.com with SMTP id s68so98784129vke.3
-        for <netdev@vger.kernel.org>; Tue, 28 Mar 2017 11:33:00 -0700 (PDT)
+Received: from slow1-d.mail.gandi.net ([217.70.178.86]:54800 "EHLO
+        slow1-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755487AbdC1SdX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 28 Mar 2017 14:33:23 -0400
+Received: from relay7-d.mail.gandi.net (relay7-d.mail.gandi.net [217.70.183.200])
+        by slow1-d.mail.gandi.net (Postfix) with ESMTP id 1B86A487215
+        for <netdev@vger.kernel.org>; Tue, 28 Mar 2017 20:25:50 +0200 (CEST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+The reference count held for skb needs to be released when the skb's
+nfct pointer is cleared regardless of if nf_ct_delete() is called or
+not.
 
-We've seen a very rare kernel panic in tg3_poll_work on hardware
-running linux-3.4.
-I haven't seen any upstream patches that seem to fix this issue in the
-tg3 driver.
-The disassembly shows that the panic is happening in tg3_rx which is
-inlined into
-tg3_poll_work. In the code below, the "data" pointer seem to be Null,
+Failing to release the skb's reference cound led to deferred conntrack
+cleanup spinning forever within nf_conntrack_cleanup_net_list() when
+cleaning up a network namespace:
 
-                        tg3_recycle_rx(tnapi, tpr, opaque_key,
-                                       desc_idx, *post_ptr);
+   kworker/u16:0-19025 [004] 45981067.173642: sched_switch: kworker/u16:0:19025 [120] R ==> rcu_preempt:7 [120]
+   kworker/u16:0-19025 [004] 45981067.173651: kernel_stack: <stack trace>
+=> ___preempt_schedule (ffffffffa001ed36)
+=> _raw_spin_unlock_bh (ffffffffa0713290)
+=> nf_ct_iterate_cleanup (ffffffffc00a4454)
+=> nf_conntrack_cleanup_net_list (ffffffffc00a5e1e)
+=> nf_conntrack_pernet_exit (ffffffffc00a63dd)
+=> ops_exit_list.isra.1 (ffffffffa06075f3)
+=> cleanup_net (ffffffffa0607df0)
+=> process_one_work (ffffffffa0084c31)
+=> worker_thread (ffffffffa008592b)
+=> kthread (ffffffffa008bee2)
+=> ret_from_fork (ffffffffa071b67c)
 
-                        skb = netdev_alloc_skb(tp->dev,
-                                               len + TG3_RAW_IP_ALIGN);
+Fixes: dd41d33f0b03 ("openvswitch: Add force commit.")
+Reported-by: Yang Song <yangsong@vmware.com>
+Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
+---
+ net/openvswitch/conntrack.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-                        if (skb == NULL)
-                                goto drop_it_no_recycle;
-
-                        skb_reserve(skb, TG3_RAW_IP_ALIGN);
-                        pci_dma_sync_single_for_cpu(tp->pdev,
-dma_addr, len, PCI_DMA_FROMDEVICE);
-                        memcpy(skb->data,
-                               data + TG3_RX_OFFSET(tp),
-                               len);
-
-                        pci_dma_sync_single_for_device(tp->pdev, dma_addr, len,
-PCI_DMA_FROMDEVICE);
-
-I am wondering if anyone has seen this before or if it was fixed and I
-missed the patch for it. If not,
-any ideas on how we could end up with data being null? I don't have a
-reproduction scenario for
-this one.
-
-Thanks,
-
-Salam
+diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
+index e0a8777..7b2c2fc 100644
+--- a/net/openvswitch/conntrack.c
++++ b/net/openvswitch/conntrack.c
+@@ -643,8 +643,8 @@ static bool skb_nfct_cached(struct net *net,
+ 		 */
+ 		if (nf_ct_is_confirmed(ct))
+ 			nf_ct_delete(ct, 0, 0);
+-		else
+-			nf_conntrack_put(&ct->ct_general);
++
++		nf_conntrack_put(&ct->ct_general);
+ 		nf_ct_set(skb, NULL, 0);
+ 		return false;
+ 	}
+-- 
+2.1.4
