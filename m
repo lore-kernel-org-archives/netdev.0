@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 8/8] mlxsw: spectrum: Add Support for erif table entries access
-Date: Tue, 28 Mar 2017 17:24:17 +0200
-Message-ID: <1490714657-6116-9-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v2 3/8] mlxsw: spectrum: Add placeholder for dpipe
+Date: Tue, 28 Mar 2017 17:24:12 +0200
+Message-ID: <1490714657-6116-4-git-send-email-jiri@resnulli.us>
 References: <1490714657-6116-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, arkadis@mellanox.com, idosch@mellanox.com,
         mlxsw@mellanox.com, jhs@mojatatu.com, ivecera@redhat.com,
@@ -10,239 +10,197 @@ Cc: davem@davemloft.net, arkadis@mellanox.com, idosch@mellanox.com,
         andrew@lunn.ch, simon.horman@netronome.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:33127 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751736AbdC1PYr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 28 Mar 2017 11:24:47 -0400
-Received: by mail-wm0-f66.google.com with SMTP id o81so308462wmb.0
-        for <netdev@vger.kernel.org>; Tue, 28 Mar 2017 08:24:32 -0700 (PDT)
+Received: from mail-wr0-f193.google.com ([209.85.128.193]:34752 "EHLO
+        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751474AbdC1PZI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 28 Mar 2017 11:25:08 -0400
+Received: by mail-wr0-f193.google.com with SMTP id w43so20616895wrb.1
+        for <netdev@vger.kernel.org>; Tue, 28 Mar 2017 08:25:06 -0700 (PDT)
 In-Reply-To: <1490714657-6116-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Arkadi Sharshevsky <arkadis@mellanox.com>
 
-Implement dpipe's table ops for erif table which provide:
-1. Getting the entries in the table with the associate values.
-	- match on "mlxsw_meta:erif_index"
-	- action on "mlxsw_meta:forwared_out"
-2. Synchronize the hardware in case of enabling/disabling counters which
-   mean removing erif counters from all interfaces.
+Add placeholder for dpipe. Support for specific tables and headers will
+be introduced in following patches. The headers are shared between all
+mlxsw_sp instances.
 
 Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
-v1->v2:
-- fix warning pointed out by DaveM
----
- .../net/ethernet/mellanox/mlxsw/spectrum_dpipe.c   | 185 +++++++++++++++++++++
- 1 file changed, 185 insertions(+)
+ drivers/net/ethernet/mellanox/mlxsw/Makefile       |  2 +-
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c     | 10 ++++
+ .../net/ethernet/mellanox/mlxsw/spectrum_dpipe.c   | 57 ++++++++++++++++++++++
+ .../net/ethernet/mellanox/mlxsw/spectrum_dpipe.h   | 41 ++++++++++++++++
+ 4 files changed, 109 insertions(+), 1 deletion(-)
+ create mode 100644 drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.h
 
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/Makefile b/drivers/net/ethernet/mellanox/mlxsw/Makefile
+index 95fcacf..2fb8c65 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/Makefile
++++ b/drivers/net/ethernet/mellanox/mlxsw/Makefile
+@@ -16,7 +16,7 @@ mlxsw_spectrum-objs		:= spectrum.o spectrum_buffers.o \
+ 				   spectrum_switchdev.o spectrum_router.o \
+ 				   spectrum_kvdl.o spectrum_acl_tcam.o \
+ 				   spectrum_acl.o spectrum_flower.o \
+-				   spectrum_cnt.o
++				   spectrum_cnt.o spectrum_dpipe.o
+ mlxsw_spectrum-$(CONFIG_MLXSW_SPECTRUM_DCB)	+= spectrum_dcb.o
+ obj-$(CONFIG_MLXSW_MINIMAL)	+= mlxsw_minimal.o
+ mlxsw_minimal-objs		:= minimal.o
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+index eabfe5c..b031f09 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+@@ -67,6 +67,7 @@
+ #include "trap.h"
+ #include "txheader.h"
+ #include "spectrum_cnt.h"
++#include "spectrum_dpipe.h"
+ 
+ static const char mlxsw_sp_driver_name[] = "mlxsw_spectrum";
+ static const char mlxsw_sp_driver_version[] = "1.0";
+@@ -3339,6 +3340,12 @@ static int mlxsw_sp_init(struct mlxsw_core *mlxsw_core,
+ 		goto err_counter_pool_init;
+ 	}
+ 
++	err = mlxsw_sp_dpipe_init(mlxsw_sp);
++	if (err) {
++		dev_err(mlxsw_sp->bus_info->dev, "Failed to init pipeline debug\n");
++		goto err_dpipe_init;
++	}
++
+ 	err = mlxsw_sp_ports_create(mlxsw_sp);
+ 	if (err) {
+ 		dev_err(mlxsw_sp->bus_info->dev, "Failed to create ports\n");
+@@ -3348,6 +3355,8 @@ static int mlxsw_sp_init(struct mlxsw_core *mlxsw_core,
+ 	return 0;
+ 
+ err_ports_create:
++	mlxsw_sp_dpipe_fini(mlxsw_sp);
++err_dpipe_init:
+ 	mlxsw_sp_counter_pool_fini(mlxsw_sp);
+ err_counter_pool_init:
+ 	mlxsw_sp_acl_fini(mlxsw_sp);
+@@ -3372,6 +3381,7 @@ static void mlxsw_sp_fini(struct mlxsw_core *mlxsw_core)
+ 	struct mlxsw_sp *mlxsw_sp = mlxsw_core_driver_priv(mlxsw_core);
+ 
+ 	mlxsw_sp_ports_remove(mlxsw_sp);
++	mlxsw_sp_dpipe_fini(mlxsw_sp);
+ 	mlxsw_sp_counter_pool_fini(mlxsw_sp);
+ 	mlxsw_sp_acl_fini(mlxsw_sp);
+ 	mlxsw_sp_span_fini(mlxsw_sp);
 diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.c
-index 5dde222..ea56f6a 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.c
+new file mode 100644
+index 0000000..7c87bc8
+--- /dev/null
 +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.c
-@@ -37,6 +37,7 @@
- 
- #include "spectrum.h"
- #include "spectrum_dpipe.h"
-+#include "spectrum_router.h"
- 
- enum mlxsw_sp_field_metadata_id {
- 	MLXSW_SP_DPIPE_FIELD_METADATA_ERIF_PORT,
-@@ -113,9 +114,193 @@ static int mlxsw_sp_dpipe_table_erif_matches_dump(void *priv,
- 	return devlink_dpipe_match_put(skb, &match);
- }
- 
-+static void mlxsw_sp_erif_entry_clear(struct devlink_dpipe_entry *entry)
+@@ -0,0 +1,57 @@
++/*
++ * drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.c
++ * Copyright (c) 2017 Mellanox Technologies. All rights reserved.
++ * Copyright (c) 2017 Arkadi Sharshevsky <arakdis@mellanox.com>
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions are met:
++ *
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ * 3. Neither the names of the copyright holders nor the names of its
++ *    contributors may be used to endorse or promote products derived from
++ *    this software without specific prior written permission.
++ *
++ * Alternatively, this software may be distributed under the terms of the
++ * GNU General Public License ("GPL") version 2 as published by the Free
++ * Software Foundation.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
++ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
++ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
++ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
++ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
++ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
++ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
++ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
++ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
++ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
++ * POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#include <linux/kernel.h>
++#include <net/devlink.h>
++
++#include "spectrum.h"
++#include "spectrum_dpipe.h"
++
++static struct devlink_dpipe_header *mlxsw_dpipe_headers[] = {};
++
++static struct devlink_dpipe_headers mlxsw_sp_dpipe_headers = {
++	.headers = mlxsw_dpipe_headers,
++	.headers_count = ARRAY_SIZE(mlxsw_dpipe_headers),
++};
++
++int mlxsw_sp_dpipe_init(struct mlxsw_sp *mlxsw_sp)
 +{
-+	unsigned int value_count, value_index;
-+	struct devlink_dpipe_value *value;
-+
-+	value = entry->action_values;
-+	value_count = entry->action_values_count;
-+	for (value_index = 0; value_index < value_count; value_index++) {
-+		kfree(value[value_index].value);
-+		kfree(value[value_index].mask);
-+	}
-+
-+	value = entry->match_values;
-+	value_count = entry->match_values_count;
-+	for (value_index = 0; value_index < value_count; value_index++) {
-+		kfree(value[value_index].value);
-+		kfree(value[value_index].mask);
-+	}
++	return devlink_dpipe_headers_register(priv_to_devlink(mlxsw_sp->core),
++					      &mlxsw_sp_dpipe_headers);
 +}
 +
-+static void
-+mlxsw_sp_erif_match_action_prepare(struct devlink_dpipe_match *match,
-+				   struct devlink_dpipe_action *action)
++void mlxsw_sp_dpipe_fini(struct mlxsw_sp *mlxsw_sp)
 +{
-+	action->type = DEVLINK_DPIPE_ACTION_TYPE_FIELD_MODIFY;
-+	action->header = &mlxsw_sp_dpipe_header_metadata;
-+	action->field_id = MLXSW_SP_DPIPE_FIELD_METADATA_L3_FORWARD;
-+
-+	match->type = DEVLINK_DPIPE_MATCH_TYPE_FIELD_EXACT;
-+	match->header = &mlxsw_sp_dpipe_header_metadata;
-+	match->field_id = MLXSW_SP_DPIPE_FIELD_METADATA_ERIF_PORT;
++	devlink_dpipe_headers_unregister(priv_to_devlink(mlxsw_sp->core));
 +}
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.h
+new file mode 100644
+index 0000000..ad16259
+--- /dev/null
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.h
+@@ -0,0 +1,41 @@
++/*
++ * drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.h
++ * Copyright (c) 2017 Mellanox Technologies. All rights reserved.
++ * Copyright (c) 2017 Arkadi Sharshevsky <arkadis@mellanox.com>
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions are met:
++ *
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ * 3. Neither the names of the copyright holders nor the names of its
++ *    contributors may be used to endorse or promote products derived from
++ *    this software without specific prior written permission.
++ *
++ * Alternatively, this software may be distributed under the terms of the
++ * GNU General Public License ("GPL") version 2 as published by the Free
++ * Software Foundation.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
++ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
++ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
++ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
++ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
++ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
++ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
++ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
++ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
++ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
++ * POSSIBILITY OF SUCH DAMAGE.
++ */
 +
-+static int mlxsw_sp_erif_entry_prepare(struct devlink_dpipe_entry *entry,
-+				       struct devlink_dpipe_value *match_value,
-+				       struct devlink_dpipe_match *match,
-+				       struct devlink_dpipe_value *action_value,
-+				       struct devlink_dpipe_action *action)
-+{
-+	entry->match_values = match_value;
-+	entry->match_values_count = 1;
++#ifndef _MLXSW_PIPELINE_H_
++#define _MLXSW_PIPELINE_H_
 +
-+	entry->action_values = action_value;
-+	entry->action_values_count = 1;
++int mlxsw_sp_dpipe_init(struct mlxsw_sp *mlxsw_sp);
++void mlxsw_sp_dpipe_fini(struct mlxsw_sp *mlxsw_sp);
 +
-+	match_value->match = match;
-+	match_value->value_size = sizeof(u32);
-+	match_value->value = kmalloc(match_value->value_size, GFP_KERNEL);
-+	if (!match_value->value)
-+		return -ENOMEM;
-+
-+	action_value->action = action;
-+	action_value->value_size = sizeof(u32);
-+	action_value->value = kmalloc(action_value->value_size, GFP_KERNEL);
-+	if (!action_value->value)
-+		goto err_action_alloc;
-+	return 0;
-+
-+err_action_alloc:
-+	kfree(match_value->value);
-+	return -ENOMEM;
-+}
-+
-+static int mlxsw_sp_erif_entry_get(struct mlxsw_sp *mlxsw_sp,
-+				   struct devlink_dpipe_entry *entry,
-+				   struct mlxsw_sp_rif *rif,
-+				   bool counters_enabled)
-+{
-+	u32 *action_value;
-+	u32 *rif_value;
-+	u64 cnt;
-+	int err;
-+
-+	/* Set Match RIF index */
-+	rif_value = entry->match_values->value;
-+	*rif_value = mlxsw_sp_rif_index(rif);
-+	entry->match_values->mapping_value = mlxsw_sp_rif_dev_ifindex(rif);
-+	entry->match_values->mapping_valid = true;
-+
-+	/* Set Action Forwarding */
-+	action_value = entry->action_values->value;
-+	*action_value = 1;
-+
-+	entry->counter_valid = false;
-+	entry->counter = 0;
-+	if (!counters_enabled)
-+		return 0;
-+
-+	entry->index = mlxsw_sp_rif_index(rif);
-+	err = mlxsw_sp_rif_counter_value_get(mlxsw_sp, rif,
-+					     MLXSW_SP_RIF_COUNTER_EGRESS,
-+					     &cnt);
-+	if (!err) {
-+		entry->counter = cnt;
-+		entry->counter_valid = true;
-+	}
-+	return 0;
-+}
-+
-+static int
-+mlxsw_sp_table_erif_entries_dump(void *priv, bool counters_enabled,
-+				 struct devlink_dpipe_dump_ctx *dump_ctx)
-+{
-+	struct devlink_dpipe_value match_value = {{0}}, action_value = {{0}};
-+	struct devlink_dpipe_action action = {0};
-+	struct devlink_dpipe_match match = {0};
-+	struct devlink_dpipe_entry entry = {0};
-+	struct mlxsw_sp *mlxsw_sp = priv;
-+	unsigned int rif_count;
-+	int i, j;
-+	int err;
-+
-+	mlxsw_sp_erif_match_action_prepare(&match, &action);
-+	err = mlxsw_sp_erif_entry_prepare(&entry, &match_value, &match,
-+					  &action_value, &action);
-+	if (err)
-+		return err;
-+
-+	rif_count = MLXSW_CORE_RES_GET(mlxsw_sp->core, MAX_RIFS);
-+	rtnl_lock();
-+	i = 0;
-+start_again:
-+	err = devlink_dpipe_entry_ctx_prepare(dump_ctx);
-+	if (err)
-+		return err;
-+	j = 0;
-+	for (; i < rif_count; i++) {
-+		if (!mlxsw_sp->rifs[i])
-+			continue;
-+		err = mlxsw_sp_erif_entry_get(mlxsw_sp, &entry,
-+					      mlxsw_sp->rifs[i],
-+					      counters_enabled);
-+		if (err)
-+			goto err_entry_get;
-+		err = devlink_dpipe_entry_ctx_append(dump_ctx, &entry);
-+		if (err) {
-+			if (err == -EMSGSIZE) {
-+				if (!j)
-+					goto err_entry_append;
-+				break;
-+			}
-+			goto err_entry_append;
-+		}
-+		j++;
-+	}
-+
-+	devlink_dpipe_entry_ctx_close(dump_ctx);
-+	if (i != rif_count)
-+		goto start_again;
-+	rtnl_unlock();
-+
-+	mlxsw_sp_erif_entry_clear(&entry);
-+	return 0;
-+err_entry_append:
-+err_entry_get:
-+	rtnl_unlock();
-+	mlxsw_sp_erif_entry_clear(&entry);
-+	return err;
-+}
-+
-+static int mlxsw_sp_table_erif_counters_update(void *priv, bool enable)
-+{
-+	struct mlxsw_sp *mlxsw_sp = priv;
-+	int i;
-+
-+	rtnl_lock();
-+	for (i = 0; i < MLXSW_CORE_RES_GET(mlxsw_sp->core, MAX_RIFS); i++) {
-+		if (!mlxsw_sp->rifs[i])
-+			continue;
-+		if (enable)
-+			mlxsw_sp_rif_counter_alloc(mlxsw_sp,
-+						   mlxsw_sp->rifs[i],
-+						   MLXSW_SP_RIF_COUNTER_EGRESS);
-+		else
-+			mlxsw_sp_rif_counter_free(mlxsw_sp,
-+						  mlxsw_sp->rifs[i],
-+						  MLXSW_SP_RIF_COUNTER_EGRESS);
-+	}
-+	rtnl_unlock();
-+	return 0;
-+}
-+
- static struct devlink_dpipe_table_ops mlxsw_sp_erif_ops = {
- 	.matches_dump = mlxsw_sp_dpipe_table_erif_matches_dump,
- 	.actions_dump = mlxsw_sp_dpipe_table_erif_actions_dump,
-+	.entries_dump = mlxsw_sp_table_erif_entries_dump,
-+	.counters_set_update = mlxsw_sp_table_erif_counters_update,
- };
- 
- static int mlxsw_sp_dpipe_erif_table_init(struct mlxsw_sp *mlxsw_sp)
++#endif /* _MLXSW_PIPELINE_H_*/
 -- 
 2.7.4
