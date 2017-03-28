@@ -1,162 +1,49 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: Bisected softirq accounting issue in v4.11-rc1~170^2~28
-Date: Tue, 28 Mar 2017 13:49:49 +0200
-Message-ID: <20170328134949.540e385f@redhat.com>
-References: <20170328101403.34a82fbf@redhat.com>
-	<CANRm+Cwb3uAiZdufqDsyzQ1GZYh3nUr2uTyg1Hb2oVoxJZKMvg@mail.gmail.com>
+From: Hauke Mehrtens <hauke@hauke-m.de>
+Subject: Re: [PATCH 0/4] uapi glibc compat: fix musl libc compatibility
+Date: Tue, 28 Mar 2017 14:01:33 +0200
+Message-ID: <0ec2bb3196283b5268da1e2e27962a1b@hauke-m.de>
+References: <20170312220039.16885-1-hauke@hauke-m.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=US-ASCII;
+ format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Frederic Weisbecker <fweisbec@gmail.com>, "linux-kernel@vger.kernel.org"
- <linux-kernel@vger.kernel.org>, "netdev@vger.kernel.org"
- <netdev@vger.kernel.org>, linux-mm <linux-mm@kvack.org>, Mel Gorman
- <mgorman@techsingularity.net>, Tariq Toukan <tariqt@mellanox.com>, Tariq
- Toukan <ttoukan.linux@gmail.com>, Peter Zijlstra <peterz@infradead.org>,
- Rik van Riel <riel@redhat.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo
- Molnar <mingo@kernel.org>, brouer@redhat.com
-To: Wanpeng Li <kernellwp@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <CANRm+Cwb3uAiZdufqDsyzQ1GZYh3nUr2uTyg1Hb2oVoxJZKMvg@mail.gmail.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        jarod@redhat.com, jogo@openwrt.org, david.heidelberger@ixit.cz,
+        maillist-linux@barfooze.de, mikko.rapeli@iki.fi
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from hauke-m.de ([5.39.93.123]:54723 "EHLO mail.hauke-m.de"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750707AbdC1MBg (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 28 Mar 2017 08:01:36 -0400
+In-Reply-To: <20170312220039.16885-1-hauke@hauke-m.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 28 Mar 2017 18:34:52 +0800
-Wanpeng Li <kernellwp@gmail.com> wrote:
+On 2017-03-12 23:00, Hauke Mehrtens wrote:
+> The code from libc-compat.h depends on some glibc specific defines and
+> causes compile problems with the musl libc. These patches remove some
+> of the glibc dependencies. With these patches the LEDE (OpenWrt) base
+> user space applications can be build with unmodified kernel headers and
+> musl libc.
+> 
+> This was compile tested with the user space from LEDE (OpenWrt) with
+> musl 1.1.16, glibc 2.25 and uClibc-ng 1.0.22.
+> 
+> David Heidelberger (1):
+>   uapi/if_ether.h: prevent redefinition of struct ethhdr
+> 
+> Hauke Mehrtens (3):
+>   uapi glibc compat: add libc compat code when not build for kernel
+>   uapi glibc compat: fix build if libc defines IFF_ECHO
+>   uapi glibc compat: Do not check for __USE_MISC
+> 
+>  include/uapi/linux/if_ether.h    |  3 +++
+>  include/uapi/linux/libc-compat.h | 25 +++++++++++++++++++------
+>  2 files changed, 22 insertions(+), 6 deletions(-)
 
-> 2017-03-28 16:14 GMT+08:00 Jesper Dangaard Brouer <brouer@redhat.com>:
-> >
-> > (While evaluating some changes to the page allocator) I ran into an
-> > issue with ksoftirqd getting too much CPU sched time.
-> >
-> > I bisected the problem to
-> >  a499a5a14dbd ("sched/cputime: Increment kcpustat directly on irqtime account")
-> >
-> >  a499a5a14dbd1d0315a96fc62a8798059325e9e6 is the first bad commit
-> >  commit a499a5a14dbd1d0315a96fc62a8798059325e9e6
-> >  Author: Frederic Weisbecker <fweisbec@gmail.com>
-> >  Date:   Tue Jan 31 04:09:32 2017 +0100
-> >
-> >     sched/cputime: Increment kcpustat directly on irqtime account
-> >
-> >     The irqtime is accounted is nsecs and stored in
-> >     cpu_irq_time.hardirq_time and cpu_irq_time.softirq_time. Once the
-> >     accumulated amount reaches a new jiffy, this one gets accounted to the
-> >     kcpustat.
-> >
-> >     This was necessary when kcpustat was stored in cputime_t, which could at
-> >     worst have jiffies granularity. But now kcpustat is stored in nsecs
-> >     so this whole discretization game with temporary irqtime storage has
-> >     become unnecessary.
-> >
-> >     We can now directly account the irqtime to the kcpustat.
-> >
-> >     Signed-off-by: Frederic Weisbecker <fweisbec@gmail.com>
-> >     Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-> >     Cc: Fenghua Yu <fenghua.yu@intel.com>
-> >     Cc: Heiko Carstens <heiko.carstens@de.ibm.com>
-> >     Cc: Linus Torvalds <torvalds@linux-foundation.org>
-> >     Cc: Martin Schwidefsky <schwidefsky@de.ibm.com>
-> >     Cc: Michael Ellerman <mpe@ellerman.id.au>
-> >     Cc: Paul Mackerras <paulus@samba.org>
-> >     Cc: Peter Zijlstra <peterz@infradead.org>
-> >     Cc: Rik van Riel <riel@redhat.com>
-> >     Cc: Stanislaw Gruszka <sgruszka@redhat.com>
-> >     Cc: Thomas Gleixner <tglx@linutronix.de>
-> >     Cc: Tony Luck <tony.luck@intel.com>
-> >     Cc: Wanpeng Li <wanpeng.li@hotmail.com>
-> >     Link: http://lkml.kernel.org/r/1485832191-26889-17-git-send-email-fweisbec@gmail.com
-> >     Signed-off-by: Ingo Molnar <mingo@kernel.org>
-> >
-> > The reproducer is running a userspace udp_sink[1] program, and taskset
-> > pinning the process to the same CPU as softirq RX is running on, and
-> > starting a UDP flood with pktgen (tool part of kernel tree:
-> > samples/pktgen/pktgen_sample03_burst_single_flow.sh).
-> >
-> > [1] udp_sink
-> >  https://github.com/netoptimizer/network-testing/blob/master/src/udp_sink.c
-> >
-> > The expected results (after commit 4cd13c21b207 ("softirq: Let
-> > ksoftirqd do its job")) is that the scheduler split the CPU time 50/50
-> > between udp_sink and ksoftirqd.
-> >
-> > After this commit, the udp_sink program does not get any sched CPU
-> > time, and no packets are delivered to userspace.  (All packets are
-> > dropped by softirq due to a full socket queue, nstat UdpRcvbufErrors).
-> >
-> > A related symptom is that ksoftirqd no longer get accounted in top.
-> >
-> > $ grep CONFIG_IRQ_TIME_ACCOUNTING .config
-> > CONFIG_IRQ_TIME_ACCOUNTING=y
-> >
-> > Full .config uploaded here[2]:
-> >  [2] http://people.netfilter.org/hawk/kconfig/config02-bisect-softirq-a499a5a14dbd  
-> 
-> void irqtime_account_irq(struct task_struct *curr)
-> {
->     struct irqtime *irqtime = this_cpu_ptr(&cpu_irqtime);
->     u64 *cpustat = kcpustat_this_cpu->cpustat;
->     s64 delta;
->     int cpu;
-> 
->     if (!sched_clock_irqtime)
->         return;
-> 
->     cpu = smp_processor_id();
->     delta = sched_clock_cpu(cpu) - irqtime->irq_start_time;
-> 
-> sched_clock_cpu(cpu) should be converted from cputime to ns. However,
-> cputime_to_nsecs() API is removed by
-> https://lkml.org/lkml/2017/1/22/230 for generic usage, so could you
-> try the below patch just for testing?
+Did I send this to the correct maintainer? I am unsure through which
+maintainer this should go. I saw that some patches for the libc-compat.h
+file went trough David Miller, so I tried the same.
 
-Sure... it didn't solve the problem :-(
-
-
-> diff --git a/include/linux/sched/cputime.h b/include/linux/sched/cputime.h
-> index 4c5b973..166efba 100644
-> --- a/include/linux/sched/cputime.h
-> +++ b/include/linux/sched/cputime.h
-> @@ -7,14 +7,14 @@
->   * cputime accounting APIs:
->   */
-> 
-> -#ifdef CONFIG_VIRT_CPU_ACCOUNTING_NATIVE
-> -#include <asm/cputime.h>
-> +#define cputime_div(__ct, divisor) div_u64((__force u64)__ct, divisor)
-> +#define cputime_to_usecs(__ct) \
-> +    cputime_div(__ct, NSEC_PER_USEC)
-> 
->  #ifndef cputime_to_nsecs
->  # define cputime_to_nsecs(__ct)    \
->      (cputime_to_usecs(__ct) * NSEC_PER_USEC)
->  #endif
-> -#endif /* CONFIG_VIRT_CPU_ACCOUNTING_NATIVE */
-> 
->  #ifdef CONFIG_VIRT_CPU_ACCOUNTING_GEN
->  extern void task_cputime(struct task_struct *t,
-> diff --git a/kernel/sched/cputime.c b/kernel/sched/cputime.c
-> index f3778e2b..68064d1 100644
-> --- a/kernel/sched/cputime.c
-> +++ b/kernel/sched/cputime.c
-> @@ -49,7 +49,7 @@ void irqtime_account_irq(struct task_struct *curr)
->          return;
-> 
->      cpu = smp_processor_id();
-> -    delta = sched_clock_cpu(cpu) - irqtime->irq_start_time;
-> +    delta = cputime_to_nsecs(sched_clock_cpu(cpu)) - irqtime->irq_start_time;
->      irqtime->irq_start_time += delta;
-> 
->      u64_stats_update_begin(&irqtime->sync);
-
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Hauke
