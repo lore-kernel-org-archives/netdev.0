@@ -1,78 +1,71 @@
-From: simran singhal <singhalsimran0@gmail.com>
-Subject: [PATCH v3] netfilter: Compress return logic
-Date: Tue, 28 Mar 2017 14:36:33 +0530
-Message-ID: <20170328090633.GA22149@singhal-Inspiron-5558>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH 5/5] PCI: remove pci_enable_msix
+Date: Tue, 28 Mar 2017 09:07:28 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DCFFBE7F3@AcuExch.aculab.com>
+References: <20170327082936.6830-1-hch@lst.de>
+ <20170327082936.6830-6-hch@lst.de>
+ <83f97789-0817-7549-bfa9-1f8dcb0c26d9@gmail.com>
+ <20170327171148.GB28815@lst.de>
+ <1eaa46ad-9890-c738-3a85-6468161284ba@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kadlec@blackhole.kfki.hu, davem@davemloft.net,
-        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        gregkh@linuxfoundation.org, outreachy-kernel@googlegroups.com,
-        wensong@linux-vs.org, horms@verge.net.au, ja@ssi.bg
-To: pablo@netfilter.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:35238 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932100AbdC1JHB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 28 Mar 2017 05:07:01 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "bhelgaas@google.com" <bhelgaas@google.com>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "netanel@annapurnalabs.com" <netanel@annapurnalabs.com>,
+        "jcliburn@gmail.com" <jcliburn@gmail.com>,
+        "chris.snook@gmail.com" <chris.snook@gmail.com>,
+        "sgoutham@cavium.com" <sgoutham@cavium.com>,
+        "rric@kernel.org" <rric@kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>
+To: 'David Daney' <ddaney.cavm@gmail.com>,
+        Christoph Hellwig <hch@lst.de>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <1eaa46ad-9890-c738-3a85-6468161284ba@gmail.com>
+Content-Language: en-US
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Simplify function returns by merging assignment and return into one
-statement.
+From: David Daney
+> Sent: 27 March 2017 18:31
+> On 03/27/2017 10:11 AM, Christoph Hellwig wrote:
+> > On Mon, Mar 27, 2017 at 09:59:35AM -0700, David Daney wrote:
+> >> On 03/27/2017 01:29 AM, Christoph Hellwig wrote:
+> >>> Unused now that all callers switched to pci_alloc_irq_vectors.
+> >>>
+> >>
+> >> And you are aware that the ThunderX GPIO driver that I am attempting to
+> >> merge uses this interface.
+> >>
+> >> If this patch gets merged, should I ask to revert it when the GPIO driver
+> >> goes in?
+> >
+> > No.  You should not use pci_enable_msix in your new driver as I told
+> > you before.
+> >
+> >> You offer no solution for drivers that would benefit from using a sparse
+> >> sub set of the available MSI-X vectors.
+> >
+> > Use pci_enable_msix_{exact,range} for now, as I told you before.
+> >
+> 
+> That still results in twice as many MSI-X being provisioned than are needed.
+> 
+> For drivers that use a contiguous range of MSI-X, your suggestion is
+> usable, but for others you are forcing resources to be wasted.  For what
+> end?
 
-Signed-off-by: simran singhal <singhalsimran0@gmail.com>
----
- v3:
-   -change commit message.
-   -merge two patches into one.
- v2:
-   -Change the subject of cover patch
+There are also drivers that only need some interrupts after a specific
+device is opened, and could free them when closed.
 
- net/netfilter/ipset/ip_set_list_set.c | 5 +----
- net/netfilter/ipvs/ip_vs_ftp.c        | 5 +----
- 2 files changed, 2 insertions(+), 8 deletions(-)
+This could even be network devices with lots of queues, or a driver
+realising that the workload is high and per-cpu interrupts make sense.
 
-diff --git a/net/netfilter/ipset/ip_set_list_set.c b/net/netfilter/ipset/ip_set_list_set.c
-index 178d4eb..2fff6b5 100644
---- a/net/netfilter/ipset/ip_set_list_set.c
-+++ b/net/netfilter/ipset/ip_set_list_set.c
-@@ -453,7 +453,6 @@ static size_t
- list_set_memsize(const struct list_set *map, size_t dsize)
- {
- 	struct set_elem *e;
--	size_t memsize;
- 	u32 n = 0;
- 
- 	rcu_read_lock();
-@@ -461,9 +460,7 @@ list_set_memsize(const struct list_set *map, size_t dsize)
- 		n++;
- 	rcu_read_unlock();
- 
--	memsize = sizeof(*map) + n * dsize;
--
--	return memsize;
-+	return (sizeof(*map) + n * dsize);
- }
- 
- static int
-diff --git a/net/netfilter/ipvs/ip_vs_ftp.c b/net/netfilter/ipvs/ip_vs_ftp.c
-index d30c327..c93c937 100644
---- a/net/netfilter/ipvs/ip_vs_ftp.c
-+++ b/net/netfilter/ipvs/ip_vs_ftp.c
-@@ -482,11 +482,8 @@ static struct pernet_operations ip_vs_ftp_ops = {
- 
- static int __init ip_vs_ftp_init(void)
- {
--	int rv;
--
--	rv = register_pernet_subsys(&ip_vs_ftp_ops);
- 	/* rcu_barrier() is called by netns on error */
--	return rv;
-+	return register_pernet_subsys(&ip_vs_ftp_ops);
- }
- 
- /*
--- 
-2.7.4
+So any real change to the interface should allow drivers to allocate
+and free individual MSI-X vectors.
+
+I remember a lot of discussions when pci_enable_msix_range() was added,
+but almost nothing about this change.
+
+	David
