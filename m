@@ -1,50 +1,51 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] [net-next] stmmac: use netif_set_real_num_{rx,tx}_queues
-Date: Tue, 28 Mar 2017 11:48:21 +0200
-Message-ID: <20170328094856.3457886-1-arnd@arndb.de>
-Cc: Arnd Bergmann <arnd@arndb.de>,
-        "David S. Miller" <davem@davemloft.net>,
-        Joao Pinto <Joao.Pinto@synopsys.com>,
-        LABBE Corentin <clabbe.montjoie@gmail.com>,
-        Thierry Reding <treding@nvidia.com>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-        Alexandre Torgue <alexandre.torgue@st.com>
+From: Robert Shearman <rshearma@brocade.com>
+Subject: Re: [PATCH net-next 0/4] net: mpls: Allow users to configure more
+ labels per route
+Date: Tue, 28 Mar 2017 10:59:58 +0100
+Message-ID: <bffa473b-ffbe-3887-7247-33ee6187487c@brocade.com>
+References: <1490461408-9551-1-git-send-email-dsa@cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <roopa@cumulusnetworks.com>, <ebiederm@xmission.com>
+To: David Ahern <dsa@cumulusnetworks.com>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.17.10]:50017 "EHLO
-        mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753702AbdC1J51 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 28 Mar 2017 05:57:27 -0400
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:51925 "EHLO
+        mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1753932AbdC1KBD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 28 Mar 2017 06:01:03 -0400
+In-Reply-To: <1490461408-9551-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A driver must not access the two fields directly but should instead use
-the helper functions to set the values and keep a consistent internal
-state:
+On 25/03/17 17:03, David Ahern wrote:
+> Bump the maximum number of labels for MPLS routes from 2 to 12. To keep
+> memory consumption in check the labels array is moved to the end of mpls_nh
+> and mpls_iptunnel_encap structs as a 0-sized array. Allocations use the
+> maximum number of labels across all nexthops in a route for LSR and the
+> number of labels configured for LWT.
+>
+> The mpls_route layout is changed to:
+...
+> Meaning the via follows its mpls_nh providing better locality as the
+> number of labels increases. UDP_RR tests with namespaces shows no impact
+> to a modest performance increase with this layout for 1 or 2 labels and
+> 1 or 2 nexthops.
+>
+> The new limit is set to 12 to cover all currently known segment
+> routing use cases.
+>
+> David Ahern (4):
+>   mpls: Convert number of nexthops to u8
+>   net: mpls: change mpls_route layout
+>   net: mpls: bump maximum number of labels
+>   net: mpls: Increase max number of labels for lwt encap
+>
+>  include/net/mpls_iptunnel.h |   4 +-
+>  net/mpls/af_mpls.c          | 108 ++++++++++++++++++++++++++------------------
+>  net/mpls/internal.h         |  52 ++++++++++++++-------
+>  net/mpls/mpls_iptunnel.c    |  13 ++++--
+>  4 files changed, 112 insertions(+), 65 deletions(-)
+>
 
-ethernet/stmicro/stmmac/stmmac_main.c: In function 'stmmac_dvr_probe':
-ethernet/stmicro/stmmac/stmmac_main.c:4083:8: error: 'struct net_device' has no member named 'real_num_rx_queues'; did you mean 'real_num_tx_queues'?
-
-Fixes: a8f5102af2a7 ("net: stmmac: TX and RX queue priority configuration")
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
----
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index c78f444ad423..fe1d9592956f 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -4080,8 +4080,8 @@ int stmmac_dvr_probe(struct device *device,
- 		goto error_hw_init;
- 
- 	/* Configure real RX and TX queues */
--	ndev->real_num_rx_queues = priv->plat->rx_queues_to_use;
--	ndev->real_num_tx_queues = priv->plat->tx_queues_to_use;
-+	netif_set_real_num_rx_queues(ndev, priv->plat->rx_queues_to_use);
-+	netif_set_real_num_tx_queues(ndev, priv->plat->tx_queues_to_use);
- 
- 	priv->dma_buf_sz = STMMAC_ALIGN(buf_sz);
- 
--- 
-2.9.0
+Acked-by: Robert Shearman <rshearma@brocade.com>
