@@ -1,65 +1,74 @@
-From: "Reshetova, Elena" <elena.reshetova@intel.com>
-Subject: RE: [PATCH 06/16] drivers, net, mlx5: convert mlx5_cq.refcount from
- atomic_t to refcount_t
-Date: Tue, 28 Mar 2017 14:00:01 +0000
-Message-ID: <2236FBA76BA1254E88B949DDB74E612B41C82E54@IRSMSX102.ger.corp.intel.com>
-References: <1490691403-4016-1-git-send-email-elena.reshetova@intel.com>
- <1490691403-4016-7-git-send-email-elena.reshetova@intel.com>
- <063D6719AE5E284EB5DD2968C1650D6DCFFBE8AF@AcuExch.aculab.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "linux-arm-kernel@lists.infradead.org"
-        <linux-arm-kernel@lists.infradead.org>,
-        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
-        "linux-hams@vger.kernel.org" <linux-hams@vger.kernel.org>,
-        "linux-ppp@vger.kernel.org" <linux-ppp@vger.kernel.org>,
-        "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-        "ganeshgr@chelsio.com" <ganeshgr@chelsio.com>,
-        "nbd@openwrt.org" <nbd@openwrt.org>,
-        "blogic@openwrt.org" <blogic@openwrt.org>,
-        "matthias.bgg@gmail.com" <matthias.bgg@gmail.com>,
-        "yishaih@mellanox.com" <yishaih@mellanox.com>,
-        "saeedm@mellanox.com" <saeedm@mellanox.com>,
-        "matanb@mellanox.com" <matanb@mellanox.com>,
-        "leonro@mellanox.com" <leonro@mellanox.com>,
-        "ajk@comnets.uni-bremen.de" <aj
-To: David Laight <David.Laight@ACULAB.COM>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+From: Andrey Konovalov <andreyknvl@google.com>
+Subject: [PATCH 4/5] net/packet: fix overflow in check for tp_reserve
+Date: Tue, 28 Mar 2017 16:00:48 +0200
+Message-ID: <0f3f9342c09be4d97a820cf9abeb9dabed8eb69f.1490709552.git.andreyknvl@google.com>
+References: <cover.1490709552.git.andreyknvl@google.com>
+Cc: netdev@vger.kernel.org, Dmitry Vyukov <dvyukov@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        Andrey Konovalov <andreyknvl@google.com>
+To: "David S . Miller" <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        Willem de Bruijn <willemb@google.com>,
+        Craig Gallek <cgallek@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga05.intel.com ([192.55.52.43]:50113 "EHLO mga05.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751903AbdC1OAJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 28 Mar 2017 10:00:09 -0400
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DCFFBE8AF@AcuExch.aculab.com>
-Content-Language: en-US
+Received: from mail-wr0-f171.google.com ([209.85.128.171]:35985 "EHLO
+        mail-wr0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752250AbdC1OBL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 28 Mar 2017 10:01:11 -0400
+Received: by mail-wr0-f171.google.com with SMTP id w11so88286645wrc.3
+        for <netdev@vger.kernel.org>; Tue, 28 Mar 2017 07:01:10 -0700 (PDT)
+In-Reply-To: <cover.1490709552.git.andreyknvl@google.com>
+In-Reply-To: <cover.1490709552.git.andreyknvl@google.com>
+References: <cover.1490709552.git.andreyknvl@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+When calculating po->tp_hdrlen + po->tp_reserve the result can overflow.
 
-> From: Elena Reshetova
-> > Sent: 28 March 2017 09:57
-> >
-> > refcount_t type and corresponding API should be
-> > used instead of atomic_t when the variable is used as
-> > a reference counter. This allows to avoid accidental
-> > refcounter overflows that might lead to use-after-free
-> > situations.
-> 
-> I can't help feeling that you ought to find a scheme
-> that will detect extra decrements and extra increments
-> before the counter wraps 32 bits.
-> 
-> If an extra reference is requested every 100us it takes 4.8 days
-> for the counter to increment back to zero.
-> Simple tests aren't doing to find that - but it can easily happen
-> on a system that is running for several years.
+Fix by checking that tp_reserve <= INT_MAX on assign.
 
-So, you are proposing to try detecting this case instead of preventing overflows?
-Not sure how this would look like in a generic form...
+This also takes cared of an overflow when calculating
+ macoff = TPACKET_ALIGN(po->tp_hdrlen) + 16 + po->tp_reserve
+ snaplen = skb->len
+ macoff + snaplen
+since macoff ~ INT_MAX and snaplen < SKB_MAX_ALLOC.
 
+Signed-off-by: Andrey Konovalov <andreyknvl@google.com>
+---
+ net/packet/af_packet.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
-
-> 
-> 	David
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index c5c43fff8c01..28b49749d1af 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -3665,6 +3665,8 @@ packet_setsockopt(struct socket *sock, int level, int optname, char __user *optv
+ 			return -EBUSY;
+ 		if (copy_from_user(&val, optval, sizeof(val)))
+ 			return -EFAULT;
++		if (val > INT_MAX)
++			return -EINVAL;
+ 		po->tp_reserve = val;
+ 		return 0;
+ 	}
+@@ -4200,6 +4202,8 @@ static int packet_set_ring(struct sock *sk, union tpacket_req_u *req_u,
+ 		if (unlikely((u64)req->tp_block_size * req->tp_block_nr >
+ 					UINT_MAX))
+ 			goto out;
++		if (unlikely(po->tp_reserve >= req->tp_frame_size))
++			goto out;
+ 
+ 		if (unlikely(!PAGE_ALIGNED(req->tp_block_size)))
+ 			goto out;
+@@ -4207,9 +4211,6 @@ static int packet_set_ring(struct sock *sk, union tpacket_req_u *req_u,
+ 		    req->tp_block_size <=
+ 			  BLK_PLUS_PRIV((u64)req_u->req3.tp_sizeof_priv))
+ 			goto out;
+-		if (unlikely(req->tp_frame_size < po->tp_hdrlen +
+-					po->tp_reserve))
+-			goto out;
+ 		if (unlikely(req->tp_frame_size & (TPACKET_ALIGNMENT - 1)))
+ 			goto out;
+ 
+-- 
+2.12.2.564.g063fe858b8-goog
