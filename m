@@ -1,9 +1,14 @@
 From: Andrey Konovalov <andreyknvl@google.com>
-Subject: [PATCH 3/5] net/packet: fix overflow in check for tp_frame_nr
-Date: Tue, 28 Mar 2017 16:00:46 +0200
-Message-ID: <69c847e0cfbf26c38d6dfa6289ce5ca830866b42.1490709552.git.andreyknvl@google.com>
-References: <cover.1490709552.git.andreyknvl@google.com>
-Cc: netdev@vger.kernel.org, Dmitry Vyukov <dvyukov@google.com>,
+Subject: Re: [PATCH v4 1/9] kasan: introduce helper functions for determining
+ bug type
+Date: Tue, 28 Mar 2017 16:03:30 +0200
+Message-ID: <CAAeHK+zTfHp0dob9W5DtYZnpnrFTNxNDM45DA3Q2bTjZngpreg@mail.gmail.com>
+References: <cover.1490383597.git.andreyknvl@google.com> <cover.1490709552.git.andreyknvl@google.com>
+ <69485dff9439fca82343965d3746b52c36716d91.1490383597.git.andreyknvl@google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+        Dmitry Vyukov <dvyukov@google.com>,
         Kostya Serebryany <kcc@google.com>,
         Andrey Konovalov <andreyknvl@google.com>
 To: "David S . Miller" <davem@davemloft.net>,
@@ -11,44 +16,98 @@ To: "David S . Miller" <davem@davemloft.net>,
         Willem de Bruijn <willemb@google.com>,
         Craig Gallek <cgallek@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f179.google.com ([209.85.128.179]:36002 "EHLO
-        mail-wr0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754155AbdC1OBg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 28 Mar 2017 10:01:36 -0400
-Received: by mail-wr0-f179.google.com with SMTP id w11so88287388wrc.3
-        for <netdev@vger.kernel.org>; Tue, 28 Mar 2017 07:01:30 -0700 (PDT)
-In-Reply-To: <cover.1490709552.git.andreyknvl@google.com>
-In-Reply-To: <cover.1490709552.git.andreyknvl@google.com>
-References: <cover.1490709552.git.andreyknvl@google.com>
+Received: from mail-pg0-f46.google.com ([74.125.83.46]:36124 "EHLO
+        mail-pg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752147AbdC1ODo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 28 Mar 2017 10:03:44 -0400
+Received: by mail-pg0-f46.google.com with SMTP id g2so73069823pge.3
+        for <netdev@vger.kernel.org>; Tue, 28 Mar 2017 07:03:36 -0700 (PDT)
+In-Reply-To: <69485dff9439fca82343965d3746b52c36716d91.1490383597.git.andreyknvl@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When calculating rb->frames_per_block * req->tp_block_nr the result
-can overflow.
+On Tue, Mar 28, 2017 at 4:00 PM, Andrey Konovalov <andreyknvl@google.com> wrote:
+> Introduce get_shadow_bug_type() function, which determines bug type
+> based on the shadow value for a particular kernel address.
+> Introduce get_wild_bug_type() function, which determines bug type
+> for addresses which don't have a corresponding shadow value.
+>
+> Signed-off-by: Andrey Konovalov <andreyknvl@google.com>
+> ---
+>  mm/kasan/report.c | 40 ++++++++++++++++++++++++++++++----------
+>  1 file changed, 30 insertions(+), 10 deletions(-)
+>
+> diff --git a/mm/kasan/report.c b/mm/kasan/report.c
+> index f479365530b6..e3af37b7a74c 100644
+> --- a/mm/kasan/report.c
+> +++ b/mm/kasan/report.c
+> @@ -49,7 +49,13 @@ static const void *find_first_bad_addr(const void *addr, size_t size)
+>         return first_bad_addr;
+>  }
+>
+> -static void print_error_description(struct kasan_access_info *info)
+> +static bool addr_has_shadow(struct kasan_access_info *info)
+> +{
+> +       return (info->access_addr >=
+> +               kasan_shadow_to_mem((void *)KASAN_SHADOW_START));
+> +}
+> +
+> +static const char *get_shadow_bug_type(struct kasan_access_info *info)
+>  {
+>         const char *bug_type = "unknown-crash";
+>         u8 *shadow_addr;
+> @@ -96,6 +102,27 @@ static void print_error_description(struct kasan_access_info *info)
+>                 break;
+>         }
+>
+> +       return bug_type;
+> +}
+> +
+> +static const char *get_wild_bug_type(struct kasan_access_info *info)
+> +{
+> +       const char *bug_type;
+> +
+> +       if ((unsigned long)info->access_addr < PAGE_SIZE)
+> +               bug_type = "null-ptr-deref";
+> +       else if ((unsigned long)info->access_addr < TASK_SIZE)
+> +               bug_type = "user-memory-access";
+> +       else
+> +               bug_type = "wild-memory-access";
+> +
+> +       return bug_type;
+> +}
+> +
+> +static void print_error_description(struct kasan_access_info *info)
+> +{
+> +       const char *bug_type = get_shadow_bug_type(info);
+> +
+>         pr_err("BUG: KASAN: %s in %pS at addr %p\n",
+>                 bug_type, (void *)info->ip,
+>                 info->access_addr);
+> @@ -265,18 +292,11 @@ static void print_shadow_for_address(const void *addr)
+>  static void kasan_report_error(struct kasan_access_info *info)
+>  {
+>         unsigned long flags;
+> -       const char *bug_type;
+>
+>         kasan_start_report(&flags);
+>
+> -       if (info->access_addr <
+> -                       kasan_shadow_to_mem((void *)KASAN_SHADOW_START)) {
+> -               if ((unsigned long)info->access_addr < PAGE_SIZE)
+> -                       bug_type = "null-ptr-deref";
+> -               else if ((unsigned long)info->access_addr < TASK_SIZE)
+> -                       bug_type = "user-memory-access";
+> -               else
+> -                       bug_type = "wild-memory-access";
+> +       if (!addr_has_shadow(info)) {
+> +               const char *bug_type = get_wild_bug_type(info);
+>                 pr_err("BUG: KASAN: %s on address %p\n",
+>                         bug_type, info->access_addr);
+>                 pr_err("%s of size %zu by task %s/%d\n",
+> --
+> 2.12.1.578.ge9c3154ca4-goog
+>
 
-Add a check that tp_block_size * tp_block_nr <= UINT_MAX.
-
-Since frames_per_block <= tp_block_size, the expression would
-never overflow.
-
-Signed-off-by: Andrey Konovalov <andreyknvl@google.com>
----
- net/packet/af_packet.c | 3 +++
- 1 file changed, 3 insertions(+)
-
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 506348abdf2f..c5c43fff8c01 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -4197,6 +4197,9 @@ static int packet_set_ring(struct sock *sk, union tpacket_req_u *req_u,
- 			goto out;
- 		if (unlikely(req->tp_frame_size == 0))
- 			goto out;
-+		if (unlikely((u64)req->tp_block_size * req->tp_block_nr >
-+					UINT_MAX))
-+			goto out;
- 
- 		if (unlikely(!PAGE_ALIGNED(req->tp_block_size)))
- 			goto out;
--- 
-2.12.2.564.g063fe858b8-goog
+Oops, accidently resent KASAN patchset together with AF_PACKET fixes.
+Please ignore "[PATCH v4] kasan" patches.
