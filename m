@@ -1,9 +1,8 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next] net: dsa: mv88e6xxx: unconditionally set ATU
- trunk
-Date: Tue, 28 Mar 2017 21:26:41 +0200
-Message-ID: <20170328192641.GE2268@lunn.ch>
-References: <20170328190943.18320-1-vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next] net: dsa: fix copyright holder
+Date: Tue, 28 Mar 2017 21:27:34 +0200
+Message-ID: <20170328192734.GF2268@lunn.ch>
+References: <20170328191036.18551-1-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
@@ -13,15 +12,14 @@ Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20170328190943.18320-1-vivien.didelot@savoirfairelinux.com>
+In-Reply-To: <20170328191036.18551-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 28, 2017 at 03:09:43PM -0400, Vivien Didelot wrote:
-> Set the trunk member of the mv88e6xxx_atu_entry structure regardless its
-> value, so that uninitialized structures gets the correct boolean value.
-> 
-> Note that no mainline code is affected by the current behavior.
+On Tue, Mar 28, 2017 at 03:10:36PM -0400, Vivien Didelot wrote:
+> I do not hold the copyright of the DSA core and drivers source files,
+> since these changes have been written as an initiative of my day job.
+> Fix this.
 > 
 > Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 
