@@ -1,119 +1,102 @@
-From: Thierry Reding <thierry.reding@gmail.com>
-Subject: Re: [PATCH 2/3] net: stmmac: Always use the number of configured TX
- queues
-Date: Tue, 28 Mar 2017 16:29:15 +0200
-Message-ID: <20170328142915.GB3523@ulmo.ba.sec>
-References: <71d841cd-b07b-2635-c2cf-f7af5f5ed2c9@axis.com>
- <20170328135706.7605-1-thierry.reding@gmail.com>
- <20170328135706.7605-2-thierry.reding@gmail.com>
- <ee068d94-9a4e-404e-1348-c8e412c58ec9@axis.com>
+From: Frederic Weisbecker <fweisbec@gmail.com>
+Subject: Re: Bisected softirq accounting issue in v4.11-rc1~170^2~28
+Date: Tue, 28 Mar 2017 16:34:36 +0200
+Message-ID: <20170328143431.GB4216@lerouge>
+References: <20170328101403.34a82fbf@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="vGgW1X5XWziG23Ko"
-Cc: Joao Pinto <Joao.Pinto@synopsys.com>,
-        David Miller <davem@davemloft.net>, clabbe.montjoie@gmail.com,
-        peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        sergei.shtylyov@cogentembedded.com, f.fainelli@gmail.com,
-        netdev@vger.kernel.org
-To: Niklas Cassel <niklas.cassel@axis.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f193.google.com ([209.85.128.193]:35448 "EHLO
-        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752012AbdC1O3x (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 28 Mar 2017 10:29:53 -0400
-Received: by mail-wr0-f193.google.com with SMTP id p52so20330551wrc.2
-        for <netdev@vger.kernel.org>; Tue, 28 Mar 2017 07:29:51 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <ee068d94-9a4e-404e-1348-c8e412c58ec9@axis.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-
---vGgW1X5XWziG23Ko
 Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linux-mm <linux-mm@kvack.org>,
+	Mel Gorman <mgorman@techsingularity.net>,
+	Tariq Toukan <tariqt@mellanox.com>,
+	Tariq Toukan <ttoukan.linux@gmail.com>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Rik van Riel <riel@redhat.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@kernel.org>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <owner-linux-mm@kvack.org>
 Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+In-Reply-To: <20170328101403.34a82fbf@redhat.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 28, 2017 at 04:10:43PM +0200, Niklas Cassel wrote:
->=20
->=20
-> On 03/28/2017 03:57 PM, Thierry Reding wrote:
-> > From: Thierry Reding <treding@nvidia.com>
-> >=20
-> > Even if hardware supports multiple queues, software can choose to only
-> > use a subset of them. Make sure we never try to access uninitialized
-> > queues.
-> >=20
-> > Signed-off-by: Thierry Reding <treding@nvidia.com>
-> > ---
-> >  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 2 +-
-> >  1 file changed, 1 insertion(+), 1 deletion(-)
-> >=20
-> > diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/driver=
-s/net/ethernet/stmicro/stmmac/stmmac_main.c
-> > index 106ace3781b3..ec5bba85c529 100644
-> > --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> > +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> > @@ -3423,7 +3423,7 @@ static int stmmac_poll(struct napi_struct *napi, =
-int budget)
-> >  	struct stmmac_rx_queue *rx_q =3D
-> >  		container_of(napi, struct stmmac_rx_queue, napi);
-> >  	struct stmmac_priv *priv =3D rx_q->priv_data;
-> > -	u32 tx_count =3D priv->dma_cap.number_tx_queues;
-> > +	u32 tx_count =3D priv->plat->tx_queues_to_use;
-> >  	u32 chan =3D rx_q->queue_index;
-> >  	u32 work_done =3D 0;
-> >  	u32 queue =3D 0;
-> >=20
->=20
-> Thanks Thierry,
-> but this look like an equivalent patch to Joao's
-> "net: stmmac: fix number of tx queues in stmmac_poll"
-> which I already used during bisecting to avoid random
-> crashes in stmmac_tx_clean.
+On Tue, Mar 28, 2017 at 10:14:03AM +0200, Jesper Dangaard Brouer wrote:
+> 
+> (While evaluating some changes to the page allocator) I ran into an
+> issue with ksoftirqd getting too much CPU sched time.
+> 
+> I bisected the problem to
+>  a499a5a14dbd ("sched/cputime: Increment kcpustat directly on irqtime account")
+> 
+>  a499a5a14dbd1d0315a96fc62a8798059325e9e6 is the first bad commit
+>  commit a499a5a14dbd1d0315a96fc62a8798059325e9e6
+>  Author: Frederic Weisbecker <fweisbec@gmail.com>
+>  Date:   Tue Jan 31 04:09:32 2017 +0100
+> 
+>     sched/cputime: Increment kcpustat directly on irqtime account
+>     
+>     The irqtime is accounted is nsecs and stored in
+>     cpu_irq_time.hardirq_time and cpu_irq_time.softirq_time. Once the
+>     accumulated amount reaches a new jiffy, this one gets accounted to the
+>     kcpustat.
+>     
+>     This was necessary when kcpustat was stored in cputime_t, which could at
+>     worst have jiffies granularity. But now kcpustat is stored in nsecs
+>     so this whole discretization game with temporary irqtime storage has
+>     become unnecessary.
+>     
+>     We can now directly account the irqtime to the kcpustat.
+>     
+>     Signed-off-by: Frederic Weisbecker <fweisbec@gmail.com>
+>     Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+>     Cc: Fenghua Yu <fenghua.yu@intel.com>
+>     Cc: Heiko Carstens <heiko.carstens@de.ibm.com>
+>     Cc: Linus Torvalds <torvalds@linux-foundation.org>
+>     Cc: Martin Schwidefsky <schwidefsky@de.ibm.com>
+>     Cc: Michael Ellerman <mpe@ellerman.id.au>
+>     Cc: Paul Mackerras <paulus@samba.org>
+>     Cc: Peter Zijlstra <peterz@infradead.org>
+>     Cc: Rik van Riel <riel@redhat.com>
+>     Cc: Stanislaw Gruszka <sgruszka@redhat.com>
+>     Cc: Thomas Gleixner <tglx@linutronix.de>
+>     Cc: Tony Luck <tony.luck@intel.com>
+>     Cc: Wanpeng Li <wanpeng.li@hotmail.com>
+>     Link: http://lkml.kernel.org/r/1485832191-26889-17-git-send-email-fweisbec@gmail.com
+>     Signed-off-by: Ingo Molnar <mingo@kernel.org>
+> 
+> The reproducer is running a userspace udp_sink[1] program, and taskset
+> pinning the process to the same CPU as softirq RX is running on, and
+> starting a UDP flood with pktgen (tool part of kernel tree:
+> samples/pktgen/pktgen_sample03_burst_single_flow.sh).
 
-Yeah, patch 3/3 is the important one in this batch. I just sent out the
-complete set of 3 because it's what I use on top of linux-next to make
-stmmac work again on my setup.
+So that means I need to run udp_sink on the same CPU than pktgen?
 
-> Have you noticed random RX brokenness after boot in
-> recent linux-next tags?
+> 
+> [1] udp_sink
+>  https://github.com/netoptimizer/network-testing/blob/master/src/udp_sink.c
+> 
+> The expected results (after commit 4cd13c21b207 ("softirq: Let
+> ksoftirqd do its job")) is that the scheduler split the CPU time 50/50
+> between udp_sink and ksoftirqd.
 
-Yes, I was seeing about 8 in 10 bad boots and 2 in 10 good ones.
+I guess you mean that this is what happened before this commit?
 
-> It feels like it might trigger more often after a
-> cold boot, but that could just be my brain seeing
-> patterns that aren't really there :)
+> 
+> After this commit, the udp_sink program does not get any sched CPU
+> time, and no packets are delivered to userspace.  (All packets are
+> dropped by softirq due to a full socket queue, nstat UdpRcvbufErrors).
+> 
+> A related symptom is that ksoftirqd no longer get accounted in top.
 
-It'd be good if you could try applying patch 3/3 since that got me back
-to 10/10 successful boots. It's somewhat surprising because I had gone
-through the code looking for uninitialized data that would explain why
-kcalloc() instead of kmalloc_array() would fix things but didn't find
-anything.
+That's indeed what I observe. udp_sink has almost no CPU time, neither has
+ksoftirqd but kpktgend_0 has everything.
 
-Still, that patch works for me, so maybe I was just overlooking
-something.
+Finally a bug I can reproduce!
 
-Thierry
-
---vGgW1X5XWziG23Ko
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQIzBAABCAAdFiEEiOrDCAFJzPfAjcif3SOs138+s6EFAljaczkACgkQ3SOs138+
-s6EZlQ/+OGvlPpt+jEtOrkg2JpcwHEw1TslvXexPRzZSqDkupKOU4OhifmHqR3nU
-u9OvTkvJXs7/fBlpgegKTwWUgCidNT7SwW8LnD4825Z+ANgcZFSbmm2weThAO/sG
-JhJdpsoWZy8vYPV+MyV7yY9KLV3VxAR7gt/SAGG5r8DD4vno/WO5CxYAnqv23xya
-SrSmRA+FxCIGaieVL0ntWR3Vas02/VaSCYOTdDGPpTf/X6vNWIKB8sBWPK8WWWzk
-aRoetzZlWJEON6ylzW6R3sBRUS1KnbEL+zz0JIl44VdnJ3rvEfIgHUIpA07D56dn
-kYyPo3kCa1h1KNWW13Rs5vFMDarm3tlyBQ58QktlCIO2KR56txg2dZDm18/LI/m3
-+HswFwJ3uM2GAfrdgjfm1e52e3ssUpRSEU0UPHMXOvzWS21/3GNaB8xcx2XjKq4O
-45Mde4cg+PDeYBt5N2SQKBpkqqhB7Ht4qXSqYmI7zZVSWr84Rt/YIZdvS1zKFOB6
-tO66KpC0qZzUTbYVlPICXJTJO0f3u+Q3aS9tGmV9uIHQ5lC1aDqJGXXFJq7u9ADw
-8ADJd8OU1NJ3QPPBNdI/cVxz+kg5vpbZojF5YqTrRi7c1rV5of8Z9g0YCS86RFvx
-I1SF3RkLieHAXem6L0MMr/hp/fKTP3R9qp+bfnWxI4Lsn91Iirg=
-=n3Ob
------END PGP SIGNATURE-----
-
---vGgW1X5XWziG23Ko--
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
