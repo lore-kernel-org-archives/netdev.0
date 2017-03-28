@@ -1,7 +1,7 @@
 From: Aviad Yehezkel <aviadye@mellanox.com>
-Subject: [RFC TLS Offload Support 11/15] mlx/tls: TLS offload driver Add the main module entrypoints and tie the module into the build system
-Date: Tue, 28 Mar 2017 16:26:28 +0300
-Message-ID: <1490707592-1430-12-git-send-email-aviadye@mellanox.com>
+Subject: [RFC TLS Offload Support 10/15] mlx/tls: Add mlx_accel offload driver for TLS
+Date: Tue, 28 Mar 2017 16:26:27 +0300
+Message-ID: <1490707592-1430-11-git-send-email-aviadye@mellanox.com>
 References: <1490707592-1430-1-git-send-email-aviadye@mellanox.com>
 Cc: matanb@mellanox.com, liranl@mellanox.com, haggaie@mellanox.com,
         tom@herbertland.com, herbert@gondor.apana.org.au, nmav@gnults.org,
@@ -10,12 +10,19 @@ Cc: matanb@mellanox.com, liranl@mellanox.com, haggaie@mellanox.com,
         saeedm@mellanox.com, aviadye@dev.mellanox.co.il
 To: davem@davemloft.net, aviadye@mellanox.com, ilyal@mellanox.com,
         borisp@mellanox.com, davejwatson@fb.com, netdev@vger.kernel.org
-Return-path: <linux-crypto-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:47780 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S932497AbdC1N1U (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 28 Mar 2017 09:27:20 -0400
 In-Reply-To: <1490707592-1430-1-git-send-email-aviadye@mellanox.com>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Ilya Lesokhin <ilyal@mellanox.com>
+
+Implement the transmit and receive callbacks as well as the netdev
+operations for adding and removing sockets.
 
 Signed-off-by: Guy Shapiro <guysh@mellanox.com>
 Signed-off-by: Ilya Lesokhin <ilyal@mellanox.com>
@@ -23,71 +30,18 @@ Signed-off-by: Matan Barak <matanb@mellanox.com>
 Signed-off-by: Haggai Eran <haggaie@mellanox.com>
 Signed-off-by: Aviad Yehezkel <aviadye@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/Kconfig              |  1 +
- drivers/net/ethernet/mellanox/Makefile             |  1 +
- .../net/ethernet/mellanox/accelerator/tls/Kconfig  | 11 ++++
- .../net/ethernet/mellanox/accelerator/tls/Makefile |  4 ++
- .../ethernet/mellanox/accelerator/tls/tls_main.c   | 77 ++++++++++++++++++++++
- 5 files changed, 94 insertions(+)
- create mode 100644 drivers/net/ethernet/mellanox/accelerator/tls/Kconfig
- create mode 100644 drivers/net/ethernet/mellanox/accelerator/tls/Makefile
- create mode 100644 drivers/net/ethernet/mellanox/accelerator/tls/tls_main.c
+ .../net/ethernet/mellanox/accelerator/tls/tls.c    | 652 +++++++++++++++++++++
+ .../net/ethernet/mellanox/accelerator/tls/tls.h    | 100 ++++
+ 2 files changed, 752 insertions(+)
+ create mode 100644 drivers/net/ethernet/mellanox/accelerator/tls/tls.c
+ create mode 100644 drivers/net/ethernet/mellanox/accelerator/tls/tls.h
 
-diff --git a/drivers/net/ethernet/mellanox/Kconfig b/drivers/net/ethernet/mellanox/Kconfig
-index 1b3ca6a..f270b76 100644
---- a/drivers/net/ethernet/mellanox/Kconfig
-+++ b/drivers/net/ethernet/mellanox/Kconfig
-@@ -21,6 +21,7 @@ source "drivers/net/ethernet/mellanox/mlx5/core/Kconfig"
- source "drivers/net/ethernet/mellanox/mlxsw/Kconfig"
- source "drivers/net/ethernet/mellanox/accelerator/core/Kconfig"
- source "drivers/net/ethernet/mellanox/accelerator/ipsec/Kconfig"
-+source "drivers/net/ethernet/mellanox/accelerator/tls/Kconfig"
- source "drivers/net/ethernet/mellanox/accelerator/tools/Kconfig"
- 
- endif # NET_VENDOR_MELLANOX
-diff --git a/drivers/net/ethernet/mellanox/Makefile b/drivers/net/ethernet/mellanox/Makefile
-index 96a5856..fd8afc0 100644
---- a/drivers/net/ethernet/mellanox/Makefile
-+++ b/drivers/net/ethernet/mellanox/Makefile
-@@ -7,4 +7,5 @@ obj-$(CONFIG_MLX5_CORE) += mlx5/core/
- obj-$(CONFIG_MLXSW_CORE) += mlxsw/
- obj-$(CONFIG_MLX_ACCEL_CORE) += accelerator/core/
- obj-$(CONFIG_MLX_ACCEL_IPSEC) += accelerator/ipsec/
-+obj-$(CONFIG_MLX_ACCEL_TLS) += accelerator/tls/
- obj-$(CONFIG_MLX_ACCEL_TOOLS) += accelerator/tools/
-diff --git a/drivers/net/ethernet/mellanox/accelerator/tls/Kconfig b/drivers/net/ethernet/mellanox/accelerator/tls/Kconfig
+diff --git a/drivers/net/ethernet/mellanox/accelerator/tls/tls.c b/drivers/net/ethernet/mellanox/accelerator/tls/tls.c
 new file mode 100644
-index 0000000..d9c0733
+index 0000000..07a4b67
 --- /dev/null
-+++ b/drivers/net/ethernet/mellanox/accelerator/tls/Kconfig
-@@ -0,0 +1,11 @@
-+#
-+# Mellanox tls accelerator driver configuration
-+#
-+
-+config MLX_ACCEL_TLS
-+	tristate "Mellanox Technologies TLS accelarator driver"
-+	depends on MLX_ACCEL_CORE
-+	default n
-+	---help---
-+	  TLS accelarator driver by Mellanox Technologies.
-+
-diff --git a/drivers/net/ethernet/mellanox/accelerator/tls/Makefile b/drivers/net/ethernet/mellanox/accelerator/tls/Makefile
-new file mode 100644
-index 0000000..93a7733
---- /dev/null
-+++ b/drivers/net/ethernet/mellanox/accelerator/tls/Makefile
-@@ -0,0 +1,4 @@
-+obj-$(CONFIG_MLX_ACCEL_TLS)		+= mlx_tls.o
-+
-+ccflags-y := -I$(srctree)/
-+mlx_tls-y :=  tls_main.o tls_sysfs.o tls_hw.o tls.o
-diff --git a/drivers/net/ethernet/mellanox/accelerator/tls/tls_main.c b/drivers/net/ethernet/mellanox/accelerator/tls/tls_main.c
-new file mode 100644
-index 0000000..85078f5
---- /dev/null
-+++ b/drivers/net/ethernet/mellanox/accelerator/tls/tls_main.c
-@@ -0,0 +1,77 @@
++++ b/drivers/net/ethernet/mellanox/accelerator/tls/tls.c
+@@ -0,0 +1,652 @@
 +/*
 + * Copyright (c) 2015-2017 Mellanox Technologies. All rights reserved.
 + *
@@ -120,50 +74,731 @@ index 0000000..85078f5
 + * SOFTWARE.
 + *
 + */
-+#include <linux/module.h>
-+
 +#include "tls.h"
++#include "tls_sysfs.h"
++#include "tls_hw.h"
++#include "tls_cmds.h"
++#include <linux/mlx5/driver.h>
++#include <linux/netdevice.h>
 +
-+MODULE_AUTHOR("Mellanox Technologies Advance Develop Team <adv-dev@mellanox.com>");
-+MODULE_DESCRIPTION("Mellanox Innova TLS Driver");
-+MODULE_LICENSE("Dual BSD/GPL");
-+MODULE_VERSION(DRIVER_VERSION);
++static LIST_HEAD(mlx_tls_devs);
++static DEFINE_MUTEX(mlx_tls_mutex);
 +
-+static struct mlx_accel_core_client mlx_tls_client = {
-+	.name   = "mlx_tls",
-+	.add    = mlx_tls_add_one,
-+	.remove = mlx_tls_remove_one,
-+};
++/* Start of context identifiers range (inclusive) */
++#define SWID_START	5
++/* End of context identifiers range (exclusive) */
++#define SWID_END	BIT(24)
 +
-+static struct notifier_block mlx_tls_netdev_notifier = {
-+	.notifier_call = mlx_tls_netdev_event,
-+};
-+
-+static int __init mlx_tls_init(void)
++static netdev_features_t mlx_tls_feature_chk(struct sk_buff *skb,
++					     struct net_device *netdev,
++					     netdev_features_t features,
++					     bool *done)
 +{
-+	int err = 0;
++	return features;
++}
 +
-+	err = register_netdevice_notifier(&mlx_tls_netdev_notifier);
-+	if (err) {
-+		pr_warn("mlx_tls_init error in register_netdevice_notifier %d\n",
-+			err);
-+		goto out_wq;
++int mlx_tls_get_count(struct net_device *netdev)
++{
++	return 0;
++}
++
++int mlx_tls_get_strings(struct net_device *netdev, uint8_t *data)
++{
++	return 0;
++}
++
++int mlx_tls_get_stats(struct net_device *netdev, u64 *data)
++{
++	return 0;
++}
++
++/* must hold mlx_tls_mutex to call this function */
++static struct mlx_tls_dev *find_mlx_tls_dev_by_netdev(
++		struct net_device *netdev)
++{
++	struct mlx_tls_dev *dev;
++
++	list_for_each_entry(dev, &mlx_tls_devs, accel_dev_list) {
++		if (dev->netdev == netdev)
++			return dev;
 +	}
 +
-+	mlx_accel_core_client_register(&mlx_tls_client);
-+
-+out_wq:
-+	return err;
++	return NULL;
 +}
 +
-+static void __exit mlx_tls_exit(void)
++struct mlx_tls_offload_context *get_tls_context(struct sock *sk)
 +{
-+	mlx_accel_core_client_unregister(&mlx_tls_client);
-+	unregister_netdevice_notifier(&mlx_tls_netdev_notifier);
++	struct tls_context *tls_ctx = tls_get_ctx(sk);
++
++	return container_of(tls_offload_ctx(tls_ctx),
++			    struct mlx_tls_offload_context,
++			    context);
 +}
 +
-+module_init(mlx_tls_init);
-+module_exit(mlx_tls_exit);
++static int mlx_tls_add(struct net_device *netdev,
++		       struct sock *sk,
++		       enum tls_offload_ctx_dir direction,
++		       struct tls_crypto_info *crypto_info,
++		       struct tls_offload_context **ctx)
++{
++	struct tls_crypto_info_aes_gcm_128 *crypto_info_aes_gcm_128;
++	struct mlx_tls_offload_context *context;
++	struct mlx_tls_dev *dev;
++	int swid;
++	int ret;
 +
++	pr_info("mlx_tls_add called\n");
++
++	if (direction == TLS_OFFLOAD_CTX_DIR_RX) {
++		pr_err("mlx_tls_add(): do not support recv\n");
++		ret = -EINVAL;
++		goto out;
++	}
++
++	if (!crypto_info ||
++	    crypto_info->cipher_type != TLS_CIPHER_AES_GCM_128) {
++		pr_err("mlx_tls_add(): support only aes_gcm_128\n");
++		ret = -EINVAL;
++		goto out;
++	}
++	crypto_info_aes_gcm_128 =
++			(struct tls_crypto_info_aes_gcm_128 *)crypto_info;
++
++	dev = mlx_tls_find_dev_by_netdev(netdev);
++	if (!dev) {
++		pr_err("mlx_tls_add(): tls dev not found\n");
++		ret = -EINVAL;
++		goto out;
++	}
++
++	swid = ida_simple_get(&dev->swid_ida, SWID_START, SWID_END,
++			      GFP_KERNEL);
++	if (swid < 0) {
++		pr_err("mlx_tls_add(): Failed to allocate swid\n");
++		ret = swid;
++		goto out;
++	}
++
++	context = kzalloc(sizeof(*context), GFP_KERNEL);
++	if (!context) {
++		ret = -ENOMEM;
++		goto release_swid;
++	}
++
++	context->swid = htonl(swid);
++	context->context.expectedSN = tcp_sk(sk)->write_seq;
++
++	ret = mlx_tls_hw_start_cmd(dev,
++				   sk,
++				   crypto_info_aes_gcm_128,
++				   context);
++	if (ret)
++		goto relese_context;
++
++	try_module_get(THIS_MODULE);
++	*ctx = &context->context;
++out:
++	return ret;
++
++relese_context:
++	kfree(context);
++release_swid:
++	ida_simple_remove(&dev->swid_ida, swid);
++	return ret;
++}
++
++static void mlx_tls_del(struct net_device *netdev,
++			struct sock *sk,
++			enum tls_offload_ctx_dir direction)
++{
++	struct mlx_tls_offload_context *context = NULL;
++
++	if (direction == TLS_OFFLOAD_CTX_DIR_RX) {
++		pr_err("mlx_tls_del(): do not support recv\n");
++		return;
++	}
++
++	context = get_tls_context(sk);
++	if (context)
++		mlx_tls_hw_stop_cmd(netdev, context);
++	else
++		pr_err("delete non-offloaded context\n");
++}
++
++static const struct tlsdev_ops mlx_tls_ops = {
++	.tls_dev_add = mlx_tls_add,
++	.tls_dev_del = mlx_tls_del,
++};
++
++struct mlx_tls_dev *mlx_tls_find_dev_by_netdev(struct net_device *netdev)
++{
++	struct mlx_tls_dev *dev;
++
++	mutex_lock(&mlx_tls_mutex);
++	dev = find_mlx_tls_dev_by_netdev(netdev);
++	mutex_unlock(&mlx_tls_mutex);
++	return dev;
++}
++
++#define SYNDROME_OFFLOAD_REQUIRED 32
++#define SYNDROME_SYNC 33.
++#define SYNDROME_BYPASS 34
++
++#define MIN_BYPASS_RECORD_SIZE 29
++#define BYPASS_RECORD_PADDING_SIZE \
++		(MIN_BYPASS_RECORD_SIZE - TLS_HEADER_SIZE)
++
++#define MAX_BYPASS_SIZE ((1 << 15) - BYPASS_RECORD_PADDING_SIZE - 1)
++
++static void create_bypass_record(u8 *buf, u16 len)
++{
++	len += BYPASS_RECORD_PADDING_SIZE;
++	buf[0] = TLS_RECORD_TYPE_DATA;
++	buf[1] = TLS_1_2_VERSION_MAJOR;
++	buf[2] = TLS_1_2_VERSION_MINOR;
++	buf[3] = len >> 8;
++	buf[4] = len & 0xFF;
++	memset(buf + TLS_HEADER_SIZE, 0, BYPASS_RECORD_PADDING_SIZE);
++}
++
++struct sync_info {
++	s32 sync_len;
++	int nr_frags;
++	skb_frag_t frags[MAX_SKB_FRAGS];
++};
++
++static int get_sync_data(struct mlx_tls_offload_context *context,
++			 u32 tcp_seq, struct sync_info *info)
++{
++	struct tls_record_info *record;
++	unsigned long flags;
++	int remaining;
++	s32 sync_size;
++	int ret = -EINVAL;
++	int i = 0;
++
++	spin_lock_irqsave(&context->context.lock, flags);
++	record = tls_get_record(&context->context, tcp_seq);
++
++	if (unlikely(!record)) {
++		pr_err("record not found for seq %u\n", tcp_seq);
++		goto out;
++	}
++
++	sync_size = tcp_seq - (record->end_seq - record->len);
++	info->sync_len = sync_size;
++	if (unlikely(sync_size < 0)) {
++		if (record->len != 0) {
++			pr_err("Invalid record for seq %u\n", tcp_seq);
++			goto out;
++		}
++		goto done;
++	}
++
++	remaining = sync_size;
++	while (remaining > 0) {
++		info->frags[i] = record->frags[i];
++		__skb_frag_ref(&info->frags[i]);
++		remaining -= skb_frag_size(&info->frags[i]);
++
++		if (remaining < 0) {
++			skb_frag_size_add(
++					&info->frags[i],
++					remaining);
++		}
++
++		i++;
++	}
++	info->nr_frags = i;
++done:
++	ret = 0;
++out:
++	spin_unlock_irqrestore(&context->context.lock, flags);
++	return ret;
++}
++
++static struct sk_buff *complete_sync_skb(
++		struct sk_buff *skb,
++		struct sk_buff *nskb,
++		u32 tcp_seq,
++		int headln,
++		unsigned char syndrome
++		)
++{
++	struct iphdr *iph;
++	struct tcphdr *th;
++	int mss;
++	struct pet *pet;
++	__be16 tcp_seq_low;
++
++	nskb->dev = skb->dev;
++	skb_reset_mac_header(nskb);
++	skb_set_network_header(nskb, skb_network_offset(skb));
++	skb_set_transport_header(nskb, skb_transport_offset(skb));
++	memcpy(nskb->data, skb->data, headln);
++
++	iph = ip_hdr(nskb);
++	iph->tot_len = htons(nskb->len - skb_network_offset(nskb));
++	th = tcp_hdr(nskb);
++	tcp_seq -= nskb->data_len;
++	th->seq = htonl(tcp_seq);
++	tcp_seq_low = htons(tcp_seq);
++
++	mss = nskb->dev->mtu - (headln - skb_network_offset(nskb));
++	skb_shinfo(nskb)->gso_size = 0;
++	if (nskb->data_len > mss) {
++		skb_shinfo(nskb)->gso_size = mss;
++		skb_shinfo(nskb)->gso_segs = DIV_ROUND_UP(nskb->data_len, mss);
++	}
++	skb_shinfo(nskb)->gso_type = skb_shinfo(skb)->gso_type;
++
++	nskb->queue_mapping = skb->queue_mapping;
++
++	pet = (struct pet *)(nskb->data + sizeof(struct ethhdr));
++	pet->syndrome = syndrome;
++	memcpy(pet->content.raw, &tcp_seq_low, sizeof(tcp_seq_low));
++
++	nskb->ip_summed = CHECKSUM_PARTIAL;
++	__skb_pull(nskb, skb_transport_offset(skb));
++	inet_csk(skb->sk)->icsk_af_ops->send_check(skb->sk, nskb);
++	__skb_push(nskb, skb_transport_offset(skb));
++
++	nskb->next = skb;
++	nskb->xmit_more = 1;
++	return nskb;
++}
++
++static void strip_pet(struct sk_buff *skb)
++{
++	struct ethhdr *old_eth;
++	struct ethhdr *new_eth;
++
++	old_eth = (struct ethhdr *)((skb->data)  - sizeof(struct ethhdr));
++	new_eth = (struct ethhdr *)((skb_pull_inline(skb, sizeof(struct pet)))
++			- sizeof(struct ethhdr));
++	skb->mac_header += sizeof(struct pet);
++
++	memmove(new_eth, old_eth, 2 * ETH_ALEN);
++	/* Ethertype is already in its new place */
++}
++
++static struct sk_buff *handle_ooo(struct mlx_tls_offload_context *context,
++				  struct sk_buff *skb)
++{
++	struct sync_info info;
++	u32 tcp_seq = ntohl(tcp_hdr(skb)->seq);
++	struct sk_buff *nskb;
++	int linear_len = 0;
++	int headln;
++	unsigned char syndrome = SYNDROME_SYNC;
++
++	if (get_sync_data(context, tcp_seq, &info)) {
++		dev_kfree_skb_any(skb);
++		return NULL;
++	}
++
++	headln = skb_transport_offset(skb) + tcp_hdrlen(skb);
++
++	if (unlikely(info.sync_len < 0)) {
++		if (-info.sync_len > MAX_BYPASS_SIZE) {
++			if (skb->len - headln > -info.sync_len) {
++				pr_err("Required bypass record is too big\n");
++				/* can fragment into two large SKBs in SW */
++				return NULL;
++			}
++			skb_push(skb, sizeof(struct ethhdr));
++			strip_pet(skb);
++			skb_pull(skb, sizeof(struct ethhdr));
++			return skb;
++		}
++
++		linear_len = MIN_BYPASS_RECORD_SIZE;
++	}
++
++	linear_len += headln;
++	nskb = alloc_skb(linear_len, GFP_ATOMIC);
++	if (unlikely(!nskb)) {
++		dev_kfree_skb_any(skb);
++		return NULL;
++	}
++
++	skb_put(nskb, linear_len);
++	syndrome = SYNDROME_SYNC;
++	if (likely(info.sync_len >= 0)) {
++		int i;
++
++		for (i = 0; i < info.nr_frags; i++)
++			skb_shinfo(nskb)->frags[i] = info.frags[i];
++
++		skb_shinfo(nskb)->nr_frags = info.nr_frags;
++		nskb->data_len = info.sync_len;
++		nskb->len += info.sync_len;
++	} else {
++		create_bypass_record(nskb->data + headln, -info.sync_len);
++		tcp_seq -= MIN_BYPASS_RECORD_SIZE;
++		syndrome = SYNDROME_BYPASS;
++	}
++
++	return complete_sync_skb(skb, nskb, tcp_seq, headln, syndrome);
++}
++
++static int insert_pet(struct sk_buff *skb)
++{
++	struct ethhdr *eth;
++	struct pet *pet;
++	struct mlx_tls_offload_context *context;
++
++	pr_debug("insert_pet started\n");
++	if (skb_cow_head(skb, sizeof(struct pet)))
++		return -ENOMEM;
++
++	eth = (struct ethhdr *)skb_push(skb, sizeof(struct pet));
++	skb->mac_header -= sizeof(struct pet);
++	pet = (struct pet *)(eth + 1);
++
++	memmove(skb->data, skb->data + sizeof(struct pet), 2 * ETH_ALEN);
++
++	eth->h_proto = cpu_to_be16(MLX5_METADATA_ETHER_TYPE);
++	pet->syndrome = SYNDROME_OFFLOAD_REQUIRED;
++
++	memset(pet->content.raw, 0, sizeof(pet->content.raw));
++	context = get_tls_context(skb->sk);
++	memcpy(pet->content.send.sid, &context->swid,
++	       sizeof(pet->content.send.sid));
++
++	return 0;
++}
++
++static struct sk_buff *mlx_tls_tx_handler(struct sk_buff *skb,
++					  struct mlx5_swp_info *swp_info)
++{
++	struct mlx_tls_offload_context *context;
++	int datalen;
++	u32 skb_seq;
++
++	pr_debug("mlx_tls_tx_handler started\n");
++
++	if (!skb->sk || !tls_is_sk_tx_device_offloaded(skb->sk))
++		goto out;
++
++	datalen = skb->len - (skb_transport_offset(skb) + tcp_hdrlen(skb));
++	if (!datalen)
++		goto out;
++
++	skb_seq =  ntohl(tcp_hdr(skb)->seq);
++
++	context = get_tls_context(skb->sk);
++	pr_debug("mlx_tls_tx_handler: mapping: %u cpu %u size %u with swid %u expectedSN: %u actualSN: %u\n",
++		 skb->queue_mapping, smp_processor_id(), skb->len,
++		 ntohl(context->swid), context->context.expectedSN, skb_seq);
++
++	insert_pet(skb);
++
++	if (unlikely(context->context.expectedSN != skb_seq)) {
++		skb = handle_ooo(context, skb);
++		if (!skb)
++			goto out;
++
++		pr_info("Sending sync packet\n");
++
++		if (!skb->next)
++			goto out;
++	}
++	context->context.expectedSN = skb_seq + datalen;
++
++out:
++	return skb;
++}
++
++static struct sk_buff *mlx_tls_rx_handler(struct sk_buff *skb, u8 *rawpet,
++					  u8 petlen)
++{
++	struct pet *pet = (struct pet *)rawpet;
++
++	if (petlen != sizeof(*pet))
++		goto out;
++
++	dev_dbg(&skb->dev->dev, ">> rx_handler %u bytes\n", skb->len);
++	dev_dbg(&skb->dev->dev, "   RX PET: size %lu, etherType %04X, syndrome %02x\n",
++		sizeof(*pet), be16_to_cpu(pet->ethertype), pet->syndrome);
++
++	if (pet->syndrome != 48) {
++		dev_dbg(&skb->dev->dev, "unexpected pet syndrome %d\n",
++			pet->syndrome);
++		goto out;
++	}
++
++out:
++	return skb;
++}
++
++/* Must hold mlx_tls_mutex to call this function.
++ * Assumes that dev->core_ctx is destroyed be the caller
++ */
++static void mlx_tls_free(struct mlx_tls_dev *dev)
++{
++	list_del(&dev->accel_dev_list);
++#ifdef MLX_TLS_SADB_RDMA
++	kobject_put(&dev->kobj);
++#endif
++	dev_put(dev->netdev);
++	kfree(dev);
++}
++
++int mlx_tls_netdev_event(struct notifier_block *this, unsigned long event,
++			 void *ptr)
++{
++	struct net_device *netdev = netdev_notifier_info_to_dev(ptr);
++	struct mlx_tls_dev *accel_dev = NULL;
++
++	if (!netdev)
++		goto out;
++
++	pr_debug("mlx_tls_netdev_event: %lu\n", event);
++
++	/* We are interested only in net devices going down */
++	if (event != NETDEV_UNREGISTER)
++		goto out;
++
++	/* Take down all connections using a netdev that is going down */
++	mutex_lock(&mlx_tls_mutex);
++	accel_dev = find_mlx_tls_dev_by_netdev(netdev);
++	if (!accel_dev) {
++		pr_debug("mlx_tls_netdev_event: Failed to find tls device for net device\n");
++		goto unlock;
++	}
++	mlx_tls_free(accel_dev);
++
++unlock:
++	mutex_unlock(&mlx_tls_mutex);
++out:
++	return NOTIFY_DONE;
++}
++
++static struct mlx5_accel_ops mlx_tls_client_ops = {
++	.rx_handler   = mlx_tls_rx_handler,
++	.tx_handler   = mlx_tls_tx_handler,
++	.feature_chk  = mlx_tls_feature_chk,
++	.get_count = mlx_tls_get_count,
++	.get_strings = mlx_tls_get_strings,
++	.get_stats = mlx_tls_get_stats,
++	.mtu_extra = sizeof(struct pet),
++	.features = 0,
++};
++
++int mlx_tls_add_one(struct mlx_accel_core_device *accel_device)
++{
++	int ret = 0;
++	struct mlx_tls_dev *dev = NULL;
++	struct net_device *netdev = NULL;
++#ifdef MLX_TLS_SADB_RDMA
++	struct mlx_accel_core_conn_init_attr init_attr = {0};
++#endif
++	pr_debug("mlx_tls_add_one called for %s\n", accel_device->name);
++
++	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
++	if (!dev) {
++		ret = -ENOMEM;
++		goto out;
++	}
++
++	INIT_LIST_HEAD(&dev->accel_dev_list);
++	dev->accel_device = accel_device;
++	ida_init(&dev->swid_ida);
++
++#ifdef MLX_TLS_SADB_RDMA
++	init_attr.rx_size = 128;
++	init_attr.tx_size = 32;
++	init_attr.recv_cb = mlx_tls_hw_qp_recv_cb;
++	init_attr.cb_arg = dev;
++	dev->conn = mlx_accel_core_conn_create(accel_device, &init_attr);
++	if (IS_ERR(dev->conn)) {
++		ret = PTR_ERR(dev->conn);
++		pr_err("mlx_tls_add_one(): Got error while creating connection %d\n",
++		       ret);
++		goto err_dev;
++	}
++#endif
++	netdev = accel_device->ib_dev->get_netdev(accel_device->ib_dev,
++			accel_device->port);
++	if (!netdev) {
++		pr_err("mlx_tls_add_one(): Failed to retrieve net device from ib device\n");
++		ret = -EINVAL;
++		goto err_conn;
++	}
++	dev->netdev = netdev;
++
++	ret = mlx_accel_core_client_ops_register(accel_device,
++						 &mlx_tls_client_ops);
++	if (ret) {
++		pr_err("mlx_tls_add_one(): Failed to register client ops %d\n",
++		       ret);
++		goto err_netdev;
++	}
++
++#ifdef MLX_TLS_SADB_RDMA
++	ret = tls_sysfs_init_and_add(&dev->kobj,
++				     mlx_accel_core_kobj(dev->accel_device),
++				     "%s",
++				     "accel_dev");
++	if (ret) {
++		pr_err("mlx_tls_add_one(): Got error from kobject_init_and_add %d\n",
++		       ret);
++		goto err_ops_register;
++	}
++#endif
++
++	mutex_lock(&mlx_tls_mutex);
++	list_add(&dev->accel_dev_list, &mlx_tls_devs);
++	mutex_unlock(&mlx_tls_mutex);
++
++	dev->netdev->tlsdev_ops = &mlx_tls_ops;
++	goto out;
++
++#ifdef MLX_TLS_SADB_RDMA
++err_ops_register:
++	mlx_accel_core_client_ops_unregister(accel_device);
++#endif
++err_netdev:
++	dev_put(netdev);
++err_conn:
++	mlx_accel_core_conn_destroy(dev->conn);
++#ifdef MLX_TLS_SADB_RDMA
++err_dev:
++#endif
++	kfree(dev);
++out:
++	return ret;
++}
++
++void mlx_tls_remove_one(struct mlx_accel_core_device *accel_device)
++{
++	struct mlx_tls_dev *dev;
++	struct net_device *netdev = NULL;
++
++	pr_debug("mlx_tls_remove_one called for %s\n", accel_device->name);
++
++	mutex_lock(&mlx_tls_mutex);
++
++	list_for_each_entry(dev, &mlx_tls_devs, accel_dev_list) {
++		if (dev->accel_device == accel_device) {
++			netdev = dev->netdev;
++			netdev->tlsdev_ops = NULL;
++			mlx_accel_core_client_ops_unregister(accel_device);
++#ifdef MLX_TLS_SADB_RDMA
++			mlx_accel_core_conn_destroy(dev->conn);
++#endif
++			mlx_tls_free(dev);
++			break;
++		}
++	}
++	mutex_unlock(&mlx_tls_mutex);
++}
+diff --git a/drivers/net/ethernet/mellanox/accelerator/tls/tls.h b/drivers/net/ethernet/mellanox/accelerator/tls/tls.h
+new file mode 100644
+index 0000000..7c7539a
+--- /dev/null
++++ b/drivers/net/ethernet/mellanox/accelerator/tls/tls.h
+@@ -0,0 +1,100 @@
++/*
++ * Copyright (c) 2015-2017 Mellanox Technologies. All rights reserved.
++ *
++ * This software is available to you under a choice of one of two
++ * licenses.  You may choose to be licensed under the terms of the GNU
++ * General Public License (GPL) Version 2, available from the file
++ * COPYING in the main directory of this source tree, or the
++ * OpenIB.org BSD license below:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      - Redistributions of source code must retain the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer.
++ *
++ *      - Redistributions in binary form must reproduce the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer in the documentation and/or other materials
++ *        provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ *
++ */
++#ifndef __TLS_H__
++#define __TLS_H__
++
++#include <linux/types.h>
++#include <linux/kobject.h>
++#include <linux/kfifo.h>
++#include <linux/list.h>
++#include <linux/skbuff.h>
++#include <linux/hashtable.h>
++#include <net/sock.h>
++#include <net/inet_common.h>
++#include <net/tls.h>
++#include <linux/mlx5/accel_sdk.h>
++
++#include "tls_cmds.h"
++
++#define DRIVER_NAME	"mlx_tls"
++#define DRIVER_VERSION	"0.1"
++#define DRIVER_RELDATE	"January 2016"
++
++#define MLX_TLS_DEVICE_NAME					"mlx_tls"
++/* TODO: Consider moving this to include/uapi/linux/if_ether.h */
++
++struct send_pet_content {
++	/* The next field is meaningful only for sync packets with LSO
++	 * enabled (by the syndrome field))
++	 */
++	__be16 first_seq;	/* LSBs of the first TCP seq in the packet */
++	unsigned char sid[3];
++} __packed;
++
++/*TODO: move this to HW/cmds header files when added*/
++struct pet {
++	unsigned char syndrome;
++	union {
++		unsigned char raw[5];
++		/* from host to FPGA */
++		struct send_pet_content send;
++	} __packed content;
++	/* packet type ID field	*/
++	__be16 ethertype;
++} __packed;
++
++struct mlx_tls_dev {
++	struct kobject kobj;
++	struct list_head accel_dev_list;
++	struct mlx_accel_core_device *accel_device;
++	struct mlx_accel_core_conn *conn;
++	struct net_device *netdev;
++	struct ida swid_ida;
++};
++
++struct mlx_tls_offload_context {
++	struct tls_offload_context context;
++	struct list_head tls_del_list;
++	struct net_device *netdev;
++	__be32 swid;
++};
++
++int mlx_tls_netdev_event(struct notifier_block *this,
++			 unsigned long event, void *ptr);
++
++int mlx_tls_add_one(struct mlx_accel_core_device *accel_device);
++void mlx_tls_remove_one(struct mlx_accel_core_device *accel_device);
++
++struct mlx_tls_dev *mlx_tls_find_dev_by_netdev(struct net_device *netdev);
++
++#endif	/* __TLS_H__ */
 -- 
 2.7.4
