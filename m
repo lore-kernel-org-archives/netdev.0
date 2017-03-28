@@ -1,56 +1,63 @@
-From: Andrey Konovalov <andreyknvl@google.com>
-Subject: Re: [PATCH 0/5] net/packet: fix multiple overflow issues in ring buffers
-Date: Tue, 28 Mar 2017 17:15:58 +0200
-Message-ID: <CAAeHK+yzQaSZghcHCNLMxNx9XvKuLUXPA1oPN7LvUMi4H5fCtA@mail.gmail.com>
-References: <cover.1490709552.git.andreyknvl@google.com> <CAF=yD-+Lx+=uXNSDPFRu0AGsaeTPsH=uuDvBdFQg=oH7vmuB6g@mail.gmail.com>
+From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+Subject: Re: [PATCH 1/7] Documentation: dt: net: Update the ath9k binding for
+ SoC devices
+Date: Tue, 28 Mar 2017 17:18:37 +0200
+Message-ID: <20170328151837.GC3152@lunn.ch>
+References: <1489439116-4233-1-git-send-email-albeu@free.fr>
+ <1897671.fKa4XTnU1K@debian64>
+ <20170328104441.5feedcf4@avionic-0020>
+ <2357006.NGKQYCh4BG@debian64>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S . Miller" <davem@davemloft.net>,
-        Eric Dumazet <edumazet@google.com>,
-        Willem de Bruijn <willemb@google.com>,
-        Craig Gallek <cgallek@google.com>,
-        Network Development <netdev@vger.kernel.org>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Kostya Serebryany <kcc@google.com>
-To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f54.google.com ([74.125.83.54]:34982 "EHLO
-        mail-pg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752114AbdC1PQA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 28 Mar 2017 11:16:00 -0400
-Received: by mail-pg0-f54.google.com with SMTP id 81so61074165pgh.2
-        for <netdev@vger.kernel.org>; Tue, 28 Mar 2017 08:15:59 -0700 (PDT)
-In-Reply-To: <CAF=yD-+Lx+=uXNSDPFRu0AGsaeTPsH=uuDvBdFQg=oH7vmuB6g@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Alban <albeu-GANU6spQydw@public.gmane.org>,
+        QCA ath9k Development <ath9k-devel-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>,
+        John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>,
+        Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        m@kresin.me
+To: Christian Lamparter <chunkeey-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <2357006.NGKQYCh4BG@debian64>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 28, 2017 at 5:06 PM, Willem de Bruijn
-<willemdebruijn.kernel@gmail.com> wrote:
-> On Tue, Mar 28, 2017 at 10:00 AM, Andrey Konovalov
-> <andreyknvl@google.com> wrote:
->> This patchset addresses multiple overflows and signedness-related issues
->> in packet socket ring buffers.
->>
->> Andrey Konovalov (5):
->>   net/packet: fix overflow in check for priv area size
->>   net/packet: add explicit checks for tp_frame_size
->>   net/packet: fix overflow in check for tp_frame_nr
->>   net/packet: fix overflow in check for tp_reserve
->>   net/packet: reorder checks for ring buffer parameters
->
-> These are a lot of changes to backport to stable kernels.
->
-> Can we separate the minimal patch set needed to address known overflow
-> to send to net (with annotation [PATCH net]) and follow up with the larger
-> cleanup to net-next.
+> But LEDE/OpenWRT rely on the firmware loading API more than ever and 
+> currently there is not a replacement for it.
 
-Sure, I can put patches 2 and 5 to a separate patchset.
+....
 
->
->>
->>  net/packet/af_packet.c | 31 +++++++++++++++++++++----------
->>  1 file changed, 21 insertions(+), 10 deletions(-)
->>
->> --
->> 2.12.2.564.g063fe858b8-goog
->>
+
+> I looked into 10-ath9k-eeprom [0] of LEDE's AR71XX target and I noticed
+> that quite a few devices patch the MACs of the wifi.
+> If you look at the code for the Airtight C-55 and C-60, Meraki MR18,
+> Meraki Z1, you'll notice that each one has to add a fixed value (+1,
+> +2, ...) to the extraced MAC-Address. So how would you replicate this,
+> with "nvmem-cell-names = address" without some sort of 
+> nvmem-provider-processor?
+
+...
+ 
+> https://github.com/lede-project/source/blob/master/target/linux/ar71xx/files/arch/mips/ath79/dev-eth.c#L1204
+> 
+> and grep lists the following devices:
+> mach-dgl-5500-a1.c, mach-dhp-1565-a1.c, mach-dir-505-a1.c, mach-dir-615-c1.c
+> mach-dir-615-i1.c, mach-dir-825-b1.c, mach-dir-825-c1.c, mach-tew-673gru.c
+> mach-tew-712br.c, mach-tew-732br.c, mach-tew-823dru.c
+
+I would say a big part of the problem is that all of these use cases
+are outside of mainline. Why should mainline support something which
+is not actually used in mainline.
+
+So i would suggest your first step is to bring some of these devices
+into mainline. Once in mainline, it becomes a mainline issue, and
+people will help get it solved.
+
+       Andrew
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
