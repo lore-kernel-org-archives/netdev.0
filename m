@@ -1,129 +1,91 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [RFC TLS Offload Support 05/15] tcp: Add TLS socket options for
- TCP sockets
-Date: Tue, 28 Mar 2017 07:56:46 -0700
-Message-ID: <CALx6S378aiPhkJ_EX3Xm5UVYvcsoM6vKd9cQ=vW4o+17aBP0CA@mail.gmail.com>
-References: <1490707592-1430-1-git-send-email-aviadye@mellanox.com> <1490707592-1430-6-git-send-email-aviadye@mellanox.com>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: [PATCH 4/5] net/packet: fix overflow in check for tp_reserve
+Date: Tue, 28 Mar 2017 11:00:44 -0400
+Message-ID: <CAF=yD-JJVYj0szu2=Pod2MtK6kYpoU=agwnNnn4yQegk6t4u7Q@mail.gmail.com>
+References: <cover.1490709552.git.andreyknvl@google.com> <0f3f9342c09be4d97a820cf9abeb9dabed8eb69f.1490709552.git.andreyknvl@google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>, ilyal@mellanox.com,
-        borisp@mellanox.com, Dave Watson <davejwatson@fb.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        matanb@mellanox.com, liranl@mellanox.com, haggaie@mellanox.com,
-        Herbert Xu <herbert@gondor.apana.org.au>, nmav@gnults.org,
-        fridolin.pokorny@gmail.com, ilant@mellanox.com,
-        kliteyn@mellanox.com,
-        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        aviadye@dev.mellanox.co.il
-To: Aviad Yehezkel <aviadye@mellanox.com>
+Cc: "David S . Miller" <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        Willem de Bruijn <willemb@google.com>,
+        Craig Gallek <cgallek@google.com>,
+        Network Development <netdev@vger.kernel.org>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Kostya Serebryany <kcc@google.com>
+To: Andrey Konovalov <andreyknvl@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f195.google.com ([209.85.216.195]:33712 "EHLO
-        mail-qt0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752231AbdC1O46 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 28 Mar 2017 10:56:58 -0400
-Received: by mail-qt0-f195.google.com with SMTP id r45so12428502qte.0
-        for <netdev@vger.kernel.org>; Tue, 28 Mar 2017 07:56:52 -0700 (PDT)
-In-Reply-To: <1490707592-1430-6-git-send-email-aviadye@mellanox.com>
+Received: from mail-qt0-f194.google.com ([209.85.216.194]:35208 "EHLO
+        mail-qt0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752371AbdC1PCS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 28 Mar 2017 11:02:18 -0400
+Received: by mail-qt0-f194.google.com with SMTP id r5so12472424qtb.2
+        for <netdev@vger.kernel.org>; Tue, 28 Mar 2017 08:01:44 -0700 (PDT)
+In-Reply-To: <0f3f9342c09be4d97a820cf9abeb9dabed8eb69f.1490709552.git.andreyknvl@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 28, 2017 at 6:26 AM, Aviad Yehezkel <aviadye@mellanox.com> wrote:
-> This patch adds TLS_TX and TLS_RX TCP socket options.
+On Tue, Mar 28, 2017 at 10:00 AM, Andrey Konovalov
+<andreyknvl@google.com> wrote:
+> When calculating po->tp_hdrlen + po->tp_reserve the result can overflow.
 >
-> Setting these socket options will change the sk->sk_prot
-> operations of the TCP socket. The user is responsible to
-> prevent races between calls to the previous operations
-> and the new operations. After successful return, data
-> sent on this socket will be encapsulated in TLS.
+> Fix by checking that tp_reserve <= INT_MAX on assign.
 >
-> Signed-off-by: Aviad Yehezkel <aviadye@mellanox.com>
-> Signed-off-by: Boris Pismenny <borisp@mellanox.com>
-> Signed-off-by: Ilya Lesokhin <ilyal@mellanox.com>
+> This also takes cared of an overflow when calculating
+>  macoff = TPACKET_ALIGN(po->tp_hdrlen) + 16 + po->tp_reserve
+>  snaplen = skb->len
+>  macoff + snaplen
+> since macoff ~ INT_MAX and snaplen < SKB_MAX_ALLOC.
+
+This refers to the overflow of macoff + snaplen?
+
+Note that macoff is unsigned short, so will truncate any overflow from
+tp_reserve.
+
+> Signed-off-by: Andrey Konovalov <andreyknvl@google.com>
 > ---
->  include/uapi/linux/tcp.h |  2 ++
->  net/ipv4/tcp.c           | 32 ++++++++++++++++++++++++++++++++
->  2 files changed, 34 insertions(+)
+>  net/packet/af_packet.c | 7 ++++---
+>  1 file changed, 4 insertions(+), 3 deletions(-)
 >
-> diff --git a/include/uapi/linux/tcp.h b/include/uapi/linux/tcp.h
-> index c53de26..f9f0e29 100644
-> --- a/include/uapi/linux/tcp.h
-> +++ b/include/uapi/linux/tcp.h
-> @@ -116,6 +116,8 @@ enum {
->  #define TCP_SAVE_SYN           27      /* Record SYN headers for new connections */
->  #define TCP_SAVED_SYN          28      /* Get SYN headers recorded for connection */
->  #define TCP_REPAIR_WINDOW      29      /* Get/set window parameters */
-> +#define TCP_TLS_TX             30
-> +#define TCP_TLS_RX             31
->
->  struct tcp_repair_opt {
->         __u32   opt_code;
-> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-> index 302fee9..2d190e3 100644
-> --- a/net/ipv4/tcp.c
-> +++ b/net/ipv4/tcp.c
-> @@ -273,6 +273,7 @@
->  #include <net/icmp.h>
->  #include <net/inet_common.h>
->  #include <net/tcp.h>
-> +#include <net/tls.h>
->  #include <net/xfrm.h>
->  #include <net/ip.h>
->  #include <net/sock.h>
-> @@ -2676,6 +2677,21 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
->                 tp->notsent_lowat = val;
->                 sk->sk_write_space(sk);
->                 break;
-> +       case TCP_TLS_TX:
-> +       case TCP_TLS_RX: {
-> +               int (*fn)(struct sock *sk, int optname,
-> +                         char __user *optval, unsigned int optlen);
-> +
-> +               fn = symbol_get(tls_sk_attach);
-> +               if (!fn) {
-> +                       err = -EINVAL;
-> +                       break;
-> +               }
-> +
-> +               err = fn(sk, optname, optval, optlen);
-> +               symbol_put(tls_sk_attach);
-> +               break;
-> +       }
->         default:
->                 err = -ENOPROTOOPT;
->                 break;
-> @@ -3064,6 +3080,22 @@ static int do_tcp_getsockopt(struct sock *sk, int level,
->                 }
+> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+> index c5c43fff8c01..28b49749d1af 100644
+> --- a/net/packet/af_packet.c
+> +++ b/net/packet/af_packet.c
+> @@ -3665,6 +3665,8 @@ packet_setsockopt(struct socket *sock, int level, int optname, char __user *optv
+>                         return -EBUSY;
+>                 if (copy_from_user(&val, optval, sizeof(val)))
+>                         return -EFAULT;
+> +               if (val > INT_MAX)
+> +                       return -EINVAL;
+
+This change on its own is sufficient to avoid the overflow. For net
+and backports to stable, this minimal patch is preferable.
+
+>                 po->tp_reserve = val;
 >                 return 0;
 >         }
-> +       case TCP_TLS_TX:
-> +       case TCP_TLS_RX: {
-> +               int err;
-> +               int (*fn)(struct sock *sk, int optname,
-> +                         char __user *optval, int __user *optlen);
-> +
-> +               fn = symbol_get(tls_sk_query);
-> +               if (!fn) {
-> +                       err = -EINVAL;
-> +                       break;
-> +               }
-> +
-> +               err = fn(sk, optname, optval, optlen);
-> +               symbol_put(tls_sk_query);
-> +               return err;
-> +       }
+> @@ -4200,6 +4202,8 @@ static int packet_set_ring(struct sock *sk, union tpacket_req_u *req_u,
+>                 if (unlikely((u64)req->tp_block_size * req->tp_block_nr >
+>                                         UINT_MAX))
+>                         goto out;
+> +               if (unlikely(po->tp_reserve >= req->tp_frame_size))
+> +                       goto out;
+>
+>                 if (unlikely(!PAGE_ALIGNED(req->tp_block_size)))
+>                         goto out;
+> @@ -4207,9 +4211,6 @@ static int packet_set_ring(struct sock *sk, union tpacket_req_u *req_u,
+>                     req->tp_block_size <=
+>                           BLK_PLUS_PRIV((u64)req_u->req3.tp_sizeof_priv))
+>                         goto out;
+> -               if (unlikely(req->tp_frame_size < po->tp_hdrlen +
+> -                                       po->tp_reserve))
+> -                       goto out;
 
-This mechanism should be generalized. If we can do this with TLS then
-there will likely be other ULPs that we might want to set on a TCP
-socket. Maybe something like TCP_ULP_PUSH, TCP_ULP_POP (borrowing from
-STREAMS ever so slightly :-) ). I'd also suggest that the ULPs are
-indicated by a text string in the socket option argument, then have
-each ULP perform a registration for their service.
+Is there a reason that the test is moved up? It is probably not
+correct to remove tp_hdrlen from the test.
 
-
->         default:
->                 return -ENOPROTOOPT;
->         }
+>                 if (unlikely(req->tp_frame_size & (TPACKET_ALIGNMENT - 1)))
+>                         goto out;
+>
 > --
-> 2.7.4
+> 2.12.2.564.g063fe858b8-goog
 >
