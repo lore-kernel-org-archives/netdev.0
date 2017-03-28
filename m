@@ -1,50 +1,42 @@
-From: Ivan Vecera <ivecera@redhat.com>
-Subject: Re: [patch net-next 0/8] Add support for pipeline debug (dpipe)
-Date: Tue, 28 Mar 2017 09:58:57 +0200
-Message-ID: <49d3604b-1bf9-c43f-cf25-626fe082fafb@redhat.com>
-References: <1490427342-2061-1-git-send-email-jiri@resnulli.us>
- <20170327.154834.1733255928137862540.davem@davemloft.net>
- <20170328065111.GA1873@nanopsycho.orion>
+From: Oliver Neukum <oneukum-IBi9RG/b67k@public.gmane.org>
+Subject: Re: [PATCHv2] net: usbnet: support 64bit stats in qmi_wwan driver
+Date: Tue, 28 Mar 2017 10:01:40 +0200
+Message-ID: <1490688100.29898.1.camel@suse.com>
+References: <1490318850-23252-1-git-send-email-gerg@linux-m68k.org>
+         <1490331560.9687.42.camel@edumazet-glaptop3.roam.corp.google.com>
+         <44b9bf7a-70e5-a5f7-53f0-4ea3205638f1@linux-m68k.org>
+         <1490365070.9687.46.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, arkadis@mellanox.com, idosch@mellanox.com,
-        mlxsw@mellanox.com, jhs@mojatatu.com, roopa@cumulusnetworks.com,
-        f.fainelli@gmail.com, vivien.didelot@savoirfairelinux.com,
-        john.fastabend@gmail.com, andrew@lunn.ch,
-        simon.horman@netronome.com
-To: Jiri Pirko <jiri@resnulli.us>, David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:49780 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754508AbdC1H7c (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 28 Mar 2017 03:59:32 -0400
-In-Reply-To: <20170328065111.GA1873@nanopsycho.orion>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: bjorn-yOkvZcmFvRU@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Greg Ungerer <gerg-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1490365070.9687.46.camel-XN9IlZ5yJG9HTL0Zs8A6p+yfmBU6pStAUsxypvmhUTTZJqsBc5GL+g@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Dne 28.3.2017 v 08:51 Jiri Pirko napsal(a):
-> Tue, Mar 28, 2017 at 12:48:34AM CEST, davem@davemloft.net wrote:
->>
->> Please fix up these warnings and resubmit:
->>
->> drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c: In function ‘mlxsw_sp_rif_counter_free’:
->> drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c:208:2: warning: ‘p_counter_index’ may be used uninitialized in this function [-Wmaybe-uninitialized]
->>  mlxsw_sp_rif_counter_edit(mlxsw_sp, rif->rif_index,
->>  ^
->> drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.c: In function ‘mlxsw_sp_table_erif_entries_dump’:
->> drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.c:220:9: warning: missing braces around initializer [-Wmissing-braces]
->>  struct devlink_dpipe_value match_value = {0}, action_value = {0};
->
-> I know about this warning. I believe that it is a gcc bug. It happens
-> for gcc 4, but gcc 6 is silent, therefore I choose to ignore this. Do
-> you still want me to fix it?
->
-Yes, this is gcc bug (https://gcc.gnu.org/bugzilla/show_bug.cgi?id=53119). The 
-problem is the first member of struct is union so older gcc assumes initializer 
-like '{ { 0 } }' instead of '{ 0 }'.
+Am Freitag, den 24.03.2017, 07:17 -0700 schrieb Eric Dumazet:
+> On Fri, 2017-03-24 at 15:42 +1000, Greg Ungerer wrote:
+> 
+> > 
+> > The usbnet core is used by a number of drivers. This patch only
+> > updates the qmi-wwan driver to use stats64. If you remove the
+> > dev->stats.rx_* updates all those other driver users will have
+> > no counts.
+> 
+> I see. Then I guess the u64 stuff could be done only if running 32bit
+> kernels. (The existing stats are using 'unsigned long' so are already
+> 64bit wide on 64bit kernels)
 
-IMHO it should be better to workaround this bug for older gccs as gcc6 is not 
-only supported compiler.
+We want every driver to use u64 if possible. If something
+is exported we want a defined size.
 
-Ivan
+	Regards
+		Oliver
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
