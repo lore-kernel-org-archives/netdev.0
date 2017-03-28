@@ -1,106 +1,43 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 2/4] net: dsa: mv88e6xxx: reorder 88E6341 definitions
-Date: Tue, 28 Mar 2017 13:50:33 -0400
-Message-ID: <20170328175035.13897-3-vivien.didelot@savoirfairelinux.com>
-References: <20170328175035.13897-1-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170328175035.13897-1-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch net-next 0/8] Add support for pipeline debug (dpipe)
+Date: Tue, 28 Mar 2017 11:00:07 -0700 (PDT)
+Message-ID: <20170328.110007.875421280068278494.davem@davemloft.net>
+References: <1490427342-2061-1-git-send-email-jiri@resnulli.us>
+        <20170327.154834.1733255928137862540.davem@davemloft.net>
+        <20170328065111.GA1873@nanopsycho.orion>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, arkadis@mellanox.com, idosch@mellanox.com,
+        mlxsw@mellanox.com, jhs@mojatatu.com, ivecera@redhat.com,
+        roopa@cumulusnetworks.com, f.fainelli@gmail.com,
+        vivien.didelot@savoirfairelinux.com, john.fastabend@gmail.com,
+        andrew@lunn.ch, simon.horman@netronome.com
+To: jiri@resnulli.us
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:34808 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752724AbdC1SAK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 28 Mar 2017 14:00:10 -0400
+In-Reply-To: <20170328065111.GA1873@nanopsycho.orion>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The related mv88e6xxx_ops structure was misplaced. Reorder it correctly
-to fix this.
-
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
----
- drivers/net/dsa/mv88e6xxx/chip.c | 62 ++++++++++++++++++++--------------------
- 1 file changed, 31 insertions(+), 31 deletions(-)
-
-diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index df6d8604caf1..3918790c4a75 100644
---- a/drivers/net/dsa/mv88e6xxx/chip.c
-+++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -3378,6 +3378,37 @@ static const struct mv88e6xxx_ops mv88e6321_ops = {
- 	.reset = mv88e6352_g1_reset,
- };
- 
-+static const struct mv88e6xxx_ops mv88e6341_ops = {
-+	/* MV88E6XXX_FAMILY_6341 */
-+	.get_eeprom = mv88e6xxx_g2_get_eeprom8,
-+	.set_eeprom = mv88e6xxx_g2_set_eeprom8,
-+	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
-+	.phy_read = mv88e6xxx_g2_smi_phy_read,
-+	.phy_write = mv88e6xxx_g2_smi_phy_write,
-+	.port_set_link = mv88e6xxx_port_set_link,
-+	.port_set_duplex = mv88e6xxx_port_set_duplex,
-+	.port_set_rgmii_delay = mv88e6390_port_set_rgmii_delay,
-+	.port_set_speed = mv88e6390_port_set_speed,
-+	.port_tag_remap = mv88e6095_port_tag_remap,
-+	.port_set_frame_mode = mv88e6351_port_set_frame_mode,
-+	.port_set_egress_floods = mv88e6352_port_set_egress_floods,
-+	.port_set_ether_type = mv88e6351_port_set_ether_type,
-+	.port_jumbo_config = mv88e6165_port_jumbo_config,
-+	.port_egress_rate_limiting = mv88e6097_port_egress_rate_limiting,
-+	.port_pause_config = mv88e6097_port_pause_config,
-+	.port_disable_learn_limit = mv88e6xxx_port_disable_learn_limit,
-+	.port_disable_pri_override = mv88e6xxx_port_disable_pri_override,
-+	.stats_snapshot = mv88e6390_g1_stats_snapshot,
-+	.stats_get_sset_count = mv88e6320_stats_get_sset_count,
-+	.stats_get_strings = mv88e6320_stats_get_strings,
-+	.stats_get_stats = mv88e6390_stats_get_stats,
-+	.g1_set_cpu_port = mv88e6390_g1_set_cpu_port,
-+	.g1_set_egress_port = mv88e6390_g1_set_egress_port,
-+	.watchdog_ops = &mv88e6390_watchdog_ops,
-+	.mgmt_rsvd2cpu =  mv88e6390_g1_mgmt_rsvd2cpu,
-+	.reset = mv88e6352_g1_reset,
-+};
-+
- static const struct mv88e6xxx_ops mv88e6350_ops = {
- 	/* MV88E6XXX_FAMILY_6351 */
- 	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
-@@ -3467,37 +3498,6 @@ static const struct mv88e6xxx_ops mv88e6352_ops = {
- 	.reset = mv88e6352_g1_reset,
- };
- 
--static const struct mv88e6xxx_ops mv88e6341_ops = {
--	/* MV88E6XXX_FAMILY_6341 */
--	.get_eeprom = mv88e6xxx_g2_get_eeprom8,
--	.set_eeprom = mv88e6xxx_g2_set_eeprom8,
--	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
--	.phy_read = mv88e6xxx_g2_smi_phy_read,
--	.phy_write = mv88e6xxx_g2_smi_phy_write,
--	.port_set_link = mv88e6xxx_port_set_link,
--	.port_set_duplex = mv88e6xxx_port_set_duplex,
--	.port_set_rgmii_delay = mv88e6390_port_set_rgmii_delay,
--	.port_set_speed = mv88e6390_port_set_speed,
--	.port_tag_remap = mv88e6095_port_tag_remap,
--	.port_set_frame_mode = mv88e6351_port_set_frame_mode,
--	.port_set_egress_floods = mv88e6352_port_set_egress_floods,
--	.port_set_ether_type = mv88e6351_port_set_ether_type,
--	.port_jumbo_config = mv88e6165_port_jumbo_config,
--	.port_egress_rate_limiting = mv88e6097_port_egress_rate_limiting,
--	.port_pause_config = mv88e6097_port_pause_config,
--	.port_disable_learn_limit = mv88e6xxx_port_disable_learn_limit,
--	.port_disable_pri_override = mv88e6xxx_port_disable_pri_override,
--	.stats_snapshot = mv88e6390_g1_stats_snapshot,
--	.stats_get_sset_count = mv88e6320_stats_get_sset_count,
--	.stats_get_strings = mv88e6320_stats_get_strings,
--	.stats_get_stats = mv88e6390_stats_get_stats,
--	.g1_set_cpu_port = mv88e6390_g1_set_cpu_port,
--	.g1_set_egress_port = mv88e6390_g1_set_egress_port,
--	.watchdog_ops = &mv88e6390_watchdog_ops,
--	.mgmt_rsvd2cpu =  mv88e6390_g1_mgmt_rsvd2cpu,
--	.reset = mv88e6352_g1_reset,
--};
--
- static const struct mv88e6xxx_ops mv88e6390_ops = {
- 	/* MV88E6XXX_FAMILY_6390 */
- 	.get_eeprom = mv88e6xxx_g2_get_eeprom8,
--- 
-2.12.1
+RnJvbTogSmlyaSBQaXJrbyA8amlyaUByZXNudWxsaS51cz4NCkRhdGU6IFR1ZSwgMjggTWFyIDIw
+MTcgMDg6NTE6MTEgKzAyMDANCg0KPiBUdWUsIE1hciAyOCwgMjAxNyBhdCAxMjo0ODozNEFNIENF
+U1QsIGRhdmVtQGRhdmVtbG9mdC5uZXQgd3JvdGU6DQo+Pg0KPj5QbGVhc2UgZml4IHVwIHRoZXNl
+IHdhcm5pbmdzIGFuZCByZXN1Ym1pdDoNCj4+DQo+PmRyaXZlcnMvbmV0L2V0aGVybmV0L21lbGxh
+bm94L21seHN3L3NwZWN0cnVtX3JvdXRlci5jOiBJbiBmdW5jdGlvbiChbWx4c3dfc3BfcmlmX2Nv
+dW50ZXJfZnJlZaI6DQo+PmRyaXZlcnMvbmV0L2V0aGVybmV0L21lbGxhbm94L21seHN3L3NwZWN0
+cnVtX3JvdXRlci5jOjIwODoyOiB3YXJuaW5nOiChcF9jb3VudGVyX2luZGV4oiBtYXkgYmUgdXNl
+ZCB1bmluaXRpYWxpemVkIGluIHRoaXMgZnVuY3Rpb24gWy1XbWF5YmUtdW5pbml0aWFsaXplZF0N
+Cj4+ICBtbHhzd19zcF9yaWZfY291bnRlcl9lZGl0KG1seHN3X3NwLCByaWYtPnJpZl9pbmRleCwN
+Cj4+ICBeDQo+PmRyaXZlcnMvbmV0L2V0aGVybmV0L21lbGxhbm94L21seHN3L3NwZWN0cnVtX2Rw
+aXBlLmM6IEluIGZ1bmN0aW9uIKFtbHhzd19zcF90YWJsZV9lcmlmX2VudHJpZXNfZHVtcKI6DQo+
+PmRyaXZlcnMvbmV0L2V0aGVybmV0L21lbGxhbm94L21seHN3L3NwZWN0cnVtX2RwaXBlLmM6MjIw
+Ojk6IHdhcm5pbmc6IG1pc3NpbmcgYnJhY2VzIGFyb3VuZCBpbml0aWFsaXplciBbLVdtaXNzaW5n
+LWJyYWNlc10NCj4+ICBzdHJ1Y3QgZGV2bGlua19kcGlwZV92YWx1ZSBtYXRjaF92YWx1ZSA9IHsw
+fSwgYWN0aW9uX3ZhbHVlID0gezB9Ow0KPiANCj4gSSBrbm93IGFib3V0IHRoaXMgd2FybmluZy4g
+SSBiZWxpZXZlIHRoYXQgaXQgaXMgYSBnY2MgYnVnLiBJdCBoYXBwZW5zDQo+IGZvciBnY2MgNCwg
+YnV0IGdjYyA2IGlzIHNpbGVudCwgdGhlcmVmb3JlIEkgY2hvb3NlIHRvIGlnbm9yZSB0aGlzLiBE
+bw0KPiB5b3Ugc3RpbGwgd2FudCBtZSB0byBmaXggaXQ/DQoNClBsZWFzZSBkby4NCg==
