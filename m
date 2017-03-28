@@ -1,7 +1,7 @@
 From: Yuval Mintz <Yuval.Mintz@cavium.com>
-Subject: [PATCH net-next 1/7] qed: Correct HW stop flow
-Date: Tue, 28 Mar 2017 15:12:50 +0300
-Message-ID: <1490703176-429-2-git-send-email-Yuval.Mintz@cavium.com>
+Subject: [PATCH net-next 5/7] qed: Support management-based resource locking
+Date: Tue, 28 Mar 2017 15:12:54 +0300
+Message-ID: <1490703176-429-6-git-send-email-Yuval.Mintz@cavium.com>
 References: <1490703176-429-1-git-send-email-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,447 +9,338 @@ Cc: Tomer Tayar <Tomer.Tayar@cavium.com>,
         Yuval Mintz <Yuval.Mintz@cavium.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:41196 "EHLO
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:41210 "EHLO
         mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1752028AbdC1MNn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 28 Mar 2017 08:13:43 -0400
+        by vger.kernel.org with ESMTP id S1752028AbdC1MNu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 28 Mar 2017 08:13:50 -0400
 In-Reply-To: <1490703176-429-1-git-send-email-Yuval.Mintz@cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Tomer Tayar <Tomer.Tayar@cavium.com>
 
-Management firmware is used as arbiter between different PFs
-which are loading/unloading, but in order to use the synchronization
-it offers the contending configurations need to be applied either
-between their LOAD_REQ <-> LOAD_DONE or UNLOAD_REQ <-> UNLOAD_DONE
-management firmware commands.
+Global locking can't properly be used to synchronize between different
+PFs in all scenarios, as those instances might reside in different
+logical partitions [e.g., when a PF is assigned via PDA to some VM].
 
-Existing HW stop flow utilizes 2 different functions: qed_hw_stop() and
-qed_hw_reset() which don't abide this requirement; Most of the closure
-is doing outside the scope of the unload request.
+The management firmware provides a generic infrastructure for
+device locks. For each 'resource', it's guaranteed it could be acquired
+by at most a single PF at any given time [or by management firmware].
 
-This patch removes qed_hw_reset() and places the relevant stop
-functionality underneath the management firmware protection.
+This patch adds the necessary logic in qed for utilizing said
+infrastructure, implementing lock/unlock internal APIs.
 
 Signed-off-by: Tomer Tayar <Tomer.Tayar@cavium.com>
 Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
 ---
- drivers/net/ethernet/qlogic/qed/qed.h         |   1 +
- drivers/net/ethernet/qlogic/qed/qed_dev.c     | 146 ++++++++++----------------
- drivers/net/ethernet/qlogic/qed/qed_dev_api.h |   8 --
- drivers/net/ethernet/qlogic/qed/qed_main.c    |  29 ++---
- drivers/net/ethernet/qlogic/qed/qed_mcp.c     |  73 +++++++++----
- drivers/net/ethernet/qlogic/qed/qed_mcp.h     |  20 ++++
- 6 files changed, 142 insertions(+), 135 deletions(-)
+ drivers/net/ethernet/qlogic/qed/qed_hsi.h |  28 +++++
+ drivers/net/ethernet/qlogic/qed/qed_mcp.c | 176 ++++++++++++++++++++++++++++++
+ drivers/net/ethernet/qlogic/qed/qed_mcp.h |  65 +++++++++++
+ 3 files changed, 269 insertions(+)
 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed.h b/drivers/net/ethernet/qlogic/qed/qed.h
-index ca30a27..90a1988 100644
---- a/drivers/net/ethernet/qlogic/qed/qed.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed.h
-@@ -732,5 +732,6 @@ void qed_get_protocol_stats(struct qed_dev *cdev,
- 			    enum qed_mcp_protocol_type type,
- 			    union qed_mcp_protocol_stats *stats);
- int qed_slowpath_irq_req(struct qed_hwfn *hwfn);
-+void qed_slowpath_irq_sync(struct qed_hwfn *p_hwfn);
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_hsi.h b/drivers/net/ethernet/qlogic/qed/qed_hsi.h
+index 2de7aa1..4346399 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_hsi.h
++++ b/drivers/net/ethernet/qlogic/qed/qed_hsi.h
+@@ -10119,6 +10119,33 @@ struct public_drv_mb {
  
- #endif /* _QED_H */
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_dev.c b/drivers/net/ethernet/qlogic/qed/qed_dev.c
-index 11e45f0..cf95da5 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_dev.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_dev.c
-@@ -1303,27 +1303,53 @@ void qed_hw_timers_stop_all(struct qed_dev *cdev)
- 
- int qed_hw_stop(struct qed_dev *cdev)
- {
--	int rc = 0, t_rc;
-+	struct qed_hwfn *p_hwfn;
-+	struct qed_ptt *p_ptt;
-+	int rc, rc2 = 0;
- 	int j;
- 
- 	for_each_hwfn(cdev, j) {
--		struct qed_hwfn *p_hwfn = &cdev->hwfns[j];
--		struct qed_ptt *p_ptt = p_hwfn->p_main_ptt;
-+		p_hwfn = &cdev->hwfns[j];
-+		p_ptt = p_hwfn->p_main_ptt;
- 
- 		DP_VERBOSE(p_hwfn, NETIF_MSG_IFDOWN, "Stopping hw/fw\n");
- 
- 		if (IS_VF(cdev)) {
- 			qed_vf_pf_int_cleanup(p_hwfn);
-+			rc = qed_vf_pf_reset(p_hwfn);
-+			if (rc) {
-+				DP_NOTICE(p_hwfn,
-+					  "qed_vf_pf_reset failed. rc = %d.\n",
-+					  rc);
-+				rc2 = -EINVAL;
-+			}
- 			continue;
- 		}
- 
- 		/* mark the hw as uninitialized... */
- 		p_hwfn->hw_init_done = false;
- 
-+		/* Send unload command to MCP */
-+		rc = qed_mcp_unload_req(p_hwfn, p_ptt);
-+		if (rc) {
-+			DP_NOTICE(p_hwfn,
-+				  "Failed sending a UNLOAD_REQ command. rc = %d.\n",
-+				  rc);
-+			rc2 = -EINVAL;
-+		}
+ #define DRV_MSG_CODE_BIST_TEST			0x001e0000
+ #define DRV_MSG_CODE_SET_LED_MODE		0x00200000
++#define DRV_MSG_CODE_RESOURCE_CMD	0x00230000
 +
-+		qed_slowpath_irq_sync(p_hwfn);
++#define RESOURCE_CMD_REQ_RESC_MASK		0x0000001F
++#define RESOURCE_CMD_REQ_RESC_SHIFT		0
++#define RESOURCE_CMD_REQ_OPCODE_MASK		0x000000E0
++#define RESOURCE_CMD_REQ_OPCODE_SHIFT		5
++#define RESOURCE_OPCODE_REQ			1
++#define RESOURCE_OPCODE_REQ_WO_AGING		2
++#define RESOURCE_OPCODE_REQ_W_AGING		3
++#define RESOURCE_OPCODE_RELEASE			4
++#define RESOURCE_OPCODE_FORCE_RELEASE		5
++#define RESOURCE_CMD_REQ_AGE_MASK		0x0000FF00
++#define RESOURCE_CMD_REQ_AGE_SHIFT		8
 +
-+		/* After this point no MFW attentions are expected, e.g. prevent
-+		 * race between pf stop and dcbx pf update.
-+		 */
- 		rc = qed_sp_pf_stop(p_hwfn);
--		if (rc)
-+		if (rc) {
- 			DP_NOTICE(p_hwfn,
--				  "Failed to close PF against FW. Continue to stop HW to prevent illegal host access by the device\n");
-+				  "Failed to close PF against FW [rc = %d]. Continue to stop HW to prevent illegal host access by the device.\n",
-+				  rc);
-+			rc2 = -EINVAL;
-+		}
- 
- 		qed_wr(p_hwfn, p_ptt,
- 		       NIG_REG_RX_LLH_BRB_GATE_DNTFWD_PERPF, 0x1);
-@@ -1346,20 +1372,37 @@ int qed_hw_stop(struct qed_dev *cdev)
- 
- 		/* Need to wait 1ms to guarantee SBs are cleared */
- 		usleep_range(1000, 2000);
++#define RESOURCE_CMD_RSP_OWNER_MASK		0x000000FF
++#define RESOURCE_CMD_RSP_OWNER_SHIFT		0
++#define RESOURCE_CMD_RSP_OPCODE_MASK		0x00000700
++#define RESOURCE_CMD_RSP_OPCODE_SHIFT		8
++#define RESOURCE_OPCODE_GNT			1
++#define RESOURCE_OPCODE_BUSY			2
++#define RESOURCE_OPCODE_RELEASED		3
++#define RESOURCE_OPCODE_RELEASED_PREVIOUS	4
++#define RESOURCE_OPCODE_WRONG_OWNER		5
++#define RESOURCE_OPCODE_UNKNOWN_CMD		255
 +
-+		/* Disable PF in HW blocks */
-+		qed_wr(p_hwfn, p_ptt, DORQ_REG_PF_DB_ENABLE, 0);
-+		qed_wr(p_hwfn, p_ptt, QM_REG_PF_EN, 0);
++#define RESOURCE_DUMP				0
 +
-+		qed_mcp_unload_done(p_hwfn, p_ptt);
-+		if (rc) {
-+			DP_NOTICE(p_hwfn,
-+				  "Failed sending a UNLOAD_DONE command. rc = %d.\n",
-+				  rc);
-+			rc2 = -EINVAL;
-+		}
- 	}
+ #define DRV_MSG_CODE_GET_PF_RDMA_PROTOCOL	0x002b0000
+ #define DRV_MSG_CODE_OS_WOL			0x002e0000
  
- 	if (IS_PF(cdev)) {
-+		p_hwfn = QED_LEADING_HWFN(cdev);
-+		p_ptt = QED_LEADING_HWFN(cdev)->p_main_ptt;
-+
- 		/* Disable DMAE in PXP - in CMT, this should only be done for
- 		 * first hw-function, and only after all transactions have
- 		 * stopped for all active hw-functions.
- 		 */
--		t_rc = qed_change_pci_hwfn(&cdev->hwfns[0],
--					   cdev->hwfns[0].p_main_ptt, false);
--		if (t_rc != 0)
--			rc = t_rc;
-+		rc = qed_change_pci_hwfn(p_hwfn, p_ptt, false);
-+		if (rc) {
-+			DP_NOTICE(p_hwfn,
-+				  "qed_change_pci_hwfn failed. rc = %d.\n", rc);
-+			rc2 = -EINVAL;
-+		}
- 	}
+@@ -10207,6 +10234,7 @@ struct public_drv_mb {
  
--	return rc;
-+	return rc2;
- }
- 
- void qed_hw_stop_fastpath(struct qed_dev *cdev)
-@@ -1404,89 +1447,6 @@ void qed_hw_start_fastpath(struct qed_hwfn *p_hwfn)
- 	       NIG_REG_RX_LLH_BRB_GATE_DNTFWD_PERPF, 0x0);
- }
- 
--static int qed_reg_assert(struct qed_hwfn *p_hwfn,
--			  struct qed_ptt *p_ptt, u32 reg, bool expected)
--{
--	u32 assert_val = qed_rd(p_hwfn, p_ptt, reg);
--
--	if (assert_val != expected) {
--		DP_NOTICE(p_hwfn, "Value at address 0x%08x != 0x%08x\n",
--			  reg, expected);
--		return -EINVAL;
--	}
--
--	return 0;
--}
--
--int qed_hw_reset(struct qed_dev *cdev)
--{
--	int rc = 0;
--	u32 unload_resp, unload_param;
--	u32 wol_param;
--	int i;
--
--	switch (cdev->wol_config) {
--	case QED_OV_WOL_DISABLED:
--		wol_param = DRV_MB_PARAM_UNLOAD_WOL_DISABLED;
--		break;
--	case QED_OV_WOL_ENABLED:
--		wol_param = DRV_MB_PARAM_UNLOAD_WOL_ENABLED;
--		break;
--	default:
--		DP_NOTICE(cdev,
--			  "Unknown WoL configuration %02x\n", cdev->wol_config);
--		/* Fallthrough */
--	case QED_OV_WOL_DEFAULT:
--		wol_param = DRV_MB_PARAM_UNLOAD_WOL_MCP;
--	}
--
--	for_each_hwfn(cdev, i) {
--		struct qed_hwfn *p_hwfn = &cdev->hwfns[i];
--
--		if (IS_VF(cdev)) {
--			rc = qed_vf_pf_reset(p_hwfn);
--			if (rc)
--				return rc;
--			continue;
--		}
--
--		DP_VERBOSE(p_hwfn, NETIF_MSG_IFDOWN, "Resetting hw/fw\n");
--
--		/* Check for incorrect states */
--		qed_reg_assert(p_hwfn, p_hwfn->p_main_ptt,
--			       QM_REG_USG_CNT_PF_TX, 0);
--		qed_reg_assert(p_hwfn, p_hwfn->p_main_ptt,
--			       QM_REG_USG_CNT_PF_OTHER, 0);
--
--		/* Disable PF in HW blocks */
--		qed_wr(p_hwfn, p_hwfn->p_main_ptt, DORQ_REG_PF_DB_ENABLE, 0);
--		qed_wr(p_hwfn, p_hwfn->p_main_ptt, QM_REG_PF_EN, 0);
--		qed_wr(p_hwfn, p_hwfn->p_main_ptt,
--		       TCFC_REG_STRONG_ENABLE_PF, 0);
--		qed_wr(p_hwfn, p_hwfn->p_main_ptt,
--		       CCFC_REG_STRONG_ENABLE_PF, 0);
--
--		/* Send unload command to MCP */
--		rc = qed_mcp_cmd(p_hwfn, p_hwfn->p_main_ptt,
--				 DRV_MSG_CODE_UNLOAD_REQ, wol_param,
--				 &unload_resp, &unload_param);
--		if (rc) {
--			DP_NOTICE(p_hwfn, "qed_hw_reset: UNLOAD_REQ failed\n");
--			unload_resp = FW_MSG_CODE_DRV_UNLOAD_ENGINE;
--		}
--
--		rc = qed_mcp_cmd(p_hwfn, p_hwfn->p_main_ptt,
--				 DRV_MSG_CODE_UNLOAD_DONE,
--				 0, &unload_resp, &unload_param);
--		if (rc) {
--			DP_NOTICE(p_hwfn, "qed_hw_reset: UNLOAD_DONE failed\n");
--			return rc;
--		}
--	}
--
--	return rc;
--}
--
- /* Free hwfn memory and resources acquired in hw_hwfn_prepare */
- static void qed_hw_hwfn_free(struct qed_hwfn *p_hwfn)
- {
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_dev_api.h b/drivers/net/ethernet/qlogic/qed/qed_dev_api.h
-index 6812003..e96eccf 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_dev_api.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_dev_api.h
-@@ -140,14 +140,6 @@ int qed_hw_init(struct qed_dev *cdev,
-  */
- void qed_hw_start_fastpath(struct qed_hwfn *p_hwfn);
- 
--/**
-- * @brief qed_hw_reset -
-- *
-- * @param cdev
-- *
-- * @return int
-- */
--int qed_hw_reset(struct qed_dev *cdev);
- 
- /**
-  * @brief qed_hw_prepare -
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_main.c b/drivers/net/ethernet/qlogic/qed/qed_main.c
-index 766c6f3..f2ae90a 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_main.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_main.c
-@@ -589,6 +589,19 @@ int qed_slowpath_irq_req(struct qed_hwfn *hwfn)
- 	return rc;
- }
- 
-+void qed_slowpath_irq_sync(struct qed_hwfn *p_hwfn)
-+{
-+	struct qed_dev *cdev = p_hwfn->cdev;
-+	u8 id = p_hwfn->my_id;
-+	u32 int_mode;
-+
-+	int_mode = cdev->int_params.out.int_mode;
-+	if (int_mode == QED_INT_MODE_MSIX)
-+		synchronize_irq(cdev->int_params.msix_table[id].vector);
-+	else
-+		synchronize_irq(cdev->pdev->irq);
-+}
-+
- static void qed_slowpath_irq_free(struct qed_dev *cdev)
- {
- 	int i;
-@@ -631,19 +644,6 @@ static int qed_nic_stop(struct qed_dev *cdev)
- 	return rc;
- }
- 
--static int qed_nic_reset(struct qed_dev *cdev)
--{
--	int rc;
--
--	rc = qed_hw_reset(cdev);
--	if (rc)
--		return rc;
--
--	qed_resc_free(cdev);
--
--	return 0;
--}
--
- static int qed_nic_setup(struct qed_dev *cdev)
- {
- 	int rc, i;
-@@ -1043,7 +1043,8 @@ static int qed_slowpath_stop(struct qed_dev *cdev)
- 	}
- 
- 	qed_disable_msix(cdev);
--	qed_nic_reset(cdev);
-+
-+	qed_resc_free(cdev);
- 
- 	qed_iov_wq_stop(cdev, true);
- 
+ 	u32 fw_mb_header;
+ #define FW_MSG_CODE_MASK			0xffff0000
++#define FW_MSG_CODE_UNSUPPORTED                 0x00000000
+ #define FW_MSG_CODE_DRV_LOAD_ENGINE		0x10100000
+ #define FW_MSG_CODE_DRV_LOAD_PORT		0x10110000
+ #define FW_MSG_CODE_DRV_LOAD_FUNCTION		0x10120000
 diff --git a/drivers/net/ethernet/qlogic/qed/qed_mcp.c b/drivers/net/ethernet/qlogic/qed/qed_mcp.c
-index ccea0ea..f2e5ab9 100644
+index 490619f..ddcbc24 100644
 --- a/drivers/net/ethernet/qlogic/qed/qed_mcp.c
 +++ b/drivers/net/ethernet/qlogic/qed/qed_mcp.c
-@@ -550,32 +550,12 @@ int qed_mcp_cmd(struct qed_hwfn *p_hwfn,
- 		u32 *o_mcp_param)
- {
- 	struct qed_mcp_mb_params mb_params;
--	struct mcp_mac wol_mac;
- 	int rc;
- 
- 	memset(&mb_params, 0, sizeof(mb_params));
- 	mb_params.cmd = cmd;
- 	mb_params.param = param;
- 
--	/* In case of UNLOAD_DONE, set the primary MAC */
--	if ((cmd == DRV_MSG_CODE_UNLOAD_DONE) &&
--	    (p_hwfn->cdev->wol_config == QED_OV_WOL_ENABLED)) {
--		u8 *p_mac = p_hwfn->cdev->wol_mac;
--
--		memset(&wol_mac, 0, sizeof(wol_mac));
--		wol_mac.mac_upper = p_mac[0] << 8 | p_mac[1];
--		wol_mac.mac_lower = p_mac[2] << 24 | p_mac[3] << 16 |
--				    p_mac[4] << 8 | p_mac[5];
--
--		DP_VERBOSE(p_hwfn,
--			   (QED_MSG_SP | NETIF_MSG_IFDOWN),
--			   "Setting WoL MAC: %pM --> [%08x,%08x]\n",
--			   p_mac, wol_mac.mac_upper, wol_mac.mac_lower);
--
--		mb_params.p_data_src = &wol_mac;
--		mb_params.data_src_size = sizeof(wol_mac);
--	}
--
- 	rc = qed_mcp_cmd_and_union(p_hwfn, p_ptt, &mb_params);
- 	if (rc)
- 		return rc;
-@@ -663,6 +643,59 @@ int qed_mcp_load_req(struct qed_hwfn *p_hwfn,
- 	return 0;
+@@ -2271,3 +2271,179 @@ int qed_mcp_initiate_pf_flr(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
+ 	return qed_mcp_cmd(p_hwfn, p_ptt, DRV_MSG_CODE_INITIATE_PF_FLR, 0,
+ 			   &mcp_resp, &mcp_param);
  }
- 
-+int qed_mcp_unload_req(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
-+{
-+	u32 wol_param, mcp_resp, mcp_param;
 +
-+	switch (p_hwfn->cdev->wol_config) {
-+	case QED_OV_WOL_DISABLED:
-+		wol_param = DRV_MB_PARAM_UNLOAD_WOL_DISABLED;
++static int qed_mcp_resource_cmd(struct qed_hwfn *p_hwfn,
++				struct qed_ptt *p_ptt,
++				u32 param, u32 *p_mcp_resp, u32 *p_mcp_param)
++{
++	int rc;
++
++	rc = qed_mcp_cmd(p_hwfn, p_ptt, DRV_MSG_CODE_RESOURCE_CMD, param,
++			 p_mcp_resp, p_mcp_param);
++	if (rc)
++		return rc;
++
++	if (*p_mcp_resp == FW_MSG_CODE_UNSUPPORTED) {
++		DP_INFO(p_hwfn,
++			"The resource command is unsupported by the MFW\n");
++		return -EINVAL;
++	}
++
++	if (*p_mcp_param == RESOURCE_OPCODE_UNKNOWN_CMD) {
++		u8 opcode = QED_MFW_GET_FIELD(param, RESOURCE_CMD_REQ_OPCODE);
++
++		DP_NOTICE(p_hwfn,
++			  "The resource command is unknown to the MFW [param 0x%08x, opcode %d]\n",
++			  param, opcode);
++		return -EINVAL;
++	}
++
++	return rc;
++}
++
++int
++__qed_mcp_resc_lock(struct qed_hwfn *p_hwfn,
++		    struct qed_ptt *p_ptt,
++		    struct qed_resc_lock_params *p_params)
++{
++	u32 param = 0, mcp_resp, mcp_param;
++	u8 opcode;
++	int rc;
++
++	switch (p_params->timeout) {
++	case QED_MCP_RESC_LOCK_TO_DEFAULT:
++		opcode = RESOURCE_OPCODE_REQ;
++		p_params->timeout = 0;
 +		break;
-+	case QED_OV_WOL_ENABLED:
-+		wol_param = DRV_MB_PARAM_UNLOAD_WOL_ENABLED;
++	case QED_MCP_RESC_LOCK_TO_NONE:
++		opcode = RESOURCE_OPCODE_REQ_WO_AGING;
++		p_params->timeout = 0;
++		break;
++	default:
++		opcode = RESOURCE_OPCODE_REQ_W_AGING;
++		break;
++	}
++
++	QED_MFW_SET_FIELD(param, RESOURCE_CMD_REQ_RESC, p_params->resource);
++	QED_MFW_SET_FIELD(param, RESOURCE_CMD_REQ_OPCODE, opcode);
++	QED_MFW_SET_FIELD(param, RESOURCE_CMD_REQ_AGE, p_params->timeout);
++
++	DP_VERBOSE(p_hwfn,
++		   QED_MSG_SP,
++		   "Resource lock request: param 0x%08x [age %d, opcode %d, resource %d]\n",
++		   param, p_params->timeout, opcode, p_params->resource);
++
++	/* Attempt to acquire the resource */
++	rc = qed_mcp_resource_cmd(p_hwfn, p_ptt, param, &mcp_resp, &mcp_param);
++	if (rc)
++		return rc;
++
++	/* Analyze the response */
++	p_params->owner = QED_MFW_GET_FIELD(mcp_param, RESOURCE_CMD_RSP_OWNER);
++	opcode = QED_MFW_GET_FIELD(mcp_param, RESOURCE_CMD_RSP_OPCODE);
++
++	DP_VERBOSE(p_hwfn,
++		   QED_MSG_SP,
++		   "Resource lock response: mcp_param 0x%08x [opcode %d, owner %d]\n",
++		   mcp_param, opcode, p_params->owner);
++
++	switch (opcode) {
++	case RESOURCE_OPCODE_GNT:
++		p_params->b_granted = true;
++		break;
++	case RESOURCE_OPCODE_BUSY:
++		p_params->b_granted = false;
 +		break;
 +	default:
 +		DP_NOTICE(p_hwfn,
-+			  "Unknown WoL configuration %02x\n",
-+			  p_hwfn->cdev->wol_config);
-+		/* Fallthrough */
-+	case QED_OV_WOL_DEFAULT:
-+		wol_param = DRV_MB_PARAM_UNLOAD_WOL_MCP;
++			  "Unexpected opcode in resource lock response [mcp_param 0x%08x, opcode %d]\n",
++			  mcp_param, opcode);
++		return -EINVAL;
 +	}
 +
-+	return qed_mcp_cmd(p_hwfn, p_ptt, DRV_MSG_CODE_UNLOAD_REQ, wol_param,
-+			   &mcp_resp, &mcp_param);
++	return 0;
 +}
 +
-+int qed_mcp_unload_done(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
++int
++qed_mcp_resc_lock(struct qed_hwfn *p_hwfn,
++		  struct qed_ptt *p_ptt, struct qed_resc_lock_params *p_params)
 +{
-+	struct qed_mcp_mb_params mb_params;
-+	struct mcp_mac wol_mac;
++	u32 retry_cnt = 0;
++	int rc;
 +
-+	memset(&mb_params, 0, sizeof(mb_params));
-+	mb_params.cmd = DRV_MSG_CODE_UNLOAD_DONE;
++	do {
++		/* No need for an interval before the first iteration */
++		if (retry_cnt) {
++			if (p_params->sleep_b4_retry) {
++				u16 retry_interval_in_ms =
++				    DIV_ROUND_UP(p_params->retry_interval,
++						 1000);
 +
-+	/* Set the primary MAC if WoL is enabled */
-+	if (p_hwfn->cdev->wol_config == QED_OV_WOL_ENABLED) {
-+		u8 *p_mac = p_hwfn->cdev->wol_mac;
++				msleep(retry_interval_in_ms);
++			} else {
++				udelay(p_params->retry_interval);
++			}
++		}
 +
-+		memset(&wol_mac, 0, sizeof(wol_mac));
-+		wol_mac.mac_upper = p_mac[0] << 8 | p_mac[1];
-+		wol_mac.mac_lower = p_mac[2] << 24 | p_mac[3] << 16 |
-+				    p_mac[4] << 8 | p_mac[5];
++		rc = __qed_mcp_resc_lock(p_hwfn, p_ptt, p_params);
++		if (rc)
++			return rc;
 +
-+		DP_VERBOSE(p_hwfn,
-+			   (QED_MSG_SP | NETIF_MSG_IFDOWN),
-+			   "Setting WoL MAC: %pM --> [%08x,%08x]\n",
-+			   p_mac, wol_mac.mac_upper, wol_mac.mac_lower);
++		if (p_params->b_granted)
++			break;
++	} while (retry_cnt++ < p_params->retry_num);
 +
-+		mb_params.p_data_src = &wol_mac;
-+		mb_params.data_src_size = sizeof(wol_mac);
-+	}
-+
-+	return qed_mcp_cmd_and_union(p_hwfn, p_ptt, &mb_params);
++	return 0;
 +}
 +
- static void qed_mcp_handle_vf_flr(struct qed_hwfn *p_hwfn,
- 				  struct qed_ptt *p_ptt)
- {
++int
++qed_mcp_resc_unlock(struct qed_hwfn *p_hwfn,
++		    struct qed_ptt *p_ptt,
++		    struct qed_resc_unlock_params *p_params)
++{
++	u32 param = 0, mcp_resp, mcp_param;
++	u8 opcode;
++	int rc;
++
++	opcode = p_params->b_force ? RESOURCE_OPCODE_FORCE_RELEASE
++				   : RESOURCE_OPCODE_RELEASE;
++	QED_MFW_SET_FIELD(param, RESOURCE_CMD_REQ_RESC, p_params->resource);
++	QED_MFW_SET_FIELD(param, RESOURCE_CMD_REQ_OPCODE, opcode);
++
++	DP_VERBOSE(p_hwfn, QED_MSG_SP,
++		   "Resource unlock request: param 0x%08x [opcode %d, resource %d]\n",
++		   param, opcode, p_params->resource);
++
++	/* Attempt to release the resource */
++	rc = qed_mcp_resource_cmd(p_hwfn, p_ptt, param, &mcp_resp, &mcp_param);
++	if (rc)
++		return rc;
++
++	/* Analyze the response */
++	opcode = QED_MFW_GET_FIELD(mcp_param, RESOURCE_CMD_RSP_OPCODE);
++
++	DP_VERBOSE(p_hwfn, QED_MSG_SP,
++		   "Resource unlock response: mcp_param 0x%08x [opcode %d]\n",
++		   mcp_param, opcode);
++
++	switch (opcode) {
++	case RESOURCE_OPCODE_RELEASED_PREVIOUS:
++		DP_INFO(p_hwfn,
++			"Resource unlock request for an already released resource [%d]\n",
++			p_params->resource);
++		/* Fallthrough */
++	case RESOURCE_OPCODE_RELEASED:
++		p_params->b_released = true;
++		break;
++	case RESOURCE_OPCODE_WRONG_OWNER:
++		p_params->b_released = false;
++		break;
++	default:
++		DP_NOTICE(p_hwfn,
++			  "Unexpected opcode in resource unlock response [mcp_param 0x%08x, opcode %d]\n",
++			  mcp_param, opcode);
++		return -EINVAL;
++	}
++
++	return 0;
++}
 diff --git a/drivers/net/ethernet/qlogic/qed/qed_mcp.h b/drivers/net/ethernet/qlogic/qed/qed_mcp.h
-index f63693d..7d067d0 100644
+index 0056cfe..8673ac1 100644
 --- a/drivers/net/ethernet/qlogic/qed/qed_mcp.h
 +++ b/drivers/net/ethernet/qlogic/qed/qed_mcp.h
-@@ -593,6 +593,26 @@ int qed_mcp_load_req(struct qed_hwfn *p_hwfn,
- 		     u32 *p_load_code);
- 
- /**
-+ * @brief Sends a UNLOAD_REQ message to the MFW
-+ *
-+ * @param p_hwfn
-+ * @param p_ptt
-+ *
-+ * @return int - 0 - Operation was successful.
-+ */
-+int qed_mcp_unload_req(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt);
+@@ -780,4 +780,69 @@ int qed_mcp_get_resc_info(struct qed_hwfn *p_hwfn,
+  * @return int - 0 - operation was successful.
+  */
+ int qed_mcp_initiate_pf_flr(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt);
++struct qed_resc_lock_params {
++	/* Resource number [valid values are 0..31] */
++	u8 resource;
++
++	/* Lock timeout value in seconds [default, none or 1..254] */
++	u8 timeout;
++#define QED_MCP_RESC_LOCK_TO_DEFAULT    0
++#define QED_MCP_RESC_LOCK_TO_NONE       255
++
++	/* Number of times to retry locking */
++	u8 retry_num;
++
++	/* The interval in usec between retries */
++	u16 retry_interval;
++
++	/* Use sleep or delay between retries */
++	bool sleep_b4_retry;
++
++	/* Will be set as true if the resource is free and granted */
++	bool b_granted;
++
++	/* Will be filled with the resource owner.
++	 * [0..15 = PF0-15, 16 = MFW]
++	 */
++	u8 owner;
++};
 +
 +/**
-+ * @brief Sends a UNLOAD_DONE message to the MFW
++ * @brief Acquires MFW generic resource lock
 + *
-+ * @param p_hwfn
-+ * @param p_ptt
++ *  @param p_hwfn
++ *  @param p_ptt
++ *  @param p_params
 + *
-+ * @return int - 0 - Operation was successful.
++ * @return int - 0 - operation was successful.
 + */
-+int qed_mcp_unload_done(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt);
++int
++qed_mcp_resc_lock(struct qed_hwfn *p_hwfn,
++		  struct qed_ptt *p_ptt, struct qed_resc_lock_params *p_params);
++
++struct qed_resc_unlock_params {
++	/* Resource number [valid values are 0..31] */
++	u8 resource;
++
++	/* Allow to release a resource even if belongs to another PF */
++	bool b_force;
++
++	/* Will be set as true if the resource is released */
++	bool b_released;
++};
 +
 +/**
-  * @brief Read the MFW mailbox into Current buffer.
-  *
-  * @param p_hwfn
++ * @brief Releases MFW generic resource lock
++ *
++ *  @param p_hwfn
++ *  @param p_ptt
++ *  @param p_params
++ *
++ * @return int - 0 - operation was successful.
++ */
++int
++qed_mcp_resc_unlock(struct qed_hwfn *p_hwfn,
++		    struct qed_ptt *p_ptt,
++		    struct qed_resc_unlock_params *p_params);
++
+ #endif
 -- 
 1.9.3
