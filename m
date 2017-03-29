@@ -1,7 +1,7 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 2/8] netfilter: nfnl_cthelper: fix runtime expectation policy updates
-Date: Wed, 29 Mar 2017 14:14:04 +0200
-Message-ID: <1490789650-7294-3-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 3/8] netfilter: nfnl_cthelper: Fix memory leak
+Date: Wed, 29 Mar 2017 14:14:05 +0200
+Message-ID: <1490789650-7294-4-git-send-email-pablo@netfilter.org>
 References: <1490789650-7294-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -10,119 +10,62 @@ In-Reply-To: <1490789650-7294-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We only allow runtime updates of expectation policies for timeout and
-maximum number of expectations, otherwise reject the update.
+From: Jeffy Chen <jeffy.chen@rock-chips.com>
 
+We have memory leaks of nf_conntrack_helper & expect_policy.
+
+Signed-off-by: Jeffy Chen <jeffy.chen@rock-chips.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
-Acked-by: Liping Zhang <zlpnobody@gmail.com>
 ---
- net/netfilter/nfnetlink_cthelper.c | 86 +++++++++++++++++++++++++++++++++++++-
- 1 file changed, 84 insertions(+), 2 deletions(-)
+ net/netfilter/nfnetlink_cthelper.c | 12 +++++++++---
+ 1 file changed, 9 insertions(+), 3 deletions(-)
 
 diff --git a/net/netfilter/nfnetlink_cthelper.c b/net/netfilter/nfnetlink_cthelper.c
-index 3cd41d105407..90f291e27eb1 100644
+index 90f291e27eb1..2b987d2a77bc 100644
 --- a/net/netfilter/nfnetlink_cthelper.c
 +++ b/net/netfilter/nfnetlink_cthelper.c
-@@ -256,6 +256,89 @@ nfnl_cthelper_create(const struct nlattr * const tb[],
+@@ -216,7 +216,7 @@ nfnl_cthelper_create(const struct nlattr * const tb[],
+ 
+ 	ret = nfnl_cthelper_parse_expect_policy(helper, tb[NFCTH_POLICY]);
+ 	if (ret < 0)
+-		goto err;
++		goto err1;
+ 
+ 	strncpy(helper->name, nla_data(tb[NFCTH_NAME]), NF_CT_HELPER_NAME_LEN);
+ 	helper->data_len = ntohl(nla_get_be32(tb[NFCTH_PRIV_DATA_LEN]));
+@@ -247,10 +247,12 @@ nfnl_cthelper_create(const struct nlattr * const tb[],
+ 
+ 	ret = nf_conntrack_helper_register(helper);
+ 	if (ret < 0)
+-		goto err;
++		goto err2;
+ 
+ 	return 0;
+-err:
++err2:
++	kfree(helper->expect_policy);
++err1:
+ 	kfree(helper);
+ 	return ret;
  }
+@@ -696,6 +698,8 @@ static int nfnl_cthelper_del(struct net *net, struct sock *nfnl,
  
- static int
-+nfnl_cthelper_update_policy_one(const struct nf_conntrack_expect_policy *policy,
-+				struct nf_conntrack_expect_policy *new_policy,
-+				const struct nlattr *attr)
-+{
-+	struct nlattr *tb[NFCTH_POLICY_MAX + 1];
-+	int err;
-+
-+	err = nla_parse_nested(tb, NFCTH_POLICY_MAX, attr,
-+			       nfnl_cthelper_expect_pol);
-+	if (err < 0)
-+		return err;
-+
-+	if (!tb[NFCTH_POLICY_NAME] ||
-+	    !tb[NFCTH_POLICY_EXPECT_MAX] ||
-+	    !tb[NFCTH_POLICY_EXPECT_TIMEOUT])
-+		return -EINVAL;
-+
-+	if (nla_strcmp(tb[NFCTH_POLICY_NAME], policy->name))
-+		return -EBUSY;
-+
-+	new_policy->max_expected =
-+		ntohl(nla_get_be32(tb[NFCTH_POLICY_EXPECT_MAX]));
-+	new_policy->timeout =
-+		ntohl(nla_get_be32(tb[NFCTH_POLICY_EXPECT_TIMEOUT]));
-+
-+	return 0;
-+}
-+
-+static int nfnl_cthelper_update_policy_all(struct nlattr *tb[],
-+					   struct nf_conntrack_helper *helper)
-+{
-+	struct nf_conntrack_expect_policy new_policy[helper->expect_class_max + 1];
-+	struct nf_conntrack_expect_policy *policy;
-+	int i, err;
-+
-+	/* Check first that all policy attributes are well-formed, so we don't
-+	 * leave things in inconsistent state on errors.
-+	 */
-+	for (i = 0; i < helper->expect_class_max + 1; i++) {
-+
-+		if (!tb[NFCTH_POLICY_SET + i])
-+			return -EINVAL;
-+
-+		err = nfnl_cthelper_update_policy_one(&helper->expect_policy[i],
-+						      &new_policy[i],
-+						      tb[NFCTH_POLICY_SET + i]);
-+		if (err < 0)
-+			return err;
-+	}
-+	/* Now we can safely update them. */
-+	for (i = 0; i < helper->expect_class_max + 1; i++) {
-+		policy = (struct nf_conntrack_expect_policy *)
-+				&helper->expect_policy[i];
-+		policy->max_expected = new_policy->max_expected;
-+		policy->timeout	= new_policy->timeout;
-+	}
-+
-+	return 0;
-+}
-+
-+static int nfnl_cthelper_update_policy(struct nf_conntrack_helper *helper,
-+				       const struct nlattr *attr)
-+{
-+	struct nlattr *tb[NFCTH_POLICY_SET_MAX + 1];
-+	unsigned int class_max;
-+	int err;
-+
-+	err = nla_parse_nested(tb, NFCTH_POLICY_SET_MAX, attr,
-+			       nfnl_cthelper_expect_policy_set);
-+	if (err < 0)
-+		return err;
-+
-+	if (!tb[NFCTH_POLICY_SET_NUM])
-+		return -EINVAL;
-+
-+	class_max = ntohl(nla_get_be32(tb[NFCTH_POLICY_SET_NUM]));
-+	if (helper->expect_class_max + 1 != class_max)
-+		return -EBUSY;
-+
-+	return nfnl_cthelper_update_policy_all(tb, helper);
-+}
-+
-+static int
- nfnl_cthelper_update(const struct nlattr * const tb[],
- 		     struct nf_conntrack_helper *helper)
- {
-@@ -265,8 +348,7 @@ nfnl_cthelper_update(const struct nlattr * const tb[],
- 		return -EBUSY;
- 
- 	if (tb[NFCTH_POLICY]) {
--		ret = nfnl_cthelper_parse_expect_policy(helper,
--							tb[NFCTH_POLICY]);
-+		ret = nfnl_cthelper_update_policy(helper, tb[NFCTH_POLICY]);
- 		if (ret < 0)
- 			return ret;
+ 			found = true;
+ 			nf_conntrack_helper_unregister(cur);
++			kfree(cur->expect_policy);
++			kfree(cur);
+ 		}
  	}
+ 	/* Make sure we return success if we flush and there is no helpers */
+@@ -759,6 +763,8 @@ static void __exit nfnl_cthelper_exit(void)
+ 				continue;
+ 
+ 			nf_conntrack_helper_unregister(cur);
++			kfree(cur->expect_policy);
++			kfree(cur);
+ 		}
+ 	}
+ }
 -- 
 2.1.4
 
