@@ -1,69 +1,45 @@
-From: Gal Pressman <galp@mellanox.com>
-Subject: Re: [PATCH ethtool] ethtool: Support for configurable RSS hash
- function
-Date: Wed, 29 Mar 2017 14:56:38 +0300
-Message-ID: <29780e3c-b8df-a4f7-72f5-53e94bd448b4@mellanox.com>
-References: <1488981831-19376-1-git-send-email-galp@mellanox.com>
- <20170325145047.6a5a7967@cakuba.netronome.com>
- <20170327180203.GB29050@tuxdriver.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] tcp: possible race between tcp_done() and tcp_poll()
+Date: Wed, 29 Mar 2017 14:57:49 +0300
+Message-ID: <bf4e81fe-7213-8af5-4d5a-4bf2737eee7b@cogentembedded.com>
+References: <34d952a3-77cd-ea53-c3e3-ccde91d5cf63@jp.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, Eyal Perry <eyalpe@mellanox.com>
-To: "John W. Linville" <linville@tuxdriver.com>,
-        Jakub Kicinski <kubakici@wp.pl>
+To: Seiichi Ikarashi <s.ikarashi@jp.fujitsu.com>,
+        netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-eopbgr20065.outbound.protection.outlook.com ([40.107.2.65]:54656
-        "EHLO EUR02-VE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S932074AbdC2L4y (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 29 Mar 2017 07:56:54 -0400
-In-Reply-To: <20170327180203.GB29050@tuxdriver.com>
+Received: from mail-lf0-f43.google.com ([209.85.215.43]:33681 "EHLO
+        mail-lf0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754661AbdC2L5w (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 29 Mar 2017 07:57:52 -0400
+Received: by mail-lf0-f43.google.com with SMTP id h125so6515320lfe.0
+        for <netdev@vger.kernel.org>; Wed, 29 Mar 2017 04:57:50 -0700 (PDT)
+In-Reply-To: <34d952a3-77cd-ea53-c3e3-ccde91d5cf63@jp.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 27/03/2017 21:02, John W. Linville wrote:
-> On Sat, Mar 25, 2017 at 02:50:47PM -0700, Jakub Kicinski wrote:
->> On Wed,  8 Mar 2017 16:03:51 +0200, Gal Pressman wrote:
->>> This ethtool patch adds support to set and get the current RSS hash
->>> function for the device through the new hfunc mask field in the
->>> ethtool_rxfh struct. Kernel supported hash function names are queried
->>> with ETHTOOL_GSTRINGS - each string is corresponding with a bit in hfunc
->>> mask according to its index in the string-set.
->>>
->>> Signed-off-by: Eyal Perry <eyalpe@mellanox.com>
->>> Signed-off-by: Gal Pressman <galp@mellanox.com>
->>> Reviewed-by: Saeed Mahameed <saeedm@mellanox.com>
->> Hi John,
->>
->> It seems you have applied both my earlier patch with get support and
->> this:
->>
->> adbaa18b9bc1 ("ethtool: Support for configurable RSS hash function")
->> b932835d2302 ("ethtool: print hash function with ethtool -x|--show-rxfh-indir")
->>
->> Now we print the RSS function twice:
->>
->> RX flow hash indirection table for em4 with 4 RX ring(s):
->>     0:      [...]
->> RSS hash function: toeplitz  <--- from my adbaa18b9bc1
->> RSS hash key:
->> Operation not supported
->> RSS hash function:           <--- from this patch
->>     toeplitz: on
->>     xor: off
->>     crc32: off
->>
->> Reverting my patch is probably the easiest way forward, although I find
->> it more concise and easier to parse in test scripts :)
-> Thanks for pointing-out this issue! I apologize for my own confusion.
->
-> As you suggest, I will be reverting your patch.
->
-> Thanks,
->
-> John
-126464e4da18 ('Revert "ethtool: Support for configurable RSS hash function"')
+Hello!
 
-Seems like you ended up reverting my patch instead of Jakub's?
-We lost the set hfunc functionality.
+On 3/29/2017 8:22 AM, Seiichi Ikarashi wrote:
+
+> Similar to commit a4d258036ed9b2a1811.
+
+    Commit citing is standardized: it should specify 12-digit (at least) SHA1 
+and the commit summary line enclosed in ("").
+
+> Between receiving a packet and tcp_poll(), sk->sk_err is protected by memory barriers but
+> sk->sk_shutdown and sk->sk_state are not. So possibly, POLLIN|POLLRDNORM|POLLRDHUP might
+> not be set even when receiving a RST packet.
+>
+> Signed-off-by: Seiichi Ikarashi <s.ikarashi@jp.fujitsu.com>
+>
+
+     Should be --- before the diffstat.
+
+>  net/ipv4/tcp.c | 7 +++++--
+>  1 file changed, 5 insertions(+), 2 deletions(-)
+
+[...]
+
+MBR, Sergei
