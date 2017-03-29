@@ -1,38 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] rocker: fix Wmaybe-uninitialized false-positive
-Date: Tue, 28 Mar 2017 21:42:58 -0700 (PDT)
-Message-ID: <20170328.214258.1096589839586809714.davem@davemloft.net>
-References: <20170328141126.1541994-1-arnd@arndb.de>
+Subject: Re: [PATCH] VSOCK: remove unnecessary ternary operator on return
+ value
+Date: Tue, 28 Mar 2017 21:49:58 -0700 (PDT)
+Message-ID: <20170328.214958.1031055485189943869.davem@davemloft.net>
+References: <20170328155424.22873-1-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jiri@resnulli.us, idosch@mellanox.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: arnd@arndb.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170328141126.1541994-1-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: jhansen@vmware.com, aditr@vmware.com, julia.lawall@lip6.fr,
+        stefanha@redhat.com, netdev@vger.kernel.org,
+        kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: colin.king@canonical.com
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <20170328155424.22873-1-colin.king@canonical.com>
+Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Tue, 28 Mar 2017 16:11:18 +0200
+From: Colin King <colin.king@canonical.com>
+Date: Tue, 28 Mar 2017 16:54:24 +0100
 
-> gcc-7 reports a warning that earlier versions did not have:
+> From: Colin Ian King <colin.king@canonical.com>
 > 
-> drivers/net/ethernet/rocker/rocker_ofdpa.c: In function 'ofdpa_port_stp_update':
-> arch/x86/include/asm/string_32.h:79:22: error: '*((void *)&prev_ctrls+4)' may be used uninitialized in this function [-Werror=maybe-uninitialized]
->    *((short *)to + 2) = *((short *)from + 2);
->    ~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~
-> drivers/net/ethernet/rocker/rocker_ofdpa.c:2218:7: note: '*((void *)&prev_ctrls+4)' was declared here
+> Rather than assign the positive errno values to ret and then
+> checking if it is positive and flip the sign, just set ret to
+> be the -ve errno value.
 > 
-> This is clearly a variation of the warning about 'prev_state' that
-> was shut up using uninitialized_var().
+> Detected by CoverityScan, CID#986649 ("Logically Dead Code")
 > 
-> We can slightly simplify the code and get rid of the warning by unconditionally
-> saving the prev_state and prev_ctrls variables. The inlined memcpy is not
-> particularly expensive here, as it just has to read five bytes from one or
-> two cache lines.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
 
-Applied, thank you.
+Just return the error directly instead of having this variable.
+
+Thanks.
