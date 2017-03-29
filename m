@@ -1,38 +1,64 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] Add checks for kmalloc allocation failures
-Date: Wed, 29 Mar 2017 09:21:51 -0700
-Message-ID: <1490804511.24891.37.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20170329155447.17991-1-colin.king@canonical.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Harry Morris <h.morris@cascoda.com>, linuxdev@cascoda.com,
-        Alexander Aring <aar@pengutronix.de>,
-        Stefan Schmidt <stefan@osg.samsung.com>,
-        linux-wpan@vger.kernel.org, netdev@vger.kernel.org,
-        kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Colin King <colin.king@canonical.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170329155447.17991-1-colin.king@canonical.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Johan Hovold <johan@kernel.org>
+Subject: [PATCH 2/7] NFC: nfcmrvl_uart: add missing tty-device sanity check
+Date: Wed, 29 Mar 2017 18:21:07 +0200
+Message-ID: <20170329162112.18121-3-johan@kernel.org>
+References: <20170329162112.18121-1-johan@kernel.org>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, Johan Hovold <johan@kernel.org>,
+        stable <stable@vger.kernel.org>,
+        Vincent Cuissard <cuissard@marvell.com>
+To: Lauro Ramos Venancio <lauro.venancio@openbossa.org>,
+        Aloisio Almeida Jr <aloisio.almeida@openbossa.org>,
+        Samuel Ortiz <sameo@linux.intel.com>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <20170329162112.18121-1-johan@kernel.org>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2017-03-29 at 16:54 +0100, Colin King wrote:
-> From: Colin Ian King <colin.king@canonical.com>
-> 
-> Ensure we don't end up with a null pointer dereferences by checking
-> for for allocation failures.  Allocate by sizeof(*ptr) rather than
-> the type to fix checkpack warnings.  Also merge multiple lines into
-> one line for the kmalloc call.
-> 
-> Detected by CoverityScan, CID#1422435 ("Dereference null return value")
+Make sure to check the tty-device pointer before trying to access the
+parent device to avoid dereferencing a NULL-pointer when the tty is one
+end of a Unix98 pty.
 
-OK, but could you change patch title to be less generic ?
+Fixes: e097dc624f78 ("NFC: nfcmrvl: add UART driver")
+Cc: stable <stable@vger.kernel.org>     # 4.2
+Cc: Vincent Cuissard <cuissard@marvell.com>
+Signed-off-by: Johan Hovold <johan@kernel.org>
+---
+ drivers/nfc/nfcmrvl/uart.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-Also, what tree is this patch targeting ?
-
-# ls -l drivers/net/ieee802154/ca8210.c 
-ls: cannot access drivers/net/ieee802154/ca8210.c: No such file or
-directory
-
-Thanks.
+diff --git a/drivers/nfc/nfcmrvl/uart.c b/drivers/nfc/nfcmrvl/uart.c
+index 83a99e38e7bd..6c0c301611c4 100644
+--- a/drivers/nfc/nfcmrvl/uart.c
++++ b/drivers/nfc/nfcmrvl/uart.c
+@@ -109,6 +109,7 @@ static int nfcmrvl_nci_uart_open(struct nci_uart *nu)
+ 	struct nfcmrvl_private *priv;
+ 	struct nfcmrvl_platform_data *pdata = NULL;
+ 	struct nfcmrvl_platform_data config;
++	struct device *dev = nu->tty->dev;
+ 
+ 	/*
+ 	 * Platform data cannot be used here since usually it is already used
+@@ -116,9 +117,8 @@ static int nfcmrvl_nci_uart_open(struct nci_uart *nu)
+ 	 * and check if DT entries were added.
+ 	 */
+ 
+-	if (nu->tty->dev->parent && nu->tty->dev->parent->of_node)
+-		if (nfcmrvl_uart_parse_dt(nu->tty->dev->parent->of_node,
+-					  &config) == 0)
++	if (dev && dev->parent && dev->parent->of_node)
++		if (nfcmrvl_uart_parse_dt(dev->parent->of_node, &config) == 0)
+ 			pdata = &config;
+ 
+ 	if (!pdata) {
+@@ -131,7 +131,7 @@ static int nfcmrvl_nci_uart_open(struct nci_uart *nu)
+ 	}
+ 
+ 	priv = nfcmrvl_nci_register_dev(NFCMRVL_PHY_UART, nu, &uart_ops,
+-					nu->tty->dev, pdata);
++					dev, pdata);
+ 	if (IS_ERR(priv))
+ 		return PTR_ERR(priv);
+ 
+-- 
+2.12.2
