@@ -1,79 +1,63 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH][bluetooth-next][V2] ieee802154: ca8210: Add checks for kmalloc allocation failures
-Date: Wed, 29 Mar 2017 18:05:40 +0100
-Message-ID: <20170329170540.21011-1-colin.king@canonical.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCH 1/2] virtio: allow drivers to validate features
+Date: Wed, 29 Mar 2017 20:14:44 +0300
+Message-ID: <1490807652-27889-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Harry Morris <h.morris@cascoda.com>, linuxdev@cascoda.com,
-        Alexander Aring <aar@pengutronix.de>,
-        Stefan Schmidt <stefan@osg.samsung.com>,
-        linux-wpan@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:34373 "EHLO
-        youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753277AbdC2RFs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 29 Mar 2017 13:05:48 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org
+To: linux-kernel@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Colin Ian King <colin.king@canonical.com>
+Some drivers can't support all features in all configurations.  At the
+moment we blindly set FEATURES_OK and later FAILED.  Support this better
+by adding a callback drivers can use to do some early checks.
 
-Ensure we don't end up with a null pointer dereferences by checking
-for for allocation failures.  Allocate by sizeof(*ptr) rather than
-the type to fix checkpack warnings.  Also merge multiple lines into
-one line for the kmalloc call.
-
-Detected by CoverityScan, CID#1422435 ("Dereference null return value")
-
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 ---
- drivers/net/ieee802154/ca8210.c | 18 ++++++++++--------
- 1 file changed, 10 insertions(+), 8 deletions(-)
+ drivers/virtio/virtio.c | 6 ++++++
+ include/linux/virtio.h  | 1 +
+ 2 files changed, 7 insertions(+)
 
-diff --git a/drivers/net/ieee802154/ca8210.c b/drivers/net/ieee802154/ca8210.c
-index 53fa87bfede0..25fd3b04b3c0 100644
---- a/drivers/net/ieee802154/ca8210.c
-+++ b/drivers/net/ieee802154/ca8210.c
-@@ -634,6 +634,8 @@ static int ca8210_test_int_driver_write(
- 		dev_dbg(&priv->spi->dev, "%#03x\n", buf[i]);
+diff --git a/drivers/virtio/virtio.c b/drivers/virtio/virtio.c
+index 400d70b..48230a5 100644
+--- a/drivers/virtio/virtio.c
++++ b/drivers/virtio/virtio.c
+@@ -232,6 +232,12 @@ static int virtio_dev_probe(struct device *_d)
+ 		if (device_features & (1ULL << i))
+ 			__virtio_set_bit(dev, i);
  
- 	fifo_buffer = kmalloc(len, GFP_KERNEL);
-+	if (!fifo_buffer)
-+		return -ENOMEM;
- 	memcpy(fifo_buffer, buf, len);
- 	kfifo_in(&test->up_fifo, &fifo_buffer, 4);
- 	wake_up_interruptible(&priv->test.readq);
-@@ -759,10 +761,10 @@ static void ca8210_rx_done(struct cas_control *cas_ctl)
- 				&priv->spi->dev,
- 				"Resetting MAC...\n");
- 
--			mlme_reset_wpc = kmalloc(
--				sizeof(struct work_priv_container),
--				GFP_KERNEL
--			);
-+			mlme_reset_wpc = kmalloc(sizeof(*mlme_reset_wpc),
-+						 GFP_KERNEL);
-+			if (!mlme_reset_wpc)
-+				goto finish;
- 			INIT_WORK(
- 				&mlme_reset_wpc->work,
- 				ca8210_mlme_reset_worker
-@@ -925,10 +927,10 @@ static int ca8210_spi_transfer(
- 
- 	dev_dbg(&spi->dev, "ca8210_spi_transfer called\n");
- 
--	cas_ctl = kmalloc(
--		sizeof(struct cas_control),
--		GFP_ATOMIC
--	);
-+	cas_ctl = kmalloc(sizeof(*cas_ctl), GFP_ATOMIC);
-+	if (!cas_ctl)
-+		return -ENOMEM;
++	if (drv->validate) {
++		err = drv->validate(dev);
++		if (err)
++			goto err;
++	}
 +
- 	cas_ctl->priv = priv;
- 	memset(cas_ctl->tx_buf, SPI_IDLE, CA8210_SPI_BUF_SIZE);
- 	memset(cas_ctl->tx_in_buf, SPI_IDLE, CA8210_SPI_BUF_SIZE);
+ 	err = virtio_finalize_features(dev);
+ 	if (err)
+ 		goto err;
+diff --git a/include/linux/virtio.h b/include/linux/virtio.h
+index 193fea9..ed04753 100644
+--- a/include/linux/virtio.h
++++ b/include/linux/virtio.h
+@@ -176,6 +176,7 @@ struct virtio_driver {
+ 	unsigned int feature_table_size;
+ 	const unsigned int *feature_table_legacy;
+ 	unsigned int feature_table_size_legacy;
++	int (*validate)(struct virtio_device *dev);
+ 	int (*probe)(struct virtio_device *dev);
+ 	void (*scan)(struct virtio_device *dev);
+ 	void (*remove)(struct virtio_device *dev);
 -- 
-2.11.0
+MST
