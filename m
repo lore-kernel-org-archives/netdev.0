@@ -1,52 +1,99 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] Add hardware PTP support.
-Date: Wed, 29 Mar 2017 09:39:14 -0700 (PDT)
-Message-ID: <20170329.093914.152103359543418375.davem@davemloft.net>
-References: <1490796051-28527-1-git-send-email-rafalo@cadence.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: Adding vlan to DSA port causes lockdep splat
+Date: Wed, 29 Mar 2017 09:45:16 -0700
+Message-ID: <33d9c12c-7b76-a790-555e-ae10176548e4@gmail.com>
+References: <CAJGZr0JNsL3HG_CUs_jhavYJ5Z6Z6S-bhmE4sONkk++uEZL7nw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: nicolas.ferre-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, harinikatakamlinux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-        harini.katakam-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org, richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-        Andrei.Pistirica-UWL1GkI3JZL3oGB3hsPCZA@public.gmane.org
-To: rafalo-vna1KIf7WgpBDgjK7y7TUQ@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1490796051-28527-1-git-send-email-rafalo-vna1KIf7WgpBDgjK7y7TUQ@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, rmk+kernel@armlinux.org.uk
+To: Maxim Uvarov <muvarov@gmail.com>, Andrew Lunn <andrew@lunn.ch>,
+        David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qt0-f194.google.com ([209.85.216.194]:35088 "EHLO
+        mail-qt0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752457AbdC2QpV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 29 Mar 2017 12:45:21 -0400
+Received: by mail-qt0-f194.google.com with SMTP id r5so2726768qtb.2
+        for <netdev@vger.kernel.org>; Wed, 29 Mar 2017 09:45:20 -0700 (PDT)
+In-Reply-To: <CAJGZr0JNsL3HG_CUs_jhavYJ5Z6Z6S-bhmE4sONkk++uEZL7nw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Rafal Ozieblo <rafalo-vna1KIf7WgpBDgjK7y7TUQ@public.gmane.org>
-Date: Wed, 29 Mar 2017 15:00:51 +0100
+On 02/21/2017 12:38 AM, Maxim Uvarov wrote:
+> Is there any progress on subj issue?
+> 
+> I see it was investigated here:
+> https://www.spinics.net/lists/netdev/msg361434.html
 
-> This patch is based on original Harini's patch and Andrei's patch,
-> implemented in aseparate file to ease the review/maintanance
-> and integration with other platforms.
-> 
-> In case that macb is compiled as a module, it has been renamed to
-> cadence-macb.ko to avoid naming confusion in Makefile.
-> 
-> This driver does support GEM-GXL:
-> - Enable HW time stamp
-> - Register ptp clock framework
-> - Initialize PTP related registers
-> - Updated dma buffer descriptor read/write mechanism
-> - HW time stamp on the PTP Ethernet packets are received using the
->   SO_TIMESTAMPING API. Where timers are obtained from the dma buffer
->   descriptors
-> - Added tsu_clk to device tree
-> 
-> Note: Patch on net-next, on March 15th.
-> 
-> Signed-off-by: Rafal Ozieblo <rafalo-vna1KIf7WgpBDgjK7y7TUQ@public.gmane.org>
+I was just able to reproduce this and will try to look into it. At first
+glance, the reason why we usually don't see it, is that VLAN
+configuration goes through bridge vlan, which exercises a slightly
+different code path.
 
-Your subject should provide a proper subsystem prefix such as
-"cadence: " after "[PATCH] ".
+FWIW: using bridge vlan (VLAN filtering) allows you to define your
+switch's default VLAN (ID and tag/untag flag) whereas the traditional
+vlan device does not really allow you to do that.
 
-Also, March 15th is nearly half a month ago, you should generate
-patches against the current tree.
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+> But it still exist on later kernels:
+> 
+> [   37.320301] ip/1047 is trying to acquire lock:
+> [   37.324764]  (_xmit_ETHER/1){+.....}, at: [<c06ad228>] dev_mc_sync+0x4c/0x88
+> [   37.331882]
+> [   37.331882] but task is already holding lock:
+> [   37.337738]  (_xmit_ETHER/1){+.....}, at: [<c06ad228>] dev_mc_sync+0x4c/0x88
+> [   37.344828]
+> [   37.344828] other info that might help us debug this:
+> [   37.351384]  Possible unsafe locking scenario:
+> [   37.351384]
+> [   37.357326]        CPU0
+> [   37.359778]        ----
+> [   37.362230]   lock(_xmit_ETHER/1);
+> [   37.365650]   lock(_xmit_ETHER/1);
+> [   37.369069]
+> [   37.369069]  *** DEADLOCK ***
+> [   37.369069]
+> [   37.375013]  May be due to missing lock nesting notation
+> [   37.375013]
+> [   37.381830] 3 locks held by ip/1047:
+> [   37.385416]  #0:  (rtnl_mutex){+.+.+.}, at: [<c06b8248>]
+> rtnetlink_rcv+0x1c/0x38
+> [   37.392860]  #1:  (&vlan_netdev_addr_lock_key/1){+.....}, at:
+> [<c06a4f94>] dev_set_rx_mode+0x1c/0x30
+> [   37.402046]  #2:  (_xmit_ETHER/1){+.....}, at: [<c06ad228>]
+> dev_mc_sync+0x4c/0x88
+> [   37.409574]
+> [   37.409574] stack backtrace:
+> [   37.413952] CPU: 0 PID: 1047 Comm: ip Not tainted
+> 4.10.0maxdebug-00008-g9d55486 #22
+> [   37.421639] Hardware name: Generic AM33XX (Flattened Device Tree)
+> [   37.427756] Backtrace:
+> [   37.430237] [<c010bf78>] (dump_backtrace) from [<c010c220>]
+> (show_stack+0x18/0x1c)
+> [   37.437842]  r7:c140f7ec r6:c13e29e0 r5:dc316780 r4:c0db8408
+> [   37.443537] [<c010c208>] (show_stack) from [<c0402ab0>]
+> (dump_stack+0x20/0x28)
+> [   37.450800] [<c0402a90>] (dump_stack) from [<c016b294>]
+> (__lock_acquire+0x15d4/0x18ec)
+> [   37.458753] [<c0169cc0>] (__lock_acquire) from [<c016b958>]
+> (lock_acquire+0x74/0x94)
+> [   37.466532]  r10:dc2260c0 r9:dd747910 r8:00000000 r7:00000001
+> r6:00000001 r5:600d0013
+> [   37.474393]  r4:00000000
+> [   37.476946] [<c016b8e4>] (lock_acquire) from [<c07f802c>]
+> (_raw_spin_lock_nested+0x44/0x54)
+> [   37.485334]  r7:00001002 r6:dd4fd988 r5:dc1f3000 r4:dd4fd988
+> [   37.491022] [<c07f7fe8>] (_raw_spin_lock_nested) from [<c06ad228>]
+> (dev_mc_sync+0x4c/0x88)
+> [   37.499320]  r4:dd4fd800
+> [   37.501870] [<c06ad1dc>] (dev_mc_sync) from [<c0796b60>]
+> (dsa_slave_set_rx_mode+0x28/0x38)
+> [   37.510171]  r7:00001002 r6:00000000 r5:dd4fd800 r4:dc1f3000
+> [   37.515856] [<c0796b38>] (dsa_slave_set_rx_mode) from [<c06a4f40>]
+> (__dev_set_rx_mode+0x64/0x9c)
+> 
+
+
+-- 
+Florian
