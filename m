@@ -1,245 +1,207 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 11/13] i40e/i40evf: Add legacy-rx private flag to allow fallback to old Rx flow
-Date: Wed, 29 Mar 2017 03:12:13 -0700
-Message-ID: <20170329101215.24513-12-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 12/13] i40e/i40evf: Change the way we limit the maximum frame size for Rx
+Date: Wed, 29 Mar 2017 03:12:14 -0700
+Message-ID: <20170329101215.24513-13-jeffrey.t.kirsher@intel.com>
 References: <20170329101215.24513-1-jeffrey.t.kirsher@intel.com>
 Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
         netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
         jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:54616 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:3161 "EHLO mga02.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755154AbdC2KMd (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 29 Mar 2017 06:12:33 -0400
+        id S1755289AbdC2KM3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 29 Mar 2017 06:12:29 -0400
 In-Reply-To: <20170329101215.24513-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This patch adds a control which will allow us to toggle into and out of the
-legacy Rx mode.  The legacy Rx mode is what we currently do when performing
-Rx.  As I make further changes what should happen is that the driver will
-fall back to the behavior for Rx as of this patch should the "legacy-rx"
-flag be set to on.
+This patch changes the way we handle the maximum frame size for the Rx
+path.  Previously we were rounding up to 2K for a 1500 MTU and then brining
+the max frame size down to MTU plus a fixed amount.  With this patch
+applied what we now do is limit the maximum frame to 1.5K minus the value
+for NET_IP_ALIGN for standard MTU, and for any MTU greater than 1500 we
+allow up to the maximum frame size.  This makes the behavior more
+consistent with the other drivers such as igb which had similar logic.  In
+addition it reduces the test matrix for MTU since we only have two max
+frame sizes that are handled for Rx now.
 
-Change-ID: I0342998849bbb31351cce05f6e182c99174e7751
+Change-ID: I23a9d3c857e7df04b0ef28c64df63e659c013f3f
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e.h             |   1 +
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c     |   5 +-
- drivers/net/ethernet/intel/i40evf/i40evf.h         |   2 +
- drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c | 104 +++++++++++++++++++++
- 4 files changed, 111 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c        | 26 ++++++++++++----------
+ drivers/net/ethernet/intel/i40e/i40e_txrx.h        |  4 +---
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.h      |  4 +---
+ drivers/net/ethernet/intel/i40evf/i40evf.h         |  4 ----
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c    | 16 ++++++++++++-
+ .../net/ethernet/intel/i40evf/i40evf_virtchnl.c    | 14 ++++++++----
+ 6 files changed, 41 insertions(+), 27 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index aa9ac2833edf..421ea57128d3 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -430,6 +430,7 @@ struct i40e_pf {
- #define I40E_FLAG_TEMP_LINK_POLLING		BIT_ULL(55)
- #define I40E_FLAG_CLIENT_L2_CHANGE		BIT_ULL(56)
- #define I40E_FLAG_WOL_MC_MAGIC_PKT_WAKE		BIT_ULL(57)
-+#define I40E_FLAG_LEGACY_RX			BIT_ULL(58)
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 1dc02c5eee1c..1f89e416156d 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -2995,7 +2995,8 @@ static int i40e_configure_rx_ring(struct i40e_ring *ring)
  
- 	/* Tracks features that are disabled due to hw limitations.
- 	 * If a bit is set here, it means that the corresponding
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index 9b2e9cef56a4..c0c1a0cdaa5b 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -226,6 +226,7 @@ static const struct i40e_priv_flags i40e_gstrings_priv_flags[] = {
- 	I40E_PRIV_FLAG("flow-director-atr", I40E_FLAG_FD_ATR_ENABLED, 0),
- 	I40E_PRIV_FLAG("veb-stats", I40E_FLAG_VEB_STATS_ENABLED, 0),
- 	I40E_PRIV_FLAG("hw-atr-eviction", I40E_FLAG_HW_ATR_EVICT_CAPABLE, 0),
-+	I40E_PRIV_FLAG("legacy-rx", I40E_FLAG_LEGACY_RX, 0),
- };
+ 	ring->rx_buf_len = vsi->rx_buf_len;
  
- #define I40E_PRIV_FLAGS_STR_LEN ARRAY_SIZE(i40e_gstrings_priv_flags)
-@@ -4055,6 +4056,7 @@ static int i40e_set_priv_flags(struct net_device *dev, u32 flags)
- 	}
+-	rx_ctx.dbuff = ring->rx_buf_len >> I40E_RXQ_CTX_DBUFF_SHIFT;
++	rx_ctx.dbuff = DIV_ROUND_UP(ring->rx_buf_len,
++				    BIT_ULL(I40E_RXQ_CTX_DBUFF_SHIFT));
  
- flags_complete:
-+	/* check for flags that changed */
- 	changed_flags ^= pf->flags;
+ 	rx_ctx.base = (ring->dma / 128);
+ 	rx_ctx.qlen = ring->count;
+@@ -3075,17 +3076,18 @@ static int i40e_vsi_configure_rx(struct i40e_vsi *vsi)
+ 	int err = 0;
+ 	u16 i;
  
- 	/* Process any additional changes needed as a result of flag changes.
-@@ -4095,7 +4097,8 @@ static int i40e_set_priv_flags(struct net_device *dev, u32 flags)
- 	/* Issue reset to cause things to take effect, as additional bits
- 	 * are added we will need to create a mask of bits requiring reset
- 	 */
--	if (changed_flags & I40E_FLAG_VEB_STATS_ENABLED)
-+	if ((changed_flags & I40E_FLAG_VEB_STATS_ENABLED) ||
-+	    ((changed_flags & I40E_FLAG_LEGACY_RX) && netif_running(dev)))
- 		i40e_do_reset(pf, BIT(__I40E_PF_RESET_REQUESTED));
+-	if (vsi->netdev && (vsi->netdev->mtu > ETH_DATA_LEN))
+-		vsi->max_frame = vsi->netdev->mtu + ETH_HLEN
+-			       + ETH_FCS_LEN + VLAN_HLEN;
+-	else
+-		vsi->max_frame = I40E_RXBUFFER_2048;
+-
+-	vsi->rx_buf_len = I40E_RXBUFFER_2048;
+-
+-	/* round up for the chip's needs */
+-	vsi->rx_buf_len = ALIGN(vsi->rx_buf_len,
+-				BIT_ULL(I40E_RXQ_CTX_DBUFF_SHIFT));
++	if (!vsi->netdev || (vsi->back->flags & I40E_FLAG_LEGACY_RX)) {
++		vsi->max_frame = I40E_MAX_RXBUFFER;
++		vsi->rx_buf_len = I40E_RXBUFFER_2048;
++#if (PAGE_SIZE < 8192)
++	} else if (vsi->netdev->mtu <= ETH_DATA_LEN) {
++		vsi->max_frame = I40E_RXBUFFER_1536 - NET_IP_ALIGN;
++		vsi->rx_buf_len = I40E_RXBUFFER_1536 - NET_IP_ALIGN;
++#endif
++	} else {
++		vsi->max_frame = I40E_MAX_RXBUFFER;
++		vsi->rx_buf_len = I40E_RXBUFFER_2048;
++	}
  
- 	return 0;
+ 	/* set up individual rings */
+ 	for (i = 0; i < vsi->num_queue_pairs && !err; i++)
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.h b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
+index eb733726637f..d6609deace57 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
+@@ -117,10 +117,8 @@ enum i40e_dyn_idx_t {
+ 
+ /* Supported Rx Buffer Sizes (a multiple of 128) */
+ #define I40E_RXBUFFER_256   256
++#define I40E_RXBUFFER_1536  1536  /* 128B aligned standard Ethernet frame */
+ #define I40E_RXBUFFER_2048  2048
+-#define I40E_RXBUFFER_3072  3072   /* For FCoE MTU of 2158 */
+-#define I40E_RXBUFFER_4096  4096
+-#define I40E_RXBUFFER_8192  8192
+ #define I40E_MAX_RXBUFFER   9728  /* largest size for single descriptor */
+ 
+ /* NOTE: netdev_alloc_skb reserves up to 64 bytes, NET_IP_ALIGN means we
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
+index aba40edb0e2e..3bb4d732e467 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
+@@ -104,10 +104,8 @@ enum i40e_dyn_idx_t {
+ 
+ /* Supported Rx Buffer Sizes (a multiple of 128) */
+ #define I40E_RXBUFFER_256   256
++#define I40E_RXBUFFER_1536  1536  /* 128B aligned standard Ethernet frame */
+ #define I40E_RXBUFFER_2048  2048
+-#define I40E_RXBUFFER_3072  3072   /* For FCoE MTU of 2158 */
+-#define I40E_RXBUFFER_4096  4096
+-#define I40E_RXBUFFER_8192  8192
+ #define I40E_MAX_RXBUFFER   9728  /* largest size for single descriptor */
+ 
+ /* NOTE: netdev_alloc_skb reserves up to 64 bytes, NET_IP_ALIGN means we
 diff --git a/drivers/net/ethernet/intel/i40evf/i40evf.h b/drivers/net/ethernet/intel/i40evf/i40evf.h
-index b2b48511f457..e60cbfa7e769 100644
+index e60cbfa7e769..d61ecf655091 100644
 --- a/drivers/net/ethernet/intel/i40evf/i40evf.h
 +++ b/drivers/net/ethernet/intel/i40evf/i40evf.h
-@@ -222,6 +222,7 @@ struct i40evf_adapter {
- #define I40EVF_FLAG_CLIENT_NEEDS_L2_PARAMS	BIT(17)
- #define I40EVF_FLAG_PROMISC_ON			BIT(18)
- #define I40EVF_FLAG_ALLMULTI_ON			BIT(19)
-+#define I40EVF_FLAG_LEGACY_RX			BIT(20)
- /* duplicates for common code */
- #define I40E_FLAG_FDIR_ATR_ENABLED		0
- #define I40E_FLAG_DCB_ENABLED			0
-@@ -229,6 +230,7 @@ struct i40evf_adapter {
- #define I40E_FLAG_RX_CSUM_ENABLED		I40EVF_FLAG_RX_CSUM_ENABLED
- #define I40E_FLAG_WB_ON_ITR_CAPABLE		I40EVF_FLAG_WB_ON_ITR_CAPABLE
- #define I40E_FLAG_OUTER_UDP_CSUM_CAPABLE	I40EVF_FLAG_OUTER_UDP_CSUM_CAPABLE
-+#define I40E_FLAG_LEGACY_RX			I40EVF_FLAG_LEGACY_RX
- 	/* flags for admin queue service task */
- 	u32 aq_required;
- #define I40EVF_FLAG_AQ_ENABLE_QUEUES		BIT(0)
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c b/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
-index 122efbd29a19..9bb2cc7dd4e4 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
-@@ -63,6 +63,29 @@ static const struct i40evf_stats i40evf_gstrings_stats[] = {
- #define I40EVF_STATS_LEN(_dev) \
- 	(I40EVF_GLOBAL_STATS_LEN + I40EVF_QUEUE_STATS_LEN(_dev))
- 
-+/* For now we have one and only one private flag and it is only defined
-+ * when we have support for the SKIP_CPU_SYNC DMA attribute.  Instead
-+ * of leaving all this code sitting around empty we will strip it unless
-+ * our one private flag is actually available.
-+ */
-+struct i40evf_priv_flags {
-+	char flag_string[ETH_GSTRING_LEN];
-+	u32 flag;
-+	bool read_only;
-+};
-+
-+#define I40EVF_PRIV_FLAG(_name, _flag, _read_only) { \
-+	.flag_string = _name, \
-+	.flag = _flag, \
-+	.read_only = _read_only, \
-+}
-+
-+static const struct i40evf_priv_flags i40evf_gstrings_priv_flags[] = {
-+	I40EVF_PRIV_FLAG("legacy-rx", I40EVF_FLAG_LEGACY_RX, 0),
-+};
-+
-+#define I40EVF_PRIV_FLAGS_STR_LEN ARRAY_SIZE(i40evf_gstrings_priv_flags)
-+
- /**
-  * i40evf_get_link_ksettings - Get Link Speed and Duplex settings
-  * @netdev: network interface device structure
-@@ -124,6 +147,8 @@ static int i40evf_get_sset_count(struct net_device *netdev, int sset)
+@@ -72,10 +72,6 @@ struct i40e_vsi {
+ #define I40EVF_MAX_RXD		4096
+ #define I40EVF_MIN_RXD		64
+ #define I40EVF_REQ_DESCRIPTOR_MULTIPLE	32
+-
+-/* Supported Rx Buffer Sizes */
+-#define I40EVF_RXBUFFER_2048	2048
+-#define I40EVF_MAX_RXBUFFER	16384  /* largest size for single descriptor */
+ #define I40EVF_MAX_AQ_BUF_SIZE	4096
+ #define I40EVF_AQ_LEN		32
+ #define I40EVF_AQ_MAX_ERR	20 /* times to try before resetting AQ */
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index 6d666bde9df5..fb2811c23024 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -686,12 +686,26 @@ static void i40evf_configure_tx(struct i40evf_adapter *adapter)
+  **/
+ static void i40evf_configure_rx(struct i40evf_adapter *adapter)
  {
- 	if (sset == ETH_SS_STATS)
- 		return I40EVF_STATS_LEN(netdev);
-+	else if (sset == ETH_SS_PRIV_FLAGS)
-+		return I40EVF_PRIV_FLAGS_STR_LEN;
- 	else
- 		return -EINVAL;
- }
-@@ -189,7 +214,83 @@ static void i40evf_get_strings(struct net_device *netdev, u32 sset, u8 *data)
- 			snprintf(p, ETH_GSTRING_LEN, "rx-%u.bytes", i);
- 			p += ETH_GSTRING_LEN;
- 		}
-+	} else if (sset == ETH_SS_PRIV_FLAGS) {
-+		for (i = 0; i < I40EVF_PRIV_FLAGS_STR_LEN; i++) {
-+			snprintf(p, ETH_GSTRING_LEN, "%s",
-+				 i40evf_gstrings_priv_flags[i].flag_string);
-+			p += ETH_GSTRING_LEN;
-+		}
++	unsigned int rx_buf_len = I40E_RXBUFFER_2048;
++	struct net_device *netdev = adapter->netdev;
+ 	struct i40e_hw *hw = &adapter->hw;
+ 	int i;
+ 
++	/* Legacy Rx will always default to a 2048 buffer size. */
++#if (PAGE_SIZE < 8192)
++	if (!(adapter->flags & I40EVF_FLAG_LEGACY_RX)) {
++		/* We use a 1536 buffer size for configurations with
++		 * standard Ethernet mtu.  On x86 this gives us enough room
++		 * for shared info and 192 bytes of padding.
++		 */
++		if (netdev->mtu <= ETH_DATA_LEN)
++			rx_buf_len = I40E_RXBUFFER_1536 - NET_IP_ALIGN;
 +	}
-+}
++#endif
 +
-+/**
-+ * i40evf_get_priv_flags - report device private flags
-+ * @dev: network interface device structure
-+ *
-+ * The get string set count and the string set should be matched for each
-+ * flag returned.  Add new strings for each flag to the i40e_gstrings_priv_flags
-+ * array.
-+ *
-+ * Returns a u32 bitmap of flags.
-+ **/
-+static u32 i40evf_get_priv_flags(struct net_device *netdev)
-+{
-+	struct i40evf_adapter *adapter = netdev_priv(netdev);
-+	u32 i, ret_flags = 0;
-+
-+	for (i = 0; i < I40EVF_PRIV_FLAGS_STR_LEN; i++) {
-+		const struct i40evf_priv_flags *priv_flags;
-+
-+		priv_flags = &i40evf_gstrings_priv_flags[i];
-+
-+		if (priv_flags->flag & adapter->flags)
-+			ret_flags |= BIT(i);
-+	}
-+
-+	return ret_flags;
-+}
-+
-+/**
-+ * i40evf_set_priv_flags - set private flags
-+ * @dev: network interface device structure
-+ * @flags: bit flags to be set
-+ **/
-+static int i40evf_set_priv_flags(struct net_device *netdev, u32 flags)
-+{
-+	struct i40evf_adapter *adapter = netdev_priv(netdev);
-+	u64 changed_flags;
-+	u32 i;
-+
-+	changed_flags = adapter->flags;
-+
-+	for (i = 0; i < I40EVF_PRIV_FLAGS_STR_LEN; i++) {
-+		const struct i40evf_priv_flags *priv_flags;
-+
-+		priv_flags = &i40evf_gstrings_priv_flags[i];
-+
-+		if (priv_flags->read_only)
-+			continue;
-+
-+		if (flags & BIT(i))
-+			adapter->flags |= priv_flags->flag;
-+		else
-+			adapter->flags &= ~(priv_flags->flag);
-+	}
-+
-+	/* check for flags that changed */
-+	changed_flags ^= adapter->flags;
-+
-+	/* Process any additional changes needed as a result of flag changes. */
-+
-+	/* issue a reset to force legacy-rx change to take effect */
-+	if (changed_flags & I40EVF_FLAG_LEGACY_RX) {
-+		if (netif_running(netdev)) {
-+			adapter->flags |= I40EVF_FLAG_RESET_NEEDED;
-+			schedule_work(&adapter->reset_task);
-+		}
+ 	for (i = 0; i < adapter->num_active_queues; i++) {
+ 		adapter->rx_rings[i].tail = hw->hw_addr + I40E_QRX_TAIL1(i);
+-		adapter->rx_rings[i].rx_buf_len = I40EVF_RXBUFFER_2048;
++		adapter->rx_rings[i].rx_buf_len = rx_buf_len;
  	}
+ }
+ 
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
+index 4bc2488bf709..032be8d3928a 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
+@@ -234,7 +234,7 @@ void i40evf_configure_queues(struct i40evf_adapter *adapter)
+ 	struct i40e_virtchnl_vsi_queue_config_info *vqci;
+ 	struct i40e_virtchnl_queue_pair_info *vqpi;
+ 	int pairs = adapter->num_active_queues;
+-	int i, len;
++	int i, len, max_frame = I40E_MAX_RXBUFFER;
+ 
+ 	if (adapter->current_op != I40E_VIRTCHNL_OP_UNKNOWN) {
+ 		/* bail because we already have a command pending */
+@@ -249,6 +249,11 @@ void i40evf_configure_queues(struct i40evf_adapter *adapter)
+ 	if (!vqci)
+ 		return;
+ 
++	/* Limit maximum frame size when jumbo frames is not enabled */
++	if (!(adapter->flags & I40EVF_FLAG_LEGACY_RX) &&
++	    (adapter->netdev->mtu <= ETH_DATA_LEN))
++		max_frame = I40E_RXBUFFER_1536 - NET_IP_ALIGN;
 +
-+	return 0;
- }
+ 	vqci->vsi_id = adapter->vsi_res->vsi_id;
+ 	vqci->num_queue_pairs = pairs;
+ 	vqpi = vqci->qpair;
+@@ -264,9 +269,10 @@ void i40evf_configure_queues(struct i40evf_adapter *adapter)
+ 		vqpi->rxq.queue_id = i;
+ 		vqpi->rxq.ring_len = adapter->rx_rings[i].count;
+ 		vqpi->rxq.dma_ring_addr = adapter->rx_rings[i].dma;
+-		vqpi->rxq.max_pkt_size = adapter->netdev->mtu
+-					+ ETH_HLEN + VLAN_HLEN + ETH_FCS_LEN;
+-		vqpi->rxq.databuffer_size = adapter->rx_rings[i].rx_buf_len;
++		vqpi->rxq.max_pkt_size = max_frame;
++		vqpi->rxq.databuffer_size =
++			ALIGN(adapter->rx_rings[i].rx_buf_len,
++			      BIT_ULL(I40E_RXQ_CTX_DBUFF_SHIFT));
+ 		vqpi++;
+ 	}
  
- /**
-@@ -238,6 +339,7 @@ static void i40evf_get_drvinfo(struct net_device *netdev,
- 	strlcpy(drvinfo->version, i40evf_driver_version, 32);
- 	strlcpy(drvinfo->fw_version, "N/A", 4);
- 	strlcpy(drvinfo->bus_info, pci_name(adapter->pdev), 32);
-+	drvinfo->n_priv_flags = I40EVF_PRIV_FLAGS_STR_LEN;
- }
- 
- /**
-@@ -649,6 +751,8 @@ static const struct ethtool_ops i40evf_ethtool_ops = {
- 	.get_strings		= i40evf_get_strings,
- 	.get_ethtool_stats	= i40evf_get_ethtool_stats,
- 	.get_sset_count		= i40evf_get_sset_count,
-+	.get_priv_flags		= i40evf_get_priv_flags,
-+	.set_priv_flags		= i40evf_set_priv_flags,
- 	.get_msglevel		= i40evf_get_msglevel,
- 	.set_msglevel		= i40evf_set_msglevel,
- 	.get_coalesce		= i40evf_get_coalesce,
 -- 
 2.12.0
