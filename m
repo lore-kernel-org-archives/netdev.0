@@ -1,34 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/8] Netfilter fixes for net
-Date: Wed, 29 Mar 2017 14:39:15 -0700 (PDT)
-Message-ID: <20170329.143915.150518467844727871.davem@davemloft.net>
-References: <1490789650-7294-1-git-send-email-pablo@netfilter.org>
+From: Eric Dumazet <edumazet@google.com>
+Subject: Re: [PATCH] ezchip: nps_enet: check if napi has been completed
+Date: Wed, 29 Mar 2017 14:41:40 -0700
+Message-ID: <CANn89iJ1+7CrF=hJj-_pLWV+EDXxhUZGOL+3je6zjE8dJDcr=A@mail.gmail.com>
+References: <1490784106-14489-1-git-send-email-vzakhar@synopsys.com>
+ <20170329.143014.2001816338079751776.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:51576 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933079AbdC2VjR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 29 Mar 2017 17:39:17 -0400
-In-Reply-To: <1490789650-7294-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev <netdev@vger.kernel.org>, LKML <linux-kernel@vger.kernel.org>,
+ noamca@mellanox.com, Vladislav.Zakharov@synopsys.com,
+ linux-snps-arc@lists.infradead.org, eladkan@mellanox.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-snps-arc-bounces+gla-linux-snps-arc=m.gmane.org@lists.infradead.org>
+In-Reply-To: <20170329.143014.2001816338079751776.davem@davemloft.net>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-snps-arc>,
+ <mailto:linux-snps-arc-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-snps-arc/>
+List-Post: <mailto:linux-snps-arc@lists.infradead.org>
+List-Help: <mailto:linux-snps-arc-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-snps-arc>,
+ <mailto:linux-snps-arc-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-snps-arc" <linux-snps-arc-bounces@lists.infradead.org>
+Errors-To: linux-snps-arc-bounces+gla-linux-snps-arc=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Wed, 29 Mar 2017 14:14:02 +0200
+On Wed, Mar 29, 2017 at 2:30 PM, David Miller <davem@davemloft.net> wrote:
+Signed-off-by: Vlad Zakharov <vzakhar@synopsys.com>
+>
+> Applied.
+>
+> Eric, if this is really required now, we have 148 broken drivers still.
 
-> Hi David,
-> 
-> The following patchset contains a rather large update with Netfilter
-> fixes, specifically targeted to incorrect RCU usage in several spots and
-> the userspace conntrack helper infrastructure (nfnetlink_cthelper),
-> more specifically they are:
- ...
-> You can pull these changes from:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git
+Piece of cake :/
 
-Pulled, thanks Pablo.
+If we get more reports like that, we might implement a logic to
+prevent infinite loops.
+
+It is not clear to me what exactly happened to this driver, since
+testing napi_complete_done() was not mandatory.
