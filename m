@@ -1,53 +1,50 @@
-From: Varsha Rao <rvarsha016@gmail.com>
-Subject: [PATCH 2/2] net: ipv4: Use BIT macro.
-Date: Thu, 30 Mar 2017 00:46:44 +0530
-Message-ID: <58dc0820.8943620a.67760.546e@mx.google.com>
-References: <cover.1490813977.git.rvarsha016@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: outreachy-kernel <outreachy-kernel@googlegroups.com>,
-        netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:36205 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753003AbdC2TQt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 29 Mar 2017 15:16:49 -0400
-Received: by mail-pg0-f66.google.com with SMTP id 81so4065700pgh.3
-        for <netdev@vger.kernel.org>; Wed, 29 Mar 2017 12:16:49 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <cover.1490813977.git.rvarsha016@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH RESEND net-next] net: dsa: mv88e6xxx: debug ATU Age Time
+Date: Wed, 29 Mar 2017 15:38:37 -0400
+Message-ID: <20170329193837.28882-1-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Jason Cobham <jcobham@questertangent.com>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Replace bitwise left shift by one operations with BIT() macro. This patch
-fixes the checkpatch issue.
+The ATU ageing time value programmed in the switch is rounded up to the
+nearest multiple of its coefficient (variable depending on the model.)
 
-Signed-off-by: Varsha Rao <rvarsha016@gmail.com>
+Add a debug message to inform the user about the exact programmed value.
+
+On 6352, "brctl setageing br0 18" gives "AgeTime set to 0x01 (15000 ms)"
+while on 6390 we get "AgeTime set to 0x05 (18750 ms)".
+
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- net/ipv4/tcp_bbr.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/dsa/mv88e6xxx/global1_atu.c | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
 
-diff --git a/net/ipv4/tcp_bbr.c b/net/ipv4/tcp_bbr.c
-index 4da4bc1..9f2c869 100644
---- a/net/ipv4/tcp_bbr.c
-+++ b/net/ipv4/tcp_bbr.c
-@@ -71,10 +71,10 @@
-  * an issue. The upper bound isn't an issue with existing technologies.
-  */
- #define BW_SCALE 24
--#define BW_UNIT (1 << BW_SCALE)
-+#define BW_UNIT BIT(BW_SCALE)
+diff --git a/drivers/net/dsa/mv88e6xxx/global1_atu.c b/drivers/net/dsa/mv88e6xxx/global1_atu.c
+index 492e00dea3ce..fa7e7db5171b 100644
+--- a/drivers/net/dsa/mv88e6xxx/global1_atu.c
++++ b/drivers/net/dsa/mv88e6xxx/global1_atu.c
+@@ -63,7 +63,14 @@ int mv88e6xxx_g1_atu_set_age_time(struct mv88e6xxx_chip *chip,
+ 	val &= ~0xff0;
+ 	val |= age_time << 4;
  
- #define BBR_SCALE 8	/* scaling factor for fractions in BBR (e.g. gains) */
--#define BBR_UNIT (1 << BBR_SCALE)
-+#define BBR_UNIT BIT(BBR_SCALE)
+-	return mv88e6xxx_g1_write(chip, GLOBAL_ATU_CONTROL, val);
++	err = mv88e6xxx_g1_write(chip, GLOBAL_ATU_CONTROL, val);
++	if (err)
++		return err;
++
++	dev_dbg(chip->dev, "AgeTime set to 0x%02x (%d ms)\n", age_time,
++		age_time * coeff);
++
++	return 0;
+ }
  
- /* BBR has the following modes for deciding how fast to send: */
- enum bbr_mode {
+ /* Offset 0x0B: ATU Operation Register */
 -- 
-2.9.3
+2.12.1
