@@ -1,37 +1,42 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next v2] net: mvneta: set rx mode during resume if
- interface is running
-Date: Wed, 29 Mar 2017 14:57:48 +0200
-Message-ID: <20170329125748.GD28922@lunn.ch>
-References: <20170329084719.3596-1-jszhang@marvell.com>
+From: "Mr. Ernest Pinto" <epinto@lotb.de>
+Subject: Private Placement
+Date: Wed, 29 Mar 2017 05:37:02 -0700
+Message-ID: <20170329124955.CE9B71B69DB@lotb.de>
+Reply-To: mr.pintoernest11@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: thomas.petazzoni@free-electrons.com, davem@davemloft.net,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org
-To: Jisheng Zhang <jszhang@marvell.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170329084719.3596-1-jszhang@marvell.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from lotb.de ([78.47.43.82]:51473 "EHLO lotb.de"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1755295AbdC2NAC (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 29 Mar 2017 09:00:02 -0400
+Received: from [158.69.57.135] (unknown [158.69.57.135])
+        by lotb.de (Postfix) with ESMTPSA id E0DC41B69DC
+        for <netdev@vger.kernel.org>; Wed, 29 Mar 2017 14:36:13 +0200 (CEST)
+Content-Description: Mail message body
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 29, 2017 at 04:47:19PM +0800, Jisheng Zhang wrote:
-> I found a bug by:
-> 
-> 0. boot and start dhcp client
-> 1. echo mem > /sys/power/state
-> 2. resume back immediately
-> 3. don't touch dhcp client to renew the lease
-> 4. ping the gateway. No acks
-> 
-> Usually, after step2, the DHCP lease isn't expired, so in theory we
-> should resume all back. But in fact, it doesn't. It turns out
-> the rx mode isn't resumed correctly. This patch fixes it by adding
-> mvneta_set_rx_mode(dev) in the resume hook if interface is running.
-> 
-> Signed-off-by: Jisheng Zhang <jszhang@marvell.com>
+Good day,
 
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+Welcome to our Private Placement Portfolio.
 
-    Andrew
+I am a Staff of a Venture Capital Firm specializing in Growth Capital Inves=
+tments/Loans.We seek to invest in Projects with Public and Private sectors =
+in a broad range of areas including Real estate, Agriculture, Energy, Oil a=
+nd Gas, emerging markets and high-technology. Within the technology sector,=
+ the firm focuses on communications, software, digital content and services.
+
+We have the capacity to invest a considerable amount of funds in any viable=
+ project(s) that your company requires funding for on an investment capacit=
+y/Loan Application. Upon the review of your company's Project Business Plan=
+ we shall determine on the project(s) possible funding. This will be form o=
+f a silent and Private Placement Investments.
+
+Endeavor to respond promptly if the investment proposal meets your company'=
+s approval.
+
+Kind Regards,
+Ernest Pinto
