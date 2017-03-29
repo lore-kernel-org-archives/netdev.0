@@ -1,63 +1,78 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 2/2] net: ipv4: Use BIT macro.
-Date: Wed, 29 Mar 2017 13:16:49 -0700
-Message-ID: <1490818609.24891.49.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <cover.1490813977.git.rvarsha016@gmail.com>
-         <58dc0820.8943620a.67760.546e@mx.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        outreachy-kernel <outreachy-kernel@googlegroups.com>,
-        netdev@vger.kernel.org
-To: Varsha Rao <rvarsha016@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:34957 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932910AbdC2UQw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 29 Mar 2017 16:16:52 -0400
-Received: by mail-pg0-f65.google.com with SMTP id g2so4436676pge.2
-        for <netdev@vger.kernel.org>; Wed, 29 Mar 2017 13:16:51 -0700 (PDT)
-In-Reply-To: <58dc0820.8943620a.67760.546e@mx.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 0/9] net: dsa: mv88e6xxx: program cross-chip bridging
+Date: Wed, 29 Mar 2017 16:30:11 -0400
+Message-ID: <20170329203020.27042-1-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2017-03-30 at 00:46 +0530, Varsha Rao wrote:
-> Replace bitwise left shift by one operations with BIT() macro. This patch
-> fixes the checkpatch issue.
-> 
-> Signed-off-by: Varsha Rao <rvarsha016@gmail.com>
-> ---
->  net/ipv4/tcp_bbr.c | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/ipv4/tcp_bbr.c b/net/ipv4/tcp_bbr.c
-> index 4da4bc1..9f2c869 100644
-> --- a/net/ipv4/tcp_bbr.c
-> +++ b/net/ipv4/tcp_bbr.c
-> @@ -71,10 +71,10 @@
->   * an issue. The upper bound isn't an issue with existing technologies.
->   */
->  #define BW_SCALE 24
-> -#define BW_UNIT (1 << BW_SCALE)
-> +#define BW_UNIT BIT(BW_SCALE)
->  
->  #define BBR_SCALE 8	/* scaling factor for fractions in BBR (e.g. gains) */
-> -#define BBR_UNIT (1 << BBR_SCALE)
-> +#define BBR_UNIT BIT(BBR_SCALE)
->  
->  /* BBR has the following modes for deciding how fast to send: */
->  enum bbr_mode {
+The purpose of this patch series is to bring hardware cross-chip
+bridging configuration to the DSA layer and the mv88e6xxx DSA driver.
 
-Well, no.  BIT() is using unsigned long.
+Most recent Marvell switch chips have a Cross-chip Port Based VLAN Table
+(PVT) used to restrict to which internal destination port an arbitrary
+external source port is allowed to egress frames to.
 
-#define BIT(nr)    (1UL << (nr))
+The current behavior of the mv88e6xxx driver is to program this table
+table with all ones, allowing any external ports to egress frames on any
+internal ports. This means that carefully crafted Ethernet frames can
+potentially bypass the user bridging configuration.
+
+Patches 1 to 7 prepare the setup of this table and factorize the common
+bits of both in-chip and cross-chip Marvell bridging code.
+
+Patch 8 adds new optional cross-chip bridging operations to DSA switch.
+
+Patch 9 switches the current behavior to program the table according to
+the user bridging configuration when (cross-chip) ports get (un)bridged.
+
+On a ZII Rev B board, bridging together the 3 user ports of both 88E6352
+will result in the following PVTs on respectively switch 0 and switch 1:
+
+    External   Internal Ports
+    Dev Port   0  1  2  3  4  5  6
+
+     1    0    *  *  *  -  -  *  *
+     1    1    *  *  *  -  -  *  *
+     1    2    *  *  *  -  -  *  *
+     1    3    -  -  -  -  -  *  *
+     1    4    -  -  -  -  -  *  *
+     1    5    *  *  *  *  *  *  *
+     1    6    *  *  *  *  *  *  *
+
+     0    0    *  *  *  -  -  *  *
+     0    1    *  *  *  -  -  *  *
+     0    2    *  *  *  -  -  *  *
+     0    3    -  -  -  -  -  *  *
+     0    4    -  -  -  -  -  *  *
+     0    5    *  *  *  *  *  *  *
+     0    6    *  *  *  *  *  *  *
 
 
-This change might have unintended effects.
+Vivien Didelot (9):
+  net: dsa: mv88e6xxx: move PVT description in info
+  net: dsa: mv88e6xxx: use 4-bit port for PVT data
+  net: dsa: mv88e6xxx: program the PVT with all ones
+  net: dsa: mv88e6xxx: allocate the number of ports
+  net: dsa: mv88e6xxx: rework in-chip bridging
+  net: dsa: mv88e6xxx: factorize in-chip bridge map
+  net: dsa: mv88e6xxx: remap existing bridge members
+  net: dsa: add cross-chip bridging operations
+  net: dsa: mv88e6xxx: add cross-chip bridging
 
-Maybe checkpatch should be fixed.
+ drivers/net/dsa/mv88e6xxx/chip.c      | 212 ++++++++++++++++++++++++++++------
+ drivers/net/dsa/mv88e6xxx/global2.c   |  71 ++++++++++--
+ drivers/net/dsa/mv88e6xxx/global2.h   |  15 +++
+ drivers/net/dsa/mv88e6xxx/mv88e6xxx.h |  33 ++----
+ include/net/dsa.h                     |   8 ++
+ net/dsa/switch.c                      |  12 +-
+ 6 files changed, 278 insertions(+), 73 deletions(-)
+
+-- 
+2.12.1
