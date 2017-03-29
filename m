@@ -1,45 +1,89 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH net-next 0/7] netconf: Add support for RTM_DELNETCONF
-Date: Wed, 29 Mar 2017 16:22:45 +0200
-Message-ID: <99dfd055-8098-dd0f-bc1c-fb8d3d0c1190@6wind.com>
-References: <1490736487-16020-1-git-send-email-dsa@cumulusnetworks.com>
- <20170328.223257.1804803147939889749.davem@davemloft.net>
- <3cc67fc9-4169-1b8d-39b4-0b7f408637a7@6wind.com>
- <295c0613-7ffd-5dfa-5ee3-aa5409445d92@cumulusnetworks.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] ezchip: nps_enet: check if napi has been completed
+Date: Wed, 29 Mar 2017 07:52:33 -0700
+Message-ID: <1490799153.24891.30.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1490784106-14489-1-git-send-email-vzakhar@synopsys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org
-To: David Ahern <dsa@cumulusnetworks.com>,
-        David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f179.google.com ([209.85.128.179]:35891 "EHLO
-        mail-wr0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751254AbdC2OWu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 29 Mar 2017 10:22:50 -0400
-Received: by mail-wr0-f179.google.com with SMTP id w11so17108355wrc.3
-        for <netdev@vger.kernel.org>; Wed, 29 Mar 2017 07:22:48 -0700 (PDT)
-In-Reply-To: <295c0613-7ffd-5dfa-5ee3-aa5409445d92@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "David S . Miller" <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        Elad Kanfi <eladkan@mellanox.com>,
+        Noam Camus <noamca@mellanox.com>, linux-kernel@vger.kernel.org,
+        linux-snps-arc@lists.infradead.org
+To: Vlad Zakharov <Vladislav.Zakharov@synopsys.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1490784106-14489-1-git-send-email-vzakhar@synopsys.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le 29/03/2017 à 16:13, David Ahern a écrit :
-> On 3/29/17 3:36 AM, Nicolas Dichtel wrote:
->> Le 29/03/2017 à 07:32, David Miller a écrit :
->>> From: David Ahern <dsa@cumulusnetworks.com>
->>> Date: Tue, 28 Mar 2017 14:28:00 -0700
->>>
->>>> netconf notifications are sent as devices register but not when they
->>>> are deleted leaving userspace caches out of sync. Add support for
->>>> RTM_DELNETCONF to ipv4, ipv6 and mpls.
->> Not sure why those notifications are needed. When an interface is set down, ipv4
->> route deletion are not notified. Why is it needed for netconf?
->>
+On Wed, 2017-03-29 at 13:41 +0300, Vlad Zakharov wrote:
+> After a new NAPI_STATE_MISSED state was added to NAPI we can get into
+> this state and in such case we have to reschedule NAPI as some work is
+> still pending and we have to process it. napi_complete_done() function
+> returns false if we have to reschedule something (e.g. in case we were
+> in MISSED state) as current polling have not been completed yet.
 > 
-> We carry a patch to send notifications for route deletes. In general, it
-> makes management of libnl caches much easier when delete notifications
-> are sent for each type. Without it, a link delete requires walking the
-> other caches removing objects.
+> nps_enet driver hasn't been verifying the return value of
+> napi_complete_done() and has been forcibly enabling interrupts. That is
+> not correct as we should not enable interrupts before we have processed
+> all scheduled work. As a result we were getting trapped in interrupt
+> hanlder chain as we had never been able to disabale ethernet
+> interrupts again.
 > 
-David rejected this kind of patch several times, but maybe he changed his mind.
+> So this patch makes nps_enet_poll() func verify return value of
+> napi_complete_done() and enable interrupts only in case all scheduled
+> work has been completed.
+> 
+> Signed-off-by: Vlad Zakharov <vzakhar@synopsys.com>
+> ---
+>  drivers/net/ethernet/ezchip/nps_enet.c | 4 +---
+>  1 file changed, 1 insertion(+), 3 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/ezchip/nps_enet.c b/drivers/net/ethernet/ezchip/nps_enet.c
+> index 992ebe9..f819843 100644
+> --- a/drivers/net/ethernet/ezchip/nps_enet.c
+> +++ b/drivers/net/ethernet/ezchip/nps_enet.c
+> @@ -189,11 +189,9 @@ static int nps_enet_poll(struct napi_struct *napi, int budget)
+>  
+>  	nps_enet_tx_handler(ndev);
+>  	work_done = nps_enet_rx_handler(ndev);
+> -	if (work_done < budget) {
+> +	if ((work_done < budget) && napi_complete_done(napi, work_done)) {
+>  		u32 buf_int_enable_value = 0;
+>  
+> -		napi_complete_done(napi, work_done);
+> -
+>  		/* set tx_done and rx_rdy bits */
+>  		buf_int_enable_value |= NPS_ENET_ENABLE << RX_RDY_SHIFT;
+>  		buf_int_enable_value |= NPS_ENET_ENABLE << TX_DONE_SHIFT;
+
+Seems fine, but looking at this driver, it looks it has some races,
+trying to be a bit too smart.
+
+nps_enet_irq_handler() really should be simpler, or the risk of missing
+an interrupt might be high.
+
+diff --git a/drivers/net/ethernet/ezchip/nps_enet.c b/drivers/net/ethernet/ezchip/nps_enet.c
+index 992ebe973d25bfbccff7b5c42dc1801ea41fc9ea..03885ac0c0f845805eadb4659302b5c11bb250f6 100644
+--- a/drivers/net/ethernet/ezchip/nps_enet.c
++++ b/drivers/net/ethernet/ezchip/nps_enet.c
+@@ -233,14 +233,11 @@ static irqreturn_t nps_enet_irq_handler(s32 irq, void *dev_instance)
+ {
+ 	struct net_device *ndev = dev_instance;
+ 	struct nps_enet_priv *priv = netdev_priv(ndev);
+-	u32 rx_ctrl_value = nps_enet_reg_get(priv, NPS_ENET_REG_RX_CTL);
+-	u32 rx_ctrl_cr = (rx_ctrl_value & RX_CTL_CR_MASK) >> RX_CTL_CR_SHIFT;
+ 
+-	if (nps_enet_is_tx_pending(priv) || rx_ctrl_cr)
+-		if (likely(napi_schedule_prep(&priv->napi))) {
+-			nps_enet_reg_set(priv, NPS_ENET_REG_BUF_INT_ENABLE, 0);
+-			__napi_schedule(&priv->napi);
+-		}
++	if (likely(napi_schedule_prep(&priv->napi))) {
++		nps_enet_reg_set(priv, NPS_ENET_REG_BUF_INT_ENABLE, 0);
++		__napi_schedule(&priv->napi);
++	}
+ 
+ 	return IRQ_HANDLED;
+ }
