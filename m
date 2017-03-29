@@ -1,80 +1,150 @@
-From: Sven Eckelmann <sven.eckelmann@openmesh.com>
-Subject: Re: [REGRESSION] mac80211: IBSS vif queue stopped when started after 11s vif
-Date: Wed, 29 Mar 2017 14:11:08 +0200
-Message-ID: <1889117.GdG6vIS4EM@bentobox>
-References: <1978424.XTv2Qph05K@bentobox> <5090047.94hdUy33Q8@bentobox> <1490788386.7948.21.camel@sipsolutions.net>
-Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="nextPart15861504.LmPm9Y6aJZ"; micalg="pgp-sha512"; protocol="application/pgp-signature"
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        Michal Kazior <michal.kazior@tieto.com>
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f179.google.com ([209.85.128.179]:34948 "EHLO
-        mail-wr0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755445AbdC2MLM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 29 Mar 2017 08:11:12 -0400
-Received: by mail-wr0-f179.google.com with SMTP id k6so5974649wre.2
-        for <netdev@vger.kernel.org>; Wed, 29 Mar 2017 05:11:11 -0700 (PDT)
-In-Reply-To: <1490788386.7948.21.camel@sipsolutions.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Wadim Egorov <w.egorov@phytec.de>
+Subject: [PATCH v2] net: stmmac: dwmac-rk: Add handling for RGMII_ID/RXID/TXID
+Date: Wed, 29 Mar 2017 14:12:19 +0200
+Message-ID: <1490789539-43920-1-git-send-email-w.egorov@phytec.de>
+To: peppe.cavallaro@st.com, alexandre.torgue@st.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linux-rockchip@lists.infradead.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
---nextPart15861504.LmPm9Y6aJZ
-Content-Transfer-Encoding: quoted-printable
-Content-Type: text/plain; charset="iso-8859-1"
+ATM dwmac-rk will always set and enable it's internal delay lines.
+Using PHY internal delays in combination with the phy-mode
+rgmii-id/rxid/txid was not possible. Only rgmii was supported.
 
-On Mittwoch, 29. M=E4rz 2017 13:53:06 CEST Johannes Berg wrote:
-[...]
-> > Not sure whether removing it in ieee80211_propagate_queue_wake will
-> > have other odd side effects with software queuing. Maybe Michal
-> > Kazior can tell us if it is safe to remove it.
->=20
-> No, it's the other way around.
->=20
-> Michal's patches correctly added a test for this to
-> __ieee80211_stop_queue(), the only missing thing is that this test
-> should also be in ieee80211_do_open() like this:
->=20
-> diff --git a/net/mac80211/iface.c b/net/mac80211/iface.c
-> index 40813dd3301c..5bb0c5012819 100644
-> --- a/net/mac80211/iface.c
-> +++ b/net/mac80211/iface.c
-> @@ -718,7 +718,8 @@ int ieee80211_do_open(struct wireless_dev *wdev, bool=
- coming_up)
->  	ieee80211_recalc_ps(local);
-> =20
->  	if (sdata->vif.type =3D=3D NL80211_IFTYPE_MONITOR ||
-> -	    sdata->vif.type =3D=3D NL80211_IFTYPE_AP_VLAN) {
-> +	    sdata->vif.type =3D=3D NL80211_IFTYPE_AP_VLAN ||
-> +	    local->ops->wake_tx_queue) {
->  		/* XXX: for AP_VLAN, actually track AP queues */
->  		netif_tx_start_all_queues(dev);
->  	} else if (dev) {
+Now we can disable rockchip's gmac delay lines and also use
+rgmii-id/rxid/txid.
 
-Yes, this also works.
+Tested only with a RK3288 based board.
 
-Kind regards,
-	Sven
---nextPart15861504.LmPm9Y6aJZ
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part.
-Content-Transfer-Encoding: 7Bit
+Signed-off-by: Wadim Egorov <w.egorov@phytec.de>
+---
+Changes in v2: Added parenthesis around both expressions in DELAY_ENABLE
+---
+ drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c | 53 ++++++++++++++++++--------
+ 1 file changed, 37 insertions(+), 16 deletions(-)
 
------BEGIN PGP SIGNATURE-----
-
-iQIzBAABCgAdFiEEF10rh2Elc9zjMuACXYcKB8Eme0YFAljbpFwACgkQXYcKB8Em
-e0ZKyw/8CKOKbDYndWLYWJZ9E4taFtoU9jtSCE9oL2H5jR0iytP5oeHd09CTZtOK
-VRXBvmEvmVj0p+7gIU/7fgZG9yIiJ0yH+kQ/6V6UMvOvuR1jW8uM5A0PVViu7P56
-7Ug+m+b0J58kTvvsam60KVQsUTJyk2MXSeywVh3QAfZRDjkts2VMIWMNWTiQnRf/
-qkhbEAdvtKdseYxS67A75wyUM0qDmsTlAnCPb0jF9aaCGUc7QeN6ZuCwYD7iSyAg
-VnoKRfJWG7DGKSb7QCERDNWlO0qNS5PJSUPUlNypZD/939wxmaA2kPgvZGjCKyXh
-Z/TNV2meKyqsu/AgRNUHktw4KTtGb75zIrUGAw2/OJcREK6pleOa4egkw2iCV01W
-bj+56dQ3VLNVUYxvvFlpfoqCttzX8R28pLpqDYdJmCfk2ffJtGhu1wf1DH/iTkjH
-hF1b+fF65+jzK+orPMPr38Z9dBfsRh6QzeUzDS1OfyXOGalsNrRJiMh0cCwWL53a
-HFU4w5ZU1hpFVToKDKY6LrOMfhzbFdgKmjayWORTyTY8TyPr4Uqp4bv5kRW5sznv
-mlSf/3m0o/VrVNzmldpamCUBj8hvKqH4N53DG/L0NaSJNGmUtFpA8wVh14dIEzyU
-FKuETcHy/5r9bj4TW2g0faYt805J7hD0B+OC1k6TB4iPlwElDBI=
-=xwpE
------END PGP SIGNATURE-----
-
---nextPart15861504.LmPm9Y6aJZ--
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
+index e5db6ac..f0df519 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
+@@ -74,6 +74,10 @@ struct rk_priv_data {
+ #define GRF_BIT(nr)	(BIT(nr) | BIT(nr+16))
+ #define GRF_CLR_BIT(nr)	(BIT(nr+16))
+ 
++#define DELAY_ENABLE(soc, tx, rx) \
++	(((tx) ? soc##_GMAC_TXCLK_DLY_ENABLE : soc##_GMAC_TXCLK_DLY_DISABLE) | \
++	 ((rx) ? soc##_GMAC_RXCLK_DLY_ENABLE : soc##_GMAC_RXCLK_DLY_DISABLE))
++
+ #define RK3228_GRF_MAC_CON0	0x0900
+ #define RK3228_GRF_MAC_CON1	0x0904
+ 
+@@ -115,8 +119,7 @@ static void rk3228_set_to_rgmii(struct rk_priv_data *bsp_priv,
+ 	regmap_write(bsp_priv->grf, RK3228_GRF_MAC_CON1,
+ 		     RK3228_GMAC_PHY_INTF_SEL_RGMII |
+ 		     RK3228_GMAC_RMII_MODE_CLR |
+-		     RK3228_GMAC_RXCLK_DLY_ENABLE |
+-		     RK3228_GMAC_TXCLK_DLY_ENABLE);
++		     DELAY_ENABLE(RK3228, tx_delay, rx_delay));
+ 
+ 	regmap_write(bsp_priv->grf, RK3228_GRF_MAC_CON0,
+ 		     RK3228_GMAC_CLK_RX_DL_CFG(rx_delay) |
+@@ -232,8 +235,7 @@ static void rk3288_set_to_rgmii(struct rk_priv_data *bsp_priv,
+ 		     RK3288_GMAC_PHY_INTF_SEL_RGMII |
+ 		     RK3288_GMAC_RMII_MODE_CLR);
+ 	regmap_write(bsp_priv->grf, RK3288_GRF_SOC_CON3,
+-		     RK3288_GMAC_RXCLK_DLY_ENABLE |
+-		     RK3288_GMAC_TXCLK_DLY_ENABLE |
++		     DELAY_ENABLE(RK3288, tx_delay, rx_delay) |
+ 		     RK3288_GMAC_CLK_RX_DL_CFG(rx_delay) |
+ 		     RK3288_GMAC_CLK_TX_DL_CFG(tx_delay));
+ }
+@@ -460,8 +462,7 @@ static void rk3366_set_to_rgmii(struct rk_priv_data *bsp_priv,
+ 		     RK3366_GMAC_PHY_INTF_SEL_RGMII |
+ 		     RK3366_GMAC_RMII_MODE_CLR);
+ 	regmap_write(bsp_priv->grf, RK3366_GRF_SOC_CON7,
+-		     RK3366_GMAC_RXCLK_DLY_ENABLE |
+-		     RK3366_GMAC_TXCLK_DLY_ENABLE |
++		     DELAY_ENABLE(RK3366, tx_delay, rx_delay) |
+ 		     RK3366_GMAC_CLK_RX_DL_CFG(rx_delay) |
+ 		     RK3366_GMAC_CLK_TX_DL_CFG(tx_delay));
+ }
+@@ -572,8 +573,7 @@ static void rk3368_set_to_rgmii(struct rk_priv_data *bsp_priv,
+ 		     RK3368_GMAC_PHY_INTF_SEL_RGMII |
+ 		     RK3368_GMAC_RMII_MODE_CLR);
+ 	regmap_write(bsp_priv->grf, RK3368_GRF_SOC_CON16,
+-		     RK3368_GMAC_RXCLK_DLY_ENABLE |
+-		     RK3368_GMAC_TXCLK_DLY_ENABLE |
++		     DELAY_ENABLE(RK3368, tx_delay, rx_delay) |
+ 		     RK3368_GMAC_CLK_RX_DL_CFG(rx_delay) |
+ 		     RK3368_GMAC_CLK_TX_DL_CFG(tx_delay));
+ }
+@@ -684,8 +684,7 @@ static void rk3399_set_to_rgmii(struct rk_priv_data *bsp_priv,
+ 		     RK3399_GMAC_PHY_INTF_SEL_RGMII |
+ 		     RK3399_GMAC_RMII_MODE_CLR);
+ 	regmap_write(bsp_priv->grf, RK3399_GRF_SOC_CON6,
+-		     RK3399_GMAC_RXCLK_DLY_ENABLE |
+-		     RK3399_GMAC_TXCLK_DLY_ENABLE |
++		     DELAY_ENABLE(RK3399, tx_delay, rx_delay) |
+ 		     RK3399_GMAC_CLK_RX_DL_CFG(rx_delay) |
+ 		     RK3399_GMAC_CLK_TX_DL_CFG(tx_delay));
+ }
+@@ -985,14 +984,29 @@ static int rk_gmac_powerup(struct rk_priv_data *bsp_priv)
+ 		return ret;
+ 
+ 	/*rmii or rgmii*/
+-	if (bsp_priv->phy_iface == PHY_INTERFACE_MODE_RGMII) {
++	switch (bsp_priv->phy_iface) {
++	case PHY_INTERFACE_MODE_RGMII:
+ 		dev_info(dev, "init for RGMII\n");
+ 		bsp_priv->ops->set_to_rgmii(bsp_priv, bsp_priv->tx_delay,
+ 					    bsp_priv->rx_delay);
+-	} else if (bsp_priv->phy_iface == PHY_INTERFACE_MODE_RMII) {
++		break;
++	case PHY_INTERFACE_MODE_RGMII_ID:
++		dev_info(dev, "init for RGMII_ID\n");
++		bsp_priv->ops->set_to_rgmii(bsp_priv, 0, 0);
++		break;
++	case PHY_INTERFACE_MODE_RGMII_RXID:
++		dev_info(dev, "init for RGMII_RXID\n");
++		bsp_priv->ops->set_to_rgmii(bsp_priv, bsp_priv->tx_delay, 0);
++		break;
++	case PHY_INTERFACE_MODE_RGMII_TXID:
++		dev_info(dev, "init for RGMII_TXID\n");
++		bsp_priv->ops->set_to_rgmii(bsp_priv, 0, bsp_priv->rx_delay);
++		break;
++	case PHY_INTERFACE_MODE_RMII:
+ 		dev_info(dev, "init for RMII\n");
+ 		bsp_priv->ops->set_to_rmii(bsp_priv);
+-	} else {
++		break;
++	default:
+ 		dev_err(dev, "NO interface defined!\n");
+ 	}
+ 
+@@ -1022,12 +1036,19 @@ static void rk_fix_speed(void *priv, unsigned int speed)
+ 	struct rk_priv_data *bsp_priv = priv;
+ 	struct device *dev = &bsp_priv->pdev->dev;
+ 
+-	if (bsp_priv->phy_iface == PHY_INTERFACE_MODE_RGMII)
++	switch (bsp_priv->phy_iface) {
++	case PHY_INTERFACE_MODE_RGMII:
++	case PHY_INTERFACE_MODE_RGMII_ID:
++	case PHY_INTERFACE_MODE_RGMII_RXID:
++	case PHY_INTERFACE_MODE_RGMII_TXID:
+ 		bsp_priv->ops->set_rgmii_speed(bsp_priv, speed);
+-	else if (bsp_priv->phy_iface == PHY_INTERFACE_MODE_RMII)
++		break;
++	case PHY_INTERFACE_MODE_RMII:
+ 		bsp_priv->ops->set_rmii_speed(bsp_priv, speed);
+-	else
++		break;
++	default:
+ 		dev_err(dev, "unsupported interface %d", bsp_priv->phy_iface);
++	}
+ }
+ 
+ static int rk_gmac_probe(struct platform_device *pdev)
+-- 
+1.9.1
