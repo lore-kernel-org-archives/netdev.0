@@ -1,107 +1,79 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH net-next] rtnl: Add support for netdev event to link
- messages
-Date: Wed, 29 Mar 2017 13:05:37 -0400
-Message-ID: <8c2ab762-5b76-7a70-a096-51529d8a3edb@redhat.com>
-References: <1490493587-25819-1-git-send-email-vyasevic@redhat.com>
- <20170327.155835.1930829109806331326.davem@davemloft.net>
- <2fe31fc9-2837-91a7-e2a4-7937bb15cf3d@redhat.com>
- <58DBE2D9.10509@cumulusnetworks.com>
-Reply-To: vyasevic@redhat.com
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH][bluetooth-next][V2] ieee802154: ca8210: Add checks for kmalloc allocation failures
+Date: Wed, 29 Mar 2017 18:05:40 +0100
+Message-ID: <20170329170540.21011-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Roopa Prabhu <roopa@cumulusnetworks.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Harry Morris <h.morris@cascoda.com>, linuxdev@cascoda.com,
+        Alexander Aring <aar@pengutronix.de>,
+        Stefan Schmidt <stefan@osg.samsung.com>,
+        linux-wpan@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:58794 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752256AbdC2RFj (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 29 Mar 2017 13:05:39 -0400
-In-Reply-To: <58DBE2D9.10509@cumulusnetworks.com>
+Received: from youngberry.canonical.com ([91.189.89.112]:34373 "EHLO
+        youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753277AbdC2RFs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 29 Mar 2017 13:05:48 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/29/2017 12:37 PM, Roopa Prabhu wrote:
-> On 3/29/17, 5:23 AM, Vlad Yasevich wrote:
->> [ resending to list.  hit the wrong reply button last time ]
->>
->> On 03/27/2017 06:58 PM, David Miller wrote:
->>> From: Vladislav Yasevich <vyasevich@gmail.com>
->>> Date: Sat, 25 Mar 2017 21:59:47 -0400
->>>
->>>> RTNL currently generates notifications on some netdev notifier events.
->>>> However, user space has no idea what changed.  All it sees is the
->>>> data and has to infer what has changed.  For some events that is not
->>>> possible.
->>>>
->>>> This patch adds a new field to RTM_NEWLINK message called IFLA_EVENT
->>>> that would have an encoding of the which event triggered this
->>>> notification.  Currectly, only 2 events (NETDEV_NOTIFY_PEERS and
->>>> NETDEV_MTUCHANGED) are supported.  These events could be interesting
->>>> in the virt space to trigger additional configuration commands to VMs.
->>>> Other events of interest may be added later.
->>>>
->>>> Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
->>> At what point do we start providing the metadata for the changed
->>> values as well?  You'd probably need to provide both the old and
->>> new values to cover all cases.
->> I don't think if that would be possible because of when events are triggered.
->> We send these notifications after all the changes have already been made, so
->> it might be tough to carry old data.
->>
->> Looking at just the two events I am supporting in this patch, we could actually
->> supply the old mtu data through a NETDEV_PRECHANGEMTU event, if it is necessary.
-> 
-> But, NETDEV_PRECHANGEMTU will be a unnecessary notification to userspace without
-> changes. There are already enough notifications generated for links (I know you are not
-> suggesting adding it here)
+From: Colin Ian King <colin.king@canonical.com>
 
-Actually, this one already triggers a link notification to userspace.  It just has
-no event data in it to tell you that. :)
+Ensure we don't end up with a null pointer dereferences by checking
+for for allocation failures.  Allocate by sizeof(*ptr) rather than
+the type to fix checkpack warnings.  Also merge multiple lines into
+one line for the kmalloc call.
 
->> For the use cases I am looking at, it isn't usefull, but easy enough to add.
->>
-> Most of the times a single notification can carry multiple changes, this helps user-space..by
-> cutting down on notifications in systems with large number of links. I don't see IFLA_EVENT attribute
-> handle multiple changes..
-> 
+Detected by CoverityScan, CID#1422435 ("Dereference null return value")
 
-No it doesn't handle multiple changes mainly because we already generate a link
-notification for a lot of the events.  This patch doesn't add any additional user space
-notifications.  All it does is add the "event" information to existing ones so that user
-space may know what happened.
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ drivers/net/ieee802154/ca8210.c | 18 ++++++++++--------
+ 1 file changed, 10 insertions(+), 8 deletions(-)
 
-For instance, if you change the mtu on an interface, you get the following:
-
-1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default
-    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
-1: lo: <LOOPBACK,UP,LOWER_UP> mtu 1500 qdisc noqueue state UNKNOWN group default
-    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
-1: lo: <LOOPBACK,UP,LOWER_UP> mtu 1500 qdisc noqueue state UNKNOWN group default
-    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
-
-The above is the result when you run
- # ip l s lo mtu 1500
-
-With this patch, you'd be able to tell that the notification 2 above was a result of mtu
-change.  The first one was a result of "PRECHANGEMTU".  Didn't look to see what the
-third one is.
-
-> Given the number of attributes for which events are generated, I think a model where user-space
-> maintains a cache and diff's the new link object with the old one works best in all cases.
-> 
-
-This patch doesn't preclude this.  It doesn't change how many notifications are generated.
- All it does is a carry a hint as to why a particular notification is generated.
-
-It's also impossible to tell what happened if the data did not change.  As and example,
-how does one know that a NETDEV_NOTIFY_PEERS or NETDEV_IGMP_RESEND netdev event occurred?
-
-And if you ask why we need those, consider a case where a VM is connected to the network
-through a bridge or macvtap on top of active-backup bond.  Now, there is failover
-in the bond and bond generates the above events.  The hypervisor will update the switches
-with its own mac/multicast groups, but the VM has no idea this happened.
-
--vlad
+diff --git a/drivers/net/ieee802154/ca8210.c b/drivers/net/ieee802154/ca8210.c
+index 53fa87bfede0..25fd3b04b3c0 100644
+--- a/drivers/net/ieee802154/ca8210.c
++++ b/drivers/net/ieee802154/ca8210.c
+@@ -634,6 +634,8 @@ static int ca8210_test_int_driver_write(
+ 		dev_dbg(&priv->spi->dev, "%#03x\n", buf[i]);
+ 
+ 	fifo_buffer = kmalloc(len, GFP_KERNEL);
++	if (!fifo_buffer)
++		return -ENOMEM;
+ 	memcpy(fifo_buffer, buf, len);
+ 	kfifo_in(&test->up_fifo, &fifo_buffer, 4);
+ 	wake_up_interruptible(&priv->test.readq);
+@@ -759,10 +761,10 @@ static void ca8210_rx_done(struct cas_control *cas_ctl)
+ 				&priv->spi->dev,
+ 				"Resetting MAC...\n");
+ 
+-			mlme_reset_wpc = kmalloc(
+-				sizeof(struct work_priv_container),
+-				GFP_KERNEL
+-			);
++			mlme_reset_wpc = kmalloc(sizeof(*mlme_reset_wpc),
++						 GFP_KERNEL);
++			if (!mlme_reset_wpc)
++				goto finish;
+ 			INIT_WORK(
+ 				&mlme_reset_wpc->work,
+ 				ca8210_mlme_reset_worker
+@@ -925,10 +927,10 @@ static int ca8210_spi_transfer(
+ 
+ 	dev_dbg(&spi->dev, "ca8210_spi_transfer called\n");
+ 
+-	cas_ctl = kmalloc(
+-		sizeof(struct cas_control),
+-		GFP_ATOMIC
+-	);
++	cas_ctl = kmalloc(sizeof(*cas_ctl), GFP_ATOMIC);
++	if (!cas_ctl)
++		return -ENOMEM;
++
+ 	cas_ctl->priv = priv;
+ 	memset(cas_ctl->tx_buf, SPI_IDLE, CA8210_SPI_BUF_SIZE);
+ 	memset(cas_ctl->tx_in_buf, SPI_IDLE, CA8210_SPI_BUF_SIZE);
+-- 
+2.11.0
