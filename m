@@ -1,34 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: mvneta: add RGMII_RXID and RGMII_TXID
- support
-Date: Wed, 29 Mar 2017 14:08:33 -0700 (PDT)
-Message-ID: <20170329.140833.160854750277213352.davem@davemloft.net>
-References: <20170329084226.3472-1-jszhang@marvell.com>
+Subject: Re: [PATCH v2] net: veth: use new api
+ ethtool_{get|set}_link_ksettings
+Date: Wed, 29 Mar 2017 14:07:51 -0700 (PDT)
+Message-ID: <20170329.140751.2131745748060444255.davem@davemloft.net>
+References: <1490768661-12467-1-git-send-email-tremyfr@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: thomas.petazzoni@free-electrons.com, netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: jszhang@marvell.com
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <20170329084226.3472-1-jszhang@marvell.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Cc: lucien.xin@gmail.com, jarod@redhat.com, stephen@networkplumber.org,
+        dsa@cumulusnetworks.com, aduyck@mirantis.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: tremyfr@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1490768661-12467-1-git-send-email-tremyfr@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jisheng Zhang <jszhang@marvell.com>
-Date: Wed, 29 Mar 2017 16:42:26 +0800
+From: Philippe Reynes <tremyfr@gmail.com>
+Date: Wed, 29 Mar 2017 08:24:21 +0200
 
-> RGMII_RXID and RGMII_TX_ID share the same GMAC CTRL setting as RGMII
-> or RGMII_ID.
+> The ethtool api {get|set}_settings is deprecated.
+> We move this driver to new api {get|set}_link_ksettings.
 > 
-> Signed-off-by: Jisheng Zhang <jszhang@marvell.com>
+> Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+> ---
+> Changelog:
+> v2:
+> - avoid useless initiazation to zero (thanks Xin Long)
 
 Applied.
