@@ -1,71 +1,109 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next] rtnl: Add support for netdev event to link
- messages
-Date: Wed, 29 Mar 2017 13:11:37 -0600
-Message-ID: <22cf1543-505e-bae0-4efb-dfdd501399c0@cumulusnetworks.com>
-References: <1490493587-25819-1-git-send-email-vyasevic@redhat.com>
- <20170327.155835.1930829109806331326.davem@davemloft.net>
- <2fe31fc9-2837-91a7-e2a4-7937bb15cf3d@redhat.com>
- <58DBE2D9.10509@cumulusnetworks.com>
- <8c2ab762-5b76-7a70-a096-51529d8a3edb@redhat.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: in_irq_or_nmi()
+Date: Wed, 29 Mar 2017 21:11:44 +0200
+Message-ID: <20170329211144.3e362ac9@redhat.com>
+References: <1fc7338f-2b36-75f7-8a7e-8321f062207b@gmail.com>
+	<2123321554.7161128.1490599967015.JavaMail.zimbra@redhat.com>
+	<20170327105514.1ed5b1ba@redhat.com>
+	<20170327143947.4c237e54@redhat.com>
+	<20170327141518.GB27285@bombadil.infradead.org>
+	<20170327171500.4beef762@redhat.com>
+	<20170327165817.GA28494@bombadil.infradead.org>
+	<20170329081219.lto7t4fwmponokzh@hirez.programming.kicks-ass.net>
+	<20170329105928.609bc581@redhat.com>
+	<20170329091949.o2kozhhdnszgwvtn@hirez.programming.kicks-ass.net>
+	<20170329181226.GA8256@bombadil.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: vyasevic@redhat.com, Roopa Prabhu <roopa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f48.google.com ([74.125.83.48]:34787 "EHLO
-        mail-pg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752592AbdC2TLk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 29 Mar 2017 15:11:40 -0400
-Received: by mail-pg0-f48.google.com with SMTP id 21so15970063pgg.1
-        for <netdev@vger.kernel.org>; Wed, 29 Mar 2017 12:11:39 -0700 (PDT)
-In-Reply-To: <8c2ab762-5b76-7a70-a096-51529d8a3edb@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Peter Zijlstra <peterz@infradead.org>, Pankaj Gupta
+ <pagupta@redhat.com>, Tariq Toukan <ttoukan.linux@gmail.com>, Mel Gorman
+ <mgorman@techsingularity.net>, Tariq Toukan <tariqt@mellanox.com>,
+ netdev@vger.kernel.org, akpm@linux-foundation.org, linux-mm
+ <linux-mm@kvack.org>, Saeed Mahameed <saeedm@mellanox.com>,
+ linux-kernel@vger.kernel.org, brouer@redhat.com
+To: Matthew Wilcox <willy@infradead.org>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20170329181226.GA8256@bombadil.infradead.org>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On 3/29/17 11:05 AM, Vlad Yasevich wrote:
-> On 03/29/2017 12:37 PM, Roopa Prabhu wrote:
->> On 3/29/17, 5:23 AM, Vlad Yasevich wrote:
->>> [ resending to list.  hit the wrong reply button last time ]
->>>
->>> On 03/27/2017 06:58 PM, David Miller wrote:
->>>> From: Vladislav Yasevich <vyasevich@gmail.com>
->>>> Date: Sat, 25 Mar 2017 21:59:47 -0400
->>>>
->>>>> RTNL currently generates notifications on some netdev notifier events.
->>>>> However, user space has no idea what changed.  All it sees is the
->>>>> data and has to infer what has changed.  For some events that is not
->>>>> possible.
->>>>>
->>>>> This patch adds a new field to RTM_NEWLINK message called IFLA_EVENT
->>>>> that would have an encoding of the which event triggered this
->>>>> notification.  Currectly, only 2 events (NETDEV_NOTIFY_PEERS and
->>>>> NETDEV_MTUCHANGED) are supported.  These events could be interesting
->>>>> in the virt space to trigger additional configuration commands to VMs.
->>>>> Other events of interest may be added later.
->>>>>
->>>>> Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
->>>> At what point do we start providing the metadata for the changed
->>>> values as well?  You'd probably need to provide both the old and
->>>> new values to cover all cases.
->>> I don't think if that would be possible because of when events are triggered.
->>> We send these notifications after all the changes have already been made, so
->>> it might be tough to carry old data.
->>>
->>> Looking at just the two events I am supporting in this patch, we could actually
->>> supply the old mtu data through a NETDEV_PRECHANGEMTU event, if it is necessary.
->>
->> But, NETDEV_PRECHANGEMTU will be a unnecessary notification to userspace without
->> changes. There are already enough notifications generated for links (I know you are not
->> suggesting adding it here)
+
+On Wed, 29 Mar 2017 11:12:26 -0700 Matthew Wilcox <willy@infradead.org> wrote:
+
+> On Wed, Mar 29, 2017 at 11:19:49AM +0200, Peter Zijlstra wrote:
+> > On Wed, Mar 29, 2017 at 10:59:28AM +0200, Jesper Dangaard Brouer wrote:  
+> > > On Wed, 29 Mar 2017 10:12:19 +0200
+> > > Peter Zijlstra <peterz@infradead.org> wrote:  
+> > > > No, that's horrible. Also, wth is this about? A memory allocator that
+> > > > needs in_nmi()? That sounds beyond broken.  
+> > > 
+> > > It is the other way around. We want to exclude NMI and HARDIRQ from
+> > > using the per-cpu-pages (pcp) lists "order-0 cache" (they will
+> > > fall-through using the normal buddy allocator path).  
+> > 
+> > Any in_nmi() code arriving at the allocator is broken. No need to fix
+> > the allocator.  
 > 
-> Actually, this one already triggers a link notification to userspace.  It just has
-> no event data in it to tell you that. :)
+> That's demonstrably true.  You can't grab a spinlock in NMI code and
+> the first thing that happens if this in_irq_or_nmi() check fails is ...
+>         spin_lock_irqsave(&zone->lock, flags);
+> so this patch should just use in_irq().
+> 
+> (the concept of NMI code needing to allocate memory was blowing my mind
+> a little bit)
 
-Is it intentional or unintentional? perhaps rtnetlink_event should be a
-whitelist -- events that userspace should be notified about. Seems like
-NETDEV_ events have been added without rtnetlink_event getting updated.
-For example, does userspace care about NETDEV_UDP_TUNNEL_PUSH_INFO or
-NETDEV_CHANGE_TX_QUEUE_LEN?
+Regardless or using in_irq() (or in combi with in_nmi()) I get the
+following warning below:
+
+[    0.000000] Kernel command line: BOOT_IMAGE=/vmlinuz-4.11.0-rc3-net-next-page-alloc-softirq+ root=UUID=2e8451ff-6797-49b5-8d3a-eed5a42d7dc9 ro rhgb quiet LANG=en_DK.UTF
+-8
+[    0.000000] PID hash table entries: 4096 (order: 3, 32768 bytes)
+[    0.000000] ------------[ cut here ]------------
+[    0.000000] WARNING: CPU: 0 PID: 0 at kernel/softirq.c:161 __local_bh_enable_ip+0x70/0x90
+[    0.000000] Modules linked in:
+[    0.000000] CPU: 0 PID: 0 Comm: swapper Not tainted 4.11.0-rc3-net-next-page-alloc-softirq+ #235
+[    0.000000] Hardware name: MSI MS-7984/Z170A GAMING PRO (MS-7984), BIOS 1.60 12/16/2015
+[    0.000000] Call Trace:
+[    0.000000]  dump_stack+0x4f/0x73
+[    0.000000]  __warn+0xcb/0xf0
+[    0.000000]  warn_slowpath_null+0x1d/0x20
+[    0.000000]  __local_bh_enable_ip+0x70/0x90
+[    0.000000]  free_hot_cold_page+0x1a4/0x2f0
+[    0.000000]  __free_pages+0x1f/0x30
+[    0.000000]  __free_pages_bootmem+0xab/0xb8
+[    0.000000]  __free_memory_core+0x79/0x91
+[    0.000000]  free_all_bootmem+0xaa/0x122
+[    0.000000]  mem_init+0x71/0xa4
+[    0.000000]  start_kernel+0x1e5/0x3f1
+[    0.000000]  x86_64_start_reservations+0x2a/0x2c
+[    0.000000]  x86_64_start_kernel+0x178/0x18b
+[    0.000000]  start_cpu+0x14/0x14
+[    0.000000]  ? start_cpu+0x14/0x14
+[    0.000000] ---[ end trace a57944bec8fc985c ]---
+[    0.000000] Memory: 32739472K/33439416K available (7624K kernel code, 1528K rwdata, 3168K rodata, 1860K init, 2260K bss, 699944K reserved, 0K cma-reserved)
+
+And kernel/softirq.c:161 contains:
+
+ WARN_ON_ONCE(in_irq() || irqs_disabled());
+
+Thus, I don't think the change in my RFC-patch[1] is safe.
+Of changing[2] to support softirq allocations by replacing
+preempt_disable() with local_bh_disable().
+
+[1] http://lkml.kernel.org/r/20170327143947.4c237e54@redhat.com
+
+[2] commit 374ad05ab64d ("mm, page_alloc: only use per-cpu allocator for irq-safe requests")
+ https://git.kernel.org/torvalds/c/374ad05ab64d
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
