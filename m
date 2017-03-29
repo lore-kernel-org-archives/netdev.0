@@ -1,64 +1,41 @@
-From: Michael Chan <michael.chan@broadcom.com>
-Subject: [PATCH net 3/3] bnxt_en: Fix DMA unmapping of the RX buffers in XDP mode during shutdown.
-Date: Tue, 28 Mar 2017 19:47:31 -0400
-Message-ID: <1490744851-19985-4-git-send-email-michael.chan@broadcom.com>
-References: <1490744851-19985-1-git-send-email-michael.chan@broadcom.com>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f170.google.com ([209.85.128.170]:34527 "EHLO
-        mail-wr0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932654AbdC1Xsc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 28 Mar 2017 19:48:32 -0400
-Received: by mail-wr0-f170.google.com with SMTP id l43so59477wre.1
-        for <netdev@vger.kernel.org>; Tue, 28 Mar 2017 16:48:30 -0700 (PDT)
-In-Reply-To: <1490744851-19985-1-git-send-email-michael.chan@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: arch: arm: bpf: Converting cBPF to eBPF for arm 32 bit
+Date: Wed, 29 Mar 2017 02:00:08 +0200
+Message-ID: <58DAF908.8010404@iogearbox.net>
+References: <CAHgaXd+EKJ0FWaaPojsNJtgY_YpdQXu6eMEp97uOpTFAWs4qTQ@mail.gmail.com> <CAGXu5jLo8UvpNSQZBHjWZoO959ha6KFQxFzmg7SK44wz=R_QSg@mail.gmail.com> <CAHgaXdJL92XRjHae2Nb9j9SerSe65=N=ErDHTQf23sdBxwthzw@mail.gmail.com> <20170315.145512.1542025976162251828.davem@davemloft.net> <CAHgaXd+4QkFxnt-_iCqH8AyCN_Y8gXwr+y=iugz38NKSWspsbA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, Kees Cook <keescook@chromium.org>,
+ Mircea Gherzan <mgherzan@gmail.com>,
+ Network Development <netdev@vger.kernel.org>,
+ kernel-hardening@lists.openwall.com,
+ linux-arm-kernel@lists.infradead.org, ast@fb.com
+To: Shubham Bansal <illusionist.neo@gmail.com>
+Return-path: <kernel-hardening-return-7145-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+List-Post: <mailto:kernel-hardening@lists.openwall.com>
+List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
+List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
+List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
+In-Reply-To: <CAHgaXd+4QkFxnt-_iCqH8AyCN_Y8gXwr+y=iugz38NKSWspsbA@mail.gmail.com>
+List-Id: netdev.vger.kernel.org
 
-In bnxt_free_rx_skbs(), which is called to free up all RX buffers during
-shutdown, we need to unmap the page if we are running in XDP mode.
+Hi Shubham,
 
-Fixes: c61fb99cae51 ("bnxt_en: Add RX page mode support.")
-Signed-off-by: Michael Chan <michael.chan@broadcom.com>
----
- drivers/net/ethernet/broadcom/bnxt/bnxt.c | 15 ++++++++++-----
- 1 file changed, 10 insertions(+), 5 deletions(-)
+On 03/28/2017 10:49 PM, Shubham Bansal wrote:
+[...]
+> Do you have any document to understand the working of tail calls? I
+> looked at your presentations but it seemed confusing to me. Anything
+> simple would be great, just about the tail calls. I don't think I need
+> examples, I can get them from your presentations. I just need a very
+> general idea. May be you know the code in kernel where it is
+> implemented.
 
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index 6c856878..1f1e54b 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -1983,20 +1983,25 @@ static void bnxt_free_rx_skbs(struct bnxt *bp)
- 
- 		for (j = 0; j < max_idx; j++) {
- 			struct bnxt_sw_rx_bd *rx_buf = &rxr->rx_buf_ring[j];
-+			dma_addr_t mapping = rx_buf->mapping;
- 			void *data = rx_buf->data;
- 
- 			if (!data)
- 				continue;
- 
--			dma_unmap_single(&pdev->dev, rx_buf->mapping,
--					 bp->rx_buf_use_size, bp->rx_dir);
--
- 			rx_buf->data = NULL;
- 
--			if (BNXT_RX_PAGE_MODE(bp))
-+			if (BNXT_RX_PAGE_MODE(bp)) {
-+				mapping -= bp->rx_dma_offset;
-+				dma_unmap_page(&pdev->dev, mapping,
-+					       PAGE_SIZE, bp->rx_dir);
- 				__free_page(data);
--			else
-+			} else {
-+				dma_unmap_single(&pdev->dev, mapping,
-+						 bp->rx_buf_use_size,
-+						 bp->rx_dir);
- 				kfree(data);
-+			}
- 		}
- 
- 		for (j = 0; j < max_agg_idx; j++) {
--- 
-1.8.3.1
+Sure, it's in __bpf_prog_run(), see the JMP_TAIL_CALL (kernel/bpf/core.c +1019).
+That's effectively what JITs implement. [1] page 3 has a high-level description
+as well, hope that helps.
+
+Thanks,
+Daniel
+
+   [1] http://www.netdevconf.org/1.1/proceedings/papers/On-getting-tc-classifier-fully-programmable-with-cls-bpf.pdf
