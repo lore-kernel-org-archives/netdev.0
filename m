@@ -1,59 +1,45 @@
-From: Arushi Singhal <arushisinghal19971997@gmail.com>
-Subject: [PATCH] net: ipv6: netfilter: Format block comments.
-Date: Wed, 29 Mar 2017 14:09:43 +0530
-Message-ID: <20170329083943.GA23844@arushi-HP-Pavilion-Notebook>
+From: Jisheng Zhang <jszhang@marvell.com>
+Subject: [PATCH net-next] net: mvneta: add RGMII_RXID and RGMII_TXID support
+Date: Wed, 29 Mar 2017 16:42:26 +0800
+Message-ID: <20170329084226.3472-1-jszhang@marvell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-        "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        outreachy-kernel@googlegroups.com
-To: pablo@netfilter.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Jisheng Zhang <jszhang@marvell.com>, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+To: <thomas.petazzoni@free-electrons.com>, <davem@davemloft.net>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-Fix checkpatch warnings:
-WARNING: Block comments use a trailing */ on a separate line
-WARNING: Block comments use * on subsequent lines
+RGMII_RXID and RGMII_TX_ID share the same GMAC CTRL setting as RGMII
+or RGMII_ID.
 
-Signed-off-by: Arushi Singhal <arushisinghal19971997@gmail.com>
+Signed-off-by: Jisheng Zhang <jszhang@marvell.com>
 ---
- net/ipv6/netfilter/ip6_tables.c | 16 ++++++++--------
- 1 file changed, 8 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/marvell/mvneta.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
-index b8cb61c27aa1..ac69ce3bfa1e 100644
---- a/net/ipv6/netfilter/ip6_tables.c
-+++ b/net/ipv6/netfilter/ip6_tables.c
-@@ -51,14 +51,14 @@ void *ip6t_alloc_initial_table(const struct xt_table *info)
- }
- EXPORT_SYMBOL_GPL(ip6t_alloc_initial_table);
- 
--/*
--   We keep a set of rules for each CPU, so we can avoid write-locking
--   them in the softirq when updating the counters and therefore
--   only need to read-lock in the softirq; doing a write_lock_bh() in user
--   context stops packets coming through and allows user context to read
--   the counters or update the rules.
--
--   Hence the start of any table is given by get_table() below.  */
-+/* We keep a set of rules for each CPU, so we can avoid write-locking
-+ * them in the softirq when updating the counters and therefore
-+ * only need to read-lock in the softirq; doing a write_lock_bh() in user
-+ * context stops packets coming through and allows user context to read
-+ * the counters or update the rules.
-+ *
-+ * Hence the start of any table is given by get_table() below.
-+ */
- 
- /* Returns whether matches rule or not. */
- /* Performance critical - called for every packet */
+diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+index aebbc5399a06..7a6c65b44d7e 100644
+--- a/drivers/net/ethernet/marvell/mvneta.c
++++ b/drivers/net/ethernet/marvell/mvneta.c
+@@ -4099,6 +4099,8 @@ static int mvneta_port_power_up(struct mvneta_port *pp, int phy_mode)
+ 		break;
+ 	case PHY_INTERFACE_MODE_RGMII:
+ 	case PHY_INTERFACE_MODE_RGMII_ID:
++	case PHY_INTERFACE_MODE_RGMII_RXID:
++	case PHY_INTERFACE_MODE_RGMII_TXID:
+ 		ctrl |= MVNETA_GMAC2_PORT_RGMII;
+ 		break;
+ 	default:
 -- 
 2.11.0
