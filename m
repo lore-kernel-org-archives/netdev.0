@@ -1,84 +1,70 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 7/8] netfilter: nf_nat_snmp: Fix panic when snmp_trap_helper fails to register
-Date: Wed, 29 Mar 2017 14:14:09 +0200
-Message-ID: <1490789650-7294-8-git-send-email-pablo@netfilter.org>
-References: <1490789650-7294-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH net-next] rtnl: Add support for netdev event to link
+ messages
+Date: Wed, 29 Mar 2017 08:23:58 -0400
+Message-ID: <2fe31fc9-2837-91a7-e2a4-7937bb15cf3d@redhat.com>
+References: <1490493587-25819-1-git-send-email-vyasevic@redhat.com>
+ <20170327.155835.1930829109806331326.davem@davemloft.net>
+Reply-To: vyasevic@redhat.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:43966 "EHLO mail.us.es"
+Received: from mx1.redhat.com ([209.132.183.28]:33902 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1756039AbdC2MPm (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 29 Mar 2017 08:15:42 -0400
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id BDAB9EBAD8
-        for <netdev@vger.kernel.org>; Wed, 29 Mar 2017 14:15:38 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 71186DA848
-        for <netdev@vger.kernel.org>; Wed, 29 Mar 2017 14:15:38 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id C9A92DA91B
-        for <netdev@vger.kernel.org>; Wed, 29 Mar 2017 14:15:31 +0200 (CEST)
-In-Reply-To: <1490789650-7294-1-git-send-email-pablo@netfilter.org>
+        id S932074AbdC2MYA (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 29 Mar 2017 08:24:00 -0400
+In-Reply-To: <20170327.155835.1930829109806331326.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gao Feng <fgao@ikuai8.com>
+[ resending to list.  hit the wrong reply button last time ]
 
-In the commit 93557f53e1fb ("netfilter: nf_conntrack: nf_conntrack snmp
-helper"), the snmp_helper is replaced by nf_nat_snmp_hook. So the
-snmp_helper is never registered. But it still tries to unregister the
-snmp_helper, it could cause the panic.
+On 03/27/2017 06:58 PM, David Miller wrote:
+> From: Vladislav Yasevich <vyasevich@gmail.com>
+> Date: Sat, 25 Mar 2017 21:59:47 -0400
+> 
+>> RTNL currently generates notifications on some netdev notifier events.
+>> However, user space has no idea what changed.  All it sees is the
+>> data and has to infer what has changed.  For some events that is not
+>> possible.
+>>
+>> This patch adds a new field to RTM_NEWLINK message called IFLA_EVENT
+>> that would have an encoding of the which event triggered this
+>> notification.  Currectly, only 2 events (NETDEV_NOTIFY_PEERS and
+>> NETDEV_MTUCHANGED) are supported.  These events could be interesting
+>> in the virt space to trigger additional configuration commands to VMs.
+>> Other events of interest may be added later.
+>>
+>> Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
+> 
+> At what point do we start providing the metadata for the changed
+> values as well?  You'd probably need to provide both the old and
+> new values to cover all cases.
 
-Now remove the useless snmp_helper and the unregister call in the
-error handler.
+I don't think if that would be possible because of when events are triggered.
+We send these notifications after all the changes have already been made, so
+it might be tough to carry old data.
 
-Fixes: 93557f53e1fb ("netfilter: nf_conntrack: nf_conntrack snmp helper")
-Signed-off-by: Gao Feng <fgao@ikuai8.com>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- net/ipv4/netfilter/nf_nat_snmp_basic.c | 19 +------------------
- 1 file changed, 1 insertion(+), 18 deletions(-)
+Looking at just the two events I am supporting in this patch, we could actually
+supply the old mtu data through a NETDEV_PRECHANGEMTU event, if it is necessary.
+For the use cases I am looking at, it isn't usefull, but easy enough to add.
 
-diff --git a/net/ipv4/netfilter/nf_nat_snmp_basic.c b/net/ipv4/netfilter/nf_nat_snmp_basic.c
-index 5a8f7c360887..53e49f5011d3 100644
---- a/net/ipv4/netfilter/nf_nat_snmp_basic.c
-+++ b/net/ipv4/netfilter/nf_nat_snmp_basic.c
-@@ -1260,16 +1260,6 @@ static const struct nf_conntrack_expect_policy snmp_exp_policy = {
- 	.timeout	= 180,
- };
- 
--static struct nf_conntrack_helper snmp_helper __read_mostly = {
--	.me			= THIS_MODULE,
--	.help			= help,
--	.expect_policy		= &snmp_exp_policy,
--	.name			= "snmp",
--	.tuple.src.l3num	= AF_INET,
--	.tuple.src.u.udp.port	= cpu_to_be16(SNMP_PORT),
--	.tuple.dst.protonum	= IPPROTO_UDP,
--};
--
- static struct nf_conntrack_helper snmp_trap_helper __read_mostly = {
- 	.me			= THIS_MODULE,
- 	.help			= help,
-@@ -1288,17 +1278,10 @@ static struct nf_conntrack_helper snmp_trap_helper __read_mostly = {
- 
- static int __init nf_nat_snmp_basic_init(void)
- {
--	int ret = 0;
--
- 	BUG_ON(nf_nat_snmp_hook != NULL);
- 	RCU_INIT_POINTER(nf_nat_snmp_hook, help);
- 
--	ret = nf_conntrack_helper_register(&snmp_trap_helper);
--	if (ret < 0) {
--		nf_conntrack_helper_unregister(&snmp_helper);
--		return ret;
--	}
--	return ret;
-+	return nf_conntrack_helper_register(&snmp_trap_helper);
- }
- 
- static void __exit nf_nat_snmp_basic_fini(void)
--- 
-2.1.4
+> 
+>> @@ -4044,6 +4076,7 @@ static int rtnl_stats_dump(struct sk_buff *skb, struct netlink_callback *cb)
+>>  	return skb->len;
+>>  }
+>>  
+>> +
+>>  /* Process one rtnetlink message. */
+>>  
+>>  static int rtnetlink_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
+> 
+> Please don't add more empty lines between functions, one is enough.
+> 
+
+Sorry, got left-over after moving the code around.  Will remove when resubmitting.
+
+-vlad
