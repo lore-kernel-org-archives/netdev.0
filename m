@@ -1,34 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] vxlan: don't age NTF_EXT_LEARNED fdb entries
-Date: Tue, 28 Mar 2017 17:57:29 -0700 (PDT)
-Message-ID: <20170328.175729.1177873512181660790.davem@davemloft.net>
-References: <1490654801-10488-1-git-send-email-roopa@cumulusnetworks.com>
+Subject: Re: [PATCH 1/3] soc: qcom: smd: Transition client drivers from smd
+ to rpmsg
+Date: Tue, 28 Mar 2017 17:58:29 -0700 (PDT)
+Message-ID: <20170328.175829.1477125931644243041.davem@davemloft.net>
+References: <20170327225836.GL20094@minitux>
+        <20170327.160400.1285256003980361221.davem@davemloft.net>
+        <20170328054922.GH70446@Bjorns-MacBook-Pro-2.local>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nikolay@cumulusnetworks.com
-To: roopa@cumulusnetworks.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:39806 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932352AbdC2A5p (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 28 Mar 2017 20:57:45 -0400
-In-Reply-To: <1490654801-10488-1-git-send-email-roopa@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: marcel@holtmann.org, gustavo@padovan.org, johan.hedberg@gmail.com,
+        k.eugene.e@gmail.com, kvalo@codeaurora.org, andy.gross@linaro.org,
+        david.brown@linaro.org, arnd@arndb.de,
+        linux-bluetooth@vger.kernel.org, linux-kernel@vger.kernel.org,
+        wcn36xx@lists.infradead.org, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org, linux-arm-msm@vger.kernel.org,
+        linux-soc@vger.kernel.org
+To: bjorn.andersson@linaro.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170328054922.GH70446@Bjorns-MacBook-Pro-2.local>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Date: Mon, 27 Mar 2017 15:46:41 -0700
+From: Bjorn Andersson <bjorn.andersson@linaro.org>
+Date: Mon, 27 Mar 2017 22:49:22 -0700
 
-> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+> On Mon 27 Mar 16:04 PDT 2017, David Miller wrote:
 > 
-> vxlan driver already implicitly supports installing
-> of external fdb entries with NTF_EXT_LEARNED. This
-> patch just makes sure these entries are not aged
-> by the vxlan driver. An external entity managing these
-> entries will age them out. This is consistent with
-> the use of NTF_EXT_LEARNED in the bridge driver.
+>> From: Bjorn Andersson <bjorn.andersson@linaro.org>
+>> Date: Mon, 27 Mar 2017 15:58:37 -0700
+>> 
+>> > I'm sorry, but I can't figure out how to reproduce this.
+>> 
+>> All of my builds are "make allmodconfig" so it should be easy to reproduce.
 > 
-> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+> Thanks, turns out that while it was possible to select CONFIG_SMD_RPM
+> and CONFIG_QCOM_WCNSS_CTRL drivers/soc/Makefile does not traverse into
+> qcom/ unless CONFIG_ARCH_QCOM was set.
+> 
+> So I just sent out version 2 of the three patches, where I add an
+> explicit dependency on ARCH_QCOM for those two options.
 
-Applied, thank you.
+Looks great, all three applied.
