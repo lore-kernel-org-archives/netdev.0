@@ -1,406 +1,413 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 09/13] i40e/i40evf: Pull out code for cleaning up Rx buffers
-Date: Wed, 29 Mar 2017 03:12:11 -0700
-Message-ID: <20170329101215.24513-10-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 10/13] i40e/i40evf: Break i40e_fetch_rx_buffer up to allow for reuse of frag code
+Date: Wed, 29 Mar 2017 03:12:12 -0700
+Message-ID: <20170329101215.24513-11-jeffrey.t.kirsher@intel.com>
 References: <20170329101215.24513-1-jeffrey.t.kirsher@intel.com>
 Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
         netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
         jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:21132 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:54616 "EHLO mga02.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755599AbdC2KMj (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 29 Mar 2017 06:12:39 -0400
+        id S1755087AbdC2KM0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 29 Mar 2017 06:12:26 -0400
 In-Reply-To: <20170329101215.24513-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This patch pulls out the code responsible for handling buffer recycling and
-page counting and distributes it through several functions.  This allows us
-to commonize the bits that handle either freeing or recycling the buffers.
+This patch is meant to clean up the code in preparation for us adding
+support for build_skb.  Specifically we deconstruct i40e_fetch_buffer into
+several functions so that those functions can later be reused when we add a
+path for build_skb.
 
-As far as the page count tracking one change to the logic is that
-pagecnt_bias is decremented as soon as we call i40e_get_rx_buffer.  It is
-then the responsibility of the function that pulls the data to either
-increment the pagecnt_bias if the buffer can be recycled as-is, or to
-update page_offset so that we are pointing at the correct location for
-placement of the next buffer.
+Specifically with this change we split out the code for adding a page to an
+exiting skb.
 
-Change-ID: Ibac576360cb7f0b1627f2a993d13c1a8a2bf60af
+Change-ID: Iab1efbab6b8b97cb60ab9fdd0be1d37a056a154d
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_txrx.c   | 73 +++++++++++++++++----------
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c | 72 ++++++++++++++++----------
- 2 files changed, 89 insertions(+), 56 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c   | 138 ++++++++++++--------------
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c | 138 ++++++++++++--------------
+ 2 files changed, 130 insertions(+), 146 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index f2256d8c5e35..bba41ce08124 100644
+index bba41ce08124..ebffca0cefac 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -1294,6 +1294,8 @@ static bool i40e_alloc_mapped_page(struct i40e_ring *rx_ring,
- 	bi->dma = dma;
- 	bi->page = page;
- 	bi->page_offset = 0;
-+
-+	/* initialize pagecnt_bias to 1 representing we fully own page */
- 	bi->pagecnt_bias = 1;
- 
- 	return true;
-@@ -1622,8 +1624,6 @@ static inline bool i40e_page_is_reusable(struct page *page)
-  * the adapter for another receive
-  *
-  * @rx_buffer: buffer containing the page
-- * @page: page address from rx_buffer
-- * @truesize: actual size of the buffer in this page
-  *
-  * If page is reusable, rx_buffer->page_offset is adjusted to point to
-  * an unused region in the page.
-@@ -1646,14 +1646,13 @@ static inline bool i40e_page_is_reusable(struct page *page)
-  *
-  * In either case, if the page is reusable its refcount is increased.
-  **/
--static bool i40e_can_reuse_rx_page(struct i40e_rx_buffer *rx_buffer,
--				   struct page *page,
--				   const unsigned int truesize)
-+static bool i40e_can_reuse_rx_page(struct i40e_rx_buffer *rx_buffer)
- {
- #if (PAGE_SIZE >= 8192)
- 	unsigned int last_offset = PAGE_SIZE - I40E_RXBUFFER_2048;
- #endif
--	unsigned int pagecnt_bias = rx_buffer->pagecnt_bias--;
-+	unsigned int pagecnt_bias = rx_buffer->pagecnt_bias;
-+	struct page *page = rx_buffer->page;
- 
- 	/* Is any reuse possible? */
- 	if (unlikely(!i40e_page_is_reusable(page)))
-@@ -1661,15 +1660,9 @@ static bool i40e_can_reuse_rx_page(struct i40e_rx_buffer *rx_buffer,
- 
- #if (PAGE_SIZE < 8192)
- 	/* if we are only owner of page we can reuse it */
--	if (unlikely(page_count(page) != pagecnt_bias))
-+	if (unlikely((page_count(page) - pagecnt_bias) > 1))
- 		return false;
--
--	/* flip page offset to other buffer */
--	rx_buffer->page_offset ^= truesize;
- #else
--	/* move offset up to the next cache line */
--	rx_buffer->page_offset += truesize;
--
- 	if (rx_buffer->page_offset > last_offset)
- 		return false;
- #endif
-@@ -1678,10 +1671,11 @@ static bool i40e_can_reuse_rx_page(struct i40e_rx_buffer *rx_buffer,
- 	 * the pagecnt_bias and page count so that we fully restock the
- 	 * number of references the driver holds.
- 	 */
--	if (unlikely(pagecnt_bias == 1)) {
-+	if (unlikely(!pagecnt_bias)) {
- 		page_ref_add(page, USHRT_MAX);
- 		rx_buffer->pagecnt_bias = USHRT_MAX;
- 	}
-+
- 	return true;
- }
- 
-@@ -1689,8 +1683,8 @@ static bool i40e_can_reuse_rx_page(struct i40e_rx_buffer *rx_buffer,
-  * i40e_add_rx_frag - Add contents of Rx buffer to sk_buff
-  * @rx_ring: rx descriptor ring to transact packets on
-  * @rx_buffer: buffer containing page to add
-- * @size: packet length from rx_desc
-  * @skb: sk_buff to place the data into
-+ * @size: packet length from rx_desc
+@@ -1687,61 +1687,23 @@ static bool i40e_can_reuse_rx_page(struct i40e_rx_buffer *rx_buffer)
+  * @size: packet length from rx_desc
   *
   * This function will add the data contained in rx_buffer->page to the skb.
-  * This is done either through a direct copy if the data in the buffer is
-@@ -1700,10 +1694,10 @@ static bool i40e_can_reuse_rx_page(struct i40e_rx_buffer *rx_buffer,
-  * The function will then update the page offset if necessary and return
-  * true if the buffer can be reused by the adapter.
+- * This is done either through a direct copy if the data in the buffer is
+- * less than the skb header size, otherwise it will just attach the page as
+- * a frag to the skb.
++ * It will just attach the page as a frag to the skb.
+  *
+- * The function will then update the page offset if necessary and return
+- * true if the buffer can be reused by the adapter.
++ * The function will then update the page offset.
   **/
--static bool i40e_add_rx_frag(struct i40e_ring *rx_ring,
-+static void i40e_add_rx_frag(struct i40e_ring *rx_ring,
+ static void i40e_add_rx_frag(struct i40e_ring *rx_ring,
  			     struct i40e_rx_buffer *rx_buffer,
--			     unsigned int size,
--			     struct sk_buff *skb)
-+			     struct sk_buff *skb,
-+			     unsigned int size)
+ 			     struct sk_buff *skb,
+ 			     unsigned int size)
  {
- 	struct page *page = rx_buffer->page;
- 	unsigned char *va = page_address(page) + rx_buffer->page_offset;
-@@ -1723,12 +1717,11 @@ static bool i40e_add_rx_frag(struct i40e_ring *rx_ring,
- 	if (size <= I40E_RX_HDR_SIZE) {
- 		memcpy(__skb_put(skb, size), va, ALIGN(size, sizeof(long)));
- 
--		/* page is reusable, we can reuse buffer as-is */
--		if (likely(i40e_page_is_reusable(page)))
--			return true;
+-	struct page *page = rx_buffer->page;
+-	unsigned char *va = page_address(page) + rx_buffer->page_offset;
+ #if (PAGE_SIZE < 8192)
+ 	unsigned int truesize = I40E_RXBUFFER_2048;
+ #else
+-	unsigned int truesize = ALIGN(size, L1_CACHE_BYTES);
++	unsigned int truesize = SKB_DATA_ALIGN(size);
+ #endif
+-	unsigned int pull_len;
 -
--		/* this page cannot be reused so discard it */
--		return false;
-+		/* page is to be freed, increase pagecnt_bias instead of
-+		 * decreasing page count.
-+		 */
-+		rx_buffer->pagecnt_bias++;
-+		return;
- 	}
+-	if (unlikely(skb_is_nonlinear(skb)))
+-		goto add_tail_frag;
+-
+-	/* will the data fit in the skb we allocated? if so, just
+-	 * copy it as it is pretty small anyway
+-	 */
+-	if (size <= I40E_RX_HDR_SIZE) {
+-		memcpy(__skb_put(skb, size), va, ALIGN(size, sizeof(long)));
+-
+-		/* page is to be freed, increase pagecnt_bias instead of
+-		 * decreasing page count.
+-		 */
+-		rx_buffer->pagecnt_bias++;
+-		return;
+-	}
+-
+-	/* we need the header to contain the greater of either
+-	 * ETH_HLEN or 60 bytes if the skb->len is less than
+-	 * 60 for skb_pad.
+-	 */
+-	pull_len = eth_get_headlen(va, I40E_RX_HDR_SIZE);
+-
+-	/* align pull length to size of long to optimize
+-	 * memcpy performance
+-	 */
+-	memcpy(__skb_put(skb, pull_len), va, ALIGN(pull_len, sizeof(long)));
+-
+-	/* update all of the pointers */
+-	va += pull_len;
+-	size -= pull_len;
  
- 	/* we need the header to contain the greater of either
-@@ -1750,7 +1743,12 @@ static bool i40e_add_rx_frag(struct i40e_ring *rx_ring,
- 	skb_add_rx_frag(skb, skb_shinfo(skb)->nr_frags, page,
- 			(unsigned long)va & ~PAGE_MASK, size, truesize);
+-add_tail_frag:
+-	skb_add_rx_frag(skb, skb_shinfo(skb)->nr_frags, page,
+-			(unsigned long)va & ~PAGE_MASK, size, truesize);
++	skb_add_rx_frag(skb, skb_shinfo(skb)->nr_frags, rx_buffer->page,
++			rx_buffer->page_offset, size, truesize);
  
--	return i40e_can_reuse_rx_page(rx_buffer, page, truesize);
-+	/* page is being used so we must update the page offset */
+ 	/* page is being used so we must update the page offset */
+ #if (PAGE_SIZE < 8192)
+@@ -1781,45 +1743,66 @@ static struct i40e_rx_buffer *i40e_get_rx_buffer(struct i40e_ring *rx_ring,
+ }
+ 
+ /**
+- * i40e_fetch_rx_buffer - Allocate skb and populate it
++ * i40e_construct_skb - Allocate skb and populate it
+  * @rx_ring: rx descriptor ring to transact packets on
+  * @rx_buffer: rx buffer to pull data from
+  * @size: size of buffer to add to skb
+  *
+- * This function allocates an skb on the fly, and populates it with the page
+- * data from the current receive descriptor, taking care to set up the skb
+- * correctly, as well as handling calling the page recycle function if
+- * necessary.
++ * This function allocates an skb.  It then populates it with the page
++ * data from the current receive descriptor, taking care to set up the
++ * skb correctly.
+  */
+-static inline
+-struct sk_buff *i40e_fetch_rx_buffer(struct i40e_ring *rx_ring,
+-				     struct i40e_rx_buffer *rx_buffer,
+-				     struct sk_buff *skb,
+-				     unsigned int size)
++static struct sk_buff *i40e_construct_skb(struct i40e_ring *rx_ring,
++					  struct i40e_rx_buffer *rx_buffer,
++					  unsigned int size)
+ {
+-	if (likely(!skb)) {
+-		void *page_addr = page_address(rx_buffer->page) +
+-				  rx_buffer->page_offset;
++	void *va = page_address(rx_buffer->page) + rx_buffer->page_offset;
 +#if (PAGE_SIZE < 8192)
-+	rx_buffer->page_offset ^= truesize;
++	unsigned int truesize = I40E_RXBUFFER_2048;
 +#else
-+	rx_buffer->page_offset += truesize;
++	unsigned int truesize = SKB_DATA_ALIGN(size);
 +#endif
- }
++	unsigned int headlen;
++	struct sk_buff *skb;
  
- /**
-@@ -1776,6 +1774,9 @@ static struct i40e_rx_buffer *i40e_get_rx_buffer(struct i40e_ring *rx_ring,
- 				      size,
- 				      DMA_FROM_DEVICE);
+-		/* prefetch first cache line of first page */
+-		prefetch(page_addr);
++	/* prefetch first cache line of first page */
++	prefetch(va);
+ #if L1_CACHE_BYTES < 128
+-		prefetch(page_addr + L1_CACHE_BYTES);
++	prefetch(va + L1_CACHE_BYTES);
+ #endif
  
-+	/* We have pulled a buffer for use, so decrement pagecnt_bias */
-+	rx_buffer->pagecnt_bias--;
+-		/* allocate a skb to store the frags */
+-		skb = __napi_alloc_skb(&rx_ring->q_vector->napi,
+-				       I40E_RX_HDR_SIZE,
+-				       GFP_ATOMIC | __GFP_NOWARN);
+-		if (unlikely(!skb)) {
+-			rx_ring->rx_stats.alloc_buff_failed++;
+-			rx_buffer->pagecnt_bias++;
+-			return NULL;
+-		}
+-	}
++	/* allocate a skb to store the frags */
++	skb = __napi_alloc_skb(&rx_ring->q_vector->napi,
++			       I40E_RX_HDR_SIZE,
++			       GFP_ATOMIC | __GFP_NOWARN);
++	if (unlikely(!skb))
++		return NULL;
 +
- 	return rx_buffer;
- }
++	/* Determine available headroom for copy */
++	headlen = size;
++	if (headlen > I40E_RX_HDR_SIZE)
++		headlen = eth_get_headlen(va, I40E_RX_HDR_SIZE);
  
-@@ -1812,12 +1813,29 @@ struct sk_buff *i40e_fetch_rx_buffer(struct i40e_ring *rx_ring,
- 				       GFP_ATOMIC | __GFP_NOWARN);
- 		if (unlikely(!skb)) {
- 			rx_ring->rx_stats.alloc_buff_failed++;
+-	/* pull page into skb */
+-	i40e_add_rx_frag(rx_ring, rx_buffer, skb, size);
++	/* align pull length to size of long to optimize memcpy performance */
++	memcpy(__skb_put(skb, headlen), va, ALIGN(headlen, sizeof(long)));
++
++	/* update all of the pointers */
++	size -= headlen;
++	if (size) {
++		skb_add_rx_frag(skb, 0, rx_buffer->page,
++				rx_buffer->page_offset + headlen,
++				size, truesize);
++
++		/* buffer is used by skb, update page_offset */
++#if (PAGE_SIZE < 8192)
++		rx_buffer->page_offset ^= truesize;
++#else
++		rx_buffer->page_offset += truesize;
++#endif
++	} else {
++		/* buffer is unused, reset bias back to rx_buffer */
++		rx_buffer->pagecnt_bias++;
++	}
+ 
+ 	return skb;
+ }
+@@ -1944,9 +1927,18 @@ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
+ 
+ 		rx_buffer = i40e_get_rx_buffer(rx_ring, size);
+ 
+-		skb = i40e_fetch_rx_buffer(rx_ring, rx_buffer, skb, size);
+-		if (!skb)
++		/* retrieve a buffer from the ring */
++		if (skb)
++			i40e_add_rx_frag(rx_ring, rx_buffer, skb, size);
++		else
++			skb = i40e_construct_skb(rx_ring, rx_buffer, size);
++
++		/* exit if we failed to retrieve a buffer */
++		if (!skb) {
++			rx_ring->rx_stats.alloc_buff_failed++;
 +			rx_buffer->pagecnt_bias++;
- 			return NULL;
- 		}
- 	}
- 
- 	/* pull page into skb */
--	if (i40e_add_rx_frag(rx_ring, rx_buffer, size, skb)) {
-+	i40e_add_rx_frag(rx_ring, rx_buffer, skb, size);
-+
-+	return skb;
-+}
-+
-+/**
-+ * i40e_put_rx_buffer - Clean up used buffer and either recycle or free
-+ * @rx_ring: rx descriptor ring to transact packets on
-+ * @rx_buffer: rx buffer to pull data from
-+ *
-+ * This function will clean up the contents of the rx_buffer.  It will
-+ * either recycle the bufer or unmap it and free the associated resources.
-+ */
-+static void i40e_put_rx_buffer(struct i40e_ring *rx_ring,
-+			       struct i40e_rx_buffer *rx_buffer)
-+{
-+	if (i40e_can_reuse_rx_page(rx_buffer)) {
- 		/* hand second half of page back to the ring */
- 		i40e_reuse_rx_page(rx_ring, rx_buffer);
- 		rx_ring->rx_stats.page_reuse_count++;
-@@ -1831,8 +1849,6 @@ struct sk_buff *i40e_fetch_rx_buffer(struct i40e_ring *rx_ring,
- 
- 	/* clear contents of buffer_info */
- 	rx_buffer->page = NULL;
--
--	return skb;
- }
- 
- /**
-@@ -1932,6 +1948,7 @@ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
- 		if (!skb)
  			break;
++		}
  
-+		i40e_put_rx_buffer(rx_ring, rx_buffer);
+ 		i40e_put_rx_buffer(rx_ring, rx_buffer);
  		cleaned_count++;
- 
- 		if (i40e_is_non_eop(rx_ring, rx_desc, skb))
 diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-index 2320ec4d95ee..06b37790202a 100644
+index 06b37790202a..95e383af41c4 100644
 --- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
 +++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-@@ -662,6 +662,8 @@ static bool i40e_alloc_mapped_page(struct i40e_ring *rx_ring,
- 	bi->dma = dma;
- 	bi->page = page;
- 	bi->page_offset = 0;
-+
-+	/* initialize pagecnt_bias to 1 representing we fully own page */
- 	bi->pagecnt_bias = 1;
- 
- 	return true;
-@@ -980,8 +982,6 @@ static inline bool i40e_page_is_reusable(struct page *page)
-  * the adapter for another receive
-  *
-  * @rx_buffer: buffer containing the page
-- * @page: page address from rx_buffer
-- * @truesize: actual size of the buffer in this page
-  *
-  * If page is reusable, rx_buffer->page_offset is adjusted to point to
-  * an unused region in the page.
-@@ -1004,14 +1004,13 @@ static inline bool i40e_page_is_reusable(struct page *page)
-  *
-  * In either case, if the page is reusable its refcount is increased.
-  **/
--static bool i40e_can_reuse_rx_page(struct i40e_rx_buffer *rx_buffer,
--				   struct page *page,
--				   const unsigned int truesize)
-+static bool i40e_can_reuse_rx_page(struct i40e_rx_buffer *rx_buffer)
- {
- #if (PAGE_SIZE >= 8192)
- 	unsigned int last_offset = PAGE_SIZE - I40E_RXBUFFER_2048;
- #endif
--	unsigned int pagecnt_bias = rx_buffer->pagecnt_bias--;
-+	unsigned int pagecnt_bias = rx_buffer->pagecnt_bias;
-+	struct page *page = rx_buffer->page;
- 
- 	/* Is any reuse possible? */
- 	if (unlikely(!i40e_page_is_reusable(page)))
-@@ -1019,15 +1018,9 @@ static bool i40e_can_reuse_rx_page(struct i40e_rx_buffer *rx_buffer,
- 
- #if (PAGE_SIZE < 8192)
- 	/* if we are only owner of page we can reuse it */
--	if (unlikely(page_count(page) != pagecnt_bias))
-+	if (unlikely((page_count(page) - pagecnt_bias) > 1))
- 		return false;
--
--	/* flip page offset to other buffer */
--	rx_buffer->page_offset ^= truesize;
- #else
--	/* move offset up to the next cache line */
--	rx_buffer->page_offset += truesize;
--
- 	if (rx_buffer->page_offset > last_offset)
- 		return false;
- #endif
-@@ -1036,7 +1029,7 @@ static bool i40e_can_reuse_rx_page(struct i40e_rx_buffer *rx_buffer,
- 	 * the pagecnt_bias and page count so that we fully restock the
- 	 * number of references the driver holds.
- 	 */
--	if (unlikely(pagecnt_bias == 1)) {
-+	if (unlikely(!pagecnt_bias)) {
- 		page_ref_add(page, USHRT_MAX);
- 		rx_buffer->pagecnt_bias = USHRT_MAX;
- 	}
-@@ -1048,8 +1041,8 @@ static bool i40e_can_reuse_rx_page(struct i40e_rx_buffer *rx_buffer,
-  * i40e_add_rx_frag - Add contents of Rx buffer to sk_buff
-  * @rx_ring: rx descriptor ring to transact packets on
-  * @rx_buffer: buffer containing page to add
-- * @size: packet length from rx_desc
-  * @skb: sk_buff to place the data into
-+ * @size: packet length from rx_desc
+@@ -1045,61 +1045,23 @@ static bool i40e_can_reuse_rx_page(struct i40e_rx_buffer *rx_buffer)
+  * @size: packet length from rx_desc
   *
   * This function will add the data contained in rx_buffer->page to the skb.
-  * This is done either through a direct copy if the data in the buffer is
-@@ -1059,10 +1052,10 @@ static bool i40e_can_reuse_rx_page(struct i40e_rx_buffer *rx_buffer,
-  * The function will then update the page offset if necessary and return
-  * true if the buffer can be reused by the adapter.
+- * This is done either through a direct copy if the data in the buffer is
+- * less than the skb header size, otherwise it will just attach the page as
+- * a frag to the skb.
++ * It will just attach the page as a frag to the skb.
+  *
+- * The function will then update the page offset if necessary and return
+- * true if the buffer can be reused by the adapter.
++ * The function will then update the page offset.
   **/
--static bool i40e_add_rx_frag(struct i40e_ring *rx_ring,
-+static void i40e_add_rx_frag(struct i40e_ring *rx_ring,
+ static void i40e_add_rx_frag(struct i40e_ring *rx_ring,
  			     struct i40e_rx_buffer *rx_buffer,
--			     unsigned int size,
--			     struct sk_buff *skb)
-+			     struct sk_buff *skb,
-+			     unsigned int size)
+ 			     struct sk_buff *skb,
+ 			     unsigned int size)
  {
- 	struct page *page = rx_buffer->page;
- 	unsigned char *va = page_address(page) + rx_buffer->page_offset;
-@@ -1082,12 +1075,11 @@ static bool i40e_add_rx_frag(struct i40e_ring *rx_ring,
- 	if (size <= I40E_RX_HDR_SIZE) {
- 		memcpy(__skb_put(skb, size), va, ALIGN(size, sizeof(long)));
- 
--		/* page is reusable, we can reuse buffer as-is */
--		if (likely(i40e_page_is_reusable(page)))
--			return true;
+-	struct page *page = rx_buffer->page;
+-	unsigned char *va = page_address(page) + rx_buffer->page_offset;
+ #if (PAGE_SIZE < 8192)
+ 	unsigned int truesize = I40E_RXBUFFER_2048;
+ #else
+-	unsigned int truesize = ALIGN(size, L1_CACHE_BYTES);
++	unsigned int truesize = SKB_DATA_ALIGN(size);
+ #endif
+-	unsigned int pull_len;
 -
--		/* this page cannot be reused so discard it */
--		return false;
-+		/* page is to be freed, increase pagecnt_bias instead of
-+		 * decreasing page count.
-+		 */
-+		rx_buffer->pagecnt_bias++;
-+		return;
- 	}
+-	if (unlikely(skb_is_nonlinear(skb)))
+-		goto add_tail_frag;
+-
+-	/* will the data fit in the skb we allocated? if so, just
+-	 * copy it as it is pretty small anyway
+-	 */
+-	if (size <= I40E_RX_HDR_SIZE) {
+-		memcpy(__skb_put(skb, size), va, ALIGN(size, sizeof(long)));
+-
+-		/* page is to be freed, increase pagecnt_bias instead of
+-		 * decreasing page count.
+-		 */
+-		rx_buffer->pagecnt_bias++;
+-		return;
+-	}
+-
+-	/* we need the header to contain the greater of either
+-	 * ETH_HLEN or 60 bytes if the skb->len is less than
+-	 * 60 for skb_pad.
+-	 */
+-	pull_len = eth_get_headlen(va, I40E_RX_HDR_SIZE);
+-
+-	/* align pull length to size of long to optimize
+-	 * memcpy performance
+-	 */
+-	memcpy(__skb_put(skb, pull_len), va, ALIGN(pull_len, sizeof(long)));
+-
+-	/* update all of the pointers */
+-	va += pull_len;
+-	size -= pull_len;
  
- 	/* we need the header to contain the greater of either
-@@ -1109,7 +1101,12 @@ static bool i40e_add_rx_frag(struct i40e_ring *rx_ring,
- 	skb_add_rx_frag(skb, skb_shinfo(skb)->nr_frags, page,
- 			(unsigned long)va & ~PAGE_MASK, size, truesize);
+-add_tail_frag:
+-	skb_add_rx_frag(skb, skb_shinfo(skb)->nr_frags, page,
+-			(unsigned long)va & ~PAGE_MASK, size, truesize);
++	skb_add_rx_frag(skb, skb_shinfo(skb)->nr_frags, rx_buffer->page,
++			rx_buffer->page_offset, size, truesize);
  
--	return i40e_can_reuse_rx_page(rx_buffer, page, truesize);
-+	/* page is being used so we must update the page offset */
+ 	/* page is being used so we must update the page offset */
+ #if (PAGE_SIZE < 8192)
+@@ -1139,45 +1101,66 @@ static struct i40e_rx_buffer *i40e_get_rx_buffer(struct i40e_ring *rx_ring,
+ }
+ 
+ /**
+- * i40evf_fetch_rx_buffer - Allocate skb and populate it
++ * i40e_construct_skb - Allocate skb and populate it
+  * @rx_ring: rx descriptor ring to transact packets on
+  * @rx_buffer: rx buffer to pull data from
+  * @size: size of buffer to add to skb
+  *
+- * This function allocates an skb on the fly, and populates it with the page
+- * data from the current receive descriptor, taking care to set up the skb
+- * correctly, as well as handling calling the page recycle function if
+- * necessary.
++ * This function allocates an skb.  It then populates it with the page
++ * data from the current receive descriptor, taking care to set up the
++ * skb correctly.
+  */
+-static inline
+-struct sk_buff *i40evf_fetch_rx_buffer(struct i40e_ring *rx_ring,
+-				       struct i40e_rx_buffer *rx_buffer,
+-				       struct sk_buff *skb,
+-				       unsigned int size)
++static struct sk_buff *i40e_construct_skb(struct i40e_ring *rx_ring,
++					  struct i40e_rx_buffer *rx_buffer,
++					  unsigned int size)
+ {
+-	if (likely(!skb)) {
+-		void *page_addr = page_address(rx_buffer->page) +
+-				  rx_buffer->page_offset;
++	void *va = page_address(rx_buffer->page) + rx_buffer->page_offset;
 +#if (PAGE_SIZE < 8192)
-+	rx_buffer->page_offset ^= truesize;
++	unsigned int truesize = I40E_RXBUFFER_2048;
 +#else
-+	rx_buffer->page_offset += truesize;
++	unsigned int truesize = SKB_DATA_ALIGN(size);
 +#endif
- }
++	unsigned int headlen;
++	struct sk_buff *skb;
  
- /**
-@@ -1135,6 +1132,9 @@ static struct i40e_rx_buffer *i40e_get_rx_buffer(struct i40e_ring *rx_ring,
- 				      size,
- 				      DMA_FROM_DEVICE);
+-		/* prefetch first cache line of first page */
+-		prefetch(page_addr);
++	/* prefetch first cache line of first page */
++	prefetch(va);
+ #if L1_CACHE_BYTES < 128
+-		prefetch(page_addr + L1_CACHE_BYTES);
++	prefetch(va + L1_CACHE_BYTES);
+ #endif
  
-+	/* We have pulled a buffer for use, so decrement pagecnt_bias */
-+	rx_buffer->pagecnt_bias--;
+-		/* allocate a skb to store the frags */
+-		skb = __napi_alloc_skb(&rx_ring->q_vector->napi,
+-				       I40E_RX_HDR_SIZE,
+-				       GFP_ATOMIC | __GFP_NOWARN);
+-		if (unlikely(!skb)) {
+-			rx_ring->rx_stats.alloc_buff_failed++;
+-			rx_buffer->pagecnt_bias++;
+-			return NULL;
+-		}
+-	}
++	/* allocate a skb to store the frags */
++	skb = __napi_alloc_skb(&rx_ring->q_vector->napi,
++			       I40E_RX_HDR_SIZE,
++			       GFP_ATOMIC | __GFP_NOWARN);
++	if (unlikely(!skb))
++		return NULL;
 +
- 	return rx_buffer;
- }
++	/* Determine available headroom for copy */
++	headlen = size;
++	if (headlen > I40E_RX_HDR_SIZE)
++		headlen = eth_get_headlen(va, I40E_RX_HDR_SIZE);
  
-@@ -1171,12 +1171,29 @@ struct sk_buff *i40evf_fetch_rx_buffer(struct i40e_ring *rx_ring,
- 				       GFP_ATOMIC | __GFP_NOWARN);
- 		if (unlikely(!skb)) {
- 			rx_ring->rx_stats.alloc_buff_failed++;
+-	/* pull page into skb */
+-	i40e_add_rx_frag(rx_ring, rx_buffer, skb, size);
++	/* align pull length to size of long to optimize memcpy performance */
++	memcpy(__skb_put(skb, headlen), va, ALIGN(headlen, sizeof(long)));
++
++	/* update all of the pointers */
++	size -= headlen;
++	if (size) {
++		skb_add_rx_frag(skb, 0, rx_buffer->page,
++				rx_buffer->page_offset + headlen,
++				size, truesize);
++
++		/* buffer is used by skb, update page_offset */
++#if (PAGE_SIZE < 8192)
++		rx_buffer->page_offset ^= truesize;
++#else
++		rx_buffer->page_offset += truesize;
++#endif
++	} else {
++		/* buffer is unused, reset bias back to rx_buffer */
++		rx_buffer->pagecnt_bias++;
++	}
+ 
+ 	return skb;
+ }
+@@ -1297,9 +1280,18 @@ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
+ 
+ 		rx_buffer = i40e_get_rx_buffer(rx_ring, size);
+ 
+-		skb = i40evf_fetch_rx_buffer(rx_ring, rx_buffer, skb, size);
+-		if (!skb)
++		/* retrieve a buffer from the ring */
++		if (skb)
++			i40e_add_rx_frag(rx_ring, rx_buffer, skb, size);
++		else
++			skb = i40e_construct_skb(rx_ring, rx_buffer, size);
++
++		/* exit if we failed to retrieve a buffer */
++		if (!skb) {
++			rx_ring->rx_stats.alloc_buff_failed++;
 +			rx_buffer->pagecnt_bias++;
- 			return NULL;
- 		}
- 	}
- 
- 	/* pull page into skb */
--	if (i40e_add_rx_frag(rx_ring, rx_buffer, size, skb)) {
-+	i40e_add_rx_frag(rx_ring, rx_buffer, skb, size);
-+
-+	return skb;
-+}
-+
-+/**
-+ * i40e_put_rx_buffer - Clean up used buffer and either recycle or free
-+ * @rx_ring: rx descriptor ring to transact packets on
-+ * @rx_buffer: rx buffer to pull data from
-+ *
-+ * This function will clean up the contents of the rx_buffer.  It will
-+ * either recycle the bufer or unmap it and free the associated resources.
-+ */
-+static void i40e_put_rx_buffer(struct i40e_ring *rx_ring,
-+			       struct i40e_rx_buffer *rx_buffer)
-+{
-+	if (i40e_can_reuse_rx_page(rx_buffer)) {
- 		/* hand second half of page back to the ring */
- 		i40e_reuse_rx_page(rx_ring, rx_buffer);
- 		rx_ring->rx_stats.page_reuse_count++;
-@@ -1190,8 +1207,6 @@ struct sk_buff *i40evf_fetch_rx_buffer(struct i40e_ring *rx_ring,
- 
- 	/* clear contents of buffer_info */
- 	rx_buffer->page = NULL;
--
--	return skb;
- }
- 
- /**
-@@ -1286,6 +1301,7 @@ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
- 		if (!skb)
  			break;
++		}
  
-+		i40e_put_rx_buffer(rx_ring, rx_buffer);
+ 		i40e_put_rx_buffer(rx_ring, rx_buffer);
  		cleaned_count++;
- 
- 		if (i40e_is_non_eop(rx_ring, rx_desc, skb))
 -- 
 2.12.0
