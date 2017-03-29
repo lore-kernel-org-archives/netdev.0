@@ -1,86 +1,38 @@
-From: Tariq Toukan <ttoukan.linux@gmail.com>
-Subject: Re: Page allocator order-0 optimizations merged
-Date: Wed, 29 Mar 2017 10:13:07 +0300
-Message-ID: <4f9f5f04-039c-ce56-3456-4f04022f80e8@gmail.com>
-References: <d4c1625e-cacf-52a9-bfcb-b32a185a2008@mellanox.com>
- <83a0e3ef-acfa-a2af-2770-b9a92bda41bb@mellanox.com>
- <20170322234004.kffsce4owewgpqnm@techsingularity.net>
- <20170323144347.1e6f29de@redhat.com>
- <20170323145133.twzt4f5ci26vdyut@techsingularity.net>
- <779ab72d-94b9-1a28-c192-377e91383b4e@gmail.com>
- <1fc7338f-2b36-75f7-8a7e-8321f062207b@gmail.com>
- <2123321554.7161128.1490599967015.JavaMail.zimbra@redhat.com>
- <20170327105514.1ed5b1ba@redhat.com> <20170327143947.4c237e54@redhat.com>
- <20170327133212.6azfgrariwocdzzd@techsingularity.net>
- <0873b65b-2217-005d-0b42-4af6ad66cc0f@gmail.com>
- <26c4d7a4-c8a7-fbad-d2be-a5a90f6d93d3@gmail.com>
- <20170328202426.6485bd91@redhat.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [REGRESSION] mac80211: IBSS vif queue stopped when started
+ after 11s vif
+Date: Wed, 29 Mar 2017 09:49:21 +0200
+Message-ID: <1490773761.7948.3.camel@sipsolutions.net>
+References: <1978424.XTv2Qph05K@bentobox>
+         (sfid-20170322_101600_364232_CA0A885F)
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Mel Gorman <mgorman@techsingularity.net>,
- Pankaj Gupta <pagupta@redhat.com>, Tariq Toukan <tariqt@mellanox.com>,
- netdev@vger.kernel.org, akpm@linux-foundation.org,
- linux-mm <linux-mm@kvack.org>, Saeed Mahameed <saeedm@mellanox.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20170328202426.6485bd91@redhat.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Sven Eckelmann <sven.eckelmann@openmesh.com>,
+        linux-wireless@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s3.sipsolutions.net ([5.9.151.49]:41900 "EHLO sipsolutions.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753716AbdC2HtY (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 29 Mar 2017 03:49:24 -0400
+In-Reply-To: <1978424.XTv2Qph05K@bentobox> (sfid-20170322_101600_364232_CA0A885F)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+Hi Sven,
 
 
+> But I could be completely wrong about it. It would therefore be
+> interesting for me to know who would be responsible to start the
+> queues when ieee80211_do_open rejected it for IBSS.
 
-On 28/03/2017 9:24 PM, Jesper Dangaard Brouer wrote:
-> On Tue, 28 Mar 2017 19:05:12 +0300
-> Tariq Toukan <ttoukan.linux@gmail.com> wrote:
->
->> On 28/03/2017 10:32 AM, Tariq Toukan wrote:
->>>
->>>
->>> On 27/03/2017 4:32 PM, Mel Gorman wrote:
->>>> On Mon, Mar 27, 2017 at 02:39:47PM +0200, Jesper Dangaard Brouer wrote:
->>>>> On Mon, 27 Mar 2017 10:55:14 +0200
->>>>> Jesper Dangaard Brouer <brouer@redhat.com> wrote:
->>>>>
->>>>>> A possible solution, would be use the local_bh_{disable,enable} instead
->>>>>> of the {preempt_disable,enable} calls.  But it is slower, using numbers
->>>>>> from [1] (19 vs 11 cycles), thus the expected cycles saving is
->>>>>> 38-19=19.
->>>>>>
->>>>>> The problematic part of using local_bh_enable is that this adds a
->>>>>> softirq/bottom-halves rescheduling point (as it checks for pending
->>>>>> BHs).  Thus, this might affects real workloads.
->>>>>
->>>>> I implemented this solution in patch below... and tested it on mlx5 at
->>>>> 50G with manually disabled driver-page-recycling.  It works for me.
->>>>>
->>>>> To Mel, that do you prefer... a partial-revert or something like this?
->>>>>
->>>>
->>>> If Tariq confirms it works for him as well, this looks far safer patch
->>>
->>> Great.
->>> I will test Jesper's patch today in the afternoon.
->>>
->>
->> It looks very good!
->> I get line-rate (94Gbits/sec) with 8 streams, in comparison to less than
->> 55Gbits/sec before.
->
-> Just confirming, this is when you have disabled mlx5 driver
-> page-recycling, right?
->
->
-Right.
-This is a great result!
+Well, once ieee80211_offchannel_return() is called, that should do the
+needful and end up in ieee80211_propagate_queue_wake().
 
->>>> than having a dedicate IRQ-safe queue. Your concern about the BH
->>>> scheduling point is valid but if it's proven to be a problem, there is
->>>> still the option of a partial revert.
->
+Can you check what the IBSS vif's queues are (vif->hw_queue[...])?
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+However, I also don't understand the difference between encrypted and
+unencrypted here.
+
+johannes
