@@ -1,146 +1,69 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH net-next] net: phy: Allow building mdio-boardinfo into the kernel
-Date: Wed, 29 Mar 2017 10:09:46 +0200
-Message-ID: <CAK8P3a08sng5o6QEsUoOWbsixX9zX3H-NByXsCGirGsz_EtYDw@mail.gmail.com>
-References: <20170328195709.13549-1-f.fainelli@gmail.com>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: in_irq_or_nmi()
+Date: Wed, 29 Mar 2017 10:12:19 +0200
+Message-ID: <20170329081219.lto7t4fwmponokzh@hirez.programming.kicks-ass.net>
+References: <20170323144347.1e6f29de@redhat.com>
+ <20170323145133.twzt4f5ci26vdyut@techsingularity.net>
+ <779ab72d-94b9-1a28-c192-377e91383b4e@gmail.com>
+ <1fc7338f-2b36-75f7-8a7e-8321f062207b@gmail.com>
+ <2123321554.7161128.1490599967015.JavaMail.zimbra@redhat.com>
+ <20170327105514.1ed5b1ba@redhat.com>
+ <20170327143947.4c237e54@redhat.com>
+ <20170327141518.GB27285@bombadil.infradead.org>
+ <20170327171500.4beef762@redhat.com>
+ <20170327165817.GA28494@bombadil.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Networking <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        Andrew Lunn <andrew@lunn.ch>, rmk+kernel@armlinux.org.uk
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ot0-f194.google.com ([74.125.82.194]:35932 "EHLO
-        mail-ot0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754322AbdC2IJs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 29 Mar 2017 04:09:48 -0400
-Received: by mail-ot0-f194.google.com with SMTP id t8so806303otf.3
-        for <netdev@vger.kernel.org>; Wed, 29 Mar 2017 01:09:47 -0700 (PDT)
-In-Reply-To: <20170328195709.13549-1-f.fainelli@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
+	Pankaj Gupta <pagupta@redhat.com>,
+	Tariq Toukan <ttoukan.linux@gmail.com>,
+	Mel Gorman <mgorman@techsingularity.net>,
+	Tariq Toukan <tariqt@mellanox.com>, netdev@vger.kernel.org,
+	akpm@linux-foundation.org, linux-mm <linux-mm@kvack.org>,
+	Saeed Mahameed <saeedm@mellanox.com>, linux-kernel@vger.kernel.org
+To: Matthew Wilcox <willy@infradead.org>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <20170327165817.GA28494@bombadil.infradead.org>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 28, 2017 at 9:57 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
-> mdio-boardinfo contains code that is helpful for platforms to register
-> specific MDIO bus devices independent of how CONFIG_MDIO_DEVICE or
-> CONFIG_PHYLIB will be selected (modular or built-in). In order to make
-> that possible, let's do the following:
->
-> - descend into drivers/net/phy/ unconditionally
->
-> - make mdiobus_setup_mdiodev_from_board_info() take a callback argument
->   which allows us not to expose the internal MDIO board info list and
->   mutex, yet maintain the logic within the same file
->
-> - relocate the code that creates a MDIO device into
->   drivers/net/phy/mdio_bus.c
->
-> - build mdio-boardinfo.o into the kernel as soon as MDIO_DEVICE is
->   defined (y or m)
->
-> Fixes: 90eff9096c01 ("net: phy: Allow splitting MDIO bus/device support from PHYs")
-> Fixes: 648ea0134069 ("net: phy: Allow pre-declaration of MDIO devices")
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+On Mon, Mar 27, 2017 at 09:58:17AM -0700, Matthew Wilcox wrote:
+> On Mon, Mar 27, 2017 at 05:15:00PM +0200, Jesper Dangaard Brouer wrote:
+> > And I also verified it worked:
+> > 
+> >   0.63 │       mov    __preempt_count,%eax
+> >        │     free_hot_cold_page():
+> >   1.25 │       test   $0x1f0000,%eax
+> >        │     ↓ jne    1e4
+> > 
+> > And this simplification also made the compiler change this into a
+> > unlikely branch, which is a micro-optimization (that I will leave up to
+> > the compiler).
+> 
+> Excellent!  That said, I think we should define in_irq_or_nmi() in
+> preempt.h, rather than hiding it in the memory allocator.  And since we're
+> doing that, we might as well make it look like the other definitions:
+> 
+> diff --git a/include/linux/preempt.h b/include/linux/preempt.h
+> index 7eeceac52dea..af98c29abd9d 100644
+> --- a/include/linux/preempt.h
+> +++ b/include/linux/preempt.h
+> @@ -81,6 +81,7 @@
+>  #define in_interrupt()		(irq_count())
+>  #define in_serving_softirq()	(softirq_count() & SOFTIRQ_OFFSET)
+>  #define in_nmi()		(preempt_count() & NMI_MASK)
+> +#define in_irq_or_nmi()		(preempt_count() & (HARDIRQ_MASK | NMI_MASK))
+>  #define in_task()		(!(preempt_count() & \
+>  				   (NMI_MASK | HARDIRQ_MASK | SOFTIRQ_OFFSET)))
+>  
 
-It survived the overnight randconfig build,
+No, that's horrible. Also, wth is this about? A memory allocator that
+needs in_nmi()? That sounds beyond broken.
 
-Tested-by: Arnd Bergmann <arnd@arndb.de>
-
-On a related note, I ran into one more case of a network driver selecting a
-particular PHY:
-
-drivers/net/built-in.o: In function `octeon_mdiobus_remove':
-wilink_platform_data.c:(.text+0xe58): undefined reference to
-`mdiobus_unregister'
-wilink_platform_data.c:(.text+0xe60): undefined reference to `mdiobus_free'
-drivers/net/built-in.o: In function `octeon_mdiobus_probe':
-wilink_platform_data.c:(.text+0xec8): undefined reference to
-`devm_mdiobus_alloc_size'
-wilink_platform_data.c:(.text+0x1090): undefined reference to
-`of_mdiobus_register'
-wilink_platform_data.c:(.text+0x10d0): undefined reference to `mdiobus_free'
-
-Building with this hack fixes the three instances I found so far, but my
-current workaround seems rather fragile:
-
-@@ -28,7 +28,7 @@ config MDIO_BCM_UNIMAC
-
- config MDIO_BITBANG
-        tristate "Bitbanged MDIO buses"
--       depends on !(MDIO_DEVICE=y && PHYLIB=m)
-+       depends on m || !(MDIO_DEVICE=y && PHYLIB=m)
-        help
-          This module implements the MDIO bus protocol in software,
-          for use by low level drivers that export the ability to
-@@ -118,6 +118,7 @@ config MDIO_OCTEON
- config MDIO_SUN4I
-        tristate "Allwinner sun4i MDIO interface support"
-        depends on ARCH_SUNXI
-+       depends on m || !(MDIO_DEVICE=y && PHYLIB=m)
-        help
-          This driver supports the MDIO interface found in the network
-          interface units of the Allwinner SoC that have an EMAC (A10,
-@@ -109,6 +109,7 @@ config MDIO_OCTEON
-        tristate "Octeon and some ThunderX SOCs MDIO buses"
-        depends on 64BIT
-        depends on HAS_IOMEM
-+       depends on m || !(MDIO_DEVICE=y && PHYLIB=m)
-        select MDIO_CAVIUM
-        help
-          This module provides a driver for the Octeon and ThunderX MDIO
-
-The configuration causing it is something like this:
-
-CONFIG_MDIO_OCTEON=y
-CONFIG_MDIO_DEVICE=y
-CONFIG_PHYLIB=m
-
-This is what I'm trying now:
-
---- a/drivers/net/phy/Kconfig
-+++ b/drivers/net/phy/Kconfig
-@@ -7,7 +7,16 @@ menuconfig MDIO_DEVICE
-        help
-           MDIO devices and driver infrastructure code.
-
--if MDIO_DEVICE
-+config MDIO_BUS
-+       tristate
-+       default m if PHYLIB=m
-+       default MDIO_DEVICE
-+       help
-+         This internal symbol is used for link time dependencies and it
-+         reflects whether the mdio_bus/mdio_device code is built as a
-+         loadable module or built-in.
-+
-+if MDIO_BUS
-
- config MDIO_BCM_IPROC
-        tristate "Broadcom iProc MDIO bus controller"
-@@ -28,7 +37,6 @@ config MDIO_BCM_UNIMAC
-
- config MDIO_BITBANG
-        tristate "Bitbanged MDIO buses"
--       depends on m || !(MDIO_DEVICE=y && PHYLIB=m)
-        help
-          This module implements the MDIO bus protocol in software,
-          for use by low level drivers that export the ability to
-@@ -109,7 +117,6 @@ config MDIO_OCTEON
-        tristate "Octeon and some ThunderX SOCs MDIO buses"
-        depends on 64BIT
-        depends on HAS_IOMEM
--       depends on m || !(MDIO_DEVICE=y && PHYLIB=m)
-        select MDIO_CAVIUM
-        help
-          This module provides a driver for the Octeon and ThunderX MDIO
-@@ -119,7 +126,6 @@ config MDIO_OCTEON
- config MDIO_SUN4I
-        tristate "Allwinner sun4i MDIO interface support"
-        depends on ARCH_SUNXI
--       depends on m || !(MDIO_DEVICE=y && PHYLIB=m)
-        help
-          This driver supports the MDIO interface found in the network
-          interface units of the Allwinner SoC that have an EMAC (A10,
-
-
-    Arnd
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
