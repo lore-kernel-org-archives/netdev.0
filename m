@@ -1,84 +1,58 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: in_irq_or_nmi()
-Date: Wed, 29 Mar 2017 10:59:28 +0200
-Message-ID: <20170329105928.609bc581@redhat.com>
-References: <20170323144347.1e6f29de@redhat.com>
-	<20170323145133.twzt4f5ci26vdyut@techsingularity.net>
-	<779ab72d-94b9-1a28-c192-377e91383b4e@gmail.com>
-	<1fc7338f-2b36-75f7-8a7e-8321f062207b@gmail.com>
-	<2123321554.7161128.1490599967015.JavaMail.zimbra@redhat.com>
-	<20170327105514.1ed5b1ba@redhat.com>
-	<20170327143947.4c237e54@redhat.com>
-	<20170327141518.GB27285@bombadil.infradead.org>
-	<20170327171500.4beef762@redhat.com>
-	<20170327165817.GA28494@bombadil.infradead.org>
-	<20170329081219.lto7t4fwmponokzh@hirez.programming.kicks-ass.net>
+From: Arushi Singhal <arushisinghal19971997@gmail.com>
+Subject: [PATCH] net: ipv6: Removed unnecessary parenthesis
+Date: Wed, 29 Mar 2017 14:32:43 +0530
+Message-ID: <20170329090243.GA24402@arushi-HP-Pavilion-Notebook>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Matthew Wilcox <willy@infradead.org>, Pankaj Gupta <pagupta@redhat.com>,
- Tariq Toukan <ttoukan.linux@gmail.com>, Mel Gorman
- <mgorman@techsingularity.net>, Tariq Toukan <tariqt@mellanox.com>,
- netdev@vger.kernel.org, akpm@linux-foundation.org, linux-mm
- <linux-mm@kvack.org>, Saeed Mahameed <saeedm@mellanox.com>,
- linux-kernel@vger.kernel.org, brouer@redhat.com
-To: Peter Zijlstra <peterz@infradead.org>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20170329081219.lto7t4fwmponokzh@hirez.programming.kicks-ass.net>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: pablo@netfilter.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 29 Mar 2017 10:12:19 +0200
-Peter Zijlstra <peterz@infradead.org> wrote:
+Removed parentheses on the right hand side of assignment, as they are
+not required. The following coccinelle script was used to fix this
+issue:
 
-> On Mon, Mar 27, 2017 at 09:58:17AM -0700, Matthew Wilcox wrote:
-> > On Mon, Mar 27, 2017 at 05:15:00PM +0200, Jesper Dangaard Brouer wrote:=
- =20
-> > > And I also verified it worked:
-> > >=20
-> > >   0.63 =E2=94=82       mov    __preempt_count,%eax
-> > >        =E2=94=82     free_hot_cold_page():
-> > >   1.25 =E2=94=82       test   $0x1f0000,%eax
-> > >        =E2=94=82     =E2=86=93 jne    1e4
-> > >=20
-> > > And this simplification also made the compiler change this into a
-> > > unlikely branch, which is a micro-optimization (that I will leave up =
-to
-> > > the compiler). =20
-> >=20
-> > Excellent!  That said, I think we should define in_irq_or_nmi() in
-> > preempt.h, rather than hiding it in the memory allocator.  And since we=
-'re
-> > doing that, we might as well make it look like the other definitions:
-> >=20
-> > diff --git a/include/linux/preempt.h b/include/linux/preempt.h
-> > index 7eeceac52dea..af98c29abd9d 100644
-> > --- a/include/linux/preempt.h
-> > +++ b/include/linux/preempt.h
-> > @@ -81,6 +81,7 @@
-> >  #define in_interrupt()		(irq_count())
-> >  #define in_serving_softirq()	(softirq_count() & SOFTIRQ_OFFSET)
-> >  #define in_nmi()		(preempt_count() & NMI_MASK)
-> > +#define in_irq_or_nmi()		(preempt_count() & (HARDIRQ_MASK | NMI_MASK))
-> >  #define in_task()		(!(preempt_count() & \
-> >  				   (NMI_MASK | HARDIRQ_MASK | SOFTIRQ_OFFSET)))
-> >   =20
->=20
-> No, that's horrible. Also, wth is this about? A memory allocator that
-> needs in_nmi()? That sounds beyond broken.
+@@
+local idexpression id;
+expression e;
+@@
 
-It is the other way around. We want to exclude NMI and HARDIRQ from
-using the per-cpu-pages (pcp) lists "order-0 cache" (they will
-fall-through using the normal buddy allocator path).
+id =
+-(
+e
+-)
 
---=20
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
+Signed-off-by: Arushi Singhal <arushisinghal19971997@gmail.com>
+---
+ net/ipv6/netfilter/nf_conntrack_reasm.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+diff --git a/net/ipv6/netfilter/nf_conntrack_reasm.c b/net/ipv6/netfilter/nf_conntrack_reasm.c
+index fdde76e8a16a..34dfdc2fb2bc 100644
+--- a/net/ipv6/netfilter/nf_conntrack_reasm.c
++++ b/net/ipv6/netfilter/nf_conntrack_reasm.c
+@@ -387,9 +387,9 @@ nf_ct_frag6_reasm(struct frag_queue *fq, struct sk_buff *prev,  struct net_devic
+ 		return false;
+ 
+ 	/* Unfragmented part is taken from the first segment. */
+-	payload_len = ((head->data - skb_network_header(head)) -
++	payload_len = (head->data - skb_network_header(head)) -
+ 		       sizeof(struct ipv6hdr) + fq->q.len -
+-		       sizeof(struct frag_hdr));
++		       sizeof(struct frag_hdr);
+ 	if (payload_len > IPV6_MAXPLEN) {
+ 		net_dbg_ratelimited("nf_ct_frag6_reasm: payload len = %d\n",
+ 				    payload_len);
+-- 
+2.11.0
+
