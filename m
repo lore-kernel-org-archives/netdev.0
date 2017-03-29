@@ -1,45 +1,34 @@
-From: simran singhal <singhalsimran0@gmail.com>
-Subject: [PATCH] net: netfilter: Use list_{next/prev}_entry instead of
- list_entry
-Date: Wed, 29 Mar 2017 11:15:40 +0530
-Message-ID: <20170329054540.GA15593@singhal-Inspiron-5558>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net-next 0/2] break include loop and dsa devlink support
+Date: Tue, 28 Mar 2017 22:46:20 -0700 (PDT)
+Message-ID: <20170328.224620.578507195105981119.davem@davemloft.net>
+References: <1490737507-7864-1-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-        "David S. Miller" <davem@davemloft.net>,
-        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        outreachy-kernel@googlegroups.com
-To: pablo@netfilter.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:35953 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752729AbdC2Fpp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 29 Mar 2017 01:45:45 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sfrench-eUNUBHrolfbYtjvyW6yDsg@public.gmane.org,
+        linux-cifs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+        vivien.didelot-4ysUXcep3aM1wj+D4I0NRVaTQe2KTcn/@public.gmane.org
+To: andrew-g2DYL2Zd6BY@public.gmane.org
+Return-path: <linux-cifs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1490737507-7864-1-git-send-email-andrew-g2DYL2Zd6BY@public.gmane.org>
+Sender: linux-cifs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This patch replace list_entry with list_prev_entry as it makes the
-code more clear to read.
+From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+Date: Tue, 28 Mar 2017 23:45:05 +0200
 
-Signed-off-by: simran singhal <singhalsimran0@gmail.com>
----
- net/netfilter/nf_tables_api.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> These two patches add very basic support for devlink to DSA, in
+> preparation for playing with dpipe.
+> 
+> The first patch is needed to break an include loop between
+> netdevice.h, dsa.h and devlink.h. We need to remove dsa.h from
+> netdevice.h. As a result, some files fail to compile, because they
+> require includes pulled in via dsa.h. So this patch adds a number of
+> includes in various places. The majority is within the network
+> subsystem, but cifs also needs a few fixes.
+> 
+> 0-day has been chewing on this for over a day now, and not found any
+> breakage. But Arnd's randconfig might uncover something.
 
-diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
-index b7645d7..a341eaf 100644
---- a/net/netfilter/nf_tables_api.c
-+++ b/net/netfilter/nf_tables_api.c
-@@ -1895,7 +1895,7 @@ static int nf_tables_fill_rule_info(struct sk_buff *skb, struct net *net,
- 		goto nla_put_failure;
- 
- 	if ((event != NFT_MSG_DELRULE) && (rule->list.prev != &chain->rules)) {
--		prule = list_entry(rule->list.prev, struct nft_rule, list);
-+		prule = list_prev_entry(rule, list);
- 		if (nla_put_be64(skb, NFTA_RULE_POSITION,
- 				 cpu_to_be64(prule->handle),
- 				 NFTA_RULE_PAD))
--- 
-2.7.4
+Looks good, series applied, thanks.
