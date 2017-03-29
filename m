@@ -1,107 +1,177 @@
-From: Russell King - ARM Linux <linux@armlinux.org.uk>
-Subject: Re: Adding vlan to DSA port causes lockdep splat
-Date: Wed, 29 Mar 2017 17:55:26 +0100
-Message-ID: <20170329165526.GB7909@n2100.armlinux.org.uk>
-References: <CAJGZr0JNsL3HG_CUs_jhavYJ5Z6Z6S-bhmE4sONkk++uEZL7nw@mail.gmail.com>
- <33d9c12c-7b76-a790-555e-ae10176548e4@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Maxim Uvarov <muvarov@gmail.com>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: [PATCH net] sctp: alloc stream info when initializing asoc
+Date: Thu, 30 Mar 2017 01:00:53 +0800
+Message-ID: <06d5884ac36a3ad5f5bceaf0088aede14870088b.1490806853.git.lucien.xin@gmail.com>
+Cc: davem@davemloft.net,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>
+To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.armlinux.org.uk ([78.32.30.218]:47190 "EHLO
-        pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752782AbdC2Qzi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 29 Mar 2017 12:55:38 -0400
-Content-Disposition: inline
-In-Reply-To: <33d9c12c-7b76-a790-555e-ae10176548e4@gmail.com>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:32884 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752140AbdC2RBC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 29 Mar 2017 13:01:02 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 29, 2017 at 09:45:16AM -0700, Florian Fainelli wrote:
-> On 02/21/2017 12:38 AM, Maxim Uvarov wrote:
-> > Is there any progress on subj issue?
+When sending a msg without asoc established, sctp will send INIT packet
+first and then enqueue chunks.
 
-I'm afraid the report got completely ignored.  Hope you have better luck.
+Before receiving INIT_ACK, stream info is not yet alloced. But enqueuing
+chunks needs to access stream info, like out stream state and out stream
+cnt.
 
-> > I see it was investigated here:
-> > https://www.spinics.net/lists/netdev/msg361434.html
-> 
-> I was just able to reproduce this and will try to look into it. At first
-> glance, the reason why we usually don't see it, is that VLAN
-> configuration goes through bridge vlan, which exercises a slightly
-> different code path.
-> 
-> FWIW: using bridge vlan (VLAN filtering) allows you to define your
-> switch's default VLAN (ID and tag/untag flag) whereas the traditional
-> vlan device does not really allow you to do that.
-> 
-> > 
-> > But it still exist on later kernels:
-> > 
-> > [   37.320301] ip/1047 is trying to acquire lock:
-> > [   37.324764]  (_xmit_ETHER/1){+.....}, at: [<c06ad228>] dev_mc_sync+0x4c/0x88
-> > [   37.331882]
-> > [   37.331882] but task is already holding lock:
-> > [   37.337738]  (_xmit_ETHER/1){+.....}, at: [<c06ad228>] dev_mc_sync+0x4c/0x88
-> > [   37.344828]
-> > [   37.344828] other info that might help us debug this:
-> > [   37.351384]  Possible unsafe locking scenario:
-> > [   37.351384]
-> > [   37.357326]        CPU0
-> > [   37.359778]        ----
-> > [   37.362230]   lock(_xmit_ETHER/1);
-> > [   37.365650]   lock(_xmit_ETHER/1);
-> > [   37.369069]
-> > [   37.369069]  *** DEADLOCK ***
-> > [   37.369069]
-> > [   37.375013]  May be due to missing lock nesting notation
-> > [   37.375013]
-> > [   37.381830] 3 locks held by ip/1047:
-> > [   37.385416]  #0:  (rtnl_mutex){+.+.+.}, at: [<c06b8248>]
-> > rtnetlink_rcv+0x1c/0x38
-> > [   37.392860]  #1:  (&vlan_netdev_addr_lock_key/1){+.....}, at:
-> > [<c06a4f94>] dev_set_rx_mode+0x1c/0x30
-> > [   37.402046]  #2:  (_xmit_ETHER/1){+.....}, at: [<c06ad228>]
-> > dev_mc_sync+0x4c/0x88
-> > [   37.409574]
-> > [   37.409574] stack backtrace:
-> > [   37.413952] CPU: 0 PID: 1047 Comm: ip Not tainted
-> > 4.10.0maxdebug-00008-g9d55486 #22
-> > [   37.421639] Hardware name: Generic AM33XX (Flattened Device Tree)
-> > [   37.427756] Backtrace:
-> > [   37.430237] [<c010bf78>] (dump_backtrace) from [<c010c220>]
-> > (show_stack+0x18/0x1c)
-> > [   37.437842]  r7:c140f7ec r6:c13e29e0 r5:dc316780 r4:c0db8408
-> > [   37.443537] [<c010c208>] (show_stack) from [<c0402ab0>]
-> > (dump_stack+0x20/0x28)
-> > [   37.450800] [<c0402a90>] (dump_stack) from [<c016b294>]
-> > (__lock_acquire+0x15d4/0x18ec)
-> > [   37.458753] [<c0169cc0>] (__lock_acquire) from [<c016b958>]
-> > (lock_acquire+0x74/0x94)
-> > [   37.466532]  r10:dc2260c0 r9:dd747910 r8:00000000 r7:00000001
-> > r6:00000001 r5:600d0013
-> > [   37.474393]  r4:00000000
-> > [   37.476946] [<c016b8e4>] (lock_acquire) from [<c07f802c>]
-> > (_raw_spin_lock_nested+0x44/0x54)
-> > [   37.485334]  r7:00001002 r6:dd4fd988 r5:dc1f3000 r4:dd4fd988
-> > [   37.491022] [<c07f7fe8>] (_raw_spin_lock_nested) from [<c06ad228>]
-> > (dev_mc_sync+0x4c/0x88)
-> > [   37.499320]  r4:dd4fd800
-> > [   37.501870] [<c06ad1dc>] (dev_mc_sync) from [<c0796b60>]
-> > (dsa_slave_set_rx_mode+0x28/0x38)
-> > [   37.510171]  r7:00001002 r6:00000000 r5:dd4fd800 r4:dc1f3000
-> > [   37.515856] [<c0796b38>] (dsa_slave_set_rx_mode) from [<c06a4f40>]
-> > (__dev_set_rx_mode+0x64/0x9c)
-> > 
-> 
-> 
-> -- 
-> Florian
+This patch is to fix it by allocing out stream info when initializing an
+asoc, allocing in stream and re-allocing out stream when processing init.
 
+Signed-off-by: Xin Long <lucien.xin@gmail.com>
+---
+ include/net/sctp/structs.h |  3 ++-
+ net/sctp/associola.c       |  7 ++++++-
+ net/sctp/sm_make_chunk.c   |  9 ++-------
+ net/sctp/stream.c          | 43 +++++++++++++++++++++++++++++++++++--------
+ 4 files changed, 45 insertions(+), 17 deletions(-)
+
+diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
+index 8caa5ee..a127b7c 100644
+--- a/include/net/sctp/structs.h
++++ b/include/net/sctp/structs.h
+@@ -377,7 +377,8 @@ typedef struct sctp_sender_hb_info {
+ 	__u64 hb_nonce;
+ } sctp_sender_hb_info_t;
+ 
+-struct sctp_stream *sctp_stream_new(__u16 incnt, __u16 outcnt, gfp_t gfp);
++int sctp_stream_new(struct sctp_association *asoc, gfp_t gfp);
++int sctp_stream_init(struct sctp_association *asoc, gfp_t gfp);
+ void sctp_stream_free(struct sctp_stream *stream);
+ void sctp_stream_clear(struct sctp_stream *stream);
+ 
+diff --git a/net/sctp/associola.c b/net/sctp/associola.c
+index 0439a1a..0b26df5 100644
+--- a/net/sctp/associola.c
++++ b/net/sctp/associola.c
+@@ -246,6 +246,9 @@ static struct sctp_association *sctp_association_init(struct sctp_association *a
+ 	if (!sctp_ulpq_init(&asoc->ulpq, asoc))
+ 		goto fail_init;
+ 
++	if (sctp_stream_new(asoc, gfp))
++		goto fail_init;
++
+ 	/* Assume that peer would support both address types unless we are
+ 	 * told otherwise.
+ 	 */
+@@ -264,7 +267,7 @@ static struct sctp_association *sctp_association_init(struct sctp_association *a
+ 	/* AUTH related initializations */
+ 	INIT_LIST_HEAD(&asoc->endpoint_shared_keys);
+ 	if (sctp_auth_asoc_copy_shkeys(ep, asoc, gfp))
+-		goto fail_init;
++		goto stream_free;
+ 
+ 	asoc->active_key_id = ep->active_key_id;
+ 	asoc->prsctp_enable = ep->prsctp_enable;
+@@ -287,6 +290,8 @@ static struct sctp_association *sctp_association_init(struct sctp_association *a
+ 
+ 	return asoc;
+ 
++stream_free:
++	sctp_stream_free(asoc->stream);
+ fail_init:
+ 	sock_put(asoc->base.sk);
+ 	sctp_endpoint_put(asoc->ep);
+diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
+index 969a30c..118faff 100644
+--- a/net/sctp/sm_make_chunk.c
++++ b/net/sctp/sm_make_chunk.c
+@@ -2460,15 +2460,10 @@ int sctp_process_init(struct sctp_association *asoc, struct sctp_chunk *chunk,
+ 	 * association.
+ 	 */
+ 	if (!asoc->temp) {
+-		int error;
+-
+-		asoc->stream = sctp_stream_new(asoc->c.sinit_max_instreams,
+-					       asoc->c.sinit_num_ostreams, gfp);
+-		if (!asoc->stream)
++		if (sctp_stream_init(asoc, gfp))
+ 			goto clean_up;
+ 
+-		error = sctp_assoc_set_id(asoc, gfp);
+-		if (error)
++		if (sctp_assoc_set_id(asoc, gfp))
+ 			goto clean_up;
+ 	}
+ 
+diff --git a/net/sctp/stream.c b/net/sctp/stream.c
+index 1c6cc04..bbed997 100644
+--- a/net/sctp/stream.c
++++ b/net/sctp/stream.c
+@@ -35,33 +35,60 @@
+ #include <net/sctp/sctp.h>
+ #include <net/sctp/sm.h>
+ 
+-struct sctp_stream *sctp_stream_new(__u16 incnt, __u16 outcnt, gfp_t gfp)
++int sctp_stream_new(struct sctp_association *asoc, gfp_t gfp)
+ {
+ 	struct sctp_stream *stream;
+ 	int i;
+ 
+ 	stream = kzalloc(sizeof(*stream), gfp);
+ 	if (!stream)
+-		return NULL;
++		return -ENOMEM;
+ 
+-	stream->outcnt = outcnt;
++	stream->outcnt = asoc->c.sinit_num_ostreams;
+ 	stream->out = kcalloc(stream->outcnt, sizeof(*stream->out), gfp);
+ 	if (!stream->out) {
+ 		kfree(stream);
+-		return NULL;
++		return -ENOMEM;
+ 	}
+ 	for (i = 0; i < stream->outcnt; i++)
+ 		stream->out[i].state = SCTP_STREAM_OPEN;
+ 
+-	stream->incnt = incnt;
++	asoc->stream = stream;
++
++	return 0;
++}
++
++int sctp_stream_init(struct sctp_association *asoc, gfp_t gfp)
++{
++	struct sctp_stream *stream = asoc->stream;
++	int i;
++
++	/* Initial stream->out size may be very big, so free it and alloc
++	 * a new one with new outcnt to save memory.
++	 */
++	kfree(stream->out);
++	stream->outcnt = asoc->c.sinit_num_ostreams;
++	stream->out = kcalloc(stream->outcnt, sizeof(*stream->out), gfp);
++	if (!stream->out)
++		goto nomem;
++
++	for (i = 0; i < stream->outcnt; i++)
++		stream->out[i].state = SCTP_STREAM_OPEN;
++
++	stream->incnt = asoc->c.sinit_max_instreams;
+ 	stream->in = kcalloc(stream->incnt, sizeof(*stream->in), gfp);
+ 	if (!stream->in) {
+ 		kfree(stream->out);
+-		kfree(stream);
+-		return NULL;
++		goto nomem;
+ 	}
+ 
+-	return stream;
++	return 0;
++
++nomem:
++	asoc->stream = NULL;
++	kfree(stream);
++
++	return -ENOMEM;
+ }
+ 
+ void sctp_stream_free(struct sctp_stream *stream)
 -- 
-RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
-FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
-according to speedtest.net.
+2.1.0
