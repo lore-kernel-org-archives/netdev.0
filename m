@@ -1,329 +1,134 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 5/8] netfilter: nfnl_cthelper: fix a race when walk the nf_ct_helper_hash table
-Date: Wed, 29 Mar 2017 14:14:07 +0200
-Message-ID: <1490789650-7294-6-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 6/8] netfilter: nf_ct_ext: fix possible panic after nf_ct_extend_unregister
+Date: Wed, 29 Mar 2017 14:14:08 +0200
+Message-ID: <1490789650-7294-7-git-send-email-pablo@netfilter.org>
 References: <1490789650-7294-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:43800 "EHLO mail.us.es"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1756098AbdC2MPe (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 29 Mar 2017 08:15:34 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+        by mail.us.es (Postfix) with ESMTP id 9E7F4EBAC9
+        for <netdev@vger.kernel.org>; Wed, 29 Mar 2017 14:15:30 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 7D6E1DA391
+        for <netdev@vger.kernel.org>; Wed, 29 Mar 2017 14:15:30 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 8E002DA8FF
+        for <netdev@vger.kernel.org>; Wed, 29 Mar 2017 14:15:26 +0200 (CEST)
 In-Reply-To: <1490789650-7294-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Liping Zhang <zlpnobody@gmail.com>
 
-The nf_ct_helper_hash table is protected by nf_ct_helper_mutex, while
-nfct_helper operation is protected by nfnl_lock(NFNL_SUBSYS_CTHELPER).
-So it's possible that one CPU is walking the nf_ct_helper_hash for
-cthelper add/get/del, another cpu is doing nf_conntrack_helpers_unregister
-at the same time. This is dangrous, and may cause use after free error.
+If one cpu is doing nf_ct_extend_unregister while another cpu is doing
+__nf_ct_ext_add_length, then we may hit BUG_ON(t == NULL). Moreover,
+there's no synchronize_rcu invocation after set nf_ct_ext_types[id] to
+NULL, so it's possible that we may access invalid pointer.
 
-Note, delete operation will flush all cthelpers added via nfnetlink, so
-using rcu to do protect is not easy.
+But actually, most of the ct extends are built-in, so the problem listed
+above will not happen. However, there are two exceptions: NF_CT_EXT_NAT
+and NF_CT_EXT_SYNPROXY.
 
-Now introduce a dummy list to record all the cthelpers added via
-nfnetlink, then we can walk the dummy list instead of walking the
-nf_ct_helper_hash. Also, keep nfnl_cthelper_dump_table unchanged, it
-may be invoked without nfnl_lock(NFNL_SUBSYS_CTHELPER) held.
+For _EXT_NAT, the panic will not happen, since adding the nat extend and
+unregistering the nat extend are located in the same file(nf_nat_core.c),
+this means that after the nat module is removed, we cannot add the nat
+extend too.
+
+For _EXT_SYNPROXY, synproxy extend may be added by init_conntrack, while
+synproxy extend unregister will be done by synproxy_core_exit. So after
+nf_synproxy_core.ko is removed, we may still try to add the synproxy
+extend, then kernel panic may happen.
+
+I know it's very hard to reproduce this issue, but I can play a tricky
+game to make it happen very easily :)
+
+Step 1. Enable SYNPROXY for tcp dport 1234 at FORWARD hook:
+  # iptables -I FORWARD -p tcp --dport 1234 -j SYNPROXY
+Step 2. Queue the syn packet to the userspace at raw table OUTPUT hook.
+        Also note, in the userspace we only add a 20s' delay, then
+        reinject the syn packet to the kernel:
+  # iptables -t raw -I OUTPUT -p tcp --syn -j NFQUEUE --queue-num 1
+Step 3. Using "nc 2.2.2.2 1234" to connect the server.
+Step 4. Now remove the nf_synproxy_core.ko quickly:
+  # iptables -F FORWARD
+  # rmmod ipt_SYNPROXY
+  # rmmod nf_synproxy_core
+Step 5. After 20s' delay, the syn packet is reinjected to the kernel.
+
+Now you will see the panic like this:
+  kernel BUG at net/netfilter/nf_conntrack_extend.c:91!
+  Call Trace:
+   ? __nf_ct_ext_add_length+0x53/0x3c0 [nf_conntrack]
+   init_conntrack+0x12b/0x600 [nf_conntrack]
+   nf_conntrack_in+0x4cc/0x580 [nf_conntrack]
+   ipv4_conntrack_local+0x48/0x50 [nf_conntrack_ipv4]
+   nf_reinject+0x104/0x270
+   nfqnl_recv_verdict+0x3e1/0x5f9 [nfnetlink_queue]
+   ? nfqnl_recv_verdict+0x5/0x5f9 [nfnetlink_queue]
+   ? nla_parse+0xa0/0x100
+   nfnetlink_rcv_msg+0x175/0x6a9 [nfnetlink]
+   [...]
+
+One possible solution is to make NF_CT_EXT_SYNPROXY extend built-in, i.e.
+introduce nf_conntrack_synproxy.c and only do ct extend register and
+unregister in it, similar to nf_conntrack_timeout.c.
+
+But having such a obscure restriction of nf_ct_extend_unregister is not a
+good idea, so we should invoke synchronize_rcu after set nf_ct_ext_types
+to NULL, and check the NULL pointer when do __nf_ct_ext_add_length. Then
+it will be easier if we add new ct extend in the future.
+
+Last, we use kfree_rcu to free nf_ct_ext, so rcu_barrier() is unnecessary
+anymore, remove it too.
 
 Signed-off-by: Liping Zhang <zlpnobody@gmail.com>
+Acked-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nfnetlink_cthelper.c | 177 +++++++++++++++++--------------------
- 1 file changed, 81 insertions(+), 96 deletions(-)
+ net/netfilter/nf_conntrack_extend.c | 13 ++++++++++---
+ 1 file changed, 10 insertions(+), 3 deletions(-)
 
-diff --git a/net/netfilter/nfnetlink_cthelper.c b/net/netfilter/nfnetlink_cthelper.c
-index 2b987d2a77bc..d45558178da5 100644
---- a/net/netfilter/nfnetlink_cthelper.c
-+++ b/net/netfilter/nfnetlink_cthelper.c
-@@ -32,6 +32,13 @@ MODULE_LICENSE("GPL");
- MODULE_AUTHOR("Pablo Neira Ayuso <pablo@netfilter.org>");
- MODULE_DESCRIPTION("nfnl_cthelper: User-space connection tracking helpers");
+diff --git a/net/netfilter/nf_conntrack_extend.c b/net/netfilter/nf_conntrack_extend.c
+index 02bcf00c2492..008299b7f78f 100644
+--- a/net/netfilter/nf_conntrack_extend.c
++++ b/net/netfilter/nf_conntrack_extend.c
+@@ -53,7 +53,11 @@ nf_ct_ext_create(struct nf_ct_ext **ext, enum nf_ct_ext_id id,
  
-+struct nfnl_cthelper {
-+	struct list_head		list;
-+	struct nf_conntrack_helper	helper;
-+};
+ 	rcu_read_lock();
+ 	t = rcu_dereference(nf_ct_ext_types[id]);
+-	BUG_ON(t == NULL);
++	if (!t) {
++		rcu_read_unlock();
++		return NULL;
++	}
 +
-+static LIST_HEAD(nfnl_cthelper_list);
-+
- static int
- nfnl_userspace_cthelper(struct sk_buff *skb, unsigned int protoff,
- 			struct nf_conn *ct, enum ip_conntrack_info ctinfo)
-@@ -205,14 +212,16 @@ nfnl_cthelper_create(const struct nlattr * const tb[],
- 		     struct nf_conntrack_tuple *tuple)
- {
- 	struct nf_conntrack_helper *helper;
-+	struct nfnl_cthelper *nfcth;
- 	int ret;
+ 	off = ALIGN(sizeof(struct nf_ct_ext), t->align);
+ 	len = off + t->len + var_alloc_len;
+ 	alloc_size = t->alloc_size + var_alloc_len;
+@@ -88,7 +92,10 @@ void *__nf_ct_ext_add_length(struct nf_conn *ct, enum nf_ct_ext_id id,
  
- 	if (!tb[NFCTH_TUPLE] || !tb[NFCTH_POLICY] || !tb[NFCTH_PRIV_DATA_LEN])
- 		return -EINVAL;
+ 	rcu_read_lock();
+ 	t = rcu_dereference(nf_ct_ext_types[id]);
+-	BUG_ON(t == NULL);
++	if (!t) {
++		rcu_read_unlock();
++		return NULL;
++	}
  
--	helper = kzalloc(sizeof(struct nf_conntrack_helper), GFP_KERNEL);
--	if (helper == NULL)
-+	nfcth = kzalloc(sizeof(*nfcth), GFP_KERNEL);
-+	if (nfcth == NULL)
- 		return -ENOMEM;
-+	helper = &nfcth->helper;
- 
- 	ret = nfnl_cthelper_parse_expect_policy(helper, tb[NFCTH_POLICY]);
- 	if (ret < 0)
-@@ -249,11 +258,12 @@ nfnl_cthelper_create(const struct nlattr * const tb[],
- 	if (ret < 0)
- 		goto err2;
- 
-+	list_add_tail(&nfcth->list, &nfnl_cthelper_list);
- 	return 0;
- err2:
- 	kfree(helper->expect_policy);
- err1:
--	kfree(helper);
-+	kfree(nfcth);
- 	return ret;
+ 	newoff = ALIGN(old->len, t->align);
+ 	newlen = newoff + t->len + var_alloc_len;
+@@ -175,6 +182,6 @@ void nf_ct_extend_unregister(struct nf_ct_ext_type *type)
+ 	RCU_INIT_POINTER(nf_ct_ext_types[type->id], NULL);
+ 	update_alloc_size(type);
+ 	mutex_unlock(&nf_ct_ext_type_mutex);
+-	rcu_barrier(); /* Wait for completion of call_rcu()'s */
++	synchronize_rcu();
  }
- 
-@@ -379,7 +389,8 @@ static int nfnl_cthelper_new(struct net *net, struct sock *nfnl,
- 	const char *helper_name;
- 	struct nf_conntrack_helper *cur, *helper = NULL;
- 	struct nf_conntrack_tuple tuple;
--	int ret = 0, i;
-+	struct nfnl_cthelper *nlcth;
-+	int ret = 0;
- 
- 	if (!tb[NFCTH_NAME] || !tb[NFCTH_TUPLE])
- 		return -EINVAL;
-@@ -390,31 +401,22 @@ static int nfnl_cthelper_new(struct net *net, struct sock *nfnl,
- 	if (ret < 0)
- 		return ret;
- 
--	rcu_read_lock();
--	for (i = 0; i < nf_ct_helper_hsize && !helper; i++) {
--		hlist_for_each_entry_rcu(cur, &nf_ct_helper_hash[i], hnode) {
-+	list_for_each_entry(nlcth, &nfnl_cthelper_list, list) {
-+		cur = &nlcth->helper;
- 
--			/* skip non-userspace conntrack helpers. */
--			if (!(cur->flags & NF_CT_HELPER_F_USERSPACE))
--				continue;
-+		if (strncmp(cur->name, helper_name, NF_CT_HELPER_NAME_LEN))
-+			continue;
- 
--			if (strncmp(cur->name, helper_name,
--					NF_CT_HELPER_NAME_LEN) != 0)
--				continue;
-+		if ((tuple.src.l3num != cur->tuple.src.l3num ||
-+		     tuple.dst.protonum != cur->tuple.dst.protonum))
-+			continue;
- 
--			if ((tuple.src.l3num != cur->tuple.src.l3num ||
--			     tuple.dst.protonum != cur->tuple.dst.protonum))
--				continue;
-+		if (nlh->nlmsg_flags & NLM_F_EXCL)
-+			return -EEXIST;
- 
--			if (nlh->nlmsg_flags & NLM_F_EXCL) {
--				ret = -EEXIST;
--				goto err;
--			}
--			helper = cur;
--			break;
--		}
-+		helper = cur;
-+		break;
- 	}
--	rcu_read_unlock();
- 
- 	if (helper == NULL)
- 		ret = nfnl_cthelper_create(tb, &tuple);
-@@ -422,9 +424,6 @@ static int nfnl_cthelper_new(struct net *net, struct sock *nfnl,
- 		ret = nfnl_cthelper_update(tb, helper);
- 
- 	return ret;
--err:
--	rcu_read_unlock();
--	return ret;
- }
- 
- static int
-@@ -588,11 +587,12 @@ static int nfnl_cthelper_get(struct net *net, struct sock *nfnl,
- 			     struct sk_buff *skb, const struct nlmsghdr *nlh,
- 			     const struct nlattr * const tb[])
- {
--	int ret = -ENOENT, i;
-+	int ret = -ENOENT;
- 	struct nf_conntrack_helper *cur;
- 	struct sk_buff *skb2;
- 	char *helper_name = NULL;
- 	struct nf_conntrack_tuple tuple;
-+	struct nfnl_cthelper *nlcth;
- 	bool tuple_set = false;
- 
- 	if (nlh->nlmsg_flags & NLM_F_DUMP) {
-@@ -613,45 +613,39 @@ static int nfnl_cthelper_get(struct net *net, struct sock *nfnl,
- 		tuple_set = true;
- 	}
- 
--	for (i = 0; i < nf_ct_helper_hsize; i++) {
--		hlist_for_each_entry_rcu(cur, &nf_ct_helper_hash[i], hnode) {
-+	list_for_each_entry(nlcth, &nfnl_cthelper_list, list) {
-+		cur = &nlcth->helper;
-+		if (helper_name &&
-+		    strncmp(cur->name, helper_name, NF_CT_HELPER_NAME_LEN))
-+			continue;
- 
--			/* skip non-userspace conntrack helpers. */
--			if (!(cur->flags & NF_CT_HELPER_F_USERSPACE))
--				continue;
-+		if (tuple_set &&
-+		    (tuple.src.l3num != cur->tuple.src.l3num ||
-+		     tuple.dst.protonum != cur->tuple.dst.protonum))
-+			continue;
- 
--			if (helper_name && strncmp(cur->name, helper_name,
--						NF_CT_HELPER_NAME_LEN) != 0) {
--				continue;
--			}
--			if (tuple_set &&
--			    (tuple.src.l3num != cur->tuple.src.l3num ||
--			     tuple.dst.protonum != cur->tuple.dst.protonum))
--				continue;
--
--			skb2 = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
--			if (skb2 == NULL) {
--				ret = -ENOMEM;
--				break;
--			}
-+		skb2 = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
-+		if (skb2 == NULL) {
-+			ret = -ENOMEM;
-+			break;
-+		}
- 
--			ret = nfnl_cthelper_fill_info(skb2, NETLINK_CB(skb).portid,
--						nlh->nlmsg_seq,
--						NFNL_MSG_TYPE(nlh->nlmsg_type),
--						NFNL_MSG_CTHELPER_NEW, cur);
--			if (ret <= 0) {
--				kfree_skb(skb2);
--				break;
--			}
-+		ret = nfnl_cthelper_fill_info(skb2, NETLINK_CB(skb).portid,
-+					      nlh->nlmsg_seq,
-+					      NFNL_MSG_TYPE(nlh->nlmsg_type),
-+					      NFNL_MSG_CTHELPER_NEW, cur);
-+		if (ret <= 0) {
-+			kfree_skb(skb2);
-+			break;
-+		}
- 
--			ret = netlink_unicast(nfnl, skb2, NETLINK_CB(skb).portid,
--						MSG_DONTWAIT);
--			if (ret > 0)
--				ret = 0;
-+		ret = netlink_unicast(nfnl, skb2, NETLINK_CB(skb).portid,
-+				      MSG_DONTWAIT);
-+		if (ret > 0)
-+			ret = 0;
- 
--			/* this avoids a loop in nfnetlink. */
--			return ret == -EAGAIN ? -ENOBUFS : ret;
--		}
-+		/* this avoids a loop in nfnetlink. */
-+		return ret == -EAGAIN ? -ENOBUFS : ret;
- 	}
- 	return ret;
- }
-@@ -662,10 +656,10 @@ static int nfnl_cthelper_del(struct net *net, struct sock *nfnl,
- {
- 	char *helper_name = NULL;
- 	struct nf_conntrack_helper *cur;
--	struct hlist_node *tmp;
- 	struct nf_conntrack_tuple tuple;
- 	bool tuple_set = false, found = false;
--	int i, j = 0, ret;
-+	struct nfnl_cthelper *nlcth, *n;
-+	int j = 0, ret;
- 
- 	if (tb[NFCTH_NAME])
- 		helper_name = nla_data(tb[NFCTH_NAME]);
-@@ -678,30 +672,27 @@ static int nfnl_cthelper_del(struct net *net, struct sock *nfnl,
- 		tuple_set = true;
- 	}
- 
--	for (i = 0; i < nf_ct_helper_hsize; i++) {
--		hlist_for_each_entry_safe(cur, tmp, &nf_ct_helper_hash[i],
--								hnode) {
--			/* skip non-userspace conntrack helpers. */
--			if (!(cur->flags & NF_CT_HELPER_F_USERSPACE))
--				continue;
-+	list_for_each_entry_safe(nlcth, n, &nfnl_cthelper_list, list) {
-+		cur = &nlcth->helper;
-+		j++;
- 
--			j++;
-+		if (helper_name &&
-+		    strncmp(cur->name, helper_name, NF_CT_HELPER_NAME_LEN))
-+			continue;
- 
--			if (helper_name && strncmp(cur->name, helper_name,
--						NF_CT_HELPER_NAME_LEN) != 0) {
--				continue;
--			}
--			if (tuple_set &&
--			    (tuple.src.l3num != cur->tuple.src.l3num ||
--			     tuple.dst.protonum != cur->tuple.dst.protonum))
--				continue;
-+		if (tuple_set &&
-+		    (tuple.src.l3num != cur->tuple.src.l3num ||
-+		     tuple.dst.protonum != cur->tuple.dst.protonum))
-+			continue;
- 
--			found = true;
--			nf_conntrack_helper_unregister(cur);
--			kfree(cur->expect_policy);
--			kfree(cur);
--		}
-+		found = true;
-+		nf_conntrack_helper_unregister(cur);
-+		kfree(cur->expect_policy);
-+
-+		list_del(&nlcth->list);
-+		kfree(nlcth);
- 	}
-+
- 	/* Make sure we return success if we flush and there is no helpers */
- 	return (found || j == 0) ? 0 : -ENOENT;
- }
-@@ -750,22 +741,16 @@ static int __init nfnl_cthelper_init(void)
- static void __exit nfnl_cthelper_exit(void)
- {
- 	struct nf_conntrack_helper *cur;
--	struct hlist_node *tmp;
--	int i;
-+	struct nfnl_cthelper *nlcth, *n;
- 
- 	nfnetlink_subsys_unregister(&nfnl_cthelper_subsys);
- 
--	for (i=0; i<nf_ct_helper_hsize; i++) {
--		hlist_for_each_entry_safe(cur, tmp, &nf_ct_helper_hash[i],
--									hnode) {
--			/* skip non-userspace conntrack helpers. */
--			if (!(cur->flags & NF_CT_HELPER_F_USERSPACE))
--				continue;
-+	list_for_each_entry_safe(nlcth, n, &nfnl_cthelper_list, list) {
-+		cur = &nlcth->helper;
- 
--			nf_conntrack_helper_unregister(cur);
--			kfree(cur->expect_policy);
--			kfree(cur);
--		}
-+		nf_conntrack_helper_unregister(cur);
-+		kfree(cur->expect_policy);
-+		kfree(nlcth);
- 	}
- }
- 
+ EXPORT_SYMBOL_GPL(nf_ct_extend_unregister);
 -- 
 2.1.4
-
