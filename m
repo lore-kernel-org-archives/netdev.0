@@ -1,207 +1,52 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 12/13] i40e/i40evf: Change the way we limit the maximum frame size for Rx
-Date: Wed, 29 Mar 2017 03:12:14 -0700
-Message-ID: <20170329101215.24513-13-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 13/13] i40e: fix for queue timing delays
+Date: Wed, 29 Mar 2017 03:12:15 -0700
+Message-ID: <20170329101215.24513-14-jeffrey.t.kirsher@intel.com>
 References: <20170329101215.24513-1-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+Cc: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
         netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
         jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga02.intel.com ([134.134.136.20]:3161 "EHLO mga02.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755289AbdC2KM3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 29 Mar 2017 06:12:29 -0400
+        id S1755642AbdC2KMo (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 29 Mar 2017 06:12:44 -0400
 In-Reply-To: <20170329101215.24513-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+From: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
 
-This patch changes the way we handle the maximum frame size for the Rx
-path.  Previously we were rounding up to 2K for a 1500 MTU and then brining
-the max frame size down to MTU plus a fixed amount.  With this patch
-applied what we now do is limit the maximum frame to 1.5K minus the value
-for NET_IP_ALIGN for standard MTU, and for any MTU greater than 1500 we
-allow up to the maximum frame size.  This makes the behavior more
-consistent with the other drivers such as igb which had similar logic.  In
-addition it reduces the test matrix for MTU since we only have two max
-frame sizes that are handled for Rx now.
+This patch adds a delay to Rx queue disables to accommodate HW needs.
 
-Change-ID: I23a9d3c857e7df04b0ef28c64df63e659c013f3f
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+v2: Added missing check for disable only, additional details on the
+need for the ugly delay and fixed spacing on comment.
+
+Change-ID: I2864ca667ce5dcc2cc44f8718113b719742a46a1
+Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c        | 26 ++++++++++++----------
- drivers/net/ethernet/intel/i40e/i40e_txrx.h        |  4 +---
- drivers/net/ethernet/intel/i40evf/i40e_txrx.h      |  4 +---
- drivers/net/ethernet/intel/i40evf/i40evf.h         |  4 ----
- drivers/net/ethernet/intel/i40evf/i40evf_main.c    | 16 ++++++++++++-
- .../net/ethernet/intel/i40evf/i40evf_virtchnl.c    | 14 ++++++++----
- 6 files changed, 41 insertions(+), 27 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 1dc02c5eee1c..1f89e416156d 100644
+index 1f89e416156d..a0506e28d167 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -2995,7 +2995,8 @@ static int i40e_configure_rx_ring(struct i40e_ring *ring)
- 
- 	ring->rx_buf_len = vsi->rx_buf_len;
- 
--	rx_ctx.dbuff = ring->rx_buf_len >> I40E_RXQ_CTX_DBUFF_SHIFT;
-+	rx_ctx.dbuff = DIV_ROUND_UP(ring->rx_buf_len,
-+				    BIT_ULL(I40E_RXQ_CTX_DBUFF_SHIFT));
- 
- 	rx_ctx.base = (ring->dma / 128);
- 	rx_ctx.qlen = ring->count;
-@@ -3075,17 +3076,18 @@ static int i40e_vsi_configure_rx(struct i40e_vsi *vsi)
- 	int err = 0;
- 	u16 i;
- 
--	if (vsi->netdev && (vsi->netdev->mtu > ETH_DATA_LEN))
--		vsi->max_frame = vsi->netdev->mtu + ETH_HLEN
--			       + ETH_FCS_LEN + VLAN_HLEN;
--	else
--		vsi->max_frame = I40E_RXBUFFER_2048;
--
--	vsi->rx_buf_len = I40E_RXBUFFER_2048;
--
--	/* round up for the chip's needs */
--	vsi->rx_buf_len = ALIGN(vsi->rx_buf_len,
--				BIT_ULL(I40E_RXQ_CTX_DBUFF_SHIFT));
-+	if (!vsi->netdev || (vsi->back->flags & I40E_FLAG_LEGACY_RX)) {
-+		vsi->max_frame = I40E_MAX_RXBUFFER;
-+		vsi->rx_buf_len = I40E_RXBUFFER_2048;
-+#if (PAGE_SIZE < 8192)
-+	} else if (vsi->netdev->mtu <= ETH_DATA_LEN) {
-+		vsi->max_frame = I40E_RXBUFFER_1536 - NET_IP_ALIGN;
-+		vsi->rx_buf_len = I40E_RXBUFFER_1536 - NET_IP_ALIGN;
-+#endif
-+	} else {
-+		vsi->max_frame = I40E_MAX_RXBUFFER;
-+		vsi->rx_buf_len = I40E_RXBUFFER_2048;
-+	}
- 
- 	/* set up individual rings */
- 	for (i = 0; i < vsi->num_queue_pairs && !err; i++)
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.h b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-index eb733726637f..d6609deace57 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-@@ -117,10 +117,8 @@ enum i40e_dyn_idx_t {
- 
- /* Supported Rx Buffer Sizes (a multiple of 128) */
- #define I40E_RXBUFFER_256   256
-+#define I40E_RXBUFFER_1536  1536  /* 128B aligned standard Ethernet frame */
- #define I40E_RXBUFFER_2048  2048
--#define I40E_RXBUFFER_3072  3072   /* For FCoE MTU of 2158 */
--#define I40E_RXBUFFER_4096  4096
--#define I40E_RXBUFFER_8192  8192
- #define I40E_MAX_RXBUFFER   9728  /* largest size for single descriptor */
- 
- /* NOTE: netdev_alloc_skb reserves up to 64 bytes, NET_IP_ALIGN means we
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
-index aba40edb0e2e..3bb4d732e467 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
-@@ -104,10 +104,8 @@ enum i40e_dyn_idx_t {
- 
- /* Supported Rx Buffer Sizes (a multiple of 128) */
- #define I40E_RXBUFFER_256   256
-+#define I40E_RXBUFFER_1536  1536  /* 128B aligned standard Ethernet frame */
- #define I40E_RXBUFFER_2048  2048
--#define I40E_RXBUFFER_3072  3072   /* For FCoE MTU of 2158 */
--#define I40E_RXBUFFER_4096  4096
--#define I40E_RXBUFFER_8192  8192
- #define I40E_MAX_RXBUFFER   9728  /* largest size for single descriptor */
- 
- /* NOTE: netdev_alloc_skb reserves up to 64 bytes, NET_IP_ALIGN means we
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf.h b/drivers/net/ethernet/intel/i40evf/i40evf.h
-index e60cbfa7e769..d61ecf655091 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf.h
-@@ -72,10 +72,6 @@ struct i40e_vsi {
- #define I40EVF_MAX_RXD		4096
- #define I40EVF_MIN_RXD		64
- #define I40EVF_REQ_DESCRIPTOR_MULTIPLE	32
--
--/* Supported Rx Buffer Sizes */
--#define I40EVF_RXBUFFER_2048	2048
--#define I40EVF_MAX_RXBUFFER	16384  /* largest size for single descriptor */
- #define I40EVF_MAX_AQ_BUF_SIZE	4096
- #define I40EVF_AQ_LEN		32
- #define I40EVF_AQ_MAX_ERR	20 /* times to try before resetting AQ */
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index 6d666bde9df5..fb2811c23024 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -686,12 +686,26 @@ static void i40evf_configure_tx(struct i40evf_adapter *adapter)
-  **/
- static void i40evf_configure_rx(struct i40evf_adapter *adapter)
- {
-+	unsigned int rx_buf_len = I40E_RXBUFFER_2048;
-+	struct net_device *netdev = adapter->netdev;
- 	struct i40e_hw *hw = &adapter->hw;
- 	int i;
- 
-+	/* Legacy Rx will always default to a 2048 buffer size. */
-+#if (PAGE_SIZE < 8192)
-+	if (!(adapter->flags & I40EVF_FLAG_LEGACY_RX)) {
-+		/* We use a 1536 buffer size for configurations with
-+		 * standard Ethernet mtu.  On x86 this gives us enough room
-+		 * for shared info and 192 bytes of padding.
-+		 */
-+		if (netdev->mtu <= ETH_DATA_LEN)
-+			rx_buf_len = I40E_RXBUFFER_1536 - NET_IP_ALIGN;
-+	}
-+#endif
-+
- 	for (i = 0; i < adapter->num_active_queues; i++) {
- 		adapter->rx_rings[i].tail = hw->hw_addr + I40E_QRX_TAIL1(i);
--		adapter->rx_rings[i].rx_buf_len = I40EVF_RXBUFFER_2048;
-+		adapter->rx_rings[i].rx_buf_len = rx_buf_len;
+@@ -4067,6 +4067,12 @@ static int i40e_vsi_control_rx(struct i40e_vsi *vsi, bool enable)
+ 		}
  	}
+ 
++	/* Due to HW errata, on Rx disable only, the register can indicate done
++	 * before it really is. Needs 50ms to be sure
++	 */
++	if (!enable)
++		mdelay(50);
++
+ 	return ret;
  }
- 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
-index 4bc2488bf709..032be8d3928a 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
-@@ -234,7 +234,7 @@ void i40evf_configure_queues(struct i40evf_adapter *adapter)
- 	struct i40e_virtchnl_vsi_queue_config_info *vqci;
- 	struct i40e_virtchnl_queue_pair_info *vqpi;
- 	int pairs = adapter->num_active_queues;
--	int i, len;
-+	int i, len, max_frame = I40E_MAX_RXBUFFER;
- 
- 	if (adapter->current_op != I40E_VIRTCHNL_OP_UNKNOWN) {
- 		/* bail because we already have a command pending */
-@@ -249,6 +249,11 @@ void i40evf_configure_queues(struct i40evf_adapter *adapter)
- 	if (!vqci)
- 		return;
- 
-+	/* Limit maximum frame size when jumbo frames is not enabled */
-+	if (!(adapter->flags & I40EVF_FLAG_LEGACY_RX) &&
-+	    (adapter->netdev->mtu <= ETH_DATA_LEN))
-+		max_frame = I40E_RXBUFFER_1536 - NET_IP_ALIGN;
-+
- 	vqci->vsi_id = adapter->vsi_res->vsi_id;
- 	vqci->num_queue_pairs = pairs;
- 	vqpi = vqci->qpair;
-@@ -264,9 +269,10 @@ void i40evf_configure_queues(struct i40evf_adapter *adapter)
- 		vqpi->rxq.queue_id = i;
- 		vqpi->rxq.ring_len = adapter->rx_rings[i].count;
- 		vqpi->rxq.dma_ring_addr = adapter->rx_rings[i].dma;
--		vqpi->rxq.max_pkt_size = adapter->netdev->mtu
--					+ ETH_HLEN + VLAN_HLEN + ETH_FCS_LEN;
--		vqpi->rxq.databuffer_size = adapter->rx_rings[i].rx_buf_len;
-+		vqpi->rxq.max_pkt_size = max_frame;
-+		vqpi->rxq.databuffer_size =
-+			ALIGN(adapter->rx_rings[i].rx_buf_len,
-+			      BIT_ULL(I40E_RXQ_CTX_DBUFF_SHIFT));
- 		vqpi++;
- 	}
  
 -- 
 2.12.0
