@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 7/9] net: dsa: mv88e6xxx: remap existing bridge members
-Date: Wed, 29 Mar 2017 16:30:18 -0400
-Message-ID: <20170329203020.27042-8-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 9/9] net: dsa: mv88e6xxx: add cross-chip bridging
+Date: Wed, 29 Mar 2017 16:30:20 -0400
+Message-ID: <20170329203020.27042-10-vivien.didelot@savoirfairelinux.com>
 References: <20170329203020.27042-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
@@ -14,56 +14,77 @@ In-Reply-To: <20170329203020.27042-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When a local port of a switch chip becomes a member of a bridge group,
-we need to reprogram the Cross-chip Port Based VLAN Table (PVT) to allow
-existing cross-chip bridge members to egress frames on the new ports.
+Implement the DSA cross-chip bridging operations by remapping the local
+ports an external source port can egress frames to, when this cross-chip
+port joins or leaves a bridge.
 
-There is no functional changes yet, since the PVT is still programmed
-with all ones, allowing any external port to egress frames locally.
+The PVT is no longer configured with all ones allowing any external
+frame to egress any local port. Only DSA and CPU ports, as well as
+bridge group members, can egress frames on local ports.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/mv88e6xxx/chip.c | 20 ++++++++++++++++++++
- 1 file changed, 20 insertions(+)
+ drivers/net/dsa/mv88e6xxx/chip.c | 34 +++++++++++++++++++++++++++++++++-
+ 1 file changed, 33 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index 99f8c6106af5..31c296a04f03 100644
+index 31c296a04f03..52ff1bd11a05 100644
 --- a/drivers/net/dsa/mv88e6xxx/chip.c
 +++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -2143,7 +2143,9 @@ static int mv88e6xxx_port_fdb_dump(struct dsa_switch *ds, int port,
- static int mv88e6xxx_bridge_map(struct mv88e6xxx_chip *chip,
- 				struct net_device *br)
- {
-+	struct dsa_switch *ds;
- 	int port;
-+	int dev;
- 	int err;
+@@ -1222,7 +1222,7 @@ static int mv88e6xxx_pvt_map(struct mv88e6xxx_chip *chip, int dev, int port)
  
- 	/* Remap the Port VLAN of each local bridge group member */
-@@ -2155,6 +2157,24 @@ static int mv88e6xxx_bridge_map(struct mv88e6xxx_chip *chip,
- 		}
- 	}
+ 	/* Skip the local source device, which uses in-chip port VLAN */
+ 	if (dev != chip->ds->index)
+-		pvlan = mv88e6xxx_port_mask(chip);
++		pvlan = mv88e6xxx_port_vlan(chip, dev, port);
  
+ 	return mv88e6xxx_g2_pvt_write(chip, dev, port, pvlan);
+ }
+@@ -2203,6 +2203,36 @@ static void mv88e6xxx_port_bridge_leave(struct dsa_switch *ds, int port,
+ 	mutex_unlock(&chip->reg_lock);
+ }
+ 
++static int mv88e6xxx_crosschip_bridge_join(struct dsa_switch *ds, int dev,
++					   int port, struct net_device *br)
++{
++	struct mv88e6xxx_chip *chip = ds->priv;
++	int err;
++
 +	if (!mv88e6xxx_has_pvt(chip))
 +		return 0;
 +
-+	/* Remap the Port VLAN of each cross-chip bridge group member */
-+	for (dev = 0; dev < DSA_MAX_SWITCHES; ++dev) {
-+		ds = chip->ds->dst->ds[dev];
-+		if (!ds)
-+			break;
++	mutex_lock(&chip->reg_lock);
++	err = mv88e6xxx_pvt_map(chip, dev, port);
++	mutex_unlock(&chip->reg_lock);
 +
-+		for (port = 0; port < ds->num_ports; ++port) {
-+			if (ds->ports[port].bridge_dev == br) {
-+				err = mv88e6xxx_pvt_map(chip, dev, port);
-+				if (err)
-+					return err;
-+			}
-+		}
-+	}
++	return err;
++}
 +
- 	return 0;
- }
++static void mv88e6xxx_crosschip_bridge_leave(struct dsa_switch *ds, int dev,
++					     int port, struct net_device *br)
++{
++	struct mv88e6xxx_chip *chip = ds->priv;
++
++	if (!mv88e6xxx_has_pvt(chip))
++		return;
++
++	mutex_lock(&chip->reg_lock);
++	if (mv88e6xxx_pvt_map(chip, dev, port))
++		dev_err(ds->dev, "failed to remap cross-chip Port VLAN\n");
++	mutex_unlock(&chip->reg_lock);
++}
++
+ static int mv88e6xxx_software_reset(struct mv88e6xxx_chip *chip)
+ {
+ 	if (chip->info->ops->reset)
+@@ -4313,6 +4343,8 @@ static const struct dsa_switch_ops mv88e6xxx_switch_ops = {
+ 	.port_mdb_add           = mv88e6xxx_port_mdb_add,
+ 	.port_mdb_del           = mv88e6xxx_port_mdb_del,
+ 	.port_mdb_dump          = mv88e6xxx_port_mdb_dump,
++	.crosschip_bridge_join	= mv88e6xxx_crosschip_bridge_join,
++	.crosschip_bridge_leave	= mv88e6xxx_crosschip_bridge_leave,
+ };
  
+ static struct dsa_switch_driver mv88e6xxx_switch_drv = {
 -- 
 2.12.1
