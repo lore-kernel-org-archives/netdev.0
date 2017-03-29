@@ -1,48 +1,33 @@
-From: Johan Hovold <johan@kernel.org>
-Subject: [PATCH 0/7] NFC: fix device allocation and nfcmrvl crashes
-Date: Wed, 29 Mar 2017 18:21:05 +0200
-Message-ID: <20170329162112.18121-1-johan@kernel.org>
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, Johan Hovold <johan@kernel.org>
-To: Lauro Ramos Venancio <lauro.venancio@openbossa.org>,
-        Aloisio Almeida Jr <aloisio.almeida@openbossa.org>,
-        Samuel Ortiz <sameo@linux.intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] l2tp: hold tunnel socket when handling control
+ frames in l2tp_ip and l2tp_ip6
+Date: Wed, 29 Mar 2017 09:26:57 -0700 (PDT)
+Message-ID: <20170329.092657.563935153265006232.davem@davemloft.net>
+References: <3bedc3952e5e1a96f54442b083f935a44d9c3f83.1490769855.git.g.nault@alphalink.fr>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jchapman@katalix.com
+To: g.nault@alphalink.fr
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:48056 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752256AbdC2Q1G (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 29 Mar 2017 12:27:06 -0400
+In-Reply-To: <3bedc3952e5e1a96f54442b083f935a44d9c3f83.1490769855.git.g.nault@alphalink.fr>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This started out with the observation that the nfcmrvl_uart driver
-unconditionally dereferenced the tty class device despite the fact that
-not every tty has an associated struct device (Unix98 ptys). Some
-further changes were needed in the common nfcmrvl code to fully address
-this, some of which also incidentally fixed a few related bugs (e.g.
-resource leaks in error paths).
+From: Guillaume Nault <g.nault@alphalink.fr>
+Date: Wed, 29 Mar 2017 08:44:59 +0200
 
-While fixing this I stumbled over a regression in NFC core that lead to
-broken registration error paths and misnamed workqueues.
+> The code following l2tp_tunnel_find() expects that a new reference is
+> held on sk. Either sk_receive_skb() or the discard_put error path will
+> drop a reference from the tunnel's socket.
+> 
+> This issue exists in both l2tp_ip and l2tp_ip6.
+> 
+> Fixes: a3c18422a4b4 ("l2tp: hold socket before dropping lock in l2tp_ip{, 6}_recv()")
+> Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
 
-Note that this has only been tested by configuring the n_hci line
-discipline for different ttys without any actual NFC hardware connected.
-
-Johan
-
-
-Johan Hovold (7):
-  NFC: fix broken device allocation
-  NFC: nfcmrvl_uart: add missing tty-device sanity check
-  NFC: nfcmrvl: do not use device-managed resources
-  NFC: nfcmrvl: use nfc-device for firmware download
-  NFC: nfcmrvl: fix firmware-management initialisation
-  NFC: nfcmrvl_uart: fix device-node leak during probe
-  NFC: nfcmrvl_usb: use interface as phy device
-
- drivers/nfc/nfcmrvl/fw_dnld.c |  7 +++++--
- drivers/nfc/nfcmrvl/main.c    | 25 +++++++++++++------------
- drivers/nfc/nfcmrvl/uart.c    | 11 +++++++----
- drivers/nfc/nfcmrvl/usb.c     |  4 +---
- net/nfc/core.c                | 31 ++++++++++++++++++-------------
- net/nfc/nci/core.c            |  3 +--
- 6 files changed, 45 insertions(+), 36 deletions(-)
-
--- 
-2.12.2
+Applied.
