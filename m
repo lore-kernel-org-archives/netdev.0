@@ -1,57 +1,64 @@
-From: Matthew Wilcox <willy@infradead.org>
-Subject: Re: in_irq_or_nmi()
-Date: Wed, 29 Mar 2017 11:12:26 -0700
-Message-ID: <20170329181226.GA8256@bombadil.infradead.org>
-References: <1fc7338f-2b36-75f7-8a7e-8321f062207b@gmail.com>
- <2123321554.7161128.1490599967015.JavaMail.zimbra@redhat.com>
- <20170327105514.1ed5b1ba@redhat.com>
- <20170327143947.4c237e54@redhat.com>
- <20170327141518.GB27285@bombadil.infradead.org>
- <20170327171500.4beef762@redhat.com>
- <20170327165817.GA28494@bombadil.infradead.org>
- <20170329081219.lto7t4fwmponokzh@hirez.programming.kicks-ass.net>
- <20170329105928.609bc581@redhat.com>
- <20170329091949.o2kozhhdnszgwvtn@hirez.programming.kicks-ass.net>
+From: Stefan Hajnoczi <stefanha@redhat.com>
+Subject: Re: [PATCH][V2] VSOCK: remove unnecessary ternary operator on return
+ value
+Date: Wed, 29 Mar 2017 19:35:58 +0100
+Message-ID: <20170329183558.GA18142@stefanha-x1.localdomain>
+References: <20170329153355.17525-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
-	Pankaj Gupta <pagupta@redhat.com>,
-	Tariq Toukan <ttoukan.linux@gmail.com>,
-	Mel Gorman <mgorman@techsingularity.net>,
-	Tariq Toukan <tariqt@mellanox.com>, netdev@vger.kernel.org,
-	akpm@linux-foundation.org, linux-mm <linux-mm@kvack.org>,
-	Saeed Mahameed <saeedm@mellanox.com>, linux-kernel@vger.kernel.org
-To: Peter Zijlstra <peterz@infradead.org>
-Return-path: <owner-linux-mm@kvack.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="vtzGhvizbBRQ85DL"
+Cc: "David S . Miller" <davem@davemloft.net>,
+        Jorgen Hansen <jhansen@vmware.com>,
+        "Michael S . Tsirkin" <mst@redhat.com>,
+        Adit Ranadive <aditr@vmware.com>,
+        George Zhang <georgezhang@vmware.com>,
+        Julia Lawall <julia.lawall@lip6.fr>, netdev@vger.kernel.org,
+        kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Colin King <colin.king@canonical.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:48470 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752637AbdC2SgN (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 29 Mar 2017 14:36:13 -0400
 Content-Disposition: inline
-In-Reply-To: <20170329091949.o2kozhhdnszgwvtn@hirez.programming.kicks-ass.net>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20170329153355.17525-1-colin.king@canonical.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 29, 2017 at 11:19:49AM +0200, Peter Zijlstra wrote:
-> On Wed, Mar 29, 2017 at 10:59:28AM +0200, Jesper Dangaard Brouer wrote:
-> > On Wed, 29 Mar 2017 10:12:19 +0200
-> > Peter Zijlstra <peterz@infradead.org> wrote:
-> > > No, that's horrible. Also, wth is this about? A memory allocator that
-> > > needs in_nmi()? That sounds beyond broken.
-> > 
-> > It is the other way around. We want to exclude NMI and HARDIRQ from
-> > using the per-cpu-pages (pcp) lists "order-0 cache" (they will
-> > fall-through using the normal buddy allocator path).
-> 
-> Any in_nmi() code arriving at the allocator is broken. No need to fix
-> the allocator.
 
-That's demonstrably true.  You can't grab a spinlock in NMI code and
-the first thing that happens if this in_irq_or_nmi() check fails is ...
-        spin_lock_irqsave(&zone->lock, flags);
-so this patch should just use in_irq().
+--vtzGhvizbBRQ85DL
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-(the concept of NMI code needing to allocate memory was blowing my mind
-a little bit)
+On Wed, Mar 29, 2017 at 04:33:55PM +0100, Colin King wrote:
+> From: Colin Ian King <colin.king@canonical.com>
+>=20
+> Rather than assign the positive errno values to ret and then
+> checking if it is positive and flip the sign, just return the
+> errno value.
+>=20
+> Detected by CoverityScan, CID#986649 ("Logically Dead Code")
+>=20
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+> ---
+>  net/vmw_vsock/vmci_transport.c | 22 +++++++---------------
+>  1 file changed, 7 insertions(+), 15 deletions(-)
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Reviewed-by: Stefan Hajnoczi <stefanha@redhat.com>
+
+--vtzGhvizbBRQ85DL
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQEcBAEBAgAGBQJY2/6OAAoJEJykq7OBq3PI/cUH/RCRDxR4eEGjy5+gOUJd5/Go
+FVDO2qYL72HQxQpK/8/MFAHJDIIA4yNu/tColyK3eIFGs95NAI2e9tf518ldmjdG
+sFHhGuezkAOTk3RLH+vUF7Dm3PWoHrSdT18N47ZnTO7PqAKK4mELOZGybdRUibaD
+LLpcmDpKH++Ys7yHAfDnWlzCdmK6hWK17HZHMRWYZVuNHyY0MQuONrnA+2Pj8/H3
+kojAAIhubjUPWyxLNhcU/qqnNmRPB5qQoVYyjmTcOh7ePNjs56BAasAYQ2Oy2/WL
+y3Elt30l44Apj8wDMn/PrUDaSp+ZG6kzibZQ5oBMh5CZhUCmLHC7D0U+IcBI86I=
+=n2yg
+-----END PGP SIGNATURE-----
+
+--vtzGhvizbBRQ85DL--
