@@ -1,77 +1,39 @@
-From: Masami Hiramatsu <mhiramat@kernel.org>
-Subject: [RFC PATCH tip/master 0/3] kprobes: tracing: kretprobe_instance dynamic allocation
-Date: Wed, 29 Mar 2017 14:20:51 +0900
-Message-ID: <149076484118.24574.7083269903420611708.stgit@devbox>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] liquidio: refactor interrupt moderation code
+Date: Tue, 28 Mar 2017 22:22:14 -0700 (PDT)
+Message-ID: <20170328.222214.1756373038371091205.davem@davemloft.net>
+References: <20170328191406.GA1027@felix-thinkpad.cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Alban Crequy <alban.crequy@gmail.com>,
-        Alban Crequy <alban@kinvolk.io>,
-        Alexei Starovoitov <ast@kernel.org>,
-        Jonathan Corbet <corbet@lwn.net>,
-        Arnaldo Carvalho de Melo <acme@redhat.com>,
-        Omar Sandoval <osandov@fb.com>, linux-doc@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        iago@kinvolk.io, michael@kinvolk.io,
-        Dorau Lukasz <lukasz.dorau@intel.com>, systemtap@sourceware.org
-To: Steven Rostedt <rostedt@goodmis.org>,
-        Ingo Molnar <mingo@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
+        derek.chickles@cavium.com, satananda.burla@cavium.com,
+        prasad.kanneganti@cavium.com
+To: felix.manlunas@cavium.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:41906 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752410AbdC2FWQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 29 Mar 2017 01:22:16 -0400
+In-Reply-To: <20170328191406.GA1027@felix-thinkpad.cavium.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Here is a correction of patches to introduce kretprobe_instance
-dynamic allocation for avoiding kretprobe silently miss-hits.
+From: Felix Manlunas <felix.manlunas@cavium.com>
+Date: Tue, 28 Mar 2017 12:14:06 -0700
 
-Original issue was reported by Lukasz on linux-trace ml.
- https://www.spinics.net/lists/linux-trace/msg00448.html
+> From: Prasad Kanneganti <prasad.kanneganti@cavium.com>
+> 
+> Refactor interrupt moderation code for flexibility because parameters are
+> different for 10G and 25G cards.  Currently parameters (for 10G only) come
+> from macros compiled-in to the PF and VF drivers; fix it so that parameters
+> suitable for the card (10G or 25G) come from the NIC firmware via response
+> to a command.
+> 
+> Also bump up driver version to 1.5.1 to match newer NIC firmware version.
+> 
+> Signed-off-by: Prasad Kanneganti <prasad.kanneganti@cavium.com>
+> Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
+> Signed-off-by: Derek Chickles <derek.chickles@cavium.com>
 
-Also Alban is working on kprobe-tracer side because of
-iovisor's issue.
- https://www.spinics.net/lists/netdev/msg427149.html
-(Note that this series is independently applicable, no conflict)
-
-This series is a kind of complementary patches for
-Alban's patch. So I think both of them are needed.
-
- [1/3]: Add kretprobe's miss-hit counter to miss-hit
-        column on kprobe_profile. This helps user to
-        see what happened.
- [2/3]: Introduce kretprobe_instance dynamic allocation.
-        This will help user not to miss the ret probes
-        even it has low number of maxactive.
- [3/3]: Set maximum limitation for pre-allocated maxactive.
-        This can avoid miss configuration of struct kretprobe.
-
-The downside of this patch is, dynamic allocation will
-involve memory allocation, which sometimes traced by
-kprobes. In that case those nested kprobes are missed.
-To avoid this kind of miss-hit, user may need to make
-maxactive enough large when registering kretprobes.
-
-However, in other case, this can reduce the possibility
-of miss-hit of kretprobes. Since the maxactive increased
-automatically, user will not need to retry tracing with
-larger maxactive.
-
-Alban, you can reuse KRETPROBE_MAXACTIVE_ALLOC for checking
-upper limiation in trace_kprobe.c too.
-
-Thank you,
-
----
-
-Masami Hiramatsu (3):
-      trace: kprobes: Show sum of probe/retprobe nmissed count
-      kprobes: Allocate kretprobe instance if its free list is empty
-      kprobes: Limit kretprobe maximum instances
-
-
- Documentation/kprobes.txt   |   25 +++++++++++++++---------
- include/linux/kprobes.h     |    2 ++
- kernel/kprobes.c            |   44 +++++++++++++++++++++++++++++++------------
- kernel/trace/trace_kprobe.c |    2 +-
- 4 files changed, 50 insertions(+), 23 deletions(-)
-
---
-Masami Hiramatsu (Linaro) <mhiramat@kernel.org>
+Applied.
