@@ -1,46 +1,123 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: phy: Allow building mdio-boardinfo into
- the kernel
-Date: Wed, 29 Mar 2017 10:32:58 -0700 (PDT)
-Message-ID: <20170329.103258.1891990815121569336.davem@davemloft.net>
-References: <20170328195709.13549-1-f.fainelli@gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH] virtio_net: fix support for small rings
+Date: Wed, 29 Mar 2017 20:36:12 +0300
+Message-ID: <20170329203555-mutt-send-email-mst@kernel.org>
+References: <1490807701-27963-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, arnd@arndb.de, andrew@lunn.ch,
-        rmk+kernel@armlinux.org.uk
-To: f.fainelli@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:49232 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752454AbdC2RdD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 29 Mar 2017 13:33:03 -0400
-In-Reply-To: <20170328195709.13549-1-f.fainelli@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org
+To: linux-kernel@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <1490807701-27963-1-git-send-email-mst@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Tue, 28 Mar 2017 12:57:09 -0700
+On Wed, Mar 29, 2017 at 08:15:04PM +0300, Michael S. Tsirkin wrote:
+> When ring size is small (<32 entries) making buffers smaller means a
+> full ring might not be able to hold enough buffers to fit a single large
+> packet.
+> 
+> Make sure a ring full of buffers is large enough to allow at least one
+> packet of max size.
+> 
+> Fixes: 2613af0ed18a ("virtio_net: migrate mergeable rx buffers to page frag allocators")
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 
-> mdio-boardinfo contains code that is helpful for platforms to register
-> specific MDIO bus devices independent of how CONFIG_MDIO_DEVICE or
-> CONFIG_PHYLIB will be selected (modular or built-in). In order to make
-> that possible, let's do the following:
-> 
-> - descend into drivers/net/phy/ unconditionally
-> 
-> - make mdiobus_setup_mdiodev_from_board_info() take a callback argument
->   which allows us not to expose the internal MDIO board info list and
->   mutex, yet maintain the logic within the same file
-> 
-> - relocate the code that creates a MDIO device into
->   drivers/net/phy/mdio_bus.c
-> 
-> - build mdio-boardinfo.o into the kernel as soon as MDIO_DEVICE is
->   defined (y or m)
-> 
-> Fixes: 90eff9096c01 ("net: phy: Allow splitting MDIO bus/device support from PHYs")
-> Fixes: 648ea0134069 ("net: phy: Allow pre-declaration of MDIO devices")
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+Oops posted a wrong version. Pls ignore will repost.
 
-Applied, thanks.
+> ---
+>  drivers/net/virtio_net.c | 29 +++++++++++++++++++++++++----
+>  1 file changed, 25 insertions(+), 4 deletions(-)
+> 
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index 9dc31dc..f6a379d 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -98,6 +98,9 @@ struct receive_queue {
+>  	/* RX: fragments + linear part + virtio header */
+>  	struct scatterlist sg[MAX_SKB_FRAGS + 2];
+>  
+> +	/* Min single buffer size for mergeable buffers case. */
+> +	unsigned int min_buf_len;
+> +
+>  	/* Name of this receive queue: input.$index */
+>  	char name[40];
+>  };
+> @@ -894,13 +897,14 @@ static int add_recvbuf_big(struct virtnet_info *vi, struct receive_queue *rq,
+>  	return err;
+>  }
+>  
+> -static unsigned int get_mergeable_buf_len(struct ewma_pkt_len *avg_pkt_len)
+> +static unsigned int get_mergeable_buf_len(struct receive_queue *rq,
+> +					  struct ewma_pkt_len *avg_pkt_len)
+>  {
+>  	const size_t hdr_len = sizeof(struct virtio_net_hdr_mrg_rxbuf);
+>  	unsigned int len;
+>  
+>  	len = hdr_len + clamp_t(unsigned int, ewma_pkt_len_read(avg_pkt_len),
+> -			GOOD_PACKET_LEN, PAGE_SIZE - hdr_len);
+> +				rq->min_buf_len - hdr_len, PAGE_SIZE - hdr_len);
+>  	return ALIGN(len, L1_CACHE_BYTES);
+>  }
+>  
+> @@ -914,7 +918,7 @@ static int add_recvbuf_mergeable(struct virtnet_info *vi,
+>  	int err;
+>  	unsigned int len, hole;
+>  
+> -	len = get_mergeable_buf_len(&rq->mrg_avg_pkt_len);
+> +	len = get_mergeable_buf_len(rq, &rq->mrg_avg_pkt_len);
+>  	if (unlikely(!skb_page_frag_refill(len + headroom, alloc_frag, gfp)))
+>  		return -ENOMEM;
+>  
+> @@ -2086,6 +2090,21 @@ static void virtnet_del_vqs(struct virtnet_info *vi)
+>  	virtnet_free_queues(vi);
+>  }
+>  
+> +/* How large should a single buffer be so a queue full of these can fit at
+> + * least one full packet?
+> + * Logic below assumes the mergeable buffer header is used.
+> + */
+> +static unsigned int mergeable_min_buf_len(struct virtnet_info *vi, struct virtqueue *vq)
+> +{
+> +	const unsigned int hdr_len = sizeof(struct virtio_net_hdr_mrg_rxbuf);
+> +	unsigned int rq_size = virtqueue_get_vring_size(vq);
+> +	unsigned int packet_len = vi->big_packets ? IP_MAX_MTU : vi->dev->max_mtu;
+> +	unsigned int buf_len = hdr_len + ETH_HLEN + VLAN_HLEN + packet_len;
+> +	unsigned int min_buf_len = DIV_ROUND_UP(buf_len, rq_size);
+> +
+> +	return max(min_buf_len, hdr_len);
+> +}
+> +
+>  static int virtnet_find_vqs(struct virtnet_info *vi)
+>  {
+>  	vq_callback_t **callbacks;
+> @@ -2151,6 +2170,7 @@ static int virtnet_find_vqs(struct virtnet_info *vi)
+>  
+>  	for (i = 0; i < vi->max_queue_pairs; i++) {
+>  		vi->rq[i].vq = vqs[rxq2vq(i)];
+> +		vi->rq[i].min_buf_len = mergeable_min_buf_len(vi, vi->rq[i].vq);
+>  		vi->sq[i].vq = vqs[txq2vq(i)];
+>  	}
+>  
+> @@ -2237,7 +2257,8 @@ static ssize_t mergeable_rx_buffer_size_show(struct netdev_rx_queue *queue,
+>  
+>  	BUG_ON(queue_index >= vi->max_queue_pairs);
+>  	avg = &vi->rq[queue_index].mrg_avg_pkt_len;
+> -	return sprintf(buf, "%u\n", get_mergeable_buf_len(avg));
+> +	return sprintf(buf, "%u\n",
+> +		       get_mergeable_buf_len(&vi->rq[queue_index], avg));
+>  }
+>  
+>  static struct rx_queue_attribute mergeable_rx_buffer_size_attribute =
+> -- 
+> MST
