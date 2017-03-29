@@ -1,7 +1,7 @@
 From: <sean.wang@mediatek.com>
-Subject: [PATCH net-next v3 1/5] dt-bindings: net: dsa: add Mediatek MT7530 binding
-Date: Wed, 29 Mar 2017 17:38:19 +0800
-Message-ID: <1490780303-18598-2-git-send-email-sean.wang@mediatek.com>
+Subject: [PATCH net-next v3 3/5] net-next: ethernet: mediatek: add CDM able to recognize the tag for DSA
+Date: Wed, 29 Mar 2017 17:38:21 +0800
+Message-ID: <1490780303-18598-4-git-send-email-sean.wang@mediatek.com>
 References: <1490780303-18598-1-git-send-email-sean.wang@mediatek.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -20,113 +20,51 @@ List-Id: netdev.vger.kernel.org
 
 From: Sean Wang <sean.wang@mediatek.com>
 
-Add device-tree binding for Mediatek MT7530 switch.
+The patch adds the setup for allowing CDM can recognize these packets with
+carrying port-distinguishing tag. Otherwise, these tagging packets will be
+handled incorrectly by CDM. The setup is also working out for general
+untag packets as well.
 
-Cc: devicetree@vger.kernel.org
 Signed-off-by: Sean Wang <sean.wang@mediatek.com>
-Acked-by: Rob Herring <robh@kernel.org>
+Signed-off-by: Landen Chao <Landen.Chao@mediatek.com>
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- .../devicetree/bindings/net/dsa/mt7530.txt         | 92 ++++++++++++++++++++++
- 1 file changed, 92 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/net/dsa/mt7530.txt
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c | 6 ++++++
+ drivers/net/ethernet/mediatek/mtk_eth_soc.h | 4 ++++
+ 2 files changed, 10 insertions(+)
 
-diff --git a/Documentation/devicetree/bindings/net/dsa/mt7530.txt b/Documentation/devicetree/bindings/net/dsa/mt7530.txt
-new file mode 100644
-index 0000000..a9bc27b
---- /dev/null
-+++ b/Documentation/devicetree/bindings/net/dsa/mt7530.txt
-@@ -0,0 +1,92 @@
-+Mediatek MT7530 Ethernet switch
-+================================
+diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+index 9e75768..c21ed99 100644
+--- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
++++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+@@ -1846,6 +1846,12 @@ static int mtk_hw_init(struct mtk_eth *eth)
+ 	/* GE2, Force 1000M/FD, FC ON */
+ 	mtk_w32(eth, MAC_MCR_FIXED_LINK, MTK_MAC_MCR(1));
+ 
++	/* Indicates CDM to parse the MTK special tag from CPU
++	 * which also is working out for untag packets.
++	 */
++	val = mtk_r32(eth, MTK_CDMQ_IG_CTRL);
++	mtk_w32(eth, val | MTK_CDMQ_STAG_EN, MTK_CDMQ_IG_CTRL);
 +
-+Required properties:
+ 	/* Enable RX VLan Offloading */
+ 	mtk_w32(eth, 1, MTK_CDMP_EG_CTRL);
+ 
+diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.h b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
+index 99b1c8e..996024d 100644
+--- a/drivers/net/ethernet/mediatek/mtk_eth_soc.h
++++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
+@@ -70,6 +70,10 @@
+ /* Frame Engine Interrupt Grouping Register */
+ #define MTK_FE_INT_GRP		0x20
+ 
++/* CDMP Ingress Control Register */
++#define MTK_CDMQ_IG_CTRL	0x1400
++#define MTK_CDMQ_STAG_EN	BIT(0)
 +
-+- compatible: Must be compatible = "mediatek,mt7530";
-+- #address-cells: Must be 1.
-+- #size-cells: Must be 0.
-+- mediatek,mcm: Boolean; if defined, indicates that either MT7530 is the part
-+	on multi-chip module belong to MT7623A has or the remotely standalone
-+	chip as the function MT7623N reference board provided for.
-+- core-supply: Phandle to the regulator node necessary for the core power.
-+- io-supply: Phandle to the regulator node necessary for the I/O power.
-+	See Documentation/devicetree/bindings/regulator/mt6323-regulator.txt
-+	for details for the regulator setup on these boards.
-+
-+If the property mediatek,mcm isn't defined, following property is required
-+
-+- reset-gpios: Should be a gpio specifier for a reset line.
-+
-+Else, following properties are required
-+
-+- resets : Phandle pointing to the system reset controller with
-+	line index for the ethsys.
-+- reset-names : Should be set to "mcm".
-+
-+Required properties for the child nodes within ports container:
-+
-+- reg: Port address described must be 6 for CPU port and from 0 to 5 for
-+	user ports.
-+- phy-mode: String, must be either "trgmii" or "rgmii" for port labeled
-+	 "cpu".
-+
-+See Documentation/devicetree/bindings/dsa/dsa.txt for a list of additional
-+required, optional properties and how the integrated switch subnodes must
-+be specified.
-+
-+Example:
-+
-+	&mdio0 {
-+		switch@0 {
-+			compatible = "mediatek,mt7530";
-+			#address-cells = <1>;
-+			#size-cells = <0>;
-+			reg = <0>;
-+
-+			core-supply = <&mt6323_vpa_reg>;
-+			io-supply = <&mt6323_vemc3v3_reg>;
-+			reset-gpios = <&pio 33 0>;
-+
-+			ports {
-+				#address-cells = <1>;
-+				#size-cells = <0>;
-+				reg = <0>;
-+				port@0 {
-+					reg = <0>;
-+					label = "lan0";
-+				};
-+
-+				port@1 {
-+					reg = <1>;
-+					label = "lan1";
-+				};
-+
-+				port@2 {
-+					reg = <2>;
-+					label = "lan2";
-+				};
-+
-+				port@3 {
-+					reg = <3>;
-+					label = "lan3";
-+				};
-+
-+				port@4 {
-+					reg = <4>;
-+					label = "wan";
-+				};
-+
-+				port@6 {
-+					reg = <6>;
-+					label = "cpu";
-+					ethernet = <&gmac0>;
-+					phy-mode = "trgmii";
-+					fixed-link {
-+						speed = <1000>;
-+						full-duplex;
-+					};
-+				};
-+			};
-+		};
-+	};
+ /* CDMP Exgress Control Register */
+ #define MTK_CDMP_EG_CTRL	0x404
+ 
 -- 
 1.9.1
