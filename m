@@ -1,78 +1,38 @@
-From: Johan Hovold <johan@kernel.org>
-Subject: [PATCH 5/7] NFC: nfcmrvl: fix firmware-management initialisation
-Date: Wed, 29 Mar 2017 18:21:10 +0200
-Message-ID: <20170329162112.18121-6-johan@kernel.org>
-References: <20170329162112.18121-1-johan@kernel.org>
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, Johan Hovold <johan@kernel.org>,
-        stable <stable@vger.kernel.org>,
-        Vincent Cuissard <cuissard@marvell.com>
-To: Lauro Ramos Venancio <lauro.venancio@openbossa.org>,
-        Aloisio Almeida Jr <aloisio.almeida@openbossa.org>,
-        Samuel Ortiz <sameo@linux.intel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] Add checks for kmalloc allocation failures
+Date: Wed, 29 Mar 2017 09:21:51 -0700
+Message-ID: <1490804511.24891.37.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20170329155447.17991-1-colin.king@canonical.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Harry Morris <h.morris@cascoda.com>, linuxdev@cascoda.com,
+        Alexander Aring <aar@pengutronix.de>,
+        Stefan Schmidt <stefan@osg.samsung.com>,
+        linux-wpan@vger.kernel.org, netdev@vger.kernel.org,
+        kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Colin King <colin.king@canonical.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170329162112.18121-1-johan@kernel.org>
+In-Reply-To: <20170329155447.17991-1-colin.king@canonical.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The nci-device was never deregistered in the event that
-fw-initialisation failed.
+On Wed, 2017-03-29 at 16:54 +0100, Colin King wrote:
+> From: Colin Ian King <colin.king@canonical.com>
+> 
+> Ensure we don't end up with a null pointer dereferences by checking
+> for for allocation failures.  Allocate by sizeof(*ptr) rather than
+> the type to fix checkpack warnings.  Also merge multiple lines into
+> one line for the kmalloc call.
+> 
+> Detected by CoverityScan, CID#1422435 ("Dereference null return value")
 
-Fix this by moving the firmware initialisation before device
-registration since the firmware work queue should be available before
-registering.
+OK, but could you change patch title to be less generic ?
 
-Note that this depends on a recent fix that moved device-name
-initialisation back to to nci_allocate_device() as the
-firmware-workqueue name is now derived from the nfc-device name.
+Also, what tree is this patch targeting ?
 
-Fixes: 3194c6870158 ("NFC: nfcmrvl: add firmware download support")
-Cc: stable <stable@vger.kernel.org>     # 4.4
-Cc: Vincent Cuissard <cuissard@marvell.com>
-Signed-off-by: Johan Hovold <johan@kernel.org>
----
- drivers/nfc/nfcmrvl/main.c | 16 +++++++++-------
- 1 file changed, 9 insertions(+), 7 deletions(-)
+# ls -l drivers/net/ieee802154/ca8210.c 
+ls: cannot access drivers/net/ieee802154/ca8210.c: No such file or
+directory
 
-diff --git a/drivers/nfc/nfcmrvl/main.c b/drivers/nfc/nfcmrvl/main.c
-index 8d4294fc3005..f20220bab6b6 100644
---- a/drivers/nfc/nfcmrvl/main.c
-+++ b/drivers/nfc/nfcmrvl/main.c
-@@ -156,26 +156,28 @@ struct nfcmrvl_private *nfcmrvl_nci_register_dev(enum nfcmrvl_phy phy,
- 		goto error;
- 	}
- 
-+	rc = nfcmrvl_fw_dnld_init(priv);
-+	if (rc) {
-+		nfc_err(dev, "failed to initialize FW download %d\n", rc);
-+		goto error_free_dev;
-+	}
-+
- 	nci_set_drvdata(priv->ndev, priv);
- 
- 	rc = nci_register_device(priv->ndev);
- 	if (rc) {
- 		nfc_err(dev, "nci_register_device failed %d\n", rc);
--		goto error_free_dev;
-+		goto error_fw_dnld_deinit;
- 	}
- 
- 	/* Ensure that controller is powered off */
- 	nfcmrvl_chip_halt(priv);
- 
--	rc = nfcmrvl_fw_dnld_init(priv);
--	if (rc) {
--		nfc_err(dev, "failed to initialize FW download %d\n", rc);
--		goto error_free_dev;
--	}
--
- 	nfc_info(dev, "registered with nci successfully\n");
- 	return priv;
- 
-+error_fw_dnld_deinit:
-+	nfcmrvl_fw_dnld_deinit(priv);
- error_free_dev:
- 	nci_free_device(priv->ndev);
- error:
--- 
-2.12.2
+Thanks.
