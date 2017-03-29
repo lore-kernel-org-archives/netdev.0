@@ -1,65 +1,45 @@
-From: Seiichi Ikarashi <s.ikarashi@jp.fujitsu.com>
-Subject: [PATCH] tcp: possible race between tcp_done() and tcp_poll()
-Date: Wed, 29 Mar 2017 14:22:34 +0900
-Message-ID: <34d952a3-77cd-ea53-c3e3-ccde91d5cf63@jp.fujitsu.com>
+From: simran singhal <singhalsimran0@gmail.com>
+Subject: [PATCH] net: netfilter: Use list_{next/prev}_entry instead of
+ list_entry
+Date: Wed, 29 Mar 2017 11:15:40 +0530
+Message-ID: <20170329054540.GA15593@singhal-Inspiron-5558>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-2022-jp"
-Content-Transfer-Encoding: 7bit
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        "David S. Miller" <davem@davemloft.net>,
+        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        outreachy-kernel@googlegroups.com
+To: pablo@netfilter.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgwkm01.jp.fujitsu.com ([202.219.69.168]:23026 "EHLO
-        mgwkm01.jp.fujitsu.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752582AbdC2FgK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 29 Mar 2017 01:36:10 -0400
-Received: from g01jpfmpwkw03.exch.g01.fujitsu.local (g01jpfmpwkw03.exch.g01.fujitsu.local [10.0.193.57])
-        by kw-mxoi2.gw.nic.fujitsu.com (Postfix) with ESMTP id 2B19DAC0125
-        for <netdev@vger.kernel.org>; Wed, 29 Mar 2017 14:24:45 +0900 (JST)
-Received: from G01JPEXCHKW15.g01.fujitsu.local (G01JPEXCHKW15.g01.fujitsu.local [10.0.194.54])
-        by g01jpfmpwkw03.exch.g01.fujitsu.local (Postfix) with ESMTP id 6CC2EBD6542
-        for <netdev@vger.kernel.org>; Wed, 29 Mar 2017 14:22:34 +0900 (JST)
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:35953 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752729AbdC2Fpp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 29 Mar 2017 01:45:45 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Similar to commit a4d258036ed9b2a1811.
+This patch replace list_entry with list_prev_entry as it makes the
+code more clear to read.
 
-Between receiving a packet and tcp_poll(), sk->sk_err is protected by memory barriers but
-sk->sk_shutdown and sk->sk_state are not. So possibly, POLLIN|POLLRDNORM|POLLRDHUP might
-not be set even when receiving a RST packet.
+Signed-off-by: simran singhal <singhalsimran0@gmail.com>
+---
+ net/netfilter/nf_tables_api.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Signed-off-by: Seiichi Ikarashi <s.ikarashi@jp.fujitsu.com>
-
- net/ipv4/tcp.c | 7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index cf45555..c8bc86e 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -456,6 +456,8 @@ unsigned int tcp_poll(struct file *file, struct socket *sock, poll_table *wait)
+diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
+index b7645d7..a341eaf 100644
+--- a/net/netfilter/nf_tables_api.c
++++ b/net/netfilter/nf_tables_api.c
+@@ -1895,7 +1895,7 @@ static int nf_tables_fill_rule_info(struct sk_buff *skb, struct net *net,
+ 		goto nla_put_failure;
  
- 	sock_poll_wait(file, sk_sleep(sk), wait);
- 
-+	/* This barrier is coupled with smp_wmb() in tcp_reset() */
-+	smp_rmb();
- 	state = sk_state_load(sk);
- 	if (state == TCP_LISTEN)
- 		return inet_csk_listen_poll(sk);
-@@ -540,8 +542,6 @@ unsigned int tcp_poll(struct file *file, struct socket *sock, poll_table *wait)
- 		 */
- 		mask |= POLLOUT | POLLWRNORM;
- 	}
--	/* This barrier is coupled with smp_wmb() in tcp_reset() */
--	smp_rmb();
- 	if (sk->sk_err || !skb_queue_empty(&sk->sk_error_queue))
- 		mask |= POLLERR;
- 
-@@ -3291,6 +3291,9 @@ void tcp_done(struct sock *sk)
- 
- 	sk->sk_shutdown = SHUTDOWN_MASK;
- 
-+	/* This barrier is coupled with smp_rmb() in tcp_poll() */
-+	smp_wmb();
-+
- 	if (!sock_flag(sk, SOCK_DEAD))
- 		sk->sk_state_change(sk);
- 	else
+ 	if ((event != NFT_MSG_DELRULE) && (rule->list.prev != &chain->rules)) {
+-		prule = list_entry(rule->list.prev, struct nft_rule, list);
++		prule = list_prev_entry(rule, list);
+ 		if (nla_put_be64(skb, NFTA_RULE_POSITION,
+ 				 cpu_to_be64(prule->handle),
+ 				 NFTA_RULE_PAD))
+-- 
+2.7.4
