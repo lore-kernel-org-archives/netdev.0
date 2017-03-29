@@ -1,58 +1,52 @@
-From: Guillaume Nault <g.nault@alphalink.fr>
-Subject: [PATCH net] l2tp: purge socket queues in the .destruct() callback
-Date: Wed, 29 Mar 2017 08:45:29 +0200
-Message-ID: <bf0b71ec6a771f4af715573c340dd2a83b4f02b7.1490769866.git.g.nault@alphalink.fr>
+From: Jan Engelhardt <jengelh@inai.de>
+Subject: Re: [PATCH v2] netfilter: Clean up tests if NULL returned on
+ failure
+Date: Wed, 29 Mar 2017 08:55:15 +0200 (CEST)
+Message-ID: <alpine.LSU.2.20.1703290854390.26906@n3.vanv.qr>
+References: <20170328131340.GA19688@singhal-Inspiron-5558> <alpine.LSU.2.20.1703281552040.21255@n3.vanv.qr> <CALrZqyPeR6X1RrqOsGfLbbZ2rPQgOf=50Rs+ot0kxkkA464V5w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: James Chapman <jchapman@katalix.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Cc: wensong@linux-vs.org, Simon Horman <horms@verge.net.au>,
+        Julian Anastasov <ja@ssi.bg>,
+        Pablo Neira Ayuso <pablo@netfilter.org>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+        coreteam@netfilter.org, linux-kernel@vger.kernel.org,
+        outreachy-kernel <outreachy-kernel@googlegroups.com>
+To: SIMRAN SINGHAL <singhalsimran0@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zimbra.alphalink.fr ([217.15.80.77]:51709 "EHLO
-        zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753309AbdC2Gpm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 29 Mar 2017 02:45:42 -0400
-Content-Disposition: inline
+Received: from a3.inai.de ([88.198.180.161]:33138 "EHLO a3.inai.de"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753643AbdC2Gz2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 29 Mar 2017 02:55:28 -0400
+In-Reply-To: <CALrZqyPeR6X1RrqOsGfLbbZ2rPQgOf=50Rs+ot0kxkkA464V5w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The Rx path may grab the socket right before pppol2tp_release(), but
-nothing guarantees that it will enqueue packets before
-skb_queue_purge(). Therefore, the socket can be destroyed without its
-queues fully purged.
 
-Fix this by purging queues in pppol2tp_session_destruct() where we're
-guaranteed nothing is still referencing the socket.
+On Tuesday 2017-03-28 18:23, SIMRAN SINGHAL wrote:
+>On Tue, Mar 28, 2017 at 7:24 PM, Jan Engelhardt <jengelh@inai.de> wrote:
+>> On Tuesday 2017-03-28 15:13, simran singhal wrote:
+>>
+>>>Some functions like kmalloc/kzalloc return NULL on failure. When NULL
+>>>represents failure, !x is commonly used.
+>>>
+>>>@@ -910,7 +910,7 @@ ip_vs_new_dest(struct ip_vs_service *svc, struct ip_vs_dest_user_kern *udest,
+>>>       }
+>>>
+>>>       dest = kzalloc(sizeof(struct ip_vs_dest), GFP_KERNEL);
+>>>-      if (dest == NULL)
+>>>+      if (!dest)
+>>>               return -ENOMEM;
+>>
+>> This kind of transformation however is not cleanup anymore, it's really
+>> bikeshedding and should be avoided. There are pro and cons for both
+>> variants, and there is not really an overwhelming number of arguments
+>> for either variant to justify the change.
+>
+>Sorry, but I didn't get what you are trying to convey. And particularly pros and
+>cons of both variants.
 
-Fixes: 9e9cb6221aa7 ("l2tp: fix userspace reception on plain L2TP sockets")
-Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
----
- net/l2tp/l2tp_ppp.c | 7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
-
-diff --git a/net/l2tp/l2tp_ppp.c b/net/l2tp/l2tp_ppp.c
-index 36cc56fd0418..123b6a2411a0 100644
---- a/net/l2tp/l2tp_ppp.c
-+++ b/net/l2tp/l2tp_ppp.c
-@@ -450,6 +450,10 @@ static void pppol2tp_session_close(struct l2tp_session *session)
- static void pppol2tp_session_destruct(struct sock *sk)
- {
- 	struct l2tp_session *session = sk->sk_user_data;
-+
-+	skb_queue_purge(&sk->sk_receive_queue);
-+	skb_queue_purge(&sk->sk_write_queue);
-+
- 	if (session) {
- 		sk->sk_user_data = NULL;
- 		BUG_ON(session->magic != L2TP_SESSION_MAGIC);
-@@ -488,9 +492,6 @@ static int pppol2tp_release(struct socket *sock)
- 		l2tp_session_queue_purge(session);
- 		sock_put(sk);
- 	}
--	skb_queue_purge(&sk->sk_receive_queue);
--	skb_queue_purge(&sk->sk_write_queue);
--
- 	release_sock(sk);
- 
- 	/* This will delete the session context via
--- 
-2.11.0
+The ==NULL/!=NULL part sort of ensures that the left side is a pointer, which
+is lost when just using the variable and have it implicitly convert to bool.
