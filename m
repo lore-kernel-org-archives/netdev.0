@@ -1,38 +1,146 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [REGRESSION] mac80211: IBSS vif queue stopped when started
- after 11s vif
-Date: Wed, 29 Mar 2017 09:49:21 +0200
-Message-ID: <1490773761.7948.3.camel@sipsolutions.net>
-References: <1978424.XTv2Qph05K@bentobox>
-         (sfid-20170322_101600_364232_CA0A885F)
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH net-next] net: phy: Allow building mdio-boardinfo into the kernel
+Date: Wed, 29 Mar 2017 10:09:46 +0200
+Message-ID: <CAK8P3a08sng5o6QEsUoOWbsixX9zX3H-NByXsCGirGsz_EtYDw@mail.gmail.com>
+References: <20170328195709.13549-1-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Sven Eckelmann <sven.eckelmann@openmesh.com>,
-        linux-wireless@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Networking <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        Andrew Lunn <andrew@lunn.ch>, rmk+kernel@armlinux.org.uk
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:41900 "EHLO sipsolutions.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753716AbdC2HtY (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 29 Mar 2017 03:49:24 -0400
-In-Reply-To: <1978424.XTv2Qph05K@bentobox> (sfid-20170322_101600_364232_CA0A885F)
+Received: from mail-ot0-f194.google.com ([74.125.82.194]:35932 "EHLO
+        mail-ot0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754322AbdC2IJs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 29 Mar 2017 04:09:48 -0400
+Received: by mail-ot0-f194.google.com with SMTP id t8so806303otf.3
+        for <netdev@vger.kernel.org>; Wed, 29 Mar 2017 01:09:47 -0700 (PDT)
+In-Reply-To: <20170328195709.13549-1-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Sven,
+On Tue, Mar 28, 2017 at 9:57 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+> mdio-boardinfo contains code that is helpful for platforms to register
+> specific MDIO bus devices independent of how CONFIG_MDIO_DEVICE or
+> CONFIG_PHYLIB will be selected (modular or built-in). In order to make
+> that possible, let's do the following:
+>
+> - descend into drivers/net/phy/ unconditionally
+>
+> - make mdiobus_setup_mdiodev_from_board_info() take a callback argument
+>   which allows us not to expose the internal MDIO board info list and
+>   mutex, yet maintain the logic within the same file
+>
+> - relocate the code that creates a MDIO device into
+>   drivers/net/phy/mdio_bus.c
+>
+> - build mdio-boardinfo.o into the kernel as soon as MDIO_DEVICE is
+>   defined (y or m)
+>
+> Fixes: 90eff9096c01 ("net: phy: Allow splitting MDIO bus/device support from PHYs")
+> Fixes: 648ea0134069 ("net: phy: Allow pre-declaration of MDIO devices")
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+
+It survived the overnight randconfig build,
+
+Tested-by: Arnd Bergmann <arnd@arndb.de>
+
+On a related note, I ran into one more case of a network driver selecting a
+particular PHY:
+
+drivers/net/built-in.o: In function `octeon_mdiobus_remove':
+wilink_platform_data.c:(.text+0xe58): undefined reference to
+`mdiobus_unregister'
+wilink_platform_data.c:(.text+0xe60): undefined reference to `mdiobus_free'
+drivers/net/built-in.o: In function `octeon_mdiobus_probe':
+wilink_platform_data.c:(.text+0xec8): undefined reference to
+`devm_mdiobus_alloc_size'
+wilink_platform_data.c:(.text+0x1090): undefined reference to
+`of_mdiobus_register'
+wilink_platform_data.c:(.text+0x10d0): undefined reference to `mdiobus_free'
+
+Building with this hack fixes the three instances I found so far, but my
+current workaround seems rather fragile:
+
+@@ -28,7 +28,7 @@ config MDIO_BCM_UNIMAC
+
+ config MDIO_BITBANG
+        tristate "Bitbanged MDIO buses"
+-       depends on !(MDIO_DEVICE=y && PHYLIB=m)
++       depends on m || !(MDIO_DEVICE=y && PHYLIB=m)
+        help
+          This module implements the MDIO bus protocol in software,
+          for use by low level drivers that export the ability to
+@@ -118,6 +118,7 @@ config MDIO_OCTEON
+ config MDIO_SUN4I
+        tristate "Allwinner sun4i MDIO interface support"
+        depends on ARCH_SUNXI
++       depends on m || !(MDIO_DEVICE=y && PHYLIB=m)
+        help
+          This driver supports the MDIO interface found in the network
+          interface units of the Allwinner SoC that have an EMAC (A10,
+@@ -109,6 +109,7 @@ config MDIO_OCTEON
+        tristate "Octeon and some ThunderX SOCs MDIO buses"
+        depends on 64BIT
+        depends on HAS_IOMEM
++       depends on m || !(MDIO_DEVICE=y && PHYLIB=m)
+        select MDIO_CAVIUM
+        help
+          This module provides a driver for the Octeon and ThunderX MDIO
+
+The configuration causing it is something like this:
+
+CONFIG_MDIO_OCTEON=y
+CONFIG_MDIO_DEVICE=y
+CONFIG_PHYLIB=m
+
+This is what I'm trying now:
+
+--- a/drivers/net/phy/Kconfig
++++ b/drivers/net/phy/Kconfig
+@@ -7,7 +7,16 @@ menuconfig MDIO_DEVICE
+        help
+           MDIO devices and driver infrastructure code.
+
+-if MDIO_DEVICE
++config MDIO_BUS
++       tristate
++       default m if PHYLIB=m
++       default MDIO_DEVICE
++       help
++         This internal symbol is used for link time dependencies and it
++         reflects whether the mdio_bus/mdio_device code is built as a
++         loadable module or built-in.
++
++if MDIO_BUS
+
+ config MDIO_BCM_IPROC
+        tristate "Broadcom iProc MDIO bus controller"
+@@ -28,7 +37,6 @@ config MDIO_BCM_UNIMAC
+
+ config MDIO_BITBANG
+        tristate "Bitbanged MDIO buses"
+-       depends on m || !(MDIO_DEVICE=y && PHYLIB=m)
+        help
+          This module implements the MDIO bus protocol in software,
+          for use by low level drivers that export the ability to
+@@ -109,7 +117,6 @@ config MDIO_OCTEON
+        tristate "Octeon and some ThunderX SOCs MDIO buses"
+        depends on 64BIT
+        depends on HAS_IOMEM
+-       depends on m || !(MDIO_DEVICE=y && PHYLIB=m)
+        select MDIO_CAVIUM
+        help
+          This module provides a driver for the Octeon and ThunderX MDIO
+@@ -119,7 +126,6 @@ config MDIO_OCTEON
+ config MDIO_SUN4I
+        tristate "Allwinner sun4i MDIO interface support"
+        depends on ARCH_SUNXI
+-       depends on m || !(MDIO_DEVICE=y && PHYLIB=m)
+        help
+          This driver supports the MDIO interface found in the network
+          interface units of the Allwinner SoC that have an EMAC (A10,
 
 
-> But I could be completely wrong about it. It would therefore be
-> interesting for me to know who would be responsible to start the
-> queues when ieee80211_do_open rejected it for IBSS.
-
-Well, once ieee80211_offchannel_return() is called, that should do the
-needful and end up in ieee80211_propagate_queue_wake().
-
-Can you check what the IBSS vif's queues are (vif->hw_queue[...])?
-
-However, I also don't understand the difference between encrypted and
-unencrypted here.
-
-johannes
+    Arnd
