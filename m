@@ -1,58 +1,28 @@
-From: Arushi Singhal <arushisinghal19971997@gmail.com>
-Subject: [PATCH] net: ipv6: Removed unnecessary parenthesis
-Date: Wed, 29 Mar 2017 15:47:46 +0530
-Message-ID: <20170329101746.GA30647@arushi-HP-Pavilion-Notebook>
+From: Robert Shearman <rshearma@brocade.com>
+Subject: Re: [PATCH net-next] net: mpls: Update lfib_nlmsg_size to skip
+ deleted nexthops
+Date: Wed, 29 Mar 2017 11:20:09 +0100
+Message-ID: <f2b5869d-0010-3d50-276b-4542fb3ba183@brocade.com>
+References: <1490739589-3039-1-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-        "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: outreachy-kernel@googlegroups.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <roopa@cumulusnetworks.com>
+To: David Ahern <dsa@cumulusnetworks.com>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:60605 "EHLO
+        mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1755116AbdC2KUV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 29 Mar 2017 06:20:21 -0400
+In-Reply-To: <1490739589-3039-1-git-send-email-dsa@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Removed parentheses on the right hand side of assignment, as they are
-not required. The following coccinelle script was used to fix this
-issue:
+On 28/03/17 23:19, David Ahern wrote:
+> A recent commit skips nexthops in a route if the device has been
+> deleted. Update lfib_nlmsg_size accordingly.
+>
+> Reported-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 
-@@
-local idexpression id;
-expression e;
-@@
-
-id =
--(
-e
--)
-
-Signed-off-by: Arushi Singhal <arushisinghal19971997@gmail.com>
----
- net/ipv6/netfilter/nf_conntrack_reasm.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv6/netfilter/nf_conntrack_reasm.c b/net/ipv6/netfilter/nf_conntrack_reasm.c
-index fdde76e8a16a..34dfdc2fb2bc 100644
---- a/net/ipv6/netfilter/nf_conntrack_reasm.c
-+++ b/net/ipv6/netfilter/nf_conntrack_reasm.c
-@@ -387,9 +387,9 @@ nf_ct_frag6_reasm(struct frag_queue *fq, struct sk_buff *prev,  struct net_devic
- 		return false;
- 
- 	/* Unfragmented part is taken from the first segment. */
--	payload_len = ((head->data - skb_network_header(head)) -
-+	payload_len = (head->data - skb_network_header(head)) -
- 		       sizeof(struct ipv6hdr) + fq->q.len -
--		       sizeof(struct frag_hdr));
-+		       sizeof(struct frag_hdr);
- 	if (payload_len > IPV6_MAXPLEN) {
- 		net_dbg_ratelimited("nf_ct_frag6_reasm: payload len = %d\n",
- 				    payload_len);
--- 
-2.11.0
+Acked-by: Robert Shearman <rshearma@brocade.com>
