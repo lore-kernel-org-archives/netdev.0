@@ -1,45 +1,54 @@
-From: Jisheng Zhang <jszhang@marvell.com>
-Subject: [PATCH net-next] net: mvneta: add RGMII_RXID and RGMII_TXID support
-Date: Wed, 29 Mar 2017 16:42:26 +0800
-Message-ID: <20170329084226.3472-1-jszhang@marvell.com>
+From: SIMRAN SINGHAL <singhalsimran0@gmail.com>
+Subject: Re: [PATCH v2] netfilter: Clean up tests if NULL returned on failure
+Date: Wed, 29 Mar 2017 14:19:31 +0530
+Message-ID: <CALrZqyN2Vh0J219tY_zj5u-4bUVmD+T=q6yMH9WZN2Y3O7yzpA@mail.gmail.com>
+References: <20170328131340.GA19688@singhal-Inspiron-5558> <alpine.LSU.2.20.1703281552040.21255@n3.vanv.qr>
+ <CALrZqyPeR6X1RrqOsGfLbbZ2rPQgOf=50Rs+ot0kxkkA464V5w@mail.gmail.com> <alpine.LSU.2.20.1703290854390.26906@n3.vanv.qr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Jisheng Zhang <jszhang@marvell.com>, netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: <thomas.petazzoni@free-electrons.com>, <davem@davemloft.net>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Content-Type: text/plain; charset=UTF-8
+Cc: wensong@linux-vs.org, Simon Horman <horms@verge.net.au>,
+        Julian Anastasov <ja@ssi.bg>,
+        Pablo Neira Ayuso <pablo@netfilter.org>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+        coreteam@netfilter.org, linux-kernel@vger.kernel.org,
+        outreachy-kernel <outreachy-kernel@googlegroups.com>
+To: Jan Engelhardt <jengelh@inai.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LSU.2.20.1703290854390.26906@n3.vanv.qr>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-RGMII_RXID and RGMII_TX_ID share the same GMAC CTRL setting as RGMII
-or RGMII_ID.
+On Wed, Mar 29, 2017 at 12:25 PM, Jan Engelhardt <jengelh@inai.de> wrote:
+>
+> On Tuesday 2017-03-28 18:23, SIMRAN SINGHAL wrote:
+>>On Tue, Mar 28, 2017 at 7:24 PM, Jan Engelhardt <jengelh@inai.de> wrote:
+>>> On Tuesday 2017-03-28 15:13, simran singhal wrote:
+>>>
+>>>>Some functions like kmalloc/kzalloc return NULL on failure. When NULL
+>>>>represents failure, !x is commonly used.
+>>>>
+>>>>@@ -910,7 +910,7 @@ ip_vs_new_dest(struct ip_vs_service *svc, struct ip_vs_dest_user_kern *udest,
+>>>>       }
+>>>>
+>>>>       dest = kzalloc(sizeof(struct ip_vs_dest), GFP_KERNEL);
+>>>>-      if (dest == NULL)
+>>>>+      if (!dest)
+>>>>               return -ENOMEM;
+>>>
+>>> This kind of transformation however is not cleanup anymore, it's really
+>>> bikeshedding and should be avoided. There are pro and cons for both
+>>> variants, and there is not really an overwhelming number of arguments
+>>> for either variant to justify the change.
+>>
+>>Sorry, but I didn't get what you are trying to convey. And particularly pros and
+>>cons of both variants.
+>
+> The ==NULL/!=NULL part sort of ensures that the left side is a pointer, which
+> is lost when just using the variable and have it implicitly convert to bool.
 
-Signed-off-by: Jisheng Zhang <jszhang@marvell.com>
----
- drivers/net/ethernet/marvell/mvneta.c | 2 ++
- 1 file changed, 2 insertions(+)
+Thanks for the explaination!!!!
 
-diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index aebbc5399a06..7a6c65b44d7e 100644
---- a/drivers/net/ethernet/marvell/mvneta.c
-+++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -4099,6 +4099,8 @@ static int mvneta_port_power_up(struct mvneta_port *pp, int phy_mode)
- 		break;
- 	case PHY_INTERFACE_MODE_RGMII:
- 	case PHY_INTERFACE_MODE_RGMII_ID:
-+	case PHY_INTERFACE_MODE_RGMII_RXID:
-+	case PHY_INTERFACE_MODE_RGMII_TXID:
- 		ctrl |= MVNETA_GMAC2_PORT_RGMII;
- 		break;
- 	default:
--- 
-2.11.0
+But, according to me we should prefer != NULL over ==NULL according to
+coding style.
