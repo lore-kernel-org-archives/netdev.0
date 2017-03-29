@@ -1,315 +1,216 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 02/13] i40e: Clean up handling of private flags
-Date: Wed, 29 Mar 2017 03:12:04 -0700
-Message-ID: <20170329101215.24513-3-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 01/13] i40evf: enforce descriptor write-back mechanism for VF
+Date: Wed, 29 Mar 2017 03:12:03 -0700
+Message-ID: <20170329101215.24513-2-jeffrey.t.kirsher@intel.com>
 References: <20170329101215.24513-1-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-        jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Preethi Banala <preethi.banala@intel.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:3161 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:21132 "EHLO mga02.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755165AbdC2KMV (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1755154AbdC2KMV (ORCPT <rfc822;netdev@vger.kernel.org>);
         Wed, 29 Mar 2017 06:12:21 -0400
 In-Reply-To: <20170329101215.24513-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+From: Preethi Banala <preethi.banala@intel.com>
 
-This patch cleans up and addresses several issues in the way that i40e
-handles private flags. Previously the code was choosing fixed bits and
-trying to match them up with strings in a somewhat haphazard way. This
-resulted in the possibility for adding a new bit and causing a mismatch as
-the private flags are linear bits starting at 0, and the private flags in
-the driver were split up over a group specific to the PF and a group that
-was global.
+The current driver mode is to use a write-back mechanism for the head
+register which indicates transmit completions. The VF driver needs to be
+able to work on hardware that exclusively uses descriptor write-back, so
+change the default driver mode of operation to descriptor write-back for
+VF. In our analysis, performance wasn't significantly different with
+either write-back method.
 
-What this change does is define an array of structs used to represent the
-private flags. Contained within the structs are the bits necessary to know
-which flags to set and/or clear depending on the state of the bit. By
-doing this we can add new bits in the future with minimal overhead and
-avoid creating possible mis-matches should we need to remove a flag based
-on compile options.
-
-Change-ID: Ia3214ab04f0ab2f70354ac0997a135f1d01b0acd
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Change-ID: Ia92e4ec77c2df8dc4515c71d53746d57d77759af
+Signed-off-by: Preethi Banala <preethi.banala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e.h         |   8 --
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 189 +++++++++++++++----------
- 2 files changed, 112 insertions(+), 85 deletions(-)
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c      | 64 +++-------------------
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.h      | 14 -----
+ .../net/ethernet/intel/i40evf/i40evf_virtchnl.c    |  4 --
+ 3 files changed, 7 insertions(+), 75 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index d7e84f99eb2d..f506e994861b 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -91,14 +91,6 @@
- #define I40E_QUEUE_WAIT_RETRY_LIMIT	10
- #define I40E_INT_NAME_STR_LEN		(IFNAMSIZ + 16)
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+index 8915c5598d20..f1a99a8dc7ea 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+@@ -137,10 +137,7 @@ u32 i40evf_get_tx_pending(struct i40e_ring *ring, bool in_sw)
+ {
+ 	u32 head, tail;
  
--/* Ethtool Private Flags */
--#define I40E_PRIV_FLAGS_MFP_FLAG		BIT(0)
--#define I40E_PRIV_FLAGS_LINKPOLL_FLAG		BIT(1)
--#define I40E_PRIV_FLAGS_FD_ATR			BIT(2)
--#define I40E_PRIV_FLAGS_VEB_STATS		BIT(3)
--#define I40E_PRIV_FLAGS_HW_ATR_EVICT		BIT(4)
--#define I40E_PRIV_FLAGS_TRUE_PROMISC_SUPPORT	BIT(5)
+-	if (!in_sw)
+-		head = i40e_get_head(ring);
+-	else
+-		head = ring->next_to_clean;
++	head = ring->next_to_clean;
+ 	tail = readl(ring->tail);
+ 
+ 	if (head != tail)
+@@ -165,7 +162,6 @@ static bool i40e_clean_tx_irq(struct i40e_vsi *vsi,
+ {
+ 	u16 i = tx_ring->next_to_clean;
+ 	struct i40e_tx_buffer *tx_buf;
+-	struct i40e_tx_desc *tx_head;
+ 	struct i40e_tx_desc *tx_desc;
+ 	unsigned int total_bytes = 0, total_packets = 0;
+ 	unsigned int budget = vsi->work_limit;
+@@ -174,8 +170,6 @@ static bool i40e_clean_tx_irq(struct i40e_vsi *vsi,
+ 	tx_desc = I40E_TX_DESC(tx_ring, i);
+ 	i -= tx_ring->count;
+ 
+-	tx_head = I40E_TX_DESC(tx_ring, i40e_get_head(tx_ring));
 -
- #define I40E_NVM_VERSION_LO_SHIFT	0
- #define I40E_NVM_VERSION_LO_MASK	(0xff << I40E_NVM_VERSION_LO_SHIFT)
- #define I40E_NVM_VERSION_HI_SHIFT	12
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index c8c566a0a6c3..9b2e9cef56a4 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -207,22 +207,36 @@ static const char i40e_gstrings_test[][ETH_GSTRING_LEN] = {
+ 	do {
+ 		struct i40e_tx_desc *eop_desc = tx_buf->next_to_watch;
  
- #define I40E_TEST_LEN (sizeof(i40e_gstrings_test) / ETH_GSTRING_LEN)
+@@ -186,8 +180,9 @@ static bool i40e_clean_tx_irq(struct i40e_vsi *vsi,
+ 		/* prevent any other reads prior to eop_desc */
+ 		read_barrier_depends();
  
--static const char i40e_priv_flags_strings[][ETH_GSTRING_LEN] = {
--	"MFP",
--	"LinkPolling",
--	"flow-director-atr",
--	"veb-stats",
--	"hw-atr-eviction",
-+struct i40e_priv_flags {
-+	char flag_string[ETH_GSTRING_LEN];
-+	u64 flag;
-+	bool read_only;
- };
+-		/* we have caught up to head, no work left to do */
+-		if (tx_head == tx_desc)
++		/* if the descriptor isn't done, no work yet to do */
++		if (!(eop_desc->cmd_type_offset_bsz &
++		      cpu_to_le64(I40E_TX_DESC_DTYPE_DESC_DONE)))
+ 			break;
  
--#define I40E_PRIV_FLAGS_STR_LEN ARRAY_SIZE(i40e_priv_flags_strings)
-+#define I40E_PRIV_FLAG(_name, _flag, _read_only) { \
-+	.flag_string = _name, \
-+	.flag = _flag, \
-+	.read_only = _read_only, \
-+}
-+
-+static const struct i40e_priv_flags i40e_gstrings_priv_flags[] = {
-+	/* NOTE: MFP setting cannot be changed */
-+	I40E_PRIV_FLAG("MFP", I40E_FLAG_MFP_ENABLED, 1),
-+	I40E_PRIV_FLAG("LinkPolling", I40E_FLAG_LINK_POLLING_ENABLED, 0),
-+	I40E_PRIV_FLAG("flow-director-atr", I40E_FLAG_FD_ATR_ENABLED, 0),
-+	I40E_PRIV_FLAG("veb-stats", I40E_FLAG_VEB_STATS_ENABLED, 0),
-+	I40E_PRIV_FLAG("hw-atr-eviction", I40E_FLAG_HW_ATR_EVICT_CAPABLE, 0),
-+};
-+
-+#define I40E_PRIV_FLAGS_STR_LEN ARRAY_SIZE(i40e_gstrings_priv_flags)
+ 		/* clear next_to_watch to prevent false hangs */
+@@ -464,10 +459,6 @@ int i40evf_setup_tx_descriptors(struct i40e_ring *tx_ring)
  
- /* Private flags with a global effect, restricted to PF 0 */
--static const char i40e_gl_priv_flags_strings[][ETH_GSTRING_LEN] = {
--	"vf-true-promisc-support",
-+static const struct i40e_priv_flags i40e_gl_gstrings_priv_flags[] = {
-+	I40E_PRIV_FLAG("vf-true-promisc-support",
-+		       I40E_FLAG_TRUE_PROMISC_SUPPORT, 0),
- };
+ 	/* round up to nearest 4K */
+ 	tx_ring->size = tx_ring->count * sizeof(struct i40e_tx_desc);
+-	/* add u32 for head writeback, align after this takes care of
+-	 * guaranteeing this is at least one cache line in size
+-	 */
+-	tx_ring->size += sizeof(u32);
+ 	tx_ring->size = ALIGN(tx_ring->size, 4096);
+ 	tx_ring->desc = dma_alloc_coherent(dev, tx_ring->size,
+ 					   &tx_ring->dma, GFP_KERNEL);
+@@ -2012,7 +2003,6 @@ static inline void i40evf_tx_map(struct i40e_ring *tx_ring, struct sk_buff *skb,
+ 	u16 i = tx_ring->next_to_use;
+ 	u32 td_tag = 0;
+ 	dma_addr_t dma;
+-	u16 desc_count = 1;
  
--#define I40E_GL_PRIV_FLAGS_STR_LEN ARRAY_SIZE(i40e_gl_priv_flags_strings)
-+#define I40E_GL_PRIV_FLAGS_STR_LEN ARRAY_SIZE(i40e_gl_gstrings_priv_flags)
+ 	if (tx_flags & I40E_TX_FLAGS_HW_VLAN) {
+ 		td_cmd |= I40E_TX_DESC_CMD_IL2TAG1;
+@@ -2048,7 +2038,6 @@ static inline void i40evf_tx_map(struct i40e_ring *tx_ring, struct sk_buff *skb,
+ 
+ 			tx_desc++;
+ 			i++;
+-			desc_count++;
+ 
+ 			if (i == tx_ring->count) {
+ 				tx_desc = I40E_TX_DESC(tx_ring, 0);
+@@ -2070,7 +2059,6 @@ static inline void i40evf_tx_map(struct i40e_ring *tx_ring, struct sk_buff *skb,
+ 
+ 		tx_desc++;
+ 		i++;
+-		desc_count++;
+ 
+ 		if (i == tx_ring->count) {
+ 			tx_desc = I40E_TX_DESC(tx_ring, 0);
+@@ -2096,46 +2084,8 @@ static inline void i40evf_tx_map(struct i40e_ring *tx_ring, struct sk_buff *skb,
+ 
+ 	i40e_maybe_stop_tx(tx_ring, DESC_NEEDED);
+ 
+-	/* write last descriptor with EOP bit */
+-	td_cmd |= I40E_TX_DESC_CMD_EOP;
+-
+-	/* We can OR these values together as they both are checked against
+-	 * 4 below and at this point desc_count will be used as a boolean value
+-	 * after this if/else block.
+-	 */
+-	desc_count |= ++tx_ring->packet_stride;
+-
+-	/* Algorithm to optimize tail and RS bit setting:
+-	 * if queue is stopped
+-	 *	mark RS bit
+-	 *	reset packet counter
+-	 * else if xmit_more is supported and is true
+-	 *	advance packet counter to 4
+-	 *	reset desc_count to 0
+-	 *
+-	 * if desc_count >= 4
+-	 *	mark RS bit
+-	 *	reset packet counter
+-	 * if desc_count > 0
+-	 *	update tail
+-	 *
+-	 * Note: If there are less than 4 descriptors
+-	 * pending and interrupts were disabled the service task will
+-	 * trigger a force WB.
+-	 */
+-	if (netif_xmit_stopped(txring_txq(tx_ring))) {
+-		goto do_rs;
+-	} else if (skb->xmit_more) {
+-		/* set stride to arm on next packet and reset desc_count */
+-		tx_ring->packet_stride = WB_STRIDE;
+-		desc_count = 0;
+-	} else if (desc_count >= WB_STRIDE) {
+-do_rs:
+-		/* write last descriptor with RS bit set */
+-		td_cmd |= I40E_TX_DESC_CMD_RS;
+-		tx_ring->packet_stride = 0;
+-	}
+-
++	/* write last descriptor with RS and EOP bits */
++	td_cmd |= I40E_TXD_CMD;
+ 	tx_desc->cmd_type_offset_bsz =
+ 			build_ctob(td_cmd, td_offset, size, td_tag);
+ 
+@@ -2151,7 +2101,7 @@ static inline void i40evf_tx_map(struct i40e_ring *tx_ring, struct sk_buff *skb,
+ 	first->next_to_watch = tx_desc;
+ 
+ 	/* notify HW of packet */
+-	if (desc_count) {
++	if (netif_xmit_stopped(txring_txq(tx_ring)) || !skb->xmit_more) {
+ 		writel(i, tx_ring->tail);
+ 
+ 		/* we need this if more than one processor can write to our tail
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
+index fc959f964919..aba40edb0e2e 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
+@@ -393,20 +393,6 @@ int __i40evf_maybe_stop_tx(struct i40e_ring *tx_ring, int size);
+ bool __i40evf_chk_linearize(struct sk_buff *skb);
  
  /**
-  * i40e_partition_setting_complaint - generic complaint for MFP restriction
-@@ -1660,12 +1674,18 @@ static void i40e_get_strings(struct net_device *netdev, u32 stringset,
- 		/* BUG_ON(p - data != I40E_STATS_LEN * ETH_GSTRING_LEN); */
- 		break;
- 	case ETH_SS_PRIV_FLAGS:
--		memcpy(data, i40e_priv_flags_strings,
--		       I40E_PRIV_FLAGS_STR_LEN * ETH_GSTRING_LEN);
--		data += I40E_PRIV_FLAGS_STR_LEN * ETH_GSTRING_LEN;
--		if (pf->hw.pf_id == 0)
--			memcpy(data, i40e_gl_priv_flags_strings,
--			       I40E_GL_PRIV_FLAGS_STR_LEN * ETH_GSTRING_LEN);
-+		for (i = 0; i < I40E_PRIV_FLAGS_STR_LEN; i++) {
-+			snprintf(p, ETH_GSTRING_LEN, "%s",
-+				 i40e_gstrings_priv_flags[i].flag_string);
-+			p += ETH_GSTRING_LEN;
-+		}
-+		if (pf->hw.pf_id != 0)
-+			break;
-+		for (i = 0; i < I40E_GL_PRIV_FLAGS_STR_LEN; i++) {
-+			snprintf(p, ETH_GSTRING_LEN, "%s",
-+				 i40e_gl_gstrings_priv_flags[i].flag_string);
-+			p += ETH_GSTRING_LEN;
-+		}
- 		break;
- 	default:
- 		break;
-@@ -3952,7 +3972,7 @@ static int i40e_set_rxfh(struct net_device *netdev, const u32 *indir,
-  * @dev: network interface device structure
-  *
-  * The get string set count and the string set should be matched for each
-- * flag returned.  Add new strings for each flag to the i40e_priv_flags_strings
-+ * flag returned.  Add new strings for each flag to the i40e_gstrings_priv_flags
-  * array.
-  *
-  * Returns a u32 bitmap of flags.
-@@ -3962,19 +3982,27 @@ static u32 i40e_get_priv_flags(struct net_device *dev)
- 	struct i40e_netdev_priv *np = netdev_priv(dev);
- 	struct i40e_vsi *vsi = np->vsi;
- 	struct i40e_pf *pf = vsi->back;
--	u32 ret_flags = 0;
+- * i40e_get_head - Retrieve head from head writeback
+- * @tx_ring: Tx ring to fetch head of
+- *
+- * Returns value of Tx ring head based on value stored
+- * in head write-back location
+- **/
+-static inline u32 i40e_get_head(struct i40e_ring *tx_ring)
+-{
+-	void *head = (struct i40e_tx_desc *)tx_ring->desc + tx_ring->count;
 -
--	ret_flags |= pf->flags & I40E_FLAG_LINK_POLLING_ENABLED ?
--		I40E_PRIV_FLAGS_LINKPOLL_FLAG : 0;
--	ret_flags |= pf->flags & I40E_FLAG_FD_ATR_ENABLED ?
--		I40E_PRIV_FLAGS_FD_ATR : 0;
--	ret_flags |= pf->flags & I40E_FLAG_VEB_STATS_ENABLED ?
--		I40E_PRIV_FLAGS_VEB_STATS : 0;
--	ret_flags |= pf->hw_disabled_flags & I40E_FLAG_HW_ATR_EVICT_CAPABLE ?
--		0 : I40E_PRIV_FLAGS_HW_ATR_EVICT;
--	if (pf->hw.pf_id == 0) {
--		ret_flags |= pf->flags & I40E_FLAG_TRUE_PROMISC_SUPPORT ?
--			I40E_PRIV_FLAGS_TRUE_PROMISC_SUPPORT : 0;
-+	u32 i, j, ret_flags = 0;
-+
-+	for (i = 0; i < I40E_PRIV_FLAGS_STR_LEN; i++) {
-+		const struct i40e_priv_flags *priv_flags;
-+
-+		priv_flags = &i40e_gstrings_priv_flags[i];
-+
-+		if (priv_flags->flag & pf->flags)
-+			ret_flags |= BIT(i);
-+	}
-+
-+	if (pf->hw.pf_id != 0)
-+		return ret_flags;
-+
-+	for (j = 0; j < I40E_GL_PRIV_FLAGS_STR_LEN; j++) {
-+		const struct i40e_priv_flags *priv_flags;
-+
-+		priv_flags = &i40e_gl_gstrings_priv_flags[j];
-+
-+		if (priv_flags->flag & pf->flags)
-+			ret_flags |= BIT(i + j);
- 	}
- 
- 	return ret_flags;
-@@ -3990,54 +4018,65 @@ static int i40e_set_priv_flags(struct net_device *dev, u32 flags)
- 	struct i40e_netdev_priv *np = netdev_priv(dev);
- 	struct i40e_vsi *vsi = np->vsi;
- 	struct i40e_pf *pf = vsi->back;
--	u16 sw_flags = 0, valid_flags = 0;
--	bool reset_required = false;
--	bool promisc_change = false;
--	int ret;
-+	u64 changed_flags;
-+	u32 i, j;
- 
--	/* NOTE: MFP is not settable */
-+	changed_flags = pf->flags;
- 
--	if (flags & I40E_PRIV_FLAGS_LINKPOLL_FLAG)
--		pf->flags |= I40E_FLAG_LINK_POLLING_ENABLED;
--	else
--		pf->flags &= ~I40E_FLAG_LINK_POLLING_ENABLED;
-+	for (i = 0; i < I40E_PRIV_FLAGS_STR_LEN; i++) {
-+		const struct i40e_priv_flags *priv_flags;
- 
--	/* allow the user to control the state of the Flow
--	 * Director ATR (Application Targeted Routing) feature
--	 * of the driver
--	 */
--	if (flags & I40E_PRIV_FLAGS_FD_ATR) {
--		pf->flags |= I40E_FLAG_FD_ATR_ENABLED;
--	} else {
--		pf->flags &= ~I40E_FLAG_FD_ATR_ENABLED;
--		pf->hw_disabled_flags |= I40E_FLAG_FD_ATR_ENABLED;
-+		priv_flags = &i40e_gstrings_priv_flags[i];
- 
--		/* flush current ATR settings */
--		set_bit(__I40E_FD_FLUSH_REQUESTED, &pf->state);
-+		if (priv_flags->read_only)
-+			continue;
-+
-+		if (flags & BIT(i))
-+			pf->flags |= priv_flags->flag;
-+		else
-+			pf->flags &= ~(priv_flags->flag);
- 	}
- 
--	if ((flags & I40E_PRIV_FLAGS_VEB_STATS) &&
--	    !(pf->flags & I40E_FLAG_VEB_STATS_ENABLED)) {
--		pf->flags |= I40E_FLAG_VEB_STATS_ENABLED;
--		reset_required = true;
--	} else if (!(flags & I40E_PRIV_FLAGS_VEB_STATS) &&
--		   (pf->flags & I40E_FLAG_VEB_STATS_ENABLED)) {
--		pf->flags &= ~I40E_FLAG_VEB_STATS_ENABLED;
--		reset_required = true;
-+	if (pf->hw.pf_id != 0)
-+		goto flags_complete;
-+
-+	for (j = 0; j < I40E_GL_PRIV_FLAGS_STR_LEN; j++) {
-+		const struct i40e_priv_flags *priv_flags;
-+
-+		priv_flags = &i40e_gl_gstrings_priv_flags[j];
-+
-+		if (priv_flags->read_only)
-+			continue;
-+
-+		if (flags & BIT(i + j))
-+			pf->flags |= priv_flags->flag;
-+		else
-+			pf->flags &= ~(priv_flags->flag);
- 	}
- 
--	if (pf->hw.pf_id == 0) {
--		if ((flags & I40E_PRIV_FLAGS_TRUE_PROMISC_SUPPORT) &&
--		    !(pf->flags & I40E_FLAG_TRUE_PROMISC_SUPPORT)) {
--			pf->flags |= I40E_FLAG_TRUE_PROMISC_SUPPORT;
--			promisc_change = true;
--		} else if (!(flags & I40E_PRIV_FLAGS_TRUE_PROMISC_SUPPORT) &&
--			   (pf->flags & I40E_FLAG_TRUE_PROMISC_SUPPORT)) {
--			pf->flags &= ~I40E_FLAG_TRUE_PROMISC_SUPPORT;
--			promisc_change = true;
--		}
-+flags_complete:
-+	changed_flags ^= pf->flags;
-+
-+	/* Process any additional changes needed as a result of flag changes.
-+	 * The changed_flags value reflects the list of bits that were
-+	 * changed in the code above.
-+	 */
-+
-+	/* Flush current ATR settings if ATR was disabled */
-+	if ((changed_flags & I40E_FLAG_FD_ATR_ENABLED) &&
-+	    !(pf->flags & I40E_FLAG_FD_ATR_ENABLED)) {
-+		pf->hw_disabled_flags |= I40E_FLAG_FD_ATR_ENABLED;
-+		set_bit(__I40E_FD_FLUSH_REQUESTED, &pf->state);
- 	}
--	if (promisc_change) {
-+
-+	/* Only allow ATR evict on hardware that is capable of handling it */
-+	if (pf->hw_disabled_flags & I40E_FLAG_HW_ATR_EVICT_CAPABLE)
-+		pf->flags &= ~I40E_FLAG_HW_ATR_EVICT_CAPABLE;
-+
-+	if (changed_flags & I40E_FLAG_TRUE_PROMISC_SUPPORT) {
-+		u16 sw_flags = 0, valid_flags = 0;
-+		int ret;
-+
- 		if (!(pf->flags & I40E_FLAG_TRUE_PROMISC_SUPPORT))
- 			sw_flags = I40E_AQ_SET_SWITCH_CFG_PROMISC;
- 		valid_flags = I40E_AQ_SET_SWITCH_CFG_PROMISC;
-@@ -4053,14 +4092,10 @@ static int i40e_set_priv_flags(struct net_device *dev, u32 flags)
- 		}
- 	}
- 
--	if ((flags & I40E_PRIV_FLAGS_HW_ATR_EVICT) &&
--	    (pf->flags & I40E_FLAG_HW_ATR_EVICT_CAPABLE))
--		pf->hw_disabled_flags &= ~I40E_FLAG_HW_ATR_EVICT_CAPABLE;
--	else
--		pf->hw_disabled_flags |= I40E_FLAG_HW_ATR_EVICT_CAPABLE;
+-	return le32_to_cpu(*(volatile __le32 *)head);
+-}
 -
--	/* if needed, issue reset to cause things to take effect */
--	if (reset_required)
-+	/* Issue reset to cause things to take effect, as additional bits
-+	 * are added we will need to create a mask of bits requiring reset
-+	 */
-+	if (changed_flags & I40E_FLAG_VEB_STATS_ENABLED)
- 		i40e_do_reset(pf, BIT(__I40E_PF_RESET_REQUESTED));
- 
- 	return 0;
+-/**
+  * i40e_xmit_descriptor_count - calculate number of Tx descriptors needed
+  * @skb:     send buffer
+  * @tx_ring: ring to send buffer on
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
+index a2a7354426a3..4bc2488bf709 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
+@@ -260,10 +260,6 @@ void i40evf_configure_queues(struct i40evf_adapter *adapter)
+ 		vqpi->txq.queue_id = i;
+ 		vqpi->txq.ring_len = adapter->tx_rings[i].count;
+ 		vqpi->txq.dma_ring_addr = adapter->tx_rings[i].dma;
+-		vqpi->txq.headwb_enabled = 1;
+-		vqpi->txq.dma_headwb_addr = vqpi->txq.dma_ring_addr +
+-		    (vqpi->txq.ring_len * sizeof(struct i40e_tx_desc));
+-
+ 		vqpi->rxq.vsi_id = vqci->vsi_id;
+ 		vqpi->rxq.queue_id = i;
+ 		vqpi->rxq.ring_len = adapter->rx_rings[i].count;
 -- 
 2.12.0
