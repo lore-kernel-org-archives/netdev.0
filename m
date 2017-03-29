@@ -1,150 +1,93 @@
-From: Wadim Egorov <w.egorov@phytec.de>
-Subject: [PATCH v2] net: stmmac: dwmac-rk: Add handling for RGMII_ID/RXID/TXID
-Date: Wed, 29 Mar 2017 14:12:19 +0200
-Message-ID: <1490789539-43920-1-git-send-email-w.egorov@phytec.de>
-To: peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-rockchip@lists.infradead.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH 0/8] Netfilter fixes for net
+Date: Wed, 29 Mar 2017 14:14:02 +0200
+Message-ID: <1490789650-7294-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-ATM dwmac-rk will always set and enable it's internal delay lines.
-Using PHY internal delays in combination with the phy-mode
-rgmii-id/rxid/txid was not possible. Only rgmii was supported.
+Hi David,
 
-Now we can disable rockchip's gmac delay lines and also use
-rgmii-id/rxid/txid.
+The following patchset contains a rather large update with Netfilter
+fixes, specifically targeted to incorrect RCU usage in several spots and
+the userspace conntrack helper infrastructure (nfnetlink_cthelper),
+more specifically they are:
 
-Tested only with a RK3288 based board.
+1) expect_class_max is incorrect set via cthelper, as in kernel semantics
+   mandate that this represents the array of expectation classes minus 1.
+   Patch from Liping Zhang.
 
-Signed-off-by: Wadim Egorov <w.egorov@phytec.de>
----
-Changes in v2: Added parenthesis around both expressions in DELAY_ENABLE
----
- drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c | 53 ++++++++++++++++++--------
- 1 file changed, 37 insertions(+), 16 deletions(-)
+2) Expectation policy updates via cthelper are currently broken for several
+   reasons: This code allows illegal changes in the policy such as changing
+   the number of expeciation classes, it is leaking the updated policy and
+   such update occurs with no RCU protection at all. Fix this by adding a
+   new nfnl_cthelper_update_policy() that describes what is really legal on
+   the update path.
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
-index e5db6ac..f0df519 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
-@@ -74,6 +74,10 @@ struct rk_priv_data {
- #define GRF_BIT(nr)	(BIT(nr) | BIT(nr+16))
- #define GRF_CLR_BIT(nr)	(BIT(nr+16))
- 
-+#define DELAY_ENABLE(soc, tx, rx) \
-+	(((tx) ? soc##_GMAC_TXCLK_DLY_ENABLE : soc##_GMAC_TXCLK_DLY_DISABLE) | \
-+	 ((rx) ? soc##_GMAC_RXCLK_DLY_ENABLE : soc##_GMAC_RXCLK_DLY_DISABLE))
-+
- #define RK3228_GRF_MAC_CON0	0x0900
- #define RK3228_GRF_MAC_CON1	0x0904
- 
-@@ -115,8 +119,7 @@ static void rk3228_set_to_rgmii(struct rk_priv_data *bsp_priv,
- 	regmap_write(bsp_priv->grf, RK3228_GRF_MAC_CON1,
- 		     RK3228_GMAC_PHY_INTF_SEL_RGMII |
- 		     RK3228_GMAC_RMII_MODE_CLR |
--		     RK3228_GMAC_RXCLK_DLY_ENABLE |
--		     RK3228_GMAC_TXCLK_DLY_ENABLE);
-+		     DELAY_ENABLE(RK3228, tx_delay, rx_delay));
- 
- 	regmap_write(bsp_priv->grf, RK3228_GRF_MAC_CON0,
- 		     RK3228_GMAC_CLK_RX_DL_CFG(rx_delay) |
-@@ -232,8 +235,7 @@ static void rk3288_set_to_rgmii(struct rk_priv_data *bsp_priv,
- 		     RK3288_GMAC_PHY_INTF_SEL_RGMII |
- 		     RK3288_GMAC_RMII_MODE_CLR);
- 	regmap_write(bsp_priv->grf, RK3288_GRF_SOC_CON3,
--		     RK3288_GMAC_RXCLK_DLY_ENABLE |
--		     RK3288_GMAC_TXCLK_DLY_ENABLE |
-+		     DELAY_ENABLE(RK3288, tx_delay, rx_delay) |
- 		     RK3288_GMAC_CLK_RX_DL_CFG(rx_delay) |
- 		     RK3288_GMAC_CLK_TX_DL_CFG(tx_delay));
- }
-@@ -460,8 +462,7 @@ static void rk3366_set_to_rgmii(struct rk_priv_data *bsp_priv,
- 		     RK3366_GMAC_PHY_INTF_SEL_RGMII |
- 		     RK3366_GMAC_RMII_MODE_CLR);
- 	regmap_write(bsp_priv->grf, RK3366_GRF_SOC_CON7,
--		     RK3366_GMAC_RXCLK_DLY_ENABLE |
--		     RK3366_GMAC_TXCLK_DLY_ENABLE |
-+		     DELAY_ENABLE(RK3366, tx_delay, rx_delay) |
- 		     RK3366_GMAC_CLK_RX_DL_CFG(rx_delay) |
- 		     RK3366_GMAC_CLK_TX_DL_CFG(tx_delay));
- }
-@@ -572,8 +573,7 @@ static void rk3368_set_to_rgmii(struct rk_priv_data *bsp_priv,
- 		     RK3368_GMAC_PHY_INTF_SEL_RGMII |
- 		     RK3368_GMAC_RMII_MODE_CLR);
- 	regmap_write(bsp_priv->grf, RK3368_GRF_SOC_CON16,
--		     RK3368_GMAC_RXCLK_DLY_ENABLE |
--		     RK3368_GMAC_TXCLK_DLY_ENABLE |
-+		     DELAY_ENABLE(RK3368, tx_delay, rx_delay) |
- 		     RK3368_GMAC_CLK_RX_DL_CFG(rx_delay) |
- 		     RK3368_GMAC_CLK_TX_DL_CFG(tx_delay));
- }
-@@ -684,8 +684,7 @@ static void rk3399_set_to_rgmii(struct rk_priv_data *bsp_priv,
- 		     RK3399_GMAC_PHY_INTF_SEL_RGMII |
- 		     RK3399_GMAC_RMII_MODE_CLR);
- 	regmap_write(bsp_priv->grf, RK3399_GRF_SOC_CON6,
--		     RK3399_GMAC_RXCLK_DLY_ENABLE |
--		     RK3399_GMAC_TXCLK_DLY_ENABLE |
-+		     DELAY_ENABLE(RK3399, tx_delay, rx_delay) |
- 		     RK3399_GMAC_CLK_RX_DL_CFG(rx_delay) |
- 		     RK3399_GMAC_CLK_TX_DL_CFG(tx_delay));
- }
-@@ -985,14 +984,29 @@ static int rk_gmac_powerup(struct rk_priv_data *bsp_priv)
- 		return ret;
- 
- 	/*rmii or rgmii*/
--	if (bsp_priv->phy_iface == PHY_INTERFACE_MODE_RGMII) {
-+	switch (bsp_priv->phy_iface) {
-+	case PHY_INTERFACE_MODE_RGMII:
- 		dev_info(dev, "init for RGMII\n");
- 		bsp_priv->ops->set_to_rgmii(bsp_priv, bsp_priv->tx_delay,
- 					    bsp_priv->rx_delay);
--	} else if (bsp_priv->phy_iface == PHY_INTERFACE_MODE_RMII) {
-+		break;
-+	case PHY_INTERFACE_MODE_RGMII_ID:
-+		dev_info(dev, "init for RGMII_ID\n");
-+		bsp_priv->ops->set_to_rgmii(bsp_priv, 0, 0);
-+		break;
-+	case PHY_INTERFACE_MODE_RGMII_RXID:
-+		dev_info(dev, "init for RGMII_RXID\n");
-+		bsp_priv->ops->set_to_rgmii(bsp_priv, bsp_priv->tx_delay, 0);
-+		break;
-+	case PHY_INTERFACE_MODE_RGMII_TXID:
-+		dev_info(dev, "init for RGMII_TXID\n");
-+		bsp_priv->ops->set_to_rgmii(bsp_priv, 0, bsp_priv->rx_delay);
-+		break;
-+	case PHY_INTERFACE_MODE_RMII:
- 		dev_info(dev, "init for RMII\n");
- 		bsp_priv->ops->set_to_rmii(bsp_priv);
--	} else {
-+		break;
-+	default:
- 		dev_err(dev, "NO interface defined!\n");
- 	}
- 
-@@ -1022,12 +1036,19 @@ static void rk_fix_speed(void *priv, unsigned int speed)
- 	struct rk_priv_data *bsp_priv = priv;
- 	struct device *dev = &bsp_priv->pdev->dev;
- 
--	if (bsp_priv->phy_iface == PHY_INTERFACE_MODE_RGMII)
-+	switch (bsp_priv->phy_iface) {
-+	case PHY_INTERFACE_MODE_RGMII:
-+	case PHY_INTERFACE_MODE_RGMII_ID:
-+	case PHY_INTERFACE_MODE_RGMII_RXID:
-+	case PHY_INTERFACE_MODE_RGMII_TXID:
- 		bsp_priv->ops->set_rgmii_speed(bsp_priv, speed);
--	else if (bsp_priv->phy_iface == PHY_INTERFACE_MODE_RMII)
-+		break;
-+	case PHY_INTERFACE_MODE_RMII:
- 		bsp_priv->ops->set_rmii_speed(bsp_priv, speed);
--	else
-+		break;
-+	default:
- 		dev_err(dev, "unsupported interface %d", bsp_priv->phy_iface);
-+	}
- }
- 
- static int rk_gmac_probe(struct platform_device *pdev)
--- 
-1.9.1
+3) Fix several memory leaks in cthelper, from Jeffy Chen.
+
+4) synchronize_rcu() is missing in the removal path of several modules,
+   this may lead to races since CPU may still be running on code that has
+   just gone. Also from Liping Zhang.
+
+5) Don't use the helper hashtable from cthelper, it is not safe to walk
+   over those bits without the helper mutex. Fix this by introducing a
+   new independent list for userspace helpers. From Liping Zhang.
+
+6) nf_ct_extend_unregister() needs synchronize_rcu() to make sure no
+   packets are walking on any conntrack extension that is gone after
+   module removal, again from Liping.
+
+7) nf_nat_snmp may crash if we fail to unregister the helper due to
+   accidental leftover code, from Gao Feng.
+
+8) Fix leak in nfnetlink_queue with secctx support, from Liping Zhang.
+
+You can pull these changes from:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git
+
+Thanks!
+
+----------------------------------------------------------------
+
+The following changes since commit db7f00b8dba6d687b6ab1f2e9309acfd214fcb4b:
+
+  tcp: tcp_get_info() should read tcp_time_stamp later (2017-03-16 21:37:13 -0700)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git HEAD
+
+for you to fetch changes up to 77c1c03c5b8ef28e55bb0aff29b1e006037ca645:
+
+  netfilter: nfnetlink_queue: fix secctx memory leak (2017-03-29 12:20:50 +0200)
+
+----------------------------------------------------------------
+Gao Feng (1):
+      netfilter: nf_nat_snmp: Fix panic when snmp_trap_helper fails to register
+
+Jeffy Chen (1):
+      netfilter: nfnl_cthelper: Fix memory leak
+
+Liping Zhang (5):
+      netfilter: nfnl_cthelper: fix incorrect helper->expect_class_max
+      netfilter: invoke synchronize_rcu after set the _hook_ to NULL
+      netfilter: nfnl_cthelper: fix a race when walk the nf_ct_helper_hash table
+      netfilter: nf_ct_ext: fix possible panic after nf_ct_extend_unregister
+      netfilter: nfnetlink_queue: fix secctx memory leak
+
+Pablo Neira Ayuso (1):
+      netfilter: nfnl_cthelper: fix runtime expectation policy updates
+
+ net/ipv4/netfilter/nf_nat_snmp_basic.c |  20 +--
+ net/netfilter/nf_conntrack_ecache.c    |   2 +
+ net/netfilter/nf_conntrack_extend.c    |  13 +-
+ net/netfilter/nf_conntrack_netlink.c   |   1 +
+ net/netfilter/nf_nat_core.c            |   2 +
+ net/netfilter/nfnetlink_cthelper.c     | 287 +++++++++++++++++++++------------
+ net/netfilter/nfnetlink_cttimeout.c    |   2 +-
+ net/netfilter/nfnetlink_queue.c        |   9 +-
+ 8 files changed, 206 insertions(+), 130 deletions(-)
