@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 2/9] net: dsa: mv88e6xxx: use 4-bit port for PVT data
-Date: Wed, 29 Mar 2017 16:30:13 -0400
-Message-ID: <20170329203020.27042-3-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 6/9] net: dsa: mv88e6xxx: factorize in-chip bridge map
+Date: Wed, 29 Mar 2017 16:30:17 -0400
+Message-ID: <20170329203020.27042-7-vivien.didelot@savoirfairelinux.com>
 References: <20170329203020.27042-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
@@ -14,125 +14,103 @@ In-Reply-To: <20170329203020.27042-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The Cross-chip Port Based VLAN Table (PVT) supports two indexing modes,
-one using 5-bit for device and 4-bit for port, the other using 4-bit for
-device and 5-bit for port, configured via the Global 2 Misc register.
+Factorize the code in the DSA port_bridge_{join,leave} routines used to
+program the port VLAN map of all local ports of a given bridge group.
 
-Only 4 bits for the source port are needed when interconnecting 88E6xxx
-switch devices since they all support less than 16 physical ports. The
-full 5 bits are needed when interconnecting a device with 98DXxxx switch
-devices since they support more than 16 physical ports.
-
-Add a mv88e6xxx_pvt_setup helper to set the 4-bit port PVT mode, which
-will be extended later to also initialize the PVT content.
+In the meantime shorten the _mv88e6xxx_port_based_vlan_map to get rid of
+the old underscore prefix naming convention.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/mv88e6xxx/chip.c      | 15 +++++++++++++++
- drivers/net/dsa/mv88e6xxx/global2.c   | 19 +++++++++++++++++++
- drivers/net/dsa/mv88e6xxx/global2.h   |  7 +++++++
- drivers/net/dsa/mv88e6xxx/mv88e6xxx.h |  1 +
- 4 files changed, 42 insertions(+)
+ drivers/net/dsa/mv88e6xxx/chip.c | 47 +++++++++++++++++++++-------------------
+ 1 file changed, 25 insertions(+), 22 deletions(-)
 
 diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index 8f1f881d0375..4aa083674a00 100644
+index e5165831e8b5..99f8c6106af5 100644
 --- a/drivers/net/dsa/mv88e6xxx/chip.c
 +++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -1198,6 +1198,17 @@ static int mv88e6xxx_atu_setup(struct mv88e6xxx_chip *chip)
- 	return mv88e6xxx_g1_atu_set_age_time(chip, 300000);
+@@ -1156,7 +1156,7 @@ static u16 mv88e6xxx_port_vlan(struct mv88e6xxx_chip *chip, int dev, int port)
+ 	return pvlan;
  }
  
-+static int mv88e6xxx_pvt_setup(struct mv88e6xxx_chip *chip)
-+{
-+	if (!mv88e6xxx_has_pvt(chip))
-+		return 0;
-+
-+	/* Clear 5 Bit Port for usage with Marvell Link Street devices:
-+	 * use 4 bits for the Src_Port/Src_Trunk and 5 bits for the Src_Dev.
-+	 */
-+	return mv88e6xxx_g2_misc_5_bit_port(chip, false);
-+}
-+
- static void mv88e6xxx_port_fast_age(struct dsa_switch *ds, int port)
+-static int _mv88e6xxx_port_based_vlan_map(struct mv88e6xxx_chip *chip, int port)
++static int mv88e6xxx_port_vlan_map(struct mv88e6xxx_chip *chip, int port)
  {
- 	struct mv88e6xxx_chip *chip = ds->priv;
-@@ -2594,6 +2605,10 @@ static int mv88e6xxx_setup(struct dsa_switch *ds)
- 			goto unlock;
- 	}
+ 	u16 output_ports = mv88e6xxx_port_vlan(chip, chip->ds->index, port);
  
-+	err = mv88e6xxx_pvt_setup(chip);
-+	if (err)
-+		goto unlock;
-+
- 	err = mv88e6xxx_atu_setup(chip);
- 	if (err)
- 		goto unlock;
-diff --git a/drivers/net/dsa/mv88e6xxx/global2.c b/drivers/net/dsa/mv88e6xxx/global2.c
-index 77053f60fb84..001ef7d69bc6 100644
---- a/drivers/net/dsa/mv88e6xxx/global2.c
-+++ b/drivers/net/dsa/mv88e6xxx/global2.c
-@@ -783,6 +783,25 @@ static int mv88e6xxx_g2_watchdog_setup(struct mv88e6xxx_chip *chip)
+@@ -2140,23 +2140,32 @@ static int mv88e6xxx_port_fdb_dump(struct dsa_switch *ds, int port,
  	return err;
  }
  
-+/* Offset 0x1D: Misc Register */
-+
-+int mv88e6xxx_g2_misc_5_bit_port(struct mv88e6xxx_chip *chip, bool port_5_bit)
++static int mv88e6xxx_bridge_map(struct mv88e6xxx_chip *chip,
++				struct net_device *br)
 +{
-+	u16 val;
++	int port;
 +	int err;
 +
-+	err = mv88e6xxx_g2_read(chip, GLOBAL2_MISC, &val);
-+	if (err)
-+		return err;
++	/* Remap the Port VLAN of each local bridge group member */
++	for (port = 0; port < mv88e6xxx_num_ports(chip); ++port) {
++		if (chip->ds->ports[port].bridge_dev == br) {
++			err = mv88e6xxx_port_vlan_map(chip, port);
++			if (err)
++				return err;
++		}
++	}
 +
-+	if (port_5_bit)
-+		val |= GLOBAL2_MISC_5_BIT_PORT;
-+	else
-+		val &= ~GLOBAL2_MISC_5_BIT_PORT;
-+
-+	return mv88e6xxx_g2_write(chip, GLOBAL2_MISC, val);
++	return 0;
 +}
 +
- static void mv88e6xxx_g2_irq_mask(struct irq_data *d)
+ static int mv88e6xxx_port_bridge_join(struct dsa_switch *ds, int port,
+ 				      struct net_device *br)
  {
- 	struct mv88e6xxx_chip *chip = irq_data_get_irq_chip_data(d);
-diff --git a/drivers/net/dsa/mv88e6xxx/global2.h b/drivers/net/dsa/mv88e6xxx/global2.h
-index f8b6dd93213a..fb69062902a9 100644
---- a/drivers/net/dsa/mv88e6xxx/global2.h
-+++ b/drivers/net/dsa/mv88e6xxx/global2.h
-@@ -42,6 +42,8 @@ int mv88e6xxx_g2_get_eeprom16(struct mv88e6xxx_chip *chip,
- int mv88e6xxx_g2_set_eeprom16(struct mv88e6xxx_chip *chip,
- 			      struct ethtool_eeprom *eeprom, u8 *data);
+ 	struct mv88e6xxx_chip *chip = ds->priv;
+-	int i, err = 0;
++	int err;
  
-+int mv88e6xxx_g2_misc_5_bit_port(struct mv88e6xxx_chip *chip, bool port_5_bit);
-+
- int mv88e6xxx_g2_setup(struct mv88e6xxx_chip *chip);
- int mv88e6xxx_g2_irq_setup(struct mv88e6xxx_chip *chip);
- void mv88e6xxx_g2_irq_free(struct mv88e6xxx_chip *chip);
-@@ -110,6 +112,11 @@ static inline int mv88e6xxx_g2_set_eeprom16(struct mv88e6xxx_chip *chip,
- 	return -EOPNOTSUPP;
+ 	mutex_lock(&chip->reg_lock);
+-
+-	/* Remap each port's VLANTable */
+-	for (i = 0; i < mv88e6xxx_num_ports(chip); ++i) {
+-		if (ds->ports[i].bridge_dev == br) {
+-			err = _mv88e6xxx_port_based_vlan_map(chip, i);
+-			if (err)
+-				break;
+-		}
+-	}
+-
++	err = mv88e6xxx_bridge_map(chip, br);
+ 	mutex_unlock(&chip->reg_lock);
+ 
+ 	return err;
+@@ -2166,17 +2175,11 @@ static void mv88e6xxx_port_bridge_leave(struct dsa_switch *ds, int port,
+ 					struct net_device *br)
+ {
+ 	struct mv88e6xxx_chip *chip = ds->priv;
+-	int i;
+ 
+ 	mutex_lock(&chip->reg_lock);
+-
+-	/* Remap each port's VLANTable */
+-	for (i = 0; i < mv88e6xxx_num_ports(chip); ++i)
+-		if (i == port || ds->ports[i].bridge_dev == br)
+-			if (_mv88e6xxx_port_based_vlan_map(chip, i))
+-				netdev_warn(ds->ports[i].netdev,
+-					    "failed to remap\n");
+-
++	if (mv88e6xxx_bridge_map(chip, br) ||
++	    mv88e6xxx_port_vlan_map(chip, port))
++		dev_err(ds->dev, "failed to remap in-chip Port VLAN\n");
+ 	mutex_unlock(&chip->reg_lock);
  }
  
-+int mv88e6xxx_g2_misc_5_bit_port(struct mv88e6xxx_chip *chip, bool port_5_bit)
-+{
-+	return -EOPNOTSUPP;
-+}
-+
- static inline int mv88e6xxx_g2_setup(struct mv88e6xxx_chip *chip)
- {
- 	return -EOPNOTSUPP;
-diff --git a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-index 97dd3e2d2a56..bcaa55b20f5a 100644
---- a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-+++ b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-@@ -439,6 +439,7 @@
- #define GLOBAL2_WDOG_FORCE_IRQ			BIT(0)
- #define GLOBAL2_QOS_WEIGHT	0x1c
- #define GLOBAL2_MISC		0x1d
-+#define GLOBAL2_MISC_5_BIT_PORT	BIT(14)
+@@ -2490,7 +2493,7 @@ static int mv88e6xxx_setup_port(struct mv88e6xxx_chip *chip, int port)
+ 	if (err)
+ 		return err;
  
- #define MV88E6XXX_N_FID		4096
+-	err = _mv88e6xxx_port_based_vlan_map(chip, port);
++	err = mv88e6xxx_port_vlan_map(chip, port);
+ 	if (err)
+ 		return err;
  
 -- 
 2.12.1
