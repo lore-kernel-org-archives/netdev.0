@@ -1,87 +1,98 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH ethtool] ethtool: Support for configurable RSS hash
- function
-Date: Wed, 29 Mar 2017 10:49:22 -0400
-Message-ID: <20170329144921.GC18103@tuxdriver.com>
-References: <1488981831-19376-1-git-send-email-galp@mellanox.com>
- <20170325145047.6a5a7967@cakuba.netronome.com>
- <20170327180203.GB29050@tuxdriver.com>
- <29780e3c-b8df-a4f7-72f5-53e94bd448b4@mellanox.com>
+From: Julia Lawall <julia.lawall@lip6.fr>
+Subject: Re: [PATCH net-next v6 01/11] bpf: Add eBPF program subtype and
+ is_valid_subtype() verifier (fwd)
+Date: Wed, 29 Mar 2017 17:14:11 +0200 (CEST)
+Message-ID: <alpine.DEB.2.20.1703291712590.2989@hadrien>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jakub Kicinski <kubakici@wp.pl>, netdev@vger.kernel.org,
-        Eyal Perry <eyalpe@mellanox.com>
-To: Gal Pressman <galp@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:59538 "EHLO
-        smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751254AbdC2PAR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 29 Mar 2017 11:00:17 -0400
-Content-Disposition: inline
-In-Reply-To: <29780e3c-b8df-a4f7-72f5-53e94bd448b4@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/mixed; BOUNDARY="8323329-221869612-1490800451=:2989"
+Cc: linux-kernel@vger.kernel.org,
+        =?ISO-8859-15?Q?Micka=EBl_Sala=FCn?= <mic@digikod.net>,
+        Alexei Starovoitov <ast@kernel.org>,
+        Andy Lutomirski <luto@amacapital.net>,
+        Arnaldo Carvalho de Melo <acme@kernel.org>,
+        Casey Schaufler <casey@schaufler-ca.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        David Drysdale <drysdale@google.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        "Eric W . Biederman" <ebiederm@xmission.com>,
+        James Morris <james.l.morris@oracle.com>,
+        Jann Horn <jann@thejh.net>, Jonathan Corbet <corbet@lwn.net>,
+        Matthew Garrett <mjg59@srcf.ucam.org>,
+        Michael Kerrisk <mtk.manpages@gmail.com>,
+        Kees Cook <keescook@chromium.org>,
+        Paul Moore <paul@paul-moore.com>,
+        Sargun Dhillon <sargun@sargun.me>,
+        "Serge E . Hallyn" <serge@hallyn.com>,
+        Shuah Khan
+To: =?ISO-8859-15?Q?Micka=EBl_Sala=FCn?= <mic@digikod.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 29, 2017 at 02:56:38PM +0300, Gal Pressman wrote:
-> On 27/03/2017 21:02, John W. Linville wrote:
-> > On Sat, Mar 25, 2017 at 02:50:47PM -0700, Jakub Kicinski wrote:
-> >> On Wed,  8 Mar 2017 16:03:51 +0200, Gal Pressman wrote:
-> >>> This ethtool patch adds support to set and get the current RSS hash
-> >>> function for the device through the new hfunc mask field in the
-> >>> ethtool_rxfh struct. Kernel supported hash function names are queried
-> >>> with ETHTOOL_GSTRINGS - each string is corresponding with a bit in hfunc
-> >>> mask according to its index in the string-set.
-> >>>
-> >>> Signed-off-by: Eyal Perry <eyalpe@mellanox.com>
-> >>> Signed-off-by: Gal Pressman <galp@mellanox.com>
-> >>> Reviewed-by: Saeed Mahameed <saeedm@mellanox.com>
-> >> Hi John,
-> >>
-> >> It seems you have applied both my earlier patch with get support and
-> >> this:
-> >>
-> >> adbaa18b9bc1 ("ethtool: Support for configurable RSS hash function")
-> >> b932835d2302 ("ethtool: print hash function with ethtool -x|--show-rxfh-indir")
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-Damn it! I was bamboozled...
+--8323329-221869612-1490800451=:2989
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
 
-> >> Now we print the RSS function twice:
-> >>
-> >> RX flow hash indirection table for em4 with 4 RX ring(s):
-> >>     0:      [...]
-> >> RSS hash function: toeplitz  <--- from my adbaa18b9bc1
+Size is unsigned, so not negative.
 
-This should have said "<--- from my b932835d2302"...
+julia
 
-> >> RSS hash key:
-> >> Operation not supported
-> >> RSS hash function:           <--- from this patch
-> >>     toeplitz: on
-> >>     xor: off
-> >>     crc32: off
-> >>
-> >> Reverting my patch is probably the easiest way forward, although I find
-> >> it more concise and easier to parse in test scripts :)
-> > Thanks for pointing-out this issue! I apologize for my own confusion.
-> >
-> > As you suggest, I will be reverting your patch.
-> >
-> > Thanks,
-> >
-> > John
-> 126464e4da18 ('Revert "ethtool: Support for configurable RSS hash function"')
-> 
-> Seems like you ended up reverting my patch instead of Jakub's?
-> We lost the set hfunc functionality.
+---------- Forwarded message ----------
+Date: Wed, 29 Mar 2017 23:06:01 +0800
+From: kbuild test robot <fengguang.wu@intel.com>
+To: kbuild@01.org
+Cc: Julia Lawall <julia.lawall@lip6.fr>
+Subject: Re: [PATCH net-next v6 01/11] bpf: Add eBPF program subtype and
+    is_valid_subtype() verifier
 
-Confused by the swapped commit IDs above, I dutifully reverted
-"adbaa18b9bc1"...ugh...
+In-Reply-To: <20170328234650.19695-2-mic@digikod.net>
+TO: "Mickaël Salaün" <mic@digikod.net>
 
-Alright, I'll have to tighten-up my game a bit! From here I'll revert
-b932835d2302 and reinstate adbaa18b9bc1, hopefully bringing this
-little misadventure to a close.
+Hi Mickaël,
 
-John
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+[auto build test WARNING on net-next/master]
+
+url:    https://github.com/0day-ci/linux/commits/Micka-l-Sala-n/Landlock-LSM-Toward-unprivileged-sandboxing/20170329-211258
+:::::: branch date: 2 hours ago
+:::::: commit date: 2 hours ago
+
+>> kernel/bpf/syscall.c:1041:5-9: WARNING: Unsigned expression compared with zero: size < 0
+
+git remote add linux-review https://github.com/0day-ci/linux
+git remote update linux-review
+git checkout 07d282aef4f60235407284c0be81d01e352e040b
+vim +1041 kernel/bpf/syscall.c
+
+f4324551 Daniel Mack        2016-11-23  1025  		return -EINVAL;
+f4324551 Daniel Mack        2016-11-23  1026  	}
+f4324551 Daniel Mack        2016-11-23  1027
+7f677633 Alexei Starovoitov 2017-02-10  1028  	return ret;
+f4324551 Daniel Mack        2016-11-23  1029  }
+f4324551 Daniel Mack        2016-11-23  1030  #endif /* CONFIG_CGROUP_BPF */
+f4324551 Daniel Mack        2016-11-23  1031
+99c55f7d Alexei Starovoitov 2014-09-26  1032  SYSCALL_DEFINE3(bpf, int, cmd, union bpf_attr __user *, uattr, unsigned int, size)
+99c55f7d Alexei Starovoitov 2014-09-26  1033  {
+99c55f7d Alexei Starovoitov 2014-09-26  1034  	union bpf_attr attr = {};
+99c55f7d Alexei Starovoitov 2014-09-26  1035  	int err;
+99c55f7d Alexei Starovoitov 2014-09-26  1036
+1be7f75d Alexei Starovoitov 2015-10-07  1037  	if (!capable(CAP_SYS_ADMIN) && sysctl_unprivileged_bpf_disabled)
+99c55f7d Alexei Starovoitov 2014-09-26  1038  		return -EPERM;
+99c55f7d Alexei Starovoitov 2014-09-26  1039
+07d282ae Mickaël Salaün     2017-03-29  1040  	size = check_user_buf((void __user *)uattr, size, sizeof(attr));
+07d282ae Mickaël Salaün     2017-03-29 @1041  	if (size < 0)
+07d282ae Mickaël Salaün     2017-03-29  1042  		return size;
+99c55f7d Alexei Starovoitov 2014-09-26  1043
+99c55f7d Alexei Starovoitov 2014-09-26  1044  	/* copy attributes from user space, may be less than sizeof(bpf_attr) */
+99c55f7d Alexei Starovoitov 2014-09-26  1045  	if (copy_from_user(&attr, uattr, size) != 0)
+99c55f7d Alexei Starovoitov 2014-09-26  1046  		return -EFAULT;
+99c55f7d Alexei Starovoitov 2014-09-26  1047
+99c55f7d Alexei Starovoitov 2014-09-26  1048  	switch (cmd) {
+99c55f7d Alexei Starovoitov 2014-09-26  1049  	case BPF_MAP_CREATE:
+
+---
+0-DAY kernel test infrastructure                Open Source Technology Center
+https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
+--8323329-221869612-1490800451=:2989--
