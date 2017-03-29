@@ -1,90 +1,70 @@
-From: Michael Scott <michael.scott@linaro.org>
-Subject: [PATCH] bluetooth: 6lowpan: fix delay work init in add_peer_chan()
-Date: Tue, 28 Mar 2017 23:10:54 -0700
-Message-ID: <20170329061054.4300-1-michael.scott@linaro.org>
-Cc: "David S . Miller" <davem@davemloft.net>,
-        Jukka Rissanen <jukka.rissanen@linux.intel.com>,
-        linux-bluetooth@vger.kernel.org, linux-wpan@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Michael Scott <michael.scott@linaro.org>
-To: Marcel Holtmann <marcel@holtmann.org>,
-        Gustavo Padovan <gustavo@padovan.org>,
-        Johan Hedberg <johan.hedberg@gmail.com>
+From: Philippe Reynes <tremyfr@gmail.com>
+Subject: [PATCH v2] net: veth: use new api ethtool_{get|set}_link_ksettings
+Date: Wed, 29 Mar 2017 08:24:21 +0200
+Message-ID: <1490768661-12467-1-git-send-email-tremyfr@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Philippe Reynes <tremyfr@gmail.com>
+To: davem@davemloft.net, lucien.xin@gmail.com, jarod@redhat.com,
+        stephen@networkplumber.org, dsa@cumulusnetworks.com,
+        aduyck@mirantis.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When adding 6lowpan devices very rapidly we sometimes see a crash:
-[23122.306615] CPU: 2 PID: 0 Comm: swapper/2 Not tainted 4.9.0-43-arm64 #1 Debian 4.9.9.linaro.43-1
-[23122.315400] Hardware name: HiKey Development Board (DT)
-[23122.320623] task: ffff800075443080 task.stack: ffff800075484000
-[23122.326551] PC is at expire_timers+0x70/0x150
-[23122.330907] LR is at run_timer_softirq+0xa0/0x1a0
-[23122.335616] pc : [<ffff000008142dd8>] lr : [<ffff000008142f58>] pstate: 600001c5
+The ethtool api {get|set}_settings is deprecated.
+We move this driver to new api {get|set}_link_ksettings.
 
-This was due to add_peer_chan() unconditionally initializing the
-lowpan_btle_dev->notify_peers delayed work structure, even if the
-lowpan_btle_dev passed into add_peer_chan() had previously been
-initialized.
-
-Normally, this would go unnoticed as the delayed work timer is set for
-100 msec, however when calling add_peer_chan() faster than 100 msec it
-clears out a previously queued delay work causing the crash above.
-
-To fix this, let add_peer_chan() know when a new lowpan_btle_dev is passed
-in so that it only performs the delay work initialization when needed.
-
-Signed-off-by: Michael Scott <michael.scott@linaro.org>
+Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
 ---
- net/bluetooth/6lowpan.c | 10 +++++++---
- 1 file changed, 7 insertions(+), 3 deletions(-)
+Changelog:
+v2:
+- avoid useless initiazation to zero (thanks Xin Long)
 
-diff --git a/net/bluetooth/6lowpan.c b/net/bluetooth/6lowpan.c
-index e27be3ca0a0c..c282482edc2c 100644
---- a/net/bluetooth/6lowpan.c
-+++ b/net/bluetooth/6lowpan.c
-@@ -754,7 +754,8 @@ static void set_ip_addr_bits(u8 addr_type, u8 *addr)
+ drivers/net/veth.c |   19 +++++++------------
+ 1 files changed, 7 insertions(+), 12 deletions(-)
+
+diff --git a/drivers/net/veth.c b/drivers/net/veth.c
+index 8c39d6d..3171036 100644
+--- a/drivers/net/veth.c
++++ b/drivers/net/veth.c
+@@ -45,18 +45,13 @@ struct veth_priv {
+ 	{ "peer_ifindex" },
+ };
+ 
+-static int veth_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
++static int veth_get_link_ksettings(struct net_device *dev,
++				   struct ethtool_link_ksettings *cmd)
+ {
+-	cmd->supported		= 0;
+-	cmd->advertising	= 0;
+-	ethtool_cmd_speed_set(cmd, SPEED_10000);
+-	cmd->duplex		= DUPLEX_FULL;
+-	cmd->port		= PORT_TP;
+-	cmd->phy_address	= 0;
+-	cmd->transceiver	= XCVR_INTERNAL;
+-	cmd->autoneg		= AUTONEG_DISABLE;
+-	cmd->maxtxpkt		= 0;
+-	cmd->maxrxpkt		= 0;
++	cmd->base.speed		= SPEED_10000;
++	cmd->base.duplex	= DUPLEX_FULL;
++	cmd->base.port		= PORT_TP;
++	cmd->base.autoneg	= AUTONEG_DISABLE;
+ 	return 0;
  }
  
- static struct l2cap_chan *add_peer_chan(struct l2cap_chan *chan,
--					struct lowpan_btle_dev *dev)
-+					struct lowpan_btle_dev *dev,
-+					bool new_netdev)
- {
- 	struct lowpan_peer *peer;
- 
-@@ -785,7 +786,8 @@ static struct l2cap_chan *add_peer_chan(struct l2cap_chan *chan,
- 	spin_unlock(&devices_lock);
- 
- 	/* Notifying peers about us needs to be done without locks held */
--	INIT_DELAYED_WORK(&dev->notify_peers, do_notify_peers);
-+	if (new_netdev)
-+		INIT_DELAYED_WORK(&dev->notify_peers, do_notify_peers);
- 	schedule_delayed_work(&dev->notify_peers, msecs_to_jiffies(100));
- 
- 	return peer->chan;
-@@ -842,6 +844,7 @@ static int setup_netdev(struct l2cap_chan *chan, struct lowpan_btle_dev **dev)
- static inline void chan_ready_cb(struct l2cap_chan *chan)
- {
- 	struct lowpan_btle_dev *dev;
-+	bool new_netdev = false;
- 
- 	dev = lookup_dev(chan->conn);
- 
-@@ -852,12 +855,13 @@ static inline void chan_ready_cb(struct l2cap_chan *chan)
- 			l2cap_chan_del(chan, -ENOENT);
- 			return;
- 		}
-+		new_netdev = true;
- 	}
- 
- 	if (!try_module_get(THIS_MODULE))
- 		return;
- 
--	add_peer_chan(chan, dev);
-+	add_peer_chan(chan, dev, new_netdev);
- 	ifup(dev->netdev);
+@@ -95,12 +90,12 @@ static void veth_get_ethtool_stats(struct net_device *dev,
  }
  
+ static const struct ethtool_ops veth_ethtool_ops = {
+-	.get_settings		= veth_get_settings,
+ 	.get_drvinfo		= veth_get_drvinfo,
+ 	.get_link		= ethtool_op_get_link,
+ 	.get_strings		= veth_get_strings,
+ 	.get_sset_count		= veth_get_sset_count,
+ 	.get_ethtool_stats	= veth_get_ethtool_stats,
++	.get_link_ksettings	= veth_get_link_ksettings,
+ };
+ 
+ static netdev_tx_t veth_xmit(struct sk_buff *skb, struct net_device *dev)
 -- 
-2.11.0
+1.7.4.4
