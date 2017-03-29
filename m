@@ -1,66 +1,46 @@
-From: <salome.khum@vision-france.net>
-Subject: 8680 netdev
-Date: Wed, 29 Mar 2017 23:15:03 -0000
-Message-ID: <149082930315.21476.14369563225526178984@nojabrsk.ru>
-Reply-To: <salome.khum@vision-france.net>
+From: Seiichi Ikarashi <s.ikarashi@jp.fujitsu.com>
+Subject: Re: [PATCH] tcp: possible race between tcp_done() and tcp_poll()
+Date: Thu, 30 Mar 2017 08:19:00 +0900
+Message-ID: <3357c94d-fda9-1d3b-28f2-fe0fe2f82022@jp.fujitsu.com>
+References: <34d952a3-77cd-ea53-c3e3-ccde91d5cf63@jp.fujitsu.com>
+ <bf4e81fe-7213-8af5-4d5a-4bf2737eee7b@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: application/zip; name="74201648.zip"
-Content-Transfer-Encoding: base64
-To: "netdev" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from adsl-90-150-20-246.nojabrsk.ru ([90.150.20.246]:37040 "HELO
-        nojabrsk.ru" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-        id S1753026AbdC2XPJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 29 Mar 2017 19:15:09 -0400
-Content-Disposition: attachment
+Received: from mgwym02.jp.fujitsu.com ([211.128.242.41]:48841 "EHLO
+        mgwym02.jp.fujitsu.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932899AbdC2Xa5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 29 Mar 2017 19:30:57 -0400
+Received: from g01jpfmpwkw03.exch.g01.fujitsu.local (g01jpfmpwkw03.exch.g01.fujitsu.local [10.0.193.57])
+        by yt-mxq.gw.nic.fujitsu.com (Postfix) with ESMTP id D50D2AC0124
+        for <netdev@vger.kernel.org>; Thu, 30 Mar 2017 08:19:41 +0900 (JST)
+In-Reply-To: <bf4e81fe-7213-8af5-4d5a-4bf2737eee7b@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-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
+Thanks Sergei!
+
+On 2017-03-29 20:57, Sergei Shtylyov wrote:
+> Hello!
+> 
+> On 3/29/2017 8:22 AM, Seiichi Ikarashi wrote:
+> 
+>> Similar to commit a4d258036ed9b2a1811.
+> 
+>    Commit citing is standardized: it should specify 12-digit (at least) SHA1 and the commit summary line enclosed in ("").
+> 
+>> Between receiving a packet and tcp_poll(), sk->sk_err is protected by memory barriers but
+>> sk->sk_shutdown and sk->sk_state are not. So possibly, POLLIN|POLLRDNORM|POLLRDHUP might
+>> not be set even when receiving a RST packet.
+>>
+>> Signed-off-by: Seiichi Ikarashi <s.ikarashi@jp.fujitsu.com>
+>>
+> 
+>     Should be --- before the diffstat.
+
+I'll resend.
+
+Seiichi Ikarashi
