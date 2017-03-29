@@ -1,8 +1,7 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH 2/2] virtio_net: clear MTU when out of range
-Date: Wed, 29 Mar 2017 20:14:46 +0300
-Message-ID: <1490807652-27889-2-git-send-email-mst@redhat.com>
-References: <1490807652-27889-1-git-send-email-mst@redhat.com>
+Subject: [PATCH] virtio_net: fix support for small rings
+Date: Wed, 29 Mar 2017 20:15:04 +0300
+Message-ID: <1490807701-27963-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -10,7 +9,6 @@ Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org
 To: linux-kernel@vger.kernel.org
 Return-path: <virtualization-bounces@lists.linux-foundation.org>
 Content-Disposition: inline
-In-Reply-To: <1490807652-27889-1-git-send-email-mst@redhat.com>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
 	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
@@ -22,93 +20,98 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-virtio attempts to clear the MTU feature bit if the value is out of the
-supported range, but this has no real effect since FEATURES_OK has
-already been set.
+When ring size is small (<32 entries) making buffers smaller means a
+full ring might not be able to hold enough buffers to fit a single large
+packet.
 
-Fix this up by checking the MTU in the new validate callback.
+Make sure a ring full of buffers is large enough to allow at least one
+packet of max size.
 
-Fixes: 14de9d114a82 ("virtio-net: Add initial MTU advice feature")
+Fixes: 2613af0ed18a ("virtio_net: migrate mergeable rx buffers to page frag allocators")
 Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 ---
- drivers/net/virtio_net.c | 41 ++++++++++++++++++++++++++++++-----------
- 1 file changed, 30 insertions(+), 11 deletions(-)
+ drivers/net/virtio_net.c | 29 +++++++++++++++++++++++++----
+ 1 file changed, 25 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index f6a379d..6aba098 100644
+index 9dc31dc..f6a379d 100644
 --- a/drivers/net/virtio_net.c
 +++ b/drivers/net/virtio_net.c
-@@ -2312,14 +2312,8 @@ static bool virtnet_validate_features(struct virtio_device *vdev)
- #define MIN_MTU ETH_MIN_MTU
- #define MAX_MTU ETH_MAX_MTU
+@@ -98,6 +98,9 @@ struct receive_queue {
+ 	/* RX: fragments + linear part + virtio header */
+ 	struct scatterlist sg[MAX_SKB_FRAGS + 2];
  
--static int virtnet_probe(struct virtio_device *vdev)
-+static int virtnet_validate(struct virtio_device *vdev)
- {
--	int i, err;
--	struct net_device *dev;
--	struct virtnet_info *vi;
--	u16 max_queue_pairs;
--	int mtu;
--
- 	if (!vdev->config->get) {
- 		dev_err(&vdev->dev, "%s failure: config access disabled\n",
- 			__func__);
-@@ -2329,6 +2323,25 @@ static int virtnet_probe(struct virtio_device *vdev)
- 	if (!virtnet_validate_features(vdev))
- 		return -EINVAL;
- 
-+	if (virtio_has_feature(vdev, VIRTIO_NET_F_MTU)) {
-+		int mtu = virtio_cread16(vdev,
-+					 offsetof(struct virtio_net_config,
-+						  mtu));
-+		if (mtu < MIN_MTU)
-+			__virtio_clear_bit(vdev, VIRTIO_NET_F_MTU);
-+	}
++	/* Min single buffer size for mergeable buffers case. */
++	unsigned int min_buf_len;
 +
-+	return 0;
+ 	/* Name of this receive queue: input.$index */
+ 	char name[40];
+ };
+@@ -894,13 +897,14 @@ static int add_recvbuf_big(struct virtnet_info *vi, struct receive_queue *rq,
+ 	return err;
+ }
+ 
+-static unsigned int get_mergeable_buf_len(struct ewma_pkt_len *avg_pkt_len)
++static unsigned int get_mergeable_buf_len(struct receive_queue *rq,
++					  struct ewma_pkt_len *avg_pkt_len)
+ {
+ 	const size_t hdr_len = sizeof(struct virtio_net_hdr_mrg_rxbuf);
+ 	unsigned int len;
+ 
+ 	len = hdr_len + clamp_t(unsigned int, ewma_pkt_len_read(avg_pkt_len),
+-			GOOD_PACKET_LEN, PAGE_SIZE - hdr_len);
++				rq->min_buf_len - hdr_len, PAGE_SIZE - hdr_len);
+ 	return ALIGN(len, L1_CACHE_BYTES);
+ }
+ 
+@@ -914,7 +918,7 @@ static int add_recvbuf_mergeable(struct virtnet_info *vi,
+ 	int err;
+ 	unsigned int len, hole;
+ 
+-	len = get_mergeable_buf_len(&rq->mrg_avg_pkt_len);
++	len = get_mergeable_buf_len(rq, &rq->mrg_avg_pkt_len);
+ 	if (unlikely(!skb_page_frag_refill(len + headroom, alloc_frag, gfp)))
+ 		return -ENOMEM;
+ 
+@@ -2086,6 +2090,21 @@ static void virtnet_del_vqs(struct virtnet_info *vi)
+ 	virtnet_free_queues(vi);
+ }
+ 
++/* How large should a single buffer be so a queue full of these can fit at
++ * least one full packet?
++ * Logic below assumes the mergeable buffer header is used.
++ */
++static unsigned int mergeable_min_buf_len(struct virtnet_info *vi, struct virtqueue *vq)
++{
++	const unsigned int hdr_len = sizeof(struct virtio_net_hdr_mrg_rxbuf);
++	unsigned int rq_size = virtqueue_get_vring_size(vq);
++	unsigned int packet_len = vi->big_packets ? IP_MAX_MTU : vi->dev->max_mtu;
++	unsigned int buf_len = hdr_len + ETH_HLEN + VLAN_HLEN + packet_len;
++	unsigned int min_buf_len = DIV_ROUND_UP(buf_len, rq_size);
++
++	return max(min_buf_len, hdr_len);
 +}
 +
-+static int virtnet_probe(struct virtio_device *vdev)
-+{
-+	int i, err;
-+	struct net_device *dev;
-+	struct virtnet_info *vi;
-+	u16 max_queue_pairs;
-+	int mtu;
-+
- 	/* Find if host supports multiqueue virtio_net device */
- 	err = virtio_cread_feature(vdev, VIRTIO_NET_F_MQ,
- 				   struct virtio_net_config,
-@@ -2444,12 +2457,17 @@ static int virtnet_probe(struct virtio_device *vdev)
- 				     offsetof(struct virtio_net_config,
- 					      mtu));
- 		if (mtu < dev->min_mtu) {
--			__virtio_clear_bit(vdev, VIRTIO_NET_F_MTU);
--		} else {
--			dev->mtu = mtu;
--			dev->max_mtu = mtu;
-+			/* Should never trigger: MTU was previously validated
-+			 * in virtnet_validate.
-+			 */
-+			dev_err(&vdev->dev, "device MTU appears to have changed "
-+				"it is now %d < %d", mtu, dev->min_mtu);
-+			goto free_stats;
- 		}
+ static int virtnet_find_vqs(struct virtnet_info *vi)
+ {
+ 	vq_callback_t **callbacks;
+@@ -2151,6 +2170,7 @@ static int virtnet_find_vqs(struct virtnet_info *vi)
  
-+		dev->mtu = mtu;
-+		dev->max_mtu = mtu;
-+
- 		/* TODO: size buffers correctly in this case. */
- 		if (dev->mtu > ETH_DATA_LEN)
- 			vi->big_packets = true;
-@@ -2630,6 +2648,7 @@ static struct virtio_driver virtio_net_driver = {
- 	.driver.name =	KBUILD_MODNAME,
- 	.driver.owner =	THIS_MODULE,
- 	.id_table =	id_table,
-+	.validate =	virtnet_validate,
- 	.probe =	virtnet_probe,
- 	.remove =	virtnet_remove,
- 	.config_changed = virtnet_config_changed,
+ 	for (i = 0; i < vi->max_queue_pairs; i++) {
+ 		vi->rq[i].vq = vqs[rxq2vq(i)];
++		vi->rq[i].min_buf_len = mergeable_min_buf_len(vi, vi->rq[i].vq);
+ 		vi->sq[i].vq = vqs[txq2vq(i)];
+ 	}
+ 
+@@ -2237,7 +2257,8 @@ static ssize_t mergeable_rx_buffer_size_show(struct netdev_rx_queue *queue,
+ 
+ 	BUG_ON(queue_index >= vi->max_queue_pairs);
+ 	avg = &vi->rq[queue_index].mrg_avg_pkt_len;
+-	return sprintf(buf, "%u\n", get_mergeable_buf_len(avg));
++	return sprintf(buf, "%u\n",
++		       get_mergeable_buf_len(&vi->rq[queue_index], avg));
+ }
+ 
+ static struct rx_queue_attribute mergeable_rx_buffer_size_attribute =
 -- 
 MST
