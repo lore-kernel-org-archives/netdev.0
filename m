@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 8/9] net: dsa: add cross-chip bridging operations
-Date: Wed, 29 Mar 2017 16:30:19 -0400
-Message-ID: <20170329203020.27042-9-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 5/9] net: dsa: mv88e6xxx: rework in-chip bridging
+Date: Wed, 29 Mar 2017 16:30:16 -0400
+Message-ID: <20170329203020.27042-6-vivien.didelot@savoirfairelinux.com>
 References: <20170329203020.27042-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
@@ -14,63 +14,83 @@ In-Reply-To: <20170329203020.27042-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Introduce crosschip_bridge_{join,leave} operations in the dsa_switch_ops
-structure, which can be used by switches supporting interconnection.
+All ports -- internal and external, for chips featuring a PVT -- have a
+mask restricting to which internal ports a frame is allowed to egress.
+
+Now that DSA exposes the number of ports and their bridge devices, it is
+possible to extract the code generating the VLAN map and make it generic
+so that it can be shared later with the cross-chip bridging code.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- include/net/dsa.h |  8 ++++++++
- net/dsa/switch.c  | 12 ++++++------
- 2 files changed, 14 insertions(+), 6 deletions(-)
+ drivers/net/dsa/mv88e6xxx/chip.c | 53 ++++++++++++++++++++++++++--------------
+ 1 file changed, 34 insertions(+), 19 deletions(-)
 
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index 951b5e49e899..ffe56cc338fe 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -456,6 +456,14 @@ struct dsa_switch_ops {
- 				   bool ingress);
- 	void	(*port_mirror_del)(struct dsa_switch *ds, int port,
- 				   struct dsa_mall_mirror_tc_entry *mirror);
+diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
+index b114bf8e6a11..e5165831e8b5 100644
+--- a/drivers/net/dsa/mv88e6xxx/chip.c
++++ b/drivers/net/dsa/mv88e6xxx/chip.c
+@@ -1123,27 +1123,42 @@ static int mv88e6xxx_set_eee(struct dsa_switch *ds, int port,
+ 	return err;
+ }
+ 
++static u16 mv88e6xxx_port_vlan(struct mv88e6xxx_chip *chip, int dev, int port)
++{
++	struct dsa_switch *ds = NULL;
++	struct net_device *br;
++	u16 pvlan;
++	int i;
 +
-+	/*
-+	 * Cross-chip operations
++	if (dev < DSA_MAX_SWITCHES)
++		ds = chip->ds->dst->ds[dev];
++
++	/* Prevent frames from unknown switch or port */
++	if (!ds || port >= ds->num_ports)
++		return 0;
++
++	/* Frames from DSA links and CPU ports can egress any local port */
++	if (dsa_is_cpu_port(ds, port) || dsa_is_dsa_port(ds, port))
++		return mv88e6xxx_port_mask(chip);
++
++	br = ds->ports[port].bridge_dev;
++	pvlan = 0;
++
++	/* Frames from user ports can egress any local DSA links and CPU ports,
++	 * as well as any local member of their bridge group.
 +	 */
-+	int	(*crosschip_bridge_join)(struct dsa_switch *ds, int sw_index,
-+					 int port, struct net_device *br);
-+	void	(*crosschip_bridge_leave)(struct dsa_switch *ds, int sw_index,
-+					  int port, struct net_device *br);
- };
++	for (i = 0; i < mv88e6xxx_num_ports(chip); ++i)
++		if (dsa_is_cpu_port(chip->ds, i) ||
++		    dsa_is_dsa_port(chip->ds, i) ||
++		    (br && chip->ds->ports[i].bridge_dev == br))
++			pvlan |= BIT(i);
++
++	return pvlan;
++}
++
+ static int _mv88e6xxx_port_based_vlan_map(struct mv88e6xxx_chip *chip, int port)
+ {
+-	struct dsa_switch *ds = chip->ds;
+-	struct net_device *bridge = ds->ports[port].bridge_dev;
+-	u16 output_ports = 0;
+-	int i;
+-
+-	/* allow CPU port or DSA link(s) to send frames to every port */
+-	if (dsa_is_cpu_port(ds, port) || dsa_is_dsa_port(ds, port)) {
+-		output_ports = ~0;
+-	} else {
+-		for (i = 0; i < mv88e6xxx_num_ports(chip); ++i) {
+-			/* allow sending frames to every group member */
+-			if (bridge && ds->ports[i].bridge_dev == bridge)
+-				output_ports |= BIT(i);
+-
+-			/* allow sending frames to CPU port and DSA link(s) */
+-			if (dsa_is_cpu_port(ds, i) || dsa_is_dsa_port(ds, i))
+-				output_ports |= BIT(i);
+-		}
+-	}
++	u16 output_ports = mv88e6xxx_port_vlan(chip, chip->ds->index, port);
  
- struct dsa_switch_driver {
-diff --git a/net/dsa/switch.c b/net/dsa/switch.c
-index 7b6f38e5fef6..ca6e26e514f0 100644
---- a/net/dsa/switch.c
-+++ b/net/dsa/switch.c
-@@ -20,9 +20,9 @@ static int dsa_switch_bridge_join(struct dsa_switch *ds,
- 	if (ds->index == info->sw_index && ds->ops->port_bridge_join)
- 		return ds->ops->port_bridge_join(ds, info->port, info->br);
- 
--	if (ds->index != info->sw_index)
--		dev_dbg(ds->dev, "crosschip DSA port %d.%d bridged to %s\n",
--			info->sw_index, info->port, netdev_name(info->br));
-+	if (ds->index != info->sw_index && ds->ops->crosschip_bridge_join)
-+		return ds->ops->crosschip_bridge_join(ds, info->sw_index,
-+						      info->port, info->br);
- 
- 	return 0;
- }
-@@ -33,9 +33,9 @@ static int dsa_switch_bridge_leave(struct dsa_switch *ds,
- 	if (ds->index == info->sw_index && ds->ops->port_bridge_leave)
- 		ds->ops->port_bridge_leave(ds, info->port, info->br);
- 
--	if (ds->index != info->sw_index)
--		dev_dbg(ds->dev, "crosschip DSA port %d.%d unbridged from %s\n",
--			info->sw_index, info->port, netdev_name(info->br));
-+	if (ds->index != info->sw_index && ds->ops->crosschip_bridge_leave)
-+		ds->ops->crosschip_bridge_leave(ds, info->sw_index, info->port,
-+						info->br);
- 
- 	return 0;
- }
+ 	/* prevent frames from going back out of the port they came in on */
+ 	output_ports &= ~BIT(port);
 -- 
 2.12.1
