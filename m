@@ -1,152 +1,28 @@
-From: Frederic Weisbecker <fweisbec@gmail.com>
-Subject: Re: Bisected softirq accounting issue in v4.11-rc1~170^2~28
-Date: Wed, 29 Mar 2017 15:13:22 +0200
-Message-ID: <20170329131321.GC8306@lerouge>
-References: <20170328101403.34a82fbf@redhat.com>
- <20170328143431.GB4216@lerouge>
- <20170328172303.78a3c6d4@redhat.com>
- <20170328211121.GA8615@lerouge>
- <20170329113030.671ff443@redhat.com>
+From: fche@redhat.com (Frank Ch. Eigler)
+Subject: Re: [RFC PATCH tip/master 0/3] kprobes: tracing: kretprobe_instance dynamic allocation
+Date: Wed, 29 Mar 2017 09:27:35 -0400
+Message-ID: <y0ma884tdq0.fsf@fche.csb>
+References: <149076484118.24574.7083269903420611708.stgit@devbox>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	linux-mm <linux-mm@kvack.org>,
-	Mel Gorman <mgorman@techsingularity.net>,
-	Tariq Toukan <tariqt@mellanox.com>,
-	Tariq Toukan <ttoukan.linux@gmail.com>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Rik van Riel <riel@redhat.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@kernel.org>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20170329113030.671ff443@redhat.com>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Steven Rostedt <rostedt@goodmis.org>,  Ingo Molnar <mingo@redhat.com>,  Alban Crequy <alban.crequy@gmail.com>,  Alban Crequy <alban@kinvolk.io>,  Alexei Starovoitov <ast@kernel.org>,  Jonathan Corbet <corbet@lwn.net>,  Arnaldo Carvalho de Melo <acme@redhat.com>,  Omar Sandoval <osandov@fb.com>,  linux-doc@vger.kernel.org,  netdev@vger.kernel.org,  linux-kernel@vger.kernel.org,  iago@kinvolk.io,  michael@kinvolk.io,  Dorau Lukasz <lukasz.dorau@intel.com>,  systemtap@sourceware.org
+To: Masami Hiramatsu <mhiramat@kernel.org>
+Return-path: <systemtap-return-25242-gls-systemtap=m.gmane.org@sourceware.org>
+List-Unsubscribe: <mailto:systemtap-unsubscribe-gls-systemtap=m.gmane.org@sourceware.org>
+List-Subscribe: <mailto:systemtap-subscribe@sourceware.org>
+List-Post: <mailto:systemtap@sourceware.org>
+List-Help: <mailto:systemtap-help@sourceware.org>, <http://sourceware.org/lists.html#faqs>
+Sender: systemtap-owner@sourceware.org
+In-Reply-To: <149076484118.24574.7083269903420611708.stgit@devbox> (Masami	Hiramatsu's message of "Wed, 29 Mar 2017 14:20:51 +0900")
 List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 29, 2017 at 11:30:30AM +0200, Jesper Dangaard Brouer wrote:
-> On Tue, 28 Mar 2017 23:11:22 +0200
-> Frederic Weisbecker <fweisbec@gmail.com> wrote:
-> 
-> > On Tue, Mar 28, 2017 at 05:23:03PM +0200, Jesper Dangaard Brouer wrote:
-> > > On Tue, 28 Mar 2017 16:34:36 +0200
-> > > Frederic Weisbecker <fweisbec@gmail.com> wrote:
-> > >   
-> > > > On Tue, Mar 28, 2017 at 10:14:03AM +0200, Jesper Dangaard Brouer wrote:  
-> > > > > 
-> > > > > (While evaluating some changes to the page allocator) I ran into an
-> > > > > issue with ksoftirqd getting too much CPU sched time.
-> > > > > 
-> > > > > I bisected the problem to
-> > > > >  a499a5a14dbd ("sched/cputime: Increment kcpustat directly on irqtime account")
-> > > > > 
-> > > > >  a499a5a14dbd1d0315a96fc62a8798059325e9e6 is the first bad commit
-> > > > >  commit a499a5a14dbd1d0315a96fc62a8798059325e9e6
-> > > > >  Author: Frederic Weisbecker <fweisbec@gmail.com>
-> > > > >  Date:   Tue Jan 31 04:09:32 2017 +0100
-> > > > > 
-> > > > >     sched/cputime: Increment kcpustat directly on irqtime account
-> > > > >     
-> > > > >     The irqtime is accounted is nsecs and stored in
-> > > > >     cpu_irq_time.hardirq_time and cpu_irq_time.softirq_time. Once the
-> > > > >     accumulated amount reaches a new jiffy, this one gets accounted to the
-> > > > >     kcpustat.
-> > > > >     
-> > > > >     This was necessary when kcpustat was stored in cputime_t, which could at
-> > > > >     worst have jiffies granularity. But now kcpustat is stored in nsecs
-> > > > >     so this whole discretization game with temporary irqtime storage has
-> > > > >     become unnecessary.
-> > > > >     
-> > > > >     We can now directly account the irqtime to the kcpustat.
-> > > > >     
-> > > > >     Signed-off-by: Frederic Weisbecker <fweisbec@gmail.com>
-> > > > >     Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-> > > > >     Cc: Fenghua Yu <fenghua.yu@intel.com>
-> > > > >     Cc: Heiko Carstens <heiko.carstens@de.ibm.com>
-> > > > >     Cc: Linus Torvalds <torvalds@linux-foundation.org>
-> > > > >     Cc: Martin Schwidefsky <schwidefsky@de.ibm.com>
-> > > > >     Cc: Michael Ellerman <mpe@ellerman.id.au>
-> > > > >     Cc: Paul Mackerras <paulus@samba.org>
-> > > > >     Cc: Peter Zijlstra <peterz@infradead.org>
-> > > > >     Cc: Rik van Riel <riel@redhat.com>
-> > > > >     Cc: Stanislaw Gruszka <sgruszka@redhat.com>
-> > > > >     Cc: Thomas Gleixner <tglx@linutronix.de>
-> > > > >     Cc: Tony Luck <tony.luck@intel.com>
-> > > > >     Cc: Wanpeng Li <wanpeng.li@hotmail.com>
-> > > > >     Link: http://lkml.kernel.org/r/1485832191-26889-17-git-send-email-fweisbec@gmail.com
-> > > > >     Signed-off-by: Ingo Molnar <mingo@kernel.org>
-> > > > > 
-> > > > > The reproducer is running a userspace udp_sink[1] program, and taskset
-> > > > > pinning the process to the same CPU as softirq RX is running on, and
-> > > > > starting a UDP flood with pktgen (tool part of kernel tree:
-> > > > > samples/pktgen/pktgen_sample03_burst_single_flow.sh).    
-> > > > 
-> > > > So that means I need to run udp_sink on the same CPU than pktgen?  
-> > > 
-> > > No, you misunderstood.  I run pktgen on another physical machine, which
-> > > is sending UDP packets towards my Device-Under-Test (DUT) target.  The
-> > > DUT-target is receiving packets and I observe which CPU the NIC is
-> > > delivering these packets to.  
-> > 
-> > Ah ok, so I tried to run pktgen on another machine and I get that strange write error:
-> > 
-> >     # ./pktgen_sample03_burst_single_flow.sh -d 192.168.1.3  -i wlan0
-> >     ./functions.sh: ligne 76 : echo: erreur d'�criture : Erreur inconnue 524
-> >     ERROR: Write error(1) occurred cmd: "clone_skb 100000 > /proc/net/pktgen/wlan0@0"
-> > 
-> > Any idea?
-> 
-> Yes, this interface does not support pktgen "clone_skb".  You can
-> supply cmdline argument "-c 0" to fix this.  But I suspect that this
-> interface also does not support "burst", thus you also need "-b 0".
-> 
-> See all cmdline args via: ./pktgen_sample03_burst_single_flow.sh -h
-> 
-> Why are you using a wifi interface for this kind of overload testing?
-> (the basic test here is making sure softirq is busy 100%, and at slow
-> wifi speeds this might not be possible to force ksoftirqd into this
-> scheduler state)
 
-What? I need to raise from the couch and plug an ethernet cable?? ;-) ;-)
+mhiramat wrote:
 
-More seriously you're right, wifi probably won't be enough to trigger
-the desired storm on the destination interface. I'm going to try with eth0,
-that should also fix the clone_skb issues.
+> Here is a correction of patches to introduce kretprobe_instance
+> dynamic allocation for avoiding kretprobe silently miss-hits.
+> [...]
 
-> > > > > After this commit, the udp_sink program does not get any sched CPU
-> > > > > time, and no packets are delivered to userspace.  (All packets are
-> > > > > dropped by softirq due to a full socket queue, nstat
-> > > > > UdpRcvbufErrors).
-> > > > > 
-> > > > > A related symptom is that ksoftirqd no longer get accounted in
-> > > > > top.    
-> > > > 
-> > > > That's indeed what I observe. udp_sink has almost no CPU time,
-> > > > neither has ksoftirqd but kpktgend_0 has everything.
-> > > > 
-> > > > Finally a bug I can reproduce!  
-> > > 
-> > > Good to hear you can reproduce it! :-)  
-> > 
-> > Well, since I was generating the packets locally, maybe it didn't trigger
-> > the expected interrupts...
-> 
-> Well, you definitely didn't create the test case I was using.  I cannot
-> remember if the pktgen kthreads runs in softirq context, but I suspect
-> it does. If so, you can recreate the main problem, which is a softirq
-> thread using 100% CPU time, which cause no other processes getting
-> sched time on that CPU.
+Thanks, this looks automatically useful also to systemtap users.
 
-Well, I prefer to reproduce the same thing than you to make sure I'm chasing
-the right problem.
-
-Thanks!
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+- FChE
