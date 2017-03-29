@@ -1,31 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net: veth: use new api
- ethtool_{get|set}_link_ksettings
-Date: Wed, 29 Mar 2017 14:07:51 -0700 (PDT)
-Message-ID: <20170329.140751.2131745748060444255.davem@davemloft.net>
-References: <1490768661-12467-1-git-send-email-tremyfr@gmail.com>
+Subject: Re: [PATCH net-next v2] net: mvneta: set rx mode during resume if
+ interface is running
+Date: Wed, 29 Mar 2017 14:09:45 -0700 (PDT)
+Message-ID: <20170329.140945.2213903265415651654.davem@davemloft.net>
+References: <20170329084719.3596-1-jszhang@marvell.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: lucien.xin@gmail.com, jarod@redhat.com, stephen@networkplumber.org,
-        dsa@cumulusnetworks.com, aduyck@mirantis.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: tremyfr@gmail.com
+Cc: thomas.petazzoni@free-electrons.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+To: jszhang@marvell.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1490768661-12467-1-git-send-email-tremyfr@gmail.com>
+In-Reply-To: <20170329084719.3596-1-jszhang@marvell.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Philippe Reynes <tremyfr@gmail.com>
-Date: Wed, 29 Mar 2017 08:24:21 +0200
+From: Jisheng Zhang <jszhang@marvell.com>
+Date: Wed, 29 Mar 2017 16:47:19 +0800
 
-> The ethtool api {get|set}_settings is deprecated.
-> We move this driver to new api {get|set}_link_ksettings.
+> I found a bug by:
 > 
-> Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+> 0. boot and start dhcp client
+> 1. echo mem > /sys/power/state
+> 2. resume back immediately
+> 3. don't touch dhcp client to renew the lease
+> 4. ping the gateway. No acks
+> 
+> Usually, after step2, the DHCP lease isn't expired, so in theory we
+> should resume all back. But in fact, it doesn't. It turns out
+> the rx mode isn't resumed correctly. This patch fixes it by adding
+> mvneta_set_rx_mode(dev) in the resume hook if interface is running.
+> 
+> Signed-off-by: Jisheng Zhang <jszhang@marvell.com>
 > ---
-> Changelog:
-> v2:
-> - avoid useless initiazation to zero (thanks Xin Long)
+> Since v1:
+>  - rebased to the latest net-next tree and explictly mention it
 
 Applied.
