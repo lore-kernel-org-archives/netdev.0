@@ -1,63 +1,84 @@
-From: Jisheng Zhang <jszhang@marvell.com>
-Subject: [PATCH net-next v2] net: mvneta: set rx mode during resume if
- interface is running
-Date: Wed, 29 Mar 2017 16:47:19 +0800
-Message-ID: <20170329084719.3596-1-jszhang@marvell.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: in_irq_or_nmi()
+Date: Wed, 29 Mar 2017 10:59:28 +0200
+Message-ID: <20170329105928.609bc581@redhat.com>
+References: <20170323144347.1e6f29de@redhat.com>
+	<20170323145133.twzt4f5ci26vdyut@techsingularity.net>
+	<779ab72d-94b9-1a28-c192-377e91383b4e@gmail.com>
+	<1fc7338f-2b36-75f7-8a7e-8321f062207b@gmail.com>
+	<2123321554.7161128.1490599967015.JavaMail.zimbra@redhat.com>
+	<20170327105514.1ed5b1ba@redhat.com>
+	<20170327143947.4c237e54@redhat.com>
+	<20170327141518.GB27285@bombadil.infradead.org>
+	<20170327171500.4beef762@redhat.com>
+	<20170327165817.GA28494@bombadil.infradead.org>
+	<20170329081219.lto7t4fwmponokzh@hirez.programming.kicks-ass.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Jisheng Zhang <jszhang@marvell.com>, netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: <thomas.petazzoni@free-electrons.com>, <davem@davemloft.net>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Matthew Wilcox <willy@infradead.org>, Pankaj Gupta <pagupta@redhat.com>,
+ Tariq Toukan <ttoukan.linux@gmail.com>, Mel Gorman
+ <mgorman@techsingularity.net>, Tariq Toukan <tariqt@mellanox.com>,
+ netdev@vger.kernel.org, akpm@linux-foundation.org, linux-mm
+ <linux-mm@kvack.org>, Saeed Mahameed <saeedm@mellanox.com>,
+ linux-kernel@vger.kernel.org, brouer@redhat.com
+To: Peter Zijlstra <peterz@infradead.org>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20170329081219.lto7t4fwmponokzh@hirez.programming.kicks-ass.net>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-I found a bug by:
+On Wed, 29 Mar 2017 10:12:19 +0200
+Peter Zijlstra <peterz@infradead.org> wrote:
 
-0. boot and start dhcp client
-1. echo mem > /sys/power/state
-2. resume back immediately
-3. don't touch dhcp client to renew the lease
-4. ping the gateway. No acks
+> On Mon, Mar 27, 2017 at 09:58:17AM -0700, Matthew Wilcox wrote:
+> > On Mon, Mar 27, 2017 at 05:15:00PM +0200, Jesper Dangaard Brouer wrote:=
+ =20
+> > > And I also verified it worked:
+> > >=20
+> > >   0.63 =E2=94=82       mov    __preempt_count,%eax
+> > >        =E2=94=82     free_hot_cold_page():
+> > >   1.25 =E2=94=82       test   $0x1f0000,%eax
+> > >        =E2=94=82     =E2=86=93 jne    1e4
+> > >=20
+> > > And this simplification also made the compiler change this into a
+> > > unlikely branch, which is a micro-optimization (that I will leave up =
+to
+> > > the compiler). =20
+> >=20
+> > Excellent!  That said, I think we should define in_irq_or_nmi() in
+> > preempt.h, rather than hiding it in the memory allocator.  And since we=
+'re
+> > doing that, we might as well make it look like the other definitions:
+> >=20
+> > diff --git a/include/linux/preempt.h b/include/linux/preempt.h
+> > index 7eeceac52dea..af98c29abd9d 100644
+> > --- a/include/linux/preempt.h
+> > +++ b/include/linux/preempt.h
+> > @@ -81,6 +81,7 @@
+> >  #define in_interrupt()		(irq_count())
+> >  #define in_serving_softirq()	(softirq_count() & SOFTIRQ_OFFSET)
+> >  #define in_nmi()		(preempt_count() & NMI_MASK)
+> > +#define in_irq_or_nmi()		(preempt_count() & (HARDIRQ_MASK | NMI_MASK))
+> >  #define in_task()		(!(preempt_count() & \
+> >  				   (NMI_MASK | HARDIRQ_MASK | SOFTIRQ_OFFSET)))
+> >   =20
+>=20
+> No, that's horrible. Also, wth is this about? A memory allocator that
+> needs in_nmi()? That sounds beyond broken.
 
-Usually, after step2, the DHCP lease isn't expired, so in theory we
-should resume all back. But in fact, it doesn't. It turns out
-the rx mode isn't resumed correctly. This patch fixes it by adding
-mvneta_set_rx_mode(dev) in the resume hook if interface is running.
+It is the other way around. We want to exclude NMI and HARDIRQ from
+using the per-cpu-pages (pcp) lists "order-0 cache" (they will
+fall-through using the normal buddy allocator path).
 
-Signed-off-by: Jisheng Zhang <jszhang@marvell.com>
----
-Since v1:
- - rebased to the latest net-next tree and explictly mention it
+--=20
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
 
- drivers/net/ethernet/marvell/mvneta.c | 5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index aebbc5399a06..cc126204dc4d 100644
---- a/drivers/net/ethernet/marvell/mvneta.c
-+++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -4449,8 +4449,11 @@ static int mvneta_resume(struct device *device)
- 		mvneta_fixed_link_update(pp, dev->phydev);
- 
- 	netif_device_attach(dev);
--	if (netif_running(dev))
-+	if (netif_running(dev)) {
- 		mvneta_open(dev);
-+		mvneta_set_rx_mode(dev);
-+	}
-+
- 	return 0;
- }
- #endif
--- 
-2.11.0
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
