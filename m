@@ -1,50 +1,29 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH] virtio_net: enable big packets for large MTU values
-Date: Wed, 29 Mar 2017 15:38:09 +0300
-Message-ID: <1490791079-22108-1-git-send-email-mst@redhat.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next] net: mvneta: add RGMII_RXID and RGMII_TXID
+ support
+Date: Wed, 29 Mar 2017 14:57:06 +0200
+Message-ID: <20170329125706.GC28922@lunn.ch>
+References: <20170329084226.3472-1-jszhang@marvell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org
-To: linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: thomas.petazzoni@free-electrons.com, davem@davemloft.net,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org
+To: Jisheng Zhang <jszhang@marvell.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+In-Reply-To: <20170329084226.3472-1-jszhang@marvell.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-If one enables e.g. jumbo frames without mergeable
-buffers, packets won't fit in 1500 byte buffers
-we use. Switch to big packet mode instead.
-TODO: make sizing more exact, possibly extend small
-packet mode to use larger pages.
+On Wed, Mar 29, 2017 at 04:42:26PM +0800, Jisheng Zhang wrote:
+> RGMII_RXID and RGMII_TX_ID share the same GMAC CTRL setting as RGMII
+> or RGMII_ID.
+> 
+> Signed-off-by: Jisheng Zhang <jszhang@marvell.com>
 
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
----
- drivers/net/virtio_net.c | 4 ++++
- 1 file changed, 4 insertions(+)
+Looks reasonable.
 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index e0fb3707..9dc31dc 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -2428,6 +2428,10 @@ static int virtnet_probe(struct virtio_device *vdev)
- 			dev->mtu = mtu;
- 			dev->max_mtu = mtu;
- 		}
-+
-+		/* TODO: size buffers correctly in this case. */
-+		if (dev->mtu > ETH_DATA_LEN)
-+			vi->big_packets = true;
- 	}
- 
- 	if (vi->any_header_sg)
--- 
-MST
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+
+    Andrew
