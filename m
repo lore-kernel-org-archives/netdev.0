@@ -1,41 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ipv6: add support for NETDEV_RESEND_IGMP event
-Date: Tue, 28 Mar 2017 22:02:56 -0700 (PDT)
-Message-ID: <20170328.220256.2102183367030293945.davem@davemloft.net>
-References: <1490726956-25965-1-git-send-email-vyasevic@redhat.com>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [PATCH net] ftgmac100: Mostly rewrite the driver
+Date: Wed, 29 Mar 2017 16:03:07 +1100
+Message-ID: <1490763787.3177.168.camel@kernel.crashing.org>
+References: <1490762446.3177.164.camel@kernel.crashing.org>
+         <20170328.215744.794906222630964588.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, vyasevic@redhat.com
-To: vyasevich@gmail.com
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:41732 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752630AbdC2FDR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 29 Mar 2017 01:03:17 -0400
-In-Reply-To: <1490726956-25965-1-git-send-email-vyasevic@redhat.com>
+Received: from gate.crashing.org ([63.228.1.57]:50189 "EHLO gate.crashing.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752534AbdC2FD0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 29 Mar 2017 01:03:26 -0400
+In-Reply-To: <20170328.215744.794906222630964588.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vladislav Yasevich <vyasevich@gmail.com>
-Date: Tue, 28 Mar 2017 14:49:16 -0400
-
-> This patch adds support for NETDEV_RESEND_IGMP event similar
-> to how it works for IPv4.
+On Tue, 2017-03-28 at 21:57 -0700, David Miller wrote:
+> This is unreviewable.
 > 
-> Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
-
-Applied, but:
-
-> +void igmp6_late_cleanup(void)
-> +{
-> +	unregister_netdevice_notifier(&igmp6_netdev_notifier);
-> +}
-> +
-> -- 
-> 2.7.4
+> You must break this up into small, reviewable pieces.
 > 
+> If you didn't save the steps of your work in that way, that isn't
+> our problem.
 
-Do not add empty lines at the end of files like this.
+That's not realistic, it would probably not improve the readability
+much. I basically ended up rewriting the driver almost completely
+Dave. It's not even a matter of saving my work steps, each of them
+involved pulling appart an entire side of the old driver and re-doing
+it. 
 
-Thanks.
+That's why I said it's better reviewed as a new driver. We have no
+other user of it in the tree anyway.
+
+Do you prefer that I submit it as a new driver for that IP block
+instead and take out the old one later ?
+
+Cheers,
+Ben.
