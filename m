@@ -1,31 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [pull request][net-next 00/12] Mellanox mlx5 offloading of TC
- pedit (header re-write) action
-Date: Wed, 29 Mar 2017 11:38:59 -0700 (PDT)
-Message-ID: <20170329.113859.1830131932925141951.davem@davemloft.net>
-References: <20170328232713.29894-1-saeedm@mellanox.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, amir@vadai.me, ogerlitz@mellanox.com
-To: saeedm@mellanox.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:49904 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752316AbdC2SjD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 29 Mar 2017 14:39:03 -0400
-In-Reply-To: <20170328232713.29894-1-saeedm@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [PATCH][bluetooth-next][V2] ieee802154: ca8210: Add checks for
+ kmalloc allocation failures
+Date: Wed, 29 Mar 2017 20:51:26 +0200
+Message-ID: <F83769CD-CFDF-460E-8528-ED2CF1D6FC88@holtmann.org>
+References: <20170329170540.21011-1-colin.king@canonical.com>
+ <20170329.101740.93561929292168345.davem@davemloft.net>
+Mime-Version: 1.0 (Mac OS X Mail 10.3 \(3273\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: Colin King <colin.king@canonical.com>,
+        Harry Morris <h.morris@cascoda.com>, linuxdev@cascoda.com,
+        Alexander Aring <aar@pengutronix.de>,
+        Stefan Schmidt <stefan@osg.samsung.com>,
+        linux-wpan@vger.kernel.org,
+        Network Development <netdev@vger.kernel.org>,
+        kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170329.101740.93561929292168345.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Saeed Mahameed <saeedm@mellanox.com>
-Date: Wed, 29 Mar 2017 02:27:01 +0300
+Hi Dave,
 
-> The following changes from Or Gerlitz provide mlx5 offloading support of
-> TC pedit (header re-write) action.
+>> drivers/net/ieee802154/ca8210.c | 18 ++++++++++--------
 > 
-> For more information please see below.
+> This file doesn't exist in any of my trees.
 > 
-> Please pull and let me know if there's any problem.
 
-Pulled, thanks!
+because we have not send you a bluetooth-next pull request yet. I review it and take it through my tree first.
+
+Regards
+
+Marcel
