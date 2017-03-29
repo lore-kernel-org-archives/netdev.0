@@ -1,39 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] liquidio: refactor interrupt moderation code
-Date: Tue, 28 Mar 2017 22:22:14 -0700 (PDT)
-Message-ID: <20170328.222214.1756373038371091205.davem@davemloft.net>
-References: <20170328191406.GA1027@felix-thinkpad.cavium.com>
+From: Masami Hiramatsu <mhiramat@kernel.org>
+Subject: [RFC PATCH tip/master 1/3] trace: kprobes: Show sum of probe/retprobe nmissed count
+Date: Wed, 29 Mar 2017 14:22:02 +0900
+Message-ID: <149076491191.24574.9187877160820798843.stgit@devbox>
+References: <149076484118.24574.7083269903420611708.stgit@devbox>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
-        derek.chickles@cavium.com, satananda.burla@cavium.com,
-        prasad.kanneganti@cavium.com
-To: felix.manlunas@cavium.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:41906 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752410AbdC2FWQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 29 Mar 2017 01:22:16 -0400
-In-Reply-To: <20170328191406.GA1027@felix-thinkpad.cavium.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Alban Crequy <alban.crequy@gmail.com>,
+        Alban Crequy <alban@kinvolk.io>,
+        Alexei Starovoitov <ast@kernel.org>,
+        Jonathan Corbet <corbet@lwn.net>,
+        Arnaldo Carvalho de Melo <acme@redhat.com>,
+        Omar Sandoval <osandov@fb.com>, linux-doc@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        iago@kinvolk.io, michael@kinvolk.io,
+        Dorau Lukasz <lukasz.dorau@intel.com>, systemtap@sourceware.org
+To: Steven Rostedt <rostedt@goodmis.org>,
+        Ingo Molnar <mingo@redhat.com>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <149076484118.24574.7083269903420611708.stgit@devbox>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Felix Manlunas <felix.manlunas@cavium.com>
-Date: Tue, 28 Mar 2017 12:14:06 -0700
+Show sum of probe and retprobe nmissed count in
+kprobe_profile, since retprobe can be missed even
+if the kprobe itself succeeeded.
+This explains user why their return probe didn't hit
+sometimes.
 
-> From: Prasad Kanneganti <prasad.kanneganti@cavium.com>
-> 
-> Refactor interrupt moderation code for flexibility because parameters are
-> different for 10G and 25G cards.  Currently parameters (for 10G only) come
-> from macros compiled-in to the PF and VF drivers; fix it so that parameters
-> suitable for the card (10G or 25G) come from the NIC firmware via response
-> to a command.
-> 
-> Also bump up driver version to 1.5.1 to match newer NIC firmware version.
-> 
-> Signed-off-by: Prasad Kanneganti <prasad.kanneganti@cavium.com>
-> Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
-> Signed-off-by: Derek Chickles <derek.chickles@cavium.com>
+Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
+---
+ kernel/trace/trace_kprobe.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Applied.
+diff --git a/kernel/trace/trace_kprobe.c b/kernel/trace/trace_kprobe.c
+index 013f4e7..bbdc3de 100644
+--- a/kernel/trace/trace_kprobe.c
++++ b/kernel/trace/trace_kprobe.c
+@@ -896,7 +896,7 @@ static int probes_profile_seq_show(struct seq_file *m, void *v)
+ 	seq_printf(m, "  %-44s %15lu %15lu\n",
+ 		   trace_event_name(&tk->tp.call),
+ 		   trace_kprobe_nhit(tk),
+-		   tk->rp.kp.nmissed);
++		   tk->rp.kp.nmissed + tk->rp.nmissed);
+ 
+ 	return 0;
+ }
+
