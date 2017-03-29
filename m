@@ -1,180 +1,159 @@
-From: Sagi Grimberg <sagi@grimberg.me>
-Subject: [PATCH v3] net/utils: generic inet_pton_with_scope helper
-Date: Wed, 29 Mar 2017 20:48:44 +0300
-Message-ID: <1490809724-25234-1-git-send-email-sagi@grimberg.me>
-Cc: linux-nvme@lists.infradead.org, Christoph Hellwig <hch@lst.de>
-To: netdev@vger.kernel.org
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next] net: phy: Allow building mdio-boardinfo into the
+ kernel
+Date: Wed, 29 Mar 2017 11:07:03 -0700
+Message-ID: <19f934c3-7fd2-976b-a65c-d7877fc853b8@gmail.com>
+References: <20170328195709.13549-1-f.fainelli@gmail.com>
+ <CAK8P3a08sng5o6QEsUoOWbsixX9zX3H-NByXsCGirGsz_EtYDw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: Networking <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        Andrew Lunn <andrew@lunn.ch>, rmk+kernel@armlinux.org.uk
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([65.50.211.133]:39901 "EHLO
-        bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932593AbdC2Rsv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 29 Mar 2017 13:48:51 -0400
+Received: from mail-wr0-f193.google.com ([209.85.128.193]:34276 "EHLO
+        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752489AbdC2SHJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 29 Mar 2017 14:07:09 -0400
+Received: by mail-wr0-f193.google.com with SMTP id w43so5223396wrb.1
+        for <netdev@vger.kernel.org>; Wed, 29 Mar 2017 11:07:08 -0700 (PDT)
+In-Reply-To: <CAK8P3a08sng5o6QEsUoOWbsixX9zX3H-NByXsCGirGsz_EtYDw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Several locations in the stack need to handle ipv4/ipv6
-(with scope) and port strings conversion to sockaddr.
-Add a helper that takes either AF_INET, AF_INET6 or
-AF_UNSPEC (for wildcard) to centralize this handling.
+On 03/29/2017 01:09 AM, Arnd Bergmann wrote:
+> On Tue, Mar 28, 2017 at 9:57 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+>> mdio-boardinfo contains code that is helpful for platforms to register
+>> specific MDIO bus devices independent of how CONFIG_MDIO_DEVICE or
+>> CONFIG_PHYLIB will be selected (modular or built-in). In order to make
+>> that possible, let's do the following:
+>>
+>> - descend into drivers/net/phy/ unconditionally
+>>
+>> - make mdiobus_setup_mdiodev_from_board_info() take a callback argument
+>>   which allows us not to expose the internal MDIO board info list and
+>>   mutex, yet maintain the logic within the same file
+>>
+>> - relocate the code that creates a MDIO device into
+>>   drivers/net/phy/mdio_bus.c
+>>
+>> - build mdio-boardinfo.o into the kernel as soon as MDIO_DEVICE is
+>>   defined (y or m)
+>>
+>> Fixes: 90eff9096c01 ("net: phy: Allow splitting MDIO bus/device support from PHYs")
+>> Fixes: 648ea0134069 ("net: phy: Allow pre-declaration of MDIO devices")
+>> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> 
+> It survived the overnight randconfig build,
+> 
+> Tested-by: Arnd Bergmann <arnd@arndb.de>
+> 
+> On a related note, I ran into one more case of a network driver selecting a
+> particular PHY:
+> 
+> drivers/net/built-in.o: In function `octeon_mdiobus_remove':
+> wilink_platform_data.c:(.text+0xe58): undefined reference to
+> `mdiobus_unregister'
+> wilink_platform_data.c:(.text+0xe60): undefined reference to `mdiobus_free'
+> drivers/net/built-in.o: In function `octeon_mdiobus_probe':
+> wilink_platform_data.c:(.text+0xec8): undefined reference to
+> `devm_mdiobus_alloc_size'
+> wilink_platform_data.c:(.text+0x1090): undefined reference to
+> `of_mdiobus_register'
+> wilink_platform_data.c:(.text+0x10d0): undefined reference to `mdiobus_free'
+> 
+> Building with this hack fixes the three instances I found so far, but my
+> current workaround seems rather fragile:
+> 
+> @@ -28,7 +28,7 @@ config MDIO_BCM_UNIMAC
+> 
+>  config MDIO_BITBANG
+>         tristate "Bitbanged MDIO buses"
+> -       depends on !(MDIO_DEVICE=y && PHYLIB=m)
+> +       depends on m || !(MDIO_DEVICE=y && PHYLIB=m)
+>         help
+>           This module implements the MDIO bus protocol in software,
+>           for use by low level drivers that export the ability to
+> @@ -118,6 +118,7 @@ config MDIO_OCTEON
+>  config MDIO_SUN4I
+>         tristate "Allwinner sun4i MDIO interface support"
+>         depends on ARCH_SUNXI
+> +       depends on m || !(MDIO_DEVICE=y && PHYLIB=m)
+>         help
+>           This driver supports the MDIO interface found in the network
+>           interface units of the Allwinner SoC that have an EMAC (A10,
+> @@ -109,6 +109,7 @@ config MDIO_OCTEON
+>         tristate "Octeon and some ThunderX SOCs MDIO buses"
+>         depends on 64BIT
+>         depends on HAS_IOMEM
+> +       depends on m || !(MDIO_DEVICE=y && PHYLIB=m)
+>         select MDIO_CAVIUM
+>         help
+>           This module provides a driver for the Octeon and ThunderX MDIO
+> 
+> The configuration causing it is something like this:
+> 
+> CONFIG_MDIO_OCTEON=y
+> CONFIG_MDIO_DEVICE=y
+> CONFIG_PHYLIB=m
+> 
+> This is what I'm trying now:
 
-Suggested-by: Christoph Hellwig <hch@lst.de>
-Reviewed-by: Christoph Hellwig <hch@lst.de>
-Signed-off-by: Sagi Grimberg <sagi@grimberg.me>
----
-This patch is posted standalone for review, it pairs with
-a couple of call-sites which can be found at:
+This change below looks a lot more scalable, thanks a lot for running
+this through your randconfig tests.
 
-https://www.mail-archive.com/netdev@vger.kernel.org/msg157094.html
+> 
+> --- a/drivers/net/phy/Kconfig
+> +++ b/drivers/net/phy/Kconfig
+> @@ -7,7 +7,16 @@ menuconfig MDIO_DEVICE
+>         help
+>            MDIO devices and driver infrastructure code.
+> 
+> -if MDIO_DEVICE
+> +config MDIO_BUS
+> +       tristate
+> +       default m if PHYLIB=m
+> +       default MDIO_DEVICE
+> +       help
+> +         This internal symbol is used for link time dependencies and it
+> +         reflects whether the mdio_bus/mdio_device code is built as a
+> +         loadable module or built-in.
+> +
+> +if MDIO_BUS
+> 
+>  config MDIO_BCM_IPROC
+>         tristate "Broadcom iProc MDIO bus controller"
+> @@ -28,7 +37,6 @@ config MDIO_BCM_UNIMAC
+> 
+>  config MDIO_BITBANG
+>         tristate "Bitbanged MDIO buses"
+> -       depends on m || !(MDIO_DEVICE=y && PHYLIB=m)
+>         help
+>           This module implements the MDIO bus protocol in software,
+>           for use by low level drivers that export the ability to
+> @@ -109,7 +117,6 @@ config MDIO_OCTEON
+>         tristate "Octeon and some ThunderX SOCs MDIO buses"
+>         depends on 64BIT
+>         depends on HAS_IOMEM
+> -       depends on m || !(MDIO_DEVICE=y && PHYLIB=m)
+>         select MDIO_CAVIUM
+>         help
+>           This module provides a driver for the Octeon and ThunderX MDIO
+> @@ -119,7 +126,6 @@ config MDIO_OCTEON
+>  config MDIO_SUN4I
+>         tristate "Allwinner sun4i MDIO interface support"
+>         depends on ARCH_SUNXI
+> -       depends on m || !(MDIO_DEVICE=y && PHYLIB=m)
+>         help
+>           This driver supports the MDIO interface found in the network
+>           interface units of the Allwinner SoC that have an EMAC (A10,
+> 
+> 
+>     Arnd
+> 
 
- include/linux/inet.h |   6 +++
- net/core/utils.c     | 103 +++++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 109 insertions(+)
 
-diff --git a/include/linux/inet.h b/include/linux/inet.h
-index 4cca05c9678e..636ebe87e6f8 100644
---- a/include/linux/inet.h
-+++ b/include/linux/inet.h
-@@ -43,6 +43,8 @@
- #define _LINUX_INET_H
- 
- #include <linux/types.h>
-+#include <net/net_namespace.h>
-+#include <linux/socket.h>
- 
- /*
-  * These mimic similar macros defined in user-space for inet_ntop(3).
-@@ -54,4 +56,8 @@
- extern __be32 in_aton(const char *str);
- extern int in4_pton(const char *src, int srclen, u8 *dst, int delim, const char **end);
- extern int in6_pton(const char *src, int srclen, u8 *dst, int delim, const char **end);
-+
-+extern int inet_pton_with_scope(struct net *net, unsigned short af,
-+		const char *src, const char *port, struct sockaddr_storage *addr);
-+
- #endif	/* _LINUX_INET_H */
-diff --git a/net/core/utils.c b/net/core/utils.c
-index 6592d7bbed39..f96cf527bb8f 100644
---- a/net/core/utils.c
-+++ b/net/core/utils.c
-@@ -26,9 +26,11 @@
- #include <linux/percpu.h>
- #include <linux/init.h>
- #include <linux/ratelimit.h>
-+#include <linux/socket.h>
- 
- #include <net/sock.h>
- #include <net/net_ratelimit.h>
-+#include <net/ipv6.h>
- 
- #include <asm/byteorder.h>
- #include <linux/uaccess.h>
-@@ -300,6 +302,107 @@ int in6_pton(const char *src, int srclen,
- }
- EXPORT_SYMBOL(in6_pton);
- 
-+static int inet4_pton(const char *src, u16 port_num,
-+		struct sockaddr_storage *addr)
-+{
-+	struct sockaddr_in *addr4 = (struct sockaddr_in *)addr;
-+	int srclen = strlen(src);
-+
-+	if (srclen > INET_ADDRSTRLEN)
-+		return -EINVAL;
-+
-+	if (in4_pton(src, srclen, (u8 *)&addr4->sin_addr.s_addr,
-+		     '\n', NULL) == 0)
-+		return -EINVAL;
-+
-+	addr4->sin_family = AF_INET;
-+	addr4->sin_port = htons(port_num);
-+
-+	return 0;
-+}
-+
-+static int inet6_pton(struct net *net, const char *src, u16 port_num,
-+		struct sockaddr_storage *addr)
-+{
-+	struct sockaddr_in6 *addr6 = (struct sockaddr_in6 *)addr;
-+	const char *scope_delim;
-+	int srclen = strlen(src);
-+
-+	if (srclen > INET6_ADDRSTRLEN)
-+		return -EINVAL;
-+
-+	if (in6_pton(src, srclen, (u8 *)&addr6->sin6_addr.s6_addr,
-+		     '%', &scope_delim) == 0)
-+		return -EINVAL;
-+
-+	if (ipv6_addr_type(&addr6->sin6_addr) & IPV6_ADDR_LINKLOCAL &&
-+	    src + srclen != scope_delim && *scope_delim == '%') {
-+		struct net_device *dev;
-+		char scope_id[16];
-+		size_t scope_len = min_t(size_t, sizeof(scope_id),
-+					 src + srclen - scope_delim - 1);
-+
-+		memcpy(scope_id, scope_delim + 1, scope_len);
-+		scope_id[scope_len] = '\0';
-+
-+		dev = dev_get_by_name(net, scope_id);
-+		if (dev) {
-+			addr6->sin6_scope_id = dev->ifindex;
-+			dev_put(dev);
-+		} else if (kstrtouint(scope_id, 0, &addr6->sin6_scope_id)) {
-+			return -EINVAL;
-+		}
-+	}
-+
-+	addr6->sin6_family = AF_INET6;
-+	addr6->sin6_port = htons(port_num);
-+
-+	return 0;
-+}
-+
-+/**
-+ * inet_pton_with_scope - convert an IPv4/IPv6 and port to socket address
-+ * @net: net namespace (used for scope handling)
-+ * @af: address family, AF_INET, AF_INET6 or AF_UNSPEC for either
-+ * @src: the start of the address string
-+ * @port: the start of the port string (or NULL for none)
-+ * @addr: output socket address
-+ *
-+ * Return zero on success, return errno when any error occurs.
-+ */
-+int inet_pton_with_scope(struct net *net, __kernel_sa_family_t af,
-+		const char *src, const char *port, struct sockaddr_storage *addr)
-+{
-+	u16 port_num;
-+	int ret = -EINVAL;
-+
-+	if (port) {
-+		if (kstrtou16(port, 0, &port_num))
-+			return -EINVAL;
-+	} else {
-+		port_num = 0;
-+	}
-+
-+	switch (af) {
-+	case AF_INET:
-+		ret = inet4_pton(src, port_num, addr);
-+		break;
-+	case AF_INET6:
-+		ret = inet6_pton(net, src, port_num, addr);
-+		break;
-+	case AF_UNSPEC:
-+		ret = inet4_pton(src, port_num, addr);
-+		if (ret)
-+			ret = inet6_pton(net, src, port_num, addr);
-+		break;
-+	default:
-+		pr_err("unexpected address family %d\n", af);
-+	};
-+
-+	return ret;
-+}
-+EXPORT_SYMBOL(inet_pton_with_scope);
-+
- void inet_proto_csum_replace4(__sum16 *sum, struct sk_buff *skb,
- 			      __be32 from, __be32 to, bool pseudohdr)
- {
 -- 
-2.7.4
+Florian
