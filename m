@@ -1,216 +1,58 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 01/13] i40evf: enforce descriptor write-back mechanism for VF
-Date: Wed, 29 Mar 2017 03:12:03 -0700
-Message-ID: <20170329101215.24513-2-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 05/13] i40e: remove a useless goto statement
+Date: Wed, 29 Mar 2017 03:12:07 -0700
+Message-ID: <20170329101215.24513-6-jeffrey.t.kirsher@intel.com>
 References: <20170329101215.24513-1-jeffrey.t.kirsher@intel.com>
-Cc: Preethi Banala <preethi.banala@intel.com>, netdev@vger.kernel.org,
+Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:21132 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:3161 "EHLO mga02.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755154AbdC2KMV (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 29 Mar 2017 06:12:21 -0400
+        id S1755154AbdC2KM3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 29 Mar 2017 06:12:29 -0400
 In-Reply-To: <20170329101215.24513-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Preethi Banala <preethi.banala@intel.com>
+From: Jacob Keller <jacob.e.keller@intel.com>
 
-The current driver mode is to use a write-back mechanism for the head
-register which indicates transmit completions. The VF driver needs to be
-able to work on hardware that exclusively uses descriptor write-back, so
-change the default driver mode of operation to descriptor write-back for
-VF. In our analysis, performance wasn't significantly different with
-either write-back method.
+The goto found here for when in MFP mode is pointless. It jumps to the
+end of a series of if blocks. However, right after this statement is
+a closing '}' for this if block, which will result in the program flow
+going to the exact same location as the goto statement indicates. Thus,
+regardless of whether we are in MFP mode, the program flow will resume
+from the same location.
 
-Change-ID: Ia92e4ec77c2df8dc4515c71d53746d57d77759af
-Signed-off-by: Preethi Banala <preethi.banala@intel.com>
+This arose due to various refactoring which did not notice that this
+goto became essentially a no-op.
+
+To properly understand this diff you will need to view a larger context
+than is given by default.
+
+Change-ID: I088f73c3831aa5c4e2281380c7a3ce605594300c
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c      | 64 +++-------------------
- drivers/net/ethernet/intel/i40evf/i40e_txrx.h      | 14 -----
- .../net/ethernet/intel/i40evf/i40evf_virtchnl.c    |  4 --
- 3 files changed, 7 insertions(+), 75 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 4 ----
+ 1 file changed, 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-index 8915c5598d20..f1a99a8dc7ea 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-@@ -137,10 +137,7 @@ u32 i40evf_get_tx_pending(struct i40e_ring *ring, bool in_sw)
- {
- 	u32 head, tail;
- 
--	if (!in_sw)
--		head = i40e_get_head(ring);
--	else
--		head = ring->next_to_clean;
-+	head = ring->next_to_clean;
- 	tail = readl(ring->tail);
- 
- 	if (head != tail)
-@@ -165,7 +162,6 @@ static bool i40e_clean_tx_irq(struct i40e_vsi *vsi,
- {
- 	u16 i = tx_ring->next_to_clean;
- 	struct i40e_tx_buffer *tx_buf;
--	struct i40e_tx_desc *tx_head;
- 	struct i40e_tx_desc *tx_desc;
- 	unsigned int total_bytes = 0, total_packets = 0;
- 	unsigned int budget = vsi->work_limit;
-@@ -174,8 +170,6 @@ static bool i40e_clean_tx_irq(struct i40e_vsi *vsi,
- 	tx_desc = I40E_TX_DESC(tx_ring, i);
- 	i -= tx_ring->count;
- 
--	tx_head = I40E_TX_DESC(tx_ring, i40e_get_head(tx_ring));
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index cdf36713f4d1..1dc02c5eee1c 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -5167,10 +5167,6 @@ static int i40e_init_pf_dcb(struct i40e_pf *pf)
+ 		    (hw->dcbx_status == I40E_DCBX_STATUS_DISABLED)) {
+ 			dev_info(&pf->pdev->dev,
+ 				 "DCBX offload is not supported or is disabled for this PF.\n");
 -
- 	do {
- 		struct i40e_tx_desc *eop_desc = tx_buf->next_to_watch;
- 
-@@ -186,8 +180,9 @@ static bool i40e_clean_tx_irq(struct i40e_vsi *vsi,
- 		/* prevent any other reads prior to eop_desc */
- 		read_barrier_depends();
- 
--		/* we have caught up to head, no work left to do */
--		if (tx_head == tx_desc)
-+		/* if the descriptor isn't done, no work yet to do */
-+		if (!(eop_desc->cmd_type_offset_bsz &
-+		      cpu_to_le64(I40E_TX_DESC_DTYPE_DESC_DONE)))
- 			break;
- 
- 		/* clear next_to_watch to prevent false hangs */
-@@ -464,10 +459,6 @@ int i40evf_setup_tx_descriptors(struct i40e_ring *tx_ring)
- 
- 	/* round up to nearest 4K */
- 	tx_ring->size = tx_ring->count * sizeof(struct i40e_tx_desc);
--	/* add u32 for head writeback, align after this takes care of
--	 * guaranteeing this is at least one cache line in size
--	 */
--	tx_ring->size += sizeof(u32);
- 	tx_ring->size = ALIGN(tx_ring->size, 4096);
- 	tx_ring->desc = dma_alloc_coherent(dev, tx_ring->size,
- 					   &tx_ring->dma, GFP_KERNEL);
-@@ -2012,7 +2003,6 @@ static inline void i40evf_tx_map(struct i40e_ring *tx_ring, struct sk_buff *skb,
- 	u16 i = tx_ring->next_to_use;
- 	u32 td_tag = 0;
- 	dma_addr_t dma;
--	u16 desc_count = 1;
- 
- 	if (tx_flags & I40E_TX_FLAGS_HW_VLAN) {
- 		td_cmd |= I40E_TX_DESC_CMD_IL2TAG1;
-@@ -2048,7 +2038,6 @@ static inline void i40evf_tx_map(struct i40e_ring *tx_ring, struct sk_buff *skb,
- 
- 			tx_desc++;
- 			i++;
--			desc_count++;
- 
- 			if (i == tx_ring->count) {
- 				tx_desc = I40E_TX_DESC(tx_ring, 0);
-@@ -2070,7 +2059,6 @@ static inline void i40evf_tx_map(struct i40e_ring *tx_ring, struct sk_buff *skb,
- 
- 		tx_desc++;
- 		i++;
--		desc_count++;
- 
- 		if (i == tx_ring->count) {
- 			tx_desc = I40E_TX_DESC(tx_ring, 0);
-@@ -2096,46 +2084,8 @@ static inline void i40evf_tx_map(struct i40e_ring *tx_ring, struct sk_buff *skb,
- 
- 	i40e_maybe_stop_tx(tx_ring, DESC_NEEDED);
- 
--	/* write last descriptor with EOP bit */
--	td_cmd |= I40E_TX_DESC_CMD_EOP;
+-			if (pf->flags & I40E_FLAG_MFP_ENABLED)
+-				goto out;
 -
--	/* We can OR these values together as they both are checked against
--	 * 4 below and at this point desc_count will be used as a boolean value
--	 * after this if/else block.
--	 */
--	desc_count |= ++tx_ring->packet_stride;
--
--	/* Algorithm to optimize tail and RS bit setting:
--	 * if queue is stopped
--	 *	mark RS bit
--	 *	reset packet counter
--	 * else if xmit_more is supported and is true
--	 *	advance packet counter to 4
--	 *	reset desc_count to 0
--	 *
--	 * if desc_count >= 4
--	 *	mark RS bit
--	 *	reset packet counter
--	 * if desc_count > 0
--	 *	update tail
--	 *
--	 * Note: If there are less than 4 descriptors
--	 * pending and interrupts were disabled the service task will
--	 * trigger a force WB.
--	 */
--	if (netif_xmit_stopped(txring_txq(tx_ring))) {
--		goto do_rs;
--	} else if (skb->xmit_more) {
--		/* set stride to arm on next packet and reset desc_count */
--		tx_ring->packet_stride = WB_STRIDE;
--		desc_count = 0;
--	} else if (desc_count >= WB_STRIDE) {
--do_rs:
--		/* write last descriptor with RS bit set */
--		td_cmd |= I40E_TX_DESC_CMD_RS;
--		tx_ring->packet_stride = 0;
--	}
--
-+	/* write last descriptor with RS and EOP bits */
-+	td_cmd |= I40E_TXD_CMD;
- 	tx_desc->cmd_type_offset_bsz =
- 			build_ctob(td_cmd, td_offset, size, td_tag);
- 
-@@ -2151,7 +2101,7 @@ static inline void i40evf_tx_map(struct i40e_ring *tx_ring, struct sk_buff *skb,
- 	first->next_to_watch = tx_desc;
- 
- 	/* notify HW of packet */
--	if (desc_count) {
-+	if (netif_xmit_stopped(txring_txq(tx_ring)) || !skb->xmit_more) {
- 		writel(i, tx_ring->tail);
- 
- 		/* we need this if more than one processor can write to our tail
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
-index fc959f964919..aba40edb0e2e 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
-@@ -393,20 +393,6 @@ int __i40evf_maybe_stop_tx(struct i40e_ring *tx_ring, int size);
- bool __i40evf_chk_linearize(struct sk_buff *skb);
- 
- /**
-- * i40e_get_head - Retrieve head from head writeback
-- * @tx_ring: Tx ring to fetch head of
-- *
-- * Returns value of Tx ring head based on value stored
-- * in head write-back location
-- **/
--static inline u32 i40e_get_head(struct i40e_ring *tx_ring)
--{
--	void *head = (struct i40e_tx_desc *)tx_ring->desc + tx_ring->count;
--
--	return le32_to_cpu(*(volatile __le32 *)head);
--}
--
--/**
-  * i40e_xmit_descriptor_count - calculate number of Tx descriptors needed
-  * @skb:     send buffer
-  * @tx_ring: ring to send buffer on
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
-index a2a7354426a3..4bc2488bf709 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
-@@ -260,10 +260,6 @@ void i40evf_configure_queues(struct i40evf_adapter *adapter)
- 		vqpi->txq.queue_id = i;
- 		vqpi->txq.ring_len = adapter->tx_rings[i].count;
- 		vqpi->txq.dma_ring_addr = adapter->tx_rings[i].dma;
--		vqpi->txq.headwb_enabled = 1;
--		vqpi->txq.dma_headwb_addr = vqpi->txq.dma_ring_addr +
--		    (vqpi->txq.ring_len * sizeof(struct i40e_tx_desc));
--
- 		vqpi->rxq.vsi_id = vqci->vsi_id;
- 		vqpi->rxq.queue_id = i;
- 		vqpi->rxq.ring_len = adapter->rx_rings[i].count;
+ 		} else {
+ 			/* When status is not DISABLED then DCBX in FW */
+ 			pf->dcbx_cap = DCB_CAP_DCBX_LLD_MANAGED |
 -- 
 2.12.0
