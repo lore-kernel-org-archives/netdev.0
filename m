@@ -1,41 +1,49 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: arch: arm: bpf: Converting cBPF to eBPF for arm 32 bit
-Date: Wed, 29 Mar 2017 02:00:08 +0200
-Message-ID: <58DAF908.8010404@iogearbox.net>
-References: <CAHgaXd+EKJ0FWaaPojsNJtgY_YpdQXu6eMEp97uOpTFAWs4qTQ@mail.gmail.com> <CAGXu5jLo8UvpNSQZBHjWZoO959ha6KFQxFzmg7SK44wz=R_QSg@mail.gmail.com> <CAHgaXdJL92XRjHae2Nb9j9SerSe65=N=ErDHTQf23sdBxwthzw@mail.gmail.com> <20170315.145512.1542025976162251828.davem@davemloft.net> <CAHgaXd+4QkFxnt-_iCqH8AyCN_Y8gXwr+y=iugz38NKSWspsbA@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch net-next v2 0/8] Add support for pipeline debug (dpipe)
+Date: Tue, 28 Mar 2017 17:29:41 -0700 (PDT)
+Message-ID: <20170328.172941.239828400657762047.davem@davemloft.net>
+References: <1490714657-6116-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, Kees Cook <keescook@chromium.org>,
- Mircea Gherzan <mgherzan@gmail.com>,
- Network Development <netdev@vger.kernel.org>,
- kernel-hardening@lists.openwall.com,
- linux-arm-kernel@lists.infradead.org, ast@fb.com
-To: Shubham Bansal <illusionist.neo@gmail.com>
-Return-path: <kernel-hardening-return-7145-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-In-Reply-To: <CAHgaXd+4QkFxnt-_iCqH8AyCN_Y8gXwr+y=iugz38NKSWspsbA@mail.gmail.com>
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, arkadis@mellanox.com, idosch@mellanox.com,
+        mlxsw@mellanox.com, jhs@mojatatu.com, ivecera@redhat.com,
+        roopa@cumulusnetworks.com, f.fainelli@gmail.com,
+        vivien.didelot@savoirfairelinux.com, john.fastabend@gmail.com,
+        andrew@lunn.ch, simon.horman@netronome.com
+To: jiri@resnulli.us
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:39472 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932352AbdC2A3q (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 28 Mar 2017 20:29:46 -0400
+In-Reply-To: <1490714657-6116-1-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Shubham,
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Tue, 28 Mar 2017 17:24:09 +0200
 
-On 03/28/2017 10:49 PM, Shubham Bansal wrote:
-[...]
-> Do you have any document to understand the working of tail calls? I
-> looked at your presentations but it seemed confusing to me. Anything
-> simple would be great, just about the tail calls. I don't think I need
-> examples, I can get them from your presentations. I just need a very
-> general idea. May be you know the code in kernel where it is
-> implemented.
+> From: Jiri Pirko <jiri@mellanox.com>
+> 
+> Arkadi says:
+> 
+> While doing the hardware offloading process much of the hardware
+> specifics cannot be presented. An example for such is the routing
+> LPM algorithm which differ in hardware implementation from the
+> kernel software implementation. The only information the user receives
+> is whether specific route is offloaded or not, but he cannot really
+> understand the underlying implementation nor get the specific statistics
+> related to that process.
+> 
+> Another example is ACL offload using TC which is commonly implemented
+> using TCAM memory. Currently there is no capability to gain visibility
+> into the TCAM structure and to debug suboptimal resource allocation.
+> 
+> This patchset introduces capability for exporting the ASICs pipeline
+> abstraction via devlink infrastructure, which should serve as an
+> complementary tool. This infrastructure allows the user to get visibility
+> into the ASIC by modeling it as a set of match/action tables.
+ ...
 
-Sure, it's in __bpf_prog_run(), see the JMP_TAIL_CALL (kernel/bpf/core.c +1019).
-That's effectively what JITs implement. [1] page 3 has a high-level description
-as well, hope that helps.
-
-Thanks,
-Daniel
-
-   [1] http://www.netdevconf.org/1.1/proceedings/papers/On-getting-tc-classifier-fully-programmable-with-cls-bpf.pdf
+Series applied, thanks!
