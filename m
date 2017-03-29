@@ -1,49 +1,83 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net-next 7/8] vhost_net: try batch dequing from skb array
-Date: Wed, 29 Mar 2017 18:53:27 +0800
-Message-ID: <cea3d380-389e-d258-915a-3d4f60232535@redhat.com>
-References: <1490069087-4783-1-git-send-email-jasowang@redhat.com>
-	<1490069087-4783-8-git-send-email-jasowang@redhat.com>
-	<20170322155111-mutt-send-email-mst@kernel.org>
-	<f41bb12f-10d6-9fb2-1cd2-76e3e9460aff@redhat.com>
-	<bf511f4a-b1d0-d732-a01e-9cd4b8ae6817@redhat.com>
-	<674632255.8752546.1490784387956.JavaMail.zimbra@redhat.com>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: Re: [PATCH v2] net: veth: use new api ethtool_{get|set}_link_ksettings
+Date: Wed, 29 Mar 2017 19:06:19 +0800
+Message-ID: <CADvbK_f7FkjCz4A_ZRwsED4A=imOkwioNACi2__8kVD2TMudOA@mail.gmail.com>
+References: <1490768661-12467-1-git-send-email-tremyfr@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
-	"Michael S. Tsirkin" <mst@redhat.com>
-To: Pankaj Gupta <pagupta@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <674632255.8752546.1490784387956.JavaMail.zimbra@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: davem <davem@davemloft.net>, jarod@redhat.com,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        dsa@cumulusnetworks.com, aduyck@mirantis.com,
+        network dev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>
+To: Philippe Reynes <tremyfr@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qt0-f196.google.com ([209.85.216.196]:35098 "EHLO
+        mail-qt0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932132AbdC2LG0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 29 Mar 2017 07:06:26 -0400
+In-Reply-To: <1490768661-12467-1-git-send-email-tremyfr@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-CgpPbiAyMDE35bm0MDPmnIgyOeaXpSAxODo0NiwgUGFua2FqIEd1cHRhIHdyb3RlOgo+IEhpIEph
-c29uLAo+Cj4+IE9uIDIwMTflubQwM+aciDIz5pelIDEzOjM0LCBKYXNvbiBXYW5nIHdyb3RlOgo+
-Pj4KPj4+Pj4gK3sKPj4+Pj4gKyAgICBpZiAocnZxLT5yaCAhPSBydnEtPnJ0KQo+Pj4+PiArICAg
-ICAgICBnb3RvIG91dDsKPj4+Pj4gKwo+Pj4+PiArICAgIHJ2cS0+cmggPSBydnEtPnJ0ID0gMDsK
-Pj4+Pj4gKyAgICBydnEtPnJ0ID0gc2tiX2FycmF5X2NvbnN1bWVfYmF0Y2hlZF9iaChydnEtPnJ4
-X2FycmF5LCBydnEtPnJ4cSwKPj4+Pj4gKyAgICAgICAgICAgICAgICAgICAgICAgIFZIT1NUX1JY
-X0JBVENIKTsKPj4+PiBBIGNvbW1lbnQgZXhwbGFpbmluZyB3aHkgaXMgaXMgLWJoIHdvdWxkIGJl
-IGhlbHBmdWwuCj4+PiBPay4KPj4+Cj4+PiBUaGFua3MKPj4gUmV0aGluayBhYm91dCB0aGlzLiBJ
-dCBsb29rcyBsaWtlIC1iaCBpcyBub3QgbmVlZGVkIGluIHRoaXMgY2FzZSBzaW5jZQo+PiBubyBj
-b25zdW1lciBydW4gaW4gYmguCj4gSW4gdGhhdCBjYXNlIGRvIHdlIG5lZWQgb3RoZXIgdmFyaWFu
-dHMgb2YgInB0cl9yaW5nX2NvbnN1bWVfYmF0Y2hlZF8qKCkiIGZ1bmN0aW9ucy4KPiBBcmUgd2Ug
-cGxhbm5pbmcgdG8gdXNlIHRoZW0gaW4gZnV0dXJlPwoKSSB0aGluayB3ZSdkIGJldHRlciBrZWVw
-IHRoZW0sIHNpbmNlIGl0IHNlcnZlcyBhcyBoZWxwZXJzLiBZb3UgY2FuIHNlZSAKdGhhdCBub3Qg
-YWxsIHRoZSBoZWxwZXJzIGluIHB0cl9yaW5nIGhhcyByZWFsIHVzZXJzLCBidXQgdGhleSB3ZXJl
-IApwcmVwYXJlZCBmb3IgdGhlIGZ1dHVyZSB1c2UuCgpUaGFua3MKCj4KPj4gVGhhbmtzCj4+Cgpf
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpWaXJ0dWFsaXph
-dGlvbiBtYWlsaW5nIGxpc3QKVmlydHVhbGl6YXRpb25AbGlzdHMubGludXgtZm91bmRhdGlvbi5v
-cmcKaHR0cHM6Ly9saXN0cy5saW51eGZvdW5kYXRpb24ub3JnL21haWxtYW4vbGlzdGluZm8vdmly
-dHVhbGl6YXRpb24=
+On Wed, Mar 29, 2017 at 2:24 PM, Philippe Reynes <tremyfr@gmail.com> wrote:
+> The ethtool api {get|set}_settings is deprecated.
+> We move this driver to new api {get|set}_link_ksettings.
+>
+> Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+> ---
+> Changelog:
+> v2:
+> - avoid useless initiazation to zero (thanks Xin Long)
+>
+Reviewed-by: Xin Long <lucien.xin@gmail.com>
+
+>  drivers/net/veth.c |   19 +++++++------------
+>  1 files changed, 7 insertions(+), 12 deletions(-)
+>
+> diff --git a/drivers/net/veth.c b/drivers/net/veth.c
+> index 8c39d6d..3171036 100644
+> --- a/drivers/net/veth.c
+> +++ b/drivers/net/veth.c
+> @@ -45,18 +45,13 @@ struct veth_priv {
+>         { "peer_ifindex" },
+>  };
+>
+> -static int veth_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+> +static int veth_get_link_ksettings(struct net_device *dev,
+> +                                  struct ethtool_link_ksettings *cmd)
+>  {
+> -       cmd->supported          = 0;
+> -       cmd->advertising        = 0;
+> -       ethtool_cmd_speed_set(cmd, SPEED_10000);
+> -       cmd->duplex             = DUPLEX_FULL;
+> -       cmd->port               = PORT_TP;
+> -       cmd->phy_address        = 0;
+> -       cmd->transceiver        = XCVR_INTERNAL;
+> -       cmd->autoneg            = AUTONEG_DISABLE;
+> -       cmd->maxtxpkt           = 0;
+> -       cmd->maxrxpkt           = 0;
+> +       cmd->base.speed         = SPEED_10000;
+> +       cmd->base.duplex        = DUPLEX_FULL;
+> +       cmd->base.port          = PORT_TP;
+> +       cmd->base.autoneg       = AUTONEG_DISABLE;
+>         return 0;
+>  }
+>
+> @@ -95,12 +90,12 @@ static void veth_get_ethtool_stats(struct net_device *dev,
+>  }
+>
+>  static const struct ethtool_ops veth_ethtool_ops = {
+> -       .get_settings           = veth_get_settings,
+>         .get_drvinfo            = veth_get_drvinfo,
+>         .get_link               = ethtool_op_get_link,
+>         .get_strings            = veth_get_strings,
+>         .get_sset_count         = veth_get_sset_count,
+>         .get_ethtool_stats      = veth_get_ethtool_stats,
+> +       .get_link_ksettings     = veth_get_link_ksettings,
+>  };
+>
+>  static netdev_tx_t veth_xmit(struct sk_buff *skb, struct net_device *dev)
+> --
+> 1.7.4.4
+>
