@@ -1,9 +1,9 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next] net: mvneta: add RGMII_RXID and RGMII_TXID
- support
-Date: Wed, 29 Mar 2017 14:57:06 +0200
-Message-ID: <20170329125706.GC28922@lunn.ch>
-References: <20170329084226.3472-1-jszhang@marvell.com>
+Subject: Re: [PATCH net-next v2] net: mvneta: set rx mode during resume if
+ interface is running
+Date: Wed, 29 Mar 2017 14:57:48 +0200
+Message-ID: <20170329125748.GD28922@lunn.ch>
+References: <20170329084719.3596-1-jszhang@marvell.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: thomas.petazzoni@free-electrons.com, davem@davemloft.net,
@@ -12,17 +12,25 @@ Cc: thomas.petazzoni@free-electrons.com, davem@davemloft.net,
 To: Jisheng Zhang <jszhang@marvell.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20170329084226.3472-1-jszhang@marvell.com>
+In-Reply-To: <20170329084719.3596-1-jszhang@marvell.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 29, 2017 at 04:42:26PM +0800, Jisheng Zhang wrote:
-> RGMII_RXID and RGMII_TX_ID share the same GMAC CTRL setting as RGMII
-> or RGMII_ID.
+On Wed, Mar 29, 2017 at 04:47:19PM +0800, Jisheng Zhang wrote:
+> I found a bug by:
+> 
+> 0. boot and start dhcp client
+> 1. echo mem > /sys/power/state
+> 2. resume back immediately
+> 3. don't touch dhcp client to renew the lease
+> 4. ping the gateway. No acks
+> 
+> Usually, after step2, the DHCP lease isn't expired, so in theory we
+> should resume all back. But in fact, it doesn't. It turns out
+> the rx mode isn't resumed correctly. This patch fixes it by adding
+> mvneta_set_rx_mode(dev) in the resume hook if interface is running.
 > 
 > Signed-off-by: Jisheng Zhang <jszhang@marvell.com>
-
-Looks reasonable.
 
 Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 
