@@ -1,45 +1,69 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] tcp: possible race between tcp_done() and tcp_poll()
-Date: Wed, 29 Mar 2017 14:57:49 +0300
-Message-ID: <bf4e81fe-7213-8af5-4d5a-4bf2737eee7b@cogentembedded.com>
-References: <34d952a3-77cd-ea53-c3e3-ccde91d5cf63@jp.fujitsu.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net-next 8/8] vhost_net: use lockless peeking for skb
+	array during busy polling
+Date: Wed, 29 Mar 2017 15:07:10 +0300
+Message-ID: <20170329150538-mutt-send-email-mst@kernel.org>
+References: <1490069087-4783-1-git-send-email-jasowang@redhat.com>
+	<1490069087-4783-9-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Seiichi Ikarashi <s.ikarashi@jp.fujitsu.com>,
-        netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f43.google.com ([209.85.215.43]:33681 "EHLO
-        mail-lf0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754661AbdC2L5w (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 29 Mar 2017 07:57:52 -0400
-Received: by mail-lf0-f43.google.com with SMTP id h125so6515320lfe.0
-        for <netdev@vger.kernel.org>; Wed, 29 Mar 2017 04:57:50 -0700 (PDT)
-In-Reply-To: <34d952a3-77cd-ea53-c3e3-ccde91d5cf63@jp.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <1490069087-4783-9-git-send-email-jasowang@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Hello!
-
-On 3/29/2017 8:22 AM, Seiichi Ikarashi wrote:
-
-> Similar to commit a4d258036ed9b2a1811.
-
-    Commit citing is standardized: it should specify 12-digit (at least) SHA1 
-and the commit summary line enclosed in ("").
-
-> Between receiving a packet and tcp_poll(), sk->sk_err is protected by memory barriers but
-> sk->sk_shutdown and sk->sk_state are not. So possibly, POLLIN|POLLRDNORM|POLLRDHUP might
-> not be set even when receiving a RST packet.
->
-> Signed-off-by: Seiichi Ikarashi <s.ikarashi@jp.fujitsu.com>
->
-
-     Should be --- before the diffstat.
-
->  net/ipv4/tcp.c | 7 +++++--
+On Tue, Mar 21, 2017 at 12:04:47PM +0800, Jason Wang wrote:
+> For the socket that exports its skb array, we can use lockless polling
+> to avoid touching spinlock during busy polling.
+> 
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> ---
+>  drivers/vhost/net.c | 7 +++++--
 >  1 file changed, 5 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+> index 53f09f2..41153a3 100644
+> --- a/drivers/vhost/net.c
+> +++ b/drivers/vhost/net.c
+> @@ -551,10 +551,13 @@ static int peek_head_len(struct vhost_net_virtqueue *rvq, struct sock *sk)
+>  	return len;
+>  }
+>  
+> -static int sk_has_rx_data(struct sock *sk)
+> +static int sk_has_rx_data(struct vhost_net_virtqueue *rvq, struct sock *sk)
+>  {
+>  	struct socket *sock = sk->sk_socket;
+>  
+> +	if (rvq->rx_array)
+> +		return !__skb_array_empty(rvq->rx_array);
+> +
+>  	if (sock->ops->peek_len)
+>  		return sock->ops->peek_len(sock);
+>  
 
-[...]
+I don't see which patch adds __skb_array_empty.
 
-MBR, Sergei
+> @@ -579,7 +582,7 @@ static int vhost_net_rx_peek_head_len(struct vhost_net *net,
+>  		endtime = busy_clock() + vq->busyloop_timeout;
+>  
+>  		while (vhost_can_busy_poll(&net->dev, endtime) &&
+> -		       !sk_has_rx_data(sk) &&
+> +		       !sk_has_rx_data(rvq, sk) &&
+>  		       vhost_vq_avail_empty(&net->dev, vq))
+>  			cpu_relax();
+>  
+> -- 
+> 2.7.4
