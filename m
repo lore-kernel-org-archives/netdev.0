@@ -1,46 +1,70 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net-next 7/8] vhost_net: try batch dequing from skb array
-Date: Wed, 29 Mar 2017 17:58:23 +0800
-Message-ID: <bf511f4a-b1d0-d732-a01e-9cd4b8ae6817@redhat.com>
-References: <1490069087-4783-1-git-send-email-jasowang@redhat.com>
- <1490069087-4783-8-git-send-email-jasowang@redhat.com>
- <20170322155111-mutt-send-email-mst@kernel.org>
- <f41bb12f-10d6-9fb2-1cd2-76e3e9460aff@redhat.com>
+From: Arushi Singhal <arushisinghal19971997@gmail.com>
+Subject: [PATCH] net: netfilterL: Fix line over 80 characters.
+Date: Wed, 29 Mar 2017 15:30:59 +0530
+Message-ID: <20170329100059.GA24750@arushi-HP-Pavilion-Notebook>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: kvm@vger.kernel.org, virtualization@lists.linux-foundation.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        outreachy-kernel@googlegroups.com
+To: pablo@netfilter.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:36824 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755154AbdC2J6k (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 29 Mar 2017 05:58:40 -0400
-In-Reply-To: <f41bb12f-10d6-9fb2-1cd2-76e3e9460aff@redhat.com>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:34035 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754941AbdC2KBF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 29 Mar 2017 06:01:05 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+fix the line over 80 characters as reported by checkpatch.pl
 
+Signed-off-by: Arushi Singhal <arushisinghal19971997@gmail.com>
+---
+ net/ipv6/netfilter/ip6_tables.c    | 6 ++++--
+ net/ipv6/netfilter/ip6t_SYNPROXY.c | 3 ++-
+ 2 files changed, 6 insertions(+), 3 deletions(-)
 
-On 2017年03月23日 13:34, Jason Wang wrote:
->
->
->>
->>> +{
->>> +    if (rvq->rh != rvq->rt)
->>> +        goto out;
->>> +
->>> +    rvq->rh = rvq->rt = 0;
->>> +    rvq->rt = skb_array_consume_batched_bh(rvq->rx_array, rvq->rxq,
->>> +                        VHOST_RX_BATCH);
->> A comment explaining why is is -bh would be helpful.
->
-> Ok.
->
-> Thanks 
-
-Rethink about this. It looks like -bh is not needed in this case since 
-no consumer run in bh.
-
-Thanks
+diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
+index ac69ce3bfa1e..b3b94cc80544 100644
+--- a/net/ipv6/netfilter/ip6_tables.c
++++ b/net/ipv6/netfilter/ip6_tables.c
+@@ -81,12 +81,14 @@ ip6_packet_match(const struct sk_buff *skb,
+ 					 &ip6info->dst)))
+ 		return false;
+ 
+-	ret = ifname_compare_aligned(indev, ip6info->iniface, ip6info->iniface_mask);
++	ret = ifname_compare_aligned(indev, ip6info->iniface,
++				     ip6info->iniface_mask);
+ 
+ 	if (NF_INVF(ip6info, IP6T_INV_VIA_IN, ret != 0))
+ 		return false;
+ 
+-	ret = ifname_compare_aligned(outdev, ip6info->outiface, ip6info->outiface_mask);
++	ret = ifname_compare_aligned(outdev, ip6info->outiface,
++				     ip6info->outiface_mask);
+ 
+ 	if (NF_INVF(ip6info, IP6T_INV_VIA_OUT, ret != 0))
+ 		return false;
+diff --git a/net/ipv6/netfilter/ip6t_SYNPROXY.c b/net/ipv6/netfilter/ip6t_SYNPROXY.c
+index e0fa78085ad7..6b4d1837891b 100644
+--- a/net/ipv6/netfilter/ip6t_SYNPROXY.c
++++ b/net/ipv6/netfilter/ip6t_SYNPROXY.c
+@@ -58,7 +58,8 @@ synproxy_send_tcp(struct net *net,
+ 	fl6.daddr = niph->daddr;
+ 	fl6.fl6_sport = nth->source;
+ 	fl6.fl6_dport = nth->dest;
+-	security_skb_classify_flow((struct sk_buff *)skb, flowi6_to_flowi(&fl6));
++	security_skb_classify_flow((struct sk_buff *)skb,
++				   flowi6_to_flowi(&fl6));
+ 	dst = ip6_route_output(net, NULL, &fl6);
+ 	if (dst->error) {
+ 		dst_release(dst);
+-- 
+2.11.0
