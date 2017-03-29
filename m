@@ -1,28 +1,61 @@
-From: fche@redhat.com (Frank Ch. Eigler)
-Subject: Re: [RFC PATCH tip/master 0/3] kprobes: tracing: kretprobe_instance dynamic allocation
-Date: Wed, 29 Mar 2017 09:27:35 -0400
-Message-ID: <y0ma884tdq0.fsf@fche.csb>
-References: <149076484118.24574.7083269903420611708.stgit@devbox>
+From: Arushi Singhal <arushisinghal19971997@gmail.com>
+Subject: [PATCH] net: netfilter: remove unused variable
+Date: Wed, 29 Mar 2017 19:08:48 +0530
+Message-ID: <20170329133848.GA1336@arushi-HP-Pavilion-Notebook>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Steven Rostedt <rostedt@goodmis.org>,  Ingo Molnar <mingo@redhat.com>,  Alban Crequy <alban.crequy@gmail.com>,  Alban Crequy <alban@kinvolk.io>,  Alexei Starovoitov <ast@kernel.org>,  Jonathan Corbet <corbet@lwn.net>,  Arnaldo Carvalho de Melo <acme@redhat.com>,  Omar Sandoval <osandov@fb.com>,  linux-doc@vger.kernel.org,  netdev@vger.kernel.org,  linux-kernel@vger.kernel.org,  iago@kinvolk.io,  michael@kinvolk.io,  Dorau Lukasz <lukasz.dorau@intel.com>,  systemtap@sourceware.org
-To: Masami Hiramatsu <mhiramat@kernel.org>
-Return-path: <systemtap-return-25242-gls-systemtap=m.gmane.org@sourceware.org>
-List-Unsubscribe: <mailto:systemtap-unsubscribe-gls-systemtap=m.gmane.org@sourceware.org>
-List-Subscribe: <mailto:systemtap-subscribe@sourceware.org>
-List-Post: <mailto:systemtap@sourceware.org>
-List-Help: <mailto:systemtap-help@sourceware.org>, <http://sourceware.org/lists.html#faqs>
-Sender: systemtap-owner@sourceware.org
-In-Reply-To: <149076484118.24574.7083269903420611708.stgit@devbox> (Masami	Hiramatsu's message of "Wed, 29 Mar 2017 14:20:51 +0900")
+Cc: Wensong Zhang <wensong@linux-vs.org>,
+        Simon Horman <horms@verge.net.au>,
+        Julian Anastasov <ja@ssi.bg>,
+        Pablo Neira Ayuso <pablo@netfilter.org>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+        coreteam@netfilter.org, linux-kernel@vger.kernel.org
+To: outreachy-kernel@googlegroups.com
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+This patch uses the following coccinelle script to remove
+a variable that was simply used to store the return
+value of a function call before returning it:
 
-mhiramat wrote:
+@@
+identifier len,f;
+@@
 
-> Here is a correction of patches to introduce kretprobe_instance
-> dynamic allocation for avoiding kretprobe silently miss-hits.
-> [...]
+-int len;
+ ... when != len
+     when strict
+-len =
++return
+        f(...);
+-return len;
 
-Thanks, this looks automatically useful also to systemtap users.
+Signed-off-by: Arushi Singhal <arushisinghal19971997@gmail.com>
+---
+ net/netfilter/ipvs/ip_vs_ftp.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
 
-- FChE
+diff --git a/net/netfilter/ipvs/ip_vs_ftp.c b/net/netfilter/ipvs/ip_vs_ftp.c
+index d30c327bb578..9e1e682610ef 100644
+--- a/net/netfilter/ipvs/ip_vs_ftp.c
++++ b/net/netfilter/ipvs/ip_vs_ftp.c
+@@ -482,11 +482,9 @@ static struct pernet_operations ip_vs_ftp_ops = {
+ 
+ static int __init ip_vs_ftp_init(void)
+ {
+-	int rv;
+ 
+-	rv = register_pernet_subsys(&ip_vs_ftp_ops);
+ 	/* rcu_barrier() is called by netns on error */
+-	return rv;
++	return register_pernet_subsys(&ip_vs_ftp_ops);
+ }
+ 
+ /*
+-- 
+2.11.0
+
