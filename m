@@ -1,49 +1,29 @@
-From: Masami Hiramatsu <mhiramat@kernel.org>
-Subject: [RFC PATCH tip/master 3/3] kprobes: Limit kretprobe maximum instances
-Date: Wed, 29 Mar 2017 14:24:23 +0900
-Message-ID: <149076505311.24574.3646383930433662308.stgit@devbox>
-References: <149076484118.24574.7083269903420611708.stgit@devbox>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/7] netconf: Add support for RTM_DELNETCONF
+Date: Tue, 28 Mar 2017 22:32:57 -0700 (PDT)
+Message-ID: <20170328.223257.1804803147939889749.davem@davemloft.net>
+References: <1490736487-16020-1-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Alban Crequy <alban.crequy@gmail.com>,
-        Alban Crequy <alban@kinvolk.io>,
-        Alexei Starovoitov <ast@kernel.org>,
-        Jonathan Corbet <corbet@lwn.net>,
-        Arnaldo Carvalho de Melo <acme@redhat.com>,
-        Omar Sandoval <osandov@fb.com>, linux-doc@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        iago@kinvolk.io, michael@kinvolk.io,
-        Dorau Lukasz <lukasz.dorau@intel.com>, systemtap@sourceware.org
-To: Steven Rostedt <rostedt@goodmis.org>,
-        Ingo Molnar <mingo@redhat.com>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <149076484118.24574.7083269903420611708.stgit@devbox>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, nicolas.dichtel@6wind.com
+To: dsa@cumulusnetworks.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:41938 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752762AbdC2FdE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 29 Mar 2017 01:33:04 -0400
+In-Reply-To: <1490736487-16020-1-git-send-email-dsa@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Limit kretprobe maximum instance up to MAXACTIVE_ALLOC.
-Without this limit, kretprobe user can specify huge number
-(e.g. forget to zero-fill struct kretprobe) to maxactive
-and may cause out-of-memory.
+From: David Ahern <dsa@cumulusnetworks.com>
+Date: Tue, 28 Mar 2017 14:28:00 -0700
 
-Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
----
- kernel/kprobes.c |    3 +++
- 1 file changed, 3 insertions(+)
+> netconf notifications are sent as devices register but not when they
+> are deleted leaving userspace caches out of sync. Add support for
+> RTM_DELNETCONF to ipv4, ipv6 and mpls.
+> 
+> MPLS is missing RTM_NEWNETCONF as devices are created, so add it as well.
 
-diff --git a/kernel/kprobes.c b/kernel/kprobes.c
-index 75c5390..f1bebcf 100644
---- a/kernel/kprobes.c
-+++ b/kernel/kprobes.c
-@@ -1942,6 +1942,9 @@ int register_kretprobe(struct kretprobe *rp)
- 	rp->kp.break_handler = NULL;
- 
- 	/* Pre-allocate memory for max kretprobe instances */
-+	if (rp->maxactive > KRETPROBE_MAXACTIVE_ALLOC)
-+		return -E2BIG;
-+
- 	if (rp->maxactive <= 0) {
- #ifdef CONFIG_PREEMPT
- 		rp->maxactive = max_t(unsigned int, 10, 2*num_possible_cpus());
-
+Series applied, thanks.
