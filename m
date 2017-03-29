@@ -1,247 +1,163 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 08/13] i40e/i40evf: Pull code for grabbing and syncing rx_buffer from fetch_buffer
-Date: Wed, 29 Mar 2017 03:12:10 -0700
-Message-ID: <20170329101215.24513-9-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 07/13] i40e/i40evf: Use length to determine if descriptor is done
+Date: Wed, 29 Mar 2017 03:12:09 -0700
+Message-ID: <20170329101215.24513-8-jeffrey.t.kirsher@intel.com>
 References: <20170329101215.24513-1-jeffrey.t.kirsher@intel.com>
 Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
         netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
         jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:54616 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:21132 "EHLO mga02.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755302AbdC2KMZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 29 Mar 2017 06:12:25 -0400
+        id S1755295AbdC2KMY (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 29 Mar 2017 06:12:24 -0400
 In-Reply-To: <20170329101215.24513-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This patch pulls the code responsible for fetching the Rx buffer and
-synchronizing DMA into a function, specifically called i40e_get_rx_buffer.
+This change makes it so that we use the length of the packet instead of the
+DD status bit to determine if a new descriptor is ready to be processed.
+The obvious advantage is that it cuts down on reads as we don't really even
+need the DD bit if going from a 0 to a non-zero value on size is enough to
+inform us that the packet has been completed.
 
-The general idea is to allow for better code reuse by pulling this out of
-i40e_fetch_rx_buffer.  We dropped a couple of prefetches since the time
-between the prefetch being called and the data being accessed was too small
-to be useful.
-
-Change-ID: I4885fce4b2637dbedc8e16431169d23d3d7e79b9
+Change-ID: Iebdf9cdb36c454ef092df27199b92ad09c374231
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_txrx.c   | 58 ++++++++++++++++-----------
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c | 58 ++++++++++++++++-----------
- 2 files changed, 68 insertions(+), 48 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c   | 24 ++++++++++++------------
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c | 24 ++++++++++++------------
+ 2 files changed, 24 insertions(+), 24 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index 012e55354043..f2256d8c5e35 100644
+index 2ca8d13baea5..012e55354043 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -1754,9 +1754,35 @@ static bool i40e_add_rx_frag(struct i40e_ring *rx_ring,
- }
- 
- /**
-+ * i40e_get_rx_buffer - Fetch Rx buffer and synchronize data for use
-+ * @rx_ring: rx descriptor ring to transact packets on
-+ * @size: size of buffer to add to skb
-+ *
-+ * This function will pull an Rx buffer from the ring and synchronize it
-+ * for use by the CPU.
-+ */
-+static struct i40e_rx_buffer *i40e_get_rx_buffer(struct i40e_ring *rx_ring,
-+						 const unsigned int size)
-+{
-+	struct i40e_rx_buffer *rx_buffer;
-+
-+	rx_buffer = &rx_ring->rx_bi[rx_ring->next_to_clean];
-+	prefetchw(rx_buffer->page);
-+
-+	/* we are reusing so sync this buffer for CPU use */
-+	dma_sync_single_range_for_cpu(rx_ring->dev,
-+				      rx_buffer->dma,
-+				      rx_buffer->page_offset,
-+				      size,
-+				      DMA_FROM_DEVICE);
-+
-+	return rx_buffer;
-+}
-+
-+/**
+@@ -1757,6 +1757,7 @@ static bool i40e_add_rx_frag(struct i40e_ring *rx_ring,
   * i40e_fetch_rx_buffer - Allocate skb and populate it
   * @rx_ring: rx descriptor ring to transact packets on
-- * @rx_desc: descriptor containing info written by hardware
-+ * @rx_buffer: rx buffer to pull data from
-  * @size: size of buffer to add to skb
+  * @rx_desc: descriptor containing info written by hardware
++ * @size: size of buffer to add to skb
   *
   * This function allocates an skb on the fly, and populates it with the page
-@@ -1766,19 +1792,13 @@ static bool i40e_add_rx_frag(struct i40e_ring *rx_ring,
-  */
+  * data from the current receive descriptor, taking care to set up the skb
+@@ -1766,13 +1767,9 @@ static bool i40e_add_rx_frag(struct i40e_ring *rx_ring,
  static inline
  struct sk_buff *i40e_fetch_rx_buffer(struct i40e_ring *rx_ring,
--				     union i40e_rx_desc *rx_desc,
-+				     struct i40e_rx_buffer *rx_buffer,
- 				     struct sk_buff *skb,
- 				     unsigned int size)
+ 				     union i40e_rx_desc *rx_desc,
+-				     struct sk_buff *skb)
++				     struct sk_buff *skb,
++				     unsigned int size)
  {
--	struct i40e_rx_buffer *rx_buffer;
--	struct page *page;
--
--	rx_buffer = &rx_ring->rx_bi[rx_ring->next_to_clean];
--	page = rx_buffer->page;
--	prefetchw(page);
--
- 	if (likely(!skb)) {
--		void *page_addr = page_address(page) + rx_buffer->page_offset;
-+		void *page_addr = page_address(rx_buffer->page) +
-+				  rx_buffer->page_offset;
+-	u64 local_status_error_len =
+-		le64_to_cpu(rx_desc->wb.qword1.status_error_len);
+-	unsigned int size =
+-		(local_status_error_len & I40E_RXD_QW1_LENGTH_PBUF_MASK) >>
+-		I40E_RXD_QW1_LENGTH_PBUF_SHIFT;
+ 	struct i40e_rx_buffer *rx_buffer;
+ 	struct page *page;
  
- 		/* prefetch first cache line of first page */
- 		prefetch(page_addr);
-@@ -1794,21 +1814,8 @@ struct sk_buff *i40e_fetch_rx_buffer(struct i40e_ring *rx_ring,
- 			rx_ring->rx_stats.alloc_buff_failed++;
- 			return NULL;
- 		}
--
--		/* we will be copying header into skb->data in
--		 * pskb_may_pull so it is in our interest to prefetch
--		 * it now to avoid a possible cache miss
--		 */
--		prefetchw(skb->data);
- 	}
- 
--	/* we are reusing so sync this buffer for CPU use */
--	dma_sync_single_range_for_cpu(rx_ring->dev,
--				      rx_buffer->dma,
--				      rx_buffer->page_offset,
--				      size,
--				      DMA_FROM_DEVICE);
--
- 	/* pull page into skb */
- 	if (i40e_add_rx_frag(rx_ring, rx_buffer, size, skb)) {
- 		/* hand second half of page back to the ring */
-@@ -1886,6 +1893,7 @@ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
- 	bool failure = false;
+@@ -1890,6 +1887,7 @@ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
  
  	while (likely(total_rx_packets < budget)) {
-+		struct i40e_rx_buffer *rx_buffer;
  		union i40e_rx_desc *rx_desc;
- 		unsigned int size;
++		unsigned int size;
  		u16 vlan_tag;
-@@ -1918,7 +1926,9 @@ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
+ 		u8 rx_ptype;
+ 		u64 qword;
+@@ -1906,19 +1904,21 @@ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
+ 		/* status_error_len will always be zero for unused descriptors
+ 		 * because it's cleared in cleanup, and overlaps with hdr_addr
+ 		 * which is always zero because packet split isn't used, if the
+-		 * hardware wrote DD then it will be non-zero
++		 * hardware wrote DD then the length will be non-zero
+ 		 */
+-		if (!i40e_test_staterr(rx_desc,
+-				       BIT(I40E_RX_DESC_STATUS_DD_SHIFT)))
++		qword = le64_to_cpu(rx_desc->wb.qword1.status_error_len);
++		size = (qword & I40E_RXD_QW1_LENGTH_PBUF_MASK) >>
++		       I40E_RXD_QW1_LENGTH_PBUF_SHIFT;
++		if (!size)
+ 			break;
+ 
+ 		/* This memory barrier is needed to keep us from reading
+-		 * any other fields out of the rx_desc until we know the
+-		 * DD bit is set.
++		 * any other fields out of the rx_desc until we have
++		 * verified the descriptor has been written back.
  		 */
  		dma_rmb();
  
--		skb = i40e_fetch_rx_buffer(rx_ring, rx_desc, skb, size);
-+		rx_buffer = i40e_get_rx_buffer(rx_ring, size);
-+
-+		skb = i40e_fetch_rx_buffer(rx_ring, rx_buffer, skb, size);
+-		skb = i40e_fetch_rx_buffer(rx_ring, rx_desc, skb);
++		skb = i40e_fetch_rx_buffer(rx_ring, rx_desc, skb, size);
  		if (!skb)
  			break;
  
 diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-index e41eb46b02fe..2320ec4d95ee 100644
+index f1a99a8dc7ea..e41eb46b02fe 100644
 --- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
 +++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-@@ -1113,9 +1113,35 @@ static bool i40e_add_rx_frag(struct i40e_ring *rx_ring,
- }
- 
- /**
-+ * i40e_get_rx_buffer - Fetch Rx buffer and synchronize data for use
-+ * @rx_ring: rx descriptor ring to transact packets on
-+ * @size: size of buffer to add to skb
-+ *
-+ * This function will pull an Rx buffer from the ring and synchronize it
-+ * for use by the CPU.
-+ */
-+static struct i40e_rx_buffer *i40e_get_rx_buffer(struct i40e_ring *rx_ring,
-+						 const unsigned int size)
-+{
-+	struct i40e_rx_buffer *rx_buffer;
-+
-+	rx_buffer = &rx_ring->rx_bi[rx_ring->next_to_clean];
-+	prefetchw(rx_buffer->page);
-+
-+	/* we are reusing so sync this buffer for CPU use */
-+	dma_sync_single_range_for_cpu(rx_ring->dev,
-+				      rx_buffer->dma,
-+				      rx_buffer->page_offset,
-+				      size,
-+				      DMA_FROM_DEVICE);
-+
-+	return rx_buffer;
-+}
-+
-+/**
+@@ -1116,6 +1116,7 @@ static bool i40e_add_rx_frag(struct i40e_ring *rx_ring,
   * i40evf_fetch_rx_buffer - Allocate skb and populate it
   * @rx_ring: rx descriptor ring to transact packets on
-- * @rx_desc: descriptor containing info written by hardware
-+ * @rx_buffer: rx buffer to pull data from
-  * @size: size of buffer to add to skb
+  * @rx_desc: descriptor containing info written by hardware
++ * @size: size of buffer to add to skb
   *
   * This function allocates an skb on the fly, and populates it with the page
-@@ -1125,19 +1151,13 @@ static bool i40e_add_rx_frag(struct i40e_ring *rx_ring,
-  */
+  * data from the current receive descriptor, taking care to set up the skb
+@@ -1125,13 +1126,9 @@ static bool i40e_add_rx_frag(struct i40e_ring *rx_ring,
  static inline
  struct sk_buff *i40evf_fetch_rx_buffer(struct i40e_ring *rx_ring,
--				       union i40e_rx_desc *rx_desc,
-+				       struct i40e_rx_buffer *rx_buffer,
- 				       struct sk_buff *skb,
- 				       unsigned int size)
+ 				       union i40e_rx_desc *rx_desc,
+-				       struct sk_buff *skb)
++				       struct sk_buff *skb,
++				       unsigned int size)
  {
--	struct i40e_rx_buffer *rx_buffer;
--	struct page *page;
--
--	rx_buffer = &rx_ring->rx_bi[rx_ring->next_to_clean];
--	page = rx_buffer->page;
--	prefetchw(page);
--
- 	if (likely(!skb)) {
--		void *page_addr = page_address(page) + rx_buffer->page_offset;
-+		void *page_addr = page_address(rx_buffer->page) +
-+				  rx_buffer->page_offset;
+-	u64 local_status_error_len =
+-		le64_to_cpu(rx_desc->wb.qword1.status_error_len);
+-	unsigned int size =
+-		(local_status_error_len & I40E_RXD_QW1_LENGTH_PBUF_MASK) >>
+-		I40E_RXD_QW1_LENGTH_PBUF_SHIFT;
+ 	struct i40e_rx_buffer *rx_buffer;
+ 	struct page *page;
  
- 		/* prefetch first cache line of first page */
- 		prefetch(page_addr);
-@@ -1153,21 +1173,8 @@ struct sk_buff *i40evf_fetch_rx_buffer(struct i40e_ring *rx_ring,
- 			rx_ring->rx_stats.alloc_buff_failed++;
- 			return NULL;
- 		}
--
--		/* we will be copying header into skb->data in
--		 * pskb_may_pull so it is in our interest to prefetch
--		 * it now to avoid a possible cache miss
--		 */
--		prefetchw(skb->data);
- 	}
- 
--	/* we are reusing so sync this buffer for CPU use */
--	dma_sync_single_range_for_cpu(rx_ring->dev,
--				      rx_buffer->dma,
--				      rx_buffer->page_offset,
--				      size,
--				      DMA_FROM_DEVICE);
--
- 	/* pull page into skb */
- 	if (i40e_add_rx_frag(rx_ring, rx_buffer, size, skb)) {
- 		/* hand second half of page back to the ring */
-@@ -1240,6 +1247,7 @@ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
- 	bool failure = false;
+@@ -1244,6 +1241,7 @@ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
  
  	while (likely(total_rx_packets < budget)) {
-+		struct i40e_rx_buffer *rx_buffer;
  		union i40e_rx_desc *rx_desc;
- 		unsigned int size;
++		unsigned int size;
  		u16 vlan_tag;
-@@ -1272,7 +1280,9 @@ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
+ 		u8 rx_ptype;
+ 		u64 qword;
+@@ -1260,19 +1258,21 @@ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
+ 		/* status_error_len will always be zero for unused descriptors
+ 		 * because it's cleared in cleanup, and overlaps with hdr_addr
+ 		 * which is always zero because packet split isn't used, if the
+-		 * hardware wrote DD then it will be non-zero
++		 * hardware wrote DD then the length will be non-zero
+ 		 */
+-		if (!i40e_test_staterr(rx_desc,
+-				       BIT(I40E_RX_DESC_STATUS_DD_SHIFT)))
++		qword = le64_to_cpu(rx_desc->wb.qword1.status_error_len);
++		size = (qword & I40E_RXD_QW1_LENGTH_PBUF_MASK) >>
++		       I40E_RXD_QW1_LENGTH_PBUF_SHIFT;
++		if (!size)
+ 			break;
+ 
+ 		/* This memory barrier is needed to keep us from reading
+-		 * any other fields out of the rx_desc until we know the
+-		 * DD bit is set.
++		 * any other fields out of the rx_desc until we have
++		 * verified the descriptor has been written back.
  		 */
  		dma_rmb();
  
--		skb = i40evf_fetch_rx_buffer(rx_ring, rx_desc, skb, size);
-+		rx_buffer = i40e_get_rx_buffer(rx_ring, size);
-+
-+		skb = i40evf_fetch_rx_buffer(rx_ring, rx_buffer, skb, size);
+-		skb = i40evf_fetch_rx_buffer(rx_ring, rx_desc, skb);
++		skb = i40evf_fetch_rx_buffer(rx_ring, rx_desc, skb, size);
  		if (!skb)
  			break;
  
