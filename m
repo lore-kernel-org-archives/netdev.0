@@ -1,49 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ezchip: nps_enet: check if napi has been completed
-Date: Wed, 29 Mar 2017 14:30:14 -0700 (PDT)
-Message-ID: <20170329.143014.2001816338079751776.davem@davemloft.net>
-References: <1490784106-14489-1-git-send-email-vzakhar@synopsys.com>
+Subject: Re: [PATCH 0/8] Netfilter fixes for net
+Date: Wed, 29 Mar 2017 14:39:15 -0700 (PDT)
+Message-ID: <20170329.143915.150518467844727871.davem@davemloft.net>
+References: <1490789650-7294-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, edumazet@google.com,
- noamca@mellanox.com, linux-snps-arc@lists.infradead.org, eladkan@mellanox.com
-To: Vladislav.Zakharov@synopsys.com
-Return-path: <linux-snps-arc-bounces+gla-linux-snps-arc=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1490784106-14489-1-git-send-email-vzakhar@synopsys.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-snps-arc>,
- <mailto:linux-snps-arc-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-snps-arc/>
-List-Post: <mailto:linux-snps-arc@lists.infradead.org>
-List-Help: <mailto:linux-snps-arc-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-snps-arc>,
- <mailto:linux-snps-arc-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-snps-arc" <linux-snps-arc-bounces@lists.infradead.org>
-Errors-To: linux-snps-arc-bounces+gla-linux-snps-arc=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: pablo@netfilter.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:51576 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933079AbdC2VjR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 29 Mar 2017 17:39:17 -0400
+In-Reply-To: <1490789650-7294-1-git-send-email-pablo@netfilter.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Vlad Zakharov <Vladislav.Zakharov@synopsys.com>
-Date: Wed, 29 Mar 2017 13:41:46 +0300
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Date: Wed, 29 Mar 2017 14:14:02 +0200
 
-> After a new NAPI_STATE_MISSED state was added to NAPI we can get into
-> this state and in such case we have to reschedule NAPI as some work is
-> still pending and we have to process it. napi_complete_done() function
-> returns false if we have to reschedule something (e.g. in case we were
-> in MISSED state) as current polling have not been completed yet.
+> Hi David,
 > 
-> nps_enet driver hasn't been verifying the return value of
-> napi_complete_done() and has been forcibly enabling interrupts. That is
-> not correct as we should not enable interrupts before we have processed
-> all scheduled work. As a result we were getting trapped in interrupt
-> hanlder chain as we had never been able to disabale ethernet
-> interrupts again.
+> The following patchset contains a rather large update with Netfilter
+> fixes, specifically targeted to incorrect RCU usage in several spots and
+> the userspace conntrack helper infrastructure (nfnetlink_cthelper),
+> more specifically they are:
+ ...
+> You can pull these changes from:
 > 
-> So this patch makes nps_enet_poll() func verify return value of
-> napi_complete_done() and enable interrupts only in case all scheduled
-> work has been completed.
-> 
-> Signed-off-by: Vlad Zakharov <vzakhar@synopsys.com>
+>   git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git
 
-Applied.
-
-Eric, if this is really required now, we have 148 broken drivers still.
+Pulled, thanks Pablo.
