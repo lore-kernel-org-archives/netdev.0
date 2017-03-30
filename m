@@ -1,63 +1,139 @@
 From: Salil Mehta <salil.mehta@huawei.com>
-Subject: [PATCH net 14/19] net: hns: Clean redundant code from hns_mdio.c file
-Date: Thu, 30 Mar 2017 16:31:01 +0100
-Message-ID: <20170330153106.14344-15-salil.mehta@huawei.com>
+Subject: [PATCH net 09/19] net: hns: Replace netif_tx_lock to ring spin lock
+Date: Thu, 30 Mar 2017 16:30:56 +0100
+Message-ID: <20170330153106.14344-10-salil.mehta@huawei.com>
 References: <20170330153106.14344-1-salil.mehta@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <salil.mehta@huawei.com>, <yisen.zhuang@huawei.com>,
         <mehta.salil.lnk@gmail.com>, <netdev@vger.kernel.org>,
         <linux-kernel@vger.kernel.org>, <linuxarm@huawei.com>,
-        Kejian Yan <yankejian@huawei.com>
+        lipeng <lipeng321@huawei.com>
 To: <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga03-in.huawei.com ([45.249.212.189]:4921 "EHLO
+        dggrg03-dlp.huawei.com" rhost-flags-OK-FAIL-OK-FAIL)
+        by vger.kernel.org with ESMTP id S934735AbdC3PdG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 30 Mar 2017 11:33:06 -0400
 In-Reply-To: <20170330153106.14344-1-salil.mehta@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Kejian Yan <yankejian@huawei.com>
+From: lipeng <lipeng321@huawei.com>
 
-This patch cleans the redundant code from  hns_mdio.c.
+netif_tx_lock is a global spin lock, it will take affect
+in all rings in the netdevice. In tx_poll_one process, it can
+only lock the current ring, in this case, we define a spin lock
+in hnae_ring struct for it.
 
-Reported-by: Ping Zhang <zhangping5@huawei.com>
-Signed-off-by: Kejian Yan <yankejian@huawei.com>
-Reviewed-by: Salil Mehta <salil.mehta@huawei.com>
+Signed-off-by: lipeng <lipeng321@huawei.com>
+reviewed-by: Yisen Zhuang <yisen.zhuang@huawei.com>
 Signed-off-by: Salil Mehta <salil.mehta@huawei.com>
 ---
- drivers/net/ethernet/hisilicon/hns_mdio.c | 10 ----------
- 1 file changed, 10 deletions(-)
+ drivers/net/ethernet/hisilicon/hns/hnae.c     |  1 +
+ drivers/net/ethernet/hisilicon/hns/hnae.h     |  3 +++
+ drivers/net/ethernet/hisilicon/hns/hns_enet.c | 21 +++++++++++----------
+ 3 files changed, 15 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/ethernet/hisilicon/hns_mdio.c b/drivers/net/ethernet/hisilicon/hns_mdio.c
-index 501eb20..fad1c5b 100644
---- a/drivers/net/ethernet/hisilicon/hns_mdio.c
-+++ b/drivers/net/ethernet/hisilicon/hns_mdio.c
-@@ -23,17 +23,9 @@
- #include <linux/phy.h>
- #include <linux/platform_device.h>
- #include <linux/regmap.h>
--#include <linux/spinlock_types.h>
+diff --git a/drivers/net/ethernet/hisilicon/hns/hnae.c b/drivers/net/ethernet/hisilicon/hns/hnae.c
+index 78af663..513c257 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hnae.c
++++ b/drivers/net/ethernet/hisilicon/hns/hnae.c
+@@ -196,6 +196,7 @@ hnae_init_ring(struct hnae_queue *q, struct hnae_ring *ring, int flags)
  
- #define MDIO_DRV_NAME "Hi-HNS_MDIO"
- #define MDIO_BUS_NAME "Hisilicon MII Bus"
--#define MDIO_DRV_VERSION "1.3.0"
--#define MDIO_COPYRIGHT "Copyright(c) 2015 Huawei Corporation."
--#define MDIO_DRV_STRING MDIO_BUS_NAME
--#define MDIO_DEFAULT_DEVICE_DESCR MDIO_BUS_NAME
--
--#define MDIO_CTL_DEV_ADDR(x)	(x & 0x1f)
--#define MDIO_CTL_PORT_ADDR(x)	((x & 0x1f) << 5)
+ 	ring->q = q;
+ 	ring->flags = flags;
++	spin_lock_init(&ring->lock);
+ 	assert(!ring->desc && !ring->desc_cb && !ring->desc_dma_addr);
  
- #define MDIO_TIMEOUT			1000000
+ 	/* not matter for tx or rx ring, the ntc and ntc start from 0 */
+diff --git a/drivers/net/ethernet/hisilicon/hns/hnae.h b/drivers/net/ethernet/hisilicon/hns/hnae.h
+index ad79a76..987880b 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hnae.h
++++ b/drivers/net/ethernet/hisilicon/hns/hnae.h
+@@ -275,6 +275,9 @@ struct hnae_ring {
+ 	/* statistic */
+ 	struct ring_stats stats;
  
-@@ -64,9 +56,7 @@ struct hns_mdio_device {
- #define MDIO_CMD_DEVAD_S	0
- #define MDIO_CMD_PRTAD_M	0x1f
- #define MDIO_CMD_PRTAD_S	5
--#define MDIO_CMD_OP_M		0x3
- #define MDIO_CMD_OP_S		10
--#define MDIO_CMD_ST_M		0x3
- #define MDIO_CMD_ST_S		12
- #define MDIO_CMD_START_B	14
++	/* ring lock for poll one */
++	spinlock_t lock;
++
+ 	dma_addr_t desc_dma_addr;
+ 	u32 buf_size;       /* size for hnae_desc->addr, preset by AE */
+ 	u16 desc_num;       /* total number of desc */
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.c b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+index 2a12764..c4aa095 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+@@ -924,12 +924,13 @@ static int is_valid_clean_head(struct hnae_ring *ring, int h)
  
+ /* netif_tx_lock will turn down the performance, set only when necessary */
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+-#define NETIF_TX_LOCK(ndev) netif_tx_lock(ndev)
+-#define NETIF_TX_UNLOCK(ndev) netif_tx_unlock(ndev)
++#define NETIF_TX_LOCK(ring) spin_lock(&ring->lock)
++#define NETIF_TX_UNLOCK(ring) spin_unlock(&ring->lock)
+ #else
+-#define NETIF_TX_LOCK(ndev)
+-#define NETIF_TX_UNLOCK(ndev)
++#define NETIF_TX_LOCK(ring)
++#define NETIF_TX_UNLOCK(ring)
+ #endif
++
+ /* reclaim all desc in one budget
+  * return error or number of desc left
+  */
+@@ -943,13 +944,13 @@ static int hns_nic_tx_poll_one(struct hns_nic_ring_data *ring_data,
+ 	int head;
+ 	int bytes, pkts;
+ 
+-	NETIF_TX_LOCK(ndev);
++	NETIF_TX_LOCK(ring);
+ 
+ 	head = readl_relaxed(ring->io_base + RCB_REG_HEAD);
+ 	rmb(); /* make sure head is ready before touch any data */
+ 
+ 	if (is_ring_empty(ring) || head == ring->next_to_clean) {
+-		NETIF_TX_UNLOCK(ndev);
++		NETIF_TX_UNLOCK(ring);
+ 		return 0; /* no data to poll */
+ 	}
+ 
+@@ -957,7 +958,7 @@ static int hns_nic_tx_poll_one(struct hns_nic_ring_data *ring_data,
+ 		netdev_err(ndev, "wrong head (%d, %d-%d)\n", head,
+ 			   ring->next_to_use, ring->next_to_clean);
+ 		ring->stats.io_err_cnt++;
+-		NETIF_TX_UNLOCK(ndev);
++		NETIF_TX_UNLOCK(ring);
+ 		return -EIO;
+ 	}
+ 
+@@ -969,7 +970,7 @@ static int hns_nic_tx_poll_one(struct hns_nic_ring_data *ring_data,
+ 		prefetch(&ring->desc_cb[ring->next_to_clean]);
+ 	}
+ 
+-	NETIF_TX_UNLOCK(ndev);
++	NETIF_TX_UNLOCK(ring);
+ 
+ 	dev_queue = netdev_get_tx_queue(ndev, ring_data->queue_index);
+ 	netdev_tx_completed_queue(dev_queue, pkts, bytes);
+@@ -1030,7 +1031,7 @@ static void hns_nic_tx_clr_all_bufs(struct hns_nic_ring_data *ring_data)
+ 	int head;
+ 	int bytes, pkts;
+ 
+-	NETIF_TX_LOCK(ndev);
++	NETIF_TX_LOCK(ring);
+ 
+ 	head = ring->next_to_use; /* ntu :soft setted ring position*/
+ 	bytes = 0;
+@@ -1038,7 +1039,7 @@ static void hns_nic_tx_clr_all_bufs(struct hns_nic_ring_data *ring_data)
+ 	while (head != ring->next_to_clean)
+ 		hns_nic_reclaim_one_desc(ring, &bytes, &pkts);
+ 
+-	NETIF_TX_UNLOCK(ndev);
++	NETIF_TX_UNLOCK(ring);
+ 
+ 	dev_queue = netdev_get_tx_queue(ndev, ring_data->queue_index);
+ 	netdev_tx_reset_queue(dev_queue);
 -- 
 2.7.4
