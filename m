@@ -1,57 +1,38 @@
-From: Shubham Bansal <illusionist.neo@gmail.com>
-Subject: Re: arch: arm: bpf: Converting cBPF to eBPF for arm 32 bit
-Date: Thu, 30 Mar 2017 19:34:16 +0530
-Message-ID: <CAHgaXdKfbob3WHMho32JSh_dmfp2A=cjcePqk+NfajVpShPE6Q@mail.gmail.com>
-References: <CAHgaXd+EKJ0FWaaPojsNJtgY_YpdQXu6eMEp97uOpTFAWs4qTQ@mail.gmail.com>
- <CAGXu5jLo8UvpNSQZBHjWZoO959ha6KFQxFzmg7SK44wz=R_QSg@mail.gmail.com>
- <CAHgaXdJL92XRjHae2Nb9j9SerSe65=N=ErDHTQf23sdBxwthzw@mail.gmail.com>
- <20170315.145512.1542025976162251828.davem@davemloft.net> <CAHgaXd+4QkFxnt-_iCqH8AyCN_Y8gXwr+y=iugz38NKSWspsbA@mail.gmail.com>
- <58DAF908.8010404@iogearbox.net>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 6/9] net: dsa: mv88e6xxx: factorize in-chip
+ bridge map
+Date: Thu, 30 Mar 2017 16:04:17 +0200
+Message-ID: <20170330140417.GF17879@lunn.ch>
+References: <20170329203020.27042-1-vivien.didelot@savoirfairelinux.com>
+ <20170329203020.27042-7-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>, Kees Cook <keescook@chromium.org>,
-	Mircea Gherzan <mgherzan@gmail.com>, Network Development <netdev@vger.kernel.org>,
-	kernel-hardening@lists.openwall.com, linux-arm-kernel@lists.infradead.org,
-	ast@fb.com
-To: Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <kernel-hardening-return-7189-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-In-Reply-To: <58DAF908.8010404@iogearbox.net>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:40571 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S933426AbdC3OEW (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 30 Mar 2017 10:04:22 -0400
+Content-Disposition: inline
+In-Reply-To: <20170329203020.27042-7-vivien.didelot@savoirfairelinux.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Thanks Daniel.
+On Wed, Mar 29, 2017 at 04:30:17PM -0400, Vivien Didelot wrote:
+> Factorize the code in the DSA port_bridge_{join,leave} routines used to
+> program the port VLAN map of all local ports of a given bridge group.
+> 
+> In the meantime shorten the _mv88e6xxx_port_based_vlan_map to get rid of
+> the old underscore prefix naming convention.
 
-Can you tell me how to test the eBPF JIT compiler? It would be great
-if you could tell me starting from compiling to proper testing.
-Best,
-Shubham Bansal
+Hi Vivien
 
+"At the same time ..." would be better English.
 
-On Wed, Mar 29, 2017 at 5:30 AM, Daniel Borkmann <daniel@iogearbox.net> wrote:
-> Hi Shubham,
->
-> On 03/28/2017 10:49 PM, Shubham Bansal wrote:
-> [...]
->>
->> Do you have any document to understand the working of tail calls? I
->> looked at your presentations but it seemed confusing to me. Anything
->> simple would be great, just about the tail calls. I don't think I need
->> examples, I can get them from your presentations. I just need a very
->> general idea. May be you know the code in kernel where it is
->> implemented.
->
->
-> Sure, it's in __bpf_prog_run(), see the JMP_TAIL_CALL (kernel/bpf/core.c
-> +1019).
-> That's effectively what JITs implement. [1] page 3 has a high-level
-> description
-> as well, hope that helps.
->
-> Thanks,
-> Daniel
->
->   [1]
-> http://www.netdevconf.org/1.1/proceedings/papers/On-getting-tc-classifier-fully-programmable-with-cls-bpf.pdf
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+
+    Andrew
