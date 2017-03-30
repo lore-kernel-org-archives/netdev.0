@@ -1,86 +1,68 @@
-From: Thierry Reding <treding@nvidia.com>
-Subject: Re: [PATCH] [net-next] stmmac: use netif_set_real_num_{rx,tx}_queues
-Date: Thu, 30 Mar 2017 16:34:36 +0200
-Message-ID: <20170330143435.GA28098@ulmo.ba.sec>
-References: <20170328094856.3457886-1-arnd@arndb.de>
- <20170328.180105.1996071259325891752.davem@davemloft.net>
- <20170330074536.GA4814@Red>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH v2] net: netfilter: remove unused variable
+Date: Thu, 30 Mar 2017 16:36:41 +0200
+Message-ID: <20170330143641.GA999@salvia>
+References: <20170329145752.GA2756@arushi-HP-Pavilion-Notebook>
+ <20170330125509.GD2980@verge.net.au>
+ <CA+XqjF_pbKoYC+UM9ad2wOvBo6gNnEEWnrUjJHfuDcFx3jEEzQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="4Ckj6UjgE2iN1+kY"
-Cc: David Miller <davem@davemloft.net>, <arnd@arndb.de>,
-        <peppe.cavallaro@st.com>, <alexandre.torgue@st.com>,
-        <Joao.Pinto@synopsys.com>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>
-To: Corentin Labbe <clabbe.montjoie@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170330074536.GA4814@Red>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
---4Ckj6UjgE2iN1+kY
 Content-Type: text/plain; charset=us-ascii
+Cc: Simon Horman <horms@verge.net.au>,
+        outreachy-kernel@googlegroups.com,
+        Wensong Zhang <wensong@linux-vs.org>,
+        Julian Anastasov <ja@ssi.bg>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+        coreteam@netfilter.org, LKML <linux-kernel@vger.kernel.org>
+To: Arushi Singhal <arushisinghal19971997@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:41024 "EHLO mail.us.es"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S933862AbdC3Ogt (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 30 Mar 2017 10:36:49 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+        by mail.us.es (Postfix) with ESMTP id E011E24612
+        for <netdev@vger.kernel.org>; Thu, 30 Mar 2017 16:36:44 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id D06D3DA38B
+        for <netdev@vger.kernel.org>; Thu, 30 Mar 2017 16:36:44 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 554E4DA878
+        for <netdev@vger.kernel.org>; Thu, 30 Mar 2017 16:36:41 +0200 (CEST)
 Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+In-Reply-To: <CA+XqjF_pbKoYC+UM9ad2wOvBo6gNnEEWnrUjJHfuDcFx3jEEzQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 30, 2017 at 09:45:36AM +0200, Corentin Labbe wrote:
-> On Tue, Mar 28, 2017 at 06:01:05PM -0700, David Miller wrote:
-> > From: Arnd Bergmann <arnd@arndb.de>
-> > Date: Tue, 28 Mar 2017 11:48:21 +0200
-> >=20
-> > > A driver must not access the two fields directly but should instead u=
-se
-> > > the helper functions to set the values and keep a consistent internal
-> > > state:
-> > >=20
-> > > ethernet/stmicro/stmmac/stmmac_main.c: In function 'stmmac_dvr_probe':
-> > > ethernet/stmicro/stmmac/stmmac_main.c:4083:8: error: 'struct net_devi=
-ce' has no member named 'real_num_rx_queues'; did you mean 'real_num_tx_que=
-ues'?
-> > >=20
-> > > Fixes: a8f5102af2a7 ("net: stmmac: TX and RX queue priority configura=
-tion")
-> > > Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> >=20
-> > Applied.
->=20
-> This break my revert patch. (since it patch ("net: stmmac: enable multipl=
-e buffers").
-> Since dwmac-sunxi is still broken, what can I do ? send two revert patch =
-? or adapt the reverting patch.
+On Thu, Mar 30, 2017 at 07:38:08PM +0530, Arushi Singhal wrote:
+> On Thu, Mar 30, 2017 at 6:25 PM, Simon Horman <horms@verge.net.au> wrote:
+> 
+> > On Wed, Mar 29, 2017 at 08:27:52PM +0530, Arushi Singhal wrote:
+> > > This patch uses the following coccinelle script to remove
+> > > a variable that was simply used to store the return
+> > > value of a function call before returning it:
+> > >
+> > > @@
+> > > identifier len,f;
+> > > @@
+> > >
+> > > -int len;
+> > >  ... when != len
+> > >      when strict
+> > > -len =
+> > > +return
+> > >         f(...);
+> > > -return len;
+> > >
+> > > Signed-off-by: Arushi Singhal <arushisinghal19971997@gmail.com>
+> >
+> > Applied with patch prefix updated to "ipvs:".
+> >
+> Hi
+> Thanks
+> How can I see my accepted patches of netfilter.
 
-Have you tried if the kcalloc() patch I sent on Tuesday fixes things the
-issues introduced by the multiple buffers patch? Niklas reported that it
-restores functionality on his setup.
+You can use links from patchwork:
 
-If it makes things work for you as well, we could maybe avoid the revert
-altogether.
-
-You can find the patch here:
-
-	https://patchwork.ozlabs.org/patch/744286/
-
-Thierry
-
---4Ckj6UjgE2iN1+kY
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQIzBAABCAAdFiEEiOrDCAFJzPfAjcif3SOs138+s6EFAljdF3kACgkQ3SOs138+
-s6EC8w/+JfJE0NCjzHpE9ZUBMuQTMmK7YFgWtMCxyaKiKJPBc4ejf2aWHCL2FB/r
-hdDKT+X9zPmdsHzcxKFG06au2cX3sAPd61FyFLnhg3UcYVplMa6InInx1rUSqH0N
-3TSKrCZnwvf8JK/cjpzaG9SfJI7WgR72Siklv2ki96HgJyBN9cB8g3afzJgE84uN
-Yt03vgfS6e4GXDSXqG6/cOs/k7haIUg275bMr4H6aNPgsZPr9dT8T2UR3oWulmsT
-R4px0xc0FzxPDHxeVWhG9RRJDY37odRtwfq86Sdk7HBGqc4NwYmovM1WiX9pNuj+
-oKVMloIME1ceO8cBKeOd2r0H7dW8QnKASxXQ1e3AuvtvDvt55dloppnqIbvtaG2R
-8D/qV+kmPWc1CxMf0cKGI+uoeuV9T2ERp+6L1/9J6BWa3ds6ygJzhiX7pgPrcdYC
-IDkqAqn3yLAOO/wjVOdb9CeLajbGxNvubsyRegQpvOdCFa6HPJ40+NqooUXqbcaL
-ylJ8hey4oqGbfllDMFICjN5ynGW/UAZNW1zMs797p1SL0iufUmaeO/Fqjtsza8IL
-KcldJPHd+HxsRVG1pLuZt9yghxBGGSEyPjT71dZPlOAv5PMFVqut6Q+Tv+kZ2OiM
-CoKxMFT8wAYjHUl5uTQDsWWe+Ytt8/A6AztJB8++MRcN7raeNeI=
-=1MMa
------END PGP SIGNATURE-----
-
---4Ckj6UjgE2iN1+kY--
+http://patchwork.ozlabs.org/project/netfilter-devel/
