@@ -1,508 +1,104 @@
 From: Salil Mehta <salil.mehta@huawei.com>
-Subject: [PATCH net 18/19] net: hns: Avoid Hip06 chip TX packet line bug
-Date: Thu, 30 Mar 2017 16:31:05 +0100
-Message-ID: <20170330153106.14344-19-salil.mehta@huawei.com>
+Subject: [PATCH net 12/19] net: hns: Remove redundant mac_get_id()
+Date: Thu, 30 Mar 2017 16:30:59 +0100
+Message-ID: <20170330153106.14344-13-salil.mehta@huawei.com>
 References: <20170330153106.14344-1-salil.mehta@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <salil.mehta@huawei.com>, <yisen.zhuang@huawei.com>,
         <mehta.salil.lnk@gmail.com>, <netdev@vger.kernel.org>,
         <linux-kernel@vger.kernel.org>, <linuxarm@huawei.com>,
-        lipeng <lipeng321@huawei.com>
+        Kejian Yan <yankejian@huawei.com>
 To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([45.249.212.188]:4862 "EHLO
-        dggrg02-dlp.huawei.com" rhost-flags-OK-FAIL-OK-FAIL)
-        by vger.kernel.org with ESMTP id S934305AbdC3Pd0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 30 Mar 2017 11:33:26 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20170330153106.14344-1-salil.mehta@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: lipeng <lipeng321@huawei.com>
+From: Kejian Yan <yankejian@huawei.com>
 
-There is a bug on Hip06 that tx ring interrupts packets count will be
-clear when drivers send data to tx ring, so that the tx packets count
-will never upgrade to packets line, and cause the interrupts engendered
-was delayed.
-Sometimes, it will cause sending performance lower than expected.
+There is a mac_id in mac control block structure, so the callback
+function mac_get_id() is useless. Here we remove this function.
 
-To fix this bug, we set tx ring interrupts packets line to 1 forever,
-to avoid count clear. And set the gap time to 20us, to solve the problem
-that too many interrupts engendered when packets line is 1.
-
-This patch could advance the send performance on ARM  from 6.6G to 9.37G
-when an iperf send thread on ARM and an iperf send thread on X86 for XGE.
-
-Signed-off-by: lipeng <lipeng321@huawei.com>
+Reported-by: Weiwei Deng <dengweiwei@huawei.com>
+Signed-off-by: Kejian Yan <yankejian@huawei.com>
+Reviewed-by: Salil Mehta <salil.mehta@huawei.com>
 Signed-off-by: Salil Mehta <salil.mehta@huawei.com>
 ---
- drivers/net/ethernet/hisilicon/hns/hnae.c         |   5 ++
- drivers/net/ethernet/hisilicon/hns/hnae.h         |   6 +-
- drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c |  78 ++++++++++++-----
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c | 101 ++++++++++++++++------
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.h |  23 ++++-
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h |   2 +-
- drivers/net/ethernet/hisilicon/hns/hns_ethtool.c  |  24 +++--
- 7 files changed, 169 insertions(+), 70 deletions(-)
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c  |  8 --------
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h   |  2 --
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_xgmac.c | 13 -------------
+ 3 files changed, 23 deletions(-)
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hnae.c b/drivers/net/ethernet/hisilicon/hns/hnae.c
-index 513c257..8950b74 100644
---- a/drivers/net/ethernet/hisilicon/hns/hnae.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hnae.c
-@@ -57,10 +57,15 @@ static int hnae_alloc_buffer(struct hnae_ring *ring, struct hnae_desc_cb *cb)
- 
- static void hnae_free_buffer(struct hnae_ring *ring, struct hnae_desc_cb *cb)
- {
-+	if (unlikely(!cb->priv))
-+		return;
-+
- 	if (cb->type == DESC_TYPE_SKB)
- 		dev_kfree_skb_any((struct sk_buff *)cb->priv);
- 	else if (unlikely(is_rx_ring(ring)))
- 		put_page((struct page *)cb->priv);
-+
-+	cb->priv = NULL;
- }
- 
- static int hnae_map_buffer(struct hnae_ring *ring, struct hnae_desc_cb *cb)
-diff --git a/drivers/net/ethernet/hisilicon/hns/hnae.h b/drivers/net/ethernet/hisilicon/hns/hnae.h
-index 987880b..a2c49ea 100644
---- a/drivers/net/ethernet/hisilicon/hns/hnae.h
-+++ b/drivers/net/ethernet/hisilicon/hns/hnae.h
-@@ -488,11 +488,11 @@ struct hnae_ae_ops {
- 			      u32 auto_neg, u32 rx_en, u32 tx_en);
- 	void (*get_coalesce_usecs)(struct hnae_handle *handle,
- 				   u32 *tx_usecs, u32 *rx_usecs);
--	void (*get_rx_max_coalesced_frames)(struct hnae_handle *handle,
--					    u32 *tx_frames, u32 *rx_frames);
-+	void (*get_max_coalesced_frames)(struct hnae_handle *handle,
-+					 u32 *tx_frames, u32 *rx_frames);
- 	int (*set_coalesce_usecs)(struct hnae_handle *handle, u32 timeout);
- 	int (*set_coalesce_frames)(struct hnae_handle *handle,
--				   u32 coalesce_frames);
-+				   u32 tx_frames, u32 rx_frames);
- 	void (*get_coalesce_range)(struct hnae_handle *handle,
- 				   u32 *tx_frames_low, u32 *rx_frames_low,
- 				   u32 *tx_frames_high, u32 *rx_frames_high,
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c b/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
-index 58b51e5..84c8b9f 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
-@@ -492,15 +492,21 @@ static void hns_ae_get_coalesce_usecs(struct hnae_handle *handle,
- 					       ring_pair->port_id_in_comm);
- }
- 
--static void hns_ae_get_rx_max_coalesced_frames(struct hnae_handle *handle,
--					       u32 *tx_frames, u32 *rx_frames)
-+static void hns_ae_get_max_coalesced_frames(struct hnae_handle *handle,
-+					    u32 *tx_frames, u32 *rx_frames)
- {
- 	struct ring_pair_cb *ring_pair =
- 		container_of(handle->qs[0], struct ring_pair_cb, q);
-+	struct dsaf_device *dsaf_dev = hns_ae_get_dsaf_dev(handle->dev);
- 
--	*tx_frames = hns_rcb_get_coalesced_frames(ring_pair->rcb_common,
--						  ring_pair->port_id_in_comm);
--	*rx_frames = hns_rcb_get_coalesced_frames(ring_pair->rcb_common,
-+	if (AE_IS_VER1(dsaf_dev->dsaf_ver) ||
-+	    handle->port_type == HNAE_PORT_DEBUG)
-+		*tx_frames = hns_rcb_get_rx_coalesced_frames(
-+			ring_pair->rcb_common, ring_pair->port_id_in_comm);
-+	else
-+		*tx_frames = hns_rcb_get_tx_coalesced_frames(
-+			ring_pair->rcb_common, ring_pair->port_id_in_comm);
-+	*rx_frames = hns_rcb_get_rx_coalesced_frames(ring_pair->rcb_common,
- 						  ring_pair->port_id_in_comm);
- }
- 
-@@ -514,15 +520,34 @@ static int hns_ae_set_coalesce_usecs(struct hnae_handle *handle,
- 		ring_pair->rcb_common, ring_pair->port_id_in_comm, timeout);
- }
- 
--static int  hns_ae_set_coalesce_frames(struct hnae_handle *handle,
--				       u32 coalesce_frames)
-+static int hns_ae_set_coalesce_frames(struct hnae_handle *handle,
-+				      u32 tx_frames, u32 rx_frames)
- {
-+	int ret;
- 	struct ring_pair_cb *ring_pair =
- 		container_of(handle->qs[0], struct ring_pair_cb, q);
-+	struct dsaf_device *dsaf_dev = hns_ae_get_dsaf_dev(handle->dev);
- 
--	return hns_rcb_set_coalesced_frames(
--		ring_pair->rcb_common,
--		ring_pair->port_id_in_comm, coalesce_frames);
-+	if (AE_IS_VER1(dsaf_dev->dsaf_ver) ||
-+	    handle->port_type == HNAE_PORT_DEBUG) {
-+		if (tx_frames != rx_frames)
-+			return -EINVAL;
-+		return hns_rcb_set_rx_coalesced_frames(
-+			ring_pair->rcb_common,
-+			ring_pair->port_id_in_comm, rx_frames);
-+	} else {
-+		if (tx_frames != 1)
-+			return -EINVAL;
-+		ret = hns_rcb_set_tx_coalesced_frames(
-+			ring_pair->rcb_common,
-+			ring_pair->port_id_in_comm, tx_frames);
-+		if (ret)
-+			return ret;
-+
-+		return hns_rcb_set_rx_coalesced_frames(
-+			ring_pair->rcb_common,
-+			ring_pair->port_id_in_comm, rx_frames);
-+	}
- }
- 
- static void hns_ae_get_coalesce_range(struct hnae_handle *handle,
-@@ -533,20 +558,27 @@ static void hns_ae_get_coalesce_range(struct hnae_handle *handle,
- {
- 	struct dsaf_device *dsaf_dev;
- 
-+	assert(handle);
-+
- 	dsaf_dev = hns_ae_get_dsaf_dev(handle->dev);
- 
--	*tx_frames_low  = HNS_RCB_MIN_COALESCED_FRAMES;
--	*rx_frames_low  = HNS_RCB_MIN_COALESCED_FRAMES;
--	*tx_frames_high =
--		(dsaf_dev->desc_num - 1 > HNS_RCB_MAX_COALESCED_FRAMES) ?
--		HNS_RCB_MAX_COALESCED_FRAMES : dsaf_dev->desc_num - 1;
--	*rx_frames_high =
--		(dsaf_dev->desc_num - 1 > HNS_RCB_MAX_COALESCED_FRAMES) ?
--		 HNS_RCB_MAX_COALESCED_FRAMES : dsaf_dev->desc_num - 1;
--	*tx_usecs_low   = 0;
--	*rx_usecs_low   = 0;
--	*tx_usecs_high  = HNS_RCB_MAX_COALESCED_USECS;
--	*rx_usecs_high  = HNS_RCB_MAX_COALESCED_USECS;
-+	*tx_frames_low  = HNS_RCB_TX_FRAMES_LOW;
-+	*rx_frames_low  = HNS_RCB_RX_FRAMES_LOW;
-+
-+	if (AE_IS_VER1(dsaf_dev->dsaf_ver) ||
-+	    handle->port_type == HNAE_PORT_DEBUG)
-+		*tx_frames_high =
-+			(dsaf_dev->desc_num - 1 > HNS_RCB_TX_FRAMES_HIGH) ?
-+			HNS_RCB_TX_FRAMES_HIGH : dsaf_dev->desc_num - 1;
-+	else
-+		*tx_frames_high = 1;
-+
-+	*rx_frames_high = (dsaf_dev->desc_num - 1 > HNS_RCB_RX_FRAMES_HIGH) ?
-+		HNS_RCB_RX_FRAMES_HIGH : dsaf_dev->desc_num - 1;
-+	*tx_usecs_low   = HNS_RCB_TX_USECS_LOW;
-+	*rx_usecs_low   = HNS_RCB_RX_USECS_LOW;
-+	*tx_usecs_high  = HNS_RCB_TX_USECS_HIGH;
-+	*rx_usecs_high  = HNS_RCB_RX_USECS_HIGH;
- }
- 
- void hns_ae_update_stats(struct hnae_handle *handle,
-@@ -880,7 +912,7 @@ static struct hnae_ae_ops hns_dsaf_ops = {
- 	.get_autoneg = hns_ae_get_autoneg,
- 	.set_pauseparam = hns_ae_set_pauseparam,
- 	.get_coalesce_usecs = hns_ae_get_coalesce_usecs,
--	.get_rx_max_coalesced_frames = hns_ae_get_rx_max_coalesced_frames,
-+	.get_max_coalesced_frames = hns_ae_get_max_coalesced_frames,
- 	.set_coalesce_usecs = hns_ae_set_coalesce_usecs,
- 	.set_coalesce_frames = hns_ae_set_coalesce_frames,
- 	.get_coalesce_range = hns_ae_get_coalesce_range,
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c
-index a6ab168..9b66057 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c
-@@ -254,7 +254,7 @@ static void hns_rcb_ring_init(struct ring_pair_cb *ring_pair, int ring_type)
- 		dsaf_write_dev(q, RCB_RING_TX_RING_BD_NUM_REG,
- 			       ring_pair->port_id_in_comm);
- 		dsaf_write_dev(q, RCB_RING_TX_RING_PKTLINE_REG,
--			       ring_pair->port_id_in_comm);
-+			ring_pair->port_id_in_comm + HNS_RCB_TX_PKTLINE_OFFSET);
- 	}
- }
- 
-@@ -284,13 +284,27 @@ static void hns_rcb_set_port_desc_cnt(struct rcb_common_cb *rcb_common,
- static void hns_rcb_set_port_timeout(
- 	struct rcb_common_cb *rcb_common, u32 port_idx, u32 timeout)
- {
--	if (AE_IS_VER1(rcb_common->dsaf_dev->dsaf_ver))
-+	if (AE_IS_VER1(rcb_common->dsaf_dev->dsaf_ver)) {
- 		dsaf_write_dev(rcb_common, RCB_CFG_OVERTIME_REG,
- 			       timeout * HNS_RCB_CLK_FREQ_MHZ);
--	else
-+	} else if (!HNS_DSAF_IS_DEBUG(rcb_common->dsaf_dev)) {
-+		if (timeout > HNS_RCB_DEF_GAP_TIME_USECS)
-+			dsaf_write_dev(rcb_common,
-+				       RCB_PORT_INT_GAPTIME_REG + port_idx * 4,
-+				       HNS_RCB_DEF_GAP_TIME_USECS);
-+		else
-+			dsaf_write_dev(rcb_common,
-+				       RCB_PORT_INT_GAPTIME_REG + port_idx * 4,
-+				       timeout);
-+
- 		dsaf_write_dev(rcb_common,
- 			       RCB_PORT_CFG_OVERTIME_REG + port_idx * 4,
- 			       timeout);
-+	} else {
-+		dsaf_write_dev(rcb_common,
-+			       RCB_PORT_CFG_OVERTIME_REG + port_idx * 4,
-+			       timeout);
-+	}
- }
- 
- static int hns_rcb_common_get_port_num(struct rcb_common_cb *rcb_common)
-@@ -352,8 +366,12 @@ int hns_rcb_common_init_hw(struct rcb_common_cb *rcb_common)
- 
- 	for (i = 0; i < port_num; i++) {
- 		hns_rcb_set_port_desc_cnt(rcb_common, i, rcb_common->desc_num);
--		(void)hns_rcb_set_coalesced_frames(
--			rcb_common, i, HNS_RCB_DEF_COALESCED_FRAMES);
-+		hns_rcb_set_rx_coalesced_frames(
-+			rcb_common, i, HNS_RCB_DEF_RX_COALESCED_FRAMES);
-+		if (!AE_IS_VER1(rcb_common->dsaf_dev->dsaf_ver) &&
-+		    !HNS_DSAF_IS_DEBUG(rcb_common->dsaf_dev))
-+			hns_rcb_set_tx_coalesced_frames(
-+				rcb_common, i, HNS_RCB_DEF_TX_COALESCED_FRAMES);
- 		hns_rcb_set_port_timeout(
- 			rcb_common, i, HNS_RCB_DEF_COALESCED_USECS);
- 	}
-@@ -507,19 +525,35 @@ void hns_rcb_get_cfg(struct rcb_common_cb *rcb_common)
- }
- 
- /**
-- *hns_rcb_get_coalesced_frames - get rcb port coalesced frames
-+ *hns_rcb_get_rx_coalesced_frames - get rcb port rx coalesced frames
-  *@rcb_common: rcb_common device
-  *@port_idx:port id in comm
-  *
-  *Returns: coalesced_frames
-  */
--u32 hns_rcb_get_coalesced_frames(
-+u32 hns_rcb_get_rx_coalesced_frames(
- 	struct rcb_common_cb *rcb_common, u32 port_idx)
- {
- 	return dsaf_read_dev(rcb_common, RCB_CFG_PKTLINE_REG + port_idx * 4);
- }
- 
- /**
-+ *hns_rcb_get_tx_coalesced_frames - get rcb port tx coalesced frames
-+ *@rcb_common: rcb_common device
-+ *@port_idx:port id in comm
-+ *
-+ *Returns: coalesced_frames
-+ */
-+u32 hns_rcb_get_tx_coalesced_frames(
-+	struct rcb_common_cb *rcb_common, u32 port_idx)
-+{
-+	u64 reg;
-+
-+	reg = RCB_CFG_PKTLINE_REG + (port_idx + HNS_RCB_TX_PKTLINE_OFFSET) * 4;
-+	return dsaf_read_dev(rcb_common, reg);
-+}
-+
-+/**
-  *hns_rcb_get_coalesce_usecs - get rcb port coalesced time_out
-  *@rcb_common: rcb_common device
-  *@port_idx:port id in comm
-@@ -561,33 +595,47 @@ int hns_rcb_set_coalesce_usecs(
- 			return -EINVAL;
- 		}
- 	}
--	if (timeout > HNS_RCB_MAX_COALESCED_USECS) {
-+	if (timeout > HNS_RCB_MAX_COALESCED_USECS || timeout == 0) {
- 		dev_err(rcb_common->dsaf_dev->dev,
--			"error: coalesce_usecs setting supports 0~1023us\n");
-+			"error: coalesce_usecs setting supports 1~1023us\n");
- 		return -EINVAL;
- 	}
-+	hns_rcb_set_port_timeout(rcb_common, port_idx, timeout);
-+	return 0;
-+}
- 
--	if (!AE_IS_VER1(rcb_common->dsaf_dev->dsaf_ver)) {
--		if (timeout == 0)
--			/* set timeout to 0, Disable gap time */
--			dsaf_set_reg_field(rcb_common->io_base,
--					   RCB_INT_GAP_TIME_REG + port_idx * 4,
--					   PPE_INT_GAPTIME_M, PPE_INT_GAPTIME_B,
--					   0);
--		else
--			/* set timeout non 0, restore gap time to 1 */
--			dsaf_set_reg_field(rcb_common->io_base,
--					   RCB_INT_GAP_TIME_REG + port_idx * 4,
--					   PPE_INT_GAPTIME_M, PPE_INT_GAPTIME_B,
--					   1);
-+/**
-+ *hns_rcb_set_tx_coalesced_frames - set rcb coalesced frames
-+ *@rcb_common: rcb_common device
-+ *@port_idx:port id in comm
-+ *@coalesced_frames:tx/rx BD num for coalesced frames
-+ *
-+ * Returns:
-+ * Zero for success, or an error code in case of failure
-+ */
-+int hns_rcb_set_tx_coalesced_frames(
-+	struct rcb_common_cb *rcb_common, u32 port_idx, u32 coalesced_frames)
-+{
-+	u32 old_waterline =
-+		hns_rcb_get_tx_coalesced_frames(rcb_common, port_idx);
-+	u64 reg;
-+
-+	if (coalesced_frames == old_waterline)
-+		return 0;
-+
-+	if (coalesced_frames != 1) {
-+		dev_err(rcb_common->dsaf_dev->dev,
-+			"error: not support tx coalesce_frames setting!\n");
-+		return -EINVAL;
- 	}
- 
--	hns_rcb_set_port_timeout(rcb_common, port_idx, timeout);
-+	reg = RCB_CFG_PKTLINE_REG + (port_idx + HNS_RCB_TX_PKTLINE_OFFSET) * 4;
-+	dsaf_write_dev(rcb_common, reg,	coalesced_frames);
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c
+index 723f3ae..035db86 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c
+@@ -466,13 +466,6 @@ static int hns_gmac_config_loopback(void *mac_drv, enum hnae_loop loop_mode,
  	return 0;
  }
  
- /**
-- *hns_rcb_set_coalesced_frames - set rcb coalesced frames
-+ *hns_rcb_set_rx_coalesced_frames - set rcb rx coalesced frames
-  *@rcb_common: rcb_common device
-  *@port_idx:port id in comm
-  *@coalesced_frames:tx/rx BD num for coalesced frames
-@@ -595,10 +643,11 @@ int hns_rcb_set_coalesce_usecs(
-  * Returns:
-  * Zero for success, or an error code in case of failure
-  */
--int hns_rcb_set_coalesced_frames(
-+int hns_rcb_set_rx_coalesced_frames(
- 	struct rcb_common_cb *rcb_common, u32 port_idx, u32 coalesced_frames)
- {
--	u32 old_waterline = hns_rcb_get_coalesced_frames(rcb_common, port_idx);
-+	u32 old_waterline =
-+		hns_rcb_get_rx_coalesced_frames(rcb_common, port_idx);
- 
- 	if (coalesced_frames == old_waterline)
- 		return 0;
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.h
-index afe563c..a664ee8 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.h
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.h
-@@ -35,12 +35,23 @@ struct rcb_common_cb;
- 
- #define HNS_RCB_REG_OFFSET			0x10000
- 
-+#define HNS_RCB_TX_FRAMES_LOW		1
-+#define HNS_RCB_RX_FRAMES_LOW		1
-+#define HNS_RCB_TX_FRAMES_HIGH		1023
-+#define HNS_RCB_RX_FRAMES_HIGH		1023
-+#define HNS_RCB_TX_USECS_LOW		1
-+#define HNS_RCB_RX_USECS_LOW		1
-+#define HNS_RCB_TX_USECS_HIGH		1023
-+#define HNS_RCB_RX_USECS_HIGH		1023
- #define HNS_RCB_MAX_COALESCED_FRAMES		1023
- #define HNS_RCB_MIN_COALESCED_FRAMES		1
--#define HNS_RCB_DEF_COALESCED_FRAMES		50
-+#define HNS_RCB_DEF_RX_COALESCED_FRAMES		50
-+#define HNS_RCB_DEF_TX_COALESCED_FRAMES		1
- #define HNS_RCB_CLK_FREQ_MHZ			350
- #define HNS_RCB_MAX_COALESCED_USECS		0x3ff
--#define HNS_RCB_DEF_COALESCED_USECS		50
-+#define HNS_RCB_DEF_COALESCED_USECS		30
-+#define HNS_RCB_DEF_GAP_TIME_USECS		20
-+#define HNS_RCB_TX_PKTLINE_OFFSET		8
- 
- #define HNS_RCB_COMMON_ENDIAN			1
- 
-@@ -125,13 +136,17 @@ void hns_rcbv2_int_clr_hw(struct hnae_queue *q, u32 flag);
- void hns_rcb_init_hw(struct ring_pair_cb *ring);
- void hns_rcb_reset_ring_hw(struct hnae_queue *q);
- void hns_rcb_wait_fbd_clean(struct hnae_queue **qs, int q_num, u32 flag);
--u32 hns_rcb_get_coalesced_frames(
-+u32 hns_rcb_get_rx_coalesced_frames(
-+	struct rcb_common_cb *rcb_common, u32 port_idx);
-+u32 hns_rcb_get_tx_coalesced_frames(
- 	struct rcb_common_cb *rcb_common, u32 port_idx);
- u32 hns_rcb_get_coalesce_usecs(
- 	struct rcb_common_cb *rcb_common, u32 port_idx);
- int hns_rcb_set_coalesce_usecs(
- 	struct rcb_common_cb *rcb_common, u32 port_idx, u32 timeout);
--int hns_rcb_set_coalesced_frames(
-+int hns_rcb_set_rx_coalesced_frames(
-+	struct rcb_common_cb *rcb_common, u32 port_idx, u32 coalesced_frames);
-+int hns_rcb_set_tx_coalesced_frames(
- 	struct rcb_common_cb *rcb_common, u32 port_idx, u32 coalesced_frames);
- void hns_rcb_update_stats(struct hnae_queue *queue);
- 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
-index 4b8af68..46a52d9 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
-@@ -421,7 +421,7 @@
- #define RCB_CFG_OVERTIME_REG			0x9300
- #define RCB_CFG_PKTLINE_INT_NUM_REG		0x9304
- #define RCB_CFG_OVERTIME_INT_NUM_REG		0x9308
--#define RCB_INT_GAP_TIME_REG			0x9400
-+#define RCB_PORT_INT_GAPTIME_REG		0x9400
- #define RCB_PORT_CFG_OVERTIME_REG		0x9430
- 
- #define RCB_RING_RX_RING_BASEADDR_L_REG		0x00000
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c b/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
-index 3a2a342..36f33bd 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
-@@ -764,14 +764,14 @@ static int hns_get_coalesce(struct net_device *net_dev,
- 	ec->use_adaptive_tx_coalesce = 1;
- 
- 	if ((!ops->get_coalesce_usecs) ||
--	    (!ops->get_rx_max_coalesced_frames))
-+	    (!ops->get_max_coalesced_frames))
- 		return -ESRCH;
- 
- 	ops->get_coalesce_usecs(priv->ae_handle,
- 					&ec->tx_coalesce_usecs,
- 					&ec->rx_coalesce_usecs);
- 
--	ops->get_rx_max_coalesced_frames(
-+	ops->get_max_coalesced_frames(
- 		priv->ae_handle,
- 		&ec->tx_max_coalesced_frames,
- 		&ec->rx_max_coalesced_frames);
-@@ -801,30 +801,28 @@ static int hns_set_coalesce(struct net_device *net_dev,
- {
- 	struct hns_nic_priv *priv = netdev_priv(net_dev);
- 	struct hnae_ae_ops *ops;
--	int ret;
-+	int rc1, rc2;
- 
- 	ops = priv->ae_handle->dev->ops;
- 
- 	if (ec->tx_coalesce_usecs != ec->rx_coalesce_usecs)
- 		return -EINVAL;
- 
--	if (ec->rx_max_coalesced_frames != ec->tx_max_coalesced_frames)
--		return -EINVAL;
+-static void hns_gmac_get_id(void *mac_drv, u8 *mac_id)
+-{
+-	struct mac_driver *drv = (struct mac_driver *)mac_drv;
 -
- 	if ((!ops->set_coalesce_usecs) ||
- 	    (!ops->set_coalesce_frames))
- 		return -ESRCH;
+-	*mac_id = drv->mac_id;
+-}
+-
+ static void hns_gmac_get_info(void *mac_drv, struct mac_info *mac_info)
+ {
+ 	enum hns_gmac_duplex_mdoe duplex;
+@@ -714,7 +707,6 @@ void *hns_gmac_config(struct hns_mac_cb *mac_cb, struct mac_params *mac_param)
+ 	mac_drv->config_pad_and_crc = hns_gmac_config_pad_and_crc;
+ 	mac_drv->config_half_duplex = hns_gmac_set_duplex_type;
+ 	mac_drv->set_rx_ignore_pause_frames = hns_gmac_set_rx_auto_pause_frames;
+-	mac_drv->mac_get_id = hns_gmac_get_id;
+ 	mac_drv->get_info = hns_gmac_get_info;
+ 	mac_drv->autoneg_stat = hns_gmac_autoneg_stat;
+ 	mac_drv->get_pause_enable = hns_gmac_get_pausefrm_cfg;
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h
+index e6842c9..24dfba5 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h
+@@ -373,8 +373,6 @@ struct mac_driver {
+ 	void (*set_rx_ignore_pause_frames)(void *mac_drv, u32 enable);
+ 	/* config rx mode for promiscuous*/
+ 	void (*set_promiscuous)(void *mac_drv, u8 enable);
+-	/* get mac id */
+-	void (*mac_get_id)(void *mac_drv, u8 *mac_id);
+ 	void (*mac_pausefrm_cfg)(void *mac_drv, u32 rx_en, u32 tx_en);
  
--	ret = ops->set_coalesce_usecs(priv->ae_handle,
-+	rc1 = ops->set_coalesce_usecs(priv->ae_handle,
- 				      ec->rx_coalesce_usecs);
--	if (ret)
--		return ret;
- 
--	ret = ops->set_coalesce_frames(
--		priv->ae_handle,
--		ec->rx_max_coalesced_frames);
-+	rc2 = ops->set_coalesce_frames(priv->ae_handle,
-+				       ec->tx_max_coalesced_frames,
-+				       ec->rx_max_coalesced_frames);
- 
--	return ret;
-+	if (rc1 || rc2)
-+		return -EINVAL;
-+
-+	return 0;
+ 	void (*autoneg_stat)(void *mac_drv, u32 *enable);
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_xgmac.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_xgmac.c
+index aae830a..37a2fc3 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_xgmac.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_xgmac.c
+@@ -300,18 +300,6 @@ static void hns_xgmac_set_tx_auto_pause_frames(void *mac_drv, u16 enable)
  }
  
  /**
+- *hns_xgmac_get_id - get xgmac port id
+- *@mac_drv: mac driver
+- *@newval:xgmac max frame length
+- */
+-static void hns_xgmac_get_id(void *mac_drv, u8 *mac_id)
+-{
+-	struct mac_driver *drv = (struct mac_driver *)mac_drv;
+-
+-	*mac_id = drv->mac_id;
+-}
+-
+-/**
+  *hns_xgmac_config_max_frame_length - set xgmac max frame length
+  *@mac_drv: mac driver
+  *@newval:xgmac max frame length
+@@ -833,7 +821,6 @@ void *hns_xgmac_config(struct hns_mac_cb *mac_cb, struct mac_params *mac_param)
+ 	mac_drv->config_half_duplex = NULL;
+ 	mac_drv->set_rx_ignore_pause_frames =
+ 		hns_xgmac_set_rx_ignore_pause_frames;
+-	mac_drv->mac_get_id = hns_xgmac_get_id;
+ 	mac_drv->mac_free = hns_xgmac_free;
+ 	mac_drv->adjust_link = NULL;
+ 	mac_drv->set_tx_auto_pause_frames = hns_xgmac_set_tx_auto_pause_frames;
 -- 
 2.7.4
