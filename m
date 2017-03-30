@@ -1,49 +1,74 @@
-From: Ingo Molnar <mingo@kernel.org>
-Subject: Re: [RFC PATCH tip/master 2/3] kprobes: Allocate kretprobe instance if its free list is empty
-Date: Thu, 30 Mar 2017 08:53:32 +0200
-Message-ID: <20170330065332.GA30148@gmail.com>
-References: <149076484118.24574.7083269903420611708.stgit@devbox> <149076498222.24574.679546540523044200.stgit@devbox> <20170329063005.GA12220@gmail.com> <20170329172510.e012406497fd38a54d5069b3@kernel.org>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: in_irq_or_nmi() and RFC patch
+Date: Thu, 30 Mar 2017 09:12:23 +0200
+Message-ID: <20170330091223.05aa0efe@redhat.com>
+References: <20170327143947.4c237e54@redhat.com>
+	<20170327141518.GB27285@bombadil.infradead.org>
+	<20170327171500.4beef762@redhat.com>
+	<20170327165817.GA28494@bombadil.infradead.org>
+	<20170329081219.lto7t4fwmponokzh@hirez.programming.kicks-ass.net>
+	<20170329105928.609bc581@redhat.com>
+	<20170329091949.o2kozhhdnszgwvtn@hirez.programming.kicks-ass.net>
+	<20170329181226.GA8256@bombadil.infradead.org>
+	<20170329211144.3e362ac9@redhat.com>
+	<20170329214441.08332799@redhat.com>
+	<20170330064958.uxih6ik5fkwvjqf6@hirez.programming.kicks-ass.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Steven Rostedt <rostedt@goodmis.org>, Ingo Molnar <mingo@redhat.com>,	Alban Crequy <alban.crequy@gmail.com>,	Alban Crequy <alban@kinvolk.io>,	Alexei Starovoitov <ast@kernel.org>,	Jonathan Corbet <corbet@lwn.net>,	Arnaldo Carvalho de Melo <acme@redhat.com>,	Omar Sandoval <osandov@fb.com>, linux-doc@vger.kernel.org,	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,	iago@kinvolk.io, michael@kinvolk.io,	Dorau Lukasz <lukasz.dorau@intel.com>, systemtap@sourceware.org
-To: Masami Hiramatsu <mhiramat@kernel.org>
-Return-path: <systemtap-return-25247-gls-systemtap=m.gmane.org@sourceware.org>
-List-Unsubscribe: <mailto:systemtap-unsubscribe-gls-systemtap=m.gmane.org@sourceware.org>
-List-Subscribe: <mailto:systemtap-subscribe@sourceware.org>
-List-Post: <mailto:systemtap@sourceware.org>
-List-Help: <mailto:systemtap-help@sourceware.org>, <http://sourceware.org/lists.html#faqs>
-Sender: systemtap-owner@sourceware.org
-Content-Disposition: inline
-In-Reply-To: <20170329172510.e012406497fd38a54d5069b3@kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Matthew Wilcox <willy@infradead.org>, Pankaj Gupta <pagupta@redhat.com>,
+ Tariq Toukan <ttoukan.linux@gmail.com>, Mel Gorman
+ <mgorman@techsingularity.net>, Tariq Toukan <tariqt@mellanox.com>,
+ netdev@vger.kernel.org, akpm@linux-foundation.org, linux-mm
+ <linux-mm@kvack.org>, Saeed Mahameed <saeedm@mellanox.com>,
+ linux-kernel@vger.kernel.org, brouer@redhat.com
+To: Peter Zijlstra <peterz@infradead.org>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20170330064958.uxih6ik5fkwvjqf6@hirez.programming.kicks-ass.net>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
+On Thu, 30 Mar 2017 08:49:58 +0200
+Peter Zijlstra <peterz@infradead.org> wrote:
 
-* Masami Hiramatsu <mhiramat@kernel.org> wrote:
-
-> > So this is something I missed while the original code was merged, but the concept 
-> > looks a bit weird: why do we do any "allocation" while a handler is executing?
-> > 
-> > That's fundamentally fragile. What's the maximum number of parallel 
-> > 'kretprobe_instance' required per kretprobe - one per CPU?
+> On Wed, Mar 29, 2017 at 09:44:41PM +0200, Jesper Dangaard Brouer wrote:
+> > @@ -2481,7 +2481,11 @@ void free_hot_cold_page(struct page *page, bool cold)
+> >  	unsigned long pfn = page_to_pfn(page);
+> >  	int migratetype;
+> >  
+> > -	if (in_interrupt()) {
+> > +	/*
+> > +	 * Exclude (hard) IRQ and NMI context from using the pcplists.
+> > +	 * But allow softirq context, via disabling BH.
+> > +	 */
+> > +	if (in_irq() || irqs_disabled()) {  
 > 
-> It depends on the place where we put the probe. If the probed function will be
-> blocked (yield to other tasks), then we need a same number of threads on
-> the system which can invoke the function. So, ultimately, it is same
-> as function_graph tracer, we need it for each thread.
+> Why do you need irqs_disabled() ? 
 
-So then put it into task_struct (assuming there's no kretprobe-inside-kretprobe 
-nesting allowed). There's just no way in hell we should be calling any complex 
-kernel function from kernel probes!
+Because further down I call local_bh_enable(), which calls
+__local_bh_enable_ip() which triggers a warning during early boot on:
 
-I mean, think about it, a kretprobe can be installed in a lot of places, and now 
-we want to call get_free_pages() from it?? This would add a massive amount of 
-fragility.
+  WARN_ON_ONCE(in_irq() || irqs_disabled());
 
-Instrumentation must be _simple_, every patch that adds more complexity to the 
-most fundamental code path of it should raise a red flag ...
+It looks like it is for supporting CONFIG_TRACE_IRQFLAGS.
 
-So let's make this more robust, ok?
 
-Thanks,
+> Also, your comment is stale, it still refers to NMI context.
 
-	Ingo
+True, as you told me NMI is implicit, as it cannot occur.
+
+> >  		__free_pages_ok(page, 0);
+> >  		return;
+> >  	}  
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
