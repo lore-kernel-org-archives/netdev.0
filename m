@@ -1,40 +1,49 @@
-From: Vincent Bernat <vincent@bernat.im>
-Subject: Re: [net-next v2] vxlan: fix ND proxy when skb doesn't have transport header offset
-Date: Thu, 30 Mar 2017 08:41:51 +0200
-Message-ID: <m360irs1u8.fsf@luffy.cx>
-References: <20170329204704.26087-1-vincent@bernat.im>
+From: Ingo Molnar <mingo@kernel.org>
+Subject: Re: [RFC PATCH tip/master 2/3] kprobes: Allocate kretprobe instance if its free list is empty
+Date: Thu, 30 Mar 2017 08:53:32 +0200
+Message-ID: <20170330065332.GA30148@gmail.com>
+References: <149076484118.24574.7083269903420611708.stgit@devbox> <149076498222.24574.679546540523044200.stgit@devbox> <20170329063005.GA12220@gmail.com> <20170329172510.e012406497fd38a54d5069b3@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Roopa Prabhu <roopa@cumulusnetworks.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Jiri Benc <jbenc@redhat.com>, netdev@vger.kernel.org
-To: Eric Dumazet <edumazet@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bart.luffy.cx ([78.47.78.131]:48482 "EHLO bart.luffy.cx"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932731AbdC3Gua (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 30 Mar 2017 02:50:30 -0400
-In-Reply-To: <20170329204704.26087-1-vincent@bernat.im> (Vincent Bernat's
-        message of "Wed, 29 Mar 2017 22:47:04 +0200")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Steven Rostedt <rostedt@goodmis.org>, Ingo Molnar <mingo@redhat.com>,	Alban Crequy <alban.crequy@gmail.com>,	Alban Crequy <alban@kinvolk.io>,	Alexei Starovoitov <ast@kernel.org>,	Jonathan Corbet <corbet@lwn.net>,	Arnaldo Carvalho de Melo <acme@redhat.com>,	Omar Sandoval <osandov@fb.com>, linux-doc@vger.kernel.org,	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,	iago@kinvolk.io, michael@kinvolk.io,	Dorau Lukasz <lukasz.dorau@intel.com>, systemtap@sourceware.org
+To: Masami Hiramatsu <mhiramat@kernel.org>
+Return-path: <systemtap-return-25247-gls-systemtap=m.gmane.org@sourceware.org>
+List-Unsubscribe: <mailto:systemtap-unsubscribe-gls-systemtap=m.gmane.org@sourceware.org>
+List-Subscribe: <mailto:systemtap-subscribe@sourceware.org>
+List-Post: <mailto:systemtap@sourceware.org>
+List-Help: <mailto:systemtap-help@sourceware.org>, <http://sourceware.org/lists.html#faqs>
+Sender: systemtap-owner@sourceware.org
+Content-Disposition: inline
+In-Reply-To: <20170329172510.e012406497fd38a54d5069b3@kernel.org>
+List-Id: netdev.vger.kernel.org
 
- =E2=9D=A6 29 mars 2017 22:47 +0200, Vincent Bernat <vincent@bernat.im>=C2=
-=A0:
 
-> Parsing of neighbor discovery options is done earlier to ignore the
-> whole packet in case of a malformed option. Moreover, the assumption the
-> skb was linear is removed and options are extracted with
-> skb_header_pointer() as well. The check on the source link-layer address
-> option is also more strict (for Ethernet, we expect the length field to
-> be 1).
+* Masami Hiramatsu <mhiramat@kernel.org> wrote:
 
-There is some parsing implemented in net/ipv6/ndisc.c, notably
-ndisc_parse_options(). I don't know if this is a good idea to reuse
-that: it may have the expectation that some IP processing has already
-been done (for example, the IPv6 length has already been checked, the
-SKB is expected to be linear).
---=20
-Watch out for off-by-one errors.
-            - The Elements of Programming Style (Kernighan & Plauger)
+> > So this is something I missed while the original code was merged, but the concept 
+> > looks a bit weird: why do we do any "allocation" while a handler is executing?
+> > 
+> > That's fundamentally fragile. What's the maximum number of parallel 
+> > 'kretprobe_instance' required per kretprobe - one per CPU?
+> 
+> It depends on the place where we put the probe. If the probed function will be
+> blocked (yield to other tasks), then we need a same number of threads on
+> the system which can invoke the function. So, ultimately, it is same
+> as function_graph tracer, we need it for each thread.
+
+So then put it into task_struct (assuming there's no kretprobe-inside-kretprobe 
+nesting allowed). There's just no way in hell we should be calling any complex 
+kernel function from kernel probes!
+
+I mean, think about it, a kretprobe can be installed in a lot of places, and now 
+we want to call get_free_pages() from it?? This would add a massive amount of 
+fragility.
+
+Instrumentation must be _simple_, every patch that adds more complexity to the 
+most fundamental code path of it should raise a red flag ...
+
+So let's make this more robust, ok?
+
+Thanks,
+
+	Ingo
