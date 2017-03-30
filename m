@@ -1,56 +1,95 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 3/9] net: dsa: mv88e6xxx: program the PVT with
- all ones
-Date: Thu, 30 Mar 2017 15:45:21 +0200
-Message-ID: <20170330134521.GC17879@lunn.ch>
-References: <20170329203020.27042-1-vivien.didelot@savoirfairelinux.com>
- <20170329203020.27042-4-vivien.didelot@savoirfairelinux.com>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH net-next] rtnl: Add support for netdev event to link
+ messages
+Date: Thu, 30 Mar 2017 09:47:09 -0400
+Message-ID: <59f24d68-cff1-d8a5-a7f6-8173057f57d8@redhat.com>
+References: <1490493587-25819-1-git-send-email-vyasevic@redhat.com>
+ <20170327.155835.1930829109806331326.davem@davemloft.net>
+ <2fe31fc9-2837-91a7-e2a4-7937bb15cf3d@redhat.com>
+ <58DBE2D9.10509@cumulusnetworks.com>
+ <8c2ab762-5b76-7a70-a096-51529d8a3edb@redhat.com>
+ <22cf1543-505e-bae0-4efb-dfdd501399c0@cumulusnetworks.com>
+ <55cb61be-53af-315c-a376-e8f1d7bc78a6@redhat.com>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Ahern <dsa@cumulusnetworks.com>,
+        Roopa Prabhu <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:40538 "EHLO vps0.lunn.ch"
+Received: from mx1.redhat.com ([209.132.183.28]:34852 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750766AbdC3NpY (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 30 Mar 2017 09:45:24 -0400
-Content-Disposition: inline
-In-Reply-To: <20170329203020.27042-4-vivien.didelot@savoirfairelinux.com>
+        id S933126AbdC3NrM (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 30 Mar 2017 09:47:12 -0400
+In-Reply-To: <55cb61be-53af-315c-a376-e8f1d7bc78a6@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> +	for (dev = 0; dev < 32; ++dev) {
-> +		for (port = 0; port < 16; ++port) {
-> +			err = mv88e6xxx_pvt_map(chip, dev, port);
-> +			if (err)
-> +				return err;
-> +		}
-> +	}
-> +
-> +	return 0;
+On 03/30/2017 09:39 AM, Vlad Yasevich wrote:
+> On 03/29/2017 03:11 PM, David Ahern wrote:
+>> On 3/29/17 11:05 AM, Vlad Yasevich wrote:
+>>> On 03/29/2017 12:37 PM, Roopa Prabhu wrote:
+>>>> On 3/29/17, 5:23 AM, Vlad Yasevich wrote:
+>>>>> [ resending to list.  hit the wrong reply button last time ]
+>>>>>
+>>>>> On 03/27/2017 06:58 PM, David Miller wrote:
+>>>>>> From: Vladislav Yasevich <vyasevich@gmail.com>
+>>>>>> Date: Sat, 25 Mar 2017 21:59:47 -0400
+>>>>>>
+>>>>>>> RTNL currently generates notifications on some netdev notifier events.
+>>>>>>> However, user space has no idea what changed.  All it sees is the
+>>>>>>> data and has to infer what has changed.  For some events that is not
+>>>>>>> possible.
+>>>>>>>
+>>>>>>> This patch adds a new field to RTM_NEWLINK message called IFLA_EVENT
+>>>>>>> that would have an encoding of the which event triggered this
+>>>>>>> notification.  Currectly, only 2 events (NETDEV_NOTIFY_PEERS and
+>>>>>>> NETDEV_MTUCHANGED) are supported.  These events could be interesting
+>>>>>>> in the virt space to trigger additional configuration commands to VMs.
+>>>>>>> Other events of interest may be added later.
+>>>>>>>
+>>>>>>> Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
+>>>>>> At what point do we start providing the metadata for the changed
+>>>>>> values as well?  You'd probably need to provide both the old and
+>>>>>> new values to cover all cases.
+>>>>> I don't think if that would be possible because of when events are triggered.
+>>>>> We send these notifications after all the changes have already been made, so
+>>>>> it might be tough to carry old data.
+>>>>>
+>>>>> Looking at just the two events I am supporting in this patch, we could actually
+>>>>> supply the old mtu data through a NETDEV_PRECHANGEMTU event, if it is necessary.
+>>>>
+>>>> But, NETDEV_PRECHANGEMTU will be a unnecessary notification to userspace without
+>>>> changes. There are already enough notifications generated for links (I know you are not
+>>>> suggesting adding it here)
+>>>
+>>> Actually, this one already triggers a link notification to userspace.  It just has
+>>> no event data in it to tell you that. :)
+>>
+>> Is it intentional or unintentional? perhaps rtnetlink_event should be a
+>> whitelist -- events that userspace should be notified about. Seems like
+>> NETDEV_ events have been added without rtnetlink_event getting updated.
+> 
+> I think a 'whitelist' was attempted, but as you mentioned, it hasn't been updated...
+> I'll defer the definitive answer to someone else.  It seems Patrick added a comment
+> in commit a2835763 to update the white list and it's been a few times.
+>
 
-Hi Vivien
+This is actually an interesting point.  Looking at some commits that have added
+events to black list in rtnetlink-event, it might have been much easier to debug
+those issues if we had the 'event' encoding in the netlink message.
 
-How about adding MV88E6XXX_MAX_PVT_SWITCHES and MV88E6XXX_MAX_PVT_PORTS?
+I think it might be worthwhile to add all allowed event types to this new encoding
+so we can userspace can see just what's its getting.
 
+-vlad
 
-> +static int mv88e6xxx_g2_pvt_op(struct mv88e6xxx_chip *chip, int src_dev,
-> +			       int src_port, u16 op)
-> +{
-> +	int err;
-> +
-> +	/* 9-bit Cross-chip PVT pointer: with GLOBAL2_MISC_5_BIT_PORT cleared,
-> +	 * source device is 5-bit, source port is 4-bit.
-> +	 */
-> +	op |= (src_dev & 0x1f) << 4;
-> +	op |= (src_port & 0xf);
-
-So here, are you hard coding the knowledge that we passed false to
-mv88e6xxx_g2_misc_5_bit_port()?  It kind of defeats the point of
-having the parameter. Maybe simplify the code and remove the
-parameter?
-
-	Andrew
+>> For example, does userspace care about NETDEV_UDP_TUNNEL_PUSH_INFO or
+>> NETDEV_CHANGE_TX_QUEUE_LEN?
+>>
+> 
+> Probably not the first, but possibly the second.  If txquelen is changed on a device,
+> some apps might want to know about it.
+>
