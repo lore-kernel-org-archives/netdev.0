@@ -1,102 +1,69 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: in_irq_or_nmi() and RFC patch
-Date: Thu, 30 Mar 2017 11:46:50 +0200
-Message-ID: <20170330114650.297573a4@redhat.com>
-References: <20170327171500.4beef762@redhat.com>
-	<20170327165817.GA28494@bombadil.infradead.org>
-	<20170329081219.lto7t4fwmponokzh@hirez.programming.kicks-ass.net>
-	<20170329105928.609bc581@redhat.com>
-	<20170329091949.o2kozhhdnszgwvtn@hirez.programming.kicks-ass.net>
-	<20170329181226.GA8256@bombadil.infradead.org>
-	<20170329211144.3e362ac9@redhat.com>
-	<20170329214441.08332799@redhat.com>
-	<20170330064958.uxih6ik5fkwvjqf6@hirez.programming.kicks-ass.net>
-	<20170330091223.05aa0efe@redhat.com>
-	<20170330073502.4wl66zyz7e4z4aes@hirez.programming.kicks-ass.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Matthew Wilcox <willy@infradead.org>, Pankaj Gupta <pagupta@redhat.com>,
- Tariq Toukan <ttoukan.linux@gmail.com>, Mel Gorman
- <mgorman@techsingularity.net>, Tariq Toukan <tariqt@mellanox.com>,
- netdev@vger.kernel.org, akpm@linux-foundation.org, linux-mm
- <linux-mm@kvack.org>, Saeed Mahameed <saeedm@mellanox.com>,
- linux-kernel@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>,
- brouer@redhat.com
-To: Peter Zijlstra <peterz@infradead.org>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20170330073502.4wl66zyz7e4z4aes@hirez.programming.kicks-ass.net>
-Sender: owner-linux-mm@kvack.org
+From: Johan Hovold <johan@kernel.org>
+Subject: [PATCH v2 4/8] NFC: nfcmrvl: use nfc-device for firmware download
+Date: Thu, 30 Mar 2017 12:15:38 +0200
+Message-ID: <20170330101542.15384-5-johan@kernel.org>
+References: <20170330101542.15384-1-johan@kernel.org>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, Johan Hovold <johan@kernel.org>,
+        stable <stable@vger.kernel.org>,
+        Vincent Cuissard <cuissard@marvell.com>
+To: Lauro Ramos Venancio <lauro.venancio@openbossa.org>,
+        Aloisio Almeida Jr <aloisio.almeida@openbossa.org>,
+        Samuel Ortiz <sameo@linux.intel.com>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <20170330101542.15384-1-johan@kernel.org>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 30 Mar 2017 09:35:02 +0200
-Peter Zijlstra <peterz@infradead.org> wrote:
+Use the nfc- rather than phy-device in firmware-management code that
+needs a valid struct device.
 
-> On Thu, Mar 30, 2017 at 09:12:23AM +0200, Jesper Dangaard Brouer wrote:
-> > On Thu, 30 Mar 2017 08:49:58 +0200
-> > Peter Zijlstra <peterz@infradead.org> wrote:
-> >   
-> > > On Wed, Mar 29, 2017 at 09:44:41PM +0200, Jesper Dangaard Brouer wrote:  
-> > > > @@ -2481,7 +2481,11 @@ void free_hot_cold_page(struct page *page, bool cold)
-> > > >  	unsigned long pfn = page_to_pfn(page);
-> > > >  	int migratetype;
-> > > >  
-> > > > -	if (in_interrupt()) {
-> > > > +	/*
-> > > > +	 * Exclude (hard) IRQ and NMI context from using the pcplists.
-> > > > +	 * But allow softirq context, via disabling BH.
-> > > > +	 */
-> > > > +	if (in_irq() || irqs_disabled()) {    
-> > > 
-> > > Why do you need irqs_disabled() ?   
-> > 
-> > Because further down I call local_bh_enable(), which calls
-> > __local_bh_enable_ip() which triggers a warning during early boot on:
-> > 
-> >   WARN_ON_ONCE(in_irq() || irqs_disabled());
-> > 
-> > It looks like it is for supporting CONFIG_TRACE_IRQFLAGS.  
-> 
-> Ah, no. Its because when you do things like:
-> 
-> 	local_irq_disable();
-> 	local_bh_enable();
-> 	local_irq_enable();
-> 
-> you can loose a pending softirq.
-> 
-> Bugger.. that irqs_disabled() is something we could do without.
+This specifically fixes a NULL-pointer dereference in
+nfcmrvl_fw_dnld_init() during registration when the underlying tty is
+one end of a Unix98 pty.
 
-Yes, I really don't like adding this irqs_disabled() check here.
+Note that the driver still uses the phy device for any debugging, which
+is fine for now.
 
-> I'm thinking that when tglx finishes his soft irq disable patches for
-> x86 (same thing ppc also does) we can go revert all these patches.
-> 
-> Thomas, see:
-> 
->   https://lkml.kernel.org/r/20170301144845.783f8cad@redhat.com
+Fixes: 3194c6870158 ("NFC: nfcmrvl: add firmware download support")
+Cc: stable <stable@vger.kernel.org>     # 4.4
+Cc: Vincent Cuissard <cuissard@marvell.com>
+Signed-off-by: Johan Hovold <johan@kernel.org>
+---
+ drivers/nfc/nfcmrvl/fw_dnld.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
 
-The summary is Mel and I found a way to optimized the page allocator,
-by avoiding a local_irq_{save,restore} operation, see commit
-374ad05ab64d ("mm, page_alloc: only use per-cpu allocator for irq-safe
-requests")  [1] https://git.kernel.org/davem/net-next/c/374ad05ab64d696
-
-But Tariq discovered that this caused a regression for 100Gbit/s NICs,
-as the patch excluded softirq from using the per-cpu-page (PCP) lists.
-As DMA RX page-refill happens in softirq context.
-
-Now we are trying to re-enable allowing softirq to use the PCP.
-My proposal is: https://lkml.kernel.org/r/20170329214441.08332799@redhat.com
-The alternative is to revert this optimization.
-
+diff --git a/drivers/nfc/nfcmrvl/fw_dnld.c b/drivers/nfc/nfcmrvl/fw_dnld.c
+index f8dcdf4b24f6..af62c4c854f3 100644
+--- a/drivers/nfc/nfcmrvl/fw_dnld.c
++++ b/drivers/nfc/nfcmrvl/fw_dnld.c
+@@ -459,7 +459,7 @@ int	nfcmrvl_fw_dnld_init(struct nfcmrvl_private *priv)
+ 
+ 	INIT_WORK(&priv->fw_dnld.rx_work, fw_dnld_rx_work);
+ 	snprintf(name, sizeof(name), "%s_nfcmrvl_fw_dnld_rx_wq",
+-		 dev_name(priv->dev));
++		 dev_name(&priv->ndev->nfc_dev->dev));
+ 	priv->fw_dnld.rx_wq = create_singlethread_workqueue(name);
+ 	if (!priv->fw_dnld.rx_wq)
+ 		return -ENOMEM;
+@@ -496,6 +496,7 @@ int nfcmrvl_fw_dnld_start(struct nci_dev *ndev, const char *firmware_name)
+ {
+ 	struct nfcmrvl_private *priv = nci_get_drvdata(ndev);
+ 	struct nfcmrvl_fw_dnld *fw_dnld = &priv->fw_dnld;
++	int res;
+ 
+ 	if (!priv->support_fw_dnld)
+ 		return -ENOTSUPP;
+@@ -511,7 +512,9 @@ int nfcmrvl_fw_dnld_start(struct nci_dev *ndev, const char *firmware_name)
+ 	 */
+ 
+ 	/* Retrieve FW binary */
+-	if (request_firmware(&fw_dnld->fw, firmware_name, priv->dev) < 0) {
++	res = request_firmware(&fw_dnld->fw, firmware_name,
++			       &ndev->nfc_dev->dev);
++	if (res < 0) {
+ 		nfc_err(priv->dev, "failed to retrieve FW %s", firmware_name);
+ 		return -ENOENT;
+ 	}
 -- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+2.12.2
