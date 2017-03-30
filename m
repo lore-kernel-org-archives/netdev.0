@@ -1,73 +1,81 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH V2 net-next 5/7] tun: support receiving skb through msg_control
-Date: Thu, 30 Mar 2017 15:22:28 +0800
-Message-ID: <1490858550-7763-6-git-send-email-jasowang@redhat.com>
-References: <1490858550-7763-1-git-send-email-jasowang@redhat.com>
-Cc: mst@redhat.com, Jason Wang <jasowang@redhat.com>
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+From: Cornelia Huck <cornelia.huck@de.ibm.com>
+Subject: Re: [PATCH 4/6] virtio_net: allow specifying context for rx
+Date: Thu, 30 Mar 2017 09:26:51 +0200
+Message-ID: <20170330092651.7767dfac.cornelia.huck@de.ibm.com>
+References: <1490820507-8005-1-git-send-email-mst@redhat.com>
+        <1490820507-8005-5-git-send-email-mst@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        John Fastabend <john.fastabend@gmail.com>,
+        virtualization@lists.linux-foundation.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1490858550-7763-1-git-send-email-jasowang@redhat.com>
+In-Reply-To: <1490820507-8005-5-git-send-email-mst@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch makes tun_recvmsg() can receive from skb from its caller
-through msg_control. Vhost_net will be the first user.
+On Wed, 29 Mar 2017 23:48:54 +0300
+"Michael S. Tsirkin" <mst@redhat.com> wrote:
 
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
- drivers/net/tun.c | 18 ++++++++++--------
- 1 file changed, 10 insertions(+), 8 deletions(-)
+> With mergeable buffers we never use s/g for rx,
+> so allow specifying context in that case.
+> 
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> ---
+>  drivers/net/virtio_net.c | 15 ++++++++++++++-
+>  1 file changed, 14 insertions(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index 6802169..340f737 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -2044,6 +2044,7 @@ static int virtnet_find_vqs(struct virtnet_info *vi)
+>  	int ret = -ENOMEM;
+>  	int i, total_vqs;
+>  	const char **names;
+> +	const bool *ctx;
+>  
+>  	/* We expect 1 RX virtqueue followed by 1 TX virtqueue, followed by
+>  	 * possible N-1 RX/TX queue pairs used in multiqueue mode, followed by
+> @@ -2062,6 +2063,13 @@ static int virtnet_find_vqs(struct virtnet_info *vi)
+>  	names = kmalloc(total_vqs * sizeof(*names), GFP_KERNEL);
+>  	if (!names)
+>  		goto err_names;
+> +	if (vi->mergeable_rx_bufs) {
+> +		ctx = kzalloc(total_vqs * sizeof(*ctx), GFP_KERNEL);
+> +		if (!ctx)
+> +			goto err_ctx;
+> +	} else {
+> +		ctx = NULL;
+> +	}
+>  
+>  	/* Parameters for control virtqueue, if any */
+>  	if (vi->has_cvq) {
+> @@ -2077,9 +2085,12 @@ static int virtnet_find_vqs(struct virtnet_info *vi)
+>  		sprintf(vi->sq[i].name, "output.%d", i);
+>  		names[rxq2vq(i)] = vi->rq[i].name;
+>  		names[txq2vq(i)] = vi->sq[i].name;
+> +		if (ctx)
+> +			ctx[rxq2vq(i)] = true;
+>  	}
+>  
+> -	ret = virtio_find_vqs(vi->vdev, total_vqs, vqs, callbacks, names, NULL);
+> +	ret = vi->vdev->config->find_vqs(vi->vdev, total_vqs, vqs, callbacks,
+> +					 names, ctx, NULL);
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 70dd9ec..a82bced 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -1498,9 +1498,8 @@ static struct sk_buff *tun_ring_recv(struct tun_file *tfile, int noblock,
- 
- static ssize_t tun_do_read(struct tun_struct *tun, struct tun_file *tfile,
- 			   struct iov_iter *to,
--			   int noblock)
-+			   int noblock, struct sk_buff *skb)
- {
--	struct sk_buff *skb;
- 	ssize_t ret;
- 	int err;
- 
-@@ -1509,10 +1508,12 @@ static ssize_t tun_do_read(struct tun_struct *tun, struct tun_file *tfile,
- 	if (!iov_iter_count(to))
- 		return 0;
- 
--	/* Read frames from ring */
--	skb = tun_ring_recv(tfile, noblock, &err);
--	if (!skb)
--		return err;
-+	if (!skb) {
-+		/* Read frames from ring */
-+		skb = tun_ring_recv(tfile, noblock, &err);
-+		if (!skb)
-+			return err;
-+	}
- 
- 	ret = tun_put_user(tun, tfile, skb, to);
- 	if (unlikely(ret < 0))
-@@ -1532,7 +1533,7 @@ static ssize_t tun_chr_read_iter(struct kiocb *iocb, struct iov_iter *to)
- 
- 	if (!tun)
- 		return -EBADFD;
--	ret = tun_do_read(tun, tfile, to, file->f_flags & O_NONBLOCK);
-+	ret = tun_do_read(tun, tfile, to, file->f_flags & O_NONBLOCK, NULL);
- 	ret = min_t(ssize_t, ret, len);
- 	if (ret > 0)
- 		iocb->ki_pos = ret;
-@@ -1634,7 +1635,8 @@ static int tun_recvmsg(struct socket *sock, struct msghdr *m, size_t total_len,
- 					 SOL_PACKET, TUN_TX_TIMESTAMP);
- 		goto out;
- 	}
--	ret = tun_do_read(tun, tfile, &m->msg_iter, flags & MSG_DONTWAIT);
-+	ret = tun_do_read(tun, tfile, &m->msg_iter, flags & MSG_DONTWAIT,
-+			  m->msg_control);
- 	if (ret > (ssize_t)total_len) {
- 		m->msg_flags |= MSG_TRUNC;
- 		ret = flags & MSG_TRUNC ? ret : total_len;
--- 
-2.7.4
+virtio_find_vqs_ctx()? (Needs to be exported, obviously.)
+
+>  	if (ret)
+>  		goto err_find;
+>  
+> @@ -2101,6 +2112,8 @@ static int virtnet_find_vqs(struct virtnet_info *vi)
+>  	return 0;
+>  
+>  err_find:
+> +	kfree(ctx);
+> +err_ctx:
+>  	kfree(names);
+>  err_names:
+>  	kfree(callbacks);
