@@ -1,38 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] virtio: allow drivers to validate features
-Date: Thu, 30 Mar 2017 12:39:31 -0700 (PDT)
-Message-ID: <20170330.123931.210255819001973026.davem@davemloft.net>
-References: <1490807652-27889-1-git-send-email-mst@redhat.com>
+Subject: Re: [PATCH v3] net/utils: generic inet_pton_with_scope helper
+Date: Thu, 30 Mar 2017 12:40:07 -0700 (PDT)
+Message-ID: <20170330.124007.1065811391753224581.davem@davemloft.net>
+References: <1490809724-25234-1-git-send-email-sagi@grimberg.me>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: mst@redhat.com
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1490807652-27889-1-git-send-email-mst@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-nvme@lists.infradead.org, hch@lst.de
+To: sagi@grimberg.me
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:34236 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934238AbdC3TkJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 30 Mar 2017 15:40:09 -0400
+In-Reply-To: <1490809724-25234-1-git-send-email-sagi@grimberg.me>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Wed, 29 Mar 2017 20:14:44 +0300
+From: Sagi Grimberg <sagi@grimberg.me>
+Date: Wed, 29 Mar 2017 20:48:44 +0300
 
-> Some drivers can't support all features in all configurations.  At the
-> moment we blindly set FEATURES_OK and later FAILED.  Support this better
-> by adding a callback drivers can use to do some early checks.
+> Several locations in the stack need to handle ipv4/ipv6
+> (with scope) and port strings conversion to sockaddr.
+> Add a helper that takes either AF_INET, AF_INET6 or
+> AF_UNSPEC (for wildcard) to centralize this handling.
 > 
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> Suggested-by: Christoph Hellwig <hch@lst.de>
+> Reviewed-by: Christoph Hellwig <hch@lst.de>
+> Signed-off-by: Sagi Grimberg <sagi@grimberg.me>
 
-Michael do you want me to take these virtio networking fixes into my
-tree directly or are you going to send me a pull request or something
-after it all settles down?
+This looks fine to me:
 
-Thanks.
+Acked-by: David S. Miller <davem@davemloft.net>
