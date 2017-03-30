@@ -1,51 +1,86 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH 1/6] virtio: wrap find_vqs
-Date: Thu, 30 Mar 2017 17:32:19 +0300
-Message-ID: <20170330173146-mutt-send-email-mst@kernel.org>
-References: <1490820507-8005-1-git-send-email-mst@redhat.com>
- <1490820507-8005-2-git-send-email-mst@redhat.com>
- <72f533a2-482d-1956-b0fe-254e273e1818@redhat.com>
+From: Thierry Reding <treding@nvidia.com>
+Subject: Re: [PATCH] [net-next] stmmac: use netif_set_real_num_{rx,tx}_queues
+Date: Thu, 30 Mar 2017 16:34:36 +0200
+Message-ID: <20170330143435.GA28098@ulmo.ba.sec>
+References: <20170328094856.3457886-1-arnd@arndb.de>
+ <20170328.180105.1996071259325891752.davem@davemloft.net>
+ <20170330074536.GA4814@Red>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Dmitry Tarnyagin <dmitry.tarnyagin@lockless.no>, kvm@vger.kernel.org,
- linux-remoteproc@vger.kernel.org, dri-devel@lists.freedesktop.org,
- Bjorn Andersson <bjorn.andersson@linaro.org>,
- Gerd Hoffmann <kraxel@redhat.com>,
- "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
- Herbert Xu <herbert@gondor.apana.org.au>, linux-scsi@vger.kernel.org,
- John Fastabend <john.fastabend@gmail.com>, Gonglei <arei.gonglei@huawei.com>,
- Ohad Ben-Cohen <ohad@wizery.com>, Arnd Bergmann <arnd@arndb.de>,
- Amit Shah <amit@kernel.org>, Stefan Hajnoczi <stefanha@redhat.com>,
- virtualization@lists.linux-foundation.org,
- "Martin K. Petersen" <martin.petersen@oracle.com>,
- Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-kernel@vger.kernel.org,
- linux-crypto@vger.kernel.org, netdev@vger.kernel.org,
- "David S. Miller" <davem@davemloft.net>
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <dri-devel-bounces@lists.freedesktop.org>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+        protocol="application/pgp-signature"; boundary="4Ckj6UjgE2iN1+kY"
+Cc: David Miller <davem@davemloft.net>, <arnd@arndb.de>,
+        <peppe.cavallaro@st.com>, <alexandre.torgue@st.com>,
+        <Joao.Pinto@synopsys.com>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>
+To: Corentin Labbe <clabbe.montjoie@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170330074536.GA4814@Red>
 Content-Disposition: inline
-In-Reply-To: <72f533a2-482d-1956-b0fe-254e273e1818@redhat.com>
-List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/dri-devel>,
- <mailto:dri-devel-request@lists.freedesktop.org?subject=unsubscribe>
-List-Archive: <https://lists.freedesktop.org/archives/dri-devel>
-List-Post: <mailto:dri-devel@lists.freedesktop.org>
-List-Help: <mailto:dri-devel-request@lists.freedesktop.org?subject=help>
-List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/dri-devel>,
- <mailto:dri-devel-request@lists.freedesktop.org?subject=subscribe>
-Errors-To: dri-devel-bounces@lists.freedesktop.org
-Sender: "dri-devel" <dri-devel-bounces@lists.freedesktop.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T24gVGh1LCBNYXIgMzAsIDIwMTcgYXQgMDI6MDA6MDhQTSArMDgwMCwgSmFzb24gV2FuZyB3cm90
-ZToKPiAKPiAKPiBPbiAyMDE35bm0MDPmnIgzMOaXpSAwNDo0OCwgTWljaGFlbCBTLiBUc2lya2lu
-IHdyb3RlOgo+ID4gV2UgYXJlIGdvaW5nIHRvIGFkZCBtb3JlIHBhcmFtZXRlcnMgdG8gZmluZF92
-cXMsIGxldCdzIHdyYXAgdGhlIGNhbGwgc28KPiA+IHdlIGRvbid0IG5lZWQgdG8gdHdlYWsgYWxs
-IGRyaXZlcnMgZXZlcnkgdGltZS4KPiA+IAo+ID4gU2lnbmVkLW9mZi1ieTogTWljaGFlbCBTLiBU
-c2lya2luPG1zdEByZWRoYXQuY29tPgo+ID4gLS0tCj4gCj4gQSBxdWljayBnbGFuY2UgYW5kIGl0
-IGxvb2tzIG9rLCBidXQgd2hhdCB0aGUgYmVuZWZpdCBvZiB0aGlzIHNlcmllcywgaXMgaXQKPiBy
-ZXF1aXJlZCBieSBvdGhlciBjaGFuZ2VzPwo+IAo+IFRoYW5rcwoKWWVzIC0gdG8gYXZvaWQgdG91
-Y2hpbmcgYWxsIGRldmljZXMgd2hlbiBkb2luZyB0aGUgcmVzdCBvZgp0aGUgcGF0Y2hzZXQuCl9f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRyaS1kZXZlbCBt
-YWlsaW5nIGxpc3QKZHJpLWRldmVsQGxpc3RzLmZyZWVkZXNrdG9wLm9yZwpodHRwczovL2xpc3Rz
-LmZyZWVkZXNrdG9wLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2RyaS1kZXZlbAo=
+--4Ckj6UjgE2iN1+kY
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+On Thu, Mar 30, 2017 at 09:45:36AM +0200, Corentin Labbe wrote:
+> On Tue, Mar 28, 2017 at 06:01:05PM -0700, David Miller wrote:
+> > From: Arnd Bergmann <arnd@arndb.de>
+> > Date: Tue, 28 Mar 2017 11:48:21 +0200
+> >=20
+> > > A driver must not access the two fields directly but should instead u=
+se
+> > > the helper functions to set the values and keep a consistent internal
+> > > state:
+> > >=20
+> > > ethernet/stmicro/stmmac/stmmac_main.c: In function 'stmmac_dvr_probe':
+> > > ethernet/stmicro/stmmac/stmmac_main.c:4083:8: error: 'struct net_devi=
+ce' has no member named 'real_num_rx_queues'; did you mean 'real_num_tx_que=
+ues'?
+> > >=20
+> > > Fixes: a8f5102af2a7 ("net: stmmac: TX and RX queue priority configura=
+tion")
+> > > Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> >=20
+> > Applied.
+>=20
+> This break my revert patch. (since it patch ("net: stmmac: enable multipl=
+e buffers").
+> Since dwmac-sunxi is still broken, what can I do ? send two revert patch =
+? or adapt the reverting patch.
+
+Have you tried if the kcalloc() patch I sent on Tuesday fixes things the
+issues introduced by the multiple buffers patch? Niklas reported that it
+restores functionality on his setup.
+
+If it makes things work for you as well, we could maybe avoid the revert
+altogether.
+
+You can find the patch here:
+
+	https://patchwork.ozlabs.org/patch/744286/
+
+Thierry
+
+--4Ckj6UjgE2iN1+kY
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAABCAAdFiEEiOrDCAFJzPfAjcif3SOs138+s6EFAljdF3kACgkQ3SOs138+
+s6EC8w/+JfJE0NCjzHpE9ZUBMuQTMmK7YFgWtMCxyaKiKJPBc4ejf2aWHCL2FB/r
+hdDKT+X9zPmdsHzcxKFG06au2cX3sAPd61FyFLnhg3UcYVplMa6InInx1rUSqH0N
+3TSKrCZnwvf8JK/cjpzaG9SfJI7WgR72Siklv2ki96HgJyBN9cB8g3afzJgE84uN
+Yt03vgfS6e4GXDSXqG6/cOs/k7haIUg275bMr4H6aNPgsZPr9dT8T2UR3oWulmsT
+R4px0xc0FzxPDHxeVWhG9RRJDY37odRtwfq86Sdk7HBGqc4NwYmovM1WiX9pNuj+
+oKVMloIME1ceO8cBKeOd2r0H7dW8QnKASxXQ1e3AuvtvDvt55dloppnqIbvtaG2R
+8D/qV+kmPWc1CxMf0cKGI+uoeuV9T2ERp+6L1/9J6BWa3ds6ygJzhiX7pgPrcdYC
+IDkqAqn3yLAOO/wjVOdb9CeLajbGxNvubsyRegQpvOdCFa6HPJ40+NqooUXqbcaL
+ylJ8hey4oqGbfllDMFICjN5ynGW/UAZNW1zMs797p1SL0iufUmaeO/Fqjtsza8IL
+KcldJPHd+HxsRVG1pLuZt9yghxBGGSEyPjT71dZPlOAv5PMFVqut6Q+Tv+kZ2OiM
+CoKxMFT8wAYjHUl5uTQDsWWe+Ytt8/A6AztJB8++MRcN7raeNeI=
+=1MMa
+-----END PGP SIGNATURE-----
+
+--4Ckj6UjgE2iN1+kY--
