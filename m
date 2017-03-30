@@ -1,558 +1,77 @@
 From: Salil Mehta <salil.mehta@huawei.com>
-Subject: [PATCH net 08/19] net: hns: Fix to adjust buf_size of ring according to mtu
-Date: Thu, 30 Mar 2017 16:30:55 +0100
-Message-ID: <20170330153106.14344-9-salil.mehta@huawei.com>
+Subject: [PATCH net 16/19] net: hns: Simplify the exception sequence in hns_ppe_init()
+Date: Thu, 30 Mar 2017 16:31:03 +0100
+Message-ID: <20170330153106.14344-17-salil.mehta@huawei.com>
 References: <20170330153106.14344-1-salil.mehta@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <salil.mehta@huawei.com>, <yisen.zhuang@huawei.com>,
         <mehta.salil.lnk@gmail.com>, <netdev@vger.kernel.org>,
         <linux-kernel@vger.kernel.org>, <linuxarm@huawei.com>,
-        lipeng <lipeng321@huawei.com>
+        Kejian Yan <yankejian@huawei.com>
 To: <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20170330153106.14344-1-salil.mehta@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: lipeng <lipeng321@huawei.com>
+From: Kejian Yan <yankejian@huawei.com>
 
-Because buf_size of ring set to 2048, the process of rx_poll_one
-can reuse the page, therefore the performance of XGE can improve.
-But the chip only supports three bds in one package, so the max mtu
-is 6K when it sets to 2048. For better performane in litter mtu, we
-need change buf_size according to mtu.
+We need to free all ppe submodule if it fails to initialize ppe by
+any fault, so this patch will free all ppe resource before
+hns_ppe_init() returns exception situation
 
-When user change mtu, hns is only change the desc in memory. There
-are some desc has been fetched by the chip, these desc can not be
-changed by the code. So it needs set the port loopback and send
-some packages to let the chip consumes the wrong desc and fetch new
-desc.
-Because the Pv660 do not support rss indirection, we need add version
-check in mtu change process.
-
-Signed-off-by: lipeng <lipeng321@huawei.com>
-reviewed-by: Yisen Zhuang <yisen.zhuang@huawei.com>
+Reported-by: JinchuanTian <tianjinchuan1@huawei.com>
+Signed-off-by: Kejian Yan <yankejian@huawei.com>
+Reviewed-by: Salil Mehta <salil.mehta@huawei.com>
 Signed-off-by: Salil Mehta <salil.mehta@huawei.com>
 ---
- drivers/net/ethernet/hisilicon/hns/hnae.h         |  37 ++++
- drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c |  26 ++-
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c |   3 +-
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h |   2 +-
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c |  41 +++-
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.h |   3 +
- drivers/net/ethernet/hisilicon/hns/hns_enet.c     | 249 +++++++++++++++++++++-
- 7 files changed, 337 insertions(+), 24 deletions(-)
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c | 17 ++++++++---------
+ 1 file changed, 8 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hnae.h b/drivers/net/ethernet/hisilicon/hns/hnae.h
-index 85df7c7..ad79a76 100644
---- a/drivers/net/ethernet/hisilicon/hns/hnae.h
-+++ b/drivers/net/ethernet/hisilicon/hns/hnae.h
-@@ -67,6 +67,8 @@ do { \
- #define AE_IS_VER1(ver) ((ver) == AE_VERSION_1)
- #define AE_NAME_SIZE 16
- 
-+#define BD_SIZE_2048_MAX_MTU   6000
-+
- /* some said the RX and TX RCB format should not be the same in the future. But
-  * it is the same now...
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
+index 6ea8722..eba406b 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
+@@ -496,17 +496,17 @@ void hns_ppe_get_stats(struct hns_ppe_cb *ppe_cb, u64 *data)
   */
-@@ -648,6 +650,41 @@ static inline void hnae_reuse_buffer(struct hnae_ring *ring, int i)
- 	ring->desc[i].rx.ipoff_bnum_pid_flag = 0;
- }
- 
-+/* when reinit buffer size, we should reinit buffer description */
-+static inline void hnae_reinit_all_ring_desc(struct hnae_handle *h)
-+{
-+	int i, j;
-+	struct hnae_ring *ring;
-+
-+	for (i = 0; i < h->q_num; i++) {
-+		ring = &h->qs[i]->rx_ring;
-+		for (j = 0; j < ring->desc_num; j++)
-+			ring->desc[j].addr = cpu_to_le64(ring->desc_cb[j].dma);
-+	}
-+
-+	wmb();	/* commit all data before submit */
-+}
-+
-+/* when reinit buffer size, we should reinit page offset */
-+static inline void hnae_reinit_all_ring_page_off(struct hnae_handle *h)
-+{
-+	int i, j;
-+	struct hnae_ring *ring;
-+
-+	for (i = 0; i < h->q_num; i++) {
-+		ring = &h->qs[i]->rx_ring;
-+		for (j = 0; j < ring->desc_num; j++) {
-+			ring->desc_cb[j].page_offset = 0;
-+			if (ring->desc[j].addr !=
-+			    cpu_to_le64(ring->desc_cb[j].dma))
-+				ring->desc[j].addr =
-+					cpu_to_le64(ring->desc_cb[j].dma);
-+		}
-+	}
-+
-+	wmb();	/* commit all data before submit */
-+}
-+
- #define hnae_set_field(origin, mask, shift, val) \
- 	do { \
- 		(origin) &= (~(mask)); \
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c b/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
-index abafa25..53af14e 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
-@@ -272,8 +272,32 @@ static int hns_ae_clr_multicast(struct hnae_handle *handle)
- static int hns_ae_set_mtu(struct hnae_handle *handle, int new_mtu)
+ int hns_ppe_init(struct dsaf_device *dsaf_dev)
  {
- 	struct hns_mac_cb *mac_cb = hns_get_mac_cb(handle);
-+	struct hnae_queue *q;
-+	u32 rx_buf_size;
-+	int i, ret;
-+
-+	/* when buf_size is 2048, max mtu is 6K for rx ring max bd num is 3. */
-+	if (!AE_IS_VER1(mac_cb->dsaf_dev->dsaf_ver)) {
-+		if (new_mtu <= BD_SIZE_2048_MAX_MTU)
-+			rx_buf_size = 2048;
-+		else
-+			rx_buf_size = 4096;
-+	} else {
-+		rx_buf_size = mac_cb->dsaf_dev->buf_size;
-+	}
-+
-+	ret = hns_mac_set_mtu(mac_cb, new_mtu, rx_buf_size);
- 
--	return hns_mac_set_mtu(mac_cb, new_mtu);
-+	if (!ret) {
-+		/* reinit ring buf_size */
-+		for (i = 0; i < handle->q_num; i++) {
-+			q = handle->qs[i];
-+			q->rx_ring.buf_size = rx_buf_size;
-+			hns_rcb_set_rx_ring_bs(q, rx_buf_size);
-+		}
-+	}
-+
-+	return ret;
- }
- 
- static void hns_ae_set_tso_stats(struct hnae_handle *handle, int enable)
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
-index 3239d27..edf9a23 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
-@@ -491,10 +491,9 @@ void hns_mac_reset(struct hns_mac_cb *mac_cb)
- 	}
- }
- 
--int hns_mac_set_mtu(struct hns_mac_cb *mac_cb, u32 new_mtu)
-+int hns_mac_set_mtu(struct hns_mac_cb *mac_cb, u32 new_mtu, u32 buf_size)
- {
- 	struct mac_driver *drv = hns_mac_get_drv(mac_cb);
--	u32 buf_size = mac_cb->dsaf_dev->buf_size;
- 	u32 new_frm = new_mtu + ETH_HLEN + ETH_FCS_LEN + VLAN_HLEN;
- 	u32 max_frm = AE_IS_VER1(mac_cb->dsaf_dev->dsaf_ver) ?
- 			MAC_MAX_MTU : MAC_MAX_MTU_V2;
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h
-index 2bb3d1e..7f14d91 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h
-@@ -444,7 +444,7 @@ void hns_mac_get_autoneg(struct hns_mac_cb *mac_cb, u32 *auto_neg);
- void hns_mac_get_pauseparam(struct hns_mac_cb *mac_cb, u32 *rx_en, u32 *tx_en);
- int hns_mac_set_autoneg(struct hns_mac_cb *mac_cb, u8 enable);
- int hns_mac_set_pauseparam(struct hns_mac_cb *mac_cb, u32 rx_en, u32 tx_en);
--int hns_mac_set_mtu(struct hns_mac_cb *mac_cb, u32 new_mtu);
-+int hns_mac_set_mtu(struct hns_mac_cb *mac_cb, u32 new_mtu, u32 buf_size);
- int hns_mac_get_port_info(struct hns_mac_cb *mac_cb,
- 			  u8 *auto_neg, u16 *speed, u8 *duplex);
- int hns_mac_config_mac_loopback(struct hns_mac_cb *mac_cb,
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c
-index f0ed80d6..a6ab168 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c
-@@ -32,6 +32,9 @@
- #define RCB_RESET_WAIT_TIMES 30
- #define RCB_RESET_TRY_TIMES 10
- 
-+/* Because default mtu is 1500, rcb buffer size is set to 2048 enough */
-+#define RCB_DEFAULT_BUFFER_SIZE 2048
-+
- /**
-  *hns_rcb_wait_fbd_clean - clean fbd
-  *@qs: ring struct pointer array
-@@ -192,6 +195,30 @@ void hns_rcb_common_init_commit_hw(struct rcb_common_cb *rcb_common)
- 	wmb();	/* Sync point after breakpoint */
- }
- 
-+/* hns_rcb_set_tx_ring_bs - init rcb ring buf size regester
-+ *@q: hnae_queue
-+ *@buf_size: buffer size set to hw
-+ */
-+void hns_rcb_set_tx_ring_bs(struct hnae_queue *q, u32 buf_size)
-+{
-+	u32 bd_size_type = hns_rcb_buf_size2type(buf_size);
-+
-+	dsaf_write_dev(q, RCB_RING_TX_RING_BD_LEN_REG,
-+		       bd_size_type);
-+}
-+
-+/* hns_rcb_set_rx_ring_bs - init rcb ring buf size regester
-+ *@q: hnae_queue
-+ *@buf_size: buffer size set to hw
-+ */
-+void hns_rcb_set_rx_ring_bs(struct hnae_queue *q, u32 buf_size)
-+{
-+	u32 bd_size_type = hns_rcb_buf_size2type(buf_size);
-+
-+	dsaf_write_dev(q, RCB_RING_RX_RING_BD_LEN_REG,
-+		       bd_size_type);
-+}
-+
- /**
-  *hns_rcb_ring_init - init rcb ring
-  *@ring_pair: ring pair control block
-@@ -200,8 +227,6 @@ void hns_rcb_common_init_commit_hw(struct rcb_common_cb *rcb_common)
- static void hns_rcb_ring_init(struct ring_pair_cb *ring_pair, int ring_type)
- {
- 	struct hnae_queue *q = &ring_pair->q;
--	struct rcb_common_cb *rcb_common = ring_pair->rcb_common;
--	u32 bd_size_type = rcb_common->dsaf_dev->buf_size_type;
- 	struct hnae_ring *ring =
- 		(ring_type == RX_RING) ? &q->rx_ring : &q->tx_ring;
- 	dma_addr_t dma = ring->desc_dma_addr;
-@@ -212,8 +237,8 @@ static void hns_rcb_ring_init(struct ring_pair_cb *ring_pair, int ring_type)
- 		dsaf_write_dev(q, RCB_RING_RX_RING_BASEADDR_H_REG,
- 			       (u32)((dma >> 31) >> 1));
- 
--		dsaf_write_dev(q, RCB_RING_RX_RING_BD_LEN_REG,
--			       bd_size_type);
-+		hns_rcb_set_rx_ring_bs(q, ring->buf_size);
-+
- 		dsaf_write_dev(q, RCB_RING_RX_RING_BD_NUM_REG,
- 			       ring_pair->port_id_in_comm);
- 		dsaf_write_dev(q, RCB_RING_RX_RING_PKTLINE_REG,
-@@ -224,8 +249,8 @@ static void hns_rcb_ring_init(struct ring_pair_cb *ring_pair, int ring_type)
- 		dsaf_write_dev(q, RCB_RING_TX_RING_BASEADDR_H_REG,
- 			       (u32)((dma >> 31) >> 1));
- 
--		dsaf_write_dev(q, RCB_RING_TX_RING_BD_LEN_REG,
--			       bd_size_type);
-+		hns_rcb_set_tx_ring_bs(q, ring->buf_size);
-+
- 		dsaf_write_dev(q, RCB_RING_TX_RING_BD_NUM_REG,
- 			       ring_pair->port_id_in_comm);
- 		dsaf_write_dev(q, RCB_RING_TX_RING_PKTLINE_REG,
-@@ -380,7 +405,6 @@ static void hns_rcb_ring_get_cfg(struct hnae_queue *q, int ring_type)
- 	struct hnae_ring *ring;
- 	struct rcb_common_cb *rcb_common;
- 	struct ring_pair_cb *ring_pair_cb;
--	u32 buf_size;
- 	u16 desc_num, mdnum_ppkt;
- 	bool irq_idx, is_ver1;
- 
-@@ -401,7 +425,6 @@ static void hns_rcb_ring_get_cfg(struct hnae_queue *q, int ring_type)
- 	}
- 
- 	rcb_common = ring_pair_cb->rcb_common;
--	buf_size = rcb_common->dsaf_dev->buf_size;
- 	desc_num = rcb_common->dsaf_dev->desc_num;
- 
- 	ring->desc = NULL;
-@@ -410,7 +433,7 @@ static void hns_rcb_ring_get_cfg(struct hnae_queue *q, int ring_type)
- 	ring->irq = ring_pair_cb->virq[irq_idx];
- 	ring->desc_dma_addr = 0;
- 
--	ring->buf_size = buf_size;
-+	ring->buf_size = RCB_DEFAULT_BUFFER_SIZE;
- 	ring->desc_num = desc_num;
- 	ring->max_desc_num_per_pkt = mdnum_ppkt;
- 	ring->max_raw_data_sz_per_desc = HNS_RCB_MAX_PKT_SIZE;
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.h
-index 99b4e1b..afe563c 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.h
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.h
-@@ -146,4 +146,7 @@ int hns_rcb_get_ring_regs_count(void);
- void hns_rcb_get_ring_regs(struct hnae_queue *queue, void *data);
- 
- void hns_rcb_get_strings(int stringset, u8 *data, int index);
-+void hns_rcb_set_rx_ring_bs(struct hnae_queue *q, u32 buf_size);
-+void hns_rcb_set_tx_ring_bs(struct hnae_queue *q, u32 buf_size);
-+
- #endif /* _HNS_DSAF_RCB_H */
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.c b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-index a083660..2a12764 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-@@ -1482,32 +1482,259 @@ static netdev_tx_t hns_nic_net_xmit(struct sk_buff *skb,
- 	return (netdev_tx_t)ret;
- }
- 
-+static void hns_nic_drop_rx_fetch(struct hns_nic_ring_data *ring_data,
-+				  struct sk_buff *skb)
-+{
-+	dev_kfree_skb_any(skb);
-+}
-+
-+#define HNS_LB_TX_RING	0
-+static struct sk_buff *hns_assemble_skb(struct net_device *ndev)
-+{
-+	struct sk_buff *skb;
-+	struct ethhdr *ethhdr;
-+	int frame_len;
-+
-+	/* allocate test skb */
-+	skb = alloc_skb(64, GFP_KERNEL);
-+	if (!skb)
-+		return NULL;
-+
-+	skb_put(skb, 64);
-+	skb->dev = ndev;
-+	memset(skb->data, 0xFF, skb->len);
-+
-+	/* must be tcp/ip package */
-+	ethhdr = (struct ethhdr *)skb->data;
-+	ethhdr->h_proto = htons(ETH_P_IP);
-+
-+	frame_len = skb->len & (~1ul);
-+	memset(&skb->data[frame_len / 2], 0xAA,
-+	       frame_len / 2 - 1);
-+
-+	skb->queue_mapping = HNS_LB_TX_RING;
-+
-+	return skb;
-+}
-+
-+static bool hns_enable_serdes_lb(struct net_device *ndev)
-+{
-+	struct hns_nic_priv *priv = netdev_priv(ndev);
-+	struct hnae_handle *h = priv->ae_handle;
-+	struct hnae_ae_ops *ops = h->dev->ops;
-+	int speed, duplex;
-+	int ret;
-+
-+	ret = ops->set_loopback(h, MAC_INTERNALLOOP_SERDES, 1);
-+	if (ret)
-+		return ret;
-+
-+	ret = ops->start ? ops->start(h) : 0;
-+	if (ret)
-+		return ret;
-+
-+	/* link adjust duplex*/
-+	if (h->phy_if != PHY_INTERFACE_MODE_XGMII)
-+		speed = 1000;
-+	else
-+		speed = 10000;
-+	duplex = 1;
-+
-+	ops->adjust_link(h, speed, duplex);
-+
-+	/* wait h/w ready */
-+	mdelay(300);
-+
-+	return 0;
-+}
-+
-+static void hns_disable_serdes_lb(struct net_device *ndev)
-+{
-+	struct hns_nic_priv *priv = netdev_priv(ndev);
-+	struct hnae_handle *h = priv->ae_handle;
-+	struct hnae_ae_ops *ops = h->dev->ops;
-+
-+	ops->stop(h);
-+	ops->set_loopback(h, MAC_INTERNALLOOP_SERDES, 0);
-+}
-+
-+/**
-+ *hns_nic_clear_all_rx_fetch - clear the chip fetched descriptions. The
-+ *function as follows:
-+ *    1. if one rx ring has found the page_offset is not equal 0 between head
-+ *       and tail, it means that the chip fetched the wrong descs for the ring
-+ *       which buffer size is 4096.
-+ *    2. we set the chip serdes loopback and set rss indirection to the ring.
-+ *    3. construct 64-bytes ip broadcast packages, wait the associated rx ring
-+ *       recieving all packages and it will fetch new descriptions.
-+ *    4. recover to the original state.
-+ *
-+ *@ndev: net device
-+ */
-+static int hns_nic_clear_all_rx_fetch(struct net_device *ndev)
-+{
-+	struct hns_nic_priv *priv = netdev_priv(ndev);
-+	struct hnae_handle *h = priv->ae_handle;
-+	struct hnae_ae_ops *ops = h->dev->ops;
-+	struct hns_nic_ring_data *rd;
-+	struct hnae_ring *ring;
-+	struct sk_buff *skb;
-+	u32 *org_indir;
-+	u32 *cur_indir;
-+	int indir_size;
-+	int head, tail;
-+	int fetch_num;
-+	int i, j;
-+	bool found;
-+	int retry_times;
-+	int ret = 0;
-+
-+	/* alloc indir memory */
-+	indir_size = ops->get_rss_indir_size(h) * sizeof(*org_indir);
-+	org_indir = kzalloc(indir_size, GFP_KERNEL);
-+	if (!org_indir)
-+		return -ENOMEM;
-+
-+	/* store the orginal indirection */
-+	ops->get_rss(h, org_indir, NULL, NULL);
-+
-+	cur_indir = kzalloc(indir_size, GFP_KERNEL);
-+	if (!cur_indir) {
-+		ret = -ENOMEM;
-+		goto cur_indir_alloc_err;
-+	}
-+
-+	/* set loopback */
-+	if (hns_enable_serdes_lb(ndev)) {
-+		ret = -EINVAL;
-+		goto enable_serdes_lb_err;
-+	}
-+
-+	/* foreach every rx ring to clear fetch desc */
-+	for (i = 0; i < h->q_num; i++) {
-+		ring = &h->qs[i]->rx_ring;
-+		head = readl_relaxed(ring->io_base + RCB_REG_HEAD);
-+		tail = readl_relaxed(ring->io_base + RCB_REG_TAIL);
-+		found = false;
-+		fetch_num = ring_dist(ring, head, tail);
-+
-+		while (head != tail) {
-+			if (ring->desc_cb[head].page_offset != 0) {
-+				found = true;
-+				break;
-+			}
-+
-+			head++;
-+			if (head == ring->desc_num)
-+				head = 0;
-+		}
-+
-+		if (found) {
-+			for (j = 0; j < indir_size / sizeof(*org_indir); j++)
-+				cur_indir[j] = i;
-+			ops->set_rss(h, cur_indir, NULL, 0);
-+
-+			for (j = 0; j < fetch_num; j++) {
-+				/* alloc one skb and init */
-+				skb = hns_assemble_skb(ndev);
-+				if (!skb)
-+					goto out;
-+				rd = &tx_ring_data(priv, skb->queue_mapping);
-+				hns_nic_net_xmit_hw(ndev, skb, rd);
-+
-+				retry_times = 0;
-+				while (retry_times++ < 10) {
-+					mdelay(10);
-+					/* clean rx */
-+					rd = &rx_ring_data(priv, i);
-+					if (rd->poll_one(rd, fetch_num,
-+							 hns_nic_drop_rx_fetch))
-+						break;
-+				}
-+
-+				retry_times = 0;
-+				while (retry_times++ < 10) {
-+					mdelay(10);
-+					/* clean tx ring 0 send package */
-+					rd = &tx_ring_data(priv,
-+							   HNS_LB_TX_RING);
-+					if (rd->poll_one(rd, fetch_num, NULL))
-+						break;
-+				}
-+			}
-+		}
-+	}
-+
-+out:
-+	/* restore everything */
-+	ops->set_rss(h, org_indir, NULL, 0);
-+	hns_disable_serdes_lb(ndev);
-+enable_serdes_lb_err:
-+	kfree(cur_indir);
-+cur_indir_alloc_err:
-+	kfree(org_indir);
-+
-+	return ret;
-+}
-+
- static int hns_nic_change_mtu(struct net_device *ndev, int new_mtu)
- {
- 	struct hns_nic_priv *priv = netdev_priv(ndev);
- 	struct hnae_handle *h = priv->ae_handle;
-+	bool if_running = netif_running(ndev);
+-	int i, k;
  	int ret;
++	int i;
  
-+	/* MTU < 68 is an error and causes problems on some kernels */
-+	if (new_mtu < 68)
-+		return -EINVAL;
-+
-+	/* MTU no change */
-+	if (new_mtu == ndev->mtu)
-+		return 0;
-+
- 	if (!h->dev->ops->set_mtu)
- 		return -ENOTSUPP;
+ 	for (i = 0; i < HNS_PPE_COM_NUM; i++) {
+ 		ret = hns_ppe_common_get_cfg(dsaf_dev, i);
+ 		if (ret)
+-			goto get_ppe_cfg_fail;
++			goto get_cfg_fail;
  
--	if (netif_running(ndev)) {
-+	if (if_running) {
- 		(void)hns_nic_net_stop(ndev);
- 		msleep(100);
-+	}
+ 		ret = hns_rcb_common_get_cfg(dsaf_dev, i);
+ 		if (ret)
+-			goto get_rcb_cfg_fail;
++			goto get_cfg_fail;
  
--		ret = h->dev->ops->set_mtu(h, new_mtu);
--		if (ret)
--			netdev_err(ndev, "set mtu fail, return value %d\n",
--				   ret);
-+	if (priv->enet_ver != AE_VERSION_1 &&
-+	    ndev->mtu <= BD_SIZE_2048_MAX_MTU &&
-+	    new_mtu > BD_SIZE_2048_MAX_MTU) {
-+		/* update desc */
-+		hnae_reinit_all_ring_desc(h);
+ 		hns_ppe_get_cfg(dsaf_dev->ppe_common[i]);
  
--		if (hns_nic_net_open(ndev))
--			netdev_err(ndev, "hns net open fail\n");
--	} else {
--		ret = h->dev->ops->set_mtu(h, new_mtu);
-+		/* clear the package which the chip has fetched */
-+		ret = hns_nic_clear_all_rx_fetch(ndev);
-+
-+		/* the page offset must be consist with desc */
-+		hnae_reinit_all_ring_page_off(h);
-+
-+		if (ret) {
-+			netdev_err(ndev, "clear the fetched desc fail\n");
-+			goto out;
-+		}
-+	}
-+
-+	ret = h->dev->ops->set_mtu(h, new_mtu);
-+	if (ret) {
-+		netdev_err(ndev, "set mtu fail, return value %d\n",
-+			   ret);
-+		goto out;
+@@ -518,13 +518,12 @@ int hns_ppe_init(struct dsaf_device *dsaf_dev)
+ 
+ 	return 0;
+ 
+-get_rcb_cfg_fail:
+-	hns_ppe_common_free_cfg(dsaf_dev, i);
+-get_ppe_cfg_fail:
+-	for (k = i - 1; k >= 0; k--) {
+-		hns_rcb_common_free_cfg(dsaf_dev, k);
+-		hns_ppe_common_free_cfg(dsaf_dev, k);
++get_cfg_fail:
++	for (i = 0; i < HNS_PPE_COM_NUM; i++) {
++		hns_rcb_common_free_cfg(dsaf_dev, i);
++		hns_ppe_common_free_cfg(dsaf_dev, i);
  	}
- 
--	if (!ret)
--		ndev->mtu = new_mtu;
-+	/* finally, set new mtu to netdevice */
-+	ndev->mtu = new_mtu;
 +
-+out:
-+	if (if_running) {
-+		if (hns_nic_net_open(ndev)) {
-+			netdev_err(ndev, "hns net open fail\n");
-+			ret = -EINVAL;
-+		}
-+	}
- 
  	return ret;
  }
+ 
 -- 
 2.7.4
