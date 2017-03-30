@@ -1,67 +1,58 @@
-From: Johan Hovold <johan-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: [PATCH v2 5/8] NFC: nfcmrvl: fix firmware-management initialisation
-Date: Thu, 30 Mar 2017 12:15:39 +0200
-Message-ID: <20170330101542.15384-6-johan@kernel.org>
+From: Johan Hovold <johan@kernel.org>
+Subject: [PATCH v2 7/8] NFC: nfcmrvl_usb: use interface as phy device
+Date: Thu, 30 Mar 2017 12:15:41 +0200
+Message-ID: <20170330101542.15384-8-johan@kernel.org>
 References: <20170330101542.15384-1-johan@kernel.org>
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Johan Hovold <johan-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        stable <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Vincent Cuissard <cuissard-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>
-To: Lauro Ramos Venancio <lauro.venancio-430g2QfJUUCGglJvpFV4uA@public.gmane.org>,
-        Aloisio Almeida Jr <aloisio.almeida-430g2QfJUUCGglJvpFV4uA@public.gmane.org>,
-        Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170330101542.15384-1-johan-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, Johan Hovold <johan@kernel.org>
+To: Lauro Ramos Venancio <lauro.venancio@openbossa.org>,
+        Aloisio Almeida Jr <aloisio.almeida@openbossa.org>,
+        Samuel Ortiz <sameo@linux.intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f66.google.com ([209.85.215.66]:35012 "EHLO
+        mail-lf0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933235AbdC3KQG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 30 Mar 2017 06:16:06 -0400
+In-Reply-To: <20170330101542.15384-1-johan@kernel.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The nci-device was never deregistered in the event that
-fw-initialisation failed.
+Use the USB-interface rather than parent USB-device device, which is
+what this driver binds to, when registering the nci device.
 
-Fix this by moving the firmware initialisation before device
-registration since the firmware work queue should be available before
-registering.
+Note that using the right device is important when dealing with device-
+managed resources as the interface can be unbound independently of the
+parent device.
 
-Note that this depends on a recent fix that moved device-name
-initialisation back to to nci_allocate_device() as the
-firmware-workqueue name is now derived from the nfc-device name.
+Also note that private device pointer had already been set by
+nfcmrvl_nci_register_dev() so the redundant assignment can therefore be
+removed.
 
-Fixes: 3194c6870158 ("NFC: nfcmrvl: add firmware download support")
-Cc: stable <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>     # 4.4
-Cc: Vincent Cuissard <cuissard-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>
-Signed-off-by: Johan Hovold <johan-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Signed-off-by: Johan Hovold <johan@kernel.org>
 ---
- drivers/nfc/nfcmrvl/main.c | 16 +++++++++-------
- 1 file changed, 9 insertions(+), 7 deletions(-)
+ drivers/nfc/nfcmrvl/usb.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
 
-diff --git a/drivers/nfc/nfcmrvl/main.c b/drivers/nfc/nfcmrvl/main.c
-index 3e3fc9588f10..a446590a71ca 100644
---- a/drivers/nfc/nfcmrvl/main.c
-+++ b/drivers/nfc/nfcmrvl/main.c
-@@ -158,26 +158,28 @@ struct nfcmrvl_private *nfcmrvl_nci_register_dev(enum nfcmrvl_phy phy,
- 		goto error_free_gpio;
- 	}
+diff --git a/drivers/nfc/nfcmrvl/usb.c b/drivers/nfc/nfcmrvl/usb.c
+index 585a0f20835b..728b3321842d 100644
+--- a/drivers/nfc/nfcmrvl/usb.c
++++ b/drivers/nfc/nfcmrvl/usb.c
+@@ -341,15 +341,13 @@ static int nfcmrvl_probe(struct usb_interface *intf,
+ 	init_usb_anchor(&drv_data->deferred);
  
-+	rc = nfcmrvl_fw_dnld_init(priv);
-+	if (rc) {
-+		nfc_err(dev, "failed to initialize FW download %d\n", rc);
-+		goto error_free_dev;
-+	}
-+
- 	nci_set_drvdata(priv->ndev, priv);
+ 	priv = nfcmrvl_nci_register_dev(NFCMRVL_PHY_USB, drv_data, &usb_ops,
+-					&drv_data->udev->dev, &config);
++					&intf->dev, &config);
+ 	if (IS_ERR(priv))
+ 		return PTR_ERR(priv);
  
- 	rc = nci_register_device(priv->ndev);
- 	if (rc) {
- 		nfc_err(dev, "nci_register_device failed %d\n", rc);
--		goto error_free_dev;
-+		goto error_fw_dnld_deinit;
- 	}
+ 	drv_data->priv = priv;
+ 	drv_data->priv->support_fw_dnld = false;
  
- 	/* Ensure that controller is powered off */
- 	nfcmrvl_chip_halt(priv);
+-	priv->dev = &drv_data->udev->dev;
+-
+ 	usb_set_intfdata(intf, drv_data);
  
--	rc = nfcmrvl_fw_dnld_init(priv);
--	if (rc) {
--		nfc_err(dev, "failed to initialize FW download %d\n", rc);
--		goto error_free_dev;
--	}
+ 	return 0;
+-- 
+2.12.2
