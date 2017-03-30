@@ -1,88 +1,87 @@
-From: Cornelia Huck <cornelia.huck@de.ibm.com>
-Subject: Re: [PATCH 4/6] virtio_net: allow specifying context for rx
-Date: Thu, 30 Mar 2017 16:46:06 +0200
-Message-ID: <20170330164606.1887c0f0.cornelia.huck@de.ibm.com>
-References: <1490820507-8005-1-git-send-email-mst@redhat.com>
-	<1490820507-8005-5-git-send-email-mst@redhat.com>
-	<20170330092651.7767dfac.cornelia.huck@de.ibm.com>
-	<20170330173031-mutt-send-email-mst@kernel.org>
+From: Vincent Bernat <vincent@bernat.im>
+Subject: Re: [net-next v2] vxlan: fix ND proxy when skb doesn't have transport header offset
+Date: Thu, 30 Mar 2017 16:56:18 +0200
+Message-ID: <874lyaizjh.fsf@luffy.cx>
+References: <20170329204704.26087-1-vincent@bernat.im>
+        <m360irs1u8.fsf@luffy.cx>
+        <CANn89i+Ms_vvuowjmgERsA3=rMdTm_Cux3XTVJ19ewTz-TtBOw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, John Fastabend <john.fastabend@gmail.com>,
-	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20170330173031-mutt-send-email-mst@kernel.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Roopa Prabhu <roopa@cumulusnetworks.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Jiri Benc <jbenc@redhat.com>, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <edumazet@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bart.luffy.cx ([78.47.78.131]:50659 "EHLO bart.luffy.cx"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S933852AbdC3O4b (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 30 Mar 2017 10:56:31 -0400
+In-Reply-To: <CANn89i+Ms_vvuowjmgERsA3=rMdTm_Cux3XTVJ19ewTz-TtBOw@mail.gmail.com>
+        (Eric Dumazet's message of "Thu, 30 Mar 2017 06:36:43 -0700")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 30 Mar 2017 17:31:37 +0300
-"Michael S. Tsirkin" <mst@redhat.com> wrote:
+ =E2=9D=A6 30 mars 2017 06:36 -0700, Eric Dumazet <edumazet@google.com>=C2=
+=A0:
 
-> On Thu, Mar 30, 2017 at 09:26:51AM +0200, Cornelia Huck wrote:
-> > On Wed, 29 Mar 2017 23:48:54 +0300
-> > "Michael S. Tsirkin" <mst@redhat.com> wrote:
-> > 
-> > > With mergeable buffers we never use s/g for rx,
-> > > so allow specifying context in that case.
-> > > 
-> > > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> > > ---
-> > >  drivers/net/virtio_net.c | 15 ++++++++++++++-
-> > >  1 file changed, 14 insertions(+), 1 deletion(-)
-> > > 
-> > > diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> > > index 6802169..340f737 100644
-> > > --- a/drivers/net/virtio_net.c
-> > > +++ b/drivers/net/virtio_net.c
-> > > @@ -2044,6 +2044,7 @@ static int virtnet_find_vqs(struct virtnet_info *vi)
-> > >  	int ret = -ENOMEM;
-> > >  	int i, total_vqs;
-> > >  	const char **names;
-> > > +	const bool *ctx;
-> > >  
-> > >  	/* We expect 1 RX virtqueue followed by 1 TX virtqueue, followed by
-> > >  	 * possible N-1 RX/TX queue pairs used in multiqueue mode, followed by
-> > > @@ -2062,6 +2063,13 @@ static int virtnet_find_vqs(struct virtnet_info *vi)
-> > >  	names = kmalloc(total_vqs * sizeof(*names), GFP_KERNEL);
-> > >  	if (!names)
-> > >  		goto err_names;
-> > > +	if (vi->mergeable_rx_bufs) {
-> > > +		ctx = kzalloc(total_vqs * sizeof(*ctx), GFP_KERNEL);
-> > > +		if (!ctx)
-> > > +			goto err_ctx;
-> > > +	} else {
-> > > +		ctx = NULL;
-> > > +	}
-> > >  
-> > >  	/* Parameters for control virtqueue, if any */
-> > >  	if (vi->has_cvq) {
-> > > @@ -2077,9 +2085,12 @@ static int virtnet_find_vqs(struct virtnet_info *vi)
-> > >  		sprintf(vi->sq[i].name, "output.%d", i);
-> > >  		names[rxq2vq(i)] = vi->rq[i].name;
-> > >  		names[txq2vq(i)] = vi->sq[i].name;
-> > > +		if (ctx)
-> > > +			ctx[rxq2vq(i)] = true;
-> > >  	}
-> > >  
-> > > -	ret = virtio_find_vqs(vi->vdev, total_vqs, vqs, callbacks, names, NULL);
-> > > +	ret = vi->vdev->config->find_vqs(vi->vdev, total_vqs, vqs, callbacks,
-> > > +					 names, ctx, NULL);
-> > 
-> > virtio_find_vqs_ctx()? (Needs to be exported, obviously.)
-> 
-> I guess I can do that but there's a single user ATM.
-> Do you think it's worth doing right now, or wait until
-> it gets more users?
+>>> Parsing of neighbor discovery options is done earlier to ignore the
+>>> whole packet in case of a malformed option. Moreover, the assumption the
+>>> skb was linear is removed and options are extracted with
+>>> skb_header_pointer() as well. The check on the source link-layer address
+>>> option is also more strict (for Ethernet, we expect the length field to
+>>> be 1).
+>>
+>> There is some parsing implemented in net/ipv6/ndisc.c, notably
+>> ndisc_parse_options(). I don't know if this is a good idea to reuse
+>> that: it may have the expectation that some IP processing has already
+>> been done (for example, the IPv6 length has already been checked, the
+>> SKB is expected to be linear).
+>
+> Forcing ICMP being linear is probably fine.
+>
+> Prior to 91269e390d062b52 ("vxlan: using pskb_may_pull as early as possib=
+le")
+> this was happening (at the wrong place) in neigh_reduce() doing a :
+> if (!pskb_may_pull(skb, skb->len))
+>      goto out;
 
-Given that you introduce it in patch 2, I'd just make it an exported
-function from the start. (It also looks nicer IMO.)
+OK, I'll simplify the patch then.
+
+> So the following would be ok (while incomplete of course)
+>
+> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+> index bdb6ae16d4a85bf9539199e189011bce104ba51a..cd032819d4a36d5ca94739f20=
+f947f3f5a31aba3
+> 100644
+> --- a/drivers/net/vxlan.c
+> +++ b/drivers/net/vxlan.c
+> @@ -2243,12 +2243,13 @@ static netdev_tx_t vxlan_xmit(struct sk_buff
+> *skb, struct net_device *dev)
+>                         return arp_reduce(dev, skb, vni);
+>  #if IS_ENABLED(CONFIG_IPV6)
+>                 else if (ntohs(eth->h_proto) =3D=3D ETH_P_IPV6 &&
+> -                        pskb_may_pull(skb, sizeof(struct ipv6hdr)
+> -                                      + sizeof(struct nd_msg)) &&
+> +                        skb->len >=3D sizeof(struct ipv6hdr) +
+> +                                    sizeof(struct nd_msg) &&
+> +                        pskb_may_pull(skb, skb->len) &&
+>                          ipv6_hdr(skb)->nexthdr =3D=3D IPPROTO_ICMPV6) {
+>                                 struct nd_msg *msg;
+>
+> -                               msg =3D (struct nd_msg
+> *)skb_transport_header(skb);
+> +                               msg =3D (struct nd_msg *)(ipv6_hdr(skb) +=
+ 1);
+>                                 if (msg->icmph.icmp6_code =3D=3D 0 &&
+>                                     msg->icmph.icmp6_type =3D=3D
+> NDISC_NEIGHBOUR_SOLICITATION)
+>                                         return neigh_reduce(dev, skb, vni=
+);
+
+pskb_may_pull() is called while we only know this is an IPv6 packet, not
+an ICMPv6 one. I'll keep skb_header_pointer to handle IPv6 header, then
+I'll pull the whole ICMP packet (unless I am mistaken, of course).
+--=20
+The devil can cite Scripture for his purpose.
+		-- William Shakespeare, "The Merchant of Venice"
