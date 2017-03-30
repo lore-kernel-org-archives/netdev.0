@@ -1,49 +1,51 @@
-From: gfree.wind@foxmail.com
-Subject: [PATCH net 1/1] proc/sysctl: Fix the int overflow for jiffies conversion
-Date: Thu, 30 Mar 2017 08:39:44 +0800
-Message-ID: <1490834384-8833-1-git-send-email-gfree.wind@foxmail.com>
-Cc: Gao Feng <fgao@ikuai8.com>
-To: davem@davemloft.net, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, gfree.wind@foxmail.com
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [PATCH net] ftgmac100: Mostly rewrite the driver
+Date: Thu, 30 Mar 2017 11:46:18 +1100
+Message-ID: <1490834778.3177.197.camel@kernel.crashing.org>
+References: <1490762446.3177.164.camel@kernel.crashing.org>
+         <20170328.215744.794906222630964588.davem@davemloft.net>
+         <1490763787.3177.168.camel@kernel.crashing.org>
+         <20170328.221027.1436005565229924031.davem@davemloft.net>
+         <1490764697.3177.170.camel@kernel.crashing.org>
+         <e019331d-7050-ca6d-7f27-73878e290f7a@gmail.com>
+         <1490821714.3177.189.camel@kernel.crashing.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Florian Fainelli <f.fainelli@gmail.com>,
+        David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpbgbr2.qq.com ([54.207.22.56]:49537 "EHLO smtpbgbr2.qq.com"
+Received: from gate.crashing.org ([63.228.1.57]:45660 "EHLO gate.crashing.org"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932700AbdC3AkD (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 29 Mar 2017 20:40:03 -0400
+        id S932757AbdC3Aq1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 29 Mar 2017 20:46:27 -0400
+In-Reply-To: <1490821714.3177.189.camel@kernel.crashing.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gao Feng <fgao@ikuai8.com>
+On Thu, 2017-03-30 at 08:08 +1100, Benjamin Herrenschmidt wrote:
+> On Wed, 2017-03-29 at 11:08 -0700, Florian Fainelli wrote:
+> > I hear your point that you are the only users of the driver and
+> > it's
+> > already in a bad shape, but take this as an opportunity to increase
+> > your commit count ;)
+> 
+> Haha, my commit count is fine thanks ;-)
+> 
+> I'll see what I can do. I need to respin anyway, I haven't tested
+> the netpoll support and it doesn't build (ugh). So I'll try to break
+> it down. Maybe not 200 patches but I'll see if I can make it more
+> palatable.
 
-The function do_proc_dointvec_jiffies_conv uses LONG_MX/HZ as the
-max value to avoid overflow. But actually the *valp is int type, so
-it still causes overflow.
+FYI, Dave, Florian
 
-For example,
-echo 2147483647 > ./sys/net/ipv4/tcp_keepalive_time
-Then,
-cat ./sys/net/ipv4/tcp_keepalive_time
-The output is "-1", it is not expected.
+I've started re-doing the work in the form of a series of patches.
 
-Now use INT_MAX/HZ as the max value instead LONG_MAX/HZ to fix it.
+I can't promise I'll manage to make them all really small but I'll
+do my best. So hold onto reviewing if you haven't started already.
 
-Signed-off-by: Gao Feng <fgao@ikuai8.com>
----
- kernel/sysctl.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+The end result will, I hope, be identical.
 
-diff --git a/kernel/sysctl.c b/kernel/sysctl.c
-index acf0a5a..60474df 100644
---- a/kernel/sysctl.c
-+++ b/kernel/sysctl.c
-@@ -2571,7 +2571,7 @@ static int do_proc_dointvec_jiffies_conv(bool *negp, unsigned long *lvalp,
- 					 int write, void *data)
- {
- 	if (write) {
--		if (*lvalp > LONG_MAX / HZ)
-+		if (*lvalp > INT_MAX / HZ)
- 			return 1;
- 		*valp = *negp ? -(*lvalp*HZ) : (*lvalp*HZ);
- 	} else {
--- 
-1.9.1
+Cheers,
+Ben.
