@@ -1,37 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][V2] VSOCK: remove unnecessary ternary operator on
- return value
-Date: Thu, 30 Mar 2017 11:07:28 -0700 (PDT)
-Message-ID: <20170330.110728.1080980088987923914.davem@davemloft.net>
-References: <20170329153355.17525-1-colin.king@canonical.com>
+Subject: Re: [PATCH net] sctp: alloc stream info when initializing asoc
+Date: Thu, 30 Mar 2017 11:08:56 -0700 (PDT)
+Message-ID: <20170330.110856.2114381422765103895.davem@davemloft.net>
+References: <06d5884ac36a3ad5f5bceaf0088aede14870088b.1490806853.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jhansen@vmware.com, mst@redhat.com, aditr@vmware.com,
-        georgezhang@vmware.com, stefanha@redhat.com, julia.lawall@lip6.fr,
-        netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: colin.king@canonical.com
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+        marcelo.leitner@gmail.com, nhorman@tuxdriver.com
+To: lucien.xin@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:33034 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:33088 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934480AbdC3SHa (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 30 Mar 2017 14:07:30 -0400
-In-Reply-To: <20170329153355.17525-1-colin.king@canonical.com>
+        with ESMTP id S934128AbdC3SI6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 30 Mar 2017 14:08:58 -0400
+In-Reply-To: <06d5884ac36a3ad5f5bceaf0088aede14870088b.1490806853.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Colin King <colin.king@canonical.com>
-Date: Wed, 29 Mar 2017 16:33:55 +0100
+From: Xin Long <lucien.xin@gmail.com>
+Date: Thu, 30 Mar 2017 01:00:53 +0800
 
-> From: Colin Ian King <colin.king@canonical.com>
+> When sending a msg without asoc established, sctp will send INIT packet
+> first and then enqueue chunks.
 > 
-> Rather than assign the positive errno values to ret and then
-> checking if it is positive and flip the sign, just return the
-> errno value.
+> Before receiving INIT_ACK, stream info is not yet alloced. But enqueuing
+> chunks needs to access stream info, like out stream state and out stream
+> cnt.
 > 
-> Detected by CoverityScan, CID#986649 ("Logically Dead Code")
+> This patch is to fix it by allocing out stream info when initializing an
+> asoc, allocing in stream and re-allocing out stream when processing init.
 > 
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
 
-Applied to net-next, thanks.
+Applied, thanks.
