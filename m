@@ -1,83 +1,82 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [PATCH] r8152: The Microsoft Surface docks also use R8152.
-Date: Thu, 30 Mar 2017 13:12:42 -0500
-Message-ID: <1490897562.24247.15.camel@redhat.com>
-References: <20160113.145146.20282510666434086.davem@davemloft.net>
-         <04D87F8E-0A8C-4DEC-AE66-35D9B6B0E7B7@exactcode.com>
-         <20160113.154941.1886033351271894428.davem@davemloft.net>
-         <20170328.064215.1055636797214516339.rene@exactcode.com>
-         <1490893565.24247.9.camel@redhat.com>
-         <D17D7867-DC1B-40FE-BA88-0B200EA86CF3@exactcode.com>
+From: Yi-Hung Wei <yihung.wei@gmail.com>
+Subject: Re: [PATCH net] openvswitch: Fix ovs_flow_key_update()
+Date: Thu, 30 Mar 2017 11:39:35 -0700
+Message-ID: <CAG1aQhJwShZWAJO_jGEQ_5TaHxpKpfjL0rkpYQSWfn_b9Ua-yg@mail.gmail.com>
+References: <1490832850-6012-1-git-send-email-yihung.wei@gmail.com> <20170330152215.7b4f9703@griffin>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, nic_swsd@realtek.com
-To: =?ISO-8859-1?Q?Ren=E9?= Rebe <rene@exactcode.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:55072 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S933641AbdC3SMp (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 30 Mar 2017 14:12:45 -0400
-In-Reply-To: <D17D7867-DC1B-40FE-BA88-0B200EA86CF3@exactcode.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Joe Stringer <joe@ovn.org>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Jiri Benc <jbenc@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170330152215.7b4f9703@griffin>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2017-03-30 at 19:47 +0200, René Rebe wrote:
-> Hi,
-> 
-> On Mar 30, 2017, at 19:06, Dan Williams <dcbw@redhat.com> wrote:
-> 
-> > On Tue, 2017-03-28 at 06:42 +0200, Rene Rebe wrote:
-> > > Without this the generic cdc_ether grabs the device,
-> > > and does not really work.
-> > 
-> > Does this need a corresponding blacklist in cdc_ether
-> > then?  Otherwise
-> > you're really depending on driver loading order.
-> 
-> right, I already test build, and will send after reboot.
-> 
-> Any other nitpick in the meantime?
+On Thu, Mar 30, 2017 at 6:22 AM, Jiri Benc <jbenc@redhat.com> wrote:
+> On Wed, 29 Mar 2017 17:14:10 -0700, Yi-Hung Wei wrote:
+>> ovs_flow_key_update() is called when the flow key is invalid, and it is
+>> used to update and revalidate the flow key. Commit 329f45bc4f19
+>> ("openvswitch: add mac_proto field to the flow key") introduces mac_proto
+>> field to flow key and use it to determine whether the flow key is valid.
+>> However, the commit does not update the code path in ovs_flow_key_update()
+>> to revalidate the flow key which may cause BUG_ON() on execute_recirc().
+>> This patch addresses the aforementioned issue.
+>
+> Good catch.
+>
+>>  int ovs_flow_key_update(struct sk_buff *skb, struct sw_flow_key *key)
+>>  {
+>> +     int res;
+>> +
+>> +     res = key_extract_mac_proto(skb);
+>> +     if (res < 0)
+>> +             return res;
+>> +     key->mac_proto = res;
+>> +
+>>       return key_extract(skb, key);
+>>  }
+>
+> But this should just reset the SW_FLOW_KEY_INVALID flag, there's no
+> need to recompute mac_proto.
+>
+> Something like this:
+>
+>  int ovs_flow_key_update(struct sk_buff *skb, struct sw_flow_key *key)
+>  {
+> -       return key_extract(skb, key);
+> +       int res;
+> +
+> +       res = key_extract(skb, key);
+> +       if (!res)
+> +               key->mac_proto &= ~SW_FLOW_KEY_INVALID;
+> +       return res;
+>  }
+Hi Jiri,
 
-Nope, other than it's pretty odd that the device would expose standard
-cdc-ether compatible USB descriptors, but apparently not be compatible
-with cdc-ether?  Are we sure we don't just need a tweak or something to
-cdc-ether?
+One case that I worry is that key_extract() currently relies on mac_proto to
+decide whether to process the link layer.  So if we update key->mac_proto
+after key_extract(), wouldn't we run into a problem like the following?
 
-Dan
+If we invalidate a flow key of a L3 packet, the flow's mac_proto is like this
+(MAC_PROTO_NONE | SW_FLOW_KEY_INVALID), then key_extract() will
+process the link layer of this L3 packet since mac_proto !=MAC_PROTO_NONE?
 
-> > Dan
-> > 
-> > > Signed-off-by: René Rebe <rene@exactcode.com>
-> > > 
-> > > diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-> > > index c34df33..07f788c 100644
-> > > --- a/drivers/net/usb/r8152.c
-> > > +++ b/drivers/net/usb/r8152.c
-> > > @@ -517,6 +517,7 @@ enum rtl8152_flags {
-> > >  
-> > >  /* Define these values to match your device */
-> > >  #define VENDOR_ID_REALTEK              0x0bda
-> > > +#define VENDOR_ID_MICROSOFT            0x045e
-> > >  #define VENDOR_ID_SAMSUNG              0x04e8
-> > >  #define VENDOR_ID_LENOVO               0x17ef
-> > >  #define VENDOR_ID_NVIDIA               0x0955
-> > > @@ -4521,6 +4522,8 @@ static void rtl8152_disconnect(struct
-> > > usb_interface *intf)
-> > >  static struct usb_device_id rtl8152_table[] = {
-> > >         {REALTEK_USB_DEVICE(VENDOR_ID_REALTEK, 0x8152)},
-> > >         {REALTEK_USB_DEVICE(VENDOR_ID_REALTEK, 0x8153)},
-> > > +       {REALTEK_USB_DEVICE(VENDOR_ID_MICROSOFT, 0x07ab)},
-> > > +       {REALTEK_USB_DEVICE(VENDOR_ID_MICROSOFT, 0x07c6)},
-> > >         {REALTEK_USB_DEVICE(VENDOR_ID_SAMSUNG, 0xa101)},
-> > >         {REALTEK_USB_DEVICE(VENDOR_ID_LENOVO,  0x304f)},
-> > >         {REALTEK_USB_DEVICE(VENDOR_ID_LENOVO,  0x3062)},
-> > > 
-> > > 
-> > > -- 
-> > >   René Rebe, ExactCODE GmbH, Lietzenburger Str. 42, DE-10789
-> > > Berlin
-> > >   http://exactcode.com | http://t2-project.org |
-> > > http://rene.rebe.de
-> 
-> 
+In this case, shall we update key_extract() like this
+static int key_extract(struct sk_buff *skb, struct sw_flow_key *key)
+
+        /* Link layer. */
+        clear_vlan(key);
+-       if (key->mac_proto == MAC_PROTO_NONE) {
++       if (key->mac_proto & MAC_PROTO_NONE) {
+                if (unlikely(eth_type_vlan(skb->protocol)))
+                        return -EINVAL;
+
+Thanks,
+
+-Yi-Hung
+
+>
+> Thanks,
+>
+>  Jiri
