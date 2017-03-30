@@ -1,68 +1,88 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH v2] net: netfilter: remove unused variable
-Date: Thu, 30 Mar 2017 16:36:41 +0200
-Message-ID: <20170330143641.GA999@salvia>
-References: <20170329145752.GA2756@arushi-HP-Pavilion-Notebook>
- <20170330125509.GD2980@verge.net.au>
- <CA+XqjF_pbKoYC+UM9ad2wOvBo6gNnEEWnrUjJHfuDcFx3jEEzQ@mail.gmail.com>
+From: Cornelia Huck <cornelia.huck@de.ibm.com>
+Subject: Re: [PATCH 4/6] virtio_net: allow specifying context for rx
+Date: Thu, 30 Mar 2017 16:46:06 +0200
+Message-ID: <20170330164606.1887c0f0.cornelia.huck@de.ibm.com>
+References: <1490820507-8005-1-git-send-email-mst@redhat.com>
+	<1490820507-8005-5-git-send-email-mst@redhat.com>
+	<20170330092651.7767dfac.cornelia.huck@de.ibm.com>
+	<20170330173031-mutt-send-email-mst@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Simon Horman <horms@verge.net.au>,
-        outreachy-kernel@googlegroups.com,
-        Wensong Zhang <wensong@linux-vs.org>,
-        Julian Anastasov <ja@ssi.bg>,
-        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-        coreteam@netfilter.org, LKML <linux-kernel@vger.kernel.org>
-To: Arushi Singhal <arushisinghal19971997@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:41024 "EHLO mail.us.es"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S933862AbdC3Ogt (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 30 Mar 2017 10:36:49 -0400
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id E011E24612
-        for <netdev@vger.kernel.org>; Thu, 30 Mar 2017 16:36:44 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id D06D3DA38B
-        for <netdev@vger.kernel.org>; Thu, 30 Mar 2017 16:36:44 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 554E4DA878
-        for <netdev@vger.kernel.org>; Thu, 30 Mar 2017 16:36:41 +0200 (CEST)
-Content-Disposition: inline
-In-Reply-To: <CA+XqjF_pbKoYC+UM9ad2wOvBo6gNnEEWnrUjJHfuDcFx3jEEzQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, John Fastabend <john.fastabend@gmail.com>,
+	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20170330173031-mutt-send-email-mst@kernel.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 30, 2017 at 07:38:08PM +0530, Arushi Singhal wrote:
-> On Thu, Mar 30, 2017 at 6:25 PM, Simon Horman <horms@verge.net.au> wrote:
+On Thu, 30 Mar 2017 17:31:37 +0300
+"Michael S. Tsirkin" <mst@redhat.com> wrote:
+
+> On Thu, Mar 30, 2017 at 09:26:51AM +0200, Cornelia Huck wrote:
+> > On Wed, 29 Mar 2017 23:48:54 +0300
+> > "Michael S. Tsirkin" <mst@redhat.com> wrote:
+> > 
+> > > With mergeable buffers we never use s/g for rx,
+> > > so allow specifying context in that case.
+> > > 
+> > > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> > > ---
+> > >  drivers/net/virtio_net.c | 15 ++++++++++++++-
+> > >  1 file changed, 14 insertions(+), 1 deletion(-)
+> > > 
+> > > diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> > > index 6802169..340f737 100644
+> > > --- a/drivers/net/virtio_net.c
+> > > +++ b/drivers/net/virtio_net.c
+> > > @@ -2044,6 +2044,7 @@ static int virtnet_find_vqs(struct virtnet_info *vi)
+> > >  	int ret = -ENOMEM;
+> > >  	int i, total_vqs;
+> > >  	const char **names;
+> > > +	const bool *ctx;
+> > >  
+> > >  	/* We expect 1 RX virtqueue followed by 1 TX virtqueue, followed by
+> > >  	 * possible N-1 RX/TX queue pairs used in multiqueue mode, followed by
+> > > @@ -2062,6 +2063,13 @@ static int virtnet_find_vqs(struct virtnet_info *vi)
+> > >  	names = kmalloc(total_vqs * sizeof(*names), GFP_KERNEL);
+> > >  	if (!names)
+> > >  		goto err_names;
+> > > +	if (vi->mergeable_rx_bufs) {
+> > > +		ctx = kzalloc(total_vqs * sizeof(*ctx), GFP_KERNEL);
+> > > +		if (!ctx)
+> > > +			goto err_ctx;
+> > > +	} else {
+> > > +		ctx = NULL;
+> > > +	}
+> > >  
+> > >  	/* Parameters for control virtqueue, if any */
+> > >  	if (vi->has_cvq) {
+> > > @@ -2077,9 +2085,12 @@ static int virtnet_find_vqs(struct virtnet_info *vi)
+> > >  		sprintf(vi->sq[i].name, "output.%d", i);
+> > >  		names[rxq2vq(i)] = vi->rq[i].name;
+> > >  		names[txq2vq(i)] = vi->sq[i].name;
+> > > +		if (ctx)
+> > > +			ctx[rxq2vq(i)] = true;
+> > >  	}
+> > >  
+> > > -	ret = virtio_find_vqs(vi->vdev, total_vqs, vqs, callbacks, names, NULL);
+> > > +	ret = vi->vdev->config->find_vqs(vi->vdev, total_vqs, vqs, callbacks,
+> > > +					 names, ctx, NULL);
+> > 
+> > virtio_find_vqs_ctx()? (Needs to be exported, obviously.)
 > 
-> > On Wed, Mar 29, 2017 at 08:27:52PM +0530, Arushi Singhal wrote:
-> > > This patch uses the following coccinelle script to remove
-> > > a variable that was simply used to store the return
-> > > value of a function call before returning it:
-> > >
-> > > @@
-> > > identifier len,f;
-> > > @@
-> > >
-> > > -int len;
-> > >  ... when != len
-> > >      when strict
-> > > -len =
-> > > +return
-> > >         f(...);
-> > > -return len;
-> > >
-> > > Signed-off-by: Arushi Singhal <arushisinghal19971997@gmail.com>
-> >
-> > Applied with patch prefix updated to "ipvs:".
-> >
-> Hi
-> Thanks
-> How can I see my accepted patches of netfilter.
+> I guess I can do that but there's a single user ATM.
+> Do you think it's worth doing right now, or wait until
+> it gets more users?
 
-You can use links from patchwork:
-
-http://patchwork.ozlabs.org/project/netfilter-devel/
+Given that you introduce it in patch 2, I'd just make it an exported
+function from the start. (It also looks nicer IMO.)
