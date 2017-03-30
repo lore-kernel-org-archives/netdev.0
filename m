@@ -1,106 +1,96 @@
-From: Mel Gorman <mgorman@techsingularity.net>
-Subject: Re: in_irq_or_nmi() and RFC patch
-Date: Thu, 30 Mar 2017 14:04:36 +0100
-Message-ID: <20170330130436.l37yazbxlrkvcbf3@techsingularity.net>
-References: <20170327143947.4c237e54@redhat.com>
- <20170327141518.GB27285@bombadil.infradead.org>
- <20170327171500.4beef762@redhat.com>
- <20170327165817.GA28494@bombadil.infradead.org>
- <20170329081219.lto7t4fwmponokzh@hirez.programming.kicks-ass.net>
- <20170329105928.609bc581@redhat.com>
- <20170329091949.o2kozhhdnszgwvtn@hirez.programming.kicks-ass.net>
- <20170329181226.GA8256@bombadil.infradead.org>
- <20170329211144.3e362ac9@redhat.com>
- <20170329214441.08332799@redhat.com>
+From: "Jorgen S. Hansen" <jhansen@vmware.com>
+Subject: Re: [PATCH][V2] VSOCK: remove unnecessary ternary operator on return
+ value
+Date: Thu, 30 Mar 2017 13:18:10 +0000
+Message-ID: <3658D20B-EBF9-48A2-95A7-026D36F18AF8@vmware.com>
+References: <20170329153355.17525-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Cc: Matthew Wilcox <willy@infradead.org>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Pankaj Gupta <pagupta@redhat.com>,
-	Tariq Toukan <ttoukan.linux@gmail.com>,
-	Tariq Toukan <tariqt@mellanox.com>, netdev@vger.kernel.org,
-	akpm@linux-foundation.org, linux-mm <linux-mm@kvack.org>,
-	Saeed Mahameed <saeedm@mellanox.com>, linux-kernel@vger.kernel.org
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20170329214441.08332799@redhat.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "David S . Miller" <davem@davemloft.net>,
+        "Michael S . Tsirkin" <mst@redhat.com>,
+        Adit Ranadive <aditr@vmware.com>,
+        George Zhang <georgezhang@vmware.com>,
+        Stefan Hajnoczi <stefanha@redhat.com>,
+        Julia Lawall <julia.lawall@lip6.fr>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Colin King <colin.king@canonical.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-cys01nam02on0068.outbound.protection.outlook.com ([104.47.37.68]:48304
+        "EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S933160AbdC3NSP (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 30 Mar 2017 09:18:15 -0400
+In-Reply-To: <20170329153355.17525-1-colin.king@canonical.com>
+Content-Language: en-US
+Content-ID: <BEFC289403EED843BB71F683E1EAD261@namprd05.prod.outlook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 29, 2017 at 09:44:41PM +0200, Jesper Dangaard Brouer wrote:
-> > Regardless or using in_irq() (or in combi with in_nmi()) I get the
-> > following warning below:
-> > 
-> > [    0.000000] Kernel command line: BOOT_IMAGE=/vmlinuz-4.11.0-rc3-net-next-page-alloc-softirq+ root=UUID=2e8451ff-6797-49b5-8d3a-eed5a42d7dc9 ro rhgb quiet LANG=en_DK.UTF
-> > -8
-> > [    0.000000] PID hash table entries: 4096 (order: 3, 32768 bytes)
-> > [    0.000000] ------------[ cut here ]------------
-> > [    0.000000] WARNING: CPU: 0 PID: 0 at kernel/softirq.c:161 __local_bh_enable_ip+0x70/0x90
-> > [    0.000000] Modules linked in:
-> > [    0.000000] CPU: 0 PID: 0 Comm: swapper Not tainted 4.11.0-rc3-net-next-page-alloc-softirq+ #235
-> > [    0.000000] Hardware name: MSI MS-7984/Z170A GAMING PRO (MS-7984), BIOS 1.60 12/16/2015
-> > [    0.000000] Call Trace:
-> > [    0.000000]  dump_stack+0x4f/0x73
-> > [    0.000000]  __warn+0xcb/0xf0
-> > [    0.000000]  warn_slowpath_null+0x1d/0x20
-> > [    0.000000]  __local_bh_enable_ip+0x70/0x90
-> > [    0.000000]  free_hot_cold_page+0x1a4/0x2f0
-> > [    0.000000]  __free_pages+0x1f/0x30
-> > [    0.000000]  __free_pages_bootmem+0xab/0xb8
-> > [    0.000000]  __free_memory_core+0x79/0x91
-> > [    0.000000]  free_all_bootmem+0xaa/0x122
-> > [    0.000000]  mem_init+0x71/0xa4
-> > [    0.000000]  start_kernel+0x1e5/0x3f1
-> > [    0.000000]  x86_64_start_reservations+0x2a/0x2c
-> > [    0.000000]  x86_64_start_kernel+0x178/0x18b
-> > [    0.000000]  start_cpu+0x14/0x14
-> > [    0.000000]  ? start_cpu+0x14/0x14
-> > [    0.000000] ---[ end trace a57944bec8fc985c ]---
-> > [    0.000000] Memory: 32739472K/33439416K available (7624K kernel code, 1528K rwdata, 3168K rodata, 1860K init, 2260K bss, 699944K reserved, 0K cma-reserved)
-> > 
-> > And kernel/softirq.c:161 contains:
-> > 
-> >  WARN_ON_ONCE(in_irq() || irqs_disabled());
-> > 
-> > Thus, I don't think the change in my RFC-patch[1] is safe.
-> > Of changing[2] to support softirq allocations by replacing
-> > preempt_disable() with local_bh_disable().
-> > 
-> > [1] http://lkml.kernel.org/r/20170327143947.4c237e54@redhat.com
-> > 
-> > [2] commit 374ad05ab64d ("mm, page_alloc: only use per-cpu allocator for irq-safe requests")
-> >  https://git.kernel.org/torvalds/c/374ad05ab64d
-> 
-> A patch that avoids the above warning is inlined below, but I'm not
-> sure if this is best direction.  Or we should rather consider reverting
-> part of commit 374ad05ab64d to avoid the softirq performance regression?
->  
 
-At the moment, I'm not seeing a better alternative. If this works, I
-think it would still be far superior in terms of performance than a
-revert. As before, if there are bad consequences to adding a BH
-rescheduling point then we'll have to revert. However, I don't like a
-revert being the first option as it'll keep encouraging drivers to build
-sub-allocators to avoid the page allocator.
+> On Mar 29, 2017, at 5:33 PM, Colin King <colin.king@canonical.com> wrote:
+>=20
+> From: Colin Ian King <colin.king@canonical.com>
+>=20
+> Rather than assign the positive errno values to ret and then
+> checking if it is positive and flip the sign, just return the
+> errno value.
+>=20
+> Detected by CoverityScan, CID#986649 ("Logically Dead Code")
+>=20
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+> ---
+> net/vmw_vsock/vmci_transport.c | 22 +++++++---------------
+> 1 file changed, 7 insertions(+), 15 deletions(-)
+>=20
+> diff --git a/net/vmw_vsock/vmci_transport.c b/net/vmw_vsock/vmci_transpor=
+t.c
+> index 4be4fbbc0b50..10ae7823a19d 100644
+> --- a/net/vmw_vsock/vmci_transport.c
+> +++ b/net/vmw_vsock/vmci_transport.c
+> @@ -96,31 +96,23 @@ static int PROTOCOL_OVERRIDE =3D -1;
+>=20
+> static s32 vmci_transport_error_to_vsock_error(s32 vmci_error)
+> {
+> -	int err;
+> -
+> 	switch (vmci_error) {
+> 	case VMCI_ERROR_NO_MEM:
+> -		err =3D ENOMEM;
+> -		break;
+> +		return -ENOMEM;
+> 	case VMCI_ERROR_DUPLICATE_ENTRY:
+> 	case VMCI_ERROR_ALREADY_EXISTS:
+> -		err =3D EADDRINUSE;
+> -		break;
+> +		return -EADDRINUSE;
+> 	case VMCI_ERROR_NO_ACCESS:
+> -		err =3D EPERM;
+> -		break;
+> +		return -EPERM;
+> 	case VMCI_ERROR_NO_RESOURCES:
+> -		err =3D ENOBUFS;
+> -		break;
+> +		return -ENOBUFS;
+> 	case VMCI_ERROR_INVALID_RESOURCE:
+> -		err =3D EHOSTUNREACH;
+> -		break;
+> +		return -EHOSTUNREACH;
+> 	case VMCI_ERROR_INVALID_ARGS:
+> 	default:
+> -		err =3D EINVAL;
+> +		break;
+> 	}
+> -
+> -	return err > 0 ? -err : err;
+> +	return -EINVAL;
+> }
+>=20
+> static u32 vmci_transport_peer_rid(u32 peer_cid)
+> --=20
+> 2.11.0
+>=20
 
-> [PATCH] mm, page_alloc: re-enable softirq use of per-cpu page allocator
-> 
-> From: Jesper Dangaard Brouer <brouer@redhat.com>
-> 
-
-Other than the slightly misleading comments about NMI which could
-explain "this potentially misses an NMI but an NMI allocating pages is
-brain damaged", I don't see a problem. The irqs_disabled() check is a
-subtle but it's not earth shattering and it still helps the 100GiB cases
-with the limited cycle budget to process packets.
-
--- 
-Mel Gorman
-SUSE Labs
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Reviewed-by: Jorgen Hansen <jhansen@vmware.com>
