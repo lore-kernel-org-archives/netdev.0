@@ -1,85 +1,57 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH][V2] VSOCK: remove unnecessary ternary operator on return
- value
-Date: Thu, 30 Mar 2017 16:22:05 +0300
-Message-ID: <20170330162154-mutt-send-email-mst@kernel.org>
-References: <20170329153355.17525-1-colin.king@canonical.com>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH net] openvswitch: Fix ovs_flow_key_update()
+Date: Thu, 30 Mar 2017 15:22:15 +0200
+Message-ID: <20170330152215.7b4f9703@griffin>
+References: <1490832850-6012-1-git-send-email-yihung.wei@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S . Miller" <davem@davemloft.net>,
-        Jorgen Hansen <jhansen@vmware.com>,
-        Adit Ranadive <aditr@vmware.com>,
-        George Zhang <georgezhang@vmware.com>,
-        Stefan Hajnoczi <stefanha@redhat.com>,
-        Julia Lawall <julia.lawall@lip6.fr>, netdev@vger.kernel.org,
-        kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Colin King <colin.king@canonical.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: joe@ovn.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Yi-Hung Wei <yihung.wei@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170329153355.17525-1-colin.king@canonical.com>
+In-Reply-To: <1490832850-6012-1-git-send-email-yihung.wei@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 29, 2017 at 04:33:55PM +0100, Colin King wrote:
-> From: Colin Ian King <colin.king@canonical.com>
-> 
-> Rather than assign the positive errno values to ret and then
-> checking if it is positive and flip the sign, just return the
-> errno value.
-> 
-> Detected by CoverityScan, CID#986649 ("Logically Dead Code")
-> 
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+On Wed, 29 Mar 2017 17:14:10 -0700, Yi-Hung Wei wrote:
+> ovs_flow_key_update() is called when the flow key is invalid, and it is
+> used to update and revalidate the flow key. Commit 329f45bc4f19
+> ("openvswitch: add mac_proto field to the flow key") introduces mac_proto
+> field to flow key and use it to determine whether the flow key is valid.
+> However, the commit does not update the code path in ovs_flow_key_update()
+> to revalidate the flow key which may cause BUG_ON() on execute_recirc().
+> This patch addresses the aforementioned issue.
 
+Good catch.
 
-Acked-by: Michael S. Tsirkin <mst@redhat.com>
-
-> ---
->  net/vmw_vsock/vmci_transport.c | 22 +++++++---------------
->  1 file changed, 7 insertions(+), 15 deletions(-)
-> 
-> diff --git a/net/vmw_vsock/vmci_transport.c b/net/vmw_vsock/vmci_transport.c
-> index 4be4fbbc0b50..10ae7823a19d 100644
-> --- a/net/vmw_vsock/vmci_transport.c
-> +++ b/net/vmw_vsock/vmci_transport.c
-> @@ -96,31 +96,23 @@ static int PROTOCOL_OVERRIDE = -1;
->  
->  static s32 vmci_transport_error_to_vsock_error(s32 vmci_error)
+>  int ovs_flow_key_update(struct sk_buff *skb, struct sw_flow_key *key)
 >  {
-> -	int err;
-> -
->  	switch (vmci_error) {
->  	case VMCI_ERROR_NO_MEM:
-> -		err = ENOMEM;
-> -		break;
-> +		return -ENOMEM;
->  	case VMCI_ERROR_DUPLICATE_ENTRY:
->  	case VMCI_ERROR_ALREADY_EXISTS:
-> -		err = EADDRINUSE;
-> -		break;
-> +		return -EADDRINUSE;
->  	case VMCI_ERROR_NO_ACCESS:
-> -		err = EPERM;
-> -		break;
-> +		return -EPERM;
->  	case VMCI_ERROR_NO_RESOURCES:
-> -		err = ENOBUFS;
-> -		break;
-> +		return -ENOBUFS;
->  	case VMCI_ERROR_INVALID_RESOURCE:
-> -		err = EHOSTUNREACH;
-> -		break;
-> +		return -EHOSTUNREACH;
->  	case VMCI_ERROR_INVALID_ARGS:
->  	default:
-> -		err = EINVAL;
-> +		break;
->  	}
-> -
-> -	return err > 0 ? -err : err;
-> +	return -EINVAL;
+> +	int res;
+> +
+> +	res = key_extract_mac_proto(skb);
+> +	if (res < 0)
+> +		return res;
+> +	key->mac_proto = res;
+> +
+>  	return key_extract(skb, key);
 >  }
->  
->  static u32 vmci_transport_peer_rid(u32 peer_cid)
-> -- 
-> 2.11.0
+
+But this should just reset the SW_FLOW_KEY_INVALID flag, there's no
+need to recompute mac_proto.
+
+Something like this:
+
+ int ovs_flow_key_update(struct sk_buff *skb, struct sw_flow_key *key)
+ {
+-	return key_extract(skb, key);
++	int res;
++
++	res = key_extract(skb, key);
++	if (!res)
++		key->mac_proto &= ~SW_FLOW_KEY_INVALID;
++	return res;
+ }
+
+Thanks,
+
+ Jiri
