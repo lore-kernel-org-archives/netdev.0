@@ -1,67 +1,53 @@
-From: <bcohen@childrensnational.org>
-Subject: 295 netdev
-Date: Thu, 30 Mar 2017 06:08:00 -0000
-Message-ID: <149085408061.16099.2056574752073072514@ggnet.net.br>
-Reply-To: <bcohen@childrensnational.org>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next 2/2] net: dsa: dsa2: Add basic support of devlink
+Date: Thu, 30 Mar 2017 08:17:06 +0200
+Message-ID: <20170330061706.GA2010@nanopsycho>
+References: <1490737507-7864-1-git-send-email-andrew@lunn.ch>
+ <1490737507-7864-3-git-send-email-andrew@lunn.ch>
+ <2fe7ffc9-1bf1-537a-e361-33156a6f5a07@gmail.com>
+ <20170329013112.GF3152@lunn.ch>
+ <c844a885-cfd3-4358-89dd-c619d3d394e4@gmail.com>
+ <20170329173624.GE7942@lunn.ch>
 Mime-Version: 1.0
-Content-Type: application/zip; name="73996038013.zip"
-Content-Transfer-Encoding: base64
-To: "netdev" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+        David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>, sfrench@samba.org,
+        linux-cifs@vger.kernel.org,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Dinamico-130-101.ggnet.net.br ([168.194.130.101]:33053 "HELO
-        ggnet.net.br" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-        with SMTP id S1751350AbdC3GIG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 30 Mar 2017 02:08:06 -0400
-Content-Disposition: attachment
+Received: from mail-wr0-f175.google.com ([209.85.128.175]:36167 "EHLO
+        mail-wr0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755266AbdC3GRL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 30 Mar 2017 02:17:11 -0400
+Received: by mail-wr0-f175.google.com with SMTP id w11so44010219wrc.3
+        for <netdev@vger.kernel.org>; Wed, 29 Mar 2017 23:17:10 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20170329173624.GE7942@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-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
-AAAAAA==
+Wed, Mar 29, 2017 at 07:36:24PM CEST, andrew@lunn.ch wrote:
+>> Tangential question: we do not currently report to user space what kind
+>> of switch tagging protocol is used (DSA, eDSA etc.) I was going to add a
+>> sysfs attribute for that under the switch device's directory, but maybe
+>> devlink would be more appropriate for that?
+>
+>We don't report it. What are you thinking you want to do with this
+>information?
+>
+>I suppose it might be possible to teach libpcap/tcpdump about it, so
+>it can slide in an additional dissector. EDSA you can detect anyway,
+>since it uses a well know Ethertype. tcpdump already supports
+>this. But the other tag protocols cannot be detected.
+>
+>devlink does seem like a good candidate for this, make it part of the
+>port type.
+
+I agree this could go out via devlink. Not sure exactly what attr.
+Certainly some new.
+
+
+>
+>     Andrew
