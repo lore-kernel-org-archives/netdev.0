@@ -1,234 +1,161 @@
 From: Salil Mehta <salil.mehta@huawei.com>
-Subject: [PATCH net 13/19] net: hns: Remove redundant mac table operations
-Date: Thu, 30 Mar 2017 16:31:00 +0100
-Message-ID: <20170330153106.14344-14-salil.mehta@huawei.com>
+Subject: [PATCH net 07/19] net: hns: Optimize hns_nic_common_poll for better performance
+Date: Thu, 30 Mar 2017 16:30:54 +0100
+Message-ID: <20170330153106.14344-8-salil.mehta@huawei.com>
 References: <20170330153106.14344-1-salil.mehta@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <salil.mehta@huawei.com>, <yisen.zhuang@huawei.com>,
         <mehta.salil.lnk@gmail.com>, <netdev@vger.kernel.org>,
         <linux-kernel@vger.kernel.org>, <linuxarm@huawei.com>,
-        Kejian Yan <yankejian@huawei.com>
+        lipeng <lipeng321@huawei.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([45.249.212.188]:4859 "EHLO
+Received: from szxga02-in.huawei.com ([45.249.212.188]:4857 "EHLO
         dggrg02-dlp.huawei.com" rhost-flags-OK-FAIL-OK-FAIL)
-        by vger.kernel.org with ESMTP id S934734AbdC3PdE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 30 Mar 2017 11:33:04 -0400
+        by vger.kernel.org with ESMTP id S934700AbdC3Pct (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 30 Mar 2017 11:32:49 -0400
 In-Reply-To: <20170330153106.14344-1-salil.mehta@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kejian Yan <yankejian@huawei.com>
+From: lipeng <lipeng321@huawei.com>
 
-This patch removes redundant functions used only for debugging
-purposes.
+After polling less than buget packages, we need check again. If
+there are still some packages, we call napi_schedule add softirq
+queue, this is not better way. So we return buget value instead
+of napi_schedule.
 
-Reported-by: Weiwei Deng <dengweiwei@huawei.com>
-Signed-off-by: Kejian Yan <yankejian@huawei.com>
-Reviewed-by: Salil Mehta <salil.mehta@huawei.com>
+Signed-off-by: lipeng <lipeng321@huawei.com>
+reviewed-by: Yisen Zhuang <yisen.zhuang@huawei.com>
 Signed-off-by: Salil Mehta <salil.mehta@huawei.com>
 ---
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c | 160 ---------------------
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h |  10 --
- 2 files changed, 170 deletions(-)
+ drivers/net/ethernet/hisilicon/hns/hns_enet.c | 50 ++++++++++++++++-----------
+ drivers/net/ethernet/hisilicon/hns/hns_enet.h |  2 +-
+ 2 files changed, 31 insertions(+), 21 deletions(-)
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-index 6a069ff..abd8aec 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-@@ -2008,166 +2008,6 @@ int hns_dsaf_clr_mac_mc_port(struct dsaf_device *dsaf_dev, u8 mac_id,
- 	return ret;
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.c b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+index 646f601..a083660 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+@@ -861,7 +861,7 @@ static int hns_nic_rx_poll_one(struct hns_nic_ring_data *ring_data,
+ 	return recv_pkts;
  }
  
--/**
-- * hns_dsaf_get_mac_uc_entry - get mac uc entry
-- * @dsaf_dev: dsa fabric device struct pointer
-- * @mac_entry: mac entry
-- */
--int hns_dsaf_get_mac_uc_entry(struct dsaf_device *dsaf_dev,
--			      struct dsaf_drv_mac_single_dest_entry *mac_entry)
--{
--	u16 entry_index = DSAF_INVALID_ENTRY_IDX;
--	struct dsaf_drv_tbl_tcam_key mac_key;
--
--	struct dsaf_tbl_tcam_ucast_cfg mac_data;
--	struct dsaf_tbl_tcam_data tcam_data;
--
--	/* check macaddr */
--	if (MAC_IS_ALL_ZEROS(mac_entry->addr) ||
--	    MAC_IS_BROADCAST(mac_entry->addr)) {
--		dev_err(dsaf_dev->dev, "get_entry failed,addr %pM\n",
--			mac_entry->addr);
--		return -EINVAL;
--	}
--
--	/*config key */
--	hns_dsaf_set_mac_key(dsaf_dev, &mac_key, mac_entry->in_vlan_id,
--			     mac_entry->in_port_num, mac_entry->addr);
--
--	/*check exist? */
--	entry_index = hns_dsaf_find_soft_mac_entry(dsaf_dev, &mac_key);
--	if (entry_index == DSAF_INVALID_ENTRY_IDX) {
--		/*find none, error */
--		dev_err(dsaf_dev->dev,
--			"get_uc_entry failed, %s Mac key(%#x:%#x)\n",
--			dsaf_dev->ae_dev.name,
--			mac_key.high.val, mac_key.low.val);
--		return -EINVAL;
--	}
--	dev_dbg(dsaf_dev->dev,
--		"get_uc_entry, %s Mac key(%#x:%#x) entry_index%d\n",
--		dsaf_dev->ae_dev.name, mac_key.high.val,
--		mac_key.low.val, entry_index);
--
--	/* read entry */
--	hns_dsaf_tcam_uc_get(dsaf_dev, entry_index, &tcam_data, &mac_data);
--
--	mac_key.high.val = le32_to_cpu(tcam_data.tbl_tcam_data_high);
--	mac_key.low.val = le32_to_cpu(tcam_data.tbl_tcam_data_low);
--
--	mac_entry->port_num = mac_data.tbl_ucast_out_port;
--
--	return 0;
--}
--
--/**
-- * hns_dsaf_get_mac_mc_entry - get mac mc entry
-- * @dsaf_dev: dsa fabric device struct pointer
-- * @mac_entry: mac entry
-- */
--int hns_dsaf_get_mac_mc_entry(struct dsaf_device *dsaf_dev,
--			      struct dsaf_drv_mac_multi_dest_entry *mac_entry)
--{
--	u16 entry_index = DSAF_INVALID_ENTRY_IDX;
--	struct dsaf_drv_tbl_tcam_key mac_key;
--
--	struct dsaf_tbl_tcam_mcast_cfg mac_data;
--	struct dsaf_tbl_tcam_data tcam_data;
--
--	/*check mac addr */
--	if (MAC_IS_ALL_ZEROS(mac_entry->addr) ||
--	    MAC_IS_BROADCAST(mac_entry->addr)) {
--		dev_err(dsaf_dev->dev, "get_entry failed,addr %pM\n",
--			mac_entry->addr);
--		return -EINVAL;
--	}
--
--	/*config key */
--	hns_dsaf_set_mac_key(dsaf_dev, &mac_key, mac_entry->in_vlan_id,
--			     mac_entry->in_port_num, mac_entry->addr);
--
--	/*check exist? */
--	entry_index = hns_dsaf_find_soft_mac_entry(dsaf_dev, &mac_key);
--	if (entry_index == DSAF_INVALID_ENTRY_IDX) {
--		/* find none, error */
--		dev_err(dsaf_dev->dev,
--			"get_mac_uc_entry failed, %s Mac key(%#x:%#x)\n",
--			dsaf_dev->ae_dev.name, mac_key.high.val,
--			mac_key.low.val);
--		return -EINVAL;
--	}
--	dev_dbg(dsaf_dev->dev,
--		"get_mac_uc_entry, %s Mac key(%#x:%#x) entry_index%d\n",
--		dsaf_dev->ae_dev.name, mac_key.high.val,
--		mac_key.low.val, entry_index);
--
--	/*read entry */
--	hns_dsaf_tcam_mc_get(dsaf_dev, entry_index, &tcam_data, &mac_data);
--
--	mac_key.high.val = le32_to_cpu(tcam_data.tbl_tcam_data_high);
--	mac_key.low.val = le32_to_cpu(tcam_data.tbl_tcam_data_low);
--
--	mac_entry->port_mask[0] = mac_data.tbl_mcast_port_msk[0] & 0x3F;
--	return 0;
--}
--
--/**
-- * hns_dsaf_get_mac_entry_by_index - get mac entry by tab index
-- * @dsaf_dev: dsa fabric device struct pointer
-- * @entry_index: tab entry index
-- * @mac_entry: mac entry
-- */
--int hns_dsaf_get_mac_entry_by_index(
--	struct dsaf_device *dsaf_dev,
--	u16 entry_index, struct dsaf_drv_mac_multi_dest_entry *mac_entry)
--{
--	struct dsaf_drv_tbl_tcam_key mac_key;
--
--	struct dsaf_tbl_tcam_mcast_cfg mac_data;
--	struct dsaf_tbl_tcam_ucast_cfg mac_uc_data;
--	struct dsaf_tbl_tcam_data tcam_data;
--	char mac_addr[ETH_ALEN] = {0};
--
--	if (entry_index >= dsaf_dev->tcam_max_num) {
--		/* find none, del error */
--		dev_err(dsaf_dev->dev, "get_uc_entry failed, %s\n",
--			dsaf_dev->ae_dev.name);
--		return -EINVAL;
--	}
--
--	/* mc entry, do read opt */
--	hns_dsaf_tcam_mc_get(dsaf_dev, entry_index, &tcam_data, &mac_data);
--
--	mac_key.high.val = le32_to_cpu(tcam_data.tbl_tcam_data_high);
--	mac_key.low.val = le32_to_cpu(tcam_data.tbl_tcam_data_low);
--
--	mac_entry->port_mask[0] = mac_data.tbl_mcast_port_msk[0] & 0x3F;
--
--	/***get mac addr*/
--	mac_addr[0] = mac_key.high.bits.mac_0;
--	mac_addr[1] = mac_key.high.bits.mac_1;
--	mac_addr[2] = mac_key.high.bits.mac_2;
--	mac_addr[3] = mac_key.high.bits.mac_3;
--	mac_addr[4] = mac_key.low.bits.mac_4;
--	mac_addr[5] = mac_key.low.bits.mac_5;
--	/**is mc or uc*/
--	if (MAC_IS_MULTICAST((u8 *)mac_addr) ||
--	    MAC_IS_L3_MULTICAST((u8 *)mac_addr)) {
--		/**mc donot do*/
--	} else {
--		/*is not mc, just uc... */
--		hns_dsaf_tcam_uc_get(dsaf_dev, entry_index, &tcam_data,
--				     &mac_uc_data);
--
--		mac_key.high.val = le32_to_cpu(tcam_data.tbl_tcam_data_high);
--		mac_key.low.val = le32_to_cpu(tcam_data.tbl_tcam_data_low);
--
--		mac_entry->port_mask[0] = (1 << mac_uc_data.tbl_ucast_out_port);
--	}
--
--	return 0;
--}
--
- static struct dsaf_device *hns_dsaf_alloc_dev(struct device *dev,
- 					      size_t sizeof_priv)
+-static void hns_nic_rx_fini_pro(struct hns_nic_ring_data *ring_data)
++static bool hns_nic_rx_fini_pro(struct hns_nic_ring_data *ring_data)
  {
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
-index e2d71be..4db02e2 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
-@@ -435,15 +435,6 @@ int hns_dsaf_del_mac_entry(struct dsaf_device *dsaf_dev, u16 vlan_id,
- 			   u8 in_port_num, u8 *addr);
- int hns_dsaf_del_mac_mc_port(struct dsaf_device *dsaf_dev,
- 			     struct dsaf_drv_mac_single_dest_entry *mac_entry);
--int hns_dsaf_get_mac_uc_entry(struct dsaf_device *dsaf_dev,
--			      struct dsaf_drv_mac_single_dest_entry *mac_entry);
--int hns_dsaf_get_mac_mc_entry(struct dsaf_device *dsaf_dev,
--			      struct dsaf_drv_mac_multi_dest_entry *mac_entry);
--int hns_dsaf_get_mac_entry_by_index(
--	struct dsaf_device *dsaf_dev,
--	u16 entry_index,
--	struct dsaf_drv_mac_multi_dest_entry *mac_entry);
--
- void hns_dsaf_fix_mac_mode(struct hns_mac_cb *mac_cb);
+ 	struct hnae_ring *ring = ring_data->ring;
+ 	int num = 0;
+@@ -875,22 +875,23 @@ static void hns_nic_rx_fini_pro(struct hns_nic_ring_data *ring_data)
+ 		ring_data->ring->q->handle->dev->ops->toggle_ring_irq(
+ 			ring_data->ring, 1);
  
- int hns_dsaf_ae_init(struct dsaf_device *dsaf_dev);
-@@ -473,5 +464,4 @@ int hns_dsaf_rm_mac_addr(
- int hns_dsaf_clr_mac_mc_port(struct dsaf_device *dsaf_dev,
- 			     u8 mac_id, u8 port_num);
+-		napi_schedule(&ring_data->napi);
++		return false;
++	} else {
++		return true;
+ 	}
+ }
  
--
- #endif /* __HNS_DSAF_MAIN_H__ */
+-static void hns_nic_rx_fini_pro_v2(struct hns_nic_ring_data *ring_data)
++static bool hns_nic_rx_fini_pro_v2(struct hns_nic_ring_data *ring_data)
+ {
+ 	struct hnae_ring *ring = ring_data->ring;
+-	int num = 0;
++	int num;
+ 
+ 	num = readl_relaxed(ring->io_base + RCB_REG_FBDNUM);
+ 
+-	if (num == 0)
+-		ring_data->ring->q->handle->dev->ops->toggle_ring_irq(
+-			ring, 0);
++	if (!num)
++		return true;
+ 	else
+-		napi_schedule(&ring_data->napi);
++		return false;
+ }
+ 
+ static inline void hns_nic_reclaim_one_desc(struct hnae_ring *ring,
+@@ -991,7 +992,7 @@ static int hns_nic_tx_poll_one(struct hns_nic_ring_data *ring_data,
+ 	return 0;
+ }
+ 
+-static void hns_nic_tx_fini_pro(struct hns_nic_ring_data *ring_data)
++static bool hns_nic_tx_fini_pro(struct hns_nic_ring_data *ring_data)
+ {
+ 	struct hnae_ring *ring = ring_data->ring;
+ 	int head;
+@@ -1004,20 +1005,21 @@ static void hns_nic_tx_fini_pro(struct hns_nic_ring_data *ring_data)
+ 		ring_data->ring->q->handle->dev->ops->toggle_ring_irq(
+ 			ring_data->ring, 1);
+ 
+-		napi_schedule(&ring_data->napi);
++		return false;
++	} else {
++		return true;
+ 	}
+ }
+ 
+-static void hns_nic_tx_fini_pro_v2(struct hns_nic_ring_data *ring_data)
++static bool hns_nic_tx_fini_pro_v2(struct hns_nic_ring_data *ring_data)
+ {
+ 	struct hnae_ring *ring = ring_data->ring;
+ 	int head = readl_relaxed(ring->io_base + RCB_REG_HEAD);
+ 
+ 	if (head == ring->next_to_clean)
+-		ring_data->ring->q->handle->dev->ops->toggle_ring_irq(
+-			ring, 0);
++		return true;
+ 	else
+-		napi_schedule(&ring_data->napi);
++		return false;
+ }
+ 
+ static void hns_nic_tx_clr_all_bufs(struct hns_nic_ring_data *ring_data)
+@@ -1044,15 +1046,23 @@ static void hns_nic_tx_clr_all_bufs(struct hns_nic_ring_data *ring_data)
+ 
+ static int hns_nic_common_poll(struct napi_struct *napi, int budget)
+ {
++	int clean_complete = 0;
+ 	struct hns_nic_ring_data *ring_data =
+ 		container_of(napi, struct hns_nic_ring_data, napi);
+-	int clean_complete = ring_data->poll_one(
+-				ring_data, budget, ring_data->ex_process);
++	struct hnae_ring *ring = ring_data->ring;
+ 
+-	if (clean_complete >= 0 && clean_complete < budget) {
+-		napi_complete(napi);
+-		ring_data->fini_process(ring_data);
+-		return 0;
++try_again:
++	clean_complete += ring_data->poll_one(
++				ring_data, budget - clean_complete,
++				ring_data->ex_process);
++
++	if (clean_complete < budget) {
++		if (ring_data->fini_process(ring_data)) {
++			napi_complete(napi);
++			ring->q->handle->dev->ops->toggle_ring_irq(ring, 0);
++		} else {
++			goto try_again;
++		}
+ 	}
+ 
+ 	return clean_complete;
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.h b/drivers/net/ethernet/hisilicon/hns/hns_enet.h
+index fff8f8a..1b83232 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_enet.h
++++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.h
+@@ -41,7 +41,7 @@ struct hns_nic_ring_data {
+ 	int queue_index;
+ 	int (*poll_one)(struct hns_nic_ring_data *, int, void *);
+ 	void (*ex_process)(struct hns_nic_ring_data *, struct sk_buff *);
+-	void (*fini_process)(struct hns_nic_ring_data *);
++	bool (*fini_process)(struct hns_nic_ring_data *);
+ };
+ 
+ /* compatible the difference between two versions */
 -- 
 2.7.4
