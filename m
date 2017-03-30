@@ -1,10 +1,10 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 1/9] net: dsa: mv88e6xxx: move PVT description
- in info
-Date: Thu, 30 Mar 2017 15:31:36 +0200
-Message-ID: <20170330133136.GA17879@lunn.ch>
+Subject: Re: [PATCH net-next 2/9] net: dsa: mv88e6xxx: use 4-bit port for PVT
+ data
+Date: Thu, 30 Mar 2017 15:34:23 +0200
+Message-ID: <20170330133423.GB17879@lunn.ch>
 References: <20170329203020.27042-1-vivien.didelot@savoirfairelinux.com>
- <20170329203020.27042-2-vivien.didelot@savoirfairelinux.com>
+ <20170329203020.27042-3-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
@@ -14,18 +14,22 @@ Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20170329203020.27042-2-vivien.didelot@savoirfairelinux.com>
+In-Reply-To: <20170329203020.27042-3-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 29, 2017 at 04:30:12PM -0400, Vivien Didelot wrote:
-> Not all Marvell switch chips feature a Cross-chip Port VLAN Table (PVT).
+On Wed, Mar 29, 2017 at 04:30:13PM -0400, Vivien Didelot wrote:
+> The Cross-chip Port Based VLAN Table (PVT) supports two indexing modes,
+> one using 5-bit for device and 4-bit for port, the other using 4-bit for
+> device and 5-bit for port, configured via the Global 2 Misc register.
 > 
-> Chips with a PVT use the same implementation, so a new mv88e6xxx_ops
-> member won't be necessary yet. Add a "pvt" boolean member to the
-> mv88e6xxx_info structure and kill the obsolete MV88E6XXX_FLAGS_PVT flag.
+> Only 4 bits for the source port are needed when interconnecting 88E6xxx
+> switch devices since they all support less than 16 physical ports. The
+> full 5 bits are needed when interconnecting a device with 98DXxxx switch
+> devices since they support more than 16 physical ports.
 > 
-> Add a mv88e6xxx_has_pvt helper to wrap future checks of that condition.
+> Add a mv88e6xxx_pvt_setup helper to set the 4-bit port PVT mode, which
+> will be extended later to also initialize the PVT content.
 > 
 > Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 
