@@ -1,57 +1,46 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net] openvswitch: Fix ovs_flow_key_update()
-Date: Thu, 30 Mar 2017 15:22:15 +0200
-Message-ID: <20170330152215.7b4f9703@griffin>
-References: <1490832850-6012-1-git-send-email-yihung.wei@gmail.com>
+From: Madalin Bucur <madalin.bucur@nxp.com>
+Subject: [PATCH] dpaa_eth: use AVOIDBLOCK for Tx confirmation queues
+Date: Thu, 30 Mar 2017 16:24:15 +0300
+Message-ID: <1490880255-13503-1-git-send-email-madalin.bucur@nxp.com>
+Reply-To: <madalin.bucur@nxp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: joe@ovn.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Yi-Hung Wei <yihung.wei@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1490832850-6012-1-git-send-email-yihung.wei@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <linux-kernel@vger.kernel.org>,
+        <linuxppc-dev@lists.ozlabs.org>,
+        Madalin Bucur <madalin.bucur@nxp.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-sn1nam01on0076.outbound.protection.outlook.com ([104.47.32.76]:26695
+        "EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S933569AbdC3NYX (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 30 Mar 2017 09:24:23 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 29 Mar 2017 17:14:10 -0700, Yi-Hung Wei wrote:
-> ovs_flow_key_update() is called when the flow key is invalid, and it is
-> used to update and revalidate the flow key. Commit 329f45bc4f19
-> ("openvswitch: add mac_proto field to the flow key") introduces mac_proto
-> field to flow key and use it to determine whether the flow key is valid.
-> However, the commit does not update the code path in ovs_flow_key_update()
-> to revalidate the flow key which may cause BUG_ON() on execute_recirc().
-> This patch addresses the aforementioned issue.
+The AVOIDBLOCK flag determines the Tx confirmation queues processing
+to be redirected to any available CPU when the current one is slow
+in processing them. This may result in a higher Tx confirmation
+interrupt count but may reduce pressure on a certain CPU that with
+the previous setting would process all Tx confirmation frames.
 
-Good catch.
+Signed-off-by: Madalin Bucur <madalin.bucur@nxp.com>
+---
+ drivers/net/ethernet/freescale/dpaa/dpaa_eth.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
->  int ovs_flow_key_update(struct sk_buff *skb, struct sw_flow_key *key)
->  {
-> +	int res;
-> +
-> +	res = key_extract_mac_proto(skb);
-> +	if (res < 0)
-> +		return res;
-> +	key->mac_proto = res;
-> +
->  	return key_extract(skb, key);
->  }
-
-But this should just reset the SW_FLOW_KEY_INVALID flag, there's no
-need to recompute mac_proto.
-
-Something like this:
-
- int ovs_flow_key_update(struct sk_buff *skb, struct sw_flow_key *key)
- {
--	return key_extract(skb, key);
-+	int res;
-+
-+	res = key_extract(skb, key);
-+	if (!res)
-+		key->mac_proto &= ~SW_FLOW_KEY_INVALID;
-+	return res;
- }
-
-Thanks,
-
- Jiri
+diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
+index d4bb8bf..9a520e4 100644
+--- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
++++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
+@@ -974,7 +974,7 @@ static int dpaa_fq_init(struct dpaa_fq *dpaa_fq, bool td_enable)
+ 		 * Tx Confirmation FQs.
+ 		 */
+ 		if (dpaa_fq->fq_type == FQ_TYPE_TX_CONFIRM)
+-			initfq.fqd.fq_ctrl |= cpu_to_be16(QM_FQCTRL_HOLDACTIVE);
++			initfq.fqd.fq_ctrl |= cpu_to_be16(QM_FQCTRL_AVOIDBLOCK);
+ 
+ 		/* FQ placement */
+ 		initfq.we_mask |= cpu_to_be16(QM_INITFQ_WE_DESTWQ);
+-- 
+2.1.0
