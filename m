@@ -1,72 +1,57 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 5/9] net: dsa: mv88e6xxx: rework in-chip bridging
-Date: Thu, 30 Mar 2017 15:57:30 +0200
-Message-ID: <20170330135730.GE17879@lunn.ch>
-References: <20170329203020.27042-1-vivien.didelot@savoirfairelinux.com>
- <20170329203020.27042-6-vivien.didelot@savoirfairelinux.com>
+From: Shubham Bansal <illusionist.neo@gmail.com>
+Subject: Re: arch: arm: bpf: Converting cBPF to eBPF for arm 32 bit
+Date: Thu, 30 Mar 2017 19:34:16 +0530
+Message-ID: <CAHgaXdKfbob3WHMho32JSh_dmfp2A=cjcePqk+NfajVpShPE6Q@mail.gmail.com>
+References: <CAHgaXd+EKJ0FWaaPojsNJtgY_YpdQXu6eMEp97uOpTFAWs4qTQ@mail.gmail.com>
+ <CAGXu5jLo8UvpNSQZBHjWZoO959ha6KFQxFzmg7SK44wz=R_QSg@mail.gmail.com>
+ <CAHgaXdJL92XRjHae2Nb9j9SerSe65=N=ErDHTQf23sdBxwthzw@mail.gmail.com>
+ <20170315.145512.1542025976162251828.davem@davemloft.net> <CAHgaXd+4QkFxnt-_iCqH8AyCN_Y8gXwr+y=iugz38NKSWspsbA@mail.gmail.com>
+ <58DAF908.8010404@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:40561 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754300AbdC3N5d (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 30 Mar 2017 09:57:33 -0400
-Content-Disposition: inline
-In-Reply-To: <20170329203020.27042-6-vivien.didelot@savoirfairelinux.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>, Kees Cook <keescook@chromium.org>,
+	Mircea Gherzan <mgherzan@gmail.com>, Network Development <netdev@vger.kernel.org>,
+	kernel-hardening@lists.openwall.com, linux-arm-kernel@lists.infradead.org,
+	ast@fb.com
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <kernel-hardening-return-7189-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+List-Post: <mailto:kernel-hardening@lists.openwall.com>
+List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
+List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
+List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
+In-Reply-To: <58DAF908.8010404@iogearbox.net>
+List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 29, 2017 at 04:30:16PM -0400, Vivien Didelot wrote:
-> All ports -- internal and external, for chips featuring a PVT -- have a
-> mask restricting to which internal ports a frame is allowed to egress.
-> 
-> Now that DSA exposes the number of ports and their bridge devices, it is
-> possible to extract the code generating the VLAN map and make it generic
-> so that it can be shared later with the cross-chip bridging code.
-> 
-> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Thanks Daniel.
 
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+Can you tell me how to test the eBPF JIT compiler? It would be great
+if you could tell me starting from compiling to proper testing.
+Best,
+Shubham Bansal
 
-> +static u16 mv88e6xxx_port_vlan(struct mv88e6xxx_chip *chip, int dev, int port)
-> +{
-> +	struct dsa_switch *ds = NULL;
-> +	struct net_device *br;
-> +	u16 pvlan;
-> +	int i;
-> +
-> +	if (dev < DSA_MAX_SWITCHES)
-> +		ds = chip->ds->dst->ds[dev];
-> +
-> +	/* Prevent frames from unknown switch or port */
-> +	if (!ds || port >= ds->num_ports)
-> +		return 0;
-> +
-> +	/* Frames from DSA links and CPU ports can egress any local port */
-> +	if (dsa_is_cpu_port(ds, port) || dsa_is_dsa_port(ds, port))
-> +		return mv88e6xxx_port_mask(chip);
-> +
-> +	br = ds->ports[port].bridge_dev;
-> +	pvlan = 0;
 
-You could do this where you define the variable, but having it here,
-close to where it is used also has its merits.
-
-> +
-> +	/* Frames from user ports can egress any local DSA links and CPU ports,
-> +	 * as well as any local member of their bridge group.
-> +	 */
-> +	for (i = 0; i < mv88e6xxx_num_ports(chip); ++i)
-> +		if (dsa_is_cpu_port(chip->ds, i) ||
-> +		    dsa_is_dsa_port(chip->ds, i) ||
-> +		    (br && chip->ds->ports[i].bridge_dev == br))
-> +			pvlan |= BIT(i);
-> +
-> +	return pvlan;
-
-  Andrew
+On Wed, Mar 29, 2017 at 5:30 AM, Daniel Borkmann <daniel@iogearbox.net> wrote:
+> Hi Shubham,
+>
+> On 03/28/2017 10:49 PM, Shubham Bansal wrote:
+> [...]
+>>
+>> Do you have any document to understand the working of tail calls? I
+>> looked at your presentations but it seemed confusing to me. Anything
+>> simple would be great, just about the tail calls. I don't think I need
+>> examples, I can get them from your presentations. I just need a very
+>> general idea. May be you know the code in kernel where it is
+>> implemented.
+>
+>
+> Sure, it's in __bpf_prog_run(), see the JMP_TAIL_CALL (kernel/bpf/core.c
+> +1019).
+> That's effectively what JITs implement. [1] page 3 has a high-level
+> description
+> as well, hope that helps.
+>
+> Thanks,
+> Daniel
+>
+>   [1]
+> http://www.netdevconf.org/1.1/proceedings/papers/On-getting-tc-classifier-fully-programmable-with-cls-bpf.pdf
