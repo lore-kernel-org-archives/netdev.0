@@ -1,59 +1,46 @@
-From: Joel Stanley <joel@jms.id.au>
-Subject: Re: [PATCH] net/faraday: Explicitly include linux/of.h and linux/property.h
-Date: Fri, 31 Mar 2017 09:18:57 +1030
-Message-ID: <CACPK8XfMNWG1=X79=XySTu4C4iqWGU+ytgt7z3R+RRb3mEVX8A@mail.gmail.com>
-References: <20170330160012.14824-1-broonie@kernel.org>
+From: Bjorn Helgaas <helgaas@kernel.org>
+Subject: Re: [PATCH 5/5] PCI: remove pci_enable_msix
+Date: Thu, 30 Mar 2017 17:56:11 -0500
+Message-ID: <20170330225610.GA2496@bhelgaas-glaptop.roam.corp.google.com>
+References: <20170327082936.6830-1-hch@lst.de>
+ <20170327082936.6830-6-hch@lst.de>
+ <83f97789-0817-7549-bfa9-1f8dcb0c26d9@gmail.com>
+ <20170327171148.GB28815@lst.de>
+ <1eaa46ad-9890-c738-3a85-6468161284ba@gmail.com>
+ <20170328064148.GA20271@lst.de>
+ <217ae0b0-1d0c-bde9-e3f1-c52cbd3bd112@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S . Miller" <davem@davemloft.net>,
-        Gavin Shan <gwshan@linux.vnet.ibm.com>, netdev@vger.kernel.org
-To: Mark Brown <broonie@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yb0-f194.google.com ([209.85.213.194]:33826 "EHLO
-        mail-yb0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932557AbdC3WtU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 30 Mar 2017 18:49:20 -0400
-Received: by mail-yb0-f194.google.com with SMTP id m133so1645307ybb.1
-        for <netdev@vger.kernel.org>; Thu, 30 Mar 2017 15:49:19 -0700 (PDT)
-In-Reply-To: <20170330160012.14824-1-broonie@kernel.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Christoph Hellwig <hch@lst.de>, bhelgaas@google.com,
+        davem@davemloft.net, netanel@annapurnalabs.com, jcliburn@gmail.com,
+        chris.snook@gmail.com, sgoutham@cavium.com, rric@kernel.org,
+        netdev@vger.kernel.org, linux-pci@vger.kernel.org
+To: David Daney <ddaney.cavm@gmail.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <217ae0b0-1d0c-bde9-e3f1-c52cbd3bd112@gmail.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 31, 2017 at 2:30 AM, Mark Brown <broonie@kernel.org> wrote:
-> This driver uses interfaces from linux/of.h and linux/property.h but
-> relies on implict inclusion of those headers which means that changes in
-> other headers could break the build, as happened in -next for arm today.
-> Add a explicit includes.
->
-> Signed-off-by: Mark Brown <broonie@kernel.org>
+On Tue, Mar 28, 2017 at 09:24:15AM -0700, David Daney wrote:
+> On 03/27/2017 11:41 PM, Christoph Hellwig wrote:
+> >On Mon, Mar 27, 2017 at 10:30:46AM -0700, David Daney wrote:
+> >>>Use pci_enable_msix_{exact,range} for now, as I told you before.
+> >>>
+> >>
+> >>That still results in twice as many MSI-X being provisioned than are needed.
+> >
+> >How so?  Except for the return value, a pci_enable_msix_exact call with the
+> >same arguments as your previous pci_enable_msix will work exactly the
+> >same.
+> >
+> 
+> Sorry, I think it was my misunderstanding.  I didn't realize that we
+> had essentially renamed the function, but left the functionality
+> mostly unchanged.
 
-Acked-by: Joel Stanley <joel@jms.id.au>
+Does this mean you're OK with this patch?  I know it may require some
+work on out-of-tree drivers and so on, but if that work is possible
+and you don't actually lose functionality, I'm OK with this patch.
 
-Thank you for fixing this Mark.
-
-Cheers,
-
-Joel
-
-> ---
->  drivers/net/ethernet/faraday/ftgmac100.c | 2 ++
->  1 file changed, 2 insertions(+)
->
-> diff --git a/drivers/net/ethernet/faraday/ftgmac100.c b/drivers/net/ethernet/faraday/ftgmac100.c
-> index 928b0df2b8e0..ade6b3e4ed13 100644
-> --- a/drivers/net/ethernet/faraday/ftgmac100.c
-> +++ b/drivers/net/ethernet/faraday/ftgmac100.c
-> @@ -28,8 +28,10 @@
->  #include <linux/io.h>
->  #include <linux/module.h>
->  #include <linux/netdevice.h>
-> +#include <linux/of.h>
->  #include <linux/phy.h>
->  #include <linux/platform_device.h>
-> +#include <linux/property.h>
->  #include <net/ip.h>
->  #include <net/ncsi.h>
->
-> --
-> 2.11.0
->
+Bjorn
