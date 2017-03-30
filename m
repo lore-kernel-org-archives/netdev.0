@@ -1,77 +1,40 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: in_irq_or_nmi() and RFC patch
-Date: Thu, 30 Mar 2017 09:35:02 +0200
-Message-ID: <20170330073502.4wl66zyz7e4z4aes@hirez.programming.kicks-ass.net>
-References: <20170327171500.4beef762@redhat.com>
- <20170327165817.GA28494@bombadil.infradead.org>
- <20170329081219.lto7t4fwmponokzh@hirez.programming.kicks-ass.net>
- <20170329105928.609bc581@redhat.com>
- <20170329091949.o2kozhhdnszgwvtn@hirez.programming.kicks-ass.net>
- <20170329181226.GA8256@bombadil.infradead.org>
- <20170329211144.3e362ac9@redhat.com>
- <20170329214441.08332799@redhat.com>
- <20170330064958.uxih6ik5fkwvjqf6@hirez.programming.kicks-ass.net>
- <20170330091223.05aa0efe@redhat.com>
+From: Corentin Labbe <clabbe.montjoie@gmail.com>
+Subject: Re: [PATCH] [net-next] stmmac: use netif_set_real_num_{rx,tx}_queues
+Date: Thu, 30 Mar 2017 09:45:36 +0200
+Message-ID: <20170330074536.GA4814@Red>
+References: <20170328094856.3457886-1-arnd@arndb.de>
+ <20170328.180105.1996071259325891752.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Matthew Wilcox <willy@infradead.org>, Pankaj Gupta <pagupta@redhat.com>,
-	Tariq Toukan <ttoukan.linux@gmail.com>,
-	Mel Gorman <mgorman@techsingularity.net>,
-	Tariq Toukan <tariqt@mellanox.com>, netdev@vger.kernel.org,
-	akpm@linux-foundation.org, linux-mm <linux-mm@kvack.org>,
-	Saeed Mahameed <saeedm@mellanox.com>, linux-kernel@vger.kernel.org,
-	Thomas Gleixner <tglx@linutronix.de>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <owner-linux-mm@kvack.org>
+Cc: arnd@arndb.de, peppe.cavallaro@st.com, alexandre.torgue@st.com,
+        Joao.Pinto@synopsys.com, treding@nvidia.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f193.google.com ([209.85.128.193]:36410 "EHLO
+        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932555AbdC3Hpn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 30 Mar 2017 03:45:43 -0400
 Content-Disposition: inline
-In-Reply-To: <20170330091223.05aa0efe@redhat.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20170328.180105.1996071259325891752.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 30, 2017 at 09:12:23AM +0200, Jesper Dangaard Brouer wrote:
-> On Thu, 30 Mar 2017 08:49:58 +0200
-> Peter Zijlstra <peterz@infradead.org> wrote:
+On Tue, Mar 28, 2017 at 06:01:05PM -0700, David Miller wrote:
+> From: Arnd Bergmann <arnd@arndb.de>
+> Date: Tue, 28 Mar 2017 11:48:21 +0200
 > 
-> > On Wed, Mar 29, 2017 at 09:44:41PM +0200, Jesper Dangaard Brouer wrote:
-> > > @@ -2481,7 +2481,11 @@ void free_hot_cold_page(struct page *page, bool cold)
-> > >  	unsigned long pfn = page_to_pfn(page);
-> > >  	int migratetype;
-> > >  
-> > > -	if (in_interrupt()) {
-> > > +	/*
-> > > +	 * Exclude (hard) IRQ and NMI context from using the pcplists.
-> > > +	 * But allow softirq context, via disabling BH.
-> > > +	 */
-> > > +	if (in_irq() || irqs_disabled()) {  
+> > A driver must not access the two fields directly but should instead use
+> > the helper functions to set the values and keep a consistent internal
+> > state:
 > > 
-> > Why do you need irqs_disabled() ? 
+> > ethernet/stmicro/stmmac/stmmac_main.c: In function 'stmmac_dvr_probe':
+> > ethernet/stmicro/stmmac/stmmac_main.c:4083:8: error: 'struct net_device' has no member named 'real_num_rx_queues'; did you mean 'real_num_tx_queues'?
+> > 
+> > Fixes: a8f5102af2a7 ("net: stmmac: TX and RX queue priority configuration")
+> > Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 > 
-> Because further down I call local_bh_enable(), which calls
-> __local_bh_enable_ip() which triggers a warning during early boot on:
-> 
->   WARN_ON_ONCE(in_irq() || irqs_disabled());
-> 
-> It looks like it is for supporting CONFIG_TRACE_IRQFLAGS.
+> Applied.
 
-Ah, no. Its because when you do things like:
-
-	local_irq_disable();
-	local_bh_enable();
-	local_irq_enable();
-
-you can loose a pending softirq.
-
-Bugger.. that irqs_disabled() is something we could do without.
-
-I'm thinking that when tglx finishes his soft irq disable patches for
-x86 (same thing ppc also does) we can go revert all these patches.
-
-Thomas, see:
-
-  https://lkml.kernel.org/r/20170301144845.783f8cad@redhat.com
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+This break my revert patch. (since it patch ("net: stmmac: enable multiple buffers").
+Since dwmac-sunxi is still broken, what can I do ? send two revert patch ? or adapt the reverting patch.
