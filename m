@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v2 8/9] net: dsa: add cross-chip bridging operations
-Date: Thu, 30 Mar 2017 17:37:14 -0400
-Message-ID: <20170330213715.9666-9-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v2 2/9] net: dsa: mv88e6xxx: use 4-bit port for PVT data
+Date: Thu, 30 Mar 2017 17:37:08 -0400
+Message-ID: <20170330213715.9666-3-vivien.didelot@savoirfairelinux.com>
 References: <20170330213715.9666-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
@@ -14,63 +14,131 @@ In-Reply-To: <20170330213715.9666-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Introduce crosschip_bridge_{join,leave} operations in the dsa_switch_ops
-structure, which can be used by switches supporting interconnection.
+The Cross-chip Port Based VLAN Table (PVT) supports two indexing modes,
+one using 5-bit for device and 4-bit for port, the other using 4-bit for
+device and 5-bit for port, configured via the Global 2 Misc register.
+
+Only 4 bits for the source port are needed when interconnecting 88E6xxx
+switch devices since they all support less than 16 physical ports. The
+full 5 bits are needed when interconnecting a device with 98DXxxx switch
+devices since they support more than 16 physical ports.
+
+Add a mv88e6xxx_pvt_setup helper to set the 4-bit port PVT mode, which
+will be extended later to also initialize the PVT content.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- include/net/dsa.h |  8 ++++++++
- net/dsa/switch.c  | 12 ++++++------
- 2 files changed, 14 insertions(+), 6 deletions(-)
+ drivers/net/dsa/mv88e6xxx/chip.c      | 15 +++++++++++++++
+ drivers/net/dsa/mv88e6xxx/global2.c   | 25 +++++++++++++++++++++++++
+ drivers/net/dsa/mv88e6xxx/global2.h   |  7 +++++++
+ drivers/net/dsa/mv88e6xxx/mv88e6xxx.h |  1 +
+ 4 files changed, 48 insertions(+)
 
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index 951b5e49e899..ffe56cc338fe 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -456,6 +456,14 @@ struct dsa_switch_ops {
- 				   bool ingress);
- 	void	(*port_mirror_del)(struct dsa_switch *ds, int port,
- 				   struct dsa_mall_mirror_tc_entry *mirror);
+diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
+index 8f1f881d0375..2a32bb490f92 100644
+--- a/drivers/net/dsa/mv88e6xxx/chip.c
++++ b/drivers/net/dsa/mv88e6xxx/chip.c
+@@ -1198,6 +1198,17 @@ static int mv88e6xxx_atu_setup(struct mv88e6xxx_chip *chip)
+ 	return mv88e6xxx_g1_atu_set_age_time(chip, 300000);
+ }
+ 
++static int mv88e6xxx_pvt_setup(struct mv88e6xxx_chip *chip)
++{
++	if (!mv88e6xxx_has_pvt(chip))
++		return 0;
 +
-+	/*
-+	 * Cross-chip operations
++	/* Clear 5 Bit Port for usage with Marvell Link Street devices:
++	 * use 4 bits for the Src_Port/Src_Trunk and 5 bits for the Src_Dev.
 +	 */
-+	int	(*crosschip_bridge_join)(struct dsa_switch *ds, int sw_index,
-+					 int port, struct net_device *br);
-+	void	(*crosschip_bridge_leave)(struct dsa_switch *ds, int sw_index,
-+					  int port, struct net_device *br);
- };
++	return mv88e6xxx_g2_misc_4_bit_port(chip);
++}
++
+ static void mv88e6xxx_port_fast_age(struct dsa_switch *ds, int port)
+ {
+ 	struct mv88e6xxx_chip *chip = ds->priv;
+@@ -2594,6 +2605,10 @@ static int mv88e6xxx_setup(struct dsa_switch *ds)
+ 			goto unlock;
+ 	}
  
- struct dsa_switch_driver {
-diff --git a/net/dsa/switch.c b/net/dsa/switch.c
-index 7b6f38e5fef6..ca6e26e514f0 100644
---- a/net/dsa/switch.c
-+++ b/net/dsa/switch.c
-@@ -20,9 +20,9 @@ static int dsa_switch_bridge_join(struct dsa_switch *ds,
- 	if (ds->index == info->sw_index && ds->ops->port_bridge_join)
- 		return ds->ops->port_bridge_join(ds, info->port, info->br);
- 
--	if (ds->index != info->sw_index)
--		dev_dbg(ds->dev, "crosschip DSA port %d.%d bridged to %s\n",
--			info->sw_index, info->port, netdev_name(info->br));
-+	if (ds->index != info->sw_index && ds->ops->crosschip_bridge_join)
-+		return ds->ops->crosschip_bridge_join(ds, info->sw_index,
-+						      info->port, info->br);
- 
- 	return 0;
++	err = mv88e6xxx_pvt_setup(chip);
++	if (err)
++		goto unlock;
++
+ 	err = mv88e6xxx_atu_setup(chip);
+ 	if (err)
+ 		goto unlock;
+diff --git a/drivers/net/dsa/mv88e6xxx/global2.c b/drivers/net/dsa/mv88e6xxx/global2.c
+index 6228aab2ad35..d64f4c15ccb7 100644
+--- a/drivers/net/dsa/mv88e6xxx/global2.c
++++ b/drivers/net/dsa/mv88e6xxx/global2.c
+@@ -784,6 +784,31 @@ static int mv88e6xxx_g2_watchdog_setup(struct mv88e6xxx_chip *chip)
+ 	return err;
  }
-@@ -33,9 +33,9 @@ static int dsa_switch_bridge_leave(struct dsa_switch *ds,
- 	if (ds->index == info->sw_index && ds->ops->port_bridge_leave)
- 		ds->ops->port_bridge_leave(ds, info->port, info->br);
  
--	if (ds->index != info->sw_index)
--		dev_dbg(ds->dev, "crosschip DSA port %d.%d unbridged from %s\n",
--			info->sw_index, info->port, netdev_name(info->br));
-+	if (ds->index != info->sw_index && ds->ops->crosschip_bridge_leave)
-+		ds->ops->crosschip_bridge_leave(ds, info->sw_index, info->port,
-+						info->br);
++/* Offset 0x1D: Misc Register */
++
++static int mv88e6xxx_g2_misc_5_bit_port(struct mv88e6xxx_chip *chip,
++					bool port_5_bit)
++{
++	u16 val;
++	int err;
++
++	err = mv88e6xxx_g2_read(chip, GLOBAL2_MISC, &val);
++	if (err)
++		return err;
++
++	if (port_5_bit)
++		val |= GLOBAL2_MISC_5_BIT_PORT;
++	else
++		val &= ~GLOBAL2_MISC_5_BIT_PORT;
++
++	return mv88e6xxx_g2_write(chip, GLOBAL2_MISC, val);
++}
++
++int mv88e6xxx_g2_misc_4_bit_port(struct mv88e6xxx_chip *chip)
++{
++	return mv88e6xxx_g2_misc_5_bit_port(chip, false);
++}
++
+ static void mv88e6xxx_g2_irq_mask(struct irq_data *d)
+ {
+ 	struct mv88e6xxx_chip *chip = irq_data_get_irq_chip_data(d);
+diff --git a/drivers/net/dsa/mv88e6xxx/global2.h b/drivers/net/dsa/mv88e6xxx/global2.h
+index f8b6dd93213a..71fb2ff541ba 100644
+--- a/drivers/net/dsa/mv88e6xxx/global2.h
++++ b/drivers/net/dsa/mv88e6xxx/global2.h
+@@ -42,6 +42,8 @@ int mv88e6xxx_g2_get_eeprom16(struct mv88e6xxx_chip *chip,
+ int mv88e6xxx_g2_set_eeprom16(struct mv88e6xxx_chip *chip,
+ 			      struct ethtool_eeprom *eeprom, u8 *data);
  
- 	return 0;
++int mv88e6xxx_g2_misc_4_bit_port(struct mv88e6xxx_chip *chip);
++
+ int mv88e6xxx_g2_setup(struct mv88e6xxx_chip *chip);
+ int mv88e6xxx_g2_irq_setup(struct mv88e6xxx_chip *chip);
+ void mv88e6xxx_g2_irq_free(struct mv88e6xxx_chip *chip);
+@@ -110,6 +112,11 @@ static inline int mv88e6xxx_g2_set_eeprom16(struct mv88e6xxx_chip *chip,
+ 	return -EOPNOTSUPP;
  }
+ 
++int mv88e6xxx_g2_misc_4_bit_port(struct mv88e6xxx_chip *chip)
++{
++	return -EOPNOTSUPP;
++}
++
+ static inline int mv88e6xxx_g2_setup(struct mv88e6xxx_chip *chip)
+ {
+ 	return -EOPNOTSUPP;
+diff --git a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
+index 97dd3e2d2a56..bcaa55b20f5a 100644
+--- a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
+@@ -439,6 +439,7 @@
+ #define GLOBAL2_WDOG_FORCE_IRQ			BIT(0)
+ #define GLOBAL2_QOS_WEIGHT	0x1c
+ #define GLOBAL2_MISC		0x1d
++#define GLOBAL2_MISC_5_BIT_PORT	BIT(14)
+ 
+ #define MV88E6XXX_N_FID		4096
+ 
 -- 
 2.12.1
