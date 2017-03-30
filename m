@@ -1,53 +1,83 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next 2/2] net: dsa: dsa2: Add basic support of devlink
-Date: Thu, 30 Mar 2017 08:17:06 +0200
-Message-ID: <20170330061706.GA2010@nanopsycho>
-References: <1490737507-7864-1-git-send-email-andrew@lunn.ch>
- <1490737507-7864-3-git-send-email-andrew@lunn.ch>
- <2fe7ffc9-1bf1-537a-e361-33156a6f5a07@gmail.com>
- <20170329013112.GF3152@lunn.ch>
- <c844a885-cfd3-4358-89dd-c619d3d394e4@gmail.com>
- <20170329173624.GE7942@lunn.ch>
+From: Boris Pismenny <borisp@mellanox.com>
+Subject: RE: [RFC TLS Offload Support 00/15] cover letter
+Date: Thu, 30 Mar 2017 06:49:47 +0000
+Message-ID: <DB6PR05MB317642E9F747D39AF83A68DFB0340@DB6PR05MB3176.eurprd05.prod.outlook.com>
+References: <1490707592-1430-1-git-send-email-aviadye@mellanox.com>
+ <20170329.104122.139835608303809432.davem@davemloft.net>
+ <fae7c3d4-5143-6f66-9551-a26d7db7de51@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Ilya Lesokhin <ilyal@mellanox.com>,
+        "davejwatson@fb.com" <davejwatson@fb.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Matan Barak <matanb@mellanox.com>,
+        Liran Liss <liranl@mellanox.com>,
+        "Haggai Eran" <haggaie@mellanox.com>,
+        "tom@herbertland.com" <tom@herbertland.com>,
+        "herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
+        "nmav@gnults.org" <nmav@gnults.org>,
+        "fridolin.pokorny@gmail.com" <fridolin.pokorny@gmail.com>,
+        Ilan Tayari <ilant@mellanox.com>,
+        "Yevgeny Kliteynik" <kliteyn@mellanox.com>,
+        "linux-crypto@vger.kernel.org" <linux-crypto@vger.kernel.org>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        "aviadye@dev.mellanox.co.il" <aviadye@dev.mellanox.co.il>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
         David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>, sfrench@samba.org,
-        linux-cifs@vger.kernel.org,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f175.google.com ([209.85.128.175]:36167 "EHLO
-        mail-wr0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755266AbdC3GRL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 30 Mar 2017 02:17:11 -0400
-Received: by mail-wr0-f175.google.com with SMTP id w11so44010219wrc.3
-        for <netdev@vger.kernel.org>; Wed, 29 Mar 2017 23:17:10 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20170329173624.GE7942@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+        Aviad Yehezkel <aviadye@mellanox.com>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <fae7c3d4-5143-6f66-9551-a26d7db7de51@stressinduktion.org>
+Content-Language: en-US
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Wed, Mar 29, 2017 at 07:36:24PM CEST, andrew@lunn.ch wrote:
->> Tangential question: we do not currently report to user space what kind
->> of switch tagging protocol is used (DSA, eDSA etc.) I was going to add a
->> sysfs attribute for that under the switch device's directory, but maybe
->> devlink would be more appropriate for that?
->
->We don't report it. What are you thinking you want to do with this
->information?
->
->I suppose it might be possible to teach libpcap/tcpdump about it, so
->it can slide in an additional dissector. EDSA you can detect anyway,
->since it uses a well know Ethertype. tcpdump already supports
->this. But the other tag protocols cannot be detected.
->
->devlink does seem like a good candidate for this, make it part of the
->port type.
-
-I agree this could go out via devlink. Not sure exactly what attr.
-Certainly some new.
-
-
->
->     Andrew
+PiA+PiBUTFMgVHggY3J5cHRvIG9mZmxvYWQgaXMgYSBuZXcgZmVhdHVyZSBvZiBuZXR3b3JrIGRl
+dmljZXMuIEl0IGVuYWJsZXMNCj4gPj4gdGhlIGtlcm5lbCBUTFMgc29ja2V0IHRvIHNraXAgZW5j
+cnlwdGlvbiBhbmQgYXV0aGVudGljYXRpb24NCj4gPj4gb3BlcmF0aW9ucyBvbiB0aGUgdHJhbnNt
+aXQgc2lkZSBvZiB0aGUgZGF0YSBwYXRoLCBkZWxlZ2F0aW5nIHRob3NlIHRvDQo+ID4+IHRoZSBO
+SUMuIEluIHR1cm4sIHRoZSBOSUMgZW5jcnlwdHMgcGFja2V0cyB0aGF0IGJlbG9uZyB0byBhbg0K
+PiA+PiBvZmZsb2FkZWQgVExTIHNvY2tldCBvbiB0aGUgZmx5LiBUaGUgTklDIGRvZXMgbm90IG1v
+ZGlmeSBhbnkgcGFja2V0DQo+ID4+IGhlYWRlcnMuIEl0IGV4cGVjdHMgdG8gcmVjZWl2ZSBmdWxs
+eSBmcmFtZWQgVENQIHBhY2tldHMgd2l0aCBUTFMNCj4gPj4gcmVjb3JkcyBhcyBwYXlsb2FkLiBU
+aGUgTklDIHJlcGxhY2VzIHBsYWludGV4dCB3aXRoIGNpcGhlcnRleHQgYW5kDQo+ID4+IGZpbGxz
+IHRoZSBhdXRoZW50aWNhdGlvbiB0YWcuIFRoZSBOSUMgZG9lcyBub3QgaG9sZCBhbnkgc3RhdGUg
+YmV5b25kDQo+ID4+IHRoZSBjb250ZXh0IG5lZWRlZCB0byBlbmNyeXB0IHRoZSBuZXh0IGV4cGVj
+dGVkIHBhY2tldCwgaS5lLiBleHBlY3RlZA0KPiA+PiBUQ1Agc2VxdWVuY2UgbnVtYmVyIGFuZCBj
+cnlwdG8gc3RhdGUuDQo+ID4NCj4gPiBJdCBzZWVtcyBsaWtlLCBzaW5jZSB5b3UgZG8gdGhlIFRM
+UyBmcmFtaW5nIGluIFRDUCBhbmQgdGhlIGNhcmQgaXMNCj4gPiBleHBlY3RpbmcgdG8gZmlsbCBp
+biBjZXJ0YWluIGFzcGVjdHMsIHRoZXJlIGlzIGEgcmVxdWlyZW1lbnQgdGhhdCB0aGUNCj4gPiBw
+YWNrZXQgY29udGVudHMgYXJlbid0IG1hbmdsZWQgYmV0d2VlbiB0aGUgVExTIGZyYW1pbmcgY29k
+ZSBhbmQgd2hlbg0KPiA+IHRoZSBTS0IgaGl0cyB0aGUgY2FyZC4NCj4gPg0KPiA+IElzIHRoaXMg
+cmlnaHQ/DQo+ID4NCj4gPiBGb3IgZXhhbXBsZSwgd2hhdCBoYXBwZW5zIGlmIG5ldGZpbHRlciBz
+cGxpdHMgYSBUTFMgVHggb2ZmbG9hZGVkIGZyYW1lDQo+ID4gaW50byB0d28gVENQIHNlZ21lbnRz
+Pw0KV2UgbWFpbnRhaW4gdGhlIGNyeXB0byBjb250ZXh0IGJ5IHRyYWNraW5nIFRDUCBzZXF1ZW5j
+ZSBudW1iZXJzLCBzcGxpdHRpbmcNClRDUCBzZWdtZW50cyBpcyBub3QgYSBwcm9ibGVtLiBFdmVu
+IGlmIHJlb3JkZXJpbmcgaXMgaW50cm9kdWNlZCBhbnl3aGVyZQ0KYmV0d2VlbiBUQ1AgYW5kIHRo
+ZSBkcml2ZXIsIHdlIGNhbiBpZGVudGlmeSBpdCBhY2NvcmRpbmcgdG8gdGhlIFRDUA0Kc2VxdWVu
+Y2UgbnVtYmVyIGFuZCBoYW5kbGUgaXQgZ3JhY2VmdWxseSDigJMgc2VlIG1seF90bHNfdHhfaGFu
+ZGxlci4NCg0KPiANCj4gRnVydGhlcm1vcmUsIGl0IGRvZXNuJ3Qgc2VlbSB0byB3b3JrIHdpdGgg
+Ym9uZGluZyBvciBhbnkgb3RoZXIgdmlydHVhbA0KPiBpbnRlcmZhY2UsIHdoaWNoIGNvdWxkIG1v
+dmUgdGhlIHNrYidzIHRvIGJlIHByb2Nlc3NlZCBvbiBhbm90aGVyIE5JQywgYXMgdGhlDQo+IGNv
+bnRleHQgaXMgcHV0IG9udG8gdGhlIE5JQy4gRXZlbiBhIHJlZGlyZWN0IGNhbiBub3QgYmUgcHJv
+Y2Vzc2VkIGFueW1vcmUNCj4gKHNlZW1zIGxpa2UgdGhvc2UgcGF0Y2hlcyB0cnkgdG8gc3RpY2sg
+dGhlIGNvbm5lY3Rpb24gdG8gYW4gaW50ZXJmYWNlIGFueXdheSkuDQo+IA0KPiBXb3VsZG4ndCBp
+dCBiZSBwb3NzaWJsZSB0byBrZWVwIHRoZSBzdGF0ZSBpbiBzb2Z0d2FyZSBhbmQgcHVzaCBkb3du
+IGENCj4gc2VjdXJpdHkgY29udGV4dCBwZXIgc2tiLCB3aGljaCBnZXQgYXBwbGllZCBkdXJpbmcg
+c2VuZGluZz8gSWYgbm90IHBvc3NpYmxlIHZpYQ0KPiBodywgc2xvd3BhdGggY2FuIGVuY3J5cHQg
+cGFja2V0IGluIHN3Lg0KV2UgZG8gaGF2ZSBhbGwgdGhlIHN0YXRlIHJlcXVpcmVkIHRvIGVuY3J5
+cHQgYSBUTFMgcGFja2V0IGluIHNvZnR3YXJlLiBCdXQsDQpwdXNoaW5nIGRvd24gdGhlIHN0YXRl
+IGZvciBlYWNoIHNrYiBpcyB0b28gZXhwYW5zaXZlLCBiZWNhdXNlIHRoZSBzdGF0ZQ0KZGVwZW5k
+cyBvbiBhbGwgZGF0YSBpbiB0aGUgVExTIHJlY29yZCwgZXNzZW50aWFsbHkgaXQgcmVxdWlyZXMg
+dG8gcmVzZW5kIHRoZQ0KcmVjb3JkIHVwIHRvIHRoYXQgc2tiLiBUaGlzIGlzIGFjY29tcGxpc2hl
+ZCBmb3IgT09PIHBhY2tldHMgaW4gdGhlDQrigJxoYW5kbGVfb29v4oCdIGZ1bmN0aW9uIGluIG1s
+eF90bHMuDQoNCk1heWJlIHdlIGNvdWxkIHVzZSB0aGF0IGZ1bmN0aW9uYWxpdHkgdG8gaGFuZGxl
+IGJvbmRpbmcsIGJ1dCBhdCBmaXJzdCBpdCB3b3VsZA0KYmUgZWFzaWVyIHRvIHByZXZlbnQgaXQu
+DQoNClRoZSBzbG93cGF0aCB5b3XigJl2ZSBtZW50aW9uZWQgaXMgdHJpY2t5LCBiZWNhdXNlIHlv
+dSBuZWVkIHRvIGRlY2lkZSBpbg0KYWR2YW5jZSB0aGF0IGEgVExTIHJlY29yZCB3aWxsIHVzZSB0
+aGUgc2xvd3BhdGgsIGJlY2F1c2UgYWZ0ZXIgdGhlIHBsYWludGV4dA0KVExTIHJlY29yZCBpcyBw
+dXNoZWQgaW50byBUQ1AgaXQgaXMgZGlmZmljdWx0IHRvIGZhbGxiYWNrIHRvIHNvZnR3YXJlIGNy
+eXB0by4NCj4gDQo+IEFsc28gc3RpY2tpbmcgY29ubmVjdGlvbnMgdG8gb3V0Z29pbmcgaW50ZXJm
+YWNlcyBtaWdodCB3b3JrIGZvciBUWCwgYnV0IHlvdQ0KPiBjYW4ndCBmb3JjZSB0aGUgaW50ZXJm
+YWNlIHdoZXJlIHBhY2tldHMgY29tZSBpbi4NClJpZ2h0LiBUaGlzIFJGQyBoYW5kbGVzIG9ubHkg
+VFggb2ZmbG9hZC4NCj4gDQo+IEJ5ZSwNCj4gSGFubmVzDQoNClRoYW5rcywNCkJvcmlzDQoNCg==
