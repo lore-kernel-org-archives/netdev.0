@@ -1,8 +1,8 @@
 From: Nathan Fontenot <nfont@linux.vnet.ibm.com>
-Subject: [PATCH net 2/7] ibmvnic: Create init and release routines for the
- bounce buffer
-Date: Thu, 30 Mar 2017 02:49:00 -0400
-Message-ID: <20170330064900.20309.56576.stgit@ltcalpine2-lp23.aus.stglabs.ibm.com>
+Subject: [PATCH net 3/7] ibmvnic: Create init and release routines for the
+ tx pool
+Date: Thu, 30 Mar 2017 02:49:06 -0400
+Message-ID: <20170330064906.20309.53145.stgit@ltcalpine2-lp23.aus.stglabs.ibm.com>
 References: <20170330064542.20309.17448.stgit@ltcalpine2-lp23.aus.stglabs.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,140 +10,215 @@ Content-Transfer-Encoding: 7bit
 Cc: jallen@linux.vnet.ibm.com, tlfalcon@linux.vnet.ibm.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:58443 "EHLO
+Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:37258 "EHLO
         mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1754233AbdC3C7k (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 29 Mar 2017 22:59:40 -0400
-Received: from pps.filterd (m0098399.ppops.net [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v2U2sVnu121484
-        for <netdev@vger.kernel.org>; Wed, 29 Mar 2017 22:59:39 -0400
-Received: from e18.ny.us.ibm.com (e18.ny.us.ibm.com [129.33.205.208])
-        by mx0a-001b2d01.pphosted.com with ESMTP id 29gdwgpr7b-1
+        by vger.kernel.org with ESMTP id S1754450AbdC3C7q (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 29 Mar 2017 22:59:46 -0400
+Received: from pps.filterd (m0098409.ppops.net [127.0.0.1])
+        by mx0a-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v2U2sXqQ035673
+        for <netdev@vger.kernel.org>; Wed, 29 Mar 2017 22:59:45 -0400
+Received: from e13.ny.us.ibm.com (e13.ny.us.ibm.com [129.33.205.203])
+        by mx0a-001b2d01.pphosted.com with ESMTP id 29gfn98txn-1
         (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Wed, 29 Mar 2017 22:59:38 -0400
+        for <netdev@vger.kernel.org>; Wed, 29 Mar 2017 22:59:45 -0400
 Received: from localhost
-        by e18.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        by e13.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
         for <netdev@vger.kernel.org> from <nfont@linux.vnet.ibm.com>;
-        Wed, 29 Mar 2017 22:59:37 -0400
+        Wed, 29 Mar 2017 22:59:44 -0400
 In-Reply-To: <20170330064542.20309.17448.stgit@ltcalpine2-lp23.aus.stglabs.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move the handling of initialization and releasing the bounce buffer to their
-own init and release routines.
+Move the initialization and the release of the tx pool to their own routines,
+and update them to do validation. This also adds validation to the release
+of the long term buffer.
 
 Signed-off-by: Nathan Fontenot <nfont@linux.vnet.ibm.com>
 ---
- drivers/net/ethernet/ibm/ibmvnic.c |   77 +++++++++++++++++++++++-------------
- 1 file changed, 50 insertions(+), 27 deletions(-)
+ drivers/net/ethernet/ibm/ibmvnic.c |  134 +++++++++++++++++++++---------------
+ 1 file changed, 78 insertions(+), 56 deletions(-)
 
 diff --git a/drivers/net/ethernet/ibm/ibmvnic.c b/drivers/net/ethernet/ibm/ibmvnic.c
-index 01ab60f..c3e5305 100644
+index c3e5305..a9399e9 100644
 --- a/drivers/net/ethernet/ibm/ibmvnic.c
 +++ b/drivers/net/ethernet/ibm/ibmvnic.c
-@@ -372,6 +372,50 @@ static void free_rx_pool(struct ibmvnic_adapter *adapter,
+@@ -206,6 +206,9 @@ static void free_long_term_buff(struct ibmvnic_adapter *adapter,
+ {
+ 	struct device *dev = &adapter->vdev->dev;
+ 
++	if (!ltb->buff)
++		return;
++
+ 	dma_free_coherent(dev, ltb->size, ltb->buff, ltb->addr);
+ 	if (!adapter->failover)
+ 		send_request_unmap(adapter, ltb->map_id);
+@@ -372,6 +375,75 @@ static void free_rx_pool(struct ibmvnic_adapter *adapter,
  	pool->rx_buff = NULL;
  }
  
-+static void release_bounce_buffer(struct ibmvnic_adapter *adapter)
++static void release_tx_pools(struct ibmvnic_adapter *adapter)
 +{
-+	struct device *dev = &adapter->vdev->dev;
++	struct ibmvnic_tx_pool *tx_pool;
++	int i, tx_scrqs;
 +
-+	if (!adapter->bounce_buffer)
++	if (!adapter->tx_pool)
 +		return;
 +
-+	if (!dma_mapping_error(dev, adapter->bounce_buffer_dma)) {
-+		dma_unmap_single(dev, adapter->bounce_buffer_dma,
-+				 adapter->bounce_buffer_size,
-+				 DMA_BIDIRECTIONAL);
-+		adapter->bounce_buffer_dma = DMA_ERROR_CODE;
++	tx_scrqs = be32_to_cpu(adapter->login_rsp_buf->num_txsubm_subcrqs);
++	for (i = 0; i < tx_scrqs; i++) {
++		tx_pool = &adapter->tx_pool[i];
++		kfree(tx_pool->tx_buff);
++		free_long_term_buff(adapter, &tx_pool->long_term_buff);
++		kfree(tx_pool->free_map);
 +	}
 +
-+	kfree(adapter->bounce_buffer);
-+	adapter->bounce_buffer = NULL;
++	kfree(adapter->tx_pool);
++	adapter->tx_pool = NULL;
 +}
 +
-+static int init_bounce_buffer(struct net_device *netdev)
++static int init_tx_pools(struct net_device *netdev)
 +{
 +	struct ibmvnic_adapter *adapter = netdev_priv(netdev);
 +	struct device *dev = &adapter->vdev->dev;
-+	char *buf;
-+	int buf_sz;
-+	dma_addr_t map_addr;
++	struct ibmvnic_tx_pool *tx_pool;
++	int tx_subcrqs;
++	int i, j;
 +
-+	buf_sz = (netdev->mtu + ETH_HLEN - 1) / PAGE_SIZE + 1;
-+	buf = kmalloc(adapter->bounce_buffer_size, GFP_KERNEL);
-+	if (!buf)
++	tx_subcrqs = be32_to_cpu(adapter->login_rsp_buf->num_txsubm_subcrqs);
++	adapter->tx_pool = kcalloc(tx_subcrqs,
++				   sizeof(struct ibmvnic_tx_pool), GFP_KERNEL);
++	if (!adapter->tx_pool)
 +		return -1;
 +
-+	map_addr = dma_map_single(dev, buf, buf_sz, DMA_TO_DEVICE);
-+	if (dma_mapping_error(dev, map_addr)) {
-+		dev_err(dev, "Couldn't map bounce buffer\n");
-+		kfree(buf);
-+		return -1;
++	for (i = 0; i < tx_subcrqs; i++) {
++		tx_pool = &adapter->tx_pool[i];
++		tx_pool->tx_buff = kcalloc(adapter->req_tx_entries_per_subcrq,
++					   sizeof(struct ibmvnic_tx_buff),
++					   GFP_KERNEL);
++		if (!tx_pool->tx_buff) {
++			dev_err(dev, "tx pool buffer allocation failed\n");
++			release_tx_pools(adapter);
++			return -1;
++		}
++
++		if (alloc_long_term_buff(adapter, &tx_pool->long_term_buff,
++					 adapter->req_tx_entries_per_subcrq *
++					 adapter->req_mtu)) {
++			release_tx_pools(adapter);
++			return -1;
++		}
++
++		tx_pool->free_map = kcalloc(adapter->req_tx_entries_per_subcrq,
++					    sizeof(int), GFP_KERNEL);
++		if (!tx_pool->free_map) {
++			release_tx_pools(adapter);
++			return -1;
++		}
++
++		for (j = 0; j < adapter->req_tx_entries_per_subcrq; j++)
++			tx_pool->free_map[j] = j;
++
++		tx_pool->consumer_index = 0;
++		tx_pool->producer_index = 0;
 +	}
 +
-+	adapter->bounce_buffer = buf;
-+	adapter->bounce_buffer_size = buf_sz;
-+	adapter->bounce_buffer_dma = map_addr;
 +	return 0;
 +}
 +
- static int ibmvnic_login(struct net_device *netdev)
+ static void release_bounce_buffer(struct ibmvnic_adapter *adapter)
+ {
+ 	struct device *dev = &adapter->vdev->dev;
+@@ -452,7 +524,6 @@ static int ibmvnic_open(struct net_device *netdev)
  {
  	struct ibmvnic_adapter *adapter = netdev_priv(netdev);
-@@ -500,20 +544,11 @@ static int ibmvnic_open(struct net_device *netdev)
- 		tx_pool->consumer_index = 0;
- 		tx_pool->producer_index = 0;
+ 	struct device *dev = &adapter->vdev->dev;
+-	struct ibmvnic_tx_pool *tx_pool;
+ 	union ibmvnic_crq crq;
+ 	int rxadd_subcrqs;
+ 	u64 *size_array;
+@@ -514,36 +585,10 @@ static int ibmvnic_open(struct net_device *netdev)
+ 			goto rx_pool_alloc_failed;
+ 		}
  	}
--	adapter->bounce_buffer_size =
--	    (netdev->mtu + ETH_HLEN - 1) / PAGE_SIZE + 1;
--	adapter->bounce_buffer = kmalloc(adapter->bounce_buffer_size,
--					 GFP_KERNEL);
--	if (!adapter->bounce_buffer)
--		goto bounce_alloc_failed;
+-	adapter->tx_pool =
+-	    kcalloc(tx_subcrqs, sizeof(struct ibmvnic_tx_pool), GFP_KERNEL);
+-
+-	if (!adapter->tx_pool)
+-		goto tx_pool_arr_alloc_failed;
+-	for (i = 0; i < tx_subcrqs; i++) {
+-		tx_pool = &adapter->tx_pool[i];
+-		tx_pool->tx_buff =
+-		    kcalloc(adapter->req_tx_entries_per_subcrq,
+-			    sizeof(struct ibmvnic_tx_buff), GFP_KERNEL);
+-		if (!tx_pool->tx_buff)
+-			goto tx_pool_alloc_failed;
+-
+-		if (alloc_long_term_buff(adapter, &tx_pool->long_term_buff,
+-					 adapter->req_tx_entries_per_subcrq *
+-					 adapter->req_mtu))
+-			goto tx_ltb_alloc_failed;
+-
+-		tx_pool->free_map =
+-		    kcalloc(adapter->req_tx_entries_per_subcrq,
+-			    sizeof(int), GFP_KERNEL);
+-		if (!tx_pool->free_map)
+-			goto tx_fm_alloc_failed;
+-
+-		for (j = 0; j < adapter->req_tx_entries_per_subcrq; j++)
+-			tx_pool->free_map[j] = j;
  
--	adapter->bounce_buffer_dma = dma_map_single(dev, adapter->bounce_buffer,
--						    adapter->bounce_buffer_size,
--						    DMA_TO_DEVICE);
--	if (dma_mapping_error(dev, adapter->bounce_buffer_dma)) {
--		dev_err(dev, "Couldn't map tx bounce buffer\n");
--		goto bounce_map_failed;
+-		tx_pool->consumer_index = 0;
+-		tx_pool->producer_index = 0;
 -	}
-+	rc = init_bounce_buffer(netdev);
++	rc = init_tx_pools(netdev);
 +	if (rc)
-+		goto bounce_init_failed;
-+
- 	replenish_pools(adapter);
++		goto tx_pool_failed;
  
- 	/* We're ready to receive frames, enable the sub-crq interrupts and
-@@ -536,9 +571,7 @@ static int ibmvnic_open(struct net_device *netdev)
- 
- 	return 0;
- 
--bounce_map_failed:
--	kfree(adapter->bounce_buffer);
--bounce_alloc_failed:
-+bounce_init_failed:
+ 	rc = init_bounce_buffer(netdev);
+ 	if (rc)
+@@ -574,20 +619,7 @@ static int ibmvnic_open(struct net_device *netdev)
+ bounce_init_failed:
  	i = tx_subcrqs - 1;
  	kfree(adapter->tx_pool[i].free_map);
- tx_fm_alloc_failed:
-@@ -578,17 +611,7 @@ static void ibmvnic_release_resources(struct ibmvnic_adapter *adapter)
- 	int tx_scrqs, rx_scrqs;
+-tx_fm_alloc_failed:
+-	free_long_term_buff(adapter, &adapter->tx_pool[i].long_term_buff);
+-tx_ltb_alloc_failed:
+-	kfree(adapter->tx_pool[i].tx_buff);
+-tx_pool_alloc_failed:
+-	for (j = 0; j < i; j++) {
+-		kfree(adapter->tx_pool[j].tx_buff);
+-		free_long_term_buff(adapter,
+-				    &adapter->tx_pool[j].long_term_buff);
+-		kfree(adapter->tx_pool[j].free_map);
+-	}
+-	kfree(adapter->tx_pool);
+-	adapter->tx_pool = NULL;
+-tx_pool_arr_alloc_failed:
++tx_pool_failed:
+ 	i = rxadd_subcrqs;
+ rx_pool_alloc_failed:
+ 	for (j = 0; j < i; j++) {
+@@ -608,21 +640,11 @@ static int ibmvnic_open(struct net_device *netdev)
+ static void ibmvnic_release_resources(struct ibmvnic_adapter *adapter)
+ {
+ 	struct device *dev = &adapter->vdev->dev;
+-	int tx_scrqs, rx_scrqs;
++	int rx_scrqs;
  	int i;
  
--	if (adapter->bounce_buffer) {
--		if (!dma_mapping_error(dev, adapter->bounce_buffer_dma)) {
--			dma_unmap_single(&adapter->vdev->dev,
--					 adapter->bounce_buffer_dma,
--					 adapter->bounce_buffer_size,
--					 DMA_BIDIRECTIONAL);
--			adapter->bounce_buffer_dma = DMA_ERROR_CODE;
--		}
--		kfree(adapter->bounce_buffer);
--		adapter->bounce_buffer = NULL;
+ 	release_bounce_buffer(adapter);
+-
+-	tx_scrqs = be32_to_cpu(adapter->login_rsp_buf->num_txsubm_subcrqs);
+-	for (i = 0; i < tx_scrqs; i++) {
+-		struct ibmvnic_tx_pool *tx_pool = &adapter->tx_pool[i];
+-
+-		kfree(tx_pool->tx_buff);
+-		free_long_term_buff(adapter, &tx_pool->long_term_buff);
+-		kfree(tx_pool->free_map);
 -	}
-+	release_bounce_buffer(adapter);
+-	kfree(adapter->tx_pool);
+-	adapter->tx_pool = NULL;
++	release_tx_pools(adapter);
  
- 	tx_scrqs = be32_to_cpu(adapter->login_rsp_buf->num_txsubm_subcrqs);
- 	for (i = 0; i < tx_scrqs; i++) {
+ 	rx_scrqs = be32_to_cpu(adapter->login_rsp_buf->num_rxadd_subcrqs);
+ 	for (i = 0; i < rx_scrqs; i++) {
