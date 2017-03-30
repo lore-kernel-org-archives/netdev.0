@@ -1,144 +1,76 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v2 2/9] net: dsa: mv88e6xxx: use 4-bit port for PVT data
-Date: Thu, 30 Mar 2017 17:37:08 -0400
-Message-ID: <20170330213715.9666-3-vivien.didelot@savoirfairelinux.com>
-References: <20170330213715.9666-1-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170330213715.9666-1-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: Re: [next-queue v6 PATCH 7/7] i40e: Add support to get switch id
+ and port number for port netdevs
+Date: Thu, 30 Mar 2017 14:45:29 -0700
+Message-ID: <20170330144529.0c7ee4c8@cakuba.netronome.com>
+References: <1490833375-2788-1-git-send-email-sridhar.samudrala@intel.com>
+        <1490833375-2788-8-git-send-email-sridhar.samudrala@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
+        alexander.h.duyck@intel.com, anjali.singhai@intel.com,
+        gerlitz.or@gmail.com, jiri@resnulli.us,
+        Simon Horman <simon.horman@netronome.com>
+To: Sridhar Samudrala <sridhar.samudrala@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f51.google.com ([74.125.83.51]:33870 "EHLO
+        mail-pg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754625AbdC3Vpd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 30 Mar 2017 17:45:33 -0400
+Received: by mail-pg0-f51.google.com with SMTP id 21so51180052pgg.1
+        for <netdev@vger.kernel.org>; Thu, 30 Mar 2017 14:45:32 -0700 (PDT)
+In-Reply-To: <1490833375-2788-8-git-send-email-sridhar.samudrala@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The Cross-chip Port Based VLAN Table (PVT) supports two indexing modes,
-one using 5-bit for device and 4-bit for port, the other using 4-bit for
-device and 5-bit for port, configured via the Global 2 Misc register.
+On Wed, 29 Mar 2017 17:22:55 -0700, Sridhar Samudrala wrote:
+> Introduce switchdev_ops to PF and port netdevs to return the switch id via
+> SWITCHDEV_ATTR_ID_PORT_PARENT_ID attribute.
+> Also, ndo_get_phys_port_name() support is added to port netdevs to return
+> the port number.
+> 
+...
+> +static int
+> +i40e_port_netdev_get_phys_port_name(struct net_device *dev, char *buf,
+> +				    size_t len)
+> +{
+> +	struct i40e_port_netdev_priv *priv = netdev_priv(dev);
+> +	struct i40e_vf *vf;
+> +	int ret;
+> +
+> +	switch (priv->type) {
+> +	case I40E_PORT_NETDEV_VF:
+> +		vf = (struct i40e_vf *)priv->f;
+> +		ret = snprintf(buf, len, "%d", vf->vf_id);
+> +		break;
+> +	case I40E_PORT_NETDEV_PF:
+> +		ret = snprintf(buf, len, "%d", I40E_MAIN_VSI_PORT_ID);
+> +		break;
+> +	default:
+> +		return -EOPNOTSUPP;
+> +	}
+> +
+> +	if (ret >= len)
+> +		return -EOPNOTSUPP;
+> +
+> +	return 0;
+> +}
 
-Only 4 bits for the source port are needed when interconnecting 88E6xxx
-switch devices since they all support less than 16 physical ports. The
-full 5 bits are needed when interconnecting a device with 98DXxxx switch
-devices since they support more than 16 physical ports.
+You are using only an integer here, which forces you to manually name
+the netdev in patch 2, and that is what phys_port_name is supposed to
+help avoid doing AFAIU.
 
-Add a mv88e6xxx_pvt_setup helper to set the 4-bit port PVT mode, which
-will be extended later to also initialize the PVT content.
+We have naming rules in Documentation/networking/switchdev.txt for
+switch ports suggested as pX for physical ports or pXsY for ports which
+are broken out/split.  Could we establish similar suggestion for vf and
+pf representors and document it? (note: we may need pf representors for
+multi-host devices.)
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
----
- drivers/net/dsa/mv88e6xxx/chip.c      | 15 +++++++++++++++
- drivers/net/dsa/mv88e6xxx/global2.c   | 25 +++++++++++++++++++++++++
- drivers/net/dsa/mv88e6xxx/global2.h   |  7 +++++++
- drivers/net/dsa/mv88e6xxx/mv88e6xxx.h |  1 +
- 4 files changed, 48 insertions(+)
+IMHO naming representors pfr%d or vfr%d would make sense.  This way
+actual VF and PF netdevs could be called pf%d and vf%d, and
+udev/systemd will give all netdevs nice, meaningful names without any
+custom rules.
 
-diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index 8f1f881d0375..2a32bb490f92 100644
---- a/drivers/net/dsa/mv88e6xxx/chip.c
-+++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -1198,6 +1198,17 @@ static int mv88e6xxx_atu_setup(struct mv88e6xxx_chip *chip)
- 	return mv88e6xxx_g1_atu_set_age_time(chip, 300000);
- }
- 
-+static int mv88e6xxx_pvt_setup(struct mv88e6xxx_chip *chip)
-+{
-+	if (!mv88e6xxx_has_pvt(chip))
-+		return 0;
-+
-+	/* Clear 5 Bit Port for usage with Marvell Link Street devices:
-+	 * use 4 bits for the Src_Port/Src_Trunk and 5 bits for the Src_Dev.
-+	 */
-+	return mv88e6xxx_g2_misc_4_bit_port(chip);
-+}
-+
- static void mv88e6xxx_port_fast_age(struct dsa_switch *ds, int port)
- {
- 	struct mv88e6xxx_chip *chip = ds->priv;
-@@ -2594,6 +2605,10 @@ static int mv88e6xxx_setup(struct dsa_switch *ds)
- 			goto unlock;
- 	}
- 
-+	err = mv88e6xxx_pvt_setup(chip);
-+	if (err)
-+		goto unlock;
-+
- 	err = mv88e6xxx_atu_setup(chip);
- 	if (err)
- 		goto unlock;
-diff --git a/drivers/net/dsa/mv88e6xxx/global2.c b/drivers/net/dsa/mv88e6xxx/global2.c
-index 6228aab2ad35..d64f4c15ccb7 100644
---- a/drivers/net/dsa/mv88e6xxx/global2.c
-+++ b/drivers/net/dsa/mv88e6xxx/global2.c
-@@ -784,6 +784,31 @@ static int mv88e6xxx_g2_watchdog_setup(struct mv88e6xxx_chip *chip)
- 	return err;
- }
- 
-+/* Offset 0x1D: Misc Register */
-+
-+static int mv88e6xxx_g2_misc_5_bit_port(struct mv88e6xxx_chip *chip,
-+					bool port_5_bit)
-+{
-+	u16 val;
-+	int err;
-+
-+	err = mv88e6xxx_g2_read(chip, GLOBAL2_MISC, &val);
-+	if (err)
-+		return err;
-+
-+	if (port_5_bit)
-+		val |= GLOBAL2_MISC_5_BIT_PORT;
-+	else
-+		val &= ~GLOBAL2_MISC_5_BIT_PORT;
-+
-+	return mv88e6xxx_g2_write(chip, GLOBAL2_MISC, val);
-+}
-+
-+int mv88e6xxx_g2_misc_4_bit_port(struct mv88e6xxx_chip *chip)
-+{
-+	return mv88e6xxx_g2_misc_5_bit_port(chip, false);
-+}
-+
- static void mv88e6xxx_g2_irq_mask(struct irq_data *d)
- {
- 	struct mv88e6xxx_chip *chip = irq_data_get_irq_chip_data(d);
-diff --git a/drivers/net/dsa/mv88e6xxx/global2.h b/drivers/net/dsa/mv88e6xxx/global2.h
-index f8b6dd93213a..71fb2ff541ba 100644
---- a/drivers/net/dsa/mv88e6xxx/global2.h
-+++ b/drivers/net/dsa/mv88e6xxx/global2.h
-@@ -42,6 +42,8 @@ int mv88e6xxx_g2_get_eeprom16(struct mv88e6xxx_chip *chip,
- int mv88e6xxx_g2_set_eeprom16(struct mv88e6xxx_chip *chip,
- 			      struct ethtool_eeprom *eeprom, u8 *data);
- 
-+int mv88e6xxx_g2_misc_4_bit_port(struct mv88e6xxx_chip *chip);
-+
- int mv88e6xxx_g2_setup(struct mv88e6xxx_chip *chip);
- int mv88e6xxx_g2_irq_setup(struct mv88e6xxx_chip *chip);
- void mv88e6xxx_g2_irq_free(struct mv88e6xxx_chip *chip);
-@@ -110,6 +112,11 @@ static inline int mv88e6xxx_g2_set_eeprom16(struct mv88e6xxx_chip *chip,
- 	return -EOPNOTSUPP;
- }
- 
-+int mv88e6xxx_g2_misc_4_bit_port(struct mv88e6xxx_chip *chip)
-+{
-+	return -EOPNOTSUPP;
-+}
-+
- static inline int mv88e6xxx_g2_setup(struct mv88e6xxx_chip *chip)
- {
- 	return -EOPNOTSUPP;
-diff --git a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-index 97dd3e2d2a56..bcaa55b20f5a 100644
---- a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-+++ b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-@@ -439,6 +439,7 @@
- #define GLOBAL2_WDOG_FORCE_IRQ			BIT(0)
- #define GLOBAL2_QOS_WEIGHT	0x1c
- #define GLOBAL2_MISC		0x1d
-+#define GLOBAL2_MISC_5_BIT_PORT	BIT(14)
- 
- #define MV88E6XXX_N_FID		4096
- 
--- 
-2.12.1
+Sorry for the bike shedding but I was hoping we could save some user
+pain by establishing those rules (more or less) upfront.
