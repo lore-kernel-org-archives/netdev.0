@@ -1,90 +1,111 @@
-From: Bjorn Helgaas <helgaas@kernel.org>
-Subject: Re: [PATCH 5/5] PCI: remove pci_enable_msix
-Date: Thu, 30 Mar 2017 18:09:13 -0500
-Message-ID: <20170330230913.GA3912@bhelgaas-glaptop.roam.corp.google.com>
-References: <20170327082936.6830-1-hch@lst.de>
- <20170327082936.6830-6-hch@lst.de>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: EINVAL when using connect() for udp sockets
+Date: Thu, 30 Mar 2017 16:36:27 -0700
+Message-ID: <CAM_iQpWyQJ+XN_4mSarzHRYX4eio81G49i=wyE5MHS+AUFWU8g@mail.gmail.com>
+References: <CAEnbY+cYpX8naDpRkXgwCP=i64AwWgK9=_7AacmYip-ykot7mQ@mail.gmail.com>
+ <CAEnbY+fPLamzXF8nOF-SEFE8LaE88XAyKNt81zs6bM866R4oGg@mail.gmail.com>
+ <1490246287.16816.201.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAM_iQpVVBfwd7P0-dY08Bw7QNr_w77va4AEMFj5xMuOddQoq2g@mail.gmail.com>
+ <1490397560.24891.0.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAM_iQpUQ52aiKQntMsrm2aMQ56G=tHCpN93A0+mffss+6m39jw@mail.gmail.com>
+ <1490742712.24891.25.camel@edumazet-glaptop3.roam.corp.google.com> <1490748756.24891.27.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: bhelgaas@google.com, davem@davemloft.net,
-        netanel@annapurnalabs.com, jcliburn@gmail.com,
-        chris.snook@gmail.com, sgoutham@cavium.com, rric@kernel.org,
-        netdev@vger.kernel.org, linux-pci@vger.kernel.org
-To: Christoph Hellwig <hch@lst.de>
-Return-path: <linux-pci-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170327082936.6830-6-hch@lst.de>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Daurnimator <quae@daurnimator.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        William Ahern <william@25thandclement.com>,
+        "Santi T." <santitm99@gmail.com>,
+        Michael Kerrisk-manpages <mtk.manpages@gmail.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f195.google.com ([209.85.128.195]:35131 "EHLO
+        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753724AbdC3Xgt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 30 Mar 2017 19:36:49 -0400
+Received: by mail-wr0-f195.google.com with SMTP id p52so16171708wrc.2
+        for <netdev@vger.kernel.org>; Thu, 30 Mar 2017 16:36:48 -0700 (PDT)
+In-Reply-To: <1490748756.24891.27.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 27, 2017 at 10:29:36AM +0200, Christoph Hellwig wrote:
-> Unused now that all callers switched to pci_alloc_irq_vectors.
-> 
-> Signed-off-by: Christoph Hellwig <hch@lst.de>
+On Tue, Mar 28, 2017 at 5:52 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Tue, 2017-03-28 at 16:11 -0700, Eric Dumazet wrote:
+>
+>> Yes, this looks better.
+>>
+>> Although you probably need to change a bit later this part :
+>>
+>> if (!inet->inet_saddr)
+>>       inet->inet_saddr = fl4->saddr;  /* Update source address */
+>>
+>
+> I came up with the following tested patch for IPv4
+>
+> diff --git a/net/ipv4/datagram.c b/net/ipv4/datagram.c
+> index f915abff1350a86af8d5bb89725b751c061b0fb5..1454b6191e0d38ffae0ae260578858285bc5f77b 100644
+> --- a/net/ipv4/datagram.c
+> +++ b/net/ipv4/datagram.c
+> @@ -40,7 +40,7 @@ int __ip4_datagram_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len
+>         sk_dst_reset(sk);
+>
+>         oif = sk->sk_bound_dev_if;
+> -       saddr = inet->inet_saddr;
+> +       saddr = (sk->sk_userlocks & SOCK_BINDADDR_LOCK) ? inet->inet_saddr : 0;
+>         if (ipv4_is_multicast(usin->sin_addr.s_addr)) {
+>                 if (!oif)
+>                         oif = inet->mc_index;
+> @@ -64,9 +64,8 @@ int __ip4_datagram_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len
+>                 err = -EACCES;
+>                 goto out;
+>         }
+> -       if (!inet->inet_saddr)
+> +       if (!(sk->sk_userlocks & SOCK_BINDADDR_LOCK)) {
+>                 inet->inet_saddr = fl4->saddr;  /* Update source address */
+> -       if (!inet->inet_rcv_saddr) {
+>                 inet->inet_rcv_saddr = fl4->saddr;
+>                 if (sk->sk_prot->rehash)
+>                         sk->sk_prot->rehash(sk);
 
-Acked-by: Bjorn Helgaas <bhelgaas@google.com>
+Why do we need this here? If you mean bind() INADDR_ANY is bound,
+then it is totally a different problem?
 
-I assume this will be merged with the rest via the netdev tree.
+BTW, I am still not sure about what POSIX says about the connect()
+behavior, I can only find this [1]:
 
-> ---
->  drivers/pci/msi.c   | 21 ---------------------
->  include/linux/pci.h |  4 ----
->  2 files changed, 25 deletions(-)
-> 
-> diff --git a/drivers/pci/msi.c b/drivers/pci/msi.c
-> index d571bc330686..0042c365b29b 100644
-> --- a/drivers/pci/msi.c
-> +++ b/drivers/pci/msi.c
-> @@ -973,27 +973,6 @@ static int __pci_enable_msix(struct pci_dev *dev, struct msix_entry *entries,
->  	return msix_capability_init(dev, entries, nvec, affd);
->  }
->  
-> -/**
-> - * pci_enable_msix - configure device's MSI-X capability structure
-> - * @dev: pointer to the pci_dev data structure of MSI-X device function
-> - * @entries: pointer to an array of MSI-X entries (optional)
-> - * @nvec: number of MSI-X irqs requested for allocation by device driver
-> - *
-> - * Setup the MSI-X capability structure of device function with the number
-> - * of requested irqs upon its software driver call to request for
-> - * MSI-X mode enabled on its hardware device function. A return of zero
-> - * indicates the successful configuration of MSI-X capability structure
-> - * with new allocated MSI-X irqs. A return of < 0 indicates a failure.
-> - * Or a return of > 0 indicates that driver request is exceeding the number
-> - * of irqs or MSI-X vectors available. Driver should use the returned value to
-> - * re-send its request.
-> - **/
-> -int pci_enable_msix(struct pci_dev *dev, struct msix_entry *entries, int nvec)
-> -{
-> -	return __pci_enable_msix(dev, entries, nvec, NULL);
-> -}
-> -EXPORT_SYMBOL(pci_enable_msix);
-> -
->  void pci_msix_shutdown(struct pci_dev *dev)
->  {
->  	struct msi_desc *entry;
-> diff --git a/include/linux/pci.h b/include/linux/pci.h
-> index eb3da1a04e6c..82dec36845e6 100644
-> --- a/include/linux/pci.h
-> +++ b/include/linux/pci.h
-> @@ -1300,7 +1300,6 @@ int pci_msi_vec_count(struct pci_dev *dev);
->  void pci_msi_shutdown(struct pci_dev *dev);
->  void pci_disable_msi(struct pci_dev *dev);
->  int pci_msix_vec_count(struct pci_dev *dev);
-> -int pci_enable_msix(struct pci_dev *dev, struct msix_entry *entries, int nvec);
->  void pci_msix_shutdown(struct pci_dev *dev);
->  void pci_disable_msix(struct pci_dev *dev);
->  void pci_restore_msi_state(struct pci_dev *dev);
-> @@ -1330,9 +1329,6 @@ static inline int pci_msi_vec_count(struct pci_dev *dev) { return -ENOSYS; }
->  static inline void pci_msi_shutdown(struct pci_dev *dev) { }
->  static inline void pci_disable_msi(struct pci_dev *dev) { }
->  static inline int pci_msix_vec_count(struct pci_dev *dev) { return -ENOSYS; }
-> -static inline int pci_enable_msix(struct pci_dev *dev,
-> -				  struct msix_entry *entries, int nvec)
-> -{ return -ENOSYS; }
->  static inline void pci_msix_shutdown(struct pci_dev *dev) { }
->  static inline void pci_disable_msix(struct pci_dev *dev) { }
->  static inline void pci_restore_msi_state(struct pci_dev *dev) { }
-> -- 
-> 2.11.0
-> 
+"
+If the initiating socket is not connection-mode, then connect() shall set the
+socket's peer address, and no connection is made. For SOCK_DGRAM
+sockets, the peer address identifies where all datagrams are sent on
+subsequent send() functions, and limits the remote sender for subsequent
+recv() functions.
+"
+
+It doesn't say anything about source address. But the man page [2] says:
+
+"
+When
+       connect(2) is called on an unbound socket, the socket is
+       automatically bound to a random free port or to a usable shared port
+       with the local address set to INADDR_ANY.
+"
+
+Seems the last part is inaccurate, kernel actually picks a source address
+from route instead of just using INADDR_ANY for connect(2).
+
+So, for me, I think the following behaviors make sense for UDP:
+
+1) When a bind() is called before connect()'s, aka:
+
+bind();
+connect(addr1); // should not change source addr
+connect(addr2); // should fail is the source addr can not reach peer addr
+
+2) No bind() before connect()'s, aka:
+
+connect(addr1); // Free to bind a source addr
+connect(addr2); // Free to bind a new source addr and change peer addr
+
+Thoughts?
+
+1. http://pubs.opengroup.org/onlinepubs/9699919799/functions/connect.html
+2. http://man7.org/linux/man-pages/man7/ip.7.html
