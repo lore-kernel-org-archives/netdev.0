@@ -1,54 +1,76 @@
-From: Mark Brown <broonie@kernel.org>
-Subject: Re: next-20170330 build: 2 failures 8 warnings (next-20170330)
-Date: Thu, 30 Mar 2017 17:09:53 +0100
-Message-ID: <20170330160953.z4qvueywbb6reyu7@sirena.org.uk>
-References: <E1ctZXC-0008DB-4g@optimist>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="nnmtzmpkdz33ic3s"
-Cc: kernel-build-reports@lists.linaro.org,
-        linaro-kernel@lists.linaro.org, linux-next@vger.kernel.org,
-        netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>,
-        Joel Stanley <joel@jms.id.au>,
-        Gavin Shan <gwshan@linux.vnet.ibm.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <E1ctZXC-0008DB-4g@optimist>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH net-next v2 0/6] net: mpls: Allow users to configure more labels per route
+Date: Thu, 30 Mar 2017 09:18:18 -0700
+Message-ID: <1490890704-8075-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: roopa@cumulusnetworks.com, rshearma@brocade.com,
+        ebiederm@xmission.com, David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f50.google.com ([74.125.83.50]:32826 "EHLO
+        mail-pg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933356AbdC3QSb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 30 Mar 2017 12:18:31 -0400
+Received: by mail-pg0-f50.google.com with SMTP id x125so44441833pgb.0
+        for <netdev@vger.kernel.org>; Thu, 30 Mar 2017 09:18:31 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Increase the maximum number of new labels for MPLS routes from 2 to 30.
 
---nnmtzmpkdz33ic3s
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+To keep memory consumption in check, the labels array is moved to the end
+of mpls_nh and mpls_iptunnel_encap structs as a 0-sized array. Allocations
+use the maximum number of labels across all nexthops in a route for LSR
+and the number of labels configured for LWT.
 
-On Thu, Mar 30, 2017 at 01:50:39PM +0100, Build bot for Mark Brown wrote:
+The mpls_route layout is changed to:
 
-Today's -next fails to build an ARM allmodconfig due to:
+   +----------------------+
+   | mpls_route           |
+   +----------------------+
+   | mpls_nh 0            |
+   +----------------------+
+   | alignment padding    |   4 bytes for odd number of labels; 0 for even
+   +----------------------+
+   | via[rt_max_alen] 0   |
+   +----------------------+
+   | alignment padding    |   via's aligned on sizeof(unsigned long)
+   +----------------------+
+   | ...                  |
 
-> 	arm-allmodconfig
-> ../drivers/net/ethernet/faraday/ftgmac100.c:153:9: error: implicit declaration of function 'device_get_mac_address' [-Werror=implicit-function-declaration]
-> ../drivers/net/ethernet/faraday/ftgmac100.c:1262:6: error: implicit declaration of function 'of_machine_is_compatible' [-Werror=implicit-function-declaration]
-> ../drivers/net/ethernet/faraday/ftgmac100.c:1406:6: error: implicit declaration of function 'of_get_property' [-Werror=implicit-function-declaration]
+Meaning the via follows its mpls_nh providing better locality as the
+number of labels increases. UDP_RR tests with namespaces shows no impact
+to a modest performance increase with this layout for 1 or 2 labels and
+1 or 2 nexthops.
 
-This driver is using DT and device property APIs without explicitly
-including the required headers and has been relying on implict includes,
-it should instead include them directly.  I've sent a patch for this.
+mpls_route allocation size is limited to 4096 bytes allowing on the
+order of 30 nexthops with 30 labels (or more nexthops with fewer
+labels). LWT encap shares same maximum number of labels as mpls routing.
 
---nnmtzmpkdz33ic3s
-Content-Type: application/pgp-signature; name="signature.asc"
+v2
+- updates per Eric's comments
+  + added patch to ensure all reads of rt_nhn_alive and nh_flags in
+    the packet path use READ_ONCE and all writes via event handlers
+    use WRITE_ONCE
 
------BEGIN PGP SIGNATURE-----
+  + limit mpls_route size to 4096 (PAGE_SIZE for most arch)
 
-iQEzBAABCAAdFiEEreZoqmdXGLWf4p/qJNaLcl1Uh9AFAljdLdAACgkQJNaLcl1U
-h9De5wgAgpirTf+o1ljbqb0JX7OshOoYFxLPBUkAUuG/mmJp9bCYeVLh9yz+U4cg
-hC2weSAEUAtg+Lio5a8cAFyj79LTmLSqOb3ai7aRdOIFp3NWxBX0PDZWDUyxXdwd
-u5UKF/kX3JH9WvB1o6M4Km4MJSJ0PCszkPf48P/bqwbqpHaRRl7eN9RLFsHUsThe
-dkPAIL8FeP3jri4SxW4mh3zy0a+1RucVQ8flZjB3U3As+QPHQKHA9xCQslw9Oirk
-18IpK1LfV/m2kE6U9eBza4H77R0voz1SQIciSOk/9K+lQszTkksS+WiZKA5UJSFQ
-u4NzOnnSIrfG7DMLt060vnyUYXCRZQ==
-=1wxD
------END PGP SIGNATURE-----
+  + mostly killed use of MAX_NEW_LABELS; it exists only for common
+    limit between lwt and routing paths
 
---nnmtzmpkdz33ic3s--
+David Ahern (6):
+  net: mpls: rt_nhn_alive and nh_flags should be accessed using
+    READ_ONCE
+  net: mpls: Convert number of nexthops to u8
+  net: mpls: change mpls_route layout
+  net:mpls: Limit memory allocation for mpls_route
+  net: mpls: bump maximum number of labels
+  net: mpls: Increase max number of labels for lwt encap
+
+ include/net/mpls_iptunnel.h |   5 +-
+ net/mpls/af_mpls.c          | 210 +++++++++++++++++++++++++++++---------------
+ net/mpls/internal.h         |  61 +++++++++----
+ net/mpls/mpls_iptunnel.c    |  13 ++-
+ 4 files changed, 196 insertions(+), 93 deletions(-)
+
+-- 
+2.1.4
