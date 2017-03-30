@@ -1,74 +1,55 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: in_irq_or_nmi() and RFC patch
-Date: Thu, 30 Mar 2017 09:12:23 +0200
-Message-ID: <20170330091223.05aa0efe@redhat.com>
-References: <20170327143947.4c237e54@redhat.com>
-	<20170327141518.GB27285@bombadil.infradead.org>
-	<20170327171500.4beef762@redhat.com>
-	<20170327165817.GA28494@bombadil.infradead.org>
-	<20170329081219.lto7t4fwmponokzh@hirez.programming.kicks-ass.net>
-	<20170329105928.609bc581@redhat.com>
-	<20170329091949.o2kozhhdnszgwvtn@hirez.programming.kicks-ass.net>
-	<20170329181226.GA8256@bombadil.infradead.org>
-	<20170329211144.3e362ac9@redhat.com>
-	<20170329214441.08332799@redhat.com>
-	<20170330064958.uxih6ik5fkwvjqf6@hirez.programming.kicks-ass.net>
+From: Cornelia Huck <cornelia.huck@de.ibm.com>
+Subject: Re: [PATCH 1/6] virtio: wrap find_vqs
+Date: Thu, 30 Mar 2017 09:18:41 +0200
+Message-ID: <20170330091841.2797eca4.cornelia.huck@de.ibm.com>
+References: <1490820507-8005-1-git-send-email-mst@redhat.com>
+        <1490820507-8005-2-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Matthew Wilcox <willy@infradead.org>, Pankaj Gupta <pagupta@redhat.com>,
- Tariq Toukan <ttoukan.linux@gmail.com>, Mel Gorman
- <mgorman@techsingularity.net>, Tariq Toukan <tariqt@mellanox.com>,
- netdev@vger.kernel.org, akpm@linux-foundation.org, linux-mm
- <linux-mm@kvack.org>, Saeed Mahameed <saeedm@mellanox.com>,
- linux-kernel@vger.kernel.org, brouer@redhat.com
-To: Peter Zijlstra <peterz@infradead.org>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20170330064958.uxih6ik5fkwvjqf6@hirez.programming.kicks-ass.net>
-Sender: owner-linux-mm@kvack.org
+Cc: linux-kernel@vger.kernel.org,
+        Dmitry Tarnyagin <dmitry.tarnyagin@lockless.no>,
+        kvm@vger.kernel.org, David Airlie <airlied@linux.ie>,
+        linux-remoteproc@vger.kernel.org, dri-devel@lists.freedesktop.org,
+        Bjorn Andersson <bjorn.andersson@linaro.org>,
+        "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
+        Herbert Xu <herbert@gondor.apana.org.au>,
+        linux-scsi@vger.kernel.org,
+        John Fastabend <john.fastabend@gmail.com>,
+        Arnd Bergmann <arnd@arndb.de>, Amit Shah <amit@kernel.org>,
+        Stefan Hajnoczi <stefanha@redhat.com>,
+        virtualization@lists.linux-foundation.org,
+        "Martin K. Petersen" <martin.petersen@oracle.com>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        linux-crypto@vger.kernel.org, netdev@vger.kernel.org,
+        "David S. Miller" <davem@davemloft.net>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <1490820507-8005-2-git-send-email-mst@redhat.com>
+Sender: linux-crypto-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 30 Mar 2017 08:49:58 +0200
-Peter Zijlstra <peterz@infradead.org> wrote:
+On Wed, 29 Mar 2017 23:48:44 +0300
+"Michael S. Tsirkin" <mst@redhat.com> wrote:
 
-> On Wed, Mar 29, 2017 at 09:44:41PM +0200, Jesper Dangaard Brouer wrote:
-> > @@ -2481,7 +2481,11 @@ void free_hot_cold_page(struct page *page, bool cold)
-> >  	unsigned long pfn = page_to_pfn(page);
-> >  	int migratetype;
-> >  
-> > -	if (in_interrupt()) {
-> > +	/*
-> > +	 * Exclude (hard) IRQ and NMI context from using the pcplists.
-> > +	 * But allow softirq context, via disabling BH.
-> > +	 */
-> > +	if (in_irq() || irqs_disabled()) {  
+> We are going to add more parameters to find_vqs, let's wrap the call so
+> we don't need to tweak all drivers every time.
 > 
-> Why do you need irqs_disabled() ? 
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> ---
+>  drivers/block/virtio_blk.c                 | 3 +--
+>  drivers/char/virtio_console.c              | 6 +++---
+>  drivers/crypto/virtio/virtio_crypto_core.c | 3 +--
+>  drivers/gpu/drm/virtio/virtgpu_kms.c       | 3 +--
+>  drivers/net/caif/caif_virtio.c             | 3 +--
+>  drivers/net/virtio_net.c                   | 3 +--
+>  drivers/rpmsg/virtio_rpmsg_bus.c           | 2 +-
+>  drivers/scsi/virtio_scsi.c                 | 3 +--
+>  drivers/virtio/virtio_balloon.c            | 3 +--
+>  drivers/virtio/virtio_input.c              | 3 +--
+>  include/linux/virtio_config.h              | 9 +++++++++
+>  net/vmw_vsock/virtio_transport.c           | 6 +++---
+>  12 files changed, 24 insertions(+), 23 deletions(-)
 
-Because further down I call local_bh_enable(), which calls
-__local_bh_enable_ip() which triggers a warning during early boot on:
-
-  WARN_ON_ONCE(in_irq() || irqs_disabled());
-
-It looks like it is for supporting CONFIG_TRACE_IRQFLAGS.
-
-
-> Also, your comment is stale, it still refers to NMI context.
-
-True, as you told me NMI is implicit, as it cannot occur.
-
-> >  		__free_pages_ok(page, 0);
-> >  		return;
-> >  	}  
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Regardless whether that context thing is the right thing to do, this
+looks like a sensible cleanup.
