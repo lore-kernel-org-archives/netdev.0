@@ -1,81 +1,77 @@
-From: Cornelia Huck <cornelia.huck@de.ibm.com>
-Subject: Re: [PATCH 4/6] virtio_net: allow specifying context for rx
-Date: Thu, 30 Mar 2017 09:26:51 +0200
-Message-ID: <20170330092651.7767dfac.cornelia.huck@de.ibm.com>
-References: <1490820507-8005-1-git-send-email-mst@redhat.com>
-        <1490820507-8005-5-git-send-email-mst@redhat.com>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: in_irq_or_nmi() and RFC patch
+Date: Thu, 30 Mar 2017 09:35:02 +0200
+Message-ID: <20170330073502.4wl66zyz7e4z4aes@hirez.programming.kicks-ass.net>
+References: <20170327171500.4beef762@redhat.com>
+ <20170327165817.GA28494@bombadil.infradead.org>
+ <20170329081219.lto7t4fwmponokzh@hirez.programming.kicks-ass.net>
+ <20170329105928.609bc581@redhat.com>
+ <20170329091949.o2kozhhdnszgwvtn@hirez.programming.kicks-ass.net>
+ <20170329181226.GA8256@bombadil.infradead.org>
+ <20170329211144.3e362ac9@redhat.com>
+ <20170329214441.08332799@redhat.com>
+ <20170330064958.uxih6ik5fkwvjqf6@hirez.programming.kicks-ass.net>
+ <20170330091223.05aa0efe@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        John Fastabend <john.fastabend@gmail.com>,
-        virtualization@lists.linux-foundation.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1490820507-8005-5-git-send-email-mst@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Matthew Wilcox <willy@infradead.org>, Pankaj Gupta <pagupta@redhat.com>,
+	Tariq Toukan <ttoukan.linux@gmail.com>,
+	Mel Gorman <mgorman@techsingularity.net>,
+	Tariq Toukan <tariqt@mellanox.com>, netdev@vger.kernel.org,
+	akpm@linux-foundation.org, linux-mm <linux-mm@kvack.org>,
+	Saeed Mahameed <saeedm@mellanox.com>, linux-kernel@vger.kernel.org,
+	Thomas Gleixner <tglx@linutronix.de>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <20170330091223.05aa0efe@redhat.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 29 Mar 2017 23:48:54 +0300
-"Michael S. Tsirkin" <mst@redhat.com> wrote:
-
-> With mergeable buffers we never use s/g for rx,
-> so allow specifying context in that case.
+On Thu, Mar 30, 2017 at 09:12:23AM +0200, Jesper Dangaard Brouer wrote:
+> On Thu, 30 Mar 2017 08:49:58 +0200
+> Peter Zijlstra <peterz@infradead.org> wrote:
 > 
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> ---
->  drivers/net/virtio_net.c | 15 ++++++++++++++-
->  1 file changed, 14 insertions(+), 1 deletion(-)
+> > On Wed, Mar 29, 2017 at 09:44:41PM +0200, Jesper Dangaard Brouer wrote:
+> > > @@ -2481,7 +2481,11 @@ void free_hot_cold_page(struct page *page, bool cold)
+> > >  	unsigned long pfn = page_to_pfn(page);
+> > >  	int migratetype;
+> > >  
+> > > -	if (in_interrupt()) {
+> > > +	/*
+> > > +	 * Exclude (hard) IRQ and NMI context from using the pcplists.
+> > > +	 * But allow softirq context, via disabling BH.
+> > > +	 */
+> > > +	if (in_irq() || irqs_disabled()) {  
+> > 
+> > Why do you need irqs_disabled() ? 
 > 
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index 6802169..340f737 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -2044,6 +2044,7 @@ static int virtnet_find_vqs(struct virtnet_info *vi)
->  	int ret = -ENOMEM;
->  	int i, total_vqs;
->  	const char **names;
-> +	const bool *ctx;
->  
->  	/* We expect 1 RX virtqueue followed by 1 TX virtqueue, followed by
->  	 * possible N-1 RX/TX queue pairs used in multiqueue mode, followed by
-> @@ -2062,6 +2063,13 @@ static int virtnet_find_vqs(struct virtnet_info *vi)
->  	names = kmalloc(total_vqs * sizeof(*names), GFP_KERNEL);
->  	if (!names)
->  		goto err_names;
-> +	if (vi->mergeable_rx_bufs) {
-> +		ctx = kzalloc(total_vqs * sizeof(*ctx), GFP_KERNEL);
-> +		if (!ctx)
-> +			goto err_ctx;
-> +	} else {
-> +		ctx = NULL;
-> +	}
->  
->  	/* Parameters for control virtqueue, if any */
->  	if (vi->has_cvq) {
-> @@ -2077,9 +2085,12 @@ static int virtnet_find_vqs(struct virtnet_info *vi)
->  		sprintf(vi->sq[i].name, "output.%d", i);
->  		names[rxq2vq(i)] = vi->rq[i].name;
->  		names[txq2vq(i)] = vi->sq[i].name;
-> +		if (ctx)
-> +			ctx[rxq2vq(i)] = true;
->  	}
->  
-> -	ret = virtio_find_vqs(vi->vdev, total_vqs, vqs, callbacks, names, NULL);
-> +	ret = vi->vdev->config->find_vqs(vi->vdev, total_vqs, vqs, callbacks,
-> +					 names, ctx, NULL);
+> Because further down I call local_bh_enable(), which calls
+> __local_bh_enable_ip() which triggers a warning during early boot on:
+> 
+>   WARN_ON_ONCE(in_irq() || irqs_disabled());
+> 
+> It looks like it is for supporting CONFIG_TRACE_IRQFLAGS.
 
-virtio_find_vqs_ctx()? (Needs to be exported, obviously.)
+Ah, no. Its because when you do things like:
 
->  	if (ret)
->  		goto err_find;
->  
-> @@ -2101,6 +2112,8 @@ static int virtnet_find_vqs(struct virtnet_info *vi)
->  	return 0;
->  
->  err_find:
-> +	kfree(ctx);
-> +err_ctx:
->  	kfree(names);
->  err_names:
->  	kfree(callbacks);
+	local_irq_disable();
+	local_bh_enable();
+	local_irq_enable();
+
+you can loose a pending softirq.
+
+Bugger.. that irqs_disabled() is something we could do without.
+
+I'm thinking that when tglx finishes his soft irq disable patches for
+x86 (same thing ppc also does) we can go revert all these patches.
+
+Thomas, see:
+
+  https://lkml.kernel.org/r/20170301144845.783f8cad@redhat.com
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
