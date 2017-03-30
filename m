@@ -1,60 +1,90 @@
-From: Madalin-Cristian Bucur <madalin.bucur@nxp.com>
-Subject: RE: [PATCH v3 1/2] net: phy: Fix PHY AN done state machine for
- interrupt driven PHYs
-Date: Thu, 30 Mar 2017 12:59:14 +0000
-Message-ID: <HE1PR04MB11297FBF0E8E2739253E0A44EC340@HE1PR04MB1129.eurprd04.prod.outlook.com>
-References: <1490180524-28675-1-git-send-email-rogerq@ti.com>
- <1490180524-28675-2-git-send-email-rogerq@ti.com>
- <078917ad-77a1-a722-1688-6203ae183a46@ti.com>
+From: Masami Hiramatsu <mhiramat@kernel.org>
+Subject: Re: [RFC PATCH tip/master 2/3] kprobes: Allocate kretprobe instance
+ if its free list is empty
+Date: Thu, 30 Mar 2017 22:01:34 +0900
+Message-ID: <20170330220134.448b65b9102edcf8ba1a2c81@kernel.org>
+References: <149076484118.24574.7083269903420611708.stgit@devbox>
+        <149076498222.24574.679546540523044200.stgit@devbox>
+        <20170329063005.GA12220@gmail.com>
+        <20170329172510.e012406497fd38a54d5069b3@kernel.org>
+        <20170330065332.GA30148@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "andrew@lunn.ch" <andrew@lunn.ch>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "kyle.roeschley@ni.com" <kyle.roeschley@ni.com>,
-        "nsekhar@ti.com" <nsekhar@ti.com>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "stable # v4 . 9+" <stable@vger.kernel.org>,
-        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-To: Roger Quadros <rogerq@ti.com>,
-        "f.fainelli@gmail.com" <f.fainelli@gmail.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db5eur01on0084.outbound.protection.outlook.com ([104.47.2.84]:19647
-        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S933173AbdC3M7T (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 30 Mar 2017 08:59:19 -0400
-In-Reply-To: <078917ad-77a1-a722-1688-6203ae183a46@ti.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Steven Rostedt <rostedt@goodmis.org>,
+        Ingo Molnar <mingo@redhat.com>,
+        Alban Crequy <alban.crequy@gmail.com>,
+        Alban Crequy <alban@kinvolk.io>,
+        Alexei Starovoitov <ast@kernel.org>,
+        Jonathan Corbet <corbet@lwn.net>,
+        Arnaldo Carvalho de Melo <acme@redhat.com>,
+        Omar Sandoval <osandov@fb.com>, linux-doc@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        iago@kinvolk.io, michael@kinvolk.io,
+        Dorau Lukasz <lukasz.dorau@intel.com>, systemtap@sourceware.org
+To: Ingo Molnar <mingo@kernel.org>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <20170330065332.GA30148@gmail.com>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On March 27, 2017 2:59 PM, Roger Quadros wrote:
-> The Ethernet link on an interrupt driven PHY was not coming up if the
-> Ethernet cable was plugged before the Ethernet interface was brought up.
->=20
-> The PHY state machine seems to be stuck from RUNNING to AN state
-> with no new interrupts from the PHY. So it doesn't know when the
-> PHY Auto-negotiation has been completed and doesn't transition to RUNNING
-> state with ANEG done thus netif_carrier_on() is never called.
->=20
-> NOTE: genphy_config_aneg() will not restart PHY Auto-negotiation of
-> advertisement parameters didn't change.
->=20
-> Fix this by scheduling the PHY state machine in phy_start_aneg().
-> There is no way of knowing in phy.c whether auto-negotiation was
-> restarted or not by the PHY driver so we just wait for the next
-> poll/interrupt to update the PHY state machine.
->=20
-> Fixes: 3c293f4e08b5 ("net: phy: Trigger state machine on state change and
-> not polling.")
-> Cc: stable <stable@vger.kernel.org> # v4.9+
-> Signed-off-by: Roger Quadros <rogerq@ti.com>
-> ---
-> v3: Fix typo in commit message
->=20
->  drivers/net/phy/phy.c | 4 ++++
->  1 file changed, 4 insertions(+)
+On Thu, 30 Mar 2017 08:53:32 +0200
+Ingo Molnar <mingo@kernel.org> wrote:
 
-Tested-by: Madalin Bucur <madalin.bucur@nxp.com>
+> 
+> * Masami Hiramatsu <mhiramat@kernel.org> wrote:
+> 
+> > > So this is something I missed while the original code was merged, but the concept 
+> > > looks a bit weird: why do we do any "allocation" while a handler is executing?
+> > > 
+> > > That's fundamentally fragile. What's the maximum number of parallel 
+> > > 'kretprobe_instance' required per kretprobe - one per CPU?
+> > 
+> > It depends on the place where we put the probe. If the probed function will be
+> > blocked (yield to other tasks), then we need a same number of threads on
+> > the system which can invoke the function. So, ultimately, it is same
+> > as function_graph tracer, we need it for each thread.
+> 
+> So then put it into task_struct (assuming there's no kretprobe-inside-kretprobe 
+> nesting allowed).
+
+No, that is possible to put several kretprobes on same thread, e.g.
+the func1() is called from func2(), user can put kretprobes for each
+function at same time.
+So the possible solution is to allocate new return-stack for each task_struct,
+and that is what the function-graph tracer did.
+
+Anyway, I'm considering to integrate kretprobe_instance with the ret_stack.
+It will increase memory usage for kretprobes, but can provide safer way
+to allocate kretprobe_instance.
+
+> There's just no way in hell we should be calling any complex 
+> kernel function from kernel probes!
+
+OK, so let's drop this, since it may easily cause deadlock... 
+
+
+> I mean, think about it, a kretprobe can be installed in a lot of places, and now 
+> we want to call get_free_pages() from it?? This would add a massive amount of 
+> fragility.
+
+I thought it was safe because GFP_ATOMIC is safe at interrupt handler.
+
+> Instrumentation must be _simple_, every patch that adds more complexity to the 
+> most fundamental code path of it should raise a red flag ...
+> 
+> So let's make this more robust, ok?
+
+Yeah, in that case, I think Alban's patch is enough at this point since
+it gives user to tune their kretprobe events not to be missed.
+
+Thank you,
+
+> 
+> Thanks,
+> 
+> 	Ingo
+
+
+-- 
+Masami Hiramatsu <mhiramat@kernel.org>
