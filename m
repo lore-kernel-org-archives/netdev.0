@@ -1,39 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH nf-next 1/1] net: tcp: Refine the __tcp_select_window
-Date: Thu, 30 Mar 2017 15:42:10 -0700 (PDT)
-Message-ID: <20170330.154210.2218850010642353664.davem@davemloft.net>
-References: <1490827759-12142-1-git-send-email-gfree.wind@foxmail.com>
+From: Joel Stanley <joel@jms.id.au>
+Subject: Re: [PATCH] net/faraday: Explicitly include linux/of.h and linux/property.h
+Date: Fri, 31 Mar 2017 09:18:57 +1030
+Message-ID: <CACPK8XfMNWG1=X79=XySTu4C4iqWGU+ytgt7z3R+RRb3mEVX8A@mail.gmail.com>
+References: <20170330160012.14824-1-broonie@kernel.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, netdev@vger.kernel.org,
-        fgao@ikuai8.com
-To: gfree.wind@foxmail.com
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S . Miller" <davem@davemloft.net>,
+        Gavin Shan <gwshan@linux.vnet.ibm.com>, netdev@vger.kernel.org
+To: Mark Brown <broonie@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:36132 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932381AbdC3WmM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 30 Mar 2017 18:42:12 -0400
-In-Reply-To: <1490827759-12142-1-git-send-email-gfree.wind@foxmail.com>
+Received: from mail-yb0-f194.google.com ([209.85.213.194]:33826 "EHLO
+        mail-yb0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932557AbdC3WtU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 30 Mar 2017 18:49:20 -0400
+Received: by mail-yb0-f194.google.com with SMTP id m133so1645307ybb.1
+        for <netdev@vger.kernel.org>; Thu, 30 Mar 2017 15:49:19 -0700 (PDT)
+In-Reply-To: <20170330160012.14824-1-broonie@kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: gfree.wind@foxmail.com
-Date: Thu, 30 Mar 2017 06:49:19 +0800
+On Fri, Mar 31, 2017 at 2:30 AM, Mark Brown <broonie@kernel.org> wrote:
+> This driver uses interfaces from linux/of.h and linux/property.h but
+> relies on implict inclusion of those headers which means that changes in
+> other headers could break the build, as happened in -next for arm today.
+> Add a explicit includes.
+>
+> Signed-off-by: Mark Brown <broonie@kernel.org>
 
-> From: Gao Feng <fgao@ikuai8.com>
-> 
-> 1. Move the "window = tp->rcv_wnd;" into the condition block without
-> tp->rx_opt.rcv_wscale.
-> Because it is unnecessary when enable wscale;
-> 
-> 2. Use the macro ALIGN instead of two statements.
-> The two statements are used to make window align to 1<<wscale.
-> Use the ALIGN is more clearer.
-> 
-> 3. Use the rounddown to make codes clearer.
-> 
-> Signed-off-by: Gao Feng <fgao@ikuai8.com>
+Acked-by: Joel Stanley <joel@jms.id.au>
 
-Applied, but please do not target non-netfilter patches using
-"nf-next" in your Subject lines.
+Thank you for fixing this Mark.
+
+Cheers,
+
+Joel
+
+> ---
+>  drivers/net/ethernet/faraday/ftgmac100.c | 2 ++
+>  1 file changed, 2 insertions(+)
+>
+> diff --git a/drivers/net/ethernet/faraday/ftgmac100.c b/drivers/net/ethernet/faraday/ftgmac100.c
+> index 928b0df2b8e0..ade6b3e4ed13 100644
+> --- a/drivers/net/ethernet/faraday/ftgmac100.c
+> +++ b/drivers/net/ethernet/faraday/ftgmac100.c
+> @@ -28,8 +28,10 @@
+>  #include <linux/io.h>
+>  #include <linux/module.h>
+>  #include <linux/netdevice.h>
+> +#include <linux/of.h>
+>  #include <linux/phy.h>
+>  #include <linux/platform_device.h>
+> +#include <linux/property.h>
+>  #include <net/ip.h>
+>  #include <net/ncsi.h>
+>
+> --
+> 2.11.0
+>
