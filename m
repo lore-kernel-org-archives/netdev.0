@@ -1,7 +1,7 @@
 From: Johan Hovold <johan@kernel.org>
-Subject: [PATCH v2 2/8] NFC: nfcmrvl_uart: add missing tty-device sanity check
-Date: Thu, 30 Mar 2017 12:15:36 +0200
-Message-ID: <20170330101542.15384-3-johan@kernel.org>
+Subject: [PATCH v2 3/8] NFC: nfcmrvl: do not use device-managed resources
+Date: Thu, 30 Mar 2017 12:15:37 +0200
+Message-ID: <20170330101542.15384-4-johan@kernel.org>
 References: <20170330101542.15384-1-johan@kernel.org>
 Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org, Johan Hovold <johan@kernel.org>,
@@ -10,55 +10,95 @@ Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
 To: Lauro Ramos Venancio <lauro.venancio@openbossa.org>,
         Aloisio Almeida Jr <aloisio.almeida@openbossa.org>,
         Samuel Ortiz <sameo@linux.intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f65.google.com ([209.85.215.65]:32875 "EHLO
+        mail-lf0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933040AbdC3KQE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 30 Mar 2017 06:16:04 -0400
 In-Reply-To: <20170330101542.15384-1-johan@kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Make sure to check the tty-device pointer before trying to access the
-parent device to avoid dereferencing a NULL-pointer when the tty is one
-end of a Unix98 pty.
+This specifically fixes resource leaks in the registration error paths.
 
-Fixes: e097dc624f78 ("NFC: nfcmrvl: add UART driver")
-Cc: stable <stable@vger.kernel.org>     # 4.2
+Device-managed resources is a bad fit for this driver as devices can be
+registered from the n_nci line discipline. Firstly, a tty may not even
+have a corresponding device (should it be part of a Unix98 pty)
+something which would lead to a NULL-pointer dereference when
+registering resources.
+
+Secondly, if the tty has a class device, its lifetime exceeds that of
+the line discipline, which means that resources would leak every time
+the line discipline is closed (or if registration fails).
+
+Currently, the devres interface was only being used to request a reset
+gpio despite the fact that it was already explicitly freed in
+nfcmrvl_nci_unregister_dev() (along with the private data), something
+which also prevented the resource leak at close.
+
+Note that the driver treats gpio number 0 as invalid despite it being
+perfectly valid. This will be addressed in a follow-up patch.
+
+Fixes: b2fe288eac72 ("NFC: nfcmrvl: free reset gpio")
+Fixes: 4a2b947f56b3 ("NFC: nfcmrvl: add chip reset management")
+Cc: stable <stable@vger.kernel.org>     # 4.2: b2fe288eac72
 Cc: Vincent Cuissard <cuissard@marvell.com>
 Signed-off-by: Johan Hovold <johan@kernel.org>
 ---
- drivers/nfc/nfcmrvl/uart.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ drivers/nfc/nfcmrvl/main.c | 19 +++++++++++--------
+ 1 file changed, 11 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/nfc/nfcmrvl/uart.c b/drivers/nfc/nfcmrvl/uart.c
-index 83a99e38e7bd..6c0c301611c4 100644
---- a/drivers/nfc/nfcmrvl/uart.c
-+++ b/drivers/nfc/nfcmrvl/uart.c
-@@ -109,6 +109,7 @@ static int nfcmrvl_nci_uart_open(struct nci_uart *nu)
- 	struct nfcmrvl_private *priv;
- 	struct nfcmrvl_platform_data *pdata = NULL;
- 	struct nfcmrvl_platform_data config;
-+	struct device *dev = nu->tty->dev;
+diff --git a/drivers/nfc/nfcmrvl/main.c b/drivers/nfc/nfcmrvl/main.c
+index 51c8240a1672..3e3fc9588f10 100644
+--- a/drivers/nfc/nfcmrvl/main.c
++++ b/drivers/nfc/nfcmrvl/main.c
+@@ -124,12 +124,13 @@ struct nfcmrvl_private *nfcmrvl_nci_register_dev(enum nfcmrvl_phy phy,
+ 	memcpy(&priv->config, pdata, sizeof(*pdata));
  
- 	/*
- 	 * Platform data cannot be used here since usually it is already used
-@@ -116,9 +117,8 @@ static int nfcmrvl_nci_uart_open(struct nci_uart *nu)
- 	 * and check if DT entries were added.
- 	 */
- 
--	if (nu->tty->dev->parent && nu->tty->dev->parent->of_node)
--		if (nfcmrvl_uart_parse_dt(nu->tty->dev->parent->of_node,
--					  &config) == 0)
-+	if (dev && dev->parent && dev->parent->of_node)
-+		if (nfcmrvl_uart_parse_dt(dev->parent->of_node, &config) == 0)
- 			pdata = &config;
- 
- 	if (!pdata) {
-@@ -131,7 +131,7 @@ static int nfcmrvl_nci_uart_open(struct nci_uart *nu)
+ 	if (priv->config.reset_n_io) {
+-		rc = devm_gpio_request_one(dev,
+-					   priv->config.reset_n_io,
+-					   GPIOF_OUT_INIT_LOW,
+-					   "nfcmrvl_reset_n");
+-		if (rc < 0)
++		rc = gpio_request_one(priv->config.reset_n_io,
++				      GPIOF_OUT_INIT_LOW,
++				      "nfcmrvl_reset_n");
++		if (rc < 0) {
++			priv->config.reset_n_io = 0;
+ 			nfc_err(dev, "failed to request reset_n io\n");
++		}
  	}
  
- 	priv = nfcmrvl_nci_register_dev(NFCMRVL_PHY_UART, nu, &uart_ops,
--					nu->tty->dev, pdata);
-+					dev, pdata);
- 	if (IS_ERR(priv))
- 		return PTR_ERR(priv);
+ 	if (phy == NFCMRVL_PHY_SPI) {
+@@ -154,7 +155,7 @@ struct nfcmrvl_private *nfcmrvl_nci_register_dev(enum nfcmrvl_phy phy,
+ 	if (!priv->ndev) {
+ 		nfc_err(dev, "nci_allocate_device failed\n");
+ 		rc = -ENOMEM;
+-		goto error;
++		goto error_free_gpio;
+ 	}
  
+ 	nci_set_drvdata(priv->ndev, priv);
+@@ -179,7 +180,9 @@ struct nfcmrvl_private *nfcmrvl_nci_register_dev(enum nfcmrvl_phy phy,
+ 
+ error_free_dev:
+ 	nci_free_device(priv->ndev);
+-error:
++error_free_gpio:
++	if (priv->config.reset_n_io)
++		gpio_free(priv->config.reset_n_io);
+ 	kfree(priv);
+ 	return ERR_PTR(rc);
+ }
+@@ -195,7 +198,7 @@ void nfcmrvl_nci_unregister_dev(struct nfcmrvl_private *priv)
+ 	nfcmrvl_fw_dnld_deinit(priv);
+ 
+ 	if (priv->config.reset_n_io)
+-		devm_gpio_free(priv->dev, priv->config.reset_n_io);
++		gpio_free(priv->config.reset_n_io);
+ 
+ 	nci_unregister_device(ndev);
+ 	nci_free_device(ndev);
 -- 
 2.12.2
