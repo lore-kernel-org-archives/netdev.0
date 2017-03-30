@@ -1,77 +1,84 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: Re: [net-next v2] vxlan: fix ND proxy when skb doesn't have transport
- header offset
-Date: Thu, 30 Mar 2017 06:36:43 -0700
-Message-ID: <CANn89i+Ms_vvuowjmgERsA3=rMdTm_Cux3XTVJ19ewTz-TtBOw@mail.gmail.com>
-References: <20170329204704.26087-1-vincent@bernat.im> <m360irs1u8.fsf@luffy.cx>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH net-next] rtnl: Add support for netdev event to link
+ messages
+Date: Thu, 30 Mar 2017 09:39:33 -0400
+Message-ID: <55cb61be-53af-315c-a376-e8f1d7bc78a6@redhat.com>
+References: <1490493587-25819-1-git-send-email-vyasevic@redhat.com>
+ <20170327.155835.1930829109806331326.davem@davemloft.net>
+ <2fe31fc9-2837-91a7-e2a4-7937bb15cf3d@redhat.com>
+ <58DBE2D9.10509@cumulusnetworks.com>
+ <8c2ab762-5b76-7a70-a096-51529d8a3edb@redhat.com>
+ <22cf1543-505e-bae0-4efb-dfdd501399c0@cumulusnetworks.com>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Roopa Prabhu <roopa@cumulusnetworks.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Jiri Benc <jbenc@redhat.com>, netdev <netdev@vger.kernel.org>
-To: Vincent Bernat <vincent@bernat.im>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Ahern <dsa@cumulusnetworks.com>,
+        Roopa Prabhu <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f42.google.com ([209.85.215.42]:35233 "EHLO
-        mail-lf0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933489AbdC3Ngq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 30 Mar 2017 09:36:46 -0400
-Received: by mail-lf0-f42.google.com with SMTP id j90so26715697lfk.2
-        for <netdev@vger.kernel.org>; Thu, 30 Mar 2017 06:36:45 -0700 (PDT)
-In-Reply-To: <m360irs1u8.fsf@luffy.cx>
+Received: from mx1.redhat.com ([209.132.183.28]:40234 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S933668AbdC3Njf (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 30 Mar 2017 09:39:35 -0400
+In-Reply-To: <22cf1543-505e-bae0-4efb-dfdd501399c0@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 29, 2017 at 11:41 PM, Vincent Bernat <vincent@bernat.im> wrote:
->  =E2=9D=A6 29 mars 2017 22:47 +0200, Vincent Bernat <vincent@bernat.im> :
->
->> Parsing of neighbor discovery options is done earlier to ignore the
->> whole packet in case of a malformed option. Moreover, the assumption the
->> skb was linear is removed and options are extracted with
->> skb_header_pointer() as well. The check on the source link-layer address
->> option is also more strict (for Ethernet, we expect the length field to
->> be 1).
->
-> There is some parsing implemented in net/ipv6/ndisc.c, notably
-> ndisc_parse_options(). I don't know if this is a good idea to reuse
-> that: it may have the expectation that some IP processing has already
-> been done (for example, the IPv6 length has already been checked, the
-> SKB is expected to be linear).
+On 03/29/2017 03:11 PM, David Ahern wrote:
+> On 3/29/17 11:05 AM, Vlad Yasevich wrote:
+>> On 03/29/2017 12:37 PM, Roopa Prabhu wrote:
+>>> On 3/29/17, 5:23 AM, Vlad Yasevich wrote:
+>>>> [ resending to list.  hit the wrong reply button last time ]
+>>>>
+>>>> On 03/27/2017 06:58 PM, David Miller wrote:
+>>>>> From: Vladislav Yasevich <vyasevich@gmail.com>
+>>>>> Date: Sat, 25 Mar 2017 21:59:47 -0400
+>>>>>
+>>>>>> RTNL currently generates notifications on some netdev notifier events.
+>>>>>> However, user space has no idea what changed.  All it sees is the
+>>>>>> data and has to infer what has changed.  For some events that is not
+>>>>>> possible.
+>>>>>>
+>>>>>> This patch adds a new field to RTM_NEWLINK message called IFLA_EVENT
+>>>>>> that would have an encoding of the which event triggered this
+>>>>>> notification.  Currectly, only 2 events (NETDEV_NOTIFY_PEERS and
+>>>>>> NETDEV_MTUCHANGED) are supported.  These events could be interesting
+>>>>>> in the virt space to trigger additional configuration commands to VMs.
+>>>>>> Other events of interest may be added later.
+>>>>>>
+>>>>>> Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
+>>>>> At what point do we start providing the metadata for the changed
+>>>>> values as well?  You'd probably need to provide both the old and
+>>>>> new values to cover all cases.
+>>>> I don't think if that would be possible because of when events are triggered.
+>>>> We send these notifications after all the changes have already been made, so
+>>>> it might be tough to carry old data.
+>>>>
+>>>> Looking at just the two events I am supporting in this patch, we could actually
+>>>> supply the old mtu data through a NETDEV_PRECHANGEMTU event, if it is necessary.
+>>>
+>>> But, NETDEV_PRECHANGEMTU will be a unnecessary notification to userspace without
+>>> changes. There are already enough notifications generated for links (I know you are not
+>>> suggesting adding it here)
+>>
+>> Actually, this one already triggers a link notification to userspace.  It just has
+>> no event data in it to tell you that. :)
+> 
+> Is it intentional or unintentional? perhaps rtnetlink_event should be a
+> whitelist -- events that userspace should be notified about. Seems like
+> NETDEV_ events have been added without rtnetlink_event getting updated.
 
-Forcing ICMP being linear is probably fine.
+I think a 'whitelist' was attempted, but as you mentioned, it hasn't been updated...
+I'll defer the definitive answer to someone else.  It seems Patrick added a comment
+in commit a2835763 to update the white list and it's been a few times.
 
-Prior to 91269e390d062b52 ("vxlan: using pskb_may_pull as early as possible=
-")
-this was happening (at the wrong place) in neigh_reduce() doing a :
-if (!pskb_may_pull(skb, skb->len))
-     goto out;
+> For example, does userspace care about NETDEV_UDP_TUNNEL_PUSH_INFO or
+> NETDEV_CHANGE_TX_QUEUE_LEN?
+> 
 
-So the following would be ok (while incomplete of course)
+Probably not the first, but possibly the second.  If txquelen is changed on a device,
+some apps might want to know about it.
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index bdb6ae16d4a85bf9539199e189011bce104ba51a..cd032819d4a36d5ca94739f20f9=
-47f3f5a31aba3
-100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -2243,12 +2243,13 @@ static netdev_tx_t vxlan_xmit(struct sk_buff
-*skb, struct net_device *dev)
-                        return arp_reduce(dev, skb, vni);
- #if IS_ENABLED(CONFIG_IPV6)
-                else if (ntohs(eth->h_proto) =3D=3D ETH_P_IPV6 &&
--                        pskb_may_pull(skb, sizeof(struct ipv6hdr)
--                                      + sizeof(struct nd_msg)) &&
-+                        skb->len >=3D sizeof(struct ipv6hdr) +
-+                                    sizeof(struct nd_msg) &&
-+                        pskb_may_pull(skb, skb->len) &&
-                         ipv6_hdr(skb)->nexthdr =3D=3D IPPROTO_ICMPV6) {
-                                struct nd_msg *msg;
-
--                               msg =3D (struct nd_msg
-*)skb_transport_header(skb);
-+                               msg =3D (struct nd_msg *)(ipv6_hdr(skb) + 1=
-);
-                                if (msg->icmph.icmp6_code =3D=3D 0 &&
-                                    msg->icmph.icmp6_type =3D=3D
-NDISC_NEIGHBOUR_SOLICITATION)
-                                        return neigh_reduce(dev, skb, vni);
+-vlad
