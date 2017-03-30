@@ -1,68 +1,53 @@
-From: Tushar Dave <tushar.n.dave@oracle.com>
-Subject: [PATCH] i40e: Check for skb->queue_mapping
-Date: Wed, 29 Mar 2017 16:57:54 -0700
-Message-ID: <1490831874-6396-1-git-send-email-tushar.n.dave@oracle.com>
-To: jeffrey.t.kirsher@intel.com, intel-wired-lan@lists.osuosl.org,
-        netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:36065 "EHLO
-        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932927AbdC3ABX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 29 Mar 2017 20:01:23 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Yi-Hung Wei <yihung.wei@gmail.com>
+Subject: [PATCH net] openvswitch: Fix ovs_flow_key_update()
+Date: Wed, 29 Mar 2017 17:14:10 -0700
+Message-ID: <1490832850-6012-1-git-send-email-yihung.wei@gmail.com>
+Cc: Yi-Hung Wei <yihung.wei@gmail.com>, linux-kernel@vger.kernel.org
+To: jbenc@redhat.com, joe@ovn.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-There are events seen where skb->queue_mapping value is greater than
-vsi->num_queue_pairs. In such cases, vsi->tx_ring becomes invalid
-(null) and xmit results in kernel panic.
+ovs_flow_key_update() is called when the flow key is invalid, and it is
+used to update and revalidate the flow key. Commit 329f45bc4f19
+("openvswitch: add mac_proto field to the flow key") introduces mac_proto
+field to flow key and use it to determine whether the flow key is valid.
+However, the commit does not update the code path in ovs_flow_key_update()
+to revalidate the flow key which may cause BUG_ON() on execute_recirc().
+This patch addresses the aforementioned issue.
 
-One such event is running netconsole and enabling VF on the same
-device. Or running netconsole and changing number of tx queues via
-ethtool on same device.
-
-This patch adds check for skb->queue_mapping and uses simple arithmetic
-to select available tx queue from driver.
-
-Signed-off-by: Tushar Dave <tushar.n.dave@oracle.com>
+Fixes: 329f45bc4f19 ("openvswitch: add mac_proto field to the flow key")
+Signed-off-by: Yi-Hung Wei <yihung.wei@gmail.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_txrx.c | 13 +++++++++++--
- 1 file changed, 11 insertions(+), 2 deletions(-)
+ net/openvswitch/flow.c | 9 +++++++++
+ 1 file changed, 9 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index 97d4605..af73675 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -3008,6 +3008,16 @@ static netdev_tx_t i40e_xmit_frame_ring(struct sk_buff *skb,
- 	return NETDEV_TX_OK;
- }
+diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
+index 9d4bb8eb63f2..bb33f5341294 100644
+--- a/net/openvswitch/flow.c
++++ b/net/openvswitch/flow.c
+@@ -53,6 +53,8 @@
+ #include "flow_netlink.h"
+ #include "vport.h"
  
-+static inline struct i40e_ring *i40e_get_txq(struct i40e_vsi *vsi,
-+					     struct sk_buff *skb)
-+{
-+	unsigned int txq = skb->queue_mapping;
++static int key_extract_mac_proto(struct sk_buff *skb);
 +
-+	if (txq >= vsi->num_queue_pairs)
-+		txq = txq % vsi->num_queue_pairs;
-+
-+	return vsi->tx_rings[txq];
-+}
- /**
-  * i40e_lan_xmit_frame - Selects the correct VSI and Tx queue to send buffer
-  * @skb:    send buffer
-@@ -3019,7 +3029,6 @@ netdev_tx_t i40e_lan_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
+ u64 ovs_flow_used_time(unsigned long flow_jiffies)
  {
- 	struct i40e_netdev_priv *np = netdev_priv(netdev);
- 	struct i40e_vsi *vsi = np->vsi;
--	struct i40e_ring *tx_ring = vsi->tx_rings[skb->queue_mapping];
+ 	struct timespec cur_ts;
+@@ -745,6 +747,13 @@ static int key_extract(struct sk_buff *skb, struct sw_flow_key *key)
  
- 	/* hardware can't handle really short frames, hardware padding works
- 	 * beyond this point
-@@ -3027,5 +3036,5 @@ netdev_tx_t i40e_lan_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
- 	if (skb_put_padto(skb, I40E_MIN_TX_LEN))
- 		return NETDEV_TX_OK;
- 
--	return i40e_xmit_frame_ring(skb, tx_ring);
-+	return i40e_xmit_frame_ring(skb, i40e_get_txq(vsi, skb));
+ int ovs_flow_key_update(struct sk_buff *skb, struct sw_flow_key *key)
+ {
++	int res;
++
++	res = key_extract_mac_proto(skb);
++	if (res < 0)
++		return res;
++	key->mac_proto = res;
++
+ 	return key_extract(skb, key);
  }
+ 
 -- 
-1.9.1
+2.7.4
