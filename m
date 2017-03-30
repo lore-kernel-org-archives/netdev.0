@@ -1,318 +1,160 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next v2 5/6] net: mpls: bump maximum number of labels
-Date: Thu, 30 Mar 2017 09:18:23 -0700
-Message-ID: <1490890704-8075-6-git-send-email-dsa@cumulusnetworks.com>
+Subject: [PATCH net-next v2 2/6] net: mpls: Convert number of nexthops to u8
+Date: Thu, 30 Mar 2017 09:18:20 -0700
+Message-ID: <1490890704-8075-3-git-send-email-dsa@cumulusnetworks.com>
 References: <1490890704-8075-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: roopa@cumulusnetworks.com, rshearma@brocade.com,
         ebiederm@xmission.com, David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f46.google.com ([74.125.83.46]:32866 "EHLO
-        mail-pg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933848AbdC3QSg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 30 Mar 2017 12:18:36 -0400
-Received: by mail-pg0-f46.google.com with SMTP id x125so44443784pgb.0
-        for <netdev@vger.kernel.org>; Thu, 30 Mar 2017 09:18:35 -0700 (PDT)
+Received: from mail-pg0-f44.google.com ([74.125.83.44]:32840 "EHLO
+        mail-pg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934295AbdC3QSd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 30 Mar 2017 12:18:33 -0400
+Received: by mail-pg0-f44.google.com with SMTP id x125so44442546pgb.0
+        for <netdev@vger.kernel.org>; Thu, 30 Mar 2017 09:18:32 -0700 (PDT)
 In-Reply-To: <1490890704-8075-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Allow users to push down more labels per MPLS route. With the previous
-patches, no memory allocations are based on MAX_NEW_LABELS; the limit
-is only used to keep userspace in check.
+Number of nexthops and number of alive nexthops are tracked using an
+unsigned int. A route should never have more than 255 nexthops so
+convert both to u8. Update all references and intermediate variables
+to consistently use u8 as well.
 
-At this point MAX_NEW_LABELS is only used for mpls_route_config (copying
-route data from userspace) and processing nexthops looking for the max
-number of labels across the route spec.
+Shrinks the size of mpls_route from 32 bytes to 24 bytes with a 2-byte
+hole before the nexthops.
 
 Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
 v2
-- increased MAX_NEW_LABELS to 30
-- allocate mpls_route_config dynamically to reduce stack usage with
-  new label count
+- label u16 hole in mpls_route as rt_reserved1
 
- net/mpls/af_mpls.c  | 103 +++++++++++++++++++++++++++++++++++-----------------
- net/mpls/internal.h |   2 +-
- 2 files changed, 71 insertions(+), 34 deletions(-)
+ net/mpls/af_mpls.c  | 28 +++++++++++++++++-----------
+ net/mpls/internal.h |  5 +++--
+ 2 files changed, 20 insertions(+), 13 deletions(-)
 
 diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
-index f84c52b6eafc..2458d7ed2ab5 100644
+index 6bdd2f95b576..665dec84f001 100644
 --- a/net/mpls/af_mpls.c
 +++ b/net/mpls/af_mpls.c
-@@ -24,7 +24,10 @@
- #include <net/nexthop.h>
- #include "internal.h"
- 
--#define MAX_NEW_LABELS 2
-+/* put a reasonable limit on the number of labels
-+ * we will accept from userspace
-+ */
-+#define MAX_NEW_LABELS	30
- 
- /* max memory we will use for mpls_route */
- #define MAX_MPLS_ROUTE_MEM	4096
-@@ -698,9 +701,6 @@ static int mpls_nh_build_from_cfg(struct mpls_route_config *cfg,
- 		return -ENOMEM;
- 
- 	err = -EINVAL;
--	/* Ensure only a supported number of labels are present */
--	if (cfg->rc_output_labels > MAX_NEW_LABELS)
--		goto errout;
- 
- 	nh->nh_labels = cfg->rc_output_labels;
- 	for (i = 0; i < nh->nh_labels; i++)
-@@ -725,7 +725,7 @@ static int mpls_nh_build_from_cfg(struct mpls_route_config *cfg,
- 
- static int mpls_nh_build(struct net *net, struct mpls_route *rt,
- 			 struct mpls_nh *nh, int oif, struct nlattr *via,
--			 struct nlattr *newdst)
-+			 struct nlattr *newdst, u8 max_labels)
+@@ -197,10 +197,10 @@ static u32 mpls_multipath_hash(struct mpls_route *rt, struct sk_buff *skb)
+ static struct mpls_nh *mpls_select_multipath(struct mpls_route *rt,
+ 					     struct sk_buff *skb)
  {
- 	int err = -ENOMEM;
+-	unsigned int alive;
+ 	u32 hash = 0;
+ 	int nh_index = 0;
+ 	int n = 0;
++	u8 alive;
  
-@@ -733,7 +733,7 @@ static int mpls_nh_build(struct net *net, struct mpls_route *rt,
- 		goto errout;
+ 	/* No need to look further into packet if there's only
+ 	 * one path
+@@ -466,7 +466,7 @@ struct mpls_route_config {
+ 	int			rc_mp_len;
+ };
  
- 	if (newdst) {
--		err = nla_get_labels(newdst, MAX_NEW_LABELS,
-+		err = nla_get_labels(newdst, max_labels,
- 				     &nh->nh_labels, nh->nh_label);
- 		if (err)
- 			goto errout;
-@@ -759,21 +759,19 @@ static int mpls_nh_build(struct net *net, struct mpls_route *rt,
+-static struct mpls_route *mpls_rt_alloc(int num_nh, u8 max_alen)
++static struct mpls_route *mpls_rt_alloc(u8 num_nh, u8 max_alen)
+ {
+ 	u8 max_alen_aligned = ALIGN(max_alen, VIA_ALEN_ALIGN);
+ 	struct mpls_route *rt;
+@@ -744,11 +744,11 @@ static int mpls_nh_build(struct net *net, struct mpls_route *rt,
+ 	return err;
  }
  
- static u8 mpls_count_nexthops(struct rtnexthop *rtnh, int len,
--			      u8 cfg_via_alen, u8 *max_via_alen)
-+			      u8 cfg_via_alen, u8 *max_via_alen,
-+			      u8 *max_labels)
+-static int mpls_count_nexthops(struct rtnexthop *rtnh, int len,
+-			       u8 cfg_via_alen, u8 *max_via_alen)
++static u8 mpls_count_nexthops(struct rtnexthop *rtnh, int len,
++			      u8 cfg_via_alen, u8 *max_via_alen)
  {
+-	int nhs = 0;
  	int remaining = len;
- 	u8 nhs = 0;
++	u8 nhs = 0;
  
--	if (!rtnh) {
--		*max_via_alen = cfg_via_alen;
--		return 1;
--	}
--
- 	*max_via_alen = 0;
-+	*max_labels = 0;
- 
- 	while (rtnh_ok(rtnh, remaining)) {
- 		struct nlattr *nla, *attrs = rtnh_attrs(rtnh);
- 		int attrlen;
-+		u8 n_labels;
- 
- 		attrlen = rtnh_attrlen(rtnh);
- 		nla = nla_find(attrs, attrlen, RTA_VIA);
-@@ -787,6 +785,13 @@ static u8 mpls_count_nexthops(struct rtnexthop *rtnh, int len,
+ 	if (!rtnh) {
+ 		*max_via_alen = cfg_via_alen;
+@@ -773,7 +773,13 @@ static int mpls_count_nexthops(struct rtnexthop *rtnh, int len,
  						      via_alen);
  		}
  
-+		nla = nla_find(attrs, attrlen, RTA_NEWDST);
-+		if (nla &&
-+		    nla_get_labels(nla, MAX_NEW_LABELS, &n_labels, NULL) != 0)
++		/* number of nexthops is tracked by a u8.
++		 * Check for overflow.
++		 */
++		if (nhs == 255)
 +			return 0;
+ 		nhs++;
 +
-+		*max_labels = max_t(u8, *max_labels, n_labels);
-+
- 		/* number of nexthops is tracked by a u8.
- 		 * Check for overflow.
- 		 */
-@@ -802,7 +807,7 @@ static u8 mpls_count_nexthops(struct rtnexthop *rtnh, int len,
- }
+ 		rtnh = rtnh_next(rtnh, &remaining);
+ 	}
  
- static int mpls_nh_build_multi(struct mpls_route_config *cfg,
--			       struct mpls_route *rt)
-+			       struct mpls_route *rt, u8 max_labels)
- {
+@@ -787,8 +793,8 @@ static int mpls_nh_build_multi(struct mpls_route_config *cfg,
  	struct rtnexthop *rtnh = cfg->rc_mp;
  	struct nlattr *nla_via, *nla_newdst;
-@@ -835,7 +840,8 @@ static int mpls_nh_build_multi(struct mpls_route_config *cfg,
- 		}
+ 	int remaining = cfg->rc_mp_len;
+-	int nhs = 0;
+ 	int err = 0;
++	u8 nhs = 0;
  
- 		err = mpls_nh_build(cfg->rc_nlinfo.nl_net, rt, nh,
--				    rtnh->rtnh_ifindex, nla_via, nla_newdst);
-+				    rtnh->rtnh_ifindex, nla_via, nla_newdst,
-+				    max_labels);
- 		if (err)
- 			goto errout;
- 
-@@ -862,6 +868,7 @@ static int mpls_route_add(struct mpls_route_config *cfg)
+ 	change_nexthops(rt) {
+ 		int attrlen;
+@@ -842,7 +848,7 @@ static int mpls_route_add(struct mpls_route_config *cfg)
  	int err = -EINVAL;
  	u8 max_via_alen;
  	unsigned index;
-+	u8 max_labels;
- 	u8 nhs;
+-	int nhs;
++	u8 nhs;
  
  	index = cfg->rc_label;
-@@ -900,13 +907,21 @@ static int mpls_route_add(struct mpls_route_config *cfg)
- 		goto errout;
  
- 	err = -EINVAL;
--	nhs = mpls_count_nexthops(cfg->rc_mp, cfg->rc_mp_len,
--				  cfg->rc_via_alen, &max_via_alen);
-+	if (cfg->rc_mp) {
-+		nhs = mpls_count_nexthops(cfg->rc_mp, cfg->rc_mp_len,
-+					  cfg->rc_via_alen, &max_via_alen,
-+					  &max_labels);
-+	} else {
-+		max_via_alen = cfg->rc_via_alen;
-+		max_labels = cfg->rc_output_labels;
-+		nhs = 1;
-+	}
-+
- 	if (nhs == 0)
- 		goto errout;
- 
- 	err = -ENOMEM;
--	rt = mpls_rt_alloc(nhs, max_via_alen, MAX_NEW_LABELS);
-+	rt = mpls_rt_alloc(nhs, max_via_alen, max_labels);
- 	if (IS_ERR(rt)) {
- 		err = PTR_ERR(rt);
- 		goto errout;
-@@ -917,7 +932,7 @@ static int mpls_route_add(struct mpls_route_config *cfg)
- 	rt->rt_ttl_propagate = cfg->rc_ttl_propagate;
- 
- 	if (cfg->rc_mp)
--		err = mpls_nh_build_multi(cfg, rt);
-+		err = mpls_nh_build_multi(cfg, rt, max_labels);
- 	else
- 		err = mpls_nh_build_from_cfg(cfg, rt);
- 	if (err)
-@@ -1531,16 +1546,18 @@ int nla_put_labels(struct sk_buff *skb, int attrtype,
- EXPORT_SYMBOL_GPL(nla_put_labels);
- 
- int nla_get_labels(const struct nlattr *nla,
--		   u32 max_labels, u8 *labels, u32 label[])
-+		   u8 max_labels, u8 *labels, u32 label[])
+@@ -1310,7 +1316,7 @@ static void mpls_ifdown(struct net_device *dev, int event)
  {
- 	unsigned len = nla_len(nla);
--	unsigned nla_labels;
- 	struct mpls_shim_hdr *nla_label;
-+	u8 nla_labels;
- 	bool bos;
- 	int i;
+ 	struct mpls_route __rcu **platform_label;
+ 	struct net *net = dev_net(dev);
+-	unsigned int alive, deleted;
++	u8 alive, deleted;
+ 	unsigned index;
  
--	/* len needs to be an even multiple of 4 (the label size) */
--	if (len & 3)
-+	/* len needs to be an even multiple of 4 (the label size). Number
-+	 * of labels is a u8 so check for overflow.
-+	 */
-+	if (len & 3 || len / 4 > 255)
- 		return -EINVAL;
+ 	platform_label = rtnl_dereference(net->mpls.platform_label);
+@@ -1362,7 +1368,7 @@ static void mpls_ifup(struct net_device *dev, unsigned int flags)
+ 	struct mpls_route __rcu **platform_label;
+ 	struct net *net = dev_net(dev);
+ 	unsigned index;
+-	int alive;
++	u8 alive;
  
- 	/* Limit the number of new labels allowed */
-@@ -1548,6 +1565,10 @@ int nla_get_labels(const struct nlattr *nla,
- 	if (nla_labels > max_labels)
- 		return -EINVAL;
+ 	platform_label = rtnl_dereference(net->mpls.platform_label);
+ 	for (index = 0; index < net->mpls.platform_labels; index++) {
+@@ -1786,8 +1792,8 @@ static int mpls_dump_route(struct sk_buff *skb, u32 portid, u32 seq, int event,
+ 	} else {
+ 		struct rtnexthop *rtnh;
+ 		struct nlattr *mp;
+-		int dead = 0;
+-		int linkdown = 0;
++		u8 linkdown = 0;
++		u8 dead = 0;
  
-+	/* when label == NULL, caller wants number of labels */
-+	if (!label)
-+		goto out;
-+
- 	nla_label = nla_data(nla);
- 	bos = true;
- 	for (i = nla_labels - 1; i >= 0; i--, bos = false) {
-@@ -1571,6 +1592,7 @@ int nla_get_labels(const struct nlattr *nla,
- 
- 		label[i] = dec.label;
- 	}
-+out:
- 	*labels = nla_labels;
- 	return 0;
- }
-@@ -1632,7 +1654,6 @@ static int rtm_to_route_config(struct sk_buff *skb,  struct nlmsghdr *nlh,
- 
- 	err = -EINVAL;
- 	rtm = nlmsg_data(nlh);
--	memset(cfg, 0, sizeof(*cfg));
- 
- 	if (rtm->rtm_family != AF_MPLS)
- 		goto errout;
-@@ -1731,27 +1752,43 @@ static int rtm_to_route_config(struct sk_buff *skb,  struct nlmsghdr *nlh,
- 
- static int mpls_rtm_delroute(struct sk_buff *skb, struct nlmsghdr *nlh)
- {
--	struct mpls_route_config cfg;
-+	struct mpls_route_config *cfg;
- 	int err;
- 
--	err = rtm_to_route_config(skb, nlh, &cfg);
-+	cfg = kzalloc(sizeof(*cfg), GFP_KERNEL);
-+	if (!cfg)
-+		return -ENOMEM;
-+
-+	err = rtm_to_route_config(skb, nlh, cfg);
- 	if (err < 0)
--		return err;
-+		goto out;
- 
--	return mpls_route_del(&cfg);
-+	err = mpls_route_del(cfg);
-+out:
-+	kfree(cfg);
-+
-+	return err;
- }
- 
- 
- static int mpls_rtm_newroute(struct sk_buff *skb, struct nlmsghdr *nlh)
- {
--	struct mpls_route_config cfg;
-+	struct mpls_route_config *cfg;
- 	int err;
- 
--	err = rtm_to_route_config(skb, nlh, &cfg);
-+	cfg = kzalloc(sizeof(*cfg), GFP_KERNEL);
-+	if (!cfg)
-+		return -ENOMEM;
-+
-+	err = rtm_to_route_config(skb, nlh, cfg);
- 	if (err < 0)
--		return err;
-+		goto out;
- 
--	return mpls_route_add(&cfg);
-+	err = mpls_route_add(cfg);
-+out:
-+	kfree(cfg);
-+
-+	return err;
- }
- 
- static int mpls_dump_route(struct sk_buff *skb, u32 portid, u32 seq, int event,
-@@ -1980,7 +2017,7 @@ static int resize_platform_label_table(struct net *net, size_t limit)
- 	/* In case the predefined labels need to be populated */
- 	if (limit > MPLS_LABEL_IPV4NULL) {
- 		struct net_device *lo = net->loopback_dev;
--		rt0 = mpls_rt_alloc(1, lo->addr_len, MAX_NEW_LABELS);
-+		rt0 = mpls_rt_alloc(1, lo->addr_len, 0);
- 		if (IS_ERR(rt0))
- 			goto nort0;
- 		RCU_INIT_POINTER(rt0->rt_nh->nh_dev, lo);
-@@ -1994,7 +2031,7 @@ static int resize_platform_label_table(struct net *net, size_t limit)
- 	}
- 	if (limit > MPLS_LABEL_IPV6NULL) {
- 		struct net_device *lo = net->loopback_dev;
--		rt2 = mpls_rt_alloc(1, lo->addr_len, MAX_NEW_LABELS);
-+		rt2 = mpls_rt_alloc(1, lo->addr_len, 0);
- 		if (IS_ERR(rt2))
- 			goto nort2;
- 		RCU_INIT_POINTER(rt2->rt_nh->nh_dev, lo);
+ 		mp = nla_nest_start(skb, RTA_MULTIPATH);
+ 		if (!mp)
 diff --git a/net/mpls/internal.h b/net/mpls/internal.h
-index cc324c022049..c5d2f5bc37ec 100644
+index 91419fe63464..2ac97433c3b7 100644
 --- a/net/mpls/internal.h
 +++ b/net/mpls/internal.h
-@@ -197,7 +197,7 @@ static inline struct mpls_dev *mpls_dev_get(const struct net_device *dev)
+@@ -127,12 +127,13 @@ struct mpls_route { /* next hop label forwarding entry */
+ 	u8			rt_payload_type;
+ 	u8			rt_max_alen;
+ 	u8			rt_ttl_propagate;
+-	unsigned int		rt_nhn;
++	u8			rt_nhn;
  
- int nla_put_labels(struct sk_buff *skb, int attrtype,  u8 labels,
- 		   const u32 label[]);
--int nla_get_labels(const struct nlattr *nla, u32 max_labels, u8 *labels,
-+int nla_get_labels(const struct nlattr *nla, u8 max_labels, u8 *labels,
- 		   u32 label[]);
- int nla_get_via(const struct nlattr *nla, u8 *via_alen, u8 *via_table,
- 		u8 via[]);
+ 	/* rt_nhn_alive is accessed under RCU in the packet path; it
+ 	 * is modified handling netdev events with rtnl lock held
+ 	 */
+-	unsigned int		rt_nhn_alive;
++	u8			rt_nhn_alive;
++	u16			rt_reserved1;
+ 	struct mpls_nh		rt_nh[0];
+ };
+ 
 -- 
 2.1.4
