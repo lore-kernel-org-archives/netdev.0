@@ -1,7 +1,7 @@
 From: Salil Mehta <salil.mehta@huawei.com>
-Subject: [PATCH net 16/19] net: hns: Simplify the exception sequence in hns_ppe_init()
-Date: Thu, 30 Mar 2017 16:31:03 +0100
-Message-ID: <20170330153106.14344-17-salil.mehta@huawei.com>
+Subject: [PATCH net 17/19] net: hns: Adjust the SBM module buffer threshold
+Date: Thu, 30 Mar 2017 16:31:04 +0100
+Message-ID: <20170330153106.14344-18-salil.mehta@huawei.com>
 References: <20170330153106.14344-1-salil.mehta@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -17,61 +17,48 @@ List-Id: netdev.vger.kernel.org
 
 From: Kejian Yan <yankejian@huawei.com>
 
-We need to free all ppe submodule if it fails to initialize ppe by
-any fault, so this patch will free all ppe resource before
-hns_ppe_init() returns exception situation
+HNS needs SMB Buffers to store at least two packets after sending
+pause frame because of the link delay. The MTU of HNS is 9728. As
+the processor user manual described, the SBM buffer threshold should
+be modified.
 
-Reported-by: JinchuanTian <tianjinchuan1@huawei.com>
+Reported-by: Ping Zhang <zhangping5@huawei.com>
 Signed-off-by: Kejian Yan <yankejian@huawei.com>
 Reviewed-by: Salil Mehta <salil.mehta@huawei.com>
 Signed-off-by: Salil Mehta <salil.mehta@huawei.com>
 ---
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c | 17 ++++++++---------
- 1 file changed, 8 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
-index 6ea8722..eba406b 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
-@@ -496,17 +496,17 @@ void hns_ppe_get_stats(struct hns_ppe_cb *ppe_cb, u64 *data)
-  */
- int hns_ppe_init(struct dsaf_device *dsaf_dev)
- {
--	int i, k;
- 	int ret;
-+	int i;
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
+index abd8aec..d07b4fe 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
+@@ -510,10 +510,10 @@ static void hns_dsafv2_sbm_bp_wl_cfg(struct dsaf_device *dsaf_dev)
+ 		o_sbm_bp_cfg = dsaf_read_dev(dsaf_dev, reg);
+ 		dsaf_set_field(o_sbm_bp_cfg,
+ 			       DSAFV2_SBM_CFG3_SET_BUF_NUM_NO_PFC_M,
+-			       DSAFV2_SBM_CFG3_SET_BUF_NUM_NO_PFC_S, 48);
++			       DSAFV2_SBM_CFG3_SET_BUF_NUM_NO_PFC_S, 55);
+ 		dsaf_set_field(o_sbm_bp_cfg,
+ 			       DSAFV2_SBM_CFG3_RESET_BUF_NUM_NO_PFC_M,
+-			       DSAFV2_SBM_CFG3_RESET_BUF_NUM_NO_PFC_S, 80);
++			       DSAFV2_SBM_CFG3_RESET_BUF_NUM_NO_PFC_S, 110);
+ 		dsaf_write_dev(dsaf_dev, reg, o_sbm_bp_cfg);
  
- 	for (i = 0; i < HNS_PPE_COM_NUM; i++) {
- 		ret = hns_ppe_common_get_cfg(dsaf_dev, i);
- 		if (ret)
--			goto get_ppe_cfg_fail;
-+			goto get_cfg_fail;
- 
- 		ret = hns_rcb_common_get_cfg(dsaf_dev, i);
- 		if (ret)
--			goto get_rcb_cfg_fail;
-+			goto get_cfg_fail;
- 
- 		hns_ppe_get_cfg(dsaf_dev->ppe_common[i]);
- 
-@@ -518,13 +518,12 @@ int hns_ppe_init(struct dsaf_device *dsaf_dev)
- 
- 	return 0;
- 
--get_rcb_cfg_fail:
--	hns_ppe_common_free_cfg(dsaf_dev, i);
--get_ppe_cfg_fail:
--	for (k = i - 1; k >= 0; k--) {
--		hns_rcb_common_free_cfg(dsaf_dev, k);
--		hns_ppe_common_free_cfg(dsaf_dev, k);
-+get_cfg_fail:
-+	for (i = 0; i < HNS_PPE_COM_NUM; i++) {
-+		hns_rcb_common_free_cfg(dsaf_dev, i);
-+		hns_ppe_common_free_cfg(dsaf_dev, i);
+ 		/* for no enable pfc mode */
+@@ -521,10 +521,10 @@ static void hns_dsafv2_sbm_bp_wl_cfg(struct dsaf_device *dsaf_dev)
+ 		o_sbm_bp_cfg = dsaf_read_dev(dsaf_dev, reg);
+ 		dsaf_set_field(o_sbm_bp_cfg,
+ 			       DSAFV2_SBM_CFG4_SET_BUF_NUM_NO_PFC_M,
+-			       DSAFV2_SBM_CFG4_SET_BUF_NUM_NO_PFC_S, 192);
++			       DSAFV2_SBM_CFG4_SET_BUF_NUM_NO_PFC_S, 128);
+ 		dsaf_set_field(o_sbm_bp_cfg,
+ 			       DSAFV2_SBM_CFG4_RESET_BUF_NUM_NO_PFC_M,
+-			       DSAFV2_SBM_CFG4_RESET_BUF_NUM_NO_PFC_S, 240);
++			       DSAFV2_SBM_CFG4_RESET_BUF_NUM_NO_PFC_S, 192);
+ 		dsaf_write_dev(dsaf_dev, reg, o_sbm_bp_cfg);
  	}
-+
- 	return ret;
- }
  
 -- 
 2.7.4
