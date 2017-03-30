@@ -1,153 +1,48 @@
-From: Nathan Fontenot <nfont@linux.vnet.ibm.com>
-Subject: [PATCH net 7/7] ibmvnic: Cleanup failure path in ibmvnic_open
-Date: Thu, 30 Mar 2017 02:49:29 -0400
-Message-ID: <20170330064929.20309.58065.stgit@ltcalpine2-lp23.aus.stglabs.ibm.com>
-References: <20170330064542.20309.17448.stgit@ltcalpine2-lp23.aus.stglabs.ibm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] ftgmac100: Mostly rewrite the driver
+Date: Wed, 29 Mar 2017 20:15:17 -0700 (PDT)
+Message-ID: <20170329.201517.300684629549047939.davem@davemloft.net>
+References: <e019331d-7050-ca6d-7f27-73878e290f7a@gmail.com>
+        <1490821714.3177.189.camel@kernel.crashing.org>
+        <1490834778.3177.197.camel@kernel.crashing.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jallen@linux.vnet.ibm.com, tlfalcon@linux.vnet.ibm.com
-To: netdev@vger.kernel.org
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org
+To: benh@kernel.crashing.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:41297 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1754450AbdC3DAK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 29 Mar 2017 23:00:10 -0400
-Received: from pps.filterd (m0098416.ppops.net [127.0.0.1])
-        by mx0b-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v2U2sUEw031938
-        for <netdev@vger.kernel.org>; Wed, 29 Mar 2017 23:00:08 -0400
-Received: from e16.ny.us.ibm.com (e16.ny.us.ibm.com [129.33.205.206])
-        by mx0b-001b2d01.pphosted.com with ESMTP id 29gfk28kf0-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Wed, 29 Mar 2017 23:00:08 -0400
-Received: from localhost
-        by e16.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <nfont@linux.vnet.ibm.com>;
-        Wed, 29 Mar 2017 23:00:07 -0400
-In-Reply-To: <20170330064542.20309.17448.stgit@ltcalpine2-lp23.aus.stglabs.ibm.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:54038 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753613AbdC3DPY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 29 Mar 2017 23:15:24 -0400
+In-Reply-To: <1490834778.3177.197.camel@kernel.crashing.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Now that ibmvnic_release_resources will clean up all of our resources
-properly, even if they were not allocated, we can just call this
-for failues in ibmvnic_open.
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Date: Thu, 30 Mar 2017 11:46:18 +1100
 
-This patch also moves the ibmvnic_release_resources() routine up
-in the file to avoid creating a forward declaration ad re-names it to
-drop the ibmvnic prefix.
+> On Thu, 2017-03-30 at 08:08 +1100, Benjamin Herrenschmidt wrote:
+>> On Wed, 2017-03-29 at 11:08 -0700, Florian Fainelli wrote:
+>> > I hear your point that you are the only users of the driver and
+>> > it's
+>> > already in a bad shape, but take this as an opportunity to increase
+>> > your commit count ;)
+>> 
+>> Haha, my commit count is fine thanks ;-)
+>> 
+>> I'll see what I can do. I need to respin anyway, I haven't tested
+>> the netpoll support and it doesn't build (ugh). So I'll try to break
+>> it down. Maybe not 200 patches but I'll see if I can make it more
+>> palatable.
+> 
+> FYI, Dave, Florian
+> 
+> I've started re-doing the work in the form of a series of patches.
+> 
+> I can't promise I'll manage to make them all really small but I'll
+> do my best. So hold onto reviewing if you haven't started already.
+> 
+> The end result will, I hope, be identical.
 
-Signed-off-by: Nathan Fontenot <nfont@linux.vnet.ibm.com>
----
- drivers/net/ethernet/ibm/ibmvnic.c |   51 +++++++++++++-----------------------
- 1 file changed, 19 insertions(+), 32 deletions(-)
-
-diff --git a/drivers/net/ethernet/ibm/ibmvnic.c b/drivers/net/ethernet/ibm/ibmvnic.c
-index a2f972d..7ba43cf 100644
---- a/drivers/net/ethernet/ibm/ibmvnic.c
-+++ b/drivers/net/ethernet/ibm/ibmvnic.c
-@@ -578,13 +578,23 @@ static int ibmvnic_login(struct net_device *netdev)
- 	return 0;
- }
- 
-+static void release_resources(struct ibmvnic_adapter *adapter)
-+{
-+	release_bounce_buffer(adapter);
-+	release_tx_pools(adapter);
-+	release_rx_pools(adapter);
-+
-+	release_sub_crqs(adapter);
-+	release_crq_queue(adapter);
-+
-+	release_stats_token(adapter);
-+}
-+
- static int ibmvnic_open(struct net_device *netdev)
- {
- 	struct ibmvnic_adapter *adapter = netdev_priv(netdev);
- 	struct device *dev = &adapter->vdev->dev;
- 	union ibmvnic_crq crq;
--	int rxadd_subcrqs;
--	int tx_subcrqs;
- 	int rc = 0;
- 	int i;
- 
-@@ -610,16 +620,11 @@ static int ibmvnic_open(struct net_device *netdev)
- 		return -1;
- 	}
- 
--	rxadd_subcrqs =
--	    be32_to_cpu(adapter->login_rsp_buf->num_rxadd_subcrqs);
--	tx_subcrqs =
--	    be32_to_cpu(adapter->login_rsp_buf->num_txsubm_subcrqs);
--
- 	adapter->map_id = 1;
- 	adapter->napi = kcalloc(adapter->req_rx_queues,
- 				sizeof(struct napi_struct), GFP_KERNEL);
- 	if (!adapter->napi)
--		goto alloc_napi_failed;
-+		goto ibmvnic_open_fail;
- 	for (i = 0; i < adapter->req_rx_queues; i++) {
- 		netif_napi_add(netdev, &adapter->napi[i], ibmvnic_poll,
- 			       NAPI_POLL_WEIGHT);
-@@ -630,15 +635,15 @@ static int ibmvnic_open(struct net_device *netdev)
- 
- 	rc = init_rx_pools(netdev);
- 	if (rc)
--		goto rx_pool_failed;
-+		goto ibmvnic_open_fail;
- 
- 	rc = init_tx_pools(netdev);
- 	if (rc)
--		goto tx_pool_failed;
-+		goto ibmvnic_open_fail;
- 
- 	rc = init_bounce_buffer(netdev);
- 	if (rc)
--		goto bounce_init_failed;
-+		goto ibmvnic_open_fail;
- 
- 	replenish_pools(adapter);
- 
-@@ -662,31 +667,13 @@ static int ibmvnic_open(struct net_device *netdev)
- 
- 	return 0;
- 
--bounce_init_failed:
--	i = tx_subcrqs - 1;
--	kfree(adapter->tx_pool[i].free_map);
--tx_pool_failed:
--	i = rxadd_subcrqs;
--rx_pool_failed:
-+ibmvnic_open_fail:
- 	for (i = 0; i < adapter->req_rx_queues; i++)
- 		napi_disable(&adapter->napi[i]);
--alloc_napi_failed:
--	release_sub_crqs(adapter);
-+	release_resources(adapter);
- 	return -ENOMEM;
- }
- 
--static void ibmvnic_release_resources(struct ibmvnic_adapter *adapter)
--{
--	release_bounce_buffer(adapter);
--	release_tx_pools(adapter);
--	release_rx_pools(adapter);
--
--	release_sub_crqs(adapter);
--	release_crq_queue(adapter);
--
--	release_stats_token(adapter);
--}
--
- static int ibmvnic_close(struct net_device *netdev)
- {
- 	struct ibmvnic_adapter *adapter = netdev_priv(netdev);
-@@ -707,7 +694,7 @@ static int ibmvnic_close(struct net_device *netdev)
- 	crq.logical_link_state.link_state = IBMVNIC_LOGICAL_LNK_DN;
- 	ibmvnic_send_crq(adapter, &crq);
- 
--	ibmvnic_release_resources(adapter);
-+	release_resources(adapter);
- 
- 	adapter->is_closed = true;
- 	adapter->closing = false;
+Thanks for doing this.
