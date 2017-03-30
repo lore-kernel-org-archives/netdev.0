@@ -1,83 +1,97 @@
-From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH] net: batman-adv: use new api ethtool_{get|set}_link_ksettings
-Date: Thu, 30 Mar 2017 23:01:27 +0200
-Message-ID: <1490907687-11784-1-git-send-email-tremyfr@gmail.com>
-Cc: b.a.t.m.a.n@lists.open-mesh.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, Philippe Reynes <tremyfr@gmail.com>
-To: mareklindner@neomailbox.ch, sw@simonwunderlich.de, a@unstable.cc,
-        davem@davemloft.net
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v2 5/9] net: dsa: mv88e6xxx: rework in-chip bridging
+Date: Thu, 30 Mar 2017 17:37:11 -0400
+Message-ID: <20170330213715.9666-6-vivien.didelot@savoirfairelinux.com>
+References: <20170330213715.9666-1-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170330213715.9666-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The ethtool api {get|set}_settings is deprecated.
-We move this driver to new api {get|set}_link_ksettings.
+All ports -- internal and external, for chips featuring a PVT -- have a
+mask restricting to which internal ports a frame is allowed to egress.
 
-I've only compiled this change. If someone may test it,
-it would be very nice.
+Now that DSA exposes the number of ports and their bridge devices, it is
+possible to extract the code generating the VLAN map and make it generic
+so that it can be shared later with the cross-chip bridging code.
 
-Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 ---
- net/batman-adv/soft-interface.c |   25 ++++++++++++-------------
- 1 files changed, 12 insertions(+), 13 deletions(-)
+ drivers/net/dsa/mv88e6xxx/chip.c | 53 ++++++++++++++++++++++++++--------------
+ 1 file changed, 34 insertions(+), 19 deletions(-)
 
-diff --git a/net/batman-adv/soft-interface.c b/net/batman-adv/soft-interface.c
-index d042c99..07f6627 100644
---- a/net/batman-adv/soft-interface.c
-+++ b/net/batman-adv/soft-interface.c
-@@ -64,7 +64,8 @@
- #include "sysfs.h"
- #include "translation-table.h"
- 
--static int batadv_get_settings(struct net_device *dev, struct ethtool_cmd *cmd);
-+static int batadv_get_link_ksettings(struct net_device *dev,
-+				     struct ethtool_link_ksettings *cmd);
- static void batadv_get_drvinfo(struct net_device *dev,
- 			       struct ethtool_drvinfo *info);
- static u32 batadv_get_msglevel(struct net_device *dev);
-@@ -76,7 +77,6 @@ static void batadv_get_ethtool_stats(struct net_device *dev,
- static int batadv_get_sset_count(struct net_device *dev, int stringset);
- 
- static const struct ethtool_ops batadv_ethtool_ops = {
--	.get_settings = batadv_get_settings,
- 	.get_drvinfo = batadv_get_drvinfo,
- 	.get_msglevel = batadv_get_msglevel,
- 	.set_msglevel = batadv_set_msglevel,
-@@ -84,6 +84,7 @@ static void batadv_get_ethtool_stats(struct net_device *dev,
- 	.get_strings = batadv_get_strings,
- 	.get_ethtool_stats = batadv_get_ethtool_stats,
- 	.get_sset_count = batadv_get_sset_count,
-+	.get_link_ksettings = batadv_get_link_ksettings,
- };
- 
- int batadv_skb_head_push(struct sk_buff *skb, unsigned int len)
-@@ -1085,18 +1086,16 @@ struct rtnl_link_ops batadv_link_ops __read_mostly = {
- };
- 
- /* ethtool */
--static int batadv_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
-+static int batadv_get_link_ksettings(struct net_device *dev,
-+				     struct ethtool_link_ksettings *cmd)
- {
--	cmd->supported = 0;
--	cmd->advertising = 0;
--	ethtool_cmd_speed_set(cmd, SPEED_10);
--	cmd->duplex = DUPLEX_FULL;
--	cmd->port = PORT_TP;
--	cmd->phy_address = 0;
--	cmd->transceiver = XCVR_INTERNAL;
--	cmd->autoneg = AUTONEG_DISABLE;
--	cmd->maxtxpkt = 0;
--	cmd->maxrxpkt = 0;
-+	ethtool_link_ksettings_zero_link_mode(cmd, supported);
-+	ethtool_link_ksettings_zero_link_mode(cmd, advertising);
-+	cmd->base.speed = SPEED_10;
-+	cmd->base.duplex = DUPLEX_FULL;
-+	cmd->base.port = PORT_TP;
-+	cmd->base.phy_address = 0;
-+	cmd->base.autoneg = AUTONEG_DISABLE;
- 
- 	return 0;
+diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
+index 28bdfadbf050..9b2d369715d7 100644
+--- a/drivers/net/dsa/mv88e6xxx/chip.c
++++ b/drivers/net/dsa/mv88e6xxx/chip.c
+@@ -1123,27 +1123,42 @@ static int mv88e6xxx_set_eee(struct dsa_switch *ds, int port,
+ 	return err;
  }
+ 
++static u16 mv88e6xxx_port_vlan(struct mv88e6xxx_chip *chip, int dev, int port)
++{
++	struct dsa_switch *ds = NULL;
++	struct net_device *br;
++	u16 pvlan;
++	int i;
++
++	if (dev < DSA_MAX_SWITCHES)
++		ds = chip->ds->dst->ds[dev];
++
++	/* Prevent frames from unknown switch or port */
++	if (!ds || port >= ds->num_ports)
++		return 0;
++
++	/* Frames from DSA links and CPU ports can egress any local port */
++	if (dsa_is_cpu_port(ds, port) || dsa_is_dsa_port(ds, port))
++		return mv88e6xxx_port_mask(chip);
++
++	br = ds->ports[port].bridge_dev;
++	pvlan = 0;
++
++	/* Frames from user ports can egress any local DSA links and CPU ports,
++	 * as well as any local member of their bridge group.
++	 */
++	for (i = 0; i < mv88e6xxx_num_ports(chip); ++i)
++		if (dsa_is_cpu_port(chip->ds, i) ||
++		    dsa_is_dsa_port(chip->ds, i) ||
++		    (br && chip->ds->ports[i].bridge_dev == br))
++			pvlan |= BIT(i);
++
++	return pvlan;
++}
++
+ static int _mv88e6xxx_port_based_vlan_map(struct mv88e6xxx_chip *chip, int port)
+ {
+-	struct dsa_switch *ds = chip->ds;
+-	struct net_device *bridge = ds->ports[port].bridge_dev;
+-	u16 output_ports = 0;
+-	int i;
+-
+-	/* allow CPU port or DSA link(s) to send frames to every port */
+-	if (dsa_is_cpu_port(ds, port) || dsa_is_dsa_port(ds, port)) {
+-		output_ports = ~0;
+-	} else {
+-		for (i = 0; i < mv88e6xxx_num_ports(chip); ++i) {
+-			/* allow sending frames to every group member */
+-			if (bridge && ds->ports[i].bridge_dev == bridge)
+-				output_ports |= BIT(i);
+-
+-			/* allow sending frames to CPU port and DSA link(s) */
+-			if (dsa_is_cpu_port(ds, i) || dsa_is_dsa_port(ds, i))
+-				output_ports |= BIT(i);
+-		}
+-	}
++	u16 output_ports = mv88e6xxx_port_vlan(chip, chip->ds->index, port);
+ 
+ 	/* prevent frames from going back out of the port they came in on */
+ 	output_ports &= ~BIT(port);
 -- 
-1.7.4.4
+2.12.1
