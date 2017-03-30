@@ -1,54 +1,50 @@
-From: Yi-Hung Wei <yihung.wei@gmail.com>
-Subject: [PATCH net v2] openvswitch: Fix ovs_flow_key_update()
-Date: Thu, 30 Mar 2017 12:36:03 -0700
-Message-ID: <1490902563-19288-1-git-send-email-yihung.wei@gmail.com>
-Cc: Yi-Hung Wei <yihung.wei@gmail.com>, linux-kernel@vger.kernel.org
-To: jbenc@redhat.com, joe@ovn.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH v3 1/2] net: phy: Fix PHY AN done state machine for
+ interrupt driven PHYs
+Date: Thu, 30 Mar 2017 13:02:21 -0700
+Message-ID: <d536d55f-8f13-59f9-ca85-04f6ca88c811@gmail.com>
+References: <1490180524-28675-1-git-send-email-rogerq@ti.com>
+ <1490180524-28675-2-git-send-email-rogerq@ti.com>
+ <078917ad-77a1-a722-1688-6203ae183a46@ti.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: andrew@lunn.ch, davem@davemloft.net, kyle.roeschley@ni.com,
+        nsekhar@ti.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        "stable # v4 . 9+" <stable@vger.kernel.org>,
+        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+To: Roger Quadros <rogerq@ti.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f196.google.com ([209.85.220.196]:32864 "EHLO
+        mail-qk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934033AbdC3UC0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 30 Mar 2017 16:02:26 -0400
+In-Reply-To: <078917ad-77a1-a722-1688-6203ae183a46@ti.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-ovs_flow_key_update() is called when the flow key is invalid, and it is
-used to update and revalidate the flow key. Commit 329f45bc4f19
-("openvswitch: add mac_proto field to the flow key") introduces mac_proto
-field to flow key and use it to determine whether the flow key is valid.
-However, the commit does not update the code path in ovs_flow_key_update()
-to revalidate the flow key which may cause BUG_ON() on execute_recirc().
-This patch addresses the aforementioned issue.
+On 03/27/2017 04:59 AM, Roger Quadros wrote:
+> The Ethernet link on an interrupt driven PHY was not coming up if the
+> Ethernet cable was plugged before the Ethernet interface was brought up.
+> 
+> The PHY state machine seems to be stuck from RUNNING to AN state
+> with no new interrupts from the PHY. So it doesn't know when the
+> PHY Auto-negotiation has been completed and doesn't transition to RUNNING
+> state with ANEG done thus netif_carrier_on() is never called.
+> 
+> NOTE: genphy_config_aneg() will not restart PHY Auto-negotiation of
+> advertisement parameters didn't change.
+> 
+> Fix this by scheduling the PHY state machine in phy_start_aneg().
+> There is no way of knowing in phy.c whether auto-negotiation was
+> restarted or not by the PHY driver so we just wait for the next
+> poll/interrupt to update the PHY state machine.
+> 
+> Fixes: 3c293f4e08b5 ("net: phy: Trigger state machine on state change and not polling.")
+> Cc: stable <stable@vger.kernel.org> # v4.9+
+> Signed-off-by: Roger Quadros <rogerq@ti.com>
 
-Fixes: 329f45bc4f19 ("openvswitch: add mac_proto field to the flow key")
-Signed-off-by: Yi-Hung Wei <yihung.wei@gmail.com>
----
- net/openvswitch/flow.c | 10 ++++++++--
- 1 file changed, 8 insertions(+), 2 deletions(-)
-
-diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
-index 9d4bb8eb63f2..3f76cb765e5b 100644
---- a/net/openvswitch/flow.c
-+++ b/net/openvswitch/flow.c
-@@ -527,7 +527,7 @@ static int key_extract(struct sk_buff *skb, struct sw_flow_key *key)
- 
- 	/* Link layer. */
- 	clear_vlan(key);
--	if (key->mac_proto == MAC_PROTO_NONE) {
-+	if (ovs_key_mac_proto(key) == MAC_PROTO_NONE) {
- 		if (unlikely(eth_type_vlan(skb->protocol)))
- 			return -EINVAL;
- 
-@@ -745,7 +745,13 @@ static int key_extract(struct sk_buff *skb, struct sw_flow_key *key)
- 
- int ovs_flow_key_update(struct sk_buff *skb, struct sw_flow_key *key)
- {
--	return key_extract(skb, key);
-+	int res;
-+
-+	res = key_extract(skb, key);
-+	if (!res)
-+		key->mac_proto &= ~SW_FLOW_KEY_INVALID;
-+
-+	return res;
- }
- 
- static int key_extract_mac_proto(struct sk_buff *skb)
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 -- 
-2.7.4
+Florian
