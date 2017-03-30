@@ -1,88 +1,51 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH 4/6] virtio_net: allow specifying context for rx
-Date: Thu, 30 Mar 2017 17:31:37 +0300
-Message-ID: <20170330173031-mutt-send-email-mst@kernel.org>
+Subject: Re: [PATCH 1/6] virtio: wrap find_vqs
+Date: Thu, 30 Mar 2017 17:32:19 +0300
+Message-ID: <20170330173146-mutt-send-email-mst@kernel.org>
 References: <1490820507-8005-1-git-send-email-mst@redhat.com>
- <1490820507-8005-5-git-send-email-mst@redhat.com>
- <20170330092651.7767dfac.cornelia.huck@de.ibm.com>
+ <1490820507-8005-2-git-send-email-mst@redhat.com>
+ <72f533a2-482d-1956-b0fe-254e273e1818@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        John Fastabend <john.fastabend@gmail.com>,
-        virtualization@lists.linux-foundation.org
-To: Cornelia Huck <cornelia.huck@de.ibm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Dmitry Tarnyagin <dmitry.tarnyagin@lockless.no>, kvm@vger.kernel.org,
+ linux-remoteproc@vger.kernel.org, dri-devel@lists.freedesktop.org,
+ Bjorn Andersson <bjorn.andersson@linaro.org>,
+ Gerd Hoffmann <kraxel@redhat.com>,
+ "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
+ Herbert Xu <herbert@gondor.apana.org.au>, linux-scsi@vger.kernel.org,
+ John Fastabend <john.fastabend@gmail.com>, Gonglei <arei.gonglei@huawei.com>,
+ Ohad Ben-Cohen <ohad@wizery.com>, Arnd Bergmann <arnd@arndb.de>,
+ Amit Shah <amit@kernel.org>, Stefan Hajnoczi <stefanha@redhat.com>,
+ virtualization@lists.linux-foundation.org,
+ "Martin K. Petersen" <martin.petersen@oracle.com>,
+ Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-kernel@vger.kernel.org,
+ linux-crypto@vger.kernel.org, netdev@vger.kernel.org,
+ "David S. Miller" <davem@davemloft.net>
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <dri-devel-bounces@lists.freedesktop.org>
 Content-Disposition: inline
-In-Reply-To: <20170330092651.7767dfac.cornelia.huck@de.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <72f533a2-482d-1956-b0fe-254e273e1818@redhat.com>
+List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/dri-devel>,
+ <mailto:dri-devel-request@lists.freedesktop.org?subject=unsubscribe>
+List-Archive: <https://lists.freedesktop.org/archives/dri-devel>
+List-Post: <mailto:dri-devel@lists.freedesktop.org>
+List-Help: <mailto:dri-devel-request@lists.freedesktop.org?subject=help>
+List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/dri-devel>,
+ <mailto:dri-devel-request@lists.freedesktop.org?subject=subscribe>
+Errors-To: dri-devel-bounces@lists.freedesktop.org
+Sender: "dri-devel" <dri-devel-bounces@lists.freedesktop.org>
 List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 30, 2017 at 09:26:51AM +0200, Cornelia Huck wrote:
-> On Wed, 29 Mar 2017 23:48:54 +0300
-> "Michael S. Tsirkin" <mst@redhat.com> wrote:
-> 
-> > With mergeable buffers we never use s/g for rx,
-> > so allow specifying context in that case.
-> > 
-> > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> > ---
-> >  drivers/net/virtio_net.c | 15 ++++++++++++++-
-> >  1 file changed, 14 insertions(+), 1 deletion(-)
-> > 
-> > diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> > index 6802169..340f737 100644
-> > --- a/drivers/net/virtio_net.c
-> > +++ b/drivers/net/virtio_net.c
-> > @@ -2044,6 +2044,7 @@ static int virtnet_find_vqs(struct virtnet_info *vi)
-> >  	int ret = -ENOMEM;
-> >  	int i, total_vqs;
-> >  	const char **names;
-> > +	const bool *ctx;
-> >  
-> >  	/* We expect 1 RX virtqueue followed by 1 TX virtqueue, followed by
-> >  	 * possible N-1 RX/TX queue pairs used in multiqueue mode, followed by
-> > @@ -2062,6 +2063,13 @@ static int virtnet_find_vqs(struct virtnet_info *vi)
-> >  	names = kmalloc(total_vqs * sizeof(*names), GFP_KERNEL);
-> >  	if (!names)
-> >  		goto err_names;
-> > +	if (vi->mergeable_rx_bufs) {
-> > +		ctx = kzalloc(total_vqs * sizeof(*ctx), GFP_KERNEL);
-> > +		if (!ctx)
-> > +			goto err_ctx;
-> > +	} else {
-> > +		ctx = NULL;
-> > +	}
-> >  
-> >  	/* Parameters for control virtqueue, if any */
-> >  	if (vi->has_cvq) {
-> > @@ -2077,9 +2085,12 @@ static int virtnet_find_vqs(struct virtnet_info *vi)
-> >  		sprintf(vi->sq[i].name, "output.%d", i);
-> >  		names[rxq2vq(i)] = vi->rq[i].name;
-> >  		names[txq2vq(i)] = vi->sq[i].name;
-> > +		if (ctx)
-> > +			ctx[rxq2vq(i)] = true;
-> >  	}
-> >  
-> > -	ret = virtio_find_vqs(vi->vdev, total_vqs, vqs, callbacks, names, NULL);
-> > +	ret = vi->vdev->config->find_vqs(vi->vdev, total_vqs, vqs, callbacks,
-> > +					 names, ctx, NULL);
-> 
-> virtio_find_vqs_ctx()? (Needs to be exported, obviously.)
-
-I guess I can do that but there's a single user ATM.
-Do you think it's worth doing right now, or wait until
-it gets more users?
-
-
-> >  	if (ret)
-> >  		goto err_find;
-> >  
-> > @@ -2101,6 +2112,8 @@ static int virtnet_find_vqs(struct virtnet_info *vi)
-> >  	return 0;
-> >  
-> >  err_find:
-> > +	kfree(ctx);
-> > +err_ctx:
-> >  	kfree(names);
-> >  err_names:
-> >  	kfree(callbacks);
+T24gVGh1LCBNYXIgMzAsIDIwMTcgYXQgMDI6MDA6MDhQTSArMDgwMCwgSmFzb24gV2FuZyB3cm90
+ZToKPiAKPiAKPiBPbiAyMDE35bm0MDPmnIgzMOaXpSAwNDo0OCwgTWljaGFlbCBTLiBUc2lya2lu
+IHdyb3RlOgo+ID4gV2UgYXJlIGdvaW5nIHRvIGFkZCBtb3JlIHBhcmFtZXRlcnMgdG8gZmluZF92
+cXMsIGxldCdzIHdyYXAgdGhlIGNhbGwgc28KPiA+IHdlIGRvbid0IG5lZWQgdG8gdHdlYWsgYWxs
+IGRyaXZlcnMgZXZlcnkgdGltZS4KPiA+IAo+ID4gU2lnbmVkLW9mZi1ieTogTWljaGFlbCBTLiBU
+c2lya2luPG1zdEByZWRoYXQuY29tPgo+ID4gLS0tCj4gCj4gQSBxdWljayBnbGFuY2UgYW5kIGl0
+IGxvb2tzIG9rLCBidXQgd2hhdCB0aGUgYmVuZWZpdCBvZiB0aGlzIHNlcmllcywgaXMgaXQKPiBy
+ZXF1aXJlZCBieSBvdGhlciBjaGFuZ2VzPwo+IAo+IFRoYW5rcwoKWWVzIC0gdG8gYXZvaWQgdG91
+Y2hpbmcgYWxsIGRldmljZXMgd2hlbiBkb2luZyB0aGUgcmVzdCBvZgp0aGUgcGF0Y2hzZXQuCl9f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRyaS1kZXZlbCBt
+YWlsaW5nIGxpc3QKZHJpLWRldmVsQGxpc3RzLmZyZWVkZXNrdG9wLm9yZwpodHRwczovL2xpc3Rz
+LmZyZWVkZXNrdG9wLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2RyaS1kZXZlbAo=
