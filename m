@@ -1,51 +1,56 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [PATCH net] ftgmac100: Mostly rewrite the driver
-Date: Thu, 30 Mar 2017 11:46:18 +1100
-Message-ID: <1490834778.3177.197.camel@kernel.crashing.org>
-References: <1490762446.3177.164.camel@kernel.crashing.org>
-         <20170328.215744.794906222630964588.davem@davemloft.net>
-         <1490763787.3177.168.camel@kernel.crashing.org>
-         <20170328.221027.1436005565229924031.davem@davemloft.net>
-         <1490764697.3177.170.camel@kernel.crashing.org>
-         <e019331d-7050-ca6d-7f27-73878e290f7a@gmail.com>
-         <1490821714.3177.189.camel@kernel.crashing.org>
+From: Felix Manlunas <felix.manlunas@cavium.com>
+Subject: [PATCH net-next] vxlan: vxlan dev should inherit lowerdev's
+ gso_max_size
+Date: Wed, 29 Mar 2017 17:56:43 -0700
+Message-ID: <20170330005643.GA1068@felix-thinkpad.cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Florian Fainelli <f.fainelli@gmail.com>,
-        David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, satananda.burla@cavium.com,
+        stephen@networkplumber.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:45660 "EHLO gate.crashing.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932757AbdC3Aq1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 29 Mar 2017 20:46:27 -0400
-In-Reply-To: <1490821714.3177.189.camel@kernel.crashing.org>
+Received: from mail-sn1nam02on0060.outbound.protection.outlook.com ([104.47.36.60]:34878
+        "EHLO NAM02-SN1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1754209AbdC3Aut (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 29 Mar 2017 20:50:49 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2017-03-30 at 08:08 +1100, Benjamin Herrenschmidt wrote:
-> On Wed, 2017-03-29 at 11:08 -0700, Florian Fainelli wrote:
-> > I hear your point that you are the only users of the driver and
-> > it's
-> > already in a bad shape, but take this as an opportunity to increase
-> > your commit count ;)
-> 
-> Haha, my commit count is fine thanks ;-)
-> 
-> I'll see what I can do. I need to respin anyway, I haven't tested
-> the netpoll support and it doesn't build (ugh). So I'll try to break
-> it down. Maybe not 200 patches but I'll see if I can make it more
-> palatable.
+vxlan dev currently ignores lowerdev's gso_max_size, which adversely
+affects TSO performance of liquidio if it's the lowerdev.  Egress TCP
+packets' skb->len often exceed liquidio's advertised gso_max_size.  This
+may happen on other NIC drivers.
 
-FYI, Dave, Florian
+Fix it by assigning lowerdev's gso_max_size to that of vxlan dev.  Might as
+well do likewise for gso_max_segs.
 
-I've started re-doing the work in the form of a series of patches.
+Single flow TSO throughput of liquidio as lowerdev (using iperf3):
 
-I can't promise I'll manage to make them all really small but I'll
-do my best. So hold onto reviewing if you haven't started already.
+    Before the patch:    139 Mbps
+    After the patch :   8.68 Gbps
+    Percent increase:  6,144 %
 
-The end result will, I hope, be identical.
+Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
+Signed-off-by: Satanand Burla <satananda.burla@cavium.com>
+---
+ drivers/net/vxlan.c | 5 +++++
+ 1 file changed, 5 insertions(+)
 
-Cheers,
-Ben.
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 1e54fb5..714f74f 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -2926,6 +2926,11 @@ static int vxlan_dev_configure(struct net *src_net, struct net_device *dev,
+ 		return -EINVAL;
+ 	}
+ 
++	if (lowerdev) {
++		dev->gso_max_size = lowerdev->gso_max_size;
++		dev->gso_max_segs = lowerdev->gso_max_segs;
++	}
++
+ 	if (conf->mtu) {
+ 		int max_mtu = ETH_MAX_MTU;
+ 
