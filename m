@@ -1,46 +1,58 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH] virtio_net: enable big packets for large MTU values
-Date: Thu, 30 Mar 2017 12:03:36 +0800
-Message-ID: <5304103e-5a0b-230b-6bd0-1b33ab546889@redhat.com>
-References: <1490791079-22108-1-git-send-email-mst@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org
-To: "Michael S. Tsirkin" <mst@redhat.com>, linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1490791079-22108-1-git-send-email-mst@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Suresh Reddy <suresh.reddy@broadcom.com>
+Subject: [PATCH net] be2net: Fix endian issue in logical link config command
+Date: Thu, 30 Mar 2017 00:58:32 -0400
+Message-ID: <20170330045832.2287-1-suresh.reddy@broadcom.com>
+References: <suresh.reddy@broadcom.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from lpdvsmtp02.broadcom.com ([192.19.232.149]:50985 "EHLO
+        relay.smtp.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754586AbdC3FFc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 30 Mar 2017 01:05:32 -0400
+Received: from s84.localdomain (unknown [10.192.238.84])
+        by relay.smtp.broadcom.com (Postfix) with ESMTP id 337261A020F
+        for <netdev@vger.kernel.org>; Wed, 29 Mar 2017 21:58:34 -0700 (PDT)
+In-Reply-To: <suresh.reddy@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-CgpPbiAyMDE35bm0MDPmnIgyOeaXpSAyMDozOCwgTWljaGFlbCBTLiBUc2lya2luIHdyb3RlOgo+
-IElmIG9uZSBlbmFibGVzIGUuZy4ganVtYm8gZnJhbWVzIHdpdGhvdXQgbWVyZ2VhYmxlCj4gYnVm
-ZmVycywgcGFja2V0cyB3b24ndCBmaXQgaW4gMTUwMCBieXRlIGJ1ZmZlcnMKPiB3ZSB1c2UuIFN3
-aXRjaCB0byBiaWcgcGFja2V0IG1vZGUgaW5zdGVhZC4KPiBUT0RPOiBtYWtlIHNpemluZyBtb3Jl
-IGV4YWN0LCBwb3NzaWJseSBleHRlbmQgc21hbGwKPiBwYWNrZXQgbW9kZSB0byB1c2UgbGFyZ2Vy
-IHBhZ2VzLgo+Cj4gU2lnbmVkLW9mZi1ieTogTWljaGFlbCBTLiBUc2lya2luIDxtc3RAcmVkaGF0
-LmNvbT4KPiAtLS0KPiAgIGRyaXZlcnMvbmV0L3ZpcnRpb19uZXQuYyB8IDQgKysrKwo+ICAgMSBm
-aWxlIGNoYW5nZWQsIDQgaW5zZXJ0aW9ucygrKQo+Cj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0
-L3ZpcnRpb19uZXQuYyBiL2RyaXZlcnMvbmV0L3ZpcnRpb19uZXQuYwo+IGluZGV4IGUwZmIzNzA3
-Li45ZGMzMWRjIDEwMDY0NAo+IC0tLSBhL2RyaXZlcnMvbmV0L3ZpcnRpb19uZXQuYwo+ICsrKyBi
-L2RyaXZlcnMvbmV0L3ZpcnRpb19uZXQuYwo+IEBAIC0yNDI4LDYgKzI0MjgsMTAgQEAgc3RhdGlj
-IGludCB2aXJ0bmV0X3Byb2JlKHN0cnVjdCB2aXJ0aW9fZGV2aWNlICp2ZGV2KQo+ICAgCQkJZGV2
-LT5tdHUgPSBtdHU7Cj4gICAJCQlkZXYtPm1heF9tdHUgPSBtdHU7Cj4gICAJCX0KPiArCj4gKwkJ
-LyogVE9ETzogc2l6ZSBidWZmZXJzIGNvcnJlY3RseSBpbiB0aGlzIGNhc2UuICovCj4gKwkJaWYg
-KGRldi0+bXR1ID4gRVRIX0RBVEFfTEVOKQo+ICsJCQl2aS0+YmlnX3BhY2tldHMgPSB0cnVlOwo+
-ICAgCX0KPiAgIAo+ICAgCWlmICh2aS0+YW55X2hlYWRlcl9zZykKCk9rLCBJIHRoaW5rIG1heWJl
-IHdlIHNob3VsZCBmYWlsIHRoZSBwcm9iZSBvZiBzbWFsbCBidWZmZXIgaW4gdGhpcyBjYXNlIAph
-bmQgZGVjcmVhc2UgdGhlIG1heF9tdHUgdG8gRVRIX0RBVEFfTEVOIGlmIHNtYWxsIGJ1ZmZlciBp
-cyB1c2VkIChzaW5jZSAKdXNlciBhcmUgYWxsb3dlZCB0byBpbmNyZWFzZSB0aGUgbXR1KS4KClRo
-YW5rcwpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpWaXJ0
-dWFsaXphdGlvbiBtYWlsaW5nIGxpc3QKVmlydHVhbGl6YXRpb25AbGlzdHMubGludXgtZm91bmRh
-dGlvbi5vcmcKaHR0cHM6Ly9saXN0cy5saW51eGZvdW5kYXRpb24ub3JnL21haWxtYW4vbGlzdGlu
-Zm8vdmlydHVhbGl6YXRpb24=
+Use cpu_to_le32() for link_config variable in set_logical_link_config
+command as this variable is of type u32.
+
+Signed-off-by: Suresh Reddy <suresh.reddy@broadcom.com>
+---
+ drivers/net/ethernet/emulex/benet/be_cmds.c | 9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
+index 0e74529..7c027d7 100644
+--- a/drivers/net/ethernet/emulex/benet/be_cmds.c
++++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
+@@ -4939,8 +4939,9 @@ static int
+ __be_cmd_set_logical_link_config(struct be_adapter *adapter,
+ 				 int link_state, int version, u8 domain)
+ {
+-	struct be_mcc_wrb *wrb;
+ 	struct be_cmd_req_set_ll_link *req;
++	struct be_mcc_wrb *wrb;
++	u32 link_config = 0;
+ 	int status;
+ 
+ 	mutex_lock(&adapter->mcc_lock);
+@@ -4962,10 +4963,12 @@ __be_cmd_set_logical_link_config(struct be_adapter *adapter,
+ 
+ 	if (link_state == IFLA_VF_LINK_STATE_ENABLE ||
+ 	    link_state == IFLA_VF_LINK_STATE_AUTO)
+-		req->link_config |= PLINK_ENABLE;
++		link_config |= PLINK_ENABLE;
+ 
+ 	if (link_state == IFLA_VF_LINK_STATE_AUTO)
+-		req->link_config |= PLINK_TRACK;
++		link_config |= PLINK_TRACK;
++
++	req->link_config = cpu_to_le32(link_config);
+ 
+ 	status = be_mcc_notify_wait(adapter);
+ err:
+-- 
+2.10.1
