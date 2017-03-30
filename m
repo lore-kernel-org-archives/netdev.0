@@ -1,57 +1,63 @@
-From: Johan Hovold <johan@kernel.org>
-Subject: [PATCH v2 0/8] NFC: fix device allocation and nfcmrvl crashes
-Date: Thu, 30 Mar 2017 12:15:34 +0200
-Message-ID: <20170330101542.15384-1-johan@kernel.org>
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, Johan Hovold <johan@kernel.org>
-To: Lauro Ramos Venancio <lauro.venancio@openbossa.org>,
-        Aloisio Almeida Jr <aloisio.almeida@openbossa.org>,
-        Samuel Ortiz <sameo@linux.intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH 22/22] usb: document that URB transfer_buffer should be
+ aligned
+Date: Thu, 30 Mar 2017 11:07:27 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DCFFC2476@AcuExch.aculab.com>
+References: <4f2a7480ba9a3c89e726869fddf17e31cf82b3c7.1490813422.git.mchehab@s-opensource.com>
+        <1822963.cezI9HmAB6@avalon>        <1490861491.8660.2.camel@suse.com>
+        <3181783.rVmBcEVlbi@avalon> <20170330072800.5ee8bc33@vento.lan>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: Oliver Neukum <oneukum@suse.com>,
+        David Mosberger <davidm@egauge.net>,
+        Jaejoong Kim <climbbb.kim@gmail.com>,
+        Mauro Carvalho Chehab <mchehab@infradead.org>,
+        Mauro Carvalho Chehab <mchehab@kernel.org>,
+        "Greg Kroah-Hartman" <gregkh@linuxfoundation.org>,
+        "linux-rpi-kernel@lists.infradead.org"
+        <linux-rpi-kernel@lists.infradead.org>,
+        Jonathan Corbet <corbet@lwn.net>,
+        Wolfram Sang <wsa-dev@sang-engineering.com>,
+        John Youn <johnyoun@synopsys.com>,
+        Roger Quadros <rogerq@ti.com>,
+        "Linux Doc Mailing List" <linux-doc@vger.kernel.org>,
+        Linux Media Mailing List <linux-media@vger.kernel.org>,
+        "linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>
+To: 'Mauro Carvalho Chehab' <mchehab@s-opensource.com>,
+        Laurent Pinchart <laurent.pinchart@ideasonboard.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out6.electric.net ([192.162.217.186]:58872 "EHLO
+        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932541AbdC3LHj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 30 Mar 2017 07:07:39 -0400
+In-Reply-To: <20170330072800.5ee8bc33@vento.lan>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This started out with the observation that the nfcmrvl_uart driver
-unconditionally dereferenced the tty class device despite the fact that
-not every tty has an associated struct device (Unix98 ptys). Some
-further changes were needed in the common nfcmrvl code to fully address
-this, some of which also incidentally fixed a few related bugs (e.g.
-resource leaks in error paths).
+From: Mauro Carvalho Chehab
+> Sent: 30 March 2017 11:28
+...
+> While debugging this issue, I saw *a lot* of network-generated URB
+> traffic from RPi3 Ethernet port drivers that were using non-aligned
+> buffers and were subject to the temporary buffer conversion.
 
-While fixing this I stumbled over a regression in NFC core that lead to
-broken registration error paths and misnamed workqueues.
+Buffers from the network stack will almost always be 4n+2 aligned.
+Receive data being fed into the network stack really needs to be
+4n=2 aligned.
 
-Note that this has only been tested by configuring the n_hci line
-discipline for different ttys without any actual NFC hardware connected.
+The USB stack almost certainly has to live with that.
 
-Johan
+If the USB ethernet device doesn't have two bytes of 'pad' before
+the frame data (destination MAC address) then you have to solve
+the problem within the USB stack.
 
+For transmits it might be possible to send an initial 2 byte fragment
+from a separate buffer - but only if arbitrary fragment sizes are
+allowed.
+A normal USB3 controller should allow this - but you have to be very
+careful about what happens at the end of the ring.
 
-Changes in v2
- - fix typo in commit message (1/8)
- - release reset gpio in error paths (3/8)
- - fix description of patch impact (3/8)
- - allow gpio 0 to be used for reset signalling (8/8, new)
-
-
-Johan Hovold (8):
-  NFC: fix broken device allocation
-  NFC: nfcmrvl_uart: add missing tty-device sanity check
-  NFC: nfcmrvl: do not use device-managed resources
-  NFC: nfcmrvl: use nfc-device for firmware download
-  NFC: nfcmrvl: fix firmware-management initialisation
-  NFC: nfcmrvl_uart: fix device-node leak during probe
-  NFC: nfcmrvl_usb: use interface as phy device
-  NFC: nfcmrvl: allow gpio 0 for reset signalling
-
- drivers/nfc/nfcmrvl/fw_dnld.c         |  7 ++++--
- drivers/nfc/nfcmrvl/main.c            | 40 +++++++++++++++++++----------------
- drivers/nfc/nfcmrvl/uart.c            | 11 ++++++----
- drivers/nfc/nfcmrvl/usb.c             |  4 +---
- include/linux/platform_data/nfcmrvl.h |  2 +-
- net/nfc/core.c                        | 31 +++++++++++++++------------
- net/nfc/nci/core.c                    |  3 +--
- 7 files changed, 55 insertions(+), 43 deletions(-)
-
--- 
-2.12.2
+	David
