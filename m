@@ -1,8 +1,7 @@
 From: Nathan Fontenot <nfont@linux.vnet.ibm.com>
-Subject: [PATCH net 6/7] ibmvnic: Create init/release routines for stats
- token
-Date: Thu, 30 Mar 2017 02:49:23 -0400
-Message-ID: <20170330064923.20309.88639.stgit@ltcalpine2-lp23.aus.stglabs.ibm.com>
+Subject: [PATCH net 7/7] ibmvnic: Cleanup failure path in ibmvnic_open
+Date: Thu, 30 Mar 2017 02:49:29 -0400
+Message-ID: <20170330064929.20309.58065.stgit@ltcalpine2-lp23.aus.stglabs.ibm.com>
 References: <20170330064542.20309.17448.stgit@ltcalpine2-lp23.aus.stglabs.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,109 +9,145 @@ Content-Transfer-Encoding: 7bit
 Cc: jallen@linux.vnet.ibm.com, tlfalcon@linux.vnet.ibm.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:48247 "EHLO
+Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:41297 "EHLO
         mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1754450AbdC3DAC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 29 Mar 2017 23:00:02 -0400
-Received: from pps.filterd (m0098413.ppops.net [127.0.0.1])
-        by mx0b-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v2U2sVgd030692
-        for <netdev@vger.kernel.org>; Wed, 29 Mar 2017 23:00:01 -0400
-Received: from e14.ny.us.ibm.com (e14.ny.us.ibm.com [129.33.205.204])
-        by mx0b-001b2d01.pphosted.com with ESMTP id 29gdaeg407-1
+        by vger.kernel.org with ESMTP id S1754450AbdC3DAK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 29 Mar 2017 23:00:10 -0400
+Received: from pps.filterd (m0098416.ppops.net [127.0.0.1])
+        by mx0b-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v2U2sUEw031938
+        for <netdev@vger.kernel.org>; Wed, 29 Mar 2017 23:00:08 -0400
+Received: from e16.ny.us.ibm.com (e16.ny.us.ibm.com [129.33.205.206])
+        by mx0b-001b2d01.pphosted.com with ESMTP id 29gfk28kf0-1
         (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Wed, 29 Mar 2017 23:00:01 -0400
+        for <netdev@vger.kernel.org>; Wed, 29 Mar 2017 23:00:08 -0400
 Received: from localhost
-        by e14.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        by e16.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
         for <netdev@vger.kernel.org> from <nfont@linux.vnet.ibm.com>;
-        Wed, 29 Mar 2017 23:00:00 -0400
+        Wed, 29 Mar 2017 23:00:07 -0400
 In-Reply-To: <20170330064542.20309.17448.stgit@ltcalpine2-lp23.aus.stglabs.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Create an initialization and a release routine for the stats token used by
-the ibmvnic driver.
+Now that ibmvnic_release_resources will clean up all of our resources
+properly, even if they were not allocated, we can just call this
+for failues in ibmvnic_open.
+
+This patch also moves the ibmvnic_release_resources() routine up
+in the file to avoid creating a forward declaration ad re-names it to
+drop the ibmvnic prefix.
 
 Signed-off-by: Nathan Fontenot <nfont@linux.vnet.ibm.com>
 ---
- drivers/net/ethernet/ibm/ibmvnic.c |   46 +++++++++++++++++++++++++++---------
- 1 file changed, 34 insertions(+), 12 deletions(-)
+ drivers/net/ethernet/ibm/ibmvnic.c |   51 +++++++++++++-----------------------
+ 1 file changed, 19 insertions(+), 32 deletions(-)
 
 diff --git a/drivers/net/ethernet/ibm/ibmvnic.c b/drivers/net/ethernet/ibm/ibmvnic.c
-index f2d2f1f..a2f972d 100644
+index a2f972d..7ba43cf 100644
 --- a/drivers/net/ethernet/ibm/ibmvnic.c
 +++ b/drivers/net/ethernet/ibm/ibmvnic.c
-@@ -302,6 +302,36 @@ static void replenish_pools(struct ibmvnic_adapter *adapter)
- 	}
+@@ -578,13 +578,23 @@ static int ibmvnic_login(struct net_device *netdev)
+ 	return 0;
  }
  
-+static void release_stats_token(struct ibmvnic_adapter *adapter)
++static void release_resources(struct ibmvnic_adapter *adapter)
 +{
-+	struct device *dev = &adapter->vdev->dev;
++	release_bounce_buffer(adapter);
++	release_tx_pools(adapter);
++	release_rx_pools(adapter);
 +
-+	if (!adapter->stats_token)
-+		return;
++	release_sub_crqs(adapter);
++	release_crq_queue(adapter);
 +
-+	dma_unmap_single(dev, adapter->stats_token,
-+			 sizeof(struct ibmvnic_statistics),
-+			 DMA_FROM_DEVICE);
-+	adapter->stats_token = 0;
-+}
-+
-+static int init_stats_token(struct ibmvnic_adapter *adapter)
-+{
-+	struct device *dev = &adapter->vdev->dev;
-+	dma_addr_t stok;
-+
-+	stok = dma_map_single(dev, &adapter->stats,
-+			      sizeof(struct ibmvnic_statistics),
-+			      DMA_FROM_DEVICE);
-+	if (dma_mapping_error(dev, stok)) {
-+		dev_err(dev, "Couldn't map stats buffer\n");
-+		return -1;
-+	}
-+
-+	adapter->stats_token = stok;
-+	return 0;
-+}
-+
- static void release_rx_pools(struct ibmvnic_adapter *adapter)
- {
- 	struct ibmvnic_rx_pool *rx_pool;
-@@ -647,8 +677,6 @@ static int ibmvnic_open(struct net_device *netdev)
- 
- static void ibmvnic_release_resources(struct ibmvnic_adapter *adapter)
- {
--	struct device *dev = &adapter->vdev->dev;
--
- 	release_bounce_buffer(adapter);
- 	release_tx_pools(adapter);
- 	release_rx_pools(adapter);
-@@ -656,10 +684,7 @@ static void ibmvnic_release_resources(struct ibmvnic_adapter *adapter)
- 	release_sub_crqs(adapter);
- 	release_crq_queue(adapter);
- 
--	if (adapter->stats_token)
--		dma_unmap_single(dev, adapter->stats_token,
--				 sizeof(struct ibmvnic_statistics),
--				 DMA_FROM_DEVICE);
 +	release_stats_token(adapter);
++}
++
+ static int ibmvnic_open(struct net_device *netdev)
+ {
+ 	struct ibmvnic_adapter *adapter = netdev_priv(netdev);
+ 	struct device *dev = &adapter->vdev->dev;
+ 	union ibmvnic_crq crq;
+-	int rxadd_subcrqs;
+-	int tx_subcrqs;
+ 	int rc = 0;
+ 	int i;
+ 
+@@ -610,16 +620,11 @@ static int ibmvnic_open(struct net_device *netdev)
+ 		return -1;
+ 	}
+ 
+-	rxadd_subcrqs =
+-	    be32_to_cpu(adapter->login_rsp_buf->num_rxadd_subcrqs);
+-	tx_subcrqs =
+-	    be32_to_cpu(adapter->login_rsp_buf->num_txsubm_subcrqs);
+-
+ 	adapter->map_id = 1;
+ 	adapter->napi = kcalloc(adapter->req_rx_queues,
+ 				sizeof(struct napi_struct), GFP_KERNEL);
+ 	if (!adapter->napi)
+-		goto alloc_napi_failed;
++		goto ibmvnic_open_fail;
+ 	for (i = 0; i < adapter->req_rx_queues; i++) {
+ 		netif_napi_add(netdev, &adapter->napi[i], ibmvnic_poll,
+ 			       NAPI_POLL_WEIGHT);
+@@ -630,15 +635,15 @@ static int ibmvnic_open(struct net_device *netdev)
+ 
+ 	rc = init_rx_pools(netdev);
+ 	if (rc)
+-		goto rx_pool_failed;
++		goto ibmvnic_open_fail;
+ 
+ 	rc = init_tx_pools(netdev);
+ 	if (rc)
+-		goto tx_pool_failed;
++		goto ibmvnic_open_fail;
+ 
+ 	rc = init_bounce_buffer(netdev);
+ 	if (rc)
+-		goto bounce_init_failed;
++		goto ibmvnic_open_fail;
+ 
+ 	replenish_pools(adapter);
+ 
+@@ -662,31 +667,13 @@ static int ibmvnic_open(struct net_device *netdev)
+ 
+ 	return 0;
+ 
+-bounce_init_failed:
+-	i = tx_subcrqs - 1;
+-	kfree(adapter->tx_pool[i].free_map);
+-tx_pool_failed:
+-	i = rxadd_subcrqs;
+-rx_pool_failed:
++ibmvnic_open_fail:
+ 	for (i = 0; i < adapter->req_rx_queues; i++)
+ 		napi_disable(&adapter->napi[i]);
+-alloc_napi_failed:
+-	release_sub_crqs(adapter);
++	release_resources(adapter);
+ 	return -ENOMEM;
  }
  
+-static void ibmvnic_release_resources(struct ibmvnic_adapter *adapter)
+-{
+-	release_bounce_buffer(adapter);
+-	release_tx_pools(adapter);
+-	release_rx_pools(adapter);
+-
+-	release_sub_crqs(adapter);
+-	release_crq_queue(adapter);
+-
+-	release_stats_token(adapter);
+-}
+-
  static int ibmvnic_close(struct net_device *netdev)
-@@ -3269,13 +3294,10 @@ static int ibmvnic_init(struct ibmvnic_adapter *adapter)
- 		return rc;
- 	}
+ {
+ 	struct ibmvnic_adapter *adapter = netdev_priv(netdev);
+@@ -707,7 +694,7 @@ static int ibmvnic_close(struct net_device *netdev)
+ 	crq.logical_link_state.link_state = IBMVNIC_LOGICAL_LNK_DN;
+ 	ibmvnic_send_crq(adapter, &crq);
  
--	adapter->stats_token = dma_map_single(dev, &adapter->stats,
--				      sizeof(struct ibmvnic_statistics),
--				      DMA_FROM_DEVICE);
--	if (dma_mapping_error(dev, adapter->stats_token)) {
-+	rc = init_stats_token(adapter);
-+	if (rc) {
- 		release_crq_queue(adapter);
--		dev_err(dev, "Couldn't map stats buffer\n");
--		return -ENOMEM;
-+		return rc;
- 	}
+-	ibmvnic_release_resources(adapter);
++	release_resources(adapter);
  
- 	init_completion(&adapter->init_done);
+ 	adapter->is_closed = true;
+ 	adapter->closing = false;
