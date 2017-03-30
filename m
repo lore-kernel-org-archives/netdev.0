@@ -1,55 +1,106 @@
-From: Cornelia Huck <cornelia.huck@de.ibm.com>
-Subject: Re: [PATCH 1/6] virtio: wrap find_vqs
-Date: Thu, 30 Mar 2017 09:18:41 +0200
-Message-ID: <20170330091841.2797eca4.cornelia.huck@de.ibm.com>
-References: <1490820507-8005-1-git-send-email-mst@redhat.com>
-        <1490820507-8005-2-git-send-email-mst@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-        Dmitry Tarnyagin <dmitry.tarnyagin@lockless.no>,
-        kvm@vger.kernel.org, David Airlie <airlied@linux.ie>,
-        linux-remoteproc@vger.kernel.org, dri-devel@lists.freedesktop.org,
-        Bjorn Andersson <bjorn.andersson@linaro.org>,
-        "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
-        Herbert Xu <herbert@gondor.apana.org.au>,
-        linux-scsi@vger.kernel.org,
-        John Fastabend <john.fastabend@gmail.com>,
-        Arnd Bergmann <arnd@arndb.de>, Amit Shah <amit@kernel.org>,
-        Stefan Hajnoczi <stefanha@redhat.com>,
-        virtualization@lists.linux-foundation.org,
-        "Martin K. Petersen" <martin.petersen@oracle.com>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        linux-crypto@vger.kernel.org, netdev@vger.kernel.org,
-        "David S. Miller" <davem@davemloft.net>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <1490820507-8005-2-git-send-email-mst@redhat.com>
-Sender: linux-crypto-owner@vger.kernel.org
+From: Jason Wang <jasowang@redhat.com>
+Subject: [PATCH V2 net-next 1/7] ptr_ring: introduce batch dequeuing
+Date: Thu, 30 Mar 2017 15:22:24 +0800
+Message-ID: <1490858550-7763-2-git-send-email-jasowang@redhat.com>
+References: <1490858550-7763-1-git-send-email-jasowang@redhat.com>
+Cc: mst@redhat.com, Jason Wang <jasowang@redhat.com>
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1490858550-7763-1-git-send-email-jasowang@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 29 Mar 2017 23:48:44 +0300
-"Michael S. Tsirkin" <mst@redhat.com> wrote:
+This patch introduce a batched version of consuming, consumer can
+dequeue more than one pointers from the ring at a time. We don't care
+about the reorder of reading here so no need for compiler barrier.
 
-> We are going to add more parameters to find_vqs, let's wrap the call so
-> we don't need to tweak all drivers every time.
-> 
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> ---
->  drivers/block/virtio_blk.c                 | 3 +--
->  drivers/char/virtio_console.c              | 6 +++---
->  drivers/crypto/virtio/virtio_crypto_core.c | 3 +--
->  drivers/gpu/drm/virtio/virtgpu_kms.c       | 3 +--
->  drivers/net/caif/caif_virtio.c             | 3 +--
->  drivers/net/virtio_net.c                   | 3 +--
->  drivers/rpmsg/virtio_rpmsg_bus.c           | 2 +-
->  drivers/scsi/virtio_scsi.c                 | 3 +--
->  drivers/virtio/virtio_balloon.c            | 3 +--
->  drivers/virtio/virtio_input.c              | 3 +--
->  include/linux/virtio_config.h              | 9 +++++++++
->  net/vmw_vsock/virtio_transport.c           | 6 +++---
->  12 files changed, 24 insertions(+), 23 deletions(-)
+Signed-off-by: Jason Wang <jasowang@redhat.com>
+---
+ include/linux/ptr_ring.h | 65 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 65 insertions(+)
 
-Regardless whether that context thing is the right thing to do, this
-looks like a sensible cleanup.
+diff --git a/include/linux/ptr_ring.h b/include/linux/ptr_ring.h
+index 6c70444..2be0f350 100644
+--- a/include/linux/ptr_ring.h
++++ b/include/linux/ptr_ring.h
+@@ -247,6 +247,22 @@ static inline void *__ptr_ring_consume(struct ptr_ring *r)
+ 	return ptr;
+ }
+ 
++static inline int __ptr_ring_consume_batched(struct ptr_ring *r,
++					     void **array, int n)
++{
++	void *ptr;
++	int i;
++
++	for (i = 0; i < n; i++) {
++		ptr = __ptr_ring_consume(r);
++		if (!ptr)
++			break;
++		array[i] = ptr;
++	}
++
++	return i;
++}
++
+ /*
+  * Note: resize (below) nests producer lock within consumer lock, so if you
+  * call this in interrupt or BH context, you must disable interrupts/BH when
+@@ -297,6 +313,55 @@ static inline void *ptr_ring_consume_bh(struct ptr_ring *r)
+ 	return ptr;
+ }
+ 
++static inline int ptr_ring_consume_batched(struct ptr_ring *r,
++					   void **array, int n)
++{
++	int ret;
++
++	spin_lock(&r->consumer_lock);
++	ret = __ptr_ring_consume_batched(r, array, n);
++	spin_unlock(&r->consumer_lock);
++
++	return ret;
++}
++
++static inline int ptr_ring_consume_batched_irq(struct ptr_ring *r,
++					       void **array, int n)
++{
++	int ret;
++
++	spin_lock_irq(&r->consumer_lock);
++	ret = __ptr_ring_consume_batched(r, array, n);
++	spin_unlock_irq(&r->consumer_lock);
++
++	return ret;
++}
++
++static inline int ptr_ring_consume_batched_any(struct ptr_ring *r,
++					       void **array, int n)
++{
++	unsigned long flags;
++	int ret;
++
++	spin_lock_irqsave(&r->consumer_lock, flags);
++	ret = __ptr_ring_consume_batched(r, array, n);
++	spin_unlock_irqrestore(&r->consumer_lock, flags);
++
++	return ret;
++}
++
++static inline int ptr_ring_consume_batched_bh(struct ptr_ring *r,
++					      void **array, int n)
++{
++	int ret;
++
++	spin_lock_bh(&r->consumer_lock);
++	ret = __ptr_ring_consume_batched(r, array, n);
++	spin_unlock_bh(&r->consumer_lock);
++
++	return ret;
++}
++
+ /* Cast to structure type and call a function without discarding from FIFO.
+  * Function must return a value.
+  * Callers must take consumer_lock.
+-- 
+2.7.4
