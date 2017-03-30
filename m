@@ -1,64 +1,96 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next 8/8] vhost_net: use lockless peeking for skb
-	array during busy polling
-Date: Thu, 30 Mar 2017 05:33:33 +0300
-Message-ID: <20170330053315-mutt-send-email-mst@kernel.org>
-References: <1490069087-4783-1-git-send-email-jasowang@redhat.com>
-	<1490069087-4783-9-git-send-email-jasowang@redhat.com>
-	<20170329150538-mutt-send-email-mst@kernel.org>
-	<104c0c1f-e2fd-f5d0-0aae-c308d1f1373c@redhat.com>
+From: Seiichi Ikarashi <s.ikarashi@jp.fujitsu.com>
+Subject: Re: [PATCH] tcp: possible race between tcp_done() and tcp_poll()
+Date: Thu, 30 Mar 2017 11:55:43 +0900
+Message-ID: <3c8a7438-9ce4-593a-d492-ec8117d71af4@jp.fujitsu.com>
+References: <34d952a3-77cd-ea53-c3e3-ccde91d5cf63@jp.fujitsu.com>
+ <75d1b617-b143-3061-fcc7-4cca26ffc9fe@jp.fujitsu.com>
+ <1490841090.24891.58.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <104c0c1f-e2fd-f5d0-0aae-c308d1f1373c@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mgwkm03.jp.fujitsu.com ([202.219.69.170]:33229 "EHLO
+        mgwkm03.jp.fujitsu.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754551AbdC3C4W (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 29 Mar 2017 22:56:22 -0400
+Received: from g01jpfmpwyt03.exch.g01.fujitsu.local (g01jpfmpwyt03.exch.g01.fujitsu.local [10.128.193.57])
+        by kw-mxauth.gw.nic.fujitsu.com (Postfix) with ESMTP id D3F77AC00C8
+        for <netdev@vger.kernel.org>; Thu, 30 Mar 2017 11:56:12 +0900 (JST)
+In-Reply-To: <1490841090.24891.58.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gVGh1LCBNYXIgMzAsIDIwMTcgYXQgMTA6MTY6MTVBTSArMDgwMCwgSmFzb24gV2FuZyB3cm90
-ZToKPiAKPiAKPiBPbiAyMDE35bm0MDPmnIgyOeaXpSAyMDowNywgTWljaGFlbCBTLiBUc2lya2lu
-IHdyb3RlOgo+ID4gT24gVHVlLCBNYXIgMjEsIDIwMTcgYXQgMTI6MDQ6NDdQTSArMDgwMCwgSmFz
-b24gV2FuZyB3cm90ZToKPiA+ID4gRm9yIHRoZSBzb2NrZXQgdGhhdCBleHBvcnRzIGl0cyBza2Ig
-YXJyYXksIHdlIGNhbiB1c2UgbG9ja2xlc3MgcG9sbGluZwo+ID4gPiB0byBhdm9pZCB0b3VjaGlu
-ZyBzcGlubG9jayBkdXJpbmcgYnVzeSBwb2xsaW5nLgo+ID4gPiAKPiA+ID4gU2lnbmVkLW9mZi1i
-eTogSmFzb24gV2FuZyA8amFzb3dhbmdAcmVkaGF0LmNvbT4KPiA+ID4gLS0tCj4gPiA+ICAgZHJp
-dmVycy92aG9zdC9uZXQuYyB8IDcgKysrKystLQo+ID4gPiAgIDEgZmlsZSBjaGFuZ2VkLCA1IGlu
-c2VydGlvbnMoKyksIDIgZGVsZXRpb25zKC0pCj4gPiA+IAo+ID4gPiBkaWZmIC0tZ2l0IGEvZHJp
-dmVycy92aG9zdC9uZXQuYyBiL2RyaXZlcnMvdmhvc3QvbmV0LmMKPiA+ID4gaW5kZXggNTNmMDlm
-Mi4uNDExNTNhMyAxMDA2NDQKPiA+ID4gLS0tIGEvZHJpdmVycy92aG9zdC9uZXQuYwo+ID4gPiAr
-KysgYi9kcml2ZXJzL3Zob3N0L25ldC5jCj4gPiA+IEBAIC01NTEsMTAgKzU1MSwxMyBAQCBzdGF0
-aWMgaW50IHBlZWtfaGVhZF9sZW4oc3RydWN0IHZob3N0X25ldF92aXJ0cXVldWUgKnJ2cSwgc3Ry
-dWN0IHNvY2sgKnNrKQo+ID4gPiAgIAlyZXR1cm4gbGVuOwo+ID4gPiAgIH0KPiA+ID4gLXN0YXRp
-YyBpbnQgc2tfaGFzX3J4X2RhdGEoc3RydWN0IHNvY2sgKnNrKQo+ID4gPiArc3RhdGljIGludCBz
-a19oYXNfcnhfZGF0YShzdHJ1Y3Qgdmhvc3RfbmV0X3ZpcnRxdWV1ZSAqcnZxLCBzdHJ1Y3Qgc29j
-ayAqc2spCj4gPiA+ICAgewo+ID4gPiAgIAlzdHJ1Y3Qgc29ja2V0ICpzb2NrID0gc2stPnNrX3Nv
-Y2tldDsKPiA+ID4gKwlpZiAocnZxLT5yeF9hcnJheSkKPiA+ID4gKwkJcmV0dXJuICFfX3NrYl9h
-cnJheV9lbXB0eShydnEtPnJ4X2FycmF5KTsKPiA+ID4gKwo+ID4gPiAgIAlpZiAoc29jay0+b3Bz
-LT5wZWVrX2xlbikKPiA+ID4gICAJCXJldHVybiBzb2NrLT5vcHMtPnBlZWtfbGVuKHNvY2spOwo+
-ID4gSSBkb24ndCBzZWUgd2hpY2ggcGF0Y2ggYWRkcyBfX3NrYl9hcnJheV9lbXB0eS4KPiAKPiBU
-aGlzIGlzIG5vdCBzb21ldGhpbmcgbmV3LCBpdCB3YXMgaW50cm9kdWNlZCBieSBhZDY5ZjM1ZDFk
-YzBhICgic2tiX2FycmF5Ogo+IGFycmF5IGJhc2VkIEZJRk8gZm9yIHNrYnMiKS4KPiAKPiBUaGFu
-a3MKClNhbWUgY29tbWVudCBhYm91dCBhIGNvbXBpbGVyIGJhcnJpZXIgYXBwbGllcyB0aGVuLgoK
-PiA+IAo+ID4gPiBAQCAtNTc5LDcgKzU4Miw3IEBAIHN0YXRpYyBpbnQgdmhvc3RfbmV0X3J4X3Bl
-ZWtfaGVhZF9sZW4oc3RydWN0IHZob3N0X25ldCAqbmV0LAo+ID4gPiAgIAkJZW5kdGltZSA9IGJ1
-c3lfY2xvY2soKSArIHZxLT5idXN5bG9vcF90aW1lb3V0Owo+ID4gPiAgIAkJd2hpbGUgKHZob3N0
-X2Nhbl9idXN5X3BvbGwoJm5ldC0+ZGV2LCBlbmR0aW1lKSAmJgo+ID4gPiAtCQkgICAgICAgIXNr
-X2hhc19yeF9kYXRhKHNrKSAmJgo+ID4gPiArCQkgICAgICAgIXNrX2hhc19yeF9kYXRhKHJ2cSwg
-c2spICYmCj4gPiA+ICAgCQkgICAgICAgdmhvc3RfdnFfYXZhaWxfZW1wdHkoJm5ldC0+ZGV2LCB2
-cSkpCj4gPiA+ICAgCQkJY3B1X3JlbGF4KCk7Cj4gPiA+IC0tIAo+ID4gPiAyLjcuNApfX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpWaXJ0dWFsaXphdGlvbiBt
-YWlsaW5nIGxpc3QKVmlydHVhbGl6YXRpb25AbGlzdHMubGludXgtZm91bmRhdGlvbi5vcmcKaHR0
-cHM6Ly9saXN0cy5saW51eGZvdW5kYXRpb24ub3JnL21haWxtYW4vbGlzdGluZm8vdmlydHVhbGl6
-YXRpb24=
+Hi Eric,
+
+On 2017-03-30 11:31, Eric Dumazet wrote:
+> On Thu, 2017-03-30 at 09:35 +0900, Seiichi Ikarashi wrote:
+>> Similar to a4d258036ed9 ("tcp: Fix race in tcp_poll").
+>>
+>> Between receiving a packet and tcp_poll(), sk->sk_err is protected by memory barriers but
+>> sk->sk_shutdown and sk->sk_state are not.
+> 
+> ...
+> 
+>>  So possibly, POLLIN|POLLRDNORM|POLLRDHUP might
+>> not be set even when receiving a RST packet.
+>>
+>> Signed-off-by: Seiichi Ikarashi <s.ikarashi@jp.fujitsu.com>
+>>
+>> ---
+>>  net/ipv4/tcp.c | 7 +++++--
+>>  1 file changed, 5 insertions(+), 2 deletions(-)
+>>
+>> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+>> index cf45555..c8bc86e 100644
+>> --- a/net/ipv4/tcp.c
+>> +++ b/net/ipv4/tcp.c
+>> @@ -456,6 +456,8 @@ unsigned int tcp_poll(struct file *file, struct socket *sock, poll_table *wait)
+>>  
+>>  	sock_poll_wait(file, sk_sleep(sk), wait);
+>>  
+>> +	/* This barrier is coupled with smp_wmb() in tcp_reset() */
+>> +	smp_rmb();
+>>  	state = sk_state_load(sk);
+> 
+> Are you telling us that sk_state_load() has no barrier ?
+> 
+> This would imply that smp_load_acquire() should be replaced ?
+
+Ooops, of course you're right.
+sk->sk_state _is_ protected by sk_state_{load,store}().
+
+So my concern is only for sk->sk_shutdown.
+
+> 
+>>  	if (state == TCP_LISTEN)
+>>  		return inet_csk_listen_poll(sk);
+>> @@ -540,8 +542,6 @@ unsigned int tcp_poll(struct file *file, struct socket *sock, poll_table *wait)
+>>  		 */
+>>  		mask |= POLLOUT | POLLWRNORM;
+>>  	}
+>> -	/* This barrier is coupled with smp_wmb() in tcp_reset() */
+>> -	smp_rmb();
+>>  	if (sk->sk_err || !skb_queue_empty(&sk->sk_error_queue))
+>>  		mask |= POLLERR;
+>>  
+>> @@ -3291,6 +3291,9 @@ void tcp_done(struct sock *sk)
+>>  
+>>  	sk->sk_shutdown = SHUTDOWN_MASK;
+>>  
+>> +	/* This barrier is coupled with smp_rmb() in tcp_poll() */
+>> +	smp_wmb();
+>> +
+>>  	if (!sock_flag(sk, SOCK_DEAD))
+>>  		sk->sk_state_change(sk);
+>>  	else
+> 
+> Might I ask on which arch you got a problem ?
+
+I got a report that receiving a RST packet but poll() got only POLLERR, no POLLIN|POLLRDHUP .
+It was an old x86_64 kernel which does not include sk_state_{load,store} functions.
+I suspected some race might have occur above.
+
+Thanks,
+Seiichi
