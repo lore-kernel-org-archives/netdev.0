@@ -1,46 +1,68 @@
-From: Bjorn Helgaas <helgaas@kernel.org>
-Subject: Re: [PATCH 5/5] PCI: remove pci_enable_msix
-Date: Thu, 30 Mar 2017 17:56:11 -0500
-Message-ID: <20170330225610.GA2496@bhelgaas-glaptop.roam.corp.google.com>
-References: <20170327082936.6830-1-hch@lst.de>
- <20170327082936.6830-6-hch@lst.de>
- <83f97789-0817-7549-bfa9-1f8dcb0c26d9@gmail.com>
- <20170327171148.GB28815@lst.de>
- <1eaa46ad-9890-c738-3a85-6468161284ba@gmail.com>
- <20170328064148.GA20271@lst.de>
- <217ae0b0-1d0c-bde9-e3f1-c52cbd3bd112@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Christoph Hellwig <hch@lst.de>, bhelgaas@google.com,
-        davem@davemloft.net, netanel@annapurnalabs.com, jcliburn@gmail.com,
-        chris.snook@gmail.com, sgoutham@cavium.com, rric@kernel.org,
-        netdev@vger.kernel.org, linux-pci@vger.kernel.org
-To: David Daney <ddaney.cavm@gmail.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <217ae0b0-1d0c-bde9-e3f1-c52cbd3bd112@gmail.com>
-Sender: linux-pci-owner@vger.kernel.org
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH] ath6kl: Add __printf verification to ath6kl_dbg
+Date: Thu, 30 Mar 2017 15:57:23 -0700
+Message-ID: <e4556e95a5935f591fdff67c6fb2f7ef5c7fd04f.1490914618.git.joe@perches.com>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Kalle Valo <kvalo@qca.qualcomm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 28, 2017 at 09:24:15AM -0700, David Daney wrote:
-> On 03/27/2017 11:41 PM, Christoph Hellwig wrote:
-> >On Mon, Mar 27, 2017 at 10:30:46AM -0700, David Daney wrote:
-> >>>Use pci_enable_msix_{exact,range} for now, as I told you before.
-> >>>
-> >>
-> >>That still results in twice as many MSI-X being provisioned than are needed.
-> >
-> >How so?  Except for the return value, a pci_enable_msix_exact call with the
-> >same arguments as your previous pci_enable_msix will work exactly the
-> >same.
-> >
-> 
-> Sorry, I think it was my misunderstanding.  I didn't realize that we
-> had essentially renamed the function, but left the functionality
-> mostly unchanged.
+Fix fallout too.
 
-Does this mean you're OK with this patch?  I know it may require some
-work on out-of-tree drivers and so on, but if that work is possible
-and you don't actually lose functionality, I'm OK with this patch.
+Signed-off-by: Joe Perches <joe@perches.com>
+---
+ drivers/net/wireless/ath/ath6kl/debug.h    | 2 ++
+ drivers/net/wireless/ath/ath6kl/htc_pipe.c | 2 +-
+ drivers/net/wireless/ath/ath6kl/wmi.c      | 2 +-
+ 3 files changed, 4 insertions(+), 2 deletions(-)
 
-Bjorn
+diff --git a/drivers/net/wireless/ath/ath6kl/debug.h b/drivers/net/wireless/ath/ath6kl/debug.h
+index 0614393dd7ae..94297572914f 100644
+--- a/drivers/net/wireless/ath/ath6kl/debug.h
++++ b/drivers/net/wireless/ath/ath6kl/debug.h
+@@ -63,6 +63,7 @@ int ath6kl_read_tgt_stats(struct ath6kl *ar, struct ath6kl_vif *vif);
+ 
+ #ifdef CONFIG_ATH6KL_DEBUG
+ 
++__printf(2, 3)
+ void ath6kl_dbg(enum ATH6K_DEBUG_MASK mask, const char *fmt, ...);
+ void ath6kl_dbg_dump(enum ATH6K_DEBUG_MASK mask,
+ 		     const char *msg, const char *prefix,
+@@ -83,6 +84,7 @@ int ath6kl_debug_init_fs(struct ath6kl *ar);
+ void ath6kl_debug_cleanup(struct ath6kl *ar);
+ 
+ #else
++__printf(2, 3)
+ static inline void ath6kl_dbg(enum ATH6K_DEBUG_MASK dbg_mask,
+ 			      const char *fmt, ...)
+ {
+diff --git a/drivers/net/wireless/ath/ath6kl/htc_pipe.c b/drivers/net/wireless/ath/ath6kl/htc_pipe.c
+index ca1a18c86c0d..d127a08d60df 100644
+--- a/drivers/net/wireless/ath/ath6kl/htc_pipe.c
++++ b/drivers/net/wireless/ath/ath6kl/htc_pipe.c
+@@ -995,7 +995,7 @@ static int ath6kl_htc_pipe_rx_complete(struct ath6kl *ar, struct sk_buff *skb,
+ 
+ 	if (netlen < (payload_len + HTC_HDR_LENGTH)) {
+ 		ath6kl_dbg(ATH6KL_DBG_HTC,
+-			   "HTC Rx: insufficient length, got:%d expected =%u\n",
++			   "HTC Rx: insufficient length, got:%d expected =%zu\n",
+ 			   netlen, payload_len + HTC_HDR_LENGTH);
+ 		status = -EINVAL;
+ 		goto free_skb;
+diff --git a/drivers/net/wireless/ath/ath6kl/wmi.c b/drivers/net/wireless/ath/ath6kl/wmi.c
+index 84a6d12c3f8a..a082de81ec4c 100644
+--- a/drivers/net/wireless/ath/ath6kl/wmi.c
++++ b/drivers/net/wireless/ath/ath6kl/wmi.c
+@@ -1596,7 +1596,7 @@ static int ath6kl_wmi_txe_notify_event_rx(struct wmi *wmi, u8 *datap, int len,
+ 	rate = le32_to_cpu(ev->rate);
+ 	pkts = le32_to_cpu(ev->pkts);
+ 
+-	ath6kl_dbg(ATH6KL_DBG_WMI, "TXE notify event: peer %pM rate %d% pkts %d intvl %ds\n",
++	ath6kl_dbg(ATH6KL_DBG_WMI, "TXE notify event: peer %pM rate %d%% pkts %d intvl %ds\n",
+ 		   vif->bssid, rate, pkts, vif->txe_intvl);
+ 
+ 	cfg80211_cqm_txe_notify(vif->ndev, vif->bssid, pkts,
+-- 
+2.10.0.rc2.1.g053435c
