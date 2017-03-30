@@ -1,87 +1,86 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH V2 net-next 6/7] tap: support receiving skb from
+Subject: Re: [PATCH V2 net-next 5/7] tun: support receiving skb through
  msg_control
-Date: Thu, 30 Mar 2017 18:03:05 +0300
-Message-ID: <20170330180140-mutt-send-email-mst@kernel.org>
+Date: Thu, 30 Mar 2017 18:06:28 +0300
+Message-ID: <20170330180414-mutt-send-email-mst@kernel.org>
 References: <1490858550-7763-1-git-send-email-jasowang@redhat.com>
- <1490858550-7763-7-git-send-email-jasowang@redhat.com>
+ <1490858550-7763-6-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: Jason Wang <jasowang@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:45026 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S933518AbdC3PDH (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 30 Mar 2017 11:03:07 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1490858550-7763-7-git-send-email-jasowang@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1490858550-7763-6-git-send-email-jasowang@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 30, 2017 at 03:22:29PM +0800, Jason Wang wrote:
-> This patch makes tap_recvmsg() can receive from skb from its caller
+On Thu, Mar 30, 2017 at 03:22:28PM +0800, Jason Wang wrote:
+> This patch makes tun_recvmsg() can receive from skb from its caller
 > through msg_control. Vhost_net will be the first user.
 > 
 > Signed-off-by: Jason Wang <jasowang@redhat.com>
+
+Do we need to bother with tun? I didn't realize one
+can even use that with vhost. What would be the point of
+all the virtio header stuff dealing with checksums etc?
+
+Even if you see a use-case is it worth optimizing?
+
+
 > ---
->  drivers/net/tap.c | 12 ++++++++----
->  1 file changed, 8 insertions(+), 4 deletions(-)
+>  drivers/net/tun.c | 18 ++++++++++--------
+>  1 file changed, 10 insertions(+), 8 deletions(-)
 > 
-> diff --git a/drivers/net/tap.c b/drivers/net/tap.c
-> index abdaf86..07d9174 100644
-> --- a/drivers/net/tap.c
-> +++ b/drivers/net/tap.c
-> @@ -824,15 +824,17 @@ static ssize_t tap_put_user(struct tap_queue *q,
+> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> index 70dd9ec..a82bced 100644
+> --- a/drivers/net/tun.c
+> +++ b/drivers/net/tun.c
+> @@ -1498,9 +1498,8 @@ static struct sk_buff *tun_ring_recv(struct tun_file *tfile, int noblock,
 >  
->  static ssize_t tap_do_read(struct tap_queue *q,
+>  static ssize_t tun_do_read(struct tun_struct *tun, struct tun_file *tfile,
 >  			   struct iov_iter *to,
 > -			   int noblock)
 > +			   int noblock, struct sk_buff *skb)
 >  {
->  	DEFINE_WAIT(wait);
 > -	struct sk_buff *skb;
->  	ssize_t ret = 0;
+>  	ssize_t ret;
+>  	int err;
 >  
+> @@ -1509,10 +1508,12 @@ static ssize_t tun_do_read(struct tun_struct *tun, struct tun_file *tfile,
 >  	if (!iov_iter_count(to))
 >  		return 0;
 >  
-> +	if (skb)
-> +		goto done;
-> +
->  	while (1) {
->  		if (!noblock)
->  			prepare_to_wait(sk_sleep(&q->sk), &wait,
-> @@ -856,6 +858,7 @@ static ssize_t tap_do_read(struct tap_queue *q,
->  	if (!noblock)
->  		finish_wait(sk_sleep(&q->sk), &wait);
+> -	/* Read frames from ring */
+> -	skb = tun_ring_recv(tfile, noblock, &err);
+> -	if (!skb)
+> -		return err;
+> +	if (!skb) {
+> +		/* Read frames from ring */
+> +		skb = tun_ring_recv(tfile, noblock, &err);
+> +		if (!skb)
+> +			return err;
+> +	}
 >  
-> +done:
-
-Please just use an if {} block here. goto on error is ok,
-but we are far from done here and goto done is misleading.
-
-
->  	if (skb) {
->  		ret = tap_put_user(q, skb, to);
->  		if (unlikely(ret < 0))
-> @@ -872,7 +875,7 @@ static ssize_t tap_read_iter(struct kiocb *iocb, struct iov_iter *to)
->  	struct tap_queue *q = file->private_data;
->  	ssize_t len = iov_iter_count(to), ret;
+>  	ret = tun_put_user(tun, tfile, skb, to);
+>  	if (unlikely(ret < 0))
+> @@ -1532,7 +1533,7 @@ static ssize_t tun_chr_read_iter(struct kiocb *iocb, struct iov_iter *to)
 >  
-> -	ret = tap_do_read(q, to, file->f_flags & O_NONBLOCK);
-> +	ret = tap_do_read(q, to, file->f_flags & O_NONBLOCK, NULL);
+>  	if (!tun)
+>  		return -EBADFD;
+> -	ret = tun_do_read(tun, tfile, to, file->f_flags & O_NONBLOCK);
+> +	ret = tun_do_read(tun, tfile, to, file->f_flags & O_NONBLOCK, NULL);
 >  	ret = min_t(ssize_t, ret, len);
 >  	if (ret > 0)
 >  		iocb->ki_pos = ret;
-> @@ -1155,7 +1158,8 @@ static int tap_recvmsg(struct socket *sock, struct msghdr *m,
->  	int ret;
->  	if (flags & ~(MSG_DONTWAIT|MSG_TRUNC))
->  		return -EINVAL;
-> -	ret = tap_do_read(q, &m->msg_iter, flags & MSG_DONTWAIT);
-> +	ret = tap_do_read(q, &m->msg_iter, flags & MSG_DONTWAIT,
+> @@ -1634,7 +1635,8 @@ static int tun_recvmsg(struct socket *sock, struct msghdr *m, size_t total_len,
+>  					 SOL_PACKET, TUN_TX_TIMESTAMP);
+>  		goto out;
+>  	}
+> -	ret = tun_do_read(tun, tfile, &m->msg_iter, flags & MSG_DONTWAIT);
+> +	ret = tun_do_read(tun, tfile, &m->msg_iter, flags & MSG_DONTWAIT,
 > +			  m->msg_control);
->  	if (ret > total_len) {
+>  	if (ret > (ssize_t)total_len) {
 >  		m->msg_flags |= MSG_TRUNC;
 >  		ret = flags & MSG_TRUNC ? ret : total_len;
 > -- 
