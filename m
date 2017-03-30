@@ -1,67 +1,85 @@
-From: Madalin Bucur <madalin.bucur@nxp.com>
-Subject: [PATCH] fsl/fman: take into account all RGMII modes
-Date: Thu, 30 Mar 2017 16:21:40 +0300
-Message-ID: <1490880100-13373-1-git-send-email-madalin.bucur@nxp.com>
-Reply-To: <madalin.bucur@nxp.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH][V2] VSOCK: remove unnecessary ternary operator on return
+ value
+Date: Thu, 30 Mar 2017 16:22:05 +0300
+Message-ID: <20170330162154-mutt-send-email-mst@kernel.org>
+References: <20170329153355.17525-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <linux-kernel@vger.kernel.org>,
-        <linuxppc-dev@lists.ozlabs.org>,
-        Madalin Bucur <madalin.bucur@nxp.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S . Miller" <davem@davemloft.net>,
+        Jorgen Hansen <jhansen@vmware.com>,
+        Adit Ranadive <aditr@vmware.com>,
+        George Zhang <georgezhang@vmware.com>,
+        Stefan Hajnoczi <stefanha@redhat.com>,
+        Julia Lawall <julia.lawall@lip6.fr>, netdev@vger.kernel.org,
+        kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Colin King <colin.king@canonical.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170329153355.17525-1-colin.king@canonical.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Accept the internal delay RGMII variants.
+On Wed, Mar 29, 2017 at 04:33:55PM +0100, Colin King wrote:
+> From: Colin Ian King <colin.king@canonical.com>
+> 
+> Rather than assign the positive errno values to ret and then
+> checking if it is positive and flip the sign, just return the
+> errno value.
+> 
+> Detected by CoverityScan, CID#986649 ("Logically Dead Code")
+> 
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
 
-Signed-off-by: Madalin Bucur <madalin.bucur@nxp.com>
----
- drivers/net/ethernet/freescale/fman/fman_dtsec.c | 8 +++++++-
- drivers/net/ethernet/freescale/fman/fman_memac.c | 5 ++++-
- 2 files changed, 11 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/freescale/fman/fman_dtsec.c b/drivers/net/ethernet/freescale/fman/fman_dtsec.c
-index 84ea130..98bba10 100644
---- a/drivers/net/ethernet/freescale/fman/fman_dtsec.c
-+++ b/drivers/net/ethernet/freescale/fman/fman_dtsec.c
-@@ -381,6 +381,9 @@ static int init(struct dtsec_regs __iomem *regs, struct dtsec_cfg *cfg,
- 
- 	/* check RGMII support */
- 	if (iface == PHY_INTERFACE_MODE_RGMII ||
-+	    iface == PHY_INTERFACE_MODE_RGMII_ID ||
-+	    iface == PHY_INTERFACE_MODE_RGMII_RXID ||
-+	    iface == PHY_INTERFACE_MODE_RGMII_TXID ||
- 	    iface == PHY_INTERFACE_MODE_RMII)
- 		if (tmp & DTSEC_ID2_INT_REDUCED_OFF)
- 			return -EINVAL;
-@@ -390,7 +393,10 @@ static int init(struct dtsec_regs __iomem *regs, struct dtsec_cfg *cfg,
- 		if (tmp & DTSEC_ID2_INT_REDUCED_OFF)
- 			return -EINVAL;
- 
--	is_rgmii = iface == PHY_INTERFACE_MODE_RGMII;
-+	is_rgmii = iface == PHY_INTERFACE_MODE_RGMII ||
-+		   iface == PHY_INTERFACE_MODE_RGMII_ID ||
-+		   iface == PHY_INTERFACE_MODE_RGMII_RXID ||
-+		   iface == PHY_INTERFACE_MODE_RGMII_TXID;
- 	is_sgmii = iface == PHY_INTERFACE_MODE_SGMII;
- 	is_qsgmii = iface == PHY_INTERFACE_MODE_QSGMII;
- 
-diff --git a/drivers/net/ethernet/freescale/fman/fman_memac.c b/drivers/net/ethernet/freescale/fman/fman_memac.c
-index cd6a53e..c029688 100644
---- a/drivers/net/ethernet/freescale/fman/fman_memac.c
-+++ b/drivers/net/ethernet/freescale/fman/fman_memac.c
-@@ -443,7 +443,10 @@ static int init(struct memac_regs __iomem *regs, struct memac_cfg *cfg,
- 		break;
- 	default:
- 		tmp |= IF_MODE_GMII;
--		if (phy_if == PHY_INTERFACE_MODE_RGMII)
-+		if (phy_if == PHY_INTERFACE_MODE_RGMII ||
-+		    phy_if == PHY_INTERFACE_MODE_RGMII_ID ||
-+		    phy_if == PHY_INTERFACE_MODE_RGMII_RXID ||
-+		    phy_if == PHY_INTERFACE_MODE_RGMII_TXID)
- 			tmp |= IF_MODE_RGMII | IF_MODE_RGMII_AUTO;
- 	}
- 	iowrite32be(tmp, &regs->if_mode);
--- 
-2.1.0
+Acked-by: Michael S. Tsirkin <mst@redhat.com>
+
+> ---
+>  net/vmw_vsock/vmci_transport.c | 22 +++++++---------------
+>  1 file changed, 7 insertions(+), 15 deletions(-)
+> 
+> diff --git a/net/vmw_vsock/vmci_transport.c b/net/vmw_vsock/vmci_transport.c
+> index 4be4fbbc0b50..10ae7823a19d 100644
+> --- a/net/vmw_vsock/vmci_transport.c
+> +++ b/net/vmw_vsock/vmci_transport.c
+> @@ -96,31 +96,23 @@ static int PROTOCOL_OVERRIDE = -1;
+>  
+>  static s32 vmci_transport_error_to_vsock_error(s32 vmci_error)
+>  {
+> -	int err;
+> -
+>  	switch (vmci_error) {
+>  	case VMCI_ERROR_NO_MEM:
+> -		err = ENOMEM;
+> -		break;
+> +		return -ENOMEM;
+>  	case VMCI_ERROR_DUPLICATE_ENTRY:
+>  	case VMCI_ERROR_ALREADY_EXISTS:
+> -		err = EADDRINUSE;
+> -		break;
+> +		return -EADDRINUSE;
+>  	case VMCI_ERROR_NO_ACCESS:
+> -		err = EPERM;
+> -		break;
+> +		return -EPERM;
+>  	case VMCI_ERROR_NO_RESOURCES:
+> -		err = ENOBUFS;
+> -		break;
+> +		return -ENOBUFS;
+>  	case VMCI_ERROR_INVALID_RESOURCE:
+> -		err = EHOSTUNREACH;
+> -		break;
+> +		return -EHOSTUNREACH;
+>  	case VMCI_ERROR_INVALID_ARGS:
+>  	default:
+> -		err = EINVAL;
+> +		break;
+>  	}
+> -
+> -	return err > 0 ? -err : err;
+> +	return -EINVAL;
+>  }
+>  
+>  static u32 vmci_transport_peer_rid(u32 peer_cid)
+> -- 
+> 2.11.0
