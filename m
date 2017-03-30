@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v2 1/9] net: dsa: mv88e6xxx: move PVT description in info
-Date: Thu, 30 Mar 2017 17:37:07 -0400
-Message-ID: <20170330213715.9666-2-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v2 3/9] net: dsa: mv88e6xxx: program the PVT with all ones
+Date: Thu, 30 Mar 2017 17:37:09 -0400
+Message-ID: <20170330213715.9666-4-vivien.didelot@savoirfairelinux.com>
 References: <20170330213715.9666-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
@@ -14,334 +14,181 @@ In-Reply-To: <20170330213715.9666-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Not all Marvell switch chips feature a Cross-chip Port VLAN Table (PVT).
+The Cross-chip Port Based VLAN Table (PVT) is currently initialized with
+all ones, allowing any external ports to egress frames on local ports.
 
-Chips with a PVT use the same implementation, so a new mv88e6xxx_ops
-member won't be necessary yet. Add a "pvt" boolean member to the
-mv88e6xxx_info structure and kill the obsolete MV88E6XXX_FLAGS_PVT flag.
-
-Add a mv88e6xxx_has_pvt helper to wrap future checks of that condition.
+This commit implements the PVT access functions and programs the PVT
+with all ones for the local switch ports only, instead of using the Init
+operation. The current behavior is unchanged for the moment.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 ---
- drivers/net/dsa/mv88e6xxx/chip.c      | 22 ++++++++++++++++++++++
- drivers/net/dsa/mv88e6xxx/global2.c   |  2 +-
- drivers/net/dsa/mv88e6xxx/mv88e6xxx.h | 32 +++++++++++---------------------
- 3 files changed, 34 insertions(+), 22 deletions(-)
+ drivers/net/dsa/mv88e6xxx/chip.c      | 31 ++++++++++++++++++++-
+ drivers/net/dsa/mv88e6xxx/global2.c   | 52 +++++++++++++++++++++++++++++------
+ drivers/net/dsa/mv88e6xxx/global2.h   |  8 ++++++
+ drivers/net/dsa/mv88e6xxx/mv88e6xxx.h |  4 +++
+ 4 files changed, 86 insertions(+), 9 deletions(-)
 
 diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index 3c946af1159d..8f1f881d0375 100644
+index 2a32bb490f92..fb6a723c2137 100644
 --- a/drivers/net/dsa/mv88e6xxx/chip.c
 +++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -3578,6 +3578,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.age_time_coeff = 15000,
- 		.g1_irqs = 8,
- 		.atu_move_port_mask = 0xf,
-+		.pvt = true,
- 		.tag_protocol = DSA_TAG_PROTO_DSA,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6097,
- 		.ops = &mv88e6085_ops,
-@@ -3610,6 +3611,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.age_time_coeff = 15000,
- 		.g1_irqs = 8,
- 		.atu_move_port_mask = 0xf,
-+		.pvt = true,
- 		.tag_protocol = DSA_TAG_PROTO_EDSA,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6097,
- 		.ops = &mv88e6097_ops,
-@@ -3626,6 +3628,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.age_time_coeff = 15000,
- 		.g1_irqs = 9,
- 		.atu_move_port_mask = 0xf,
-+		.pvt = true,
- 		.tag_protocol = DSA_TAG_PROTO_DSA,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6165,
- 		.ops = &mv88e6123_ops,
-@@ -3657,6 +3660,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.global1_addr = 0x1b,
- 		.age_time_coeff = 3750,
- 		.atu_move_port_mask = 0x1f,
-+		.pvt = true,
- 		.tag_protocol = DSA_TAG_PROTO_EDSA,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6341,
- 		.ops = &mv88e6141_ops,
-@@ -3673,6 +3677,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.age_time_coeff = 15000,
- 		.g1_irqs = 9,
- 		.atu_move_port_mask = 0xf,
-+		.pvt = true,
- 		.tag_protocol = DSA_TAG_PROTO_DSA,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6165,
- 		.ops = &mv88e6161_ops,
-@@ -3689,6 +3694,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.age_time_coeff = 15000,
- 		.g1_irqs = 9,
- 		.atu_move_port_mask = 0xf,
-+		.pvt = true,
- 		.tag_protocol = DSA_TAG_PROTO_DSA,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6165,
- 		.ops = &mv88e6165_ops,
-@@ -3705,6 +3711,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.age_time_coeff = 15000,
- 		.g1_irqs = 9,
- 		.atu_move_port_mask = 0xf,
-+		.pvt = true,
- 		.tag_protocol = DSA_TAG_PROTO_EDSA,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6351,
- 		.ops = &mv88e6171_ops,
-@@ -3721,6 +3728,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.age_time_coeff = 15000,
- 		.g1_irqs = 9,
- 		.atu_move_port_mask = 0xf,
-+		.pvt = true,
- 		.tag_protocol = DSA_TAG_PROTO_EDSA,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6352,
- 		.ops = &mv88e6172_ops,
-@@ -3737,6 +3745,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.age_time_coeff = 15000,
- 		.g1_irqs = 9,
- 		.atu_move_port_mask = 0xf,
-+		.pvt = true,
- 		.tag_protocol = DSA_TAG_PROTO_EDSA,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6351,
- 		.ops = &mv88e6175_ops,
-@@ -3753,6 +3762,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.age_time_coeff = 15000,
- 		.g1_irqs = 9,
- 		.atu_move_port_mask = 0xf,
-+		.pvt = true,
- 		.tag_protocol = DSA_TAG_PROTO_EDSA,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6352,
- 		.ops = &mv88e6176_ops,
-@@ -3785,6 +3795,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.tag_protocol = DSA_TAG_PROTO_DSA,
- 		.age_time_coeff = 3750,
- 		.g1_irqs = 9,
-+		.pvt = true,
- 		.atu_move_port_mask = 0x1f,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6390,
- 		.ops = &mv88e6190_ops,
-@@ -3801,6 +3812,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.age_time_coeff = 3750,
- 		.g1_irqs = 9,
- 		.atu_move_port_mask = 0x1f,
-+		.pvt = true,
- 		.tag_protocol = DSA_TAG_PROTO_DSA,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6390,
- 		.ops = &mv88e6190x_ops,
-@@ -3817,6 +3829,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.age_time_coeff = 3750,
- 		.g1_irqs = 9,
- 		.atu_move_port_mask = 0x1f,
-+		.pvt = true,
- 		.tag_protocol = DSA_TAG_PROTO_DSA,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6390,
- 		.ops = &mv88e6191_ops,
-@@ -3833,6 +3846,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.age_time_coeff = 15000,
- 		.g1_irqs = 9,
- 		.atu_move_port_mask = 0xf,
-+		.pvt = true,
- 		.tag_protocol = DSA_TAG_PROTO_EDSA,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6352,
- 		.ops = &mv88e6240_ops,
-@@ -3849,6 +3863,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.age_time_coeff = 3750,
- 		.g1_irqs = 9,
- 		.atu_move_port_mask = 0x1f,
-+		.pvt = true,
- 		.tag_protocol = DSA_TAG_PROTO_DSA,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6390,
- 		.ops = &mv88e6290_ops,
-@@ -3865,6 +3880,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.age_time_coeff = 15000,
- 		.g1_irqs = 8,
- 		.atu_move_port_mask = 0xf,
-+		.pvt = true,
- 		.tag_protocol = DSA_TAG_PROTO_EDSA,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6320,
- 		.ops = &mv88e6320_ops,
-@@ -3896,6 +3912,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.global1_addr = 0x1b,
- 		.age_time_coeff = 3750,
- 		.atu_move_port_mask = 0x1f,
-+		.pvt = true,
- 		.tag_protocol = DSA_TAG_PROTO_EDSA,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6341,
- 		.ops = &mv88e6341_ops,
-@@ -3912,6 +3929,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.age_time_coeff = 15000,
- 		.g1_irqs = 9,
- 		.atu_move_port_mask = 0xf,
-+		.pvt = true,
- 		.tag_protocol = DSA_TAG_PROTO_EDSA,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6351,
- 		.ops = &mv88e6350_ops,
-@@ -3928,6 +3946,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.age_time_coeff = 15000,
- 		.g1_irqs = 9,
- 		.atu_move_port_mask = 0xf,
-+		.pvt = true,
- 		.tag_protocol = DSA_TAG_PROTO_EDSA,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6351,
- 		.ops = &mv88e6351_ops,
-@@ -3944,6 +3963,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.age_time_coeff = 15000,
- 		.g1_irqs = 9,
- 		.atu_move_port_mask = 0xf,
-+		.pvt = true,
- 		.tag_protocol = DSA_TAG_PROTO_EDSA,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6352,
- 		.ops = &mv88e6352_ops,
-@@ -3959,6 +3979,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.age_time_coeff = 3750,
- 		.g1_irqs = 9,
- 		.atu_move_port_mask = 0x1f,
-+		.pvt = true,
- 		.tag_protocol = DSA_TAG_PROTO_DSA,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6390,
- 		.ops = &mv88e6390_ops,
-@@ -3974,6 +3995,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.age_time_coeff = 3750,
- 		.g1_irqs = 9,
- 		.atu_move_port_mask = 0x1f,
-+		.pvt = true,
- 		.tag_protocol = DSA_TAG_PROTO_DSA,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6390,
- 		.ops = &mv88e6390x_ops,
+@@ -1198,15 +1198,44 @@ static int mv88e6xxx_atu_setup(struct mv88e6xxx_chip *chip)
+ 	return mv88e6xxx_g1_atu_set_age_time(chip, 300000);
+ }
+ 
++static int mv88e6xxx_pvt_map(struct mv88e6xxx_chip *chip, int dev, int port)
++{
++	u16 pvlan = 0;
++
++	if (!mv88e6xxx_has_pvt(chip))
++		return -EOPNOTSUPP;
++
++	/* Skip the local source device, which uses in-chip port VLAN */
++	if (dev != chip->ds->index)
++		pvlan = mv88e6xxx_port_mask(chip);
++
++	return mv88e6xxx_g2_pvt_write(chip, dev, port, pvlan);
++}
++
+ static int mv88e6xxx_pvt_setup(struct mv88e6xxx_chip *chip)
+ {
++	int dev, port;
++	int err;
++
+ 	if (!mv88e6xxx_has_pvt(chip))
+ 		return 0;
+ 
+ 	/* Clear 5 Bit Port for usage with Marvell Link Street devices:
+ 	 * use 4 bits for the Src_Port/Src_Trunk and 5 bits for the Src_Dev.
+ 	 */
+-	return mv88e6xxx_g2_misc_4_bit_port(chip);
++	err = mv88e6xxx_g2_misc_4_bit_port(chip);
++	if (err)
++		return err;
++
++	for (dev = 0; dev < MV88E6XXX_MAX_PVT_SWITCHES; ++dev) {
++		for (port = 0; port < MV88E6XXX_MAX_PVT_PORTS; ++port) {
++			err = mv88e6xxx_pvt_map(chip, dev, port);
++			if (err)
++				return err;
++		}
++	}
++
++	return 0;
+ }
+ 
+ static void mv88e6xxx_port_fast_age(struct dsa_switch *ds, int port)
 diff --git a/drivers/net/dsa/mv88e6xxx/global2.c b/drivers/net/dsa/mv88e6xxx/global2.c
-index 132559d46b95..6228aab2ad35 100644
+index d64f4c15ccb7..7c6bc33a9516 100644
 --- a/drivers/net/dsa/mv88e6xxx/global2.c
 +++ b/drivers/net/dsa/mv88e6xxx/global2.c
-@@ -966,7 +966,7 @@ int mv88e6xxx_g2_setup(struct mv88e6xxx_chip *chip)
+@@ -172,6 +172,50 @@ static int mv88e6xxx_g2_clear_irl(struct mv88e6xxx_chip *chip)
+ 	return err;
+ }
+ 
++/* Offset 0x0B: Cross-chip Port VLAN (Addr) Register
++ * Offset 0x0C: Cross-chip Port VLAN Data Register
++ */
++
++static int mv88e6xxx_g2_pvt_op_wait(struct mv88e6xxx_chip *chip)
++{
++	return mv88e6xxx_g2_wait(chip, GLOBAL2_PVT_ADDR, GLOBAL2_PVT_ADDR_BUSY);
++}
++
++static int mv88e6xxx_g2_pvt_op(struct mv88e6xxx_chip *chip, int src_dev,
++			       int src_port, u16 op)
++{
++	int err;
++
++	/* 9-bit Cross-chip PVT pointer: with GLOBAL2_MISC_5_BIT_PORT cleared,
++	 * source device is 5-bit, source port is 4-bit.
++	 */
++	op |= (src_dev & 0x1f) << 4;
++	op |= (src_port & 0xf);
++
++	err = mv88e6xxx_g2_write(chip, GLOBAL2_PVT_ADDR, op);
++	if (err)
++		return err;
++
++	return mv88e6xxx_g2_pvt_op_wait(chip);
++}
++
++int mv88e6xxx_g2_pvt_write(struct mv88e6xxx_chip *chip, int src_dev,
++			   int src_port, u16 data)
++{
++	int err;
++
++	err = mv88e6xxx_g2_pvt_op_wait(chip);
++	if (err)
++		return err;
++
++	err = mv88e6xxx_g2_write(chip, GLOBAL2_PVT_DATA, data);
++	if (err)
++		return err;
++
++	return mv88e6xxx_g2_pvt_op(chip, src_dev, src_port,
++				   GLOBAL2_PVT_ADDR_OP_WRITE_PVLAN);
++}
++
+ /* Offset 0x0D: Switch MAC/WoL/WoF register */
+ 
+ static int mv88e6xxx_g2_switch_mac_write(struct mv88e6xxx_chip *chip,
+@@ -991,14 +1035,6 @@ int mv88e6xxx_g2_setup(struct mv88e6xxx_chip *chip)
  				return err;
  	}
  
--	if (mv88e6xxx_has(chip, MV88E6XXX_FLAGS_PVT)) {
-+	if (mv88e6xxx_has_pvt(chip)) {
- 		/* Initialize Cross-chip Port VLAN Table to reset defaults */
- 		err = mv88e6xxx_g2_write(chip, GLOBAL2_PVT_ADDR,
- 					 GLOBAL2_PVT_ADDR_OP_INIT_ONES);
-diff --git a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-index 55367d05374e..97dd3e2d2a56 100644
---- a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-+++ b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-@@ -527,8 +527,6 @@ enum mv88e6xxx_cap {
- 	MV88E6XXX_CAP_G2_MGMT_EN_0X,	/* (0x03) MGMT Enable Register 0x */
- 	MV88E6XXX_CAP_G2_IRL_CMD,	/* (0x09) Ingress Rate Command */
- 	MV88E6XXX_CAP_G2_IRL_DATA,	/* (0x0a) Ingress Rate Data */
--	MV88E6XXX_CAP_G2_PVT_ADDR,	/* (0x0b) Cross Chip Port VLAN Addr */
--	MV88E6XXX_CAP_G2_PVT_DATA,	/* (0x0c) Cross Chip Port VLAN Data */
- 	MV88E6XXX_CAP_G2_POT,		/* (0x0f) Priority Override Table */
- 
- 	/* Per VLAN Spanning Tree Unit (STU).
-@@ -561,8 +559,6 @@ enum mv88e6xxx_cap {
- #define MV88E6XXX_FLAG_G2_MGMT_EN_0X	BIT_ULL(MV88E6XXX_CAP_G2_MGMT_EN_0X)
- #define MV88E6XXX_FLAG_G2_IRL_CMD	BIT_ULL(MV88E6XXX_CAP_G2_IRL_CMD)
- #define MV88E6XXX_FLAG_G2_IRL_DATA	BIT_ULL(MV88E6XXX_CAP_G2_IRL_DATA)
--#define MV88E6XXX_FLAG_G2_PVT_ADDR	BIT_ULL(MV88E6XXX_CAP_G2_PVT_ADDR)
--#define MV88E6XXX_FLAG_G2_PVT_DATA	BIT_ULL(MV88E6XXX_CAP_G2_PVT_DATA)
- #define MV88E6XXX_FLAG_G2_POT		BIT_ULL(MV88E6XXX_CAP_G2_POT)
- 
- #define MV88E6XXX_FLAG_STU		BIT_ULL(MV88E6XXX_CAP_STU)
-@@ -578,11 +574,6 @@ enum mv88e6xxx_cap {
- 	(MV88E6XXX_FLAG_SMI_CMD |	\
- 	 MV88E6XXX_FLAG_SMI_DATA)
- 
--/* Cross-chip Port VLAN Table */
--#define MV88E6XXX_FLAGS_PVT		\
--	(MV88E6XXX_FLAG_G2_PVT_ADDR |	\
--	 MV88E6XXX_FLAG_G2_PVT_DATA)
+-	if (mv88e6xxx_has_pvt(chip)) {
+-		/* Initialize Cross-chip Port VLAN Table to reset defaults */
+-		err = mv88e6xxx_g2_write(chip, GLOBAL2_PVT_ADDR,
+-					 GLOBAL2_PVT_ADDR_OP_INIT_ONES);
+-		if (err)
+-			return err;
+-	}
 -
- /* Fiber/SERDES Registers at SMI address F, page 1 */
- #define MV88E6XXX_FLAGS_SERDES		\
- 	(MV88E6XXX_FLAG_PHY_PAGE |	\
-@@ -604,8 +595,7 @@ enum mv88e6xxx_cap {
- 	 MV88E6XXX_FLAG_STU |		\
- 	 MV88E6XXX_FLAG_VTU |		\
- 	 MV88E6XXX_FLAGS_IRL |		\
--	 MV88E6XXX_FLAGS_MULTI_CHIP |	\
--	 MV88E6XXX_FLAGS_PVT)
-+	 MV88E6XXX_FLAGS_MULTI_CHIP)
+ 	if (mv88e6xxx_has(chip, MV88E6XXX_FLAG_G2_POT)) {
+ 		/* Clear the priority override table. */
+ 		err = mv88e6xxx_g2_clear_pot(chip);
+diff --git a/drivers/net/dsa/mv88e6xxx/global2.h b/drivers/net/dsa/mv88e6xxx/global2.h
+index 71fb2ff541ba..96046bb12ca1 100644
+--- a/drivers/net/dsa/mv88e6xxx/global2.h
++++ b/drivers/net/dsa/mv88e6xxx/global2.h
+@@ -42,6 +42,8 @@ int mv88e6xxx_g2_get_eeprom16(struct mv88e6xxx_chip *chip,
+ int mv88e6xxx_g2_set_eeprom16(struct mv88e6xxx_chip *chip,
+ 			      struct ethtool_eeprom *eeprom, u8 *data);
  
- #define MV88E6XXX_FLAGS_FAMILY_6165	\
- 	(MV88E6XXX_FLAG_G1_VTU_FID |	\
-@@ -617,8 +607,7 @@ enum mv88e6xxx_cap {
- 	 MV88E6XXX_FLAG_STU |		\
- 	 MV88E6XXX_FLAG_VTU |		\
- 	 MV88E6XXX_FLAGS_IRL |		\
--	 MV88E6XXX_FLAGS_MULTI_CHIP |	\
--	 MV88E6XXX_FLAGS_PVT)
-+	 MV88E6XXX_FLAGS_MULTI_CHIP)
++int mv88e6xxx_g2_pvt_write(struct mv88e6xxx_chip *chip, int src_dev,
++			   int src_port, u16 data);
+ int mv88e6xxx_g2_misc_4_bit_port(struct mv88e6xxx_chip *chip);
  
- #define MV88E6XXX_FLAGS_FAMILY_6185	\
- 	(MV88E6XXX_FLAG_GLOBAL2 |	\
-@@ -635,8 +624,7 @@ enum mv88e6xxx_cap {
- 	 MV88E6XXX_FLAG_G2_POT |	\
- 	 MV88E6XXX_FLAG_VTU |		\
- 	 MV88E6XXX_FLAGS_IRL |		\
--	 MV88E6XXX_FLAGS_MULTI_CHIP |	\
--	 MV88E6XXX_FLAGS_PVT)
-+	 MV88E6XXX_FLAGS_MULTI_CHIP)
- 
- #define MV88E6XXX_FLAGS_FAMILY_6341	\
- 	(MV88E6XXX_FLAG_EEE |		\
-@@ -648,7 +636,6 @@ enum mv88e6xxx_cap {
- 	 MV88E6XXX_FLAG_VTU |		\
- 	 MV88E6XXX_FLAGS_IRL |		\
- 	 MV88E6XXX_FLAGS_MULTI_CHIP |	\
--	 MV88E6XXX_FLAGS_PVT |		\
- 	 MV88E6XXX_FLAGS_SERDES)
- 
- #define MV88E6XXX_FLAGS_FAMILY_6351	\
-@@ -661,8 +648,7 @@ enum mv88e6xxx_cap {
- 	 MV88E6XXX_FLAG_STU |		\
- 	 MV88E6XXX_FLAG_VTU |		\
- 	 MV88E6XXX_FLAGS_IRL |		\
--	 MV88E6XXX_FLAGS_MULTI_CHIP |	\
--	 MV88E6XXX_FLAGS_PVT)
-+	 MV88E6XXX_FLAGS_MULTI_CHIP)
- 
- #define MV88E6XXX_FLAGS_FAMILY_6352	\
- 	(MV88E6XXX_FLAG_EEE |		\
-@@ -676,7 +662,6 @@ enum mv88e6xxx_cap {
- 	 MV88E6XXX_FLAG_VTU |		\
- 	 MV88E6XXX_FLAGS_IRL |		\
- 	 MV88E6XXX_FLAGS_MULTI_CHIP |	\
--	 MV88E6XXX_FLAGS_PVT |		\
- 	 MV88E6XXX_FLAGS_SERDES)
- 
- #define MV88E6XXX_FLAGS_FAMILY_6390	\
-@@ -686,8 +671,7 @@ enum mv88e6xxx_cap {
- 	 MV88E6XXX_FLAG_STU |		\
- 	 MV88E6XXX_FLAG_VTU |		\
- 	 MV88E6XXX_FLAGS_IRL |		\
--	 MV88E6XXX_FLAGS_MULTI_CHIP |	\
--	 MV88E6XXX_FLAGS_PVT)
-+	 MV88E6XXX_FLAGS_MULTI_CHIP)
- 
- struct mv88e6xxx_ops;
- 
-@@ -701,6 +685,7 @@ struct mv88e6xxx_info {
- 	unsigned int global1_addr;
- 	unsigned int age_time_coeff;
- 	unsigned int g1_irqs;
-+	bool pvt;
- 	enum dsa_tag_protocol tag_protocol;
- 	unsigned long long flags;
- 
-@@ -936,6 +921,11 @@ static inline bool mv88e6xxx_has(struct mv88e6xxx_chip *chip,
- 	return (chip->info->flags & flags) == flags;
+ int mv88e6xxx_g2_setup(struct mv88e6xxx_chip *chip);
+@@ -112,6 +114,12 @@ static inline int mv88e6xxx_g2_set_eeprom16(struct mv88e6xxx_chip *chip,
+ 	return -EOPNOTSUPP;
  }
  
-+static inline bool mv88e6xxx_has_pvt(struct mv88e6xxx_chip *chip)
++int mv88e6xxx_g2_pvt_write(struct mv88e6xxx_chip *chip, int src_dev,
++			   int src_port, u16 data)
 +{
-+	return chip->info->pvt;
++	return -EOPNOTSUPP;
 +}
 +
- static inline unsigned int mv88e6xxx_num_databases(struct mv88e6xxx_chip *chip)
+ int mv88e6xxx_g2_misc_4_bit_port(struct mv88e6xxx_chip *chip)
  {
- 	return chip->info->num_databases;
+ 	return -EOPNOTSUPP;
+diff --git a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
+index bcaa55b20f5a..c8f54986996b 100644
+--- a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
+@@ -443,6 +443,10 @@
+ 
+ #define MV88E6XXX_N_FID		4096
+ 
++/* PVT limits for 4-bit port and 5-bit switch */
++#define MV88E6XXX_MAX_PVT_SWITCHES	32
++#define MV88E6XXX_MAX_PVT_PORTS		16
++
+ enum mv88e6xxx_frame_mode {
+ 	MV88E6XXX_FRAME_MODE_NORMAL,
+ 	MV88E6XXX_FRAME_MODE_DSA,
 -- 
 2.12.1
