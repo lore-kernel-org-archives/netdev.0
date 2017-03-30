@@ -1,56 +1,106 @@
-From: Alban Crequy <alban@kinvolk.io>
-Subject: Re: [RFC PATCH tip/master 2/3] kprobes: Allocate kretprobe instance if its free list is empty
-Date: Thu, 30 Mar 2017 15:03:11 +0200
-Message-ID: <CADZs7q4H4+yUNaOnOR26XYSC1uq_+Dy-DmKN=dwj8vwZcuG4LA@mail.gmail.com>
-References: <149076484118.24574.7083269903420611708.stgit@devbox> <149076498222.24574.679546540523044200.stgit@devbox> <20170329063005.GA12220@gmail.com> <20170329172510.e012406497fd38a54d5069b3@kernel.org> <20170330065332.GA30148@gmail.com>
+From: Mel Gorman <mgorman@techsingularity.net>
+Subject: Re: in_irq_or_nmi() and RFC patch
+Date: Thu, 30 Mar 2017 14:04:36 +0100
+Message-ID: <20170330130436.l37yazbxlrkvcbf3@techsingularity.net>
+References: <20170327143947.4c237e54@redhat.com>
+ <20170327141518.GB27285@bombadil.infradead.org>
+ <20170327171500.4beef762@redhat.com>
+ <20170327165817.GA28494@bombadil.infradead.org>
+ <20170329081219.lto7t4fwmponokzh@hirez.programming.kicks-ass.net>
+ <20170329105928.609bc581@redhat.com>
+ <20170329091949.o2kozhhdnszgwvtn@hirez.programming.kicks-ass.net>
+ <20170329181226.GA8256@bombadil.infradead.org>
+ <20170329211144.3e362ac9@redhat.com>
+ <20170329214441.08332799@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Masami Hiramatsu <mhiramat@kernel.org>, Steven Rostedt <rostedt@goodmis.org>, 	Ingo Molnar <mingo@redhat.com>, Alban Crequy <alban.crequy@gmail.com>, 	Alexei Starovoitov <ast@kernel.org>, Jonathan Corbet <corbet@lwn.net>, 	Arnaldo Carvalho de Melo <acme@redhat.com>, Omar Sandoval <osandov@fb.com>, linux-doc@vger.kernel.org, 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org, 	=?UTF-8?Q?Iago_L=C3=B3pez_Galeiras?= <iago@kinvolk.io>, 	Michael Schubert <michael@kinvolk.io>, Dorau Lukasz <lukasz.dorau@intel.com>, systemtap@sourceware.org
-To: Ingo Molnar <mingo@kernel.org>
-Return-path: <systemtap-return-25250-gls-systemtap=m.gmane.org@sourceware.org>
-List-Unsubscribe: <mailto:systemtap-unsubscribe-gls-systemtap=m.gmane.org@sourceware.org>
-List-Subscribe: <mailto:systemtap-subscribe@sourceware.org>
-List-Post: <mailto:systemtap@sourceware.org>
-List-Help: <mailto:systemtap-help@sourceware.org>, <http://sourceware.org/lists.html#faqs>
-Sender: systemtap-owner@sourceware.org
-In-Reply-To: <20170330065332.GA30148@gmail.com>
+Content-Type: text/plain; charset=iso-8859-15
+Cc: Matthew Wilcox <willy@infradead.org>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Pankaj Gupta <pagupta@redhat.com>,
+	Tariq Toukan <ttoukan.linux@gmail.com>,
+	Tariq Toukan <tariqt@mellanox.com>, netdev@vger.kernel.org,
+	akpm@linux-foundation.org, linux-mm <linux-mm@kvack.org>,
+	Saeed Mahameed <saeedm@mellanox.com>, linux-kernel@vger.kernel.org
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <20170329214441.08332799@redhat.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 30, 2017 at 8:53 AM, Ingo Molnar <mingo@kernel.org> wrote:
->
-> * Masami Hiramatsu <mhiramat@kernel.org> wrote:
->
->> > So this is something I missed while the original code was merged, but the concept
->> > looks a bit weird: why do we do any "allocation" while a handler is executing?
->> >
->> > That's fundamentally fragile. What's the maximum number of parallel
->> > 'kretprobe_instance' required per kretprobe - one per CPU?
->>
->> It depends on the place where we put the probe. If the probed function will be
->> blocked (yield to other tasks), then we need a same number of threads on
->> the system which can invoke the function. So, ultimately, it is same
->> as function_graph tracer, we need it for each thread.
->
-> So then put it into task_struct (assuming there's no kretprobe-inside-kretprobe
-> nesting allowed). There's just no way in hell we should be calling any complex
-> kernel function from kernel probes!
+On Wed, Mar 29, 2017 at 09:44:41PM +0200, Jesper Dangaard Brouer wrote:
+> > Regardless or using in_irq() (or in combi with in_nmi()) I get the
+> > following warning below:
+> > 
+> > [    0.000000] Kernel command line: BOOT_IMAGE=/vmlinuz-4.11.0-rc3-net-next-page-alloc-softirq+ root=UUID=2e8451ff-6797-49b5-8d3a-eed5a42d7dc9 ro rhgb quiet LANG=en_DK.UTF
+> > -8
+> > [    0.000000] PID hash table entries: 4096 (order: 3, 32768 bytes)
+> > [    0.000000] ------------[ cut here ]------------
+> > [    0.000000] WARNING: CPU: 0 PID: 0 at kernel/softirq.c:161 __local_bh_enable_ip+0x70/0x90
+> > [    0.000000] Modules linked in:
+> > [    0.000000] CPU: 0 PID: 0 Comm: swapper Not tainted 4.11.0-rc3-net-next-page-alloc-softirq+ #235
+> > [    0.000000] Hardware name: MSI MS-7984/Z170A GAMING PRO (MS-7984), BIOS 1.60 12/16/2015
+> > [    0.000000] Call Trace:
+> > [    0.000000]  dump_stack+0x4f/0x73
+> > [    0.000000]  __warn+0xcb/0xf0
+> > [    0.000000]  warn_slowpath_null+0x1d/0x20
+> > [    0.000000]  __local_bh_enable_ip+0x70/0x90
+> > [    0.000000]  free_hot_cold_page+0x1a4/0x2f0
+> > [    0.000000]  __free_pages+0x1f/0x30
+> > [    0.000000]  __free_pages_bootmem+0xab/0xb8
+> > [    0.000000]  __free_memory_core+0x79/0x91
+> > [    0.000000]  free_all_bootmem+0xaa/0x122
+> > [    0.000000]  mem_init+0x71/0xa4
+> > [    0.000000]  start_kernel+0x1e5/0x3f1
+> > [    0.000000]  x86_64_start_reservations+0x2a/0x2c
+> > [    0.000000]  x86_64_start_kernel+0x178/0x18b
+> > [    0.000000]  start_cpu+0x14/0x14
+> > [    0.000000]  ? start_cpu+0x14/0x14
+> > [    0.000000] ---[ end trace a57944bec8fc985c ]---
+> > [    0.000000] Memory: 32739472K/33439416K available (7624K kernel code, 1528K rwdata, 3168K rodata, 1860K init, 2260K bss, 699944K reserved, 0K cma-reserved)
+> > 
+> > And kernel/softirq.c:161 contains:
+> > 
+> >  WARN_ON_ONCE(in_irq() || irqs_disabled());
+> > 
+> > Thus, I don't think the change in my RFC-patch[1] is safe.
+> > Of changing[2] to support softirq allocations by replacing
+> > preempt_disable() with local_bh_disable().
+> > 
+> > [1] http://lkml.kernel.org/r/20170327143947.4c237e54@redhat.com
+> > 
+> > [2] commit 374ad05ab64d ("mm, page_alloc: only use per-cpu allocator for irq-safe requests")
+> >  https://git.kernel.org/torvalds/c/374ad05ab64d
+> 
+> A patch that avoids the above warning is inlined below, but I'm not
+> sure if this is best direction.  Or we should rather consider reverting
+> part of commit 374ad05ab64d to avoid the softirq performance regression?
+>  
 
-Some kprobes are called from an interruption context. We have a kprobe
-on tcp_set_state() and this is sometimes called when the network card
-receives a packet.
+At the moment, I'm not seeing a better alternative. If this works, I
+think it would still be far superior in terms of performance than a
+revert. As before, if there are bad consequences to adding a BH
+rescheduling point then we'll have to revert. However, I don't like a
+revert being the first option as it'll keep encouraging drivers to build
+sub-allocators to avoid the page allocator.
 
-> I mean, think about it, a kretprobe can be installed in a lot of places, and now
-> we want to call get_free_pages() from it?? This would add a massive amount of
-> fragility.
->
-> Instrumentation must be _simple_, every patch that adds more complexity to the
-> most fundamental code path of it should raise a red flag ...
->
-> So let's make this more robust, ok?
->
-> Thanks,
->
->         Ingo
+> [PATCH] mm, page_alloc: re-enable softirq use of per-cpu page allocator
+> 
+> From: Jesper Dangaard Brouer <brouer@redhat.com>
+> 
 
-Thanks,
-Alban
+Other than the slightly misleading comments about NMI which could
+explain "this potentially misses an NMI but an NMI allocating pages is
+brain damaged", I don't see a problem. The irqs_disabled() check is a
+subtle but it's not earth shattering and it still helps the 100GiB cases
+with the limited cycle budget to process packets.
+
+-- 
+Mel Gorman
+SUSE Labs
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
