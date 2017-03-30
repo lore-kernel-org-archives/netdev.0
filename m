@@ -1,183 +1,133 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next v2 1/6] net: mpls: rt_nhn_alive and nh_flags should be accessed using READ_ONCE
-Date: Thu, 30 Mar 2017 09:18:19 -0700
-Message-ID: <1490890704-8075-2-git-send-email-dsa@cumulusnetworks.com>
+Subject: [PATCH net-next v2 6/6] net: mpls: Increase max number of labels for lwt encap
+Date: Thu, 30 Mar 2017 09:18:24 -0700
+Message-ID: <1490890704-8075-7-git-send-email-dsa@cumulusnetworks.com>
 References: <1490890704-8075-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: roopa@cumulusnetworks.com, rshearma@brocade.com,
         ebiederm@xmission.com, David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f45.google.com ([74.125.83.45]:35102 "EHLO
+Received: from mail-pg0-f45.google.com ([74.125.83.45]:35143 "EHLO
         mail-pg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933848AbdC3QSc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 30 Mar 2017 12:18:32 -0400
-Received: by mail-pg0-f45.google.com with SMTP id 81so44442236pgh.2
-        for <netdev@vger.kernel.org>; Thu, 30 Mar 2017 09:18:31 -0700 (PDT)
+        with ESMTP id S933964AbdC3QSh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 30 Mar 2017 12:18:37 -0400
+Received: by mail-pg0-f45.google.com with SMTP id 81so44444192pgh.2
+        for <netdev@vger.kernel.org>; Thu, 30 Mar 2017 09:18:36 -0700 (PDT)
 In-Reply-To: <1490890704-8075-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The number of alive nexthops for a route (rt->rt_nhn_alive) and the
-flags for a next hop (nh->nh_flags) are modified by netdev event
-handlers. The event handlers run with rtnl_lock held so updates are
-always done with the lock held. The packet path accesses the fields
-under the rcu lock. Since those fields can change at any moment in
-the packet path, both fields should be accessed using READ_ONCE. Updates
-to both fields should use WRITE_ONCE.
+Alow users to push down more labels per MPLS encap. Similar to LSR case,
+move label array to the end of mpls_iptunnel_encap and allocate based on
+the number of labels for the route.
 
-Update mpls_select_multipath (packet path) and mpls_ifdown and mpls_ifup
-(event handlers) accordingly.
+For consistency with the LSR case, re-use the same maximum number of
+labels.
 
 Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
 v2
-- new patch in v2 of set
+- marked hole in mpls_iptunnel_encap as reserved1
 
- net/mpls/af_mpls.c  | 36 +++++++++++++++++++++++++-----------
- net/mpls/internal.h |  8 ++++++++
- 2 files changed, 33 insertions(+), 11 deletions(-)
+ include/net/mpls_iptunnel.h |  5 ++---
+ net/mpls/af_mpls.c          |  5 -----
+ net/mpls/internal.h         |  5 +++++
+ net/mpls/mpls_iptunnel.c    | 13 ++++++++++---
+ 4 files changed, 17 insertions(+), 11 deletions(-)
 
+diff --git a/include/net/mpls_iptunnel.h b/include/net/mpls_iptunnel.h
+index a18af6a16eb5..9d22bf67ac86 100644
+--- a/include/net/mpls_iptunnel.h
++++ b/include/net/mpls_iptunnel.h
+@@ -14,13 +14,12 @@
+ #ifndef _NET_MPLS_IPTUNNEL_H
+ #define _NET_MPLS_IPTUNNEL_H 1
+ 
+-#define MAX_NEW_LABELS 2
+-
+ struct mpls_iptunnel_encap {
+-	u32	label[MAX_NEW_LABELS];
+ 	u8	labels;
+ 	u8	ttl_propagate;
+ 	u8	default_ttl;
++	u8	reserved1;
++	u32	label[0];
+ };
+ 
+ static inline struct mpls_iptunnel_encap *mpls_lwtunnel_encap(struct lwtunnel_state *lwtstate)
 diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
-index 06ffafde70da..6bdd2f95b576 100644
+index 2458d7ed2ab5..2da15dcb2675 100644
 --- a/net/mpls/af_mpls.c
 +++ b/net/mpls/af_mpls.c
-@@ -189,10 +189,15 @@ static u32 mpls_multipath_hash(struct mpls_route *rt, struct sk_buff *skb)
- 	return hash;
- }
+@@ -24,11 +24,6 @@
+ #include <net/nexthop.h>
+ #include "internal.h"
  
-+/* number of alive nexthops (rt->rt_nhn_alive) and the flags for
-+ * a next hop (nh->nh_flags) are modified by netdev event handlers.
-+ * Since those fields can change at any moment, use READ_ONCE to
-+ * access both.
-+ */
- static struct mpls_nh *mpls_select_multipath(struct mpls_route *rt,
- 					     struct sk_buff *skb)
- {
--	int alive = ACCESS_ONCE(rt->rt_nhn_alive);
-+	unsigned int alive;
- 	u32 hash = 0;
- 	int nh_index = 0;
- 	int n = 0;
-@@ -203,7 +208,8 @@ static struct mpls_nh *mpls_select_multipath(struct mpls_route *rt,
- 	if (rt->rt_nhn == 1)
- 		goto out;
- 
--	if (alive <= 0)
-+	alive = READ_ONCE(rt->rt_nhn_alive);
-+	if (alive == 0)
- 		return NULL;
- 
- 	hash = mpls_multipath_hash(rt, skb);
-@@ -211,7 +217,9 @@ static struct mpls_nh *mpls_select_multipath(struct mpls_route *rt,
- 	if (alive == rt->rt_nhn)
- 		goto out;
- 	for_nexthops(rt) {
--		if (nh->nh_flags & (RTNH_F_DEAD | RTNH_F_LINKDOWN))
-+		unsigned int nh_flags = READ_ONCE(nh->nh_flags);
-+
-+		if (nh_flags & (RTNH_F_DEAD | RTNH_F_LINKDOWN))
- 			continue;
- 		if (n == nh_index)
- 			return nh;
-@@ -1302,7 +1310,6 @@ static void mpls_ifdown(struct net_device *dev, int event)
- {
- 	struct mpls_route __rcu **platform_label;
- 	struct net *net = dev_net(dev);
--	unsigned int nh_flags = RTNH_F_DEAD | RTNH_F_LINKDOWN;
- 	unsigned int alive, deleted;
- 	unsigned index;
- 
-@@ -1316,22 +1323,27 @@ static void mpls_ifdown(struct net_device *dev, int event)
- 		alive = 0;
- 		deleted = 0;
- 		change_nexthops(rt) {
-+			unsigned int nh_flags = nh->nh_flags;
-+
- 			if (rtnl_dereference(nh->nh_dev) != dev)
- 				goto next;
- 
- 			switch (event) {
- 			case NETDEV_DOWN:
- 			case NETDEV_UNREGISTER:
--				nh->nh_flags |= RTNH_F_DEAD;
-+				nh_flags |= RTNH_F_DEAD;
- 				/* fall through */
- 			case NETDEV_CHANGE:
--				nh->nh_flags |= RTNH_F_LINKDOWN;
-+				nh_flags |= RTNH_F_LINKDOWN;
- 				break;
- 			}
- 			if (event == NETDEV_UNREGISTER)
- 				RCU_INIT_POINTER(nh->nh_dev, NULL);
-+
-+			if (nh->nh_flags != nh_flags)
-+				WRITE_ONCE(nh->nh_flags, nh_flags);
- next:
--			if (!(nh->nh_flags & nh_flags))
-+			if (!(nh_flags & (RTNH_F_DEAD | RTNH_F_LINKDOWN)))
- 				alive++;
- 			if (!rtnl_dereference(nh->nh_dev))
- 				deleted++;
-@@ -1345,7 +1357,7 @@ static void mpls_ifdown(struct net_device *dev, int event)
- 	}
- }
- 
--static void mpls_ifup(struct net_device *dev, unsigned int nh_flags)
-+static void mpls_ifup(struct net_device *dev, unsigned int flags)
- {
- 	struct mpls_route __rcu **platform_label;
- 	struct net *net = dev_net(dev);
-@@ -1361,20 +1373,22 @@ static void mpls_ifup(struct net_device *dev, unsigned int nh_flags)
- 
- 		alive = 0;
- 		change_nexthops(rt) {
-+			unsigned int nh_flags = nh->nh_flags;
- 			struct net_device *nh_dev =
- 				rtnl_dereference(nh->nh_dev);
- 
--			if (!(nh->nh_flags & nh_flags)) {
-+			if (!(nh_flags & flags)) {
- 				alive++;
- 				continue;
- 			}
- 			if (nh_dev != dev)
- 				continue;
- 			alive++;
--			nh->nh_flags &= ~nh_flags;
-+			nh_flags &= ~flags;
-+			WRITE_ONCE(nh->nh_flags, flags);
- 		} endfor_nexthops(rt);
- 
--		ACCESS_ONCE(rt->rt_nhn_alive) = alive;
-+		WRITE_ONCE(rt->rt_nhn_alive, alive);
- 	}
- }
+-/* put a reasonable limit on the number of labels
+- * we will accept from userspace
+- */
+-#define MAX_NEW_LABELS	30
+-
+ /* max memory we will use for mpls_route */
+ #define MAX_MPLS_ROUTE_MEM	4096
  
 diff --git a/net/mpls/internal.h b/net/mpls/internal.h
-index 62928d8fabd1..91419fe63464 100644
+index c5d2f5bc37ec..4db6a5971322 100644
 --- a/net/mpls/internal.h
 +++ b/net/mpls/internal.h
-@@ -83,6 +83,10 @@ enum mpls_payload_type {
+@@ -2,6 +2,11 @@
+ #define MPLS_INTERNAL_H
+ #include <net/mpls.h>
  
- struct mpls_nh { /* next hop label forwarding entry */
- 	struct net_device __rcu *nh_dev;
++/* put a reasonable limit on the number of labels
++ * we will accept from userspace
++ */
++#define MAX_NEW_LABELS 30
 +
-+	/* nh_flags is accessed under RCU in the packet path; it is
-+	 * modified handling netdev events with rtnl lock held
-+	 */
- 	unsigned int		nh_flags;
- 	u32			nh_label[MAX_NEW_LABELS];
- 	u8			nh_labels;
-@@ -124,6 +128,10 @@ struct mpls_route { /* next hop label forwarding entry */
- 	u8			rt_max_alen;
- 	u8			rt_ttl_propagate;
- 	unsigned int		rt_nhn;
+ struct mpls_entry_decoded {
+ 	u32 label;
+ 	u8 ttl;
+diff --git a/net/mpls/mpls_iptunnel.c b/net/mpls/mpls_iptunnel.c
+index 22f71fce0bfb..fe00e98667cf 100644
+--- a/net/mpls/mpls_iptunnel.c
++++ b/net/mpls/mpls_iptunnel.c
+@@ -164,6 +164,7 @@ static int mpls_build_state(struct nlattr *nla,
+ 	struct mpls_iptunnel_encap *tun_encap_info;
+ 	struct nlattr *tb[MPLS_IPTUNNEL_MAX + 1];
+ 	struct lwtunnel_state *newts;
++	u8 n_labels;
+ 	int ret;
+ 
+ 	ret = nla_parse_nested(tb, MPLS_IPTUNNEL_MAX, nla,
+@@ -175,12 +176,18 @@ static int mpls_build_state(struct nlattr *nla,
+ 		return -EINVAL;
+ 
+ 
+-	newts = lwtunnel_state_alloc(sizeof(*tun_encap_info));
++	/* determine number of labels */
++	if (nla_get_labels(tb[MPLS_IPTUNNEL_DST],
++			   MAX_NEW_LABELS, &n_labels, NULL))
++		return -EINVAL;
 +
-+	/* rt_nhn_alive is accessed under RCU in the packet path; it
-+	 * is modified handling netdev events with rtnl lock held
-+	 */
- 	unsigned int		rt_nhn_alive;
- 	struct mpls_nh		rt_nh[0];
- };
++	newts = lwtunnel_state_alloc(sizeof(*tun_encap_info) +
++				     n_labels * sizeof(u32));
+ 	if (!newts)
+ 		return -ENOMEM;
+ 
+ 	tun_encap_info = mpls_lwtunnel_encap(newts);
+-	ret = nla_get_labels(tb[MPLS_IPTUNNEL_DST], MAX_NEW_LABELS,
++	ret = nla_get_labels(tb[MPLS_IPTUNNEL_DST], n_labels,
+ 			     &tun_encap_info->labels, tun_encap_info->label);
+ 	if (ret)
+ 		goto errout;
+@@ -257,7 +264,7 @@ static int mpls_encap_cmp(struct lwtunnel_state *a, struct lwtunnel_state *b)
+ 	    a_hdr->default_ttl != b_hdr->default_ttl)
+ 		return 1;
+ 
+-	for (l = 0; l < MAX_NEW_LABELS; l++)
++	for (l = 0; l < a_hdr->labels; l++)
+ 		if (a_hdr->label[l] != b_hdr->label[l])
+ 			return 1;
+ 	return 0;
 -- 
 2.1.4
