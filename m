@@ -1,100 +1,88 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: Re: [PATCH net-next] sock: avoid dirtying sk_stamp, if possible
-Date: Thu, 30 Mar 2017 16:23:49 +0200
-Message-ID: <1490883829.2616.18.camel@redhat.com>
-References: <f29d595f4a72d77730447be2a7c5f243fad47751.1490875313.git.pabeni@redhat.com>
-         <1490881940.24891.66.camel@edumazet-glaptop3.roam.corp.google.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH 4/6] virtio_net: allow specifying context for rx
+Date: Thu, 30 Mar 2017 17:31:37 +0300
+Message-ID: <20170330173031-mutt-send-email-mst@kernel.org>
+References: <1490820507-8005-1-git-send-email-mst@redhat.com>
+ <1490820507-8005-5-git-send-email-mst@redhat.com>
+ <20170330092651.7767dfac.cornelia.huck@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:58208 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S933107AbdC3OXv (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 30 Mar 2017 10:23:51 -0400
-In-Reply-To: <1490881940.24891.66.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        John Fastabend <john.fastabend@gmail.com>,
+        virtualization@lists.linux-foundation.org
+To: Cornelia Huck <cornelia.huck@de.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170330092651.7767dfac.cornelia.huck@de.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2017-03-30 at 06:52 -0700, Eric Dumazet wrote:
-> On Thu, 2017-03-30 at 14:03 +0200, Paolo Abeni wrote:
-> > sock_recv_ts_and_drops() unconditionally set sk->sk_stamp for
-> > every packet, even if the SOCK_TIMESTAMP flag is not set in the
-> > related socket.
-> > If selinux is enabled, this cause a cache miss for every packet
-> > since sk->sk_stamp and sk->sk_security share the same cacheline.
-> > With this change sk_stamp is set only if the SOCK_TIMESTAMP
-> > flag is set, and is cleared for the first packet, so that the user
-> > perceived behavior is unchanged.
+On Thu, Mar 30, 2017 at 09:26:51AM +0200, Cornelia Huck wrote:
+> On Wed, 29 Mar 2017 23:48:54 +0300
+> "Michael S. Tsirkin" <mst@redhat.com> wrote:
+> 
+> > With mergeable buffers we never use s/g for rx,
+> > so allow specifying context in that case.
 > > 
-> > This gives up to 5% speed-up under udp-flood with small packets.
-> > 
-> > Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+> > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 > > ---
-> >  include/net/sock.h | 5 ++++-
-> >  net/core/sock.c    | 2 +-
-> >  2 files changed, 5 insertions(+), 2 deletions(-)
+> >  drivers/net/virtio_net.c | 15 ++++++++++++++-
+> >  1 file changed, 14 insertions(+), 1 deletion(-)
 > > 
-> > diff --git a/include/net/sock.h b/include/net/sock.h
-> > index cb241a0..8e53158 100644
-> > --- a/include/net/sock.h
-> > +++ b/include/net/sock.h
-> > @@ -2239,6 +2239,7 @@ sock_recv_timestamp(struct msghdr *msg, struct sock *sk, struct sk_buff *skb)
-> >  void __sock_recv_ts_and_drops(struct msghdr *msg, struct sock *sk,
-> >  			      struct sk_buff *skb);
+> > diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> > index 6802169..340f737 100644
+> > --- a/drivers/net/virtio_net.c
+> > +++ b/drivers/net/virtio_net.c
+> > @@ -2044,6 +2044,7 @@ static int virtnet_find_vqs(struct virtnet_info *vi)
+> >  	int ret = -ENOMEM;
+> >  	int i, total_vqs;
+> >  	const char **names;
+> > +	const bool *ctx;
 > >  
-> > +#define SK_DEFAULT_STAMP (-1L * NSEC_PER_SEC)
-> >  static inline void sock_recv_ts_and_drops(struct msghdr *msg, struct sock *sk,
-> >  					  struct sk_buff *skb)
-> >  {
-> > @@ -2249,8 +2250,10 @@ static inline void sock_recv_ts_and_drops(struct msghdr *msg, struct sock *sk,
+> >  	/* We expect 1 RX virtqueue followed by 1 TX virtqueue, followed by
+> >  	 * possible N-1 RX/TX queue pairs used in multiqueue mode, followed by
+> > @@ -2062,6 +2063,13 @@ static int virtnet_find_vqs(struct virtnet_info *vi)
+> >  	names = kmalloc(total_vqs * sizeof(*names), GFP_KERNEL);
+> >  	if (!names)
+> >  		goto err_names;
+> > +	if (vi->mergeable_rx_bufs) {
+> > +		ctx = kzalloc(total_vqs * sizeof(*ctx), GFP_KERNEL);
+> > +		if (!ctx)
+> > +			goto err_ctx;
+> > +	} else {
+> > +		ctx = NULL;
+> > +	}
 > >  
-> >  	if (sk->sk_flags & FLAGS_TS_OR_DROPS || sk->sk_tsflags & TSFLAGS_ANY)
-> >  		__sock_recv_ts_and_drops(msg, sk, skb);
-> > -	else
-> > +	else if (unlikely(sk->sk_flags & SOCK_TIMESTAMP))
-> >  		sk->sk_stamp = skb->tstamp;
-> > +	else if (unlikely(sk->sk_stamp == SK_DEFAULT_STAMP))
-> > +		sk->sk_stamp = 0;
-> >  }
+> >  	/* Parameters for control virtqueue, if any */
+> >  	if (vi->has_cvq) {
+> > @@ -2077,9 +2085,12 @@ static int virtnet_find_vqs(struct virtnet_info *vi)
+> >  		sprintf(vi->sq[i].name, "output.%d", i);
+> >  		names[rxq2vq(i)] = vi->rq[i].name;
+> >  		names[txq2vq(i)] = vi->sq[i].name;
+> > +		if (ctx)
+> > +			ctx[rxq2vq(i)] = true;
+> >  	}
 > >  
+> > -	ret = virtio_find_vqs(vi->vdev, total_vqs, vqs, callbacks, names, NULL);
+> > +	ret = vi->vdev->config->find_vqs(vi->vdev, total_vqs, vqs, callbacks,
+> > +					 names, ctx, NULL);
 > 
-> This looks very nice, but why using 0 here instead of skb->tstamp ?
+> virtio_find_vqs_ctx()? (Needs to be exported, obviously.)
 
-Thank you for reviewing this.
+I guess I can do that but there's a single user ATM.
+Do you think it's worth doing right now, or wait until
+it gets more users?
 
-The network stack can already mark sk->sk_stamp with 0, if the
-'netstamp_needed' static key is false when the packet is received.
 
-'0' is used as a special value by sock_get_timestamp(), providing to
-the caller the current ktime. 
-
-This way the kernel is able to detect if no packets have been received
-and to provide a somewhat valid timestamp for the last packet received 
-before that the SOCK_TIMESTAMP flag was enabled; the assumption is that
-the ioctl() follows closely the read call.
-
-This should be the same behavior the user space already observes if net
-timestamping is disabled when the SOCK_TIMESTAMP flag is set.
-
-> This might give some regression on applications reading their first
-> socket timestamp in some contexts.
-> 
-> What about 
-> 
-> if (sk->sk_flags & FLAGS_TS_OR_DROPS || sk->sk_tsflags & TSFLAGS_ANY)
-> 	__sock_recv_ts_and_drops(msg, sk, skb);
-> else if (unlikely(sk->sk_flags & SOCK_TIMESTAMP ||
->                   sk->sk_stamp == SK_DEFAULT_STAMP))
-> 	sk->sk_stamp = skb->tstamp;
-
-That way, if the net timestamp is enable, we will record the timestamp
-of the first packet received by the socket (it can be far away in the
-past).
-I think is just a different kind of approximation.
-
-Cheers,
-
-Paolo
+> >  	if (ret)
+> >  		goto err_find;
+> >  
+> > @@ -2101,6 +2112,8 @@ static int virtnet_find_vqs(struct virtnet_info *vi)
+> >  	return 0;
+> >  
+> >  err_find:
+> > +	kfree(ctx);
+> > +err_ctx:
+> >  	kfree(names);
+> >  err_names:
+> >  	kfree(callbacks);
