@@ -1,96 +1,49 @@
-From: Seiichi Ikarashi <s.ikarashi@jp.fujitsu.com>
-Subject: Re: [PATCH] tcp: possible race between tcp_done() and tcp_poll()
-Date: Thu, 30 Mar 2017 11:55:43 +0900
-Message-ID: <3c8a7438-9ce4-593a-d492-ec8117d71af4@jp.fujitsu.com>
-References: <34d952a3-77cd-ea53-c3e3-ccde91d5cf63@jp.fujitsu.com>
- <75d1b617-b143-3061-fcc7-4cca26ffc9fe@jp.fujitsu.com>
- <1490841090.24891.58.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Nathan Fontenot <nfont@linux.vnet.ibm.com>
+Subject: [PATCH net 0/7] ibmvnic: Cleanup resource handling
+Date: Thu, 30 Mar 2017 02:48:49 -0400
+Message-ID: <20170330064542.20309.17448.stgit@ltcalpine2-lp23.aus.stglabs.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: jallen@linux.vnet.ibm.com, tlfalcon@linux.vnet.ibm.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgwkm03.jp.fujitsu.com ([202.219.69.170]:33229 "EHLO
-        mgwkm03.jp.fujitsu.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754551AbdC3C4W (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 29 Mar 2017 22:56:22 -0400
-Received: from g01jpfmpwyt03.exch.g01.fujitsu.local (g01jpfmpwyt03.exch.g01.fujitsu.local [10.128.193.57])
-        by kw-mxauth.gw.nic.fujitsu.com (Postfix) with ESMTP id D3F77AC00C8
-        for <netdev@vger.kernel.org>; Thu, 30 Mar 2017 11:56:12 +0900 (JST)
-In-Reply-To: <1490841090.24891.58.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:51948 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1753003AbdC3C73 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 29 Mar 2017 22:59:29 -0400
+Received: from pps.filterd (m0098410.ppops.net [127.0.0.1])
+        by mx0a-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v2U2tB6C049373
+        for <netdev@vger.kernel.org>; Wed, 29 Mar 2017 22:59:28 -0400
+Received: from e17.ny.us.ibm.com (e17.ny.us.ibm.com [129.33.205.207])
+        by mx0a-001b2d01.pphosted.com with ESMTP id 29gcthsyh3-1
+        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Wed, 29 Mar 2017 22:59:27 -0400
+Received: from localhost
+        by e17.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        for <netdev@vger.kernel.org> from <nfont@linux.vnet.ibm.com>;
+        Wed, 29 Mar 2017 22:59:26 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Eric,
+In order to better manage the resources of the ibmvnic driver, this set of
+patches creates a set of initialization and release routines for the
+drivers resources. Additionally, some patches do some re-naming of the
+affected routines so that there is a common naming scheme in the driver.
 
-On 2017-03-30 11:31, Eric Dumazet wrote:
-> On Thu, 2017-03-30 at 09:35 +0900, Seiichi Ikarashi wrote:
->> Similar to a4d258036ed9 ("tcp: Fix race in tcp_poll").
->>
->> Between receiving a packet and tcp_poll(), sk->sk_err is protected by memory barriers but
->> sk->sk_shutdown and sk->sk_state are not.
-> 
-> ...
-> 
->>  So possibly, POLLIN|POLLRDNORM|POLLRDHUP might
->> not be set even when receiving a RST packet.
->>
->> Signed-off-by: Seiichi Ikarashi <s.ikarashi@jp.fujitsu.com>
->>
->> ---
->>  net/ipv4/tcp.c | 7 +++++--
->>  1 file changed, 5 insertions(+), 2 deletions(-)
->>
->> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
->> index cf45555..c8bc86e 100644
->> --- a/net/ipv4/tcp.c
->> +++ b/net/ipv4/tcp.c
->> @@ -456,6 +456,8 @@ unsigned int tcp_poll(struct file *file, struct socket *sock, poll_table *wait)
->>  
->>  	sock_poll_wait(file, sk_sleep(sk), wait);
->>  
->> +	/* This barrier is coupled with smp_wmb() in tcp_reset() */
->> +	smp_rmb();
->>  	state = sk_state_load(sk);
-> 
-> Are you telling us that sk_state_load() has no barrier ?
-> 
-> This would imply that smp_load_acquire() should be replaced ?
+-Nathan
 
-Ooops, of course you're right.
-sk->sk_state _is_ protected by sk_state_{load,store}().
+---
 
-So my concern is only for sk->sk_shutdown.
+Nathan Fontenot (7):
+      ibmvnic: Update main crq initialization and release
+      ibmvnic: Create init and release routines for the bounce buffer
+      ibmvnic: Create init and release routines for the tx pool
+      ibmvnic: Create init and release routines for the rx pool
+      ibmvnic: Merge the two release_sub_crq_queue routines
+      ibmvnic: Create init/release routines for stats token
+      ibmvnic: Cleanup failure path in ibmvnic_open
 
-> 
->>  	if (state == TCP_LISTEN)
->>  		return inet_csk_listen_poll(sk);
->> @@ -540,8 +542,6 @@ unsigned int tcp_poll(struct file *file, struct socket *sock, poll_table *wait)
->>  		 */
->>  		mask |= POLLOUT | POLLWRNORM;
->>  	}
->> -	/* This barrier is coupled with smp_wmb() in tcp_reset() */
->> -	smp_rmb();
->>  	if (sk->sk_err || !skb_queue_empty(&sk->sk_error_queue))
->>  		mask |= POLLERR;
->>  
->> @@ -3291,6 +3291,9 @@ void tcp_done(struct sock *sk)
->>  
->>  	sk->sk_shutdown = SHUTDOWN_MASK;
->>  
->> +	/* This barrier is coupled with smp_rmb() in tcp_poll() */
->> +	smp_wmb();
->> +
->>  	if (!sock_flag(sk, SOCK_DEAD))
->>  		sk->sk_state_change(sk);
->>  	else
-> 
-> Might I ask on which arch you got a problem ?
 
-I got a report that receiving a RST packet but poll() got only POLLERR, no POLLIN|POLLRDHUP .
-It was an old x86_64 kernel which does not include sk_state_{load,store} functions.
-I suspected some race might have occur above.
-
-Thanks,
-Seiichi
+ drivers/net/ethernet/ibm/ibmvnic.c |  556 ++++++++++++++++++++----------------
+ 1 file changed, 303 insertions(+), 253 deletions(-)
