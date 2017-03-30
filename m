@@ -1,75 +1,143 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] sock: avoid dirtying sk_stamp, if possible
-Date: Thu, 30 Mar 2017 06:52:20 -0700
-Message-ID: <1490881940.24891.66.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <f29d595f4a72d77730447be2a7c5f243fad47751.1490875313.git.pabeni@redhat.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH V2 net-next 1/7] ptr_ring: introduce batch dequeuing
+Date: Thu, 30 Mar 2017 16:53:07 +0300
+Message-ID: <20170330160403-mutt-send-email-mst@kernel.org>
+References: <1490858550-7763-1-git-send-email-jasowang@redhat.com>
+ <1490858550-7763-2-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: Paolo Abeni <pabeni@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:34403 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933002AbdC3NwX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 30 Mar 2017 09:52:23 -0400
-Received: by mail-pg0-f66.google.com with SMTP id o123so10285254pga.1
-        for <netdev@vger.kernel.org>; Thu, 30 Mar 2017 06:52:22 -0700 (PDT)
-In-Reply-To: <f29d595f4a72d77730447be2a7c5f243fad47751.1490875313.git.pabeni@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1490858550-7763-2-git-send-email-jasowang@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2017-03-30 at 14:03 +0200, Paolo Abeni wrote:
-> sock_recv_ts_and_drops() unconditionally set sk->sk_stamp for
-> every packet, even if the SOCK_TIMESTAMP flag is not set in the
-> related socket.
-> If selinux is enabled, this cause a cache miss for every packet
-> since sk->sk_stamp and sk->sk_security share the same cacheline.
-> With this change sk_stamp is set only if the SOCK_TIMESTAMP
-> flag is set, and is cleared for the first packet, so that the user
-> perceived behavior is unchanged.
+On Thu, Mar 30, 2017 at 03:22:24PM +0800, Jason Wang wrote:
+> This patch introduce a batched version of consuming, consumer can
+> dequeue more than one pointers from the ring at a time. We don't care
+> about the reorder of reading here so no need for compiler barrier.
 > 
-> This gives up to 5% speed-up under udp-flood with small packets.
-> 
-> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 > ---
->  include/net/sock.h | 5 ++++-
->  net/core/sock.c    | 2 +-
->  2 files changed, 5 insertions(+), 2 deletions(-)
+>  include/linux/ptr_ring.h | 65 ++++++++++++++++++++++++++++++++++++++++++++++++
+>  1 file changed, 65 insertions(+)
 > 
-> diff --git a/include/net/sock.h b/include/net/sock.h
-> index cb241a0..8e53158 100644
-> --- a/include/net/sock.h
-> +++ b/include/net/sock.h
-> @@ -2239,6 +2239,7 @@ sock_recv_timestamp(struct msghdr *msg, struct sock *sk, struct sk_buff *skb)
->  void __sock_recv_ts_and_drops(struct msghdr *msg, struct sock *sk,
->  			      struct sk_buff *skb);
->  
-> +#define SK_DEFAULT_STAMP (-1L * NSEC_PER_SEC)
->  static inline void sock_recv_ts_and_drops(struct msghdr *msg, struct sock *sk,
->  					  struct sk_buff *skb)
->  {
-> @@ -2249,8 +2250,10 @@ static inline void sock_recv_ts_and_drops(struct msghdr *msg, struct sock *sk,
->  
->  	if (sk->sk_flags & FLAGS_TS_OR_DROPS || sk->sk_tsflags & TSFLAGS_ANY)
->  		__sock_recv_ts_and_drops(msg, sk, skb);
-> -	else
-> +	else if (unlikely(sk->sk_flags & SOCK_TIMESTAMP))
->  		sk->sk_stamp = skb->tstamp;
-> +	else if (unlikely(sk->sk_stamp == SK_DEFAULT_STAMP))
-> +		sk->sk_stamp = 0;
+> diff --git a/include/linux/ptr_ring.h b/include/linux/ptr_ring.h
+> index 6c70444..2be0f350 100644
+> --- a/include/linux/ptr_ring.h
+> +++ b/include/linux/ptr_ring.h
+> @@ -247,6 +247,22 @@ static inline void *__ptr_ring_consume(struct ptr_ring *r)
+>  	return ptr;
 >  }
 >  
+> +static inline int __ptr_ring_consume_batched(struct ptr_ring *r,
+> +					     void **array, int n)
 
-This looks very nice, but why using 0 here instead of skb->tstamp ?
+Can we use a shorter name? ptr_ring_consume_batch?
 
-This might give some regression on applications reading their first
-socket timestamp in some contexts.
+> +{
+> +	void *ptr;
+> +	int i;
+> +
+> +	for (i = 0; i < n; i++) {
+> +		ptr = __ptr_ring_consume(r);
+> +		if (!ptr)
+> +			break;
+> +		array[i] = ptr;
+> +	}
+> +
+> +	return i;
+> +}
+> +
+>  /*
+>   * Note: resize (below) nests producer lock within consumer lock, so if you
+>   * call this in interrupt or BH context, you must disable interrupts/BH when
 
-What about 
+I'd like to add a code comment here explaining why we don't
+care about cpu or compiler reordering. And I think the reason is
+in the way you use this API: in vhost it does not matter
+if you get less entries than present in the ring.
+That's ok but needs to be noted
+in a code comment so people use this function correctly.
 
-if (sk->sk_flags & FLAGS_TS_OR_DROPS || sk->sk_tsflags & TSFLAGS_ANY)
-	__sock_recv_ts_and_drops(msg, sk, skb);
-else if (unlikely(sk->sk_flags & SOCK_TIMESTAMP ||
-                  sk->sk_stamp == SK_DEFAULT_STAMP))
-	sk->sk_stamp = skb->tstamp;
+Also, I think you need to repeat the comment about cpu_relax
+near this function: if someone uses it in a loop,
+a compiler barrier is needed to prevent compiler from
+optimizing it out.
+
+I note that ptr_ring_consume currently lacks any of these
+comments so I'm ok with merging as is, and I'll add
+documentation on top.
+Like this perhaps?
+
+/* Consume up to n entries and return the number of entries consumed
+ * or 0 on ring empty.
+ * Note: this might return early with less entries than present in the
+ * ring.
+ * Note: callers invoking this in a loop must use a compiler barrier,
+ * for example cpu_relax(). Callers must take consumer_lock
+ * if the ring is ever resized - see e.g. ptr_ring_consume_batch.
+ */
+
+
+
+> @@ -297,6 +313,55 @@ static inline void *ptr_ring_consume_bh(struct ptr_ring *r)
+>  	return ptr;
+>  }
+>  
+> +static inline int ptr_ring_consume_batched(struct ptr_ring *r,
+> +					   void **array, int n)
+> +{
+> +	int ret;
+> +
+> +	spin_lock(&r->consumer_lock);
+> +	ret = __ptr_ring_consume_batched(r, array, n);
+> +	spin_unlock(&r->consumer_lock);
+> +
+> +	return ret;
+> +}
+> +
+> +static inline int ptr_ring_consume_batched_irq(struct ptr_ring *r,
+> +					       void **array, int n)
+> +{
+> +	int ret;
+> +
+> +	spin_lock_irq(&r->consumer_lock);
+> +	ret = __ptr_ring_consume_batched(r, array, n);
+> +	spin_unlock_irq(&r->consumer_lock);
+> +
+> +	return ret;
+> +}
+> +
+> +static inline int ptr_ring_consume_batched_any(struct ptr_ring *r,
+> +					       void **array, int n)
+> +{
+> +	unsigned long flags;
+> +	int ret;
+> +
+> +	spin_lock_irqsave(&r->consumer_lock, flags);
+> +	ret = __ptr_ring_consume_batched(r, array, n);
+> +	spin_unlock_irqrestore(&r->consumer_lock, flags);
+> +
+> +	return ret;
+> +}
+> +
+> +static inline int ptr_ring_consume_batched_bh(struct ptr_ring *r,
+> +					      void **array, int n)
+> +{
+> +	int ret;
+> +
+> +	spin_lock_bh(&r->consumer_lock);
+> +	ret = __ptr_ring_consume_batched(r, array, n);
+> +	spin_unlock_bh(&r->consumer_lock);
+> +
+> +	return ret;
+> +}
+> +
+>  /* Cast to structure type and call a function without discarding from FIFO.
+>   * Function must return a value.
+>   * Callers must take consumer_lock.
+> -- 
+> 2.7.4
