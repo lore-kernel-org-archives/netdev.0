@@ -1,69 +1,69 @@
-From: Seiichi Ikarashi <s.ikarashi@jp.fujitsu.com>
-Subject: Re: [PATCH] tcp: possible race between tcp_done() and tcp_poll()
-Date: Thu, 30 Mar 2017 12:48:34 +0900
-Message-ID: <1c8f00de-552b-fff7-f8a8-cb98545ffafa@jp.fujitsu.com>
-References: <34d952a3-77cd-ea53-c3e3-ccde91d5cf63@jp.fujitsu.com>
- <75d1b617-b143-3061-fcc7-4cca26ffc9fe@jp.fujitsu.com>
- <1490841090.24891.58.camel@edumazet-glaptop3.roam.corp.google.com>
- <3c8a7438-9ce4-593a-d492-ec8117d71af4@jp.fujitsu.com>
- <1490843883.24891.61.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net-next 8/8] vhost_net: use lockless peeking for skb
+	array during busy polling
+Date: Thu, 30 Mar 2017 11:53:15 +0800
+Message-ID: <50124a4d-ff2c-95cf-58c6-fdfc55747c0f@redhat.com>
+References: <1490069087-4783-1-git-send-email-jasowang@redhat.com>
+	<1490069087-4783-9-git-send-email-jasowang@redhat.com>
+	<20170329150538-mutt-send-email-mst@kernel.org>
+	<104c0c1f-e2fd-f5d0-0aae-c308d1f1373c@redhat.com>
+	<20170330053315-mutt-send-email-mst@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgwym01.jp.fujitsu.com ([211.128.242.40]:44978 "EHLO
-        mgwym01.jp.fujitsu.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752742AbdC3Dts (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 29 Mar 2017 23:49:48 -0400
-Received: from g01jpfmpwyt02.exch.g01.fujitsu.local (g01jpfmpwyt02.exch.g01.fujitsu.local [10.128.193.56])
-        by yt-mxq.gw.nic.fujitsu.com (Postfix) with ESMTP id 262E0AC00C7
-        for <netdev@vger.kernel.org>; Thu, 30 Mar 2017 12:49:41 +0900 (JST)
-In-Reply-To: <1490843883.24891.61.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20170330053315-mutt-send-email-mst@kernel.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 2017-03-30 12:18, Eric Dumazet wrote:
-> On Thu, 2017-03-30 at 11:55 +0900, Seiichi Ikarashi wrote:
-> 
->> I got a report that receiving a RST packet but poll() got only POLLERR, no POLLIN|POLLRDHUP .
->> It was an old x86_64 kernel which does not include sk_state_{load,store} functions.
->> I suspected some race might have occur above.
-> 
-> It looks that a one-liner patch would be enough in tcp_done()
-> 
-> No need adding extra barriers
-
-I agree.
-sk->sk_shutdown seems not affect the behavior of both tcp_clear_xmit_timers()
-and reqsk_fastopen_remove().
-
-> 
-> Untested patch :
-
-Sorry, I cannot test it because I do not have a replication environment.
-
-> 
-> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-> index 1e319a525d51b0b603a5ccc5143381c752b9f2c7..4107d3fc00a53f768cdb885971a1067c810f5c9f 100644
-> --- a/net/ipv4/tcp.c
-> +++ b/net/ipv4/tcp.c
-> @@ -3285,12 +3285,12 @@ void tcp_done(struct sock *sk)
->  	if (sk->sk_state == TCP_SYN_SENT || sk->sk_state == TCP_SYN_RECV)
->  		TCP_INC_STATS(sock_net(sk), TCP_MIB_ATTEMPTFAILS);
->  
-> +	sk->sk_shutdown = SHUTDOWN_MASK;
->  	tcp_set_state(sk, TCP_CLOSE);
->  	tcp_clear_xmit_timers(sk);
->  	if (req)
->  		reqsk_fastopen_remove(sk, req, false);
->  
-> -	sk->sk_shutdown = SHUTDOWN_MASK;
->  
->  	if (!sock_flag(sk, SOCK_DEAD))
->  		sk->sk_state_change(sk);
-> 
-> 
-> 
-> 
+CgpPbiAyMDE35bm0MDPmnIgzMOaXpSAxMDozMywgTWljaGFlbCBTLiBUc2lya2luIHdyb3RlOgo+
+IE9uIFRodSwgTWFyIDMwLCAyMDE3IGF0IDEwOjE2OjE1QU0gKzA4MDAsIEphc29uIFdhbmcgd3Jv
+dGU6Cj4+Cj4+IE9uIDIwMTflubQwM+aciDI55pelIDIwOjA3LCBNaWNoYWVsIFMuIFRzaXJraW4g
+d3JvdGU6Cj4+PiBPbiBUdWUsIE1hciAyMSwgMjAxNyBhdCAxMjowNDo0N1BNICswODAwLCBKYXNv
+biBXYW5nIHdyb3RlOgo+Pj4+IEZvciB0aGUgc29ja2V0IHRoYXQgZXhwb3J0cyBpdHMgc2tiIGFy
+cmF5LCB3ZSBjYW4gdXNlIGxvY2tsZXNzIHBvbGxpbmcKPj4+PiB0byBhdm9pZCB0b3VjaGluZyBz
+cGlubG9jayBkdXJpbmcgYnVzeSBwb2xsaW5nLgo+Pj4+Cj4+Pj4gU2lnbmVkLW9mZi1ieTogSmFz
+b24gV2FuZyA8amFzb3dhbmdAcmVkaGF0LmNvbT4KPj4+PiAtLS0KPj4+PiAgICBkcml2ZXJzL3Zo
+b3N0L25ldC5jIHwgNyArKysrKy0tCj4+Pj4gICAgMSBmaWxlIGNoYW5nZWQsIDUgaW5zZXJ0aW9u
+cygrKSwgMiBkZWxldGlvbnMoLSkKPj4+Pgo+Pj4+IGRpZmYgLS1naXQgYS9kcml2ZXJzL3Zob3N0
+L25ldC5jIGIvZHJpdmVycy92aG9zdC9uZXQuYwo+Pj4+IGluZGV4IDUzZjA5ZjIuLjQxMTUzYTMg
+MTAwNjQ0Cj4+Pj4gLS0tIGEvZHJpdmVycy92aG9zdC9uZXQuYwo+Pj4+ICsrKyBiL2RyaXZlcnMv
+dmhvc3QvbmV0LmMKPj4+PiBAQCAtNTUxLDEwICs1NTEsMTMgQEAgc3RhdGljIGludCBwZWVrX2hl
+YWRfbGVuKHN0cnVjdCB2aG9zdF9uZXRfdmlydHF1ZXVlICpydnEsIHN0cnVjdCBzb2NrICpzaykK
+Pj4+PiAgICAJcmV0dXJuIGxlbjsKPj4+PiAgICB9Cj4+Pj4gLXN0YXRpYyBpbnQgc2tfaGFzX3J4
+X2RhdGEoc3RydWN0IHNvY2sgKnNrKQo+Pj4+ICtzdGF0aWMgaW50IHNrX2hhc19yeF9kYXRhKHN0
+cnVjdCB2aG9zdF9uZXRfdmlydHF1ZXVlICpydnEsIHN0cnVjdCBzb2NrICpzaykKPj4+PiAgICB7
+Cj4+Pj4gICAgCXN0cnVjdCBzb2NrZXQgKnNvY2sgPSBzay0+c2tfc29ja2V0Owo+Pj4+ICsJaWYg
+KHJ2cS0+cnhfYXJyYXkpCj4+Pj4gKwkJcmV0dXJuICFfX3NrYl9hcnJheV9lbXB0eShydnEtPnJ4
+X2FycmF5KTsKPj4+PiArCj4+Pj4gICAgCWlmIChzb2NrLT5vcHMtPnBlZWtfbGVuKQo+Pj4+ICAg
+IAkJcmV0dXJuIHNvY2stPm9wcy0+cGVla19sZW4oc29jayk7Cj4+PiBJIGRvbid0IHNlZSB3aGlj
+aCBwYXRjaCBhZGRzIF9fc2tiX2FycmF5X2VtcHR5Lgo+PiBUaGlzIGlzIG5vdCBzb21ldGhpbmcg
+bmV3LCBpdCB3YXMgaW50cm9kdWNlZCBieSBhZDY5ZjM1ZDFkYzBhICgic2tiX2FycmF5Ogo+PiBh
+cnJheSBiYXNlZCBGSUZPIGZvciBza2JzIikuCj4+Cj4+IFRoYW5rcwo+IFNhbWUgY29tbWVudCBh
+Ym91dCBhIGNvbXBpbGVyIGJhcnJpZXIgYXBwbGllcyB0aGVuLgoKT2ssIHJldGhpbmsgYWJvdXQg
+dGhpcywgc2luY2Ugc2tiX2FycmF5IGNvdWxkIGJlIHJlc2l6ZWQsIHVzaW5nIGxvY2tsZXNzIAp2
+ZXJzaW9uIHNlZW1zIHdyb25nLgoKRm9yIHRoZSBjb21tZW50IG9mIHVzaW5nIGNvbXBpbGVyIGJh
+cnJpZXIsIGNhbGxlciAKKHZob3N0X25ldF9yeF9wZWVrX2hlYWRfbGVuKSB1c2VzIGNwdV9yZWxh
+eCgpLiBCdXQgSSBoYXZlbid0IGZpZ3VyZWQgb3V0IAp3aHkgYSBjb21waWxlciBiYXJyaWVyIGlz
+IG5lZWRlZCBoZXJlLiBDb3VsZCB5b3UgcGxlYXNlIGV4cGxhaW4/CgpUaGFua3MKCj4KPj4+PiBA
+QCAtNTc5LDcgKzU4Miw3IEBAIHN0YXRpYyBpbnQgdmhvc3RfbmV0X3J4X3BlZWtfaGVhZF9sZW4o
+c3RydWN0IHZob3N0X25ldCAqbmV0LAo+Pj4+ICAgIAkJZW5kdGltZSA9IGJ1c3lfY2xvY2soKSAr
+IHZxLT5idXN5bG9vcF90aW1lb3V0Owo+Pj4+ICAgIAkJd2hpbGUgKHZob3N0X2Nhbl9idXN5X3Bv
+bGwoJm5ldC0+ZGV2LCBlbmR0aW1lKSAmJgo+Pj4+IC0JCSAgICAgICAhc2tfaGFzX3J4X2RhdGEo
+c2spICYmCj4+Pj4gKwkJICAgICAgICFza19oYXNfcnhfZGF0YShydnEsIHNrKSAmJgo+Pj4+ICAg
+IAkJICAgICAgIHZob3N0X3ZxX2F2YWlsX2VtcHR5KCZuZXQtPmRldiwgdnEpKQo+Pj4+ICAgIAkJ
+CWNwdV9yZWxheCgpOwo+Pj4+IC0tIAo+Pj4+IDIuNy40CgpfX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fXwpWaXJ0dWFsaXphdGlvbiBtYWlsaW5nIGxpc3QKVmly
+dHVhbGl6YXRpb25AbGlzdHMubGludXgtZm91bmRhdGlvbi5vcmcKaHR0cHM6Ly9saXN0cy5saW51
+eGZvdW5kYXRpb24ub3JnL21haWxtYW4vbGlzdGluZm8vdmlydHVhbGl6YXRpb24=
