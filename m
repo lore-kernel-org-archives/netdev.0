@@ -1,49 +1,67 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH 1/6] virtio: wrap find_vqs
-Date: Thu, 30 Mar 2017 14:00:08 +0800
-Message-ID: <72f533a2-482d-1956-b0fe-254e273e1818@redhat.com>
-References: <1490820507-8005-1-git-send-email-mst@redhat.com>
- <1490820507-8005-2-git-send-email-mst@redhat.com>
+From: <bcohen@childrensnational.org>
+Subject: 295 netdev
+Date: Thu, 30 Mar 2017 06:08:00 -0000
+Message-ID: <149085408061.16099.2056574752073072514@ggnet.net.br>
+Reply-To: <bcohen@childrensnational.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: John Fastabend <john.fastabend@gmail.com>,
-        Arnd Bergmann <arnd@arndb.de>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        Amit Shah <amit@kernel.org>, Gonglei <arei.gonglei@huawei.com>,
-        Herbert Xu <herbert@gondor.apana.org.au>,
-        "David S. Miller" <davem@davemloft.net>,
-        David Airlie <airlied@linux.ie>,
-        Gerd Hoffmann <kraxel@redhat.com>,
-        Dmitry Tarnyagin <dmitry.tarnyagin@lockless.no>,
-        Ohad Ben-Cohen <ohad@wizery.com>,
-        Bjorn Andersson <bjorn.andersson@linaro.org>,
-        "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
-        "Martin K. Petersen" <martin.petersen@oracle.com>,
-        Stefan Hajnoczi <stefanha@redhat.com>,
-        virtualization@lists.linux-foundation.org,
-        linux-crypto@vger.kernel.org, dri-devel@lists.freedesktop.org,
-        netdev@vger.kernel.org, linux-remoteproc@vger.kernel.or
-To: "Michael S. Tsirkin" <mst@redhat.com>, linux-kernel@vger.kernel.org
+Content-Type: application/zip; name="73996038013.zip"
+Content-Transfer-Encoding: base64
+To: "netdev" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33420 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755264AbdC3GA2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 30 Mar 2017 02:00:28 -0400
-In-Reply-To: <1490820507-8005-2-git-send-email-mst@redhat.com>
+Received: from Dinamico-130-101.ggnet.net.br ([168.194.130.101]:33053 "HELO
+        ggnet.net.br" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+        with SMTP id S1751350AbdC3GIG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 30 Mar 2017 02:08:06 -0400
+Content-Disposition: attachment
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-On 2017年03月30日 04:48, Michael S. Tsirkin wrote:
-> We are going to add more parameters to find_vqs, let's wrap the call so
-> we don't need to tweak all drivers every time.
->
-> Signed-off-by: Michael S. Tsirkin<mst@redhat.com>
-> ---
-
-A quick glance and it looks ok, but what the benefit of this series, is 
-it required by other changes?
-
-Thanks
+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
+AAAAAA==
