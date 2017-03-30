@@ -1,55 +1,36 @@
-From: Vlad Zakharov <Vladislav.Zakharov@synopsys.com>
-Subject: Re: [PATCH] ezchip: nps_enet: check if napi has been completed
-Date: Thu, 30 Mar 2017 09:16:44 +0000
-Message-ID: <1490865403.32756.21.camel@synopsys.com>
-References: <1490784106-14489-1-git-send-email-vzakhar@synopsys.com>
-         <20170329.143014.2001816338079751776.davem@davemloft.net>
-         <CANn89iJ1+7CrF=hJj-_pLWV+EDXxhUZGOL+3je6zjE8dJDcr=A@mail.gmail.com>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [next-queue v6 PATCH 2/7] i40e: Introduce Port Representor
+ netdevs and switchdev mode.
+Date: Thu, 30 Mar 2017 12:17:29 +0300
+Message-ID: <CAJ3xEMh6Un8JH3275nxOw25RtBp5KnYX+EMSv84+C_ezpkZGGQ@mail.gmail.com>
+References: <1490833375-2788-1-git-send-email-sridhar.samudrala@intel.com> <1490833375-2788-3-git-send-email-sridhar.samudrala@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "eladkan@mellanox.com" <eladkan@mellanox.com>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "noamca@mellanox.com" <noamca@mellanox.com>,
-        "Vladislav.Zakharov@synopsys.com" <Vladislav.Zakharov@synopsys.com>,
-        "linux-snps-arc@lists.infradead.org"
-        <linux-snps-arc@lists.infradead.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "edumazet@google.com" <edumazet@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CANn89iJ1+7CrF=hJj-_pLWV+EDXxhUZGOL+3je6zjE8dJDcr=A@mail.gmail.com>
-Content-Language: en-US
-Content-ID: <1858E27A4351E340B253FD2659B35D65@internal.synopsys.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: intel-wired-lan@lists.osuosl.org,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        Alexander Duyck <alexander.h.duyck@intel.com>,
+        Anjali Singhai Jain <anjali.singhai@intel.com>,
+        Jakub Kicinski <jakub.kicinski@netronome.com>,
+        Jiri Pirko <jiri@resnulli.us>
+To: Sridhar Samudrala <sridhar.samudrala@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f53.google.com ([209.85.218.53]:34654 "EHLO
+        mail-oi0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753690AbdC3JRb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 30 Mar 2017 05:17:31 -0400
+Received: by mail-oi0-f53.google.com with SMTP id o67so25012532oib.1
+        for <netdev@vger.kernel.org>; Thu, 30 Mar 2017 02:17:30 -0700 (PDT)
+In-Reply-To: <1490833375-2788-3-git-send-email-sridhar.samudrala@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-SGkgRXJpYywNCg0KT24gV2VkLCAyMDE3LTAzLTI5IGF0IDE0OjQxIC0wNzAwLCBFcmljIER1bWF6
-ZXQgd3JvdGU6DQo+IE9uIFdlZCwgTWFyIDI5LCAyMDE3IGF0IDI6MzAgUE0sIERhdmlkIE1pbGxl
-ciA8ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldD4gd3JvdGU6DQo+IFNpZ25lZC1vZmYtYnk6IFZsYWQgWmFr
-aGFyb3YgPHZ6YWtoYXJAc3lub3BzeXMuY29tPg0KPiA+IA0KPiA+IA0KPiA+IEFwcGxpZWQuDQo+
-ID4gDQo+ID4gRXJpYywgaWYgdGhpcyBpcyByZWFsbHkgcmVxdWlyZWQgbm93LCB3ZSBoYXZlIDE0
-OCBicm9rZW4gZHJpdmVycyBzdGlsbC4NCj4gDQo+IFBpZWNlIG9mIGNha2UgOi8NCj4gDQo+IElm
-IHdlIGdldCBtb3JlIHJlcG9ydHMgbGlrZSB0aGF0LCB3ZSBtaWdodCBpbXBsZW1lbnQgYSBsb2dp
-YyB0bw0KPiBwcmV2ZW50IGluZmluaXRlIGxvb3BzLg0KPiANCj4gSXQgaXMgbm90IGNsZWFyIHRv
-IG1lIHdoYXQgZXhhY3RseSBoYXBwZW5lZCB0byB0aGlzIGRyaXZlciwgc2luY2UNCj4gdGVzdGlu
-ZyBuYXBpX2NvbXBsZXRlX2RvbmUoKSB3YXMgbm90IG1hbmRhdG9yeS4NCg0KSSBhbSBub3Qgc3Vy
-ZSB3aGF0IGlzIGhhcHBlbmluZyB3aXRoIG90aGVyIGRyaXZlcnMsIGJ1dCBpbiBjYXNlIG9mIGV6
-Y2hpcMKgbnBzX2VuZXQgZHJpdmVyIGFmdGVyIHRoZSBmb2xsb3dpbmcgY29tbWl0Og0KMzllNmM4
-MjA4ZDdiNmZiOWQyMDQ3ODUwZmIzMzI3ZGI1NjdiNTY0Yg0KDQppZiB3ZSBnb3QgaW50byBOQVBJ
-X1NUQVRFX01JU1NFRCBzdGF0ZSB0aGUgZm9sbG93aW5nIGhhcHBlbmVkOg0KaW4gbnBzX2VuZXRf
-cG9sbCBmdW5jIHdlIHdlcmUgY2FsbGluZyBuYXBpX2NvbXBsZXRlX2RvbmUoKSAod2hpY2ggcmVz
-ZXQgTUlTU0VEIHN0YXRlIGJ1dCBsZWZ0IFNDSEVEIHN0YXRlKSBhbmQgYWZ0ZXINCnRoYXQgd2l0
-aG91dCBhbnkgY2hlY2tzIHdlcmUgZW5hYmxpbmcgaW50ZXJydXB0cy4NCg0KVGhlbiB3ZSBvYnZp
-b3VzbHkgd2VyZSBnZXR0aW5nIGludG8gbnBzX2VuZXRfaXJxX2hhbmxkZXIoKSBpZiBpcnEgd2Fz
-IHBlbmRpbmcgKGl0IGlzIHZlcnkgcG9zc2JpbGUgc3RhdGUpLiBJZiB3ZSBsb29rDQppbnNpZGUg
-dGhpcyBmdW5jdGlvbiB3ZSB3aWxsIHNlZSB0aGF0IGl0IGRpc2FibGVzIGludGVycnVwdHMgb25s
-eSBpbiBjYXNlIG5hcGlfc2NoZWRfcHJlcCgpIHJldHVybnMgdHJ1ZS4gSW4gaXRzIHR1cm4NCm5h
-cGlfc2NoZWRfcHJlcCgpIHJldHVybnMgdHJ1ZSBvbmx5IGluIGNhc2UgaXQgY2hhbmdlcyBzdGF0
-ZSBmcm9tIG5vbi1TQ0hFRCB0byBTQ0hFRC4gQnV0IGluIG91ciBjYXNlIGFzIFNDSEVEIGhhZCBi
-ZWVuDQphbHJlYWR5IHNldCBpdCBzZXQgTUlTU0VEIHN0YXRlIGFuZCB0aGVuIHJldHVybmVkIGZh
-bHNlLiBTbyBhdCB0aGF0IHBvaW50IHdlIGhhZCBhbHJlYWR5IGJlZW4gdHJhcHBlZDogYWZ0ZXIg
-ZXhpdGluZyBpcnENCmhhbmxkZXIgd2Ugd2VyZSBnZXR0aW5nIGludG8gbnBzX2VuZXRfaXJxX2hh
-bmxkZXIoKSBhZ2FpbiBhbmQgYWdhaW4gYXMgd2UgY291bGRuJ3QgcmVzY2luZCBwZW5kaW5nIGly
-cSBzaWduYWwgYW5kDQpkaXNhYmxlIGNvcnJlc3BvbmRpbmcgaXJxLsKgDQoNCi0tIA0KQmVzdCBy
-ZWdhcmRzLA0KVmxhZCBaYWtoYXJvdiA8dnpha2hhckBzeW5vcHN5cy5jb20+
+On Thu, Mar 30, 2017 at 3:22 AM, Sridhar Samudrala
+<sridhar.samudrala@intel.com> wrote:
+> Port Representator netdevs are created for each PF and VF if the switch
+> mode is set to 'switchdev'. These netdevs can be used to control and
+> configure VFs and PFs when they are moved to a different namespace.
+> They enable exposing statistics, configure and monitor link state, mtu,
+> filters,fdb/vlan entries etc.
+
+
+What netdev represents the uplink (wire port) in your impl?
