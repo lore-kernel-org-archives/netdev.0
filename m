@@ -1,15 +1,14 @@
 From: Salil Mehta <salil.mehta@huawei.com>
-Subject: [PATCH net 02/19] net: hns: Modify GMAC init TX threshold value
-Date: Thu, 30 Mar 2017 16:30:49 +0100
-Message-ID: <20170330153106.14344-3-salil.mehta@huawei.com>
+Subject: [PATCH net 10/19] net: hns: Correct HNS RSS key set function
+Date: Thu, 30 Mar 2017 16:30:57 +0100
+Message-ID: <20170330153106.14344-11-salil.mehta@huawei.com>
 References: <20170330153106.14344-1-salil.mehta@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <salil.mehta@huawei.com>, <yisen.zhuang@huawei.com>,
         <mehta.salil.lnk@gmail.com>, <netdev@vger.kernel.org>,
         <linux-kernel@vger.kernel.org>, <linuxarm@huawei.com>,
-        lipeng <lipeng321@huawei.com>,
-        JinchuanTian <tianjinchuan1@huawei.com>
+        lipeng <lipeng321@huawei.com>
 To: <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20170330153106.14344-1-salil.mehta@huawei.com>
@@ -18,56 +17,89 @@ List-Id: netdev.vger.kernel.org
 
 From: lipeng <lipeng321@huawei.com>
 
-This patch reduces GMAC TX threshold value to avoid gmac
-hang-up with speed 100M/duplex half.
+This patch fixes below ethtool configuration error:
+
+localhost:~ # ethtool -X eth0 hkey XX:XX:XX...
+Cannot set Rx flow hash configuration: Operation not supported
 
 Signed-off-by: lipeng <lipeng321@huawei.com>
-Signed-off-by: JinchuanTian <tianjinchuan1@huawei.com>
 Reviewed-by: Yisen Zhuang <yisen.zhuang@huawei.com>
 Signed-off-by: Salil Mehta <salil.mehta@huawei.com>
 ---
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c | 6 ++++++
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h  | 4 ++++
- 2 files changed, 10 insertions(+)
+ drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c | 23 ++++++++++++++---------
+ drivers/net/ethernet/hisilicon/hns/hns_ethtool.c  |  9 ++++-----
+ 2 files changed, 18 insertions(+), 14 deletions(-)
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c
-index 3382441..a8dbe00 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c
-@@ -325,6 +325,12 @@ static void hns_gmac_init(void *mac_drv)
- 	hns_gmac_tx_loop_pkt_dis(mac_drv);
- 	if (drv->mac_cb->mac_type == HNAE_PORT_DEBUG)
- 		hns_gmac_set_uc_match(mac_drv, 0);
-+
-+	/* reduce gmac tx water line to avoid gmac hang-up
-+	 * in speed 100M and duplex half.
-+	 */
-+	dsaf_set_dev_field(drv, GMAC_TX_WATER_LINE_REG, GMAC_TX_WATER_LINE_MASK,
-+			   GMAC_TX_WATER_LINE_SHIFT, 8);
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c b/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
+index 53af14e..58b51e5 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
+@@ -831,8 +831,9 @@ static int hns_ae_get_rss(struct hnae_handle *handle, u32 *indir, u8 *key,
+ 		memcpy(key, ppe_cb->rss_key, HNS_PPEV2_RSS_KEY_SIZE);
+ 
+ 	/* update the current hash->queue mappings from the shadow RSS table */
+-	memcpy(indir, ppe_cb->rss_indir_table,
+-	       HNS_PPEV2_RSS_IND_TBL_SIZE * sizeof(*indir));
++	if (indir)
++		memcpy(indir, ppe_cb->rss_indir_table,
++		       HNS_PPEV2_RSS_IND_TBL_SIZE  * sizeof(*indir));
+ 
+ 	return 0;
  }
+@@ -843,15 +844,19 @@ static int hns_ae_set_rss(struct hnae_handle *handle, const u32 *indir,
+ 	struct hns_ppe_cb *ppe_cb = hns_get_ppe_cb(handle);
  
- void hns_gmac_update_stats(void *mac_drv)
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
-index 8fa18fc..4b8af68 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
-@@ -466,6 +466,7 @@
+ 	/* set the RSS Hash Key if specififed by the user */
+-	if (key)
+-		hns_ppe_set_rss_key(ppe_cb, (u32 *)key);
++	if (key) {
++		memcpy(ppe_cb->rss_key, key, HNS_PPEV2_RSS_KEY_SIZE);
++		hns_ppe_set_rss_key(ppe_cb, ppe_cb->rss_key);
++	}
  
- #define GMAC_DUPLEX_TYPE_REG			0x0008UL
- #define GMAC_FD_FC_TYPE_REG			0x000CUL
-+#define GMAC_TX_WATER_LINE_REG			0x0010UL
- #define GMAC_FC_TX_TIMER_REG			0x001CUL
- #define GMAC_FD_FC_ADDR_LOW_REG			0x0020UL
- #define GMAC_FD_FC_ADDR_HIGH_REG		0x0024UL
-@@ -912,6 +913,9 @@
+-	/* update the shadow RSS table with user specified qids */
+-	memcpy(ppe_cb->rss_indir_table, indir,
+-	       HNS_PPEV2_RSS_IND_TBL_SIZE * sizeof(*indir));
++	if (indir) {
++		/* update the shadow RSS table with user specified qids */
++		memcpy(ppe_cb->rss_indir_table, indir,
++		       HNS_PPEV2_RSS_IND_TBL_SIZE  * sizeof(*indir));
  
- #define GMAC_DUPLEX_TYPE_B 0
+-	/* now update the hardware */
+-	hns_ppe_set_indir_table(ppe_cb, ppe_cb->rss_indir_table);
++		/* now update the hardware */
++		hns_ppe_set_indir_table(ppe_cb, ppe_cb->rss_indir_table);
++	}
  
-+#define GMAC_TX_WATER_LINE_MASK		((1UL << 8) - 1)
-+#define GMAC_TX_WATER_LINE_SHIFT	0
-+
- #define GMAC_FC_TX_TIMER_S 0
- #define GMAC_FC_TX_TIMER_M 0xffff
+ 	return 0;
+ }
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c b/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
+index 3404eac..3a2a342 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
+@@ -1244,6 +1244,7 @@ hns_set_rss(struct net_device *netdev, const u32 *indir, const u8 *key,
+ {
+ 	struct hns_nic_priv *priv = netdev_priv(netdev);
+ 	struct hnae_ae_ops *ops;
++	int ret;
  
+ 	if (AE_IS_VER1(priv->enet_ver)) {
+ 		netdev_err(netdev,
+@@ -1253,12 +1254,10 @@ hns_set_rss(struct net_device *netdev, const u32 *indir, const u8 *key,
+ 
+ 	ops = priv->ae_handle->dev->ops;
+ 
+-	/* currently hfunc can only be Toeplitz hash */
+-	if (key ||
+-	    (hfunc != ETH_RSS_HASH_NO_CHANGE && hfunc != ETH_RSS_HASH_TOP))
++	if (hfunc != ETH_RSS_HASH_NO_CHANGE && hfunc != ETH_RSS_HASH_TOP) {
++		netdev_err(netdev, "Invalid hfunc!\n");
+ 		return -EOPNOTSUPP;
+-	if (!indir)
+-		return 0;
++	}
+ 
+ 	return ops->set_rss(priv->ae_handle, indir, key, hfunc);
+ }
 -- 
 2.7.4
