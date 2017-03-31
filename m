@@ -1,54 +1,45 @@
-From: Alban Crequy <alban@kinvolk.io>
-Subject: Re: [RFC PATCH tip/master 1/3] trace: kprobes: Show sum of probe/retprobe nmissed count
-Date: Fri, 31 Mar 2017 11:45:55 +0200
-Message-ID: <CADZs7q4k9YLgRuxccy7vuOns53GcPXG4D6HosRjfAeKm=RrL2A@mail.gmail.com>
-References: <149076484118.24574.7083269903420611708.stgit@devbox> <149076491191.24574.9187877160820798843.stgit@devbox>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Steven Rostedt <rostedt@goodmis.org>, Ingo Molnar <mingo@redhat.com>, 	Alban Crequy <alban.crequy@gmail.com>, Alexei Starovoitov <ast@kernel.org>, 	Jonathan Corbet <corbet@lwn.net>, Arnaldo Carvalho de Melo <acme@redhat.com>, Omar Sandoval <osandov@fb.com>, 	linux-doc@vger.kernel.org, netdev@vger.kernel.org, 	linux-kernel@vger.kernel.org, =?UTF-8?Q?Iago_L=C3=B3pez_Galeiras?= <iago@kinvolk.io>, 	Michael Schubert <michael@kinvolk.io>, Dorau Lukasz <lukasz.dorau@intel.com>, systemtap@sourceware.org
-To: Masami Hiramatsu <mhiramat@kernel.org>
-Return-path: <systemtap-return-25255-gls-systemtap=m.gmane.org@sourceware.org>
-List-Unsubscribe: <mailto:systemtap-unsubscribe-gls-systemtap=m.gmane.org@sourceware.org>
-List-Subscribe: <mailto:systemtap-subscribe@sourceware.org>
-List-Post: <mailto:systemtap@sourceware.org>
-List-Help: <mailto:systemtap-help@sourceware.org>, <http://sourceware.org/lists.html#faqs>
-Sender: systemtap-owner@sourceware.org
-In-Reply-To: <149076491191.24574.9187877160820798843.stgit@devbox>
-List-Id: netdev.vger.kernel.org
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: [PATCH net-next] udp: use sk_protocol instead of pcflag to detect udplite sockets
+Date: Fri, 31 Mar 2017 11:47:39 +0200
+Message-ID: <fc91ec83ecf454fad74c326380203a34434cb1ec.1490953526.git.pabeni@redhat.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:35492 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932677AbdCaJrx (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 31 Mar 2017 05:47:53 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 29, 2017 at 7:22 AM, Masami Hiramatsu <mhiramat@kernel.org> wrote:
-> Show sum of probe and retprobe nmissed count in
-> kprobe_profile, since retprobe can be missed even
-> if the kprobe itself succeeeded.
-> This explains user why their return probe didn't hit
-> sometimes.
->
-> Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
+In the udp_sock struct, the 'forward_deficit' and 'pcflag' fields
+share the same cacheline. While the first is dirtied by
+udp_recvmsg, the latter is read, possibly several times, by the
+bottom half processing to discriminate between udp and udplite
+sockets.
 
-I tested this patch with my kretprobe on "inet_csk_accept" when there
-are many processes waiting in the accept() syscall. I can now
-successfully see the nmissed counter in
-/sys/kernel/debug/tracing/kprobe_profile being incremented when the
-kretprobe is missed.
+With this patch, sk->sk_protocol is used to check is the socket is
+really an udplite one, avoiding some cache misses per
+packet and improving the performance under udp_flood with
+small packet up to 10%.
 
-Tested-by: Alban Crequy <alban@kinvolk.io>
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+---
+ include/linux/udp.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-
-> ---
->  kernel/trace/trace_kprobe.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/kernel/trace/trace_kprobe.c b/kernel/trace/trace_kprobe.c
-> index 013f4e7..bbdc3de 100644
-> --- a/kernel/trace/trace_kprobe.c
-> +++ b/kernel/trace/trace_kprobe.c
-> @@ -896,7 +896,7 @@ static int probes_profile_seq_show(struct seq_file *m, void *v)
->         seq_printf(m, "  %-44s %15lu %15lu\n",
->                    trace_event_name(&tk->tp.call),
->                    trace_kprobe_nhit(tk),
-> -                  tk->rp.kp.nmissed);
-> +                  tk->rp.kp.nmissed + tk->rp.nmissed);
->
->         return 0;
->  }
->
+diff --git a/include/linux/udp.h b/include/linux/udp.h
+index c0f5308..6cb4061 100644
+--- a/include/linux/udp.h
++++ b/include/linux/udp.h
+@@ -115,6 +115,6 @@ static inline bool udp_get_no_check6_rx(struct sock *sk)
+ #define udp_portaddr_for_each_entry_rcu(__sk, list) \
+ 	hlist_for_each_entry_rcu(__sk, list, __sk_common.skc_portaddr_node)
+ 
+-#define IS_UDPLITE(__sk) (udp_sk(__sk)->pcflag)
++#define IS_UDPLITE(__sk) (__sk->sk_protocol == IPPROTO_UDPLITE)
+ 
+ #endif	/* _LINUX_UDP_H */
+-- 
+2.9.3
