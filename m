@@ -1,7 +1,7 @@
 From: Salil Mehta <salil.mehta@huawei.com>
-Subject: [PATCH V3 net-next 16/18] net: hns: Adjust the SBM module buffer threshold
-Date: Fri, 31 Mar 2017 18:48:50 +0100
-Message-ID: <20170331174852.13600-17-salil.mehta@huawei.com>
+Subject: [PATCH V3 net-next 14/18] net: hns: Optimise the code in hns_mdio_wait_ready()
+Date: Fri, 31 Mar 2017 18:48:48 +0100
+Message-ID: <20170331174852.13600-15-salil.mehta@huawei.com>
 References: <20170331174852.13600-1-salil.mehta@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -17,48 +17,44 @@ List-Id: netdev.vger.kernel.org
 
 From: Kejian Yan <yankejian@huawei.com>
 
-HNS needs SMB Buffers to store at least two packets after sending
-pause frame because of the link delay. The MTU of HNS is 9728. As
-the processor user manual described, the SBM buffer threshold should
-be modified.
+This patch fixes the code to clear pclint warning/info.
 
 Reported-by: Ping Zhang <zhangping5@huawei.com>
 Signed-off-by: Kejian Yan <yankejian@huawei.com>
 Reviewed-by: Salil Mehta <salil.mehta@huawei.com>
 Signed-off-by: Salil Mehta <salil.mehta@huawei.com>
 ---
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/hisilicon/hns_mdio.c | 10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-index abd8aec..d07b4fe 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-@@ -510,10 +510,10 @@ static void hns_dsafv2_sbm_bp_wl_cfg(struct dsaf_device *dsaf_dev)
- 		o_sbm_bp_cfg = dsaf_read_dev(dsaf_dev, reg);
- 		dsaf_set_field(o_sbm_bp_cfg,
- 			       DSAFV2_SBM_CFG3_SET_BUF_NUM_NO_PFC_M,
--			       DSAFV2_SBM_CFG3_SET_BUF_NUM_NO_PFC_S, 48);
-+			       DSAFV2_SBM_CFG3_SET_BUF_NUM_NO_PFC_S, 55);
- 		dsaf_set_field(o_sbm_bp_cfg,
- 			       DSAFV2_SBM_CFG3_RESET_BUF_NUM_NO_PFC_M,
--			       DSAFV2_SBM_CFG3_RESET_BUF_NUM_NO_PFC_S, 80);
-+			       DSAFV2_SBM_CFG3_RESET_BUF_NUM_NO_PFC_S, 110);
- 		dsaf_write_dev(dsaf_dev, reg, o_sbm_bp_cfg);
+diff --git a/drivers/net/ethernet/hisilicon/hns_mdio.c b/drivers/net/ethernet/hisilicon/hns_mdio.c
+index fad1c5b..e5221d9 100644
+--- a/drivers/net/ethernet/hisilicon/hns_mdio.c
++++ b/drivers/net/ethernet/hisilicon/hns_mdio.c
+@@ -175,18 +175,20 @@ static int mdio_sc_cfg_reg_write(struct hns_mdio_device *mdio_dev,
+ static int hns_mdio_wait_ready(struct mii_bus *bus)
+ {
+ 	struct hns_mdio_device *mdio_dev = bus->priv;
++	u32 cmd_reg_value;
+ 	int i;
+-	u32 cmd_reg_value = 1;
  
- 		/* for no enable pfc mode */
-@@ -521,10 +521,10 @@ static void hns_dsafv2_sbm_bp_wl_cfg(struct dsaf_device *dsaf_dev)
- 		o_sbm_bp_cfg = dsaf_read_dev(dsaf_dev, reg);
- 		dsaf_set_field(o_sbm_bp_cfg,
- 			       DSAFV2_SBM_CFG4_SET_BUF_NUM_NO_PFC_M,
--			       DSAFV2_SBM_CFG4_SET_BUF_NUM_NO_PFC_S, 192);
-+			       DSAFV2_SBM_CFG4_SET_BUF_NUM_NO_PFC_S, 128);
- 		dsaf_set_field(o_sbm_bp_cfg,
- 			       DSAFV2_SBM_CFG4_RESET_BUF_NUM_NO_PFC_M,
--			       DSAFV2_SBM_CFG4_RESET_BUF_NUM_NO_PFC_S, 240);
-+			       DSAFV2_SBM_CFG4_RESET_BUF_NUM_NO_PFC_S, 192);
- 		dsaf_write_dev(dsaf_dev, reg, o_sbm_bp_cfg);
+ 	/* waitting for MDIO_COMMAND_REG 's mdio_start==0 */
+ 	/* after that can do read or write*/
+-	for (i = 0; cmd_reg_value; i++) {
++	for (i = 0; i < MDIO_TIMEOUT; i++) {
+ 		cmd_reg_value = MDIO_GET_REG_BIT(mdio_dev,
+ 						 MDIO_COMMAND_REG,
+ 						 MDIO_CMD_START_B);
+-		if (i == MDIO_TIMEOUT)
+-			return -ETIMEDOUT;
++		if (!cmd_reg_value)
++			break;
  	}
++	if ((i == MDIO_TIMEOUT) && cmd_reg_value)
++		return -ETIMEDOUT;
  
+ 	return 0;
+ }
 -- 
 2.7.4
