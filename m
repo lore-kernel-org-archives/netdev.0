@@ -1,119 +1,105 @@
-From: Vincent Bernat <vincent@bernat.im>
-Subject: [net-next v3] vxlan: fix ND proxy when skb doesn't have transport header offset
-Date: Fri, 31 Mar 2017 10:18:15 +0200
-Message-ID: <20170331081815.23061-1-vincent@bernat.im>
-References: <CANn89i+Ms_vvuowjmgERsA3=rMdTm_Cux3XTVJ19ewTz-TtBOw@mail.gmail.com>
-Cc: Vincent Bernat <vincent@bernat.im>
-To: Eric Dumazet <edumazet@google.com>,
-        Roopa Prabhu <roopa@cumulusnetworks.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Jiri Benc <jbenc@redhat.com>, netdev <netdev@vger.kernel.org>,
-        Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bart.luffy.cx ([78.47.78.131]:55271 "EHLO bart.luffy.cx"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750839AbdCaISg (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 31 Mar 2017 04:18:36 -0400
-In-Reply-To: <CANn89i+Ms_vvuowjmgERsA3=rMdTm_Cux3XTVJ19ewTz-TtBOw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Luiz Augusto von Dentz <luiz.dentz@gmail.com>
+Subject: Re: [PATCH] bluetooth: 6lowpan: fix use after free in chan_suspend/resume
+Date: Fri, 31 Mar 2017 11:33:37 +0300
+Message-ID: <CABBYNZ+=W6kvxrmaTWktNTtc76hoDgYuZOK9QF5QNd+5+MSjNA@mail.gmail.com>
+References: <20170329061018.4243-1-michael.scott@linaro.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Marcel Holtmann <marcel@holtmann.org>,
+        Gustavo Padovan <gustavo@padovan.org>,
+        Johan Hedberg <johan.hedberg@gmail.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        Jukka Rissanen <jukka.rissanen@linux.intel.com>,
+        "linux-bluetooth@vger.kernel.org" <linux-bluetooth@vger.kernel.org>,
+        linux-wpan@vger.kernel.org,
+        "open list:NETWORKING [GENERAL]" <netdev@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Michael Scott <michael.scott@linaro.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170329061018.4243-1-michael.scott@linaro.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-When an incoming frame is tagged or when GRO is disabled, the skb
-handled to vxlan_xmit() doesn't contain a valid transport header
-offset. This makes ND proxying fail.
+Hi Michael,
 
-We combine two changes: replace use of skb_transport_offset() and ensure
-the necessary amount of skb is linear just before using it:
+On Wed, Mar 29, 2017 at 9:10 AM, Michael Scott <michael.scott@linaro.org> wrote:
+> A status field in the skb_cb struct was storing a channel status
+> based on channel suspend/resume events.  This stored status was
+> then used to return EAGAIN if there were packet sending issues
+> in snd_pkt().
+>
+> The issue is that the skb has been freed by the time the callback
+> to 6lowpan's suspend/resume was called.  So, this generates a
+> "use after free" issue that was noticed while running kernel tests
+> with KASAN debug enabled.
+>
+> Let's eliminate the status field entirely as we can use the channel
+> tx_credits to indicate whether we should return EAGAIN when handling
+> packets.
+>
+> Signed-off-by: Michael Scott <michael.scott@linaro.org>
+> ---
+>  net/bluetooth/6lowpan.c | 21 +++------------------
+>  1 file changed, 3 insertions(+), 18 deletions(-)
+>
+> diff --git a/net/bluetooth/6lowpan.c b/net/bluetooth/6lowpan.c
+> index d491529332f4..e27be3ca0a0c 100644
+> --- a/net/bluetooth/6lowpan.c
+> +++ b/net/bluetooth/6lowpan.c
+> @@ -38,7 +38,6 @@ struct skb_cb {
+>         struct in6_addr addr;
+>         struct in6_addr gw;
+>         struct l2cap_chan *chan;
+> -       int status;
+>  };
+>  #define lowpan_cb(skb) ((struct skb_cb *)((skb)->cb))
+>
+> @@ -528,7 +527,7 @@ static int send_pkt(struct l2cap_chan *chan, struct sk_buff *skb,
+>         }
+>
+>         if (!err)
+> -               err = lowpan_cb(skb)->status;
+> +               err = (!chan->tx_credits ? -EAGAIN : 0);
+>
+>         if (err < 0) {
+>                 if (err == -EAGAIN)
+> @@ -964,26 +963,12 @@ static struct sk_buff *chan_alloc_skb_cb(struct l2cap_chan *chan,
+>
+>  static void chan_suspend_cb(struct l2cap_chan *chan)
+>  {
+> -       struct sk_buff *skb = chan->data;
+> -
+> -       BT_DBG("chan %p conn %p skb %p", chan, chan->conn, skb);
+> -
+> -       if (!skb)
+> -               return;
+> -
+> -       lowpan_cb(skb)->status = -EAGAIN;
+> +       BT_DBG("chan %p suspend", chan);
+>  }
+>
+>  static void chan_resume_cb(struct l2cap_chan *chan)
+>  {
+> -       struct sk_buff *skb = chan->data;
+> -
+> -       BT_DBG("chan %p conn %p skb %p", chan, chan->conn, skb);
+> -
+> -       if (!skb)
+> -               return;
+> -
+> -       lowpan_cb(skb)->status = 0;
+> +       BT_DBG("chan %p resume", chan);
+>  }
+>
+>  static long chan_get_sndtimeo_cb(struct l2cap_chan *chan)
+> --
+> 2.11.0
 
- - In vxlan_xmit(), when determining if we have an ICMPv6 neighbor
-   discovery packet, just check if it is an ICMPv6 packet and rely on
-   neigh_reduce() to do more checks if this is the case. The use of
-   pskb_may_pull() is replaced by skb_header_pointer() for just the IPv6
-   header.
+It should be possible to queue the packets on l2cap_chan_send, Im not
+sure why we have this suspend logic in the first place so perhaps
+Jukka can shed some light here.
 
- - In neigh_reduce(), add pskb_may_pull() for IPv6 header and neighbor
-   discovery message since this was removed from vxlan_xmit(). Replace
-   skb_transport_header() with ipv6_hdr() + 1.
 
- - In vxlan_na_create(), replace first skb_transport_offset() with
-   ipv6_hdr() + 1 and second with skb_network_offset() + sizeof(struct
-   ipv6hdr). Additionally, ensure we pskb_may_pull() the whole skb as we
-   need it to iterate over the options.
 
-Signed-off-by: Vincent Bernat <vincent@bernat.im>
----
- drivers/net/vxlan.c | 28 ++++++++++++++--------------
- 1 file changed, 14 insertions(+), 14 deletions(-)
-
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 1e54fb5c883a..54dda367de2b 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -1515,7 +1515,7 @@ static struct sk_buff *vxlan_na_create(struct sk_buff *request,
- 	int ns_olen;
- 	int i, len;
- 
--	if (dev == NULL)
-+	if (dev == NULL || !pskb_may_pull(request, request->len))
- 		return NULL;
- 
- 	len = LL_RESERVED_SPACE(dev) + sizeof(struct ipv6hdr) +
-@@ -1530,10 +1530,11 @@ static struct sk_buff *vxlan_na_create(struct sk_buff *request,
- 	skb_push(reply, sizeof(struct ethhdr));
- 	skb_reset_mac_header(reply);
- 
--	ns = (struct nd_msg *)skb_transport_header(request);
-+	ns = (struct nd_msg *)(ipv6_hdr(request) + 1);
- 
- 	daddr = eth_hdr(request)->h_source;
--	ns_olen = request->len - skb_transport_offset(request) - sizeof(*ns);
-+	ns_olen = request->len - skb_network_offset(request) -
-+		sizeof(struct ipv6hdr) - sizeof(*ns);
- 	for (i = 0; i < ns_olen-1; i += (ns->opt[i+1]<<3)) {
- 		if (ns->opt[i] == ND_OPT_SOURCE_LL_ADDR) {
- 			daddr = ns->opt + i + sizeof(struct nd_opt_hdr);
-@@ -1604,10 +1605,13 @@ static int neigh_reduce(struct net_device *dev, struct sk_buff *skb, __be32 vni)
- 	if (!in6_dev)
- 		goto out;
- 
-+	if (!pskb_may_pull(skb, sizeof(struct ipv6hdr) + sizeof(struct nd_msg)))
-+		goto out;
-+
- 	iphdr = ipv6_hdr(skb);
- 	daddr = &iphdr->daddr;
- 
--	msg = (struct nd_msg *)skb_transport_header(skb);
-+	msg = (struct nd_msg *)(iphdr + 1);
- 	if (msg->icmph.icmp6_code != 0 ||
- 	    msg->icmph.icmp6_type != NDISC_NEIGHBOUR_SOLICITATION)
- 		goto out;
-@@ -2238,21 +2242,17 @@ static netdev_tx_t vxlan_xmit(struct sk_buff *skb, struct net_device *dev)
- 	}
- 
- 	if (vxlan->flags & VXLAN_F_PROXY) {
-+		struct ipv6hdr *hdr, _hdr;
- 		eth = eth_hdr(skb);
- 		if (ntohs(eth->h_proto) == ETH_P_ARP)
- 			return arp_reduce(dev, skb, vni);
- #if IS_ENABLED(CONFIG_IPV6)
- 		else if (ntohs(eth->h_proto) == ETH_P_IPV6 &&
--			 pskb_may_pull(skb, sizeof(struct ipv6hdr)
--				       + sizeof(struct nd_msg)) &&
--			 ipv6_hdr(skb)->nexthdr == IPPROTO_ICMPV6) {
--				struct nd_msg *msg;
--
--				msg = (struct nd_msg *)skb_transport_header(skb);
--				if (msg->icmph.icmp6_code == 0 &&
--				    msg->icmph.icmp6_type == NDISC_NEIGHBOUR_SOLICITATION)
--					return neigh_reduce(dev, skb, vni);
--		}
-+			 (hdr = skb_header_pointer(skb,
-+						   skb_network_offset(skb),
-+						   sizeof(_hdr), &_hdr)) &&
-+			 hdr->nexthdr == IPPROTO_ICMPV6)
-+			return neigh_reduce(dev, skb, vni);
- #endif
- 	}
- 
 -- 
-2.11.0
+Luiz Augusto von Dentz
