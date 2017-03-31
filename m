@@ -1,62 +1,67 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH 1/6] virtio: wrap find_vqs
-Date: Fri, 31 Mar 2017 12:04:55 +0800
-Message-ID: <c388e4fd-2956-8894-31ec-31fe8b01e49f@redhat.com>
-References: <1490820507-8005-1-git-send-email-mst@redhat.com>
- <1490820507-8005-2-git-send-email-mst@redhat.com>
- <72f533a2-482d-1956-b0fe-254e273e1818@redhat.com>
- <20170330173146-mutt-send-email-mst@kernel.org>
+Subject: Re: [PATCH V2 net-next 6/7] tap: support receiving skb from
+ msg_control
+Date: Fri, 31 Mar 2017 12:07:44 +0800
+Message-ID: <e1b16f6c-f714-2efe-fe55-a7e827018012@redhat.com>
+References: <1490858550-7763-1-git-send-email-jasowang@redhat.com>
+ <1490858550-7763-7-git-send-email-jasowang@redhat.com>
+ <20170330180140-mutt-send-email-mst@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org,
-        John Fastabend <john.fastabend@gmail.com>,
-        Arnd Bergmann <arnd@arndb.de>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        Amit Shah <amit@kernel.org>, Gonglei <arei.gonglei@huawei.com>,
-        Herbert Xu <herbert@gondor.apana.org.au>,
-        "David S. Miller" <davem@davemloft.net>,
-        David Airlie <airlied@linux.ie>,
-        Gerd Hoffmann <kraxel@redhat.com>,
-        Dmitry Tarnyagin <dmitry.tarnyagin@lockless.no>,
-        Ohad Ben-Cohen <ohad@wizery.com>,
-        Bjorn Andersson <bjorn.andersson@linaro.org>,
-        "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
-        "Martin K. Petersen" <martin.petersen@oracle.com>,
-        Stefan Hajnoczi <stefanha@redhat.com>,
-        virtualization@lists.linux-foundation.org,
-        linux-crypto@vger.kernel.org, dri-devel@lists.freedesktop.org,
-        netdev@vger.kerne
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47372 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751012AbdCaEFc (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 31 Mar 2017 00:05:32 -0400
-In-Reply-To: <20170330173146-mutt-send-email-mst@kernel.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170330180140-mutt-send-email-mst@kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
 
-On 2017年03月30日 22:32, Michael S. Tsirkin wrote:
-> On Thu, Mar 30, 2017 at 02:00:08PM +0800, Jason Wang wrote:
+On 2017年03月30日 23:03, Michael S. Tsirkin wrote:
+> On Thu, Mar 30, 2017 at 03:22:29PM +0800, Jason Wang wrote:
+>> This patch makes tap_recvmsg() can receive from skb from its caller
+>> through msg_control. Vhost_net will be the first user.
 >>
->> On 2017年03月30日 04:48, Michael S. Tsirkin wrote:
->>> We are going to add more parameters to find_vqs, let's wrap the call so
->>> we don't need to tweak all drivers every time.
->>>
->>> Signed-off-by: Michael S. Tsirkin<mst@redhat.com>
->>> ---
->> A quick glance and it looks ok, but what the benefit of this series, is it
->> required by other changes?
+>> Signed-off-by: Jason Wang<jasowang@redhat.com>
+>> ---
+>>   drivers/net/tap.c | 12 ++++++++----
+>>   1 file changed, 8 insertions(+), 4 deletions(-)
 >>
->> Thanks
-> Yes - to avoid touching all devices when doing the rest of
-> the patchset.
+>> diff --git a/drivers/net/tap.c b/drivers/net/tap.c
+>> index abdaf86..07d9174 100644
+>> --- a/drivers/net/tap.c
+>> +++ b/drivers/net/tap.c
+>> @@ -824,15 +824,17 @@ static ssize_t tap_put_user(struct tap_queue *q,
+>>   
+>>   static ssize_t tap_do_read(struct tap_queue *q,
+>>   			   struct iov_iter *to,
+>> -			   int noblock)
+>> +			   int noblock, struct sk_buff *skb)
+>>   {
+>>   	DEFINE_WAIT(wait);
+>> -	struct sk_buff *skb;
+>>   	ssize_t ret = 0;
+>>   
+>>   	if (!iov_iter_count(to))
+>>   		return 0;
+>>   
+>> +	if (skb)
+>> +		goto done;
+>> +
+>>   	while (1) {
+>>   		if (!noblock)
+>>   			prepare_to_wait(sk_sleep(&q->sk), &wait,
+>> @@ -856,6 +858,7 @@ static ssize_t tap_do_read(struct tap_queue *q,
+>>   	if (!noblock)
+>>   		finish_wait(sk_sleep(&q->sk), &wait);
+>>   
+>> +done:
+> Please just use an if {} block here. goto on error is ok,
+> but we are far from done here and goto done is misleading.
+>
+>
 
-Maybe I'm not clear. I mean the benefit of this series not this single 
-patch. I guess it may be used by you proposal that avoid reset when set 
-XDP? If yes, do we really want to drop some packets after XDP is set?
+Ok.
 
-Thanks
+Thanks.
