@@ -1,47 +1,44 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next v2] net: dsa: Mock-up driver
-Date: Fri, 31 Mar 2017 18:56:22 +0200
-Message-ID: <20170331165622.GK12814@lunn.ch>
-References: <20170331014321.3248-1-f.fainelli@gmail.com>
- <20170331160601.GC12814@lunn.ch>
- <3952b60b-1c24-487d-7f8d-9cad5dc69dcc@gmail.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next v2 9/9] net: dsa: mv88e6xxx: add cross-chip bridging
+Date: Fri, 31 Mar 2017 12:55:03 -0400
+Message-ID: <87d1cxqtco.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+References: <20170330213715.9666-1-vivien.didelot@savoirfairelinux.com> <20170330213715.9666-10-vivien.didelot@savoirfairelinux.com> <20170331163949.GI12814@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-        vivien.didelot@savoirfairelinux.com
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:41999 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S933296AbdCaQ4Z (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 31 Mar 2017 12:56:25 -0400
-Content-Disposition: inline
-In-Reply-To: <3952b60b-1c24-487d-7f8d-9cad5dc69dcc@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170331163949.GI12814@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> Actually we do not, because netdev_uses_dsa() returns true only when
-> dst->rcv is different from NULL. When dst->rcv is NULL we completely
-> bypass the DSA hook in eth_type_trans() and everything is well, the
-> master network device is the one receiving packets.
+Hi Andrew,
 
-static inline bool netdev_uses_dsa(struct net_device *dev)
-{
-#if IS_ENABLED(CONFIG_NET_DSA)
-        if (dev->dsa_ptr != NULL)
-                return dsa_uses_tagged_protocol(dev->dsa_ptr);
-#endif
-        return false;
-}
+Andrew Lunn <andrew@lunn.ch> writes:
 
-and
+> On Thu, Mar 30, 2017 at 05:37:15PM -0400, Vivien Didelot wrote:
+>> Implement the DSA cross-chip bridging operations by remapping the local
+>> ports an external source port can egress frames to, when this cross-chip
+>> port joins or leaves a bridge.
+>> 
+>> The PVT is no longer configured with all ones allowing any external
+>> frame to egress any local port. Only DSA and CPU ports, as well as
+>> bridge group members, can egress frames on local ports.
+>
+> With the ZII devel B, we have two switches with PVT, and one
+> without. What happens in this setup? Can the non-PVT switch leak
+> frames out user ports which should otherwise be blocked?
 
-static inline bool dsa_uses_tagged_protocol(struct dsa_switch_tree *dst)
-{
-        return dst->rcv != NULL;
-}
+If CONFIG_BRIDGE_VLAN_FILTERING isn't enabled in the kernel, the non-PVT
+switch would indeed have no mean to restrict arbitrary external
+frames. So in that setup, yes the switch can theorically leak frames.
 
-Yep, i just needed to dig further...
+With a VLAN-filtering aware system, the VTU policy and 802.1Q Secure
+port mode should guard against that.
 
-Thanks
-	Andrew
+Thanks,
+
+        Vivien
