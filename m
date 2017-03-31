@@ -1,43 +1,36 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH 1/2] virtio: allow drivers to validate features
-Date: Fri, 31 Mar 2017 06:27:04 +0300
-Message-ID: <20170331062634-mutt-send-email-mst@kernel.org>
-References: <1490807652-27889-1-git-send-email-mst@redhat.com>
- <20170330.123931.210255819001973026.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] sock: avoid dirtying sk_stamp, if possible
+Date: Thu, 30 Mar 2017 20:29:24 -0700 (PDT)
+Message-ID: <20170330.202924.1023519735753552178.davem@davemloft.net>
+References: <f29d595f4a72d77730447be2a7c5f243fad47751.1490875313.git.pabeni@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, jasowang@redhat.com,
-        virtualization@lists.linux-foundation.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: pabeni@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:57408 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932873AbdCaD1H (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 30 Mar 2017 23:27:07 -0400
-Content-Disposition: inline
-In-Reply-To: <20170330.123931.210255819001973026.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([184.105.139.130]:38302 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753900AbdCaD32 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 30 Mar 2017 23:29:28 -0400
+In-Reply-To: <f29d595f4a72d77730447be2a7c5f243fad47751.1490875313.git.pabeni@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 30, 2017 at 12:39:31PM -0700, David Miller wrote:
-> From: "Michael S. Tsirkin" <mst@redhat.com>
-> Date: Wed, 29 Mar 2017 20:14:44 +0300
-> 
-> > Some drivers can't support all features in all configurations.  At the
-> > moment we blindly set FEATURES_OK and later FAILED.  Support this better
-> > by adding a callback drivers can use to do some early checks.
-> > 
-> > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> 
-> Michael do you want me to take these virtio networking fixes into my
-> tree directly or are you going to send me a pull request or something
-> after it all settles down?
-> 
-> Thanks.
+From: Paolo Abeni <pabeni@redhat.com>
+Date: Thu, 30 Mar 2017 14:03:06 +0200
 
-I think I'll send a pull request.
+> sock_recv_ts_and_drops() unconditionally set sk->sk_stamp for
+> every packet, even if the SOCK_TIMESTAMP flag is not set in the
+> related socket.
+> If selinux is enabled, this cause a cache miss for every packet
+> since sk->sk_stamp and sk->sk_security share the same cacheline.
+> With this change sk_stamp is set only if the SOCK_TIMESTAMP
+> flag is set, and is cleared for the first packet, so that the user
+> perceived behavior is unchanged.
+> 
+> This gives up to 5% speed-up under udp-flood with small packets.
+> 
+> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
 
-Thanks,
-
--- 
-MST
+Applied, thanks.
