@@ -1,141 +1,114 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCH net] sctp: use right in and out stream cnt
-Date: Fri, 31 Mar 2017 15:25:24 -0300
-Message-ID: <20170331182524.GD5879@localhost.localdomain>
-References: <046f41fee71d352458eccf900bcef54e24cb8aa8.1490954248.git.lucien.xin@gmail.com>
+From: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
+Subject: Re: probably serious conntrack/netfilter panic, 4.8.14, timers and
+ intel turbo
+Date: Fri, 31 Mar 2017 21:46:01 +0300
+Message-ID: <121449f64d51a122d88822bdb4047b00@nuclearcat.com>
+References: <9be92e4dc7d83096cbcdaae1a3f77bd3@nuclearcat.com>
+ <20170111172243.5yqliuverfhchlju@alphalink.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
-        davem@davemloft.net, Neil Horman <nhorman@tuxdriver.com>
-To: Xin Long <lucien.xin@gmail.com>
+Content-Type: text/plain; charset=US-ASCII;
+ format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        linux-kernel@vger.kernel.org,
+        Pablo Neira Ayuso <pablo@netfilter.org>,
+        netfilter-devel@vger.kernel.org
+To: Guillaume Nault <g.nault@alphalink.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37154 "EHLO mx1.redhat.com"
+Received: from nuclearcat.com ([144.76.183.226]:51716 "EHLO nuclearcat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S933313AbdCaSZ2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 31 Mar 2017 14:25:28 -0400
-Content-Disposition: inline
-In-Reply-To: <046f41fee71d352458eccf900bcef54e24cb8aa8.1490954248.git.lucien.xin@gmail.com>
+        id S1752491AbdCaSqL (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 31 Mar 2017 14:46:11 -0400
+In-Reply-To: <20170111172243.5yqliuverfhchlju@alphalink.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 31, 2017 at 05:57:28PM +0800, Xin Long wrote:
-> Since sctp reconf was added in sctp, the real cnt of in/out stream
-> have not been c.sinit_max_instreams and c.sinit_num_ostreams any
-> more.
-> 
-> This patch is to replace them with stream->in/outcnt.
-> 
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+I am not sure if it is same issue, but panics still happen, but much 
+less. Same server, nat.
+I will upgrade to latest 4.10.x build, because for this one i dont have 
+files anymore (for symbols and etc).
 
-Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-
-> ---
->  net/sctp/outqueue.c     |  3 +--
->  net/sctp/proc.c         |  4 ++--
->  net/sctp/sm_statefuns.c |  6 +++---
->  net/sctp/socket.c       | 10 +++++-----
->  4 files changed, 11 insertions(+), 12 deletions(-)
-> 
-> diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
-> index 025ccff..8081476 100644
-> --- a/net/sctp/outqueue.c
-> +++ b/net/sctp/outqueue.c
-> @@ -1026,8 +1026,7 @@ static void sctp_outq_flush(struct sctp_outq *q, int rtx_timeout, gfp_t gfp)
->  			/* RFC 2960 6.5 Every DATA chunk MUST carry a valid
->  			 * stream identifier.
->  			 */
-> -			if (chunk->sinfo.sinfo_stream >=
-> -			    asoc->c.sinit_num_ostreams) {
-> +			if (chunk->sinfo.sinfo_stream >= asoc->stream->outcnt) {
->  
->  				/* Mark as failed send. */
->  				sctp_chunk_fail(chunk, SCTP_ERROR_INV_STRM);
-> diff --git a/net/sctp/proc.c b/net/sctp/proc.c
-> index 206377f..a0b29d4 100644
-> --- a/net/sctp/proc.c
-> +++ b/net/sctp/proc.c
-> @@ -361,8 +361,8 @@ static int sctp_assocs_seq_show(struct seq_file *seq, void *v)
->  	sctp_seq_dump_remote_addrs(seq, assoc);
->  	seq_printf(seq, "\t%8lu %5d %5d %4d %4d %4d %8d "
->  		   "%8d %8d %8d %8d",
-> -		assoc->hbinterval, assoc->c.sinit_max_instreams,
-> -		assoc->c.sinit_num_ostreams, assoc->max_retrans,
-> +		assoc->hbinterval, assoc->stream->incnt,
-> +		assoc->stream->outcnt, assoc->max_retrans,
->  		assoc->init_retries, assoc->shutdown_retries,
->  		assoc->rtx_data_chunks,
->  		atomic_read(&sk->sk_wmem_alloc),
-> diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
-> index e03bb1a..24c6ccc 100644
-> --- a/net/sctp/sm_statefuns.c
-> +++ b/net/sctp/sm_statefuns.c
-> @@ -3946,7 +3946,7 @@ sctp_disposition_t sctp_sf_eat_fwd_tsn(struct net *net,
->  
->  	/* Silently discard the chunk if stream-id is not valid */
->  	sctp_walk_fwdtsn(skip, chunk) {
-> -		if (ntohs(skip->stream) >= asoc->c.sinit_max_instreams)
-> +		if (ntohs(skip->stream) >= asoc->stream->incnt)
->  			goto discard_noforce;
->  	}
->  
-> @@ -4017,7 +4017,7 @@ sctp_disposition_t sctp_sf_eat_fwd_tsn_fast(
->  
->  	/* Silently discard the chunk if stream-id is not valid */
->  	sctp_walk_fwdtsn(skip, chunk) {
-> -		if (ntohs(skip->stream) >= asoc->c.sinit_max_instreams)
-> +		if (ntohs(skip->stream) >= asoc->stream->incnt)
->  			goto gen_shutdown;
->  	}
->  
-> @@ -6353,7 +6353,7 @@ static int sctp_eat_data(const struct sctp_association *asoc,
->  	 * and discard the DATA chunk.
->  	 */
->  	sid = ntohs(data_hdr->stream);
-> -	if (sid >= asoc->c.sinit_max_instreams) {
-> +	if (sid >= asoc->stream->incnt) {
->  		/* Mark tsn as received even though we drop it */
->  		sctp_add_cmd_sf(commands, SCTP_CMD_REPORT_TSN, SCTP_U32(tsn));
->  
-> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-> index baa269a..12fbae2 100644
-> --- a/net/sctp/socket.c
-> +++ b/net/sctp/socket.c
-> @@ -1920,7 +1920,7 @@ static int sctp_sendmsg(struct sock *sk, struct msghdr *msg, size_t msg_len)
->  	}
->  
->  	/* Check for invalid stream. */
-> -	if (sinfo->sinfo_stream >= asoc->c.sinit_num_ostreams) {
-> +	if (sinfo->sinfo_stream >= asoc->stream->outcnt) {
->  		err = -EINVAL;
->  		goto out_free;
->  	}
-> @@ -4461,8 +4461,8 @@ int sctp_get_sctp_info(struct sock *sk, struct sctp_association *asoc,
->  	info->sctpi_rwnd = asoc->a_rwnd;
->  	info->sctpi_unackdata = asoc->unack_data;
->  	info->sctpi_penddata = sctp_tsnmap_pending(&asoc->peer.tsn_map);
-> -	info->sctpi_instrms = asoc->c.sinit_max_instreams;
-> -	info->sctpi_outstrms = asoc->c.sinit_num_ostreams;
-> +	info->sctpi_instrms = asoc->stream->incnt;
-> +	info->sctpi_outstrms = asoc->stream->outcnt;
->  	list_for_each(pos, &asoc->base.inqueue.in_chunk_list)
->  		info->sctpi_inqueue++;
->  	list_for_each(pos, &asoc->outqueue.out_chunk_list)
-> @@ -4691,8 +4691,8 @@ static int sctp_getsockopt_sctp_status(struct sock *sk, int len,
->  	status.sstat_unackdata = asoc->unack_data;
->  
->  	status.sstat_penddata = sctp_tsnmap_pending(&asoc->peer.tsn_map);
-> -	status.sstat_instrms = asoc->c.sinit_max_instreams;
-> -	status.sstat_outstrms = asoc->c.sinit_num_ostreams;
-> +	status.sstat_instrms = asoc->stream->incnt;
-> +	status.sstat_outstrms = asoc->stream->outcnt;
->  	status.sstat_fragmentation_point = asoc->frag_point;
->  	status.sstat_primary.spinfo_assoc_id = sctp_assoc2id(transport->asoc);
->  	memcpy(&status.sstat_primary.spinfo_address, &transport->ipaddr,
-> -- 
-> 2.1.0
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+  [864288.511464] Modules linked in: nf_conntrack_netlink nf_nat_pptp 
+nf_nat_proto_gre xt_TCPMSS xt_connmark ipt_MASQUERADE 
+nf_nat_masquerade_ipv4 xt_nat xt_rateest xt_RATEEST nf_conntrack_pptp 
+nf_conntrack_proto_gre xt_CT xt_set xt_hl xt_tcpudp ip_set_hash_net 
+ip_set nfnetlink iptable_raw iptable_mangle iptable_nat 
+nf_conntrack_ipv4 nf_defrag_ipv4 nf_nat_ipv4 nf_nat nf_conntrack 
+iptable_filter ip_tables x_tables netconsole configfs 8021q garp mrp stp 
+llc bonding ixgbe dca
+  [864288.512740] CPU: 17 PID: 0 Comm: swapper/17 Not tainted 
+4.10.1-build-0132 #2
+  [864288.513005] Hardware name: Intel Corporation S2600WTT/S2600WTT, 
+BIOS SE5C610.86B.01.01.0019.101220160604 10/12/2016
+  [864288.513454] task: ffff881038cb6000 task.stack: ffffc9000c678000
+  [864288.513719] RIP: 0010:nf_nat_cleanup_conntrack+0xe2/0x1bc [nf_nat]
+  [864288.513980] RSP: 0018:ffff88103fc43ba0 EFLAGS: 00010206
+  [864288.514237] RAX: ffff140504021ad8 RBX: ffff881004021ad8 RCX: 
+0000000001000000
+  [864288.514677] RDX: ffff140504021ad8 RSI: ffff88103279628c RDI: 
+ffff88103279628c
+  [864288.515117] RBP: ffff88103fc43be0 R08: ffffc9003b47b558 R09: 
+0000000000000004
+  [864288.515558] R10: ffff8820083d00ce R11: ffff881038480b00 R12: 
+ffff881004021a40
+  [864288.515998] R13: 0000000000000000 R14: ffffffffa00d406e R15: 
+ffffc90036e11000
+  [864288.516438] FS:  0000000000000000(0000) GS:ffff88103fc40000(0000) 
+knlGS:0000000000000000
+  [864288.516882] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+  [864288.517142] CR2: 00007fbfc303f978 CR3: 000000202267c000 CR4: 
+00000000001406e0
+  [864288.517580] Call Trace:
+  [864288.517831]  <IRQ>
+  [864288.518090]  __nf_ct_ext_destroy+0x3f/0x57 [nf_conntrack]
+  [864288.518352]  nf_conntrack_free+0x25/0x55 [nf_conntrack]
+  [864288.518615]  destroy_conntrack+0x80/0x8c [nf_conntrack]
+  [864288.518880]  nf_conntrack_destroy+0x19/0x1b
+  [864288.519137]  nf_ct_gc_expired+0x6e/0x71 [nf_conntrack]
+  [864288.519400]  __nf_conntrack_find_get+0x89/0x2ab [nf_conntrack]
+  [864288.519663]  nf_conntrack_in+0x1ec/0x877 [nf_conntrack]
+  [864288.519925]  ipv4_conntrack_in+0x1c/0x1e [nf_conntrack_ipv4]
+  [864288.520185]  nf_hook_slow+0x2a/0x9a
+  [864288.520439]  ip_rcv+0x318/0x337
+  [864288.520692]  ? ip_local_deliver_finish+0x1ba/0x1ba
+  [864288.520953]  __netif_receive_skb_core+0x607/0x852
+  [864288.521213]  ? kmem_cache_free_bulk+0x232/0x274
+  [864288.521471]  __netif_receive_skb+0x18/0x5a
+  [864288.521727]  process_backlog+0x90/0x113
+  [864288.521981]  net_rx_action+0x114/0x2dc
+  [864288.522238]  ? sched_clock_cpu+0x15/0x94
+  [864288.522496]  __do_softirq+0xe7/0x259
+  [864288.522753]  irq_exit+0x52/0x93
+  [864288.523006]  smp_call_function_single_interrupt+0x33/0x35
+  [864288.523267]  call_function_single_interrupt+0x83/0x90
+  [864288.523531] RIP: 0010:mwait_idle+0x9e/0x125
+  [864288.523786] RSP: 0018:ffffc9000c67beb0 EFLAGS: 00000246 ORIG_RAX: 
+ffffffffffffff04
+  [864288.524229] RAX: 0000000000000000 RBX: ffff881038cb6000 RCX: 
+0000000000000000
+  [864288.524669] RDX: 0000000000000000 RSI: 0000000000000000 RDI: 
+0000000000000000
+  [864288.525110] RBP: ffffc9000c67bec0 R08: 0000000000000001 R09: 
+0000000000000000
+  [864288.525551] R10: ffffc9000c67be50 R11: 0000000000000000 R12: 
+0000000000000011
+  [864288.525991] R13: 0000000000000000 R14: ffff881038cb6000 R15: 
+ffff881038cb6000
+  [864288.526429]  </IRQ>
+  [864288.526682]  arch_cpu_idle+0xf/0x11
+  [864288.526937]  default_idle_call+0x25/0x27
+  [864288.527193]  do_idle+0xb6/0x15d
+  [864288.527446]  cpu_startup_entry+0x1f/0x21
+  [864288.527702]  start_secondary+0xe8/0xeb
+  [864288.527961]  start_cpu+0x14/0x14
+  [864288.528212] Code: 48 89 f7 48 89 75 c8 e8 6e e8 8f e1 8b 45 c4 48 
+8b 75 c8 48 83 c0 08 4d 8d 04 c7 49 8b 04 c7 a8 01 75 46 48 39 c3 74 1e 
+48 89 c2 <48> 8b 7a 08 48 85 ff 0f 84 b3 00 00 00 48 39 fb 0f 84 9e 00 
+00
+  [864288.528905] RIP: nf_nat_cleanup_conntrack+0xe2/0x1bc [nf_nat] RSP: 
+ffff88103fc43ba0
+  [864288.529362] ---[ end trace e3c40a5e4bf43e26 ]---
+  [864288.567835] Kernel panic - not syncing: Fatal exception in 
+interrupt
+  [864288.568122] Kernel Offset: disabled
+  [864288.587619] Rebooting in 5 seconds..
