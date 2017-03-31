@@ -1,163 +1,229 @@
-From: Salil Mehta <salil.mehta@huawei.com>
-Subject: [PATCH V2 net-next 01/18] net: hns: Fix the implementation of irq affinity function
-Date: Fri, 31 Mar 2017 12:20:15 +0100
-Message-ID: <20170331112032.4692-2-salil.mehta@huawei.com>
-References: <20170331112032.4692-1-salil.mehta@huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <salil.mehta@huawei.com>, <yisen.zhuang@huawei.com>,
-        <mehta.salil.lnk@gmail.com>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>, <linuxarm@huawei.com>,
-        lipeng <lipeng321@huawei.com>, Kejian Yan <yankejian@huawei.com>
-To: <davem@davemloft.net>
+From: Corentin Labbe <clabbe.montjoie@gmail.com>
+Subject: [PATCH] selftests: add a generic testsuite for ethernet device
+Date: Fri, 31 Mar 2017 14:57:52 +0200
+Message-ID: <20170331125752.20074-2-clabbe.montjoie@gmail.com>
+References: <20170331125752.20074-1-clabbe.montjoie@gmail.com>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kselftest@vger.kernel.org,
+        Corentin Labbe <clabbe.montjoie@gmail.com>
+To: davem@davemloft.net, shuah@kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170331112032.4692-1-salil.mehta@huawei.com>
+In-Reply-To: <20170331125752.20074-1-clabbe.montjoie@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: lipeng <lipeng321@huawei.com>
+This patch add a generic testsuite for testing ethernet network device driver.
 
-This patch fixes the implementation of the IRQ affinity
-function. This function is used to create the cpu mask
-which eventually is used to initialize the cpu<->queue
-association for XPS(Transmit Packet Steering).
-
-Signed-off-by: lipeng <lipeng321@huawei.com>
-Signed-off-by: Kejian Yan <yankejian@huawei.com>
-Reviewed-by: Yisen Zhuang <yisen.zhuang@huawei.com>
-Signed-off-by: Salil Mehta <salil.mehta@huawei.com>
+Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
 ---
- drivers/net/ethernet/hisilicon/hns/hns_enet.c | 75 +++++++++++----------------
- drivers/net/ethernet/hisilicon/hns/hns_enet.h |  1 +
- 2 files changed, 30 insertions(+), 46 deletions(-)
+ tools/testing/selftests/net/Makefile     |   2 +-
+ tools/testing/selftests/net/netdevice.sh | 185 +++++++++++++++++++++++++++++++
+ 2 files changed, 186 insertions(+), 1 deletion(-)
+ create mode 100755 tools/testing/selftests/net/netdevice.sh
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.c b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-index fca37e2..73ec8c8 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-@@ -1196,54 +1196,31 @@ static void hns_nic_ring_close(struct net_device *netdev, int idx)
- 	napi_disable(&priv->ring_data[idx].napi);
- }
+diff --git a/tools/testing/selftests/net/Makefile b/tools/testing/selftests/net/Makefile
+index fbfe5d0..35cbb4c 100644
+--- a/tools/testing/selftests/net/Makefile
++++ b/tools/testing/selftests/net/Makefile
+@@ -5,7 +5,7 @@ CFLAGS += -I../../../../usr/include/
  
--static void hns_set_irq_affinity(struct hns_nic_priv *priv)
-+static int hns_nic_init_affinity_mask(int q_num, int ring_idx,
-+				      struct hnae_ring *ring, cpumask_t *mask)
- {
--	struct hnae_handle *h = priv->ae_handle;
--	struct hns_nic_ring_data *rd;
--	int i;
- 	int cpu;
--	cpumask_var_t mask;
+ reuseport_bpf_numa: LDFLAGS += -lnuma
  
--	if (!alloc_cpumask_var(&mask, GFP_KERNEL))
--		return;
--
--	/*diffrent irq banlance for 16core and 32core*/
--	if (h->q_num == num_possible_cpus()) {
--		for (i = 0; i < h->q_num * 2; i++) {
--			rd = &priv->ring_data[i];
--			if (cpu_online(rd->queue_index)) {
--				cpumask_clear(mask);
--				cpu = rd->queue_index;
--				cpumask_set_cpu(cpu, mask);
--				(void)irq_set_affinity_hint(rd->ring->irq,
--							    mask);
--			}
--		}
-+	/* Diffrent irq banlance between 16core and 32core.
-+	 * The cpu mask set by ring index according to the ring flag
-+	 * which indicate the ring is tx or rx.
-+	 */
-+	if (q_num == num_possible_cpus()) {
-+		if (is_tx_ring(ring))
-+			cpu = ring_idx;
+-TEST_PROGS := run_netsocktests run_afpackettests test_bpf.sh
++TEST_PROGS := run_netsocktests run_afpackettests test_bpf.sh netdevice.sh
+ TEST_GEN_FILES =  socket
+ TEST_GEN_FILES += psock_fanout psock_tpacket
+ TEST_GEN_FILES += reuseport_bpf reuseport_bpf_cpu reuseport_bpf_numa
+diff --git a/tools/testing/selftests/net/netdevice.sh b/tools/testing/selftests/net/netdevice.sh
+new file mode 100755
+index 0000000..89ba827
+--- /dev/null
++++ b/tools/testing/selftests/net/netdevice.sh
+@@ -0,0 +1,185 @@
++#!/bin/sh
++#
++# This test is for checking network interface
++# For the moment it tests only ethernet interface (but wifi could be easily added)
++#
++# We assume that all network driver are loaded
++# if not they probably have failed earlier in the boot process and their logged error will be catched by another test
++#
++
++# this function will try to up the interface
++# if already up, nothing done
++# arg1: network interface name
++kci_net_start()
++{
++	netdev=$1
++
++	ip link show "$netdev" |grep -q UP
++	if [ $? -eq 0 ];then
++		echo "SKIP: interface $netdev already up"
++		return 0
++	fi
++
++	ip link set "$netdev" up
++	if [ $? -ne 0 ];then
++		echo "FAIL: Fail to up $netdev"
++		return 1
++	else
++		echo "PASS: set interface $netdev up"
++		NETDEV_STARTED=1
++	fi
++	return 0
++}
++
++# this function will try to setup an IP and MAC address on a network interface
++# Doing nothing if the interface was already up
++# arg1: network interface name
++kci_net_setup()
++{
++	netdev=$1
++
++	# do nothing if the interface was already up
++	if [ $NETDEV_STARTED -eq 0 ];then
++		return 0
++	fi
++
++	ip link set dev $netdev address 02:03:04:05:06:07
++	if [ $? -ne 0 ];then
++		echo "FAIL: Cannot set MAC address to $netdev"
++		return 1
++	fi
++	echo "PASS: set MAC address to $netdev"
++
++	#check that the interface did not already have an IP
++	ip address show "$netdev" |grep '^[[:space:]]*inet'
++	if [ $? -eq 0 ];then
++		echo "SKIP: $netdev already have an IP"
++		return 0
++	fi
++
++	# TODO what ipaddr to set ? DHCP ?
++	echo "SKIP: set IP address to $netdev"
++	return 0
++}
++
++# test an ethtool command
++# arg1: return code for not supported (see ethtool code source)
++# arg2: summary of the command
++# arg3: command to execute
++kci_netdev_ethtool_test()
++{
++	if [ $# -le 2 ];then
++		echo "SKIP: invalid number of arguments"
++		return 1
++	fi
++	$3 >/dev/null
++	ret=$?
++	if [ $ret -ne 0 ];then
++		if [ $ret -eq "$1" ];then
++			echo "SKIP: ethtool $2 $netdev not supported"
 +		else
-+			cpu = ring_idx - q_num;
- 	} else {
--		for (i = 0; i < h->q_num; i++) {
--			rd = &priv->ring_data[i];
--			if (cpu_online(rd->queue_index * 2)) {
--				cpumask_clear(mask);
--				cpu = rd->queue_index * 2;
--				cpumask_set_cpu(cpu, mask);
--				(void)irq_set_affinity_hint(rd->ring->irq,
--							    mask);
--			}
--		}
--
--		for (i = h->q_num; i < h->q_num * 2; i++) {
--			rd = &priv->ring_data[i];
--			if (cpu_online(rd->queue_index * 2 + 1)) {
--				cpumask_clear(mask);
--				cpu = rd->queue_index * 2 + 1;
--				cpumask_set_cpu(cpu, mask);
--				(void)irq_set_affinity_hint(rd->ring->irq,
--							    mask);
--			}
--		}
-+		if (is_tx_ring(ring))
-+			cpu = ring_idx * 2;
-+		else
-+			cpu = (ring_idx - q_num) * 2 + 1;
- 	}
- 
--	free_cpumask_var(mask);
-+	cpumask_clear(mask);
-+	cpumask_set_cpu(cpu, mask);
++			echo "FAIL: ethtool $2 $netdev"
++			return 1
++		fi
++	else
++		echo "PASS: ethtool $2 $netdev"
++	fi
++	return 0
++}
 +
-+	return cpu;
- }
- 
- static int hns_nic_init_irq(struct hns_nic_priv *priv)
-@@ -1252,6 +1229,7 @@ static int hns_nic_init_irq(struct hns_nic_priv *priv)
- 	struct hns_nic_ring_data *rd;
- 	int i;
- 	int ret;
-+	int cpu;
- 
- 	for (i = 0; i < h->q_num * 2; i++) {
- 		rd = &priv->ring_data[i];
-@@ -1261,7 +1239,7 @@ static int hns_nic_init_irq(struct hns_nic_priv *priv)
- 
- 		snprintf(rd->ring->ring_name, RCB_RING_NAME_LEN,
- 			 "%s-%s%d", priv->netdev->name,
--			 (i < h->q_num ? "tx" : "rx"), rd->queue_index);
-+			 (is_tx_ring(rd->ring) ? "tx" : "rx"), rd->queue_index);
- 
- 		rd->ring->ring_name[RCB_RING_NAME_LEN - 1] = '\0';
- 
-@@ -1273,12 +1251,17 @@ static int hns_nic_init_irq(struct hns_nic_priv *priv)
- 			return ret;
- 		}
- 		disable_irq(rd->ring->irq);
++# test ethtool commands
++# arg1: network interface name
++kci_netdev_ethtool()
++{
++	netdev=$1
 +
-+		cpu = hns_nic_init_affinity_mask(h->q_num, i,
-+						 rd->ring, &rd->mask);
++	#check presence of ethtool
++	ethtool --version 2>/dev/null >/dev/null
++	if [ $? -ne 0 ];then
++		echo "SKIP: ethtool not present"
++		return 1
++	fi
 +
-+		if (cpu_online(cpu))
-+			irq_set_affinity_hint(rd->ring->irq,
-+					      &rd->mask);
++	TMP_ETHTOOL_FEATURES="$(mktemp)"
++	if [ ! -e "$TMP_ETHTOOL_FEATURES" ];then
++		echo "SKIP: Cannot create a tmp file"
++		return 1
++	fi
 +
- 		rd->ring->irq_init_flag = RCB_IRQ_INITED;
- 	}
- 
--	/*set cpu affinity*/
--	hns_set_irq_affinity(priv);
--
- 	return 0;
- }
- 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.h b/drivers/net/ethernet/hisilicon/hns/hns_enet.h
-index 5b412de..fff8f8a 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_enet.h
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.h
-@@ -37,6 +37,7 @@ enum hns_nic_state {
- struct hns_nic_ring_data {
- 	struct hnae_ring *ring;
- 	struct napi_struct napi;
-+	cpumask_t mask; /* affinity mask */
- 	int queue_index;
- 	int (*poll_one)(struct hns_nic_ring_data *, int, void *);
- 	void (*ex_process)(struct hns_nic_ring_data *, struct sk_buff *);
++	ethtool -k "$netdev" > "$TMP_ETHTOOL_FEATURES"
++	if [ $? -ne 0 ];then
++		echo "FAIL: ethtool -k $netdev"
++		rm "$TMP_ETHTOOL_FEATURES"
++		return 1
++	fi
++	#TODO for each non fixed features, try to turn them on/off
++	rm "$TMP_ETHTOOL_FEATURES"
++
++	kci_netdev_ethtool_test 74 'dump' "ethtool -d $netdev"
++	kci_netdev_ethtool_test 94 'stats' "ethtool -S $netdev"
++	return 0
++}
++
++# stop a netdev
++# arg1: network interface name
++kci_netdev_stop()
++{
++	netdev=$1
++
++	if [ $NETDEV_STARTED -eq 0 ];then
++		echo "SKIP: interface $netdev kept up"
++		return 0
++	fi
++
++	ip link set "$netdev" down
++	if [ $? -ne 0 ];then
++		echo "FAIL: stop $netdev"
++		return 1
++	fi
++	echo "PASS: interface $netdev stop"
++	return 0
++}
++
++# run all test on a netdev
++# arg1: network interface name
++kci_test_netdev()
++{
++	netdev=$1
++
++	NETDEV_STARTED=0
++	kci_net_start "$netdev"
++
++	kci_net_setup "$netdev"
++
++	kci_netdev_ethtool "$netdev"
++
++	kci_netdev_stop "$netdev"
++	return 0
++}
++
++#check for needed privileges
++if [ "$(id -u)" -ne 0 ];then
++	echo "SKIP: Need root privileges"
++	exit 0
++fi
++
++ip -Version 2>/dev/null >/dev/null
++if [ $? -ne 0 ];then
++	echo "SKIP: Could not run test without the ip tool"
++	exit 0
++fi
++
++TMP_LIST_NETDEV="$(mktemp)"
++if [ ! -e "$TMP_LIST_NETDEV" ];then
++	echo "FAIL: Cannot create a tmp file"
++	exit 1
++fi
++
++ls /sys/class/net/ |grep -vE '^lo|^tun' | grep -E '^eth|enp[0-9]s[0-9]' > "$TMP_LIST_NETDEV"
++while read netdev
++do
++	kci_test_netdev "$netdev"
++done < "$TMP_LIST_NETDEV"
++
++rm "$TMP_LIST_NETDEV"
++exit 0
 -- 
-2.7.4
+2.10.2
