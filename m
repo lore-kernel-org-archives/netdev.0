@@ -1,73 +1,222 @@
-From: Salil Mehta <salil.mehta@huawei.com>
-Subject: [PATCH V3 net-next 02/18] net: hns: Modify GMAC init TX threshold value
-Date: Fri, 31 Mar 2017 18:48:36 +0100
-Message-ID: <20170331174852.13600-3-salil.mehta@huawei.com>
-References: <20170331174852.13600-1-salil.mehta@huawei.com>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [PATCH net-next] sctp: add SCTP_PR_STREAM_STATUS sockopt for
+ prsctp
+Date: Fri, 31 Mar 2017 15:08:13 -0300
+Message-ID: <20170331180813.GC5879@localhost.localdomain>
+References: <683bd49225abe18aa3cbd285bacb6a514a2d06b2.1490955249.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <salil.mehta@huawei.com>, <yisen.zhuang@huawei.com>,
-        <mehta.salil.lnk@gmail.com>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>, <linuxarm@huawei.com>,
-        lipeng <lipeng321@huawei.com>,
-        JinchuanTian <tianjinchuan1@huawei.com>
-To: <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170331174852.13600-1-salil.mehta@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
+        Neil Horman <nhorman@tuxdriver.com>, davem@davemloft.net
+To: Xin Long <lucien.xin@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:51346 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S933205AbdCaSIR (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 31 Mar 2017 14:08:17 -0400
+Content-Disposition: inline
+In-Reply-To: <683bd49225abe18aa3cbd285bacb6a514a2d06b2.1490955249.git.lucien.xin@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: lipeng <lipeng321@huawei.com>
+On Fri, Mar 31, 2017 at 06:14:09PM +0800, Xin Long wrote:
+> Before when implementing sctp prsctp, SCTP_PR_STREAM_STATUS wasn't
+> added, as it needs to save abandoned_(un)sent for every stream.
+> 
+> After sctp stream reconf is added in sctp, assoc has structure
+> sctp_stream_out to save per stream info.
+> 
+> This patch is to add SCTP_PR_STREAM_STATUS by putting the prsctp
+> per stream statistics into sctp_stream_out.
+> 
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> ---
+>  include/net/sctp/structs.h |  2 ++
+>  include/uapi/linux/sctp.h  |  1 +
+>  net/sctp/chunk.c           | 14 +++++++++--
+>  net/sctp/outqueue.c        | 10 ++++++++
+>  net/sctp/socket.c          | 59 ++++++++++++++++++++++++++++++++++++++++++++++
+>  5 files changed, 84 insertions(+), 2 deletions(-)
+> 
+> diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
+> index 592dece..3e61a54 100644
+> --- a/include/net/sctp/structs.h
+> +++ b/include/net/sctp/structs.h
+> @@ -1315,6 +1315,8 @@ struct sctp_inithdr_host {
+>  struct sctp_stream_out {
+>  	__u16	ssn;
+>  	__u8	state;
+> +	__u64	abandoned_unsent[SCTP_PR_INDEX(MAX) + 1];
+> +	__u64	abandoned_sent[SCTP_PR_INDEX(MAX) + 1];
+>  };
+>  
+>  struct sctp_stream_in {
+> diff --git a/include/uapi/linux/sctp.h b/include/uapi/linux/sctp.h
+> index 7212870..ced9d8b 100644
+> --- a/include/uapi/linux/sctp.h
+> +++ b/include/uapi/linux/sctp.h
+> @@ -115,6 +115,7 @@ typedef __s32 sctp_assoc_t;
+>  #define SCTP_PR_SUPPORTED	113
+>  #define SCTP_DEFAULT_PRINFO	114
+>  #define SCTP_PR_ASSOC_STATUS	115
+> +#define SCTP_PR_STREAM_STATUS	116
+>  #define SCTP_RECONFIG_SUPPORTED	117
+>  #define SCTP_ENABLE_STREAM_RESET	118
+>  #define SCTP_RESET_STREAMS	119
+> diff --git a/net/sctp/chunk.c b/net/sctp/chunk.c
+> index e3621cb..697721a 100644
+> --- a/net/sctp/chunk.c
+> +++ b/net/sctp/chunk.c
+> @@ -306,14 +306,24 @@ int sctp_chunk_abandoned(struct sctp_chunk *chunk)
+>  
+>  	if (SCTP_PR_TTL_ENABLED(chunk->sinfo.sinfo_flags) &&
+>  	    time_after(jiffies, chunk->msg->expires_at)) {
+> -		if (chunk->sent_count)
+> +		struct sctp_stream_out *streamout =
+> +			&chunk->asoc->stream->out[chunk->sinfo.sinfo_stream];
+> +
+> +		if (chunk->sent_count) {
+>  			chunk->asoc->abandoned_sent[SCTP_PR_INDEX(TTL)]++;
+> -		else
+> +			streamout->abandoned_sent[SCTP_PR_INDEX(TTL)]++;
+> +		} else {
+>  			chunk->asoc->abandoned_unsent[SCTP_PR_INDEX(TTL)]++;
+> +			streamout->abandoned_unsent[SCTP_PR_INDEX(TTL)]++;
+> +		}
+>  		return 1;
+>  	} else if (SCTP_PR_RTX_ENABLED(chunk->sinfo.sinfo_flags) &&
+>  		   chunk->sent_count > chunk->sinfo.sinfo_timetolive) {
+> +		struct sctp_stream_out *streamout =
+> +			&chunk->asoc->stream->out[chunk->sinfo.sinfo_stream];
+> +
+>  		chunk->asoc->abandoned_sent[SCTP_PR_INDEX(RTX)]++;
+> +		streamout->abandoned_sent[SCTP_PR_INDEX(RTX)]++;
+>  		return 1;
+>  	} else if (!SCTP_PR_POLICY(chunk->sinfo.sinfo_flags) &&
+>  		   chunk->msg->expires_at &&
+> diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
+> index 025ccff..3f78d7f 100644
+> --- a/net/sctp/outqueue.c
+> +++ b/net/sctp/outqueue.c
+> @@ -353,6 +353,8 @@ static int sctp_prsctp_prune_sent(struct sctp_association *asoc,
+>  	struct sctp_chunk *chk, *temp;
+>  
+>  	list_for_each_entry_safe(chk, temp, queue, transmitted_list) {
+> +		struct sctp_stream_out *streamout;
+> +
+>  		if (!SCTP_PR_PRIO_ENABLED(chk->sinfo.sinfo_flags) ||
+>  		    chk->sinfo.sinfo_timetolive <= sinfo->sinfo_timetolive)
+>  			continue;
+> @@ -361,8 +363,10 @@ static int sctp_prsctp_prune_sent(struct sctp_association *asoc,
+>  		sctp_insert_list(&asoc->outqueue.abandoned,
+>  				 &chk->transmitted_list);
+>  
+> +		streamout = &asoc->stream->out[chk->sinfo.sinfo_stream];
+>  		asoc->sent_cnt_removable--;
+>  		asoc->abandoned_sent[SCTP_PR_INDEX(PRIO)]++;
+> +		streamout->abandoned_sent[SCTP_PR_INDEX(PRIO)]++;
+>  
+>  		if (!chk->tsn_gap_acked) {
+>  			if (chk->transport)
+> @@ -396,6 +400,12 @@ static int sctp_prsctp_prune_unsent(struct sctp_association *asoc,
+>  		q->out_qlen -= chk->skb->len;
+>  		asoc->sent_cnt_removable--;
+>  		asoc->abandoned_unsent[SCTP_PR_INDEX(PRIO)]++;
+> +		if (chk->sinfo.sinfo_stream < asoc->stream->outcnt) {
+> +			struct sctp_stream_out *streamout =
+> +				&asoc->stream->out[chk->sinfo.sinfo_stream];
+> +
+> +			streamout->abandoned_unsent[SCTP_PR_INDEX(PRIO)]++;
+> +		}
+>  
+>  		msg_len -= SCTP_DATA_SNDSIZE(chk) +
+>  			   sizeof(struct sk_buff) +
+> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+> index ccc08fc..8c0b528 100644
+> --- a/net/sctp/socket.c
+> +++ b/net/sctp/socket.c
+> @@ -6576,6 +6576,61 @@ static int sctp_getsockopt_pr_assocstatus(struct sock *sk, int len,
+>  	return retval;
+>  }
+>  
+> +static int sctp_getsockopt_pr_streamstatus(struct sock *sk, int len,
+> +					   char __user *optval,
+> +					  int __user *optlen)
+    You're missing an space here     -----^
 
-This patch reduces GMAC TX threshold value to avoid gmac
-hang-up with speed 100M/duplex half.
+otherwise it lgtm
 
-Signed-off-by: lipeng <lipeng321@huawei.com>
-Signed-off-by: JinchuanTian <tianjinchuan1@huawei.com>
-Reviewed-by: Yisen Zhuang <yisen.zhuang@huawei.com>
-Signed-off-by: Salil Mehta <salil.mehta@huawei.com>
----
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c | 6 ++++++
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h  | 4 ++++
- 2 files changed, 10 insertions(+)
-
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c
-index 3382441..a8dbe00 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c
-@@ -325,6 +325,12 @@ static void hns_gmac_init(void *mac_drv)
- 	hns_gmac_tx_loop_pkt_dis(mac_drv);
- 	if (drv->mac_cb->mac_type == HNAE_PORT_DEBUG)
- 		hns_gmac_set_uc_match(mac_drv, 0);
-+
-+	/* reduce gmac tx water line to avoid gmac hang-up
-+	 * in speed 100M and duplex half.
-+	 */
-+	dsaf_set_dev_field(drv, GMAC_TX_WATER_LINE_REG, GMAC_TX_WATER_LINE_MASK,
-+			   GMAC_TX_WATER_LINE_SHIFT, 8);
- }
- 
- void hns_gmac_update_stats(void *mac_drv)
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
-index 8fa18fc..4b8af68 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
-@@ -466,6 +466,7 @@
- 
- #define GMAC_DUPLEX_TYPE_REG			0x0008UL
- #define GMAC_FD_FC_TYPE_REG			0x000CUL
-+#define GMAC_TX_WATER_LINE_REG			0x0010UL
- #define GMAC_FC_TX_TIMER_REG			0x001CUL
- #define GMAC_FD_FC_ADDR_LOW_REG			0x0020UL
- #define GMAC_FD_FC_ADDR_HIGH_REG		0x0024UL
-@@ -912,6 +913,9 @@
- 
- #define GMAC_DUPLEX_TYPE_B 0
- 
-+#define GMAC_TX_WATER_LINE_MASK		((1UL << 8) - 1)
-+#define GMAC_TX_WATER_LINE_SHIFT	0
-+
- #define GMAC_FC_TX_TIMER_S 0
- #define GMAC_FC_TX_TIMER_M 0xffff
- 
--- 
-2.7.4
+> +{
+> +	struct sctp_stream_out *streamout;
+> +	struct sctp_association *asoc;
+> +	struct sctp_prstatus params;
+> +	int retval = -EINVAL;
+> +	int policy;
+> +
+> +	if (len < sizeof(params))
+> +		goto out;
+> +
+> +	len = sizeof(params);
+> +	if (copy_from_user(&params, optval, len)) {
+> +		retval = -EFAULT;
+> +		goto out;
+> +	}
+> +
+> +	policy = params.sprstat_policy;
+> +	if (policy & ~SCTP_PR_SCTP_MASK)
+> +		goto out;
+> +
+> +	asoc = sctp_id2assoc(sk, params.sprstat_assoc_id);
+> +	if (!asoc || params.sprstat_sid >= asoc->stream->outcnt)
+> +		goto out;
+> +
+> +	streamout = &asoc->stream->out[params.sprstat_sid];
+> +	if (policy == SCTP_PR_SCTP_NONE) {
+> +		params.sprstat_abandoned_unsent = 0;
+> +		params.sprstat_abandoned_sent = 0;
+> +		for (policy = 0; policy <= SCTP_PR_INDEX(MAX); policy++) {
+> +			params.sprstat_abandoned_unsent +=
+> +				streamout->abandoned_unsent[policy];
+> +			params.sprstat_abandoned_sent +=
+> +				streamout->abandoned_sent[policy];
+> +		}
+> +	} else {
+> +		params.sprstat_abandoned_unsent =
+> +			streamout->abandoned_unsent[__SCTP_PR_INDEX(policy)];
+> +		params.sprstat_abandoned_sent =
+> +			streamout->abandoned_sent[__SCTP_PR_INDEX(policy)];
+> +	}
+> +
+> +	if (put_user(len, optlen) || copy_to_user(optval, &params, len)) {
+> +		retval = -EFAULT;
+> +		goto out;
+> +	}
+> +
+> +	retval = 0;
+> +
+> +out:
+> +	return retval;
+> +}
+> +
+>  static int sctp_getsockopt_reconfig_supported(struct sock *sk, int len,
+>  					      char __user *optval,
+>  					      int __user *optlen)
+> @@ -6825,6 +6880,10 @@ static int sctp_getsockopt(struct sock *sk, int level, int optname,
+>  		retval = sctp_getsockopt_pr_assocstatus(sk, len, optval,
+>  							optlen);
+>  		break;
+> +	case SCTP_PR_STREAM_STATUS:
+> +		retval = sctp_getsockopt_pr_streamstatus(sk, len, optval,
+> +							 optlen);
+> +		break;
+>  	case SCTP_RECONFIG_SUPPORTED:
+>  		retval = sctp_getsockopt_reconfig_supported(sk, len, optval,
+>  							    optlen);
+> -- 
+> 2.1.0
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
