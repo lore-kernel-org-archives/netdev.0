@@ -1,73 +1,35 @@
-From: =?ISO-8859-1?Q?Bj=F8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Subject: Re: [PATCHv3] net: usbnet: support 64bit stats in qmi_wwan driver
-Date: Fri, 31 Mar 2017 15:35:46 +0200
-Message-ID: <24368A4E-6CB6-4646-B5EE-84831CC7F4BD@mork.no>
-References: <1490941561-20502-1-git-send-email-gerg@linux-m68k.org> <8737dt25od.fsf@miraculix.mork.no> <cb2bbda4-fddd-ab70-7bdf-4ef43c9e9535@linux-m68k.org>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net] ftgmac100: Mostly rewrite the driver
+Date: Fri, 31 Mar 2017 15:52:07 +0200
+Message-ID: <20170331135207.GG22609@lunn.ch>
+References: <e019331d-7050-ca6d-7f27-73878e290f7a@gmail.com>
+ <1490821714.3177.189.camel@kernel.crashing.org>
+ <1490834778.3177.197.camel@kernel.crashing.org>
+ <20170329.201517.300684629549047939.davem@davemloft.net>
+ <1490954367.3177.236.camel@kernel.crashing.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-Cc: oneukum-IBi9RG/b67k@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-        stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Greg Ungerer <gerg-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <cb2bbda4-fddd-ab70-7bdf-4ef43c9e9535-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, f.fainelli@gmail.com,
+        netdev@vger.kernel.org
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:41770 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S933000AbdCaNwN (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 31 Mar 2017 09:52:13 -0400
+Content-Disposition: inline
+In-Reply-To: <1490954367.3177.236.camel@kernel.crashing.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+> We're running some more testing tonight, if it's all solid I'll shoot
+> it out tomorrow or sunday. Dave, it's ok to just spam the list with a
+> 55 patches series like that ?
 
+Hi Ben
 
-On March 31, 2017 3:27:59 PM CEST, Greg Ungerer <gerg@linux-m68k=2Eorg> wr=
-ote:
->On 31/03/17 18:48, Bj=C3=B8rn Mork wrote:
->
->>> +void usbnet_get_stats64(struct net_device *net, struct
->rtnl_link_stats64 *stats)
->>> +{
->>> +	struct usbnet *dev =3D netdev_priv(net);
->>> +	unsigned int start;
->>> +	int cpu;
->>> +
->>> +	netdev_stats_to_stats64(stats, &net->stats);
->>> +
->>> +	for_each_possible_cpu(cpu) {
->>> +		struct pcpu_sw_netstats *stats64;
->>> +		u64 rx_packets, rx_bytes;
->>> +		u64 tx_packets, tx_bytes;
->>> +
->>> +		stats64 =3D per_cpu_ptr(dev->stats64, cpu);
->>> +
->>> +		do {
->>> +			start =3D u64_stats_fetch_begin_irq(&stats64->syncp);
->>> +			rx_packets =3D stats64->rx_packets;
->>> +			rx_bytes =3D stats64->rx_bytes;
->>> +			tx_packets =3D stats64->tx_packets;
->>> +			tx_bytes =3D stats64->tx_bytes;
->>> +		} while (u64_stats_fetch_retry_irq(&stats64->syncp, start));
->>> +
->>> +		stats->rx_packets +=3D rx_packets;
->>> +		stats->rx_bytes +=3D rx_bytes;
->>> +		stats->tx_packets +=3D tx_packets;
->>> +		stats->tx_bytes +=3D tx_bytes;
->>> +	}
->>> +}
->>
->> So we only count packets and bytes=2E  No errors=2E  Why?
->
->All stats are counted=2E That call to netdev_stats_to_stats64() transfers
->all other stats struct fields (errors, etc) to the stats64 struct=2E
->No error counts are lost (though they are only stored as 32bits values
->on 32bit machines)=2E
+Is there a good reason to spam the list with 55 patches? The patches
+should be incremental, so getting them reviewed and applied in batches
+of 10 should not be a problem.
 
-
-Ah, right=2E Thanks for explaining and sorry for being so slow=2E Then I h=
-ave no objection to the patch as it is=2E
-
-
-Bj=C3=B8rn
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+   Andrew
