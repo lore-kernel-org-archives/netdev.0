@@ -1,222 +1,125 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCH net-next] sctp: add SCTP_PR_STREAM_STATUS sockopt for
- prsctp
-Date: Fri, 31 Mar 2017 15:08:13 -0300
-Message-ID: <20170331180813.GC5879@localhost.localdomain>
-References: <683bd49225abe18aa3cbd285bacb6a514a2d06b2.1490955249.git.lucien.xin@gmail.com>
+From: Romain Perier <romain.perier-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
+Subject: Re: [PATCH v6 00/15] Replace PCI pool by DMA pool API
+Date: Fri, 31 Mar 2017 20:21:48 +0200
+Message-ID: <2f61aecb-d2e8-c2c1-1fd0-7a3a5cd3de78@collabora.com>
+References: <20170319170404.17362-1-romain.perier@collabora.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
-        Neil Horman <nhorman@tuxdriver.com>, davem@davemloft.net
-To: Xin Long <lucien.xin@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:51346 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S933205AbdCaSIR (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 31 Mar 2017 14:08:17 -0400
-Content-Disposition: inline
-In-Reply-To: <683bd49225abe18aa3cbd285bacb6a514a2d06b2.1490955249.git.lucien.xin@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 8bit
+Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Peter Senna Tschudin <peter.senna-ZGY8ohtN/8pPYcu2f3hruQ@public.gmane.org>
+To: Dan Williams <dan.j.williams-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, stas.yakovlev-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+        "James E.J. Bottomley" <jejb-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
+        "Martin K. Petersen" <martin.petersen-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
+        Felipe Balbi <balbi-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170319170404.17362-1-romain.perier-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 31, 2017 at 06:14:09PM +0800, Xin Long wrote:
-> Before when implementing sctp prsctp, SCTP_PR_STREAM_STATUS wasn't
-> added, as it needs to save abandoned_(un)sent for every stream.
-> 
-> After sctp stream reconf is added in sctp, assoc has structure
-> sctp_stream_out to save per stream info.
-> 
-> This patch is to add SCTP_PR_STREAM_STATUS by putting the prsctp
-> per stream statistics into sctp_stream_out.
-> 
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
-> ---
->  include/net/sctp/structs.h |  2 ++
->  include/uapi/linux/sctp.h  |  1 +
->  net/sctp/chunk.c           | 14 +++++++++--
->  net/sctp/outqueue.c        | 10 ++++++++
->  net/sctp/socket.c          | 59 ++++++++++++++++++++++++++++++++++++++++++++++
->  5 files changed, 84 insertions(+), 2 deletions(-)
-> 
-> diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-> index 592dece..3e61a54 100644
-> --- a/include/net/sctp/structs.h
-> +++ b/include/net/sctp/structs.h
-> @@ -1315,6 +1315,8 @@ struct sctp_inithdr_host {
->  struct sctp_stream_out {
->  	__u16	ssn;
->  	__u8	state;
-> +	__u64	abandoned_unsent[SCTP_PR_INDEX(MAX) + 1];
-> +	__u64	abandoned_sent[SCTP_PR_INDEX(MAX) + 1];
->  };
->  
->  struct sctp_stream_in {
-> diff --git a/include/uapi/linux/sctp.h b/include/uapi/linux/sctp.h
-> index 7212870..ced9d8b 100644
-> --- a/include/uapi/linux/sctp.h
-> +++ b/include/uapi/linux/sctp.h
-> @@ -115,6 +115,7 @@ typedef __s32 sctp_assoc_t;
->  #define SCTP_PR_SUPPORTED	113
->  #define SCTP_DEFAULT_PRINFO	114
->  #define SCTP_PR_ASSOC_STATUS	115
-> +#define SCTP_PR_STREAM_STATUS	116
->  #define SCTP_RECONFIG_SUPPORTED	117
->  #define SCTP_ENABLE_STREAM_RESET	118
->  #define SCTP_RESET_STREAMS	119
-> diff --git a/net/sctp/chunk.c b/net/sctp/chunk.c
-> index e3621cb..697721a 100644
-> --- a/net/sctp/chunk.c
-> +++ b/net/sctp/chunk.c
-> @@ -306,14 +306,24 @@ int sctp_chunk_abandoned(struct sctp_chunk *chunk)
->  
->  	if (SCTP_PR_TTL_ENABLED(chunk->sinfo.sinfo_flags) &&
->  	    time_after(jiffies, chunk->msg->expires_at)) {
-> -		if (chunk->sent_count)
-> +		struct sctp_stream_out *streamout =
-> +			&chunk->asoc->stream->out[chunk->sinfo.sinfo_stream];
-> +
-> +		if (chunk->sent_count) {
->  			chunk->asoc->abandoned_sent[SCTP_PR_INDEX(TTL)]++;
-> -		else
-> +			streamout->abandoned_sent[SCTP_PR_INDEX(TTL)]++;
-> +		} else {
->  			chunk->asoc->abandoned_unsent[SCTP_PR_INDEX(TTL)]++;
-> +			streamout->abandoned_unsent[SCTP_PR_INDEX(TTL)]++;
-> +		}
->  		return 1;
->  	} else if (SCTP_PR_RTX_ENABLED(chunk->sinfo.sinfo_flags) &&
->  		   chunk->sent_count > chunk->sinfo.sinfo_timetolive) {
-> +		struct sctp_stream_out *streamout =
-> +			&chunk->asoc->stream->out[chunk->sinfo.sinfo_stream];
-> +
->  		chunk->asoc->abandoned_sent[SCTP_PR_INDEX(RTX)]++;
-> +		streamout->abandoned_sent[SCTP_PR_INDEX(RTX)]++;
->  		return 1;
->  	} else if (!SCTP_PR_POLICY(chunk->sinfo.sinfo_flags) &&
->  		   chunk->msg->expires_at &&
-> diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
-> index 025ccff..3f78d7f 100644
-> --- a/net/sctp/outqueue.c
-> +++ b/net/sctp/outqueue.c
-> @@ -353,6 +353,8 @@ static int sctp_prsctp_prune_sent(struct sctp_association *asoc,
->  	struct sctp_chunk *chk, *temp;
->  
->  	list_for_each_entry_safe(chk, temp, queue, transmitted_list) {
-> +		struct sctp_stream_out *streamout;
-> +
->  		if (!SCTP_PR_PRIO_ENABLED(chk->sinfo.sinfo_flags) ||
->  		    chk->sinfo.sinfo_timetolive <= sinfo->sinfo_timetolive)
->  			continue;
-> @@ -361,8 +363,10 @@ static int sctp_prsctp_prune_sent(struct sctp_association *asoc,
->  		sctp_insert_list(&asoc->outqueue.abandoned,
->  				 &chk->transmitted_list);
->  
-> +		streamout = &asoc->stream->out[chk->sinfo.sinfo_stream];
->  		asoc->sent_cnt_removable--;
->  		asoc->abandoned_sent[SCTP_PR_INDEX(PRIO)]++;
-> +		streamout->abandoned_sent[SCTP_PR_INDEX(PRIO)]++;
->  
->  		if (!chk->tsn_gap_acked) {
->  			if (chk->transport)
-> @@ -396,6 +400,12 @@ static int sctp_prsctp_prune_unsent(struct sctp_association *asoc,
->  		q->out_qlen -= chk->skb->len;
->  		asoc->sent_cnt_removable--;
->  		asoc->abandoned_unsent[SCTP_PR_INDEX(PRIO)]++;
-> +		if (chk->sinfo.sinfo_stream < asoc->stream->outcnt) {
-> +			struct sctp_stream_out *streamout =
-> +				&asoc->stream->out[chk->sinfo.sinfo_stream];
-> +
-> +			streamout->abandoned_unsent[SCTP_PR_INDEX(PRIO)]++;
-> +		}
->  
->  		msg_len -= SCTP_DATA_SNDSIZE(chk) +
->  			   sizeof(struct sk_buff) +
-> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-> index ccc08fc..8c0b528 100644
-> --- a/net/sctp/socket.c
-> +++ b/net/sctp/socket.c
-> @@ -6576,6 +6576,61 @@ static int sctp_getsockopt_pr_assocstatus(struct sock *sk, int len,
->  	return retval;
->  }
->  
-> +static int sctp_getsockopt_pr_streamstatus(struct sock *sk, int len,
-> +					   char __user *optval,
-> +					  int __user *optlen)
-    You're missing an space here     -----^
+ping
 
-otherwise it lgtm
 
-> +{
-> +	struct sctp_stream_out *streamout;
-> +	struct sctp_association *asoc;
-> +	struct sctp_prstatus params;
-> +	int retval = -EINVAL;
-> +	int policy;
-> +
-> +	if (len < sizeof(params))
-> +		goto out;
-> +
-> +	len = sizeof(params);
-> +	if (copy_from_user(&params, optval, len)) {
-> +		retval = -EFAULT;
-> +		goto out;
-> +	}
-> +
-> +	policy = params.sprstat_policy;
-> +	if (policy & ~SCTP_PR_SCTP_MASK)
-> +		goto out;
-> +
-> +	asoc = sctp_id2assoc(sk, params.sprstat_assoc_id);
-> +	if (!asoc || params.sprstat_sid >= asoc->stream->outcnt)
-> +		goto out;
-> +
-> +	streamout = &asoc->stream->out[params.sprstat_sid];
-> +	if (policy == SCTP_PR_SCTP_NONE) {
-> +		params.sprstat_abandoned_unsent = 0;
-> +		params.sprstat_abandoned_sent = 0;
-> +		for (policy = 0; policy <= SCTP_PR_INDEX(MAX); policy++) {
-> +			params.sprstat_abandoned_unsent +=
-> +				streamout->abandoned_unsent[policy];
-> +			params.sprstat_abandoned_sent +=
-> +				streamout->abandoned_sent[policy];
-> +		}
-> +	} else {
-> +		params.sprstat_abandoned_unsent =
-> +			streamout->abandoned_unsent[__SCTP_PR_INDEX(policy)];
-> +		params.sprstat_abandoned_sent =
-> +			streamout->abandoned_sent[__SCTP_PR_INDEX(policy)];
-> +	}
-> +
-> +	if (put_user(len, optlen) || copy_to_user(optval, &params, len)) {
-> +		retval = -EFAULT;
-> +		goto out;
-> +	}
-> +
-> +	retval = 0;
-> +
-> +out:
-> +	return retval;
-> +}
-> +
->  static int sctp_getsockopt_reconfig_supported(struct sock *sk, int len,
->  					      char __user *optval,
->  					      int __user *optlen)
-> @@ -6825,6 +6880,10 @@ static int sctp_getsockopt(struct sock *sk, int level, int optname,
->  		retval = sctp_getsockopt_pr_assocstatus(sk, len, optval,
->  							optlen);
->  		break;
-> +	case SCTP_PR_STREAM_STATUS:
-> +		retval = sctp_getsockopt_pr_streamstatus(sk, len, optval,
-> +							 optlen);
-> +		break;
->  	case SCTP_RECONFIG_SUPPORTED:
->  		retval = sctp_getsockopt_reconfig_supported(sk, len, optval,
->  							    optlen);
-> -- 
-> 2.1.0
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+Le 19/03/2017 à 18:03, Romain Perier a écrit :
+> The current PCI pool API are simple macro functions direct expanded to
+> the appropriate dma pool functions. The prototypes are almost the same
+> and semantically, they are very similar. I propose to use the DMA pool
+> API directly and get rid of the old API.
+>
+> This set of patches, replaces the old API by the dma pool API
+> and remove the defines.
+>
+> Changes in v6:
+> - Fixed an issue reported by kbuild test robot about changes in DAC960
+> - Removed patches 15/19,16/19,17/19,18/19. They have been merged by Greg
+> - Added Acked-by Tags
+>
+> Changes in v5:
+> - Re-worded the cover letter (remove sentence about checkpatch.pl)
+> - Rebased series onto next-20170308
+> - Fix typos in commit message
+> - Added Acked-by Tags
+>
+> Changes in v4:
+> - Rebased series onto next-20170301
+> - Removed patch 20/20: checks done by checkpath.pl, no longer required.
+>   Thanks to Peter and Joe for their feedbacks.
+> - Added Reviewed-by tags
+>
+> Changes in v3:
+> - Rebased series onto next-20170224
+> - Fix checkpath.pl reports for patch 11/20 and patch 12/20
+> - Remove prefix RFC
+> Changes in v2:
+> - Introduced patch 18/20
+> - Fixed cosmetic changes: spaces before brace, live over 80 characters
+> - Removed some of the check for NULL pointers before calling dma_pool_destroy
+> - Improved the regexp in checkpatch for pci_pool, thanks to Joe Perches
+> - Added Tested-by and Acked-by tags
+>
+> Romain Perier (15):
+>   block: DAC960: Replace PCI pool old API
+>   dmaengine: pch_dma: Replace PCI pool old API
+>   IB/mthca: Replace PCI pool old API
+>   net: e100: Replace PCI pool old API
+>   mlx4: Replace PCI pool old API
+>   mlx5: Replace PCI pool old API
+>   wireless: ipw2200: Replace PCI pool old API
+>   scsi: be2iscsi: Replace PCI pool old API
+>   scsi: csiostor: Replace PCI pool old API
+>   scsi: lpfc: Replace PCI pool old API
+>   scsi: megaraid: Replace PCI pool old API
+>   scsi: mpt3sas: Replace PCI pool old API
+>   scsi: mvsas: Replace PCI pool old API
+>   scsi: pmcraid: Replace PCI pool old API
+>   PCI: Remove PCI pool macro functions
+>
+>  drivers/block/DAC960.c                        |  38 +++++----
+>  drivers/block/DAC960.h                        |   4 +-
+>  drivers/dma/pch_dma.c                         |  12 +--
+>  drivers/infiniband/hw/mthca/mthca_av.c        |  10 +--
+>  drivers/infiniband/hw/mthca/mthca_cmd.c       |   8 +-
+>  drivers/infiniband/hw/mthca/mthca_dev.h       |   4 +-
+>  drivers/net/ethernet/intel/e100.c             |  12 +--
+>  drivers/net/ethernet/mellanox/mlx4/cmd.c      |  10 +--
+>  drivers/net/ethernet/mellanox/mlx4/mlx4.h     |   2 +-
+>  drivers/net/ethernet/mellanox/mlx5/core/cmd.c |  11 +--
+>  drivers/net/wireless/intel/ipw2x00/ipw2200.c  |  13 ++--
+>  drivers/scsi/be2iscsi/be_iscsi.c              |   6 +-
+>  drivers/scsi/be2iscsi/be_main.c               |   6 +-
+>  drivers/scsi/be2iscsi/be_main.h               |   2 +-
+>  drivers/scsi/csiostor/csio_hw.h               |   2 +-
+>  drivers/scsi/csiostor/csio_init.c             |  11 +--
+>  drivers/scsi/csiostor/csio_scsi.c             |   6 +-
+>  drivers/scsi/lpfc/lpfc.h                      |  14 ++--
+>  drivers/scsi/lpfc/lpfc_init.c                 |  16 ++--
+>  drivers/scsi/lpfc/lpfc_mem.c                  | 106 +++++++++++++-------------
+>  drivers/scsi/lpfc/lpfc_nvme.c                 |   6 +-
+>  drivers/scsi/lpfc/lpfc_nvmet.c                |   4 +-
+>  drivers/scsi/lpfc/lpfc_scsi.c                 |  12 +--
+>  drivers/scsi/megaraid/megaraid_mbox.c         |  33 ++++----
+>  drivers/scsi/megaraid/megaraid_mm.c           |  32 ++++----
+>  drivers/scsi/megaraid/megaraid_sas_base.c     |  29 +++----
+>  drivers/scsi/megaraid/megaraid_sas_fusion.c   |  66 ++++++++--------
+>  drivers/scsi/mpt3sas/mpt3sas_base.c           |  73 +++++++++---------
+>  drivers/scsi/mvsas/mv_init.c                  |   6 +-
+>  drivers/scsi/mvsas/mv_sas.c                   |   6 +-
+>  drivers/scsi/pmcraid.c                        |  10 +--
+>  drivers/scsi/pmcraid.h                        |   2 +-
+>  include/linux/mlx5/driver.h                   |   2 +-
+>  include/linux/pci.h                           |   9 ---
+>  34 files changed, 280 insertions(+), 303 deletions(-)
+>
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
