@@ -1,113 +1,80 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH] selftests: add a generic testsuite for ethernet device
-Date: Fri, 31 Mar 2017 16:12:41 +0200
-Message-ID: <20170331141241.GH22609@lunn.ch>
-References: <20170331125752.20074-1-clabbe.montjoie@gmail.com>
- <20170331125752.20074-2-clabbe.montjoie@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, shuah@kernel.org,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kselftest@vger.kernel.org
-To: Corentin Labbe <clabbe.montjoie@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170331125752.20074-2-clabbe.montjoie@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH net-next v3 0/6] net: mpls: Allow users to configure more labels per route
+Date: Fri, 31 Mar 2017 07:13:58 -0700
+Message-ID: <1490969644-15499-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: roopa@cumulusnetworks.com, rshearma@brocade.com,
+        ebiederm@xmission.com, David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f42.google.com ([74.125.83.42]:33594 "EHLO
+        mail-pg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754688AbdCaOOM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 31 Mar 2017 10:14:12 -0400
+Received: by mail-pg0-f42.google.com with SMTP id x125so72450927pgb.0
+        for <netdev@vger.kernel.org>; Fri, 31 Mar 2017 07:14:11 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 31, 2017 at 02:57:52PM +0200, Corentin Labbe wrote:
-> This patch add a generic testsuite for testing ethernet network device driver.
-> 
-> Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
-> ---
->  tools/testing/selftests/net/Makefile     |   2 +-
->  tools/testing/selftests/net/netdevice.sh | 185 +++++++++++++++++++++++++++++++
->  2 files changed, 186 insertions(+), 1 deletion(-)
->  create mode 100755 tools/testing/selftests/net/netdevice.sh
-> 
-> diff --git a/tools/testing/selftests/net/Makefile b/tools/testing/selftests/net/Makefile
-> index fbfe5d0..35cbb4c 100644
-> --- a/tools/testing/selftests/net/Makefile
-> +++ b/tools/testing/selftests/net/Makefile
-> @@ -5,7 +5,7 @@ CFLAGS += -I../../../../usr/include/
->  
->  reuseport_bpf_numa: LDFLAGS += -lnuma
->  
-> -TEST_PROGS := run_netsocktests run_afpackettests test_bpf.sh
-> +TEST_PROGS := run_netsocktests run_afpackettests test_bpf.sh netdevice.sh
->  TEST_GEN_FILES =  socket
->  TEST_GEN_FILES += psock_fanout psock_tpacket
->  TEST_GEN_FILES += reuseport_bpf reuseport_bpf_cpu reuseport_bpf_numa
-> diff --git a/tools/testing/selftests/net/netdevice.sh b/tools/testing/selftests/net/netdevice.sh
-> new file mode 100755
-> index 0000000..89ba827
-> --- /dev/null
-> +++ b/tools/testing/selftests/net/netdevice.sh
-> @@ -0,0 +1,185 @@
-> +#!/bin/sh
-> +#
-> +# This test is for checking network interface
-> +# For the moment it tests only ethernet interface (but wifi could be easily added)
-> +#
-> +# We assume that all network driver are loaded
-> +# if not they probably have failed earlier in the boot process and their logged error will be catched by another test
-> +#
-> +
+Increase the maximum number of new labels for MPLS routes from 2 to 30.
 
-Hi Corentin
+To keep memory consumption in check, the labels array is moved to the end
+of mpls_nh and mpls_iptunnel_encap structs as a 0-sized array. Allocations
+use the maximum number of labels across all nexthops in a route for LSR
+and the number of labels configured for LWT.
 
-Nice to see some basic tests.
+The mpls_route layout is changed to:
 
-> +# this function will try to up the interface
-> +# if already up, nothing done
-> +# arg1: network interface name
-> +kci_net_start()
-> +{
-> +	netdev=$1
-> +
-> +	ip link show "$netdev" |grep -q UP
-> +	if [ $? -eq 0 ];then
-> +		echo "SKIP: interface $netdev already up"
-> +		return 0
-> +	fi
-> +
-> +	ip link set "$netdev" up
-> +	if [ $? -ne 0 ];then
-> +		echo "FAIL: Fail to up $netdev"
-> +		return 1
-> +	else
-> +		echo "PASS: set interface $netdev up"
-> +		NETDEV_STARTED=1
-> +	fi
+   +----------------------+
+   | mpls_route           |
+   +----------------------+
+   | mpls_nh 0            |
+   +----------------------+
+   | alignment padding    |   4 bytes for odd number of labels; 0 for even
+   +----------------------+
+   | via[rt_max_alen] 0   |
+   +----------------------+
+   | alignment padding    |   via's aligned on sizeof(unsigned long)
+   +----------------------+
+   | ...                  |
 
-This is going to be problematic.
+Meaning the via follows its mpls_nh providing better locality as the
+number of labels increases. UDP_RR tests with namespaces shows no impact
+to a modest performance increase with this layout for 1 or 2 labels and
+1 or 2 nexthops.
 
-3: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc pfifo_fast state DOWN mode DEFAULT group default qlen 1000
-    link/ether 8e:01:30:d5:63:ff brd ff:ff:ff:ff:ff:ff
-4: lan1@eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000
-    link/ether 8e:01:30:d5:63:ff brd ff:ff:ff:ff:ff:ff
+mpls_route allocation size is limited to 4096 bytes allowing on the
+order of 30 nexthops with 30 labels (or more nexthops with fewer
+labels). LWT encap shares same maximum number of labels as mpls routing.
 
-lan1 has eth1 as its master interface. If you try to up lan1 while eth1 is down:
+v3
+- initialize n_labels to 0 in case RTA_NEWDST is not defined; detected
+  by the kbuild test robot
 
-# ip link set lan1 up
-RTNETLINK answers: Network is down
+v2
+- updates per Eric's comments
+  + added patch to ensure all reads of rt_nhn_alive and nh_flags in
+    the packet path use READ_ONCE and all writes via event handlers
+    use WRITE_ONCE
 
-> +
-> +ls /sys/class/net/ |grep -vE '^lo|^tun' | grep -E '^eth|enp[0-9]s[0-9]' > "$TMP_LIST_NETDEV"
-> +while read netdev
-> +do
-> +	kci_test_netdev "$netdev"
-> +done < "$TMP_LIST_NETDEV"
+  + limit mpls_route size to 4096 (PAGE_SIZE for most arch)
 
-Because of the grep, on this board, you won't actually test
-lan1. Which is a shame. It would be nice to test it, and the other
-interfaces like it.
+  + mostly killed use of MAX_NEW_LABELS; it exists only for common
+    limit between lwt and routing paths
 
-Rather than going on the order ls gives you, could you order it based
-on the ifnum? The master has to exist before a slave can be
-created. Hence the master has a lower ifnum than the slave. So bring
-the interfaces up in ifnum order, and down in reverse order.
+David Ahern (6):
+  net: mpls: rt_nhn_alive and nh_flags should be accessed using
+    READ_ONCE
+  net: mpls: Convert number of nexthops to u8
+  net: mpls: change mpls_route layout
+  net:mpls: Limit memory allocation for mpls_route
+  net: mpls: bump maximum number of labels
+  net: mpls: Increase max number of labels for lwt encap
 
-Thanks
-	Andrew
+ include/net/mpls_iptunnel.h |   5 +-
+ net/mpls/af_mpls.c          | 210 +++++++++++++++++++++++++++++---------------
+ net/mpls/internal.h         |  61 +++++++++----
+ net/mpls/mpls_iptunnel.c    |  13 ++-
+ 4 files changed, 196 insertions(+), 93 deletions(-)
+
+-- 
+2.1.4
