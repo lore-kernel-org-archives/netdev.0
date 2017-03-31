@@ -1,32 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 00/19] net: hns: Misc. HNS Bug Fixes & Code
- Improvements
-Date: Thu, 30 Mar 2017 20:03:17 -0700 (PDT)
-Message-ID: <20170330.200317.1176664200594872180.davem@davemloft.net>
-References: <20170330153106.14344-1-salil.mehta@huawei.com>
+From: "Wangnan (F)" <wangnan0@huawei.com>
+Subject: Re: [PATCH net-next 1/6] bpf: introduce BPF_PROG_TEST_RUN command
+Date: Fri, 31 Mar 2017 11:12:23 +0800
+Message-ID: <67b19080-26f9-67ac-d7fa-e621a90c54bb@huawei.com>
+References: <20170331013157.3298003-1-ast@fb.com>
+ <20170331013157.3298003-2-ast@fb.com>
+ <9105ab34-8fee-fab4-96fe-3bfe7f3a84b7@huawei.com>
+ <d8c30545-b247-6831-41cc-a546404d6b0a@fb.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: yisen.zhuang@huawei.com, mehta.salil.lnk@gmail.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linuxarm@huawei.com
-To: salil.mehta@huawei.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170330153106.14344-1-salil.mehta@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+        Martin KaFai Lau <kafai@fb.com>, <netdev@vger.kernel.org>,
+        <kernel-team@fb.com>
+To: Alexei Starovoitov <ast@fb.com>,
+        "David S . Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga02-in.huawei.com ([45.249.212.188]:4865 "EHLO
+        dggrg02-dlp.huawei.com" rhost-flags-OK-FAIL-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1753338AbdCaDNi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 30 Mar 2017 23:13:38 -0400
+In-Reply-To: <d8c30545-b247-6831-41cc-a546404d6b0a@fb.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Salil Mehta <salil.mehta@huawei.com>
-Date: Thu, 30 Mar 2017 16:30:47 +0100
 
-> This patch set introduces various HNS bug fixes, optimizations and code
-> improvements.
 
-There is no way you should do such an expensive calculation for every
-single transmit packet as you are doing in your select_queue() routine.
+On 2017/3/31 10:57, Alexei Starovoitov wrote:
+> On 3/30/17 7:53 PM, Wangnan (F) wrote:
+>> I suggest using a CONFIG option to enable/disable code in
+>> test_run.o to reduce attack plane.
+>
+> attack plane? what attack do you see and how config helps?
+>
 
-That's really crazy.
+I think all testing features are not required to be compiled
+for a production system. A feature which should never be used
+looks dangerous to me.
 
-Just use the networking stack's queue selection scheme, or suggest
-ways to improve it.  Don't do private hashing like this in your
-driver, please!
+I suggest adding a CONFIG option like CONFIG_BPF_PROGRAM_TEST_RUN
+to control whether the kernel should be compiled with this feature
+or not. We can enable by default, and give people a chance to
+turn it off. At least in my company people tends to turn all
+unneeded features off. If you don't provide a config option they
+will make one by themselves.
+
+Thank you.
