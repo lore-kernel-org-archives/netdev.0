@@ -1,10 +1,10 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next v2 2/9] net: dsa: mv88e6xxx: use 4-bit port for
- PVT data
-Date: Fri, 31 Mar 2017 18:33:33 +0200
-Message-ID: <20170331163333.GG12814@lunn.ch>
+Subject: Re: [PATCH net-next v2 3/9] net: dsa: mv88e6xxx: program the PVT
+ with all ones
+Date: Fri, 31 Mar 2017 18:35:12 +0200
+Message-ID: <20170331163512.GH12814@lunn.ch>
 References: <20170330213715.9666-1-vivien.didelot@savoirfairelinux.com>
- <20170330213715.9666-3-vivien.didelot@savoirfairelinux.com>
+ <20170330213715.9666-4-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
@@ -12,46 +12,26 @@ Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
         "David S. Miller" <davem@davemloft.net>,
         Florian Fainelli <f.fainelli@gmail.com>
 To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:41954 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S933431AbdCaQfO (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 31 Mar 2017 12:35:14 -0400
 Content-Disposition: inline
-In-Reply-To: <20170330213715.9666-3-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20170330213715.9666-4-vivien.didelot@savoirfairelinux.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> +/* Offset 0x1D: Misc Register */
-> +
-> +static int mv88e6xxx_g2_misc_5_bit_port(struct mv88e6xxx_chip *chip,
-> +					bool port_5_bit)
-> +{
-> +	u16 val;
-> +	int err;
-> +
-> +	err = mv88e6xxx_g2_read(chip, GLOBAL2_MISC, &val);
-> +	if (err)
-> +		return err;
-> +
-> +	if (port_5_bit)
-> +		val |= GLOBAL2_MISC_5_BIT_PORT;
-> +	else
-> +		val &= ~GLOBAL2_MISC_5_BIT_PORT;
-> +
-> +	return mv88e6xxx_g2_write(chip, GLOBAL2_MISC, val);
-> +}
-> +
-> +int mv88e6xxx_g2_misc_4_bit_port(struct mv88e6xxx_chip *chip)
-> +{
-> +	return mv88e6xxx_g2_misc_5_bit_port(chip, false);
-> +}
+On Thu, Mar 30, 2017 at 05:37:09PM -0400, Vivien Didelot wrote:
+> The Cross-chip Port Based VLAN Table (PVT) is currently initialized with
+> all ones, allowing any external ports to egress frames on local ports.
+> 
+> This commit implements the PVT access functions and programs the PVT
+> with all ones for the local switch ports only, instead of using the Init
+> operation. The current behavior is unchanged for the moment.
+> 
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 
-Hi Vivien
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 
-Yes, i know, i'm nit-picking. The function naming is confusing here.
-What would you call this function:
-
-int mv88e6xxx_g2_misc_XXXXX(struct mv88e6xxx_chip *chip)
-{
-	return mv88e6xxx_g2_misc_5_bit_port(chip, true);
-}
-
-Thanks
-	Andrew
+    Andrew
