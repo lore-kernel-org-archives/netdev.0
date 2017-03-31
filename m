@@ -1,67 +1,167 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] ath6kl: Add __printf verification to ath6kl_dbg
-Date: Fri, 31 Mar 2017 10:45:07 -0700
-Message-ID: <1490982307.27353.14.camel@perches.com>
-References: <e4556e95a5935f591fdff67c6fb2f7ef5c7fd04f.1490914618.git.joe@perches.com>
-         <CALLGbR+szcYFdbdh_0qBS4B_X6YQvU6CDFpR-XZvc7p3zA+ZdQ@mail.gmail.com>
-         <1490981039.27353.12.camel@perches.com>
-         <CALLGbRJRstmGL-o2ds4SQ5hDNVBcfP23JnRt5qRrVg-ix-8Hiw@mail.gmail.com>
+From: Salil Mehta <salil.mehta@huawei.com>
+Subject: [PATCH V3 net-next 01/18] net: hns: Fix the implementation of irq affinity function
+Date: Fri, 31 Mar 2017 18:48:35 +0100
+Message-ID: <20170331174852.13600-2-salil.mehta@huawei.com>
+References: <20170331174852.13600-1-salil.mehta@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Kalle Valo <kvalo@qca.qualcomm.com>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Steve deRosier <derosier@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CALLGbRJRstmGL-o2ds4SQ5hDNVBcfP23JnRt5qRrVg-ix-8Hiw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <salil.mehta@huawei.com>, <yisen.zhuang@huawei.com>,
+        <mehta.salil.lnk@gmail.com>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>, <linuxarm@huawei.com>,
+        lipeng <lipeng321@huawei.com>, Kejian Yan <yankejian@huawei.com>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga02-in.huawei.com ([45.249.212.188]:4879 "EHLO
+        dggrg02-dlp.huawei.com" rhost-flags-OK-FAIL-OK-FAIL)
+        by vger.kernel.org with ESMTP id S933359AbdCaRuE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 31 Mar 2017 13:50:04 -0400
+In-Reply-To: <20170331174852.13600-1-salil.mehta@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2017-03-31 at 10:34 -0700, Steve deRosier wrote:
-> On Fri, Mar 31, 2017 at 10:23 AM, Joe Perches <joe@perches.com> wrote:
-> > On Fri, 2017-03-31 at 10:19 -0700, Steve deRosier wrote:
-> > > On Thu, Mar 30, 2017 at 3:57 PM, Joe Perches <joe@perches.com> wrote:
-> > > > Fix fallout too.
-> > 
-> > []
-> > > My only question is why bother doing a format check on something
-> > > that's going to be compiled out anyway?
-> > 
-> > To avoid introducing defects when writing new code
-> > and not using the debugging code path.
-> > 
-> 
-> Fair enough. And I totally agree with the defensive programming here
-> in that case and feel it's worth the tradeoff (if indeed there really
-> is any cost, I'm unsure what gcc actually does in this instance).
-> 
-> For sake of discussion though - shouldn't anything not using the debug
-> code path in this case always be of the form that compiles out? ie
-> would be empty functions intended here just to make compilation work
-> and the code that depends on it simpler? Thus, there really should
-> never be a risk of introducing said defects. If any "real" code were
-> put in that else clause, that'd be a big red-flag in the review of
-> said hypothetical patch.
+From: lipeng <lipeng321@huawei.com>
 
-Generically, all debugging forms should strive to avoid side-effects.
+This patch fixes the implementation of the IRQ affinity
+function. This function is used to create the cpu mask
+which eventually is used to initialize the cpu<->queue
+association for XPS(Transmit Packet Steering).
 
-For instance, look at no_printk/pr_debug in the #ifndef DEBUG paths.
+Signed-off-by: lipeng <lipeng321@huawei.com>
+Signed-off-by: Kejian Yan <yankejian@huawei.com>
+Reviewed-by: Yisen Zhuang <yisen.zhuang@huawei.com>
+Signed-off-by: Salil Mehta <salil.mehta@huawei.com>
+---
+ drivers/net/ethernet/hisilicon/hns/hns_enet.c | 75 +++++++++++----------------
+ drivers/net/ethernet/hisilicon/hns/hns_enet.h |  1 +
+ 2 files changed, 30 insertions(+), 46 deletions(-)
 
-It uses if (0) to avoid compilation of arguments that might be
-function calls or volatile accesses and so might have side-effects
-altogether.
-
-include/linux/printk.h-/*
-include/linux/printk.h- * Dummy printk for disabled debugging statements to use whilst maintaining
-include/linux/printk.h- * gcc's format checking.
-include/linux/printk.h- */
-include/linux/printk.h:#define no_printk(fmt, ...)                              \
-include/linux/printk.h-({                                                       \
-include/linux/printk.h- do {                                            \
-include/linux/printk.h-         if (0)                                  \
-include/linux/printk.h-                 printk(fmt, ##__VA_ARGS__);     \
-include/linux/printk.h- } while (0);                                    \
-include/linux/printk.h- 0;                                              \
-include/linux/printk.h-})
-i
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.c b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+index fca37e2..73ec8c8 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+@@ -1196,54 +1196,31 @@ static void hns_nic_ring_close(struct net_device *netdev, int idx)
+ 	napi_disable(&priv->ring_data[idx].napi);
+ }
+ 
+-static void hns_set_irq_affinity(struct hns_nic_priv *priv)
++static int hns_nic_init_affinity_mask(int q_num, int ring_idx,
++				      struct hnae_ring *ring, cpumask_t *mask)
+ {
+-	struct hnae_handle *h = priv->ae_handle;
+-	struct hns_nic_ring_data *rd;
+-	int i;
+ 	int cpu;
+-	cpumask_var_t mask;
+ 
+-	if (!alloc_cpumask_var(&mask, GFP_KERNEL))
+-		return;
+-
+-	/*diffrent irq banlance for 16core and 32core*/
+-	if (h->q_num == num_possible_cpus()) {
+-		for (i = 0; i < h->q_num * 2; i++) {
+-			rd = &priv->ring_data[i];
+-			if (cpu_online(rd->queue_index)) {
+-				cpumask_clear(mask);
+-				cpu = rd->queue_index;
+-				cpumask_set_cpu(cpu, mask);
+-				(void)irq_set_affinity_hint(rd->ring->irq,
+-							    mask);
+-			}
+-		}
++	/* Diffrent irq banlance between 16core and 32core.
++	 * The cpu mask set by ring index according to the ring flag
++	 * which indicate the ring is tx or rx.
++	 */
++	if (q_num == num_possible_cpus()) {
++		if (is_tx_ring(ring))
++			cpu = ring_idx;
++		else
++			cpu = ring_idx - q_num;
+ 	} else {
+-		for (i = 0; i < h->q_num; i++) {
+-			rd = &priv->ring_data[i];
+-			if (cpu_online(rd->queue_index * 2)) {
+-				cpumask_clear(mask);
+-				cpu = rd->queue_index * 2;
+-				cpumask_set_cpu(cpu, mask);
+-				(void)irq_set_affinity_hint(rd->ring->irq,
+-							    mask);
+-			}
+-		}
+-
+-		for (i = h->q_num; i < h->q_num * 2; i++) {
+-			rd = &priv->ring_data[i];
+-			if (cpu_online(rd->queue_index * 2 + 1)) {
+-				cpumask_clear(mask);
+-				cpu = rd->queue_index * 2 + 1;
+-				cpumask_set_cpu(cpu, mask);
+-				(void)irq_set_affinity_hint(rd->ring->irq,
+-							    mask);
+-			}
+-		}
++		if (is_tx_ring(ring))
++			cpu = ring_idx * 2;
++		else
++			cpu = (ring_idx - q_num) * 2 + 1;
+ 	}
+ 
+-	free_cpumask_var(mask);
++	cpumask_clear(mask);
++	cpumask_set_cpu(cpu, mask);
++
++	return cpu;
+ }
+ 
+ static int hns_nic_init_irq(struct hns_nic_priv *priv)
+@@ -1252,6 +1229,7 @@ static int hns_nic_init_irq(struct hns_nic_priv *priv)
+ 	struct hns_nic_ring_data *rd;
+ 	int i;
+ 	int ret;
++	int cpu;
+ 
+ 	for (i = 0; i < h->q_num * 2; i++) {
+ 		rd = &priv->ring_data[i];
+@@ -1261,7 +1239,7 @@ static int hns_nic_init_irq(struct hns_nic_priv *priv)
+ 
+ 		snprintf(rd->ring->ring_name, RCB_RING_NAME_LEN,
+ 			 "%s-%s%d", priv->netdev->name,
+-			 (i < h->q_num ? "tx" : "rx"), rd->queue_index);
++			 (is_tx_ring(rd->ring) ? "tx" : "rx"), rd->queue_index);
+ 
+ 		rd->ring->ring_name[RCB_RING_NAME_LEN - 1] = '\0';
+ 
+@@ -1273,12 +1251,17 @@ static int hns_nic_init_irq(struct hns_nic_priv *priv)
+ 			return ret;
+ 		}
+ 		disable_irq(rd->ring->irq);
++
++		cpu = hns_nic_init_affinity_mask(h->q_num, i,
++						 rd->ring, &rd->mask);
++
++		if (cpu_online(cpu))
++			irq_set_affinity_hint(rd->ring->irq,
++					      &rd->mask);
++
+ 		rd->ring->irq_init_flag = RCB_IRQ_INITED;
+ 	}
+ 
+-	/*set cpu affinity*/
+-	hns_set_irq_affinity(priv);
+-
+ 	return 0;
+ }
+ 
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.h b/drivers/net/ethernet/hisilicon/hns/hns_enet.h
+index 5b412de..fff8f8a 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_enet.h
++++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.h
+@@ -37,6 +37,7 @@ enum hns_nic_state {
+ struct hns_nic_ring_data {
+ 	struct hnae_ring *ring;
+ 	struct napi_struct napi;
++	cpumask_t mask; /* affinity mask */
+ 	int queue_index;
+ 	int (*poll_one)(struct hns_nic_ring_data *, int, void *);
+ 	void (*ex_process)(struct hns_nic_ring_data *, struct sk_buff *);
+-- 
+2.7.4
