@@ -1,167 +1,81 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH V2 net-next 1/7] ptr_ring: introduce batch dequeuing
-Date: Fri, 31 Mar 2017 17:31:41 +0300
-Message-ID: <20170331151619-mutt-send-email-mst@kernel.org>
-References: <1490858550-7763-1-git-send-email-jasowang@redhat.com>
- <1490858550-7763-2-git-send-email-jasowang@redhat.com>
- <20170330160403-mutt-send-email-mst@kernel.org>
- <941892c4-40f6-9dea-3922-fa02afdc8208@redhat.com>
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: Re: [PATCH net-next] udp: use sk_protocol instead of pcflag to
+ detect udplite sockets
+Date: Fri, 31 Mar 2017 16:33:04 +0200
+Message-ID: <1490970784.2845.15.camel@redhat.com>
+References: <fc91ec83ecf454fad74c326380203a34434cb1ec.1490953526.git.pabeni@redhat.com>
+         <1490966709.8750.7.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <941892c4-40f6-9dea-3922-fa02afdc8208@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:41022 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754597AbdCaOdH (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 31 Mar 2017 10:33:07 -0400
+In-Reply-To: <1490966709.8750.7.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 31, 2017 at 11:52:24AM +0800, Jason Wang wrote:
-> 
-> 
-> On 2017年03月30日 21:53, Michael S. Tsirkin wrote:
-> > On Thu, Mar 30, 2017 at 03:22:24PM +0800, Jason Wang wrote:
-> > > This patch introduce a batched version of consuming, consumer can
-> > > dequeue more than one pointers from the ring at a time. We don't care
-> > > about the reorder of reading here so no need for compiler barrier.
-> > > 
-> > > Signed-off-by: Jason Wang <jasowang@redhat.com>
-> > > ---
-> > >   include/linux/ptr_ring.h | 65 ++++++++++++++++++++++++++++++++++++++++++++++++
-> > >   1 file changed, 65 insertions(+)
-> > > 
-> > > diff --git a/include/linux/ptr_ring.h b/include/linux/ptr_ring.h
-> > > index 6c70444..2be0f350 100644
-> > > --- a/include/linux/ptr_ring.h
-> > > +++ b/include/linux/ptr_ring.h
-> > > @@ -247,6 +247,22 @@ static inline void *__ptr_ring_consume(struct ptr_ring *r)
-> > >   	return ptr;
-> > >   }
-> > > +static inline int __ptr_ring_consume_batched(struct ptr_ring *r,
-> > > +					     void **array, int n)
-> > Can we use a shorter name? ptr_ring_consume_batch?
-> 
-> Ok, but at least we need to keep the prefix since there's a locked version.
-> 
-> 
-> 
+On Fri, 2017-03-31 at 06:25 -0700, Eric Dumazet wrote:
+> On Fri, 2017-03-31 at 11:47 +0200, Paolo Abeni wrote:
+> > In the udp_sock struct, the 'forward_deficit' and 'pcflag' fields
+> > share the same cacheline. While the first is dirtied by
+> > udp_recvmsg, the latter is read, possibly several times, by the
+> > bottom half processing to discriminate between udp and udplite
+> > sockets.
 > > 
-> > > +{
-> > > +	void *ptr;
-> > > +	int i;
-> > > +
-> > > +	for (i = 0; i < n; i++) {
-> > > +		ptr = __ptr_ring_consume(r);
-> > > +		if (!ptr)
-> > > +			break;
-> > > +		array[i] = ptr;
-> > > +	}
-> > > +
-> > > +	return i;
-> > > +}
-> > > +
-> > >   /*
-> > >    * Note: resize (below) nests producer lock within consumer lock, so if you
-> > >    * call this in interrupt or BH context, you must disable interrupts/BH when
-> > I'd like to add a code comment here explaining why we don't
-> > care about cpu or compiler reordering. And I think the reason is
-> > in the way you use this API: in vhost it does not matter
-> > if you get less entries than present in the ring.
-> > That's ok but needs to be noted
-> > in a code comment so people use this function correctly.
+> > With this patch, sk->sk_protocol is used to check is the socket is
+> > really an udplite one, avoiding some cache misses per
+> > packet and improving the performance under udp_flood with
+> > small packet up to 10%.
+> > 
+> > Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+> > ---
+> >  include/linux/udp.h | 2 +-
+> >  1 file changed, 1 insertion(+), 1 deletion(-)
+> > 
+> > diff --git a/include/linux/udp.h b/include/linux/udp.h
+> > index c0f5308..6cb4061 100644
+> > --- a/include/linux/udp.h
+> > +++ b/include/linux/udp.h
+> > @@ -115,6 +115,6 @@ static inline bool udp_get_no_check6_rx(struct sock *sk)
+> >  #define udp_portaddr_for_each_entry_rcu(__sk, list) \
+> >  	hlist_for_each_entry_rcu(__sk, list, __sk_common.skc_portaddr_node)
+> >  
+> > -#define IS_UDPLITE(__sk) (udp_sk(__sk)->pcflag)
+> > +#define IS_UDPLITE(__sk) (__sk->sk_protocol == IPPROTO_UDPLITE)
+> >  
+> >  #endif	/* _LINUX_UDP_H */
 > 
-> Interesting, but I still think it's not necessary.
 > 
-> If consumer is doing a busy polling, it will eventually get the entries. If
-> the consumer need notification from producer, it should drain the queue
-> which means it need enable notification before last try of consuming call,
-> otherwise it was a bug. The batch consuming function in this patch can
-> guarantee return at least one pointer if there's many, this looks sufficient
-> for the correctness?
 > 
-> Thanks
+> I am pretty sure we agreed in the past that forward_deficit would need
+> to be placed on a cache line of its own. Somehow we manage to not
+> implement this properly.
+> 
+> What about other fields like encap_rcv, encap_destroy, gro_receive,
+> gro_complete. They really should have the same false sharing issue.
 
-You ask for N entries but get N-1. This seems to imply the
-ring is now empty. Do we guarantee this?
+I did the above to avoid increasing the udp_sock struct size; this will
+costs more than a whole cacheline.
 
+I did not hit others false sharing issues because:
+- gro_receive/gro_complete are touched only for packets coming from 
+devices with udp tunnel offload enabled, that hit the tunnel offload
+path on the nic; such packets will most probably land in the udp tunnel
+ and will not use 'forward_deficit'
+- encap_destroy is touched only socket shutdown
+- encap_rcv is protected by the 'udp_encap_needed' static key
 
-> > 
-> > Also, I think you need to repeat the comment about cpu_relax
-> > near this function: if someone uses it in a loop,
-> > a compiler barrier is needed to prevent compiler from
-> > optimizing it out.
-> > 
-> > I note that ptr_ring_consume currently lacks any of these
-> > comments so I'm ok with merging as is, and I'll add
-> > documentation on top.
-> > Like this perhaps?
-> > 
-> > /* Consume up to n entries and return the number of entries consumed
-> >   * or 0 on ring empty.
-> >   * Note: this might return early with less entries than present in the
-> >   * ring.
-> >   * Note: callers invoking this in a loop must use a compiler barrier,
-> >   * for example cpu_relax(). Callers must take consumer_lock
-> >   * if the ring is ever resized - see e.g. ptr_ring_consume_batch.
-> >   */
-> > 
-> > 
-> > 
-> > > @@ -297,6 +313,55 @@ static inline void *ptr_ring_consume_bh(struct ptr_ring *r)
-> > >   	return ptr;
-> > >   }
-> > > +static inline int ptr_ring_consume_batched(struct ptr_ring *r,
-> > > +					   void **array, int n)
-> > > +{
-> > > +	int ret;
-> > > +
-> > > +	spin_lock(&r->consumer_lock);
-> > > +	ret = __ptr_ring_consume_batched(r, array, n);
-> > > +	spin_unlock(&r->consumer_lock);
-> > > +
-> > > +	return ret;
-> > > +}
-> > > +
-> > > +static inline int ptr_ring_consume_batched_irq(struct ptr_ring *r,
-> > > +					       void **array, int n)
-> > > +{
-> > > +	int ret;
-> > > +
-> > > +	spin_lock_irq(&r->consumer_lock);
-> > > +	ret = __ptr_ring_consume_batched(r, array, n);
-> > > +	spin_unlock_irq(&r->consumer_lock);
-> > > +
-> > > +	return ret;
-> > > +}
-> > > +
-> > > +static inline int ptr_ring_consume_batched_any(struct ptr_ring *r,
-> > > +					       void **array, int n)
-> > > +{
-> > > +	unsigned long flags;
-> > > +	int ret;
-> > > +
-> > > +	spin_lock_irqsave(&r->consumer_lock, flags);
-> > > +	ret = __ptr_ring_consume_batched(r, array, n);
-> > > +	spin_unlock_irqrestore(&r->consumer_lock, flags);
-> > > +
-> > > +	return ret;
-> > > +}
-> > > +
-> > > +static inline int ptr_ring_consume_batched_bh(struct ptr_ring *r,
-> > > +					      void **array, int n)
-> > > +{
-> > > +	int ret;
-> > > +
-> > > +	spin_lock_bh(&r->consumer_lock);
-> > > +	ret = __ptr_ring_consume_batched(r, array, n);
-> > > +	spin_unlock_bh(&r->consumer_lock);
-> > > +
-> > > +	return ret;
-> > > +}
-> > > +
-> > >   /* Cast to structure type and call a function without discarding from FIFO.
-> > >    * Function must return a value.
-> > >    * Callers must take consumer_lock.
-> > > -- 
-> > > 2.7.4
+I think this latter is problematic, so I'm ok with the patch you
+suggested.
+
+The above change could still make sense, the udp code is already
+checking for udplite sockets with either pcflag and protocol;
+testing always the same data will make the code more cleaner.
+
+Paolo
