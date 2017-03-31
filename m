@@ -1,40 +1,71 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: Paolo Abeni <pabeni@redhat.com>
 Subject: Re: [PATCH net-next] udp: use sk_protocol instead of pcflag to
  detect udplite sockets
-Date: Fri, 31 Mar 2017 08:24:01 -0700
-Message-ID: <1490973841.8750.26.camel@edumazet-glaptop3.roam.corp.google.com>
+Date: Fri, 31 Mar 2017 17:24:50 +0200
+Message-ID: <1490973890.2845.18.camel@redhat.com>
 References: <fc91ec83ecf454fad74c326380203a34434cb1ec.1490953526.git.pabeni@redhat.com>
          <1490966709.8750.7.camel@edumazet-glaptop3.roam.corp.google.com>
-         <063D6719AE5E284EB5DD2968C1650D6DCFFC37E0@AcuExch.aculab.com>
+         <1490970784.2845.15.camel@redhat.com>
+         <1490972953.8750.15.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Paolo Abeni <pabeni@redhat.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>,
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
         Eric Dumazet <edumazet@google.com>
-To: David Laight <David.Laight@ACULAB.COM>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f44.google.com ([74.125.83.44]:36641 "EHLO
-        mail-pg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933112AbdCaPYD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 31 Mar 2017 11:24:03 -0400
-Received: by mail-pg0-f44.google.com with SMTP id g2so73273863pge.3
-        for <netdev@vger.kernel.org>; Fri, 31 Mar 2017 08:24:02 -0700 (PDT)
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DCFFC37E0@AcuExch.aculab.com>
+Received: from mx1.redhat.com ([209.132.183.28]:42896 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S933140AbdCaPYx (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 31 Mar 2017 11:24:53 -0400
+In-Reply-To: <1490972953.8750.15.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2017-03-31 at 15:03 +0000, David Laight wrote:
+On Fri, 2017-03-31 at 08:09 -0700, Eric Dumazet wrote:
+> On Fri, 2017-03-31 at 16:33 +0200, Paolo Abeni wrote:
+> 
+> > I did the above to avoid increasing the udp_sock struct size; this will
+> > costs more than a whole cacheline.
+> 
+> Yes, but who cares :)
+> 
+> Also note that we discussed about having a secondary receive queue in
+> the future, to decouple the fact that producers/consumer have to grab a
+> contended spinlock for every enqueued and dequeued packet.
+> 
+> With a secondary queue, the consumer can transfer one queue into another
+> in one batch.
+> 
+> Or simply use ptr_ring / skb_array now these infras are available thanks
+> to Michael.
+> 
+> So we will likely increase UDP socket size in a near future...
+> 
+> > 
+> > I did not hit others false sharing issues because:
+> > - gro_receive/gro_complete are touched only for packets coming from 
+> > devices with udp tunnel offload enabled, that hit the tunnel offload
+> > path on the nic; such packets will most probably land in the udp tunnel
+> >  and will not use 'forward_deficit'
+> 
+> 
+> > - encap_destroy is touched only socket shutdown
+> > - encap_rcv is protected by the 'udp_encap_needed' static key
+> > 
+> > I think this latter is problematic, so I'm ok with the patch you
+> > suggested.
+> > 
+> > The above change could still make sense, the udp code is already
+> > checking for udplite sockets with either pcflag and protocol;
+> > testing always the same data will make the code more cleaner.
+> 
+> Where are we testing sk->sk_prototocol in receive path ?
 
-> Is that really sensible on systems with large cache lines?
+Sorry, I was ambiguous: sk->sk_protocol is not used yet; before the
+socket lockup, __udp4_lib_rcv() and __udp6_lib_rcv() use the protocol
+number provided by the caller to properly account udp vs udplite stats.
 
-Yes it is.
+Cheers,
 
-We mostly do our perf analysis on x86, and it turns out that linux
-networking on PowerPC is not great because of this.
-
-struct dst_entry is showing problems, simply because we aligned __refcnt
-on 64 byte boundary, which is not enough on PowerPC.
-
-With bigger cache lines, you have bigger chances of false sharing.
+Paolo
