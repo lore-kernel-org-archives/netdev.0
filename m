@@ -1,107 +1,49 @@
-From: Jukka Rissanen <jukka.rissanen@linux.intel.com>
-Subject: Re: [PATCH] bluetooth: 6lowpan: fix use after free in
- chan_suspend/resume
-Date: Fri, 31 Mar 2017 12:35:07 +0300
-Message-ID: <1490952907.4892.12.camel@linux.intel.com>
-References: <20170329061018.4243-1-michael.scott@linaro.org>
+From: Russell King - ARM Linux <linux@armlinux.org.uk>
+Subject: [PATCH v3 0/3] phylib EEE updates
+Date: Fri, 31 Mar 2017 10:36:46 +0100
+Message-ID: <20170331093645.GA15329@n2100.armlinux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: "David S . Miller" <davem@davemloft.net>,
-        linux-bluetooth@vger.kernel.org, linux-wpan@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Michael Scott <michael.scott@linaro.org>,
-        Marcel Holtmann <marcel@holtmann.org>,
-        Gustavo Padovan <gustavo@padovan.org>,
-        Johan Hedberg <johan.hedberg@gmail.com>,
-        Luiz Augusto von Dentz <luiz.dentz@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170329061018.4243-1-michael.scott@linaro.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Lunn <andrew@lunn.ch>,
+        Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from pandora.armlinux.org.uk ([78.32.30.218]:48466 "EHLO
+        pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753535AbdCaJg5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 31 Mar 2017 05:36:57 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Michael,
+David,
 
-On Tue, 2017-03-28 at 23:10 -0700, Michael Scott wrote:
-> A status field in the skb_cb struct was storing a channel status
-> based on channel suspend/resume events.  This stored status was
-> then used to return EAGAIN if there were packet sending issues
-> in snd_pkt().
-> 
-> The issue is that the skb has been freed by the time the callback
-> to 6lowpan's suspend/resume was called.  So, this generates a
-> "use after free" issue that was noticed while running kernel tests
-> with KASAN debug enabled.
-> 
-> Let's eliminate the status field entirely as we can use the channel
-> tx_credits to indicate whether we should return EAGAIN when handling
-> packets.
-> 
-> Signed-off-by: Michael Scott <michael.scott@linaro.org>
-> ---
->  net/bluetooth/6lowpan.c | 21 +++------------------
->  1 file changed, 3 insertions(+), 18 deletions(-)
-> 
-> diff --git a/net/bluetooth/6lowpan.c b/net/bluetooth/6lowpan.c
-> index d491529332f4..e27be3ca0a0c 100644
-> --- a/net/bluetooth/6lowpan.c
-> +++ b/net/bluetooth/6lowpan.c
-> @@ -38,7 +38,6 @@ struct skb_cb {
->  	struct in6_addr addr;
->  	struct in6_addr gw;
->  	struct l2cap_chan *chan;
-> -	int status;
->  };
->  #define lowpan_cb(skb) ((struct skb_cb *)((skb)->cb))
->  
-> @@ -528,7 +527,7 @@ static int send_pkt(struct l2cap_chan *chan,
-> struct sk_buff *skb,
->  	}
->  
->  	if (!err)
-> -		err = lowpan_cb(skb)->status;
-> +		err = (!chan->tx_credits ? -EAGAIN : 0);
->  
->  	if (err < 0) {
->  		if (err == -EAGAIN)
-> @@ -964,26 +963,12 @@ static struct sk_buff *chan_alloc_skb_cb(struct
-> l2cap_chan *chan,
->  
->  static void chan_suspend_cb(struct l2cap_chan *chan)
->  {
-> -	struct sk_buff *skb = chan->data;
-> -
-> -	BT_DBG("chan %p conn %p skb %p", chan, chan->conn, skb);
-> -
-> -	if (!skb)
-> -		return;
-> -
-> -	lowpan_cb(skb)->status = -EAGAIN;
-> +	BT_DBG("chan %p suspend", chan);
->  }
->  
->  static void chan_resume_cb(struct l2cap_chan *chan)
->  {
-> -	struct sk_buff *skb = chan->data;
-> -
-> -	BT_DBG("chan %p conn %p skb %p", chan, chan->conn, skb);
-> -
-> -	if (!skb)
-> -		return;
-> -
-> -	lowpan_cb(skb)->status = 0;
-> +	BT_DBG("chan %p resume", chan);
->  }
->  
->  static long chan_get_sndtimeo_cb(struct l2cap_chan *chan)
+This series of patches depends on the previous set of changes, and is
+therefore net-next material.
 
-Good catch! If we can avoid using the status variable, that is very
-good. We could probably also remove the resume and suspend callbacks as
-they are now empty functions (unless we need the debug info for
-something).
+While testing the EEE code, I discovered a number of issues:
 
-Acked-by: Jukka Rissanen <jukka.rissanen@linux.intel.com>
+1. It is possible to enable advertisment of EEE modes which are not
+   supported by the hardware.  We omit to check the supported modes
+   and mask off those modes that are not supported before writing the
+   EEE advertisment register.
 
+2. We need to restart autonegotiation after a change of the EEE
+   advertisment, otherwise the link partner does not see the updated
+   EEE modes.
 
-Cheers,
-Jukka
+3. SGMII connected PHYs are also capable of supporting EEE.
+
+Through discussion with Florian, it has been decided to remove the check
+for the PHY interface mode in patch (3).
+
+ drivers/net/phy/phy.c | 37 ++++++++++++++++++++++++++-----------
+ 1 file changed, 26 insertions(+), 11 deletions(-)
+
+v2: fix "phy_restart_aneg" build error identified by 0-day
+v3: drop RFC tag, replace 3rd patch
+
+-- 
+RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
+FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
+according to speedtest.net.
