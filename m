@@ -1,52 +1,279 @@
 From: Guillaume Nault <g.nault@alphalink.fr>
-Subject: [PATCH net 0/5] l2tp: fix usage of l2tp_session_find()
-Date: Fri, 31 Mar 2017 13:02:23 +0200
-Message-ID: <cover.1490955471.git.g.nault@alphalink.fr>
+Subject: [PATCH net 1/5] l2tp: fix race in l2tp_recv_common()
+Date: Fri, 31 Mar 2017 13:02:25 +0200
+Message-ID: <83c84c63b2f0f652886c80f3656b2020eedb596a.1490955471.git.g.nault@alphalink.fr>
+References: <cover.1490955471.git.g.nault@alphalink.fr>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: James Chapman <jchapman@katalix.com>, Bill Hong <bhong@brocade.com>
+Cc: James Chapman <jchapman@katalix.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zimbra.alphalink.fr ([217.15.80.77]:51738 "EHLO
+Received: from zimbra.alphalink.fr ([217.15.80.77]:51768 "EHLO
         zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932879AbdCaLC2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 31 Mar 2017 07:02:28 -0400
+        with ESMTP id S933122AbdCaLCc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 31 Mar 2017 07:02:32 -0400
 Content-Disposition: inline
+In-Reply-To: <cover.1490955471.git.g.nault@alphalink.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-l2tp_session_find() doesn't take a reference on the session returned to
-its caller. Virtually all l2tp_session_find() users are racy, either
-because the session can disappear from under them or because they take
-a reference too late. This leads to bugs like 'use after free' or
-failure to notice duplicate session creations.
+Taking a reference on sessions in l2tp_recv_common() is racy; this
+has to be done by the callers.
 
-In some cases, taking a reference on the session is not enough. The
-special callbacks .ref() and .deref() also have to be called in cases
-where the PPP pseudo-wire uses the socket associated with the session.
-Therefore, when looking up a session, we also have to pass a flag
-indicating if the .ref() callback has to be called.
+To this end, a new function is required (l2tp_session_get()) to
+atomically lookup a session and take a reference on it. Callers then
+have to manually drop this reference.
 
-In the future, we probably could drop the .ref() and .deref() callbacks
-entirely by protecting the .sock field of struct pppol2tp_session with
-RCU, thus allowing it to be freed and set to NULL even if the L2TP
-session is still alive.
+Fixes: fd558d186df2 ("l2tp: Split pppol2tp patch into separate l2tp and ppp parts")
+Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
+---
+ net/l2tp/l2tp_core.c | 73 ++++++++++++++++++++++++++++++++++++++++++----------
+ net/l2tp/l2tp_core.h |  3 +++
+ net/l2tp/l2tp_ip.c   | 17 ++++++++----
+ net/l2tp/l2tp_ip6.c  | 18 +++++++++----
+ 4 files changed, 88 insertions(+), 23 deletions(-)
 
-Guillaume Nault (5):
-  l2tp: fix race in l2tp_recv_common()
-  l2tp: ensure session can't get removed during pppol2tp_session_ioctl()
-  l2tp: fix duplicate session creation
-  l2tp: hold session while sending creation notifications
-  l2tp: take a reference on sessions used in genetlink handlers
-
- net/l2tp/l2tp_core.c    | 152 ++++++++++++++++++++++++++++++++++++++----------
- net/l2tp/l2tp_core.h    |   6 +-
- net/l2tp/l2tp_eth.c     |  10 +---
- net/l2tp/l2tp_ip.c      |  17 ++++--
- net/l2tp/l2tp_ip6.c     |  18 ++++--
- net/l2tp/l2tp_netlink.c |  45 +++++++++-----
- net/l2tp/l2tp_ppp.c     |  75 +++++++++++++-----------
- 7 files changed, 222 insertions(+), 101 deletions(-)
-
+diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
+index 8adab6335ced..8a067536d15c 100644
+--- a/net/l2tp/l2tp_core.c
++++ b/net/l2tp/l2tp_core.c
+@@ -278,6 +278,55 @@ struct l2tp_session *l2tp_session_find(struct net *net, struct l2tp_tunnel *tunn
+ }
+ EXPORT_SYMBOL_GPL(l2tp_session_find);
+ 
++/* Like l2tp_session_find() but takes a reference on the returned session.
++ * Optionally calls session->ref() too if do_ref is true.
++ */
++struct l2tp_session *l2tp_session_get(struct net *net,
++				      struct l2tp_tunnel *tunnel,
++				      u32 session_id, bool do_ref)
++{
++	struct hlist_head *session_list;
++	struct l2tp_session *session;
++
++	if (!tunnel) {
++		struct l2tp_net *pn = l2tp_pernet(net);
++
++		session_list = l2tp_session_id_hash_2(pn, session_id);
++
++		rcu_read_lock_bh();
++		hlist_for_each_entry_rcu(session, session_list, global_hlist) {
++			if (session->session_id == session_id) {
++				l2tp_session_inc_refcount(session);
++				if (do_ref && session->ref)
++					session->ref(session);
++				rcu_read_unlock_bh();
++
++				return session;
++			}
++		}
++		rcu_read_unlock_bh();
++
++		return NULL;
++	}
++
++	session_list = l2tp_session_id_hash(tunnel, session_id);
++	read_lock_bh(&tunnel->hlist_lock);
++	hlist_for_each_entry(session, session_list, hlist) {
++		if (session->session_id == session_id) {
++			l2tp_session_inc_refcount(session);
++			if (do_ref && session->ref)
++				session->ref(session);
++			read_unlock_bh(&tunnel->hlist_lock);
++
++			return session;
++		}
++	}
++	read_unlock_bh(&tunnel->hlist_lock);
++
++	return NULL;
++}
++EXPORT_SYMBOL_GPL(l2tp_session_get);
++
+ struct l2tp_session *l2tp_session_find_nth(struct l2tp_tunnel *tunnel, int nth)
+ {
+ 	int hash;
+@@ -633,6 +682,9 @@ static int l2tp_recv_data_seq(struct l2tp_session *session, struct sk_buff *skb)
+  * a data (not control) frame before coming here. Fields up to the
+  * session-id have already been parsed and ptr points to the data
+  * after the session-id.
++ *
++ * session->ref() must have been called prior to l2tp_recv_common().
++ * session->deref() will be called automatically after skb is processed.
+  */
+ void l2tp_recv_common(struct l2tp_session *session, struct sk_buff *skb,
+ 		      unsigned char *ptr, unsigned char *optr, u16 hdrflags,
+@@ -642,14 +694,6 @@ void l2tp_recv_common(struct l2tp_session *session, struct sk_buff *skb,
+ 	int offset;
+ 	u32 ns, nr;
+ 
+-	/* The ref count is increased since we now hold a pointer to
+-	 * the session. Take care to decrement the refcnt when exiting
+-	 * this function from now on...
+-	 */
+-	l2tp_session_inc_refcount(session);
+-	if (session->ref)
+-		(*session->ref)(session);
+-
+ 	/* Parse and check optional cookie */
+ 	if (session->peer_cookie_len > 0) {
+ 		if (memcmp(ptr, &session->peer_cookie[0], session->peer_cookie_len)) {
+@@ -802,8 +846,6 @@ void l2tp_recv_common(struct l2tp_session *session, struct sk_buff *skb,
+ 	/* Try to dequeue as many skbs from reorder_q as we can. */
+ 	l2tp_recv_dequeue(session);
+ 
+-	l2tp_session_dec_refcount(session);
+-
+ 	return;
+ 
+ discard:
+@@ -812,8 +854,6 @@ void l2tp_recv_common(struct l2tp_session *session, struct sk_buff *skb,
+ 
+ 	if (session->deref)
+ 		(*session->deref)(session);
+-
+-	l2tp_session_dec_refcount(session);
+ }
+ EXPORT_SYMBOL(l2tp_recv_common);
+ 
+@@ -920,8 +960,14 @@ static int l2tp_udp_recv_core(struct l2tp_tunnel *tunnel, struct sk_buff *skb,
+ 	}
+ 
+ 	/* Find the session context */
+-	session = l2tp_session_find(tunnel->l2tp_net, tunnel, session_id);
++	session = l2tp_session_get(tunnel->l2tp_net, tunnel, session_id, true);
+ 	if (!session || !session->recv_skb) {
++		if (session) {
++			if (session->deref)
++				session->deref(session);
++			l2tp_session_dec_refcount(session);
++		}
++
+ 		/* Not found? Pass to userspace to deal with */
+ 		l2tp_info(tunnel, L2TP_MSG_DATA,
+ 			  "%s: no session found (%u/%u). Passing up.\n",
+@@ -930,6 +976,7 @@ static int l2tp_udp_recv_core(struct l2tp_tunnel *tunnel, struct sk_buff *skb,
+ 	}
+ 
+ 	l2tp_recv_common(session, skb, ptr, optr, hdrflags, length, payload_hook);
++	l2tp_session_dec_refcount(session);
+ 
+ 	return 0;
+ 
+diff --git a/net/l2tp/l2tp_core.h b/net/l2tp/l2tp_core.h
+index aebf281d09ee..4544e81a3d27 100644
+--- a/net/l2tp/l2tp_core.h
++++ b/net/l2tp/l2tp_core.h
+@@ -230,6 +230,9 @@ static inline struct l2tp_tunnel *l2tp_sock_to_tunnel(struct sock *sk)
+ 	return tunnel;
+ }
+ 
++struct l2tp_session *l2tp_session_get(struct net *net,
++				      struct l2tp_tunnel *tunnel,
++				      u32 session_id, bool do_ref);
+ struct l2tp_session *l2tp_session_find(struct net *net,
+ 				       struct l2tp_tunnel *tunnel,
+ 				       u32 session_id);
+diff --git a/net/l2tp/l2tp_ip.c b/net/l2tp/l2tp_ip.c
+index 7208fbe5856b..4d322c1b7233 100644
+--- a/net/l2tp/l2tp_ip.c
++++ b/net/l2tp/l2tp_ip.c
+@@ -143,19 +143,19 @@ static int l2tp_ip_recv(struct sk_buff *skb)
+ 	}
+ 
+ 	/* Ok, this is a data packet. Lookup the session. */
+-	session = l2tp_session_find(net, NULL, session_id);
+-	if (session == NULL)
++	session = l2tp_session_get(net, NULL, session_id, true);
++	if (!session)
+ 		goto discard;
+ 
+ 	tunnel = session->tunnel;
+-	if (tunnel == NULL)
+-		goto discard;
++	if (!tunnel)
++		goto discard_sess;
+ 
+ 	/* Trace packet contents, if enabled */
+ 	if (tunnel->debug & L2TP_MSG_DATA) {
+ 		length = min(32u, skb->len);
+ 		if (!pskb_may_pull(skb, length))
+-			goto discard;
++			goto discard_sess;
+ 
+ 		/* Point to L2TP header */
+ 		optr = ptr = skb->data;
+@@ -165,6 +165,7 @@ static int l2tp_ip_recv(struct sk_buff *skb)
+ 	}
+ 
+ 	l2tp_recv_common(session, skb, ptr, optr, 0, skb->len, tunnel->recv_payload_hook);
++	l2tp_session_dec_refcount(session);
+ 
+ 	return 0;
+ 
+@@ -203,6 +204,12 @@ static int l2tp_ip_recv(struct sk_buff *skb)
+ 
+ 	return sk_receive_skb(sk, skb, 1);
+ 
++discard_sess:
++	if (session->deref)
++		session->deref(session);
++	l2tp_session_dec_refcount(session);
++	goto discard;
++
+ discard_put:
+ 	sock_put(sk);
+ 
+diff --git a/net/l2tp/l2tp_ip6.c b/net/l2tp/l2tp_ip6.c
+index 516d7ce24ba7..88b397c30d86 100644
+--- a/net/l2tp/l2tp_ip6.c
++++ b/net/l2tp/l2tp_ip6.c
+@@ -156,19 +156,19 @@ static int l2tp_ip6_recv(struct sk_buff *skb)
+ 	}
+ 
+ 	/* Ok, this is a data packet. Lookup the session. */
+-	session = l2tp_session_find(net, NULL, session_id);
+-	if (session == NULL)
++	session = l2tp_session_get(net, NULL, session_id, true);
++	if (!session)
+ 		goto discard;
+ 
+ 	tunnel = session->tunnel;
+-	if (tunnel == NULL)
+-		goto discard;
++	if (!tunnel)
++		goto discard_sess;
+ 
+ 	/* Trace packet contents, if enabled */
+ 	if (tunnel->debug & L2TP_MSG_DATA) {
+ 		length = min(32u, skb->len);
+ 		if (!pskb_may_pull(skb, length))
+-			goto discard;
++			goto discard_sess;
+ 
+ 		/* Point to L2TP header */
+ 		optr = ptr = skb->data;
+@@ -179,6 +179,8 @@ static int l2tp_ip6_recv(struct sk_buff *skb)
+ 
+ 	l2tp_recv_common(session, skb, ptr, optr, 0, skb->len,
+ 			 tunnel->recv_payload_hook);
++	l2tp_session_dec_refcount(session);
++
+ 	return 0;
+ 
+ pass_up:
+@@ -216,6 +218,12 @@ static int l2tp_ip6_recv(struct sk_buff *skb)
+ 
+ 	return sk_receive_skb(sk, skb, 1);
+ 
++discard_sess:
++	if (session->deref)
++		session->deref(session);
++	l2tp_session_dec_refcount(session);
++	goto discard;
++
+ discard_put:
+ 	sock_put(sk);
+ 
 -- 
 2.11.0
