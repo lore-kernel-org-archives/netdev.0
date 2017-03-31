@@ -1,84 +1,39 @@
-From: Russell King <rmk+kernel@armlinux.org.uk>
-Subject: [PATCH v3 1/3] net: phy: avoid setting unsupported EEE advertisments
-Date: Fri, 31 Mar 2017 10:37:07 +0100
-Message-ID: <E1ctszT-00063O-NJ@rmk-PC.armlinux.org.uk>
-References: <20170331093645.GA15329@n2100.armlinux.org.uk>
+From: Oliver Neukum <oneukum-IBi9RG/b67k@public.gmane.org>
+Subject: Re: [PATCHv3] net: usbnet: support 64bit stats in qmi_wwan driver
+Date: Fri, 31 Mar 2017 11:39:10 +0200
+Message-ID: <1490953150.30466.11.camel@suse.com>
+References: <1490941561-20502-1-git-send-email-gerg@linux-m68k.org>
+         <8737dt25od.fsf@miraculix.mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 8bit
-Cc: Andrew Lunn <andrew@lunn.ch>,
-        Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.armlinux.org.uk ([78.32.30.218]:48478 "EHLO
-        pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932903AbdCaJhO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 31 Mar 2017 05:37:14 -0400
-In-Reply-To: <20170331093645.GA15329@n2100.armlinux.org.uk>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org,
+        linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn-yOkvZcmFvRU@public.gmane.org>,
+        Greg Ungerer <gerg-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <8737dt25od.fsf-3F4PFWf5pNjpjLOzFPqGjWGXanvQGlWp@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-We currently allow userspace to set any EEE advertisments it desires,
-whether or not the PHY supports them.  For example:
+Am Freitag, den 31.03.2017, 10:48 +0200 schrieb Bjørn Mork:
+> You get *all* the "0" line drivers for free, not only "qmi_wwan".  No
+> code changes needed, except for adding the single .ndo line to drivers
+> overriding the usbnet default net_device_ops. And even that only applies
+> to a few of them.  Most will be OK if you just change the usbnet
+> default.
+> 
+> I don't think the size of a complete series will be terrifying to
+> anyone.
 
- # ethtool --set-eee eth1 advertise 0xffffffff
- # ethtool --show-eee eth1
- EEE Settings for eth1:
-        EEE status: disabled
-        Tx LPI: disabled
-        Supported EEE link modes:  100baseT/Full
-                                   1000baseT/Full
-                                   10000baseT/Full
-        Advertised EEE link modes:  100baseT/Full
-                                    1000baseT/Full
-                                    1000baseKX/Full
-                                    10000baseT/Full
-                                    10000baseKX4/Full
-                                    10000baseKR/Full
+It would really be nice to do that.
+However, if you really don't want to do it, well you wrote
+a patch. But I am afraid dropping the error count is not acceptable.
 
-Clearly, this is not sane, we should only allow link modes that are
-supported to be advertised (as we do elsewhere.)  Ensure that we mask
-the MDIO_AN_EEE_ADV value with the capabilities retrieved from the
-MDIO_PCS_EEE_ABLE register.
+	Regards
+		Oliver
 
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
-Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
----
- drivers/net/phy/phy.c | 15 ++++++++++-----
- 1 file changed, 10 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-index ba4676ee9018..7b1c93b0233a 100644
---- a/drivers/net/phy/phy.c
-+++ b/drivers/net/phy/phy.c
-@@ -1332,17 +1332,22 @@ EXPORT_SYMBOL(phy_ethtool_get_eee);
-  */
- int phy_ethtool_set_eee(struct phy_device *phydev, struct ethtool_eee *data)
- {
--	int val = ethtool_adv_to_mmd_eee_adv_t(data->advertised);
-+	int cap, adv;
- 
- 	if (!phydev->drv)
- 		return -EIO;
- 
--	/* Mask prohibited EEE modes */
--	val &= ~phydev->eee_broken_modes;
-+	/* Get Supported EEE */
-+	cap = phy_read_mmd(phydev, MDIO_MMD_PCS, MDIO_PCS_EEE_ABLE);
-+	if (cap < 0)
-+		return cap;
- 
--	phy_write_mmd(phydev, MDIO_MMD_AN, MDIO_AN_EEE_ADV, val);
-+	adv = ethtool_adv_to_mmd_eee_adv_t(data->advertised) & cap;
- 
--	return 0;
-+	/* Mask prohibited EEE modes */
-+	adv &= ~phydev->eee_broken_modes;
-+
-+	return phy_write_mmd(phydev, MDIO_MMD_AN, MDIO_AN_EEE_ADV, adv);
- }
- EXPORT_SYMBOL(phy_ethtool_set_eee);
- 
--- 
-2.7.4
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
