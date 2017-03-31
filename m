@@ -1,52 +1,73 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next] net: dsa: fix build error with devlink build as
- module
-Date: Fri, 31 Mar 2017 15:34:58 +0200
-Message-ID: <20170331133458.GF22609@lunn.ch>
-References: <20170331094452.32578-1-tobias.regnery@gmail.com>
+From: =?ISO-8859-1?Q?Bj=F8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Subject: Re: [PATCHv3] net: usbnet: support 64bit stats in qmi_wwan driver
+Date: Fri, 31 Mar 2017 15:35:46 +0200
+Message-ID: <24368A4E-6CB6-4646-B5EE-84831CC7F4BD@mork.no>
+References: <1490941561-20502-1-git-send-email-gerg@linux-m68k.org> <8737dt25od.fsf@miraculix.mork.no> <cb2bbda4-fddd-ab70-7bdf-4ef43c9e9535@linux-m68k.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, davem@davemloft.net
-To: Tobias Regnery <tobias.regnery@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170331094452.32578-1-tobias.regnery@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain;
+ charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+Cc: oneukum-IBi9RG/b67k@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+        stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Greg Ungerer <gerg-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <cb2bbda4-fddd-ab70-7bdf-4ef43c9e9535-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 31, 2017 at 11:44:52AM +0200, Tobias Regnery wrote:
-> After commit 96567d5dacf4 ("net: dsa: dsa2: Add basic support of devlink")
-> I see the following link error with CONFIG_NET_DSA=y and CONFIG_NET_DEVLINK=m:
-> 
-> net/built-in.o: In function 'dsa_register_switch':
-> (.text+0xe226b): undefined reference to `devlink_alloc'
-> net/built-in.o: In function 'dsa_register_switch':
-> (.text+0xe2284): undefined reference to `devlink_register'
-> net/built-in.o: In function 'dsa_register_switch':
-> (.text+0xe243e): undefined reference to `devlink_port_register'
-> net/built-in.o: In function 'dsa_register_switch':
-> (.text+0xe24e1): undefined reference to `devlink_port_register'
-> net/built-in.o: In function 'dsa_register_switch':
-> (.text+0xe24fa): undefined reference to `devlink_port_type_eth_set'
-> net/built-in.o: In function 'dsa_dst_unapply.part.8':
-> dsa2.c:(.text.unlikely+0x345): undefined reference to 'devlink_port_unregister'
-> dsa2.c:(.text.unlikely+0x36c): undefined reference to 'devlink_port_unregister'
-> dsa2.c:(.text.unlikely+0x38e): undefined reference to 'devlink_port_unregister'
-> dsa2.c:(.text.unlikely+0x3f2): undefined reference to 'devlink_unregister'
-> dsa2.c:(.text.unlikely+0x3fb): undefined reference to 'devlink_free'
-> 
-> Fix this by adding a dependency on MAY_USE_DEVLINK so that CONFIG_NET_DSA
-> get switched to be build as module when CONFIG_NET_DEVLINK=m.
-> 
-> Fixes: 96567d5dacf4 ("net: dsa: dsa2: Add basic support of devlink")
-> Signed-off-by: Tobias Regnery <tobias.regnery@gmail.com>
 
-Hi Tobias
 
-0-day just found the same issue as well.
+On March 31, 2017 3:27:59 PM CEST, Greg Ungerer <gerg@linux-m68k=2Eorg> wr=
+ote:
+>On 31/03/17 18:48, Bj=C3=B8rn Mork wrote:
+>
+>>> +void usbnet_get_stats64(struct net_device *net, struct
+>rtnl_link_stats64 *stats)
+>>> +{
+>>> +	struct usbnet *dev =3D netdev_priv(net);
+>>> +	unsigned int start;
+>>> +	int cpu;
+>>> +
+>>> +	netdev_stats_to_stats64(stats, &net->stats);
+>>> +
+>>> +	for_each_possible_cpu(cpu) {
+>>> +		struct pcpu_sw_netstats *stats64;
+>>> +		u64 rx_packets, rx_bytes;
+>>> +		u64 tx_packets, tx_bytes;
+>>> +
+>>> +		stats64 =3D per_cpu_ptr(dev->stats64, cpu);
+>>> +
+>>> +		do {
+>>> +			start =3D u64_stats_fetch_begin_irq(&stats64->syncp);
+>>> +			rx_packets =3D stats64->rx_packets;
+>>> +			rx_bytes =3D stats64->rx_bytes;
+>>> +			tx_packets =3D stats64->tx_packets;
+>>> +			tx_bytes =3D stats64->tx_bytes;
+>>> +		} while (u64_stats_fetch_retry_irq(&stats64->syncp, start));
+>>> +
+>>> +		stats->rx_packets +=3D rx_packets;
+>>> +		stats->rx_bytes +=3D rx_bytes;
+>>> +		stats->tx_packets +=3D tx_packets;
+>>> +		stats->tx_bytes +=3D tx_bytes;
+>>> +	}
+>>> +}
+>>
+>> So we only count packets and bytes=2E  No errors=2E  Why?
+>
+>All stats are counted=2E That call to netdev_stats_to_stats64() transfers
+>all other stats struct fields (errors, etc) to the stats64 struct=2E
+>No error counts are lost (though they are only stored as 32bits values
+>on 32bit machines)=2E
 
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 
-Thanks
-    Andrew
+Ah, right=2E Thanks for explaining and sorry for being so slow=2E Then I h=
+ave no objection to the patch as it is=2E
+
+
+Bj=C3=B8rn
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
