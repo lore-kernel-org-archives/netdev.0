@@ -1,29 +1,32 @@
-From: Alexei Starovoitov <ast@fb.com>
-Subject: Re: [PATCH net-next 1/6] bpf: introduce BPF_PROG_TEST_RUN command
-Date: Thu, 30 Mar 2017 19:57:57 -0700
-Message-ID: <d8c30545-b247-6831-41cc-a546404d6b0a@fb.com>
-References: <20170331013157.3298003-1-ast@fb.com>
- <20170331013157.3298003-2-ast@fb.com>
- <9105ab34-8fee-fab4-96fe-3bfe7f3a84b7@huawei.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 00/19] net: hns: Misc. HNS Bug Fixes & Code
+ Improvements
+Date: Thu, 30 Mar 2017 20:03:17 -0700 (PDT)
+Message-ID: <20170330.200317.1176664200594872180.davem@davemloft.net>
+References: <20170330153106.14344-1-salil.mehta@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-        Martin KaFai Lau <kafai@fb.com>, <netdev@vger.kernel.org>,
-        <kernel-team@fb.com>
-To: "Wangnan (F)" <wangnan0@huawei.com>,
-        "David S . Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:35537 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752517AbdCaC6c (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 30 Mar 2017 22:58:32 -0400
-In-Reply-To: <9105ab34-8fee-fab4-96fe-3bfe7f3a84b7@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: yisen.zhuang@huawei.com, mehta.salil.lnk@gmail.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linuxarm@huawei.com
+To: salil.mehta@huawei.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170330153106.14344-1-salil.mehta@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 3/30/17 7:53 PM, Wangnan (F) wrote:
-> I suggest using a CONFIG option to enable/disable code in
-> test_run.o to reduce attack plane.
+From: Salil Mehta <salil.mehta@huawei.com>
+Date: Thu, 30 Mar 2017 16:30:47 +0100
 
-attack plane? what attack do you see and how config helps?
+> This patch set introduces various HNS bug fixes, optimizations and code
+> improvements.
+
+There is no way you should do such an expensive calculation for every
+single transmit packet as you are doing in your select_queue() routine.
+
+That's really crazy.
+
+Just use the networking stack's queue selection scheme, or suggest
+ways to improve it.  Don't do private hashing like this in your
+driver, please!
