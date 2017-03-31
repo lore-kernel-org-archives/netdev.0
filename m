@@ -1,30 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ftgmac100: Mostly rewrite the driver
-Date: Fri, 31 Mar 2017 09:56:46 -0700 (PDT)
-Message-ID: <20170331.095646.169902967540298551.davem@davemloft.net>
-References: <1490834778.3177.197.camel@kernel.crashing.org>
-        <20170329.201517.300684629549047939.davem@davemloft.net>
-        <1490954367.3177.236.camel@kernel.crashing.org>
+Subject: Re: [PATCH] [net-next] stmmac: use
+ netif_set_real_num_{rx,tx}_queues
+Date: Fri, 31 Mar 2017 09:57:58 -0700 (PDT)
+Message-ID: <20170331.095758.1040487781113269007.davem@davemloft.net>
+References: <20170330.104832.599422532945133952.davem@davemloft.net>
+        <d262f8c8-28f4-d6f5-3c01-4bca114667dd@synopsys.com>
+        <5916d0ec-d427-08d2-908c-77667f6bf5cb@synopsys.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, netdev@vger.kernel.org
-To: benh@kernel.crashing.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44668 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933286AbdCaQ47 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 31 Mar 2017 12:56:59 -0400
-In-Reply-To: <1490954367.3177.236.camel@kernel.crashing.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: clabbe.montjoie@gmail.com, treding@nvidia.com, arnd@arndb.de,
+        peppe.cavallaro@st.com, alexandre.torgue@st.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Joao.Pinto@synopsys.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5916d0ec-d427-08d2-908c-77667f6bf5cb@synopsys.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Date: Fri, 31 Mar 2017 20:59:27 +1100
+From: Joao Pinto <Joao.Pinto@synopsys.com>
+Date: Fri, 31 Mar 2017 11:43:38 +0100
 
-> We're running some more testing tonight, if it's all solid I'll shoot
-> it out tomorrow or sunday. Dave, it's ok to just spam the list with a
-> 55 patches series like that ?
+> @David: Could you please create a branch in your git tree for us to work on it
+> until the multiple buffers get stable for everyone? This way the patches could
+> circulate in the mailing-list with a different target, like stmmac-next or similar.
+> 
+> What do you think?
 
-Please send about a dozen at a time, thank you.  Group them logically
-as best as you can.
+Sorry, I'm not going to do that.
