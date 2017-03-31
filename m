@@ -1,28 +1,23 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next v3 6/6] net: mpls: Increase max number of labels for lwt encap
-Date: Fri, 31 Mar 2017 07:14:04 -0700
-Message-ID: <1490969644-15499-7-git-send-email-dsa@cumulusnetworks.com>
+Subject: [PATCH net-next v3 4/6] net: mpls: Limit memory allocation for mpls_route
+Date: Fri, 31 Mar 2017 07:14:02 -0700
+Message-ID: <1490969644-15499-5-git-send-email-dsa@cumulusnetworks.com>
 References: <1490969644-15499-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: roopa@cumulusnetworks.com, rshearma@brocade.com,
         ebiederm@xmission.com, David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f41.google.com ([74.125.83.41]:35069 "EHLO
-        mail-pg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933204AbdCaOOR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 31 Mar 2017 10:14:17 -0400
-Received: by mail-pg0-f41.google.com with SMTP id 81so72530294pgh.2
-        for <netdev@vger.kernel.org>; Fri, 31 Mar 2017 07:14:16 -0700 (PDT)
+Received: from mail-pg0-f54.google.com ([74.125.83.54]:36855 "EHLO
+        mail-pg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754688AbdCaOOP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 31 Mar 2017 10:14:15 -0400
+Received: by mail-pg0-f54.google.com with SMTP id g2so71563660pge.3
+        for <netdev@vger.kernel.org>; Fri, 31 Mar 2017 07:14:14 -0700 (PDT)
 In-Reply-To: <1490969644-15499-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Alow users to push down more labels per MPLS encap. Similar to LSR case,
-move label array to the end of mpls_iptunnel_encap and allocate based on
-the number of labels for the route.
-
-For consistency with the LSR case, re-use the same maximum number of
-labels.
+Limit memory allocation size for mpls_route to 4096.
 
 Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
@@ -30,107 +25,82 @@ v3
 - no change
 
 v2
-- marked hole in mpls_iptunnel_encap as reserved1
+- new patch in v2 of set
 
- include/net/mpls_iptunnel.h |  5 ++---
- net/mpls/af_mpls.c          |  5 -----
- net/mpls/internal.h         |  5 +++++
- net/mpls/mpls_iptunnel.c    | 13 ++++++++++---
- 4 files changed, 17 insertions(+), 11 deletions(-)
+ net/mpls/af_mpls.c | 31 +++++++++++++++++++++----------
+ 1 file changed, 21 insertions(+), 10 deletions(-)
 
-diff --git a/include/net/mpls_iptunnel.h b/include/net/mpls_iptunnel.h
-index a18af6a16eb5..9d22bf67ac86 100644
---- a/include/net/mpls_iptunnel.h
-+++ b/include/net/mpls_iptunnel.h
-@@ -14,13 +14,12 @@
- #ifndef _NET_MPLS_IPTUNNEL_H
- #define _NET_MPLS_IPTUNNEL_H 1
- 
--#define MAX_NEW_LABELS 2
--
- struct mpls_iptunnel_encap {
--	u32	label[MAX_NEW_LABELS];
- 	u8	labels;
- 	u8	ttl_propagate;
- 	u8	default_ttl;
-+	u8	reserved1;
-+	u32	label[0];
- };
- 
- static inline struct mpls_iptunnel_encap *mpls_lwtunnel_encap(struct lwtunnel_state *lwtstate)
 diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
-index 2458d7ed2ab5..2da15dcb2675 100644
+index 1863b94133e4..f84c52b6eafc 100644
 --- a/net/mpls/af_mpls.c
 +++ b/net/mpls/af_mpls.c
-@@ -24,11 +24,6 @@
- #include <net/nexthop.h>
- #include "internal.h"
+@@ -26,6 +26,9 @@
  
--/* put a reasonable limit on the number of labels
-- * we will accept from userspace
-- */
--#define MAX_NEW_LABELS	30
--
- /* max memory we will use for mpls_route */
- #define MAX_MPLS_ROUTE_MEM	4096
+ #define MAX_NEW_LABELS 2
  
-diff --git a/net/mpls/internal.h b/net/mpls/internal.h
-index c5d2f5bc37ec..4db6a5971322 100644
---- a/net/mpls/internal.h
-+++ b/net/mpls/internal.h
-@@ -2,6 +2,11 @@
- #define MPLS_INTERNAL_H
- #include <net/mpls.h>
- 
-+/* put a reasonable limit on the number of labels
-+ * we will accept from userspace
-+ */
-+#define MAX_NEW_LABELS 30
++/* max memory we will use for mpls_route */
++#define MAX_MPLS_ROUTE_MEM	4096
 +
- struct mpls_entry_decoded {
- 	u32 label;
- 	u8 ttl;
-diff --git a/net/mpls/mpls_iptunnel.c b/net/mpls/mpls_iptunnel.c
-index 22f71fce0bfb..fe00e98667cf 100644
---- a/net/mpls/mpls_iptunnel.c
-+++ b/net/mpls/mpls_iptunnel.c
-@@ -164,6 +164,7 @@ static int mpls_build_state(struct nlattr *nla,
- 	struct mpls_iptunnel_encap *tun_encap_info;
- 	struct nlattr *tb[MPLS_IPTUNNEL_MAX + 1];
- 	struct lwtunnel_state *newts;
-+	u8 n_labels;
- 	int ret;
+ /* Maximum number of labels to look ahead at when selecting a path of
+  * a multipath route
+  */
+@@ -477,14 +480,20 @@ static struct mpls_route *mpls_rt_alloc(u8 num_nh, u8 max_alen, u8 max_labels)
+ {
+ 	u8 nh_size = MPLS_NH_SIZE(max_labels, max_alen);
+ 	struct mpls_route *rt;
++	size_t size;
  
- 	ret = nla_parse_nested(tb, MPLS_IPTUNNEL_MAX, nla,
-@@ -175,12 +176,18 @@ static int mpls_build_state(struct nlattr *nla,
- 		return -EINVAL;
- 
- 
--	newts = lwtunnel_state_alloc(sizeof(*tun_encap_info));
-+	/* determine number of labels */
-+	if (nla_get_labels(tb[MPLS_IPTUNNEL_DST],
-+			   MAX_NEW_LABELS, &n_labels, NULL))
-+		return -EINVAL;
+-	rt = kzalloc(sizeof(*rt) + num_nh * nh_size, GFP_KERNEL);
+-	if (rt) {
+-		rt->rt_nhn = num_nh;
+-		rt->rt_nhn_alive = num_nh;
+-		rt->rt_nh_size = nh_size;
+-		rt->rt_via_offset = MPLS_NH_VIA_OFF(max_labels);
+-	}
++	size = sizeof(*rt) + num_nh * nh_size;
++	if (size > MAX_MPLS_ROUTE_MEM)
++		return ERR_PTR(-EINVAL);
 +
-+	newts = lwtunnel_state_alloc(sizeof(*tun_encap_info) +
-+				     n_labels * sizeof(u32));
- 	if (!newts)
- 		return -ENOMEM;
++	rt = kzalloc(size, GFP_KERNEL);
++	if (!rt)
++		return ERR_PTR(-ENOMEM);
++
++	rt->rt_nhn = num_nh;
++	rt->rt_nhn_alive = num_nh;
++	rt->rt_nh_size = nh_size;
++	rt->rt_via_offset = MPLS_NH_VIA_OFF(max_labels);
  
- 	tun_encap_info = mpls_lwtunnel_encap(newts);
--	ret = nla_get_labels(tb[MPLS_IPTUNNEL_DST], MAX_NEW_LABELS,
-+	ret = nla_get_labels(tb[MPLS_IPTUNNEL_DST], n_labels,
- 			     &tun_encap_info->labels, tun_encap_info->label);
- 	if (ret)
+ 	return rt;
+ }
+@@ -898,8 +907,10 @@ static int mpls_route_add(struct mpls_route_config *cfg)
+ 
+ 	err = -ENOMEM;
+ 	rt = mpls_rt_alloc(nhs, max_via_alen, MAX_NEW_LABELS);
+-	if (!rt)
++	if (IS_ERR(rt)) {
++		err = PTR_ERR(rt);
  		goto errout;
-@@ -257,7 +264,7 @@ static int mpls_encap_cmp(struct lwtunnel_state *a, struct lwtunnel_state *b)
- 	    a_hdr->default_ttl != b_hdr->default_ttl)
- 		return 1;
++	}
  
--	for (l = 0; l < MAX_NEW_LABELS; l++)
-+	for (l = 0; l < a_hdr->labels; l++)
- 		if (a_hdr->label[l] != b_hdr->label[l])
- 			return 1;
- 	return 0;
+ 	rt->rt_protocol = cfg->rc_protocol;
+ 	rt->rt_payload_type = cfg->rc_payload_type;
+@@ -1970,7 +1981,7 @@ static int resize_platform_label_table(struct net *net, size_t limit)
+ 	if (limit > MPLS_LABEL_IPV4NULL) {
+ 		struct net_device *lo = net->loopback_dev;
+ 		rt0 = mpls_rt_alloc(1, lo->addr_len, MAX_NEW_LABELS);
+-		if (!rt0)
++		if (IS_ERR(rt0))
+ 			goto nort0;
+ 		RCU_INIT_POINTER(rt0->rt_nh->nh_dev, lo);
+ 		rt0->rt_protocol = RTPROT_KERNEL;
+@@ -1984,7 +1995,7 @@ static int resize_platform_label_table(struct net *net, size_t limit)
+ 	if (limit > MPLS_LABEL_IPV6NULL) {
+ 		struct net_device *lo = net->loopback_dev;
+ 		rt2 = mpls_rt_alloc(1, lo->addr_len, MAX_NEW_LABELS);
+-		if (!rt2)
++		if (IS_ERR(rt2))
+ 			goto nort2;
+ 		RCU_INIT_POINTER(rt2->rt_nh->nh_dev, lo);
+ 		rt2->rt_protocol = RTPROT_KERNEL;
 -- 
 2.1.4
