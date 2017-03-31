@@ -1,55 +1,45 @@
-From: Philippe Reynes <tremyfr-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] net: batman-adv: use new api
-	ethtool_{get|set}_link_ksettings
-Date: Fri, 31 Mar 2017 22:33:34 +0200
-Message-ID: <CAC=8w91DZHq4dKzUS=8w1fUvPG_CmT=HT3amQ15-iVgAV23fmQ@mail.gmail.com>
-References: <1490907687-11784-1-git-send-email-tremyfr@gmail.com>
- <5459529.jjAg0OrKDG@bentobox>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
- <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [PATCH net] ftgmac100: Mostly rewrite the driver
+Date: Sat, 01 Apr 2017 08:14:27 +1100
+Message-ID: <1490994867.3177.241.camel@kernel.crashing.org>
+References: <e019331d-7050-ca6d-7f27-73878e290f7a@gmail.com>
+         <1490821714.3177.189.camel@kernel.crashing.org>
+         <1490834778.3177.197.camel@kernel.crashing.org>
+         <20170329.201517.300684629549047939.davem@davemloft.net>
+         <1490954367.3177.236.camel@kernel.crashing.org>
+         <20170331135207.GG22609@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org, a@unstable.cc, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <5459529.jjAg0OrKDG@bentobox>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, f.fainelli@gmail.com,
+        netdev@vger.kernel.org
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gate.crashing.org ([63.228.1.57]:46373 "EHLO gate.crashing.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753430AbdCaVOz (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 31 Mar 2017 17:14:55 -0400
+In-Reply-To: <20170331135207.GG22609@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Sven,
+On Fri, 2017-03-31 at 15:52 +0200, Andrew Lunn wrote:
+> > We're running some more testing tonight, if it's all solid I'll shoot
+> > it out tomorrow or sunday. Dave, it's ok to just spam the list with a
+> > 55 patches series like that ?
+> 
+> Hi Ben
+> 
+> Is there a good reason to spam the list with 55 patches? The patches
+> should be incremental, so getting them reviewed and applied in batches
+> of 10 should not be a problem.
 
-On 3/31/17, Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org> wrote:
-> On Donnerstag, 30. M=C3=A4rz 2017 23:01:27 CEST Philippe Reynes wrote:
->> The ethtool api {get|set}_settings is deprecated.
->> We move this driver to new api {get|set}_link_ksettings.
->>
->> I've only compiled this change. If someone may test it,
->> it would be very nice.
->>
->> Signed-off-by: Philippe Reynes <tremyfr-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
->> ---
->>  net/batman-adv/soft-interface.c |   25 ++++++++++++-------------
->>  1 files changed, 12 insertions(+), 13 deletions(-)
->
-> Do you know if anyone already prepared the get_link_ksettings support for
-> kernels older than 4.6 for backports.git?
+They are incremental, but some of them are trivial and in the end
+it's the end result that matters but yes I could probably split some
+misc stuff, rx path, tx path, and more misc.
 
-Sorry, I don't know this repo. Do you have an url please ?
-But I suppose that nobody works on such backport.
+I found an issue with link down vs. pending tx packets last night
+so I need to fix that and test. I'll send things when that's done.
 
-> Kind regards,
-> 	Sven
-
-Regards,
-Philippe
+Cheers,
+Ben.
