@@ -1,48 +1,43 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next v2 9/9] net: dsa: mv88e6xxx: add cross-chip bridging
-Date: Fri, 31 Mar 2017 13:27:25 -0400
-Message-ID: <87mvc19x1e.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-References: <20170330213715.9666-1-vivien.didelot@savoirfairelinux.com> <20170330213715.9666-10-vivien.didelot@savoirfairelinux.com> <20170331163949.GI12814@lunn.ch> <87d1cxqtco.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me> <20170331170941.GL12814@lunn.ch>
+From: Steve deRosier <derosier@gmail.com>
+Subject: Re: [PATCH] ath6kl: Add __printf verification to ath6kl_dbg
+Date: Fri, 31 Mar 2017 10:34:53 -0700
+Message-ID: <CALLGbRJRstmGL-o2ds4SQ5hDNVBcfP23JnRt5qRrVg-ix-8Hiw@mail.gmail.com>
+References: <e4556e95a5935f591fdff67c6fb2f7ef5c7fd04f.1490914618.git.joe@perches.com>
+ <CALLGbR+szcYFdbdh_0qBS4B_X6YQvU6CDFpR-XZvc7p3zA+ZdQ@mail.gmail.com> <1490981039.27353.12.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset=UTF-8
+Cc: Kalle Valo <kvalo@qca.qualcomm.com>,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Joe Perches <joe@perches.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170331170941.GL12814@lunn.ch>
+In-Reply-To: <1490981039.27353.12.camel@perches.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Andrew,
+On Fri, Mar 31, 2017 at 10:23 AM, Joe Perches <joe@perches.com> wrote:
+> On Fri, 2017-03-31 at 10:19 -0700, Steve deRosier wrote:
+>> On Thu, Mar 30, 2017 at 3:57 PM, Joe Perches <joe@perches.com> wrote:
+>> > Fix fallout too.
+> []
+>> My only question is why bother doing a format check on something
+>> that's going to be compiled out anyway?
+>
+> To avoid introducing defects when writing new code
+> and not using the debugging code path.
+>
 
-Andrew Lunn <andrew@lunn.ch> writes:
+Fair enough. And I totally agree with the defensive programming here
+in that case and feel it's worth the tradeoff (if indeed there really
+is any cost, I'm unsure what gcc actually does in this instance).
 
-> I don't like the idea of leaking frames.
-
-I don't like it neither. That's why this patch series is out there. It
-improves the security on PVT-capable Marvell switches by programming the
-tables correctly on bridging events.
-
-A next step can be to warn the user about the software or hardware
-limitations (s)he is currently experiencing with something roughly like
-this in cross-chip bridging operations:
-
-    if (!mv88e6xxx_has_pvt(chip)) {
-    #if IS_ENABLED(BRIDGE_VLAN_FILTERING)
-        return 0;
-    #else
-        pr_err("Cross-chip bridging is forbidden on non-PVT hardware and
-               non-VLAN-filtering aware systems\n");
-        return -EINVAL;
-    #endif
-    }
-
-But let's keep it simple for the moment and go baby steps. First program
-PVT tables correctly as this patchset does, then figure out how to
-handle non-PVT systems. That is a good topic for next week ;-)
+For sake of discussion though - shouldn't anything not using the debug
+code path in this case always be of the form that compiles out? ie
+would be empty functions intended here just to make compilation work
+and the code that depends on it simpler? Thus, there really should
+never be a risk of introducing said defects. If any "real" code were
+put in that else clause, that'd be a big red-flag in the review of
+said hypothetical patch.
 
 Thanks,
-
-        Vivien
+- Steve
