@@ -1,7 +1,7 @@
 From: Salil Mehta <salil.mehta@huawei.com>
-Subject: [PATCH V3 net-next 10/18] net: hns: Remove the redundant adding and deleting mac function
-Date: Fri, 31 Mar 2017 18:48:44 +0100
-Message-ID: <20170331174852.13600-11-salil.mehta@huawei.com>
+Subject: [PATCH V3 net-next 16/18] net: hns: Adjust the SBM module buffer threshold
+Date: Fri, 31 Mar 2017 18:48:50 +0100
+Message-ID: <20170331174852.13600-17-salil.mehta@huawei.com>
 References: <20170331174852.13600-1-salil.mehta@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -17,186 +17,48 @@ List-Id: netdev.vger.kernel.org
 
 From: Kejian Yan <yankejian@huawei.com>
 
-The functions (hns_dsaf_set_mac_mc_entry() and hns_mac_del_mac()) are
-not called by any functions. They are dead code in hns. And the same
-features are implemented by the patch (the id is 66355f5).
+HNS needs SMB Buffers to store at least two packets after sending
+pause frame because of the link delay. The MTU of HNS is 9728. As
+the processor user manual described, the SBM buffer threshold should
+be modified.
 
-Reported-by: Weiwei Deng <dengweiwei@huawei.com>
+Reported-by: Ping Zhang <zhangping5@huawei.com>
 Signed-off-by: Kejian Yan <yankejian@huawei.com>
 Reviewed-by: Salil Mehta <salil.mehta@huawei.com>
 Signed-off-by: Salil Mehta <salil.mehta@huawei.com>
 ---
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c  | 38 ----------
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h  |  1 -
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c | 81 ----------------------
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h |  2 -
- 4 files changed, 122 deletions(-)
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
-index edf9a23..696f2ae 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
-@@ -332,44 +332,6 @@ int hns_mac_set_multi(struct hns_mac_cb *mac_cb,
- 	return 0;
- }
- 
--/**
-- *hns_mac_del_mac - delete mac address into dsaf table,can't delete the same
-- *                  address twice
-- *@net_dev: net device
-- *@vfn :   vf lan
-- *@mac : mac address
-- *return status
-- */
--int hns_mac_del_mac(struct hns_mac_cb *mac_cb, u32 vfn, char *mac)
--{
--	struct mac_entry_idx *old_mac;
--	struct dsaf_device *dsaf_dev;
--	u32 ret;
--
--	dsaf_dev = mac_cb->dsaf_dev;
--
--	if (vfn < DSAF_MAX_VM_NUM) {
--		old_mac = &mac_cb->addr_entry_idx[vfn];
--	} else {
--		dev_err(mac_cb->dev,
--			"vf queue is too large, %s mac%d queue = %#x!\n",
--			mac_cb->dsaf_dev->ae_dev.name, mac_cb->mac_id, vfn);
--		return -EINVAL;
--	}
--
--	if (dsaf_dev) {
--		ret = hns_dsaf_del_mac_entry(dsaf_dev, old_mac->vlan_id,
--					     mac_cb->mac_id, old_mac->addr);
--		if (ret)
--			return ret;
--
--		if (memcmp(old_mac->addr, mac, sizeof(old_mac->addr)) == 0)
--			old_mac->valid = 0;
--	}
--
--	return 0;
--}
--
- int hns_mac_clr_multicast(struct hns_mac_cb *mac_cb, int vfn)
- {
- 	struct dsaf_device *dsaf_dev = mac_cb->dsaf_dev;
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h
-index 7f14d91..e6842c9 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h
-@@ -436,7 +436,6 @@ int hns_mac_set_multi(struct hns_mac_cb *mac_cb,
- int hns_mac_vm_config_bc_en(struct hns_mac_cb *mac_cb, u32 vm, bool enable);
- void hns_mac_start(struct hns_mac_cb *mac_cb);
- void hns_mac_stop(struct hns_mac_cb *mac_cb);
--int hns_mac_del_mac(struct hns_mac_cb *mac_cb, u32 vfn, char *mac);
- void hns_mac_uninit(struct dsaf_device *dsaf_dev);
- void hns_mac_adjust_link(struct hns_mac_cb *mac_cb, int speed, int duplex);
- void hns_mac_reset(struct hns_mac_cb *mac_cb);
 diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-index 90dbda7..6a069ff 100644
+index abd8aec..d07b4fe 100644
 --- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
 +++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-@@ -1647,87 +1647,6 @@ int hns_dsaf_rm_mac_addr(
- 				      mac_entry->addr);
- }
+@@ -510,10 +510,10 @@ static void hns_dsafv2_sbm_bp_wl_cfg(struct dsaf_device *dsaf_dev)
+ 		o_sbm_bp_cfg = dsaf_read_dev(dsaf_dev, reg);
+ 		dsaf_set_field(o_sbm_bp_cfg,
+ 			       DSAFV2_SBM_CFG3_SET_BUF_NUM_NO_PFC_M,
+-			       DSAFV2_SBM_CFG3_SET_BUF_NUM_NO_PFC_S, 48);
++			       DSAFV2_SBM_CFG3_SET_BUF_NUM_NO_PFC_S, 55);
+ 		dsaf_set_field(o_sbm_bp_cfg,
+ 			       DSAFV2_SBM_CFG3_RESET_BUF_NUM_NO_PFC_M,
+-			       DSAFV2_SBM_CFG3_RESET_BUF_NUM_NO_PFC_S, 80);
++			       DSAFV2_SBM_CFG3_RESET_BUF_NUM_NO_PFC_S, 110);
+ 		dsaf_write_dev(dsaf_dev, reg, o_sbm_bp_cfg);
  
--/**
-- * hns_dsaf_set_mac_mc_entry - set mac mc-entry
-- * @dsaf_dev: dsa fabric device struct pointer
-- * @mac_entry: mc-mac entry
-- */
--int hns_dsaf_set_mac_mc_entry(
--	struct dsaf_device *dsaf_dev,
--	struct dsaf_drv_mac_multi_dest_entry *mac_entry)
--{
--	u16 entry_index = DSAF_INVALID_ENTRY_IDX;
--	struct dsaf_drv_tbl_tcam_key mac_key;
--	struct dsaf_tbl_tcam_mcast_cfg mac_data;
--	struct dsaf_drv_priv *priv =
--	    (struct dsaf_drv_priv *)hns_dsaf_dev_priv(dsaf_dev);
--	struct dsaf_drv_soft_mac_tbl *soft_mac_entry = priv->soft_mac_tbl;
--	struct dsaf_drv_tbl_tcam_key tmp_mac_key;
--	struct dsaf_tbl_tcam_data tcam_data;
--
--	/* mac addr check */
--	if (MAC_IS_ALL_ZEROS(mac_entry->addr)) {
--		dev_err(dsaf_dev->dev, "set uc %s Mac %pM err!\n",
--			dsaf_dev->ae_dev.name, mac_entry->addr);
--		return -EINVAL;
--	}
--
--	/*config key */
--	hns_dsaf_set_mac_key(dsaf_dev, &mac_key,
--			     mac_entry->in_vlan_id,
--			     mac_entry->in_port_num, mac_entry->addr);
--
--	/* entry ie exist? */
--	entry_index = hns_dsaf_find_soft_mac_entry(dsaf_dev, &mac_key);
--	if (entry_index == DSAF_INVALID_ENTRY_IDX) {
--		/*if hasnot, find enpty entry*/
--		entry_index = hns_dsaf_find_empty_mac_entry(dsaf_dev);
--		if (entry_index == DSAF_INVALID_ENTRY_IDX) {
--			/*if hasnot empty, error*/
--			dev_err(dsaf_dev->dev,
--				"set_uc_entry failed, %s Mac key(%#x:%#x)\n",
--				dsaf_dev->ae_dev.name,
--				mac_key.high.val, mac_key.low.val);
--			return -EINVAL;
--		}
--
--		/* config hardware entry */
--		memset(mac_data.tbl_mcast_port_msk,
--		       0, sizeof(mac_data.tbl_mcast_port_msk));
--	} else {
--		/* config hardware entry */
--		hns_dsaf_tcam_mc_get(dsaf_dev, entry_index, &tcam_data,
--				     &mac_data);
--
--		tmp_mac_key.high.val =
--			le32_to_cpu(tcam_data.tbl_tcam_data_high);
--		tmp_mac_key.low.val = le32_to_cpu(tcam_data.tbl_tcam_data_low);
--	}
--	mac_data.tbl_mcast_old_en = 0;
--	mac_data.tbl_mcast_item_vld = 1;
--	dsaf_set_field(mac_data.tbl_mcast_port_msk[0],
--		       0x3F, 0, mac_entry->port_mask[0]);
--
--	dev_dbg(dsaf_dev->dev,
--		"set_uc_entry, %s key(%#x:%#x) entry_index%d\n",
--		dsaf_dev->ae_dev.name, mac_key.high.val,
--		mac_key.low.val, entry_index);
--
--	tcam_data.tbl_tcam_data_high = cpu_to_le32(mac_key.high.val);
--	tcam_data.tbl_tcam_data_low = cpu_to_le32(mac_key.low.val);
--
--	hns_dsaf_tcam_mc_cfg(dsaf_dev, entry_index, &tcam_data, NULL,
--			     &mac_data);
--
--	/* config software entry */
--	soft_mac_entry += entry_index;
--	soft_mac_entry->index = entry_index;
--	soft_mac_entry->tcam_key.high.val = mac_key.high.val;
--	soft_mac_entry->tcam_key.low.val = mac_key.low.val;
--
--	return 0;
--}
--
- static void hns_dsaf_mc_mask_bit_clear(char *dst, const char *src)
- {
- 	u16 *a = (u16 *)dst;
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
-index cef6bf4..e2d71be 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
-@@ -429,8 +429,6 @@ static inline struct hnae_vf_cb *hns_ae_get_vf_cb(
+ 		/* for no enable pfc mode */
+@@ -521,10 +521,10 @@ static void hns_dsafv2_sbm_bp_wl_cfg(struct dsaf_device *dsaf_dev)
+ 		o_sbm_bp_cfg = dsaf_read_dev(dsaf_dev, reg);
+ 		dsaf_set_field(o_sbm_bp_cfg,
+ 			       DSAFV2_SBM_CFG4_SET_BUF_NUM_NO_PFC_M,
+-			       DSAFV2_SBM_CFG4_SET_BUF_NUM_NO_PFC_S, 192);
++			       DSAFV2_SBM_CFG4_SET_BUF_NUM_NO_PFC_S, 128);
+ 		dsaf_set_field(o_sbm_bp_cfg,
+ 			       DSAFV2_SBM_CFG4_RESET_BUF_NUM_NO_PFC_M,
+-			       DSAFV2_SBM_CFG4_RESET_BUF_NUM_NO_PFC_S, 240);
++			       DSAFV2_SBM_CFG4_RESET_BUF_NUM_NO_PFC_S, 192);
+ 		dsaf_write_dev(dsaf_dev, reg, o_sbm_bp_cfg);
+ 	}
  
- int hns_dsaf_set_mac_uc_entry(struct dsaf_device *dsaf_dev,
- 			      struct dsaf_drv_mac_single_dest_entry *mac_entry);
--int hns_dsaf_set_mac_mc_entry(struct dsaf_device *dsaf_dev,
--			      struct dsaf_drv_mac_multi_dest_entry *mac_entry);
- int hns_dsaf_add_mac_mc_port(struct dsaf_device *dsaf_dev,
- 			     struct dsaf_drv_mac_single_dest_entry *mac_entry);
- int hns_dsaf_del_mac_entry(struct dsaf_device *dsaf_dev, u16 vlan_id,
 -- 
 2.7.4
