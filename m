@@ -1,7 +1,7 @@
 From: Salil Mehta <salil.mehta@huawei.com>
-Subject: [PATCH V3 net-next 12/18] net: hns: Remove redundant mac table operations
-Date: Fri, 31 Mar 2017 18:48:46 +0100
-Message-ID: <20170331174852.13600-13-salil.mehta@huawei.com>
+Subject: [PATCH V3 net-next 13/18] net: hns: Clean redundant code from hns_mdio.c file
+Date: Fri, 31 Mar 2017 18:48:47 +0100
+Message-ID: <20170331174852.13600-14-salil.mehta@huawei.com>
 References: <20170331174852.13600-1-salil.mehta@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -17,214 +17,47 @@ List-Id: netdev.vger.kernel.org
 
 From: Kejian Yan <yankejian@huawei.com>
 
-This patch removes redundant functions used only for debugging
-purposes.
+This patch cleans the redundant code from  hns_mdio.c.
 
-Reported-by: Weiwei Deng <dengweiwei@huawei.com>
+Reported-by: Ping Zhang <zhangping5@huawei.com>
 Signed-off-by: Kejian Yan <yankejian@huawei.com>
 Reviewed-by: Salil Mehta <salil.mehta@huawei.com>
 Signed-off-by: Salil Mehta <salil.mehta@huawei.com>
 ---
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c | 160 ---------------------
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h |  10 --
- 2 files changed, 170 deletions(-)
+ drivers/net/ethernet/hisilicon/hns_mdio.c | 10 ----------
+ 1 file changed, 10 deletions(-)
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-index 6a069ff..abd8aec 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-@@ -2008,166 +2008,6 @@ int hns_dsaf_clr_mac_mc_port(struct dsaf_device *dsaf_dev, u8 mac_id,
- 	return ret;
- }
+diff --git a/drivers/net/ethernet/hisilicon/hns_mdio.c b/drivers/net/ethernet/hisilicon/hns_mdio.c
+index 501eb20..fad1c5b 100644
+--- a/drivers/net/ethernet/hisilicon/hns_mdio.c
++++ b/drivers/net/ethernet/hisilicon/hns_mdio.c
+@@ -23,17 +23,9 @@
+ #include <linux/phy.h>
+ #include <linux/platform_device.h>
+ #include <linux/regmap.h>
+-#include <linux/spinlock_types.h>
  
--/**
-- * hns_dsaf_get_mac_uc_entry - get mac uc entry
-- * @dsaf_dev: dsa fabric device struct pointer
-- * @mac_entry: mac entry
-- */
--int hns_dsaf_get_mac_uc_entry(struct dsaf_device *dsaf_dev,
--			      struct dsaf_drv_mac_single_dest_entry *mac_entry)
--{
--	u16 entry_index = DSAF_INVALID_ENTRY_IDX;
--	struct dsaf_drv_tbl_tcam_key mac_key;
+ #define MDIO_DRV_NAME "Hi-HNS_MDIO"
+ #define MDIO_BUS_NAME "Hisilicon MII Bus"
+-#define MDIO_DRV_VERSION "1.3.0"
+-#define MDIO_COPYRIGHT "Copyright(c) 2015 Huawei Corporation."
+-#define MDIO_DRV_STRING MDIO_BUS_NAME
+-#define MDIO_DEFAULT_DEVICE_DESCR MDIO_BUS_NAME
 -
--	struct dsaf_tbl_tcam_ucast_cfg mac_data;
--	struct dsaf_tbl_tcam_data tcam_data;
--
--	/* check macaddr */
--	if (MAC_IS_ALL_ZEROS(mac_entry->addr) ||
--	    MAC_IS_BROADCAST(mac_entry->addr)) {
--		dev_err(dsaf_dev->dev, "get_entry failed,addr %pM\n",
--			mac_entry->addr);
--		return -EINVAL;
--	}
--
--	/*config key */
--	hns_dsaf_set_mac_key(dsaf_dev, &mac_key, mac_entry->in_vlan_id,
--			     mac_entry->in_port_num, mac_entry->addr);
--
--	/*check exist? */
--	entry_index = hns_dsaf_find_soft_mac_entry(dsaf_dev, &mac_key);
--	if (entry_index == DSAF_INVALID_ENTRY_IDX) {
--		/*find none, error */
--		dev_err(dsaf_dev->dev,
--			"get_uc_entry failed, %s Mac key(%#x:%#x)\n",
--			dsaf_dev->ae_dev.name,
--			mac_key.high.val, mac_key.low.val);
--		return -EINVAL;
--	}
--	dev_dbg(dsaf_dev->dev,
--		"get_uc_entry, %s Mac key(%#x:%#x) entry_index%d\n",
--		dsaf_dev->ae_dev.name, mac_key.high.val,
--		mac_key.low.val, entry_index);
--
--	/* read entry */
--	hns_dsaf_tcam_uc_get(dsaf_dev, entry_index, &tcam_data, &mac_data);
--
--	mac_key.high.val = le32_to_cpu(tcam_data.tbl_tcam_data_high);
--	mac_key.low.val = le32_to_cpu(tcam_data.tbl_tcam_data_low);
--
--	mac_entry->port_num = mac_data.tbl_ucast_out_port;
--
--	return 0;
--}
--
--/**
-- * hns_dsaf_get_mac_mc_entry - get mac mc entry
-- * @dsaf_dev: dsa fabric device struct pointer
-- * @mac_entry: mac entry
-- */
--int hns_dsaf_get_mac_mc_entry(struct dsaf_device *dsaf_dev,
--			      struct dsaf_drv_mac_multi_dest_entry *mac_entry)
--{
--	u16 entry_index = DSAF_INVALID_ENTRY_IDX;
--	struct dsaf_drv_tbl_tcam_key mac_key;
--
--	struct dsaf_tbl_tcam_mcast_cfg mac_data;
--	struct dsaf_tbl_tcam_data tcam_data;
--
--	/*check mac addr */
--	if (MAC_IS_ALL_ZEROS(mac_entry->addr) ||
--	    MAC_IS_BROADCAST(mac_entry->addr)) {
--		dev_err(dsaf_dev->dev, "get_entry failed,addr %pM\n",
--			mac_entry->addr);
--		return -EINVAL;
--	}
--
--	/*config key */
--	hns_dsaf_set_mac_key(dsaf_dev, &mac_key, mac_entry->in_vlan_id,
--			     mac_entry->in_port_num, mac_entry->addr);
--
--	/*check exist? */
--	entry_index = hns_dsaf_find_soft_mac_entry(dsaf_dev, &mac_key);
--	if (entry_index == DSAF_INVALID_ENTRY_IDX) {
--		/* find none, error */
--		dev_err(dsaf_dev->dev,
--			"get_mac_uc_entry failed, %s Mac key(%#x:%#x)\n",
--			dsaf_dev->ae_dev.name, mac_key.high.val,
--			mac_key.low.val);
--		return -EINVAL;
--	}
--	dev_dbg(dsaf_dev->dev,
--		"get_mac_uc_entry, %s Mac key(%#x:%#x) entry_index%d\n",
--		dsaf_dev->ae_dev.name, mac_key.high.val,
--		mac_key.low.val, entry_index);
--
--	/*read entry */
--	hns_dsaf_tcam_mc_get(dsaf_dev, entry_index, &tcam_data, &mac_data);
--
--	mac_key.high.val = le32_to_cpu(tcam_data.tbl_tcam_data_high);
--	mac_key.low.val = le32_to_cpu(tcam_data.tbl_tcam_data_low);
--
--	mac_entry->port_mask[0] = mac_data.tbl_mcast_port_msk[0] & 0x3F;
--	return 0;
--}
--
--/**
-- * hns_dsaf_get_mac_entry_by_index - get mac entry by tab index
-- * @dsaf_dev: dsa fabric device struct pointer
-- * @entry_index: tab entry index
-- * @mac_entry: mac entry
-- */
--int hns_dsaf_get_mac_entry_by_index(
--	struct dsaf_device *dsaf_dev,
--	u16 entry_index, struct dsaf_drv_mac_multi_dest_entry *mac_entry)
--{
--	struct dsaf_drv_tbl_tcam_key mac_key;
--
--	struct dsaf_tbl_tcam_mcast_cfg mac_data;
--	struct dsaf_tbl_tcam_ucast_cfg mac_uc_data;
--	struct dsaf_tbl_tcam_data tcam_data;
--	char mac_addr[ETH_ALEN] = {0};
--
--	if (entry_index >= dsaf_dev->tcam_max_num) {
--		/* find none, del error */
--		dev_err(dsaf_dev->dev, "get_uc_entry failed, %s\n",
--			dsaf_dev->ae_dev.name);
--		return -EINVAL;
--	}
--
--	/* mc entry, do read opt */
--	hns_dsaf_tcam_mc_get(dsaf_dev, entry_index, &tcam_data, &mac_data);
--
--	mac_key.high.val = le32_to_cpu(tcam_data.tbl_tcam_data_high);
--	mac_key.low.val = le32_to_cpu(tcam_data.tbl_tcam_data_low);
--
--	mac_entry->port_mask[0] = mac_data.tbl_mcast_port_msk[0] & 0x3F;
--
--	/***get mac addr*/
--	mac_addr[0] = mac_key.high.bits.mac_0;
--	mac_addr[1] = mac_key.high.bits.mac_1;
--	mac_addr[2] = mac_key.high.bits.mac_2;
--	mac_addr[3] = mac_key.high.bits.mac_3;
--	mac_addr[4] = mac_key.low.bits.mac_4;
--	mac_addr[5] = mac_key.low.bits.mac_5;
--	/**is mc or uc*/
--	if (MAC_IS_MULTICAST((u8 *)mac_addr) ||
--	    MAC_IS_L3_MULTICAST((u8 *)mac_addr)) {
--		/**mc donot do*/
--	} else {
--		/*is not mc, just uc... */
--		hns_dsaf_tcam_uc_get(dsaf_dev, entry_index, &tcam_data,
--				     &mac_uc_data);
--
--		mac_key.high.val = le32_to_cpu(tcam_data.tbl_tcam_data_high);
--		mac_key.low.val = le32_to_cpu(tcam_data.tbl_tcam_data_low);
--
--		mac_entry->port_mask[0] = (1 << mac_uc_data.tbl_ucast_out_port);
--	}
--
--	return 0;
--}
--
- static struct dsaf_device *hns_dsaf_alloc_dev(struct device *dev,
- 					      size_t sizeof_priv)
- {
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
-index e2d71be..4db02e2 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
-@@ -435,15 +435,6 @@ int hns_dsaf_del_mac_entry(struct dsaf_device *dsaf_dev, u16 vlan_id,
- 			   u8 in_port_num, u8 *addr);
- int hns_dsaf_del_mac_mc_port(struct dsaf_device *dsaf_dev,
- 			     struct dsaf_drv_mac_single_dest_entry *mac_entry);
--int hns_dsaf_get_mac_uc_entry(struct dsaf_device *dsaf_dev,
--			      struct dsaf_drv_mac_single_dest_entry *mac_entry);
--int hns_dsaf_get_mac_mc_entry(struct dsaf_device *dsaf_dev,
--			      struct dsaf_drv_mac_multi_dest_entry *mac_entry);
--int hns_dsaf_get_mac_entry_by_index(
--	struct dsaf_device *dsaf_dev,
--	u16 entry_index,
--	struct dsaf_drv_mac_multi_dest_entry *mac_entry);
--
- void hns_dsaf_fix_mac_mode(struct hns_mac_cb *mac_cb);
+-#define MDIO_CTL_DEV_ADDR(x)	(x & 0x1f)
+-#define MDIO_CTL_PORT_ADDR(x)	((x & 0x1f) << 5)
  
- int hns_dsaf_ae_init(struct dsaf_device *dsaf_dev);
-@@ -473,5 +464,4 @@ int hns_dsaf_rm_mac_addr(
- int hns_dsaf_clr_mac_mc_port(struct dsaf_device *dsaf_dev,
- 			     u8 mac_id, u8 port_num);
+ #define MDIO_TIMEOUT			1000000
  
--
- #endif /* __HNS_DSAF_MAIN_H__ */
+@@ -64,9 +56,7 @@ struct hns_mdio_device {
+ #define MDIO_CMD_DEVAD_S	0
+ #define MDIO_CMD_PRTAD_M	0x1f
+ #define MDIO_CMD_PRTAD_S	5
+-#define MDIO_CMD_OP_M		0x3
+ #define MDIO_CMD_OP_S		10
+-#define MDIO_CMD_ST_M		0x3
+ #define MDIO_CMD_ST_S		12
+ #define MDIO_CMD_START_B	14
+ 
 -- 
 2.7.4
