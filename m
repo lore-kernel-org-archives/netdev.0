@@ -1,7 +1,7 @@
 From: Salil Mehta <salil.mehta@huawei.com>
-Subject: [PATCH V2 net-next 10/18] net: hns: Remove the redundant adding and deleting mac function
-Date: Fri, 31 Mar 2017 12:20:24 +0100
-Message-ID: <20170331112032.4692-11-salil.mehta@huawei.com>
+Subject: [PATCH V2 net-next 11/18] net: hns: Remove redundant mac_get_id()
+Date: Fri, 31 Mar 2017 12:20:25 +0100
+Message-ID: <20170331112032.4692-12-salil.mehta@huawei.com>
 References: <20170331112032.4692-1-salil.mehta@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -17,186 +17,88 @@ List-Id: netdev.vger.kernel.org
 
 From: Kejian Yan <yankejian@huawei.com>
 
-The functions (hns_dsaf_set_mac_mc_entry() and hns_mac_del_mac()) are
-not called by any functions. They are dead code in hns. And the same
-features are implemented by the patch (the id is 66355f5).
+There is a mac_id in mac control block structure, so the callback
+function mac_get_id() is useless. Here we remove this function.
 
 Reported-by: Weiwei Deng <dengweiwei@huawei.com>
 Signed-off-by: Kejian Yan <yankejian@huawei.com>
 Reviewed-by: Salil Mehta <salil.mehta@huawei.com>
 Signed-off-by: Salil Mehta <salil.mehta@huawei.com>
 ---
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c  | 38 ----------
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h  |  1 -
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c | 81 ----------------------
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h |  2 -
- 4 files changed, 122 deletions(-)
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c  |  8 --------
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h   |  2 --
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_xgmac.c | 13 -------------
+ 3 files changed, 23 deletions(-)
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
-index edf9a23..696f2ae 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
-@@ -332,44 +332,6 @@ int hns_mac_set_multi(struct hns_mac_cb *mac_cb,
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c
+index 723f3ae..035db86 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c
+@@ -466,13 +466,6 @@ static int hns_gmac_config_loopback(void *mac_drv, enum hnae_loop loop_mode,
  	return 0;
  }
  
--/**
-- *hns_mac_del_mac - delete mac address into dsaf table,can't delete the same
-- *                  address twice
-- *@net_dev: net device
-- *@vfn :   vf lan
-- *@mac : mac address
-- *return status
-- */
--int hns_mac_del_mac(struct hns_mac_cb *mac_cb, u32 vfn, char *mac)
+-static void hns_gmac_get_id(void *mac_drv, u8 *mac_id)
 -{
--	struct mac_entry_idx *old_mac;
--	struct dsaf_device *dsaf_dev;
--	u32 ret;
+-	struct mac_driver *drv = (struct mac_driver *)mac_drv;
 -
--	dsaf_dev = mac_cb->dsaf_dev;
--
--	if (vfn < DSAF_MAX_VM_NUM) {
--		old_mac = &mac_cb->addr_entry_idx[vfn];
--	} else {
--		dev_err(mac_cb->dev,
--			"vf queue is too large, %s mac%d queue = %#x!\n",
--			mac_cb->dsaf_dev->ae_dev.name, mac_cb->mac_id, vfn);
--		return -EINVAL;
--	}
--
--	if (dsaf_dev) {
--		ret = hns_dsaf_del_mac_entry(dsaf_dev, old_mac->vlan_id,
--					     mac_cb->mac_id, old_mac->addr);
--		if (ret)
--			return ret;
--
--		if (memcmp(old_mac->addr, mac, sizeof(old_mac->addr)) == 0)
--			old_mac->valid = 0;
--	}
--
--	return 0;
+-	*mac_id = drv->mac_id;
 -}
 -
- int hns_mac_clr_multicast(struct hns_mac_cb *mac_cb, int vfn)
+ static void hns_gmac_get_info(void *mac_drv, struct mac_info *mac_info)
  {
- 	struct dsaf_device *dsaf_dev = mac_cb->dsaf_dev;
+ 	enum hns_gmac_duplex_mdoe duplex;
+@@ -714,7 +707,6 @@ void *hns_gmac_config(struct hns_mac_cb *mac_cb, struct mac_params *mac_param)
+ 	mac_drv->config_pad_and_crc = hns_gmac_config_pad_and_crc;
+ 	mac_drv->config_half_duplex = hns_gmac_set_duplex_type;
+ 	mac_drv->set_rx_ignore_pause_frames = hns_gmac_set_rx_auto_pause_frames;
+-	mac_drv->mac_get_id = hns_gmac_get_id;
+ 	mac_drv->get_info = hns_gmac_get_info;
+ 	mac_drv->autoneg_stat = hns_gmac_autoneg_stat;
+ 	mac_drv->get_pause_enable = hns_gmac_get_pausefrm_cfg;
 diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h
-index 7f14d91..e6842c9 100644
+index e6842c9..24dfba5 100644
 --- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h
 +++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h
-@@ -436,7 +436,6 @@ int hns_mac_set_multi(struct hns_mac_cb *mac_cb,
- int hns_mac_vm_config_bc_en(struct hns_mac_cb *mac_cb, u32 vm, bool enable);
- void hns_mac_start(struct hns_mac_cb *mac_cb);
- void hns_mac_stop(struct hns_mac_cb *mac_cb);
--int hns_mac_del_mac(struct hns_mac_cb *mac_cb, u32 vfn, char *mac);
- void hns_mac_uninit(struct dsaf_device *dsaf_dev);
- void hns_mac_adjust_link(struct hns_mac_cb *mac_cb, int speed, int duplex);
- void hns_mac_reset(struct hns_mac_cb *mac_cb);
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-index 90dbda7..6a069ff 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-@@ -1647,87 +1647,6 @@ int hns_dsaf_rm_mac_addr(
- 				      mac_entry->addr);
+@@ -373,8 +373,6 @@ struct mac_driver {
+ 	void (*set_rx_ignore_pause_frames)(void *mac_drv, u32 enable);
+ 	/* config rx mode for promiscuous*/
+ 	void (*set_promiscuous)(void *mac_drv, u8 enable);
+-	/* get mac id */
+-	void (*mac_get_id)(void *mac_drv, u8 *mac_id);
+ 	void (*mac_pausefrm_cfg)(void *mac_drv, u32 rx_en, u32 tx_en);
+ 
+ 	void (*autoneg_stat)(void *mac_drv, u32 *enable);
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_xgmac.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_xgmac.c
+index aae830a..37a2fc3 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_xgmac.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_xgmac.c
+@@ -300,18 +300,6 @@ static void hns_xgmac_set_tx_auto_pause_frames(void *mac_drv, u16 enable)
  }
  
--/**
-- * hns_dsaf_set_mac_mc_entry - set mac mc-entry
-- * @dsaf_dev: dsa fabric device struct pointer
-- * @mac_entry: mc-mac entry
+ /**
+- *hns_xgmac_get_id - get xgmac port id
+- *@mac_drv: mac driver
+- *@newval:xgmac max frame length
 - */
--int hns_dsaf_set_mac_mc_entry(
--	struct dsaf_device *dsaf_dev,
--	struct dsaf_drv_mac_multi_dest_entry *mac_entry)
+-static void hns_xgmac_get_id(void *mac_drv, u8 *mac_id)
 -{
--	u16 entry_index = DSAF_INVALID_ENTRY_IDX;
--	struct dsaf_drv_tbl_tcam_key mac_key;
--	struct dsaf_tbl_tcam_mcast_cfg mac_data;
--	struct dsaf_drv_priv *priv =
--	    (struct dsaf_drv_priv *)hns_dsaf_dev_priv(dsaf_dev);
--	struct dsaf_drv_soft_mac_tbl *soft_mac_entry = priv->soft_mac_tbl;
--	struct dsaf_drv_tbl_tcam_key tmp_mac_key;
--	struct dsaf_tbl_tcam_data tcam_data;
+-	struct mac_driver *drv = (struct mac_driver *)mac_drv;
 -
--	/* mac addr check */
--	if (MAC_IS_ALL_ZEROS(mac_entry->addr)) {
--		dev_err(dsaf_dev->dev, "set uc %s Mac %pM err!\n",
--			dsaf_dev->ae_dev.name, mac_entry->addr);
--		return -EINVAL;
--	}
--
--	/*config key */
--	hns_dsaf_set_mac_key(dsaf_dev, &mac_key,
--			     mac_entry->in_vlan_id,
--			     mac_entry->in_port_num, mac_entry->addr);
--
--	/* entry ie exist? */
--	entry_index = hns_dsaf_find_soft_mac_entry(dsaf_dev, &mac_key);
--	if (entry_index == DSAF_INVALID_ENTRY_IDX) {
--		/*if hasnot, find enpty entry*/
--		entry_index = hns_dsaf_find_empty_mac_entry(dsaf_dev);
--		if (entry_index == DSAF_INVALID_ENTRY_IDX) {
--			/*if hasnot empty, error*/
--			dev_err(dsaf_dev->dev,
--				"set_uc_entry failed, %s Mac key(%#x:%#x)\n",
--				dsaf_dev->ae_dev.name,
--				mac_key.high.val, mac_key.low.val);
--			return -EINVAL;
--		}
--
--		/* config hardware entry */
--		memset(mac_data.tbl_mcast_port_msk,
--		       0, sizeof(mac_data.tbl_mcast_port_msk));
--	} else {
--		/* config hardware entry */
--		hns_dsaf_tcam_mc_get(dsaf_dev, entry_index, &tcam_data,
--				     &mac_data);
--
--		tmp_mac_key.high.val =
--			le32_to_cpu(tcam_data.tbl_tcam_data_high);
--		tmp_mac_key.low.val = le32_to_cpu(tcam_data.tbl_tcam_data_low);
--	}
--	mac_data.tbl_mcast_old_en = 0;
--	mac_data.tbl_mcast_item_vld = 1;
--	dsaf_set_field(mac_data.tbl_mcast_port_msk[0],
--		       0x3F, 0, mac_entry->port_mask[0]);
--
--	dev_dbg(dsaf_dev->dev,
--		"set_uc_entry, %s key(%#x:%#x) entry_index%d\n",
--		dsaf_dev->ae_dev.name, mac_key.high.val,
--		mac_key.low.val, entry_index);
--
--	tcam_data.tbl_tcam_data_high = cpu_to_le32(mac_key.high.val);
--	tcam_data.tbl_tcam_data_low = cpu_to_le32(mac_key.low.val);
--
--	hns_dsaf_tcam_mc_cfg(dsaf_dev, entry_index, &tcam_data, NULL,
--			     &mac_data);
--
--	/* config software entry */
--	soft_mac_entry += entry_index;
--	soft_mac_entry->index = entry_index;
--	soft_mac_entry->tcam_key.high.val = mac_key.high.val;
--	soft_mac_entry->tcam_key.low.val = mac_key.low.val;
--
--	return 0;
+-	*mac_id = drv->mac_id;
 -}
 -
- static void hns_dsaf_mc_mask_bit_clear(char *dst, const char *src)
- {
- 	u16 *a = (u16 *)dst;
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
-index cef6bf4..e2d71be 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
-@@ -429,8 +429,6 @@ static inline struct hnae_vf_cb *hns_ae_get_vf_cb(
- 
- int hns_dsaf_set_mac_uc_entry(struct dsaf_device *dsaf_dev,
- 			      struct dsaf_drv_mac_single_dest_entry *mac_entry);
--int hns_dsaf_set_mac_mc_entry(struct dsaf_device *dsaf_dev,
--			      struct dsaf_drv_mac_multi_dest_entry *mac_entry);
- int hns_dsaf_add_mac_mc_port(struct dsaf_device *dsaf_dev,
- 			     struct dsaf_drv_mac_single_dest_entry *mac_entry);
- int hns_dsaf_del_mac_entry(struct dsaf_device *dsaf_dev, u16 vlan_id,
+-/**
+  *hns_xgmac_config_max_frame_length - set xgmac max frame length
+  *@mac_drv: mac driver
+  *@newval:xgmac max frame length
+@@ -833,7 +821,6 @@ void *hns_xgmac_config(struct hns_mac_cb *mac_cb, struct mac_params *mac_param)
+ 	mac_drv->config_half_duplex = NULL;
+ 	mac_drv->set_rx_ignore_pause_frames =
+ 		hns_xgmac_set_rx_ignore_pause_frames;
+-	mac_drv->mac_get_id = hns_xgmac_get_id;
+ 	mac_drv->mac_free = hns_xgmac_free;
+ 	mac_drv->adjust_link = NULL;
+ 	mac_drv->set_tx_auto_pause_frames = hns_xgmac_set_tx_auto_pause_frames;
 -- 
 2.7.4
