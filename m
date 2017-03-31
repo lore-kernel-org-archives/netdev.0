@@ -1,54 +1,107 @@
-From: Roger Quadros <rogerq@ti.com>
-Subject: Re: [PATCH v3 1/2] net: phy: Fix PHY AN done state machine for
- interrupt driven PHYs
-Date: Fri, 31 Mar 2017 12:19:57 +0300
-Message-ID: <b4a3eec9-a5a2-bbec-1cb2-917edfdca705@ti.com>
-References: <1490180524-28675-1-git-send-email-rogerq@ti.com>
- <1490180524-28675-2-git-send-email-rogerq@ti.com>
- <078917ad-77a1-a722-1688-6203ae183a46@ti.com>
- <d536d55f-8f13-59f9-ca85-04f6ca88c811@gmail.com>
+From: Jukka Rissanen <jukka.rissanen@linux.intel.com>
+Subject: Re: [PATCH] bluetooth: 6lowpan: fix use after free in
+ chan_suspend/resume
+Date: Fri, 31 Mar 2017 12:35:07 +0300
+Message-ID: <1490952907.4892.12.camel@linux.intel.com>
+References: <20170329061018.4243-1-michael.scott@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: <andrew@lunn.ch>, <davem@davemloft.net>, <kyle.roeschley@ni.com>,
-        <nsekhar@ti.com>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>,
-        "stable # v4 . 9+" <stable@vger.kernel.org>,
-        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-To: Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: "David S . Miller" <davem@davemloft.net>,
+        linux-bluetooth@vger.kernel.org, linux-wpan@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Michael Scott <michael.scott@linaro.org>,
+        Marcel Holtmann <marcel@holtmann.org>,
+        Gustavo Padovan <gustavo@padovan.org>,
+        Johan Hedberg <johan.hedberg@gmail.com>,
+        Luiz Augusto von Dentz <luiz.dentz@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <d536d55f-8f13-59f9-ca85-04f6ca88c811@gmail.com>
+In-Reply-To: <20170329061018.4243-1-michael.scott@linaro.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Florian,
+Hi Michael,
 
-On 30/03/17 23:02, Florian Fainelli wrote:
-> On 03/27/2017 04:59 AM, Roger Quadros wrote:
->> The Ethernet link on an interrupt driven PHY was not coming up if the
->> Ethernet cable was plugged before the Ethernet interface was brought up.
->>
->> The PHY state machine seems to be stuck from RUNNING to AN state
->> with no new interrupts from the PHY. So it doesn't know when the
->> PHY Auto-negotiation has been completed and doesn't transition to RUNNING
->> state with ANEG done thus netif_carrier_on() is never called.
->>
->> NOTE: genphy_config_aneg() will not restart PHY Auto-negotiation of
->> advertisement parameters didn't change.
->>
->> Fix this by scheduling the PHY state machine in phy_start_aneg().
->> There is no way of knowing in phy.c whether auto-negotiation was
->> restarted or not by the PHY driver so we just wait for the next
->> poll/interrupt to update the PHY state machine.
->>
->> Fixes: 3c293f4e08b5 ("net: phy: Trigger state machine on state change and not polling.")
->> Cc: stable <stable@vger.kernel.org> # v4.9+
->> Signed-off-by: Roger Quadros <rogerq@ti.com>
+On Tue, 2017-03-28 at 23:10 -0700, Michael Scott wrote:
+> A status field in the skb_cb struct was storing a channel status
+> based on channel suspend/resume events.  This stored status was
+> then used to return EAGAIN if there were packet sending issues
+> in snd_pkt().
 > 
-> Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+> The issue is that the skb has been freed by the time the callback
+> to 6lowpan's suspend/resume was called.  So, this generates a
+> "use after free" issue that was noticed while running kernel tests
+> with KASAN debug enabled.
 > 
-Thanks for the review, but there are a still few unanswered questions in the parallel thread.
-Can you please clarify those first before this patch gets picked? Thanks.
+> Let's eliminate the status field entirely as we can use the channel
+> tx_credits to indicate whether we should return EAGAIN when handling
+> packets.
+> 
+> Signed-off-by: Michael Scott <michael.scott@linaro.org>
+> ---
+>  net/bluetooth/6lowpan.c | 21 +++------------------
+>  1 file changed, 3 insertions(+), 18 deletions(-)
+> 
+> diff --git a/net/bluetooth/6lowpan.c b/net/bluetooth/6lowpan.c
+> index d491529332f4..e27be3ca0a0c 100644
+> --- a/net/bluetooth/6lowpan.c
+> +++ b/net/bluetooth/6lowpan.c
+> @@ -38,7 +38,6 @@ struct skb_cb {
+>  	struct in6_addr addr;
+>  	struct in6_addr gw;
+>  	struct l2cap_chan *chan;
+> -	int status;
+>  };
+>  #define lowpan_cb(skb) ((struct skb_cb *)((skb)->cb))
+>  
+> @@ -528,7 +527,7 @@ static int send_pkt(struct l2cap_chan *chan,
+> struct sk_buff *skb,
+>  	}
+>  
+>  	if (!err)
+> -		err = lowpan_cb(skb)->status;
+> +		err = (!chan->tx_credits ? -EAGAIN : 0);
+>  
+>  	if (err < 0) {
+>  		if (err == -EAGAIN)
+> @@ -964,26 +963,12 @@ static struct sk_buff *chan_alloc_skb_cb(struct
+> l2cap_chan *chan,
+>  
+>  static void chan_suspend_cb(struct l2cap_chan *chan)
+>  {
+> -	struct sk_buff *skb = chan->data;
+> -
+> -	BT_DBG("chan %p conn %p skb %p", chan, chan->conn, skb);
+> -
+> -	if (!skb)
+> -		return;
+> -
+> -	lowpan_cb(skb)->status = -EAGAIN;
+> +	BT_DBG("chan %p suspend", chan);
+>  }
+>  
+>  static void chan_resume_cb(struct l2cap_chan *chan)
+>  {
+> -	struct sk_buff *skb = chan->data;
+> -
+> -	BT_DBG("chan %p conn %p skb %p", chan, chan->conn, skb);
+> -
+> -	if (!skb)
+> -		return;
+> -
+> -	lowpan_cb(skb)->status = 0;
+> +	BT_DBG("chan %p resume", chan);
+>  }
+>  
+>  static long chan_get_sndtimeo_cb(struct l2cap_chan *chan)
 
-cheers,
--roger
+Good catch! If we can avoid using the status variable, that is very
+good. We could probably also remove the resume and suspend callbacks as
+they are now empty functions (unless we need the debug info for
+something).
+
+Acked-by: Jukka Rissanen <jukka.rissanen@linux.intel.com>
+
+
+Cheers,
+Jukka
