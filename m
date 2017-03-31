@@ -1,44 +1,30 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next v2 9/9] net: dsa: mv88e6xxx: add cross-chip bridging
-Date: Fri, 31 Mar 2017 12:55:03 -0400
-Message-ID: <87d1cxqtco.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-References: <20170330213715.9666-1-vivien.didelot@savoirfairelinux.com> <20170330213715.9666-10-vivien.didelot@savoirfairelinux.com> <20170331163949.GI12814@lunn.ch>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] ftgmac100: Mostly rewrite the driver
+Date: Fri, 31 Mar 2017 09:56:46 -0700 (PDT)
+Message-ID: <20170331.095646.169902967540298551.davem@davemloft.net>
+References: <1490834778.3177.197.camel@kernel.crashing.org>
+        <20170329.201517.300684629549047939.davem@davemloft.net>
+        <1490954367.3177.236.camel@kernel.crashing.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170331163949.GI12814@lunn.ch>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org
+To: benh@kernel.crashing.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:44668 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933286AbdCaQ47 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 31 Mar 2017 12:56:59 -0400
+In-Reply-To: <1490954367.3177.236.camel@kernel.crashing.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Andrew,
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Date: Fri, 31 Mar 2017 20:59:27 +1100
 
-Andrew Lunn <andrew@lunn.ch> writes:
+> We're running some more testing tonight, if it's all solid I'll shoot
+> it out tomorrow or sunday. Dave, it's ok to just spam the list with a
+> 55 patches series like that ?
 
-> On Thu, Mar 30, 2017 at 05:37:15PM -0400, Vivien Didelot wrote:
->> Implement the DSA cross-chip bridging operations by remapping the local
->> ports an external source port can egress frames to, when this cross-chip
->> port joins or leaves a bridge.
->> 
->> The PVT is no longer configured with all ones allowing any external
->> frame to egress any local port. Only DSA and CPU ports, as well as
->> bridge group members, can egress frames on local ports.
->
-> With the ZII devel B, we have two switches with PVT, and one
-> without. What happens in this setup? Can the non-PVT switch leak
-> frames out user ports which should otherwise be blocked?
-
-If CONFIG_BRIDGE_VLAN_FILTERING isn't enabled in the kernel, the non-PVT
-switch would indeed have no mean to restrict arbitrary external
-frames. So in that setup, yes the switch can theorically leak frames.
-
-With a VLAN-filtering aware system, the VTU policy and 802.1Q Secure
-port mode should guard against that.
-
-Thanks,
-
-        Vivien
+Please send about a dozen at a time, thank you.  Group them logically
+as best as you can.
