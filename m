@@ -1,75 +1,71 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: udp: add socket option to report RX queue level
-Date: Fri, 31 Mar 2017 09:13:43 -0700
-Message-ID: <1490976823.8750.34.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20170317211312.38117-1-ckuiper@google.com>
-         <1489788070.28631.322.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CA+BVk2evqfsaG68AUKFm-j6JfeYVYT7tJSxrDkPc3PQZ=kmLMw@mail.gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH 1/6] virtio: wrap find_vqs
+Date: Fri, 31 Mar 2017 19:21:12 +0300
+Message-ID: <20170331191905-mutt-send-email-mst@kernel.org>
+References: <1490820507-8005-1-git-send-email-mst@redhat.com>
+ <1490820507-8005-2-git-send-email-mst@redhat.com>
+ <72f533a2-482d-1956-b0fe-254e273e1818@redhat.com>
+ <20170330173146-mutt-send-email-mst@kernel.org>
+ <c388e4fd-2956-8894-31ec-31fe8b01e49f@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Josh Hunt <johunt@akamai.com>, netdev@vger.kernel.org,
-        Petri Gynther <pgynther@google.com>
-To: Chris Kuiper <ckuiper@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:34248 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933126AbdCaQNq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 31 Mar 2017 12:13:46 -0400
-Received: by mail-pg0-f65.google.com with SMTP id o123so18387563pga.1
-        for <netdev@vger.kernel.org>; Fri, 31 Mar 2017 09:13:45 -0700 (PDT)
-In-Reply-To: <CA+BVk2evqfsaG68AUKFm-j6JfeYVYT7tJSxrDkPc3PQZ=kmLMw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel@vger.kernel.org,
+        John Fastabend <john.fastabend@gmail.com>,
+        Arnd Bergmann <arnd@arndb.de>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        Amit Shah <amit@kernel.org>, Gonglei <arei.gonglei@huawei.com>,
+        Herbert Xu <herbert@gondor.apana.org.au>,
+        "David S. Miller" <davem@davemloft.net>,
+        David Airlie <airlied@linux.ie>,
+        Gerd Hoffmann <kraxel@redhat.com>,
+        Dmitry Tarnyagin <dmitry.tarnyagin@lockless.no>,
+        Ohad Ben-Cohen <ohad@wizery.com>,
+        Bjorn Andersson <bjorn.andersson@linaro.org>,
+        "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
+        "Martin K. Petersen" <martin.petersen@oracle.com>,
+        Stefan Hajnoczi <stefanha@redhat.com>,
+        virtualization@lists.linux-foundation.org,
+        linux-crypto@vger.kernel.org, dri-devel@lists.freedesktop.org,
+        netdev@vger.kerne
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <c388e4fd-2956-8894-31ec-31fe8b01e49f@redhat.com>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Please do not top post on netdev
-
-On Mon, 2017-03-27 at 18:08 -0700, Chris Kuiper wrote:
-> Sorry, I have been transferring jobs and had no time to look at this.
+On Fri, Mar 31, 2017 at 12:04:55PM +0800, Jason Wang wrote:
 > 
-> Josh Hunt's change seems to solve a different problem. I was looking
-> for something that works the same way as SO_RXQ_OVERFL, providing
-> information as ancillary data to the recvmsg() call. The problem with
-> SO_RXQ_OVERFL alone is that it tells you when things have already gone
-> wrong (you dropped data), so the new option SO_RX_ALLOC acts as a
-> leading indicator to check if you are getting close to hitting such
-> problem.
-
-SO_RXQ_OVERFL gives a very precise info for every skb that was queued.
-
-This is a different indicator, because it can tell you where is the
-discontinuity point at the time skb were queued, not at the time they
-are dequeued.
-
-Just tune SO_RCVBUF to not even have to care about this.
-
-By the time you sample the queue occupancy, the information might be
-completely stale and queue already overflowed.
-
-There is very little point having a super system call gathering all kind
-of (stale) info
-
 > 
-> Regarding only UDP being supported, it is only meaningful for UDP. TCP
-> doesn't drop data and if its buffer gets full it just stops the sender
-> from sending more. The buffer level in that case doesn't even tell you
-> the whole picture, since it doesn't include any information on how
-> much additional buffering is done at the sender side.
+> On 2017年03月30日 22:32, Michael S. Tsirkin wrote:
+> > On Thu, Mar 30, 2017 at 02:00:08PM +0800, Jason Wang wrote:
+> > > 
+> > > On 2017年03月30日 04:48, Michael S. Tsirkin wrote:
+> > > > We are going to add more parameters to find_vqs, let's wrap the call so
+> > > > we don't need to tweak all drivers every time.
+> > > > 
+> > > > Signed-off-by: Michael S. Tsirkin<mst@redhat.com>
+> > > > ---
+> > > A quick glance and it looks ok, but what the benefit of this series, is it
+> > > required by other changes?
+> > > 
+> > > Thanks
+> > Yes - to avoid touching all devices when doing the rest of
+> > the patchset.
 > 
+> Maybe I'm not clear. I mean the benefit of this series not this single
+> patch. I guess it may be used by you proposal that avoid reset when set XDP?
 
-We have more protocols than UDP and TCP in linux kernel.
+In particular, yes. It generally simplifies things significantly if
+we can get the true buffer size back.
 
-> In terms of "a lot overhead", logically the overhead of adding
-> additional getsockopt() calls after each recvmsg() is significantly
-> larger than just getting the information as part of recvmsg(). If you
-> don't need it, then don't enable this option. Admitted you can reduce
-> the frequency of calling getsockopt() relative to recvmsg(), but that
-> also increases your risk of missing the point where data is dropped.
+> If yes, do we really want to drop some packets after XDP is set?
+> 
+> Thanks
 
-Your proposal adds overhead for all UDP recvmsg() calls, while most of
-them absolutely not care about overruns. There is little you can do if
-you are under attack or if your SO_RCVBUF is too small for the workload.
+We would rather not drop packets. We could detect and copy them to make
+XDP work.
 
-Some people work hard to reach 2 Millions UDP recvmsg() calls per second
-on a single UDP socket, so everything added in fast path will be
-scrutinized.
+-- 
+MST
