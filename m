@@ -1,76 +1,47 @@
-From: Mauro Carvalho Chehab <mchehab-JsYNTwtnfakRB7SZvlqPiA@public.gmane.org>
-Subject: Re: [PATCH] treewide: Correct diffrent[iate] and banlance typos
-Date: Fri, 31 Mar 2017 07:06:25 -0300
-Message-ID: <20170331070625.39294170@vento.lan>
-References: <962aace119675e5fe87be2a88ddac1a5486f8e60.1490931810.git.joe@perches.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+From: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+Subject: Re: [PATCH] bluetooth: 6lowpan: fix use after free in
+ chan_suspend/resume
+Date: Fri, 31 Mar 2017 12:10:27 +0200
+Message-ID: <2B4AB0D3-D55D-4F3F-ACA6-F82DC680316E@holtmann.org>
+References: <20170329061018.4243-1-michael.scott@linaro.org>
+Mime-Version: 1.0 (Mac OS X Mail 10.3 \(3273\))
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-        Yuval Mintz <Yuval.Mintz-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
-        Ariel Elior <ariel.elior-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
-        everest-linux-l2-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org, Yishai Hadas <yishaih-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Mauro Carvalho Chehab <mchehab-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Yisen Zhuang <yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-        Salil Mehta <salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-        linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <962aace119675e5fe87be2a88ddac1a5486f8e60.1490931810.git.joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: "Gustavo F. Padovan" <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>,
+        Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Jukka Rissanen <jukka.rissanen-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+        linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Michael Scott <michael.scott-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170329061018.4243-1-michael.scott-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Em Thu, 30 Mar 2017 20:44:16 -0700
-Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org> escreveu:
+Hi Michael,
 
-> Add these misspellings to scripts/spelling.txt too
+> A status field in the skb_cb struct was storing a channel status
+> based on channel suspend/resume events.  This stored status was
+> then used to return EAGAIN if there were packet sending issues
+> in snd_pkt().
 > 
-> Signed-off-by: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+> The issue is that the skb has been freed by the time the callback
+> to 6lowpan's suspend/resume was called.  So, this generates a
+> "use after free" issue that was noticed while running kernel tests
+> with KASAN debug enabled.
+> 
+> Let's eliminate the status field entirely as we can use the channel
+> tx_credits to indicate whether we should return EAGAIN when handling
+> packets.
+> 
+> Signed-off-by: Michael Scott <michael.scott-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
 > ---
->  drivers/media/dvb-frontends/drx39xyj/drx_dap_fasi.h | 2 +-
->  drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c      | 2 +-
->  drivers/net/ethernet/hisilicon/hns/hns_enet.c       | 2 +-
->  drivers/net/ethernet/qlogic/qed/qed_int.c           | 2 +-
->  drivers/net/ethernet/qlogic/qed/qed_main.c          | 2 +-
->  drivers/net/ethernet/qlogic/qed/qed_sriov.c         | 2 +-
->  include/linux/mlx4/device.h                         | 2 +-
->  scripts/spelling.txt                                | 3 +++
->  8 files changed, 10 insertions(+), 7 deletions(-)
-> 
-> diff --git a/drivers/media/dvb-frontends/drx39xyj/drx_dap_fasi.h b/drivers/media/dvb-frontends/drx39xyj/drx_dap_fasi.h
-> index 354ec07eae87..23ae72468025 100644
-> --- a/drivers/media/dvb-frontends/drx39xyj/drx_dap_fasi.h
-> +++ b/drivers/media/dvb-frontends/drx39xyj/drx_dap_fasi.h
-> @@ -70,7 +70,7 @@
->  * (3) both long and short but short preferred and long only when necesarry
->  *
->  * These modes must be selected compile time via compile switches.
-> -* Compile switch settings for the diffrent modes:
-> +* Compile switch settings for the different modes:
->  * (1) DRXDAPFASI_LONG_ADDR_ALLOWED=0, DRXDAPFASI_SHORT_ADDR_ALLOWED=1
->  * (2) DRXDAPFASI_LONG_ADDR_ALLOWED=1, DRXDAPFASI_SHORT_ADDR_ALLOWED=0
->  * (3) DRXDAPFASI_LONG_ADDR_ALLOWED=1, DRXDAPFASI_SHORT_ADDR_ALLOWED=1
-> diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
-> index cea6bdcde33f..8baf9d3eb4b1 100644
-> --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
-> +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
-> @@ -1591,7 +1591,7 @@ static int __bnx2x_vlan_mac_execute_step(struct bnx2x *bp,
->  	if (rc != 0) {
->  		__bnx2x_vlan_mac_h_pend(bp, o, *ramrod_flags);
->  
-> -		/* Calling function should not diffrentiate between this case
-> +		/* Calling function should not differentiate between this case
->  		 * and the case in which there is already a pending ramrod
->  		 */
->  		rc = 1;
+> net/bluetooth/6lowpan.c | 21 +++------------------
+> 1 file changed, 3 insertions(+), 18 deletions(-)
 
+patch has been applied to bluetooth-next tree.
 
-Acked-by: Mauro Carvalho Chehab <mchehab-JsYNTwtnfakRB7SZvlqPiA@public.gmane.org>
+Regards
 
-Thanks,
-Mauro
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Marcel
