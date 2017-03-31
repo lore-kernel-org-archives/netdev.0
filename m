@@ -1,49 +1,63 @@
-From: Russell King - ARM Linux <linux@armlinux.org.uk>
-Subject: [PATCH v3 0/3] phylib EEE updates
-Date: Fri, 31 Mar 2017 10:36:46 +0100
-Message-ID: <20170331093645.GA15329@n2100.armlinux.org.uk>
+From: Russell King <rmk+kernel@armlinux.org.uk>
+Subject: [PATCH v3 3/3] net: phy: allow EEE with any interface mode
+Date: Fri, 31 Mar 2017 10:37:18 +0100
+Message-ID: <E1ctsze-00063c-EC@rmk-PC.armlinux.org.uk>
+References: <20170331093645.GA15329@n2100.armlinux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
 Cc: Andrew Lunn <andrew@lunn.ch>,
         Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.armlinux.org.uk ([78.32.30.218]:48466 "EHLO
+Received: from pandora.armlinux.org.uk ([78.32.30.218]:48496 "EHLO
         pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753535AbdCaJg5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 31 Mar 2017 05:36:57 -0400
+        with ESMTP id S932918AbdCaJh0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 31 Mar 2017 05:37:26 -0400
+In-Reply-To: <20170331093645.GA15329@n2100.armlinux.org.uk>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David,
+EEE is able to work in any PHY interface mode, there is nothing which
+fundamentally restricts it to only a few modes.  For example, EEE works
+in SGMII mode with the Marvell 88E1512.
 
-This series of patches depends on the previous set of changes, and is
-therefore net-next material.
+Rather than just adding SGMII mode to the list, Florian suggests
+removing the list of interface modes entirely:
 
-While testing the EEE code, I discovered a number of issues:
+  It actually sounds like we should just kill the check entirely,
+  it does not appear that any of the interface mode would not
+  fundamentally be able to support EEE, because the "lowest" mode
+  we support is MII, and even there it's quite possible to support
+  EEE.
 
-1. It is possible to enable advertisment of EEE modes which are not
-   supported by the hardware.  We omit to check the supported modes
-   and mask off those modes that are not supported before writing the
-   EEE advertisment register.
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
+---
+ drivers/net/phy/phy.c | 9 +--------
+ 1 file changed, 1 insertion(+), 8 deletions(-)
 
-2. We need to restart autonegotiation after a change of the EEE
-   advertisment, otherwise the link partner does not see the updated
-   EEE modes.
-
-3. SGMII connected PHYs are also capable of supporting EEE.
-
-Through discussion with Florian, it has been decided to remove the check
-for the PHY interface mode in patch (3).
-
- drivers/net/phy/phy.c | 37 ++++++++++++++++++++++++++-----------
- 1 file changed, 26 insertions(+), 11 deletions(-)
-
-v2: fix "phy_restart_aneg" build error identified by 0-day
-v3: drop RFC tag, replace 3rd patch
-
+diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+index 345251f21699..867c42154087 100644
+--- a/drivers/net/phy/phy.c
++++ b/drivers/net/phy/phy.c
+@@ -1208,15 +1208,8 @@ int phy_init_eee(struct phy_device *phydev, bool clk_stop_enable)
+ 		return -EIO;
+ 
+ 	/* According to 802.3az,the EEE is supported only in full duplex-mode.
+-	 * Also EEE feature is active when core is operating with MII, GMII
+-	 * or RGMII (all kinds). Internal PHYs are also allowed to proceed and
+-	 * should return an error if they do not support EEE.
+ 	 */
+-	if ((phydev->duplex == DUPLEX_FULL) &&
+-	    ((phydev->interface == PHY_INTERFACE_MODE_MII) ||
+-	    (phydev->interface == PHY_INTERFACE_MODE_GMII) ||
+-	     phy_interface_is_rgmii(phydev) ||
+-	     phy_is_internal(phydev))) {
++	if (phydev->duplex == DUPLEX_FULL) {
+ 		int eee_lp, eee_cap, eee_adv;
+ 		u32 lp, cap, adv;
+ 		int status;
 -- 
-RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
-FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
-according to speedtest.net.
+2.7.4
