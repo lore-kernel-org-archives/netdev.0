@@ -1,64 +1,73 @@
 From: Salil Mehta <salil.mehta@huawei.com>
-Subject: [PATCH V3 net-next 00/18] net: hns: Misc. HNS Bug Fixes & Code Improvements
-Date: Fri, 31 Mar 2017 18:48:34 +0100
-Message-ID: <20170331174852.13600-1-salil.mehta@huawei.com>
+Subject: [PATCH V3 net-next 02/18] net: hns: Modify GMAC init TX threshold value
+Date: Fri, 31 Mar 2017 18:48:36 +0100
+Message-ID: <20170331174852.13600-3-salil.mehta@huawei.com>
+References: <20170331174852.13600-1-salil.mehta@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <salil.mehta@huawei.com>, <yisen.zhuang@huawei.com>,
         <mehta.salil.lnk@gmail.com>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>, <linuxarm@huawei.com>
+        <linux-kernel@vger.kernel.org>, <linuxarm@huawei.com>,
+        lipeng <lipeng321@huawei.com>,
+        JinchuanTian <tianjinchuan1@huawei.com>
 To: <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170331174852.13600-1-salil.mehta@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch set introduces various HNS bug fixes, optimizations and code
-improvements.
+From: lipeng <lipeng321@huawei.com>
 
-Daode Huang (1):
-  net: hns: bug fix of ethtool show the speed
+This patch reduces GMAC TX threshold value to avoid gmac
+hang-up with speed 100M/duplex half.
 
-Kejian Yan (7):
-  net: hns: Remove the redundant adding and deleting mac function
-  net: hns: Remove redundant mac_get_id()
-  net: hns: Remove redundant mac table operations
-  net: hns: Clean redundant code from hns_mdio.c file
-  net: hns: Optimise the code in hns_mdio_wait_ready()
-  net: hns: Simplify the exception sequence in hns_ppe_init()
-  net: hns: Adjust the SBM module buffer threshold
+Signed-off-by: lipeng <lipeng321@huawei.com>
+Signed-off-by: JinchuanTian <tianjinchuan1@huawei.com>
+Reviewed-by: Yisen Zhuang <yisen.zhuang@huawei.com>
+Signed-off-by: Salil Mehta <salil.mehta@huawei.com>
+---
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c | 6 ++++++
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h  | 4 ++++
+ 2 files changed, 10 insertions(+)
 
-Salil Mehta (1):
-  net: hns: Some checkpatch.pl script & warning fixes
-
-lipeng (9):
-  net: hns: Fix the implementation of irq affinity function
-  net: hns: Modify GMAC init TX threshold value
-  net: hns: Optimize the code for GMAC pad and crc Config
-  net: hns: Remove redundant memset during buffer release
-  net: hns: Optimize hns_nic_common_poll for better performance
-  net: hns: Fix to adjust buf_size of ring according to mtu
-  net: hns: Replace netif_tx_lock to ring spin lock
-  net: hns: Correct HNS RSS key set function
-  net: hns: Avoid Hip06 chip TX packet line bug
-
- drivers/net/ethernet/hisilicon/hns/hnae.c          |   7 +-
- drivers/net/ethernet/hisilicon/hns/hnae.h          |  47 ++-
- drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c  | 127 +++++--
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c |  61 ++--
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c  |  41 +--
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h  |   5 +-
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c | 249 +------------
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h |  14 +-
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c  |  17 +-
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c  | 143 ++++++--
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.h  |  26 +-
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h  |   6 +-
- .../net/ethernet/hisilicon/hns/hns_dsaf_xgmac.c    |  13 -
- drivers/net/ethernet/hisilicon/hns/hns_enet.c      | 400 ++++++++++++++++-----
- drivers/net/ethernet/hisilicon/hns/hns_enet.h      |   3 +-
- drivers/net/ethernet/hisilicon/hns/hns_ethtool.c   |  34 +-
- drivers/net/ethernet/hisilicon/hns_mdio.c          |  20 +-
- 17 files changed, 653 insertions(+), 560 deletions(-)
-
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c
+index 3382441..a8dbe00 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c
+@@ -325,6 +325,12 @@ static void hns_gmac_init(void *mac_drv)
+ 	hns_gmac_tx_loop_pkt_dis(mac_drv);
+ 	if (drv->mac_cb->mac_type == HNAE_PORT_DEBUG)
+ 		hns_gmac_set_uc_match(mac_drv, 0);
++
++	/* reduce gmac tx water line to avoid gmac hang-up
++	 * in speed 100M and duplex half.
++	 */
++	dsaf_set_dev_field(drv, GMAC_TX_WATER_LINE_REG, GMAC_TX_WATER_LINE_MASK,
++			   GMAC_TX_WATER_LINE_SHIFT, 8);
+ }
+ 
+ void hns_gmac_update_stats(void *mac_drv)
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
+index 8fa18fc..4b8af68 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
+@@ -466,6 +466,7 @@
+ 
+ #define GMAC_DUPLEX_TYPE_REG			0x0008UL
+ #define GMAC_FD_FC_TYPE_REG			0x000CUL
++#define GMAC_TX_WATER_LINE_REG			0x0010UL
+ #define GMAC_FC_TX_TIMER_REG			0x001CUL
+ #define GMAC_FD_FC_ADDR_LOW_REG			0x0020UL
+ #define GMAC_FD_FC_ADDR_HIGH_REG		0x0024UL
+@@ -912,6 +913,9 @@
+ 
+ #define GMAC_DUPLEX_TYPE_B 0
+ 
++#define GMAC_TX_WATER_LINE_MASK		((1UL << 8) - 1)
++#define GMAC_TX_WATER_LINE_SHIFT	0
++
+ #define GMAC_FC_TX_TIMER_S 0
+ #define GMAC_FC_TX_TIMER_M 0xffff
+ 
 -- 
 2.7.4
