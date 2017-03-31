@@ -1,157 +1,64 @@
 From: Salil Mehta <salil.mehta@huawei.com>
-Subject: [PATCH V3 net-next 06/18] net: hns: Optimize hns_nic_common_poll for better performance
-Date: Fri, 31 Mar 2017 18:48:40 +0100
-Message-ID: <20170331174852.13600-7-salil.mehta@huawei.com>
-References: <20170331174852.13600-1-salil.mehta@huawei.com>
+Subject: [PATCH V3 net-next 00/18] net: hns: Misc. HNS Bug Fixes & Code Improvements
+Date: Fri, 31 Mar 2017 18:48:34 +0100
+Message-ID: <20170331174852.13600-1-salil.mehta@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <salil.mehta@huawei.com>, <yisen.zhuang@huawei.com>,
         <mehta.salil.lnk@gmail.com>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>, <linuxarm@huawei.com>,
-        lipeng <lipeng321@huawei.com>
+        <linux-kernel@vger.kernel.org>, <linuxarm@huawei.com>
 To: <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170331174852.13600-1-salil.mehta@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: lipeng <lipeng321@huawei.com>
+This patch set introduces various HNS bug fixes, optimizations and code
+improvements.
 
-After polling less than buget packages, we need check again. If
-there are still some packages, we call napi_schedule add softirq
-queue, this is not better way. So we return buget value instead
-of napi_schedule.
+Daode Huang (1):
+  net: hns: bug fix of ethtool show the speed
 
-Signed-off-by: lipeng <lipeng321@huawei.com>
-reviewed-by: Yisen Zhuang <yisen.zhuang@huawei.com>
-Signed-off-by: Salil Mehta <salil.mehta@huawei.com>
----
- drivers/net/ethernet/hisilicon/hns/hns_enet.c | 50 ++++++++++++++++-----------
- drivers/net/ethernet/hisilicon/hns/hns_enet.h |  2 +-
- 2 files changed, 31 insertions(+), 21 deletions(-)
+Kejian Yan (7):
+  net: hns: Remove the redundant adding and deleting mac function
+  net: hns: Remove redundant mac_get_id()
+  net: hns: Remove redundant mac table operations
+  net: hns: Clean redundant code from hns_mdio.c file
+  net: hns: Optimise the code in hns_mdio_wait_ready()
+  net: hns: Simplify the exception sequence in hns_ppe_init()
+  net: hns: Adjust the SBM module buffer threshold
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.c b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-index 73ec8c8..5f67db2 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-@@ -859,7 +859,7 @@ static int hns_nic_rx_poll_one(struct hns_nic_ring_data *ring_data,
- 	return recv_pkts;
- }
- 
--static void hns_nic_rx_fini_pro(struct hns_nic_ring_data *ring_data)
-+static bool hns_nic_rx_fini_pro(struct hns_nic_ring_data *ring_data)
- {
- 	struct hnae_ring *ring = ring_data->ring;
- 	int num = 0;
-@@ -873,22 +873,23 @@ static void hns_nic_rx_fini_pro(struct hns_nic_ring_data *ring_data)
- 		ring_data->ring->q->handle->dev->ops->toggle_ring_irq(
- 			ring_data->ring, 1);
- 
--		napi_schedule(&ring_data->napi);
-+		return false;
-+	} else {
-+		return true;
- 	}
- }
- 
--static void hns_nic_rx_fini_pro_v2(struct hns_nic_ring_data *ring_data)
-+static bool hns_nic_rx_fini_pro_v2(struct hns_nic_ring_data *ring_data)
- {
- 	struct hnae_ring *ring = ring_data->ring;
--	int num = 0;
-+	int num;
- 
- 	num = readl_relaxed(ring->io_base + RCB_REG_FBDNUM);
- 
--	if (num == 0)
--		ring_data->ring->q->handle->dev->ops->toggle_ring_irq(
--			ring, 0);
-+	if (!num)
-+		return true;
- 	else
--		napi_schedule(&ring_data->napi);
-+		return false;
- }
- 
- static inline void hns_nic_reclaim_one_desc(struct hnae_ring *ring,
-@@ -989,7 +990,7 @@ static int hns_nic_tx_poll_one(struct hns_nic_ring_data *ring_data,
- 	return 0;
- }
- 
--static void hns_nic_tx_fini_pro(struct hns_nic_ring_data *ring_data)
-+static bool hns_nic_tx_fini_pro(struct hns_nic_ring_data *ring_data)
- {
- 	struct hnae_ring *ring = ring_data->ring;
- 	int head;
-@@ -1002,20 +1003,21 @@ static void hns_nic_tx_fini_pro(struct hns_nic_ring_data *ring_data)
- 		ring_data->ring->q->handle->dev->ops->toggle_ring_irq(
- 			ring_data->ring, 1);
- 
--		napi_schedule(&ring_data->napi);
-+		return false;
-+	} else {
-+		return true;
- 	}
- }
- 
--static void hns_nic_tx_fini_pro_v2(struct hns_nic_ring_data *ring_data)
-+static bool hns_nic_tx_fini_pro_v2(struct hns_nic_ring_data *ring_data)
- {
- 	struct hnae_ring *ring = ring_data->ring;
- 	int head = readl_relaxed(ring->io_base + RCB_REG_HEAD);
- 
- 	if (head == ring->next_to_clean)
--		ring_data->ring->q->handle->dev->ops->toggle_ring_irq(
--			ring, 0);
-+		return true;
- 	else
--		napi_schedule(&ring_data->napi);
-+		return false;
- }
- 
- static void hns_nic_tx_clr_all_bufs(struct hns_nic_ring_data *ring_data)
-@@ -1042,15 +1044,23 @@ static void hns_nic_tx_clr_all_bufs(struct hns_nic_ring_data *ring_data)
- 
- static int hns_nic_common_poll(struct napi_struct *napi, int budget)
- {
-+	int clean_complete = 0;
- 	struct hns_nic_ring_data *ring_data =
- 		container_of(napi, struct hns_nic_ring_data, napi);
--	int clean_complete = ring_data->poll_one(
--				ring_data, budget, ring_data->ex_process);
-+	struct hnae_ring *ring = ring_data->ring;
- 
--	if (clean_complete >= 0 && clean_complete < budget) {
--		napi_complete(napi);
--		ring_data->fini_process(ring_data);
--		return 0;
-+try_again:
-+	clean_complete += ring_data->poll_one(
-+				ring_data, budget - clean_complete,
-+				ring_data->ex_process);
-+
-+	if (clean_complete < budget) {
-+		if (ring_data->fini_process(ring_data)) {
-+			napi_complete(napi);
-+			ring->q->handle->dev->ops->toggle_ring_irq(ring, 0);
-+		} else {
-+			goto try_again;
-+		}
- 	}
- 
- 	return clean_complete;
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.h b/drivers/net/ethernet/hisilicon/hns/hns_enet.h
-index fff8f8a..1b83232 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_enet.h
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.h
-@@ -41,7 +41,7 @@ struct hns_nic_ring_data {
- 	int queue_index;
- 	int (*poll_one)(struct hns_nic_ring_data *, int, void *);
- 	void (*ex_process)(struct hns_nic_ring_data *, struct sk_buff *);
--	void (*fini_process)(struct hns_nic_ring_data *);
-+	bool (*fini_process)(struct hns_nic_ring_data *);
- };
- 
- /* compatible the difference between two versions */
+Salil Mehta (1):
+  net: hns: Some checkpatch.pl script & warning fixes
+
+lipeng (9):
+  net: hns: Fix the implementation of irq affinity function
+  net: hns: Modify GMAC init TX threshold value
+  net: hns: Optimize the code for GMAC pad and crc Config
+  net: hns: Remove redundant memset during buffer release
+  net: hns: Optimize hns_nic_common_poll for better performance
+  net: hns: Fix to adjust buf_size of ring according to mtu
+  net: hns: Replace netif_tx_lock to ring spin lock
+  net: hns: Correct HNS RSS key set function
+  net: hns: Avoid Hip06 chip TX packet line bug
+
+ drivers/net/ethernet/hisilicon/hns/hnae.c          |   7 +-
+ drivers/net/ethernet/hisilicon/hns/hnae.h          |  47 ++-
+ drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c  | 127 +++++--
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c |  61 ++--
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c  |  41 +--
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h  |   5 +-
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c | 249 +------------
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h |  14 +-
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c  |  17 +-
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c  | 143 ++++++--
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.h  |  26 +-
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h  |   6 +-
+ .../net/ethernet/hisilicon/hns/hns_dsaf_xgmac.c    |  13 -
+ drivers/net/ethernet/hisilicon/hns/hns_enet.c      | 400 ++++++++++++++++-----
+ drivers/net/ethernet/hisilicon/hns/hns_enet.h      |   3 +-
+ drivers/net/ethernet/hisilicon/hns/hns_ethtool.c   |  34 +-
+ drivers/net/ethernet/hisilicon/hns_mdio.c          |  20 +-
+ 17 files changed, 653 insertions(+), 560 deletions(-)
+
 -- 
 2.7.4
