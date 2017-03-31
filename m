@@ -1,226 +1,94 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Issue with load across multiple connections
-Date: Fri, 31 Mar 2017 12:51:10 -0700
-Message-ID: <CALx6S34Qjc5AbROJKbZBmEFX4o4xfqVU41ReoDCgAWv0_uuV5Q@mail.gmail.com>
+From: "Goel, Sameer" <sgoel-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Subject: Re: [BUG] ethernet:mellanox:mlx5: Oops in health_recover
+ get_nic_state(dev)
+Date: Fri, 31 Mar 2017 13:55:42 -0600
+Message-ID: <9d519df5-768a-ef17-07ca-5d16006d11e5@codeaurora.org>
+References: <4a3539ba-6ce0-8ecf-1b1b-3c70cace6c2a@codeaurora.org>
+ <CALzJLG-6pEXgukQdS0AEW40RZGeT_MNQmDV99GkgmC+wHbA4eA@mail.gmail.com>
+ <d8f3cb19-cad9-c350-d26b-1c0ac6250933@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        ulrich@cs.auckland.ac.nz
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f177.google.com ([209.85.216.177]:33029 "EHLO
-        mail-qt0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753702AbdCaTvL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 31 Mar 2017 15:51:11 -0400
-Received: by mail-qt0-f177.google.com with SMTP id i34so74417080qtc.0
-        for <netdev@vger.kernel.org>; Fri, 31 Mar 2017 12:51:11 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, shankerd-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
+        rruigrok-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org
+To: Daniel Jurgens <danielj-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Saeed Mahameed <saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>,
+        Mohamad Haj Yahia <mohamad-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <d8f3cb19-cad9-c350-d26b-1c0ac6250933-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi netdev,
 
-I'm forwarding this problem report from Ulrich Speidel.
 
-The correlation to FDs would seem to point to application always
-reading for FDs in order and it seems unlikely that FDs have any
-relevance in the networking stack below the file IO for sockets. Some
-of the stack experts might have a better idea though...
+On 3/28/2017 7:25 AM, Daniel Jurgens wrote:
+> On 3/28/2017 4:11 AM, Saeed Mahameed wrote:
+>> On Tue, Mar 28, 2017 at 2:45 AM, Goel, Sameer <sgoel-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org> wrote:
+>>> Stack frame:
+>>> [ 1744.418958] [<ffff00000328936c>] get_nic_state+0x24/0x40 [mlx5_core]
+>>> [ 1744.425273] [<ffff0000032899c0>] health_recover+0x28/0x80 [mlx5_core]
+>>> [ 1744.431496] [<ffff0000080e3280>] process_one_work+0x150/0x460
+>>> [ 1744.437218] [<ffff0000080e35e0>] worker_thread+0x50/0x4b8
+>>> [ 1744.442609] [<ffff0000080e9b98>] kthread+0xd8/0xf0
+>>> [ 1744.447377] [<ffff000008083330>] ret_from_fork+0x10/0x20
+>>>
+>>> Summary:
+>>> This issue was seen on QDF2400 system 30 mins after while running speccpu 2006. During the test a recoverable PCIe error was seen that gave the following log:
+>>> [ 1673.170969] pcieport 0002:00:00.0: aer_status: 0x00004000, aer_mask: 0x00400000
+>>> [ 1673.177961] pcieport 0002:00:00.0: aer_layer=Transaction Layer, aer_agent=Requester ID
+>>> [ 1673.185832] pcieport 0002:00:00.0: aer_uncor_severity: 0x00462030
+>>> [ 1675.536391] mlx5_core 0002:01:00.0: assert_var[0] 0xffffffff
+>>> [ 1675.541093] mlx5_core 0002:01:00.0: assert_var[1] 0xffffffff
+>>> [ 1675.546750] mlx5_core 0002:01:00.0: assert_var[2] 0xffffffff
+>>> [ 1675.552377] mlx5_core 0002:01:00.0: assert_var[3] 0xffffffff
+>>> [ 1675.558040] mlx5_core 0002:01:00.0: assert_var[4] 0xffffffff
+>>> [ 1675.563661] mlx5_core 0002:01:00.0: assert_exit_ptr 0xffffffff
+>>> [ 1675.569488] mlx5_core 0002:01:00.0: assert_callra 0xffffffff
+>>> [ 1675.575120] mlx5_core 0002:01:00.0: fw_ver 15.4095.65535
+>>> [ 1675.580426] mlx5_core 0002:01:00.0: hw_id 0xffffffff
+>>> [ 1675.585363] mlx5_core 0002:01:00.0: irisc_index 255
+>>> [ 1675.590242] mlx5_core 0002:01:00.0: synd 0xff: unrecognized error
+>>> [ 1675.596301] mlx5_core 0002:01:00.0: ext_synd 0xffff
+>>> [ 1675.601209] mlx5_core 0002:01:00.0: mlx5_enter_error_state:120:(pid 7205): start
+>>> [ 1675.608613] mlx5_core 0002:01:00.0: mlx5_enter_error_state:127:(pid 7205): end
+>>>
+>>> After the above log we see the above stackframe and a page fault due to invalid dev pointer.
+>>>
+>>> So the the recovery work is queued and the timer is stopped. Somehow the workqueue is not cleared and when it runs the dev pointer is invalid.
+>>>
+>>> This issue was difficult to repro and was seen only once in multiple runs on a specific device.
+>> Hi Sameer,
+>>
+>> Thanks for the report,
+>> adding more relevant ppl
+>>
+>> Mohamad/Daniel Does the above ring a bell ?
+>> can you check ?
+>>
+>> Thanks
+>> Saeed.
+> 
+> Hi Sameer, Can you tell me if you have these 2 patches?
+> 
+> 5e44fca504705 ('net/mlx5: Only cancel recovery work when cleaning up device')
+> 
+> 689a248df83b ("net/mlx5: Cancel recovery work in remove flow")
+> 
+> 
 
+Hi Daniel, 
+ No I do not have these patches. I can pick up the cleanups from the mailing list. Are these patches
+acked for 4.12?
 Thanks,
-Tom
-
----------- Forwarded message ----------
-From: Ulrich Speidel <ulrich@cs.auckland.ac.nz>
-Date: Fri, Mar 31, 2017 at 2:11 AM
-Subject: Linux kernel query
-To: tom@quantonium.net
-Cc: Brian Carpenter <brian@cs.auckland.ac.nz>, Nevil Brownlee
-<n.brownlee@auckland.ac.nz>, lars@steinwurf.com, Lei Qian
-<lqia012@gmail.com>
-
-
-Dear Tom,
-
-I'm a colleague of Brian Carpenter at the University of Auckland. He
-has suggested that I contact you about this as I'm not sure that what
-we have discovered is a bug - it may even be an intended feature but
-I've failed to find it documented anywhere. From all we can tell, the
-problem seems related to how socket file descriptor numbers & SKBs are
-handled in POSIX-compliant kernels. I'm not a kernel hack so apologise
-in advance if terminology isn't always spot-on.
-
-This is how we triggered the effect: We have a setup in which we have
-multiple physical network clients connect to multiple servers at
-random. On the client side, we create N "channels" (indexed, say 0 to
-N-1) on each physical client. Each channel executes the following
-task:
-
-1) create a fresh TCP socket
-2) connect to a randomly chosen server from our pool
-3) receive a quantity of data that the server sends (this may be
-somewhere between 0 bytes and hundreds of MB). In our case, we use the
-application merely as a network traffic generator, so the receive
-process consists of recording the number of bytes made available by
-the socket and freeing the buffer without ever actually reading it.
-4) wait for server disconnect
-5) free socket (i.e., we're not explicitly re-using the previous
-connection's socket)
-6) jump back to 1)
-
-We keep track of the throughput on each channel.
-
-Note that the effect is the same regardless of whether we implement
-each channel in a process of its own, in a threaded application, or
-whether we use non-blocking sockets and check on them in a loop.
-
-What we would normally expect is that the each channel would receive
-about the same goodput over time, regardless of the value of N. Note
-that each channel uses a succession of fresh sockets.
-
-What actually happens is this: For up to approximately N=20 channels
-on a single physical client (we've tried Raspbian and Debian, as well
-as Ubuntu), each channel sees on average substantial and comparable
-levels of throughput, adding up to values approaching network
-interface capacity. Once we push N beyond 20, the throughput on any
-further channels drops to zero very quickly. For N=30, we typically
-see at least half a dozen channels with no throughput at all beyond
-the connection handshake. Throughput on the first 20 or so channels
-remains pretty much unchanged. The sockets on the channels with low or
-no throughput all manage to connect, but remain in connected state but
-receive no data.
-
-Throughput on the first ~20 channels is sustainable for long periods
-of time - so we're not dealing with an intermittent bug that causes
-our sockets to stall: The affected sockets / channels never receive
-anything (and the sockets around the 20-or-so mark very little). So it
-seems that subsequent sockets on a channel inherit the ability of
-their predecessor to receive data at quantity.
-
-We also see the issue on a single physical Raspberry client having the
-sole use of 14 Super Micros on GbE interfaces to download from. So we
-know we're definitely not overloading the server side (note that we
-are able to saturate the network to the Pi). Here is some sample data
-from the Pi (my apologies for the rough format):
-
-Channel index/MB transferred/Number of connections completed+attempted
-0 2.37 144
-1 29.32 92
-2 2.71 132
-3 10.88 705
-4 11.90 513
-5 16.045990 571
-6 9.631539 598
-7 15.420138 362
-8 9.854378 106
-9 8.975264 315
-10 8.020266 526
-11 6.369107 582
-12 8.877760 277
-13 8.148640 406
-14 13.536793 301
-15 9.804712 55
-16 7.643378 292
-17 7.970028 393
-18 0.000120 1
-19 9.359919 415
-20 0.000120 1
-21 0.000120 1
-22 12.937519 314
-23 0.000920 2
-24 14.561784 362
-25 0.000240 2
-26 11.005030 535
-27 0.000120 1
-28 0.000120 1
-29 0.000120 1
-
-The total data rate in this example was 94.1 Mbps on the 100 Mbps
-connection of the Pi. Experiment duration was 20 seconds on this
-occasion, but the effect is stable - we have observed it for many
-minutes. Once "stuck", a channel remains stuck.
-
-The fact that the incoming data rate accrues almost exclusively to the
-~20 busy channels suggests that the sockets on the other channel are
-either advertising a window of 0 bytes or are not generating ACKs for
-incoming data, or both.
-
-We have considered the possibility of FIN packets getting dropped
-somewhere along the way - not only is this unlikely since they are
-small, but the effect also happens if we connect a server directly by
-cable to a client machine with no network equipment inbetween. Also,
-if lost FINs were to blame, we would see some of the steadfast 20
-channels stall over time as well, given the network load - and we
-don't.
-
-We then looked at the numerical value of the socket file descriptors
-in use by each channel and noticed that there was a strong correlation
-between the average fd value and the goodput, or for that matter
-between channel index and average fd value.
-
-When we artificially throttle the data rate that each server is able
-to serve a single client connection on, we get data on vastly more of
-the channels (in fact, that's the workaround we currently use, we're
-getting up to around 40 workable channels that way).
-
-We note that the POSIX specs on file descriptor allocation demand
-"lowest available first" and that this usually extends to socket fds
-although POSIX doesn't prescribe this. From what I have been able to
-glean from the Linux kernel source I have looked at, sockets are
-entered into a linked list. I presume they are then serviced by the
-kernel in list order, which seems reasonable. However, I suspect (but
-haven't been able to locate the relevant piece of kernel code) that
-the kernel services the list starting at the head up to a point where
-it runs out of time allocated for this task. When it returns to the
-task, it then also seems to return to the head of the list again.
-
-So it seems that the sockets with lower-numbered fds get serviced with
-priority, thus get their downloads completed first, which releases the
-fd to the table, and therefore makes it highly likely that the same
-channel will be assigned the same low fd when it creates the next
-socket. Higher-valued fds don't get service, don't complete their
-downloads, and in consequence their channels never get to return the
-fds and renew their sockets.
-
-During my sabbatical last year, I investigated this scenario together
-with Aaron Gulliver from the University of Victoria, Canada, and we
-were able to simulate the effect based on this assumption. The graph
-from our draft paper below shows our (simplified) model in action - my
-apologies for the first draft nature of it, I've been waiting for half
-a year for a free day to complete it. It shows the number of times
-each socket fd (=socket series) was re-used (=connections completed
-using this fd value) during the simulation, as well as the bytes
-received. Ignore the "days" labels - these are a measure of how much
-"downtime" an fd number gets before it's re-used, read "days = time
-slices". Note the exponential y axis and the cliff around the 20 mark,
-i.e., pretty much what we see in practice.
-
-
-
-We have also tried to find a theoretical approach but now think that
-it is combinatorially intractable except in very simple cases.
-
-I have also copied Lars Nielsen from Steinwurf ApS in Aalborg, who has
-come across what is probably the same issue in a web crawler
-application he was developing. He also observed the magical value of
-about 20 and our "fix" worked for him, too. He has had an indication
-that the effect is anecdotally known in browser developer circles.
-
-We are well aware that our applications (maintaining and continuously
-renewing a large number of sockets that receive data at
-all-you-can-eat rates) are somewhat unusual, so I am not sure whether
-the effect is even known.
-
-So, my questions:
-
-1) Does the kernel indeed stop processing part-way down the list and
-then return to the head again rather than continue processing where it
-left off?
-2) If so, is this a bug, or is it intended? I could imagine that the
-effect would help protect existing service connections (e.g., SSH
-logins) in the case of subsequent DDoS attacks, but I'm not sure
-whether that's by coincidence or design.
-
-Any insights would be welcome!
-
-Best regards,
-
-Ulrich
+Sameer
+ 
+-- 
+ Qualcomm Datacenter Technologies as an affiliate of Qualcomm Technologies, Inc. Qualcomm Technologies, Inc. is a member of the Code Aurora Forum, a Linux Foundation Collaborative Project.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
