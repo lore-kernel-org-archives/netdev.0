@@ -1,71 +1,30 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH 1/6] virtio: wrap find_vqs
-Date: Fri, 31 Mar 2017 19:21:12 +0300
-Message-ID: <20170331191905-mutt-send-email-mst@kernel.org>
-References: <1490820507-8005-1-git-send-email-mst@redhat.com>
- <1490820507-8005-2-git-send-email-mst@redhat.com>
- <72f533a2-482d-1956-b0fe-254e273e1818@redhat.com>
- <20170330173146-mutt-send-email-mst@kernel.org>
- <c388e4fd-2956-8894-31ec-31fe8b01e49f@redhat.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next v2 4/9] net: dsa: mv88e6xxx: allocate the number
+ of ports
+Date: Fri, 31 Mar 2017 18:27:40 +0200
+Message-ID: <20170331162740.GF12814@lunn.ch>
+References: <20170330213715.9666-1-vivien.didelot@savoirfairelinux.com>
+ <20170330213715.9666-5-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org,
-        John Fastabend <john.fastabend@gmail.com>,
-        Arnd Bergmann <arnd@arndb.de>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        Amit Shah <amit@kernel.org>, Gonglei <arei.gonglei@huawei.com>,
-        Herbert Xu <herbert@gondor.apana.org.au>,
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
-        David Airlie <airlied@linux.ie>,
-        Gerd Hoffmann <kraxel@redhat.com>,
-        Dmitry Tarnyagin <dmitry.tarnyagin@lockless.no>,
-        Ohad Ben-Cohen <ohad@wizery.com>,
-        Bjorn Andersson <bjorn.andersson@linaro.org>,
-        "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
-        "Martin K. Petersen" <martin.petersen@oracle.com>,
-        Stefan Hajnoczi <stefanha@redhat.com>,
-        virtualization@lists.linux-foundation.org,
-        linux-crypto@vger.kernel.org, dri-devel@lists.freedesktop.org,
-        netdev@vger.kerne
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-crypto-owner@vger.kernel.org>
+        Florian Fainelli <f.fainelli@gmail.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <c388e4fd-2956-8894-31ec-31fe8b01e49f@redhat.com>
-Sender: linux-crypto-owner@vger.kernel.org
+In-Reply-To: <20170330213715.9666-5-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 31, 2017 at 12:04:55PM +0800, Jason Wang wrote:
+On Thu, Mar 30, 2017 at 05:37:10PM -0400, Vivien Didelot wrote:
+> The current code allocates DSA_MAX_PORTS ports for a Marvell dsa_switch
+> structure. Provide the exact number of ports so the corresponding
+> ds->num_ports is accurate.
 > 
-> 
-> On 2017年03月30日 22:32, Michael S. Tsirkin wrote:
-> > On Thu, Mar 30, 2017 at 02:00:08PM +0800, Jason Wang wrote:
-> > > 
-> > > On 2017年03月30日 04:48, Michael S. Tsirkin wrote:
-> > > > We are going to add more parameters to find_vqs, let's wrap the call so
-> > > > we don't need to tweak all drivers every time.
-> > > > 
-> > > > Signed-off-by: Michael S. Tsirkin<mst@redhat.com>
-> > > > ---
-> > > A quick glance and it looks ok, but what the benefit of this series, is it
-> > > required by other changes?
-> > > 
-> > > Thanks
-> > Yes - to avoid touching all devices when doing the rest of
-> > the patchset.
-> 
-> Maybe I'm not clear. I mean the benefit of this series not this single
-> patch. I guess it may be used by you proposal that avoid reset when set XDP?
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 
-In particular, yes. It generally simplifies things significantly if
-we can get the true buffer size back.
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 
-> If yes, do we really want to drop some packets after XDP is set?
-> 
-> Thanks
-
-We would rather not drop packets. We could detect and copy them to make
-XDP work.
-
--- 
-MST
+    Andrew
