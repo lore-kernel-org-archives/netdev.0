@@ -1,39 +1,54 @@
-From: Oliver Neukum <oneukum-IBi9RG/b67k@public.gmane.org>
-Subject: Re: [PATCHv3] net: usbnet: support 64bit stats in qmi_wwan driver
-Date: Fri, 31 Mar 2017 11:39:10 +0200
-Message-ID: <1490953150.30466.11.camel@suse.com>
-References: <1490941561-20502-1-git-send-email-gerg@linux-m68k.org>
-         <8737dt25od.fsf@miraculix.mork.no>
+From: Alban Crequy <alban@kinvolk.io>
+Subject: Re: [RFC PATCH tip/master 1/3] trace: kprobes: Show sum of probe/retprobe nmissed count
+Date: Fri, 31 Mar 2017 11:45:55 +0200
+Message-ID: <CADZs7q4k9YLgRuxccy7vuOns53GcPXG4D6HosRjfAeKm=RrL2A@mail.gmail.com>
+References: <149076484118.24574.7083269903420611708.stgit@devbox> <149076491191.24574.9187877160820798843.stgit@devbox>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org,
-        linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn-yOkvZcmFvRU@public.gmane.org>,
-        Greg Ungerer <gerg-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <8737dt25od.fsf-3F4PFWf5pNjpjLOzFPqGjWGXanvQGlWp@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Steven Rostedt <rostedt@goodmis.org>, Ingo Molnar <mingo@redhat.com>, 	Alban Crequy <alban.crequy@gmail.com>, Alexei Starovoitov <ast@kernel.org>, 	Jonathan Corbet <corbet@lwn.net>, Arnaldo Carvalho de Melo <acme@redhat.com>, Omar Sandoval <osandov@fb.com>, 	linux-doc@vger.kernel.org, netdev@vger.kernel.org, 	linux-kernel@vger.kernel.org, =?UTF-8?Q?Iago_L=C3=B3pez_Galeiras?= <iago@kinvolk.io>, 	Michael Schubert <michael@kinvolk.io>, Dorau Lukasz <lukasz.dorau@intel.com>, systemtap@sourceware.org
+To: Masami Hiramatsu <mhiramat@kernel.org>
+Return-path: <systemtap-return-25255-gls-systemtap=m.gmane.org@sourceware.org>
+List-Unsubscribe: <mailto:systemtap-unsubscribe-gls-systemtap=m.gmane.org@sourceware.org>
+List-Subscribe: <mailto:systemtap-subscribe@sourceware.org>
+List-Post: <mailto:systemtap@sourceware.org>
+List-Help: <mailto:systemtap-help@sourceware.org>, <http://sourceware.org/lists.html#faqs>
+Sender: systemtap-owner@sourceware.org
+In-Reply-To: <149076491191.24574.9187877160820798843.stgit@devbox>
 List-Id: netdev.vger.kernel.org
 
-Am Freitag, den 31.03.2017, 10:48 +0200 schrieb Bjørn Mork:
-> You get *all* the "0" line drivers for free, not only "qmi_wwan".  No
-> code changes needed, except for adding the single .ndo line to drivers
-> overriding the usbnet default net_device_ops. And even that only applies
-> to a few of them.  Most will be OK if you just change the usbnet
-> default.
-> 
-> I don't think the size of a complete series will be terrifying to
-> anyone.
+On Wed, Mar 29, 2017 at 7:22 AM, Masami Hiramatsu <mhiramat@kernel.org> wrote:
+> Show sum of probe and retprobe nmissed count in
+> kprobe_profile, since retprobe can be missed even
+> if the kprobe itself succeeeded.
+> This explains user why their return probe didn't hit
+> sometimes.
+>
+> Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
 
-It would really be nice to do that.
-However, if you really don't want to do it, well you wrote
-a patch. But I am afraid dropping the error count is not acceptable.
+I tested this patch with my kretprobe on "inet_csk_accept" when there
+are many processes waiting in the accept() syscall. I can now
+successfully see the nmissed counter in
+/sys/kernel/debug/tracing/kprobe_profile being incremented when the
+kretprobe is missed.
 
-	Regards
-		Oliver
+Tested-by: Alban Crequy <alban@kinvolk.io>
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+> ---
+>  kernel/trace/trace_kprobe.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/kernel/trace/trace_kprobe.c b/kernel/trace/trace_kprobe.c
+> index 013f4e7..bbdc3de 100644
+> --- a/kernel/trace/trace_kprobe.c
+> +++ b/kernel/trace/trace_kprobe.c
+> @@ -896,7 +896,7 @@ static int probes_profile_seq_show(struct seq_file *m, void *v)
+>         seq_printf(m, "  %-44s %15lu %15lu\n",
+>                    trace_event_name(&tk->tp.call),
+>                    trace_kprobe_nhit(tk),
+> -                  tk->rp.kp.nmissed);
+> +                  tk->rp.kp.nmissed + tk->rp.nmissed);
+>
+>         return 0;
+>  }
+>
