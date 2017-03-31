@@ -1,74 +1,64 @@
-From: Joao Pinto <Joao.Pinto@synopsys.com>
-Subject: Re: stmmac CBS configuration for TX AVB queue
-Date: Fri, 31 Mar 2017 12:09:11 +0100
-Message-ID: <148c42ea-df37-4f7d-b5b2-edf7d2bc0c48@synopsys.com>
-References: <3ba8014e-aa49-1c70-a635-11c0b2a84fc2@axis.com>
+From: Salil Mehta <salil.mehta@huawei.com>
+Subject: [PATCH V2 net-next 00/18] net: hns: Misc. HNS Bug Fixes & Code Improvements
+Date: Fri, 31 Mar 2017 12:20:14 +0100
+Message-ID: <20170331112032.4692-1-salil.mehta@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Niklas Cassel <niklas.cassel@axis.com>,
-        Joao Pinto <Joao.Pinto@synopsys.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from us01smtprelay-2.synopsys.com ([198.182.60.111]:47461 "EHLO
-        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932701AbdCaLMJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 31 Mar 2017 07:12:09 -0400
-In-Reply-To: <3ba8014e-aa49-1c70-a635-11c0b2a84fc2@axis.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <salil.mehta@huawei.com>, <yisen.zhuang@huawei.com>,
+        <mehta.salil.lnk@gmail.com>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>, <linuxarm@huawei.com>
+To: <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Às 10:59 AM de 3/31/2017, Niklas Cassel escreveu:
-> Hello Joao
-> 
-> 
-> I was looking at
-> 
-> commit 19d9187317979cf0c25f67017d2676149abc46b2
-> Author: Joao Pinto <Joao.Pinto@synopsys.com>
-> Date:   Fri Mar 10 18:24:59 2017 +0000
-> 
->     net: stmmac: configuration of CBS in case of a TX AVB queue
->     
->     This patch adds the configuration of the AVB Credit-Based Shaper.
-> 
-> 
-> 
-> It looks to me that we loop through all txqueues (including 0)
-> 
-> static void stmmac_configure_cbs(struct stmmac_priv *priv)
-> ...
->     for (queue = 0; queue < tx_queues_count; queue++) {
->         ...
->         priv->hw->mac->config_cbs(...)
-> 
-> 
-> then in
-> 
-> static void dwmac4_config_cbs(..)
-> ...
->     value = readl(ioaddr + MTL_ETSX_CTRL_BASE_ADDR(queue));
-> 
-> 
-> The MTL_ETSX_CTRL_BASE_ADDR register only exists for txqueues != 0.
-> (Since txqueue0 will always handle legacy traffic.)
-> 
-> I think that we need to make sure that we do not enter
-> config_cbs() for txqueue0, even if the user's device tree
-> has txqueue0 set to AVB, since MTL_ETSX_CTRL_BASE_ADDR
-> will evaluate to a non-existing register for txqueue0.
-> 
-> Perhaps also clarify how we expect the user to configure
-> his device tree for txqueue0 when using AVB in:
-> Documentation/devicetree/bindings/net/stmmac.txt
-> 
-> 
-> Best regards,
-> Niklas
-> 
+This patch set introduces various HNS bug fixes, optimizations and code
+improvements.
 
-You are right, we did not add AVB capabilities to default/Q0, this way we
-guarantee 75% bandwidth for AVB. I will send a patch soon to fix this.
+Daode Huang (1):
+  net: hns: bug fix of ethtool show the speed
 
-Thanks,
-Joao
+Kejian Yan (7):
+  net: hns: Remove the redundant adding and deleting mac function
+  net: hns: Remove redundant mac_get_id()
+  net: hns: Remove redundant mac table operations
+  net: hns: Clean redundant code from hns_mdio.c file
+  net: hns: Optimise the code in hns_mdio_wait_ready()
+  net: hns: Simplify the exception sequence in hns_ppe_init()
+  net: hns: Adjust the SBM module buffer threshold
+
+Salil Mehta (1):
+  net: hns: Some checkpatch.pl script & warning fixes
+
+lipeng (9):
+  net: hns: Fix the implementation of irq affinity function
+  net: hns: Modify GMAC init TX threshold value
+  net: hns: Optimize the code for GMAC pad and crc Config
+  net: hns: Remove redundant memset during buffer release
+  net: hns: Optimize hns_nic_common_poll for better performance
+  net: hns: Fix to adjust buf_size of ring according to mtu
+  net: hns: Replace netif_tx_lock to ring spin lock
+  net: hns: Correct HNS RSS key set function
+  net: hns: Avoid Hip06 chip TX packet line bug
+
+ drivers/net/ethernet/hisilicon/hns/hnae.c          |   7 +-
+ drivers/net/ethernet/hisilicon/hns/hnae.h          |  47 ++-
+ drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c  | 127 +++++--
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c |  61 ++--
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c  |  41 +--
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h  |   5 +-
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c | 249 +------------
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h |  14 +-
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c  |  17 +-
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c  | 143 ++++++--
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.h  |  26 +-
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h  |   6 +-
+ .../net/ethernet/hisilicon/hns/hns_dsaf_xgmac.c    |  13 -
+ drivers/net/ethernet/hisilicon/hns/hns_enet.c      | 400 ++++++++++++++++-----
+ drivers/net/ethernet/hisilicon/hns/hns_enet.h      |   3 +-
+ drivers/net/ethernet/hisilicon/hns/hns_ethtool.c   |  34 +-
+ drivers/net/ethernet/hisilicon/hns_mdio.c          |  20 +-
+ 17 files changed, 653 insertions(+), 560 deletions(-)
+
+-- 
+2.7.4
