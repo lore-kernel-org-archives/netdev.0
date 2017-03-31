@@ -1,290 +1,53 @@
 From: Guillaume Nault <g.nault@alphalink.fr>
-Subject: [PATCH net 3/5] l2tp: fix duplicate session creation
-Date: Fri, 31 Mar 2017 13:02:27 +0200
-Message-ID: <10391187971e95a24158301a697a6b88b445983a.1490955471.git.g.nault@alphalink.fr>
+Subject: [PATCH net 4/5] l2tp: hold session while sending creation
+ notifications
+Date: Fri, 31 Mar 2017 13:02:29 +0200
+Message-ID: <4469e0a955ea4ca4aca626f39b5c2ae5846c1fef.1490955471.git.g.nault@alphalink.fr>
 References: <cover.1490955471.git.g.nault@alphalink.fr>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: James Chapman <jchapman@katalix.com>
+Cc: James Chapman <jchapman@katalix.com>, Bill Hong <bhong@brocade.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zimbra.alphalink.fr ([217.15.80.77]:51774 "EHLO
+Received: from zimbra.alphalink.fr ([217.15.80.77]:51782 "EHLO
         zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933124AbdCaLCc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 31 Mar 2017 07:02:32 -0400
+        with ESMTP id S932993AbdCaLCd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 31 Mar 2017 07:02:33 -0400
 Content-Disposition: inline
 In-Reply-To: <cover.1490955471.git.g.nault@alphalink.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-l2tp_session_create() relies on its caller for checking for duplicate
-sessions. This is racy since a session can be concurrently inserted
-after the caller's verification.
+l2tp_session_find() doesn't take any reference on the returned session.
+Therefore, the session may disappear while sending the notification.
 
-Fix this by letting l2tp_session_create() verify sessions uniqueness
-upon insertion. Callers need to be adapted to check for
-l2tp_session_create()'s return code instead of calling
-l2tp_session_find().
+Use l2tp_session_get() instead and decrement session's refcount once
+the notification is sent.
 
-pppol2tp_connect() is a bit special because it has to work on existing
-sessions (if they're not connected) or to create a new session if none
-is found. When acting on a preexisting session, a reference must be
-held or it could go away on us. So we have to use l2tp_session_get()
-instead of l2tp_session_find() and drop the reference before exiting.
-
-Fixes: d9e31d17ceba ("l2tp: Add L2TP ethernet pseudowire support")
-Fixes: fd558d186df2 ("l2tp: Split pppol2tp patch into separate l2tp and ppp parts")
+Fixes: 33f72e6f0c67 ("l2tp : multicast notification to the registered listeners")
 Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
 ---
- net/l2tp/l2tp_core.c | 70 +++++++++++++++++++++++++++++++++++++++-------------
- net/l2tp/l2tp_eth.c  | 10 ++------
- net/l2tp/l2tp_ppp.c  | 60 ++++++++++++++++++++++----------------------
- 3 files changed, 84 insertions(+), 56 deletions(-)
+ net/l2tp/l2tp_netlink.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
-index 8a067536d15c..46b450a1bc21 100644
---- a/net/l2tp/l2tp_core.c
-+++ b/net/l2tp/l2tp_core.c
-@@ -374,6 +374,48 @@ struct l2tp_session *l2tp_session_find_by_ifname(struct net *net, char *ifname)
- }
- EXPORT_SYMBOL_GPL(l2tp_session_find_by_ifname);
+diff --git a/net/l2tp/l2tp_netlink.c b/net/l2tp/l2tp_netlink.c
+index 3620fba31786..f1b68effb077 100644
+--- a/net/l2tp/l2tp_netlink.c
++++ b/net/l2tp/l2tp_netlink.c
+@@ -642,10 +642,12 @@ static int l2tp_nl_cmd_session_create(struct sk_buff *skb, struct genl_info *inf
+ 			session_id, peer_session_id, &cfg);
  
-+static int l2tp_session_add_to_tunnel(struct l2tp_tunnel *tunnel,
-+				      struct l2tp_session *session)
-+{
-+	struct l2tp_session *session_walk;
-+	struct hlist_head *g_head;
-+	struct hlist_head *head;
-+	struct l2tp_net *pn;
-+
-+	head = l2tp_session_id_hash(tunnel, session->session_id);
-+
-+	write_lock_bh(&tunnel->hlist_lock);
-+	hlist_for_each_entry(session_walk, head, hlist)
-+		if (session_walk->session_id == session->session_id)
-+			goto exist;
-+
-+	if (tunnel->version == L2TP_HDR_VER_3) {
-+		pn = l2tp_pernet(tunnel->l2tp_net);
-+		g_head = l2tp_session_id_hash_2(l2tp_pernet(tunnel->l2tp_net),
-+						session->session_id);
-+
-+		spin_lock_bh(&pn->l2tp_session_hlist_lock);
-+		hlist_for_each_entry(session_walk, g_head, global_hlist)
-+			if (session_walk->session_id == session->session_id)
-+				goto exist_glob;
-+
-+		hlist_add_head_rcu(&session->global_hlist, g_head);
-+		spin_unlock_bh(&pn->l2tp_session_hlist_lock);
-+	}
-+
-+	hlist_add_head(&session->hlist, head);
-+	write_unlock_bh(&tunnel->hlist_lock);
-+
-+	return 0;
-+
-+exist_glob:
-+	spin_unlock_bh(&pn->l2tp_session_hlist_lock);
-+exist:
-+	write_unlock_bh(&tunnel->hlist_lock);
-+
-+	return -EEXIST;
-+}
-+
- /* Lookup a tunnel by id
-  */
- struct l2tp_tunnel *l2tp_tunnel_find(struct net *net, u32 tunnel_id)
-@@ -1785,6 +1827,7 @@ EXPORT_SYMBOL_GPL(l2tp_session_set_header_len);
- struct l2tp_session *l2tp_session_create(int priv_size, struct l2tp_tunnel *tunnel, u32 session_id, u32 peer_session_id, struct l2tp_session_cfg *cfg)
- {
- 	struct l2tp_session *session;
-+	int err;
- 
- 	session = kzalloc(sizeof(struct l2tp_session) + priv_size, GFP_KERNEL);
- 	if (session != NULL) {
-@@ -1840,6 +1883,13 @@ struct l2tp_session *l2tp_session_create(int priv_size, struct l2tp_tunnel *tunn
- 
- 		l2tp_session_set_header_len(session, tunnel->version);
- 
-+		err = l2tp_session_add_to_tunnel(tunnel, session);
-+		if (err) {
-+			kfree(session);
-+
-+			return ERR_PTR(err);
-+		}
-+
- 		/* Bump the reference count. The session context is deleted
- 		 * only when this drops to zero.
- 		 */
-@@ -1849,28 +1899,14 @@ struct l2tp_session *l2tp_session_create(int priv_size, struct l2tp_tunnel *tunn
- 		/* Ensure tunnel socket isn't deleted */
- 		sock_hold(tunnel->sock);
- 
--		/* Add session to the tunnel's hash list */
--		write_lock_bh(&tunnel->hlist_lock);
--		hlist_add_head(&session->hlist,
--			       l2tp_session_id_hash(tunnel, session_id));
--		write_unlock_bh(&tunnel->hlist_lock);
--
--		/* And to the global session list if L2TPv3 */
--		if (tunnel->version != L2TP_HDR_VER_2) {
--			struct l2tp_net *pn = l2tp_pernet(tunnel->l2tp_net);
--
--			spin_lock_bh(&pn->l2tp_session_hlist_lock);
--			hlist_add_head_rcu(&session->global_hlist,
--					   l2tp_session_id_hash_2(pn, session_id));
--			spin_unlock_bh(&pn->l2tp_session_hlist_lock);
--		}
--
- 		/* Ignore management session in session count value */
- 		if (session->session_id != 0)
- 			atomic_inc(&l2tp_session_count);
-+
-+		return session;
- 	}
- 
--	return session;
-+	return ERR_PTR(-ENOMEM);
- }
- EXPORT_SYMBOL_GPL(l2tp_session_create);
- 
-diff --git a/net/l2tp/l2tp_eth.c b/net/l2tp/l2tp_eth.c
-index 8bf18a5f66e0..6fd41d7afe1e 100644
---- a/net/l2tp/l2tp_eth.c
-+++ b/net/l2tp/l2tp_eth.c
-@@ -221,12 +221,6 @@ static int l2tp_eth_create(struct net *net, u32 tunnel_id, u32 session_id, u32 p
- 		goto out;
- 	}
- 
--	session = l2tp_session_find(net, tunnel, session_id);
--	if (session) {
--		rc = -EEXIST;
--		goto out;
--	}
--
- 	if (cfg->ifname) {
- 		dev = dev_get_by_name(net, cfg->ifname);
- 		if (dev) {
-@@ -240,8 +234,8 @@ static int l2tp_eth_create(struct net *net, u32 tunnel_id, u32 session_id, u32 p
- 
- 	session = l2tp_session_create(sizeof(*spriv), tunnel, session_id,
- 				      peer_session_id, cfg);
--	if (!session) {
--		rc = -ENOMEM;
-+	if (IS_ERR(session)) {
-+		rc = PTR_ERR(session);
- 		goto out;
- 	}
- 
-diff --git a/net/l2tp/l2tp_ppp.c b/net/l2tp/l2tp_ppp.c
-index 827e55c41ba2..26501902d1a7 100644
---- a/net/l2tp/l2tp_ppp.c
-+++ b/net/l2tp/l2tp_ppp.c
-@@ -583,6 +583,7 @@ static int pppol2tp_connect(struct socket *sock, struct sockaddr *uservaddr,
- 	int error = 0;
- 	u32 tunnel_id, peer_tunnel_id;
- 	u32 session_id, peer_session_id;
-+	bool drop_refcnt = false;
- 	int ver = 2;
- 	int fd;
- 
-@@ -684,36 +685,36 @@ static int pppol2tp_connect(struct socket *sock, struct sockaddr *uservaddr,
- 	if (tunnel->peer_tunnel_id == 0)
- 		tunnel->peer_tunnel_id = peer_tunnel_id;
- 
--	/* Create session if it doesn't already exist. We handle the
--	 * case where a session was previously created by the netlink
--	 * interface by checking that the session doesn't already have
--	 * a socket and its tunnel socket are what we expect. If any
--	 * of those checks fail, return EEXIST to the caller.
--	 */
--	session = l2tp_session_find(sock_net(sk), tunnel, session_id);
--	if (session == NULL) {
--		/* Default MTU must allow space for UDP/L2TP/PPP
--		 * headers.
-+	session = l2tp_session_get(sock_net(sk), tunnel, session_id, false);
-+	if (session) {
-+		drop_refcnt = true;
-+		ps = l2tp_session_priv(session);
-+
-+		/* Using a pre-existing session is fine as long as it hasn't
-+		 * been connected yet.
- 		 */
--		cfg.mtu = cfg.mru = 1500 - PPPOL2TP_HEADER_OVERHEAD;
-+		if (ps->sock) {
-+			error = -EEXIST;
-+			goto end;
-+		}
- 
--		/* Allocate and initialize a new session context. */
--		session = l2tp_session_create(sizeof(struct pppol2tp_session),
--					      tunnel, session_id,
--					      peer_session_id, &cfg);
--		if (session == NULL) {
--			error = -ENOMEM;
-+		/* consistency checks */
-+		if (ps->tunnel_sock != tunnel->sock) {
-+			error = -EEXIST;
- 			goto end;
- 		}
- 	} else {
--		ps = l2tp_session_priv(session);
--		error = -EEXIST;
--		if (ps->sock != NULL)
--			goto end;
-+		/* Default MTU must allow space for UDP/L2TP/PPP headers */
-+		cfg.mtu = 1500 - PPPOL2TP_HEADER_OVERHEAD;
-+		cfg.mru = cfg.mtu;
- 
--		/* consistency checks */
--		if (ps->tunnel_sock != tunnel->sock)
-+		session = l2tp_session_create(sizeof(struct pppol2tp_session),
-+					      tunnel, session_id,
-+					      peer_session_id, &cfg);
-+		if (IS_ERR(session)) {
-+			error = PTR_ERR(session);
- 			goto end;
+ 	if (ret >= 0) {
+-		session = l2tp_session_find(net, tunnel, session_id);
+-		if (session)
++		session = l2tp_session_get(net, tunnel, session_id, false);
++		if (session) {
+ 			ret = l2tp_session_notify(&l2tp_nl_family, info, session,
+ 						  L2TP_CMD_SESSION_CREATE);
++			l2tp_session_dec_refcount(session);
 +		}
  	}
  
- 	/* Associate session with its PPPoL2TP socket */
-@@ -778,6 +779,8 @@ static int pppol2tp_connect(struct socket *sock, struct sockaddr *uservaddr,
- 		  session->name);
- 
- end:
-+	if (drop_refcnt)
-+		l2tp_session_dec_refcount(session);
- 	release_sock(sk);
- 
- 	return error;
-@@ -805,12 +808,6 @@ static int pppol2tp_session_create(struct net *net, u32 tunnel_id, u32 session_i
- 	if (tunnel->sock == NULL)
- 		goto out;
- 
--	/* Check that this session doesn't already exist */
--	error = -EEXIST;
--	session = l2tp_session_find(net, tunnel, session_id);
--	if (session != NULL)
--		goto out;
--
- 	/* Default MTU values. */
- 	if (cfg->mtu == 0)
- 		cfg->mtu = 1500 - PPPOL2TP_HEADER_OVERHEAD;
-@@ -818,12 +815,13 @@ static int pppol2tp_session_create(struct net *net, u32 tunnel_id, u32 session_i
- 		cfg->mru = cfg->mtu;
- 
- 	/* Allocate and initialize a new session context. */
--	error = -ENOMEM;
- 	session = l2tp_session_create(sizeof(struct pppol2tp_session),
- 				      tunnel, session_id,
- 				      peer_session_id, cfg);
--	if (session == NULL)
-+	if (IS_ERR(session)) {
-+		error = PTR_ERR(session);
- 		goto out;
-+	}
- 
- 	ps = l2tp_session_priv(session);
- 	ps->tunnel_sock = tunnel->sock;
+ out:
 -- 
 2.11.0
