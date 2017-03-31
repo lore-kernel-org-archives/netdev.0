@@ -1,78 +1,75 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next v2] net: dsa: Mock-up driver
-Date: Fri, 31 Mar 2017 18:06:01 +0200
-Message-ID: <20170331160601.GC12814@lunn.ch>
-References: <20170331014321.3248-1-f.fainelli@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: udp: add socket option to report RX queue level
+Date: Fri, 31 Mar 2017 09:13:43 -0700
+Message-ID: <1490976823.8750.34.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20170317211312.38117-1-ckuiper@google.com>
+         <1489788070.28631.322.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CA+BVk2evqfsaG68AUKFm-j6JfeYVYT7tJSxrDkPc3PQZ=kmLMw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-        vivien.didelot@savoirfairelinux.com
-To: Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Josh Hunt <johunt@akamai.com>, netdev@vger.kernel.org,
+        Petri Gynther <pgynther@google.com>
+To: Chris Kuiper <ckuiper@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:41919 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S933149AbdCaQGG (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 31 Mar 2017 12:06:06 -0400
-Content-Disposition: inline
-In-Reply-To: <20170331014321.3248-1-f.fainelli@gmail.com>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:34248 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933126AbdCaQNq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 31 Mar 2017 12:13:46 -0400
+Received: by mail-pg0-f65.google.com with SMTP id o123so18387563pga.1
+        for <netdev@vger.kernel.org>; Fri, 31 Mar 2017 09:13:45 -0700 (PDT)
+In-Reply-To: <CA+BVk2evqfsaG68AUKFm-j6JfeYVYT7tJSxrDkPc3PQZ=kmLMw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Florian
+Please do not top post on netdev
 
-> +static enum dsa_tag_protocol dsa_loop_get_protocol(struct dsa_switch *ds)
-> +{
-> +	dev_dbg(ds->dev, "%s\n", __func__);
-> +
-> +	return DSA_TAG_PROTO_NONE;
-> +}
+On Mon, 2017-03-27 at 18:08 -0700, Chris Kuiper wrote:
+> Sorry, I have been transferring jobs and had no time to look at this.
+> 
+> Josh Hunt's change seems to solve a different problem. I was looking
+> for something that works the same way as SO_RXQ_OVERFL, providing
+> information as ancillary data to the recvmsg() call. The problem with
+> SO_RXQ_OVERFL alone is that it tells you when things have already gone
+> wrong (you dropped data), so the new option SO_RX_ALLOC acts as a
+> leading indicator to check if you are getting close to hitting such
+> problem.
 
-I'm wondering how safe this is:
+SO_RXQ_OVERFL gives a very precise info for every skb that was queued.
 
-static const struct dsa_device_ops none_ops = {
-        .xmit   = dsa_slave_notag_xmit,
-        .rcv    = NULL,
-};
+This is a different indicator, because it can tell you where is the
+discontinuity point at the time skb were queued, not at the time they
+are dequeued.
 
-        /*
-         * If the CPU connects to this switch, set the switch tree
-         * tagging protocol to the preferred tagging format of this
-         * switch.
-         */
-        if (dst->cpu_switch == ds) {
-                enum dsa_tag_protocol tag_protocol;
+Just tune SO_RCVBUF to not even have to care about this.
 
-                tag_protocol = ops->get_tag_protocol(ds);
-                dst->tag_ops = dsa_resolve_tag_protocol(tag_protocol);
-                if (IS_ERR(dst->tag_ops))
-                        return PTR_ERR(dst->tag_ops);
+By the time you sample the queue occupancy, the information might be
+completely stale and queue already overflowed.
 
-                dst->rcv = dst->tag_ops->rcv;
-        }
+There is very little point having a super system call gathering all kind
+of (stale) info
 
+> 
+> Regarding only UDP being supported, it is only meaningful for UDP. TCP
+> doesn't drop data and if its buffer gets full it just stops the sender
+> from sending more. The buffer level in that case doesn't even tell you
+> the whole picture, since it doesn't include any information on how
+> much additional buffering is done at the sender side.
+> 
 
-static int dsa_switch_rcv(struct sk_buff *skb, struct net_device *dev,
-                          struct packet_type *pt, struct net_device *orig_dev)
-{
-        struct dsa_switch_tree *dst = dev->dsa_ptr;
+We have more protocols than UDP and TCP in linux kernel.
 
-        if (unlikely(dst == NULL)) {
-                kfree_skb(skb);
-                return 0;
-        }
+> In terms of "a lot overhead", logically the overhead of adding
+> additional getsockopt() calls after each recvmsg() is significantly
+> larger than just getting the information as part of recvmsg(). If you
+> don't need it, then don't enable this option. Admitted you can reduce
+> the frequency of calling getsockopt() relative to recvmsg(), but that
+> also increases your risk of missing the point where data is dropped.
 
-        return dst->rcv(skb, dev, pt, orig_dev);
-}
+Your proposal adds overhead for all UDP recvmsg() calls, while most of
+them absolutely not care about overruns. There is little you can do if
+you are under attack or if your SO_RCVBUF is too small for the workload.
 
-static struct packet_type dsa_pack_type __read_mostly = {
-        .type   = cpu_to_be16(ETH_P_XDSA),
-        .func   = dsa_switch_rcv,
-};
-
-It looks like when a frame is received, we are going to dereference a
-NULL pointer.
-
-Either we need a NOP rcv function, or we don't register dsa_pack_type
-if rcv is NULL.
-
-   Andrew
+Some people work hard to reach 2 Millions UDP recvmsg() calls per second
+on a single UDP socket, so everything added in fast path will be
+scrutinized.
