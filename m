@@ -1,48 +1,65 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next] udp: use sk_protocol instead of pcflag to
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] udp: use sk_protocol instead of pcflag to
  detect udplite sockets
-Date: Fri, 31 Mar 2017 15:03:27 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DCFFC37E0@AcuExch.aculab.com>
+Date: Fri, 31 Mar 2017 08:09:13 -0700
+Message-ID: <1490972953.8750.15.camel@edumazet-glaptop3.roam.corp.google.com>
 References: <fc91ec83ecf454fad74c326380203a34434cb1ec.1490953526.git.pabeni@redhat.com>
- <1490966709.8750.7.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1490966709.8750.7.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1490970784.2845.15.camel@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>,
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
         Eric Dumazet <edumazet@google.com>
-To: 'Eric Dumazet' <eric.dumazet@gmail.com>,
-        Paolo Abeni <pabeni@redhat.com>
+To: Paolo Abeni <pabeni@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.195]:52373 "EHLO
-        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754099AbdCaPDg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 31 Mar 2017 11:03:36 -0400
-In-Reply-To: <1490966709.8750.7.camel@edumazet-glaptop3.roam.corp.google.com>
-Content-Language: en-US
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:35807 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755037AbdCaPJQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 31 Mar 2017 11:09:16 -0400
+Received: by mail-pg0-f67.google.com with SMTP id g2so17970364pge.2
+        for <netdev@vger.kernel.org>; Fri, 31 Mar 2017 08:09:15 -0700 (PDT)
+In-Reply-To: <1490970784.2845.15.camel@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRXJpYyBEdW1hemV0DQo+IFNlbnQ6IDMxIE1hcmNoIDIwMTcgMTQ6MjUNCj4gT24gRnJp
-LCAyMDE3LTAzLTMxIGF0IDExOjQ3ICswMjAwLCBQYW9sbyBBYmVuaSB3cm90ZToNCj4gPiBJbiB0
-aGUgdWRwX3NvY2sgc3RydWN0LCB0aGUgJ2ZvcndhcmRfZGVmaWNpdCcgYW5kICdwY2ZsYWcnIGZp
-ZWxkcw0KPiA+IHNoYXJlIHRoZSBzYW1lIGNhY2hlbGluZS4gV2hpbGUgdGhlIGZpcnN0IGlzIGRp
-cnRpZWQgYnkNCj4gPiB1ZHBfcmVjdm1zZywgdGhlIGxhdHRlciBpcyByZWFkLCBwb3NzaWJseSBz
-ZXZlcmFsIHRpbWVzLCBieSB0aGUNCj4gPiBib3R0b20gaGFsZiBwcm9jZXNzaW5nIHRvIGRpc2Ny
-aW1pbmF0ZSBiZXR3ZWVuIHVkcCBhbmQgdWRwbGl0ZQ0KPiA+IHNvY2tldHMuDQo+ID4NCj4gPiBX
-aXRoIHRoaXMgcGF0Y2gsIHNrLT5za19wcm90b2NvbCBpcyB1c2VkIHRvIGNoZWNrIGlzIHRoZSBz
-b2NrZXQgaXMNCj4gPiByZWFsbHkgYW4gdWRwbGl0ZSBvbmUsIGF2b2lkaW5nIHNvbWUgY2FjaGUg
-bWlzc2VzIHBlcg0KPiA+IHBhY2tldCBhbmQgaW1wcm92aW5nIHRoZSBwZXJmb3JtYW5jZSB1bmRl
-ciB1ZHBfZmxvb2Qgd2l0aA0KPiA+IHNtYWxsIHBhY2tldCB1cCB0byAxMCUuDQouLi4NCj4gSSBh
-bSBwcmV0dHkgc3VyZSB3ZSBhZ3JlZWQgaW4gdGhlIHBhc3QgdGhhdCBmb3J3YXJkX2RlZmljaXQg
-d291bGQgbmVlZA0KPiB0byBiZSBwbGFjZWQgb24gYSBjYWNoZSBsaW5lIG9mIGl0cyBvd24uIFNv
-bWVob3cgd2UgbWFuYWdlIHRvIG5vdA0KPiBpbXBsZW1lbnQgdGhpcyBwcm9wZXJseS4NCj4gDQo+
-IFdoYXQgYWJvdXQgb3RoZXIgZmllbGRzIGxpa2UgZW5jYXBfcmN2LCBlbmNhcF9kZXN0cm95LCBn
-cm9fcmVjZWl2ZSwNCj4gZ3JvX2NvbXBsZXRlLiBUaGV5IHJlYWxseSBzaG91bGQgaGF2ZSB0aGUg
-c2FtZSBmYWxzZSBzaGFyaW5nIGlzc3VlLg0KPiANCj4gUHJvcGVyIGZpeCBpcyA6DQouLi4NCj4g
-LQkvKiBUaGlzIGZpZWxkIGlzIGRpcnRpZWQgYnkgdWRwX3JlY3Ztc2coKSAqLw0KPiAtCWludAkJ
-Zm9yd2FyZF9kZWZpY2l0Ow0KPiArCS8qIFRoaXMgZmllbGQgaXMgZGlydGllZCBieSB1ZHBfcmVj
-dm1zZygpLg0KPiArCSAqIE1ha2Ugc3VyZSBpdCB3b250IHNoYXJlIGEgY2FjaGUgbGluZSB3aXRo
-IHByaW9yIGZpZWxkcy4NCj4gKwkgKi8NCj4gKwlpbnQJCWZvcndhcmRfZGVmaWNpdCBfX19fY2Fj
-aGVsaW5lX2FsaWduZWRfaW5fc21wOw0KDQpJcyB0aGF0IHJlYWxseSBzZW5zaWJsZSBvbiBzeXN0
-ZW1zIHdpdGggbGFyZ2UgY2FjaGUgbGluZXM/DQoNCglEYXZpZA0KDQo=
+On Fri, 2017-03-31 at 16:33 +0200, Paolo Abeni wrote:
+
+> I did the above to avoid increasing the udp_sock struct size; this will
+> costs more than a whole cacheline.
+
+Yes, but who cares :)
+
+Also note that we discussed about having a secondary receive queue in
+the future, to decouple the fact that producers/consumer have to grab a
+contended spinlock for every enqueued and dequeued packet.
+
+With a secondary queue, the consumer can transfer one queue into another
+in one batch.
+
+Or simply use ptr_ring / skb_array now these infras are available thanks
+to Michael.
+
+So we will likely increase UDP socket size in a near future...
+
+> 
+> I did not hit others false sharing issues because:
+> - gro_receive/gro_complete are touched only for packets coming from 
+> devices with udp tunnel offload enabled, that hit the tunnel offload
+> path on the nic; such packets will most probably land in the udp tunnel
+>  and will not use 'forward_deficit'
+
+
+> - encap_destroy is touched only socket shutdown
+> - encap_rcv is protected by the 'udp_encap_needed' static key
+> 
+> I think this latter is problematic, so I'm ok with the patch you
+> suggested.
+> 
+> The above change could still make sense, the udp code is already
+> checking for udplite sockets with either pcflag and protocol;
+> testing always the same data will make the code more cleaner.
+
+Where are we testing sk->sk_prototocol in receive path ?
+
+Thanks Paolo !
