@@ -1,7 +1,7 @@
 From: Salil Mehta <salil.mehta@huawei.com>
-Subject: [PATCH V2 net-next 08/18] net: hns: Replace netif_tx_lock to ring spin lock
-Date: Fri, 31 Mar 2017 12:20:22 +0100
-Message-ID: <20170331112032.4692-9-salil.mehta@huawei.com>
+Subject: [PATCH V2 net-next 09/18] net: hns: Correct HNS RSS key set function
+Date: Fri, 31 Mar 2017 12:20:23 +0100
+Message-ID: <20170331112032.4692-10-salil.mehta@huawei.com>
 References: <20170331112032.4692-1-salil.mehta@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -17,119 +17,89 @@ List-Id: netdev.vger.kernel.org
 
 From: lipeng <lipeng321@huawei.com>
 
-netif_tx_lock is a global spin lock, it will take affect
-in all rings in the netdevice. In tx_poll_one process, it can
-only lock the current ring, in this case, we define a spin lock
-in hnae_ring struct for it.
+This patch fixes below ethtool configuration error:
+
+localhost:~ # ethtool -X eth0 hkey XX:XX:XX...
+Cannot set Rx flow hash configuration: Operation not supported
 
 Signed-off-by: lipeng <lipeng321@huawei.com>
-reviewed-by: Yisen Zhuang <yisen.zhuang@huawei.com>
+Reviewed-by: Yisen Zhuang <yisen.zhuang@huawei.com>
 Signed-off-by: Salil Mehta <salil.mehta@huawei.com>
 ---
- drivers/net/ethernet/hisilicon/hns/hnae.c     |  1 +
- drivers/net/ethernet/hisilicon/hns/hnae.h     |  3 +++
- drivers/net/ethernet/hisilicon/hns/hns_enet.c | 21 +++++++++++----------
- 3 files changed, 15 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c | 23 ++++++++++++++---------
+ drivers/net/ethernet/hisilicon/hns/hns_ethtool.c  |  9 ++++-----
+ 2 files changed, 18 insertions(+), 14 deletions(-)
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hnae.c b/drivers/net/ethernet/hisilicon/hns/hnae.c
-index 78af663..513c257 100644
---- a/drivers/net/ethernet/hisilicon/hns/hnae.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hnae.c
-@@ -196,6 +196,7 @@ hnae_init_ring(struct hnae_queue *q, struct hnae_ring *ring, int flags)
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c b/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
+index cd7e88e..f0142e5 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
+@@ -826,8 +826,9 @@ static int hns_ae_get_rss(struct hnae_handle *handle, u32 *indir, u8 *key,
+ 		memcpy(key, ppe_cb->rss_key, HNS_PPEV2_RSS_KEY_SIZE);
  
- 	ring->q = q;
- 	ring->flags = flags;
-+	spin_lock_init(&ring->lock);
- 	assert(!ring->desc && !ring->desc_cb && !ring->desc_dma_addr);
+ 	/* update the current hash->queue mappings from the shadow RSS table */
+-	memcpy(indir, ppe_cb->rss_indir_table,
+-	       HNS_PPEV2_RSS_IND_TBL_SIZE * sizeof(*indir));
++	if (indir)
++		memcpy(indir, ppe_cb->rss_indir_table,
++		       HNS_PPEV2_RSS_IND_TBL_SIZE  * sizeof(*indir));
  
- 	/* not matter for tx or rx ring, the ntc and ntc start from 0 */
-diff --git a/drivers/net/ethernet/hisilicon/hns/hnae.h b/drivers/net/ethernet/hisilicon/hns/hnae.h
-index c66581d..859c536 100644
---- a/drivers/net/ethernet/hisilicon/hns/hnae.h
-+++ b/drivers/net/ethernet/hisilicon/hns/hnae.h
-@@ -275,6 +275,9 @@ struct hnae_ring {
- 	/* statistic */
- 	struct ring_stats stats;
+ 	return 0;
+ }
+@@ -838,15 +839,19 @@ static int hns_ae_set_rss(struct hnae_handle *handle, const u32 *indir,
+ 	struct hns_ppe_cb *ppe_cb = hns_get_ppe_cb(handle);
  
-+	/* ring lock for poll one */
-+	spinlock_t lock;
-+
- 	dma_addr_t desc_dma_addr;
- 	u32 buf_size;       /* size for hnae_desc->addr, preset by AE */
- 	u16 desc_num;       /* total number of desc */
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.c b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-index 3449a18..3634366 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-@@ -922,12 +922,13 @@ static int is_valid_clean_head(struct hnae_ring *ring, int h)
+ 	/* set the RSS Hash Key if specififed by the user */
+-	if (key)
+-		hns_ppe_set_rss_key(ppe_cb, (u32 *)key);
++	if (key) {
++		memcpy(ppe_cb->rss_key, key, HNS_PPEV2_RSS_KEY_SIZE);
++		hns_ppe_set_rss_key(ppe_cb, ppe_cb->rss_key);
++	}
  
- /* netif_tx_lock will turn down the performance, set only when necessary */
- #ifdef CONFIG_NET_POLL_CONTROLLER
--#define NETIF_TX_LOCK(ndev) netif_tx_lock(ndev)
--#define NETIF_TX_UNLOCK(ndev) netif_tx_unlock(ndev)
-+#define NETIF_TX_LOCK(ring) spin_lock(&ring->lock)
-+#define NETIF_TX_UNLOCK(ring) spin_unlock(&ring->lock)
- #else
--#define NETIF_TX_LOCK(ndev)
--#define NETIF_TX_UNLOCK(ndev)
-+#define NETIF_TX_LOCK(ring)
-+#define NETIF_TX_UNLOCK(ring)
- #endif
-+
- /* reclaim all desc in one budget
-  * return error or number of desc left
-  */
-@@ -941,13 +942,13 @@ static int hns_nic_tx_poll_one(struct hns_nic_ring_data *ring_data,
- 	int head;
- 	int bytes, pkts;
+-	/* update the shadow RSS table with user specified qids */
+-	memcpy(ppe_cb->rss_indir_table, indir,
+-	       HNS_PPEV2_RSS_IND_TBL_SIZE * sizeof(*indir));
++	if (indir) {
++		/* update the shadow RSS table with user specified qids */
++		memcpy(ppe_cb->rss_indir_table, indir,
++		       HNS_PPEV2_RSS_IND_TBL_SIZE  * sizeof(*indir));
  
--	NETIF_TX_LOCK(ndev);
-+	NETIF_TX_LOCK(ring);
+-	/* now update the hardware */
+-	hns_ppe_set_indir_table(ppe_cb, ppe_cb->rss_indir_table);
++		/* now update the hardware */
++		hns_ppe_set_indir_table(ppe_cb, ppe_cb->rss_indir_table);
++	}
  
- 	head = readl_relaxed(ring->io_base + RCB_REG_HEAD);
- 	rmb(); /* make sure head is ready before touch any data */
+ 	return 0;
+ }
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c b/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
+index 3404eac..3a2a342 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
+@@ -1244,6 +1244,7 @@ hns_set_rss(struct net_device *netdev, const u32 *indir, const u8 *key,
+ {
+ 	struct hns_nic_priv *priv = netdev_priv(netdev);
+ 	struct hnae_ae_ops *ops;
++	int ret;
  
- 	if (is_ring_empty(ring) || head == ring->next_to_clean) {
--		NETIF_TX_UNLOCK(ndev);
-+		NETIF_TX_UNLOCK(ring);
- 		return 0; /* no data to poll */
- 	}
+ 	if (AE_IS_VER1(priv->enet_ver)) {
+ 		netdev_err(netdev,
+@@ -1253,12 +1254,10 @@ hns_set_rss(struct net_device *netdev, const u32 *indir, const u8 *key,
  
-@@ -955,7 +956,7 @@ static int hns_nic_tx_poll_one(struct hns_nic_ring_data *ring_data,
- 		netdev_err(ndev, "wrong head (%d, %d-%d)\n", head,
- 			   ring->next_to_use, ring->next_to_clean);
- 		ring->stats.io_err_cnt++;
--		NETIF_TX_UNLOCK(ndev);
-+		NETIF_TX_UNLOCK(ring);
- 		return -EIO;
- 	}
+ 	ops = priv->ae_handle->dev->ops;
  
-@@ -967,7 +968,7 @@ static int hns_nic_tx_poll_one(struct hns_nic_ring_data *ring_data,
- 		prefetch(&ring->desc_cb[ring->next_to_clean]);
- 	}
+-	/* currently hfunc can only be Toeplitz hash */
+-	if (key ||
+-	    (hfunc != ETH_RSS_HASH_NO_CHANGE && hfunc != ETH_RSS_HASH_TOP))
++	if (hfunc != ETH_RSS_HASH_NO_CHANGE && hfunc != ETH_RSS_HASH_TOP) {
++		netdev_err(netdev, "Invalid hfunc!\n");
+ 		return -EOPNOTSUPP;
+-	if (!indir)
+-		return 0;
++	}
  
--	NETIF_TX_UNLOCK(ndev);
-+	NETIF_TX_UNLOCK(ring);
- 
- 	dev_queue = netdev_get_tx_queue(ndev, ring_data->queue_index);
- 	netdev_tx_completed_queue(dev_queue, pkts, bytes);
-@@ -1028,7 +1029,7 @@ static void hns_nic_tx_clr_all_bufs(struct hns_nic_ring_data *ring_data)
- 	int head;
- 	int bytes, pkts;
- 
--	NETIF_TX_LOCK(ndev);
-+	NETIF_TX_LOCK(ring);
- 
- 	head = ring->next_to_use; /* ntu :soft setted ring position*/
- 	bytes = 0;
-@@ -1036,7 +1037,7 @@ static void hns_nic_tx_clr_all_bufs(struct hns_nic_ring_data *ring_data)
- 	while (head != ring->next_to_clean)
- 		hns_nic_reclaim_one_desc(ring, &bytes, &pkts);
- 
--	NETIF_TX_UNLOCK(ndev);
-+	NETIF_TX_UNLOCK(ring);
- 
- 	dev_queue = netdev_get_tx_queue(ndev, ring_data->queue_index);
- 	netdev_tx_reset_queue(dev_queue);
+ 	return ops->set_rss(priv->ae_handle, indir, key, hfunc);
+ }
 -- 
 2.7.4
