@@ -1,53 +1,48 @@
-From: Guillaume Nault <g.nault@alphalink.fr>
-Subject: Re: [PATCH net 5/5] l2tp: take a reference on sessions used in
- genetlink handlers
-Date: Fri, 31 Mar 2017 19:27:42 +0200
-Message-ID: <20170331172742.xh3cxpbmjn45nbv6@alphalink.fr>
-References: <cover.1490955471.git.g.nault@alphalink.fr>
- <32e49ef213e02f291b5accd3a9ac961e2d2f960b.1490955471.git.g.nault@alphalink.fr>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next v2 9/9] net: dsa: mv88e6xxx: add cross-chip bridging
+Date: Fri, 31 Mar 2017 13:27:25 -0400
+Message-ID: <87mvc19x1e.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+References: <20170330213715.9666-1-vivien.didelot@savoirfairelinux.com> <20170330213715.9666-10-vivien.didelot@savoirfairelinux.com> <20170331163949.GI12814@lunn.ch> <87d1cxqtco.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me> <20170331170941.GL12814@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-        James Chapman <jchapman@katalix.com>,
-        Bill Hong <bhong@brocade.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from zimbra.alphalink.fr ([217.15.80.77]:51038 "EHLO
-        zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933217AbdCaR1q (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 31 Mar 2017 13:27:46 -0400
-Content-Disposition: inline
-In-Reply-To: <32e49ef213e02f291b5accd3a9ac961e2d2f960b.1490955471.git.g.nault@alphalink.fr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170331170941.GL12814@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 31, 2017 at 01:02:30PM +0200, Guillaume Nault wrote:
-> Callers of l2tp_nl_session_find() need to hold a reference on the
-> returned session since there's no guarantee that it isn't going to
-> disappear from under them.
-> 
-> Relying on the fact that no l2tp netlink message may be processed
-> concurrently isn't enough: sessions can be deleted by other means
-> (e.g. by closing the PPPOL2TP socket of a ppp pseudowire).
-> 
-> l2tp_nl_cmd_session_delete() is a bit special: it runs a callback
-> function that may require a previous call to session->ref(). In
-> particular, for ppp pseudowires, the callback is l2tp_session_delete(),
-> which then calls pppol2tp_session_close() and dereferences the PPPOL2TP
-> socket. The socket might already be gone at the moment
-> l2tp_session_delete() calls session->ref(), so we need to take a
-> reference during the session lookup. So we need to pass the do_ref
-> variable down to l2tp_session_get() and l2tp_session_get_by_ifname().
-> 
-> Since all callers have to be updated, l2tp_session_find_by_ifname() and
-> l2tp_nl_session_find() are renamed to reflect their new behaviour.
-> 
-> Fixes: 33f72e6f0c67 ("l2tp : multicast notification to the registered listeners")
+Hi Andrew,
 
-Sorry, it should have been
-Fixes: 309795f4bec2 ("l2tp: Add netlink control API for L2TP")
+Andrew Lunn <andrew@lunn.ch> writes:
 
-Commit 33f72e6f0c67 ("l2tp : multicast notification to the registered
-listeners") just worsened the existing race conditions.
+> I don't like the idea of leaking frames.
 
-David, do you want me to repost this series with the new Fixes tag?
+I don't like it neither. That's why this patch series is out there. It
+improves the security on PVT-capable Marvell switches by programming the
+tables correctly on bridging events.
+
+A next step can be to warn the user about the software or hardware
+limitations (s)he is currently experiencing with something roughly like
+this in cross-chip bridging operations:
+
+    if (!mv88e6xxx_has_pvt(chip)) {
+    #if IS_ENABLED(BRIDGE_VLAN_FILTERING)
+        return 0;
+    #else
+        pr_err("Cross-chip bridging is forbidden on non-PVT hardware and
+               non-VLAN-filtering aware systems\n");
+        return -EINVAL;
+    #endif
+    }
+
+But let's keep it simple for the moment and go baby steps. First program
+PVT tables correctly as this patchset does, then figure out how to
+handle non-PVT systems. That is a good topic for next week ;-)
+
+Thanks,
+
+        Vivien
