@@ -1,133 +1,143 @@
-From: Masami Hiramatsu <mhiramat@kernel.org>
-Subject: Re: [PATCH v2] tracing/kprobes: expose maxactive for kretprobe in
- kprobe_events
-Date: Sat, 1 Apr 2017 07:13:03 +0900
-Message-ID: <20170401071303.6ce015d87f59b816158deb8a@kernel.org>
-References: <1490966424-20335-1-git-send-email-alban@kinvolk.io>
-        <20170331100839.45f42b8c@gandalf.local.home>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [PATCH net-next 1/1 v2] net: rmnet_data: Initial implementation
+Date: Fri, 31 Mar 2017 17:41:20 -0500
+Message-ID: <1491000080.13807.1.camel@redhat.com>
+References: <1489390989-2408-1-git-send-email-subashab@codeaurora.org>
+         <1489390989-2408-2-git-send-email-subashab@codeaurora.org>
+         <1490394075.3227.9.camel@redhat.com>
+         <4bd7c38e551505fa8d035d5e1b209d8e@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Alban Crequy <alban.crequy@gmail.com>,
-        Alban Crequy <alban@kinvolk.io>,
-        Alexei Starovoitov <ast@kernel.org>,
-        Jonathan Corbet <corbet@lwn.net>,
-        Ingo Molnar <mingo@redhat.com>, Shuah Khan <shuah@kernel.org>,
-        Masami Hiramatsu <mhiramat@kernel.org>,
-        Arnaldo Carvalho de Melo <acme@redhat.com>,
-        Omar Sandoval <osandov@fb.com>,
-        Anton Blanchard <anton@samba.org>, linux-doc@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-kselftest@vger.kernel.org, iago@kinvolk.io,
-        michael@kinvolk.io, lukasz.dorau@intel.com,
-        vitalii.chernookyi@intel.com, marcin.slusarz@intel.com,
-        sarah.jelinek@intel.com, gabor.buella@intel.com
-To: Steven Rostedt <rostedt@goodmis.org>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <20170331100839.45f42b8c@gandalf.local.home>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, fengguang.wu@intel.com
+To: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:61460 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S933321AbdCaWlX (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 31 Mar 2017 18:41:23 -0400
+In-Reply-To: <4bd7c38e551505fa8d035d5e1b209d8e@codeaurora.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 31 Mar 2017 10:08:39 -0400
-Steven Rostedt <rostedt@goodmis.org> wrote:
-
-> On Fri, 31 Mar 2017 15:20:24 +0200
-> Alban Crequy <alban.crequy@gmail.com> wrote:
+On Fri, 2017-03-24 at 18:49 -0600, Subash Abhinov Kasiviswanathan
+wrote:
+> > (re-sending from an address that's actually subscribed to
+> > netdev@...)
+> > 
+> > The first thing that jumps out at me is "why isn't this using
+> > rtnl_link_ops?"
+> > 
+> > To me (and perhaps I'm completely wrong) the structure here is a
+> > lot
+> > like VLAN interfaces.  You have a base device (whether that's a
+> > netdev
+> > or not) and you essentially "ip link add link cdc-wdm0 name rmnet0
+> > type
+> > rmnet id 5".  Does the aggregation happen only on the downlink (eg,
+> > device -> host) or can the host send aggregated packets too?
 > 
-> > When a kretprobe is installed on a kernel function, there is a maximum
-> > limit of how many calls in parallel it can catch (aka "maxactive"). A
-> > kernel module could call register_kretprobe() and initialize maxactive
-> > (see example in samples/kprobes/kretprobe_example.c).
-> > 
-> > But that is not exposed to userspace and it is currently not possible to
-> > choose maxactive when writing to /sys/kernel/debug/tracing/kprobe_events
-> > 
-> > The default maxactive can be as low as 1 on single-core with a
-> > non-preemptive kernel. This is too low and we need to increase it not
-> > only for recursive functions, but for functions that sleep or resched.
-> > 
-> > This patch updates the format of the command that can be written to
-> > kprobe_events so that maxactive can be optionally specified.
-> > 
-> > I need this for a bpf program attached to the kretprobe of
-> > inet_csk_accept, which can sleep for a long time.
-> > 
-> > This patch includes a basic selftest:
-> > 
-> > > # ./ftracetest -v  test.d/kprobe/
-> > > === Ftrace unit tests ===
-> > > [1] Kprobe dynamic event - adding and removing	[PASS]
-> > > [2] Kprobe dynamic event - busy event check	[PASS]
-> > > [3] Kprobe dynamic event with arguments	[PASS]
-> > > [4] Kprobes event arguments with types	[PASS]
-> > > [5] Kprobe dynamic event with function tracer	[PASS]
-> > > [6] Kretprobe dynamic event with arguments	[PASS]
-> > > [7] Kretprobe dynamic event with maxactive	[PASS]
-> > >
-> > > # of passed:  7
-> > > # of failed:  0
-> > > # of unresolved:  0
-> > > # of untested:  0
-> > > # of unsupported:  0
-> > > # of xfailed:  0
-> > > # of undefined(test bug):  0  
-> > 
-> > BugLink: https://github.com/iovisor/bcc/issues/1072
-> > Signed-off-by: Alban Crequy <alban@kinvolk.io>
-> > 
-> > ---
-> > 
-> > Changes since v1:
-> > - Remove "(*)" from documentation. (Review from Masami Hiramatsu)
-> > - Fix support for "r100" without the event name (Review from Masami Hiramatsu)
-> > - Get rid of magic numbers within the code.  (Review from Steven Rostedt)
-> >   Note that I didn't use KRETPROBE_MAXACTIVE_ALLOC since that patch is not
-> >   merged.
-> > - Return -E2BIG when maxactive is too big.
-> > - Add basic selftest
-> > ---
-> >  Documentation/trace/kprobetrace.txt                |  4 ++-
-> >  kernel/trace/trace_kprobe.c                        | 39 ++++++++++++++++++----
-> >  .../ftrace/test.d/kprobe/kretprobe_maxactive.tc    | 39 ++++++++++++++++++++++
-> >  3 files changed, 75 insertions(+), 7 deletions(-)
-> >  create mode 100644 tools/testing/selftests/ftrace/test.d/kprobe/kretprobe_maxactive.tc
-> > 
-> > diff --git a/Documentation/trace/kprobetrace.txt b/Documentation/trace/kprobetrace.txt
-> > index 41ef9d8..7051a20 100644
-> > --- a/Documentation/trace/kprobetrace.txt
-> > +++ b/Documentation/trace/kprobetrace.txt
-> > @@ -23,7 +23,7 @@ current_tracer. Instead of that, add probe points via
-> >  Synopsis of kprobe_events
-> >  -------------------------
-> >    p[:[GRP/]EVENT] [MOD:]SYM[+offs]|MEMADDR [FETCHARGS]	: Set a probe
-> > -  r[:[GRP/]EVENT] [MOD:]SYM[+0] [FETCHARGS]		: Set a return probe
-> > +  r[MAXACTIVE][:[GRP/]EVENT] [MOD:]SYM[+0] [FETCHARGS]	: Set a return probe
-> >    -:[GRP/]EVENT						: Clear a probe
-> >  
-> >   GRP		: Group name. If omitted, use "kprobes" for it.
-> > @@ -32,6 +32,8 @@ Synopsis of kprobe_events
-> >   MOD		: Module name which has given SYM.
-> >   SYM[+offs]	: Symbol+offset where the probe is inserted.
-> >   MEMADDR	: Address where the probe is inserted.
-> > + MAXACTIVE	: Maximum number of instances of the specified function that
-> > +		  can be probed simultaneously, or 0 for the default.
+> Hi Dan
 > 
-> BTW, to me, 0 means none (no instances can probe). This should have a
-> better description of what "0" actually means.
+> Yes, you are correct. We associate this driver with a physical
+> device 
+> and
+> then create rmnet devices over it as needed for multiplexing.
 
-default value is defined in Documentation/kprobes.txt sction 1.3.1, so
-you'll just need to refer that.
+Yeah, seems quite a bit like VLAN (from a workflow perspective, not
+quite as much from a protocol one) and I think the same workflow could
+work for this too.  Would be nice to eventually get qmi_wwan onto the
+same base, if possible (though we'd need to preserve the 802.3
+capability somehow for devices that don't support raw-ip).
 
-Thank you,
+> Aggregation is supported both on downlink and uplink by Qualcomm
+> Technologies, Inc. modem hardware. This initial patchset implements
+> only
+> downlink aggregation since uplink aggregation is rarely enabled or
+> used.
+> I'll send a separate patchset for that.
 
+Does the aggregation happen at the level of the raw device, or at the
+level of the MUX channels?  eg, can I aggregate packets from multiple
+MUX channels into the same request, especially on USB devices?
+
+> > Using rtnl_link_ops would get rid of ASSOC_NET_DEV,
+> > UNASSOC_NET_DEV,
+> > NEW_VND, NEW_VND_WITH_PREFIX, and FREE_VND.  GET_NET_DEV_ASSOC goes
+> > away becuase you use normal 'kobject' associations and you can
+> > derive
+> > the rmnet parent through sysfs links.  rmnet_nl_msg_s goes away,
+> > because you can use nla_policy.
+> > 
+> > Just a thought; there seems to be a ton of overlap with
+> > rtnl_link_ops
+> > in the control plane here.
 > 
-> -- Steve
-> 
-> 
-> >  
-> >   FETCHARGS	: Arguments. Each probe can have up to 128 args.
-> >    %REG		: Fetch register REG
+> As of now, we have been using a custom netlink userspace tool for
+> configuring the interfaces by listening to RMNET_NETLINK_PROTO
+> events.
+> Does that mean that configuration needs to be moved to ip tool by
+> adding a new option for rmnet (like how you have mentioned above)
+> and add additional options for end point configuration as well?
 
+It doesn't necessarily mean that configuration would need to move to
+the IP tool.  I just used it as an example of how VLAN works and how
+rmnet could work as well, quite easily with the ip tool.
 
--- 
-Masami Hiramatsu <mhiramat@kernel.org>
+Since the ip tool is based on netlink, both it and your userspace
+library could use the same netlink attributes and families to do the
+same thing.
+
+Essentially, I am recommending that instead of your current custom
+netlink commands, port them over to rtnetlink which will mean less code
+for you, and a more standard kernel interface for everyone.
+
+> > Any thoughts on how this plays with net namespaces?
+> 
+> We have not tried it with different net namespaces since we never had
+> such use cases internally. We can look into this.
+
+One use-case is to put different packet data contexts into different
+namespaces.  You could then isolate different EPS/PDP contexts by
+putting them into different network namespaces, and for example have
+your IMS handler only be able to access its own EPS/PDP context.
+
+We could already do this with qmi_wwan on devices that provide multiple
+USB endpoints for QMI/rmnet, but I thought the point of the MUX
+protocol was to allow a single endpoint for rmnet that can MUX multiple
+packet data contexts.  So it would be nice to allow each rmnet netdev
+to be placed into a different network namespace.
+
+> > Also, I'm not sure if it make sense to provide first class
+> > tracepoints
+> > for a specific driver, as it's not clear if they are userspace API
+> > or
+> > not and thus may need to be kept stable.   Or are perf probes
+> > enough
+> > instead?
+> 
+> We have some tracepoints which are in datapath and some for specific
+> events such as device unregistration and configuration events 
+> association.
+> Most of these devices are on ARM64 and need to support older kernels,
+> (from 3.10) so we had to rely on tracepoints. I believe ARM64 got
+> trace
+> point support somewhat recently. I was not aware of the restriction
+> of
+> tracepoints, so I can remove that.
+
+Yeah, best to remove that for now, you can propose to add them back
+later and see what people say.
+
+> > 
+> > What's RMNET_EPMODE_BRIDGE and how is it used?
+> 
+> RMNET_EPMODE_BRIDGE is for bridging two different physical
+> interfaces.
+> An example is sending raw bytes from hardware to USB - this can be
+> used
+> if a PC connected by USB would require the data in the MAP format.
+
+Like a usb gadget rmnet interface for debugging?
+
+Dan
