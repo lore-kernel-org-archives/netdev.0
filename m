@@ -1,47 +1,25 @@
-From: Bjorn Andersson <bjorn.andersson@linaro.org>
-Subject: Re: [PATCH 1/6] virtio: wrap find_vqs
-Date: Sat, 1 Apr 2017 09:13:44 -0700
-Message-ID: <20170401161344.GR20094@minitux>
-References: <1490820507-8005-1-git-send-email-mst@redhat.com>
-	<1490820507-8005-2-git-send-email-mst@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Dmitry Tarnyagin <dmitry.tarnyagin@lockless.no>, kvm@vger.kernel.org,
-	David Airlie <airlied@linux.ie>, linux-remoteproc@vger.kernel.org,
-	dri-devel@lists.freedesktop.org, virtualization@lists.linux-foundation.org,
-	"James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>, linux-scsi@vger.kernel.org,
-	John Fastabend <john.fastabend@gmail.com>,
-	Arnd Bergmann <arnd@arndb.de>, Amit Shah <amit@kernel.org>,
-	Stefan Hajnoczi <stefanha@redhat.com>,
-	"Martin K. Petersen" <martin.petersen@oracle.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	linux-kernel@vger.kernel.org, linux-crypto@vger.kernel.org,
-	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <1490820507-8005-2-git-send-email-mst@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: [PATCH net-next 0/2] rds: tcp: couple of minor bug fixes
+Date: Fri, 31 Mar 2017 15:56:29 -0700
+Message-ID: <cover.1490814967.git.sowmini.varadhan@oracle.com>
+Cc: davem@davemloft.net, santosh.shilimkar@oracle.com,
+        sowmini.varadhan@oracle.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:26591 "EHLO
+        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751855AbdDASSm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 1 Apr 2017 14:18:42 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed 29 Mar 13:48 PDT 2017, Michael S. Tsirkin wrote:
+A couple of minor bugfixes that showed up during testing
 
-> We are going to add more parameters to find_vqs, let's wrap the call so
-> we don't need to tweak all drivers every time.
-> 
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+Sowmini Varadhan (2):
+  rds: tcp: allow progress of rds_conn_shutdown if the rds_connection
+    is marked ERROR by an intervening FIN
+  rds: tcp: canonical connection order for all paths with index > 0
 
-Acked-by: Bjorn Andersson <bjorn.andersson@linaro.org>
-
-Regards,
-Bjorn
+ net/rds/connection.c |   10 +++++++++-
+ net/rds/threads.c    |    2 +-
+ 2 files changed, 10 insertions(+), 2 deletions(-)
