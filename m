@@ -1,115 +1,34 @@
 From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net 1/3] bpf, verifier: fix alu ops against map_value{,_adj} register types
-Date: Fri, 31 Mar 2017 02:24:02 +0200
-Message-ID: <01fcf74d9eca4d7883a9a9785394e7acd0c313b8.1490918592.git.daniel@iogearbox.net>
-References: <cover.1490918592.git.daniel@iogearbox.net>
+Subject: [PATCH net 0/3] BPF fixes on map_value_adj reg types
+Date: Fri, 31 Mar 2017 02:24:01 +0200
+Message-ID: <cover.1490918592.git.daniel@iogearbox.net>
 Cc: netdev@vger.kernel.org, ast@fb.com, jbacik@fb.com, kafai@fb.com,
         Daniel Borkmann <daniel@iogearbox.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:46180 "EHLO
+Received: from www62.your-server.de ([213.133.104.62]:46182 "EHLO
         www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934596AbdCaAYS (ORCPT
+        with ESMTP id S932701AbdCaAYS (ORCPT
         <rfc822;netdev@vger.kernel.org>); Thu, 30 Mar 2017 20:24:18 -0400
-In-Reply-To: <cover.1490918592.git.daniel@iogearbox.net>
-In-Reply-To: <cover.1490918592.git.daniel@iogearbox.net>
-References: <cover.1490918592.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-While looking into map_value_adj, I noticed that alu operations
-directly on the map_value() resp. map_value_adj() register (any
-alu operation on a map_value() register will turn it into a
-map_value_adj() typed register) are not sufficiently protected
-against some of the operations. Two non-exhaustive examples are
-provided that the verifier needs to reject:
+This set adds two fixes for map_value_adj register type in the
+verifier and user space tests along with them for the BPF self
+test suite. For details, please see individual patches.
 
- i) BPF_AND on r0 (map_value_adj):
+Thanks!
 
-  0: (bf) r2 = r10
-  1: (07) r2 += -8
-  2: (7a) *(u64 *)(r2 +0) = 0
-  3: (18) r1 = 0xbf842a00
-  5: (85) call bpf_map_lookup_elem#1
-  6: (15) if r0 == 0x0 goto pc+2
-   R0=map_value(ks=8,vs=48,id=0),min_value=0,max_value=0 R10=fp
-  7: (57) r0 &= 8
-  8: (7a) *(u64 *)(r0 +0) = 22
-   R0=map_value_adj(ks=8,vs=48,id=0),min_value=0,max_value=8 R10=fp
-  9: (95) exit
+Daniel Borkmann (3):
+  bpf, verifier: fix alu ops against map_value{,_adj} register types
+  bpf, verifier: fix rejection of unaligned access checks for map_value_adj
+  bpf: add various verifier test cases for self-tests
 
-  from 6 to 9: R0=inv,min_value=0,max_value=0 R10=fp
-  9: (95) exit
-  processed 10 insns
+ kernel/bpf/verifier.c                       |  59 +++---
+ tools/include/linux/filter.h                |  10 ++
+ tools/testing/selftests/bpf/Makefile        |   9 +-
+ tools/testing/selftests/bpf/test_verifier.c | 270 +++++++++++++++++++++++++++-
+ 4 files changed, 322 insertions(+), 26 deletions(-)
 
-ii) BPF_ADD in 32 bit mode on r0 (map_value_adj):
-
-  0: (bf) r2 = r10
-  1: (07) r2 += -8
-  2: (7a) *(u64 *)(r2 +0) = 0
-  3: (18) r1 = 0xc24eee00
-  5: (85) call bpf_map_lookup_elem#1
-  6: (15) if r0 == 0x0 goto pc+2
-   R0=map_value(ks=8,vs=48,id=0),min_value=0,max_value=0 R10=fp
-  7: (04) (u32) r0 += (u32) 0
-  8: (7a) *(u64 *)(r0 +0) = 22
-   R0=map_value_adj(ks=8,vs=48,id=0),min_value=0,max_value=0 R10=fp
-  9: (95) exit
-
-  from 6 to 9: R0=inv,min_value=0,max_value=0 R10=fp
-  9: (95) exit
-  processed 10 insns
-
-Issue is, while min_value / max_value boundaries for the access
-are adjusted appropriately, we change the pointer value in a way
-that cannot be sufficiently tracked anymore from its origin.
-Operations like BPF_{AND,OR,DIV,MUL,etc} on a destination register
-that is PTR_TO_MAP_VALUE{,_ADJ} was probably unintended, in fact,
-all the test cases coming with 484611357c19 ("bpf: allow access
-into map value arrays") perform BPF_ADD only on the destination
-register that is PTR_TO_MAP_VALUE_ADJ.
-
-Only for UNKNOWN_VALUE register types such operations make sense,
-f.e. with unknown memory content fetched initially from a constant
-offset from the map value memory into a register. That register is
-then later tested against lower / upper bounds, so that the verifier
-can then do the tracking of min_value / max_value, and properly
-check once that UNKNOWN_VALUE register is added to the destination
-register with type PTR_TO_MAP_VALUE{,_ADJ}. This is also what the
-original use-case is solving. Note, tracking on what is being
-added is done through adjust_reg_min_max_vals() and later access
-to the map value enforced with these boundaries and the given offset
-from the insn through check_map_access_adj().
-
-Tests will fail for non-root environment due to prohibited pointer
-arithmetic, in particular in check_alu_op(), we bail out on the
-is_pointer_value() check on the dst_reg (which is false in root
-case as we allow for pointer arithmetic via env->allow_ptr_leaks).
-
-Similarly to PTR_TO_PACKET, one way to fix it is to restrict the
-allowed operations on PTR_TO_MAP_VALUE{,_ADJ} registers to 64 bit
-mode BPF_ADD. The test_verifier suite runs fine after the patch
-and it also rejects mentioned test cases.
-
-Fixes: 484611357c19 ("bpf: allow access into map value arrays")
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-Reviewed-by: Josef Bacik <jbacik@fb.com>
-Acked-by: Alexei Starovoitov <ast@kernel.org>
----
- kernel/bpf/verifier.c | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index 5e6202e..86dedde 100644
---- a/kernel/bpf/verifier.c
-+++ b/kernel/bpf/verifier.c
-@@ -1925,6 +1925,7 @@ static int check_alu_op(struct bpf_verifier_env *env, struct bpf_insn *insn)
- 		 * register as unknown.
- 		 */
- 		if (env->allow_ptr_leaks &&
-+		    BPF_CLASS(insn->code) == BPF_ALU64 && opcode == BPF_ADD &&
- 		    (dst_reg->type == PTR_TO_MAP_VALUE ||
- 		     dst_reg->type == PTR_TO_MAP_VALUE_ADJ))
- 			dst_reg->type = PTR_TO_MAP_VALUE_ADJ;
 -- 
 1.9.3
