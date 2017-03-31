@@ -1,28 +1,55 @@
-From: "zubakin.crawl@yandex.ru" <chief.offend2017@yandex.ru>
-Subject: =?windows-1251?B?ysvIxc3S0crIxSDBwMfbIOTr/yDi8eX1IOry?=
-        =?windows-1251?B?7iDs7e7j7iDv8O7k4OXyICjk6/8g/vDr6PYg?=
-        =?windows-1251?B?6CD06Ofr6PYpISDT5+3g6fLlIO/u5PDu4e3l?=
-        =?windows-1251?B?5SEgU2t5cGU6IHByb2Rhd2V6MzkwIEVtYWls?=
-        =?windows-1251?B?OiBwcm9kYXdlejM5M0BnbWFpbC5jb20gV2hh?=
-        =?windows-1251?B?dHNhcHA6ICs3OTEzOTIzMDMzMCBWaWJlcjog?=
-        =?windows-1251?B?Kzc5MTM5MjMwMzMwIFRlbGVncmFtOiArNzkx?=
-        =?windows-1251?B?MzkyMzAzMzA=?=
-Date: Fri, 31 Mar 2017 21:27:38 +0300
-Message-ID: <BDB80E5D5682AD8E52571EA044D2FD14@yandex.ru>
-Reply-To: "zubakin.crawl@yandex.ru" <prodawez393@gmail.com>
+From: Philippe Reynes <tremyfr-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH] net: batman-adv: use new api
+	ethtool_{get|set}_link_ksettings
+Date: Fri, 31 Mar 2017 22:33:34 +0200
+Message-ID: <CAC=8w91DZHq4dKzUS=8w1fUvPG_CmT=HT3amQ15-iVgAV23fmQ@mail.gmail.com>
+References: <1490907687-11784-1-git-send-email-tremyfr@gmail.com>
+ <5459529.jjAg0OrKDG@bentobox>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1251";
-Content-Transfer-Encoding: base64
-To: "luntovskij.os@yandex.ru" <agnessa-komarova@inbox.ru>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [222.186.170.83] ([222.186.170.83]:57330 "EHLO
-        qyi-58c91dedaadae.localdomain" rhost-flags-FAIL-FAIL-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1755093AbdCaU0x (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 31 Mar 2017 16:26:53 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org, a@unstable.cc, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <5459529.jjAg0OrKDG@bentobox>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-ysvIxc3S0crIxSDBwMfbIOTr/yDi8eX1IOry7iDs7e7j7iDv8O7k4OXyICjk6/8g/vDr6PYg6CD0
-6Ofr6PYpISDT5+3g6fLlIO/u5PDu4e3l5SEgU2t5cGU6IHByb2Rhd2V6MzkwIEVtYWlsOiBwcm9k
-YXdlejM5M0BnbWFpbC5jb20gV2hhdHNhcHA6ICs3OTEzOTIzMDMzMCBWaWJlcjogKzc5MTM5MjMw
-MzMwIFRlbGVncmFtOiArNzkxMzkyMzAzMzANCg==
+Hi Sven,
+
+On 3/31/17, Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org> wrote:
+> On Donnerstag, 30. M=C3=A4rz 2017 23:01:27 CEST Philippe Reynes wrote:
+>> The ethtool api {get|set}_settings is deprecated.
+>> We move this driver to new api {get|set}_link_ksettings.
+>>
+>> I've only compiled this change. If someone may test it,
+>> it would be very nice.
+>>
+>> Signed-off-by: Philippe Reynes <tremyfr-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+>> ---
+>>  net/batman-adv/soft-interface.c |   25 ++++++++++++-------------
+>>  1 files changed, 12 insertions(+), 13 deletions(-)
+>
+> Do you know if anyone already prepared the get_link_ksettings support for
+> kernels older than 4.6 for backports.git?
+
+Sorry, I don't know this repo. Do you have an url please ?
+But I suppose that nobody works on such backport.
+
+> Kind regards,
+> 	Sven
+
+Regards,
+Philippe
