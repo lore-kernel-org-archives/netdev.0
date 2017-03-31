@@ -1,57 +1,44 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: Re: [PATCH net-next] sock: correctly test SOCK_TIMESTAMP in
- sock_recv_ts_and_drops()
-Date: Sat, 01 Apr 2017 01:36:38 +0200
-Message-ID: <1491003398.2572.1.camel@redhat.com>
-References: <f29d595f4a72d77730447be2a7c5f243fad47751.1490875313.git.pabeni@redhat.com>
-         <20170330.202924.1023519735753552178.davem@davemloft.net>
-         <1490997565.8750.39.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Grygorii Strashko <grygorii.strashko@ti.com>
+Subject: [PATCH] net: ethernet: ti: cpsw: wake tx queues on ndo_tx_timeout
+Date: Fri, 31 Mar 2017 18:41:23 -0500
+Message-ID: <20170331234123.15607-1-grygorii.strashko@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-        David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:34238 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932868AbdCaXgl (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 31 Mar 2017 19:36:41 -0400
-In-Reply-To: <1490997565.8750.39.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Sekhar Nori <nsekhar@ti.com>, <linux-kernel@vger.kernel.org>,
+        <linux-omap@vger.kernel.org>,
+        Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>,
+        Grygorii Strashko <grygorii.strashko@ti.com>
+To: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2017-03-31 at 14:59 -0700, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> It seems the code does not match the intent.
-> 
-> This broke packetdrill, and probably other programs.
-> 
-> Fixes: 6c7c98bad488 ("sock: avoid dirtying sk_stamp, if possible")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Paolo Abeni <pabeni@redhat.com>
-> ---
->  include/net/sock.h |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/include/net/sock.h b/include/net/sock.h
-> index 8e53158a7d957ea2a480cc449606dca2480b1259..66349e49d468646ce724485bb8e74952825f0d6c 100644
-> --- a/include/net/sock.h
-> +++ b/include/net/sock.h
-> @@ -2250,7 +2250,7 @@ static inline void sock_recv_ts_and_drops(struct msghdr *msg, struct sock *sk,
->  
->  	if (sk->sk_flags & FLAGS_TS_OR_DROPS || sk->sk_tsflags & TSFLAGS_ANY)
->  		__sock_recv_ts_and_drops(msg, sk, skb);
-> -	else if (unlikely(sk->sk_flags & SOCK_TIMESTAMP))
-> +	else if (unlikely(sock_flag(sk, SOCK_TIMESTAMP)))
->  		sk->sk_stamp = skb->tstamp;
->  	else if (unlikely(sk->sk_stamp == SK_DEFAULT_STAMP))
->  		sk->sk_stamp = 0;
-> 
+In case, if TX watchdog is fired some or all netdev TX queues will be
+stopped and as part of recovery it is required not only to drain and
+reinitailize CPSW TX channeles, but also wake up stoppted TX queues what
+doesn't happen now and netdevice will stop transmiting data until
+reopenned.
 
-Oh, my bad! 
+Hence, add netif_tx_wake_all_queues() call in .ndo_tx_timeout() to complete
+recovery and restore TX path.
 
-Thanks Eric for fixing this.
+Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
+---
+ drivers/net/ethernet/ti/cpsw.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-Acked-by: Paolo Abeni <pabeni@redhat.com>
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index 86d6f10..71fd4ef 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -1819,6 +1819,8 @@ static void cpsw_ndo_tx_timeout(struct net_device *ndev)
+ 	}
+ 
+ 	cpsw_intr_enable(cpsw);
++	netif_trans_update(ndev);
++	netif_tx_wake_all_queues(ndev);
+ }
+ 
+ static int cpsw_ndo_set_mac_address(struct net_device *ndev, void *p)
+-- 
+2.10.1
