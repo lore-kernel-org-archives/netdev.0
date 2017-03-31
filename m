@@ -1,81 +1,36 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: Re: [PATCH net-next] udp: use sk_protocol instead of pcflag to
- detect udplite sockets
-Date: Fri, 31 Mar 2017 16:33:04 +0200
-Message-ID: <1490970784.2845.15.camel@redhat.com>
-References: <fc91ec83ecf454fad74c326380203a34434cb1ec.1490953526.git.pabeni@redhat.com>
-         <1490966709.8750.7.camel@edumazet-glaptop3.roam.corp.google.com>
+From: "Mr.Hassan Habib" <hh3584420@gmail.com>
+Subject: Please I want you to patiently read this offer.?
+Date: Fri, 31 Mar 2017 14:47:13 +0000 (UTC)
+Message-ID: <191834796.13393819.1490971633399@mail.yahoo.com>
+References: <191834796.13393819.1490971633399.ref@mail.yahoo.com>
+Reply-To: "Mr.Hassan Habib" <hh3584420@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-        Eric Dumazet <edumazet@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:41022 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754597AbdCaOdH (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 31 Mar 2017 10:33:07 -0400
-In-Reply-To: <1490966709.8750.7.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from sonic320-25.consmr.mail.ir2.yahoo.com ([77.238.177.208]:43759
+        "EHLO sonic320-25.consmr.mail.ir2.yahoo.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S933109AbdCaOrP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 31 Mar 2017 10:47:15 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2017-03-31 at 06:25 -0700, Eric Dumazet wrote:
-> On Fri, 2017-03-31 at 11:47 +0200, Paolo Abeni wrote:
-> > In the udp_sock struct, the 'forward_deficit' and 'pcflag' fields
-> > share the same cacheline. While the first is dirtied by
-> > udp_recvmsg, the latter is read, possibly several times, by the
-> > bottom half processing to discriminate between udp and udplite
-> > sockets.
-> > 
-> > With this patch, sk->sk_protocol is used to check is the socket is
-> > really an udplite one, avoiding some cache misses per
-> > packet and improving the performance under udp_flood with
-> > small packet up to 10%.
-> > 
-> > Signed-off-by: Paolo Abeni <pabeni@redhat.com>
-> > ---
-> >  include/linux/udp.h | 2 +-
-> >  1 file changed, 1 insertion(+), 1 deletion(-)
-> > 
-> > diff --git a/include/linux/udp.h b/include/linux/udp.h
-> > index c0f5308..6cb4061 100644
-> > --- a/include/linux/udp.h
-> > +++ b/include/linux/udp.h
-> > @@ -115,6 +115,6 @@ static inline bool udp_get_no_check6_rx(struct sock *sk)
-> >  #define udp_portaddr_for_each_entry_rcu(__sk, list) \
-> >  	hlist_for_each_entry_rcu(__sk, list, __sk_common.skc_portaddr_node)
-> >  
-> > -#define IS_UDPLITE(__sk) (udp_sk(__sk)->pcflag)
-> > +#define IS_UDPLITE(__sk) (__sk->sk_protocol == IPPROTO_UDPLITE)
-> >  
-> >  #endif	/* _LINUX_UDP_H */
-> 
-> 
-> 
-> I am pretty sure we agreed in the past that forward_deficit would need
-> to be placed on a cache line of its own. Somehow we manage to not
-> implement this properly.
-> 
-> What about other fields like encap_rcv, encap_destroy, gro_receive,
-> gro_complete. They really should have the same false sharing issue.
+Hello.
 
-I did the above to avoid increasing the udp_sock struct size; this will
-costs more than a whole cacheline.
+I know this means of communication may not be morally right to you as a person but I also have had a great thought about it and I have come to this conclusion which I am about to share with you.
 
-I did not hit others false sharing issues because:
-- gro_receive/gro_complete are touched only for packets coming from 
-devices with udp tunnel offload enabled, that hit the tunnel offload
-path on the nic; such packets will most probably land in the udp tunnel
- and will not use 'forward_deficit'
-- encap_destroy is touched only socket shutdown
-- encap_rcv is protected by the 'udp_encap_needed' static key
+INTRODUCTION:I am the Credit Manager U. B. A Bank of Burkina Faso Ouagadougou
+and in one way or the other was hoping you will cooperate with me as a partner in a project of transferring an abandoned fund of a late customer of the bank worth of $18,000,000 (Eighteen Million Dollars US).
 
-I think this latter is problematic, so I'm ok with the patch you
-suggested.
+This will be disbursed or shared between the both of us in these percentages, 55% to me and 35% to you while 10% will be for expenses both parties might have incurred during the process of transferring.
+I
+await for your response so that we can commence on this project as soon as possible.
 
-The above change could still make sense, the udp code is already
-checking for udplite sockets with either pcflag and protocol;
-testing always the same data will make the code more cleaner.
+Reply to this Email:mr_habib2015@yahoo.com
 
-Paolo
+Regards,
+Mr.Hassan Habib.
+
+Credit Manager U.B.A Bank of
+Burkina Faso Ouagadougou
