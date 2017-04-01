@@ -1,32 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 0/9] net: dsa: mv88e6xxx: program
- cross-chip bridging
-Date: Sat, 01 Apr 2017 12:23:49 -0700 (PDT)
-Message-ID: <20170401.122349.1411474095004148070.davem@davemloft.net>
-References: <20170330213715.9666-1-vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net 0/3] BPF fixes on map_value_adj reg types
+Date: Sat, 01 Apr 2017 12:37:01 -0700 (PDT)
+Message-ID: <20170401.123701.2089842711923355892.davem@davemloft.net>
+References: <cover.1490918592.git.daniel@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com, f.fainelli@gmail.com, andrew@lunn.ch
-To: vivien.didelot@savoirfairelinux.com
+Cc: netdev@vger.kernel.org, ast@fb.com, jbacik@fb.com, kafai@fb.com
+To: daniel@iogearbox.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:56956 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:57042 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751385AbdDATXv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 1 Apr 2017 15:23:51 -0400
-In-Reply-To: <20170330213715.9666-1-vivien.didelot@savoirfairelinux.com>
+        with ESMTP id S1751880AbdDAThF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 1 Apr 2017 15:37:05 -0400
+In-Reply-To: <cover.1490918592.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Date: Thu, 30 Mar 2017 17:37:06 -0400
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Fri, 31 Mar 2017 02:24:01 +0200
 
-> The purpose of this patch series is to bring hardware cross-chip
-> bridging configuration to the DSA layer and the mv88e6xxx DSA driver.
+> This set adds two fixes for map_value_adj register type in the
+> verifier and user space tests along with them for the BPF self
+> test suite. For details, please see individual patches.
 
-This series seems like a step in the right direction so I have applied
-it to net-next.  We can address non-PVT setups and other issues in
-follow-up changes.
-
-Thanks!
+Series applied and queued up for -stable, thanks Daniel.
