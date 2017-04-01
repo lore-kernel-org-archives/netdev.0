@@ -1,77 +1,79 @@
-From: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
-Subject: Re: [PATCH] net: batman-adv: use new api
-	ethtool_{get|set}_link_ksettings
-Date: Sat, 01 Apr 2017 08:40:54 +0200
-Message-ID: <2462780.uK9AJZJh1Z@sven-edge>
-References: <1490907687-11784-1-git-send-email-tremyfr@gmail.com>
- <5459529.jjAg0OrKDG@bentobox>
- <CAC=8w91DZHq4dKzUS=8w1fUvPG_CmT=HT3amQ15-iVgAV23fmQ@mail.gmail.com>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
- <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH v2 net-next 1/6] bpf: introduce BPF_PROG_TEST_RUN
+ command
+Date: Sat, 1 Apr 2017 09:14:23 +0200
+Message-ID: <20170401091423.4ce1ef3b@redhat.com>
+References: <20170331044543.4075183-1-ast@fb.com>
+        <20170331044543.4075183-2-ast@fb.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="nextPart2102377.nSGi7hxipA";
- micalg="pgp-sha512"; protocol="application/pgp-signature"
-Cc: mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org, a@unstable.cc, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Philippe Reynes <tremyfr-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <CAC=8w91DZHq4dKzUS=8w1fUvPG_CmT=HT3amQ15-iVgAV23fmQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: brouer@redhat.com, "David S . Miller" <davem@davemloft.net>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Wang Nan <wangnan0@huawei.com>,
+        Martin KaFai Lau <kafai@fb.com>, <netdev@vger.kernel.org>,
+        <kernel-team@fb.com>
+To: Alexei Starovoitov <ast@fb.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:60434 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750795AbdDAHOb (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 1 Apr 2017 03:14:31 -0400
+In-Reply-To: <20170331044543.4075183-2-ast@fb.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---nextPart2102377.nSGi7hxipA
-Content-Transfer-Encoding: quoted-printable
-Content-Type: text/plain; charset="iso-8859-1"
+On Thu, 30 Mar 2017 21:45:38 -0700
+Alexei Starovoitov <ast@fb.com> wrote:
 
-On Freitag, 31. M=E4rz 2017 22:33:34 CEST Philippe Reynes wrote:
-> > Do you know if anyone already prepared the get_link_ksettings support f=
-or
-> > kernels older than 4.6 for backports.git?
->=20
-> Sorry, I don't know this repo. Do you have an url please ?
-> But I suppose that nobody works on such backport.
+> static u32 bpf_test_run(struct bpf_prog *prog, void *ctx, u32 repeat, u32 *time)
+> +{
+> +	u64 time_start, time_spent = 0;
+> +	u32 ret = 0, i;
+> +
+> +	if (!repeat)
+> +		repeat = 1;
+> +	time_start = ktime_get_ns();
 
-More information about it can be found at https://backports.wiki.kernel.org=
-=20
-and https://git.kernel.org/pub/scm/linux/kernel/git/backports/backports.git/
+I've found that is useful to record the CPU cycles, as it is more
+useful for comparing between CPUs.  The nanosec time measurement varies
+too much between CPUs and GHz.  I do use nanosec measurements myself a
+lot, but that is mostly because it is easier to relate to pps rates.
+For eBPF code execution I think it is more useful to get a cycles cost
+count?
 
-Btw. the code you are modifying will most likely be dropped. Your patch wil=
-l=20
-get rejected because of this. But thanks for submitting the api conversion=
-=20
-patch (even when it will be rejected).
+I've been using tsc[1] (rdtsc) to get the CPU cycles, I believe
+get_cycles() the more generic call, which have arch specific impl. (but
+can return 0 if no arch support).
 
-Kind regards,
-	Sven
---nextPart2102377.nSGi7hxipA
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part.
-Content-Transfer-Encoding: 7Bit
+The best solution would be to use the perf infrastructure and PMU
+counter to get both PMU cycles and instructions, as that also tell you
+about the pipeline efficiency like instructions per cycles.  I only got
+this partly working in [1][2].
 
------BEGIN PGP SIGNATURE-----
+[1] https://github.com/netoptimizer/prototype-kernel/blob/master/kernel/include/linux/time_bench.h
+[2] https://github.com/netoptimizer/prototype-kernel/blob/master/kernel/lib/time_bench.c
 
-iQIzBAABCgAdFiEEF10rh2Elc9zjMuACXYcKB8Eme0YFAljfS3YACgkQXYcKB8Em
-e0Yk1hAA2WM/HUWS0NOzi7PbCPWsjzIM4VPpcTKN7UKWfasm1lgzcWH92r3ZXsvn
-z5We3j5vBxamLlJmw4X11O0+EIscNf9miIR6Xei3Ubhkl5A1DAtAYIneRJ5m3TI+
-35G5BR0rdYNjCr/IFrslaWKbsuN4ajF5v0/6AuYb7HGDMjiRNt3JXhMmD8M/9i25
-Ojp+kS2lNPfwsxyOLzJgyHHFhWOtZ5dUWf53N2G+EVKIDqqKge9F5YpUNB/LBpWh
-2F+NdAk3G3KA6+GSkBi1jP8bpM85s5R3w+8rG3o+KJcy/G8oOz2EiIjO4HpmEyas
-MfiXGEwD/QAdYrIaqJILCPiIyL+s0Lb3Cm1dqLrRXW0+ht21KdqLtOgRFfEoC6XY
-wPeUkdRDO1iEonm6g70ZARPrxDSs1d/3bgZheISSo+73ufDoY4HlhJxPl8Wn7Igv
-jWnqjQ+Ykq1yw7QRAJNv74q8yreXLrgyN8EG4+SJRiwLZOkeIzfbnPI9xAqUL+rX
-sWGRe7bU5Fjzqo8uefXFGdM6evKnDVt1WKawY1PWqDp47ZFh9wS1kdyRbmtItZm8
-IunKwalws0slEZ31tpcLxAccXEN/Zj1JuyK2La65mafpQW3aYVmUICNpOuksOfCv
-EaskxI6Z1iBCkCBkB8v0A7JgWHiFZcBmEhseuxU3Mj5cMHKGrHY=
-=KOpf
------END PGP SIGNATURE-----
 
---nextPart2102377.nSGi7hxipA--
+> +	for (i = 0; i < repeat; i++) {
+> +		ret = bpf_test_run_one(prog, ctx);
+> +		if (need_resched()) {
+> +			if (signal_pending(current))
+> +				break;
+> +			time_spent += ktime_get_ns() - time_start;
+> +			cond_resched();
+> +			time_start = ktime_get_ns();
+> +		}
+> +	}
+> +	time_spent += ktime_get_ns() - time_start;
+> +	do_div(time_spent, repeat);
+> +	*time = time_spent > U32_MAX ? U32_MAX : (u32)time_spent;
+> +
+> +	return ret;
+> +}
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
