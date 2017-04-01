@@ -1,30 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] r8152: The Microsoft Surface docks also use R8152 v2
-Date: Sat, 01 Apr 2017 12:20:06 -0700 (PDT)
-Message-ID: <20170401.122006.567219749959358946.davem@davemloft.net>
-References: <20170328.064215.1055636797214516339.rene@exactcode.com>
-        <1490893565.24247.9.camel@redhat.com>
-        <20170328.075651.1863370888471526975.rene@exactcode.com>
+Subject: Re: [PATCH net-next v2 0/9] net: dsa: mv88e6xxx: program
+ cross-chip bridging
+Date: Sat, 01 Apr 2017 12:23:49 -0700 (PDT)
+Message-ID: <20170401.122349.1411474095004148070.davem@davemloft.net>
+References: <20170330213715.9666-1-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
-Cc: dcbw@redhat.com, netdev@vger.kernel.org, nic_swsd@realtek.com
-To: rene@exactcode.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com, f.fainelli@gmail.com, andrew@lunn.ch
+To: vivien.didelot@savoirfairelinux.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:56918 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:56956 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751804AbdDATUJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 1 Apr 2017 15:20:09 -0400
-In-Reply-To: <20170328.075651.1863370888471526975.rene@exactcode.com>
+        with ESMTP id S1751385AbdDATXv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 1 Apr 2017 15:23:51 -0400
+In-Reply-To: <20170330213715.9666-1-vivien.didelot@savoirfairelinux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Rene Rebe <rene@exactcode.com>
-Date: Tue, 28 Mar 2017 07:56:51 +0200 (CEST)
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Date: Thu, 30 Mar 2017 17:37:06 -0400
 
-> Without this the generic cdc_ether grabs the device,
-> and does not really work.
-> 
-> Signed-off-by: René Rebe <rene@exactcode.de>
+> The purpose of this patch series is to bring hardware cross-chip
+> bridging configuration to the DSA layer and the mv88e6xxx DSA driver.
 
-Applied, thank you.
+This series seems like a step in the right direction so I have applied
+it to net-next.  We can address non-PVT setups and other issues in
+follow-up changes.
+
+Thanks!
