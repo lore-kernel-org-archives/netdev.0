@@ -1,31 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2] openvswitch: Fix ovs_flow_key_update()
-Date: Sat, 01 Apr 2017 12:18:12 -0700 (PDT)
-Message-ID: <20170401.121812.2065199697531175615.davem@davemloft.net>
-References: <1490902563-19288-1-git-send-email-yihung.wei@gmail.com>
+Subject: Re: [PATCH] r8152: The Microsoft Surface docks also use R8152 v2
+Date: Sat, 01 Apr 2017 12:20:06 -0700 (PDT)
+Message-ID: <20170401.122006.567219749959358946.davem@davemloft.net>
+References: <20170328.064215.1055636797214516339.rene@exactcode.com>
+        <1490893565.24247.9.camel@redhat.com>
+        <20170328.075651.1863370888471526975.rene@exactcode.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jbenc@redhat.com, joe@ovn.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: yihung.wei@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1490902563-19288-1-git-send-email-yihung.wei@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
+Cc: dcbw@redhat.com, netdev@vger.kernel.org, nic_swsd@realtek.com
+To: rene@exactcode.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:56918 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751804AbdDATUJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 1 Apr 2017 15:20:09 -0400
+In-Reply-To: <20170328.075651.1863370888471526975.rene@exactcode.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Yi-Hung Wei <yihung.wei@gmail.com>
-Date: Thu, 30 Mar 2017 12:36:03 -0700
+From: Rene Rebe <rene@exactcode.com>
+Date: Tue, 28 Mar 2017 07:56:51 +0200 (CEST)
 
-> ovs_flow_key_update() is called when the flow key is invalid, and it is
-> used to update and revalidate the flow key. Commit 329f45bc4f19
-> ("openvswitch: add mac_proto field to the flow key") introduces mac_proto
-> field to flow key and use it to determine whether the flow key is valid.
-> However, the commit does not update the code path in ovs_flow_key_update()
-> to revalidate the flow key which may cause BUG_ON() on execute_recirc().
-> This patch addresses the aforementioned issue.
+> Without this the generic cdc_ether grabs the device,
+> and does not really work.
 > 
-> Fixes: 329f45bc4f19 ("openvswitch: add mac_proto field to the flow key")
-> Signed-off-by: Yi-Hung Wei <yihung.wei@gmail.com>
+> Signed-off-by: René Rebe <rene@exactcode.de>
 
-Applied and queued up for -stable, thanks.
+Applied, thank you.
