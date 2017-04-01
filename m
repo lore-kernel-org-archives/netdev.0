@@ -1,135 +1,230 @@
 From: Salil Mehta <salil.mehta@huawei.com>
-Subject: [PATCH V4 net-next 08/18] net: hns: Replace netif_tx_lock to ring spin lock
-Date: Sat, 1 Apr 2017 12:03:38 +0100
-Message-ID: <20170401110348.15908-9-salil.mehta@huawei.com>
+Subject: [PATCH V4 net-next 12/18] net: hns: Remove redundant mac table operations
+Date: Sat, 1 Apr 2017 12:03:42 +0100
+Message-ID: <20170401110348.15908-13-salil.mehta@huawei.com>
 References: <20170401110348.15908-1-salil.mehta@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <salil.mehta@huawei.com>, <yisen.zhuang@huawei.com>,
         <mehta.salil.lnk@gmail.com>, <netdev@vger.kernel.org>,
         <linux-kernel@vger.kernel.org>, <linuxarm@huawei.com>,
-        lipeng <lipeng321@huawei.com>
+        Kejian Yan <yankejian@huawei.com>
 To: <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20170401110348.15908-1-salil.mehta@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: lipeng <lipeng321@huawei.com>
+From: Kejian Yan <yankejian@huawei.com>
 
-netif_tx_lock is a global spin lock, it will take affect
-in all rings in the netdevice. In tx_poll_one process, it can
-only lock the current ring, in this case, we define a spin lock
-in hnae_ring struct for it.
+This patch removes redundant functions used only for debugging
+purposes.
 
-Signed-off-by: lipeng <lipeng321@huawei.com>
-reviewed-by: Yisen Zhuang <yisen.zhuang@huawei.com>
+Reported-by: Weiwei Deng <dengweiwei@huawei.com>
+Signed-off-by: Kejian Yan <yankejian@huawei.com>
+Reviewed-by: Salil Mehta <salil.mehta@huawei.com>
 Signed-off-by: Salil Mehta <salil.mehta@huawei.com>
 ---
- drivers/net/ethernet/hisilicon/hns/hnae.c     |  1 +
- drivers/net/ethernet/hisilicon/hns/hnae.h     |  3 +++
- drivers/net/ethernet/hisilicon/hns/hns_enet.c | 21 +++++++++++----------
- 3 files changed, 15 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c | 160 ---------------------
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h |  10 --
+ 2 files changed, 170 deletions(-)
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hnae.c b/drivers/net/ethernet/hisilicon/hns/hnae.c
-index 78af663..513c257 100644
---- a/drivers/net/ethernet/hisilicon/hns/hnae.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hnae.c
-@@ -196,6 +196,7 @@ hnae_init_ring(struct hnae_queue *q, struct hnae_ring *ring, int flags)
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
+index 6a069ff..abd8aec 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
+@@ -2008,166 +2008,6 @@ int hns_dsaf_clr_mac_mc_port(struct dsaf_device *dsaf_dev, u8 mac_id,
+ 	return ret;
+ }
  
- 	ring->q = q;
- 	ring->flags = flags;
-+	spin_lock_init(&ring->lock);
- 	assert(!ring->desc && !ring->desc_cb && !ring->desc_dma_addr);
+-/**
+- * hns_dsaf_get_mac_uc_entry - get mac uc entry
+- * @dsaf_dev: dsa fabric device struct pointer
+- * @mac_entry: mac entry
+- */
+-int hns_dsaf_get_mac_uc_entry(struct dsaf_device *dsaf_dev,
+-			      struct dsaf_drv_mac_single_dest_entry *mac_entry)
+-{
+-	u16 entry_index = DSAF_INVALID_ENTRY_IDX;
+-	struct dsaf_drv_tbl_tcam_key mac_key;
+-
+-	struct dsaf_tbl_tcam_ucast_cfg mac_data;
+-	struct dsaf_tbl_tcam_data tcam_data;
+-
+-	/* check macaddr */
+-	if (MAC_IS_ALL_ZEROS(mac_entry->addr) ||
+-	    MAC_IS_BROADCAST(mac_entry->addr)) {
+-		dev_err(dsaf_dev->dev, "get_entry failed,addr %pM\n",
+-			mac_entry->addr);
+-		return -EINVAL;
+-	}
+-
+-	/*config key */
+-	hns_dsaf_set_mac_key(dsaf_dev, &mac_key, mac_entry->in_vlan_id,
+-			     mac_entry->in_port_num, mac_entry->addr);
+-
+-	/*check exist? */
+-	entry_index = hns_dsaf_find_soft_mac_entry(dsaf_dev, &mac_key);
+-	if (entry_index == DSAF_INVALID_ENTRY_IDX) {
+-		/*find none, error */
+-		dev_err(dsaf_dev->dev,
+-			"get_uc_entry failed, %s Mac key(%#x:%#x)\n",
+-			dsaf_dev->ae_dev.name,
+-			mac_key.high.val, mac_key.low.val);
+-		return -EINVAL;
+-	}
+-	dev_dbg(dsaf_dev->dev,
+-		"get_uc_entry, %s Mac key(%#x:%#x) entry_index%d\n",
+-		dsaf_dev->ae_dev.name, mac_key.high.val,
+-		mac_key.low.val, entry_index);
+-
+-	/* read entry */
+-	hns_dsaf_tcam_uc_get(dsaf_dev, entry_index, &tcam_data, &mac_data);
+-
+-	mac_key.high.val = le32_to_cpu(tcam_data.tbl_tcam_data_high);
+-	mac_key.low.val = le32_to_cpu(tcam_data.tbl_tcam_data_low);
+-
+-	mac_entry->port_num = mac_data.tbl_ucast_out_port;
+-
+-	return 0;
+-}
+-
+-/**
+- * hns_dsaf_get_mac_mc_entry - get mac mc entry
+- * @dsaf_dev: dsa fabric device struct pointer
+- * @mac_entry: mac entry
+- */
+-int hns_dsaf_get_mac_mc_entry(struct dsaf_device *dsaf_dev,
+-			      struct dsaf_drv_mac_multi_dest_entry *mac_entry)
+-{
+-	u16 entry_index = DSAF_INVALID_ENTRY_IDX;
+-	struct dsaf_drv_tbl_tcam_key mac_key;
+-
+-	struct dsaf_tbl_tcam_mcast_cfg mac_data;
+-	struct dsaf_tbl_tcam_data tcam_data;
+-
+-	/*check mac addr */
+-	if (MAC_IS_ALL_ZEROS(mac_entry->addr) ||
+-	    MAC_IS_BROADCAST(mac_entry->addr)) {
+-		dev_err(dsaf_dev->dev, "get_entry failed,addr %pM\n",
+-			mac_entry->addr);
+-		return -EINVAL;
+-	}
+-
+-	/*config key */
+-	hns_dsaf_set_mac_key(dsaf_dev, &mac_key, mac_entry->in_vlan_id,
+-			     mac_entry->in_port_num, mac_entry->addr);
+-
+-	/*check exist? */
+-	entry_index = hns_dsaf_find_soft_mac_entry(dsaf_dev, &mac_key);
+-	if (entry_index == DSAF_INVALID_ENTRY_IDX) {
+-		/* find none, error */
+-		dev_err(dsaf_dev->dev,
+-			"get_mac_uc_entry failed, %s Mac key(%#x:%#x)\n",
+-			dsaf_dev->ae_dev.name, mac_key.high.val,
+-			mac_key.low.val);
+-		return -EINVAL;
+-	}
+-	dev_dbg(dsaf_dev->dev,
+-		"get_mac_uc_entry, %s Mac key(%#x:%#x) entry_index%d\n",
+-		dsaf_dev->ae_dev.name, mac_key.high.val,
+-		mac_key.low.val, entry_index);
+-
+-	/*read entry */
+-	hns_dsaf_tcam_mc_get(dsaf_dev, entry_index, &tcam_data, &mac_data);
+-
+-	mac_key.high.val = le32_to_cpu(tcam_data.tbl_tcam_data_high);
+-	mac_key.low.val = le32_to_cpu(tcam_data.tbl_tcam_data_low);
+-
+-	mac_entry->port_mask[0] = mac_data.tbl_mcast_port_msk[0] & 0x3F;
+-	return 0;
+-}
+-
+-/**
+- * hns_dsaf_get_mac_entry_by_index - get mac entry by tab index
+- * @dsaf_dev: dsa fabric device struct pointer
+- * @entry_index: tab entry index
+- * @mac_entry: mac entry
+- */
+-int hns_dsaf_get_mac_entry_by_index(
+-	struct dsaf_device *dsaf_dev,
+-	u16 entry_index, struct dsaf_drv_mac_multi_dest_entry *mac_entry)
+-{
+-	struct dsaf_drv_tbl_tcam_key mac_key;
+-
+-	struct dsaf_tbl_tcam_mcast_cfg mac_data;
+-	struct dsaf_tbl_tcam_ucast_cfg mac_uc_data;
+-	struct dsaf_tbl_tcam_data tcam_data;
+-	char mac_addr[ETH_ALEN] = {0};
+-
+-	if (entry_index >= dsaf_dev->tcam_max_num) {
+-		/* find none, del error */
+-		dev_err(dsaf_dev->dev, "get_uc_entry failed, %s\n",
+-			dsaf_dev->ae_dev.name);
+-		return -EINVAL;
+-	}
+-
+-	/* mc entry, do read opt */
+-	hns_dsaf_tcam_mc_get(dsaf_dev, entry_index, &tcam_data, &mac_data);
+-
+-	mac_key.high.val = le32_to_cpu(tcam_data.tbl_tcam_data_high);
+-	mac_key.low.val = le32_to_cpu(tcam_data.tbl_tcam_data_low);
+-
+-	mac_entry->port_mask[0] = mac_data.tbl_mcast_port_msk[0] & 0x3F;
+-
+-	/***get mac addr*/
+-	mac_addr[0] = mac_key.high.bits.mac_0;
+-	mac_addr[1] = mac_key.high.bits.mac_1;
+-	mac_addr[2] = mac_key.high.bits.mac_2;
+-	mac_addr[3] = mac_key.high.bits.mac_3;
+-	mac_addr[4] = mac_key.low.bits.mac_4;
+-	mac_addr[5] = mac_key.low.bits.mac_5;
+-	/**is mc or uc*/
+-	if (MAC_IS_MULTICAST((u8 *)mac_addr) ||
+-	    MAC_IS_L3_MULTICAST((u8 *)mac_addr)) {
+-		/**mc donot do*/
+-	} else {
+-		/*is not mc, just uc... */
+-		hns_dsaf_tcam_uc_get(dsaf_dev, entry_index, &tcam_data,
+-				     &mac_uc_data);
+-
+-		mac_key.high.val = le32_to_cpu(tcam_data.tbl_tcam_data_high);
+-		mac_key.low.val = le32_to_cpu(tcam_data.tbl_tcam_data_low);
+-
+-		mac_entry->port_mask[0] = (1 << mac_uc_data.tbl_ucast_out_port);
+-	}
+-
+-	return 0;
+-}
+-
+ static struct dsaf_device *hns_dsaf_alloc_dev(struct device *dev,
+ 					      size_t sizeof_priv)
+ {
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
+index e2d71be..4db02e2 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
+@@ -435,15 +435,6 @@ int hns_dsaf_del_mac_entry(struct dsaf_device *dsaf_dev, u16 vlan_id,
+ 			   u8 in_port_num, u8 *addr);
+ int hns_dsaf_del_mac_mc_port(struct dsaf_device *dsaf_dev,
+ 			     struct dsaf_drv_mac_single_dest_entry *mac_entry);
+-int hns_dsaf_get_mac_uc_entry(struct dsaf_device *dsaf_dev,
+-			      struct dsaf_drv_mac_single_dest_entry *mac_entry);
+-int hns_dsaf_get_mac_mc_entry(struct dsaf_device *dsaf_dev,
+-			      struct dsaf_drv_mac_multi_dest_entry *mac_entry);
+-int hns_dsaf_get_mac_entry_by_index(
+-	struct dsaf_device *dsaf_dev,
+-	u16 entry_index,
+-	struct dsaf_drv_mac_multi_dest_entry *mac_entry);
+-
+ void hns_dsaf_fix_mac_mode(struct hns_mac_cb *mac_cb);
  
- 	/* not matter for tx or rx ring, the ntc and ntc start from 0 */
-diff --git a/drivers/net/ethernet/hisilicon/hns/hnae.h b/drivers/net/ethernet/hisilicon/hns/hnae.h
-index c66581d..859c536 100644
---- a/drivers/net/ethernet/hisilicon/hns/hnae.h
-+++ b/drivers/net/ethernet/hisilicon/hns/hnae.h
-@@ -275,6 +275,9 @@ struct hnae_ring {
- 	/* statistic */
- 	struct ring_stats stats;
+ int hns_dsaf_ae_init(struct dsaf_device *dsaf_dev);
+@@ -473,5 +464,4 @@ int hns_dsaf_rm_mac_addr(
+ int hns_dsaf_clr_mac_mc_port(struct dsaf_device *dsaf_dev,
+ 			     u8 mac_id, u8 port_num);
  
-+	/* ring lock for poll one */
-+	spinlock_t lock;
-+
- 	dma_addr_t desc_dma_addr;
- 	u32 buf_size;       /* size for hnae_desc->addr, preset by AE */
- 	u16 desc_num;       /* total number of desc */
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.c b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-index 57b4d59..e39c794 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-@@ -922,12 +922,13 @@ static int is_valid_clean_head(struct hnae_ring *ring, int h)
- 
- /* netif_tx_lock will turn down the performance, set only when necessary */
- #ifdef CONFIG_NET_POLL_CONTROLLER
--#define NETIF_TX_LOCK(ndev) netif_tx_lock(ndev)
--#define NETIF_TX_UNLOCK(ndev) netif_tx_unlock(ndev)
-+#define NETIF_TX_LOCK(ring) spin_lock(&ring->lock)
-+#define NETIF_TX_UNLOCK(ring) spin_unlock(&ring->lock)
- #else
--#define NETIF_TX_LOCK(ndev)
--#define NETIF_TX_UNLOCK(ndev)
-+#define NETIF_TX_LOCK(ring)
-+#define NETIF_TX_UNLOCK(ring)
- #endif
-+
- /* reclaim all desc in one budget
-  * return error or number of desc left
-  */
-@@ -941,13 +942,13 @@ static int hns_nic_tx_poll_one(struct hns_nic_ring_data *ring_data,
- 	int head;
- 	int bytes, pkts;
- 
--	NETIF_TX_LOCK(ndev);
-+	NETIF_TX_LOCK(ring);
- 
- 	head = readl_relaxed(ring->io_base + RCB_REG_HEAD);
- 	rmb(); /* make sure head is ready before touch any data */
- 
- 	if (is_ring_empty(ring) || head == ring->next_to_clean) {
--		NETIF_TX_UNLOCK(ndev);
-+		NETIF_TX_UNLOCK(ring);
- 		return 0; /* no data to poll */
- 	}
- 
-@@ -955,7 +956,7 @@ static int hns_nic_tx_poll_one(struct hns_nic_ring_data *ring_data,
- 		netdev_err(ndev, "wrong head (%d, %d-%d)\n", head,
- 			   ring->next_to_use, ring->next_to_clean);
- 		ring->stats.io_err_cnt++;
--		NETIF_TX_UNLOCK(ndev);
-+		NETIF_TX_UNLOCK(ring);
- 		return -EIO;
- 	}
- 
-@@ -967,7 +968,7 @@ static int hns_nic_tx_poll_one(struct hns_nic_ring_data *ring_data,
- 		prefetch(&ring->desc_cb[ring->next_to_clean]);
- 	}
- 
--	NETIF_TX_UNLOCK(ndev);
-+	NETIF_TX_UNLOCK(ring);
- 
- 	dev_queue = netdev_get_tx_queue(ndev, ring_data->queue_index);
- 	netdev_tx_completed_queue(dev_queue, pkts, bytes);
-@@ -1028,7 +1029,7 @@ static void hns_nic_tx_clr_all_bufs(struct hns_nic_ring_data *ring_data)
- 	int head;
- 	int bytes, pkts;
- 
--	NETIF_TX_LOCK(ndev);
-+	NETIF_TX_LOCK(ring);
- 
- 	head = ring->next_to_use; /* ntu :soft setted ring position*/
- 	bytes = 0;
-@@ -1036,7 +1037,7 @@ static void hns_nic_tx_clr_all_bufs(struct hns_nic_ring_data *ring_data)
- 	while (head != ring->next_to_clean)
- 		hns_nic_reclaim_one_desc(ring, &bytes, &pkts);
- 
--	NETIF_TX_UNLOCK(ndev);
-+	NETIF_TX_UNLOCK(ring);
- 
- 	dev_queue = netdev_get_tx_queue(ndev, ring_data->queue_index);
- 	netdev_tx_reset_queue(dev_queue);
+-
+ #endif /* __HNS_DSAF_MAIN_H__ */
 -- 
 2.7.4
