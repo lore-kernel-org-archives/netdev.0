@@ -1,187 +1,64 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCH net] sctp: check for dst and pathmtu update in
- sctp_packet_config
-Date: Sat, 1 Apr 2017 10:35:32 -0300
-Message-ID: <20170401133532.GF5879@localhost.localdomain>
-References: <7d69e45b3cc8f84658e04ab07288a9fe09254e12.1491038159.git.lucien.xin@gmail.com>
+From: simran singhal <singhalsimran0@gmail.com>
+Subject: [PATCH] net: ipv4: netfilter: Remove unused function
+ nf_nat_need_gre()
+Date: Sat, 1 Apr 2017 19:06:33 +0530
+Message-ID: <20170401133633.GA2208@singhal-Inspiron-5558>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
-        davem@davemloft.net, Neil Horman <nhorman@tuxdriver.com>
-To: Xin Long <lucien.xin@gmail.com>
+Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: pablo@netfilter.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:38588 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751574AbdDANff (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 1 Apr 2017 09:35:35 -0400
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:33774 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751542AbdDANgi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 1 Apr 2017 09:36:38 -0400
 Content-Disposition: inline
-In-Reply-To: <7d69e45b3cc8f84658e04ab07288a9fe09254e12.1491038159.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Apr 01, 2017 at 05:15:59PM +0800, Xin Long wrote:
-> This patch is to move sctp_transport_dst_check into sctp_packet_config
-> from sctp_packet_transmit and add pathmtu check in sctp_packet_config.
-> 
-> With this fix, sctp can update dst or pathmtu before appending chunks,
-> which can void dropping packets in sctp_packet_transmit when dst is
-> obsolete or dst's mtu is changed.
-> 
-> This patch is also to improve some other codes in sctp_packet_config.
-> It updates packet max_size with gso_max_size, checks for dst and
-> pathmtu, and appends ecne chunk only when packet is empty and asoc
-> is not NULL.
-> 
-> It makes sctp flush work better, as we only need to set up them once
-> for one flush schedule. It's also safe, since asoc is NULL only when
-> the packet is created by sctp_ootb_pkt_new in which it just gets the
-> new dst, no need to do more things for it other than set packet with
-> transport's pathmtu.
-> 
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+The function nf_nat_need_gre() on being called, simply returns
+back. The function doesn't have FIXME code around.
+Hence, nf_nat_need_gre() and its calls have been removed.
 
-Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Signed-off-by: simran singhal <singhalsimran0@gmail.com>
+---
+ net/ipv4/netfilter/nf_nat_pptp.c      | 2 --
+ net/ipv4/netfilter/nf_nat_proto_gre.c | 6 ------
+ 2 files changed, 8 deletions(-)
 
-Thanks Xin.
-
-> ---
->  include/net/sctp/sctp.h | 17 ++++++++++---
->  net/sctp/output.c       | 67 ++++++++++++++++++++++++++-----------------------
->  2 files changed, 50 insertions(+), 34 deletions(-)
-> 
-> diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
-> index 1f71ee5..d75caa7 100644
-> --- a/include/net/sctp/sctp.h
-> +++ b/include/net/sctp/sctp.h
-> @@ -596,12 +596,23 @@ static inline void sctp_v4_map_v6(union sctp_addr *addr)
->   */
->  static inline struct dst_entry *sctp_transport_dst_check(struct sctp_transport *t)
->  {
-> -	if (t->dst && (!dst_check(t->dst, t->dst_cookie) ||
-> -		       t->pathmtu != max_t(size_t, SCTP_TRUNC4(dst_mtu(t->dst)),
-> -					   SCTP_DEFAULT_MINSEGMENT)))
-> +	if (t->dst && !dst_check(t->dst, t->dst_cookie))
->  		sctp_transport_dst_release(t);
->  
->  	return t->dst;
->  }
->  
-> +static inline bool sctp_transport_pmtu_check(struct sctp_transport *t)
-> +{
-> +	__u32 pmtu = max_t(size_t, SCTP_TRUNC4(dst_mtu(t->dst)),
-> +			   SCTP_DEFAULT_MINSEGMENT);
-> +
-> +	if (t->pathmtu == pmtu)
-> +		return true;
-> +
-> +	t->pathmtu = pmtu;
-> +
-> +	return false;
-> +}
-> +
->  #endif /* __net_sctp_h__ */
-> diff --git a/net/sctp/output.c b/net/sctp/output.c
-> index 73fd178..ec4d50a 100644
-> --- a/net/sctp/output.c
-> +++ b/net/sctp/output.c
-> @@ -86,43 +86,53 @@ void sctp_packet_config(struct sctp_packet *packet, __u32 vtag,
->  {
->  	struct sctp_transport *tp = packet->transport;
->  	struct sctp_association *asoc = tp->asoc;
-> +	struct sock *sk;
->  
->  	pr_debug("%s: packet:%p vtag:0x%x\n", __func__, packet, vtag);
-> -
->  	packet->vtag = vtag;
->  
-> -	if (asoc && tp->dst) {
-> -		struct sock *sk = asoc->base.sk;
-> -
-> -		rcu_read_lock();
-> -		if (__sk_dst_get(sk) != tp->dst) {
-> -			dst_hold(tp->dst);
-> -			sk_setup_caps(sk, tp->dst);
-> -		}
-> -
-> -		if (sk_can_gso(sk)) {
-> -			struct net_device *dev = tp->dst->dev;
-> +	/* do the following jobs only once for a flush schedule */
-> +	if (!sctp_packet_empty(packet))
-> +		return;
->  
-> -			packet->max_size = dev->gso_max_size;
-> -		} else {
-> -			packet->max_size = asoc->pathmtu;
-> -		}
-> -		rcu_read_unlock();
-> +	/* set packet max_size with pathmtu */
-> +	packet->max_size = tp->pathmtu;
-> +	if (!asoc)
-> +		return;
->  
-> -	} else {
-> -		packet->max_size = tp->pathmtu;
-> +	/* update dst or transport pathmtu if in need */
-> +	sk = asoc->base.sk;
-> +	if (!sctp_transport_dst_check(tp)) {
-> +		sctp_transport_route(tp, NULL, sctp_sk(sk));
-> +		if (asoc->param_flags & SPP_PMTUD_ENABLE)
-> +			sctp_assoc_sync_pmtu(sk, asoc);
-> +	} else if (!sctp_transport_pmtu_check(tp)) {
-> +		if (asoc->param_flags & SPP_PMTUD_ENABLE)
-> +			sctp_assoc_sync_pmtu(sk, asoc);
->  	}
->  
-> -	if (ecn_capable && sctp_packet_empty(packet)) {
-> -		struct sctp_chunk *chunk;
-> +	/* If there a is a prepend chunk stick it on the list before
-> +	 * any other chunks get appended.
-> +	 */
-> +	if (ecn_capable) {
-> +		struct sctp_chunk *chunk = sctp_get_ecne_prepend(asoc);
->  
-> -		/* If there a is a prepend chunk stick it on the list before
-> -		 * any other chunks get appended.
-> -		 */
-> -		chunk = sctp_get_ecne_prepend(asoc);
->  		if (chunk)
->  			sctp_packet_append_chunk(packet, chunk);
->  	}
-> +
-> +	if (!tp->dst)
-> +		return;
-> +
-> +	/* set packet max_size with gso_max_size if gso is enabled*/
-> +	rcu_read_lock();
-> +	if (__sk_dst_get(sk) != tp->dst) {
-> +		dst_hold(tp->dst);
-> +		sk_setup_caps(sk, tp->dst);
-> +	}
-> +	packet->max_size = sk_can_gso(sk) ? tp->dst->dev->gso_max_size
-> +					  : asoc->pathmtu;
-> +	rcu_read_unlock();
->  }
->  
->  /* Initialize the packet structure. */
-> @@ -582,12 +592,7 @@ int sctp_packet_transmit(struct sctp_packet *packet, gfp_t gfp)
->  	sh->vtag = htonl(packet->vtag);
->  	sh->checksum = 0;
->  
-> -	/* update dst if in need */
-> -	if (!sctp_transport_dst_check(tp)) {
-> -		sctp_transport_route(tp, NULL, sctp_sk(sk));
-> -		if (asoc && asoc->param_flags & SPP_PMTUD_ENABLE)
-> -			sctp_assoc_sync_pmtu(sk, asoc);
-> -	}
-> +	/* drop packet if no dst */
->  	dst = dst_clone(tp->dst);
->  	if (!dst) {
->  		IP_INC_STATS(sock_net(sk), IPSTATS_MIB_OUTNOROUTES);
-> -- 
-> 2.1.0
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+diff --git a/net/ipv4/netfilter/nf_nat_pptp.c b/net/ipv4/netfilter/nf_nat_pptp.c
+index b3ca21b..747e737 100644
+--- a/net/ipv4/netfilter/nf_nat_pptp.c
++++ b/net/ipv4/netfilter/nf_nat_pptp.c
+@@ -282,8 +282,6 @@ pptp_inbound_pkt(struct sk_buff *skb,
+ 
+ static int __init nf_nat_helper_pptp_init(void)
+ {
+-	nf_nat_need_gre();
+-
+ 	BUG_ON(nf_nat_pptp_hook_outbound != NULL);
+ 	RCU_INIT_POINTER(nf_nat_pptp_hook_outbound, pptp_outbound_pkt);
+ 
+diff --git a/net/ipv4/netfilter/nf_nat_proto_gre.c b/net/ipv4/netfilter/nf_nat_proto_gre.c
+index edf0500..c020a4d 100644
+--- a/net/ipv4/netfilter/nf_nat_proto_gre.c
++++ b/net/ipv4/netfilter/nf_nat_proto_gre.c
+@@ -142,9 +142,3 @@ static void __exit nf_nat_proto_gre_fini(void)
+ 
+ module_init(nf_nat_proto_gre_init);
+ module_exit(nf_nat_proto_gre_fini);
+-
+-void nf_nat_need_gre(void)
+-{
+-	return;
+-}
+-EXPORT_SYMBOL_GPL(nf_nat_need_gre);
+-- 
+2.7.4
