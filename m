@@ -1,43 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/4] ixgbe: sparc: rename the
- ARCH_WANT_RELAX_ORDER to IXGBE_ALLOW_RELAXED_ORDER
-Date: Sat, 01 Apr 2017 11:26:03 -0700 (PDT)
-Message-ID: <20170401.112603.1991545644693496714.davem@davemloft.net>
-References: <1491031554-19516-1-git-send-email-dingtianhong@huawei.com>
-        <1491031554-19516-2-git-send-email-dingtianhong@huawei.com>
+Subject: Re: [PATCH net-next] vxlan: vxlan dev should inherit lowerdev's
+ gso_max_size
+Date: Sat, 01 Apr 2017 11:48:10 -0700 (PDT)
+Message-ID: <20170401.114810.576184860484510648.davem@davemloft.net>
+References: <20170330005643.GA1068@felix-thinkpad.cavium.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: catalin.marinas@arm.com, will.deacon@arm.com, mark.rutland@arm.com,
-        robin.murphy@arm.com, jeffrey.t.kirsher@intel.com,
-        alexander.duyck@gmail.com, linux-arm-kernel@lists.infradead.org,
-        netdev@vger.kernel.org
-To: dingtianhong@huawei.com
+Cc: netdev@vger.kernel.org, satananda.burla@cavium.com,
+        stephen@networkplumber.org
+To: felix.manlunas@cavium.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:56574 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:56720 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751791AbdDAS0K (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 1 Apr 2017 14:26:10 -0400
-In-Reply-To: <1491031554-19516-2-git-send-email-dingtianhong@huawei.com>
+        with ESMTP id S1751798AbdDASsM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 1 Apr 2017 14:48:12 -0400
+In-Reply-To: <20170330005643.GA1068@felix-thinkpad.cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ding Tianhong <dingtianhong@huawei.com>
-Date: Sat, 1 Apr 2017 15:25:51 +0800
+From: Felix Manlunas <felix.manlunas@cavium.com>
+Date: Wed, 29 Mar 2017 17:56:43 -0700
 
-> Till now only the Intel ixgbe could support enable
-> Relaxed ordering in the drivers for special architecture,
-> but the ARCH_WANT_RELAX_ORDER is looks like a general name
-> for all arch, so rename to a specific name for intel
-> card looks more appropriate.
+> vxlan dev currently ignores lowerdev's gso_max_size, which adversely
+> affects TSO performance of liquidio if it's the lowerdev.  Egress TCP
+> packets' skb->len often exceed liquidio's advertised gso_max_size.  This
+> may happen on other NIC drivers.
 > 
-> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+> Fix it by assigning lowerdev's gso_max_size to that of vxlan dev.  Might as
+> well do likewise for gso_max_segs.
+> 
+> Single flow TSO throughput of liquidio as lowerdev (using iperf3):
+> 
+>     Before the patch:    139 Mbps
+>     After the patch :   8.68 Gbps
+>     Percent increase:  6,144 %
+> 
+> Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
+> Signed-off-by: Satanand Burla <satananda.burla@cavium.com>
 
-This is not a driver specific facility.
+Ok, since this location is exactly when we associate the lowerdev
+this is the right way to fix this.
 
-Any driver can test this symbol and act accordingly.
-
-Just because IXGBE is the first and only user, doesn't mean
-the facility is driver specific.
-
-Thank you.
+Applied, thank you.
