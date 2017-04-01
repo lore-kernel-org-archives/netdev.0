@@ -1,89 +1,154 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH V2 net-next 1/7] ptr_ring: introduce batch dequeuing
-Date: Sat, 1 Apr 2017 13:14:10 +0800
-Message-ID: <a5677aa1-9475-2a1b-25f4-51c19767b9da@redhat.com>
-References: <1490858550-7763-1-git-send-email-jasowang@redhat.com>
- <1490858550-7763-2-git-send-email-jasowang@redhat.com>
- <20170330160403-mutt-send-email-mst@kernel.org>
- <941892c4-40f6-9dea-3922-fa02afdc8208@redhat.com>
- <20170331151619-mutt-send-email-mst@kernel.org>
+From: "Wangnan (F)" <wangnan0@huawei.com>
+Subject: Re: [PATCH v2 net-next 3/6] tools/lib/bpf: expose
+ bpf_program__set_type()
+Date: Sat, 1 Apr 2017 13:32:52 +0800
+Message-ID: <f2fb0cf4-50fd-4623-1097-e2a8c42cc910@huawei.com>
+References: <20170331044543.4075183-1-ast@fb.com>
+ <20170331044543.4075183-4-ast@fb.com>
+ <a6aaf1e1-9c4e-ee4e-172e-9e9701aca96e@huawei.com>
+ <9bf13cb9-c139-1706-d75e-e6e34d5136f6@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170331151619-mutt-send-email-mst@kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+        Martin KaFai Lau <kafai@fb.com>, <netdev@vger.kernel.org>,
+        <kernel-team@fb.com>
+To: Alexei Starovoitov <ast@fb.com>,
+        "David S . Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga01-in.huawei.com ([45.249.212.187]:5290 "EHLO
+        dggrg01-dlp.huawei.com" rhost-flags-OK-FAIL-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1750808AbdDAFdb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 1 Apr 2017 01:33:31 -0400
+In-Reply-To: <9bf13cb9-c139-1706-d75e-e6e34d5136f6@fb.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
 
-On 2017年03月31日 22:31, Michael S. Tsirkin wrote:
-> On Fri, Mar 31, 2017 at 11:52:24AM +0800, Jason Wang wrote:
->> On 2017年03月30日 21:53, Michael S. Tsirkin wrote:
->>> On Thu, Mar 30, 2017 at 03:22:24PM +0800, Jason Wang wrote:
->>>> This patch introduce a batched version of consuming, consumer can
->>>> dequeue more than one pointers from the ring at a time. We don't care
->>>> about the reorder of reading here so no need for compiler barrier.
->>>>
->>>> Signed-off-by: Jason Wang<jasowang@redhat.com>
->>>> ---
->>>>    include/linux/ptr_ring.h | 65 ++++++++++++++++++++++++++++++++++++++++++++++++
->>>>    1 file changed, 65 insertions(+)
->>>>
->>>> diff --git a/include/linux/ptr_ring.h b/include/linux/ptr_ring.h
->>>> index 6c70444..2be0f350 100644
->>>> --- a/include/linux/ptr_ring.h
->>>> +++ b/include/linux/ptr_ring.h
->>>> @@ -247,6 +247,22 @@ static inline void *__ptr_ring_consume(struct ptr_ring *r)
->>>>    	return ptr;
->>>>    }
->>>> +static inline int __ptr_ring_consume_batched(struct ptr_ring *r,
->>>> +					     void **array, int n)
->>> Can we use a shorter name? ptr_ring_consume_batch?
->> Ok, but at least we need to keep the prefix since there's a locked version.
+On 2017/4/1 11:18, Alexei Starovoitov wrote:
+> On 3/31/17 7:29 PM, Wangnan (F) wrote:
 >>
 >>
+>> On 2017/3/31 12:45, Alexei Starovoitov wrote:
+>>> expose bpf_program__set_type() to set program type
+>>>
+>>> Signed-off-by: Alexei Starovoitov <ast@kernel.org>
+>>> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+>>> Acked-by: Martin KaFai Lau <kafai@fb.com>
+>>> ---
+>>>   tools/lib/bpf/libbpf.c | 3 +--
+>>>   tools/lib/bpf/libbpf.h | 2 ++
+>>>   2 files changed, 3 insertions(+), 2 deletions(-)
+>>>
+>>> diff --git a/tools/lib/bpf/libbpf.c b/tools/lib/bpf/libbpf.c
+>>> index ac6eb863b2a4..1a2c07eb7795 100644
+>>> --- a/tools/lib/bpf/libbpf.c
+>>> +++ b/tools/lib/bpf/libbpf.c
+>>> @@ -1618,8 +1618,7 @@ int bpf_program__nth_fd(struct bpf_program
+>>> *prog, int n)
+>>>       return fd;
+>>>   }
+>>>   -static void bpf_program__set_type(struct bpf_program *prog,
+>>> -                  enum bpf_prog_type type)
+>>> +void bpf_program__set_type(struct bpf_program *prog, enum
+>>> bpf_prog_type type)
+>>>   {
+>>>       prog->type = type;
+>>>   }
 >>
->>>> +{
->>>> +	void *ptr;
->>>> +	int i;
->>>> +
->>>> +	for (i = 0; i < n; i++) {
->>>> +		ptr = __ptr_ring_consume(r);
->>>> +		if (!ptr)
->>>> +			break;
->>>> +		array[i] = ptr;
->>>> +	}
->>>> +
->>>> +	return i;
->>>> +}
->>>> +
->>>>    /*
->>>>     * Note: resize (below) nests producer lock within consumer lock, so if you
->>>>     * call this in interrupt or BH context, you must disable interrupts/BH when
->>> I'd like to add a code comment here explaining why we don't
->>> care about cpu or compiler reordering. And I think the reason is
->>> in the way you use this API: in vhost it does not matter
->>> if you get less entries than present in the ring.
->>> That's ok but needs to be noted
->>> in a code comment so people use this function correctly.
->> Interesting, but I still think it's not necessary.
+>> Since it become a public interface, we need to check if prog is a
+>> NULL pointer and check if the value of type is okay, and let it
+>> return an errno.
+>
+> I strongly disagree with such defensive programming. It's a cause
+> of bugs for users of this library.
+> I think you're trying to mimic c++ setters/getters, but c++
+> never checks 'this != null', since passing null into setter
+> is a bug of the user of the library and not the library.
+> The setters also should have 'void' return type when setters
+> cannot fail. That is exactly the case here.
+> If, in the future, we decide that this libbpf shouldn't support
+> all bpf program types then you'd need to change the prototype
+> of this function to return error code and change all places
+> where this function is called to check for error code.
+> It may or may not be the right approach.
+> For example today the only user of bpf_program__set*() methods
+> is perf/util/bpf-loader.c and it calls bpf_program__set_kprobe() and
+> bpf_program__set_tracepoint() _without_ checking the return value
+> which is _correct_ thing to do. Instead the current prototype of
+> 'int bpf_program__set_tracepoint(struct bpf_program *prog);
+> is not correct and I suggest you to fix it.
+>
+> You also need to do other cleanup. Like in bpf_object__elf_finish()
+> you have:
+>         if (!obj_elf_valid(obj))
+>                 return;
+>
+>         if (obj->efile.elf) {
+>
+> which is redundant. It's another example where mistakes creep in
+> due to defensive programming.
+>
+> Another bug in bpf_object__close() which does:
+>         if (!obj)
+>                 return;
+> again defensive programming strikes, since
+> you're not checking IS_ERR(obj) and that's what bpf_object__open()
+> returns, so most users of the library (who don't read the source
+> code and just using it based on .h) will do
+>
+> obj = bpf_object__open(...);
+> bpf_object__close(obj);
+>
+> and current 'if (!obj)' won't help and it will segfault.
+> I hit this issue will developing this patch set.
+>
+>>> diff --git a/tools/lib/bpf/libbpf.h b/tools/lib/bpf/libbpf.h
+>>> index b30394f9947a..32c7252f734e 100644
+>>> --- a/tools/lib/bpf/libbpf.h
+>>> +++ b/tools/lib/bpf/libbpf.h
+>>> @@ -25,6 +25,7 @@
+>>>   #include <stdint.h>
+>>>   #include <stdbool.h>
+>>>   #include <sys/types.h>  // for size_t
+>>> +#include <linux/bpf.h>
+>>>     enum libbpf_errno {
+>>>       __LIBBPF_ERRNO__START = 4000,
+>>> @@ -185,6 +186,7 @@ int bpf_program__set_sched_cls(struct bpf_program
+>>> *prog);
+>>>   int bpf_program__set_sched_act(struct bpf_program *prog);
+>>>   int bpf_program__set_xdp(struct bpf_program *prog);
+>>>   int bpf_program__set_perf_event(struct bpf_program *prog);
+>>> +void bpf_program__set_type(struct bpf_program *prog, enum
+>>> bpf_prog_type type);
+>>>
 >>
->> If consumer is doing a busy polling, it will eventually get the entries. If
->> the consumer need notification from producer, it should drain the queue
->> which means it need enable notification before last try of consuming call,
->> otherwise it was a bug. The batch consuming function in this patch can
->> guarantee return at least one pointer if there's many, this looks sufficient
->> for the correctness?
+>> The above bpf_program__set_xxx become redundancy. It should be generated
+>> using macro as static inline functions.
 >>
->> Thanks
-> You ask for N entries but get N-1. This seems to imply the
-> ring is now empty. Do we guarantee this?
+>>>   bool bpf_program__is_socket_filter(struct bpf_program *prog);
+>>>   bool bpf_program__is_tracepoint(struct bpf_program *prog);
+>>
+>> bpf_program__is_xxx should be updated like bpf_program__set_xxx, since
+>> enum bpf_prog_type is not a problem now.
+>
+> All of these suggestions is a cleanup for your code that you
+> need to do yourself. I actually suggest you kill all bpf_program__is*()
+> and all but one bpf_program__set*() functions.
+> The current user perf/util/bpf-loader.c should be converted
+> to using bpf_program__set_type() with _void_ return code that
+> I'm introducing here.
+>
+> Overall, I think, tools/lib/bpf/ is a nice library and it can be used
+> by many projects, but I suggest to stop making excuses based on
+> your proprietary usage of it.
+>
+> Also please cc me in the future on changes to the library. It still
+> has my copyrights, though a lot has changed, since last time
+> I looked at it and it's my fault for not pay attention earlier.
+>
 
-I think consumer can not assume ring is empty consider producer can 
-produce at the same time. It need enable notification and do another 
-poll in this case.
+OK. Then let your patch be merged first then let me do the code cleanup.
 
-Thanks
+Thank you.
