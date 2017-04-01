@@ -1,64 +1,47 @@
 From: Salil Mehta <salil.mehta@huawei.com>
-Subject: [PATCH V4 net-next 00/18] net: hns: Misc. HNS Bug Fixes & Code Improvements
-Date: Sat, 1 Apr 2017 12:03:30 +0100
-Message-ID: <20170401110348.15908-1-salil.mehta@huawei.com>
+Subject: [PATCH V4 net-next 04/18] net: hns: Remove redundant memset during buffer release
+Date: Sat, 1 Apr 2017 12:03:34 +0100
+Message-ID: <20170401110348.15908-5-salil.mehta@huawei.com>
+References: <20170401110348.15908-1-salil.mehta@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <salil.mehta@huawei.com>, <yisen.zhuang@huawei.com>,
         <mehta.salil.lnk@gmail.com>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>, <linuxarm@huawei.com>
+        <linux-kernel@vger.kernel.org>, <linuxarm@huawei.com>,
+        lipeng <lipeng321@huawei.com>,
+        Weiwei Deng <dengweiwei@huawei.com>
 To: <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170401110348.15908-1-salil.mehta@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch set introduces various HNS bug fixes, optimizations and code
-improvements.
+From: lipeng <lipeng321@huawei.com>
 
-Daode Huang (1):
-  net: hns: bug fix of ethtool show the speed
+Because all members of desc_cb is assigned when xmit one package, so it
+can delete in hnae_free_buffer, as follows:
+        - "dma, priv, length, type" are assigned in fill_v2_desc.
+        - "page_offset, reuse_flag, buf" are not used in tx direction.
 
-Kejian Yan (7):
-  net: hns: Remove the redundant adding and deleting mac function
-  net: hns: Remove redundant mac_get_id()
-  net: hns: Remove redundant mac table operations
-  net: hns: Clean redundant code from hns_mdio.c file
-  net: hns: Optimise the code in hns_mdio_wait_ready()
-  net: hns: Simplify the exception sequence in hns_ppe_init()
-  net: hns: Adjust the SBM module buffer threshold
+Signed-off-by: lipeng <lipeng321@huawei.com>
+Signed-off-by: Weiwei Deng <dengweiwei@huawei.com>
+Reviewed-by: Yisen Zhuang <yisen.zhuang@huawei.com>
+Signed-off-by: Salil Mehta <salil.mehta@huawei.com>
+---
+ drivers/net/ethernet/hisilicon/hns/hnae.c | 1 -
+ 1 file changed, 1 deletion(-)
 
-Salil Mehta (1):
-  net: hns: Some checkpatch.pl script & warning fixes
-
-lipeng (9):
-  net: hns: Fix the implementation of irq affinity function
-  net: hns: Modify GMAC init TX threshold value
-  net: hns: Optimize the code for GMAC pad and crc Config
-  net: hns: Remove redundant memset during buffer release
-  net: hns: Optimize hns_nic_common_poll for better performance
-  net: hns: Fix to adjust buf_size of ring according to mtu
-  net: hns: Replace netif_tx_lock to ring spin lock
-  net: hns: Correct HNS RSS key set function
-  net: hns: Avoid Hip06 chip TX packet line bug
-
- drivers/net/ethernet/hisilicon/hns/hnae.c          |   7 +-
- drivers/net/ethernet/hisilicon/hns/hnae.h          |  47 ++-
- drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c  | 127 +++++--
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c |  61 ++--
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c  |  41 +--
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h  |   5 +-
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c | 249 +------------
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h |  14 +-
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c  |  17 +-
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c  | 143 ++++++--
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.h  |  26 +-
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h  |   6 +-
- .../net/ethernet/hisilicon/hns/hns_dsaf_xgmac.c    |  13 -
- drivers/net/ethernet/hisilicon/hns/hns_enet.c      | 400 ++++++++++++++++-----
- drivers/net/ethernet/hisilicon/hns/hns_enet.h      |   3 +-
- drivers/net/ethernet/hisilicon/hns/hns_ethtool.c   |  34 +-
- drivers/net/ethernet/hisilicon/hns_mdio.c          |  20 +-
- 17 files changed, 653 insertions(+), 560 deletions(-)
-
+diff --git a/drivers/net/ethernet/hisilicon/hns/hnae.c b/drivers/net/ethernet/hisilicon/hns/hnae.c
+index b6ed818..78af663 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hnae.c
++++ b/drivers/net/ethernet/hisilicon/hns/hnae.c
+@@ -61,7 +61,6 @@ static void hnae_free_buffer(struct hnae_ring *ring, struct hnae_desc_cb *cb)
+ 		dev_kfree_skb_any((struct sk_buff *)cb->priv);
+ 	else if (unlikely(is_rx_ring(ring)))
+ 		put_page((struct page *)cb->priv);
+-	memset(cb, 0, sizeof(*cb));
+ }
+ 
+ static int hnae_map_buffer(struct hnae_ring *ring, struct hnae_desc_cb *cb)
 -- 
 2.7.4
