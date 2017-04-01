@@ -1,89 +1,64 @@
-From: Alexei Starovoitov <ast@fb.com>
-Subject: Re: [PATCH v2 net-next 1/6] bpf: introduce BPF_PROG_TEST_RUN command
-Date: Sat, 1 Apr 2017 08:45:01 -0700
-Message-ID: <4085f538-2a92-0373-d81c-5f9396ba0d84@fb.com>
-References: <20170331044543.4075183-1-ast@fb.com>
- <20170331044543.4075183-2-ast@fb.com> <20170401091423.4ce1ef3b@redhat.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 1/2] rtnetlink: Convert rtnetlink_event to white
+ list
+Date: Sat, 1 Apr 2017 09:51:56 -0600
+Message-ID: <299c6c86-9a35-f3b6-2658-caad0e6f825f@cumulusnetworks.com>
+References: <1491013654-395-1-git-send-email-vyasevic@redhat.com>
+ <1491013654-395-2-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: "David S . Miller" <davem@davemloft.net>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Wang Nan <wangnan0@huawei.com>,
-        Martin KaFai Lau <kafai@fb.com>, <netdev@vger.kernel.org>,
-        <kernel-team@fb.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+Cc: roopa@cumulusnetworks.com, davem@davemloft.net,
+        Vladislav Yasevich <vyasevic@redhat.com>
+To: Vladislav Yasevich <vyasevich@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:46836 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751686AbdDAPps (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 1 Apr 2017 11:45:48 -0400
-In-Reply-To: <20170401091423.4ce1ef3b@redhat.com>
+Received: from mail-pg0-f44.google.com ([74.125.83.44]:36089 "EHLO
+        mail-pg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750820AbdDAQHX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 1 Apr 2017 12:07:23 -0400
+Received: by mail-pg0-f44.google.com with SMTP id g2so90169524pge.3
+        for <netdev@vger.kernel.org>; Sat, 01 Apr 2017 09:07:23 -0700 (PDT)
+In-Reply-To: <1491013654-395-2-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 4/1/17 12:14 AM, Jesper Dangaard Brouer wrote:
-> On Thu, 30 Mar 2017 21:45:38 -0700
-> Alexei Starovoitov <ast@fb.com> wrote:
->
->> static u32 bpf_test_run(struct bpf_prog *prog, void *ctx, u32 repeat, u32 *time)
->> +{
->> +	u64 time_start, time_spent = 0;
->> +	u32 ret = 0, i;
->> +
->> +	if (!repeat)
->> +		repeat = 1;
->> +	time_start = ktime_get_ns();
->
-> I've found that is useful to record the CPU cycles, as it is more
-> useful for comparing between CPUs.  The nanosec time measurement varies
-> too much between CPUs and GHz.  I do use nanosec measurements myself a
-> lot, but that is mostly because it is easier to relate to pps rates.
-> For eBPF code execution I think it is more useful to get a cycles cost
-> count?
+On 3/31/17 8:27 PM, Vladislav Yasevich wrote:
+> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+> index 9c3947a..f48a60d 100644
+> --- a/net/core/rtnetlink.c
+> +++ b/net/core/rtnetlink.c
+> @@ -4116,22 +4116,23 @@ static int rtnetlink_event(struct notifier_block *this, unsigned long event, voi
+>  	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
+>  
+>  	switch (event) {
+> -	case NETDEV_UP:
+> -	case NETDEV_DOWN:
+> -	case NETDEV_PRE_UP:
+> -	case NETDEV_POST_INIT:
+> -	case NETDEV_REGISTER:
+> -	case NETDEV_CHANGE:
+> -	case NETDEV_PRE_TYPE_CHANGE:
+> -	case NETDEV_GOING_DOWN:
+> -	case NETDEV_UNREGISTER:
+> -	case NETDEV_UNREGISTER_FINAL:
+> -	case NETDEV_RELEASE:
+> -	case NETDEV_JOIN:
+> -	case NETDEV_BONDING_INFO:
+> +	case NETDEV_REBOOT:
+> +	case NETDEV_CHANGEMTU:
+> +	case NETDEV_CHANGENAME:
+> +	case NETDEV_FEAT_CHANGE:
+> +	case NETDEV_BONDING_FAILOVER:
+> +	case NETDEV_NOTIFY_PEERS:
+> +	case NETDEV_CHANGEUPPER:
+> +	case NETDEV_RESEND_IGMP:
+> +	case NETDEV_PRECHANGEMTU:
+> +	case NETDEV_CHANGEINFODATA:
+> +	case NETDEV_PRECHANGEUPPER:
+> +	case NETDEV_CHANGELOWERSTATE:
+> +	case NETDEV_UDP_TUNNEL_PUSH_INFO:
+> +	case NETDEV_CHANGE_TX_QUEUE_LEN:
 
-for micro-benchmarking of an instruction or small primitives
-like spin_lock and irq_save/restore, yes. Cycles are more interesting
-to look at. Here it's the whole program which in case of networking
-likely does at least a few map lookups.
-Also this duration field is more of sanity test then actual metric.
+missing NETDEV_CHANGEADDR and NETDEV_POST_TYPE_CHANGE
 
-> I've been using tsc[1] (rdtsc) to get the CPU cycles, I believe
-> get_cycles() the more generic call, which have arch specific impl. (but
-> can return 0 if no arch support).
->
-> The best solution would be to use the perf infrastructure and PMU
-> counter to get both PMU cycles and instructions, as that also tell you
-> about the pipeline efficiency like instructions per cycles.  I only got
-> this partly working in [1][2].
-
-to use get_cycles() or perf_event_create_kernel_counter() the current
-simple loop would become kthread pinned to cpu and so on.
-imo it's an overkill.
-The only reason 'duration' being reported is a sanity test with user
-space measurements.
-What this command allows to do is:
-$ time ./my_bpf_benchmark
-The reported time should match the kernel reported 'duration'.
-The tiny difference will come from resched. That's sanity part.
-Now we can also do
-$ perf record ./my_bpf_benchmark
-and get all perf goodness for free without adding any kernel code.
-I want this test_run command to stay execution only. All pmu and
-performance metrics should stay on perf side.
-In case of performance optimization of bpf programs we're trying
-to improve perf by changing the way program is written, hence
-we need perf to point out which line of C code is costly.
-Second is improving performance by changing JIT, map implementations
-and so on. Here we also want full perf tool power.
-Unfortunately there is an issue with perf today, since as soon as
-my_bpf_benchmark exits, bpf prog is unloaded and ksym is gone, so
-'perf report' cannot associate addresses back to source code.
-We discussed a solution with Arnaldo. So that's orthogonal work in
-progress which is needed regardless of this test_run command.
-
-User space can also pin itself to cpu instead of asking kernel to
-do it and run the same program on multiple cpus in parallel testing
-interaction between concurrent map accesses and so on.
-So by keeping test_run command as execution only primitive we allow
-user space to do all the fancy tricks and measurements.
+since this patch is just flipping the list type, those should be added here.
