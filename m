@@ -1,219 +1,182 @@
 From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCHv2 net-next] sctp: add SCTP_PR_STREAM_STATUS sockopt for
- prsctp
-Date: Sat, 1 Apr 2017 10:19:31 -0300
-Message-ID: <20170401131931.GE5879@localhost.localdomain>
-References: <0618a2ca7e92ebdfc0953c38da2f727b8b270090.1491037666.git.lucien.xin@gmail.com>
+Subject: Re: [PATCH net] sctp: check for dst and pathmtu update in
+ sctp_packet_config
+Date: Sat, 1 Apr 2017 10:35:32 -0300
+Message-ID: <20170401133532.GF5879@localhost.localdomain>
+References: <7d69e45b3cc8f84658e04ab07288a9fe09254e12.1491038159.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
-        Neil Horman <nhorman@tuxdriver.com>, davem@davemloft.net
+        davem@davemloft.net, Neil Horman <nhorman@tuxdriver.com>
 To: Xin Long <lucien.xin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:35612 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:38588 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751530AbdDANTe (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 1 Apr 2017 09:19:34 -0400
+        id S1751574AbdDANff (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 1 Apr 2017 09:35:35 -0400
 Content-Disposition: inline
-In-Reply-To: <0618a2ca7e92ebdfc0953c38da2f727b8b270090.1491037666.git.lucien.xin@gmail.com>
+In-Reply-To: <7d69e45b3cc8f84658e04ab07288a9fe09254e12.1491038159.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Apr 01, 2017 at 05:07:46PM +0800, Xin Long wrote:
-> Before when implementing sctp prsctp, SCTP_PR_STREAM_STATUS wasn't
-> added, as it needs to save abandoned_(un)sent for every stream.
+On Sat, Apr 01, 2017 at 05:15:59PM +0800, Xin Long wrote:
+> This patch is to move sctp_transport_dst_check into sctp_packet_config
+> from sctp_packet_transmit and add pathmtu check in sctp_packet_config.
 > 
-> After sctp stream reconf is added in sctp, assoc has structure
-> sctp_stream_out to save per stream info.
+> With this fix, sctp can update dst or pathmtu before appending chunks,
+> which can void dropping packets in sctp_packet_transmit when dst is
+> obsolete or dst's mtu is changed.
 > 
-> This patch is to add SCTP_PR_STREAM_STATUS by putting the prsctp
-> per stream statistics into sctp_stream_out.
+> This patch is also to improve some other codes in sctp_packet_config.
+> It updates packet max_size with gso_max_size, checks for dst and
+> pathmtu, and appends ecne chunk only when packet is empty and asoc
+> is not NULL.
 > 
-> v1->v2:
->   fix an indent issue.
+> It makes sctp flush work better, as we only need to set up them once
+> for one flush schedule. It's also safe, since asoc is NULL only when
+> the packet is created by sctp_ootb_pkt_new in which it just gets the
+> new dst, no need to do more things for it other than set packet with
+> transport's pathmtu.
 > 
 > Signed-off-by: Xin Long <lucien.xin@gmail.com>
 
 Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 
+Thanks Xin.
+
 > ---
->  include/net/sctp/structs.h |  2 ++
->  include/uapi/linux/sctp.h  |  1 +
->  net/sctp/chunk.c           | 14 +++++++++--
->  net/sctp/outqueue.c        | 10 ++++++++
->  net/sctp/socket.c          | 59 ++++++++++++++++++++++++++++++++++++++++++++++
->  5 files changed, 84 insertions(+), 2 deletions(-)
+>  include/net/sctp/sctp.h | 17 ++++++++++---
+>  net/sctp/output.c       | 67 ++++++++++++++++++++++++++-----------------------
+>  2 files changed, 50 insertions(+), 34 deletions(-)
 > 
-> diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-> index 592dece..3e61a54 100644
-> --- a/include/net/sctp/structs.h
-> +++ b/include/net/sctp/structs.h
-> @@ -1315,6 +1315,8 @@ struct sctp_inithdr_host {
->  struct sctp_stream_out {
->  	__u16	ssn;
->  	__u8	state;
-> +	__u64	abandoned_unsent[SCTP_PR_INDEX(MAX) + 1];
-> +	__u64	abandoned_sent[SCTP_PR_INDEX(MAX) + 1];
->  };
+> diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
+> index 1f71ee5..d75caa7 100644
+> --- a/include/net/sctp/sctp.h
+> +++ b/include/net/sctp/sctp.h
+> @@ -596,12 +596,23 @@ static inline void sctp_v4_map_v6(union sctp_addr *addr)
+>   */
+>  static inline struct dst_entry *sctp_transport_dst_check(struct sctp_transport *t)
+>  {
+> -	if (t->dst && (!dst_check(t->dst, t->dst_cookie) ||
+> -		       t->pathmtu != max_t(size_t, SCTP_TRUNC4(dst_mtu(t->dst)),
+> -					   SCTP_DEFAULT_MINSEGMENT)))
+> +	if (t->dst && !dst_check(t->dst, t->dst_cookie))
+>  		sctp_transport_dst_release(t);
 >  
->  struct sctp_stream_in {
-> diff --git a/include/uapi/linux/sctp.h b/include/uapi/linux/sctp.h
-> index 7212870..ced9d8b 100644
-> --- a/include/uapi/linux/sctp.h
-> +++ b/include/uapi/linux/sctp.h
-> @@ -115,6 +115,7 @@ typedef __s32 sctp_assoc_t;
->  #define SCTP_PR_SUPPORTED	113
->  #define SCTP_DEFAULT_PRINFO	114
->  #define SCTP_PR_ASSOC_STATUS	115
-> +#define SCTP_PR_STREAM_STATUS	116
->  #define SCTP_RECONFIG_SUPPORTED	117
->  #define SCTP_ENABLE_STREAM_RESET	118
->  #define SCTP_RESET_STREAMS	119
-> diff --git a/net/sctp/chunk.c b/net/sctp/chunk.c
-> index e3621cb..697721a 100644
-> --- a/net/sctp/chunk.c
-> +++ b/net/sctp/chunk.c
-> @@ -306,14 +306,24 @@ int sctp_chunk_abandoned(struct sctp_chunk *chunk)
->  
->  	if (SCTP_PR_TTL_ENABLED(chunk->sinfo.sinfo_flags) &&
->  	    time_after(jiffies, chunk->msg->expires_at)) {
-> -		if (chunk->sent_count)
-> +		struct sctp_stream_out *streamout =
-> +			&chunk->asoc->stream->out[chunk->sinfo.sinfo_stream];
-> +
-> +		if (chunk->sent_count) {
->  			chunk->asoc->abandoned_sent[SCTP_PR_INDEX(TTL)]++;
-> -		else
-> +			streamout->abandoned_sent[SCTP_PR_INDEX(TTL)]++;
-> +		} else {
->  			chunk->asoc->abandoned_unsent[SCTP_PR_INDEX(TTL)]++;
-> +			streamout->abandoned_unsent[SCTP_PR_INDEX(TTL)]++;
-> +		}
->  		return 1;
->  	} else if (SCTP_PR_RTX_ENABLED(chunk->sinfo.sinfo_flags) &&
->  		   chunk->sent_count > chunk->sinfo.sinfo_timetolive) {
-> +		struct sctp_stream_out *streamout =
-> +			&chunk->asoc->stream->out[chunk->sinfo.sinfo_stream];
-> +
->  		chunk->asoc->abandoned_sent[SCTP_PR_INDEX(RTX)]++;
-> +		streamout->abandoned_sent[SCTP_PR_INDEX(RTX)]++;
->  		return 1;
->  	} else if (!SCTP_PR_POLICY(chunk->sinfo.sinfo_flags) &&
->  		   chunk->msg->expires_at &&
-> diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
-> index 025ccff..3f78d7f 100644
-> --- a/net/sctp/outqueue.c
-> +++ b/net/sctp/outqueue.c
-> @@ -353,6 +353,8 @@ static int sctp_prsctp_prune_sent(struct sctp_association *asoc,
->  	struct sctp_chunk *chk, *temp;
->  
->  	list_for_each_entry_safe(chk, temp, queue, transmitted_list) {
-> +		struct sctp_stream_out *streamout;
-> +
->  		if (!SCTP_PR_PRIO_ENABLED(chk->sinfo.sinfo_flags) ||
->  		    chk->sinfo.sinfo_timetolive <= sinfo->sinfo_timetolive)
->  			continue;
-> @@ -361,8 +363,10 @@ static int sctp_prsctp_prune_sent(struct sctp_association *asoc,
->  		sctp_insert_list(&asoc->outqueue.abandoned,
->  				 &chk->transmitted_list);
->  
-> +		streamout = &asoc->stream->out[chk->sinfo.sinfo_stream];
->  		asoc->sent_cnt_removable--;
->  		asoc->abandoned_sent[SCTP_PR_INDEX(PRIO)]++;
-> +		streamout->abandoned_sent[SCTP_PR_INDEX(PRIO)]++;
->  
->  		if (!chk->tsn_gap_acked) {
->  			if (chk->transport)
-> @@ -396,6 +400,12 @@ static int sctp_prsctp_prune_unsent(struct sctp_association *asoc,
->  		q->out_qlen -= chk->skb->len;
->  		asoc->sent_cnt_removable--;
->  		asoc->abandoned_unsent[SCTP_PR_INDEX(PRIO)]++;
-> +		if (chk->sinfo.sinfo_stream < asoc->stream->outcnt) {
-> +			struct sctp_stream_out *streamout =
-> +				&asoc->stream->out[chk->sinfo.sinfo_stream];
-> +
-> +			streamout->abandoned_unsent[SCTP_PR_INDEX(PRIO)]++;
-> +		}
->  
->  		msg_len -= SCTP_DATA_SNDSIZE(chk) +
->  			   sizeof(struct sk_buff) +
-> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-> index ccc08fc..6489446 100644
-> --- a/net/sctp/socket.c
-> +++ b/net/sctp/socket.c
-> @@ -6576,6 +6576,61 @@ static int sctp_getsockopt_pr_assocstatus(struct sock *sk, int len,
->  	return retval;
+>  	return t->dst;
 >  }
 >  
-> +static int sctp_getsockopt_pr_streamstatus(struct sock *sk, int len,
-> +					   char __user *optval,
-> +					   int __user *optlen)
+> +static inline bool sctp_transport_pmtu_check(struct sctp_transport *t)
 > +{
-> +	struct sctp_stream_out *streamout;
-> +	struct sctp_association *asoc;
-> +	struct sctp_prstatus params;
-> +	int retval = -EINVAL;
-> +	int policy;
+> +	__u32 pmtu = max_t(size_t, SCTP_TRUNC4(dst_mtu(t->dst)),
+> +			   SCTP_DEFAULT_MINSEGMENT);
 > +
-> +	if (len < sizeof(params))
-> +		goto out;
+> +	if (t->pathmtu == pmtu)
+> +		return true;
 > +
-> +	len = sizeof(params);
-> +	if (copy_from_user(&params, optval, len)) {
-> +		retval = -EFAULT;
-> +		goto out;
-> +	}
+> +	t->pathmtu = pmtu;
 > +
-> +	policy = params.sprstat_policy;
-> +	if (policy & ~SCTP_PR_SCTP_MASK)
-> +		goto out;
-> +
-> +	asoc = sctp_id2assoc(sk, params.sprstat_assoc_id);
-> +	if (!asoc || params.sprstat_sid >= asoc->stream->outcnt)
-> +		goto out;
-> +
-> +	streamout = &asoc->stream->out[params.sprstat_sid];
-> +	if (policy == SCTP_PR_SCTP_NONE) {
-> +		params.sprstat_abandoned_unsent = 0;
-> +		params.sprstat_abandoned_sent = 0;
-> +		for (policy = 0; policy <= SCTP_PR_INDEX(MAX); policy++) {
-> +			params.sprstat_abandoned_unsent +=
-> +				streamout->abandoned_unsent[policy];
-> +			params.sprstat_abandoned_sent +=
-> +				streamout->abandoned_sent[policy];
-> +		}
-> +	} else {
-> +		params.sprstat_abandoned_unsent =
-> +			streamout->abandoned_unsent[__SCTP_PR_INDEX(policy)];
-> +		params.sprstat_abandoned_sent =
-> +			streamout->abandoned_sent[__SCTP_PR_INDEX(policy)];
-> +	}
-> +
-> +	if (put_user(len, optlen) || copy_to_user(optval, &params, len)) {
-> +		retval = -EFAULT;
-> +		goto out;
-> +	}
-> +
-> +	retval = 0;
-> +
-> +out:
-> +	return retval;
+> +	return false;
 > +}
 > +
->  static int sctp_getsockopt_reconfig_supported(struct sock *sk, int len,
->  					      char __user *optval,
->  					      int __user *optlen)
-> @@ -6825,6 +6880,10 @@ static int sctp_getsockopt(struct sock *sk, int level, int optname,
->  		retval = sctp_getsockopt_pr_assocstatus(sk, len, optval,
->  							optlen);
->  		break;
-> +	case SCTP_PR_STREAM_STATUS:
-> +		retval = sctp_getsockopt_pr_streamstatus(sk, len, optval,
-> +							 optlen);
-> +		break;
->  	case SCTP_RECONFIG_SUPPORTED:
->  		retval = sctp_getsockopt_reconfig_supported(sk, len, optval,
->  							    optlen);
+>  #endif /* __net_sctp_h__ */
+> diff --git a/net/sctp/output.c b/net/sctp/output.c
+> index 73fd178..ec4d50a 100644
+> --- a/net/sctp/output.c
+> +++ b/net/sctp/output.c
+> @@ -86,43 +86,53 @@ void sctp_packet_config(struct sctp_packet *packet, __u32 vtag,
+>  {
+>  	struct sctp_transport *tp = packet->transport;
+>  	struct sctp_association *asoc = tp->asoc;
+> +	struct sock *sk;
+>  
+>  	pr_debug("%s: packet:%p vtag:0x%x\n", __func__, packet, vtag);
+> -
+>  	packet->vtag = vtag;
+>  
+> -	if (asoc && tp->dst) {
+> -		struct sock *sk = asoc->base.sk;
+> -
+> -		rcu_read_lock();
+> -		if (__sk_dst_get(sk) != tp->dst) {
+> -			dst_hold(tp->dst);
+> -			sk_setup_caps(sk, tp->dst);
+> -		}
+> -
+> -		if (sk_can_gso(sk)) {
+> -			struct net_device *dev = tp->dst->dev;
+> +	/* do the following jobs only once for a flush schedule */
+> +	if (!sctp_packet_empty(packet))
+> +		return;
+>  
+> -			packet->max_size = dev->gso_max_size;
+> -		} else {
+> -			packet->max_size = asoc->pathmtu;
+> -		}
+> -		rcu_read_unlock();
+> +	/* set packet max_size with pathmtu */
+> +	packet->max_size = tp->pathmtu;
+> +	if (!asoc)
+> +		return;
+>  
+> -	} else {
+> -		packet->max_size = tp->pathmtu;
+> +	/* update dst or transport pathmtu if in need */
+> +	sk = asoc->base.sk;
+> +	if (!sctp_transport_dst_check(tp)) {
+> +		sctp_transport_route(tp, NULL, sctp_sk(sk));
+> +		if (asoc->param_flags & SPP_PMTUD_ENABLE)
+> +			sctp_assoc_sync_pmtu(sk, asoc);
+> +	} else if (!sctp_transport_pmtu_check(tp)) {
+> +		if (asoc->param_flags & SPP_PMTUD_ENABLE)
+> +			sctp_assoc_sync_pmtu(sk, asoc);
+>  	}
+>  
+> -	if (ecn_capable && sctp_packet_empty(packet)) {
+> -		struct sctp_chunk *chunk;
+> +	/* If there a is a prepend chunk stick it on the list before
+> +	 * any other chunks get appended.
+> +	 */
+> +	if (ecn_capable) {
+> +		struct sctp_chunk *chunk = sctp_get_ecne_prepend(asoc);
+>  
+> -		/* If there a is a prepend chunk stick it on the list before
+> -		 * any other chunks get appended.
+> -		 */
+> -		chunk = sctp_get_ecne_prepend(asoc);
+>  		if (chunk)
+>  			sctp_packet_append_chunk(packet, chunk);
+>  	}
+> +
+> +	if (!tp->dst)
+> +		return;
+> +
+> +	/* set packet max_size with gso_max_size if gso is enabled*/
+> +	rcu_read_lock();
+> +	if (__sk_dst_get(sk) != tp->dst) {
+> +		dst_hold(tp->dst);
+> +		sk_setup_caps(sk, tp->dst);
+> +	}
+> +	packet->max_size = sk_can_gso(sk) ? tp->dst->dev->gso_max_size
+> +					  : asoc->pathmtu;
+> +	rcu_read_unlock();
+>  }
+>  
+>  /* Initialize the packet structure. */
+> @@ -582,12 +592,7 @@ int sctp_packet_transmit(struct sctp_packet *packet, gfp_t gfp)
+>  	sh->vtag = htonl(packet->vtag);
+>  	sh->checksum = 0;
+>  
+> -	/* update dst if in need */
+> -	if (!sctp_transport_dst_check(tp)) {
+> -		sctp_transport_route(tp, NULL, sctp_sk(sk));
+> -		if (asoc && asoc->param_flags & SPP_PMTUD_ENABLE)
+> -			sctp_assoc_sync_pmtu(sk, asoc);
+> -	}
+> +	/* drop packet if no dst */
+>  	dst = dst_clone(tp->dst);
+>  	if (!dst) {
+>  		IP_INC_STATS(sock_net(sk), IPSTATS_MIB_OUTNOROUTES);
 > -- 
 > 2.1.0
 > 
