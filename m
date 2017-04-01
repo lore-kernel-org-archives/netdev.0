@@ -1,114 +1,89 @@
-From: gfree.wind@foxmail.com
-Subject: [PATCH net-next 1/1] net: tcp: Define the TCP_MAX_WSCALE instead of literal number 14
-Date: Sat,  1 Apr 2017 12:14:10 +0800
-Message-ID: <1491020050-118525-1-git-send-email-gfree.wind@foxmail.com>
-Cc: Gao Feng <fgao@ikuai8.com>
-To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-        kaber@trash.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpbg202.qq.com ([184.105.206.29]:47390 "EHLO smtpbg202.qq.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750726AbdDAEO3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 1 Apr 2017 00:14:29 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH V2 net-next 1/7] ptr_ring: introduce batch dequeuing
+Date: Sat, 1 Apr 2017 13:14:10 +0800
+Message-ID: <a5677aa1-9475-2a1b-25f4-51c19767b9da@redhat.com>
+References: <1490858550-7763-1-git-send-email-jasowang@redhat.com>
+ <1490858550-7763-2-git-send-email-jasowang@redhat.com>
+ <20170330160403-mutt-send-email-mst@kernel.org>
+ <941892c4-40f6-9dea-3922-fa02afdc8208@redhat.com>
+ <20170331151619-mutt-send-email-mst@kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170331151619-mutt-send-email-mst@kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Gao Feng <fgao@ikuai8.com>
 
-Define one new macro TCP_MAX_WSCALE instead of literal number '14',
-and use U16_MAX instead of 65535 as the max value of TCP window.
-There is another minor change, use rounddown(space, mss) instead of
-(space / mss) * mss;
 
-Signed-off-by: Gao Feng <fgao@ikuai8.com>
----
- include/net/tcp.h     | 3 +++
- net/ipv4/tcp.c        | 2 +-
- net/ipv4/tcp_input.c  | 4 ++--
- net/ipv4/tcp_output.c | 8 ++++----
- 4 files changed, 10 insertions(+), 7 deletions(-)
+On 2017年03月31日 22:31, Michael S. Tsirkin wrote:
+> On Fri, Mar 31, 2017 at 11:52:24AM +0800, Jason Wang wrote:
+>> On 2017年03月30日 21:53, Michael S. Tsirkin wrote:
+>>> On Thu, Mar 30, 2017 at 03:22:24PM +0800, Jason Wang wrote:
+>>>> This patch introduce a batched version of consuming, consumer can
+>>>> dequeue more than one pointers from the ring at a time. We don't care
+>>>> about the reorder of reading here so no need for compiler barrier.
+>>>>
+>>>> Signed-off-by: Jason Wang<jasowang@redhat.com>
+>>>> ---
+>>>>    include/linux/ptr_ring.h | 65 ++++++++++++++++++++++++++++++++++++++++++++++++
+>>>>    1 file changed, 65 insertions(+)
+>>>>
+>>>> diff --git a/include/linux/ptr_ring.h b/include/linux/ptr_ring.h
+>>>> index 6c70444..2be0f350 100644
+>>>> --- a/include/linux/ptr_ring.h
+>>>> +++ b/include/linux/ptr_ring.h
+>>>> @@ -247,6 +247,22 @@ static inline void *__ptr_ring_consume(struct ptr_ring *r)
+>>>>    	return ptr;
+>>>>    }
+>>>> +static inline int __ptr_ring_consume_batched(struct ptr_ring *r,
+>>>> +					     void **array, int n)
+>>> Can we use a shorter name? ptr_ring_consume_batch?
+>> Ok, but at least we need to keep the prefix since there's a locked version.
+>>
+>>
+>>
+>>>> +{
+>>>> +	void *ptr;
+>>>> +	int i;
+>>>> +
+>>>> +	for (i = 0; i < n; i++) {
+>>>> +		ptr = __ptr_ring_consume(r);
+>>>> +		if (!ptr)
+>>>> +			break;
+>>>> +		array[i] = ptr;
+>>>> +	}
+>>>> +
+>>>> +	return i;
+>>>> +}
+>>>> +
+>>>>    /*
+>>>>     * Note: resize (below) nests producer lock within consumer lock, so if you
+>>>>     * call this in interrupt or BH context, you must disable interrupts/BH when
+>>> I'd like to add a code comment here explaining why we don't
+>>> care about cpu or compiler reordering. And I think the reason is
+>>> in the way you use this API: in vhost it does not matter
+>>> if you get less entries than present in the ring.
+>>> That's ok but needs to be noted
+>>> in a code comment so people use this function correctly.
+>> Interesting, but I still think it's not necessary.
+>>
+>> If consumer is doing a busy polling, it will eventually get the entries. If
+>> the consumer need notification from producer, it should drain the queue
+>> which means it need enable notification before last try of consuming call,
+>> otherwise it was a bug. The batch consuming function in this patch can
+>> guarantee return at least one pointer if there's many, this looks sufficient
+>> for the correctness?
+>>
+>> Thanks
+> You ask for N entries but get N-1. This seems to imply the
+> ring is now empty. Do we guarantee this?
 
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index e614ad4..2a89881 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -78,6 +78,9 @@
- /* Maximal number of ACKs sent quickly to accelerate slow-start. */
- #define TCP_MAX_QUICKACKS	16U
- 
-+/* Maximal number of window scale according to RFC1323 */
-+#define TCP_MAX_WSCALE		14U
-+
- /* urg_data states */
- #define TCP_URG_VALID	0x0100
- #define TCP_URG_NOTYET	0x0200
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index cf45555..95be443 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -2393,7 +2393,7 @@ static int tcp_repair_options_est(struct tcp_sock *tp,
- 				u16 snd_wscale = opt.opt_val & 0xFFFF;
- 				u16 rcv_wscale = opt.opt_val >> 16;
- 
--				if (snd_wscale > 14 || rcv_wscale > 14)
-+				if (snd_wscale > TCP_MAX_WSCALE || rcv_wscale > TCP_MAX_WSCALE)
- 					return -EFBIG;
- 
- 				tp->rx_opt.snd_wscale = snd_wscale;
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index bb09c70..e277901 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -3759,11 +3759,11 @@ void tcp_parse_options(const struct sk_buff *skb,
- 				    !estab && sysctl_tcp_window_scaling) {
- 					__u8 snd_wscale = *(__u8 *)ptr;
- 					opt_rx->wscale_ok = 1;
--					if (snd_wscale > 14) {
-+					if (snd_wscale > TCP_MAX_WSCALE) {
- 						net_info_ratelimited("%s: Illegal window scaling value %d >14 received\n",
- 								     __func__,
- 								     snd_wscale);
--						snd_wscale = 14;
-+						snd_wscale = TCP_MAX_WSCALE;
- 					}
- 					opt_rx->snd_wscale = snd_wscale;
- 				}
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 22548b5..d8f12d7 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -212,12 +212,12 @@ void tcp_select_initial_window(int __space, __u32 mss,
- 
- 	/* If no clamp set the clamp to the max possible scaled window */
- 	if (*window_clamp == 0)
--		(*window_clamp) = (65535 << 14);
-+		(*window_clamp) = (U16_MAX << TCP_MAX_WSCALE);
- 	space = min(*window_clamp, space);
- 
- 	/* Quantize space offering to a multiple of mss if possible. */
- 	if (space > mss)
--		space = (space / mss) * mss;
-+		space = rounddown(space, mss);
- 
- 	/* NOTE: offering an initial window larger than 32767
- 	 * will break some buggy TCP stacks. If the admin tells us
-@@ -240,7 +240,7 @@ void tcp_select_initial_window(int __space, __u32 mss,
- 		space = max_t(u32, space, sysctl_tcp_rmem[2]);
- 		space = max_t(u32, space, sysctl_rmem_max);
- 		space = min_t(u32, space, *window_clamp);
--		while (space > 65535 && (*rcv_wscale) < 14) {
-+		while (space > U16_MAX && (*rcv_wscale) < TCP_MAX_WSCALE) {
- 			space >>= 1;
- 			(*rcv_wscale)++;
- 		}
-@@ -253,7 +253,7 @@ void tcp_select_initial_window(int __space, __u32 mss,
- 	}
- 
- 	/* Set the clamp no higher than max representable value */
--	(*window_clamp) = min(65535U << (*rcv_wscale), *window_clamp);
-+	(*window_clamp) = min_t(__u32, U16_MAX << (*rcv_wscale), *window_clamp);
- }
- EXPORT_SYMBOL(tcp_select_initial_window);
- 
--- 
-1.9.1
+I think consumer can not assume ring is empty consider producer can 
+produce at the same time. It need enable notification and do another 
+poll in this case.
+
+Thanks
