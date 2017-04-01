@@ -1,7 +1,7 @@
 From: Salil Mehta <salil.mehta@huawei.com>
-Subject: [PATCH V4 net-next 13/18] net: hns: Clean redundant code from hns_mdio.c file
-Date: Sat, 1 Apr 2017 12:03:43 +0100
-Message-ID: <20170401110348.15908-14-salil.mehta@huawei.com>
+Subject: [PATCH V4 net-next 15/18] net: hns: Simplify the exception sequence in hns_ppe_init()
+Date: Sat, 1 Apr 2017 12:03:45 +0100
+Message-ID: <20170401110348.15908-16-salil.mehta@huawei.com>
 References: <20170401110348.15908-1-salil.mehta@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -17,47 +17,61 @@ List-Id: netdev.vger.kernel.org
 
 From: Kejian Yan <yankejian@huawei.com>
 
-This patch cleans the redundant code from  hns_mdio.c.
+We need to free all ppe submodule if it fails to initialize ppe by
+any fault, so this patch will free all ppe resource before
+hns_ppe_init() returns exception situation
 
-Reported-by: Ping Zhang <zhangping5@huawei.com>
+Reported-by: JinchuanTian <tianjinchuan1@huawei.com>
 Signed-off-by: Kejian Yan <yankejian@huawei.com>
 Reviewed-by: Salil Mehta <salil.mehta@huawei.com>
 Signed-off-by: Salil Mehta <salil.mehta@huawei.com>
 ---
- drivers/net/ethernet/hisilicon/hns_mdio.c | 10 ----------
- 1 file changed, 10 deletions(-)
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c | 17 ++++++++---------
+ 1 file changed, 8 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/ethernet/hisilicon/hns_mdio.c b/drivers/net/ethernet/hisilicon/hns_mdio.c
-index 501eb20..fad1c5b 100644
---- a/drivers/net/ethernet/hisilicon/hns_mdio.c
-+++ b/drivers/net/ethernet/hisilicon/hns_mdio.c
-@@ -23,17 +23,9 @@
- #include <linux/phy.h>
- #include <linux/platform_device.h>
- #include <linux/regmap.h>
--#include <linux/spinlock_types.h>
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
+index 6ea8722..eba406b 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
+@@ -496,17 +496,17 @@ void hns_ppe_get_stats(struct hns_ppe_cb *ppe_cb, u64 *data)
+  */
+ int hns_ppe_init(struct dsaf_device *dsaf_dev)
+ {
+-	int i, k;
+ 	int ret;
++	int i;
  
- #define MDIO_DRV_NAME "Hi-HNS_MDIO"
- #define MDIO_BUS_NAME "Hisilicon MII Bus"
--#define MDIO_DRV_VERSION "1.3.0"
--#define MDIO_COPYRIGHT "Copyright(c) 2015 Huawei Corporation."
--#define MDIO_DRV_STRING MDIO_BUS_NAME
--#define MDIO_DEFAULT_DEVICE_DESCR MDIO_BUS_NAME
--
--#define MDIO_CTL_DEV_ADDR(x)	(x & 0x1f)
--#define MDIO_CTL_PORT_ADDR(x)	((x & 0x1f) << 5)
+ 	for (i = 0; i < HNS_PPE_COM_NUM; i++) {
+ 		ret = hns_ppe_common_get_cfg(dsaf_dev, i);
+ 		if (ret)
+-			goto get_ppe_cfg_fail;
++			goto get_cfg_fail;
  
- #define MDIO_TIMEOUT			1000000
+ 		ret = hns_rcb_common_get_cfg(dsaf_dev, i);
+ 		if (ret)
+-			goto get_rcb_cfg_fail;
++			goto get_cfg_fail;
  
-@@ -64,9 +56,7 @@ struct hns_mdio_device {
- #define MDIO_CMD_DEVAD_S	0
- #define MDIO_CMD_PRTAD_M	0x1f
- #define MDIO_CMD_PRTAD_S	5
--#define MDIO_CMD_OP_M		0x3
- #define MDIO_CMD_OP_S		10
--#define MDIO_CMD_ST_M		0x3
- #define MDIO_CMD_ST_S		12
- #define MDIO_CMD_START_B	14
+ 		hns_ppe_get_cfg(dsaf_dev->ppe_common[i]);
+ 
+@@ -518,13 +518,12 @@ int hns_ppe_init(struct dsaf_device *dsaf_dev)
+ 
+ 	return 0;
+ 
+-get_rcb_cfg_fail:
+-	hns_ppe_common_free_cfg(dsaf_dev, i);
+-get_ppe_cfg_fail:
+-	for (k = i - 1; k >= 0; k--) {
+-		hns_rcb_common_free_cfg(dsaf_dev, k);
+-		hns_ppe_common_free_cfg(dsaf_dev, k);
++get_cfg_fail:
++	for (i = 0; i < HNS_PPE_COM_NUM; i++) {
++		hns_rcb_common_free_cfg(dsaf_dev, i);
++		hns_ppe_common_free_cfg(dsaf_dev, i);
+ 	}
++
+ 	return ret;
+ }
  
 -- 
 2.7.4
