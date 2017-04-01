@@ -1,44 +1,55 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] net: dsa: Mock-up driver
-Date: Sat, 01 Apr 2017 12:40:01 -0700 (PDT)
-Message-ID: <20170401.124001.1311060201990753496.davem@davemloft.net>
-References: <20170331014321.3248-1-f.fainelli@gmail.com>
+Subject: Re: [PATCH v2 net-next 0/6] bpf: program testing framework
+Date: Sat, 01 Apr 2017 13:05:44 -0700 (PDT)
+Message-ID: <20170401.130544.1982531320045643109.davem@davemloft.net>
+References: <20170331044543.4075183-1-ast@fb.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com
-To: f.fainelli@gmail.com
+Cc: daniel@iogearbox.net, wangnan0@huawei.com, kafai@fb.com,
+        netdev@vger.kernel.org, kernel-team@fb.com
+To: ast@fb.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:57072 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:57376 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751891AbdDATkE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 1 Apr 2017 15:40:04 -0400
-In-Reply-To: <20170331014321.3248-1-f.fainelli@gmail.com>
+        with ESMTP id S1751855AbdDAUFs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 1 Apr 2017 16:05:48 -0400
+In-Reply-To: <20170331044543.4075183-1-ast@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Thu, 30 Mar 2017 18:43:21 -0700
+From: Alexei Starovoitov <ast@fb.com>
+Date: Thu, 30 Mar 2017 21:45:37 -0700
 
-> This patch adds support for a DSA mock-up driver which essentially does
-> the following:
+> Development and testing of networking bpf programs is quite cumbersome.
+> Especially tricky are XDP programs that attach to real netdevices and
+> program development feels like working on the car engine while
+> the car is in motion.
+> Another problem is ongoing changes to upstream llvm core
+> that can introduce an optimization that verifier will not
+> recognize. llvm bpf backend tests have no ability to run the programs.
+> To improve this situation introduce BPF_PROG_TEST_RUN command
+> to test and performance benchmark bpf programs.
+> It achieves several goals:
+> - development of xdp and skb based bpf programs can be done
+> in a canned environment with unit tests
+> - program performance optimizations can be benchmarked outside of
+> networking core (without driver and skb costs)
+> - continuous testing of upstream changes is finally practical
 > 
-> - registers/unregisters 4 fixed PHYs to the slave network devices
-> - uses eth0 (configurable) as the master netdev
-> - registers the switch as a fixed MDIO device against the fixed MDIO bus
->   at address 31
-> - includes dynamic debug prints for dsa_switch_ops functions that can be
->   enabled to get call traces
+> Patches 4,5,6 add C based test cases of various complexity
+> to cover some sched_cls and xdp features. More tests will
+> be added in the future. The tests were run on centos7 only.
 > 
-> This is a good way to test modular builds as well as exercise the DSA
-> APIs without requiring access to real hardware. This does not test the
-> data-path, although this could be added later on.
+> For now the framework supports only skb and xdp programs. In the future
+> it can be extended to socket_filter and tracing program types.
 > 
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
-> ---
-> Changes in v2;
+> More details are in individual patches.
 > 
-> - removed an unnecessary change to include/linux/fixed_phy.h
+> v1->v2:
+> - rename bpf_program_test_run->bpf_prog_test_run
+> - add missing #include <linux/bpf.h> since libbpf.h shouldn't depend
+> on prior includes
+> - reordered patches 3 and 4 to keep bisect clean
 
-This looks extremely useful, applied, thanks!
+Series applied, thanks Alexei.
