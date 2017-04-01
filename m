@@ -1,10 +1,10 @@
 From: "santosh.shilimkar@oracle.com" <santosh.shilimkar@oracle.com>
-Subject: Re: [PATCH net-next 1/2] rds: tcp: allow progress of
- rds_conn_shutdown if the rds_connection is marked ERROR by an intervening FIN
-Date: Sat, 1 Apr 2017 11:53:41 -0700
-Message-ID: <0ad57c65-246e-195c-f76b-6afbb5b9c25e@oracle.com>
+Subject: Re: [PATCH net-next 2/2] rds: tcp: canonical connection order for all
+ paths with index > 0
+Date: Sat, 1 Apr 2017 11:54:02 -0700
+Message-ID: <8f4b58aa-8dcd-9431-319d-46a3580b7eef@oracle.com>
 References: <cover.1490814967.git.sowmini.varadhan@oracle.com>
- <4b20bf8cbe541a263b12eb54b2e504e33b8a6a52.1490814967.git.sowmini.varadhan@oracle.com>
+ <dd4baab053150f26c6fff124c4f4c9b417a9eb80.1490814967.git.sowmini.varadhan@oracle.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -12,22 +12,21 @@ Cc: davem@davemloft.net
 To: Sowmini Varadhan <sowmini.varadhan@oracle.com>,
         netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:31134 "EHLO
-        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751933AbdDASxx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 1 Apr 2017 14:53:53 -0400
-In-Reply-To: <4b20bf8cbe541a263b12eb54b2e504e33b8a6a52.1490814967.git.sowmini.varadhan@oracle.com>
+Received: from userp1040.oracle.com ([156.151.31.81]:28579 "EHLO
+        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751931AbdDASyH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 1 Apr 2017 14:54:07 -0400
+In-Reply-To: <dd4baab053150f26c6fff124c4f4c9b417a9eb80.1490814967.git.sowmini.varadhan@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On 3/31/17 3:56 PM, Sowmini Varadhan wrote:
-> rds_conn_shutdown() runs in workq context, and marks the rds_connection
-> as DISCONNECTING before quiescing Tx/Rx paths. However, after all I/O
-> has quiesced, we may still find the rds_connection state to be
-> RDS_CONN_ERROR if an intervening FIN was processed in softirq context.
->
-> This is not a fatal error: rds_conn_shutdown() should continue the
-> shutdown, and there is no need to log noisy messages about this event.
+> The rds_connect_worker() has a bug in the check that enforces the
+> canonical connection order described in the comments of
+> rds_tcp_state_change(). The intention is to make sure that all
+> the multipath connections are always initiated by the smaller IP
+> address via rds_start_mprds. To achieve this, rds_connection_worker
+> should check that cp_index > 0.
 >
 > Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
 > ---
