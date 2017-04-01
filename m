@@ -1,85 +1,89 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: [PATCH net] tcp: minimize false-positives on TCP/GRO check
-Date: Sat,  1 Apr 2017 11:00:21 -0300
-Message-ID: <47c94077ffa8988118a19514389b42fccdc2f6ef.1491054871.git.marcelo.leitner@gmail.com>
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        Jon Maxwell <jmaxwell37@gmail.com>,
-        Markus Trippelsdorf <markus@trippelsdorf.de>
-To: netdev@vger.kernel.org
+From: Alexei Starovoitov <ast@fb.com>
+Subject: Re: [PATCH v2 net-next 1/6] bpf: introduce BPF_PROG_TEST_RUN command
+Date: Sat, 1 Apr 2017 08:45:01 -0700
+Message-ID: <4085f538-2a92-0373-d81c-5f9396ba0d84@fb.com>
+References: <20170331044543.4075183-1-ast@fb.com>
+ <20170331044543.4075183-2-ast@fb.com> <20170401091423.4ce1ef3b@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S . Miller" <davem@davemloft.net>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Wang Nan <wangnan0@huawei.com>,
+        Martin KaFai Lau <kafai@fb.com>, <netdev@vger.kernel.org>,
+        <kernel-team@fb.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f195.google.com ([209.85.220.195]:33429 "EHLO
-        mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751437AbdDAOAj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 1 Apr 2017 10:00:39 -0400
-Received: by mail-qk0-f195.google.com with SMTP id p22so13875821qka.0
-        for <netdev@vger.kernel.org>; Sat, 01 Apr 2017 07:00:39 -0700 (PDT)
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:46836 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751686AbdDAPps (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 1 Apr 2017 11:45:48 -0400
+In-Reply-To: <20170401091423.4ce1ef3b@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Markus Trippelsdorf reported that after commit dcb17d22e1c2 ("tcp: warn
-on bogus MSS and try to amend it") the kernel started logging the
-warning for a NIC driver that doesn't even support GRO.
+On 4/1/17 12:14 AM, Jesper Dangaard Brouer wrote:
+> On Thu, 30 Mar 2017 21:45:38 -0700
+> Alexei Starovoitov <ast@fb.com> wrote:
+>
+>> static u32 bpf_test_run(struct bpf_prog *prog, void *ctx, u32 repeat, u32 *time)
+>> +{
+>> +	u64 time_start, time_spent = 0;
+>> +	u32 ret = 0, i;
+>> +
+>> +	if (!repeat)
+>> +		repeat = 1;
+>> +	time_start = ktime_get_ns();
+>
+> I've found that is useful to record the CPU cycles, as it is more
+> useful for comparing between CPUs.  The nanosec time measurement varies
+> too much between CPUs and GHz.  I do use nanosec measurements myself a
+> lot, but that is mostly because it is easier to relate to pps rates.
+> For eBPF code execution I think it is more useful to get a cycles cost
+> count?
 
-It was diagnosed that it was possibly caused on connections that were
-using TCP Timestamps but some packets lacked the Timestamps option. As
-we reduce rcv_mss when timestamps are used, the lack of them would cause
-the packets to be bigger than expected, although this is a valid case.
+for micro-benchmarking of an instruction or small primitives
+like spin_lock and irq_save/restore, yes. Cycles are more interesting
+to look at. Here it's the whole program which in case of networking
+likely does at least a few map lookups.
+Also this duration field is more of sanity test then actual metric.
 
-As this warning is more as a hint, getting a clean-cut on the
-threshold is probably not worth the execution time spent on it. This
-patch thus alleviates the false-positives with 2 quick checks: by
-accounting for the entire TCP option space and also checking against the
-interface MTU if it's available.
+> I've been using tsc[1] (rdtsc) to get the CPU cycles, I believe
+> get_cycles() the more generic call, which have arch specific impl. (but
+> can return 0 if no arch support).
+>
+> The best solution would be to use the perf infrastructure and PMU
+> counter to get both PMU cycles and instructions, as that also tell you
+> about the pipeline efficiency like instructions per cycles.  I only got
+> this partly working in [1][2].
 
-These changes, specially the MTU one, might mask some real positives,
-though if they are really happening, it's possible that sooner or later
-it will be triggered anyway.
+to use get_cycles() or perf_event_create_kernel_counter() the current
+simple loop would become kthread pinned to cpu and so on.
+imo it's an overkill.
+The only reason 'duration' being reported is a sanity test with user
+space measurements.
+What this command allows to do is:
+$ time ./my_bpf_benchmark
+The reported time should match the kernel reported 'duration'.
+The tiny difference will come from resched. That's sanity part.
+Now we can also do
+$ perf record ./my_bpf_benchmark
+and get all perf goodness for free without adding any kernel code.
+I want this test_run command to stay execution only. All pmu and
+performance metrics should stay on perf side.
+In case of performance optimization of bpf programs we're trying
+to improve perf by changing the way program is written, hence
+we need perf to point out which line of C code is costly.
+Second is improving performance by changing JIT, map implementations
+and so on. Here we also want full perf tool power.
+Unfortunately there is an issue with perf today, since as soon as
+my_bpf_benchmark exits, bpf prog is unloaded and ksym is gone, so
+'perf report' cannot associate addresses back to source code.
+We discussed a solution with Arnaldo. So that's orthogonal work in
+progress which is needed regardless of this test_run command.
 
-Reported-by: Markus Trippelsdorf <markus@trippelsdorf.de>
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
----
- net/ipv4/tcp_input.c | 14 +++++++++-----
- 1 file changed, 9 insertions(+), 5 deletions(-)
-
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index c43119726a62e494063fd940001b483215d0fe26..97ac6776e47d36ea5c59051714a0f77e3eeb46fc 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -126,7 +126,8 @@ int sysctl_tcp_invalid_ratelimit __read_mostly = HZ/2;
- #define REXMIT_LOST	1 /* retransmit packets marked lost */
- #define REXMIT_NEW	2 /* FRTO-style transmit of unsent/new packets */
- 
--static void tcp_gro_dev_warn(struct sock *sk, const struct sk_buff *skb)
-+static void tcp_gro_dev_warn(struct sock *sk, const struct sk_buff *skb,
-+			     unsigned int len)
- {
- 	static bool __once __read_mostly;
- 
-@@ -137,8 +138,9 @@ static void tcp_gro_dev_warn(struct sock *sk, const struct sk_buff *skb)
- 
- 		rcu_read_lock();
- 		dev = dev_get_by_index_rcu(sock_net(sk), skb->skb_iif);
--		pr_warn("%s: Driver has suspect GRO implementation, TCP performance may be compromised.\n",
--			dev ? dev->name : "Unknown driver");
-+		if (!dev || len >= dev->mtu)
-+			pr_warn("%s: Driver has suspect GRO implementation, TCP performance may be compromised.\n",
-+				dev ? dev->name : "Unknown driver");
- 		rcu_read_unlock();
- 	}
- }
-@@ -161,8 +163,10 @@ static void tcp_measure_rcv_mss(struct sock *sk, const struct sk_buff *skb)
- 	if (len >= icsk->icsk_ack.rcv_mss) {
- 		icsk->icsk_ack.rcv_mss = min_t(unsigned int, len,
- 					       tcp_sk(sk)->advmss);
--		if (unlikely(icsk->icsk_ack.rcv_mss != len))
--			tcp_gro_dev_warn(sk, skb);
-+		/* Account for possibly-removed options */
-+		if (unlikely(len > icsk->icsk_ack.rcv_mss +
-+				   MAX_TCP_OPTION_SPACE))
-+			tcp_gro_dev_warn(sk, skb, len);
- 	} else {
- 		/* Otherwise, we make more careful check taking into account,
- 		 * that SACKs block is variable.
--- 
-2.9.3
+User space can also pin itself to cpu instead of asking kernel to
+do it and run the same program on multiple cpus in parallel testing
+interaction between concurrent map accesses and so on.
+So by keeping test_run command as execution only primitive we allow
+user space to do all the fancy tricks and measurements.
