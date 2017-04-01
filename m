@@ -1,24 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] fsl/fman: take into account all RGMII modes
-Date: Sat, 01 Apr 2017 11:49:34 -0700 (PDT)
-Message-ID: <20170401.114934.685734473213788248.davem@davemloft.net>
-References: <1490880100-13373-1-git-send-email-madalin.bucur@nxp.com>
+From: "santosh.shilimkar@oracle.com" <santosh.shilimkar@oracle.com>
+Subject: Re: [PATCH net-next 1/2] rds: tcp: allow progress of
+ rds_conn_shutdown if the rds_connection is marked ERROR by an intervening FIN
+Date: Sat, 1 Apr 2017 11:53:41 -0700
+Message-ID: <0ad57c65-246e-195c-f76b-6afbb5b9c25e@oracle.com>
+References: <cover.1490814967.git.sowmini.varadhan@oracle.com>
+ <4b20bf8cbe541a263b12eb54b2e504e33b8a6a52.1490814967.git.sowmini.varadhan@oracle.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linuxppc-dev@lists.ozlabs.org
-To: madalin.bucur@nxp.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1490880100-13373-1-git-send-email-madalin.bucur@nxp.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net
+To: Sowmini Varadhan <sowmini.varadhan@oracle.com>,
+        netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:31134 "EHLO
+        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751933AbdDASxx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 1 Apr 2017 14:53:53 -0400
+In-Reply-To: <4b20bf8cbe541a263b12eb54b2e504e33b8a6a52.1490814967.git.sowmini.varadhan@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Madalin Bucur <madalin.bucur@nxp.com>
-Date: Thu, 30 Mar 2017 16:21:40 +0300
-
-> Accept the internal delay RGMII variants.
-> 
-> Signed-off-by: Madalin Bucur <madalin.bucur@nxp.com>
-
-Applied, thanks.
+On 3/31/17 3:56 PM, Sowmini Varadhan wrote:
+> rds_conn_shutdown() runs in workq context, and marks the rds_connection
+> as DISCONNECTING before quiescing Tx/Rx paths. However, after all I/O
+> has quiesced, we may still find the rds_connection state to be
+> RDS_CONN_ERROR if an intervening FIN was processed in softirq context.
+>
+> This is not a fatal error: rds_conn_shutdown() should continue the
+> shutdown, and there is no need to log noisy messages about this event.
+>
+> Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+> ---
+Acked-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
