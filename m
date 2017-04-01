@@ -1,79 +1,85 @@
-From: Vladislav Yasevich <vyasevich@gmail.com>
-Subject: [PATCH net-next 1/2] rtnetlink: Convert rtnetlink_event to white list
-Date: Fri, 31 Mar 2017 22:27:33 -0400
-Message-ID: <1491013654-395-2-git-send-email-vyasevic@redhat.com>
-References: <1491013654-395-1-git-send-email-vyasevic@redhat.com>
-Cc: roopa@cumulusnetworks.com, dsa@cumulusnetworks.com,
-        davem@davemloft.net, Vladislav Yasevich <vyasevic@redhat.com>
-To: netdev@vger.kernel.org
+From: "Wangnan (F)" <wangnan0@huawei.com>
+Subject: Re: [PATCH v2 net-next 3/6] tools/lib/bpf: expose
+ bpf_program__set_type()
+Date: Sat, 1 Apr 2017 10:29:56 +0800
+Message-ID: <a6aaf1e1-9c4e-ee4e-172e-9e9701aca96e@huawei.com>
+References: <20170331044543.4075183-1-ast@fb.com>
+ <20170331044543.4075183-4-ast@fb.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+        Martin KaFai Lau <kafai@fb.com>, <netdev@vger.kernel.org>,
+        <kernel-team@fb.com>
+To: Alexei Starovoitov <ast@fb.com>,
+        "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f196.google.com ([209.85.216.196]:35880 "EHLO
-        mail-qt0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750816AbdDAC1z (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 31 Mar 2017 22:27:55 -0400
-Received: by mail-qt0-f196.google.com with SMTP id n37so12453070qtb.3
-        for <netdev@vger.kernel.org>; Fri, 31 Mar 2017 19:27:54 -0700 (PDT)
-In-Reply-To: <1491013654-395-1-git-send-email-vyasevic@redhat.com>
+Received: from szxga02-in.huawei.com ([45.249.212.188]:4893 "EHLO
+        dggrg02-dlp.huawei.com" rhost-flags-OK-FAIL-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1750816AbdDACb7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 31 Mar 2017 22:31:59 -0400
+In-Reply-To: <20170331044543.4075183-4-ast@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The rtnetlink_event currently functions as a blacklist where
-we block cerntain netdev events from being sent to user space.
-As a result, events have been added to the system that userspace
-probably doesn't care about.
 
-This patch converts the implementation to the white list so that
-newly events would have to be specifically added to the list to
-be sent to userspace.  This would force new event implementers to
-consider whether a given event is usefull to user space or if it's
-just a kernel event.
 
-Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
----
- net/core/rtnetlink.c | 29 +++++++++++++++--------------
- 1 file changed, 15 insertions(+), 14 deletions(-)
+On 2017/3/31 12:45, Alexei Starovoitov wrote:
+> expose bpf_program__set_type() to set program type
+>
+> Signed-off-by: Alexei Starovoitov <ast@kernel.org>
+> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+> Acked-by: Martin KaFai Lau <kafai@fb.com>
+> ---
+>   tools/lib/bpf/libbpf.c | 3 +--
+>   tools/lib/bpf/libbpf.h | 2 ++
+>   2 files changed, 3 insertions(+), 2 deletions(-)
+>
+> diff --git a/tools/lib/bpf/libbpf.c b/tools/lib/bpf/libbpf.c
+> index ac6eb863b2a4..1a2c07eb7795 100644
+> --- a/tools/lib/bpf/libbpf.c
+> +++ b/tools/lib/bpf/libbpf.c
+> @@ -1618,8 +1618,7 @@ int bpf_program__nth_fd(struct bpf_program *prog, int n)
+>   	return fd;
+>   }
+>   
+> -static void bpf_program__set_type(struct bpf_program *prog,
+> -				  enum bpf_prog_type type)
+> +void bpf_program__set_type(struct bpf_program *prog, enum bpf_prog_type type)
+>   {
+>   	prog->type = type;
+>   }
 
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 9c3947a..f48a60d 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -4116,22 +4116,23 @@ static int rtnetlink_event(struct notifier_block *this, unsigned long event, voi
- 	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
- 
- 	switch (event) {
--	case NETDEV_UP:
--	case NETDEV_DOWN:
--	case NETDEV_PRE_UP:
--	case NETDEV_POST_INIT:
--	case NETDEV_REGISTER:
--	case NETDEV_CHANGE:
--	case NETDEV_PRE_TYPE_CHANGE:
--	case NETDEV_GOING_DOWN:
--	case NETDEV_UNREGISTER:
--	case NETDEV_UNREGISTER_FINAL:
--	case NETDEV_RELEASE:
--	case NETDEV_JOIN:
--	case NETDEV_BONDING_INFO:
-+	case NETDEV_REBOOT:
-+	case NETDEV_CHANGEMTU:
-+	case NETDEV_CHANGENAME:
-+	case NETDEV_FEAT_CHANGE:
-+	case NETDEV_BONDING_FAILOVER:
-+	case NETDEV_NOTIFY_PEERS:
-+	case NETDEV_CHANGEUPPER:
-+	case NETDEV_RESEND_IGMP:
-+	case NETDEV_PRECHANGEMTU:
-+	case NETDEV_CHANGEINFODATA:
-+	case NETDEV_PRECHANGEUPPER:
-+	case NETDEV_CHANGELOWERSTATE:
-+	case NETDEV_UDP_TUNNEL_PUSH_INFO:
-+	case NETDEV_CHANGE_TX_QUEUE_LEN:
-+		rtmsg_ifinfo(RTM_NEWLINK, dev, 0, GFP_KERNEL);
- 		break;
- 	default:
--		rtmsg_ifinfo(RTM_NEWLINK, dev, 0, GFP_KERNEL);
- 		break;
- 	}
- 	return NOTIFY_DONE;
--- 
-2.7.4
+Since it become a public interface, we need to check if prog is a
+NULL pointer and check if the value of type is okay, and let it
+return an errno.
+
+> diff --git a/tools/lib/bpf/libbpf.h b/tools/lib/bpf/libbpf.h
+> index b30394f9947a..32c7252f734e 100644
+> --- a/tools/lib/bpf/libbpf.h
+> +++ b/tools/lib/bpf/libbpf.h
+> @@ -25,6 +25,7 @@
+>   #include <stdint.h>
+>   #include <stdbool.h>
+>   #include <sys/types.h>  // for size_t
+> +#include <linux/bpf.h>
+>   
+>   enum libbpf_errno {
+>   	__LIBBPF_ERRNO__START = 4000,
+> @@ -185,6 +186,7 @@ int bpf_program__set_sched_cls(struct bpf_program *prog);
+>   int bpf_program__set_sched_act(struct bpf_program *prog);
+>   int bpf_program__set_xdp(struct bpf_program *prog);
+>   int bpf_program__set_perf_event(struct bpf_program *prog);
+> +void bpf_program__set_type(struct bpf_program *prog, enum bpf_prog_type type);
+>   
+
+The above bpf_program__set_xxx become redundancy. It should be generated
+using macro as static inline functions.
+
+>   bool bpf_program__is_socket_filter(struct bpf_program *prog);
+>   bool bpf_program__is_tracepoint(struct bpf_program *prog);
+
+bpf_program__is_xxx should be updated like bpf_program__set_xxx, since
+enum bpf_prog_type is not a problem now.
+
+Thank you.
