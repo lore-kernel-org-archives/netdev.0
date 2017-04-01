@@ -1,52 +1,77 @@
-From: Alexei Starovoitov <ast@fb.com>
-Subject: Re: [PATCH v2 net-next 3/6] tools/lib/bpf: expose
- bpf_program__set_type()
-Date: Fri, 31 Mar 2017 22:46:36 -0700
-Message-ID: <eefe4853-8963-b165-7771-79a86cc3b831@fb.com>
-References: <20170331044543.4075183-1-ast@fb.com>
- <20170331044543.4075183-4-ast@fb.com>
- <a6aaf1e1-9c4e-ee4e-172e-9e9701aca96e@huawei.com>
- <9bf13cb9-c139-1706-d75e-e6e34d5136f6@fb.com>
- <f2fb0cf4-50fd-4623-1097-e2a8c42cc910@huawei.com>
+From: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
+Subject: Re: [PATCH] net: batman-adv: use new api
+	ethtool_{get|set}_link_ksettings
+Date: Sat, 01 Apr 2017 08:40:54 +0200
+Message-ID: <2462780.uK9AJZJh1Z@sven-edge>
+References: <1490907687-11784-1-git-send-email-tremyfr@gmail.com>
+ <5459529.jjAg0OrKDG@bentobox>
+ <CAC=8w91DZHq4dKzUS=8w1fUvPG_CmT=HT3amQ15-iVgAV23fmQ@mail.gmail.com>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-        Martin KaFai Lau <kafai@fb.com>, <netdev@vger.kernel.org>,
-        <kernel-team@fb.com>
-To: "Wangnan (F)" <wangnan0@huawei.com>,
-        "David S . Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:60183 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750818AbdDAFrM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 1 Apr 2017 01:47:12 -0400
-In-Reply-To: <f2fb0cf4-50fd-4623-1097-e2a8c42cc910@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; boundary="nextPart2102377.nSGi7hxipA";
+ micalg="pgp-sha512"; protocol="application/pgp-signature"
+Cc: mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org, a@unstable.cc, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: Philippe Reynes <tremyfr-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <CAC=8w91DZHq4dKzUS=8w1fUvPG_CmT=HT3amQ15-iVgAV23fmQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On 3/31/17 10:32 PM, Wangnan (F) wrote:
->
-> OK. Then let your patch be merged first then let me do the code cleanup.
+--nextPart2102377.nSGi7hxipA
+Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="iso-8859-1"
 
-Thanks!
+On Freitag, 31. M=E4rz 2017 22:33:34 CEST Philippe Reynes wrote:
+> > Do you know if anyone already prepared the get_link_ksettings support f=
+or
+> > kernels older than 4.6 for backports.git?
+>=20
+> Sorry, I don't know this repo. Do you have an url please ?
+> But I suppose that nobody works on such backport.
 
-Once these two lib/bpf patches applied to net-next we can apply
-the same to tip and there will be no conflicts during the merge
-window.
+More information about it can be found at https://backports.wiki.kernel.org=
+=20
+and https://git.kernel.org/pub/scm/linux/kernel/git/backports/backports.git/
 
-I'm also planning to fix few things later:
+Btw. the code you are modifying will most likely be dropped. Your patch wil=
+l=20
+get rejected because of this. But thanks for submitting the api conversion=
+=20
+patch (even when it will be rejected).
 
-- there is an obscure error
-libbpf: relocation failed: no 11 section
-It's printed when llvm generates access to global variables.
-I think we need to improve the error message to point out the actual
-reason of the failure, so the user can fix the program.
+Kind regards,
+	Sven
+--nextPart2102377.nSGi7hxipA
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part.
+Content-Transfer-Encoding: 7Bit
 
-- there is another equally obscure error
-libbpf: Program 'foo' contains non-map related relo data pointing to 
-section 8
-It's happening when program is compiled with -g.
-It's just a bug in libbpf and the fix is straightforward.
+-----BEGIN PGP SIGNATURE-----
 
-so I suspect these fixes will also go into both net-next and tip.
+iQIzBAABCgAdFiEEF10rh2Elc9zjMuACXYcKB8Eme0YFAljfS3YACgkQXYcKB8Em
+e0Yk1hAA2WM/HUWS0NOzi7PbCPWsjzIM4VPpcTKN7UKWfasm1lgzcWH92r3ZXsvn
+z5We3j5vBxamLlJmw4X11O0+EIscNf9miIR6Xei3Ubhkl5A1DAtAYIneRJ5m3TI+
+35G5BR0rdYNjCr/IFrslaWKbsuN4ajF5v0/6AuYb7HGDMjiRNt3JXhMmD8M/9i25
+Ojp+kS2lNPfwsxyOLzJgyHHFhWOtZ5dUWf53N2G+EVKIDqqKge9F5YpUNB/LBpWh
+2F+NdAk3G3KA6+GSkBi1jP8bpM85s5R3w+8rG3o+KJcy/G8oOz2EiIjO4HpmEyas
+MfiXGEwD/QAdYrIaqJILCPiIyL+s0Lb3Cm1dqLrRXW0+ht21KdqLtOgRFfEoC6XY
+wPeUkdRDO1iEonm6g70ZARPrxDSs1d/3bgZheISSo+73ufDoY4HlhJxPl8Wn7Igv
+jWnqjQ+Ykq1yw7QRAJNv74q8yreXLrgyN8EG4+SJRiwLZOkeIzfbnPI9xAqUL+rX
+sWGRe7bU5Fjzqo8uefXFGdM6evKnDVt1WKawY1PWqDp47ZFh9wS1kdyRbmtItZm8
+IunKwalws0slEZ31tpcLxAccXEN/Zj1JuyK2La65mafpQW3aYVmUICNpOuksOfCv
+EaskxI6Z1iBCkCBkB8v0A7JgWHiFZcBmEhseuxU3Mj5cMHKGrHY=
+=KOpf
+-----END PGP SIGNATURE-----
+
+--nextPart2102377.nSGi7hxipA--
