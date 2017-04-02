@@ -1,76 +1,101 @@
 From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH v2 1/3] flowcache: make flow_key_size() return "unsigned int"
-Date: Mon, 3 Apr 2017 00:51:50 +0300
-Message-ID: <20170402215150.GA8938@avx2>
+Subject: [PATCH v2 2/3] flowcache: make flow_cache_hash_size() return
+ "unsigned int"
+Date: Mon, 3 Apr 2017 00:52:29 +0300
+Message-ID: <20170402215229.GB8938@avx2>
+References: <20170402215150.GA8938@avx2>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: herbert@gondor.apana.org.au, davem@davemloft.net,
         netdev@vger.kernel.org
 To: steffen.klassert@secunet.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f65.google.com ([209.85.215.65]:33329 "EHLO
+Received: from mail-lf0-f65.google.com ([209.85.215.65]:33402 "EHLO
         mail-lf0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750953AbdDBVvz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 2 Apr 2017 17:51:55 -0400
-Received: by mail-lf0-f65.google.com with SMTP id r36so11452676lfi.0
-        for <netdev@vger.kernel.org>; Sun, 02 Apr 2017 14:51:54 -0700 (PDT)
+        with ESMTP id S1751033AbdDBVwe (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 2 Apr 2017 17:52:34 -0400
+Received: by mail-lf0-f65.google.com with SMTP id r36so11453246lfi.0
+        for <netdev@vger.kernel.org>; Sun, 02 Apr 2017 14:52:33 -0700 (PDT)
 Content-Disposition: inline
+In-Reply-To: <20170402215150.GA8938@avx2>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Flow keys aren't 4GB+ numbers so 64-bit arithmetic is excessive.
+Hash size can't negative so "unsigned int" is logically correct.
 
-Space savings (I'm not sure what CSWTCH is):
+Propagate "unsigned int" to loop counters.
 
-	add/remove: 0/0 grow/shrink: 0/2 up/down: 0/-48 (-48)
+Space savings:
+
+	add/remove: 0/0 grow/shrink: 2/2 up/down: 6/-18 (-12)
 	function                                     old     new   delta
-	flow_cache_lookup                           1163    1159      -4
-	CSWTCH                                     75997   75953     -44
+	flow_cache_flush_tasklet                     362     365      +3
+	__flow_cache_shrink                          333     336      +3
+	flow_cache_cpu_up_prep                       178     171      -7
+	flow_cache_lookup                           1159    1148     -11
 
 Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 ---
 
- include/net/flow.h |    2 +-
- net/core/flow.c    |    6 +++---
- 2 files changed, 4 insertions(+), 4 deletions(-)
+ net/core/flow.c |   14 ++++++++------
+ 1 file changed, 8 insertions(+), 6 deletions(-)
 
---- a/include/net/flow.h
-+++ b/include/net/flow.h
-@@ -202,7 +202,7 @@ static inline struct flowi *flowidn_to_flowi(struct flowidn *fldn)
- 
- typedef unsigned long flow_compare_t;
- 
--static inline size_t flow_key_size(u16 family)
-+static inline unsigned int flow_key_size(u16 family)
- {
- 	switch (family) {
- 	case AF_INET:
 --- a/net/core/flow.c
 +++ b/net/core/flow.c
-@@ -161,7 +161,7 @@ static void flow_new_hash_rnd(struct flow_cache *fc,
- static u32 flow_hash_code(struct flow_cache *fc,
- 			  struct flow_cache_percpu *fcp,
- 			  const struct flowi *key,
--			  size_t keysize)
-+			  unsigned int keysize)
- {
- 	const u32 *k = (const u32 *) key;
- 	const u32 length = keysize * sizeof(flow_compare_t) / sizeof(u32);
-@@ -174,7 +174,7 @@ static u32 flow_hash_code(struct flow_cache *fc,
-  * important assumptions that we can here, such as alignment.
-  */
- static int flow_key_compare(const struct flowi *key1, const struct flowi *key2,
--			    size_t keysize)
-+			    unsigned int keysize)
- {
- 	const flow_compare_t *k1, *k1_lim, *k2;
+@@ -47,7 +47,7 @@ struct flow_flush_info {
  
-@@ -199,7 +199,7 @@ flow_cache_lookup(struct net *net, const struct flowi *key, u16 family, u8 dir,
+ static struct kmem_cache *flow_cachep __read_mostly;
+ 
+-#define flow_cache_hash_size(cache)	(1 << (cache)->hash_shift)
++#define flow_cache_hash_size(cache)	(1U << (cache)->hash_shift)
+ #define FLOW_HASH_RND_PERIOD		(10 * 60 * HZ)
+ 
+ static void flow_cache_new_hashrnd(unsigned long arg)
+@@ -119,9 +119,10 @@ static void __flow_cache_shrink(struct flow_cache *fc,
+ 	struct flow_cache_entry *fle;
+ 	struct hlist_node *tmp;
+ 	LIST_HEAD(gc_list);
+-	int i, deleted = 0;
++	int deleted = 0;
+ 	struct netns_xfrm *xfrm = container_of(fc, struct netns_xfrm,
+ 						flow_cache_global);
++	unsigned int i;
+ 
+ 	for (i = 0; i < flow_cache_hash_size(fc); i++) {
+ 		int saved = 0;
+@@ -295,9 +296,10 @@ static void flow_cache_flush_tasklet(unsigned long data)
+ 	struct flow_cache_entry *fle;
+ 	struct hlist_node *tmp;
+ 	LIST_HEAD(gc_list);
+-	int i, deleted = 0;
++	int deleted = 0;
+ 	struct netns_xfrm *xfrm = container_of(fc, struct netns_xfrm,
+ 						flow_cache_global);
++	unsigned int i;
+ 
+ 	fcp = this_cpu_ptr(fc->percpu);
+ 	for (i = 0; i < flow_cache_hash_size(fc); i++) {
+@@ -327,7 +329,7 @@ static void flow_cache_flush_tasklet(unsigned long data)
+ static int flow_cache_percpu_empty(struct flow_cache *fc, int cpu)
+ {
  	struct flow_cache_percpu *fcp;
- 	struct flow_cache_entry *fle, *tfle;
- 	struct flow_cache_object *flo;
--	size_t keysize;
-+	unsigned int keysize;
- 	unsigned int hash;
+-	int i;
++	unsigned int i;
  
- 	local_bh_disable();
+ 	fcp = per_cpu_ptr(fc->percpu, cpu);
+ 	for (i = 0; i < flow_cache_hash_size(fc); i++)
+@@ -402,12 +404,12 @@ void flow_cache_flush_deferred(struct net *net)
+ static int flow_cache_cpu_prepare(struct flow_cache *fc, int cpu)
+ {
+ 	struct flow_cache_percpu *fcp = per_cpu_ptr(fc->percpu, cpu);
+-	size_t sz = sizeof(struct hlist_head) * flow_cache_hash_size(fc);
++	unsigned int sz = sizeof(struct hlist_head) * flow_cache_hash_size(fc);
+ 
+ 	if (!fcp->hash_table) {
+ 		fcp->hash_table = kzalloc_node(sz, GFP_KERNEL, cpu_to_node(cpu));
+ 		if (!fcp->hash_table) {
+-			pr_err("NET: failed to allocate flow cache sz %zu\n", sz);
++			pr_err("NET: failed to allocate flow cache sz %u\n", sz);
+ 			return -ENOMEM;
+ 		}
+ 		fcp->hash_rnd_recalc = 1;
