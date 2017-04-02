@@ -1,7 +1,7 @@
 From: Sagi Grimberg <sagi@grimberg.me>
-Subject: [PATCH rfc 4/6] mlx5: support ->get_vector_affinity
-Date: Sun,  2 Apr 2017 16:41:30 +0300
-Message-ID: <1491140492-25703-5-git-send-email-sagi@grimberg.me>
+Subject: [PATCH rfc 6/6] nvme-rdma: use intelligent affinity based queue mappings
+Date: Sun,  2 Apr 2017 16:41:32 +0300
+Message-ID: <1491140492-25703-7-git-send-email-sagi@grimberg.me>
 References: <1491140492-25703-1-git-send-email-sagi@grimberg.me>
 Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>,
         Or Gerlitz <ogerlitz@mellanox.com>,
@@ -13,40 +13,63 @@ In-Reply-To: <1491140492-25703-1-git-send-email-sagi@grimberg.me>
 Sender: linux-block-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Simply refer to the generic affinity mask helper.
+Use the geneic block layer affinity mapping helper. Also,
+limit nr_hw_queues to the rdma device number of irq vectors
+as we don't really need more.
 
 Signed-off-by: Sagi Grimberg <sagi@grimberg.me>
 ---
- drivers/infiniband/hw/mlx5/main.c | 10 ++++++++++
- 1 file changed, 10 insertions(+)
+ drivers/nvme/host/rdma.c | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
 
-diff --git a/drivers/infiniband/hw/mlx5/main.c b/drivers/infiniband/hw/mlx5/main.c
-index 4dc0a8785fe0..b12bc2294895 100644
---- a/drivers/infiniband/hw/mlx5/main.c
-+++ b/drivers/infiniband/hw/mlx5/main.c
-@@ -3319,6 +3319,15 @@ static int mlx5_ib_get_hw_stats(struct ib_device *ibdev,
- 	return port->q_cnts.num_counters;
+diff --git a/drivers/nvme/host/rdma.c b/drivers/nvme/host/rdma.c
+index 4aae363943e3..81ee5b1207c8 100644
+--- a/drivers/nvme/host/rdma.c
++++ b/drivers/nvme/host/rdma.c
+@@ -19,6 +19,7 @@
+ #include <linux/string.h>
+ #include <linux/atomic.h>
+ #include <linux/blk-mq.h>
++#include <linux/blk-mq-rdma.h>
+ #include <linux/types.h>
+ #include <linux/list.h>
+ #include <linux/mutex.h>
+@@ -645,10 +646,14 @@ static int nvme_rdma_connect_io_queues(struct nvme_rdma_ctrl *ctrl)
+ static int nvme_rdma_init_io_queues(struct nvme_rdma_ctrl *ctrl)
+ {
+ 	struct nvmf_ctrl_options *opts = ctrl->ctrl.opts;
++	struct ib_device *ibdev = ctrl->device->dev;
+ 	unsigned int nr_io_queues;
+ 	int i, ret;
+ 
+ 	nr_io_queues = min(opts->nr_io_queues, num_online_cpus());
++	nr_io_queues = min_t(unsigned int, nr_io_queues,
++				ibdev->num_comp_vectors);
++
+ 	ret = nvme_set_queue_count(&ctrl->ctrl, &nr_io_queues);
+ 	if (ret)
+ 		return ret;
+@@ -1523,6 +1528,13 @@ static void nvme_rdma_complete_rq(struct request *rq)
+ 	nvme_complete_rq(rq);
  }
  
-+const struct cpumask *mlx5_ib_get_vector_affinity(struct ib_device *ibdev,
-+		int comp_vector)
++static int nvme_rdma_map_queues(struct blk_mq_tag_set *set)
 +{
-+	struct mlx5_ib_dev *dev = to_mdev(ibdev);
++	struct nvme_rdma_ctrl *ctrl = set->driver_data;
 +
-+	return pci_irq_get_affinity(dev->mdev->pdev,
-+			MLX5_EQ_VEC_COMP_BASE + comp_vector);
++	return blk_mq_rdma_map_queues(set, ctrl->device->dev, 0);
 +}
 +
- static void *mlx5_ib_add(struct mlx5_core_dev *mdev)
- {
- 	struct mlx5_ib_dev *dev;
-@@ -3449,6 +3458,7 @@ static void *mlx5_ib_add(struct mlx5_core_dev *mdev)
- 	dev->ib_dev.check_mr_status	= mlx5_ib_check_mr_status;
- 	dev->ib_dev.get_port_immutable  = mlx5_port_immutable;
- 	dev->ib_dev.get_dev_fw_str      = get_dev_fw_str;
-+	dev->ib_dev.get_vector_affinity	= mlx5_ib_get_vector_affinity;
- 	if (mlx5_core_is_pf(mdev)) {
- 		dev->ib_dev.get_vf_config	= mlx5_ib_get_vf_config;
- 		dev->ib_dev.set_vf_link_state	= mlx5_ib_set_vf_link_state;
+ static const struct blk_mq_ops nvme_rdma_mq_ops = {
+ 	.queue_rq	= nvme_rdma_queue_rq,
+ 	.complete	= nvme_rdma_complete_rq,
+@@ -1532,6 +1544,7 @@ static const struct blk_mq_ops nvme_rdma_mq_ops = {
+ 	.init_hctx	= nvme_rdma_init_hctx,
+ 	.poll		= nvme_rdma_poll,
+ 	.timeout	= nvme_rdma_timeout,
++	.map_queues	= nvme_rdma_map_queues,
+ };
+ 
+ static const struct blk_mq_ops nvme_rdma_admin_mq_ops = {
 -- 
 2.7.4
