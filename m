@@ -1,115 +1,58 @@
-From: Vincent Bernat <vincent@bernat.im>
-Subject: [PATCH net-next v4] vxlan: fix ND proxy when skb doesn't have transport header offset
-Date: Sun,  2 Apr 2017 11:00:06 +0200
-Message-ID: <20170402090006.17545-1-vincent@bernat.im>
-References: <201704020408.cWbCLxF2%fengguang.wu@intel.com>
-Cc: Vincent Bernat <vincent@bernat.im>
-To: Eric Dumazet <edumazet@google.com>,
-        Roopa Prabhu <roopa@cumulusnetworks.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Jiri Benc <jbenc@redhat.com>, netdev <netdev@vger.kernel.org>,
-        Cong Wang <xiyou.wangcong@gmail.com>
+From: Arushi Singhal <arushisinghal19971997@gmail.com>
+Subject: [PATCH 3/4] net: ipv4: Remove exceptional & on function name
+Date: Sun,  2 Apr 2017 14:52:14 +0530
+Message-ID: <20170402092215.22792-3-arushisinghal19971997@gmail.com>
+References: <20170402092215.22792-1-arushisinghal19971997@gmail.com>
+Cc: kadlec@blackhole.kfki.hu, davem@davemloft.net,
+        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+        kaber@trash.net, netfilter-devel@vger.kernel.org,
+        coreteam@netfilter.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        Arushi Singhal <arushisinghal19971997@gmail.com>
+To: pablo@netfilter.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bart.luffy.cx ([78.47.78.131]:39490 "EHLO bart.luffy.cx"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750876AbdDBJAO (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 2 Apr 2017 05:00:14 -0400
-In-Reply-To: <201704020408.cWbCLxF2%fengguang.wu@intel.com>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:34221 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751457AbdDBJWd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 2 Apr 2017 05:22:33 -0400
+In-Reply-To: <20170402092215.22792-1-arushisinghal19971997@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When an incoming frame is tagged or when GRO is disabled, the skb
-handled to vxlan_xmit() doesn't contain a valid transport header
-offset. This makes ND proxying fail.
+Remove & from function pointers to conform to the style found elsewhere
+in the file. Done using the following semantic patch
 
-We combine two changes: replace use of skb_transport_offset() and ensure
-the necessary amount of skb is linear just before using it:
+// <smpl>
+@r@
+identifier f;
+@@
 
- - In vxlan_xmit(), when determining if we have an ICMPv6 neighbor
-   discovery packet, just check if it is an ICMPv6 packet and rely on
-   neigh_reduce() to do more checks if this is the case. The use of
-   pskb_may_pull() is replaced by skb_header_pointer() for just the IPv6
-   header.
+f(...) { ... }
+@@
+identifier r.f;
+@@
 
- - In neigh_reduce(), add pskb_may_pull() for IPv6 header and neighbor
-   discovery message since this was removed from vxlan_xmit(). Replace
-   skb_transport_header() with ipv6_hdr() + 1.
+- &f
++ f
+// </smpl>
 
- - In vxlan_na_create(), replace first skb_transport_offset() with
-   ipv6_hdr() + 1 and second with skb_network_offset() + sizeof(struct
-   ipv6hdr). Additionally, ensure we pskb_may_pull() the whole skb as we
-   need it to iterate over the options.
-
-Signed-off-by: Vincent Bernat <vincent@bernat.im>
+Signed-off-by: Arushi Singhal <arushisinghal19971997@gmail.com>
 ---
- drivers/net/vxlan.c | 29 +++++++++++++++--------------
- 1 file changed, 15 insertions(+), 14 deletions(-)
+ net/ipv4/netfilter/nft_fib_ipv4.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 1e54fb5c883a..89cb86666267 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -1515,7 +1515,7 @@ static struct sk_buff *vxlan_na_create(struct sk_buff *request,
- 	int ns_olen;
- 	int i, len;
+diff --git a/net/ipv4/netfilter/nft_fib_ipv4.c b/net/ipv4/netfilter/nft_fib_ipv4.c
+index 2981291910dd..cc4f9da97677 100644
+--- a/net/ipv4/netfilter/nft_fib_ipv4.c
++++ b/net/ipv4/netfilter/nft_fib_ipv4.c
+@@ -212,7 +212,7 @@ nft_fib4_select_ops(const struct nft_ctx *ctx,
  
--	if (dev == NULL)
-+	if (dev == NULL || !pskb_may_pull(request, request->len))
- 		return NULL;
- 
- 	len = LL_RESERVED_SPACE(dev) + sizeof(struct ipv6hdr) +
-@@ -1530,10 +1530,11 @@ static struct sk_buff *vxlan_na_create(struct sk_buff *request,
- 	skb_push(reply, sizeof(struct ethhdr));
- 	skb_reset_mac_header(reply);
- 
--	ns = (struct nd_msg *)skb_transport_header(request);
-+	ns = (struct nd_msg *)(ipv6_hdr(request) + 1);
- 
- 	daddr = eth_hdr(request)->h_source;
--	ns_olen = request->len - skb_transport_offset(request) - sizeof(*ns);
-+	ns_olen = request->len - skb_network_offset(request) -
-+		sizeof(struct ipv6hdr) - sizeof(*ns);
- 	for (i = 0; i < ns_olen-1; i += (ns->opt[i+1]<<3)) {
- 		if (ns->opt[i] == ND_OPT_SOURCE_LL_ADDR) {
- 			daddr = ns->opt + i + sizeof(struct nd_opt_hdr);
-@@ -1604,10 +1605,13 @@ static int neigh_reduce(struct net_device *dev, struct sk_buff *skb, __be32 vni)
- 	if (!in6_dev)
- 		goto out;
- 
-+	if (!pskb_may_pull(skb, sizeof(struct ipv6hdr) + sizeof(struct nd_msg)))
-+		goto out;
-+
- 	iphdr = ipv6_hdr(skb);
- 	daddr = &iphdr->daddr;
- 
--	msg = (struct nd_msg *)skb_transport_header(skb);
-+	msg = (struct nd_msg *)(iphdr + 1);
- 	if (msg->icmph.icmp6_code != 0 ||
- 	    msg->icmph.icmp6_type != NDISC_NEIGHBOUR_SOLICITATION)
- 		goto out;
-@@ -2242,16 +2246,13 @@ static netdev_tx_t vxlan_xmit(struct sk_buff *skb, struct net_device *dev)
- 		if (ntohs(eth->h_proto) == ETH_P_ARP)
- 			return arp_reduce(dev, skb, vni);
- #if IS_ENABLED(CONFIG_IPV6)
--		else if (ntohs(eth->h_proto) == ETH_P_IPV6 &&
--			 pskb_may_pull(skb, sizeof(struct ipv6hdr)
--				       + sizeof(struct nd_msg)) &&
--			 ipv6_hdr(skb)->nexthdr == IPPROTO_ICMPV6) {
--				struct nd_msg *msg;
--
--				msg = (struct nd_msg *)skb_transport_header(skb);
--				if (msg->icmph.icmp6_code == 0 &&
--				    msg->icmph.icmp6_type == NDISC_NEIGHBOUR_SOLICITATION)
--					return neigh_reduce(dev, skb, vni);
-+		else if (ntohs(eth->h_proto) == ETH_P_IPV6) {
-+			struct ipv6hdr *hdr, _hdr;
-+			if ((hdr = skb_header_pointer(skb,
-+						      skb_network_offset(skb),
-+						      sizeof(_hdr), &_hdr)) &&
-+			    hdr->nexthdr == IPPROTO_ICMPV6)
-+				return neigh_reduce(dev, skb, vni);
- 		}
- #endif
- 	}
+ static struct nft_expr_type nft_fib4_type __read_mostly = {
+ 	.name		= "fib",
+-	.select_ops	= &nft_fib4_select_ops,
++	.select_ops	= nft_fib4_select_ops,
+ 	.policy		= nft_fib_policy,
+ 	.maxattr	= NFTA_FIB_MAX,
+ 	.family		= NFPROTO_IPV4,
 -- 
 2.11.0
