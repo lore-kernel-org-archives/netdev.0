@@ -1,221 +1,204 @@
 From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: [PATCH net-next 2/3] virtio-net: transmit napi
-Date: Sun,  2 Apr 2017 16:10:11 -0400
-Message-ID: <20170402201012.76473-3-willemdebruijn.kernel@gmail.com>
-References: <20170402201012.76473-1-willemdebruijn.kernel@gmail.com>
+Subject: [PATCH net-next 0/3] virtio-net tx napi
+Date: Sun,  2 Apr 2017 16:10:09 -0400
+Message-ID: <20170402201012.76473-1-willemdebruijn.kernel@gmail.com>
 Cc: mst@redhat.com, jasowang@redhat.com,
         virtualization@lists.linux-foundation.org, davem@davemloft.net,
         Willem de Bruijn <willemb@google.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f195.google.com ([209.85.216.195]:36605 "EHLO
-        mail-qt0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751642AbdDBUKS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 2 Apr 2017 16:10:18 -0400
-Received: by mail-qt0-f195.google.com with SMTP id n37so16603406qtb.3
-        for <netdev@vger.kernel.org>; Sun, 02 Apr 2017 13:10:17 -0700 (PDT)
-In-Reply-To: <20170402201012.76473-1-willemdebruijn.kernel@gmail.com>
+Received: from mail-qt0-f196.google.com ([209.85.216.196]:33976 "EHLO
+        mail-qt0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751642AbdDBUKQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 2 Apr 2017 16:10:16 -0400
+Received: by mail-qt0-f196.google.com with SMTP id x35so16535539qtc.1
+        for <netdev@vger.kernel.org>; Sun, 02 Apr 2017 13:10:16 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Willem de Bruijn <willemb@google.com>
 
-Convert virtio-net to a standard napi tx completion path. This enables
-better TCP pacing using TCP small queues and increases single stream
-throughput.
+Add napi for virtio-net transmit completion processing.
 
-The virtio-net driver currently cleans tx descriptors on transmission
-of new packets in ndo_start_xmit. Latency depends on new traffic, so
-is unbounded. To avoid deadlock when a socket reaches its snd limit,
-packets are orphaned on tranmission. This breaks socket backpressure,
-including TSQ.
+Based on previous patchsets by Jason Wang:
 
-Napi increases the number of interrupts generated compared to the
-current model, which keeps interrupts disabled as long as the ring
-has enough free descriptors. Keep tx napi optional for now. Follow-on
-patches will reduce the interrupt cost.
+  [RFC V7 PATCH 0/7] enable tx interrupts for virtio-net
+  http://lkml.iu.edu/hypermail/linux/kernel/1505.3/00245.html
 
-Signed-off-by: Willem de Bruijn <willemb@google.com>
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
- drivers/net/virtio_net.c | 63 ++++++++++++++++++++++++++++++++++++++++--------
- 1 file changed, 53 insertions(+), 10 deletions(-)
+Changes:
+  RFC -> v1:
+    - dropped vhost interrupt moderation patch:
+        not needed and likely expensive at light load
+    - remove tx napi weight
+      - always clean all tx completions
+      - use boolean to toggle tx-napi, instead
+    - only clean tx in rx if tx-napi is enabled
+      - then clean tx before rx
+    - fix: add missing braces in virtnet_freeze_down
+    - testing: add 4KB TCP_RR + UDP test results
 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 6aac0ad0d9b2..95d938e82080 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -33,9 +33,10 @@
- static int napi_weight = NAPI_POLL_WEIGHT;
- module_param(napi_weight, int, 0444);
- 
--static bool csum = true, gso = true;
-+static bool csum = true, gso = true, napi_tx = true;
- module_param(csum, bool, 0444);
- module_param(gso, bool, 0444);
-+module_param(napi_tx, bool, 0644);
- 
- /* FIXME: MTU in config. */
- #define GOOD_PACKET_LEN (ETH_HLEN + VLAN_HLEN + ETH_DATA_LEN)
-@@ -86,6 +87,8 @@ struct send_queue {
- 
- 	/* Name of the send queue: output.$index */
- 	char name[40];
-+
-+	struct napi_struct napi;
- };
- 
- /* Internal representation of a receive virtqueue */
-@@ -262,12 +265,16 @@ static void virtqueue_napi_complete(struct napi_struct *napi,
- static void skb_xmit_done(struct virtqueue *vq)
- {
- 	struct virtnet_info *vi = vq->vdev->priv;
-+	struct napi_struct *napi = &vi->sq[vq2txq(vq)].napi;
- 
- 	/* Suppress further interrupts. */
- 	virtqueue_disable_cb(vq);
- 
--	/* We were probably waiting for more output buffers. */
--	netif_wake_subqueue(vi->dev, vq2txq(vq));
-+	if (napi->weight)
-+		virtqueue_napi_schedule(napi, vq);
-+	else
-+		/* We were probably waiting for more output buffers. */
-+		netif_wake_subqueue(vi->dev, vq2txq(vq));
- }
- 
- static unsigned int mergeable_ctx_to_buf_truesize(unsigned long mrg_ctx)
-@@ -961,6 +968,9 @@ static void skb_recv_done(struct virtqueue *rvq)
- 
- static void virtnet_napi_enable(struct virtqueue *vq, struct napi_struct *napi)
- {
-+	if (!napi->weight)
-+		return;
-+
- 	napi_enable(napi);
- 
- 	/* If all buffers were filled by other side before we napi_enabled, we
-@@ -1046,6 +1056,7 @@ static int virtnet_open(struct net_device *dev)
- 			if (!try_fill_recv(vi, &vi->rq[i], GFP_KERNEL))
- 				schedule_delayed_work(&vi->refill, 0);
- 		virtnet_napi_enable(vi->rq[i].vq, &vi->rq[i].napi);
-+		virtnet_napi_enable(vi->sq[i].vq, &vi->sq[i].napi);
- 	}
- 
- 	return 0;
-@@ -1081,6 +1092,24 @@ static void free_old_xmit_skbs(struct send_queue *sq)
- 	u64_stats_update_end(&stats->tx_syncp);
- }
- 
-+static int virtnet_poll_tx(struct napi_struct *napi, int budget)
-+{
-+	struct send_queue *sq = container_of(napi, struct send_queue, napi);
-+	struct virtnet_info *vi = sq->vq->vdev->priv;
-+	struct netdev_queue *txq = netdev_get_tx_queue(vi->dev, vq2txq(sq->vq));
-+
-+	__netif_tx_lock(txq, smp_processor_id());
-+	free_old_xmit_skbs(sq);
-+	__netif_tx_unlock(txq);
-+
-+	virtqueue_napi_complete(napi, sq->vq, 0);
-+
-+	if (sq->vq->num_free >= 2 + MAX_SKB_FRAGS)
-+		netif_wake_subqueue(vi->dev, vq2txq(sq->vq));
-+
-+	return 0;
-+}
-+
- static int xmit_skb(struct send_queue *sq, struct sk_buff *skb)
- {
- 	struct virtio_net_hdr_mrg_rxbuf *hdr;
-@@ -1130,9 +1159,11 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	int err;
- 	struct netdev_queue *txq = netdev_get_tx_queue(dev, qnum);
- 	bool kick = !skb->xmit_more;
-+	bool use_napi = sq->napi.weight;
- 
- 	/* Free up any pending old buffers before queueing new ones. */
--	free_old_xmit_skbs(sq);
-+	if (!use_napi)
-+		free_old_xmit_skbs(sq);
- 
- 	/* timestamp packet in software */
- 	skb_tx_timestamp(skb);
-@@ -1152,8 +1183,10 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	}
- 
- 	/* Don't wait up for transmitted skbs to be freed. */
--	skb_orphan(skb);
--	nf_reset(skb);
-+	if (!use_napi) {
-+		skb_orphan(skb);
-+		nf_reset(skb);
-+	}
- 
- 	/* If running out of space, stop queue to avoid getting packets that we
- 	 * are then unable to transmit.
-@@ -1167,7 +1200,8 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	 */
- 	if (sq->vq->num_free < 2+MAX_SKB_FRAGS) {
- 		netif_stop_subqueue(dev, qnum);
--		if (unlikely(!virtqueue_enable_cb_delayed(sq->vq))) {
-+		if (!use_napi &&
-+		    unlikely(!virtqueue_enable_cb_delayed(sq->vq))) {
- 			/* More just got used, free them then recheck. */
- 			free_old_xmit_skbs(sq);
- 			if (sq->vq->num_free >= 2+MAX_SKB_FRAGS) {
-@@ -1371,8 +1405,10 @@ static int virtnet_close(struct net_device *dev)
- 	/* Make sure refill_work doesn't re-enable napi! */
- 	cancel_delayed_work_sync(&vi->refill);
- 
--	for (i = 0; i < vi->max_queue_pairs; i++)
-+	for (i = 0; i < vi->max_queue_pairs; i++) {
- 		napi_disable(&vi->rq[i].napi);
-+		napi_disable(&vi->sq[i].napi);
-+	}
- 
- 	return 0;
- }
-@@ -1727,8 +1763,10 @@ static void virtnet_freeze_down(struct virtio_device *vdev)
- 	cancel_delayed_work_sync(&vi->refill);
- 
- 	if (netif_running(vi->dev)) {
--		for (i = 0; i < vi->max_queue_pairs; i++)
-+		for (i = 0; i < vi->max_queue_pairs; i++) {
- 			napi_disable(&vi->rq[i].napi);
-+			napi_disable(&vi->sq[i].napi);
-+		}
- 	}
- }
- 
-@@ -1751,8 +1789,10 @@ static int virtnet_restore_up(struct virtio_device *vdev)
- 			if (!try_fill_recv(vi, &vi->rq[i], GFP_KERNEL))
- 				schedule_delayed_work(&vi->refill, 0);
- 
--		for (i = 0; i < vi->max_queue_pairs; i++)
-+		for (i = 0; i < vi->max_queue_pairs; i++) {
- 			virtnet_napi_enable(vi->rq[i].vq, &vi->rq[i].napi);
-+			virtnet_napi_enable(vi->sq[i].vq, &vi->sq[i].napi);
-+		}
- 	}
- 
- 	netif_device_attach(vi->dev);
-@@ -1957,6 +1997,7 @@ static void virtnet_free_queues(struct virtnet_info *vi)
- 	for (i = 0; i < vi->max_queue_pairs; i++) {
- 		napi_hash_del(&vi->rq[i].napi);
- 		netif_napi_del(&vi->rq[i].napi);
-+		netif_napi_del(&vi->sq[i].napi);
- 	}
- 
- 	/* We called napi_hash_del() before netif_napi_del(),
-@@ -2142,6 +2183,8 @@ static int virtnet_alloc_queues(struct virtnet_info *vi)
- 		vi->rq[i].pages = NULL;
- 		netif_napi_add(vi->dev, &vi->rq[i].napi, virtnet_poll,
- 			       napi_weight);
-+		netif_napi_add(vi->dev, &vi->sq[i].napi, virtnet_poll_tx,
-+			       napi_tx ? napi_weight : 0);
- 
- 		sg_init_table(vi->rq[i].sg, ARRAY_SIZE(vi->rq[i].sg));
- 		ewma_pkt_len_init(&vi->rq[i].mrg_avg_pkt_len);
+
+Before commit b0c39dbdc204 ("virtio_net: don't free buffers in xmit
+ring") the virtio-net driver would free transmitted packets on
+transmission of new packets in ndo_start_xmit and, to catch the edge
+case when no new packet is sent, also in a timer at 10HZ.
+
+A timer can cause long stalls. VIRTIO_F_NOTIFY_ON_EMPTY avoids stalls
+due to low free descriptor count. It does not address a stalls due to
+low socket SO_SNDBUF. Increasing timer frequency decreases that stall
+time, but increases interrupt rate and, thus, cycle count.
+
+Currently, with no timer, packets are freed only at ndo_start_xmit.
+Latency of consume_skb is now unbounded. To avoid a deadlock if a sock
+reaches SO_SNDBUF, packets are orphaned on tx. This breaks TCP small
+queues.
+
+Reenable TCP small queues by removing the orphan. Instead of using a
+timer, convert the driver to regular tx napi. This does not have the
+unresolved stall issue and does not have any frequency to tune.
+
+By keeping interrupts enabled by default, napi increases tx
+interrupt rate. VIRTIO_F_EVENT_IDX avoids sending an interrupt if
+one is already unacknowledged, so makes this more feasible today.
+Combine that with an optimization that brings interrupt rate
+back in line with the existing version for most workloads:
+
+Tx completion cleaning on rx interrupts elides most explicit tx
+interrupts by relying on the fact that many rx interrupts fire.
+
+Tested by running {1, 10, 100} {TCP, UDP} STREAM, RR, 4K_RR benchmarks
+from a guest to a server on the host, on an x86_64 Haswell. The guest
+runs 4 vCPUs pinned to 4 cores. vhost and the test server are
+pinned to a core each.
+
+All results are the median of 5 runs, with variance well < 10%.
+Used neper (github.com/google/neper) as test process.
+
+Napi increases single stream throughput, but increases cycle cost.
+Processing completions on rx interrupts optimization brings this down,
+especially for bi-directional workloads. UDP_STREAM is unidirectional
+and continues to see a ~10% lower throughput.
+
+Not showing number for only the optimization patch. That showed no
+significant difference with upstream.
+
+             upstream     napi   +at-rx
+TCP_STREAM:
+1x:
+  Mbps          30537    37666    37910
+  Gcycles         400      540      405
+
+10x:
+  Mbps          41012    39954    40245
+  Gcycles         434      546      421
+
+100x:
+  Mbps          34088    34172    34245
+  Gcycles         435      546      418
+
+TCP_RR Latency (us):
+1x:
+  p50              24       24       21
+  p99              27       27       27
+  Gcycles         299      432      308
+
+10x:
+  p50              31       31       41
+  p99              40       46       52
+  Gcycles         346      428      322
+
+100x:
+  p50             155      151      310
+  p99             334      329      362
+  Gcycles         336      421      308
+
+TCP_RR 4K:
+1x:
+  p50              30       30       27
+  p99              34       33       34
+  Gcycles         307      437      305
+
+10x:
+  p50              63       67       65
+  p99              76       77       87
+  Gcycles         334      425      315
+
+100x:
+  p50             421      497      511
+  p99             510      571      773
+  Gcycles         350      430      321
+
+UDP_STREAM:
+1x:
+  Mbps          29802    26360    26608
+  Gcycles         305      363      362
+
+10x:
+  Mbps          29901    26801    27078
+  Gcycles         287      363      360
+
+100x:
+  Mbps          29952    26822    27054
+  Gcycles         336      351      354
+
+UDP_RR:
+1x:
+  p50              24       21       19
+  p99              27       24       23
+  Gcycles         299      431      309
+
+10x:
+  p50              31       27       35
+  p99              40       35       54
+  Gcycles         346      421      325
+
+100x:
+  p50             155      153      240
+  p99             334      323      462
+  Gcycles         336      421      311
+
+UDP_RR 4K:
+1x:
+  p50              24       25       23
+  p99              27       28       30
+  Gcycles         299      435      321
+
+10x:
+  p50              31       35       48
+  p99              40       54       66
+  Gcycles         346      451      308
+
+100x:
+  p50             155      210      307
+  p99             334      451      519
+  Gcycles         336      440      297
+
+Note that GSO is enabled, so 4K RR still translates to one packet
+per request.
+
+Lower throughput at 100x vs 10x can be (at least in part)
+explained by looking at bytes per packet sent (nstat). It likely
+also explains the lower throughput of 1x for some variants.
+
+upstream:
+
+ N=1   bytes/pkt=16581
+ N=10  bytes/pkt=61513
+ N=100 bytes/pkt=51558
+
+at_rx:
+
+ N=1   bytes/pkt=65204
+ N=10  bytes/pkt=65148
+ N=100 bytes/pkt=56840
+
+Willem de Bruijn (3):
+  virtio-net: napi helper functions
+  virtio-net: transmit napi
+  virtio-net: clean tx descriptors from rx napi
+
+ drivers/net/virtio_net.c | 150 ++++++++++++++++++++++++++++++++++-------------
+ 1 file changed, 110 insertions(+), 40 deletions(-)
+
 -- 
 2.12.2.564.g063fe858b8-goog
