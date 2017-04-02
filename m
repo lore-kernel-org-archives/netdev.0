@@ -1,60 +1,69 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH] phy/ethtool: Add missing SPEED_<foo> strings
-Date: Sun,  2 Apr 2017 14:30:06 -0700
-Message-ID: <7a10ea1f8a35c40fd721e15f3643c99d98cca7d8.1491168585.git.joe@perches.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>,
-        Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Subject: Re: stmmac still supporting spear600 ?
+Date: Sun, 2 Apr 2017 23:30:28 +0200
+Message-ID: <20170402233028.60acf612@free-electrons.com>
+References: <20170309093412.33c0277d@free-electrons.com>
+        <373e2760-94c5-4349-33aa-158bc8f4b19e@st.com>
+        <20170309103236.3e16304f@free-electrons.com>
+        <79049eda-5d37-6b70-8945-2d3ab55e56b8@st.com>
+        <20170321155054.2f4cb921@free-electrons.com>
+        <63405ec5-099c-b935-2724-6c85012fc9f7@st.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Alexandre Torgue <alexandre.torgue@st.com>,
+        <netdev@vger.kernel.org>, Viresh Kumar <vireshk@kernel.org>,
+        Shiraz Hashim <shiraz.linux.kernel@gmail.com>,
+        <linux-arm-kernel@lists.infradead.org>
+To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.free-electrons.com ([62.4.15.54]:46206 "EHLO
+        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751322AbdDBVaa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 2 Apr 2017 17:30:30 -0400
+In-Reply-To: <63405ec5-099c-b935-2724-6c85012fc9f7@st.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add all the currently available SPEED_<foo> strings.
+Hello,
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- drivers/net/phy/phy.c        | 14 ++++++++++++++
- include/uapi/linux/ethtool.h |  1 +
- 2 files changed, 15 insertions(+)
+On Thu, 23 Mar 2017 11:33:23 +0100, Giuseppe CAVALLARO wrote:
 
-diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-index d019bbf42c31..e7d0367a1455 100644
---- a/drivers/net/phy/phy.c
-+++ b/drivers/net/phy/phy.c
-@@ -50,8 +50,22 @@ static const char *phy_speed_to_str(int speed)
- 		return "1Gbps";
- 	case SPEED_2500:
- 		return "2.5Gbps";
-+	case SPEED_5000:
-+		return "5Gbps";
- 	case SPEED_10000:
- 		return "10Gbps";
-+	case SPEED_20000:
-+		return "20Gbps";
-+	case SPEED_25000:
-+		return "25Gbps";
-+	case SPEED_40000:
-+		return "40Gbps";
-+	case SPEED_50000:
-+		return "50Gbps";
-+	case SPEED_56000:
-+		return "56Gbps";
-+	case SPEED_100000:
-+		return "100Gbps";
- 	case SPEED_UNKNOWN:
- 		return "Unknown";
- 	default:
-diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
-index 3dc91a46e8b8..5f4ea28eabe4 100644
---- a/include/uapi/linux/ethtool.h
-+++ b/include/uapi/linux/ethtool.h
-@@ -1487,6 +1487,7 @@ enum ethtool_link_mode_bit_indices {
-  */
- 
- /* The forced speed, in units of 1Mb. All values 0 to INT_MAX are legal. */
-+/* Update drivers/net/phy/phy.c:phy_speed_to_str() when adding new values */
- #define SPEED_10		10
- #define SPEED_100		100
- #define SPEED_1000		1000
+> > Further research has revealed that everything is working fine on a
+> > platform with a Gigabit PHY connected via GMII.
+> >
+> > However, on a different platform (which I'm using) with a 10/100 PHY
+> > connected via MII, DMA_RESET never clears, and networking doesn't work.
+> > The SMSC PHY LAN8700 is also supposed to be providing the clock through
+> > its TX_CLK pin. I double checked, and both the MAC and PHY are in MII
+> > mode, but still no luck so far.
+> >
+> > Of course, if you have any suggestion or hint, I'm all ears :)  
+> 
+> I can just you to keep the focus on clock configuration. I tested the 
+> SMSC PHY LAN8700
+> w/o any issues on several platform.  In MII both rx/tx_clk are provided 
+> by PHY and if you
+> have an external oscillator this should be safe enough, indeed.
+> Another check you can do is about the reset time! Maybe you need to 
+> change something
+> when reset the SMSC transceiver, try to increase the delay (if you use 
+> GPIO to reset it).
+
+On which platform did you test with the LAN8700 PHY ? Was it on a
+SPEAr600 based platform ?
+
+If you tested on SPEAr600, what is the GMAC clock configuration (i.e
+the value of the GMAC_CFG_CTR and GMAC_CFG_SYNT registers) ?
+
+Regarding the PHY reset time, our PHY reset pin is not connected to a
+GPIO, but to the system reset logic, so Linux cannot reset the PHY with
+a GPIO.
+
+Thanks!
+
+Thomas
 -- 
-2.10.0.rc2.1.g053435c
+Thomas Petazzoni, CTO, Free Electrons
+Embedded Linux and Kernel engineering
+http://free-electrons.com
