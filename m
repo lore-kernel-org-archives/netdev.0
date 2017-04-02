@@ -1,50 +1,151 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH net-next 1/4] ixgbe: sparc: rename the
- ARCH_WANT_RELAX_ORDER to IXGBE_ALLOW_RELAXED_ORDER
-Date: Sun, 2 Apr 2017 14:49:47 +0800
-Message-ID: <819bc6c1-581b-3ab9-d189-1befaaf43548@huawei.com>
-References: <1491031554-19516-1-git-send-email-dingtianhong@huawei.com>
- <1491031554-19516-2-git-send-email-dingtianhong@huawei.com>
- <20170401.112603.1991545644693496714.davem@davemloft.net>
+From: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
+Subject: finally found nasty use-after-free bug? 4.10.8
+Date: Sun, 02 Apr 2017 10:26:10 +0300
+Message-ID: <836f0b78d11b9260ac16804344c29004@nuclearcat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: mark.rutland@arm.com, catalin.marinas@arm.com, will.deacon@arm.com,
- alexander.duyck@gmail.com, intel-wired-lan@lists.osuosl.org,
- jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org, robin.murphy@arm.com,
- linux-arm-kernel@lists.infradead.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <20170401.112603.1991545644693496714.davem@davemloft.net>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII;
+ format=flowed
+Content-Transfer-Encoding: 7bit
+To: Linux Kernel Network Developers <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nuclearcat.com ([144.76.183.226]:42744 "EHLO nuclearcat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750853AbdDBH0O (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 2 Apr 2017 03:26:14 -0400
+Received: from localhost (localhost [127.0.0.1])
+        by nuclearcat.com (Postfix) with ESMTP id 6642F67C07DE
+        for <netdev@vger.kernel.org>; Sun,  2 Apr 2017 07:26:12 +0000 (UTC)
+Received: from nuclearcat.com ([127.0.0.1])
+        by localhost (nuclearcat.com [127.0.0.1]) (amavisd-new, port 10024)
+        with ESMTP id BrsstrUYQfcP for <netdev@vger.kernel.org>;
+        Sun,  2 Apr 2017 07:26:10 +0000 (UTC)
+Received: from germany.nuclearcat.com (localhost [127.0.0.1])
+        (Authenticated sender: nuclearcat@nuclearcat.com)
+        by nuclearcat.com (Postfix) with ESMTPA id A141767C02A7
+        for <netdev@vger.kernel.org>; Sun,  2 Apr 2017 07:26:10 +0000 (UTC)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-CgpPbiAyMDE3LzQvMiAyOjI2LCBEYXZpZCBNaWxsZXIgd3JvdGU6Cj4gRnJvbTogRGluZyBUaWFu
-aG9uZyA8ZGluZ3RpYW5ob25nQGh1YXdlaS5jb20+Cj4gRGF0ZTogU2F0LCAxIEFwciAyMDE3IDE1
-OjI1OjUxICswODAwCj4gCj4+IFRpbGwgbm93IG9ubHkgdGhlIEludGVsIGl4Z2JlIGNvdWxkIHN1
-cHBvcnQgZW5hYmxlCj4+IFJlbGF4ZWQgb3JkZXJpbmcgaW4gdGhlIGRyaXZlcnMgZm9yIHNwZWNp
-YWwgYXJjaGl0ZWN0dXJlLAo+PiBidXQgdGhlIEFSQ0hfV0FOVF9SRUxBWF9PUkRFUiBpcyBsb29r
-cyBsaWtlIGEgZ2VuZXJhbCBuYW1lCj4+IGZvciBhbGwgYXJjaCwgc28gcmVuYW1lIHRvIGEgc3Bl
-Y2lmaWMgbmFtZSBmb3IgaW50ZWwKPj4gY2FyZCBsb29rcyBtb3JlIGFwcHJvcHJpYXRlLgo+Pgo+
-PiBTaWduZWQtb2ZmLWJ5OiBEaW5nIFRpYW5ob25nIDxkaW5ndGlhbmhvbmdAaHVhd2VpLmNvbT4K
-PiAKPiBUaGlzIGlzIG5vdCBhIGRyaXZlciBzcGVjaWZpYyBmYWNpbGl0eS4KPiAKPiBBbnkgZHJp
-dmVyIGNhbiB0ZXN0IHRoaXMgc3ltYm9sIGFuZCBhY3QgYWNjb3JkaW5nbHkuCj4gCj4gSnVzdCBi
-ZWNhdXNlIElYR0JFIGlzIHRoZSBmaXJzdCBhbmQgb25seSB1c2VyLCBkb2Vzbid0IG1lYW4KPiB0
-aGUgZmFjaWxpdHkgaXMgZHJpdmVyIHNwZWNpZmljLgo+IAoKVW5kZXJzdGFuZCBjbGVhcmx577yM
-YnV0IHRoZSBBUkNIX1dBTlRfUkVMQVhfT1JERVIgaXMgcmVhbGx5IHRvbyBnZW5lcmljIGFuZCBz
-aW1wbGUsCmNhdXNlIG11Y2ggbWlzbGVhZGluZyB0byBpbmRpY2F0ZSB0aGF0IGl0IGxvb2tzIGxp
-a2UgdGhlIGhhY2sgY29kZSBmb3Igc29tZSBhcmNoaXRlY3R1cmUuCndoYXQgZG8geW91IHRoaW5r
-IG9mIHRoZSBFVEhFUk5FVF9BTExPV19SRUxBWEVEX09SREVSIGluIHRoZSBkcml2ZXJzL25ldC9l
-dGhlcm5ldC8qLAppdCB3aWxsIG9ubHkgYWZmZWN0IGV0aGVybmV0IGFuZCBub3Qgb25seSBmb3Ig
-SXhnYmUuCgpUaGFua3MKRGluZwoKCj4gVGhhbmsgeW91Lgo+IAo+IC4KPiAKCgpfX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpsaW51eC1hcm0ta2VybmVsIG1h
-aWxpbmcgbGlzdApsaW51eC1hcm0ta2VybmVsQGxpc3RzLmluZnJhZGVhZC5vcmcKaHR0cDovL2xp
-c3RzLmluZnJhZGVhZC5vcmcvbWFpbG1hbi9saXN0aW5mby9saW51eC1hcm0ta2VybmVsCg==
+I am searching reasons of crashes for multiple NAT servers, and tried to 
+enable KASAN.
+It seems i got something, and it looks very possible related to all 
+crashes, because on all that servers i have MSS.
+
+
+[25181.855611] 
+==================================================================
+[25181.855985] BUG: KASAN: use-after-free in tcpmss_tg4+0x682/0xe9c 
+[xt_TCPMSS] at addr ffff8802976000ea
+[25181.856344] Read of size 1 by task swapper/1/0
+[25181.856555] page:ffffea000a5d8000 count:0 mapcount:0 mapping:         
+  (null) index:0x0
+[25181.856909] flags: 0x1000000000000000()
+[25181.857123] raw: 1000000000000000 0000000000000000 0000000000000000 
+00000000ffffffff
+[25181.857630] raw: ffffea000b0444a0 ffffea000a0b1f60 0000000000000000 
+0000000000000000
+[25181.857996] page dumped because: kasan: bad access detected
+[25181.858214] CPU: 1 PID: 0 Comm: swapper/1 Not tainted 
+4.10.8-build-0133-debug #3
+[25181.858571] Hardware name: HP ProLiant DL320e Gen8 v2, BIOS P80 
+04/02/2015
+[25181.858786] Call Trace:
+[25181.859000]  <IRQ>
+[25181.859215]  dump_stack+0x99/0xd4
+[25181.859423]  ? _atomic_dec_and_lock+0x15d/0x15d
+[25181.859644]  ? __dump_page+0x447/0x4e3
+[25181.859859]  ? tcpmss_tg4+0x682/0xe9c [xt_TCPMSS]
+[25181.860080]  kasan_report+0x577/0x69d
+[25181.860291]  ? __ip_route_output_key_hash+0x14ce/0x1503
+[25181.860512]  ? tcpmss_tg4+0x682/0xe9c [xt_TCPMSS]
+[25181.860736]  __asan_report_load1_noabort+0x19/0x1b
+[25181.860956]  tcpmss_tg4+0x682/0xe9c [xt_TCPMSS]
+[25181.861180]  ? tcpmss_tg4_check+0x287/0x287 [xt_TCPMSS]
+[25181.861407]  ? udp_mt+0x45a/0x45a [xt_tcpudp]
+[25181.861634]  ? __fib_validate_source+0x46b/0xcd1
+[25181.861860]  ipt_do_table+0x1432/0x1573 [ip_tables]
+[25181.862088]  ? igb_msix_ring+0x2d/0x35
+[25181.862318]  ? ip_tables_net_init+0x15/0x15 [ip_tables]
+[25181.862537]  ? ip_route_input_slow+0xe9f/0x17e3
+[25181.862759]  ? handle_irq_event_percpu+0x141/0x141
+[25181.862985]  ? rt_set_nexthop+0x9a7/0x9a7
+[25181.863203]  ? ip_tables_net_exit+0xe/0x15 [ip_tables]
+[25181.863419]  ? tcf_action_exec+0xce/0x18c
+[25181.863628]  ? iptable_mangle_net_exit+0x92/0x92 [iptable_mangle]
+[25181.863856]  ? iptable_filter_net_exit+0x92/0x92 [iptable_filter]
+[25181.864084]  iptable_filter_hook+0xc0/0x1c8 [iptable_filter]
+[25181.864311]  nf_hook_slow+0x7d/0x121
+[25181.864536]  ip_forward+0x1183/0x11c6
+[25181.864752]  ? ip_forward_finish+0x168/0x168
+[25181.864967]  ? ip_frag_mem+0x43/0x43
+[25181.865194]  ? iptable_nat_net_exit+0x92/0x92 [iptable_nat]
+[25181.865423]  ? nf_nat_ipv4_in+0xf0/0x209 [nf_nat_ipv4]
+[25181.865648]  ip_rcv_finish+0xf4c/0xf5b
+[25181.865861]  ip_rcv+0xb41/0xb72
+[25181.866086]  ? ip_local_deliver+0x282/0x282
+[25181.866308]  ? ip_local_deliver_finish+0x6e6/0x6e6
+[25181.866524]  ? ip_local_deliver+0x282/0x282
+[25181.866752]  __netif_receive_skb_core+0x1b27/0x21bf
+[25181.866971]  ? netdev_rx_handler_register+0x1a6/0x1a6
+[25181.867186]  ? enqueue_hrtimer+0x232/0x240
+[25181.867401]  ? hrtimer_start_range_ns+0xd1c/0xd4b
+[25181.867630]  ? __ppp_xmit_process+0x101f/0x104e [ppp_generic]
+[25181.867852]  ? hrtimer_cancel+0x20/0x20
+[25181.868081]  ? ppp_push+0x1402/0x1402 [ppp_generic]
+[25181.868301]  ? __pskb_pull_tail+0xb0f/0xb25
+[25181.868523]  ? ppp_xmit_process+0x47/0xaf [ppp_generic]
+[25181.868749]  __netif_receive_skb+0x5e/0x191
+[25181.868968]  process_backlog+0x295/0x573
+[25181.869180]  ? __netif_receive_skb+0x191/0x191
+[25181.869401]  napi_poll+0x311/0x745
+[25181.869611]  ? napi_complete_done+0x3b4/0x3b4
+[25181.869836]  ? __qdisc_run+0x4ec/0xb7f
+[25181.870061]  ? sch_direct_xmit+0x60b/0x60b
+[25181.870286]  net_rx_action+0x2e8/0x6dc
+[25181.870512]  ? napi_poll+0x745/0x745
+[25181.870732]  ? rps_trigger_softirq+0x181/0x1e4
+[25181.870956]  ? rps_may_expire_flow+0x29b/0x29b
+[25181.871184]  ? irq_work_run+0x2c/0x2e
+[25181.871411]  __do_softirq+0x22b/0x5df
+[25181.871629]  ? smp_call_function_single_async+0x17d/0x17d
+[25181.871854]  irq_exit+0x8a/0xfe
+[25181.872069]  smp_call_function_single_interrupt+0x8d/0x90
+[25181.872297]  call_function_single_interrupt+0x83/0x90
+[25181.872519] RIP: 0010:mwait_idle+0x15a/0x30d
+[25181.872733] RSP: 0018:ffff8802d1017e78 EFLAGS: 00000246 ORIG_RAX: 
+ffffffffffffff04
+[25181.873091] RAX: 0000000000000000 RBX: ffff8802d1000c80 RCX: 
+0000000000000000
+[25181.873311] RDX: 1ffff1005a200190 RSI: 0000000000000000 RDI: 
+0000000000000000
+[25181.873532] RBP: ffff8802d1017e98 R08: 000000000000003f R09: 
+00007f75f7fff700
+[25181.873751] R10: ffff8802d1017d80 R11: ffff8802c9b00000 R12: 
+0000000000000001
+[25181.873971] R13: 0000000000000000 R14: ffff8802d1000c80 R15: 
+dffffc0000000000
+[25181.874182]  </IRQ>
+[25181.874393]  arch_cpu_idle+0xf/0x11
+[25181.874602]  default_idle_call+0x59/0x5c
+[25181.874818]  do_idle+0x11c/0x217
+[25181.875039]  cpu_startup_entry+0x1f/0x21
+[25181.875258]  start_secondary+0x2cc/0x2d5
+[25181.875481]  start_cpu+0x14/0x14
+[25181.875696] Memory state around the buggy address:
+[25181.875919]  ffff8802975fff80: 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00
+[25181.876275]  ffff880297600000: 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00
+[25181.876628] >ffff880297600080: 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00
+[25181.876984]                                                           
+^
+[25181.877203]  ffff880297600100: 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00
+[25181.877569]  ffff880297600180: 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00
+[25181.877930] 
+==================================================================
+[25181.878283] Disabling lock debugging due to kernel taint
+[25181.878584] 
+==================================================================
