@@ -1,58 +1,171 @@
 From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: [PATCH 04/13] ftgmac100: Remove "enabled" flags
-Date: Sun,  2 Apr 2017 13:35:14 +1000
-Message-ID: <20170402033523.9482-5-benh@kernel.crashing.org>
+Subject: [PATCH 10/13] ftgmac100: Add a reset task and use it for link changes
+Date: Sun,  2 Apr 2017 13:35:20 +1000
+Message-ID: <20170402033523.9482-11-benh@kernel.crashing.org>
 References: <20170402033523.9482-1-benh@kernel.crashing.org>
 Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:48965 "EHLO gate.crashing.org"
+Received: from gate.crashing.org ([63.228.1.57]:48962 "EHLO gate.crashing.org"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751053AbdDBDgA (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 1 Apr 2017 23:36:00 -0400
+        id S1751165AbdDBDgD (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 1 Apr 2017 23:36:03 -0400
 In-Reply-To: <20170402033523.9482-1-benh@kernel.crashing.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It's not used in any meaningful way
+Link speed changes require a full HW reset. This isn't done
+properly at the moment. It will involve delays and thus isn't
+suitable to do from the link poll callback.
+
+So let's create a reset_task that we can queue up when the
+link changes. It will be useful for various cases of error
+handling as well.
 
 Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 ---
- drivers/net/ethernet/faraday/ftgmac100.c | 7 -------
- 1 file changed, 7 deletions(-)
+ drivers/net/ethernet/faraday/ftgmac100.c | 85 +++++++++++++++++++++++++++-----
+ 1 file changed, 72 insertions(+), 13 deletions(-)
 
 diff --git a/drivers/net/ethernet/faraday/ftgmac100.c b/drivers/net/ethernet/faraday/ftgmac100.c
-index 02e0534..cc2271b 100644
+index 96c6bc2..d616c0a 100644
 --- a/drivers/net/ethernet/faraday/ftgmac100.c
 +++ b/drivers/net/ethernet/faraday/ftgmac100.c
-@@ -82,7 +82,6 @@ struct ftgmac100 {
+@@ -74,6 +74,7 @@ struct ftgmac100 {
+ 	struct device *dev;
+ 	struct ncsi_dev *ndev;
+ 	struct napi_struct napi;
++	struct work_struct reset_task;
+ 	struct mii_bus *mii_bus;
  
- 	/* Misc */
- 	int int_mask_all;
--	bool enabled;
- };
+ 	/* Link management */
+@@ -872,7 +873,6 @@ static void ftgmac100_adjust_link(struct net_device *netdev)
+ 	struct ftgmac100 *priv = netdev_priv(netdev);
+ 	struct phy_device *phydev = netdev->phydev;
+ 	int new_speed;
+-	int ier;
  
- static int ftgmac100_alloc_rx_page(struct ftgmac100 *priv,
-@@ -1124,8 +1123,6 @@ static int ftgmac100_open(struct net_device *netdev)
- 			goto err_ncsi;
- 	}
+ 	/* We store "no link" as speed 0 */
+ 	if (!phydev->link)
+@@ -899,20 +899,11 @@ static void ftgmac100_adjust_link(struct net_device *netdev)
+ 	priv->cur_speed = new_speed;
+ 	priv->cur_duplex = phydev->duplex;
  
--	priv->enabled = true;
+-	ier = ioread32(priv->base + FTGMAC100_OFFSET_IER);
 -
- 	return 0;
+-	/* disable all interrupts */
++	/* Disable all interrupts */
+ 	iowrite32(0, priv->base + FTGMAC100_OFFSET_IER);
  
- err_ncsi:
-@@ -1144,11 +1141,7 @@ static int ftgmac100_stop(struct net_device *netdev)
+-	netif_stop_queue(netdev);
+-	ftgmac100_stop_hw(priv);
+-
+-	netif_start_queue(netdev);
+-	ftgmac100_init_hw(priv);
+-	ftgmac100_start_hw(priv);
+-
+-	/* re-enable interrupts */
+-	iowrite32(ier, priv->base + FTGMAC100_OFFSET_IER);
++	/* Reset the adapter asynchronously */
++	schedule_work(&priv->reset_task);
+ }
+ 
+ static int ftgmac100_mii_probe(struct ftgmac100 *priv)
+@@ -1137,6 +1128,59 @@ static int ftgmac100_init_all(struct ftgmac100 *priv, bool ignore_alloc_err)
+ 	return err;
+ }
+ 
++static void ftgmac100_reset_task(struct work_struct *work)
++{
++	struct ftgmac100 *priv = container_of(work, struct ftgmac100,
++					      reset_task);
++	struct net_device *netdev = priv->netdev;
++	int err;
++
++	netdev_dbg(netdev, "Resetting NIC...\n");
++
++	/* Block PHY polling */
++	if (netdev->phydev)
++		mutex_lock(&netdev->phydev->lock);
++
++	rtnl_lock();
++
++	/* Check if the interface is still up */
++	if (!netif_running(netdev))
++		goto bail;
++
++	/* Stop the network stack */
++	netif_trans_update(netdev);
++	napi_disable(&priv->napi);
++	netif_tx_disable(netdev);
++
++	/* Stop and reset the MAC */
++	ftgmac100_stop_hw(priv);
++	err = ftgmac100_reset_hw(priv);
++	if (err) {
++		/* Not much we can do ... it might come back... */
++		netdev_err(netdev, "attempting to continue...\n");
++	}
++
++	/* Free all rx and tx buffers */
++	ftgmac100_free_buffers(priv);
++
++	/* The ring pointers have been reset in HW, reflect this here */
++	priv->rx_pointer = 0;
++	priv->tx_clean_pointer = 0;
++	priv->tx_pointer = 0;
++	priv->tx_pending = 0;
++
++	/* Setup everything again and restart chip */
++	ftgmac100_init_all(priv, true);
++
++	netdev_dbg(netdev, "Reset done !\n");
++ bail:
++	rtnl_unlock();
++
++	/* Unblock PHY polling */
++	if (netdev->phydev)
++		mutex_unlock(&netdev->phydev->lock);
++}
++
+ static int ftgmac100_open(struct net_device *netdev)
+ {
+ 	struct ftgmac100 *priv = netdev_priv(netdev);
+@@ -1222,6 +1266,14 @@ static int ftgmac100_stop(struct net_device *netdev)
  {
  	struct ftgmac100 *priv = netdev_priv(netdev);
  
--	if (!priv->enabled)
--		return 0;
--
++	/* Note about the reset task: We are called with the rtnl lock
++	 * held, so we are synchronized against the core of the reset
++	 * task. We must not try to synchronously cancel it otherwise
++	 * we can deadlock. But since it will test for netif_running()
++	 * which has already been cleared by the net core, we don't
++	 * anything special to do.
++	 */
++
  	/* disable all interrupts */
--	priv->enabled = false;
  	iowrite32(0, priv->base + FTGMAC100_OFFSET_IER);
  
- 	netif_stop_queue(netdev);
+@@ -1397,6 +1449,7 @@ static int ftgmac100_probe(struct platform_device *pdev)
+ 	priv = netdev_priv(netdev);
+ 	priv->netdev = netdev;
+ 	priv->dev = &pdev->dev;
++	INIT_WORK(&priv->reset_task, ftgmac100_reset_task);
+ 
+ 	spin_lock_init(&priv->tx_lock);
+ 
+@@ -1500,6 +1553,12 @@ static int ftgmac100_remove(struct platform_device *pdev)
+ 	priv = netdev_priv(netdev);
+ 
+ 	unregister_netdev(netdev);
++
++	/* There's a small chance the reset task will have been re-queued,
++	 * during stop, make sure it's gone before we free the structure.
++	 */
++	cancel_work_sync(&priv->reset_task);
++
+ 	ftgmac100_destroy_mdio(netdev);
+ 
+ 	iounmap(priv->base);
 -- 
 2.9.3
