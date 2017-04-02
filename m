@@ -1,153 +1,35 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: [PATCH net-next 1/3] virtio-net: napi helper functions
-Date: Sun,  2 Apr 2017 16:10:10 -0400
-Message-ID: <20170402201012.76473-2-willemdebruijn.kernel@gmail.com>
-References: <20170402201012.76473-1-willemdebruijn.kernel@gmail.com>
-Cc: mst@redhat.com, jasowang@redhat.com,
-        virtualization@lists.linux-foundation.org, davem@davemloft.net,
-        Willem de Bruijn <willemb@google.com>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [PATCH 10/13] ftgmac100: Add a reset task and use it for link
+ changes
+Date: Mon, 03 Apr 2017 06:56:35 +1000
+Message-ID: <1491166595.26047.11.camel@kernel.crashing.org>
+References: <20170402033523.9482-1-benh@kernel.crashing.org>
+         <20170402033523.9482-11-benh@kernel.crashing.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f194.google.com ([209.85.216.194]:35167 "EHLO
-        mail-qt0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751645AbdDBUKR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 2 Apr 2017 16:10:17 -0400
-Received: by mail-qt0-f194.google.com with SMTP id r5so16601332qtb.2
-        for <netdev@vger.kernel.org>; Sun, 02 Apr 2017 13:10:17 -0700 (PDT)
-In-Reply-To: <20170402201012.76473-1-willemdebruijn.kernel@gmail.com>
+Received: from gate.crashing.org ([63.228.1.57]:56120 "EHLO gate.crashing.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751738AbdDBU4n (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 2 Apr 2017 16:56:43 -0400
+Received: from localhost.localdomain (localhost.localdomain [127.0.0.1])
+        by gate.crashing.org (8.14.1/8.13.8) with ESMTP id v32KudmT026396
+        for <netdev@vger.kernel.org>; Sun, 2 Apr 2017 15:56:41 -0500
+In-Reply-To: <20170402033523.9482-11-benh@kernel.crashing.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Willem de Bruijn <willemb@google.com>
+On Sun, 2017-04-02 at 13:35 +1000, Benjamin Herrenschmidt wrote:
+> +       /* Block PHY polling */
+> +       if (netdev->phydev)
+> +               mutex_lock(&netdev->phydev->lock);
+> +
+> +       rtnl_lock();
 
-Prepare virtio-net for tx napi by converting existing napi code to
-use helper functions. This also deduplicates some logic.
+Self-given brown paper bag, those two need to be taken the other way
+around. I'll send an updated patch today.
 
-Signed-off-by: Willem de Bruijn <willemb@google.com>
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
- drivers/net/virtio_net.c | 65 ++++++++++++++++++++++++++----------------------
- 1 file changed, 35 insertions(+), 30 deletions(-)
-
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index b0d241d110ec..6aac0ad0d9b2 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -239,6 +239,26 @@ static struct page *get_a_page(struct receive_queue *rq, gfp_t gfp_mask)
- 	return p;
- }
- 
-+static void virtqueue_napi_schedule(struct napi_struct *napi,
-+				    struct virtqueue *vq)
-+{
-+	if (napi_schedule_prep(napi)) {
-+		virtqueue_disable_cb(vq);
-+		__napi_schedule(napi);
-+	}
-+}
-+
-+static void virtqueue_napi_complete(struct napi_struct *napi,
-+				    struct virtqueue *vq, int processed)
-+{
-+	int opaque;
-+
-+	opaque = virtqueue_enable_cb_prepare(vq);
-+	if (napi_complete_done(napi, processed) &&
-+	    unlikely(virtqueue_poll(vq, opaque)))
-+		virtqueue_napi_schedule(napi, vq);
-+}
-+
- static void skb_xmit_done(struct virtqueue *vq)
- {
- 	struct virtnet_info *vi = vq->vdev->priv;
-@@ -936,27 +956,20 @@ static void skb_recv_done(struct virtqueue *rvq)
- 	struct virtnet_info *vi = rvq->vdev->priv;
- 	struct receive_queue *rq = &vi->rq[vq2rxq(rvq)];
- 
--	/* Schedule NAPI, Suppress further interrupts if successful. */
--	if (napi_schedule_prep(&rq->napi)) {
--		virtqueue_disable_cb(rvq);
--		__napi_schedule(&rq->napi);
--	}
-+	virtqueue_napi_schedule(&rq->napi, rvq);
- }
- 
--static void virtnet_napi_enable(struct receive_queue *rq)
-+static void virtnet_napi_enable(struct virtqueue *vq, struct napi_struct *napi)
- {
--	napi_enable(&rq->napi);
-+	napi_enable(napi);
- 
- 	/* If all buffers were filled by other side before we napi_enabled, we
--	 * won't get another interrupt, so process any outstanding packets
--	 * now.  virtnet_poll wants re-enable the queue, so we disable here.
--	 * We synchronize against interrupts via NAPI_STATE_SCHED */
--	if (napi_schedule_prep(&rq->napi)) {
--		virtqueue_disable_cb(rq->vq);
--		local_bh_disable();
--		__napi_schedule(&rq->napi);
--		local_bh_enable();
--	}
-+	 * won't get another interrupt, so process any outstanding packets now.
-+	 * Call local_bh_enable after to trigger softIRQ processing.
-+	 */
-+	local_bh_disable();
-+	virtqueue_napi_schedule(napi, vq);
-+	local_bh_enable();
- }
- 
- static void refill_work(struct work_struct *work)
-@@ -971,7 +984,7 @@ static void refill_work(struct work_struct *work)
- 
- 		napi_disable(&rq->napi);
- 		still_empty = !try_fill_recv(vi, rq, GFP_KERNEL);
--		virtnet_napi_enable(rq);
-+		virtnet_napi_enable(rq->vq, &rq->napi);
- 
- 		/* In theory, this can happen: if we don't get any buffers in
- 		 * we will *never* try to fill again.
-@@ -1011,21 +1024,13 @@ static int virtnet_poll(struct napi_struct *napi, int budget)
- {
- 	struct receive_queue *rq =
- 		container_of(napi, struct receive_queue, napi);
--	unsigned int r, received;
-+	unsigned int received;
- 
- 	received = virtnet_receive(rq, budget);
- 
- 	/* Out of packets? */
--	if (received < budget) {
--		r = virtqueue_enable_cb_prepare(rq->vq);
--		if (napi_complete_done(napi, received)) {
--			if (unlikely(virtqueue_poll(rq->vq, r)) &&
--			    napi_schedule_prep(napi)) {
--				virtqueue_disable_cb(rq->vq);
--				__napi_schedule(napi);
--			}
--		}
--	}
-+	if (received < budget)
-+		virtqueue_napi_complete(napi, rq->vq, received);
- 
- 	return received;
- }
-@@ -1040,7 +1045,7 @@ static int virtnet_open(struct net_device *dev)
- 			/* Make sure we have some buffers: if oom use wq. */
- 			if (!try_fill_recv(vi, &vi->rq[i], GFP_KERNEL))
- 				schedule_delayed_work(&vi->refill, 0);
--		virtnet_napi_enable(&vi->rq[i]);
-+		virtnet_napi_enable(vi->rq[i].vq, &vi->rq[i].napi);
- 	}
- 
- 	return 0;
-@@ -1747,7 +1752,7 @@ static int virtnet_restore_up(struct virtio_device *vdev)
- 				schedule_delayed_work(&vi->refill, 0);
- 
- 		for (i = 0; i < vi->max_queue_pairs; i++)
--			virtnet_napi_enable(&vi->rq[i]);
-+			virtnet_napi_enable(vi->rq[i].vq, &vi->rq[i].napi);
- 	}
- 
- 	netif_device_attach(vi->dev);
--- 
-2.12.2.564.g063fe858b8-goog
+Cheers,
+Ben.
