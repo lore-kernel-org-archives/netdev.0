@@ -1,37 +1,38 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH 05/13] ftgmac100: Cleanup speed/duplex tracking and fix
- duplex config
-Date: Sun, 2 Apr 2017 20:28:48 +0200
-Message-ID: <20170402182848.GA5189@lunn.ch>
-References: <20170402033523.9482-1-benh@kernel.crashing.org>
- <20170402033523.9482-6-benh@kernel.crashing.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: [patch net-next] net/faraday: Add missing include of of.h
+Date: Sun,  2 Apr 2017 20:20:47 +0200
+Message-ID: <1491157247-5072-1-git-send-email-andrew@lunn.ch>
+Cc: netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:43164 "EHLO vps0.lunn.ch"
+Received: from vps0.lunn.ch ([178.209.37.122]:43162 "EHLO vps0.lunn.ch"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751557AbdDBS2u (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 2 Apr 2017 14:28:50 -0400
-Content-Disposition: inline
-In-Reply-To: <20170402033523.9482-6-benh@kernel.crashing.org>
+        id S1751353AbdDBSVH (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 2 Apr 2017 14:21:07 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> +	if (new_speed) {
-> +		netdev_info(netdev, "Link up at %d Mbit/s %s duplex\n",
-> +			    new_speed,
-> +			    phydev->duplex == DUPLEX_FULL ? "full" : "half");
-> +	} else if (priv->cur_speed) {
-> +		/* No link, just return. Leave the HW alone so it can
-> +		 * continue draining the tx ring.
-> +		 */
-> +		netdev_info(netdev, "Link down\n");
->  		return;
+Breaking the include loop netdevice.h, dsa.h, devlink.h broke this
+driver, it depends on includes brought in by these headers. Adding
+linux/of.h fixes it.
 
-Hi Ben
+Fixes: ed0e39e97d34 ("net: break include loop netdevice.h, dsa.h, devlink.h")
+Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+---
+ drivers/net/ethernet/faraday/ftgmac100.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-Please consider using phy_print_status().
-
-       Andrew
+diff --git a/drivers/net/ethernet/faraday/ftgmac100.c b/drivers/net/ethernet/faraday/ftgmac100.c
+index 928b0df2b8e0..333265060de1 100644
+--- a/drivers/net/ethernet/faraday/ftgmac100.c
++++ b/drivers/net/ethernet/faraday/ftgmac100.c
+@@ -28,6 +28,7 @@
+ #include <linux/io.h>
+ #include <linux/module.h>
+ #include <linux/netdevice.h>
++#include <linux/of.h>
+ #include <linux/phy.h>
+ #include <linux/platform_device.h>
+ #include <net/ip.h>
+-- 
+2.11.0
