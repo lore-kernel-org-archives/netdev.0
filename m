@@ -1,262 +1,50 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: [PATCH 13/13] ftgmac100: Rework NAPI & interrupts handling
-Date: Sun,  2 Apr 2017 13:35:23 +1000
-Message-ID: <20170402033523.9482-14-benh@kernel.crashing.org>
-References: <20170402033523.9482-1-benh@kernel.crashing.org>
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:55383 "EHLO gate.crashing.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750796AbdDBEnx (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 2 Apr 2017 00:43:53 -0400
-In-Reply-To: <20170402033523.9482-1-benh@kernel.crashing.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH net-next 1/4] ixgbe: sparc: rename the
+ ARCH_WANT_RELAX_ORDER to IXGBE_ALLOW_RELAXED_ORDER
+Date: Sun, 2 Apr 2017 14:49:47 +0800
+Message-ID: <819bc6c1-581b-3ab9-d189-1befaaf43548@huawei.com>
+References: <1491031554-19516-1-git-send-email-dingtianhong@huawei.com>
+ <1491031554-19516-2-git-send-email-dingtianhong@huawei.com>
+ <20170401.112603.1991545644693496714.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: mark.rutland@arm.com, catalin.marinas@arm.com, will.deacon@arm.com,
+ alexander.duyck@gmail.com, intel-wired-lan@lists.osuosl.org,
+ jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org, robin.murphy@arm.com,
+ linux-arm-kernel@lists.infradead.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <20170401.112603.1991545644693496714.davem@davemloft.net>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-First, don't look at the interrupt status in the poll loop
-to decide what to poll. It's wrong. If we have run out of
-budget, we may still have RX packets to unqueue but no more
-RX interrupt pending.
-
-So instead move the code looking at the interrupt status
-into the interrupt handler where it belongs. That avoids a slow
-MMIO read in the NAPI fast path. We keep the abnormal interrupts
-enabled while NAPI is scheduled.
-
-While at it, actually do something useful in the "error" cases:
-
-On AHB bus error, trigger the new reset task, that's about all
-we can do. On RX packet fifo or descriptor overflows, we need
-to restart the MAC after having freed things up. So set a flag
-that NAPI will see and use to perform that restart after
-harvesting the RX ring.
-
-Finally, we shouldn't complete NAPI if there are still outgoing
-packets that will need harvesting. Waiting for more interrupts
-is less efficient than letting NAPI run a while longer while
-the queue drains.
-
-Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
----
- drivers/net/ethernet/faraday/ftgmac100.c | 137 +++++++++++++++++--------------
- drivers/net/ethernet/faraday/ftgmac100.h |  14 ++++
- 2 files changed, 90 insertions(+), 61 deletions(-)
-
-diff --git a/drivers/net/ethernet/faraday/ftgmac100.c b/drivers/net/ethernet/faraday/ftgmac100.c
-index dc85d78..cbcbc92 100644
---- a/drivers/net/ethernet/faraday/ftgmac100.c
-+++ b/drivers/net/ethernet/faraday/ftgmac100.c
-@@ -83,7 +83,7 @@ struct ftgmac100 {
- 	bool use_ncsi;
- 
- 	/* Misc */
--	int int_mask_all;
-+	bool need_mac_restart;
- };
- 
- static int ftgmac100_alloc_rx_page(struct ftgmac100 *priv,
-@@ -1048,10 +1048,49 @@ static irqreturn_t ftgmac100_interrupt(int irq, void *dev_id)
- {
- 	struct net_device *netdev = dev_id;
- 	struct ftgmac100 *priv = netdev_priv(netdev);
-+	unsigned int status, new_mask = FTGMAC100_INT_BAD;
- 
--	/* Disable interrupts for polling */
--	iowrite32(0, priv->base + FTGMAC100_OFFSET_IER);
--	napi_schedule(&priv->napi);
-+	/* Fetch and clear interrupt bits, process abnormal ones */
-+	status = ioread32(priv->base + FTGMAC100_OFFSET_ISR);
-+	iowrite32(status, priv->base + FTGMAC100_OFFSET_ISR);
-+	if (unlikely(status & FTGMAC100_INT_BAD)) {
-+
-+		/* RX buffer unavailable */
-+		if (status & FTGMAC100_INT_NO_RXBUF)
-+			netdev->stats.rx_over_errors++;
-+
-+		/* received packet lost due to RX FIFO full */
-+		if (status & FTGMAC100_INT_RPKT_LOST)
-+			netdev->stats.rx_fifo_errors++;
-+
-+		/* sent packet lost due to excessive TX collision */
-+		if (status & FTGMAC100_INT_XPKT_LOST)
-+			netdev->stats.tx_fifo_errors++;
-+
-+		/* AHB error -> Reset the chip */
-+		if (status & FTGMAC100_INT_AHB_ERR) {
-+			if (net_ratelimit())
-+				netdev_warn(netdev,
-+					   "AHB bus error ! Resetting chip.\n");
-+			iowrite32(0, priv->base + FTGMAC100_OFFSET_IER);
-+			schedule_work(&priv->reset_task);
-+			return IRQ_HANDLED;
-+		}
-+
-+		/* We may need to restart the MAC after such errors, delay
-+		 * this until after we have freed some Rx buffers though
-+		 */
-+		priv->need_mac_restart = true;
-+
-+		/* Disable those errors until we restart */
-+		new_mask &= ~status;
-+	}
-+
-+	/* Only enable "bad" interrupts while NAPI is on */
-+	iowrite32(new_mask, priv->base + FTGMAC100_OFFSET_IER);
-+
-+	/* Schedule NAPI bh */
-+	napi_schedule_irqoff(&priv->napi);
- 
- 	return IRQ_HANDLED;
- }
-@@ -1059,68 +1098,51 @@ static irqreturn_t ftgmac100_interrupt(int irq, void *dev_id)
- static int ftgmac100_poll(struct napi_struct *napi, int budget)
- {
- 	struct ftgmac100 *priv = container_of(napi, struct ftgmac100, napi);
--	struct net_device *netdev = priv->netdev;
--	unsigned int status;
--	bool completed = true;
-+	bool more, completed = true;
- 	int rx = 0;
- 
--	status = ioread32(priv->base + FTGMAC100_OFFSET_ISR);
--	iowrite32(status, priv->base + FTGMAC100_OFFSET_ISR);
--
--	if (status & (FTGMAC100_INT_RPKT_BUF | FTGMAC100_INT_NO_RXBUF)) {
--		/*
--		 * FTGMAC100_INT_RPKT_BUF:
--		 *	RX DMA has received packets into RX buffer successfully
--		 *
--		 * FTGMAC100_INT_NO_RXBUF:
--		 *	RX buffer unavailable
--		 */
--		bool retry;
-+	ftgmac100_tx_complete(priv);
- 
--		do {
--			retry = ftgmac100_rx_packet(priv, &rx);
--		} while (retry && rx < budget);
-+	do {
-+		more = ftgmac100_rx_packet(priv, &rx);
-+	} while (more && rx < budget);
- 
--		if (retry && rx == budget)
--			completed = false;
--	}
-+	if (more && rx == budget)
-+		completed = false;
- 
--	if (status & (FTGMAC100_INT_XPKT_ETH | FTGMAC100_INT_XPKT_LOST)) {
--		/*
--		 * FTGMAC100_INT_XPKT_ETH:
--		 *	packet transmitted to ethernet successfully
--		 *
--		 * FTGMAC100_INT_XPKT_LOST:
--		 *	packet transmitted to ethernet lost due to late
--		 *	collision or excessive collision
--		 */
--		ftgmac100_tx_complete(priv);
--	}
--
--	if (status & priv->int_mask_all & (FTGMAC100_INT_NO_RXBUF |
--			FTGMAC100_INT_RPKT_LOST | FTGMAC100_INT_AHB_ERR)) {
--		if (net_ratelimit())
--			netdev_info(netdev, "[ISR] = 0x%x: %s%s%s\n", status,
--				    status & FTGMAC100_INT_NO_RXBUF ? "NO_RXBUF " : "",
--				    status & FTGMAC100_INT_RPKT_LOST ? "RPKT_LOST " : "",
--				    status & FTGMAC100_INT_AHB_ERR ? "AHB_ERR " : "");
- 
--		if (status & FTGMAC100_INT_NO_RXBUF) {
--			/* RX buffer unavailable */
--			netdev->stats.rx_over_errors++;
--		}
-+	/* The interrupt is telling us to kick the MAC back to life
-+	 * after an RX overflow
-+	 */
-+	if (unlikely(priv->need_mac_restart)) {
-+		ftgmac100_start_hw(priv);
- 
--		if (status & FTGMAC100_INT_RPKT_LOST) {
--			/* received packet lost due to RX FIFO full */
--			netdev->stats.rx_fifo_errors++;
--		}
-+		/* Re-enable "bad" interrupts */
-+		iowrite32(FTGMAC100_INT_BAD,
-+			  priv->base + FTGMAC100_OFFSET_IER);
- 	}
- 
-+	/* Keep NAPI going if we have still packets to reclaim */
-+	if (priv->tx_pending)
-+		return budget;
-+
- 	if (completed) {
-+		/* We are about to re-enable all interrupts. However
-+		 * the HW has been latching RX/TX packet interrupts while
-+		 * they were masked. So we clear them first, then we need
-+		 * to re-check if there's something to process
-+		 */
-+		iowrite32(FTGMAC100_INT_RXTX,
-+			  priv->base + FTGMAC100_OFFSET_ISR);
-+		if (ftgmac100_rxdes_packet_ready
-+		    (ftgmac100_current_rxdes(priv)) || priv->tx_pending)
-+			return budget;
-+
-+		/* deschedule NAPI */
- 		napi_complete(napi);
- 
- 		/* enable all interrupts */
--		iowrite32(priv->int_mask_all,
-+		iowrite32(FTGMAC100_INT_ALL,
- 			  priv->base + FTGMAC100_OFFSET_IER);
- 	}
- 
-@@ -1148,7 +1170,7 @@ static int ftgmac100_init_all(struct ftgmac100 *priv, bool ignore_alloc_err)
- 	netif_start_queue(priv->netdev);
- 
- 	/* Enable all interrupts */
--	iowrite32(priv->int_mask_all, priv->base + FTGMAC100_OFFSET_IER);
-+	iowrite32(FTGMAC100_INT_ALL, priv->base + FTGMAC100_OFFSET_IER);
- 
- 	return err;
- }
-@@ -1489,13 +1511,6 @@ static int ftgmac100_probe(struct platform_device *pdev)
- 	/* MAC address from chip or random one */
- 	ftgmac100_setup_mac(priv);
- 
--	priv->int_mask_all = (FTGMAC100_INT_RPKT_LOST |
--			      FTGMAC100_INT_XPKT_ETH |
--			      FTGMAC100_INT_XPKT_LOST |
--			      FTGMAC100_INT_AHB_ERR |
--			      FTGMAC100_INT_RPKT_BUF |
--			      FTGMAC100_INT_NO_RXBUF);
--
- 	if (of_machine_is_compatible("aspeed,ast2400") ||
- 	    of_machine_is_compatible("aspeed,ast2500")) {
- 		priv->rxdes0_edorr_mask = BIT(30);
-diff --git a/drivers/net/ethernet/faraday/ftgmac100.h b/drivers/net/ethernet/faraday/ftgmac100.h
-index a7ce0ac..c4d5cc1 100644
---- a/drivers/net/ethernet/faraday/ftgmac100.h
-+++ b/drivers/net/ethernet/faraday/ftgmac100.h
-@@ -86,6 +86,20 @@
- #define FTGMAC100_INT_PHYSTS_CHG	(1 << 9)
- #define FTGMAC100_INT_NO_HPTXBUF	(1 << 10)
- 
-+/* Interrupts we care about in NAPI mode */
-+#define FTGMAC100_INT_BAD  (FTGMAC100_INT_RPKT_LOST | \
-+			    FTGMAC100_INT_XPKT_LOST | \
-+			    FTGMAC100_INT_AHB_ERR   | \
-+			    FTGMAC100_INT_NO_RXBUF)
-+
-+/* Normal RX/TX interrupts, enabled when NAPI off */
-+#define FTGMAC100_INT_RXTX (FTGMAC100_INT_XPKT_ETH  | \
-+			    FTGMAC100_INT_RPKT_BUF)
-+
-+/* All the interrupts we care about */
-+#define FTGMAC100_INT_ALL (FTGMAC100_INT_RPKT_BUF  |  \
-+			   FTGMAC100_INT_BAD)
-+
- /*
-  * Interrupt timer control register
-  */
--- 
-2.9.3
+CgpPbiAyMDE3LzQvMiAyOjI2LCBEYXZpZCBNaWxsZXIgd3JvdGU6Cj4gRnJvbTogRGluZyBUaWFu
+aG9uZyA8ZGluZ3RpYW5ob25nQGh1YXdlaS5jb20+Cj4gRGF0ZTogU2F0LCAxIEFwciAyMDE3IDE1
+OjI1OjUxICswODAwCj4gCj4+IFRpbGwgbm93IG9ubHkgdGhlIEludGVsIGl4Z2JlIGNvdWxkIHN1
+cHBvcnQgZW5hYmxlCj4+IFJlbGF4ZWQgb3JkZXJpbmcgaW4gdGhlIGRyaXZlcnMgZm9yIHNwZWNp
+YWwgYXJjaGl0ZWN0dXJlLAo+PiBidXQgdGhlIEFSQ0hfV0FOVF9SRUxBWF9PUkRFUiBpcyBsb29r
+cyBsaWtlIGEgZ2VuZXJhbCBuYW1lCj4+IGZvciBhbGwgYXJjaCwgc28gcmVuYW1lIHRvIGEgc3Bl
+Y2lmaWMgbmFtZSBmb3IgaW50ZWwKPj4gY2FyZCBsb29rcyBtb3JlIGFwcHJvcHJpYXRlLgo+Pgo+
+PiBTaWduZWQtb2ZmLWJ5OiBEaW5nIFRpYW5ob25nIDxkaW5ndGlhbmhvbmdAaHVhd2VpLmNvbT4K
+PiAKPiBUaGlzIGlzIG5vdCBhIGRyaXZlciBzcGVjaWZpYyBmYWNpbGl0eS4KPiAKPiBBbnkgZHJp
+dmVyIGNhbiB0ZXN0IHRoaXMgc3ltYm9sIGFuZCBhY3QgYWNjb3JkaW5nbHkuCj4gCj4gSnVzdCBi
+ZWNhdXNlIElYR0JFIGlzIHRoZSBmaXJzdCBhbmQgb25seSB1c2VyLCBkb2Vzbid0IG1lYW4KPiB0
+aGUgZmFjaWxpdHkgaXMgZHJpdmVyIHNwZWNpZmljLgo+IAoKVW5kZXJzdGFuZCBjbGVhcmx577yM
+YnV0IHRoZSBBUkNIX1dBTlRfUkVMQVhfT1JERVIgaXMgcmVhbGx5IHRvbyBnZW5lcmljIGFuZCBz
+aW1wbGUsCmNhdXNlIG11Y2ggbWlzbGVhZGluZyB0byBpbmRpY2F0ZSB0aGF0IGl0IGxvb2tzIGxp
+a2UgdGhlIGhhY2sgY29kZSBmb3Igc29tZSBhcmNoaXRlY3R1cmUuCndoYXQgZG8geW91IHRoaW5r
+IG9mIHRoZSBFVEhFUk5FVF9BTExPV19SRUxBWEVEX09SREVSIGluIHRoZSBkcml2ZXJzL25ldC9l
+dGhlcm5ldC8qLAppdCB3aWxsIG9ubHkgYWZmZWN0IGV0aGVybmV0IGFuZCBub3Qgb25seSBmb3Ig
+SXhnYmUuCgpUaGFua3MKRGluZwoKCj4gVGhhbmsgeW91Lgo+IAo+IC4KPiAKCgpfX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpsaW51eC1hcm0ta2VybmVsIG1h
+aWxpbmcgbGlzdApsaW51eC1hcm0ta2VybmVsQGxpc3RzLmluZnJhZGVhZC5vcmcKaHR0cDovL2xp
+c3RzLmluZnJhZGVhZC5vcmcvbWFpbG1hbi9saXN0aW5mby9saW51eC1hcm0ta2VybmVsCg==
