@@ -1,36 +1,31 @@
 From: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
-Subject: finally found nasty use-after-free bug? 4.10.8
-Date: Sun, 02 Apr 2017 10:26:10 +0300
-Message-ID: <836f0b78d11b9260ac16804344c29004@nuclearcat.com>
+Subject: KASAN, xt_TCPMSS  finally found nasty use-after-free bug? 4.10.8
+Date: Sun, 02 Apr 2017 10:43:40 +0300
+Message-ID: <6c6e2f7505f969d8c2998efff24063ba@nuclearcat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII;
  format=flowed
 Content-Transfer-Encoding: 7bit
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+        Patrick McHardy <kaber@trash.net>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+        linux-kernel@vger.kernel.org
 To: Linux Kernel Network Developers <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nuclearcat.com ([144.76.183.226]:42744 "EHLO nuclearcat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750853AbdDBH0O (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 2 Apr 2017 03:26:14 -0400
-Received: from localhost (localhost [127.0.0.1])
-        by nuclearcat.com (Postfix) with ESMTP id 6642F67C07DE
-        for <netdev@vger.kernel.org>; Sun,  2 Apr 2017 07:26:12 +0000 (UTC)
-Received: from nuclearcat.com ([127.0.0.1])
-        by localhost (nuclearcat.com [127.0.0.1]) (amavisd-new, port 10024)
-        with ESMTP id BrsstrUYQfcP for <netdev@vger.kernel.org>;
-        Sun,  2 Apr 2017 07:26:10 +0000 (UTC)
-Received: from germany.nuclearcat.com (localhost [127.0.0.1])
-        (Authenticated sender: nuclearcat@nuclearcat.com)
-        by nuclearcat.com (Postfix) with ESMTPA id A141767C02A7
-        for <netdev@vger.kernel.org>; Sun,  2 Apr 2017 07:26:10 +0000 (UTC)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I am searching reasons of crashes for multiple NAT servers, and tried to 
-enable KASAN.
-It seems i got something, and it looks very possible related to all 
-crashes, because on all that servers i have MSS.
+Repost, due being sleepy missed few important points.
 
+I am searching reasons of crashes for multiple conntrack enabled 
+servers, usually they point to conntrack, but i suspect use after free 
+might be somewhere else,
+so i tried to enable KASAN.
+And seems i got something after few hours, and it looks related to all 
+crashes, because on all that servers who rebooted i had MSS adjustment 
+(--clamp-mss-to-pmtu or --set-mss).
+Please let me know if any additional information needed.
 
 [25181.855611] 
 ==================================================================
