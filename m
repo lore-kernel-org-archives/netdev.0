@@ -1,58 +1,26 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH v2] net: Remove unnecessary cast on void pointer
-Date: Sat, 1 Apr 2017 16:48:21 -0700
-Message-ID: <20170401164821.036f1b41@plumbers-lap.home.lan>
-References: <20170328190516.GA19531@singhal-Inspiron-5558>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3 0/3] phylib EEE updates
+Date: Sat, 01 Apr 2017 20:04:29 -0700 (PDT)
+Message-ID: <20170401.200429.220412540674608952.davem@davemloft.net>
+References: <20170331093645.GA15329@n2100.armlinux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: pablo@netfilter.org, kadlec@blackhole.kfki.hu, davem@davemloft.net,
-        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        outreachy-kernel@googlegroups.com, gregkh@linuxfoundation.org,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        bridge@lists.linux-foundation.org
-To: simran singhal <singhalsimran0@gmail.com>
+Cc: andrew@lunn.ch, f.fainelli@gmail.com, netdev@vger.kernel.org
+To: linux@armlinux.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f47.google.com ([74.125.83.47]:36673 "EHLO
-        mail-pg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751942AbdDAXs0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 1 Apr 2017 19:48:26 -0400
-Received: by mail-pg0-f47.google.com with SMTP id g2so92620373pge.3
-        for <netdev@vger.kernel.org>; Sat, 01 Apr 2017 16:48:26 -0700 (PDT)
-In-Reply-To: <20170328190516.GA19531@singhal-Inspiron-5558>
+Received: from shards.monkeyblade.net ([184.105.139.130]:60176 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750783AbdDBDJ6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 1 Apr 2017 23:09:58 -0400
+In-Reply-To: <20170331093645.GA15329@n2100.armlinux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 29 Mar 2017 00:35:16 +0530
-simran singhal <singhalsimran0@gmail.com> wrote:
+From: Russell King - ARM Linux <linux@armlinux.org.uk>
+Date: Fri, 31 Mar 2017 10:36:46 +0100
 
-> The following Coccinelle script was used to detect this:
-> @r@
-> expression x;
-> void* e;
-> type T;
-> identifier f;
-> @@
-> (
->   *((T *)e)
-> |
->   ((T *)x)[...]
-> |
->   ((T*)x)->f
-> |
-> 
-> - (T*)
->   e
-> )
-> 
-> Unnecessary parantheses are also remove.
-> 
-> Signed-off-by: simran singhal <singhalsimran0@gmail.com>
+> This series of patches depends on the previous set of changes, and
+> is therefore net-next material.
 
-Looks good
-
-Reviewed-by: Stephen Hemminger <stephen@networkplumber.org>
+Series applied, thank you.
