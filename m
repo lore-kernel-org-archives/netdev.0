@@ -1,42 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/5] l2tp: fix usage of l2tp_session_find()
-Date: Sat, 01 Apr 2017 20:17:07 -0700 (PDT)
-Message-ID: <20170401.201707.1914746615264022070.davem@davemloft.net>
-References: <cover.1490955471.git.g.nault@alphalink.fr>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jchapman@katalix.com, bhong@brocade.com
-To: g.nault@alphalink.fr
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: [PATCH 00/13] ftgmac100: Rework batch 1 - Link & Interrupts
+Date: Sun,  2 Apr 2017 13:35:10 +1000
+Message-ID: <20170402033523.9482-1-benh@kernel.crashing.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:60240 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750807AbdDBDRJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 1 Apr 2017 23:17:09 -0400
-In-Reply-To: <cover.1490955471.git.g.nault@alphalink.fr>
+Received: from gate.crashing.org ([63.228.1.57]:48933 "EHLO gate.crashing.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750753AbdDBDfa (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 1 Apr 2017 23:35:30 -0400
+Received: from pasglop.au.ibm.com (localhost.localdomain [127.0.0.1])
+        by gate.crashing.org (8.14.1/8.13.8) with ESMTP id v323ZQUQ012591
+        for <netdev@vger.kernel.org>; Sat, 1 Apr 2017 22:35:28 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Guillaume Nault <g.nault@alphalink.fr>
-Date: Fri, 31 Mar 2017 13:02:23 +0200
+This is the first batch of updates to the ftgmac100 driver.
 
-> l2tp_session_find() doesn't take a reference on the session returned to
-> its caller. Virtually all l2tp_session_find() users are racy, either
-> because the session can disappear from under them or because they take
-> a reference too late. This leads to bugs like 'use after free' or
-> failure to notice duplicate session creations.
-> 
-> In some cases, taking a reference on the session is not enough. The
-> special callbacks .ref() and .deref() also have to be called in cases
-> where the PPP pseudo-wire uses the socket associated with the session.
-> Therefore, when looking up a session, we also have to pass a flag
-> indicating if the .ref() callback has to be called.
-> 
-> In the future, we probably could drop the .ref() and .deref() callbacks
-> entirely by protecting the .sock field of struct pppol2tp_session with
-> RCU, thus allowing it to be freed and set to NULL even if the L2TP
-> session is still alive.
+Essentially:
 
-Series applied with the Fixes: tag of patch #5 updated.
+ - A few misc cleanups 
+ - Fixing link speed & duplex handling (including dealing with
+   an Aspeed requirement to double reset the controller when
+   the speed changes) 
+ - And addition of a reset task workqueue which will be used
+   for delaying the re-initialization of the controller
+ - Fixing a number of issues with how interrupts and NAPI 
+   are dealt with.
 
-Thanks.
+Subsequent batches will rework and improve the rx path, the
+tx path, and add a bunch of features and fixes.
