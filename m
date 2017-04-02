@@ -1,29 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Resend all vs. individual patch updates
-Date: Sun, 02 Apr 2017 14:58:49 -0700 (PDT)
-Message-ID: <20170402.145849.1407671421945961076.davem@davemloft.net>
-References: <1491168068.26047.17.camel@kernel.crashing.org>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: [PATCH] soreuseport: use "unsigned int" in __reuseport_alloc()
+Date: Mon, 3 Apr 2017 01:18:23 +0300
+Message-ID: <20170402221823.GA4709@avx2>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: benh@kernel.crashing.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, kraig@google.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:39648 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750966AbdDBV64 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 2 Apr 2017 17:58:56 -0400
-In-Reply-To: <1491168068.26047.17.camel@kernel.crashing.org>
+Received: from mail-lf0-f66.google.com ([209.85.215.66]:33421 "EHLO
+        mail-lf0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750853AbdDBWS2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 2 Apr 2017 18:18:28 -0400
+Received: by mail-lf0-f66.google.com with SMTP id r36so11475642lfi.0
+        for <netdev@vger.kernel.org>; Sun, 02 Apr 2017 15:18:27 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Date: Mon, 03 Apr 2017 07:21:08 +1000
+Number of sockets is limited by 16-bit, so 64-bit allocation will never
+happen.
 
-> What is your preference when a couple of patches in a series of about a
-> dozen get updated as a result of reviews ? Just send updates to those
-> few or resend the whole series ?
-> 
-> In the latter case I'll wait a bit longer for more comments.
+16-bit ops are the worst code density-wise on x86_64 because of
+additional prefix (66).
 
-Always resend all.
+Space savings:
+
+	add/remove: 0/0 grow/shrink: 0/1 up/down: 0/-3 (-3)
+	function                                     old     new   delta
+	reuseport_add_sock                           539     536      -3
+
+Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+---
+
+ net/core/sock_reuseport.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+--- a/net/core/sock_reuseport.c
++++ b/net/core/sock_reuseport.c
+@@ -13,9 +13,9 @@
+ 
+ static DEFINE_SPINLOCK(reuseport_lock);
+ 
+-static struct sock_reuseport *__reuseport_alloc(u16 max_socks)
++static struct sock_reuseport *__reuseport_alloc(unsigned int max_socks)
+ {
+-	size_t size = sizeof(struct sock_reuseport) +
++	unsigned int size = sizeof(struct sock_reuseport) +
+ 		      sizeof(struct sock *) * max_socks;
+ 	struct sock_reuseport *reuse = kzalloc(size, GFP_ATOMIC);
+ 
