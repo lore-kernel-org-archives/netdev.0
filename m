@@ -1,7 +1,7 @@
 From: Arushi Singhal <arushisinghal19971997@gmail.com>
-Subject: [PATCH 2/4] net: bridge: Remove exceptional & on function name
-Date: Sun,  2 Apr 2017 14:52:13 +0530
-Message-ID: <20170402092215.22792-2-arushisinghal19971997@gmail.com>
+Subject: [PATCH 4/4] net: ipv6: Remove exceptional & on function name
+Date: Sun,  2 Apr 2017 14:52:15 +0530
+Message-ID: <20170402092215.22792-4-arushisinghal19971997@gmail.com>
 References: <20170402092215.22792-1-arushisinghal19971997@gmail.com>
 Cc: kadlec@blackhole.kfki.hu, davem@davemloft.net,
         kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
@@ -16,7 +16,7 @@ Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Remove & from function pointers to conform to the style found elsewhere
-    in the file. Done using the following semantic patch
+in the file. Done using the following semantic patch
 
 // <smpl>
 @r@
@@ -34,21 +34,21 @@ identifier r.f;
 
 Signed-off-by: Arushi Singhal <arushisinghal19971997@gmail.com>
 ---
- net/bridge/netfilter/nft_meta_bridge.c | 2 +-
+ net/ipv6/netfilter/nft_fib_ipv6.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/bridge/netfilter/nft_meta_bridge.c b/net/bridge/netfilter/nft_meta_bridge.c
-index 5974dbc1ea24..bb63c9aed55d 100644
---- a/net/bridge/netfilter/nft_meta_bridge.c
-+++ b/net/bridge/netfilter/nft_meta_bridge.c
-@@ -111,7 +111,7 @@ nft_meta_bridge_select_ops(const struct nft_ctx *ctx,
- static struct nft_expr_type nft_meta_bridge_type __read_mostly = {
- 	.family         = NFPROTO_BRIDGE,
- 	.name           = "meta",
--	.select_ops     = &nft_meta_bridge_select_ops,
-+	.select_ops     = nft_meta_bridge_select_ops,
- 	.policy         = nft_meta_policy,
- 	.maxattr        = NFTA_META_MAX,
- 	.owner          = THIS_MODULE,
+diff --git a/net/ipv6/netfilter/nft_fib_ipv6.c b/net/ipv6/netfilter/nft_fib_ipv6.c
+index 765facf03d45..8cb8d79bab79 100644
+--- a/net/ipv6/netfilter/nft_fib_ipv6.c
++++ b/net/ipv6/netfilter/nft_fib_ipv6.c
+@@ -246,7 +246,7 @@ nft_fib6_select_ops(const struct nft_ctx *ctx,
+ 
+ static struct nft_expr_type nft_fib6_type __read_mostly = {
+ 	.name		= "fib",
+-	.select_ops	= &nft_fib6_select_ops,
++	.select_ops	= nft_fib6_select_ops,
+ 	.policy		= nft_fib_policy,
+ 	.maxattr	= NFTA_FIB_MAX,
+ 	.family		= NFPROTO_IPV6,
 -- 
 2.11.0
