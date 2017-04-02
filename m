@@ -1,79 +1,85 @@
 From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: [PATCH 03/13] ftgmac100: Reorder struct fields and comment
-Date: Sun,  2 Apr 2017 13:35:13 +1000
-Message-ID: <20170402033523.9482-4-benh@kernel.crashing.org>
+Subject: [PATCH 01/13] ftgmac100: Use netdev->irq instead of private copy
+Date: Sun,  2 Apr 2017 13:35:11 +1000
+Message-ID: <20170402033523.9482-2-benh@kernel.crashing.org>
 References: <20170402033523.9482-1-benh@kernel.crashing.org>
 Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:48942 "EHLO gate.crashing.org"
+Received: from gate.crashing.org ([63.228.1.57]:48947 "EHLO gate.crashing.org"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750828AbdDBDfo (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 1 Apr 2017 23:35:44 -0400
+        id S1750914AbdDBDfr (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 1 Apr 2017 23:35:47 -0400
 In-Reply-To: <20170402033523.9482-1-benh@kernel.crashing.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Reorder the fields in struct ftgmac in slightly more logical
-groups. Will make more sense as I add/remove some.
-
-No code change.
+There's a placeholder already for the irq, use it
 
 Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 ---
- drivers/net/ethernet/faraday/ftgmac100.c | 19 ++++++++++++-------
- 1 file changed, 12 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/faraday/ftgmac100.c | 13 ++++++-------
+ 1 file changed, 6 insertions(+), 7 deletions(-)
 
 diff --git a/drivers/net/ethernet/faraday/ftgmac100.c b/drivers/net/ethernet/faraday/ftgmac100.c
-index 6501aa7..02e0534 100644
+index 928b0df..bf7b1c0 100644
 --- a/drivers/net/ethernet/faraday/ftgmac100.c
 +++ b/drivers/net/ethernet/faraday/ftgmac100.c
-@@ -50,34 +50,39 @@ struct ftgmac100_descs {
- };
- 
+@@ -55,7 +55,6 @@ struct ftgmac100_descs {
  struct ftgmac100 {
-+	/* Registers */
  	struct resource *res;
  	void __iomem *base;
+-	int irq;
  
  	struct ftgmac100_descs *descs;
  	dma_addr_t descs_dma_addr;
+@@ -1119,9 +1118,9 @@ static int ftgmac100_open(struct net_device *netdev)
+ 		goto err_alloc;
+ 	}
  
-+	/* Rx ring */
- 	struct page *rx_pages[RX_QUEUE_ENTRIES];
--
- 	unsigned int rx_pointer;
-+	u32 rxdes0_edorr_mask;
-+
-+	/* Tx ring */
- 	unsigned int tx_clean_pointer;
- 	unsigned int tx_pointer;
- 	unsigned int tx_pending;
--
-+	u32 txdes0_edotr_mask;
- 	spinlock_t tx_lock;
+-	err = request_irq(priv->irq, ftgmac100_interrupt, 0, netdev->name, netdev);
++	err = request_irq(netdev->irq, ftgmac100_interrupt, 0, netdev->name, netdev);
+ 	if (err) {
+-		netdev_err(netdev, "failed to request irq %d\n", priv->irq);
++		netdev_err(netdev, "failed to request irq %d\n", netdev->irq);
+ 		goto err_irq;
+ 	}
  
-+	/* Component structures */
- 	struct net_device *netdev;
- 	struct device *dev;
- 	struct ncsi_dev *ndev;
- 	struct napi_struct napi;
--
- 	struct mii_bus *mii_bus;
-+
-+	/* Link management */
- 	int old_speed;
--	int int_mask_all;
- 	bool use_ncsi;
--	bool enabled;
+@@ -1168,7 +1167,7 @@ static int ftgmac100_open(struct net_device *netdev)
+ 	netif_stop_queue(netdev);
+ 	iowrite32(0, priv->base + FTGMAC100_OFFSET_IER);
+ err_hw:
+-	free_irq(priv->irq, netdev);
++	free_irq(netdev->irq, netdev);
+ err_irq:
+ 	ftgmac100_free_buffers(priv);
+ err_alloc:
+@@ -1194,7 +1193,7 @@ static int ftgmac100_stop(struct net_device *netdev)
+ 		ncsi_stop_dev(priv->ndev);
  
--	u32 rxdes0_edorr_mask;
--	u32 txdes0_edotr_mask;
-+	/* Misc */
-+	int int_mask_all;
-+	bool enabled;
- };
+ 	ftgmac100_stop_hw(priv);
+-	free_irq(priv->irq, netdev);
++	free_irq(netdev->irq, netdev);
+ 	ftgmac100_free_buffers(priv);
  
- static int ftgmac100_alloc_rx_page(struct ftgmac100 *priv,
+ 	return 0;
+@@ -1381,7 +1380,7 @@ static int ftgmac100_probe(struct platform_device *pdev)
+ 		goto err_ioremap;
+ 	}
+ 
+-	priv->irq = irq;
++	netdev->irq = irq;
+ 
+ 	/* MAC address from chip or random one */
+ 	ftgmac100_setup_mac(priv);
+@@ -1438,7 +1437,7 @@ static int ftgmac100_probe(struct platform_device *pdev)
+ 		goto err_register_netdev;
+ 	}
+ 
+-	netdev_info(netdev, "irq %d, mapped at %p\n", priv->irq, priv->base);
++	netdev_info(netdev, "irq %d, mapped at %p\n", netdev->irq, priv->base);
+ 
+ 	return 0;
+ 
 -- 
 2.9.3
