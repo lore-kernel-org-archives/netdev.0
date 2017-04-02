@@ -1,171 +1,167 @@
 From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: [PATCH 10/13] ftgmac100: Add a reset task and use it for link changes
-Date: Sun,  2 Apr 2017 13:35:20 +1000
-Message-ID: <20170402033523.9482-11-benh@kernel.crashing.org>
+Subject: [PATCH 06/13] ftgmac100: Split ring alloc, init and rx buffer alloc
+Date: Sun,  2 Apr 2017 13:35:16 +1000
+Message-ID: <20170402033523.9482-7-benh@kernel.crashing.org>
 References: <20170402033523.9482-1-benh@kernel.crashing.org>
 Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:48962 "EHLO gate.crashing.org"
+Received: from gate.crashing.org ([63.228.1.57]:48968 "EHLO gate.crashing.org"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751165AbdDBDgD (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 1 Apr 2017 23:36:03 -0400
+        id S1751080AbdDBDgB (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 1 Apr 2017 23:36:01 -0400
 In-Reply-To: <20170402033523.9482-1-benh@kernel.crashing.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Link speed changes require a full HW reset. This isn't done
-properly at the moment. It will involve delays and thus isn't
-suitable to do from the link poll callback.
+Currently, a single function is used to allocate the rings
+themselves, initialize them, populate the rx ring, and
+allocate the rx buffers. The same happens on free.
 
-So let's create a reset_task that we can queue up when the
-link changes. It will be useful for various cases of error
-handling as well.
+This splits them into separate functions. This will be
+useful when properly implementing re-initialization on
+link changes and error handling when the rings will be
+repopulated but not freed.
 
 Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 ---
- drivers/net/ethernet/faraday/ftgmac100.c | 85 +++++++++++++++++++++++++++-----
- 1 file changed, 72 insertions(+), 13 deletions(-)
+ drivers/net/ethernet/faraday/ftgmac100.c | 68 ++++++++++++++++++++++----------
+ 1 file changed, 47 insertions(+), 21 deletions(-)
 
 diff --git a/drivers/net/ethernet/faraday/ftgmac100.c b/drivers/net/ethernet/faraday/ftgmac100.c
-index 96c6bc2..d616c0a 100644
+index 219131c..8792c7c 100644
 --- a/drivers/net/ethernet/faraday/ftgmac100.c
 +++ b/drivers/net/ethernet/faraday/ftgmac100.c
-@@ -74,6 +74,7 @@ struct ftgmac100 {
- 	struct device *dev;
- 	struct ncsi_dev *ndev;
- 	struct napi_struct napi;
-+	struct work_struct reset_task;
- 	struct mii_bus *mii_bus;
+@@ -792,6 +792,7 @@ static void ftgmac100_free_buffers(struct ftgmac100 *priv)
+ {
+ 	int i;
  
- 	/* Link management */
-@@ -872,7 +873,6 @@ static void ftgmac100_adjust_link(struct net_device *netdev)
- 	struct ftgmac100 *priv = netdev_priv(netdev);
- 	struct phy_device *phydev = netdev->phydev;
- 	int new_speed;
--	int ier;
++	/* Free all RX buffers */
+ 	for (i = 0; i < RX_QUEUE_ENTRIES; i++) {
+ 		struct ftgmac100_rxdes *rxdes = &priv->descs->rxdes[i];
+ 		struct page *page = ftgmac100_rxdes_get_page(priv, rxdes);
+@@ -804,6 +805,7 @@ static void ftgmac100_free_buffers(struct ftgmac100 *priv)
+ 		__free_page(page);
+ 	}
  
- 	/* We store "no link" as speed 0 */
- 	if (!phydev->link)
-@@ -899,20 +899,11 @@ static void ftgmac100_adjust_link(struct net_device *netdev)
- 	priv->cur_speed = new_speed;
- 	priv->cur_duplex = phydev->duplex;
- 
--	ier = ioread32(priv->base + FTGMAC100_OFFSET_IER);
++	/* Free all TX buffers */
+ 	for (i = 0; i < TX_QUEUE_ENTRIES; i++) {
+ 		struct ftgmac100_txdes *txdes = &priv->descs->txdes[i];
+ 		struct sk_buff *skb = ftgmac100_txdes_get_skb(txdes);
+@@ -815,40 +817,54 @@ static void ftgmac100_free_buffers(struct ftgmac100 *priv)
+ 		dma_unmap_single(priv->dev, map, skb_headlen(skb), DMA_TO_DEVICE);
+ 		kfree_skb(skb);
+ 	}
 -
--	/* disable all interrupts */
-+	/* Disable all interrupts */
- 	iowrite32(0, priv->base + FTGMAC100_OFFSET_IER);
- 
--	netif_stop_queue(netdev);
--	ftgmac100_stop_hw(priv);
--
--	netif_start_queue(netdev);
--	ftgmac100_init_hw(priv);
--	ftgmac100_start_hw(priv);
--
--	/* re-enable interrupts */
--	iowrite32(ier, priv->base + FTGMAC100_OFFSET_IER);
-+	/* Reset the adapter asynchronously */
-+	schedule_work(&priv->reset_task);
+-	dma_free_coherent(priv->dev, sizeof(struct ftgmac100_descs),
+-			  priv->descs, priv->descs_dma_addr);
  }
  
- static int ftgmac100_mii_probe(struct ftgmac100 *priv)
-@@ -1137,6 +1128,59 @@ static int ftgmac100_init_all(struct ftgmac100 *priv, bool ignore_alloc_err)
+-static int ftgmac100_alloc_buffers(struct ftgmac100 *priv)
++static void ftgmac100_free_rings(struct ftgmac100 *priv)
+ {
+-	int i;
++	/* Free descriptors */
++	if (priv->descs)
++		dma_free_coherent(priv->dev, sizeof(struct ftgmac100_descs),
++				  priv->descs, priv->descs_dma_addr);
++}
+ 
++static int ftgmac100_alloc_rings(struct ftgmac100 *priv)
++{
++	/* Allocate descriptors */
+ 	priv->descs = dma_zalloc_coherent(priv->dev,
+ 					  sizeof(struct ftgmac100_descs),
+ 					  &priv->descs_dma_addr, GFP_KERNEL);
+ 	if (!priv->descs)
+ 		return -ENOMEM;
+ 
+-	/* initialize RX ring */
+-	ftgmac100_rxdes_set_end_of_ring(priv,
+-					&priv->descs->rxdes[RX_QUEUE_ENTRIES - 1]);
++	return 0;
++}
++
++static void ftgmac100_init_rings(struct ftgmac100 *priv)
++{
++	int i;
++
++	/* Initialize RX ring */
++	for (i = 0; i < RX_QUEUE_ENTRIES; i++)
++		priv->descs->rxdes[i].rxdes0 = 0;
++	ftgmac100_rxdes_set_end_of_ring(priv, &priv->descs->rxdes[i - 1]);
++
++	/* Initialize TX ring */
++	for (i = 0; i < TX_QUEUE_ENTRIES; i++)
++		priv->descs->txdes[i].txdes0 = 0;
++	ftgmac100_txdes_set_end_of_ring(priv, &priv->descs->txdes[i -1]);
++}
++
++static int ftgmac100_alloc_rx_buffers(struct ftgmac100 *priv)
++{
++	int i;
+ 
+ 	for (i = 0; i < RX_QUEUE_ENTRIES; i++) {
+ 		struct ftgmac100_rxdes *rxdes = &priv->descs->rxdes[i];
+ 
+ 		if (ftgmac100_alloc_rx_page(priv, rxdes, GFP_KERNEL))
+-			goto err;
++			return -ENOMEM;
+ 	}
+-
+-	/* initialize TX ring */
+-	ftgmac100_txdes_set_end_of_ring(priv,
+-					&priv->descs->txdes[TX_QUEUE_ENTRIES - 1]);
+ 	return 0;
+-
+-err:
+-	ftgmac100_free_buffers(priv);
+-	return -ENOMEM;
+ }
+ 
+ static void ftgmac100_adjust_link(struct net_device *netdev)
+@@ -1101,12 +1117,20 @@ static int ftgmac100_open(struct net_device *netdev)
+ 	unsigned int status;
+ 	int err;
+ 
+-	err = ftgmac100_alloc_buffers(priv);
++	/* Allocate ring buffers  */
++	err = ftgmac100_alloc_rings(priv);
+ 	if (err) {
+-		netdev_err(netdev, "failed to allocate buffers\n");
+-		goto err_alloc;
++		netdev_err(netdev, "Failed to allocate descriptors\n");
++		return err;
+ 	}
+ 
++	/* Initialize the rings */
++	ftgmac100_init_rings(priv);
++
++	/* Allocate receive buffers */
++	if (ftgmac100_alloc_rx_buffers(priv))
++		goto err_alloc;
++
+ 	err = request_irq(netdev->irq, ftgmac100_interrupt, 0, netdev->name, netdev);
+ 	if (err) {
+ 		netdev_err(netdev, "failed to request irq %d\n", netdev->irq);
+@@ -1170,8 +1194,9 @@ static int ftgmac100_open(struct net_device *netdev)
+ err_hw:
+ 	free_irq(netdev->irq, netdev);
+ err_irq:
+-	ftgmac100_free_buffers(priv);
+ err_alloc:
++	ftgmac100_free_buffers(priv);
++	ftgmac100_free_rings(priv);
  	return err;
  }
  
-+static void ftgmac100_reset_task(struct work_struct *work)
-+{
-+	struct ftgmac100 *priv = container_of(work, struct ftgmac100,
-+					      reset_task);
-+	struct net_device *netdev = priv->netdev;
-+	int err;
-+
-+	netdev_dbg(netdev, "Resetting NIC...\n");
-+
-+	/* Block PHY polling */
-+	if (netdev->phydev)
-+		mutex_lock(&netdev->phydev->lock);
-+
-+	rtnl_lock();
-+
-+	/* Check if the interface is still up */
-+	if (!netif_running(netdev))
-+		goto bail;
-+
-+	/* Stop the network stack */
-+	netif_trans_update(netdev);
-+	napi_disable(&priv->napi);
-+	netif_tx_disable(netdev);
-+
-+	/* Stop and reset the MAC */
-+	ftgmac100_stop_hw(priv);
-+	err = ftgmac100_reset_hw(priv);
-+	if (err) {
-+		/* Not much we can do ... it might come back... */
-+		netdev_err(netdev, "attempting to continue...\n");
-+	}
-+
-+	/* Free all rx and tx buffers */
-+	ftgmac100_free_buffers(priv);
-+
-+	/* The ring pointers have been reset in HW, reflect this here */
-+	priv->rx_pointer = 0;
-+	priv->tx_clean_pointer = 0;
-+	priv->tx_pointer = 0;
-+	priv->tx_pending = 0;
-+
-+	/* Setup everything again and restart chip */
-+	ftgmac100_init_all(priv, true);
-+
-+	netdev_dbg(netdev, "Reset done !\n");
-+ bail:
-+	rtnl_unlock();
-+
-+	/* Unblock PHY polling */
-+	if (netdev->phydev)
-+		mutex_unlock(&netdev->phydev->lock);
-+}
-+
- static int ftgmac100_open(struct net_device *netdev)
- {
- 	struct ftgmac100 *priv = netdev_priv(netdev);
-@@ -1222,6 +1266,14 @@ static int ftgmac100_stop(struct net_device *netdev)
- {
- 	struct ftgmac100 *priv = netdev_priv(netdev);
+@@ -1192,6 +1217,7 @@ static int ftgmac100_stop(struct net_device *netdev)
+ 	ftgmac100_stop_hw(priv);
+ 	free_irq(netdev->irq, netdev);
+ 	ftgmac100_free_buffers(priv);
++	ftgmac100_free_rings(priv);
  
-+	/* Note about the reset task: We are called with the rtnl lock
-+	 * held, so we are synchronized against the core of the reset
-+	 * task. We must not try to synchronously cancel it otherwise
-+	 * we can deadlock. But since it will test for netif_running()
-+	 * which has already been cleared by the net core, we don't
-+	 * anything special to do.
-+	 */
-+
- 	/* disable all interrupts */
- 	iowrite32(0, priv->base + FTGMAC100_OFFSET_IER);
- 
-@@ -1397,6 +1449,7 @@ static int ftgmac100_probe(struct platform_device *pdev)
- 	priv = netdev_priv(netdev);
- 	priv->netdev = netdev;
- 	priv->dev = &pdev->dev;
-+	INIT_WORK(&priv->reset_task, ftgmac100_reset_task);
- 
- 	spin_lock_init(&priv->tx_lock);
- 
-@@ -1500,6 +1553,12 @@ static int ftgmac100_remove(struct platform_device *pdev)
- 	priv = netdev_priv(netdev);
- 
- 	unregister_netdev(netdev);
-+
-+	/* There's a small chance the reset task will have been re-queued,
-+	 * during stop, make sure it's gone before we free the structure.
-+	 */
-+	cancel_work_sync(&priv->reset_task);
-+
- 	ftgmac100_destroy_mdio(netdev);
- 
- 	iounmap(priv->base);
+ 	return 0;
+ }
 -- 
 2.9.3
