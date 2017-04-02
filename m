@@ -1,65 +1,145 @@
 From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: [PATCH 07/13] ftgmac100: Move napi_add/del to open/close
-Date: Sun,  2 Apr 2017 13:35:17 +1000
-Message-ID: <20170402033523.9482-8-benh@kernel.crashing.org>
+Subject: [PATCH 09/13] ftgmac100: Move the bulk of inits to a separate function
+Date: Sun,  2 Apr 2017 13:35:19 +1000
+Message-ID: <20170402033523.9482-10-benh@kernel.crashing.org>
 References: <20170402033523.9482-1-benh@kernel.crashing.org>
 Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:48970 "EHLO gate.crashing.org"
+Received: from gate.crashing.org ([63.228.1.57]:48978 "EHLO gate.crashing.org"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751165AbdDBDgF (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 1 Apr 2017 23:36:05 -0400
+        id S1751165AbdDBDgK (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 1 Apr 2017 23:36:10 -0400
 In-Reply-To: <20170402033523.9482-1-benh@kernel.crashing.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Rather than probe/remove
+The link monitoring and error handling code will have to
+redo the ring inits and HW setup so move the code out of
+ftgmac100_open() into a dedicated function.
+
+This forces a bit of re-ordering of ftgmac100_open() but
+nothing dramatic.
 
 Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 ---
- drivers/net/ethernet/faraday/ftgmac100.c | 8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/faraday/ftgmac100.c | 71 +++++++++++++++++++-------------
+ 1 file changed, 42 insertions(+), 29 deletions(-)
 
 diff --git a/drivers/net/ethernet/faraday/ftgmac100.c b/drivers/net/ethernet/faraday/ftgmac100.c
-index 8792c7c..ac22f71 100644
+index 0f7fd20..96c6bc2 100644
 --- a/drivers/net/ethernet/faraday/ftgmac100.c
 +++ b/drivers/net/ethernet/faraday/ftgmac100.c
-@@ -1160,6 +1160,9 @@ static int ftgmac100_open(struct net_device *netdev)
- 	if (err)
- 		goto err_hw;
+@@ -1111,10 +1111,35 @@ static int ftgmac100_poll(struct napi_struct *napi, int budget)
+ 	return rx;
+ }
  
-+	/* Initialize NAPI */
-+	netif_napi_add(netdev, &priv->napi, ftgmac100_poll, 64);
++static int ftgmac100_init_all(struct ftgmac100 *priv, bool ignore_alloc_err)
++{
++	int err = 0;
 +
- 	ftgmac100_init_hw(priv);
- 	ftgmac100_start_hw(priv);
++	/* Re-init descriptors (adjust queue sizes) */
++	ftgmac100_init_rings(priv);
++
++	/* Realloc rx descriptors */
++	err = ftgmac100_alloc_rx_buffers(priv);
++	if (err && !ignore_alloc_err)
++		return err;
++
++	/* Reinit and restart HW */
++	ftgmac100_init_hw(priv);
++	ftgmac100_start_hw(priv);
++
++	/* Re-enable the device */
++	napi_enable(&priv->napi);
++	netif_start_queue(priv->netdev);
++
++	/* Enable all interrupts */
++	iowrite32(priv->int_mask_all, priv->base + FTGMAC100_OFFSET_IER);
++
++	return err;
++}
++
+ static int ftgmac100_open(struct net_device *netdev)
+ {
+ 	struct ftgmac100 *priv = netdev_priv(netdev);
+-	unsigned int status;
+ 	int err;
  
-@@ -1190,6 +1193,7 @@ static int ftgmac100_open(struct net_device *netdev)
- err_ncsi:
- 	napi_disable(&priv->napi);
- 	netif_stop_queue(netdev);
-+	netif_napi_del(&priv->napi);
- 	iowrite32(0, priv->base + FTGMAC100_OFFSET_IER);
- err_hw:
- 	free_irq(netdev->irq, netdev);
-@@ -1209,6 +1213,7 @@ static int ftgmac100_stop(struct net_device *netdev)
+ 	/* Allocate ring buffers  */
+@@ -1124,13 +1149,6 @@ static int ftgmac100_open(struct net_device *netdev)
+ 		return err;
+ 	}
  
- 	netif_stop_queue(netdev);
- 	napi_disable(&priv->napi);
-+	netif_napi_del(&priv->napi);
- 	if (netdev->phydev)
- 		phy_stop(netdev->phydev);
- 	else if (priv->use_ncsi)
-@@ -1381,9 +1386,6 @@ static int ftgmac100_probe(struct platform_device *pdev)
- 
- 	spin_lock_init(&priv->tx_lock);
- 
--	/* initialize NAPI */
--	netif_napi_add(netdev, &priv->napi, ftgmac100_poll, 64);
+-	/* Initialize the rings */
+-	ftgmac100_init_rings(priv);
 -
- 	/* map io memory */
- 	priv->res = request_mem_region(res->start, resource_size(res),
- 				       dev_name(&pdev->dev));
+-	/* Allocate receive buffers */
+-	if (ftgmac100_alloc_rx_buffers(priv))
+-		goto err_alloc;
+-
+ 	/* When using NC-SI we force the speed to 100Mbit/s full duplex,
+ 	 *
+ 	 * Otherwise we leave it set to 0 (no link), the link
+@@ -1164,26 +1182,21 @@ static int ftgmac100_open(struct net_device *netdev)
+ 		goto err_irq;
+ 	}
+ 
+-	ftgmac100_init_hw(priv);
+-	ftgmac100_start_hw(priv);
+-
+-	/* Clear stale interrupts */
+-	status = ioread32(priv->base + FTGMAC100_OFFSET_ISR);
+-	iowrite32(status, priv->base + FTGMAC100_OFFSET_ISR);
++	/* Start things up */
++	err = ftgmac100_init_all(priv, false);
++	if (err) {
++		netdev_err(netdev, "Failed to allocate packet buffers\n");
++		goto err_alloc;
++	}
+ 
+-	if (netdev->phydev)
++	if (netdev->phydev) {
++		/* If we have a PHY, start polling */
+ 		phy_start(netdev->phydev);
+-	else if (priv->use_ncsi)
++	} else if (priv->use_ncsi) {
++		/* If using NC-SI, set our carrier on and start the stack */
+ 		netif_carrier_on(netdev);
+ 
+-	napi_enable(&priv->napi);
+-	netif_start_queue(netdev);
+-
+-	/* enable all interrupts */
+-	iowrite32(priv->int_mask_all, priv->base + FTGMAC100_OFFSET_IER);
+-
+-	/* Start the NCSI device */
+-	if (priv->use_ncsi) {
++		/* Start the NCSI device */
+ 		err = ncsi_start_dev(priv->ndev);
+ 		if (err)
+ 			goto err_ncsi;
+@@ -1191,16 +1204,16 @@ static int ftgmac100_open(struct net_device *netdev)
+ 
+ 	return 0;
+ 
+-err_ncsi:
++ err_ncsi:
+ 	napi_disable(&priv->napi);
+ 	netif_stop_queue(netdev);
++ err_alloc:
++	ftgmac100_free_buffers(priv);
+ 	free_irq(netdev->irq, netdev);
+-err_irq:
++ err_irq:
+ 	netif_napi_del(&priv->napi);
+-err_hw:
+-err_alloc:
++ err_hw:
+ 	iowrite32(0, priv->base + FTGMAC100_OFFSET_IER);
+-	ftgmac100_free_buffers(priv);
+ 	ftgmac100_free_rings(priv);
+ 	return err;
+ }
 -- 
 2.9.3
