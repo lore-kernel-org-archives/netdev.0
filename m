@@ -1,32 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] sctp: use right in and out stream cnt
-Date: Sat, 01 Apr 2017 20:12:45 -0700 (PDT)
-Message-ID: <20170401.201245.1804602376522322384.davem@davemloft.net>
-References: <046f41fee71d352458eccf900bcef54e24cb8aa8.1490954248.git.lucien.xin@gmail.com>
+Subject: Re: [PATCH net 0/5] l2tp: fix usage of l2tp_session_find()
+Date: Sat, 01 Apr 2017 20:17:07 -0700 (PDT)
+Message-ID: <20170401.201707.1914746615264022070.davem@davemloft.net>
+References: <cover.1490955471.git.g.nault@alphalink.fr>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-        marcelo.leitner@gmail.com, nhorman@tuxdriver.com
-To: lucien.xin@gmail.com
+Cc: netdev@vger.kernel.org, jchapman@katalix.com, bhong@brocade.com
+To: g.nault@alphalink.fr
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:60202 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:60240 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750736AbdDBDMr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 1 Apr 2017 23:12:47 -0400
-In-Reply-To: <046f41fee71d352458eccf900bcef54e24cb8aa8.1490954248.git.lucien.xin@gmail.com>
+        with ESMTP id S1750807AbdDBDRJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 1 Apr 2017 23:17:09 -0400
+In-Reply-To: <cover.1490955471.git.g.nault@alphalink.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Xin Long <lucien.xin@gmail.com>
-Date: Fri, 31 Mar 2017 17:57:28 +0800
+From: Guillaume Nault <g.nault@alphalink.fr>
+Date: Fri, 31 Mar 2017 13:02:23 +0200
 
-> Since sctp reconf was added in sctp, the real cnt of in/out stream
-> have not been c.sinit_max_instreams and c.sinit_num_ostreams any
-> more.
+> l2tp_session_find() doesn't take a reference on the session returned to
+> its caller. Virtually all l2tp_session_find() users are racy, either
+> because the session can disappear from under them or because they take
+> a reference too late. This leads to bugs like 'use after free' or
+> failure to notice duplicate session creations.
 > 
-> This patch is to replace them with stream->in/outcnt.
+> In some cases, taking a reference on the session is not enough. The
+> special callbacks .ref() and .deref() also have to be called in cases
+> where the PPP pseudo-wire uses the socket associated with the session.
+> Therefore, when looking up a session, we also have to pass a flag
+> indicating if the .ref() callback has to be called.
 > 
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> In the future, we probably could drop the .ref() and .deref() callbacks
+> entirely by protecting the .sock field of struct pppol2tp_session with
+> RCU, thus allowing it to be freed and set to NULL even if the L2TP
+> session is still alive.
 
-Applied, thanks.
+Series applied with the Fixes: tag of patch #5 updated.
+
+Thanks.
