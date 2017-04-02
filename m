@@ -1,47 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: dsa: fix build error with devlink build
- as module
-Date: Sat, 01 Apr 2017 20:11:01 -0700 (PDT)
-Message-ID: <20170401.201101.1392581874133981603.davem@davemloft.net>
-References: <20170331094452.32578-1-tobias.regnery@gmail.com>
+Subject: Re: [PATCH net-next] udp: use sk_protocol instead of pcflag to
+ detect udplite sockets
+Date: Sat, 01 Apr 2017 20:12:02 -0700 (PDT)
+Message-ID: <20170401.201202.1578661173027016048.davem@davemloft.net>
+References: <fc91ec83ecf454fad74c326380203a34434cb1ec.1490953526.git.pabeni@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: andrew@lunn.ch, f.fainelli@gmail.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: tobias.regnery@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170331094452.32578-1-tobias.regnery@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, edumazet@google.com
+To: pabeni@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:60194 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750814AbdDBDME (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 1 Apr 2017 23:12:04 -0400
+In-Reply-To: <fc91ec83ecf454fad74c326380203a34434cb1ec.1490953526.git.pabeni@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Tobias Regnery <tobias.regnery@gmail.com>
-Date: Fri, 31 Mar 2017 11:44:52 +0200
+From: Paolo Abeni <pabeni@redhat.com>
+Date: Fri, 31 Mar 2017 11:47:39 +0200
 
-> After commit 96567d5dacf4 ("net: dsa: dsa2: Add basic support of devlink")
-> I see the following link error with CONFIG_NET_DSA=y and CONFIG_NET_DEVLINK=m:
+> In the udp_sock struct, the 'forward_deficit' and 'pcflag' fields
+> share the same cacheline. While the first is dirtied by
+> udp_recvmsg, the latter is read, possibly several times, by the
+> bottom half processing to discriminate between udp and udplite
+> sockets.
 > 
-> net/built-in.o: In function 'dsa_register_switch':
-> (.text+0xe226b): undefined reference to `devlink_alloc'
-> net/built-in.o: In function 'dsa_register_switch':
-> (.text+0xe2284): undefined reference to `devlink_register'
-> net/built-in.o: In function 'dsa_register_switch':
-> (.text+0xe243e): undefined reference to `devlink_port_register'
-> net/built-in.o: In function 'dsa_register_switch':
-> (.text+0xe24e1): undefined reference to `devlink_port_register'
-> net/built-in.o: In function 'dsa_register_switch':
-> (.text+0xe24fa): undefined reference to `devlink_port_type_eth_set'
-> net/built-in.o: In function 'dsa_dst_unapply.part.8':
-> dsa2.c:(.text.unlikely+0x345): undefined reference to 'devlink_port_unregister'
-> dsa2.c:(.text.unlikely+0x36c): undefined reference to 'devlink_port_unregister'
-> dsa2.c:(.text.unlikely+0x38e): undefined reference to 'devlink_port_unregister'
-> dsa2.c:(.text.unlikely+0x3f2): undefined reference to 'devlink_unregister'
-> dsa2.c:(.text.unlikely+0x3fb): undefined reference to 'devlink_free'
+> With this patch, sk->sk_protocol is used to check is the socket is
+> really an udplite one, avoiding some cache misses per
+> packet and improving the performance under udp_flood with
+> small packet up to 10%.
 > 
-> Fix this by adding a dependency on MAY_USE_DEVLINK so that CONFIG_NET_DSA
-> get switched to be build as module when CONFIG_NET_DEVLINK=m.
-> 
-> Fixes: 96567d5dacf4 ("net: dsa: dsa2: Add basic support of devlink")
-> Signed-off-by: Tobias Regnery <tobias.regnery@gmail.com>
+> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
 
-Applied.
+Applied, thanks.
