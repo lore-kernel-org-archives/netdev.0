@@ -1,1144 +1,418 @@
-From: Corentin Labbe <clabbe.montjoie@gmail.com>
-Subject: [PATCH v3 05/20] net: stmmac: Add dwmac-sun8i
-Date: Mon,  3 Apr 2017 11:14:29 +0200
-Message-ID: <20170403091444.29876-6-clabbe.montjoie@gmail.com>
-References: <20170403091444.29876-1-clabbe.montjoie@gmail.com>
+From: Yuval Mintz <Yuval.Mintz@cavium.com>
+Subject: [PATCH net-next 5/5] qed: Manage with less memory regions for RoCE
+Date: Mon, 3 Apr 2017 12:21:13 +0300
+Message-ID: <1491211273-10910-6-git-send-email-Yuval.Mintz@cavium.com>
+References: <1491211273-10910-1-git-send-email-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: devicetree@vger.kernel.org, Corentin Labbe <clabbe.montjoie@gmail.com>,
- linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
- netdev@vger.kernel.org
-To: robh+dt@kernel.org, mark.rutland@arm.com, maxime.ripard@free-electrons.com,
- wens@csie.org, linux@armlinux.org.uk, catalin.marinas@arm.com,
- will.deacon@arm.com, peppe.cavallaro@st.com, alexandre.torgue@st.com
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <20170403091444.29876-1-clabbe.montjoie@gmail.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Ram Amrani <Ram.Amrani@cavium.com>,
+        Yuval Mintz <Yuval.Mintz@cavium.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:51526 "EHLO
+        mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1752609AbdDCJWD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 3 Apr 2017 05:22:03 -0400
+In-Reply-To: <1491211273-10910-1-git-send-email-Yuval.Mintz@cavium.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The dwmac-sun8i is a heavy hacked version of stmmac hardware by
-allwinner.
-In fact the only common part is the descriptor management and the first
-register function.
+From: Ram Amrani <Ram.Amrani@cavium.com>
 
-Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
+It's possible some configurations would prevent driver from utilizing
+all the Memory Regions due to a lack of ILT lines.
+In such a case, calculate how many memory regions would have to be
+dropped due to limit, and manage without those.
+
+Signed-off-by: Ram Amrani <Ram.Amrani@cavium.com>
+Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
 ---
- drivers/net/ethernet/stmicro/stmmac/Kconfig        |  11 +
- drivers/net/ethernet/stmicro/stmmac/Makefile       |   1 +
- drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c  | 949 +++++++++++++++++++++
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |  25 +
- .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |   9 +-
- include/linux/stmmac.h                             |   1 +
- 6 files changed, 994 insertions(+), 2 deletions(-)
- create mode 100644 drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
+ drivers/net/ethernet/qlogic/qed/qed_cxt.c  | 113 +++++++++++++++++++++--------
+ drivers/net/ethernet/qlogic/qed/qed_cxt.h  |  15 +++-
+ drivers/net/ethernet/qlogic/qed/qed_dev.c  |  33 ++++++++-
+ drivers/net/ethernet/qlogic/qed/qed_main.c |   1 -
+ include/linux/qed/qed_if.h                 |   1 -
+ 5 files changed, 125 insertions(+), 38 deletions(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/Kconfig b/drivers/net/ethernet/stmicro/stmmac/Kconfig
-index cfbe363..85c0e41 100644
---- a/drivers/net/ethernet/stmicro/stmmac/Kconfig
-+++ b/drivers/net/ethernet/stmicro/stmmac/Kconfig
-@@ -145,6 +145,17 @@ config DWMAC_SUNXI
- 	  This selects Allwinner SoC glue layer support for the
- 	  stmmac device driver. This driver is used for A20/A31
- 	  GMAC ethernet controller.
-+
-+config DWMAC_SUN8I
-+	tristate "Allwinner sun8i GMAC support"
-+	default ARCH_SUNXI
-+	depends on OF && (ARCH_SUNXI || COMPILE_TEST)
-+	---help---
-+	  Support for Allwinner H3 A83T A64 EMAC ethernet controllers.
-+
-+	  This selects Allwinner SoC glue layer support for the
-+	  stmmac device driver. This driver is used for H3/A83T/A64
-+	  EMAC ethernet controller.
- endif
- 
- config STMMAC_PCI
-diff --git a/drivers/net/ethernet/stmicro/stmmac/Makefile b/drivers/net/ethernet/stmicro/stmmac/Makefile
-index 700c603..fd4937a 100644
---- a/drivers/net/ethernet/stmicro/stmmac/Makefile
-+++ b/drivers/net/ethernet/stmicro/stmmac/Makefile
-@@ -16,6 +16,7 @@ obj-$(CONFIG_DWMAC_SOCFPGA)	+= dwmac-altr-socfpga.o
- obj-$(CONFIG_DWMAC_STI)		+= dwmac-sti.o
- obj-$(CONFIG_DWMAC_STM32)	+= dwmac-stm32.o
- obj-$(CONFIG_DWMAC_SUNXI)	+= dwmac-sunxi.o
-+obj-$(CONFIG_DWMAC_SUN8I)	+= dwmac-sun8i.o
- obj-$(CONFIG_DWMAC_DWC_QOS_ETH)	+= dwmac-dwc-qos-eth.o
- obj-$(CONFIG_DWMAC_GENERIC)	+= dwmac-generic.o
- stmmac-platform-objs:= stmmac_platform.o
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
-new file mode 100644
-index 0000000..6756385
---- /dev/null
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
-@@ -0,0 +1,949 @@
-+/*
-+ * dwmac-sun8i.c - Allwinner sun8i DWMAC specific glue layer
-+ *
-+ * Copyright (C) 2017 Corentin Labbe <clabbe.montjoie@gmail.com>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ */
-+
-+#include <linux/clk.h>
-+#include <linux/io.h>
-+#include <linux/iopoll.h>
-+#include <linux/mfd/syscon.h>
-+#include <linux/module.h>
-+#include <linux/of_device.h>
-+#include <linux/of_mdio.h>
-+#include <linux/of_net.h>
-+#include <linux/phy.h>
-+#include <linux/platform_device.h>
-+#include <linux/regulator/consumer.h>
-+#include <linux/regmap.h>
-+#include <linux/stmmac.h>
-+
-+#include "stmmac.h"
-+#include "stmmac_platform.h"
-+
-+/* General notes on dwmac-sun8i:
-+ * Locking: no locking is necessary in this file because all necessary locking
-+ *		is done in the "stmmac files"
-+ */
-+
-+/* struct emac_variant - Descrive dwmac-sun8i hardware variant
-+ * @default_syscon_value:	The default value of the EMAC register in syscon
-+ *				This value is used for disabling properly EMAC
-+ *				and used as a good starting value in case of the
-+ *				boot process(uboot) leave some stuff.
-+ * @internal_phy:		Does the MAC embed an internal PHY
-+ * @support_mii:		Does the MAC handle MII
-+ * @support_rmii:		Does the MAC handle RMII
-+ * @support_rgmii:		Does the MAC handle RGMII
-+ */
-+struct emac_variant {
-+	u32 default_syscon_value;
-+	int internal_phy;
-+	bool support_mii;
-+	bool support_rmii;
-+	bool support_rgmii;
-+};
-+
-+/* struct sunxi_priv_data - hold all sunxi private data
-+ * @tx_clk:	reference to MAC TX clock
-+ * @ephy_clk:	reference to the optional EPHY clock for the internal PHY
-+ * @regulator:	reference to the optional regulator
-+ * @rst_ephy:	reference to the optional EPHY reset for the internal PHY
-+ * @variant:	reference to the current board variant
-+ * @regmap:	regmap for using the syscon
-+ * @use_internal_phy: Does the current PHY choice imply using the internal PHY
-+ */
-+struct sunxi_priv_data {
-+	struct clk *tx_clk;
-+	struct clk *ephy_clk;
-+	struct regulator *regulator;
-+	struct reset_control *rst_ephy;
-+	const struct emac_variant *variant;
-+	struct regmap *regmap;
-+	bool use_internal_phy;
-+};
-+
-+static const struct emac_variant emac_variant_h3 = {
-+	.default_syscon_value = 0x58000,
-+	.internal_phy = PHY_INTERFACE_MODE_MII,
-+	.support_mii = true,
-+	.support_rmii = true,
-+	.support_rgmii = true
-+};
-+
-+static const struct emac_variant emac_variant_a83t = {
-+	.default_syscon_value = 0,
-+	.internal_phy = 0,
-+	.support_mii = true,
-+	.support_rgmii = true
-+};
-+
-+static const struct emac_variant emac_variant_a64 = {
-+	.default_syscon_value = 0,
-+	.internal_phy = 0,
-+	.support_mii = true,
-+	.support_rmii = true,
-+	.support_rgmii = true
-+};
-+
-+#define EMAC_BASIC_CTL0 0x00
-+#define EMAC_BASIC_CTL1 0x04
-+#define EMAC_INT_STA    0x08
-+#define EMAC_INT_EN     0x0C
-+#define EMAC_TX_CTL0    0x10
-+#define EMAC_TX_CTL1    0x14
-+#define EMAC_TX_FLOW_CTL        0x1C
-+#define EMAC_TX_DESC_LIST 0x20
-+#define EMAC_RX_CTL0    0x24
-+#define EMAC_RX_CTL1    0x28
-+#define EMAC_RX_DESC_LIST 0x34
-+#define EMAC_RX_FRM_FLT 0x38
-+#define EMAC_MDIO_CMD   0x48
-+#define EMAC_MDIO_DATA  0x4C
-+#define EMAC_MACADDR_HI(reg) (0x50 + (reg) * 8)
-+#define EMAC_MACADDR_LO(reg) (0x54 + (reg) * 8)
-+#define EMAC_TX_DMA_STA 0xB0
-+#define EMAC_TX_CUR_DESC        0xB4
-+#define EMAC_TX_CUR_BUF 0xB8
-+#define EMAC_RX_DMA_STA 0xC0
-+#define EMAC_RX_CUR_DESC        0xC4
-+#define EMAC_RX_CUR_BUF 0xC8
-+
-+/* Use in EMAC_BASIC_CTL1 */
-+#define EMAC_BURSTLEN_SHIFT		24
-+
-+/* Used in EMAC_RX_FRM_FLT */
-+#define EMAC_FRM_FLT_RXALL              BIT(0)
-+#define EMAC_FRM_FLT_CTL                BIT(13)
-+#define EMAC_FRM_FLT_MULTICAST          BIT(16)
-+
-+/* Used in RX_CTL1*/
-+#define EMAC_RX_MD              BIT(1)
-+#define EMAC_RX_TH_MASK		GENMASK(4, 5)
-+#define EMAC_RX_TH_32		0
-+#define EMAC_RX_TH_64		(0x1 << 4)
-+#define EMAC_RX_TH_96		(0x2 << 4)
-+#define EMAC_RX_TH_128		(0x3 << 4)
-+#define EMAC_RX_DMA_EN  BIT(30)
-+#define EMAC_RX_DMA_START       BIT(31)
-+
-+/* Used in TX_CTL1*/
-+#define EMAC_TX_MD              BIT(1)
-+#define EMAC_TX_NEXT_FRM        BIT(2)
-+#define EMAC_TX_TH_MASK		GENMASK(8, 10)
-+#define EMAC_TX_TH_64		0
-+#define EMAC_TX_TH_128		(0x1 << 8)
-+#define EMAC_TX_TH_192		(0x2 << 8)
-+#define EMAC_TX_TH_256		(0x3 << 8)
-+#define EMAC_TX_DMA_EN  BIT(30)
-+#define EMAC_TX_DMA_START       BIT(31)
-+
-+/* Used in RX_CTL0 */
-+#define EMAC_RX_RECEIVER_EN             BIT(31)
-+#define EMAC_RX_DO_CRC BIT(27)
-+#define EMAC_RX_FLOW_CTL_EN             BIT(16)
-+
-+/* Used in TX_CTL0 */
-+#define EMAC_TX_TRANSMITTER_EN  BIT(31)
-+
-+/* Used in EMAC_TX_FLOW_CTL */
-+#define EMAC_TX_FLOW_CTL_EN             BIT(0)
-+
-+/* Used in EMAC_INT_STA */
-+#define EMAC_TX_INT             BIT(0)
-+#define EMAC_TX_DMA_STOP_INT    BIT(1)
-+#define EMAC_TX_BUF_UA_INT      BIT(2)
-+#define EMAC_TX_TIMEOUT_INT     BIT(3)
-+#define EMAC_TX_UNDERFLOW_INT   BIT(4)
-+#define EMAC_TX_EARLY_INT       BIT(5)
-+#define EMAC_RX_INT             BIT(8)
-+#define EMAC_RX_BUF_UA_INT      BIT(9)
-+#define EMAC_RX_DMA_STOP_INT    BIT(10)
-+#define EMAC_RX_TIMEOUT_INT     BIT(11)
-+#define EMAC_RX_OVERFLOW_INT    BIT(12)
-+#define EMAC_RX_EARLY_INT       BIT(13)
-+#define EMAC_RGMII_STA_INT      BIT(16)
-+
-+#define MAC_ADDR_TYPE_DST BIT(31)
-+
-+/* H3 specific bits for EPHY */
-+#define H3_EPHY_ADDR_SHIFT	20
-+#define H3_EPHY_LED_POL		BIT(17) /* 1: active low, 0: active high */
-+#define H3_EPHY_SHUTDOWN	BIT(16) /* 1: shutdown, 0: power up */
-+#define H3_EPHY_SELECT		BIT(15) /* 1: internal PHY, 0: external PHY */
-+
-+/* H3/A64 specific bits */
-+#define SYSCON_RMII_EN		BIT(13) /* 1: enable RMII (overrides EPIT) */
-+
-+/* Generic system control EMAC_CLK bits */
-+#define SYSCON_ETXDC_MASK		GENMASK(2, 0)
-+#define SYSCON_ETXDC_SHIFT		10
-+#define SYSCON_ERXDC_MASK		GENMASK(4, 0)
-+#define SYSCON_ERXDC_SHIFT		5
-+/* EMAC PHY Interface Type */
-+#define SYSCON_EPIT			BIT(2) /* 1: RGMII, 0: MII */
-+#define SYSCON_ETCS_MASK		GENMASK(1, 0)
-+#define SYSCON_ETCS_MII		0x0
-+#define SYSCON_ETCS_EXT_GMII	0x1
-+#define SYSCON_ETCS_INT_GMII	0x2
-+#define SYSCON_EMAC_REG		0x30
-+
-+/* sun8i_dwmac_dma_reset() - reset the EMAC
-+ * Called from stmmac via stmmac_dma_ops->reset
-+ */
-+static int sun8i_dwmac_dma_reset(void __iomem *ioaddr)
-+{
-+	writel(0, ioaddr + EMAC_RX_CTL1);
-+	writel(0, ioaddr + EMAC_TX_CTL1);
-+	writel(0, ioaddr + EMAC_RX_FRM_FLT);
-+	writel(0, ioaddr + EMAC_RX_DESC_LIST);
-+	writel(0, ioaddr + EMAC_TX_DESC_LIST);
-+	writel(0, ioaddr + EMAC_INT_EN);
-+	writel(0x1FFFFFF, ioaddr + EMAC_INT_STA);
-+	return 0;
-+}
-+
-+/* sun8i_dwmac_dma_init() - initialize the EMAC
-+ * Called from stmmac via stmmac_dma_ops->init
-+ */
-+static void sun8i_dwmac_dma_init(void __iomem *ioaddr,
-+				 struct stmmac_dma_cfg *dma_cfg,
-+				 u32 dma_tx, u32 dma_rx, int atds)
-+{
-+	/* Write TX and RX descriptors address */
-+	writel(dma_rx, ioaddr + EMAC_RX_DESC_LIST);
-+	writel(dma_tx, ioaddr + EMAC_TX_DESC_LIST);
-+
-+	writel(EMAC_RX_INT | EMAC_TX_INT, ioaddr + EMAC_INT_EN);
-+	writel(0x1FFFFFF, ioaddr + EMAC_INT_STA);
-+}
-+
-+/* sun8i_dwmac_dump_regs() - Dump EMAC address space
-+ * Called from stmmac_dma_ops->dump_regs
-+ * Used for ethtool
-+ */
-+static void sun8i_dwmac_dump_regs(void __iomem *ioaddr, u32 *reg_space)
-+{
-+	int i;
-+
-+	for (i = 0; i < 0xC8; i += 4) {
-+		if (i == 0x32 || i == 0x3C)
-+			continue;
-+		reg_space[i / 4] = readl(ioaddr + i);
-+	}
-+}
-+
-+/* sun8i_dwmac_dump_mac_regs() - Dump EMAC address space
-+ * Called from stmmac_ops->dump_regs
-+ * Used for ethtool
-+ */
-+static void sun8i_dwmac_dump_mac_regs(struct mac_device_info *hw,
-+				      u32 *reg_space)
-+{
-+	int i;
-+	void __iomem *ioaddr = hw->pcsr;
-+
-+	for (i = 0; i < 0xC8; i += 4) {
-+		if (i == 0x32 || i == 0x3C)
-+			continue;
-+		reg_space[i / 4] = readl(ioaddr + i);
-+	}
-+}
-+
-+static void sun8i_dwmac_enable_dma_irq(void __iomem *ioaddr, u32 chan)
-+{
-+	writel(EMAC_RX_INT | EMAC_TX_INT, ioaddr + EMAC_INT_EN);
-+}
-+
-+static void sun8i_dwmac_disable_dma_irq(void __iomem *ioaddr, u32 chan)
-+{
-+	writel(0, ioaddr + EMAC_INT_EN);
-+}
-+
-+static void sun8i_dwmac_dma_start_tx(void __iomem *ioaddr, u32 chan)
-+{
-+	u32 v;
-+
-+	v = readl(ioaddr + EMAC_TX_CTL1);
-+	v |= EMAC_TX_DMA_START;
-+	v |= EMAC_TX_DMA_EN;
-+	writel(v, ioaddr + EMAC_TX_CTL1);
-+}
-+
-+static void sun8i_dwmac_enable_dma_transmission(void __iomem *ioaddr)
-+{
-+	u32 v;
-+
-+	v = readl(ioaddr + EMAC_TX_CTL1);
-+	v |= EMAC_TX_DMA_START;
-+	v |= EMAC_TX_DMA_EN;
-+	writel(v, ioaddr + EMAC_TX_CTL1);
-+}
-+
-+static void sun8i_dwmac_dma_stop_tx(void __iomem *ioaddr, u32 chan)
-+{
-+	u32 v;
-+
-+	v = readl(ioaddr + EMAC_TX_CTL1);
-+	v &= ~EMAC_TX_DMA_EN;
-+	writel(v, ioaddr + EMAC_TX_CTL1);
-+}
-+
-+static void sun8i_dwmac_dma_start_rx(void __iomem *ioaddr, u32 chan)
-+{
-+	u32 v;
-+
-+	v = readl(ioaddr + EMAC_RX_CTL1);
-+	v |= EMAC_RX_DMA_START;
-+	v |= EMAC_RX_DMA_EN;
-+	writel(v, ioaddr + EMAC_RX_CTL1);
-+}
-+
-+static void sun8i_dwmac_dma_stop_rx(void __iomem *ioaddr, u32 chan)
-+{
-+	u32 v;
-+
-+	v = readl(ioaddr + EMAC_RX_CTL1);
-+	v &= ~EMAC_RX_DMA_EN;
-+	writel(v, ioaddr + EMAC_RX_CTL1);
-+}
-+
-+static int sun8i_dwmac_dma_interrupt(void __iomem *ioaddr,
-+				     struct stmmac_extra_stats *x, u32 chan)
-+{
-+	u32 v;
-+	int ret = 0;
-+
-+	v = readl(ioaddr + EMAC_INT_STA);
-+
-+	if (v & EMAC_TX_INT) {
-+		ret |= handle_tx;
-+		x->tx_normal_irq_n++;
-+	}
-+
-+	if (v & EMAC_TX_DMA_STOP_INT)
-+		x->tx_process_stopped_irq++;
-+
-+	if (v & EMAC_TX_BUF_UA_INT)
-+		x->tx_process_stopped_irq++;
-+
-+	if (v & EMAC_TX_TIMEOUT_INT)
-+		ret |= tx_hard_error;
-+
-+	if (v & EMAC_TX_UNDERFLOW_INT) {
-+		ret |= tx_hard_error;
-+		x->tx_undeflow_irq++;
-+	}
-+
-+	if (v & EMAC_TX_EARLY_INT)
-+		x->tx_early_irq++;
-+
-+	if (v & EMAC_RX_INT) {
-+		ret |= handle_rx;
-+		x->rx_normal_irq_n++;
-+	}
-+
-+	if (v & EMAC_RX_BUF_UA_INT)
-+		x->rx_buf_unav_irq++;
-+
-+	if (v & EMAC_RX_DMA_STOP_INT)
-+		x->rx_process_stopped_irq++;
-+
-+	if (v & EMAC_RX_TIMEOUT_INT)
-+		ret |= tx_hard_error;
-+
-+	if (v & EMAC_RX_OVERFLOW_INT) {
-+		ret |= tx_hard_error;
-+		x->rx_overflow_irq++;
-+	}
-+
-+	if (v & EMAC_RX_EARLY_INT)
-+		x->rx_early_irq++;
-+
-+	if (v & EMAC_RGMII_STA_INT)
-+		x->irq_rgmii_n++;
-+
-+	writel(v, ioaddr + EMAC_INT_STA);
-+
-+	return ret;
-+}
-+
-+static void sun8i_dwmac_dma_operation_mode(void __iomem *ioaddr, int txmode,
-+					   int rxmode, int rxfifosz)
-+{
-+	u32 v;
-+
-+	v = readl(ioaddr + EMAC_TX_CTL1);
-+	if (txmode == SF_DMA_MODE) {
-+		v |= EMAC_TX_MD;
-+		/* Undocumented bit (called TX_NEXT_FRM in BSP), the original
-+		 * comment is
-+		 * "Operating on second frame increase the performance
-+		 * especially when transmit store-and-forward is used."
-+		 */
-+		v |= EMAC_TX_NEXT_FRM;
-+	} else {
-+		v &= ~EMAC_TX_MD;
-+		v &= ~EMAC_TX_TH_MASK;
-+		if (txmode < 64)
-+			v |= EMAC_TX_TH_64;
-+		else if (txmode < 128)
-+			v |= EMAC_TX_TH_128;
-+		else if (txmode < 192)
-+			v |= EMAC_TX_TH_192;
-+		else if (txmode < 256)
-+			v |= EMAC_TX_TH_256;
-+	}
-+	writel(v, ioaddr + EMAC_TX_CTL1);
-+
-+	v = readl(ioaddr + EMAC_RX_CTL1);
-+	if (rxmode == SF_DMA_MODE) {
-+		v |= EMAC_RX_MD;
-+	} else {
-+		v &= ~EMAC_RX_MD;
-+		v &= ~EMAC_RX_TH_MASK;
-+		if (rxmode < 32)
-+			v |= EMAC_RX_TH_32;
-+		else if (rxmode < 64)
-+			v |= EMAC_RX_TH_64;
-+		else if (rxmode < 96)
-+			v |= EMAC_RX_TH_96;
-+		else if (rxmode < 128)
-+			v |= EMAC_RX_TH_128;
-+	}
-+	writel(v, ioaddr + EMAC_RX_CTL1);
-+}
-+
-+static const struct stmmac_dma_ops sun8i_dwmac_dma_ops = {
-+	.reset = sun8i_dwmac_dma_reset,
-+	.init = sun8i_dwmac_dma_init,
-+	.dump_regs = sun8i_dwmac_dump_regs,
-+	.dma_mode = sun8i_dwmac_dma_operation_mode,
-+	.enable_dma_transmission = sun8i_dwmac_enable_dma_transmission,
-+	.enable_dma_irq = sun8i_dwmac_enable_dma_irq,
-+	.disable_dma_irq = sun8i_dwmac_disable_dma_irq,
-+	.start_tx = sun8i_dwmac_dma_start_tx,
-+	.stop_tx = sun8i_dwmac_dma_stop_tx,
-+	.start_rx = sun8i_dwmac_dma_start_rx,
-+	.stop_rx = sun8i_dwmac_dma_stop_rx,
-+	.dma_interrupt = sun8i_dwmac_dma_interrupt,
-+};
-+
-+static int sun8i_dwmac_init(struct platform_device *pdev, void *priv)
-+{
-+	struct sunxi_priv_data *gmac = priv;
-+	int ret;
-+
-+	if (gmac->regulator) {
-+		ret = regulator_enable(gmac->regulator);
-+		if (ret) {
-+			dev_err(&pdev->dev, "Fail to enable regulator\n");
-+			return ret;
-+		}
-+	}
-+
-+	ret = clk_prepare_enable(gmac->tx_clk);
-+	if (ret) {
-+		if (gmac->regulator)
-+			regulator_disable(gmac->regulator);
-+		dev_err(&pdev->dev, "Could not enable AHB clock\n");
-+		return ret;
-+	}
-+
-+	return 0;
-+}
-+
-+static void sun8i_dwmac_core_init(struct mac_device_info *hw, int mtu)
-+{
-+	void __iomem *ioaddr = hw->pcsr;
-+	u32 v;
-+
-+	v = (8 << EMAC_BURSTLEN_SHIFT); /* burst len */
-+	writel(v, ioaddr + EMAC_BASIC_CTL1);
-+}
-+
-+static void sun8i_dwmac_set_mac(void __iomem *ioaddr, bool enable)
-+{
-+	u32 t, r;
-+
-+	t = readl(ioaddr + EMAC_TX_CTL0);
-+	r = readl(ioaddr + EMAC_RX_CTL0);
-+	if (enable) {
-+		t |= EMAC_TX_TRANSMITTER_EN;
-+		r |= EMAC_RX_RECEIVER_EN;
-+	} else {
-+		t &= ~EMAC_TX_TRANSMITTER_EN;
-+		r &= ~EMAC_RX_RECEIVER_EN;
-+	}
-+	writel(t, ioaddr + EMAC_TX_CTL0);
-+	writel(r, ioaddr + EMAC_RX_CTL0);
-+}
-+
-+static void sun8i_dwmac_set_umac_addr(struct mac_device_info *hw,
-+				      unsigned char *addr,
-+				      unsigned int reg_n)
-+{
-+	void __iomem *ioaddr = hw->pcsr;
-+	u32 v;
-+
-+	stmmac_set_mac_addr(ioaddr, addr, EMAC_MACADDR_HI(reg_n),
-+			    EMAC_MACADDR_LO(reg_n));
-+	if (reg_n > 0) {
-+		v = readl(ioaddr + EMAC_MACADDR_HI(reg_n));
-+		v |= MAC_ADDR_TYPE_DST;
-+		writel(v, ioaddr + EMAC_MACADDR_HI(reg_n));
-+	}
-+}
-+
-+static void sun8i_dwmac_get_umac_addr(struct mac_device_info *hw,
-+				      unsigned char *addr,
-+				      unsigned int reg_n)
-+{
-+	void __iomem *ioaddr = hw->pcsr;
-+
-+	stmmac_get_mac_addr(ioaddr, addr, EMAC_MACADDR_HI(reg_n),
-+			    EMAC_MACADDR_LO(reg_n));
-+}
-+
-+/* caution this function must return non 0 to work */
-+static int sun8i_dwmac_rx_ipc_enable(struct mac_device_info *hw)
-+{
-+	void __iomem *ioaddr = hw->pcsr;
-+	u32 v;
-+
-+	v = readl(ioaddr + EMAC_RX_CTL0);
-+	v |= EMAC_RX_DO_CRC;
-+	writel(v, ioaddr + EMAC_RX_CTL0);
-+
-+	return 1;
-+}
-+
-+static void sun8i_dwmac_set_filter(struct mac_device_info *hw,
-+				   struct net_device *dev)
-+{
-+	void __iomem *ioaddr = hw->pcsr;
-+	u32 v;
-+	int i = 0;
-+	struct netdev_hw_addr *ha;
-+
-+	v = readl(ioaddr + EMAC_RX_FRM_FLT);
-+
-+	v |= EMAC_FRM_FLT_CTL;
-+
-+	if (dev->flags & IFF_PROMISC) {
-+		v = EMAC_FRM_FLT_RXALL;
-+	} else if (dev->flags & IFF_ALLMULTI) {
-+		v = EMAC_FRM_FLT_MULTICAST;
-+	} else if (!netdev_mc_empty(dev)) {
-+		netdev_for_each_mc_addr(ha, dev) {
-+			i++;
-+			sun8i_dwmac_set_umac_addr(hw, ha->addr, i);
-+		}
-+	}
-+
-+	if (netdev_uc_count(dev) + i > hw->unicast_filter_entries) {
-+		netdev_info(dev, "Too many address, switching to promiscuous\n");
-+		v = EMAC_FRM_FLT_RXALL;
-+	} else {
-+		netdev_for_each_uc_addr(ha, dev) {
-+			i++;
-+			sun8i_dwmac_set_umac_addr(hw, ha->addr, i);
-+		}
-+	}
-+	writel(v, ioaddr + EMAC_RX_FRM_FLT);
-+}
-+
-+static void sun8i_dwmac_flow_ctrl(struct mac_device_info *hw,
-+				  unsigned int duplex, unsigned int fc,
-+				  unsigned int pause_time, u32 tx_cnt)
-+{
-+	void __iomem *ioaddr = hw->pcsr;
-+	u32 v;
-+
-+	v = readl(ioaddr + EMAC_RX_CTL0);
-+	if (fc == FLOW_AUTO)
-+		v |= EMAC_RX_FLOW_CTL_EN;
-+	else
-+		v &= ~EMAC_RX_FLOW_CTL_EN;
-+	writel(v, ioaddr + EMAC_RX_CTL0);
-+
-+	v = readl(ioaddr + EMAC_TX_FLOW_CTL);
-+	if (fc == FLOW_AUTO)
-+		v |= EMAC_TX_FLOW_CTL_EN;
-+	else
-+		v &= ~EMAC_TX_FLOW_CTL_EN;
-+	writel(v, ioaddr + EMAC_TX_FLOW_CTL);
-+}
-+
-+static int sun8i_dwmac_reset(struct stmmac_priv *priv)
-+{
-+	u32 v;
-+	int err;
-+
-+	v = readl(priv->ioaddr + EMAC_BASIC_CTL1);
-+	writel(v | 0x01, priv->ioaddr + EMAC_BASIC_CTL1);
-+
-+	err = readl_poll_timeout(priv->ioaddr + EMAC_BASIC_CTL1, v,
-+				 !(v & 0x01), 100, 10000);
-+
-+	if (err) {
-+		dev_err(priv->device, "EMAC reset timeout\n");
-+		return -EFAULT;
-+	}
-+	return 0;
-+}
-+
-+static int sun8i_dwmac_set_syscon(struct stmmac_priv *priv)
-+{
-+	struct sunxi_priv_data *gmac = priv->plat->bsp_priv;
-+	struct device_node *node = priv->device->of_node;
-+	int ret;
-+	u32 reg, val;
-+
-+	regmap_read(gmac->regmap, SYSCON_EMAC_REG, &val);
-+	reg = gmac->variant->default_syscon_value;
-+	if (reg != val)
-+		dev_warn(priv->device,
-+			 "Current syscon value is not the default %x (expect %x)\n",
-+			 val, reg);
-+
-+	if (gmac->variant->internal_phy) {
-+		if (!gmac->use_internal_phy) {
-+			/* switch to external PHY interface */
-+			reg &= ~H3_EPHY_SELECT;
-+		} else {
-+			reg |= H3_EPHY_SELECT;
-+			reg &= ~H3_EPHY_SHUTDOWN;
-+			dev_dbg(priv->device, "Select internal_phy %x\n", reg);
-+
-+			if (of_property_read_bool(priv->plat->phy_node,
-+						  "allwinner,leds-active-low"))
-+				reg |= H3_EPHY_LED_POL;
-+			else
-+				reg &= ~H3_EPHY_LED_POL;
-+
-+			ret = of_mdio_parse_addr(priv->device,
-+						 priv->plat->phy_node);
-+			if (ret < 0) {
-+				dev_err(priv->device, "Could not parse MDIO addr\n");
-+				return ret;
-+			}
-+			/* of_mdio_parse_addr returns a valid (0 ~ 31) PHY
-+			 * address. No need to mask it again.
-+			 */
-+			reg |= ret << H3_EPHY_ADDR_SHIFT;
-+		}
-+	}
-+
-+	if (!of_property_read_u32(node, "allwinner,tx-delay", &val)) {
-+		dev_dbg(priv->device, "set tx-delay to %x\n", val);
-+		if (val <= SYSCON_ETXDC_MASK) {
-+			reg &= ~(SYSCON_ETXDC_MASK << SYSCON_ETXDC_SHIFT);
-+			reg |= (val << SYSCON_ETXDC_SHIFT);
-+		} else {
-+			dev_err(priv->device, "Invalid TX clock delay: %d\n",
-+				val);
-+			return -EINVAL;
-+		}
-+	}
-+
-+	if (!of_property_read_u32(node, "allwinner,rx-delay", &val)) {
-+		dev_dbg(priv->device, "set rx-delay to %x\n", val);
-+		if (val <= SYSCON_ERXDC_MASK) {
-+			reg &= ~(SYSCON_ERXDC_MASK << SYSCON_ERXDC_SHIFT);
-+			reg |= (val << SYSCON_ERXDC_SHIFT);
-+		} else {
-+			dev_err(priv->device, "Invalid RX clock delay: %d\n",
-+				val);
-+			return -EINVAL;
-+		}
-+	}
-+
-+	/* Clear interface mode bits */
-+	reg &= ~(SYSCON_ETCS_MASK | SYSCON_EPIT);
-+	if (gmac->variant->support_rmii)
-+		reg &= ~SYSCON_RMII_EN;
-+
-+	switch (priv->plat->interface) {
-+	case PHY_INTERFACE_MODE_MII:
-+		/* default */
-+		break;
-+	case PHY_INTERFACE_MODE_RGMII:
-+		reg |= SYSCON_EPIT | SYSCON_ETCS_INT_GMII;
-+		break;
-+	case PHY_INTERFACE_MODE_RMII:
-+		reg |= SYSCON_RMII_EN | SYSCON_ETCS_EXT_GMII;
-+		break;
-+	default:
-+		dev_err(priv->device, "Unsupported interface mode: %s",
-+			phy_modes(priv->plat->interface));
-+		return -EINVAL;
-+	}
-+
-+	regmap_write(gmac->regmap, SYSCON_EMAC_REG, reg);
-+
-+	return 0;
-+}
-+
-+static void sun8i_dwmac_unset_syscon(struct sunxi_priv_data *gmac)
-+{
-+	u32 reg = gmac->variant->default_syscon_value;
-+
-+	regmap_write(gmac->regmap, SYSCON_EMAC_REG, reg);
-+}
-+
-+static int sun8i_dwmac_power_internal_phy(struct stmmac_priv *priv)
-+{
-+	struct sunxi_priv_data *gmac = priv->plat->bsp_priv;
-+	int ret;
-+
-+	if (gmac->ephy_clk) {
-+		ret = clk_prepare_enable(gmac->ephy_clk);
-+		if (ret) {
-+			dev_err(priv->device, "Cannot enable ephy\n");
-+			return ret;
-+		}
-+	}
-+
-+	if (gmac->rst_ephy) {
-+		ret = reset_control_deassert(gmac->rst_ephy);
-+		if (ret) {
-+			dev_err(priv->device, "Cannot deassert ephy\n");
-+			clk_disable_unprepare(gmac->ephy_clk);
-+			return ret;
-+		}
-+	}
-+
-+	return 0;
-+}
-+
-+static int sun8i_dwmac_unpower_internal_phy(struct sunxi_priv_data *gmac)
-+{
-+	if (gmac->ephy_clk)
-+		clk_disable_unprepare(gmac->ephy_clk);
-+	if (gmac->rst_ephy)
-+		reset_control_assert(gmac->rst_ephy);
-+	return 0;
-+}
-+
-+static int sun8i_power_phy(struct stmmac_priv *priv)
-+{
-+	struct sunxi_priv_data *gmac = priv->plat->bsp_priv;
-+	int ret;
-+
-+	ret = sun8i_dwmac_power_internal_phy(priv);
-+	if (ret)
-+		return ret;
-+
-+	ret = sun8i_dwmac_set_syscon(priv);
-+	if (ret)
-+		goto error_phy;
-+
-+	ret = sun8i_dwmac_reset(priv);
-+	if (ret)
-+		goto error_phy;
-+	return 0;
-+
-+error_phy:
-+	sun8i_dwmac_unset_syscon(gmac);
-+	sun8i_dwmac_unpower_internal_phy(gmac);
-+	return ret;
-+}
-+
-+static void sun8i_unpower_phy(struct sunxi_priv_data *gmac)
-+{
-+	sun8i_dwmac_unset_syscon(gmac);
-+	sun8i_dwmac_unpower_internal_phy(gmac);
-+}
-+
-+static void sun8i_dwmac_exit(struct platform_device *pdev, void *priv)
-+{
-+	struct sunxi_priv_data *gmac = priv;
-+
-+	sun8i_unpower_phy(gmac);
-+
-+	clk_disable_unprepare(gmac->tx_clk);
-+
-+	if (gmac->regulator)
-+		regulator_disable(gmac->regulator);
-+}
-+
-+static const struct stmmac_ops sun8i_dwmac_ops = {
-+	.core_init = sun8i_dwmac_core_init,
-+	.set_mac = sun8i_dwmac_set_mac,
-+	.dump_regs = sun8i_dwmac_dump_mac_regs,
-+	.rx_ipc = sun8i_dwmac_rx_ipc_enable,
-+	.set_filter = sun8i_dwmac_set_filter,
-+	.flow_ctrl = sun8i_dwmac_flow_ctrl,
-+	.set_umac_addr = sun8i_dwmac_set_umac_addr,
-+	.get_umac_addr = sun8i_dwmac_get_umac_addr,
-+};
-+
-+static struct mac_device_info *sun8i_dwmac_setup(struct stmmac_priv *priv)
-+{
-+	struct mac_device_info *mac;
-+	int ret;
-+
-+	mac = devm_kzalloc(priv->device, sizeof(*mac), GFP_KERNEL);
-+	if (!mac)
-+		return NULL;
-+
-+	ret = sun8i_power_phy(priv);
-+	if (ret)
-+		return NULL;
-+
-+	mac->pcsr = priv->ioaddr;
-+	mac->mac = &sun8i_dwmac_ops;
-+	mac->dma = &sun8i_dwmac_dma_ops;
-+
-+	mac->link.port = 0;
-+	mac->link.duplex = BIT(0);
-+	mac->link.speed = 1;
-+	mac->mii.addr = EMAC_MDIO_CMD;
-+	mac->mii.data = EMAC_MDIO_DATA;
-+	mac->mii.reg_shift = 4;
-+	mac->mii.reg_mask = GENMASK(8, 4);
-+	mac->mii.addr_shift = 12;
-+	mac->mii.addr_mask = GENMASK(16, 12);
-+	mac->mii.clk_csr_shift = 20;
-+	mac->mii.clk_csr_mask = GENMASK(22, 20);
-+	mac->unicast_filter_entries = 8;
-+
-+	/* Synopsys Id is not available */
-+	priv->synopsys_id = 0;
-+
-+	return mac;
-+}
-+
-+static int sun8i_dwmac_probe(struct platform_device *pdev)
-+{
-+	struct plat_stmmacenet_data *plat_dat;
-+	struct stmmac_resources stmmac_res;
-+	struct sunxi_priv_data *gmac;
-+	struct device *dev = &pdev->dev;
-+	int ret;
-+
-+	ret = stmmac_get_platform_resources(pdev, &stmmac_res);
-+	if (ret)
-+		return ret;
-+
-+	plat_dat = stmmac_probe_config_dt(pdev, &stmmac_res.mac);
-+	if (IS_ERR(plat_dat))
-+		return PTR_ERR(plat_dat);
-+
-+	gmac = devm_kzalloc(dev, sizeof(*gmac), GFP_KERNEL);
-+	if (!gmac)
-+		return -ENOMEM;
-+
-+	gmac->variant = of_device_get_match_data(&pdev->dev);
-+	if (!gmac->variant) {
-+		dev_err(&pdev->dev, "Missing sun8i-emac variant\n");
-+		return -EINVAL;
-+	}
-+
-+	gmac->tx_clk = devm_clk_get(dev, "stmmaceth");
-+	if (IS_ERR(gmac->tx_clk)) {
-+		dev_err(dev, "could not get tx clock\n");
-+		return PTR_ERR(gmac->tx_clk);
-+	}
-+
-+	/* Optional regulator for PHY */
-+	gmac->regulator = devm_regulator_get_optional(dev, "phy");
-+	if (IS_ERR(gmac->regulator)) {
-+		if (PTR_ERR(gmac->regulator) == -EPROBE_DEFER)
-+			return -EPROBE_DEFER;
-+		dev_info(dev, "no regulator found\n");
-+		gmac->regulator = NULL;
-+	}
-+
-+	gmac->regmap = syscon_regmap_lookup_by_phandle(pdev->dev.of_node,
-+						       "syscon");
-+	if (IS_ERR(gmac->regmap)) {
-+		ret = PTR_ERR(gmac->regmap);
-+		dev_err(&pdev->dev, "unable to map SYSCON:%d\n", ret);
-+		return ret;
-+	}
-+
-+	plat_dat->interface = of_get_phy_mode(dev->of_node);
-+	if (plat_dat->interface == gmac->variant->internal_phy) {
-+		dev_info(&pdev->dev, "Will use internal PHY\n");
-+		gmac->use_internal_phy = true;
-+		gmac->ephy_clk = of_clk_get(plat_dat->phy_node, 0);
-+		if (IS_ERR(gmac->ephy_clk)) {
-+			ret = PTR_ERR(gmac->ephy_clk);
-+			dev_err(&pdev->dev, "Cannot get EPHY clock err=%d\n",
-+				ret);
-+			return -EINVAL;
-+		}
-+
-+		gmac->rst_ephy = of_reset_control_get(plat_dat->phy_node, NULL);
-+		if (IS_ERR(gmac->rst_ephy)) {
-+			ret = PTR_ERR(gmac->rst_ephy);
-+			if (ret == -EPROBE_DEFER)
-+				return ret;
-+			dev_err(&pdev->dev, "No EPHY reset control found %d\n",
-+				ret);
-+			return -EINVAL;
-+		}
-+	} else {
-+		dev_info(&pdev->dev, "Will use external PHY\n");
-+		gmac->use_internal_phy = false;
-+	}
-+
-+	/* platform data specifying hardware features and callbacks.
-+	 * hardware features were copied from Allwinner drivers.
-+	 */
-+	plat_dat->rx_coe = STMMAC_RX_COE_TYPE2;
-+	plat_dat->tx_coe = 1;
-+	plat_dat->has_sun8i = true;
-+	plat_dat->bsp_priv = gmac;
-+	plat_dat->init = sun8i_dwmac_init;
-+	plat_dat->exit = sun8i_dwmac_exit;
-+	plat_dat->setup = sun8i_dwmac_setup;
-+
-+	ret = sun8i_dwmac_init(pdev, plat_dat->bsp_priv);
-+	if (ret)
-+		return ret;
-+
-+	ret = stmmac_dvr_probe(&pdev->dev, plat_dat, &stmmac_res);
-+	if (ret)
-+		sun8i_dwmac_exit(pdev, plat_dat->bsp_priv);
-+
-+	return ret;
-+}
-+
-+static const struct of_device_id sun8i_dwmac_match[] = {
-+	{ .compatible = "allwinner,sun8i-h3-emac",
-+		.data = &emac_variant_h3 },
-+	{ .compatible = "allwinner,sun8i-a83t-emac",
-+		.data = &emac_variant_a83t },
-+	{ .compatible = "allwinner,sun50i-a64-emac",
-+		.data = &emac_variant_a64 },
-+	{ }
-+};
-+MODULE_DEVICE_TABLE(of, sun8i_dwmac_match);
-+
-+static struct platform_driver sun8i_dwmac_driver = {
-+	.probe  = sun8i_dwmac_probe,
-+	.remove = stmmac_pltfr_remove,
-+	.driver = {
-+		.name           = "sun8i-dwmac",
-+		.pm		= &stmmac_pltfr_pm_ops,
-+		.of_match_table = sun8i_dwmac_match,
-+	},
-+};
-+module_platform_driver(sun8i_dwmac_driver);
-+
-+MODULE_AUTHOR("Corentin Labbe <clabbe.montjoie@gmail.com>");
-+MODULE_DESCRIPTION("Allwinner sun8i DWMAC specific glue layer");
-+MODULE_LICENSE("GPL");
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 3beca41..6a48edb 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -177,6 +177,17 @@ static void stmmac_clk_csr_set(struct stmmac_priv *priv)
- 		else if ((clk_rate >= CSR_F_250M) && (clk_rate < CSR_F_300M))
- 			priv->clk_csr = STMMAC_CSR_250_300M;
- 	}
-+
-+	if (priv->plat->has_sun8i) {
-+		if (clk_rate > 160000000)
-+			priv->clk_csr = 0x03;
-+		else if (clk_rate > 80000000)
-+			priv->clk_csr = 0x02;
-+		else if (clk_rate > 40000000)
-+			priv->clk_csr = 0x01;
-+		else
-+			priv->clk_csr = 0;
-+	}
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_cxt.c b/drivers/net/ethernet/qlogic/qed/qed_cxt.c
+index 8db0234..485b8b2 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_cxt.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_cxt.c
+@@ -543,7 +543,22 @@ static u32 qed_ilt_get_dynamic_line_cnt(struct qed_hwfn *p_hwfn,
+ 	return lines_to_skip;
  }
  
- static void print_pkt(unsigned char *buf, int len)
-@@ -709,6 +720,10 @@ static void stmmac_adjust_link(struct net_device *dev)
- 	if (phydev->link) {
- 		u32 ctrl = readl(priv->ioaddr + MAC_CTRL_REG);
- 
-+		/* disable loopback */
-+		if (priv->plat->has_sun8i)
-+			ctrl &= ~BIT(1);
+-int qed_cxt_cfg_ilt_compute(struct qed_hwfn *p_hwfn)
++static struct qed_ilt_client_cfg *qed_cxt_set_cli(struct qed_ilt_client_cfg
++						  *p_cli)
++{
++	p_cli->active = false;
++	p_cli->first.val = 0;
++	p_cli->last.val = 0;
++	return p_cli;
++}
 +
- 		/* Now we make sure that we can be in full duplex mode.
- 		 * If not, we operate in half-duplex mode. */
- 		if (phydev->duplex != priv->oldduplex) {
-@@ -725,6 +740,8 @@ static void stmmac_adjust_link(struct net_device *dev)
- 
- 		if (phydev->speed != priv->speed) {
- 			new_state = 1;
-+			if (priv->plat->has_sun8i)
-+				ctrl &= ~GENMASK(3, 2);
- 			switch (phydev->speed) {
- 			case 1000:
- 				if (priv->plat->has_gmac ||
-@@ -736,6 +753,8 @@ static void stmmac_adjust_link(struct net_device *dev)
- 				    priv->plat->has_gmac4) {
- 					ctrl |= priv->hw->link.port;
- 					ctrl |= priv->hw->link.speed;
-+				} else if (priv->plat->has_sun8i) {
-+					ctrl |= 3 << 2;
- 				} else {
- 					ctrl &= ~priv->hw->link.port;
- 				}
-@@ -745,6 +764,8 @@ static void stmmac_adjust_link(struct net_device *dev)
- 				    priv->plat->has_gmac4) {
- 					ctrl |= priv->hw->link.port;
- 					ctrl &= ~(priv->hw->link.speed);
-+				} else if (priv->plat->has_sun8i) {
-+					ctrl |= 2 << 2;
- 				} else {
- 					ctrl &= ~priv->hw->link.port;
- 				}
-@@ -3530,6 +3551,10 @@ static int stmmac_hw_init(struct stmmac_priv *priv)
- 
- 	priv->hw = mac;
- 
-+	/* dwmac-sun8i only work in chain mode */
-+	if (priv->plat->has_sun8i)
-+		chain_mode = 1;
++static struct qed_ilt_cli_blk *qed_cxt_set_blk(struct qed_ilt_cli_blk *p_blk)
++{
++	p_blk->total_size = 0;
++	return p_blk;
++}
 +
- 	/* To use the chained or ring mode */
- 	if (priv->synopsys_id >= DWMAC_CORE_4_00) {
- 		priv->hw->mode = &dwmac4_ring_mode_ops;
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-index 7fc3a1e..3840529 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-@@ -309,6 +309,12 @@ static int stmmac_dt_phy(struct plat_stmmacenet_data *plat,
- 			 struct device_node *np, struct device *dev)
++int qed_cxt_cfg_ilt_compute(struct qed_hwfn *p_hwfn, u32 *line_count)
  {
- 	bool mdio = true;
-+	static const struct of_device_id need_mdio_ids[] = {
-+		{ .compatible = "snps,dwc-qos-ethernet-4.10" },
-+		{ .compatible = "allwinner,sun8i-a83t-emac" },
-+		{ .compatible = "allwinner,sun8i-h3-emac" },
-+		{ .compatible = "allwinner,sun50i-a64-emac" },
-+	};
+ 	struct qed_cxt_mngr *p_mngr = p_hwfn->p_cxt_mngr;
+ 	u32 curr_line, total, i, task_size, line;
+@@ -567,7 +582,8 @@ int qed_cxt_cfg_ilt_compute(struct qed_hwfn *p_hwfn)
+ 		   p_hwfn->my_id, p_hwfn->p_cxt_mngr->pf_start_line);
  
- 	/* If phy-handle property is passed from DT, use it as the PHY */
- 	plat->phy_node = of_parse_phandle(np, "phy-handle", 0);
-@@ -325,8 +331,7 @@ static int stmmac_dt_phy(struct plat_stmmacenet_data *plat,
- 		mdio = false;
+ 	/* CDUC */
+-	p_cli = &p_mngr->clients[ILT_CLI_CDUC];
++	p_cli = qed_cxt_set_cli(&p_mngr->clients[ILT_CLI_CDUC]);
++
+ 	curr_line = p_mngr->pf_start_line;
+ 
+ 	/* CDUC PF */
+@@ -576,7 +592,7 @@ int qed_cxt_cfg_ilt_compute(struct qed_hwfn *p_hwfn)
+ 	/* get the counters for the CDUC and QM clients  */
+ 	qed_cxt_cdu_iids(p_mngr, &cdu_iids);
+ 
+-	p_blk = &p_cli->pf_blks[CDUC_BLK];
++	p_blk = qed_cxt_set_blk(&p_cli->pf_blks[CDUC_BLK]);
+ 
+ 	total = cdu_iids.pf_cids * CONN_CXT_SIZE(p_hwfn);
+ 
+@@ -590,7 +606,7 @@ int qed_cxt_cfg_ilt_compute(struct qed_hwfn *p_hwfn)
+ 							       ILT_CLI_CDUC);
+ 
+ 	/* CDUC VF */
+-	p_blk = &p_cli->vf_blks[CDUC_BLK];
++	p_blk = qed_cxt_set_blk(&p_cli->vf_blks[CDUC_BLK]);
+ 	total = cdu_iids.per_vf_cids * CONN_CXT_SIZE(p_hwfn);
+ 
+ 	qed_ilt_cli_blk_fill(p_cli, p_blk, curr_line,
+@@ -604,7 +620,7 @@ int qed_cxt_cfg_ilt_compute(struct qed_hwfn *p_hwfn)
+ 				     ILT_CLI_CDUC);
+ 
+ 	/* CDUT PF */
+-	p_cli = &p_mngr->clients[ILT_CLI_CDUT];
++	p_cli = qed_cxt_set_cli(&p_mngr->clients[ILT_CLI_CDUT]);
+ 	p_cli->first.val = curr_line;
+ 
+ 	/* first the 'working' task memory */
+@@ -613,7 +629,7 @@ int qed_cxt_cfg_ilt_compute(struct qed_hwfn *p_hwfn)
+ 		if (!p_seg || p_seg->count == 0)
+ 			continue;
+ 
+-		p_blk = &p_cli->pf_blks[CDUT_SEG_BLK(i)];
++		p_blk = qed_cxt_set_blk(&p_cli->pf_blks[CDUT_SEG_BLK(i)]);
+ 		total = p_seg->count * p_mngr->task_type_size[p_seg->type];
+ 		qed_ilt_cli_blk_fill(p_cli, p_blk, curr_line, total,
+ 				     p_mngr->task_type_size[p_seg->type]);
+@@ -628,7 +644,8 @@ int qed_cxt_cfg_ilt_compute(struct qed_hwfn *p_hwfn)
+ 		if (!p_seg || p_seg->count == 0)
+ 			continue;
+ 
+-		p_blk = &p_cli->pf_blks[CDUT_FL_SEG_BLK(i, PF)];
++		p_blk =
++		    qed_cxt_set_blk(&p_cli->pf_blks[CDUT_FL_SEG_BLK(i, PF)]);
+ 
+ 		if (!p_seg->has_fl_mem) {
+ 			/* The segment is active (total size pf 'working'
+@@ -673,7 +690,7 @@ int qed_cxt_cfg_ilt_compute(struct qed_hwfn *p_hwfn)
+ 		/* 'working' memory */
+ 		total = p_seg->count * p_mngr->task_type_size[p_seg->type];
+ 
+-		p_blk = &p_cli->vf_blks[CDUT_SEG_BLK(0)];
++		p_blk = qed_cxt_set_blk(&p_cli->vf_blks[CDUT_SEG_BLK(0)]);
+ 		qed_ilt_cli_blk_fill(p_cli, p_blk,
+ 				     curr_line, total,
+ 				     p_mngr->task_type_size[p_seg->type]);
+@@ -682,7 +699,8 @@ int qed_cxt_cfg_ilt_compute(struct qed_hwfn *p_hwfn)
+ 				     ILT_CLI_CDUT);
+ 
+ 		/* 'init' memory */
+-		p_blk = &p_cli->vf_blks[CDUT_FL_SEG_BLK(0, VF)];
++		p_blk =
++		    qed_cxt_set_blk(&p_cli->vf_blks[CDUT_FL_SEG_BLK(0, VF)]);
+ 		if (!p_seg->has_fl_mem) {
+ 			/* see comment above */
+ 			line = p_cli->vf_blks[CDUT_SEG_BLK(0)].start_line;
+@@ -710,8 +728,8 @@ int qed_cxt_cfg_ilt_compute(struct qed_hwfn *p_hwfn)
  	}
  
--	/* exception for dwmac-dwc-qos-eth glue logic */
--	if (of_device_is_compatible(np, "snps,dwc-qos-ethernet-4.10")) {
-+	if (of_match_node(need_mdio_ids, np)) {
- 		plat->mdio_node = of_get_child_by_name(np, "mdio");
- 	} else {
- 		/**
-diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
-index dadd74b..412d8dc 100644
---- a/include/linux/stmmac.h
-+++ b/include/linux/stmmac.h
-@@ -188,6 +188,7 @@ struct plat_stmmacenet_data {
- 	struct reset_control *stmmac_rst;
- 	struct stmmac_axi *axi;
- 	int has_gmac4;
-+	bool has_sun8i;
- 	bool tso_en;
- 	int mac_port_sel_speed;
- 	bool en_tx_lpi_clockgating;
+ 	/* QM */
+-	p_cli = &p_mngr->clients[ILT_CLI_QM];
+-	p_blk = &p_cli->pf_blks[0];
++	p_cli = qed_cxt_set_cli(&p_mngr->clients[ILT_CLI_QM]);
++	p_blk = qed_cxt_set_blk(&p_cli->pf_blks[0]);
+ 
+ 	qed_cxt_qm_iids(p_hwfn, &qm_iids);
+ 	total = qed_qm_pf_mem_size(p_hwfn->rel_pf_id, qm_iids.cids,
+@@ -735,7 +753,7 @@ int qed_cxt_cfg_ilt_compute(struct qed_hwfn *p_hwfn)
+ 	p_cli->pf_total_lines = curr_line - p_blk->start_line;
+ 
+ 	/* SRC */
+-	p_cli = &p_mngr->clients[ILT_CLI_SRC];
++	p_cli = qed_cxt_set_cli(&p_mngr->clients[ILT_CLI_SRC]);
+ 	qed_cxt_src_iids(p_mngr, &src_iids);
+ 
+ 	/* Both the PF and VFs searcher connections are stored in the per PF
+@@ -749,7 +767,7 @@ int qed_cxt_cfg_ilt_compute(struct qed_hwfn *p_hwfn)
+ 
+ 		total = roundup_pow_of_two(local_max);
+ 
+-		p_blk = &p_cli->pf_blks[0];
++		p_blk = qed_cxt_set_blk(&p_cli->pf_blks[0]);
+ 		qed_ilt_cli_blk_fill(p_cli, p_blk, curr_line,
+ 				     total * sizeof(struct src_ent),
+ 				     sizeof(struct src_ent));
+@@ -760,11 +778,11 @@ int qed_cxt_cfg_ilt_compute(struct qed_hwfn *p_hwfn)
+ 	}
+ 
+ 	/* TM PF */
+-	p_cli = &p_mngr->clients[ILT_CLI_TM];
++	p_cli = qed_cxt_set_cli(&p_mngr->clients[ILT_CLI_TM]);
+ 	qed_cxt_tm_iids(p_hwfn, p_mngr, &tm_iids);
+ 	total = tm_iids.pf_cids + tm_iids.pf_tids_total;
+ 	if (total) {
+-		p_blk = &p_cli->pf_blks[0];
++		p_blk = qed_cxt_set_blk(&p_cli->pf_blks[0]);
+ 		qed_ilt_cli_blk_fill(p_cli, p_blk, curr_line,
+ 				     total * TM_ELEM_SIZE, TM_ELEM_SIZE);
+ 
+@@ -776,7 +794,7 @@ int qed_cxt_cfg_ilt_compute(struct qed_hwfn *p_hwfn)
+ 	/* TM VF */
+ 	total = tm_iids.per_vf_cids + tm_iids.per_vf_tids;
+ 	if (total) {
+-		p_blk = &p_cli->vf_blks[0];
++		p_blk = qed_cxt_set_blk(&p_cli->vf_blks[0]);
+ 		qed_ilt_cli_blk_fill(p_cli, p_blk, curr_line,
+ 				     total * TM_ELEM_SIZE, TM_ELEM_SIZE);
+ 
+@@ -793,8 +811,8 @@ int qed_cxt_cfg_ilt_compute(struct qed_hwfn *p_hwfn)
+ 	total = qed_cxt_get_srq_count(p_hwfn);
+ 
+ 	if (total) {
+-		p_cli = &p_mngr->clients[ILT_CLI_TSDM];
+-		p_blk = &p_cli->pf_blks[SRQ_BLK];
++		p_cli = qed_cxt_set_cli(&p_mngr->clients[ILT_CLI_TSDM]);
++		p_blk = qed_cxt_set_blk(&p_cli->pf_blks[SRQ_BLK]);
+ 		qed_ilt_cli_blk_fill(p_cli, p_blk, curr_line,
+ 				     total * SRQ_CXT_SIZE, SRQ_CXT_SIZE);
+ 
+@@ -803,13 +821,50 @@ int qed_cxt_cfg_ilt_compute(struct qed_hwfn *p_hwfn)
+ 		p_cli->pf_total_lines = curr_line - p_blk->start_line;
+ 	}
+ 
++	*line_count = curr_line - p_hwfn->p_cxt_mngr->pf_start_line;
++
+ 	if (curr_line - p_hwfn->p_cxt_mngr->pf_start_line >
+-	    RESC_NUM(p_hwfn, QED_ILT)) {
+-		DP_ERR(p_hwfn, "too many ilt lines...#lines=%d\n",
+-		       curr_line - p_hwfn->p_cxt_mngr->pf_start_line);
++	    RESC_NUM(p_hwfn, QED_ILT))
+ 		return -EINVAL;
++
++	return 0;
++}
++
++u32 qed_cxt_cfg_ilt_compute_excess(struct qed_hwfn *p_hwfn, u32 used_lines)
++{
++	struct qed_ilt_client_cfg *p_cli;
++	u32 excess_lines, available_lines;
++	struct qed_cxt_mngr *p_mngr;
++	u32 ilt_page_size, elem_size;
++	struct qed_tid_seg *p_seg;
++	int i;
++
++	available_lines = RESC_NUM(p_hwfn, QED_ILT);
++	excess_lines = used_lines - available_lines;
++
++	if (!excess_lines)
++		return 0;
++
++	if (p_hwfn->hw_info.personality != QED_PCI_ETH_ROCE)
++		return 0;
++
++	p_mngr = p_hwfn->p_cxt_mngr;
++	p_cli = &p_mngr->clients[ILT_CLI_CDUT];
++	ilt_page_size = ILT_PAGE_IN_BYTES(p_cli->p_size.val);
++
++	for (i = 0; i < NUM_TASK_PF_SEGMENTS; i++) {
++		p_seg = qed_cxt_tid_seg_info(p_hwfn, i);
++		if (!p_seg || p_seg->count == 0)
++			continue;
++
++		elem_size = p_mngr->task_type_size[p_seg->type];
++		if (!elem_size)
++			continue;
++
++		return (ilt_page_size / elem_size) * excess_lines;
+ 	}
+ 
++	DP_NOTICE(p_hwfn, "failed computing excess ILT lines\n");
+ 	return 0;
+ }
+ 
+@@ -1893,13 +1948,12 @@ int qed_cxt_get_cid_info(struct qed_hwfn *p_hwfn, struct qed_cxt_info *p_info)
+ }
+ 
+ static void qed_rdma_set_pf_params(struct qed_hwfn *p_hwfn,
+-				   struct qed_rdma_pf_params *p_params)
++				   struct qed_rdma_pf_params *p_params,
++				   u32 num_tasks)
+ {
+-	u32 num_cons, num_tasks, num_qps, num_mrs, num_srqs;
++	u32 num_cons, num_qps, num_srqs;
+ 	enum protocol_type proto;
+ 
+-	num_mrs = min_t(u32, RDMA_MAX_TIDS, p_params->num_mrs);
+-	num_tasks = num_mrs;	/* each mr uses a single task id */
+ 	num_srqs = min_t(u32, 32 * 1024, p_params->num_srqs);
+ 
+ 	switch (p_hwfn->hw_info.personality) {
+@@ -1928,7 +1982,7 @@ static void qed_rdma_set_pf_params(struct qed_hwfn *p_hwfn,
+ 	}
+ }
+ 
+-int qed_cxt_set_pf_params(struct qed_hwfn *p_hwfn)
++int qed_cxt_set_pf_params(struct qed_hwfn *p_hwfn, u32 rdma_tasks)
+ {
+ 	/* Set the number of required CORE connections */
+ 	u32 core_cids = 1; /* SPQ */
+@@ -1940,9 +1994,10 @@ int qed_cxt_set_pf_params(struct qed_hwfn *p_hwfn)
+ 	switch (p_hwfn->hw_info.personality) {
+ 	case QED_PCI_ETH_ROCE:
+ 	{
+-		qed_rdma_set_pf_params(p_hwfn,
+-				       &p_hwfn->
+-				       pf_params.rdma_pf_params);
++			qed_rdma_set_pf_params(p_hwfn,
++					       &p_hwfn->
++					       pf_params.rdma_pf_params,
++					       rdma_tasks);
+ 		/* no need for break since RoCE coexist with Ethernet */
+ 	}
+ 	case QED_PCI_ETH:
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_cxt.h b/drivers/net/ethernet/qlogic/qed/qed_cxt.h
+index 8b01032..f34b288 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_cxt.h
++++ b/drivers/net/ethernet/qlogic/qed/qed_cxt.h
+@@ -105,19 +105,28 @@ u32 qed_cxt_get_proto_cid_count(struct qed_hwfn *p_hwfn,
+  * @brief qed_cxt_set_pf_params - Set the PF params for cxt init
+  *
+  * @param p_hwfn
+- *
++ * @param rdma_tasks - requested maximum
+  * @return int
+  */
+-int qed_cxt_set_pf_params(struct qed_hwfn *p_hwfn);
++int qed_cxt_set_pf_params(struct qed_hwfn *p_hwfn, u32 rdma_tasks);
+ 
+ /**
+  * @brief qed_cxt_cfg_ilt_compute - compute ILT init parameters
+  *
+  * @param p_hwfn
++ * @param last_line
+  *
+  * @return int
+  */
+-int qed_cxt_cfg_ilt_compute(struct qed_hwfn *p_hwfn);
++int qed_cxt_cfg_ilt_compute(struct qed_hwfn *p_hwfn, u32 *last_line);
++
++/**
++ * @brief qed_cxt_cfg_ilt_compute_excess - how many lines can be decreased
++ *
++ * @param p_hwfn
++ * @param used_lines
++ */
++u32 qed_cxt_cfg_ilt_compute_excess(struct qed_hwfn *p_hwfn, u32 used_lines);
+ 
+ /**
+  * @brief qed_cxt_mngr_alloc - Allocate and init the context manager struct
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_dev.c b/drivers/net/ethernet/qlogic/qed/qed_dev.c
+index b48c80ec4..2498785 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_dev.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_dev.c
+@@ -848,8 +848,10 @@ int qed_resc_alloc(struct qed_dev *cdev)
+ #ifdef CONFIG_QED_LL2
+ 	struct qed_ll2_info *p_ll2_info;
+ #endif
++	u32 rdma_tasks, excess_tasks;
+ 	struct qed_consq *p_consq;
+ 	struct qed_eq *p_eq;
++	u32 line_count;
+ 	int i, rc = 0;
+ 
+ 	if (IS_VF(cdev))
+@@ -871,7 +873,7 @@ int qed_resc_alloc(struct qed_dev *cdev)
+ 		/* Set the HW cid/tid numbers (in the contest manager)
+ 		 * Must be done prior to any further computations.
+ 		 */
+-		rc = qed_cxt_set_pf_params(p_hwfn);
++		rc = qed_cxt_set_pf_params(p_hwfn, RDMA_MAX_TIDS);
+ 		if (rc)
+ 			goto alloc_err;
+ 
+@@ -883,9 +885,32 @@ int qed_resc_alloc(struct qed_dev *cdev)
+ 		qed_init_qm_info(p_hwfn);
+ 
+ 		/* Compute the ILT client partition */
+-		rc = qed_cxt_cfg_ilt_compute(p_hwfn);
+-		if (rc)
+-			goto alloc_err;
++		rc = qed_cxt_cfg_ilt_compute(p_hwfn, &line_count);
++		if (rc) {
++			DP_NOTICE(p_hwfn,
++				  "too many ILT lines; re-computing with less lines\n");
++			/* In case there are not enough ILT lines we reduce the
++			 * number of RDMA tasks and re-compute.
++			 */
++			excess_tasks =
++			    qed_cxt_cfg_ilt_compute_excess(p_hwfn, line_count);
++			if (!excess_tasks)
++				goto alloc_err;
++
++			rdma_tasks = RDMA_MAX_TIDS - excess_tasks;
++			rc = qed_cxt_set_pf_params(p_hwfn, rdma_tasks);
++			if (rc)
++				goto alloc_err;
++
++			rc = qed_cxt_cfg_ilt_compute(p_hwfn, &line_count);
++			if (rc) {
++				DP_ERR(p_hwfn,
++				       "failed ILT compute. Requested too many lines: %u\n",
++				       line_count);
++
++				goto alloc_err;
++			}
++		}
+ 
+ 		/* CID map / ILT shadow table / T2
+ 		 * The talbes sizes are determined by the computations above
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_main.c b/drivers/net/ethernet/qlogic/qed/qed_main.c
+index d4edb99..634e7a2 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_main.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_main.c
+@@ -877,7 +877,6 @@ static void qed_update_pf_params(struct qed_dev *cdev,
+ 		params->rdma_pf_params.num_qps = QED_ROCE_QPS;
+ 		params->rdma_pf_params.min_dpis = QED_ROCE_DPIS;
+ 		/* divide by 3 the MRs to avoid MF ILT overflow */
+-		params->rdma_pf_params.num_mrs = RDMA_MAX_TIDS;
+ 		params->rdma_pf_params.gl_pi = QED_ROCE_PROTOCOL_INDEX;
+ 	}
+ 
+diff --git a/include/linux/qed/qed_if.h b/include/linux/qed/qed_if.h
+index 8e0065c..625f80f 100644
+--- a/include/linux/qed/qed_if.h
++++ b/include/linux/qed/qed_if.h
+@@ -263,7 +263,6 @@ struct qed_rdma_pf_params {
+ 	 * the doorbell BAR).
+ 	 */
+ 	u32 min_dpis;		/* number of requested DPIs */
+-	u32 num_mrs;		/* number of requested memory regions */
+ 	u32 num_qps;		/* number of requested Queue Pairs */
+ 	u32 num_srqs;		/* number of requested SRQ */
+ 	u8 roce_edpm_mode;	/* see QED_ROCE_EDPM_MODE_ENABLE */
 -- 
-2.10.2
+1.9.3
