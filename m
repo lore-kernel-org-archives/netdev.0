@@ -1,35 +1,60 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] can: rcar_can: Do not print virtual addresses
-Date: Mon, 3 Apr 2017 15:47:26 +0300
-Message-ID: <15811548-e041-8367-6706-3fd2abf5bbc6@cogentembedded.com>
-References: <1491214286-14370-1-git-send-email-geert+renesas@glider.be>
+From: Kalle Valo <kvalo@qca.qualcomm.com>
+Subject: Re: [PATCH 1/2] wireless: ath9k_htc: fix NULL-deref at probe
+Date: Mon, 3 Apr 2017 13:02:28 +0000
+Message-ID: <87k271myos.fsf@kamboji.qca.qualcomm.com>
+References: <20170313124421.28587-1-johan@kernel.org>
+        <20170403084213.GE25742@localhost>      <87shlpomvx.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-renesas-soc@vger.kernel.org, linux-can@vger.kernel.org,
-        netdev@vger.kernel.org
-To: Geert Uytterhoeven <geert+renesas@glider.be>,
-        Wolfgang Grandegger <wg@grandegger.com>,
-        Marc Kleine-Budde <mkl@pengutronix.de>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <1491214286-14370-1-git-send-email-geert+renesas@glider.be>
-Sender: linux-renesas-soc-owner@vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: ath9k-devel <ath9k-devel@qca.qualcomm.com>,
+        Daniel Drake <dsd@gentoo.org>,
+        Ulrich Kunitz <kune@deine-taler.de>,
+        "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        Sujith Manoharan <Sujith.Manoharan@atheros.com>
+To: Johan Hovold <johan@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87shlpomvx.fsf@kamboji.qca.qualcomm.com> (Kalle Valo's message
+        of "Mon, 03 Apr 2017 12:34:26 +0300")
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 04/03/2017 01:11 PM, Geert Uytterhoeven wrote:
+Kalle Valo <kvalo@codeaurora.org> writes:
 
-> During probe, the rcar_can driver prints:
+> Johan Hovold <johan@kernel.org> writes:
 >
->     rcar_can e6e80000.can: device registered (regs @ e08bc000, IRQ76)
+>> On Mon, Mar 13, 2017 at 01:44:20PM +0100, Johan Hovold wrote:
+>>> Make sure to check the number of endpoints to avoid dereferencing a
+>>> NULL-pointer or accessing memory beyond the endpoint array should a
+>>> malicious device lack the expected endpoints.
+>>>=20
+>>> Fixes: 36bcce430657 ("ath9k_htc: Handle storage devices")
+>>> Cc: Sujith Manoharan <Sujith.Manoharan@atheros.com>
+>>> Signed-off-by: Johan Hovold <johan@kernel.org>
+>>
+>> Is this one still in your queue, Kalle?
 >
-> The "regs" value is a virtual address, exposing internal information,
-> hence stop printing it.  The (useful) physical address is already
-> printed as part of the device name.
+> Yes, I'm just lacking behing:
 >
-> Fixes: fd1159318e55e901 ("can: add Renesas R-Car CAN driver")
-> Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
-[...]
+> https://patchwork.kernel.org/patch/9620723/
 
-Acked-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Meant "lagging" of course. Mondays..
 
-MBR, Sergei
+>> As I mentioned earlier, I should have added a
+>>
+>> Cc: stable <stable@vger.kernel.org>     # 2.6.39
+>>
+>> but left it out as I mistakingly thought the net recommendations to do
+>> so applied also to wireless.
+>
+> Ok, I'll add that.
+
+But is 2.6.39 really correct? Shouldn't it be 2.6.39+ so that it means
+all versions since 2.6.39?
+
+--=20
+Kalle Valo=
