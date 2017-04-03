@@ -1,52 +1,48 @@
-From: Corentin Labbe <clabbe.montjoie@gmail.com>
-Subject: [PATCH v3 13/20] ARM: dts: sun8i: orangepi-pc-plus: Set EMAC activity
- LEDs to active high
-Date: Mon,  3 Apr 2017 11:14:37 +0200
-Message-ID: <20170403091444.29876-14-clabbe.montjoie@gmail.com>
-References: <20170403091444.29876-1-clabbe.montjoie@gmail.com>
+From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Subject: Re: [PATCH] wlcore: fix spelling mistake in wl1271_warning 'iligal'
+ -> 'illegal'
+Date: Mon, 03 Apr 2017 02:20:56 -0700
+Message-ID: <1491211256.27353.58.camel@perches.com>
+References: <20170403091530.18564-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: devicetree@vger.kernel.org, Corentin Labbe <clabbe.montjoie@gmail.com>,
- linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
- netdev@vger.kernel.org
-To: robh+dt@kernel.org, mark.rutland@arm.com, maxime.ripard@free-electrons.com,
- wens@csie.org, linux@armlinux.org.uk, catalin.marinas@arm.com,
- will.deacon@arm.com, peppe.cavallaro@st.com, alexandre.torgue@st.com
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <20170403091444.29876-1-clabbe.montjoie@gmail.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Cc: kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Colin King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
+        Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170403091530.18564-1-colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On the Orange Pi PC Plus, the polarity of the LEDs on the RJ45 Ethernet
-port were changed from active low to active high.
+On Mon, 2017-04-03 at 10:15 +0100, Colin King wrote:
+> From: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+> 
+> trivial fix to spelling mistake in wl1271_warning error message
+> 
+> Signed-off-by: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+> ---
+>  drivers/net/wireless/ti/wlcore/debugfs.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/wireless/ti/wlcore/debugfs.c b/drivers/net/wireless/ti/wlcore/debugfs.c
+> index 58e148d7bc7b..416080adc181 100644
+> --- a/drivers/net/wireless/ti/wlcore/debugfs.c
+> +++ b/drivers/net/wireless/ti/wlcore/debugfs.c
+> @@ -1249,7 +1249,7 @@ static ssize_t fw_logger_write(struct file *file,
+>  	}
+>  
+>  	if (wl->conf.fwlog.output == 0) {
+> -		wl1271_warning("iligal opperation - fw logger disabled by default, please change mode via wlconf");
+> +		wl1271_warning("illegal opperation - fw logger disabled by default, please change mode via wlconf");
 
-Signed-off-by: Chen-Yu Tsai <wens@csie.org>
-Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
----
- arch/arm/boot/dts/sun8i-h3-orangepi-pc-plus.dts | 5 +++++
- 1 file changed, 5 insertions(+)
+Hi Colin.
 
-diff --git a/arch/arm/boot/dts/sun8i-h3-orangepi-pc-plus.dts b/arch/arm/boot/dts/sun8i-h3-orangepi-pc-plus.dts
-index 8b93f5c..0380769 100644
---- a/arch/arm/boot/dts/sun8i-h3-orangepi-pc-plus.dts
-+++ b/arch/arm/boot/dts/sun8i-h3-orangepi-pc-plus.dts
-@@ -86,3 +86,8 @@
- 	/* eMMC is missing pull-ups */
- 	bias-pull-up;
- };
-+
-+&emac {
-+	/* LEDs changed to active high on the plus */
-+	/delete-property/ allwinner,leds-active-low;
-+};
--- 
-2.10.2
+When you do these would you please fix all the typos on the
+same line?  opperation -> operation
+
+Also, generally, invalid is a better word choice than illegal
+for these situations.
+
+Thanks and cheers, Joe
