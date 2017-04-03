@@ -1,13 +1,13 @@
 From: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Subject: Re: [PATCH v3 03/20] dt-bindings: net: Add DT bindings documentation
- for Allwinner dwmac-sun8i
-Date: Mon, 3 Apr 2017 13:19:15 +0200
-Message-ID: <20170403111915.4har25efln4c3qko@lukather>
+Subject: Re: [PATCH v3 04/20] ARM: sun8i: dt: Add DT bindings documentation
+ for Allwinner syscon
+Date: Mon, 3 Apr 2017 13:19:54 +0200
+Message-ID: <20170403111954.tolvlw7klswaxkl4@lukather>
 References: <20170403091444.29876-1-clabbe.montjoie@gmail.com>
- <20170403091444.29876-4-clabbe.montjoie@gmail.com>
+ <20170403091444.29876-5-clabbe.montjoie@gmail.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="s64l34bhq3ppmzcz"
+        protocol="application/pgp-signature"; boundary="mpqtuhkxacc6rbzw"
 Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org,
         linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org,
         will.deacon-5wv7dgnIgG8@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
@@ -17,75 +17,53 @@ Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@pu
 To: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20170403091444.29876-4-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+In-Reply-To: <20170403091444.29876-5-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 
---s64l34bhq3ppmzcz
+--mpqtuhkxacc6rbzw
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
 
-On Mon, Apr 03, 2017 at 11:14:27AM +0200, Corentin Labbe wrote:
-> This patch adds documentation for Device-Tree bindings for the
-> Allwinner dwmac-sun8i driver.
->=20
+On Mon, Apr 03, 2017 at 11:14:28AM +0200, Corentin Labbe wrote:
 > Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> Acked-by: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
 > ---
->  .../devicetree/bindings/net/dwmac-sun8i.txt        | 77 ++++++++++++++++=
+>  .../devicetree/bindings/misc/allwinner,syscon.txt     | 19 +++++++++++++=
 ++++++
->  1 file changed, 77 insertions(+)
->  create mode 100644 Documentation/devicetree/bindings/net/dwmac-sun8i.txt
+>  1 file changed, 19 insertions(+)
+>  create mode 100644 Documentation/devicetree/bindings/misc/allwinner,sysc=
+on.txt
 >=20
-> diff --git a/Documentation/devicetree/bindings/net/dwmac-sun8i.txt b/Docu=
-mentation/devicetree/bindings/net/dwmac-sun8i.txt
+> diff --git a/Documentation/devicetree/bindings/misc/allwinner,syscon.txt =
+b/Documentation/devicetree/bindings/misc/allwinner,syscon.txt
 > new file mode 100644
-> index 0000000..f01ef17
+> index 0000000..9f5f1f5
 > --- /dev/null
-> +++ b/Documentation/devicetree/bindings/net/dwmac-sun8i.txt
-> @@ -0,0 +1,77 @@
-> +* Allwinner sun8i GMAC ethernet controller
+> +++ b/Documentation/devicetree/bindings/misc/allwinner,syscon.txt
+> @@ -0,0 +1,19 @@
+> +* Allwinner sun8i system controller
 > +
-> +This device is a platform glue layer for stmmac.
-> +Please see stmmac.txt for the other unchanged properties.
+> +This file describes the bindings for the system controller present in
+> +Allwinner SoC H3, A83T and A64.
+> +The principal function of this syscon is to control EMAC PHY choice and
+> +config.
 > +
-> +Required properties:
-> +- compatible: should be one of the following string:
-> +		"allwinner,sun8i-a83t-emac"
-> +		"allwinner,sun8i-h3-emac"
-> +		"allwinner,sun50i-a64-emac"
+> +Required properties for the system controller:
 > +- reg: address and length of the register for the device.
-> +- interrupts: interrupt for the device
-> +- interrupt-names: should be "macirq"
-> +- clocks: A phandle to the reference clock for this device
-> +- clock-names: should be "stmmaceth"
-> +- resets: A phandle to the reset control for this device
-> +- reset-names: should be "stmmaceth"
-> +- phy-mode: See ethernet.txt
-> +- phy-handle: See ethernet.txt
-> +- #address-cells: shall be 1
-> +- #size-cells: shall be 0
-> +- syscon: A phandle to the syscon of the SoC with one of the following
-> + compatible string:
-> +  - allwinner,sun8i-h3-system-controller
-> +  - allwinner,sun8i-a64-system-controller
-> +  - allwinner,sun8i-a83t-system-controller
+> +- compatible: should be "syscon" and one of the following string:
+> +		"allwinner,sun8i-h3-system-controller"
+> +		"allwinner,sun8i-a64-system-controller"
+> +		"allwinner,sun8i-a83t-system-controller"
+> +
+> +Example:
+> +syscon: syscon@01c00000 {
+> +	compatible =3D "syscon", "allwinner,sun8i-h3-system-controller";
 
-I'm not sure you need to document those compatibles here.
+The syntax is the more specific first, so your compatibles should be
+the other way around.
 
-> +Optional properties:
-> +- allwinner,tx-delay: TX clock delay chain value. Range value is 0-0x07.=
- Default is 0)
-> +- allwinner,rx-delay: RX clock delay chain value. Range value is 0-0x1F.=
- Default is 0)
-> +Both delay properties are in 0.1ns step.
-
-allwinner,tx-delay-ps and allwinner,rx-delay-ps, with the value in
-picoseconds?
-
-Looks good otherwise, thanks!
 Maxime
 
 --=20
@@ -93,27 +71,27 @@ Maxime Ripard, Free Electrons
 Embedded Linux and Kernel engineering
 http://free-electrons.com
 
---s64l34bhq3ppmzcz
+--mpqtuhkxacc6rbzw
 Content-Type: application/pgp-signature; name="signature.asc"
 
 -----BEGIN PGP SIGNATURE-----
 
-iQIcBAEBCAAGBQJY4i+vAAoJEBx+YmzsjxAgcKwQAMLSjkaoW3EnmVgeld/2VKZT
-ANA6BmRP8CbSgK43W7YOngw+daZFS7/AMmPZg0MFSZrxjTBUUe3KbOph2FiJruZu
-YJK3hEajCbZdtVmrJzFOv3OtCQHXUJ69zsaqF0HxD9TQmYvlF9uZH2Ga4cWxbtoo
-+RQGzhgWkqBaZiF3mtnPjqFUyZXAV/7bPsfQ/oOW+ieT78kzFvigrn8OIH40uog+
-drW5+3ZhbFDsfdtC9bi9Ydzd/O4GbVMzjZhIpaOPFnm8L4gfctqDeFLFS6iuO3O9
-lelwTohstIH6ZhwVbeQuWdAOqkmg4VmlwmuhQb+vd6VKV99z99S1j03c0eihA1lD
-FH155zm7ET8rYCX8OBY+yEqL9x7tNbDRsg7NbvJvKFDgSCUDYnKn58+DRZyyMLz1
-jdTkSP1Sk4V3YT4BlcHnCjZVEWppvu7mluUWO1idu/wReMMA65HEnmCxNiKIdYUH
-x5rXXwmqloqU9fKR9kCysAkZA630DF7xfw7p8KOZBuMAzcCGfDijfGojyOIVaxnE
-QdgFkR2/fwKQNMsYDlodgg4hynvNj17KKlOuA/eAuL41CdUn731Gap8z5WAIRcnL
-ZR23Ib/p+b6q7eXbweaVB/1hstDlsG3JXHSUcsHyJSLzyw13KR5V1MprMOzuKX9V
-6S3Q732VFCVnsgUUf+2U
-=W49h
+iQIcBAEBCAAGBQJY4i/aAAoJEBx+YmzsjxAg3jwQAK1ATI4qCh2o5b+gUZfI9HO+
+hiTHJlV9y4h1iXU2HQwB3RcdFaWQc6L7JFFpMju5XQeseg2A3LMOJ6smrefiiAYU
+0PJVoX3MtDLcVuSgu3TtGQkPGJrlWOny3mHQkB+aPqwC0RKnGbE42vx3PrAScJBh
+eHgrzO3sOSpyP1XGp3iCwLUCicCTxmCJICgQfs0NAuv1sNuJBIVRirggRcPskk82
+1sMEXQ0uYAv9NQ24prWtz4WDAVLz/njdw8M+L4f4h8pw5Ft1U22hpU013o1uz/1l
+ff4C/w1xdNHh0HptbTryKyNiojPHNlCPCJtV7JBJW2yqASh+Q9DdzP+UEy/0rZ/n
+6EkU0vGDJN5ib1irou5F46+NvyNbKZdOSglQ03peEjX3vCen3kAxOcVP3wQHaVQU
+oEJV4B5bUEU5Dex3C5p0iKn8ZhnGfKpHGPhCz1NyijrixVLohU6PHs+adMg61qhj
+VtOQpDGoj1tgRvTXzq7NZY9qFOF6B2YxRcww7PJzE23REGe86ZTYIrW48iUIreNI
+cra2CE5kUcpoMJlE22HWizD5LasDx4hP3BH5WtZUU8oiywy1Na/ILSBECwaQfhj5
+laeyvoCV1P2GflDRzfkxv5NZ2mNyn/RTMNF97RQEzHF7rEXiYnZRSob4ENLuMbXq
+tCAF9zfEx0aH3AnsEIM2
+=2HAC
 -----END PGP SIGNATURE-----
 
---s64l34bhq3ppmzcz--
+--mpqtuhkxacc6rbzw--
 --
 To unsubscribe from this list: send the line "unsubscribe devicetree" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
