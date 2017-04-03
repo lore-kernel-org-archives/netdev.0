@@ -1,61 +1,48 @@
 From: Corentin Labbe <clabbe.montjoie@gmail.com>
-Subject: [PATCH v3 04/20] ARM: sun8i: dt: Add DT bindings documentation for
- Allwinner syscon
-Date: Mon,  3 Apr 2017 11:14:28 +0200
-Message-ID: <20170403091444.29876-5-clabbe.montjoie@gmail.com>
+Subject: [PATCH v3 14/20] ARM64: dts: sun50i-a64: Add dt node for the syscon control module
+Date: Mon,  3 Apr 2017 11:14:38 +0200
+Message-ID: <20170403091444.29876-15-clabbe.montjoie@gmail.com>
 References: <20170403091444.29876-1-clabbe.montjoie@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: devicetree@vger.kernel.org, Corentin Labbe <clabbe.montjoie@gmail.com>,
- linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
- netdev@vger.kernel.org
-To: robh+dt@kernel.org, mark.rutland@arm.com, maxime.ripard@free-electrons.com,
- wens@csie.org, linux@armlinux.org.uk, catalin.marinas@arm.com,
- will.deacon@arm.com, peppe.cavallaro@st.com, alexandre.torgue@st.com
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Cc: devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
+        netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+        Corentin Labbe <clabbe.montjoie@gmail.com>
+To: robh+dt@kernel.org, mark.rutland@arm.com,
+        maxime.ripard@free-electrons.com, wens@csie.org,
+        linux@armlinux.org.uk, catalin.marinas@arm.com,
+        will.deacon@arm.com, peppe.cavallaro@st.com,
+        alexandre.torgue@st.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20170403091444.29876-1-clabbe.montjoie@gmail.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
+
+This patch add the dt node for the syscon register present on the
+Allwinner A64.
+
+Only two register are present in this syscon and the only one useful is
+the one dedicated to EMAC clock.
 
 Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
 ---
- .../devicetree/bindings/misc/allwinner,syscon.txt     | 19 +++++++++++++++++++
- 1 file changed, 19 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/misc/allwinner,syscon.txt
+ arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-diff --git a/Documentation/devicetree/bindings/misc/allwinner,syscon.txt b/Documentation/devicetree/bindings/misc/allwinner,syscon.txt
-new file mode 100644
-index 0000000..9f5f1f5
---- /dev/null
-+++ b/Documentation/devicetree/bindings/misc/allwinner,syscon.txt
-@@ -0,0 +1,19 @@
-+* Allwinner sun8i system controller
+diff --git a/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi b/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi
+index 1c64ea2..1683a1f 100644
+--- a/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi
++++ b/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi
+@@ -121,6 +121,12 @@
+ 		#size-cells = <1>;
+ 		ranges;
+ 
++		syscon: syscon@01c00000 {
++			compatible = "allwinner,sun8i-a64-system-controller",
++				"syscon";
++			reg = <0x01c00000 0x1000>;
++		};
 +
-+This file describes the bindings for the system controller present in
-+Allwinner SoC H3, A83T and A64.
-+The principal function of this syscon is to control EMAC PHY choice and
-+config.
-+
-+Required properties for the system controller:
-+- reg: address and length of the register for the device.
-+- compatible: should be "syscon" and one of the following string:
-+		"allwinner,sun8i-h3-system-controller"
-+		"allwinner,sun8i-a64-system-controller"
-+		"allwinner,sun8i-a83t-system-controller"
-+
-+Example:
-+syscon: syscon@01c00000 {
-+	compatible = "syscon", "allwinner,sun8i-h3-system-controller";
-+	reg = <0x01c00000 0x1000>;
-+};
+ 		mmc0: mmc@1c0f000 {
+ 			compatible = "allwinner,sun50i-a64-mmc";
+ 			reg = <0x01c0f000 0x1000>;
 -- 
 2.10.2
