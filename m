@@ -1,78 +1,82 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: KASAN, xt_TCPMSS  finally found nasty use-after-free bug? 4.10.8
-Date: Mon, 03 Apr 2017 05:24:53 -0700
-Message-ID: <1491222293.10124.21.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <6c6e2f7505f969d8c2998efff24063ba@nuclearcat.com>
-         <1491132259.10124.3.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20170402114545.GA31804@breakpoint.cc>
-         <1491134084.10124.6.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1491135593.10124.9.camel@edumazet-glaptop3.roam.corp.google.com>
-         <4442718191e17f0ff91bf1359da6d631@nuclearcat.com>
-         <1491136344.10124.10.camel@edumazet-glaptop3.roam.corp.google.com>
-         <f005315a672d82fae34f932f4a7f3d5f@nuclearcat.com>
-         <1491153268.10124.12.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1491153972.10124.14.camel@edumazet-glaptop3.roam.corp.google.com>
-         <35bef48734458fd995d9d4080da5db22@nuclearcat.com>
-         <1491221343.10124.16.camel@edumazet-glaptop3.roam.corp.google.com>
-         <194a53b80a3cd7fcc360ecf4e1dbf692@nuclearcat.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>
+Subject: Re: [PATCH v3 02/20] net: stmmac: add optional setup function
+Date: Mon, 3 Apr 2017 14:32:33 +0200
+Message-ID: <262f763b-d158-dd77-3dba-1d7b90a1eef9@st.com>
+References: <20170403091444.29876-1-clabbe.montjoie@gmail.com>
+ <20170403091444.29876-3-clabbe.montjoie@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Florian Westphal <fw@strlen.de>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Pablo Neira Ayuso <pablo@netfilter.org>,
-        Patrick McHardy <kaber@trash.net>,
-        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        linux-kernel@vger.kernel.org, netdev-owner@vger.kernel.org
-To: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f66.google.com ([209.85.214.66]:36076 "EHLO
-        mail-it0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752143AbdDCMY4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 3 Apr 2017 08:24:56 -0400
-In-Reply-To: <194a53b80a3cd7fcc360ecf4e1dbf692@nuclearcat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+To: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        <mark.rutland-5wv7dgnIgG8@public.gmane.org>, <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+        <wens-jdAy2FN1RRM@public.gmane.org>, <linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>,
+        <catalin.marinas-5wv7dgnIgG8@public.gmane.org>, <will.deacon-5wv7dgnIgG8@public.gmane.org>,
+        <alexandre.torgue-qxv4g6HH51o@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170403091444.29876-3-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2017-04-03 at 15:14 +0300, Denys Fedoryshchenko wrote:
-> On 2017-04-03 15:09, Eric Dumazet wrote:
-> > On Mon, 2017-04-03 at 11:10 +0300, Denys Fedoryshchenko wrote:
-> > 
-> >> I modified patch a little as:
-> >> if (th->doff * 4 < sizeof(_tcph)) {
-> >>   par->hotdrop = true;
-> >>   WARN_ON_ONCE(!tcpinfo->option);
-> >>   return false;
-> >> }
-> >> 
-> >> And it did triggered WARN once at morning, and didn't hit KASAN. I 
-> >> will
-> >> run for a while more, to see if it is ok, and then if stable, will try
-> >> to enable SFQ again.
-> > 
-> > Excellent news !
-> > We will post an official fix today, thanks a lot for this detective 
-> > work
-> > Denys.
-> I am not sure it is finally fixed, maybe we need test more?
-> I'm doing extensive tests today with identical configuration (i had to 
-> run fifo, because customer cannot afford anymore outages). I've dded sfq 
-> now different way, and identical config i will run after 3 hours approx.
+Hello Corentin
 
-I did not say this bug fix would be the last one.
+On 4/3/2017 11:14 AM, Corentin Labbe wrote:
+> Instead of adding more ifthen logic for adding a new mac_device_info
+> setup function, it is easier to add a function pointer to the function
+> needed.
+>
+> Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> ---
+>   drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 4 +++-
+>   include/linux/stmmac.h                            | 3 +++
+>   2 files changed, 6 insertions(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> index 43361f3..3beca41 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> @@ -3508,7 +3508,9 @@ static int stmmac_hw_init(struct stmmac_priv *priv)
+>   	struct mac_device_info *mac;
+>   
+>   	/* Identify the MAC HW device */
+> -	if (priv->plat->has_gmac) {
+> +	if (priv->plat->setup) {
+> +		mac = priv->plat->setup(priv);
+> +	} else if (priv->plat->has_gmac) {
+>   		priv->dev->priv_flags |= IFF_UNICAST_FLT;
+>   		mac = dwmac1000_setup(priv->ioaddr,
+>   				      priv->plat->multicast_filter_bins,
+> diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
+> index 3921cb9..dadd74b 100644
+> --- a/include/linux/stmmac.h
+> +++ b/include/linux/stmmac.h
+> @@ -144,6 +144,8 @@ struct stmmac_txq_cfg {
+>   	u32 prio;
+>   };
+>   
+> +struct stmmac_priv;
+> +
+>   struct plat_stmmacenet_data {
+>   	int bus_id;
+>   	int phy_addr;
+> @@ -177,6 +179,7 @@ struct plat_stmmacenet_data {
+>   	void (*fix_mac_speed)(void *priv, unsigned int speed);
+>   	int (*init)(struct platform_device *pdev, void *priv);
+>   	void (*exit)(struct platform_device *pdev, void *priv);
+> +	struct mac_device_info *(*setup)(struct stmmac_priv *priv);
 
-But this check is definitely needed, otherwise xt_TCPMSS can iterate
-whole memory, and either crash or scramble two bytes in memory, that do
-not belong to the frame at all.
+In that case  I prefer to have void *priv as done for the other callbacks.
+I mean, keep the priv struct inside the driver part.
 
-If tcp_hdrlen is 0 (can happen if tcph->doff is 0)
+peppe
 
-Then :
+>   	void *bsp_priv;
+>   	struct clk *stmmac_clk;
+>   	struct clk *pclk;
 
-for (i = sizeof(struct tcphdr); i <= tcp_hdrlen - TCPOLEN_MSS; i +=
-optlen(opt, i)) {
 
-Can look at 4 GB of memory, until it finds a 0x02, 0x04  sequence.
-
-It can also loop forever in some cases, depending on memory content.
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
