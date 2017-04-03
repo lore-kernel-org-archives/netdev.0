@@ -1,180 +1,134 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH net] sctp: check for dst and pathmtu update in
- sctp_packet_config
-Date: Mon, 3 Apr 2017 07:32:12 -0400
-Message-ID: <20170403113212.GA21041@hmswarspite.think-freely.org>
-References: <7d69e45b3cc8f84658e04ab07288a9fe09254e12.1491038159.git.lucien.xin@gmail.com>
+From: Maxime Ripard <maxime.ripard@free-electrons.com>
+Subject: Re: [PATCH v3 12/20] ARM: dts: sun8i: Enable dwmac-sun8i on the
+ Orange Pi plus
+Date: Mon, 3 Apr 2017 13:37:21 +0200
+Message-ID: <20170403113721.nijh2uwgepfkrpm4@lukather>
+References: <20170403091444.29876-1-clabbe.montjoie@gmail.com>
+ <20170403091444.29876-13-clabbe.montjoie@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
-        davem@davemloft.net,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-To: Xin Long <lucien.xin@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:54200 "EHLO
-        smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751435AbdDCLce (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 3 Apr 2017 07:32:34 -0400
-Content-Disposition: inline
-In-Reply-To: <7d69e45b3cc8f84658e04ab07288a9fe09254e12.1491038159.git.lucien.xin@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/mixed; boundary="===============8148602171014611321=="
+Cc: mark.rutland@arm.com, devicetree@vger.kernel.org, alexandre.torgue@st.com,
+ catalin.marinas@arm.com, will.deacon@arm.com, linux@armlinux.org.uk,
+ linux-kernel@vger.kernel.org, wens@csie.org, robh+dt@kernel.org,
+ netdev@vger.kernel.org, peppe.cavallaro@st.com,
+ linux-arm-kernel@lists.infradead.org
+To: Corentin Labbe <clabbe.montjoie@gmail.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <20170403091444.29876-13-clabbe.montjoie@gmail.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Apr 01, 2017 at 05:15:59PM +0800, Xin Long wrote:
-> This patch is to move sctp_transport_dst_check into sctp_packet_config
-> from sctp_packet_transmit and add pathmtu check in sctp_packet_config.
-> 
-> With this fix, sctp can update dst or pathmtu before appending chunks,
-> which can void dropping packets in sctp_packet_transmit when dst is
-> obsolete or dst's mtu is changed.
-> 
-> This patch is also to improve some other codes in sctp_packet_config.
-> It updates packet max_size with gso_max_size, checks for dst and
-> pathmtu, and appends ecne chunk only when packet is empty and asoc
-> is not NULL.
-> 
-> It makes sctp flush work better, as we only need to set up them once
-> for one flush schedule. It's also safe, since asoc is NULL only when
-> the packet is created by sctp_ootb_pkt_new in which it just gets the
-> new dst, no need to do more things for it other than set packet with
-> transport's pathmtu.
-> 
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+
+--===============8148602171014611321==
+Content-Type: multipart/signed; micalg=pgp-sha256;
+	protocol="application/pgp-signature"; boundary="4ci5l4fbjve5uyrx"
+Content-Disposition: inline
+
+
+--4ci5l4fbjve5uyrx
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+On Mon, Apr 03, 2017 at 11:14:36AM +0200, Corentin Labbe wrote:
+> The dwmac-sun8i hardware is present on the Orange PI plus.
+> It uses an external PHY rtl8211e via RGMII.
+>=20
+> This patch create the needed regulator, emac and phy nodes.
+>=20
+> Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
 > ---
->  include/net/sctp/sctp.h | 17 ++++++++++---
->  net/sctp/output.c       | 67 ++++++++++++++++++++++++++-----------------------
->  2 files changed, 50 insertions(+), 34 deletions(-)
-> 
-> diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
-> index 1f71ee5..d75caa7 100644
-> --- a/include/net/sctp/sctp.h
-> +++ b/include/net/sctp/sctp.h
-> @@ -596,12 +596,23 @@ static inline void sctp_v4_map_v6(union sctp_addr *addr)
->   */
->  static inline struct dst_entry *sctp_transport_dst_check(struct sctp_transport *t)
->  {
-> -	if (t->dst && (!dst_check(t->dst, t->dst_cookie) ||
-> -		       t->pathmtu != max_t(size_t, SCTP_TRUNC4(dst_mtu(t->dst)),
-> -					   SCTP_DEFAULT_MINSEGMENT)))
-> +	if (t->dst && !dst_check(t->dst, t->dst_cookie))
->  		sctp_transport_dst_release(t);
->  
->  	return t->dst;
->  }
->  
-> +static inline bool sctp_transport_pmtu_check(struct sctp_transport *t)
-> +{
-> +	__u32 pmtu = max_t(size_t, SCTP_TRUNC4(dst_mtu(t->dst)),
-> +			   SCTP_DEFAULT_MINSEGMENT);
+>  arch/arm/boot/dts/sun8i-h3-orangepi-plus.dts | 36 ++++++++++++++++++++++=
+++++++
+>  1 file changed, 36 insertions(+)
+>=20
+> diff --git a/arch/arm/boot/dts/sun8i-h3-orangepi-plus.dts b/arch/arm/boot=
+/dts/sun8i-h3-orangepi-plus.dts
+> index 8c40ab7..6852006 100644
+> --- a/arch/arm/boot/dts/sun8i-h3-orangepi-plus.dts
+> +++ b/arch/arm/boot/dts/sun8i-h3-orangepi-plus.dts
+> @@ -58,6 +58,18 @@
+>  		enable-active-high;
+>  		gpio =3D <&pio 6 11 GPIO_ACTIVE_HIGH>;
+>  	};
 > +
-> +	if (t->pathmtu == pmtu)
-> +		return true;
+> +	reg_gmac_3v3: gmac-3v3 {
+> +		compatible =3D "regulator-fixed";
+> +		pinctrl-names =3D "default";
+> +		pinctrl-0 =3D <&gmac_power_pin_orangepi>;
+> +		regulator-name =3D "gmac-3v3";
+> +		regulator-min-microvolt =3D <3300000>;
+> +		regulator-max-microvolt =3D <3300000>;
+> +		startup-delay-us =3D <100000>;
+> +		enable-active-high;
+> +		gpio =3D <&pio 3 6 GPIO_ACTIVE_HIGH>;
+> +	};
+>  };
+> =20
+>  &ehci3 {
+> @@ -86,8 +98,32 @@
+>  		pins =3D "PG11";
+>  		function =3D "gpio_out";
+>  	};
 > +
-> +	t->pathmtu = pmtu;
-> +
-> +	return false;
-> +}
-> +
->  #endif /* __net_sctp_h__ */
-> diff --git a/net/sctp/output.c b/net/sctp/output.c
-> index 73fd178..ec4d50a 100644
-> --- a/net/sctp/output.c
-> +++ b/net/sctp/output.c
-> @@ -86,43 +86,53 @@ void sctp_packet_config(struct sctp_packet *packet, __u32 vtag,
->  {
->  	struct sctp_transport *tp = packet->transport;
->  	struct sctp_association *asoc = tp->asoc;
-> +	struct sock *sk;
->  
->  	pr_debug("%s: packet:%p vtag:0x%x\n", __func__, packet, vtag);
-> -
->  	packet->vtag = vtag;
->  
-> -	if (asoc && tp->dst) {
-> -		struct sock *sk = asoc->base.sk;
-> -
-> -		rcu_read_lock();
-> -		if (__sk_dst_get(sk) != tp->dst) {
-> -			dst_hold(tp->dst);
-> -			sk_setup_caps(sk, tp->dst);
-> -		}
-> -
-> -		if (sk_can_gso(sk)) {
-> -			struct net_device *dev = tp->dst->dev;
-> +	/* do the following jobs only once for a flush schedule */
-> +	if (!sctp_packet_empty(packet))
-> +		return;
->  
-> -			packet->max_size = dev->gso_max_size;
-> -		} else {
-> -			packet->max_size = asoc->pathmtu;
-> -		}
-> -		rcu_read_unlock();
-> +	/* set packet max_size with pathmtu */
-> +	packet->max_size = tp->pathmtu;
-> +	if (!asoc)
-> +		return;
->  
-> -	} else {
-> -		packet->max_size = tp->pathmtu;
-> +	/* update dst or transport pathmtu if in need */
-> +	sk = asoc->base.sk;
-> +	if (!sctp_transport_dst_check(tp)) {
-> +		sctp_transport_route(tp, NULL, sctp_sk(sk));
-> +		if (asoc->param_flags & SPP_PMTUD_ENABLE)
-> +			sctp_assoc_sync_pmtu(sk, asoc);
-> +	} else if (!sctp_transport_pmtu_check(tp)) {
-> +		if (asoc->param_flags & SPP_PMTUD_ENABLE)
-> +			sctp_assoc_sync_pmtu(sk, asoc);
->  	}
->  
-> -	if (ecn_capable && sctp_packet_empty(packet)) {
-> -		struct sctp_chunk *chunk;
-> +	/* If there a is a prepend chunk stick it on the list before
-> +	 * any other chunks get appended.
-> +	 */
-> +	if (ecn_capable) {
-> +		struct sctp_chunk *chunk = sctp_get_ecne_prepend(asoc);
->  
-> -		/* If there a is a prepend chunk stick it on the list before
-> -		 * any other chunks get appended.
-> -		 */
-> -		chunk = sctp_get_ecne_prepend(asoc);
->  		if (chunk)
->  			sctp_packet_append_chunk(packet, chunk);
->  	}
-> +
-> +	if (!tp->dst)
-> +		return;
-> +
-> +	/* set packet max_size with gso_max_size if gso is enabled*/
-> +	rcu_read_lock();
-> +	if (__sk_dst_get(sk) != tp->dst) {
-> +		dst_hold(tp->dst);
-> +		sk_setup_caps(sk, tp->dst);
-> +	}
-> +	packet->max_size = sk_can_gso(sk) ? tp->dst->dev->gso_max_size
-> +					  : asoc->pathmtu;
-> +	rcu_read_unlock();
->  }
->  
->  /* Initialize the packet structure. */
-> @@ -582,12 +592,7 @@ int sctp_packet_transmit(struct sctp_packet *packet, gfp_t gfp)
->  	sh->vtag = htonl(packet->vtag);
->  	sh->checksum = 0;
->  
-> -	/* update dst if in need */
-> -	if (!sctp_transport_dst_check(tp)) {
-> -		sctp_transport_route(tp, NULL, sctp_sk(sk));
-> -		if (asoc && asoc->param_flags & SPP_PMTUD_ENABLE)
-> -			sctp_assoc_sync_pmtu(sk, asoc);
-> -	}
-> +	/* drop packet if no dst */
->  	dst = dst_clone(tp->dst);
->  	if (!dst) {
->  		IP_INC_STATS(sock_net(sk), IPSTATS_MIB_OUTNOROUTES);
-> -- 
-> 2.1.0
-> 
-> 
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+> +	gmac_power_pin_orangepi: gmac_power_pin@0 {
+> +		pins =3D "PD6";
+> +		function =3D "gpio_out";
+> +		drive-strength =3D <10>;
+> +	};
+
+This is not needed, and will even harm the fixing of a bug that will
+require to remove all the GPIO nodes. It works fine without it, please
+remove it.
+
+Thanks!
+Maxime
+
+--=20
+Maxime Ripard, Free Electrons
+Embedded Linux and Kernel engineering
+http://free-electrons.com
+
+--4ci5l4fbjve5uyrx
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIcBAEBCAAGBQJY4jPtAAoJEBx+YmzsjxAgEjYQAKKcmP5Fs5K6+hCN2dntY8PQ
+mZMN2gIiNoTxOsCSew/1MfHlbcqJTUgV5SHC5kvNi+ePiLfiWeHKo4qqyJRo7BXt
+MOwuulhsFaFYShSt0CG+LQYcUwA1GhhDoAUomR0mqa/GzbGr5OvgxvUhCoiFNJR4
+WmpEkIfeML8wxLsQmsqtzKOvE1gS2o0W1FEk+i3vbxyMoz+oArAb1ziRlHm/5VHC
+Unp94rthG5W9YBEw2FNcA7+Vwhl9vHNCEC7huqAJN64ATdsvVwKRyAaXs/a1xpt7
+9miFEOUClifY8odKcablORxJ+4JR/v8NnqZ+FxFfC5khbBEbtXnh4We12qgvHgbM
+n7t1CbjsJ2+6aGlJGBYtBj7JB86QgnZixHI88RyJmCxTU2iZimpMc/YmoUIUiJgr
+srCUG7mWn/pG1Y7t443BjBv2/QuVBaGzd5q5cuFdv3L/iavrQTQDIhC/J/9a//t2
+3BcWoRYLiM5BP3OntdRWfWGJin0MpqveVxg22dcKrOumNyBGcW4fZ3A81K7YiUlu
+Z4WJVYpskJpoT0YNvSpQ73/REyIg58S01tzdEuDV33PNHLjKkBqVtzBWqrw0XmbU
+FWeei2YLcIYaT67Ni/JB5lC1mhVBJeU1ZbpenyYMRlIvTt6Z6Lhs6IzChJQbO194
+S5Sq9AU9oqSJV3gA49gF
+=V2KQ
+-----END PGP SIGNATURE-----
+
+--4ci5l4fbjve5uyrx--
+
+
+--===============8148602171014611321==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+linux-arm-kernel mailing list
+linux-arm-kernel@lists.infradead.org
+http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
+
+--===============8148602171014611321==--
