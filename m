@@ -1,66 +1,32 @@
-From: Craig Gallek <kraigatgoog@gmail.com>
-Subject: Re: [PATCH] soreuseport: use "unsigned int" in __reuseport_alloc()
-Date: Mon, 3 Apr 2017 09:56:56 -0400
-Message-ID: <CAEfhGix3zu7L0R1siHkF07_aVCxC4ANaV-Lm74SYw1J_BHtJWQ@mail.gmail.com>
+From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
+Subject: RE: [PATCH net-next 2/5] qed: Fix TM block ILT allocation
+Date: Mon, 3 Apr 2017 13:58:19 +0000
+Message-ID: <BL2PR07MB23065BDE84DBA9DC5D2B8FBD8D080@BL2PR07MB2306.namprd07.prod.outlook.com>
+References: <1491211273-10910-1-git-send-email-Yuval.Mintz@cavium.com>
+ <1491211273-10910-3-git-send-email-Yuval.Mintz@cavium.com>
+ <7b179126-2a66-8696-98f9-3f3dca7a6d9e@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Alexey Dobriyan <adobriyan@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Kalderon, Michal" <Michal.Kalderon@cavium.com>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f178.google.com ([209.85.220.178]:33107 "EHLO
-        mail-qk0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751998AbdDCN47 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 3 Apr 2017 09:56:59 -0400
-Received: by mail-qk0-f178.google.com with SMTP id h67so15765597qke.0
-        for <netdev@vger.kernel.org>; Mon, 03 Apr 2017 06:56:58 -0700 (PDT)
-Received: from mail-qk0-f179.google.com (mail-qk0-f179.google.com. [209.85.220.179])
-        by smtp.gmail.com with ESMTPSA id q8sm9624098qki.58.2017.04.03.06.56.57
-        for <netdev@vger.kernel.org>
-        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Mon, 03 Apr 2017 06:56:57 -0700 (PDT)
-Received: by mail-qk0-f179.google.com with SMTP id p22so114596716qka.3
-        for <netdev@vger.kernel.org>; Mon, 03 Apr 2017 06:56:57 -0700 (PDT)
+Received: from mail-sn1nam01on0046.outbound.protection.outlook.com ([104.47.32.46]:62619
+        "EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1752900AbdDCN6W (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 3 Apr 2017 09:58:22 -0400
+In-Reply-To: <7b179126-2a66-8696-98f9-3f3dca7a6d9e@cogentembedded.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Apr 2, 2017 at 6:18 PM, Alexey Dobriyan <adobriyan@gmail.com> wrote:
-> Number of sockets is limited by 16-bit, so 64-bit allocation will never
-> happen.
->
-> 16-bit ops are the worst code density-wise on x86_64 because of
-> additional prefix (66).
-So this boils down to a compiled code density vs a
-readability/maintainability argument?  I'm not familiar with the 16
-bit problem you're referring to, but I'd argue that using the
-self-documenting u16 as an input parameter to define the range
-expectations is more useful that the micro optimization that this
-change may buy you in the assembly of one platform.  Especially given
-that this is a rare-use function.
-
->
-> Space savings:
->
->         add/remove: 0/0 grow/shrink: 0/1 up/down: 0/-3 (-3)
->         function                                     old     new   delta
->         reuseport_add_sock                           539     536      -3
->
-> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
-> ---
->
->  net/core/sock_reuseport.c |    4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
->
-> --- a/net/core/sock_reuseport.c
-> +++ b/net/core/sock_reuseport.c
-> @@ -13,9 +13,9 @@
->
->  static DEFINE_SPINLOCK(reuseport_lock);
->
-> -static struct sock_reuseport *__reuseport_alloc(u16 max_socks)
-> +static struct sock_reuseport *__reuseport_alloc(unsigned int max_socks)
->  {
-> -       size_t size = sizeof(struct sock_reuseport) +
-> +       unsigned int size = sizeof(struct sock_reuseport) +
->                       sizeof(struct sock *) * max_socks;
->         struct sock_reuseport *reuse = kzalloc(size, GFP_ATOMIC);
->
+PiA+ICsJLyogVGltZXJzIGlzIGEgc3BlY2lhbCBjYXNlIC0+IHdlIGRvbid0IGNvdW50IGhvdyBt
+YW55IGNpZHMgcmVxdWlyZQ0KPiANCj4gICAgIFMvaXMvYXJlLy4gQ0lEcz8NCg0KV2hhdCdzIGlt
+cGxpY2l0bHkgbWVhbnQgaGVyZSBpcyB0aGUgJ1RpbWVyW3NdIEhXIGJsb2NrJy4NCkkgdW5kZXJz
+dGFuZCBpdCBjcmVhdGVzIGFuIG9kZCBsb29raW5nIEVuZ2xpc2ggc2VudGVuY2UsIHRob3VnaC4N
+Cg0KQXNzdW1pbmcgdGhlcmUnbGwgYmUgYSBWMiBmb3IgdGhpcyB3ZSdkIHJldmlzZSB0aGUgY29t
+bWVudDsNCk90aGVyd2lzZSB3ZSdkIGRvIGl0IGluIHNvbWUgZnV0dXJlIGNsZWFudXAgcGF0Y2gu
+DQoNCg==
