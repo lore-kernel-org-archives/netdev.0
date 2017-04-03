@@ -1,48 +1,38 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: Pointer type of _arp in __skb_flow_dissect()
-Date: Mon, 3 Apr 2017 04:47:15 -0400
-Message-ID: <20170403084714.GB30894@vergenet.net>
-References: <9bb97603-3b86-73cb-8ed8-c421055138a6@m4x.org>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH] wlcore: fix spelling mistake in wl1271_warning 'iligal' -> 'illegal'
+Date: Mon,  3 Apr 2017 10:15:30 +0100
+Message-ID: <20170403091530.18564-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Nicolas Iooss <nicolas.iooss_linux@m4x.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Kalle Valo <kvalo@codeaurora.org>, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <9bb97603-3b86-73cb-8ed8-c421055138a6@m4x.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Nicolas,
+From: Colin Ian King <colin.king@canonical.com>
 
-thanks for pointing this out.
+trivial fix to spelling mistake in wl1271_warning error message
 
-On Fri, Mar 31, 2017 at 08:53:10PM +0200, Nicolas Iooss wrote:
-> Hello,
-> 
-> Linux 4.11-rc4 contains the following code in function
-> __skb_flow_dissect(), file net/core/flow_dissector.c:
-> 
-> 	const struct arphdr *arp;
-> 	struct arphdr *_arp;
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ drivers/net/wireless/ti/wlcore/debugfs.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-It looks like *_arp should be _arp.
-And it looks like this affects net, since v4.11-rc1, and net-next.
-I'll test the fix and post a patch unless someone beats me to it.
-
-> 
-> 	arp = __skb_header_pointer(skb, nhoff, sizeof(_arp), data,
-> 				   hlen, &_arp);
-> 
-> 
-> Here _arp and arp are both pointers to arphdr structures. In other calls
-> to __skb_header_pointer(), the buffer argument (_arp here) would have
-> been a struct instead of a pointer. What makes ARP packets different in
-> __skb_flow_dissect()?
-> 
-> Thanks,
-> Nicolas
-> 
-> PS: the code which I am curious about seems to have been introduced in
-> 4.11-rc1 with commit 55733350e5e8 ("flow disector: ARP support")
+diff --git a/drivers/net/wireless/ti/wlcore/debugfs.c b/drivers/net/wireless/ti/wlcore/debugfs.c
+index 58e148d7bc7b..416080adc181 100644
+--- a/drivers/net/wireless/ti/wlcore/debugfs.c
++++ b/drivers/net/wireless/ti/wlcore/debugfs.c
+@@ -1249,7 +1249,7 @@ static ssize_t fw_logger_write(struct file *file,
+ 	}
+ 
+ 	if (wl->conf.fwlog.output == 0) {
+-		wl1271_warning("iligal opperation - fw logger disabled by default, please change mode via wlconf");
++		wl1271_warning("illegal opperation - fw logger disabled by default, please change mode via wlconf");
+ 		return -EINVAL;
+ 	}
+ 
+-- 
+2.11.0
