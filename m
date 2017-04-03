@@ -1,98 +1,38 @@
-From: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Subject: Re: [PATCH v3 04/20] ARM: sun8i: dt: Add DT bindings documentation
- for Allwinner syscon
-Date: Mon, 3 Apr 2017 13:19:54 +0200
-Message-ID: <20170403111954.tolvlw7klswaxkl4@lukather>
-References: <20170403091444.29876-1-clabbe.montjoie@gmail.com>
- <20170403091444.29876-5-clabbe.montjoie@gmail.com>
+From: Guillaume Nault <g.nault@alphalink.fr>
+Subject: [PATCH net] l2tp: fix PPP pseudo-wire auto-loading
+Date: Mon, 3 Apr 2017 13:23:15 +0200
+Message-ID: <4f0c437337252f267de92ae650cb39e48dbff192.1491218507.git.g.nault@alphalink.fr>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="mpqtuhkxacc6rbzw"
-Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org,
-        linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org,
-        will.deacon-5wv7dgnIgG8@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
-        alexandre.torgue-qxv4g6HH51o@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20170403091444.29876-5-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
-
-
---mpqtuhkxacc6rbzw
 Content-Type: text/plain; charset=us-ascii
+Cc: James Chapman <jchapman@katalix.com>,
+        Stephen Hemminger <stephen@networkplumber.org>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from zimbra.alphalink.fr ([217.15.80.77]:60412 "EHLO
+        zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752038AbdDCLXU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 3 Apr 2017 07:23:20 -0400
 Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 03, 2017 at 11:14:28AM +0200, Corentin Labbe wrote:
-> Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> ---
->  .../devicetree/bindings/misc/allwinner,syscon.txt     | 19 +++++++++++++=
-++++++
->  1 file changed, 19 insertions(+)
->  create mode 100644 Documentation/devicetree/bindings/misc/allwinner,sysc=
-on.txt
->=20
-> diff --git a/Documentation/devicetree/bindings/misc/allwinner,syscon.txt =
-b/Documentation/devicetree/bindings/misc/allwinner,syscon.txt
-> new file mode 100644
-> index 0000000..9f5f1f5
-> --- /dev/null
-> +++ b/Documentation/devicetree/bindings/misc/allwinner,syscon.txt
-> @@ -0,0 +1,19 @@
-> +* Allwinner sun8i system controller
-> +
-> +This file describes the bindings for the system controller present in
-> +Allwinner SoC H3, A83T and A64.
-> +The principal function of this syscon is to control EMAC PHY choice and
-> +config.
-> +
-> +Required properties for the system controller:
-> +- reg: address and length of the register for the device.
-> +- compatible: should be "syscon" and one of the following string:
-> +		"allwinner,sun8i-h3-system-controller"
-> +		"allwinner,sun8i-a64-system-controller"
-> +		"allwinner,sun8i-a83t-system-controller"
-> +
-> +Example:
-> +syscon: syscon@01c00000 {
-> +	compatible =3D "syscon", "allwinner,sun8i-h3-system-controller";
+PPP pseudo-wire type is 7 (11 is L2TP_PWTYPE_IP).
 
-The syntax is the more specific first, so your compatibles should be
-the other way around.
+Fixes: f1f39f911027 ("l2tp: auto load type modules")
+Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
+---
+ net/l2tp/l2tp_ppp.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Maxime
-
---=20
-Maxime Ripard, Free Electrons
-Embedded Linux and Kernel engineering
-http://free-electrons.com
-
---mpqtuhkxacc6rbzw
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQIcBAEBCAAGBQJY4i/aAAoJEBx+YmzsjxAg3jwQAK1ATI4qCh2o5b+gUZfI9HO+
-hiTHJlV9y4h1iXU2HQwB3RcdFaWQc6L7JFFpMju5XQeseg2A3LMOJ6smrefiiAYU
-0PJVoX3MtDLcVuSgu3TtGQkPGJrlWOny3mHQkB+aPqwC0RKnGbE42vx3PrAScJBh
-eHgrzO3sOSpyP1XGp3iCwLUCicCTxmCJICgQfs0NAuv1sNuJBIVRirggRcPskk82
-1sMEXQ0uYAv9NQ24prWtz4WDAVLz/njdw8M+L4f4h8pw5Ft1U22hpU013o1uz/1l
-ff4C/w1xdNHh0HptbTryKyNiojPHNlCPCJtV7JBJW2yqASh+Q9DdzP+UEy/0rZ/n
-6EkU0vGDJN5ib1irou5F46+NvyNbKZdOSglQ03peEjX3vCen3kAxOcVP3wQHaVQU
-oEJV4B5bUEU5Dex3C5p0iKn8ZhnGfKpHGPhCz1NyijrixVLohU6PHs+adMg61qhj
-VtOQpDGoj1tgRvTXzq7NZY9qFOF6B2YxRcww7PJzE23REGe86ZTYIrW48iUIreNI
-cra2CE5kUcpoMJlE22HWizD5LasDx4hP3BH5WtZUU8oiywy1Na/ILSBECwaQfhj5
-laeyvoCV1P2GflDRzfkxv5NZ2mNyn/RTMNF97RQEzHF7rEXiYnZRSob4ENLuMbXq
-tCAF9zfEx0aH3AnsEIM2
-=2HAC
------END PGP SIGNATURE-----
-
---mpqtuhkxacc6rbzw--
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/l2tp/l2tp_ppp.c b/net/l2tp/l2tp_ppp.c
+index 26501902d1a7..9eab1a13aa71 100644
+--- a/net/l2tp/l2tp_ppp.c
++++ b/net/l2tp/l2tp_ppp.c
+@@ -1849,4 +1849,4 @@ MODULE_DESCRIPTION("PPP over L2TP over UDP");
+ MODULE_LICENSE("GPL");
+ MODULE_VERSION(PPPOL2TP_DRV_VERSION);
+ MODULE_ALIAS_NET_PF_PROTO(PF_PPPOX, PX_PROTO_OL2TP);
+-MODULE_ALIAS_L2TP_PWTYPE(11);
++MODULE_ALIAS_L2TP_PWTYPE(7);
+-- 
+2.11.0
