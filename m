@@ -1,43 +1,41 @@
 From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [PATCH -next] net: sched: choke: remove some dead code
-Date: Mon, 3 Apr 2017 21:18:41 +0300
-Message-ID: <20170403181629.GA22938@mwanda>
+Subject: [PATCH -next] qed: Add a missing error code
+Date: Mon, 3 Apr 2017 21:25:22 +0300
+Message-ID: <20170403182522.GA32592@mwanda>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        kernel-janitors@vger.kernel.org
-To: Jamal Hadi Salim <jhs@mojatatu.com>, Jiri Pirko <jiri@mellanox.com>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
+Cc: Ariel Elior <Ariel.Elior@cavium.com>, everest-linux-l2@cavium.com,
+        netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Yuval Mintz <Yuval.Mintz@cavium.com>,
+        Tomer Tayar <Tomer.Tayar@cavium.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:49566 "EHLO
+        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753208AbdDCSZc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 3 Apr 2017 14:25:32 -0400
 Content-Disposition: inline
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-We accidentally left this dead code behind after commit 5952fde10c35
-("net: sched: choke: remove dead filter classify code").
+We should be returning -ENOMEM if qed_mcp_cmd_add_elem() fails.  The
+current code returns success.
 
+Fixes: 4ed1eea82a21 ("qed: Revise MFW command locking")
 Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-diff --git a/net/sched/sch_choke.c b/net/sched/sch_choke.c
-index 040625fdc82b..f11f8732b0d5 100644
---- a/net/sched/sch_choke.c
-+++ b/net/sched/sch_choke.c
-@@ -223,7 +223,6 @@ static bool choke_match_random(const struct choke_sched_data *q,
- static int choke_enqueue(struct sk_buff *skb, struct Qdisc *sch,
- 			 struct sk_buff **to_free)
- {
--	int ret = NET_XMIT_SUCCESS | __NET_XMIT_BYPASS;
- 	struct choke_sched_data *q = qdisc_priv(sch);
- 	const struct red_parms *p = &q->parms;
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_mcp.c b/drivers/net/ethernet/qlogic/qed/qed_mcp.c
+index 619eac845028..ff6080df2246 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_mcp.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_mcp.c
+@@ -455,8 +455,10 @@ _qed_mcp_cmd_and_union(struct qed_hwfn *p_hwfn,
+ 	qed_mcp_reread_offsets(p_hwfn, p_ptt);
+ 	seq_num = ++p_hwfn->mcp_info->drv_mb_seq;
+ 	p_cmd_elem = qed_mcp_cmd_add_elem(p_hwfn, p_mb_params, seq_num);
+-	if (!p_cmd_elem)
++	if (!p_cmd_elem) {
++		rc = -ENOMEM;
+ 		goto err;
++	}
  
-@@ -290,11 +289,6 @@ static int choke_enqueue(struct sk_buff *skb, struct Qdisc *sch,
- congestion_drop:
- 	qdisc_drop(skb, sch, to_free);
- 	return NET_XMIT_CN;
--
--	if (ret & __NET_XMIT_BYPASS)
--		qdisc_qstats_drop(sch);
--	__qdisc_drop(skb, to_free);
--	return ret;
- }
- 
- static struct sk_buff *choke_dequeue(struct Qdisc *sch)
+ 	__qed_mcp_cmd_and_union(p_hwfn, p_ptt, p_mb_params, seq_num);
+ 	spin_unlock_bh(&p_hwfn->mcp_info->cmd_lock);
