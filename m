@@ -1,57 +1,117 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: [PATCH net] flow dissector: correct size of storage for ARP
-Date: Mon,  3 Apr 2017 15:42:58 -0400
-Message-ID: <1491248578-12014-1-git-send-email-simon.horman@netronome.com>
-Cc: Dinan Gunawardena <dinan.gunawardena@netronome.com>,
-        netdev@vger.kernel.org, oss-drivers@netronome.com,
-        Nicolas Iooss <nicolas.iooss_linux@m4x.org>,
-        Simon Horman <simon.horman@netronome.com>
-To: David Miller <davem@davemloft.net>
+From: "R. Parameswaran" <parameswaran.r7@gmail.com>
+Subject: Re: [PATCH net-next v4 1/2] New kernel function to get IP overhead
+ on a socket.
+Date: Mon, 3 Apr 2017 13:28:11 -0700 (PDT)
+Message-ID: <alpine.DEB.2.11.1704031316390.24947@vera100.eng.brocade.com>
+References: <alpine.DEB.2.11.1703221554000.9002@vera100.eng.brocade.com> <20170323.150500.1211908608737471263.davem@davemloft.net> <alpine.DEB.2.11.1703231809410.19388@vera100.eng.brocade.com> <14517769-bf88-a541-4948-1504a6d7acac@katalix.com>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "R. Parameswaran" <parameswaran.r7@gmail.com>,
+        David Miller <davem@davemloft.net>, kleptog@svana.org,
+        davem@redhat.com, nprachan@brocade.com, rshearma@brocade.com,
+        stephen@networkplumber.org, sdietric@brocade.com,
+        ciwillia@brocade.com, lboccass@brocade.com, dfawcus@brocade.com,
+        bhong@brocade.com, jblunck@brocade.com,
+        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: James Chapman <jchapman@katalix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f46.google.com ([209.85.214.46]:35235 "EHLO
-        mail-it0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751812AbdDCTnF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 3 Apr 2017 15:43:05 -0400
-Received: by mail-it0-f46.google.com with SMTP id y18so53035967itc.0
-        for <netdev@vger.kernel.org>; Mon, 03 Apr 2017 12:43:05 -0700 (PDT)
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:33786 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751194AbdDCU2N (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 3 Apr 2017 16:28:13 -0400
+In-Reply-To: <14517769-bf88-a541-4948-1504a6d7acac@katalix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The last argument to __skb_header_pointer() should be a buffer large
-enough to store struct arphdr. This can be a pointer to a struct arphdr
-structure. The code was previously using a pointer to a pointer to
-struct arphdr.
 
-By my counting the storage available both before and after is 8 bytes on
-x86_64.
 
-Fixes: 55733350e5e8 ("flow disector: ARP support")
-Reported-by: Nicolas Iooss <nicolas.iooss_linux@m4x.org>
-Signed-off-by: Simon Horman <simon.horman@netronome.com>
----
+Hi James, Dave,
 
-Dave,
+Sorry for the delay (was away), please see inline:
 
-this problem is present in both net, since v4.11-rc1 and net-next.
-However, the code has refactored in net-next. I expect this will result
-in a conflict. Let me know if you would like me to post a version for
-net-next too.
----
- net/core/flow_dissector.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+On Fri, 24 Mar 2017, James Chapman wrote:
 
-diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index c35aae13c8d2..d98d4998213d 100644
---- a/net/core/flow_dissector.c
-+++ b/net/core/flow_dissector.c
-@@ -390,7 +390,7 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
- 			unsigned char ar_tip[4];
- 		} *arp_eth, _arp_eth;
- 		const struct arphdr *arp;
--		struct arphdr *_arp;
-+		struct arphdr _arp;
- 
- 		arp = __skb_header_pointer(skb, nhoff, sizeof(_arp), data,
- 					   hlen, &_arp);
--- 
-2.7.0.rc3.207.g0ac5344
+> On 24/03/17 01:51, R. Parameswaran wrote:
+> > Hi Dave,
+> >
+> > Please see inline:
+> >
+> > On Thu, 23 Mar 2017, David Miller wrote:
+> >
+> >> From: "R. Parameswaran" <parameswaran.r7@gmail.com>
+> >> Date: Wed, 22 Mar 2017 15:59:13 -0700 (PDT)
+> >>
+> >>> A new function, kernel_sock_ip_overhead(), is provided
+> >>> to calculate the cumulative overhead imposed by the IP
+> >>> Header and IP options, if any, on a socket's payload.
+> >>> The new function returns an overhead of zero for sockets
+> >>> that do not belong to the IPv4 or IPv6 address families.
+> >>>
+> >>> Signed-off-by: R. Parameswaran <rparames@brocade.com>
+> >> Just use the IPv4/IPv6 header size for now, just like the VXLAN
+> >> driver does.
+> >>
+> > Actually, that's how the original posting was - it was changed in 
+> > response to a review comment from James Chapman requesting the IP
+> > Options overhead to be factored in and for this to be calculated in
+> > a new standalone function that can be reused in other situations. 
+> > The review comment makes sense to me - the kernel seems to do a 
+> > good job of accounting for the cumulative size of IP Options and
+> > if the information is available, it may make sense to factor it in.
+> >
+> > I guess you are concerned about compatibility between vxlan and
+> > L2TP? There may be one difference  - the socket for vxlan
+> > appears to be opened/controlled entirely within kernel code (seems
+> > to call udp_sock_create() which does not appear to turn on any options), 
+> > but in the case of L2TP, it is possible for the tunnel socket to be 
+> > opened from user space, if a user space control plane daemon is running.
+> > Regardless of how user space daemons are written right now, it is 
+> > possible in theory for the user space code to turn on options on the 
+> > L2TP tunnel socket. So it seems that IP options might be enabled on the 
+> > L2TP socket, but are probably unlikely on the vxlan socket? 
+> >
+> > I'd suggest giving this a few days for James to respond. 
+> > At that time if there is agreement that we don't need to factor options, 
+> > I can rework it.
+> 
+> The reason I suggested factoring in IP options here is because L2TP
+> tunnel sockets can be opened by userspace daemons. When an L2TP control
+> plane is used, the L2TP daemon opens the tunnel socket. When no control
+> plane is used, L2TP connections are manually configured, usually by ip
+> l2tp commands, and the tunnel socket is created by the kernel.
+> 
+> For sockets created by userspace, the L2TP daemon could derive the
+> cumulative size of all IP options that it sets and use that to set the
+> L2TP session's MTU. Setting an MTU when establishing L2TP connections
+> overrides the kernel's own default MTU calculations anyway. But the L2TP
+> packet header overhead depends on several other L2TP-specific options,
+> e.g. cookie size and the kernel already takes these into account when
+> calculating MTU. If IP options are ignored, we'd have the situation
+> where the default MTU value avoids fragmentation but only if certain IP
+> options are not enabled on the tunnel socket.
+> 
+> For L2TP, I'd prefer that the kernel takes IP options into account. If a
+> function were added to the kernel to return the IP header overhead of an
+> IP socket, initially for L2TP, I figured it might be useful for other
+> tunnel protocols too, hence I suggested it was added as a generic
+> function. Maybe that was a mistake. If instead this function is renamed
+> and made L2TP-private, that would be ok for me.
+> 
+> James
+> 
+
+Can I take this to mean that we do need to factor in IP options in 
+the L2TP device MTU setup (i.e approach in the posted patch is okay)? 
+
+If yes, please let me know if I can keep the socket IP option overhead 
+calculations in a generic function, or it would be better to move it back into 
+L2TP code? 
+
+There are a couple of krobot warnings which I can fix on the next upload. 
+
+thanks,
+
+Ramkumar
+
+> 
+> 
