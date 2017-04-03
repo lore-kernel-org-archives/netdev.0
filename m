@@ -1,64 +1,43 @@
-From: Ricardo Farrington <Ricardo.Farrington@cavium.com>
-Subject: RE: [PATCH net-next] liquidio: use meaningful names for IRQs
-Date: Mon, 3 Apr 2017 15:03:31 +0000
-Message-ID: <CY1PR07MB2665225225D98B5366576AA3EC080@CY1PR07MB2665.namprd07.prod.outlook.com>
-References: <20170313195804.GA1796@felix2.cavium.com>
- <CA+sq2CdG9fBR-Hw3rULMJON3aFQkCXtEpgkfKTzYhd5s=Lo1Tw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        "Vatsavayi, Raghu" <Raghu.Vatsavayi@cavium.com>,
-        "Chickles, Derek" <Derek.Chickles@cavium.com>,
-        "Burla, Satananda" <Satananda.Burla@cavium.com>
-To: Sunil Kovvuri <sunil.kovvuri@gmail.com>,
-        "Manlunas, Felix" <Felix.Manlunas@cavium.com>
+From: Florian Larysch <fl@n621.de>
+Subject: [PATCH] net: ipv4: fix multipath RTM_GETROUTE behavior when iif is given
+Date: Mon,  3 Apr 2017 16:46:09 +0200
+Message-ID: <20170403144609.18716-1-fl@n621.de>
+Cc: netdev@vger.kernel.org, Florian Larysch <fl@n621.de>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2nam02on0062.outbound.protection.outlook.com ([104.47.38.62]:30144
-        "EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1753157AbdDCPDf (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 3 Apr 2017 11:03:35 -0400
-In-Reply-To: <CA+sq2CdG9fBR-Hw3rULMJON3aFQkCXtEpgkfKTzYhd5s=Lo1Tw@mail.gmail.com>
-Content-Language: en-US
+Received: from nyx.n621.de ([176.9.182.227]:41457 "EHLO nyx.n621.de"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752170AbdDCPLF (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 3 Apr 2017 11:11:05 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SGkgU3VuaWwgLSB0aGlzIGltcGxlbWVudGF0aW9uIHdhcyB2ZXJpZmllZCB3aXRoIG11bHRpcGxl
-IGFkYXB0ZXJzIGluc3RhbGxlZC4gIEluIHRoaXMgY2FzZSwgdGhlIDxpZD4gZmllbGQgc2VydmVz
-IHRvIGRpZmZlcmVudGlhdGUgdGhlIGFkYXB0ZXIuDQoNCj4gICAgIExpcXVpZElPPGlkPi08ZnVu
-Yz4tPHR5cGU+LTxxdWV1ZSBwYWlyIG51bT4NCg0KUmljaw0KDQoNCi0tLS0tT3JpZ2luYWwgTWVz
-c2FnZS0tLS0tDQpGcm9tOiBTdW5pbCBLb3Z2dXJpIFttYWlsdG86c3VuaWwua292dnVyaUBnbWFp
-bC5jb21dIA0KU2VudDogTW9uZGF5LCBBcHJpbCAwMywgMjAxNyAyOjU2IEFNDQpUbzogTWFubHVu
-YXMsIEZlbGl4IDxGZWxpeC5NYW5sdW5hc0BjYXZpdW0uY29tPg0KQ2M6IERhdmlkIFMuIE1pbGxl
-ciA8ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldD47IExpbnV4IE5ldGRldiBMaXN0IDxuZXRkZXZAdmdlci5r
-ZXJuZWwub3JnPjsgVmF0c2F2YXlpLCBSYWdodSA8UmFnaHUuVmF0c2F2YXlpQGNhdml1bS5jb20+
-OyBDaGlja2xlcywgRGVyZWsgPERlcmVrLkNoaWNrbGVzQGNhdml1bS5jb20+OyBCdXJsYSwgU2F0
-YW5hbmRhIDxTYXRhbmFuZGEuQnVybGFAY2F2aXVtLmNvbT47IFJpY2FyZG8gRmFycmluZ3RvbiA8
-UmljYXJkby5GYXJyaW5ndG9uQGNhdml1bS5jb20+DQpTdWJqZWN0OiBSZTogW1BBVENIIG5ldC1u
-ZXh0XSBsaXF1aWRpbzogdXNlIG1lYW5pbmdmdWwgbmFtZXMgZm9yIElSUXMNCg0KT24gVHVlLCBN
-YXIgMTQsIDIwMTcgYXQgMToyOCBBTSwgRmVsaXggTWFubHVuYXMgPGZlbGl4Lm1hbmx1bmFzQGNh
-dml1bS5jb20+IHdyb3RlOg0KPiBGcm9tOiBSaWNrIEZhcnJpbmd0b24gPHJpY2FyZG8uZmFycmlu
-Z3RvbkBjYXZpdW0uY29tPg0KPg0KPiBBbGwgSVJRcyBvd25lZCBieSB0aGUgUEYgYW5kIFZGIGRy
-aXZlcnMgc2hhcmUgdGhlIHNhbWUgbm9uZGVzY3JpcHQgDQo+IG5hbWUgIm9jdGVvbiI7IHRoaXMg
-bWFrZXMgaXQgZGlmZmljdWx0IHRvIHNldHVwIGludGVycnVwdCBhZmZpbml0eS4NCj4NCj4gQ2hh
-bmdlIHRoZSBJUlEgbmFtZXMgdG8gcmVmbGVjdCB0aGVpciBzcGVjaWZpYyBwdXJwb3NlOg0KPg0K
-PiAgICAgTGlxdWlkSU88aWQ+LTxmdW5jPi08dHlwZT4tPHF1ZXVlIHBhaXIgbnVtPg0KPg0KPiBF
-eGFtcGxlczoNCj4gICAgIExpcXVpZElPMC1wZjAtcnh0eC0zDQo+ICAgICBMaXF1aWRJTzEtdmYx
-LXJ4dHgtMA0KPiAgICAgTGlxdWlkSU8wLXBmMC1hdXgNCg0KUHJvYmFibHkgdG9vIGxhdGUsIGJ1
-dCBqdXN0IG15IDIgY2VudHMuDQoNCklmIHRoZXJlIGFyZSBtdWx0aXBsZSBMaXF1aWRJTyBjYXJk
-cyBjb25uZWN0ZWQgaW4gYSBzeXN0ZW0sIHdvdWxkbid0IHRoZSBzYW1lIGlzc3VlIG9mIGhvdyB0
-byBzZXR1cCBJUlEgYWZmaW5pdGllcyBhcmlzZSA/DQpIb3cgZG8geW91IG1hcCBuZXRkZXYtPm5h
-bWUgdG8gSVJRIG5hbWUgPw0KDQo+DQo+IFdlIGNhbm5vdCB1c2UgbmV0ZGV2LT5uYW1lIGZvciBu
-YW1pbmcgdGhlIElSUXMgYmVjYXVzZToNCj4NCj4gICAgIDEuICBFYXJseSBkdXJpbmcgaW5pdCwg
-dGhlIFBGIGFuZCBWRiBkcml2ZXJzIHJlcXVpcmUgaW50ZXJydXB0cyB0bw0KPiAgICAgICAgIHNl
-bmQvcmVjZWl2ZSBjb250cm9sIGRhdGEgZnJvbSB0aGUgTklDIGZpcm13YXJlOyBzbyB0aGUgUEYg
-YW5kIFZGDQo+ICAgICAgICAgbXVzdCByZXF1ZXN0IElSUXMgbG9uZyBiZWZvcmUgdGhlIG5ldGRl
-diBzdHJ1Y3QgaXMgcmVnaXN0ZXJlZC4NCj4NCj4gICAgIDIuICBUaGUgSVJRIG5hbWUgY2FuIG9u
-bHkgYmUgc3BlY2lmaWVkIGF0IHRoZSB0aW1lIGl0IGlzIHJlcXVlc3RlZC4NCj4gICAgICAgICBJ
-dCBjYW5ub3QgYmUgY2hhbmdlZCBhZnRlciB0aGF0Lg0KDQpZb3UgY2FuIHRyeSBzcGxpdHRpbmcg
-SVJRIHJlZ2lzdHJhdGlvbiBhbmQgcmVnaXN0ZXIgSVJRcyBmb3Igc2VuZGluZy9yZWNlaXZpbmcg
-Y29udHJvbCBkYXRhIHdpdGggYWJvdmUgbmFtaW5nIGJ1dCBmb3IgcXVldWVzLCBJUlFzIGNhbiBi
-ZSByZWdpc3RlcmVkIGFmdGVyIG5ldGRldiBzdHJ1Y3QgaXMgcmVnaXN0ZXJlZC4NCg0KVGhhbmtz
-LA0KU3VuaWwuDQo=
+inet_rtm_getroute synthesizes a skeletal ICMP skb, which is passed to
+ip_route_input when iif is given. If a multipath route is present for
+the designated destination, ip_multipath_icmp_hash ends up being called,
+which uses the source/destination addresses within the skb to calculate
+a hash. However, those are not set in the synthetic skb, causing it to
+return an arbitrary and incorrect result.
+
+Instead, use UDP, which gets no such special treatment.
+
+Signed-off-by: Florian Larysch <fl@n621.de>
+---
+ net/ipv4/route.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 8471dd116771..acd69cfe2951 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -2620,7 +2620,7 @@ static int inet_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh)
+ 	skb_reset_network_header(skb);
+ 
+ 	/* Bugfix: need to give ip_route_input enough of an IP header to not gag. */
+-	ip_hdr(skb)->protocol = IPPROTO_ICMP;
++	ip_hdr(skb)->protocol = IPPROTO_UDP;
+ 	skb_reserve(skb, MAX_HEADER + sizeof(struct iphdr));
+ 
+ 	src = tb[RTA_SRC] ? nla_get_in_addr(tb[RTA_SRC]) : 0;
+-- 
+2.12.0
