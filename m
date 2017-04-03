@@ -1,46 +1,62 @@
-From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Subject: Re: [PATCH 15/16] drivers, net, intersil: convert hostap_cmd_queue.usecnt from atomic_t to refcount_t
-Date: Mon, 03 Apr 2017 14:38:49 +0300
-Message-ID: <874ly5oh4m.fsf@kamboji.qca.qualcomm.com>
-References: <1490691403-4016-1-git-send-email-elena.reshetova@intel.com>
-        <1490691403-4016-16-git-send-email-elena.reshetova@intel.com>
+From: Maxime Ripard <maxime.ripard@free-electrons.com>
+Subject: Re: [PATCH v3 20/20] ARM: sunxi: Enable dwmac-sun8i driver on
+ multi_v7_defconfig
+Date: Mon, 3 Apr 2017 13:39:23 +0200
+Message-ID: <20170403113923.ztyk4vy3dqyq7jdj@lukather>
+References: <20170403091444.29876-1-clabbe.montjoie@gmail.com>
+ <20170403091444.29876-21-clabbe.montjoie@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-hams-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-ppp-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ganeshgr-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-        nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org, blogic-p3rKhJxN3npAfugRpC6u6w@public.gmane.org, matthias.bgg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-        yishaih-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
-        leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, ajk-iz34hMvxm2Hmj42eshorlhS11BummzK+@public.gmane.org, paulus-eUNUBHrolfbYtjvyW6yDsg@public.gmane.org,
-        j@w1.fi, peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org, keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org,
-        gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, Hans Liljestrand <ishkamiel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        David Windsor <dwindsor-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: Elena Reshetova <elena.reshetova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1490691403-4016-16-git-send-email-elena.reshetova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-        (Elena Reshetova's message of "Tue, 28 Mar 2017 11:56:42 +0300")
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: multipart/signed; micalg=pgp-sha256;
+        protocol="application/pgp-signature"; boundary="jzjwih5zkeobo7ug"
+Cc: robh+dt@kernel.org, mark.rutland@arm.com, wens@csie.org,
+        linux@armlinux.org.uk, catalin.marinas@arm.com,
+        will.deacon@arm.com, peppe.cavallaro@st.com,
+        alexandre.torgue@st.com, devicetree@vger.kernel.org,
+        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org
+To: Corentin Labbe <clabbe.montjoie@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170403091444.29876-21-clabbe.montjoie@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Elena Reshetova <elena.reshetova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org> writes:
 
-> refcount_t type and corresponding API should be
-> used instead of atomic_t when the variable is used as
-> a reference counter. This allows to avoid accidental
-> refcounter overflows that might lead to use-after-free
-> situations.
->
-> Signed-off-by: Elena Reshetova <elena.reshetova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-> Signed-off-by: Hans Liljestrand <ishkamiel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> Signed-off-by: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
-> Signed-off-by: David Windsor <dwindsor-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> ---
->  drivers/net/wireless/intersil/hostap/hostap_hw.c   | 12 ++++++------
->  drivers/net/wireless/intersil/hostap/hostap_wlan.h |  3 ++-
->  2 files changed, 8 insertions(+), 7 deletions(-)
+--jzjwih5zkeobo7ug
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-The prefix should be "hostap:", I'll fix that.
+On Mon, Apr 03, 2017 at 11:14:44AM +0200, Corentin Labbe wrote:
+> Enable the dwmac-sun8i driver in the multi_v7 default configuration
 
--- 
-Kalle Valo
+Your prefix should be arm: multi_v7:
+
+Maxime
+
+--=20
+Maxime Ripard, Free Electrons
+Embedded Linux and Kernel engineering
+http://free-electrons.com
+
+--jzjwih5zkeobo7ug
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIcBAEBCAAGBQJY4jRrAAoJEBx+YmzsjxAgEVgQAKMKuY6KHUuugMTo2bqxAHVW
+OSg1UQb5qA8OGSNRGKBMlrJu1nhZ10NR93km7Kgo9MQ0/42BCbpAjSuHXznbGcz5
+TtIFb8RFwjbPlztcZ/vcJNNzOoB1izfj+HX+VjttWstfCZIL79CTYMznxriQU+a8
+crVMYor2xElXRO3e5pwVJLsz4bAuIOMDhcJUNDYTUpLYKw58ufGSe36iXWNc1Uib
+fNjIjqCWrxrDOxPAlMhrILpWuGlHT8hDuR94H1l8e3oz6mhQOoxPsARaT17CcpEz
+N1ISFw85qr+3sK00Pyot2wjP77+D9sxMcor0Y03+vPIxIN7BcnW1Zz56RskrwDBa
+xKreaoZmv8sRJRkrf3lY+HuXAh3yrfFug2yU5ln7XHCA3+IPsh887qRAyeVyDy3t
+RbcMhjRK73ZdXv+WVPo+yTfrwOwkgHW0kTSL16M8hlazNvST8gQKepusakqGXJhL
+XmsFynezLiiFzttvI1lHUyi2upN8ounDqS9piAU1Uon7a0cAHLA4T3KPn54AxwtE
+5lwo/GP46cPi/R4ZCNpeWNrszfOfQUrPA3mmF0lU+w0zs0huwB6cwJPccnehny9h
+tXEy1wFuBM01WTa01DBWFABpEscajgkm8/QYaNDE8GsZ56wvdHDoW2Ck1pwUAtRx
+ymvbXfFbUtc7xLNglnBk
+=u1Mh
+-----END PGP SIGNATURE-----
+
+--jzjwih5zkeobo7ug--
