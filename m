@@ -1,119 +1,73 @@
-From: Corentin Labbe <clabbe.montjoie@gmail.com>
-Subject: Re: [PATCH] selftests: add a generic testsuite for ethernet device
-Date: Mon, 3 Apr 2017 15:15:26 +0200
-Message-ID: <20170403131526.GC30824@Red>
-References: <20170331125752.20074-1-clabbe.montjoie@gmail.com>
- <20170331125752.20074-2-clabbe.montjoie@gmail.com>
- <20170331141241.GH22609@lunn.ch>
+From: Johan Hovold <johan-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH 1/2] wireless: ath9k_htc: fix NULL-deref at probe
+Date: Mon, 3 Apr 2017 15:16:16 +0200
+Message-ID: <20170403131616.GA3119@localhost>
+References: <20170313124421.28587-1-johan@kernel.org>
+ <20170403084213.GE25742@localhost>
+ <87shlpomvx.fsf@kamboji.qca.qualcomm.com>
+ <87k271myos.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, shuah@kernel.org,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kselftest@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: Johan Hovold <johan-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        ath9k-devel <ath9k-devel-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>,
+        Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>,
+        Ulrich Kunitz <kune-hUSrv6EASfkEnNRfnnE9gw@public.gmane.org>,
+        "linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Sujith Manoharan <Sujith.Manoharan-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org>
+To: Kalle Valo <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20170331141241.GH22609@lunn.ch>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <87k271myos.fsf-HodKDYzPHsUD5k0oWYwrnHL1okKdlPRT@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 31, 2017 at 04:12:41PM +0200, Andrew Lunn wrote:
-> On Fri, Mar 31, 2017 at 02:57:52PM +0200, Corentin Labbe wrote:
-> > This patch add a generic testsuite for testing ethernet network device driver.
-> > 
-> > Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
-> > ---
-> >  tools/testing/selftests/net/Makefile     |   2 +-
-> >  tools/testing/selftests/net/netdevice.sh | 185 +++++++++++++++++++++++++++++++
-> >  2 files changed, 186 insertions(+), 1 deletion(-)
-> >  create mode 100755 tools/testing/selftests/net/netdevice.sh
-> > 
-> > diff --git a/tools/testing/selftests/net/Makefile b/tools/testing/selftests/net/Makefile
-> > index fbfe5d0..35cbb4c 100644
-> > --- a/tools/testing/selftests/net/Makefile
-> > +++ b/tools/testing/selftests/net/Makefile
-> > @@ -5,7 +5,7 @@ CFLAGS += -I../../../../usr/include/
-> >  
-> >  reuseport_bpf_numa: LDFLAGS += -lnuma
-> >  
-> > -TEST_PROGS := run_netsocktests run_afpackettests test_bpf.sh
-> > +TEST_PROGS := run_netsocktests run_afpackettests test_bpf.sh netdevice.sh
-> >  TEST_GEN_FILES =  socket
-> >  TEST_GEN_FILES += psock_fanout psock_tpacket
-> >  TEST_GEN_FILES += reuseport_bpf reuseport_bpf_cpu reuseport_bpf_numa
-> > diff --git a/tools/testing/selftests/net/netdevice.sh b/tools/testing/selftests/net/netdevice.sh
-> > new file mode 100755
-> > index 0000000..89ba827
-> > --- /dev/null
-> > +++ b/tools/testing/selftests/net/netdevice.sh
-> > @@ -0,0 +1,185 @@
-> > +#!/bin/sh
-> > +#
-> > +# This test is for checking network interface
-> > +# For the moment it tests only ethernet interface (but wifi could be easily added)
-> > +#
-> > +# We assume that all network driver are loaded
-> > +# if not they probably have failed earlier in the boot process and their logged error will be catched by another test
-> > +#
-> > +
+On Mon, Apr 03, 2017 at 01:02:28PM +0000, Kalle Valo wrote:
+> Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org> writes:
 > 
-> Hi Corentin
+> > Johan Hovold <johan-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org> writes:
+> >
+> >> On Mon, Mar 13, 2017 at 01:44:20PM +0100, Johan Hovold wrote:
+> >>> Make sure to check the number of endpoints to avoid dereferencing a
+> >>> NULL-pointer or accessing memory beyond the endpoint array should a
+> >>> malicious device lack the expected endpoints.
+> >>> 
+> >>> Fixes: 36bcce430657 ("ath9k_htc: Handle storage devices")
+> >>> Cc: Sujith Manoharan <Sujith.Manoharan-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org>
+> >>> Signed-off-by: Johan Hovold <johan-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+> >>
+> >> Is this one still in your queue, Kalle?
+> >
+> > Yes, I'm just lacking behing:
+> >
+> > https://patchwork.kernel.org/patch/9620723/
 > 
-> Nice to see some basic tests.
+> Meant "lagging" of course. Mondays..
 > 
-> > +# this function will try to up the interface
-> > +# if already up, nothing done
-> > +# arg1: network interface name
-> > +kci_net_start()
-> > +{
-> > +	netdev=$1
-> > +
-> > +	ip link show "$netdev" |grep -q UP
-> > +	if [ $? -eq 0 ];then
-> > +		echo "SKIP: interface $netdev already up"
-> > +		return 0
-> > +	fi
-> > +
-> > +	ip link set "$netdev" up
-> > +	if [ $? -ne 0 ];then
-> > +		echo "FAIL: Fail to up $netdev"
-> > +		return 1
-> > +	else
-> > +		echo "PASS: set interface $netdev up"
-> > +		NETDEV_STARTED=1
-> > +	fi
+> >> As I mentioned earlier, I should have added a
+> >>
+> >> Cc: stable <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>     # 2.6.39
+> >>
+> >> but left it out as I mistakingly thought the net recommendations to do
+> >> so applied also to wireless.
+> >
+> > Ok, I'll add that.
 > 
-> This is going to be problematic.
-> 
-> 3: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc pfifo_fast state DOWN mode DEFAULT group default qlen 1000
->     link/ether 8e:01:30:d5:63:ff brd ff:ff:ff:ff:ff:ff
-> 4: lan1@eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000
->     link/ether 8e:01:30:d5:63:ff brd ff:ff:ff:ff:ff:ff
-> 
-> lan1 has eth1 as its master interface. If you try to up lan1 while eth1 is down:
-> 
-> # ip link set lan1 up
-> RTNETLINK answers: Network is down
-> 
-> > +
-> > +ls /sys/class/net/ |grep -vE '^lo|^tun' | grep -E '^eth|enp[0-9]s[0-9]' > "$TMP_LIST_NETDEV"
-> > +while read netdev
-> > +do
-> > +	kci_test_netdev "$netdev"
-> > +done < "$TMP_LIST_NETDEV"
-> 
-> Because of the grep, on this board, you won't actually test
-> lan1. Which is a shame. It would be nice to test it, and the other
-> interfaces like it.
-> 
-> Rather than going on the order ls gives you, could you order it based
-> on the ifnum? The master has to exist before a slave can be
-> created. Hence the master has a lower ifnum than the slave. So bring
-> the interfaces up in ifnum order, and down in reverse order.
-> 
-> Thanks
-> 	Andrew
+> But is 2.6.39 really correct? Shouldn't it be 2.6.39+ so that it means
+> all versions since 2.6.39?
 
-By ifnum, you mean by the order that "ip link" gives ?
+Either way is fine, the stable maintainers apply them to all later
+versions.
 
-Regards
+I notice now that adding a plus sign is more common, but it's still a
+1:2 ratio judging from quick grep, while the stable-kernel-rules.rst
+actually uses a minus sign...
+
+Thanks,
+Johan
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
