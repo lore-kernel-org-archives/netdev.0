@@ -1,74 +1,97 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next 2/5] qed: Fix TM block ILT allocation
-Date: Mon, 3 Apr 2017 14:46:20 +0300
-Message-ID: <7b179126-2a66-8696-98f9-3f3dca7a6d9e@cogentembedded.com>
-References: <1491211273-10910-1-git-send-email-Yuval.Mintz@cavium.com>
- <1491211273-10910-3-git-send-email-Yuval.Mintz@cavium.com>
+From: Sekhar Nori <nsekhar@ti.com>
+Subject: [PATCH] net: ethernet: ti: cpsw: fix race condition during open()
+Date: Mon, 3 Apr 2017 17:34:28 +0530
+Message-ID: <509439ff3e756ea1dade2738e305f08fc7920650.1491220439.git.nsekhar@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Michal Kalderon <Michal.Kalderon@cavium.com>
-To: Yuval Mintz <Yuval.Mintz@cavium.com>, davem@davemloft.net,
-        netdev@vger.kernel.org
+Content-Type: text/plain
+Cc: Grygorii Strashko <grygorii.strashko@ti.com>,
+        <linux-omap@vger.kernel.org>, <netdev@vger.kernel.org>
+To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f53.google.com ([209.85.215.53]:33426 "EHLO
-        mail-lf0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751649AbdDCLqW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 3 Apr 2017 07:46:22 -0400
-Received: by mail-lf0-f53.google.com with SMTP id h125so71177005lfe.0
-        for <netdev@vger.kernel.org>; Mon, 03 Apr 2017 04:46:21 -0700 (PDT)
-In-Reply-To: <1491211273-10910-3-git-send-email-Yuval.Mintz@cavium.com>
+Received: from fllnx209.ext.ti.com ([198.47.19.16]:12866 "EHLO
+        fllnx209.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751829AbdDCMFA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 3 Apr 2017 08:05:00 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 4/3/2017 12:21 PM, Yuval Mintz wrote:
+TI's cpsw driver handles both OF and non-OF case for phy
+connect. Unfortunately of_phy_connect() returns NULL on
+error while phy_connect() returns ERR_PTR().
 
-> From: Michal Kalderon <Michal.Kalderon@cavium.com>
->
-> When configuring the HW timers block we should set the number of CIDs
-> up until the last CID that require timers, instead of only those CIDs
-> whose protocol needs timers support.
->
-> Today, the protocols that require HW timers' support have their CIDs
-> before any other protocol, but that would change in future [when we
-> add iWARP support].
->
-> Signed-off-by: Michal Kalderon <Michal.Kalderon@cavium.com>
-> Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
-> ---
->  drivers/net/ethernet/qlogic/qed/qed_cxt.c | 32 ++++++++++++++++++++++++-------
->  1 file changed, 25 insertions(+), 7 deletions(-)
->
-> diff --git a/drivers/net/ethernet/qlogic/qed/qed_cxt.c b/drivers/net/ethernet/qlogic/qed/qed_cxt.c
-> index 1012b3c..259dafa 100644
-> --- a/drivers/net/ethernet/qlogic/qed/qed_cxt.c
-> +++ b/drivers/net/ethernet/qlogic/qed/qed_cxt.c
-> @@ -303,16 +303,34 @@ struct qed_tm_iids {
->  	u32 per_vf_tids;
->  };
->
-> -static void qed_cxt_tm_iids(struct qed_cxt_mngr *p_mngr,
-> +static void qed_cxt_tm_iids(struct qed_hwfn *p_hwfn,
-> +			    struct qed_cxt_mngr *p_mngr,
->  			    struct qed_tm_iids *iids)
->  {
-> -	u32 i, j;
-> -
-> -	for (i = 0; i < MAX_CONN_TYPES; i++) {
-> +	bool tm_vf_required = false;
-> +	bool tm_required = false;
-> +	int i, j;
-> +
-> +	/* Timers is a special case -> we don't count how many cids require
+To handle this, cpsw_slave_open() overrides the return value
+from phy_connect() to make it NULL or error.
 
-    S/is/are/. CIDs?
+This leaves a small window, where cpsw_adjust_link() may be
+invoked for a slave while slave->phy pointer is temporarily
+set to -ENODEV (or some other error) before it is finally set
+to NULL.
 
-> +	 * timers but what's the max cid that will be used by the timer block.
-> +	 * therefore we traverse in reverse order, and once we hit a protocol
-> +	 * that requires the timers memory, we'll sum all the protocols up
-> +	 * to that one.
-> +	 */
-> +	for (i = MAX_CONN_TYPES - 1; i >= 0; i--) {
-[...]
+_cpsw_adjust_link() only handles the NULL case, and an oops
+results when ERR_PTR() is seen by it.
 
-MBR, Sergei
+Note that cpsw_adjust_link() checks PHY status for each
+slave whenever it is invoked. It can so happen that even
+though phy_connect() for a given slave returns error,
+_cpsw_adjust_link() is still called for that slave because
+the link status of another slave changed.
+
+Fix this by using a temporary pointer to store return value
+of {of_}phy_connect() and do a one-time write to slave->phy.
+
+Reviewed-by: Grygorii Strashko <grygorii.strashko@ti.com>
+Reported-by: Yan Liu <yan-liu@ti.com>
+Signed-off-by: Sekhar Nori <nsekhar@ti.com>
+---
+ drivers/net/ethernet/ti/cpsw.c | 14 ++++++++------
+ 1 file changed, 8 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index 9f3d9c67e3fe..5a4faa4489d0 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -1267,6 +1267,7 @@ static void soft_reset_slave(struct cpsw_slave *slave)
+ static void cpsw_slave_open(struct cpsw_slave *slave, struct cpsw_priv *priv)
+ {
+ 	u32 slave_port;
++	struct phy_device *phy;
+ 	struct cpsw_common *cpsw = priv->cpsw;
+ 
+ 	soft_reset_slave(slave);
+@@ -1300,27 +1301,28 @@ static void cpsw_slave_open(struct cpsw_slave *slave, struct cpsw_priv *priv)
+ 				   1 << slave_port, 0, 0, ALE_MCAST_FWD_2);
+ 
+ 	if (slave->data->phy_node) {
+-		slave->phy = of_phy_connect(priv->ndev, slave->data->phy_node,
++		phy = of_phy_connect(priv->ndev, slave->data->phy_node,
+ 				 &cpsw_adjust_link, 0, slave->data->phy_if);
+-		if (!slave->phy) {
++		if (!phy) {
+ 			dev_err(priv->dev, "phy \"%s\" not found on slave %d\n",
+ 				slave->data->phy_node->full_name,
+ 				slave->slave_num);
+ 			return;
+ 		}
+ 	} else {
+-		slave->phy = phy_connect(priv->ndev, slave->data->phy_id,
++		phy = phy_connect(priv->ndev, slave->data->phy_id,
+ 				 &cpsw_adjust_link, slave->data->phy_if);
+-		if (IS_ERR(slave->phy)) {
++		if (IS_ERR(phy)) {
+ 			dev_err(priv->dev,
+ 				"phy \"%s\" not found on slave %d, err %ld\n",
+ 				slave->data->phy_id, slave->slave_num,
+-				PTR_ERR(slave->phy));
+-			slave->phy = NULL;
++				PTR_ERR(phy));
+ 			return;
+ 		}
+ 	}
+ 
++	slave->phy = phy;
++
+ 	phy_attached_info(slave->phy);
+ 
+ 	phy_start(slave->phy);
+-- 
+2.9.0
