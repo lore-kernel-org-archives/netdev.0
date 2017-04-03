@@ -1,39 +1,62 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH][V2] wlcore: fix spelling mistakes in wl1271_warning
-Date: Mon,  3 Apr 2017 10:47:58 +0100
-Message-ID: <20170403094758.19397-1-colin.king@canonical.com>
+From: Sunil Kovvuri <sunil.kovvuri@gmail.com>
+Subject: Re: [PATCH net-next] liquidio: use meaningful names for IRQs
+Date: Mon, 3 Apr 2017 15:25:48 +0530
+Message-ID: <CA+sq2CdG9fBR-Hw3rULMJON3aFQkCXtEpgkfKTzYhd5s=Lo1Tw@mail.gmail.com>
+References: <20170313195804.GA1796@felix2.cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Kalle Valo <kvalo@codeaurora.org>, linux-wireless@vger.kernel.org,
-        netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        "Vatsavayi, Raghu" <raghu.vatsavayi@cavium.com>,
+        "Chickles, Derek" <derek.chickles@cavium.com>,
+        satananda.burla@cavium.com, ricardo.farrington@cavium.com
+To: Felix Manlunas <felix.manlunas@cavium.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f172.google.com ([209.85.128.172]:33381 "EHLO
+        mail-wr0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752303AbdDCJzu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 3 Apr 2017 05:55:50 -0400
+Received: by mail-wr0-f172.google.com with SMTP id w43so161130187wrb.0
+        for <netdev@vger.kernel.org>; Mon, 03 Apr 2017 02:55:50 -0700 (PDT)
+In-Reply-To: <20170313195804.GA1796@felix2.cavium.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Colin Ian King <colin.king@canonical.com>
+On Tue, Mar 14, 2017 at 1:28 AM, Felix Manlunas
+<felix.manlunas@cavium.com> wrote:
+> From: Rick Farrington <ricardo.farrington@cavium.com>
+>
+> All IRQs owned by the PF and VF drivers share the same nondescript name
+> "octeon"; this makes it difficult to setup interrupt affinity.
+>
+> Change the IRQ names to reflect their specific purpose:
+>
+>     LiquidIO<id>-<func>-<type>-<queue pair num>
+>
+> Examples:
+>     LiquidIO0-pf0-rxtx-3
+>     LiquidIO1-vf1-rxtx-0
+>     LiquidIO0-pf0-aux
 
-trivial fix to spelling mistakes in wl1271_warning error message, change
-iligal to invalid and opperation to operation.
+Probably too late, but just my 2 cents.
 
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
----
- drivers/net/wireless/ti/wlcore/debugfs.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+If there are multiple LiquidIO cards connected in a system, wouldn't the same
+issue of how to setup IRQ affinities arise ?
+How do you map netdev->name to IRQ name ?
 
-diff --git a/drivers/net/wireless/ti/wlcore/debugfs.c b/drivers/net/wireless/ti/wlcore/debugfs.c
-index 58e148d7bc7b..416080adc181 100644
---- a/drivers/net/wireless/ti/wlcore/debugfs.c
-+++ b/drivers/net/wireless/ti/wlcore/debugfs.c
-@@ -1249,7 +1249,7 @@ static ssize_t fw_logger_write(struct file *file,
- 	}
- 
- 	if (wl->conf.fwlog.output == 0) {
--		wl1271_warning("iligal opperation - fw logger disabled by default, please change mode via wlconf");
-+		wl1271_warning("invalid operation - fw logger disabled by default, please change mode via wlconf");
- 		return -EINVAL;
- 	}
- 
--- 
-2.11.0
+>
+> We cannot use netdev->name for naming the IRQs because:
+>
+>     1.  Early during init, the PF and VF drivers require interrupts to
+>         send/receive control data from the NIC firmware; so the PF and VF
+>         must request IRQs long before the netdev struct is registered.
+>
+>     2.  The IRQ name can only be specified at the time it is requested.
+>         It cannot be changed after that.
+
+You can try splitting IRQ registration and register IRQs for sending/receiving
+control data with above naming but for queues, IRQs can be registered after
+netdev struct is registered.
+
+Thanks,
+Sunil.
