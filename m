@@ -1,82 +1,68 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>
-Subject: Re: [PATCH v3 02/20] net: stmmac: add optional setup function
-Date: Mon, 3 Apr 2017 14:32:33 +0200
-Message-ID: <262f763b-d158-dd77-3dba-1d7b90a1eef9@st.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [PATCH v3 01/20] net: stmmac: export
+ stmmac_set_mac_addr/stmmac_get_mac_addr
+Date: Mon, 3 Apr 2017 14:39:03 +0200
+Message-ID: <9514c077-1738-ea49-ca18-fbc46bac6144@st.com>
 References: <20170403091444.29876-1-clabbe.montjoie@gmail.com>
- <20170403091444.29876-3-clabbe.montjoie@gmail.com>
+ <20170403091444.29876-2-clabbe.montjoie@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
 Content-Transfer-Encoding: 7bit
-Cc: <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-To: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        <mark.rutland-5wv7dgnIgG8@public.gmane.org>, <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-        <wens-jdAy2FN1RRM@public.gmane.org>, <linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>,
-        <catalin.marinas-5wv7dgnIgG8@public.gmane.org>, <will.deacon-5wv7dgnIgG8@public.gmane.org>,
-        <alexandre.torgue-qxv4g6HH51o@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170403091444.29876-3-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
+ linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
+To: Corentin Labbe <clabbe.montjoie@gmail.com>, <robh+dt@kernel.org>,
+ <mark.rutland@arm.com>, <maxime.ripard@free-electrons.com>,
+ <wens@csie.org>, <linux@armlinux.org.uk>, <catalin.marinas@arm.com>,
+ <will.deacon@arm.com>, <alexandre.torgue@st.com>,
+ Alexandre TORGUE <alexandre.torgue@st.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <20170403091444.29876-2-clabbe.montjoie@gmail.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-Hello Corentin
+Hello Alex
 
-On 4/3/2017 11:14 AM, Corentin Labbe wrote:
-> Instead of adding more ifthen logic for adding a new mac_device_info
-> setup function, it is easier to add a function pointer to the function
-> needed.
->
-> Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> ---
->   drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 4 +++-
->   include/linux/stmmac.h                            | 3 +++
->   2 files changed, 6 insertions(+), 1 deletion(-)
->
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> index 43361f3..3beca41 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> @@ -3508,7 +3508,9 @@ static int stmmac_hw_init(struct stmmac_priv *priv)
->   	struct mac_device_info *mac;
->   
->   	/* Identify the MAC HW device */
-> -	if (priv->plat->has_gmac) {
-> +	if (priv->plat->setup) {
-> +		mac = priv->plat->setup(priv);
-> +	} else if (priv->plat->has_gmac) {
->   		priv->dev->priv_flags |= IFF_UNICAST_FLT;
->   		mac = dwmac1000_setup(priv->ioaddr,
->   				      priv->plat->multicast_filter_bins,
-> diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
-> index 3921cb9..dadd74b 100644
-> --- a/include/linux/stmmac.h
-> +++ b/include/linux/stmmac.h
-> @@ -144,6 +144,8 @@ struct stmmac_txq_cfg {
->   	u32 prio;
->   };
->   
-> +struct stmmac_priv;
-> +
->   struct plat_stmmacenet_data {
->   	int bus_id;
->   	int phy_addr;
-> @@ -177,6 +179,7 @@ struct plat_stmmacenet_data {
->   	void (*fix_mac_speed)(void *priv, unsigned int speed);
->   	int (*init)(struct platform_device *pdev, void *priv);
->   	void (*exit)(struct platform_device *pdev, void *priv);
-> +	struct mac_device_info *(*setup)(struct stmmac_priv *priv);
+do you can check if this has to be done for ST platforms?
+I do not remember that it was necessary when build as module so
+I cannot expect this should be only for dwmac-sun8i.
 
-In that case  I prefer to have void *priv as done for the other callbacks.
-I mean, keep the priv struct inside the driver part.
-
+Regards
 peppe
 
->   	void *bsp_priv;
->   	struct clk *stmmac_clk;
->   	struct clk *pclk;
 
 
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+On 4/3/2017 11:14 AM, Corentin Labbe wrote:
+> Thoses symbol will be needed for the dwmac-sun8i ethernet driver.
+> For letting it to be build as module, they need to be exported.
+>
+> Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
+> ---
+>   drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c | 3 ++-
+>   1 file changed, 2 insertions(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c b/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c
+> index 38f9430..67af0bd 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c
+> @@ -248,6 +248,7 @@ void stmmac_set_mac_addr(void __iomem *ioaddr, u8 addr[6],
+>   	data = (addr[3] << 24) | (addr[2] << 16) | (addr[1] << 8) | addr[0];
+>   	writel(data, ioaddr + low);
+>   }
+> +EXPORT_SYMBOL_GPL(stmmac_set_mac_addr);
+>   
+>   /* Enable disable MAC RX/TX */
+>   void stmmac_set_mac(void __iomem *ioaddr, bool enable)
+> @@ -279,4 +280,4 @@ void stmmac_get_mac_addr(void __iomem *ioaddr, unsigned char *addr,
+>   	addr[4] = hi_addr & 0xff;
+>   	addr[5] = (hi_addr >> 8) & 0xff;
+>   }
+> -
+> +EXPORT_SYMBOL_GPL(stmmac_get_mac_addr);
