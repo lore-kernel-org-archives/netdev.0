@@ -1,204 +1,232 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net-next tree with the net tree
-Date: Mon, 3 Apr 2017 12:07:48 +1000
-Message-ID: <20170403120748.2d11f2b0@canb.auug.org.au>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net-next 2/3] virtio-net: transmit napi
+Date: Mon, 3 Apr 2017 05:30:23 +0300
+Message-ID: <20170403052938-mutt-send-email-mst@kernel.org>
+References: <20170402201012.76473-1-willemdebruijn.kernel@gmail.com>
+	<20170402201012.76473-3-willemdebruijn.kernel@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Linux-Next Mailing List <linux-next@vger.kernel.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Alexei Starovoitov <ast@fb.com>,
-        Martin KaFai Lau <kafai@fb.com>
-To: David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
+Cc: Willem de Bruijn <willemb@google.com>, netdev@vger.kernel.org,
+	davem@davemloft.net, virtualization@lists.linux-foundation.org
+To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <20170402201012.76473-3-willemdebruijn.kernel@gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Hi all,
+On Sun, Apr 02, 2017 at 04:10:11PM -0400, Willem de Bruijn wrote:
+> From: Willem de Bruijn <willemb@google.com>
+> 
+> Convert virtio-net to a standard napi tx completion path. This enables
+> better TCP pacing using TCP small queues and increases single stream
+> throughput.
+> 
+> The virtio-net driver currently cleans tx descriptors on transmission
+> of new packets in ndo_start_xmit. Latency depends on new traffic, so
+> is unbounded. To avoid deadlock when a socket reaches its snd limit,
+> packets are orphaned on tranmission. This breaks socket backpressure,
+> including TSQ.
+> 
+> Napi increases the number of interrupts generated compared to the
+> current model, which keeps interrupts disabled as long as the ring
+> has enough free descriptors. Keep tx napi optional for now. Follow-on
+> patches will reduce the interrupt cost.
+> 
+> Signed-off-by: Willem de Bruijn <willemb@google.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> ---
+>  drivers/net/virtio_net.c | 63 ++++++++++++++++++++++++++++++++++++++++--------
+>  1 file changed, 53 insertions(+), 10 deletions(-)
+> 
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index 6aac0ad0d9b2..95d938e82080 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -33,9 +33,10 @@
+>  static int napi_weight = NAPI_POLL_WEIGHT;
+>  module_param(napi_weight, int, 0444);
+>  
+> -static bool csum = true, gso = true;
+> +static bool csum = true, gso = true, napi_tx = true;
+>  module_param(csum, bool, 0444);
+>  module_param(gso, bool, 0444);
+> +module_param(napi_tx, bool, 0644);
+>  
+>  /* FIXME: MTU in config. */
+>  #define GOOD_PACKET_LEN (ETH_HLEN + VLAN_HLEN + ETH_DATA_LEN)
 
-Today's linux-next merge of the net-next tree got conflicts in:
+Off by default seems safer until we can find better ways
+to reduce the overhead, esp for UDP.
 
-  tools/testing/selftests/bpf/Makefile
-  tools/testing/selftests/bpf/test_verifier.c
-
-between commit:
-
-  02ea80b1850e ("bpf: add various verifier test cases for self-tests")
-
-from the net tree and commits:
-
-  6882804c916b ("selftests/bpf: add a test for overlapping packet range checks")
-  fb30d4b71214 ("bpf: Add tests for map-in-map")
-
-from the net-next tree.
-
-I fixed it up (see below - though there are probably more fixups needed)
-and can carry the fix as necessary. This is now fixed as far as
-linux-next is concerned, but any non trivial conflicts should be
-mentioned to your upstream maintainer when your tree is submitted for
-merging.  You may also want to consider cooperating with the maintainer
-of the conflicting tree to minimise any particularly complex conflicts.
-
--- 
-Cheers,
-Stephen Rothwell
-
-diff --cc tools/testing/selftests/bpf/Makefile
-index 9af09e8099c0,32fb7a294f0f..000000000000
---- a/tools/testing/selftests/bpf/Makefile
-+++ b/tools/testing/selftests/bpf/Makefile
-@@@ -1,17 -1,12 +1,19 @@@
-  LIBDIR := ../../../lib
-  BPFDIR := $(LIBDIR)/bpf
- +APIDIR := ../../../include/uapi
- +GENDIR := ../../../../include/generated
- +GENHDR := $(GENDIR)/autoconf.h
-  
- -CFLAGS += -Wall -O2 -I../../../include/uapi -I$(LIBDIR) -I../../../include
- +ifneq ($(wildcard $(GENHDR)),)
- +  GENFLAGS := -DHAVE_GENHDR
- +endif
- +
-- CFLAGS += -Wall -O2 -I$(APIDIR) -I$(LIBDIR) -I$(GENDIR) $(GENFLAGS)
-- LDLIBS += -lcap
-++CFLAGS += -Wall -O2 -I$(APIDIR) -I$(LIBDIR) -I$(GENDIR) -I../../../include $(GENFLAGS)
-+ LDLIBS += -lcap -lelf
-  
-- TEST_GEN_PROGS = test_verifier test_tag test_maps test_lru_map test_lpm_map
-+ TEST_GEN_PROGS = test_verifier test_tag test_maps test_lru_map test_lpm_map test_progs
-+ 
-+ TEST_GEN_FILES = test_pkt_access.o test_xdp.o test_l4lb.o
-  
-  TEST_PROGS := test_kmod.sh
-  
-diff --cc tools/testing/selftests/bpf/test_verifier.c
-index c848e90b6421,f4f43c98cf7f..000000000000
---- a/tools/testing/selftests/bpf/test_verifier.c
-+++ b/tools/testing/selftests/bpf/test_verifier.c
-@@@ -46,9 -38,8 +46,10 @@@
-  
-  #define MAX_INSNS	512
-  #define MAX_FIXUPS	8
-+ #define MAX_NR_MAPS	4
-  
- +#define F_NEEDS_EFFICIENT_UNALIGNED_ACCESS	(1 << 0)
- +
-  struct bpf_test {
-  	const char *descr;
-  	struct bpf_insn	insns[MAX_INSNS];
-@@@ -4719,8 -4454,76 +4721,77 @@@ static struct bpf_test tests[] = 
-  		.errstr = "R0 min value is negative, either use unsigned index or do a if (index >=0) check.",
-  		.result = REJECT,
-  		.result_unpriv = REJECT,
- +		.flags = F_NEEDS_EFFICIENT_UNALIGNED_ACCESS,
-- 	}
-+ 	},
-+ 	{
-+ 		"map in map access",
-+ 		.insns = {
-+ 			BPF_ST_MEM(0, BPF_REG_10, -4, 0),
-+ 			BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
-+ 			BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -4),
-+ 			BPF_LD_MAP_FD(BPF_REG_1, 0),
-+ 			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0,
-+ 				     BPF_FUNC_map_lookup_elem),
-+ 			BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 5),
-+ 			BPF_ST_MEM(0, BPF_REG_10, -4, 0),
-+ 			BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
-+ 			BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -4),
-+ 			BPF_MOV64_REG(BPF_REG_1, BPF_REG_0),
-+ 			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0,
-+ 				     BPF_FUNC_map_lookup_elem),
-+ 			BPF_MOV64_REG(BPF_REG_0, 0),
-+ 			BPF_EXIT_INSN(),
-+ 		},
-+ 		.fixup_map_in_map = { 3 },
-+ 		.result = ACCEPT,
-+ 	},
-+ 	{
-+ 		"invalid inner map pointer",
-+ 		.insns = {
-+ 			BPF_ST_MEM(0, BPF_REG_10, -4, 0),
-+ 			BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
-+ 			BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -4),
-+ 			BPF_LD_MAP_FD(BPF_REG_1, 0),
-+ 			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0,
-+ 				     BPF_FUNC_map_lookup_elem),
-+ 			BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 6),
-+ 			BPF_ST_MEM(0, BPF_REG_10, -4, 0),
-+ 			BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
-+ 			BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -4),
-+ 			BPF_MOV64_REG(BPF_REG_1, BPF_REG_0),
-+ 			BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, 8),
-+ 			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0,
-+ 				     BPF_FUNC_map_lookup_elem),
-+ 			BPF_MOV64_REG(BPF_REG_0, 0),
-+ 			BPF_EXIT_INSN(),
-+ 		},
-+ 		.fixup_map_in_map = { 3 },
-+ 		.errstr = "R1 type=inv expected=map_ptr",
-+ 		.errstr_unpriv = "R1 pointer arithmetic prohibited",
-+ 		.result = REJECT,
-+ 	},
-+ 	{
-+ 		"forgot null checking on the inner map pointer",
-+ 		.insns = {
-+ 			BPF_ST_MEM(0, BPF_REG_10, -4, 0),
-+ 			BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
-+ 			BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -4),
-+ 			BPF_LD_MAP_FD(BPF_REG_1, 0),
-+ 			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0,
-+ 				     BPF_FUNC_map_lookup_elem),
-+ 			BPF_ST_MEM(0, BPF_REG_10, -4, 0),
-+ 			BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
-+ 			BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -4),
-+ 			BPF_MOV64_REG(BPF_REG_1, BPF_REG_0),
-+ 			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0,
-+ 				     BPF_FUNC_map_lookup_elem),
-+ 			BPF_MOV64_REG(BPF_REG_0, 0),
-+ 			BPF_EXIT_INSN(),
-+ 		},
-+ 		.fixup_map_in_map = { 3 },
-+ 		.errstr = "R1 type=map_value_or_null expected=map_ptr",
-+ 		.result = REJECT,
-+ 	},
-  };
-  
-  static int probe_filter_length(const struct bpf_insn *fp)
-@@@ -4802,10 -4635,15 +4904,14 @@@ static void do_test_single(struct bpf_t
-  	struct bpf_insn *prog = test->insns;
-  	int prog_len = probe_filter_length(prog);
-  	int prog_type = test->prog_type;
-- 	int fd_f1 = -1, fd_f2 = -1, fd_f3 = -1;
-+ 	int map_fds[MAX_NR_MAPS];
- -	int fd_prog, expected_ret;
-  	const char *expected_err;
-+ 	int i;
-+ 
-+ 	for (i = 0; i < MAX_NR_MAPS; i++)
-+ 		map_fds[i] = -1;
-  
-- 	do_test_fixup(test, prog, &fd_f1, &fd_f2, &fd_f3);
-+ 	do_test_fixup(test, prog, map_fds);
-  
-  	fd_prog = bpf_load_program(prog_type ? : BPF_PROG_TYPE_SOCKET_FILTER,
-  				   prog, prog_len, "GPL", 0, bpf_vlog,
-@@@ -4844,13 -4671,11 +4950,12 @@@
-  	}
-  
-  	(*passes)++;
- -	printf("OK\n");
- +	printf("OK%s\n", reject_from_alignment ?
- +	       " (NOTE: reject due to unknown alignment)" : "");
-  close_fds:
-  	close(fd_prog);
-- 	close(fd_f1);
-- 	close(fd_f2);
-- 	close(fd_f3);
-+ 	for (i = 0; i < MAX_NR_MAPS; i++)
-+ 		close(map_fds[i]);
-  	sched_yield();
-  	return;
-  fail_log:
+> @@ -86,6 +87,8 @@ struct send_queue {
+>  
+>  	/* Name of the send queue: output.$index */
+>  	char name[40];
+> +
+> +	struct napi_struct napi;
+>  };
+>  
+>  /* Internal representation of a receive virtqueue */
+> @@ -262,12 +265,16 @@ static void virtqueue_napi_complete(struct napi_struct *napi,
+>  static void skb_xmit_done(struct virtqueue *vq)
+>  {
+>  	struct virtnet_info *vi = vq->vdev->priv;
+> +	struct napi_struct *napi = &vi->sq[vq2txq(vq)].napi;
+>  
+>  	/* Suppress further interrupts. */
+>  	virtqueue_disable_cb(vq);
+>  
+> -	/* We were probably waiting for more output buffers. */
+> -	netif_wake_subqueue(vi->dev, vq2txq(vq));
+> +	if (napi->weight)
+> +		virtqueue_napi_schedule(napi, vq);
+> +	else
+> +		/* We were probably waiting for more output buffers. */
+> +		netif_wake_subqueue(vi->dev, vq2txq(vq));
+>  }
+>  
+>  static unsigned int mergeable_ctx_to_buf_truesize(unsigned long mrg_ctx)
+> @@ -961,6 +968,9 @@ static void skb_recv_done(struct virtqueue *rvq)
+>  
+>  static void virtnet_napi_enable(struct virtqueue *vq, struct napi_struct *napi)
+>  {
+> +	if (!napi->weight)
+> +		return;
+> +
+>  	napi_enable(napi);
+>  
+>  	/* If all buffers were filled by other side before we napi_enabled, we
+> @@ -1046,6 +1056,7 @@ static int virtnet_open(struct net_device *dev)
+>  			if (!try_fill_recv(vi, &vi->rq[i], GFP_KERNEL))
+>  				schedule_delayed_work(&vi->refill, 0);
+>  		virtnet_napi_enable(vi->rq[i].vq, &vi->rq[i].napi);
+> +		virtnet_napi_enable(vi->sq[i].vq, &vi->sq[i].napi);
+>  	}
+>  
+>  	return 0;
+> @@ -1081,6 +1092,24 @@ static void free_old_xmit_skbs(struct send_queue *sq)
+>  	u64_stats_update_end(&stats->tx_syncp);
+>  }
+>  
+> +static int virtnet_poll_tx(struct napi_struct *napi, int budget)
+> +{
+> +	struct send_queue *sq = container_of(napi, struct send_queue, napi);
+> +	struct virtnet_info *vi = sq->vq->vdev->priv;
+> +	struct netdev_queue *txq = netdev_get_tx_queue(vi->dev, vq2txq(sq->vq));
+> +
+> +	__netif_tx_lock(txq, smp_processor_id());
+> +	free_old_xmit_skbs(sq);
+> +	__netif_tx_unlock(txq);
+> +
+> +	virtqueue_napi_complete(napi, sq->vq, 0);
+> +
+> +	if (sq->vq->num_free >= 2 + MAX_SKB_FRAGS)
+> +		netif_wake_subqueue(vi->dev, vq2txq(sq->vq));
+> +
+> +	return 0;
+> +}
+> +
+>  static int xmit_skb(struct send_queue *sq, struct sk_buff *skb)
+>  {
+>  	struct virtio_net_hdr_mrg_rxbuf *hdr;
+> @@ -1130,9 +1159,11 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
+>  	int err;
+>  	struct netdev_queue *txq = netdev_get_tx_queue(dev, qnum);
+>  	bool kick = !skb->xmit_more;
+> +	bool use_napi = sq->napi.weight;
+>  
+>  	/* Free up any pending old buffers before queueing new ones. */
+> -	free_old_xmit_skbs(sq);
+> +	if (!use_napi)
+> +		free_old_xmit_skbs(sq);
+>  
+>  	/* timestamp packet in software */
+>  	skb_tx_timestamp(skb);
+> @@ -1152,8 +1183,10 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
+>  	}
+>  
+>  	/* Don't wait up for transmitted skbs to be freed. */
+> -	skb_orphan(skb);
+> -	nf_reset(skb);
+> +	if (!use_napi) {
+> +		skb_orphan(skb);
+> +		nf_reset(skb);
+> +	}
+>  
+>  	/* If running out of space, stop queue to avoid getting packets that we
+>  	 * are then unable to transmit.
+> @@ -1167,7 +1200,8 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
+>  	 */
+>  	if (sq->vq->num_free < 2+MAX_SKB_FRAGS) {
+>  		netif_stop_subqueue(dev, qnum);
+> -		if (unlikely(!virtqueue_enable_cb_delayed(sq->vq))) {
+> +		if (!use_napi &&
+> +		    unlikely(!virtqueue_enable_cb_delayed(sq->vq))) {
+>  			/* More just got used, free them then recheck. */
+>  			free_old_xmit_skbs(sq);
+>  			if (sq->vq->num_free >= 2+MAX_SKB_FRAGS) {
+> @@ -1371,8 +1405,10 @@ static int virtnet_close(struct net_device *dev)
+>  	/* Make sure refill_work doesn't re-enable napi! */
+>  	cancel_delayed_work_sync(&vi->refill);
+>  
+> -	for (i = 0; i < vi->max_queue_pairs; i++)
+> +	for (i = 0; i < vi->max_queue_pairs; i++) {
+>  		napi_disable(&vi->rq[i].napi);
+> +		napi_disable(&vi->sq[i].napi);
+> +	}
+>  
+>  	return 0;
+>  }
+> @@ -1727,8 +1763,10 @@ static void virtnet_freeze_down(struct virtio_device *vdev)
+>  	cancel_delayed_work_sync(&vi->refill);
+>  
+>  	if (netif_running(vi->dev)) {
+> -		for (i = 0; i < vi->max_queue_pairs; i++)
+> +		for (i = 0; i < vi->max_queue_pairs; i++) {
+>  			napi_disable(&vi->rq[i].napi);
+> +			napi_disable(&vi->sq[i].napi);
+> +		}
+>  	}
+>  }
+>  
+> @@ -1751,8 +1789,10 @@ static int virtnet_restore_up(struct virtio_device *vdev)
+>  			if (!try_fill_recv(vi, &vi->rq[i], GFP_KERNEL))
+>  				schedule_delayed_work(&vi->refill, 0);
+>  
+> -		for (i = 0; i < vi->max_queue_pairs; i++)
+> +		for (i = 0; i < vi->max_queue_pairs; i++) {
+>  			virtnet_napi_enable(vi->rq[i].vq, &vi->rq[i].napi);
+> +			virtnet_napi_enable(vi->sq[i].vq, &vi->sq[i].napi);
+> +		}
+>  	}
+>  
+>  	netif_device_attach(vi->dev);
+> @@ -1957,6 +1997,7 @@ static void virtnet_free_queues(struct virtnet_info *vi)
+>  	for (i = 0; i < vi->max_queue_pairs; i++) {
+>  		napi_hash_del(&vi->rq[i].napi);
+>  		netif_napi_del(&vi->rq[i].napi);
+> +		netif_napi_del(&vi->sq[i].napi);
+>  	}
+>  
+>  	/* We called napi_hash_del() before netif_napi_del(),
+> @@ -2142,6 +2183,8 @@ static int virtnet_alloc_queues(struct virtnet_info *vi)
+>  		vi->rq[i].pages = NULL;
+>  		netif_napi_add(vi->dev, &vi->rq[i].napi, virtnet_poll,
+>  			       napi_weight);
+> +		netif_napi_add(vi->dev, &vi->sq[i].napi, virtnet_poll_tx,
+> +			       napi_tx ? napi_weight : 0);
+>  
+>  		sg_init_table(vi->rq[i].sg, ARRAY_SIZE(vi->rq[i].sg));
+>  		ewma_pkt_len_init(&vi->rq[i].mrg_avg_pkt_len);
+> -- 
+> 2.12.2.564.g063fe858b8-goog
