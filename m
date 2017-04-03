@@ -1,27 +1,53 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH] selftests: add a generic testsuite for ethernet device
-Date: Mon, 3 Apr 2017 15:27:41 +0200
-Message-ID: <20170403132741.GC17550@lunn.ch>
-References: <20170331125752.20074-1-clabbe.montjoie@gmail.com>
- <20170331125752.20074-2-clabbe.montjoie@gmail.com>
- <20170331141241.GH22609@lunn.ch>
- <20170403131526.GC30824@Red>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: [PATCH net-next 1/1] net: tcp: Define the TCP_MAX_WSCALE instead
+ of literal number 14
+Date: Mon, 3 Apr 2017 09:36:57 -0400
+Message-ID: <CADVnQykF6rsrwSk7q9fyWMyUUgo6vNRV6VLaVokkGPCQitFUuw@mail.gmail.com>
+References: <1491020050-118525-1-git-send-email-gfree.wind@foxmail.com>
+ <CADVnQy=WSQb0bz-gRFfNK8uTyJ-ALdUPhR05iThZ8fs=K=qm2w@mail.gmail.com> <002901d2ac7d$dcb7fae0$9627f0a0$@foxmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, shuah@kernel.org,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kselftest@vger.kernel.org
-To: Corentin Labbe <clabbe.montjoie@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170403131526.GC30824@Red>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Patrick McHardy <kaber@trash.net>,
+        Netdev <netdev@vger.kernel.org>, Gao Feng <fgao@ikuai8.com>
+To: Gao Feng <gfree.wind@foxmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f45.google.com ([209.85.218.45]:36616 "EHLO
+        mail-oi0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752513AbdDCNh2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 3 Apr 2017 09:37:28 -0400
+Received: by mail-oi0-f45.google.com with SMTP id r203so125841456oib.3
+        for <netdev@vger.kernel.org>; Mon, 03 Apr 2017 06:37:28 -0700 (PDT)
+In-Reply-To: <002901d2ac7d$dcb7fae0$9627f0a0$@foxmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> By ifnum, you mean by the order that "ip link" gives ?
+On Mon, Apr 3, 2017 at 9:26 AM, Gao Feng <gfree.wind@foxmail.com> wrote:
+>>
+>> Looks OK to me.
+>>
+>> IMHO this is a nice direction, since there is a proposal to increase the maximum
+>> shift factor from 14 to 15:
+>>   https://tools.ietf.org/html/draft-nishida-tcpm-maxwin-03
+>
+> Do you mean enlarge the wscale to 15 now ?
 
-I've not checked if it remains in order as interfaces are hot
-plugged/unplugged. But i guess you are running tests direct after
-boot, and unplugs/replugs are unlikely?
+No, I just meant that it will be easier to change if we ever decide to
+change this to 15.
 
-      Andrew
+
+>> Though there are a few spots where a literal 14 appears:
+>>
+>> tcp_input.c:3763:  net_info_ratelimited("%s: Illegal window scaling
+>> value %d >14 received\n",
+>>
+>> tcp_output.c:238:                * See RFC1323 for an explanation of
+>> the limit to 14
+>
+> Ok, I will update these two spots.
+
+OK, thanks.
+
+neal
