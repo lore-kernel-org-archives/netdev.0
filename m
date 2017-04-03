@@ -1,78 +1,73 @@
-From: Johan Hovold <johan@kernel.org>
-Subject: Re: [PATCH 1/2] wireless: ath9k_htc: fix NULL-deref at probe
-Date: Mon, 3 Apr 2017 15:26:02 +0200
-Message-ID: <20170403132602.GB3119@localhost>
-References: <20170313124421.28587-1-johan@kernel.org>
- <20170403084213.GE25742@localhost>
- <87shlpomvx.fsf@kamboji.qca.qualcomm.com>
- <87k271myos.fsf@kamboji.qca.qualcomm.com>
- <20170403131616.GA3119@localhost>
- <87fuhpmxto.fsf@kamboji.qca.qualcomm.com>
+From: "Gao Feng" <gfree.wind@foxmail.com>
+Subject: RE: [PATCH net-next 1/1] net: tcp: Define the TCP_MAX_WSCALE instead of literal number 14
+Date: Mon, 3 Apr 2017 21:26:10 +0800
+Message-ID: <002901d2ac7d$dcb7fae0$9627f0a0$@foxmail.com>
+References: <1491020050-118525-1-git-send-email-gfree.wind@foxmail.com> <CADVnQy=WSQb0bz-gRFfNK8uTyJ-ALdUPhR05iThZ8fs=K=qm2w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Johan Hovold <johan@kernel.org>,
-        ath9k-devel <ath9k-devel@qca.qualcomm.com>,
-        Daniel Drake <dsd@gentoo.org>,
-        Ulrich Kunitz <kune@deine-taler.de>,
-        "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Kalle Valo <kvalo@qca.qualcomm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <87fuhpmxto.fsf@kamboji.qca.qualcomm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+        charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+Cc: "'David Miller'" <davem@davemloft.net>,
+        "'Alexey Kuznetsov'" <kuznet@ms2.inr.ac.ru>,
+        "'James Morris'" <jmorris@namei.org>,
+        "'Patrick McHardy'" <kaber@trash.net>,
+        "'Netdev'" <netdev@vger.kernel.org>, "'Gao Feng'" <fgao@ikuai8.com>
+To: "'Neal Cardwell'" <ncardwell@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtpbgbr2.qq.com ([54.207.22.56]:51093 "EHLO smtpbgbr2.qq.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752463AbdDCN0o (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 3 Apr 2017 09:26:44 -0400
+In-Reply-To: <CADVnQy=WSQb0bz-gRFfNK8uTyJ-ALdUPhR05iThZ8fs=K=qm2w@mail.gmail.com>
+Content-Language: zh-cn
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 03, 2017 at 01:21:08PM +0000, Kalle Valo wrote:
-> Johan Hovold <johan@kernel.org> writes:
-> 
-> > On Mon, Apr 03, 2017 at 01:02:28PM +0000, Kalle Valo wrote:
-> >> Kalle Valo <kvalo@codeaurora.org> writes:
-> >> 
-> >> > Johan Hovold <johan@kernel.org> writes:
-> >> >
-> >> >> On Mon, Mar 13, 2017 at 01:44:20PM +0100, Johan Hovold wrote:
-> >> >>> Make sure to check the number of endpoints to avoid dereferencing a
-> >> >>> NULL-pointer or accessing memory beyond the endpoint array should a
-> >> >>> malicious device lack the expected endpoints.
-> >> >>> 
-> >> >>> Fixes: 36bcce430657 ("ath9k_htc: Handle storage devices")
-> >> >>> Cc: Sujith Manoharan <Sujith.Manoharan@atheros.com>
-> >> >>> Signed-off-by: Johan Hovold <johan@kernel.org>
-> >> >>
-> >> >> Is this one still in your queue, Kalle?
-> >> >
-> >> > Yes, I'm just lacking behing:
-> >> >
-> >> > https://patchwork.kernel.org/patch/9620723/
-> >> 
-> >> Meant "lagging" of course. Mondays..
-> >> 
-> >> >> As I mentioned earlier, I should have added a
-> >> >>
-> >> >> Cc: stable <stable@vger.kernel.org>     # 2.6.39
-> >> >>
-> >> >> but left it out as I mistakingly thought the net recommendations to do
-> >> >> so applied also to wireless.
-> >> >
-> >> > Ok, I'll add that.
-> >> 
-> >> But is 2.6.39 really correct? Shouldn't it be 2.6.39+ so that it means
-> >> all versions since 2.6.39?
+> -----Original Message-----
+> From: Neal Cardwell [mailto:ncardwell@google.com]
+> Sent: Monday, April 3, 2017 2:59 AM
+> To: gfree.wind@foxmail.com
+> Cc: David Miller <davem@davemloft.net>; Alexey Kuznetsov
+> <kuznet@ms2.inr.ac.ru>; James Morris <jmorris@namei.org>; Patrick =
+McHardy
+> <kaber@trash.net>; Netdev <netdev@vger.kernel.org>; Gao Feng
+> <fgao@ikuai8.com>
+> Subject: Re: [PATCH net-next 1/1] net: tcp: Define the TCP_MAX_WSCALE
+> instead of literal number 14
+>=20
+> On Sat, Apr 1, 2017 at 12:14 AM,  <gfree.wind@foxmail.com> wrote:
+> > From: Gao Feng <fgao@ikuai8.com>
 > >
-> > Either way is fine, the stable maintainers apply them to all later
-> > versions.
+> > Define one new macro TCP_MAX_WSCALE instead of literal number '14',
+> > and use U16_MAX instead of 65535 as the max value of TCP window.
+> > There is another minor change, use rounddown(space, mss) instead of
+> > (space / mss) * mss;
 > >
-> > I notice now that adding a plus sign is more common, but it's still a
-> > 1:2 ratio judging from quick grep, while the stable-kernel-rules.rst
-> > actually uses a minus sign...
-> 
-> Heh, quite confusing :) I added the plus sign already to the patch in my
-> pending branch so unless you object I'll keep it.
+> > Signed-off-by: Gao Feng <fgao@ikuai8.com>
+> > ---
+>=20
+> Looks OK to me.
+>=20
+> IMHO this is a nice direction, since there is a proposal to increase =
+the maximum
+> shift factor from 14 to 15:
+>   https://tools.ietf.org/html/draft-nishida-tcpm-maxwin-03
 
-Please do, no objection. :)
+Do you mean enlarge the wscale to 15 now ?
 
-Thanks,
-Johan
+>=20
+> Though there are a few spots where a literal 14 appears:
+>=20
+> tcp_input.c:3763:  net_info_ratelimited("%s: Illegal window scaling
+> value %d >14 received\n",
+>=20
+> tcp_output.c:238:                * See RFC1323 for an explanation of
+> the limit to 14
+
+Ok, I will update these two spots.
+
+Regards
+Feng
+>=20
+>=20
+> neal
