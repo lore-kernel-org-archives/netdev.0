@@ -1,92 +1,56 @@
-From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH v3 15/20] ARM64: dts: sun50i-a64: add dwmac-sun8i Ethernet driver
-Date: Mon,  3 Apr 2017 11:14:39 +0200
-Message-ID: <20170403091444.29876-16-clabbe.montjoie@gmail.com>
+From: Corentin Labbe <clabbe.montjoie@gmail.com>
+Subject: [PATCH v3 16/20] ARM: dts: sun50i-a64: enable dwmac-sun8i on pine64
+Date: Mon,  3 Apr 2017 11:14:40 +0200
+Message-ID: <20170403091444.29876-17-clabbe.montjoie@gmail.com>
 References: <20170403091444.29876-1-clabbe.montjoie@gmail.com>
-Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-        Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
-        maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org,
-        linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org,
-        will.deacon-5wv7dgnIgG8@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
-        alexandre.torgue-qxv4g6HH51o@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170403091444.29876-1-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
+        netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+        Corentin Labbe <clabbe.montjoie@gmail.com>
+To: robh+dt@kernel.org, mark.rutland@arm.com,
+        maxime.ripard@free-electrons.com, wens@csie.org,
+        linux@armlinux.org.uk, catalin.marinas@arm.com,
+        will.deacon@arm.com, peppe.cavallaro@st.com,
+        alexandre.torgue@st.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f193.google.com ([209.85.128.193]:35633 "EHLO
+        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751649AbdDCJRZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 3 Apr 2017 05:17:25 -0400
+In-Reply-To: <20170403091444.29876-1-clabbe.montjoie@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The dwmac-sun8i is an Ethernet MAC that supports 10/100/1000 Mbit
-connections. It is very similar to the device found in the Allwinner
-H3, but lacks the internal 100 Mbit PHY and its associated control
-bits.
-This adds the necessary bits to the Allwinner A64 SoC .dtsi, but keeps
-it disabled at this level.
+The dwmac-sun8i hardware is present on the pine64
+It uses an external PHY via RMII.
 
-Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
 ---
- arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi | 37 +++++++++++++++++++++++++++
- 1 file changed, 37 insertions(+)
+ arch/arm64/boot/dts/allwinner/sun50i-a64-pine64.dts | 16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
 
-diff --git a/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi b/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi
-index 1683a1f..dcf9ca4 100644
---- a/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi
-+++ b/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi
-@@ -277,6 +277,23 @@
- 				bias-pull-up;
- 			};
- 
-+			rmii_pins: rmii_pins {
-+				pins = "PD10", "PD11", "PD13", "PD14",
-+						"PD17", "PD18", "PD19", "PD20",
-+						"PD22", "PD23";
-+				function = "emac";
-+				drive-strength = <40>;
-+			};
+diff --git a/arch/arm64/boot/dts/allwinner/sun50i-a64-pine64.dts b/arch/arm64/boot/dts/allwinner/sun50i-a64-pine64.dts
+index c680ed3..6aee3d5 100644
+--- a/arch/arm64/boot/dts/allwinner/sun50i-a64-pine64.dts
++++ b/arch/arm64/boot/dts/allwinner/sun50i-a64-pine64.dts
+@@ -109,3 +109,19 @@
+ &usbphy {
+ 	status = "okay";
+ };
 +
-+			rgmii_pins: rgmii_pins {
-+				pins = "PD8", "PD9", "PD10", "PD11",
-+						"PD12", "PD13", "PD15",
-+						"PD16", "PD17", "PD18", "PD19",
-+						"PD20", "PD21", "PD22", "PD23";
-+				function = "emac";
-+				drive-strength = <40>;
-+			};
++&mdio {
++	ext_rmii_phy1: ethernet-phy@1 {
++		compatible = "ethernet-phy-ieee802.3-c22";
++		reg = <1>;
++	};
++};
 +
- 			uart0_pins_a: uart0@0 {
- 				pins = "PB8", "PB9";
- 				function = "uart0";
-@@ -381,6 +398,26 @@
- 			#size-cells = <0>;
- 		};
- 
-+		emac: ethernet@1c30000 {
-+			compatible = "allwinner,sun50i-a64-emac";
-+			syscon = <&syscon>;
-+			reg = <0x01c30000 0x100>;
-+			interrupts = <GIC_SPI 82 IRQ_TYPE_LEVEL_HIGH>;
-+			interrupt-names = "macirq";
-+			resets = <&ccu RST_BUS_EMAC>;
-+			reset-names = "stmmaceth";
-+			clocks = <&ccu CLK_BUS_EMAC>;
-+			clock-names = "stmmaceth";
-+			status = "disabled";
-+			#address-cells = <1>;
-+			#size-cells = <0>;
++&emac {
++	pinctrl-names = "default";
++	pinctrl-0 = <&rmii_pins>;
++	phy-mode = "rmii";
++	phy-handle = <&ext_rmii_phy1>;
++	status = "okay";
 +
-+			mdio: mdio {
-+				#address-cells = <1>;
-+				#size-cells = <0>;
-+			};
-+		};
-+
- 		gic: interrupt-controller@1c81000 {
- 			compatible = "arm,gic-400";
- 			reg = <0x01c81000 0x1000>,
++};
 -- 
 2.10.2
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
