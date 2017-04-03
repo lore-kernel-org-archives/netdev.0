@@ -1,65 +1,41 @@
 From: Corentin Labbe <clabbe.montjoie@gmail.com>
-Subject: [PATCH v3 09/20] ARM: dts: sun8i: Enable dwmac-sun8i on the Orange PI
- PC
-Date: Mon,  3 Apr 2017 11:14:33 +0200
-Message-ID: <20170403091444.29876-10-clabbe.montjoie@gmail.com>
+Subject: [PATCH v3 19/20] ARM: sunxi: Enable dwmac-sun8i driver on sunxi_defconfig
+Date: Mon,  3 Apr 2017 11:14:43 +0200
+Message-ID: <20170403091444.29876-20-clabbe.montjoie@gmail.com>
 References: <20170403091444.29876-1-clabbe.montjoie@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: devicetree@vger.kernel.org, LABBE Corentin <clabbe.montjoie@gmail.com>,
- linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
- netdev@vger.kernel.org
-To: robh+dt@kernel.org, mark.rutland@arm.com, maxime.ripard@free-electrons.com,
- wens@csie.org, linux@armlinux.org.uk, catalin.marinas@arm.com,
- will.deacon@arm.com, peppe.cavallaro@st.com, alexandre.torgue@st.com
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Cc: devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
+        netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+        LABBE Corentin <clabbe.montjoie@gmail.com>
+To: robh+dt@kernel.org, mark.rutland@arm.com,
+        maxime.ripard@free-electrons.com, wens@csie.org,
+        linux@armlinux.org.uk, catalin.marinas@arm.com,
+        will.deacon@arm.com, peppe.cavallaro@st.com,
+        alexandre.torgue@st.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20170403091444.29876-1-clabbe.montjoie@gmail.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: LABBE Corentin <clabbe.montjoie@gmail.com>
 
-The dwmac-sun8i hardware is present on the Orange PI PC.
-It uses the internal PHY.
-
-This patch create the needed emac node.
+Enable the dwmac-sun8i driver in the sunxi default configuration
 
 Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
 ---
- arch/arm/boot/dts/sun8i-h3-orangepi-pc.dts | 8 ++++++++
- 1 file changed, 8 insertions(+)
+ arch/arm/configs/sunxi_defconfig | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/arch/arm/boot/dts/sun8i-h3-orangepi-pc.dts b/arch/arm/boot/dts/sun8i-h3-orangepi-pc.dts
-index f148111..746c25a 100644
---- a/arch/arm/boot/dts/sun8i-h3-orangepi-pc.dts
-+++ b/arch/arm/boot/dts/sun8i-h3-orangepi-pc.dts
-@@ -53,6 +53,7 @@
- 
- 	aliases {
- 		serial0 = &uart0;
-+		ethernet0 = &emac;
- 	};
- 
- 	chosen {
-@@ -184,3 +185,10 @@
- 	/* USB VBUS is always on */
- 	status = "okay";
- };
-+
-+&emac {
-+	phy-handle = <&int_mii_phy>;
-+	phy-mode = "mii";
-+	allwinner,leds-active-low;
-+	status = "okay";
-+};
+diff --git a/arch/arm/configs/sunxi_defconfig b/arch/arm/configs/sunxi_defconfig
+index 5cd5dd70..504e022 100644
+--- a/arch/arm/configs/sunxi_defconfig
++++ b/arch/arm/configs/sunxi_defconfig
+@@ -40,6 +40,7 @@ CONFIG_ATA=y
+ CONFIG_AHCI_SUNXI=y
+ CONFIG_NETDEVICES=y
+ CONFIG_SUN4I_EMAC=y
++CONFIG_DWMAC_SUN8I=y
+ # CONFIG_NET_VENDOR_ARC is not set
+ # CONFIG_NET_CADENCE is not set
+ # CONFIG_NET_VENDOR_BROADCOM is not set
 -- 
 2.10.2
