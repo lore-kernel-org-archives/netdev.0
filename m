@@ -1,45 +1,53 @@
-From: Yuval Mintz <Yuval.Mintz@cavium.com>
-Subject: [PATCH net-next 3/5] qed: Correct TM ILT lines in presence of VFs
-Date: Mon, 3 Apr 2017 12:21:11 +0300
-Message-ID: <1491211273-10910-4-git-send-email-Yuval.Mintz@cavium.com>
-References: <1491211273-10910-1-git-send-email-Yuval.Mintz@cavium.com>
+From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Subject: Re: [PATCH 1/2] wireless: ath9k_htc: fix NULL-deref at probe
+Date: Mon, 03 Apr 2017 12:34:26 +0300
+Message-ID: <87shlpomvx.fsf@kamboji.qca.qualcomm.com>
+References: <20170313124421.28587-1-johan@kernel.org>
+        <20170403084213.GE25742@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Yuval Mintz <Yuval.Mintz@cavium.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:51520 "EHLO
-        mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1752348AbdDCJV7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 3 Apr 2017 05:21:59 -0400
-In-Reply-To: <1491211273-10910-1-git-send-email-Yuval.Mintz@cavium.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: QCA ath9k Development <ath9k-devel-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>,
+        Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>,
+        Ulrich Kunitz <kune-hUSrv6EASfkEnNRfnnE9gw@public.gmane.org>,
+        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Sujith Manoharan <Sujith.Manoharan-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org>
+To: Johan Hovold <johan-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170403084213.GE25742@localhost> (Johan Hovold's message of
+        "Mon, 3 Apr 2017 10:42:13 +0200")
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-As of today there's no protocol supported that requires
-support from the TM hardware block and enables SRIOV,
-but we should still correct the calculation to reflect
-the lines required for such future VFs instead of changing
-the PF's own lines.
+Johan Hovold <johan-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org> writes:
 
-Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
----
- drivers/net/ethernet/qlogic/qed/qed_cxt.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> On Mon, Mar 13, 2017 at 01:44:20PM +0100, Johan Hovold wrote:
+>> Make sure to check the number of endpoints to avoid dereferencing a
+>> NULL-pointer or accessing memory beyond the endpoint array should a
+>> malicious device lack the expected endpoints.
+>> 
+>> Fixes: 36bcce430657 ("ath9k_htc: Handle storage devices")
+>> Cc: Sujith Manoharan <Sujith.Manoharan-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org>
+>> Signed-off-by: Johan Hovold <johan-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+>
+> Is this one still in your queue, Kalle?
 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_cxt.c b/drivers/net/ethernet/qlogic/qed/qed_cxt.c
-index 259dafa..f7b1a37 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_cxt.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_cxt.c
-@@ -783,8 +783,8 @@ int qed_cxt_cfg_ilt_compute(struct qed_hwfn *p_hwfn)
- 
- 		qed_ilt_cli_adv_line(p_hwfn, p_cli, p_blk, &curr_line,
- 				     ILT_CLI_TM);
--		p_cli->pf_total_lines = curr_line - p_blk->start_line;
- 
-+		p_cli->vf_total_lines = curr_line - p_blk->start_line;
- 		for (i = 1; i < p_mngr->vf_count; i++)
- 			qed_ilt_cli_adv_line(p_hwfn, p_cli, p_blk, &curr_line,
- 					     ILT_CLI_TM);
+Yes, I'm just lacking behing:
+
+https://patchwork.kernel.org/patch/9620723/
+
+> As I mentioned earlier, I should have added a
+>
+> Cc: stable <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>     # 2.6.39
+>
+> but left it out as I mistakingly thought the net recommendations to do
+> so applied also to wireless.
+
+Ok, I'll add that.
+
 -- 
-1.9.3
+Kalle Valo
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
