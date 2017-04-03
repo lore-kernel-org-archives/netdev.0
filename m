@@ -1,38 +1,78 @@
-From: Guillaume Nault <g.nault@alphalink.fr>
-Subject: [PATCH net] l2tp: fix PPP pseudo-wire auto-loading
-Date: Mon, 3 Apr 2017 13:23:15 +0200
-Message-ID: <4f0c437337252f267de92ae650cb39e48dbff192.1491218507.git.g.nault@alphalink.fr>
+From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Subject: pull-request: wireless-drivers-next 2017-04-03
+Date: Mon, 03 Apr 2017 14:26:10 +0300
+Message-ID: <87a87xohpp.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: James Chapman <jchapman@katalix.com>,
-        Stephen Hemminger <stephen@networkplumber.org>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from zimbra.alphalink.fr ([217.15.80.77]:60412 "EHLO
-        zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752038AbdDCLXU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 3 Apr 2017 07:23:20 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-PPP pseudo-wire type is 7 (11 is L2TP_PWTYPE_IP).
+Hi Dave,
 
-Fixes: f1f39f911027 ("l2tp: auto load type modules")
-Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
----
- net/l2tp/l2tp_ppp.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+here few really small fixes. I'm hoping this to be the last pull request
+for 4.11.
 
-diff --git a/net/l2tp/l2tp_ppp.c b/net/l2tp/l2tp_ppp.c
-index 26501902d1a7..9eab1a13aa71 100644
---- a/net/l2tp/l2tp_ppp.c
-+++ b/net/l2tp/l2tp_ppp.c
-@@ -1849,4 +1849,4 @@ MODULE_DESCRIPTION("PPP over L2TP over UDP");
- MODULE_LICENSE("GPL");
- MODULE_VERSION(PPPOL2TP_DRV_VERSION);
- MODULE_ALIAS_NET_PF_PROTO(PF_PPPOX, PX_PROTO_OL2TP);
--MODULE_ALIAS_L2TP_PWTYPE(11);
-+MODULE_ALIAS_L2TP_PWTYPE(7);
--- 
-2.11.0
+Please let me if there are any problems.
+
+Kalle
+
+The following changes since commit 6be3b6cce1e225f189b68b4e84fc711d19b4277b:
+
+  ath10k: fix incorrect wlan_mac_base in qca6174_regs (2017-03-20 17:11:31 +0200)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/kvalo/wireless-drivers.git tags/wireless-drivers-for-davem-2017-04-03
+
+for you to fetch changes up to d77facb88448cdeaaa3adba5b9704a48ac2ac8d6:
+
+  brcmfmac: use local iftype avoiding use-after-free of virtual interface (2017-03-30 19:43:51 +0300)
+
+----------------------------------------------------------------
+wireless-drivers fixes for 4.11
+
+iwlwifi
+
+* an RCU fix
+* a fix for a potential out-of-bounds access crash
+* a fix for IBSS which has been broken since DQA was enabled
+
+rtlwifi
+
+* fix scheduling while atomic regression
+
+brcmfmac
+
+* fix use-after-free bug found by KASAN
+
+----------------------------------------------------------------
+Arend Van Spriel (1):
+      brcmfmac: use local iftype avoiding use-after-free of virtual interface
+
+Dan Carpenter (1):
+      iwlwifi: mvm: writing zero bytes to debugfs causes a crash
+
+Kalle Valo (1):
+      Merge tag 'iwlwifi-for-kalle-2017-03-29' of git://git.kernel.org/.../iwlwifi/iwlwifi-fixes
+
+Larry Finger (1):
+      rtlwifi: Fix scheduling while atomic splat
+
+Liad Kaufman (1):
+      iwlwifi: mvm: support ibss in dqa mode
+
+Sara Sharon (1):
+      iwlwifi: mvm: fix accessing fw_id_to_mac_id
+
+ drivers/net/wireless/broadcom/brcm80211/brcmfmac/p2p.c | 8 +++++---
+ drivers/net/wireless/intel/iwlwifi/mvm/debugfs.c       | 2 ++
+ drivers/net/wireless/intel/iwlwifi/mvm/mac-ctxt.c      | 3 ++-
+ drivers/net/wireless/intel/iwlwifi/mvm/mac80211.c      | 2 +-
+ drivers/net/wireless/intel/iwlwifi/mvm/sta.c           | 9 ++++++---
+ drivers/net/wireless/intel/iwlwifi/mvm/tx.c            | 7 +++++--
+ drivers/net/wireless/realtek/rtlwifi/base.c            | 6 ++++--
+ 7 files changed, 25 insertions(+), 12 deletions(-)
