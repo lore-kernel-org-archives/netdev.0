@@ -1,7 +1,7 @@
 From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH v3 07/20] ARM: dts: sunxi-h3-h5: add dwmac-sun8i ethernet driver
-Date: Mon,  3 Apr 2017 11:14:31 +0200
-Message-ID: <20170403091444.29876-8-clabbe.montjoie@gmail.com>
+Subject: [PATCH v3 15/20] ARM64: dts: sun50i-a64: add dwmac-sun8i Ethernet driver
+Date: Mon,  3 Apr 2017 11:14:39 +0200
+Message-ID: <20170403091444.29876-16-clabbe.montjoie@gmail.com>
 References: <20170403091444.29876-1-clabbe.montjoie@gmail.com>
 Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
         netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
@@ -16,69 +16,73 @@ In-Reply-To: <20170403091444.29876-1-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@publ
 Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-The dwmac-sun8i is an ethernet MAC hardware that support 10/100/1000
-speed.
-
-This patch enable the dwmac-sun8i on Allwinner H3/H5 SoC Device-tree.
-SoC H3/H5 have an internal PHY, so optionals syscon and ephy are set.
+The dwmac-sun8i is an Ethernet MAC that supports 10/100/1000 Mbit
+connections. It is very similar to the device found in the Allwinner
+H3, but lacks the internal 100 Mbit PHY and its associated control
+bits.
+This adds the necessary bits to the Allwinner A64 SoC .dtsi, but keeps
+it disabled at this level.
 
 Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- arch/arm/boot/dts/sunxi-h3-h5.dtsi | 34 ++++++++++++++++++++++++++++++++++
- 1 file changed, 34 insertions(+)
+ arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi | 37 +++++++++++++++++++++++++++
+ 1 file changed, 37 insertions(+)
 
-diff --git a/arch/arm/boot/dts/sunxi-h3-h5.dtsi b/arch/arm/boot/dts/sunxi-h3-h5.dtsi
-index 0815c00..c55e8b0 100644
---- a/arch/arm/boot/dts/sunxi-h3-h5.dtsi
-+++ b/arch/arm/boot/dts/sunxi-h3-h5.dtsi
-@@ -304,6 +304,14 @@
- 			interrupt-controller;
- 			#interrupt-cells = <3>;
+diff --git a/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi b/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi
+index 1683a1f..dcf9ca4 100644
+--- a/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi
++++ b/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi
+@@ -277,6 +277,23 @@
+ 				bias-pull-up;
+ 			};
  
-+			emac_rgmii_pins: emac0@0 {
-+				pins = "PD0", "PD1", "PD2", "PD3", "PD4",
-+					"PD5", "PD7", "PD8", "PD9", "PD10",
-+					"PD12", "PD13", "PD15", "PD16", "PD17";
++			rmii_pins: rmii_pins {
++				pins = "PD10", "PD11", "PD13", "PD14",
++						"PD17", "PD18", "PD19", "PD20",
++						"PD22", "PD23";
 +				function = "emac";
 +				drive-strength = <40>;
 +			};
 +
- 			i2c0_pins: i2c0 {
- 				pins = "PA11", "PA12";
- 				function = "i2c0";
-@@ -400,6 +408,32 @@
- 			clocks = <&osc24M>;
++			rgmii_pins: rgmii_pins {
++				pins = "PD8", "PD9", "PD10", "PD11",
++						"PD12", "PD13", "PD15",
++						"PD16", "PD17", "PD18", "PD19",
++						"PD20", "PD21", "PD22", "PD23";
++				function = "emac";
++				drive-strength = <40>;
++			};
++
+ 			uart0_pins_a: uart0@0 {
+ 				pins = "PB8", "PB9";
+ 				function = "uart0";
+@@ -381,6 +398,26 @@
+ 			#size-cells = <0>;
  		};
  
 +		emac: ethernet@1c30000 {
-+			compatible = "allwinner,sun8i-h3-emac";
++			compatible = "allwinner,sun50i-a64-emac";
 +			syscon = <&syscon>;
-+			reg = <0x01c30000 0x104>;
++			reg = <0x01c30000 0x100>;
 +			interrupts = <GIC_SPI 82 IRQ_TYPE_LEVEL_HIGH>;
 +			interrupt-names = "macirq";
 +			resets = <&ccu RST_BUS_EMAC>;
 +			reset-names = "stmmaceth";
 +			clocks = <&ccu CLK_BUS_EMAC>;
 +			clock-names = "stmmaceth";
++			status = "disabled";
 +			#address-cells = <1>;
 +			#size-cells = <0>;
-+			status = "disabled";
 +
 +			mdio: mdio {
 +				#address-cells = <1>;
 +				#size-cells = <0>;
-+				int_mii_phy: ethernet-phy@1 {
-+					compatible = "ethernet-phy-ieee802.3-c22";
-+					reg = <1>;
-+					clocks = <&ccu CLK_BUS_EPHY>;
-+					resets = <&ccu RST_BUS_EPHY>;
-+				};
 +			};
 +		};
 +
- 		spi0: spi@01c68000 {
- 			compatible = "allwinner,sun8i-h3-spi";
- 			reg = <0x01c68000 0x1000>;
+ 		gic: interrupt-controller@1c81000 {
+ 			compatible = "arm,gic-400";
+ 			reg = <0x01c81000 0x1000>,
 -- 
 2.10.2
 
