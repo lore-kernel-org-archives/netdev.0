@@ -1,72 +1,46 @@
-From: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Subject: Re: [PATCH v3 16/20] ARM: dts: sun50i-a64: enable dwmac-sun8i on
- pine64
-Date: Mon, 3 Apr 2017 13:38:47 +0200
-Message-ID: <20170403113847.dca2tetjit7xoxyn@lukather>
-References: <20170403091444.29876-1-clabbe.montjoie@gmail.com>
- <20170403091444.29876-17-clabbe.montjoie@gmail.com>
+From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Subject: Re: [PATCH 15/16] drivers, net, intersil: convert hostap_cmd_queue.usecnt from atomic_t to refcount_t
+Date: Mon, 03 Apr 2017 14:38:49 +0300
+Message-ID: <874ly5oh4m.fsf@kamboji.qca.qualcomm.com>
+References: <1490691403-4016-1-git-send-email-elena.reshetova@intel.com>
+        <1490691403-4016-16-git-send-email-elena.reshetova@intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="rszyeo3fyvj6idb5"
-Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org,
-        linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org,
-        will.deacon-5wv7dgnIgG8@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
-        alexandre.torgue-qxv4g6HH51o@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20170403091444.29876-17-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-hams-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-ppp-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ganeshgr-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+        nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org, blogic-p3rKhJxN3npAfugRpC6u6w@public.gmane.org, matthias.bgg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+        yishaih-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+        leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, ajk-iz34hMvxm2Hmj42eshorlhS11BummzK+@public.gmane.org, paulus-eUNUBHrolfbYtjvyW6yDsg@public.gmane.org,
+        j@w1.fi, peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org, keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org,
+        gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, Hans Liljestrand <ishkamiel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        David Windsor <dwindsor-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: Elena Reshetova <elena.reshetova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1490691403-4016-16-git-send-email-elena.reshetova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+        (Elena Reshetova's message of "Tue, 28 Mar 2017 11:56:42 +0300")
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+Elena Reshetova <elena.reshetova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org> writes:
 
---rszyeo3fyvj6idb5
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+> refcount_t type and corresponding API should be
+> used instead of atomic_t when the variable is used as
+> a reference counter. This allows to avoid accidental
+> refcounter overflows that might lead to use-after-free
+> situations.
+>
+> Signed-off-by: Elena Reshetova <elena.reshetova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+> Signed-off-by: Hans Liljestrand <ishkamiel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Signed-off-by: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+> Signed-off-by: David Windsor <dwindsor-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> ---
+>  drivers/net/wireless/intersil/hostap/hostap_hw.c   | 12 ++++++------
+>  drivers/net/wireless/intersil/hostap/hostap_wlan.h |  3 ++-
+>  2 files changed, 8 insertions(+), 7 deletions(-)
 
-On Mon, Apr 03, 2017 at 11:14:40AM +0200, Corentin Labbe wrote:
-> The dwmac-sun8i hardware is present on the pine64
-> It uses an external PHY via RMII.
->=20
-> Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+The prefix should be "hostap:", I'll fix that.
 
-Looks fine, but please use "arm64: allwinner: pine64: " as your title
-prefix. It applies to all your other patches (and the arm ones should
-be "arm: <family>: <soc-or-board>:".
-
-Thanks!
-Maxime
-
---=20
-Maxime Ripard, Free Electrons
-Embedded Linux and Kernel engineering
-http://free-electrons.com
-
---rszyeo3fyvj6idb5
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQIcBAEBCAAGBQJY4jRHAAoJEBx+YmzsjxAgSGcP/2dih+9STf4PFi4/dxayxv0k
-Q07yqdVOImUZEdXENbX/kXK5ptvN+va1KWMpwFOdrhYzRSsn/4QjaqYZ0J8qYvA6
-RxYKCvSmXGydlrtBZRL7Lf5piY+yBWPVKBFAIxc1QPjrVzPl2hA174gx7AAst/zU
-J3Nc4cD6Epg+CLC+9ombPbtBI8Gc8PJehPx/FgaalGPSYHIgHsczRaZw3eY0cdgc
-/0zTaTKlRo1kQaXaV6/QC/sT2L2WASbgk1CrpiuVYj0T7xFStBTrMw2Cff6T79CV
-iAglY4gcGfWWbGB6UYz/G5vxfdZxOjG7Jm/zGgiPpfHw7YhqiF3P93z6RyGtI83w
-zMhgPpJfyDOBWTH6Oktg/Ju3AK9QRyZvoL9144DWl/dg5jm/lg8ibtmcj9OsfnwO
-rxUN2NB5VVdldNdM0qgmP6pX6yqFagW6642e88YPmd2v6dUr08tfKsCyXFHftHEC
-8kzJtyThiGBH2b9Cf2AmkMX2quw+x1ngOnS9K3OqEQylHRgM7n8o9rPED23WjYxA
-VJJ+PjF7EKms9GAUeDGme91KWrgsmyU3p5e8wxwxCwpd6O2mEtHOGAjV2SKzbfvv
-ac41G7iriQx43juvHfwKVAFh9Tlv8wPgDMi29c4VJZ13QLt/C6XGY1EFKBbU3KOJ
-cEySvH9CLJonOlV+INCV
-=kh/H
------END PGP SIGNATURE-----
-
---rszyeo3fyvj6idb5--
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+Kalle Valo
