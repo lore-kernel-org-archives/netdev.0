@@ -1,62 +1,62 @@
-From: Sunil Kovvuri <sunil.kovvuri@gmail.com>
-Subject: Re: [PATCH net-next] liquidio: use meaningful names for IRQs
-Date: Mon, 3 Apr 2017 23:12:14 +0530
-Message-ID: <CA+sq2Ce5HgtxZAFNsA+rAgf2-VXfJQkFDWXdQ-L8aVaVvqTofg@mail.gmail.com>
-References: <20170313195804.GA1796@felix2.cavium.com> <CA+sq2CdG9fBR-Hw3rULMJON3aFQkCXtEpgkfKTzYhd5s=Lo1Tw@mail.gmail.com>
- <CY1PR07MB2665225225D98B5366576AA3EC080@CY1PR07MB2665.namprd07.prod.outlook.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] netfilter: xt_TCPMSS: add more sanity tests on
+ tcph->doff
+Date: Mon, 03 Apr 2017 10:55:11 -0700
+Message-ID: <1491242111.10124.32.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <6c6e2f7505f969d8c2998efff24063ba@nuclearcat.com>
+         <1491132259.10124.3.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "Manlunas, Felix" <Felix.Manlunas@cavium.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        "Vatsavayi, Raghu" <Raghu.Vatsavayi@cavium.com>,
-        "Chickles, Derek" <Derek.Chickles@cavium.com>,
-        "Burla, Satananda" <Satananda.Burla@cavium.com>
-To: Ricardo Farrington <Ricardo.Farrington@cavium.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Pablo Neira Ayuso <pablo@netfilter.org>,
+        netfilter-devel@vger.kernel.org
+To: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f176.google.com ([209.85.128.176]:36025 "EHLO
-        mail-wr0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751750AbdDCRmQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 3 Apr 2017 13:42:16 -0400
-Received: by mail-wr0-f176.google.com with SMTP id w11so178335135wrc.3
-        for <netdev@vger.kernel.org>; Mon, 03 Apr 2017 10:42:16 -0700 (PDT)
-In-Reply-To: <CY1PR07MB2665225225D98B5366576AA3EC080@CY1PR07MB2665.namprd07.prod.outlook.com>
+Received: from mail-it0-f65.google.com ([209.85.214.65]:33435 "EHLO
+        mail-it0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751883AbdDCRzN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 3 Apr 2017 13:55:13 -0400
+In-Reply-To: <1491132259.10124.3.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 3, 2017 at 8:33 PM, Ricardo Farrington
-<Ricardo.Farrington@cavium.com> wrote:
-> Hi Sunil - this implementation was verified with multiple adapters installed.  In this case, the <id> field serves to differentiate the adapter.
->
->>     LiquidIO<id>-<func>-<type>-<queue pair num>
->
-> Rick
->
+From: Eric Dumazet <edumazet@google.com>
 
-No, what I was referring to was, let's say there are two adapters, if
-we do a unbind of driver and
-then bind driver in reverse sequence, then the <id> of each adapter
-will get exchanged. isn't it ?
+Denys provided an awesome KASAN report pointing to an use
+after free in xt_TCPMSS
 
-If the above is true, the logical interface's name will still be the
-same but the <id> is different,
-so it's not easy to map a logical interface to it's registered IRQs,
-hence doing affinity setting is still problematic.
+I have provided three patches to fix this issue, either in xt_TCPMSS or
+in xt_tcpudp.c. It seems xt_TCPMSS patch has the smallest possible
+impact.
 
-But moreover it seems the driver is calling 'octeon_allocate_device()'
-for each VF, so not sure how <id> field which
-is derived from 'oct->octeon_id' helps in differentiating the adapter.
-Is there only one VF per adapter ?
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Reported-by: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
+---
+ net/netfilter/xt_TCPMSS.c |    6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
 
-821 static int
-822 liquidio_vf_probe(struct pci_dev *pdev,
-823                   const struct pci_device_id *ent __attribute__((unused)))
-824 {
-825         struct octeon_device *oct_dev = NULL;
-826
-827         oct_dev = octeon_allocate_device(pdev->device,
-828                                          sizeof(struct octeon_device_priv));
-829
-
-Thanks,
-Sunil.
+diff --git a/net/netfilter/xt_TCPMSS.c b/net/netfilter/xt_TCPMSS.c
+index 27241a767f17b4b27d24095a31e5e9a2d3e29ce4..c64aca611ac5c5f81ad7c925652bbb90554763ac 100644
+--- a/net/netfilter/xt_TCPMSS.c
++++ b/net/netfilter/xt_TCPMSS.c
+@@ -104,7 +104,7 @@ tcpmss_mangle_packet(struct sk_buff *skb,
+ 	tcph = (struct tcphdr *)(skb_network_header(skb) + tcphoff);
+ 	tcp_hdrlen = tcph->doff * 4;
+ 
+-	if (len < tcp_hdrlen)
++	if (len < tcp_hdrlen || tcp_hdrlen < sizeof(struct tcphdr))
+ 		return -1;
+ 
+ 	if (info->mss == XT_TCPMSS_CLAMP_PMTU) {
+@@ -152,6 +152,10 @@ tcpmss_mangle_packet(struct sk_buff *skb,
+ 	if (len > tcp_hdrlen)
+ 		return 0;
+ 
++	/* tcph->doff has 4 bits, do not wrap it to 0 */
++	if (tcp_hdrlen >= 15 * 4)
++		return 0;
++
+ 	/*
+ 	 * MSS Option not found ?! add it..
+ 	 */
