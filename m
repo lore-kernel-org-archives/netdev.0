@@ -1,74 +1,71 @@
-From: Kalle Valo <kvalo@qca.qualcomm.com>
-Subject: Re: [PATCH 1/2] wireless: ath9k_htc: fix NULL-deref at probe
-Date: Mon, 3 Apr 2017 13:21:08 +0000
-Message-ID: <87fuhpmxto.fsf@kamboji.qca.qualcomm.com>
-References: <20170313124421.28587-1-johan@kernel.org>
-        <20170403084213.GE25742@localhost>      <87shlpomvx.fsf@kamboji.qca.qualcomm.com>
-        <87k271myos.fsf@kamboji.qca.qualcomm.com>       <20170403131616.GA3119@localhost>
+From: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH RFC v4 07/10] dt-bindings: net: add binding for QCA7000
+ UART
+Date: Mon, 3 Apr 2017 08:23:23 -0500
+Message-ID: <20170403132323.vugelfs2pz3p5p6h@rob-hp-laptop>
+References: <1490621848-24828-1-git-send-email-stefan.wahren@i2se.com>
+ <1490621848-24828-8-git-send-email-stefan.wahren@i2se.com>
+ <CAL_Jsq+gxS4u+b+C_eWeguFR0AFKuq8Hhe9Xo_5B_5w1hxvzEg@mail.gmail.com>
+ <9a094176-ebe7-d906-ca9c-967285e53b07@i2se.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: ath9k-devel <ath9k-devel@qca.qualcomm.com>,
-        Daniel Drake <dsd@gentoo.org>,
-        Ulrich Kunitz <kune@deine-taler.de>,
-        "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Johan Hovold <johan@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170403131616.GA3119@localhost> (Johan Hovold's message of
-        "Mon, 3 Apr 2017 15:16:16 +0200")
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+        Jiri Slaby <jslaby-IBi9RG/b67k@public.gmane.org>,
+        Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
+        Sebastian Reichel <sre-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-serial-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-serial-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Stefan Wahren <stefan.wahren-eS4NqCHxEME@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <9a094176-ebe7-d906-ca9c-967285e53b07-eS4NqCHxEME@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Johan Hovold <johan@kernel.org> writes:
+On Tue, Mar 28, 2017 at 06:18:03PM +0200, Stefan Wahren wrote:
+> Am 27.03.2017 um 22:30 schrieb Rob Herring:
+> > On Mon, Mar 27, 2017 at 8:37 AM, Stefan Wahren <stefan.wahren-eS4NqCHxEME@public.gmane.org> wrote:
+> >> This is the serdev binding for the QCA7000 UART driver (Ethernet over UART).
+> >>
+> >> Signed-off-by: Stefan Wahren <stefan.wahren-eS4NqCHxEME@public.gmane.org>
+> >> ---
+> >>
+> >> According to this binding are still some questions:
+> >>
+> >> Where should be the optional hardware flow control defined (at master or slave side)?
+> > Probably should be in the slave side. We already have uart-has-rtscts
+> > and rts/cts-gpios for the UART. Those mean we have RTS/CTS, but not
+> > necessarily that we want to enable them.
+> >
+> > In many cases, the driver may know what it needs.
+> 
+> Like all the other UART settings the hardware flow control can be
+> configured in the QCA7000 firmware and the driver can't detect it.
+> 
+> Property suggestion for the slave side:
+> 
+> use-rtscts
 
-> On Mon, Apr 03, 2017 at 01:02:28PM +0000, Kalle Valo wrote:
->> Kalle Valo <kvalo@codeaurora.org> writes:
->>=20
->> > Johan Hovold <johan@kernel.org> writes:
->> >
->> >> On Mon, Mar 13, 2017 at 01:44:20PM +0100, Johan Hovold wrote:
->> >>> Make sure to check the number of endpoints to avoid dereferencing a
->> >>> NULL-pointer or accessing memory beyond the endpoint array should a
->> >>> malicious device lack the expected endpoints.
->> >>>=20
->> >>> Fixes: 36bcce430657 ("ath9k_htc: Handle storage devices")
->> >>> Cc: Sujith Manoharan <Sujith.Manoharan@atheros.com>
->> >>> Signed-off-by: Johan Hovold <johan@kernel.org>
->> >>
->> >> Is this one still in your queue, Kalle?
->> >
->> > Yes, I'm just lacking behing:
->> >
->> > https://patchwork.kernel.org/patch/9620723/
->>=20
->> Meant "lagging" of course. Mondays..
->>=20
->> >> As I mentioned earlier, I should have added a
->> >>
->> >> Cc: stable <stable@vger.kernel.org>     # 2.6.39
->> >>
->> >> but left it out as I mistakingly thought the net recommendations to d=
-o
->> >> so applied also to wireless.
->> >
->> > Ok, I'll add that.
->>=20
->> But is 2.6.39 really correct? Shouldn't it be 2.6.39+ so that it means
->> all versions since 2.6.39?
->
-> Either way is fine, the stable maintainers apply them to all later
-> versions.
->
-> I notice now that adding a plus sign is more common, but it's still a
-> 1:2 ratio judging from quick grep, while the stable-kernel-rules.rst
-> actually uses a minus sign...
+Okay.
 
-Heh, quite confusing :) I added the plus sign already to the patch in my
-pending branch so unless you object I'll keep it.
+> >> Is it okay to have two bindings (qca-qca7000-spi and qca-qca7000-uart) or should they be merged?
+> > Are they mutually-exclusive or both are used at the same time?
+> 
+> They are mutually-exclusive because they use the same pins.
+> 
+> >  What
+> > are the dependencies between the interfaces?
+> 
+> Except they uses the same pins of the QCA7000, i can't see any dependency.
 
---=20
-Kalle Valo=
+I think they should be a single doc.
+
+Rob
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
