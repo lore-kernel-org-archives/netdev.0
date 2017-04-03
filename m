@@ -1,37 +1,57 @@
-From: qca_dlansky <qca_dlansky-zC7DfRvBq/JWk0Htik3J/w@public.gmane.org>
-Subject: RE: linux-4.11-rc5/drivers/net/wireless/ath/wil6210/pmc.c: 2 * poor
- place for limits check ?
-Date: Mon, 3 Apr 2017 19:30:23 +0000
-Message-ID: <d2d7047c4e7b4931b77a82aaf43e2abb@euamsexm01b.eu.qualcomm.com>
-References: <HE1PR0801MB1865948355B11C9E63315D2F9C080@HE1PR0801MB1865.eurprd08.prod.outlook.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-To: David Binderman <dcb314-PkbjNfxxIARBDgjK7y7TUQ@public.gmane.org>,
-        qca_merez <qca_merez-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>,
-        "kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org" <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-        "linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        wil6210 <wil6210-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>,
-        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <HE1PR0801MB1865948355B11C9E63315D2F9C080-TrivKwPZaC6VEZXSXRKha0dOKmgb957onBOFsp37pqbUKgpGm//BTAC/G2K4zDHf@public.gmane.org>
-Content-Language: en-US
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Simon Horman <simon.horman@netronome.com>
+Subject: [PATCH net] flow dissector: correct size of storage for ARP
+Date: Mon,  3 Apr 2017 15:42:58 -0400
+Message-ID: <1491248578-12014-1-git-send-email-simon.horman@netronome.com>
+Cc: Dinan Gunawardena <dinan.gunawardena@netronome.com>,
+        netdev@vger.kernel.org, oss-drivers@netronome.com,
+        Nicolas Iooss <nicolas.iooss_linux@m4x.org>,
+        Simon Horman <simon.horman@netronome.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-it0-f46.google.com ([209.85.214.46]:35235 "EHLO
+        mail-it0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751812AbdDCTnF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 3 Apr 2017 15:43:05 -0400
+Received: by mail-it0-f46.google.com with SMTP id y18so53035967itc.0
+        for <netdev@vger.kernel.org>; Mon, 03 Apr 2017 12:43:05 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Binderman [mailto:dcb314-PkbjNfxxIARBDgjK7y7TUQ@public.gmane.org]=20
-Sent: Monday, April 3, 2017 2:16 PM
+The last argument to __skb_header_pointer() should be a buffer large
+enough to store struct arphdr. This can be a pointer to a struct arphdr
+structure. The code was previously using a pointer to a pointer to
+struct arphdr.
 
->
-> Hello there,
->
-> 1.
->
-> linux-4.11-rc5/drivers/net/wireless/ath/wil6210/pmc.c:188]: (style) Array=
- index 'i' is used before limits check.
+By my counting the storage available both before and after is 8 bytes on
+x86_64.
 
-Thanks for letting us know.
-We'll upload a fix soon.
+Fixes: 55733350e5e8 ("flow disector: ARP support")
+Reported-by: Nicolas Iooss <nicolas.iooss_linux@m4x.org>
+Signed-off-by: Simon Horman <simon.horman@netronome.com>
+---
 
-Thanks,
- Dedy.
+Dave,
+
+this problem is present in both net, since v4.11-rc1 and net-next.
+However, the code has refactored in net-next. I expect this will result
+in a conflict. Let me know if you would like me to post a version for
+net-next too.
+---
+ net/core/flow_dissector.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
+index c35aae13c8d2..d98d4998213d 100644
+--- a/net/core/flow_dissector.c
++++ b/net/core/flow_dissector.c
+@@ -390,7 +390,7 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
+ 			unsigned char ar_tip[4];
+ 		} *arp_eth, _arp_eth;
+ 		const struct arphdr *arp;
+-		struct arphdr *_arp;
++		struct arphdr _arp;
+ 
+ 		arp = __skb_header_pointer(skb, nhoff, sizeof(_arp), data,
+ 					   hlen, &_arp);
+-- 
+2.7.0.rc3.207.g0ac5344
