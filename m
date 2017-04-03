@@ -1,52 +1,33 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: skb_over_panic using UDP and 6lowpan / fakelb
-Date: Mon, 3 Apr 2017 10:29:55 -0700
-Message-ID: <CAM_iQpWqQj3FLpBLE1Z+==Z7tJGXHyHXTvLmKRCNjyc=vtQvnQ@mail.gmail.com>
-References: <56012235-e1d0-1e5e-840a-cc8d5938c380@ntnu.no>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH] net: ipv4: fix multipath RTM_GETROUTE behavior when iif
+ is given
+Date: Mon, 3 Apr 2017 13:33:39 -0400
+Message-ID: <26f917bb-d44a-e397-1145-58d5e4e823f3@cumulusnetworks.com>
+References: <20170403144609.18716-1-fl@n621.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: LKML <linux-kernel@vger.kernel.org>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        aar@pengutronix.de, stefan@osg.samsung.com,
-        linux-wpan@vger.kernel.org
-To: David Palma <david.palma@ntnu.no>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <56012235-e1d0-1e5e-840a-cc8d5938c380@ntnu.no>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+To: Florian Larysch <fl@n621.de>,
+        "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f42.google.com ([74.125.83.42]:33739 "EHLO
+        mail-pg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751808AbdDCRdl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 3 Apr 2017 13:33:41 -0400
+Received: by mail-pg0-f42.google.com with SMTP id x125so126835011pgb.0
+        for <netdev@vger.kernel.org>; Mon, 03 Apr 2017 10:33:41 -0700 (PDT)
+In-Reply-To: <20170403144609.18716-1-fl@n621.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-(Cc'ing netdev and maintainers)
+On 4/3/17 10:46 AM, Florian Larysch wrote:
+> inet_rtm_getroute synthesizes a skeletal ICMP skb, which is passed to
+> ip_route_input when iif is given. If a multipath route is present for
+> the designated destination, ip_multipath_icmp_hash ends up being called,
 
-On Mon, Mar 27, 2017 at 2:16 AM, David Palma <david.palma@ntnu.no> wrote:
->
-> Hi,
->
-> Sending a simple UDP packet (39 bytes long), over a 6lowpan interface
-> (using fakelb), creates a kernel panic (skb_over_panic).
->
-> Steps to reproduce, and more details, can be found in:
-> https://github.com/PalmaITEM/6lowpan-skb_over_panic
->
-> This bug has been reported in
-> https://bugzilla.kernel.org/show_bug.cgi?id=195059
->
-> I have found that lengths around 39 bytes can also trigger this
-> behaviour and that longer packets are handled without problem.
->
-> Verified in:
->
-> - Linux version 4.9.0-0.bpo.2-amd64 (debian-kernel@lists.debian.org)
-> (gcc version 4.9.2 (Debian 4.9.2-10) ) #1 SMP Debian 4.9.13-1~bpo8+1
-> (2017-02-27)
-> - Linux version 4.10.4-1-ARCH (builduser@tobias) (gcc version 6.3.1
-> 20170306 (GCC) ) #1 SMP PREEMPT Sat Mar 18 19:39:18 CET 2017
->
->
-> I am not familiar with the process of reporting kernel bugs, so
-> apologies beforehand. I am also available to provide any missing
-> information.
->
-> Cheers,
-> --
-> David Palma
->
+that function no longer exists since Nik's recent work
+(bf4e0a3db97eb882368fd82980b3b1fa0b5b9778)
+
+So does the problem you noted still exist?
