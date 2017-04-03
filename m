@@ -1,54 +1,78 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: Adding support for VRF traffic passed by mangle table
-Date: Mon, 3 Apr 2017 09:24:06 -0400
-Message-ID: <30880eec-7d79-170b-4369-73c4d0ccc4ba@cumulusnetworks.com>
-References: <1491188266363.26046@alliedtelesis.co.nz>
+From: Johan Hovold <johan@kernel.org>
+Subject: Re: [PATCH 1/2] wireless: ath9k_htc: fix NULL-deref at probe
+Date: Mon, 3 Apr 2017 15:26:02 +0200
+Message-ID: <20170403132602.GB3119@localhost>
+References: <20170313124421.28587-1-johan@kernel.org>
+ <20170403084213.GE25742@localhost>
+ <87shlpomvx.fsf@kamboji.qca.qualcomm.com>
+ <87k271myos.fsf@kamboji.qca.qualcomm.com>
+ <20170403131616.GA3119@localhost>
+ <87fuhpmxto.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Florian Westphal <fw@strlen.de>,
-        Pablo Neira Ayuso <pablo@netfilter.org>
-To: Jack Ma <Jack.Ma@alliedtelesis.co.nz>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f46.google.com ([74.125.83.46]:36774 "EHLO
-        mail-pg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753048AbdDCNYK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 3 Apr 2017 09:24:10 -0400
-Received: by mail-pg0-f46.google.com with SMTP id g2so118991665pge.3
-        for <netdev@vger.kernel.org>; Mon, 03 Apr 2017 06:24:10 -0700 (PDT)
-In-Reply-To: <1491188266363.26046@alliedtelesis.co.nz>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Johan Hovold <johan@kernel.org>,
+        ath9k-devel <ath9k-devel@qca.qualcomm.com>,
+        Daniel Drake <dsd@gentoo.org>,
+        Ulrich Kunitz <kune@deine-taler.de>,
+        "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Kalle Valo <kvalo@qca.qualcomm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <87fuhpmxto.fsf@kamboji.qca.qualcomm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 4/2/17 10:57 PM, Jack Ma wrote:
-> diff --git a/net/ipv4/netfilter.c b/net/ipv4/netfilter.c
-> index c0cc6aa..07168d4 100644
-> --- a/net/ipv4/netfilter.c
-> +++ b/net/ipv4/netfilter.c
-> @@ -46,6 +46,14 @@ int ip_route_me_harder(struct net *net, struct sk_buff *skb, unsigned int addr_t
->                 fl4.flowi4_oif = l3mdev_master_ifindex(dev);
-
-How does the above line (which is part of this block:
-        fl4.flowi4_oif = sk ? sk->sk_bound_dev_if : 0;
-        if (!fl4.flowi4_oif)
-                fl4.flowi4_oif = l3mdev_master_ifindex(dev);
-
-) not work? The dst should be set on the skb at this point and the
-device would reference the VRF.
-
-
->         fl4.flowi4_mark = skb->mark;
->         fl4.flowi4_flags = flags;
-> +
-> +       /* Since we have already known this is vrf flow passed by
-> +        * mangle table, we wrap the oif with the master interface.
-> +        */
-> +       if (fl4.flowi4_oif == 0 && fl4.daddr && skb->dev &&
-> +           netif_index_is_l3_master(net, skb->dev->ifindex))
-> +               fl4.flowi4_oif = skb->dev->ifindex;
-> +
->         rt = ip_route_output_key(net, &fl4);
->         if (IS_ERR(rt))
->                 return PTR_ERR(rt);
+On Mon, Apr 03, 2017 at 01:21:08PM +0000, Kalle Valo wrote:
+> Johan Hovold <johan@kernel.org> writes:
 > 
+> > On Mon, Apr 03, 2017 at 01:02:28PM +0000, Kalle Valo wrote:
+> >> Kalle Valo <kvalo@codeaurora.org> writes:
+> >> 
+> >> > Johan Hovold <johan@kernel.org> writes:
+> >> >
+> >> >> On Mon, Mar 13, 2017 at 01:44:20PM +0100, Johan Hovold wrote:
+> >> >>> Make sure to check the number of endpoints to avoid dereferencing a
+> >> >>> NULL-pointer or accessing memory beyond the endpoint array should a
+> >> >>> malicious device lack the expected endpoints.
+> >> >>> 
+> >> >>> Fixes: 36bcce430657 ("ath9k_htc: Handle storage devices")
+> >> >>> Cc: Sujith Manoharan <Sujith.Manoharan@atheros.com>
+> >> >>> Signed-off-by: Johan Hovold <johan@kernel.org>
+> >> >>
+> >> >> Is this one still in your queue, Kalle?
+> >> >
+> >> > Yes, I'm just lacking behing:
+> >> >
+> >> > https://patchwork.kernel.org/patch/9620723/
+> >> 
+> >> Meant "lagging" of course. Mondays..
+> >> 
+> >> >> As I mentioned earlier, I should have added a
+> >> >>
+> >> >> Cc: stable <stable@vger.kernel.org>     # 2.6.39
+> >> >>
+> >> >> but left it out as I mistakingly thought the net recommendations to do
+> >> >> so applied also to wireless.
+> >> >
+> >> > Ok, I'll add that.
+> >> 
+> >> But is 2.6.39 really correct? Shouldn't it be 2.6.39+ so that it means
+> >> all versions since 2.6.39?
+> >
+> > Either way is fine, the stable maintainers apply them to all later
+> > versions.
+> >
+> > I notice now that adding a plus sign is more common, but it's still a
+> > 1:2 ratio judging from quick grep, while the stable-kernel-rules.rst
+> > actually uses a minus sign...
+> 
+> Heh, quite confusing :) I added the plus sign already to the patch in my
+> pending branch so unless you object I'll keep it.
+
+Please do, no objection. :)
+
+Thanks,
+Johan
