@@ -1,64 +1,64 @@
-From: "Alvaro G. M." <alvaro.gamez@hazent.com>
-Subject: xilinx_axienet: No interrupts asserted in Tx path?
-Date: Mon, 3 Apr 2017 16:46:11 +0200
-Message-ID: <20170403144606.b3hzvxctpnyni5of@collins.gmr.ssr.upm.es>
+From: Ricardo Farrington <Ricardo.Farrington@cavium.com>
+Subject: RE: [PATCH net-next] liquidio: use meaningful names for IRQs
+Date: Mon, 3 Apr 2017 15:03:31 +0000
+Message-ID: <CY1PR07MB2665225225D98B5366576AA3EC080@CY1PR07MB2665.namprd07.prod.outlook.com>
+References: <20170313195804.GA1796@felix2.cavium.com>
+ <CA+sq2CdG9fBR-Hw3rULMJON3aFQkCXtEpgkfKTzYhd5s=Lo1Tw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Anirudha Sarangi <anirudh@xilinx.com>,
-        John Linn <John.Linn@xilinx.com>,
-        Michal Simek <michal.simek@xilinx.com>,
-        =?iso-8859-1?Q?S=F6ren?= Brinkmann <soren.brinkmann@xilinx.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        "Vatsavayi, Raghu" <Raghu.Vatsavayi@cavium.com>,
+        "Chickles, Derek" <Derek.Chickles@cavium.com>,
+        "Burla, Satananda" <Satananda.Burla@cavium.com>
+To: Sunil Kovvuri <sunil.kovvuri@gmail.com>,
+        "Manlunas, Felix" <Felix.Manlunas@cavium.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from collins.gmr.ssr.upm.es ([138.4.36.7]:36306 "EHLO
-        collins.gmr.ssr.upm.es" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752249AbdDCOww (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 3 Apr 2017 10:52:52 -0400
-Content-Disposition: inline
+Received: from mail-bl2nam02on0062.outbound.protection.outlook.com ([104.47.38.62]:30144
+        "EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1753157AbdDCPDf (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 3 Apr 2017 11:03:35 -0400
+In-Reply-To: <CA+sq2CdG9fBR-Hw3rULMJON3aFQkCXtEpgkfKTzYhd5s=Lo1Tw@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi
-
-I'm trying to use tri_mode_ethernet_mac & axi_dma cores from Vivado 2016.2,
-but I'm facing several problems that I believe are related to the linux'
-driver for these modules, xilinx_axienet_main.c
-
-First of all, I've noticed that __axienet_device_reset is called twice (once
-for TX and once again for RX).  However, this results on both
-{mm2s,s2mm}_prmry_reset_out_n to be always on reset status (0), and they
-never change back to 1, as seen via ILA lookup.  Also, bit 2 of S2MM_DMACR
-(30h) remains active as if the DMA core is trying to reset itself.  Even if
-I modify __axienet_device_reset to write a 0 to that bit after the timeout
-runs, it keeps it's previous value of 1, meaning that the core is somehow
-stalled?
- 
-
-If I remove all calls to __axienet_device_reset function, the core is kept
-in active mode, and the whole system begins to almost work.  In this case, I
-try to ping my computer on which I have wireshark running.  I see that ARP
-packages are being sent from the FPGA to the network through the PHY, and my
-computer sees them.  However, the linux system on the FPGA keeps telling me
-this:
-
-net eth0: No interrupts asserted in Tx path
-
-And even though my computer is answering back to ARP requests, the embedded
-system does not seem to receive them.  If I set manually the arp address of
-my computer on the embedded linux, I see then the ICMP ping request packages
-being sent out, but once again the same interrupt related message is printed
-and of course it doesn't seem to react to the answer the host is sending.
-
-
-So, there is something wrong around here, but I don't know what else to try. 
-I expect it not to be a bug on the DMA core (although the fact that it
-remains on reset state is quite strange), but I guess it could be a hardware
-(VHDL-block design) problem nevertheless.
-
-Any ideas?
-
-Thanks, best ergards!
-
-
--- 
-Alvaro G.  M.
+SGkgU3VuaWwgLSB0aGlzIGltcGxlbWVudGF0aW9uIHdhcyB2ZXJpZmllZCB3aXRoIG11bHRpcGxl
+IGFkYXB0ZXJzIGluc3RhbGxlZC4gIEluIHRoaXMgY2FzZSwgdGhlIDxpZD4gZmllbGQgc2VydmVz
+IHRvIGRpZmZlcmVudGlhdGUgdGhlIGFkYXB0ZXIuDQoNCj4gICAgIExpcXVpZElPPGlkPi08ZnVu
+Yz4tPHR5cGU+LTxxdWV1ZSBwYWlyIG51bT4NCg0KUmljaw0KDQoNCi0tLS0tT3JpZ2luYWwgTWVz
+c2FnZS0tLS0tDQpGcm9tOiBTdW5pbCBLb3Z2dXJpIFttYWlsdG86c3VuaWwua292dnVyaUBnbWFp
+bC5jb21dIA0KU2VudDogTW9uZGF5LCBBcHJpbCAwMywgMjAxNyAyOjU2IEFNDQpUbzogTWFubHVu
+YXMsIEZlbGl4IDxGZWxpeC5NYW5sdW5hc0BjYXZpdW0uY29tPg0KQ2M6IERhdmlkIFMuIE1pbGxl
+ciA8ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldD47IExpbnV4IE5ldGRldiBMaXN0IDxuZXRkZXZAdmdlci5r
+ZXJuZWwub3JnPjsgVmF0c2F2YXlpLCBSYWdodSA8UmFnaHUuVmF0c2F2YXlpQGNhdml1bS5jb20+
+OyBDaGlja2xlcywgRGVyZWsgPERlcmVrLkNoaWNrbGVzQGNhdml1bS5jb20+OyBCdXJsYSwgU2F0
+YW5hbmRhIDxTYXRhbmFuZGEuQnVybGFAY2F2aXVtLmNvbT47IFJpY2FyZG8gRmFycmluZ3RvbiA8
+UmljYXJkby5GYXJyaW5ndG9uQGNhdml1bS5jb20+DQpTdWJqZWN0OiBSZTogW1BBVENIIG5ldC1u
+ZXh0XSBsaXF1aWRpbzogdXNlIG1lYW5pbmdmdWwgbmFtZXMgZm9yIElSUXMNCg0KT24gVHVlLCBN
+YXIgMTQsIDIwMTcgYXQgMToyOCBBTSwgRmVsaXggTWFubHVuYXMgPGZlbGl4Lm1hbmx1bmFzQGNh
+dml1bS5jb20+IHdyb3RlOg0KPiBGcm9tOiBSaWNrIEZhcnJpbmd0b24gPHJpY2FyZG8uZmFycmlu
+Z3RvbkBjYXZpdW0uY29tPg0KPg0KPiBBbGwgSVJRcyBvd25lZCBieSB0aGUgUEYgYW5kIFZGIGRy
+aXZlcnMgc2hhcmUgdGhlIHNhbWUgbm9uZGVzY3JpcHQgDQo+IG5hbWUgIm9jdGVvbiI7IHRoaXMg
+bWFrZXMgaXQgZGlmZmljdWx0IHRvIHNldHVwIGludGVycnVwdCBhZmZpbml0eS4NCj4NCj4gQ2hh
+bmdlIHRoZSBJUlEgbmFtZXMgdG8gcmVmbGVjdCB0aGVpciBzcGVjaWZpYyBwdXJwb3NlOg0KPg0K
+PiAgICAgTGlxdWlkSU88aWQ+LTxmdW5jPi08dHlwZT4tPHF1ZXVlIHBhaXIgbnVtPg0KPg0KPiBF
+eGFtcGxlczoNCj4gICAgIExpcXVpZElPMC1wZjAtcnh0eC0zDQo+ICAgICBMaXF1aWRJTzEtdmYx
+LXJ4dHgtMA0KPiAgICAgTGlxdWlkSU8wLXBmMC1hdXgNCg0KUHJvYmFibHkgdG9vIGxhdGUsIGJ1
+dCBqdXN0IG15IDIgY2VudHMuDQoNCklmIHRoZXJlIGFyZSBtdWx0aXBsZSBMaXF1aWRJTyBjYXJk
+cyBjb25uZWN0ZWQgaW4gYSBzeXN0ZW0sIHdvdWxkbid0IHRoZSBzYW1lIGlzc3VlIG9mIGhvdyB0
+byBzZXR1cCBJUlEgYWZmaW5pdGllcyBhcmlzZSA/DQpIb3cgZG8geW91IG1hcCBuZXRkZXYtPm5h
+bWUgdG8gSVJRIG5hbWUgPw0KDQo+DQo+IFdlIGNhbm5vdCB1c2UgbmV0ZGV2LT5uYW1lIGZvciBu
+YW1pbmcgdGhlIElSUXMgYmVjYXVzZToNCj4NCj4gICAgIDEuICBFYXJseSBkdXJpbmcgaW5pdCwg
+dGhlIFBGIGFuZCBWRiBkcml2ZXJzIHJlcXVpcmUgaW50ZXJydXB0cyB0bw0KPiAgICAgICAgIHNl
+bmQvcmVjZWl2ZSBjb250cm9sIGRhdGEgZnJvbSB0aGUgTklDIGZpcm13YXJlOyBzbyB0aGUgUEYg
+YW5kIFZGDQo+ICAgICAgICAgbXVzdCByZXF1ZXN0IElSUXMgbG9uZyBiZWZvcmUgdGhlIG5ldGRl
+diBzdHJ1Y3QgaXMgcmVnaXN0ZXJlZC4NCj4NCj4gICAgIDIuICBUaGUgSVJRIG5hbWUgY2FuIG9u
+bHkgYmUgc3BlY2lmaWVkIGF0IHRoZSB0aW1lIGl0IGlzIHJlcXVlc3RlZC4NCj4gICAgICAgICBJ
+dCBjYW5ub3QgYmUgY2hhbmdlZCBhZnRlciB0aGF0Lg0KDQpZb3UgY2FuIHRyeSBzcGxpdHRpbmcg
+SVJRIHJlZ2lzdHJhdGlvbiBhbmQgcmVnaXN0ZXIgSVJRcyBmb3Igc2VuZGluZy9yZWNlaXZpbmcg
+Y29udHJvbCBkYXRhIHdpdGggYWJvdmUgbmFtaW5nIGJ1dCBmb3IgcXVldWVzLCBJUlFzIGNhbiBi
+ZSByZWdpc3RlcmVkIGFmdGVyIG5ldGRldiBzdHJ1Y3QgaXMgcmVnaXN0ZXJlZC4NCg0KVGhhbmtz
+LA0KU3VuaWwuDQo=
