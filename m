@@ -1,40 +1,43 @@
 From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [PATCH -next] liquidio: clear the correct memory
-Date: Mon, 3 Apr 2017 21:18:27 +0300
-Message-ID: <20170403181827.GA6505@mwanda>
+Subject: [PATCH -next] net: sched: choke: remove some dead code
+Date: Mon, 3 Apr 2017 21:18:41 +0300
+Message-ID: <20170403181629.GA22938@mwanda>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Satanand Burla <satananda.burla@caviumnetworks.com>,
-        Felix Manlunas <felix.manlunas@caviumnetworks.com>,
-        Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>,
-        netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Derek Chickles <derek.chickles@caviumnetworks.com>,
-        Prasad Kanneganti <prasad.kanneganti@cavium.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:45979 "EHLO
-        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752783AbdDCSTs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 3 Apr 2017 14:19:48 -0400
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        kernel-janitors@vger.kernel.org
+To: Jamal Hadi Salim <jhs@mojatatu.com>, Jiri Pirko <jiri@mellanox.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-There is a cut and paste bug here so we accidentally clear the first
-few bytes of "resp" a second time instead clearing "ctx".
+We accidentally left this dead code behind after commit 5952fde10c35
+("net: sched: choke: remove dead filter classify code").
 
-Fixes: 50c0add534d2 ("liquidio: refactor interrupt moderation code")
 Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c b/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c
-index fac02ed2c449..dab10c7e4443 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c
-@@ -1359,7 +1359,7 @@ static int octnet_get_intrmod_cfg(struct lio *lio,
- 	memset(resp, 0, sizeof(struct oct_intrmod_resp));
+diff --git a/net/sched/sch_choke.c b/net/sched/sch_choke.c
+index 040625fdc82b..f11f8732b0d5 100644
+--- a/net/sched/sch_choke.c
++++ b/net/sched/sch_choke.c
+@@ -223,7 +223,6 @@ static bool choke_match_random(const struct choke_sched_data *q,
+ static int choke_enqueue(struct sk_buff *skb, struct Qdisc *sch,
+ 			 struct sk_buff **to_free)
+ {
+-	int ret = NET_XMIT_SUCCESS | __NET_XMIT_BYPASS;
+ 	struct choke_sched_data *q = qdisc_priv(sch);
+ 	const struct red_parms *p = &q->parms;
  
- 	ctx = (struct oct_intrmod_context *)sc->ctxptr;
--	memset(resp, 0, sizeof(struct oct_intrmod_context));
-+	memset(ctx, 0, sizeof(struct oct_intrmod_context));
- 	WRITE_ONCE(ctx->cond, 0);
- 	ctx->octeon_id = lio_get_device_id(oct_dev);
- 	init_waitqueue_head(&ctx->wc);
+@@ -290,11 +289,6 @@ static int choke_enqueue(struct sk_buff *skb, struct Qdisc *sch,
+ congestion_drop:
+ 	qdisc_drop(skb, sch, to_free);
+ 	return NET_XMIT_CN;
+-
+-	if (ret & __NET_XMIT_BYPASS)
+-		qdisc_qstats_drop(sch);
+-	__qdisc_drop(skb, to_free);
+-	return ret;
+ }
+ 
+ static struct sk_buff *choke_dequeue(struct Qdisc *sch)
