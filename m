@@ -1,71 +1,97 @@
-From: Jack Ma <Jack.Ma@alliedtelesis.co.nz>
-Subject: Adding support for VRF traffic passed by mangle table
-Date: Mon, 3 Apr 2017 02:57:46 +0000
-Message-ID: <1491188266363.26046@alliedtelesis.co.nz>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: [PATCH net-next 3/3] virtio-net: clean tx descriptors from rx napi
+Date: Mon, 3 Apr 2017 01:02:13 -0400
+Message-ID: <CAF=yD-+tJxqvwvLU81=H7nwqDtiSWfAv8UdfncjPQiuNteJ6jQ@mail.gmail.com>
+References: <20170402201012.76473-1-willemdebruijn.kernel@gmail.com>
+ <20170402201012.76473-4-willemdebruijn.kernel@gmail.com> <20170403024751.GA21883@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-        boundary="_002_149118826636326046alliedtelesisconz_"
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "dsa@cumulusnetworks.com" <dsa@cumulusnetworks.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Network Development <netdev@vger.kernel.org>,
+        Jason Wang <jasowang@redhat.com>,
+        virtualization@lists.linux-foundation.org,
+        David Miller <davem@davemloft.net>,
+        Willem de Bruijn <willemb@google.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate2.alliedtelesis.co.nz ([202.36.163.20]:36405 "EHLO
-        gate2.alliedtelesis.co.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751280AbdDCC5x (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 2 Apr 2017 22:57:53 -0400
-Received: from mmarshal3.atlnz.lc (mmarshal3.atlnz.lc [10.32.18.43])
-        (using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
-        (Client did not present a certificate)
-        by gate2.alliedtelesis.co.nz (Postfix) with ESMTPS id 6E15087822
-        for <netdev@vger.kernel.org>; Mon,  3 Apr 2017 14:57:50 +1200 (NZST)
-Content-Language: en-US
+Received: from mail-qt0-f195.google.com ([209.85.216.195]:34555 "EHLO
+        mail-qt0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751033AbdDCFCz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 3 Apr 2017 01:02:55 -0400
+Received: by mail-qt0-f195.google.com with SMTP id x35so17479241qtc.1
+        for <netdev@vger.kernel.org>; Sun, 02 Apr 2017 22:02:54 -0700 (PDT)
+In-Reply-To: <20170403024751.GA21883@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---_002_149118826636326046alliedtelesisconz_
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
+On Sun, Apr 2, 2017 at 10:47 PM, Michael S. Tsirkin <mst@redhat.com> wrote:
+> On Sun, Apr 02, 2017 at 04:10:12PM -0400, Willem de Bruijn wrote:
+>> From: Willem de Bruijn <willemb@google.com>
+>>
+>> Amortize the cost of virtual interrupts by doing both rx and tx work
+>> on reception of a receive interrupt if tx napi is enabled. With
+>> VIRTIO_F_EVENT_IDX, this suppresses most explicit tx completion
+>> interrupts for bidirectional workloads.
+>>
+>> Signed-off-by: Willem de Bruijn <willemb@google.com>
+>> ---
+>>  drivers/net/virtio_net.c | 22 ++++++++++++++++++++++
+>>  1 file changed, 22 insertions(+)
+>>
+>> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+>> index 95d938e82080..af830eb212bf 100644
+>> --- a/drivers/net/virtio_net.c
+>> +++ b/drivers/net/virtio_net.c
+>> @@ -1030,12 +1030,34 @@ static int virtnet_receive(struct receive_queue *rq, int budget)
+>>       return received;
+>>  }
+>>
+>> +static void free_old_xmit_skbs(struct send_queue *sq);
+>> +
+>
+> Could you pls re-arrange code to avoid forward declarations?
 
-SGkgRGF2aWQsCgpJIGZvcm1hdHRlZCBhIHBhdGNoIHRvIHN1cHBvcnQgdnJmIGZsb3cgcGFzc2Vk
-IGJ5IGlwdGFibGVzKG1hbmdsZSB0YWJsZSkuIEFuZCBwcmV2aW91c2x5LCB3ZSBsb3N0IHRoZSBm
-bG93Lm9pZiB3aGljaCB3b3VsZCByZXN1bHQgaW4gYSByb3V0aW5nIGxvb2stdXAgZmFpbHVyZS4g
-VGhpcyBwYXRjaCB3cmFwcyB2cmYgcmVzcG9uc2UgZmxvdyB3aXRoIHRoZSBjb3JyZWN0IG1hc3Rl
-ciBpbnRlcmZhY2UgYnkgdXNpbmcgdGhlIHNrYi0+ZGV2LCB3aGljaCB3YXMgc2V0IHRvIHRoZSBy
-ZWFsIGluZ3Jlc3MgZGV2aWNlLgpXaXRob3V0IHRoaXMgcGF0Y2gsIFZSRiB0cmFmZmljIHBlcm1p
-dHRlZCBieSBmaXJld2FsbCBydWxlcyB0aGF0IGNoYW5nZXMgbmZfbWFyayB3b3VsZCBiZSBkcm9w
-cGVkIHdoaWxlIGRvaW5nIGZpYl9sb29rdXAuCktlcm5lbCBkb2N1bWVudGF0aW9ucyBzdWdnZXN0
-ZWQgdHdvIHdheSBvZiBmaXhpbmcgdGhpczoKCiAKICAgICAgICA8CiAgICAgICAgWzJdIElwdGFi
-bGVzIG9uIGluZ3Jlc3Mgc3VwcG9ydHMgUFJFUk9VVElORyB3aXRoIHNrYi0+ZGV2IHNldCB0byB0
-aGUgcmVhbAogICAgICAgICAgICBpbmdyZXNzIGRldmljZSBhbmQgYm90aCBJTlBVVCBhbmQgUFJF
-Uk9VVElORyBydWxlcyB3aXRoIHNrYi0+ZGV2IHNldCB0bwogICAgICAgICAgICB0aGUgVlJGIGRl
-dmljZS4gRm9yIGVncmVzcyBQT1NUUk9VVElORyBhbmQgT1VUUFVUIHJ1bGVzIGNhbiBiZSB3cml0
-dGVuCiAgICAgICAgICAgIHVzaW5nIGVpdGhlciB0aGUgVlJGIGRldmljZSBvciByZWFsIGVncmVz
-cyBkZXZpY2UuCiAgICAgICAgPgoKCkNvdWxkIHlvdSBwbGVhc2UgbG9vayBhdCB0aGlzIHBhdGNo
-IGFuZCBnaXZlIG1lIHNvbWUgZmVlZGJhY2s/ClRoYW5rcyBmb3IgeW91ciB0aW1lIGFuZCBjb25z
-aWRlcmF0aW9ucy4K4oCLClJlZ2FyZHMsCkphY2sKCgoKCmRpZmYgLS1naXQgYS9uZXQvaXB2NC9u
-ZXRmaWx0ZXIuYyBiL25ldC9pcHY0L25ldGZpbHRlci5jCmluZGV4IGMwY2M2YWEuLjA3MTY4ZDQg
-MTAwNjQ0Ci0tLSBhL25ldC9pcHY0L25ldGZpbHRlci5jCisrKyBiL25ldC9pcHY0L25ldGZpbHRl
-ci5jCkBAIC00Niw2ICs0NiwxNCBAQCBpbnQgaXBfcm91dGVfbWVfaGFyZGVyKHN0cnVjdCBuZXQg
-Km5ldCwgc3RydWN0IHNrX2J1ZmYgKnNrYiwgdW5zaWduZWQgaW50IGFkZHJfdAogICAgICAgICAg
-ICAgICAgZmw0LmZsb3dpNF9vaWYgPSBsM21kZXZfbWFzdGVyX2lmaW5kZXgoZGV2KTsKICAgICAg
-ICBmbDQuZmxvd2k0X21hcmsgPSBza2ItPm1hcms7CiAgICAgICAgZmw0LmZsb3dpNF9mbGFncyA9
-IGZsYWdzOworCisgICAgICAgLyogU2luY2Ugd2UgaGF2ZSBhbHJlYWR5IGtub3duIHRoaXMgaXMg
-dnJmIGZsb3cgcGFzc2VkIGJ5CisgICAgICAgICogbWFuZ2xlIHRhYmxlLCB3ZSB3cmFwIHRoZSBv
-aWYgd2l0aCB0aGUgbWFzdGVyIGludGVyZmFjZS4KKyAgICAgICAgKi8KKyAgICAgICBpZiAoZmw0
-LmZsb3dpNF9vaWYgPT0gMCAmJiBmbDQuZGFkZHIgJiYgc2tiLT5kZXYgJiYKKyAgICAgICAgICAg
-bmV0aWZfaW5kZXhfaXNfbDNfbWFzdGVyKG5ldCwgc2tiLT5kZXYtPmlmaW5kZXgpKQorICAgICAg
-ICAgICAgICAgZmw0LmZsb3dpNF9vaWYgPSBza2ItPmRldi0+aWZpbmRleDsKKwogICAgICAgIHJ0
-ID0gaXBfcm91dGVfb3V0cHV0X2tleShuZXQsICZmbDQpOwogICAgICAgIGlmIChJU19FUlIocnQp
-KQogICAgICAgICAgICAgICAgcmV0dXJuIFBUUl9FUlIocnQpOw==
+Okay. I'll do the move in a separate patch to simplify review.
 
---_002_149118826636326046alliedtelesisconz_
-Content-Type: text/x-patch; name="VRF_support.patch"
-Content-Description: VRF_support.patch
-Content-Disposition: attachment; filename="VRF_support.patch"; size=64;
-	creation-date="Mon, 03 Apr 2017 02:57:43 GMT";
-	modification-date="Mon, 03 Apr 2017 02:57:43 GMT"
-Content-Transfer-Encoding: base64
+>> +static void virtnet_poll_cleantx(struct receive_queue *rq)
+>> +{
+>> +     struct virtnet_info *vi = rq->vq->vdev->priv;
+>> +     unsigned int index = vq2rxq(rq->vq);
+>> +     struct send_queue *sq = &vi->sq[index];
+>> +     struct netdev_queue *txq = netdev_get_tx_queue(vi->dev, index);
+>> +
+>> +     if (!sq->napi.weight)
+>> +             return;
+>> +
+>> +     __netif_tx_lock(txq, smp_processor_id());
+>> +     free_old_xmit_skbs(sq);
+>> +     __netif_tx_unlock(txq);
+>> +
+>> +     if (sq->vq->num_free >= 2 + MAX_SKB_FRAGS)
+>> +             netif_wake_subqueue(vi->dev, vq2txq(sq->vq));
+>> +}
+>> +
+>
+> Looks very similar to virtnet_poll_tx.
+>
+> I think this might be waking the tx queue too early, so
+> it will tend to stay almost full for long periods of time.
+> Why not defer wakeup until queue is at least half empty?
 
-MDAwMS1XcmFwLXZyZi10cmFmZmljLXBhc3NlZC1ieS1tYW5nbGUtdGFibGUtd2l0aC1jb3JyZWN0
-LnBhdGNoCg==
+I'll test that. Delaying wake-up longer than necessary can cause
+queue build up at the qdisc and higher tail latency, I imagine. But
+it may reduce the number of __netif_schedule calls.
 
---_002_149118826636326046alliedtelesisconz_--
+> I wonder whether it's worth it to handle very short queues
+> correctly - they previously made very slow progress,
+> not they are never woken up.
+>
+> I'm a bit concerned about the cost of these wakeups
+> and locking. I note that this wake is called basically
+> every time queue is not full.
+>
+> Would it make sense to limit the amount of tx polling?
+> Maybe use trylock to reduce the conflict with xmit?
+
+Yes, that sounds good. I did test that previously and saw no
+difference then. But when multiple cpus contend for a single
+txq it should help.
