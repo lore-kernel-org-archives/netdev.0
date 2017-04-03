@@ -1,72 +1,67 @@
-From: Robert Shearman <rshearma@brocade.com>
-Subject: Re: [PATCH net-next v3 0/6] net: mpls: Allow users to configure more
- labels per route
-Date: Mon, 3 Apr 2017 09:14:58 +0100
-Message-ID: <382ed537-9286-9bb0-b7c8-2dc1d96c07fa@brocade.com>
-References: <1490969644-15499-1-git-send-email-dsa@cumulusnetworks.com>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Subject: Re: [PATCHv4] net: usbnet: support 64bit stats
+Date: Mon, 03 Apr 2017 10:22:29 +0200
+Message-ID: <87vaqlx5mi.fsf@miraculix.mork.no>
+References: <1491198603-24160-1-git-send-email-gerg@linux-m68k.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <roopa@cumulusnetworks.com>, <ebiederm@xmission.com>
-To: David Ahern <dsa@cumulusnetworks.com>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:33792 "EHLO
-        mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1752011AbdDCIPK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 3 Apr 2017 04:15:10 -0400
-In-Reply-To: <1490969644-15499-1-git-send-email-dsa@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+Cc: oneukum-IBi9RG/b67k@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Greg Ungerer <gerg-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1491198603-24160-1-git-send-email-gerg-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org> (Greg
+        Ungerer's message of "Mon, 3 Apr 2017 15:50:03 +1000")
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 31/03/17 15:13, David Ahern wrote:
-> Increase the maximum number of new labels for MPLS routes from 2 to 30.
->
-> To keep memory consumption in check, the labels array is moved to the end
-> of mpls_nh and mpls_iptunnel_encap structs as a 0-sized array. Allocations
-> use the maximum number of labels across all nexthops in a route for LSR
-> and the number of labels configured for LWT.
->
-> The mpls_route layout is changed to:
-...
->
-> Meaning the via follows its mpls_nh providing better locality as the
-> number of labels increases. UDP_RR tests with namespaces shows no impact
-> to a modest performance increase with this layout for 1 or 2 labels and
-> 1 or 2 nexthops.
->
-> mpls_route allocation size is limited to 4096 bytes allowing on the
-> order of 30 nexthops with 30 labels (or more nexthops with fewer
-> labels). LWT encap shares same maximum number of labels as mpls routing.
->
-> v3
-> - initialize n_labels to 0 in case RTA_NEWDST is not defined; detected
->   by the kbuild test robot
->
-> v2
-> - updates per Eric's comments
->   + added patch to ensure all reads of rt_nhn_alive and nh_flags in
->     the packet path use READ_ONCE and all writes via event handlers
->     use WRITE_ONCE
->
->   + limit mpls_route size to 4096 (PAGE_SIZE for most arch)
->
->   + mostly killed use of MAX_NEW_LABELS; it exists only for common
->     limit between lwt and routing paths
->
-> David Ahern (6):
->   net: mpls: rt_nhn_alive and nh_flags should be accessed using
->     READ_ONCE
->   net: mpls: Convert number of nexthops to u8
->   net: mpls: change mpls_route layout
->   net:mpls: Limit memory allocation for mpls_route
->   net: mpls: bump maximum number of labels
->   net: mpls: Increase max number of labels for lwt encap
->
->  include/net/mpls_iptunnel.h |   5 +-
->  net/mpls/af_mpls.c          | 210 +++++++++++++++++++++++++++++---------------
->  net/mpls/internal.h         |  61 +++++++++----
->  net/mpls/mpls_iptunnel.c    |  13 ++-
->  4 files changed, 196 insertions(+), 93 deletions(-)
->
+Greg Ungerer <gerg-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org> writes:
 
-Acked-by: Robert Shearman <rshearma@brocade.com>
+> Add support for the net stats64 counters to the usbnet core. With that
+> in place put the hooks into every usbnet driver to use it.
+>
+> This is a strait forward addition of 64bit counters for RX and TX packet
+> and byte counts. It is done in the same style as for the other net drivers
+> that support stats64. Note that the other stats fields remain as 32bit
+> sized values (error counts, etc).
+>
+> The motivation to add this is that it is not particularly difficult to
+> get the RX and TX byte counts to wrap on 32bit platforms.
+>
+> Signed-off-by: Greg Ungerer <gerg-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
+> ---
+>  drivers/net/usb/asix_devices.c    |  3 +++
+>  drivers/net/usb/ax88172a.c        |  1 +
+>  drivers/net/usb/ax88179_178a.c    |  1 +
+>  drivers/net/usb/cdc_mbim.c        |  1 +
+>  drivers/net/usb/cdc_ncm.c         |  1 +
+>  drivers/net/usb/dm9601.c          |  1 +
+>  drivers/net/usb/int51x1.c         |  1 +
+>  drivers/net/usb/mcs7830.c         |  1 +
+>  drivers/net/usb/qmi_wwan.c        |  1 +
+>  drivers/net/usb/rndis_host.c      |  1 +
+>  drivers/net/usb/sierra_net.c      |  1 +
+>  drivers/net/usb/smsc75xx.c        |  1 +
+>  drivers/net/usb/smsc95xx.c        |  1 +
+>  drivers/net/usb/sr9700.c          |  1 +
+>  drivers/net/usb/sr9800.c          |  1 +
+>  drivers/net/usb/usbnet.c          | 55 +++++++++++++++++++++++++++++++++=
++++---
+>  drivers/net/wireless/rndis_wlan.c |  1 +
+>  include/linux/usb/usbnet.h        |  4 +++
+>  18 files changed, 73 insertions(+), 4 deletions(-)
+>
+> v2: EXPORT usbnet_get_stats64()
+>     rebase on top of net-next
+>
+> v3: use percpu vars for stats64 counters
+>
+> v4: update all usbnet drivers to use stats64
+
+
+Looking good.  For the qmi_wwan part:
+
+Acked-by: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
