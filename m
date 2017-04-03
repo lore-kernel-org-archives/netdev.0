@@ -1,49 +1,74 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [PATCH 16/16] drivers, net, intersil: convert request_context.refcount from atomic_t to refcount_t
-Date: Mon, 03 Apr 2017 14:41:08 +0300
-Message-ID: <87zifxn2gb.fsf@kamboji.qca.qualcomm.com>
-References: <1490691403-4016-1-git-send-email-elena.reshetova@intel.com>
-        <1490691403-4016-17-git-send-email-elena.reshetova@intel.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next 2/5] qed: Fix TM block ILT allocation
+Date: Mon, 3 Apr 2017 14:46:20 +0300
+Message-ID: <7b179126-2a66-8696-98f9-3f3dca7a6d9e@cogentembedded.com>
+References: <1491211273-10910-1-git-send-email-Yuval.Mintz@cavium.com>
+ <1491211273-10910-3-git-send-email-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org, linux-rdma@vger.kernel.org,
-        linux-hams@vger.kernel.org, linux-ppp@vger.kernel.org,
-        linux-wireless@vger.kernel.org, ganeshgr@chelsio.com,
-        nbd@openwrt.org, blogic@openwrt.org, matthias.bgg@gmail.com,
-        yishaih@mellanox.com, saeedm@mellanox.com, matanb@mellanox.com,
-        leonro@mellanox.com, ajk@comnets.uni-bremen.de, paulus@samba.org,
-        j@w1.fi, peterz@infradead.org, keescook@chromium.org,
-        gregkh@linuxfoundation.org, Hans Liljestrand <ishkamiel@gmail.com>,
-        David Windsor <dwindsor@gmail.com>
-To: Elena Reshetova <elena.reshetova@intel.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Michal Kalderon <Michal.Kalderon@cavium.com>
+To: Yuval Mintz <Yuval.Mintz@cavium.com>, davem@davemloft.net,
+        netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:39572 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751846AbdDCLlX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 3 Apr 2017 07:41:23 -0400
-In-Reply-To: <1490691403-4016-17-git-send-email-elena.reshetova@intel.com>
-        (Elena Reshetova's message of "Tue, 28 Mar 2017 11:56:43 +0300")
+Received: from mail-lf0-f53.google.com ([209.85.215.53]:33426 "EHLO
+        mail-lf0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751649AbdDCLqW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 3 Apr 2017 07:46:22 -0400
+Received: by mail-lf0-f53.google.com with SMTP id h125so71177005lfe.0
+        for <netdev@vger.kernel.org>; Mon, 03 Apr 2017 04:46:21 -0700 (PDT)
+In-Reply-To: <1491211273-10910-3-git-send-email-Yuval.Mintz@cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Elena Reshetova <elena.reshetova@intel.com> writes:
+On 4/3/2017 12:21 PM, Yuval Mintz wrote:
 
-> refcount_t type and corresponding API should be
-> used instead of atomic_t when the variable is used as
-> a reference counter. This allows to avoid accidental
-> refcounter overflows that might lead to use-after-free
-> situations.
+> From: Michal Kalderon <Michal.Kalderon@cavium.com>
 >
-> Signed-off-by: Elena Reshetova <elena.reshetova@intel.com>
-> Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
-> Signed-off-by: Kees Cook <keescook@chromium.org>
-> Signed-off-by: David Windsor <dwindsor@gmail.com>
+> When configuring the HW timers block we should set the number of CIDs
+> up until the last CID that require timers, instead of only those CIDs
+> whose protocol needs timers support.
+>
+> Today, the protocols that require HW timers' support have their CIDs
+> before any other protocol, but that would change in future [when we
+> add iWARP support].
+>
+> Signed-off-by: Michal Kalderon <Michal.Kalderon@cavium.com>
+> Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
 > ---
->  drivers/net/wireless/intersil/orinoco/orinoco_usb.c | 15 ++++++++-------
->  1 file changed, 8 insertions(+), 7 deletions(-)
+>  drivers/net/ethernet/qlogic/qed/qed_cxt.c | 32 ++++++++++++++++++++++++-------
+>  1 file changed, 25 insertions(+), 7 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/qlogic/qed/qed_cxt.c b/drivers/net/ethernet/qlogic/qed/qed_cxt.c
+> index 1012b3c..259dafa 100644
+> --- a/drivers/net/ethernet/qlogic/qed/qed_cxt.c
+> +++ b/drivers/net/ethernet/qlogic/qed/qed_cxt.c
+> @@ -303,16 +303,34 @@ struct qed_tm_iids {
+>  	u32 per_vf_tids;
+>  };
+>
+> -static void qed_cxt_tm_iids(struct qed_cxt_mngr *p_mngr,
+> +static void qed_cxt_tm_iids(struct qed_hwfn *p_hwfn,
+> +			    struct qed_cxt_mngr *p_mngr,
+>  			    struct qed_tm_iids *iids)
+>  {
+> -	u32 i, j;
+> -
+> -	for (i = 0; i < MAX_CONN_TYPES; i++) {
+> +	bool tm_vf_required = false;
+> +	bool tm_required = false;
+> +	int i, j;
+> +
+> +	/* Timers is a special case -> we don't count how many cids require
 
-The prefix should be "orinoco_usb:", I'll fix that.
+    S/is/are/. CIDs?
 
--- 
-Kalle Valo
+> +	 * timers but what's the max cid that will be used by the timer block.
+> +	 * therefore we traverse in reverse order, and once we hit a protocol
+> +	 * that requires the timers memory, we'll sum all the protocols up
+> +	 * to that one.
+> +	 */
+> +	for (i = MAX_CONN_TYPES - 1; i >= 0; i--) {
+[...]
+
+MBR, Sergei
