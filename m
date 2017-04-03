@@ -1,62 +1,49 @@
-From: Maxime Ripard <maxime.ripard@free-electrons.com>
-Subject: Re: [PATCH v3 20/20] ARM: sunxi: Enable dwmac-sun8i driver on
- multi_v7_defconfig
-Date: Mon, 3 Apr 2017 13:39:23 +0200
-Message-ID: <20170403113923.ztyk4vy3dqyq7jdj@lukather>
-References: <20170403091444.29876-1-clabbe.montjoie@gmail.com>
- <20170403091444.29876-21-clabbe.montjoie@gmail.com>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [PATCH 16/16] drivers, net, intersil: convert request_context.refcount from atomic_t to refcount_t
+Date: Mon, 03 Apr 2017 14:41:08 +0300
+Message-ID: <87zifxn2gb.fsf@kamboji.qca.qualcomm.com>
+References: <1490691403-4016-1-git-send-email-elena.reshetova@intel.com>
+        <1490691403-4016-17-git-send-email-elena.reshetova@intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="jzjwih5zkeobo7ug"
-Cc: robh+dt@kernel.org, mark.rutland@arm.com, wens@csie.org,
-        linux@armlinux.org.uk, catalin.marinas@arm.com,
-        will.deacon@arm.com, peppe.cavallaro@st.com,
-        alexandre.torgue@st.com, devicetree@vger.kernel.org,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org
-To: Corentin Labbe <clabbe.montjoie@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170403091444.29876-21-clabbe.montjoie@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org, linux-rdma@vger.kernel.org,
+        linux-hams@vger.kernel.org, linux-ppp@vger.kernel.org,
+        linux-wireless@vger.kernel.org, ganeshgr@chelsio.com,
+        nbd@openwrt.org, blogic@openwrt.org, matthias.bgg@gmail.com,
+        yishaih@mellanox.com, saeedm@mellanox.com, matanb@mellanox.com,
+        leonro@mellanox.com, ajk@comnets.uni-bremen.de, paulus@samba.org,
+        j@w1.fi, peterz@infradead.org, keescook@chromium.org,
+        gregkh@linuxfoundation.org, Hans Liljestrand <ishkamiel@gmail.com>,
+        David Windsor <dwindsor@gmail.com>
+To: Elena Reshetova <elena.reshetova@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.codeaurora.org ([198.145.29.96]:39572 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751846AbdDCLlX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 3 Apr 2017 07:41:23 -0400
+In-Reply-To: <1490691403-4016-17-git-send-email-elena.reshetova@intel.com>
+        (Elena Reshetova's message of "Tue, 28 Mar 2017 11:56:43 +0300")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Elena Reshetova <elena.reshetova@intel.com> writes:
 
---jzjwih5zkeobo7ug
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+> refcount_t type and corresponding API should be
+> used instead of atomic_t when the variable is used as
+> a reference counter. This allows to avoid accidental
+> refcounter overflows that might lead to use-after-free
+> situations.
+>
+> Signed-off-by: Elena Reshetova <elena.reshetova@intel.com>
+> Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
+> Signed-off-by: Kees Cook <keescook@chromium.org>
+> Signed-off-by: David Windsor <dwindsor@gmail.com>
+> ---
+>  drivers/net/wireless/intersil/orinoco/orinoco_usb.c | 15 ++++++++-------
+>  1 file changed, 8 insertions(+), 7 deletions(-)
 
-On Mon, Apr 03, 2017 at 11:14:44AM +0200, Corentin Labbe wrote:
-> Enable the dwmac-sun8i driver in the multi_v7 default configuration
+The prefix should be "orinoco_usb:", I'll fix that.
 
-Your prefix should be arm: multi_v7:
-
-Maxime
-
---=20
-Maxime Ripard, Free Electrons
-Embedded Linux and Kernel engineering
-http://free-electrons.com
-
---jzjwih5zkeobo7ug
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQIcBAEBCAAGBQJY4jRrAAoJEBx+YmzsjxAgEVgQAKMKuY6KHUuugMTo2bqxAHVW
-OSg1UQb5qA8OGSNRGKBMlrJu1nhZ10NR93km7Kgo9MQ0/42BCbpAjSuHXznbGcz5
-TtIFb8RFwjbPlztcZ/vcJNNzOoB1izfj+HX+VjttWstfCZIL79CTYMznxriQU+a8
-crVMYor2xElXRO3e5pwVJLsz4bAuIOMDhcJUNDYTUpLYKw58ufGSe36iXWNc1Uib
-fNjIjqCWrxrDOxPAlMhrILpWuGlHT8hDuR94H1l8e3oz6mhQOoxPsARaT17CcpEz
-N1ISFw85qr+3sK00Pyot2wjP77+D9sxMcor0Y03+vPIxIN7BcnW1Zz56RskrwDBa
-xKreaoZmv8sRJRkrf3lY+HuXAh3yrfFug2yU5ln7XHCA3+IPsh887qRAyeVyDy3t
-RbcMhjRK73ZdXv+WVPo+yTfrwOwkgHW0kTSL16M8hlazNvST8gQKepusakqGXJhL
-XmsFynezLiiFzttvI1lHUyi2upN8ounDqS9piAU1Uon7a0cAHLA4T3KPn54AxwtE
-5lwo/GP46cPi/R4ZCNpeWNrszfOfQUrPA3mmF0lU+w0zs0huwB6cwJPccnehny9h
-tXEy1wFuBM01WTa01DBWFABpEscajgkm8/QYaNDE8GsZ56wvdHDoW2Ck1pwUAtRx
-ymvbXfFbUtc7xLNglnBk
-=u1Mh
------END PGP SIGNATURE-----
-
---jzjwih5zkeobo7ug--
+-- 
+Kalle Valo
