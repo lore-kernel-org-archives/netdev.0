@@ -1,52 +1,69 @@
 From: Thierry Reding <treding@nvidia.com>
-Subject: Re: [PATCH 2/4] net: stmmac: adding multiple buffers for rx
-Date: Tue, 4 Apr 2017 21:15:39 +0200
-Message-ID: <20170404191538.GC24271@ulmo.ba.sec>
+Subject: Re: [PATCH 3/4] net: stmmac: adding multiple buffers for TX
+Date: Tue, 4 Apr 2017 21:19:58 +0200
+Message-ID: <20170404191958.GD24271@ulmo.ba.sec>
 References: <433505e9e631db632be7a37a316a03ace802863c.1491328304.git.jpinto@synopsys.com>
- <4f35e9a73521ba4ab4868c75950166fb757b5f8a.1491328304.git.jpinto@synopsys.com>
+ <da10bfa9db18e1f709cba874fb25d7bd36915eef.1491328304.git.jpinto@synopsys.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="FsscpQKzF/jJk6ya"
+        protocol="application/pgp-signature"; boundary="EP0wieDxd4TSJjHq"
 Cc: <davem@davemloft.net>, <clabbe.montjoie@gmail.com>,
         <niklas.cassel@axis.com>, <netdev@vger.kernel.org>
 To: Joao Pinto <Joao.Pinto@synopsys.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hqemgate16.nvidia.com ([216.228.121.65]:7895 "EHLO
-        hqemgate16.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755231AbdDDTPq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 4 Apr 2017 15:15:46 -0400
-In-Reply-To: <4f35e9a73521ba4ab4868c75950166fb757b5f8a.1491328304.git.jpinto@synopsys.com>
+Received: from hqemgate14.nvidia.com ([216.228.121.143]:3240 "EHLO
+        hqemgate14.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754728AbdDDTUF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 4 Apr 2017 15:20:05 -0400
+In-Reply-To: <da10bfa9db18e1f709cba874fb25d7bd36915eef.1491328304.git.jpinto@synopsys.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---FsscpQKzF/jJk6ya
+--EP0wieDxd4TSJjHq
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-One more nit: subject should say "... for RX" for consistency with patch
-3/4.
+On Tue, Apr 04, 2017 at 06:54:26PM +0100, Joao Pinto wrote:
+> This patch adds the structure stmmac_tx_queue which contains
+> tx queues specific data (previously in stmmac_priv).
+>=20
+> Signed-off-by: Joao Pinto <jpinto@synopsys.com>
+> ---
+>  drivers/net/ethernet/stmicro/stmmac/chain_mode.c  |  38 +-
+>  drivers/net/ethernet/stmicro/stmmac/ring_mode.c   |  46 +-
+>  drivers/net/ethernet/stmicro/stmmac/stmmac.h      |  26 +-
+>  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 521 +++++++++++++---=
+------
+>  4 files changed, 375 insertions(+), 256 deletions(-)
 
-Thierry
+Looks good to me:
 
---FsscpQKzF/jJk6ya
+Reviewed-by: Thierry Reding <treding@nvidia.com>
+
+And works fine on Tegra186, so:
+
+Tested-by: Thierry Reding <treding@nvidia.com>
+
+--EP0wieDxd4TSJjHq
 Content-Type: application/pgp-signature; name="signature.asc"
 
 -----BEGIN PGP SIGNATURE-----
 
-iQIzBAABCAAdFiEEiOrDCAFJzPfAjcif3SOs138+s6EFAljj8NoACgkQ3SOs138+
-s6EKFQ/+N5uIJuNTPyqFuNyblj/MYnpg7vra8x/aJo0mIV//i/+EcUOhcufiD3pv
-nL8xY5kQ/dvf3kPzhaYoLkdFm2GH4fA32dz2uArZReGdta+pnx0/nmYnhrvgjBiG
-VB5RwQx13a9T84LNlNXrQNUxLJcTc4SmgZ8JCM6VeL1fctY7mrcLInTkmfae87je
-87w6rP3NU57XFcNG+OiQ+GaSNZ9KzWY6pD3nko71kb9O+kJA669FE3iD552WUxIJ
-O/uaVeyb/Xk77Xat63uR2wrsjwam2Wyur5JkaYwaP1G/xTyzKN4fevZj2N+bby52
-Zsz18jGZ8Q4Ke37XUZLAFstD3F+XCNCdFmO8x8jz0LsNntZBUK79CgXF2uIgWkzB
-YTGpZ6tpQ0lN033P76MgWDjzg31RZpATFsvWxBFuP4AdBFuS7rhxIAhA3COqlDTv
-S/zGprQ+/TnPJOIgwoLAsABX5dmcTaJcq9n0kofV9n12aeSlKiVeOTh4m1J5igD7
-j05x3B8pCB1tc2eC5J9rAF4s2m2L3jltHDw/ydP0DTNhF4QVPfkHEs59E4QHDRM0
-hz0kGq/kTdI5bm4IGRentzX54GExVf9PiDBMiwlDgGgL5d98xDsTe9zOHYeP1SM3
-hTLrOQbIWorzHiMAOUDAeLomANDtRPUMzq1JhYu+nnV/tol7HaM=
-=8VNz
+iQIzBAABCAAdFiEEiOrDCAFJzPfAjcif3SOs138+s6EFAljj8d4ACgkQ3SOs138+
+s6ERuQ//ZsiuiYfNbQb0gxfn50ChnENHR7pBar58+Z8gVkQOGmfBn7duLLzg+OOw
+j68GVFdQnRdhV1jSEM+dm4sDsRaqUNpEEdV2r9e8NVxOwqUZa6gxJrU/sjrImC9y
+obz7vmqrLqCAvoMvRgDluKG6ov8Tp/sqAHCudSKW+JZ5kFKh1YoCVMompYmVwFRR
+LCTTVw7HGQdhnBctVixkWzPKSsqgsgEGuRtGKdWlKLYXXrxzozF87FCybZRsfrhS
+Wp5FtGyRaG9trtN1H4WbIB4TvDKEK5cHFe2LHbLHqFrLaVjaPj2iLXa7ZwNNDbt1
+70vBPFHoqP1QqEKUmWL45qQAXqWv/epbkDOKQ9BhNvx/PRlQJsfj4RfPdkurTToQ
+ylf7FS0homJXtfHgwpI07FMC/hSJq/Td/e7vE35qtjdvctH+P4h4uPoWZH/icxAJ
+pDVw95TloCIU3Hv8HVkHQ1FsQf9aPy83Yhp6LAeNp3UIqBQD0C+5KOGS8rhyyLOU
+myDb6lr8SyDV89OFNg0WiqmnEpWM+HcUNmnYJTuhbfcHNiJo8mbvz5t3fPwu9tHY
+OEjdSBAPtkcx7qy9bKbx4YtOdtRLx7aESlqHELx8kvy+x6IddST655g3/TRc7rZC
+KxC3IGf04n56J8my3KNeY7zoM/IVLaCrjSAGNPWZUkB3jnDmQ8g=
+=A1X+
 -----END PGP SIGNATURE-----
 
---FsscpQKzF/jJk6ya--
+--EP0wieDxd4TSJjHq--
