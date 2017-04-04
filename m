@@ -1,124 +1,83 @@
 From: Michael Chan <michael.chan@broadcom.com>
-Subject: [PATCH net-next 09/12] bnxt_en: Add PHY loopback to ethtool self-test.
-Date: Tue,  4 Apr 2017 18:14:14 -0400
-Message-ID: <1491344057-12663-10-git-send-email-michael.chan@broadcom.com>
+Subject: [PATCH net-next 11/12] bnxt_en: Use short TX BDs for the XDP TX ring.
+Date: Tue,  4 Apr 2017 18:14:16 -0400
+Message-ID: <1491344057-12663-12-git-send-email-michael.chan@broadcom.com>
 References: <1491344057-12663-1-git-send-email-michael.chan@broadcom.com>
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f174.google.com ([209.85.128.174]:32889 "EHLO
-        mail-wr0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755198AbdDDWO6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 4 Apr 2017 18:14:58 -0400
-Received: by mail-wr0-f174.google.com with SMTP id w43so223841583wrb.0
-        for <netdev@vger.kernel.org>; Tue, 04 Apr 2017 15:14:57 -0700 (PDT)
+Received: from mail-wr0-f178.google.com ([209.85.128.178]:34620 "EHLO
+        mail-wr0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755236AbdDDWPH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 4 Apr 2017 18:15:07 -0400
+Received: by mail-wr0-f178.google.com with SMTP id t20so20403515wra.1
+        for <netdev@vger.kernel.org>; Tue, 04 Apr 2017 15:15:01 -0700 (PDT)
 In-Reply-To: <1491344057-12663-1-git-send-email-michael.chan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It is necessary to disable autoneg before enabling PHY loopback,
-otherwise link won't come up.
+No offload is performed on the XDP_TX ring so we can use the short TX
+BDs.  This has the effect of doubling the size of the XDP TX ring so
+that it now matches the size of the rx ring by default.
 
 Signed-off-by: Michael Chan <michael.chan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c | 62 ++++++++++++++++++++++-
- 1 file changed, 60 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/broadcom/bnxt/bnxt_xdp.c | 16 ++--------------
+ 1 file changed, 2 insertions(+), 14 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
-index ecb4417..dde3e21 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
-@@ -2192,6 +2192,54 @@ static int bnxt_hwrm_mac_loopback(struct bnxt *bp, bool enable)
- 	return hwrm_send_message(bp, &req, sizeof(req), HWRM_CMD_TIMEOUT);
- }
- 
-+static int bnxt_disable_an_for_lpbk(struct bnxt *bp,
-+				    struct hwrm_port_phy_cfg_input *req)
-+{
-+	struct bnxt_link_info *link_info = &bp->link_info;
-+	u16 fw_advertising = link_info->advertising;
-+	u16 fw_speed;
-+	int rc;
-+
-+	if (!link_info->autoneg)
-+		return 0;
-+
-+	fw_speed = PORT_PHY_CFG_REQ_FORCE_LINK_SPEED_1GB;
-+	if (netif_carrier_ok(bp->dev))
-+		fw_speed = bp->link_info.link_speed;
-+	else if (fw_advertising & BNXT_LINK_SPEED_MSK_10GB)
-+		fw_speed = PORT_PHY_CFG_REQ_FORCE_LINK_SPEED_10GB;
-+	else if (fw_advertising & BNXT_LINK_SPEED_MSK_25GB)
-+		fw_speed = PORT_PHY_CFG_REQ_FORCE_LINK_SPEED_25GB;
-+	else if (fw_advertising & BNXT_LINK_SPEED_MSK_40GB)
-+		fw_speed = PORT_PHY_CFG_REQ_FORCE_LINK_SPEED_40GB;
-+	else if (fw_advertising & BNXT_LINK_SPEED_MSK_50GB)
-+		fw_speed = PORT_PHY_CFG_REQ_FORCE_LINK_SPEED_50GB;
-+
-+	req->force_link_speed = cpu_to_le16(fw_speed);
-+	req->flags |= cpu_to_le32(PORT_PHY_CFG_REQ_FLAGS_FORCE |
-+				  PORT_PHY_CFG_REQ_FLAGS_RESET_PHY);
-+	rc = hwrm_send_message(bp, req, sizeof(*req), HWRM_CMD_TIMEOUT);
-+	req->flags = 0;
-+	req->force_link_speed = cpu_to_le16(0);
-+	return rc;
-+}
-+
-+static int bnxt_hwrm_phy_loopback(struct bnxt *bp, bool enable)
-+{
-+	struct hwrm_port_phy_cfg_input req = {0};
-+
-+	bnxt_hwrm_cmd_hdr_init(bp, &req, HWRM_PORT_PHY_CFG, -1, -1);
-+
-+	if (enable) {
-+		bnxt_disable_an_for_lpbk(bp, &req);
-+		req.lpbk = PORT_PHY_CFG_REQ_LPBK_LOCAL;
-+	} else {
-+		req.lpbk = PORT_PHY_CFG_REQ_LPBK_NONE;
-+	}
-+	req.enables = cpu_to_le32(PORT_PHY_CFG_REQ_ENABLES_LPBK);
-+	return hwrm_send_message(bp, &req, sizeof(req), HWRM_CMD_TIMEOUT);
-+}
-+
- static int bnxt_rx_loopback(struct bnxt *bp, struct bnxt_napi *bnapi,
- 			    u32 raw_cons, int pkt_size)
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_xdp.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_xdp.c
+index 8b27137..9dae327 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt_xdp.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_xdp.c
+@@ -23,7 +23,6 @@ void bnxt_xmit_xdp(struct bnxt *bp, struct bnxt_tx_ring_info *txr,
+ 		   dma_addr_t mapping, u32 len, u16 rx_prod)
  {
-@@ -2318,8 +2366,9 @@ static int bnxt_run_fw_tests(struct bnxt *bp, u8 test_mask, u8 *test_results)
- 	return rc;
+ 	struct bnxt_sw_tx_bd *tx_buf;
+-	struct tx_bd_ext *txbd1;
+ 	struct tx_bd *txbd;
+ 	u32 flags;
+ 	u16 prod;
+@@ -33,23 +32,13 @@ void bnxt_xmit_xdp(struct bnxt *bp, struct bnxt_tx_ring_info *txr,
+ 	tx_buf->rx_prod = rx_prod;
+ 
+ 	txbd = &txr->tx_desc_ring[TX_RING(prod)][TX_IDX(prod)];
+-	flags = (len << TX_BD_LEN_SHIFT) | TX_BD_TYPE_LONG_TX_BD |
+-		(2 << TX_BD_FLAGS_BD_CNT_SHIFT) | TX_BD_FLAGS_COAL_NOW |
++	flags = (len << TX_BD_LEN_SHIFT) | (1 << TX_BD_FLAGS_BD_CNT_SHIFT) |
+ 		TX_BD_FLAGS_PACKET_END | bnxt_lhint_arr[len >> 9];
+ 	txbd->tx_bd_len_flags_type = cpu_to_le32(flags);
+ 	txbd->tx_bd_opaque = prod;
+ 	txbd->tx_bd_haddr = cpu_to_le64(mapping);
+ 
+ 	prod = NEXT_TX(prod);
+-	txbd1 = (struct tx_bd_ext *)
+-		&txr->tx_desc_ring[TX_RING(prod)][TX_IDX(prod)];
+-
+-	txbd1->tx_bd_hsize_lflags = cpu_to_le32(0);
+-	txbd1->tx_bd_mss = cpu_to_le32(0);
+-	txbd1->tx_bd_cfa_action = cpu_to_le32(0);
+-	txbd1->tx_bd_cfa_meta = cpu_to_le32(0);
+-
+-	prod = NEXT_TX(prod);
+ 	txr->tx_prod = prod;
  }
  
--#define BNXT_DRV_TESTS			1
-+#define BNXT_DRV_TESTS			2
- #define BNXT_MACLPBK_TEST_IDX		(bp->num_tests - BNXT_DRV_TESTS)
-+#define BNXT_PHYLPBK_TEST_IDX		(BNXT_MACLPBK_TEST_IDX + 1)
- 
- static void bnxt_self_test(struct net_device *dev, struct ethtool_test *etest,
- 			   u64 *buf)
-@@ -2377,8 +2426,15 @@ static void bnxt_self_test(struct net_device *dev, struct ethtool_test *etest,
- 		else
- 			buf[BNXT_MACLPBK_TEST_IDX] = 0;
- 
--		bnxt_half_close_nic(bp);
- 		bnxt_hwrm_mac_loopback(bp, false);
-+		bnxt_hwrm_phy_loopback(bp, true);
-+		msleep(1000);
-+		if (bnxt_run_loopback(bp)) {
-+			buf[BNXT_PHYLPBK_TEST_IDX] = 1;
-+			etest->flags |= ETH_TEST_FL_FAILED;
-+		}
-+		bnxt_hwrm_phy_loopback(bp, false);
-+		bnxt_half_close_nic(bp);
- 		bnxt_open_nic(bp, false, true);
+@@ -66,7 +55,6 @@ void bnxt_tx_int_xdp(struct bnxt *bp, struct bnxt_napi *bnapi, int nr_pkts)
+ 	for (i = 0; i < nr_pkts; i++) {
+ 		last_tx_cons = tx_cons;
+ 		tx_cons = NEXT_TX(tx_cons);
+-		tx_cons = NEXT_TX(tx_cons);
  	}
- 	for (i = 0; i < bp->num_tests - BNXT_DRV_TESTS; i++) {
-@@ -2426,6 +2482,8 @@ void bnxt_ethtool_init(struct bnxt *bp)
+ 	txr->tx_cons = tx_cons;
+ 	if (bnxt_tx_avail(bp, txr) == bp->tx_ring_size) {
+@@ -133,7 +121,7 @@ bool bnxt_rx_xdp(struct bnxt *bp, struct bnxt_rx_ring_info *rxr, u16 cons,
+ 		return false;
  
- 		if (i == BNXT_MACLPBK_TEST_IDX) {
- 			strcpy(str, "Mac loopback test (offline)");
-+		} else if (i == BNXT_PHYLPBK_TEST_IDX) {
-+			strcpy(str, "Phy loopback test (offline)");
- 		} else {
- 			strlcpy(str, fw_str, ETH_GSTRING_LEN);
- 			strncat(str, " test", ETH_GSTRING_LEN - strlen(str));
+ 	case XDP_TX:
+-		if (tx_avail < 2) {
++		if (tx_avail < 1) {
+ 			trace_xdp_exception(bp->dev, xdp_prog, act);
+ 			bnxt_reuse_rx_data(rxr, cons, page);
+ 			return true;
 -- 
 1.8.3.1
