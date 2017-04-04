@@ -1,47 +1,28 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH] bpf: use 'ctx' instead of 'skb' in debug message
-Date: Tue, 04 Apr 2017 19:30:10 +0200
-Message-ID: <1491327010.26929.2.camel@sipsolutions.net>
-References: <20170404144608.27382-1-johannes@sipsolutions.net>
-         <58E3D73B.5050806@iogearbox.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull-request: wireless-drivers-next 2017-04-03
+Date: Tue, 04 Apr 2017 10:31:44 -0700 (PDT)
+Message-ID: <20170404.103144.1438343234401389523.davem@davemloft.net>
+References: <87a87xohpp.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: Alexei Starovoitov <ast@kernel.org>
-To: Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:37842 "EHLO sipsolutions.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753254AbdDDRaO (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 4 Apr 2017 13:30:14 -0400
-In-Reply-To: <58E3D73B.5050806@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: kvalo@codeaurora.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87a87xohpp.fsf@kamboji.qca.qualcomm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2017-04-04 at 19:26 +0200, Daniel Borkmann wrote:
+From: Kalle Valo <kvalo@codeaurora.org>
+Date: Mon, 03 Apr 2017 14:26:10 +0300
 
-> >   	if (regs[BPF_REG_6].type != PTR_TO_CTX) {
-> > -		verbose("at the time of BPF_LD_ABS|IND R6 !=
-> > pointer to skb\n");
-> > +		verbose("at the time of BPF_LD_ABS|IND R6 !=
-> > pointer to ctx\n");
-> >   		return -EINVAL;
+> here few really small fixes. I'm hoping this to be the last pull request
+> for 4.11.
 > 
-> Seems okay, the reason why we had 'skb' in the verbose message here
-> is due to BPF_LD + BPF_ABS/BPF_IND operations being only specific to
-> skbs and no other context (see __bpf_prog_run(), and in verifier
-> may_access_skb() check before that verbose() message in
-> check_ld_abs()). Reason for this is mostly historical due to the cBPF
-> to eBPF migration so that these loads don't get slowed down when
-> migrated to eBPF and can be handled by JIT optimizations (e.g.,
-> caching skb->data), too. Anyway, just to provide some more background
-> on this. I've no strong opinion if you want to change the verifier
-> error message, so:
+> Please let me if there are any problems.
 
-Ah. I really have no opinion on this either - it just seemed somewhat
-inconsistent. I clearly neglected to read the comment in front of the
-function though, that explains that we must have ctx == skb. I think
-therefore it's probably better to drop this - thanks for the
-explanation!
+Pulled, thanks.
 
-johannes
+But I will warn you, you say fixes, but your Subject line and
+GIT tag says "-next" so I pulled it into net-next.
