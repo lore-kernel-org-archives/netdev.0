@@ -1,41 +1,44 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: [PATCH] bpf: use 'ctx' instead of 'skb' in debug message
-Date: Tue,  4 Apr 2017 16:46:08 +0200
-Message-ID: <20170404144608.27382-1-johannes@sipsolutions.net>
-Cc: Alexei Starovoitov <ast@kernel.org>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Johannes Berg <johannes.berg@intel.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:36348 "EHLO sipsolutions.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752687AbdDDOqX (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 4 Apr 2017 10:46:23 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Simon Horman <simon.horman@netronome.com>
+Subject: Re: linux-next: manual merge of the net-next tree with the net tree
+Date: Tue, 4 Apr 2017 10:48:35 -0400
+Message-ID: <20170404144833.GC32295@vergenet.net>
+References: <20170404111357.26975ab4@canb.auug.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>,
+        Linux-Next Mailing List <linux-next@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        Jiri Pirko <jiri@mellanox.com>
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170404111357.26975ab4@canb.auug.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Johannes Berg <johannes.berg@intel.com>
+On Tue, Apr 04, 2017 at 11:13:57AM +1000, Stephen Rothwell wrote:
+> Hi all,
+> 
+> Today's linux-next merge of the net-next tree got a conflict in:
+> 
+>   net/core/flow_dissector.c
+> 
+> between commit:
+> 
+>   ac6a3722fed6 ("flow dissector: correct size of storage for ARP")
+> 
+> from the net tree and commit:
+> 
+>   9bf881ffc5c0 ("flow_dissector: Move ARP dissection into a separate function")
+> 
+> from the net-next tree.
+> 
+> I fixed it up (see below) and can carry the fix as necessary. This
+> is now fixed as far as linux-next is concerned, but any non trivial
+> conflicts should be mentioned to your upstream maintainer when your tree
+> is submitted for merging.  You may also want to consider cooperating
+> with the maintainer of the conflicting tree to minimise any particularly
+> complex conflicts.
 
-The error message here should mention 'ctx' since the context
-is now more generic than just an skb.
-
-Signed-off-by: Johannes Berg <johannes.berg@intel.com>
----
- kernel/bpf/verifier.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index 796b68d00119..1b3c921d3798 100644
---- a/kernel/bpf/verifier.c
-+++ b/kernel/bpf/verifier.c
-@@ -2329,7 +2329,7 @@ static int check_ld_abs(struct bpf_verifier_env *env, struct bpf_insn *insn)
- 		return err;
- 
- 	if (regs[BPF_REG_6].type != PTR_TO_CTX) {
--		verbose("at the time of BPF_LD_ABS|IND R6 != pointer to skb\n");
-+		verbose("at the time of BPF_LD_ABS|IND R6 != pointer to ctx\n");
- 		return -EINVAL;
- 	}
- 
--- 
-2.11.0
+Thanks Stephen, the fix looks correct to me.
