@@ -1,38 +1,35 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH] net: netfilter: Replace explicit NULL comparison with !
- operator
-Date: Tue, 4 Apr 2017 19:56:00 +0200
-Message-ID: <20170404175600.GB1154@salvia>
-References: <20170329101406.GA29770@arushi-HP-Pavilion-Notebook>
- <20170404174111.GB7257@verge.net.au>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH] net: netfilter: Use seq_puts()/seq_putc() where possible
+Date: Tue, 4 Apr 2017 13:59:48 -0400
+Message-ID: <20170404175948.GD7257@verge.net.au>
+References: <20170328215517.GA18237@singhal-Inspiron-5558>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: wensong@linux-vs.org, Simon Horman <horms@verge.net.au>,
-        outreachy-kernel@googlegroups.com, Julian Anastasov <ja@ssi.bg>,
+Cc: wensong@linux-vs.org, Julian Anastasov <ja@ssi.bg>,
+        Pablo Neira Ayuso <pablo@netfilter.org>,
         Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-        davem@davemloft.net, netdev@vger.kernel.org,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
         lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-        coreteam@netfilter.org, linux-kernel@vger.kernel.org
-To: Arushi Singhal <arushisinghal19971997@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+        coreteam@netfilter.org, linux-kernel@vger.kernel.org,
+        outreachy-kernel@googlegroups.com
+To: simran singhal <singhalsimran0@gmail.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20170404174111.GB7257@verge.net.au>
-Sender: netfilter-devel-owner@vger.kernel.org
+In-Reply-To: <20170328215517.GA18237@singhal-Inspiron-5558>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 04, 2017 at 01:41:11PM -0400, Simon Horman wrote:
-> On Wed, Mar 29, 2017 at 03:45:01PM +0530, Arushi Singhal wrote:
-> > Replace explicit NULL comparison with ! operator to simplify code.
-> > 
-> > Signed-off-by: Arushi Singhal <arushisinghal19971997@gmail.com>
-> > ---
-> >  net/netfilter/ipvs/ip_vs_ctl.c         |  8 ++---
-> >  net/netfilter/ipvs/ip_vs_proto.c       |  8 ++---
+On Wed, Mar 29, 2017 at 03:25:17AM +0530, simran singhal wrote:
+> For string without format specifiers, use seq_puts(). For
+> seq_printf("\n"), use seq_putc('\n').
 > 
-> I count 18 instances of "!= NULL in net/netfilter/ipvs/ip_vs_proto but this
-> patch only seems to update 8 of them. I would prefer to fix all or none of
-> them.
+> Signed-off-by: simran singhal <singhalsimran0@gmail.com>
+> ---
+>  net/netfilter/ipvs/ip_vs_ctl.c          | 8 ++++----
 
-Agreed.
+Simran, I would be happy to pick up the IPVS version if it was posted as a
+separate patch.
 
-Please address all instances and resubmit.
+Alternative, Pablo, if you would like to take this patch feel free to add:
+
+Acked-by: Simon Horman <horms+renesas@verge.net.au>
