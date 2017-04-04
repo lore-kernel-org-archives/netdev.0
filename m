@@ -1,46 +1,40 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v2] selftests: add a generic testsuite for ethernet device
-Date: Tue, 4 Apr 2017 17:00:30 +0200
-Message-ID: <20170404150030.GF1736@lunn.ch>
-References: <20170404133247.28725-1-clabbe.montjoie@gmail.com>
- <8f363cf9-1696-bab9-ab54-a003541e1409@axis.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Corentin Labbe <clabbe.montjoie@gmail.com>, shuah@kernel.org,
-        davem@davemloft.net, linux-kselftest@vger.kernel.org,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Niklas Cassel <niklas.cassel@axis.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <8f363cf9-1696-bab9-ab54-a003541e1409@axis.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Phil Sutter <phil@nwl.cc>
+Subject: [iproute PATCH] man: ip-link: Specify min/max values for bridge slave priority and cost
+Date: Tue,  4 Apr 2017 17:08:43 +0200
+Message-ID: <20170404150843.20241-1-phil@nwl.cc>
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from orbyte.nwl.cc ([151.80.46.58]:33337 "EHLO mail.nwl.cc"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754467AbdDDPIz (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 4 Apr 2017 11:08:55 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 04, 2017 at 04:43:19PM +0200, Niklas Cassel wrote:
-> On 04/04/2017 03:32 PM, Corentin Labbe wrote:
-> > This patch add a generic testsuite for testing ethernet network device driver.
-> > 
-> > Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
-> > ---
-> > 
-> > Changes since v1:
-> > - Test for starting master interface
-> > - Changed printing format to "RESULT: $netdev: line"
-> > - Use "ip link" to get device list
-> > 
-> >  tools/testing/selftests/net/Makefile     |   2 +-
-> >  tools/testing/selftests/net/netdevice.sh | 200 +++++++++++++++++++++++++++++++
-> >  2 files changed, 201 insertions(+), 1 deletion(-)
-> >  create mode 100755 tools/testing/selftests/net/netdevice.sh
-> > 
-> (snip)
-> 
-> Good work!
-> 
-> I suggest adding a test for setting MTU as well.
+The values are parsed as u16/u32, but kernel limits allowed values.
 
-That one might be tricky. Some devices don't allow the MTU to be
-changed when the device is up. Others might require the interface is
-up...
+Signed-off-by: Phil Sutter <phil@nwl.cc>
+---
+ man/man8/ip-link.8.in | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-	Andrew
+diff --git a/man/man8/ip-link.8.in b/man/man8/ip-link.8.in
+index 3f5d57c28885f..12ec330a9c38e 100644
+--- a/man/man8/ip-link.8.in
++++ b/man/man8/ip-link.8.in
+@@ -1485,10 +1485,10 @@ is a number representing the following states:
+ .BR 4 " (blocking)."
+ 
+ .BI priority " PRIO"
+-- set port priority (a 16bit unsigned value).
++- set port priority (allowed values are between 0 and 63, inclusively).
+ 
+ .BI cost " COST"
+-- set port cost (a 32bit unsigned value).
++- set port cost (allowed values are between 1 and 65535, inclusively).
+ 
+ .BR guard " { " on " | " off " }"
+ - block incoming BPDU packets on this port.
+-- 
+2.11.0
