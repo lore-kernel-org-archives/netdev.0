@@ -1,53 +1,50 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH 2/2] can: rcar_can: Do not print virtual addresses
-Date: Tue,  4 Apr 2017 17:59:49 +0200
-Message-ID: <20170404155949.30965-3-mkl@pengutronix.de>
-References: <20170404155949.30965-1-mkl@pengutronix.de>
+Subject: pull-request: can 2017-04-04
+Date: Tue,  4 Apr 2017 17:59:47 +0200
+Message-ID: <20170404155949.30965-1-mkl@pengutronix.de>
 Cc: davem@davemloft.net, linux-can@vger.kernel.org,
-        kernel@pengutronix.de,
-        Geert Uytterhoeven <geert+renesas@glider.be>,
-        Marc Kleine-Budde <mkl@pengutronix.de>
+        kernel@pengutronix.de
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:38131 "EHLO
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:47393 "EHLO
         metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1754693AbdDDP7y (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 4 Apr 2017 11:59:54 -0400
-In-Reply-To: <20170404155949.30965-1-mkl@pengutronix.de>
+        by vger.kernel.org with ESMTP id S1754232AbdDDP7x (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 4 Apr 2017 11:59:53 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Geert Uytterhoeven <geert+renesas@glider.be>
+Hello David,
 
-During probe, the rcar_can driver prints:
+this is a pull request of two patches for net/master.
 
-    rcar_can e6e80000.can: device registered (regs @ e08bc000, IRQ76)
+The first patch by Markus Marb fixes a register read access in the ifi driver.
+The second patch by Geert Uytterhoeven for the rcar driver remove the printing
+of a kernel virtual address.
 
-The "regs" value is a virtual address, exposing internal information,
-hence stop printing it.  The (useful) physical address is already
-printed as part of the device name.
+regards,
+Marc
 
-Fixes: fd1159318e55e901 ("can: add Renesas R-Car CAN driver")
-Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
-Acked-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
 ---
- drivers/net/can/rcar/rcar_can.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
 
-diff --git a/drivers/net/can/rcar/rcar_can.c b/drivers/net/can/rcar/rcar_can.c
-index caed4e6960f8..11662f479e76 100644
---- a/drivers/net/can/rcar/rcar_can.c
-+++ b/drivers/net/can/rcar/rcar_can.c
-@@ -826,8 +826,7 @@ static int rcar_can_probe(struct platform_device *pdev)
- 
- 	devm_can_led_init(ndev);
- 
--	dev_info(&pdev->dev, "device registered (regs @ %p, IRQ%d)\n",
--		 priv->regs, ndev->irq);
-+	dev_info(&pdev->dev, "device registered (IRQ%d)\n", ndev->irq);
- 
- 	return 0;
- fail_candev:
--- 
-2.11.0
+The following changes since commit 0b9aefea860063bb39e36bd7fe6c7087fed0ba87:
+
+  tcp: minimize false-positives on TCP/GRO check (2017-04-03 18:43:41 -0700)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/mkl/linux-can.git 
+
+for you to fetch changes up to ca257b9e2d807ab6cb2678ecc7b74aaf4651f597:
+
+  can: rcar_can: Do not print virtual addresses (2017-04-04 17:49:59 +0200)
+
+----------------------------------------------------------------
+Geert Uytterhoeven (1):
+      can: rcar_can: Do not print virtual addresses
+
+Markus Marb (1):
+      can: ifi: use correct register to read rx status
+
+ drivers/net/can/ifi_canfd/ifi_canfd.c | 2 +-
+ drivers/net/can/rcar/rcar_can.c       | 3 +--
+ 2 files changed, 2 insertions(+), 3 deletions(-)
