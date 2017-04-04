@@ -1,64 +1,47 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: Re: net/sctp: list double add warning in sctp_endpoint_add_asoc
-Date: Wed, 5 Apr 2017 01:29:19 +0800
-Message-ID: <CADvbK_f1FEGRnucuMkQT6RKm0G1tKcfHyj=-GqxgzQ4iQoBLCg@mail.gmail.com>
-References: <CAAeHK+zwbeT=jBRRSf2KYXWM=eUZAEe5QHvKPYGG5qWh6A0JGQ@mail.gmail.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH] bpf: use 'ctx' instead of 'skb' in debug message
+Date: Tue, 04 Apr 2017 19:30:10 +0200
+Message-ID: <1491327010.26929.2.camel@sipsolutions.net>
+References: <20170404144608.27382-1-johannes@sipsolutions.net>
+         <58E3D73B.5050806@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Vlad Yasevich <vyasevich@gmail.com>,
-        Neil Horman <nhorman@tuxdriver.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        linux-sctp@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Kostya Serebryany <kcc@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Andrey Konovalov <andreyknvl@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAAeHK+zwbeT=jBRRSf2KYXWM=eUZAEe5QHvKPYGG5qWh6A0JGQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: Alexei Starovoitov <ast@kernel.org>
+To: Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s3.sipsolutions.net ([5.9.151.49]:37842 "EHLO sipsolutions.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753254AbdDDRaO (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 4 Apr 2017 13:30:14 -0400
+In-Reply-To: <58E3D73B.5050806@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 4, 2017 at 9:28 PM, Andrey Konovalov <andreyknvl@google.com> wrote:
-> Hi,
->
-> I've got the following error report while fuzzing the kernel with syzkaller.
->
-> On commit a71c9a1c779f2499fb2afc0553e543f18aff6edf (4.11-rc5).
->
-> A reproducer and .config are attached.
-The script is pretty hard to reproduce the issue in my env.
-But there seems a case to cause a use-after-free when out of snd_buf.
+On Tue, 2017-04-04 at 19:26 +0200, Daniel Borkmann wrote:
 
-the case is like:
------------
-one thread:                       another thread:
-                                  sctp_rcv hold asoc (hold transport)
-                                  enqueue the chunk to backlog queue
-                                  [refcnt=2]
+> >   	if (regs[BPF_REG_6].type != PTR_TO_CTX) {
+> > -		verbose("at the time of BPF_LD_ABS|IND R6 !=
+> > pointer to skb\n");
+> > +		verbose("at the time of BPF_LD_ABS|IND R6 !=
+> > pointer to ctx\n");
+> >   		return -EINVAL;
+> 
+> Seems okay, the reason why we had 'skb' in the verbose message here
+> is due to BPF_LD + BPF_ABS/BPF_IND operations being only specific to
+> skbs and no other context (see __bpf_prog_run(), and in verifier
+> may_access_skb() check before that verbose() message in
+> check_ld_abs()). Reason for this is mostly historical due to the cBPF
+> to eBPF migration so that these loads don't get slowed down when
+> migrated to eBPF and can be handled by JIT optimizations (e.g.,
+> caching skb->data), too. Anyway, just to provide some more background
+> on this. I've no strong opinion if you want to change the verifier
+> error message, so:
 
-sctp_close free assoc
-[refcnt=1]
+Ah. I really have no opinion on this either - it just seemed somewhat
+inconsistent. I clearly neglected to read the comment in front of the
+function though, that explains that we must have ctx == skb. I think
+therefore it's probably better to drop this - thanks for the
+explanation!
 
-sctp_sendmsg find asoc
-but not hold it
-
-out of snd_buf
-hold asoc, schedule out
-[refcnt = 2]
-
-                                  process backlog and put asoc/transport
-                                  [refcnt=1]
-
-schedule in, put asoc
-[refcnt=0] <--- destroyed
-
-sctp_sendmsg continue
-using asoc, panic
-
---------------------
-
-Maybe we should check if asoc is dead already when schedule back
-into sctp_sendmsg because of out of snd_buf.
+johannes
