@@ -1,97 +1,105 @@
-From: Corinna Vinschen <vinschen@redhat.com>
-Subject: [PATCH] igb: Allow to remove administratively set MAC on VFs
-Date: Tue,  4 Apr 2017 17:10:55 +0200
-Message-ID: <20170404151055.21447-1-vinschen@redhat.com>
-Cc: netdev@vger.kernel.org, Corinna Vinschen <vinschen@redhat.com>
-To: intel-wired-lan@lists.osuosl.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-n.franken.de ([193.175.24.27]:37751 "EHLO drew.franken.de"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751092AbdDDPRJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 4 Apr 2017 11:17:09 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Marcus Meissner <meissner@suse.de>
+Subject: Re: [oss-security] Linux kernel ping socket / AF_LLC connect()
+ sin_family race
+Date: Tue, 4 Apr 2017 17:20:39 +0200
+Message-ID: <20170404152039.GH3687@suse.de>
+References: <20170324202714.GA29241@openwall.com>
+ <CAAeHK+yrE7+BZztHVn-2jKgLqgzgbBEa4VWCO8SL45oD0nRxEw@mail.gmail.com>
+ <CANn89iK-7r3KozC4K1rmWpJ1jM-bhBqessUrkg8HoftnjOks5g@mail.gmail.com>
+ <20170325001057.GA31046@openwall.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <edumazet@google.com>,
+        Andrey Konovalov <andreyknvl@google.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Vasily Kulikov <segoon@openwall.com>
+To: oss-security@lists.openwall.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170325001057.GA31046@openwall.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-  Before libvirt modifies the MAC address and vlan tag for an SRIOV VF
-  for use by a virtual machine (either using vfio device assignment or
-  macvtap passthru mode), it saves the current MAC address and vlan tag
-  so that it can reset them to their original value when the guest is
-  done.  Libvirt can't leave the VF MAC set to the value used by the
-  now-defunct guest since it may be started again later using a
-  different VF, but it certainly shouldn't just pick any random value,
-  either. So it saves the state of everything prior to using the VF, and
-  resets it to that.
+Hi,
 
-  The igb driver initializes the MAC addresses of all VFs to
-  00:00:00:00:00:00, and reports that when asked (via an RTM_GETLINK
-  netlink message, also visible in the list of VFs in the output of "ip
-  link show"). But when libvirt attempts to restore the MAC address back
-  to 00:00:00:00:00:00 (using an RTM_SETLINK netlink message) the kernel
-  responds with "Invalid argument".
+did anyone request a CVE yet?
 
-  Forbidding a reset back to the original value leaves the VF MAC at the
-  value set for the now-defunct virtual machine. Especially on a system
-  with NetworkManager enabled, this has very bad consequences, since
-  NetworkManager forces all interfacess to be IFF_UP all the time - if
-  the same virtual machine is restarted using a different VF (or even on
-  a different host), there will be multiple interfaces watching for
-  traffic with the same MAC address.
+Ciao, Marcus
+On Sat, Mar 25, 2017 at 01:10:57AM +0100, Solar Designer wrote:
+> On Fri, Mar 24, 2017 at 03:21:06PM -0700, Eric Dumazet wrote:
+> > Looks easy enough to fix ?
+> 
+> Oh.  Probably.  Thanks.  Need to test, but I guess you already did?
+> 
+> > diff --git a/net/ipv4/ping.c b/net/ipv4/ping.c
+> > index
+> > 2af6244b83e27ae384e96cf071c10c5a89674804..ccfbce13a6333a65dab64e4847dd510dfafb1b43
+> > 100644
+> > --- a/net/ipv4/ping.c
+> > +++ b/net/ipv4/ping.c
+> > @@ -156,17 +156,18 @@ int ping_hash(struct sock *sk)
+> >  void ping_unhash(struct sock *sk)
+> >  {
+> >         struct inet_sock *isk = inet_sk(sk);
+> > +
+> >         pr_debug("ping_unhash(isk=%p,isk->num=%u)\n", isk, isk->inet_num);
+> > +       write_lock_bh(&ping_table.lock);
+> >         if (sk_hashed(sk)) {
+> > -               write_lock_bh(&ping_table.lock);
+> >                 hlist_nulls_del(&sk->sk_nulls_node);
+> >                 sk_nulls_node_init(&sk->sk_nulls_node);
+> >                 sock_put(sk);
+> >                 isk->inet_num = 0;
+> >                 isk->inet_sport = 0;
+> >                 sock_prot_inuse_add(sock_net(sk), sk->sk_prot, -1);
+> > -               write_unlock_bh(&ping_table.lock);
+> >         }
+> > +       write_unlock_bh(&ping_table.lock);
+> >  }
+> >  EXPORT_SYMBOL_GPL(ping_unhash);
+> 
+> FWIW, in Pavel's original implementation for 2.4.32 (unused), this was:
+> 
+> static void ping_v4_unhash(struct sock *sk)
+> {
+> 	DEBUG(("ping_v4_unhash(sk=%p,sk->num=%u)\n", sk, sk->num));
+> 	write_lock_bh(&ping_hash_lock);
+> 	if (sk->pprev) {
+> 		if (sk->next)
+> 		       sk->next->pprev = sk->pprev;
+> 		*sk->pprev = sk->next;
+> 		sk->pprev = NULL;
+> 		sk->num = 0;
+> 		sock_prot_dec_use(sk->prot);
+> 		__sock_put(sk);
+> 	}
+> 	write_unlock_bh(&ping_hash_lock);
+> }
+> 
+> Looks like the erroneous optimization (not expecting concurrent activity
+> on the same socket?) was introduced during conversion to 2.6's hlists.
+> 
+> So far this cursed function had 3 bugs, two of them security (including
+> this one) and one probably benign (or if not, then effectively a subset
+> of this bug as it performed some unneeded / stale debugging work before
+> acquiring the lock), with all 3 introduced in forward-porting.  Maybe
+> the nature of forward-porting activity makes people relatively
+> inattentive ("compiles with the new interfaces and still works? must be
+> correct"), compared to when writing new code.
+> 
+> Anyhow, I share some responsibility for this mess, for having advocated
+> this patch being forward-ported and merged back then.  I still like
+> having this functionality and its userspace security benefits... but I
+> don't like the kernel bugs.
+> 
+> Alexander
+> 
 
-  To allow libvirt to revert to the original state, we need a way to
-  remove the administrative set MAC on a VF, to allow normal host
-  operation again, and to reset/overwrite the VF MAC via VF netdev.
-
-  This patch implements the outlined scenario by allowing to set the
-  VF MAC to 00:00:00:00:00:00 via RTM_SETLINK on the PF.
-  igb_ndo_set_vf_mac resets the IGB_VF_FLAG_PF_SET_MAC flag to 0,
-  so it's possible to reset the VF MAC back to the original value via
-  the VF netdev.
-
-  Note: Recent patches to libvirt allow for a workaround if the NIC
-  isn't capable of resetting the administrative MAC back to all 0, but
-  in theory the NIC should allow resetting the MAC in the fisr place.
-
-Signed-off-by: Corinna Vinschen <vinschen@redhat.com>
----
- drivers/net/ethernet/intel/igb/igb_main.c | 25 ++++++++++++++++++++-----
- 1 file changed, 20 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 26a821f..e7a61b1 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -8125,12 +8125,27 @@ static int igb_set_vf_mac(struct igb_adapter *adapter,
- static int igb_ndo_set_vf_mac(struct net_device *netdev, int vf, u8 *mac)
- {
- 	struct igb_adapter *adapter = netdev_priv(netdev);
--	if (!is_valid_ether_addr(mac) || (vf >= adapter->vfs_allocated_count))
-+
-+	if (vf >= adapter->vfs_allocated_count)
-+		return -EINVAL;
-+	/* Setting the VF MAC to 0 reverts the IGB_VF_FLAG_PF_SET_MAC
-+	   flag and allows to overwrite the MAC via VF netdev.  This
-+	   is necessary to allow libvirt a way to restore the original
-+	   MAC after unbinding vfio-pci and reloading igbvf after shutting
-+	   down a VM. */
-+	if (is_zero_ether_addr(mac)) {
-+		adapter->vf_data[vf].flags &= ~IGB_VF_FLAG_PF_SET_MAC;
-+		dev_info(&adapter->pdev->dev,
-+			 "remove administratively set MAC on VF %d\n",
-+			 vf);
-+	} else if (is_valid_ether_addr (mac)) {
-+		adapter->vf_data[vf].flags |= IGB_VF_FLAG_PF_SET_MAC;
-+		dev_info(&adapter->pdev->dev, "setting MAC %pM on VF %d\n",
-+			 mac, vf);
-+		dev_info(&adapter->pdev->dev,
-+			 "Reload the VF driver to make this change effective.");
-+	} else
- 		return -EINVAL;
--	adapter->vf_data[vf].flags |= IGB_VF_FLAG_PF_SET_MAC;
--	dev_info(&adapter->pdev->dev, "setting MAC %pM on VF %d\n", mac, vf);
--	dev_info(&adapter->pdev->dev,
--		 "Reload the VF driver to make this change effective.");
- 	if (test_bit(__IGB_DOWN, &adapter->state)) {
- 		dev_warn(&adapter->pdev->dev,
- 			 "The VF MAC address has been set, but the PF device is not up.\n");
 -- 
-2.9.3
+Marcus Meissner,SUSE LINUX GmbH; Maxfeldstrasse 5; D-90409 Nuernberg; Zi. 3.1-33,+49-911-740 53-432,,serv=loki,mail=wotan,type=real <meissner@suse.de>
