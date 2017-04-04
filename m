@@ -1,29 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] l2tp: fix PPP pseudo-wire auto-loading
-Date: Tue, 04 Apr 2017 10:28:18 -0700 (PDT)
-Message-ID: <20170404.102818.806099917141387427.davem@davemloft.net>
-References: <4f0c437337252f267de92ae650cb39e48dbff192.1491218507.git.g.nault@alphalink.fr>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: Re: net/sctp: list double add warning in sctp_endpoint_add_asoc
+Date: Wed, 5 Apr 2017 01:29:19 +0800
+Message-ID: <CADvbK_f1FEGRnucuMkQT6RKm0G1tKcfHyj=-GqxgzQ4iQoBLCg@mail.gmail.com>
+References: <CAAeHK+zwbeT=jBRRSf2KYXWM=eUZAEe5QHvKPYGG5qWh6A0JGQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jchapman@katalix.com,
-        stephen@networkplumber.org
-To: g.nault@alphalink.fr
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:60796 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753254AbdDDR2V (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 4 Apr 2017 13:28:21 -0400
-In-Reply-To: <4f0c437337252f267de92ae650cb39e48dbff192.1491218507.git.g.nault@alphalink.fr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Vlad Yasevich <vyasevich@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        linux-sctp@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Andrey Konovalov <andreyknvl@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAAeHK+zwbeT=jBRRSf2KYXWM=eUZAEe5QHvKPYGG5qWh6A0JGQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Guillaume Nault <g.nault@alphalink.fr>
-Date: Mon, 3 Apr 2017 13:23:15 +0200
+On Tue, Apr 4, 2017 at 9:28 PM, Andrey Konovalov <andreyknvl@google.com> wrote:
+> Hi,
+>
+> I've got the following error report while fuzzing the kernel with syzkaller.
+>
+> On commit a71c9a1c779f2499fb2afc0553e543f18aff6edf (4.11-rc5).
+>
+> A reproducer and .config are attached.
+The script is pretty hard to reproduce the issue in my env.
+But there seems a case to cause a use-after-free when out of snd_buf.
 
-> PPP pseudo-wire type is 7 (11 is L2TP_PWTYPE_IP).
-> 
-> Fixes: f1f39f911027 ("l2tp: auto load type modules")
-> Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
+the case is like:
+-----------
+one thread:                       another thread:
+                                  sctp_rcv hold asoc (hold transport)
+                                  enqueue the chunk to backlog queue
+                                  [refcnt=2]
 
-Applied and queued up for -stable.
+sctp_close free assoc
+[refcnt=1]
+
+sctp_sendmsg find asoc
+but not hold it
+
+out of snd_buf
+hold asoc, schedule out
+[refcnt = 2]
+
+                                  process backlog and put asoc/transport
+                                  [refcnt=1]
+
+schedule in, put asoc
+[refcnt=0] <--- destroyed
+
+sctp_sendmsg continue
+using asoc, panic
+
+--------------------
+
+Maybe we should check if asoc is dead already when schedule back
+into sctp_sendmsg because of out of snd_buf.
