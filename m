@@ -1,58 +1,83 @@
-From: Tony Lindgren <tony@atomide.com>
-Subject: Re: [PATCH 0/2] ARM: am335x-icev2: Add ethernet support
-Date: Tue, 4 Apr 2017 09:01:06 -0700
-Message-ID: <20170404160106.GR10760@atomide.com>
-References: <1489412554-2054-1-git-send-email-rogerq@ti.com>
- <178a255a-5e26-fe6f-8d9e-a7755f0b5fca@ti.com>
+From: Edward Cree <ecree@solarflare.com>
+Subject: [PATCH net-next] sfc: don't insert mc_list on low-latency firmware if
+ it's too long
+Date: Tue, 4 Apr 2017 17:02:49 +0100
+Message-ID: <55dbbc43-2949-fb9a-b3e0-cb21453fb928@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, grygorii.strashko@ti.com, nsekhar@ti.com,
-        jsarha@ti.com, linux-omap@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Roger Quadros <rogerq@ti.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <178a255a-5e26-fe6f-8d9e-a7755f0b5fca@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: <linux-net-drivers@solarflare.com>, <netdev@vger.kernel.org>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dispatch1-us1.ppe-hosted.com ([67.231.154.164]:47258 "EHLO
+        dispatch1-us1.ppe-hosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1754230AbdDDQIh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 4 Apr 2017 12:08:37 -0400
+Received: from dispatch1-us1.ppe-hosted.com (localhost.localdomain [127.0.0.1])
+        by dispatch1-us1.ppe-hosted.com (Proofpoint Essentials ESMTP Server) with ESMTP id 332AB14C0D6
+        for <netdev@vger.kernel.org>; Tue,  4 Apr 2017 16:03:04 +0000 (UTC)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-* Roger Quadros <rogerq@ti.com> [170330 05:37]:
-> Hi Tony & Dave,
-> 
-> On 13/03/17 15:42, Roger Quadros wrote:
-> > Hi,
-> > 
-> > This series adds ethernet support to am335x-icev2 board.
-> > 
-> > The ethernet PHYs on the board need an explicit GPIO reset pulse
-> > to ensure they bootstrap to the correct mode. Without the
-> > GPIO reset they just don't work.
-> > 
-> > cheers,
-> > -roger
-> 
-> Any comments on this series. Patch 1 is at version 2.
+If the mc_list is longer than 256 addresses, we enter mc_promisc mode.
+If we're in mc_promisc mode and the firmware doesn't support cascaded
+ multicast, normally we also insert our mc_list, to prevent stealing by
+ another VI.  However, if the mc_list was too long, this isn't really
+ helpful - the MC groups that didn't fit in the list can still get
+ stolen, and having only some of them stealable will probably cause
+ more confusing behaviour than having them all stealable.  Since
+ inserting 256 multicast filters takes a long time and can lead to MCDI
+ state machine timeouts, just skip the mc_list insert in this overflow
+ condition.
 
-I think you meant patch 2/3 is at version2. I've picked
-patches 2 and 3 for v4.12 into dt and defconfig branches.
+Signed-off-by: Edward Cree <ecree@solarflare.com>
+---
+ drivers/net/ethernet/sfc/ef10.c | 10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)
 
-You may need to resend the davinci_mdio.c patch alone
-for Dave as he usually won't pick individual patches I
-think.
-
-Regards,
-
-Tony
-
-> > Roger Quadros (2):
-> >   net: davinci_mdio: add GPIO reset logic
-> >   ARM: dts: am335x-icev2: Add CPSW ethernet0 and ethernet1
-> > 
-> >  .../devicetree/bindings/net/davinci-mdio.txt       |   2 +
-> >  arch/arm/boot/dts/am335x-icev2.dts                 | 113 +++++++++++++++++++++
-> >  drivers/net/ethernet/ti/davinci_mdio.c             |  68 +++++++++++--
-> >  3 files changed, 175 insertions(+), 8 deletions(-)
-> > 
-> 
-> cheers,
-> -roger
+diff --git a/drivers/net/ethernet/sfc/ef10.c b/drivers/net/ethernet/sfc/ef10.c
+index c60c2d4..78efb28 100644
+--- a/drivers/net/ethernet/sfc/ef10.c
++++ b/drivers/net/ethernet/sfc/ef10.c
+@@ -119,6 +119,7 @@ struct efx_ef10_filter_table {
+ 	bool mc_promisc;
+ /* Whether in multicast promiscuous mode when last changed */
+ 	bool mc_promisc_last;
++	bool mc_overflow; /* Too many MC addrs; should always imply mc_promisc */
+ 	bool vlan_filter;
+ 	struct list_head vlan_list;
+ };
+@@ -5058,6 +5059,7 @@ static void efx_ef10_filter_mc_addr_list(struct efx_nic *efx)
+ 	struct netdev_hw_addr *mc;
+ 	unsigned int i, addr_count;
+ 
++	table->mc_overflow = false;
+ 	table->mc_promisc = !!(net_dev->flags & (IFF_PROMISC | IFF_ALLMULTI));
+ 
+ 	addr_count = netdev_mc_count(net_dev);
+@@ -5065,6 +5067,7 @@ static void efx_ef10_filter_mc_addr_list(struct efx_nic *efx)
+ 	netdev_for_each_mc_addr(mc, net_dev) {
+ 		if (i >= EFX_EF10_FILTER_DEV_MC_MAX) {
+ 			table->mc_promisc = true;
++			table->mc_overflow = true;
+ 			break;
+ 		}
+ 		ether_addr_copy(table->dev_mc_list[i].addr, mc->addr);
+@@ -5469,12 +5472,15 @@ static void efx_ef10_filter_vlan_sync_rx_mode(struct efx_nic *efx,
+ 			}
+ 		} else {
+ 			/* If we failed to insert promiscuous filters, don't
+-			 * rollback.  Regardless, also insert the mc_list
++			 * rollback.  Regardless, also insert the mc_list,
++			 * unless it's incomplete due to overflow
+ 			 */
+ 			efx_ef10_filter_insert_def(efx, vlan,
+ 						   EFX_ENCAP_TYPE_NONE,
+ 						   true, false);
+-			efx_ef10_filter_insert_addr_list(efx, vlan, true, false);
++			if (!table->mc_overflow)
++				efx_ef10_filter_insert_addr_list(efx, vlan,
++								 true, false);
+ 		}
+ 	} else {
+ 		/* If any filters failed to insert, rollback and fall back to
