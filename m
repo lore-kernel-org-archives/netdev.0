@@ -1,137 +1,54 @@
-From: "Duyck, Alexander H" <alexander.h.duyck@intel.com>
-Subject: RE: [Intel-wired-lan] [PATCH] igb: Allow to remove administratively
- set    MAC on VFs
-Date: Tue, 4 Apr 2017 17:16:57 +0000
-Message-ID: <B1C1DF2ACD01FD4881736AA51731BAB2B1E1A2@ORSMSX107.amr.corp.intel.com>
-References: <20170404151055.21447-1-vinschen@redhat.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH] bpf: use 'ctx' instead of 'skb' in debug message
+Date: Tue, 04 Apr 2017 19:26:19 +0200
+Message-ID: <58E3D73B.5050806@iogearbox.net>
+References: <20170404144608.27382-1-johannes@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Corinna Vinschen <vinschen@redhat.com>,
-        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Alexei Starovoitov <ast@kernel.org>,
+        Johannes Berg <johannes.berg@intel.com>
+To: Johannes Berg <johannes@sipsolutions.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga07.intel.com ([134.134.136.100]:42083 "EHLO mga07.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751270AbdDDRQ6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 4 Apr 2017 13:16:58 -0400
-In-Reply-To: <20170404151055.21447-1-vinschen@redhat.com>
-Content-Language: en-US
+Received: from www62.your-server.de ([213.133.104.62]:41332 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754280AbdDDR00 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 4 Apr 2017 13:26:26 -0400
+In-Reply-To: <20170404144608.27382-1-johannes@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Intel-wired-lan [mailto:intel-wired-lan-bounces@lists.osuosl.org] On
-> Behalf Of Corinna Vinschen
-> Sent: Tuesday, April 4, 2017 8:11 AM
-> To: intel-wired-lan@lists.osuosl.org
-> Cc: netdev@vger.kernel.org
-> Subject: [Intel-wired-lan] [PATCH] igb: Allow to remove administratively set MAC
-> on VFs
-> 
->   Before libvirt modifies the MAC address and vlan tag for an SRIOV VF
->   for use by a virtual machine (either using vfio device assignment or
->   macvtap passthru mode), it saves the current MAC address and vlan tag
->   so that it can reset them to their original value when the guest is
->   done.  Libvirt can't leave the VF MAC set to the value used by the
->   now-defunct guest since it may be started again later using a
->   different VF, but it certainly shouldn't just pick any random value,
->   either. So it saves the state of everything prior to using the VF, and
->   resets it to that.
-> 
->   The igb driver initializes the MAC addresses of all VFs to
->   00:00:00:00:00:00, and reports that when asked (via an RTM_GETLINK
->   netlink message, also visible in the list of VFs in the output of "ip
->   link show"). But when libvirt attempts to restore the MAC address back
->   to 00:00:00:00:00:00 (using an RTM_SETLINK netlink message) the kernel
->   responds with "Invalid argument".
-> 
->   Forbidding a reset back to the original value leaves the VF MAC at the
->   value set for the now-defunct virtual machine. Especially on a system
->   with NetworkManager enabled, this has very bad consequences, since
->   NetworkManager forces all interfacess to be IFF_UP all the time - if
->   the same virtual machine is restarted using a different VF (or even on
->   a different host), there will be multiple interfaces watching for
->   traffic with the same MAC address.
-> 
->   To allow libvirt to revert to the original state, we need a way to
->   remove the administrative set MAC on a VF, to allow normal host
->   operation again, and to reset/overwrite the VF MAC via VF netdev.
-> 
->   This patch implements the outlined scenario by allowing to set the
->   VF MAC to 00:00:00:00:00:00 via RTM_SETLINK on the PF.
->   igb_ndo_set_vf_mac resets the IGB_VF_FLAG_PF_SET_MAC flag to 0,
->   so it's possible to reset the VF MAC back to the original value via
->   the VF netdev.
-> 
->   Note: Recent patches to libvirt allow for a workaround if the NIC
->   isn't capable of resetting the administrative MAC back to all 0, but
->   in theory the NIC should allow resetting the MAC in the fisr place.
-
-Minor typo here. I assume you mean "first place".
-
-> Signed-off-by: Corinna Vinschen <vinschen@redhat.com>
+On 04/04/2017 04:46 PM, Johannes Berg wrote:
+> From: Johannes Berg <johannes.berg@intel.com>
+>
+> The error message here should mention 'ctx' since the context
+> is now more generic than just an skb.
+>
+> Signed-off-by: Johannes Berg <johannes.berg@intel.com>
 > ---
->  drivers/net/ethernet/intel/igb/igb_main.c | 25 ++++++++++++++++++++-----
->  1 file changed, 20 insertions(+), 5 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/intel/igb/igb_main.c
-> b/drivers/net/ethernet/intel/igb/igb_main.c
-> index 26a821f..e7a61b1 100644
-> --- a/drivers/net/ethernet/intel/igb/igb_main.c
-> +++ b/drivers/net/ethernet/intel/igb/igb_main.c
-> @@ -8125,12 +8125,27 @@ static int igb_set_vf_mac(struct igb_adapter
-> *adapter,  static int igb_ndo_set_vf_mac(struct net_device *netdev, int vf, u8
-> *mac)  {
->  	struct igb_adapter *adapter = netdev_priv(netdev);
-> -	if (!is_valid_ether_addr(mac) || (vf >= adapter->vfs_allocated_count))
-> +
-> +	if (vf >= adapter->vfs_allocated_count)
-> +		return -EINVAL;
+>   kernel/bpf/verifier.c | 2 +-
+>   1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+> index 796b68d00119..1b3c921d3798 100644
+> --- a/kernel/bpf/verifier.c
+> +++ b/kernel/bpf/verifier.c
+> @@ -2329,7 +2329,7 @@ static int check_ld_abs(struct bpf_verifier_env *env, struct bpf_insn *insn)
+>   		return err;
+>
+>   	if (regs[BPF_REG_6].type != PTR_TO_CTX) {
+> -		verbose("at the time of BPF_LD_ABS|IND R6 != pointer to skb\n");
+> +		verbose("at the time of BPF_LD_ABS|IND R6 != pointer to ctx\n");
+>   		return -EINVAL;
 
-I would add an blank line here just for readability.
+Seems okay, the reason why we had 'skb' in the verbose message here is
+due to BPF_LD + BPF_ABS/BPF_IND operations being only specific to skbs
+and no other context (see __bpf_prog_run(), and in verifier may_access_skb()
+check before that verbose() message in check_ld_abs()). Reason for this
+is mostly historical due to the cBPF to eBPF migration so that these loads
+don't get slowed down when migrated to eBPF and can be handled by JIT
+optimizations (e.g., caching skb->data), too. Anyway, just to provide
+some more background on this. I've no strong opinion if you want to change
+the verifier error message, so:
 
-> +	/* Setting the VF MAC to 0 reverts the IGB_VF_FLAG_PF_SET_MAC
-> +	   flag and allows to overwrite the MAC via VF netdev.  This
-> +	   is necessary to allow libvirt a way to restore the original
-> +	   MAC after unbinding vfio-pci and reloading igbvf after shutting
-> +	   down a VM. */
-
-Minor coding style issue here. The "*/" should be on a separate line.
-
-> +	if (is_zero_ether_addr(mac)) {
-> +		adapter->vf_data[vf].flags &= ~IGB_VF_FLAG_PF_SET_MAC;
-> +		dev_info(&adapter->pdev->dev,
-> +			 "remove administratively set MAC on VF %d\n",
-> +			 vf);
-> +	} else if (is_valid_ether_addr (mac)) {
-> +		adapter->vf_data[vf].flags |= IGB_VF_FLAG_PF_SET_MAC;
-> +		dev_info(&adapter->pdev->dev, "setting MAC %pM on VF
-> %d\n",
-> +			 mac, vf);
-> +		dev_info(&adapter->pdev->dev,
-> +			 "Reload the VF driver to make this change effective.");
-> +	} else
->  		return -EINVAL;
-
-Minor coding style issue here. The else should also have "{}" wrapping the statement. Generally if any one of the statements in an if/else series needs the braces they should all have the braces.
-
-> -	adapter->vf_data[vf].flags |= IGB_VF_FLAG_PF_SET_MAC;
-> -	dev_info(&adapter->pdev->dev, "setting MAC %pM on VF %d\n", mac,
-> vf);
-> -	dev_info(&adapter->pdev->dev,
-> -		 "Reload the VF driver to make this change effective.");
->  	if (test_bit(__IGB_DOWN, &adapter->state)) {
-
-You might need to change this to allow us to clear the VF MAC address while the PF is down without the message. It doesn't add much in this case and allowing us to clear it would make sense.
-
->  		dev_warn(&adapter->pdev->dev,
->  			 "The VF MAC address has been set, but the PF device is
-> not up.\n");
-> --
-> 2.9.3
-> 
-> _______________________________________________
-> Intel-wired-lan mailing list
-> Intel-wired-lan@lists.osuosl.org
-> http://lists.osuosl.org/mailman/listinfo/intel-wired-lan
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
