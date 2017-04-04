@@ -1,35 +1,82 @@
-From: Christoph Hellwig <hch@lst.de>
-Subject: Re: [PATCH rfc 6/6] nvme-rdma: use intelligent affinity based
-        queue mappings
-Date: Tue, 4 Apr 2017 08:34:44 +0200
-Message-ID: <20170404063444.GF8978@lst.de>
-References: <1491140492-25703-1-git-send-email-sagi@grimberg.me> <1491140492-25703-7-git-send-email-sagi@grimberg.me>
+From: <stef.ryckmans@kortenberg.be>
+Subject: 38044 netdev
+Date: Tue, 04 Apr 2017 06:37:53 -0000
+Message-ID: <149128787347.6121.5579777408147084642@asianet.co.th>
+Reply-To: <stef.ryckmans@kortenberg.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-rdma@vger.kernel.org, linux-nvme@lists.infradead.org,
-        linux-block@vger.kernel.org, netdev@vger.kernel.org,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Christoph Hellwig <hch@lst.de>
-To: Sagi Grimberg <sagi@grimberg.me>
-Return-path: <linux-block-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1491140492-25703-7-git-send-email-sagi@grimberg.me>
-Sender: linux-block-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: application/zip; name="456940.zip"
+Content-Transfer-Encoding: base64
+To: "netdev" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 61-91-163-82.static.asianet.co.th ([61.91.163.82]:39986 "HELO
+        asianet.co.th" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+        id S1751066AbdDDGh6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 4 Apr 2017 02:37:58 -0400
+Content-Disposition: attachment
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Apr 02, 2017 at 04:41:32PM +0300, Sagi Grimberg wrote:
-> Use the geneic block layer affinity mapping helper. Also,
-
-          generic
-
->  	nr_io_queues = min(opts->nr_io_queues, num_online_cpus());
-> +	nr_io_queues = min_t(unsigned int, nr_io_queues,
-> +				ibdev->num_comp_vectors);
-> +
-
-Add a comment here?
-
-Otherwise looks fine:
-
-Reviewed-by: Christoph Hellwig <hch@lst.de>
+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
