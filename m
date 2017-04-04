@@ -1,186 +1,197 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 09/14] nfp: separate high level and low level NSP headers
-Date: Tue,  4 Apr 2017 16:12:30 -0700
-Message-ID: <20170404231235.32027-10-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 05/14] nfp: add port state refresh
+Date: Tue,  4 Apr 2017 16:12:26 -0700
+Message-ID: <20170404231235.32027-6-jakub.kicinski@netronome.com>
 References: <20170404231235.32027-1-jakub.kicinski@netronome.com>
 Cc: oss-drivers@netronome.com, kubakici@wp.pl,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f172.google.com ([209.85.192.172]:34638 "EHLO
-        mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755303AbdDDXNB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 4 Apr 2017 19:13:01 -0400
-Received: by mail-pf0-f172.google.com with SMTP id 197so13821763pfv.1
-        for <netdev@vger.kernel.org>; Tue, 04 Apr 2017 16:13:01 -0700 (PDT)
+Received: from mail-pg0-f54.google.com ([74.125.83.54]:35086 "EHLO
+        mail-pg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755279AbdDDXM6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 4 Apr 2017 19:12:58 -0400
+Received: by mail-pg0-f54.google.com with SMTP id 81so165144345pgh.2
+        for <netdev@vger.kernel.org>; Tue, 04 Apr 2017 16:12:58 -0700 (PDT)
 In-Reply-To: <20170404231235.32027-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We will soon add more NSP commands and structure definitions.
-Move all high-level NSP header contents to a common nfp_nsp.h file.
-Right now it mostly boils down to renaming nfp_nsp_eth.h and
-moving some functions from nfp.h there.
+We will need a way of refreshing port state for link settings
+get/set.  For get we need to refresh port speed and type.
+
+When settings are changed the reconfiguration may require
+reboot before it's effective.  Unregister netdevs affected
+by reconfiguration from a workqueue.
 
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 Reviewed-by: Simon Horman <simon.horman@netronome.com>
 ---
- drivers/net/ethernet/netronome/nfp/nfp_main.c         |  2 +-
- drivers/net/ethernet/netronome/nfp/nfp_net_common.c   |  2 +-
- drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c  |  2 +-
- drivers/net/ethernet/netronome/nfp/nfp_net_main.c     |  2 +-
- drivers/net/ethernet/netronome/nfp/nfpcore/nfp.h      | 12 ++----------
- drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp.c  |  1 +
- .../nfp/nfpcore/{nfp_nsp_eth.h => nfp_nsp.h}          | 19 ++++++++++++++-----
- .../net/ethernet/netronome/nfp/nfpcore/nfp_nsp_eth.c  |  2 +-
- 8 files changed, 22 insertions(+), 20 deletions(-)
- rename drivers/net/ethernet/netronome/nfp/nfpcore/{nfp_nsp_eth.h => nfp_nsp.h} (89%)
+ drivers/net/ethernet/netronome/nfp/nfp_main.h     |  3 +
+ drivers/net/ethernet/netronome/nfp/nfp_net.h      |  1 +
+ drivers/net/ethernet/netronome/nfp/nfp_net_main.c | 89 +++++++++++++++++++++--
+ 3 files changed, 85 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_main.c b/drivers/net/ethernet/netronome/nfp/nfp_main.c
-index 96266796fd09..bea2a1a6c211 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_main.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_main.c
-@@ -48,7 +48,7 @@
- #include "nfpcore/nfp.h"
- #include "nfpcore/nfp_cpp.h"
- #include "nfpcore/nfp_nffw.h"
--#include "nfpcore/nfp_nsp_eth.h"
-+#include "nfpcore/nfp_nsp.h"
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_main.h b/drivers/net/ethernet/netronome/nfp/nfp_main.h
+index b7ceec9a5783..b57de047b002 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_main.h
++++ b/drivers/net/ethernet/netronome/nfp/nfp_main.h
+@@ -44,6 +44,7 @@
+ #include <linux/msi.h>
+ #include <linux/mutex.h>
+ #include <linux/pci.h>
++#include <linux/workqueue.h>
  
- #include "nfpcore/nfp6000_pcie.h"
- 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-index 8664815f45ce..e2197160e4dc 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-@@ -67,7 +67,7 @@
- #include <net/pkt_cls.h>
- #include <net/vxlan.h>
- 
--#include "nfpcore/nfp_nsp_eth.h"
-+#include "nfpcore/nfp_nsp.h"
- #include "nfp_net_ctrl.h"
- #include "nfp_net.h"
- 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c b/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c
-index 3b2a09821a59..963d6dd97cec 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c
-@@ -49,7 +49,7 @@
- #include <linux/ethtool.h>
- 
- #include "nfpcore/nfp.h"
--#include "nfpcore/nfp_nsp_eth.h"
-+#include "nfpcore/nfp_nsp.h"
- #include "nfp_net_ctrl.h"
- #include "nfp_net.h"
- 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_main.c b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-index 8e975c36877c..3e1f97e88710 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-@@ -52,7 +52,7 @@
- #include "nfpcore/nfp.h"
- #include "nfpcore/nfp_cpp.h"
- #include "nfpcore/nfp_nffw.h"
--#include "nfpcore/nfp_nsp_eth.h"
-+#include "nfpcore/nfp_nsp.h"
- #include "nfpcore/nfp6000_pcie.h"
- 
- #include "nfp_net_ctrl.h"
-diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp.h b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp.h
-index f7ca8e374923..778bd9424d5d 100644
---- a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp.h
-+++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp.h
-@@ -48,18 +48,10 @@
- 
- const char *nfp_hwinfo_lookup(struct nfp_cpp *cpp, const char *lookup);
- 
--/* Implemented in nfp_nsp.c */
-+/* Implemented in nfp_nsp.c, low level functions */
- 
- struct nfp_nsp;
--struct firmware;
--
--struct nfp_nsp *nfp_nsp_open(struct nfp_cpp *cpp);
--void nfp_nsp_close(struct nfp_nsp *state);
--u16 nfp_nsp_get_abi_ver_major(struct nfp_nsp *state);
--u16 nfp_nsp_get_abi_ver_minor(struct nfp_nsp *state);
--int nfp_nsp_wait(struct nfp_nsp *state);
--int nfp_nsp_device_soft_reset(struct nfp_nsp *state);
--int nfp_nsp_load_fw(struct nfp_nsp *state, const struct firmware *fw);
-+
- int nfp_nsp_read_eth_table(struct nfp_nsp *state, void *buf, unsigned int size);
- int nfp_nsp_write_eth_table(struct nfp_nsp *state,
- 			    const void *buf, unsigned int size);
-diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp.c b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp.c
-index 17822ae4a17f..6482831282b2 100644
---- a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp.c
-@@ -49,6 +49,7 @@
- 
- #include "nfp.h"
- #include "nfp_cpp.h"
-+#include "nfp_nsp.h"
- 
- /* Offsets relative to the CSR base */
- #define NSP_STATUS		0x00
-diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp_eth.h b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp.h
-similarity index 89%
-rename from drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp_eth.h
-rename to drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp.h
-index 57eb3cfa6a0a..e3baec3cccc2 100644
---- a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp_eth.h
-+++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp.h
-@@ -31,12 +31,24 @@
-  * SOFTWARE.
+ struct dentry;
+ struct pci_dev;
+@@ -69,6 +70,7 @@ struct nfp_eth_table;
+  * @num_netdevs:	Number of netdevs spawned
+  * @ports:		Linked list of port structures (struct nfp_net)
+  * @port_lock:		Protects @ports, @num_ports, @num_netdevs
++ * @port_refresh_work:	Work entry for taking netdevs out
   */
+ struct nfp_pf {
+ 	struct pci_dev *pdev;
+@@ -94,6 +96,7 @@ struct nfp_pf {
+ 	unsigned int num_netdevs;
  
--#ifndef NSP_NSP_ETH_H
--#define NSP_NSP_ETH_H 1
-+#ifndef NSP_NSP_H
-+#define NSP_NSP_H 1
- 
- #include <linux/types.h>
- #include <linux/if_ether.h>
- 
-+struct firmware;
-+struct nfp_cpp;
-+struct nfp_nsp;
-+
-+struct nfp_nsp *nfp_nsp_open(struct nfp_cpp *cpp);
-+void nfp_nsp_close(struct nfp_nsp *state);
-+u16 nfp_nsp_get_abi_ver_major(struct nfp_nsp *state);
-+u16 nfp_nsp_get_abi_ver_minor(struct nfp_nsp *state);
-+int nfp_nsp_wait(struct nfp_nsp *state);
-+int nfp_nsp_device_soft_reset(struct nfp_nsp *state);
-+int nfp_nsp_load_fw(struct nfp_nsp *state, const struct firmware *fw);
-+
- enum nfp_eth_interface {
- 	NFP_INTERFACE_NONE	= 0,
- 	NFP_INTERFACE_SFP	= 1,
-@@ -119,9 +131,6 @@ struct nfp_eth_table {
- 	} ports[0];
+ 	struct list_head ports;
++	struct work_struct port_refresh_work;
+ 	struct mutex port_lock;
  };
  
--struct nfp_cpp;
--struct nfp_nsp;
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net.h b/drivers/net/ethernet/netronome/nfp/nfp_net.h
+index 91e963b5104f..052db9208fbb 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_net.h
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net.h
+@@ -813,6 +813,7 @@ struct nfp_net_dp *nfp_net_clone_dp(struct nfp_net *nn);
+ int nfp_net_ring_reconfig(struct nfp_net *nn, struct nfp_net_dp *new);
+ 
+ bool nfp_net_link_changed_read_clear(struct nfp_net *nn);
++void nfp_net_refresh_port_config(struct nfp_net *nn);
+ 
+ #ifdef CONFIG_NFP_DEBUG
+ void nfp_net_debugfs_create(void);
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_main.c b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
+index 4d602b1ddc90..8e975c36877c 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
+@@ -47,6 +47,7 @@
+ #include <linux/pci_regs.h>
+ #include <linux/msi.h>
+ #include <linux/random.h>
++#include <linux/rtnetlink.h>
+ 
+ #include "nfpcore/nfp.h"
+ #include "nfpcore/nfp_cpp.h"
+@@ -468,6 +469,82 @@ nfp_net_pf_spawn_netdevs(struct nfp_pf *pf,
+ 	return err;
+ }
+ 
++static void nfp_net_pci_remove_finish(struct nfp_pf *pf)
++{
++	nfp_net_debugfs_dir_clean(&pf->ddir);
++
++	nfp_net_irqs_disable(pf->pdev);
++	kfree(pf->irq_entries);
++
++	nfp_cpp_area_release_free(pf->rx_area);
++	nfp_cpp_area_release_free(pf->tx_area);
++	nfp_cpp_area_release_free(pf->ctrl_area);
++}
++
++static void nfp_net_refresh_netdevs(struct work_struct *work)
++{
++	struct nfp_pf *pf = container_of(work, struct nfp_pf,
++					 port_refresh_work);
++	struct nfp_net *nn, *next;
++
++	mutex_lock(&pf->port_lock);
++
++	/* Check for nfp_net_pci_remove() racing against us */
++	if (list_empty(&pf->ports))
++		goto out;
++
++	list_for_each_entry_safe(nn, next, &pf->ports, port_list) {
++		if (!nn->eth_port) {
++			nfp_warn(pf->cpp, "Warning: port %d not present after reconfig\n",
++				 nn->eth_port->eth_index);
++			continue;
++		}
++		if (!nn->eth_port->override_changed)
++			continue;
++
++		nn_warn(nn, "Port config changed, unregistering. Reboot required before port will be operational again.\n");
++
++		nfp_net_debugfs_dir_clean(&nn->debugfs_dir);
++		nfp_net_netdev_clean(nn->dp.netdev);
++
++		list_del(&nn->port_list);
++		pf->num_netdevs--;
++		nfp_net_netdev_free(nn);
++	}
++
++	if (list_empty(&pf->ports))
++		nfp_net_pci_remove_finish(pf);
++out:
++	mutex_unlock(&pf->port_lock);
++}
++
++void nfp_net_refresh_port_config(struct nfp_net *nn)
++{
++	struct nfp_pf *pf = pci_get_drvdata(nn->pdev);
++	struct nfp_eth_table *old_table;
++
++	ASSERT_RTNL();
++
++	old_table = pf->eth_tbl;
++
++	list_for_each_entry(nn, &pf->ports, port_list)
++		nfp_net_link_changed_read_clear(nn);
++
++	pf->eth_tbl = nfp_eth_read_ports(pf->cpp);
++	if (!pf->eth_tbl) {
++		pf->eth_tbl = old_table;
++		nfp_err(pf->cpp, "Error refreshing port config!\n");
++		return;
++	}
++
++	list_for_each_entry(nn, &pf->ports, port_list)
++		nn->eth_port = nfp_net_find_port(pf, nn->eth_port->eth_index);
++
++	kfree(old_table);
++
++	schedule_work(&pf->port_refresh_work);
++}
++
+ /*
+  * PCI device functions
+  */
+@@ -481,6 +558,7 @@ int nfp_net_pci_probe(struct nfp_pf *pf)
+ 	int stride;
+ 	int err;
+ 
++	INIT_WORK(&pf->port_refresh_work, nfp_net_refresh_netdevs);
+ 	mutex_init(&pf->port_lock);
+ 
+ 	/* Verify that the board has completed initialization */
+@@ -602,14 +680,9 @@ void nfp_net_pci_remove(struct nfp_pf *pf)
+ 
+ 	nfp_net_pf_free_netdevs(pf);
+ 
+-	nfp_net_debugfs_dir_clean(&pf->ddir);
 -
- struct nfp_eth_table *nfp_eth_read_ports(struct nfp_cpp *cpp);
- struct nfp_eth_table *
- __nfp_eth_read_ports(struct nfp_cpp *cpp, struct nfp_nsp *nsp);
-diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp_eth.c b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp_eth.c
-index 07b4ded01514..837de15ed720 100644
---- a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp_eth.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp_eth.c
-@@ -43,7 +43,7 @@
- #include <linux/module.h>
- 
- #include "nfp.h"
--#include "nfp_nsp_eth.h"
-+#include "nfp_nsp.h"
- #include "nfp6000/nfp6000.h"
- 
- #define NSP_ETH_NBI_PORT_COUNT		24
+-	nfp_net_irqs_disable(pf->pdev);
+-	kfree(pf->irq_entries);
+-
+-	nfp_cpp_area_release_free(pf->rx_area);
+-	nfp_cpp_area_release_free(pf->tx_area);
+-	nfp_cpp_area_release_free(pf->ctrl_area);
++	nfp_net_pci_remove_finish(pf);
+ out:
+ 	mutex_unlock(&pf->port_lock);
++
++	cancel_work_sync(&pf->port_refresh_work);
+ }
 -- 
 2.11.0
