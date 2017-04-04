@@ -1,83 +1,81 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: [PATCH net-next] sfc: don't insert mc_list on low-latency firmware if
- it's too long
-Date: Tue, 4 Apr 2017 17:02:49 +0100
-Message-ID: <55dbbc43-2949-fb9a-b3e0-cb21453fb928@solarflare.com>
+From: "Williams, Mitch A" <mitch.a.williams@intel.com>
+Subject: RE: [PATCH] i40e: limit client interface to X722 hardware
+Date: Tue, 4 Apr 2017 16:33:02 +0000
+Message-ID: <AAEA33E297BCAC4B9BB20A7C2DF0AB8D80543C1D@FMSMSX113.amr.corp.intel.com>
+References: <20170404143446.16359-1-sassmann@kpanic.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: <linux-net-drivers@solarflare.com>, <netdev@vger.kernel.org>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+To: 'Stefan Assmann' <sassmann@kpanic.de>,
+        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dispatch1-us1.ppe-hosted.com ([67.231.154.164]:47258 "EHLO
-        dispatch1-us1.ppe-hosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1754230AbdDDQIh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 4 Apr 2017 12:08:37 -0400
-Received: from dispatch1-us1.ppe-hosted.com (localhost.localdomain [127.0.0.1])
-        by dispatch1-us1.ppe-hosted.com (Proofpoint Essentials ESMTP Server) with ESMTP id 332AB14C0D6
-        for <netdev@vger.kernel.org>; Tue,  4 Apr 2017 16:03:04 +0000 (UTC)
+Received: from mga07.intel.com ([134.134.136.100]:50668 "EHLO mga07.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752518AbdDDQdT (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 4 Apr 2017 12:33:19 -0400
+In-Reply-To: <20170404143446.16359-1-sassmann@kpanic.de>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If the mc_list is longer than 256 addresses, we enter mc_promisc mode.
-If we're in mc_promisc mode and the firmware doesn't support cascaded
- multicast, normally we also insert our mc_list, to prevent stealing by
- another VI.  However, if the mc_list was too long, this isn't really
- helpful - the MC groups that didn't fit in the list can still get
- stolen, and having only some of them stealable will probably cause
- more confusing behaviour than having them all stealable.  Since
- inserting 256 multicast filters takes a long time and can lead to MCDI
- state machine timeouts, just skip the mc_list insert in this overflow
- condition.
 
-Signed-off-by: Edward Cree <ecree@solarflare.com>
----
- drivers/net/ethernet/sfc/ef10.c | 10 ++++++++--
- 1 file changed, 8 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/sfc/ef10.c b/drivers/net/ethernet/sfc/ef10.c
-index c60c2d4..78efb28 100644
---- a/drivers/net/ethernet/sfc/ef10.c
-+++ b/drivers/net/ethernet/sfc/ef10.c
-@@ -119,6 +119,7 @@ struct efx_ef10_filter_table {
- 	bool mc_promisc;
- /* Whether in multicast promiscuous mode when last changed */
- 	bool mc_promisc_last;
-+	bool mc_overflow; /* Too many MC addrs; should always imply mc_promisc */
- 	bool vlan_filter;
- 	struct list_head vlan_list;
- };
-@@ -5058,6 +5059,7 @@ static void efx_ef10_filter_mc_addr_list(struct efx_nic *efx)
- 	struct netdev_hw_addr *mc;
- 	unsigned int i, addr_count;
- 
-+	table->mc_overflow = false;
- 	table->mc_promisc = !!(net_dev->flags & (IFF_PROMISC | IFF_ALLMULTI));
- 
- 	addr_count = netdev_mc_count(net_dev);
-@@ -5065,6 +5067,7 @@ static void efx_ef10_filter_mc_addr_list(struct efx_nic *efx)
- 	netdev_for_each_mc_addr(mc, net_dev) {
- 		if (i >= EFX_EF10_FILTER_DEV_MC_MAX) {
- 			table->mc_promisc = true;
-+			table->mc_overflow = true;
- 			break;
- 		}
- 		ether_addr_copy(table->dev_mc_list[i].addr, mc->addr);
-@@ -5469,12 +5472,15 @@ static void efx_ef10_filter_vlan_sync_rx_mode(struct efx_nic *efx,
- 			}
- 		} else {
- 			/* If we failed to insert promiscuous filters, don't
--			 * rollback.  Regardless, also insert the mc_list
-+			 * rollback.  Regardless, also insert the mc_list,
-+			 * unless it's incomplete due to overflow
- 			 */
- 			efx_ef10_filter_insert_def(efx, vlan,
- 						   EFX_ENCAP_TYPE_NONE,
- 						   true, false);
--			efx_ef10_filter_insert_addr_list(efx, vlan, true, false);
-+			if (!table->mc_overflow)
-+				efx_ef10_filter_insert_addr_list(efx, vlan,
-+								 true, false);
- 		}
- 	} else {
- 		/* If any filters failed to insert, rollback and fall back to
+> -----Original Message-----
+> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On
+> Behalf Of Stefan Assmann
+> Sent: Tuesday, April 04, 2017 7:35 AM
+> To: intel-wired-lan@lists.osuosl.org
+> Cc: netdev@vger.kernel.org; davem@davemloft.net; Kirsher, Jeffrey T
+> <jeffrey.t.kirsher@intel.com>; sassmann@kpanic.de
+> Subject: [PATCH] i40e: limit client interface to X722 hardware
+> 
+> The client interface is meant for X722 iWARP support. Modprobing i40iw
+> on systems with X710/XL710 NICs currently may crash the system. Adding a
+> check which limits client interface access to the appropriate hardware.
+> 
+> Signed-off-by: Stefan Assmann <sassmann@kpanic.de>
+> ---
+>  drivers/net/ethernet/intel/i40e/i40e_client.c | 14 ++++++++------
+>  1 file changed, 8 insertions(+), 6 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/intel/i40e/i40e_client.c
+> b/drivers/net/ethernet/intel/i40e/i40e_client.c
+> index 191028b..6f873449 100644
+> --- a/drivers/net/ethernet/intel/i40e/i40e_client.c
+> +++ b/drivers/net/ethernet/intel/i40e/i40e_client.c
+> @@ -525,15 +525,17 @@ static void i40e_client_release(struct i40e_client
+> *client)
+>  static void i40e_client_prepare(struct i40e_client *client)
+>  {
+>  	struct i40e_device *ldev;
+> -	struct i40e_pf *pf;
+> 
+>  	mutex_lock(&i40e_device_mutex);
+>  	list_for_each_entry(ldev, &i40e_devices, list) {
+> -		pf = ldev->pf;
+> -		i40e_client_add_instance(pf);
+> -		/* Start the client subtask */
+> -		pf->flags |= I40E_FLAG_SERVICE_CLIENT_REQUESTED;
+> -		i40e_service_event_schedule(pf);
+> +		struct i40e_pf *pf = ldev->pf;
+> +
+> +		if (pf->hw.mac.type == I40E_MAC_X722) {
+> +			i40e_client_add_instance(pf);
+> +			/* Start the client subtask */
+> +			pf->flags |= I40E_FLAG_SERVICE_CLIENT_REQUESTED;
+> +			i40e_service_event_schedule(pf);
+> +		}
+>  	}
+>  	mutex_unlock(&i40e_device_mutex);
+>  }
+> --
+> 2.9.3
+
+Thanks for pointing this out, Stephan. I think that's not exactly the right way to do this check. Instead, we need to look at the IWARP flag. I'll get a patch out today to take care of it.
+
+So consider this a thankful NAK.
+
+-Mitch
