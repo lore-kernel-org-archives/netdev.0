@@ -1,86 +1,54 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Subject: Re: [PATCH v3] tracing/kprobes: expose maxactive for kretprobe in
- kprobe_events
-Date: Tue, 4 Apr 2017 10:32:53 -0400
-Message-ID: <20170404103253.11d03dc1@gandalf.local.home>
-References: <1491215782-15490-1-git-send-email-alban@kinvolk.io>
-        <20170404202459.6ca0e044df141602fe7033f9@kernel.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Alban Crequy <alban.crequy@gmail.com>,
-        Alban Crequy <alban@kinvolk.io>,
-        Alexei Starovoitov <ast@kernel.org>,
-        Jonathan Corbet <corbet@lwn.net>,
-        Ingo Molnar <mingo@redhat.com>, Shuah Khan <shuah@kernel.org>,
-        Arnaldo Carvalho de Melo <acme@redhat.com>,
-        Omar Sandoval <osandov@fb.com>,
-        Anton Blanchard <anton@samba.org>, linux-doc@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-kselftest@vger.kernel.org, iago@kinvolk.io,
-        michael@kinvolk.io, lukasz.dorau@intel.com,
-        vitalii.chernookyi@intel.com, marcin.slusarz@intel.com,
-        sarah.jelinek@intel.com, gabor.buella@intel.com
-To: Masami Hiramatsu <mhiramat@kernel.org>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <20170404202459.6ca0e044df141602fe7033f9@kernel.org>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Stefan Assmann <sassmann@kpanic.de>
+Subject: [PATCH] i40e: limit client interface to X722 hardware
+Date: Tue,  4 Apr 2017 16:34:46 +0200
+Message-ID: <20170404143446.16359-1-sassmann@kpanic.de>
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+        jeffrey.t.kirsher@intel.com, sassmann@kpanic.de
+To: intel-wired-lan@lists.osuosl.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:40576 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752129AbdDDOfC (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 4 Apr 2017 10:35:02 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 4 Apr 2017 20:24:59 +0900
-Masami Hiramatsu <mhiramat@kernel.org> wrote:
+The client interface is meant for X722 iWARP support. Modprobing i40iw
+on systems with X710/XL710 NICs currently may crash the system. Adding a
+check which limits client interface access to the appropriate hardware.
 
-> On Mon,  3 Apr 2017 12:36:22 +0200
-> Alban Crequy <alban.crequy@gmail.com> wrote:
-> 
-> > From: Alban Crequy <alban@kinvolk.io>
-> > 
-> > When a kretprobe is installed on a kernel function, there is a maximum
-> > limit of how many calls in parallel it can catch (aka "maxactive"). A
-> > kernel module could call register_kretprobe() and initialize maxactive
-> > (see example in samples/kprobes/kretprobe_example.c).
-> > 
-> > But that is not exposed to userspace and it is currently not possible to
-> > choose maxactive when writing to /sys/kernel/debug/tracing/kprobe_events
-> > 
-> > The default maxactive can be as low as 1 on single-core with a
-> > non-preemptive kernel. This is too low and we need to increase it not
-> > only for recursive functions, but for functions that sleep or resched.
-> > 
-> > This patch updates the format of the command that can be written to
-> > kprobe_events so that maxactive can be optionally specified.
-> > 
-> > I need this for a bpf program attached to the kretprobe of
-> > inet_csk_accept, which can sleep for a long time.
-> > 
-> > This patch includes a basic selftest:
-> >   
-> > > # ./ftracetest -v  test.d/kprobe/
-> > > === Ftrace unit tests ===
-> > > [1] Kprobe dynamic event - adding and removing	[PASS]
-> > > [2] Kprobe dynamic event - busy event check	[PASS]
-> > > [3] Kprobe dynamic event with arguments	[PASS]
-> > > [4] Kprobes event arguments with types	[PASS]
-> > > [5] Kprobe dynamic event with function tracer	[PASS]
-> > > [6] Kretprobe dynamic event with arguments	[PASS]
-> > > [7] Kretprobe dynamic event with maxactive	[PASS]
-> > >
-> > > # of passed:  7
-> > > # of failed:  0
-> > > # of unresolved:  0
-> > > # of untested:  0
-> > > # of unsupported:  0
-> > > # of xfailed:  0
-> > > # of undefined(test bug):  0  
-> > 
-> > BugLink: https://github.com/iovisor/bcc/issues/1072
-> > Signed-off-by: Alban Crequy <alban@kinvolk.io>  
-> 
-> Looks good to me.
-> 
-> Acked-by: Masami Hiramatsu <mhiramat@kernel.org>
-> 
+Signed-off-by: Stefan Assmann <sassmann@kpanic.de>
+---
+ drivers/net/ethernet/intel/i40e/i40e_client.c | 14 ++++++++------
+ 1 file changed, 8 insertions(+), 6 deletions(-)
 
-Applied, thanks!
-
--- Steve
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_client.c b/drivers/net/ethernet/intel/i40e/i40e_client.c
+index 191028b..6f873449 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_client.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_client.c
+@@ -525,15 +525,17 @@ static void i40e_client_release(struct i40e_client *client)
+ static void i40e_client_prepare(struct i40e_client *client)
+ {
+ 	struct i40e_device *ldev;
+-	struct i40e_pf *pf;
+ 
+ 	mutex_lock(&i40e_device_mutex);
+ 	list_for_each_entry(ldev, &i40e_devices, list) {
+-		pf = ldev->pf;
+-		i40e_client_add_instance(pf);
+-		/* Start the client subtask */
+-		pf->flags |= I40E_FLAG_SERVICE_CLIENT_REQUESTED;
+-		i40e_service_event_schedule(pf);
++		struct i40e_pf *pf = ldev->pf;
++
++		if (pf->hw.mac.type == I40E_MAC_X722) {
++			i40e_client_add_instance(pf);
++			/* Start the client subtask */
++			pf->flags |= I40E_FLAG_SERVICE_CLIENT_REQUESTED;
++			i40e_service_event_schedule(pf);
++		}
+ 	}
+ 	mutex_unlock(&i40e_device_mutex);
+ }
+-- 
+2.9.3
