@@ -1,52 +1,39 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH] selftests: add a generic testsuite for ethernet device
-Date: Tue, 4 Apr 2017 14:22:58 +0200
-Message-ID: <20170404122258.GC31409@lunn.ch>
-References: <20170331125752.20074-1-clabbe.montjoie@gmail.com>
- <20170331125752.20074-2-clabbe.montjoie@gmail.com>
- <20170331141241.GH22609@lunn.ch>
- <20170403131526.GC30824@Red>
- <20170403132741.GC17550@lunn.ch>
- <20170404075604.GA13800@Red>
+From: Christoph Hellwig <hch@lst.de>
+Subject: Re: [PATCH rfc 5/6] block: Add rdma affinity based queue mapping
+        helper
+Date: Tue, 4 Apr 2017 15:09:26 +0200
+Message-ID: <20170404130926.GA16338@lst.de>
+References: <1491140492-25703-1-git-send-email-sagi@grimberg.me> <1491140492-25703-6-git-send-email-sagi@grimberg.me> <becb84ac-7819-a207-56b1-70f16cb80e42@mellanox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, shuah@kernel.org,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kselftest@vger.kernel.org
-To: Corentin Labbe <clabbe.montjoie@gmail.com>
+Cc: Sagi Grimberg <sagi@grimberg.me>, linux-rdma@vger.kernel.org,
+        linux-nvme@lists.infradead.org, linux-block@vger.kernel.org,
+        netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Christoph Hellwig <hch@lst.de>
+To: Max Gurtovoy <maxg@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:45019 "EHLO vps0.lunn.ch"
+Received: from verein.lst.de ([213.95.11.211]:51995 "EHLO newverein.lst.de"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752893AbdDDMXE (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 4 Apr 2017 08:23:04 -0400
+        id S1752358AbdDDNJ2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 4 Apr 2017 09:09:28 -0400
 Content-Disposition: inline
-In-Reply-To: <20170404075604.GA13800@Red>
+In-Reply-To: <becb84ac-7819-a207-56b1-70f16cb80e42@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 04, 2017 at 09:56:04AM +0200, Corentin Labbe wrote:
-> On Mon, Apr 03, 2017 at 03:27:41PM +0200, Andrew Lunn wrote:
-> > > By ifnum, you mean by the order that "ip link" gives ?
-> > 
-> > I've not checked if it remains in order as interfaces are hot
-> > plugged/unplugged. But i guess you are running tests direct after
-> > boot, and unplugs/replugs are unlikely?
-> > 
-> 
-> Yes the ideal run is just after boot, but the test need to succeed in all case.
-> 
-> For handling vlan, I think the best way is to detect the master interface by looking the "@master".
+On Tue, Apr 04, 2017 at 10:46:54AM +0300, Max Gurtovoy wrote:
+>> +	if (set->nr_hw_queues > dev->num_comp_vectors)
+>> +		goto fallback;
+>> +
+>> +	for (queue = 0; queue < set->nr_hw_queues; queue++) {
+>> +		mask = ib_get_vector_affinity(dev, first_vec + queue);
+>> +		if (!mask)
+>> +			goto fallback;
+>
+> Christoph,
+> we can use fallback also in the blk-mq-pci.c in case pci_irq_get_affinity 
+> fails, right ?
 
-Hi Corentin
-
-In my case, these are DSA interfaces. Documentation/networking/dsa/dsa.txt
-
-> So when testing a vlan interface, the test would just up also the masteri interface.
-
-That will work for DSA. 
-
-I know kernelci.org has at least two boards with Ethernet switches
-that will have such interfaces. So it is great to test them.
-
-Thanks
-     Andrew
+For PCI it shouldn't fail as the driver calling pci_irq_get_affinity
+knows how it set up the interrupts.  So I don't think it's necessary there.
