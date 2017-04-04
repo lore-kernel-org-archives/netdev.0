@@ -1,145 +1,266 @@
-From: Andrei Vagin <avagin@openvz.org>
-Subject: [PATCH net-next] netlink/diag: report flags for netlink sockets
-Date: Mon,  3 Apr 2017 18:13:32 -0700
-Message-ID: <20170404011332.13469-1-avagin@openvz.org>
-Cc: netdev@vger.kernel.org, Andrey Vagin <avagin@openvz.org>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:34111 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751668AbdDDBNg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 3 Apr 2017 21:13:36 -0400
-Received: by mail-pg0-f67.google.com with SMTP id o123so33381030pga.1
-        for <netdev@vger.kernel.org>; Mon, 03 Apr 2017 18:13:36 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the net tree
+Date: Tue, 4 Apr 2017 11:13:57 +1000
+Message-ID: <20170404111357.26975ab4@canb.auug.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Linux-Next Mailing List <linux-next@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        Simon Horman <simon.horman@netronome.com>,
+        Jiri Pirko <jiri@mellanox.com>
+To: David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Andrey Vagin <avagin@openvz.org>
+Hi all,
 
-cb_running is reported in /proc/self/net/netlink and it is reported by
-the ss tool, when it gets information from the proc files.
+Today's linux-next merge of the net-next tree got a conflict in:
 
-sock_diag is a new interface which is used instead of proc files, so it
-looks reasonable that this interface has to report no less information
-about sockets than proc files.
+  net/core/flow_dissector.c
 
-We use these flags to dump and restore netlink sockets.
+between commit:
 
-Signed-off-by: Andrei Vagin <avagin@openvz.org>
----
- include/uapi/linux/netlink_diag.h | 10 ++++++++++
- net/netlink/af_netlink.c          |  8 --------
- net/netlink/af_netlink.h          |  8 ++++++++
- net/netlink/diag.c                | 25 +++++++++++++++++++++++++
- 4 files changed, 43 insertions(+), 8 deletions(-)
+  ac6a3722fed6 ("flow dissector: correct size of storage for ARP")
 
-diff --git a/include/uapi/linux/netlink_diag.h b/include/uapi/linux/netlink_diag.h
-index 76b4d87..6dcd4de 100644
---- a/include/uapi/linux/netlink_diag.h
-+++ b/include/uapi/linux/netlink_diag.h
-@@ -38,6 +38,7 @@ enum {
- 	NETLINK_DIAG_GROUPS,
- 	NETLINK_DIAG_RX_RING,
- 	NETLINK_DIAG_TX_RING,
-+	NETLINK_DIAG_FLAGS,
- 
- 	__NETLINK_DIAG_MAX,
- };
-@@ -52,5 +53,14 @@ enum {
- /* deprecated since 4.6 */
- #define NDIAG_SHOW_RING_CFG	0x00000004 /* show ring configuration */
- #endif
-+#define NDIAG_SHOW_FLAGS	0x00000008 /* show flags of a netlink socket */
-+
-+/* flags */
-+#define NDIAG_FLAG_CB_RUNNING		0x00000001
-+#define NDIAG_FLAG_PKTINFO		0x00000002
-+#define NDIAG_FLAG_BROADCAST_ERROR	0x00000004
-+#define NDIAG_FLAG_NO_ENOBUFS		0x00000008
-+#define NDIAG_FLAG_LISTEN_ALL_NSID	0x00000010
-+#define NDIAG_FLAG_CAP_ACK		0x00000020
- 
- #endif
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 596eaff..fc23244 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -78,14 +78,6 @@ struct listeners {
- /* state bits */
- #define NETLINK_S_CONGESTED		0x0
- 
--/* flags */
--#define NETLINK_F_KERNEL_SOCKET		0x1
--#define NETLINK_F_RECV_PKTINFO		0x2
--#define NETLINK_F_BROADCAST_SEND_ERROR	0x4
--#define NETLINK_F_RECV_NO_ENOBUFS	0x8
--#define NETLINK_F_LISTEN_ALL_NSID	0x10
--#define NETLINK_F_CAP_ACK		0x20
--
- static inline int netlink_is_kernel(struct sock *sk)
- {
- 	return nlk_sk(sk)->flags & NETLINK_F_KERNEL_SOCKET;
-diff --git a/net/netlink/af_netlink.h b/net/netlink/af_netlink.h
-index 4fdb383..f792f8d 100644
---- a/net/netlink/af_netlink.h
-+++ b/net/netlink/af_netlink.h
-@@ -6,6 +6,14 @@
- #include <linux/workqueue.h>
- #include <net/sock.h>
- 
-+/* flags */
-+#define NETLINK_F_KERNEL_SOCKET		0x1
-+#define NETLINK_F_RECV_PKTINFO		0x2
-+#define NETLINK_F_BROADCAST_SEND_ERROR	0x4
-+#define NETLINK_F_RECV_NO_ENOBUFS	0x8
-+#define NETLINK_F_LISTEN_ALL_NSID	0x10
-+#define NETLINK_F_CAP_ACK		0x20
-+
- #define NLGRPSZ(x)	(ALIGN(x, sizeof(unsigned long) * 8) / 8)
- #define NLGRPLONGS(x)	(NLGRPSZ(x)/sizeof(unsigned long))
- 
-diff --git a/net/netlink/diag.c b/net/netlink/diag.c
-index a554624..8faa20b 100644
---- a/net/netlink/diag.c
-+++ b/net/netlink/diag.c
-@@ -19,6 +19,27 @@ static int sk_diag_dump_groups(struct sock *sk, struct sk_buff *nlskb)
- 		       nlk->groups);
- }
- 
-+static int sk_diag_put_flags(struct sock *sk, struct sk_buff *skb)
-+{
-+	struct netlink_sock *nlk = nlk_sk(sk);
-+	u32 flags = 0;
-+
-+	if (nlk->cb_running)
-+		flags |= NDIAG_FLAG_CB_RUNNING;
-+	if (nlk->flags & NETLINK_F_RECV_PKTINFO)
-+		flags |= NDIAG_FLAG_PKTINFO;
-+	if (nlk->flags & NETLINK_F_BROADCAST_SEND_ERROR)
-+		flags |= NDIAG_FLAG_BROADCAST_ERROR;
-+	if (nlk->flags & NETLINK_F_RECV_NO_ENOBUFS)
-+		flags |= NDIAG_FLAG_NO_ENOBUFS;
-+	if (nlk->flags & NETLINK_F_LISTEN_ALL_NSID)
-+		flags |= NDIAG_FLAG_LISTEN_ALL_NSID;
-+	if (nlk->flags & NETLINK_F_CAP_ACK)
-+		flags |= NDIAG_FLAG_CAP_ACK;
-+
-+	return nla_put_u32(skb, NETLINK_DIAG_FLAGS, flags);
-+}
-+
- static int sk_diag_fill(struct sock *sk, struct sk_buff *skb,
- 			struct netlink_diag_req *req,
- 			u32 portid, u32 seq, u32 flags, int sk_ino)
-@@ -52,6 +73,10 @@ static int sk_diag_fill(struct sock *sk, struct sk_buff *skb,
- 	    sock_diag_put_meminfo(sk, skb, NETLINK_DIAG_MEMINFO))
- 		goto out_nlmsg_trim;
- 
-+	if ((req->ndiag_show & NDIAG_SHOW_FLAGS) &&
-+	    sk_diag_put_flags(sk, skb))
-+		goto out_nlmsg_trim;
-+
- 	nlmsg_end(skb, nlh);
- 	return 0;
- 
+from the net tree and commit:
+
+  9bf881ffc5c0 ("flow_dissector: Move ARP dissection into a separate function")
+
+from the net-next tree.
+
+I fixed it up (see below) and can carry the fix as necessary. This
+is now fixed as far as linux-next is concerned, but any non trivial
+conflicts should be mentioned to your upstream maintainer when your tree
+is submitted for merging.  You may also want to consider cooperating
+with the maintainer of the conflicting tree to minimise any particularly
+complex conflicts.
+
 -- 
-2.9.3
+Cheers,
+Stephen Rothwell
+
+diff --cc net/core/flow_dissector.c
+index d98d4998213d,5f3ae922fcd1..000000000000
+--- a/net/core/flow_dissector.c
++++ b/net/core/flow_dissector.c
+@@@ -113,6 -113,216 +113,216 @@@ __be32 __skb_flow_get_ports(const struc
+  }
+  EXPORT_SYMBOL(__skb_flow_get_ports);
+  
++ enum flow_dissect_ret {
++ 	FLOW_DISSECT_RET_OUT_GOOD,
++ 	FLOW_DISSECT_RET_OUT_BAD,
++ 	FLOW_DISSECT_RET_OUT_PROTO_AGAIN,
++ };
++ 
++ static enum flow_dissect_ret
++ __skb_flow_dissect_mpls(const struct sk_buff *skb,
++ 			struct flow_dissector *flow_dissector,
++ 			void *target_container, void *data, int nhoff, int hlen)
++ {
++ 	struct flow_dissector_key_keyid *key_keyid;
++ 	struct mpls_label *hdr, _hdr[2];
++ 
++ 	if (!dissector_uses_key(flow_dissector,
++ 				FLOW_DISSECTOR_KEY_MPLS_ENTROPY))
++ 		return FLOW_DISSECT_RET_OUT_GOOD;
++ 
++ 	hdr = __skb_header_pointer(skb, nhoff, sizeof(_hdr), data,
++ 				   hlen, &_hdr);
++ 	if (!hdr)
++ 		return FLOW_DISSECT_RET_OUT_BAD;
++ 
++ 	if ((ntohl(hdr[0].entry) & MPLS_LS_LABEL_MASK) >>
++ 	    MPLS_LS_LABEL_SHIFT == MPLS_LABEL_ENTROPY) {
++ 		key_keyid = skb_flow_dissector_target(flow_dissector,
++ 						      FLOW_DISSECTOR_KEY_MPLS_ENTROPY,
++ 						      target_container);
++ 		key_keyid->keyid = hdr[1].entry & htonl(MPLS_LS_LABEL_MASK);
++ 	}
++ 	return FLOW_DISSECT_RET_OUT_GOOD;
++ }
++ 
++ static enum flow_dissect_ret
++ __skb_flow_dissect_arp(const struct sk_buff *skb,
++ 		       struct flow_dissector *flow_dissector,
++ 		       void *target_container, void *data, int nhoff, int hlen)
++ {
++ 	struct flow_dissector_key_arp *key_arp;
++ 	struct {
++ 		unsigned char ar_sha[ETH_ALEN];
++ 		unsigned char ar_sip[4];
++ 		unsigned char ar_tha[ETH_ALEN];
++ 		unsigned char ar_tip[4];
++ 	} *arp_eth, _arp_eth;
++ 	const struct arphdr *arp;
+ -	struct arphdr *_arp;
+++	struct arphdr _arp;
++ 
++ 	if (!dissector_uses_key(flow_dissector, FLOW_DISSECTOR_KEY_ARP))
++ 		return FLOW_DISSECT_RET_OUT_GOOD;
++ 
++ 	arp = __skb_header_pointer(skb, nhoff, sizeof(_arp), data,
++ 				   hlen, &_arp);
++ 	if (!arp)
++ 		return FLOW_DISSECT_RET_OUT_BAD;
++ 
++ 	if (arp->ar_hrd != htons(ARPHRD_ETHER) ||
++ 	    arp->ar_pro != htons(ETH_P_IP) ||
++ 	    arp->ar_hln != ETH_ALEN ||
++ 	    arp->ar_pln != 4 ||
++ 	    (arp->ar_op != htons(ARPOP_REPLY) &&
++ 	     arp->ar_op != htons(ARPOP_REQUEST)))
++ 		return FLOW_DISSECT_RET_OUT_BAD;
++ 
++ 	arp_eth = __skb_header_pointer(skb, nhoff + sizeof(_arp),
++ 				       sizeof(_arp_eth), data,
++ 				       hlen, &_arp_eth);
++ 	if (!arp_eth)
++ 		return FLOW_DISSECT_RET_OUT_BAD;
++ 
++ 	key_arp = skb_flow_dissector_target(flow_dissector,
++ 					    FLOW_DISSECTOR_KEY_ARP,
++ 					    target_container);
++ 
++ 	memcpy(&key_arp->sip, arp_eth->ar_sip, sizeof(key_arp->sip));
++ 	memcpy(&key_arp->tip, arp_eth->ar_tip, sizeof(key_arp->tip));
++ 
++ 	/* Only store the lower byte of the opcode;
++ 	 * this covers ARPOP_REPLY and ARPOP_REQUEST.
++ 	 */
++ 	key_arp->op = ntohs(arp->ar_op) & 0xff;
++ 
++ 	ether_addr_copy(key_arp->sha, arp_eth->ar_sha);
++ 	ether_addr_copy(key_arp->tha, arp_eth->ar_tha);
++ 
++ 	return FLOW_DISSECT_RET_OUT_GOOD;
++ }
++ 
++ static enum flow_dissect_ret
++ __skb_flow_dissect_gre(const struct sk_buff *skb,
++ 		       struct flow_dissector_key_control *key_control,
++ 		       struct flow_dissector *flow_dissector,
++ 		       void *target_container, void *data,
++ 		       __be16 *p_proto, int *p_nhoff, int *p_hlen,
++ 		       unsigned int flags)
++ {
++ 	struct flow_dissector_key_keyid *key_keyid;
++ 	struct gre_base_hdr *hdr, _hdr;
++ 	int offset = 0;
++ 	u16 gre_ver;
++ 
++ 	hdr = __skb_header_pointer(skb, *p_nhoff, sizeof(_hdr),
++ 				   data, *p_hlen, &_hdr);
++ 	if (!hdr)
++ 		return FLOW_DISSECT_RET_OUT_BAD;
++ 
++ 	/* Only look inside GRE without routing */
++ 	if (hdr->flags & GRE_ROUTING)
++ 		return FLOW_DISSECT_RET_OUT_GOOD;
++ 
++ 	/* Only look inside GRE for version 0 and 1 */
++ 	gre_ver = ntohs(hdr->flags & GRE_VERSION);
++ 	if (gre_ver > 1)
++ 		return FLOW_DISSECT_RET_OUT_GOOD;
++ 
++ 	*p_proto = hdr->protocol;
++ 	if (gre_ver) {
++ 		/* Version1 must be PPTP, and check the flags */
++ 		if (!(*p_proto == GRE_PROTO_PPP && (hdr->flags & GRE_KEY)))
++ 			return FLOW_DISSECT_RET_OUT_GOOD;
++ 	}
++ 
++ 	offset += sizeof(struct gre_base_hdr);
++ 
++ 	if (hdr->flags & GRE_CSUM)
++ 		offset += sizeof(((struct gre_full_hdr *) 0)->csum) +
++ 			  sizeof(((struct gre_full_hdr *) 0)->reserved1);
++ 
++ 	if (hdr->flags & GRE_KEY) {
++ 		const __be32 *keyid;
++ 		__be32 _keyid;
++ 
++ 		keyid = __skb_header_pointer(skb, *p_nhoff + offset,
++ 					     sizeof(_keyid),
++ 					     data, *p_hlen, &_keyid);
++ 		if (!keyid)
++ 			return FLOW_DISSECT_RET_OUT_BAD;
++ 
++ 		if (dissector_uses_key(flow_dissector,
++ 				       FLOW_DISSECTOR_KEY_GRE_KEYID)) {
++ 			key_keyid = skb_flow_dissector_target(flow_dissector,
++ 							      FLOW_DISSECTOR_KEY_GRE_KEYID,
++ 							      target_container);
++ 			if (gre_ver == 0)
++ 				key_keyid->keyid = *keyid;
++ 			else
++ 				key_keyid->keyid = *keyid & GRE_PPTP_KEY_MASK;
++ 		}
++ 		offset += sizeof(((struct gre_full_hdr *) 0)->key);
++ 	}
++ 
++ 	if (hdr->flags & GRE_SEQ)
++ 		offset += sizeof(((struct pptp_gre_header *) 0)->seq);
++ 
++ 	if (gre_ver == 0) {
++ 		if (*p_proto == htons(ETH_P_TEB)) {
++ 			const struct ethhdr *eth;
++ 			struct ethhdr _eth;
++ 
++ 			eth = __skb_header_pointer(skb, *p_nhoff + offset,
++ 						   sizeof(_eth),
++ 						   data, *p_hlen, &_eth);
++ 			if (!eth)
++ 				return FLOW_DISSECT_RET_OUT_BAD;
++ 			*p_proto = eth->h_proto;
++ 			offset += sizeof(*eth);
++ 
++ 			/* Cap headers that we access via pointers at the
++ 			 * end of the Ethernet header as our maximum alignment
++ 			 * at that point is only 2 bytes.
++ 			 */
++ 			if (NET_IP_ALIGN)
++ 				*p_hlen = *p_nhoff + offset;
++ 		}
++ 	} else { /* version 1, must be PPTP */
++ 		u8 _ppp_hdr[PPP_HDRLEN];
++ 		u8 *ppp_hdr;
++ 
++ 		if (hdr->flags & GRE_ACK)
++ 			offset += sizeof(((struct pptp_gre_header *) 0)->ack);
++ 
++ 		ppp_hdr = __skb_header_pointer(skb, *p_nhoff + offset,
++ 					       sizeof(_ppp_hdr),
++ 					       data, *p_hlen, _ppp_hdr);
++ 		if (!ppp_hdr)
++ 			return FLOW_DISSECT_RET_OUT_BAD;
++ 
++ 		switch (PPP_PROTOCOL(ppp_hdr)) {
++ 		case PPP_IP:
++ 			*p_proto = htons(ETH_P_IP);
++ 			break;
++ 		case PPP_IPV6:
++ 			*p_proto = htons(ETH_P_IPV6);
++ 			break;
++ 		default:
++ 			/* Could probably catch some more like MPLS */
++ 			break;
++ 		}
++ 
++ 		offset += PPP_HDRLEN;
++ 	}
++ 
++ 	*p_nhoff += offset;
++ 	key_control->flags |= FLOW_DIS_ENCAPSULATION;
++ 	if (flags & FLOW_DISSECTOR_F_STOP_AT_ENCAP)
++ 		return FLOW_DISSECT_RET_OUT_GOOD;
++ 
++ 	return FLOW_DISSECT_RET_OUT_PROTO_AGAIN;
++ }
++ 
+  /**
+   * __skb_flow_dissect - extract the flow_keys struct and return it
+   * @skb: sk_buff to extract the flow from, can be NULL if the rest are specified
