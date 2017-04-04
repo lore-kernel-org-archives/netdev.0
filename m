@@ -1,51 +1,42 @@
-From: Aaron Conole <aconole@bytheb.org>
-Subject: [RFC net-next] bpf: taint loading !is_gpl programs
-Date: Tue,  4 Apr 2017 14:33:54 -0400
-Message-ID: <20170404183354.8579-1-aconole@bytheb.org>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Alexei Starovoitov <ast@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f196.google.com ([209.85.216.196]:34198 "EHLO
-        mail-qt0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753564AbdDDSeB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 4 Apr 2017 14:34:01 -0400
-Received: by mail-qt0-f196.google.com with SMTP id x35so24310820qtc.1
-        for <netdev@vger.kernel.org>; Tue, 04 Apr 2017 11:34:01 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull-request: wireless-drivers-next 2017-04-03
+Date: Tue, 04 Apr 2017 11:37:14 -0700 (PDT)
+Message-ID: <20170404.113714.433018169237722838.davem@davemloft.net>
+References: <87a87xohpp.fsf@kamboji.qca.qualcomm.com>
+        <20170404.103144.1438343234401389523.davem@davemloft.net>
+        <87r318jc7g.fsf@kamboji.qca.qualcomm.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: kvalo@codeaurora.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87r318jc7g.fsf@kamboji.qca.qualcomm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The eBPF framework is used for more than just socket level filtering.  It
-can also provide tracing, and even change the way packets coming into the
-system look.  Most of the eBPF callable symbols are available to non-gpl
-programs, and this includes helper functions which modify packets.  This
-allows proprietary eBPF code to link to the kernel and make decisions
-which can negatively impact network performance.
+From: Kalle Valo <kvalo@codeaurora.org>
+Date: Tue, 04 Apr 2017 20:48:35 +0300
 
-Since the sources for these programs are only available under a proprietary
-license, it seems better to treat them the same as other proprietary
-modules: set the system taint flag.  An exemption is made for socket-level
-filters, since they do not really impact networking for the whole kernel.
+> David Miller <davem@davemloft.net> writes:
+> 
+>> From: Kalle Valo <kvalo@codeaurora.org>
+>> Date: Mon, 03 Apr 2017 14:26:10 +0300
+>>
+>>> here few really small fixes. I'm hoping this to be the last pull request
+>>> for 4.11.
+>>> 
+>>> Please let me if there are any problems.
+>>
+>> Pulled, thanks.
+>>
+>> But I will warn you, you say fixes, but your Subject line and
+>> GIT tag says "-next" so I pulled it into net-next.
+> 
+> Sorry, I used the wrong pull request template and that's why I had the
+> wrong subject in this pull request. So actually this was supposed to be
+> for net, not net-next. Any chance you could also pull this to net so
+> that we can still get the fixes to 4.11?
 
-Signed-off-by: Aaron Conole <aconole@bytheb.org>
----
- kernel/bpf/syscall.c | 5 +++++
- 1 file changed, 5 insertions(+)
-
-diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
-index ab0cf4c4..1255b51 100644
---- a/kernel/bpf/syscall.c
-+++ b/kernel/bpf/syscall.c
-@@ -860,6 +860,11 @@ static int bpf_prog_load(union bpf_attr *attr)
- 
- 	bpf_prog_kallsyms_add(prog);
- 	trace_bpf_prog_load(prog, err);
-+	if (type != BPF_PROG_TYPE_SOCKET_FILTER && !is_gpl && !(err < 0)) {
-+		if (!test_taint(TAINT_PROPRIETARY_MODULE))
-+			pr_warn("bpf license '%s' taints kernel.\n", license);
-+		add_taint(TAINT_PROPRIETARY_MODULE, LOCKDEP_STILL_OK);
-+	}
- 	return err;
- 
- free_used_maps:
--- 
-2.9.3
+Sure, done.
