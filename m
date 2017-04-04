@@ -1,50 +1,81 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: pull-request: can 2017-04-04
-Date: Tue,  4 Apr 2017 17:59:47 +0200
-Message-ID: <20170404155949.30965-1-mkl@pengutronix.de>
-Cc: davem@davemloft.net, linux-can@vger.kernel.org,
-        kernel@pengutronix.de
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:47393 "EHLO
-        metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1754232AbdDDP7x (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 4 Apr 2017 11:59:53 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Subject: Re: [PATCH] can: rcar_can: Do not print virtual addresses
+Date: Tue, 4 Apr 2017 18:00:29 +0200
+Message-ID: <f7fd0378-1ae7-d3f0-6ccb-ea506815c9e8@pengutronix.de>
+References: <1491214286-14370-1-git-send-email-geert+renesas@glider.be>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="BGrSe6rsiEw8spEUIxAkdoxNeO2IIs847"
+Cc: linux-renesas-soc@vger.kernel.org, linux-can@vger.kernel.org,
+        netdev@vger.kernel.org
+To: Geert Uytterhoeven <geert+renesas@glider.be>,
+        Wolfgang Grandegger <wg@grandegger.com>,
+        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1491214286-14370-1-git-send-email-geert+renesas@glider.be>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello David,
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--BGrSe6rsiEw8spEUIxAkdoxNeO2IIs847
+Content-Type: multipart/mixed; boundary="0gLcRcEWAh6o9jLb0wBAkiCLBgwKKDgHk";
+ protected-headers="v1"
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+To: Geert Uytterhoeven <geert+renesas@glider.be>,
+ Wolfgang Grandegger <wg@grandegger.com>,
+ Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Cc: linux-renesas-soc@vger.kernel.org, linux-can@vger.kernel.org,
+ netdev@vger.kernel.org
+Message-ID: <f7fd0378-1ae7-d3f0-6ccb-ea506815c9e8@pengutronix.de>
+Subject: Re: [PATCH] can: rcar_can: Do not print virtual addresses
+References: <1491214286-14370-1-git-send-email-geert+renesas@glider.be>
+In-Reply-To: <1491214286-14370-1-git-send-email-geert+renesas@glider.be>
 
-this is a pull request of two patches for net/master.
+--0gLcRcEWAh6o9jLb0wBAkiCLBgwKKDgHk
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-The first patch by Markus Marb fixes a register read access in the ifi driver.
-The second patch by Geert Uytterhoeven for the rcar driver remove the printing
-of a kernel virtual address.
+On 04/03/2017 12:11 PM, Geert Uytterhoeven wrote:
+> During probe, the rcar_can driver prints:
+>=20
+>     rcar_can e6e80000.can: device registered (regs @ e08bc000, IRQ76)
+>=20
+> The "regs" value is a virtual address, exposing internal information,
+> hence stop printing it.  The (useful) physical address is already
+> printed as part of the device name.
+>=20
+> Fixes: fd1159318e55e901 ("can: add Renesas R-Car CAN driver")
+> Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
 
-regards,
-Marc
+Thanks, applied and included in pull request.
 
----
+Mar
 
-The following changes since commit 0b9aefea860063bb39e36bd7fe6c7087fed0ba87:
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
 
-  tcp: minimize false-positives on TCP/GRO check (2017-04-03 18:43:41 -0700)
 
-are available in the git repository at:
+--0gLcRcEWAh6o9jLb0wBAkiCLBgwKKDgHk--
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/mkl/linux-can.git 
+--BGrSe6rsiEw8spEUIxAkdoxNeO2IIs847
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
-for you to fetch changes up to ca257b9e2d807ab6cb2678ecc7b74aaf4651f597:
+-----BEGIN PGP SIGNATURE-----
 
-  can: rcar_can: Do not print virtual addresses (2017-04-04 17:49:59 +0200)
+iQEzBAEBCgAdFiEE4bay/IylYqM/npjQHv7KIOw4HPYFAljjwx0ACgkQHv7KIOw4
+HPZhfgf/X1J5WvE27xyYb9VKkg/fC6ZFuFzD2xWtWk7m/PcEkTYpvaqQKzBNYrBD
+LdicbRvX2ttPMMTDNxq9CiiDUBv5xJi1KL9TUnCXQCf1VKsywbbZoulA/clS42l2
+xVlng9rxz1/16wljtQu2Yyp/n6vVxjwwc+wdGXxhfuhT1A6oRL1ocsE5qGK9N7Zq
+nWQmOJ9j/MQ10oRQknvoh+zxAIZfR3zGql3Xe3I91OjBbhCH/02eDq1sYb5OmE29
+VAf3K6My+96Fiq+tLEBj53Olms9q4QcqRDAXjY5Vx6TQ6c5t5Nk2LrGKmL1BxugD
++9M2STXRopX7uafnChxqJLENkdqBnw==
+=KzDu
+-----END PGP SIGNATURE-----
 
-----------------------------------------------------------------
-Geert Uytterhoeven (1):
-      can: rcar_can: Do not print virtual addresses
-
-Markus Marb (1):
-      can: ifi: use correct register to read rx status
-
- drivers/net/can/ifi_canfd/ifi_canfd.c | 2 +-
- drivers/net/can/rcar/rcar_can.c       | 3 +--
- 2 files changed, 2 insertions(+), 3 deletions(-)
+--BGrSe6rsiEw8spEUIxAkdoxNeO2IIs847--
