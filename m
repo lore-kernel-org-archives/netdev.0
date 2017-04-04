@@ -1,77 +1,64 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [next-queue v6 PATCH 2/7] i40e: Introduce Port Representor
- netdevs and switchdev mode.
-Date: Tue, 4 Apr 2017 14:58:01 +0300
-Message-ID: <CAJ3xEMikpx3JX5frn0Hbne6tTR9Vgu6Pv22TkEuaJP0mM1Au=w@mail.gmail.com>
-References: <1490833375-2788-1-git-send-email-sridhar.samudrala@intel.com>
- <1490833375-2788-3-git-send-email-sridhar.samudrala@intel.com>
- <CAJ3xEMgVeri17KceKhnFUCCFj00yWXKtjwP4r36Pb-CSZiOTng@mail.gmail.com> <58E2974B.30503@intel.com>
+From: Niklas Cassel <niklas.cassel@axis.com>
+Subject: [PATCH net-next] net: stmmac: allow changing the MTU while the interface is running
+Date: Tue, 4 Apr 2017 14:18:54 +0200
+Message-ID: <20170404121854.606-1-niklass@axis.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: intel-wired-lan@lists.osuosl.org,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        Jakub Kicinski <jakub.kicinski@netronome.com>,
-        Jiri Pirko <jiri@resnulli.us>
-To: "Samudrala, Sridhar" <sridhar.samudrala@intel.com>,
-        Anjali Singhai Jain <anjali.singhai@intel.com>,
-        Alexander Duyck <alexander.h.duyck@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f41.google.com ([209.85.218.41]:35431 "EHLO
-        mail-oi0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752998AbdDDL6D (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 4 Apr 2017 07:58:03 -0400
-Received: by mail-oi0-f41.google.com with SMTP id f193so159621078oib.2
-        for <netdev@vger.kernel.org>; Tue, 04 Apr 2017 04:58:02 -0700 (PDT)
-In-Reply-To: <58E2974B.30503@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        Niklas Cassel <niklass@axis.com>
+To: <peppe.cavallaro@st.com>, <alexandre.torgue@st.com>,
+        <Joao.Pinto@synopsys.com>, <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 3, 2017 at 9:41 PM, Samudrala, Sridhar
-<sridhar.samudrala@intel.com> wrote:
-> On 3/30/2017 12:17 AM, Or Gerlitz wrote:
->> On Thu, Mar 30, 2017, Sridhar Samudrala wrote:
+From: Niklas Cassel <niklas.cassel@axis.com>
 
->>> Port Representator netdevs are created for each PF and VF if the switch
->>> mode is set to 'switchdev'. These netdevs can be used to control and
->>> configure VFs and PFs when they are moved to a different namespace.
->>> They enable exposing statistics, configure and monitor link state, mtu,
->>> filters,fdb/vlan entries etc.
+Setting ethtool ops for stmmac is only allowed when the interface is up.
+Setting MTU (a netdev op) for stmmac is only allowed when the interface
+is down.
 
->>> In switchdev mode, broadcasts from VFs are received by the PF and passed
->>> to corresponding port representor netdev.
+It seems that the only reason why MTU cannot be changed when running is
+that we have not bothered to implement a nice way to dealloc/alloc the
+descriptor rings.
 
->> What netdev represents the uplink (wire port) in your impl?
+To make it less confusing for the user, call ndo_stop() and ndo_open()
+from ndo_change_mtu(). This is not a nice way to dealloc/alloc the
+descriptor rings, since it will announce that the interface is being
+brought down/up to user space, but there are several other drivers doing
+it this way, and it is arguably better than just returning -EBUSY.
 
-combining your replies from the two emails:
+Signed-off-by: Niklas Cassel <niklas.cassel@axis.com>
+---
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 12 +++++-------
+ 1 file changed, 5 insertions(+), 7 deletions(-)
 
-> We don't have a port netdev representing the uplink in this implementation as we
-> cannot control the frames going out the uplink via sw rules with the current
-> generation of hw/fw.
-
-> fwd to CPU as default rule is not possible with the current generation of hw/fw.
-> So we would like to enable switchdev to expose the port representors and start
-> adding offloads in an incremental way.
-
-I lost you even deeper
-
-I was asking on frames getting in from the uplink and not getting out
-the uplink.
-
-This is about offloading to HW a switching model where the steering
-(matching and actions)
-comes into play on the port ingress. E.g
-
-VF NIC xmit ---> VF vport e-switch rep recv --> SW or HW steering
-
-other node xmit --> UPLINK vport e-switch rep recv --> SW or HW steering
-
-If your current HW can't let you have "send to CPU" as the default
-action on ingress
-for the VFs and uplink ports, I am not clear what use-cases you can do
-in slow path
-(only reps, no offloaded SW rules) and for past path (reps + offloaded
-SW rules)...
-
-Can you please elaborate on such use-cases, so the bigger picture is more clear?
-
-Or.
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index c1c63197ff73..fd268dc0df02 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -3109,17 +3109,15 @@ static void stmmac_set_rx_mode(struct net_device *dev)
+  */
+ static int stmmac_change_mtu(struct net_device *dev, int new_mtu)
+ {
+-	struct stmmac_priv *priv = netdev_priv(dev);
+-
+-	if (netif_running(dev)) {
+-		netdev_err(priv->dev, "must be stopped to change its MTU\n");
+-		return -EBUSY;
+-	}
+-
+ 	dev->mtu = new_mtu;
+ 
+ 	netdev_update_features(dev);
+ 
++	if (netif_running(dev)) {
++		stmmac_release(dev);
++		stmmac_open(dev);
++	}
++
+ 	return 0;
+ }
+ 
+-- 
+2.11.0
