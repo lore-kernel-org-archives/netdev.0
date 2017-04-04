@@ -1,34 +1,45 @@
-From: "Tayar, Tomer" <Tomer.Tayar@cavium.com>
-Subject: RE: [PATCH -next] qed: Add a missing error code
-Date: Tue, 4 Apr 2017 06:13:04 +0000
-Message-ID: <SN2PR07MB2623C0A41E3F1786DC08CC71800B0@SN2PR07MB2623.namprd07.prod.outlook.com>
-References: <20170403182522.GA32592@mwanda>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [PATCH] [net-next] stmmac: use netif_set_real_num_{rx,tx}_queues
+Date: Tue, 4 Apr 2017 08:15:48 +0200
+Message-ID: <cf125933-2def-9fac-56d2-d3cf9d7e0bbe@st.com>
+References: <20170328094856.3457886-1-arnd@arndb.de>
+ <20170328.180105.1996071259325891752.davem@davemloft.net>
+ <20170330074536.GA4814@Red> <20170330143435.GA28098@ulmo.ba.sec>
+ <51947833-7559-0794-911d-d9cac65c5065@axis.com>
+ <059fcede-1b71-a074-39c3-4993b0e0bc08@synopsys.com>
+ <799c7a4b-767e-b21c-d3bf-8fd3b639d70f@st.com>
+ <21934325-6d37-7aea-793f-71fac2c40bf3@synopsys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "Elior, Ariel" <Ariel.Elior@cavium.com>,
-        Dept-Eng Everest Linux L2 <Dept-EngEverestLinuxL2@cavium.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
-To: Dan Carpenter <dan.carpenter@oracle.com>,
-        "Mintz, Yuval" <Yuval.Mintz@cavium.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam01on0067.outbound.protection.outlook.com ([104.47.34.67]:6022
-        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751005AbdDDGNI (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 4 Apr 2017 02:13:08 -0400
-In-Reply-To: <20170403182522.GA32592@mwanda>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, <arnd@arndb.de>,
+        <alexandre.torgue@st.com>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>
+To: Joao Pinto <Joao.Pinto@synopsys.com>,
+        Niklas Cassel <niklas.cassel@axis.com>,
+        Thierry Reding <treding@nvidia.com>,
+        Corentin Labbe <clabbe.montjoie@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <21934325-6d37-7aea-793f-71fac2c40bf3@synopsys.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> We should be returning -ENOMEM if qed_mcp_cmd_add_elem() fails.  The
-> current code returns success.
->=20
-> Fixes: 4ed1eea82a21 ("qed: Revise MFW command locking")
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+Hello Joao
 
-Thanks
+On 4/3/2017 3:12 PM, Joao Pinto wrote:
+> Yes older cores do not support multiple queues and I tried to isolate the
+> features not to affect older versions.
 
-Acked-by: Tomer Tayar <Tomer.Tayar@cavium.com>
+ok so we are inline ;-)
+
+>
+> Do you think that functions as "ndev = alloc_etherdev_mqs" has some sort of
+> influence?
+
+I do not think so is we are passing the right txqs and rxqs values.
+
+Regards
+Peppe
+
+>
+> Thanks.
