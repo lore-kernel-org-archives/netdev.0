@@ -1,39 +1,127 @@
-From: Christoph Hellwig <hch@lst.de>
-Subject: Re: [PATCH rfc 5/6] block: Add rdma affinity based queue mapping
-        helper
-Date: Tue, 4 Apr 2017 15:09:26 +0200
-Message-ID: <20170404130926.GA16338@lst.de>
-References: <1491140492-25703-1-git-send-email-sagi@grimberg.me> <1491140492-25703-6-git-send-email-sagi@grimberg.me> <becb84ac-7819-a207-56b1-70f16cb80e42@mellanox.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Sagi Grimberg <sagi@grimberg.me>, linux-rdma@vger.kernel.org,
-        linux-nvme@lists.infradead.org, linux-block@vger.kernel.org,
-        netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Christoph Hellwig <hch@lst.de>
-To: Max Gurtovoy <maxg@mellanox.com>
+From: gfree.wind@foxmail.com
+Subject: [PATCH net-next v2 1/1] net: tcp: Define the TCP_MAX_WSCALE instead of literal number 14
+Date: Tue,  4 Apr 2017 21:09:48 +0800
+Message-ID: <1491311388-6393-1-git-send-email-gfree.wind@foxmail.com>
+Cc: Gao Feng <fgao@ikuai8.com>
+To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+        kaber@trash.net, ncardwell@google.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from verein.lst.de ([213.95.11.211]:51995 "EHLO newverein.lst.de"
+Received: from smtpbgbr2.qq.com ([54.207.22.56]:41670 "EHLO smtpbgbr2.qq.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752358AbdDDNJ2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 4 Apr 2017 09:09:28 -0400
-Content-Disposition: inline
-In-Reply-To: <becb84ac-7819-a207-56b1-70f16cb80e42@mellanox.com>
+        id S1752483AbdDDNKK (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 4 Apr 2017 09:10:10 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 04, 2017 at 10:46:54AM +0300, Max Gurtovoy wrote:
->> +	if (set->nr_hw_queues > dev->num_comp_vectors)
->> +		goto fallback;
->> +
->> +	for (queue = 0; queue < set->nr_hw_queues; queue++) {
->> +		mask = ib_get_vector_affinity(dev, first_vec + queue);
->> +		if (!mask)
->> +			goto fallback;
->
-> Christoph,
-> we can use fallback also in the blk-mq-pci.c in case pci_irq_get_affinity 
-> fails, right ?
+From: Gao Feng <fgao@ikuai8.com>
 
-For PCI it shouldn't fail as the driver calling pci_irq_get_affinity
-knows how it set up the interrupts.  So I don't think it's necessary there.
+Define one new macro TCP_MAX_WSCALE instead of literal number '14',
+and use U16_MAX instead of 65535 as the max value of TCP window.
+There is another minor change, use rounddown(space, mss) instead of
+(space / mss) * mss;
+
+Signed-off-by: Gao Feng <fgao@ikuai8.com>
+---
+ v2: Correct the literal 14 in comment and log too, per Neal
+ v1: initial version
+
+ include/net/tcp.h     |  3 +++
+ net/ipv4/tcp.c        |  2 +-
+ net/ipv4/tcp_input.c  |  9 +++++----
+ net/ipv4/tcp_output.c | 12 +++++-------
+ 4 files changed, 14 insertions(+), 12 deletions(-)
+
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 582e377..cc6ae0a 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -78,6 +78,9 @@
+ /* Maximal number of ACKs sent quickly to accelerate slow-start. */
+ #define TCP_MAX_QUICKACKS	16U
+ 
++/* Maximal number of window scale according to RFC1323 */
++#define TCP_MAX_WSCALE		14U
++
+ /* urg_data states */
+ #define TCP_URG_VALID	0x0100
+ #define TCP_URG_NOTYET	0x0200
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 1665948..94f0b5b 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -2393,7 +2393,7 @@ static int tcp_repair_options_est(struct tcp_sock *tp,
+ 				u16 snd_wscale = opt.opt_val & 0xFFFF;
+ 				u16 rcv_wscale = opt.opt_val >> 16;
+ 
+-				if (snd_wscale > 14 || rcv_wscale > 14)
++				if (snd_wscale > TCP_MAX_WSCALE || rcv_wscale > TCP_MAX_WSCALE)
+ 					return -EFBIG;
+ 
+ 				tp->rx_opt.snd_wscale = snd_wscale;
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index a75c48f..ed6606c 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -3759,11 +3759,12 @@ void tcp_parse_options(const struct sk_buff *skb,
+ 				    !estab && sysctl_tcp_window_scaling) {
+ 					__u8 snd_wscale = *(__u8 *)ptr;
+ 					opt_rx->wscale_ok = 1;
+-					if (snd_wscale > 14) {
+-						net_info_ratelimited("%s: Illegal window scaling value %d >14 received\n",
++					if (snd_wscale > TCP_MAX_WSCALE) {
++						net_info_ratelimited("%s: Illegal window scaling value %d > %u received\n",
+ 								     __func__,
+-								     snd_wscale);
+-						snd_wscale = 14;
++								     snd_wscale,
++								     TCP_MAX_WSCALE);
++						snd_wscale = TCP_MAX_WSCALE;
+ 					}
+ 					opt_rx->snd_wscale = snd_wscale;
+ 				}
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 1397194..0e807a8 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -212,12 +212,12 @@ void tcp_select_initial_window(int __space, __u32 mss,
+ 
+ 	/* If no clamp set the clamp to the max possible scaled window */
+ 	if (*window_clamp == 0)
+-		(*window_clamp) = (65535 << 14);
++		(*window_clamp) = (U16_MAX << TCP_MAX_WSCALE);
+ 	space = min(*window_clamp, space);
+ 
+ 	/* Quantize space offering to a multiple of mss if possible. */
+ 	if (space > mss)
+-		space = (space / mss) * mss;
++		space = rounddown(space, mss);
+ 
+ 	/* NOTE: offering an initial window larger than 32767
+ 	 * will break some buggy TCP stacks. If the admin tells us
+@@ -234,13 +234,11 @@ void tcp_select_initial_window(int __space, __u32 mss,
+ 
+ 	(*rcv_wscale) = 0;
+ 	if (wscale_ok) {
+-		/* Set window scaling on max possible window
+-		 * See RFC1323 for an explanation of the limit to 14
+-		 */
++		/* Set window scaling on max possible window */
+ 		space = max_t(u32, space, sysctl_tcp_rmem[2]);
+ 		space = max_t(u32, space, sysctl_rmem_max);
+ 		space = min_t(u32, space, *window_clamp);
+-		while (space > 65535 && (*rcv_wscale) < 14) {
++		while (space > U16_MAX && (*rcv_wscale) < TCP_MAX_WSCALE) {
+ 			space >>= 1;
+ 			(*rcv_wscale)++;
+ 		}
+@@ -253,7 +251,7 @@ void tcp_select_initial_window(int __space, __u32 mss,
+ 	}
+ 
+ 	/* Set the clamp no higher than max representable value */
+-	(*window_clamp) = min(65535U << (*rcv_wscale), *window_clamp);
++	(*window_clamp) = min_t(__u32, U16_MAX << (*rcv_wscale), *window_clamp);
+ }
+ EXPORT_SYMBOL(tcp_select_initial_window);
+ 
+-- 
+1.9.1
