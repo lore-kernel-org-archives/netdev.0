@@ -1,71 +1,76 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [RFC net-next] bpf: taint loading !is_gpl programs
-Date: Tue, 04 Apr 2017 23:12:11 +0200
-Message-ID: <58E40C2B.7040802@iogearbox.net>
-References: <20170404183354.8579-1-aconole@bytheb.org>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: net/sctp: list double add warning in sctp_endpoint_add_asoc
+Date: Tue, 4 Apr 2017 18:14:54 -0300
+Message-ID: <20170404211454.GA911@localhost.localdomain>
+References: <CAAeHK+zwbeT=jBRRSf2KYXWM=eUZAEe5QHvKPYGG5qWh6A0JGQ@mail.gmail.com>
+ <CADvbK_f1FEGRnucuMkQT6RKm0G1tKcfHyj=-GqxgzQ4iQoBLCg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Aaron Conole <aconole@bytheb.org>,
-        Alexei Starovoitov <ast@kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrey Konovalov <andreyknvl@google.com>,
+        Vlad Yasevich <vyasevich@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        linux-sctp@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Xin Long <lucien.xin@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170404183354.8579-1-aconole@bytheb.org>
+Content-Disposition: inline
+In-Reply-To: <CADvbK_f1FEGRnucuMkQT6RKm0G1tKcfHyj=-GqxgzQ4iQoBLCg@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 04/04/2017 08:33 PM, Aaron Conole wrote:
-> The eBPF framework is used for more than just socket level filtering.  It
-> can also provide tracing, and even change the way packets coming into the
-> system look.  Most of the eBPF callable symbols are available to non-gpl
-> programs, and this includes helper functions which modify packets.  This
-> allows proprietary eBPF code to link to the kernel and make decisions
-> which can negatively impact network performance.
->
-> Since the sources for these programs are only available under a proprietary
-> license, it seems better to treat them the same as other proprietary
-> modules: set the system taint flag.  An exemption is made for socket-level
-> filters, since they do not really impact networking for the whole kernel.
->
-> Signed-off-by: Aaron Conole <aconole@bytheb.org>
-> ---
->   kernel/bpf/syscall.c | 5 +++++
->   1 file changed, 5 insertions(+)
->
-> diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
-> index ab0cf4c4..1255b51 100644
-> --- a/kernel/bpf/syscall.c
-> +++ b/kernel/bpf/syscall.c
-> @@ -860,6 +860,11 @@ static int bpf_prog_load(union bpf_attr *attr)
->
->   	bpf_prog_kallsyms_add(prog);
->   	trace_bpf_prog_load(prog, err);
-> +	if (type != BPF_PROG_TYPE_SOCKET_FILTER && !is_gpl && !(err < 0)) {
-> +		if (!test_taint(TAINT_PROPRIETARY_MODULE))
-> +			pr_warn("bpf license '%s' taints kernel.\n", license);
-> +		add_taint(TAINT_PROPRIETARY_MODULE, LOCKDEP_STILL_OK);
-> +	}
->   	return err;
->
->   free_used_maps:
->
+On Wed, Apr 05, 2017 at 01:29:19AM +0800, Xin Long wrote:
+> On Tue, Apr 4, 2017 at 9:28 PM, Andrey Konovalov <andreyknvl@google.com> wrote:
+> > Hi,
+> >
+> > I've got the following error report while fuzzing the kernel with syzkaller.
+> >
+> > On commit a71c9a1c779f2499fb2afc0553e543f18aff6edf (4.11-rc5).
+> >
+> > A reproducer and .config are attached.
+> The script is pretty hard to reproduce the issue in my env.
 
-Nacked-by: Daniel Borkmann <daniel@iogearbox.net>
+I didn't try running it but I also found the reproducer very complicated
+to follow. Do you have any plans on having some PoC optimizer, so we can
+have a more readable code?
+strace is handy for filtering the noise, yes, but sometimes it doesn't
+cut it.
 
-This is proposal completely unreasonable; what the purpose of .gpl_only
-flags is agreed upon since the beginning is that some of the helpers
-are only available if the program is loaded as gpl, f.e. bpf_ktime_get_ns(),
-bpf_probe_read(), bpf_probe_write_user(), bpf_trace_printk(),
-bpf_skb_event_output(), etc. Now, suddenly switching from one kernel
-version to another, existing programs would out of a sudden taint the
-kernel, which by itself is unacceptable. There are also many other
-subsystems that can modify packets, or affect system performance
-negatively if configured wrongly and which in addition *don't require* a
-hard capable(CAP_SYS_ADMIN) restriction like such eBPF programs already
-do, perhaps should we taint them as well? Plus tracing programs are
-attached to passively monitor systems performance, not even modifying
-data structures ... The current purpose of .gpl_only is fine as-is, and
-there's work in progress for a generic dump mechanism that works with
-all program types to improve introspection aspect if that's what you're
-after, starting to taint is, in a way, breaking existing applications
-and this is not acceptable.
+> But there seems a case to cause a use-after-free when out of snd_buf.
+> 
+> the case is like:
+> -----------
+> one thread:                       another thread:
+>                                   sctp_rcv hold asoc (hold transport)
+>                                   enqueue the chunk to backlog queue
+>                                   [refcnt=2]
+> 
+> sctp_close free assoc
+> [refcnt=1]
+> 
+> sctp_sendmsg find asoc
+> but not hold it
+> 
+> out of snd_buf
+> hold asoc, schedule out
+> [refcnt = 2]
+> 
+>                                   process backlog and put asoc/transport
+>                                   [refcnt=1]
+> 
+> schedule in, put asoc
+> [refcnt=0] <--- destroyed
+> 
+> sctp_sendmsg continue
+
+It shouldn't be continuing here because sctp_wait_for_sndbuf and
+sctp_wait_for_connect functions are checking if the asoc is dead
+already when it schedules in, even though sctp_wait_for_connect return
+value is ignored and sctp_sendmsg() simply returns after that.
+Or the checks for dead asocs in there aren't enough somehow.
+
+> using asoc, panic
