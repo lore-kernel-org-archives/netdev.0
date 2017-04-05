@@ -1,44 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH next] bonding: fix active-backup transition
-Date: Wed, 05 Apr 2017 07:16:35 -0700 (PDT)
-Message-ID: <20170405.071635.1490651894506059902.davem@davemloft.net>
-References: <20170404013839.1728-1-mahesh@bandewar.net>
+From: Jens Axboe <axboe@kernel.dk>
+Subject: Re: [PATCH rfc 5/6] block: Add rdma affinity based queue mapping
+ helper
+Date: Wed, 5 Apr 2017 08:17:05 -0600
+Message-ID: <ce263274-d814-6167-42a3-5d3cad170f18@kernel.dk>
+References: <1491140492-25703-1-git-send-email-sagi@grimberg.me>
+ <1491140492-25703-6-git-send-email-sagi@grimberg.me>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: j.vosburgh@gmail.com, andy@greyhouse.net, vfalico@gmail.com,
-        nikolay@redhat.com, edumazet@google.com, netdev@vger.kernel.org,
-        maheshb@google.com
-To: mahesh@bandewar.net
+Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Christoph Hellwig <hch@lst.de>
+To: Sagi Grimberg <sagi@grimberg.me>, linux-rdma@vger.kernel.org,
+        linux-nvme@lists.infradead.org, linux-block@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:42464 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753958AbdDEOQl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 5 Apr 2017 10:16:41 -0400
-In-Reply-To: <20170404013839.1728-1-mahesh@bandewar.net>
+Received: from mail-it0-f45.google.com ([209.85.214.45]:36352 "EHLO
+        mail-it0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754343AbdDEORH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 5 Apr 2017 10:17:07 -0400
+Received: by mail-it0-f45.google.com with SMTP id e75so83514162itd.1
+        for <netdev@vger.kernel.org>; Wed, 05 Apr 2017 07:17:07 -0700 (PDT)
+In-Reply-To: <1491140492-25703-6-git-send-email-sagi@grimberg.me>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mahesh Bandewar <mahesh@bandewar.net>
-Date: Mon,  3 Apr 2017 18:38:39 -0700
+On 04/02/2017 07:41 AM, Sagi Grimberg wrote:
+> Like pci and virtio, we add a rdma helper for affinity
+> spreading. This achieves optimal mq affinity assignments
+> according to the underlying rdma device affinity maps.
 
-> From: Mahesh Bandewar <maheshb@google.com>
-> 
-> Earlier patch c4adfc822bf5 ("bonding: make speed, duplex setting
-> consistent with link state") made an attempt to keep slave state
-> consistent with speed and duplex settings. Unfortunately link-state
-> transition is used to change the active link especially when used
-> in conjunction with mii-mon. The above mentioned patch broke that
-> logic. Also when speed and duplex settings for a link are updated
-> during a link-event, the link-status should not be changed to
-> invoke correct transition logic.
-> 
-> This patch fixes this issue by moving the link-state update outside
-> of the bond_update_speed_duplex() fn and to the places where this fn
-> is called and update link-state selectively.
-> 
-> Fixes: c4adfc822bf5 ("bonding: make speed, duplex setting consistent
-> with link state")
-> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+Reviewed-by: Jens Axboe <axboe@fb.com>
 
-Applied, thanks.
+-- 
+Jens Axboe
