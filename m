@@ -1,373 +1,133 @@
-From: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: [PATCH 3/4] bluetooth: hci_uart: add LL protocol serdev driver support
-Date: Wed,  5 Apr 2017 13:30:04 -0500
-Message-ID: <20170405183005.20570-4-robh@kernel.org>
-References: <20170405183005.20570-1-robh@kernel.org>
-Cc: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-        Gustavo Padovan <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>,
-        Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        Wei Xu <xuwei5-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>, Eyal Reizer <eyalr-l0cyMroinI0@public.gmane.org>,
-        Satish Patel <satish.patel-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
-        linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170405183005.20570-1-robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+Subject: Re: net/ipv4: use-after-free in ipv4_mtu
+Date: Wed, 05 Apr 2017 12:59:29 -0600
+Message-ID: <df3240d8a5a341f1c13db6708e4bd52f@codeaurora.org>
+References: <CAAeHK+zJ20r8O=MhPY69UPK7sObODp2ByK5136JXgw5U9SMofw@mail.gmail.com>
+ <CANn89iKuT+VBZqbJ4=hTAgUbnhuZ0berg0PK+imd1CKuWLy1eQ@mail.gmail.com>
+ <CAM_iQpUittpMt-8BpNePWv7iTDasCZuNYTEPnu=K-4sFK5qiBg@mail.gmail.com>
+ <1491360338.10124.39.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII;
+ format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Andrey Konovalov <andreyknvl@google.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        syzkaller <syzkaller@googlegroups.com>,
+        netdev-owner@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1491360338.10124.39.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Turns out that the LL protocol and the TI-ST are the same thing AFAICT.
-The TI-ST adds firmware loading, GPIO control, and shared access for
-NFC, FM radio, etc. For now, we're only implementing what is needed for
-BT. This mirrors other drivers like BCM and Intel, but uses the new
-serdev bus.
+> 
+> Interesting. I might had too many beers tonight, but ...
+> 
+> refcount was removed in 2860583fe840 many months later
+> 
+> -static void rt_init_metrics(struct rtable *rt, struct fib_info *fi)
+> -{
+> -       if (fi->fib_metrics != (u32 *) dst_default_metrics) {
+> -               rt->fi = fi;
+> -               atomic_inc(&fi->fib_clntref);
+> -       }
+> -       dst_init_metrics(&rt->dst, fi->fib_metrics, true);
+> -}
+> -
+>  static struct fib_nh_exception *find_exception(struct fib_nh *nh,
+> __be32 daddr)
+>  {
+>         struct fnhe_hash_bucket *hash = nh->nh_exceptions;
+> @@ -1261,7 +1239,7 @@ static void rt_set_nexthop(struct rtable *rt,
+> __be32 daddr,
+>                         rt->rt_gateway = nh->nh_gw;
+>                 if (unlikely(fnhe))
+>                         rt_bind_exception(rt, fnhe, daddr);
+> -               rt_init_metrics(rt, fi);
+> +               dst_init_metrics(&rt->dst, fi->fib_metrics, true);
+>  #ifdef CONFIG_IP_ROUTE_CLASSID
+>                 rt->dst.tclassid = nh->nh_tclassid;
+>  #endif
 
-The firmware loading is greatly simplified by using existing
-infrastructure to send commands. It may be a bit slower than the
-original code using synchronous functions, but the real bottleneck is
-likely doing firmware load at 115.2kbps.
+Hi Eric
 
-Signed-off-by: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Cc: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-Cc: Gustavo Padovan <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>
-Cc: Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Cc: linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
----
- drivers/bluetooth/hci_ll.c | 261 ++++++++++++++++++++++++++++++++++++++++++++-
- 1 file changed, 260 insertions(+), 1 deletion(-)
+I encountered a crash on 4.4 kernel pointing to ipv4_mtu.
+Is the crash similar to this one?
+(target is ARM64 Android, was seen on a stability rack, so no reproducer
+unfortunately)
 
-diff --git a/drivers/bluetooth/hci_ll.c b/drivers/bluetooth/hci_ll.c
-index 02692fe30279..9b2054f5502d 100644
---- a/drivers/bluetooth/hci_ll.c
-+++ b/drivers/bluetooth/hci_ll.c
-@@ -34,20 +34,23 @@
- #include <linux/sched.h>
- #include <linux/types.h>
- #include <linux/fcntl.h>
-+#include <linux/firmware.h>
- #include <linux/interrupt.h>
- #include <linux/ptrace.h>
- #include <linux/poll.h>
- 
- #include <linux/slab.h>
--#include <linux/tty.h>
- #include <linux/errno.h>
- #include <linux/string.h>
- #include <linux/signal.h>
- #include <linux/ioctl.h>
-+#include <linux/serdev.h>
- #include <linux/skbuff.h>
-+#include <linux/ti_wilink_st.h>
- 
- #include <net/bluetooth/bluetooth.h>
- #include <net/bluetooth/hci_core.h>
-+#include <linux/gpio/consumer.h>
- 
- #include "hci_uart.h"
- 
-@@ -76,6 +79,12 @@ struct hcill_cmd {
- 	u8 cmd;
- } __packed;
- 
-+struct ll_device {
-+	struct hci_uart hu;
-+	struct serdev_device *serdev;
-+	struct gpio_desc *enable_gpio;
-+};
-+
- struct ll_struct {
- 	unsigned long rx_state;
- 	unsigned long rx_count;
-@@ -136,6 +145,9 @@ static int ll_open(struct hci_uart *hu)
- 
- 	hu->priv = ll;
- 
-+	if (hu->serdev)
-+		serdev_device_open(hu->serdev);
-+
- 	return 0;
- }
- 
-@@ -164,6 +176,13 @@ static int ll_close(struct hci_uart *hu)
- 
- 	kfree_skb(ll->rx_skb);
- 
-+	if (hu->serdev) {
-+		struct ll_device *lldev = serdev_device_get_drvdata(hu->serdev);
-+		gpiod_set_value_cansleep(lldev->enable_gpio, 0);
-+
-+		serdev_device_close(hu->serdev);
-+	}
-+
- 	hu->priv = NULL;
- 
- 	kfree(ll);
-@@ -505,9 +524,245 @@ static struct sk_buff *ll_dequeue(struct hci_uart *hu)
- 	return skb_dequeue(&ll->txq);
- }
- 
-+#ifdef CONFIG_SERIAL_DEV_BUS
-+static int read_local_version(struct hci_dev *hdev)
-+{
-+	int err = 0;
-+	unsigned short version = 0;
-+	struct sk_buff *skb;
-+	struct hci_rp_read_local_version *ver;
-+
-+	skb = __hci_cmd_sync(hdev, HCI_OP_READ_LOCAL_VERSION, 0, NULL, HCI_INIT_TIMEOUT);
-+	if (IS_ERR(skb)) {
-+		bt_dev_err(hdev, "Reading TI version information failed (%ld)",
-+			   PTR_ERR(skb));
-+		err = PTR_ERR(skb);
-+		goto out;
-+	}
-+	if (skb->len != sizeof(*ver)) {
-+		err = -EILSEQ;
-+		goto out;
-+	}
-+
-+	ver = (struct hci_rp_read_local_version *)skb->data;
-+	if (le16_to_cpu(ver->manufacturer) != 13) {
-+		err = -ENODEV;
-+		goto out;
-+	}
-+
-+	version = le16_to_cpu(ver->lmp_subver);
-+
-+out:
-+	if (err) bt_dev_err(hdev, "Failed to read TI version info: %d", err);
-+	kfree_skb(skb);
-+	return err ? err : version;
-+}
-+
-+/**
-+ * download_firmware -
-+ *	internal function which parses through the .bts firmware
-+ *	script file intreprets SEND, DELAY actions only as of now
-+ */
-+static int download_firmware(struct ll_device *lldev)
-+{
-+	unsigned short chip, min_ver, maj_ver;
-+	int version, err, len;
-+	unsigned char *ptr, *action_ptr;
-+	unsigned char bts_scr_name[40];	/* 40 char long bts scr name? */
-+	const struct firmware *fw;
-+	struct sk_buff *skb;
-+	struct hci_command *cmd;
-+
-+	version = read_local_version(lldev->hu.hdev);
-+	if (version < 0)
-+		return version;
-+
-+	chip = (version & 0x7C00) >> 10;
-+	min_ver = (version & 0x007F);
-+	maj_ver = (version & 0x0380) >> 7;
-+	if (version & 0x8000)
-+		maj_ver |= 0x0008;
-+
-+	snprintf(bts_scr_name, sizeof(bts_scr_name),
-+		 "ti-connectivity/TIInit_%d.%d.%d.bts",
-+		 chip, maj_ver, min_ver);
-+
-+	err = request_firmware(&fw, bts_scr_name, &lldev->serdev->dev);
-+	if (err || !fw->data || !fw->size) {
-+		bt_dev_err(lldev->hu.hdev, "request_firmware failed(errno %d) for %s",
-+			   err, bts_scr_name);
-+		return -EINVAL;
-+	}
-+	ptr = (void *)fw->data;
-+	len = fw->size;
-+	/* bts_header to remove out magic number and
-+	 * version
-+	 */
-+	ptr += sizeof(struct bts_header);
-+	len -= sizeof(struct bts_header);
-+
-+	while (len > 0 && ptr) {
-+		bt_dev_dbg(lldev->hu.hdev, " action size %d, type %d ",
-+			   ((struct bts_action *)ptr)->size,
-+			   ((struct bts_action *)ptr)->type);
-+
-+		action_ptr = &(((struct bts_action *)ptr)->data[0]);
-+
-+		switch (((struct bts_action *)ptr)->type) {
-+		case ACTION_SEND_COMMAND:	/* action send */
-+			bt_dev_dbg(lldev->hu.hdev, "S");
-+			cmd = (struct hci_command *)action_ptr;
-+			if (cmd->opcode == 0xff36) {
-+				/* ignore remote change
-+				 * baud rate HCI VS command */
-+				bt_dev_warn(lldev->hu.hdev, "change remote baud rate command in firmware");
-+				break;
-+			}
-+			if (cmd->prefix != 1)
-+				bt_dev_dbg(lldev->hu.hdev, "command type %d\n", cmd->prefix);
-+
-+			skb = __hci_cmd_sync(lldev->hu.hdev, cmd->opcode, cmd->plen, &cmd->speed, HCI_INIT_TIMEOUT);
-+			if (IS_ERR(skb)) {
-+				bt_dev_err(lldev->hu.hdev, "send command failed\n");
-+				goto out_rel_fw;
-+			}
-+			kfree_skb(skb);
-+			break;
-+		case ACTION_WAIT_EVENT:  /* wait */
-+			/* no need to wait as command was synchronous */
-+			bt_dev_dbg(lldev->hu.hdev, "W");
-+			break;
-+		case ACTION_DELAY:	/* sleep */
-+			bt_dev_info(lldev->hu.hdev, "sleep command in scr");
-+			mdelay(((struct bts_action_delay *)action_ptr)->msec);
-+			break;
-+		}
-+		len -= (sizeof(struct bts_action) +
-+			((struct bts_action *)ptr)->size);
-+		ptr += sizeof(struct bts_action) +
-+			((struct bts_action *)ptr)->size;
-+	}
-+
-+out_rel_fw:
-+	/* fw download complete */
-+	release_firmware(fw);
-+	return err;
-+}
-+
-+static int ll_setup(struct hci_uart *hu)
-+{
-+	int err, retry = 3;
-+	struct ll_device *lldev;
-+	struct serdev_device *serdev = hu->serdev;
-+	u32 speed;
-+
-+	if (!serdev)
-+		return 0;
-+
-+	lldev = serdev_device_get_drvdata(serdev);
-+
-+	serdev_device_set_flow_control(serdev, true);
-+
-+	do {
-+		/* Configure BT_EN to HIGH state */
-+		gpiod_set_value_cansleep(lldev->enable_gpio, 0);
-+		msleep(5);
-+		gpiod_set_value_cansleep(lldev->enable_gpio, 1);
-+		msleep(100);
-+
-+		err = download_firmware(lldev);
-+		if (!err)
-+			break;
-+
-+		/* Toggle BT_EN and retry */
-+		bt_dev_err(hu->hdev, "download firmware failed, retrying...");
-+	} while (retry--);
-+
-+	if (err)
-+		return err;
-+
-+	/* Operational speed if any */
-+	if (hu->oper_speed)
-+		speed = hu->oper_speed;
-+	else if (hu->proto->oper_speed)
-+		speed = hu->proto->oper_speed;
-+	else
-+		speed = 0;
-+
-+	if (speed) {
-+		struct sk_buff *skb = __hci_cmd_sync(hu->hdev, 0xff36, sizeof(speed), &speed, HCI_INIT_TIMEOUT);
-+		if (!IS_ERR(skb)) {
-+			kfree_skb(skb);
-+			serdev_device_set_baudrate(serdev, speed);
-+		}
-+	}
-+
-+	return 0;
-+}
-+
-+static const struct hci_uart_proto llp;
-+
-+static int hci_ti_probe(struct serdev_device *serdev)
-+{
-+	struct hci_uart *hu;
-+	struct ll_device *lldev;
-+	u32 max_speed = 3000000;
-+
-+	lldev = devm_kzalloc(&serdev->dev, sizeof(struct ll_device), GFP_KERNEL);
-+	if (!lldev)
-+		return -ENOMEM;
-+	hu = &lldev->hu;
-+
-+	serdev_device_set_drvdata(serdev, lldev);
-+	lldev->serdev = hu->serdev = serdev;
-+
-+	lldev->enable_gpio = devm_gpiod_get_optional(&serdev->dev, "enable", GPIOD_OUT_LOW);
-+	if (IS_ERR(lldev->enable_gpio))
-+		return PTR_ERR(lldev->enable_gpio);
-+
-+	of_property_read_u32(serdev->dev.of_node, "max-speed", &max_speed);
-+	hci_uart_set_speeds(hu, 115200, max_speed);
-+
-+	return hci_uart_register_device(hu, &llp);
-+}
-+
-+static void hci_ti_remove(struct serdev_device *serdev)
-+{
-+	struct ll_device *lldev = serdev_device_get_drvdata(serdev);
-+	struct hci_uart *hu = &lldev->hu;
-+	struct hci_dev *hdev = hu->hdev;
-+
-+	cancel_work_sync(&hu->write_work);
-+
-+	hci_unregister_dev(hdev);
-+	hci_free_dev(hdev);
-+	hu->proto->close(hu);
-+}
-+
-+static const struct of_device_id hci_ti_of_match[] = {
-+	{ .compatible = "ti,wl1831-st" },
-+	{ .compatible = "ti,wl1835-st" },
-+	{ .compatible = "ti,wl1837-st" },
-+	{},
-+};
-+MODULE_DEVICE_TABLE(of, hci_ti_of_match);
-+
-+static struct serdev_device_driver hci_ti_drv = {
-+	.driver		= {
-+		.name	= "hci-ti",
-+		.of_match_table = of_match_ptr(hci_ti_of_match),
-+	},
-+	.probe	= hci_ti_probe,
-+	.remove	= hci_ti_remove,
-+};
-+#else
-+#define ll_setup NULL
-+#endif
-+
- static const struct hci_uart_proto llp = {
- 	.id		= HCI_UART_LL,
- 	.name		= "LL",
-+	.setup		= ll_setup,
- 	.open		= ll_open,
- 	.close		= ll_close,
- 	.recv		= ll_recv,
-@@ -518,10 +773,14 @@ static const struct hci_uart_proto llp = {
- 
- int __init ll_init(void)
- {
-+	serdev_device_driver_register(&hci_ti_drv);
-+
- 	return hci_uart_register_proto(&llp);
- }
- 
- int __exit ll_deinit(void)
- {
-+	serdev_device_driver_unregister(&hci_ti_drv);
-+
- 	return hci_uart_unregister_proto(&llp);
- }
--- 
-2.10.1
+<6> Kernel BUG at 00000000000005dc [verbose debug info unavailable]
+<6> Internal error: Oops - BUG: 0 [#1] PREEMPT SMP
+<6> CPU: 1 PID: 4649 Comm: iperf Tainted: G        W  O    4.4.21+ #1
+<6> task: ffffffef02242f00 ti: ffffffef021b8000 task.ti: 
+ffffffef021b8000
+<2> PC is at 0x5dc
+<2> LR is at ipv4_mtu+0x70/0x84
+<2> pc : [<00000000000005dc>] lr : [<ffffff9bd2c35ab8>] pstate: a0000145
+<2> sp : ffffffef021bb9b0
+<2> x29: ffffffef021bb9b0 x28: 0000000000000000
+<2> x27: ffffffef318122c0 x26: 00000000000005be
+<2> x25: ffffffef31812678 x24: ffffffef31812678
+<2> x23: ffffffef8794c000 x22: ffffff9bd43f4380
+<2> x21: ffffffef318122c0 x20: ffffffef6aef6ac0
+<2> x19: ffffffef05026ac0 x18: 0000000001026749
+<2> x17: 0000007fabaf145c x16: ffffff9bd1fe72bc
+<2> x15: 00368fbefea52a8e x14: 3736353433323130
+<2> x13: 3938373635343332 x12: 0000000000000003
+<2> x11: 0000000000000028 x10: 0101010101010101
+<2> x9 : 0000000000000001 x8 : 0000000000000098
+<2> x7 : ffffff9bd2c8cbc0 x6 : 0000000000000000
+<2> x5 : ffffffef68481c00 x4 : 00000000ffffefbf
+<2> x3 : 0000000000000000 x2 : 0000000000000000
+<2> x1 : 000000000000ef7f x0 : 0000000001280058
+<2>
+LR: 0xffffff9bd2c35a78:
+<2> 5a78  b7f80241 f9401661 927ef421 b9400422 2a0203e0 350001a2 f9400e60 
+b9400021
+<2> 5a98  b9422800 361000c1 39428e61 34000081 7109001f 52804801 1a819000 
+529fffe1
+<2> 5ab8  6b01001f 1a819000 f9400bf3 a8c27bfd d65f03c0 a9ba7bfd 910003fd 
+a90153f3
+<2> 5ad8  a9025bf5 a90363f7 a9046bf9 aa0003f3 aa1e03e0 f9002fa1 2a0203f8 
+2a0303f9
+<2>
+SP: 0xffffffef021bb970:
+<2> b970  d2c35ab8 ffffff9b 021bb9b0 ffffffef 000005dc 00000000 a0000145 
+00000000
+<2> b990  6aef6ac0 ffffffef 6aef6ac0 ffffffef 00000000 00000080 d2c015b0 
+ffffff9b
+<2> b9b0  021bb9d0 ffffffef d2c3e4d4 ffffff9b 6aef6ac0 ffffffef 021bba18 
+ffffffef
+<2> b9d0  021bba20 ffffffef d2c3f05c ffffff9b d37d9418 ffffff9b 6aef6ac0 
+ffffffef
+<2>
+<6> Process iperf (pid: 4649, stack limit = 0xffffffef021b8020)
+<2> Call trace:
+<2> [<00000000000005dc>] 0x5dc
+<2> [<ffffff9bd2c3e4d4>] ip_finish_output+0xbc/0x1dc
+<2> [<ffffff9bd2c3f05c>] ip_output+0xe8/0x15c
+<2> [<ffffff9bd2c3e78c>] ip_local_out+0x58/0x68
+<2> [<ffffff9bd2c3fa88>] ip_send_skb+0x2c/0xa8
+<2> [<ffffff9bd2c643d0>] udp_send_skb+0x194/0x29c
+<2> [<ffffff9bd2c66584>] udp_sendmsg+0x4e0/0x700
+<2> [<ffffff9bd2c70788>] inet_sendmsg+0x98/0xc8
+<2> [<ffffff9bd2ba82e8>] sock_sendmsg+0x48/0x60
+<2> [<ffffff9bd2ba8394>] sock_write_iter+0x94/0xc0
+<2> [<ffffff9bd1fe61c8>] __vfs_write+0xc0/0xf0
+<2> [<ffffff9bd1fe6abc>] vfs_write+0xb8/0x150
+<2> [<ffffff9bd1fe7314>] SyS_write+0x58/0x94
+<2> [<ffffff9bd1e84e30>] el0_svc_naked+0x24/0x28
+<6> Code: bad PC value
+<6> ---[ end trace debf337ba02da94f ]---
+<6> Kernel panic - not syncing: Fatal exception
 
 --
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+The Qualcomm Innovation Center, Inc. is a member of the Code Aurora 
+Forum,
+a Linux Foundation Collaborative Project
