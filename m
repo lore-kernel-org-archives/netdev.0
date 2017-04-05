@@ -1,51 +1,106 @@
-From: Corentin Labbe <clabbe.montjoie@gmail.com>
-Subject: Re: [PATCH 0/4 v2 net-next] net: stmmac: adding multiple buffers
-Date: Wed, 5 Apr 2017 18:59:41 +0200
-Message-ID: <20170405165941.GA18568@Red>
-References: <cover.1491409859.git.jpinto@synopsys.com>
+From: David Howells <dhowells@redhat.com>
+Subject: [PATCH 18/38] Annotate hardware config module parameters in
+ drivers/net/can/
+Date: Wed, 05 Apr 2017 17:59:31 +0100
+Message-ID: <149141157162.29162.10145088436840145584.stgit@warthog.procyon.org.uk>
+References: <149141141298.29162.5612793122429261720.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, treding@nvidia.com, niklas.cassel@axis.com,
-        netdev@vger.kernel.org
-To: Joao Pinto <Joao.Pinto@synopsys.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: gnomes@lxorguk.ukuu.org.uk, netdev@vger.kernel.org,
+        linux-can@vger.kernel.org, dhowells@redhat.com,
+        linux-security-module@vger.kernel.org, keyrings@vger.kernel.org,
+        Marc Kleine-Budde <mkl@pengutronix.de>,
+        gregkh@linuxfoundation.org, Wolfgang Grandegger <wg@grandegger.com>
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f196.google.com ([209.85.128.196]:33720 "EHLO
-        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933058AbdDEQ7t (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 5 Apr 2017 12:59:49 -0400
-Received: by mail-wr0-f196.google.com with SMTP id g19so4408807wrb.0
-        for <netdev@vger.kernel.org>; Wed, 05 Apr 2017 09:59:48 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <cover.1491409859.git.jpinto@synopsys.com>
+Received: from mx1.redhat.com ([209.132.183.28]:55606 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932560AbdDEQ7f (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 5 Apr 2017 12:59:35 -0400
+In-Reply-To: <149141141298.29162.5612793122429261720.stgit@warthog.procyon.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 05, 2017 at 05:43:00PM +0100, Joao Pinto wrote:
-> This patch adds multiple buffers to stmmac in a more fragmented
-> way, in order to make problem debug easier.
-> 
-> I would kindly request to people to test this patch in their HWs in
-> order to check if everything's functional. Thank you.
-> 
-> Joao Pinto (4):
->   net: stmmac: break some functions into RX and TX scopes
->   net: stmmac: adding multiple buffers for RX
->   net: stmmac: adding multiple buffers for TX
->   net: stmmac: adding multiple napi mechanism
-> 
->  drivers/net/ethernet/stmicro/stmmac/chain_mode.c  |   45 +-
->  drivers/net/ethernet/stmicro/stmmac/ring_mode.c   |   46 +-
->  drivers/net/ethernet/stmicro/stmmac/stmmac.h      |   49 +-
->  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 1257 ++++++++++++++-------
->  4 files changed, 947 insertions(+), 450 deletions(-)
-> 
-> -- 
-> 2.9.3
-> 
+When the kernel is running in secure boot mode, we lock down the kernel to
+prevent userspace from modifying the running kernel image.  Whilst this
+includes prohibiting access to things like /dev/mem, it must also prevent
+access by means of configuring driver modules in such a way as to cause a
+device to access or modify the kernel image.
 
-Hello
+To this end, annotate module_param* statements that refer to hardware
+configuration and indicate for future reference what type of parameter they
+specify.  The parameter parser in the core sees this information and can
+skip such parameters with an error message if the kernel is locked down.
+The module initialisation then runs as normal, but just sees whatever the
+default values for those parameters is.
 
-I have tested v1 and didn't hit any issue on dwmac-sunxi/dwmac-sun8i.
-I will test the v2 and send just after my tested-by
+Note that we do still need to do the module initialisation because some
+drivers have viable defaults set in case parameters aren't specified and
+some drivers support automatic configuration (e.g. PNP or PCI) in addition
+to manually coded parameters.
 
-Regards
+This patch annotates drivers in drivers/net/can/.
+
+Suggested-by: Alan Cox <gnomes@lxorguk.ukuu.org.uk>
+Signed-off-by: David Howells <dhowells@redhat.com>
+Acked-by: Marc Kleine-Budde <mkl@pengutronix.de>
+cc: Wolfgang Grandegger <wg@grandegger.com>
+cc: linux-can@vger.kernel.org
+cc: netdev@vger.kernel.org
+---
+
+ drivers/net/can/cc770/cc770_isa.c     |    8 ++++----
+ drivers/net/can/sja1000/sja1000_isa.c |    8 ++++----
+ 2 files changed, 8 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/net/can/cc770/cc770_isa.c b/drivers/net/can/cc770/cc770_isa.c
+index e0d15711e9ac..3a30fd3b4498 100644
+--- a/drivers/net/can/cc770/cc770_isa.c
++++ b/drivers/net/can/cc770/cc770_isa.c
+@@ -82,16 +82,16 @@ static u8 cor[MAXDEV] = {[0 ... (MAXDEV - 1)] = 0xff};
+ static u8 bcr[MAXDEV] = {[0 ... (MAXDEV - 1)] = 0xff};
+ static int indirect[MAXDEV] = {[0 ... (MAXDEV - 1)] = -1};
+ 
+-module_param_array(port, ulong, NULL, S_IRUGO);
++module_param_hw_array(port, ulong, ioport, NULL, S_IRUGO);
+ MODULE_PARM_DESC(port, "I/O port number");
+ 
+-module_param_array(mem, ulong, NULL, S_IRUGO);
++module_param_hw_array(mem, ulong, iomem, NULL, S_IRUGO);
+ MODULE_PARM_DESC(mem, "I/O memory address");
+ 
+-module_param_array(indirect, int, NULL, S_IRUGO);
++module_param_hw_array(indirect, int, ioport, NULL, S_IRUGO);
+ MODULE_PARM_DESC(indirect, "Indirect access via address and data port");
+ 
+-module_param_array(irq, int, NULL, S_IRUGO);
++module_param_hw_array(irq, int, irq, NULL, S_IRUGO);
+ MODULE_PARM_DESC(irq, "IRQ number");
+ 
+ module_param_array(clk, int, NULL, S_IRUGO);
+diff --git a/drivers/net/can/sja1000/sja1000_isa.c b/drivers/net/can/sja1000/sja1000_isa.c
+index e97e6d35b300..a89c1e92554d 100644
+--- a/drivers/net/can/sja1000/sja1000_isa.c
++++ b/drivers/net/can/sja1000/sja1000_isa.c
+@@ -48,16 +48,16 @@ static unsigned char ocr[MAXDEV] = {[0 ... (MAXDEV - 1)] = 0xff};
+ static int indirect[MAXDEV] = {[0 ... (MAXDEV - 1)] = -1};
+ static spinlock_t indirect_lock[MAXDEV];  /* lock for indirect access mode */
+ 
+-module_param_array(port, ulong, NULL, S_IRUGO);
++module_param_hw_array(port, ulong, ioport, NULL, S_IRUGO);
+ MODULE_PARM_DESC(port, "I/O port number");
+ 
+-module_param_array(mem, ulong, NULL, S_IRUGO);
++module_param_hw_array(mem, ulong, iomem, NULL, S_IRUGO);
+ MODULE_PARM_DESC(mem, "I/O memory address");
+ 
+-module_param_array(indirect, int, NULL, S_IRUGO);
++module_param_hw_array(indirect, int, ioport, NULL, S_IRUGO);
+ MODULE_PARM_DESC(indirect, "Indirect access via address and data port");
+ 
+-module_param_array(irq, int, NULL, S_IRUGO);
++module_param_hw_array(irq, int, irq, NULL, S_IRUGO);
+ MODULE_PARM_DESC(irq, "IRQ number");
+ 
+ module_param_array(clk, int, NULL, S_IRUGO);
