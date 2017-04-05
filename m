@@ -1,50 +1,49 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] soreuseport: use "unsigned int" in __reuseport_alloc()
-Date: Wed, 5 Apr 2017 15:28:20 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DCFFC6C06@AcuExch.aculab.com>
-References: <CAEfhGix3zu7L0R1siHkF07_aVCxC4ANaV-Lm74SYw1J_BHtJWQ@mail.gmail.com>
- <CACVxJT8OM1CafJuvM3uYvVANC=JTB9aZSAVqFP9t1sY4pa7xcw@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] mlx4: trust shinfo->gso_segs
+Date: Wed, 05 Apr 2017 08:49:02 -0700
+Message-ID: <1491407342.10124.51.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: 'Alexey Dobriyan' <adobriyan@gmail.com>,
-        Craig Gallek <kraigatgoog@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.189]:65237 "EHLO
-        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754592AbdDEP22 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 5 Apr 2017 11:28:28 -0400
-In-Reply-To: <CACVxJT8OM1CafJuvM3uYvVANC=JTB9aZSAVqFP9t1sY4pa7xcw@mail.gmail.com>
-Content-Language: en-US
+Received: from mail-it0-f68.google.com ([209.85.214.68]:34798 "EHLO
+        mail-it0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755386AbdDEPtG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 5 Apr 2017 11:49:06 -0400
+Received: by mail-it0-f68.google.com with SMTP id e75so1759741itd.1
+        for <netdev@vger.kernel.org>; Wed, 05 Apr 2017 08:49:05 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogQWxleGV5IERvYnJpeWFuDQo+IFNlbnQ6IDA0IEFwcmlsIDIwMTcgMTI6MzYNCj4gT24g
-TW9uLCBBcHIgMywgMjAxNyBhdCA0OjU2IFBNLCBDcmFpZyBHYWxsZWsgPGtyYWlnYXRnb29nQGdt
-YWlsLmNvbT4gd3JvdGU6DQo+ID4gT24gU3VuLCBBcHIgMiwgMjAxNyBhdCA2OjE4IFBNLCBBbGV4
-ZXkgRG9icml5YW4gPGFkb2JyaXlhbkBnbWFpbC5jb20+IHdyb3RlOg0KPiA+PiBOdW1iZXIgb2Yg
-c29ja2V0cyBpcyBsaW1pdGVkIGJ5IDE2LWJpdCwgc28gNjQtYml0IGFsbG9jYXRpb24gd2lsbCBu
-ZXZlcg0KPiA+PiBoYXBwZW4uDQo+ID4+DQo+ID4+IDE2LWJpdCBvcHMgYXJlIHRoZSB3b3JzdCBj
-b2RlIGRlbnNpdHktd2lzZSBvbiB4ODZfNjQgYmVjYXVzZSBvZg0KPiA+PiBhZGRpdGlvbmFsIHBy
-ZWZpeCAoNjYpLg0KPiA+IFNvIHRoaXMgYm9pbHMgZG93biB0byBhIGNvbXBpbGVkIGNvZGUgZGVu
-c2l0eSB2cyBhDQo+ID4gcmVhZGFiaWxpdHkvbWFpbnRhaW5hYmlsaXR5IGFyZ3VtZW50PyAgSSdt
-IG5vdCBmYW1pbGlhciB3aXRoIHRoZSAxNg0KPiA+IGJpdCBwcm9ibGVtIHlvdSdyZSByZWZlcnJp
-bmcgdG8sIGJ1dCBJJ2QgYXJndWUgdGhhdCB1c2luZyB0aGUNCj4gPiBzZWxmLWRvY3VtZW50aW5n
-IHUxNiBhcyBhbiBpbnB1dCBwYXJhbWV0ZXIgdG8gZGVmaW5lIHRoZSByYW5nZQ0KPiA+IGV4cGVj
-dGF0aW9ucyBpcyBtb3JlIHVzZWZ1bCB0aGF0IHRoZSBtaWNybyBvcHRpbWl6YXRpb24gdGhhdCB0
-aGlzDQo+ID4gY2hhbmdlIG1heSBidXkgeW91IGluIHRoZSBhc3NlbWJseSBvZiBvbmUgcGxhdGZv
-cm0uICBFc3BlY2lhbGx5IGdpdmVuDQo+ID4gdGhhdCB0aGlzIGlzIGEgcmFyZS11c2UgZnVuY3Rp
-b24uDQo+IA0KPiBJdCdzIG5vdCBhIHByb2JsZW0gYXMgaW4gImNyZWF0ZSB0cm91YmxlIi4NCj4g
-MTYtYml0IG9wZXJhdGlvbnMgYXJlIHRoZSB3b3JzdCBvbiB4ODZfNjQ6IHRoZXkgcmVxdWlyZSBh
-ZGRpdGlvbmFsIHByZWZpeCwNCj4gY29tcGlsZXIgb2Z0ZW4gaGFzIHRvIGV4dGVuZCBpdCB0byAz
-Mi1iaXQgdG8gZG8gYW55dGhpbmcgdXNlZnVsDQo+IChNT1ZaWCA9IDEgY3ljbGUsIDMgYnl0ZXMp
-IGJlY2F1c2Ugb2YgY2FzdC1ldmVyeXRoaW5nLXRvLWludA0KPiBiZWhhdmlvdXIgZW5hYmxlZCBi
-eSB0aGUgbGFuZ3VhZ2UuDQoNCkl0IGlzIHdvcnNlIGZvciBhbG1vc3QgZXZlcnl0aGluZyBleGNl
-cHQgeDg2Lg0KRG8gYXJpdGhtZXRpYyBvbiBhbnl0aGluZyBzbWFsbGVyIHRoYW4gYW4gJ2ludCcg
-YW5kIHRoZSBjb21waWxlcg0KaGFzIHRvIGdlbmVyYXRlIGluc3RydWN0aW9ucyB0byBtYXNrIHRo
-ZSByZXN1bHQgdG8gdGhlIHNtYWxsZXIgc2l6ZS4NCk9uIHg4NiBpcyBjYW4gb2Z0ZW4gdXNlIHRo
-ZSAnYXMgaWYnIHJ1bGUgdG8gdXBkYXRlIG9ubHkgJWFsIChldGMpLg0KDQpZb3UgcmVhbGx5LCBy
-ZWFsbHkgZG9uJ3Qgd2FudCB0byB1c2UgJ2NoYXInIG9yICdzaG9ydCcgZm9yIGxvY2FsDQp2YXJp
-YWJsZXMsIGZ1bmN0aW9uIGFyZ3VtZW50cyBvciBmdW5jdGlvbiByZXN1bHRzLg0KKElmIHlvdSBj
-YXJlIGFib3V0IGNvZGUgc2l6ZSBvciBleGVjdXRpb24gdGltZS4pDQoNCglEYXZpZA0KDQo=
+From: Eric Dumazet <edumazet@google.com>
+
+mlx4 is the only driver in the tree making a point to recompute
+shinfo->gso_segs.
+
+Lets remove superfluous code.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Tariq Toukan <tariqt@mellanox.com>
+Cc: Saeed Mahameed <saeedm@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c |    3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+index e0c5ffb3e3a6607456e1f191b0b8c8becfc71219..3ba89bc43d74d8c023776079bcd0bbadd70fb5c6 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+@@ -978,8 +978,7 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ 		ring->tso_packets++;
+ 
+-		i = ((skb->len - lso_header_size) / shinfo->gso_size) +
+-			!!((skb->len - lso_header_size) % shinfo->gso_size);
++		i = shinfo->gso_segs;
+ 		tx_info->nr_bytes = skb->len + (i - 1) * lso_header_size;
+ 		ring->packets += i;
+ 	} else {
