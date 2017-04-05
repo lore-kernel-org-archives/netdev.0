@@ -1,31 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] selftests: add a generic testsuite for ethernet
- device
-Date: Wed, 05 Apr 2017 08:30:32 -0700 (PDT)
-Message-ID: <20170405.083032.2285292067898802646.davem@davemloft.net>
-References: <20170404133247.28725-1-clabbe.montjoie@gmail.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH] soreuseport: use "unsigned int" in __reuseport_alloc()
+Date: Wed, 5 Apr 2017 15:28:20 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DCFFC6C06@AcuExch.aculab.com>
+References: <CAEfhGix3zu7L0R1siHkF07_aVCxC4ANaV-Lm74SYw1J_BHtJWQ@mail.gmail.com>
+ <CACVxJT8OM1CafJuvM3uYvVANC=JTB9aZSAVqFP9t1sY4pa7xcw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: shuah@kernel.org, andrew@lunn.ch, linux-kselftest@vger.kernel.org,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: clabbe.montjoie@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170404133247.28725-1-clabbe.montjoie@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: 'Alexey Dobriyan' <adobriyan@gmail.com>,
+        Craig Gallek <kraigatgoog@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out4.electric.net ([192.162.216.189]:65237 "EHLO
+        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754592AbdDEP22 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 5 Apr 2017 11:28:28 -0400
+In-Reply-To: <CACVxJT8OM1CafJuvM3uYvVANC=JTB9aZSAVqFP9t1sY4pa7xcw@mail.gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Corentin Labbe <clabbe.montjoie@gmail.com>
-Date: Tue,  4 Apr 2017 15:32:47 +0200
-
-> This patch add a generic testsuite for testing ethernet network device driver.
-> 
-> Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
-> ---
-> 
-> Changes since v1:
-> - Test for starting master interface
-> - Changed printing format to "RESULT: $netdev: line"
-> - Use "ip link" to get device list
-
-Applied, thanks.
+RnJvbTogQWxleGV5IERvYnJpeWFuDQo+IFNlbnQ6IDA0IEFwcmlsIDIwMTcgMTI6MzYNCj4gT24g
+TW9uLCBBcHIgMywgMjAxNyBhdCA0OjU2IFBNLCBDcmFpZyBHYWxsZWsgPGtyYWlnYXRnb29nQGdt
+YWlsLmNvbT4gd3JvdGU6DQo+ID4gT24gU3VuLCBBcHIgMiwgMjAxNyBhdCA2OjE4IFBNLCBBbGV4
+ZXkgRG9icml5YW4gPGFkb2JyaXlhbkBnbWFpbC5jb20+IHdyb3RlOg0KPiA+PiBOdW1iZXIgb2Yg
+c29ja2V0cyBpcyBsaW1pdGVkIGJ5IDE2LWJpdCwgc28gNjQtYml0IGFsbG9jYXRpb24gd2lsbCBu
+ZXZlcg0KPiA+PiBoYXBwZW4uDQo+ID4+DQo+ID4+IDE2LWJpdCBvcHMgYXJlIHRoZSB3b3JzdCBj
+b2RlIGRlbnNpdHktd2lzZSBvbiB4ODZfNjQgYmVjYXVzZSBvZg0KPiA+PiBhZGRpdGlvbmFsIHBy
+ZWZpeCAoNjYpLg0KPiA+IFNvIHRoaXMgYm9pbHMgZG93biB0byBhIGNvbXBpbGVkIGNvZGUgZGVu
+c2l0eSB2cyBhDQo+ID4gcmVhZGFiaWxpdHkvbWFpbnRhaW5hYmlsaXR5IGFyZ3VtZW50PyAgSSdt
+IG5vdCBmYW1pbGlhciB3aXRoIHRoZSAxNg0KPiA+IGJpdCBwcm9ibGVtIHlvdSdyZSByZWZlcnJp
+bmcgdG8sIGJ1dCBJJ2QgYXJndWUgdGhhdCB1c2luZyB0aGUNCj4gPiBzZWxmLWRvY3VtZW50aW5n
+IHUxNiBhcyBhbiBpbnB1dCBwYXJhbWV0ZXIgdG8gZGVmaW5lIHRoZSByYW5nZQ0KPiA+IGV4cGVj
+dGF0aW9ucyBpcyBtb3JlIHVzZWZ1bCB0aGF0IHRoZSBtaWNybyBvcHRpbWl6YXRpb24gdGhhdCB0
+aGlzDQo+ID4gY2hhbmdlIG1heSBidXkgeW91IGluIHRoZSBhc3NlbWJseSBvZiBvbmUgcGxhdGZv
+cm0uICBFc3BlY2lhbGx5IGdpdmVuDQo+ID4gdGhhdCB0aGlzIGlzIGEgcmFyZS11c2UgZnVuY3Rp
+b24uDQo+IA0KPiBJdCdzIG5vdCBhIHByb2JsZW0gYXMgaW4gImNyZWF0ZSB0cm91YmxlIi4NCj4g
+MTYtYml0IG9wZXJhdGlvbnMgYXJlIHRoZSB3b3JzdCBvbiB4ODZfNjQ6IHRoZXkgcmVxdWlyZSBh
+ZGRpdGlvbmFsIHByZWZpeCwNCj4gY29tcGlsZXIgb2Z0ZW4gaGFzIHRvIGV4dGVuZCBpdCB0byAz
+Mi1iaXQgdG8gZG8gYW55dGhpbmcgdXNlZnVsDQo+IChNT1ZaWCA9IDEgY3ljbGUsIDMgYnl0ZXMp
+IGJlY2F1c2Ugb2YgY2FzdC1ldmVyeXRoaW5nLXRvLWludA0KPiBiZWhhdmlvdXIgZW5hYmxlZCBi
+eSB0aGUgbGFuZ3VhZ2UuDQoNCkl0IGlzIHdvcnNlIGZvciBhbG1vc3QgZXZlcnl0aGluZyBleGNl
+cHQgeDg2Lg0KRG8gYXJpdGhtZXRpYyBvbiBhbnl0aGluZyBzbWFsbGVyIHRoYW4gYW4gJ2ludCcg
+YW5kIHRoZSBjb21waWxlcg0KaGFzIHRvIGdlbmVyYXRlIGluc3RydWN0aW9ucyB0byBtYXNrIHRo
+ZSByZXN1bHQgdG8gdGhlIHNtYWxsZXIgc2l6ZS4NCk9uIHg4NiBpcyBjYW4gb2Z0ZW4gdXNlIHRo
+ZSAnYXMgaWYnIHJ1bGUgdG8gdXBkYXRlIG9ubHkgJWFsIChldGMpLg0KDQpZb3UgcmVhbGx5LCBy
+ZWFsbHkgZG9uJ3Qgd2FudCB0byB1c2UgJ2NoYXInIG9yICdzaG9ydCcgZm9yIGxvY2FsDQp2YXJp
+YWJsZXMsIGZ1bmN0aW9uIGFyZ3VtZW50cyBvciBmdW5jdGlvbiByZXN1bHRzLg0KKElmIHlvdSBj
+YXJlIGFib3V0IGNvZGUgc2l6ZSBvciBleGVjdXRpb24gdGltZS4pDQoNCglEYXZpZA0KDQo=
