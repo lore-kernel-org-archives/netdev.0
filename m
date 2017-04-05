@@ -1,83 +1,88 @@
-From: Andrey Ryabinin <aryabinin@virtuozzo.com>
-Subject: Re: [PATCH 1/4] mm: prevent potential recursive reclaim due to
- clearing PF_MEMALLOC
-Date: Wed, 5 Apr 2017 14:40:43 +0300
-Message-ID: <1f26f654-abaf-3878-6abb-5e27ff3a289e@virtuozzo.com>
-References: <20170405074700.29871-1-vbabka@suse.cz>
- <20170405074700.29871-2-vbabka@suse.cz>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: <linux-mm@kvack.org>, <linux-kernel@vger.kernel.org>, Michal Hocko
-	<mhocko@kernel.org>, Mel Gorman <mgorman@techsingularity.net>, Johannes
- Weiner <hannes@cmpxchg.org>, <linux-block@vger.kernel.org>,
-	<nbd-general@lists.sourceforge.net>, <open-iscsi@googlegroups.com>,
-	<linux-scsi@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<stable@vger.kernel.org>
-To: Vlastimil Babka <vbabka@suse.cz>, Andrew Morton
-	<akpm@linux-foundation.org>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20170405074700.29871-2-vbabka@suse.cz>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+From: Tobias Klauser <tklauser@distanz.ch>
+Subject: [PATCH] batman-adv: Use net_device_stats from struct net_device
+Date: Wed,  5 Apr 2017 13:46:31 +0200
+Message-ID: <1491392791-30041-1-git-send-email-tklauser@distanz.ch>
+Cc: b.a.t.m.a.n@lists.open-mesh.org, netdev@vger.kernel.org
+To: Marek Lindner <mareklindner@neomailbox.ch>,
+        Simon Wunderlich <sw@simonwunderlich.de>,
+        Antonio Quartulli <a@unstable.cc>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sym2.noone.org ([178.63.92.236]:39955 "EHLO sym2.noone.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S933583AbdDELqe (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 5 Apr 2017 07:46:34 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04/05/2017 10:46 AM, Vlastimil Babka wrote:
-> The function __alloc_pages_direct_compact() sets PF_MEMALLOC to prevent
-> deadlock during page migration by lock_page() (see the comment in
-> __unmap_and_move()). Then it unconditionally clears the flag, which can clear a
-> pre-existing PF_MEMALLOC flag and result in recursive reclaim. This was not a
-> problem until commit a8161d1ed609 ("mm, page_alloc: restructure direct
-> compaction handling in slowpath"), because direct compation was called only
-> after direct reclaim, which was skipped when PF_MEMALLOC flag was set.
-> 
-> Even now it's only a theoretical issue, as the new callsite of
-> __alloc_pages_direct_compact() is reached only for costly orders and when
-> gfp_pfmemalloc_allowed() is true, which means either __GFP_NOMEMALLOC is in
-                           is false			
+Instead of using a private copy of struct net_device_stats in struct
+batadv_priv, use stats from struct net_device.
 
-> gfp_flags or in_interrupt() is true. There is no such known context, but let's
-> play it safe and make __alloc_pages_direct_compact() robust for cases where
-> PF_MEMALLOC is already set.
-> 
-> Fixes: a8161d1ed609 ("mm, page_alloc: restructure direct compaction handling in slowpath")
-> Reported-by: Andrey Ryabinin <aryabinin@virtuozzo.com>
-> Signed-off-by: Vlastimil Babka <vbabka@suse.cz>
-> Cc: <stable@vger.kernel.org>
-> ---
->  mm/page_alloc.c | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
-> 
-> diff --git a/mm/page_alloc.c b/mm/page_alloc.c
-> index 3589f8be53be..b84e6ffbe756 100644
-> --- a/mm/page_alloc.c
-> +++ b/mm/page_alloc.c
-> @@ -3288,6 +3288,7 @@ __alloc_pages_direct_compact(gfp_t gfp_mask, unsigned int order,
->  		enum compact_priority prio, enum compact_result *compact_result)
->  {
->  	struct page *page;
-> +	unsigned int noreclaim_flag = current->flags & PF_MEMALLOC;
->  
->  	if (!order)
->  		return NULL;
-> @@ -3295,7 +3296,7 @@ __alloc_pages_direct_compact(gfp_t gfp_mask, unsigned int order,
->  	current->flags |= PF_MEMALLOC;
->  	*compact_result = try_to_compact_pages(gfp_mask, order, alloc_flags, ac,
->  									prio);
-> -	current->flags &= ~PF_MEMALLOC;
-> +	current->flags = (current->flags & ~PF_MEMALLOC) | noreclaim_flag;
+Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+---
+ net/batman-adv/distributed-arp-table.c | 9 +++++----
+ net/batman-adv/soft-interface.c        | 2 +-
+ net/batman-adv/types.h                 | 2 --
+ 3 files changed, 6 insertions(+), 7 deletions(-)
 
-Perhaps this would look better:
-
-	tsk_restore_flags(current, noreclaim_flag, PF_MEMALLOC);
-
-?
-
->  	if (*compact_result <= COMPACT_INACTIVE)
->  		return NULL;
-> 
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+diff --git a/net/batman-adv/distributed-arp-table.c b/net/batman-adv/distributed-arp-table.c
+index 1bfd1dbc2feb..936b08ee5b45 100644
+--- a/net/batman-adv/distributed-arp-table.c
++++ b/net/batman-adv/distributed-arp-table.c
+@@ -1002,6 +1002,7 @@ bool batadv_dat_snoop_outgoing_arp_request(struct batadv_priv *bat_priv,
+ 	bool ret = false;
+ 	struct batadv_dat_entry *dat_entry = NULL;
+ 	struct sk_buff *skb_new;
++	struct net_device *soft_iface = bat_priv->soft_iface;
+ 	int hdr_size = 0;
+ 	unsigned short vid;
+ 
+@@ -1046,10 +1047,10 @@ bool batadv_dat_snoop_outgoing_arp_request(struct batadv_priv *bat_priv,
+ 		if (!skb_new)
+ 			goto out;
+ 
+-		skb_new->protocol = eth_type_trans(skb_new,
+-						   bat_priv->soft_iface);
+-		bat_priv->stats.rx_packets++;
+-		bat_priv->stats.rx_bytes += skb->len + ETH_HLEN + hdr_size;
++		skb_new->protocol = eth_type_trans(skb_new, soft_iface);
++
++		soft_iface->stats.rx_packets++;
++		soft_iface->stats.rx_bytes += skb->len + ETH_HLEN + hdr_size;
+ 
+ 		netif_rx(skb_new);
+ 		batadv_dbg(BATADV_DBG_DAT, bat_priv, "ARP request replied locally\n");
+diff --git a/net/batman-adv/soft-interface.c b/net/batman-adv/soft-interface.c
+index d042c99af028..71895c58e6d8 100644
+--- a/net/batman-adv/soft-interface.c
++++ b/net/batman-adv/soft-interface.c
+@@ -140,7 +140,7 @@ static u64 batadv_sum_counter(struct batadv_priv *bat_priv,  size_t idx)
+ static struct net_device_stats *batadv_interface_stats(struct net_device *dev)
+ {
+ 	struct batadv_priv *bat_priv = netdev_priv(dev);
+-	struct net_device_stats *stats = &bat_priv->stats;
++	struct net_device_stats *stats = &dev->stats;
+ 
+ 	stats->tx_packets = batadv_sum_counter(bat_priv, BATADV_CNT_TX);
+ 	stats->tx_bytes = batadv_sum_counter(bat_priv, BATADV_CNT_TX_BYTES);
+diff --git a/net/batman-adv/types.h b/net/batman-adv/types.h
+index 246f21b4973b..5c55e48d8941 100644
+--- a/net/batman-adv/types.h
++++ b/net/batman-adv/types.h
+@@ -1000,7 +1000,6 @@ struct batadv_priv_bat_v {
+  * struct batadv_priv - per mesh interface data
+  * @mesh_state: current status of the mesh (inactive/active/deactivating)
+  * @soft_iface: net device which holds this struct as private data
+- * @stats: structure holding the data for the ndo_get_stats() call
+  * @bat_counters: mesh internal traffic statistic counters (see batadv_counters)
+  * @aggregated_ogms: bool indicating whether OGM aggregation is enabled
+  * @bonding: bool indicating whether traffic bonding is enabled
+@@ -1055,7 +1054,6 @@ struct batadv_priv_bat_v {
+ struct batadv_priv {
+ 	atomic_t mesh_state;
+ 	struct net_device *soft_iface;
+-	struct net_device_stats stats;
+ 	u64 __percpu *bat_counters; /* Per cpu counters */
+ 	atomic_t aggregated_ogms;
+ 	atomic_t bonding;
+-- 
+2.12.2.399.g034667a45805
