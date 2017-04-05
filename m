@@ -1,73 +1,179 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: [PATCH v2 08/13] ftgmac100: Request the interrupt only after HW is reset
-Date: Wed,  5 Apr 2017 12:28:48 +1000
-Message-ID: <20170405022853.8238-9-benh@kernel.crashing.org>
-References: <20170405022853.8238-1-benh@kernel.crashing.org>
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:50542 "EHLO gate.crashing.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751870AbdDECnx (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 4 Apr 2017 22:43:53 -0400
-In-Reply-To: <20170405022853.8238-1-benh@kernel.crashing.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: net/ipv4: use-after-free in ipv4_mtu
+Date: Tue, 04 Apr 2017 19:45:38 -0700
+Message-ID: <1491360338.10124.39.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <CAAeHK+zJ20r8O=MhPY69UPK7sObODp2ByK5136JXgw5U9SMofw@mail.gmail.com>
+         <CANn89iKuT+VBZqbJ4=hTAgUbnhuZ0berg0PK+imd1CKuWLy1eQ@mail.gmail.com>
+         <CAM_iQpUittpMt-8BpNePWv7iTDasCZuNYTEPnu=K-4sFK5qiBg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <edumazet@google.com>,
+        Andrey Konovalov <andreyknvl@google.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAM_iQpUittpMt-8BpNePWv7iTDasCZuNYTEPnu=K-4sFK5qiBg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The interrupt isn't shared, so this will keep it masked
-until we have the HW in a known sane state.
+On Tue, 2017-04-04 at 18:11 -0700, Cong Wang wrote:
+> On Tue, Apr 4, 2017 at 11:51 AM, Eric Dumazet <edumazet@google.com> wrote:
+> > On Tue, Apr 4, 2017 at 7:50 AM, Andrey Konovalov <andreyknvl@google.com> wrote:
+> >>
+> >> Hi,
+> >>
+> >> I've got the following error report while fuzzing the kernel with syzkaller.
+> >>
+> >> On commit a71c9a1c779f2499fb2afc0553e543f18aff6edf (4.11-rc5).
+> >>
+> >> Unfortunately it's not reproducible.
+> >>
+> >> ==================================================================
+> >> BUG: KASAN: use-after-free in dst_metric_raw include/net/dst.h:176
+> >> [inline] at addr ffff88003d6a965c
+> >> BUG: KASAN: use-after-free in ipv4_mtu+0x3f2/0x4b0
+> >> net/ipv4/route.c:1270 at addr ffff88003d6a965c
+> >> Read of size 4 by task syz-executor3/20611
+> >> CPU: 3 PID: 20611 Comm: syz-executor3 Not tainted 4.11.0-rc5+ #199
+> >> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+> >> Call Trace:
+> >>  __dump_stack lib/dump_stack.c:16 [inline]
+> >>  dump_stack+0x292/0x398 lib/dump_stack.c:52
+> >>  kasan_object_err+0x1c/0x70 mm/kasan/report.c:164
+> >>  print_address_description mm/kasan/report.c:202 [inline]
+> >>  kasan_report_error mm/kasan/report.c:291 [inline]
+> >>  kasan_report+0x252/0x510 mm/kasan/report.c:347
+> >>  __asan_report_load4_noabort+0x14/0x20 mm/kasan/report.c:367
+> >>  dst_metric_raw include/net/dst.h:176 [inline]
+> >>  ipv4_mtu+0x3f2/0x4b0 net/ipv4/route.c:1270
+> >>  dst_mtu include/net/dst.h:221 [inline]
+> >>  do_ip_getsockopt+0x71d/0x2290 net/ipv4/ip_sockglue.c:1433
+> >>  ip_getsockopt+0x90/0x230 net/ipv4/ip_sockglue.c:1578
+> >>  tcp_getsockopt+0x82/0xd0 net/ipv4/tcp.c:3131
+> >>  sock_common_getsockopt+0x95/0xd0 net/core/sock.c:2709
+> >>  SYSC_getsockopt net/socket.c:1829 [inline]
+> >>  SyS_getsockopt+0x252/0x390 net/socket.c:1811
+> >>  entry_SYSCALL_64_fastpath+0x1f/0xc2
+> >> RIP: 0033:0x4458d9
+> >> RSP: 002b:00007fe87f452b58 EFLAGS: 00000286 ORIG_RAX: 0000000000000037
+> >> RAX: ffffffffffffffda RBX: 0000000000000005 RCX: 00000000004458d9
+> >> RDX: 000000000000000e RSI: 0000000000000000 RDI: 0000000000000005
+> >> RBP: 00000000006e0020 R08: 0000000020db6000 R09: 0000000000000000
+> >> R10: 00000000207e8000 R11: 0000000000000286 R12: 0000000000708150
+> >> R13: 0000000020db8000 R14: 0000000000001000 R15: 0000000000000003
+> >> Object at ffff88003d6a9658, in cache kmalloc-64 size: 64
+> >> Allocated:
+> >> PID = 20110
+> >>  save_stack_trace+0x16/0x20 arch/x86/kernel/stacktrace.c:59
+> >>  save_stack+0x43/0xd0 mm/kasan/kasan.c:513
+> >>  set_track mm/kasan/kasan.c:525 [inline]
+> >>  kasan_kmalloc+0xad/0xe0 mm/kasan/kasan.c:616
+> >>  kmem_cache_alloc_trace+0x82/0x270 mm/slub.c:2745
+> >>  kmalloc include/linux/slab.h:490 [inline]
+> >>  kzalloc include/linux/slab.h:663 [inline]
+> >>  fib_create_info+0x8e0/0x3a30 net/ipv4/fib_semantics.c:1040
+> >>  fib_table_insert+0x1a5/0x1550 net/ipv4/fib_trie.c:1221
+> >>  ip_rt_ioctl+0xddc/0x1590 net/ipv4/fib_frontend.c:597
+> >>  inet_ioctl+0xf2/0x1c0 net/ipv4/af_inet.c:882
+> >> sctp: [Deprecated]: syz-executor0 (pid 20638) Use of int in max_burst
+> >> socket option.
+> >> Use struct sctp_assoc_value instead
+> >>  sock_do_ioctl+0x65/0xb0 net/socket.c:906
+> >>  sock_ioctl+0x28f/0x440 net/socket.c:1004
+> >>  vfs_ioctl fs/ioctl.c:45 [inline]
+> >>  do_vfs_ioctl+0x1bf/0x1780 fs/ioctl.c:685
+> >>  SYSC_ioctl fs/ioctl.c:700 [inline]
+> >>  SyS_ioctl+0x8f/0xc0 fs/ioctl.c:691
+> >>  entry_SYSCALL_64_fastpath+0x1f/0xc2
+> >> Freed:
+> >> PID = 4439
+> >>  save_stack_trace+0x16/0x20 arch/x86/kernel/stacktrace.c:59
+> >>  save_stack+0x43/0xd0 mm/kasan/kasan.c:513
+> >>  set_track mm/kasan/kasan.c:525 [inline]
+> >>  kasan_slab_free+0x73/0xc0 mm/kasan/kasan.c:589
+> >>  slab_free_hook mm/slub.c:1357 [inline]
+> >>  slab_free_freelist_hook mm/slub.c:1379 [inline]
+> >>  slab_free mm/slub.c:2961 [inline]
+> >>  kfree+0xe8/0x2b0 mm/slub.c:3882
+> >>  free_fib_info_rcu+0x4ba/0x5e0 net/ipv4/fib_semantics.c:218
+> >>  __rcu_reclaim kernel/rcu/rcu.h:118 [inline]
+> >>  rcu_do_batch.isra.64+0x947/0xcc0 kernel/rcu/tree.c:2879
+> >>  invoke_rcu_callbacks kernel/rcu/tree.c:3142 [inline]
+> >>  __rcu_process_callbacks kernel/rcu/tree.c:3109 [inline]
+> >>  rcu_process_callbacks+0x2cc/0xb90 kernel/rcu/tree.c:3126
+> >>  __do_softirq+0x2fb/0xb7d kernel/softirq.c:284
+> >> Memory state around the buggy address:
+> >>  ffff88003d6a9500: fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc
+> >>  ffff88003d6a9580: fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc
+> >> >ffff88003d6a9600: fc fc fc fc fc fc fc fc fc fc fc fb fb fb fb fb
+> >>                                                     ^
+> >>  ffff88003d6a9680: fb fb fb fc fc fc fc fc fc fc fc fc fc fc fc fc
+> >>  ffff88003d6a9700: fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc
+> >> ==================================================================
+> >
+> > Thanks for the report Andrey
+> >
+> > Looking at fib->fib_metrics, I fail to understand how the following can work :
+> >
+> > dst_init_metrics(&rt->dst, fi->fib_metrics, true);
+> >
+> > In the cases fi->fib_metrics is _not_ dst_default_metrics,
+> > fi->fib_metrics can be freed when the fib is deleted,
+> > while dst(s) have still the 'read only pointer'.
+> >
+> > RCU grace period before fi->fib_metrics freeing does not help.
+> >
+> > Without refcounts, it looks like we need to copy the fib_metrics.
+> 
+> The dst is obtained from sk_dst_cache which is cached for a fast
+> path where fib_info is obtained in fib_lookup() without refcnt:
+> 
+>                 err = fib_table_lookup(tb, flp, res, flags | FIB_LOOKUP_NOREF);
+> 
+> 
+> ...
+>                         if (!(fib_flags & FIB_LOOKUP_NOREF))
+>                                 atomic_inc(&fi->fib_clntref);
+> 
+> 
+> This probably starts from:
+> 
+> commit ebc0ffae5dfb4447e0a431ffe7fe1d467c48bbb9
+> Author: Eric Dumazet <eric.dumazet@gmail.com>
+> Date:   Tue Oct 5 10:41:36 2010 +0000
+> 
+>     fib: RCU conversion of fib_lookup()
 
-Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
----
- drivers/net/ethernet/faraday/ftgmac100.c | 19 ++++++++++---------
- 1 file changed, 10 insertions(+), 9 deletions(-)
+Interesting. I might had too many beers tonight, but ...
 
-diff --git a/drivers/net/ethernet/faraday/ftgmac100.c b/drivers/net/ethernet/faraday/ftgmac100.c
-index bb444d2..fdb8638 100644
---- a/drivers/net/ethernet/faraday/ftgmac100.c
-+++ b/drivers/net/ethernet/faraday/ftgmac100.c
-@@ -1129,12 +1129,6 @@ static int ftgmac100_open(struct net_device *netdev)
- 	if (ftgmac100_alloc_rx_buffers(priv))
- 		goto err_alloc;
- 
--	err = request_irq(netdev->irq, ftgmac100_interrupt, 0, netdev->name, netdev);
--	if (err) {
--		netdev_err(netdev, "failed to request irq %d\n", netdev->irq);
--		goto err_irq;
--	}
+refcount was removed in 2860583fe840 many months later
+
+-static void rt_init_metrics(struct rtable *rt, struct fib_info *fi)
+-{
+-       if (fi->fib_metrics != (u32 *) dst_default_metrics) {
+-               rt->fi = fi;
+-               atomic_inc(&fi->fib_clntref);
+-       }
+-       dst_init_metrics(&rt->dst, fi->fib_metrics, true);
+-}
 -
- 	/* When using NC-SI we force the speed to 100Mbit/s full duplex,
- 	 *
- 	 * Otherwise we leave it set to 0 (no link), the link
-@@ -1161,6 +1155,13 @@ static int ftgmac100_open(struct net_device *netdev)
- 	/* Initialize NAPI */
- 	netif_napi_add(netdev, &priv->napi, ftgmac100_poll, 64);
- 
-+	/* Grab our interrupt */
-+	err = request_irq(netdev->irq, ftgmac100_interrupt, 0, netdev->name, netdev);
-+	if (err) {
-+		netdev_err(netdev, "failed to request irq %d\n", netdev->irq);
-+		goto err_irq;
-+	}
-+
- 	ftgmac100_init_hw(priv);
- 	ftgmac100_start_hw(priv);
- 
-@@ -1191,12 +1192,12 @@ static int ftgmac100_open(struct net_device *netdev)
- err_ncsi:
- 	napi_disable(&priv->napi);
- 	netif_stop_queue(netdev);
--	netif_napi_del(&priv->napi);
--	iowrite32(0, priv->base + FTGMAC100_OFFSET_IER);
--err_hw:
- 	free_irq(netdev->irq, netdev);
- err_irq:
-+	netif_napi_del(&priv->napi);
-+err_hw:
- err_alloc:
-+	iowrite32(0, priv->base + FTGMAC100_OFFSET_IER);
- 	ftgmac100_free_buffers(priv);
- 	ftgmac100_free_rings(priv);
- 	return err;
--- 
-2.9.3
+ static struct fib_nh_exception *find_exception(struct fib_nh *nh,
+__be32 daddr)
+ {
+        struct fnhe_hash_bucket *hash = nh->nh_exceptions;
+@@ -1261,7 +1239,7 @@ static void rt_set_nexthop(struct rtable *rt,
+__be32 daddr,
+                        rt->rt_gateway = nh->nh_gw;
+                if (unlikely(fnhe))
+                        rt_bind_exception(rt, fnhe, daddr);
+-               rt_init_metrics(rt, fi);
++               dst_init_metrics(&rt->dst, fi->fib_metrics, true);
+ #ifdef CONFIG_IP_ROUTE_CLASSID
+                rt->dst.tclassid = nh->nh_tclassid;
+ #endif
