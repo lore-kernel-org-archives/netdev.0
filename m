@@ -1,11 +1,13 @@
 From: Andrey Konovalov <andreyknvl@google.com>
 Subject: Re: net/sctp: list double add warning in sctp_endpoint_add_asoc
-Date: Wed, 5 Apr 2017 16:02:44 +0200
-Message-ID: <CAAeHK+xQxcQB92NK5-xBtd2rWQRGWPv29G5jePva2c2sTg248Q@mail.gmail.com>
+Date: Wed, 5 Apr 2017 16:03:43 +0200
+Message-ID: <CAAeHK+xsVmNYZ2V+WKdeSMuCeseu=FVXOFVimz+uWT2enZGtvw@mail.gmail.com>
 References: <CAAeHK+zwbeT=jBRRSf2KYXWM=eUZAEe5QHvKPYGG5qWh6A0JGQ@mail.gmail.com>
- <CADvbK_f1FEGRnucuMkQT6RKm0G1tKcfHyj=-GqxgzQ4iQoBLCg@mail.gmail.com> <20170404211454.GA911@localhost.localdomain>
+ <CADvbK_f1FEGRnucuMkQT6RKm0G1tKcfHyj=-GqxgzQ4iQoBLCg@mail.gmail.com>
+ <20170404211454.GA911@localhost.localdomain> <CADvbK_dgD65mygqkGuA85ShBnHrD3y4u_P=XoREyEn7y0J4_+A@mail.gmail.com>
+ <20170405124415.GC911@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=94eb2c1b005abdf806054c6bd8d6
+Content-Type: text/plain; charset=UTF-8
 Cc: Xin Long <lucien.xin@gmail.com>,
         Vlad Yasevich <vyasevich@gmail.com>,
         Neil Horman <nhorman@tuxdriver.com>,
@@ -18,253 +20,78 @@ Cc: Xin Long <lucien.xin@gmail.com>,
         syzkaller <syzkaller@googlegroups.com>
 To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170404211454.GA911@localhost.localdomain>
+In-Reply-To: <20170405124415.GC911@localhost.localdomain>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---94eb2c1b005abdf806054c6bd8d6
-Content-Type: text/plain; charset=UTF-8
-
-On Tue, Apr 4, 2017 at 11:14 PM, Marcelo Ricardo Leitner
+On Wed, Apr 5, 2017 at 2:44 PM, Marcelo Ricardo Leitner
 <marcelo.leitner@gmail.com> wrote:
-> On Wed, Apr 05, 2017 at 01:29:19AM +0800, Xin Long wrote:
->> On Tue, Apr 4, 2017 at 9:28 PM, Andrey Konovalov <andreyknvl@google.com> wrote:
->> > Hi,
+> On Wed, Apr 05, 2017 at 06:48:45PM +0800, Xin Long wrote:
+>> On Wed, Apr 5, 2017 at 5:14 AM, Marcelo Ricardo Leitner
+>> <marcelo.leitner@gmail.com> wrote:
+>> > On Wed, Apr 05, 2017 at 01:29:19AM +0800, Xin Long wrote:
+>> >> On Tue, Apr 4, 2017 at 9:28 PM, Andrey Konovalov <andreyknvl@google.com> wrote:
+>> >> > Hi,
+>> >> >
+>> >> > I've got the following error report while fuzzing the kernel with syzkaller.
+>> >> >
+>> >> > On commit a71c9a1c779f2499fb2afc0553e543f18aff6edf (4.11-rc5).
+>> >> >
+>> >> > A reproducer and .config are attached.
+>> >> The script is pretty hard to reproduce the issue in my env.
 >> >
->> > I've got the following error report while fuzzing the kernel with syzkaller.
->> >
->> > On commit a71c9a1c779f2499fb2afc0553e543f18aff6edf (4.11-rc5).
->> >
->> > A reproducer and .config are attached.
->> The script is pretty hard to reproduce the issue in my env.
+>> > I didn't try running it but I also found the reproducer very complicated
+>> > to follow. Do you have any plans on having some PoC optimizer, so we can
+>> > have a more readable code?
+>> > strace is handy for filtering the noise, yes, but sometimes it doesn't
+>> > cut it.
+>> I got the script now:
+>> 1. create sk
+>> 2. set sk->sndbuf = x
+>> 3. sendmsg with size s1 (s1 < x)
+>> 4. sendmsg with size s2 (s1+s2 > x)
+>> 5. sendmsg with size s3 (wspace < 0), wait sndbuf, schedule out.
+>> 6. listen sk (abnormal operation on sctp client)
+>> 7. accept sk.
+>>
+>> In step 6, sk->sk_state = listening, then step 7 could get the first asoc
+>> from ep->asoc_list and alloc a new sk2, attach the asoc to sk2.
+>>
+>> after a while, sendmsg schedule in, but asoc->sk is sk2, !=sk.
+>> the same issue we fix for peeloff on commit dfcb9f4f99f1 ("sctp: deny
+>> peeloff operation on asocs with threads sleeping on it") happens.
 >
-> I didn't try running it but I also found the reproducer very complicated
-> to follow. Do you have any plans on having some PoC optimizer, so we can
-> have a more readable code?
-> strace is handy for filtering the noise, yes, but sometimes it doesn't
-> cut it.
-
-We do have some plans (like to remote all those unnecessary helper
-functions), but it's probably not going to become much better.
-
-You mostly only need to look at the thr() function to understand
-what's going on.
-
-What I sometimes do is run each of the switch cases under strace
-separately to understand what each of them do.
-
-I've also attached a program in syzkaller format.
-You can take a look at it, if you find it useful, I can start
-attaching them for subsequent reports.
-
+> Yes. That explains why the asoc isn't dead by when sendmsg comes back,
+> and avoid that dead check.
 >
->> But there seems a case to cause a use-after-free when out of snd_buf.
 >>
->> the case is like:
->> -----------
->> one thread:                       another thread:
->>                                   sctp_rcv hold asoc (hold transport)
->>                                   enqueue the chunk to backlog queue
->>                                   [refcnt=2]
->>
->> sctp_close free assoc
->> [refcnt=1]
->>
->> sctp_sendmsg find asoc
->> but not hold it
->>
->> out of snd_buf
->> hold asoc, schedule out
->> [refcnt = 2]
->>
->>                                   process backlog and put asoc/transport
->>                                   [refcnt=1]
->>
->> schedule in, put asoc
->> [refcnt=0] <--- destroyed
->>
->> sctp_sendmsg continue
+>> But we should not fix it by the same way as for peeloff. the real reason
+>> causes this issue is on step 6, it should disallow listen on the established sk.
 >
-> It shouldn't be continuing here because sctp_wait_for_sndbuf and
-> sctp_wait_for_connect functions are checking if the asoc is dead
-> already when it schedules in, even though sctp_wait_for_connect return
-> value is ignored and sctp_sendmsg() simply returns after that.
-> Or the checks for dead asocs in there aren't enough somehow.
+> Agreed.
 >
->> using asoc, panic
->
->
-> --
-> You received this message because you are subscribed to the Google Groups "syzkaller" group.
-> To unsubscribe from this group and stop receiving emails from it, send an email to syzkaller+unsubscribe@googlegroups.com.
-> For more options, visit https://groups.google.com/d/optout.
+>>
+>> The following fix should work for this, just similar with what
+>> inet_listen() did.
+>>
+>> @@ -7174,6 +7175,9 @@ int sctp_inet_listen(struct socket *sock, int backlog)
+>>         if (sock->state != SS_UNCONNECTED)
+>>                 goto out;
+>>
+>> +       if (!sctp_sstate(sk, LISTENING) && !sctp_sstate(sk,CLOSED))
+>> +               goto out;
+>> +
 
---94eb2c1b005abdf806054c6bd8d6
-Content-Type: application/octet-stream; name=log
-Content-Disposition: attachment; filename=log
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_j151lp620
+This fixes the report.
 
-bW1hcCgmKDB4N2YwMDAwMDAwMDAwLzB4NDgyMDAwKT1uaWwsICgweDQ4MjAwMCksIDB4MywgMHgx
-MDAwMDAwMDAwMDAzMiwgMHhmZmZmZmZmZmZmZmZmZmZmLCAweDApCnIwID0gc29ja2V0JHNjdHAo
-MHgyLCAweDEsIDB4ODQpCnNldHNvY2tvcHQkc29ja19pbnQocjAsIDB4MSwgMHgyMCwgJigweDdm
-MDAwMDQ3YzAwMCk9MHg4NDksIDB4NCkKYmluZCRzY3RwKHIwLCAmKDB4N2YwMDAwMDAxMDAwLTB4
-MTApPUBpbj17MHgyLCAweDAsIEBsb29wYmFjaz0weDdmMDAwMDAxLCBbMHgwLCAweDAsIDB4MCwg
-MHgwLCAweDAsIDB4MCwgMHgwLCAweDBdfSwgMHgxMCkKc2VuZHRvJHNjdHAocjAsICYoMHg3ZjAw
-MDA0NzcwMDApPSI5MDcwM2Q2YjdiMzI4ZDc0Y2MiLCAweDksIDB4MCwgJigweDdmMDAwMDQ3NzAw
-MCk9QGluPXsweDIsIDB4MCwgQGxvb3BiYWNrPTB4N2YwMDAwMDEsIFsweDAsIDB4MCwgMHgwLCAw
-eDAsIDB4MCwgMHgwLCAweDAsIDB4MF19LCAweDEwKQpzZW5kdG8kc2N0cChyMCwgJigweDdmMDAw
-MDQ3YTAwMCk9Ijk5MjEyMDE5ZDIxNWRhY2RkMjFmMWQzMzQ3MjZhNjY5ZWNiYjllNWQ2MmIwYWQy
-ZGRmMDEzOGQ5ZDg2MDUwZjZhMGVkMTdkOWRhOWE5NzM3MDBiZDZiYzkzMDdlY2I2ZmU2ZDRiNjJi
-MDkwZjdjMGQ2MzQ1YWUyNGU0Y2FmM2IwMTg3MDFkMDM3MTMwNzQ2MmUxMTMyNjhjNmEwOWQ2MzJm
-ZGMwNWFlYzBhNGRjMGNhMWMzN2VhNzJjOWZmNjVkZDFhYzMwN2Y3NjZhNWIzZTkxNzlkNGQxZjg3
-MTI1MzViNWYwYjU5NDBiMDVmOTkxMzljNjAwMTI5YjgzOTdjNjdlNTUwYTczNmI2ODI4OTYwODZk
-MzRlNDM2NjMxOTcyYzBlNzM1ZGVjOWM5YmRkOGRiYTRmYTk4NDIzN2Y1MTM1MjlkNjhiNzVlZmM4
-YmY2MzVkZTMwMGY2MDU4MmI3MzNjNmYxOWY1ZmM0ZGYyNTAxNjdmNzQ4MzM3Zjc0ZmU3ODI4ZjVm
-YmYyMDJhZGMzNjg2ZmQxYWNmMWJiY2JkMTFiM2E5YjhlNmNjZDRlMmU5ZTY1MzQ5MmQ2MjI3Mzk5
-NjQ2MjY1ZTkxYTBkMDUyZmY3NzAzZDQwOWFjZmZhNDA0ZjZhN2U1YjEyYjc3Yzg3YzdmNjQ4MDAx
-YjU5ZDY4NzdhZTc0ZDc3NjMwMjNlYWNhMmMzZTM3YzM1NDA2ZmMyM2JjNTY3OWNmM2IwYzY1NjM2
-NTY3YmJkN2EzNzU4MmI5M2VlZjZhMTkwYWRkNzMzODk0ZGVjZjU5Yzc0NDIzNTMxZGIwYzljYTgw
-YzMyMGUxYTcyOGU0Zjc4Njc1Y2YyYTk2YWJmNThkZmNlN2IwOGExYjgwNzM1ZWUzMmY0YzMyYWI5
-NjEzY2ZiMjhhMzJiZTk0MWE1ZWJmODg0MjAwMzZjNTc3YzgxMTgxZTQ2YTQ2NWVhYjNhNWM0ZmI2
-NWY0NmZmNWJiN2FiNDJjNmMyNGIwN2RhMDM3ZTk4MzYwYmUxNDkxMWM3ZDEyZmQwNzNkZGZjOTI5
-NmZhNDkzNmE2YTI4NjBhYWQ4NTdhZmVhYTMwNWQ0MmQ4M2YxNzRhYzYzZTY3ZjI1Yzg0Y2IxYjli
-ZDNlYTQ3NmFiYzMxY2ZiZDkyNzNjNzJkMjc3NzU5MDM5NGViZmU5NmQ2ZmU1MDUwNDk4NWEwYzM4
-NmRiYmYyMGE3Y2I5Mjg1ZGFjZmMyNmQyZWYxZTcyY2JjMGM5YjJiYjk2MTVjMGVkM2YyZWJlYmRi
-OGNjNzlhMTBhOTVjNWY1Y2NhNDVmOGNmMWY1ZjZhMDQ3OGMwZjcwYWIwOWViZjc1YzkyYzBkYzI1
-OTgwZmNmNTJmODI2ZGM4YWEzNWI5NDYzNjkzNjlmYjdhYjU2ZTc1NzBlMmM0ZGI1NWFlMzNiNDM4
-Zjc4OTc3MWUwZTU5YzZjOTIyYWRjNDdlMzAxNmUwMTU0OWQ1MzExMjRlYWJjYWIxMTZhYmNmZDFl
-OGYwMzdjNzA4YWZkODI0MmQwYjkwMzFjMmQ3ZmUwODMxMzJlYWE1MDk1YTk2ZTAwNzViMjcyMDI3
-ZGM0YjQ1YWU3ZWVkMGFlNDgzMjY1MGZkNTIxNWQ0YmRhN2IwZTEwMDM3MGZlMDk1ZWQ4MzMxZjJi
-OGFmMDI4ZjZkYWUzYzljYzc0ODQ2NjIyOGM3ZDI1NGI1Yjk1NWMwZDk1NTU0ZmM0YTQyNTZkZTk2
-OTY3Njc0ZmQwYTVlOTQ3NDg4NzIxN2ExNGEwMjU3ODRkNTM2Zjg2MWE4Mjk5N2VhZDRhODcyNDRk
-ODUxOGZiYjllZGZhNGFkZjYwYTdkYTExZDI5OTcyODNkYTc2OGZlOTc1YzM4MmQ5ZjNlYTQ0Njkz
-ODFkMjg3OTUxZWMwZDA4ZjU4MTM4NjE2NGE0YjM0ZGU5Y2M1NTA2YTdkZGJhNTIxNWU2Nzk4ZGI4
-M2ZjNWE5ODE0MzUyMTM0MjZhNjMwMzUzNzFjNWViY2MyYzJhNjYzZGE1NzI1M2FmMWI0ZGUzYjA3
-MDQ2MmJjYTFkMTc4NTYwNzRjODRmNTQ0MDkzYjdlMmE3NGY0Mzk1NDM5ODg2YTA2YWM5NWNmYjVi
-YjI2YTFlMmJhYWNlMTA0YzBhMWY0ZjYzMWQ0YmFiMTQzYjZhNTIzY2IyMDBkNzA3MjE5N2FhOTUx
-MWEwZDMzNmU3NzQ3Njg1YmQ0ZjFmMTBmYjg1Y2EwMzRkODc3NGI5YjEyNWNjN2M4MjFmMjQ4MTc4
-NDAzNzVjMGJkYjI1ZjI1MWIwMDM0NTg3ZWY5OWJmNzllMWM2ZjIwNzg5YjJiMzJiN2U3MmQ1ZDEx
-MGU2YzRlOGNkMmNkNTY3M2FjNzdhYzZkOTEwOGI0YWJmNzhlNmM5ODc4N2JiZmM1NmMxNzE1YmJl
-MDFiZjVhN2MzNmExZjliNWExODc1ZWRlMTdiNGJjNjFkMWMzNWFmODNhNjU0MTI2MTYwMjJhMWJj
-Y2E3NWE2NzgwNDczMmIxZDRlNGQ1NzlkNmVlYjMwZThlMmIwNGY0M2UwZWZlYjczN2RkMjhmMjMw
-MTgzZWQ3NmQ4ZDFiNTNlNGRhYjdmMWNmYWY2NWY4OTZhNTQyZDhmN2YyMjNmNjhjNTU0MDRkZjI4
-MTIxYzY0YWYwMDkzNGNmZDA0YzVmZTY4MDUwYTJlZTYzMTgxYzU5NmJlNzU4ZTg2ZmVkNTQ3ODAw
-ZDRhYjZiZjFmNDc3MTdmNzYzYjFmNzI1YzcxMTAwYWM0YTZkNjgzY2YwOGZmYWYwYWUxNzBlM2Vh
-ZTAyOWNlN2FiZTg5ZGExN2MwNTQyOTM3NTQ1MTUyNGI4NWU2NzQ1ZmU5OWVkODMxOGNhZTgwMjFm
-YjQ2MDZjMDE3Yjk5MTFmYTZiY2Q1MGE5MmIyYzZmOGFkZDQ0MzJjM2Q4Njk2YzI2MDVkYjJlODFh
-NjhlYjVmYWE5MWEzNDk1ZDZiZWRiNGJkNTE3NGE1ZTAyZTM5MmYxNmU0NDViOTIwOTVjNTkyZGRm
-ZmVjNjBjMmUzY2FhMmU0YTE4MmI0YjlkNWU1NzcyM2RhMzExYTEyZmIwMmQ0MzY5OGY2NWNlZDhm
-ZGZiNDhmNWQwZTNhMmM3YTUxN2JlNzhjNjRjNmVkZDAwZDE3OTVlOTk2NDIxZDkzOGI1YjUwODJm
-YWM1ZDJiNjI0Njc2Y2NmYWI4MmFmNjgxZmVmMWZiYzkxNWQ5YzA3NjU1Njg4ZmZkYWU1ZmUzOGFk
-YTVmYjIxN2VjMDMzNzEzNjk5OWVlZGYyZGI4MGJiY2ZjOGRjMzNlOTAxOTk5NzgzMDM2NGQ0ZWRj
-NDViYTQ4NWE0YTY4NDZlMDVjOGI1ZWRjMjZlNjM3MzljOWE4ZThjNDA0YWE1OTQ4MWU5ZmNmNmQ5
-YWQzM2I2YzExNjNhNDdlYjk2YzcxZTMyOGRiNGZjMmRmMzU1MjQ1MDJjNjEwOGE3YTNkMjc4NzBl
-M2NkNDgyODUzZDU4YWNhNjI4YWMyMjY5ZmYwNDFiNDZhMzg0ZDU0ODEwOGM1MWVlNjVkMjk3OTkx
-YzIyZDA3NmNlNDRlMGQyYjdkOWIzMmM5OTBlM2IxNTYxMWVjNDcwNTVlYzVlZmNjNjk3ZjdiN2U2
-ZDE5ZmMzMzlmOTkyMTY3MzQ4YWY5OGYwMjJmMmIzZTExYTU3MDU0ZmVhYWRlYjc3N2QwZTFmZTAx
-OWFmZDBmZjZkYWRlZmVjY2FmN2M1YjAzNDA2MjgzZDJjMDhlNTVjOTI1OWY1ZGE1ZjU0OTY5ZWQ5
-MTA1ODQ5NDVjNGE5NGJjNGMyY2QxNjlmNzdkOTQ0NWViYjRhNjcwNmNiNjg2Y2NhZjI5ZTMzMzE3
-NzcyM2E1YTgzZjA5ZGUwMTFhNTU4MzY0MzkwZGJmYjgxNWQ2MTcwZWEzNjEwOGM3NDlhZjBlOTg4
-ODhhNGFmZjU5MzRiOTU0ODY1NGY1NGU1N2I4YmI5ZjIxNTI2MmNkZWM1MTRjMzVlMjgxMWQ0YTli
-NTQwYzZiODUyNGYzNDk5NGUxYjU5ZDNhZDZkZWY0NzkxZTc0MWE2Mzk2MTFjMDM0MjJlNGZiOWQ0
-NjA0Yzc4NWZlMGFiMTNlMGQxNTFiNGFmOWVlNzAxMWU2ZmI3MTFlNmU4NTE1ODhjNDc5Nzc1ZDg2
-N2U5NGQ3YTE2MTI3YTM4MzJkZjRmNjFlOGNiNDNkYWYzMTc4Yzc0NTRlZGJlYTUzZGNlZWZmYjYx
-ZjIyODEyZDNmOWM1MjIzYTkxYWQxODM5NTZkYmNjNjllZDZmMzA1YzRlOTQ4MmMwMWFmMmNmODYw
-NWY1OTNmZGQwMGMxOWU4NTZjMDBhNjdiNzhiNmVjZWRlMzU1MWJiNWZjMGEzMTcyMDkyMWQwMDJk
-MTM4MmFkZDFjODZlMTM4ZDk4YWY4ODVlMjlmNmJjODI5NWI1MTI5MmUzZjIwNDEwODM1NTJjZjYz
-M2EwMTVjMDQ0ZDNjZTVlYjEwZDU2NDY2MWQwMmZhZmQ0N2IyNTk5ZWVlZmQ1YmI0ZmEwMTE0OTYz
-NGY0MmIxODRjMDI1OTU4NzcyZjcyMmM1OWNiODY3Yzc0ZTMwMTZhNTU4MDhlNzNlMTQ4OGVhMjdi
-MmQ1MzY4ZDhhYjliYjlkY2EzNWQ2OTlhMmQ2OWExN2QzYTFjZmZhOTJmMmEzMDc4NjA5NjFmNjE0
-MmNiOWZjNWJhNThjZmJiNmMzMGYwYjUzZjhmNTc2NzA1YTU3ODUzMTE5OWJhMjc3NGZlY2QyMzE0
-NmQxMTAyMWNhOWNmN2FlNjgwZTdhMmVhNTc0YzU4NmNmMTk3NjZmZTFkZjlkMGVhOWU3MmI3NDI2
-ZjQ1MDkxMWIxZDE2ZjQ3MWMyYjAwYWE0MzM5YmFkZWNkMDgyM2I1OTQ0Y2I4NmY0MmY2YzEzOWY3
-OGU1ZGM1MzIzNGRkYWMyMzEzMjc4ZWQ5NzE4NTc0MTQxNGViMzcwYWYxZmFjNTk3MzVhNTYwMGZk
-NWI4NjI2YjIwYzBlZmZjYWU5NjhiZTJkMmI1NTc0MDViZjYyMDRlMWY5ZTc2OGFhMzVmNTVkYWRi
-YTUxN2Y1ODU4NzM3ODQyNmVmYzc4OTlhNmQwNzZhY2Q0M2MyZmQwM2JjODcyMmZkMzNjMzQ1ZGE3
-Mzk4MjBlNzFmYjg3YWEyY2ZmMTVkNTg3NTE5YTBkYzhlYTc5YzllZGRlZTEwOTc0MTIyYzFhYjZi
-N2JjOGVhYzlhMTMxZDUwZDVjMTc1N2U4OTk5YTQ2MGQ3OThmMjQ5NzVlMzE4NDk2OThjNGUyNzE0
-ODc2NjUzM2VjYzNmMzY4NjcyYjhiODNkODIzNWQ5MTQ3ZGNjZmMzZWJmYzBlM2RiZjYzZGJiZjUz
-NTMwOTBmMTMzZjY2NTk4NmMwMmZiNTBjYmNkMGE0MWQ5ZWU4NzEzZmIxYzY1M2YxNTdlNTk3MjVh
-YzQ1ZGUzM2E0ZGY2Yjg2MjkxMGVkZGQyZDJkZDZmMTE1ODc2Njk1ODBlMmNkMmE5ZWE2YmRiOWY5
-MGFiZDUxMjQzYjM2NzU4NmE2NzQxYmQ5ZjdiNzYwOTZlNTk5ZmU2MDA5OWEyYWQ2M2Q4ZDczNzgz
-ZjliMDcxNGFmOTk0MTAwMmY5MGI0Y2FjODFiYjQ3MzljNzAwMzUyNmQwYmFjOTBhYzIxOWJhOTRk
-MTdhNzM0NDg0N2MwMzI5ODQ4MGY4ZDJkMzNiMDIxNGRkMmRkN2RhNjFhYWY2MDFlODU4MWZjZjE0
-MTRhN2NjOTIwNmY5N2FiYTYwZDFiNTI1NGMwOGQ3ZTVlZDMwY2ZiYTQxM2ViYzFjNjIxNDA1MGRm
-YmJlMzQ1MjExMGExZWNiOWNiYjlhNDFhNzM1ZmE4MGUxY2EzMDI2YWE1MjYzNzY5NmVkODUwNmU0
-OWYyZjkwODkwNDZiOTg3NGU0ZDY5ZDcyZTMzODM0OWUwZDdkOTgxNDUyOWU4YzFmYjNmNmM2M2Fl
-OTU5NDc3N2Y3MmIwZjQ5YTNmNjlhZjczYTU1YmQzYmExMWYxNmRiOWRmNTM2ZjIwOTA3NmRjYmQw
-NjUyOGRlMjQwMDIyMjkzNGYyNjBmOTljM2ExMDg5NTRlNjNkZTczODk0YzY5NTQ4NDA3ZTIxZWFi
-YWJkZTBmZDI4OGU5OTVkNWU2YmE4ZjE5OTNmN2YwOGUyMzY1NTA2MDBlYWFlMWYyOWRmM2VmNDc4
-MmJlNTU3NTA2Y2ZmNTM3ZmMxMDEwOTM3NzUyNTk3M2Q1YWUwYWNhYmU2OGEwMTcwM2QwODEwYjgz
-MjZkMTkxMWY0NjMwMGRjMTVjNTViYWFiZjdkNjMzMjNhYmNiZjdkOWVmMjg5ODc3MzU0NjNkMWRk
-OWI1N2VhYjExNmVjMDg1NzE3OGNkOTJjOGRiNWIxNDIzYTg4ZWU3MzI5ZjFjOGFmNTQ5OTZmNDJi
-NTFhOWYyMjg3MTQwMjRlODc5ZTQ2OTMwNDc2MzZjNDg1ZDc1N2Q2MzYzYTk1MjhhNjMxNTRmMTdl
-OTBkMzVlZDkxYzlkZTI1YWJhMjM5ODcwODU2MWRmZDAyY2YwYWMzZmE5MjM3NTBkZGUwOTRlYjI1
-NjU0YTZkYTU1MjU4NjI3YThhZWU5OWM0OGY5OTQwNmFlODg5NzRlYjczMGMxMGQ3OWEzMzhhMjU0
-ZGMxZjljNDk0MjcyZjVjMTBkZjAwYzc4MGM2OTNmN2M1NzU2YzAxMTlkZmI4NmY2NzczMmNhYzc3
-NjFlMmY2YTc1NWI0YTM4NDQyZmI5MDE3YTAzZjU3NWZkNjQzZWI0YWM1MWJjMzZmZGRkZGFjMjg5
-MTlmMjkzYzhmODY5MDJlZTRiODIyM2Y0ZGI5MTNmM2I5MDdmNTU3Y2IxMjgzZGJkMzUwNDlhM2Ew
-ZTIyOTc1MjRiYzNhMzJkMTQ3MTE0NzI2OGFiN2UyYWZlOWQ5ZTBmOGVlZTM1MmQ5NDNlY2QwNTc1
-MzRlNTdhMTg1MDFlNjhhMTFiYmE5MjYyNzBmZTc2NTA5ZTcwMTU2MWMwMzEwYjFlZWViNGUzYmRi
-Yjk5Yzk3MjRmM2IxOWYwZjhiNmU3NmFhZWExNTk4YTQwMmM2NWM4ODNlOWM5Nzc2OTZmMDI0Mzg0
-OWJlMTg0ZWMyNGY0Y2ExMmI5OWM5ZWMyOTg0ZGQ2OWExZjgxZTBlMDI3OGY3OTU4ZjVmOGU2Nzkw
-NTBmZDg3MmU5YWYyZjBlYjkzMzQ1OWFmMTJiZTkwMTgxOGFkZmFhODU5ZDU5MmE5MzgxMjNjZTk2
-NTYxYmE4ZGFlZTBhNjZkNDdiOWRlOTUyNjI4NjUxZGNkYWQ0OWZhYzI5NjE4ODNiODZkYmMxNzZh
-OWE0OGEwODk3ZTFiNzFlY2I0NDY4ZDkwYmFhMzIxZDBlM2RmMTUxNmU4ZTdiY2RhNmZhMjFkYjMz
-NGVhN2ZiOTliOTZhYzYxZjk4YmFiYTQ4ODkzZGU4OTMxMmQ5Y2FhYzFjOTE0NGI5MjVmYWU5Mjcy
-NDU1NThlYzkzNTJjM2JiOTBmMWVjYzY4NmUxNDU1YmZlZmVjODMwM2JkYmEyMzY4ZDU4ZmZiYzA4
-MmUzMGNiNWE0NDc1MWNiNjlhODE4NTM1MmQyZmFhODRiMTE5MzI0OTg2MTk2MDY5YjY5MTJhNGUw
-NWExYjQxZDA4YTUwY2RiNWY1MzVlMGNiOTNlZWYyZWE5Mjc0Njc0YjQ4YjJmZjFmNTAyZjg3OTlh
-MDVjNDBiOTlkZmVlMzY0YjdiZWVlYjFiMTc0MjdjMWIxYTA1NzE2M2U4N2E5OGY4ZGJlZDNkNzFh
-ZThiMDdhOTZhMGNhNGJkZmIxNGFmY2ZiYWRjMDI5NjA0NWNlMzhkMjQ5OTE5NjE0ZjE0N2Q0YTZk
-N2VkN2Q4MGE1ZDhhZjE5ODU5ZmQ5MzY5ZWE1YmU3NTYxYmQ1MzQxZGE5MmM5MjQwZjNmMDA1MTc4
-ZjFkNzM4OGY0ZGU0MjdjNjMzOWIwMTU0NTk4MTBkNmVlNmRhNzgyMDY3YmMwMTgxN2I1MjVkN2M1
-OGM3ODFhOGIyZTZlMGVlZWRlN2IyODVlMGVmMGMzYzUzMTQzZDE5YjljNTdlZGUzNTExYmMwYjA0
-MmU0Yzc0NWI1NmY0NTQyZWQxZjRlMmI3ZjE2YmViZThkMDhjYjk0MDkzZmNjYTVlZmM1YWI2Njg4
-MzM2MDVlYTBmMWUzMTk1ZTczZTVlYTkzN2IxZjcwNGZjZDA0NDE4OGRjNGI1N2MxM2U3YTgzMTUz
-ZDEyMDc2ODc3YTEwMWQzOGZiOGMxZDJkNzliNzJiMmM5M2IyMGQ3ZDM1MGRmNWMzMmYyZDg0NTQ2
-Y2IyYjMwN2IyOTRiZmMxMGZjMzc5MGQ0MmNlYzc1ODc0YWQwNmQxZjgyYTgwMTUwNWRiODljYzA2
-NThmYWM2NGE2MDQyMDM2M2VhNTIxODViZWZiNjI3Yjg5NTA0NzJmOGRiYjgwNzU4NjBiNmU0MTk4
-Yzk2YWJhZDg1MDA5MGM5ZWY3OWQzMDRhMjdiMGUwOWVjMmZkMWMxY2QyYjcyMmU4ZmFiMTRlZGY0
-OWNhMzdjNDk4OWFiMDkzOTljZWZmZGI2ODY0OWJiMzBlOWE5MjZhNmRjZTg4NjdlOWY4NmRhOGNi
-YWI4Y2YyNzUwOTg5MTdkYjY0YzY1Y2IzNDMyYzFlMDc4OGQ0NWJmM2EyODA5YjA2YTM2NTE2ZGVj
-ODgxZDk0ZDU4ZGNhYWM1OGIxN2ExOWMwM2Q5MWFhMWQ3NDYxNGI5NGRjNmJiZTQ4OWZlZmQwODNm
-MzU3ZjNkMWUyNzNiYjcxNWExNjZjNjU2M2JjYmVmYmVmYzE4MGRlMGE2OWEyZjQ0NmZhOTJkZDYw
-NWI0MThlOTIwOGFlZTYyOWY5NWU3NGVjYWI0YjVjZDVjYWVmZDQ4ZjI1NDY5NmIzYTRlYmE4YTQw
-YTQ4MGY5OGE1M2RmMDJmZjg2ZjBlMmM5ZDY1YjNiMzQwOTU3NmY0MjgzNGMzM2YwOWRmNmIzMjM0
-NjI5ZWQ4MDcwMzU0MWIzMDY5ZTg2NThjYmFjNDMwYjY1NjRlNWViYzNiMjg5ZTVhMzBmMTE1Yjgw
-NDg3ZWJhNDA2ZmNiNTc0N2E3ZmU1OTNjZjAwYjYwN2NmNTgxOTgyYjJkZTY2NjkyM2NhM2U5YjZm
-OWQ2MDRiMTE3YTk0N2VjOTZlOWIwNDFlMTRmZTM1ZDRlNjNlYzNmMGU3ZDM4YjcyMmE5YjY2Mzk0
-YWRjOTQxMDg3ODhlNDc2YmQ4NTlkNzA1MDI1NzVhYmFhODFlOTZkMTUxZDhhMGMxNDNmNTQ1NGYx
-Y2VmY2FhNTA0OWQ4YWU0MDdkMzRkNzM4M2Q3NWNkZjE3MjY3YmRlOTAyMWNjOTRmNjdmY2JjZDE3
-MmJhN2I3MDA2M2MxOTg2NDUxMGNhM2IwMGU3MWJhOWJjNDk2ODkxYzEyYjhhYzVjOGY3Mzg0MmEy
-ODczMzMwMzI3NWE5MjA0YmI0NTkzYmQ5NDViODdmYWQ4OGU3ZGQwODgxMTk3OWY2YmJjM2JmYjc0
-ZTRmODgyZmZmMDA5MTJmNzM1YjhhMmNkNjQ4NzcwNTM2OGVkYzlmZTY2MjNmZTM4OGUwMzhmZDFk
-MTMwNzVlNTczNjMyMzIwYjdlMGUxODVjNjdjMjk5ODJmODNmYzIxZTk2MWNmYzZjNWI3MzNiMzY0
-NzJiMjI4MTg1YTczMzBmMmM1MzBmYjM2NTI2NmY5NjYzMzQ4M2NhY2VmNGIwMDcyOTNhNzUxZWNk
-NWViMGZiMTU1Mjk5MDUxNGNlNWU5NDQ0NDAwZjQ3NWRmYmM2NGE1ZDNlYmViYzc5Njc0MDI5YmM1
-Y2Q1NmI4M2QzNGZiMWM0MDZiZjg2ZGZhYjQ0NWViODk4OThmYzY4M2VlNDRiYTllNjAyNGQwMTli
-NWEwYzJiYTgxNTZjNTg1NTQ0ODYzZTg5ZGQyMDI2MGE0YWEwMWQxZGNhNDdhYmNmMjIyMmE0NDI1
-ODVmZjViMGIwNWQ3MzM5MmI3Njg0YzI2ZWFmYTY1ODY1YTk0ZWMyYWMyOThlYzVmOTEyNDk0YTMx
-MTkzZGM1NTllMzFlOTFmMjllYTM3NGVjZmNmZDVkYWI2MjM0NGU4NGI4YTcyNzgwMzEzMDljMGNk
-ZTAyOWRkODNiZjQ4ZDdmYjViODNlNDIxMjgwZTM1YmRjMTQxMzNkZThmYmYyZWI3Y2FlMDI1Mjgw
-MTI5MTA2MmMyODdlYTc5NTNiYzI0OTJlMGM2YzUxMzRmNDliZWRlYjMzMzM1MzFmZWJkOGNmZGMw
-MDcwODBiNTkwYzUzZGZkYzJlYTRkODg2ZTZlMDNhOTc1YzQ3MTc4Mjc3M2QzZGMyOGYyN2Y2M2Ux
-NDQzZTQ3ZGI4ODFmOTJhMjg5NzRmMDRlM2RlNmU2YjdhMTMxOWVmNmU5NjNlMWZiMWMxNDgwODE2
-ZjgwMTI4YWFhM2YyNmE4MmY0MDAxODViYjQzMTQwNGY3NTgxZjcwMDFmZGQ0NTFmYTk5NGU3OGMz
-NjU1NWVlMDFhMGExZTJmMTM5MDZjYzEyMWM4ZTI5ZWM1NTM0NjlhMDYwYjU3NTc3NTc0NTBkZDNk
-Mzc5MTFlNzkyNjg2NzlhNzM0NmVhNzFlZDA1YTEyY2NiYjNlNDkxMzRkMDIwOTkwYmFhZDQ5ZDM2
-MTg1OGI0NjQ4YmExMzJkNWNlZGY5NzYzMjkyZjU5YjZjMmRmZWI0NDdmNmUyOTMwZWFjZWFlNDUy
-MTdlMGNjMTg5NzM4ZDZlMGJjNmZmMDExYTljZGRjOGZhNzdjOGQ5NjgwODFjZDdkNzc0ZTI0OGVk
-ZDRjMGQ5MWQ4Y2NmYjRjZGYzODNjYmEwYzhjOTcwNzM4Yjk4M2I0ODljMjlmMzFiNjA0IiwgMHgx
-MDAwLCAweDIwMDA0MDAwLCAweDAsIDB4MCkKc2VuZG1zZyRzY3RwKHIwLCAmKDB4N2YwMDAwNDdh
-MDAwKT17JigweDdmMDAwMDQ3YTAwMCk9QGluPXsweDIsIDB4MCwgQGVtcHR5PTB4MCwgWzB4MCwg
-MHgwLCAweDAsIDB4MCwgMHgwLCAweDAsIDB4MCwgMHgwXX0sIDB4MTAsICYoMHg3ZjAwMDA0N2Iw
-MDAtMHgyMCk9W3smKDB4N2YwMDAwMzJkMDAwLTB4NDQpPSI5YWM1MmI3ZDFkMzc2NWY5NGYzZTAx
-ZGNjMGU2ZTQ2NWI2YmZiNDgxN2YyOWJkYTI1NmU5OGM0MjIzZGI3M2I4ODBlMSIsIDB4MjJ9XSwg
-MHgxLCAweDAsIDB4MCwgMHgwfSwgMHg0MDAwKQptbWFwKCYoMHg3ZjAwMDAxZmYwMDAvMHg4MDAw
-MDApPW5pbCwgKDB4ODAwMDAwKSwgMHg1LCAweDMyLCByMCwgMHgwKQpsaXN0ZW4ocjAsIDB4N2Zm
-ZikKYWNjZXB0JHNjdHAocjAsICYoMHg3ZjAwMDAzYWQwMDAtMHgxKT1uaWwsICYoMHg3ZjAwMDA0
-N2IwMDApPTB4MCkK
---94eb2c1b005abdf806054c6bd8d6--
+Tested-by: Andrey Konovalov <andreyknvl@google.com>
+
+Thanks!
+
+>>
+>> what do you think ?
+>
+> Yes, agreed.
+> Thanks!
+>
+>   Marcelo
