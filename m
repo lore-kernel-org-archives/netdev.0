@@ -1,84 +1,134 @@
-From: David Howells <dhowells@redhat.com>
-Subject: [PATCH 16/38] Annotate hardware config module parameters in
- drivers/net/appletalk/
-Date: Wed, 05 Apr 2017 17:59:10 +0100
-Message-ID: <149141155002.29162.9347070846007030789.stgit@warthog.procyon.org.uk>
-References: <149141141298.29162.5612793122429261720.stgit@warthog.procyon.org.uk>
+From: Matthias Schiffer <mschiffer@universe-factory.net>
+Subject: Re: [PATCH net-next 3/3] vxlan: allow multiple VXLANs with same VNI
+ for IPv6 link-local addresses
+Date: Wed, 5 Apr 2017 18:58:29 +0200
+Message-ID: <9756edcf-8c0c-fc49-04a0-09b7ffed4362@universe-factory.net>
+References: <cover.1489184335.git.mschiffer@universe-factory.net>
+ <5c74248483272110d0ca249b80b943b0ceb0b610.1489184335.git.mschiffer@universe-factory.net>
+ <20170314162815.7aae9e94@griffin>
+ <1542ef1a-4bc2-d142-1910-0583c3c543a6@universe-factory.net>
+ <20170315162257.127b27d6@griffin>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: gnomes@lxorguk.ukuu.org.uk, netdev@vger.kernel.org,
-        dhowells@redhat.com, linux-security-module@vger.kernel.org,
-        keyrings@vger.kernel.org,
-        Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
-        gregkh@linuxfoundation.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <149141141298.29162.5612793122429261720.stgit@warthog.procyon.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="fmrBUi5djVfQt56qRw7Lud0xicof9fwp4"
+Cc: davem@davemloft.net, hannes@stressinduktion.org, pshelar@ovn.org,
+        aduyck@mirantis.com, roopa@cumulusnetworks.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jiri Benc <jbenc@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from chaos.universe-factory.net ([37.72.148.22]:49094 "EHLO
+        chaos.universe-factory.net" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1753544AbdDEQ6d (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 5 Apr 2017 12:58:33 -0400
+In-Reply-To: <20170315162257.127b27d6@griffin>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When the kernel is running in secure boot mode, we lock down the kernel to
-prevent userspace from modifying the running kernel image.  Whilst this
-includes prohibiting access to things like /dev/mem, it must also prevent
-access by means of configuring driver modules in such a way as to cause a
-device to access or modify the kernel image.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--fmrBUi5djVfQt56qRw7Lud0xicof9fwp4
+Content-Type: multipart/mixed; boundary="c2v6OqWcf0v1whbdfQaV0nPe3fPMljxj4";
+ protected-headers="v1"
+From: Matthias Schiffer <mschiffer@universe-factory.net>
+To: Jiri Benc <jbenc@redhat.com>
+Cc: davem@davemloft.net, hannes@stressinduktion.org, pshelar@ovn.org,
+ aduyck@mirantis.com, roopa@cumulusnetworks.com, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org
+Message-ID: <9756edcf-8c0c-fc49-04a0-09b7ffed4362@universe-factory.net>
+Subject: Re: [PATCH net-next 3/3] vxlan: allow multiple VXLANs with same VNI
+ for IPv6 link-local addresses
+References: <cover.1489184335.git.mschiffer@universe-factory.net>
+ <5c74248483272110d0ca249b80b943b0ceb0b610.1489184335.git.mschiffer@universe-factory.net>
+ <20170314162815.7aae9e94@griffin>
+ <1542ef1a-4bc2-d142-1910-0583c3c543a6@universe-factory.net>
+ <20170315162257.127b27d6@griffin>
+In-Reply-To: <20170315162257.127b27d6@griffin>
 
-To this end, annotate module_param* statements that refer to hardware
-configuration and indicate for future reference what type of parameter they
-specify.  The parameter parser in the core sees this information and can
-skip such parameters with an error message if the kernel is locked down.
-The module initialisation then runs as normal, but just sees whatever the
-default values for those parameters is.
+--c2v6OqWcf0v1whbdfQaV0nPe3fPMljxj4
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: quoted-printable
 
-Note that we do still need to do the module initialisation because some
-drivers have viable defaults set in case parameters aren't specified and
-some drivers support automatic configuration (e.g. PNP or PCI) in addition
-to manually coded parameters.
+On 03/15/2017 04:22 PM, Jiri Benc wrote:
+> On Wed, 15 Mar 2017 15:29:29 +0100, Matthias Schiffer wrote:
+>> While ensuring that the destination address is link-local iff the sour=
+ce
+>> address is would also be an option, it didn't seem too useful as the
+>> destination address will be a multicast address anyways in "normal" VX=
+LAN
+>> configurations. If we really want to check this, I guess the valid
+>> combinations are:
+>>
+>> source link-local - destination link-local UC
+>> source link-local - destination link-local MC
+>> source global/... - destination global/... UC
+>> source global/... - destination any MC
+>>
+>> Does this make sense?
+>=20
+> It does.
+>=20
+> Thanks!
+>=20
+>  Jiri
+>=20
 
-This patch annotates drivers in drivers/net/appletalk/.
+While trying to integrate the additional checks, I noticed that the
+vxlan_dev_configure() function has some serious issues in the changelink
+case. An (probably incomplete) list of things that can go wrong:
 
-Suggested-by: Alan Cox <gnomes@lxorguk.ukuu.org.uk>
-Signed-off-by: David Howells <dhowells@redhat.com>
-cc: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
-cc: netdev@vger.kernel.org
----
+- vxlan_dev_configure may return with an error as late the "if (conf->mtu=
+)"
+branch, after some settings have already been applied to the vxlan_dev or=
 
- drivers/net/appletalk/cops.c |    6 +++---
- drivers/net/appletalk/ltpc.c |    6 +++---
- 2 files changed, 6 insertions(+), 6 deletions(-)
+net_device, leading to partial application in some error cases
 
-diff --git a/drivers/net/appletalk/cops.c b/drivers/net/appletalk/cops.c
-index 1b2e9217ec78..486e1e6997fc 100644
---- a/drivers/net/appletalk/cops.c
-+++ b/drivers/net/appletalk/cops.c
-@@ -986,9 +986,9 @@ static int cops_close(struct net_device *dev)
- static struct net_device *cops_dev;
- 
- MODULE_LICENSE("GPL");
--module_param(io, int, 0);
--module_param(irq, int, 0);
--module_param(board_type, int, 0);
-+module_param_hw(io, int, ioport, 0);
-+module_param_hw(irq, int, irq, 0);
-+module_param_hw(board_type, int, other, 0);
- 
- static int __init cops_module_init(void)
- {
-diff --git a/drivers/net/appletalk/ltpc.c b/drivers/net/appletalk/ltpc.c
-index 01e2ac55c137..ac755d2950a6 100644
---- a/drivers/net/appletalk/ltpc.c
-+++ b/drivers/net/appletalk/ltpc.c
-@@ -1231,9 +1231,9 @@ static struct net_device *dev_ltpc;
- 
- MODULE_LICENSE("GPL");
- module_param(debug, int, 0);
--module_param(io, int, 0);
--module_param(irq, int, 0);
--module_param(dma, int, 0);
-+module_param_hw(io, int, ioport, 0);
-+module_param_hw(irq, int, irq, 0);
-+module_param_hw(dma, int, dma, 0);
- 
- 
- static int __init ltpc_module_init(void)
+- at the moment, changelink is allowed to change the address family of th=
+e
+source/destionation addresses, but VXLAN_F_IPV6 is never removed, and
+sockets are not recreated; I think changing the AF should just be disallo=
+wed
+
+- conf->mtu will be re-applied in changelink even when the lowerdev has n=
+ot
+changed, possibly overwriting other MTU changes that have been made after=
+
+device creation (having conf->mtu in addition to dev->mtu might be a bad
+idea in general?)
+
+
+Each of the issues could be fixed separately, but at the moment, I'm rath=
+er
+considering cleaning up the code by factoring out a vxlan_cfg_validate()
+from vxlan_dev_configure(), to clearly separate validation and applicatio=
+n
+of the configuration. Is this the way to go, or do you have other suggest=
+ions?
+
+-- Matthias
+
+
+--c2v6OqWcf0v1whbdfQaV0nPe3fPMljxj4--
+
+--fmrBUi5djVfQt56qRw7Lud0xicof9fwp4
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAEBCgAdFiEEZmTnvaa2aYgexS51Fu8/ZMsgHZwFAljlIjUACgkQFu8/ZMsg
+HZzWOxAAolDne1EaI3lKPCYerYj7QGAIWbAoOXZ2J5RrTiBVNb7R5STl6eOIWvdu
+gIftgDaZSo8jf25oSdUilWHgxgK0ewAZCC9ZmE6P7QfSPPhHyIz4S2HB0j4w7q/d
+9Jx6EmqB0JKORbhWFo2ajeWgHo3YBKhXYU/m9uSCHGl4ZtKUJKNvUUO8/Ca98Gvf
+O3sVIttnVWRPv0ydQ6yJP2WyBME2Ef4FNqA9s/7XQyOQ+D86xVhucb+QpkydWiQM
+qlRmIYEYC5ZzphQvB9unbFEQSuvh9sSRqA0zeGlqr3Xncnryh8Ddo7lF9rszrRTJ
+XkCVE9q4wuM5qKyvEzcYBgXa9+Max+ii4Fhyykq9ZdXiZwlGt2XX83nC5USgBHdt
+UuW6WgtjnvLRbxDy70j0zVIhlj3GJxSYmj0z/p8K3ktDyN/EFY+kMO9xHioatkUs
+e2u9Kgfvw24ZXFqXDpMOw1QyzVwxq3/AJUS4qOMNrr42ibfHFXaqY4cFEPUfzyyC
+VFFc36b3u/i/BtcBW5a2W1iNYUSVQwqGb0dl5XXW7gUT5Zz/sxxo0GWSU95RgED5
+nhyqrgziFP1iaO3y8NE0Ougpd4bNjpKsqy50XX1cXBzCy4+6/AJa0qSsX10UsDaj
+NWNvJobrD2zXEtX/n6iNvyowlQ9+Bvpb0VTPSyTAq/h4EyXPegA=
+=LfKy
+-----END PGP SIGNATURE-----
+
+--fmrBUi5djVfQt56qRw7Lud0xicof9fwp4--
