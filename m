@@ -1,36 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: ibm: emac: remove unused sysrq handler for 'c' key
-Date: Wed, 05 Apr 2017 07:26:36 -0700 (PDT)
-Message-ID: <20170405.072636.1936712503456383299.davem@davemloft.net>
-References: <20170404055020.30658-1-ebiggers3@gmail.com>
+From: Guillaume Nault <g.nault@alphalink.fr>
+Subject: [PATCH net] l2tp: define SOL_PPPOL2TP in uapi
+Date: Wed, 5 Apr 2017 16:52:35 +0200
+Message-ID: <28884134c7944f005e4872256742b10765cc2770.1491402366.git.g.nault@alphalink.fr>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ivan@de.ibm.com,
-        linux-kernel@vger.kernel.org, ebiggers@google.com
-To: ebiggers3@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: James Chapman <jchapman@katalix.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:42544 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753091AbdDEO0l (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 5 Apr 2017 10:26:41 -0400
-In-Reply-To: <20170404055020.30658-1-ebiggers3@gmail.com>
+Received: from zimbra.alphalink.fr ([217.15.80.77]:59410 "EHLO
+        zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754726AbdDEOwk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 5 Apr 2017 10:52:40 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Biggers <ebiggers3@gmail.com>
-Date: Mon,  3 Apr 2017 22:50:20 -0700
+Userspace needs SOL_PPPOL2TP to be defined for using PPPOL2TP_SO_*
+socket options.
 
-> From: Eric Biggers <ebiggers@google.com>
-> 
-> Since commit d6580a9f1523 ("kexec: sysrq: simplify sysrq-c handler"),
-> the sysrq handler for the 'c' key has been sysrq_crash_op.  Debugging
-> code in the ibm_emac driver also tries to register a handler for the 'c'
-> key, but this has no effect because register_sysrq_key() doesn't replace
-> existing handlers.  Since evidently no one has cared enough to fix this
-> in the last 8 years, and it's very rare for drivers to register sysrq
-> handlers (for good reason), just remove the dead code.
-> 
-> Signed-off-by: Eric Biggers <ebiggers@google.com>
+Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
+---
+ include/uapi/linux/if_pppol2tp.h | 2 ++
+ 1 file changed, 2 insertions(+)
 
-Applied to net-next, thanks.
+diff --git a/include/uapi/linux/if_pppol2tp.h b/include/uapi/linux/if_pppol2tp.h
+index 6418c4d10241..90ce1abd2c4b 100644
+--- a/include/uapi/linux/if_pppol2tp.h
++++ b/include/uapi/linux/if_pppol2tp.h
+@@ -73,6 +73,8 @@ struct pppol2tpv3in6_addr {
+ 	struct sockaddr_in6 addr;	/* IP address and port to send to */
+ };
+ 
++#define SOL_PPPOL2TP 273
++
+ /* Socket options:
+  * DEBUG	- bitmask of debug message categories
+  * SENDSEQ	- 0 => don't send packets with sequence numbers
+-- 
+2.11.0
