@@ -1,45 +1,66 @@
-From: Kalle Valo <kvalo@qca.qualcomm.com>
-Subject: Re: [PATCH 1/7] Documentation: dt: net: Update the ath9k binding for
- SoC devices
-Date: Wed, 5 Apr 2017 10:09:44 +0000
-Message-ID: <87tw63i2s7.fsf@kamboji.qca.qualcomm.com>
-References: <1489439116-4233-1-git-send-email-albeu@free.fr>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [PATCH 16/16] drivers, net, intersil: convert request_context.refcount from atomic_t to refcount_t
+Date: Wed, 05 Apr 2017 13:33:12 +0300
+Message-ID: <87k26zi1p3.fsf@kamboji.qca.qualcomm.com>
+References: <1490691403-4016-1-git-send-email-elena.reshetova@intel.com>
+        <1490691403-4016-17-git-send-email-elena.reshetova@intel.com>
+        <87zifxn2gb.fsf@kamboji.qca.qualcomm.com>
+        <2236FBA76BA1254E88B949DDB74E612B41C8741B@IRSMSX102.ger.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: ath9k-devel <ath9k-devel@qca.qualcomm.com>,
-        John Crispin <john@phrozen.org>,
-        Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Alban <albeu@free.fr>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1489439116-4233-1-git-send-email-albeu@free.fr> (Alban's message
-        of "Mon, 13 Mar 2017 22:05:09 +0100")
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: "netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel\@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "linux-arm-kernel\@lists.infradead.org"
+        <linux-arm-kernel@lists.infradead.org>,
+        "linux-rdma\@vger.kernel.org" <linux-rdma@vger.kernel.org>,
+        "linux-hams\@vger.kernel.org" <linux-hams@vger.kernel.org>,
+        "linux-ppp\@vger.kernel.org" <linux-ppp@vger.kernel.org>,
+        "linux-wireless\@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+        "ganeshgr\@chelsio.com" <ganeshgr@chelsio.com>,
+        "nbd\@openwrt.org" <nbd@openwrt.org>,
+        "blogic\@openwrt.org" <blogic@openwrt.org>,
+        "matthias.bgg\@gmail.com" <matthias.bgg@gmail.com>,
+        "yishaih\@mellanox.com" <yishaih@mellanox.com>,
+        "saeedm\@mellanox.com" <saeedm@mellanox.com>,
+        "matanb\@mellanox.com" <matanb@mellanox.com>,
+        "leonro\@me
+To: "Reshetova\, Elena" <elena.reshetova@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.codeaurora.org ([198.145.29.96]:56244 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933483AbdDEKd0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 5 Apr 2017 06:33:26 -0400
+In-Reply-To: <2236FBA76BA1254E88B949DDB74E612B41C8741B@IRSMSX102.ger.corp.intel.com>
+        (Elena Reshetova's message of "Tue, 4 Apr 2017 10:07:55 +0000")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Alban <albeu@free.fr> writes:
+"Reshetova, Elena" <elena.reshetova@intel.com> writes:
 
-> The current binding only cover PCI devices so extend it for SoC devices.
+>> Elena Reshetova <elena.reshetova@intel.com> writes:
+>> 
+>> > refcount_t type and corresponding API should be
+>> > used instead of atomic_t when the variable is used as
+>> > a reference counter. This allows to avoid accidental
+>> > refcounter overflows that might lead to use-after-free
+>> > situations.
+>> >
+>> > Signed-off-by: Elena Reshetova <elena.reshetova@intel.com>
+>> > Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
+>> > Signed-off-by: Kees Cook <keescook@chromium.org>
+>> > Signed-off-by: David Windsor <dwindsor@gmail.com>
+>> > ---
+>> >  drivers/net/wireless/intersil/orinoco/orinoco_usb.c | 15 ++++++++-------
+>> >  1 file changed, 8 insertions(+), 7 deletions(-)
+>> 
+>> The prefix should be "orinoco_usb:", I'll fix that.
 >
-> Most SoC platforms use an MTD partition for the calibration data
-> instead of an EEPROM. The qca,no-eeprom property was added to allow
-> loading the EEPROM content using firmware loading. This new binding
-> replace this hack with NVMEM cells, so we also mark the qca,no-eeprom
-> property as deprecated in case anyone ever used it.
+> Thanks for both! Will you take the patches in?
 
-A patchset like this should definitely have a cover letter and explain
-the backround and reasoning for this patchset. Currently I'm just
-guessing.
+You mean patches 15 and 16? I didn't even look rest of the patches.
 
-> Signed-off-by: Alban <albeu@free.fr>
+But not sure yet because Dave doesn't seem to like the interface and I
+want to follow the discussion first.
 
-Please use your full name both in From and S-o-b lines.
-
---=20
-Kalle Valo=
+-- 
+Kalle Valo
