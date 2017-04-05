@@ -1,76 +1,61 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: [PATCH iproute2] man: fix man page warnings
-Date: Wed, 5 Apr 2017 16:56:23 +0200
-Message-ID: <20170405145623.GN19768@orbyte.nwl.cc>
-References: <20170326191114.3756-1-alexander@alemayhu.com>
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Subject: Re: [PATCH net-next] net/mlx5e: fix build error without CONFIG_SYSFS
+Date: Wed, 5 Apr 2017 10:55:00 -0400
+Message-ID: <CALzJLG_cxNi37SSZaeMOjDHzURtHp088LJFXG-D3TYvUPTH7vQ@mail.gmail.com>
+References: <20170405091110.711-1-tobias.regnery@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, stephen@networkplumber.org
-To: Alexander Alemayhu <alexander@alemayhu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:47667 "EHLO mail.nwl.cc"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754118AbdDEO4Z (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 5 Apr 2017 10:56:25 -0400
-Content-Disposition: inline
-In-Reply-To: <20170326191114.3756-1-alexander@alemayhu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Saeed Mahameed <saeedm@mellanox.com>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        linux-kernel <linux-kernel@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>
+To: Tobias Regnery <tobias.regnery@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170405091110.711-1-tobias.regnery@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Mar 26, 2017 at 09:11:14PM +0200, Alexander Alemayhu wrote:
-> While generating PDFs from the man pages, I saw the warning below from
-> several files. Compared the tc-matchall.8 with bridge.8 and used .RI
-> instead of .R. It should have no effect on the man page rendering.
-> 
->     `R' is a string (producing the registered sign), not a macro.
-> 
-> Signed-off-by: Alexander Alemayhu <alexander@alemayhu.com>
+On Wed, Apr 5, 2017 at 5:11 AM, Tobias Regnery <tobias.regnery@gmail.com> wrote:
+> Commit 9008ae074885 ("net/mlx5e: Minimize mlx5e_{open/close}_locked")
+> copied the calls to netif_set_real_num_{tx,rx}_queues from
+> mlx5e_open_locked to mlx5e_activate_priv_channels and wraps them in an
+> if condition to test for netdev->real_num_{tx,rx}_queues.
+>
+> But netdev->real_num_rx_queues is conditionally compiled in if CONFIG_SYSFS
+> is set. Without CONFIG_SYSFS the build fails:
+>
+> drivers/net/ethernet/mellanox/mlx5/core/en_main.c: In function 'mlx5e_activate_priv_channels':
+> drivers/net/ethernet/mellanox/mlx5/core/en_main.c:2515:12: error: 'struct net_device' has no member named 'real_num_rx_queues'; did you mean 'real_num_tx_queues'?
+>
+> Fix this by unconditionally call netif_set_real_num{tx,rx}_queues like before
+> commit 9008ae074885.
+>
+> Fixes: 9008ae074885 ("net/mlx5e: Minimize mlx5e_{open/close}_locked")
+> Signed-off-by: Tobias Regnery <tobias.regnery@gmail.com>
+> ---
+>  drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 6 ++----
+>  1 file changed, 2 insertions(+), 4 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+> index ec389b1b51cb..d5248637d44f 100644
+> --- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+> +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+> @@ -2510,10 +2510,8 @@ static void mlx5e_activate_priv_channels(struct mlx5e_priv *priv)
+>         struct net_device *netdev = priv->netdev;
+>
+>         mlx5e_netdev_set_tcs(netdev);
+> -       if (netdev->real_num_tx_queues != num_txqs)
+> -               netif_set_real_num_tx_queues(netdev, num_txqs);
+> -       if (netdev->real_num_rx_queues != priv->channels.num)
+> -               netif_set_real_num_rx_queues(netdev, priv->channels.num);
+> +       netif_set_real_num_tx_queues(netdev, num_txqs);
+> +       netif_set_real_num_rx_queues(netdev, priv->channels.num);
+>
 
-I know this has been applied already, but let me get this straight:
+Acked-by: Saeed Mahameed <saeedm@mellanox.com>
 
-People using '.R' try to force "normal" font, like for every second
-parameter to '.IR' but in fact they could just leave the macro away
-since lines starting without any macro will get normal font settings
-anyway.
-
-With this in mind, I see better solutions for the changes in this patch:
-
-[...]
-> @@ -20,7 +20,7 @@ flower \- flow based traffic control filter
->  .B indev
->  .IR ifname " | "
->  .BR skip_sw " | " skip_hw
-> -.R " | { "
-> +.RI " | { "
-
-Just merge this into previous line:
-
-|  .BR skip_sw " | " skip_hw " | {"
-
-Note the missing space at the end, as that comes for free anyway. :)
-
-[...]
-> @@ -13,7 +13,7 @@ IFE - encapsulate/decapsulate metadata
->  .IR SMAC " ] "
->  .RB "[ " type
->  .IR TYPE " ] "
-> -.R "[ "
-> +.RI "[ "
-
-Same here:
-
-| .IR TYPE " ] ["
-
-[...]
-> @@ -7,7 +7,7 @@ matchall \- traffic control filter that matches every packet
->  .ti -8
->  .BR tc " " filter " ... " matchall " [ "
->  .BR skip_sw " | " skip_hw
-> -.R " ] [ "
-> +.RI " ] [ "
-
-And here as well:
-
-|  .BR skip_sw " | " skip_hw " ] ["
-
-Cheers, Phil
+Thanks Tobias for the fix, although it is redundant for most of the
+reconfiguration options of mlx5 to call set_real_num_{rx,tx} queues
+every time, but it is not that big of a deal, so it is ok with me to
+align the code with the previous behavior we had before ("net/mlx5e:
+Minimize mlx5e_{open/close}_locked").
