@@ -1,130 +1,249 @@
-From: David Howells <dhowells@redhat.com>
-Subject: [PATCH 22/38] Annotate hardware config module parameters in
- drivers/net/wan/
-Date: Wed, 05 Apr 2017 18:00:13 +0100
-Message-ID: <149141161382.29162.12502186702136370273.stgit@warthog.procyon.org.uk>
-References: <149141141298.29162.5612793122429261720.stgit@warthog.procyon.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: gnomes@lxorguk.ukuu.org.uk, netdev@vger.kernel.org,
-        dhowells@redhat.com, linux-security-module@vger.kernel.org,
-        keyrings@vger.kernel.org, gregkh@linuxfoundation.org,
-        "Jan \"Yenya\" Kasprzak" <kas@fi.muni.cz>
-To: linux-kernel@vger.kernel.org
+From: Timothy Redaelli <tredaelli@redhat.com>
+Subject: [iproute PATCH] ip-route: Prevent some other double spaces in output
+Date: Wed,  5 Apr 2017 19:10:26 +0200
+Message-ID: <d73d016dbf5c81869e4fe745b9223fd726f1c43a.1491410198.git.tredaelli@redhat.com>
+Cc: psutter@redhat.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:36242 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:56860 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753899AbdDERAR (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 5 Apr 2017 13:00:17 -0400
-In-Reply-To: <149141141298.29162.5612793122429261720.stgit@warthog.procyon.org.uk>
+        id S1754286AbdDERMy (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 5 Apr 2017 13:12:54 -0400
+Received: from smtp.corp.redhat.com (int-mx03.intmail.prod.int.phx2.redhat.com [10.5.11.13])
+        (using TLSv1.2 with cipher AECDH-AES256-SHA (256/256 bits))
+        (No client certificate requested)
+        by mx1.redhat.com (Postfix) with ESMTPS id 7177D80F9A
+        for <netdev@vger.kernel.org>; Wed,  5 Apr 2017 17:12:48 +0000 (UTC)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When the kernel is running in secure boot mode, we lock down the kernel to
-prevent userspace from modifying the running kernel image.  Whilst this
-includes prohibiting access to things like /dev/mem, it must also prevent
-access by means of configuring driver modules in such a way as to cause a
-device to access or modify the kernel image.
+Print spaces only after text.
 
-To this end, annotate module_param* statements that refer to hardware
-configuration and indicate for future reference what type of parameter they
-specify.  The parameter parser in the core sees this information and can
-skip such parameters with an error message if the kernel is locked down.
-The module initialisation then runs as normal, but just sees whatever the
-default values for those parameters is.
-
-Note that we do still need to do the module initialisation because some
-drivers have viable defaults set in case parameters aren't specified and
-some drivers support automatic configuration (e.g. PNP or PCI) in addition
-to manually coded parameters.
-
-This patch annotates drivers in drivers/net/wan/.
-
-Suggested-by: Alan Cox <gnomes@lxorguk.ukuu.org.uk>
-Signed-off-by: David Howells <dhowells@redhat.com>
-cc: "Jan \"Yenya\" Kasprzak" <kas@fi.muni.cz>
-cc: netdev@vger.kernel.org
+CC: Phil Sutter <phil@nwl.cc>
+Signed-off-by: Timothy Redaelli <tredaelli@redhat.com>
 ---
+ ip/iproute.c | 77 ++++++++++++++++++++++++++++++------------------------------
+ 1 file changed, 39 insertions(+), 38 deletions(-)
 
- drivers/net/wan/cosa.c         |    6 +++---
- drivers/net/wan/hostess_sv11.c |    6 +++---
- drivers/net/wan/sbni.c         |    4 ++--
- drivers/net/wan/sealevel.c     |    8 ++++----
- 4 files changed, 12 insertions(+), 12 deletions(-)
+Fixed all the problems reported in V2
 
-diff --git a/drivers/net/wan/cosa.c b/drivers/net/wan/cosa.c
-index 4ca71bca39ac..6ea16260ec76 100644
---- a/drivers/net/wan/cosa.c
-+++ b/drivers/net/wan/cosa.c
-@@ -232,11 +232,11 @@ static int irq[MAX_CARDS+1] = { -1, -1, -1, -1, -1, -1, 0, };
- static struct class *cosa_class;
+Tested with improved script https://da.gd/tUVso that tests ip route and ip get
+for both ipv4 and ipv6.
+
+If it's OK I'd like to send it upstream
+
+diff --git a/ip/iproute.c b/ip/iproute.c
+index 7cdf072..5e23613 100644
+--- a/ip/iproute.c
++++ b/ip/iproute.c
+@@ -298,12 +298,12 @@ static void print_rtax_features(FILE *fp, unsigned int features)
+ 	unsigned int of = features;
  
- #ifdef MODULE
--module_param_array(io, int, NULL, 0);
-+module_param_hw_array(io, int, ioport, NULL, 0);
- MODULE_PARM_DESC(io, "The I/O bases of the COSA or SRP cards");
--module_param_array(irq, int, NULL, 0);
-+module_param_hw_array(irq, int, irq, NULL, 0);
- MODULE_PARM_DESC(irq, "The IRQ lines of the COSA or SRP cards");
--module_param_array(dma, int, NULL, 0);
-+module_param_hw_array(dma, int, dma, NULL, 0);
- MODULE_PARM_DESC(dma, "The DMA channels of the COSA or SRP cards");
+ 	if (features & RTAX_FEATURE_ECN) {
+-		fprintf(fp, " ecn");
++		fprintf(fp, "ecn ");
+ 		features &= ~RTAX_FEATURE_ECN;
+ 	}
  
- MODULE_AUTHOR("Jan \"Yenya\" Kasprzak, <kas@fi.muni.cz>");
-diff --git a/drivers/net/wan/hostess_sv11.c b/drivers/net/wan/hostess_sv11.c
-index dd6bb3364ad2..4de0737fbf8a 100644
---- a/drivers/net/wan/hostess_sv11.c
-+++ b/drivers/net/wan/hostess_sv11.c
-@@ -324,11 +324,11 @@ static void sv11_shutdown(struct z8530_dev *dev)
- static int io = 0x200;
- static int irq = 9;
+ 	if (features)
+-		fprintf(fp, " 0x%x", of);
++		fprintf(fp, "0x%x ", of);
+ }
  
--module_param(io, int, 0);
-+module_param_hw(io, int, ioport, 0);
- MODULE_PARM_DESC(io, "The I/O base of the Comtrol Hostess SV11 card");
--module_param(dma, int, 0);
-+module_param_hw(dma, int, dma, 0);
- MODULE_PARM_DESC(dma, "Set this to 1 to use DMA1/DMA3 for TX/RX");
--module_param(irq, int, 0);
-+module_param_hw(irq, int, irq, 0);
- MODULE_PARM_DESC(irq, "The interrupt line setting for the Comtrol Hostess SV11 card");
+ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+@@ -511,21 +511,21 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+ 			if (!hz)
+ 				hz = get_user_hz();
+ 			if (ci->rta_expires != 0)
+-				fprintf(fp, " expires %dsec", ci->rta_expires/hz);
++				fprintf(fp, "expires %dsec ", ci->rta_expires/hz);
+ 			if (ci->rta_error != 0)
+-				fprintf(fp, " error %d", ci->rta_error);
++				fprintf(fp, "error %d ", ci->rta_error);
+ 			if (show_stats) {
+ 				if (ci->rta_clntref)
+-					fprintf(fp, " users %d", ci->rta_clntref);
++					fprintf(fp, "users %d ", ci->rta_clntref);
+ 				if (ci->rta_used != 0)
+-					fprintf(fp, " used %d", ci->rta_used);
++					fprintf(fp, "used %d ", ci->rta_used);
+ 				if (ci->rta_lastuse != 0)
+-					fprintf(fp, " age %dsec", ci->rta_lastuse/hz);
++					fprintf(fp, "age %dsec ", ci->rta_lastuse/hz);
+ 			}
+ 			if (ci->rta_id)
+-				fprintf(fp, " ipid 0x%04x", ci->rta_id);
++				fprintf(fp, "ipid 0x%04x ", ci->rta_id);
+ 			if (ci->rta_ts || ci->rta_tsage)
+-				fprintf(fp, " ts 0x%x tsage %dsec",
++				fprintf(fp, "ts 0x%x tsage %dsec ",
+ 					ci->rta_ts, ci->rta_tsage);
+ 		}
+ 	} else if (r->rtm_family == AF_INET6) {
+@@ -539,20 +539,20 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+ 			if (r->rtm_flags & RTM_F_CLONED)
+ 				fprintf(fp, "%s    cache ", _SL_);
+ 			if (ci->rta_expires)
+-				fprintf(fp, " expires %dsec", ci->rta_expires/hz);
++				fprintf(fp, "expires %dsec ", ci->rta_expires/hz);
+ 			if (ci->rta_error != 0)
+-				fprintf(fp, " error %d", ci->rta_error);
++				fprintf(fp, "error %d ", ci->rta_error);
+ 			if (show_stats) {
+ 				if (ci->rta_clntref)
+-					fprintf(fp, " users %d", ci->rta_clntref);
++					fprintf(fp, "users %d ", ci->rta_clntref);
+ 				if (ci->rta_used != 0)
+-					fprintf(fp, " used %d", ci->rta_used);
++					fprintf(fp, "used %d ", ci->rta_used);
+ 				if (ci->rta_lastuse != 0)
+-					fprintf(fp, " age %dsec", ci->rta_lastuse/hz);
++					fprintf(fp, "age %dsec ", ci->rta_lastuse/hz);
+ 			}
+ 		} else if (ci) {
+ 			if (ci->rta_error != 0)
+-				fprintf(fp, " error %d", ci->rta_error);
++				fprintf(fp, "error %d ", ci->rta_error);
+ 		}
+ 	}
+ 	if (tb[RTA_METRICS]) {
+@@ -578,19 +578,19 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+ 				continue;
  
- MODULE_AUTHOR("Alan Cox");
-diff --git a/drivers/net/wan/sbni.c b/drivers/net/wan/sbni.c
-index 3ca3419c54a0..bde8c0339831 100644
---- a/drivers/net/wan/sbni.c
-+++ b/drivers/net/wan/sbni.c
-@@ -1463,8 +1463,8 @@ set_multicast_list( struct net_device  *dev )
+ 			if (i < sizeof(mx_names)/sizeof(char *) && mx_names[i])
+-				fprintf(fp, " %s", mx_names[i]);
++				fprintf(fp, "%s ", mx_names[i]);
+ 			else
+-				fprintf(fp, " metric %d", i);
++				fprintf(fp, "metric %d ", i);
  
+ 			if (mxlock & (1<<i))
+-				fprintf(fp, " lock");
++				fprintf(fp, "lock ");
  
- #ifdef MODULE
--module_param_array(io, int, NULL, 0);
--module_param_array(irq, int, NULL, 0);
-+module_param_hw_array(io, int, ioport, NULL, 0);
-+module_param_hw_array(irq, int, irq, NULL, 0);
- module_param_array(baud, int, NULL, 0);
- module_param_array(rxl, int, NULL, 0);
- module_param_array(mac, int, NULL, 0);
-diff --git a/drivers/net/wan/sealevel.c b/drivers/net/wan/sealevel.c
-index fbb5aa2c4d8f..c56f2c252113 100644
---- a/drivers/net/wan/sealevel.c
-+++ b/drivers/net/wan/sealevel.c
-@@ -363,13 +363,13 @@ static int rxdma=3;
- static int irq=5;
- static bool slow=false;
+ 			switch (i) {
+ 			case RTAX_FEATURES:
+ 				print_rtax_features(fp, val);
+ 				break;
+ 			default:
+-				fprintf(fp, " %u", val);
++				fprintf(fp, "%u ", val);
+ 				break;
  
--module_param(io, int, 0);
-+module_param_hw(io, int, ioport, 0);
- MODULE_PARM_DESC(io, "The I/O base of the Sealevel card");
--module_param(txdma, int, 0);
-+module_param_hw(txdma, int, dma, 0);
- MODULE_PARM_DESC(txdma, "Transmit DMA channel");
--module_param(rxdma, int, 0);
-+module_param_hw(rxdma, int, dma, 0);
- MODULE_PARM_DESC(rxdma, "Receive DMA channel");
--module_param(irq, int, 0);
-+module_param_hw(irq, int, irq, 0);
- MODULE_PARM_DESC(irq, "The interrupt line setting for the SeaLevel card");
- module_param(slow, bool, 0);
- MODULE_PARM_DESC(slow, "Set this for an older Sealevel card such as the 4012");
+ 			case RTAX_RTT:
+@@ -602,18 +602,18 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+ 					val /= 4;
+ 
+ 				if (val >= 1000)
+-					fprintf(fp, " %gs", val/1e3);
++					fprintf(fp, "%gs ", val/1e3);
+ 				else
+-					fprintf(fp, " %ums", val);
++					fprintf(fp, "%ums ", val);
+ 				break;
+ 			case RTAX_CC_ALGO:
+-				fprintf(fp, " %s", rta_getattr_str(mxrta[i]));
++				fprintf(fp, "%s ", rta_getattr_str(mxrta[i]));
+ 				break;
+ 			}
+ 		}
+ 	}
+ 	if (tb[RTA_IIF] && filter.iifmask != -1) {
+-		fprintf(fp, " iif %s",
++		fprintf(fp, "iif %s ",
+ 			ll_index_to_name(rta_getattr_u32(tb[RTA_IIF])));
+ 	}
+ 	if (tb[RTA_MULTIPATH]) {
+@@ -629,11 +629,11 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+ 				break;
+ 			if (r->rtm_flags&RTM_F_CLONED && r->rtm_type == RTN_MULTICAST) {
+ 				if (first)
+-					fprintf(fp, " Oifs:");
++					fprintf(fp, "Oifs: ");
+ 				else
+ 					fprintf(fp, " ");
+ 			} else
+-				fprintf(fp, "%s\tnexthop", _SL_);
++				fprintf(fp, "%s\tnexthop ", _SL_);
+ 			if (nh->rtnh_len > sizeof(*nh)) {
+ 				parse_rtattr(tb, RTA_MAX, RTNH_DATA(nh), nh->rtnh_len - sizeof(*nh));
+ 
+@@ -642,12 +642,12 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+ 							tb[RTA_ENCAP_TYPE],
+ 							tb[RTA_ENCAP]);
+ 				if (tb[RTA_NEWDST]) {
+-					fprintf(fp, " as to %s ",
++					fprintf(fp, "as to %s ",
+ 						format_host_rta(r->rtm_family,
+ 								tb[RTA_NEWDST]));
+ 				}
+ 				if (tb[RTA_GATEWAY]) {
+-					fprintf(fp, " via %s ",
++					fprintf(fp, "via %s ",
+ 						format_host_rta(r->rtm_family,
+ 								tb[RTA_GATEWAY]));
+ 				}
+@@ -655,7 +655,7 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+ 					size_t len = RTA_PAYLOAD(tb[RTA_VIA]) - 2;
+ 					struct rtvia *via = RTA_DATA(tb[RTA_VIA]);
+ 
+-					fprintf(fp, " via %s %s ",
++					fprintf(fp, "via %s %s ",
+ 						family_name(via->rtvia_family),
+ 						format_host(via->rtvia_family, len, via->rtvia_addr));
+ 				}
+@@ -664,33 +664,34 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+ 					__u32 from = to>>16;
+ 
+ 					to &= 0xFFFF;
+-					fprintf(fp, " realm%s ", from ? "s" : "");
++					fprintf(fp, "realm%s ", from ? "s" : "");
+ 					if (from) {
+ 						fprintf(fp, "%s/",
+ 							rtnl_rtrealm_n2a(from, b1, sizeof(b1)));
+ 					}
+-					fprintf(fp, "%s",
++					fprintf(fp, "%s ",
+ 						rtnl_rtrealm_n2a(to, b1, sizeof(b1)));
+ 				}
+ 			}
+ 			if (r->rtm_flags&RTM_F_CLONED && r->rtm_type == RTN_MULTICAST) {
+-				fprintf(fp, " %s", ll_index_to_name(nh->rtnh_ifindex));
++				fprintf(fp, "%s", ll_index_to_name(nh->rtnh_ifindex));
+ 				if (nh->rtnh_hops != 1)
+ 					fprintf(fp, "(ttl>%d)", nh->rtnh_hops);
++				fprintf(fp, " ");
+ 			} else {
+-				fprintf(fp, " dev %s", ll_index_to_name(nh->rtnh_ifindex));
++				fprintf(fp, "dev %s ", ll_index_to_name(nh->rtnh_ifindex));
+ 				if (r->rtm_family != AF_MPLS)
+-					fprintf(fp, " weight %d",
++					fprintf(fp, "weight %d ",
+ 						nh->rtnh_hops+1);
+ 			}
+ 			if (nh->rtnh_flags & RTNH_F_DEAD)
+-				fprintf(fp, " dead");
++				fprintf(fp, "dead ");
+ 			if (nh->rtnh_flags & RTNH_F_ONLINK)
+-				fprintf(fp, " onlink");
++				fprintf(fp, "onlink ");
+ 			if (nh->rtnh_flags & RTNH_F_PERVASIVE)
+-				fprintf(fp, " pervasive");
++				fprintf(fp, "pervasive ");
+ 			if (nh->rtnh_flags & RTNH_F_LINKDOWN)
+-				fprintf(fp, " linkdown");
++				fprintf(fp, "linkdown ");
+ 			len -= NLMSG_ALIGN(nh->rtnh_len);
+ 			nh = RTNH_NEXT(nh);
+ 		}
+@@ -698,7 +699,7 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+ 	if (tb[RTA_PREF]) {
+ 		unsigned int pref = rta_getattr_u8(tb[RTA_PREF]);
+ 
+-		fprintf(fp, " pref ");
++		fprintf(fp, "pref ");
+ 
+ 		switch (pref) {
+ 		case ICMPV6_ROUTER_PREF_LOW:
+-- 
+2.9.3
