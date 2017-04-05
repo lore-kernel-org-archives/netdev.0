@@ -1,66 +1,73 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [PATCH 16/16] drivers, net, intersil: convert request_context.refcount from atomic_t to refcount_t
-Date: Wed, 05 Apr 2017 13:33:12 +0300
-Message-ID: <87k26zi1p3.fsf@kamboji.qca.qualcomm.com>
-References: <1490691403-4016-1-git-send-email-elena.reshetova@intel.com>
-        <1490691403-4016-17-git-send-email-elena.reshetova@intel.com>
-        <87zifxn2gb.fsf@kamboji.qca.qualcomm.com>
-        <2236FBA76BA1254E88B949DDB74E612B41C8741B@IRSMSX102.ger.corp.intel.com>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: Re: net/sctp: list double add warning in sctp_endpoint_add_asoc
+Date: Wed, 5 Apr 2017 18:48:45 +0800
+Message-ID: <CADvbK_dgD65mygqkGuA85ShBnHrD3y4u_P=XoREyEn7y0J4_+A@mail.gmail.com>
+References: <CAAeHK+zwbeT=jBRRSf2KYXWM=eUZAEe5QHvKPYGG5qWh6A0JGQ@mail.gmail.com>
+ <CADvbK_f1FEGRnucuMkQT6RKm0G1tKcfHyj=-GqxgzQ4iQoBLCg@mail.gmail.com> <20170404211454.GA911@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: "netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel\@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "linux-arm-kernel\@lists.infradead.org"
-        <linux-arm-kernel@lists.infradead.org>,
-        "linux-rdma\@vger.kernel.org" <linux-rdma@vger.kernel.org>,
-        "linux-hams\@vger.kernel.org" <linux-hams@vger.kernel.org>,
-        "linux-ppp\@vger.kernel.org" <linux-ppp@vger.kernel.org>,
-        "linux-wireless\@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-        "ganeshgr\@chelsio.com" <ganeshgr@chelsio.com>,
-        "nbd\@openwrt.org" <nbd@openwrt.org>,
-        "blogic\@openwrt.org" <blogic@openwrt.org>,
-        "matthias.bgg\@gmail.com" <matthias.bgg@gmail.com>,
-        "yishaih\@mellanox.com" <yishaih@mellanox.com>,
-        "saeedm\@mellanox.com" <saeedm@mellanox.com>,
-        "matanb\@mellanox.com" <matanb@mellanox.com>,
-        "leonro\@me
-To: "Reshetova\, Elena" <elena.reshetova@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:56244 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933483AbdDEKd0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 5 Apr 2017 06:33:26 -0400
-In-Reply-To: <2236FBA76BA1254E88B949DDB74E612B41C8741B@IRSMSX102.ger.corp.intel.com>
-        (Elena Reshetova's message of "Tue, 4 Apr 2017 10:07:55 +0000")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Andrey Konovalov <andreyknvl@google.com>,
+        Vlad Yasevich <vyasevich@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        linux-sctp@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170404211454.GA911@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-"Reshetova, Elena" <elena.reshetova@intel.com> writes:
-
->> Elena Reshetova <elena.reshetova@intel.com> writes:
->> 
->> > refcount_t type and corresponding API should be
->> > used instead of atomic_t when the variable is used as
->> > a reference counter. This allows to avoid accidental
->> > refcounter overflows that might lead to use-after-free
->> > situations.
+On Wed, Apr 5, 2017 at 5:14 AM, Marcelo Ricardo Leitner
+<marcelo.leitner@gmail.com> wrote:
+> On Wed, Apr 05, 2017 at 01:29:19AM +0800, Xin Long wrote:
+>> On Tue, Apr 4, 2017 at 9:28 PM, Andrey Konovalov <andreyknvl@google.com> wrote:
+>> > Hi,
 >> >
->> > Signed-off-by: Elena Reshetova <elena.reshetova@intel.com>
->> > Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
->> > Signed-off-by: Kees Cook <keescook@chromium.org>
->> > Signed-off-by: David Windsor <dwindsor@gmail.com>
->> > ---
->> >  drivers/net/wireless/intersil/orinoco/orinoco_usb.c | 15 ++++++++-------
->> >  1 file changed, 8 insertions(+), 7 deletions(-)
->> 
->> The prefix should be "orinoco_usb:", I'll fix that.
+>> > I've got the following error report while fuzzing the kernel with syzkaller.
+>> >
+>> > On commit a71c9a1c779f2499fb2afc0553e543f18aff6edf (4.11-rc5).
+>> >
+>> > A reproducer and .config are attached.
+>> The script is pretty hard to reproduce the issue in my env.
 >
-> Thanks for both! Will you take the patches in?
+> I didn't try running it but I also found the reproducer very complicated
+> to follow. Do you have any plans on having some PoC optimizer, so we can
+> have a more readable code?
+> strace is handy for filtering the noise, yes, but sometimes it doesn't
+> cut it.
+I got the script now:
+1. create sk
+2. set sk->sndbuf = x
+3. sendmsg with size s1 (s1 < x)
+4. sendmsg with size s2 (s1+s2 > x)
+5. sendmsg with size s3 (wspace < 0), wait sndbuf, schedule out.
+6. listen sk (abnormal operation on sctp client)
+7. accept sk.
 
-You mean patches 15 and 16? I didn't even look rest of the patches.
+In step 6, sk->sk_state = listening, then step 7 could get the first asoc
+from ep->asoc_list and alloc a new sk2, attach the asoc to sk2.
 
-But not sure yet because Dave doesn't seem to like the interface and I
-want to follow the discussion first.
+after a while, sendmsg schedule in, but asoc->sk is sk2, !=sk.
+the same issue we fix for peeloff on commit dfcb9f4f99f1 ("sctp: deny
+peeloff operation on asocs with threads sleeping on it") happens.
 
--- 
-Kalle Valo
+But we should not fix it by the same way as for peeloff. the real reason
+causes this issue is on step 6, it should disallow listen on the established sk.
+
+The following fix should work for this, just similar with what
+inet_listen() did.
+
+@@ -7174,6 +7175,9 @@ int sctp_inet_listen(struct socket *sock, int backlog)
+        if (sock->state != SS_UNCONNECTED)
+                goto out;
+
++       if (!sctp_sstate(sk, LISTENING) && !sctp_sstate(sk,CLOSED))
++               goto out;
++
+
+what do you think ?
