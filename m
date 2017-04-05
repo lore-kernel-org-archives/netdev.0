@@ -1,35 +1,34 @@
-From: Jens Axboe <axboe@kernel.dk>
-Subject: Re: [PATCH rfc 5/6] block: Add rdma affinity based queue mapping
- helper
-Date: Wed, 5 Apr 2017 08:17:05 -0600
-Message-ID: <ce263274-d814-6167-42a3-5d3cad170f18@kernel.dk>
-References: <1491140492-25703-1-git-send-email-sagi@grimberg.me>
- <1491140492-25703-6-git-send-email-sagi@grimberg.me>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] sctp: get sock from transport in
+ sctp_transport_update_pmtu
+Date: Wed, 05 Apr 2017 07:20:18 -0700 (PDT)
+Message-ID: <20170405.072018.442632537243215600.davem@davemloft.net>
+References: <c3e6d7cac1bc8d426be814c17c87dd9a7d4f3df9.1491284395.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Christoph Hellwig <hch@lst.de>
-To: Sagi Grimberg <sagi@grimberg.me>, linux-rdma@vger.kernel.org,
-        linux-nvme@lists.infradead.org, linux-block@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+        marcelo.leitner@gmail.com, nhorman@tuxdriver.com
+To: lucien.xin@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f45.google.com ([209.85.214.45]:36352 "EHLO
-        mail-it0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754343AbdDEORH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 5 Apr 2017 10:17:07 -0400
-Received: by mail-it0-f45.google.com with SMTP id e75so83514162itd.1
-        for <netdev@vger.kernel.org>; Wed, 05 Apr 2017 07:17:07 -0700 (PDT)
-In-Reply-To: <1491140492-25703-6-git-send-email-sagi@grimberg.me>
+Received: from shards.monkeyblade.net ([184.105.139.130]:42520 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932089AbdDEOU0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 5 Apr 2017 10:20:26 -0400
+In-Reply-To: <c3e6d7cac1bc8d426be814c17c87dd9a7d4f3df9.1491284395.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/02/2017 07:41 AM, Sagi Grimberg wrote:
-> Like pci and virtio, we add a rdma helper for affinity
-> spreading. This achieves optimal mq affinity assignments
-> according to the underlying rdma device affinity maps.
+From: Xin Long <lucien.xin@gmail.com>
+Date: Tue,  4 Apr 2017 13:39:55 +0800
 
-Reviewed-by: Jens Axboe <axboe@fb.com>
+> This patch is almost to revert commit 02f3d4ce9e81 ("sctp: Adjust PMTU
+> updates to accomodate route invalidation."). As t->asoc can't be NULL
+> in sctp_transport_update_pmtu, it could get sk from asoc, and no need
+> to pass sk into that function.
+> 
+> It is also to remove some duplicated codes from that function.
+> 
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
 
--- 
-Jens Axboe
+Applied, thanks.
