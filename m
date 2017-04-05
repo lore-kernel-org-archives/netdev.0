@@ -1,51 +1,58 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: pull-request: wireless-drivers-next 2017-04-03
-Date: Wed, 05 Apr 2017 07:19:03 +0300
-Message-ID: <878tnfjxl4.fsf@kamboji.qca.qualcomm.com>
-References: <87a87xohpp.fsf@kamboji.qca.qualcomm.com>
-        <20170404.103144.1438343234401389523.davem@davemloft.net>
-        <87r318jc7g.fsf@kamboji.qca.qualcomm.com>
-        <20170404.113714.433018169237722838.davem@davemloft.net>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH v2 00/13] ftgmac100: Rework batch 1 - Link & Interrupts
+Date: Tue, 4 Apr 2017 21:21:26 -0700
+Message-ID: <2344b1ea-f8bc-7491-4662-b8a3e94fb94e@gmail.com>
+References: <20170405022853.8238-1-benh@kernel.crashing.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170404.113714.433018169237722838.davem@davemloft.net> (David
-        Miller's message of "Tue, 04 Apr 2017 11:37:14 -0700 (PDT)")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+        netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f67.google.com ([209.85.218.67]:35217 "EHLO
+        mail-oi0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750712AbdDEEV2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 5 Apr 2017 00:21:28 -0400
+Received: by mail-oi0-f67.google.com with SMTP id d2so319177oig.2
+        for <netdev@vger.kernel.org>; Tue, 04 Apr 2017 21:21:28 -0700 (PDT)
+In-Reply-To: <20170405022853.8238-1-benh@kernel.crashing.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> writes:
+Salut Benjamin,
 
-> From: Kalle Valo <kvalo@codeaurora.org>
-> Date: Tue, 04 Apr 2017 20:48:35 +0300
->
->> David Miller <davem@davemloft.net> writes:
->> 
->>> From: Kalle Valo <kvalo@codeaurora.org>
->>> Date: Mon, 03 Apr 2017 14:26:10 +0300
->>>
->>>> here few really small fixes. I'm hoping this to be the last pull request
->>>> for 4.11.
->>>> 
->>>> Please let me if there are any problems.
->>>
->>> Pulled, thanks.
->>>
->>> But I will warn you, you say fixes, but your Subject line and
->>> GIT tag says "-next" so I pulled it into net-next.
->> 
->> Sorry, I used the wrong pull request template and that's why I had the
->> wrong subject in this pull request. So actually this was supposed to be
->> for net, not net-next. Any chance you could also pull this to net so
->> that we can still get the fixes to 4.11?
->
-> Sure, done.
+Le 04/04/17 à 19:28, Benjamin Herrenschmidt a écrit :
+> This is version 2 of the first batch of updates to the
+> ftgmac100 driver.
+> 
+> Essentially:
+> 
+>  - A few misc cleanups
+>  - Fixing link speed & duplex handling (including dealing with
+>    an Aspeed requirement to double reset the controller when
+>    the speed changes)
+>  - And addition of a reset task workqueue which will be used
+>    for delaying the re-initialization of the controller
+>  - Fixing a number of issues with how interrupts and NAPI
+>    are dealt with.
+> 
+> Subsequent batches will rework and improve the rx path, the
+> tx path, and add a bunch of features and fixes.
+> 
+> Version 2 addresses some review comments to patches 5 and 10
+> (see version history in the respective emails).
+> 
 
-Great, thank you. And sorry for this, I need to be more careful when
-sending the pull requests.
+This looks pretty good to me, two minor things:
 
+- most drivers keep track of the old status/duplex/pause/link variables
+instead of the current one which is already available within struct
+phy_device, any particular reason for not doing like the other drivers?
+
+- the need to reset the HW during link changes is just ... well too bad
+
+With that:
+
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 -- 
-Kalle Valo
+Florian
