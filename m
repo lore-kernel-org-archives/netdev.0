@@ -1,79 +1,145 @@
 From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: [PATCH v2 03/13] ftgmac100: Reorder struct fields and comment
-Date: Wed,  5 Apr 2017 12:28:43 +1000
-Message-ID: <20170405022853.8238-4-benh@kernel.crashing.org>
+Subject: [PATCH v2 09/13] ftgmac100: Move the bulk of inits to a separate function
+Date: Wed,  5 Apr 2017 12:28:49 +1000
+Message-ID: <20170405022853.8238-10-benh@kernel.crashing.org>
 References: <20170405022853.8238-1-benh@kernel.crashing.org>
 Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from gate.crashing.org ([63.228.1.57]:50542 "EHLO gate.crashing.org"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751166AbdDECnw (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 4 Apr 2017 22:43:52 -0400
+        id S1751166AbdDECny (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 4 Apr 2017 22:43:54 -0400
 In-Reply-To: <20170405022853.8238-1-benh@kernel.crashing.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Reorder the fields in struct ftgmac in slightly more logical
-groups. Will make more sense as I add/remove some.
+The link monitoring and error handling code will have to
+redo the ring inits and HW setup so move the code out of
+ftgmac100_open() into a dedicated function.
 
-No code change.
+This forces a bit of re-ordering of ftgmac100_open() but
+nothing dramatic.
 
 Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 ---
- drivers/net/ethernet/faraday/ftgmac100.c | 19 ++++++++++++-------
- 1 file changed, 12 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/faraday/ftgmac100.c | 71 +++++++++++++++++++-------------
+ 1 file changed, 42 insertions(+), 29 deletions(-)
 
 diff --git a/drivers/net/ethernet/faraday/ftgmac100.c b/drivers/net/ethernet/faraday/ftgmac100.c
-index 6501aa7..02e0534 100644
+index fdb8638..36f2905 100644
 --- a/drivers/net/ethernet/faraday/ftgmac100.c
 +++ b/drivers/net/ethernet/faraday/ftgmac100.c
-@@ -50,34 +50,39 @@ struct ftgmac100_descs {
- };
+@@ -1109,10 +1109,35 @@ static int ftgmac100_poll(struct napi_struct *napi, int budget)
+ 	return rx;
+ }
  
- struct ftgmac100 {
-+	/* Registers */
- 	struct resource *res;
- 	void __iomem *base;
- 
- 	struct ftgmac100_descs *descs;
- 	dma_addr_t descs_dma_addr;
- 
-+	/* Rx ring */
- 	struct page *rx_pages[RX_QUEUE_ENTRIES];
--
- 	unsigned int rx_pointer;
-+	u32 rxdes0_edorr_mask;
++static int ftgmac100_init_all(struct ftgmac100 *priv, bool ignore_alloc_err)
++{
++	int err = 0;
 +
-+	/* Tx ring */
- 	unsigned int tx_clean_pointer;
- 	unsigned int tx_pointer;
- 	unsigned int tx_pending;
--
-+	u32 txdes0_edotr_mask;
- 	spinlock_t tx_lock;
- 
-+	/* Component structures */
- 	struct net_device *netdev;
- 	struct device *dev;
- 	struct ncsi_dev *ndev;
- 	struct napi_struct napi;
--
- 	struct mii_bus *mii_bus;
++	/* Re-init descriptors (adjust queue sizes) */
++	ftgmac100_init_rings(priv);
 +
-+	/* Link management */
- 	int old_speed;
--	int int_mask_all;
- 	bool use_ncsi;
--	bool enabled;
++	/* Realloc rx descriptors */
++	err = ftgmac100_alloc_rx_buffers(priv);
++	if (err && !ignore_alloc_err)
++		return err;
++
++	/* Reinit and restart HW */
++	ftgmac100_init_hw(priv);
++	ftgmac100_start_hw(priv);
++
++	/* Re-enable the device */
++	napi_enable(&priv->napi);
++	netif_start_queue(priv->netdev);
++
++	/* Enable all interrupts */
++	iowrite32(priv->int_mask_all, priv->base + FTGMAC100_OFFSET_IER);
++
++	return err;
++}
++
+ static int ftgmac100_open(struct net_device *netdev)
+ {
+ 	struct ftgmac100 *priv = netdev_priv(netdev);
+-	unsigned int status;
+ 	int err;
  
--	u32 rxdes0_edorr_mask;
--	u32 txdes0_edotr_mask;
-+	/* Misc */
-+	int int_mask_all;
-+	bool enabled;
- };
+ 	/* Allocate ring buffers  */
+@@ -1122,13 +1147,6 @@ static int ftgmac100_open(struct net_device *netdev)
+ 		return err;
+ 	}
  
- static int ftgmac100_alloc_rx_page(struct ftgmac100 *priv,
+-	/* Initialize the rings */
+-	ftgmac100_init_rings(priv);
+-
+-	/* Allocate receive buffers */
+-	if (ftgmac100_alloc_rx_buffers(priv))
+-		goto err_alloc;
+-
+ 	/* When using NC-SI we force the speed to 100Mbit/s full duplex,
+ 	 *
+ 	 * Otherwise we leave it set to 0 (no link), the link
+@@ -1162,26 +1180,21 @@ static int ftgmac100_open(struct net_device *netdev)
+ 		goto err_irq;
+ 	}
+ 
+-	ftgmac100_init_hw(priv);
+-	ftgmac100_start_hw(priv);
+-
+-	/* Clear stale interrupts */
+-	status = ioread32(priv->base + FTGMAC100_OFFSET_ISR);
+-	iowrite32(status, priv->base + FTGMAC100_OFFSET_ISR);
++	/* Start things up */
++	err = ftgmac100_init_all(priv, false);
++	if (err) {
++		netdev_err(netdev, "Failed to allocate packet buffers\n");
++		goto err_alloc;
++	}
+ 
+-	if (netdev->phydev)
++	if (netdev->phydev) {
++		/* If we have a PHY, start polling */
+ 		phy_start(netdev->phydev);
+-	else if (priv->use_ncsi)
++	} else if (priv->use_ncsi) {
++		/* If using NC-SI, set our carrier on and start the stack */
+ 		netif_carrier_on(netdev);
+ 
+-	napi_enable(&priv->napi);
+-	netif_start_queue(netdev);
+-
+-	/* enable all interrupts */
+-	iowrite32(priv->int_mask_all, priv->base + FTGMAC100_OFFSET_IER);
+-
+-	/* Start the NCSI device */
+-	if (priv->use_ncsi) {
++		/* Start the NCSI device */
+ 		err = ncsi_start_dev(priv->ndev);
+ 		if (err)
+ 			goto err_ncsi;
+@@ -1189,16 +1202,16 @@ static int ftgmac100_open(struct net_device *netdev)
+ 
+ 	return 0;
+ 
+-err_ncsi:
++ err_ncsi:
+ 	napi_disable(&priv->napi);
+ 	netif_stop_queue(netdev);
++ err_alloc:
++	ftgmac100_free_buffers(priv);
+ 	free_irq(netdev->irq, netdev);
+-err_irq:
++ err_irq:
+ 	netif_napi_del(&priv->napi);
+-err_hw:
+-err_alloc:
++ err_hw:
+ 	iowrite32(0, priv->base + FTGMAC100_OFFSET_IER);
+-	ftgmac100_free_buffers(priv);
+ 	ftgmac100_free_rings(priv);
+ 	return err;
+ }
 -- 
 2.9.3
