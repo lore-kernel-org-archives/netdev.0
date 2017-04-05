@@ -1,51 +1,36 @@
-From: Tycho Andersen <tycho@docker.com>
-Subject: Re: [PATCH] ebpf: verify the output of the JIT
-Date: Tue, 4 Apr 2017 21:45:36 -0600
-Message-ID: <20170405034536.oulhc3ylhlrfgqeg@docker>
-References: <20170404220810.14250-1-tycho@docker.com>
- <CAGXu5jLAXDk1+kYTC60-sJ_SOa5s4+HZ26A0bj67335yAXYhvg@mail.gmail.com>
+From: Mike Galbraith <efault@gmx.de>
+Subject: Re: [Patch net] net_sched: replace yield() with cond_resched()
+Date: Wed, 05 Apr 2017 05:55:45 +0200
+Message-ID: <1491364545.4536.90.camel@gmx.de>
+References: <1491357139-27108-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-        Alexei Starovoitov <ast@kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Network Development <netdev@vger.kernel.org>,
-        "kernel-hardening@lists.openwall.com"
-        <kernel-hardening@lists.openwall.com>,
-        =?iso-8859-1?Q?Micka=EBl_Sala=FCn?= <mic@digikod.net>
-To: Kees Cook <keescook@chromium.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAGXu5jLAXDk1+kYTC60-sJ_SOa5s4+HZ26A0bj67335yAXYhvg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.gmx.net ([212.227.15.15]:55515 "EHLO mout.gmx.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751169AbdDEDzs (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 4 Apr 2017 23:55:48 -0400
+In-Reply-To: <1491357139-27108-1-git-send-email-xiyou.wangcong@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Kees,
+On Tue, 2017-04-04 at 18:52 -0700, Cong Wang wrote:
 
-On Tue, Apr 04, 2017 at 03:17:57PM -0700, Kees Cook wrote:
-> On Tue, Apr 4, 2017 at 3:08 PM, Tycho Andersen <tycho@docker.com> wrote:
-> > The goal of this patch is to protect the JIT against an attacker with a
-> > write-in-memory primitive. The JIT allocates a buffer which will eventually
-> > be marked +x, so we need to make sure that what was written to this buffer
-> > is what was intended.
-> >
-> > We acheive this by building a hash of the instruction buffer as
-> > instructions are emittted and then comparing that to a hash at the end of
-> > the JIT compile after the buffer has been marked read-only.
-> >
-> > Signed-off-by: Tycho Andersen <tycho@docker.com>
-> > CC: Daniel Borkmann <daniel@iogearbox.net>
-> > CC: Alexei Starovoitov <ast@kernel.org>
-> > CC: Kees Cook <keescook@chromium.org>
-> > CC: Mickaël Salaün <mic@digikod.net>
-> 
-> Cool! This closes the race condition on producing the JIT vs going
-> read-only. I wonder if it might be possible to make this a more
-> generic interface to the BPF which would be allocate the hash, provide
-> the update callback during emit, and then do the hash check itself at
-> the end of bpf_jit_binary_lock_ro()?
+> diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+> index 1a2f9e9..4725d2f 100644
+> --- a/net/sched/sch_generic.c
+> +++ b/net/sched/sch_generic.c
+> @@ -925,7 +925,7 @@ void dev_deactivate_many(struct list_head *head)
+>  	/* Wait for outstanding qdisc_run calls. */
+>  	list_for_each_entry(dev, head, close_list)
+>  		while (some_qdisc_is_busy(dev))
+> -			yield();
+> +			cond_resched();
+>  }
 
-Yes, probably so. I can look into that for the next version.
+That won't help, cond_resched() has the same impact upon a lone
+SCHED_FIFO task as yield() does.. none.
 
-Tycho
+	-Mike
