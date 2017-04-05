@@ -1,151 +1,167 @@
 From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: [PATCH v2 05/13] ftgmac100: Cleanup speed/duplex tracking and fix duplex config
-Date: Wed,  5 Apr 2017 12:28:45 +1000
-Message-ID: <20170405022853.8238-6-benh@kernel.crashing.org>
+Subject: [PATCH v2 06/13] ftgmac100: Split ring alloc, init and rx buffer alloc
+Date: Wed,  5 Apr 2017 12:28:46 +1000
+Message-ID: <20170405022853.8238-7-benh@kernel.crashing.org>
 References: <20170405022853.8238-1-benh@kernel.crashing.org>
 Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:48190 "EHLO gate.crashing.org"
+Received: from gate.crashing.org ([63.228.1.57]:48198 "EHLO gate.crashing.org"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755122AbdDECaC (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1751885AbdDECaC (ORCPT <rfc822;netdev@vger.kernel.org>);
         Tue, 4 Apr 2017 22:30:02 -0400
 In-Reply-To: <20170405022853.8238-1-benh@kernel.crashing.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Keep track of both the current speed and duplex settings
-instead of only speed and properly apply the duplex setting
-to the HW.
+Currently, a single function is used to allocate the rings
+themselves, initialize them, populate the rx ring, and
+allocate the rx buffers. The same happens on free.
 
-This reworks the adjust_link() function to also avoid trying
-to reconfigure the HW when there is no link and to display
-the link state to the user.
+This splits them into separate functions. This will be
+useful when properly implementing re-initialization on
+link changes and error handling when the rings will be
+repopulated but not freed.
 
 Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
---
-
-v2. Use phy_print_status()
-    Only bail out on link down *after* updating priv->cur_speed
 ---
- drivers/net/ethernet/faraday/ftgmac100.c | 52 +++++++++++++++++++++++++++-----
- 1 file changed, 44 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/faraday/ftgmac100.c | 68 ++++++++++++++++++++++----------
+ 1 file changed, 47 insertions(+), 21 deletions(-)
 
 diff --git a/drivers/net/ethernet/faraday/ftgmac100.c b/drivers/net/ethernet/faraday/ftgmac100.c
-index cc2271b..cc6e971 100644
+index cc6e971..0d0576f 100644
 --- a/drivers/net/ethernet/faraday/ftgmac100.c
 +++ b/drivers/net/ethernet/faraday/ftgmac100.c
-@@ -77,7 +77,8 @@ struct ftgmac100 {
- 	struct mii_bus *mii_bus;
- 
- 	/* Link management */
--	int old_speed;
-+	int cur_speed;
-+	int cur_duplex;
- 	bool use_ncsi;
- 
- 	/* Misc */
-@@ -210,16 +211,15 @@ static void ftgmac100_init_hw(struct ftgmac100 *priv)
- 				 FTGMAC100_MACCR_RXDMA_EN	| \
- 				 FTGMAC100_MACCR_TXMAC_EN	| \
- 				 FTGMAC100_MACCR_RXMAC_EN	| \
--				 FTGMAC100_MACCR_FULLDUP	| \
- 				 FTGMAC100_MACCR_CRC_APD	| \
- 				 FTGMAC100_MACCR_RX_RUNT	| \
- 				 FTGMAC100_MACCR_RX_BROADPKT)
- 
--static void ftgmac100_start_hw(struct ftgmac100 *priv, int speed)
-+static void ftgmac100_start_hw(struct ftgmac100 *priv)
+@@ -792,6 +792,7 @@ static void ftgmac100_free_buffers(struct ftgmac100 *priv)
  {
- 	int maccr = MACCR_ENABLE_ALL;
+ 	int i;
  
--	switch (speed) {
-+	switch (priv->cur_speed) {
- 	default:
- 	case 10:
- 		break;
-@@ -233,6 +233,9 @@ static void ftgmac100_start_hw(struct ftgmac100 *priv, int speed)
- 		break;
++	/* Free all RX buffers */
+ 	for (i = 0; i < RX_QUEUE_ENTRIES; i++) {
+ 		struct ftgmac100_rxdes *rxdes = &priv->descs->rxdes[i];
+ 		struct page *page = ftgmac100_rxdes_get_page(priv, rxdes);
+@@ -804,6 +805,7 @@ static void ftgmac100_free_buffers(struct ftgmac100 *priv)
+ 		__free_page(page);
  	}
  
-+	if (priv->cur_duplex == DUPLEX_FULL)
-+		maccr |= FTGMAC100_MACCR_FULLDUP;
-+
- 	iowrite32(maccr, priv->base + FTGMAC100_OFFSET_MACCR);
++	/* Free all TX buffers */
+ 	for (i = 0; i < TX_QUEUE_ENTRIES; i++) {
+ 		struct ftgmac100_txdes *txdes = &priv->descs->txdes[i];
+ 		struct sk_buff *skb = ftgmac100_txdes_get_skb(txdes);
+@@ -815,40 +817,54 @@ static void ftgmac100_free_buffers(struct ftgmac100 *priv)
+ 		dma_unmap_single(priv->dev, map, skb_headlen(skb), DMA_TO_DEVICE);
+ 		kfree_skb(skb);
+ 	}
+-
+-	dma_free_coherent(priv->dev, sizeof(struct ftgmac100_descs),
+-			  priv->descs, priv->descs_dma_addr);
  }
  
-@@ -852,12 +855,31 @@ static void ftgmac100_adjust_link(struct net_device *netdev)
+-static int ftgmac100_alloc_buffers(struct ftgmac100 *priv)
++static void ftgmac100_free_rings(struct ftgmac100 *priv)
  {
- 	struct ftgmac100 *priv = netdev_priv(netdev);
- 	struct phy_device *phydev = netdev->phydev;
-+	int new_speed;
- 	int ier;
+-	int i;
++	/* Free descriptors */
++	if (priv->descs)
++		dma_free_coherent(priv->dev, sizeof(struct ftgmac100_descs),
++				  priv->descs, priv->descs_dma_addr);
++}
  
--	if (phydev->speed == priv->old_speed)
-+	/* We store "no link" as speed 0 */
-+	if (!phydev->link)
-+		new_speed = 0;
-+	else
-+		new_speed = phydev->speed;
++static int ftgmac100_alloc_rings(struct ftgmac100 *priv)
++{
++	/* Allocate descriptors */
+ 	priv->descs = dma_zalloc_coherent(priv->dev,
+ 					  sizeof(struct ftgmac100_descs),
+ 					  &priv->descs_dma_addr, GFP_KERNEL);
+ 	if (!priv->descs)
+ 		return -ENOMEM;
+ 
+-	/* initialize RX ring */
+-	ftgmac100_rxdes_set_end_of_ring(priv,
+-					&priv->descs->rxdes[RX_QUEUE_ENTRIES - 1]);
++	return 0;
++}
 +
-+	if (phydev->speed == priv->cur_speed &&
-+	    phydev->duplex == priv->cur_duplex)
- 		return;
- 
--	priv->old_speed = phydev->speed;
-+	/* Print status if we have a link or we had one and just lost it,
-+	 * don't print otherwise.
-+	 */
-+	if (new_speed || priv->cur_speed)
-+		phy_print_status(phydev);
++static void ftgmac100_init_rings(struct ftgmac100 *priv)
++{
++	int i;
 +
-+	priv->cur_speed = new_speed;
-+	priv->cur_duplex = phydev->duplex;
++	/* Initialize RX ring */
++	for (i = 0; i < RX_QUEUE_ENTRIES; i++)
++		priv->descs->rxdes[i].rxdes0 = 0;
++	ftgmac100_rxdes_set_end_of_ring(priv, &priv->descs->rxdes[i - 1]);
 +
-+	/* Link is down, do nothing else */
-+	if (!new_speed)
-+		return;
++	/* Initialize TX ring */
++	for (i = 0; i < TX_QUEUE_ENTRIES; i++)
++		priv->descs->txdes[i].txdes0 = 0;
++	ftgmac100_txdes_set_end_of_ring(priv, &priv->descs->txdes[i -1]);
++}
++
++static int ftgmac100_alloc_rx_buffers(struct ftgmac100 *priv)
++{
++	int i;
  
- 	ier = ioread32(priv->base + FTGMAC100_OFFSET_IER);
+ 	for (i = 0; i < RX_QUEUE_ENTRIES; i++) {
+ 		struct ftgmac100_rxdes *rxdes = &priv->descs->rxdes[i];
  
-@@ -869,7 +891,7 @@ static void ftgmac100_adjust_link(struct net_device *netdev)
+ 		if (ftgmac100_alloc_rx_page(priv, rxdes, GFP_KERNEL))
+-			goto err;
++			return -ENOMEM;
+ 	}
+-
+-	/* initialize TX ring */
+-	ftgmac100_txdes_set_end_of_ring(priv,
+-					&priv->descs->txdes[TX_QUEUE_ENTRIES - 1]);
+ 	return 0;
+-
+-err:
+-	ftgmac100_free_buffers(priv);
+-	return -ENOMEM;
+ }
  
- 	netif_start_queue(netdev);
- 	ftgmac100_init_hw(priv);
--	ftgmac100_start_hw(priv, phydev->speed);
-+	ftgmac100_start_hw(priv);
+ static void ftgmac100_adjust_link(struct net_device *netdev)
+@@ -1099,12 +1115,20 @@ static int ftgmac100_open(struct net_device *netdev)
+ 	unsigned int status;
+ 	int err;
  
- 	/* re-enable interrupts */
- 	iowrite32(ier, priv->base + FTGMAC100_OFFSET_IER);
-@@ -1089,6 +1111,20 @@ static int ftgmac100_open(struct net_device *netdev)
- 		goto err_irq;
+-	err = ftgmac100_alloc_buffers(priv);
++	/* Allocate ring buffers  */
++	err = ftgmac100_alloc_rings(priv);
+ 	if (err) {
+-		netdev_err(netdev, "failed to allocate buffers\n");
+-		goto err_alloc;
++		netdev_err(netdev, "Failed to allocate descriptors\n");
++		return err;
  	}
  
-+	/* When using NC-SI we force the speed to 100Mbit/s full duplex,
-+	 *
-+	 * Otherwise we leave it set to 0 (no link), the link
-+	 * message from the PHY layer will handle setting it up to
-+	 * something else if needed.
-+	 */
-+	if (priv->use_ncsi) {
-+		priv->cur_duplex = DUPLEX_FULL;
-+		priv->cur_speed = SPEED_100;
-+	} else {
-+		priv->cur_duplex = 0;
-+		priv->cur_speed = 0;
-+	}
++	/* Initialize the rings */
++	ftgmac100_init_rings(priv);
 +
- 	priv->rx_pointer = 0;
- 	priv->tx_clean_pointer = 0;
- 	priv->tx_pointer = 0;
-@@ -1099,7 +1135,7 @@ static int ftgmac100_open(struct net_device *netdev)
- 		goto err_hw;
++	/* Allocate receive buffers */
++	if (ftgmac100_alloc_rx_buffers(priv))
++		goto err_alloc;
++
+ 	err = request_irq(netdev->irq, ftgmac100_interrupt, 0, netdev->name, netdev);
+ 	if (err) {
+ 		netdev_err(netdev, "failed to request irq %d\n", netdev->irq);
+@@ -1168,8 +1192,9 @@ static int ftgmac100_open(struct net_device *netdev)
+ err_hw:
+ 	free_irq(netdev->irq, netdev);
+ err_irq:
+-	ftgmac100_free_buffers(priv);
+ err_alloc:
++	ftgmac100_free_buffers(priv);
++	ftgmac100_free_rings(priv);
+ 	return err;
+ }
  
- 	ftgmac100_init_hw(priv);
--	ftgmac100_start_hw(priv, priv->use_ncsi ? 100 : 10);
-+	ftgmac100_start_hw(priv);
+@@ -1190,6 +1215,7 @@ static int ftgmac100_stop(struct net_device *netdev)
+ 	ftgmac100_stop_hw(priv);
+ 	free_irq(netdev->irq, netdev);
+ 	ftgmac100_free_buffers(priv);
++	ftgmac100_free_rings(priv);
  
- 	/* Clear stale interrupts */
- 	status = ioread32(priv->base + FTGMAC100_OFFSET_ISR);
+ 	return 0;
+ }
 -- 
 2.9.3
