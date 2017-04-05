@@ -1,67 +1,64 @@
-From: Roger Quadros <rogerq@ti.com>
-Subject: Re: [PATCH 0/2] ARM: am335x-icev2: Add ethernet support
-Date: Wed, 5 Apr 2017 11:35:20 +0300
-Message-ID: <1d0a9c73-3e68-295c-3477-7c47e9decce6@ti.com>
-References: <1489412554-2054-1-git-send-email-rogerq@ti.com>
- <178a255a-5e26-fe6f-8d9e-a7755f0b5fca@ti.com>
- <20170404160106.GR10760@atomide.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <grygorii.strashko@ti.com>,
-        <nsekhar@ti.com>, <jsarha@ti.com>, <linux-omap@vger.kernel.org>,
-        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: Tony Lindgren <tony@atomide.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170404160106.GR10760@atomide.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ursula Braun <ubraun@linux.vnet.ibm.com>
+Subject: [PATCH net-next 1/7] s390/qeth: use QDIO_*_QFMT defines
+Date: Wed,  5 Apr 2017 10:40:09 +0200
+Message-ID: <20170405084015.35772-2-ubraun@linux.vnet.ibm.com>
+References: <20170405084015.35772-1-ubraun@linux.vnet.ibm.com>
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
+        jwi@linux.vnet.ibm.com, schwidefsky@de.ibm.com,
+        heiko.carstens@de.ibm.com, raspl@linux.vnet.ibm.com,
+        ubraun@linux.vnet.ibm.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:58128 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1754568AbdDEIk3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 5 Apr 2017 04:40:29 -0400
+Received: from pps.filterd (m0098393.ppops.net [127.0.0.1])
+        by mx0a-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v358d81H131351
+        for <netdev@vger.kernel.org>; Wed, 5 Apr 2017 04:40:29 -0400
+Received: from e06smtp13.uk.ibm.com (e06smtp13.uk.ibm.com [195.75.94.109])
+        by mx0a-001b2d01.pphosted.com with ESMTP id 29mspy0gf5-1
+        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Wed, 05 Apr 2017 04:40:29 -0400
+Received: from localhost
+        by e06smtp13.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        for <netdev@vger.kernel.org> from <ubraun@linux.vnet.ibm.com>;
+        Wed, 5 Apr 2017 09:40:26 +0100
+In-Reply-To: <20170405084015.35772-1-ubraun@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04/04/17 19:01, Tony Lindgren wrote:
-> * Roger Quadros <rogerq@ti.com> [170330 05:37]:
->> Hi Tony & Dave,
->>
->> On 13/03/17 15:42, Roger Quadros wrote:
->>> Hi,
->>>
->>> This series adds ethernet support to am335x-icev2 board.
->>>
->>> The ethernet PHYs on the board need an explicit GPIO reset pulse
->>> to ensure they bootstrap to the correct mode. Without the
->>> GPIO reset they just don't work.
->>>
->>> cheers,
->>> -roger
->>
->> Any comments on this series. Patch 1 is at version 2.
-> 
-> I think you meant patch 2/3 is at version2. I've picked
-> patches 2 and 3 for v4.12 into dt and defconfig branches.
+From: Julian Wiedmann <jwi@linux.vnet.ibm.com>
 
-Thanks Tony.
+better use the constant definitions.
 
-> 
-> You may need to resend the davinci_mdio.c patch alone
-> for Dave as he usually won't pick individual patches I
-> think.
+Signed-off-by: Julian Wiedmann <jwi@linux.vnet.ibm.com>
+Signed-off-by: Ursula Braun <ubraun@linux.vnet.ibm.com>
+Reviewed-by: Thomas Richter <tmricht@linux.vnet.ibm.com>
+---
+ drivers/s390/net/qeth_core_main.c | 10 ++++------
+ 1 file changed, 4 insertions(+), 6 deletions(-)
 
-OK, I'll send that one separately.
-
-cheers,
--roger
-
-> 
-> Regards,
-> 
-> Tony
-> 
->>> Roger Quadros (2):
->>>   net: davinci_mdio: add GPIO reset logic
->>>   ARM: dts: am335x-icev2: Add CPSW ethernet0 and ethernet1
->>>
->>>  .../devicetree/bindings/net/davinci-mdio.txt       |   2 +
->>>  arch/arm/boot/dts/am335x-icev2.dts                 | 113 +++++++++++++++++++++
->>>  drivers/net/ethernet/ti/davinci_mdio.c             |  68 +++++++++++--
->>>  3 files changed, 175 insertions(+), 8 deletions(-)
->>>
->>
+diff --git a/drivers/s390/net/qeth_core_main.c b/drivers/s390/net/qeth_core_main.c
+index 315d8a2..3b3cb3b 100644
+--- a/drivers/s390/net/qeth_core_main.c
++++ b/drivers/s390/net/qeth_core_main.c
+@@ -4774,12 +4774,10 @@ static int qeth_query_card_info(struct qeth_card *card,
+ 
+ static inline int qeth_get_qdio_q_format(struct qeth_card *card)
+ {
+-	switch (card->info.type) {
+-	case QETH_CARD_TYPE_IQD:
+-		return 2;
+-	default:
+-		return 0;
+-	}
++	if (card->info.type == QETH_CARD_TYPE_IQD)
++		return QDIO_IQDIO_QFMT;
++	else
++		return QDIO_QETH_QFMT;
+ }
+ 
+ static void qeth_determine_capabilities(struct qeth_card *card)
+-- 
+2.10.2
