@@ -1,116 +1,60 @@
-From: Oliver Neukum <oneukum@suse.com>
-Subject: [PATCH] usbnet: make sure no NULL pointer is passed through
-Date: Wed,  5 Apr 2017 14:14:39 +0200
-Message-ID: <20170405121439.22523-1-oneukum@suse.com>
-Cc: Oliver Neukum <oneukum@suse.com>
-To: stephen@networkplumber.org, davem@davemloft.net,
-        netdev@vger.kernel.org, bjorn@mork.no
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [iproute2 net-next v2 0/3] ip netconf improvements
+Date: Wed, 5 Apr 2017 08:18:12 -0400
+Message-ID: <2e95cd50-8619-0a51-e22f-b8ced94f01d4@cumulusnetworks.com>
+References: <1490323882-11609-1-git-send-email-dsa@cumulusnetworks.com>
+ <431908e0-27b0-730d-0c01-671702f30d71@cumulusnetworks.com>
+ <20170404143912.7ecae6ba@xeon-e3>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, nicolas.dichtel@6wind.com
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:56456 "EHLO mx2.suse.de"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755050AbdDEMPn (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 5 Apr 2017 08:15:43 -0400
+Received: from mail-io0-f169.google.com ([209.85.223.169]:34159 "EHLO
+        mail-io0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754657AbdDEMSO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 5 Apr 2017 08:18:14 -0400
+Received: by mail-io0-f169.google.com with SMTP id b140so8148890iof.1
+        for <netdev@vger.kernel.org>; Wed, 05 Apr 2017 05:18:13 -0700 (PDT)
+In-Reply-To: <20170404143912.7ecae6ba@xeon-e3>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Coverity reports:
+On 4/4/17 5:39 PM, Stephen Hemminger wrote:
+> On Tue, 4 Apr 2017 17:07:31 -0400
+> David Ahern <dsa@cumulusnetworks.com> wrote:
+> 
+>> On 3/23/17 10:51 PM, David Ahern wrote:
+>>> Currently, ip netconf only shows data for ipv4 and ipv6 for dumps
+>>> and just ipv4 for device requests. Improve the user experience by
+>>> using the new kernel patch to dump all address families that have
+>>> registered. For example, if mpls_router module is loaded then mpls
+>>> values are displayed along with ipv4 and ipv6.
+>>>
+>>> If the new feature is not supported (new iproute2 on older kernel)
+>>> the kernel returns the nlmsg error EOPNOTSUPP which can be trapped
+>>> and fallback to existing behavior.
+>>>
+>>> v2
+>>> - fixed index conversion in patch 3 per nicholas' comment
+>>>
+>>> David Ahern (3):
+>>>   netlink: Add flag to suppress print of nlmsg error
+>>>   ip netconf: Show all address families by default in dumps
+>>>   ip netconf: show all families on dev request
+>>>
+>>>  include/libnetlink.h |  1 +
+>>>  ip/ipnetconf.c       | 36 +++++++++++++++++++++++++-----------
+>>>  lib/libnetlink.c     |  3 ++-
+>>>  3 files changed, 28 insertions(+), 12 deletions(-)
+>>>   
+>>
+>> Hi Stephen: any comments? are you ok with this change?
+> 
+> I was holding off until all the upstream commits went through. Other than
+> that fine.
+> 
 
-** CID 751368:  Null pointer dereferences  (FORWARD_NULL)
-/drivers/net/usb/usbnet.c: 1925 in __usbnet_read_cmd()
-
-________________________________________________________________________________________________________
-*** CID 751368:  Null pointer dereferences  (FORWARD_NULL)
-/drivers/net/usb/usbnet.c: 1925 in __usbnet_read_cmd()
-1919     EXPORT_SYMBOL(usbnet_link_change);
-1920
-1921     /*-------------------------------------------------------------------------*/
-1922     static int __usbnet_read_cmd(struct usbnet *dev, u8 cmd, u8 reqtype,
-1923                                 u16 value, u16 index, void *data, u16 size)
-1924     {
->>>     CID 751368:  Null pointer dereferences  (FORWARD_NULL)
->>>     Assigning: "buf" = "NULL".
-1925            void *buf = NULL;
-1926            int err = -ENOMEM;
-1927
-1928            netdev_dbg(dev->net, "usbnet_read_cmd cmd=0x%02x reqtype=%02x"
-1929                       " value=0x%04x index=0x%04x size=%d\n",
-1930                       cmd, reqtype, value, index, size);
-
-** CID 751370:  Null pointer dereferences  (FORWARD_NULL)
-/drivers/net/usb/usbnet.c: 1952 in __usbnet_write_cmd()
-
-________________________________________________________________________________________________________
-*** CID 751370:  Null pointer dereferences  (FORWARD_NULL)
-/drivers/net/usb/usbnet.c: 1952 in __usbnet_write_cmd()
-1946     }
-1947
-1948     static int __usbnet_write_cmd(struct usbnet *dev, u8 cmd, u8 reqtype,
-1949                                  u16 value, u16 index, const void *data,
-1950                                  u16 size)
-1951     {
->>>     CID 751370:  Null pointer dereferences  (FORWARD_NULL)
->>>     Assigning: "buf" = "NULL".
-1952            void *buf = NULL;
-1953            int err = -ENOMEM;
-1954
-1955            netdev_dbg(dev->net, "usbnet_write_cmd cmd=0x%02x reqtype=%02x"
-1956                       " value=0x%04x index=0x%04x size=%d\n",
-1957                       cmd, reqtype, value, index, size);
-
-** CID 1325026:  Null pointer dereferences  (FORWARD_NULL)
-/drivers/net/usb/ch9200.c: 143 in control_write()
-
-It is valid to offer commands without a buffer, but then you need a size
-of zero. This should actually be checked.
-
-Signed-off-by: Oliver Neukum <oneukum@suse.com>
----
- drivers/net/usb/usbnet.c | 19 +++++++++++++++----
- 1 file changed, 15 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-index 3de65ea..4532448 100644
---- a/drivers/net/usb/usbnet.c
-+++ b/drivers/net/usb/usbnet.c
-@@ -1929,7 +1929,7 @@ static int __usbnet_read_cmd(struct usbnet *dev, u8 cmd, u8 reqtype,
- 		   " value=0x%04x index=0x%04x size=%d\n",
- 		   cmd, reqtype, value, index, size);
- 
--	if (data) {
-+	if (size) {
- 		buf = kmalloc(size, GFP_KERNEL);
- 		if (!buf)
- 			goto out;
-@@ -1938,8 +1938,13 @@ static int __usbnet_read_cmd(struct usbnet *dev, u8 cmd, u8 reqtype,
- 	err = usb_control_msg(dev->udev, usb_rcvctrlpipe(dev->udev, 0),
- 			      cmd, reqtype, value, index, buf, size,
- 			      USB_CTRL_GET_TIMEOUT);
--	if (err > 0 && err <= size)
--		memcpy(data, buf, err);
-+	if (err > 0 && err <= size) {
-+        if (data)
-+            memcpy(data, buf, err);
-+        else
-+            netdev_dbg(dev->net,
-+                "Huh? Data requested but thrown away.\n");
-+    }
- 	kfree(buf);
- out:
- 	return err;
-@@ -1960,7 +1965,13 @@ static int __usbnet_write_cmd(struct usbnet *dev, u8 cmd, u8 reqtype,
- 		buf = kmemdup(data, size, GFP_KERNEL);
- 		if (!buf)
- 			goto out;
--	}
-+	} else {
-+        if (size) {
-+            WARN_ON_ONCE(1);
-+            err = -EINVAL;
-+            goto out;
-+        }
-+    }
- 
- 	err = usb_control_msg(dev->udev, usb_sndctrlpipe(dev->udev, 0),
- 			      cmd, reqtype, value, index, buf, size,
--- 
-2.10.2
+I'm not aware of any kernel commits that not in net-next, so I think we
+good to go on the kernel side.
