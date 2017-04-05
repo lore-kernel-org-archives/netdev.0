@@ -1,73 +1,83 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: Re: net/sctp: list double add warning in sctp_endpoint_add_asoc
-Date: Wed, 5 Apr 2017 18:48:45 +0800
-Message-ID: <CADvbK_dgD65mygqkGuA85ShBnHrD3y4u_P=XoREyEn7y0J4_+A@mail.gmail.com>
-References: <CAAeHK+zwbeT=jBRRSf2KYXWM=eUZAEe5QHvKPYGG5qWh6A0JGQ@mail.gmail.com>
- <CADvbK_f1FEGRnucuMkQT6RKm0G1tKcfHyj=-GqxgzQ4iQoBLCg@mail.gmail.com> <20170404211454.GA911@localhost.localdomain>
+From: Michal Hocko <mhocko@kernel.org>
+Subject: Re: [PATCH 1/4] mm: prevent potential recursive reclaim due to
+ clearing PF_MEMALLOC
+Date: Wed, 5 Apr 2017 13:21:04 +0200
+Message-ID: <20170405112104.GJ6035@dhcp22.suse.cz>
+References: <20170405074700.29871-1-vbabka@suse.cz>
+ <20170405074700.29871-2-vbabka@suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Andrey Konovalov <andreyknvl@google.com>,
-        Vlad Yasevich <vyasevich@gmail.com>,
-        Neil Horman <nhorman@tuxdriver.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        linux-sctp@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Kostya Serebryany <kcc@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170404211454.GA911@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@linux-foundation.org>, linux-mm@kvack.org,
+	linux-kernel@vger.kernel.org,
+	Mel Gorman <mgorman@techsingularity.net>,
+	Johannes Weiner <hannes@cmpxchg.org>, linux-block@vger.kernel.org,
+	nbd-general@lists.sourceforge.net, open-iscsi@googlegroups.com,
+	linux-scsi@vger.kernel.org, netdev@vger.kernel.org,
+	stable@vger.kernel.org, Andrey Ryabinin <aryabinin@virtuozzo.com>
+To: Vlastimil Babka <vbabka@suse.cz>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <20170405074700.29871-2-vbabka@suse.cz>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 5, 2017 at 5:14 AM, Marcelo Ricardo Leitner
-<marcelo.leitner@gmail.com> wrote:
-> On Wed, Apr 05, 2017 at 01:29:19AM +0800, Xin Long wrote:
->> On Tue, Apr 4, 2017 at 9:28 PM, Andrey Konovalov <andreyknvl@google.com> wrote:
->> > Hi,
->> >
->> > I've got the following error report while fuzzing the kernel with syzkaller.
->> >
->> > On commit a71c9a1c779f2499fb2afc0553e543f18aff6edf (4.11-rc5).
->> >
->> > A reproducer and .config are attached.
->> The script is pretty hard to reproduce the issue in my env.
->
-> I didn't try running it but I also found the reproducer very complicated
-> to follow. Do you have any plans on having some PoC optimizer, so we can
-> have a more readable code?
-> strace is handy for filtering the noise, yes, but sometimes it doesn't
-> cut it.
-I got the script now:
-1. create sk
-2. set sk->sndbuf = x
-3. sendmsg with size s1 (s1 < x)
-4. sendmsg with size s2 (s1+s2 > x)
-5. sendmsg with size s3 (wspace < 0), wait sndbuf, schedule out.
-6. listen sk (abnormal operation on sctp client)
-7. accept sk.
+On Wed 05-04-17 09:46:57, Vlastimil Babka wrote:
+> The function __alloc_pages_direct_compact() sets PF_MEMALLOC to prevent
+> deadlock during page migration by lock_page() (see the comment in
+> __unmap_and_move()). Then it unconditionally clears the flag, which can clear a
+> pre-existing PF_MEMALLOC flag and result in recursive reclaim. This was not a
+> problem until commit a8161d1ed609 ("mm, page_alloc: restructure direct
+> compaction handling in slowpath"), because direct compation was called only
+> after direct reclaim, which was skipped when PF_MEMALLOC flag was set.
+> 
+> Even now it's only a theoretical issue, as the new callsite of
+> __alloc_pages_direct_compact() is reached only for costly orders and when
+> gfp_pfmemalloc_allowed() is true, which means either __GFP_NOMEMALLOC is in
+> gfp_flags or in_interrupt() is true. There is no such known context, but let's
+> play it safe and make __alloc_pages_direct_compact() robust for cases where
+> PF_MEMALLOC is already set.
+> 
+> Fixes: a8161d1ed609 ("mm, page_alloc: restructure direct compaction handling in slowpath")
+> Reported-by: Andrey Ryabinin <aryabinin@virtuozzo.com>
+> Signed-off-by: Vlastimil Babka <vbabka@suse.cz>
+> Cc: <stable@vger.kernel.org>
 
-In step 6, sk->sk_state = listening, then step 7 could get the first asoc
-from ep->asoc_list and alloc a new sk2, attach the asoc to sk2.
+Acked-by: Michal Hocko <mhocko@suse.com>
 
-after a while, sendmsg schedule in, but asoc->sk is sk2, !=sk.
-the same issue we fix for peeloff on commit dfcb9f4f99f1 ("sctp: deny
-peeloff operation on asocs with threads sleeping on it") happens.
+> ---
+>  mm/page_alloc.c | 3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
+> 
+> diff --git a/mm/page_alloc.c b/mm/page_alloc.c
+> index 3589f8be53be..b84e6ffbe756 100644
+> --- a/mm/page_alloc.c
+> +++ b/mm/page_alloc.c
+> @@ -3288,6 +3288,7 @@ __alloc_pages_direct_compact(gfp_t gfp_mask, unsigned int order,
+>  		enum compact_priority prio, enum compact_result *compact_result)
+>  {
+>  	struct page *page;
+> +	unsigned int noreclaim_flag = current->flags & PF_MEMALLOC;
+>  
+>  	if (!order)
+>  		return NULL;
+> @@ -3295,7 +3296,7 @@ __alloc_pages_direct_compact(gfp_t gfp_mask, unsigned int order,
+>  	current->flags |= PF_MEMALLOC;
+>  	*compact_result = try_to_compact_pages(gfp_mask, order, alloc_flags, ac,
+>  									prio);
+> -	current->flags &= ~PF_MEMALLOC;
+> +	current->flags = (current->flags & ~PF_MEMALLOC) | noreclaim_flag;
+>  
+>  	if (*compact_result <= COMPACT_INACTIVE)
+>  		return NULL;
+> -- 
+> 2.12.2
 
-But we should not fix it by the same way as for peeloff. the real reason
-causes this issue is on step 6, it should disallow listen on the established sk.
+-- 
+Michal Hocko
+SUSE Labs
 
-The following fix should work for this, just similar with what
-inet_listen() did.
-
-@@ -7174,6 +7175,9 @@ int sctp_inet_listen(struct socket *sock, int backlog)
-        if (sock->state != SS_UNCONNECTED)
-                goto out;
-
-+       if (!sctp_sstate(sk, LISTENING) && !sctp_sstate(sk,CLOSED))
-+               goto out;
-+
-
-what do you think ?
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
