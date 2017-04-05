@@ -1,33 +1,46 @@
-From: Thanneeru Srinivasulu <dev.srinivasulu@gmail.com>
-Subject: Re: [PATCH] net: thunderx: Switch to pci_alloc_irq_vectors
-Date: Wed, 5 Apr 2017 12:07:24 +0530
-Message-ID: <CAMtOeK+nuY0KVbNutPgR9mpkfqpWB3g75evAQNECvG8OxRfGNA@mail.gmail.com>
-References: <1491298146-13609-1-git-send-email-tsrinivasulu@cavium.com> <20170405062740.GB26470@lst.de>
+From: Kalle Valo <kvalo@qca.qualcomm.com>
+Subject: Re: [1/2] wireless: ath9k_htc: fix NULL-deref at probe
+Date: Wed, 5 Apr 2017 09:35:23 +0200
+Message-ID: <a11d62fc43c54a6d970f593f3cea4120@euamsexm01a.eu.qualcomm.com>
+References: <20170313124421.28587-1-johan@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org,
-        Sunil Goutham <sgoutham@cavium.com>,
-        Thanneeru Srinivasulu <tsrinivasulu@cavium.com>
-To: Christoph Hellwig <hch@lst.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170405062740.GB26470@lst.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Kalle Valo <kvalo@codeaurora.org>,
+        QCA ath9k Development <ath9k-devel@qca.qualcomm.com>,
+        Daniel Drake <dsd@gentoo.org>,
+        Ulrich Kunitz <kune@deine-taler.de>,
+        <linux-wireless@vger.kernel.org>, <netdev@vger.kernel.org>,
+        <linux-usb@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        Johan Hovold <johan@kernel.org>,
+        "Sujith Manoharan" <Sujith.Manoharan@atheros.com>
+To: Johan Hovold <johan@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wolverine02.qualcomm.com ([199.106.114.251]:31113 "EHLO
+        wolverine02.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752862AbdDEHfg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 5 Apr 2017 03:35:36 -0400
+In-Reply-To: <20170313124421.28587-1-johan@kernel.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 5, 2017 at 11:57 AM, Christoph Hellwig <hch@lst.de> wrote:
-> On Tue, Apr 04, 2017 at 02:59:06PM +0530, dev.srinivasulu@gmail.com wrote:
->> From: Thanneeru Srinivasulu <tsrinivasulu@cavium.com>
->>
->> Remove deprecated pci_enable_msix API in favour of it's
->> successor pci_alloc_irq_vectors.
->>
->> Signed-off-by: Thanneeru Srinivasulu <tsrinivasulu@cavium.com>
->> Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
->
-> Looks good.
->
-> Are you fine with me queueing this up together with the other
-> pci_enable_msix() removal patches?
+Johan Hovold <johan@kernel.org> wrote:
+> Make sure to check the number of endpoints to avoid dereferencing a
+> NULL-pointer or accessing memory beyond the endpoint array should a
+> malicious device lack the expected endpoints.
+> 
+> Fixes: 36bcce430657 ("ath9k_htc: Handle storage devices")
+> Cc: Sujith Manoharan <Sujith.Manoharan@atheros.com>
+> Signed-off-by: Johan Hovold <johan@kernel.org>
 
-No issues, thanks.
+Patch applied to ath-next branch of ath.git, thanks.
+
+ebeb36670eca ath9k_htc: fix NULL-deref at probe
+
+-- 
+https://patchwork.kernel.org/patch/9620723/
+
+Documentation about submitting wireless patches and checking status
+from patchwork:
+
+https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
