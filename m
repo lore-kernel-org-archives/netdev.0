@@ -1,30 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: stmmac: rx queue to dma channel mapping
- fix
-Date: Wed, 05 Apr 2017 06:47:57 -0700 (PDT)
-Message-ID: <20170405.064757.359067290785577913.davem@davemloft.net>
-References: <4532d68ceefa4d0327275036698b3ec0e7b967c8.1491233596.git.jpinto@synopsys.com>
+Subject: Re: [PATCH -next] net: sched: choke: remove some dead code
+Date: Wed, 05 Apr 2017 06:54:27 -0700 (PDT)
+Message-ID: <20170405.065427.1390314194128386572.davem@davemloft.net>
+References: <20170403181629.GA22938@mwanda>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Joao.Pinto@synopsys.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:42028 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752304AbdDENsF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 5 Apr 2017 09:48:05 -0400
-In-Reply-To: <4532d68ceefa4d0327275036698b3ec0e7b967c8.1491233596.git.jpinto@synopsys.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jhs@mojatatu.com, jiri@mellanox.com, netdev@vger.kernel.org,
+        kernel-janitors@vger.kernel.org
+To: dan.carpenter@oracle.com
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <20170403181629.GA22938@mwanda>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Joao Pinto <Joao.Pinto@synopsys.com>
-Date: Mon,  3 Apr 2017 16:34:04 +0100
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Mon, 3 Apr 2017 21:18:41 +0300
 
-> In hardware configurations where multiple queues are active,
-> the rx queue needs to be mapped into a dma channel, even if
-> a single rx queue is used.
+> We accidentally left this dead code behind after commit 5952fde10c35
+> ("net: sched: choke: remove dead filter classify code").
 > 
-> Signed-off-by: Joao Pinto <jpinto@synopsys.com>
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-Applied, thanks.
+Applied.
