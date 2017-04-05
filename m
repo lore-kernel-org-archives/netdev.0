@@ -1,214 +1,250 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH 1/4] net: dsa: add support for the SMSC-LAN9303 tagging
- format
-Date: Wed, 5 Apr 2017 19:10:01 +0200
-Message-ID: <20170405171001.GD21965@lunn.ch>
-References: <20170405092024.16048-1-jbe@pengutronix.de>
- <20170405092024.16048-2-jbe@pengutronix.de>
+From: David Howells <dhowells@redhat.com>
+Subject: [PATCH 19/38] Annotate hardware config module parameters in
+ drivers/net/ethernet/
+Date: Wed, 05 Apr 2017 17:59:39 +0100
+Message-ID: <149141157961.29162.16197434822666566656.stgit@warthog.procyon.org.uk>
+References: <149141141298.29162.5612793122429261720.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        f.fainelli@gmail.com, kernel@pengutronix.de,
-        vivien.didelot@savoirfairelinux.com, davem@davemloft.net
-To: Juergen Borleis <jbe@pengutronix.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:46858 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755252AbdDERKL (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 5 Apr 2017 13:10:11 -0400
-Content-Disposition: inline
-In-Reply-To: <20170405092024.16048-2-jbe@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: gnomes@lxorguk.ukuu.org.uk,
+        Steffen Klassert <klassert@mathematik.tu-chemnitz.de>,
+        linux-parisc@vger.kernel.org, netdev@vger.kernel.org,
+        Jaroslav Kysela <perex@perex.cz>, dhowells@redhat.com,
+        linux-security-module@vger.kernel.org, keyrings@vger.kernel.org,
+        gregkh@linuxfoundation.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <149141141298.29162.5612793122429261720.stgit@warthog.procyon.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 05, 2017 at 11:20:21AM +0200, Juergen Borleis wrote:
-> To define the outgoing port and to discover the incoming port a regular
-> VLAN tag is used by the LAN9303. But its VID meaning is 'special'.
-> 
-> This tag handler/filter depends on some hardware features which must be
-> enabled in the device to provide and make use of this special VLAN tag
-> to control the destination and the source of an ethernet packet.
-> 
-> Signed-off-by: Juergen Borleis <jbe@pengutronix.de>
-> ---
->  include/net/dsa.h     |   1 +
->  net/dsa/Kconfig       |   3 +
->  net/dsa/Makefile      |   1 +
->  net/dsa/dsa.c         |   3 +
->  net/dsa/dsa_priv.h    |   3 +
->  net/dsa/tag_lan9303.c | 155 ++++++++++++++++++++++++++++++++++++++++++++++++++
->  6 files changed, 166 insertions(+)
->  create mode 100644 net/dsa/tag_lan9303.c
-> 
-> diff --git a/include/net/dsa.h b/include/net/dsa.h
-> index 4e13e695f0251..4fb1f2b086b05 100644
-> --- a/include/net/dsa.h
-> +++ b/include/net/dsa.h
-> @@ -31,6 +31,7 @@ enum dsa_tag_protocol {
->  	DSA_TAG_PROTO_EDSA,
->  	DSA_TAG_PROTO_BRCM,
->  	DSA_TAG_PROTO_QCA,
-> +	DSA_TAG_PROTO_LAN9303,
->  	DSA_TAG_LAST,		/* MUST BE LAST */
->  };
->  
-> diff --git a/net/dsa/Kconfig b/net/dsa/Kconfig
-> index 9649238eef404..22c8bd69ff71c 100644
-> --- a/net/dsa/Kconfig
-> +++ b/net/dsa/Kconfig
-> @@ -31,4 +31,7 @@ config NET_DSA_TAG_TRAILER
->  config NET_DSA_TAG_QCA
->  	bool
->  
-> +config NET_DSA_TAG_LAN9303
-> +	bool
-> +
->  endif
-> diff --git a/net/dsa/Makefile b/net/dsa/Makefile
-> index 31d343796251d..aafc74f2cb193 100644
-> --- a/net/dsa/Makefile
-> +++ b/net/dsa/Makefile
-> @@ -8,3 +8,4 @@ dsa_core-$(CONFIG_NET_DSA_TAG_DSA) += tag_dsa.o
->  dsa_core-$(CONFIG_NET_DSA_TAG_EDSA) += tag_edsa.o
->  dsa_core-$(CONFIG_NET_DSA_TAG_TRAILER) += tag_trailer.o
->  dsa_core-$(CONFIG_NET_DSA_TAG_QCA) += tag_qca.o
-> +dsa_core-$(CONFIG_NET_DSA_TAG_LAN9303) += tag_lan9303.o
-> diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-> index b6d4f6a23f06c..f93f78de23af3 100644
-> --- a/net/dsa/dsa.c
-> +++ b/net/dsa/dsa.c
-> @@ -53,6 +53,9 @@ const struct dsa_device_ops *dsa_device_ops[DSA_TAG_LAST] = {
->  #ifdef CONFIG_NET_DSA_TAG_QCA
->  	[DSA_TAG_PROTO_QCA] = &qca_netdev_ops,
->  #endif
-> +#ifdef CONFIG_NET_DSA_TAG_LAN9303
-> +	[DSA_TAG_PROTO_LAN9303] = &lan9303_netdev_ops,
-> +#endif
->  	[DSA_TAG_PROTO_NONE] = &none_ops,
->  };
->  
-> diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
-> index 0706a511244e9..a54cfc8aefa83 100644
-> --- a/net/dsa/dsa_priv.h
-> +++ b/net/dsa/dsa_priv.h
-> @@ -85,4 +85,7 @@ extern const struct dsa_device_ops brcm_netdev_ops;
->  /* tag_qca.c */
->  extern const struct dsa_device_ops qca_netdev_ops;
->  
-> +/* tag_lan9303.c */
-> +extern const struct dsa_device_ops lan9303_netdev_ops;
-> +
->  #endif
-> diff --git a/net/dsa/tag_lan9303.c b/net/dsa/tag_lan9303.c
-> new file mode 100644
-> index 0000000000000..ad04c6d447f77
-> --- /dev/null
-> +++ b/net/dsa/tag_lan9303.c
-> @@ -0,0 +1,155 @@
-> +/*
-> + * Copyright (C) 2017 Pengutronix, Juergen Borleis <jbe@pengutronix.de>
-> + *
-> + * This program is free software; you can redistribute it and/or
-> + * modify it under the terms of the GNU General Public License
-> + * version 2, as published by the Free Software Foundation.
-> + *
-> + * This program is distributed in the hope that it will be useful,
-> + * but WITHOUT ANY WARRANTY; without even the implied warranty of
-> + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-> + * GNU General Public License for more details.
-> + *
-> + */
-> +#include <linux/etherdevice.h>
-> +#include <linux/list.h>
-> +#include <linux/slab.h>
-> +#include "dsa_priv.h"
-> +
-> +/* To define the outgoing port and to discover the incoming port a regular
-> + * VLAN tag is used by the LAN9303. But its VID meaning is 'special':
-> + *
-> + *       Dest MAC       Src MAC        TAG    Type
-> + * ...| 1 2 3 4 5 6 | 1 2 3 4 5 6 | 1 2 3 4 | 1 2 |...
-> + *                                |<------->|
-> + * TAG:
-> + *    |<------------->|
-> + *    |  1  2 | 3  4  |
-> + *      TPID    VID
-> + *     0x8100
-> + *
-> + * VID bit 3 indicates a request for an ALR lookup.
-> + *
-> + * If VID bit 3 is zero, then bits 0 and 1 specify the destination port
-> + * (0, 1, 2) or broadcast (3) or the source port (1, 2).
-> + *
-> + * VID bit 4 is used to specify if the STP port state should be overridden.
-> + * Required when no forwarding between the external ports should happen.
-> + */
+When the kernel is running in secure boot mode, we lock down the kernel to
+prevent userspace from modifying the running kernel image.  Whilst this
+includes prohibiting access to things like /dev/mem, it must also prevent
+access by means of configuring driver modules in such a way as to cause a
+device to access or modify the kernel image.
 
-Hi Juergen
+To this end, annotate module_param* statements that refer to hardware
+configuration and indicate for future reference what type of parameter they
+specify.  The parameter parser in the core sees this information and can
+skip such parameters with an error message if the kernel is locked down.
+The module initialisation then runs as normal, but just sees whatever the
+default values for those parameters is.
 
-Nice comment, thanks.
+Note that we do still need to do the module initialisation because some
+drivers have viable defaults set in case parameters aren't specified and
+some drivers support automatic configuration (e.g. PNP or PCI) in addition
+to manually coded parameters.
 
-> +
-> +#define LAN9303_TAG_LEN 4
-> +
-> +static struct sk_buff *lan9303_xmit(struct sk_buff *skb, struct net_device *dev)
-> +{
+This patch annotates drivers in drivers/net/ethernet/.
 
-...
+Suggested-by: Alan Cox <gnomes@lxorguk.ukuu.org.uk>
+Signed-off-by: David Howells <dhowells@redhat.com>
+cc: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
+cc: Jaroslav Kysela <perex@perex.cz>
+cc: netdev@vger.kernel.org
+cc: linux-parisc@vger.kernel.org
+---
 
-> +	/* make room between MACs and Ether-Type */
-> +	memmove(skb->data, skb->data + LAN9303_TAG_LEN, 2 * ETH_ALEN);
-> +
-> +	lan9303_tag = (u16 *)(skb->data + 2 * ETH_ALEN);
-> +	lan9303_tag[0] = htons(ETH_P_8021Q);
-> +	lan9303_tag[1] = htons(p->dp->index | BIT(4));
+ drivers/net/ethernet/3com/3c509.c      |    2 +-
+ drivers/net/ethernet/3com/3c59x.c      |    4 ++--
+ drivers/net/ethernet/8390/ne.c         |    4 ++--
+ drivers/net/ethernet/8390/smc-ultra.c  |    4 ++--
+ drivers/net/ethernet/8390/wd.c         |    8 ++++----
+ drivers/net/ethernet/amd/lance.c       |    6 +++---
+ drivers/net/ethernet/amd/ni65.c        |    6 +++---
+ drivers/net/ethernet/cirrus/cs89x0.c   |    6 +++---
+ drivers/net/ethernet/dec/tulip/de4x5.c |    2 +-
+ drivers/net/ethernet/hp/hp100.c        |    2 +-
+ drivers/net/ethernet/realtek/atp.c     |    4 ++--
+ drivers/net/ethernet/smsc/smc9194.c    |    4 ++--
+ 12 files changed, 26 insertions(+), 26 deletions(-)
 
-> +static int lan9303_rcv(struct sk_buff *skb, struct net_device *dev,
-> +		       struct packet_type *pt, struct net_device *orig_dev)
-> +{
-> +	u16 *lan9303_tag;
-> +	struct dsa_switch_tree *dst = dev->dsa_ptr;
-> +	struct dsa_switch *ds = dst->ds[0];
-> +	unsigned int source_port;
-> +
-> +	if (unlikely(!dst)) {
-> +		dev_warn_ratelimited(&dev->dev, "Dropping packet, due to missing switch tree device\n");
-> +		goto out_drop;
-> +	}
-
-By the time you get here, you have already dereferenced dst, in order
-to get ds. So this is pointless.
-
-> +	lan9303_tag = (u16 *)(skb->data - 2);
-> +
-> +	if (lan9303_tag[0] != htons(0x8100)) {
-> +		dev_warn_ratelimited(&dev->dev, "Dropping packet due to invalid VLAN marker\n");
-> +		goto out_drop;
-> +	}
-
-In the transmit function, you use ETH_P_8021Q, please do so here as
-well.
-
-> +	source_port = ntohs(lan9303_tag[1]) & 0x3;
-> +
-> +	if (source_port >= DSA_MAX_PORTS) {
-> +		dev_warn_ratelimited(&dev->dev, "Dropping packet due to invalid source port\n");
-> +		goto out_drop;
-> +	}
-
-You can be more specific here. For this hardware, > 3 is invalid and
-should be dropped. If we later add other chips which have more ports,
-we can relax this check then.
-
-> +	/* remove the special VLAN tag between the MAC addresses
-> +	 * and the current ethertype field.
-> +	 */
-> +	skb_pull_rcsum(skb, 2 + 2);
-> +	memmove(skb->data - ETH_HLEN, skb->data - (ETH_HLEN + LAN9303_TAG_LEN),
-> +		2 * ETH_ALEN);
-> +	skb_push(skb, ETH_HLEN);
-
-Do you need to do anything with the checksum here? Other tagging
-protocols do.
-
-	  Andrew
+diff --git a/drivers/net/ethernet/3com/3c509.c b/drivers/net/ethernet/3com/3c509.c
+index c7f9f2c77da7..db8592d412ab 100644
+--- a/drivers/net/ethernet/3com/3c509.c
++++ b/drivers/net/ethernet/3com/3c509.c
+@@ -1371,7 +1371,7 @@ el3_resume(struct device *pdev)
+ #endif /* CONFIG_PM */
+ 
+ module_param(debug,int, 0);
+-module_param_array(irq, int, NULL, 0);
++module_param_hw_array(irq, int, irq, NULL, 0);
+ module_param(max_interrupt_work, int, 0);
+ MODULE_PARM_DESC(debug, "debug level (0-6)");
+ MODULE_PARM_DESC(irq, "IRQ number(s) (assigned)");
+diff --git a/drivers/net/ethernet/3com/3c59x.c b/drivers/net/ethernet/3com/3c59x.c
+index 40196f41768a..e41245a54f8b 100644
+--- a/drivers/net/ethernet/3com/3c59x.c
++++ b/drivers/net/ethernet/3com/3c59x.c
+@@ -813,8 +813,8 @@ module_param(global_enable_wol, int, 0);
+ module_param_array(enable_wol, int, NULL, 0);
+ module_param(rx_copybreak, int, 0);
+ module_param(max_interrupt_work, int, 0);
+-module_param(compaq_ioaddr, int, 0);
+-module_param(compaq_irq, int, 0);
++module_param_hw(compaq_ioaddr, int, ioport, 0);
++module_param_hw(compaq_irq, int, irq, 0);
+ module_param(compaq_device_id, int, 0);
+ module_param(watchdog, int, 0);
+ module_param(global_use_mmio, int, 0);
+diff --git a/drivers/net/ethernet/8390/ne.c b/drivers/net/ethernet/8390/ne.c
+index c063b410a163..66f47987e2a2 100644
+--- a/drivers/net/ethernet/8390/ne.c
++++ b/drivers/net/ethernet/8390/ne.c
+@@ -74,8 +74,8 @@ static int bad[MAX_NE_CARDS];
+ static u32 ne_msg_enable;
+ 
+ #ifdef MODULE
+-module_param_array(io, int, NULL, 0);
+-module_param_array(irq, int, NULL, 0);
++module_param_hw_array(io, int, ioport, NULL, 0);
++module_param_hw_array(irq, int, irq, NULL, 0);
+ module_param_array(bad, int, NULL, 0);
+ module_param_named(msg_enable, ne_msg_enable, uint, (S_IRUSR|S_IRGRP|S_IROTH));
+ MODULE_PARM_DESC(io, "I/O base address(es),required");
+diff --git a/drivers/net/ethernet/8390/smc-ultra.c b/drivers/net/ethernet/8390/smc-ultra.c
+index 364b6514f65f..4e02f6a23575 100644
+--- a/drivers/net/ethernet/8390/smc-ultra.c
++++ b/drivers/net/ethernet/8390/smc-ultra.c
+@@ -561,8 +561,8 @@ static struct net_device *dev_ultra[MAX_ULTRA_CARDS];
+ static int io[MAX_ULTRA_CARDS];
+ static int irq[MAX_ULTRA_CARDS];
+ 
+-module_param_array(io, int, NULL, 0);
+-module_param_array(irq, int, NULL, 0);
++module_param_hw_array(io, int, ioport, NULL, 0);
++module_param_hw_array(irq, int, irq, NULL, 0);
+ module_param_named(msg_enable, ultra_msg_enable, uint, (S_IRUSR|S_IRGRP|S_IROTH));
+ MODULE_PARM_DESC(io, "I/O base address(es)");
+ MODULE_PARM_DESC(irq, "IRQ number(s) (assigned)");
+diff --git a/drivers/net/ethernet/8390/wd.c b/drivers/net/ethernet/8390/wd.c
+index ad019cbc698f..6efa2722f850 100644
+--- a/drivers/net/ethernet/8390/wd.c
++++ b/drivers/net/ethernet/8390/wd.c
+@@ -503,10 +503,10 @@ static int irq[MAX_WD_CARDS];
+ static int mem[MAX_WD_CARDS];
+ static int mem_end[MAX_WD_CARDS];	/* for non std. mem size */
+ 
+-module_param_array(io, int, NULL, 0);
+-module_param_array(irq, int, NULL, 0);
+-module_param_array(mem, int, NULL, 0);
+-module_param_array(mem_end, int, NULL, 0);
++module_param_hw_array(io, int, ioport, NULL, 0);
++module_param_hw_array(irq, int, irq, NULL, 0);
++module_param_hw_array(mem, int, iomem, NULL, 0);
++module_param_hw_array(mem_end, int, iomem, NULL, 0);
+ module_param_named(msg_enable, wd_msg_enable, uint, (S_IRUSR|S_IRGRP|S_IROTH));
+ MODULE_PARM_DESC(io, "I/O base address(es)");
+ MODULE_PARM_DESC(irq, "IRQ number(s) (ignored for PureData boards)");
+diff --git a/drivers/net/ethernet/amd/lance.c b/drivers/net/ethernet/amd/lance.c
+index 61a641f23149..12a6a93d221b 100644
+--- a/drivers/net/ethernet/amd/lance.c
++++ b/drivers/net/ethernet/amd/lance.c
+@@ -318,9 +318,9 @@ static int io[MAX_CARDS];
+ static int dma[MAX_CARDS];
+ static int irq[MAX_CARDS];
+ 
+-module_param_array(io, int, NULL, 0);
+-module_param_array(dma, int, NULL, 0);
+-module_param_array(irq, int, NULL, 0);
++module_param_hw_array(io, int, ioport, NULL, 0);
++module_param_hw_array(dma, int, dma, NULL, 0);
++module_param_hw_array(irq, int, irq, NULL, 0);
+ module_param(lance_debug, int, 0);
+ MODULE_PARM_DESC(io, "LANCE/PCnet I/O base address(es),required");
+ MODULE_PARM_DESC(dma, "LANCE/PCnet ISA DMA channel (ignored for some devices)");
+diff --git a/drivers/net/ethernet/amd/ni65.c b/drivers/net/ethernet/amd/ni65.c
+index 5985bf220a8d..e248d1ab3e47 100644
+--- a/drivers/net/ethernet/amd/ni65.c
++++ b/drivers/net/ethernet/amd/ni65.c
+@@ -1227,9 +1227,9 @@ static void set_multicast_list(struct net_device *dev)
+ #ifdef MODULE
+ static struct net_device *dev_ni65;
+ 
+-module_param(irq, int, 0);
+-module_param(io, int, 0);
+-module_param(dma, int, 0);
++module_param_hw(irq, int, irq, 0);
++module_param_hw(io, int, ioport, 0);
++module_param_hw(dma, int, dma, 0);
+ MODULE_PARM_DESC(irq, "ni6510 IRQ number (ignored for some cards)");
+ MODULE_PARM_DESC(io, "ni6510 I/O base address");
+ MODULE_PARM_DESC(dma, "ni6510 ISA DMA channel (ignored for some cards)");
+diff --git a/drivers/net/ethernet/cirrus/cs89x0.c b/drivers/net/ethernet/cirrus/cs89x0.c
+index 3647b28e8de0..8f660d9761cc 100644
+--- a/drivers/net/ethernet/cirrus/cs89x0.c
++++ b/drivers/net/ethernet/cirrus/cs89x0.c
+@@ -1704,12 +1704,12 @@ static int use_dma;			/* These generate unused var warnings if ALLOW_DMA = 0 */
+ static int dma;
+ static int dmasize = 16;		/* or 64 */
+ 
+-module_param(io, int, 0);
+-module_param(irq, int, 0);
++module_param_hw(io, int, ioport, 0);
++module_param_hw(irq, int, irq, 0);
+ module_param(debug, int, 0);
+ module_param_string(media, media, sizeof(media), 0);
+ module_param(duplex, int, 0);
+-module_param(dma , int, 0);
++module_param_hw(dma , int, dma, 0);
+ module_param(dmasize , int, 0);
+ module_param(use_dma , int, 0);
+ MODULE_PARM_DESC(io, "cs89x0 I/O base address");
+diff --git a/drivers/net/ethernet/dec/tulip/de4x5.c b/drivers/net/ethernet/dec/tulip/de4x5.c
+index df4a871df633..fd6bcf024729 100644
+--- a/drivers/net/ethernet/dec/tulip/de4x5.c
++++ b/drivers/net/ethernet/dec/tulip/de4x5.c
+@@ -1015,7 +1015,7 @@ static int     compact_infoblock(struct net_device *dev, u_char count, u_char *p
+ 
+ static int io=0x0;/* EDIT THIS LINE FOR YOUR CONFIGURATION IF NEEDED        */
+ 
+-module_param(io, int, 0);
++module_param_hw(io, int, ioport, 0);
+ module_param(de4x5_debug, int, 0);
+ module_param(dec_only, int, 0);
+ module_param(args, charp, 0);
+diff --git a/drivers/net/ethernet/hp/hp100.c b/drivers/net/ethernet/hp/hp100.c
+index 1a31bee6e728..5673b071e39d 100644
+--- a/drivers/net/ethernet/hp/hp100.c
++++ b/drivers/net/ethernet/hp/hp100.c
+@@ -2966,7 +2966,7 @@ MODULE_DESCRIPTION("HP CASCADE Architecture Driver for 100VG-AnyLan Network Adap
+ #define HP100_DEVICES 5
+ /* Parameters set by insmod */
+ static int hp100_port[HP100_DEVICES] = { 0, [1 ... (HP100_DEVICES-1)] = -1 };
+-module_param_array(hp100_port, int, NULL, 0);
++module_param_hw_array(hp100_port, int, ioport, NULL, 0);
+ 
+ /* List of devices */
+ static struct net_device *hp100_devlist[HP100_DEVICES];
+diff --git a/drivers/net/ethernet/realtek/atp.c b/drivers/net/ethernet/realtek/atp.c
+index 9bcd4aefc9c5..bed34684994f 100644
+--- a/drivers/net/ethernet/realtek/atp.c
++++ b/drivers/net/ethernet/realtek/atp.c
+@@ -151,8 +151,8 @@ MODULE_LICENSE("GPL");
+ 
+ module_param(max_interrupt_work, int, 0);
+ module_param(debug, int, 0);
+-module_param_array(io, int, NULL, 0);
+-module_param_array(irq, int, NULL, 0);
++module_param_hw_array(io, int, ioport, NULL, 0);
++module_param_hw_array(irq, int, irq, NULL, 0);
+ module_param_array(xcvr, int, NULL, 0);
+ MODULE_PARM_DESC(max_interrupt_work, "ATP maximum events handled per interrupt");
+ MODULE_PARM_DESC(debug, "ATP debug level (0-7)");
+diff --git a/drivers/net/ethernet/smsc/smc9194.c b/drivers/net/ethernet/smsc/smc9194.c
+index c8d84679ede7..d3bb2ba51f40 100644
+--- a/drivers/net/ethernet/smsc/smc9194.c
++++ b/drivers/net/ethernet/smsc/smc9194.c
+@@ -1501,8 +1501,8 @@ static void smc_set_multicast_list(struct net_device *dev)
+ static struct net_device *devSMC9194;
+ MODULE_LICENSE("GPL");
+ 
+-module_param(io, int, 0);
+-module_param(irq, int, 0);
++module_param_hw(io, int, ioport, 0);
++module_param_hw(irq, int, irq, 0);
+ module_param(ifport, int, 0);
+ MODULE_PARM_DESC(io, "SMC 99194 I/O base address");
+ MODULE_PARM_DESC(irq, "SMC 99194 IRQ number");
