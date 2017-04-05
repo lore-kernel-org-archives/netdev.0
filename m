@@ -1,54 +1,113 @@
-From: Yuval Mintz <Yuval.Mintz@cavium.com>
-Subject: [PATCH net] qed: Correct MSI-x for storage
-Date: Wed, 5 Apr 2017 21:20:11 +0300
-Message-ID: <1491416411-27750-1-git-send-email-Yuval.Mintz@cavium.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH 3/4] net: dsa: LAN9303: add I2C managed mode support
+Date: Wed, 5 Apr 2017 20:21:55 +0200
+Message-ID: <20170405182155.GF21965@lunn.ch>
+References: <20170405092024.16048-1-jbe@pengutronix.de>
+ <20170405092024.16048-4-jbe@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Yuval Mintz <Yuval.Mintz@cavium.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:35568 "EHLO
-        mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1753787AbdDESUj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 5 Apr 2017 14:20:39 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        f.fainelli@gmail.com, kernel@pengutronix.de,
+        vivien.didelot@savoirfairelinux.com, davem@davemloft.net
+To: Juergen Borleis <jbe@pengutronix.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170405092024.16048-4-jbe@pengutronix.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-When qedr is enabled, qed would try dividing the msi-x vectors between
-L2 and RoCE, starting with L2 and providing it with sufficient vectors
-for its queues.
+On Wed, Apr 05, 2017 at 11:20:23AM +0200, Juergen Borleis wrote:
+> In this mode the switch device and the internal phys will be managed via
+> I2C interface. The MDIO interface is still supported, but for the
+> (emulated) CPU port only.
+> 
+> Signed-off-by: Juergen Borleis <jbe@pengutronix.de>
+> ---
+>  .../devicetree/bindings/net/dsa/lan9303.txt        |  74 ++++++++++++++
+>  drivers/net/phy/Kconfig                            |  17 ++++
+>  drivers/net/phy/Makefile                           |   5 +
+>  drivers/net/phy/lan9303_i2c.c                      | 109 +++++++++++++++++++++
+>  4 files changed, 205 insertions(+)
+>  create mode 100644 Documentation/devicetree/bindings/net/dsa/lan9303.txt
+>  create mode 100644 drivers/net/phy/lan9303_i2c.c
+> 
+> diff --git a/Documentation/devicetree/bindings/net/dsa/lan9303.txt b/Documentation/devicetree/bindings/net/dsa/lan9303.txt
+> new file mode 100644
+> index 0000000000000..2c8a466065a27
+> --- /dev/null
+> +++ b/Documentation/devicetree/bindings/net/dsa/lan9303.txt
+> @@ -0,0 +1,74 @@
+> +SMSC/MicroChip LAN9303 three port ethernet switch
+> +-------------------------------------------------
+> +
+> +Required properties:
+> +
+> +- compatible: should be "smsc,lan9303"
+> +- #size-cells: must be 0
+> +- #address-cells: must be 1
+> +
+> +Optional properties:
+> +
+> +- phy-reset-gpios: GPIO to be used to reset the whole device, always low active
+> +- phy-reset-duration: reset duration, defaults to 200 ms
 
-Problem is qed would also do that for storage partitions, and as those
-don't need queues it would lead qed to award those partitions with 0
-msi-x vectors, causing them to believe theye're using INTa and
-preventing them from operating.
+It is good to state the unit, ms.
 
-Fixes: 51ff17251c9c ("qed: Add support for RoCE hw init")
-Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
----
-Dave,
+> +
+> +Subnodes:
+> +
+> +The integrated switch subnode should be specified according to the binding
+> +described in dsa/dsa.txt. The CPU port of this switch is always port 0.
+> +
+> +Example:
+> +
+> +I2C managed mode:
+> +
+> +	master: masterdevice@X {
+> +		phy-handle = <&ethphy>;
+> +		status = "okay";
+> +
+> +		mdio {
+> +			#address-cells = <1>;
+> +			#size-cells = <0>;
+> +
+> +			ethphy: ethernet-phy@0 {
+> +				compatible = "ethernet-phy-ieee802.3-c22";
+> +				reg = <0>;
+> +				max-speed = <100>;
+> +			};
 
-Please consider applying this to 'net'.
+If there is RMII between the CPU interface and the switch, why is this
+PHY needed?
 
-Thanks,
-Yuval
----
- drivers/net/ethernet/qlogic/qed/qed_main.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+> +		};
+> +
+> +	};
+> +
+> +	switch: switch@a {
+> +		compatible = "smsc,lan9303";
+> +		reg = <0xa>;
+> +		status = "okay";
+> +		interrupts-extended = <&gpio2 7 IRQ_TYPE_LEVEL_LOW>;
 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_main.c b/drivers/net/ethernet/qlogic/qed/qed_main.c
-index 634e7a2..aab89de 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_main.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_main.c
-@@ -745,7 +745,8 @@ static int qed_slowpath_setup_int(struct qed_dev *cdev,
- 	cdev->int_params.fp_msix_cnt = cdev->int_params.out.num_vectors -
- 				       cdev->num_hwfns;
- 
--	if (!IS_ENABLED(CONFIG_QED_RDMA))
-+	if (!IS_ENABLED(CONFIG_QED_RDMA) ||
-+	    QED_LEADING_HWFN(cdev)->hw_info.personality != QED_PCI_ETH_ROCE)
- 		return 0;
- 
- 	for_each_hwfn(cdev, i)
--- 
-1.9.3
+This interrupt is not in the binding documentation, or the code.
+
+> +		phy-reset-gpios = <&gpio7 6 GPIO_ACTIVE_LOW>;
+> +		phy-reset-duration = <200>;
+> +
+> +		dsa,member = <0 0>;
+> +
+> +		ports {
+> +			#address-cells = <1>;
+> +			#size-cells = <0>;
+> +
+> +			port@0 { /* RMII fixed link to master */
+> +				reg = <0>;
+> +				label = "cpu";
+> +				ethernet = <&master>;
+> +				max-speed = <100>;
+
+max-speed does not do anything i think, since there is no adjust_link
+function.
+
+	Andrew
