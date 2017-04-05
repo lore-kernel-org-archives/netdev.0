@@ -1,171 +1,51 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: [PATCH v2 02/13] ftgmac100: Remove "banner" comments
-Date: Wed,  5 Apr 2017 12:28:42 +1000
-Message-ID: <20170405022853.8238-3-benh@kernel.crashing.org>
-References: <20170405022853.8238-1-benh@kernel.crashing.org>
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:33673 "EHLO gate.crashing.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752822AbdDEDny (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 4 Apr 2017 23:43:54 -0400
-In-Reply-To: <20170405022853.8238-1-benh@kernel.crashing.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Tycho Andersen <tycho@docker.com>
+Subject: Re: [PATCH] ebpf: verify the output of the JIT
+Date: Tue, 4 Apr 2017 21:45:36 -0600
+Message-ID: <20170405034536.oulhc3ylhlrfgqeg@docker>
+References: <20170404220810.14250-1-tycho@docker.com>
+ <CAGXu5jLAXDk1+kYTC60-sJ_SOa5s4+HZ26A0bj67335yAXYhvg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+        Alexei Starovoitov <ast@kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Network Development <netdev@vger.kernel.org>,
+        "kernel-hardening@lists.openwall.com"
+        <kernel-hardening@lists.openwall.com>,
+        =?iso-8859-1?Q?Micka=EBl_Sala=FCn?= <mic@digikod.net>
+To: Kees Cook <keescook@chromium.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAGXu5jLAXDk1+kYTC60-sJ_SOa5s4+HZ26A0bj67335yAXYhvg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The divisions they represent are not particularily meaningful
-and things are going to be moving around with upcoming changes
-making these comments more a burden than anything else.
+Hi Kees,
 
-Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
----
- drivers/net/ethernet/faraday/ftgmac100.c | 42 --------------------------------
- 1 file changed, 42 deletions(-)
+On Tue, Apr 04, 2017 at 03:17:57PM -0700, Kees Cook wrote:
+> On Tue, Apr 4, 2017 at 3:08 PM, Tycho Andersen <tycho@docker.com> wrote:
+> > The goal of this patch is to protect the JIT against an attacker with a
+> > write-in-memory primitive. The JIT allocates a buffer which will eventually
+> > be marked +x, so we need to make sure that what was written to this buffer
+> > is what was intended.
+> >
+> > We acheive this by building a hash of the instruction buffer as
+> > instructions are emittted and then comparing that to a hash at the end of
+> > the JIT compile after the buffer has been marked read-only.
+> >
+> > Signed-off-by: Tycho Andersen <tycho@docker.com>
+> > CC: Daniel Borkmann <daniel@iogearbox.net>
+> > CC: Alexei Starovoitov <ast@kernel.org>
+> > CC: Kees Cook <keescook@chromium.org>
+> > CC: Mickaël Salaün <mic@digikod.net>
+> 
+> Cool! This closes the race condition on producing the JIT vs going
+> read-only. I wonder if it might be possible to make this a more
+> generic interface to the BPF which would be allocate the hash, provide
+> the update callback during emit, and then do the hash check itself at
+> the end of bpf_jit_binary_lock_ro()?
 
-diff --git a/drivers/net/ethernet/faraday/ftgmac100.c b/drivers/net/ethernet/faraday/ftgmac100.c
-index bf7b1c0..6501aa7 100644
---- a/drivers/net/ethernet/faraday/ftgmac100.c
-+++ b/drivers/net/ethernet/faraday/ftgmac100.c
-@@ -44,9 +44,6 @@
- #define MAX_PKT_SIZE		1518
- #define RX_BUF_SIZE		PAGE_SIZE	/* must be smaller than 0x3fff */
- 
--/******************************************************************************
-- * private data
-- *****************************************************************************/
- struct ftgmac100_descs {
- 	struct ftgmac100_rxdes rxdes[RX_QUEUE_ENTRIES];
- 	struct ftgmac100_txdes txdes[TX_QUEUE_ENTRIES];
-@@ -86,9 +83,6 @@ struct ftgmac100 {
- static int ftgmac100_alloc_rx_page(struct ftgmac100 *priv,
- 				   struct ftgmac100_rxdes *rxdes, gfp_t gfp);
- 
--/******************************************************************************
-- * internal functions (hardware register access)
-- *****************************************************************************/
- static void ftgmac100_set_rx_ring_base(struct ftgmac100 *priv, dma_addr_t addr)
- {
- 	iowrite32(addr, priv->base + FTGMAC100_OFFSET_RXR_BADR);
-@@ -243,9 +237,6 @@ static void ftgmac100_stop_hw(struct ftgmac100 *priv)
- 	iowrite32(0, priv->base + FTGMAC100_OFFSET_MACCR);
- }
- 
--/******************************************************************************
-- * internal functions (receive descriptor)
-- *****************************************************************************/
- static bool ftgmac100_rxdes_first_segment(struct ftgmac100_rxdes *rxdes)
- {
- 	return rxdes->rxdes0 & cpu_to_le32(FTGMAC100_RXDES0_FRS);
-@@ -370,9 +361,6 @@ static struct page *ftgmac100_rxdes_get_page(struct ftgmac100 *priv,
- 	return *ftgmac100_rxdes_page_slot(priv, rxdes);
- }
- 
--/******************************************************************************
-- * internal functions (receive)
-- *****************************************************************************/
- static int ftgmac100_next_rx_pointer(int pointer)
- {
- 	return (pointer + 1) & (RX_QUEUE_ENTRIES - 1);
-@@ -557,9 +545,6 @@ static bool ftgmac100_rx_packet(struct ftgmac100 *priv, int *processed)
- 	return true;
- }
- 
--/******************************************************************************
-- * internal functions (transmit descriptor)
-- *****************************************************************************/
- static void ftgmac100_txdes_reset(const struct ftgmac100 *priv,
- 				  struct ftgmac100_txdes *txdes)
- {
-@@ -653,9 +638,6 @@ static struct sk_buff *ftgmac100_txdes_get_skb(struct ftgmac100_txdes *txdes)
- 	return (struct sk_buff *)txdes->txdes2;
- }
- 
--/******************************************************************************
-- * internal functions (transmit)
-- *****************************************************************************/
- static int ftgmac100_next_tx_pointer(int pointer)
- {
- 	return (pointer + 1) & (TX_QUEUE_ENTRIES - 1);
-@@ -771,9 +753,6 @@ static int ftgmac100_xmit(struct ftgmac100 *priv, struct sk_buff *skb,
- 	return NETDEV_TX_OK;
- }
- 
--/******************************************************************************
-- * internal functions (buffer)
-- *****************************************************************************/
- static int ftgmac100_alloc_rx_page(struct ftgmac100 *priv,
- 				   struct ftgmac100_rxdes *rxdes, gfp_t gfp)
- {
-@@ -865,9 +844,6 @@ static int ftgmac100_alloc_buffers(struct ftgmac100 *priv)
- 	return -ENOMEM;
- }
- 
--/******************************************************************************
-- * internal functions (mdio)
-- *****************************************************************************/
- static void ftgmac100_adjust_link(struct net_device *netdev)
- {
- 	struct ftgmac100 *priv = netdev_priv(netdev);
-@@ -917,9 +893,6 @@ static int ftgmac100_mii_probe(struct ftgmac100 *priv)
- 	return 0;
- }
- 
--/******************************************************************************
-- * struct mii_bus functions
-- *****************************************************************************/
- static int ftgmac100_mdiobus_read(struct mii_bus *bus, int phy_addr, int regnum)
- {
- 	struct net_device *netdev = bus->priv;
-@@ -991,9 +964,6 @@ static int ftgmac100_mdiobus_write(struct mii_bus *bus, int phy_addr,
- 	return -EIO;
- }
- 
--/******************************************************************************
-- * struct ethtool_ops functions
-- *****************************************************************************/
- static void ftgmac100_get_drvinfo(struct net_device *netdev,
- 				  struct ethtool_drvinfo *info)
- {
-@@ -1009,9 +979,6 @@ static const struct ethtool_ops ftgmac100_ethtool_ops = {
- 	.set_link_ksettings	= phy_ethtool_set_link_ksettings,
- };
- 
--/******************************************************************************
-- * interrupt handler
-- *****************************************************************************/
- static irqreturn_t ftgmac100_interrupt(int irq, void *dev_id)
- {
- 	struct net_device *netdev = dev_id;
-@@ -1029,9 +996,6 @@ static irqreturn_t ftgmac100_interrupt(int irq, void *dev_id)
- 	return IRQ_HANDLED;
- }
- 
--/******************************************************************************
-- * struct napi_struct functions
-- *****************************************************************************/
- static int ftgmac100_poll(struct napi_struct *napi, int budget)
- {
- 	struct ftgmac100 *priv = container_of(napi, struct ftgmac100, napi);
-@@ -1103,9 +1067,6 @@ static int ftgmac100_poll(struct napi_struct *napi, int budget)
- 	return rx;
- }
- 
--/******************************************************************************
-- * struct net_device_ops functions
-- *****************************************************************************/
- static int ftgmac100_open(struct net_device *netdev)
- {
- 	struct ftgmac100 *priv = netdev_priv(netdev);
-@@ -1318,9 +1279,6 @@ static void ftgmac100_ncsi_handler(struct ncsi_dev *nd)
- 		    nd->link_up ? "up" : "down");
- }
- 
--/******************************************************************************
-- * struct platform_driver functions
-- *****************************************************************************/
- static int ftgmac100_probe(struct platform_device *pdev)
- {
- 	struct resource *res;
--- 
-2.9.3
+Yes, probably so. I can look into that for the next version.
+
+Tycho
