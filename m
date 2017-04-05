@@ -1,115 +1,61 @@
-From: Ursula Braun <ubraun@linux.vnet.ibm.com>
-Subject: [PATCH net-next 6/7] s390/ctcm: improve endianness handling
-Date: Wed,  5 Apr 2017 10:40:14 +0200
-Message-ID: <20170405084015.35772-7-ubraun@linux.vnet.ibm.com>
-References: <20170405084015.35772-1-ubraun@linux.vnet.ibm.com>
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
-        jwi@linux.vnet.ibm.com, schwidefsky@de.ibm.com,
-        heiko.carstens@de.ibm.com, raspl@linux.vnet.ibm.com,
-        ubraun@linux.vnet.ibm.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:39405 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1754608AbdDEIkg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 5 Apr 2017 04:40:36 -0400
-Received: from pps.filterd (m0098414.ppops.net [127.0.0.1])
-        by mx0b-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v358d800131652
-        for <netdev@vger.kernel.org>; Wed, 5 Apr 2017 04:40:35 -0400
-Received: from e06smtp15.uk.ibm.com (e06smtp15.uk.ibm.com [195.75.94.111])
-        by mx0b-001b2d01.pphosted.com with ESMTP id 29mvr41cxr-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Wed, 05 Apr 2017 04:40:35 -0400
-Received: from localhost
-        by e06smtp15.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <ubraun@linux.vnet.ibm.com>;
-        Wed, 5 Apr 2017 09:40:33 +0100
-In-Reply-To: <20170405084015.35772-1-ubraun@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Mel Gorman <mgorman@techsingularity.net>
+Subject: Re: in_irq_or_nmi() and RFC patch
+Date: Wed, 5 Apr 2017 09:53:52 +0100
+Message-ID: <20170405085352.52rb3k34omndei63@techsingularity.net>
+References: <20170327165817.GA28494@bombadil.infradead.org>
+ <20170329081219.lto7t4fwmponokzh@hirez.programming.kicks-ass.net>
+ <20170329105928.609bc581@redhat.com>
+ <20170329091949.o2kozhhdnszgwvtn@hirez.programming.kicks-ass.net>
+ <20170329181226.GA8256@bombadil.infradead.org>
+ <20170329211144.3e362ac9@redhat.com>
+ <20170329214441.08332799@redhat.com>
+ <20170330130436.l37yazbxlrkvcbf3@techsingularity.net>
+ <20170330170708.084bd16c@redhat.com>
+ <20170403120506.y7z3cncyi65bcgen@techsingularity.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-15
+Cc: Matthew Wilcox <willy@infradead.org>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Pankaj Gupta <pagupta@redhat.com>,
+	Tariq Toukan <ttoukan.linux@gmail.com>,
+	Tariq Toukan <tariqt@mellanox.com>, netdev@vger.kernel.org,
+	akpm@linux-foundation.org, linux-mm <linux-mm@kvack.org>,
+	Saeed Mahameed <saeedm@mellanox.com>, linux-kernel@vger.kernel.org
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <20170403120506.y7z3cncyi65bcgen@techsingularity.net>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-From: Hans Wippel <hwippel@linux.vnet.ibm.com>
+On Mon, Apr 03, 2017 at 01:05:06PM +0100, Mel Gorman wrote:
+> > Started performance benchmarking:
+> >  163 cycles = current state
+> >  183 cycles = with BH disable + in_irq
+> >  218 cycles = with BH disable + in_irq + irqs_disabled
+> > 
+> > Thus, the performance numbers unfortunately looks bad, once we add the
+> > test for irqs_disabled().  The slowdown by replacing preempt_disable
+> > with BH-disable is still a win (we saved 29 cycles before, and loose
+> > 20, I was expecting regression to be only 10 cycles).
+> > 
+> 
+> This surprises me because I'm not seeing the same severity of problems
+> with irqs_disabled. Your path is slower than what's currently upstream
+> but it's still far better than a revert. The softirq column in the
+> middle is your patch versus a full revert which is the last columnm
+> 
 
-Use endianness conversions for SKB protocol assignments and usage to
-avoid endianness warnings reported by sparse. No functional changes.
+Any objection to resending the local_bh_enable/disable patch with the
+in_interrupt() check based on this data or should I post the revert and
+go back to the drawing board?
 
-Signed-off-by: Hans Wippel <hwippel@linux.vnet.ibm.com>
-Signed-off-by: Ursula Braun <ubraun@linux.vnet.ibm.com>
----
- drivers/s390/net/ctcm_fsms.c |  2 +-
- drivers/s390/net/ctcm_main.c | 12 ++++++------
- 2 files changed, 7 insertions(+), 7 deletions(-)
-
-diff --git a/drivers/s390/net/ctcm_fsms.c b/drivers/s390/net/ctcm_fsms.c
-index fd5944b..730d961 100644
---- a/drivers/s390/net/ctcm_fsms.c
-+++ b/drivers/s390/net/ctcm_fsms.c
-@@ -1283,7 +1283,7 @@ static void ctcmpc_chx_txdone(fsm_instance *fi, int event, void *arg)
- 		p_header = (struct pdu *)
- 			(skb_tail_pointer(ch->trans_skb) - skb->len);
- 		p_header->pdu_flag = 0x00;
--		if (skb->protocol == ntohs(ETH_P_SNAP))
-+		if (be16_to_cpu(skb->protocol) == ETH_P_SNAP)
- 			p_header->pdu_flag |= 0x60;
- 		else
- 			p_header->pdu_flag |= 0x20;
-diff --git a/drivers/s390/net/ctcm_main.c b/drivers/s390/net/ctcm_main.c
-index ac65f12..198842c 100644
---- a/drivers/s390/net/ctcm_main.c
-+++ b/drivers/s390/net/ctcm_main.c
-@@ -106,7 +106,7 @@ void ctcm_unpack_skb(struct channel *ch, struct sk_buff *pskb)
- 			priv->stats.rx_frame_errors++;
- 			return;
- 		}
--		pskb->protocol = ntohs(header->type);
-+		pskb->protocol = cpu_to_be16(header->type);
- 		if ((header->length <= LL_HEADER_LENGTH) ||
- 		    (len <= LL_HEADER_LENGTH)) {
- 			if (!(ch->logflags & LOG_FLAG_ILLEGALSIZE)) {
-@@ -125,7 +125,7 @@ void ctcm_unpack_skb(struct channel *ch, struct sk_buff *pskb)
- 		header->length -= LL_HEADER_LENGTH;
- 		len -= LL_HEADER_LENGTH;
- 		if ((header->length > skb_tailroom(pskb)) ||
--			(header->length > len)) {
-+		    (header->length > len)) {
- 			if (!(ch->logflags & LOG_FLAG_OVERRUN)) {
- 				CTCM_DBF_TEXT_(ERROR, CTC_DBF_ERROR,
- 					"%s(%s): Packet size %d (overrun)"
-@@ -485,7 +485,7 @@ static int ctcm_transmit_skb(struct channel *ch, struct sk_buff *skb)
- 		} else {
- 			atomic_inc(&skb->users);
- 			header.length = l;
--			header.type = skb->protocol;
-+			header.type = be16_to_cpu(skb->protocol);
- 			header.unused = 0;
- 			memcpy(skb_push(skb, LL_HEADER_LENGTH), &header,
- 			       LL_HEADER_LENGTH);
-@@ -503,7 +503,7 @@ static int ctcm_transmit_skb(struct channel *ch, struct sk_buff *skb)
- 	atomic_inc(&skb->users);
- 	ch->prof.txlen += skb->len;
- 	header.length = skb->len + LL_HEADER_LENGTH;
--	header.type = skb->protocol;
-+	header.type = be16_to_cpu(skb->protocol);
- 	header.unused = 0;
- 	memcpy(skb_push(skb, LL_HEADER_LENGTH), &header, LL_HEADER_LENGTH);
- 	block_len = skb->len + 2;
-@@ -690,7 +690,7 @@ static int ctcmpc_transmit_skb(struct channel *ch, struct sk_buff *skb)
- 		p_header->pdu_offset = skb->len;
- 		p_header->pdu_proto = 0x01;
- 		p_header->pdu_flag = 0x00;
--		if (skb->protocol == ntohs(ETH_P_SNAP)) {
-+		if (be16_to_cpu(skb->protocol) == ETH_P_SNAP) {
- 			p_header->pdu_flag |= PDU_FIRST | PDU_CNTL;
- 		} else {
- 			p_header->pdu_flag |= PDU_FIRST;
-@@ -745,7 +745,7 @@ static int ctcmpc_transmit_skb(struct channel *ch, struct sk_buff *skb)
- 	p_header->pdu_proto = 0x01;
- 	p_header->pdu_flag = 0x00;
- 	p_header->pdu_seq = 0;
--	if (skb->protocol == ntohs(ETH_P_SNAP)) {
-+	if (be16_to_cpu(skb->protocol) == ETH_P_SNAP) {
- 		p_header->pdu_flag |= PDU_FIRST | PDU_CNTL;
- 	} else {
- 		p_header->pdu_flag |= PDU_FIRST;
 -- 
-2.10.2
+Mel Gorman
+SUSE Labs
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
