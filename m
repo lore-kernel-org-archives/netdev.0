@@ -1,66 +1,190 @@
-From: Vlastimil Babka <vbabka@suse.cz>
-Subject: [PATCH 0/4] more robust PF_MEMALLOC handling
-Date: Wed,  5 Apr 2017 09:46:56 +0200
-Message-ID: <20170405074700.29871-1-vbabka@suse.cz>
-Cc: linux-mm@kvack.org,
-	linux-kernel@vger.kernel.org,
-	Michal Hocko <mhocko@kernel.org>,
-	Mel Gorman <mgorman@techsingularity.net>,
-	Johannes Weiner <hannes@cmpxchg.org>,
-	linux-block@vger.kernel.org,
-	nbd-general@lists.sourceforge.net,
-	open-iscsi@googlegroups.com,
-	linux-scsi@vger.kernel.org,
-	netdev@vger.kernel.org,
-	Vlastimil Babka <vbabka@suse.cz>,
-	Andrey Ryabinin <aryabinin@virtuozzo.com>,
-	Boris Brezillon <boris.brezillon@free-electrons.com>,
-	Chris Leech <cleech@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Josef Bacik <jbacik@fb.com>,
-	Lee Duncan <lduncan@suse.com>,
-	Michal Hocko <mhocko@suse.com>,
-	Richard Weinberger <richard@nod.at>,
-	stable@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <owner-linux-mm@kvack.org>
-Sender: owner-linux-mm@kvack.org
+From: Vlastimil Babka <vbabka-AlSwsSmVLrQ@public.gmane.org>
+Subject: [PATCH 3/4] treewide: convert PF_MEMALLOC manipulations to
+	new helpers
+Date: Wed,  5 Apr 2017 09:46:59 +0200
+Message-ID: <20170405074700.29871-4-vbabka@suse.cz>
+References: <20170405074700.29871-1-vbabka@suse.cz>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: nbd-general-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, Chris Leech <cleech-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Josef Bacik <jbacik-b10kYP2dOMg@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Michal Hocko <mhocko-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, linux-block-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org, Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Lee Duncan <lduncan-IBi9RG/b67k@public.gmane.org>, Johannes Weiner <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>,
+	open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org, Mel Gorman <mgorman-3eNAlZScCAx27rWaFMvyedHuzzzSOjJt@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, Vlastimil Babka <vbabka-AlSwsSmVLrQ@public.gmane.org>
+To: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Return-path: <nbd-general-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <20170405074700.29871-1-vbabka-AlSwsSmVLrQ@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/nbd-general>,
+	<mailto:nbd-general-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=nbd-general>
+List-Post: <mailto:nbd-general-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:nbd-general-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/nbd-general>,
+	<mailto:nbd-general-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: nbd-general-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+We now have memalloc_noreclaim_{save,restore} helpers for robust setting and
+clearing of PF_MEMALLOC. Let's convert the code which was using the generic
+tsk_restore_flags(). No functional change.
 
-this series aims to unify the setting and clearing of PF_MEMALLOC, which
-prevents recursive reclaim. There are some places that clear the flag
-unconditionally from current->flags, which may result in clearing a
-pre-existing flag. This already resulted in a bug report that Patch 1 fixes
-(without the new helpers, to make backporting easier). Patch 2 introduces the
-new helpers, modelled after existing memalloc_noio_* and memalloc_nofs_*
-helpers, and converts mm core to use them. Patches 3 and 4 convert non-mm code.
+Signed-off-by: Vlastimil Babka <vbabka-AlSwsSmVLrQ@public.gmane.org>
+Cc: Josef Bacik <jbacik-b10kYP2dOMg@public.gmane.org>
+Cc: Lee Duncan <lduncan-IBi9RG/b67k@public.gmane.org>
+Cc: Chris Leech <cleech-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Cc: Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+---
+ drivers/block/nbd.c      | 7 ++++---
+ drivers/scsi/iscsi_tcp.c | 7 ++++---
+ net/core/dev.c           | 7 ++++---
+ net/core/sock.c          | 7 ++++---
+ 4 files changed, 16 insertions(+), 12 deletions(-)
 
-Based on next-20170404.
-
-Vlastimil Babka (4):
-  mm: prevent potential recursive reclaim due to clearing PF_MEMALLOC
-  mm: introduce memalloc_noreclaim_{save,restore}
-  treewide: convert PF_MEMALLOC manipulations to new helpers
-  mtd: nand: nandsim: convert to memalloc_noreclaim_*()
-
- drivers/block/nbd.c        |  7 ++++---
- drivers/mtd/nand/nandsim.c | 29 +++++++++--------------------
- drivers/scsi/iscsi_tcp.c   |  7 ++++---
- include/linux/sched/mm.h   | 12 ++++++++++++
- mm/page_alloc.c            | 10 ++++++----
- mm/vmscan.c                | 17 +++++++++++------
- net/core/dev.c             |  7 ++++---
- net/core/sock.c            |  7 ++++---
- 8 files changed, 54 insertions(+), 42 deletions(-)
-
+diff --git a/drivers/block/nbd.c b/drivers/block/nbd.c
+index 03ae72985c79..929fc548c7fb 100644
+--- a/drivers/block/nbd.c
++++ b/drivers/block/nbd.c
+@@ -18,6 +18,7 @@
+ #include <linux/module.h>
+ #include <linux/init.h>
+ #include <linux/sched.h>
++#include <linux/sched/mm.h>
+ #include <linux/fs.h>
+ #include <linux/bio.h>
+ #include <linux/stat.h>
+@@ -210,7 +211,7 @@ static int sock_xmit(struct nbd_device *nbd, int index, int send,
+ 	struct socket *sock = nbd->socks[index]->sock;
+ 	int result;
+ 	struct msghdr msg;
+-	unsigned long pflags = current->flags;
++	unsigned int noreclaim_flag;
+ 
+ 	if (unlikely(!sock)) {
+ 		dev_err_ratelimited(disk_to_dev(nbd->disk),
+@@ -221,7 +222,7 @@ static int sock_xmit(struct nbd_device *nbd, int index, int send,
+ 
+ 	msg.msg_iter = *iter;
+ 
+-	current->flags |= PF_MEMALLOC;
++	noreclaim_flag = memalloc_noreclaim_save();
+ 	do {
+ 		sock->sk->sk_allocation = GFP_NOIO | __GFP_MEMALLOC;
+ 		msg.msg_name = NULL;
+@@ -244,7 +245,7 @@ static int sock_xmit(struct nbd_device *nbd, int index, int send,
+ 			*sent += result;
+ 	} while (msg_data_left(&msg));
+ 
+-	tsk_restore_flags(current, pflags, PF_MEMALLOC);
++	memalloc_noreclaim_restore(noreclaim_flag);
+ 
+ 	return result;
+ }
+diff --git a/drivers/scsi/iscsi_tcp.c b/drivers/scsi/iscsi_tcp.c
+index 4228aba1f654..4842fc0e809d 100644
+--- a/drivers/scsi/iscsi_tcp.c
++++ b/drivers/scsi/iscsi_tcp.c
+@@ -30,6 +30,7 @@
+ #include <linux/types.h>
+ #include <linux/inet.h>
+ #include <linux/slab.h>
++#include <linux/sched/mm.h>
+ #include <linux/file.h>
+ #include <linux/blkdev.h>
+ #include <linux/delay.h>
+@@ -371,10 +372,10 @@ static inline int iscsi_sw_tcp_xmit_qlen(struct iscsi_conn *conn)
+ static int iscsi_sw_tcp_pdu_xmit(struct iscsi_task *task)
+ {
+ 	struct iscsi_conn *conn = task->conn;
+-	unsigned long pflags = current->flags;
++	unsigned int noreclaim_flag;
+ 	int rc = 0;
+ 
+-	current->flags |= PF_MEMALLOC;
++	noreclaim_flag = memalloc_noreclaim_save();
+ 
+ 	while (iscsi_sw_tcp_xmit_qlen(conn)) {
+ 		rc = iscsi_sw_tcp_xmit(conn);
+@@ -387,7 +388,7 @@ static int iscsi_sw_tcp_pdu_xmit(struct iscsi_task *task)
+ 		rc = 0;
+ 	}
+ 
+-	tsk_restore_flags(current, pflags, PF_MEMALLOC);
++	memalloc_noreclaim_restore(noreclaim_flag);
+ 	return rc;
+ }
+ 
+diff --git a/net/core/dev.c b/net/core/dev.c
+index fde8b3f7136b..e0705a126b24 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -81,6 +81,7 @@
+ #include <linux/hash.h>
+ #include <linux/slab.h>
+ #include <linux/sched.h>
++#include <linux/sched/mm.h>
+ #include <linux/mutex.h>
+ #include <linux/string.h>
+ #include <linux/mm.h>
+@@ -4227,7 +4228,7 @@ static int __netif_receive_skb(struct sk_buff *skb)
+ 	int ret;
+ 
+ 	if (sk_memalloc_socks() && skb_pfmemalloc(skb)) {
+-		unsigned long pflags = current->flags;
++		unsigned int noreclaim_flag;
+ 
+ 		/*
+ 		 * PFMEMALLOC skbs are special, they should
+@@ -4238,9 +4239,9 @@ static int __netif_receive_skb(struct sk_buff *skb)
+ 		 * Use PF_MEMALLOC as this saves us from propagating the allocation
+ 		 * context down to all allocation sites.
+ 		 */
+-		current->flags |= PF_MEMALLOC;
++		noreclaim_flag = memalloc_noreclaim_save();
+ 		ret = __netif_receive_skb_core(skb, true);
+-		tsk_restore_flags(current, pflags, PF_MEMALLOC);
++		memalloc_noreclaim_restore(noreclaim_flag);
+ 	} else
+ 		ret = __netif_receive_skb_core(skb, false);
+ 
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 392f9b6f96e2..0b2d06b4c308 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -102,6 +102,7 @@
+ #include <linux/proc_fs.h>
+ #include <linux/seq_file.h>
+ #include <linux/sched.h>
++#include <linux/sched/mm.h>
+ #include <linux/timer.h>
+ #include <linux/string.h>
+ #include <linux/sockios.h>
+@@ -372,14 +373,14 @@ EXPORT_SYMBOL_GPL(sk_clear_memalloc);
+ int __sk_backlog_rcv(struct sock *sk, struct sk_buff *skb)
+ {
+ 	int ret;
+-	unsigned long pflags = current->flags;
++	unsigned int noreclaim_flag;
+ 
+ 	/* these should have been dropped before queueing */
+ 	BUG_ON(!sock_flag(sk, SOCK_MEMALLOC));
+ 
+-	current->flags |= PF_MEMALLOC;
++	noreclaim_flag = memalloc_noreclaim_save();
+ 	ret = sk->sk_backlog_rcv(sk, skb);
+-	tsk_restore_flags(current, pflags, PF_MEMALLOC);
++	memalloc_noreclaim_restore(noreclaim_flag);
+ 
+ 	return ret;
+ }
 -- 
 2.12.2
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+
+------------------------------------------------------------------------------
+Check out the vibrant tech community on one of the world's most
+engaging tech sites, Slashdot.org! http://sdm.link/slashdot
