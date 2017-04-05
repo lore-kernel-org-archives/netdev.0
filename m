@@ -1,66 +1,48 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH v2 00/13] ftgmac100: Rework batch 1 - Link & Interrupts
-Date: Tue, 4 Apr 2017 23:02:38 -0700
-Message-ID: <b59025eb-e653-8481-2e58-a780777df4ee@gmail.com>
-References: <20170405022853.8238-1-benh@kernel.crashing.org>
- <2344b1ea-f8bc-7491-4662-b8a3e94fb94e@gmail.com>
- <1491371595.4166.77.camel@kernel.crashing.org>
+From: Mike Galbraith <efault@gmx.de>
+Subject: Re: net/sched: latent livelock in dev_deactivate_many() due to
+ yield() usage
+Date: Wed, 05 Apr 2017 08:12:21 +0200
+Message-ID: <1491372741.4536.165.camel@gmx.de>
+References: <1491107321.13631.33.camel@gmx.de>
+         <CAM_iQpWGMkDaoV2k0DEghqeqb9k=MbpBtT8zH3tvENxLUCefkQ@mail.gmail.com>
+         <1491362429.4536.77.camel@gmx.de>
+         <CAM_iQpVTmDfATw1HMPE9NnRBNnhgidz+UZOQDqyeq2uo0=c-+g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-        netdev@vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Peter Zijlstra <peterz@infradead.org>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f53.google.com ([209.85.218.53]:33518 "EHLO
-        mail-oi0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752282AbdDEGCl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 5 Apr 2017 02:02:41 -0400
-Received: by mail-oi0-f53.google.com with SMTP id b187so3880395oif.0
-        for <netdev@vger.kernel.org>; Tue, 04 Apr 2017 23:02:41 -0700 (PDT)
-In-Reply-To: <1491371595.4166.77.camel@kernel.crashing.org>
+Received: from mout.gmx.net ([212.227.15.15]:63532 "EHLO mout.gmx.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752282AbdDEGMu (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 5 Apr 2017 02:12:50 -0400
+In-Reply-To: <CAM_iQpVTmDfATw1HMPE9NnRBNnhgidz+UZOQDqyeq2uo0=c-+g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-On 04/04/2017 10:53 PM, Benjamin Herrenschmidt wrote:
-> On Tue, 2017-04-04 at 21:21 -0700, Florian Fainelli wrote:
->>
->> This looks pretty good to me, two minor things:
->>
->> - most drivers keep track of the old status/duplex/pause/link variables
->> instead of the current one which is already available within struct
->> phy_device, any particular reason for not doing like the other drivers?
+On Tue, 2017-04-04 at 22:25 -0700, Cong Wang wrote:
+> On Tue, Apr 4, 2017 at 8:20 PM, Mike Galbraith <efault@gmx.de> wrote:
+> > -               while (some_qdisc_is_busy(dev))
+> > -                       yield();
+> > +               swait_event_timeout(swait,
+> > !some_qdisc_is_busy(dev), 1);
+> >  }
 > 
-> We don't necessarily have a phydev attached when using NC-SI, so it was
-> easier to have the core code path not have to go fishing for those
-> settings in different places based on whether we're using NC-SI or not.
+> I don't see why this is an improvement even if I don't care about the
+> hardcoded timeout for now... Why the scheduler can make a better
+> decision with swait_event_timeout() than with cond_resched()?
 
-Oh right, I missed that part. Is there a reason why NC-SI does not have
-a PHY device attached? If not, could you somehow model the link using a
-fixed PHY (which appears to Linux as a normal phy_device) just to keep
-things simple.
+Because sleeping gets you out of the way?  There is no other decision
+the scheduler can make while a SCHED_FIFO task is trying to yield when
+it is the one and only task at it's priority.  The scheduler is doing
+exactly what it is supposed to do, problem is people calling yield()
+tend to think it does something it does not do, which is why it is
+decorated with "if you think you want yield(), think again"
 
-> 
->> - the need to reset the HW during link changes is just ... well too bad
-> 
-> Yup but there's little choice. The HW wants it. I don't see any real
-> point in optimizing that path mind you. Losing a few packets around
-> a link change isn't going to hurt and it keeps the code a lot simpler
-> by having a single "re-init" path.
+Yes, yield semantics suck rocks, basically don't exist.  Hop in your
+time machine and slap whoever you find claiming responsibility :)
 
-I was just merely trying to say nicely: what a nicely broken piece of HW
-(there were other adjectives coming to mind), and I do understand the pain.
-
-> 
->> With that:
->>
->>> Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
-> 
-> Thanks !
-> 
-> I'll post batch 2 in the next couple of days which tackles the RX path.
-
-Cool, looking forward to that!
--- 
-Florian
+	-Mike
