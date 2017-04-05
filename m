@@ -1,78 +1,51 @@
-From: Rob Herring <robh@kernel.org>
-Subject: [PATCH 1/4] dt-bindings: net: Add TI WiLink shared transport binding
-Date: Wed,  5 Apr 2017 13:30:02 -0500
-Message-ID: <20170405183005.20570-2-robh@kernel.org>
+From: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: [PATCH 4/4] arm64: dts: hikey: add WL1835 Bluetooth device node
+Date: Wed,  5 Apr 2017 13:30:05 -0500
+Message-ID: <20170405183005.20570-5-robh@kernel.org>
 References: <20170405183005.20570-1-robh@kernel.org>
-Cc: linux-arm-kernel@lists.infradead.org,
-        Gustavo Padovan <gustavo@padovan.org>,
-        Johan Hedberg <johan.hedberg@gmail.com>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Wei Xu <xuwei5@hisilicon.com>, Eyal Reizer <eyalr@ti.com>,
-        Satish Patel <satish.patel@linaro.org>, netdev@vger.kernel.org,
-        devicetree@vger.kernel.org
-To: Marcel Holtmann <marcel@holtmann.org>,
-        linux-bluetooth@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f67.google.com ([209.85.218.67]:36389 "EHLO
-        mail-oi0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933630AbdDESaJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 5 Apr 2017 14:30:09 -0400
-In-Reply-To: <20170405183005.20570-1-robh@kernel.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+        Gustavo Padovan <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>,
+        Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        Wei Xu <xuwei5-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>, Eyal Reizer <eyalr-l0cyMroinI0@public.gmane.org>,
+        Satish Patel <satish.patel-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
+        linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170405183005.20570-1-robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Add serial slave device binding for the TI WiLink series of Bluetooth/FM/GPS
-devices.
+This adds the serial slave device for the WL1835 Bluetooth interface.
 
-Signed-off-by: Rob Herring <robh@kernel.org>
-Cc: Mark Rutland <mark.rutland@arm.com>
-Cc: netdev@vger.kernel.org
-Cc: devicetree@vger.kernel.org
+Signed-off-by: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Cc: Wei Xu <xuwei5-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>
+Cc: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>
 ---
- .../devicetree/bindings/net/ti,wilink-st.txt       | 35 ++++++++++++++++++++++
- 1 file changed, 35 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/net/ti,wilink-st.txt
+ arch/arm64/boot/dts/hisilicon/hi6220-hikey.dts | 5 +++++
+ 1 file changed, 5 insertions(+)
 
-diff --git a/Documentation/devicetree/bindings/net/ti,wilink-st.txt b/Documentation/devicetree/bindings/net/ti,wilink-st.txt
-new file mode 100644
-index 000000000000..cbad73a84ac4
---- /dev/null
-+++ b/Documentation/devicetree/bindings/net/ti,wilink-st.txt
-@@ -0,0 +1,35 @@
-+TI WiLink 7/8 (wl12xx/wl18xx) Shared Transport BT/FM/GPS devices
+diff --git a/arch/arm64/boot/dts/hisilicon/hi6220-hikey.dts b/arch/arm64/boot/dts/hisilicon/hi6220-hikey.dts
+index dba3c131c62c..9b4ba7169210 100644
+--- a/arch/arm64/boot/dts/hisilicon/hi6220-hikey.dts
++++ b/arch/arm64/boot/dts/hisilicon/hi6220-hikey.dts
+@@ -98,6 +98,11 @@
+ 			assigned-clocks = <&sys_ctrl HI6220_UART1_SRC>;
+ 			assigned-clock-rates = <150000000>;
+ 			status = "ok";
 +
-+TI WiLink devices have a UART interface for providing Bluetooth, FM radio,
-+and GPS over what's called "shared transport". The shared transport is
-+standard BT HCI protocol with additional channels for the other functions.
-+
-+These devices also have a separate WiFi interface as described in
-+wireless/ti,wlcore.txt.
-+
-+This bindings follows the UART slave device binding in
-+../serial/slave-device.txt.
-+
-+Required properties:
-+ - compatible: should be one of the following:
-+    "ti,wl1271-st"
-+    "ti,wl1273-st"
-+    "ti,wl1831-st"
-+    "ti,wl1835-st"
-+    "ti,wl1837-st"
-+
-+Optional properties:
-+ - enable-gpios : GPIO signal controlling enabling of BT. Active high.
-+ - vio-supply : Vio input supply (1.8V)
-+ - vbat-supply : Vbat input supply (2.9-4.8V)
-+
-+Example:
-+
-+&serial0 {
-+	compatible = "ns16550a";
-+	...
-+	bluetooth {
-+		compatible = "ti,wl1835-st";
-+		enable-gpios = <&gpio1 7 GPIO_ACTIVE_HIGH>;
-+	};
-+};
++			bluetooth {
++				compatible = "ti,wl1835-st";
++				enable-gpios = <&gpio1 7 GPIO_ACTIVE_HIGH>;
++			};
+ 		};
+ 
+ 		uart2: uart@f7112000 {
 -- 
 2.10.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
