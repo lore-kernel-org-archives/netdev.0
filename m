@@ -1,85 +1,54 @@
-From: <stef.ryckmans@kortenberg.be>
-Subject: 36666 netdev
-Date: Wed, 05 Apr 2017 11:39:03 -0000
-Message-ID: <149139234364.21467.9598577813219195492@interra.ru>
-Reply-To: <stef.ryckmans@kortenberg.be>
+From: Vlastimil Babka <vbabka@suse.cz>
+Subject: Re: [PATCH 4/4] mtd: nand: nandsim: convert to memalloc_noreclaim_*()
+Date: Wed, 5 Apr 2017 13:39:16 +0200
+Message-ID: <9b9d5bca-e125-e07b-b700-196cc800bbd7@suse.cz>
+References: <20170405074700.29871-1-vbabka@suse.cz>
+ <20170405074700.29871-5-vbabka@suse.cz>
+ <20170405113157.GM6035@dhcp22.suse.cz>
+ <ee6649ed-b0e8-1c59-c193-d1688fdfe7f5@nod.at>
 Mime-Version: 1.0
-Content-Type: application/zip; name="72261.zip"
-Content-Transfer-Encoding: base64
-To: "netdev" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 16.167.211.178.revda.interra.ru ([178.211.167.16]:39209 "HELO
-        interra.ru" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
-        id S933102AbdDELjI (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 5 Apr 2017 07:39:08 -0400
-Content-Disposition: attachment
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@linux-foundation.org>, linux-mm@kvack.org,
+ linux-kernel@vger.kernel.org, Mel Gorman <mgorman@techsingularity.net>,
+ Johannes Weiner <hannes@cmpxchg.org>, linux-block@vger.kernel.org,
+ nbd-general@lists.sourceforge.net, open-iscsi@googlegroups.com,
+ linux-scsi@vger.kernel.org, netdev@vger.kernel.org,
+ Boris Brezillon <boris.brezillon@free-electrons.com>,
+ Adrian Hunter <adrian.hunter@intel.com>
+To: Richard Weinberger <richard@nod.at>, Michal Hocko <mhocko@kernel.org>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <ee6649ed-b0e8-1c59-c193-d1688fdfe7f5@nod.at>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-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
+On 04/05/2017 01:36 PM, Richard Weinberger wrote:
+> Michal,
+> 
+> Am 05.04.2017 um 13:31 schrieb Michal Hocko:
+>> On Wed 05-04-17 09:47:00, Vlastimil Babka wrote:
+>>> Nandsim has own functions set_memalloc() and clear_memalloc() for robust
+>>> setting and clearing of PF_MEMALLOC. Replace them by the new generic helpers.
+>>> No functional change.
+>>
+>> This one smells like an abuser. Why the hell should read/write path
+>> touch memory reserves at all!
+> 
+> Could be. Let's ask Adrian, AFAIK he wrote that code.
+> Adrian, can you please clarify why nandsim needs to play with PF_MEMALLOC?
+
+I was thinking about it and concluded that since the simulator can be
+used as a block device where reclaimed pages go to, writing the data out
+is a memalloc operation. Then reading can be called as part of r-m-w
+cycle, so reading as well. But it would be great if somebody more
+knowledgeable confirmed this.
+
+> Thanks,
+> //richard
+> 
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
