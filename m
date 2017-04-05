@@ -1,66 +1,31 @@
-From: Joel Stanley <joel@jms.id.au>
-Subject: [PATCH] net: phy: broadcom: Add support for the BCM54210E
-Date: Wed,  5 Apr 2017 15:03:04 +0930
-Message-ID: <20170405053304.30246-1-joel@jms.id.au>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] net: phy: broadcom: Add support for the BCM54210E
+Date: Tue, 4 Apr 2017 22:47:42 -0700
+Message-ID: <0d440b2f-5867-e413-ae25-2eea3adb1f9f@gmail.com>
+References: <20170405053304.30246-1-joel@jms.id.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 8bit
 Cc: Jon Mason <jon.mason@broadcom.com>, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org
-To: Florian Fainelli <f.fainelli@gmail.com>,
-        David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Joel Stanley <joel@jms.id.au>, David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f67.google.com ([209.85.218.67]:36844 "EHLO
+        mail-oi0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751096AbdDEFrp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 5 Apr 2017 01:47:45 -0400
+In-Reply-To: <20170405053304.30246-1-joel@jms.id.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This device is a single-port RGMII 10/100/1000BASE-T PHY with EEE & WOL.
 
-Signed-off-by: Joel Stanley <joel@jms.id.au>
----
- drivers/net/phy/broadcom.c | 13 +++++++++++++
- include/linux/brcmphy.h    |  2 ++
- 2 files changed, 15 insertions(+)
 
-diff --git a/drivers/net/phy/broadcom.c b/drivers/net/phy/broadcom.c
-index 9cd8b27d1292..3df826323129 100644
---- a/drivers/net/phy/broadcom.c
-+++ b/drivers/net/phy/broadcom.c
-@@ -703,6 +703,18 @@ static struct phy_driver broadcom_drivers[] = {
- 	.read_status	= genphy_read_status,
- 	.ack_interrupt	= brcm_fet_ack_interrupt,
- 	.config_intr	= brcm_fet_config_intr,
-+}, {
-+	.phy_id         = PHY_ID_BCM54210E,
-+	.phy_id_mask    = 0xfffffff0,
-+	.name           = "Broadcom BCM54210E",
-+	.features       = PHY_GBIT_FEATURES |
-+				SUPPORTED_Pause | SUPPORTED_Asym_Pause,
-+	.flags          = PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
-+	.config_init    = bcm54xx_config_init,
-+	.config_aneg    = genphy_config_aneg,
-+	.read_status    = genphy_read_status,
-+	.ack_interrupt  = bcm_phy_ack_intr,
-+	.config_intr    = bcm_phy_config_intr,
- } };
- 
- module_phy_driver(broadcom_drivers);
-@@ -723,6 +735,7 @@ static struct mdio_device_id __maybe_unused broadcom_tbl[] = {
- 	{ PHY_ID_BCM57780, 0xfffffff0 },
- 	{ PHY_ID_BCMAC131, 0xfffffff0 },
- 	{ PHY_ID_BCM5241, 0xfffffff0 },
-+	{ PHY_ID_BCM54210E, 0xfffffff0},
- 	{ }
- };
- 
-diff --git a/include/linux/brcmphy.h b/include/linux/brcmphy.h
-index 55e517130311..53106b9c89f1 100644
---- a/include/linux/brcmphy.h
-+++ b/include/linux/brcmphy.h
-@@ -40,6 +40,8 @@
- 
- #define PHY_ID_BCM_CYGNUS		0xae025200
- 
-+#define PHY_ID_BCM54210E		0x600d84a0
-+
- #define PHY_BCM_OUI_MASK		0xfffffc00
- #define PHY_BCM_OUI_1			0x00206000
- #define PHY_BCM_OUI_2			0x0143bc00
+On 04/04/2017 10:33 PM, Joel Stanley wrote:
+> This device is a single-port RGMII 10/100/1000BASE-T PHY with EEE & WOL.
+
+This looks good, although Rafal did beat you to it:
+
+0fc9ae107669760c2a8658cb5b5876dbe525e08d ("net: phy: broadcom: add
+support for BCM54210E")
 -- 
-2.11.0
+Florian
