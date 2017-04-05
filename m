@@ -1,21 +1,20 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH 20/38] Annotate hardware config module parameters in
- drivers/net/hamradio/
-Date: Wed, 05 Apr 2017 17:59:49 +0100
-Message-ID: <149141158945.29162.14007212429239876813.stgit@warthog.procyon.org.uk>
+Subject: [PATCH 21/38] Annotate hardware config module parameters in
+ drivers/net/irda/
+Date: Wed, 05 Apr 2017 18:00:01 +0100
+Message-ID: <149141160137.29162.4435315129997771160.stgit@warthog.procyon.org.uk>
 References: <149141141298.29162.5612793122429261720.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: gnomes@lxorguk.ukuu.org.uk, netdev@vger.kernel.org,
-        dhowells@redhat.com, linux-security-module@vger.kernel.org,
-        keyrings@vger.kernel.org, gregkh@linuxfoundation.org,
-        linux-hams@vger.kernel.org, Joerg Reuter <jreuter@yaina.de>,
-        Thomas Sailer <t.sailer@alumni.ethz.ch>
+Cc: gnomes@lxorguk.ukuu.org.uk, Samuel Ortiz <samuel@sortiz.org>,
+        netdev@vger.kernel.org, dhowells@redhat.com,
+        linux-security-module@vger.kernel.org, keyrings@vger.kernel.org,
+        gregkh@linuxfoundation.org
 To: linux-kernel@vger.kernel.org
-Return-path: <linux-hams-owner@vger.kernel.org>
+Return-path: <linux-security-module-owner@vger.kernel.org>
 In-Reply-To: <149141141298.29162.5612793122429261720.stgit@warthog.procyon.org.uk>
-Sender: linux-hams-owner@vger.kernel.org
+Sender: owner-linux-security-module@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 When the kernel is running in secure boot mode, we lock down the kernel to
@@ -36,92 +35,106 @@ drivers have viable defaults set in case parameters aren't specified and
 some drivers support automatic configuration (e.g. PNP or PCI) in addition
 to manually coded parameters.
 
-This patch annotates drivers in drivers/net/hamradio/.
+This patch annotates drivers in drivers/net/irda/.
 
 Suggested-by: Alan Cox <gnomes@lxorguk.ukuu.org.uk>
 Signed-off-by: David Howells <dhowells@redhat.com>
-cc: Thomas Sailer <t.sailer@alumni.ethz.ch>
-cc: Joerg Reuter <jreuter@yaina.de>
-cc: linux-hams@vger.kernel.org
+cc: Samuel Ortiz <samuel@sortiz.org>
 cc: netdev@vger.kernel.org
 ---
 
- drivers/net/hamradio/baycom_epp.c     |    2 +-
- drivers/net/hamradio/baycom_par.c     |    2 +-
- drivers/net/hamradio/baycom_ser_fdx.c |    4 ++--
- drivers/net/hamradio/baycom_ser_hdx.c |    4 ++--
- drivers/net/hamradio/dmascc.c         |    2 +-
- 5 files changed, 7 insertions(+), 7 deletions(-)
+ drivers/net/irda/ali-ircc.c    |    6 +++---
+ drivers/net/irda/nsc-ircc.c    |    6 +++---
+ drivers/net/irda/smsc-ircc2.c  |   10 +++++-----
+ drivers/net/irda/w83977af_ir.c |    4 ++--
+ 4 files changed, 13 insertions(+), 13 deletions(-)
 
-diff --git a/drivers/net/hamradio/baycom_epp.c b/drivers/net/hamradio/baycom_epp.c
-index 594fa1407e29..1503f10122f7 100644
---- a/drivers/net/hamradio/baycom_epp.c
-+++ b/drivers/net/hamradio/baycom_epp.c
-@@ -1176,7 +1176,7 @@ static int iobase[NR_PORTS] = { 0x378, };
+diff --git a/drivers/net/irda/ali-ircc.c b/drivers/net/irda/ali-ircc.c
+index c285eafd3f1c..35f198d83701 100644
+--- a/drivers/net/irda/ali-ircc.c
++++ b/drivers/net/irda/ali-ircc.c
+@@ -2207,11 +2207,11 @@ MODULE_LICENSE("GPL");
+ MODULE_ALIAS("platform:" ALI_IRCC_DRIVER_NAME);
  
- module_param_array(mode, charp, NULL, 0);
- MODULE_PARM_DESC(mode, "baycom operating mode");
--module_param_array(iobase, int, NULL, 0);
-+module_param_hw_array(iobase, int, ioport, NULL, 0);
- MODULE_PARM_DESC(iobase, "baycom io base address");
  
- MODULE_AUTHOR("Thomas M. Sailer, sailer@ife.ee.ethz.ch, hb9jnx@hb9w.che.eu");
-diff --git a/drivers/net/hamradio/baycom_par.c b/drivers/net/hamradio/baycom_par.c
-index 809dc25909d1..92b13b39f426 100644
---- a/drivers/net/hamradio/baycom_par.c
-+++ b/drivers/net/hamradio/baycom_par.c
-@@ -481,7 +481,7 @@ static int iobase[NR_PORTS] = { 0x378, };
- 
- module_param_array(mode, charp, NULL, 0);
- MODULE_PARM_DESC(mode, "baycom operating mode; eg. par96 or picpar");
--module_param_array(iobase, int, NULL, 0);
-+module_param_hw_array(iobase, int, ioport, NULL, 0);
- MODULE_PARM_DESC(iobase, "baycom io base address");
- 
- MODULE_AUTHOR("Thomas M. Sailer, sailer@ife.ee.ethz.ch, hb9jnx@hb9w.che.eu");
-diff --git a/drivers/net/hamradio/baycom_ser_fdx.c b/drivers/net/hamradio/baycom_ser_fdx.c
-index ebc06822fd4d..d9a646acca20 100644
---- a/drivers/net/hamradio/baycom_ser_fdx.c
-+++ b/drivers/net/hamradio/baycom_ser_fdx.c
-@@ -614,9 +614,9 @@ static int baud[NR_PORTS] = { [0 ... NR_PORTS-1] = 1200 };
- 
- module_param_array(mode, charp, NULL, 0);
- MODULE_PARM_DESC(mode, "baycom operating mode; * for software DCD");
--module_param_array(iobase, int, NULL, 0);
-+module_param_hw_array(iobase, int, ioport, NULL, 0);
- MODULE_PARM_DESC(iobase, "baycom io base address");
--module_param_array(irq, int, NULL, 0);
-+module_param_hw_array(irq, int, irq, NULL, 0);
- MODULE_PARM_DESC(irq, "baycom irq number");
- module_param_array(baud, int, NULL, 0);
- MODULE_PARM_DESC(baud, "baycom baud rate (300 to 4800)");
-diff --git a/drivers/net/hamradio/baycom_ser_hdx.c b/drivers/net/hamradio/baycom_ser_hdx.c
-index 60fcf512c208..f1c8a9ff3891 100644
---- a/drivers/net/hamradio/baycom_ser_hdx.c
-+++ b/drivers/net/hamradio/baycom_ser_hdx.c
-@@ -642,9 +642,9 @@ static int irq[NR_PORTS] = { 4, };
- 
- module_param_array(mode, charp, NULL, 0);
- MODULE_PARM_DESC(mode, "baycom operating mode; * for software DCD");
--module_param_array(iobase, int, NULL, 0);
-+module_param_hw_array(iobase, int, ioport, NULL, 0);
- MODULE_PARM_DESC(iobase, "baycom io base address");
--module_param_array(irq, int, NULL, 0);
-+module_param_hw_array(irq, int, irq, NULL, 0);
- MODULE_PARM_DESC(irq, "baycom irq number");
- 
- MODULE_AUTHOR("Thomas M. Sailer, sailer@ife.ee.ethz.ch, hb9jnx@hb9w.che.eu");
-diff --git a/drivers/net/hamradio/dmascc.c b/drivers/net/hamradio/dmascc.c
-index 2479072981a1..dec6b76bc0fb 100644
---- a/drivers/net/hamradio/dmascc.c
-+++ b/drivers/net/hamradio/dmascc.c
-@@ -274,7 +274,7 @@ static unsigned long rand;
- 
- MODULE_AUTHOR("Klaus Kudielka");
- MODULE_DESCRIPTION("Driver for high-speed SCC boards");
 -module_param_array(io, int, NULL, 0);
 +module_param_hw_array(io, int, ioport, NULL, 0);
- MODULE_LICENSE("GPL");
+ MODULE_PARM_DESC(io, "Base I/O addresses");
+-module_param_array(irq, int, NULL, 0);
++module_param_hw_array(irq, int, irq, NULL, 0);
+ MODULE_PARM_DESC(irq, "IRQ lines");
+-module_param_array(dma, int, NULL, 0);
++module_param_hw_array(dma, int, dma, NULL, 0);
+ MODULE_PARM_DESC(dma, "DMA channels");
  
- static void __exit dmascc_exit(void)
+ module_init(ali_ircc_init);
+diff --git a/drivers/net/irda/nsc-ircc.c b/drivers/net/irda/nsc-ircc.c
+index aaecc3baaf30..7beae147be11 100644
+--- a/drivers/net/irda/nsc-ircc.c
++++ b/drivers/net/irda/nsc-ircc.c
+@@ -2396,11 +2396,11 @@ MODULE_LICENSE("GPL");
+ 
+ module_param(qos_mtt_bits, int, 0);
+ MODULE_PARM_DESC(qos_mtt_bits, "Minimum Turn Time");
+-module_param_array(io, int, NULL, 0);
++module_param_hw_array(io, int, ioport, NULL, 0);
+ MODULE_PARM_DESC(io, "Base I/O addresses");
+-module_param_array(irq, int, NULL, 0);
++module_param_hw_array(irq, int, irq, NULL, 0);
+ MODULE_PARM_DESC(irq, "IRQ lines");
+-module_param_array(dma, int, NULL, 0);
++module_param_hw_array(dma, int, dma, NULL, 0);
+ MODULE_PARM_DESC(dma, "DMA channels");
+ module_param(dongle_id, int, 0);
+ MODULE_PARM_DESC(dongle_id, "Type-id of used dongle");
+diff --git a/drivers/net/irda/smsc-ircc2.c b/drivers/net/irda/smsc-ircc2.c
+index dcf92ba80872..23ed89ae5ddc 100644
+--- a/drivers/net/irda/smsc-ircc2.c
++++ b/drivers/net/irda/smsc-ircc2.c
+@@ -82,24 +82,24 @@ MODULE_PARM_DESC(nopnp, "Do not use PNP to detect controller settings, defaults
+ 
+ #define DMA_INVAL 255
+ static int ircc_dma = DMA_INVAL;
+-module_param(ircc_dma, int, 0);
++module_param_hw(ircc_dma, int, dma, 0);
+ MODULE_PARM_DESC(ircc_dma, "DMA channel");
+ 
+ #define IRQ_INVAL 255
+ static int ircc_irq = IRQ_INVAL;
+-module_param(ircc_irq, int, 0);
++module_param_hw(ircc_irq, int, irq, 0);
+ MODULE_PARM_DESC(ircc_irq, "IRQ line");
+ 
+ static int ircc_fir;
+-module_param(ircc_fir, int, 0);
++module_param_hw(ircc_fir, int, ioport, 0);
+ MODULE_PARM_DESC(ircc_fir, "FIR Base Address");
+ 
+ static int ircc_sir;
+-module_param(ircc_sir, int, 0);
++module_param_hw(ircc_sir, int, ioport, 0);
+ MODULE_PARM_DESC(ircc_sir, "SIR Base Address");
+ 
+ static int ircc_cfg;
+-module_param(ircc_cfg, int, 0);
++module_param_hw(ircc_cfg, int, ioport, 0);
+ MODULE_PARM_DESC(ircc_cfg, "Configuration register base address");
+ 
+ static int ircc_transceiver;
+diff --git a/drivers/net/irda/w83977af_ir.c b/drivers/net/irda/w83977af_ir.c
+index 8d5b903d1d9d..282b6c9ae05b 100644
+--- a/drivers/net/irda/w83977af_ir.c
++++ b/drivers/net/irda/w83977af_ir.c
+@@ -1263,9 +1263,9 @@ MODULE_LICENSE("GPL");
+ 
+ module_param(qos_mtt_bits, int, 0);
+ MODULE_PARM_DESC(qos_mtt_bits, "Mimimum Turn Time");
+-module_param_array(io, int, NULL, 0);
++module_param_hw_array(io, int, ioport, NULL, 0);
+ MODULE_PARM_DESC(io, "Base I/O addresses");
+-module_param_array(irq, int, NULL, 0);
++module_param_hw_array(irq, int, irq, NULL, 0);
+ MODULE_PARM_DESC(irq, "IRQ lines");
+ 
+ /*
 
