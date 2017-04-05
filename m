@@ -1,29 +1,54 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 0/2] net: dsa: Mock-up driver couple fixes
-Date: Wed,  5 Apr 2017 11:19:29 -0700
-Message-ID: <20170405181931.8145-1-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com, dan.carpenter@oracle.com,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
+From: Yuval Mintz <Yuval.Mintz@cavium.com>
+Subject: [PATCH net] qed: Correct MSI-x for storage
+Date: Wed, 5 Apr 2017 21:20:11 +0300
+Message-ID: <1491416411-27750-1-git-send-email-Yuval.Mintz@cavium.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: Yuval Mintz <Yuval.Mintz@cavium.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f193.google.com ([209.85.223.193]:32787 "EHLO
-        mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932327AbdDESTn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 5 Apr 2017 14:19:43 -0400
-Received: by mail-io0-f193.google.com with SMTP id f84so2145939ioj.0
-        for <netdev@vger.kernel.org>; Wed, 05 Apr 2017 11:19:42 -0700 (PDT)
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:35568 "EHLO
+        mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1753787AbdDESUj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 5 Apr 2017 14:20:39 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thanks to Dan's static checker, a bunch of small issues were found in the code.
+When qedr is enabled, qed would try dividing the msi-x vectors between
+L2 and RoCE, starting with L2 and providing it with sufficient vectors
+for its queues.
 
-Florian Fainelli (2):
-  net: dsa: loop: Fix uninitialized pvid variable
-  net: dsa: loop: Initialize err in dsa_loop_vlan_dump
+Problem is qed would also do that for storage partitions, and as those
+don't need queues it would lead qed to award those partitions with 0
+msi-x vectors, causing them to believe theye're using INTa and
+preventing them from operating.
 
- drivers/net/dsa/dsa_loop.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+Fixes: 51ff17251c9c ("qed: Add support for RoCE hw init")
+Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
+---
+Dave,
 
+Please consider applying this to 'net'.
+
+Thanks,
+Yuval
+---
+ drivers/net/ethernet/qlogic/qed/qed_main.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_main.c b/drivers/net/ethernet/qlogic/qed/qed_main.c
+index 634e7a2..aab89de 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_main.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_main.c
+@@ -745,7 +745,8 @@ static int qed_slowpath_setup_int(struct qed_dev *cdev,
+ 	cdev->int_params.fp_msix_cnt = cdev->int_params.out.num_vectors -
+ 				       cdev->num_hwfns;
+ 
+-	if (!IS_ENABLED(CONFIG_QED_RDMA))
++	if (!IS_ENABLED(CONFIG_QED_RDMA) ||
++	    QED_LEADING_HWFN(cdev)->hw_info.personality != QED_PCI_ETH_ROCE)
+ 		return 0;
+ 
+ 	for_each_hwfn(cdev, i)
 -- 
-2.9.3
+1.9.3
