@@ -1,21 +1,25 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH 23/38] Annotate hardware config module parameters in
- drivers/net/wireless/
-Date: Wed, 05 Apr 2017 18:00:21 +0100
-Message-ID: <149141162181.29162.8391170742895605946.stgit@warthog.procyon.org.uk>
+Subject: [PATCH 22/38] Annotate hardware config module parameters in
+ drivers/net/wan/
+Date: Wed, 05 Apr 2017 18:00:13 +0100
+Message-ID: <149141161382.29162.12502186702136370273.stgit@warthog.procyon.org.uk>
 References: <149141141298.29162.5612793122429261720.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: gnomes@lxorguk.ukuu.org.uk, netdev@vger.kernel.org,
-        linux-wireless@vger.kernel.org, dhowells@redhat.com,
-        linux-security-module@vger.kernel.org, keyrings@vger.kernel.org,
-        gregkh@linuxfoundation.org, Kalle Valo <kvalo@codeaurora.org>
+        dhowells@redhat.com, linux-security-module@vger.kernel.org,
+        keyrings@vger.kernel.org, gregkh@linuxfoundation.org,
+        "Jan \"Yenya\" Kasprzak" <kas@fi.muni.cz>
 To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:36242 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753899AbdDERAR (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 5 Apr 2017 13:00:17 -0400
 In-Reply-To: <149141141298.29162.5612793122429261720.stgit@warthog.procyon.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 When the kernel is running in secure boot mode, we lock down the kernel to
 prevent userspace from modifying the running kernel image.  Whilst this
@@ -35,30 +39,92 @@ drivers have viable defaults set in case parameters aren't specified and
 some drivers support automatic configuration (e.g. PNP or PCI) in addition
 to manually coded parameters.
 
-This patch annotates drivers in drivers/net/wireless/.
+This patch annotates drivers in drivers/net/wan/.
 
 Suggested-by: Alan Cox <gnomes@lxorguk.ukuu.org.uk>
 Signed-off-by: David Howells <dhowells@redhat.com>
-cc: Kalle Valo <kvalo@codeaurora.org>
-cc: linux-wireless@vger.kernel.org
+cc: "Jan \"Yenya\" Kasprzak" <kas@fi.muni.cz>
 cc: netdev@vger.kernel.org
 ---
 
- drivers/net/wireless/cisco/airo.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/wan/cosa.c         |    6 +++---
+ drivers/net/wan/hostess_sv11.c |    6 +++---
+ drivers/net/wan/sbni.c         |    4 ++--
+ drivers/net/wan/sealevel.c     |    8 ++++----
+ 4 files changed, 12 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/wireless/cisco/airo.c b/drivers/net/wireless/cisco/airo.c
-index 4b040451a9b8..1b7e125a28e2 100644
---- a/drivers/net/wireless/cisco/airo.c
-+++ b/drivers/net/wireless/cisco/airo.c
-@@ -246,8 +246,8 @@ MODULE_DESCRIPTION("Support for Cisco/Aironet 802.11 wireless ethernet cards.  "
- 		   "Direct support for ISA/PCI/MPI cards and support for PCMCIA when used with airo_cs.");
- MODULE_LICENSE("Dual BSD/GPL");
- MODULE_SUPPORTED_DEVICE("Aironet 4500, 4800 and Cisco 340/350");
+diff --git a/drivers/net/wan/cosa.c b/drivers/net/wan/cosa.c
+index 4ca71bca39ac..6ea16260ec76 100644
+--- a/drivers/net/wan/cosa.c
++++ b/drivers/net/wan/cosa.c
+@@ -232,11 +232,11 @@ static int irq[MAX_CARDS+1] = { -1, -1, -1, -1, -1, -1, 0, };
+ static struct class *cosa_class;
+ 
+ #ifdef MODULE
+-module_param_array(io, int, NULL, 0);
++module_param_hw_array(io, int, ioport, NULL, 0);
+ MODULE_PARM_DESC(io, "The I/O bases of the COSA or SRP cards");
+-module_param_array(irq, int, NULL, 0);
++module_param_hw_array(irq, int, irq, NULL, 0);
+ MODULE_PARM_DESC(irq, "The IRQ lines of the COSA or SRP cards");
+-module_param_array(dma, int, NULL, 0);
++module_param_hw_array(dma, int, dma, NULL, 0);
+ MODULE_PARM_DESC(dma, "The DMA channels of the COSA or SRP cards");
+ 
+ MODULE_AUTHOR("Jan \"Yenya\" Kasprzak, <kas@fi.muni.cz>");
+diff --git a/drivers/net/wan/hostess_sv11.c b/drivers/net/wan/hostess_sv11.c
+index dd6bb3364ad2..4de0737fbf8a 100644
+--- a/drivers/net/wan/hostess_sv11.c
++++ b/drivers/net/wan/hostess_sv11.c
+@@ -324,11 +324,11 @@ static void sv11_shutdown(struct z8530_dev *dev)
+ static int io = 0x200;
+ static int irq = 9;
+ 
+-module_param(io, int, 0);
++module_param_hw(io, int, ioport, 0);
+ MODULE_PARM_DESC(io, "The I/O base of the Comtrol Hostess SV11 card");
+-module_param(dma, int, 0);
++module_param_hw(dma, int, dma, 0);
+ MODULE_PARM_DESC(dma, "Set this to 1 to use DMA1/DMA3 for TX/RX");
+-module_param(irq, int, 0);
++module_param_hw(irq, int, irq, 0);
+ MODULE_PARM_DESC(irq, "The interrupt line setting for the Comtrol Hostess SV11 card");
+ 
+ MODULE_AUTHOR("Alan Cox");
+diff --git a/drivers/net/wan/sbni.c b/drivers/net/wan/sbni.c
+index 3ca3419c54a0..bde8c0339831 100644
+--- a/drivers/net/wan/sbni.c
++++ b/drivers/net/wan/sbni.c
+@@ -1463,8 +1463,8 @@ set_multicast_list( struct net_device  *dev )
+ 
+ 
+ #ifdef MODULE
 -module_param_array(io, int, NULL, 0);
 -module_param_array(irq, int, NULL, 0);
 +module_param_hw_array(io, int, ioport, NULL, 0);
 +module_param_hw_array(irq, int, irq, NULL, 0);
- module_param_array(rates, int, NULL, 0);
- module_param_array(ssids, charp, NULL, 0);
- module_param(auto_wep, int, 0);
+ module_param_array(baud, int, NULL, 0);
+ module_param_array(rxl, int, NULL, 0);
+ module_param_array(mac, int, NULL, 0);
+diff --git a/drivers/net/wan/sealevel.c b/drivers/net/wan/sealevel.c
+index fbb5aa2c4d8f..c56f2c252113 100644
+--- a/drivers/net/wan/sealevel.c
++++ b/drivers/net/wan/sealevel.c
+@@ -363,13 +363,13 @@ static int rxdma=3;
+ static int irq=5;
+ static bool slow=false;
+ 
+-module_param(io, int, 0);
++module_param_hw(io, int, ioport, 0);
+ MODULE_PARM_DESC(io, "The I/O base of the Sealevel card");
+-module_param(txdma, int, 0);
++module_param_hw(txdma, int, dma, 0);
+ MODULE_PARM_DESC(txdma, "Transmit DMA channel");
+-module_param(rxdma, int, 0);
++module_param_hw(rxdma, int, dma, 0);
+ MODULE_PARM_DESC(rxdma, "Receive DMA channel");
+-module_param(irq, int, 0);
++module_param_hw(irq, int, irq, 0);
+ MODULE_PARM_DESC(irq, "The interrupt line setting for the SeaLevel card");
+ module_param(slow, bool, 0);
+ MODULE_PARM_DESC(slow, "Set this for an older Sealevel card such as the 4012");
