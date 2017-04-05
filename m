@@ -1,249 +1,214 @@
-From: Timothy Redaelli <tredaelli@redhat.com>
-Subject: [iproute PATCH] ip-route: Prevent some other double spaces in output
-Date: Wed,  5 Apr 2017 19:10:26 +0200
-Message-ID: <d73d016dbf5c81869e4fe745b9223fd726f1c43a.1491410198.git.tredaelli@redhat.com>
-Cc: psutter@redhat.com
-To: netdev@vger.kernel.org
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH 1/4] net: dsa: add support for the SMSC-LAN9303 tagging
+ format
+Date: Wed, 5 Apr 2017 19:10:01 +0200
+Message-ID: <20170405171001.GD21965@lunn.ch>
+References: <20170405092024.16048-1-jbe@pengutronix.de>
+ <20170405092024.16048-2-jbe@pengutronix.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        f.fainelli@gmail.com, kernel@pengutronix.de,
+        vivien.didelot@savoirfairelinux.com, davem@davemloft.net
+To: Juergen Borleis <jbe@pengutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:56860 "EHLO mx1.redhat.com"
+Received: from vps0.lunn.ch ([178.209.37.122]:46858 "EHLO vps0.lunn.ch"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754286AbdDERMy (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 5 Apr 2017 13:12:54 -0400
-Received: from smtp.corp.redhat.com (int-mx03.intmail.prod.int.phx2.redhat.com [10.5.11.13])
-        (using TLSv1.2 with cipher AECDH-AES256-SHA (256/256 bits))
-        (No client certificate requested)
-        by mx1.redhat.com (Postfix) with ESMTPS id 7177D80F9A
-        for <netdev@vger.kernel.org>; Wed,  5 Apr 2017 17:12:48 +0000 (UTC)
+        id S1755252AbdDERKL (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 5 Apr 2017 13:10:11 -0400
+Content-Disposition: inline
+In-Reply-To: <20170405092024.16048-2-jbe@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Print spaces only after text.
+On Wed, Apr 05, 2017 at 11:20:21AM +0200, Juergen Borleis wrote:
+> To define the outgoing port and to discover the incoming port a regular
+> VLAN tag is used by the LAN9303. But its VID meaning is 'special'.
+> 
+> This tag handler/filter depends on some hardware features which must be
+> enabled in the device to provide and make use of this special VLAN tag
+> to control the destination and the source of an ethernet packet.
+> 
+> Signed-off-by: Juergen Borleis <jbe@pengutronix.de>
+> ---
+>  include/net/dsa.h     |   1 +
+>  net/dsa/Kconfig       |   3 +
+>  net/dsa/Makefile      |   1 +
+>  net/dsa/dsa.c         |   3 +
+>  net/dsa/dsa_priv.h    |   3 +
+>  net/dsa/tag_lan9303.c | 155 ++++++++++++++++++++++++++++++++++++++++++++++++++
+>  6 files changed, 166 insertions(+)
+>  create mode 100644 net/dsa/tag_lan9303.c
+> 
+> diff --git a/include/net/dsa.h b/include/net/dsa.h
+> index 4e13e695f0251..4fb1f2b086b05 100644
+> --- a/include/net/dsa.h
+> +++ b/include/net/dsa.h
+> @@ -31,6 +31,7 @@ enum dsa_tag_protocol {
+>  	DSA_TAG_PROTO_EDSA,
+>  	DSA_TAG_PROTO_BRCM,
+>  	DSA_TAG_PROTO_QCA,
+> +	DSA_TAG_PROTO_LAN9303,
+>  	DSA_TAG_LAST,		/* MUST BE LAST */
+>  };
+>  
+> diff --git a/net/dsa/Kconfig b/net/dsa/Kconfig
+> index 9649238eef404..22c8bd69ff71c 100644
+> --- a/net/dsa/Kconfig
+> +++ b/net/dsa/Kconfig
+> @@ -31,4 +31,7 @@ config NET_DSA_TAG_TRAILER
+>  config NET_DSA_TAG_QCA
+>  	bool
+>  
+> +config NET_DSA_TAG_LAN9303
+> +	bool
+> +
+>  endif
+> diff --git a/net/dsa/Makefile b/net/dsa/Makefile
+> index 31d343796251d..aafc74f2cb193 100644
+> --- a/net/dsa/Makefile
+> +++ b/net/dsa/Makefile
+> @@ -8,3 +8,4 @@ dsa_core-$(CONFIG_NET_DSA_TAG_DSA) += tag_dsa.o
+>  dsa_core-$(CONFIG_NET_DSA_TAG_EDSA) += tag_edsa.o
+>  dsa_core-$(CONFIG_NET_DSA_TAG_TRAILER) += tag_trailer.o
+>  dsa_core-$(CONFIG_NET_DSA_TAG_QCA) += tag_qca.o
+> +dsa_core-$(CONFIG_NET_DSA_TAG_LAN9303) += tag_lan9303.o
+> diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+> index b6d4f6a23f06c..f93f78de23af3 100644
+> --- a/net/dsa/dsa.c
+> +++ b/net/dsa/dsa.c
+> @@ -53,6 +53,9 @@ const struct dsa_device_ops *dsa_device_ops[DSA_TAG_LAST] = {
+>  #ifdef CONFIG_NET_DSA_TAG_QCA
+>  	[DSA_TAG_PROTO_QCA] = &qca_netdev_ops,
+>  #endif
+> +#ifdef CONFIG_NET_DSA_TAG_LAN9303
+> +	[DSA_TAG_PROTO_LAN9303] = &lan9303_netdev_ops,
+> +#endif
+>  	[DSA_TAG_PROTO_NONE] = &none_ops,
+>  };
+>  
+> diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
+> index 0706a511244e9..a54cfc8aefa83 100644
+> --- a/net/dsa/dsa_priv.h
+> +++ b/net/dsa/dsa_priv.h
+> @@ -85,4 +85,7 @@ extern const struct dsa_device_ops brcm_netdev_ops;
+>  /* tag_qca.c */
+>  extern const struct dsa_device_ops qca_netdev_ops;
+>  
+> +/* tag_lan9303.c */
+> +extern const struct dsa_device_ops lan9303_netdev_ops;
+> +
+>  #endif
+> diff --git a/net/dsa/tag_lan9303.c b/net/dsa/tag_lan9303.c
+> new file mode 100644
+> index 0000000000000..ad04c6d447f77
+> --- /dev/null
+> +++ b/net/dsa/tag_lan9303.c
+> @@ -0,0 +1,155 @@
+> +/*
+> + * Copyright (C) 2017 Pengutronix, Juergen Borleis <jbe@pengutronix.de>
+> + *
+> + * This program is free software; you can redistribute it and/or
+> + * modify it under the terms of the GNU General Public License
+> + * version 2, as published by the Free Software Foundation.
+> + *
+> + * This program is distributed in the hope that it will be useful,
+> + * but WITHOUT ANY WARRANTY; without even the implied warranty of
+> + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+> + * GNU General Public License for more details.
+> + *
+> + */
+> +#include <linux/etherdevice.h>
+> +#include <linux/list.h>
+> +#include <linux/slab.h>
+> +#include "dsa_priv.h"
+> +
+> +/* To define the outgoing port and to discover the incoming port a regular
+> + * VLAN tag is used by the LAN9303. But its VID meaning is 'special':
+> + *
+> + *       Dest MAC       Src MAC        TAG    Type
+> + * ...| 1 2 3 4 5 6 | 1 2 3 4 5 6 | 1 2 3 4 | 1 2 |...
+> + *                                |<------->|
+> + * TAG:
+> + *    |<------------->|
+> + *    |  1  2 | 3  4  |
+> + *      TPID    VID
+> + *     0x8100
+> + *
+> + * VID bit 3 indicates a request for an ALR lookup.
+> + *
+> + * If VID bit 3 is zero, then bits 0 and 1 specify the destination port
+> + * (0, 1, 2) or broadcast (3) or the source port (1, 2).
+> + *
+> + * VID bit 4 is used to specify if the STP port state should be overridden.
+> + * Required when no forwarding between the external ports should happen.
+> + */
 
-CC: Phil Sutter <phil@nwl.cc>
-Signed-off-by: Timothy Redaelli <tredaelli@redhat.com>
----
- ip/iproute.c | 77 ++++++++++++++++++++++++++++++------------------------------
- 1 file changed, 39 insertions(+), 38 deletions(-)
+Hi Juergen
 
-Fixed all the problems reported in V2
+Nice comment, thanks.
 
-Tested with improved script https://da.gd/tUVso that tests ip route and ip get
-for both ipv4 and ipv6.
+> +
+> +#define LAN9303_TAG_LEN 4
+> +
+> +static struct sk_buff *lan9303_xmit(struct sk_buff *skb, struct net_device *dev)
+> +{
 
-If it's OK I'd like to send it upstream
+...
 
-diff --git a/ip/iproute.c b/ip/iproute.c
-index 7cdf072..5e23613 100644
---- a/ip/iproute.c
-+++ b/ip/iproute.c
-@@ -298,12 +298,12 @@ static void print_rtax_features(FILE *fp, unsigned int features)
- 	unsigned int of = features;
- 
- 	if (features & RTAX_FEATURE_ECN) {
--		fprintf(fp, " ecn");
-+		fprintf(fp, "ecn ");
- 		features &= ~RTAX_FEATURE_ECN;
- 	}
- 
- 	if (features)
--		fprintf(fp, " 0x%x", of);
-+		fprintf(fp, "0x%x ", of);
- }
- 
- int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
-@@ -511,21 +511,21 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
- 			if (!hz)
- 				hz = get_user_hz();
- 			if (ci->rta_expires != 0)
--				fprintf(fp, " expires %dsec", ci->rta_expires/hz);
-+				fprintf(fp, "expires %dsec ", ci->rta_expires/hz);
- 			if (ci->rta_error != 0)
--				fprintf(fp, " error %d", ci->rta_error);
-+				fprintf(fp, "error %d ", ci->rta_error);
- 			if (show_stats) {
- 				if (ci->rta_clntref)
--					fprintf(fp, " users %d", ci->rta_clntref);
-+					fprintf(fp, "users %d ", ci->rta_clntref);
- 				if (ci->rta_used != 0)
--					fprintf(fp, " used %d", ci->rta_used);
-+					fprintf(fp, "used %d ", ci->rta_used);
- 				if (ci->rta_lastuse != 0)
--					fprintf(fp, " age %dsec", ci->rta_lastuse/hz);
-+					fprintf(fp, "age %dsec ", ci->rta_lastuse/hz);
- 			}
- 			if (ci->rta_id)
--				fprintf(fp, " ipid 0x%04x", ci->rta_id);
-+				fprintf(fp, "ipid 0x%04x ", ci->rta_id);
- 			if (ci->rta_ts || ci->rta_tsage)
--				fprintf(fp, " ts 0x%x tsage %dsec",
-+				fprintf(fp, "ts 0x%x tsage %dsec ",
- 					ci->rta_ts, ci->rta_tsage);
- 		}
- 	} else if (r->rtm_family == AF_INET6) {
-@@ -539,20 +539,20 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
- 			if (r->rtm_flags & RTM_F_CLONED)
- 				fprintf(fp, "%s    cache ", _SL_);
- 			if (ci->rta_expires)
--				fprintf(fp, " expires %dsec", ci->rta_expires/hz);
-+				fprintf(fp, "expires %dsec ", ci->rta_expires/hz);
- 			if (ci->rta_error != 0)
--				fprintf(fp, " error %d", ci->rta_error);
-+				fprintf(fp, "error %d ", ci->rta_error);
- 			if (show_stats) {
- 				if (ci->rta_clntref)
--					fprintf(fp, " users %d", ci->rta_clntref);
-+					fprintf(fp, "users %d ", ci->rta_clntref);
- 				if (ci->rta_used != 0)
--					fprintf(fp, " used %d", ci->rta_used);
-+					fprintf(fp, "used %d ", ci->rta_used);
- 				if (ci->rta_lastuse != 0)
--					fprintf(fp, " age %dsec", ci->rta_lastuse/hz);
-+					fprintf(fp, "age %dsec ", ci->rta_lastuse/hz);
- 			}
- 		} else if (ci) {
- 			if (ci->rta_error != 0)
--				fprintf(fp, " error %d", ci->rta_error);
-+				fprintf(fp, "error %d ", ci->rta_error);
- 		}
- 	}
- 	if (tb[RTA_METRICS]) {
-@@ -578,19 +578,19 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
- 				continue;
- 
- 			if (i < sizeof(mx_names)/sizeof(char *) && mx_names[i])
--				fprintf(fp, " %s", mx_names[i]);
-+				fprintf(fp, "%s ", mx_names[i]);
- 			else
--				fprintf(fp, " metric %d", i);
-+				fprintf(fp, "metric %d ", i);
- 
- 			if (mxlock & (1<<i))
--				fprintf(fp, " lock");
-+				fprintf(fp, "lock ");
- 
- 			switch (i) {
- 			case RTAX_FEATURES:
- 				print_rtax_features(fp, val);
- 				break;
- 			default:
--				fprintf(fp, " %u", val);
-+				fprintf(fp, "%u ", val);
- 				break;
- 
- 			case RTAX_RTT:
-@@ -602,18 +602,18 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
- 					val /= 4;
- 
- 				if (val >= 1000)
--					fprintf(fp, " %gs", val/1e3);
-+					fprintf(fp, "%gs ", val/1e3);
- 				else
--					fprintf(fp, " %ums", val);
-+					fprintf(fp, "%ums ", val);
- 				break;
- 			case RTAX_CC_ALGO:
--				fprintf(fp, " %s", rta_getattr_str(mxrta[i]));
-+				fprintf(fp, "%s ", rta_getattr_str(mxrta[i]));
- 				break;
- 			}
- 		}
- 	}
- 	if (tb[RTA_IIF] && filter.iifmask != -1) {
--		fprintf(fp, " iif %s",
-+		fprintf(fp, "iif %s ",
- 			ll_index_to_name(rta_getattr_u32(tb[RTA_IIF])));
- 	}
- 	if (tb[RTA_MULTIPATH]) {
-@@ -629,11 +629,11 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
- 				break;
- 			if (r->rtm_flags&RTM_F_CLONED && r->rtm_type == RTN_MULTICAST) {
- 				if (first)
--					fprintf(fp, " Oifs:");
-+					fprintf(fp, "Oifs: ");
- 				else
- 					fprintf(fp, " ");
- 			} else
--				fprintf(fp, "%s\tnexthop", _SL_);
-+				fprintf(fp, "%s\tnexthop ", _SL_);
- 			if (nh->rtnh_len > sizeof(*nh)) {
- 				parse_rtattr(tb, RTA_MAX, RTNH_DATA(nh), nh->rtnh_len - sizeof(*nh));
- 
-@@ -642,12 +642,12 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
- 							tb[RTA_ENCAP_TYPE],
- 							tb[RTA_ENCAP]);
- 				if (tb[RTA_NEWDST]) {
--					fprintf(fp, " as to %s ",
-+					fprintf(fp, "as to %s ",
- 						format_host_rta(r->rtm_family,
- 								tb[RTA_NEWDST]));
- 				}
- 				if (tb[RTA_GATEWAY]) {
--					fprintf(fp, " via %s ",
-+					fprintf(fp, "via %s ",
- 						format_host_rta(r->rtm_family,
- 								tb[RTA_GATEWAY]));
- 				}
-@@ -655,7 +655,7 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
- 					size_t len = RTA_PAYLOAD(tb[RTA_VIA]) - 2;
- 					struct rtvia *via = RTA_DATA(tb[RTA_VIA]);
- 
--					fprintf(fp, " via %s %s ",
-+					fprintf(fp, "via %s %s ",
- 						family_name(via->rtvia_family),
- 						format_host(via->rtvia_family, len, via->rtvia_addr));
- 				}
-@@ -664,33 +664,34 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
- 					__u32 from = to>>16;
- 
- 					to &= 0xFFFF;
--					fprintf(fp, " realm%s ", from ? "s" : "");
-+					fprintf(fp, "realm%s ", from ? "s" : "");
- 					if (from) {
- 						fprintf(fp, "%s/",
- 							rtnl_rtrealm_n2a(from, b1, sizeof(b1)));
- 					}
--					fprintf(fp, "%s",
-+					fprintf(fp, "%s ",
- 						rtnl_rtrealm_n2a(to, b1, sizeof(b1)));
- 				}
- 			}
- 			if (r->rtm_flags&RTM_F_CLONED && r->rtm_type == RTN_MULTICAST) {
--				fprintf(fp, " %s", ll_index_to_name(nh->rtnh_ifindex));
-+				fprintf(fp, "%s", ll_index_to_name(nh->rtnh_ifindex));
- 				if (nh->rtnh_hops != 1)
- 					fprintf(fp, "(ttl>%d)", nh->rtnh_hops);
-+				fprintf(fp, " ");
- 			} else {
--				fprintf(fp, " dev %s", ll_index_to_name(nh->rtnh_ifindex));
-+				fprintf(fp, "dev %s ", ll_index_to_name(nh->rtnh_ifindex));
- 				if (r->rtm_family != AF_MPLS)
--					fprintf(fp, " weight %d",
-+					fprintf(fp, "weight %d ",
- 						nh->rtnh_hops+1);
- 			}
- 			if (nh->rtnh_flags & RTNH_F_DEAD)
--				fprintf(fp, " dead");
-+				fprintf(fp, "dead ");
- 			if (nh->rtnh_flags & RTNH_F_ONLINK)
--				fprintf(fp, " onlink");
-+				fprintf(fp, "onlink ");
- 			if (nh->rtnh_flags & RTNH_F_PERVASIVE)
--				fprintf(fp, " pervasive");
-+				fprintf(fp, "pervasive ");
- 			if (nh->rtnh_flags & RTNH_F_LINKDOWN)
--				fprintf(fp, " linkdown");
-+				fprintf(fp, "linkdown ");
- 			len -= NLMSG_ALIGN(nh->rtnh_len);
- 			nh = RTNH_NEXT(nh);
- 		}
-@@ -698,7 +699,7 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
- 	if (tb[RTA_PREF]) {
- 		unsigned int pref = rta_getattr_u8(tb[RTA_PREF]);
- 
--		fprintf(fp, " pref ");
-+		fprintf(fp, "pref ");
- 
- 		switch (pref) {
- 		case ICMPV6_ROUTER_PREF_LOW:
--- 
-2.9.3
+> +	/* make room between MACs and Ether-Type */
+> +	memmove(skb->data, skb->data + LAN9303_TAG_LEN, 2 * ETH_ALEN);
+> +
+> +	lan9303_tag = (u16 *)(skb->data + 2 * ETH_ALEN);
+> +	lan9303_tag[0] = htons(ETH_P_8021Q);
+> +	lan9303_tag[1] = htons(p->dp->index | BIT(4));
+
+> +static int lan9303_rcv(struct sk_buff *skb, struct net_device *dev,
+> +		       struct packet_type *pt, struct net_device *orig_dev)
+> +{
+> +	u16 *lan9303_tag;
+> +	struct dsa_switch_tree *dst = dev->dsa_ptr;
+> +	struct dsa_switch *ds = dst->ds[0];
+> +	unsigned int source_port;
+> +
+> +	if (unlikely(!dst)) {
+> +		dev_warn_ratelimited(&dev->dev, "Dropping packet, due to missing switch tree device\n");
+> +		goto out_drop;
+> +	}
+
+By the time you get here, you have already dereferenced dst, in order
+to get ds. So this is pointless.
+
+> +	lan9303_tag = (u16 *)(skb->data - 2);
+> +
+> +	if (lan9303_tag[0] != htons(0x8100)) {
+> +		dev_warn_ratelimited(&dev->dev, "Dropping packet due to invalid VLAN marker\n");
+> +		goto out_drop;
+> +	}
+
+In the transmit function, you use ETH_P_8021Q, please do so here as
+well.
+
+> +	source_port = ntohs(lan9303_tag[1]) & 0x3;
+> +
+> +	if (source_port >= DSA_MAX_PORTS) {
+> +		dev_warn_ratelimited(&dev->dev, "Dropping packet due to invalid source port\n");
+> +		goto out_drop;
+> +	}
+
+You can be more specific here. For this hardware, > 3 is invalid and
+should be dropped. If we later add other chips which have more ports,
+we can relax this check then.
+
+> +	/* remove the special VLAN tag between the MAC addresses
+> +	 * and the current ethertype field.
+> +	 */
+> +	skb_pull_rcsum(skb, 2 + 2);
+> +	memmove(skb->data - ETH_HLEN, skb->data - (ETH_HLEN + LAN9303_TAG_LEN),
+> +		2 * ETH_ALEN);
+> +	skb_push(skb, ETH_HLEN);
+
+Do you need to do anything with the checksum here? Other tagging
+protocols do.
+
+	  Andrew
