@@ -1,68 +1,26 @@
-From: John Garry <john.garry@huawei.com>
-Subject: Re: [PATCH net-next 1/4] ixgbe: sparc: rename the
- ARCH_WANT_RELAX_ORDER to IXGBE_ALLOW_RELAXED_ORDER
-Date: Wed, 5 Apr 2017 14:05:30 +0100
-Message-ID: <118dee30-69a8-4ee0-791d-a46d268af3b4@huawei.com>
-References: <1491031554-19516-1-git-send-email-dingtianhong@huawei.com>
- <1491031554-19516-2-git-send-email-dingtianhong@huawei.com>
- <20170401.112603.1991545644693496714.davem@davemloft.net>
- <819bc6c1-581b-3ab9-d189-1befaaf43548@huawei.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 00/12] bnxt_en: Updates for net-next.
+Date: Wed, 05 Apr 2017 06:24:57 -0700 (PDT)
+Message-ID: <20170405.062457.1760391369094821798.davem@davemloft.net>
+References: <1491344057-12663-1-git-send-email-michael.chan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: mark.rutland@arm.com, Linuxarm <linuxarm@huawei.co>,
- catalin.marinas@arm.com, will.deacon@arm.com, alexander.duyck@gmail.com,
- intel-wired-lan@lists.osuosl.org, jeffrey.t.kirsher@intel.com,
- netdev@vger.kernel.org, robin.murphy@arm.com,
- linux-arm-kernel@lists.infradead.org
-To: Ding Tianhong <dingtianhong@huawei.com>, David Miller <davem@davemloft.net>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <819bc6c1-581b-3ab9-d189-1befaaf43548@huawei.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: michael.chan@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:41854 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933366AbdDENZL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 5 Apr 2017 09:25:11 -0400
+In-Reply-To: <1491344057-12663-1-git-send-email-michael.chan@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gMDIvMDQvMjAxNyAwNzo0OSwgRGluZyBUaWFuaG9uZyB3cm90ZToKPgo+Cj4gT24gMjAxNy80
-LzIgMjoyNiwgRGF2aWQgTWlsbGVyIHdyb3RlOgo+PiBGcm9tOiBEaW5nIFRpYW5ob25nIDxkaW5n
-dGlhbmhvbmdAaHVhd2VpLmNvbT4KPj4gRGF0ZTogU2F0LCAxIEFwciAyMDE3IDE1OjI1OjUxICsw
-ODAwCj4+Cj4+PiBUaWxsIG5vdyBvbmx5IHRoZSBJbnRlbCBpeGdiZSBjb3VsZCBzdXBwb3J0IGVu
-YWJsZQo+Pj4gUmVsYXhlZCBvcmRlcmluZyBpbiB0aGUgZHJpdmVycyBmb3Igc3BlY2lhbCBhcmNo
-aXRlY3R1cmUsCj4+PiBidXQgdGhlIEFSQ0hfV0FOVF9SRUxBWF9PUkRFUiBpcyBsb29rcyBsaWtl
-IGEgZ2VuZXJhbCBuYW1lCj4+PiBmb3IgYWxsIGFyY2gsIHNvIHJlbmFtZSB0byBhIHNwZWNpZmlj
-IG5hbWUgZm9yIGludGVsCj4+PiBjYXJkIGxvb2tzIG1vcmUgYXBwcm9wcmlhdGUuCj4+Pgo+Pj4g
-U2lnbmVkLW9mZi1ieTogRGluZyBUaWFuaG9uZyA8ZGluZ3RpYW5ob25nQGh1YXdlaS5jb20+Cj4+
-Cj4+IFRoaXMgaXMgbm90IGEgZHJpdmVyIHNwZWNpZmljIGZhY2lsaXR5Lgo+Pgo+PiBBbnkgZHJp
-dmVyIGNhbiB0ZXN0IHRoaXMgc3ltYm9sIGFuZCBhY3QgYWNjb3JkaW5nbHkuCj4+Cj4+IEp1c3Qg
-YmVjYXVzZSBJWEdCRSBpcyB0aGUgZmlyc3QgYW5kIG9ubHkgdXNlciwgZG9lc24ndCBtZWFuCj4+
-IHRoZSBmYWNpbGl0eSBpcyBkcml2ZXIgc3BlY2lmaWMuCj4+Cj4KPiBVbmRlcnN0YW5kIGNsZWFy
-bHnvvIxidXQgdGhlIEFSQ0hfV0FOVF9SRUxBWF9PUkRFUiBpcyByZWFsbHkgdG9vIGdlbmVyaWMg
-YW5kIHNpbXBsZSwKPiBjYXVzZSBtdWNoIG1pc2xlYWRpbmcgdG8gaW5kaWNhdGUgdGhhdCBpdCBs
-b29rcyBsaWtlIHRoZSBoYWNrIGNvZGUgZm9yIHNvbWUgYXJjaGl0ZWN0dXJlLgo+IHdoYXQgZG8g
-eW91IHRoaW5rIG9mIHRoZSBFVEhFUk5FVF9BTExPV19SRUxBWEVEX09SREVSIGluIHRoZSBkcml2
-ZXJzL25ldC9ldGhlcm5ldC8qLAo+IGl0IHdpbGwgb25seSBhZmZlY3QgZXRoZXJuZXQgYW5kIG5v
-dCBvbmx5IGZvciBJeGdiZS4KPgoKSGkgRGluZywKCkkgdGhpbmsgdGhlIGFjdHVhbCBvcmlnaW5h
-bCBjb25maWcgQVJDSF9XQU5UX1JFTEFYX09SREVSIGlzIHF1aXRlIApkdWJpb3VzLCBhbmQgaXQg
-ZG9lcyBub3QgcmVhbGx5IHRlbGwgdXMgd2hpY2ggZmVhdHVyZShzKSBvZiB0aGUgCmFyY2hpdGVj
-dHVyZSBzdXBwb3J0cyB0aGlzIChpZiBpbmRlZWQgaXQgaXMgYXJjaCBzcGVjaWZpYykuCgpBY2Nv
-cmRpbmcgdG8gdGhlIG9yaWdpbmFsIGNvbW1pdCwgMWE4YjZkNzZkYzViIG5ldDphZGQgb25lIGNv
-bW1vbiBjb25maWcgCkFSQ0hfV0FOVF9SRUxBWF9PUkRFUiB0byBzdXBwb3J0IHJlbGF4IG9yZGVy
-aW5nLCB0aGlzIGlzIHNwZWNpZmljIHRvIApTUEFSQyBvbmx5OgoiQ3VycmVudGx5IGl0IG9ubHkg
-c3VwcG9ydHMgb25lIHNwZWNpYWwgY3B1IGFyY2hpdGVjdHVyZShTUEFSQykgaW4gODI1OTkgCmRy
-aXZlciB0byBlbmFibGUgUk8gZmVhdHVyZSwgdGhpcyBpcyBub3QgdmVyeSBjb21tb24gZm9yIG90
-aGVyIGNwdSAKYXJjaGl0ZWN0dXJlIHdoaWNoIHJlYWxseSBuZWVkcyBSTyBmZWF0dXJlIi4KClRo
-aXMgc291bmRzIHdvb2x5LgoKU28gSSB0aGluayB0aGF0IHdlIG5lZWQgdG8ga25vdyB3aGljaCBz
-cGVjaWZpYyBhcmNoaXRlY3R1cmUsIG1lbW9yeSAKbW9kZWwsIG9yIFBDSSBob3N0L3BvcnQvRVAg
-ZmVhdHVyZXMsIG9yIGNvbWJpbmF0aW9uIG9mIHRoZW0sIGFsbG93cyB0aGlzIApzbyBjYWxsZWQg
-cmVsYXhlZCBvcmRlcmluZy4KCkFuZCBhIGNvbmZpZyBvcHRpb24gaXMgcHJvYmFibHkgbm90IGV2
-ZW4gdGhlIHByb3BlciBjaGVjay4KCkpvaG4KCj4gVGhhbmtzCj4gRGluZwo+Cj4KPj4gVGhhbmsg
-eW91Lgo+Pgo+PiAuCj4+Cj4KPgo+IC4KPgoKCgpfX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fXwpsaW51eC1hcm0ta2VybmVsIG1haWxpbmcgbGlzdApsaW51eC1h
-cm0ta2VybmVsQGxpc3RzLmluZnJhZGVhZC5vcmcKaHR0cDovL2xpc3RzLmluZnJhZGVhZC5vcmcv
-bWFpbG1hbi9saXN0aW5mby9saW51eC1hcm0ta2VybmVsCg==
+From: Michael Chan <michael.chan@broadcom.com>
+Date: Tue,  4 Apr 2017 18:14:05 -0400
+
+> Main changes are to add WoL and selftest features, optimize XDP_TX by
+> using short BDs, and to cap the usage of MSIX.
+
+Series applied, thanks Michael.
