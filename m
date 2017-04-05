@@ -1,197 +1,262 @@
 From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: [PATCH v2 11/13] ftgmac100: Rework MAC reset and init
-Date: Wed,  5 Apr 2017 12:28:51 +1000
-Message-ID: <20170405022853.8238-12-benh@kernel.crashing.org>
+Subject: [PATCH v2 13/13] ftgmac100: Rework NAPI & interrupts handling
+Date: Wed,  5 Apr 2017 12:28:53 +1000
+Message-ID: <20170405022853.8238-14-benh@kernel.crashing.org>
 References: <20170405022853.8238-1-benh@kernel.crashing.org>
 Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:48215 "EHLO gate.crashing.org"
+Received: from gate.crashing.org ([63.228.1.57]:48212 "EHLO gate.crashing.org"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755122AbdDECaX (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 4 Apr 2017 22:30:23 -0400
+        id S1752473AbdDECaT (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 4 Apr 2017 22:30:19 -0400
 In-Reply-To: <20170405022853.8238-1-benh@kernel.crashing.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The HW requires a full MAC reset when changing the speed.
+First, don't look at the interrupt status in the poll loop
+to decide what to poll. It's wrong. If we have run out of
+budget, we may still have RX packets to unqueue but no more
+RX interrupt pending.
 
-Additionally the Aspeed documentation spells out that the
-MAC needs to be reset twice with a 10us interval.
+So instead move the code looking at the interrupt status
+into the interrupt handler where it belongs. That avoids a slow
+MMIO read in the NAPI fast path. We keep the abnormal interrupts
+enabled while NAPI is scheduled.
 
-We thus move the speed setting and top level reset code
-into a new ftgmac100_reset_and_config_mac() function which
-handles both. Move the ring pointers initialization there
-too in order to reflect the HW change.
+While at it, actually do something useful in the "error" cases:
 
-Also reduce the timeout for the MAC reset as it shouldn't
-take more than 300 clock cycles according to the doc.
+On AHB bus error, trigger the new reset task, that's about all
+we can do. On RX packet fifo or descriptor overflows, we need
+to restart the MAC after having freed things up. So set a flag
+that NAPI will see and use to perform that restart after
+harvesting the RX ring.
+
+Finally, we shouldn't complete NAPI if there are still outgoing
+packets that will need harvesting. Waiting for more interrupts
+is less efficient than letting NAPI run a while longer while
+the queue drains.
 
 Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 ---
- drivers/net/ethernet/faraday/ftgmac100.c | 98 +++++++++++++++++++-------------
- 1 file changed, 59 insertions(+), 39 deletions(-)
+ drivers/net/ethernet/faraday/ftgmac100.c | 137 +++++++++++++++++--------------
+ drivers/net/ethernet/faraday/ftgmac100.h |  14 ++++
+ 2 files changed, 90 insertions(+), 61 deletions(-)
 
 diff --git a/drivers/net/ethernet/faraday/ftgmac100.c b/drivers/net/ethernet/faraday/ftgmac100.c
-index 61f02bf..3adfb92 100644
+index 4fa138b..88dab5f 100644
 --- a/drivers/net/ethernet/faraday/ftgmac100.c
 +++ b/drivers/net/ethernet/faraday/ftgmac100.c
-@@ -112,27 +112,64 @@ static void ftgmac100_txdma_normal_prio_start_polling(struct ftgmac100 *priv)
- 	iowrite32(1, priv->base + FTGMAC100_OFFSET_NPTXPD);
- }
+@@ -83,7 +83,7 @@ struct ftgmac100 {
+ 	bool use_ncsi;
  
--static int ftgmac100_reset_hw(struct ftgmac100 *priv)
-+static int ftgmac100_reset_mac(struct ftgmac100 *priv, u32 maccr)
+ 	/* Misc */
+-	int int_mask_all;
++	bool need_mac_restart;
+ };
+ 
+ static int ftgmac100_alloc_rx_page(struct ftgmac100 *priv,
+@@ -1046,10 +1046,49 @@ static irqreturn_t ftgmac100_interrupt(int irq, void *dev_id)
  {
- 	struct net_device *netdev = priv->netdev;
- 	int i;
+ 	struct net_device *netdev = dev_id;
+ 	struct ftgmac100 *priv = netdev_priv(netdev);
++	unsigned int status, new_mask = FTGMAC100_INT_BAD;
  
- 	/* NOTE: reset clears all registers */
--	iowrite32(FTGMAC100_MACCR_SW_RST, priv->base + FTGMAC100_OFFSET_MACCR);
--	for (i = 0; i < 5; i++) {
-+	iowrite32(maccr, priv->base + FTGMAC100_OFFSET_MACCR);
-+	iowrite32(maccr | FTGMAC100_MACCR_SW_RST,
-+		  priv->base + FTGMAC100_OFFSET_MACCR);
-+	for (i = 0; i < 50; i++) {
- 		unsigned int maccr;
- 
- 		maccr = ioread32(priv->base + FTGMAC100_OFFSET_MACCR);
- 		if (!(maccr & FTGMAC100_MACCR_SW_RST))
- 			return 0;
- 
--		udelay(1000);
-+		udelay(1);
- 	}
- 
--	netdev_err(netdev, "software reset failed\n");
-+	netdev_err(netdev, "Hardware reset failed\n");
- 	return -EIO;
- }
- 
-+static int ftgmac100_reset_and_config_mac(struct ftgmac100 *priv)
-+{
-+	u32 maccr = 0;
+-	/* Disable interrupts for polling */
+-	iowrite32(0, priv->base + FTGMAC100_OFFSET_IER);
+-	napi_schedule(&priv->napi);
++	/* Fetch and clear interrupt bits, process abnormal ones */
++	status = ioread32(priv->base + FTGMAC100_OFFSET_ISR);
++	iowrite32(status, priv->base + FTGMAC100_OFFSET_ISR);
++	if (unlikely(status & FTGMAC100_INT_BAD)) {
 +
-+	switch (priv->cur_speed) {
-+	case SPEED_10:
-+	case 0: /* no link */
-+		break;
++		/* RX buffer unavailable */
++		if (status & FTGMAC100_INT_NO_RXBUF)
++			netdev->stats.rx_over_errors++;
 +
-+	case SPEED_100:
-+		maccr |= FTGMAC100_MACCR_FAST_MODE;
-+		break;
++		/* received packet lost due to RX FIFO full */
++		if (status & FTGMAC100_INT_RPKT_LOST)
++			netdev->stats.rx_fifo_errors++;
 +
-+	case SPEED_1000:
-+		maccr |= FTGMAC100_MACCR_GIGA_MODE;
-+		break;
-+	default:
-+		netdev_err(priv->netdev, "Unknown speed %d !\n",
-+			   priv->cur_speed);
-+		break;
++		/* sent packet lost due to excessive TX collision */
++		if (status & FTGMAC100_INT_XPKT_LOST)
++			netdev->stats.tx_fifo_errors++;
++
++		/* AHB error -> Reset the chip */
++		if (status & FTGMAC100_INT_AHB_ERR) {
++			if (net_ratelimit())
++				netdev_warn(netdev,
++					   "AHB bus error ! Resetting chip.\n");
++			iowrite32(0, priv->base + FTGMAC100_OFFSET_IER);
++			schedule_work(&priv->reset_task);
++			return IRQ_HANDLED;
++		}
++
++		/* We may need to restart the MAC after such errors, delay
++		 * this until after we have freed some Rx buffers though
++		 */
++		priv->need_mac_restart = true;
++
++		/* Disable those errors until we restart */
++		new_mask &= ~status;
 +	}
 +
-+	/* (Re)initialize the queue pointers */
-+	priv->rx_pointer = 0;
-+	priv->tx_clean_pointer = 0;
-+	priv->tx_pointer = 0;
-+	priv->tx_pending = 0;
++	/* Only enable "bad" interrupts while NAPI is on */
++	iowrite32(new_mask, priv->base + FTGMAC100_OFFSET_IER);
 +
-+	/* The doc says reset twice with 10us interval */
-+	if (ftgmac100_reset_mac(priv, maccr))
-+		return -EIO;
-+	usleep_range(10, 1000);
-+	return ftgmac100_reset_mac(priv, maccr);
-+}
-+
- static void ftgmac100_set_mac(struct ftgmac100 *priv, const unsigned char *mac)
- {
- 	unsigned int maddr = mac[0] << 8 | mac[1];
-@@ -208,35 +245,28 @@ static void ftgmac100_init_hw(struct ftgmac100 *priv)
- 	ftgmac100_set_mac(priv, priv->netdev->dev_addr);
++	/* Schedule NAPI bh */
++	napi_schedule_irqoff(&priv->napi);
+ 
+ 	return IRQ_HANDLED;
  }
- 
--#define MACCR_ENABLE_ALL	(FTGMAC100_MACCR_TXDMA_EN	| \
--				 FTGMAC100_MACCR_RXDMA_EN	| \
--				 FTGMAC100_MACCR_TXMAC_EN	| \
--				 FTGMAC100_MACCR_RXMAC_EN	| \
--				 FTGMAC100_MACCR_CRC_APD	| \
--				 FTGMAC100_MACCR_RX_RUNT	| \
--				 FTGMAC100_MACCR_RX_BROADPKT)
--
- static void ftgmac100_start_hw(struct ftgmac100 *priv)
+@@ -1057,68 +1096,51 @@ static irqreturn_t ftgmac100_interrupt(int irq, void *dev_id)
+ static int ftgmac100_poll(struct napi_struct *napi, int budget)
  {
--	int maccr = MACCR_ENABLE_ALL;
-+	u32 maccr = ioread32(priv->base + FTGMAC100_OFFSET_MACCR);
+ 	struct ftgmac100 *priv = container_of(napi, struct ftgmac100, napi);
+-	struct net_device *netdev = priv->netdev;
+-	unsigned int status;
+-	bool completed = true;
++	bool more, completed = true;
+ 	int rx = 0;
  
--	switch (priv->cur_speed) {
--	default:
--	case 10:
--		break;
-+	/* Keep the original GMAC and FAST bits */
-+	maccr &= (FTGMAC100_MACCR_FAST_MODE | FTGMAC100_MACCR_GIGA_MODE);
- 
--	case 100:
--		maccr |= FTGMAC100_MACCR_FAST_MODE;
--		break;
+-	status = ioread32(priv->base + FTGMAC100_OFFSET_ISR);
+-	iowrite32(status, priv->base + FTGMAC100_OFFSET_ISR);
 -
--	case 1000:
--		maccr |= FTGMAC100_MACCR_GIGA_MODE;
--		break;
+-	if (status & (FTGMAC100_INT_RPKT_BUF | FTGMAC100_INT_NO_RXBUF)) {
+-		/*
+-		 * FTGMAC100_INT_RPKT_BUF:
+-		 *	RX DMA has received packets into RX buffer successfully
+-		 *
+-		 * FTGMAC100_INT_NO_RXBUF:
+-		 *	RX buffer unavailable
+-		 */
+-		bool retry;
++	ftgmac100_tx_complete(priv);
+ 
+-		do {
+-			retry = ftgmac100_rx_packet(priv, &rx);
+-		} while (retry && rx < budget);
++	do {
++		more = ftgmac100_rx_packet(priv, &rx);
++	} while (more && rx < budget);
+ 
+-		if (retry && rx == budget)
+-			completed = false;
 -	}
-+	/* Add all the main enable bits */
-+	maccr |= FTGMAC100_MACCR_TXDMA_EN	|
-+		 FTGMAC100_MACCR_RXDMA_EN	|
-+		 FTGMAC100_MACCR_TXMAC_EN	|
-+		 FTGMAC100_MACCR_RXMAC_EN	|
-+		 FTGMAC100_MACCR_CRC_APD	|
-+		 FTGMAC100_MACCR_PHY_LINK_LEVEL	|
-+		 FTGMAC100_MACCR_RX_RUNT	|
-+		 FTGMAC100_MACCR_RX_BROADPKT;
++	if (more && rx == budget)
++		completed = false;
  
-+	/* Add other bits as needed */
- 	if (priv->cur_duplex == DUPLEX_FULL)
- 		maccr |= FTGMAC100_MACCR_FULLDUP;
- 
-+	/* Hit the HW */
- 	iowrite32(maccr, priv->base + FTGMAC100_OFFSET_MACCR);
- }
- 
-@@ -1154,7 +1184,7 @@ static void ftgmac100_reset_task(struct work_struct *work)
- 
- 	/* Stop and reset the MAC */
- 	ftgmac100_stop_hw(priv);
--	err = ftgmac100_reset_hw(priv);
-+	err = ftgmac100_reset_and_config_mac(priv);
- 	if (err) {
- 		/* Not much we can do ... it might come back... */
- 		netdev_err(netdev, "attempting to continue...\n");
-@@ -1163,12 +1193,6 @@ static void ftgmac100_reset_task(struct work_struct *work)
- 	/* Free all rx and tx buffers */
- 	ftgmac100_free_buffers(priv);
- 
--	/* The ring pointers have been reset in HW, reflect this here */
--	priv->rx_pointer = 0;
--	priv->tx_clean_pointer = 0;
--	priv->tx_pointer = 0;
--	priv->tx_pending = 0;
+-	if (status & (FTGMAC100_INT_XPKT_ETH | FTGMAC100_INT_XPKT_LOST)) {
+-		/*
+-		 * FTGMAC100_INT_XPKT_ETH:
+-		 *	packet transmitted to ethernet successfully
+-		 *
+-		 * FTGMAC100_INT_XPKT_LOST:
+-		 *	packet transmitted to ethernet lost due to late
+-		 *	collision or excessive collision
+-		 */
+-		ftgmac100_tx_complete(priv);
+-	}
 -
- 	/* Setup everything again and restart chip */
- 	ftgmac100_init_all(priv, true);
+-	if (status & priv->int_mask_all & (FTGMAC100_INT_NO_RXBUF |
+-			FTGMAC100_INT_RPKT_LOST | FTGMAC100_INT_AHB_ERR)) {
+-		if (net_ratelimit())
+-			netdev_info(netdev, "[ISR] = 0x%x: %s%s%s\n", status,
+-				    status & FTGMAC100_INT_NO_RXBUF ? "NO_RXBUF " : "",
+-				    status & FTGMAC100_INT_RPKT_LOST ? "RPKT_LOST " : "",
+-				    status & FTGMAC100_INT_AHB_ERR ? "AHB_ERR " : "");
  
-@@ -1207,12 +1231,8 @@ static int ftgmac100_open(struct net_device *netdev)
- 		priv->cur_speed = 0;
+-		if (status & FTGMAC100_INT_NO_RXBUF) {
+-			/* RX buffer unavailable */
+-			netdev->stats.rx_over_errors++;
+-		}
++	/* The interrupt is telling us to kick the MAC back to life
++	 * after an RX overflow
++	 */
++	if (unlikely(priv->need_mac_restart)) {
++		ftgmac100_start_hw(priv);
+ 
+-		if (status & FTGMAC100_INT_RPKT_LOST) {
+-			/* received packet lost due to RX FIFO full */
+-			netdev->stats.rx_fifo_errors++;
+-		}
++		/* Re-enable "bad" interrupts */
++		iowrite32(FTGMAC100_INT_BAD,
++			  priv->base + FTGMAC100_OFFSET_IER);
  	}
  
--	priv->rx_pointer = 0;
--	priv->tx_clean_pointer = 0;
--	priv->tx_pointer = 0;
--	priv->tx_pending = 0;
--
--	err = ftgmac100_reset_hw(priv);
-+	/* Reset the hardware */
-+	err = ftgmac100_reset_and_config_mac(priv);
- 	if (err)
- 		goto err_hw;
++	/* Keep NAPI going if we have still packets to reclaim */
++	if (priv->tx_pending)
++		return budget;
++
+ 	if (completed) {
++		/* We are about to re-enable all interrupts. However
++		 * the HW has been latching RX/TX packet interrupts while
++		 * they were masked. So we clear them first, then we need
++		 * to re-check if there's something to process
++		 */
++		iowrite32(FTGMAC100_INT_RXTX,
++			  priv->base + FTGMAC100_OFFSET_ISR);
++		if (ftgmac100_rxdes_packet_ready
++		    (ftgmac100_current_rxdes(priv)) || priv->tx_pending)
++			return budget;
++
++		/* deschedule NAPI */
+ 		napi_complete(napi);
  
+ 		/* enable all interrupts */
+-		iowrite32(priv->int_mask_all,
++		iowrite32(FTGMAC100_INT_ALL,
+ 			  priv->base + FTGMAC100_OFFSET_IER);
+ 	}
+ 
+@@ -1146,7 +1168,7 @@ static int ftgmac100_init_all(struct ftgmac100 *priv, bool ignore_alloc_err)
+ 	netif_start_queue(priv->netdev);
+ 
+ 	/* Enable all interrupts */
+-	iowrite32(priv->int_mask_all, priv->base + FTGMAC100_OFFSET_IER);
++	iowrite32(FTGMAC100_INT_ALL, priv->base + FTGMAC100_OFFSET_IER);
+ 
+ 	return err;
+ }
+@@ -1489,13 +1511,6 @@ static int ftgmac100_probe(struct platform_device *pdev)
+ 	/* MAC address from chip or random one */
+ 	ftgmac100_setup_mac(priv);
+ 
+-	priv->int_mask_all = (FTGMAC100_INT_RPKT_LOST |
+-			      FTGMAC100_INT_XPKT_ETH |
+-			      FTGMAC100_INT_XPKT_LOST |
+-			      FTGMAC100_INT_AHB_ERR |
+-			      FTGMAC100_INT_RPKT_BUF |
+-			      FTGMAC100_INT_NO_RXBUF);
+-
+ 	if (of_machine_is_compatible("aspeed,ast2400") ||
+ 	    of_machine_is_compatible("aspeed,ast2500")) {
+ 		priv->rxdes0_edorr_mask = BIT(30);
+diff --git a/drivers/net/ethernet/faraday/ftgmac100.h b/drivers/net/ethernet/faraday/ftgmac100.h
+index a7ce0ac..c4d5cc1 100644
+--- a/drivers/net/ethernet/faraday/ftgmac100.h
++++ b/drivers/net/ethernet/faraday/ftgmac100.h
+@@ -86,6 +86,20 @@
+ #define FTGMAC100_INT_PHYSTS_CHG	(1 << 9)
+ #define FTGMAC100_INT_NO_HPTXBUF	(1 << 10)
+ 
++/* Interrupts we care about in NAPI mode */
++#define FTGMAC100_INT_BAD  (FTGMAC100_INT_RPKT_LOST | \
++			    FTGMAC100_INT_XPKT_LOST | \
++			    FTGMAC100_INT_AHB_ERR   | \
++			    FTGMAC100_INT_NO_RXBUF)
++
++/* Normal RX/TX interrupts, enabled when NAPI off */
++#define FTGMAC100_INT_RXTX (FTGMAC100_INT_XPKT_ETH  | \
++			    FTGMAC100_INT_RPKT_BUF)
++
++/* All the interrupts we care about */
++#define FTGMAC100_INT_ALL (FTGMAC100_INT_RPKT_BUF  |  \
++			   FTGMAC100_INT_BAD)
++
+ /*
+  * Interrupt timer control register
+  */
 -- 
 2.9.3
