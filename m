@@ -1,37 +1,76 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 1/1] net: tcp: Define the TCP_MAX_WSCALE
- instead of literal number 14
-Date: Wed, 05 Apr 2017 07:51:53 -0700 (PDT)
-Message-ID: <20170405.075153.1383349918282920547.davem@davemloft.net>
-References: <1491311388-6393-1-git-send-email-gfree.wind@foxmail.com>
+From: Phil Sutter <phil@nwl.cc>
+Subject: Re: [PATCH iproute2] man: fix man page warnings
+Date: Wed, 5 Apr 2017 16:56:23 +0200
+Message-ID: <20170405145623.GN19768@orbyte.nwl.cc>
+References: <20170326191114.3756-1-alexander@alemayhu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, kaber@trash.net,
-        ncardwell@google.com, netdev@vger.kernel.org, fgao@ikuai8.com
-To: gfree.wind@foxmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, stephen@networkplumber.org
+To: Alexander Alemayhu <alexander@alemayhu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:42798 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755326AbdDEOv6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 5 Apr 2017 10:51:58 -0400
-In-Reply-To: <1491311388-6393-1-git-send-email-gfree.wind@foxmail.com>
+Received: from orbyte.nwl.cc ([151.80.46.58]:47667 "EHLO mail.nwl.cc"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754118AbdDEO4Z (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 5 Apr 2017 10:56:25 -0400
+Content-Disposition: inline
+In-Reply-To: <20170326191114.3756-1-alexander@alemayhu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: gfree.wind@foxmail.com
-Date: Tue,  4 Apr 2017 21:09:48 +0800
-
-> From: Gao Feng <fgao@ikuai8.com>
+On Sun, Mar 26, 2017 at 09:11:14PM +0200, Alexander Alemayhu wrote:
+> While generating PDFs from the man pages, I saw the warning below from
+> several files. Compared the tc-matchall.8 with bridge.8 and used .RI
+> instead of .R. It should have no effect on the man page rendering.
 > 
-> Define one new macro TCP_MAX_WSCALE instead of literal number '14',
-> and use U16_MAX instead of 65535 as the max value of TCP window.
-> There is another minor change, use rounddown(space, mss) instead of
-> (space / mss) * mss;
+>     `R' is a string (producing the registered sign), not a macro.
 > 
-> Signed-off-by: Gao Feng <fgao@ikuai8.com>
-> ---
->  v2: Correct the literal 14 in comment and log too, per Neal
->  v1: initial version
+> Signed-off-by: Alexander Alemayhu <alexander@alemayhu.com>
 
-Applied, thank you.
+I know this has been applied already, but let me get this straight:
+
+People using '.R' try to force "normal" font, like for every second
+parameter to '.IR' but in fact they could just leave the macro away
+since lines starting without any macro will get normal font settings
+anyway.
+
+With this in mind, I see better solutions for the changes in this patch:
+
+[...]
+> @@ -20,7 +20,7 @@ flower \- flow based traffic control filter
+>  .B indev
+>  .IR ifname " | "
+>  .BR skip_sw " | " skip_hw
+> -.R " | { "
+> +.RI " | { "
+
+Just merge this into previous line:
+
+|  .BR skip_sw " | " skip_hw " | {"
+
+Note the missing space at the end, as that comes for free anyway. :)
+
+[...]
+> @@ -13,7 +13,7 @@ IFE - encapsulate/decapsulate metadata
+>  .IR SMAC " ] "
+>  .RB "[ " type
+>  .IR TYPE " ] "
+> -.R "[ "
+> +.RI "[ "
+
+Same here:
+
+| .IR TYPE " ] ["
+
+[...]
+> @@ -7,7 +7,7 @@ matchall \- traffic control filter that matches every packet
+>  .ti -8
+>  .BR tc " " filter " ... " matchall " [ "
+>  .BR skip_sw " | " skip_hw
+> -.R " ] [ "
+> +.RI " ] [ "
+
+And here as well:
+
+|  .BR skip_sw " | " skip_hw " ] ["
+
+Cheers, Phil
