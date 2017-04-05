@@ -1,113 +1,46 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH 3/4] net: dsa: LAN9303: add I2C managed mode support
-Date: Wed, 5 Apr 2017 20:21:55 +0200
-Message-ID: <20170405182155.GF21965@lunn.ch>
-References: <20170405092024.16048-1-jbe@pengutronix.de>
- <20170405092024.16048-4-jbe@pengutronix.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        f.fainelli@gmail.com, kernel@pengutronix.de,
-        vivien.didelot@savoirfairelinux.com, davem@davemloft.net
-To: Juergen Borleis <jbe@pengutronix.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170405092024.16048-4-jbe@pengutronix.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Rob Herring <robh@kernel.org>
+Subject: [PATCH 0/4] TI Bluetooth serdev support
+Date: Wed,  5 Apr 2017 13:30:01 -0500
+Message-ID: <20170405183005.20570-1-robh@kernel.org>
+Cc: linux-arm-kernel@lists.infradead.org,
+        Gustavo Padovan <gustavo@padovan.org>,
+        Johan Hedberg <johan.hedberg@gmail.com>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Wei Xu <xuwei5@hisilicon.com>, Eyal Reizer <eyalr@ti.com>,
+        Satish Patel <satish.patel@linaro.org>, netdev@vger.kernel.org,
+        devicetree@vger.kernel.org
+To: Marcel Holtmann <marcel@holtmann.org>,
+        linux-bluetooth@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f67.google.com ([209.85.218.67]:35264 "EHLO
+        mail-oi0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933265AbdDESaI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 5 Apr 2017 14:30:08 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 05, 2017 at 11:20:23AM +0200, Juergen Borleis wrote:
-> In this mode the switch device and the internal phys will be managed via
-> I2C interface. The MDIO interface is still supported, but for the
-> (emulated) CPU port only.
-> 
-> Signed-off-by: Juergen Borleis <jbe@pengutronix.de>
-> ---
->  .../devicetree/bindings/net/dsa/lan9303.txt        |  74 ++++++++++++++
->  drivers/net/phy/Kconfig                            |  17 ++++
->  drivers/net/phy/Makefile                           |   5 +
->  drivers/net/phy/lan9303_i2c.c                      | 109 +++++++++++++++++++++
->  4 files changed, 205 insertions(+)
->  create mode 100644 Documentation/devicetree/bindings/net/dsa/lan9303.txt
->  create mode 100644 drivers/net/phy/lan9303_i2c.c
-> 
-> diff --git a/Documentation/devicetree/bindings/net/dsa/lan9303.txt b/Documentation/devicetree/bindings/net/dsa/lan9303.txt
-> new file mode 100644
-> index 0000000000000..2c8a466065a27
-> --- /dev/null
-> +++ b/Documentation/devicetree/bindings/net/dsa/lan9303.txt
-> @@ -0,0 +1,74 @@
-> +SMSC/MicroChip LAN9303 three port ethernet switch
-> +-------------------------------------------------
-> +
-> +Required properties:
-> +
-> +- compatible: should be "smsc,lan9303"
-> +- #size-cells: must be 0
-> +- #address-cells: must be 1
-> +
-> +Optional properties:
-> +
-> +- phy-reset-gpios: GPIO to be used to reset the whole device, always low active
-> +- phy-reset-duration: reset duration, defaults to 200 ms
+This series adds serdev support to the HCI LL protocol used on TI BT
+modules and enables support on HiKey board with with the WL1835 module.
+With this the custom TI UIM daemon and btattach are no longer needed.
 
-It is good to state the unit, ms.
+The series is available on this git branch[1]. Patch 2 is just clean-up
+and can be applied independently. Patch 3 is dependent on the series
+"Nokia H4+ support". I'd suggest both series are merged thru the BT tree.
 
-> +
-> +Subnodes:
-> +
-> +The integrated switch subnode should be specified according to the binding
-> +described in dsa/dsa.txt. The CPU port of this switch is always port 0.
-> +
-> +Example:
-> +
-> +I2C managed mode:
-> +
-> +	master: masterdevice@X {
-> +		phy-handle = <&ethphy>;
-> +		status = "okay";
-> +
-> +		mdio {
-> +			#address-cells = <1>;
-> +			#size-cells = <0>;
-> +
-> +			ethphy: ethernet-phy@0 {
-> +				compatible = "ethernet-phy-ieee802.3-c22";
-> +				reg = <0>;
-> +				max-speed = <100>;
-> +			};
+Rob
 
-If there is RMII between the CPU interface and the switch, why is this
-PHY needed?
+[1] git://git.kernel.org/pub/scm/linux/kernel/git/robh/linux.git ti-bluetooth
 
-> +		};
-> +
-> +	};
-> +
-> +	switch: switch@a {
-> +		compatible = "smsc,lan9303";
-> +		reg = <0xa>;
-> +		status = "okay";
-> +		interrupts-extended = <&gpio2 7 IRQ_TYPE_LEVEL_LOW>;
+Rob Herring (4):
+  dt-bindings: net: Add TI WiLink shared transport binding
+  bluetooth: hci_uart: remove unused hci_uart_init_tty
+  bluetooth: hci_uart: add LL protocol serdev driver support
+  arm64: dts: hikey: add WL1835 Bluetooth device node
 
-This interrupt is not in the binding documentation, or the code.
-
-> +		phy-reset-gpios = <&gpio7 6 GPIO_ACTIVE_LOW>;
-> +		phy-reset-duration = <200>;
-> +
-> +		dsa,member = <0 0>;
-> +
-> +		ports {
-> +			#address-cells = <1>;
-> +			#size-cells = <0>;
-> +
-> +			port@0 { /* RMII fixed link to master */
-> +				reg = <0>;
-> +				label = "cpu";
-> +				ethernet = <&master>;
-> +				max-speed = <100>;
-
-max-speed does not do anything i think, since there is no adjust_link
-function.
-
-	Andrew
+ .../devicetree/bindings/net/ti,wilink-st.txt       |  35 +++
+ arch/arm64/boot/dts/hisilicon/hi6220-hikey.dts     |   5 +
+ drivers/bluetooth/hci_ldisc.c                      |  19 --
+ drivers/bluetooth/hci_ll.c                         | 261 ++++++++++++++++++++-
+ drivers/bluetooth/hci_uart.h                       |   1 -
+ 5 files changed, 300 insertions(+), 21 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/net/ti,wilink-st.txt
