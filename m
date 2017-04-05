@@ -1,60 +1,116 @@
-From: Michal Hocko <mhocko@kernel.org>
-Subject: Re: [PATCH 4/4] mtd: nand: nandsim: convert to memalloc_noreclaim_*()
-Date: Wed, 5 Apr 2017 14:09:36 +0200
-Message-ID: <20170405120936.GN6035@dhcp22.suse.cz>
-References: <20170405074700.29871-1-vbabka@suse.cz>
- <20170405074700.29871-5-vbabka@suse.cz>
- <20170405113157.GM6035@dhcp22.suse.cz>
- <ee6649ed-b0e8-1c59-c193-d1688fdfe7f5@nod.at>
- <9b9d5bca-e125-e07b-b700-196cc800bbd7@suse.cz>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Richard Weinberger <richard@nod.at>,
-	Andrew Morton <akpm@linux-foundation.org>, linux-mm@kvack.org,
-	linux-kernel@vger.kernel.org,
-	Mel Gorman <mgorman@techsingularity.net>,
-	Johannes Weiner <hannes@cmpxchg.org>, linux-block@vger.kernel.org,
-	nbd-general@lists.sourceforge.net, open-iscsi@googlegroups.com,
-	linux-scsi@vger.kernel.org, netdev@vger.kernel.org,
-	Boris Brezillon <boris.brezillon@free-electrons.com>,
-	Adrian Hunter <adrian.hunter@intel.com>
-To: Vlastimil Babka <vbabka@suse.cz>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <9b9d5bca-e125-e07b-b700-196cc800bbd7@suse.cz>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+From: Oliver Neukum <oneukum@suse.com>
+Subject: [PATCH] usbnet: make sure no NULL pointer is passed through
+Date: Wed,  5 Apr 2017 14:14:39 +0200
+Message-ID: <20170405121439.22523-1-oneukum@suse.com>
+Cc: Oliver Neukum <oneukum@suse.com>
+To: stephen@networkplumber.org, davem@davemloft.net,
+        netdev@vger.kernel.org, bjorn@mork.no
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx2.suse.de ([195.135.220.15]:56456 "EHLO mx2.suse.de"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1755050AbdDEMPn (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 5 Apr 2017 08:15:43 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed 05-04-17 13:39:16, Vlastimil Babka wrote:
-> On 04/05/2017 01:36 PM, Richard Weinberger wrote:
-> > Michal,
-> > 
-> > Am 05.04.2017 um 13:31 schrieb Michal Hocko:
-> >> On Wed 05-04-17 09:47:00, Vlastimil Babka wrote:
-> >>> Nandsim has own functions set_memalloc() and clear_memalloc() for robust
-> >>> setting and clearing of PF_MEMALLOC. Replace them by the new generic helpers.
-> >>> No functional change.
-> >>
-> >> This one smells like an abuser. Why the hell should read/write path
-> >> touch memory reserves at all!
-> > 
-> > Could be. Let's ask Adrian, AFAIK he wrote that code.
-> > Adrian, can you please clarify why nandsim needs to play with PF_MEMALLOC?
-> 
-> I was thinking about it and concluded that since the simulator can be
-> used as a block device where reclaimed pages go to, writing the data out
-> is a memalloc operation. Then reading can be called as part of r-m-w
-> cycle, so reading as well. But it would be great if somebody more
-> knowledgeable confirmed this.
+Coverity reports:
 
-then this deserves a big fat comment explaining all the details,
-including how the complete depletion of reserves is prevented.
+** CID 751368:  Null pointer dereferences  (FORWARD_NULL)
+/drivers/net/usb/usbnet.c: 1925 in __usbnet_read_cmd()
+
+________________________________________________________________________________________________________
+*** CID 751368:  Null pointer dereferences  (FORWARD_NULL)
+/drivers/net/usb/usbnet.c: 1925 in __usbnet_read_cmd()
+1919     EXPORT_SYMBOL(usbnet_link_change);
+1920
+1921     /*-------------------------------------------------------------------------*/
+1922     static int __usbnet_read_cmd(struct usbnet *dev, u8 cmd, u8 reqtype,
+1923                                 u16 value, u16 index, void *data, u16 size)
+1924     {
+>>>     CID 751368:  Null pointer dereferences  (FORWARD_NULL)
+>>>     Assigning: "buf" = "NULL".
+1925            void *buf = NULL;
+1926            int err = -ENOMEM;
+1927
+1928            netdev_dbg(dev->net, "usbnet_read_cmd cmd=0x%02x reqtype=%02x"
+1929                       " value=0x%04x index=0x%04x size=%d\n",
+1930                       cmd, reqtype, value, index, size);
+
+** CID 751370:  Null pointer dereferences  (FORWARD_NULL)
+/drivers/net/usb/usbnet.c: 1952 in __usbnet_write_cmd()
+
+________________________________________________________________________________________________________
+*** CID 751370:  Null pointer dereferences  (FORWARD_NULL)
+/drivers/net/usb/usbnet.c: 1952 in __usbnet_write_cmd()
+1946     }
+1947
+1948     static int __usbnet_write_cmd(struct usbnet *dev, u8 cmd, u8 reqtype,
+1949                                  u16 value, u16 index, const void *data,
+1950                                  u16 size)
+1951     {
+>>>     CID 751370:  Null pointer dereferences  (FORWARD_NULL)
+>>>     Assigning: "buf" = "NULL".
+1952            void *buf = NULL;
+1953            int err = -ENOMEM;
+1954
+1955            netdev_dbg(dev->net, "usbnet_write_cmd cmd=0x%02x reqtype=%02x"
+1956                       " value=0x%04x index=0x%04x size=%d\n",
+1957                       cmd, reqtype, value, index, size);
+
+** CID 1325026:  Null pointer dereferences  (FORWARD_NULL)
+/drivers/net/usb/ch9200.c: 143 in control_write()
+
+It is valid to offer commands without a buffer, but then you need a size
+of zero. This should actually be checked.
+
+Signed-off-by: Oliver Neukum <oneukum@suse.com>
+---
+ drivers/net/usb/usbnet.c | 19 +++++++++++++++----
+ 1 file changed, 15 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+index 3de65ea..4532448 100644
+--- a/drivers/net/usb/usbnet.c
++++ b/drivers/net/usb/usbnet.c
+@@ -1929,7 +1929,7 @@ static int __usbnet_read_cmd(struct usbnet *dev, u8 cmd, u8 reqtype,
+ 		   " value=0x%04x index=0x%04x size=%d\n",
+ 		   cmd, reqtype, value, index, size);
+ 
+-	if (data) {
++	if (size) {
+ 		buf = kmalloc(size, GFP_KERNEL);
+ 		if (!buf)
+ 			goto out;
+@@ -1938,8 +1938,13 @@ static int __usbnet_read_cmd(struct usbnet *dev, u8 cmd, u8 reqtype,
+ 	err = usb_control_msg(dev->udev, usb_rcvctrlpipe(dev->udev, 0),
+ 			      cmd, reqtype, value, index, buf, size,
+ 			      USB_CTRL_GET_TIMEOUT);
+-	if (err > 0 && err <= size)
+-		memcpy(data, buf, err);
++	if (err > 0 && err <= size) {
++        if (data)
++            memcpy(data, buf, err);
++        else
++            netdev_dbg(dev->net,
++                "Huh? Data requested but thrown away.\n");
++    }
+ 	kfree(buf);
+ out:
+ 	return err;
+@@ -1960,7 +1965,13 @@ static int __usbnet_write_cmd(struct usbnet *dev, u8 cmd, u8 reqtype,
+ 		buf = kmemdup(data, size, GFP_KERNEL);
+ 		if (!buf)
+ 			goto out;
+-	}
++	} else {
++        if (size) {
++            WARN_ON_ONCE(1);
++            err = -EINVAL;
++            goto out;
++        }
++    }
+ 
+ 	err = usb_control_msg(dev->udev, usb_sndctrlpipe(dev->udev, 0),
+ 			      cmd, reqtype, value, index, buf, size,
 -- 
-Michal Hocko
-SUSE Labs
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+2.10.2
