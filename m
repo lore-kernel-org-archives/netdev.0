@@ -1,35 +1,85 @@
 From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: [PATCH v2 00/13] ftgmac100: Rework batch 1 - Link & Interrupts
-Date: Wed,  5 Apr 2017 12:28:40 +1000
-Message-ID: <20170405022853.8238-1-benh@kernel.crashing.org>
+Subject: [PATCH v2 01/13] ftgmac100: Use netdev->irq instead of private copy
+Date: Wed,  5 Apr 2017 12:28:41 +1000
+Message-ID: <20170405022853.8238-2-benh@kernel.crashing.org>
+References: <20170405022853.8238-1-benh@kernel.crashing.org>
+Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:48164 "EHLO gate.crashing.org"
+Received: from gate.crashing.org ([63.228.1.57]:48177 "EHLO gate.crashing.org"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751166AbdDEC3U (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 4 Apr 2017 22:29:20 -0400
-Received: from pasglop.ozlabs.ibm.com (localhost.localdomain [127.0.0.1])
-        by gate.crashing.org (8.14.1/8.13.8) with ESMTP id v352T5op018378
-        for <netdev@vger.kernel.org>; Tue, 4 Apr 2017 21:29:08 -0500
+        id S1754971AbdDEC3v (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 4 Apr 2017 22:29:51 -0400
+In-Reply-To: <20170405022853.8238-1-benh@kernel.crashing.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is version 2 of the first batch of updates to the
-ftgmac100 driver.
+There's a placeholder already for the irq, use it
 
-Essentially:
+Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+---
+ drivers/net/ethernet/faraday/ftgmac100.c | 13 ++++++-------
+ 1 file changed, 6 insertions(+), 7 deletions(-)
 
- - A few misc cleanups
- - Fixing link speed & duplex handling (including dealing with
-   an Aspeed requirement to double reset the controller when
-   the speed changes)
- - And addition of a reset task workqueue which will be used
-   for delaying the re-initialization of the controller
- - Fixing a number of issues with how interrupts and NAPI
-   are dealt with.
-
-Subsequent batches will rework and improve the rx path, the
-tx path, and add a bunch of features and fixes.
-
-Version 2 addresses some review comments to patches 5 and 10
-(see version history in the respective emails).
+diff --git a/drivers/net/ethernet/faraday/ftgmac100.c b/drivers/net/ethernet/faraday/ftgmac100.c
+index 928b0df..bf7b1c0 100644
+--- a/drivers/net/ethernet/faraday/ftgmac100.c
++++ b/drivers/net/ethernet/faraday/ftgmac100.c
+@@ -55,7 +55,6 @@ struct ftgmac100_descs {
+ struct ftgmac100 {
+ 	struct resource *res;
+ 	void __iomem *base;
+-	int irq;
+ 
+ 	struct ftgmac100_descs *descs;
+ 	dma_addr_t descs_dma_addr;
+@@ -1119,9 +1118,9 @@ static int ftgmac100_open(struct net_device *netdev)
+ 		goto err_alloc;
+ 	}
+ 
+-	err = request_irq(priv->irq, ftgmac100_interrupt, 0, netdev->name, netdev);
++	err = request_irq(netdev->irq, ftgmac100_interrupt, 0, netdev->name, netdev);
+ 	if (err) {
+-		netdev_err(netdev, "failed to request irq %d\n", priv->irq);
++		netdev_err(netdev, "failed to request irq %d\n", netdev->irq);
+ 		goto err_irq;
+ 	}
+ 
+@@ -1168,7 +1167,7 @@ static int ftgmac100_open(struct net_device *netdev)
+ 	netif_stop_queue(netdev);
+ 	iowrite32(0, priv->base + FTGMAC100_OFFSET_IER);
+ err_hw:
+-	free_irq(priv->irq, netdev);
++	free_irq(netdev->irq, netdev);
+ err_irq:
+ 	ftgmac100_free_buffers(priv);
+ err_alloc:
+@@ -1194,7 +1193,7 @@ static int ftgmac100_stop(struct net_device *netdev)
+ 		ncsi_stop_dev(priv->ndev);
+ 
+ 	ftgmac100_stop_hw(priv);
+-	free_irq(priv->irq, netdev);
++	free_irq(netdev->irq, netdev);
+ 	ftgmac100_free_buffers(priv);
+ 
+ 	return 0;
+@@ -1381,7 +1380,7 @@ static int ftgmac100_probe(struct platform_device *pdev)
+ 		goto err_ioremap;
+ 	}
+ 
+-	priv->irq = irq;
++	netdev->irq = irq;
+ 
+ 	/* MAC address from chip or random one */
+ 	ftgmac100_setup_mac(priv);
+@@ -1438,7 +1437,7 @@ static int ftgmac100_probe(struct platform_device *pdev)
+ 		goto err_register_netdev;
+ 	}
+ 
+-	netdev_info(netdev, "irq %d, mapped at %p\n", priv->irq, priv->base);
++	netdev_info(netdev, "irq %d, mapped at %p\n", netdev->irq, priv->base);
+ 
+ 	return 0;
+ 
+-- 
+2.9.3
