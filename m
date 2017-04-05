@@ -1,250 +1,51 @@
-From: David Howells <dhowells@redhat.com>
-Subject: [PATCH 19/38] Annotate hardware config module parameters in
- drivers/net/ethernet/
-Date: Wed, 05 Apr 2017 17:59:39 +0100
-Message-ID: <149141157961.29162.16197434822666566656.stgit@warthog.procyon.org.uk>
-References: <149141141298.29162.5612793122429261720.stgit@warthog.procyon.org.uk>
+From: Corentin Labbe <clabbe.montjoie@gmail.com>
+Subject: Re: [PATCH 0/4 v2 net-next] net: stmmac: adding multiple buffers
+Date: Wed, 5 Apr 2017 18:59:41 +0200
+Message-ID: <20170405165941.GA18568@Red>
+References: <cover.1491409859.git.jpinto@synopsys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: gnomes@lxorguk.ukuu.org.uk,
-        Steffen Klassert <klassert@mathematik.tu-chemnitz.de>,
-        linux-parisc@vger.kernel.org, netdev@vger.kernel.org,
-        Jaroslav Kysela <perex@perex.cz>, dhowells@redhat.com,
-        linux-security-module@vger.kernel.org, keyrings@vger.kernel.org,
-        gregkh@linuxfoundation.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <149141141298.29162.5612793122429261720.stgit@warthog.procyon.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, treding@nvidia.com, niklas.cassel@axis.com,
+        netdev@vger.kernel.org
+To: Joao Pinto <Joao.Pinto@synopsys.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f196.google.com ([209.85.128.196]:33720 "EHLO
+        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933058AbdDEQ7t (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 5 Apr 2017 12:59:49 -0400
+Received: by mail-wr0-f196.google.com with SMTP id g19so4408807wrb.0
+        for <netdev@vger.kernel.org>; Wed, 05 Apr 2017 09:59:48 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <cover.1491409859.git.jpinto@synopsys.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When the kernel is running in secure boot mode, we lock down the kernel to
-prevent userspace from modifying the running kernel image.  Whilst this
-includes prohibiting access to things like /dev/mem, it must also prevent
-access by means of configuring driver modules in such a way as to cause a
-device to access or modify the kernel image.
+On Wed, Apr 05, 2017 at 05:43:00PM +0100, Joao Pinto wrote:
+> This patch adds multiple buffers to stmmac in a more fragmented
+> way, in order to make problem debug easier.
+> 
+> I would kindly request to people to test this patch in their HWs in
+> order to check if everything's functional. Thank you.
+> 
+> Joao Pinto (4):
+>   net: stmmac: break some functions into RX and TX scopes
+>   net: stmmac: adding multiple buffers for RX
+>   net: stmmac: adding multiple buffers for TX
+>   net: stmmac: adding multiple napi mechanism
+> 
+>  drivers/net/ethernet/stmicro/stmmac/chain_mode.c  |   45 +-
+>  drivers/net/ethernet/stmicro/stmmac/ring_mode.c   |   46 +-
+>  drivers/net/ethernet/stmicro/stmmac/stmmac.h      |   49 +-
+>  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 1257 ++++++++++++++-------
+>  4 files changed, 947 insertions(+), 450 deletions(-)
+> 
+> -- 
+> 2.9.3
+> 
 
-To this end, annotate module_param* statements that refer to hardware
-configuration and indicate for future reference what type of parameter they
-specify.  The parameter parser in the core sees this information and can
-skip such parameters with an error message if the kernel is locked down.
-The module initialisation then runs as normal, but just sees whatever the
-default values for those parameters is.
+Hello
 
-Note that we do still need to do the module initialisation because some
-drivers have viable defaults set in case parameters aren't specified and
-some drivers support automatic configuration (e.g. PNP or PCI) in addition
-to manually coded parameters.
+I have tested v1 and didn't hit any issue on dwmac-sunxi/dwmac-sun8i.
+I will test the v2 and send just after my tested-by
 
-This patch annotates drivers in drivers/net/ethernet/.
-
-Suggested-by: Alan Cox <gnomes@lxorguk.ukuu.org.uk>
-Signed-off-by: David Howells <dhowells@redhat.com>
-cc: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
-cc: Jaroslav Kysela <perex@perex.cz>
-cc: netdev@vger.kernel.org
-cc: linux-parisc@vger.kernel.org
----
-
- drivers/net/ethernet/3com/3c509.c      |    2 +-
- drivers/net/ethernet/3com/3c59x.c      |    4 ++--
- drivers/net/ethernet/8390/ne.c         |    4 ++--
- drivers/net/ethernet/8390/smc-ultra.c  |    4 ++--
- drivers/net/ethernet/8390/wd.c         |    8 ++++----
- drivers/net/ethernet/amd/lance.c       |    6 +++---
- drivers/net/ethernet/amd/ni65.c        |    6 +++---
- drivers/net/ethernet/cirrus/cs89x0.c   |    6 +++---
- drivers/net/ethernet/dec/tulip/de4x5.c |    2 +-
- drivers/net/ethernet/hp/hp100.c        |    2 +-
- drivers/net/ethernet/realtek/atp.c     |    4 ++--
- drivers/net/ethernet/smsc/smc9194.c    |    4 ++--
- 12 files changed, 26 insertions(+), 26 deletions(-)
-
-diff --git a/drivers/net/ethernet/3com/3c509.c b/drivers/net/ethernet/3com/3c509.c
-index c7f9f2c77da7..db8592d412ab 100644
---- a/drivers/net/ethernet/3com/3c509.c
-+++ b/drivers/net/ethernet/3com/3c509.c
-@@ -1371,7 +1371,7 @@ el3_resume(struct device *pdev)
- #endif /* CONFIG_PM */
- 
- module_param(debug,int, 0);
--module_param_array(irq, int, NULL, 0);
-+module_param_hw_array(irq, int, irq, NULL, 0);
- module_param(max_interrupt_work, int, 0);
- MODULE_PARM_DESC(debug, "debug level (0-6)");
- MODULE_PARM_DESC(irq, "IRQ number(s) (assigned)");
-diff --git a/drivers/net/ethernet/3com/3c59x.c b/drivers/net/ethernet/3com/3c59x.c
-index 40196f41768a..e41245a54f8b 100644
---- a/drivers/net/ethernet/3com/3c59x.c
-+++ b/drivers/net/ethernet/3com/3c59x.c
-@@ -813,8 +813,8 @@ module_param(global_enable_wol, int, 0);
- module_param_array(enable_wol, int, NULL, 0);
- module_param(rx_copybreak, int, 0);
- module_param(max_interrupt_work, int, 0);
--module_param(compaq_ioaddr, int, 0);
--module_param(compaq_irq, int, 0);
-+module_param_hw(compaq_ioaddr, int, ioport, 0);
-+module_param_hw(compaq_irq, int, irq, 0);
- module_param(compaq_device_id, int, 0);
- module_param(watchdog, int, 0);
- module_param(global_use_mmio, int, 0);
-diff --git a/drivers/net/ethernet/8390/ne.c b/drivers/net/ethernet/8390/ne.c
-index c063b410a163..66f47987e2a2 100644
---- a/drivers/net/ethernet/8390/ne.c
-+++ b/drivers/net/ethernet/8390/ne.c
-@@ -74,8 +74,8 @@ static int bad[MAX_NE_CARDS];
- static u32 ne_msg_enable;
- 
- #ifdef MODULE
--module_param_array(io, int, NULL, 0);
--module_param_array(irq, int, NULL, 0);
-+module_param_hw_array(io, int, ioport, NULL, 0);
-+module_param_hw_array(irq, int, irq, NULL, 0);
- module_param_array(bad, int, NULL, 0);
- module_param_named(msg_enable, ne_msg_enable, uint, (S_IRUSR|S_IRGRP|S_IROTH));
- MODULE_PARM_DESC(io, "I/O base address(es),required");
-diff --git a/drivers/net/ethernet/8390/smc-ultra.c b/drivers/net/ethernet/8390/smc-ultra.c
-index 364b6514f65f..4e02f6a23575 100644
---- a/drivers/net/ethernet/8390/smc-ultra.c
-+++ b/drivers/net/ethernet/8390/smc-ultra.c
-@@ -561,8 +561,8 @@ static struct net_device *dev_ultra[MAX_ULTRA_CARDS];
- static int io[MAX_ULTRA_CARDS];
- static int irq[MAX_ULTRA_CARDS];
- 
--module_param_array(io, int, NULL, 0);
--module_param_array(irq, int, NULL, 0);
-+module_param_hw_array(io, int, ioport, NULL, 0);
-+module_param_hw_array(irq, int, irq, NULL, 0);
- module_param_named(msg_enable, ultra_msg_enable, uint, (S_IRUSR|S_IRGRP|S_IROTH));
- MODULE_PARM_DESC(io, "I/O base address(es)");
- MODULE_PARM_DESC(irq, "IRQ number(s) (assigned)");
-diff --git a/drivers/net/ethernet/8390/wd.c b/drivers/net/ethernet/8390/wd.c
-index ad019cbc698f..6efa2722f850 100644
---- a/drivers/net/ethernet/8390/wd.c
-+++ b/drivers/net/ethernet/8390/wd.c
-@@ -503,10 +503,10 @@ static int irq[MAX_WD_CARDS];
- static int mem[MAX_WD_CARDS];
- static int mem_end[MAX_WD_CARDS];	/* for non std. mem size */
- 
--module_param_array(io, int, NULL, 0);
--module_param_array(irq, int, NULL, 0);
--module_param_array(mem, int, NULL, 0);
--module_param_array(mem_end, int, NULL, 0);
-+module_param_hw_array(io, int, ioport, NULL, 0);
-+module_param_hw_array(irq, int, irq, NULL, 0);
-+module_param_hw_array(mem, int, iomem, NULL, 0);
-+module_param_hw_array(mem_end, int, iomem, NULL, 0);
- module_param_named(msg_enable, wd_msg_enable, uint, (S_IRUSR|S_IRGRP|S_IROTH));
- MODULE_PARM_DESC(io, "I/O base address(es)");
- MODULE_PARM_DESC(irq, "IRQ number(s) (ignored for PureData boards)");
-diff --git a/drivers/net/ethernet/amd/lance.c b/drivers/net/ethernet/amd/lance.c
-index 61a641f23149..12a6a93d221b 100644
---- a/drivers/net/ethernet/amd/lance.c
-+++ b/drivers/net/ethernet/amd/lance.c
-@@ -318,9 +318,9 @@ static int io[MAX_CARDS];
- static int dma[MAX_CARDS];
- static int irq[MAX_CARDS];
- 
--module_param_array(io, int, NULL, 0);
--module_param_array(dma, int, NULL, 0);
--module_param_array(irq, int, NULL, 0);
-+module_param_hw_array(io, int, ioport, NULL, 0);
-+module_param_hw_array(dma, int, dma, NULL, 0);
-+module_param_hw_array(irq, int, irq, NULL, 0);
- module_param(lance_debug, int, 0);
- MODULE_PARM_DESC(io, "LANCE/PCnet I/O base address(es),required");
- MODULE_PARM_DESC(dma, "LANCE/PCnet ISA DMA channel (ignored for some devices)");
-diff --git a/drivers/net/ethernet/amd/ni65.c b/drivers/net/ethernet/amd/ni65.c
-index 5985bf220a8d..e248d1ab3e47 100644
---- a/drivers/net/ethernet/amd/ni65.c
-+++ b/drivers/net/ethernet/amd/ni65.c
-@@ -1227,9 +1227,9 @@ static void set_multicast_list(struct net_device *dev)
- #ifdef MODULE
- static struct net_device *dev_ni65;
- 
--module_param(irq, int, 0);
--module_param(io, int, 0);
--module_param(dma, int, 0);
-+module_param_hw(irq, int, irq, 0);
-+module_param_hw(io, int, ioport, 0);
-+module_param_hw(dma, int, dma, 0);
- MODULE_PARM_DESC(irq, "ni6510 IRQ number (ignored for some cards)");
- MODULE_PARM_DESC(io, "ni6510 I/O base address");
- MODULE_PARM_DESC(dma, "ni6510 ISA DMA channel (ignored for some cards)");
-diff --git a/drivers/net/ethernet/cirrus/cs89x0.c b/drivers/net/ethernet/cirrus/cs89x0.c
-index 3647b28e8de0..8f660d9761cc 100644
---- a/drivers/net/ethernet/cirrus/cs89x0.c
-+++ b/drivers/net/ethernet/cirrus/cs89x0.c
-@@ -1704,12 +1704,12 @@ static int use_dma;			/* These generate unused var warnings if ALLOW_DMA = 0 */
- static int dma;
- static int dmasize = 16;		/* or 64 */
- 
--module_param(io, int, 0);
--module_param(irq, int, 0);
-+module_param_hw(io, int, ioport, 0);
-+module_param_hw(irq, int, irq, 0);
- module_param(debug, int, 0);
- module_param_string(media, media, sizeof(media), 0);
- module_param(duplex, int, 0);
--module_param(dma , int, 0);
-+module_param_hw(dma , int, dma, 0);
- module_param(dmasize , int, 0);
- module_param(use_dma , int, 0);
- MODULE_PARM_DESC(io, "cs89x0 I/O base address");
-diff --git a/drivers/net/ethernet/dec/tulip/de4x5.c b/drivers/net/ethernet/dec/tulip/de4x5.c
-index df4a871df633..fd6bcf024729 100644
---- a/drivers/net/ethernet/dec/tulip/de4x5.c
-+++ b/drivers/net/ethernet/dec/tulip/de4x5.c
-@@ -1015,7 +1015,7 @@ static int     compact_infoblock(struct net_device *dev, u_char count, u_char *p
- 
- static int io=0x0;/* EDIT THIS LINE FOR YOUR CONFIGURATION IF NEEDED        */
- 
--module_param(io, int, 0);
-+module_param_hw(io, int, ioport, 0);
- module_param(de4x5_debug, int, 0);
- module_param(dec_only, int, 0);
- module_param(args, charp, 0);
-diff --git a/drivers/net/ethernet/hp/hp100.c b/drivers/net/ethernet/hp/hp100.c
-index 1a31bee6e728..5673b071e39d 100644
---- a/drivers/net/ethernet/hp/hp100.c
-+++ b/drivers/net/ethernet/hp/hp100.c
-@@ -2966,7 +2966,7 @@ MODULE_DESCRIPTION("HP CASCADE Architecture Driver for 100VG-AnyLan Network Adap
- #define HP100_DEVICES 5
- /* Parameters set by insmod */
- static int hp100_port[HP100_DEVICES] = { 0, [1 ... (HP100_DEVICES-1)] = -1 };
--module_param_array(hp100_port, int, NULL, 0);
-+module_param_hw_array(hp100_port, int, ioport, NULL, 0);
- 
- /* List of devices */
- static struct net_device *hp100_devlist[HP100_DEVICES];
-diff --git a/drivers/net/ethernet/realtek/atp.c b/drivers/net/ethernet/realtek/atp.c
-index 9bcd4aefc9c5..bed34684994f 100644
---- a/drivers/net/ethernet/realtek/atp.c
-+++ b/drivers/net/ethernet/realtek/atp.c
-@@ -151,8 +151,8 @@ MODULE_LICENSE("GPL");
- 
- module_param(max_interrupt_work, int, 0);
- module_param(debug, int, 0);
--module_param_array(io, int, NULL, 0);
--module_param_array(irq, int, NULL, 0);
-+module_param_hw_array(io, int, ioport, NULL, 0);
-+module_param_hw_array(irq, int, irq, NULL, 0);
- module_param_array(xcvr, int, NULL, 0);
- MODULE_PARM_DESC(max_interrupt_work, "ATP maximum events handled per interrupt");
- MODULE_PARM_DESC(debug, "ATP debug level (0-7)");
-diff --git a/drivers/net/ethernet/smsc/smc9194.c b/drivers/net/ethernet/smsc/smc9194.c
-index c8d84679ede7..d3bb2ba51f40 100644
---- a/drivers/net/ethernet/smsc/smc9194.c
-+++ b/drivers/net/ethernet/smsc/smc9194.c
-@@ -1501,8 +1501,8 @@ static void smc_set_multicast_list(struct net_device *dev)
- static struct net_device *devSMC9194;
- MODULE_LICENSE("GPL");
- 
--module_param(io, int, 0);
--module_param(irq, int, 0);
-+module_param_hw(io, int, ioport, 0);
-+module_param_hw(irq, int, irq, 0);
- module_param(ifport, int, 0);
- MODULE_PARM_DESC(io, "SMC 99194 I/O base address");
- MODULE_PARM_DESC(irq, "SMC 99194 IRQ number");
+Regards
