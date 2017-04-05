@@ -1,23 +1,22 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH 17/38] Annotate hardware config module parameters in
- drivers/net/arcnet/
-Date: Wed, 05 Apr 2017 17:59:20 +0100
-Message-ID: <149141156063.29162.4949170505066525435.stgit@warthog.procyon.org.uk>
+Subject: [PATCH 12/38] Annotate hardware config module parameters in
+ drivers/isdn/
+Date: Wed, 05 Apr 2017 17:58:33 +0100
+Message-ID: <149141151320.29162.4938996321799823419.stgit@warthog.procyon.org.uk>
 References: <149141141298.29162.5612793122429261720.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: gnomes@lxorguk.ukuu.org.uk,
-        Michael Grzeschik <m.grzeschik@pengutronix.de>,
+Cc: gnomes@lxorguk.ukuu.org.uk, Karsten Keil <isdn@linux-pingi.de>,
         netdev@vger.kernel.org, dhowells@redhat.com,
         linux-security-module@vger.kernel.org, keyrings@vger.kernel.org,
         gregkh@linuxfoundation.org
 To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:45054 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:43888 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751712AbdDEQ70 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 5 Apr 2017 12:59:26 -0400
+        id S1753899AbdDEQ6g (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 5 Apr 2017 12:58:36 -0400
 In-Reply-To: <149141141298.29162.5612793122429261720.stgit@warthog.procyon.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -40,61 +39,69 @@ drivers have viable defaults set in case parameters aren't specified and
 some drivers support automatic configuration (e.g. PNP or PCI) in addition
 to manually coded parameters.
 
-This patch annotates drivers in drivers/net/arcnet/.
+This patch annotates drivers in drivers/isdn/.
 
 Suggested-by: Alan Cox <gnomes@lxorguk.ukuu.org.uk>
 Signed-off-by: David Howells <dhowells@redhat.com>
-cc: Michael Grzeschik <m.grzeschik@pengutronix.de>
+cc: Karsten Keil <isdn@linux-pingi.de>
 cc: netdev@vger.kernel.org
 ---
 
- drivers/net/arcnet/com20020-isa.c |    4 ++--
- drivers/net/arcnet/com90io.c      |    4 ++--
- drivers/net/arcnet/com90xx.c      |    4 ++--
- 3 files changed, 6 insertions(+), 6 deletions(-)
+ drivers/isdn/hardware/avm/b1isa.c |    4 ++--
+ drivers/isdn/hardware/avm/t1isa.c |    4 ++--
+ drivers/isdn/hisax/config.c       |   10 +++++-----
+ 3 files changed, 9 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/arcnet/com20020-isa.c b/drivers/net/arcnet/com20020-isa.c
-index b9e9931353b2..38fa60ddaf2e 100644
---- a/drivers/net/arcnet/com20020-isa.c
-+++ b/drivers/net/arcnet/com20020-isa.c
-@@ -129,8 +129,8 @@ static int clockp = 0;
- static int clockm = 0;
+diff --git a/drivers/isdn/hardware/avm/b1isa.c b/drivers/isdn/hardware/avm/b1isa.c
+index 31ef8130a87f..54e871a47387 100644
+--- a/drivers/isdn/hardware/avm/b1isa.c
++++ b/drivers/isdn/hardware/avm/b1isa.c
+@@ -169,8 +169,8 @@ static struct pci_dev isa_dev[MAX_CARDS];
+ static int io[MAX_CARDS];
+ static int irq[MAX_CARDS];
  
- module_param(node, int, 0);
--module_param(io, int, 0);
--module_param(irq, int, 0);
-+module_param_hw(io, int, ioport, 0);
-+module_param_hw(irq, int, irq, 0);
- module_param_string(device, device, sizeof(device), 0);
- module_param(timeout, int, 0);
- module_param(backplane, int, 0);
-diff --git a/drivers/net/arcnet/com90io.c b/drivers/net/arcnet/com90io.c
-index b57863df5bf5..4e56aaf2b984 100644
---- a/drivers/net/arcnet/com90io.c
-+++ b/drivers/net/arcnet/com90io.c
-@@ -347,8 +347,8 @@ static int io;			/* use the insmod io= irq= shmem= options */
- static int irq;
- static char device[9];		/* use eg. device=arc1 to change name */
+-module_param_array(io, int, NULL, 0);
+-module_param_array(irq, int, NULL, 0);
++module_param_hw_array(io, int, ioport, NULL, 0);
++module_param_hw_array(irq, int, irq, NULL, 0);
+ MODULE_PARM_DESC(io, "I/O base address(es)");
+ MODULE_PARM_DESC(irq, "IRQ number(s) (assigned)");
  
--module_param(io, int, 0);
--module_param(irq, int, 0);
-+module_param_hw(io, int, ioport, 0);
-+module_param_hw(irq, int, irq, 0);
- module_param_string(device, device, sizeof(device), 0);
+diff --git a/drivers/isdn/hardware/avm/t1isa.c b/drivers/isdn/hardware/avm/t1isa.c
+index 72ef18853951..9516203c735f 100644
+--- a/drivers/isdn/hardware/avm/t1isa.c
++++ b/drivers/isdn/hardware/avm/t1isa.c
+@@ -516,8 +516,8 @@ static int io[MAX_CARDS];
+ static int irq[MAX_CARDS];
+ static int cardnr[MAX_CARDS];
+ 
+-module_param_array(io, int, NULL, 0);
+-module_param_array(irq, int, NULL, 0);
++module_param_hw_array(io, int, ioport, NULL, 0);
++module_param_hw_array(irq, int, irq, NULL, 0);
+ module_param_array(cardnr, int, NULL, 0);
+ MODULE_PARM_DESC(io, "I/O base address(es)");
+ MODULE_PARM_DESC(irq, "IRQ number(s) (assigned)");
+diff --git a/drivers/isdn/hisax/config.c b/drivers/isdn/hisax/config.c
+index 2d12c6ceeb89..c7d68675b028 100644
+--- a/drivers/isdn/hisax/config.c
++++ b/drivers/isdn/hisax/config.c
+@@ -350,13 +350,13 @@ MODULE_AUTHOR("Karsten Keil");
  MODULE_LICENSE("GPL");
- 
-diff --git a/drivers/net/arcnet/com90xx.c b/drivers/net/arcnet/com90xx.c
-index 81f90c4703ae..ca4a57c30bf8 100644
---- a/drivers/net/arcnet/com90xx.c
-+++ b/drivers/net/arcnet/com90xx.c
-@@ -88,8 +88,8 @@ static int irq;
- static int shmem;
- static char device[9];		/* use eg. device=arc1 to change name */
- 
--module_param(io, int, 0);
--module_param(irq, int, 0);
-+module_param_hw(io, int, ioport, 0);
-+module_param_hw(irq, int, irq, 0);
- module_param(shmem, int, 0);
- module_param_string(device, device, sizeof(device), 0);
+ module_param_array(type, int, NULL, 0);
+ module_param_array(protocol, int, NULL, 0);
+-module_param_array(io, int, NULL, 0);
+-module_param_array(irq, int, NULL, 0);
+-module_param_array(mem, int, NULL, 0);
++module_param_hw_array(io, int, ioport, NULL, 0);
++module_param_hw_array(irq, int, irq, NULL, 0);
++module_param_hw_array(mem, int, iomem, NULL, 0);
+ module_param(id, charp, 0);
+ #ifdef IO0_IO1
+-module_param_array(io0, int, NULL, 0);
+-module_param_array(io1, int, NULL, 0);
++module_param_hw_array(io0, int, ioport, NULL, 0);
++module_param_hw_array(io1, int, ioport, NULL, 0);
+ #endif
+ #endif /* MODULE */
  
