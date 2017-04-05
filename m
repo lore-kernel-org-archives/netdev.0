@@ -1,61 +1,322 @@
-From: Mel Gorman <mgorman@techsingularity.net>
-Subject: Re: in_irq_or_nmi() and RFC patch
-Date: Wed, 5 Apr 2017 09:53:52 +0100
-Message-ID: <20170405085352.52rb3k34omndei63@techsingularity.net>
-References: <20170327165817.GA28494@bombadil.infradead.org>
- <20170329081219.lto7t4fwmponokzh@hirez.programming.kicks-ass.net>
- <20170329105928.609bc581@redhat.com>
- <20170329091949.o2kozhhdnszgwvtn@hirez.programming.kicks-ass.net>
- <20170329181226.GA8256@bombadil.infradead.org>
- <20170329211144.3e362ac9@redhat.com>
- <20170329214441.08332799@redhat.com>
- <20170330130436.l37yazbxlrkvcbf3@techsingularity.net>
- <20170330170708.084bd16c@redhat.com>
- <20170403120506.y7z3cncyi65bcgen@techsingularity.net>
+From: Joao Pinto <Joao.Pinto@synopsys.com>
+Subject: Re: [PATCH 1/4] net: stmmac: break some functions into RX and TX
+ scopes
+Date: Wed, 5 Apr 2017 10:04:49 +0100
+Message-ID: <7e59e74a-5cae-59fa-3959-07afac35af2e@synopsys.com>
+References: <cover.1491327063.git.jpinto@synopsys.com>
+ <433505e9e631db632be7a37a316a03ace802863c.1491328304.git.jpinto@synopsys.com>
+ <20170404185735.GA24271@ulmo.ba.sec>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Cc: Matthew Wilcox <willy@infradead.org>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Pankaj Gupta <pagupta@redhat.com>,
-	Tariq Toukan <ttoukan.linux@gmail.com>,
-	Tariq Toukan <tariqt@mellanox.com>, netdev@vger.kernel.org,
-	akpm@linux-foundation.org, linux-mm <linux-mm@kvack.org>,
-	Saeed Mahameed <saeedm@mellanox.com>, linux-kernel@vger.kernel.org
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20170403120506.y7z3cncyi65bcgen@techsingularity.net>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 8bit
+Cc: <davem@davemloft.net>, <clabbe.montjoie@gmail.com>,
+        <niklas.cassel@axis.com>, <netdev@vger.kernel.org>
+To: Thierry Reding <treding@nvidia.com>,
+        Joao Pinto <Joao.Pinto@synopsys.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtprelay2.synopsys.com ([198.182.60.111]:36901 "EHLO
+        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932733AbdDEJFF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 5 Apr 2017 05:05:05 -0400
+In-Reply-To: <20170404185735.GA24271@ulmo.ba.sec>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 03, 2017 at 01:05:06PM +0100, Mel Gorman wrote:
-> > Started performance benchmarking:
-> >  163 cycles = current state
-> >  183 cycles = with BH disable + in_irq
-> >  218 cycles = with BH disable + in_irq + irqs_disabled
-> > 
-> > Thus, the performance numbers unfortunately looks bad, once we add the
-> > test for irqs_disabled().  The slowdown by replacing preempt_disable
-> > with BH-disable is still a win (we saved 29 cycles before, and loose
-> > 20, I was expecting regression to be only 10 cycles).
-> > 
+
+Hi Thierry,
+
+Às 7:57 PM de 4/4/2017, Thierry Reding escreveu:
+> On Tue, Apr 04, 2017 at 06:54:24PM +0100, Joao Pinto wrote:
+>> This patch breaks several functions into RX and TX scopes, which
+>> will be useful when adding multiple buffers mechanism.
+>>
+>> Signed-off-by: Joao Pinto <jpinto@synopsys.com>
+>> ---
+>>  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 350 +++++++++++++++++-----
+>>  1 file changed, 268 insertions(+), 82 deletions(-)
 > 
-> This surprises me because I'm not seeing the same severity of problems
-> with irqs_disabled. Your path is slower than what's currently upstream
-> but it's still far better than a revert. The softirq column in the
-> middle is your patch versus a full revert which is the last columnm
+> A couple of small nits below.
+> 
+>> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> [...]
+>> @@ -924,16 +941,16 @@ static int stmmac_set_bfsize(int mtu, int bufsize)
+>>  }
+>>  
+>>  /**
+>> - * stmmac_clear_descriptors - clear descriptors
+>> + * stmmac_clear_rx_descriptors - clear RX descriptors
+>>   * @priv: driver private structure
+>> - * Description: this function is called to clear the tx and rx descriptors
+>> + * Description: this function is called to clear the rx descriptors
+> 
+> You seem to be transitioning to "RX" and "TX" everywhere, maybe do the
+> same in this comment for consistency?
+> 
+> Also, on a general note: there's no need for "Description:" here. The
+> kerneldoc format mandates that you leave a blank line after the block
+> of parameter descriptions, and the paragraph that follows becomes the
+> description. I know that these are static functions and are therefore
+> not parsed by kerneldoc, but since you already use the syntax anyway,
+> you might as well get it right.
+> 
+>>   * in case of both basic and extended descriptors are used.
+>>   */
+>> -static void stmmac_clear_descriptors(struct stmmac_priv *priv)
+>> +static void stmmac_clear_rx_descriptors(struct stmmac_priv *priv)
+>>  {
+>>  	int i;
+> 
+> This could be unsigned.
+> 
+>>  
+>> -	/* Clear the Rx/Tx descriptors */
+>> +	/* Clear the RX descriptors */
+>>  	for (i = 0; i < DMA_RX_SIZE; i++)
+>>  		if (priv->extend_desc)
+>>  			priv->hw->desc->init_rx_desc(&priv->dma_erx[i].basic,
+>> @@ -943,6 +960,19 @@ static void stmmac_clear_descriptors(struct stmmac_priv *priv)
+>>  			priv->hw->desc->init_rx_desc(&priv->dma_rx[i],
+>>  						     priv->use_riwt, priv->mode,
+>>  						     (i == DMA_RX_SIZE - 1));
+>> +}
+>> +
+>> +/**
+>> + * stmmac_clear_tx_descriptors - clear tx descriptors
+>> + * @priv: driver private structure
+>> + * Description: this function is called to clear the tx descriptors
+>> + * in case of both basic and extended descriptors are used.
+>> + */
+>> +static void stmmac_clear_tx_descriptors(struct stmmac_priv *priv)
+>> +{
+>> +	int i;
+> 
+> Same here. There are a couple of other such occurrences throughout the
+> file. This already exists in many places in the driver, so I don't think
+> this needs to be changed. Or at least it could be a follow-up patch.
+> 
+>> +
+>> +	/* Clear the TX descriptors */
+>>  	for (i = 0; i < DMA_TX_SIZE; i++)
+>>  		if (priv->extend_desc)
+>>  			priv->hw->desc->init_tx_desc(&priv->dma_etx[i].basic,
+>> @@ -955,6 +985,21 @@ static void stmmac_clear_descriptors(struct stmmac_priv *priv)
+>>  }
+>>  
+>>  /**
+>> + * stmmac_clear_descriptors - clear descriptors
+>> + * @priv: driver private structure
+>> + * Description: this function is called to clear the tx and rx descriptors
+>> + * in case of both basic and extended descriptors are used.
+>> + */
+>> +static void stmmac_clear_descriptors(struct stmmac_priv *priv)
+>> +{
+>> +	/* Clear the RX descriptors */
+>> +	stmmac_clear_rx_descriptors(priv);
+>> +
+>> +	/* Clear the TX descriptors */
+>> +	stmmac_clear_tx_descriptors(priv);
+>> +}
+>> +
+>> +/**
+>>   * stmmac_init_rx_buffers - init the RX descriptor buffer.
+>>   * @priv: driver private structure
+>>   * @p: descriptor pointer
+>> @@ -996,6 +1041,11 @@ static int stmmac_init_rx_buffers(struct stmmac_priv *priv, struct dma_desc *p,
+>>  	return 0;
+>>  }
+>>  
+>> +/**
+>> + * stmmac_free_rx_buffers - free RX dma buffers
+>> + * @priv: private structure
+>> + * @i: buffer index.
+> 
+> If this operates on a single buffer, as specified by the buffer index,
+> maybe this should be named singular stmmac_free_rx_buffer()?
+> 
+>> + */
+>>  static void stmmac_free_rx_buffers(struct stmmac_priv *priv, int i)
+> 
+> The index could be unsigned.
+> 
+>>  {
+>>  	if (priv->rx_skbuff[i]) {
+>> @@ -1007,14 +1057,42 @@ static void stmmac_free_rx_buffers(struct stmmac_priv *priv, int i)
+>>  }
+>>  
+>>  /**
+>> - * init_dma_desc_rings - init the RX/TX descriptor rings
+>> + * stmmac_free_tx_buffers - free RX dma buffers
+>> + * @priv: private structure
+>> + * @i: buffer index.
+>> + */
+>> +static void stmmac_free_tx_buffers(struct stmmac_priv *priv, int i)
+>> +{
+>> +	if (priv->tx_skbuff_dma[i].buf) {
+>> +		if (priv->tx_skbuff_dma[i].map_as_page)
+>> +			dma_unmap_page(priv->device,
+>> +				       priv->tx_skbuff_dma[i].buf,
+>> +				       priv->tx_skbuff_dma[i].len,
+>> +				       DMA_TO_DEVICE);
+>> +		else
+>> +			dma_unmap_single(priv->device,
+>> +					 priv->tx_skbuff_dma[i].buf,
+>> +					 priv->tx_skbuff_dma[i].len,
+>> +					 DMA_TO_DEVICE);
+>> +	}
+>> +
+>> +	if (priv->tx_skbuff[i]) {
+>> +		dev_kfree_skb_any(priv->tx_skbuff[i]);
+>> +		priv->tx_skbuff[i] = NULL;
+>> +		priv->tx_skbuff_dma[i].buf = 0;
+>> +		priv->tx_skbuff_dma[i].map_as_page = false;
+>> +	}
+>> +}
+>> +
+>> +/**
+>> + * init_dma_rx_desc_rings - init the RX descriptor rings
+>>   * @dev: net device structure
+>>   * @flags: gfp flag.
+>> - * Description: this function initializes the DMA RX/TX descriptors
+>> + * Description: this function initializes the DMA RX descriptors
+>>   * and allocates the socket buffers. It supports the chained and ring
+>>   * modes.
+>>   */
+>> -static int init_dma_desc_rings(struct net_device *dev, gfp_t flags)
+>> +static int init_dma_rx_desc_rings(struct net_device *dev, gfp_t flags)
+>>  {
+>>  	int i;
+>>  	struct stmmac_priv *priv = netdev_priv(dev);
+>> @@ -1030,8 +1108,7 @@ static int init_dma_desc_rings(struct net_device *dev, gfp_t flags)
+>>  	priv->dma_buf_sz = bfsize;
+>>  
+>>  	netif_dbg(priv, probe, priv->dev,
+>> -		  "(%s) dma_rx_phy=0x%08x dma_tx_phy=0x%08x\n",
+>> -		  __func__, (u32)priv->dma_rx_phy, (u32)priv->dma_tx_phy);
+>> +		  "(%s) dma_rx_phy=0x%08x\n", __func__, (u32)priv->dma_rx_phy);
+>>  
+>>  	/* RX INITIALIZATION */
+>>  	netif_dbg(priv, probe, priv->dev,
+>> @@ -1058,17 +1135,44 @@ static int init_dma_desc_rings(struct net_device *dev, gfp_t flags)
+>>  
+>>  	/* Setup the chained descriptor addresses */
+>>  	if (priv->mode == STMMAC_CHAIN_MODE) {
+>> -		if (priv->extend_desc) {
+>> +		if (priv->extend_desc)
+>>  			priv->hw->mode->init(priv->dma_erx, priv->dma_rx_phy,
+>>  					     DMA_RX_SIZE, 1);
+>> -			priv->hw->mode->init(priv->dma_etx, priv->dma_tx_phy,
+>> -					     DMA_TX_SIZE, 1);
+>> -		} else {
+>> +		else
+>>  			priv->hw->mode->init(priv->dma_rx, priv->dma_rx_phy,
+>>  					     DMA_RX_SIZE, 0);
+>> +	}
+>> +
+>> +	return 0;
+>> +err_init_rx_buffers:
+>> +	while (--i >= 0)
+>> +		stmmac_free_rx_buffers(priv, i);
+>> +	return ret;
+>> +}
+>> +
+>> +/**
+>> + * init_dma_tx_desc_rings - init the TX descriptor rings
+>> + * @dev: net device structure.
+>> + * Description: this function initializes the DMA TX descriptors
+>> + * and allocates the socket buffers. It supports the chained and ring
+>> + * modes.
+>> + */
+>> +static int init_dma_tx_desc_rings(struct net_device *dev)
+>> +{
+>> +	struct stmmac_priv *priv = netdev_priv(dev);
+>> +	int i;
+>> +
+>> +	netif_dbg(priv, probe, priv->dev,
+>> +		  "(%s) dma_tx_phy=0x%08x\n", __func__, (u32)priv->dma_rx_phy);
+>> +
+>> +	/* Setup the chained descriptor addresses */
+>> +	if (priv->mode == STMMAC_CHAIN_MODE) {
+>> +		if (priv->extend_desc)
+>> +			priv->hw->mode->init(priv->dma_etx, priv->dma_tx_phy,
+>> +					     DMA_TX_SIZE, 1);
+>> +		else
+>>  			priv->hw->mode->init(priv->dma_tx, priv->dma_tx_phy,
+>>  					     DMA_TX_SIZE, 0);
+>> -		}
+>>  	}
+>>  
+>>  	/* TX INITIALIZATION */
+>> @@ -1099,18 +1203,42 @@ static int init_dma_desc_rings(struct net_device *dev, gfp_t flags)
+>>  	priv->cur_tx = 0;
+>>  	netdev_reset_queue(priv->dev);
+>>  
+>> +	return 0;
+>> +}
+>> +
+>> +/**
+>> + * init_dma_desc_rings - init the RX/TX descriptor rings
+>> + * @dev: net device structure
+>> + * @flags: gfp flag.
+>> + * Description: this function initializes the DMA RX/TX descriptors
+>> + * and allocates the socket buffers. It supports the chained and ring
+>> + * modes.
+>> + */
+>> +static int init_dma_desc_rings(struct net_device *dev, gfp_t flags)
+>> +{
+>> +	struct stmmac_priv *priv = netdev_priv(dev);
+>> +	int ret;
+>> +
+>> +	/* RX INITIALIZATION */
+>> +	ret = init_dma_rx_desc_rings(dev, flags);
+> 
+> That comment already exists in init_dma_rx_desc_rings(). And even there
+> it doesn't provide any useful information, so might as well drop it.
+> 
+>> +	if (ret)
+>> +		return ret;
+>> +
+>> +	/* TX INITIALIZATION */
+>> +	ret = init_dma_tx_desc_rings(dev);
+> 
+> Same here.
+> 
+> [...]
+>> -static void free_dma_desc_resources(struct stmmac_priv *priv)
+>> +/**
+>> + * alloc_dma_desc_resources - alloc TX/RX resources.
+>> + * @priv: private structure
+>> + * Description: according to which descriptor can be used (extend or basic)
+>> + * this function allocates the resources for TX and RX paths. In case of
+>> + * reception, for example, it pre-allocated the RX socket buffer in order to
+>> + * allow zero-copy mechanism.
+>> + */
+>> +static int alloc_dma_desc_resources(struct stmmac_priv *priv)
+>> +{
+>> +	/* RX Allocation */
+>> +	int ret = alloc_dma_rx_desc_resources(priv);
+> 
+> And here.
+> 
+>> +
+>> +	if (ret)
+>> +		return ret;
+>> +
+>> +	/* TX Allocation */
+>> +	ret = alloc_dma_tx_desc_resources(priv);
+> 
+> And here.
+> 
+> None of the above comments are critical and this could be cleaned up in
+> follow-up patches, so:
+> 
+> Reviewed-by: Thierry Reding <treding@nvidia.com>
+> 
+> It also doesn't break on Tegra186, so
+> 
+> Tested-by: Thierry Reding <treding@nvidia.com>
 > 
 
-Any objection to resending the local_bh_enable/disable patch with the
-in_interrupt() check based on this data or should I post the revert and
-go back to the drawing board?
+Thanks for testing and for the feedback. Let's see if Corentin Labbe can test
+this in his setup.
 
--- 
-Mel Gorman
-SUSE Labs
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Joao
