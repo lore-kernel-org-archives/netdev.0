@@ -1,58 +1,51 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH v2 00/13] ftgmac100: Rework batch 1 - Link & Interrupts
-Date: Tue, 4 Apr 2017 21:21:26 -0700
-Message-ID: <2344b1ea-f8bc-7491-4662-b8a3e94fb94e@gmail.com>
-References: <20170405022853.8238-1-benh@kernel.crashing.org>
+From: Kees Cook <keescook@chromium.org>
+Subject: [PATCH] af_unix: Use designated initializers
+Date: Tue, 4 Apr 2017 22:12:09 -0700
+Message-ID: <20170405051209.GA15324@beast>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-        netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f67.google.com ([209.85.218.67]:35217 "EHLO
-        mail-oi0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750712AbdDEEV2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 5 Apr 2017 00:21:28 -0400
-Received: by mail-oi0-f67.google.com with SMTP id d2so319177oig.2
-        for <netdev@vger.kernel.org>; Tue, 04 Apr 2017 21:21:28 -0700 (PDT)
-In-Reply-To: <20170405022853.8238-1-benh@kernel.crashing.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Miklos Szeredi <mszeredi@redhat.com>,
+        Al Viro <viro@zeniv.linux.org.uk>,
+        WANG Cong <xiyou.wangcong@gmail.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Kees Cook <keescook@chromium.org>,
+        Vladimir Davydov <vdavydov.dev@gmail.com>,
+        Andrey Vagin <avagin@openvz.org>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Salut Benjamin,
+Prepare to mark sensitive kernel structures for randomization by making
+sure they're using designated initializers. These were identified during
+allyesconfig builds of x86, arm, and arm64, and the initializer fixes
+were extracted from grsecurity. In this case, NULL initialize with { }
+instead of undesignated NULLs.
 
-Le 04/04/17 à 19:28, Benjamin Herrenschmidt a écrit :
-> This is version 2 of the first batch of updates to the
-> ftgmac100 driver.
-> 
-> Essentially:
-> 
->  - A few misc cleanups
->  - Fixing link speed & duplex handling (including dealing with
->    an Aspeed requirement to double reset the controller when
->    the speed changes)
->  - And addition of a reset task workqueue which will be used
->    for delaying the re-initialization of the controller
->  - Fixing a number of issues with how interrupts and NAPI
->    are dealt with.
-> 
-> Subsequent batches will rework and improve the rx path, the
-> tx path, and add a bunch of features and fixes.
-> 
-> Version 2 addresses some review comments to patches 5 and 10
-> (see version history in the respective emails).
-> 
+Signed-off-by: Kees Cook <keescook@chromium.org>
+---
+ net/unix/af_unix.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-This looks pretty good to me, two minor things:
-
-- most drivers keep track of the old status/duplex/pause/link variables
-instead of the current one which is already available within struct
-phy_device, any particular reason for not doing like the other drivers?
-
-- the need to reset the HW during link changes is just ... well too bad
-
-With that:
-
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index 928691c43408..6a7fe7660551 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -996,7 +996,7 @@ static int unix_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
+ 	unsigned int hash;
+ 	struct unix_address *addr;
+ 	struct hlist_head *list;
+-	struct path path = { NULL, NULL };
++	struct path path = { };
+ 
+ 	err = -EINVAL;
+ 	if (sunaddr->sun_family != AF_UNIX)
 -- 
-Florian
+2.7.4
+
+
+-- 
+Kees Cook
+Pixel Security
