@@ -1,48 +1,34 @@
-From: Mike Galbraith <efault@gmx.de>
-Subject: Re: net/sched: latent livelock in dev_deactivate_many() due to
- yield() usage
-Date: Wed, 05 Apr 2017 08:12:21 +0200
-Message-ID: <1491372741.4536.165.camel@gmx.de>
-References: <1491107321.13631.33.camel@gmx.de>
-         <CAM_iQpWGMkDaoV2k0DEghqeqb9k=MbpBtT8zH3tvENxLUCefkQ@mail.gmail.com>
-         <1491362429.4536.77.camel@gmx.de>
-         <CAM_iQpVTmDfATw1HMPE9NnRBNnhgidz+UZOQDqyeq2uo0=c-+g@mail.gmail.com>
+From: Christoph Hellwig <hch@lst.de>
+Subject: Re: [PATCH] net: thunderx: Switch to pci_alloc_irq_vectors
+Date: Wed, 5 Apr 2017 08:27:40 +0200
+Message-ID: <20170405062740.GB26470@lst.de>
+References: <1491298146-13609-1-git-send-email-tsrinivasulu@cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Peter Zijlstra <peterz@infradead.org>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org, sgoutham@cavium.com,
+        tsrinivasulu@cavium.com, hch@lst.de
+To: dev.srinivasulu@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.15.15]:63532 "EHLO mout.gmx.net"
+Received: from verein.lst.de ([213.95.11.211]:55412 "EHLO newverein.lst.de"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752282AbdDEGMu (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 5 Apr 2017 02:12:50 -0400
-In-Reply-To: <CAM_iQpVTmDfATw1HMPE9NnRBNnhgidz+UZOQDqyeq2uo0=c-+g@mail.gmail.com>
+        id S1751298AbdDEG1m (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 5 Apr 2017 02:27:42 -0400
+Content-Disposition: inline
+In-Reply-To: <1491298146-13609-1-git-send-email-tsrinivasulu@cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2017-04-04 at 22:25 -0700, Cong Wang wrote:
-> On Tue, Apr 4, 2017 at 8:20 PM, Mike Galbraith <efault@gmx.de> wrote:
-> > -               while (some_qdisc_is_busy(dev))
-> > -                       yield();
-> > +               swait_event_timeout(swait,
-> > !some_qdisc_is_busy(dev), 1);
-> >  }
+On Tue, Apr 04, 2017 at 02:59:06PM +0530, dev.srinivasulu@gmail.com wrote:
+> From: Thanneeru Srinivasulu <tsrinivasulu@cavium.com>
 > 
-> I don't see why this is an improvement even if I don't care about the
-> hardcoded timeout for now... Why the scheduler can make a better
-> decision with swait_event_timeout() than with cond_resched()?
+> Remove deprecated pci_enable_msix API in favour of it's
+> successor pci_alloc_irq_vectors.
+> 
+> Signed-off-by: Thanneeru Srinivasulu <tsrinivasulu@cavium.com>
+> Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
 
-Because sleeping gets you out of the way?  There is no other decision
-the scheduler can make while a SCHED_FIFO task is trying to yield when
-it is the one and only task at it's priority.  The scheduler is doing
-exactly what it is supposed to do, problem is people calling yield()
-tend to think it does something it does not do, which is why it is
-decorated with "if you think you want yield(), think again"
+Looks good.
 
-Yes, yield semantics suck rocks, basically don't exist.  Hop in your
-time machine and slap whoever you find claiming responsibility :)
-
-	-Mike
+Are you fine with me queueing this up together with the other
+pci_enable_msix() removal patches?
