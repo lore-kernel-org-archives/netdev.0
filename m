@@ -1,38 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net/mlx5e: fix build error without
- CONFIG_SYSFS
-Date: Thu, 06 Apr 2017 12:55:55 -0700 (PDT)
-Message-ID: <20170406.125555.1576050282465956628.davem@davemloft.net>
-References: <20170405091110.711-1-tobias.regnery@gmail.com>
+Subject: Re: [PATCH] usbnet: make sure no NULL pointer is passed through
+Date: Thu, 06 Apr 2017 13:19:07 -0700 (PDT)
+Message-ID: <20170406.131907.1888296039502840628.davem@davemloft.net>
+References: <20170405121439.22523-1-oneukum@suse.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: saeedm@mellanox.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: tobias.regnery@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170405091110.711-1-tobias.regnery@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org, bjorn@mork.no
+To: oneukum@suse.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:37632 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752173AbdDFUTL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 16:19:11 -0400
+In-Reply-To: <20170405121439.22523-1-oneukum@suse.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Tobias Regnery <tobias.regnery@gmail.com>
-Date: Wed,  5 Apr 2017 11:11:10 +0200
+From: Oliver Neukum <oneukum@suse.com>
+Date: Wed,  5 Apr 2017 14:14:39 +0200
 
-> Commit 9008ae074885 ("net/mlx5e: Minimize mlx5e_{open/close}_locked")
-> copied the calls to netif_set_real_num_{tx,rx}_queues from
-> mlx5e_open_locked to mlx5e_activate_priv_channels and wraps them in an
-> if condition to test for netdev->real_num_{tx,rx}_queues.
+> Coverity reports:
+ ...
+> It is valid to offer commands without a buffer, but then you need a size
+> of zero. This should actually be checked.
 > 
-> But netdev->real_num_rx_queues is conditionally compiled in if CONFIG_SYSFS
-> is set. Without CONFIG_SYSFS the build fails:
-> 
-> drivers/net/ethernet/mellanox/mlx5/core/en_main.c: In function 'mlx5e_activate_priv_channels':
-> drivers/net/ethernet/mellanox/mlx5/core/en_main.c:2515:12: error: 'struct net_device' has no member named 'real_num_rx_queues'; did you mean 'real_num_tx_queues'?
-> 
-> Fix this by unconditionally call netif_set_real_num{tx,rx}_queues like before
-> commit 9008ae074885.
-> 
-> Fixes: 9008ae074885 ("net/mlx5e: Minimize mlx5e_{open/close}_locked")
-> Signed-off-by: Tobias Regnery <tobias.regnery@gmail.com>
+> Signed-off-by: Oliver Neukum <oneukum@suse.com>
 
-Applied, thanks.
+Applied, thanks Oliver.
+
+I had to apply this by hand via my inbox rather than using patchwork
+because those coverity report delimiters cause patchwork to chop off
+most of your commit message.
+
+Just FYI...
