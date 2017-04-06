@@ -1,41 +1,28 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: net/sched: latent livelock in dev_deactivate_many() due to
- yield() usage
-Date: Thu, 6 Apr 2017 12:28:44 +0200
-Message-ID: <20170406102844.jr66tcf4qfmlj3wm@hirez.programming.kicks-ass.net>
-References: <1491107321.13631.33.camel@gmx.de>
- <20170405173105.7f41d7fc@plumbers-lap.home.lan>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] netpoll: Check for skb->queue_mapping
+Date: Thu, 06 Apr 2017 03:28:54 -0700
+Message-ID: <1491474534.10124.59.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1491444383-29017-1-git-send-email-tushar.n.dave@oracle.com>
+         <1491474377.10124.57.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Mike Galbraith <efault@gmx.de>, netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, edumazet@google.com, brouer@redhat.com,
+        netdev@vger.kernel.org, sowmini.varadhan@oracle.com
+To: Tushar Dave <tushar.n.dave@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([65.50.211.133]:32848 "EHLO
-        bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756686AbdDFK2r (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 06:28:47 -0400
-Content-Disposition: inline
-In-Reply-To: <20170405173105.7f41d7fc@plumbers-lap.home.lan>
+Received: from mail-it0-f52.google.com ([209.85.214.52]:38010 "EHLO
+        mail-it0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757435AbdDFK3C (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 06:29:02 -0400
+Received: by mail-it0-f52.google.com with SMTP id y18so23483645itc.1
+        for <netdev@vger.kernel.org>; Thu, 06 Apr 2017 03:29:01 -0700 (PDT)
+In-Reply-To: <1491474377.10124.57.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 05, 2017 at 05:31:05PM -0700, Stephen Hemminger wrote:
-> On Sun, 02 Apr 2017 06:28:41 +0200
-> Mike Galbraith <efault@gmx.de> wrote:
-> 
-> > Livelock can be triggered by setting kworkers to SCHED_FIFO, then
-> > suspend/resume.. you come back from sleepy-land with a spinning
-> > kworker.  For whatever reason, I can only do that with an enterprise
-> > like config, my standard config refuses to play, but no matter, it's
-> > "Typical broken usage".
-> > 
-> > (yield() should be rendered dead)
-> 
-> The kernel is not normally built to have kworkers run at SCHED_FIFO.
-> The user has do some action to alter the process priorities.
-> 
-> I classify this as user error. We don't support killing kworker threads
-> either.
+On Thu, 2017-04-06 at 03:26 -0700, Eric Dumazet wrote:
+> Hi Thushar, thank you for working on this issue.
 
-PI can boost anybody to FIFO, all you need is to be holding a lock.
+I am sorry for the typo Tushar !
+Thanks !
