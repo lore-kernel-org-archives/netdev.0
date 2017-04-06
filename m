@@ -1,82 +1,342 @@
 From: Christoph Hellwig <hch@lst.de>
-Subject: [PATCH 4/4] PCI: remove pci_enable_msix
-Date: Thu,  6 Apr 2017 14:24:48 +0200
-Message-ID: <20170406122448.31854-5-hch@lst.de>
+Subject: [PATCH 3/4] net: thunderx: Switch to pci_alloc_irq_vectors
+Date: Thu,  6 Apr 2017 14:24:47 +0200
+Message-ID: <20170406122448.31854-4-hch@lst.de>
 References: <20170406122448.31854-1-hch@lst.de>
-Cc: netdev@vger.kernel.org, linux-pci@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-pci@vger.kernel.org,
+        Thanneeru Srinivasulu <tsrinivasulu@cavium.com>
 To: bhelgaas@google.com, davem@davemloft.net,
         netanel@annapurnalabs.com, jcliburn@gmail.com,
         chris.snook@gmail.com, sgoutham@cavium.com, rric@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([65.50.211.133]:42482 "EHLO
+Received: from bombadil.infradead.org ([65.50.211.133]:36852 "EHLO
         bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934664AbdDFMZH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 08:25:07 -0400
+        with ESMTP id S934270AbdDFMZE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 08:25:04 -0400
 In-Reply-To: <20170406122448.31854-1-hch@lst.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Unused now that all callers switched to pci_alloc_irq_vectors.
+From: Thanneeru Srinivasulu <tsrinivasulu@cavium.com>
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
+Remove deprecated pci_enable_msix API in favour of it's
+successor pci_alloc_irq_vectors.
+
+Signed-off-by: Thanneeru Srinivasulu <tsrinivasulu@cavium.com>
+Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
+Reviewed-by: Christoph Hellwig <hch@lst.de>
 ---
- drivers/pci/msi.c   | 21 ---------------------
- include/linux/pci.h |  4 ----
- 2 files changed, 25 deletions(-)
+ drivers/net/ethernet/cavium/thunder/nic.h        |  2 -
+ drivers/net/ethernet/cavium/thunder/nic_main.c   | 64 ++++++----------------
+ drivers/net/ethernet/cavium/thunder/nicvf_main.c | 70 ++++++++----------------
+ 3 files changed, 40 insertions(+), 96 deletions(-)
 
-diff --git a/drivers/pci/msi.c b/drivers/pci/msi.c
-index d571bc330686..0042c365b29b 100644
---- a/drivers/pci/msi.c
-+++ b/drivers/pci/msi.c
-@@ -973,27 +973,6 @@ static int __pci_enable_msix(struct pci_dev *dev, struct msix_entry *entries,
- 	return msix_capability_init(dev, entries, nvec, affd);
+diff --git a/drivers/net/ethernet/cavium/thunder/nic.h b/drivers/net/ethernet/cavium/thunder/nic.h
+index 2269ff562d95..6fb44218bf55 100644
+--- a/drivers/net/ethernet/cavium/thunder/nic.h
++++ b/drivers/net/ethernet/cavium/thunder/nic.h
+@@ -319,9 +319,7 @@ struct nicvf {
+ 	struct bgx_stats	bgx_stats;
+ 
+ 	/* MSI-X  */
+-	bool			msix_enabled;
+ 	u8			num_vec;
+-	struct msix_entry	msix_entries[NIC_VF_MSIX_VECTORS];
+ 	char			irq_name[NIC_VF_MSIX_VECTORS][IFNAMSIZ + 15];
+ 	bool			irq_allocated[NIC_VF_MSIX_VECTORS];
+ 	cpumask_var_t		affinity_mask[NIC_VF_MSIX_VECTORS];
+diff --git a/drivers/net/ethernet/cavium/thunder/nic_main.c b/drivers/net/ethernet/cavium/thunder/nic_main.c
+index 767234e2e8f9..fb770b0182d3 100644
+--- a/drivers/net/ethernet/cavium/thunder/nic_main.c
++++ b/drivers/net/ethernet/cavium/thunder/nic_main.c
+@@ -65,9 +65,7 @@ struct nicpf {
+ 	bool			mbx_lock[MAX_NUM_VFS_SUPPORTED];
+ 
+ 	/* MSI-X */
+-	bool			msix_enabled;
+ 	u8			num_vec;
+-	struct msix_entry	*msix_entries;
+ 	bool			irq_allocated[NIC_PF_MSIX_VECTORS];
+ 	char			irq_name[NIC_PF_MSIX_VECTORS][20];
+ };
+@@ -1088,7 +1086,7 @@ static irqreturn_t nic_mbx_intr_handler(int irq, void *nic_irq)
+ 	u64 intr;
+ 	u8  vf, vf_per_mbx_reg = 64;
+ 
+-	if (irq == nic->msix_entries[NIC_PF_INTR_ID_MBOX0].vector)
++	if (irq == pci_irq_vector(nic->pdev, NIC_PF_INTR_ID_MBOX0))
+ 		mbx = 0;
+ 	else
+ 		mbx = 1;
+@@ -1107,51 +1105,13 @@ static irqreturn_t nic_mbx_intr_handler(int irq, void *nic_irq)
+ 	return IRQ_HANDLED;
  }
  
--/**
-- * pci_enable_msix - configure device's MSI-X capability structure
-- * @dev: pointer to the pci_dev data structure of MSI-X device function
-- * @entries: pointer to an array of MSI-X entries (optional)
-- * @nvec: number of MSI-X irqs requested for allocation by device driver
-- *
-- * Setup the MSI-X capability structure of device function with the number
-- * of requested irqs upon its software driver call to request for
-- * MSI-X mode enabled on its hardware device function. A return of zero
-- * indicates the successful configuration of MSI-X capability structure
-- * with new allocated MSI-X irqs. A return of < 0 indicates a failure.
-- * Or a return of > 0 indicates that driver request is exceeding the number
-- * of irqs or MSI-X vectors available. Driver should use the returned value to
-- * re-send its request.
-- **/
--int pci_enable_msix(struct pci_dev *dev, struct msix_entry *entries, int nvec)
+-static int nic_enable_msix(struct nicpf *nic)
 -{
--	return __pci_enable_msix(dev, entries, nvec, NULL);
--}
--EXPORT_SYMBOL(pci_enable_msix);
+-	int i, ret;
 -
- void pci_msix_shutdown(struct pci_dev *dev)
+-	nic->num_vec = pci_msix_vec_count(nic->pdev);
+-
+-	nic->msix_entries = kmalloc_array(nic->num_vec,
+-					  sizeof(struct msix_entry),
+-					  GFP_KERNEL);
+-	if (!nic->msix_entries)
+-		return -ENOMEM;
+-
+-	for (i = 0; i < nic->num_vec; i++)
+-		nic->msix_entries[i].entry = i;
+-
+-	ret = pci_enable_msix(nic->pdev, nic->msix_entries, nic->num_vec);
+-	if (ret) {
+-		dev_err(&nic->pdev->dev,
+-			"Request for #%d msix vectors failed, returned %d\n",
+-			   nic->num_vec, ret);
+-		kfree(nic->msix_entries);
+-		return ret;
+-	}
+-
+-	nic->msix_enabled = 1;
+-	return 0;
+-}
+-
+-static void nic_disable_msix(struct nicpf *nic)
+-{
+-	if (nic->msix_enabled) {
+-		pci_disable_msix(nic->pdev);
+-		kfree(nic->msix_entries);
+-		nic->msix_enabled = 0;
+-		nic->num_vec = 0;
+-	}
+-}
+-
+ static void nic_free_all_interrupts(struct nicpf *nic)
  {
- 	struct msi_desc *entry;
-diff --git a/include/linux/pci.h b/include/linux/pci.h
-index eb3da1a04e6c..82dec36845e6 100644
---- a/include/linux/pci.h
-+++ b/include/linux/pci.h
-@@ -1300,7 +1300,6 @@ int pci_msi_vec_count(struct pci_dev *dev);
- void pci_msi_shutdown(struct pci_dev *dev);
- void pci_disable_msi(struct pci_dev *dev);
- int pci_msix_vec_count(struct pci_dev *dev);
--int pci_enable_msix(struct pci_dev *dev, struct msix_entry *entries, int nvec);
- void pci_msix_shutdown(struct pci_dev *dev);
- void pci_disable_msix(struct pci_dev *dev);
- void pci_restore_msi_state(struct pci_dev *dev);
-@@ -1330,9 +1329,6 @@ static inline int pci_msi_vec_count(struct pci_dev *dev) { return -ENOSYS; }
- static inline void pci_msi_shutdown(struct pci_dev *dev) { }
- static inline void pci_disable_msi(struct pci_dev *dev) { }
- static inline int pci_msix_vec_count(struct pci_dev *dev) { return -ENOSYS; }
--static inline int pci_enable_msix(struct pci_dev *dev,
--				  struct msix_entry *entries, int nvec)
--{ return -ENOSYS; }
- static inline void pci_msix_shutdown(struct pci_dev *dev) { }
- static inline void pci_disable_msix(struct pci_dev *dev) { }
- static inline void pci_restore_msi_state(struct pci_dev *dev) { }
+ 	int irq;
+ 
+ 	for (irq = 0; irq < nic->num_vec; irq++) {
+ 		if (nic->irq_allocated[irq])
+-			free_irq(nic->msix_entries[irq].vector, nic);
++			free_irq(pci_irq_vector(nic->pdev, irq), nic);
+ 		nic->irq_allocated[irq] = false;
+ 	}
+ }
+@@ -1159,18 +1119,24 @@ static void nic_free_all_interrupts(struct nicpf *nic)
+ static int nic_register_interrupts(struct nicpf *nic)
+ {
+ 	int i, ret;
++	nic->num_vec = pci_msix_vec_count(nic->pdev);
+ 
+ 	/* Enable MSI-X */
+-	ret = nic_enable_msix(nic);
+-	if (ret)
+-		return ret;
++	ret = pci_alloc_irq_vectors(nic->pdev, nic->num_vec, nic->num_vec,
++				    PCI_IRQ_MSIX);
++	if (ret < 0) {
++		dev_err(&nic->pdev->dev,
++			"Request for #%d msix vectors failed, returned %d\n",
++			   nic->num_vec, ret);
++		return 1;
++	}
+ 
+ 	/* Register mailbox interrupt handler */
+ 	for (i = NIC_PF_INTR_ID_MBOX0; i < nic->num_vec; i++) {
+ 		sprintf(nic->irq_name[i],
+ 			"NICPF Mbox%d", (i - NIC_PF_INTR_ID_MBOX0));
+ 
+-		ret = request_irq(nic->msix_entries[i].vector,
++		ret = request_irq(pci_irq_vector(nic->pdev, i),
+ 				  nic_mbx_intr_handler, 0,
+ 				  nic->irq_name[i], nic);
+ 		if (ret)
+@@ -1186,14 +1152,16 @@ static int nic_register_interrupts(struct nicpf *nic)
+ fail:
+ 	dev_err(&nic->pdev->dev, "Request irq failed\n");
+ 	nic_free_all_interrupts(nic);
+-	nic_disable_msix(nic);
++	pci_free_irq_vectors(nic->pdev);
++	nic->num_vec = 0;
+ 	return ret;
+ }
+ 
+ static void nic_unregister_interrupts(struct nicpf *nic)
+ {
+ 	nic_free_all_interrupts(nic);
+-	nic_disable_msix(nic);
++	pci_free_irq_vectors(nic->pdev);
++	nic->num_vec = 0;
+ }
+ 
+ static int nic_num_sqs_en(struct nicpf *nic, int vf_en)
+diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_main.c b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
+index 24017588f531..bfaf85813f00 100644
+--- a/drivers/net/ethernet/cavium/thunder/nicvf_main.c
++++ b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
+@@ -882,38 +882,9 @@ static irqreturn_t nicvf_qs_err_intr_handler(int irq, void *nicvf_irq)
+ 	return IRQ_HANDLED;
+ }
+ 
+-static int nicvf_enable_msix(struct nicvf *nic)
+-{
+-	int ret, vec;
+-
+-	nic->num_vec = NIC_VF_MSIX_VECTORS;
+-
+-	for (vec = 0; vec < nic->num_vec; vec++)
+-		nic->msix_entries[vec].entry = vec;
+-
+-	ret = pci_enable_msix(nic->pdev, nic->msix_entries, nic->num_vec);
+-	if (ret) {
+-		netdev_err(nic->netdev,
+-			   "Req for #%d msix vectors failed\n", nic->num_vec);
+-		return 0;
+-	}
+-	nic->msix_enabled = 1;
+-	return 1;
+-}
+-
+-static void nicvf_disable_msix(struct nicvf *nic)
+-{
+-	if (nic->msix_enabled) {
+-		pci_disable_msix(nic->pdev);
+-		nic->msix_enabled = 0;
+-		nic->num_vec = 0;
+-	}
+-}
+-
+ static void nicvf_set_irq_affinity(struct nicvf *nic)
+ {
+ 	int vec, cpu;
+-	int irqnum;
+ 
+ 	for (vec = 0; vec < nic->num_vec; vec++) {
+ 		if (!nic->irq_allocated[vec])
+@@ -930,15 +901,14 @@ static void nicvf_set_irq_affinity(struct nicvf *nic)
+ 
+ 		cpumask_set_cpu(cpumask_local_spread(cpu, nic->node),
+ 				nic->affinity_mask[vec]);
+-		irqnum = nic->msix_entries[vec].vector;
+-		irq_set_affinity_hint(irqnum, nic->affinity_mask[vec]);
++		irq_set_affinity_hint(pci_irq_vector(nic->pdev, vec),
++				      nic->affinity_mask[vec]);
+ 	}
+ }
+ 
+ static int nicvf_register_interrupts(struct nicvf *nic)
+ {
+ 	int irq, ret = 0;
+-	int vector;
+ 
+ 	for_each_cq_irq(irq)
+ 		sprintf(nic->irq_name[irq], "%s-rxtx-%d",
+@@ -957,8 +927,8 @@ static int nicvf_register_interrupts(struct nicvf *nic)
+ 
+ 	/* Register CQ interrupts */
+ 	for (irq = 0; irq < nic->qs->cq_cnt; irq++) {
+-		vector = nic->msix_entries[irq].vector;
+-		ret = request_irq(vector, nicvf_intr_handler,
++		ret = request_irq(pci_irq_vector(nic->pdev, irq),
++				  nicvf_intr_handler,
+ 				  0, nic->irq_name[irq], nic->napi[irq]);
+ 		if (ret)
+ 			goto err;
+@@ -968,8 +938,8 @@ static int nicvf_register_interrupts(struct nicvf *nic)
+ 	/* Register RBDR interrupt */
+ 	for (irq = NICVF_INTR_ID_RBDR;
+ 	     irq < (NICVF_INTR_ID_RBDR + nic->qs->rbdr_cnt); irq++) {
+-		vector = nic->msix_entries[irq].vector;
+-		ret = request_irq(vector, nicvf_rbdr_intr_handler,
++		ret = request_irq(pci_irq_vector(nic->pdev, irq),
++				  nicvf_rbdr_intr_handler,
+ 				  0, nic->irq_name[irq], nic);
+ 		if (ret)
+ 			goto err;
+@@ -981,7 +951,7 @@ static int nicvf_register_interrupts(struct nicvf *nic)
+ 		nic->pnicvf->netdev->name,
+ 		nic->sqs_mode ? (nic->sqs_id + 1) : 0);
+ 	irq = NICVF_INTR_ID_QS_ERR;
+-	ret = request_irq(nic->msix_entries[irq].vector,
++	ret = request_irq(pci_irq_vector(nic->pdev, irq),
+ 			  nicvf_qs_err_intr_handler,
+ 			  0, nic->irq_name[irq], nic);
+ 	if (ret)
+@@ -1001,6 +971,7 @@ static int nicvf_register_interrupts(struct nicvf *nic)
+ 
+ static void nicvf_unregister_interrupts(struct nicvf *nic)
+ {
++	struct pci_dev *pdev = nic->pdev;
+ 	int irq;
+ 
+ 	/* Free registered interrupts */
+@@ -1008,19 +979,20 @@ static void nicvf_unregister_interrupts(struct nicvf *nic)
+ 		if (!nic->irq_allocated[irq])
+ 			continue;
+ 
+-		irq_set_affinity_hint(nic->msix_entries[irq].vector, NULL);
++		irq_set_affinity_hint(pci_irq_vector(pdev, irq), NULL);
+ 		free_cpumask_var(nic->affinity_mask[irq]);
+ 
+ 		if (irq < NICVF_INTR_ID_SQ)
+-			free_irq(nic->msix_entries[irq].vector, nic->napi[irq]);
++			free_irq(pci_irq_vector(pdev, irq), nic->napi[irq]);
+ 		else
+-			free_irq(nic->msix_entries[irq].vector, nic);
++			free_irq(pci_irq_vector(pdev, irq), nic);
+ 
+ 		nic->irq_allocated[irq] = false;
+ 	}
+ 
+ 	/* Disable MSI-X */
+-	nicvf_disable_msix(nic);
++	pci_free_irq_vectors(pdev);
++	nic->num_vec = 0;
+ }
+ 
+ /* Initialize MSIX vectors and register MISC interrupt.
+@@ -1032,16 +1004,22 @@ static int nicvf_register_misc_interrupt(struct nicvf *nic)
+ 	int irq = NICVF_INTR_ID_MISC;
+ 
+ 	/* Return if mailbox interrupt is already registered */
+-	if (nic->msix_enabled)
++	if (nic->pdev->msix_enabled)
+ 		return 0;
+ 
+ 	/* Enable MSI-X */
+-	if (!nicvf_enable_msix(nic))
++	nic->num_vec = pci_msix_vec_count(nic->pdev);
++	ret = pci_alloc_irq_vectors(nic->pdev, nic->num_vec, nic->num_vec,
++				    PCI_IRQ_MSIX);
++	if (ret < 0) {
++		netdev_err(nic->netdev,
++			   "Req for #%d msix vectors failed\n", nic->num_vec);
+ 		return 1;
++	}
+ 
+ 	sprintf(nic->irq_name[irq], "%s Mbox", "NICVF");
+ 	/* Register Misc interrupt */
+-	ret = request_irq(nic->msix_entries[irq].vector,
++	ret = request_irq(pci_irq_vector(nic->pdev, irq),
+ 			  nicvf_misc_intr_handler, 0, nic->irq_name[irq], nic);
+ 
+ 	if (ret)
+@@ -1164,7 +1142,7 @@ int nicvf_stop(struct net_device *netdev)
+ 
+ 	/* Wait for pending IRQ handlers to finish */
+ 	for (irq = 0; irq < nic->num_vec; irq++)
+-		synchronize_irq(nic->msix_entries[irq].vector);
++		synchronize_irq(pci_irq_vector(nic->pdev, irq));
+ 
+ 	tasklet_kill(&nic->rbdr_task);
+ 	tasklet_kill(&nic->qs_err_task);
+@@ -1365,7 +1343,7 @@ static int nicvf_set_mac_address(struct net_device *netdev, void *p)
+ 
+ 	memcpy(netdev->dev_addr, addr->sa_data, netdev->addr_len);
+ 
+-	if (nic->msix_enabled) {
++	if (nic->pdev->msix_enabled) {
+ 		if (nicvf_hw_set_mac_addr(nic, netdev))
+ 			return -EBUSY;
+ 	} else {
 -- 
 2.11.0
