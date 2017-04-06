@@ -1,69 +1,117 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [Patch net] net_sched: replace yield() with cond_resched()
-Date: Thu, 6 Apr 2017 18:13:55 -0400
-Message-ID: <20170406181355.7fc4353a@plumbers-lap.home.lan>
-References: <1491357139-27108-1-git-send-email-xiyou.wangcong@gmail.com>
-        <1491364545.4536.90.camel@gmx.de>
-        <CAM_iQpXpZjpS1ZG7hH-52jt41FzzyMZ0rss9PauaSD54XSQiXQ@mail.gmail.com>
-        <1491371790.4536.151.camel@gmx.de>
-        <CAM_iQpUa-w9k4EFafQCEpbmR0PANwkLieYMxGwi59373h8jHUg@mail.gmail.com>
-        <1491443659.4718.57.camel@gmx.de>
+From: hiren panchasara <hiren@strugglingcoder.info>
+Subject: Re: tcpprobe display format for snd_nxt and snd_una
+Date: Thu, 6 Apr 2017 15:16:45 -0700
+Message-ID: <20170406221645.GP62406@strugglingcoder.info>
+References: <20170405194009.GH62406@strugglingcoder.info>
+ <20170406174531.4fca96b0@plumbers-lap.home.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Mike Galbraith <efault@gmx.de>
+Content-Type: multipart/signed; micalg=pgp-sha512;
+        protocol="application/pgp-signature"; boundary="cYG5ZC/RuVsIq1ir"
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f171.google.com ([209.85.223.171]:36392 "EHLO
-        mail-io0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751557AbdDFWOA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 18:14:00 -0400
-Received: by mail-io0-f171.google.com with SMTP id l7so39103674ioe.3
-        for <netdev@vger.kernel.org>; Thu, 06 Apr 2017 15:14:00 -0700 (PDT)
-In-Reply-To: <1491443659.4718.57.camel@gmx.de>
+Received: from strugglingcoder.info ([104.236.146.68]:56472 "EHLO
+        mail.strugglingcoder.info" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752587AbdDFWQp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 18:16:45 -0400
+Content-Disposition: inline
+In-Reply-To: <20170406174531.4fca96b0@plumbers-lap.home.lan>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 06 Apr 2017 03:54:19 +0200
-Mike Galbraith <efault@gmx.de> wrote:
 
-> On Wed, 2017-04-05 at 16:42 -0700, Cong Wang wrote:
-> > On Tue, Apr 4, 2017 at 10:56 PM, Mike Galbraith <efault@gmx.de> wrote:  
-> > > On Tue, 2017-04-04 at 22:19 -0700, Cong Wang wrote:  
-> > > > On Tue, Apr 4, 2017 at 8:55 PM, Mike Galbraith <efault@gmx.de> wrote:  
-> > >   
-> > > > > That won't help, cond_resched() has the same impact upon a lone
-> > > > > SCHED_FIFO task as yield() does.. none.  
-> > > > 
-> > > > Hmm? In the comment you quote:
-> > > > 
-> > > >  * If you want to use yield() to wait for something, use wait_event().
-> > > >  * If you want to use yield() to be 'nice' for others, use cond_resched().
-> > > > 
-> > > > So if cond_resched() doesn't help, why this misleading comment?  
-> > > 
-> > > This is not an oh let's be nice guys thing, it's a perfect match of...
-> > > 
-> > > 
-> > >  * while (!event)
-> > >  *      yield();  
-> > > (/copy/paste>  
-> > > 
-> > > ..get off the CPU until this happens thing.  With nobody to yield the C
-> > > PU to, some_qdisc_is_busy() will remain true forever more.  
-> > 
-> > 
-> > This is exactly the misleading part, a while-loop waiting for an event
-> > can always be a be-nice-for-others thing, because if not we can just
-> > spin as a spinlock.  
-> 
-> Ah, but the kworker _is_ spinning on a 'lock' or sorts, starving the
-> 'owner', ergo this polling loop fails the 'may be nice' litmus test. 
->  No polling loop is safe without a guarantee that the polling thread
-> cannot block the loop breaking event.
-> 
-> 	-Mike
+--cYG5ZC/RuVsIq1ir
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Why not replace yield with msleep(1) which gets rid of the inversion
-issues?
+On 04/06/17 at 05:45P, Stephen Hemminger wrote:
+> On Wed, 5 Apr 2017 12:40:09 -0700
+> hiren panchasara <hiren@strugglingcoder.info> wrote:
+>=20
+> > (New to linux and first-time poster so please guide me if needed.)
+> > =20
+> > Upon using tcpprobe I realized that it prints snd_nxt and snd_una as hex
+> > which makes it harder to read and compare with tcpdump for example.
+> > =20
+> > Not sure if that is intentional. If not, a simple patch like this would
+> > print them as decimals.
+> > =20
+> > [PATCH] Display snd_nxt and snd_una as decimals for better
+> >  readability.
+> > =20
+> > ---
+> >  net/ipv4/tcp_probe.c | 2 +-
+> >  1 file changed, 1 insertion(+), 1 deletion(-)
+> > =20
+> > diff --git a/net/ipv4/tcp_probe.c b/net/ipv4/tcp_probe.c
+> > index f6c50af..a8e66c1 100644
+> > --- a/net/ipv4/tcp_probe.c
+> > +++ b/net/ipv4/tcp_probe.c
+> > @@ -191,7 +191,7 @@ static int tcpprobe_sprint(char *tbuf, int n)
+> >                 =3D ktime_to_timespec64(ktime_sub(p->tstamp, tcp_probe.=
+start));
+> > =20
+> >         return scnprintf(tbuf, n,
+> > -                       "%lu.%09lu %pISpc %pISpc %d %#x %#x %u %u %u %u=
+ %u\n",
+> > +                       "%lu.%09lu %pISpc %pISpc %d %u %u %u %u %u %u %=
+u\n",
+> >                         (unsigned long)ts.tv_sec,
+> >                         (unsigned long)ts.tv_nsec,
+> >                         &p->src, &p->dst, p->length, p->snd_nxt, p->snd=
+_una,
+> > --
+> > =20
+> > Let me know if I am missing something obvious.
+>=20
+> The output of tcpprobe is intended for consumption by programs.
+> Changing the output format would be considered a kernel ABI breakage which
+> is something Linux tries not to do. Therefore I would prefer it
+> not be changed.
+Ah, I see.
+
+> Sorry if this is inconvenient for you but breaking other
+> users scripts would be a bigger problem.
+No, I don't have any scripts depending on this. I just want to see this
+o/p with naked eye and compare it with a pcap to see any possible
+abnormalities of a "bad" connection. I guess I'd have to no write a
+wrapper on top of this to achieve whhat
+
+Can you point me to the programs/tools that consume this data? I am new
+to Linux and want to learn tools that can help in troubleshooting. (In
+FreeBSD land I can trivially dump this data with dtrace and I assume
+something like that exists here too.)
+
+I can always have a wrapper on top of this to do the conversion. Trivial
+but inconvenient. :-)
+
+>=20
+> Also, your patch email is not formatted with subject [RFC] or [PATCH]
+> and is missing signed-off-by.
+
+Apologies for that. I'll make sure I do the right thing next time as
+this looks like a non-starter because of ABI concerns.
+
+Thanks for taking time and responding.
+Cheers,
+Hiren
+
+--cYG5ZC/RuVsIq1ir
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQF8BAABCgBmBQJY5r5KXxSAAAAAAC4AKGlzc3Vlci1mcHJAbm90YXRpb25zLm9w
+ZW5wZ3AuZmlmdGhob3JzZW1hbi5uZXRBNEUyMEZBMUQ4Nzg4RjNGMTdFNjZGMDI4
+QjkyNTBFMTU2M0VERkU1AAoJEIuSUOFWPt/lb5EIAJFMLbH3Lhop7qUAlxF+tEkL
+tcVmm7U0ass6N0KeZt7+f6aPUG9n75zhiTIEyxdGvSZPlL+Z4HkmljgHRG8VrA6s
+lAyer+TsIYyG8m1gzXzaxDkxqooiDwZR0HUY3IJmcjdeJTbiwa8QGl8j9FR1Ps9K
+fh094rOt8E/dFfN3V3qDVxKQg2TC0h8xGHyDUV3Zg9GG6pkVrTXtZ3H2OiRm2ltk
+qobSOqK3ZwPaA15TtvvL5w8IVD3yHP4uqrNPY90t6/OJrI9zthB+a2z1xUijOI+O
+CC2szaQxiv0f5huOXG9gxyVUBOoaDGl17OtIoN++ZPdUQdDzbo/XSctD/gQ4SEc=
+=wFZF
+-----END PGP SIGNATURE-----
+
+--cYG5ZC/RuVsIq1ir--
