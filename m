@@ -1,37 +1,65 @@
-From: Sagi Grimberg <sagi-NQWnxTmZq1alnMjI0IkVqw@public.gmane.org>
-Subject: Re: [PATCH rfc 0/6] Automatic affinity settings for nvme over rdma
-Date: Thu, 6 Apr 2017 11:34:03 +0300
-Message-ID: <09b4dcb4-d0ab-43b7-5f1c-394ecfcce2f0@grimberg.me>
-References: <1491140492-25703-1-git-send-email-sagi@grimberg.me>
- <86ed1762-a990-691f-e043-3d7dcac8fe85@mellanox.com>
+From: Jani Nikula <jani.nikula@linux.intel.com>
+Subject: Re: [PATCH] format-security: move static strings to const
+Date: Thu, 06 Apr 2017 11:48:48 +0300
+Message-ID: <87mvbtzztb.fsf@intel.com>
+References: <20170405214711.GA5711@beast>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1255; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>
-To: Max Gurtovoy <maxg-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-nvme-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-block-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <86ed1762-a990-691f-e043-3d7dcac8fe85-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: linux-mips@linux-mips.org, linux-decnet-user@lists.sourceforge.net,
+ kernel@stlinux.com, Qianqian Xie <xieqianqian@huawei.com>,
+ Mugunthan V N <mugunthanvnm@ti.com>, Tony Lindgren <tony@atomide.com>,
+ Viresh Kumar <viresh.kumar@linaro.org>,
+ Rasmus Villemoes <linux@rasmusvillemoes.dk>, dri-devel@lists.freedesktop.org,
+ linux-kernel@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
+ "Maciej W. Rozycki" <macro@linux-mips.org>,
+ Christian Gromm <christian.gromm@microchip.com>,
+ Daniel Vetter <daniel.vetter@intel.com>, Ingo Molnar <mingo@kernel.org>,
+ Andrey Shvetsov <andrey.shvetsov@k2l.de>, devel@driverdev.osuosl.org,
+ Kejian Yan <yankejian@huawei.com>, Felipe Balbi <felipe.balbi@linux.intel.com>,
+ Russell King <linux@armlinux.org.uk>, Jarod Wilson <jarod@redhat.com>,
+ linux-hippi@sunsite.dk, Daode Huang <huangdaode@hisilicon.com>,
+ linux-serial@vger.kernel.org, Jiri Slaby <jslaby@s
+To: Kees Cook <keescook@chromium.org>,
+ Andrew Morton <akpm@linux-foundation.org>
+Return-path: <dri-devel-bounces@lists.freedesktop.org>
+In-Reply-To: <20170405214711.GA5711@beast>
+List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/dri-devel>,
+ <mailto:dri-devel-request@lists.freedesktop.org?subject=unsubscribe>
+List-Archive: <https://lists.freedesktop.org/archives/dri-devel>
+List-Post: <mailto:dri-devel@lists.freedesktop.org>
+List-Help: <mailto:dri-devel-request@lists.freedesktop.org?subject=help>
+List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/dri-devel>,
+ <mailto:dri-devel-request@lists.freedesktop.org?subject=subscribe>
+Errors-To: dri-devel-bounces@lists.freedesktop.org
+Sender: "dri-devel" <dri-devel-bounces@lists.freedesktop.org>
 List-Id: netdev.vger.kernel.org
 
-> Hi Sagi,
-
-Hey Max,
-
-> the patchset looks good and of course we can add support for more
-> drivers in the future.
-> have you run some performance testing with the nvmf initiator ?
-
-I'm limited by the target machine in terms of IOPs, but the host shows
-~10% cpu usage decrease, and latency improves slightly as well
-which is more apparent depending on which cpu I'm running my IO
-thread (due to the mismatch in comp_vectors and queue mappings
-some queues have irq vectors mapped to a core on a different numa
-node.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+T24gVGh1LCAwNiBBcHIgMjAxNywgS2VlcyBDb29rIDxrZWVzY29va0BjaHJvbWl1bS5vcmc+IHdy
+b3RlOgo+IFdoaWxlIGV4YW1pbmluZyBvdXRwdXQgZnJvbSB0cmlhbCBidWlsZHMgd2l0aCAtV2Zv
+cm1hdC1zZWN1cml0eSBlbmFibGVkLAo+IG1hbnkgc3RyaW5ncyB3ZXJlIGZvdW5kIHRoYXQgc2hv
+dWxkIGJlIGRlZmluZWQgYXMgImNvbnN0Iiwgb3IgYXMgYSBjaGFyCj4gYXJyYXkgaW5zdGVhZCBv
+ZiBjaGFyIHBvaW50ZXIuIFRoaXMgbWFrZXMgc29tZSBzdGF0aWMgYW5hbHlzaXMgZWFzaWVyLAo+
+IGJ5IHByb2R1Y2luZyBmZXdlciBmYWxzZSBwb3NpdGl2ZXMuCj4KPiBBcyB0aGVzZSBhcmUgYWxs
+IHRyaXZpYWwgY2hhbmdlcywgaXQgc2VlbWVkIGJlc3QgdG8gcHV0IHRoZW0gYWxsIGluCj4gYSBz
+aW5nbGUgcGF0Y2ggcmF0aGVyIHRoYW4gY2hvcHBpbmcgdGhlbSB1cCBwZXIgbWFpbnRhaW5lci4K
+Cj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvZ3B1L2RybS9kcm1fZmJfaGVscGVyLmMgYi9kcml2ZXJz
+L2dwdS9kcm0vZHJtX2ZiX2hlbHBlci5jCj4gaW5kZXggZjZkNGQ5NzAwNzM0Li4xZmY5ZDU5MTJi
+ODMgMTAwNjQ0Cj4gLS0tIGEvZHJpdmVycy9ncHUvZHJtL2RybV9mYl9oZWxwZXIuYwo+ICsrKyBi
+L2RyaXZlcnMvZ3B1L2RybS9kcm1fZmJfaGVscGVyLmMKPiBAQCAtMjMzMSw3ICsyMzMxLDcgQEAg
+RVhQT1JUX1NZTUJPTChkcm1fZmJfaGVscGVyX2hvdHBsdWdfZXZlbnQpOwo+ICBpbnQgX19pbml0
+IGRybV9mYl9oZWxwZXJfbW9kaW5pdCh2b2lkKQo+ICB7Cj4gICNpZiBkZWZpbmVkKENPTkZJR19G
+UkFNRUJVRkZFUl9DT05TT0xFX01PRFVMRSkgJiYgIWRlZmluZWQoQ09ORklHX0VYUEVSVCkKPiAt
+CWNvbnN0IGNoYXIgKm5hbWUgPSAiZmJjb24iOwo+ICsJY29uc3QgY2hhciBuYW1lW10gPSAiZmJj
+b24iOwoKSSdkIGFsd2F5cyB3cml0ZSB0aGUgZm9ybWVyIG91dCBvZiBoYWJpdC4gV2h5IHNob3Vs
+ZCBJIHN0YXJ0IHVzaW5nIHRoZQpsYXR0ZXI/IFdoYXQgbWFrZXMgaXQgYmV0dGVyPwoKV2hhdCBr
+ZWVwcyB0aGUga2VybmVsIGZyb20gYWNjdW11bGF0aW5nIHRvbnMgbW9yZSBvZiB0aGUgZm9ybWVy
+PwoKSGVyZSdzIGFuIGludGVyZXN0aW5nIGNvbXBhcmlzb24gb2YgdGhlIGdlbmVyYXRlZCBjb2Rl
+LiBJJ20gYSBiaXQKc3VycHJpc2VkIGJ5IHdoYXQgZ2NjIGRvZXMsIEkgd291bGQgaGF2ZSBleHBl
+Y3RlZCBubyBkaWZmZXJlbmNlLCBsaWtlCmNsYW5nLiBodHRwczovL2dvZGJvbHQub3JnL2cvT2Rx
+VXZOCgpUaGUgb3RoZXIgY2hhbmdlcyBhZGRpbmcgY29uc3QgaW4gdGhpcyBwYXRjaCBhcmUsIG9m
+IGNvdXJzZSwgZ29vZC4KCgpCUiwKSmFuaS4KCi0tIApKYW5pIE5pa3VsYSwgSW50ZWwgT3BlbiBT
+b3VyY2UgVGVjaG5vbG9neSBDZW50ZXIKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX18KZHJpLWRldmVsIG1haWxpbmcgbGlzdApkcmktZGV2ZWxAbGlzdHMuZnJl
+ZWRlc2t0b3Aub3JnCmh0dHBzOi8vbGlzdHMuZnJlZWRlc2t0b3Aub3JnL21haWxtYW4vbGlzdGlu
+Zm8vZHJpLWRldmVsCg==
