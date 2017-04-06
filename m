@@ -1,66 +1,54 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH] net: ipv4: netfilter: Remove unused function
- nf_nat_need_gre()
-Date: Fri, 7 Apr 2017 01:06:14 +0200
-Message-ID: <20170406230614.GA20513@salvia>
-References: <20170401133633.GA2208@singhal-Inspiron-5558>
+From: Matthias Kaehlcke <mka@chromium.org>
+Subject: Re: [PATCH] mac80211: Fix clang warning about constant operand in
+ logical operation
+Date: Thu, 6 Apr 2017 16:07:26 -0700
+Message-ID: <20170406230726.GB78690@google.com>
+References: <20170406185633.91065-1-mka@chromium.org>
+ <1491505878.11399.4.camel@sipsolutions.net>
+ <20170406192452.GE145051@google.com>
+ <1491513145.11399.8.camel@sipsolutions.net>
+ <20170406224238.GA78690@google.com>
+ <1491519117.11399.10.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-        "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: simran singhal <singhalsimran0@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Cc: "David S . Miller" <davem@davemloft.net>,
+        linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org, Grant Grundler <grundler@chromium.org>,
+        Michael Davidson <md@google.com>,
+        Greg Hackmann <ghackmann@google.com>
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f46.google.com ([74.125.83.46]:36435 "EHLO
+        mail-pg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753102AbdDFXH2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 19:07:28 -0400
+Received: by mail-pg0-f46.google.com with SMTP id g2so47838245pge.3
+        for <netdev@vger.kernel.org>; Thu, 06 Apr 2017 16:07:28 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20170401133633.GA2208@singhal-Inspiron-5558>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1491519117.11399.10.camel@sipsolutions.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Apr 01, 2017 at 07:06:33PM +0530, simran singhal wrote:
-> The function nf_nat_need_gre() on being called, simply returns
-> back. The function doesn't have FIXME code around.
-> Hence, nf_nat_need_gre() and its calls have been removed.
+El Fri, Apr 07, 2017 at 12:51:57AM +0200 Johannes Berg ha dit:
+
+> On Thu, 2017-04-06 at 15:42 -0700, Matthias Kaehlcke wrote:
+> > 
+> > Thanks, it would also require to move the initialization of
+> > ieee80211_default_rc_algo into an ifdef. If you can live with such a
+> > solution I'm happy to change it.
 > 
-> Signed-off-by: simran singhal <singhalsimran0@gmail.com>
-> ---
->  net/ipv4/netfilter/nf_nat_pptp.c      | 2 --
->  net/ipv4/netfilter/nf_nat_proto_gre.c | 6 ------
->  2 files changed, 8 deletions(-)
+> I think that'd be something I can live with, yeah.
 > 
-> diff --git a/net/ipv4/netfilter/nf_nat_pptp.c b/net/ipv4/netfilter/nf_nat_pptp.c
-> index b3ca21b..747e737 100644
-> --- a/net/ipv4/netfilter/nf_nat_pptp.c
-> +++ b/net/ipv4/netfilter/nf_nat_pptp.c
-> @@ -282,8 +282,6 @@ pptp_inbound_pkt(struct sk_buff *skb,
->  
->  static int __init nf_nat_helper_pptp_init(void)
->  {
-> -	nf_nat_need_gre();
-> -
->  	BUG_ON(nf_nat_pptp_hook_outbound != NULL);
->  	RCU_INIT_POINTER(nf_nat_pptp_hook_outbound, pptp_outbound_pkt);
->  
-> diff --git a/net/ipv4/netfilter/nf_nat_proto_gre.c b/net/ipv4/netfilter/nf_nat_proto_gre.c
-> index edf0500..c020a4d 100644
-> --- a/net/ipv4/netfilter/nf_nat_proto_gre.c
-> +++ b/net/ipv4/netfilter/nf_nat_proto_gre.c
-> @@ -142,9 +142,3 @@ static void __exit nf_nat_proto_gre_fini(void)
->  
->  module_init(nf_nat_proto_gre_init);
->  module_exit(nf_nat_proto_gre_fini);
-> -
-> -void nf_nat_need_gre(void)
-> -{
-> -	return;
-> -}
-> -EXPORT_SYMBOL_GPL(nf_nat_need_gre);
+> > > 	git grep 'IS_ENABLED(' | grep '&&'
+> > 
+> > Indeed the warning is not triggered by these constructs. It seems
+> > clang only emits the warning when the constant operand is not
+> > boolean.
+> 
+> That points to just adding "> 0" to the condition here as another
+> alternative solution, I guess? With a comment to make sure it's not
+> removed again, that'd seem like the best thing to do.
 
-There is a good reason why we have this :)
+Good point, that's more digestible. I'll send an updated change soon.
 
-By digging out and doing a bit of software archeology work via the
-'git annotate' you know this triggers an explicit module dependency.
+Matthias
