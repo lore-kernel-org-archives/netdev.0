@@ -1,50 +1,76 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Wrong subject line: IS Keynote by Jesse Brandeburg WAS ( Keynote by
- Shrijeet Mukherjee
-Date: Thu, 6 Apr 2017 06:21:36 -0400
-Message-ID: <8d6ee33a-c6a3-0e0c-78bb-d6fe101f6002@mojatatu.com>
-References: <17921f52-1f6e-b381-2642-0a2b8bae7c15@mojatatu.com>
+From: David Howells <dhowells@redhat.com>
+Subject: [PATCH net-next 0/7] rxrpc: Miscellany
+Date: Thu, 06 Apr 2017 11:22:14 +0100
+Message-ID: <149147413410.21583.16278066955827076779.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: tech-committee <tech-committee@netdevconf.org>,
-        Brenda Butler <bjb@mojatatu.com>,
-        Stephen Jaworski <jaws@mojatatu.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Heri Muhero <hmuhero@gmail.com>
-To: people@netdevconf.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f49.google.com ([209.85.214.49]:34933 "EHLO
-        mail-it0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752502AbdDFKVi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 06:21:38 -0400
-Received: by mail-it0-f49.google.com with SMTP id y18so98229798itc.0
-        for <netdev@vger.kernel.org>; Thu, 06 Apr 2017 03:21:38 -0700 (PDT)
-In-Reply-To: <17921f52-1f6e-b381-2642-0a2b8bae7c15@mojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
+        linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Apologies.
-Need coffee ...
-Corrected in previous email.
 
-cheers,
-jamal
-On 17-04-06 06:12 AM, Jamal Hadi Salim wrote:
->
-> The tech committee is pleased to announce a keynote by Jesse Brandeburg
-> titled "Linux and the Network"
->
-> In this talk Jesse will cover topics such as, a brief history of the
-> network in Linux, Intel’s expectations of the number of devices on the
-> internet causing a dramatic expansion in the number of connected
-> devices, and how it will effect Linux networking. He will also cover
-> how the data from all these devices will require big investments in
-> hardware and software in the network, and why that matters to the core
-> Linux networking community. Finally he will talk about what the future
-> of networking can hold, and what it means for Intel, and the Linux
-> NetDev community.
->
-> cheers,
-> jamal
->
+Here's a set of patches that make some minor changes to AF_RXRPC:
+
+ (1) Store error codes in struct rxrpc_call::error as negative codes and
+     only convert to positive in recvmsg() to avoid confusion inside the
+     kernel.
+
+ (2) Note the result of trying to abort a call (this fails if the call is
+     already 'completed').
+
+ (3) Don't abort on temporary errors whilst processing challenge and
+     response packets, but rather drop the packet and wait for
+     retransmission.
+
+And also adds some more tracing:
+
+ (4) Protocol errors.
+
+ (5) Received abort packets.
+
+ (6) Changes in the Rx window size due to ACK packet information.
+
+ (7) Client call initiation (to allow the rxrpc_call struct pointer, the
+     wire call ID and the user ID/afs_call pointer to be cross-referenced).
+
+The patches can be found here also:
+
+	http://git.kernel.org/cgit/linux/kernel/git/dhowells/linux-fs.git/log/?h=rxrpc-rewrite
+
+Tagged thusly:
+
+	git://git.kernel.org/pub/scm/linux/kernel/git/dhowells/linux-fs.git
+	rxrpc-rewrite-20170406
+
+David
+---
+David Howells (7):
+      rxrpc: Use negative error codes in rxrpc_call struct
+      rxrpc: Note a successfully aborted kernel operation
+      rxrpc: Handle temporary errors better in rxkad security
+      rxrpc: Trace protocol errors in received packets
+      rxrpc: Trace received aborts
+      rxrpc: Trace changes in a call's receive window size
+      rxrpc: Trace client call connection
+
+
+ fs/afs/rxrpc.c               |   12 +--
+ include/net/af_rxrpc.h       |    2 
+ include/trace/events/rxrpc.h |  101 +++++++++++++++++++++++
+ net/rxrpc/ar-internal.h      |   19 ++++
+ net/rxrpc/call_accept.c      |    6 +
+ net/rxrpc/call_event.c       |    2 
+ net/rxrpc/call_object.c      |    4 -
+ net/rxrpc/conn_client.c      |    1 
+ net/rxrpc/conn_event.c       |   17 ++--
+ net/rxrpc/input.c            |   17 +++-
+ net/rxrpc/insecure.c         |   10 ++
+ net/rxrpc/peer_event.c       |    2 
+ net/rxrpc/recvmsg.c          |    8 +-
+ net/rxrpc/rxkad.c            |  184 ++++++++++++++++++++++++++----------------
+ net/rxrpc/sendmsg.c          |   17 +++-
+ 15 files changed, 294 insertions(+), 108 deletions(-)
