@@ -1,43 +1,93 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 00/13] ftgmac100: Rework batch 1 - Link & Interrupts
-Date: Thu, 06 Apr 2017 12:38:36 -0700 (PDT)
-Message-ID: <20170406.123836.2076491695651167803.davem@davemloft.net>
-References: <20170405022853.8238-1-benh@kernel.crashing.org>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: benh@kernel.crashing.org
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next v2] net: dsa: mv88e6xxx: Make SMI c22/c45 read/write functions static
+Date: Thu,  6 Apr 2017 12:42:16 -0700
+Message-ID: <20170406194217.13927-1-f.fainelli@gmail.com>
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        linux-kernel@vger.kernel.org (open list)
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:36960 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752035AbdDFTip (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 15:38:45 -0400
-In-Reply-To: <20170405022853.8238-1-benh@kernel.crashing.org>
+Received: from mail-io0-f194.google.com ([209.85.223.194]:32915 "EHLO
+        mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753731AbdDFTmX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 15:42:23 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Date: Wed,  5 Apr 2017 12:28:40 +1000
+The SMI clause 22 & 45 read/write operations are local to the global2.c file,
+so make them static. This eliminates the following warning:
 
-> This is version 2 of the first batch of updates to the
-> ftgmac100 driver.
-> 
-> Essentially:
-> 
->  - A few misc cleanups
->  - Fixing link speed & duplex handling (including dealing with
->    an Aspeed requirement to double reset the controller when
->    the speed changes)
->  - And addition of a reset task workqueue which will be used
->    for delaying the re-initialization of the controller
->  - Fixing a number of issues with how interrupts and NAPI
->    are dealt with.
-> 
-> Subsequent batches will rework and improve the rx path, the
-> tx path, and add a bunch of features and fixes.
-> 
-> Version 2 addresses some review comments to patches 5 and 10
-> (see version history in the respective emails).
+drivers/net/dsa/mv88e6xxx/global2.c:571:5: warning: no previous prototype for 'mv88e6xxx_g2_smi_phy_read_c45' [-Wmissing-prototypes]
+ int mv88e6xxx_g2_smi_phy_read_c45(struct mv88e6xxx_chip *chip, int addr,
+     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+drivers/net/dsa/mv88e6xxx/global2.c:602:5: warning: no previous prototype for 'mv88e6xxx_g2_smi_phy_read_c22' [-Wmissing-prototypes]
+ int mv88e6xxx_g2_smi_phy_read_c22(struct mv88e6xxx_chip *chip, int addr,
+     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+drivers/net/dsa/mv88e6xxx/global2.c:635:5: warning: no previous prototype for 'mv88e6xxx_g2_smi_phy_write_c45' [-Wmissing-prototypes]
+ int mv88e6xxx_g2_smi_phy_write_c45(struct mv88e6xxx_chip *chip, int addr,
+     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+drivers/net/dsa/mv88e6xxx/global2.c:664:5: warning: no previous prototype for 'mv88e6xxx_g2_smi_phy_write_c22' [-Wmissing-prototypes]
+ int mv88e6xxx_g2_smi_phy_write_c22(struct mv88e6xxx_chip *chip, int addr,
+     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Series applied.
+Suggested-by: Andrew Lunn <andrew@lunn.ch>
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ drivers/net/dsa/mv88e6xxx/global2.c | 20 ++++++++++++--------
+ 1 file changed, 12 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/net/dsa/mv88e6xxx/global2.c b/drivers/net/dsa/mv88e6xxx/global2.c
+index 7c6bc33a9516..b3fea55071e3 100644
+--- a/drivers/net/dsa/mv88e6xxx/global2.c
++++ b/drivers/net/dsa/mv88e6xxx/global2.c
+@@ -568,8 +568,9 @@ static int mv88e6xxx_g2_smi_phy_write_addr(struct mv88e6xxx_chip *chip,
+ 	return mv88e6xxx_g2_smi_phy_cmd(chip, cmd);
+ }
+ 
+-int mv88e6xxx_g2_smi_phy_read_c45(struct mv88e6xxx_chip *chip, int addr,
+-				  int reg_c45, u16 *val, bool external)
++static int mv88e6xxx_g2_smi_phy_read_c45(struct mv88e6xxx_chip *chip,
++					 int addr, int reg_c45, u16 *val,
++					 bool external)
+ {
+ 	int device = (reg_c45 >> 16) & 0x1f;
+ 	int reg = reg_c45 & 0xffff;
+@@ -599,8 +600,9 @@ int mv88e6xxx_g2_smi_phy_read_c45(struct mv88e6xxx_chip *chip, int addr,
+ 	return 0;
+ }
+ 
+-int mv88e6xxx_g2_smi_phy_read_c22(struct mv88e6xxx_chip *chip, int addr,
+-				  int reg, u16 *val, bool external)
++static int mv88e6xxx_g2_smi_phy_read_c22(struct mv88e6xxx_chip *chip,
++					 int addr, int reg, u16 *val,
++					 bool external)
+ {
+ 	u16 cmd = GLOBAL2_SMI_PHY_CMD_OP_22_READ_DATA | (addr << 5) | reg;
+ 	int err;
+@@ -632,8 +634,9 @@ int mv88e6xxx_g2_smi_phy_read(struct mv88e6xxx_chip *chip,
+ 	return mv88e6xxx_g2_smi_phy_read_c22(chip, addr, reg, val, external);
+ }
+ 
+-int mv88e6xxx_g2_smi_phy_write_c45(struct mv88e6xxx_chip *chip, int addr,
+-				   int reg_c45, u16 val, bool external)
++static int mv88e6xxx_g2_smi_phy_write_c45(struct mv88e6xxx_chip *chip,
++					  int addr, int reg_c45, u16 val,
++					  bool external)
+ {
+ 	int device = (reg_c45 >> 16) & 0x1f;
+ 	int reg = reg_c45 & 0xffff;
+@@ -661,8 +664,9 @@ int mv88e6xxx_g2_smi_phy_write_c45(struct mv88e6xxx_chip *chip, int addr,
+ 	return 0;
+ }
+ 
+-int mv88e6xxx_g2_smi_phy_write_c22(struct mv88e6xxx_chip *chip, int addr,
+-				   int reg, u16 val, bool external)
++static int mv88e6xxx_g2_smi_phy_write_c22(struct mv88e6xxx_chip *chip,
++					  int addr, int reg, u16 val,
++					  bool external)
+ {
+ 	u16 cmd = GLOBAL2_SMI_PHY_CMD_OP_22_WRITE_DATA | (addr << 5) | reg;
+ 	int err;
+-- 
+2.9.3
