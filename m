@@ -1,29 +1,27 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH 0/4] crypto: CRYPTO_MAX_ALG_NAME is too low
-Date: Thu, 6 Apr 2017 23:14:31 +0200
-Message-ID: <20170406211431.GD12763@secunet.com>
-References: <e96825bd-4e1d-c6c1-160e-0dc10f7f3981@nokia.com>
- <367298c5-aa5d-3708-72d0-8a44702d0caa@nokia.com>
- <20170406081509.GB30557@gondor.apana.org.au>
- <20170406.135832.1914702009261438916.davem@davemloft.net>
+Subject: Re: [PATCH 3/4] xfrm: Prepare for CRYPTO_MAX_ALG_NAME expansion
+Date: Thu, 6 Apr 2017 23:15:51 +0200
+Message-ID: <20170406211551.GE12763@secunet.com>
+References: <20170406081509.GB30557@gondor.apana.org.au>
+ <E1cw2aQ-00085u-SY@gondobar>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Cc: <herbert@gondor.apana.org.au>, <alexander.sverdlin@nokia.com>,
+Cc: Alexander Sverdlin <alexander.sverdlin@nokia.com>,
+        "David S. Miller" <davem@davemloft.net>,
         <linux-crypto@vger.kernel.org>, <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <linux-crypto-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20170406.135832.1914702009261438916.davem@davemloft.net>
+In-Reply-To: <E1cw2aQ-00085u-SY@gondobar>
 Sender: linux-crypto-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 06, 2017 at 01:58:32PM -0700, David Miller wrote:
-> From: Herbert Xu <herbert@gondor.apana.org.au>
-> Date: Thu, 6 Apr 2017 16:15:09 +0800
+On Thu, Apr 06, 2017 at 04:16:10PM +0800, Herbert Xu wrote:
+> This patch fixes the xfrm_user code to use the actual array size
+> rather than the hard-coded CRYPTO_MAX_ALG_NAME length.  This is
+> because the array size is fixed at 64 bytes while we want to increase
+> the in-kernel CRYPTO_MAX_ALG_NAME value.
 > 
-> > As the final patch depends on all three it would be easiest if
-> > we pushed the xfrm patch through the crypto tree.  Steffen/David?
-> 
-> No objections from me for this going through the crypto tree.
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-I have no objections too.
+Acked-by: Steffen Klassert <steffen.klassert@secunet.com>
