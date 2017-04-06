@@ -1,53 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] liquidio: fix Octeon core watchdog timeout
- false alarm
-Date: Thu, 06 Apr 2017 12:32:08 -0700 (PDT)
-Message-ID: <20170406.123208.1810854461605308607.davem@davemloft.net>
-References: <20170405022657.GA1064@felix-thinkpad.cavium.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH v2] net: netfilter: Remove multiple assignment.
+Date: Thu, 6 Apr 2017 21:35:16 +0200
+Message-ID: <20170406193516.GA4743@salvia>
+References: <20170327223326.GA486@arushi-HP-Pavilion-Notebook>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
-        derek.chickles@cavium.com
-To: felix.manlunas@cavium.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:36862 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752831AbdDFTcK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 15:32:10 -0400
-In-Reply-To: <20170405022657.GA1064@felix-thinkpad.cavium.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>, davem@davemloft.net,
+        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        outreachy-kernel@googlegroups.com
+To: Arushi Singhal <arushisinghal19971997@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170327223326.GA486@arushi-HP-Pavilion-Notebook>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Felix Manlunas <felix.manlunas@cavium.com>
-Date: Tue, 4 Apr 2017 19:26:57 -0700
+Hi Arushi,
 
-> Detection of watchdog timeout of Octeon cores is flawed and susceptible to
-> false alarms.  Refactor by removing the detection code, and in its place,
-> leverage existing code that monitors for an indication from the NIC
-> firmware that an Octeon core crashed; expand the meaning of the indication
-> to "an Octeon core crashed or its watchdog timer expired".  Detection of
-> watchdog timeout is now delegated to an exception handler in the NIC
-> firmware; this is free of false alarms.
-> 
-> Also if there's an Octeon core crash or watchdog timeout:
-> (1) Disable VF Ethernet links.
-> (2) Decrement the module refcount by an amount equal to the number of
->     active VFs of the NIC whose Octeon core crashed or had a watchdog
->     timeout.  The refcount will continue to reflect the active VFs of
->     other liquidio NIC(s) (if present) whose Octeon cores are faultless.
-> 
-> Item (2) is needed to avoid the case of not being able to unload the driver
-> because the module refcount is stuck at some non-zero number.  There is
-> code that, in normal cases, decrements the refcount upon receiving a
-> message from the firmware that a VF driver was unloaded.  But in
-> exceptional cases like an Octeon core crash or watchdog timeout, arrival of
-> that particular message from the firmware might be unreliable.  That normal
-> case code is changed to not touch the refcount in the exceptional case to
-> avoid contention (over the refcount) with the liquidio_watchdog kernel
-> thread who will carry out item (2).
-> 
-> Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
-> Signed-off-by: Derek Chickles <derek.chickles@cavium.com>
+On Tue, Mar 28, 2017 at 04:03:27AM +0530, Arushi Singhal wrote:
+> This patch removes multiple assignments to follow the kernel coding
+> style as also reported by checkpatch.pl.
+> Done using coccinelle.
+> @@
+> identifier i1,i2;
+> constant c;
+> @@
+> - i1=i2=c;
+> + i1=c;
+> + i2=i1;
 
-Applied, thanks.
+I see more multiple assignments like this under:
+
+net/netfilter/
+net/ipv4/netfilter/
+net/ipv6/netfilter/
+net/bridge/netfilter/
+
+So I would prefer whether fix them all or none.
+
+Thanks!
