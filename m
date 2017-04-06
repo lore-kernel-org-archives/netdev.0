@@ -1,64 +1,50 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: tcpprobe display format for snd_nxt and snd_una
-Date: Thu, 6 Apr 2017 17:45:31 -0400
-Message-ID: <20170406174531.4fca96b0@plumbers-lap.home.lan>
-References: <20170405194009.GH62406@strugglingcoder.info>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [PATCH v2 00/13] ftgmac100: Rework batch 1 - Link & Interrupts
+Date: Fri, 07 Apr 2017 07:46:58 +1000
+Message-ID: <1491515218.4166.124.camel@kernel.crashing.org>
+References: <20170405022853.8238-1-benh@kernel.crashing.org>
+         <2344b1ea-f8bc-7491-4662-b8a3e94fb94e@gmail.com>
+         <1491371595.4166.77.camel@kernel.crashing.org>
+         <b59025eb-e653-8481-2e58-a780777df4ee@gmail.com>
+         <1491373880.4166.79.camel@kernel.crashing.org>
+         <af8b8554-2788-cb48-9a13-d4d7f7085c3f@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: hiren panchasara <hiren@strugglingcoder.info>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f177.google.com ([209.85.223.177]:33282 "EHLO
-        mail-io0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752194AbdDFVpg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 17:45:36 -0400
-Received: by mail-io0-f177.google.com with SMTP id t68so5114815iof.0
-        for <netdev@vger.kernel.org>; Thu, 06 Apr 2017 14:45:35 -0700 (PDT)
-In-Reply-To: <20170405194009.GH62406@strugglingcoder.info>
+Received: from gate.crashing.org ([63.228.1.57]:37154 "EHLO gate.crashing.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754065AbdDFVrM (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 6 Apr 2017 17:47:12 -0400
+In-Reply-To: <af8b8554-2788-cb48-9a13-d4d7f7085c3f@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 5 Apr 2017 12:40:09 -0700
-hiren panchasara <hiren@strugglingcoder.info> wrote:
+On Thu, 2017-04-06 at 12:46 -0700, Florian Fainelli wrote:
+> > I thought a while ago we could add some dev flag to prevent the link
+> > watch from doing that, but never got to look into it myself and
+> > apparently neither did Gavin.
+> 
+> It sounds like a similar situation to e.g: 802.1x, you want to let some
+> frames make it through and you need a working link for that, but you
+> can't quite flag the device as UP entirely. Maybe you can find a way to
+> re-use IFF_LOWER_UP to that purpose and only set that flag based on the
+> NC-SI frames indicating link state?
 
-> (New to linux and first-time poster so please guide me if needed.)
->  
-> Upon using tcpprobe I realized that it prints snd_nxt and snd_una as hex
-> which makes it harder to read and compare with tcpdump for example.
->  
-> Not sure if that is intentional. If not, a simple patch like this would
-> print them as decimals.
->  
-> [PATCH] Display snd_nxt and snd_una as decimals for better
->  readability.
->  
-> ---
->  net/ipv4/tcp_probe.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->  
-> diff --git a/net/ipv4/tcp_probe.c b/net/ipv4/tcp_probe.c
-> index f6c50af..a8e66c1 100644
-> --- a/net/ipv4/tcp_probe.c
-> +++ b/net/ipv4/tcp_probe.c
-> @@ -191,7 +191,7 @@ static int tcpprobe_sprint(char *tbuf, int n)
->                 = ktime_to_timespec64(ktime_sub(p->tstamp, tcp_probe.start));
->  
->         return scnprintf(tbuf, n,
-> -                       "%lu.%09lu %pISpc %pISpc %d %#x %#x %u %u %u %u %u\n",
-> +                       "%lu.%09lu %pISpc %pISpc %d %u %u %u %u %u %u %u\n",
->                         (unsigned long)ts.tv_sec,
->                         (unsigned long)ts.tv_nsec,
->                         &p->src, &p->dst, p->length, p->snd_nxt, p->snd_una,
-> --
->  
-> Let me know if I am missing something obvious.
+Possibly yes, I wasn't familiar with the difference between 
+"carrier" and IFF_LOWER_UP so far. I'll have a look or have Gavin do
+so.
 
-The output of tcpprobe is intended for consumption by programs.
-Changing the output format would be considered a kernel ABI breakage which
-is something Linux tries not to do. Therefore I would prefer it
-not be changed. Sorry if this is inconvenient for you but breaking other
-users scripts would be a bigger problem.
+It would be nice to reflect that properly so things like fallover or
+bonding do the right thing. On the other hand I yet have to see a
+system where the BMC has more than one NC-SI link to a NIC (what they
+usually have is that NC-SI is connected to multiple NICs which is a
+different matter and should be handled within the NC-SI stack).
 
-Also, your patch email is not formatted with subject [RFC] or [PATCH]
-and is missing signed-off-by.
+Anyway, I'll look into it further down the track along with other
+improvements I'd like to do to the NC-SI stack such as properly setting
+up multicast and vlan filters in the peer NIC and various cleanups.
+
+Cheers,
+Ben.
