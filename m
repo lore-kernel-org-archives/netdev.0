@@ -1,63 +1,72 @@
-From: Alexander Sverdlin <alexander.sverdlin@nokia.com>
-Subject: Re: [PATCH 2/4] crypto: af_alg - Allow arbitrarily long algorithm
- names
-Date: Thu, 6 Apr 2017 14:32:27 +0200
-Message-ID: <32d123fa-5c5f-4db6-d333-24b71639b738@nokia.com>
-References: <20170406081509.GB30557@gondor.apana.org.au>
- <E1cw2aP-00085S-Q4@gondobar>
+From: Thierry Reding <treding@nvidia.com>
+Subject: Re: [PATCH 2/4 v3 net-next] net: stmmac: adding multiple buffers for
+ rx
+Date: Thu, 6 Apr 2017 14:32:17 +0200
+Message-ID: <20170406123217.GB5115@ulmo.ba.sec>
+References: <cover.1491467980.git.jpinto@synopsys.com>
+ <05dcbd78e826eb2874cdce699e24274d0af680a0.1491467980.git.jpinto@synopsys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: Herbert Xu <herbert@gondor.apana.org.au>,
-        "David S. Miller" <davem@davemloft.net>,
-        <linux-crypto@vger.kernel.org>, <netdev@vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+        protocol="application/pgp-signature"; boundary="i0/AhcQY5QxfSsSZ"
+Cc: <davem@davemloft.net>, <clabbe.montjoie@gmail.com>,
+        <niklas.cassel@axis.com>, <julia.lawall@lip6.fr>,
+        <netdev@vger.kernel.org>
+To: Joao Pinto <Joao.Pinto@synopsys.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve1eur01on0115.outbound.protection.outlook.com ([104.47.1.115]:22848
-        "EHLO EUR01-VE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1757171AbdDFMdf (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 6 Apr 2017 08:33:35 -0400
-In-Reply-To: <E1cw2aP-00085S-Q4@gondobar>
+Received: from hqemgate15.nvidia.com ([216.228.121.64]:6521 "EHLO
+        hqemgate15.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756806AbdDFMc1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 08:32:27 -0400
+In-Reply-To: <05dcbd78e826eb2874cdce699e24274d0af680a0.1491467980.git.jpinto@synopsys.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi!
+--i0/AhcQY5QxfSsSZ
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-On 06/04/17 10:16, Herbert Xu wrote:
-> This patch removes the hard-coded 64-byte limit on the length
-> of the algorithm name through bind(2).  The address length can
-> now exceed that.  The user-space structure remains unchanged.
-> In order to use a longer name simply extend the salg_name array
-> beyond its defined 64 bytes length.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-> ---
-> 
->  crypto/af_alg.c |    4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/crypto/af_alg.c b/crypto/af_alg.c
-> index 690deca..3556d8e 100644
-> --- a/crypto/af_alg.c
-> +++ b/crypto/af_alg.c
-> @@ -160,11 +160,11 @@ static int alg_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
->  	if (sock->state == SS_CONNECTED)
->  		return -EINVAL;
->  
-> -	if (addr_len != sizeof(*sa))
-> +	if (addr_len < sizeof(*sa))
->  		return -EINVAL;
->  
->  	sa->salg_type[sizeof(sa->salg_type) - 1] = 0;
-> -	sa->salg_name[sizeof(sa->salg_name) - 1] = 0;
-> +	sa->salg_name[sizeof(sa->salg_name) + addr_len - sizeof(*sa) - 1] = 0;
->  
->  	type = alg_get_type(sa->salg_type);
->  	if (IS_ERR(type) && PTR_ERR(type) == -ENOENT) {
+On Thu, Apr 06, 2017 at 09:49:09AM +0100, Joao Pinto wrote:
+[...]
+>  err_init_rx_buffers:
+> -	while (--i >= 0)
+> -		stmmac_free_rx_buffer(priv, i);
+> +	while (queue >= 0) {
 
-Why should userspace ever extend the structure if salg_name is hardcoded to 64 in if_alg.h?
-This patch doesn't change the behavior at all, or am I missing something?
+I /think/ this could simply be:
 
--- 
-Best regards,
-Alexander Sverdlin.
+	while (queue--) {
+		...
+	}
+
+That evaluates before the decrement and hence properly deals with the
+case of 0. The difference to your code is that it will skip the first
+iteration, but I think that's fine because stmmac_init_rx_buffers()
+already cleans up properly, so the queue'th element doesn't have to
+be freed again.
+
+Anyway, I think your version will work just as well.
+
+Thierry
+
+--i0/AhcQY5QxfSsSZ
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAABCAAdFiEEiOrDCAFJzPfAjcif3SOs138+s6EFAljmNVEACgkQ3SOs138+
+s6E8ng//UXrQCfpmdBfVrR95Pbrp3d7YCe14WiZXmPcRM8GfRJrApl/Wr0Ym4FI3
+0FQxV3O4Lsqj+es2GE3gLh/SWMOOtoqsbOt7wX7HLO5Ch0NgXlQApp2fRnB5Wnxp
+LnMxnOf6r9myXTpOhwFjZj0izZWCOQHz08W5xtf6eLqx372GkKZNyGxGwPg3O6HF
+/dUF6gunPvbHlms/aXfnLtWKqQpMN1b++2jzFd30mXft91bi/FR0jfd31OZvszv9
+7GnoK1QA4zB3DE5mJ+jkL3Vv/XLHbwBo0A8B64wB53QRZ1yQGVug0J3T1fA06Gwh
+8WHWOgXNtf2B7ET4Dp8iFPS3n2ye/Uq32G3PJUwNxUYOFxiID5bRZ0aKYlaDhw3K
+YFpDM09ymbb/aCy7zkvyyrBRlRn9zuioWdNu05LIrK9r4NjYo0cAIMeLWHVWgjqU
+id47P8elpGoVUk3wVuLzPcOn9F4LZBCHLTujL4Hc6x3BinJFLajhTEp/UvECtKG4
+tUdZfS2S/9K/DsJnVZ4uT03s/jt5WC1h6KhGNc5Br0zMP36ZfkAJZ4F0f7Chiqcn
+RWW7Of1cmCICX8sMedlYeZNczTEomf85/xB4oB4aLyKKbDWaKegvNV1vNhbO+v/a
+2Vhy2m9/Rg37BLiQeTX/Oz7VeNslZr+GskcUVpvb40BDaA+svqI=
+=iFDe
+-----END PGP SIGNATURE-----
+
+--i0/AhcQY5QxfSsSZ--
