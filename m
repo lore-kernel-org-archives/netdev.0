@@ -1,43 +1,103 @@
-From: gfree.wind@foxmail.com
-Subject: [PATCH net 1/1] net: tcp: Don't increase the TCP_MIB_OUTRSTS when fail to transmit RST
-Date: Thu,  6 Apr 2017 21:35:09 +0800
-Message-ID: <1491485709-8269-1-git-send-email-gfree.wind@foxmail.com>
-Cc: Gao Feng <fgao@ikuai8.com>
-To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-        kaber@trash.net, netdev@vger.kernel.org
+From: Juergen Borleis <jbe@pengutronix.de>
+Subject: Re: [PATCH 3/4] net: dsa: LAN9303: add I2C managed mode support
+Date: Thu, 6 Apr 2017 15:46:03 +0200
+Message-ID: <201704061546.04478.jbe@pengutronix.de>
+References: <20170405092024.16048-1-jbe@pengutronix.de> <20170405092024.16048-4-jbe@pengutronix.de> <20170405182155.GF21965@lunn.ch>
+Mime-Version: 1.0
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 8BIT
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        f.fainelli@gmail.com, kernel@pengutronix.de,
+        vivien.didelot@savoirfairelinux.com, davem@davemloft.net
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpbg298.qq.com ([184.105.67.102]:50842 "EHLO smtpbg298.qq.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S933118AbdDFNn2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 6 Apr 2017 09:43:28 -0400
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:39379 "EHLO
+        metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S933709AbdDFNqm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 09:46:42 -0400
+In-Reply-To: <20170405182155.GF21965@lunn.ch>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gao Feng <fgao@ikuai8.com>
+Hi Andrew,
 
-When fail to transmit RST, don't increase TCP_MIB_OUTRSTS in func
-tcp_send_active_reset like the case that it only increases
-LINUX_MIB_TCPABORTFAILED when fail to alloc skb.
+On Wednesday 05 April 2017 20:21:55 Andrew Lunn wrote:
+> [...]
+> > +SMSC/MicroChip LAN9303 three port ethernet switch
+> > +-------------------------------------------------
+> > +
+> > +Required properties:
+> > +
+> > +- compatible: should be "smsc,lan9303"
+> > +- #size-cells: must be 0
+> > +- #address-cells: must be 1
+> > +
+> > +Optional properties:
+> > +
+> > +- phy-reset-gpios: GPIO to be used to reset the whole device, always low active
+> > +- phy-reset-duration: reset duration, defaults to 200 ms 
+>
+> It is good to state the unit, ms.
 
-Signed-off-by: Gao Feng <fgao@ikuai8.com>
----
- net/ipv4/tcp_output.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+Done in v2.
 
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 22548b5..274802f 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -3014,8 +3014,8 @@ void tcp_send_active_reset(struct sock *sk, gfp_t priority)
- 	/* Send it off. */
- 	if (tcp_transmit_skb(sk, skb, 0, priority))
- 		NET_INC_STATS(sock_net(sk), LINUX_MIB_TCPABORTFAILED);
--
--	TCP_INC_STATS(sock_net(sk), TCP_MIB_OUTRSTS);
-+	else
-+		TCP_INC_STATS(sock_net(sk), TCP_MIB_OUTRSTS);
- }
- 
- /* Send a crossed SYN-ACK during socket establishment.
+> [...]
+> > +	master: masterdevice@X {
+> > +		phy-handle = <&ethphy>;
+> > +		status = "okay";
+> > +
+> > +		mdio {
+> > +			#address-cells = <1>;
+> > +			#size-cells = <0>;
+> > +
+> > +			ethphy: ethernet-phy@0 {
+> > +				compatible = "ethernet-phy-ieee802.3-c22";
+> > +				reg = <0>;
+> > +				max-speed = <100>;
+> > +			};
+>
+> If there is RMII between the CPU interface and the switch, why is this
+> PHY needed?
+
+Tested and changed to "fixed-link" in v2.
+
+> [...]
+> > +	switch: switch@a {
+> > +		compatible = "smsc,lan9303";
+> > +		reg = <0xa>;
+> > +		status = "okay";
+> > +		interrupts-extended = <&gpio2 7 IRQ_TYPE_LEVEL_LOW>;
+>
+> This interrupt is not in the binding documentation, or the code.
+
+Leftover from development. Removed in v2.
+
+> > +		phy-reset-gpios = <&gpio7 6 GPIO_ACTIVE_LOW>;
+> > +		phy-reset-duration = <200>;
+> > +
+> > +		dsa,member = <0 0>;
+> > +
+> > +		ports {
+> > +			#address-cells = <1>;
+> > +			#size-cells = <0>;
+> > +
+> > +			port@0 { /* RMII fixed link to master */
+> > +				reg = <0>;
+> > +				label = "cpu";
+> > +				ethernet = <&master>;
+> > +				max-speed = <100>;
+>
+> max-speed does not do anything i think, since there is no adjust_link
+> function.
+
+Removed in v2.
+
+Thanks.
+
+Juergen
+
 -- 
-1.9.1
+Pengutronix e.K.                             | Juergen Borleis             |
+Industrial Linux Solutions                   | http://www.pengutronix.de/  |
