@@ -1,34 +1,97 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH net 1/1] net: tcp: Don't increase the TCP_MIB_OUTRSTS when
- fail to transmit RST
-Date: Thu, 6 Apr 2017 10:08:20 -0400
-Message-ID: <CADVnQy=5GXBQzvDtbxQp-0ndJ1KphcxkY42mHsDPST0+sMGw2A@mail.gmail.com>
-References: <1491485709-8269-1-git-send-email-gfree.wind@foxmail.com>
- <CADVnQymp9X3EwmiiocNHU8bQpg7Wb7FvGr4SduKjhLoTv35zMA@mail.gmail.com> <001301d2aede$e1e54f00$a5afed00$@foxmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Patrick McHardy <kaber@trash.net>,
-        Netdev <netdev@vger.kernel.org>
-To: Gao Feng <gfree.wind@foxmail.com>
+From: Simon Wunderlich <sw@simonwunderlich.de>
+Subject: [PATCH 11/19] batman-adv: changed debug messages for easier bla debugging
+Date: Thu,  6 Apr 2017 16:07:33 +0200
+Message-ID: <20170406140741.30745-12-sw@simonwunderlich.de>
+References: <20170406140741.30745-1-sw@simonwunderlich.de>
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
+        Andreas Pape <APape@phoenixcontact.com>,
+        Andreas Pape <apape@phoenixcontact.com>,
+        Sven Eckelmann <sven@narfation.org>,
+        Simon Wunderlich <sw@simonwunderlich.de>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f46.google.com ([209.85.218.46]:35218 "EHLO
-        mail-oi0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S935160AbdDFOIx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 10:08:53 -0400
-Received: by mail-oi0-f46.google.com with SMTP id f193so52415855oib.2
-        for <netdev@vger.kernel.org>; Thu, 06 Apr 2017 07:08:52 -0700 (PDT)
-In-Reply-To: <001301d2aede$e1e54f00$a5afed00$@foxmail.com>
+Received: from packetmixer.de ([79.140.42.25]:32928 "EHLO
+        mail.mail.packetmixer.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S935048AbdDFOHv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 10:07:51 -0400
+In-Reply-To: <20170406140741.30745-1-sw@simonwunderlich.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 6, 2017 at 10:05 AM, Gao Feng <gfree.wind@foxmail.com> wrote:
-> If so, we should increase the TCP_MIB_OUTRSTS too when fail to alloc skb.
-> When machine is overloaded and mem is exhausted, it may fail to alloc skb.
+From: Andreas Pape <APape@phoenixcontact.com>
 
-Moving the increment of TCP_MIB_OUTRSTS to the top of
-tcp_send_active_reset() sounds fine to me.
+Some of the bla debug messages are extended and additional messages are
+added for easier bla debugging. Some debug messages introduced with the
+dat changes in prior patches of this patch series have been changed to
+be more compliant to other existing debug messages.
 
-neal
+Acked-by: Simon Wunderlich <sw@simonwunderlich.de>
+Signed-off-by: Andreas Pape <apape@phoenixcontact.com>
+[sven@narfation.org: fix conflicts with current version]
+Signed-off-by: Sven Eckelmann <sven@narfation.org>
+Signed-off-by: Simon Wunderlich <sw@simonwunderlich.de>
+---
+ net/batman-adv/bridge_loop_avoidance.c | 18 ++++++++++++++----
+ net/batman-adv/routing.c               |  2 +-
+ 2 files changed, 15 insertions(+), 5 deletions(-)
+
+diff --git a/net/batman-adv/bridge_loop_avoidance.c b/net/batman-adv/bridge_loop_avoidance.c
+index 546e66ecfabd..852a2be19845 100644
+--- a/net/batman-adv/bridge_loop_avoidance.c
++++ b/net/batman-adv/bridge_loop_avoidance.c
+@@ -739,8 +739,8 @@ static void batadv_bla_add_claim(struct batadv_priv *bat_priv,
+ 			goto claim_free_ref;
+ 
+ 		batadv_dbg(BATADV_DBG_BLA, bat_priv,
+-			   "bla_add_claim(): changing ownership for %pM, vid %d\n",
+-			   mac, batadv_print_vid(vid));
++			   "bla_add_claim(): changing ownership for %pM, vid %d to gw %pM\n",
++			   mac, batadv_print_vid(vid), backbone_gw->orig);
+ 
+ 		remove_crc = true;
+ 	}
+@@ -1295,10 +1295,13 @@ static void batadv_bla_purge_claims(struct batadv_priv *bat_priv,
+ 				goto skip;
+ 
+ 			batadv_dbg(BATADV_DBG_BLA, bat_priv,
+-				   "bla_purge_claims(): %pM, vid %d, time out\n",
+-				   claim->addr, claim->vid);
++				   "bla_purge_claims(): timed out.\n");
+ 
+ purge_now:
++			batadv_dbg(BATADV_DBG_BLA, bat_priv,
++				   "bla_purge_claims(): %pM, vid %d\n",
++				   claim->addr, claim->vid);
++
+ 			batadv_handle_unclaim(bat_priv, primary_if,
+ 					      backbone_gw->orig,
+ 					      claim->addr, claim->vid);
+@@ -1846,6 +1849,13 @@ bool batadv_bla_rx(struct batadv_priv *bat_priv, struct sk_buff *skb,
+ 		/* possible optimization: race for a claim */
+ 		/* No claim exists yet, claim it for us!
+ 		 */
++
++		batadv_dbg(BATADV_DBG_BLA, bat_priv,
++			   "bla_rx(): Unclaimed MAC %pM found. Claim it. Local: %s\n",
++			   ethhdr->h_source,
++			   batadv_is_my_client(bat_priv,
++					       ethhdr->h_source, vid) ?
++			   "yes" : "no");
+ 		batadv_handle_claim(bat_priv, primary_if,
+ 				    primary_if->net_dev->dev_addr,
+ 				    ethhdr->h_source, vid);
+diff --git a/net/batman-adv/routing.c b/net/batman-adv/routing.c
+index c85dc3102519..e1ebe14ee2a6 100644
+--- a/net/batman-adv/routing.c
++++ b/net/batman-adv/routing.c
+@@ -985,7 +985,7 @@ int batadv_recv_unicast_packet(struct sk_buff *skb,
+ 			batadv_orig_node_put(orig_node_gw);
+ 			if (is_gw) {
+ 				batadv_dbg(BATADV_DBG_BLA, bat_priv,
+-					   "Dropped unicast pkt received from another backbone gw %pM.\n",
++					   "recv_unicast_packet(): Dropped unicast pkt received from another backbone gw %pM.\n",
+ 					   orig_addr_gw);
+ 				return NET_RX_DROP;
+ 			}
+-- 
+2.11.0
