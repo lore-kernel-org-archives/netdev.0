@@ -1,60 +1,58 @@
-From: gfree.wind@foxmail.com
-Subject: [PATCH net v2 1/1] net: tcp: Increase TCP_MIB_OUTRSTS even though fail to alloc skb
-Date: Thu,  6 Apr 2017 23:05:49 +0800
-Message-ID: <1491491149-30701-1-git-send-email-gfree.wind@foxmail.com>
-Cc: Gao Feng <fgao@ikuai8.com>
-To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-        kaber@trash.net, ncardwell@google.com, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpbgau1.qq.com ([54.206.16.166]:59339 "EHLO smtpbgau1.qq.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S934707AbdDFPG3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 6 Apr 2017 11:06:29 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexander Sverdlin <alexander.sverdlin@nokia.com>
+Subject: Re: [PATCH 0/4] crypto: CRYPTO_MAX_ALG_NAME is too low
+Date: Thu, 6 Apr 2017 17:10:16 +0200
+Message-ID: <83468dbd-08a8-0014-3d01-08ea3693393c@nokia.com>
+References: <e96825bd-4e1d-c6c1-160e-0dc10f7f3981@nokia.com>
+ <367298c5-aa5d-3708-72d0-8a44702d0caa@nokia.com>
+ <20170406081509.GB30557@gondor.apana.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+        <linux-crypto@vger.kernel.org>, <netdev@vger.kernel.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <20170406081509.GB30557@gondor.apana.org.au>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Gao Feng <fgao@ikuai8.com>
+Hi!
 
-Because TCP_MIB_OUTRSTS is an important count, so always increase it
-whatever send it successfully or not.
+On 06/04/17 10:15, Herbert Xu wrote:
+> On Thu, Mar 16, 2017 at 03:16:29PM +0100, Alexander Sverdlin wrote:
+>> This is a regression caused by 856e3f4092
+>> ("crypto: seqiv - Add support for new AEAD interface")
+>>
+>> As I've said above, I can offer one of the two solutions, which patch should I send?
+>> Or do you see any better alternatives?
+> Here is a series of patches which should fix the problem.
+> 
+> The first three patches prepare the user-space interfaces to deal
+> with longer names.  The final patch extends it.
+> 
+> Note that with crypto_user I haven't actually extended it to
+> configure longer names.  It'll only be able to configure names
+> less than 64 bytes.  However, it should be able to dump/read
+> algorithms with longer names, albeit the name will be truncated
+> to 64 bytes length.
+> 
+> Steffen, when convenient could you look into extending the crypto
+> user interface to handle longer names (preferably arbitraty length
+> since netlink should be able to deal with that)?
+> 
+> Likewise xfrm is still fixed to 64 bytes long.  But this should
+> be OK as the problematic case only arises with IV generators for
+> now and we do not allow IV generators to be specified through xfrm.
+> 
+> af_alg on the other hand now allows arbitrarily long names.
 
-Now move the increment of TCP_MIB_OUTRSTS to the top of
-tcp_send_active_reset to make sure it is increased always even though
-fail to alloc skb.
+I'm not sure about patch 2 (as I've replied separately), but I've applied
+and tested the whole series and it at least solves the original problem
+with long algorithm name.
 
-Signed-off-by: Gao Feng <fgao@ikuai8.com>
----
- v2: Always increase TCP_MIB_OUTRSTS, per Neal
- v1: initial version
+> As the final patch depends on all three it would be easiest if
+> we pushed the xfrm patch through the crypto tree.  Steffen/David?
 
- net/ipv4/tcp_output.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 22548b5..c3c082e 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -2999,6 +2999,8 @@ void tcp_send_active_reset(struct sock *sk, gfp_t priority)
- {
- 	struct sk_buff *skb;
- 
-+	TCP_INC_STATS(sock_net(sk), TCP_MIB_OUTRSTS);
-+
- 	/* NOTE: No TCP options attached and we never retransmit this. */
- 	skb = alloc_skb(MAX_TCP_HEADER, priority);
- 	if (!skb) {
-@@ -3014,8 +3016,6 @@ void tcp_send_active_reset(struct sock *sk, gfp_t priority)
- 	/* Send it off. */
- 	if (tcp_transmit_skb(sk, skb, 0, priority))
- 		NET_INC_STATS(sock_net(sk), LINUX_MIB_TCPABORTFAILED);
--
--	TCP_INC_STATS(sock_net(sk), TCP_MIB_OUTRSTS);
- }
- 
- /* Send a crossed SYN-ACK during socket establishment.
 -- 
-1.9.1
-
-
-
-.
+Best regards,
+Alexander Sverdlin.
