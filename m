@@ -1,27 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/7] s390 patches for net-next
-Date: Thu, 06 Apr 2017 12:52:42 -0700 (PDT)
-Message-ID: <20170406.125242.1410948109729569659.davem@davemloft.net>
-References: <20170405084015.35772-1-ubraun@linux.vnet.ibm.com>
+Subject: Re: [PATCH net-next] net/mlx5e: fix build error without
+ CONFIG_SYSFS
+Date: Thu, 06 Apr 2017 12:55:55 -0700 (PDT)
+Message-ID: <20170406.125555.1576050282465956628.davem@davemloft.net>
+References: <20170405091110.711-1-tobias.regnery@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
-        jwi@linux.vnet.ibm.com, schwidefsky@de.ibm.com,
-        heiko.carstens@de.ibm.com, raspl@linux.vnet.ibm.com
-To: ubraun@linux.vnet.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:37180 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751180AbdDFTwo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 15:52:44 -0400
-In-Reply-To: <20170405084015.35772-1-ubraun@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: saeedm@mellanox.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: tobias.regnery@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170405091110.711-1-tobias.regnery@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ursula Braun <ubraun@linux.vnet.ibm.com>
-Date: Wed,  5 Apr 2017 10:40:08 +0200
+From: Tobias Regnery <tobias.regnery@gmail.com>
+Date: Wed,  5 Apr 2017 11:11:10 +0200
 
-> here are some cleanup patches for drivers/s390/net.
+> Commit 9008ae074885 ("net/mlx5e: Minimize mlx5e_{open/close}_locked")
+> copied the calls to netif_set_real_num_{tx,rx}_queues from
+> mlx5e_open_locked to mlx5e_activate_priv_channels and wraps them in an
+> if condition to test for netdev->real_num_{tx,rx}_queues.
+> 
+> But netdev->real_num_rx_queues is conditionally compiled in if CONFIG_SYSFS
+> is set. Without CONFIG_SYSFS the build fails:
+> 
+> drivers/net/ethernet/mellanox/mlx5/core/en_main.c: In function 'mlx5e_activate_priv_channels':
+> drivers/net/ethernet/mellanox/mlx5/core/en_main.c:2515:12: error: 'struct net_device' has no member named 'real_num_rx_queues'; did you mean 'real_num_tx_queues'?
+> 
+> Fix this by unconditionally call netif_set_real_num{tx,rx}_queues like before
+> commit 9008ae074885.
+> 
+> Fixes: 9008ae074885 ("net/mlx5e: Minimize mlx5e_{open/close}_locked")
+> Signed-off-by: Tobias Regnery <tobias.regnery@gmail.com>
 
-This doesn't apply cleanly to net-next, please respin.
+Applied, thanks.
