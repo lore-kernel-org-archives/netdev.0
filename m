@@ -1,50 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v5 0/2] L2TP:Adjust intf MTU, add underlay L3,
- L2 hdrs.
-Date: Thu, 06 Apr 2017 13:43:49 -0700 (PDT)
-Message-ID: <20170406.134349.901826134748051625.davem@davemloft.net>
-References: <alpine.DEB.2.11.1704051701220.19131@vera98.eng.brocade.com>
+From: Ido Schimmel <idosch@idosch.org>
+Subject: Re: [BUG] kernel oops during bridge creation
+Date: Thu, 6 Apr 2017 23:44:52 +0300
+Message-ID: <20170406204452.GA24938@splinter>
+References: <4d4b58e0-06e5-de5a-3305-abc739cf2ba2@svinota.eu>
+ <20170406185814.GA21480@splinter>
+ <adc7b0d6-68b9-6649-73fc-f5e82812f4a6@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jchapman@katalix.com, kleptog@svana.org,
-        nprachan@brocade.com, rshearma@brocade.com,
-        stephen@networkplumber.org, sdietric@brocade.com,
-        ciwillia@brocade.com, lboccass@brocade.com, dfawcus@brocade.com,
-        bhong@brocade.com, jblunck@brocade.com,
-        linux-kernel@vger.kernel.org
-To: parameswaran.r7@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.11.1704051701220.19131@vera98.eng.brocade.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "Peter V. Saveliev" <peter@svinota.eu>, netdev@vger.kernel.org,
+        Ivan Vecera <ivecera@redhat.com>
+To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:47000 "EHLO
+        out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1754693AbdDFUo4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 16:44:56 -0400
+Content-Disposition: inline
+In-Reply-To: <adc7b0d6-68b9-6649-73fc-f5e82812f4a6@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "R. Parameswaran" <parameswaran.r7@gmail.com>
-Date: Wed, 5 Apr 2017 17:05:49 -0700 (PDT)
+On Thu, Apr 06, 2017 at 11:26:06PM +0300, Nikolay Aleksandrov wrote:
+> Actually making br_vlan_init() idempotent might work, keep the code as-is just init the
+> the vlans before the changelink() in newlink(), then the second vlan_init() inside would
+> be a no-op, but it will work for the old ioctl and wouldn't require too much change.
+> On the downside it will be ugly.
 
-> 
-> Existing L2TP kernel code does not derive the optimal MTU for Ethernet
-> pseudowires and instead leaves this to a userspace L2TP daemon or
-> operator. If an MTU is not specified, the existing kernel code chooses
-> an MTU that does not take account of all tunnel header overheads, which
-> can lead to unwanted IP fragmentation. When L2TP is used without a
-> control plane (userspace daemon), we would prefer that the kernel does a
-> better job of choosing a default pseudowire MTU, taking account of all
-> tunnel header overheads, including IP header options, if any. This patch
-> addresses this.
-> 
-> Change-set is organized as a two part patch series, with one patch
-> introducing a new kernel function to compute the IP overhead on a
-> socket, and the other patch using this new kernel function to compute
-> the default L2TP MTU for an Ethernet pseudowire.
-> 
-> Existing code also seems to assume an Ethernet (non-jumbo) underlay. The
-> change proposed here uses the PMTU mechanism and the dst entry in the
-> L2TP tunnel socket to directly pull up the underlay MTU (as the baseline
-> number on top of which the encapsulation headers are factored in).
-> An default MTU value of 1500 bytes is assumed as a fallback only if
-> this fails. 
-> 
-> Fixed the kbuild test robot error in the previous posting.
+Yep, that can work. I'll try that tomorrow morning and let you know.
 
-Series applied, thanks.
+Thanks Nik!
