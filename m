@@ -1,69 +1,46 @@
-From: Alexander Sverdlin <alexander.sverdlin@nokia.com>
-Subject: Re: [PATCH 3/4] xfrm: Prepare for CRYPTO_MAX_ALG_NAME expansion
-Date: Thu, 6 Apr 2017 17:10:56 +0200
-Message-ID: <b80cd89e-0ec2-1d81-9c34-f0d31d079db8@nokia.com>
-References: <20170406081509.GB30557@gondor.apana.org.au>
- <E1cw2aQ-00085u-SY@gondobar>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net 1/1] net: tcp: Don't increase the TCP_MIB_OUTRSTS
+ when fail to transmit RST
+Date: Thu, 06 Apr 2017 08:24:27 -0700
+Message-ID: <1491492267.10124.79.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1491485709-8269-1-git-send-email-gfree.wind@foxmail.com>
+         <CADVnQymp9X3EwmiiocNHU8bQpg7Wb7FvGr4SduKjhLoTv35zMA@mail.gmail.com>
+         <001301d2aede$e1e54f00$a5afed00$@foxmail.com>
+         <CADVnQy=5GXBQzvDtbxQp-0ndJ1KphcxkY42mHsDPST0+sMGw2A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: Herbert Xu <herbert@gondor.apana.org.au>,
-        "David S. Miller" <davem@davemloft.net>,
-        <linux-crypto@vger.kernel.org>, <netdev@vger.kernel.org>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <E1cw2aQ-00085u-SY@gondobar>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Gao Feng <gfree.wind@foxmail.com>,
+        David Miller <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Patrick McHardy <kaber@trash.net>,
+        Netdev <netdev@vger.kernel.org>
+To: Neal Cardwell <ncardwell@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f195.google.com ([209.85.223.195]:32924 "EHLO
+        mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753313AbdDFPYa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 11:24:30 -0400
+Received: by mail-io0-f195.google.com with SMTP id f84so4649786ioj.0
+        for <netdev@vger.kernel.org>; Thu, 06 Apr 2017 08:24:30 -0700 (PDT)
+In-Reply-To: <CADVnQy=5GXBQzvDtbxQp-0ndJ1KphcxkY42mHsDPST0+sMGw2A@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/04/17 10:16, Herbert Xu wrote:
-> This patch fixes the xfrm_user code to use the actual array size
-> rather than the hard-coded CRYPTO_MAX_ALG_NAME length.  This is
-> because the array size is fixed at 64 bytes while we want to increase
-> the in-kernel CRYPTO_MAX_ALG_NAME value.
+On Thu, 2017-04-06 at 10:08 -0400, Neal Cardwell wrote:
+> On Thu, Apr 6, 2017 at 10:05 AM, Gao Feng <gfree.wind@foxmail.com> wrote:
+> > If so, we should increase the TCP_MIB_OUTRSTS too when fail to alloc skb.
+> > When machine is overloaded and mem is exhausted, it may fail to alloc skb.
 > 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> Moving the increment of TCP_MIB_OUTRSTS to the top of
+> tcp_send_active_reset() sounds fine to me.
 
-Acked-by: Alexander Sverdlin <alexander.sverdlin@nokia.com>
-Tested-by: Alexander Sverdlin <alexander.sverdlin@nokia.com>
 
-> ---
-> 
->  net/xfrm/xfrm_user.c |    6 +++---
->  1 file changed, 3 insertions(+), 3 deletions(-)
-> 
-> diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-> index 9705c27..96557cf 100644
-> --- a/net/xfrm/xfrm_user.c
-> +++ b/net/xfrm/xfrm_user.c
-> @@ -55,7 +55,7 @@ static int verify_one_alg(struct nlattr **attrs, enum xfrm_attr_type_t type)
->  		return -EINVAL;
->  	}
->  
-> -	algp->alg_name[CRYPTO_MAX_ALG_NAME - 1] = '\0';
-> +	algp->alg_name[sizeof(algp->alg_name) - 1] = '\0';
->  	return 0;
->  }
->  
-> @@ -71,7 +71,7 @@ static int verify_auth_trunc(struct nlattr **attrs)
->  	if (nla_len(rt) < xfrm_alg_auth_len(algp))
->  		return -EINVAL;
->  
-> -	algp->alg_name[CRYPTO_MAX_ALG_NAME - 1] = '\0';
-> +	algp->alg_name[sizeof(algp->alg_name) - 1] = '\0';
->  	return 0;
->  }
->  
-> @@ -87,7 +87,7 @@ static int verify_aead(struct nlattr **attrs)
->  	if (nla_len(rt) < aead_len(algp))
->  		return -EINVAL;
->  
-> -	algp->alg_name[CRYPTO_MAX_ALG_NAME - 1] = '\0';
-> +	algp->alg_name[sizeof(algp->alg_name) - 1] = '\0';
->  	return 0;
->  }
->  
-> 
+Yes.
 
--- 
-Best regards,
-Alexander Sverdlin.
+Keep in mind that whatever hard we try to send the packet, something
+might drop it later without TCP stack knowing it.
+
+So it is not really useful to test the immediate actions that are under
+our control.
