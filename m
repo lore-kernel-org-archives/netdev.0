@@ -1,112 +1,274 @@
 From: Yuval Mintz <Yuval.Mintz@cavium.com>
-Subject: [PATCH net-next 6/8] qed: Inform qedi the number of possible CQs
-Date: Thu, 6 Apr 2017 15:58:33 +0300
-Message-ID: <1491483515-13502-7-git-send-email-Yuval.Mintz@cavium.com>
+Subject: [PATCH net-next 8/8] qed: Make OOO archipelagos into an array
+Date: Thu, 6 Apr 2017 15:58:35 +0300
+Message-ID: <1491483515-13502-9-git-send-email-Yuval.Mintz@cavium.com>
 References: <1491483515-13502-1-git-send-email-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Yuval Mintz <Yuval.Mintz@cavium.com>
+Cc: Michal Kalderon <Michal.Kalderon@cavium.com>,
+        Michal Kalderon <Michal.Kalderon@caviumc.om>,
+        Yuval Mintz <Yuval.Mintz@cavium.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:53266 "EHLO
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:53267 "EHLO
         mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1753213AbdDFNBR (ORCPT
+        by vger.kernel.org with ESMTP id S1754302AbdDFNBR (ORCPT
         <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 09:01:17 -0400
 In-Reply-To: <1491483515-13502-1-git-send-email-Yuval.Mintz@cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Now that management firmware is capable of telling us the number of CQs
-available for a given PF, qed needs to communicate the number to qedi
-so it would know have many to use.
+From: Michal Kalderon <Michal.Kalderon@cavium.com>
 
+No need to maintain the various open archipelagos as a list -
+The maximal number of them is known, and we can use the CID
+as key for random-access into the array.
+
+Signed-off-by: Michal Kalderon <Michal.Kalderon@caviumc.om>
 Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
 ---
- drivers/net/ethernet/qlogic/qed/qed.h       |  3 ++-
- drivers/net/ethernet/qlogic/qed/qed_dev.c   |  7 ++++++-
- drivers/net/ethernet/qlogic/qed/qed_iscsi.c | 11 +++++++++++
- include/linux/qed/qed_iscsi_if.h            |  2 ++
- 4 files changed, 21 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/qlogic/qed/qed_ooo.c | 102 ++++++++----------------------
+ drivers/net/ethernet/qlogic/qed/qed_ooo.h |   6 +-
+ 2 files changed, 30 insertions(+), 78 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed.h b/drivers/net/ethernet/qlogic/qed/qed.h
-index d8bcc21..4896ee0 100644
---- a/drivers/net/ethernet/qlogic/qed/qed.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed.h
-@@ -225,8 +225,9 @@ enum QED_FEATURE {
- 	QED_PF_L2_QUE,
- 	QED_VF,
- 	QED_RDMA_CNQ,
--	QED_VF_L2_QUE,
-+	QED_ISCSI_CQ,
- 	QED_FCOE_CQ,
-+	QED_VF_L2_QUE,
- 	QED_MAX_FEATURES,
- };
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_ooo.c b/drivers/net/ethernet/qlogic/qed/qed_ooo.c
+index 378afce..db96670 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_ooo.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_ooo.c
+@@ -41,6 +41,7 @@
+ #include "qed_iscsi.h"
+ #include "qed_ll2.h"
+ #include "qed_ooo.h"
++#include "qed_cxt.h"
  
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_dev.c b/drivers/net/ethernet/qlogic/qed/qed_dev.c
-index fb759ba..fad7319 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_dev.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_dev.c
-@@ -2045,12 +2045,17 @@ static void qed_hw_set_feat(struct qed_hwfn *p_hwfn)
- 							 QED_VF_L2_QUE));
+ static struct qed_ooo_archipelago
+ *qed_ooo_seek_archipelago(struct qed_hwfn *p_hwfn,
+@@ -48,15 +49,18 @@
+ 			  *p_ooo_info,
+ 			  u32 cid)
+ {
+-	struct qed_ooo_archipelago *p_archipelago = NULL;
++	u32 idx = (cid & 0xffff) - p_ooo_info->cid_base;
++	struct qed_ooo_archipelago *p_archipelago;
+ 
+-	list_for_each_entry(p_archipelago,
+-			    &p_ooo_info->archipelagos_list, list_entry) {
+-		if (p_archipelago->cid == cid)
+-			return p_archipelago;
+-	}
++	if (idx >= p_ooo_info->max_num_archipelagos)
++		return NULL;
+ 
+-	return NULL;
++	p_archipelago = &p_ooo_info->p_archipelagos_mem[idx];
++
++	if (list_empty(&p_archipelago->isles_list))
++		return NULL;
++
++	return p_archipelago;
+ }
+ 
+ static struct qed_ooo_isle *qed_ooo_seek_isle(struct qed_hwfn *p_hwfn,
+@@ -97,8 +101,8 @@ void qed_ooo_save_history_entry(struct qed_hwfn *p_hwfn,
+ 
+ struct qed_ooo_info *qed_ooo_alloc(struct qed_hwfn *p_hwfn)
+ {
++	u16 max_num_archipelagos = 0, cid_base;
+ 	struct qed_ooo_info *p_ooo_info;
+-	u16 max_num_archipelagos = 0;
+ 	u16 max_num_isles = 0;
+ 	u32 i;
+ 
+@@ -110,6 +114,7 @@ struct qed_ooo_info *qed_ooo_alloc(struct qed_hwfn *p_hwfn)
+ 
+ 	max_num_archipelagos = p_hwfn->pf_params.iscsi_pf_params.num_cons;
+ 	max_num_isles = QED_MAX_NUM_ISLES + max_num_archipelagos;
++	cid_base = (u16)qed_cxt_get_proto_cid_start(p_hwfn, PROTOCOLID_ISCSI);
+ 
+ 	if (!max_num_archipelagos) {
+ 		DP_NOTICE(p_hwfn,
+@@ -121,11 +126,12 @@ struct qed_ooo_info *qed_ooo_alloc(struct qed_hwfn *p_hwfn)
+ 	if (!p_ooo_info)
+ 		return NULL;
+ 
++	p_ooo_info->cid_base = cid_base;
++	p_ooo_info->max_num_archipelagos = max_num_archipelagos;
++
+ 	INIT_LIST_HEAD(&p_ooo_info->free_buffers_list);
+ 	INIT_LIST_HEAD(&p_ooo_info->ready_buffers_list);
+ 	INIT_LIST_HEAD(&p_ooo_info->free_isles_list);
+-	INIT_LIST_HEAD(&p_ooo_info->free_archipelagos_list);
+-	INIT_LIST_HEAD(&p_ooo_info->archipelagos_list);
+ 
+ 	p_ooo_info->p_isles_mem = kcalloc(max_num_isles,
+ 					  sizeof(struct qed_ooo_isle),
+@@ -146,11 +152,8 @@ struct qed_ooo_info *qed_ooo_alloc(struct qed_hwfn *p_hwfn)
+ 	if (!p_ooo_info->p_archipelagos_mem)
+ 		goto no_archipelagos_mem;
+ 
+-	for (i = 0; i < max_num_archipelagos; i++) {
++	for (i = 0; i < max_num_archipelagos; i++)
+ 		INIT_LIST_HEAD(&p_ooo_info->p_archipelagos_mem[i].isles_list);
+-		list_add_tail(&p_ooo_info->p_archipelagos_mem[i].list_entry,
+-			      &p_ooo_info->free_archipelagos_list);
+-	}
+ 
+ 	p_ooo_info->ooo_history.p_cqes =
+ 				kcalloc(QED_MAX_NUM_OOO_HISTORY_ENTRIES,
+@@ -178,21 +181,9 @@ void qed_ooo_release_connection_isles(struct qed_hwfn *p_hwfn,
+ 	struct qed_ooo_archipelago *p_archipelago;
+ 	struct qed_ooo_buffer *p_buffer;
+ 	struct qed_ooo_isle *p_isle;
+-	bool b_found = false;
+-
+-	if (list_empty(&p_ooo_info->archipelagos_list))
+-		return;
+ 
+-	list_for_each_entry(p_archipelago,
+-			    &p_ooo_info->archipelagos_list, list_entry) {
+-		if (p_archipelago->cid == cid) {
+-			list_del(&p_archipelago->list_entry);
+-			b_found = true;
+-			break;
+-		}
+-	}
+-
+-	if (!b_found)
++	p_archipelago = qed_ooo_seek_archipelago(p_hwfn, p_ooo_info, cid);
++	if (!p_archipelago)
+ 		return;
+ 
+ 	while (!list_empty(&p_archipelago->isles_list)) {
+@@ -216,27 +207,21 @@ void qed_ooo_release_connection_isles(struct qed_hwfn *p_hwfn,
+ 		list_add_tail(&p_isle->list_entry,
+ 			      &p_ooo_info->free_isles_list);
+ 	}
+-
+-	list_add_tail(&p_archipelago->list_entry,
+-		      &p_ooo_info->free_archipelagos_list);
+ }
+ 
+ void qed_ooo_release_all_isles(struct qed_hwfn *p_hwfn,
+ 			       struct qed_ooo_info *p_ooo_info)
+ {
+-	struct qed_ooo_archipelago *p_arch;
++	struct qed_ooo_archipelago *p_archipelago;
+ 	struct qed_ooo_buffer *p_buffer;
+ 	struct qed_ooo_isle *p_isle;
++	u32 i;
+ 
+-	while (!list_empty(&p_ooo_info->archipelagos_list)) {
+-		p_arch = list_first_entry(&p_ooo_info->archipelagos_list,
+-					  struct qed_ooo_archipelago,
+-					  list_entry);
+-
+-		list_del(&p_arch->list_entry);
++	for (i = 0; i < p_ooo_info->max_num_archipelagos; i++) {
++		p_archipelago = &(p_ooo_info->p_archipelagos_mem[i]);
+ 
+-		while (!list_empty(&p_arch->isles_list)) {
+-			p_isle = list_first_entry(&p_arch->isles_list,
++		while (!list_empty(&p_archipelago->isles_list)) {
++			p_isle = list_first_entry(&p_archipelago->isles_list,
+ 						  struct qed_ooo_isle,
+ 						  list_entry);
+ 
+@@ -258,8 +243,6 @@ void qed_ooo_release_all_isles(struct qed_hwfn *p_hwfn,
+ 			list_add_tail(&p_isle->list_entry,
+ 				      &p_ooo_info->free_isles_list);
+ 		}
+-		list_add_tail(&p_arch->list_entry,
+-			      &p_ooo_info->free_archipelagos_list);
+ 	}
+ 	if (!list_empty(&p_ooo_info->ready_buffers_list))
+ 		list_splice_tail_init(&p_ooo_info->ready_buffers_list,
+@@ -378,12 +361,6 @@ void qed_ooo_delete_isles(struct qed_hwfn *p_hwfn,
+ 		p_ooo_info->cur_isles_number--;
+ 		list_add(&p_isle->list_entry, &p_ooo_info->free_isles_list);
+ 	}
+-
+-	if (list_empty(&p_archipelago->isles_list)) {
+-		list_del(&p_archipelago->list_entry);
+-		list_add(&p_archipelago->list_entry,
+-			 &p_ooo_info->free_archipelagos_list);
+-	}
+ }
+ 
+ void qed_ooo_add_new_isle(struct qed_hwfn *p_hwfn,
+@@ -426,28 +403,10 @@ void qed_ooo_add_new_isle(struct qed_hwfn *p_hwfn,
+ 		return;
  	}
  
-+	if (p_hwfn->hw_info.personality == QED_PCI_ISCSI)
-+		feat_num[QED_ISCSI_CQ] = min_t(u32, RESC_NUM(p_hwfn, QED_SB),
-+					       RESC_NUM(p_hwfn,
-+							QED_CMDQS_CQS));
- 	DP_VERBOSE(p_hwfn,
- 		   NETIF_MSG_PROBE,
--		   "#PF_L2_QUEUES=%d VF_L2_QUEUES=%d #ROCE_CNQ=%d #SBS=%d\n",
-+		   "#PF_L2_QUEUES=%d VF_L2_QUEUES=%d #ROCE_CNQ=%d ISCSI_CQ=%d #SBS=%d\n",
- 		   (int)FEAT_NUM(p_hwfn, QED_PF_L2_QUE),
- 		   (int)FEAT_NUM(p_hwfn, QED_VF_L2_QUE),
- 		   (int)FEAT_NUM(p_hwfn, QED_RDMA_CNQ),
-+		   (int)FEAT_NUM(p_hwfn, QED_ISCSI_CQ),
- 		   RESC_NUM(p_hwfn, QED_SB));
+-	if (!p_archipelago &&
+-	    !list_empty(&p_ooo_info->free_archipelagos_list)) {
+-		p_archipelago =
+-		    list_first_entry(&p_ooo_info->free_archipelagos_list,
+-				     struct qed_ooo_archipelago, list_entry);
++	if (!p_archipelago) {
++		u32 idx = (cid & 0xffff) - p_ooo_info->cid_base;
+ 
+-		list_del(&p_archipelago->list_entry);
+-		if (!list_empty(&p_archipelago->isles_list)) {
+-			DP_NOTICE(p_hwfn,
+-				  "Free OOO connection is not empty\n");
+-			INIT_LIST_HEAD(&p_archipelago->isles_list);
+-		}
+-		p_archipelago->cid = cid;
+-		list_add(&p_archipelago->list_entry,
+-			 &p_ooo_info->archipelagos_list);
+-	} else if (!p_archipelago) {
+-		DP_NOTICE(p_hwfn, "No more free OOO connections\n");
+-		list_add(&p_isle->list_entry,
+-			 &p_ooo_info->free_isles_list);
+-		list_add(&p_buffer->list_entry,
+-			 &p_ooo_info->free_buffers_list);
+-		return;
++		p_archipelago = &p_ooo_info->p_archipelagos_mem[idx];
+ 	}
+ 
+ 	list_add(&p_buffer->list_entry, &p_isle->buffers_list);
+@@ -517,11 +476,6 @@ void qed_ooo_join_isles(struct qed_hwfn *p_hwfn,
+ 	} else {
+ 		list_splice_tail_init(&p_right_isle->buffers_list,
+ 				      &p_ooo_info->ready_buffers_list);
+-		if (list_empty(&p_archipelago->isles_list)) {
+-			list_del(&p_archipelago->list_entry);
+-			list_add(&p_archipelago->list_entry,
+-				 &p_ooo_info->free_archipelagos_list);
+-		}
+ 	}
+ 	list_add_tail(&p_right_isle->list_entry, &p_ooo_info->free_isles_list);
  }
- 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_iscsi.c b/drivers/net/ethernet/qlogic/qed/qed_iscsi.c
-index 38273f4..417691c 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_iscsi.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_iscsi.c
-@@ -181,6 +181,15 @@ struct qed_iscsi_conn {
- 	p_params = &p_hwfn->pf_params.iscsi_pf_params;
- 	p_queue = &p_init->q_params;
- 
-+	/* Sanity */
-+	if (p_params->num_queues > p_hwfn->hw_info.feat_num[QED_ISCSI_CQ]) {
-+		DP_ERR(p_hwfn,
-+		       "Cannot satisfy CQ amount. Queues requested %d, CQs available %d. Aborting function start\n",
-+		       p_params->num_queues,
-+		       p_hwfn->hw_info.resc_num[QED_ISCSI_CQ]);
-+		return -EINVAL;
-+	}
-+
- 	SET_FIELD(p_init->hdr.flags,
- 		  ISCSI_SLOW_PATH_HDR_LAYER_CODE, ISCSI_SLOW_PATH_LAYER_CODE);
- 	p_init->hdr.op_code = ISCSI_RAMROD_CMD_ID_INIT_FUNC;
-@@ -1012,6 +1021,8 @@ static int qed_fill_iscsi_dev_info(struct qed_dev *cdev,
- 	info->secondary_bdq_rq_addr =
- 	    qed_iscsi_get_secondary_bdq_prod(hwfn, BDQ_ID_RQ);
- 
-+	info->num_cqs = FEAT_NUM(hwfn, QED_ISCSI_CQ);
-+
- 	return rc;
- }
- 
-diff --git a/include/linux/qed/qed_iscsi_if.h b/include/linux/qed/qed_iscsi_if.h
-index f70bb81..3414649 100644
---- a/include/linux/qed/qed_iscsi_if.h
-+++ b/include/linux/qed/qed_iscsi_if.h
-@@ -67,6 +67,8 @@ struct qed_dev_iscsi_info {
- 
- 	void __iomem *primary_dbq_rq_addr;
- 	void __iomem *secondary_bdq_rq_addr;
-+
-+	u8 num_cqs;
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_ooo.h b/drivers/net/ethernet/qlogic/qed/qed_ooo.h
+index 4f138fb..791ad0f 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_ooo.h
++++ b/drivers/net/ethernet/qlogic/qed/qed_ooo.h
+@@ -60,9 +60,7 @@ struct qed_ooo_isle {
  };
  
- struct qed_iscsi_id_params {
+ struct qed_ooo_archipelago {
+-	struct list_head list_entry;
+ 	struct list_head isles_list;
+-	u32 cid;
+ };
+ 
+ struct qed_ooo_history {
+@@ -75,14 +73,14 @@ struct qed_ooo_info {
+ 	struct list_head free_buffers_list;
+ 	struct list_head ready_buffers_list;
+ 	struct list_head free_isles_list;
+-	struct list_head free_archipelagos_list;
+-	struct list_head archipelagos_list;
+ 	struct qed_ooo_archipelago *p_archipelagos_mem;
+ 	struct qed_ooo_isle *p_isles_mem;
+ 	struct qed_ooo_history ooo_history;
+ 	u32 cur_isles_number;
+ 	u32 max_isles_number;
+ 	u32 gen_isles_number;
++	u16 max_num_archipelagos;
++	u16 cid_base;
+ };
+ 
+ #if IS_ENABLED(CONFIG_QED_ISCSI)
 -- 
 1.9.3
