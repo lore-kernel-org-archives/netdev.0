@@ -1,64 +1,47 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCH net] sctp: listen on the sock only when it's state is
- listening or closed
-Date: Thu, 6 Apr 2017 10:02:19 -0300
-Message-ID: <20170406130219.GF911@localhost.localdomain>
-References: <19f73778f8e27b05ee9aa25ece57db6b0e73d197.1491455452.git.lucien.xin@gmail.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH net-next 0/2] New getsockopt option to retrieve socket
+ cookie
+Date: Thu, 6 Apr 2017 09:05:53 -0400
+Message-ID: <20170406130552.GA58484@ast-mbp.thefacebook.com>
+References: <1491444056-4312-1-git-send-email-chenbofeng.kernel@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
-        davem@davemloft.net, Neil Horman <nhorman@tuxdriver.com>,
-        andreyknvl@google.com
-To: Xin Long <lucien.xin@gmail.com>
+Cc: netdev@vger.kernel.org, Lorenzo Colitti <lorenzo@google.com>,
+        Willem de Bruijn <willemb@google.com>,
+        Chenbo Feng <fengc@google.com>
+To: Chenbo Feng <chenbofeng.kernel@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:41384 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754302AbdDFNCY (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 6 Apr 2017 09:02:24 -0400
+Received: from mail-yw0-f193.google.com ([209.85.161.193]:34070 "EHLO
+        mail-yw0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753213AbdDFNF5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 09:05:57 -0400
+Received: by mail-yw0-f193.google.com with SMTP id d191so2753517ywe.1
+        for <netdev@vger.kernel.org>; Thu, 06 Apr 2017 06:05:57 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <19f73778f8e27b05ee9aa25ece57db6b0e73d197.1491455452.git.lucien.xin@gmail.com>
+In-Reply-To: <1491444056-4312-1-git-send-email-chenbofeng.kernel@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 06, 2017 at 01:10:52PM +0800, Xin Long wrote:
-> Now sctp doesn't check sock's state before listening on it. It could
-> even cause changing a sock with any state to become a listening sock
-> when doing sctp_listen.
+On Wed, Apr 05, 2017 at 07:00:54PM -0700, Chenbo Feng wrote:
+> From: Chenbo Feng <fengc@google.com>
 > 
-> This patch is to fix it by checking sock's state in sctp_listen, so
-> that it will listen on the sock with right state.
 > 
-> Reported-by: Andrey Konovalov <andreyknvl@google.com>
-> Tested-by: Andrey Konovalov <andreyknvl@google.com>
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> In the current kernel socket cookie implementation, there is no simple
+> and direct way to retrieve the socket cookie based on file descriptor. A
+> process mat need to get it from sock fd if it want to correlate with
+> sock_diag output or use a bpf map with new socket cookie function.
+> 
+> If userspace wants to receive the socket cookie for a given socket fd,
+> it must send a SOCK_DIAG_BY_FAMILY dump request and look for the 5-tuple.
+> This is slow and can be ambiguous in the case of sockets that have the
+> same 5-tuple (e.g., tproxy / transparent sockets, SO_REUSEPORT sockets,
+> etc.).
+> 
+> As shown in the example program. The xt_eBPF program is using socket cookie
+> to record the network traffics statistics and with the socket cookie
+> retrieved by getsockopt. The program can directly access to a specific
+> socket data without scanning the whole bpf map.
 
-Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-
-Dave, please consider this for -stable. Thanks
-
-> ---
->  net/sctp/socket.c | 3 +++
->  1 file changed, 3 insertions(+)
-> 
-> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-> index c1401f4..d9d4c92 100644
-> --- a/net/sctp/socket.c
-> +++ b/net/sctp/socket.c
-> @@ -7034,6 +7034,9 @@ int sctp_inet_listen(struct socket *sock, int backlog)
->  	if (sock->state != SS_UNCONNECTED)
->  		goto out;
->  
-> +	if (!sctp_sstate(sk, LISTENING) && !sctp_sstate(sk, CLOSED))
-> +		goto out;
-> +
->  	/* If backlog is zero, disable listening. */
->  	if (!backlog) {
->  		if (sctp_sstate(sk, CLOSED))
-> -- 
-> 2.1.0
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+Thank you for detailed description of the feature.
+Both patches look good to me.
+Acked-by: Alexei Starovoitov <ast@kernel.org>
