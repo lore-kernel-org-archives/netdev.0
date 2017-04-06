@@ -1,8 +1,8 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net-next 2/7] rxrpc: Note a successfully aborted kernel
- operation
-Date: Thu, 06 Apr 2017 11:22:30 +0100
-Message-ID: <149147414996.21583.14783666788381967193.stgit@warthog.procyon.org.uk>
+Subject: [PATCH net-next 3/7] rxrpc: Handle temporary errors better in rxkad
+ security
+Date: Thu, 06 Apr 2017 11:22:36 +0100
+Message-ID: <149147415660.21583.1680043566332938745.stgit@warthog.procyon.org.uk>
 References: <149147413410.21583.16278066955827076779.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -15,62 +15,194 @@ In-Reply-To: <149147413410.21583.16278066955827076779.stgit@warthog.procyon.org.
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Make rxrpc_kernel_abort_call() return an indication as to whether it
-actually aborted the operation or not so that kafs can trace the failure of
-the operation.  Note that 'success' in this context means changing the
-state of the call, not necessarily successfully transmitting an ABORT
-packet.
+In the rxkad security module, when we encounter a temporary error (such as
+ENOMEM) from which we could conceivably recover, don't abort the
+connection, but rather permit retransmission of the relevant packets to
+induce a retry.
 
-Signed-off-by: David Howells <dhowells@redhat.com>
+Note that I'm leaving some places that could be merged together to insert
+tracing in the next patch.
+
+Signed-off-by; David Howells <dhowells@redhat.com>
 ---
 
- include/net/af_rxrpc.h |    2 +-
- net/rxrpc/sendmsg.c    |   12 ++++++++----
- 2 files changed, 9 insertions(+), 5 deletions(-)
+ net/rxrpc/rxkad.c |   78 +++++++++++++++++++++++++++--------------------------
+ 1 file changed, 40 insertions(+), 38 deletions(-)
 
-diff --git a/include/net/af_rxrpc.h b/include/net/af_rxrpc.h
-index 1061a472a3e3..b5f5187f488c 100644
---- a/include/net/af_rxrpc.h
-+++ b/include/net/af_rxrpc.h
-@@ -39,7 +39,7 @@ int rxrpc_kernel_send_data(struct socket *, struct rxrpc_call *,
- 			   struct msghdr *, size_t);
- int rxrpc_kernel_recv_data(struct socket *, struct rxrpc_call *,
- 			   void *, size_t, size_t *, bool, u32 *);
--void rxrpc_kernel_abort_call(struct socket *, struct rxrpc_call *,
-+bool rxrpc_kernel_abort_call(struct socket *, struct rxrpc_call *,
- 			     u32, int, const char *);
- void rxrpc_kernel_end_call(struct socket *, struct rxrpc_call *);
- void rxrpc_kernel_get_peer(struct socket *, struct rxrpc_call *,
-diff --git a/net/rxrpc/sendmsg.c b/net/rxrpc/sendmsg.c
-index 601c0a3e31a2..e836fa00dc5a 100644
---- a/net/rxrpc/sendmsg.c
-+++ b/net/rxrpc/sendmsg.c
-@@ -642,20 +642,24 @@ EXPORT_SYMBOL(rxrpc_kernel_send_data);
-  * @error: Local error value
-  * @why: 3-char string indicating why.
-  *
-- * Allow a kernel service to abort a call, if it's still in an abortable state.
-+ * Allow a kernel service to abort a call, if it's still in an abortable state
-+ * and return true if the call was aborted, false if it was already complete.
-  */
--void rxrpc_kernel_abort_call(struct socket *sock, struct rxrpc_call *call,
-+bool rxrpc_kernel_abort_call(struct socket *sock, struct rxrpc_call *call,
- 			     u32 abort_code, int error, const char *why)
- {
-+	bool aborted;
-+
- 	_enter("{%d},%d,%d,%s", call->debug_id, abort_code, error, why);
+diff --git a/net/rxrpc/rxkad.c b/net/rxrpc/rxkad.c
+index 2d5838a3dc24..988903f1dc80 100644
+--- a/net/rxrpc/rxkad.c
++++ b/net/rxrpc/rxkad.c
+@@ -759,16 +759,14 @@ static int rxkad_respond_to_challenge(struct rxrpc_connection *conn,
  
- 	mutex_lock(&call->user_mutex);
+ 	_enter("{%d,%x}", conn->debug_id, key_serial(conn->params.key));
  
--	if (rxrpc_abort_call(why, call, 0, abort_code, error))
-+	aborted = rxrpc_abort_call(why, call, 0, abort_code, error);
-+	if (aborted)
- 		rxrpc_send_abort_packet(call);
+-	if (!conn->params.key) {
+-		_leave(" = -EPROTO [no key]");
+-		return -EPROTO;
+-	}
++	abort_code = RX_PROTOCOL_ERROR;
++	if (!conn->params.key)
++		goto protocol_error;
  
- 	mutex_unlock(&call->user_mutex);
--	_leave("");
-+	return aborted;
++	abort_code = RXKADEXPIRED;
+ 	ret = key_validate(conn->params.key);
+-	if (ret < 0) {
+-		*_abort_code = RXKADEXPIRED;
+-		return ret;
+-	}
++	if (ret < 0)
++		goto other_error;
+ 
+ 	abort_code = RXKADPACKETSHORT;
+ 	if (skb_copy_bits(skb, sizeof(struct rxrpc_wire_header),
+@@ -787,8 +785,9 @@ static int rxkad_respond_to_challenge(struct rxrpc_connection *conn,
+ 		goto protocol_error;
+ 
+ 	abort_code = RXKADLEVELFAIL;
++	ret = -EACCES;
+ 	if (conn->params.security_level < min_level)
+-		goto protocol_error;
++		goto other_error;
+ 
+ 	token = conn->params.key->payload.data[0];
+ 
+@@ -815,9 +814,10 @@ static int rxkad_respond_to_challenge(struct rxrpc_connection *conn,
+ 	return rxkad_send_response(conn, &sp->hdr, &resp, token->kad);
+ 
+ protocol_error:
++	ret = -EPROTO;
++other_error:
+ 	*_abort_code = abort_code;
+-	_leave(" = -EPROTO [%d]", abort_code);
+-	return -EPROTO;
++	return ret;
  }
  
- EXPORT_SYMBOL(rxrpc_kernel_abort_call);
+ /*
+@@ -848,10 +848,10 @@ static int rxkad_decrypt_ticket(struct rxrpc_connection *conn,
+ 		switch (ret) {
+ 		case -EKEYEXPIRED:
+ 			*_abort_code = RXKADEXPIRED;
+-			goto error;
++			goto other_error;
+ 		default:
+ 			*_abort_code = RXKADNOAUTH;
+-			goto error;
++			goto other_error;
+ 		}
+ 	}
+ 
+@@ -860,13 +860,11 @@ static int rxkad_decrypt_ticket(struct rxrpc_connection *conn,
+ 
+ 	memcpy(&iv, &conn->server_key->payload.data[2], sizeof(iv));
+ 
++	ret = -ENOMEM;
+ 	req = skcipher_request_alloc(conn->server_key->payload.data[0],
+ 				     GFP_NOFS);
+-	if (!req) {
+-		*_abort_code = RXKADNOAUTH;
+-		ret = -ENOMEM;
+-		goto error;
+-	}
++	if (!req)
++		goto temporary_error;
+ 
+ 	sg_init_one(&sg[0], ticket, ticket_len);
+ 	skcipher_request_set_callback(req, 0, NULL, NULL);
+@@ -943,13 +941,13 @@ static int rxkad_decrypt_ticket(struct rxrpc_connection *conn,
+ 	if (issue > now) {
+ 		*_abort_code = RXKADNOAUTH;
+ 		ret = -EKEYREJECTED;
+-		goto error;
++		goto other_error;
+ 	}
+ 
+ 	if (issue < now - life) {
+ 		*_abort_code = RXKADEXPIRED;
+ 		ret = -EKEYEXPIRED;
+-		goto error;
++		goto other_error;
+ 	}
+ 
+ 	*_expiry = issue + life;
+@@ -961,16 +959,15 @@ static int rxkad_decrypt_ticket(struct rxrpc_connection *conn,
+ 	/* get the service instance name */
+ 	name = Z(INST_SZ);
+ 	_debug("KIV SINST: %s", name);
+-
+-	ret = 0;
+-error:
+-	_leave(" = %d", ret);
+-	return ret;
++	return 0;
+ 
+ bad_ticket:
+ 	*_abort_code = RXKADBADTICKET;
+-	ret = -EBADMSG;
+-	goto error;
++	ret = -EPROTO;
++other_error:
++	return ret;
++temporary_error:
++	return ret;
+ }
+ 
+ /*
+@@ -1054,9 +1051,10 @@ static int rxkad_verify_response(struct rxrpc_connection *conn,
+ 		goto protocol_error;
+ 
+ 	/* extract the kerberos ticket and decrypt and decode it */
++	ret = -ENOMEM;
+ 	ticket = kmalloc(ticket_len, GFP_NOFS);
+ 	if (!ticket)
+-		return -ENOMEM;
++		goto temporary_error;
+ 
+ 	abort_code = RXKADPACKETSHORT;
+ 	if (skb_copy_bits(skb, sizeof(struct rxrpc_wire_header),
+@@ -1064,12 +1062,9 @@ static int rxkad_verify_response(struct rxrpc_connection *conn,
+ 		goto protocol_error_free;
+ 
+ 	ret = rxkad_decrypt_ticket(conn, ticket, ticket_len, &session_key,
+-				   &expiry, &abort_code);
+-	if (ret < 0) {
+-		*_abort_code = abort_code;
+-		kfree(ticket);
+-		return ret;
+-	}
++				   &expiry, _abort_code);
++	if (ret < 0)
++		goto temporary_error_free;
+ 
+ 	/* use the session key from inside the ticket to decrypt the
+ 	 * response */
+@@ -1123,10 +1118,8 @@ static int rxkad_verify_response(struct rxrpc_connection *conn,
+ 	 * this the connection security can be handled in exactly the same way
+ 	 * as for a client connection */
+ 	ret = rxrpc_get_server_data_key(conn, &session_key, expiry, kvno);
+-	if (ret < 0) {
+-		kfree(ticket);
+-		return ret;
+-	}
++	if (ret < 0)
++		goto temporary_error_free;
+ 
+ 	kfree(ticket);
+ 	_leave(" = 0");
+@@ -1140,6 +1133,15 @@ static int rxkad_verify_response(struct rxrpc_connection *conn,
+ 	*_abort_code = abort_code;
+ 	_leave(" = -EPROTO [%d]", abort_code);
+ 	return -EPROTO;
++
++temporary_error_free:
++	kfree(ticket);
++temporary_error:
++	/* Ignore the response packet if we got a temporary error such as
++	 * ENOMEM.  We just want to send the challenge again.  Note that we
++	 * also come out this way if the ticket decryption fails.
++	 */
++	return ret;
+ }
+ 
+ /*
