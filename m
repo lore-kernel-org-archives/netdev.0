@@ -1,37 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] nfp: fix potential use after free on xdp prog
-Date: Wed, 05 Apr 2017 18:47:08 -0700 (PDT)
-Message-ID: <20170405.184708.708302621362328912.davem@davemloft.net>
-References: <20170404225655.31119-1-jakub.kicinski@netronome.com>
+From: Mike Galbraith <efault@gmx.de>
+Subject: Re: [Patch net] net_sched: replace yield() with cond_resched()
+Date: Thu, 06 Apr 2017 03:54:19 +0200
+Message-ID: <1491443659.4718.57.camel@gmx.de>
+References: <1491357139-27108-1-git-send-email-xiyou.wangcong@gmail.com>
+         <1491364545.4536.90.camel@gmx.de>
+         <CAM_iQpXpZjpS1ZG7hH-52jt41FzzyMZ0rss9PauaSD54XSQiXQ@mail.gmail.com>
+         <1491371790.4536.151.camel@gmx.de>
+         <CAM_iQpUa-w9k4EFafQCEpbmR0PANwkLieYMxGwi59373h8jHUg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kubakici@wp.pl, oss-drivers@netronome.com
-To: jakub.kicinski@netronome.com
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:49046 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756644AbdDFBrK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 5 Apr 2017 21:47:10 -0400
-In-Reply-To: <20170404225655.31119-1-jakub.kicinski@netronome.com>
+Received: from mout.gmx.net ([212.227.17.22]:57447 "EHLO mout.gmx.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1756315AbdDFByW (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 5 Apr 2017 21:54:22 -0400
+In-Reply-To: <CAM_iQpUa-w9k4EFafQCEpbmR0PANwkLieYMxGwi59373h8jHUg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Date: Tue,  4 Apr 2017 15:56:55 -0700
-
-> We should unregister the net_device first, before we give back
-> our reference on xdp_prog.  Otherwise xdp_prog may be freed
-> before .ndo_stop() disabled the datapath.  Found by code inspection.
+On Wed, 2017-04-05 at 16:42 -0700, Cong Wang wrote:
+> On Tue, Apr 4, 2017 at 10:56 PM, Mike Galbraith <efault@gmx.de> wrote:
+> > On Tue, 2017-04-04 at 22:19 -0700, Cong Wang wrote:
+> > > On Tue, Apr 4, 2017 at 8:55 PM, Mike Galbraith <efault@gmx.de> wrote:
+> > 
+> > > > That won't help, cond_resched() has the same impact upon a lone
+> > > > SCHED_FIFO task as yield() does.. none.
+> > > 
+> > > Hmm? In the comment you quote:
+> > > 
+> > >  * If you want to use yield() to wait for something, use wait_event().
+> > >  * If you want to use yield() to be 'nice' for others, use cond_resched().
+> > > 
+> > > So if cond_resched() doesn't help, why this misleading comment?
+> > 
+> > This is not an oh let's be nice guys thing, it's a perfect match of...
+> > 
+> > 
+> >  * while (!event)
+> >  *      yield();
+> > (/copy/paste>
+> > 
+> > ..get off the CPU until this happens thing.  With nobody to yield the C
+> > PU to, some_qdisc_is_busy() will remain true forever more.
 > 
-> Fixes: ecd63a0217d5 ("nfp: add XDP support in the driver")
-> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
-> Reviewed-by: Simon Horman <simon.horman@netronome.com>
+> 
+> This is exactly the misleading part, a while-loop waiting for an event
+> can always be a be-nice-for-others thing, because if not we can just
+> spin as a spinlock.
 
-Applied, thanks.
+Ah, but the kworker _is_ spinning on a 'lock' or sorts, starving the
+'owner', ergo this polling loop fails the 'may be nice' litmus test. 
+ No polling loop is safe without a guarantee that the polling thread
+cannot block the loop breaking event.
 
-> ---
-> Just a heads up - this will cause a merge conflict since nn->netdev
-> member got moved to nn->dp.netdev in net-next.
-
-Ok, thanks for the heads up.
+	-Mike
