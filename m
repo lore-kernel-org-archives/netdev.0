@@ -1,69 +1,60 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next 1/2] net: dsa: mv88e6xxx: Fix warning with
- CONFIG_OF=n
-Date: Thu, 6 Apr 2017 07:32:36 -0700
-Message-ID: <c6ca4d5c-2e09-2e51-acb7-9ec1113e1e3b@gmail.com>
-References: <20170406134736.24329-1-f.fainelli@gmail.com>
- <20170406134736.24329-2-f.fainelli@gmail.com>
- <20170406140431.GA17713@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
-To: Andrew Lunn <andrew@lunn.ch>
+From: gfree.wind@foxmail.com
+Subject: [PATCH net v2 1/1] net: tcp: Increase TCP_MIB_OUTRSTS even though fail to alloc skb
+Date: Thu,  6 Apr 2017 23:05:49 +0800
+Message-ID: <1491491149-30701-1-git-send-email-gfree.wind@foxmail.com>
+Cc: Gao Feng <fgao@ikuai8.com>
+To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+        kaber@trash.net, ncardwell@google.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f66.google.com ([209.85.214.66]:35190 "EHLO
-        mail-it0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933624AbdDFOck (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 10:32:40 -0400
-Received: by mail-it0-f66.google.com with SMTP id y18so4527450itc.2
-        for <netdev@vger.kernel.org>; Thu, 06 Apr 2017 07:32:39 -0700 (PDT)
-In-Reply-To: <20170406140431.GA17713@lunn.ch>
+Received: from smtpbgau1.qq.com ([54.206.16.166]:59339 "EHLO smtpbgau1.qq.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S934707AbdDFPG3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 6 Apr 2017 11:06:29 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Gao Feng <fgao@ikuai8.com>
 
+Because TCP_MIB_OUTRSTS is an important count, so always increase it
+whatever send it successfully or not.
 
-On 04/06/2017 07:04 AM, Andrew Lunn wrote:
-> On Thu, Apr 06, 2017 at 06:47:35AM -0700, Florian Fainelli wrote:
->> When CONFIG_OF=n, we will see the following warning:
->>
->> drivers/net/dsa/mv88e6xxx/chip.c:2834:34: warning: 'mv88e6xxx_mdio_external_match' defined but not used [-Wunused-const-variable=]
->>  static const struct of_device_id mv88e6xxx_mdio_external_match[] = {
->>                                   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
->>
->> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
->> ---
->>  drivers/net/dsa/mv88e6xxx/chip.c | 2 ++
->>  1 file changed, 2 insertions(+)
->>
->> diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
->> index 44ba8cff5631..64cbc4c04907 100644
->> --- a/drivers/net/dsa/mv88e6xxx/chip.c
->> +++ b/drivers/net/dsa/mv88e6xxx/chip.c
->> @@ -2831,11 +2831,13 @@ static int mv88e6xxx_mdio_register(struct mv88e6xxx_chip *chip,
->>  	return 0;
->>  }
->>  
->> +#ifdef CONFIG_OF
->>  static const struct of_device_id mv88e6xxx_mdio_external_match[] = {
->>  	{ .compatible = "marvell,mv88e6xxx-mdio-external",
->>  	  .data = (void *)true },
->>  	{ },
->>  };
->> +#endif
+Now move the increment of TCP_MIB_OUTRSTS to the top of
+tcp_send_active_reset to make sure it is increased always even though
+fail to alloc skb.
 
-Hi Andrew,
+Signed-off-by: Gao Feng <fgao@ikuai8.com>
+---
+ v2: Always increase TCP_MIB_OUTRSTS, per Neal
+ v1: initial version
 
-> 
-> Hi Florian
-> 
-> Maybe a better fix is to make the stub of of_match_node() an inline
-> function, so its parameters are used. That will fix this warning
-> everywhere in the kernel, not just in this driver.
+ net/ipv4/tcp_output.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Good point, this is just much better.
-
-Thanks!
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 22548b5..c3c082e 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -2999,6 +2999,8 @@ void tcp_send_active_reset(struct sock *sk, gfp_t priority)
+ {
+ 	struct sk_buff *skb;
+ 
++	TCP_INC_STATS(sock_net(sk), TCP_MIB_OUTRSTS);
++
+ 	/* NOTE: No TCP options attached and we never retransmit this. */
+ 	skb = alloc_skb(MAX_TCP_HEADER, priority);
+ 	if (!skb) {
+@@ -3014,8 +3016,6 @@ void tcp_send_active_reset(struct sock *sk, gfp_t priority)
+ 	/* Send it off. */
+ 	if (tcp_transmit_skb(sk, skb, 0, priority))
+ 		NET_INC_STATS(sock_net(sk), LINUX_MIB_TCPABORTFAILED);
+-
+-	TCP_INC_STATS(sock_net(sk), TCP_MIB_OUTRSTS);
+ }
+ 
+ /* Send a crossed SYN-ACK during socket establishment.
 -- 
-Florian
+1.9.1
+
+
+
+.
