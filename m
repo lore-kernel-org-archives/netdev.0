@@ -1,51 +1,59 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH][-next] nfp: don't dereference a null nn->eth_port to print a warning
-Date: Thu,  6 Apr 2017 13:54:35 +0100
-Message-ID: <20170406125435.18898-1-colin.king@canonical.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH] ebpf: verify the output of the JIT
+Date: Thu, 6 Apr 2017 08:55:14 -0400
+Message-ID: <20170406125513.GA56553@ast-mbp.thefacebook.com>
+References: <20170404220810.14250-1-tycho@docker.com>
+ <CAGXu5jLAXDk1+kYTC60-sJ_SOa5s4+HZ26A0bj67335yAXYhvg@mail.gmail.com>
+ <20170405034536.oulhc3ylhlrfgqeg@docker>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: 8bit
-Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Jakub Kicinski <jakub.kicinski@netronome.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        Simon Horman <simon.horman@netronome.com>,
-        oss-drivers@netronome.com, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:56738 "EHLO
-        youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932347AbdDFMyj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 08:54:39 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Kees Cook <keescook@chromium.org>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Alexei Starovoitov <ast@kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Network Development <netdev@vger.kernel.org>,
+        "kernel-hardening@lists.openwall.com"
+        <kernel-hardening@lists.openwall.com>,
+        =?iso-8859-1?Q?Micka=EBl_Sala=FCn?= <mic@digikod.net>
+To: Tycho Andersen <tycho@docker.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170405034536.oulhc3ylhlrfgqeg@docker>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Colin Ian King <colin.king@canonical.com>
+On Tue, Apr 04, 2017 at 09:45:36PM -0600, Tycho Andersen wrote:
+> Hi Kees,
+> 
+> On Tue, Apr 04, 2017 at 03:17:57PM -0700, Kees Cook wrote:
+> > On Tue, Apr 4, 2017 at 3:08 PM, Tycho Andersen <tycho@docker.com> wrote:
+> > > The goal of this patch is to protect the JIT against an attacker with a
+> > > write-in-memory primitive. The JIT allocates a buffer which will eventually
+> > > be marked +x, so we need to make sure that what was written to this buffer
+> > > is what was intended.
+> > >
+> > > We acheive this by building a hash of the instruction buffer as
+> > > instructions are emittted and then comparing that to a hash at the end of
+> > > the JIT compile after the buffer has been marked read-only.
+> > >
+> > > Signed-off-by: Tycho Andersen <tycho@docker.com>
+> > > CC: Daniel Borkmann <daniel@iogearbox.net>
+> > > CC: Alexei Starovoitov <ast@kernel.org>
+> > > CC: Kees Cook <keescook@chromium.org>
+> > > CC: Mickaël Salaün <mic@digikod.net>
+> > 
+> > Cool! This closes the race condition on producing the JIT vs going
+> > read-only. I wonder if it might be possible to make this a more
+> > generic interface to the BPF which would be allocate the hash, provide
+> > the update callback during emit, and then do the hash check itself at
+> > the end of bpf_jit_binary_lock_ro()?
+> 
+> Yes, probably so. I can look into that for the next version.
 
-On the case where nn->eth_port is null the warning message
-is printing the port by dereferencing this null pointer.
-Remove the deference to avoid a crash when printing the
-warning message.
+Nack.
 
-Detected by CoverityScan, CID#1426198 ("Dereference after null check")
-
-Fixes: ce22f5a2cbe3c627 ("nfp: separate high level and low level NSP headers")
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
----
- drivers/net/ethernet/netronome/nfp/nfp_net_main.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_main.c b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-index 3e1f97e88710..4c6863a072d3 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-@@ -495,8 +495,7 @@ static void nfp_net_refresh_netdevs(struct work_struct *work)
- 
- 	list_for_each_entry_safe(nn, next, &pf->ports, port_list) {
- 		if (!nn->eth_port) {
--			nfp_warn(pf->cpp, "Warning: port %d not present after reconfig\n",
--				 nn->eth_port->eth_index);
-+			nfp_warn(pf->cpp, "Warning: port not present after reconfig\n");
- 			continue;
- 		}
- 		if (!nn->eth_port->override_changed)
--- 
-2.11.0
+Please stop wasting yours and our time with buggy code that pretends
+to fix a problem that doesn't exist.
+This security paranoia around JIT must stop.
+Make sure that CONFIG_BPF_JIT is off in your system.
