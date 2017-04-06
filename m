@@ -1,62 +1,108 @@
-From: Chenbo Feng <chenbofeng.kernel@gmail.com>
-Subject: [PATCH net-next 0/2] New getsockopt option to retrieve socket cookie
-Date: Wed,  5 Apr 2017 19:00:54 -0700
-Message-ID: <1491444056-4312-1-git-send-email-chenbofeng.kernel@gmail.com>
-Cc: Lorenzo Colitti <lorenzo@google.com>,
-        Willem de Bruijn <willemb@google.com>,
-        Chenbo Feng <fengc@google.com>
-To: netdev@vger.kernel.org
+From: Tushar Dave <tushar.n.dave@oracle.com>
+Subject: [PATCH] netpoll: Check for skb->queue_mapping
+Date: Wed,  5 Apr 2017 19:06:23 -0700
+Message-ID: <1491444383-29017-1-git-send-email-tushar.n.dave@oracle.com>
+Cc: sowmini.varadhan@oracle.com
+To: davem@davemloft.net, edumazet@google.com, brouer@redhat.com,
+        netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f196.google.com ([209.85.223.196]:35214 "EHLO
-        mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752413AbdDFCBI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 5 Apr 2017 22:01:08 -0400
-Received: by mail-io0-f196.google.com with SMTP id f103so3056800ioi.2
-        for <netdev@vger.kernel.org>; Wed, 05 Apr 2017 19:01:07 -0700 (PDT)
+Received: from userp1040.oracle.com ([156.151.31.81]:24601 "EHLO
+        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754019AbdDFCIt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 5 Apr 2017 22:08:49 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Chenbo Feng <fengc@google.com>
+Reducing real_num_tx_queues needs to be in sync with skb queue_mapping
+otherwise skbs with queue_mapping greater than real_num_tx_queues
+can be sent to the underlying driver and can result in kernel panic.
 
+One such event is running netconsole and enabling VF on the same
+device. Or running netconsole and changing number of tx queues via
+ethtool on same device.
 
-In the current kernel socket cookie implementation, there is no simple
-and direct way to retrieve the socket cookie based on file descriptor. A
-process mat need to get it from sock fd if it want to correlate with
-sock_diag output or use a bpf map with new socket cookie function.
+e.g.
+Unable to handle kernel NULL pointer dereference
+tsk->{mm,active_mm}->context = 0000000000001525
+tsk->{mm,active_mm}->pgd = fff800130ff9a000
+              \|/ ____ \|/
+              "@'/ .. \`@"
+              /_| \__/ |_\
+                 \__U_/
+kworker/48:1(475): Oops [#1]
+CPU: 48 PID: 475 Comm: kworker/48:1 Tainted: G           OE
+4.11.0-rc3-davem-net+ #7
+Workqueue: events queue_process
+task: fff80013113299c0 task.stack: fff800131132c000
+TSTATE: 0000004480e01600 TPC: 00000000103f9e3c TNPC: 00000000103f9e40 Y:
+00000000    Tainted: G           OE
+TPC: <ixgbe_xmit_frame_ring+0x7c/0x6c0 [ixgbe]>
+g0: 0000000000000000 g1: 0000000000003fff g2: 0000000000000000 g3:
+0000000000000001
+g4: fff80013113299c0 g5: fff8001fa6808000 g6: fff800131132c000 g7:
+00000000000000c0
+o0: fff8001fa760c460 o1: fff8001311329a50 o2: fff8001fa7607504 o3:
+0000000000000003
+o4: fff8001f96e63a40 o5: fff8001311d77ec0 sp: fff800131132f0e1 ret_pc:
+000000000049ed94
+RPC: <set_next_entity+0x34/0xb80>
+l0: 0000000000000000 l1: 0000000000000800 l2: 0000000000000000 l3:
+0000000000000000
+l4: 000b2aa30e34b10d l5: 0000000000000000 l6: 0000000000000000 l7:
+fff8001fa7605028
+i0: fff80013111a8a00 i1: fff80013155a0780 i2: 0000000000000000 i3:
+0000000000000000
+i4: 0000000000000000 i5: 0000000000100000 i6: fff800131132f1a1 i7:
+00000000103fa4b0
+I7: <ixgbe_xmit_frame+0x30/0xa0 [ixgbe]>
+Call Trace:
+ [00000000103fa4b0] ixgbe_xmit_frame+0x30/0xa0 [ixgbe]
+ [0000000000998c74] netpoll_start_xmit+0xf4/0x200
+ [0000000000998e10] queue_process+0x90/0x160
+ [0000000000485fa8] process_one_work+0x188/0x480
+ [0000000000486410] worker_thread+0x170/0x4c0
+ [000000000048c6b8] kthread+0xd8/0x120
+ [0000000000406064] ret_from_fork+0x1c/0x2c
+ [0000000000000000]           (null)
+Disabling lock debugging due to kernel taint
+Caller[00000000103fa4b0]: ixgbe_xmit_frame+0x30/0xa0 [ixgbe]
+Caller[0000000000998c74]: netpoll_start_xmit+0xf4/0x200
+Caller[0000000000998e10]: queue_process+0x90/0x160
+Caller[0000000000485fa8]: process_one_work+0x188/0x480
+Caller[0000000000486410]: worker_thread+0x170/0x4c0
+Caller[000000000048c6b8]: kthread+0xd8/0x120
+Caller[0000000000406064]: ret_from_fork+0x1c/0x2c
+Caller[0000000000000000]:           (null)
 
-If userspace wants to receive the socket cookie for a given socket fd,
-it must send a SOCK_DIAG_BY_FAMILY dump request and look for the 5-tuple.
-This is slow and can be ambiguous in the case of sockets that have the
-same 5-tuple (e.g., tproxy / transparent sockets, SO_REUSEPORT sockets,
-etc.).
+Signed-off-by: Tushar Dave <tushar.n.dave@oracle.com>
+---
+ net/core/netpoll.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
 
-As shown in the example program. The xt_eBPF program is using socket cookie
-to record the network traffics statistics and with the socket cookie
-retrieved by getsockopt. The program can directly access to a specific
-socket data without scanning the whole bpf map.
-
-Chenbo Feng (2):
-  New getsockopt option to get socket cookie
-  Sample program using SO_COOKIE
-
- arch/alpha/include/uapi/asm/socket.h         |   2 +
- arch/avr32/include/uapi/asm/socket.h         |   2 +
- arch/frv/include/uapi/asm/socket.h           |   2 +
- arch/ia64/include/uapi/asm/socket.h          |   2 +
- arch/m32r/include/uapi/asm/socket.h          |   2 +
- arch/mips/include/uapi/asm/socket.h          |   2 +
- arch/mn10300/include/uapi/asm/socket.h       |   2 +
- arch/parisc/include/uapi/asm/socket.h        |   2 +
- arch/powerpc/include/uapi/asm/socket.h       |   2 +
- arch/s390/include/uapi/asm/socket.h          |   2 +
- arch/sparc/include/uapi/asm/socket.h         |   2 +
- arch/xtensa/include/uapi/asm/socket.h        |   2 +
- include/uapi/asm-generic/socket.h            |   2 +
- net/core/sock.c                              |   4 +
- samples/bpf/cookie_uid_helper_example.c      | 112 ++++++++++++++++++++++-----
- samples/bpf/run_cookie_uid_helper_example.sh |   4 +-
- 16 files changed, 124 insertions(+), 22 deletions(-)
- mode change 100644 => 100755 samples/bpf/run_cookie_uid_helper_example.sh
-
+diff --git a/net/core/netpoll.c b/net/core/netpoll.c
+index 9424673..c572e49 100644
+--- a/net/core/netpoll.c
++++ b/net/core/netpoll.c
+@@ -101,6 +101,7 @@ static void queue_process(struct work_struct *work)
+ 		container_of(work, struct netpoll_info, tx_work.work);
+ 	struct sk_buff *skb;
+ 	unsigned long flags;
++	u16 q_index;
+ 
+ 	while ((skb = skb_dequeue(&npinfo->txq))) {
+ 		struct net_device *dev = skb->dev;
+@@ -117,6 +118,12 @@ static void queue_process(struct work_struct *work)
+ 		HARD_TX_LOCK(dev, txq, smp_processor_id());
+ 		if (netif_xmit_frozen_or_stopped(txq) ||
+ 		    netpoll_start_xmit(skb, dev, txq) != NETDEV_TX_OK) {
++			/* check if skb->queue_mapping has changed */
++			q_index = skb_get_queue_mapping(skb);
++			if (unlikely(q_index >= dev->real_num_tx_queues)) {
++				q_index = q_index % dev->real_num_tx_queues;
++				skb_set_queue_mapping(skb, q_index);
++			}
+ 			skb_queue_head(&npinfo->txq, skb);
+ 			HARD_TX_UNLOCK(dev, txq);
+ 			local_irq_restore(flags);
 -- 
-2.7.4
+1.9.1
