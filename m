@@ -1,133 +1,147 @@
-From: Ido Schimmel <idosch@idosch.org>
-Subject: Re: [BUG] kernel oops during bridge creation
-Date: Thu, 6 Apr 2017 21:58:14 +0300
-Message-ID: <20170406185814.GA21480@splinter>
-References: <4d4b58e0-06e5-de5a-3305-abc739cf2ba2@svinota.eu>
+From: tndave <tushar.n.dave@oracle.com>
+Subject: Re: [PATCH] netpoll: Check for skb->queue_mapping
+Date: Thu, 6 Apr 2017 12:07:17 -0700
+Message-ID: <5927b630-865e-b7af-33a1-1a6b772e3fb7@oracle.com>
+References: <1491444383-29017-1-git-send-email-tushar.n.dave@oracle.com>
+ <1491474377.10124.57.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org
-To: "Peter V. Saveliev" <peter@svinota.eu>, nikolay@cumulusnetworks.com
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, edumazet@google.com, brouer@redhat.com,
+        netdev@vger.kernel.org, sowmini.varadhan@oracle.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:55667 "EHLO
-        out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S932990AbdDFS6X (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 14:58:23 -0400
-Content-Disposition: inline
-In-Reply-To: <4d4b58e0-06e5-de5a-3305-abc739cf2ba2@svinota.eu>
+Received: from userp1040.oracle.com ([156.151.31.81]:24058 "EHLO
+        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751686AbdDFTIi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 15:08:38 -0400
+In-Reply-To: <1491474377.10124.57.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-+Nik
 
-On Thu, Apr 06, 2017 at 08:19:35PM +0200, Peter V. Saveliev wrote:
-> Operation:
-> 
-> # ip link add name test type bridge vlan_default_pvid 1
-> 
-> Result:
-> 
-> Kernel oops. Minimal required netlink packet structure:
-> 
-> ifinfmsg:
-> 	- IFLA_IFNAME: "test"
-> 	- IFLA_LINKINFO:
-> 		= IFLA_INFO_KIND: "bridge"
-> 		= IFLA_INFO_DATA:
-> 			- IFLA_BR_VLAN_DEFAULT_PVID: 1
-> 
-> Reproducible: always
-> 
-> Versions affected: all the latest kernels, including net-next
-> 
-> Possibly related to https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=b6677449dff674cf5b81429b11d5c7f358852ef9
 
-I believe this is correct.
+On 04/06/2017 03:26 AM, Eric Dumazet wrote:
+> On Wed, 2017-04-05 at 19:06 -0700, Tushar Dave wrote:
+>> Reducing real_num_tx_queues needs to be in sync with skb queue_mapping
+>> otherwise skbs with queue_mapping greater than real_num_tx_queues
+>> can be sent to the underlying driver and can result in kernel panic.
+>>
+>> One such event is running netconsole and enabling VF on the same
+>> device. Or running netconsole and changing number of tx queues via
+>> ethtool on same device.
+>>
+>> e.g.
+>
+>>
+>> Signed-off-by: Tushar Dave <tushar.n.dave@oracle.com>
+>> ---
+>>  net/core/netpoll.c | 7 +++++++
+>>  1 file changed, 7 insertions(+)
+>>
+>> diff --git a/net/core/netpoll.c b/net/core/netpoll.c
+>> index 9424673..c572e49 100644
+>> --- a/net/core/netpoll.c
+>> +++ b/net/core/netpoll.c
+>> @@ -101,6 +101,7 @@ static void queue_process(struct work_struct *work)
+>>  		container_of(work, struct netpoll_info, tx_work.work);
+>>  	struct sk_buff *skb;
+>>  	unsigned long flags;
+>> +	u16 q_index;
+>>
+>>  	while ((skb = skb_dequeue(&npinfo->txq))) {
+>>  		struct net_device *dev = skb->dev;
+>> @@ -117,6 +118,12 @@ static void queue_process(struct work_struct *work)
+>>  		HARD_TX_LOCK(dev, txq, smp_processor_id());
+>>  		if (netif_xmit_frozen_or_stopped(txq) ||
+>>  		    netpoll_start_xmit(skb, dev, txq) != NETDEV_TX_OK) {
+>> +			/* check if skb->queue_mapping has changed */
+>> +			q_index = skb_get_queue_mapping(skb);
+>> +			if (unlikely(q_index >= dev->real_num_tx_queues)) {
+>> +				q_index = q_index % dev->real_num_tx_queues;
+>> +				skb_set_queue_mapping(skb, q_index);
+>> +			}
+>>  			skb_queue_head(&npinfo->txq, skb);
+>>  			HARD_TX_UNLOCK(dev, txq);
+>>  			local_irq_restore(flags);
+>
+> Hi Tushar, thank you for working on this issue.
+Eric,
 
-> 
-> Trace:
-> 
-> [13634.939408] BUG: unable to handle kernel NULL pointer dereference at
-> 0000000000000190
-> [13634.939436] IP: __vlan_add+0x73/0x5f0
-> [13634.939445] PGD 3dfe0067
-> [13634.939445] PUD 35807067
-> [13634.939451] PMD 0
-> 
-> [13634.939467] Oops: 0002 [#1] SMP
-> [13634.939474] Modules linked in: crct10dif_pclmul crc32_pclmul
-> ghash_clmulni_intel pcbc qxl ttm drm_kms_helper drm aesni_intel aes_x86_64
-> crypto_simd glue_helper cryptd virtio_balloon evdev input_leds pcspkr
-> led_class serio_raw virtio_console i2c_piix4 acpi_cpufreq tpm_tis
-> tpm_tis_core tpm button ext4 crc16 jbd2 mbcache virtio_net virtio_blk
-> crc32c_intel psmouse 8139cp mii virtio_pci virtio_ring virtio
-> [13634.939561] CPU: 0 PID: 1535 Comm: ip Not tainted 4.11.0-rc3+ #6
-> [13634.939574] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS
-> 1.9.3-1.fc25 04/01/2014
-> [13634.939593] task: ffff9b4838f5a000 task.stack: ffffc1b74046c000
-> [13634.939607] RIP: 0010:__vlan_add+0x73/0x5f0
-> [13634.939617] RSP: 0018:ffffc1b74046f668 EFLAGS: 00010246
-> [13634.939629] RAX: 0000000000000000 RBX: ffff9b483522d680 RCX:
-> 0000000000000000
-> [13634.939644] RDX: ffffffffbe8f2978 RSI: 0000000000000200 RDI:
-> ffffffffbe2c120f
-> [13634.939659] RBP: 0000000000000000 R08: 0000000000000000 R09:
-> 0000000000000000
-> [13634.939674] R10: 0000000000000000 R11: 000000000000c609 R12:
-> 0000000000000000
-> [13634.939689] R13: ffff9b48350ae8c0 R14: ffff9b48350ae000 R15:
-> 0000000000000000
-> [13634.939705] FS:  00007fe5e4f13700(0000) GS:ffff9b483fc00000(0000)
-> knlGS:0000000000000000
-> [13634.939722] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-> [13634.939734] CR2: 0000000000000190 CR3: 0000000035805000 CR4:
-> 00000000000406f0
-> [13634.939752] DR0: 0000000000000000 DR1: 0000000000000000 DR2:
-> 0000000000000000
-> [13634.939767] DR3: 0000000000000000 DR6: 00000000fffe0ff0 DR7:
-> 0000000000000400
-> [13634.939783] Call Trace:
-> [13634.939791]  ? pcpu_next_unpop+0x3b/0x50
-> [13634.939801]  ? pcpu_alloc+0x3d2/0x680
-> [13634.939810]  ? br_vlan_add+0x135/0x1b0
+Thank you for reviewing my change and your valuable comments.
+>
+> Where and when skb->queue_mapping has changed ?
+Well, I should amend the comment,
+"/* check if skb->queue_mapping has changed */" is misleading.
+I should say, /* check if dev->real_num_tx_queues has changed */
+>
+> It looks that the real problem is that dev->real_num_tx_queues has been
+> changed instead of skb->queue_mapping
+Yes.
+>
+> So maybe the more correct change would be to cap skb->queue_mapping even
+> before getting skb_get_tx_queue() ?
+>
+> Otherwise, even after your patch, we might still access an invalid queue
+> on the device ?
+This is the case of direct xmit (netdev_start_xmit). Most of underlying
+mq device drivers retrieve tx queue index from skb->queue_mapping.
+One possibility I see where device driver still get invalid queue index
+(skb->queue_mapping) with my patch is when following occurs:
+- after executing "txq = skb_get_tx_queue(dev, skb)" cpu is interrupted';
+- some other cpu reduced dev->real_num_tx_queues;
+- Interrupted cpu resume (queue_process()).
+With above sequence, at the underlying driver's xmit function we can
+have skb->queue_mapping > dev->real_num_tx_queues [1].
 
-Nik, I looked at this earlier today since Peter mentioned this over IRC.
-I think the problem is that the bridge's vlan group is accessed before
-it's allocated in br_vlan_init().
+I like your suggested patch more than mine though because it checks for
+change in dev->real_num_tx_queues before even we retrieve 'netdev_queue
+txq'. Less chance to have wrong txq.
 
-Not sure what's the correct way to solve this though, maybe moving
-br_vlan_init() to the bridge's newlink()? Do you see any problem with
-that?
+However even your patch has same issue like [1] ? (see my comment below).
 
-> [13634.939820]  ? __br_vlan_set_default_pvid.part.28+0x204/0x2b0
-> [13634.939834]  ? br_changelink+0x120/0x4e0
-> [13634.939844]  ? br_dev_newlink+0x50/0x70
-> [13634.939854]  ? rtnl_newlink+0x5f5/0x8a0
-> [13634.939864]  ? rtnl_newlink+0x176/0x8a0
-> [13634.939874]  ? mem_cgroup_commit_charge+0x7c/0x4e0
-> [13634.939886]  ? rtnetlink_rcv_msg+0xe1/0x220
-> [13634.939896]  ? lookup_fast+0x52/0x370
-> [13634.939905]  ? rtnl_newlink+0x8a0/0x8a0
-> [13634.939915]  ? netlink_rcv_skb+0xa1/0xc0
-> [13634.939925]  ? rtnetlink_rcv+0x24/0x30
-> [13634.939934]  ? netlink_unicast+0x177/0x220
-> [13634.939944]  ? netlink_sendmsg+0x2fe/0x3b0
-> [13634.939954]  ? _copy_from_user+0x39/0x40
-> [13634.939964]  ? sock_sendmsg+0x30/0x40
-> [13634.940159]  ? ___sys_sendmsg+0x29d/0x2b0
-> [13634.940326]  ? __alloc_pages_nodemask+0xdf/0x230
-> [13634.940478]  ? mem_cgroup_commit_charge+0x7c/0x4e0
-> [13634.940592]  ? mem_cgroup_try_charge+0x76/0x1a0
-> [13634.940701]  ? __handle_mm_fault+0xdb9/0x10b0
-> [13634.940809]  ? __sys_sendmsg+0x51/0x90
-> [13634.940917]  ? entry_SYSCALL_64_fastpath+0x1e/0xad
-> [13634.941027] Code: 75 18 49 8b 6d 30 a8 20 74 29 0f b7 4b 10 49 8b 96 28
-> 03 00 00 4c 89 e6 4c 89 ef e8 88 eb fe ff 85 c0 41 89 c7 0f 85 58 05 00 00
-> <66> 83 85 90 01 00 00 01 48 8b 45 30 48 89 c2 48 f7 da 48 83 7d
-> [13634.941301] RIP: __vlan_add+0x73/0x5f0 RSP: ffffc1b74046f668
-> [13634.941423] CR2: 0000000000000190
-> [13634.943641] ---[ end trace bb793e957e3e263c ]---
-> 
-> …
-> 
-> Thanks.
+>
+> Something like the following :
+>
+> diff --git a/net/core/netpoll.c b/net/core/netpoll.c
+> index 9424673009c14e0fb288b8e4041dba596b37ee8d..16702d95f83ab884e605e3868cfef94615dcbc72 100644
+> --- a/net/core/netpoll.c
+> +++ b/net/core/netpoll.c
+> @@ -105,13 +105,20 @@ static void queue_process(struct work_struct *work)
+>  	while ((skb = skb_dequeue(&npinfo->txq))) {
+>  		struct net_device *dev = skb->dev;
+>  		struct netdev_queue *txq;
+> +		unsigned int q_index;
+>
+>  		if (!netif_device_present(dev) || !netif_running(dev)) {
+>  			kfree_skb(skb);
+>  			continue;
+>  		}
+>
+> -		txq = skb_get_tx_queue(dev, skb);
+> +		/* check if skb->queue_mapping is still valid */
+> +		q_index = skb_get_queue_mapping(skb);
+> +		if (unlikely(q_index >= dev->real_num_tx_queues)) {
+> +			q_index = q_index % dev->real_num_tx_queues;
+cpu interrupted here and dev->real_num_tx_queues has reduced!
+> +			skb_set_queue_mapping(skb, q_index);
+> +		}
+> +		txq = netdev_get_tx_queue(dev, q_index);
+or cpu interrupted here and dev->real_num_tx_queues has reduced!
+
+In any case we hit the bug or am I missing something?
+
+The other concern is concurrent execution of netpoll's direct xmit path
+and updates to dev->real_num_tx_queues (by other cpu)?
+
+
+Thanks.
+
+-Tushar
+>
+>  		local_irq_save(flags);
+>  		HARD_TX_LOCK(dev, txq, smp_processor_id());
+>
+>
+>
+>
