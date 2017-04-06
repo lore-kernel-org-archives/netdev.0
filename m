@@ -1,72 +1,78 @@
-From: Thierry Reding <treding@nvidia.com>
-Subject: Re: [PATCH 2/4 v3 net-next] net: stmmac: adding multiple buffers for
- rx
-Date: Thu, 6 Apr 2017 14:32:17 +0200
-Message-ID: <20170406123217.GB5115@ulmo.ba.sec>
-References: <cover.1491467980.git.jpinto@synopsys.com>
- <05dcbd78e826eb2874cdce699e24274d0af680a0.1491467980.git.jpinto@synopsys.com>
+From: Ard Biesheuvel <ard.biesheuvel@linaro.org>
+Subject: Re: [PATCH 20/24] bpf: Restrict kernel image access functions when
+ the kernel is locked down
+Date: Thu, 6 Apr 2017 13:40:20 +0100
+Message-ID: <CAKv+Gu_mWJ2LwPqokWmCG4nmKJHrdQ1qHdM8xTvUziJh3GP+JA@mail.gmail.com>
+References: <149142326734.5101.4596394505987813763.stgit@warthog.procyon.org.uk>
+ <149142344547.5101.4518618716303032193.stgit@warthog.procyon.org.uk> <20170406122907.GA53880@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="i0/AhcQY5QxfSsSZ"
-Cc: <davem@davemloft.net>, <clabbe.montjoie@gmail.com>,
-        <niklas.cassel@axis.com>, <julia.lawall@lip6.fr>,
-        <netdev@vger.kernel.org>
-To: Joao Pinto <Joao.Pinto@synopsys.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Howells <dhowells@redhat.com>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "linux-efi@vger.kernel.org" <linux-efi@vger.kernel.org>,
+        One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
+        "<netdev@vger.kernel.org>" <netdev@vger.kernel.org>,
+        Chun-Yi Lee <jlee@suse.com>,
+        linux-security-module <linux-security-module@vger.kernel.org>,
+        keyrings@vger.kernel.org,
+        "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
+        Matthew Garrett <matthew.garrett@nebula.com>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hqemgate15.nvidia.com ([216.228.121.64]:6521 "EHLO
-        hqemgate15.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756806AbdDFMc1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 08:32:27 -0400
-In-Reply-To: <05dcbd78e826eb2874cdce699e24274d0af680a0.1491467980.git.jpinto@synopsys.com>
-Content-Disposition: inline
+Received: from mail-io0-f172.google.com ([209.85.223.172]:33208 "EHLO
+        mail-io0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755203AbdDFMkV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 08:40:21 -0400
+Received: by mail-io0-f172.google.com with SMTP id f84so28495878ioj.0
+        for <netdev@vger.kernel.org>; Thu, 06 Apr 2017 05:40:21 -0700 (PDT)
+In-Reply-To: <20170406122907.GA53880@ast-mbp.thefacebook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---i0/AhcQY5QxfSsSZ
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+On 6 April 2017 at 13:29, Alexei Starovoitov
+<alexei.starovoitov@gmail.com> wrote:
+> On Wed, Apr 05, 2017 at 09:17:25PM +0100, David Howells wrote:
+>> From: Chun-Yi Lee <jlee@suse.com>
+>>
+>> There are some bpf functions can be used to read kernel memory:
+>> bpf_probe_read, bpf_probe_write_user and bpf_trace_printk.  These allow
+>> private keys in kernel memory (e.g. the hibernation image signing key) to
+>> be read by an eBPF program.  Prohibit those functions when the kernel is
+>> locked down.
+>>
+>> Signed-off-by: Chun-Yi Lee <jlee@suse.com>
+>> Signed-off-by: David Howells <dhowells@redhat.com>
+>> cc: netdev@vger.kernel.org
+>> ---
+>>
+>>  kernel/trace/bpf_trace.c |   11 +++++++++++
+>>  1 file changed, 11 insertions(+)
+>>
+>> diff --git a/kernel/trace/bpf_trace.c b/kernel/trace/bpf_trace.c
+>> index cee9802cf3e0..7fde851f207b 100644
+>> --- a/kernel/trace/bpf_trace.c
+>> +++ b/kernel/trace/bpf_trace.c
+>> @@ -65,6 +65,11 @@ BPF_CALL_3(bpf_probe_read, void *, dst, u32, size, const void *, unsafe_ptr)
+>>  {
+>>       int ret;
+>>
+>> +     if (kernel_is_locked_down()) {
+>> +             memset(dst, 0, size);
+>> +             return -EPERM;
+>> +     }
+>
+> this will obviously break the program. How about disabling loading tracing
+> programs during the lockdown completely?
+>
+> Also is there a description of what this lockdown trying to accomplish?
+> The cover letter is scarce in details.
+>
 
-On Thu, Apr 06, 2017 at 09:49:09AM +0100, Joao Pinto wrote:
-[...]
->  err_init_rx_buffers:
-> -	while (--i >= 0)
-> -		stmmac_free_rx_buffer(priv, i);
-> +	while (queue >= 0) {
+This is a very good point, and this is actually feedback that was
+given (by Alan Cox, iirc) the last time this series was circulated.
 
-I /think/ this could simply be:
-
-	while (queue--) {
-		...
-	}
-
-That evaluates before the decrement and hence properly deals with the
-case of 0. The difference to your code is that it will skip the first
-iteration, but I think that's fine because stmmac_init_rx_buffers()
-already cleans up properly, so the queue'th element doesn't have to
-be freed again.
-
-Anyway, I think your version will work just as well.
-
-Thierry
-
---i0/AhcQY5QxfSsSZ
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQIzBAABCAAdFiEEiOrDCAFJzPfAjcif3SOs138+s6EFAljmNVEACgkQ3SOs138+
-s6E8ng//UXrQCfpmdBfVrR95Pbrp3d7YCe14WiZXmPcRM8GfRJrApl/Wr0Ym4FI3
-0FQxV3O4Lsqj+es2GE3gLh/SWMOOtoqsbOt7wX7HLO5Ch0NgXlQApp2fRnB5Wnxp
-LnMxnOf6r9myXTpOhwFjZj0izZWCOQHz08W5xtf6eLqx372GkKZNyGxGwPg3O6HF
-/dUF6gunPvbHlms/aXfnLtWKqQpMN1b++2jzFd30mXft91bi/FR0jfd31OZvszv9
-7GnoK1QA4zB3DE5mJ+jkL3Vv/XLHbwBo0A8B64wB53QRZ1yQGVug0J3T1fA06Gwh
-8WHWOgXNtf2B7ET4Dp8iFPS3n2ye/Uq32G3PJUwNxUYOFxiID5bRZ0aKYlaDhw3K
-YFpDM09ymbb/aCy7zkvyyrBRlRn9zuioWdNu05LIrK9r4NjYo0cAIMeLWHVWgjqU
-id47P8elpGoVUk3wVuLzPcOn9F4LZBCHLTujL4Hc6x3BinJFLajhTEp/UvECtKG4
-tUdZfS2S/9K/DsJnVZ4uT03s/jt5WC1h6KhGNc5Br0zMP36ZfkAJZ4F0f7Chiqcn
-RWW7Of1cmCICX8sMedlYeZNczTEomf85/xB4oB4aLyKKbDWaKegvNV1vNhbO+v/a
-2Vhy2m9/Rg37BLiQeTX/Oz7VeNslZr+GskcUVpvb40BDaA+svqI=
-=iFDe
------END PGP SIGNATURE-----
-
---i0/AhcQY5QxfSsSZ--
+This series is a mixed bag of patches that all look like they improve
+'security' in one way or the other. But what is lacking is a coherent
+view on the threat model, and to what extent all these patches reduce
+the vulnerability to such threats. Without that, these patches do very
+little beyond giving a false sense of security, imo.
