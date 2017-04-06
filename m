@@ -1,106 +1,72 @@
-From: Tobias Klauser <tklauser@distanz.ch>
-Subject: [PATCH] net: i40evf: Use net_device_stats from struct net_device
-Date: Thu,  6 Apr 2017 08:46:28 +0200
-Message-ID: <20170406064628.13459-1-tklauser@distanz.ch>
-Cc: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.zhinst.com ([212.126.164.98]:38534 "EHLO mail.zhinst.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S933265AbdDFGqe (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 6 Apr 2017 02:46:34 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Michal Hocko <mhocko-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH 4/4] mtd: nand: nandsim: convert to memalloc_noreclaim_*()
+Date: Thu, 6 Apr 2017 09:27:55 +0200
+Message-ID: <20170406072754.GC5497@dhcp22.suse.cz>
+References: <20170405074700.29871-1-vbabka@suse.cz>
+ <20170405074700.29871-5-vbabka@suse.cz>
+ <20170405113157.GM6035@dhcp22.suse.cz>
+ <ee6649ed-b0e8-1c59-c193-d1688fdfe7f5@nod.at>
+ <9b9d5bca-e125-e07b-b700-196cc800bbd7@suse.cz>
+ <fe1c21a4-0bc6-529c-5446-382b01d4c99e@intel.com>
+Reply-To: open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Vlastimil Babka <vbabka-AlSwsSmVLrQ@public.gmane.org>, Richard Weinberger <richard-/L3Ra7n9ekc@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>, linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Mel Gorman <mgorman-3eNAlZScCAx27rWaFMvyedHuzzzSOjJt@public.gmane.org>,
+	Johannes Weiner <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>, linux-block-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	nbd-general-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org,
+	linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Boris Brezillon <boris.brezillon-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+To: Adrian Hunter <adrian.hunter-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Return-path: <open-iscsi+bncBC4LN7MPQ4HRB763S7DQKGQE7C7BZQI-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Sender: open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+Content-Disposition: inline
+In-Reply-To: <fe1c21a4-0bc6-529c-5446-382b01d4c99e-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+List-Post: <https://groups.google.com/group/open-iscsi/post>, <mailto:open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <https://groups.google.com/support/>, <mailto:open-iscsi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <https://groups.google.com/group/open-iscsi
+List-Subscribe: <https://groups.google.com/group/open-iscsi/subscribe>, <mailto:open-iscsi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <mailto:googlegroups-manage+856124926423+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+ <https://groups.google.com/group/open-iscsi/subscribe>
+List-Id: netdev.vger.kernel.org
 
-Instead of using a private copy of struct net_device_stats in
-struct i40evf_adapter, use stats from struct net_device. Also remove the
-now unnecessary .ndo_get_stats function.
+On Thu 06-04-17 09:33:44, Adrian Hunter wrote:
+> On 05/04/17 14:39, Vlastimil Babka wrote:
+> > On 04/05/2017 01:36 PM, Richard Weinberger wrote:
+> >> Michal,
+> >>
+> >> Am 05.04.2017 um 13:31 schrieb Michal Hocko:
+> >>> On Wed 05-04-17 09:47:00, Vlastimil Babka wrote:
+> >>>> Nandsim has own functions set_memalloc() and clear_memalloc() for robust
+> >>>> setting and clearing of PF_MEMALLOC. Replace them by the new generic helpers.
+> >>>> No functional change.
+> >>>
+> >>> This one smells like an abuser. Why the hell should read/write path
+> >>> touch memory reserves at all!
+> >>
+> >> Could be. Let's ask Adrian, AFAIK he wrote that code.
+> >> Adrian, can you please clarify why nandsim needs to play with PF_MEMALLOC?
+> > 
+> > I was thinking about it and concluded that since the simulator can be
+> > used as a block device where reclaimed pages go to, writing the data out
+> > is a memalloc operation. Then reading can be called as part of r-m-w
+> > cycle, so reading as well.
+> 
+> IIRC it was to avoid getting stuck with nandsim waiting on memory reclaim
+> and memory reclaim waiting on nandsim.
 
-Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
----
- drivers/net/ethernet/intel/i40evf/i40evf.h         |  1 -
- drivers/net/ethernet/intel/i40evf/i40evf_main.c    | 16 ----------------
- .../net/ethernet/intel/i40evf/i40evf_virtchnl.c    | 22 +++++++++++-----------
- 3 files changed, 11 insertions(+), 28 deletions(-)
+I've got lost in the indirection. Could you describe how would reclaim
+get stuck waiting on these paths please?
 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf.h b/drivers/net/ethernet/intel/i40evf/i40evf.h
-index d61ecf655091..66d4880b5c14 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf.h
-@@ -253,7 +253,6 @@ struct i40evf_adapter {
- 	/* OS defined structs */
- 	struct net_device *netdev;
- 	struct pci_dev *pdev;
--	struct net_device_stats net_stats;
- 
- 	struct i40e_hw hw; /* defined in i40e_type.h */
- 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index fb2811c23024..1e36561b428a 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -2231,21 +2231,6 @@ static int i40evf_close(struct net_device *netdev)
- }
- 
- /**
-- * i40evf_get_stats - Get System Network Statistics
-- * @netdev: network interface device structure
-- *
-- * Returns the address of the device statistics structure.
-- * The statistics are actually updated from the timer callback.
-- **/
--static struct net_device_stats *i40evf_get_stats(struct net_device *netdev)
--{
--	struct i40evf_adapter *adapter = netdev_priv(netdev);
--
--	/* only return the current stats */
--	return &adapter->net_stats;
--}
--
--/**
-  * i40evf_change_mtu - Change the Maximum Transfer Unit
-  * @netdev: network interface device structure
-  * @new_mtu: new value for maximum frame size
-@@ -2351,7 +2336,6 @@ static const struct net_device_ops i40evf_netdev_ops = {
- 	.ndo_open		= i40evf_open,
- 	.ndo_stop		= i40evf_close,
- 	.ndo_start_xmit		= i40evf_xmit_frame,
--	.ndo_get_stats		= i40evf_get_stats,
- 	.ndo_set_rx_mode	= i40evf_set_rx_mode,
- 	.ndo_validate_addr	= eth_validate_addr,
- 	.ndo_set_mac_address	= i40evf_set_mac,
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
-index 032be8d3928a..91121de0d928 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
-@@ -958,17 +958,17 @@ void i40evf_virtchnl_completion(struct i40evf_adapter *adapter,
- 	case I40E_VIRTCHNL_OP_GET_STATS: {
- 		struct i40e_eth_stats *stats =
- 			(struct i40e_eth_stats *)msg;
--		adapter->net_stats.rx_packets = stats->rx_unicast +
--						 stats->rx_multicast +
--						 stats->rx_broadcast;
--		adapter->net_stats.tx_packets = stats->tx_unicast +
--						 stats->tx_multicast +
--						 stats->tx_broadcast;
--		adapter->net_stats.rx_bytes = stats->rx_bytes;
--		adapter->net_stats.tx_bytes = stats->tx_bytes;
--		adapter->net_stats.tx_errors = stats->tx_errors;
--		adapter->net_stats.rx_dropped = stats->rx_discards;
--		adapter->net_stats.tx_dropped = stats->tx_discards;
-+		netdev->stats.rx_packets = stats->rx_unicast +
-+					   stats->rx_multicast +
-+					   stats->rx_broadcast;
-+		netdev->stats.tx_packets = stats->tx_unicast +
-+					   stats->tx_multicast +
-+					   stats->tx_broadcast;
-+		netdev->stats.rx_bytes = stats->rx_bytes;
-+		netdev->stats.tx_bytes = stats->tx_bytes;
-+		netdev->stats.tx_errors = stats->tx_errors;
-+		netdev->stats.rx_dropped = stats->rx_discards;
-+		netdev->stats.tx_dropped = stats->tx_discards;
- 		adapter->current_stats = *stats;
- 		}
- 		break;
 -- 
-2.12.2.399.g034667a45805
+Michal Hocko
+SUSE Labs
+
+-- 
+You received this message because you are subscribed to the Google Groups "open-iscsi" group.
+To unsubscribe from this group and stop receiving emails from it, send an email to open-iscsi+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org
+To post to this group, send email to open-iscsi-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org
+Visit this group at https://groups.google.com/group/open-iscsi.
+For more options, visit https://groups.google.com/d/optout.
