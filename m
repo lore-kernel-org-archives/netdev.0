@@ -1,82 +1,106 @@
-From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net-next 5/7] rxrpc: Trace received aborts
-Date: Thu, 06 Apr 2017 11:22:50 +0100
-Message-ID: <149147417030.21583.17130513258609085128.stgit@warthog.procyon.org.uk>
-References: <149147413410.21583.16278066955827076779.stgit@warthog.procyon.org.uk>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] netpoll: Check for skb->queue_mapping
+Date: Thu, 06 Apr 2017 03:26:17 -0700
+Message-ID: <1491474377.10124.57.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1491444383-29017-1-git-send-email-tushar.n.dave@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
-        linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <149147413410.21583.16278066955827076779.stgit@warthog.procyon.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, edumazet@google.com, brouer@redhat.com,
+        netdev@vger.kernel.org, sowmini.varadhan@oracle.com
+To: Tushar Dave <tushar.n.dave@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-it0-f65.google.com ([209.85.214.65]:34703 "EHLO
+        mail-it0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757337AbdDFK0U (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 06:26:20 -0400
+Received: by mail-it0-f65.google.com with SMTP id 193so363818itm.1
+        for <netdev@vger.kernel.org>; Thu, 06 Apr 2017 03:26:20 -0700 (PDT)
+In-Reply-To: <1491444383-29017-1-git-send-email-tushar.n.dave@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add a tracepoint (rxrpc_rx_abort) to record received aborts.
+On Wed, 2017-04-05 at 19:06 -0700, Tushar Dave wrote:
+> Reducing real_num_tx_queues needs to be in sync with skb queue_mapping
+> otherwise skbs with queue_mapping greater than real_num_tx_queues
+> can be sent to the underlying driver and can result in kernel panic.
+> 
+> One such event is running netconsole and enabling VF on the same
+> device. Or running netconsole and changing number of tx queues via
+> ethtool on same device.
+> 
+> e.g.
 
-Signed-off-by: David Howells <dhowells@redhat.com>
----
+> 
+> Signed-off-by: Tushar Dave <tushar.n.dave@oracle.com>
+> ---
+>  net/core/netpoll.c | 7 +++++++
+>  1 file changed, 7 insertions(+)
+> 
+> diff --git a/net/core/netpoll.c b/net/core/netpoll.c
+> index 9424673..c572e49 100644
+> --- a/net/core/netpoll.c
+> +++ b/net/core/netpoll.c
+> @@ -101,6 +101,7 @@ static void queue_process(struct work_struct *work)
+>  		container_of(work, struct netpoll_info, tx_work.work);
+>  	struct sk_buff *skb;
+>  	unsigned long flags;
+> +	u16 q_index;
+>  
+>  	while ((skb = skb_dequeue(&npinfo->txq))) {
+>  		struct net_device *dev = skb->dev;
+> @@ -117,6 +118,12 @@ static void queue_process(struct work_struct *work)
+>  		HARD_TX_LOCK(dev, txq, smp_processor_id());
+>  		if (netif_xmit_frozen_or_stopped(txq) ||
+>  		    netpoll_start_xmit(skb, dev, txq) != NETDEV_TX_OK) {
+> +			/* check if skb->queue_mapping has changed */
+> +			q_index = skb_get_queue_mapping(skb);
+> +			if (unlikely(q_index >= dev->real_num_tx_queues)) {
+> +				q_index = q_index % dev->real_num_tx_queues;
+> +				skb_set_queue_mapping(skb, q_index);
+> +			}
+>  			skb_queue_head(&npinfo->txq, skb);
+>  			HARD_TX_UNLOCK(dev, txq);
+>  			local_irq_restore(flags);
 
- include/trace/events/rxrpc.h |   24 ++++++++++++++++++++++++
- net/rxrpc/input.c            |    4 +++-
- 2 files changed, 27 insertions(+), 1 deletion(-)
+Hi Thushar, thank you for working on this issue.
 
-diff --git a/include/trace/events/rxrpc.h b/include/trace/events/rxrpc.h
-index 626af97863e8..85e0148c88a8 100644
---- a/include/trace/events/rxrpc.h
-+++ b/include/trace/events/rxrpc.h
-@@ -683,6 +683,30 @@ TRACE_EVENT(rxrpc_rx_ack,
- 		      __entry->n_acks)
- 	    );
+Where and when skb->queue_mapping has changed ?
+
+It looks that the real problem is that dev->real_num_tx_queues has been
+changed instead of skb->queue_mapping
+
+So maybe the more correct change would be to cap skb->queue_mapping even
+before getting skb_get_tx_queue() ?
+
+Otherwise, even after your patch, we might still access an invalid queue
+on the device ?
+
+Something like the following :
+
+diff --git a/net/core/netpoll.c b/net/core/netpoll.c
+index 9424673009c14e0fb288b8e4041dba596b37ee8d..16702d95f83ab884e605e3868cfef94615dcbc72 100644
+--- a/net/core/netpoll.c
++++ b/net/core/netpoll.c
+@@ -105,13 +105,20 @@ static void queue_process(struct work_struct *work)
+ 	while ((skb = skb_dequeue(&npinfo->txq))) {
+ 		struct net_device *dev = skb->dev;
+ 		struct netdev_queue *txq;
++		unsigned int q_index;
  
-+TRACE_EVENT(rxrpc_rx_abort,
-+	    TP_PROTO(struct rxrpc_call *call, rxrpc_serial_t serial,
-+		     u32 abort_code),
-+
-+	    TP_ARGS(call, serial, abort_code),
-+
-+	    TP_STRUCT__entry(
-+		    __field(struct rxrpc_call *,	call		)
-+		    __field(rxrpc_serial_t,		serial		)
-+		    __field(u32,			abort_code	)
-+			     ),
-+
-+	    TP_fast_assign(
-+		    __entry->call = call;
-+		    __entry->serial = serial;
-+		    __entry->abort_code = abort_code;
-+			   ),
-+
-+	    TP_printk("c=%p ABORT %08x ac=%d",
-+		      __entry->call,
-+		      __entry->serial,
-+		      __entry->abort_code)
-+	    );
-+
- TRACE_EVENT(rxrpc_tx_data,
- 	    TP_PROTO(struct rxrpc_call *call, rxrpc_seq_t seq,
- 		     rxrpc_serial_t serial, u8 flags, bool retrans, bool lose),
-diff --git a/net/rxrpc/input.c b/net/rxrpc/input.c
-index 3685dbe05a8f..241e989597f2 100644
---- a/net/rxrpc/input.c
-+++ b/net/rxrpc/input.c
-@@ -877,7 +877,7 @@ static void rxrpc_input_ackall(struct rxrpc_call *call, struct sk_buff *skb)
- }
+ 		if (!netif_device_present(dev) || !netif_running(dev)) {
+ 			kfree_skb(skb);
+ 			continue;
+ 		}
  
- /*
-- * Process an ABORT packet.
-+ * Process an ABORT packet directed at a call.
-  */
- static void rxrpc_input_abort(struct rxrpc_call *call, struct sk_buff *skb)
- {
-@@ -892,6 +892,8 @@ static void rxrpc_input_abort(struct rxrpc_call *call, struct sk_buff *skb)
- 			  &wtmp, sizeof(wtmp)) >= 0)
- 		abort_code = ntohl(wtmp);
+-		txq = skb_get_tx_queue(dev, skb);
++		/* check if skb->queue_mapping is still valid */
++		q_index = skb_get_queue_mapping(skb);
++		if (unlikely(q_index >= dev->real_num_tx_queues)) {
++			q_index = q_index % dev->real_num_tx_queues;
++			skb_set_queue_mapping(skb, q_index);
++		}
++		txq = netdev_get_tx_queue(dev, q_index);
  
-+	trace_rxrpc_rx_abort(call, sp->hdr.serial, abort_code);
-+
- 	_proto("Rx ABORT %%%u { %x }", sp->hdr.serial, abort_code);
- 
- 	if (rxrpc_set_call_completion(call, RXRPC_CALL_REMOTELY_ABORTED,
+ 		local_irq_save(flags);
+ 		HARD_TX_LOCK(dev, txq, smp_processor_id());
