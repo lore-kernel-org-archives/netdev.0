@@ -1,35 +1,55 @@
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: Re: [PATCH][-next] nfp: don't dereference a null nn->eth_port to
- print a warning
-Date: Thu, 6 Apr 2017 16:15:27 -0700
-Message-ID: <20170406161527.55b1fd07@cakuba>
-References: <20170406125435.18898-1-colin.king@canonical.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "David S . Miller" <davem@davemloft.net>,
-        Simon Horman <simon.horman@netronome.com>,
-        oss-drivers@netronome.com, netdev@vger.kernel.org,
-        kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Colin King <colin.king@canonical.com>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <20170406125435.18898-1-colin.king@canonical.com>
-Sender: kernel-janitors-owner@vger.kernel.org
+From: Matthias Kaehlcke <mka@chromium.org>
+Subject: [PATCH v2] mac80211: Fix clang warning about constant operand in logical operation
+Date: Thu,  6 Apr 2017 16:31:41 -0700
+Message-ID: <20170406233141.123098-1-mka@chromium.org>
+Cc: linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org, Grant Grundler <grundler@chromium.org>,
+        Michael Davidson <md@google.com>,
+        Greg Hackmann <ghackmann@google.com>,
+        Matthias Kaehlcke <mka@chromium.org>
+To: Johannes Berg <johannes@sipsolutions.net>,
+        "David S . Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu,  6 Apr 2017 13:54:35 +0100, Colin King wrote:
-> From: Colin Ian King <colin.king@canonical.com>
-> 
-> On the case where nn->eth_port is null the warning message
-> is printing the port by dereferencing this null pointer.
-> Remove the deference to avoid a crash when printing the
-> warning message.
-> 
-> Detected by CoverityScan, CID#1426198 ("Dereference after null check")
-> 
-> Fixes: ce22f5a2cbe3c627 ("nfp: separate high level and low level NSP headers")
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+When clang detects a non-boolean constant in a logical operation it
+generates a 'constant-logical-operand' warning. In
+ieee80211_try_rate_control_ops_get() the result of strlen(<const str>)
+is used in a logical operation, clang resolves the expression to an
+(integer) constant at compile time when clang's builtin strlen function
+is used.
 
-Acked-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+Change the condition to check for strlen() > 0 to make the constant
+operand boolean and thus avoid the warning.
 
-Thanks!
+Signed-off-by: Matthias Kaehlcke <mka@chromium.org>
+---
+Changes in v2:
+- Changed expression to strlen() > 0 to make constant operand boolean
+  instead of splitting up condition
+- Updated commit message
+
+ net/mac80211/rate.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/net/mac80211/rate.c b/net/mac80211/rate.c
+index 206698bc93f4..694faf6ab574 100644
+--- a/net/mac80211/rate.c
++++ b/net/mac80211/rate.c
+@@ -173,9 +173,11 @@ ieee80211_rate_control_ops_get(const char *name)
+ 		/* try default if specific alg requested but not found */
+ 		ops = ieee80211_try_rate_control_ops_get(ieee80211_default_rc_algo);
+ 
+-	/* try built-in one if specific alg requested but not found */
+-	if (!ops && strlen(CONFIG_MAC80211_RC_DEFAULT))
++	/* Note: check for > 0 is intentional to avoid clang warning */
++	if (!ops && (strlen(CONFIG_MAC80211_RC_DEFAULT) > 0))
++		/* try built-in one if specific alg requested but not found */
+ 		ops = ieee80211_try_rate_control_ops_get(CONFIG_MAC80211_RC_DEFAULT);
++
+ 	kernel_param_unlock(THIS_MODULE);
+ 
+ 	return ops;
+-- 
+2.12.2.715.g7642488e1d-goog
