@@ -1,31 +1,40 @@
-From: Ido Schimmel <idosch@idosch.org>
-Subject: Re: [PATCH v2] mlxsw: convert to pci_alloc_irq_vectors
-Date: Thu, 6 Apr 2017 15:43:20 +0300
-Message-ID: <20170406124320.GA5456@splinter.mtl.com>
-References: <20170406122303.30758-1-hch@lst.de>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: arch: arm: bpf: Converting cBPF to eBPF for arm 32 bit
+Date: Thu, 06 Apr 2017 14:51:44 +0200
+Message-ID: <58E639E0.1010700@iogearbox.net>
+References: <CAHgaXd+EKJ0FWaaPojsNJtgY_YpdQXu6eMEp97uOpTFAWs4qTQ@mail.gmail.com> <CAGXu5jLo8UvpNSQZBHjWZoO959ha6KFQxFzmg7SK44wz=R_QSg@mail.gmail.com> <CAHgaXdJL92XRjHae2Nb9j9SerSe65=N=ErDHTQf23sdBxwthzw@mail.gmail.com> <20170315.145512.1542025976162251828.davem@davemloft.net> <CAHgaXd+4QkFxnt-_iCqH8AyCN_Y8gXwr+y=iugz38NKSWspsbA@mail.gmail.com> <58DAF908.8010404@iogearbox.net> <CAHgaXdKfbob3WHMho32JSh_dmfp2A=cjcePqk+NfajVpShPE6Q@mail.gmail.com> <CAHgaXdJ1M4W3p9=B2hJmtxByPsA5-XHae8U6YtDH_2r_XMaR5A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jiri@mellanox.com, idosch@mellanox.com, netdev@vger.kernel.org
-To: Christoph Hellwig <hch@lst.de>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+        Kees Cook <keescook@chromium.org>,
+        Mircea Gherzan <mgherzan@gmail.com>,
+        Network Development <netdev@vger.kernel.org>,
+        kernel-hardening@lists.openwall.com,
+        linux-arm-kernel@lists.infradead.org, ast@fb.com
+To: Shubham Bansal <illusionist.neo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:56264 "EHLO
-        out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1755996AbdDFMnW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 08:43:22 -0400
-Content-Disposition: inline
-In-Reply-To: <20170406122303.30758-1-hch@lst.de>
+Received: from www62.your-server.de ([213.133.104.62]:35015 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753213AbdDFMvy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 08:51:54 -0400
+In-Reply-To: <CAHgaXdJ1M4W3p9=B2hJmtxByPsA5-XHae8U6YtDH_2r_XMaR5A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 06, 2017 at 02:23:03PM +0200, Christoph Hellwig wrote:
-> Trivial conversion as only one vector is supported, but at least we
-> lose the useless msix_entry member in the per-device structure.
-> 
-> Signed-off-by: Christoph Hellwig <hch@lst.de>
+On 04/06/2017 01:05 PM, Shubham Bansal wrote:
+> Gentle Reminder.
 
-For net-next:
+Sorry for late reply.
 
-Reviewed-by: Ido Schimmel <idosch@mellanox.com>
-Tested-by: Ido Schimmel <idosch@mellanox.com>
+> Anybody can tell me how to test the JIT compiler ?
 
-Thanks!
+There's lib/test_bpf.c, see Documentation/networking/filter.txt +1349
+for some more information. It basically contains various test cases that
+have the purpose to test the JIT with corner cases. If you see a useful
+test missing, please send a patch for it, so all other JITs can benefit
+from this as well. For extracting disassembly from a generated test case,
+check out bpf_jit_disasm (Documentation/networking/filter.txt +486).
+
+Thanks,
+Daniel
