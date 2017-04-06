@@ -1,58 +1,43 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 1/2] net: dsa: mv88e6xxx: Fix warning with
- CONFIG_OF=n
-Date: Thu, 6 Apr 2017 16:04:31 +0200
-Message-ID: <20170406140431.GA17713@lunn.ch>
+Subject: Re: [PATCH net-next 2/2] net: dsa: mv88e6xxx: Provide prototypes for
+ SMI read/write functions
+Date: Thu, 6 Apr 2017 16:07:24 +0200
+Message-ID: <20170406140724.GB17713@lunn.ch>
 References: <20170406134736.24329-1-f.fainelli@gmail.com>
- <20170406134736.24329-2-f.fainelli@gmail.com>
+ <20170406134736.24329-3-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+        vivien.didelot@savoirfairelinux.com
 To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:47760 "EHLO vps0.lunn.ch"
+Received: from vps0.lunn.ch ([178.209.37.122]:47763 "EHLO vps0.lunn.ch"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S935129AbdDFOEf (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 6 Apr 2017 10:04:35 -0400
+        id S934788AbdDFOH0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 6 Apr 2017 10:07:26 -0400
 Content-Disposition: inline
-In-Reply-To: <20170406134736.24329-2-f.fainelli@gmail.com>
+In-Reply-To: <20170406134736.24329-3-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 06, 2017 at 06:47:35AM -0700, Florian Fainelli wrote:
-> When CONFIG_OF=n, we will see the following warning:
+On Thu, Apr 06, 2017 at 06:47:36AM -0700, Florian Fainelli wrote:
+> Fixes the following warnings:
 > 
-> drivers/net/dsa/mv88e6xxx/chip.c:2834:34: warning: 'mv88e6xxx_mdio_external_match' defined but not used [-Wunused-const-variable=]
->  static const struct of_device_id mv88e6xxx_mdio_external_match[] = {
->                                   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-> 
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
-> ---
->  drivers/net/dsa/mv88e6xxx/chip.c | 2 ++
->  1 file changed, 2 insertions(+)
-> 
-> diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-> index 44ba8cff5631..64cbc4c04907 100644
-> --- a/drivers/net/dsa/mv88e6xxx/chip.c
-> +++ b/drivers/net/dsa/mv88e6xxx/chip.c
-> @@ -2831,11 +2831,13 @@ static int mv88e6xxx_mdio_register(struct mv88e6xxx_chip *chip,
->  	return 0;
->  }
->  
-> +#ifdef CONFIG_OF
->  static const struct of_device_id mv88e6xxx_mdio_external_match[] = {
->  	{ .compatible = "marvell,mv88e6xxx-mdio-external",
->  	  .data = (void *)true },
->  	{ },
->  };
-> +#endif
+> drivers/net/dsa/mv88e6xxx/global2.c:571:5: warning: no previous prototype for 'mv88e6xxx_g2_smi_phy_read_c45' [-Wmissing-prototypes]
+>  int mv88e6xxx_g2_smi_phy_read_c45(struct mv88e6xxx_chip *chip, int addr,
+>      ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+> drivers/net/dsa/mv88e6xxx/global2.c:602:5: warning: no previous prototype for 'mv88e6xxx_g2_smi_phy_read_c22' [-Wmissing-prototypes]
+>  int mv88e6xxx_g2_smi_phy_read_c22(struct mv88e6xxx_chip *chip, int addr,
+>      ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+> drivers/net/dsa/mv88e6xxx/global2.c:635:5: warning: no previous prototype for 'mv88e6xxx_g2_smi_phy_write_c45' [-Wmissing-prototypes]
+>  int mv88e6xxx_g2_smi_phy_write_c45(struct mv88e6xxx_chip *chip, int addr,
+>      ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+> drivers/net/dsa/mv88e6xxx/global2.c:664:5: warning: no previous prototype for 'mv88e6xxx_g2_smi_phy_write_c22' [-Wmissing-prototypes]
+>  int mv88e6xxx_g2_smi_phy_write_c22(struct mv88e6xxx_chip *chip, int addr,
+>      ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Hi Florian
 
-Maybe a better fix is to make the stub of of_match_node() an inline
-function, so its parameters are used. That will fix this warning
-everywhere in the kernel, not just in this driver.
+These are not used outside of global2.c. So just mark them static.
 
-	   Andrew
+      Andrew
