@@ -1,55 +1,48 @@
-From: Brian Norris <briannorris@chromium.org>
-Subject: Re: [PATCH] mwifiex: MAC randomization should not be persistent
-Date: Thu, 6 Apr 2017 09:48:08 -0700
-Message-ID: <20170406164807.GB25323@google.com>
-References: <20170405222640.4494-1-briannorris@chromium.org>
- <87inmifak8.fsf@kamboji.qca.qualcomm.com>
+From: Roger Quadros <rogerq@ti.com>
+Subject: Re: [PATCH] net: davinci_mdio: add GPIO reset logic
+Date: Thu, 6 Apr 2017 19:48:50 +0300
+Message-ID: <4611f957-4de2-ccf6-c9e6-1ace1f3f8ac3@ti.com>
+References: <1491381237-24635-1-git-send-email-rogerq@ti.com>
+ <20170405150334.GI13449@lunn.ch>
+ <485433e3-1a9f-71f6-afc9-88e646cf43d1@ti.com>
+ <20170406120532.GC13219@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Nishant Sarmukadam <nishants@marvell.com>,
-        Ganapathi Bhat <gbhat@marvell.com>,
-        Xinming Hu <huxm@marvell.com>, linux-kernel@vger.kernel.org,
-        Dmitry Torokhov <dmitry.torokhov@gmail.com>,
-        netdev@vger.kernel.org, linux-wireless@vger.kernel.org
-To: Kalle Valo <kvalo@codeaurora.org>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <tony@atomide.com>, <nsekhar@ti.com>,
+        <jsarha@ti.com>, <netdev@vger.kernel.org>,
+        <linux-omap@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f42.google.com ([74.125.83.42]:34407 "EHLO
-        mail-pg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752194AbdDFQsR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 12:48:17 -0400
-Received: by mail-pg0-f42.google.com with SMTP id 21so41610673pgg.1
-        for <netdev@vger.kernel.org>; Thu, 06 Apr 2017 09:48:17 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <87inmifak8.fsf@kamboji.qca.qualcomm.com>
+Received: from fllnx210.ext.ti.com ([198.47.19.17]:53069 "EHLO
+        fllnx210.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932616AbdDFQtE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 12:49:04 -0400
+In-Reply-To: <20170406120532.GC13219@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 06, 2017 at 07:02:15AM +0300, Kalle Valo wrote:
-> Brian Norris <briannorris@chromium.org> writes:
-> 
-> > nl80211 provides the NL80211_SCAN_FLAG_RANDOM_ADDR for every scan
-> > request that should be randomized; the absence of such a flag means we
-> > should not randomize. However, mwifiex was stashing the latest
-> > randomization request and *always* using it for future scans, even those
-> > that didn't set the flag.
-> >
-> > Let's zero out the randomization info whenever we get a scan request
-> > without NL80211_SCAN_FLAG_RANDOM_ADDR. I'd prefer to remove
-> > priv->random_mac entirely (and plumb the randomization MAC properly
-> > through the call sequence), but the spaghetti is a little difficult to
-> > unravel here for me.
-> >
-> > Fixes: c2a8f0ff9c6c ("mwifiex: support random MAC address for scanning")
-> 
-> So the first release with this was v4.9.
-> 
-> > Signed-off-by: Brian Norris <briannorris@chromium.org>
-> > ---
-> > Should this be tagged for -stable?
-> 
-> IMHO yes.
 
-Sounds fine to me. I suppose you'll do this when applying? Or I can
-resend...
+On 06/04/17 15:05, Andrew Lunn wrote:
+>>> Do you really need more than one GPIO? A single gpio would make all
+>>> this code a lot simpler.
+>>>
+>>
+>> Yes we need. Some of our boards have separate GPIO RESET lines for
+>> different PHYs on the same MDIO bus.
+> 
+> If you have a one-to-one mapping of GPIO and PHY, you should really be
+> modelling that differently. You want to be able to reset just a single
+> PHY, i.e. make it part of the PHY driver, or maybe the PHY core.
+> 
+>      Andrew
+> 
 
-Brian
+
+I'm not sure how it would be modelled. We have never had the need to reset
+just one PHY on the MDIO bus.
+Some boards have a single RESET line to multiple PHYs whereas others have individual
+RESET lines. In all cases we just want to do the RESET once per boot.
+
+cheers,
+-roger
