@@ -1,47 +1,38 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH net-next 0/2] New getsockopt option to retrieve socket
- cookie
-Date: Thu, 6 Apr 2017 09:05:53 -0400
-Message-ID: <20170406130552.GA58484@ast-mbp.thefacebook.com>
-References: <1491444056-4312-1-git-send-email-chenbofeng.kernel@gmail.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net] team: call netdev_change_features out of team lock
+Date: Thu, 6 Apr 2017 15:24:58 +0200
+Message-ID: <20170406132458.GB2064@nanopsycho>
+References: <dad7cdf64679977bd3ba512180fcfb8ec96d9129.1491457288.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Lorenzo Colitti <lorenzo@google.com>,
-        Willem de Bruijn <willemb@google.com>,
-        Chenbo Feng <fengc@google.com>
-To: Chenbo Feng <chenbofeng.kernel@gmail.com>
+Cc: network dev <netdev@vger.kernel.org>, davem@davemloft.net
+To: Xin Long <lucien.xin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f193.google.com ([209.85.161.193]:34070 "EHLO
-        mail-yw0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753213AbdDFNF5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 09:05:57 -0400
-Received: by mail-yw0-f193.google.com with SMTP id d191so2753517ywe.1
-        for <netdev@vger.kernel.org>; Thu, 06 Apr 2017 06:05:57 -0700 (PDT)
+Received: from mail-io0-f194.google.com ([209.85.223.194]:35371 "EHLO
+        mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753497AbdDFNZA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 09:25:00 -0400
+Received: by mail-io0-f194.google.com with SMTP id f103so4280584ioi.2
+        for <netdev@vger.kernel.org>; Thu, 06 Apr 2017 06:25:00 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <1491444056-4312-1-git-send-email-chenbofeng.kernel@gmail.com>
+In-Reply-To: <dad7cdf64679977bd3ba512180fcfb8ec96d9129.1491457288.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 05, 2017 at 07:00:54PM -0700, Chenbo Feng wrote:
-> From: Chenbo Feng <fengc@google.com>
-> 
-> 
-> In the current kernel socket cookie implementation, there is no simple
-> and direct way to retrieve the socket cookie based on file descriptor. A
-> process mat need to get it from sock fd if it want to correlate with
-> sock_diag output or use a bpf map with new socket cookie function.
-> 
-> If userspace wants to receive the socket cookie for a given socket fd,
-> it must send a SOCK_DIAG_BY_FAMILY dump request and look for the 5-tuple.
-> This is slow and can be ambiguous in the case of sockets that have the
-> same 5-tuple (e.g., tproxy / transparent sockets, SO_REUSEPORT sockets,
-> etc.).
-> 
-> As shown in the example program. The xt_eBPF program is using socket cookie
-> to record the network traffics statistics and with the socket cookie
-> retrieved by getsockopt. The program can directly access to a specific
-> socket data without scanning the whole bpf map.
+Thu, Apr 06, 2017 at 07:41:28AM CEST, lucien.xin@gmail.com wrote:
+>Commit f6988cb63a4e ("team: don't call netdev_change_features under
+>team->lock") fixed the issue calling netdev_change_features under
+>team->lock for team_compute_features.
+>
+>But there are still two places where it calls netdev_change_features
+>under team->lock, team_port_add and team_port_del. It may cause a
+>dead lock when the slave port with LRO enabled is added.
+>
+>This patch is to fix this dead lock by moving netdev_change_features
+>out of team_port_add and team_port_del, and call it after unlocking
+>the team lock.
+>
+>Reported-by: Patrick Talbert <ptalbert@redhat.com>
+>Signed-off-by: Xin Long <lucien.xin@gmail.com>
 
-Thank you for detailed description of the feature.
-Both patches look good to me.
-Acked-by: Alexei Starovoitov <ast@kernel.org>
+Acked-by: Jiri Pirko <jiri@mellanox.com>
