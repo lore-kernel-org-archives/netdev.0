@@ -1,42 +1,75 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: net/sched: latent livelock in dev_deactivate_many() due to
- yield() usage
-Date: Thu, 6 Apr 2017 13:08:27 +0200
-Message-ID: <20170406110827.s3y6goahapq36evy@hirez.programming.kicks-ass.net>
-References: <1491107321.13631.33.camel@gmx.de>
- <20170405173105.7f41d7fc@plumbers-lap.home.lan>
- <20170406102844.jr66tcf4qfmlj3wm@hirez.programming.kicks-ass.net>
+From: Mel Gorman <mgorman@techsingularity.net>
+Subject: Re: [Nbd] [PATCH 3/4] treewide: convert PF_MEMALLOC manipulations to
+ new helpers
+Date: Thu, 6 Apr 2017 12:25:26 +0100
+Message-ID: <20170406112526.jj7zwzxqvushy5g2@techsingularity.net>
+References: <20170405074700.29871-1-vbabka@suse.cz>
+ <20170405074700.29871-4-vbabka@suse.cz>
+ <20170405113030.GL6035@dhcp22.suse.cz>
+ <20170406063810.dmv4fg2irsqgdvyq@grep.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Mike Galbraith <efault@gmx.de>, netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-15
+Cc: Michal Hocko <mhocko@kernel.org>, Vlastimil Babka <vbabka@suse.cz>,
+        nbd-general@lists.sourceforge.net, Chris Leech <cleech@redhat.com>,
+        linux-scsi@vger.kernel.org, Josef Bacik <jbacik@fb.com>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linux-block@vger.kernel.org, linux-mm@kvack.org,
+        Eric Dumazet <edumazet@google.com>,
+        Lee Duncan <lduncan@suse.com>,
+        Johannes Weiner <hannes@cmpxchg.org>,
+        Andrew Morton <akpm@linux-foundation.org>,
+        open-iscsi@googlegroups.com,
+        "David S. Miller" <davem@davemloft.net>
+To: Wouter Verhelst <w@uter.be>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from outbound-smtp04.blacknight.com ([81.17.249.35]:60890 "EHLO
+        outbound-smtp04.blacknight.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752385AbdDFLZ3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 07:25:29 -0400
+Received: from mail.blacknight.com (pemlinmail05.blacknight.ie [81.17.254.26])
+        by outbound-smtp04.blacknight.com (Postfix) with ESMTPS id 8EE65F4022
+        for <netdev@vger.kernel.org>; Thu,  6 Apr 2017 11:25:27 +0000 (UTC)
 Content-Disposition: inline
-In-Reply-To: <20170406102844.jr66tcf4qfmlj3wm@hirez.programming.kicks-ass.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20170406063810.dmv4fg2irsqgdvyq@grep.be>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 06, 2017 at 12:28:44PM +0200, Peter Zijlstra wrote:
-> On Wed, Apr 05, 2017 at 05:31:05PM -0700, Stephen Hemminger wrote:
-> > On Sun, 02 Apr 2017 06:28:41 +0200
-> > Mike Galbraith <efault@gmx.de> wrote:
+On Thu, Apr 06, 2017 at 08:38:10AM +0200, Wouter Verhelst wrote:
+> On Wed, Apr 05, 2017 at 01:30:31PM +0200, Michal Hocko wrote:
+> > On Wed 05-04-17 09:46:59, Vlastimil Babka wrote:
+> > > We now have memalloc_noreclaim_{save,restore} helpers for robust setting and
+> > > clearing of PF_MEMALLOC. Let's convert the code which was using the generic
+> > > tsk_restore_flags(). No functional change.
 > > 
-> > > Livelock can be triggered by setting kworkers to SCHED_FIFO, then
-> > > suspend/resume.. you come back from sleepy-land with a spinning
-> > > kworker.  For whatever reason, I can only do that with an enterprise
-> > > like config, my standard config refuses to play, but no matter, it's
-> > > "Typical broken usage".
-> > > 
-> > > (yield() should be rendered dead)
-> > 
-> > The kernel is not normally built to have kworkers run at SCHED_FIFO.
-> > The user has do some action to alter the process priorities.
-> > 
-> > I classify this as user error. We don't support killing kworker threads
-> > either.
+> > It would be really great to revisit why those places outside of the mm
+> > proper really need this flag. I know this is a painful exercise but I
+> > wouldn't be surprised if there were abusers there.
+> [...]
+> > > ---
+> > >  drivers/block/nbd.c      | 7 ++++---
+> > >  drivers/scsi/iscsi_tcp.c | 7 ++++---
+> > >  net/core/dev.c           | 7 ++++---
+> > >  net/core/sock.c          | 7 ++++---
+> > >  4 files changed, 16 insertions(+), 12 deletions(-)
 > 
-> PI can boost anybody to FIFO, all you need is to be holding a lock.
+> These were all done to make swapping over network safe. The idea is that
+> if a socket has SOCK_MEMALLOC set, incoming packets for that socket can
+> access PFMEMALLOC reserves (whereas other sockets cannot); this all in
+> the hope that one packe destined to that socket will contain the TCP ACK
+> that confirms the swapout was successful and we can now release RAM
+> pages for other processes.
+> 
+> I don't know whether they need the PF_MEMALLOC flag specifically (not a
+> kernel hacker), but they do need to interact with it at any rate.
+> 
 
-Note that this extends to rcu_read_lock(), which can cause boosting
-under some cases.
+At the time it was required to get access to emergency reserves so swapping
+can continue. The flip side is that the memory is then protected so pages
+allocated from emergency reserves are not used for network traffic that
+is not involved with swap. This means that under heavy swap load, it was
+perfectly possible for unrelated traffic to get dropped for quite some
+time.
+
+-- 
+Mel Gorman
+SUSE Labs
