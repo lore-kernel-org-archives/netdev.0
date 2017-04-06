@@ -1,97 +1,51 @@
-From: Simon Wunderlich <sw@simonwunderlich.de>
-Subject: [PATCH 11/19] batman-adv: changed debug messages for easier bla debugging
-Date: Thu,  6 Apr 2017 16:07:33 +0200
-Message-ID: <20170406140741.30745-12-sw@simonwunderlich.de>
-References: <20170406140741.30745-1-sw@simonwunderlich.de>
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-        Andreas Pape <APape@phoenixcontact.com>,
-        Andreas Pape <apape@phoenixcontact.com>,
-        Sven Eckelmann <sven@narfation.org>,
-        Simon Wunderlich <sw@simonwunderlich.de>
-To: davem@davemloft.net
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: [PATCH] netlink: uapi: use hex numbers for NLM_F_* flags
+Date: Thu,  6 Apr 2017 16:10:42 +0200
+Message-ID: <20170406141042.30309-1-johannes@sipsolutions.net>
+Cc: Johannes Berg <johannes.berg@intel.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from packetmixer.de ([79.140.42.25]:32928 "EHLO
-        mail.mail.packetmixer.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S935048AbdDFOHv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 10:07:51 -0400
-In-Reply-To: <20170406140741.30745-1-sw@simonwunderlich.de>
+Received: from s3.sipsolutions.net ([5.9.151.49]:35134 "EHLO sipsolutions.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S934646AbdDFOKt (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 6 Apr 2017 10:10:49 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andreas Pape <APape@phoenixcontact.com>
+From: Johannes Berg <johannes.berg@intel.com>
 
-Some of the bla debug messages are extended and additional messages are
-added for easier bla debugging. Some debug messages introduced with the
-dat changes in prior patches of this patch series have been changed to
-be more compliant to other existing debug messages.
+It's rather confusing that the netlink message flags are
+numbered 1, 2, 4, 8, 16, 32, <unused>, 0x100. Make that
+more understandable by numbering the lower ones with hex
+constants as well.
 
-Acked-by: Simon Wunderlich <sw@simonwunderlich.de>
-Signed-off-by: Andreas Pape <apape@phoenixcontact.com>
-[sven@narfation.org: fix conflicts with current version]
-Signed-off-by: Sven Eckelmann <sven@narfation.org>
-Signed-off-by: Simon Wunderlich <sw@simonwunderlich.de>
+Signed-off-by: Johannes Berg <johannes.berg@intel.com>
 ---
- net/batman-adv/bridge_loop_avoidance.c | 18 ++++++++++++++----
- net/batman-adv/routing.c               |  2 +-
- 2 files changed, 15 insertions(+), 5 deletions(-)
+ include/uapi/linux/netlink.h | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/net/batman-adv/bridge_loop_avoidance.c b/net/batman-adv/bridge_loop_avoidance.c
-index 546e66ecfabd..852a2be19845 100644
---- a/net/batman-adv/bridge_loop_avoidance.c
-+++ b/net/batman-adv/bridge_loop_avoidance.c
-@@ -739,8 +739,8 @@ static void batadv_bla_add_claim(struct batadv_priv *bat_priv,
- 			goto claim_free_ref;
+diff --git a/include/uapi/linux/netlink.h b/include/uapi/linux/netlink.h
+index f3946a27bd07..b2c9c26ea30f 100644
+--- a/include/uapi/linux/netlink.h
++++ b/include/uapi/linux/netlink.h
+@@ -50,12 +50,12 @@ struct nlmsghdr {
  
- 		batadv_dbg(BATADV_DBG_BLA, bat_priv,
--			   "bla_add_claim(): changing ownership for %pM, vid %d\n",
--			   mac, batadv_print_vid(vid));
-+			   "bla_add_claim(): changing ownership for %pM, vid %d to gw %pM\n",
-+			   mac, batadv_print_vid(vid), backbone_gw->orig);
+ /* Flags values */
  
- 		remove_crc = true;
- 	}
-@@ -1295,10 +1295,13 @@ static void batadv_bla_purge_claims(struct batadv_priv *bat_priv,
- 				goto skip;
+-#define NLM_F_REQUEST		1	/* It is request message. 	*/
+-#define NLM_F_MULTI		2	/* Multipart message, terminated by NLMSG_DONE */
+-#define NLM_F_ACK		4	/* Reply with ack, with zero or error code */
+-#define NLM_F_ECHO		8	/* Echo this request 		*/
+-#define NLM_F_DUMP_INTR		16	/* Dump was inconsistent due to sequence change */
+-#define NLM_F_DUMP_FILTERED	32	/* Dump was filtered as requested */
++#define NLM_F_REQUEST		0x01	/* It is request message. 	*/
++#define NLM_F_MULTI		0x02	/* Multipart message, terminated by NLMSG_DONE */
++#define NLM_F_ACK		0x04	/* Reply with ack, with zero or error code */
++#define NLM_F_ECHO		0x08	/* Echo this request 		*/
++#define NLM_F_DUMP_INTR		0x10	/* Dump was inconsistent due to sequence change */
++#define NLM_F_DUMP_FILTERED	0x20	/* Dump was filtered as requested */
  
- 			batadv_dbg(BATADV_DBG_BLA, bat_priv,
--				   "bla_purge_claims(): %pM, vid %d, time out\n",
--				   claim->addr, claim->vid);
-+				   "bla_purge_claims(): timed out.\n");
- 
- purge_now:
-+			batadv_dbg(BATADV_DBG_BLA, bat_priv,
-+				   "bla_purge_claims(): %pM, vid %d\n",
-+				   claim->addr, claim->vid);
-+
- 			batadv_handle_unclaim(bat_priv, primary_if,
- 					      backbone_gw->orig,
- 					      claim->addr, claim->vid);
-@@ -1846,6 +1849,13 @@ bool batadv_bla_rx(struct batadv_priv *bat_priv, struct sk_buff *skb,
- 		/* possible optimization: race for a claim */
- 		/* No claim exists yet, claim it for us!
- 		 */
-+
-+		batadv_dbg(BATADV_DBG_BLA, bat_priv,
-+			   "bla_rx(): Unclaimed MAC %pM found. Claim it. Local: %s\n",
-+			   ethhdr->h_source,
-+			   batadv_is_my_client(bat_priv,
-+					       ethhdr->h_source, vid) ?
-+			   "yes" : "no");
- 		batadv_handle_claim(bat_priv, primary_if,
- 				    primary_if->net_dev->dev_addr,
- 				    ethhdr->h_source, vid);
-diff --git a/net/batman-adv/routing.c b/net/batman-adv/routing.c
-index c85dc3102519..e1ebe14ee2a6 100644
---- a/net/batman-adv/routing.c
-+++ b/net/batman-adv/routing.c
-@@ -985,7 +985,7 @@ int batadv_recv_unicast_packet(struct sk_buff *skb,
- 			batadv_orig_node_put(orig_node_gw);
- 			if (is_gw) {
- 				batadv_dbg(BATADV_DBG_BLA, bat_priv,
--					   "Dropped unicast pkt received from another backbone gw %pM.\n",
-+					   "recv_unicast_packet(): Dropped unicast pkt received from another backbone gw %pM.\n",
- 					   orig_addr_gw);
- 				return NET_RX_DROP;
- 			}
+ /* Modifiers to GET request */
+ #define NLM_F_ROOT	0x100	/* specify tree	root	*/
 -- 
 2.11.0
