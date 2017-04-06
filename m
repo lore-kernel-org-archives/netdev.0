@@ -1,34 +1,73 @@
-From: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net-next] macb: Add hardware PTP support.
-Date: Thu, 6 Apr 2017 07:24:31 +0200
-Message-ID: <20170406052431.GC1660@localhost.localdomain>
-References: <20170329.093914.152103359543418375.davem@davemloft.net>
- <1491225015-25553-1-git-send-email-rafalo@cadence.com>
- <20170405.064303.211440601700403108.davem@davemloft.net>
+From: Julia Lawall <julia.lawall@lip6.fr>
+Subject: Re: [PATCH 2/4 v2 net-next] net: stmmac: adding multiple buffers
+ for RX (fwd)
+Date: Thu, 6 Apr 2017 07:29:13 +0200 (CEST)
+Message-ID: <alpine.DEB.2.20.1704060728040.2052@hadrien>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: rafalo-vna1KIf7WgpBDgjK7y7TUQ@public.gmane.org, nicolas.ferre-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-        harinikatakamlinux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, harini.katakam-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org,
-        Andrei.Pistirica-UWL1GkI3JZL3oGB3hsPCZA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20170405.064303.211440601700403108.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Cc: davem@davemloft.net, clabbe.montjoie@gmail.com, treding@nvidia.com,
+        niklas.cassel@axis.com, netdev@vger.kernel.org,
+        Joao Pinto <Joao.Pinto@synopsys.com>, kbuild-all@01.org
+To: Joao Pinto <Joao.Pinto@synopsys.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail3-relais-sop.national.inria.fr ([192.134.164.104]:3725 "EHLO
+        mail3-relais-sop.national.inria.fr" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751824AbdDFF3R (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 01:29:17 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 05, 2017 at 06:43:03AM -0700, David Miller wrote:
-> This patch does too many things at one time.  Each entry in that list
-> of changes above should be a separate change, all posted together as
-> a group as a proper patch series.
+It looks like an infinite loop, if queue is unsigned.
 
-And please start a new thread with the next posting.
+julia
 
-Thanks,
-Richard
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+---------- Forwarded message ----------
+Date: Thu, 6 Apr 2017 11:49:01 +0800
+From: kbuild test robot <fengguang.wu@intel.com>
+To: kbuild@01.org
+Cc: Julia Lawall <julia.lawall@lip6.fr>
+Subject: Re: [PATCH 2/4 v2 net-next] net: stmmac: adding multiple buffers for RX
+
+[auto build test WARNING on net-next/master]
+
+url:    https://github.com/0day-ci/linux/commits/Joao-Pinto/net-stmmac-break-some-functions-into-RX-and-TX-scopes/20170406-081523
+:::::: branch date: 4 hours ago
+:::::: commit date: 4 hours ago
+
+   drivers/net/ethernet/stmicro/stmmac/stmmac_main.c:2852:15-20: WARNING: Unsigned expression compared with zero: entry < 0
+>> drivers/net/ethernet/stmicro/stmmac/stmmac_main.c:1190:8-13: WARNING: Unsigned expression compared with zero: queue >= 0
+
+git remote add linux-review https://github.com/0day-ci/linux
+git remote update linux-review
+git checkout b403b5806dca0f85904ddc6cf2241286da86ed9b
+vim +1190 drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+
+b6ad2502 Joao Pinto         2017-04-05  1174  			if (priv->extend_desc)
+b403b580 Joao Pinto         2017-04-05  1175  				priv->hw->mode->init(rx_q->dma_erx,
+b403b580 Joao Pinto         2017-04-05  1176  						     rx_q->dma_rx_phy,
+e3ad57c9 Giuseppe Cavallaro 2016-02-29  1177  						     DMA_RX_SIZE, 1);
+b6ad2502 Joao Pinto         2017-04-05  1178  			else
+b403b580 Joao Pinto         2017-04-05  1179  				priv->hw->mode->init(rx_q->dma_rx,
+b403b580 Joao Pinto         2017-04-05  1180  						     rx_q->dma_rx_phy,
+e3ad57c9 Giuseppe Cavallaro 2016-02-29  1181  						     DMA_RX_SIZE, 0);
+b6ad2502 Joao Pinto         2017-04-05  1182  		}
+b403b580 Joao Pinto         2017-04-05  1183  	}
+b403b580 Joao Pinto         2017-04-05  1184
+b403b580 Joao Pinto         2017-04-05  1185  	buf_sz = bfsize;
+b6ad2502 Joao Pinto         2017-04-05  1186
+b6ad2502 Joao Pinto         2017-04-05  1187  	return 0;
+b403b580 Joao Pinto         2017-04-05  1188
+b6ad2502 Joao Pinto         2017-04-05  1189  err_init_rx_buffers:
+b403b580 Joao Pinto         2017-04-05 @1190  	while (queue >= 0) {
+b6ad2502 Joao Pinto         2017-04-05  1191  		while (--i >= 0)
+b403b580 Joao Pinto         2017-04-05  1192  			stmmac_free_rx_buffer(priv, queue, i);
+b403b580 Joao Pinto         2017-04-05  1193
+b403b580 Joao Pinto         2017-04-05  1194  		i = DMA_RX_SIZE;
+b403b580 Joao Pinto         2017-04-05  1195  		queue--;
+b403b580 Joao Pinto         2017-04-05  1196  	}
+b403b580 Joao Pinto         2017-04-05  1197
+b6ad2502 Joao Pinto         2017-04-05  1198  	return ret;
+
+---
+0-DAY kernel test infrastructure                Open Source Technology Center
+https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
