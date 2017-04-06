@@ -1,71 +1,42 @@
-From: Shubham Bansal <illusionist.neo@gmail.com>
-Subject: Re: arch: arm: bpf: Converting cBPF to eBPF for arm 32 bit
-Date: Thu, 6 Apr 2017 16:35:17 +0530
-Message-ID: <CAHgaXdJ1M4W3p9=B2hJmtxByPsA5-XHae8U6YtDH_2r_XMaR5A@mail.gmail.com>
-References: <CAHgaXd+EKJ0FWaaPojsNJtgY_YpdQXu6eMEp97uOpTFAWs4qTQ@mail.gmail.com>
- <CAGXu5jLo8UvpNSQZBHjWZoO959ha6KFQxFzmg7SK44wz=R_QSg@mail.gmail.com>
- <CAHgaXdJL92XRjHae2Nb9j9SerSe65=N=ErDHTQf23sdBxwthzw@mail.gmail.com>
- <20170315.145512.1542025976162251828.davem@davemloft.net> <CAHgaXd+4QkFxnt-_iCqH8AyCN_Y8gXwr+y=iugz38NKSWspsbA@mail.gmail.com>
- <58DAF908.8010404@iogearbox.net> <CAHgaXdKfbob3WHMho32JSh_dmfp2A=cjcePqk+NfajVpShPE6Q@mail.gmail.com>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: net/sched: latent livelock in dev_deactivate_many() due to
+ yield() usage
+Date: Thu, 6 Apr 2017 13:08:27 +0200
+Message-ID: <20170406110827.s3y6goahapq36evy@hirez.programming.kicks-ass.net>
+References: <1491107321.13631.33.camel@gmx.de>
+ <20170405173105.7f41d7fc@plumbers-lap.home.lan>
+ <20170406102844.jr66tcf4qfmlj3wm@hirez.programming.kicks-ass.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-        Kees Cook <keescook@chromium.org>,
-        Mircea Gherzan <mgherzan@gmail.com>,
-        Network Development <netdev@vger.kernel.org>,
-        kernel-hardening@lists.openwall.com,
-        linux-arm-kernel@lists.infradead.org, ast@fb.com
-To: Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f179.google.com ([209.85.216.179]:33009 "EHLO
-        mail-qt0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755460AbdDFLFS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 07:05:18 -0400
-Received: by mail-qt0-f179.google.com with SMTP id i34so32769596qtc.0
-        for <netdev@vger.kernel.org>; Thu, 06 Apr 2017 04:05:18 -0700 (PDT)
-In-Reply-To: <CAHgaXdKfbob3WHMho32JSh_dmfp2A=cjcePqk+NfajVpShPE6Q@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Mike Galbraith <efault@gmx.de>, netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170406102844.jr66tcf4qfmlj3wm@hirez.programming.kicks-ass.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Gentle Reminder.
+On Thu, Apr 06, 2017 at 12:28:44PM +0200, Peter Zijlstra wrote:
+> On Wed, Apr 05, 2017 at 05:31:05PM -0700, Stephen Hemminger wrote:
+> > On Sun, 02 Apr 2017 06:28:41 +0200
+> > Mike Galbraith <efault@gmx.de> wrote:
+> > 
+> > > Livelock can be triggered by setting kworkers to SCHED_FIFO, then
+> > > suspend/resume.. you come back from sleepy-land with a spinning
+> > > kworker.  For whatever reason, I can only do that with an enterprise
+> > > like config, my standard config refuses to play, but no matter, it's
+> > > "Typical broken usage".
+> > > 
+> > > (yield() should be rendered dead)
+> > 
+> > The kernel is not normally built to have kworkers run at SCHED_FIFO.
+> > The user has do some action to alter the process priorities.
+> > 
+> > I classify this as user error. We don't support killing kworker threads
+> > either.
+> 
+> PI can boost anybody to FIFO, all you need is to be holding a lock.
 
-Anybody can tell me how to test the JIT compiler ?
-Best,
-Shubham Bansal
-
-
-On Thu, Mar 30, 2017 at 7:34 PM, Shubham Bansal
-<illusionist.neo@gmail.com> wrote:
-> Thanks Daniel.
->
-> Can you tell me how to test the eBPF JIT compiler? It would be great
-> if you could tell me starting from compiling to proper testing.
-> Best,
-> Shubham Bansal
->
->
-> On Wed, Mar 29, 2017 at 5:30 AM, Daniel Borkmann <daniel@iogearbox.net> wrote:
->> Hi Shubham,
->>
->> On 03/28/2017 10:49 PM, Shubham Bansal wrote:
->> [...]
->>>
->>> Do you have any document to understand the working of tail calls? I
->>> looked at your presentations but it seemed confusing to me. Anything
->>> simple would be great, just about the tail calls. I don't think I need
->>> examples, I can get them from your presentations. I just need a very
->>> general idea. May be you know the code in kernel where it is
->>> implemented.
->>
->>
->> Sure, it's in __bpf_prog_run(), see the JMP_TAIL_CALL (kernel/bpf/core.c
->> +1019).
->> That's effectively what JITs implement. [1] page 3 has a high-level
->> description
->> as well, hope that helps.
->>
->> Thanks,
->> Daniel
->>
->>   [1]
->> http://www.netdevconf.org/1.1/proceedings/papers/On-getting-tc-classifier-fully-programmable-with-cls-bpf.pdf
+Note that this extends to rcu_read_lock(), which can cause boosting
+under some cases.
