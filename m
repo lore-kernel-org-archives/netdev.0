@@ -1,7 +1,7 @@
 From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: [Netdev conf Announce]: Keynote by Shrijeet Mukherjee
-Date: Thu, 6 Apr 2017 06:12:41 -0400
-Message-ID: <17921f52-1f6e-b381-2642-0a2b8bae7c15@mojatatu.com>
+Subject: [Netdev conf Announce]: Keynote by Jesse Brandeburg
+Date: Thu, 6 Apr 2017 06:16:17 -0400
+Message-ID: <b287e0c2-8944-2d25-3210-a3bc9cfbd634@mojatatu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 8bit
@@ -12,12 +12,12 @@ Cc: tech-committee <tech-committee@netdevconf.org>,
         Heri Muhero <hmuhero@gmail.com>
 To: people@netdevconf.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f52.google.com ([209.85.214.52]:36361 "EHLO
-        mail-it0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934015AbdDFKMo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 06:12:44 -0400
-Received: by mail-it0-f52.google.com with SMTP id 19so2108896itj.1
-        for <netdev@vger.kernel.org>; Thu, 06 Apr 2017 03:12:44 -0700 (PDT)
+Received: from mail-it0-f46.google.com ([209.85.214.46]:35537 "EHLO
+        mail-it0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751226AbdDFKQT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 06:16:19 -0400
+Received: by mail-it0-f46.google.com with SMTP id y18so98170599itc.0
+        for <netdev@vger.kernel.org>; Thu, 06 Apr 2017 03:16:18 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
