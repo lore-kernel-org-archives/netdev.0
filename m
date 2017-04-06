@@ -1,51 +1,71 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: net/ipv4: use-after-free in ipv4_mtu
-Date: Thu, 06 Apr 2017 03:49:10 -0700
-Message-ID: <1491475750.10124.72.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <CAAeHK+zJ20r8O=MhPY69UPK7sObODp2ByK5136JXgw5U9SMofw@mail.gmail.com>
-         <CANn89iKuT+VBZqbJ4=hTAgUbnhuZ0berg0PK+imd1CKuWLy1eQ@mail.gmail.com>
-         <CAM_iQpUittpMt-8BpNePWv7iTDasCZuNYTEPnu=K-4sFK5qiBg@mail.gmail.com>
-         <1491360338.10124.39.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CAM_iQpUk_=oeGoYLb4DGc2+mNw+3Z08mw4wVNKAaDZgsbB1i+g@mail.gmail.com>
+From: Shubham Bansal <illusionist.neo@gmail.com>
+Subject: Re: arch: arm: bpf: Converting cBPF to eBPF for arm 32 bit
+Date: Thu, 6 Apr 2017 16:35:17 +0530
+Message-ID: <CAHgaXdJ1M4W3p9=B2hJmtxByPsA5-XHae8U6YtDH_2r_XMaR5A@mail.gmail.com>
+References: <CAHgaXd+EKJ0FWaaPojsNJtgY_YpdQXu6eMEp97uOpTFAWs4qTQ@mail.gmail.com>
+ <CAGXu5jLo8UvpNSQZBHjWZoO959ha6KFQxFzmg7SK44wz=R_QSg@mail.gmail.com>
+ <CAHgaXdJL92XRjHae2Nb9j9SerSe65=N=ErDHTQf23sdBxwthzw@mail.gmail.com>
+ <20170315.145512.1542025976162251828.davem@davemloft.net> <CAHgaXd+4QkFxnt-_iCqH8AyCN_Y8gXwr+y=iugz38NKSWspsbA@mail.gmail.com>
+ <58DAF908.8010404@iogearbox.net> <CAHgaXdKfbob3WHMho32JSh_dmfp2A=cjcePqk+NfajVpShPE6Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>,
-        Andrey Konovalov <andreyknvl@google.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Kostya Serebryany <kcc@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+        Kees Cook <keescook@chromium.org>,
+        Mircea Gherzan <mgherzan@gmail.com>,
+        Network Development <netdev@vger.kernel.org>,
+        kernel-hardening@lists.openwall.com,
+        linux-arm-kernel@lists.infradead.org, ast@fb.com
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f49.google.com ([209.85.214.49]:35196 "EHLO
-        mail-it0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754302AbdDFKtN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 06:49:13 -0400
-In-Reply-To: <CAM_iQpUk_=oeGoYLb4DGc2+mNw+3Z08mw4wVNKAaDZgsbB1i+g@mail.gmail.com>
+Received: from mail-qt0-f179.google.com ([209.85.216.179]:33009 "EHLO
+        mail-qt0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755460AbdDFLFS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 07:05:18 -0400
+Received: by mail-qt0-f179.google.com with SMTP id i34so32769596qtc.0
+        for <netdev@vger.kernel.org>; Thu, 06 Apr 2017 04:05:18 -0700 (PDT)
+In-Reply-To: <CAHgaXdKfbob3WHMho32JSh_dmfp2A=cjcePqk+NfajVpShPE6Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2017-04-05 at 15:33 -0700, Cong Wang wrote:
+Gentle Reminder.
 
-> Good find! I missed the refcnt in rt_set_nexthop() before that commit.
-> 
-> We need to revert that commit to restore the refcnt for fib_info.
+Anybody can tell me how to test the JIT compiler ?
+Best,
+Shubham Bansal
 
-Well, there are other spots , in decnet and IPv6.
 
-This is why my original mail stated the problem was in the calls to :
-
-dst_init_metrics(&rt->dst, fi->fib_metrics, true);
-
-Lets do not think in "reverting" spirit, but adding the missing bits.
-
-The problem here is that the metrics should not be freed until last user
-is gone.
-
-So maybe a refcount should be added to metrics, and we do not have to
-add a fib pointer again in all dsts.
-
-Thanks.
+On Thu, Mar 30, 2017 at 7:34 PM, Shubham Bansal
+<illusionist.neo@gmail.com> wrote:
+> Thanks Daniel.
+>
+> Can you tell me how to test the eBPF JIT compiler? It would be great
+> if you could tell me starting from compiling to proper testing.
+> Best,
+> Shubham Bansal
+>
+>
+> On Wed, Mar 29, 2017 at 5:30 AM, Daniel Borkmann <daniel@iogearbox.net> wrote:
+>> Hi Shubham,
+>>
+>> On 03/28/2017 10:49 PM, Shubham Bansal wrote:
+>> [...]
+>>>
+>>> Do you have any document to understand the working of tail calls? I
+>>> looked at your presentations but it seemed confusing to me. Anything
+>>> simple would be great, just about the tail calls. I don't think I need
+>>> examples, I can get them from your presentations. I just need a very
+>>> general idea. May be you know the code in kernel where it is
+>>> implemented.
+>>
+>>
+>> Sure, it's in __bpf_prog_run(), see the JMP_TAIL_CALL (kernel/bpf/core.c
+>> +1019).
+>> That's effectively what JITs implement. [1] page 3 has a high-level
+>> description
+>> as well, hope that helps.
+>>
+>> Thanks,
+>> Daniel
+>>
+>>   [1]
+>> http://www.netdevconf.org/1.1/proceedings/papers/On-getting-tc-classifier-fully-programmable-with-cls-bpf.pdf
