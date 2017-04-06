@@ -1,38 +1,37 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] netpoll: Check for skb->queue_mapping
-Date: Thu, 06 Apr 2017 12:14:16 -0700
-Message-ID: <1491506056.10124.81.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1491444383-29017-1-git-send-email-tushar.n.dave@oracle.com>
-         <1491474377.10124.57.camel@edumazet-glaptop3.roam.corp.google.com>
-         <5927b630-865e-b7af-33a1-1a6b772e3fb7@oracle.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: ipv4: fix multipath RTM_GETROUTE behavior when
+ iif is given
+Date: Thu, 06 Apr 2017 12:19:43 -0700 (PDT)
+Message-ID: <20170406.121943.2291300582139303531.davem@davemloft.net>
+References: <20170403144609.18716-1-fl@n621.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, edumazet@google.com, brouer@redhat.com,
-        netdev@vger.kernel.org, sowmini.varadhan@oracle.com
-To: tndave <tushar.n.dave@oracle.com>
+Cc: netdev@vger.kernel.org
+To: fl@n621.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f173.google.com ([209.85.223.173]:35905 "EHLO
-        mail-io0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755610AbdDFTOS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 15:14:18 -0400
-Received: by mail-io0-f173.google.com with SMTP id l7so36343447ioe.3
-        for <netdev@vger.kernel.org>; Thu, 06 Apr 2017 12:14:18 -0700 (PDT)
-In-Reply-To: <5927b630-865e-b7af-33a1-1a6b772e3fb7@oracle.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:36594 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756503AbdDFTTs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 15:19:48 -0400
+In-Reply-To: <20170403144609.18716-1-fl@n621.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2017-04-06 at 12:07 -0700, tndave wrote:
+From: Florian Larysch <fl@n621.de>
+Date: Mon,  3 Apr 2017 16:46:09 +0200
 
-> > +			q_index = q_index % dev->real_num_tx_queues;
-> cpu interrupted here and dev->real_num_tx_queues has reduced!
-> > +			skb_set_queue_mapping(skb, q_index);
-> > +		}
-> > +		txq = netdev_get_tx_queue(dev, q_index);
-> or cpu interrupted here and dev->real_num_tx_queues has reduced!
+> inet_rtm_getroute synthesizes a skeletal ICMP skb, which is passed to
+> ip_route_input when iif is given. If a multipath route is present for
+> the designated destination, ip_multipath_icmp_hash ends up being called,
+> which uses the source/destination addresses within the skb to calculate
+> a hash. However, those are not set in the synthetic skb, causing it to
+> return an arbitrary and incorrect result.
+> 
+> Instead, use UDP, which gets no such special treatment.
+> 
+> Signed-off-by: Florian Larysch <fl@n621.de>
 
-If dev->real_num_tx_queues can be changed while this code is running we
-are in deep deep trouble.
+Applied and queued up for -stable.
 
-Better make sure that when control path does this change, device (and/pr
-netpoll) is frozen and no packet can be sent.
+Please submit the net-next variant you mentioned, thank you.
