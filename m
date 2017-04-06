@@ -1,56 +1,39 @@
-From: Russell King <rmk+kernel@armlinux.org.uk>
-Subject: [PATCH RFC v2 2/2] net: phy: simplify phy_supported_speeds()
-Date: Thu, 06 Apr 2017 11:01:31 +0100
-Message-ID: <E1cw4EN-0001FD-Vp@rmk-PC.armlinux.org.uk>
-References: <20170406100033.GA24671@n2100.armlinux.org.uk>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: [Netdev conf Announce]: Keynote by Shrijeet Mukherjee
+Date: Thu, 6 Apr 2017 06:12:41 -0400
+Message-ID: <17921f52-1f6e-b381-2642-0a2b8bae7c15@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 8bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>
+Cc: tech-committee <tech-committee@netdevconf.org>,
+        Brenda Butler <bjb@mojatatu.com>,
+        Stephen Jaworski <jaws@mojatatu.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Heri Muhero <hmuhero@gmail.com>
+To: people@netdevconf.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.armlinux.org.uk ([78.32.30.218]:50984 "EHLO
-        pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933229AbdDFKBj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 06:01:39 -0400
-In-Reply-To: <20170406100033.GA24671@n2100.armlinux.org.uk>
-Content-Disposition: inline
+Received: from mail-it0-f52.google.com ([209.85.214.52]:36361 "EHLO
+        mail-it0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934015AbdDFKMo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 06:12:44 -0400
+Received: by mail-it0-f52.google.com with SMTP id 19so2108896itj.1
+        for <netdev@vger.kernel.org>; Thu, 06 Apr 2017 03:12:44 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Simplify the loop in phy_supported_speeds().
 
-Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
----
- drivers/net/phy/phy.c | 14 ++++----------
- 1 file changed, 4 insertions(+), 10 deletions(-)
+The tech committee is pleased to announce a keynote by Jesse Brandeburg
+titled "Linux and the Network"
 
-diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-index b50b6e61aace..f3015e6a52ab 100644
---- a/drivers/net/phy/phy.c
-+++ b/drivers/net/phy/phy.c
-@@ -320,17 +320,11 @@ unsigned int phy_supported_speeds(struct phy_device *phy,
- 	unsigned int count = 0;
- 	unsigned int idx = 0;
- 
--	for (idx = 0; idx < ARRAY_SIZE(settings) && count < size; idx++) {
--		if (!(settings[idx].setting & phy->supported))
--			continue;
--
-+	for (idx = 0; idx < ARRAY_SIZE(settings) && count < size; idx++)
- 		/* Assumes settings are grouped by speed */
--		if ((count == 0) ||
--		    (speeds[count - 1] != settings[idx].speed)) {
--			speeds[count] = settings[idx].speed;
--			count++;
--		}
--	}
-+		if ((settings[idx].setting & phy->supported) &&
-+		    (count == 0 || speeds[count - 1] != settings[idx].speed))
-+			speeds[count++] = settings[idx].speed;
- 
- 	return count;
- }
--- 
-2.7.4
+In this talk Jesse will cover topics such as, a brief history of the
+network in Linux, Intel’s expectations of the number of devices on the
+internet causing a dramatic expansion in the number of connected
+devices, and how it will effect Linux networking. He will also cover
+how the data from all these devices will require big investments in
+hardware and software in the network, and why that matters to the core
+Linux networking community. Finally he will talk about what the future
+of networking can hold, and what it means for Intel, and the Linux
+NetDev community.
+
+cheers,
+jamal
