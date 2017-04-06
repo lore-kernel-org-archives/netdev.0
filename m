@@ -1,27 +1,37 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH 3/4] xfrm: Prepare for CRYPTO_MAX_ALG_NAME expansion
-Date: Thu, 6 Apr 2017 23:15:51 +0200
-Message-ID: <20170406211551.GE12763@secunet.com>
-References: <20170406081509.GB30557@gondor.apana.org.au>
- <E1cw2aQ-00085u-SY@gondobar>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Alexander Sverdlin <alexander.sverdlin@nokia.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        <linux-crypto@vger.kernel.org>, <netdev@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <E1cw2aQ-00085u-SY@gondobar>
-Sender: linux-crypto-owner@vger.kernel.org
+From: Matthias Kaehlcke <mka@chromium.org>
+Subject: [PATCH] ath9k: Add cast to u8 to FREQ2FBIN macro
+Date: Thu,  6 Apr 2017 14:21:35 -0700
+Message-ID: <20170406212135.72157-1-mka@chromium.org>
+Cc: linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org, Grant Grundler <grundler@chromium.org>,
+        Matthias Kaehlcke <mka@chromium.org>
+To: Kalle Valo <kvalo@codeaurora.org>,
+        ath9k Development <ath9k-devel@qca.qualcomm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 06, 2017 at 04:16:10PM +0800, Herbert Xu wrote:
-> This patch fixes the xfrm_user code to use the actual array size
-> rather than the hard-coded CRYPTO_MAX_ALG_NAME length.  This is
-> because the array size is fixed at 64 bytes while we want to increase
-> the in-kernel CRYPTO_MAX_ALG_NAME value.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+The macro results are assigned to u8 variables/fields. Adding the cast
+fixes plenty of clang warnings about "implicit conversion from 'int' to
+'u8'".
 
-Acked-by: Steffen Klassert <steffen.klassert@secunet.com>
+Signed-off-by: Matthias Kaehlcke <mka@chromium.org>
+---
+ drivers/net/wireless/ath/ath9k/eeprom.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/wireless/ath/ath9k/eeprom.h b/drivers/net/wireless/ath/ath9k/eeprom.h
+index 30bf722e33ed..31390af6c33e 100644
+--- a/drivers/net/wireless/ath/ath9k/eeprom.h
++++ b/drivers/net/wireless/ath/ath9k/eeprom.h
+@@ -106,7 +106,7 @@
+ #define AR9285_RDEXT_DEFAULT    0x1F
+ 
+ #define ATH9K_POW_SM(_r, _s)	(((_r) & 0x3f) << (_s))
+-#define FREQ2FBIN(x, y)		((y) ? ((x) - 2300) : (((x) - 4800) / 5))
++#define FREQ2FBIN(x, y)		(u8)((y) ? ((x) - 2300) : (((x) - 4800) / 5))
+ #define FBIN2FREQ(x, y)		((y) ? (2300 + x) : (4800 + 5 * x))
+ #define ath9k_hw_use_flash(_ah)	(!(_ah->ah_flags & AH_USE_EEPROM))
+ 
+-- 
+2.12.2.715.g7642488e1d-goog
