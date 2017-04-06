@@ -1,43 +1,83 @@
-From: Sagi Grimberg <sagi-NQWnxTmZq1alnMjI0IkVqw@public.gmane.org>
-Subject: Re: [PATCH rfc 5/6] block: Add rdma affinity based queue mapping
- helper
-Date: Thu, 6 Apr 2017 12:23:59 +0300
-Message-ID: <e1ea43dd-c44b-4b2f-f381-1195fd082609@grimberg.me>
-References: <1491140492-25703-1-git-send-email-sagi@grimberg.me>
- <1491140492-25703-6-git-send-email-sagi@grimberg.me>
- <becb84ac-7819-a207-56b1-70f16cb80e42@mellanox.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1255; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>
-To: Max Gurtovoy <maxg-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-nvme-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-block-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <becb84ac-7819-a207-56b1-70f16cb80e42-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Christoph Hellwig <hch@lst.de>
+Subject: [PATCH] mlxsw: convert to pci_alloc_irq_vectors
+Date: Thu,  6 Apr 2017 11:40:23 +0200
+Message-ID: <20170406094023.2710-1-hch@lst.de>
+Cc: netdev@vger.kernel.org
+To: jiri@mellanox.com, idosch@mellanox.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bombadil.infradead.org ([65.50.211.133]:46838 "EHLO
+        bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754291AbdDFJk2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 05:40:28 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> shouldn't you include  <linux/kobject.h> and <linux/blkdev.h> like in
-> commit 8ec2ef2b66ea2f that fixes blk-mq-pci.c ?
+Trivial conversion as only one vector is supported, but at least we
+lose the useless msix_entry member in the per-device structure.
 
-Not really. We can lose these from blk-mq-pci.c as well.
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+---
+ drivers/net/ethernet/mellanox/mlxsw/pci.c | 13 ++++++-------
+ 1 file changed, 6 insertions(+), 7 deletions(-)
 
->> +#include <linux/blk-mq.h>
->> +#include <linux/blk-mq-rdma.h>
->> +#include <rdma/ib_verbs.h>
->> +#include <linux/module.h>
->> +#include "blk-mq.h"
->
-> Is this include needed ?
-
-You're right, I can just keep:
-
-+#include <linux/blk-mq.h>
-+#include <linux/blk-mq-rdma.h>
-+#include <rdma/ib_verbs.h>
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/pci.c b/drivers/net/ethernet/mellanox/mlxsw/pci.c
+index a223c85dfde0..f7e0467e5b96 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/pci.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/pci.c
+@@ -155,7 +155,6 @@ struct mlxsw_pci {
+ 	u8 __iomem *hw_addr;
+ 	struct mlxsw_pci_queue_type_group queues[MLXSW_PCI_QUEUE_TYPE_COUNT];
+ 	u32 doorbell_offset;
+-	struct msix_entry msix_entry;
+ 	struct mlxsw_core *core;
+ 	struct {
+ 		struct mlxsw_pci_mem_item *items;
+@@ -1534,7 +1533,7 @@ static int mlxsw_pci_init(void *bus_priv, struct mlxsw_core *mlxsw_core,
+ 	if (err)
+ 		goto err_aqs_init;
+ 
+-	err = request_irq(mlxsw_pci->msix_entry.vector,
++	err = request_irq(pci_irq_vector(pdev, 0),
+ 			  mlxsw_pci_eq_irq_handler, 0,
+ 			  mlxsw_pci->bus_info.device_kind, mlxsw_pci);
+ 	if (err) {
+@@ -1567,7 +1566,7 @@ static void mlxsw_pci_fini(void *bus_priv)
+ {
+ 	struct mlxsw_pci *mlxsw_pci = bus_priv;
+ 
+-	free_irq(mlxsw_pci->msix_entry.vector, mlxsw_pci);
++	free_irq(pci_irq_vector(mlxsw_pci->pdev, 0), mlxsw_pci);
+ 	mlxsw_pci_aqs_fini(mlxsw_pci);
+ 	mlxsw_pci_fw_area_fini(mlxsw_pci);
+ 	mlxsw_pci_mbox_free(mlxsw_pci, &mlxsw_pci->cmd.out_mbox);
+@@ -1842,8 +1841,8 @@ static int mlxsw_pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
+ 		goto err_sw_reset;
+ 	}
+ 
+-	err = pci_enable_msix_exact(pdev, &mlxsw_pci->msix_entry, 1);
+-	if (err) {
++	err = pci_alloc_irq_vectors(pdev, 1, 1, PCI_IRQ_MSIX);
++	if (err < 0) {
+ 		dev_err(&pdev->dev, "MSI-X init failed\n");
+ 		goto err_msix_init;
+ 	}
+@@ -1872,7 +1871,7 @@ static int mlxsw_pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
+ err_bus_device_register:
+ 	debugfs_remove_recursive(mlxsw_pci->dbg_dir);
+ err_dbg_create_dir:
+-	pci_disable_msix(mlxsw_pci->pdev);
++	pci_free_irq_vectors(mlxsw_pci->pdev);
+ err_msix_init:
+ err_sw_reset:
+ 	iounmap(mlxsw_pci->hw_addr);
+@@ -1893,7 +1892,7 @@ static void mlxsw_pci_remove(struct pci_dev *pdev)
+ 
+ 	mlxsw_core_bus_device_unregister(mlxsw_pci->core);
+ 	debugfs_remove_recursive(mlxsw_pci->dbg_dir);
+-	pci_disable_msix(mlxsw_pci->pdev);
++	pci_free_irq_vectors(mlxsw_pci->pdev);
+ 	iounmap(mlxsw_pci->hw_addr);
+ 	pci_release_regions(mlxsw_pci->pdev);
+ 	pci_disable_device(mlxsw_pci->pdev);
+-- 
+2.11.0
