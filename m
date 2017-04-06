@@ -1,48 +1,54 @@
-From: Roger Quadros <rogerq@ti.com>
-Subject: Re: [PATCH] net: davinci_mdio: add GPIO reset logic
-Date: Thu, 6 Apr 2017 19:48:50 +0300
-Message-ID: <4611f957-4de2-ccf6-c9e6-1ace1f3f8ac3@ti.com>
-References: <1491381237-24635-1-git-send-email-rogerq@ti.com>
- <20170405150334.GI13449@lunn.ch>
- <485433e3-1a9f-71f6-afc9-88e646cf43d1@ti.com>
- <20170406120532.GC13219@lunn.ch>
+From: Jarod Wilson <jarod@redhat.com>
+Subject: Re: [PATCH net-next] bonding: attempt to better support longer hw
+ addresses
+Date: Thu, 6 Apr 2017 14:01:06 -0400
+Message-ID: <fd21e0a4-0bd9-f07f-7204-2a95845dae38@redhat.com>
+References: <20170404213242.50079-1-jarod@redhat.com>
+ <20170405.184554.1608171595937690317.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <tony@atomide.com>, <nsekhar@ti.com>,
-        <jsarha@ti.com>, <netdev@vger.kernel.org>,
-        <linux-omap@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fllnx210.ext.ti.com ([198.47.19.17]:53069 "EHLO
-        fllnx210.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932616AbdDFQtE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 12:49:04 -0400
-In-Reply-To: <20170406120532.GC13219@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, j.vosburgh@gmail.com,
+        vfalico@gmail.com, andy@greyhouse.net, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170405.184554.1608171595937690317.davem@davemloft.net>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-
-On 06/04/17 15:05, Andrew Lunn wrote:
->>> Do you really need more than one GPIO? A single gpio would make all
->>> this code a lot simpler.
->>>
->>
->> Yes we need. Some of our boards have separate GPIO RESET lines for
->> different PHYs on the same MDIO bus.
+On 2017-04-05 9:45 PM, David Miller wrote:
+> From: Jarod Wilson <jarod@redhat.com>
+> Date: Tue,  4 Apr 2017 17:32:42 -0400
+...
+> Applied, but:
 > 
-> If you have a one-to-one mapping of GPIO and PHY, you should really be
-> modelling that differently. You want to be able to reset just a single
-> PHY, i.e. make it part of the PHY driver, or maybe the PHY core.
+>> +static inline void bond_hw_addr_copy(u8 *dst, const u8 *src, unsigned int len)
+>> +{
+>> +	if (len == ETH_ALEN) {
+>> +		ether_addr_copy(dst, src);
+>> +		return;
+>> +	}
+>> +
+>> +	memcpy(dst, src, len);
+>> +}
 > 
->      Andrew
-> 
+> I wonder how much value there is in trying to conditionally use
+> ether_addr_copy().  Unless some of these calls are in the data
+> plane, just a straight memcpy() all the time is fine and much
+> simpler.
 
+Yeah, I wasn't sure how much gain the bonding driver actually got from 
+using the super-optimized ether_addr_copy(), and thought about just 
+doing a memcpy all the time, but wanted to go for minimal impact to 
+traditional ethernet bonding. Looks like bond_handle_frame() might 
+benefit from sticking to ether_addr_copy() when it can, but the majority 
+of other callers, at least in bond_main.c, are all in setup, teardown 
+and failover paths, which ought to be tolerant of some overhead, though 
+optimized failover isn't a bad thing for connection uptime. I do see 
+bond_alb.c has one caller in the arp transmit path as well. I think I'm 
+inclined to just leave well enough alone for the moment.
 
-I'm not sure how it would be modelled. We have never had the need to reset
-just one PHY on the MDIO bus.
-Some boards have a single RESET line to multiple PHYs whereas others have individual
-RESET lines. In all cases we just want to do the RESET once per boot.
-
-cheers,
--roger
+-- 
+Jarod Wilson
+jarod@redhat.com
