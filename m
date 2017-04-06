@@ -1,54 +1,35 @@
-From: Matthias Kaehlcke <mka@chromium.org>
-Subject: Re: [PATCH] mac80211: Fix clang warning about constant operand in
- logical operation
-Date: Thu, 6 Apr 2017 16:07:26 -0700
-Message-ID: <20170406230726.GB78690@google.com>
-References: <20170406185633.91065-1-mka@chromium.org>
- <1491505878.11399.4.camel@sipsolutions.net>
- <20170406192452.GE145051@google.com>
- <1491513145.11399.8.camel@sipsolutions.net>
- <20170406224238.GA78690@google.com>
- <1491519117.11399.10.camel@sipsolutions.net>
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: Re: [PATCH][-next] nfp: don't dereference a null nn->eth_port to
+ print a warning
+Date: Thu, 6 Apr 2017 16:15:27 -0700
+Message-ID: <20170406161527.55b1fd07@cakuba>
+References: <20170406125435.18898-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 Cc: "David S . Miller" <davem@davemloft.net>,
-        linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
-        netdev@vger.kernel.org, Grant Grundler <grundler@chromium.org>,
-        Michael Davidson <md@google.com>,
-        Greg Hackmann <ghackmann@google.com>
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f46.google.com ([74.125.83.46]:36435 "EHLO
-        mail-pg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753102AbdDFXH2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 19:07:28 -0400
-Received: by mail-pg0-f46.google.com with SMTP id g2so47838245pge.3
-        for <netdev@vger.kernel.org>; Thu, 06 Apr 2017 16:07:28 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1491519117.11399.10.camel@sipsolutions.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+        Simon Horman <simon.horman@netronome.com>,
+        oss-drivers@netronome.com, netdev@vger.kernel.org,
+        kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Colin King <colin.king@canonical.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <20170406125435.18898-1-colin.king@canonical.com>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-El Fri, Apr 07, 2017 at 12:51:57AM +0200 Johannes Berg ha dit:
-
-> On Thu, 2017-04-06 at 15:42 -0700, Matthias Kaehlcke wrote:
-> > 
-> > Thanks, it would also require to move the initialization of
-> > ieee80211_default_rc_algo into an ifdef. If you can live with such a
-> > solution I'm happy to change it.
+On Thu,  6 Apr 2017 13:54:35 +0100, Colin King wrote:
+> From: Colin Ian King <colin.king@canonical.com>
 > 
-> I think that'd be something I can live with, yeah.
+> On the case where nn->eth_port is null the warning message
+> is printing the port by dereferencing this null pointer.
+> Remove the deference to avoid a crash when printing the
+> warning message.
 > 
-> > > 	git grep 'IS_ENABLED(' | grep '&&'
-> > 
-> > Indeed the warning is not triggered by these constructs. It seems
-> > clang only emits the warning when the constant operand is not
-> > boolean.
+> Detected by CoverityScan, CID#1426198 ("Dereference after null check")
 > 
-> That points to just adding "> 0" to the condition here as another
-> alternative solution, I guess? With a comment to make sure it's not
-> removed again, that'd seem like the best thing to do.
+> Fixes: ce22f5a2cbe3c627 ("nfp: separate high level and low level NSP headers")
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
 
-Good point, that's more digestible. I'll send an updated change soon.
+Acked-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 
-Matthias
+Thanks!
