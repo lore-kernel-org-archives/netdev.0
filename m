@@ -1,72 +1,119 @@
 From: Yuval Mintz <Yuval.Mintz@cavium.com>
-Subject: [PATCH net-next 0/8] qed: Misc cleanups and fixes
-Date: Thu, 6 Apr 2017 15:58:27 +0300
-Message-ID: <1491483515-13502-1-git-send-email-Yuval.Mintz@cavium.com>
+Subject: [PATCH net-next 3/8] qed: Configure cacheline size in HW
+Date: Thu, 6 Apr 2017 15:58:30 +0300
+Message-ID: <1491483515-13502-4-git-send-email-Yuval.Mintz@cavium.com>
+References: <1491483515-13502-1-git-send-email-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Yuval Mintz <Yuval.Mintz@cavium.com>
+Cc: Tomer Tayar <Tomer.Tayar@cavium.com>,
+        Yuval Mintz <Yuval.Mintz@cavium.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:53175 "EHLO
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:53185 "EHLO
         mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1753213AbdDFM7D (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 08:59:03 -0400
+        by vger.kernel.org with ESMTP id S1756577AbdDFM7J (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 08:59:09 -0400
+In-Reply-To: <1491483515-13502-1-git-send-email-Yuval.Mintz@cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patches #1 and #2 revolve around register access performed by driver;
-The first merely adds some debug, while the second does some fixing
-of incorrect PTT usage as well as preventing issues similar to those
-fixed by 6f437d431930 ("qed: Don't use attention PTT for configuring BW").
+From: Tomer Tayar <Tomer.Tayar@cavium.com>
 
-Patch #3 better configures HW for architecture where cacheline isn't 64B.
+Default HW configuration is optimal for an architecture where cache
+line size is 64B.
 
-Patches #4-#8 all affect iSCSI related functionaility - 
-adding statistics information [both to driver & management firmware],
-passing information on number of resources to qedi, and simplifying
-the Out-of-order implementation in SW.
+During chip initialization, properly initialize the cache line size
+in HW to avoid possible redundant PCI transactions.
 
-Dave,
+Signed-off-by: Tomer Tayar <Tomer.Tayar@cavium.com>
+Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
+---
+ drivers/net/ethernet/qlogic/qed/qed_dev.c      | 53 ++++++++++++++++++++++++++
+ drivers/net/ethernet/qlogic/qed/qed_reg_addr.h |  1 +
+ 2 files changed, 54 insertions(+)
 
-Please consider applying this series to `net-next'.
-
-Thanks,
-Yuval
-
-Michal Kalderon (1):
-  qed: Make OOO archipelagos into an array
-
-Rahul Verma (1):
-  qed: Don't use main-ptt in unrelated flows
-
-Tomer Tayar (1):
-  qed: Something about cache-lines
-
-Yuval Mintz (5):
-  qed: Warn PTT usage by wrong hw-function
-  qed: Don't close the OUT_EN during init
-  qed: Add missing stat for new isles
-  qed: Inform qedi the number of possible CQs
-  qed: Provide iSCSI statistics to management
-
- drivers/net/ethernet/qlogic/qed/qed.h          |   3 +-
- drivers/net/ethernet/qlogic/qed/qed_cxt.c      |   8 +-
- drivers/net/ethernet/qlogic/qed/qed_cxt.h      |   9 +-
- drivers/net/ethernet/qlogic/qed/qed_dev.c      | 137 ++++++++++++++++++-------
- drivers/net/ethernet/qlogic/qed/qed_dev_api.h  |   8 +-
- drivers/net/ethernet/qlogic/qed/qed_fcoe.c     |  10 +-
- drivers/net/ethernet/qlogic/qed/qed_hw.c       |   7 ++
- drivers/net/ethernet/qlogic/qed/qed_iscsi.c    |  33 ++++++
- drivers/net/ethernet/qlogic/qed/qed_iscsi.h    |  14 ++-
- drivers/net/ethernet/qlogic/qed/qed_l2.c       |  14 ++-
- drivers/net/ethernet/qlogic/qed/qed_ll2.c      |  49 ++++++---
- drivers/net/ethernet/qlogic/qed/qed_main.c     |   5 +
- drivers/net/ethernet/qlogic/qed/qed_ooo.c      | 102 +++++-------------
- drivers/net/ethernet/qlogic/qed/qed_ooo.h      |   6 +-
- drivers/net/ethernet/qlogic/qed/qed_reg_addr.h |   1 +
- drivers/net/ethernet/qlogic/qed/qed_spq.c      |  20 +++-
- include/linux/qed/qed_iscsi_if.h               |   2 +
- 17 files changed, 275 insertions(+), 153 deletions(-)
-
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_dev.c b/drivers/net/ethernet/qlogic/qed/qed_dev.c
+index 2df83be..c5f4886 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_dev.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_dev.c
+@@ -1192,6 +1192,57 @@ static void qed_init_cau_rt_data(struct qed_dev *cdev)
+ 	}
+ }
+ 
++static void qed_init_cache_line_size(struct qed_hwfn *p_hwfn,
++				     struct qed_ptt *p_ptt)
++{
++	u32 val, wr_mbs, cache_line_size;
++
++	val = qed_rd(p_hwfn, p_ptt, PSWRQ2_REG_WR_MBS0);
++	switch (val) {
++	case 0:
++		wr_mbs = 128;
++		break;
++	case 1:
++		wr_mbs = 256;
++		break;
++	case 2:
++		wr_mbs = 512;
++		break;
++	default:
++		DP_INFO(p_hwfn,
++			"Unexpected value of PSWRQ2_REG_WR_MBS0 [0x%x]. Avoid configuring PGLUE_B_REG_CACHE_LINE_SIZE.\n",
++			val);
++		return;
++	}
++
++	cache_line_size = min_t(u32, L1_CACHE_BYTES, wr_mbs);
++	switch (cache_line_size) {
++	case 32:
++		val = 0;
++		break;
++	case 64:
++		val = 1;
++		break;
++	case 128:
++		val = 2;
++		break;
++	case 256:
++		val = 3;
++		break;
++	default:
++		DP_INFO(p_hwfn,
++			"Unexpected value of cache line size [0x%x]. Avoid configuring PGLUE_B_REG_CACHE_LINE_SIZE.\n",
++			cache_line_size);
++	}
++
++	if (L1_CACHE_BYTES > wr_mbs)
++		DP_INFO(p_hwfn,
++			"The cache line size for padding is suboptimal for performance [OS cache line size 0x%x, wr mbs 0x%x]\n",
++			L1_CACHE_BYTES, wr_mbs);
++
++	STORE_RT_REG(p_hwfn, PGLUE_REG_B_CACHE_LINE_SIZE_RT_OFFSET, val);
++}
++
+ static int qed_hw_init_common(struct qed_hwfn *p_hwfn,
+ 			      struct qed_ptt *p_ptt, int hw_mode)
+ {
+@@ -1240,6 +1291,8 @@ static int qed_hw_init_common(struct qed_hwfn *p_hwfn,
+ 	qed_wr(p_hwfn, p_ptt, NIG_REG_STORM_OUT_EN, 0);
+ 	qed_port_unpretend(p_hwfn, p_ptt);
+ 
++	qed_init_cache_line_size(p_hwfn, p_ptt);
++
+ 	rc = qed_init_run(p_hwfn, p_ptt, PHASE_ENGINE, ANY_PHASE_ID, hw_mode);
+ 	if (rc)
+ 		return rc;
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_reg_addr.h b/drivers/net/ethernet/qlogic/qed/qed_reg_addr.h
+index 6d4ac7e..e65397360 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_reg_addr.h
++++ b/drivers/net/ethernet/qlogic/qed/qed_reg_addr.h
+@@ -1551,6 +1551,7 @@
+ #define NIG_REG_TSGEN_FREE_CNT_VALUE_LSB 0x5088a8UL
+ #define NIG_REG_TSGEN_FREE_CNT_VALUE_MSB 0x5088acUL
+ #define NIG_REG_PTP_LATCH_OSTS_PKT_TIME 0x509040UL
++#define PSWRQ2_REG_WR_MBS0 0x240400UL
+ 
+ #define PGLUE_B_REG_PGL_ADDR_E8_F0_K2 0x2aaf98UL
+ #define PGLUE_B_REG_PGL_ADDR_EC_F0_K2 0x2aaf9cUL
 -- 
 1.9.3
