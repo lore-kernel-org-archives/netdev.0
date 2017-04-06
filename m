@@ -1,89 +1,69 @@
 From: Juergen Borleis <jbe@pengutronix.de>
-Subject: Re: [PATCH 1/4] net: dsa: add support for the SMSC-LAN9303 tagging format
-Date: Thu, 6 Apr 2017 15:36:26 +0200
-Message-ID: <201704061536.27164.jbe@pengutronix.de>
-References: <20170405092024.16048-1-jbe@pengutronix.de> <20170405092024.16048-2-jbe@pengutronix.de> <20170405171001.GD21965@lunn.ch>
+Subject: Re: [PATCH 2/4] net: dsa: add new DSA switch driver for the SMSC-LAN9303
+Date: Thu, 6 Apr 2017 15:42:28 +0200
+Message-ID: <201704061542.29859.jbe@pengutronix.de>
+References: <20170405092024.16048-1-jbe@pengutronix.de> <201704061218.57438.jbe@pengutronix.de> <20170406115900.GA13219@lunn.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain;
   charset="iso-8859-1"
 Content-Transfer-Encoding: 8BIT
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        f.fainelli@gmail.com, kernel@pengutronix.de,
-        vivien.didelot@savoirfairelinux.com, davem@davemloft.net
+Cc: kernel@pengutronix.de, f.fainelli@gmail.com,
+        vivien.didelot@savoirfairelinux.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, davem@davemloft.net
 To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:56965 "EHLO
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:33293 "EHLO
         metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S934780AbdDFNhH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 09:37:07 -0400
-In-Reply-To: <20170405171001.GD21965@lunn.ch>
+        by vger.kernel.org with ESMTP id S1753213AbdDFNnI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 09:43:08 -0400
+In-Reply-To: <20170406115900.GA13219@lunn.ch>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Hi Andrew,
 
-On Wednesday 05 April 2017 19:10:01 Andrew Lunn wrote:
+On Thursday 06 April 2017 13:59:00 Andrew Lunn wrote:
 > [...]
-> > +static int lan9303_rcv(struct sk_buff *skb, struct net_device *dev,
-> > +		       struct packet_type *pt, struct net_device *orig_dev)
-> > +{
-> > +	u16 *lan9303_tag;
-> > +	struct dsa_switch_tree *dst = dev->dsa_ptr;
-> > +	struct dsa_switch *ds = dst->ds[0];
-> > +	unsigned int source_port;
-> > +
-> > +	if (unlikely(!dst)) {
-> > +		dev_warn_ratelimited(&dev->dev, "Dropping packet, due to missing switch tree device\n");
-> > +		goto out_drop; 
-> > +	}
+> > > Does the MDIO bus go to the outside world? Could there be external
+> > > PHYs?
+> >
+> > ???? This device includes two phys (at port 1 and 2) and these
+> > functions are called to detect their state.
 >
-> By the time you get here, you have already dereferenced dst, in order
-> to get ds. So this is pointless.
+> Some switches have the MDIO bus available on pins. It is then possible
+> to connect additional PHYs on the MDIO bus. If their is an external
+> MDIO bus, you should remove the test for phy > phy_base + 2, and allow
+> the full range of 32.
 
-Ups! Thanks! Fixed in v2.
+Hmm, not sure. You can run this device without a master port and use an 
+additional external PHY instead. In this case there is an external MDIO 
+available to this external PHY. But I don't know if I can reach this MDIO 
+in the same way like the internal MDIO to the built-in PHYs.
 
-> > +	lan9303_tag = (u16 *)(skb->data - 2);
-> > +
-> > +	if (lan9303_tag[0] != htons(0x8100)) {
-> > +		dev_warn_ratelimited(&dev->dev, "Dropping packet due to invalid VLAN marker\n");
-> > +		goto out_drop; 
-> > +	}
+> [...]
+> > > > +		rc = lan9303_phy_reg_write(chip, chip->phy_addr_sel_strap + 1,
+> > > > +					   0, BIT(14) | BIT(11));
+> > > > +		rc += lan9303_write_switch_reg(chip, LAN9303_MAC_RX_CFG_1,
+> > > > +					       0x02);
+> > > > +		rc += lan9303_write_switch_reg(chip, LAN9303_MAC_TX_CFG_1,
+> > > > +					       0x56);
+> > >
+> > > It seems odd that port_enable does not touch the PHY, but
+> > > port_disable does. What is this doing?
+> >
+> > My experience is, the framework powers up the phys by its own in
+> > conjunction with calling lan9303_port_enable(), but do not power down
+> > them in conjunction with calling lan9303_port_disable(). In v2 I do not
+> > touch the phy anymore.
 >
-> In the transmit function, you use ETH_P_8021Q, please do so here as
-> well.
+> So this is touching the BMCR_PDOWN bit? Using the #define would of
+> helped explain this.
 
-Done in v2.
-
-> > +	source_port = ntohs(lan9303_tag[1]) & 0x3;
-> > +
-> > +	if (source_port >= DSA_MAX_PORTS) {
-> > +		dev_warn_ratelimited(&dev->dev, "Dropping packet due to invalid source port\n");
-> > +		goto out_drop; 
-> > +	}
->
-> You can be more specific here. For this hardware, > 3 is invalid and
-> should be dropped. If we later add other chips which have more ports,
-> we can relax this check then.
-
-Done in v2.
-
-> > +	/* remove the special VLAN tag between the MAC addresses
-> > +	 * and the current ethertype field.
-> > +	 */
-> > +	skb_pull_rcsum(skb, 2 + 2);
-> > +	memmove(skb->data - ETH_HLEN, skb->data - (ETH_HLEN + LAN9303_TAG_LEN),
-> > +		2 * ETH_ALEN); 
-> > +	skb_push(skb, ETH_HLEN);
->
-> Do you need to do anything with the checksum here? Other tagging
-> protocols do.
-
-Don't know exactly what you are meaning here. For me it does the same like
-the qca_tag_rcv() function in tag_qca.c does.
+Okay.
 
 Juergen
 
 -- 
-Pengutronix e.K.                             | Juergen Borleis             |
-Industrial Linux Solutions                   | http://www.pengutronix.de/  |
+Pengutronix e.K.                             | Juergen Borleis             |
+Industrial Linux Solutions                   | http://www.pengutronix.de/  |
