@@ -1,33 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] qed: fix missing break in OOO_LB_TC case
-Date: Thu, 06 Apr 2017 13:24:57 -0700 (PDT)
-Message-ID: <20170406.132457.208185850211874734.davem@davemloft.net>
-References: <20170405123544.18648-1-colin.king@canonical.com>
+Subject: Re: [PATCH net] l2tp: define SOL_PPPOL2TP in uapi
+Date: Thu, 06 Apr 2017 13:25:34 -0700 (PDT)
+Message-ID: <20170406.132534.1383136932861851088.davem@davemloft.net>
+References: <28884134c7944f005e4872256742b10765cc2770.1491402366.git.g.nault@alphalink.fr>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Yuval.Mintz@cavium.com, Ariel.Elior@cavium.com,
-        everest-linux-l2@cavium.com, netdev@vger.kernel.org,
-        kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: colin.king@canonical.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170405123544.18648-1-colin.king@canonical.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, jchapman@katalix.com
+To: g.nault@alphalink.fr
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:37702 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752296AbdDFUZl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 16:25:41 -0400
+In-Reply-To: <28884134c7944f005e4872256742b10765cc2770.1491402366.git.g.nault@alphalink.fr>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Colin King <colin.king@canonical.com>
-Date: Wed,  5 Apr 2017 13:35:44 +0100
+From: Guillaume Nault <g.nault@alphalink.fr>
+Date: Wed, 5 Apr 2017 16:52:35 +0200
 
-> From: Colin Ian King <colin.king@canonical.com>
+> Userspace needs SOL_PPPOL2TP to be defined for using PPPOL2TP_SO_*
+> socket options.
 > 
-> There seems to be a missing break on the OOO_LB_TC case, pq_id
-> is being assigned and then re-assigned on the fall through default
-> case and that seems suspect.
-> 
-> Detected by CoverityScan, CID#1424402 ("Missing break in switch")
-> 
-> Fixes: b5a9ee7cf3be1 ("qed: Revise QM cofiguration")
-> 
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+> Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
 
-Applied, thanks.
+We really can't do this, there is no precedence for defining the SOL_*
+values in the kernel headers, it needs to come from the libc headers just
+like the other SOL_* values do for applications.
+
+Thank you.
