@@ -1,48 +1,27 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next v2] net: dsa: mv88e6xxx: Make SMI c22/c45 read/write functions static
-Date: Thu, 06 Apr 2017 15:47:31 -0400
-Message-ID: <87efx548to.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-References: <20170406194217.13927-1-f.fainelli@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/7] s390 patches for net-next
+Date: Thu, 06 Apr 2017 12:52:42 -0700 (PDT)
+Message-ID: <20170406.125242.1410948109729569659.davem@davemloft.net>
+References: <20170405084015.35772-1-ubraun@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        open list <linux-kernel@vger.kernel.org>
-To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
+        jwi@linux.vnet.ibm.com, schwidefsky@de.ibm.com,
+        heiko.carstens@de.ibm.com, raspl@linux.vnet.ibm.com
+To: ubraun@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:37382 "EHLO
-        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753323AbdDFTtB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 15:49:01 -0400
-In-Reply-To: <20170406194217.13927-1-f.fainelli@gmail.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:37180 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751180AbdDFTwo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 15:52:44 -0400
+In-Reply-To: <20170405084015.35772-1-ubraun@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Florian,
+From: Ursula Braun <ubraun@linux.vnet.ibm.com>
+Date: Wed,  5 Apr 2017 10:40:08 +0200
 
-Florian Fainelli <f.fainelli@gmail.com> writes:
+> here are some cleanup patches for drivers/s390/net.
 
-> The SMI clause 22 & 45 read/write operations are local to the global2.c file,
-> so make them static. This eliminates the following warning:
->
-> drivers/net/dsa/mv88e6xxx/global2.c:571:5: warning: no previous prototype for 'mv88e6xxx_g2_smi_phy_read_c45' [-Wmissing-prototypes]
->  int mv88e6xxx_g2_smi_phy_read_c45(struct mv88e6xxx_chip *chip, int addr,
->      ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-> drivers/net/dsa/mv88e6xxx/global2.c:602:5: warning: no previous prototype for 'mv88e6xxx_g2_smi_phy_read_c22' [-Wmissing-prototypes]
->  int mv88e6xxx_g2_smi_phy_read_c22(struct mv88e6xxx_chip *chip, int addr,
->      ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-> drivers/net/dsa/mv88e6xxx/global2.c:635:5: warning: no previous prototype for 'mv88e6xxx_g2_smi_phy_write_c45' [-Wmissing-prototypes]
->  int mv88e6xxx_g2_smi_phy_write_c45(struct mv88e6xxx_chip *chip, int addr,
->      ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-> drivers/net/dsa/mv88e6xxx/global2.c:664:5: warning: no previous prototype for 'mv88e6xxx_g2_smi_phy_write_c22' [-Wmissing-prototypes]
->  int mv88e6xxx_g2_smi_phy_write_c22(struct mv88e6xxx_chip *chip, int addr,
->      ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
->
-> Suggested-by: Andrew Lunn <andrew@lunn.ch>
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
-
-Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-
-Thanks,
-
-        Vivien
+This doesn't apply cleanly to net-next, please respin.
