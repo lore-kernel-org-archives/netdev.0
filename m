@@ -1,7 +1,8 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net-next 7/7] rxrpc: Trace client call connection
-Date: Thu, 06 Apr 2017 11:23:03 +0100
-Message-ID: <149147418366.21583.2753949064080301068.stgit@warthog.procyon.org.uk>
+Subject: [PATCH net-next 6/7] rxrpc: Trace changes in a call's receive
+ window size
+Date: Thu, 06 Apr 2017 11:22:57 +0100
+Message-ID: <149147417703.21583.5740745212381414591.stgit@warthog.procyon.org.uk>
 References: <149147413410.21583.16278066955827076779.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -14,63 +15,64 @@ In-Reply-To: <149147413410.21583.16278066955827076779.stgit@warthog.procyon.org.
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add a tracepoint (rxrpc_connect_call) to log the combination of rxrpc_call
-pointer, afs_call pointer/user data and wire call parameters to make it
-easier to match the tracebuffer contents to captured network packets.
+Add a tracepoint (rxrpc_rx_rwind_change) to log changes in a call's receive
+window size as imposed by the peer through an ACK packet.
 
 Signed-off-by: David Howells <dhowells@redhat.com>
 ---
 
- include/trace/events/rxrpc.h |   26 ++++++++++++++++++++++++++
- net/rxrpc/conn_client.c      |    1 +
- 2 files changed, 27 insertions(+)
+ include/trace/events/rxrpc.h |   27 +++++++++++++++++++++++++++
+ net/rxrpc/input.c            |    2 ++
+ 2 files changed, 29 insertions(+)
 
 diff --git a/include/trace/events/rxrpc.h b/include/trace/events/rxrpc.h
-index 15ba7387c243..29a3d53a4015 100644
+index 85e0148c88a8..15ba7387c243 100644
 --- a/include/trace/events/rxrpc.h
 +++ b/include/trace/events/rxrpc.h
-@@ -1162,6 +1162,32 @@ TRACE_EVENT(rxrpc_rx_eproto,
- 		      __entry->why)
+@@ -707,6 +707,33 @@ TRACE_EVENT(rxrpc_rx_abort,
+ 		      __entry->abort_code)
  	    );
  
-+TRACE_EVENT(rxrpc_connect_call,
-+	    TP_PROTO(struct rxrpc_call *call),
++TRACE_EVENT(rxrpc_rx_rwind_change,
++	    TP_PROTO(struct rxrpc_call *call, rxrpc_serial_t serial,
++		     u32 rwind, bool wake),
 +
-+	    TP_ARGS(call),
++	    TP_ARGS(call, serial, rwind, wake),
 +
 +	    TP_STRUCT__entry(
 +		    __field(struct rxrpc_call *,	call		)
-+		    __field(unsigned long,		user_call_ID	)
-+		    __field(u32,			cid		)
-+		    __field(u32,			call_id		)
++		    __field(rxrpc_serial_t,		serial		)
++		    __field(u32,			rwind		)
++		    __field(bool,			wake		)
 +			     ),
 +
 +	    TP_fast_assign(
 +		    __entry->call = call;
-+		    __entry->user_call_ID = call->user_call_ID;
-+		    __entry->cid = call->cid;
-+		    __entry->call_id = call->call_id;
++		    __entry->serial = serial;
++		    __entry->rwind = rwind;
++		    __entry->wake = wake;
 +			   ),
 +
-+	    TP_printk("c=%p u=%p %08x:%08x",
++	    TP_printk("c=%p %08x rw=%u%s",
 +		      __entry->call,
-+		      (void *)__entry->user_call_ID,
-+		      __entry->cid,
-+		      __entry->call_id)
++		      __entry->serial,
++		      __entry->rwind,
++		      __entry->wake ? " wake" : "")
 +	    );
 +
- #endif /* _TRACE_RXRPC_H */
- 
- /* This part must be outside protection */
-diff --git a/net/rxrpc/conn_client.c b/net/rxrpc/conn_client.c
-index c3be03e8d098..e8dea0d49e7f 100644
---- a/net/rxrpc/conn_client.c
-+++ b/net/rxrpc/conn_client.c
-@@ -550,6 +550,7 @@ static void rxrpc_activate_one_channel(struct rxrpc_connection *conn,
- 	call->cid	= conn->proto.cid | channel;
- 	call->call_id	= call_id;
- 
-+	trace_rxrpc_connect_call(call);
- 	_net("CONNECT call %08x:%08x as call %d on conn %d",
- 	     call->cid, call->call_id, call->debug_id, conn->debug_id);
+ TRACE_EVENT(rxrpc_tx_data,
+ 	    TP_PROTO(struct rxrpc_call *call, rxrpc_seq_t seq,
+ 		     rxrpc_serial_t serial, u8 flags, bool retrans, bool lose),
+diff --git a/net/rxrpc/input.c b/net/rxrpc/input.c
+index 241e989597f2..45dba732a3b4 100644
+--- a/net/rxrpc/input.c
++++ b/net/rxrpc/input.c
+@@ -665,6 +665,8 @@ static void rxrpc_input_ackinfo(struct rxrpc_call *call, struct sk_buff *skb,
+ 			rwind = RXRPC_RXTX_BUFF_SIZE - 1;
+ 		if (rwind > call->tx_winsize)
+ 			wake = true;
++		trace_rxrpc_rx_rwind_change(call, sp->hdr.serial,
++					    ntohl(ackinfo->rwind), wake);
+ 		call->tx_winsize = rwind;
+ 	}
  
