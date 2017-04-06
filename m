@@ -1,87 +1,95 @@
 From: Simon Wunderlich <sw@simonwunderlich.de>
-Subject: [PATCH 10/19] batman-adv: drop unicast packets from other backbone gw
-Date: Thu,  6 Apr 2017 16:07:32 +0200
-Message-ID: <20170406140741.30745-11-sw@simonwunderlich.de>
+Subject: [PATCH 19/19] batman-adv: Use net_device_stats from struct net_device
+Date: Thu,  6 Apr 2017 16:07:41 +0200
+Message-ID: <20170406140741.30745-20-sw@simonwunderlich.de>
 References: <20170406140741.30745-1-sw@simonwunderlich.de>
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-        Andreas Pape <APape@phoenixcontact.com>,
-        Andreas Pape <apape@phoenixcontact.com>,
+        Tobias Klauser <tklauser@distanz.ch>,
         Sven Eckelmann <sven@narfation.org>,
         Simon Wunderlich <sw@simonwunderlich.de>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from packetmixer.de ([79.140.42.25]:32966 "EHLO
+Received: from packetmixer.de ([79.140.42.25]:32956 "EHLO
         mail.mail.packetmixer.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S935047AbdDFOHu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 10:07:50 -0400
+        with ESMTP id S935066AbdDFOHz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 10:07:55 -0400
 In-Reply-To: <20170406140741.30745-1-sw@simonwunderlich.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andreas Pape <APape@phoenixcontact.com>
+From: Tobias Klauser <tklauser@distanz.ch>
 
-Additional dropping of unicast packets received from another backbone gw if
-the same backbone network before being forwarded to the same backbone again
-is necessary. It was observed in a test setup that in rare cases these
-frames lead to looping unicast traffic backbone->mesh->backbone.
+Instead of using a private copy of struct net_device_stats in struct
+batadv_priv, use stats from struct net_device.
 
-Signed-off-by: Andreas Pape <apape@phoenixcontact.com>
-Acked-by: Simon Wunderlich <sw@simonwunderlich.de>
-[sven@narfation.org: fix conflicts with current version]
+Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
 Signed-off-by: Sven Eckelmann <sven@narfation.org>
 Signed-off-by: Simon Wunderlich <sw@simonwunderlich.de>
 ---
- net/batman-adv/routing.c | 25 ++++++++++++++++++++++---
- 1 file changed, 22 insertions(+), 3 deletions(-)
+ net/batman-adv/distributed-arp-table.c | 9 +++++----
+ net/batman-adv/soft-interface.c        | 2 +-
+ net/batman-adv/types.h                 | 2 --
+ 3 files changed, 6 insertions(+), 7 deletions(-)
 
-diff --git a/net/batman-adv/routing.c b/net/batman-adv/routing.c
-index 7fd740b6e36d..c85dc3102519 100644
---- a/net/batman-adv/routing.c
-+++ b/net/batman-adv/routing.c
-@@ -941,15 +941,17 @@ int batadv_recv_unicast_packet(struct sk_buff *skb,
- 	struct batadv_priv *bat_priv = netdev_priv(recv_if->soft_iface);
- 	struct batadv_unicast_packet *unicast_packet;
- 	struct batadv_unicast_4addr_packet *unicast_4addr_packet;
--	u8 *orig_addr;
--	struct batadv_orig_node *orig_node = NULL;
-+	u8 *orig_addr, *orig_addr_gw;
-+	struct batadv_orig_node *orig_node = NULL, *orig_node_gw = NULL;
- 	int check, hdr_size = sizeof(*unicast_packet);
- 	enum batadv_subtype subtype;
--	bool is4addr;
-+	struct ethhdr *ethhdr;
- 	int ret = NET_RX_DROP;
-+	bool is4addr, is_gw;
+diff --git a/net/batman-adv/distributed-arp-table.c b/net/batman-adv/distributed-arp-table.c
+index 0608fcf99e7b..013e970eff39 100644
+--- a/net/batman-adv/distributed-arp-table.c
++++ b/net/batman-adv/distributed-arp-table.c
+@@ -1003,6 +1003,7 @@ bool batadv_dat_snoop_outgoing_arp_request(struct batadv_priv *bat_priv,
+ 	bool ret = false;
+ 	struct batadv_dat_entry *dat_entry = NULL;
+ 	struct sk_buff *skb_new;
++	struct net_device *soft_iface = bat_priv->soft_iface;
+ 	int hdr_size = 0;
+ 	unsigned short vid;
  
- 	unicast_packet = (struct batadv_unicast_packet *)skb->data;
- 	unicast_4addr_packet = (struct batadv_unicast_4addr_packet *)skb->data;
-+	ethhdr = eth_hdr(skb);
+@@ -1061,10 +1062,10 @@ bool batadv_dat_snoop_outgoing_arp_request(struct batadv_priv *bat_priv,
+ 		if (!skb_new)
+ 			goto out;
  
- 	is4addr = unicast_packet->packet_type == BATADV_UNICAST_4ADDR;
- 	/* the caller function should have already pulled 2 bytes */
-@@ -972,6 +974,23 @@ int batadv_recv_unicast_packet(struct sk_buff *skb,
- 
- 	/* packet for me */
- 	if (batadv_is_my_mac(bat_priv, unicast_packet->dest)) {
-+		/* If this is a unicast packet from another backgone gw,
-+		 * drop it.
-+		 */
-+		orig_addr_gw = ethhdr->h_source;
-+		orig_node_gw = batadv_orig_hash_find(bat_priv, orig_addr_gw);
-+		if (orig_node_gw) {
-+			is_gw = batadv_bla_is_backbone_gw(skb, orig_node_gw,
-+							  hdr_size);
-+			batadv_orig_node_put(orig_node_gw);
-+			if (is_gw) {
-+				batadv_dbg(BATADV_DBG_BLA, bat_priv,
-+					   "Dropped unicast pkt received from another backbone gw %pM.\n",
-+					   orig_addr_gw);
-+				return NET_RX_DROP;
-+			}
-+		}
+-		skb_new->protocol = eth_type_trans(skb_new,
+-						   bat_priv->soft_iface);
+-		bat_priv->stats.rx_packets++;
+-		bat_priv->stats.rx_bytes += skb->len + ETH_HLEN + hdr_size;
++		skb_new->protocol = eth_type_trans(skb_new, soft_iface);
 +
- 		if (is4addr) {
- 			subtype = unicast_4addr_packet->subtype;
- 			batadv_dat_inc_counter(bat_priv, subtype);
++		soft_iface->stats.rx_packets++;
++		soft_iface->stats.rx_bytes += skb->len + ETH_HLEN + hdr_size;
+ 
+ 		netif_rx(skb_new);
+ 		batadv_dbg(BATADV_DBG_DAT, bat_priv, "ARP request replied locally\n");
+diff --git a/net/batman-adv/soft-interface.c b/net/batman-adv/soft-interface.c
+index f33bee08bd99..b223d3cacbae 100644
+--- a/net/batman-adv/soft-interface.c
++++ b/net/batman-adv/soft-interface.c
+@@ -118,7 +118,7 @@ static u64 batadv_sum_counter(struct batadv_priv *bat_priv,  size_t idx)
+ static struct net_device_stats *batadv_interface_stats(struct net_device *dev)
+ {
+ 	struct batadv_priv *bat_priv = netdev_priv(dev);
+-	struct net_device_stats *stats = &bat_priv->stats;
++	struct net_device_stats *stats = &dev->stats;
+ 
+ 	stats->tx_packets = batadv_sum_counter(bat_priv, BATADV_CNT_TX);
+ 	stats->tx_bytes = batadv_sum_counter(bat_priv, BATADV_CNT_TX_BYTES);
+diff --git a/net/batman-adv/types.h b/net/batman-adv/types.h
+index 74b5af7dcd86..76873bf39d75 100644
+--- a/net/batman-adv/types.h
++++ b/net/batman-adv/types.h
+@@ -1000,7 +1000,6 @@ struct batadv_priv_bat_v {
+  * struct batadv_priv - per mesh interface data
+  * @mesh_state: current status of the mesh (inactive/active/deactivating)
+  * @soft_iface: net device which holds this struct as private data
+- * @stats: structure holding the data for the ndo_get_stats() call
+  * @bat_counters: mesh internal traffic statistic counters (see batadv_counters)
+  * @aggregated_ogms: bool indicating whether OGM aggregation is enabled
+  * @bonding: bool indicating whether traffic bonding is enabled
+@@ -1055,7 +1054,6 @@ struct batadv_priv_bat_v {
+ struct batadv_priv {
+ 	atomic_t mesh_state;
+ 	struct net_device *soft_iface;
+-	struct net_device_stats stats;
+ 	u64 __percpu *bat_counters; /* Per cpu counters */
+ 	atomic_t aggregated_ogms;
+ 	atomic_t bonding;
 -- 
 2.11.0
