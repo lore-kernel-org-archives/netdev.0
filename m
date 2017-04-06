@@ -1,31 +1,42 @@
-From: Ido Schimmel <idosch@idosch.org>
-Subject: Re: [BUG] kernel oops during bridge creation
-Date: Thu, 6 Apr 2017 23:44:52 +0300
-Message-ID: <20170406204452.GA24938@splinter>
-References: <4d4b58e0-06e5-de5a-3305-abc739cf2ba2@svinota.eu>
- <20170406185814.GA21480@splinter>
- <adc7b0d6-68b9-6649-73fc-f5e82812f4a6@cumulusnetworks.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next 0/7][pull request] 100GbE Intel Wired LAN Driver
+ Updates 2017-04-05
+Date: Thu, 06 Apr 2017 13:53:35 -0700 (PDT)
+Message-ID: <20170406.135335.257255975544577212.davem@davemloft.net>
+References: <20170406075456.27757-1-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Peter V. Saveliev" <peter@svinota.eu>, netdev@vger.kernel.org,
-        Ivan Vecera <ivecera@redhat.com>
-To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+        jogreene@redhat.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:47000 "EHLO
-        out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1754693AbdDFUo4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 16:44:56 -0400
-Content-Disposition: inline
-In-Reply-To: <adc7b0d6-68b9-6649-73fc-f5e82812f4a6@cumulusnetworks.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:38338 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752018AbdDFUxh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 16:53:37 -0400
+In-Reply-To: <20170406075456.27757-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 06, 2017 at 11:26:06PM +0300, Nikolay Aleksandrov wrote:
-> Actually making br_vlan_init() idempotent might work, keep the code as-is just init the
-> the vlans before the changelink() in newlink(), then the second vlan_init() inside would
-> be a no-op, but it will work for the old ioctl and wouldn't require too much change.
-> On the downside it will be ugly.
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Thu,  6 Apr 2017 00:54:49 -0700
 
-Yep, that can work. I'll try that tomorrow morning and let you know.
+> This series contains updates to fm10k only.
+> 
+> Phil Turnbull from Oracle fixes an issue where the argument provided to
+> FM10K_REMOVED macro was not what was expecting.
+> 
+> Jake modifies the driver to replace the bitwise operators and defines with
+> a BITMAP and enumeration values to avoid race conditions.  Also future
+> proof the driver so that developers do not have to remember to re-size the
+> bitmaps when adding new values.  Fixed the wording of a code comment to
+> avoid stating that we return a value for a void function.
+> 
+> Ngai-Mint makes sure that when configuring the receive ring, we make sure
+> the receive queue is disabled.  Fixed an issue where interfaces were
+> resetting because the transmit mailbox FIFO was becoming full since the
+> host was not ready, so ensure the host is ready before queueing up
+> mailbox messages.
 
-Thanks Nik!
+Pulled, thanks Jeff.
