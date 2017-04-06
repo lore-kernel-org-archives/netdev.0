@@ -1,39 +1,38 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: [PATCH] mac80211: Fix clang warning about constant operand in
- logical operation
-Date: Thu, 06 Apr 2017 21:11:18 +0200
-Message-ID: <1491505878.11399.4.camel@sipsolutions.net>
-References: <20170406185633.91065-1-mka@chromium.org>
-         (sfid-20170406_205658_084798_12B3FAFB)
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] netpoll: Check for skb->queue_mapping
+Date: Thu, 06 Apr 2017 12:14:16 -0700
+Message-ID: <1491506056.10124.81.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1491444383-29017-1-git-send-email-tushar.n.dave@oracle.com>
+         <1491474377.10124.57.camel@edumazet-glaptop3.roam.corp.google.com>
+         <5927b630-865e-b7af-33a1-1a6b772e3fb7@oracle.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Grant Grundler <grundler-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
-        Michael Davidson <md-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-        Greg Hackmann <ghackmann-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-To: Matthias Kaehlcke <mka-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
-        "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170406185633.91065-1-mka-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org> (sfid-20170406_205658_084798_12B3FAFB)
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, edumazet@google.com, brouer@redhat.com,
+        netdev@vger.kernel.org, sowmini.varadhan@oracle.com
+To: tndave <tushar.n.dave@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f173.google.com ([209.85.223.173]:35905 "EHLO
+        mail-io0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755610AbdDFTOS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 15:14:18 -0400
+Received: by mail-io0-f173.google.com with SMTP id l7so36343447ioe.3
+        for <netdev@vger.kernel.org>; Thu, 06 Apr 2017 12:14:18 -0700 (PDT)
+In-Reply-To: <5927b630-865e-b7af-33a1-1a6b772e3fb7@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2017-04-06 at 11:56 -0700, Matthias Kaehlcke wrote:
-> Clang raises a warning about the expression 'strlen(CONFIG_XXX)'
-> being
-> used in a logical operation. Clangs' builtin strlen function resolves
-> the
-> expression to a constant at compile time, which causes clang to
-> generate
-> a 'constant-logical-operand' warning.
-> 
-> Split the if statement in two to avoid using the const expression in
-> a logical operation.
-> 
-I don't really see all much point in doing this for the warning's
-sake... hopefully it doesn't actually generate worse code, but I think
-the code ends up looking worse and people will forever wonder what the
-goto is really doing there.
+On Thu, 2017-04-06 at 12:07 -0700, tndave wrote:
 
-johannes
+> > +			q_index = q_index % dev->real_num_tx_queues;
+> cpu interrupted here and dev->real_num_tx_queues has reduced!
+> > +			skb_set_queue_mapping(skb, q_index);
+> > +		}
+> > +		txq = netdev_get_tx_queue(dev, q_index);
+> or cpu interrupted here and dev->real_num_tx_queues has reduced!
+
+If dev->real_num_tx_queues can be changed while this code is running we
+are in deep deep trouble.
+
+Better make sure that when control path does this change, device (and/pr
+netpoll) is frozen and no packet can be sent.
