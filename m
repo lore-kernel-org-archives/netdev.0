@@ -1,36 +1,53 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net] net_sched: check noop_qdisc before qdisc_hash_add()
-Date: Thu, 06 Apr 2017 12:29:45 -0700 (PDT)
-Message-ID: <20170406.122945.2116775205917467295.davem@davemloft.net>
-References: <1491357091-27064-1-git-send-email-xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net-next] liquidio: fix Octeon core watchdog timeout
+ false alarm
+Date: Thu, 06 Apr 2017 12:32:08 -0700 (PDT)
+Message-ID: <20170406.123208.1810854461605308607.davem@davemloft.net>
+References: <20170405022657.GA1064@felix-thinkpad.cavium.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dvyukov@google.com, edumazet@google.com,
-        jkosina@suse.cz
-To: xiyou.wangcong@gmail.com
+Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
+        derek.chickles@cavium.com
+To: felix.manlunas@cavium.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:36840 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:36862 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753125AbdDFT3w (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 15:29:52 -0400
-In-Reply-To: <1491357091-27064-1-git-send-email-xiyou.wangcong@gmail.com>
+        with ESMTP id S1752831AbdDFTcK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 15:32:10 -0400
+In-Reply-To: <20170405022657.GA1064@felix-thinkpad.cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Tue,  4 Apr 2017 18:51:30 -0700
+From: Felix Manlunas <felix.manlunas@cavium.com>
+Date: Tue, 4 Apr 2017 19:26:57 -0700
 
-> Dmitry reported a crash when injecting faults in
-> attach_one_default_qdisc() and dev->qdisc is still
-> a noop_disc, the check before qdisc_hash_add() fails
-> to catch it because it tests NULL. We should test
-> against noop_qdisc since it is the default qdisc
-> at this point.
+> Detection of watchdog timeout of Octeon cores is flawed and susceptible to
+> false alarms.  Refactor by removing the detection code, and in its place,
+> leverage existing code that monitors for an indication from the NIC
+> firmware that an Octeon core crashed; expand the meaning of the indication
+> to "an Octeon core crashed or its watchdog timer expired".  Detection of
+> watchdog timeout is now delegated to an exception handler in the NIC
+> firmware; this is free of false alarms.
 > 
-> Fixes: 59cc1f61f09c ("net: sched: convert qdisc linked list to hashtable")
-> Reported-by: Dmitry Vyukov <dvyukov@google.com>
-> Cc: Jiri Kosina <jkosina@suse.cz>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> Also if there's an Octeon core crash or watchdog timeout:
+> (1) Disable VF Ethernet links.
+> (2) Decrement the module refcount by an amount equal to the number of
+>     active VFs of the NIC whose Octeon core crashed or had a watchdog
+>     timeout.  The refcount will continue to reflect the active VFs of
+>     other liquidio NIC(s) (if present) whose Octeon cores are faultless.
+> 
+> Item (2) is needed to avoid the case of not being able to unload the driver
+> because the module refcount is stuck at some non-zero number.  There is
+> code that, in normal cases, decrements the refcount upon receiving a
+> message from the firmware that a VF driver was unloaded.  But in
+> exceptional cases like an Octeon core crash or watchdog timeout, arrival of
+> that particular message from the firmware might be unreliable.  That normal
+> case code is changed to not touch the refcount in the exceptional case to
+> avoid contention (over the refcount) with the liquidio_watchdog kernel
+> thread who will carry out item (2).
+> 
+> Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
+> Signed-off-by: Derek Chickles <derek.chickles@cavium.com>
 
-Applied and queued up for -stable.
+Applied, thanks.
