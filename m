@@ -1,85 +1,81 @@
 From: Simon Wunderlich <sw@simonwunderlich.de>
-Subject: [PATCH 12/19] batman-adv: handle race condition for claims between gateways
-Date: Thu,  6 Apr 2017 16:07:34 +0200
-Message-ID: <20170406140741.30745-13-sw@simonwunderlich.de>
+Subject: [PATCH 17/19] batman-adv: Remove ethtool .get_settings stub
+Date: Thu,  6 Apr 2017 16:07:39 +0200
+Message-ID: <20170406140741.30745-18-sw@simonwunderlich.de>
 References: <20170406140741.30745-1-sw@simonwunderlich.de>
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-        Andreas Pape <APape@phoenixcontact.com>,
-        Andreas Pape <apape@phoenixcontact.com>,
         Sven Eckelmann <sven@narfation.org>,
         Simon Wunderlich <sw@simonwunderlich.de>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from packetmixer.de ([79.140.42.25]:32934 "EHLO
+Received: from packetmixer.de ([79.140.42.25]:33008 "EHLO
         mail.mail.packetmixer.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755214AbdDFOHv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 10:07:51 -0400
+        with ESMTP id S935062AbdDFOHz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 10:07:55 -0400
 In-Reply-To: <20170406140741.30745-1-sw@simonwunderlich.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andreas Pape <APape@phoenixcontact.com>
+From: Sven Eckelmann <sven@narfation.org>
 
-Consider the following situation which has been found in a test setup:
-Gateway B has claimed client C and gateway A has the same backbone
-network as B. C sends a broad- or multicast to B and directly after
-this packet decides to send another packet to A due to a better TQ
-value. B will forward the broad-/multicast into the backbone as it is
-the responsible gw and after that A will claim C as it has been
-chosen by C as the best gateway. If it now happens that A claims C
-before it has received the broad-/multicast forwarded by B (due to
-backbone topology or due to some delay in B when forwarding the
-packet) we get a critical situation: in the current code A will
-immediately unclaim C when receiving the multicast due to the
-roaming client scenario although the position of C has not changed
-in the mesh. If this happens the multi-/broadcast forwarded by B
-will be sent back into the mesh by A and we have looping packets
-until one of the gateways claims C again.
-In order to prevent this, unclaiming of a client due to the roaming
-client scenario is only done after a certain time is expired after
-the last claim of the client. 100 ms are used here, which should be
-slow enough for big backbones and slow gateways but fast enough not
-to break the roaming client use case.
+The .get_settings function pointer and the related API was deprecated.
+Fortunately, batman-adv is a virtual interface and never provided any
+useful information via .get_settings. The stub can therefore be
+removed.
 
-Acked-by: Simon Wunderlich <sw@simonwunderlich.de>
-Signed-off-by: Andreas Pape <apape@phoenixcontact.com>
-[sven@narfation.org: fix conflicts with current version]
+This also avoids that incorrect information is shown in ethtool about the
+batadv interface.
+
 Signed-off-by: Sven Eckelmann <sven@narfation.org>
+Acked-by: Marek Lindner <mareklindner@neomailbox.ch>
 Signed-off-by: Simon Wunderlich <sw@simonwunderlich.de>
 ---
- net/batman-adv/bridge_loop_avoidance.c | 20 ++++++++++++++++----
- 1 file changed, 16 insertions(+), 4 deletions(-)
+ net/batman-adv/soft-interface.c | 19 -------------------
+ 1 file changed, 19 deletions(-)
 
-diff --git a/net/batman-adv/bridge_loop_avoidance.c b/net/batman-adv/bridge_loop_avoidance.c
-index 852a2be19845..d07e89ec8467 100644
---- a/net/batman-adv/bridge_loop_avoidance.c
-+++ b/net/batman-adv/bridge_loop_avoidance.c
-@@ -1973,10 +1973,22 @@ bool batadv_bla_tx(struct batadv_priv *bat_priv, struct sk_buff *skb,
- 		/* if yes, the client has roamed and we have
- 		 * to unclaim it.
- 		 */
--		batadv_handle_unclaim(bat_priv, primary_if,
--				      primary_if->net_dev->dev_addr,
--				      ethhdr->h_source, vid);
--		goto allow;
-+		if (batadv_has_timed_out(claim->lasttime, 100)) {
-+			/* only unclaim if the last claim entry is
-+			 * older than 100 ms to make sure we really
-+			 * have a roaming client here.
-+			 */
-+			batadv_dbg(BATADV_DBG_BLA, bat_priv, "bla_tx(): Roaming client %pM detected. Unclaim it.\n",
-+				   ethhdr->h_source);
-+			batadv_handle_unclaim(bat_priv, primary_if,
-+					      primary_if->net_dev->dev_addr,
-+					      ethhdr->h_source, vid);
-+			goto allow;
-+		} else {
-+			batadv_dbg(BATADV_DBG_BLA, bat_priv, "bla_tx(): Race for claim %pM detected. Drop packet.\n",
-+				   ethhdr->h_source);
-+			goto handled;
-+		}
- 	}
+diff --git a/net/batman-adv/soft-interface.c b/net/batman-adv/soft-interface.c
+index 3e0ee2afb814..6f22b1283c92 100644
+--- a/net/batman-adv/soft-interface.c
++++ b/net/batman-adv/soft-interface.c
+@@ -64,7 +64,6 @@
+ #include "sysfs.h"
+ #include "translation-table.h"
  
- 	/* check if it is a multicast/broadcast frame */
+-static int batadv_get_settings(struct net_device *dev, struct ethtool_cmd *cmd);
+ static void batadv_get_drvinfo(struct net_device *dev,
+ 			       struct ethtool_drvinfo *info);
+ static void batadv_get_strings(struct net_device *dev, u32 stringset, u8 *data);
+@@ -73,7 +72,6 @@ static void batadv_get_ethtool_stats(struct net_device *dev,
+ static int batadv_get_sset_count(struct net_device *dev, int stringset);
+ 
+ static const struct ethtool_ops batadv_ethtool_ops = {
+-	.get_settings = batadv_get_settings,
+ 	.get_drvinfo = batadv_get_drvinfo,
+ 	.get_link = ethtool_op_get_link,
+ 	.get_strings = batadv_get_strings,
+@@ -1079,23 +1077,6 @@ struct rtnl_link_ops batadv_link_ops __read_mostly = {
+ 	.dellink	= batadv_softif_destroy_netlink,
+ };
+ 
+-/* ethtool */
+-static int batadv_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+-{
+-	cmd->supported = 0;
+-	cmd->advertising = 0;
+-	ethtool_cmd_speed_set(cmd, SPEED_10);
+-	cmd->duplex = DUPLEX_FULL;
+-	cmd->port = PORT_TP;
+-	cmd->phy_address = 0;
+-	cmd->transceiver = XCVR_INTERNAL;
+-	cmd->autoneg = AUTONEG_DISABLE;
+-	cmd->maxtxpkt = 0;
+-	cmd->maxrxpkt = 0;
+-
+-	return 0;
+-}
+-
+ static void batadv_get_drvinfo(struct net_device *dev,
+ 			       struct ethtool_drvinfo *info)
+ {
 -- 
 2.11.0
