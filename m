@@ -1,7 +1,7 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 4/4] crypto: api - Extend algorithm name limit to 128 bytes
-Date: Thu, 06 Apr 2017 16:16:11 +0800
-Message-ID: <E1cw2aR-000868-VF@gondobar>
+Subject: [PATCH 2/4] crypto: af_alg - Allow arbitrarily long algorithm names
+Date: Thu, 06 Apr 2017 16:16:09 +0800
+Message-ID: <E1cw2aP-00085S-Q4@gondobar>
 References: <20170406081509.GB30557@gondor.apana.org.au>
 To: Alexander Sverdlin <alexander.sverdlin@nokia.com>,
         "David S. Miller" <davem@davemloft.net>,
@@ -10,30 +10,33 @@ Return-path: <linux-crypto-owner@vger.kernel.org>
 Sender: linux-crypto-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-With the new explicit IV generators, we may now exceed the 64-byte
-length limit on the algorithm name, e.g., with
+This patch removes the hard-coded 64-byte limit on the length
+of the algorithm name through bind(2).  The address length can
+now exceed that.  The user-space structure remains unchanged.
+In order to use a longer name simply extend the salg_name array
+beyond its defined 64 bytes length.
 
-	echainiv(authencesn(hmac(sha256-generic),cbc(des3_ede-generic)))
-
-This patch extends the length limit to 128 bytes.
-
-Reported-by: Alexander Sverdlin <alexander.sverdlin@nokia.com>
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- include/linux/crypto.h |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ crypto/af_alg.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/include/linux/crypto.h b/include/linux/crypto.h
-index c0b0cf3..84da997 100644
---- a/include/linux/crypto.h
-+++ b/include/linux/crypto.h
-@@ -123,7 +123,7 @@
- /*
-  * Miscellaneous stuff.
-  */
--#define CRYPTO_MAX_ALG_NAME		64
-+#define CRYPTO_MAX_ALG_NAME		128
+diff --git a/crypto/af_alg.c b/crypto/af_alg.c
+index 690deca..3556d8e 100644
+--- a/crypto/af_alg.c
++++ b/crypto/af_alg.c
+@@ -160,11 +160,11 @@ static int alg_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
+ 	if (sock->state == SS_CONNECTED)
+ 		return -EINVAL;
  
- /*
-  * The macro CRYPTO_MINALIGN_ATTR (along with the void * type in the actual
+-	if (addr_len != sizeof(*sa))
++	if (addr_len < sizeof(*sa))
+ 		return -EINVAL;
+ 
+ 	sa->salg_type[sizeof(sa->salg_type) - 1] = 0;
+-	sa->salg_name[sizeof(sa->salg_name) - 1] = 0;
++	sa->salg_name[sizeof(sa->salg_name) + addr_len - sizeof(*sa) - 1] = 0;
+ 
+ 	type = alg_get_type(sa->salg_type);
+ 	if (IS_ERR(type) && PTR_ERR(type) == -ENOENT) {
