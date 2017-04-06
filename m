@@ -1,79 +1,51 @@
-From: dev.srinivasulu@gmail.com
-Subject: [PATCH] net: thunderx: Enable TSO and checksum offloads for ipv6
-Date: Thu,  6 Apr 2017 16:12:26 +0530
-Message-ID: <1491475346-7809-1-git-send-email-tsrinivasulu@cavium.com>
-Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-        sgoutham@cavium.com, tsrinivasulu@cavium.com
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: net/ipv4: use-after-free in ipv4_mtu
+Date: Thu, 06 Apr 2017 03:49:10 -0700
+Message-ID: <1491475750.10124.72.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <CAAeHK+zJ20r8O=MhPY69UPK7sObODp2ByK5136JXgw5U9SMofw@mail.gmail.com>
+         <CANn89iKuT+VBZqbJ4=hTAgUbnhuZ0berg0PK+imd1CKuWLy1eQ@mail.gmail.com>
+         <CAM_iQpUittpMt-8BpNePWv7iTDasCZuNYTEPnu=K-4sFK5qiBg@mail.gmail.com>
+         <1491360338.10124.39.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CAM_iQpUk_=oeGoYLb4DGc2+mNw+3Z08mw4wVNKAaDZgsbB1i+g@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <edumazet@google.com>,
+        Andrey Konovalov <andreyknvl@google.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-it0-f49.google.com ([209.85.214.49]:35196 "EHLO
+        mail-it0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754302AbdDFKtN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 06:49:13 -0400
+In-Reply-To: <CAM_iQpUk_=oeGoYLb4DGc2+mNw+3Z08mw4wVNKAaDZgsbB1i+g@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Thanneeru Srinivasulu <tsrinivasulu@cavium.com>
+On Wed, 2017-04-05 at 15:33 -0700, Cong Wang wrote:
 
-Adding support for TSO and checksum hardware offloads for ipv6.
+> Good find! I missed the refcnt in rt_set_nexthop() before that commit.
+> 
+> We need to revert that commit to restore the refcnt for fib_info.
 
-Signed-off-by: Thanneeru Srinivasulu <tsrinivasulu@cavium.com>
-Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
----
- drivers/net/ethernet/cavium/thunder/nicvf_main.c   |    8 +++++---
- drivers/net/ethernet/cavium/thunder/nicvf_queues.c |   10 +++++++++-
- 2 files changed, 14 insertions(+), 4 deletions(-)
+Well, there are other spots , in decnet and IPv6.
 
-diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_main.c b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-index bfaf858..81a2fcb 100644
---- a/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-+++ b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-@@ -1643,8 +1643,9 @@ static int nicvf_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	if (err)
- 		goto err_unregister_interrupts;
- 
--	netdev->hw_features = (NETIF_F_RXCSUM | NETIF_F_IP_CSUM | NETIF_F_SG |
--			       NETIF_F_TSO | NETIF_F_GRO |
-+	netdev->hw_features = (NETIF_F_RXCSUM | NETIF_F_SG |
-+			       NETIF_F_TSO | NETIF_F_GRO | NETIF_F_TSO6 |
-+			       NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
- 			       NETIF_F_HW_VLAN_CTAG_RX);
- 
- 	netdev->hw_features |= NETIF_F_RXHASH;
-@@ -1652,7 +1653,8 @@ static int nicvf_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	netdev->features |= netdev->hw_features;
- 	netdev->hw_features |= NETIF_F_LOOPBACK;
- 
--	netdev->vlan_features = NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_TSO;
-+	netdev->vlan_features = NETIF_F_SG | NETIF_F_IP_CSUM |
-+				NETIF_F_IPV6_CSUM | NETIF_F_TSO | NETIF_F_TSO6;
- 
- 	netdev->netdev_ops = &nicvf_netdev_ops;
- 	netdev->watchdog_timeo = NICVF_TX_TIMEOUT;
-diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
-index f13289f..7b0fd8d 100644
---- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
-+++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
-@@ -1094,7 +1094,13 @@ static int nicvf_sq_subdesc_required(struct nicvf *nic, struct sk_buff *skb)
- {
- 	int proto;
- 	struct sq_hdr_subdesc *hdr;
-+	union {
-+		struct iphdr *v4;
-+		struct ipv6hdr *v6;
-+		unsigned char *hdr;
-+	} ip;
- 
-+	ip.hdr = skb_network_header(skb);
- 	hdr = (struct sq_hdr_subdesc *)GET_SQ_DESC(sq, qentry);
- 	memset(hdr, 0, SND_QUEUE_DESC_SIZE);
- 	hdr->subdesc_type = SQ_DESC_TYPE_HEADER;
-@@ -1119,7 +1125,9 @@ static int nicvf_sq_subdesc_required(struct nicvf *nic, struct sk_buff *skb)
- 		hdr->l3_offset = skb_network_offset(skb);
- 		hdr->l4_offset = skb_transport_offset(skb);
- 
--		proto = ip_hdr(skb)->protocol;
-+		proto = (ip.v4->version == 4) ? ip.v4->protocol :
-+			ip.v6->nexthdr;
-+
- 		switch (proto) {
- 		case IPPROTO_TCP:
- 			hdr->csum_l4 = SEND_L4_CSUM_TCP;
--- 
-1.7.1
+This is why my original mail stated the problem was in the calls to :
+
+dst_init_metrics(&rt->dst, fi->fib_metrics, true);
+
+Lets do not think in "reverting" spirit, but adding the missing bits.
+
+The problem here is that the metrics should not be freed until last user
+is gone.
+
+So maybe a refcount should be added to metrics, and we do not have to
+add a fib pointer again in all dsts.
+
+Thanks.
