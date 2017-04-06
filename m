@@ -1,48 +1,58 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH net 1/1] net: tcp: Don't increase the TCP_MIB_OUTRSTS when
- fail to transmit RST
-Date: Thu, 6 Apr 2017 10:00:54 -0400
-Message-ID: <CADVnQymp9X3EwmiiocNHU8bQpg7Wb7FvGr4SduKjhLoTv35zMA@mail.gmail.com>
-References: <1491485709-8269-1-git-send-email-gfree.wind@foxmail.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 1/2] net: dsa: mv88e6xxx: Fix warning with
+ CONFIG_OF=n
+Date: Thu, 6 Apr 2017 16:04:31 +0200
+Message-ID: <20170406140431.GA17713@lunn.ch>
+References: <20170406134736.24329-1-f.fainelli@gmail.com>
+ <20170406134736.24329-2-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Patrick McHardy <kaber@trash.net>,
-        Netdev <netdev@vger.kernel.org>, Gao Feng <fgao@ikuai8.com>
-To: Gao Feng <gfree.wind@foxmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f43.google.com ([209.85.218.43]:36058 "EHLO
-        mail-oi0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934832AbdDFOB0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 10:01:26 -0400
-Received: by mail-oi0-f43.google.com with SMTP id r203so52096021oib.3
-        for <netdev@vger.kernel.org>; Thu, 06 Apr 2017 07:01:26 -0700 (PDT)
-In-Reply-To: <1491485709-8269-1-git-send-email-gfree.wind@foxmail.com>
+Received: from vps0.lunn.ch ([178.209.37.122]:47760 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S935129AbdDFOEf (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 6 Apr 2017 10:04:35 -0400
+Content-Disposition: inline
+In-Reply-To: <20170406134736.24329-2-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 6, 2017 at 9:35 AM,  <gfree.wind@foxmail.com> wrote:
-> From: Gao Feng <fgao@ikuai8.com>
->
-> When fail to transmit RST, don't increase TCP_MIB_OUTRSTS in func
-> tcp_send_active_reset like the case that it only increases
-> LINUX_MIB_TCPABORTFAILED when fail to alloc skb.
->
-> Signed-off-by: Gao Feng <fgao@ikuai8.com>
+On Thu, Apr 06, 2017 at 06:47:35AM -0700, Florian Fainelli wrote:
+> When CONFIG_OF=n, we will see the following warning:
+> 
+> drivers/net/dsa/mv88e6xxx/chip.c:2834:34: warning: 'mv88e6xxx_mdio_external_match' defined but not used [-Wunused-const-variable=]
+>  static const struct of_device_id mv88e6xxx_mdio_external_match[] = {
+>                                   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+> 
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 > ---
+>  drivers/net/dsa/mv88e6xxx/chip.c | 2 ++
+>  1 file changed, 2 insertions(+)
+> 
+> diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
+> index 44ba8cff5631..64cbc4c04907 100644
+> --- a/drivers/net/dsa/mv88e6xxx/chip.c
+> +++ b/drivers/net/dsa/mv88e6xxx/chip.c
+> @@ -2831,11 +2831,13 @@ static int mv88e6xxx_mdio_register(struct mv88e6xxx_chip *chip,
+>  	return 0;
+>  }
+>  
+> +#ifdef CONFIG_OF
+>  static const struct of_device_id mv88e6xxx_mdio_external_match[] = {
+>  	{ .compatible = "marvell,mv88e6xxx-mdio-external",
+>  	  .data = (void *)true },
+>  	{ },
+>  };
+> +#endif
 
-I would be concerned that this is a change in the semantics of
-TCP_MIB_OUTRSTS that might break user-space monitoring tools that rely
-on the current semantics. Counting attempted RSTs could be an
-important signal to monitor, and it could be quite bad if that signal
-is lost or hidden because the machine is so overloaded that the
-transmission of the RSTs fails.
+Hi Florian
 
-Also it would seem to muddy the semantics a bit, since both
-tcp_v4_send_reset() and tcp_v6_send_response() currently increment
-TCP_MIB_OUTRSTS without regard to whether the transmit actually
-succeeded or not.
+Maybe a better fix is to make the stub of of_match_node() an inline
+function, so its parameters are used. That will fix this warning
+everywhere in the kernel, not just in this driver.
 
-neal
+	   Andrew
