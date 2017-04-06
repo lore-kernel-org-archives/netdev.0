@@ -1,8 +1,8 @@
 From: "R. Parameswaran" <parameswaran.r7@gmail.com>
-Subject: [PATCH net-next v5 2/2] L2TP:Adjust intf MTU, add underlay L3, L2
+Subject: [PATCH net-next v5 0/2] L2TP:Adjust intf MTU, add underlay L3, L2
  hdrs.
-Date: Wed, 5 Apr 2017 17:00:07 -0700 (PDT)
-Message-ID: <alpine.DEB.2.11.1704051650420.19131@vera98.eng.brocade.com>
+Date: Wed, 5 Apr 2017 17:05:49 -0700 (PDT)
+Message-ID: <alpine.DEB.2.11.1704051701220.19131@vera98.eng.brocade.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: jchapman@katalix.com, kleptog@svana.org, nprachan@brocade.com,
@@ -12,10 +12,10 @@ Cc: jchapman@katalix.com, kleptog@svana.org, nprachan@brocade.com,
         davem@davemloft.net, linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:32949 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756234AbdDFAAJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 5 Apr 2017 20:00:09 -0400
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:33526 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756357AbdDFAFv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 5 Apr 2017 20:05:51 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -30,97 +30,28 @@ better job of choosing a default pseudowire MTU, taking account of all
 tunnel header overheads, including IP header options, if any. This patch
 addresses this.
 
-Change-set here uses the new kernel function, kernel_sock_ip_overhead(),
-to factor the outer IP overhead on the L2TP tunnel socket (including
-IP Options, if any) when calculating the default MTU for an Ethernet
-pseudowire, along with consideration of the inner Ethernet header.
+Change-set is organized as a two part patch series, with one patch
+introducing a new kernel function to compute the IP overhead on a
+socket, and the other patch using this new kernel function to compute
+the default L2TP MTU for an Ethernet pseudowire.
 
-Signed-off-by: R. Parameswaran <rparames@brocade.com>
----
+Existing code also seems to assume an Ethernet (non-jumbo) underlay. The
+change proposed here uses the PMTU mechanism and the dst entry in the
+L2TP tunnel socket to directly pull up the underlay MTU (as the baseline
+number on top of which the encapsulation headers are factored in).
+An default MTU value of 1500 bytes is assumed as a fallback only if
+this fails. 
+
+Fixed the kbuild test robot error in the previous posting.
+
+R. Parameswaran (2):
+  New kernel function to get IP overhead on a socket.
+  L2TP:Adjust intf MTU, add underlay L3, L2 hdrs.
+
+ include/linux/net.h |  3 +++
  net/l2tp/l2tp_eth.c | 55 +++++++++++++++++++++++++++++++++++++++++++++++++----
- 1 file changed, 51 insertions(+), 4 deletions(-)
+ net/socket.c        | 46 ++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 100 insertions(+), 4 deletions(-)
 
-diff --git a/net/l2tp/l2tp_eth.c b/net/l2tp/l2tp_eth.c
-index 8bf18a5..9c18a4e 100644
---- a/net/l2tp/l2tp_eth.c
-+++ b/net/l2tp/l2tp_eth.c
-@@ -30,6 +30,9 @@
- #include <net/xfrm.h>
- #include <net/net_namespace.h>
- #include <net/netns/generic.h>
-+#include <linux/ip.h>
-+#include <linux/ipv6.h>
-+#include <linux/udp.h>
- 
- #include "l2tp_core.h"
- 
-@@ -204,6 +207,53 @@ static void l2tp_eth_show(struct seq_file *m, void *arg)
- }
- #endif
- 
-+static void l2tp_eth_adjust_mtu(struct l2tp_tunnel *tunnel,
-+				struct l2tp_session *session,
-+				struct net_device *dev)
-+{
-+	unsigned int overhead = 0;
-+	struct dst_entry *dst;
-+	u32 l3_overhead = 0;
-+
-+	/* if the encap is UDP, account for UDP header size */
-+	if (tunnel->encap == L2TP_ENCAPTYPE_UDP) {
-+		overhead += sizeof(struct udphdr);
-+		dev->needed_headroom += sizeof(struct udphdr);
-+	}
-+	if (session->mtu != 0) {
-+		dev->mtu = session->mtu;
-+		dev->needed_headroom += session->hdr_len;
-+		return;
-+	}
-+	l3_overhead = kernel_sock_ip_overhead(tunnel->sock);
-+	if (l3_overhead == 0) {
-+		/* L3 Overhead couldn't be identified, this could be
-+		 * because tunnel->sock was NULL or the socket's
-+		 * address family was not IPv4 or IPv6,
-+		 * dev mtu stays at 1500.
-+		 */
-+		return;
-+	}
-+	/* Adjust MTU, factor overhead - underlay L3, overlay L2 hdr
-+	 * UDP overhead, if any, was already factored in above.
-+	 */
-+	overhead += session->hdr_len + ETH_HLEN + l3_overhead;
-+
-+	/* If PMTU discovery was enabled, use discovered MTU on L2TP device */
-+	dst = sk_dst_get(tunnel->sock);
-+	if (dst) {
-+		/* dst_mtu will use PMTU if found, else fallback to intf MTU */
-+		u32 pmtu = dst_mtu(dst);
-+
-+		if (pmtu != 0)
-+			dev->mtu = pmtu;
-+		dst_release(dst);
-+	}
-+	session->mtu = dev->mtu - overhead;
-+	dev->mtu = session->mtu;
-+	dev->needed_headroom += session->hdr_len;
-+}
-+
- static int l2tp_eth_create(struct net *net, u32 tunnel_id, u32 session_id, u32 peer_session_id, struct l2tp_session_cfg *cfg)
- {
- 	struct net_device *dev;
-@@ -253,12 +303,9 @@ static int l2tp_eth_create(struct net *net, u32 tunnel_id, u32 session_id, u32 p
- 	}
- 
- 	dev_net_set(dev, net);
--	if (session->mtu == 0)
--		session->mtu = dev->mtu - session->hdr_len;
--	dev->mtu = session->mtu;
--	dev->needed_headroom += session->hdr_len;
- 	dev->min_mtu = 0;
- 	dev->max_mtu = ETH_MAX_MTU;
-+	l2tp_eth_adjust_mtu(tunnel, session, dev);
- 
- 	priv = netdev_priv(dev);
- 	priv->dev = dev;
 -- 
 2.1.4
