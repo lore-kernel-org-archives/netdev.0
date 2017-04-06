@@ -1,103 +1,51 @@
-From: Juergen Borleis <jbe@pengutronix.de>
-Subject: Re: [PATCH 3/4] net: dsa: LAN9303: add I2C managed mode support
-Date: Thu, 6 Apr 2017 15:46:03 +0200
-Message-ID: <201704061546.04478.jbe@pengutronix.de>
-References: <20170405092024.16048-1-jbe@pengutronix.de> <20170405092024.16048-4-jbe@pengutronix.de> <20170405182155.GF21965@lunn.ch>
-Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 8BIT
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        f.fainelli@gmail.com, kernel@pengutronix.de,
-        vivien.didelot@savoirfairelinux.com, davem@davemloft.net
-To: Andrew Lunn <andrew@lunn.ch>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next 1/2] net: dsa: mv88e6xxx: Fix warning with CONFIG_OF=n
+Date: Thu,  6 Apr 2017 06:47:35 -0700
+Message-ID: <20170406134736.24329-2-f.fainelli@gmail.com>
+References: <20170406134736.24329-1-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, andrew@lunn.ch,
+        vivien.didelot@savoirfairelinux.com,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:39379 "EHLO
-        metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S933709AbdDFNqm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 09:46:42 -0400
-In-Reply-To: <20170405182155.GF21965@lunn.ch>
-Content-Disposition: inline
+Received: from mail-it0-f65.google.com ([209.85.214.65]:35141 "EHLO
+        mail-it0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755489AbdDFNrm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 09:47:42 -0400
+Received: by mail-it0-f65.google.com with SMTP id y18so4387291itc.2
+        for <netdev@vger.kernel.org>; Thu, 06 Apr 2017 06:47:42 -0700 (PDT)
+In-Reply-To: <20170406134736.24329-1-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Andrew,
+When CONFIG_OF=n, we will see the following warning:
 
-On Wednesday 05 April 2017 20:21:55 Andrew Lunn wrote:
-> [...]
-> > +SMSC/MicroChip LAN9303 three port ethernet switch
-> > +-------------------------------------------------
-> > +
-> > +Required properties:
-> > +
-> > +- compatible: should be "smsc,lan9303"
-> > +- #size-cells: must be 0
-> > +- #address-cells: must be 1
-> > +
-> > +Optional properties:
-> > +
-> > +- phy-reset-gpios: GPIO to be used to reset the whole device, always low active
-> > +- phy-reset-duration: reset duration, defaults to 200 ms 
->
-> It is good to state the unit, ms.
+drivers/net/dsa/mv88e6xxx/chip.c:2834:34: warning: 'mv88e6xxx_mdio_external_match' defined but not used [-Wunused-const-variable=]
+ static const struct of_device_id mv88e6xxx_mdio_external_match[] = {
+                                  ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Done in v2.
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ drivers/net/dsa/mv88e6xxx/chip.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-> [...]
-> > +	master: masterdevice@X {
-> > +		phy-handle = <&ethphy>;
-> > +		status = "okay";
-> > +
-> > +		mdio {
-> > +			#address-cells = <1>;
-> > +			#size-cells = <0>;
-> > +
-> > +			ethphy: ethernet-phy@0 {
-> > +				compatible = "ethernet-phy-ieee802.3-c22";
-> > +				reg = <0>;
-> > +				max-speed = <100>;
-> > +			};
->
-> If there is RMII between the CPU interface and the switch, why is this
-> PHY needed?
-
-Tested and changed to "fixed-link" in v2.
-
-> [...]
-> > +	switch: switch@a {
-> > +		compatible = "smsc,lan9303";
-> > +		reg = <0xa>;
-> > +		status = "okay";
-> > +		interrupts-extended = <&gpio2 7 IRQ_TYPE_LEVEL_LOW>;
->
-> This interrupt is not in the binding documentation, or the code.
-
-Leftover from development. Removed in v2.
-
-> > +		phy-reset-gpios = <&gpio7 6 GPIO_ACTIVE_LOW>;
-> > +		phy-reset-duration = <200>;
-> > +
-> > +		dsa,member = <0 0>;
-> > +
-> > +		ports {
-> > +			#address-cells = <1>;
-> > +			#size-cells = <0>;
-> > +
-> > +			port@0 { /* RMII fixed link to master */
-> > +				reg = <0>;
-> > +				label = "cpu";
-> > +				ethernet = <&master>;
-> > +				max-speed = <100>;
->
-> max-speed does not do anything i think, since there is no adjust_link
-> function.
-
-Removed in v2.
-
-Thanks.
-
-Juergen
-
+diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
+index 44ba8cff5631..64cbc4c04907 100644
+--- a/drivers/net/dsa/mv88e6xxx/chip.c
++++ b/drivers/net/dsa/mv88e6xxx/chip.c
+@@ -2831,11 +2831,13 @@ static int mv88e6xxx_mdio_register(struct mv88e6xxx_chip *chip,
+ 	return 0;
+ }
+ 
++#ifdef CONFIG_OF
+ static const struct of_device_id mv88e6xxx_mdio_external_match[] = {
+ 	{ .compatible = "marvell,mv88e6xxx-mdio-external",
+ 	  .data = (void *)true },
+ 	{ },
+ };
++#endif
+ 
+ static int mv88e6xxx_mdios_register(struct mv88e6xxx_chip *chip,
+ 				    struct device_node *np)
 -- 
-Pengutronix e.K.                             | Juergen Borleis             |
-Industrial Linux Solutions                   | http://www.pengutronix.de/  |
+2.9.3
