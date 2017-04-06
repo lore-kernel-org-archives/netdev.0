@@ -1,109 +1,69 @@
 From: Simon Wunderlich <sw@simonwunderlich.de>
-Subject: [PATCH 09/19] batman-adv: prevent duplication of ARP replies when DAT is used
-Date: Thu,  6 Apr 2017 16:07:31 +0200
-Message-ID: <20170406140741.30745-10-sw@simonwunderlich.de>
+Subject: [PATCH 15/19] batman-adv: Use ethtool helper to get link status
+Date: Thu,  6 Apr 2017 16:07:37 +0200
+Message-ID: <20170406140741.30745-16-sw@simonwunderlich.de>
 References: <20170406140741.30745-1-sw@simonwunderlich.de>
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-        Andreas Pape <APape@phoenixcontact.com>,
-        Andreas Pape <apape@phoenixcontact.com>,
         Sven Eckelmann <sven@narfation.org>,
         Simon Wunderlich <sw@simonwunderlich.de>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from packetmixer.de ([79.140.42.25]:32956 "EHLO
+Received: from packetmixer.de ([79.140.42.25]:33000 "EHLO
         mail.mail.packetmixer.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S935018AbdDFOHu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 10:07:50 -0400
+        with ESMTP id S935053AbdDFOHy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 10:07:54 -0400
 In-Reply-To: <20170406140741.30745-1-sw@simonwunderlich.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andreas Pape <APape@phoenixcontact.com>
+From: Sven Eckelmann <sven@narfation.org>
 
-If none of the backbone gateways in a bla setup has already knowledge of
-the mac address searched for in an incoming ARP request from the backbone
-an address resolution via the DHT of DAT is started. The gateway can send
-several ARP requests to different DHT nodes and therefore can get several
-replies. This patch assures that not all of the possible ARP replies are
-returned to the backbone by checking the local DAT cache of the gateway.
-If there is an entry in the local cache the gateway has already learned
-the requested address and there is no need to forward the additional reply
-to the backbone.
-Furthermore it is checked if this gateway has claimed the source of the ARP
-reply and only forwards it to the backbone if it has claimed the source or
-if there is no claim at all.
+The ethtool_ops of batman-adv never contained more than a stub for the
+get_link function pointer. It was always returning that a link exists even
+when the devices was not yet up and therefore nothing resampling a link
+could have been available.
 
-Signed-off-by: Andreas Pape <apape@phoenixcontact.com>
-Acked-by: Simon Wunderlich <sw@simonwunderlich.de>
-[sven@narfation.org: fix conflicts with current version]
+Instead use the ethtool helper which returns the current carrier state.
+
 Signed-off-by: Sven Eckelmann <sven@narfation.org>
+Acked-by: Marek Lindner <mareklindner@neomailbox.ch>
 Signed-off-by: Simon Wunderlich <sw@simonwunderlich.de>
 ---
- net/batman-adv/distributed-arp-table.c | 32 ++++++++++++++++++++++++++++++++
- 1 file changed, 32 insertions(+)
+ net/batman-adv/soft-interface.c | 8 +-------
+ 1 file changed, 1 insertion(+), 7 deletions(-)
 
-diff --git a/net/batman-adv/distributed-arp-table.c b/net/batman-adv/distributed-arp-table.c
-index 28cfa53837e1..77ede40ff529 100644
---- a/net/batman-adv/distributed-arp-table.c
-+++ b/net/batman-adv/distributed-arp-table.c
-@@ -1203,6 +1203,7 @@ void batadv_dat_snoop_outgoing_arp_reply(struct batadv_priv *bat_priv,
- bool batadv_dat_snoop_incoming_arp_reply(struct batadv_priv *bat_priv,
- 					 struct sk_buff *skb, int hdr_size)
+diff --git a/net/batman-adv/soft-interface.c b/net/batman-adv/soft-interface.c
+index a9dbcc1590bd..eff23d519c6f 100644
+--- a/net/batman-adv/soft-interface.c
++++ b/net/batman-adv/soft-interface.c
+@@ -69,7 +69,6 @@ static void batadv_get_drvinfo(struct net_device *dev,
+ 			       struct ethtool_drvinfo *info);
+ static u32 batadv_get_msglevel(struct net_device *dev);
+ static void batadv_set_msglevel(struct net_device *dev, u32 value);
+-static u32 batadv_get_link(struct net_device *dev);
+ static void batadv_get_strings(struct net_device *dev, u32 stringset, u8 *data);
+ static void batadv_get_ethtool_stats(struct net_device *dev,
+ 				     struct ethtool_stats *stats, u64 *data);
+@@ -80,7 +79,7 @@ static const struct ethtool_ops batadv_ethtool_ops = {
+ 	.get_drvinfo = batadv_get_drvinfo,
+ 	.get_msglevel = batadv_get_msglevel,
+ 	.set_msglevel = batadv_set_msglevel,
+-	.get_link = batadv_get_link,
++	.get_link = ethtool_op_get_link,
+ 	.get_strings = batadv_get_strings,
+ 	.get_ethtool_stats = batadv_get_ethtool_stats,
+ 	.get_sset_count = batadv_get_sset_count,
+@@ -1119,11 +1118,6 @@ static void batadv_set_msglevel(struct net_device *dev, u32 value)
  {
-+	struct batadv_dat_entry *dat_entry = NULL;
- 	u16 type;
- 	__be32 ip_src, ip_dst;
- 	u8 *hw_src, *hw_dst;
-@@ -1225,12 +1226,41 @@ bool batadv_dat_snoop_incoming_arp_reply(struct batadv_priv *bat_priv,
- 	hw_dst = batadv_arp_hw_dst(skb, hdr_size);
- 	ip_dst = batadv_arp_ip_dst(skb, hdr_size);
- 
-+	/* If ip_dst is already in cache and has the right mac address,
-+	 * drop this frame if this ARP reply is destined for us because it's
-+	 * most probably an ARP reply generated by another node of the DHT.
-+	 * We have most probably received already a reply earlier. Delivering
-+	 * this frame would lead to doubled receive of an ARP reply.
-+	 */
-+	dat_entry = batadv_dat_entry_hash_find(bat_priv, ip_src, vid);
-+	if (dat_entry && batadv_compare_eth(hw_src, dat_entry->mac_addr)) {
-+		batadv_dbg(BATADV_DBG_DAT, bat_priv, "Doubled ARP reply removed: ARP MSG = [src: %pM-%pI4 dst: %pM-%pI4]; dat_entry: %pM-%pI4\n",
-+			   hw_src, &ip_src, hw_dst, &ip_dst,
-+			   dat_entry->mac_addr,	&dat_entry->ip);
-+		dropped = true;
-+		goto out;
-+	}
-+
- 	/* Update our internal cache with both the IP addresses the node got
- 	 * within the ARP reply
- 	 */
- 	batadv_dat_entry_add(bat_priv, ip_src, hw_src, vid);
- 	batadv_dat_entry_add(bat_priv, ip_dst, hw_dst, vid);
- 
-+	/* If BLA is enabled, only forward ARP replies if we have claimed the
-+	 * source of the ARP reply or if no one else of the same backbone has
-+	 * already claimed that client. This prevents that different gateways
-+	 * to the same backbone all forward the ARP reply leading to multiple
-+	 * replies in the backbone.
-+	 */
-+	if (!batadv_bla_check_claim(bat_priv, hw_src, vid)) {
-+		batadv_dbg(BATADV_DBG_DAT, bat_priv,
-+			   "Device %pM claimed by another backbone gw. Drop ARP reply.\n",
-+			   hw_src);
-+		dropped = true;
-+		goto out;
-+	}
-+
- 	/* if this REPLY is directed to a client of mine, let's deliver the
- 	 * packet to the interface
- 	 */
-@@ -1243,6 +1273,8 @@ bool batadv_dat_snoop_incoming_arp_reply(struct batadv_priv *bat_priv,
- out:
- 	if (dropped)
- 		kfree_skb(skb);
-+	if (dat_entry)
-+		batadv_dat_entry_put(dat_entry);
- 	/* if dropped == false -> deliver to the interface */
- 	return dropped;
  }
+ 
+-static u32 batadv_get_link(struct net_device *dev)
+-{
+-	return 1;
+-}
+-
+ /* Inspired by drivers/net/ethernet/dlink/sundance.c:1702
+  * Declare each description string in struct.name[] to get fixed sized buffer
+  * and compile time checking for strings longer than ETH_GSTRING_LEN.
 -- 
 2.11.0
