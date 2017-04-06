@@ -1,35 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/8] qed: Misc cleanups and fixes
-Date: Thu, 06 Apr 2017 14:26:54 -0700 (PDT)
-Message-ID: <20170406.142654.684792651795625089.davem@davemloft.net>
-References: <1491483515-13502-1-git-send-email-Yuval.Mintz@cavium.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] ath9k: Add cast to u8 to FREQ2FBIN macro
+Date: Thu, 06 Apr 2017 14:29:20 -0700
+Message-ID: <1491514160.27353.102.camel@perches.com>
+References: <20170406212135.72157-1-mka@chromium.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Yuval.Mintz@cavium.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:39100 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751039AbdDFV04 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 17:26:56 -0400
-In-Reply-To: <1491483515-13502-1-git-send-email-Yuval.Mintz@cavium.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org, Grant Grundler <grundler@chromium.org>
+To: Matthias Kaehlcke <mka@chromium.org>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        ath9k Development <ath9k-devel@qca.qualcomm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170406212135.72157-1-mka@chromium.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Yuval Mintz <Yuval.Mintz@cavium.com>
-Date: Thu, 6 Apr 2017 15:58:27 +0300
-
-> Patches #1 and #2 revolve around register access performed by driver;
-> The first merely adds some debug, while the second does some fixing
-> of incorrect PTT usage as well as preventing issues similar to those
-> fixed by 6f437d431930 ("qed: Don't use attention PTT for configuring BW").
+On Thu, 2017-04-06 at 14:21 -0700, Matthias Kaehlcke wrote:
+> The macro results are assigned to u8 variables/fields. Adding the cast
+> fixes plenty of clang warnings about "implicit conversion from 'int' to
+> 'u8'".
 > 
-> Patch #3 better configures HW for architecture where cacheline isn't 64B.
+> Signed-off-by: Matthias Kaehlcke <mka@chromium.org>
+> ---
+>  drivers/net/wireless/ath/ath9k/eeprom.h | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
 > 
-> Patches #4-#8 all affect iSCSI related functionaility - 
-> adding statistics information [both to driver & management firmware],
-> passing information on number of resources to qedi, and simplifying
-> the Out-of-order implementation in SW.
+> diff --git a/drivers/net/wireless/ath/ath9k/eeprom.h b/drivers/net/wireless/ath/ath9k/eeprom.h
+> index 30bf722e33ed..31390af6c33e 100644
+> --- a/drivers/net/wireless/ath/ath9k/eeprom.h
+> +++ b/drivers/net/wireless/ath/ath9k/eeprom.h
+> @@ -106,7 +106,7 @@
+>  #define AR9285_RDEXT_DEFAULT    0x1F
+>  
+>  #define ATH9K_POW_SM(_r, _s)	(((_r) & 0x3f) << (_s))
+> -#define FREQ2FBIN(x, y)		((y) ? ((x) - 2300) : (((x) - 4800) / 5))
+> +#define FREQ2FBIN(x, y)		(u8)((y) ? ((x) - 2300) : (((x) - 4800) / 5))
 
-Series applied, thanks Yuval.
+Maybe better to use:
+
+static inline u8 FREQ2FBIN(int x, int y)
+{
+	if (y)
+		return x - 2300;
+	return (x - 4800) / 5;
+}
