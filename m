@@ -1,180 +1,102 @@
 From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: [PATCH 06/10] ftgmac100: Simplify rx pointer handling in the rx path
-Date: Thu,  6 Apr 2017 11:02:48 +1000
-Message-ID: <20170406010252.29208-7-benh@kernel.crashing.org>
+Subject: [PATCH 10/10] ftgmac100: Work around HW bug in runt frame detection
+Date: Thu,  6 Apr 2017 11:02:52 +1000
+Message-ID: <20170406010252.29208-11-benh@kernel.crashing.org>
 References: <20170406010252.29208-1-benh@kernel.crashing.org>
 Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:37938 "EHLO gate.crashing.org"
+Received: from gate.crashing.org ([63.228.1.57]:37954 "EHLO gate.crashing.org"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1756450AbdDFBDb (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 5 Apr 2017 21:03:31 -0400
+        id S1756520AbdDFBDu (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 5 Apr 2017 21:03:50 -0400
 In-Reply-To: <20170406010252.29208-1-benh@kernel.crashing.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We don't handle fragmented RX packets, so the "looping"
-helpers to locate the first segment of a packet or to
-drop a packet aren't actually helping.
+The HW incorrectly calculates the frame size without the vlan
+tag and compares that against 64. It will thus flag 64-bytes
+frames with a vlan tag as 60-bytes frames "runt" packets
+which we'll then drop. Thus we end up dropping ARP packets
+on vlan's ...
 
-Take them out and simplify ftgmac100_rx_packet() further
-as a result.
+It does that whether vlan tag stripping is enabled or not.
+
+This works around it by ignoring the "runt" error bit of the
+frame has been vlan tagged and is at least 60 bytes.
 
 Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 ---
- drivers/net/ethernet/faraday/ftgmac100.c | 92 +++++++++-----------------------
- 1 file changed, 24 insertions(+), 68 deletions(-)
+ drivers/net/ethernet/faraday/ftgmac100.c | 35 +++++++++++++++++++++++---------
+ 1 file changed, 25 insertions(+), 10 deletions(-)
 
 diff --git a/drivers/net/ethernet/faraday/ftgmac100.c b/drivers/net/ethernet/faraday/ftgmac100.c
-index 0bfcfdd..95d46db 100644
+index e42ef8f..9f18e5e 100644
 --- a/drivers/net/ethernet/faraday/ftgmac100.c
 +++ b/drivers/net/ethernet/faraday/ftgmac100.c
-@@ -429,34 +429,6 @@ static int ftgmac100_next_rx_pointer(int pointer)
- 	return (pointer + 1) & (RX_QUEUE_ENTRIES - 1);
- }
- 
--static void ftgmac100_rx_pointer_advance(struct ftgmac100 *priv)
--{
--	priv->rx_pointer = ftgmac100_next_rx_pointer(priv->rx_pointer);
--}
--
--static struct ftgmac100_rxdes *ftgmac100_current_rxdes(struct ftgmac100 *priv)
--{
--	return &priv->descs->rxdes[priv->rx_pointer];
--}
--
--static struct ftgmac100_rxdes *
--ftgmac100_rx_locate_first_segment(struct ftgmac100 *priv)
--{
--	struct ftgmac100_rxdes *rxdes = ftgmac100_current_rxdes(priv);
--
--	while (ftgmac100_rxdes_packet_ready(rxdes)) {
--		if (ftgmac100_rxdes_first_segment(rxdes))
--			return rxdes;
--
--		ftgmac100_rxdes_set_dma_own(priv, rxdes);
--		ftgmac100_rx_pointer_advance(priv);
--		rxdes = ftgmac100_current_rxdes(priv);
--	}
--
--	return NULL;
--}
--
--
- static void ftgmac100_rx_packet_error(struct ftgmac100 *priv,
- 				      struct ftgmac100_rxdes *rxdes)
- {
-@@ -474,51 +446,32 @@ static void ftgmac100_rx_packet_error(struct ftgmac100 *priv,
- 		netdev->stats.rx_length_errors++;
- }
- 
--static void ftgmac100_rx_drop_packet(struct ftgmac100 *priv)
--{
--	struct net_device *netdev = priv->netdev;
--	struct ftgmac100_rxdes *rxdes = ftgmac100_current_rxdes(priv);
--	bool done = false;
--
--	if (net_ratelimit())
--		netdev_dbg(netdev, "drop packet %p\n", rxdes);
--
--	do {
--		if (ftgmac100_rxdes_last_segment(rxdes))
--			done = true;
--
--		ftgmac100_rxdes_set_dma_own(priv, rxdes);
--		ftgmac100_rx_pointer_advance(priv);
--		rxdes = ftgmac100_current_rxdes(priv);
--	} while (!done && ftgmac100_rxdes_packet_ready(rxdes));
--
--	netdev->stats.rx_dropped++;
--}
--
- static bool ftgmac100_rx_packet(struct ftgmac100 *priv, int *processed)
- {
- 	struct net_device *netdev = priv->netdev;
+@@ -348,7 +348,7 @@ static bool ftgmac100_rx_packet(struct ftgmac100 *priv, int *processed)
  	struct ftgmac100_rxdes *rxdes;
  	struct sk_buff *skb;
- 	struct page *page;
--	unsigned int size;
-+	unsigned int pointer, size;
+ 	unsigned int pointer, size;
+-	u32 status;
++	u32 status, csum_vlan;
  	dma_addr_t map;
  
--	rxdes = ftgmac100_rx_locate_first_segment(priv);
--	if (!rxdes)
-+	/* Grab next RX descriptor */
-+	pointer = priv->rx_pointer;
-+	rxdes = &priv->descs->rxdes[pointer];
-+
-+	/* Do we have a packet ? */
-+	if (!ftgmac100_rxdes_packet_ready(rxdes))
- 		return false;
+ 	/* Grab next RX descriptor */
+@@ -370,10 +370,27 @@ static bool ftgmac100_rx_packet(struct ftgmac100 *priv, int *processed)
+ 		     !(status & FTGMAC100_RXDES0_LRS)))
+ 		goto drop;
  
--	/* We don't support segmented rx frames, so drop these
--	 * along with packets with errors.
--	 */
--	if (unlikely(!ftgmac100_rxdes_last_segment(rxdes))) {
--		ftgmac100_rx_drop_packet(priv);
--		return true;
--	}
-+	/* We don't cope with fragmented RX packets */
-+	if (unlikely(!ftgmac100_rxdes_first_segment(rxdes) ||
-+		     !ftgmac100_rxdes_last_segment(rxdes)))
-+		goto drop;
++	/* Grab received size and csum vlan field in the descriptor */
++	size = status & FTGMAC100_RXDES0_VDBC;
++	csum_vlan = le32_to_cpu(rxdes->rxdes1);
 +
-+	/* Any error (other than csum offload) flagged ? */
- 	if (unlikely(ftgmac100_rxdes_any_error(rxdes))) {
- 		ftgmac100_rx_packet_error(priv, rxdes);
--		ftgmac100_rx_drop_packet(priv);
--		return true;
-+		goto drop;
+ 	/* Any error (other than csum offload) flagged ? */
+ 	if (unlikely(status & RXDES0_ANY_ERROR)) {
+-		ftgmac100_rx_packet_error(priv, status);
+-		goto drop;
++		/* Correct for incorrect flagging of runt packets
++		 * with vlan tags... Just accept a runt packet that
++		 * has been flagged as vlan and whose size is at
++		 * least 60 bytes.
++		 */
++		if ((status & FTGMAC100_RXDES0_RUNT) &&
++		    (csum_vlan & FTGMAC100_RXDES1_VLANTAG_AVAIL) &&
++		    (size >= 60))
++			status &= ~FTGMAC100_RXDES0_RUNT;
++
++		/* Any error still in there ? */
++		if (status & RXDES0_ANY_ERROR) {
++			ftgmac100_rx_packet_error(priv, status);
++			goto drop;
++		}
  	}
  
- 	/* If the packet had no buffer (failed to allocate earlier)
-@@ -527,8 +480,7 @@ static bool ftgmac100_rx_packet(struct ftgmac100 *priv, int *processed)
- 	page = ftgmac100_rxdes_get_page(priv, rxdes);
- 	if (!page) {
- 		ftgmac100_alloc_rx_page(priv, rxdes, GFP_ATOMIC);
--		ftgmac100_rx_pointer_advance(priv);
--		return true;
-+		goto drop;
+ 	/* If the packet had no skb (failed to allocate earlier)
+@@ -395,19 +412,17 @@ static bool ftgmac100_rx_packet(struct ftgmac100 *priv, int *processed)
+ 	 * we accept the HW test results.
+ 	 */
+ 	if (netdev->features & NETIF_F_RXCSUM) {
+-		__le32 csum_vlan = rxdes->rxdes1;
+-		__le32 err_bits = cpu_to_le32(FTGMAC100_RXDES1_TCP_CHKSUM_ERR |
+-					      FTGMAC100_RXDES1_UDP_CHKSUM_ERR |
+-					      FTGMAC100_RXDES1_IP_CHKSUM_ERR);
++		u32 err_bits = FTGMAC100_RXDES1_TCP_CHKSUM_ERR |
++			FTGMAC100_RXDES1_UDP_CHKSUM_ERR |
++			FTGMAC100_RXDES1_IP_CHKSUM_ERR;
+ 		if ((csum_vlan & err_bits) ||
+-		    !(csum_vlan & cpu_to_le32(FTGMAC100_RXDES1_PROT_MASK)))
++		    !(csum_vlan & FTGMAC100_RXDES1_PROT_MASK))
+ 			skb->ip_summed = CHECKSUM_NONE;
+ 		else
+ 			skb->ip_summed = CHECKSUM_UNNECESSARY;
  	}
  
- 	/* start processing */
-@@ -536,9 +488,7 @@ static bool ftgmac100_rx_packet(struct ftgmac100 *priv, int *processed)
- 	if (unlikely(!skb)) {
- 		if (net_ratelimit())
- 			netdev_err(netdev, "rx skb alloc failed\n");
--
--		ftgmac100_rx_drop_packet(priv);
--		return true;
-+		goto drop;
- 	}
+-	/* Grab received size annd transfer to skb */
+-	size = status & FTGMAC100_RXDES0_VDBC;
++	/* Transfer received size to skb */
+ 	skb_put(skb, size);
  
- 	if (unlikely(ftgmac100_rxdes_multicast(rxdes)))
-@@ -575,8 +525,7 @@ static bool ftgmac100_rx_packet(struct ftgmac100 *priv, int *processed)
- 
- 	ftgmac100_alloc_rx_page(priv, rxdes, GFP_ATOMIC);
- 
--	ftgmac100_rx_pointer_advance(priv);
--	rxdes = ftgmac100_current_rxdes(priv);
-+	priv->rx_pointer = ftgmac100_next_rx_pointer(pointer);
- 
- 	/* Small frames are copied into linear part of skb to free one page */
- 	if (skb->len <= 128) {
-@@ -599,6 +548,13 @@ static bool ftgmac100_rx_packet(struct ftgmac100 *priv, int *processed)
- 
- 	(*processed)++;
- 	return true;
-+
-+ drop:
-+	/* Clean rxdes0 (which resets own bit) */
-+	rxdes->rxdes0 &= cpu_to_le32(priv->rxdes0_edorr_mask);
-+	priv->rx_pointer = ftgmac100_next_rx_pointer(pointer);
-+	netdev->stats.rx_dropped++;
-+	return true;
- }
- 
- static void ftgmac100_txdes_reset(const struct ftgmac100 *priv,
+ 	/* Tear down DMA mapping, do necessary cache management */
 -- 
 2.9.3
