@@ -1,137 +1,84 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 1/4] crypto: user - Prepare for CRYPTO_MAX_ALG_NAME expansion
-Date: Thu, 06 Apr 2017 16:16:08 +0800
-Message-ID: <E1cw2aO-00085E-NH@gondobar>
-References: <20170406081509.GB30557@gondor.apana.org.au>
-To: Alexander Sverdlin <alexander.sverdlin@nokia.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        linux-crypto@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-crypto-owner@vger.kernel.org>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Joao Pinto <Joao.Pinto@synopsys.com>
+Subject: Re: [PATCH 2/4 v2 net-next] net: stmmac: adding multiple buffers for
+ RX (fwd)
+Date: Thu, 6 Apr 2017 09:23:48 +0100
+Message-ID: <6548d134-6a28-7d47-8cf9-8a1742df8f2b@synopsys.com>
+References: <alpine.DEB.2.20.1704060728040.2052@hadrien>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 8bit
+Cc: <davem@davemloft.net>, <clabbe.montjoie@gmail.com>,
+        <treding@nvidia.com>, <niklas.cassel@axis.com>,
+        <netdev@vger.kernel.org>, <kbuild-all@01.org>
+To: Julia Lawall <julia.lawall@lip6.fr>,
+        Joao Pinto <Joao.Pinto@synopsys.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtprelay2.synopsys.com ([198.182.60.111]:57226 "EHLO
+        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751475AbdDFIXy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 04:23:54 -0400
+In-Reply-To: <alpine.DEB.2.20.1704060728040.2052@hadrien>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch hard-codes CRYPTO_MAX_NAME in the user-space API to
-64, which is the current value of CRYPTO_MAX_ALG_NAME.  This patch
-also replaces all remaining occurences of CRYPTO_MAX_ALG_NAME
-in the user-space API with CRYPTO_MAX_NAME.
+Às 6:29 AM de 4/6/2017, Julia Lawall escreveu:
+> It looks like an infinite loop, if queue is unsigned.
+> 
+> julia
+> 
 
-This way the user-space API will not be modified when we raise
-the value of CRYPTO_MAX_ALG_NAME.
+Yes you are right, I will fix it, thanks.
 
-Furthermore, the code has been updated to handle names longer than
-the user-space API.  They will be truncated.
+Joao
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
----
-
- crypto/crypto_user.c            |   18 +++++++++---------
- include/uapi/linux/cryptouser.h |   10 +++++-----
- 2 files changed, 14 insertions(+), 14 deletions(-)
-
-diff --git a/crypto/crypto_user.c b/crypto/crypto_user.c
-index a90404a..89acaab 100644
---- a/crypto/crypto_user.c
-+++ b/crypto/crypto_user.c
-@@ -83,7 +83,7 @@ static int crypto_report_cipher(struct sk_buff *skb, struct crypto_alg *alg)
- {
- 	struct crypto_report_cipher rcipher;
- 
--	strncpy(rcipher.type, "cipher", sizeof(rcipher.type));
-+	strlcpy(rcipher.type, "cipher", sizeof(rcipher.type));
- 
- 	rcipher.blocksize = alg->cra_blocksize;
- 	rcipher.min_keysize = alg->cra_cipher.cia_min_keysize;
-@@ -102,7 +102,7 @@ static int crypto_report_comp(struct sk_buff *skb, struct crypto_alg *alg)
- {
- 	struct crypto_report_comp rcomp;
- 
--	strncpy(rcomp.type, "compression", sizeof(rcomp.type));
-+	strlcpy(rcomp.type, "compression", sizeof(rcomp.type));
- 	if (nla_put(skb, CRYPTOCFGA_REPORT_COMPRESS,
- 		    sizeof(struct crypto_report_comp), &rcomp))
- 		goto nla_put_failure;
-@@ -116,7 +116,7 @@ static int crypto_report_acomp(struct sk_buff *skb, struct crypto_alg *alg)
- {
- 	struct crypto_report_acomp racomp;
- 
--	strncpy(racomp.type, "acomp", sizeof(racomp.type));
-+	strlcpy(racomp.type, "acomp", sizeof(racomp.type));
- 
- 	if (nla_put(skb, CRYPTOCFGA_REPORT_ACOMP,
- 		    sizeof(struct crypto_report_acomp), &racomp))
-@@ -131,7 +131,7 @@ static int crypto_report_akcipher(struct sk_buff *skb, struct crypto_alg *alg)
- {
- 	struct crypto_report_akcipher rakcipher;
- 
--	strncpy(rakcipher.type, "akcipher", sizeof(rakcipher.type));
-+	strlcpy(rakcipher.type, "akcipher", sizeof(rakcipher.type));
- 
- 	if (nla_put(skb, CRYPTOCFGA_REPORT_AKCIPHER,
- 		    sizeof(struct crypto_report_akcipher), &rakcipher))
-@@ -146,7 +146,7 @@ static int crypto_report_kpp(struct sk_buff *skb, struct crypto_alg *alg)
- {
- 	struct crypto_report_kpp rkpp;
- 
--	strncpy(rkpp.type, "kpp", sizeof(rkpp.type));
-+	strlcpy(rkpp.type, "kpp", sizeof(rkpp.type));
- 
- 	if (nla_put(skb, CRYPTOCFGA_REPORT_KPP,
- 		    sizeof(struct crypto_report_kpp), &rkpp))
-@@ -160,10 +160,10 @@ static int crypto_report_kpp(struct sk_buff *skb, struct crypto_alg *alg)
- static int crypto_report_one(struct crypto_alg *alg,
- 			     struct crypto_user_alg *ualg, struct sk_buff *skb)
- {
--	strncpy(ualg->cru_name, alg->cra_name, sizeof(ualg->cru_name));
--	strncpy(ualg->cru_driver_name, alg->cra_driver_name,
-+	strlcpy(ualg->cru_name, alg->cra_name, sizeof(ualg->cru_name));
-+	strlcpy(ualg->cru_driver_name, alg->cra_driver_name,
- 		sizeof(ualg->cru_driver_name));
--	strncpy(ualg->cru_module_name, module_name(alg->cra_module),
-+	strlcpy(ualg->cru_module_name, module_name(alg->cra_module),
- 		sizeof(ualg->cru_module_name));
- 
- 	ualg->cru_type = 0;
-@@ -176,7 +176,7 @@ static int crypto_report_one(struct crypto_alg *alg,
- 	if (alg->cra_flags & CRYPTO_ALG_LARVAL) {
- 		struct crypto_report_larval rl;
- 
--		strncpy(rl.type, "larval", sizeof(rl.type));
-+		strlcpy(rl.type, "larval", sizeof(rl.type));
- 		if (nla_put(skb, CRYPTOCFGA_REPORT_LARVAL,
- 			    sizeof(struct crypto_report_larval), &rl))
- 			goto nla_put_failure;
-diff --git a/include/uapi/linux/cryptouser.h b/include/uapi/linux/cryptouser.h
-index 11d21fc..b4def5c 100644
---- a/include/uapi/linux/cryptouser.h
-+++ b/include/uapi/linux/cryptouser.h
-@@ -31,7 +31,7 @@ enum {
- #define CRYPTO_MSG_MAX (__CRYPTO_MSG_MAX - 1)
- #define CRYPTO_NR_MSGTYPES (CRYPTO_MSG_MAX + 1 - CRYPTO_MSG_BASE)
- 
--#define CRYPTO_MAX_NAME CRYPTO_MAX_ALG_NAME
-+#define CRYPTO_MAX_NAME 64
- 
- /* Netlink message attributes.  */
- enum crypto_attr_type_t {
-@@ -53,9 +53,9 @@ enum crypto_attr_type_t {
- };
- 
- struct crypto_user_alg {
--	char cru_name[CRYPTO_MAX_ALG_NAME];
--	char cru_driver_name[CRYPTO_MAX_ALG_NAME];
--	char cru_module_name[CRYPTO_MAX_ALG_NAME];
-+	char cru_name[CRYPTO_MAX_NAME];
-+	char cru_driver_name[CRYPTO_MAX_NAME];
-+	char cru_module_name[CRYPTO_MAX_NAME];
- 	__u32 cru_type;
- 	__u32 cru_mask;
- 	__u32 cru_refcnt;
-@@ -73,7 +73,7 @@ struct crypto_report_hash {
- };
- 
- struct crypto_report_cipher {
--	char type[CRYPTO_MAX_ALG_NAME];
-+	char type[CRYPTO_MAX_NAME];
- 	unsigned int blocksize;
- 	unsigned int min_keysize;
- 	unsigned int max_keysize;
+> ---------- Forwarded message ----------
+> Date: Thu, 6 Apr 2017 11:49:01 +0800
+> From: kbuild test robot <fengguang.wu@intel.com>
+> To: kbuild@01.org
+> Cc: Julia Lawall <julia.lawall@lip6.fr>
+> Subject: Re: [PATCH 2/4 v2 net-next] net: stmmac: adding multiple buffers for RX
+> 
+> [auto build test WARNING on net-next/master]
+> 
+> url:    https://urldefense.proofpoint.com/v2/url?u=https-3A__github.com_0day-2Dci_linux_commits_Joao-2DPinto_net-2Dstmmac-2Dbreak-2Dsome-2Dfunctions-2Dinto-2DRX-2Dand-2DTX-2Dscopes_20170406-2D081523&d=DwIBAg&c=DPL6_X_6JkXFx7AXWqB0tg&r=s2fO0hii0OGNOv9qQy_HRXy-xAJUD1NNoEcc3io_kx0&m=SF-IM8g8b7VBN_AjT6JxdRBYkTu-2huMLcFlVh_4YKw&s=h9uKHPp4P6ZsYsIGUk0YBvl3ToWDvBWaDUPv5JaNfF4&e= 
+> :::::: branch date: 4 hours ago
+> :::::: commit date: 4 hours ago
+> 
+>    drivers/net/ethernet/stmicro/stmmac/stmmac_main.c:2852:15-20: WARNING: Unsigned expression compared with zero: entry < 0
+>>> drivers/net/ethernet/stmicro/stmmac/stmmac_main.c:1190:8-13: WARNING: Unsigned expression compared with zero: queue >= 0
+> 
+> git remote add linux-review https://urldefense.proofpoint.com/v2/url?u=https-3A__github.com_0day-2Dci_linux&d=DwIBAg&c=DPL6_X_6JkXFx7AXWqB0tg&r=s2fO0hii0OGNOv9qQy_HRXy-xAJUD1NNoEcc3io_kx0&m=SF-IM8g8b7VBN_AjT6JxdRBYkTu-2huMLcFlVh_4YKw&s=q4A5_6A5zp5DRgmx5IJbDiIpc2W3GK3tSNhqpyIaHX8&e= 
+> git remote update linux-review
+> git checkout b403b5806dca0f85904ddc6cf2241286da86ed9b
+> vim +1190 drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> 
+> b6ad2502 Joao Pinto         2017-04-05  1174  			if (priv->extend_desc)
+> b403b580 Joao Pinto         2017-04-05  1175  				priv->hw->mode->init(rx_q->dma_erx,
+> b403b580 Joao Pinto         2017-04-05  1176  						     rx_q->dma_rx_phy,
+> e3ad57c9 Giuseppe Cavallaro 2016-02-29  1177  						     DMA_RX_SIZE, 1);
+> b6ad2502 Joao Pinto         2017-04-05  1178  			else
+> b403b580 Joao Pinto         2017-04-05  1179  				priv->hw->mode->init(rx_q->dma_rx,
+> b403b580 Joao Pinto         2017-04-05  1180  						     rx_q->dma_rx_phy,
+> e3ad57c9 Giuseppe Cavallaro 2016-02-29  1181  						     DMA_RX_SIZE, 0);
+> b6ad2502 Joao Pinto         2017-04-05  1182  		}
+> b403b580 Joao Pinto         2017-04-05  1183  	}
+> b403b580 Joao Pinto         2017-04-05  1184
+> b403b580 Joao Pinto         2017-04-05  1185  	buf_sz = bfsize;
+> b6ad2502 Joao Pinto         2017-04-05  1186
+> b6ad2502 Joao Pinto         2017-04-05  1187  	return 0;
+> b403b580 Joao Pinto         2017-04-05  1188
+> b6ad2502 Joao Pinto         2017-04-05  1189  err_init_rx_buffers:
+> b403b580 Joao Pinto         2017-04-05 @1190  	while (queue >= 0) {
+> b6ad2502 Joao Pinto         2017-04-05  1191  		while (--i >= 0)
+> b403b580 Joao Pinto         2017-04-05  1192  			stmmac_free_rx_buffer(priv, queue, i);
+> b403b580 Joao Pinto         2017-04-05  1193
+> b403b580 Joao Pinto         2017-04-05  1194  		i = DMA_RX_SIZE;
+> b403b580 Joao Pinto         2017-04-05  1195  		queue--;
+> b403b580 Joao Pinto         2017-04-05  1196  	}
+> b403b580 Joao Pinto         2017-04-05  1197
+> b6ad2502 Joao Pinto         2017-04-05  1198  	return ret;
+> 
+> ---
+> 0-DAY kernel test infrastructure                Open Source Technology Center
+> https://urldefense.proofpoint.com/v2/url?u=https-3A__lists.01.org_pipermail_kbuild-2Dall&d=DwIBAg&c=DPL6_X_6JkXFx7AXWqB0tg&r=s2fO0hii0OGNOv9qQy_HRXy-xAJUD1NNoEcc3io_kx0&m=SF-IM8g8b7VBN_AjT6JxdRBYkTu-2huMLcFlVh_4YKw&s=g4EUS_5pRcIV-m5yRBYE0N_JUxlnC68-_z4v2N9zdaU&e=                    Intel Corporation
+> 
