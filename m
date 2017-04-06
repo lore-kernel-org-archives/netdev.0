@@ -1,32 +1,43 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [PATCH net-next] net/sched: Removed unused vlan actions
- definition
-Date: Thu, 6 Apr 2017 12:05:37 -0400
-Message-ID: <20170406160536.GA21257@vergenet.net>
-References: <1491408565-21606-1-git-send-email-ogerlitz@mellanox.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 1/2] net: netfilter: Remove typedef from "typedef struct
+ field_t"
+Date: Thu, 6 Apr 2017 18:26:54 +0200
+Message-ID: <20170406162654.GA5777@salvia>
+References: <20170325122756.8743-1-arushisinghal19971997@gmail.com>
+ <20170325122756.8743-2-arushisinghal19971997@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Jiri Pirko <jiri@mellanox.com>, netdev@vger.kernel.org
-To: Or Gerlitz <ogerlitz@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f41.google.com ([209.85.214.41]:38792 "EHLO
-        mail-it0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751415AbdDFQFk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 12:05:40 -0400
-Received: by mail-it0-f41.google.com with SMTP id y18so28708938itc.1
-        for <netdev@vger.kernel.org>; Thu, 06 Apr 2017 09:05:40 -0700 (PDT)
+Cc: kadlec@blackhole.kfki.hu, davem@davemloft.net,
+        outreachy-kernel@googlegroups.com, netfilter-devel@vger.kernel.org,
+        coreteam@netfilter.org, gregkh@linuxfoundation.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Arushi Singhal <arushisinghal19971997@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1491408565-21606-1-git-send-email-ogerlitz@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20170325122756.8743-2-arushisinghal19971997@gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 05, 2017 at 07:09:25PM +0300, Or Gerlitz wrote:
-> Commit c7e2b9689ef "sched: introduce vlan action" added both the
-> UAPI values for the vlan actions (TCA_VLAN_ACT_) and these two
-> in-kernel ones which are not used, remove them.
+On Sat, Mar 25, 2017 at 05:57:55PM +0530, Arushi Singhal wrote:
+> This patch removes typedefs from struct and renames it from "typedef struct
+> field_t" to "struct field" as per kernel coding standards."
 > 
-> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
-> Acked-by: Jiri Pirko <jiri@mellanox.com>
+> Signed-off-by: Arushi Singhal <arushisinghal19971997@gmail.com>
+> ---
+>  net/netfilter/nf_conntrack_h323_asn1.c | 68 +++++++++++++++++-----------------
+>  1 file changed, 34 insertions(+), 34 deletions(-)
+> 
+> diff --git a/net/netfilter/nf_conntrack_h323_asn1.c b/net/netfilter/nf_conntrack_h323_asn1.c
+> index 89b2e46925c4..fb8cf238a76f 100644
+> --- a/net/netfilter/nf_conntrack_h323_asn1.c
+> +++ b/net/netfilter/nf_conntrack_h323_asn1.c
+> @@ -77,7 +77,7 @@
+>  
+>  
+>  /* ASN.1 Field Structure */
+> -typedef struct field_t {
+> +struct field {
 
-Reviewed-by: Simon Horman <simon.horman@netronome.com>
+Probably better if you rename this to 'struct h323_field' to make sure
+compilation doesn't break due to structure name pollution. And we also
+got a report from kbuild robot that would be good to investigate.
