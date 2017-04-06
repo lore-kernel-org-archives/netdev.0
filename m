@@ -1,106 +1,37 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] netpoll: Check for skb->queue_mapping
-Date: Thu, 06 Apr 2017 03:26:17 -0700
-Message-ID: <1491474377.10124.57.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1491444383-29017-1-git-send-email-tushar.n.dave@oracle.com>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: net/sched: latent livelock in dev_deactivate_many() due to
+ yield() usage
+Date: Thu, 6 Apr 2017 12:26:48 +0200
+Message-ID: <20170406102648.4cycknb2jk5ftovh@hirez.programming.kicks-ass.net>
+References: <1491107321.13631.33.camel@gmx.de>
+ <CAM_iQpWGMkDaoV2k0DEghqeqb9k=MbpBtT8zH3tvENxLUCefkQ@mail.gmail.com>
+ <1491362429.4536.77.camel@gmx.de>
+ <CAM_iQpVTmDfATw1HMPE9NnRBNnhgidz+UZOQDqyeq2uo0=c-+g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, edumazet@google.com, brouer@redhat.com,
-        netdev@vger.kernel.org, sowmini.varadhan@oracle.com
-To: Tushar Dave <tushar.n.dave@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f65.google.com ([209.85.214.65]:34703 "EHLO
-        mail-it0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757337AbdDFK0U (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 6 Apr 2017 06:26:20 -0400
-Received: by mail-it0-f65.google.com with SMTP id 193so363818itm.1
-        for <netdev@vger.kernel.org>; Thu, 06 Apr 2017 03:26:20 -0700 (PDT)
-In-Reply-To: <1491444383-29017-1-git-send-email-tushar.n.dave@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Mike Galbraith <efault@gmx.de>, netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAM_iQpVTmDfATw1HMPE9NnRBNnhgidz+UZOQDqyeq2uo0=c-+g@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2017-04-05 at 19:06 -0700, Tushar Dave wrote:
-> Reducing real_num_tx_queues needs to be in sync with skb queue_mapping
-> otherwise skbs with queue_mapping greater than real_num_tx_queues
-> can be sent to the underlying driver and can result in kernel panic.
+On Tue, Apr 04, 2017 at 10:25:19PM -0700, Cong Wang wrote:
+> On Tue, Apr 4, 2017 at 8:20 PM, Mike Galbraith <efault@gmx.de> wrote:
+> > -               while (some_qdisc_is_busy(dev))
+> > -                       yield();
+> > +               swait_event_timeout(swait, !some_qdisc_is_busy(dev), 1);
+> >  }
 > 
-> One such event is running netconsole and enabling VF on the same
-> device. Or running netconsole and changing number of tx queues via
-> ethtool on same device.
-> 
-> e.g.
+> I don't see why this is an improvement even if I don't care about the
+> hardcoded timeout for now... Why the scheduler can make a better
+> decision with swait_event_timeout() than with cond_resched()?
 
-> 
-> Signed-off-by: Tushar Dave <tushar.n.dave@oracle.com>
-> ---
->  net/core/netpoll.c | 7 +++++++
->  1 file changed, 7 insertions(+)
-> 
-> diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-> index 9424673..c572e49 100644
-> --- a/net/core/netpoll.c
-> +++ b/net/core/netpoll.c
-> @@ -101,6 +101,7 @@ static void queue_process(struct work_struct *work)
->  		container_of(work, struct netpoll_info, tx_work.work);
->  	struct sk_buff *skb;
->  	unsigned long flags;
-> +	u16 q_index;
->  
->  	while ((skb = skb_dequeue(&npinfo->txq))) {
->  		struct net_device *dev = skb->dev;
-> @@ -117,6 +118,12 @@ static void queue_process(struct work_struct *work)
->  		HARD_TX_LOCK(dev, txq, smp_processor_id());
->  		if (netif_xmit_frozen_or_stopped(txq) ||
->  		    netpoll_start_xmit(skb, dev, txq) != NETDEV_TX_OK) {
-> +			/* check if skb->queue_mapping has changed */
-> +			q_index = skb_get_queue_mapping(skb);
-> +			if (unlikely(q_index >= dev->real_num_tx_queues)) {
-> +				q_index = q_index % dev->real_num_tx_queues;
-> +				skb_set_queue_mapping(skb, q_index);
-> +			}
->  			skb_queue_head(&npinfo->txq, skb);
->  			HARD_TX_UNLOCK(dev, txq);
->  			local_irq_restore(flags);
+cond_resched() might be a no-op.
 
-Hi Thushar, thank you for working on this issue.
-
-Where and when skb->queue_mapping has changed ?
-
-It looks that the real problem is that dev->real_num_tx_queues has been
-changed instead of skb->queue_mapping
-
-So maybe the more correct change would be to cap skb->queue_mapping even
-before getting skb_get_tx_queue() ?
-
-Otherwise, even after your patch, we might still access an invalid queue
-on the device ?
-
-Something like the following :
-
-diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-index 9424673009c14e0fb288b8e4041dba596b37ee8d..16702d95f83ab884e605e3868cfef94615dcbc72 100644
---- a/net/core/netpoll.c
-+++ b/net/core/netpoll.c
-@@ -105,13 +105,20 @@ static void queue_process(struct work_struct *work)
- 	while ((skb = skb_dequeue(&npinfo->txq))) {
- 		struct net_device *dev = skb->dev;
- 		struct netdev_queue *txq;
-+		unsigned int q_index;
- 
- 		if (!netif_device_present(dev) || !netif_running(dev)) {
- 			kfree_skb(skb);
- 			continue;
- 		}
- 
--		txq = skb_get_tx_queue(dev, skb);
-+		/* check if skb->queue_mapping is still valid */
-+		q_index = skb_get_queue_mapping(skb);
-+		if (unlikely(q_index >= dev->real_num_tx_queues)) {
-+			q_index = q_index % dev->real_num_tx_queues;
-+			skb_set_queue_mapping(skb, q_index);
-+		}
-+		txq = netdev_get_tx_queue(dev, q_index);
- 
- 		local_irq_save(flags);
- 		HARD_TX_LOCK(dev, txq, smp_processor_id());
+and doing yield() will result in a priority inversion deadlock. Imagine
+the task doing yield() being the top priority (fifo99) task in the
+system. Then it will simply spin forever, not giving whatever task is
+required to make your condition true time to run.
