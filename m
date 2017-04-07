@@ -1,57 +1,43 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net-next 3/7] net/mlx5e: Make mlx5e_modify_rqs_vsd a static function
-Date: Fri,  7 Apr 2017 21:26:52 +0300
-Message-ID: <20170407182656.6734-4-saeedm@mellanox.com>
+Subject: [net-next 4/7] net/mlx5e: Change FW sub_minor display to 4 zeros padding
+Date: Fri,  7 Apr 2017 21:26:53 +0300
+Message-ID: <20170407182656.6734-5-saeedm@mellanox.com>
 References: <20170407182656.6734-1-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Guy Ergas <guye@mellanox.com>,
+Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:47249 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:47255 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1756077AbdDGS1T (ORCPT
+        with ESMTP id S1756082AbdDGS1T (ORCPT
         <rfc822;netdev@vger.kernel.org>); Fri, 7 Apr 2017 14:27:19 -0400
 In-Reply-To: <20170407182656.6734-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Guy Ergas <guye@mellanox.com>
+From: Eran Ben Elisha <eranbe@mellanox.com>
 
-Make mlx5e_modify_rqs_vsd a static function and remove from en.h in
-order to reduce redundant exposure of functions.
+FW version should be reported as X.Y.ZZZZ, add leading zeroes to sub
+minor in order to fix it.
 
-Signed-off-by: Guy Ergas <guye@mellanox.com>
+Signed-off-by: Eran Ben Elisha <eranbe@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en.h      | 2 --
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 2 +-
- 2 files changed, 1 insertion(+), 3 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-index a58031da7fad..b7feecfbb5a5 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-@@ -843,8 +843,6 @@ int mlx5e_vlan_rx_kill_vid(struct net_device *dev, __always_unused __be16 proto,
- void mlx5e_enable_vlan_filter(struct mlx5e_priv *priv);
- void mlx5e_disable_vlan_filter(struct mlx5e_priv *priv);
- 
--int mlx5e_modify_channels_vsd(struct mlx5e_channels *chs, bool vsd);
--
- struct mlx5e_redirect_rqt_param {
- 	bool is_rss;
- 	union {
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 83796ce17fc3..b57a6e72cc86 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -2950,7 +2950,7 @@ static int mlx5e_modify_channels_scatter_fcs(struct mlx5e_channels *chs, bool en
- 	return 0;
- }
- 
--int mlx5e_modify_channels_vsd(struct mlx5e_channels *chs, bool vsd)
-+static int mlx5e_modify_channels_vsd(struct mlx5e_channels *chs, bool vsd)
- {
- 	int err = 0;
- 	int i;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+index af039b6c0799..167a8379156e 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+@@ -42,7 +42,7 @@ static void mlx5e_get_drvinfo(struct net_device *dev,
+ 	strlcpy(drvinfo->version, DRIVER_VERSION " (" DRIVER_RELDATE ")",
+ 		sizeof(drvinfo->version));
+ 	snprintf(drvinfo->fw_version, sizeof(drvinfo->fw_version),
+-		 "%d.%d.%d",
++		 "%d.%d.%04d",
+ 		 fw_rev_maj(mdev), fw_rev_min(mdev), fw_rev_sub(mdev));
+ 	strlcpy(drvinfo->bus_info, pci_name(mdev->pdev),
+ 		sizeof(drvinfo->bus_info));
 -- 
 2.11.0
