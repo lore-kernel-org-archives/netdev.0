@@ -1,40 +1,36 @@
-From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net-next v4 1/5] dt-bindings: net: dsa: add Mediatek
- MT7530 binding
-Date: Fri, 7 Apr 2017 12:45:40 -0700
-Message-ID: <c452cf9d-62e4-3751-b0ec-b7010de5db10@gmail.com>
-References: <1491554709-9723-1-git-send-email-sean.wang@mediatek.com>
- <1491554709-9723-2-git-send-email-sean.wang@mediatek.com>
+From: Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>
+Subject: Re: [RFC 0/3] netlink: extended error reporting
+Date: Fri, 7 Apr 2017 21:45:57 +0200
+Message-ID: <20170407194557.GA23613@salvia>
+References: <20170407182620.6438-1-johannes@sipsolutions.net>
+ <20170407.115315.23470877439489670.davem@davemloft.net>
+ <1491591552.5800.1.camel@sipsolutions.net>
+ <20170407190601.GA22991@salvia>
+ <1491592185.5800.7.camel@sipsolutions.net>
+ <20170407192134.GA23205@salvia>
+ <1491593357.5800.13.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-        davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, Landen.Chao-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org, keyhaede-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-        objelf-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-To: sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org,
-        vivien.didelot-4ysUXcep3aM1wj+D4I0NRVaTQe2KTcn/@public.gmane.org, matthias.bgg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-        robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1491554709-9723-2-git-send-email-sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1491593357.5800.13.camel-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-
-
-On 04/07/2017 01:45 AM, sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org wrote:
-> From: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
+On Fri, Apr 07, 2017 at 09:29:17PM +0200, Johannes Berg wrote:
+> On Fri, 2017-04-07 at 21:21 +0200, Pablo Neira Ayuso wrote:
+> > I think the most flexible way is to pass the container error
+> > structure to nla_parse() so it sets this for you. This would also
+> > save tons of "malformed attribute" strings.
 > 
-> Add device-tree binding for Mediatek MT7530 switch.
-> 
-> Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> Signed-off-by: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
-> Acked-by: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+> Yes, for sure. The thing is we'll probalby have to pass down the
+> request skb *and* the error struct so that we can get the offset, and
+> this seems like the generic thing that we really should try to get the
+> most information generated.
 
-Reviewed-by: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
--- 
-Florian
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+We only need to store the pointer to the attribute in the error
+container structure. We can calculate the offset from nl_err() by
+pasing the skbuff as parameter there, right?
