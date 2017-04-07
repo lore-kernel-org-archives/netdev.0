@@ -1,90 +1,139 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [pull request][net-next 0/7] Mellanox mlx5 updates 2017-04-16
-Date: Fri,  7 Apr 2017 21:26:49 +0300
-Message-ID: <20170407182656.6734-1-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>
+Subject: [net-next 6/7] net/mlx5e: Reuse alloc cq code for all CQs allocation
+Date: Fri,  7 Apr 2017 21:26:55 +0300
+Message-ID: <20170407182656.6734-7-saeedm@mellanox.com>
+References: <20170407182656.6734-1-saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:47242 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:47256 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1756021AbdDGS1T (ORCPT
+        with ESMTP id S1756049AbdDGS1T (ORCPT
         <rfc822;netdev@vger.kernel.org>); Fri, 7 Apr 2017 14:27:19 -0400
+In-Reply-To: <20170407182656.6734-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+From: Eran Ben Elisha <eranbe@mellanox.com>
 
-The following changes provide some small features and updates to the mlx5
-driver.
+Reuse the code for mlx5e_alloc_cq and mlx5e_alloc_drop_cq, as they
+have a similar flow.
 
-For more information please see below.
+Prior to this patch, the CQEs in the "drop CQ" were not initialized,
+fixed
+it with the shared flow of alloc CQ.  This is not a critical bug as the
+RQ connected to this CQ never moved to RTS, but still better to have
+this right.
 
-Please pull and let me know if there's any problem.
-
-Thanks,
-Saeed.
-
+Signed-off-by: Eran Ben Elisha <eranbe@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 59 +++++++++--------------
+ 1 file changed, 23 insertions(+), 36 deletions(-)
 
-The following changes since commit bd414860440eebc8a7eb54be94c97e6ed09bb402:
-
-  Merge tag 'batadv-next-for-davem-20170406' of git://git.open-mesh.org/linux-merge (2017-04-06 14:37:50 -0700)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/saeed/linux.git tags/mlx5-updates-2017-04-16
-
-for you to fetch changes up to 457fcd8a11f7f7f2483b2366d8a98f269c085302:
-
-  net/mlx5e: Set default RX moderation parameters on driver load (2017-04-07 01:21:28 +0300)
-
-----------------------------------------------------------------
-mlx5-updates-2017-04-16
-
-This patchset provides some updates for the mlx5 drivers.
-
->From Majd,
-1st patch, Adds ConnectX-6 and ConnectX-6 VF PCI IDs support.
-
->From Guy,
-2nd patch, Adds RXFCS scatter support.
-3rd patch, Small cleanup to make a function static.
-
->From Eran,
-4th patch, Adds 4 zeros padding to ethtool FW version.
-6th patch, Trevial code reuse cleanup
-
->From Inbar,
-5th patch, Show board id in ethtool driver information
-
->From Saeed,
-7th patch, Set default RX moderation parameters on driver load
-as a small fix for the latest fail-safe config feature.
-
-Thanks,
-Saeed.
-
-----------------------------------------------------------------
-Eran Ben Elisha (2):
-      net/mlx5e: Change FW sub_minor display to 4 zeros padding
-      net/mlx5e: Reuse alloc cq code for all CQs allocation
-
-Guy Ergas (2):
-      net/mlx5e: Add support for RXFCS feature flag
-      net/mlx5e: Make mlx5e_modify_rqs_vsd a static function
-
-Inbar Karmy (1):
-      net/mlx5e: Show board id in ethtool driver information
-
-Majd Dibbiny (1):
-      net/mlx5: Update the list of the PCI supported devices
-
-Saeed Mahameed (1):
-      net/mlx5e: Set default RX moderation parameters on driver load
-
- drivers/net/ethernet/mellanox/mlx5/core/en.h       |   3 +-
- .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |   5 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c  | 140 +++++++++++++++------
- drivers/net/ethernet/mellanox/mlx5/core/main.c     |   6 +-
- include/linux/mlx5/mlx5_ifc.h                      |   1 +
- 5 files changed, 108 insertions(+), 47 deletions(-)
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index b57a6e72cc86..57844ffca37f 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -1419,21 +1419,16 @@ static void mlx5e_close_xdpsq(struct mlx5e_xdpsq *sq)
+ 	mlx5e_free_xdpsq(sq);
+ }
+ 
+-static int mlx5e_alloc_cq(struct mlx5e_channel *c,
+-			  struct mlx5e_cq_param *param,
+-			  struct mlx5e_cq *cq)
++static int mlx5e_alloc_cq_common(struct mlx5_core_dev *mdev,
++				 struct mlx5e_cq_param *param,
++				 struct mlx5e_cq *cq)
+ {
+-	struct mlx5_core_dev *mdev = c->mdev;
+ 	struct mlx5_core_cq *mcq = &cq->mcq;
+ 	int eqn_not_used;
+ 	unsigned int irqn;
+ 	int err;
+ 	u32 i;
+ 
+-	param->wq.buf_numa_node = cpu_to_node(c->cpu);
+-	param->wq.db_numa_node  = cpu_to_node(c->cpu);
+-	param->eq_ix   = c->ix;
+-
+ 	err = mlx5_cqwq_create(mdev, &param->wq, param->cqc, &cq->wq,
+ 			       &cq->wq_ctrl);
+ 	if (err)
+@@ -1441,8 +1436,6 @@ static int mlx5e_alloc_cq(struct mlx5e_channel *c,
+ 
+ 	mlx5_vector2eqn(mdev, param->eq_ix, &eqn_not_used, &irqn);
+ 
+-	cq->napi        = &c->napi;
+-
+ 	mcq->cqe_sz     = 64;
+ 	mcq->set_ci_db  = cq->wq_ctrl.db.db;
+ 	mcq->arm_db     = cq->wq_ctrl.db.db + 1;
+@@ -1459,12 +1452,30 @@ static int mlx5e_alloc_cq(struct mlx5e_channel *c,
+ 		cqe->op_own = 0xf1;
+ 	}
+ 
+-	cq->channel = c;
+ 	cq->mdev = mdev;
+ 
+ 	return 0;
+ }
+ 
++static int mlx5e_alloc_cq(struct mlx5e_channel *c,
++			  struct mlx5e_cq_param *param,
++			  struct mlx5e_cq *cq)
++{
++	struct mlx5_core_dev *mdev = c->priv->mdev;
++	int err;
++
++	param->wq.buf_numa_node = cpu_to_node(c->cpu);
++	param->wq.db_numa_node  = cpu_to_node(c->cpu);
++	param->eq_ix   = c->ix;
++
++	err = mlx5e_alloc_cq_common(mdev, param, cq);
++
++	cq->napi    = &c->napi;
++	cq->channel = c;
++
++	return err;
++}
++
+ static void mlx5e_free_cq(struct mlx5e_cq *cq)
+ {
+ 	mlx5_cqwq_destroy(&cq->wq_ctrl);
+@@ -2697,31 +2708,7 @@ static int mlx5e_alloc_drop_cq(struct mlx5_core_dev *mdev,
+ 			       struct mlx5e_cq *cq,
+ 			       struct mlx5e_cq_param *param)
+ {
+-	struct mlx5_core_cq *mcq = &cq->mcq;
+-	int eqn_not_used;
+-	unsigned int irqn;
+-	int err;
+-
+-	err = mlx5_cqwq_create(mdev, &param->wq, param->cqc, &cq->wq,
+-			       &cq->wq_ctrl);
+-	if (err)
+-		return err;
+-
+-	mlx5_vector2eqn(mdev, param->eq_ix, &eqn_not_used, &irqn);
+-
+-	mcq->cqe_sz     = 64;
+-	mcq->set_ci_db  = cq->wq_ctrl.db.db;
+-	mcq->arm_db     = cq->wq_ctrl.db.db + 1;
+-	*mcq->set_ci_db = 0;
+-	*mcq->arm_db    = 0;
+-	mcq->vector     = param->eq_ix;
+-	mcq->comp       = mlx5e_completion_event;
+-	mcq->event      = mlx5e_cq_error_event;
+-	mcq->irqn       = irqn;
+-
+-	cq->mdev = mdev;
+-
+-	return 0;
++	return mlx5e_alloc_cq_common(mdev, param, cq);
+ }
+ 
+ static int mlx5e_open_drop_rq(struct mlx5_core_dev *mdev,
+-- 
+2.11.0
