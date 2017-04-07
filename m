@@ -1,43 +1,65 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v2 2/4] net: dsa: add new DSA switch driver for the
- SMSC-LAN9303
-Date: Fri, 7 Apr 2017 16:29:43 +0200
-Message-ID: <20170407142943.GC23415@lunn.ch>
-References: <20170407081502.30172-1-jbe@pengutronix.de>
- <20170407081502.30172-3-jbe@pengutronix.de>
+From: Niklas Cassel <niklas.cassel-VrBV9hrLPhE@public.gmane.org>
+Subject: [PATCH net-next] bindings: net: stmmac: add missing note about LPI interrupt
+Date: Fri, 7 Apr 2017 16:30:58 +0200
+Message-ID: <20170407143100.21536-1-niklass@axis.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        f.fainelli@gmail.com, kernel@pengutronix.de,
-        vivien.didelot@savoirfairelinux.com, davem@davemloft.net
-To: Juergen Borleis <jbe@pengutronix.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:49734 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932873AbdDGO3p (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 7 Apr 2017 10:29:45 -0400
-Content-Disposition: inline
-In-Reply-To: <20170407081502.30172-3-jbe@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Niklas Cassel <niklass-VrBV9hrLPhE@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Joao Pinto <Joao.Pinto-HKixBCOQz3hWk0Htik3J/w@public.gmane.org>,
+        Alexandre TORGUE <alexandre.torgue-qxv4g6HH51o@public.gmane.org>,
+        Niklas Cassel <niklass-VrBV9hrLPhE@public.gmane.org>,
+        Giuseppe CAVALLARO <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
+        Thierry Reding <treding-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>,
+        Eric Engestrom <eric-op+oiCINJLTt9jDmeYuA0g@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi Juergen
+From: Niklas Cassel <niklas.cassel-VrBV9hrLPhE@public.gmane.org>
 
-> +static int lan9303_virt_phy_reg_read(struct lan9303 *chip, int regnum)
-> +{
-> +	int ret;
-> +	u32 val;
-> +
-> +	if (regnum > MII_EXPANSION) {
-> +		if (regnum == MII_LAN911X_SPECIAL_CONTROL_STATUS)
-> +			regnum = 7; /* map to LAN9303_VIRT_SPECIAL_CTRL */
-> +		else
-> +			return -EINVAL;
-> +	}
+The hardware has a LPI interrupt.
+There is already code in the stmmac driver to parse and handle the
+interrupt. However, this information was missing from the DT binding.
 
-What PHY ID does the virtual PHY use? The same as the LAN911X? Or
-something different. I'm just wondering if this should be in the PHY
-driver. But that only works if you can differentiate the virtual PHY
-from the real PHYs in the PHY driver.
+Signed-off-by: Niklas Cassel <niklas.cassel-VrBV9hrLPhE@public.gmane.org>
+---
+ Documentation/devicetree/bindings/net/stmmac.txt | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-     Andrew
+diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
+index f652b0c384ce..8977abc266ac 100644
+--- a/Documentation/devicetree/bindings/net/stmmac.txt
++++ b/Documentation/devicetree/bindings/net/stmmac.txt
+@@ -8,8 +8,8 @@ Required properties:
+   that services interrupts for this device
+ - interrupts: Should contain the STMMAC interrupts
+ - interrupt-names: Should contain the interrupt names "macirq"
+-  "eth_wake_irq" if this interrupt is supported in the "interrupts"
+-  property
++  "eth_wake_irq" if this interrupt is supported in the "interrupts property
++  "eth_lpi" if this interrupt is supported in the "interrupts" property
+ - phy-mode: See ethernet.txt file in the same directory.
+ - snps,reset-gpio 	gpio number for phy reset.
+ - snps,reset-active-low boolean flag to indicate if phy reset is active low.
+@@ -152,8 +152,8 @@ Examples:
+ 		compatible = "st,spear600-gmac";
+ 		reg = <0xe0800000 0x8000>;
+ 		interrupt-parent = <&vic1>;
+-		interrupts = <24 23>;
+-		interrupt-names = "macirq", "eth_wake_irq";
++		interrupts = <24 23 22>;
++		interrupt-names = "macirq", "eth_wake_irq", "eth_lpi";
+ 		mac-address = [000000000000]; /* Filled in by U-Boot */
+ 		max-frame-size = <3800>;
+ 		phy-mode = "gmii";
+-- 
+2.11.0
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
