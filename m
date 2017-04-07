@@ -1,47 +1,84 @@
-From: Corentin Labbe <clabbe.montjoie@gmail.com>
-Subject: Re: [PATCH 0/4 v2 net-next] net: stmmac: adding multiple buffers
-Date: Fri, 7 Apr 2017 11:20:22 +0200
-Message-ID: <20170407092022.GB16604@Red>
-References: <cover.1491409859.git.jpinto@synopsys.com>
+From: Vlastimil Babka <vbabka@suse.cz>
+Subject: Re: [PATCH 1/4] mm: prevent potential recursive reclaim due to
+ clearing PF_MEMALLOC
+Date: Fri, 7 Apr 2017 11:21:45 +0200
+Message-ID: <9c6ff585-f22f-3f90-fce7-793c56485019@suse.cz>
+References: <20170405074700.29871-1-vbabka@suse.cz>
+ <20170405074700.29871-2-vbabka@suse.cz>
+ <1f26f654-abaf-3878-6abb-5e27ff3a289e@virtuozzo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, treding@nvidia.com, niklas.cassel@axis.com,
-        netdev@vger.kernel.org
-To: Joao Pinto <Joao.Pinto@synopsys.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f193.google.com ([209.85.128.193]:35324 "EHLO
-        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755120AbdDGJU1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 7 Apr 2017 05:20:27 -0400
-Received: by mail-wr0-f193.google.com with SMTP id t20so18261520wra.2
-        for <netdev@vger.kernel.org>; Fri, 07 Apr 2017 02:20:26 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <cover.1491409859.git.jpinto@synopsys.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: linux-mm@kvack.org, linux-kernel@vger.kernel.org,
+        Michal Hocko <mhocko@kernel.org>,
+        Mel Gorman <mgorman@techsingularity.net>,
+        Johannes Weiner <hannes@cmpxchg.org>,
+        linux-block@vger.kernel.org, nbd-general@lists.sourceforge.net,
+        open-iscsi@googlegroups.com, linux-scsi@vger.kernel.org,
+        netdev@vger.kernel.org, stable@vger.kernel.org
+To: Andrey Ryabinin <aryabinin@virtuozzo.com>,
+        Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-block-owner@vger.kernel.org>
+In-Reply-To: <1f26f654-abaf-3878-6abb-5e27ff3a289e@virtuozzo.com>
+Sender: linux-block-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 05, 2017 at 05:43:00PM +0100, Joao Pinto wrote:
-> This patch adds multiple buffers to stmmac in a more fragmented
-> way, in order to make problem debug easier.
+On 04/05/2017 01:40 PM, Andrey Ryabinin wrote:
+> On 04/05/2017 10:46 AM, Vlastimil Babka wrote:
+>> The function __alloc_pages_direct_compact() sets PF_MEMALLOC to prevent
+>> deadlock during page migration by lock_page() (see the comment in
+>> __unmap_and_move()). Then it unconditionally clears the flag, which can clear a
+>> pre-existing PF_MEMALLOC flag and result in recursive reclaim. This was not a
+>> problem until commit a8161d1ed609 ("mm, page_alloc: restructure direct
+>> compaction handling in slowpath"), because direct compation was called only
+>> after direct reclaim, which was skipped when PF_MEMALLOC flag was set.
+>> 
+>> Even now it's only a theoretical issue, as the new callsite of
+>> __alloc_pages_direct_compact() is reached only for costly orders and when
+>> gfp_pfmemalloc_allowed() is true, which means either __GFP_NOMEMALLOC is in
+>                            is false			
 > 
-> I would kindly request to people to test this patch in their HWs in
-> order to check if everything's functional. Thank you.
+>> gfp_flags or in_interrupt() is true. There is no such known context, but let's
+>> play it safe and make __alloc_pages_direct_compact() robust for cases where
+>> PF_MEMALLOC is already set.
+>> 
+>> Fixes: a8161d1ed609 ("mm, page_alloc: restructure direct compaction handling in slowpath")
+>> Reported-by: Andrey Ryabinin <aryabinin@virtuozzo.com>
+>> Signed-off-by: Vlastimil Babka <vbabka@suse.cz>
+>> Cc: <stable@vger.kernel.org>
+>> ---
+>>  mm/page_alloc.c | 3 ++-
+>>  1 file changed, 2 insertions(+), 1 deletion(-)
+>> 
+>> diff --git a/mm/page_alloc.c b/mm/page_alloc.c
+>> index 3589f8be53be..b84e6ffbe756 100644
+>> --- a/mm/page_alloc.c
+>> +++ b/mm/page_alloc.c
+>> @@ -3288,6 +3288,7 @@ __alloc_pages_direct_compact(gfp_t gfp_mask, unsigned int order,
+>>  		enum compact_priority prio, enum compact_result *compact_result)
+>>  {
+>>  	struct page *page;
+>> +	unsigned int noreclaim_flag = current->flags & PF_MEMALLOC;
+>>  
+>>  	if (!order)
+>>  		return NULL;
+>> @@ -3295,7 +3296,7 @@ __alloc_pages_direct_compact(gfp_t gfp_mask, unsigned int order,
+>>  	current->flags |= PF_MEMALLOC;
+>>  	*compact_result = try_to_compact_pages(gfp_mask, order, alloc_flags, ac,
+>>  									prio);
+>> -	current->flags &= ~PF_MEMALLOC;
+>> +	current->flags = (current->flags & ~PF_MEMALLOC) | noreclaim_flag;
 > 
-> Joao Pinto (4):
->   net: stmmac: break some functions into RX and TX scopes
->   net: stmmac: adding multiple buffers for RX
->   net: stmmac: adding multiple buffers for TX
->   net: stmmac: adding multiple napi mechanism
+> Perhaps this would look better:
 > 
->  drivers/net/ethernet/stmicro/stmmac/chain_mode.c  |   45 +-
->  drivers/net/ethernet/stmicro/stmmac/ring_mode.c   |   46 +-
->  drivers/net/ethernet/stmicro/stmmac/stmmac.h      |   49 +-
->  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 1257 ++++++++++++++-------
->  4 files changed, 947 insertions(+), 450 deletions(-)
+> 	tsk_restore_flags(current, noreclaim_flag, PF_MEMALLOC);
 > 
-> -- 
-> 2.9.3
-> 
+> ?
 
-For whole serie,
-Tested-by: Corentin Labbe <clabbe.montjoie@gmail.com>
+Well, I didn't care much considering this is for stable only, and patch 2/4
+rewrites this to the new api.
+
+>>  	if (*compact_result <= COMPACT_INACTIVE)
+>>  		return NULL;
+>> 
+> 
