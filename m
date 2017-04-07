@@ -1,41 +1,32 @@
-From: Tim Harvey <tharvey@gateworks.com>
-Subject: IMX6 FEC connection drops occasionally with 'MDIO read timeout'
-Date: Fri, 7 Apr 2017 07:47:17 -0700
-Message-ID: <CAJ+vNU1UG2EeJSTStT_BJ+RiRe4a8YwfRgnE6DsRghTLetq_rg@mail.gmail.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH v2 4/4] net: dsa: LAN9303: add MDIO managed mode support
+Date: Fri, 7 Apr 2017 16:54:37 +0200
+Message-ID: <20170407145437.GD23415@lunn.ch>
+References: <20170407081502.30172-1-jbe@pengutronix.de>
+ <20170407081502.30172-5-jbe@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Fabio Estevam <fabio.estevam@nxp.com>,
-        Lucas Stach <l.stach@pengutronix.de>,
-        Fugang Duan <fugang.duan@nxp.com>,
-        Koen Vandeputte <koen.vandeputte@ncentric.com>
-To: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        f.fainelli@gmail.com, kernel@pengutronix.de,
+        vivien.didelot@savoirfairelinux.com, davem@davemloft.net
+To: Juergen Borleis <jbe@pengutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f45.google.com ([74.125.82.45]:36362 "EHLO
-        mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933650AbdDGOrT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 7 Apr 2017 10:47:19 -0400
-Received: by mail-wm0-f45.google.com with SMTP id o81so45921386wmb.1
-        for <netdev@vger.kernel.org>; Fri, 07 Apr 2017 07:47:18 -0700 (PDT)
+Received: from vps0.lunn.ch ([178.209.37.122]:49778 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S934031AbdDGOyl (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 7 Apr 2017 10:54:41 -0400
+Content-Disposition: inline
+In-Reply-To: <20170407081502.30172-5-jbe@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Greetings,
+> +static const struct of_device_id lan9303_mdio_of_match[] = {
+> +	{ .compatible = "smsc,lan9303" },
+> +	{ /* sentinel */ },
+> +};
 
-I've had a couple of users report that they are getting occasional
-link drops when using IMX6 FEC on our boards which are using a Marvell
-88E1510 PHY:
+I just chatted with Dave about this. Please include mdio and i2c in
+the compatible string, so they are different. That will avoid any
+possible problems.
 
-[ 9348.474418] fec 2188000.ethernet eth0: MDIO read timeout
-[ 9350.478804] fec 2188000.ethernet eth0: Link is Down
-
-If they bring the interface back up it works fine.
-
-The most recent version of Linux they have tested and seen this on is
-v4.9 with CONFIG_MARVELL_PHY=y
-
-Has anyone else run into this or know what the issue could be? Should
-there be any retries at the MDIO level or above?
-
-Regards,
-
-Tim
+	 Andrew
