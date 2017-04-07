@@ -1,38 +1,53 @@
-From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Subject: Re: [PATCH] RDS: IB: ensure an initialized ret is printed in pr_warn
- message
-Date: Fri, 7 Apr 2017 08:59:46 -0700
-Message-ID: <f3de73cb-f56a-9e6e-a39b-7cee16030b22@oracle.com>
-References: <20170407075723.9669-1-colin.king@canonical.com>
- <20170407142412.GA4471@mwanda>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: IMX6 FEC connection drops occasionally with 'MDIO read timeout'
+Date: Fri, 7 Apr 2017 18:09:15 +0200
+Message-ID: <20170407160915.GF23415@lunn.ch>
+References: <CAJ+vNU1UG2EeJSTStT_BJ+RiRe4a8YwfRgnE6DsRghTLetq_rg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        linux-rdma@vger.kernel.org, rds-devel@oss.oracle.com,
-        kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Dan Carpenter <dan.carpenter@oracle.com>,
-        Colin King <colin.king@canonical.com>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <20170407142412.GA4471@mwanda>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>,
+        Fabio Estevam <fabio.estevam@nxp.com>,
+        Lucas Stach <l.stach@pengutronix.de>,
+        Fugang Duan <fugang.duan@nxp.com>,
+        Koen Vandeputte <koen.vandeputte@ncentric.com>
+To: Tim Harvey <tharvey@gateworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:49931 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754148AbdDGQJS (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 7 Apr 2017 12:09:18 -0400
+Content-Disposition: inline
+In-Reply-To: <CAJ+vNU1UG2EeJSTStT_BJ+RiRe4a8YwfRgnE6DsRghTLetq_rg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 4/7/2017 7:24 AM, Dan Carpenter wrote:
-> Setting it to zero doesn't seem like the right thing, it should be an
-> error code.  Oh, heh...  Smatch parses this one correctly.  "ret" is
-> always initialized but the code is probably buggy in a different way:
->
+On Fri, Apr 07, 2017 at 07:47:17AM -0700, Tim Harvey wrote:
+> Greetings,
+> 
+> I've had a couple of users report that they are getting occasional
+> link drops when using IMX6 FEC on our boards which are using a Marvell
+> 88E1510 PHY:
+> 
+> [ 9348.474418] fec 2188000.ethernet eth0: MDIO read timeout
+> [ 9350.478804] fec 2188000.ethernet eth0: Link is Down
+> 
+> If they bring the interface back up it works fine.
+> 
+> The most recent version of Linux they have tested and seen this on is
+> v4.9 with CONFIG_MARVELL_PHY=y
+> 
+> Has anyone else run into this or know what the issue could be? Should
+> there be any retries at the MDIO level or above?
 
-[...]
+Hi Tim
 
->    561                  ibmr = rds_ib_reg_fmr(rds_ibdev, sg, nents, key_ret);
->    562          if (ibmr)
->                     ^^^^
-> This condition is always true because those functions return ERR_PTRs
-> not NULLs.
->
-Thanks Dan. I will fix that up.
+MDIO is assumed to be reliable. It failing is bad.
 
-Regards,
-Santosh
+However, ETIMEOUT is interesting. The MDIO protocol has no flow
+control. There is no way for the PHY to delay replying.
+
+I would suggest you look at the power management code. What i have
+seen with the FEC, when using switches attached to the FEC, is that if
+the clocks are turned off, you get ETIMEOUT from MDIO.
+
+    Andrew
