@@ -1,33 +1,101 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/4 v3 net-next] net: stmmac: adding multiple buffers
-Date: Fri, 07 Apr 2017 07:18:57 -0700 (PDT)
-Message-ID: <20170407.071857.1140644831091281319.davem@davemloft.net>
-References: <cover.1491467980.git.jpinto@synopsys.com>
+From: Nikolay Aleksandrov via Bridge <bridge@lists.linux-foundation.org>
+Subject: Re: [PATCH net] bridge: netlink: register netdevice before
+ executing changelink
+Date: Fri, 7 Apr 2017 17:19:48 +0300
+Message-ID: <3d567660-7fa5-979e-3097-89427270e554@cumulusnetworks.com>
+References: <20170407124915.15508-1-idosch@mellanox.com>
+	<20170407101055.745d95d0@plumbers-lap.home.lan>
+Reply-To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: clabbe.montjoie@gmail.com, treding@nvidia.com,
-        niklas.cassel@axis.com, julia.lawall@lip6.fr,
-        netdev@vger.kernel.org
-To: Joao.Pinto@synopsys.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:54380 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755318AbdDGOS7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 7 Apr 2017 10:18:59 -0400
-In-Reply-To: <cover.1491467980.git.jpinto@synopsys.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: cera@cera.cz, mlxsw@mellanox.com, netdev@vger.kernel.org, peter@svinota.eu,
+	bridge@lists.linux-foundation.org, davem@davemloft.net
+To: Stephen Hemminger <stephen@networkplumber.org>, idosch@mellanox.com
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <20170407101055.745d95d0@plumbers-lap.home.lan>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Joao Pinto <Joao.Pinto@synopsys.com>
-Date: Thu,  6 Apr 2017 09:49:07 +0100
-
-> This patch adds multiple buffers to stmmac in a more fragmented
-> way, in order to make problem debug easier.
+On 07/04/17 17:10, Stephen Hemminger wrote:
+> On Fri, 7 Apr 2017 15:49:15 +0300
+> <idosch@mellanox.com> wrote:
 > 
-> I would kindly request to people to test this patch in their HWs in
-> order to check if everything's functional. Thank you.
+>> From: Ido Schimmel <idosch@mellanox.com>
+>>
+>> Peter reported a kernel oops when executing the following command:
+>>
+>> $ ip link add name test type bridge vlan_default_pvid 1
+>>
+>> [13634.939408] BUG: unable to handle kernel NULL pointer dereference at
+>> 0000000000000190
+>> [13634.939436] IP: __vlan_add+0x73/0x5f0
+>> [...]
+>> [13634.939783] Call Trace:
+>> [13634.939791]  ? pcpu_next_unpop+0x3b/0x50
+>> [13634.939801]  ? pcpu_alloc+0x3d2/0x680
+>> [13634.939810]  ? br_vlan_add+0x135/0x1b0
+>> [13634.939820]  ? __br_vlan_set_default_pvid.part.28+0x204/0x2b0
+>> [13634.939834]  ? br_changelink+0x120/0x4e0
+>> [13634.939844]  ? br_dev_newlink+0x50/0x70
+>> [13634.939854]  ? rtnl_newlink+0x5f5/0x8a0
+>> [13634.939864]  ? rtnl_newlink+0x176/0x8a0
+>> [13634.939874]  ? mem_cgroup_commit_charge+0x7c/0x4e0
+>> [13634.939886]  ? rtnetlink_rcv_msg+0xe1/0x220
+>> [13634.939896]  ? lookup_fast+0x52/0x370
+>> [13634.939905]  ? rtnl_newlink+0x8a0/0x8a0
+>> [13634.939915]  ? netlink_rcv_skb+0xa1/0xc0
+>> [13634.939925]  ? rtnetlink_rcv+0x24/0x30
+>> [13634.939934]  ? netlink_unicast+0x177/0x220
+>> [13634.939944]  ? netlink_sendmsg+0x2fe/0x3b0
+>> [13634.939954]  ? _copy_from_user+0x39/0x40
+>> [13634.939964]  ? sock_sendmsg+0x30/0x40
+>> [13634.940159]  ? ___sys_sendmsg+0x29d/0x2b0
+>> [13634.940326]  ? __alloc_pages_nodemask+0xdf/0x230
+>> [13634.940478]  ? mem_cgroup_commit_charge+0x7c/0x4e0
+>> [13634.940592]  ? mem_cgroup_try_charge+0x76/0x1a0
+>> [13634.940701]  ? __handle_mm_fault+0xdb9/0x10b0
+>> [13634.940809]  ? __sys_sendmsg+0x51/0x90
+>> [13634.940917]  ? entry_SYSCALL_64_fastpath+0x1e/0xad
+>>
+>> The problem is that the bridge's VLAN group is created after setting the
+>> default PVID, when registering the netdevice and executing its
+>> ndo_init().
+>>
+>> Fix this by changing the order of both operations, so that
+>> br_changelink() is only processed after the netdevice is registered,
+>> when the VLAN group is already initialized.
+>>
+>> The changelink() call is done on a best-effort basis since unregistering
+>> the netdevice upon failure won't perform a proper cleanup due to a
+>> missing ndo_uninit(), which I'll try to add for net-next.
+>>
+>> Fixes: b6677449dff6 ("bridge: netlink: call br_changelink() during br_dev_newlink()")
+>> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+>> Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+>> Reported-by: Peter V. Saveliev <peter@svinota.eu>
+>> ---
+>> Please consider this for 4.4.y, 4.9.y and 4.10.y as well.
+> 
+> Although this patch fixes the OOPS it breaks all the error handling
+> of br_changelink. If bad attributes are passed to newlink, you leave a
+> broken partially configured bridge device. The code needs to cleanup
+> and return the correct errno.
+> 
 
-Looks like there has been a bit of testing, so I'll apply this series.
+The cleanup would require adding ndo_uninit() and a much bigger churn
+which doesn't seem okay for -net, it will be targetted at net-next.
+The bridge can always be reconfigured as all of the options can be set
+during runtime, so anything can be fixed, thus the best-effort changelink.
 
-Thanks.
+If it is not desirable for -net then maybe we should just revert the
+patch there altogether and make it again correctly with cleanup and so
+on in net-next.
