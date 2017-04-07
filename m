@@ -1,53 +1,34 @@
-From: "Hillf Danton" <hillf.zj@alibaba-inc.com>
-Subject: Re: [PATCH 2/4] mm: introduce memalloc_noreclaim_{save,restore}
-Date: Fri, 07 Apr 2017 15:38:43 +0800
-Message-ID: <092401d2af71$fc320ef0$f4962cd0$@alibaba-inc.com>
-References: <20170405074700.29871-1-vbabka@suse.cz> <20170405074700.29871-3-vbabka@suse.cz>
-Reply-To: "Hillf Danton" <hillf.zj@alibaba-inc.com>
+From: Guillaume Nault <g.nault@alphalink.fr>
+Subject: Re: [PATCH net] l2tp: define SOL_PPPOL2TP in uapi
+Date: Fri, 7 Apr 2017 09:48:41 +0200
+Message-ID: <20170407074841.do4ekkgangsuz6w2@alphalink.fr>
+References: <28884134c7944f005e4872256742b10765cc2770.1491402366.git.g.nault@alphalink.fr>
+ <20170406.132534.1383136932861851088.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: <linux-mm@kvack.org>,
-	<linux-kernel@vger.kernel.org>,
-	"'Michal Hocko'" <mhocko@kernel.org>,
-	"'Mel Gorman'" <mgorman@techsingularity.net>,
-	"'Johannes Weiner'" <hannes@cmpxchg.org>,
-	<linux-block@vger.kernel.org>,
-	<nbd-general@lists.sourceforge.net>,
-	<open-iscsi@googlegroups.com>,
-	<linux-scsi@vger.kernel.org>,
-	<netdev@vger.kernel.org>,
-	"'Michal Hocko'" <mhocko@suse.com>
-To: "'Vlastimil Babka'" <vbabka@suse.cz>,
-	"'Andrew Morton'" <akpm@linux-foundation.org>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20170405074700.29871-3-vbabka@suse.cz>
-Content-Language: zh-cn
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, jchapman@katalix.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from zimbra.alphalink.fr ([217.15.80.77]:33071 "EHLO
+        zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753479AbdDGHsw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 7 Apr 2017 03:48:52 -0400
+Content-Disposition: inline
+In-Reply-To: <20170406.132534.1383136932861851088.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-On April 05, 2017 3:47 PM Vlastimil Babka wrote: 
+On Thu, Apr 06, 2017 at 01:25:34PM -0700, David Miller wrote:
+> From: Guillaume Nault <g.nault@alphalink.fr>
+> Date: Wed, 5 Apr 2017 16:52:35 +0200
 > 
-> The previous patch has shown that simply setting and clearing PF_MEMALLOC in
-> current->flags can result in wrongly clearing a pre-existing PF_MEMALLOC flag
-> and potentially lead to recursive reclaim. Let's introduce helpers that support
-> proper nesting by saving the previous stat of the flag, similar to the existing
-> memalloc_noio_* and memalloc_nofs_* helpers. Convert existing setting/clearing
-> of PF_MEMALLOC within mm to the new helpers.
+> > Userspace needs SOL_PPPOL2TP to be defined for using PPPOL2TP_SO_*
+> > socket options.
+> > 
+> > Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
 > 
-> There are no known issues with the converted code, but the change makes it more
-> robust.
+> We really can't do this, there is no precedence for defining the SOL_*
+> values in the kernel headers, it needs to come from the libc headers just
+> like the other SOL_* values do for applications.
 > 
-> Suggested-by: Michal Hocko <mhocko@suse.com>
-> Signed-off-by: Vlastimil Babka <vbabka@suse.cz>
-> ---
-
-Acked-by: Hillf Danton <hillf.zj@alibaba-inc.com>
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Got it, thanks.
