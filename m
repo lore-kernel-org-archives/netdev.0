@@ -1,52 +1,38 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v2 1/4] net: dsa: add support for the SMSC-LAN9303
- tagging format
-Date: Fri, 7 Apr 2017 15:06:10 +0200
-Message-ID: <20170407130610.GD17290@lunn.ch>
-References: <20170407081502.30172-1-jbe@pengutronix.de>
- <20170407081502.30172-2-jbe@pengutronix.de>
+From: Ido Schimmel <idosch@idosch.org>
+Subject: Re: [PATCH v2] mlxsw: convert to pci_alloc_irq_vectors
+Date: Fri, 7 Apr 2017 16:08:08 +0300
+Message-ID: <20170407130808.GA31087@splinter>
+References: <20170406122303.30758-1-hch@lst.de>
+ <20170406124320.GA5456@splinter.mtl.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        f.fainelli@gmail.com, kernel@pengutronix.de,
-        vivien.didelot@savoirfairelinux.com, davem@davemloft.net
-To: Juergen Borleis <jbe@pengutronix.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: jiri@mellanox.com, idosch@mellanox.com, netdev@vger.kernel.org
+To: Christoph Hellwig <hch@lst.de>, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:60754 "EHLO
+        out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1756048AbdDGNIW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 7 Apr 2017 09:08:22 -0400
 Content-Disposition: inline
-In-Reply-To: <20170407081502.30172-2-jbe@pengutronix.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20170406124320.GA5456@splinter.mtl.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 07, 2017 at 10:14:59AM +0200, Juergen Borleis wrote:
-> To define the outgoing port and to discover the incoming port a regular
-> VLAN tag is used by the LAN9303. But its VID meaning is 'special'.
+Hi Dave,
+
+On Thu, Apr 06, 2017 at 03:43:20PM +0300, Ido Schimmel wrote:
+> On Thu, Apr 06, 2017 at 02:23:03PM +0200, Christoph Hellwig wrote:
+> > Trivial conversion as only one vector is supported, but at least we
+> > lose the useless msix_entry member in the per-device structure.
+> > 
+> > Signed-off-by: Christoph Hellwig <hch@lst.de>
 > 
-> This tag handler/filter depends on some hardware features which must be
-> enabled in the device to provide and make use of this special VLAN tag
-> to control the destination and the source of an ethernet packet.
-> 
-> +
-> +/* To define the outgoing port and to discover the incoming port a regular
-> + * VLAN tag is used by the LAN9303. But its VID meaning is 'special':
-> + *
-> + *       Dest MAC       Src MAC        TAG    Type
-> + * ...| 1 2 3 4 5 6 | 1 2 3 4 5 6 | 1 2 3 4 | 1 2 |...
-> + *                                |<------->|
-> + * TAG:
-> + *    |<------------->|
-> + *    |  1  2 | 3  4  |
-> + *      TPID    VID
-> + *     0x8100
-> + *
-> + * VID bit 3 indicates a request for an ALR lookup.
+> For net-next:
 
-Hi Juergen
+I noticed this is marked as "Not Applicable" in patchwork:
+https://patchwork.ozlabs.org/patch/747723/
 
-Maybe on the transmit path, you should look into the packet and see if
-there is already a VLAN header, and if bit 3 is set, drop the
-packet. Somebody could configure the stack from userspace to produce
-such packets to direct them out specific ports, which is not what you
-want. Worse still, this could be packets you are getting from
-somewhere else, e.g. a L2 VPN.
+But I'm not quite sure why. Maybe you meant to mark only v1?
+https://patchwork.ozlabs.org/patch/747674/
 
-	  Andrew
+Thanks
