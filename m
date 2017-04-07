@@ -1,38 +1,41 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next v4 1/5] dt-bindings: net: dsa: add Mediatek
- MT7530 binding
-Date: Fri, 7 Apr 2017 21:38:42 +0200
-Message-ID: <20170407193842.GD500@lunn.ch>
-References: <1491554709-9723-1-git-send-email-sean.wang@mediatek.com>
- <1491554709-9723-2-git-send-email-sean.wang@mediatek.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [RFC 1/3] netlink: extended error reporting
+Date: Fri, 07 Apr 2017 21:41:03 +0200
+Message-ID: <1491594063.5800.15.camel@sipsolutions.net>
+References: <20170407182620.6438-1-johannes@sipsolutions.net>
+         <20170407182620.6438-2-johannes@sipsolutions.net>
+         (sfid-20170407_202644_889879_CEBB983B)
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: f.fainelli@gmail.com, vivien.didelot@savoirfairelinux.com,
-        matthias.bgg@gmail.com, robh+dt@kernel.org, mark.rutland@arm.com,
-        devicetree@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, linux-mediatek@lists.infradead.org,
-        davem@davemloft.net, Landen.Chao@mediatek.com, keyhaede@gmail.com,
-        objelf@gmail.com
-To: sean.wang@mediatek.com
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: pablo@netfilter.org
+To: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:50221 "EHLO vps0.lunn.ch"
+Received: from s3.sipsolutions.net ([5.9.151.49]:52044 "EHLO sipsolutions.net"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1756082AbdDGTir (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 7 Apr 2017 15:38:47 -0400
-Content-Disposition: inline
-In-Reply-To: <1491554709-9723-2-git-send-email-sean.wang@mediatek.com>
+        id S1752219AbdDGTlH (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 7 Apr 2017 15:41:07 -0400
+In-Reply-To: <20170407182620.6438-2-johannes@sipsolutions.net> (sfid-20170407_202644_889879_CEBB983B)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 07, 2017 at 04:45:05PM +0800, sean.wang@mediatek.com wrote:
-> From: Sean Wang <sean.wang@mediatek.com>
+On Fri, 2017-04-07 at 20:26 +0200, Johannes Berg wrote:
 > 
-> Add device-tree binding for Mediatek MT7530 switch.
-> 
-> Cc: devicetree@vger.kernel.org
-> Signed-off-by: Sean Wang <sean.wang@mediatek.com>
-> Acked-by: Rob Herring <robh@kernel.org>
+> +	if (nlk->flags & NETLINK_F_EXT_ACK) {
+> +		if (exterr && exterr->msg)
+> +			WARN_ON(nla_put_string(skb,
+> NLMSGERR_ATTR_MSG,
+> +					       exterr->msg));
+> +		if (exterr && exterr->msg_offset)
+> +			WARN_ON(nla_put_u32(skb, NLMSGERR_ATTR_OFFS,
+> +					    exterr->msg_offset));
+> +		if (exterr && exterr->attr)
+> +			WARN_ON(nla_put_u16(skb, NLMSGERR_ATTR_ATTR,
+> +					    exterr->attr));
+> +	}
 
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+I forgot to check (err != 0) here, which can cause inconsistencies -
+noticed that while just adding the error case Jamal wanted. I'll send
+out that as a separate patch, and squash it later when I resubmit.
 
-    Andrew
+johannes
