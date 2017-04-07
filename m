@@ -1,34 +1,30 @@
-From: Ville =?iso-8859-1?Q?Syrj=E4l=E4?= <ville.syrjala@linux.intel.com>
-Subject: [regression v4.11] 617f01211baf ("8139too: use napi_complete_done()")
-Date: Fri, 7 Apr 2017 21:17:54 +0300
-Message-ID: <20170407181754.GL30290@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Eric Dumazet <edumazet@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: [RFC 0/3] netlink: extended error reporting
+Date: Fri,  7 Apr 2017 20:26:17 +0200
+Message-ID: <20170407182620.6438-1-johannes@sipsolutions.net>
+Cc: pablo@netfilter.org
+To: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s3.sipsolutions.net ([5.9.151.49]:51208 "EHLO sipsolutions.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1755507AbdDGS0Z (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 7 Apr 2017 14:26:25 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+So this is my first draft of what we'd talked about at netconf.
+I'm not super happy with the way we have to pass the extended
+error struct, but I don't see a way to implement reporting any
+dynamic information (like error offsets) in any other way.
 
-My old P3 laptop started to die on me in the middle of larger compile
-jobs (using distcc) after v4.11-rc<something>. I bisected the problem
-to 617f01211baf ("8139too: use napi_complete_done()").
+Alexander Shishkin had a nice way of reporting static extended
+error data, but that isn't really suitable for reporting the
+offset or even reporting the broken attribute from nla_parse().
 
-Unfortunately I wasn't able to capture a full oops as the machine doesn't
-have serial and ramoops failed me. I did get one partial oops on vgacon
-which showed rtl8139_poll() being involved (EIP was around
-_raw_spin_unlock_irqrestore() supposedly), so seems to agree with my
-bisect result.
+Speaking of nla_parse(), that'll be somewhat complicated to do
+since we'll have to track the offsets of where we're parsing,
+but it might be possible since the nlattrs are just pointers
+into the message, so (optionally?) passing the skb as well can
+allow us to fill the offset information.
 
-So maybe some kind of nasty thing going between the hard irq and
-softirq? Perhaps UP related? I tried to stare at the locking around
-rtl8139_poll() for a while but it looked mostly sane to me.
-
--- 
-Ville Syrjälä
-Intel OTC
+johannes
