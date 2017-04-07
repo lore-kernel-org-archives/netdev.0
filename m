@@ -1,62 +1,53 @@
 From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: [PATCH 10/12] ftgmac100: Don't clear tx desc fields unnecessarily
-Date: Fri,  7 Apr 2017 13:31:03 +1000
-Message-ID: <20170407033105.29558-11-benh@kernel.crashing.org>
+Subject: [PATCH 08/12] ftgmac100: Move the barrier out of ftgmac100_txdes_set_dma_own()
+Date: Fri,  7 Apr 2017 13:31:01 +1000
+Message-ID: <20170407033105.29558-9-benh@kernel.crashing.org>
 References: <20170407033105.29558-1-benh@kernel.crashing.org>
 Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:39160 "EHLO gate.crashing.org"
+Received: from gate.crashing.org ([63.228.1.57]:36514 "EHLO gate.crashing.org"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753832AbdDGDbt (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 6 Apr 2017 23:31:49 -0400
+        id S1751784AbdDGDn4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 6 Apr 2017 23:43:56 -0400
 In-Reply-To: <20170407033105.29558-1-benh@kernel.crashing.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Those are non-cachable stores, let's avoid those we don't need. Remove
-the helper, it's not particularly helpful and since it uses "priv"
-I can't move it to the header file.
+We'll use variants of this accessor without barriers when
+building series of descriptors for fragmented sends
 
 Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 ---
- drivers/net/ethernet/faraday/ftgmac100.c | 17 ++++++-----------
- 1 file changed, 6 insertions(+), 11 deletions(-)
+ drivers/net/ethernet/faraday/ftgmac100.c | 9 ++++-----
+ 1 file changed, 4 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/ethernet/faraday/ftgmac100.c b/drivers/net/ethernet/faraday/ftgmac100.c
-index 22edd01..a68a7c4 100644
+index ccf0fcd..31fbb75 100644
 --- a/drivers/net/ethernet/faraday/ftgmac100.c
 +++ b/drivers/net/ethernet/faraday/ftgmac100.c
-@@ -466,16 +466,6 @@ static bool ftgmac100_rx_packet(struct ftgmac100 *priv, int *processed)
- 	return true;
- }
+@@ -483,11 +483,6 @@ static bool ftgmac100_txdes_owned_by_dma(struct ftgmac100_txdes *txdes)
  
--static void ftgmac100_txdes_reset(const struct ftgmac100 *priv,
--				  struct ftgmac100_txdes *txdes)
--{
--	/* clear all except end of ring bit */
--	txdes->txdes0 &= cpu_to_le32(priv->txdes0_edotr_mask);
--	txdes->txdes1 = 0;
--	txdes->txdes2 = 0;
--	txdes->txdes3 = 0;
--}
--
- static bool ftgmac100_txdes_owned_by_dma(struct ftgmac100_txdes *txdes)
+ static void ftgmac100_txdes_set_dma_own(struct ftgmac100_txdes *txdes)
  {
- 	return txdes->txdes0 & cpu_to_le32(FTGMAC100_TXDES0_TXDMA_OWN);
-@@ -575,7 +565,12 @@ static void ftgmac100_free_tx_packet(struct ftgmac100 *priv,
- 	dev_kfree_skb(skb);
- 	priv->tx_skbs[pointer] = NULL;
- 
--	ftgmac100_txdes_reset(priv, txdes);
-+	/* Clear txdes0 except end of ring bit, clear txdes1 as we
-+	 * only "OR" into it, leave 2 and 3 alone as 2 is unused
-+	 * and 3 will be overwritten entirely
-+	 */
-+	txdes->txdes0 &= cpu_to_le32(priv->txdes0_edotr_mask);
-+	txdes->txdes1 = 0;
+-	/*
+-	 * Make sure dma own bit will not be set before any other
+-	 * descriptor fields.
+-	 */
+-	wmb();
+ 	txdes->txdes0 |= cpu_to_le32(FTGMAC100_TXDES0_TXDMA_OWN);
  }
  
- static bool ftgmac100_tx_complete_packet(struct ftgmac100 *priv)
+@@ -678,6 +673,10 @@ static int ftgmac100_hard_start_xmit(struct sk_buff *skb,
+ 		}
+ 	}
+ 
++	/* Order the previous packet and descriptor udpates
++	 * before setting the OWN bit.
++	 */
++	dma_wmb();
+ 	ftgmac100_txdes_set_dma_own(txdes);
+ 
+ 	/* Update next TX pointer */
 -- 
 2.9.3
