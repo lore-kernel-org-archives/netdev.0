@@ -1,56 +1,55 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [RFC 0/3] netlink: extended error reporting
-Date: Fri, 7 Apr 2017 21:35:50 +0200
-Message-ID: <20170407193550.GA23424@salvia>
-References: <20170407182620.6438-1-johannes@sipsolutions.net>
- <20170407.115315.23470877439489670.davem@davemloft.net>
- <1491591552.5800.1.camel@sipsolutions.net>
- <20170407.122053.201153373954521345.davem@davemloft.net>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next v4 5/5] net-next: dsa: add dsa support for
+ Mediatek MT7530 switch
+Date: Fri, 7 Apr 2017 21:37:16 +0200
+Message-ID: <20170407193716.GC500@lunn.ch>
+References: <1491554709-9723-1-git-send-email-sean.wang@mediatek.com>
+ <1491554709-9723-6-git-send-email-sean.wang@mediatek.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: johannes@sipsolutions.net, linux-wireless@vger.kernel.org,
-        netdev@vger.kernel.org, jiri@resnulli.us
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:35740 "EHLO mail.us.es"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754469AbdDGTf5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 7 Apr 2017 15:35:57 -0400
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id E3B0C170D27
-        for <netdev@vger.kernel.org>; Fri,  7 Apr 2017 21:35:52 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id D48B9DA38C
-        for <netdev@vger.kernel.org>; Fri,  7 Apr 2017 21:35:52 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id C09EBDA38C
-        for <netdev@vger.kernel.org>; Fri,  7 Apr 2017 21:35:50 +0200 (CEST)
+Cc: f.fainelli@gmail.com, vivien.didelot@savoirfairelinux.com,
+        matthias.bgg@gmail.com, robh+dt@kernel.org, mark.rutland@arm.com,
+        devicetree@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, linux-mediatek@lists.infradead.org,
+        davem@davemloft.net, Landen.Chao@mediatek.com, keyhaede@gmail.com,
+        objelf@gmail.com
+To: sean.wang@mediatek.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20170407.122053.201153373954521345.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1491554709-9723-6-git-send-email-sean.wang@mediatek.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Apr 07, 2017 at 12:20:53PM -0700, David Miller wrote:
-[...]
-> Let's just discuss the UAPI, since people complain we don't talk
-> about that enough :-)  For those playing at home it is three new
-> attributes returned in a netlink ACK when the application asks
-> for the extended response:
+On Fri, Apr 07, 2017 at 04:45:09PM +0800, sean.wang@mediatek.com wrote:
+> From: Sean Wang <sean.wang@mediatek.com>
 > 
-> 	NLMSGERR_ATTR_MSG	string	Extended error string
-> 	NLMSGERR_ATTR_OFFS	u32	Byte offset to netlink element causing error
-> 	NLMSGERR_ATTR_CODE	u32	Subsystem specific error code
-> 	NLMSGERR_ATTR_ATTR	u16	Netlink attribute triggering error or missing
+> MT7530 is a 7-ports Gigabit Ethernet Switch that could be found on
+> Mediatek router platforms such as MT7623A or MT7623N platform which
+> includes 7-port Gigabit Ethernet MAC and 5-port Gigabit Ethernet PHY.
+> Among these ports, The port from 0 to 4 are the user ports connecting
+> with the remote devices while the port 5 and 6 are the CPU ports
+> connecting into Mediatek Ethernet GMAC.
+> 
+> For port 6, it can communicate with the CPU via Mediatek Ethernet GMAC
+> through either the TRGMII or RGMII which could be controlled by phy-mode
+> in the dt-bindings to specify which mode is preferred to use. And for
+> port 5, only RGMII can be specified. However, currently, only port 6 is
+> being supported in this DSA driver.
+> 
+> The driver is made with the reference to qca8k and other existing DSA
+> driver. The most of the essential callbacks of the DSA are already
+> support in the driver, including tag insert for user port distinguishing,
+> port control, bridge offloading, STP setup and ethtool operation to allow
+> DSA to model each user port into a standalone netdevice as the other DSA
+> driver had done.
+> 
+> Signed-off-by: Sean Wang <sean.wang@mediatek.com>
+> Signed-off-by: Landen Chao <Landen.Chao@mediatek.com>
 
-I think it would be good if we get a definition to cap the maximum
-string length to something reasonable? This can be added in a follow
-up patch BTW. Thus, we get people coming back to us and request larger
-strings with a reason why they need more room for this.
+Hi Sean
 
-In general, my main concern with strings is that they can be used in a
-more freely way than these u32 offsets and error codes, and
-specifically how inconsistent these string will look like across
-different netlink subsystems.
+This is looking good now. Thanks
 
-Anyway, as long as this is optional (not every subsystem if forced to
-use strings) I'm fine with it :).
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+
+    Andrew
