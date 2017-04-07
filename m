@@ -1,32 +1,39 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v2 4/4] net: dsa: LAN9303: add MDIO managed mode support
-Date: Fri, 7 Apr 2017 16:54:37 +0200
-Message-ID: <20170407145437.GD23415@lunn.ch>
-References: <20170407081502.30172-1-jbe@pengutronix.de>
- <20170407081502.30172-5-jbe@pengutronix.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net: ipv4: fix multipath RTM_GETROUTE
+ behavior when iif is given
+Date: Fri, 07 Apr 2017 07:56:40 -0700 (PDT)
+Message-ID: <20170407.075640.2048912684209051827.davem@davemloft.net>
+References: <20170407124220.17483-1-fl@n621.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        f.fainelli@gmail.com, kernel@pengutronix.de,
-        vivien.didelot@savoirfairelinux.com, davem@davemloft.net
-To: Juergen Borleis <jbe@pengutronix.de>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: fl@n621.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:49778 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S934031AbdDGOyl (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 7 Apr 2017 10:54:41 -0400
-Content-Disposition: inline
-In-Reply-To: <20170407081502.30172-5-jbe@pengutronix.de>
+Received: from shards.monkeyblade.net ([184.105.139.130]:54964 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933874AbdDGO4y (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 7 Apr 2017 10:56:54 -0400
+In-Reply-To: <20170407124220.17483-1-fl@n621.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> +static const struct of_device_id lan9303_mdio_of_match[] = {
-> +	{ .compatible = "smsc,lan9303" },
-> +	{ /* sentinel */ },
-> +};
+From: Florian Larysch <fl@n621.de>
+Date: Fri,  7 Apr 2017 14:42:20 +0200
 
-I just chatted with Dave about this. Please include mdio and i2c in
-the compatible string, so they are different. That will avoid any
-possible problems.
+> inet_rtm_getroute synthesizes a skeletal ICMP skb, which is passed to
+> ip_route_input when iif is given. If a multipath route is present for
+> the designated destination, fib_multipath_hash ends up being called with
+> that skb. However, as that skb contains no information beyond the
+> protocol type, the calculated hash does not match the one we would see
+> for a real packet.
+> 
+> There is currently no way to fix this for layer 4 hashing, as
+> RTM_GETROUTE doesn't have the necessary information to create layer 4
+> headers. To fix this for layer 3 hashing, set appropriate saddr/daddrs
+> in the skb and also change the protocol to UDP to avoid special
+> treatment for ICMP.
+> 
+> Signed-off-by: Florian Larysch <fl@n621.de>
 
-	 Andrew
+Applied, thanks for following up on this.
