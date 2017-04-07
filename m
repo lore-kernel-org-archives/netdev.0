@@ -1,121 +1,65 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: pull-request: can 2017-04-04
-Date: Fri, 7 Apr 2017 11:00:20 +0200
-Message-ID: <bd352fa3-76ba-266d-0831-7cfe5e0abb36@pengutronix.de>
-References: <20170404155949.30965-1-mkl@pengutronix.de>
- <20170405.103734.436486519653060340.davem@davemloft.net>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next 5/7] s390/qeth: improve endianness handling
+Date: Fri, 7 Apr 2017 11:25:04 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DCFFC85F3@AcuExch.aculab.com>
+References: <20170405084015.35772-1-ubraun@linux.vnet.ibm.com>
+ <20170405084015.35772-6-ubraun@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="0ScKll3hvORtvvXF33NE0Ew26QoFpjK3P"
-Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
-        kernel@pengutronix.de
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <20170405.103734.436486519653060340.davem@davemloft.net>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-s390@vger.kernel.org" <linux-s390@vger.kernel.org>,
+        "jwi@linux.vnet.ibm.com" <jwi@linux.vnet.ibm.com>,
+        "schwidefsky@de.ibm.com" <schwidefsky@de.ibm.com>,
+        "heiko.carstens@de.ibm.com" <heiko.carstens@de.ibm.com>,
+        "raspl@linux.vnet.ibm.com" <raspl@linux.vnet.ibm.com>
+To: 'Ursula Braun' <ubraun@linux.vnet.ibm.com>,
+        "davem@davemloft.net" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out6.electric.net ([192.162.217.195]:60641 "EHLO
+        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753883AbdDGLZN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 7 Apr 2017 07:25:13 -0400
+In-Reply-To: <20170405084015.35772-6-ubraun@linux.vnet.ibm.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---0ScKll3hvORtvvXF33NE0Ew26QoFpjK3P
-Content-Type: multipart/mixed; boundary="kCSKTxVXgf2qT8GDCM7Rs5qgMTUBFpuOd";
- protected-headers="v1"
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-To: David Miller <davem@davemloft.net>
-Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org, kernel@pengutronix.de
-Message-ID: <bd352fa3-76ba-266d-0831-7cfe5e0abb36@pengutronix.de>
-Subject: Re: pull-request: can 2017-04-04
-References: <20170404155949.30965-1-mkl@pengutronix.de>
- <20170405.103734.436486519653060340.davem@davemloft.net>
-In-Reply-To: <20170405.103734.436486519653060340.davem@davemloft.net>
+From: Ursula Braun
+> Sent: 05 April 2017 09:40
+> From: Hans Wippel <hwippel@linux.vnet.ibm.com>
+> 
+> Avoid endianness warnings reported by sparse by (1) using endianness
+> conversions for assigning and using network packet fields, and (2)
+> removing unnecessary endianness conversions from qeth_l3_rebuild_skb. No
+> functional changes.
+> 
+> Signed-off-by: Hans Wippel <hwippel@linux.vnet.ibm.com>
+> Signed-off-by: Ursula Braun <ubraun@linux.vnet.ibm.com>
+> ---
+>  drivers/s390/net/qeth_core.h      |  4 ++--
+>  drivers/s390/net/qeth_core_main.c | 11 +++++-----
+>  drivers/s390/net/qeth_l3_main.c   | 46 +++++++++++++++++++--------------------
+>  drivers/s390/net/qeth_l3_sys.c    |  4 ++--
+>  4 files changed, 33 insertions(+), 32 deletions(-)
+> 
+> diff --git a/drivers/s390/net/qeth_core.h b/drivers/s390/net/qeth_core.h
+> index 22aa2cd..6764ab9 100644
+> --- a/drivers/s390/net/qeth_core.h
+> +++ b/drivers/s390/net/qeth_core.h
+> @@ -844,9 +844,9 @@ static inline int qeth_get_ip_version(struct sk_buff *skb)
+>  {
+>  	__be16 *p = &((struct ethhdr *)skb->data)->h_proto;
+> 
+> -	if (*p == ETH_P_8021Q)
+> +	if (be16_to_cpu(*p) == ETH_P_8021Q)
+>  		p += 2;
+> -	switch (*p) {
+> +	switch (be16_to_cpu(*p)) {
+>  	case ETH_P_IPV6:
 
---kCSKTxVXgf2qT8GDCM7Rs5qgMTUBFpuOd
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+These are definitely 'functional changes' on LE systems.
 
-On 04/05/2017 07:37 PM, David Miller wrote:
-> From: Marc Kleine-Budde <mkl@pengutronix.de>
-> Date: Tue,  4 Apr 2017 17:59:47 +0200
->=20
->> this is a pull request of two patches for net/master.
-> ...
->> The following changes since commit 0b9aefea860063bb39e36bd7fe6c7087fed=
-0ba87:
->>
->>   tcp: minimize false-positives on TCP/GRO check (2017-04-03 18:43:41 =
--0700)
->>
->> are available in the git repository at:
->>
->>   git://git.kernel.org/pub/scm/linux/kernel/git/mkl/linux-can.git=20
->=20
-> Pulling this doesn't give me anything:
->=20
-> [davem@kkuri net]$ git pull --no-ff git://git.kernel.org/pub/scm/linux/=
-kernel/git/mkl/linux-can.git
-> From git://git.kernel.org/pub/scm/linux/kernel/git/mkl/linux-can
->  * branch            HEAD       -> FETCH_HEAD
-> Already up-to-date.
+Also it is generally better to byteswap the constants.
 
-Sorry. The "tag" some git lost, here it is:
-
----
-
-The following changes since commit 0b9aefea860063bb39e36bd7fe6c7087fed0ba=
-87:
-
-  tcp: minimize false-positives on TCP/GRO check (2017-04-03 18:43:41 -07=
-00)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/mkl/linux-can.git tags/li=
-nux-can-fixes-for-4.12-20170404
-
-for you to fetch changes up to ca257b9e2d807ab6cb2678ecc7b74aaf4651f597:
-
-  can: rcar_can: Do not print virtual addresses (2017-04-04 17:49:59 +020=
-0)
-
-----------------------------------------------------------------
-linux-can-fixes-for-4.12-20170404
-
-----------------------------------------------------------------
-Geert Uytterhoeven (1):
-      can: rcar_can: Do not print virtual addresses
-
-Markus Marb (1):
-      can: ifi: use correct register to read rx status
-
- drivers/net/can/ifi_canfd/ifi_canfd.c | 2 +-
- drivers/net/can/rcar/rcar_can.c       | 3 +--
- 2 files changed, 2 insertions(+), 3 deletions(-)
-
-Marc
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---kCSKTxVXgf2qT8GDCM7Rs5qgMTUBFpuOd--
-
---0ScKll3hvORtvvXF33NE0Ew26QoFpjK3P
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEzBAEBCgAdFiEE4bay/IylYqM/npjQHv7KIOw4HPYFAljnVScACgkQHv7KIOw4
-HPYhJQgArotZ5TK2PuceX0YkNOl95WdBT6ig1/kYeyguyX6gNcTMdPzu/XgwpKWl
-9mtl3VCYo1ix9uQAfWkO9husyO5S5vUYlJtrNGSGhh8fxGUOS8UJFCIgPwlIpZbi
-C7OZqV8fx6cKIAhEpgy9i+dlFS80Ffwivo0u1WEfUnzm6gUaQHL/K24eKfaISVTV
-2UUkvdnu6ISep5j1JYPNvNNC5XBtrC0iFgGbfqvnJVKQwr3gSL48oHG9fbjBdmUp
-K54ia1YU9G76XsxWwgpqmO7ZHPLSoY2yVHFeRo+2fixi8uCfcx22HipknVNPZcP6
-4dxfGvHe2eF4sLo1k0YkATNORjlgQA==
-=9J1q
------END PGP SIGNATURE-----
-
---0ScKll3hvORtvvXF33NE0Ew26QoFpjK3P--
+	David
