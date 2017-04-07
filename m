@@ -1,59 +1,56 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
 Subject: Re: [RFC 0/3] netlink: extended error reporting
-Date: Fri, 07 Apr 2017 12:34:53 -0700 (PDT)
-Message-ID: <20170407.123453.846031355373739122.davem@davemloft.net>
-References: <1491592185.5800.7.camel@sipsolutions.net>
-        <20170407.122223.385211483743191711.davem@davemloft.net>
-        <20170407192714.GA23349@salvia>
+Date: Fri, 7 Apr 2017 21:35:50 +0200
+Message-ID: <20170407193550.GA23424@salvia>
+References: <20170407182620.6438-1-johannes@sipsolutions.net>
+ <20170407.115315.23470877439489670.davem@davemloft.net>
+ <1491591552.5800.1.camel@sipsolutions.net>
+ <20170407.122053.201153373954521345.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170407192714.GA23349@salvia>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: johannes@sipsolutions.net, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org, jiri@resnulli.us
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:35740 "EHLO mail.us.es"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754469AbdDGTf5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 7 Apr 2017 15:35:57 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+        by mail.us.es (Postfix) with ESMTP id E3B0C170D27
+        for <netdev@vger.kernel.org>; Fri,  7 Apr 2017 21:35:52 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id D48B9DA38C
+        for <netdev@vger.kernel.org>; Fri,  7 Apr 2017 21:35:52 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id C09EBDA38C
+        for <netdev@vger.kernel.org>; Fri,  7 Apr 2017 21:35:50 +0200 (CEST)
+Content-Disposition: inline
+In-Reply-To: <20170407.122053.201153373954521345.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>
-Date: Fri, 7 Apr 2017 21:27:14 +0200
-
-> On Fri, Apr 07, 2017 at 12:22:23PM -0700, David Miller wrote:
->> From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
->> Date: Fri, 07 Apr 2017 21:09:45 +0200
->> 
->> > On Fri, 2017-04-07 at 21:06 +0200, Pablo Neira Ayuso wrote:
->> >> On Fri, Apr 07, 2017 at 08:59:12PM +0200, Johannes Berg wrote:
->> >> [...]
->> >> > Heh. I think I really want to solve - at least partially -
->> >> > nla_parse()
->> >> > to see that it can be done this way. It'd be nice to even transform
->> >> > all
->> >> > the callers (I generated half of these patches with spatch anyway)
->> >> > to
->> >> > have at least that.
->> >> 
->> >> We can just have a modified version of nla_parse that deals with
->> >> this.
->> > 
->> > Yes, but we need to figure out a good way to have the offset.
->> > 
->> > We also need to see if we want to *force* having the offset. In some
->> > sense that'd be useful, in another it might be very complicated to fill
->> > it in at all times, if for example errors come from lower layers like
->> > drivers.
->> 
->> It has to be optional, some kinds of errors don't have an exact
->> context per-se.
->> 
->> Also another way to look at this is that we're providing a lot of
->> new power and expressability.  So even if only one aspect of the
->> new error reporting is used it's a positive step forward.
->> 
->> So allow offset "0" meaning "unspecified".
+On Fri, Apr 07, 2017 at 12:20:53PM -0700, David Miller wrote:
+[...]
+> Let's just discuss the UAPI, since people complain we don't talk
+> about that enough :-)  For those playing at home it is three new
+> attributes returned in a netlink ACK when the application asks
+> for the extended response:
 > 
-> Instead, we can just not send the offset attribute to userspace if
-> it's not specified. So missing attribute means "unspecified".
+> 	NLMSGERR_ATTR_MSG	string	Extended error string
+> 	NLMSGERR_ATTR_OFFS	u32	Byte offset to netlink element causing error
+> 	NLMSGERR_ATTR_CODE	u32	Subsystem specific error code
+> 	NLMSGERR_ATTR_ATTR	u16	Netlink attribute triggering error or missing
 
-Agreed, not providing the attribute to indicate this is fine.
+I think it would be good if we get a definition to cap the maximum
+string length to something reasonable? This can be added in a follow
+up patch BTW. Thus, we get people coming back to us and request larger
+strings with a reason why they need more room for this.
+
+In general, my main concern with strings is that they can be used in a
+more freely way than these u32 offsets and error codes, and
+specifically how inconsistent these string will look like across
+different netlink subsystems.
+
+Anyway, as long as this is optional (not every subsystem if forced to
+use strings) I'm fine with it :).
