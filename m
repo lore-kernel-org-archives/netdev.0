@@ -1,48 +1,55 @@
-From: Johannes Berg <johannes@sipsolutions.net>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
 Subject: Re: [RFC 0/3] netlink: extended error reporting
-Date: Fri, 07 Apr 2017 21:06:28 +0200
-Message-ID: <1491591988.5800.5.camel@sipsolutions.net>
+Date: Fri, 07 Apr 2017 21:09:45 +0200
+Message-ID: <1491592185.5800.7.camel@sipsolutions.net>
 References: <20170407182620.6438-1-johannes@sipsolutions.net>
          <20170407.115315.23470877439489670.davem@davemloft.net>
-         <20170407190204.GA22810@salvia>
+         <1491591552.5800.1.camel@sipsolutions.net> <20170407190601.GA22991@salvia>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>,
-        David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:51660 "EHLO sipsolutions.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S934392AbdDGTGh (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 7 Apr 2017 15:06:37 -0400
-In-Reply-To: <20170407190204.GA22810@salvia>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170407190601.GA22991@salvia>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2017-04-07 at 21:02 +0200, Pablo Neira Ayuso wrote:
+On Fri, 2017-04-07 at 21:06 +0200, Pablo Neira Ayuso wrote:
+> On Fri, Apr 07, 2017 at 08:59:12PM +0200, Johannes Berg wrote:
+> [...]
+> > Heh. I think I really want to solve - at least partially -
+> > nla_parse()
+> > to see that it can be done this way. It'd be nice to even transform
+> > all
+> > the callers (I generated half of these patches with spatch anyway)
+> > to
+> > have at least that.
 > 
-> > I'm tempted to apply this as-is just to show that person that
-> > things do in fact happen.... eventually :-)
-> 
-> We can just send follow up patches to refine, I think it's a good
-> start, Johannes?
+> We can just have a modified version of nla_parse that deals with
+> this.
 
-I guess we can. Like I just said though - I do have a plan to make
-nla_parse() work but the week's been exhausting enough that I don't
-feel entirely comfortable saying that will definitely work.
+Yes, but we need to figure out a good way to have the offset.
 
-OTOH, arguably this is something that seems to work - as evidenced by
-the nl80211 changes - for at least some error reporting, so I guess we
-can continue to refine it, and the only thing we're really locking in
-to is the ABI, which is TLVs now, so that should be safe.
+We also need to see if we want to *force* having the offset. In some
+sense that'd be useful, in another it might be very complicated to fill
+it in at all times, if for example errors come from lower layers like
+drivers.
 
-That said, the nl80211 patch really should be bigger, and I've not even
-tested this at all yet, so I really need to do that first.
+(It's ultimately always going to be optional since we'll continue
+returning errors without *any* extended error information - likely
+indefinitely - but if we have a wrong attribute, should we always have
+an offset? Would be nice, but could be difficult in practice)
 
-Also, I'd like to point to the genl_info change, does that seem like a
-reasonable way to pass it around in genetlink? I'm much less familiar
-with the "regular" netlink to say how to pass it around there beyond
-what I already did.
+> We can probably use struct nla_policy to place the extended error
+> code or the string (as we discussed I don't need string errors, but
+> I'm fine if other people find it useful).
+
+I don't think for the error strings really would be useful for
+nla_parse() or a policy - we can return something generic like
+"malformed attribute" there as a string, and hopefully point to the
+attribute/offset from there generically. I just really want to see how
+to actually do that.
 
 johannes
