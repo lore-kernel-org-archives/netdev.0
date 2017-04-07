@@ -1,55 +1,47 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net-next 7/7] net/mlx5e: Set default RX moderation parameters on driver load
-Date: Fri,  7 Apr 2017 21:26:56 +0300
-Message-ID: <20170407182656.6734-8-saeedm@mellanox.com>
+Subject: [net-next 1/7] net/mlx5: Update the list of the PCI supported devices
+Date: Fri,  7 Apr 2017 21:26:50 +0300
+Message-ID: <20170407182656.6734-2-saeedm@mellanox.com>
 References: <20170407182656.6734-1-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, Majd Dibbiny <majd@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:47254 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:47248 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1756102AbdDGS1U (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 7 Apr 2017 14:27:20 -0400
+        with ESMTP id S1756050AbdDGS1T (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 7 Apr 2017 14:27:19 -0400
 In-Reply-To: <20170407182656.6734-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RX moderation default parameters shouldn't be set in
-mlx5e_build_rx_cq_param since it would reset the values every time on
-netdev open/close.  Instead, it should be set in
-mlx5e_set_rx_cq_mode_params which is called on driver load only.
+From: Majd Dibbiny <majd@mellanox.com>
 
-Fixes: 6a9764efb255 ("net/mlx5e: Isolate open_channels from priv->params")
+Rename the ConnectX-5 PCIe 4.0 to be ConnectX-5 Ex.
+Also add the upcoming ConnectX-6 and it's VF IDs to the list.
+
+Signed-off-by: Majd Dibbiny <majd@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/main.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 57844ffca37f..8b7b7e604ea0 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -1944,10 +1944,6 @@ static void mlx5e_build_rx_cq_param(struct mlx5e_priv *priv,
- 	}
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+index 60154a175bd3..9c2bec732af9 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+@@ -1514,8 +1514,10 @@ static const struct pci_device_id mlx5_core_pci_table[] = {
+ 	{ PCI_VDEVICE(MELLANOX, 0x1016), MLX5_PCI_DEV_IS_VF},	/* ConnectX-4LX VF */
+ 	{ PCI_VDEVICE(MELLANOX, 0x1017) },			/* ConnectX-5, PCIe 3.0 */
+ 	{ PCI_VDEVICE(MELLANOX, 0x1018), MLX5_PCI_DEV_IS_VF},	/* ConnectX-5 VF */
+-	{ PCI_VDEVICE(MELLANOX, 0x1019) },			/* ConnectX-5, PCIe 4.0 */
+-	{ PCI_VDEVICE(MELLANOX, 0x101a), MLX5_PCI_DEV_IS_VF},	/* ConnectX-5, PCIe 4.0 VF */
++	{ PCI_VDEVICE(MELLANOX, 0x1019) },			/* ConnectX-5 Ex */
++	{ PCI_VDEVICE(MELLANOX, 0x101a), MLX5_PCI_DEV_IS_VF},	/* ConnectX-5 Ex VF */
++	{ PCI_VDEVICE(MELLANOX, 0x101b) },			/* ConnectX-6 */
++	{ PCI_VDEVICE(MELLANOX, 0x101c), MLX5_PCI_DEV_IS_VF},	/* ConnectX-6 VF */
+ 	{ 0, }
+ };
  
- 	mlx5e_build_common_cq_param(priv, param);
--
--	if (params->rx_am_enabled)
--		params->rx_cq_moderation =
--			mlx5e_am_get_def_profile(params->rx_cq_period_mode);
- }
- 
- static void mlx5e_build_tx_cq_param(struct mlx5e_priv *priv,
-@@ -3787,6 +3783,10 @@ void mlx5e_set_rx_cq_mode_params(struct mlx5e_params *params, u8 cq_period_mode)
- 		params->rx_cq_moderation.usec =
- 			MLX5E_PARAMS_DEFAULT_RX_CQ_MODERATION_USEC_FROM_CQE;
- 
-+	if (params->rx_am_enabled)
-+		params->rx_cq_moderation =
-+			mlx5e_am_get_def_profile(params->rx_cq_period_mode);
-+
- 	MLX5E_SET_PFLAG(params, MLX5E_PFLAG_RX_CQE_BASED_MODER,
- 			params->rx_cq_period_mode == MLX5_CQ_PERIOD_MODE_START_FROM_CQE);
- }
 -- 
 2.11.0
