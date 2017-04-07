@@ -1,80 +1,48 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: [PATCH net] tcp: restrict F-RTO to work-around broken middle-boxes
-Date: Fri,  7 Apr 2017 11:42:05 -0700
-Message-ID: <20170407184205.168217-1-ycheng@google.com>
-Cc: netdev@vger.kernel.org, ncardwell@google.com, edumazet@google.com,
-        soheil@google.com, Yuchung Cheng <ycheng@google.com>
-To: davem@davemloft.net
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH net] bridge: netlink: register netdevice before
+ executing changelink
+Date: Fri, 7 Apr 2017 14:44:16 -0400
+Message-ID: <20170407144416.625462ec@plumbers-lap.home.lan>
+References: <20170407124915.15508-1-idosch@mellanox.com>
+        <20170407101055.745d95d0@plumbers-lap.home.lan>
+        <3d567660-7fa5-979e-3097-89427270e554@cumulusnetworks.com>
+        <20170407112206.77b515cd@plumbers-lap.home.lan>
+        <23249e09-a712-920f-9a9f-850055aaf3af@cumulusnetworks.com>
+        <20170407113615.15891fde@plumbers-lap.home.lan>
+        <c3769204-4803-6c5f-1286-c8f1f5e045be@cumulusnetworks.com>
+        <20170407133753.1602f3cd@plumbers-lap.home.lan>
+        <20170407181649.GA21938@splinter>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+        idosch@mellanox.com, netdev@vger.kernel.org, davem@davemloft.net,
+        bridge@lists.linux-foundation.org, mlxsw@mellanox.com,
+        peter@svinota.eu, cera@cera.cz
+To: Ido Schimmel <idosch@idosch.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f52.google.com ([74.125.83.52]:32983 "EHLO
-        mail-pg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754489AbdDGSmn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 7 Apr 2017 14:42:43 -0400
-Received: by mail-pg0-f52.google.com with SMTP id x125so74158945pgb.0
-        for <netdev@vger.kernel.org>; Fri, 07 Apr 2017 11:42:43 -0700 (PDT)
+Received: from mail-it0-f46.google.com ([209.85.214.46]:37831 "EHLO
+        mail-it0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932993AbdDGSoV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 7 Apr 2017 14:44:21 -0400
+Received: by mail-it0-f46.google.com with SMTP id a140so47434754ita.0
+        for <netdev@vger.kernel.org>; Fri, 07 Apr 2017 11:44:20 -0700 (PDT)
+In-Reply-To: <20170407181649.GA21938@splinter>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The recent extension of F-RTO 89fe18e44 ("tcp: extend F-RTO
-to catch more spurious timeouts") interacts badly with certain
-broken middle-boxes.  These broken boxes modify and falsely raise
-the receive window on the ACKs. During a timeout induced recovery,
-F-RTO would send new data packets to probe if the timeout is false
-or not. Since the receive window is falsely raised, the receiver
-would silently drop these F-RTO packets. The recovery would take N
-(exponentially backoff) timeouts to repair N packet losses.  A TCP
-performance killer.
+On Fri, 7 Apr 2017 21:16:49 +0300
+Ido Schimmel <idosch@idosch.org> wrote:
 
-Due to this unfortunate situation, this patch removes this extension
-to revert F-RTO back to the RFC specification.
+> On Fri, Apr 07, 2017 at 01:37:53PM -0400, Stephen Hemminger wrote:
+> > Fix it right now. The patch you propose is too half baked.  
+> 
+> Given this patch needs to be back ported to three different stable
+> kernels I tried to keep the amount of changes to a minimum while fixing
+> the bug.
+> 
+> I'll work on the ndo_uninit() patch and submit it. Then people can
+> decide which course of action they're more comfortable with.
 
-Fixes: 89fe18e44f7e ("tcp: extend F-RTO to catch more spurious timeouts")
-Signed-off-by: Yuchung Cheng <ycheng@google.com>
-Signed-off-by: Neal Cardwell <ncardwell@google.com>
-Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/ipv4/tcp_input.c | 20 ++++++++++++--------
- 1 file changed, 12 insertions(+), 8 deletions(-)
-
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 2c1f59386a7b..659d1baefb2b 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -1935,6 +1935,7 @@ void tcp_enter_loss(struct sock *sk)
- 	struct tcp_sock *tp = tcp_sk(sk);
- 	struct net *net = sock_net(sk);
- 	struct sk_buff *skb;
-+	bool new_recovery = icsk->icsk_ca_state < TCP_CA_Recovery;
- 	bool is_reneg;			/* is receiver reneging on SACKs? */
- 	bool mark_lost;
- 
-@@ -1994,15 +1995,18 @@ void tcp_enter_loss(struct sock *sk)
- 	tp->high_seq = tp->snd_nxt;
- 	tcp_ecn_queue_cwr(tp);
- 
--	/* F-RTO RFC5682 sec 3.1 step 1 mandates to disable F-RTO
--	 * if a previous recovery is underway, otherwise it may incorrectly
--	 * call a timeout spurious if some previously retransmitted packets
--	 * are s/acked (sec 3.2). We do not apply that retriction since
--	 * retransmitted skbs are permanently tagged with TCPCB_EVER_RETRANS
--	 * so FLAG_ORIG_SACK_ACKED is always correct. But we do disable F-RTO
--	 * on PTMU discovery to avoid sending new data.
-+	/* F-RTO RFC5682 sec 3.1 step 1: retransmit SND.UNA if no previous
-+	 * loss recovery is underway except recurring timeout(s) on
-+	 * the same SND.UNA (sec 3.2). Disable F-RTO on path MTU probing
-+	 *
-+	 * In theory F-RTO can be used repeatedly during loss recovery.
-+	 * In practice this interacts badly with broken middle-boxes that
-+	 * falsely raise the receive window, which results in repeated
-+	 * timeouts and stop-and-go behavior.
- 	 */
--	tp->frto = sysctl_tcp_frto && !inet_csk(sk)->icsk_mtup.probe_size;
-+	tp->frto = sysctl_tcp_frto &&
-+		   (new_recovery || icsk->icsk_retransmits) &&
-+		   !inet_csk(sk)->icsk_mtup.probe_size;
- }
- 
- /* If ACK arrived pointing to a remembered SACK, it means that our
--- 
-2.12.2.715.g7642488e1d-goog
+I don't want enterprise distros to ship without error reporting.
+At a minimum just return correct errno and leave bridge in stuck/broken state.
