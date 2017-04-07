@@ -1,7 +1,7 @@
 From: Romain Perier <romain.perier@collabora.com>
-Subject: [PATCH v7 12/15] scsi: mpt3sas: Replace PCI pool old API
-Date: Fri,  7 Apr 2017 09:25:40 +0200
-Message-ID: <20170407072543.6936-13-romain.perier@collabora.com>
+Subject: [PATCH v7 14/15] scsi: pmcraid: Replace PCI pool old API
+Date: Fri,  7 Apr 2017 09:25:42 +0200
+Message-ID: <20170407072543.6936-15-romain.perier@collabora.com>
 References: <20170407072543.6936-1-romain.perier@collabora.com>
 Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
         linux-usb@vger.kernel.org, linux-scsi@vger.kernel.org,
@@ -18,224 +18,74 @@ To: Dan Williams <dan.j.williams@intel.com>,
         "Martin K. Petersen" <martin.petersen@oracle.com>,
         Felipe Balbi <balbi@kernel.org>,
         Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bhuna.collabora.co.uk ([46.235.227.227]:55877 "EHLO
-        bhuna.collabora.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932595AbdDGH0r (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 7 Apr 2017 03:26:47 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20170407072543.6936-1-romain.perier@collabora.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 The PCI pool API is deprecated. This commit replaces the PCI pool old
 API by the appropriate function with the DMA pool API.
 
 Signed-off-by: Romain Perier <romain.perier@collabora.com>
-Reviewed-by: Peter Senna Tschudin <peter.senna@collabora.com>
+Acked-by: Peter Senna Tschudin <peter.senna@collabora.com>
+Tested-by: Peter Senna Tschudin <peter.senna@collabora.com>
 ---
- drivers/scsi/mpt3sas/mpt3sas_base.c | 73 +++++++++++++++++--------------------
- 1 file changed, 34 insertions(+), 39 deletions(-)
+ drivers/scsi/pmcraid.c | 10 +++++-----
+ drivers/scsi/pmcraid.h |  2 +-
+ 2 files changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/scsi/mpt3sas/mpt3sas_base.c b/drivers/scsi/mpt3sas/mpt3sas_base.c
-index 5b7aec5..5ae1c23 100644
---- a/drivers/scsi/mpt3sas/mpt3sas_base.c
-+++ b/drivers/scsi/mpt3sas/mpt3sas_base.c
-@@ -3200,9 +3200,8 @@ _base_release_memory_pools(struct MPT3SAS_ADAPTER *ioc)
- 	}
+diff --git a/drivers/scsi/pmcraid.c b/drivers/scsi/pmcraid.c
+index 49e70a3..0f893c4 100644
+--- a/drivers/scsi/pmcraid.c
++++ b/drivers/scsi/pmcraid.c
+@@ -4699,13 +4699,13 @@ pmcraid_release_control_blocks(
+ 		return;
  
- 	if (ioc->sense) {
--		pci_pool_free(ioc->sense_dma_pool, ioc->sense, ioc->sense_dma);
--		if (ioc->sense_dma_pool)
--			pci_pool_destroy(ioc->sense_dma_pool);
-+		dma_pool_free(ioc->sense_dma_pool, ioc->sense, ioc->sense_dma);
-+		dma_pool_destroy(ioc->sense_dma_pool);
- 		dexitprintk(ioc, pr_info(MPT3SAS_FMT
- 			"sense_pool(0x%p): free\n",
- 			ioc->name, ioc->sense));
-@@ -3210,9 +3209,8 @@ _base_release_memory_pools(struct MPT3SAS_ADAPTER *ioc)
+ 	for (i = 0; i < max_index; i++) {
+-		pci_pool_free(pinstance->control_pool,
++		dma_pool_free(pinstance->control_pool,
+ 			      pinstance->cmd_list[i]->ioa_cb,
+ 			      pinstance->cmd_list[i]->ioa_cb_bus_addr);
+ 		pinstance->cmd_list[i]->ioa_cb = NULL;
+ 		pinstance->cmd_list[i]->ioa_cb_bus_addr = 0;
  	}
+-	pci_pool_destroy(pinstance->control_pool);
++	dma_pool_destroy(pinstance->control_pool);
+ 	pinstance->control_pool = NULL;
+ }
  
- 	if (ioc->reply) {
--		pci_pool_free(ioc->reply_dma_pool, ioc->reply, ioc->reply_dma);
--		if (ioc->reply_dma_pool)
--			pci_pool_destroy(ioc->reply_dma_pool);
-+		dma_pool_free(ioc->reply_dma_pool, ioc->reply, ioc->reply_dma);
-+		dma_pool_destroy(ioc->reply_dma_pool);
- 		dexitprintk(ioc, pr_info(MPT3SAS_FMT
- 			"reply_pool(0x%p): free\n",
- 			ioc->name, ioc->reply));
-@@ -3220,10 +3218,9 @@ _base_release_memory_pools(struct MPT3SAS_ADAPTER *ioc)
- 	}
+@@ -4762,8 +4762,8 @@ static int pmcraid_allocate_control_blocks(struct pmcraid_instance *pinstance)
+ 		pinstance->host->unique_id);
  
- 	if (ioc->reply_free) {
--		pci_pool_free(ioc->reply_free_dma_pool, ioc->reply_free,
-+		dma_pool_free(ioc->reply_free_dma_pool, ioc->reply_free,
- 		    ioc->reply_free_dma);
--		if (ioc->reply_free_dma_pool)
--			pci_pool_destroy(ioc->reply_free_dma_pool);
-+		dma_pool_destroy(ioc->reply_free_dma_pool);
- 		dexitprintk(ioc, pr_info(MPT3SAS_FMT
- 			"reply_free_pool(0x%p): free\n",
- 			ioc->name, ioc->reply_free));
-@@ -3234,7 +3231,7 @@ _base_release_memory_pools(struct MPT3SAS_ADAPTER *ioc)
- 		do {
- 			rps = &ioc->reply_post[i];
- 			if (rps->reply_post_free) {
--				pci_pool_free(
-+				dma_pool_free(
- 				    ioc->reply_post_free_dma_pool,
- 				    rps->reply_post_free,
- 				    rps->reply_post_free_dma);
-@@ -3246,8 +3243,7 @@ _base_release_memory_pools(struct MPT3SAS_ADAPTER *ioc)
- 		} while (ioc->rdpq_array_enable &&
- 			   (++i < ioc->reply_queue_count));
+ 	pinstance->control_pool =
+-		pci_pool_create(pinstance->ctl_pool_name,
+-				pinstance->pdev,
++		dma_pool_create(pinstance->ctl_pool_name,
++				&pinstance->pdev->dev,
+ 				sizeof(struct pmcraid_control_block),
+ 				PMCRAID_IOARCB_ALIGNMENT, 0);
  
--		if (ioc->reply_post_free_dma_pool)
--			pci_pool_destroy(ioc->reply_post_free_dma_pool);
-+		dma_pool_destroy(ioc->reply_post_free_dma_pool);
- 		kfree(ioc->reply_post);
- 	}
+@@ -4772,7 +4772,7 @@ static int pmcraid_allocate_control_blocks(struct pmcraid_instance *pinstance)
  
-@@ -3268,12 +3264,11 @@ _base_release_memory_pools(struct MPT3SAS_ADAPTER *ioc)
- 	if (ioc->chain_lookup) {
- 		for (i = 0; i < ioc->chain_depth; i++) {
- 			if (ioc->chain_lookup[i].chain_buffer)
--				pci_pool_free(ioc->chain_dma_pool,
-+				dma_pool_free(ioc->chain_dma_pool,
- 				    ioc->chain_lookup[i].chain_buffer,
- 				    ioc->chain_lookup[i].chain_buffer_dma);
- 		}
--		if (ioc->chain_dma_pool)
--			pci_pool_destroy(ioc->chain_dma_pool);
-+		dma_pool_destroy(ioc->chain_dma_pool);
- 		free_pages((ulong)ioc->chain_lookup, ioc->chain_pages);
- 		ioc->chain_lookup = NULL;
- 	}
-@@ -3448,23 +3443,23 @@ _base_allocate_memory_pools(struct MPT3SAS_ADAPTER *ioc)
- 			ioc->name);
- 		goto out;
- 	}
--	ioc->reply_post_free_dma_pool = pci_pool_create("reply_post_free pool",
--	    ioc->pdev, sz, 16, 0);
-+	ioc->reply_post_free_dma_pool = dma_pool_create("reply_post_free pool",
-+	    &ioc->pdev->dev, sz, 16, 0);
- 	if (!ioc->reply_post_free_dma_pool) {
- 		pr_err(MPT3SAS_FMT
--		 "reply_post_free pool: pci_pool_create failed\n",
-+		 "reply_post_free pool: dma_pool_create failed\n",
- 		 ioc->name);
- 		goto out;
- 	}
- 	i = 0;
- 	do {
- 		ioc->reply_post[i].reply_post_free =
--		    pci_pool_alloc(ioc->reply_post_free_dma_pool,
-+		    dma_pool_alloc(ioc->reply_post_free_dma_pool,
- 		    GFP_KERNEL,
- 		    &ioc->reply_post[i].reply_post_free_dma);
- 		if (!ioc->reply_post[i].reply_post_free) {
- 			pr_err(MPT3SAS_FMT
--			"reply_post_free pool: pci_pool_alloc failed\n",
-+			"reply_post_free pool: dma_pool_alloc failed\n",
- 			ioc->name);
- 			goto out;
- 		}
-@@ -3579,15 +3574,15 @@ _base_allocate_memory_pools(struct MPT3SAS_ADAPTER *ioc)
- 			ioc->name);
- 		goto out;
- 	}
--	ioc->chain_dma_pool = pci_pool_create("chain pool", ioc->pdev,
-+	ioc->chain_dma_pool = dma_pool_create("chain pool", &ioc->pdev->dev,
- 	    ioc->chain_segment_sz, 16, 0);
- 	if (!ioc->chain_dma_pool) {
--		pr_err(MPT3SAS_FMT "chain_dma_pool: pci_pool_create failed\n",
-+		pr_err(MPT3SAS_FMT "chain_dma_pool: dma_pool_create failed\n",
- 			ioc->name);
- 		goto out;
- 	}
- 	for (i = 0; i < ioc->chain_depth; i++) {
--		ioc->chain_lookup[i].chain_buffer = pci_pool_alloc(
-+		ioc->chain_lookup[i].chain_buffer = dma_pool_alloc(
- 		    ioc->chain_dma_pool , GFP_KERNEL,
- 		    &ioc->chain_lookup[i].chain_buffer_dma);
- 		if (!ioc->chain_lookup[i].chain_buffer) {
-@@ -3632,17 +3627,17 @@ _base_allocate_memory_pools(struct MPT3SAS_ADAPTER *ioc)
+ 	for (i = 0; i < PMCRAID_MAX_CMD; i++) {
+ 		pinstance->cmd_list[i]->ioa_cb =
+-			pci_pool_alloc(
++			dma_pool_alloc(
+ 				pinstance->control_pool,
+ 				GFP_KERNEL,
+ 				&(pinstance->cmd_list[i]->ioa_cb_bus_addr));
+diff --git a/drivers/scsi/pmcraid.h b/drivers/scsi/pmcraid.h
+index 568b18a..acf5a7b 100644
+--- a/drivers/scsi/pmcraid.h
++++ b/drivers/scsi/pmcraid.h
+@@ -755,7 +755,7 @@ struct pmcraid_instance {
  
- 	/* sense buffers, 4 byte align */
- 	sz = ioc->scsiio_depth * SCSI_SENSE_BUFFERSIZE;
--	ioc->sense_dma_pool = pci_pool_create("sense pool", ioc->pdev, sz, 4,
--	    0);
-+	ioc->sense_dma_pool = dma_pool_create("sense pool", &ioc->pdev->dev, sz,
-+					      4, 0);
- 	if (!ioc->sense_dma_pool) {
--		pr_err(MPT3SAS_FMT "sense pool: pci_pool_create failed\n",
-+		pr_err(MPT3SAS_FMT "sense pool: dma_pool_create failed\n",
- 		    ioc->name);
- 		goto out;
- 	}
--	ioc->sense = pci_pool_alloc(ioc->sense_dma_pool , GFP_KERNEL,
-+	ioc->sense = dma_pool_alloc(ioc->sense_dma_pool, GFP_KERNEL,
- 	    &ioc->sense_dma);
- 	if (!ioc->sense) {
--		pr_err(MPT3SAS_FMT "sense pool: pci_pool_alloc failed\n",
-+		pr_err(MPT3SAS_FMT "sense pool: dma_pool_alloc failed\n",
- 		    ioc->name);
- 		goto out;
- 	}
-@@ -3656,17 +3651,17 @@ _base_allocate_memory_pools(struct MPT3SAS_ADAPTER *ioc)
+ 	/* structures related to command blocks */
+ 	struct kmem_cache *cmd_cachep;		/* cache for cmd blocks */
+-	struct pci_pool *control_pool;		/* pool for control blocks */
++	struct dma_pool *control_pool;		/* pool for control blocks */
+ 	char   cmd_pool_name[64];		/* name of cmd cache */
+ 	char   ctl_pool_name[64];		/* name of control cache */
  
- 	/* reply pool, 4 byte align */
- 	sz = ioc->reply_free_queue_depth * ioc->reply_sz;
--	ioc->reply_dma_pool = pci_pool_create("reply pool", ioc->pdev, sz, 4,
--	    0);
-+	ioc->reply_dma_pool = dma_pool_create("reply pool", &ioc->pdev->dev, sz,
-+					      4, 0);
- 	if (!ioc->reply_dma_pool) {
--		pr_err(MPT3SAS_FMT "reply pool: pci_pool_create failed\n",
-+		pr_err(MPT3SAS_FMT "reply pool: dma_pool_create failed\n",
- 		    ioc->name);
- 		goto out;
- 	}
--	ioc->reply = pci_pool_alloc(ioc->reply_dma_pool , GFP_KERNEL,
-+	ioc->reply = dma_pool_alloc(ioc->reply_dma_pool, GFP_KERNEL,
- 	    &ioc->reply_dma);
- 	if (!ioc->reply) {
--		pr_err(MPT3SAS_FMT "reply pool: pci_pool_alloc failed\n",
-+		pr_err(MPT3SAS_FMT "reply pool: dma_pool_alloc failed\n",
- 		    ioc->name);
- 		goto out;
- 	}
-@@ -3682,17 +3677,17 @@ _base_allocate_memory_pools(struct MPT3SAS_ADAPTER *ioc)
- 
- 	/* reply free queue, 16 byte align */
- 	sz = ioc->reply_free_queue_depth * 4;
--	ioc->reply_free_dma_pool = pci_pool_create("reply_free pool",
--	    ioc->pdev, sz, 16, 0);
-+	ioc->reply_free_dma_pool = dma_pool_create("reply_free pool",
-+	    &ioc->pdev->dev, sz, 16, 0);
- 	if (!ioc->reply_free_dma_pool) {
--		pr_err(MPT3SAS_FMT "reply_free pool: pci_pool_create failed\n",
-+		pr_err(MPT3SAS_FMT "reply_free pool: dma_pool_create failed\n",
- 			ioc->name);
- 		goto out;
- 	}
--	ioc->reply_free = pci_pool_alloc(ioc->reply_free_dma_pool , GFP_KERNEL,
-+	ioc->reply_free = dma_pool_alloc(ioc->reply_free_dma_pool, GFP_KERNEL,
- 	    &ioc->reply_free_dma);
- 	if (!ioc->reply_free) {
--		pr_err(MPT3SAS_FMT "reply_free pool: pci_pool_alloc failed\n",
-+		pr_err(MPT3SAS_FMT "reply_free pool: dma_pool_alloc failed\n",
- 			ioc->name);
- 		goto out;
- 	}
-@@ -3710,7 +3705,7 @@ _base_allocate_memory_pools(struct MPT3SAS_ADAPTER *ioc)
- 	    ioc->config_page_sz, &ioc->config_page_dma);
- 	if (!ioc->config_page) {
- 		pr_err(MPT3SAS_FMT
--			"config page: pci_pool_alloc failed\n",
-+			"config page: dma_pool_alloc failed\n",
- 			ioc->name);
- 		goto out;
- 	}
 -- 
 2.9.3
