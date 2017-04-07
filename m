@@ -1,121 +1,156 @@
 From: Tobias Klauser <tklauser@distanz.ch>
-Subject: [PATCH net-next 06/14] net: moxa: Use net_device_stats from struct net_device
-Date: Fri,  7 Apr 2017 10:17:31 +0200
-Message-ID: <20170407081739.5243-7-tklauser@distanz.ch>
+Subject: [PATCH net-next 07/14] net: nmlan_cs: Use net_device_stats from struct net_device
+Date: Fri,  7 Apr 2017 10:17:32 +0200
+Message-ID: <20170407081739.5243-8-tklauser@distanz.ch>
 References: <20170407081739.5243-1-tklauser@distanz.ch>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.zhinst.com ([212.126.164.98]:34520 "EHLO mail.zhinst.com"
+Received: from mail.zhinst.com ([212.126.164.98]:34524 "EHLO mail.zhinst.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755361AbdDGIRq (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1755221AbdDGIRq (ORCPT <rfc822;netdev@vger.kernel.org>);
         Fri, 7 Apr 2017 04:17:46 -0400
 In-Reply-To: <20170407081739.5243-1-tklauser@distanz.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Instead of using a private copy of struct net_device_stats in struct
-moxart_mac_priv_t, use stats from struct net_device. Also remove the now
-unnecessary .ndo_get_stats function.
+_mace_private, use stats from struct net_device.
 
 Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
 ---
- drivers/net/ethernet/moxa/moxart_ether.c | 28 ++++++++++------------------
- drivers/net/ethernet/moxa/moxart_ether.h |  1 -
- 2 files changed, 10 insertions(+), 19 deletions(-)
+ drivers/net/ethernet/amd/nmclan_cs.c | 49 ++++++++++++++++++------------------
+ 1 file changed, 24 insertions(+), 25 deletions(-)
 
-diff --git a/drivers/net/ethernet/moxa/moxart_ether.c b/drivers/net/ethernet/moxa/moxart_ether.c
-index 6ad44be08b33..c0d7d5eec7e7 100644
---- a/drivers/net/ethernet/moxa/moxart_ether.c
-+++ b/drivers/net/ethernet/moxa/moxart_ether.c
-@@ -228,8 +228,8 @@ static int moxart_rx_poll(struct napi_struct *napi, int budget)
- 		if (desc0 & (RX_DESC0_ERR | RX_DESC0_CRC_ERR | RX_DESC0_FTL |
- 			     RX_DESC0_RUNT | RX_DESC0_ODD_NB)) {
- 			net_dbg_ratelimited("packet error\n");
--			priv->stats.rx_dropped++;
--			priv->stats.rx_errors++;
-+			ndev->stats.rx_dropped++;
-+			ndev->stats.rx_errors++;
- 			goto rx_next;
- 		}
+diff --git a/drivers/net/ethernet/amd/nmclan_cs.c b/drivers/net/ethernet/amd/nmclan_cs.c
+index b556c926557a..9c152d85840d 100644
+--- a/drivers/net/ethernet/amd/nmclan_cs.c
++++ b/drivers/net/ethernet/amd/nmclan_cs.c
+@@ -359,7 +359,6 @@ typedef struct _mace_statistics {
  
-@@ -245,8 +245,8 @@ static int moxart_rx_poll(struct napi_struct *napi, int budget)
+ typedef struct _mace_private {
+ 	struct pcmcia_device	*p_dev;
+-    struct net_device_stats linux_stats; /* Linux statistics counters */
+     mace_statistics mace_stats; /* MACE chip statistics counters */
  
- 		if (unlikely(!skb)) {
- 			net_dbg_ratelimited("netdev_alloc_skb_ip_align failed\n");
--			priv->stats.rx_dropped++;
--			priv->stats.rx_errors++;
-+			ndev->stats.rx_dropped++;
-+			ndev->stats.rx_errors++;
- 			goto rx_next;
- 		}
+     /* restore_multicast_list() state variables */
+@@ -879,7 +878,7 @@ static netdev_tx_t mace_start_xmit(struct sk_buff *skb,
+        service a transmit interrupt while we are in here.
+     */
  
-@@ -256,10 +256,10 @@ static int moxart_rx_poll(struct napi_struct *napi, int budget)
- 		napi_gro_receive(&priv->napi, skb);
- 		rx++;
+-    lp->linux_stats.tx_bytes += skb->len;
++    dev->stats.tx_bytes += skb->len;
+     lp->tx_free_frames--;
  
--		priv->stats.rx_packets++;
--		priv->stats.rx_bytes += len;
-+		ndev->stats.rx_packets++;
-+		ndev->stats.rx_bytes += len;
- 		if (desc0 & RX_DESC0_MULTICAST)
--			priv->stats.multicast++;
-+			ndev->stats.multicast++;
+     /* WARNING: Write the _exact_ number of bytes written in the header! */
+@@ -967,7 +966,7 @@ static irqreturn_t mace_interrupt(int irq, void *dev_id)
  
- rx_next:
- 		wmb(); /* prevent setting ownership back too early */
-@@ -296,8 +296,8 @@ static void moxart_tx_finished(struct net_device *ndev)
- 		dma_unmap_single(&ndev->dev, priv->tx_mapping[tx_tail],
- 				 priv->tx_len[tx_tail], DMA_TO_DEVICE);
+       fifofc = inb(ioaddr + AM2150_MACE_BASE + MACE_FIFOFC);
+       if ((fifofc & MACE_FIFOFC_XMTFC)==0) {
+-	lp->linux_stats.tx_errors++;
++	dev->stats.tx_errors++;
+ 	outb(0xFF, ioaddr + AM2150_XMT_SKIP);
+       }
  
--		priv->stats.tx_packets++;
--		priv->stats.tx_bytes += priv->tx_skb[tx_tail]->len;
-+		ndev->stats.tx_packets++;
-+		ndev->stats.tx_bytes += priv->tx_skb[tx_tail]->len;
+@@ -1016,7 +1015,7 @@ static irqreturn_t mace_interrupt(int irq, void *dev_id)
  
- 		dev_kfree_skb_irq(priv->tx_skb[tx_tail]);
- 		priv->tx_skb[tx_tail] = NULL;
-@@ -349,7 +349,7 @@ static int moxart_mac_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+       } /* if (xmtfs & MACE_XMTFS_XMTSV) */
  
- 	if (moxart_desc_read(desc + TX_REG_OFFSET_DESC0) & TX_DESC0_DMA_OWN) {
- 		net_dbg_ratelimited("no TX space for packet\n");
--		priv->stats.tx_dropped++;
-+		ndev->stats.tx_dropped++;
- 		goto out_unlock;
- 	}
- 	rmb(); /* ensure data is only read that had TX_DESC0_DMA_OWN cleared */
-@@ -400,13 +400,6 @@ static int moxart_mac_start_xmit(struct sk_buff *skb, struct net_device *ndev)
- 	return ret;
- }
+-      lp->linux_stats.tx_packets++;
++      dev->stats.tx_packets++;
+       lp->tx_free_frames++;
+       netif_wake_queue(dev);
+     } /* if (status & MACE_IR_XMTINT) */
+@@ -1077,7 +1076,7 @@ static int mace_rx(struct net_device *dev, unsigned char RxCnt)
+ 	  " 0x%X.\n", dev->name, rx_framecnt, rx_status);
  
--static struct net_device_stats *moxart_mac_get_stats(struct net_device *ndev)
--{
--	struct moxart_mac_priv_t *priv = netdev_priv(ndev);
--
--	return &priv->stats;
--}
--
- static void moxart_mac_setmulticast(struct net_device *ndev)
- {
- 	struct moxart_mac_priv_t *priv = netdev_priv(ndev);
-@@ -456,7 +449,6 @@ static const struct net_device_ops moxart_netdev_ops = {
- 	.ndo_open		= moxart_mac_open,
- 	.ndo_stop		= moxart_mac_stop,
- 	.ndo_start_xmit		= moxart_mac_start_xmit,
--	.ndo_get_stats		= moxart_mac_get_stats,
- 	.ndo_set_rx_mode	= moxart_mac_set_rx_mode,
- 	.ndo_set_mac_address	= moxart_set_mac_address,
- 	.ndo_validate_addr	= eth_validate_addr,
-diff --git a/drivers/net/ethernet/moxa/moxart_ether.h b/drivers/net/ethernet/moxa/moxart_ether.h
-index afc32ec998c0..686b8957d5cf 100644
---- a/drivers/net/ethernet/moxa/moxart_ether.h
-+++ b/drivers/net/ethernet/moxa/moxart_ether.h
-@@ -293,7 +293,6 @@
+     if (rx_status & MACE_RCVFS_RCVSTS) { /* Error, update stats. */
+-      lp->linux_stats.rx_errors++;
++      dev->stats.rx_errors++;
+       if (rx_status & MACE_RCVFS_OFLO) {
+         lp->mace_stats.oflo++;
+       }
+@@ -1114,14 +1113,14 @@ static int mace_rx(struct net_device *dev, unsigned char RxCnt)
+ 	
+ 	netif_rx(skb); /* Send the packet to the upper (protocol) layers. */
  
- struct moxart_mac_priv_t {
- 	void __iomem *base;
--	struct net_device_stats stats;
- 	unsigned int reg_maccr;
- 	unsigned int reg_imr;
- 	struct napi_struct napi;
+-	lp->linux_stats.rx_packets++;
+-	lp->linux_stats.rx_bytes += pkt_len;
++	dev->stats.rx_packets++;
++	dev->stats.rx_bytes += pkt_len;
+ 	outb(0xFF, ioaddr + AM2150_RCV_NEXT); /* skip to next frame */
+ 	continue;
+       } else {
+ 	pr_debug("%s: couldn't allocate a sk_buff of size"
+ 	      " %d.\n", dev->name, pkt_len);
+-	lp->linux_stats.rx_dropped++;
++	dev->stats.rx_dropped++;
+       }
+     }
+     outb(0xFF, ioaddr + AM2150_RCV_NEXT); /* skip to next frame */
+@@ -1231,13 +1230,13 @@ static void update_stats(unsigned int ioaddr, struct net_device *dev)
+   lp->mace_stats.rntpc += mace_read(lp, ioaddr, MACE_RNTPC);
+   lp->mace_stats.mpc += mace_read(lp, ioaddr, MACE_MPC);
+   /* At this point, mace_stats is fully updated for this call.
+-     We may now update the linux_stats. */
++     We may now update the netdev stats. */
+ 
+-  /* The MACE has no equivalent for linux_stats field which are commented
++  /* The MACE has no equivalent for netdev stats field which are commented
+      out. */
+ 
+-  /* lp->linux_stats.multicast; */
+-  lp->linux_stats.collisions = 
++  /* dev->stats.multicast; */
++  dev->stats.collisions =
+     lp->mace_stats.rcvcco * 256 + lp->mace_stats.rcvcc;
+     /* Collision: The MACE may retry sending a packet 15 times
+        before giving up.  The retry count is in XMTRC.
+@@ -1245,22 +1244,22 @@ static void update_stats(unsigned int ioaddr, struct net_device *dev)
+        If so, why doesn't the RCVCC record these collisions? */
+ 
+   /* detailed rx_errors: */
+-  lp->linux_stats.rx_length_errors = 
++  dev->stats.rx_length_errors =
+     lp->mace_stats.rntpco * 256 + lp->mace_stats.rntpc;
+-  /* lp->linux_stats.rx_over_errors */
+-  lp->linux_stats.rx_crc_errors = lp->mace_stats.fcs;
+-  lp->linux_stats.rx_frame_errors = lp->mace_stats.fram;
+-  lp->linux_stats.rx_fifo_errors = lp->mace_stats.oflo;
+-  lp->linux_stats.rx_missed_errors = 
++  /* dev->stats.rx_over_errors */
++  dev->stats.rx_crc_errors = lp->mace_stats.fcs;
++  dev->stats.rx_frame_errors = lp->mace_stats.fram;
++  dev->stats.rx_fifo_errors = lp->mace_stats.oflo;
++  dev->stats.rx_missed_errors =
+     lp->mace_stats.mpco * 256 + lp->mace_stats.mpc;
+ 
+   /* detailed tx_errors */
+-  lp->linux_stats.tx_aborted_errors = lp->mace_stats.rtry;
+-  lp->linux_stats.tx_carrier_errors = lp->mace_stats.lcar;
++  dev->stats.tx_aborted_errors = lp->mace_stats.rtry;
++  dev->stats.tx_carrier_errors = lp->mace_stats.lcar;
+     /* LCAR usually results from bad cabling. */
+-  lp->linux_stats.tx_fifo_errors = lp->mace_stats.uflo;
+-  lp->linux_stats.tx_heartbeat_errors = lp->mace_stats.cerr;
+-  /* lp->linux_stats.tx_window_errors; */
++  dev->stats.tx_fifo_errors = lp->mace_stats.uflo;
++  dev->stats.tx_heartbeat_errors = lp->mace_stats.cerr;
++  /* dev->stats.tx_window_errors; */
+ } /* update_stats */
+ 
+ /* ----------------------------------------------------------------------------
+@@ -1274,10 +1273,10 @@ static struct net_device_stats *mace_get_stats(struct net_device *dev)
+   update_stats(dev->base_addr, dev);
+ 
+   pr_debug("%s: updating the statistics.\n", dev->name);
+-  pr_linux_stats(&lp->linux_stats);
++  pr_linux_stats(&dev->stats);
+   pr_mace_stats(&lp->mace_stats);
+ 
+-  return &lp->linux_stats;
++  return &dev->stats;
+ } /* net_device_stats */
+ 
+ /* ----------------------------------------------------------------------------
 -- 
 2.12.2
