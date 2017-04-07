@@ -1,54 +1,132 @@
-From: <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH net-next v4 4/5] net-next: ethernet: mediatek: add device_node of GMAC pointing into the netdev instance
-Date: Fri, 7 Apr 2017 16:45:08 +0800
-Message-ID: <1491554709-9723-5-git-send-email-sean.wang@mediatek.com>
+From: <sean.wang@mediatek.com>
+Subject: [PATCH net-next v4 1/5] dt-bindings: net: dsa: add Mediatek MT7530 binding
+Date: Fri, 7 Apr 2017 16:45:05 +0800
+Message-ID: <1491554709-9723-2-git-send-email-sean.wang@mediatek.com>
 References: <1491554709-9723-1-git-send-email-sean.wang@mediatek.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        <linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>, <Landen.Chao-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>,
-        <keyhaede-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <objelf-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: <andrew-g2DYL2Zd6BY@public.gmane.org>, <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        <vivien.didelot-4ysUXcep3aM1wj+D4I0NRVaTQe2KTcn/@public.gmane.org>, <matthias.bgg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, <mark.rutland-5wv7dgnIgG8@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1491554709-9723-1-git-send-email-sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: <devicetree@vger.kernel.org>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>,
+        <linux-mediatek@lists.infradead.org>, <davem@davemloft.net>,
+        <sean.wang@mediatek.com>, <Landen.Chao@mediatek.com>,
+        <keyhaede@gmail.com>, <objelf@gmail.com>
+To: <andrew@lunn.ch>, <f.fainelli@gmail.com>,
+        <vivien.didelot@savoirfairelinux.com>, <matthias.bgg@gmail.com>,
+        <robh+dt@kernel.org>, <mark.rutland@arm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1491554709-9723-1-git-send-email-sean.wang@mediatek.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
+From: Sean Wang <sean.wang@mediatek.com>
 
-the patch adds the setup of the corresponding device node of GMAC into the
-netdev instance which could allow other modules such as DSA to find the
-instance through the node in dt-bindings using of_find_net_device_by_node()
-call.
+Add device-tree binding for Mediatek MT7530 switch.
 
-Signed-off-by: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
-Reviewed-by: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Reviewed-by: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Cc: devicetree@vger.kernel.org
+Signed-off-by: Sean Wang <sean.wang@mediatek.com>
+Acked-by: Rob Herring <robh@kernel.org>
 ---
- drivers/net/ethernet/mediatek/mtk_eth_soc.c | 2 ++
- 1 file changed, 2 insertions(+)
+ .../devicetree/bindings/net/dsa/mt7530.txt         | 92 ++++++++++++++++++++++
+ 1 file changed, 92 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/net/dsa/mt7530.txt
 
-diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index c21ed99..84b09a4 100644
---- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-+++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -2323,6 +2323,8 @@ static int mtk_add_mac(struct mtk_eth *eth, struct device_node *np)
- 	eth->netdev[id]->ethtool_ops = &mtk_ethtool_ops;
- 
- 	eth->netdev[id]->irq = eth->irq[0];
-+	eth->netdev[id]->dev.of_node = np;
+diff --git a/Documentation/devicetree/bindings/net/dsa/mt7530.txt b/Documentation/devicetree/bindings/net/dsa/mt7530.txt
+new file mode 100644
+index 0000000..a9bc27b
+--- /dev/null
++++ b/Documentation/devicetree/bindings/net/dsa/mt7530.txt
+@@ -0,0 +1,92 @@
++Mediatek MT7530 Ethernet switch
++================================
 +
- 	return 0;
- 
- free_netdev:
++Required properties:
++
++- compatible: Must be compatible = "mediatek,mt7530";
++- #address-cells: Must be 1.
++- #size-cells: Must be 0.
++- mediatek,mcm: Boolean; if defined, indicates that either MT7530 is the part
++	on multi-chip module belong to MT7623A has or the remotely standalone
++	chip as the function MT7623N reference board provided for.
++- core-supply: Phandle to the regulator node necessary for the core power.
++- io-supply: Phandle to the regulator node necessary for the I/O power.
++	See Documentation/devicetree/bindings/regulator/mt6323-regulator.txt
++	for details for the regulator setup on these boards.
++
++If the property mediatek,mcm isn't defined, following property is required
++
++- reset-gpios: Should be a gpio specifier for a reset line.
++
++Else, following properties are required
++
++- resets : Phandle pointing to the system reset controller with
++	line index for the ethsys.
++- reset-names : Should be set to "mcm".
++
++Required properties for the child nodes within ports container:
++
++- reg: Port address described must be 6 for CPU port and from 0 to 5 for
++	user ports.
++- phy-mode: String, must be either "trgmii" or "rgmii" for port labeled
++	 "cpu".
++
++See Documentation/devicetree/bindings/dsa/dsa.txt for a list of additional
++required, optional properties and how the integrated switch subnodes must
++be specified.
++
++Example:
++
++	&mdio0 {
++		switch@0 {
++			compatible = "mediatek,mt7530";
++			#address-cells = <1>;
++			#size-cells = <0>;
++			reg = <0>;
++
++			core-supply = <&mt6323_vpa_reg>;
++			io-supply = <&mt6323_vemc3v3_reg>;
++			reset-gpios = <&pio 33 0>;
++
++			ports {
++				#address-cells = <1>;
++				#size-cells = <0>;
++				reg = <0>;
++				port@0 {
++					reg = <0>;
++					label = "lan0";
++				};
++
++				port@1 {
++					reg = <1>;
++					label = "lan1";
++				};
++
++				port@2 {
++					reg = <2>;
++					label = "lan2";
++				};
++
++				port@3 {
++					reg = <3>;
++					label = "lan3";
++				};
++
++				port@4 {
++					reg = <4>;
++					label = "wan";
++				};
++
++				port@6 {
++					reg = <6>;
++					label = "cpu";
++					ethernet = <&gmac0>;
++					phy-mode = "trgmii";
++					fixed-link {
++						speed = <1000>;
++						full-duplex;
++					};
++				};
++			};
++		};
++	};
 -- 
 1.9.1
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
