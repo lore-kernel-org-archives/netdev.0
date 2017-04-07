@@ -1,75 +1,98 @@
-From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Subject: Re: [PATCH] ath9k: Add cast to u8 to FREQ2FBIN macro
-Date: Thu, 06 Apr 2017 19:36:41 -0700
-Message-ID: <1491532601.3250.1.camel@perches.com>
-References: <20170406212135.72157-1-mka@chromium.org>
-         <1491514160.27353.102.camel@perches.com>
-         <20170406235427.GC78690@google.com>
+From: Kees Cook <keescook@chromium.org>
+Subject: Re: [PATCH] format-security: move static strings to const
+Date: Thu, 6 Apr 2017 20:21:54 -0700
+Message-ID: <CAGXu5j+ms4KMy1Uh473r+2veTKnuHN4OuozS92WWwnycH-LGLw@mail.gmail.com>
+References: <20170405214711.GA5711@beast> <87mvbtzztb.fsf@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-        ath9k Development <ath9k-devel-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Grant Grundler <grundler-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
-To: Matthias Kaehlcke <mka-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170406235427.GC78690-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Linux MIPS Mailing List <linux-mips@linux-mips.org>,
+ linux-decnet-user@lists.sourceforge.net, Mugunthan V N <mugunthanvnm@ti.com>,
+ Tony Lindgren <tony@atomide.com>, Viresh Kumar <viresh.kumar@linaro.org>,
+ Rasmus Villemoes <linux@rasmusvillemoes.dk>,
+ Maling list - DRI developers <dri-devel@lists.freedesktop.org>,
+ LKML <linux-kernel@vger.kernel.org>, Eric Dumazet <edumazet@google.com>,
+ "Maciej W. Rozycki" <macro@linux-mips.org>,
+ Christian Gromm <christian.gromm@microchip.com>,
+ Daniel Vetter <daniel.vetter@intel.com>, Ingo Molnar <mingo@kernel.org>,
+ devel@driverdev.osuosl.org, Kejian Yan <yankejian@huawei.com>,
+ Felipe Balbi <felipe.balbi@linux.intel.com>,
+ Russell King <linux@armlinux.org.uk>, Jarod Wilson <jarod@redhat.com>,
+ David Airlie <airlied@linux.ie>, Daode Huang <huangdaode@hisilicon.com>,
+ linux-serial@vger.kernel.org, Jiri Slaby <jslaby@suse.com>,
+ Yisen Zhuang <yis
+To: Jani Nikula <jani.nikula@linux.intel.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <87mvbtzztb.fsf@intel.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2017-04-06 at 16:54 -0700, Matthias Kaehlcke wrote:
-> Hi Joe,
-> 
-> El Thu, Apr 06, 2017 at 02:29:20PM -0700 Joe Perches ha dit:
-> 
-> > On Thu, 2017-04-06 at 14:21 -0700, Matthias Kaehlcke wrote:
-> > > The macro results are assigned to u8 variables/fields. Adding the cast
-> > > fixes plenty of clang warnings about "implicit conversion from 'int' to
-> > > 'u8'".
-> > > 
-> > > Signed-off-by: Matthias Kaehlcke <mka-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
-> > > ---
-> > >  drivers/net/wireless/ath/ath9k/eeprom.h | 2 +-
-> > >  1 file changed, 1 insertion(+), 1 deletion(-)
-> > > 
-> > > diff --git a/drivers/net/wireless/ath/ath9k/eeprom.h b/drivers/net/wireless/ath/ath9k/eeprom.h
-> > > index 30bf722e33ed..31390af6c33e 100644
-> > > --- a/drivers/net/wireless/ath/ath9k/eeprom.h
-> > > +++ b/drivers/net/wireless/ath/ath9k/eeprom.h
-> > > @@ -106,7 +106,7 @@
-> > >  #define AR9285_RDEXT_DEFAULT    0x1F
-> > >  
-> > >  #define ATH9K_POW_SM(_r, _s)	(((_r) & 0x3f) << (_s))
-> > > -#define FREQ2FBIN(x, y)		((y) ? ((x) - 2300) : (((x) - 4800) / 5))
-> > > +#define FREQ2FBIN(x, y)		(u8)((y) ? ((x) - 2300) : (((x) - 4800) / 5))
-> > 
-> > Maybe better to use:
-> > 
-> > static inline u8 FREQ2FBIN(int x, int y)
-> > {
-> > 	if (y)
-> > 		return x - 2300;
-> > 	return (x - 4800) / 5;
-> > }
-> 
-> Thanks for your suggestion! Unfortunately in this case an inline
-> function is not suitable since FREQ2FBIN() is mostly used for
-> structure initialization:
-> 
-> static const struct ar9300_eeprom ar9300_default = {
-> ...
->         .calFreqPier2G = {
->                 FREQ2FBIN(2412, 1),
->                 FREQ2FBIN(2437, 1),
->                 FREQ2FBIN(2472, 1)
->         },
-> ...
+On Thu, Apr 6, 2017 at 1:48 AM, Jani Nikula <jani.nikula@linux.intel.com> wrote:
+> On Thu, 06 Apr 2017, Kees Cook <keescook@chromium.org> wrote:
+>> While examining output from trial builds with -Wformat-security enabled,
+>> many strings were found that should be defined as "const", or as a char
+>> array instead of char pointer. This makes some static analysis easier,
+>> by producing fewer false positives.
+>>
+>> As these are all trivial changes, it seemed best to put them all in
+>> a single patch rather than chopping them up per maintainer.
+>
+>> diff --git a/drivers/gpu/drm/drm_fb_helper.c b/drivers/gpu/drm/drm_fb_helper.c
+>> index f6d4d9700734..1ff9d5912b83 100644
+>> --- a/drivers/gpu/drm/drm_fb_helper.c
+>> +++ b/drivers/gpu/drm/drm_fb_helper.c
+>> @@ -2331,7 +2331,7 @@ EXPORT_SYMBOL(drm_fb_helper_hotplug_event);
+>>  int __init drm_fb_helper_modinit(void)
+>>  {
+>>  #if defined(CONFIG_FRAMEBUFFER_CONSOLE_MODULE) && !defined(CONFIG_EXPERT)
+>> -     const char *name = "fbcon";
+>> +     const char name[] = "fbcon";
+>
+> I'd always write the former out of habit. Why should I start using the
+> latter? What makes it better?
 
-Maybe it's better to remove the second argument and write
-something like:
+For me, it's mainly two reasons: sizeof() and -Wformat-security behavior.
 
-#define FREQ2FBIN(x) \
-	(u8)(((x) >= 2300 && (x) <= 2555) ? (x) - 2300 : \
-	     ((x) >= 4800 && (x) <= 4800 + (256 * 5) ? ((x) - 4800) / 5) : \
-	     __builtin_const_p(x) ? BUILD_BUG_ON(1) : 0)
+The compiler treats "sizeof" differently. E.g. "sizeof(var)" shows the
+allocation size for the array, and pointer size for the char pointer.
+When doing things like snprintf(buf, sizeof(buf), ...) will do the
+right thing, etc. (This is a poor example for a _const_ string, but
+the point is that some calculations still work better with the array
+over the pointer.)
+
+The other situation (which is why I noted this to change them) is that
+gcc's handling of them is different when faced with -Wformat-security
+since it doesn't like to believe that const char pointers are actually
+const for the purposes of being a format string.
+
+> What keeps the kernel from accumulating tons more of the former?
+
+Right now, nothing. The good news is that they're relatively rare, and
+I notice them when they're added (since I have a -Wformat-security
+tree). We could add a warning to checkpatch for suggesting const char
+var[] over const char *var, perhaps?
+
+> Here's an interesting comparison of the generated code. I'm a bit
+> surprised by what gcc does, I would have expected no difference, like
+> clang. https://godbolt.org/g/OdqUvN
+
+Here's your example with sizeof() added, if you're curious...
+https://godbolt.org/g/U1zIZK
+
+> The other changes adding const in this patch are, of course, good.
+
+Thanks!
+
+-Kees
+
+-- 
+Kees Cook
+Pixel Security
