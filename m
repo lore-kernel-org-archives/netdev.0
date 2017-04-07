@@ -1,53 +1,34 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: [PATCH 08/12] ftgmac100: Move the barrier out of ftgmac100_txdes_set_dma_own()
-Date: Fri,  7 Apr 2017 13:31:01 +1000
-Message-ID: <20170407033105.29558-9-benh@kernel.crashing.org>
-References: <20170407033105.29558-1-benh@kernel.crashing.org>
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-To: netdev@vger.kernel.org
+From: Mike Galbraith <efault@gmx.de>
+Subject: Re: [Patch net] net_sched: replace yield() with cond_resched()
+Date: Fri, 07 Apr 2017 05:59:02 +0200
+Message-ID: <1491537542.4348.13.camel@gmx.de>
+References: <1491357139-27108-1-git-send-email-xiyou.wangcong@gmail.com>
+         <1491364545.4536.90.camel@gmx.de>
+         <CAM_iQpXpZjpS1ZG7hH-52jt41FzzyMZ0rss9PauaSD54XSQiXQ@mail.gmail.com>
+         <1491371790.4536.151.camel@gmx.de>
+         <CAM_iQpUa-w9k4EFafQCEpbmR0PANwkLieYMxGwi59373h8jHUg@mail.gmail.com>
+         <1491443659.4718.57.camel@gmx.de>
+         <20170406181355.7fc4353a@plumbers-lap.home.lan>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:36514 "EHLO gate.crashing.org"
+Received: from mout.gmx.net ([212.227.15.15]:53316 "EHLO mout.gmx.net"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751784AbdDGDn4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 6 Apr 2017 23:43:56 -0400
-In-Reply-To: <20170407033105.29558-1-benh@kernel.crashing.org>
+        id S1751660AbdDGD7F (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 6 Apr 2017 23:59:05 -0400
+In-Reply-To: <20170406181355.7fc4353a@plumbers-lap.home.lan>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We'll use variants of this accessor without barriers when
-building series of descriptors for fragmented sends
+On Thu, 2017-04-06 at 18:13 -0400, Stephen Hemminger wrote:
 
-Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
----
- drivers/net/ethernet/faraday/ftgmac100.c | 9 ++++-----
- 1 file changed, 4 insertions(+), 5 deletions(-)
+> Why not replace yield with msleep(1) which gets rid of the inversion
+> issues?
 
-diff --git a/drivers/net/ethernet/faraday/ftgmac100.c b/drivers/net/ethernet/faraday/ftgmac100.c
-index ccf0fcd..31fbb75 100644
---- a/drivers/net/ethernet/faraday/ftgmac100.c
-+++ b/drivers/net/ethernet/faraday/ftgmac100.c
-@@ -483,11 +483,6 @@ static bool ftgmac100_txdes_owned_by_dma(struct ftgmac100_txdes *txdes)
- 
- static void ftgmac100_txdes_set_dma_own(struct ftgmac100_txdes *txdes)
- {
--	/*
--	 * Make sure dma own bit will not be set before any other
--	 * descriptor fields.
--	 */
--	wmb();
- 	txdes->txdes0 |= cpu_to_le32(FTGMAC100_TXDES0_TXDMA_OWN);
- }
- 
-@@ -678,6 +673,10 @@ static int ftgmac100_hard_start_xmit(struct sk_buff *skb,
- 		}
- 	}
- 
-+	/* Order the previous packet and descriptor udpates
-+	 * before setting the OWN bit.
-+	 */
-+	dma_wmb();
- 	ftgmac100_txdes_set_dma_own(txdes);
- 
- 	/* Update next TX pointer */
--- 
-2.9.3
+That's fine, just not super efficient, if that matters.
+
+	-Mike
