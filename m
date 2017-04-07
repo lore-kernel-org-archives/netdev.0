@@ -1,50 +1,74 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net-next 5/7] net/mlx5e: Show board id in ethtool driver information
-Date: Fri,  7 Apr 2017 21:26:54 +0300
-Message-ID: <20170407182656.6734-6-saeedm@mellanox.com>
-References: <20170407182656.6734-1-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Inbar Karmy <inbark@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [RFC 2/3] genetlink: pass extended error report down
+Date: Fri, 7 Apr 2017 11:37:07 -0700
+Message-ID: <25e1fb8c-22e0-d7a2-13a7-d0def5432c9e@candelatech.com>
+References: <20170407182620.6438-1-johannes@sipsolutions.net>
+ <20170407182620.6438-3-johannes@sipsolutions.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: pablo@netfilter.org, Johannes Berg <johannes.berg@intel.com>
+To: Johannes Berg <johannes@sipsolutions.net>,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:47253 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1756042AbdDGS1T (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 7 Apr 2017 14:27:19 -0400
-In-Reply-To: <20170407182656.6734-1-saeedm@mellanox.com>
+Received: from mail2.candelatech.com ([208.74.158.173]:43154 "EHLO
+        mail2.candelatech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934301AbdDGShK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 7 Apr 2017 14:37:10 -0400
+In-Reply-To: <20170407182620.6438-3-johannes@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Inbar Karmy <inbark@mellanox.com>
+On 04/07/2017 11:26 AM, Johannes Berg wrote:
+> From: Johannes Berg <johannes.berg@intel.com>
+>
+> Signed-off-by: Johannes Berg <johannes.berg@intel.com>
+> ---
+>  include/net/genetlink.h | 27 +++++++++++++++++++++++++++
+>  net/netlink/genetlink.c |  6 ++++--
+>  2 files changed, 31 insertions(+), 2 deletions(-)
+>
+> diff --git a/include/net/genetlink.h b/include/net/genetlink.h
+> index a34275be3600..67ad2326cfa6 100644
+> --- a/include/net/genetlink.h
+> +++ b/include/net/genetlink.h
+> @@ -84,6 +84,7 @@ struct nlattr **genl_family_attrbuf(const struct genl_family *family);
+>   * @attrs: netlink attributes
+>   * @_net: network namespace
+>   * @user_ptr: user pointers
+> + * @exterr: extended error report struct
+>   */
+>  struct genl_info {
+>  	u32			snd_seq;
+> @@ -94,6 +95,7 @@ struct genl_info {
+>  	struct nlattr **	attrs;
+>  	possible_net_t		_net;
+>  	void *			user_ptr[2];
+> +	struct netlink_ext_err *exterr;
+>  };
+>
+>  static inline struct net *genl_info_net(struct genl_info *info)
+> @@ -106,6 +108,31 @@ static inline void genl_info_net_set(struct genl_info *info, struct net *net)
+>  	write_pnet(&info->_net, net);
+>  }
+>
+> +static inline int genl_err_str(struct genl_info *info, int err,
+> +			       const char *msg)
+> +{
+> +	info->exterr->msg = msg;
+> +
+> +	return err;
+> +}
 
-Add the board id (PSID) to the firmware-version field
-in the ethtool -i (driver information).
-The PSID is shown in parentheses, next to the fw-version.
+I guess the error string must be constant and always available in memory
+in this implementation?
 
-$ ethtool -i ens6
-firmware-version: 12.14.1101 (MT_2190110032)
+I think it would be nice to dynamically create strings (malloc, snprintf, etc)
+and have the err_str logic free it when done?
 
-Signed-off-by: Inbar Karmy <inbark@mellanox.com>
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+Thanks,
+Ben
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-index 167a8379156e..ce7b09d72ff6 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-@@ -42,8 +42,9 @@ static void mlx5e_get_drvinfo(struct net_device *dev,
- 	strlcpy(drvinfo->version, DRIVER_VERSION " (" DRIVER_RELDATE ")",
- 		sizeof(drvinfo->version));
- 	snprintf(drvinfo->fw_version, sizeof(drvinfo->fw_version),
--		 "%d.%d.%04d",
--		 fw_rev_maj(mdev), fw_rev_min(mdev), fw_rev_sub(mdev));
-+		 "%d.%d.%04d (%.16s)",
-+		 fw_rev_maj(mdev), fw_rev_min(mdev), fw_rev_sub(mdev),
-+		 mdev->board_id);
- 	strlcpy(drvinfo->bus_info, pci_name(mdev->pdev),
- 		sizeof(drvinfo->bus_info));
- }
 -- 
-2.11.0
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
