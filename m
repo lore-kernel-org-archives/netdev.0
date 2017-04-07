@@ -1,28 +1,30 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next 0/5] qede: support XDP head adjustments
-Date: Fri, 07 Apr 2017 16:02:14 +0200
-Message-ID: <58E79BE6.2070609@iogearbox.net>
-References: <1491552301-23953-1-git-send-email-Yuval.Mintz@cavium.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 00/14] Use net_device_stats from struct
+ net_device
+Date: Fri, 07 Apr 2017 07:06:50 -0700 (PDT)
+Message-ID: <20170407.070650.1416475585266262678.davem@davemloft.net>
+References: <20170407081739.5243-1-tklauser@distanz.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ast@fb.com
-To: Yuval Mintz <Yuval.Mintz@cavium.com>, davem@davemloft.net,
-        netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: tklauser@distanz.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:46801 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933348AbdDGOCV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 7 Apr 2017 10:02:21 -0400
-In-Reply-To: <1491552301-23953-1-git-send-email-Yuval.Mintz@cavium.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:54154 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932962AbdDGOGy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 7 Apr 2017 10:06:54 -0400
+In-Reply-To: <20170407081739.5243-1-tklauser@distanz.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/07/2017 10:04 AM, Yuval Mintz wrote:
-> Daniel has brought to my attention the fact that qede is the only driver
-> that currently supports XDP but still fails any program where
-> xdp_adjust_head is set on the bpf_prog. This series is meant to remedy
-> this and align qede with the rest of the driver, making it possible to
-> remove said field.
+From: Tobias Klauser <tklauser@distanz.ch>
+Date: Fri,  7 Apr 2017 10:17:25 +0200
 
-Awesome, thanks a lot Yuval!
+> Along the lines of previous patches, switch (almost) all remaining net
+> drivers to use net_device_stats from net_device instead of including a
+> copy of it in their netdev_priv struct.
+
+I'll apply this series because it moves things in a positive direction,
+but yeah these drivers should in the long term use the 64-bit link stats
+which overflow less often.
