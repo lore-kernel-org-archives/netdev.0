@@ -1,39 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: ipv4: fix multipath RTM_GETROUTE
- behavior when iif is given
-Date: Fri, 07 Apr 2017 07:56:40 -0700 (PDT)
-Message-ID: <20170407.075640.2048912684209051827.davem@davemloft.net>
-References: <20170407124220.17483-1-fl@n621.de>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH v2 4/4] net: dsa: LAN9303: add MDIO managed mode support
+Date: Fri, 7 Apr 2017 17:05:14 +0200
+Message-ID: <20170407150514.GE23415@lunn.ch>
+References: <20170407081502.30172-1-jbe@pengutronix.de>
+ <20170407081502.30172-5-jbe@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: fl@n621.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:54964 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933874AbdDGO4y (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 7 Apr 2017 10:56:54 -0400
-In-Reply-To: <20170407124220.17483-1-fl@n621.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        f.fainelli@gmail.com, kernel@pengutronix.de,
+        vivien.didelot@savoirfairelinux.com, davem@davemloft.net
+To: Juergen Borleis <jbe@pengutronix.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170407081502.30172-5-jbe@pengutronix.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Florian Larysch <fl@n621.de>
-Date: Fri,  7 Apr 2017 14:42:20 +0200
-
-> inet_rtm_getroute synthesizes a skeletal ICMP skb, which is passed to
-> ip_route_input when iif is given. If a multipath route is present for
-> the designated destination, fib_multipath_hash ends up being called with
-> that skb. However, as that skb contains no information beyond the
-> protocol type, the calculated hash does not match the one we would see
-> for a real packet.
+On Fri, Apr 07, 2017 at 10:15:02AM +0200, Juergen Borleis wrote:
+> When the LAN9303 device is in MDIO manged mode, all register accesses must
+> be done via MDIO.
 > 
-> There is currently no way to fix this for layer 4 hashing, as
-> RTM_GETROUTE doesn't have the necessary information to create layer 4
-> headers. To fix this for layer 3 hashing, set appropriate saddr/daddrs
-> in the skb and also change the protocol to UDP to avoid special
-> treatment for ICMP.
-> 
-> Signed-off-by: Florian Larysch <fl@n621.de>
+> Please note: this code is *untested* yet due to the absence of such
+> configured hardware. It is based on a patch of Stefan Roese from 2014.
 
-Applied, thanks for following up on this.
+I looked through the code and i don't see anything obviously
+wrong. But so long as we get the ABI correct, we can fix everything
+else later. And the ABI here is just the device tree binding. And that
+is identical to the i2c binding. The properties just go in a different
+place in the tree. So please do the *TODO*, you can look at other
+examples, e.g. the Marvell binding documentation.
+
+With that done, i will ACK this code.
+
+     Andrew
