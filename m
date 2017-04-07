@@ -1,232 +1,219 @@
-From: <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH net-next v4 2/5] net-next: dsa: add Mediatek tag RX/TX handler
-Date: Fri, 7 Apr 2017 16:45:06 +0800
-Message-ID: <1491554709-9723-3-git-send-email-sean.wang@mediatek.com>
-References: <1491554709-9723-1-git-send-email-sean.wang@mediatek.com>
+From: Tobias Klauser <tklauser@distanz.ch>
+Subject: Re: [PATCH net-next 05/14] net: macb: Use net_device_stats from
+ struct net_device
+Date: Fri, 7 Apr 2017 10:57:09 +0200
+Message-ID: <20170407085709.GA16513@distanz.ch>
+References: <20170407081739.5243-1-tklauser@distanz.ch>
+ <20170407081739.5243-6-tklauser@distanz.ch>
+ <06673f1b-60d3-9749-c3cb-f35d9579a98f@microchip.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Landen.Chao-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org, keyhaede-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
- netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, objelf-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: <andrew-g2DYL2Zd6BY@public.gmane.org>, <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
- <vivien.didelot-4ysUXcep3aM1wj+D4I0NRVaTQe2KTcn/@public.gmane.org>, <matthias.bgg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
- <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, <mark.rutland-5wv7dgnIgG8@public.gmane.org>
-Return-path: <linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <1491554709-9723-1-git-send-email-sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-mediatek>,
- <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-mediatek/>
-List-Post: <mailto:linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-mediatek>,
- <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org
+To: Nicolas Ferre <nicolas.ferre@microchip.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sym2.noone.org ([178.63.92.236]:46934 "EHLO sym2.noone.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754675AbdDGI5O (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 7 Apr 2017 04:57:14 -0400
+Content-Disposition: inline
+In-Reply-To: <06673f1b-60d3-9749-c3cb-f35d9579a98f@microchip.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
+On 2017-04-07 at 10:29:34 +0200, Nicolas Ferre <nicolas.ferre@microchip.com> wrote:
+> Le 07/04/2017 à 10:17, Tobias Klauser a écrit :
+> > Instead of using a private copy of struct net_device_stats in struct
+> > macb, use stats from struct net_device.
+> 
+> I agree with the initiative but I read this in the documentation of this
+> struct member...
+> 
+> @stats:         Statistics struct, which was left as a legacy, use
+>                 rtnl_link_stats64 instead
 
-Add the support for the 4-bytes tag for DSA port distinguishing inserted
-allowing receiving and transmitting the packet via the particular port.
-The tag is being added after the source MAC address in the ethernet
-header.
+Seems I haven't read the comments for this struct member in a long time.
+Thanks for the hint :)
 
-Signed-off-by: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
-Signed-off-by: Landen Chao <Landen.Chao-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
-Reviewed-by: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Reviewed-by: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
----
- include/net/dsa.h  |   1 +
- net/dsa/Kconfig    |   2 +
- net/dsa/Makefile   |   1 +
- net/dsa/dsa.c      |   3 ++
- net/dsa/dsa_priv.h |   3 ++
- net/dsa/tag_mtk.c  | 118 +++++++++++++++++++++++++++++++++++++++++++++++++++++
- 6 files changed, 128 insertions(+)
- create mode 100644 net/dsa/tag_mtk.c
+> Is it still permitted to use it? Would it be to directly move to the
+> most up-to-date code?
 
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index 4e13e69..3276547 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -31,6 +31,7 @@ enum dsa_tag_protocol {
- 	DSA_TAG_PROTO_EDSA,
- 	DSA_TAG_PROTO_BRCM,
- 	DSA_TAG_PROTO_QCA,
-+	DSA_TAG_PROTO_MTK,
- 	DSA_TAG_LAST,		/* MUST BE LAST */
- };
- 
-diff --git a/net/dsa/Kconfig b/net/dsa/Kconfig
-index 9649238..d78789b 100644
---- a/net/dsa/Kconfig
-+++ b/net/dsa/Kconfig
-@@ -31,4 +31,6 @@ config NET_DSA_TAG_TRAILER
- config NET_DSA_TAG_QCA
- 	bool
- 
-+config NET_DSA_TAG_MTK
-+	bool
- endif
-diff --git a/net/dsa/Makefile b/net/dsa/Makefile
-index 31d3437..9b1d478 100644
---- a/net/dsa/Makefile
-+++ b/net/dsa/Makefile
-@@ -8,3 +8,4 @@ dsa_core-$(CONFIG_NET_DSA_TAG_DSA) += tag_dsa.o
- dsa_core-$(CONFIG_NET_DSA_TAG_EDSA) += tag_edsa.o
- dsa_core-$(CONFIG_NET_DSA_TAG_TRAILER) += tag_trailer.o
- dsa_core-$(CONFIG_NET_DSA_TAG_QCA) += tag_qca.o
-+dsa_core-$(CONFIG_NET_DSA_TAG_MTK) += tag_mtk.o
-diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index b6d4f6a..617f736 100644
---- a/net/dsa/dsa.c
-+++ b/net/dsa/dsa.c
-@@ -53,6 +53,9 @@ static struct sk_buff *dsa_slave_notag_xmit(struct sk_buff *skb,
- #ifdef CONFIG_NET_DSA_TAG_QCA
- 	[DSA_TAG_PROTO_QCA] = &qca_netdev_ops,
- #endif
-+#ifdef CONFIG_NET_DSA_TAG_MTK
-+	[DSA_TAG_PROTO_MTK] = &mtk_netdev_ops,
-+#endif
- 	[DSA_TAG_PROTO_NONE] = &none_ops,
- };
- 
-diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
-index 0706a51..2a31399 100644
---- a/net/dsa/dsa_priv.h
-+++ b/net/dsa/dsa_priv.h
-@@ -85,4 +85,7 @@ int dsa_slave_create(struct dsa_switch *ds, struct device *parent,
- /* tag_qca.c */
- extern const struct dsa_device_ops qca_netdev_ops;
- 
-+/* tag_mtk.c */
-+extern const struct dsa_device_ops mtk_netdev_ops;
-+
- #endif
-diff --git a/net/dsa/tag_mtk.c b/net/dsa/tag_mtk.c
-new file mode 100644
-index 0000000..44ae635
---- /dev/null
-+++ b/net/dsa/tag_mtk.c
-@@ -0,0 +1,118 @@
-+/*
-+ * Mediatek DSA Tag support
-+ * Copyright (C) 2017 Landen Chao <landen.chao-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
-+ *		      Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 and
-+ * only version 2 as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ */
-+
-+#include <linux/etherdevice.h>
-+#include <net/dsa.h>
-+#include "dsa_priv.h"
-+
-+#define MTK_HDR_LEN		4
-+#define MTK_HDR_RECV_SOURCE_PORT_MASK	GENMASK(2, 0)
-+#define MTK_HDR_XMIT_DP_BIT_MASK	GENMASK(5, 0)
-+
-+static struct sk_buff *mtk_tag_xmit(struct sk_buff *skb,
-+				    struct net_device *dev)
-+{
-+	struct dsa_slave_priv *p = netdev_priv(dev);
-+	u8 *mtk_tag;
-+
-+	if (skb_cow_head(skb, MTK_HDR_LEN) < 0)
-+		goto out_free;
-+
-+	skb_push(skb, MTK_HDR_LEN);
-+
-+	memmove(skb->data, skb->data + MTK_HDR_LEN, 2 * ETH_ALEN);
-+
-+	/* Build the tag after the MAC Source Address */
-+	mtk_tag = skb->data + 2 * ETH_ALEN;
-+	mtk_tag[0] = 0;
-+	mtk_tag[1] = (1 << p->dp->index) & MTK_HDR_XMIT_DP_BIT_MASK;
-+	mtk_tag[2] = 0;
-+	mtk_tag[3] = 0;
-+
-+	return skb;
-+
-+out_free:
-+	kfree_skb(skb);
-+	return NULL;
-+}
-+
-+static int mtk_tag_rcv(struct sk_buff *skb, struct net_device *dev,
-+		       struct packet_type *pt, struct net_device *orig_dev)
-+{
-+	struct dsa_switch_tree *dst = dev->dsa_ptr;
-+	struct dsa_switch *ds;
-+	int port;
-+	__be16 *phdr, hdr;
-+
-+	if (unlikely(!dst))
-+		goto out_drop;
-+
-+	skb = skb_unshare(skb, GFP_ATOMIC);
-+	if (!skb)
-+		goto out;
-+
-+	if (unlikely(!pskb_may_pull(skb, MTK_HDR_LEN)))
-+		goto out_drop;
-+
-+	/* The MTK header is added by the switch between src addr
-+	 * and ethertype at this point, skb->data points to 2 bytes
-+	 * after src addr so header should be 2 bytes right before.
-+	 */
-+	phdr = (__be16 *)(skb->data - 2);
-+	hdr = ntohs(*phdr);
-+
-+	/* Remove MTK tag and recalculate checksum. */
-+	skb_pull_rcsum(skb, MTK_HDR_LEN);
-+
-+	memmove(skb->data - ETH_HLEN,
-+		skb->data - ETH_HLEN - MTK_HDR_LEN,
-+		2 * ETH_ALEN);
-+
-+	/* This protocol doesn't support cascading multiple
-+	 * switches so it's safe to assume the switch is first
-+	 * in the tree.
-+	 */
-+	ds = dst->ds[0];
-+	if (!ds)
-+		goto out_drop;
-+
-+	/* Get source port information */
-+	port = (hdr & MTK_HDR_RECV_SOURCE_PORT_MASK);
-+	if (!ds->ports[port].netdev)
-+		goto out_drop;
-+
-+	/* Update skb & forward the frame accordingly */
-+	skb_push(skb, ETH_HLEN);
-+
-+	skb->pkt_type = PACKET_HOST;
-+	skb->dev = ds->ports[port].netdev;
-+	skb->protocol = eth_type_trans(skb, skb->dev);
-+
-+	skb->dev->stats.rx_packets++;
-+	skb->dev->stats.rx_bytes += skb->len;
-+
-+	netif_receive_skb(skb);
-+
-+	return 0;
-+
-+out_drop:
-+	kfree_skb(skb);
-+out:
-+	return 0;
-+}
-+
-+const struct dsa_device_ops mtk_netdev_ops = {
-+	.xmit	= mtk_tag_xmit,
-+	.rcv	= mtk_tag_rcv,
-+};
--- 
-1.9.1
+With a quick git/google search I couldn't really find any information on
+why net_device_stats was deemed legacy and whether it is still allowed
+to be used. It seems the comment saying so was introduced in
+536721b1cb3f ("net: kernel-doc compliant documentation for net_device")
+but neither the log message specifies nor the mailing list thread
+provide any further information.
+
+In any case I'd say it's still better to use the one provided by
+struct net_device rather than introducing a copy.
+
+And certainly, switching to use rtnl_link_stats64 would even be better.
+I can try to come up with a patch but I'm not really sure what the
+preferred method to store these stats is. Should the driver define its
+own struct with the counters it is interested in and then copy it to
+rtnl_link_stats64 in .ndo_get_stats (which is what most drivers not
+having HW counter register seem to be doing)? Or should a copy of
+rtnl_link_stats64 be included in the netdev_priv data?
+
+Thanks
+
+> Regards,
+> 
+> 
+> > Cc: Nicolas Ferre <nicolas.ferre@atmel.com>
+> > Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+> > ---
+> >  drivers/net/ethernet/cadence/macb.c | 40 ++++++++++++++++++-------------------
+> >  drivers/net/ethernet/cadence/macb.h |  1 -
+> >  2 files changed, 20 insertions(+), 21 deletions(-)
+> > 
+> > diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+> > index 30606b11b128..5cbd1e7a926a 100644
+> > --- a/drivers/net/ethernet/cadence/macb.c
+> > +++ b/drivers/net/ethernet/cadence/macb.c
+> > @@ -684,8 +684,8 @@ static void macb_tx_error_task(struct work_struct *work)
+> >  				netdev_vdbg(bp->dev, "txerr skb %u (data %p) TX complete\n",
+> >  					    macb_tx_ring_wrap(bp, tail),
+> >  					    skb->data);
+> > -				bp->stats.tx_packets++;
+> > -				bp->stats.tx_bytes += skb->len;
+> > +				bp->dev->stats.tx_packets++;
+> > +				bp->dev->stats.tx_bytes += skb->len;
+> >  			}
+> >  		} else {
+> >  			/* "Buffers exhausted mid-frame" errors may only happen
+> > @@ -778,8 +778,8 @@ static void macb_tx_interrupt(struct macb_queue *queue)
+> >  				netdev_vdbg(bp->dev, "skb %u (data %p) TX complete\n",
+> >  					    macb_tx_ring_wrap(bp, tail),
+> >  					    skb->data);
+> > -				bp->stats.tx_packets++;
+> > -				bp->stats.tx_bytes += skb->len;
+> > +				bp->dev->stats.tx_packets++;
+> > +				bp->dev->stats.tx_bytes += skb->len;
+> >  			}
+> >  
+> >  			/* Now we can safely release resources */
+> > @@ -911,14 +911,14 @@ static int gem_rx(struct macb *bp, int budget)
+> >  		if (!(ctrl & MACB_BIT(RX_SOF) && ctrl & MACB_BIT(RX_EOF))) {
+> >  			netdev_err(bp->dev,
+> >  				   "not whole frame pointed by descriptor\n");
+> > -			bp->stats.rx_dropped++;
+> > +			bp->dev->stats.rx_dropped++;
+> >  			break;
+> >  		}
+> >  		skb = bp->rx_skbuff[entry];
+> >  		if (unlikely(!skb)) {
+> >  			netdev_err(bp->dev,
+> >  				   "inconsistent Rx descriptor chain\n");
+> > -			bp->stats.rx_dropped++;
+> > +			bp->dev->stats.rx_dropped++;
+> >  			break;
+> >  		}
+> >  		/* now everything is ready for receiving packet */
+> > @@ -938,8 +938,8 @@ static int gem_rx(struct macb *bp, int budget)
+> >  		    GEM_BFEXT(RX_CSUM, ctrl) & GEM_RX_CSUM_CHECKED_MASK)
+> >  			skb->ip_summed = CHECKSUM_UNNECESSARY;
+> >  
+> > -		bp->stats.rx_packets++;
+> > -		bp->stats.rx_bytes += skb->len;
+> > +		bp->dev->stats.rx_packets++;
+> > +		bp->dev->stats.rx_bytes += skb->len;
+> >  
+> >  #if defined(DEBUG) && defined(VERBOSE_DEBUG)
+> >  		netdev_vdbg(bp->dev, "received skb of length %u, csum: %08x\n",
+> > @@ -984,7 +984,7 @@ static int macb_rx_frame(struct macb *bp, unsigned int first_frag,
+> >  	 */
+> >  	skb = netdev_alloc_skb(bp->dev, len + NET_IP_ALIGN);
+> >  	if (!skb) {
+> > -		bp->stats.rx_dropped++;
+> > +		bp->dev->stats.rx_dropped++;
+> >  		for (frag = first_frag; ; frag++) {
+> >  			desc = macb_rx_desc(bp, frag);
+> >  			desc->addr &= ~MACB_BIT(RX_USED);
+> > @@ -1030,8 +1030,8 @@ static int macb_rx_frame(struct macb *bp, unsigned int first_frag,
+> >  	__skb_pull(skb, NET_IP_ALIGN);
+> >  	skb->protocol = eth_type_trans(skb, bp->dev);
+> >  
+> > -	bp->stats.rx_packets++;
+> > -	bp->stats.rx_bytes += skb->len;
+> > +	bp->dev->stats.rx_packets++;
+> > +	bp->dev->stats.rx_bytes += skb->len;
+> >  	netdev_vdbg(bp->dev, "received skb of length %u, csum: %08x\n",
+> >  		    skb->len, skb->csum);
+> >  	netif_receive_skb(skb);
+> > @@ -2210,7 +2210,7 @@ static void gem_update_stats(struct macb *bp)
+> >  static struct net_device_stats *gem_get_stats(struct macb *bp)
+> >  {
+> >  	struct gem_stats *hwstat = &bp->hw_stats.gem;
+> > -	struct net_device_stats *nstat = &bp->stats;
+> > +	struct net_device_stats *nstat = &bp->dev->stats;
+> >  
+> >  	gem_update_stats(bp);
+> >  
+> > @@ -2281,7 +2281,7 @@ static void gem_get_ethtool_strings(struct net_device *dev, u32 sset, u8 *p)
+> >  static struct net_device_stats *macb_get_stats(struct net_device *dev)
+> >  {
+> >  	struct macb *bp = netdev_priv(dev);
+> > -	struct net_device_stats *nstat = &bp->stats;
+> > +	struct net_device_stats *nstat = &bp->dev->stats;
+> >  	struct macb_stats *hwstat = &bp->hw_stats.macb;
+> >  
+> >  	if (macb_is_gem(bp))
+> > @@ -2993,15 +2993,15 @@ static void at91ether_rx(struct net_device *dev)
+> >  			memcpy(skb_put(skb, pktlen), p_recv, pktlen);
+> >  
+> >  			skb->protocol = eth_type_trans(skb, dev);
+> > -			lp->stats.rx_packets++;
+> > -			lp->stats.rx_bytes += pktlen;
+> > +			dev->stats.rx_packets++;
+> > +			dev->stats.rx_bytes += pktlen;
+> >  			netif_rx(skb);
+> >  		} else {
+> > -			lp->stats.rx_dropped++;
+> > +			dev->stats.rx_dropped++;
+> >  		}
+> >  
+> >  		if (desc->ctrl & MACB_BIT(RX_MHASH_MATCH))
+> > -			lp->stats.multicast++;
+> > +			dev->stats.multicast++;
+> >  
+> >  		/* reset ownership bit */
+> >  		desc->addr &= ~MACB_BIT(RX_USED);
+> > @@ -3036,15 +3036,15 @@ static irqreturn_t at91ether_interrupt(int irq, void *dev_id)
+> >  	if (intstatus & MACB_BIT(TCOMP)) {
+> >  		/* The TCOM bit is set even if the transmission failed */
+> >  		if (intstatus & (MACB_BIT(ISR_TUND) | MACB_BIT(ISR_RLE)))
+> > -			lp->stats.tx_errors++;
+> > +			dev->stats.tx_errors++;
+> >  
+> >  		if (lp->skb) {
+> >  			dev_kfree_skb_irq(lp->skb);
+> >  			lp->skb = NULL;
+> >  			dma_unmap_single(NULL, lp->skb_physaddr,
+> >  					 lp->skb_length, DMA_TO_DEVICE);
+> > -			lp->stats.tx_packets++;
+> > -			lp->stats.tx_bytes += lp->skb_length;
+> > +			dev->stats.tx_packets++;
+> > +			dev->stats.tx_bytes += lp->skb_length;
+> >  		}
+> >  		netif_wake_queue(dev);
+> >  	}
+> > diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
+> > index 234a49eaccfd..ec037b0fa2a4 100644
+> > --- a/drivers/net/ethernet/cadence/macb.h
+> > +++ b/drivers/net/ethernet/cadence/macb.h
+> > @@ -919,7 +919,6 @@ struct macb {
+> >  	struct clk		*rx_clk;
+> >  	struct net_device	*dev;
+> >  	struct napi_struct	napi;
+> > -	struct net_device_stats	stats;
+> >  	union {
+> >  		struct macb_stats	macb;
+> >  		struct gem_stats	gem;
+> > 
+> 
+> 
+> -- 
+> Nicolas Ferre
+> 
