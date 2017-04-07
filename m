@@ -1,60 +1,33 @@
-From: Davide Caratti <dcaratti@redhat.com>
-Subject: [PATCH RFC net-next v3 7/7] sk_buff.h: improve description of CHECKSUM_{COMPLETE,UNNECESSARY}
-Date: Fri,  7 Apr 2017 16:16:10 +0200
-Message-ID: <da7a4ff2d2a191448031c0c7dc3da461399c1ac0.1491562390.git.dcaratti@redhat.com>
-References: <CALx6S34cSH+z+humkp5s7UHAqnafHHB-GTqobHyb-SfKNe+MiA@mail.gmail.com>
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        linux-sctp@vger.kernel.org
-To: Tom Herbert <tom@herbertland.com>,
-        Alexander Duyck <alexander.duyck@gmail.com>,
-        David Laight <David.Laight@aculab.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/4 v3 net-next] net: stmmac: adding multiple buffers
+Date: Fri, 07 Apr 2017 07:18:57 -0700 (PDT)
+Message-ID: <20170407.071857.1140644831091281319.davem@davemloft.net>
+References: <cover.1491467980.git.jpinto@synopsys.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: clabbe.montjoie@gmail.com, treding@nvidia.com,
+        niklas.cassel@axis.com, julia.lawall@lip6.fr,
+        netdev@vger.kernel.org
+To: Joao.Pinto@synopsys.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:3964 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S933639AbdDGOQs (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 7 Apr 2017 10:16:48 -0400
-In-Reply-To: <CALx6S34cSH+z+humkp5s7UHAqnafHHB-GTqobHyb-SfKNe+MiA@mail.gmail.com>
-In-Reply-To: <cover.1491562390.git.dcaratti@redhat.com>
-References: <cover.1491562390.git.dcaratti@redhat.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:54380 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755318AbdDGOS7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 7 Apr 2017 10:18:59 -0400
+In-Reply-To: <cover.1491467980.git.jpinto@synopsys.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add FCoE to the list of protocols that can set CHECKSUM_UNNECESSARY; add a
-note to CHECKSUM_COMPLETE section to specify that it does not apply to SCTP
-and FCoE protocols.
+From: Joao Pinto <Joao.Pinto@synopsys.com>
+Date: Thu,  6 Apr 2017 09:49:07 +0100
 
-Suggested-by: Tom Herbert <tom@herbertland.com>
-Signed-off-by: Davide Caratti <dcaratti@redhat.com>
----
- include/linux/skbuff.h | 7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
+> This patch adds multiple buffers to stmmac in a more fragmented
+> way, in order to make problem debug easier.
+> 
+> I would kindly request to people to test this patch in their HWs in
+> order to check if everything's functional. Thank you.
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 4d2a6ec..1a639e8 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -109,6 +109,7 @@
-  *       may perform further validation in this case.
-  *     GRE: only if the checksum is present in the header.
-  *     SCTP: indicates the CRC in SCTP header has been validated.
-+ *     FCOE: indicates the CRC in FC frame has been validated.
-  *
-  *   skb->csum_level indicates the number of consecutive checksums found in
-  *   the packet minus one that have been verified as CHECKSUM_UNNECESSARY.
-@@ -126,8 +127,10 @@
-  *   packet as seen by netif_rx() and fills out in skb->csum. Meaning, the
-  *   hardware doesn't need to parse L3/L4 headers to implement this.
-  *
-- *   Note: Even if device supports only some protocols, but is able to produce
-- *   skb->csum, it MUST use CHECKSUM_COMPLETE, not CHECKSUM_UNNECESSARY.
-+ *   Notes:
-+ *   - Even if device supports only some protocols, but is able to produce
-+ *     skb->csum, it MUST use CHECKSUM_COMPLETE, not CHECKSUM_UNNECESSARY.
-+ *   - CHECKSUM_COMPLETE is not applicable to SCTP and FCoE protocols.
-  *
-  * CHECKSUM_PARTIAL:
-  *
--- 
-2.7.4
+Looks like there has been a bit of testing, so I'll apply this series.
+
+Thanks.
