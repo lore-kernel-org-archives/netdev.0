@@ -1,7 +1,7 @@
 From: Romain Perier <romain.perier-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
-Subject: [PATCH v7 09/15] scsi: csiostor: Replace PCI pool old API
-Date: Fri,  7 Apr 2017 09:25:37 +0200
-Message-ID: <20170407072543.6936-10-romain.perier@collabora.com>
+Subject: [PATCH v7 06/15] mlx5: Replace PCI pool old API
+Date: Fri,  7 Apr 2017 09:25:34 +0200
+Message-ID: <20170407072543.6936-7-romain.perier@collabora.com>
 References: <20170407072543.6936-1-romain.perier@collabora.com>
 Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
         linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
@@ -24,90 +24,79 @@ Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 The PCI pool API is deprecated. This commit replaces the PCI pool old
-API by the appropriate function with the DMA pool API. It also updates
-the name of some variables and the content of comments, accordingly.
+API by the appropriate function with the DMA pool API.
 
 Signed-off-by: Romain Perier <romain.perier-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
 Reviewed-by: Peter Senna Tschudin <peter.senna-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
+Acked-by: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Tested-by: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 ---
- drivers/scsi/csiostor/csio_hw.h   |  2 +-
- drivers/scsi/csiostor/csio_init.c | 11 ++++++-----
- drivers/scsi/csiostor/csio_scsi.c |  6 +++---
- 3 files changed, 10 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/cmd.c | 11 ++++++-----
+ include/linux/mlx5/driver.h                   |  2 +-
+ 2 files changed, 7 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/scsi/csiostor/csio_hw.h b/drivers/scsi/csiostor/csio_hw.h
-index 029bef8..55b04fc 100644
---- a/drivers/scsi/csiostor/csio_hw.h
-+++ b/drivers/scsi/csiostor/csio_hw.h
-@@ -465,7 +465,7 @@ struct csio_hw {
- 	struct csio_pport	pport[CSIO_MAX_PPORTS];	/* Ports (XGMACs) */
- 	struct csio_hw_params	params;			/* Hw parameters */
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
+index 5bdaf3d..aae7d92 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
+@@ -1069,7 +1069,7 @@ static struct mlx5_cmd_mailbox *alloc_cmd_box(struct mlx5_core_dev *dev,
+ 	if (!mailbox)
+ 		return ERR_PTR(-ENOMEM);
  
--	struct pci_pool		*scsi_pci_pool;		/* PCI pool for SCSI */
-+	struct dma_pool		*scsi_dma_pool;		/* DMA pool for SCSI */
- 	mempool_t		*mb_mempool;		/* Mailbox memory pool*/
- 	mempool_t		*rnode_mempool;		/* rnode memory pool */
- 
-diff --git a/drivers/scsi/csiostor/csio_init.c b/drivers/scsi/csiostor/csio_init.c
-index dbe416f..292964c 100644
---- a/drivers/scsi/csiostor/csio_init.c
-+++ b/drivers/scsi/csiostor/csio_init.c
-@@ -485,9 +485,10 @@ csio_resource_alloc(struct csio_hw *hw)
- 	if (!hw->rnode_mempool)
- 		goto err_free_mb_mempool;
- 
--	hw->scsi_pci_pool = pci_pool_create("csio_scsi_pci_pool", hw->pdev,
--					    CSIO_SCSI_RSP_LEN, 8, 0);
--	if (!hw->scsi_pci_pool)
-+	hw->scsi_dma_pool = dma_pool_create("csio_scsi_dma_pool",
-+					    &hw->pdev->dev, CSIO_SCSI_RSP_LEN,
-+					    8, 0);
-+	if (!hw->scsi_dma_pool)
- 		goto err_free_rn_pool;
- 
- 	return 0;
-@@ -505,8 +506,8 @@ csio_resource_alloc(struct csio_hw *hw)
- static void
- csio_resource_free(struct csio_hw *hw)
+-	mailbox->buf = pci_pool_zalloc(dev->cmd.pool, flags,
++	mailbox->buf = dma_pool_zalloc(dev->cmd.pool, flags,
+ 				       &mailbox->dma);
+ 	if (!mailbox->buf) {
+ 		mlx5_core_dbg(dev, "failed allocation\n");
+@@ -1084,7 +1084,7 @@ static struct mlx5_cmd_mailbox *alloc_cmd_box(struct mlx5_core_dev *dev,
+ static void free_cmd_box(struct mlx5_core_dev *dev,
+ 			 struct mlx5_cmd_mailbox *mailbox)
  {
--	pci_pool_destroy(hw->scsi_pci_pool);
--	hw->scsi_pci_pool = NULL;
-+	dma_pool_destroy(hw->scsi_dma_pool);
-+	hw->scsi_dma_pool = NULL;
- 	mempool_destroy(hw->rnode_mempool);
- 	hw->rnode_mempool = NULL;
- 	mempool_destroy(hw->mb_mempool);
-diff --git a/drivers/scsi/csiostor/csio_scsi.c b/drivers/scsi/csiostor/csio_scsi.c
-index a1ff75f..dab0d3f 100644
---- a/drivers/scsi/csiostor/csio_scsi.c
-+++ b/drivers/scsi/csiostor/csio_scsi.c
-@@ -2445,7 +2445,7 @@ csio_scsim_init(struct csio_scsim *scm, struct csio_hw *hw)
+-	pci_pool_free(dev->cmd.pool, mailbox->buf, mailbox->dma);
++	dma_pool_free(dev->cmd.pool, mailbox->buf, mailbox->dma);
+ 	kfree(mailbox);
+ }
  
- 		/* Allocate Dma buffers for Response Payload */
- 		dma_buf = &ioreq->dma_buf;
--		dma_buf->vaddr = pci_pool_alloc(hw->scsi_pci_pool, GFP_KERNEL,
-+		dma_buf->vaddr = dma_pool_alloc(hw->scsi_dma_pool, GFP_KERNEL,
- 						&dma_buf->paddr);
- 		if (!dma_buf->vaddr) {
- 			csio_err(hw,
-@@ -2485,7 +2485,7 @@ csio_scsim_init(struct csio_scsim *scm, struct csio_hw *hw)
- 		ioreq = (struct csio_ioreq *)tmp;
+@@ -1704,7 +1704,8 @@ int mlx5_cmd_init(struct mlx5_core_dev *dev)
+ 		return -EINVAL;
+ 	}
  
- 		dma_buf = &ioreq->dma_buf;
--		pci_pool_free(hw->scsi_pci_pool, dma_buf->vaddr,
-+		dma_pool_free(hw->scsi_dma_pool, dma_buf->vaddr,
- 			      dma_buf->paddr);
+-	cmd->pool = pci_pool_create("mlx5_cmd", dev->pdev, size, align, 0);
++	cmd->pool = dma_pool_create("mlx5_cmd", &dev->pdev->dev, size, align,
++				    0);
+ 	if (!cmd->pool)
+ 		return -ENOMEM;
  
- 		kfree(ioreq);
-@@ -2516,7 +2516,7 @@ csio_scsim_exit(struct csio_scsim *scm)
- 		ioreq = (struct csio_ioreq *)tmp;
+@@ -1794,7 +1795,7 @@ int mlx5_cmd_init(struct mlx5_core_dev *dev)
+ 	free_cmd_page(dev, cmd);
  
- 		dma_buf = &ioreq->dma_buf;
--		pci_pool_free(scm->hw->scsi_pci_pool, dma_buf->vaddr,
-+		dma_pool_free(scm->hw->scsi_dma_pool, dma_buf->vaddr,
- 			      dma_buf->paddr);
+ err_free_pool:
+-	pci_pool_destroy(cmd->pool);
++	dma_pool_destroy(cmd->pool);
  
- 		kfree(ioreq);
+ 	return err;
+ }
+@@ -1808,6 +1809,6 @@ void mlx5_cmd_cleanup(struct mlx5_core_dev *dev)
+ 	destroy_workqueue(cmd->wq);
+ 	destroy_msg_cache(dev);
+ 	free_cmd_page(dev, cmd);
+-	pci_pool_destroy(cmd->pool);
++	dma_pool_destroy(cmd->pool);
+ }
+ EXPORT_SYMBOL(mlx5_cmd_cleanup);
+diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
+index 6cd000f..7ea19ae 100644
+--- a/include/linux/mlx5/driver.h
++++ b/include/linux/mlx5/driver.h
+@@ -284,7 +284,7 @@ struct mlx5_cmd {
+ 	struct semaphore pages_sem;
+ 	int	mode;
+ 	struct mlx5_cmd_work_ent *ent_arr[MLX5_MAX_COMMANDS];
+-	struct pci_pool *pool;
++	struct dma_pool *pool;
+ 	struct mlx5_cmd_debug dbg;
+ 	struct cmd_msg_cache cache[MLX5_NUM_COMMAND_CACHES];
+ 	int checksum_disabled;
 -- 
 2.9.3
 
