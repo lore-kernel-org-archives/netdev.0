@@ -1,57 +1,51 @@
-From: Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>
-Subject: Re: [RFC 0/3] netlink: extended error reporting
-Date: Fri, 7 Apr 2017 21:27:14 +0200
-Message-ID: <20170407192714.GA23349@salvia>
-References: <1491591552.5800.1.camel@sipsolutions.net>
- <20170407190601.GA22991@salvia>
- <1491592185.5800.7.camel@sipsolutions.net>
- <20170407.122223.385211483743191711.davem@davemloft.net>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [RFC 2/3] genetlink: pass extended error report down
+Date: Fri, 7 Apr 2017 12:27:33 -0700
+Message-ID: <fd15a0bb-535a-ba4f-efbb-fa566e30fcd4@candelatech.com>
+References: <20170407182620.6438-1-johannes@sipsolutions.net>
+ <20170407182620.6438-3-johannes@sipsolutions.net>
+ <25e1fb8c-22e0-d7a2-13a7-d0def5432c9e@candelatech.com>
+ <1491592343.5800.8.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20170407.122223.385211483743191711.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: pablo@netfilter.org
+To: Johannes Berg <johannes@sipsolutions.net>,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail2.candelatech.com ([208.74.158.173]:44824 "EHLO
+        mail2.candelatech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934112AbdDGT1e (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 7 Apr 2017 15:27:34 -0400
+In-Reply-To: <1491592343.5800.8.camel@sipsolutions.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 07, 2017 at 12:22:23PM -0700, David Miller wrote:
-> From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-> Date: Fri, 07 Apr 2017 21:09:45 +0200
-> 
-> > On Fri, 2017-04-07 at 21:06 +0200, Pablo Neira Ayuso wrote:
-> >> On Fri, Apr 07, 2017 at 08:59:12PM +0200, Johannes Berg wrote:
-> >> [...]
-> >> > Heh. I think I really want to solve - at least partially -
-> >> > nla_parse()
-> >> > to see that it can be done this way. It'd be nice to even transform
-> >> > all
-> >> > the callers (I generated half of these patches with spatch anyway)
-> >> > to
-> >> > have at least that.
-> >> 
-> >> We can just have a modified version of nla_parse that deals with
-> >> this.
-> > 
-> > Yes, but we need to figure out a good way to have the offset.
-> > 
-> > We also need to see if we want to *force* having the offset. In some
-> > sense that'd be useful, in another it might be very complicated to fill
-> > it in at all times, if for example errors come from lower layers like
-> > drivers.
-> 
-> It has to be optional, some kinds of errors don't have an exact
-> context per-se.
-> 
-> Also another way to look at this is that we're providing a lot of
-> new power and expressability.  So even if only one aspect of the
-> new error reporting is used it's a positive step forward.
-> 
-> So allow offset "0" meaning "unspecified".
+On 04/07/2017 12:12 PM, Johannes Berg wrote:
+> On Fri, 2017-04-07 at 11:37 -0700, Ben Greear wrote:
+>>
+>> I guess the error string must be constant and always available in
+>> memory in this implementation?
+>
+> Yes.
+>
+>> I think it would be nice to dynamically create strings (malloc,
+>> snprintf, etc) and have the err_str logic free it when done?
+>
+> We can think about that later, but I don't actually think it makes a
+> lot of sense - if we point to the attribute and/or offset you really
+> ought to have enough info to figure out what's up.
 
-Instead, we can just not send the offset attribute to userspace if
-it's not specified. So missing attribute means "unspecified".
+We can think about it later, but lots of things in the wifi stack
+could use a descriptive message specific to the failure.  Often these
+messages are much more useful if you explain why the failure conflicts
+with regulatory, channel, virtual-dev combination, etc info, so that needs
+to be dynamic.  The code that is failing knows, so I'd like to pass it
+back to user-space.
 
-I'm always a bit worried this "0 means something" semantics :)
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
