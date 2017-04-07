@@ -1,52 +1,36 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next 0/3] net: dsa: Receive path simplifications
-Date: Fri, 7 Apr 2017 13:55:00 -0700
-Message-ID: <80d79e87-6d12-9693-f9b9-060a38e9c730@gmail.com>
-References: <20170407204154.9651-1-f.fainelli@gmail.com>
- <20170407205303.GB7966@lunn.ch>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next 3/3] net: dsa: Factor bottom tag receive functions
+Date: Fri, 07 Apr 2017 16:54:00 -0400
+Message-ID: <8737dkvt07.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+References: <20170407204154.9651-1-f.fainelli@gmail.com> <20170407204154.9651-4-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-        vivien.didelot@savoirfairelinux.com
-To: Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain
+Cc: davem@davemloft.net, andrew@lunn.ch,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f196.google.com ([209.85.216.196]:34670 "EHLO
-        mail-qt0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753460AbdDGUzP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 7 Apr 2017 16:55:15 -0400
-Received: by mail-qt0-f196.google.com with SMTP id x35so11275784qtc.1
-        for <netdev@vger.kernel.org>; Fri, 07 Apr 2017 13:55:10 -0700 (PDT)
-In-Reply-To: <20170407205303.GB7966@lunn.ch>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:42632 "EHLO
+        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756381AbdDGUza (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 7 Apr 2017 16:55:30 -0400
+In-Reply-To: <20170407204154.9651-4-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Florian Fainelli <f.fainelli@gmail.com> writes:
 
+> All DSA tag receive functions do strictly the same thing after they have located
+> the originating source port from their tag specific protocol:
+>
+> - push ETH_HLEN bytes
+> - set pkt_type to PACKET_HOST
+> - call eth_type_trans()
+> - bump up counters
+> - call netif_receive_skb()
+>
+> Factor all of that into dsa_switch_rcv(). This also makes us return a pointer to
+> a sk_buff, which makes us symetric with the xmit function.
+>
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 
-On 04/07/2017 01:53 PM, Andrew Lunn wrote:
-> On Fri, Apr 07, 2017 at 01:41:51PM -0700, Florian Fainelli wrote:
->> Hi all,
->>
->> This patch series does factor the common code found in all tag implementations
->> into dsa_switch_rcv(). The original motivation was to add GRO support, but this
->> may be a lot of work with unclear benefits at this point.
->>
->> Florian Fainelli (3):
->>   net: dsa: Do not check for NULL dst in tag parsers
->>   net: dsa: Move skb_unshare() to dsa_switch_rcv()
->>   net: dsa: Factor bottom tag receive functions
-> 
-> Hey, are you looking in my git repo and stealing my patches? I have a
-> pretty much identical set :-)
-
-Actually, I did not at all, good thing we are at the same conference and
-not talking about that :)
-
-> 
-> I was holding off for the microchip and mediatek drivers to land, so
-> to not cause conflicts.
-
-Yes, that's a good point, this just became slightly obsolete since the
-mediatek tag code got included.
--- 
-Florian
+Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
