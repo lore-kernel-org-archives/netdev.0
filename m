@@ -1,43 +1,61 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [net-next 1/4] i40e/i40evf: Add capability exchange for outer checksum
-Date: Fri, 7 Apr 2017 09:38:32 +0300
-Message-ID: <CAJ3xEMho=LsCOsdbgKHJjTiYB55UR9ZnnZkMAqpM=kH=VGsnrg@mail.gmail.com>
-References: <20170407032325.33374-1-jeffrey.t.kirsher@intel.com> <20170407032325.33374-2-jeffrey.t.kirsher@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-        Preethi Banala <preethi.banala@intel.com>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        "nhorman@redhat.com" <nhorman@redhat.com>,
-        "sassmann@redhat.com" <sassmann@redhat.com>,
-        "jogreene@redhat.com" <jogreene@redhat.com>,
-        Alan Brady <alan.brady@intel.com>,
-        Jesse Brandeburg <jesse.brandeburg@intel.com>,
-        Jacob Keller <jacob.e.keller@intel.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+From: Ursula Braun <ubraun@linux.vnet.ibm.com>
+Subject: [PATCH net-next V2 0/7] s390 patches for net-next
+Date: Fri,  7 Apr 2017 09:15:31 +0200
+Message-ID: <20170407071538.63253-1-ubraun@linux.vnet.ibm.com>
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
+        jwi@linux.vnet.ibm.com, schwidefsky@de.ibm.com,
+        heiko.carstens@de.ibm.com, raspl@linux.vnet.ibm.com,
+        ubraun@linux.vnet.ibm.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f41.google.com ([209.85.218.41]:33697 "EHLO
-        mail-oi0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752954AbdDGGid (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 7 Apr 2017 02:38:33 -0400
-Received: by mail-oi0-f41.google.com with SMTP id b187so76309396oif.0
-        for <netdev@vger.kernel.org>; Thu, 06 Apr 2017 23:38:33 -0700 (PDT)
-In-Reply-To: <20170407032325.33374-2-jeffrey.t.kirsher@intel.com>
+Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:50674 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1753038AbdDGHPr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 7 Apr 2017 03:15:47 -0400
+Received: from pps.filterd (m0098409.ppops.net [127.0.0.1])
+        by mx0a-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v3778gFu025548
+        for <netdev@vger.kernel.org>; Fri, 7 Apr 2017 03:15:46 -0400
+Received: from e06smtp14.uk.ibm.com (e06smtp14.uk.ibm.com [195.75.94.110])
+        by mx0a-001b2d01.pphosted.com with ESMTP id 29nsrar6c4-1
+        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Fri, 07 Apr 2017 03:15:46 -0400
+Received: from localhost
+        by e06smtp14.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        for <netdev@vger.kernel.org> from <ubraun@linux.vnet.ibm.com>;
+        Fri, 7 Apr 2017 08:15:44 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 7, 2017 at 6:23 AM, Jeff Kirsher
-<jeffrey.t.kirsher@intel.com> wrote:
-> From: Preethi Banala <preethi.banala@intel.com>
->
-> This patch adds a capability negotiation between VF and PF using ENCAP/
-> ENCAP_CSUM offload flags in order for the VF to support outer checksum
-> and TSO offloads for encapsulated packets.
+Hi Dave,
 
-[...]
--#define I40E_VIRTCHNL_VF_OFFLOAD_    0X00100000
-+#define I40E_VIRTCHNL_VF_OFFLOAD_ENCAP         0X00100000
-+#define I40E_VIRTCHNL_VF_OFFLOAD_ENCAP_CSUM    0X00200000
+here are some cleanup patches for drivers/s390/net.
+V2: respin, now patch "s390/qeth: improve endianness handling"
+    is supposed to apply cleanly to net-next
 
-what happens when one of the PF or VF doesn't have this hunk, e.g one
-assumes value X and one assumes value Y for ENCAP_CSUM
+Thanks, Ursula
+
+Hans Wippel (3):
+  s390/qeth: improve endianness handling
+  s390/ctcm: improve endianness handling
+  s390/netiucv: improve endianness handling
+
+Julian Wiedmann (4):
+  s390/qeth: use QDIO_*_QFMT defines
+  s390/qeth: fix up ssqd tracing
+  s390/qeth: remove unused return value
+  s390/qeth: Remove unused code
+
+ drivers/s390/net/ctcm_fsms.c      |  2 +-
+ drivers/s390/net/ctcm_main.c      | 12 +++++-----
+ drivers/s390/net/netiucv.c        |  2 +-
+ drivers/s390/net/qeth_core.h      | 16 ++-----------
+ drivers/s390/net/qeth_core_main.c | 35 +++++++++++++---------------
+ drivers/s390/net/qeth_core_mpc.h  | 17 --------------
+ drivers/s390/net/qeth_l2_main.c   |  1 -
+ drivers/s390/net/qeth_l2_sys.c    |  3 ---
+ drivers/s390/net/qeth_l3_main.c   | 48 ++++++++++++++++++---------------------
+ drivers/s390/net/qeth_l3_sys.c    |  4 ++--
+ 10 files changed, 50 insertions(+), 90 deletions(-)
+
+-- 
+2.10.2
