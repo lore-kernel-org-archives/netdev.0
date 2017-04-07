@@ -1,83 +1,82 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: net/ipv4: use-after-free in ipv4_mtu
-Date: Fri, 7 Apr 2017 10:10:18 -0700
-Message-ID: <CAM_iQpWaHvjUAhCWQ9v6FarfuuRGdtkuB1mY4MziX0ixfc9mrw@mail.gmail.com>
-References: <CAAeHK+zJ20r8O=MhPY69UPK7sObODp2ByK5136JXgw5U9SMofw@mail.gmail.com>
- <CANn89iKuT+VBZqbJ4=hTAgUbnhuZ0berg0PK+imd1CKuWLy1eQ@mail.gmail.com>
- <CAM_iQpUittpMt-8BpNePWv7iTDasCZuNYTEPnu=K-4sFK5qiBg@mail.gmail.com>
- <1491360338.10124.39.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAM_iQpUk_=oeGoYLb4DGc2+mNw+3Z08mw4wVNKAaDZgsbB1i+g@mail.gmail.com> <1491475750.10124.72.camel@edumazet-glaptop3.roam.corp.google.com>
+From: <stef.ryckmans@kortenberg.be>
+Subject: 18342 netdev
+Date: Fri, 07 Apr 2017 17:21:33 -0000
+Message-ID: <149158569371.19121.14909636101915397346@hinet.net>
+Reply-To: <stef.ryckmans@kortenberg.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <edumazet@google.com>,
-        Andrey Konovalov <andreyknvl@google.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Kostya Serebryany <kcc@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: application/zip; name="87975186462293.zip"
+Content-Transfer-Encoding: base64
+To: "netdev" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f176.google.com ([209.85.128.176]:33120 "EHLO
-        mail-wr0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932537AbdDGRKk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 7 Apr 2017 13:10:40 -0400
-In-Reply-To: <1491475750.10124.72.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from 114-43-7-102.dynamic.hinet.net ([114.43.7.102]:35423 "HELO
+        hinet.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+        id S1751425AbdDGRVt (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 7 Apr 2017 13:21:49 -0400
+Content-Disposition: attachment
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 6, 2017 at 3:49 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Wed, 2017-04-05 at 15:33 -0700, Cong Wang wrote:
->
->> Good find! I missed the refcnt in rt_set_nexthop() before that commit.
->>
->> We need to revert that commit to restore the refcnt for fib_info.
->
-> Well, there are other spots , in decnet and IPv6.
-
-IPv6 is very different, it copies or steals the metrics from mx6_config:
-
-static int fib6_commit_metrics(struct dst_entry *dst, struct mx6_config *mxc)
-{
-        if (!mxc->mx)
-                return 0;
-
-        if (dst->flags & DST_HOST) {
-                u32 *mp = dst_metrics_write_ptr(dst);
-
-                if (unlikely(!mp))
-                        return -ENOMEM;
-
-                fib6_copy_metrics(mp, mxc);
-        } else {
-                dst_init_metrics(dst, mxc->mx, false);
-
-                /* We've stolen mx now. */
-                mxc->mx = NULL;
-        }
-
-        return 0;
-}
-
-so probably doesn't need a refcnt.
-
-Decnet has already done the refcnt'ing, see dn_fib_semantic_match().
-
-
->
-> This is why my original mail stated the problem was in the calls to :
->
-> dst_init_metrics(&rt->dst, fi->fib_metrics, true);
->
-> Lets do not think in "reverting" spirit, but adding the missing bits.
->
-> The problem here is that the metrics should not be freed until last user
-> is gone.
->
-> So maybe a refcount should be added to metrics, and we do not have to
-> add a fib pointer again in all dsts.
->
-
-Good point, but it is harder than just revert given that fact that dst metrics
-is a magic pointer to an array and COW.
+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
+TgAAAK0NAAAAAA==
