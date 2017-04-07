@@ -1,104 +1,68 @@
-From: <idosch@mellanox.com>
-Subject: [PATCH net] bridge: netlink: register netdevice before executing changelink
-Date: Fri, 7 Apr 2017 15:49:15 +0300
-Message-ID: <20170407124915.15508-1-idosch@mellanox.com>
+From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH v3 04/20] ARM: sun8i: dt: Add DT bindings documentation
+ for Allwinner syscon
+Date: Fri, 7 Apr 2017 14:50:44 +0200
+Message-ID: <20170407125044.GB15546@Red>
+References: <20170403091444.29876-1-clabbe.montjoie@gmail.com>
+ <20170403091444.29876-5-clabbe.montjoie@gmail.com>
+ <20170403111954.tolvlw7klswaxkl4@lukather>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <stephen@networkplumber.org>,
-        <bridge@lists.linux-foundation.org>, <mlxsw@mellanox.com>,
-        <peter@svinota.eu>, <cera@cera.cz>,
-        Ido Schimmel <idosch@mellanox.com>,
-        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db5eur01on0048.outbound.protection.outlook.com ([104.47.2.48]:30752
-        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1754797AbdDGMtt (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 7 Apr 2017 08:49:49 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org,
+        linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org,
+        will.deacon-5wv7dgnIgG8@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
+        alexandre.torgue-qxv4g6HH51o@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+To: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20170403111954.tolvlw7klswaxkl4@lukather>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Ido Schimmel <idosch@mellanox.com>
+On Mon, Apr 03, 2017 at 01:19:54PM +0200, Maxime Ripard wrote:
+> On Mon, Apr 03, 2017 at 11:14:28AM +0200, Corentin Labbe wrote:
+> > Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> > ---
+> >  .../devicetree/bindings/misc/allwinner,syscon.txt     | 19 +++++++++++++++++++
+> >  1 file changed, 19 insertions(+)
+> >  create mode 100644 Documentation/devicetree/bindings/misc/allwinner,syscon.txt
+> > 
+> > diff --git a/Documentation/devicetree/bindings/misc/allwinner,syscon.txt b/Documentation/devicetree/bindings/misc/allwinner,syscon.txt
+> > new file mode 100644
+> > index 0000000..9f5f1f5
+> > --- /dev/null
+> > +++ b/Documentation/devicetree/bindings/misc/allwinner,syscon.txt
+> > @@ -0,0 +1,19 @@
+> > +* Allwinner sun8i system controller
+> > +
+> > +This file describes the bindings for the system controller present in
+> > +Allwinner SoC H3, A83T and A64.
+> > +The principal function of this syscon is to control EMAC PHY choice and
+> > +config.
+> > +
+> > +Required properties for the system controller:
+> > +- reg: address and length of the register for the device.
+> > +- compatible: should be "syscon" and one of the following string:
+> > +		"allwinner,sun8i-h3-system-controller"
+> > +		"allwinner,sun8i-a64-system-controller"
+> > +		"allwinner,sun8i-a83t-system-controller"
+> > +
+> > +Example:
+> > +syscon: syscon@01c00000 {
+> > +	compatible = "syscon", "allwinner,sun8i-h3-system-controller";
+> 
+> The syntax is the more specific first, so your compatibles should be
+> the other way around.
+> 
 
-Peter reported a kernel oops when executing the following command:
+Changed it everywhere, and forgot to do it here
+I will change it
 
-$ ip link add name test type bridge vlan_default_pvid 1
-
-[13634.939408] BUG: unable to handle kernel NULL pointer dereference at
-0000000000000190
-[13634.939436] IP: __vlan_add+0x73/0x5f0
-[...]
-[13634.939783] Call Trace:
-[13634.939791]  ? pcpu_next_unpop+0x3b/0x50
-[13634.939801]  ? pcpu_alloc+0x3d2/0x680
-[13634.939810]  ? br_vlan_add+0x135/0x1b0
-[13634.939820]  ? __br_vlan_set_default_pvid.part.28+0x204/0x2b0
-[13634.939834]  ? br_changelink+0x120/0x4e0
-[13634.939844]  ? br_dev_newlink+0x50/0x70
-[13634.939854]  ? rtnl_newlink+0x5f5/0x8a0
-[13634.939864]  ? rtnl_newlink+0x176/0x8a0
-[13634.939874]  ? mem_cgroup_commit_charge+0x7c/0x4e0
-[13634.939886]  ? rtnetlink_rcv_msg+0xe1/0x220
-[13634.939896]  ? lookup_fast+0x52/0x370
-[13634.939905]  ? rtnl_newlink+0x8a0/0x8a0
-[13634.939915]  ? netlink_rcv_skb+0xa1/0xc0
-[13634.939925]  ? rtnetlink_rcv+0x24/0x30
-[13634.939934]  ? netlink_unicast+0x177/0x220
-[13634.939944]  ? netlink_sendmsg+0x2fe/0x3b0
-[13634.939954]  ? _copy_from_user+0x39/0x40
-[13634.939964]  ? sock_sendmsg+0x30/0x40
-[13634.940159]  ? ___sys_sendmsg+0x29d/0x2b0
-[13634.940326]  ? __alloc_pages_nodemask+0xdf/0x230
-[13634.940478]  ? mem_cgroup_commit_charge+0x7c/0x4e0
-[13634.940592]  ? mem_cgroup_try_charge+0x76/0x1a0
-[13634.940701]  ? __handle_mm_fault+0xdb9/0x10b0
-[13634.940809]  ? __sys_sendmsg+0x51/0x90
-[13634.940917]  ? entry_SYSCALL_64_fastpath+0x1e/0xad
-
-The problem is that the bridge's VLAN group is created after setting the
-default PVID, when registering the netdevice and executing its
-ndo_init().
-
-Fix this by changing the order of both operations, so that
-br_changelink() is only processed after the netdevice is registered,
-when the VLAN group is already initialized.
-
-The changelink() call is done on a best-effort basis since unregistering
-the netdevice upon failure won't perform a proper cleanup due to a
-missing ndo_uninit(), which I'll try to add for net-next.
-
-Fixes: b6677449dff6 ("bridge: netlink: call br_changelink() during br_dev_newlink()")
-Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-Reported-by: Peter V. Saveliev <peter@svinota.eu>
----
-Please consider this for 4.4.y, 4.9.y and 4.10.y as well.
----
- net/bridge/br_netlink.c | 8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
-
-diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
-index a8f6acd..cf06c1a 100644
---- a/net/bridge/br_netlink.c
-+++ b/net/bridge/br_netlink.c
-@@ -1165,11 +1165,15 @@ static int br_dev_newlink(struct net *src_net, struct net_device *dev,
- 		spin_unlock_bh(&br->lock);
- 	}
- 
--	err = br_changelink(dev, tb, data);
-+	err = register_netdevice(dev);
- 	if (err)
- 		return err;
- 
--	return register_netdevice(dev);
-+	err = br_changelink(dev, tb, data);
-+	if (err)
-+		netdev_err(dev, "Failed to configure bridge device\n");
-+
-+	return 0;
- }
- 
- static size_t br_get_size(const struct net_device *brdev)
--- 
-2.9.3
+Thanks
+Regards
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
