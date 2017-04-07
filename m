@@ -1,49 +1,59 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next 3/3] virtio-net: clean tx descriptors from rx
- napi
-Date: Fri, 7 Apr 2017 22:28:47 +0300
-Message-ID: <20170407222616-mutt-send-email-mst@kernel.org>
-References: <20170402201012.76473-1-willemdebruijn.kernel@gmail.com>
- <20170402201012.76473-4-willemdebruijn.kernel@gmail.com>
- <20170403024751.GA21883@redhat.com>
- <CAF=yD-+tJxqvwvLU81=H7nwqDtiSWfAv8UdfncjPQiuNteJ6jQ@mail.gmail.com>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: [RFC 0/3] netlink: extended error reporting
+Date: Fri, 07 Apr 2017 21:29:17 +0200
+Message-ID: <1491593357.5800.13.camel@sipsolutions.net>
+References: <20170407182620.6438-1-johannes@sipsolutions.net>
+         <20170407.115315.23470877439489670.davem@davemloft.net>
+         <1491591552.5800.1.camel@sipsolutions.net> <20170407190601.GA22991@salvia>
+         <1491592185.5800.7.camel@sipsolutions.net> <20170407192134.GA23205@salvia>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Network Development <netdev@vger.kernel.org>,
-        Jason Wang <jasowang@redhat.com>,
-        virtualization@lists.linux-foundation.org,
-        David Miller <davem@davemloft.net>,
-        Willem de Bruijn <willemb@google.com>
-To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60622 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S933777AbdDGT2t (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 7 Apr 2017 15:28:49 -0400
-Content-Disposition: inline
-In-Reply-To: <CAF=yD-+tJxqvwvLU81=H7nwqDtiSWfAv8UdfncjPQiuNteJ6jQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170407192134.GA23205@salvia>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 03, 2017 at 01:02:13AM -0400, Willem de Bruijn wrote:
-> On Sun, Apr 2, 2017 at 10:47 PM, Michael S. Tsirkin <mst@redhat.com> wrote:
-> > On Sun, Apr 02, 2017 at 04:10:12PM -0400, Willem de Bruijn wrote:
-> >> From: Willem de Bruijn <willemb@google.com>
-> >>
-> >> Amortize the cost of virtual interrupts by doing both rx and tx work
-> >> on reception of a receive interrupt if tx napi is enabled. With
-> >> VIRTIO_F_EVENT_IDX, this suppresses most explicit tx completion
-> >> interrupts for bidirectional workloads.
-> >>
-> >> Signed-off-by: Willem de Bruijn <willemb@google.com>
+On Fri, 2017-04-07 at 21:21 +0200, Pablo Neira Ayuso wrote:
+> 
+> For my usecases in netfilter, the attributes and an specific error
+> code should be enough to figure out what is wrong. Will not need
+> strings.
 
-This is a popular approach, but I think this will only work well if tx
-and rx interrupts are processed on the same CPU and if tx queue is per
-cpu.  If they target different CPUs or if tx queue is used from multiple
-CPUs they will conflict on the shared locks.
+Fair enough.
 
-This can even change dynamically as CPUs/queues are reconfigured.
-How about adding a flag and skipping the tx poll if there's no match?
+> BTW, we may not have an offset, eg. EINVAL because of missing
+> attribute. Given we have different requirements, I would leave it to
+> each subsystem to decide what netlink error attributes are specified.
+> 
+> > (It's ultimately always going to be optional since we'll continue
+> > returning errors without *any* extended error information - likely
+> > indefinitely - but if we have a wrong attribute, should we always
+> > have
+> > an offset? Would be nice, but could be difficult in practice)
+> > 
+> > > We can probably use struct nla_policy to place the extended error
+> > > code or the string (as we discussed I don't need string errors,
+> > > but
+> > > I'm fine if other people find it useful).
+> > 
+> > I don't think for the error strings really would be useful for
+> > nla_parse() or a policy - we can return something generic like
+> > "malformed attribute" there as a string, and hopefully point to the
+> > attribute/offset from there generically. I just really want to see
+> > how
+> > to actually do that.
+> 
+> I think the most flexible way is to pass the container error
+> structure to nla_parse() so it sets this for you. This would also
+> save tons of "malformed attribute" strings.
 
--- 
-MST
+Yes, for sure. The thing is we'll probalby have to pass down the
+request skb *and* the error struct so that we can get the offset, and
+this seems like the generic thing that we really should try to get the
+most information generated.
+
+johannes
