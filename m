@@ -1,88 +1,169 @@
-From: Romain Perier <romain.perier-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
-Subject: [PATCH v7 07/15] wireless: ipw2200: Replace PCI pool old API
-Date: Fri,  7 Apr 2017 09:25:35 +0200
-Message-ID: <20170407072543.6936-8-romain.perier@collabora.com>
+From: Romain Perier <romain.perier@collabora.com>
+Subject: [PATCH v7 01/15] block: DAC960: Replace PCI pool old API
+Date: Fri,  7 Apr 2017 09:25:29 +0200
+Message-ID: <20170407072543.6936-2-romain.perier@collabora.com>
 References: <20170407072543.6936-1-romain.perier@collabora.com>
-Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Romain Perier <romain.perier-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>,
-        Peter Senna Tschudin <peter.senna-ZGY8ohtN/8pPYcu2f3hruQ@public.gmane.org>
-To: Dan Williams <dan.j.williams-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, stas.yakovlev-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-        "James E.J. Bottomley" <jejb-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
-        "Martin K. Petersen" <martin.petersen-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
-        Felipe Balbi <balbi-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170407072543.6936-1-romain.perier-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
+        linux-usb@vger.kernel.org, linux-scsi@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        Romain Perier <romain.perier@collabora.com>,
+        Peter Senna Tschudin <peter.senna@collabora.co.uk>
+To: Dan Williams <dan.j.williams@intel.com>,
+        Doug Ledford <dledford@redhat.com>,
+        Sean Hefty <sean.hefty@intel.com>,
+        Hal Rosenstock <hal.rosenstock@gmail.com>,
+        jeffrey.t.kirsher@intel.com,
+        "David S. Miller" <davem@davemloft.net>, stas.yakovlev@gmail.com,
+        "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
+        "Martin K. Petersen" <martin.petersen@oracle.com>,
+        Felipe Balbi <balbi@kernel.org>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170407072543.6936-1-romain.perier@collabora.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 The PCI pool API is deprecated. This commit replaces the PCI pool old
 API by the appropriate function with the DMA pool API.
 
-Signed-off-by: Romain Perier <romain.perier-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
-Reviewed-by: Peter Senna Tschudin <peter.senna-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
+Signed-off-by: Romain Perier <romain.perier@collabora.com>
+Acked-by: Peter Senna Tschudin <peter.senna@collabora.com>
+Tested-by: Peter Senna Tschudin <peter.senna@collabora.com>
 ---
- drivers/net/wireless/intel/ipw2x00/ipw2200.c | 13 +++++++------
- 1 file changed, 7 insertions(+), 6 deletions(-)
+ drivers/block/DAC960.c | 38 ++++++++++++++++++--------------------
+ drivers/block/DAC960.h |  4 ++--
+ 2 files changed, 20 insertions(+), 22 deletions(-)
 
-diff --git a/drivers/net/wireless/intel/ipw2x00/ipw2200.c b/drivers/net/wireless/intel/ipw2x00/ipw2200.c
-index bbc579b..0ca2e04 100644
---- a/drivers/net/wireless/intel/ipw2x00/ipw2200.c
-+++ b/drivers/net/wireless/intel/ipw2x00/ipw2200.c
-@@ -3211,7 +3211,7 @@ static int ipw_load_firmware(struct ipw_priv *priv, u8 * data, size_t len)
- 	struct fw_chunk *chunk;
- 	int total_nr = 0;
- 	int i;
--	struct pci_pool *pool;
-+	struct dma_pool *pool;
- 	void **virts;
- 	dma_addr_t *phys;
+diff --git a/drivers/block/DAC960.c b/drivers/block/DAC960.c
+index 26a51be..a0883ad 100644
+--- a/drivers/block/DAC960.c
++++ b/drivers/block/DAC960.c
+@@ -268,17 +268,17 @@ static bool DAC960_CreateAuxiliaryStructures(DAC960_Controller_T *Controller)
+   void *AllocationPointer = NULL;
+   void *ScatterGatherCPU = NULL;
+   dma_addr_t ScatterGatherDMA;
+-  struct pci_pool *ScatterGatherPool;
++  struct dma_pool *ScatterGatherPool;
+   void *RequestSenseCPU = NULL;
+   dma_addr_t RequestSenseDMA;
+-  struct pci_pool *RequestSensePool = NULL;
++  struct dma_pool *RequestSensePool = NULL;
  
-@@ -3228,9 +3228,10 @@ static int ipw_load_firmware(struct ipw_priv *priv, u8 * data, size_t len)
- 		kfree(virts);
- 		return -ENOMEM;
- 	}
--	pool = pci_pool_create("ipw2200", priv->pci_dev, CB_MAX_LENGTH, 0, 0);
-+	pool = dma_pool_create("ipw2200", &priv->pci_dev->dev, CB_MAX_LENGTH, 0,
-+			       0);
- 	if (!pool) {
--		IPW_ERROR("pci_pool_create failed\n");
-+		IPW_ERROR("dma_pool_create failed\n");
- 		kfree(phys);
- 		kfree(virts);
- 		return -ENOMEM;
-@@ -3255,7 +3256,7 @@ static int ipw_load_firmware(struct ipw_priv *priv, u8 * data, size_t len)
+   if (Controller->FirmwareType == DAC960_V1_Controller)
+     {
+       CommandAllocationLength = offsetof(DAC960_Command_T, V1.EndMarker);
+       CommandAllocationGroupSize = DAC960_V1_CommandAllocationGroupSize;
+-      ScatterGatherPool = pci_pool_create("DAC960_V1_ScatterGather",
+-		Controller->PCIDevice,
++      ScatterGatherPool = dma_pool_create("DAC960_V1_ScatterGather",
++		&Controller->PCIDevice->dev,
+ 	DAC960_V1_ScatterGatherLimit * sizeof(DAC960_V1_ScatterGatherSegment_T),
+ 	sizeof(DAC960_V1_ScatterGatherSegment_T), 0);
+       if (ScatterGatherPool == NULL)
+@@ -290,18 +290,18 @@ static bool DAC960_CreateAuxiliaryStructures(DAC960_Controller_T *Controller)
+     {
+       CommandAllocationLength = offsetof(DAC960_Command_T, V2.EndMarker);
+       CommandAllocationGroupSize = DAC960_V2_CommandAllocationGroupSize;
+-      ScatterGatherPool = pci_pool_create("DAC960_V2_ScatterGather",
+-		Controller->PCIDevice,
++      ScatterGatherPool = dma_pool_create("DAC960_V2_ScatterGather",
++		&Controller->PCIDevice->dev,
+ 	DAC960_V2_ScatterGatherLimit * sizeof(DAC960_V2_ScatterGatherSegment_T),
+ 	sizeof(DAC960_V2_ScatterGatherSegment_T), 0);
+       if (ScatterGatherPool == NULL)
+ 	    return DAC960_Failure(Controller,
+ 			"AUXILIARY STRUCTURE CREATION (SG)");
+-      RequestSensePool = pci_pool_create("DAC960_V2_RequestSense",
+-		Controller->PCIDevice, sizeof(DAC960_SCSI_RequestSense_T),
++      RequestSensePool = dma_pool_create("DAC960_V2_RequestSense",
++		&Controller->PCIDevice->dev, sizeof(DAC960_SCSI_RequestSense_T),
+ 		sizeof(int), 0);
+       if (RequestSensePool == NULL) {
+-	    pci_pool_destroy(ScatterGatherPool);
++	    dma_pool_destroy(ScatterGatherPool);
+ 	    return DAC960_Failure(Controller,
+ 			"AUXILIARY STRUCTURE CREATION (SG)");
+       }
+@@ -335,16 +335,16 @@ static bool DAC960_CreateAuxiliaryStructures(DAC960_Controller_T *Controller)
+       Command->Next = Controller->FreeCommands;
+       Controller->FreeCommands = Command;
+       Controller->Commands[CommandIdentifier-1] = Command;
+-      ScatterGatherCPU = pci_pool_alloc(ScatterGatherPool, GFP_ATOMIC,
++      ScatterGatherCPU = dma_pool_alloc(ScatterGatherPool, GFP_ATOMIC,
+ 							&ScatterGatherDMA);
+       if (ScatterGatherCPU == NULL)
+ 	  return DAC960_Failure(Controller, "AUXILIARY STRUCTURE CREATION");
  
- 		nr = (chunk_len + CB_MAX_LENGTH - 1) / CB_MAX_LENGTH;
- 		for (i = 0; i < nr; i++) {
--			virts[total_nr] = pci_pool_alloc(pool, GFP_KERNEL,
-+			virts[total_nr] = dma_pool_alloc(pool, GFP_KERNEL,
- 							 &phys[total_nr]);
- 			if (!virts[total_nr]) {
- 				ret = -ENOMEM;
-@@ -3299,9 +3300,9 @@ static int ipw_load_firmware(struct ipw_priv *priv, u8 * data, size_t len)
- 	}
-  out:
- 	for (i = 0; i < total_nr; i++)
--		pci_pool_free(pool, virts[i], phys[i]);
-+		dma_pool_free(pool, virts[i], phys[i]);
+       if (RequestSensePool != NULL) {
+-  	  RequestSenseCPU = pci_pool_alloc(RequestSensePool, GFP_ATOMIC,
++  	  RequestSenseCPU = dma_pool_alloc(RequestSensePool, GFP_ATOMIC,
+ 						&RequestSenseDMA);
+   	  if (RequestSenseCPU == NULL) {
+-                pci_pool_free(ScatterGatherPool, ScatterGatherCPU,
++                dma_pool_free(ScatterGatherPool, ScatterGatherCPU,
+                                 ScatterGatherDMA);
+     		return DAC960_Failure(Controller,
+ 					"AUXILIARY STRUCTURE CREATION");
+@@ -379,8 +379,8 @@ static bool DAC960_CreateAuxiliaryStructures(DAC960_Controller_T *Controller)
+ static void DAC960_DestroyAuxiliaryStructures(DAC960_Controller_T *Controller)
+ {
+   int i;
+-  struct pci_pool *ScatterGatherPool = Controller->ScatterGatherPool;
+-  struct pci_pool *RequestSensePool = NULL;
++  struct dma_pool *ScatterGatherPool = Controller->ScatterGatherPool;
++  struct dma_pool *RequestSensePool = NULL;
+   void *ScatterGatherCPU;
+   dma_addr_t ScatterGatherDMA;
+   void *RequestSenseCPU;
+@@ -411,9 +411,9 @@ static void DAC960_DestroyAuxiliaryStructures(DAC960_Controller_T *Controller)
+ 	  RequestSenseDMA = Command->V2.RequestSenseDMA;
+       }
+       if (ScatterGatherCPU != NULL)
+-          pci_pool_free(ScatterGatherPool, ScatterGatherCPU, ScatterGatherDMA);
++          dma_pool_free(ScatterGatherPool, ScatterGatherCPU, ScatterGatherDMA);
+       if (RequestSenseCPU != NULL)
+-          pci_pool_free(RequestSensePool, RequestSenseCPU, RequestSenseDMA);
++          dma_pool_free(RequestSensePool, RequestSenseCPU, RequestSenseDMA);
  
--	pci_pool_destroy(pool);
-+	dma_pool_destroy(pool);
- 	kfree(phys);
- 	kfree(virts);
+       if ((Command->CommandIdentifier
+ 	   % Controller->CommandAllocationGroupSize) == 1) {
+@@ -437,13 +437,11 @@ static void DAC960_DestroyAuxiliaryStructures(DAC960_Controller_T *Controller)
+       Controller->CurrentStatusBuffer = NULL;
+     }
  
+-  if (ScatterGatherPool != NULL)
+-  	pci_pool_destroy(ScatterGatherPool);
++  dma_pool_destroy(ScatterGatherPool);
+   if (Controller->FirmwareType == DAC960_V1_Controller)
+   	return;
+ 
+-  if (RequestSensePool != NULL)
+-	pci_pool_destroy(RequestSensePool);
++  dma_pool_destroy(RequestSensePool);
+ 
+   for (i = 0; i < DAC960_MaxLogicalDrives; i++) {
+ 	kfree(Controller->V2.LogicalDeviceInformation[i]);
+diff --git a/drivers/block/DAC960.h b/drivers/block/DAC960.h
+index 85fa9bb..47d7d69 100644
+--- a/drivers/block/DAC960.h
++++ b/drivers/block/DAC960.h
+@@ -2316,7 +2316,7 @@ typedef struct DAC960_Controller
+   bool SuppressEnclosureMessages;
+   struct timer_list MonitoringTimer;
+   struct gendisk *disks[DAC960_MaxLogicalDrives];
+-  struct pci_pool *ScatterGatherPool;
++  struct dma_pool *ScatterGatherPool;
+   DAC960_Command_T *FreeCommands;
+   unsigned char *CombinedStatusBuffer;
+   unsigned char *CurrentStatusBuffer;
+@@ -2429,7 +2429,7 @@ typedef struct DAC960_Controller
+       bool NeedDeviceSerialNumberInformation;
+       bool StartLogicalDeviceInformationScan;
+       bool StartPhysicalDeviceInformationScan;
+-      struct pci_pool *RequestSensePool;
++      struct dma_pool *RequestSensePool;
+ 
+       dma_addr_t	FirstCommandMailboxDMA;
+       DAC960_V2_CommandMailbox_T *FirstCommandMailbox;
 -- 
 2.9.3
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
