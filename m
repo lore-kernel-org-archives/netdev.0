@@ -1,54 +1,81 @@
-From: David Miller <davem@davemloft.net>
+From: Johannes Berg <johannes@sipsolutions.net>
 Subject: Re: [RFC 0/3] netlink: extended error reporting
-Date: Fri, 07 Apr 2017 12:22:23 -0700 (PDT)
-Message-ID: <20170407.122223.385211483743191711.davem@davemloft.net>
-References: <1491591552.5800.1.camel@sipsolutions.net>
-        <20170407190601.GA22991@salvia>
-        <1491592185.5800.7.camel@sipsolutions.net>
+Date: Fri, 07 Apr 2017 21:26:35 +0200
+Message-ID: <1491593195.5800.11.camel@sipsolutions.net>
+References: <20170407182620.6438-1-johannes@sipsolutions.net>
+         <20170407.115315.23470877439489670.davem@davemloft.net>
+         <1491591552.5800.1.camel@sipsolutions.net>
+         <20170407.122053.201153373954521345.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: pablo@netfilter.org, linux-wireless@vger.kernel.org,
-        netdev@vger.kernel.org
-To: johannes@sipsolutions.net
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        pablo@netfilter.org, jiri@resnulli.us
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:59684 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756124AbdDGTWY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 7 Apr 2017 15:22:24 -0400
-In-Reply-To: <1491592185.5800.7.camel@sipsolutions.net>
+Received: from s3.sipsolutions.net ([5.9.151.49]:51828 "EHLO sipsolutions.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S933841AbdDGT0k (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 7 Apr 2017 15:26:40 -0400
+In-Reply-To: <20170407.122053.201153373954521345.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes@sipsolutions.net>
-Date: Fri, 07 Apr 2017 21:09:45 +0200
+On Fri, 2017-04-07 at 12:20 -0700, David Miller wrote:
 
-> On Fri, 2017-04-07 at 21:06 +0200, Pablo Neira Ayuso wrote:
->> On Fri, Apr 07, 2017 at 08:59:12PM +0200, Johannes Berg wrote:
->> [...]
->> > Heh. I think I really want to solve - at least partially -
->> > nla_parse()
->> > to see that it can be done this way. It'd be nice to even transform
->> > all
->> > the callers (I generated half of these patches with spatch anyway)
->> > to
->> > have at least that.
->> 
->> We can just have a modified version of nla_parse that deals with
->> this.
+> But what it lacks fundamentally is context.  Therefore it can't be
+> used to provide the offset or the bad attribute number.  So it can't
+> meet our requirements.
+
+Yes, it doesn't address the requirements here, and in a sense I suspect
+this will be true anywhere else too - perhaps that's the reason why it
+was never applied even over in perf. I've not gotten a good answer for
+that question yet :)
+
+> We've passed down new arguments into core method call chains for much
+> less useful facilitites than this.  So that doesn't bother me.  And
+> as that is a kernel internal matter, we can refine it later.
+
+Yes, both are true.
+
+> Wrt. nla_parse(), we can solve that problem as follow-on patches too.
+
+Yes. I just want to be sure we can solve it, but OTOH we're not locking
+down anything but the UAPI so whatever way we find to solve it, even if
+it requires a complete rearchitecture internally, it still doesn't
+matter.
+
+> So I consider this change ready as far as the implementation is
+> concerned.
+
+Fair enough. I still do need to test it though :)
+
+> Ok, Jiri, start reading.  I will try to make you happy here.
 > 
-> Yes, but we need to figure out a good way to have the offset.
+> Let's just discuss the UAPI, since people complain we don't talk
+> about that enough :-)  For those playing at home it is three new
+> attributes returned in a netlink ACK when the application asks
+> for the extended response:
 > 
-> We also need to see if we want to *force* having the offset. In some
-> sense that'd be useful, in another it might be very complicated to fill
-> it in at all times, if for example errors come from lower layers like
-> drivers.
+>         NLMSGERR_ATTR_MSG       string  Extended error string
+>         NLMSGERR_ATTR_OFFS      u32     Byte offset to netlink
+> element causing error
+>         NLMSGERR_ATTR_CODE      u32     Subsystem specific error code
+>         NLMSGERR_ATTR_ATTR      u16     Netlink attribute triggering
+> error or missing
 
-It has to be optional, some kinds of errors don't have an exact
-context per-se.
+That's four ;-)
 
-Also another way to look at this is that we're providing a lot of
-new power and expressability.  So even if only one aspect of the
-new error reporting is used it's a positive step forward.
+Since you're carefully listing it here, you should also say that
 
-So allow offset "0" meaning "unspecified".
+ * the new behaviour is entirely optional, enabled by a new netlink
+   socket option
+ * the ACK message format ends up being
+   [nlmsg header]
+   [ack header including errno]
+   [request message nlmsg hdr]
+   [request message payload - optional, controlled by socket option,
+    aligned to 4 byte length if present]
+   [new TLVs - optional, controlled by socket option]
+
+johannes
