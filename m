@@ -1,84 +1,213 @@
-From: Vlastimil Babka <vbabka@suse.cz>
-Subject: Re: [PATCH 1/4] mm: prevent potential recursive reclaim due to
- clearing PF_MEMALLOC
-Date: Fri, 7 Apr 2017 11:21:45 +0200
-Message-ID: <9c6ff585-f22f-3f90-fce7-793c56485019@suse.cz>
-References: <20170405074700.29871-1-vbabka@suse.cz>
- <20170405074700.29871-2-vbabka@suse.cz>
- <1f26f654-abaf-3878-6abb-5e27ff3a289e@virtuozzo.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: linux-mm@kvack.org, linux-kernel@vger.kernel.org,
-        Michal Hocko <mhocko@kernel.org>,
-        Mel Gorman <mgorman@techsingularity.net>,
-        Johannes Weiner <hannes@cmpxchg.org>,
-        linux-block@vger.kernel.org, nbd-general@lists.sourceforge.net,
-        open-iscsi@googlegroups.com, linux-scsi@vger.kernel.org,
-        netdev@vger.kernel.org, stable@vger.kernel.org
-To: Andrey Ryabinin <aryabinin@virtuozzo.com>,
-        Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-block-owner@vger.kernel.org>
-In-Reply-To: <1f26f654-abaf-3878-6abb-5e27ff3a289e@virtuozzo.com>
-Sender: linux-block-owner@vger.kernel.org
+From: Sivakumar Krishnasamy <ksiva@linux.vnet.ibm.com>
+Subject: [PATCH] ibmveth: Support to enable LSO/CSO for Trunk VEA.
+Date: Fri,  7 Apr 2017 05:57:59 -0400
+Message-ID: <1491559079-10855-1-git-send-email-ksiva@linux.vnet.ibm.com>
+Cc: tlfalcon@linux.vnet.ibm.com, benh@kernel.crashing.org,
+        paulus@samba.org, mpe@ellerman.id.au,
+        linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org,
+        brking@linux.vnet.ibm.com, seroyer@linux.vnet.ibm.com,
+        Sivakumar Krishnasamy <ksiva@linux.vnet.ibm.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 04/05/2017 01:40 PM, Andrey Ryabinin wrote:
-> On 04/05/2017 10:46 AM, Vlastimil Babka wrote:
->> The function __alloc_pages_direct_compact() sets PF_MEMALLOC to prevent
->> deadlock during page migration by lock_page() (see the comment in
->> __unmap_and_move()). Then it unconditionally clears the flag, which can clear a
->> pre-existing PF_MEMALLOC flag and result in recursive reclaim. This was not a
->> problem until commit a8161d1ed609 ("mm, page_alloc: restructure direct
->> compaction handling in slowpath"), because direct compation was called only
->> after direct reclaim, which was skipped when PF_MEMALLOC flag was set.
->> 
->> Even now it's only a theoretical issue, as the new callsite of
->> __alloc_pages_direct_compact() is reached only for costly orders and when
->> gfp_pfmemalloc_allowed() is true, which means either __GFP_NOMEMALLOC is in
->                            is false			
-> 
->> gfp_flags or in_interrupt() is true. There is no such known context, but let's
->> play it safe and make __alloc_pages_direct_compact() robust for cases where
->> PF_MEMALLOC is already set.
->> 
->> Fixes: a8161d1ed609 ("mm, page_alloc: restructure direct compaction handling in slowpath")
->> Reported-by: Andrey Ryabinin <aryabinin@virtuozzo.com>
->> Signed-off-by: Vlastimil Babka <vbabka@suse.cz>
->> Cc: <stable@vger.kernel.org>
->> ---
->>  mm/page_alloc.c | 3 ++-
->>  1 file changed, 2 insertions(+), 1 deletion(-)
->> 
->> diff --git a/mm/page_alloc.c b/mm/page_alloc.c
->> index 3589f8be53be..b84e6ffbe756 100644
->> --- a/mm/page_alloc.c
->> +++ b/mm/page_alloc.c
->> @@ -3288,6 +3288,7 @@ __alloc_pages_direct_compact(gfp_t gfp_mask, unsigned int order,
->>  		enum compact_priority prio, enum compact_result *compact_result)
->>  {
->>  	struct page *page;
->> +	unsigned int noreclaim_flag = current->flags & PF_MEMALLOC;
->>  
->>  	if (!order)
->>  		return NULL;
->> @@ -3295,7 +3296,7 @@ __alloc_pages_direct_compact(gfp_t gfp_mask, unsigned int order,
->>  	current->flags |= PF_MEMALLOC;
->>  	*compact_result = try_to_compact_pages(gfp_mask, order, alloc_flags, ac,
->>  									prio);
->> -	current->flags &= ~PF_MEMALLOC;
->> +	current->flags = (current->flags & ~PF_MEMALLOC) | noreclaim_flag;
-> 
-> Perhaps this would look better:
-> 
-> 	tsk_restore_flags(current, noreclaim_flag, PF_MEMALLOC);
-> 
-> ?
+Enable largesend and checksum offload for ibmveth configured in trunk mode.
+Added support to SKB frag_list in TX path by skb_linearize'ing such SKBs.
 
-Well, I didn't care much considering this is for stable only, and patch 2/4
-rewrites this to the new api.
+Signed-off-by: Sivakumar Krishnasamy <ksiva@linux.vnet.ibm.com>
+---
+ drivers/net/ethernet/ibm/ibmveth.c | 102 ++++++++++++++++++++++++++++++-------
+ drivers/net/ethernet/ibm/ibmveth.h |   1 +
+ 2 files changed, 85 insertions(+), 18 deletions(-)
 
->>  	if (*compact_result <= COMPACT_INACTIVE)
->>  		return NULL;
->> 
-> 
+diff --git a/drivers/net/ethernet/ibm/ibmveth.c b/drivers/net/ethernet/ibm/ibmveth.c
+index 72ab7b6..e1e238d 100644
+--- a/drivers/net/ethernet/ibm/ibmveth.c
++++ b/drivers/net/ethernet/ibm/ibmveth.c
+@@ -46,6 +46,8 @@
+ #include <asm/vio.h>
+ #include <asm/iommu.h>
+ #include <asm/firmware.h>
++#include <net/tcp.h>
++#include <net/ip6_checksum.h>
+ 
+ #include "ibmveth.h"
+ 
+@@ -808,8 +810,7 @@ static int ibmveth_set_csum_offload(struct net_device *dev, u32 data)
+ 
+ 	ret = h_illan_attributes(adapter->vdev->unit_address, 0, 0, &ret_attr);
+ 
+-	if (ret == H_SUCCESS && !(ret_attr & IBMVETH_ILLAN_ACTIVE_TRUNK) &&
+-	    !(ret_attr & IBMVETH_ILLAN_TRUNK_PRI_MASK) &&
++	if (ret == H_SUCCESS &&
+ 	    (ret_attr & IBMVETH_ILLAN_PADDED_PKT_CSUM)) {
+ 		ret4 = h_illan_attributes(adapter->vdev->unit_address, clr_attr,
+ 					 set_attr, &ret_attr);
+@@ -1040,6 +1041,15 @@ static netdev_tx_t ibmveth_start_xmit(struct sk_buff *skb,
+ 	dma_addr_t dma_addr;
+ 	unsigned long mss = 0;
+ 
++	/* veth doesn't handle frag_list, so linearize the skb.
++	 * When GRO is enabled SKB's can have frag_list.
++	 */
++	if (adapter->is_active_trunk &&
++	    skb_has_frag_list(skb) && __skb_linearize(skb)) {
++		netdev->stats.tx_dropped++;
++		goto out;
++	}
++
+ 	/*
+ 	 * veth handles a maximum of 6 segments including the header, so
+ 	 * we have to linearize the skb if there are more than this.
+@@ -1064,9 +1074,6 @@ static netdev_tx_t ibmveth_start_xmit(struct sk_buff *skb,
+ 
+ 	desc_flags = IBMVETH_BUF_VALID;
+ 
+-	if (skb_is_gso(skb) && adapter->fw_large_send_support)
+-		desc_flags |= IBMVETH_BUF_LRG_SND;
+-
+ 	if (skb->ip_summed == CHECKSUM_PARTIAL) {
+ 		unsigned char *buf = skb_transport_header(skb) +
+ 						skb->csum_offset;
+@@ -1076,6 +1083,9 @@ static netdev_tx_t ibmveth_start_xmit(struct sk_buff *skb,
+ 		/* Need to zero out the checksum */
+ 		buf[0] = 0;
+ 		buf[1] = 0;
++
++		if (skb_is_gso(skb) && adapter->fw_large_send_support)
++			desc_flags |= IBMVETH_BUF_LRG_SND;
+ 	}
+ 
+ retry_bounce:
+@@ -1128,7 +1138,7 @@ retry_bounce:
+ 		descs[i+1].fields.address = dma_addr;
+ 	}
+ 
+-	if (skb_is_gso(skb)) {
++	if (skb->ip_summed == CHECKSUM_PARTIAL && skb_is_gso(skb)) {
+ 		if (adapter->fw_large_send_support) {
+ 			mss = (unsigned long)skb_shinfo(skb)->gso_size;
+ 			adapter->tx_large_packets++;
+@@ -1232,6 +1242,66 @@ static void ibmveth_rx_mss_helper(struct sk_buff *skb, u16 mss, int lrg_pkt)
+ 	}
+ }
+ 
++static void ibmveth_rx_csum_helper(struct sk_buff *skb,
++				   struct ibmveth_adapter *adapter)
++{
++	struct iphdr *iph = NULL;
++	struct ipv6hdr *iph6 = NULL;
++	__be16 skb_proto = 0;
++	u16 iphlen = 0;
++	u16 iph_proto = 0;
++	u16 tcphdrlen = 0;
++
++	skb_proto = be16_to_cpu(skb->protocol);
++
++	if (skb_proto == ETH_P_IP) {
++		iph = (struct iphdr *)skb->data;
++
++		/* If the IP checksum is not offloaded and if the packet
++		 *  is large send, the checksum must be rebuilt.
++		 */
++		if (iph->check == 0xffff) {
++			iph->check = 0;
++			iph->check = ip_fast_csum((unsigned char *)iph,
++						  iph->ihl);
++		}
++
++		iphlen = iph->ihl * 4;
++		iph_proto = iph->protocol;
++	} else if (skb_proto == ETH_P_IPV6) {
++		iph6 = (struct ipv6hdr *)skb->data;
++		iphlen = sizeof(struct ipv6hdr);
++		iph_proto = iph6->nexthdr;
++	}
++
++	/* In OVS environment, when a flow is not cached, specifically for a
++	 * new TCP connection, the first (SYN) packet information is passed up
++	 * the user space for finding a flow. During this process, OVS computes
++	 * checksum on the packet when CHECKSUM_PARTIAL flag is set.
++	 * Given that we zeroed out TCP checksum field in transmit path as we
++	 * set "no checksum bit", OVS computed checksum will be incorrect w/o
++	 * TCP pseudo checksum in the packet.
++	 * So, re-compute TCP pseudo header checksum.
++	 */
++	if (iph_proto == IPPROTO_TCP && adapter->is_active_trunk) {
++		struct tcphdr *tcph = (struct tcphdr *)(skb->data + iphlen);
++
++		tcphdrlen = skb->len - iphlen;
++
++		if (skb_proto == ETH_P_IP)
++			tcph->check = ~csum_tcpudp_magic(iph->saddr,
++					iph->daddr, tcphdrlen, iph_proto, 0);
++		else if (skb_proto == ETH_P_IPV6)
++			tcph->check = ~csum_ipv6_magic(&iph6->saddr,
++					&iph6->daddr, tcphdrlen, iph_proto, 0);
++
++		/* Setup SKB fields for checksum offload */
++		skb_partial_csum_set(skb, iphlen,
++				     offsetof(struct tcphdr, check));
++		skb_reset_network_header(skb);
++	}
++}
++
+ static int ibmveth_poll(struct napi_struct *napi, int budget)
+ {
+ 	struct ibmveth_adapter *adapter =
+@@ -1239,7 +1309,6 @@ static int ibmveth_poll(struct napi_struct *napi, int budget)
+ 	struct net_device *netdev = adapter->netdev;
+ 	int frames_processed = 0;
+ 	unsigned long lpar_rc;
+-	struct iphdr *iph;
+ 	u16 mss = 0;
+ 
+ restart_poll:
+@@ -1297,17 +1366,7 @@ restart_poll:
+ 
+ 			if (csum_good) {
+ 				skb->ip_summed = CHECKSUM_UNNECESSARY;
+-				if (be16_to_cpu(skb->protocol) == ETH_P_IP) {
+-					iph = (struct iphdr *)skb->data;
+-
+-					/* If the IP checksum is not offloaded and if the packet
+-					 *  is large send, the checksum must be rebuilt.
+-					 */
+-					if (iph->check == 0xffff) {
+-						iph->check = 0;
+-						iph->check = ip_fast_csum((unsigned char *)iph, iph->ihl);
+-					}
+-				}
++				ibmveth_rx_csum_helper(skb, adapter);
+ 			}
+ 
+ 			if (length > netdev->mtu + ETH_HLEN) {
+@@ -1626,6 +1685,13 @@ static int ibmveth_probe(struct vio_dev *dev, const struct vio_device_id *id)
+ 		netdev->hw_features |= NETIF_F_TSO;
+ 	}
+ 
++	adapter->is_active_trunk = false;
++	if (ret == H_SUCCESS && (ret_attr & IBMVETH_ILLAN_ACTIVE_TRUNK)) {
++		adapter->is_active_trunk = true;
++		netdev->hw_features |= NETIF_F_FRAGLIST;
++		netdev->features |= NETIF_F_FRAGLIST;
++	}
++
+ 	netdev->min_mtu = IBMVETH_MIN_MTU;
+ 	netdev->max_mtu = ETH_MAX_MTU;
+ 
+diff --git a/drivers/net/ethernet/ibm/ibmveth.h b/drivers/net/ethernet/ibm/ibmveth.h
+index 7acda04..de6e381 100644
+--- a/drivers/net/ethernet/ibm/ibmveth.h
++++ b/drivers/net/ethernet/ibm/ibmveth.h
+@@ -157,6 +157,7 @@ struct ibmveth_adapter {
+     int pool_config;
+     int rx_csum;
+     int large_send;
++    bool is_active_trunk;
+     void *bounce_buffer;
+     dma_addr_t bounce_buffer_dma;
+ 
+-- 
+2.7.4
