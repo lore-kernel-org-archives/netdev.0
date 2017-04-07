@@ -1,188 +1,75 @@
-From: Felix Manlunas <felix.manlunas@cavium.com>
-Subject: [PATCH net-next] liquidio: fix VF incorrectly indicating that it
- successfully set its VLAN
-Date: Thu, 6 Apr 2017 19:22:22 -0700
-Message-ID: <20170407022222.GA1017@felix-thinkpad.cavium.com>
+From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Subject: Re: [PATCH] ath9k: Add cast to u8 to FREQ2FBIN macro
+Date: Thu, 06 Apr 2017 19:36:41 -0700
+Message-ID: <1491532601.3250.1.camel@perches.com>
+References: <20170406212135.72157-1-mka@chromium.org>
+         <1491514160.27353.102.camel@perches.com>
+         <20170406235427.GC78690@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
-        derek.chickles@cavium.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-dm3nam03on0082.outbound.protection.outlook.com ([104.47.41.82]:52038
-        "EHLO NAM03-DM3-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751081AbdDGCW3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 6 Apr 2017 22:22:29 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+        ath9k Development <ath9k-devel-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Grant Grundler <grundler-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+To: Matthias Kaehlcke <mka-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170406235427.GC78690-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-For security reasons, NIC firmware does not allow VF to set its VLAN if PF
-set it already.  Firmware allows VF to set its VLAN if PF did not set it.
-After the VF instructs the firmware to set the VLAN, VF always indicates
-(via return 0) that the operation is successful--even for the times when it
-isn't.
+On Thu, 2017-04-06 at 16:54 -0700, Matthias Kaehlcke wrote:
+> Hi Joe,
+> 
+> El Thu, Apr 06, 2017 at 02:29:20PM -0700 Joe Perches ha dit:
+> 
+> > On Thu, 2017-04-06 at 14:21 -0700, Matthias Kaehlcke wrote:
+> > > The macro results are assigned to u8 variables/fields. Adding the cast
+> > > fixes plenty of clang warnings about "implicit conversion from 'int' to
+> > > 'u8'".
+> > > 
+> > > Signed-off-by: Matthias Kaehlcke <mka-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+> > > ---
+> > >  drivers/net/wireless/ath/ath9k/eeprom.h | 2 +-
+> > >  1 file changed, 1 insertion(+), 1 deletion(-)
+> > > 
+> > > diff --git a/drivers/net/wireless/ath/ath9k/eeprom.h b/drivers/net/wireless/ath/ath9k/eeprom.h
+> > > index 30bf722e33ed..31390af6c33e 100644
+> > > --- a/drivers/net/wireless/ath/ath9k/eeprom.h
+> > > +++ b/drivers/net/wireless/ath/ath9k/eeprom.h
+> > > @@ -106,7 +106,7 @@
+> > >  #define AR9285_RDEXT_DEFAULT    0x1F
+> > >  
+> > >  #define ATH9K_POW_SM(_r, _s)	(((_r) & 0x3f) << (_s))
+> > > -#define FREQ2FBIN(x, y)		((y) ? ((x) - 2300) : (((x) - 4800) / 5))
+> > > +#define FREQ2FBIN(x, y)		(u8)((y) ? ((x) - 2300) : (((x) - 4800) / 5))
+> > 
+> > Maybe better to use:
+> > 
+> > static inline u8 FREQ2FBIN(int x, int y)
+> > {
+> > 	if (y)
+> > 		return x - 2300;
+> > 	return (x - 4800) / 5;
+> > }
+> 
+> Thanks for your suggestion! Unfortunately in this case an inline
+> function is not suitable since FREQ2FBIN() is mostly used for
+> structure initialization:
+> 
+> static const struct ar9300_eeprom ar9300_default = {
+> ...
+>         .calFreqPier2G = {
+>                 FREQ2FBIN(2412, 1),
+>                 FREQ2FBIN(2437, 1),
+>                 FREQ2FBIN(2472, 1)
+>         },
+> ...
 
-Put in a mechanism for the VF's set VLAN function to receive the firmware
-response code, then make that function return -EPERM if the firmware
-forbids the operation.
+Maybe it's better to remove the second argument and write
+something like:
 
-Make that mechanism available for other functions that may, in the future,
-be interested in receiving the response code from the firmware.  That
-mechanism involves adding new fields to struct octnic_ctrl_pkt, so make all
-users of struct octnic_ctrl_pkt initialize the struct to zero before using
-it; otherwise, the mechanism might act on uninitialized garbage.
-
-Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
-Signed-off-by: Derek Chickles <derek.chickles@cavium.com>
----
- drivers/net/ethernet/cavium/liquidio/lio_core.c    | 11 +++++++++++
- drivers/net/ethernet/cavium/liquidio/lio_main.c    |  4 ++++
- drivers/net/ethernet/cavium/liquidio/lio_vf_main.c | 19 ++++++++++++++++++-
- drivers/net/ethernet/cavium/liquidio/octeon_nic.c  | 10 ++++++----
- drivers/net/ethernet/cavium/liquidio/octeon_nic.h  |  4 ++++
- 5 files changed, 43 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_core.c b/drivers/net/ethernet/cavium/liquidio/lio_core.c
-index 08676df..796c2cb 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_core.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_core.c
-@@ -127,6 +127,17 @@ void liquidio_link_ctrl_cmd_completion(void *nctrl_ptr)
- 	struct octeon_device *oct = lio->oct_dev;
- 	u8 *mac;
- 
-+	if (nctrl->completion && nctrl->response_code) {
-+		/* Signal whoever is interested that the response code from the
-+		 * firmware has arrived.
-+		 */
-+		WRITE_ONCE(*nctrl->response_code, nctrl->status);
-+		complete(nctrl->completion);
-+	}
-+
-+	if (nctrl->status)
-+		return;
-+
- 	switch (nctrl->ncmd.s.cmd) {
- 	case OCTNET_CMD_CHANGE_DEVFLAGS:
- 	case OCTNET_CMD_SET_MULTI_LIST:
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-index a8426d3..afa816e 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-@@ -3472,6 +3472,8 @@ static int liquidio_set_rxcsum_command(struct net_device *netdev, int command,
- 	struct octnic_ctrl_pkt nctrl;
- 	int ret = 0;
- 
-+	memset(&nctrl, 0, sizeof(struct octnic_ctrl_pkt));
-+
- 	nctrl.ncmd.u64 = 0;
- 	nctrl.ncmd.s.cmd = command;
- 	nctrl.ncmd.s.param1 = rx_cmd;
-@@ -3505,6 +3507,8 @@ static int liquidio_vxlan_port_command(struct net_device *netdev, int command,
- 	struct octnic_ctrl_pkt nctrl;
- 	int ret = 0;
- 
-+	memset(&nctrl, 0, sizeof(struct octnic_ctrl_pkt));
-+
- 	nctrl.ncmd.u64 = 0;
- 	nctrl.ncmd.s.cmd = command;
- 	nctrl.ncmd.s.more = vxlan_cmd_bit;
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-index 174d748..34c7782 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-@@ -2484,6 +2484,8 @@ liquidio_vlan_rx_add_vid(struct net_device *netdev,
- 	struct lio *lio = GET_LIO(netdev);
- 	struct octeon_device *oct = lio->oct_dev;
- 	struct octnic_ctrl_pkt nctrl;
-+	struct completion compl;
-+	u16 response_code;
- 	int ret = 0;
- 
- 	memset(&nctrl, 0, sizeof(struct octnic_ctrl_pkt));
-@@ -2495,14 +2497,25 @@ liquidio_vlan_rx_add_vid(struct net_device *netdev,
- 	nctrl.wait_time = 100;
- 	nctrl.netpndev = (u64)netdev;
- 	nctrl.cb_fn = liquidio_link_ctrl_cmd_completion;
-+	init_completion(&compl);
-+	nctrl.completion = &compl;
-+	nctrl.response_code = &response_code;
- 
- 	ret = octnet_send_nic_ctrl_pkt(lio->oct_dev, &nctrl);
- 	if (ret < 0) {
- 		dev_err(&oct->pci_dev->dev, "Add VLAN filter failed in core (ret: 0x%x)\n",
- 			ret);
-+		return -EIO;
- 	}
- 
--	return ret;
-+	if (!wait_for_completion_timeout(&compl,
-+					 msecs_to_jiffies(nctrl.wait_time)))
-+		return -EPERM;
-+
-+	if (READ_ONCE(response_code))
-+		return -EPERM;
-+
-+	return 0;
- }
- 
- static int
-@@ -2547,6 +2560,8 @@ static int liquidio_set_rxcsum_command(struct net_device *netdev, int command,
- 	struct octnic_ctrl_pkt nctrl;
- 	int ret = 0;
- 
-+	memset(&nctrl, 0, sizeof(struct octnic_ctrl_pkt));
-+
- 	nctrl.ncmd.u64 = 0;
- 	nctrl.ncmd.s.cmd = command;
- 	nctrl.ncmd.s.param1 = rx_cmd;
-@@ -2579,6 +2594,8 @@ static int liquidio_vxlan_port_command(struct net_device *netdev, int command,
- 	struct octnic_ctrl_pkt nctrl;
- 	int ret = 0;
- 
-+	memset(&nctrl, 0, sizeof(struct octnic_ctrl_pkt));
-+
- 	nctrl.ncmd.u64 = 0;
- 	nctrl.ncmd.s.cmd = command;
- 	nctrl.ncmd.s.more = vxlan_cmd_bit;
-diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_nic.c b/drivers/net/ethernet/cavium/liquidio/octeon_nic.c
-index 0243be8..b457cf2 100644
---- a/drivers/net/ethernet/cavium/liquidio/octeon_nic.c
-+++ b/drivers/net/ethernet/cavium/liquidio/octeon_nic.c
-@@ -100,14 +100,16 @@ static void octnet_link_ctrl_callback(struct octeon_device *oct,
- 
- 	nctrl = (struct octnic_ctrl_pkt *)sc->ctxptr;
- 
--	/* Call the callback function if status is OK.
--	 * Status is OK only if a response was expected and core returned
--	 * success.
-+	/* Call the callback function if status is zero (meaning OK) or status
-+	 * contains a firmware status code bigger than zero (meaning the
-+	 * firmware is reporting an error).
- 	 * If no response was expected, status is OK if the command was posted
- 	 * successfully.
- 	 */
--	if (!status && nctrl->cb_fn)
-+	if ((!status || status > FIRMWARE_STATUS_CODE(0)) && nctrl->cb_fn) {
-+		nctrl->status = status;
- 		nctrl->cb_fn(nctrl);
-+	}
- 
- 	octeon_free_soft_command(oct, sc);
- }
-diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_nic.h b/drivers/net/ethernet/cavium/liquidio/octeon_nic.h
-index 0c7a5c9..6480ef8 100644
---- a/drivers/net/ethernet/cavium/liquidio/octeon_nic.h
-+++ b/drivers/net/ethernet/cavium/liquidio/octeon_nic.h
-@@ -62,6 +62,10 @@ struct octnic_ctrl_pkt {
- 
- 	/** Callback function called when the command has been fetched */
- 	octnic_ctrl_pkt_cb_fn_t cb_fn;
-+
-+	u32 status;
-+	u16 *response_code;
-+	struct completion *completion;
- };
- 
- #define MAX_UDD_SIZE(nctrl) (sizeof((nctrl)->udd))
+#define FREQ2FBIN(x) \
+	(u8)(((x) >= 2300 && (x) <= 2555) ? (x) - 2300 : \
+	     ((x) >= 4800 && (x) <= 4800 + (256 * 5) ? ((x) - 4800) / 5) : \
+	     __builtin_const_p(x) ? BUILD_BUG_ON(1) : 0)
