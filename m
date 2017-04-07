@@ -1,86 +1,44 @@
-From: "Hillf Danton" <hillf.zj@alibaba-inc.com>
-Subject: Re: [PATCH 1/4] mm: prevent potential recursive reclaim due to clearing PF_MEMALLOC
-Date: Fri, 07 Apr 2017 15:33:03 +0800
-Message-ID: <092301d2af71$31c97fe0$955c7fa0$@alibaba-inc.com>
-References: <20170405074700.29871-1-vbabka@suse.cz> <20170405074700.29871-2-vbabka@suse.cz>
-Reply-To: "Hillf Danton" <hillf.zj@alibaba-inc.com>
+From: Davide Caratti <dcaratti@redhat.com>
+Subject: Re: Documentation error for checksum offload check ?
+Date: Fri, 07 Apr 2017 09:35:57 +0200
+Message-ID: <1491550557.2505.12.camel@redhat.com>
+References: <1491524586.4166.144.camel@kernel.crashing.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <linux-mm@kvack.org>,
-	<linux-kernel@vger.kernel.org>,
-	"'Michal Hocko'" <mhocko@kernel.org>,
-	"'Mel Gorman'" <mgorman@techsingularity.net>,
-	"'Johannes Weiner'" <hannes@cmpxchg.org>,
-	<linux-block@vger.kernel.org>,
-	<nbd-general@lists.sourceforge.net>,
-	<open-iscsi@googlegroups.com>,
-	<linux-scsi@vger.kernel.org>,
-	<netdev@vger.kernel.org>,
-	<stable@vger.kernel.org>,
-	"'Andrey Ryabinin'" <aryabinin@virtuozzo.com>
-To: "'Vlastimil Babka'" <vbabka@suse.cz>,
-	"'Andrew Morton'" <akpm@linux-foundation.org>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20170405074700.29871-2-vbabka@suse.cz>
-Content-Language: zh-cn
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+        netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:55132 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753311AbdDGHf7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 7 Apr 2017 03:35:59 -0400
+In-Reply-To: <1491524586.4166.144.camel@kernel.crashing.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On April 05, 2017 3:47 PM Vlastimil Babka wrote: 
+On Fri, 2017-04-07 at 10:23 +1000, Benjamin Herrenschmidt wrote:
+> I noticed in both Documentation/networking/checksum-offload.txt
+> and include/linux/skbuff.h reference to helpers
 > 
-> The function __alloc_pages_direct_compact() sets PF_MEMALLOC to prevent
-> deadlock during page migration by lock_page() (see the comment in
-> __unmap_and_move()). Then it unconditionally clears the flag, which can clear a
-> pre-existing PF_MEMALLOC flag and result in recursive reclaim. This was not a
-> problem until commit a8161d1ed609 ("mm, page_alloc: restructure direct
-> compaction handling in slowpath"), because direct compation was called only
-> after direct reclaim, which was skipped when PF_MEMALLOC flag was set.
+> skb_csum_off_chk*
+> c
+> Now, I can't find anything like that with grep ... :-)
 > 
-> Even now it's only a theoretical issue, as the new callsite of
-> __alloc_pages_direct_compact() is reached only for costly orders and when
-> gfp_pfmemalloc_allowed() is true, which means either __GFP_NOMEMALLOC is in
-> gfp_flags or in_interrupt() is true. There is no such known context, but let's
-> play it safe and make __alloc_pages_direct_compact() robust for cases where
-> PF_MEMALLOC is already set.
+> Am I missing something ?
 > 
-> Fixes: a8161d1ed609 ("mm, page_alloc: restructure direct compaction handling in slowpath")
-> Reported-by: Andrey Ryabinin <aryabinin@virtuozzo.com>
-> Signed-off-by: Vlastimil Babka <vbabka@suse.cz>
-> Cc: <stable@vger.kernel.org>
-> ---
-Acked-by: Hillf Danton <hillf.zj@alibaba-inc.com>
+> Cheers,
+> Ben.
+> 
 
->  mm/page_alloc.c | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
-> 
-> diff --git a/mm/page_alloc.c b/mm/page_alloc.c
-> index 3589f8be53be..b84e6ffbe756 100644
-> --- a/mm/page_alloc.c
-> +++ b/mm/page_alloc.c
-> @@ -3288,6 +3288,7 @@ __alloc_pages_direct_compact(gfp_t gfp_mask, unsigned int order,
->  		enum compact_priority prio, enum compact_result *compact_result)
->  {
->  	struct page *page;
-> +	unsigned int noreclaim_flag = current->flags & PF_MEMALLOC;
-> 
->  	if (!order)
->  		return NULL;
-> @@ -3295,7 +3296,7 @@ __alloc_pages_direct_compact(gfp_t gfp_mask, unsigned int order,
->  	current->flags |= PF_MEMALLOC;
->  	*compact_result = try_to_compact_pages(gfp_mask, order, alloc_flags, ac,
->  									prio);
-> -	current->flags &= ~PF_MEMALLOC;
-> +	current->flags = (current->flags & ~PF_MEMALLOC) | noreclaim_flag;
-> 
->  	if (*compact_result <= COMPACT_INACTIVE)
->  		return NULL;
-> --
-> 2.12.2
+hello Benjamin,
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+these functions are not present anymore in the kernel since commit
+cf53b1da73bd ('Revert "net: Add driver helper functions to determine
+checksum"'). You might find some additional information on this thread
+in linux-sctp (https://www.spinics.net/lists/linux-sctp/msg05606.html),
+there is an ongoing proposal for fixing Documentation/networking/checksum-offload.txt,
+improve referenced paragraphs in include/linux/sk_buff.h, and maybe
+extend the current API.
+
+regards,
