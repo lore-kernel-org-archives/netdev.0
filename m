@@ -1,51 +1,49 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [RFC 2/3] genetlink: pass extended error report down
-Date: Fri, 7 Apr 2017 12:27:33 -0700
-Message-ID: <fd15a0bb-535a-ba4f-efbb-fa566e30fcd4@candelatech.com>
-References: <20170407182620.6438-1-johannes@sipsolutions.net>
- <20170407182620.6438-3-johannes@sipsolutions.net>
- <25e1fb8c-22e0-d7a2-13a7-d0def5432c9e@candelatech.com>
- <1491592343.5800.8.camel@sipsolutions.net>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net-next 3/3] virtio-net: clean tx descriptors from rx
+ napi
+Date: Fri, 7 Apr 2017 22:28:47 +0300
+Message-ID: <20170407222616-mutt-send-email-mst@kernel.org>
+References: <20170402201012.76473-1-willemdebruijn.kernel@gmail.com>
+ <20170402201012.76473-4-willemdebruijn.kernel@gmail.com>
+ <20170403024751.GA21883@redhat.com>
+ <CAF=yD-+tJxqvwvLU81=H7nwqDtiSWfAv8UdfncjPQiuNteJ6jQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: pablo@netfilter.org
-To: Johannes Berg <johannes@sipsolutions.net>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Network Development <netdev@vger.kernel.org>,
+        Jason Wang <jasowang@redhat.com>,
+        virtualization@lists.linux-foundation.org,
+        David Miller <davem@davemloft.net>,
+        Willem de Bruijn <willemb@google.com>
+To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.candelatech.com ([208.74.158.173]:44824 "EHLO
-        mail2.candelatech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934112AbdDGT1e (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 7 Apr 2017 15:27:34 -0400
-In-Reply-To: <1491592343.5800.8.camel@sipsolutions.net>
+Received: from mx1.redhat.com ([209.132.183.28]:60622 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S933777AbdDGT2t (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 7 Apr 2017 15:28:49 -0400
+Content-Disposition: inline
+In-Reply-To: <CAF=yD-+tJxqvwvLU81=H7nwqDtiSWfAv8UdfncjPQiuNteJ6jQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/07/2017 12:12 PM, Johannes Berg wrote:
-> On Fri, 2017-04-07 at 11:37 -0700, Ben Greear wrote:
->>
->> I guess the error string must be constant and always available in
->> memory in this implementation?
->
-> Yes.
->
->> I think it would be nice to dynamically create strings (malloc,
->> snprintf, etc) and have the err_str logic free it when done?
->
-> We can think about that later, but I don't actually think it makes a
-> lot of sense - if we point to the attribute and/or offset you really
-> ought to have enough info to figure out what's up.
+On Mon, Apr 03, 2017 at 01:02:13AM -0400, Willem de Bruijn wrote:
+> On Sun, Apr 2, 2017 at 10:47 PM, Michael S. Tsirkin <mst@redhat.com> wrote:
+> > On Sun, Apr 02, 2017 at 04:10:12PM -0400, Willem de Bruijn wrote:
+> >> From: Willem de Bruijn <willemb@google.com>
+> >>
+> >> Amortize the cost of virtual interrupts by doing both rx and tx work
+> >> on reception of a receive interrupt if tx napi is enabled. With
+> >> VIRTIO_F_EVENT_IDX, this suppresses most explicit tx completion
+> >> interrupts for bidirectional workloads.
+> >>
+> >> Signed-off-by: Willem de Bruijn <willemb@google.com>
 
-We can think about it later, but lots of things in the wifi stack
-could use a descriptive message specific to the failure.  Often these
-messages are much more useful if you explain why the failure conflicts
-with regulatory, channel, virtual-dev combination, etc info, so that needs
-to be dynamic.  The code that is failing knows, so I'd like to pass it
-back to user-space.
+This is a popular approach, but I think this will only work well if tx
+and rx interrupts are processed on the same CPU and if tx queue is per
+cpu.  If they target different CPUs or if tx queue is used from multiple
+CPUs they will conflict on the shared locks.
 
-Thanks,
-Ben
+This can even change dynamically as CPUs/queues are reconfigured.
+How about adding a flag and skipping the tx poll if there's no match?
 
 -- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+MST
