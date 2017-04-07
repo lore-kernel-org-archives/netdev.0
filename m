@@ -1,146 +1,139 @@
-From: Tobias Klauser <tklauser@distanz.ch>
-Subject: [PATCH net-next 14/14] usbnet: pegasus: Use net_device_stats from struct net_device
-Date: Fri,  7 Apr 2017 10:17:39 +0200
-Message-ID: <20170407081739.5243-15-tklauser@distanz.ch>
+From: Tobias Klauser <tklauser-93Khv+1bN0NyDzI6CaY1VQ@public.gmane.org>
+Subject: [PATCH net-next 13/14] usbnet: kaweth: Use net_device_stats from struct net_device
+Date: Fri,  7 Apr 2017 10:17:38 +0200
+Message-ID: <20170407081739.5243-14-tklauser@distanz.ch>
 References: <20170407081739.5243-1-tklauser@distanz.ch>
-Cc: Petko Manolov <petkan@nucleusys.com>, linux-usb@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.zhinst.com ([212.126.164.98]:34538 "EHLO mail.zhinst.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755164AbdDGIR6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 7 Apr 2017 04:17:58 -0400
-In-Reply-To: <20170407081739.5243-1-tklauser@distanz.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170407081739.5243-1-tklauser-93Khv+1bN0NyDzI6CaY1VQ@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 Instead of using a private copy of struct net_device_stats in struct
-pegasus, use stats from struct net_device. Also remove the now
+kaweth_device, use stats from struct net_device. Also remove the now
 unnecessary .ndo_get_stats function.
 
-Cc: Petko Manolov <petkan@nucleusys.com>
-Cc: linux-usb@vger.kernel.org
-Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Signed-off-by: Tobias Klauser <tklauser-93Khv+1bN0NyDzI6CaY1VQ@public.gmane.org>
 ---
- drivers/net/usb/pegasus.c | 36 +++++++++++++++---------------------
- drivers/net/usb/pegasus.h |  1 -
- 2 files changed, 15 insertions(+), 22 deletions(-)
+ drivers/net/usb/kaweth.c | 32 ++++++++++----------------------
+ 1 file changed, 10 insertions(+), 22 deletions(-)
 
-diff --git a/drivers/net/usb/pegasus.c b/drivers/net/usb/pegasus.c
-index 321e059e13ae..6514c86f043e 100644
---- a/drivers/net/usb/pegasus.c
-+++ b/drivers/net/usb/pegasus.c
-@@ -501,13 +501,13 @@ static void read_bulk_callback(struct urb *urb)
- 	if (rx_status & 0x1e) {
- 		netif_dbg(pegasus, rx_err, net,
- 			  "RX packet error %x\n", rx_status);
--		pegasus->stats.rx_errors++;
+diff --git a/drivers/net/usb/kaweth.c b/drivers/net/usb/kaweth.c
+index 876f02f4945e..3d8ea18df696 100644
+--- a/drivers/net/usb/kaweth.c
++++ b/drivers/net/usb/kaweth.c
+@@ -245,8 +245,6 @@ struct kaweth_device
+ 	__u16 packet_filter_bitmap;
+ 
+ 	struct kaweth_ethernet_configuration configuration;
+-
+-	struct net_device_stats stats;
+ };
+ 
+ /****************************************************************
+@@ -598,7 +596,7 @@ static void kaweth_usb_receive(struct urb *urb)
+ 	struct sk_buff *skb;
+ 
+ 	if (unlikely(status == -EPIPE)) {
+-		kaweth->stats.rx_errors++;
 +		net->stats.rx_errors++;
- 		if (rx_status & 0x06)	/* long or runt	*/
--			pegasus->stats.rx_length_errors++;
-+			net->stats.rx_length_errors++;
- 		if (rx_status & 0x08)
--			pegasus->stats.rx_crc_errors++;
-+			net->stats.rx_crc_errors++;
- 		if (rx_status & 0x10)	/* extra bits	*/
--			pegasus->stats.rx_frame_errors++;
-+			net->stats.rx_frame_errors++;
- 		goto goon;
+ 		kaweth->end = 1;
+ 		wake_up(&kaweth->term_wait);
+ 		dev_dbg(dev, "Status was -EPIPE.\n");
+@@ -613,12 +611,12 @@ static void kaweth_usb_receive(struct urb *urb)
  	}
- 	if (pegasus->chip == 0x8513) {
-@@ -535,8 +535,8 @@ static void read_bulk_callback(struct urb *urb)
- 	skb_put(pegasus->rx_skb, pkt_len);
- 	pegasus->rx_skb->protocol = eth_type_trans(pegasus->rx_skb, net);
- 	netif_rx(pegasus->rx_skb);
--	pegasus->stats.rx_packets++;
--	pegasus->stats.rx_bytes += pkt_len;
-+	net->stats.rx_packets++;
-+	net->stats.rx_bytes += pkt_len;
- 
- 	if (pegasus->flags & PEGASUS_UNPLUG)
+ 	if (unlikely(status == -EPROTO || status == -ETIME ||
+ 		     status == -EILSEQ)) {
+-		kaweth->stats.rx_errors++;
++		net->stats.rx_errors++;
+ 		dev_dbg(dev, "Status was -EPROTO, -ETIME, or -EILSEQ.\n");
  		return;
-@@ -670,13 +670,13 @@ static void intr_callback(struct urb *urb)
- 		/* byte 0 == tx_status1, reg 2B */
- 		if (d[0] & (TX_UNDERRUN|EXCESSIVE_COL
- 					|LATE_COL|JABBER_TIMEOUT)) {
--			pegasus->stats.tx_errors++;
-+			net->stats.tx_errors++;
- 			if (d[0] & TX_UNDERRUN)
--				pegasus->stats.tx_fifo_errors++;
-+				net->stats.tx_fifo_errors++;
- 			if (d[0] & (EXCESSIVE_COL | JABBER_TIMEOUT))
--				pegasus->stats.tx_aborted_errors++;
-+				net->stats.tx_aborted_errors++;
- 			if (d[0] & LATE_COL)
--				pegasus->stats.tx_window_errors++;
-+				net->stats.tx_window_errors++;
- 		}
+ 	}
+ 	if (unlikely(status == -EOVERFLOW)) {
+-		kaweth->stats.rx_errors++;
++		net->stats.rx_errors++;
+ 		dev_dbg(dev, "Status was -EOVERFLOW.\n");
+ 	}
+ 	spin_lock(&kaweth->device_lock);
+@@ -663,8 +661,8 @@ static void kaweth_usb_receive(struct urb *urb)
  
- 		/* d[5].LINK_STATUS lies on some adapters.
-@@ -685,7 +685,7 @@ static void intr_callback(struct urb *urb)
- 		 */
+ 		netif_rx(skb);
  
- 		/* bytes 3-4 == rx_lostpkt, reg 2E/2F */
--		pegasus->stats.rx_missed_errors += ((d[3] & 0x7f) << 8) | d[4];
-+		net->stats.rx_missed_errors += ((d[3] & 0x7f) << 8) | d[4];
+-		kaweth->stats.rx_packets++;
+-		kaweth->stats.rx_bytes += pkt_len;
++		net->stats.rx_packets++;
++		net->stats.rx_bytes += pkt_len;
  	}
  
- 	res = usb_submit_urb(urb, GFP_ATOMIC);
-@@ -701,7 +701,7 @@ static void pegasus_tx_timeout(struct net_device *net)
- 	pegasus_t *pegasus = netdev_priv(net);
- 	netif_warn(pegasus, timer, net, "tx timeout\n");
- 	usb_unlink_urb(pegasus->tx_urb);
--	pegasus->stats.tx_errors++;
-+	net->stats.tx_errors++;
- }
- 
- static netdev_tx_t pegasus_start_xmit(struct sk_buff *skb,
-@@ -731,23 +731,18 @@ static netdev_tx_t pegasus_start_xmit(struct sk_buff *skb,
- 			netif_device_detach(pegasus->net);
- 			break;
- 		default:
--			pegasus->stats.tx_errors++;
+ 	kaweth_resubmit_rx_urb(kaweth, GFP_ATOMIC);
+@@ -810,7 +808,7 @@ static netdev_tx_t kaweth_start_xmit(struct sk_buff *skb,
+ 		dev_kfree_skb_irq(skb);
+ 		skb = copied_skb;
+ 		if (!copied_skb) {
+-			kaweth->stats.tx_errors++;
 +			net->stats.tx_errors++;
  			netif_start_queue(net);
- 		}
- 	} else {
--		pegasus->stats.tx_packets++;
--		pegasus->stats.tx_bytes += skb->len;
+ 			spin_unlock_irq(&kaweth->device_lock);
+ 			return NETDEV_TX_OK;
+@@ -834,15 +832,15 @@ static netdev_tx_t kaweth_start_xmit(struct sk_buff *skb,
+ 	{
+ 		dev_warn(&net->dev, "kaweth failed tx_urb %d\n", res);
+ skip:
+-		kaweth->stats.tx_errors++;
++		net->stats.tx_errors++;
+ 
+ 		netif_start_queue(net);
+ 		dev_kfree_skb_irq(skb);
+ 	}
+ 	else
+ 	{
+-		kaweth->stats.tx_packets++;
+-		kaweth->stats.tx_bytes += skb->len;
 +		net->stats.tx_packets++;
 +		net->stats.tx_bytes += skb->len;
  	}
- 	dev_kfree_skb(skb);
  
- 	return NETDEV_TX_OK;
+ 	spin_unlock_irq(&kaweth->device_lock);
+@@ -912,15 +910,6 @@ static void kaweth_async_set_rx_mode(struct kaweth_device *kaweth)
  }
  
--static struct net_device_stats *pegasus_netdev_stats(struct net_device *dev)
+ /****************************************************************
+- *     kaweth_netdev_stats
+- ****************************************************************/
+-static struct net_device_stats *kaweth_netdev_stats(struct net_device *dev)
 -{
--	return &((pegasus_t *) netdev_priv(dev))->stats;
+-	struct kaweth_device *kaweth = netdev_priv(dev);
+-	return &kaweth->stats;
 -}
 -
- static inline void disable_net_traffic(pegasus_t *pegasus)
- {
- 	__le16 tmp = cpu_to_le16(0);
-@@ -1294,7 +1289,6 @@ static const struct net_device_ops pegasus_netdev_ops = {
- 	.ndo_do_ioctl =			pegasus_ioctl,
- 	.ndo_start_xmit =		pegasus_start_xmit,
- 	.ndo_set_rx_mode =		pegasus_set_multicast,
--	.ndo_get_stats =		pegasus_netdev_stats,
- 	.ndo_tx_timeout =		pegasus_tx_timeout,
+-/****************************************************************
+  *     kaweth_tx_timeout
+  ****************************************************************/
+ static void kaweth_tx_timeout(struct net_device *net)
+@@ -928,7 +917,7 @@ static void kaweth_tx_timeout(struct net_device *net)
+ 	struct kaweth_device *kaweth = netdev_priv(net);
+ 
+ 	dev_warn(&net->dev, "%s: Tx timed out. Resetting.\n", net->name);
+-	kaweth->stats.tx_errors++;
++	net->stats.tx_errors++;
+ 	netif_trans_update(net);
+ 
+ 	usb_unlink_urb(kaweth->tx_urb);
+@@ -981,7 +970,6 @@ static const struct net_device_ops kaweth_netdev_ops = {
+ 	.ndo_start_xmit =		kaweth_start_xmit,
+ 	.ndo_tx_timeout =		kaweth_tx_timeout,
+ 	.ndo_set_rx_mode =		kaweth_set_rx_mode,
+-	.ndo_get_stats =		kaweth_netdev_stats,
  	.ndo_set_mac_address =		eth_mac_addr,
  	.ndo_validate_addr =		eth_validate_addr,
-diff --git a/drivers/net/usb/pegasus.h b/drivers/net/usb/pegasus.h
-index d15646244fdf..9b7ea9c9167d 100644
---- a/drivers/net/usb/pegasus.h
-+++ b/drivers/net/usb/pegasus.h
-@@ -83,7 +83,6 @@ typedef struct pegasus {
- 	struct usb_device	*usb;
- 	struct usb_interface	*intf;
- 	struct net_device	*net;
--	struct net_device_stats	stats;
- 	struct mii_if_info	mii;
- 	unsigned		flags;
- 	unsigned		features;
+ };
 -- 
 2.12.2
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
