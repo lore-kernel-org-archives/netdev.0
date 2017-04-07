@@ -1,53 +1,62 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: IMX6 FEC connection drops occasionally with 'MDIO read timeout'
-Date: Fri, 7 Apr 2017 18:09:15 +0200
-Message-ID: <20170407160915.GF23415@lunn.ch>
-References: <CAJ+vNU1UG2EeJSTStT_BJ+RiRe4a8YwfRgnE6DsRghTLetq_rg@mail.gmail.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [Outreachy kernel] [PATCH] net: ipv6: netfilter: Format block
+ comments.
+Date: Fri, 7 Apr 2017 18:15:07 +0200
+Message-ID: <20170407161507.GA9367@salvia>
+References: <20170329083943.GA23844@arushi-HP-Pavilion-Notebook>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>,
-        Fabio Estevam <fabio.estevam@nxp.com>,
-        Lucas Stach <l.stach@pengutronix.de>,
-        Fugang Duan <fugang.duan@nxp.com>,
-        Koen Vandeputte <koen.vandeputte@ncentric.com>
-To: Tim Harvey <tharvey@gateworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:49931 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754148AbdDGQJS (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 7 Apr 2017 12:09:18 -0400
+Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        outreachy-kernel@googlegroups.com
+To: Arushi Singhal <arushisinghal19971997@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <CAJ+vNU1UG2EeJSTStT_BJ+RiRe4a8YwfRgnE6DsRghTLetq_rg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20170329083943.GA23844@arushi-HP-Pavilion-Notebook>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Apr 07, 2017 at 07:47:17AM -0700, Tim Harvey wrote:
-> Greetings,
+On Wed, Mar 29, 2017 at 02:09:43PM +0530, Arushi Singhal wrote:
+> Fix checkpatch warnings:
+> WARNING: Block comments use a trailing */ on a separate line
+> WARNING: Block comments use * on subsequent lines
 > 
-> I've had a couple of users report that they are getting occasional
-> link drops when using IMX6 FEC on our boards which are using a Marvell
-> 88E1510 PHY:
+> Signed-off-by: Arushi Singhal <arushisinghal19971997@gmail.com>
+> ---
+>  net/ipv6/netfilter/ip6_tables.c | 16 ++++++++--------
+>  1 file changed, 8 insertions(+), 8 deletions(-)
 > 
-> [ 9348.474418] fec 2188000.ethernet eth0: MDIO read timeout
-> [ 9350.478804] fec 2188000.ethernet eth0: Link is Down
-> 
-> If they bring the interface back up it works fine.
-> 
-> The most recent version of Linux they have tested and seen this on is
-> v4.9 with CONFIG_MARVELL_PHY=y
-> 
-> Has anyone else run into this or know what the issue could be? Should
-> there be any retries at the MDIO level or above?
+> diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
+> index b8cb61c27aa1..ac69ce3bfa1e 100644
+> --- a/net/ipv6/netfilter/ip6_tables.c
+> +++ b/net/ipv6/netfilter/ip6_tables.c
+> @@ -51,14 +51,14 @@ void *ip6t_alloc_initial_table(const struct xt_table *info)
+>  }
+>  EXPORT_SYMBOL_GPL(ip6t_alloc_initial_table);
+>  
+> -/*
+> -   We keep a set of rules for each CPU, so we can avoid write-locking
+> -   them in the softirq when updating the counters and therefore
+> -   only need to read-lock in the softirq; doing a write_lock_bh() in user
+> -   context stops packets coming through and allows user context to read
+> -   the counters or update the rules.
+> -
+> -   Hence the start of any table is given by get_table() below.  */
+> +/* We keep a set of rules for each CPU, so we can avoid write-locking
+> + * them in the softirq when updating the counters and therefore
+> + * only need to read-lock in the softirq; doing a write_lock_bh() in user
+> + * context stops packets coming through and allows user context to read
+> + * the counters or update the rules.
+> + *
+> + * Hence the start of any table is given by get_table() below.
+> + */
 
-Hi Tim
+This comment is obsolete and should go.
 
-MDIO is assumed to be reliable. It failing is bad.
-
-However, ETIMEOUT is interesting. The MDIO protocol has no flow
-control. There is no way for the PHY to delay replying.
-
-I would suggest you look at the power management code. What i have
-seen with the FEC, when using switches attached to the FEC, is that if
-the clocks are turned off, you get ETIMEOUT from MDIO.
-
-    Andrew
+We have no set of rules per CPU anymore.
