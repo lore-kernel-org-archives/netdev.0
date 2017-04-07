@@ -1,74 +1,68 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [RFC 2/3] genetlink: pass extended error report down
-Date: Fri, 7 Apr 2017 11:37:07 -0700
-Message-ID: <25e1fb8c-22e0-d7a2-13a7-d0def5432c9e@candelatech.com>
-References: <20170407182620.6438-1-johannes@sipsolutions.net>
- <20170407182620.6438-3-johannes@sipsolutions.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [regression v4.11] 617f01211baf ("8139too: use
+ napi_complete_done()")
+Date: Fri, 07 Apr 2017 11:38:49 -0700
+Message-ID: <1491590329.10124.86.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20170407181754.GL30290@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: pablo@netfilter.org, Johannes Berg <johannes.berg@intel.com>
-To: Johannes Berg <johannes@sipsolutions.net>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: Eric Dumazet <edumazet@google.com>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Ville =?ISO-8859-1?Q?Syrj=E4l=E4?= <ville.syrjala@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.candelatech.com ([208.74.158.173]:43154 "EHLO
-        mail2.candelatech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934301AbdDGShK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 7 Apr 2017 14:37:10 -0400
-In-Reply-To: <20170407182620.6438-3-johannes@sipsolutions.net>
+Received: from mail-it0-f65.google.com ([209.85.214.65]:33320 "EHLO
+        mail-it0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755551AbdDGSiw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 7 Apr 2017 14:38:52 -0400
+In-Reply-To: <20170407181754.GL30290@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/07/2017 11:26 AM, Johannes Berg wrote:
-> From: Johannes Berg <johannes.berg@intel.com>
->
-> Signed-off-by: Johannes Berg <johannes.berg@intel.com>
-> ---
->  include/net/genetlink.h | 27 +++++++++++++++++++++++++++
->  net/netlink/genetlink.c |  6 ++++--
->  2 files changed, 31 insertions(+), 2 deletions(-)
->
-> diff --git a/include/net/genetlink.h b/include/net/genetlink.h
-> index a34275be3600..67ad2326cfa6 100644
-> --- a/include/net/genetlink.h
-> +++ b/include/net/genetlink.h
-> @@ -84,6 +84,7 @@ struct nlattr **genl_family_attrbuf(const struct genl_family *family);
->   * @attrs: netlink attributes
->   * @_net: network namespace
->   * @user_ptr: user pointers
-> + * @exterr: extended error report struct
->   */
->  struct genl_info {
->  	u32			snd_seq;
-> @@ -94,6 +95,7 @@ struct genl_info {
->  	struct nlattr **	attrs;
->  	possible_net_t		_net;
->  	void *			user_ptr[2];
-> +	struct netlink_ext_err *exterr;
->  };
->
->  static inline struct net *genl_info_net(struct genl_info *info)
-> @@ -106,6 +108,31 @@ static inline void genl_info_net_set(struct genl_info *info, struct net *net)
->  	write_pnet(&info->_net, net);
->  }
->
-> +static inline int genl_err_str(struct genl_info *info, int err,
-> +			       const char *msg)
-> +{
-> +	info->exterr->msg = msg;
-> +
-> +	return err;
-> +}
+On Fri, 2017-04-07 at 21:17 +0300, Ville Syrjälä wrote:
+> Hi,
+> 
+> My old P3 laptop started to die on me in the middle of larger compile
+> jobs (using distcc) after v4.11-rc<something>. I bisected the problem
+> to 617f01211baf ("8139too: use napi_complete_done()").
+> 
+> Unfortunately I wasn't able to capture a full oops as the machine doesn't
+> have serial and ramoops failed me. I did get one partial oops on vgacon
+> which showed rtl8139_poll() being involved (EIP was around
+> _raw_spin_unlock_irqrestore() supposedly), so seems to agree with my
+> bisect result.
+> 
+> So maybe some kind of nasty thing going between the hard irq and
+> softirq? Perhaps UP related? I tried to stare at the locking around
+> rtl8139_poll() for a while but it looked mostly sane to me.
+> 
 
-I guess the error string must be constant and always available in memory
-in this implementation?
+Thanks a lot for the detective work, I am so sorry for this !
 
-I think it would be nice to dynamically create strings (malloc, snprintf, etc)
-and have the err_str logic free it when done?
+Could you try the following patch ?
 
-Thanks,
-Ben
+I do not really see what could be wrong, the code should run just fine
+on UP.
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+Thanks.
+
+diff --git a/drivers/net/ethernet/realtek/8139too.c b/drivers/net/ethernet/realtek/8139too.c
+index 89631753e79962d91456d93b71929af768917da1..cd2dbec331dd796f5296cd378561b3443f231673 100644
+--- a/drivers/net/ethernet/realtek/8139too.c
++++ b/drivers/net/ethernet/realtek/8139too.c
+@@ -2135,11 +2135,12 @@ static int rtl8139_poll(struct napi_struct *napi, int budget)
+ 	if (likely(RTL_R16(IntrStatus) & RxAckBits))
+ 		work_done += rtl8139_rx(dev, tp, budget);
+ 
+-	if (work_done < budget && napi_complete_done(napi, work_done)) {
++	if (work_done < budget) {
+ 		unsigned long flags;
+ 
+ 		spin_lock_irqsave(&tp->lock, flags);
+-		RTL_W16_F(IntrMask, rtl8139_intr_mask);
++		if (napi_complete_done(napi, work_done))
++			RTL_W16_F(IntrMask, rtl8139_intr_mask);
+ 		spin_unlock_irqrestore(&tp->lock, flags);
+ 	}
+ 	spin_unlock(&tp->rx_lock);
