@@ -1,59 +1,114 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC 0/3] netlink: extended error reporting
-Date: Fri, 07 Apr 2017 12:43:27 -0700 (PDT)
-Message-ID: <20170407.124327.626442219286333933.davem@davemloft.net>
-References: <1491591552.5800.1.camel@sipsolutions.net>
-        <20170407.122053.201153373954521345.davem@davemloft.net>
-        <20170407193550.GA23424@salvia>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: johannes@sipsolutions.net, linux-wireless@vger.kernel.org,
-        netdev@vger.kernel.org, jiri@resnulli.us
-To: pablo@netfilter.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:60374 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933568AbdDGTn3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 7 Apr 2017 15:43:29 -0400
-In-Reply-To: <20170407193550.GA23424@salvia>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: [RFC] netlink: send exterr cookie on success
+Date: Fri,  7 Apr 2017 21:44:02 +0200
+Message-ID: <20170407194402.4181-1-johannes@sipsolutions.net>
+Cc: pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
+        Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Fri, 7 Apr 2017 21:35:50 +0200
+From: Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 
-> On Fri, Apr 07, 2017 at 12:20:53PM -0700, David Miller wrote:
-> [...]
->> Let's just discuss the UAPI, since people complain we don't talk
->> about that enough :-)  For those playing at home it is three new
->> attributes returned in a netlink ACK when the application asks
->> for the extended response:
->> 
->> 	NLMSGERR_ATTR_MSG	string	Extended error string
->> 	NLMSGERR_ATTR_OFFS	u32	Byte offset to netlink element causing error
->> 	NLMSGERR_ATTR_CODE	u32	Subsystem specific error code
->> 	NLMSGERR_ATTR_ATTR	u16	Netlink attribute triggering error or missing
-> 
-> I think it would be good if we get a definition to cap the maximum
-> string length to something reasonable? This can be added in a follow
-> up patch BTW. Thus, we get people coming back to us and request larger
-> strings with a reason why they need more room for this.
-> 
-> In general, my main concern with strings is that they can be used in a
-> more freely way than these u32 offsets and error codes, and
-> specifically how inconsistent these string will look like across
-> different netlink subsystems.
-> 
-> Anyway, as long as this is optional (not every subsystem if forced to
-> use strings) I'm fine with it :).
+This is for Jamal, it allows the subsystem to return an arbitrary
+cookie to identify a new object/operation, perhaps to delete or
+cancel it later.
 
-I have no strong opinions about string length.
+This is actually something we use a lot in wifi too, though I'm
+not sure how we could do the backport necessary for that (since
+we sadly need to ship to all kinds of old kernels)
 
-In my opinion, I would like to believe that if someone tried to get a
-networking patch applied that emitted a rediculously long string then
-we would give them feedback about how that is not acceptable.  Right?
+Also contains the missing (err) check I pointed out - I'll squash
+this patch into the first of the exterr after I test it.
 
-I suspect that someone will eventually give us a hard time about the
-strings wrt. internationalization. :-) It's solvable at least
-partially in userspace I suppose.
+Signed-off-by: Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+---
+ include/linux/netlink.h      |  2 ++
+ include/uapi/linux/netlink.h |  4 ++++
+ net/netlink/af_netlink.c     | 28 +++++++++++++++++++---------
+ 3 files changed, 25 insertions(+), 9 deletions(-)
+
+diff --git a/include/linux/netlink.h b/include/linux/netlink.h
+index 662f343dc68b..76a0b0a22349 100644
+--- a/include/linux/netlink.h
++++ b/include/linux/netlink.h
+@@ -67,6 +67,8 @@ struct netlink_ext_err {
+ 	u32 ext_code;
+ 	u32 msg_offset;
+ 	u16 attr;
++	const u8 *cookie;
++	u8 cookie_len;
+ };
+ 
+ extern void netlink_kernel_release(struct sock *sk);
+diff --git a/include/uapi/linux/netlink.h b/include/uapi/linux/netlink.h
+index 0ef970e6f9f5..72a398e0f332 100644
+--- a/include/uapi/linux/netlink.h
++++ b/include/uapi/linux/netlink.h
+@@ -119,6 +119,9 @@ struct nlmsgerr {
+  * @NLMSGERR_ATTR_CODE: extended per-subsystem error code (u32)
+  * @NLMSGERR_ATTR_ATTR: top-level attribute that caused the error
+  *	(or is missing, u16)
++ * @NLMSGERR_ATTR_COOKIE: arbitrary subsystem specific cookie to
++ *	be used - in the success case - to identify a created
++ *	object or operation or similar (binary)
+  */
+ enum nlmsgerr_attrs {
+ 	NLMSGERR_ATTR_UNUSED,
+@@ -126,6 +129,7 @@ enum nlmsgerr_attrs {
+ 	NLMSGERR_ATTR_OFFS,
+ 	NLMSGERR_ATTR_CODE,
+ 	NLMSGERR_ATTR_ATTR,
++	NLMSGERR_ATTR_COOKIE,
+ };
+ 
+ #define NETLINK_ADD_MEMBERSHIP		1
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index 532d906af3be..6b256e540bc1 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -2277,6 +2277,9 @@ void netlink_ack(struct sk_buff *in_skb, struct nlmsghdr *nlh, int err,
+ 			if (exterr && exterr->attr)
+ 				payload += nla_total_size(sizeof(u16));
+ 		}
++	} else if (nlk->flags & NETLINK_F_EXT_ACK) {
++		if (exterr && exterr->cookie_len)
++			payload += nla_total_size(exterr->cookie_len);
+ 	}
+ 
+ 	skb = nlmsg_new(payload, GFP_KERNEL);
+@@ -2301,15 +2304,22 @@ void netlink_ack(struct sk_buff *in_skb, struct nlmsghdr *nlh, int err,
+ 	memcpy(&errmsg->msg, nlh, payload > sizeof(*errmsg) ? nlh->nlmsg_len : sizeof(*nlh));
+ 
+ 	if (nlk->flags & NETLINK_F_EXT_ACK) {
+-		if (exterr && exterr->msg)
+-			WARN_ON(nla_put_string(skb, NLMSGERR_ATTR_MSG,
+-					       exterr->msg));
+-		if (exterr && exterr->msg_offset)
+-			WARN_ON(nla_put_u32(skb, NLMSGERR_ATTR_OFFS,
+-					    exterr->msg_offset));
+-		if (exterr && exterr->attr)
+-			WARN_ON(nla_put_u16(skb, NLMSGERR_ATTR_ATTR,
+-					    exterr->attr));
++		if (err) {
++			if (exterr && exterr->msg)
++				WARN_ON(nla_put_string(skb, NLMSGERR_ATTR_MSG,
++						       exterr->msg));
++			if (exterr && exterr->msg_offset)
++				WARN_ON(nla_put_u32(skb, NLMSGERR_ATTR_OFFS,
++						    exterr->msg_offset));
++			if (exterr && exterr->attr)
++				WARN_ON(nla_put_u16(skb, NLMSGERR_ATTR_ATTR,
++						    exterr->attr));
++		} else {
++			if (exterr && exterr->attr)
++				WARN_ON(nla_put(skb, NLMSGERR_ATTR_COOKIE,
++						exterr->cookie_len,
++						exterr->cookie));
++		}
+ 	}
+ 
+ 	netlink_unicast(in_skb->sk, skb, NETLINK_CB(in_skb).portid, MSG_DONTWAIT);
+-- 
+2.11.0
