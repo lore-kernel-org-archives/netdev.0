@@ -1,47 +1,53 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net] bridge: netlink: register netdevice before
- executing changelink
-Date: Fri, 7 Apr 2017 14:45:13 -0400
-Message-ID: <20170407144513.086c3e9f@plumbers-lap.home.lan>
-References: <20170407124915.15508-1-idosch@mellanox.com>
-        <20170407101055.745d95d0@plumbers-lap.home.lan>
-        <3d567660-7fa5-979e-3097-89427270e554@cumulusnetworks.com>
-        <20170407112206.77b515cd@plumbers-lap.home.lan>
-        <23249e09-a712-920f-9a9f-850055aaf3af@cumulusnetworks.com>
-        <20170407113615.15891fde@plumbers-lap.home.lan>
-        <c3769204-4803-6c5f-1286-c8f1f5e045be@cumulusnetworks.com>
-        <20170407133753.1602f3cd@plumbers-lap.home.lan>
-        <20170407181649.GA21938@splinter>
+From: Rob Herring <robh@kernel.org>
+Subject: Re: [PATCH v2 3/4] bluetooth: hci_uart: add LL protocol serdev driver support
+Date: Fri, 7 Apr 2017 13:48:52 -0500
+Message-ID: <CAL_Jsq+aM+xxbu=3v8_w9Ce+=t_pXmVWuisnckA8_8LOS-ftVA@mail.gmail.com>
+References: <20170407143516.9945-1-robh@kernel.org> <1491584978.2136.21.camel@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-        idosch@mellanox.com, netdev@vger.kernel.org, davem@davemloft.net,
-        bridge@lists.linux-foundation.org, mlxsw@mellanox.com,
-        peter@svinota.eu, cera@cera.cz
-To: Ido Schimmel <idosch@idosch.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Marcel Holtmann <marcel@holtmann.org>,
+        "open list:BLUETOOTH DRIVERS" <linux-bluetooth@vger.kernel.org>,
+        "linux-arm-kernel@lists.infradead.org"
+        <linux-arm-kernel@lists.infradead.org>,
+        Gustavo Padovan <gustavo@padovan.org>,
+        Johan Hedberg <johan.hedberg@gmail.com>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Wei Xu <xuwei5@hisilicon.com>, Eyal Reizer <eyalr@ti.com>,
+        Satish Patel <satish.patel@linaro.org>,
+        netdev <netdev@vger.kernel.org>,
+        "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
+To: Dan Williams <dcbw@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f53.google.com ([209.85.214.53]:35489 "EHLO
-        mail-it0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932598AbdDGSpR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 7 Apr 2017 14:45:17 -0400
-Received: by mail-it0-f53.google.com with SMTP id y18so124603928itc.0
-        for <netdev@vger.kernel.org>; Fri, 07 Apr 2017 11:45:17 -0700 (PDT)
-In-Reply-To: <20170407181649.GA21938@splinter>
+Received: from mail.kernel.org ([198.145.29.136]:58038 "EHLO mail.kernel.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754489AbdDGStR (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 7 Apr 2017 14:49:17 -0400
+In-Reply-To: <1491584978.2136.21.camel@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 7 Apr 2017 21:16:49 +0300
-Ido Schimmel <idosch@idosch.org> wrote:
+On Fri, Apr 7, 2017 at 12:09 PM, Dan Williams <dcbw@redhat.com> wrote:
+> On Fri, 2017-04-07 at 09:35 -0500, Rob Herring wrote:
+>> Turns out that the LL protocol and the TI-ST are the same thing
+>> AFAICT.
+>> The TI-ST adds firmware loading, GPIO control, and shared access for
+>> NFC, FM radio, etc. For now, we're only implementing what is needed
+>> for
+>> BT. This mirrors other drivers like BCM and Intel, but uses the new
+>> serdev bus.
+>>
+>> The firmware loading is greatly simplified by using existing
+>> infrastructure to send commands. It may be a bit slower than the
+>> original code using synchronous functions, but the real bottleneck is
+>> likely doing firmware load at 115.2kbps.
+>
+> Is there no way to put the TI-specific stuff into a TI UART module
+> rather than building it into the generic one?
 
-> On Fri, Apr 07, 2017 at 01:37:53PM -0400, Stephen Hemminger wrote:
-> > Fix it right now. The patch you propose is too half baked.  
-> 
-> Given this patch needs to be back ported to three different stable
-> kernels I tried to keep the amount of changes to a minimum while fixing
-> the bug.
-> 
-> I'll work on the ndo_uninit() patch and submit it. Then people can
-> decide which course of action they're more comfortable with.
+In case it's not clear, all of HCI_LL is the TI specific part, not
+just what I'm adding. So you are talking about putting each UART BT
+protocol into a separate module. I'd assume that is doable, but seems
+orthogonal to this patch set. I'd also assume there was some reason
+that was not done already.
 
-Other option for stable is to revert b6677449dff6 ("bridge: netlink: call br_changelink() during br_dev_newlink()")
+Rob
