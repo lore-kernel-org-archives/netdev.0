@@ -1,61 +1,165 @@
-From: Aaron Conole <aconole@bytheb.org>
-Subject: Re: [RFC net-next] bpf: taint loading !is_gpl programs
-Date: Fri, 07 Apr 2017 13:46:28 -0400
-Message-ID: <f7tk26w3ybv.fsf@redhat.com>
-References: <20170404183354.8579-1-aconole@bytheb.org>
-        <58E40C2B.7040802@iogearbox.net> <f7tpogqmeai.fsf@redhat.com>
-        <20170406124059.GB53880@ast-mbp.thefacebook.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH RFC net-next v3 4/7] net: use skb->csum_algo to identify
+ packets needing crc32c
+Date: Fri, 7 Apr 2017 11:11:11 -0700
+Message-ID: <CALx6S36rem=OuN_At6qYA=se5cpuYM1N2R8efoaszvo8b8Tz5A@mail.gmail.com>
+References: <cover.1491562390.git.dcaratti@redhat.com> <CALx6S34cSH+z+humkp5s7UHAqnafHHB-GTqobHyb-SfKNe+MiA@mail.gmail.com>
+ <1b776a2f30504c01cbad6a9230840dd0e79ffc0c.1491562390.git.dcaratti@redhat.com>
+ <CALx6S34DdGZo7e1e37UCtpZ48jgdvHJ5nR=keyGFq3O3-b2_YQ@mail.gmail.com> <1491586160.2505.87.camel@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-        Alexei Starovoitov <ast@kernel.org>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170406124059.GB53880@ast-mbp.thefacebook.com> (Alexei
-        Starovoitov's message of "Thu, 6 Apr 2017 08:41:01 -0400")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Alexander Duyck <alexander.duyck@gmail.com>,
+        David Laight <David.Laight@aculab.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        "linux-sctp @ vger . kernel . org" <linux-sctp@vger.kernel.org>
+To: Davide Caratti <dcaratti@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f193.google.com ([209.85.220.193]:36233 "EHLO
+        mail-qk0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752848AbdDGSLN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 7 Apr 2017 14:11:13 -0400
+Received: by mail-qk0-f193.google.com with SMTP id v75so11161889qkb.3
+        for <netdev@vger.kernel.org>; Fri, 07 Apr 2017 11:11:12 -0700 (PDT)
+In-Reply-To: <1491586160.2505.87.camel@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Alexei, and Daniel,
+On Fri, Apr 7, 2017 at 10:29 AM, Davide Caratti <dcaratti@redhat.com> wrote:
+> hello Tom,
+>
+> On Fri, 2017-04-07 at 08:43 -0700, Tom Herbert wrote:
+>> On Fri, Apr 7, 2017 at 7:16 AM, Davide Caratti <dcaratti@redhat.com> wrote:
+>> > @@ -742,8 +744,10 @@ struct sk_buff {
+>> >         __u8                    csum_valid:1;
+>> >         __u8                    csum_complete_sw:1;
+>> >         __u8                    csum_level:2;
+>> > -       __u8                    __unused:1; /* one bit hole */
+>> > -
+>> > +       enum {
+>> > +               INTERNET_CHECKSUM = 0,
+>> > +               CRC32C_CHECKSUM,
+>> > +       }                       csum_algo:1;
+>>
+>> I am worried this opens the door to a new open ended functionality
+>> that will be rarely used in practice. Checksum offload is pervasive,
+>> CRC offload is still a very narrow use case.
+>
+> thank you for the prompt response. I thought there was a silent
+> agreement on that - Alexander proposed usage of an enum bitfield to be
+> ready for FCoE (and I'm not against it, unless I have to find a second
+> free bit in struct sk_buff :-) ). But maybe I'm misunderstanding your
+> concern: is it the  name of the variable, (csum_algo instead of
+> crc32c_csum), or the usage of enum bitfield (or both?) ?
+>
+> On Fri, 2017-04-07 at 08:43 -0700, Tom Herbert wrote:
+>> Adding yet more
+>> CRC/checksum variants will need more bits. It may be sufficient for
+>> now just to make this a single bit which indicates "ones' checksum" or
+>> indicates "other". In this case of "other" we need some analysis so
+>> determine which checksum it is, this might be something that flow
+>> dissector could support.
+>
+> ... which is my intent: by the way, from my perspective, we don't need more than 1 bit
+> to extend the functionality. While reviewing my code, I was also considering
+> extending the witdth of skb->ip_summed from 2 to 3 bit, so that it was possible
+> to
+>
+Maybe just call it csum_not_ip then. Then just do "if
+(unlikely(skb->csum_not_ip)) ..."
 
-Alexei Starovoitov <alexei.starovoitov@gmail.com> writes:
+> #define
+>
+> CRC32C_PARTIAL <- for SCTP
+> CRC_PARTIAL <- for FCoE
+> CHECKSUM_PARTIAL <- for everything else
+>
+> It's conceptually the same thing, and the free bit is used more
+> efficiently. But then I would need to check all places where
+> CHECKSUM_PARTIAL is used in assignments and test: so, I told myself it's
+> not worth doing it until somebody requests to extend this functionality to
+> FCoE.
+>
+I've thought about extending ip_summed before with something like
+csum_invalid. I think it opens up a can of worms since ip_summed is
+being used in so many places already and the semantics of each value
+have to be extremely well defined for the whole system (this is one
+place where we can't tolerate any ambiguity at all and it everything
+needs to be clearly documented).
 
-> On Wed, Apr 05, 2017 at 10:59:49PM -0400, Aaron Conole wrote:
->> Hi Daniel,
->> 
->> Daniel Borkmann <daniel@iogearbox.net> writes:
->> 
->> > On 04/04/2017 08:33 PM, Aaron Conole wrote:
->> >> The eBPF framework is used for more than just socket level filtering.  It
->> >> can also provide tracing, and even change the way packets coming into the
->> >> system look.  Most of the eBPF callable symbols are available to non-gpl
->> >> programs, and this includes helper functions which modify packets.  This
->> >> allows proprietary eBPF code to link to the kernel and make decisions
->> >> which can negatively impact network performance.
->> >>
->> >> Since the sources for these programs are only available under a proprietary
->> >> license, it seems better to treat them the same as other proprietary
->> >> modules: set the system taint flag.  An exemption is made for socket-level
->> >> filters, since they do not really impact networking for the whole kernel.
->> >>
->> >> Signed-off-by: Aaron Conole <aconole@bytheb.org>
->> >> ---
+>> > @@ -3129,6 +3133,14 @@ struct skb_checksum_ops {
 >> >
->> > Nacked-by: Daniel Borkmann <daniel@iogearbox.net>
+>> >  extern const struct skb_checksum_ops *crc32c_csum_stub __read_mostly;
+>> >
+>> > +static inline void skb_set_crc32c_ipsummed(struct sk_buff *skb,
+>> > +                                          const u8 ip_summed)
+>> > +{
+>> > +       skb->csum_algo = ip_summed == CHECKSUM_PARTIAL ? CRC32C_CHECKSUM :
+>> > +               INTERNET_CHECKSUM;
+>> > +       skb->ip_summed = ip_summed;
+>>
+>> This seems odd to me. skb->csum_algo and skb->ip_summed always end up
+>> having the same value.
+>
+> this is accidentally true for CHEKSUM_NONE and CHECKSUM_PARTIAL, and only
+> if skb carries a SCTP packet. This was my intent:
+>
+> ip_summed  (2 bit)                     | csum_algo     (1 bit)
+> ---------------------------------------+-------------------
+> CHEKSUM_NONE = 0                       | INTERNET_CHECKSUM = 0
+> CHECKSUM_PARTIAL = 1                   | CRC32C_CHECKSUM = 1
+> CHECKSUM_COMPLETE = 2 (not applicable) | INTERNET_CHECKSUM = 0 (don't care)
+> CHECKSUM_UNNECESSARY = 3               | INTERNET_CHECKSUM = 0
+>
+> I can do this in a more explicit way, changing the prototype to
+>
+> static inline void skb_set_crc32c_ipsummed(struct sk_buff *skb,
+>                                            const u8 ip_summed,
+>                                            const u8 csum_algo)
+>
+> (with the advantage of saving a test on the value of ip_summed).
+> Find in the comment below the reason why I'm clearing csum_algo every time
+> the SCTP CRC32c is computed.
+>
+>> > --- a/net/netfilter/ipvs/ip_vs_proto_sctp.c
+>> > +++ b/net/netfilter/ipvs/ip_vs_proto_sctp.c
+>> > @@ -81,7 +81,7 @@ static void sctp_nat_csum(struct sk_buff *skb, sctp_sctphdr_t *sctph,
+>> >                           unsigned int sctphoff)
+>> >  {
+>> >         sctph->checksum = sctp_compute_cksum(skb, sctphoff);
+>> > -       skb->ip_summed = CHECKSUM_UNNECESSARY;
+>> > +       skb_set_crc32c_ipsummed(skb, CHECKSUM_UNNECESSARY);
+>>
+>> The old code is better. CHECKSUM_UNNECESSARY already applies to non IP
+>> checksums. There is nothing special about crc32 in this regard and
+>> skb->csum_algo should only be valid when skb->ip_summed ==
+>> CHECKSUM_PARTIAL so no need to set it here. This point should also be
+>> in documentation.
+>
+> In my understanding, csum_algo needs to be set to INTERNET_CHECKSUM after the
+> CRC32c is computed. Otherwise, after subsequent operation on the skb (e.g. it
+> is encapsulated in a UDP frame), there is the possibility for skb->ip_summed
+> to become CHECKSUM_PARTIAL again. So, to ensure that skb_checksum_help() and
+> not skb_crc32c_help() will be called, csum_algo must be 0.
+>
+ip_summed should no longer be CHECKSUM_PARTIAL with CRC32c is computed.
 
-Given we have different views about this, I think I am okay with some
-middle ground.
+> To minimize the impact of the patch, I substituted all assignments of skb->ip_summed,
+> done by SCTP-related code, with calls to skb_set_crc32c_ipsummed(). The alternative is
+> to explicitly set csum_algo to 0 (INTERNET_CHECKSUM) in SCTP-related code. Do you agree?
+>
+No, like I said the only case where this new bit is relevant is when
+CHECKSUM_PARTIAL for a CRC is being done. When it's set for offloading
+sctp crc it must be set. When CRC is resolved, in the helper for
+instance, it must be cleared. If these rules are properly followed
+then the bit will be zero in all other cases without needing any
+additional work or conditionals.
 
-Here's the next-steps plan.  Please tell if you dislike it or want to
-change it:
+Tom
 
-1. Add a ref counter for tracking load and unload, which can be queried
-from a procfs or bpf fs interface
-
-2. Add a new print during panic when the refcount is non-zero.
-
-This lets us know that there could be some kind of ebpf program loaded,
-and we would ask for sources before trying to disassemble.
-
-Does this sound reasonable?
+> thank you in advance,
+> regards
+> --
+> davide
+>
