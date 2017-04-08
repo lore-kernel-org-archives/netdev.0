@@ -1,104 +1,73 @@
-From: Steven Rostedt <rostedt@goodmis.org>
+From: Deepa Dinamani <deepa.kernel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Subject: Re: [PATCH 02/12] trace: Make trace_hwlat timestamp
 	y2038 safe
-Date: Fri, 7 Apr 2017 21:30:11 -0400
-Message-ID: <20170407213011.36e29f42@gandalf.local.home>
+Date: Fri, 7 Apr 2017 19:16:54 -0700
+Message-ID: <CABeXuvoQJSg+eVH4LX5s87DtE4N3goKDnjZgJ9fLk8txgwN+QA@mail.gmail.com>
 References: <1491613030-11599-1-git-send-email-deepa.kernel@gmail.com>
 	<1491613030-11599-3-git-send-email-deepa.kernel@gmail.com>
+	<20170407213011.36e29f42@gandalf.local.home>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: bfields@fieldses.org, clm@fb.com, linux-mtd@lists.infradead.org,
-	dushistov@mail.ru, jlayton@poochiereds.net,
-	ceph-devel@vger.kernel.org, devel@driverdev.osuosl.org,
-	linux-cifs@vger.kernel.org, paul@paul-moore.com,
-	y2038@lists.linaro.org, mingo@redhat.com, jsimmons@infradead.org,
-	arnd@arndb.de, oleg.drokin@intel.com, john.stultz@linaro.org,
-	viro@zeniv.linux.org.uk, dsterba@suse.com, jaegeuk@kernel.org,
-	tglx@linutronix.de, andreas.dilger@intel.com, jbacik@fb.com,
-	gregkh@linuxfoundation.org, samba-technical@lists.samba.org,
-	linux-kernel@vger.kernel.org, eparis@redhat.com,
-	linux-f2fs-devel@lists.sourceforge.net,
-	linux-security-module@vger.kernel.org, linux-audit@redhat.com,
-	netdev@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	akpm@linux-foundation.org, davem@davemloft.net,
-	linux-btrfs@vger.kernel.org, lustre-devel@lists.lustre.org
-To: Deepa Dinamani <deepa.kernel@gmail.com>
-Return-path: <linux-f2fs-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1491613030-11599-3-git-send-email-deepa.kernel@gmail.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-f2fs-devel>,
-	<mailto:linux-f2fs-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-f2fs-devel>
-List-Post: <mailto:linux-f2fs-devel@lists.sourceforge.net>
-List-Help: <mailto:linux-f2fs-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-f2fs-devel>,
-	<mailto:linux-f2fs-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: linux-f2fs-devel-bounces@lists.sourceforge.net
+Cc: yuchao0-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	Chris Mason <clm-b10kYP2dOMg@public.gmane.org>, linux-mtd <linux-mtd-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	Evgeniy Dushistov <dushistov-JGs/UdohzUI@public.gmane.org>,
+	Jeff Layton <jlayton-vpEMnDpepFuMZCB2o+C8xQ@public.gmane.org>,
+	ceph-devel <ceph-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org, linux-cifs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Paul Moore <paul-r2n+y4ga6xFZroRs9YW3xA@public.gmane.org>,
+	y2038 Mailman List <y2038-cunTk1MwBs8s++Sfvej+rw@public.gmane.org>,
+	Ingo Molnar <mingo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+	oleg.drokin-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, John Stultz <john.stultz-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	Alexander Viro <viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org>, David Sterba <dsterba-IBi9RG/b67k@public.gmane.org>,
+	Jaegeuk Kim <jaegeuk-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>,
+	Josef Bacik <jbacik-b10kYP2dOMg@public.gmane.org>, Greg KH <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	samba-technical-w/Ol4Ecudpl8XjKLYN78aQ@public.gmane.org,
+	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Eric Paris <eparis-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, "Linux F2FS DEV,
+	Mailing List" <li
+To: Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>
+Return-path: <lustre-devel-bounces-aLEFhgZF4x6X6Mz3xDxJMA@public.gmane.org>
+In-Reply-To: <20170407213011.36e29f42-f9ZlEuEWxVcJvu8Pb33WZ0EMvNT87kid@public.gmane.org>
+List-Unsubscribe: <http://lists.lustre.org/options.cgi/lustre-devel-lustre.org>,
+	<mailto:lustre-devel-request-aLEFhgZF4x6X6Mz3xDxJMA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.lustre.org/pipermail/lustre-devel-lustre.org/>
+List-Post: <mailto:lustre-devel-aLEFhgZF4x6X6Mz3xDxJMA@public.gmane.org>
+List-Help: <mailto:lustre-devel-request-aLEFhgZF4x6X6Mz3xDxJMA@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.lustre.org/listinfo.cgi/lustre-devel-lustre.org>,
+	<mailto:lustre-devel-request-aLEFhgZF4x6X6Mz3xDxJMA@public.gmane.org?subject=subscribe>
+Errors-To: lustre-devel-bounces-aLEFhgZF4x6X6Mz3xDxJMA@public.gmane.org
+Sender: "lustre-devel" <lustre-devel-bounces-aLEFhgZF4x6X6Mz3xDxJMA@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-On Fri,  7 Apr 2017 17:57:00 -0700
-Deepa Dinamani <deepa.kernel@gmail.com> wrote:
+>> -     trace_seq_printf(s, "#%-5u inner/outer(us): %4llu/%-5llu ts:%ld.%09ld",
+>> +     trace_seq_printf(s, "#%-5u inner/outer(us): %4llu/%-5llu ts:%lld.%09ld",
+>>                        field->seqnum,
+>>                        field->duration,
+>>                        field->outer_duration,
+>> -                      field->timestamp.tv_sec,
+>> +                      (long long)field->timestamp.tv_sec,
+>
+> Refresh my memory. We need the cast because on 64 bit boxes
+> timestamp.tv_sec is just a long?
 
-> struct timespec is not y2038 safe on 32 bit machines
-> and needs to be replaced by struct timespec64
-> in order to represent times beyond year 2038 on such
-> machines.
-> 
-> Fix all the timestamp representation in struct trace_hwlat
-> and all the corresponding implementations.
-> 
+This is only required until we change the definition of timespec64.
+Right now it is defined as
 
-> diff --git a/kernel/trace/trace_output.c b/kernel/trace/trace_output.c
-> index 02a4aeb..08f9bab 100644
-> --- a/kernel/trace/trace_output.c
-> +++ b/kernel/trace/trace_output.c
-> @@ -4,7 +4,6 @@
->   * Copyright (C) 2008 Red Hat Inc, Steven Rostedt <srostedt@redhat.com>
->   *
->   */
-> -
->  #include <linux/module.h>
->  #include <linux/mutex.h>
->  #include <linux/ftrace.h>
-> @@ -1161,11 +1160,11 @@ trace_hwlat_print(struct trace_iterator *iter, int flags,
->  
->  	trace_assign_type(field, entry);
->  
-> -	trace_seq_printf(s, "#%-5u inner/outer(us): %4llu/%-5llu ts:%ld.%09ld",
-> +	trace_seq_printf(s, "#%-5u inner/outer(us): %4llu/%-5llu ts:%lld.%09ld",
->  			 field->seqnum,
->  			 field->duration,
->  			 field->outer_duration,
-> -			 field->timestamp.tv_sec,
-> +			 (long long)field->timestamp.tv_sec,
+#if __BITS_PER_LONG == 64
+# define timespec64 timespec
+#else
+struct timespec64 {
+    time64_t tv_sec;
+    long tv_nsec;
+};
+#endif
 
-Refresh my memory. We need the cast because on 64 bit boxes
-timestamp.tv_sec is just a long?
+And timespec.tv_sec is just long int on 64 bit machines.
+This is why we need the cast now.
 
-Other than that.
+We will probably change this and only define __kernel_timespec instead
+of timespec, leaving only one definition of timespec64.
+At that time, we will not need this.
 
-Reviewed-by: Steven Rostedt (VMware) <rostedt@goodmis.org>
-
--- Steve
-
->  			 field->timestamp.tv_nsec);
->  
->  	if (field->nmi_count) {
-> @@ -1195,10 +1194,10 @@ trace_hwlat_raw(struct trace_iterator *iter, int flags,
->  
->  	trace_assign_type(field, iter->ent);
->  
-> -	trace_seq_printf(s, "%llu %lld %ld %09ld %u\n",
-> +	trace_seq_printf(s, "%llu %lld %lld %09ld %u\n",
->  			 field->duration,
->  			 field->outer_duration,
-> -			 field->timestamp.tv_sec,
-> +			 (long long)field->timestamp.tv_sec,
->  			 field->timestamp.tv_nsec,
->  			 field->seqnum);
->  
-
-
-------------------------------------------------------------------------------
-Check out the vibrant tech community on one of the world's most
-engaging tech sites, Slashdot.org! http://sdm.link/slashdot
+-Deepa
