@@ -1,50 +1,43 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: [PATCH 1/5] netlink: extended ACK reporting
-Date: Sat, 08 Apr 2017 22:13:14 +0200
-Message-ID: <1491682394.2379.1.camel@sipsolutions.net>
-References: <20170408174900.12820-1-johannes@sipsolutions.net>
-         <20170408174900.12820-2-johannes@sipsolutions.net>
-         <20170408183440.GA1900@nanopsycho>
-         <1491676621.5800.24.camel@sipsolutions.net>
-         <20170408184008.GB1900@nanopsycho> (sfid-20170408_204012_186615_65B86B3C)
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH] net: netfilter: Replace explicit NULL comparisons
+Date: Sat, 8 Apr 2017 22:14:38 +0200
+Message-ID: <20170408201438.GC2679@salvia>
+References: <20170408172113.GA9352@arushi-HP-Pavilion-Notebook>
+ <nycvar.YFH.7.76.1704082020530.14011@n3.vanv.qr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
-        Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        David Ahern <dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
-To: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170408184008.GB1900@nanopsycho> (sfid-20170408_204012_186615_65B86B3C)
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Arushi Singhal <arushisinghal19971997@gmail.com>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        "David S. Miller" <davem@davemloft.net>,
+        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jan Engelhardt <jengelh@inai.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:53568 "EHLO mail.us.es"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752415AbdDHUOp (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 8 Apr 2017 16:14:45 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+        by mail.us.es (Postfix) with ESMTP id 9E2F02493A
+        for <netdev@vger.kernel.org>; Sat,  8 Apr 2017 22:14:40 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 405E0DA725
+        for <netdev@vger.kernel.org>; Sat,  8 Apr 2017 22:14:45 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 66726DA862
+        for <netdev@vger.kernel.org>; Sat,  8 Apr 2017 22:14:42 +0200 (CEST)
+Content-Disposition: inline
+In-Reply-To: <nycvar.YFH.7.76.1704082020530.14011@n3.vanv.qr>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2017-04-08 at 20:40 +0200, Jiri Pirko wrote:
-
-> > I think I'll leave it like this - if anyone really wants to say
-> > "attribute 0 is missing" then we can add a flag later... The UAPI
-> > does
-> > take this into account by not including the attribute at all if the
-> > data is invalid, so 0 in the userspace API can be done
+On Sat, Apr 08, 2017 at 08:21:56PM +0200, Jan Engelhardt wrote:
+> On Saturday 2017-04-08 19:21, Arushi Singhal wrote:
 > 
-> It a known issue, should be fixed right now. We are in no hurry. This
-> waited +15 years to be done, no harm in couple more days.
+> >Replace explicit NULL comparison with ! operator to simplify code.
+> 
+> I still wouldn't do this, for the same reason as before. Comparing to 
+> NULL explicitly more or less gave an extra guarantee that the other 
+> operand was also a pointer.
 
-It's not about any timing or anything - I simply think the likelihood
-that this will be needed is zero, because almost no netlink family uses
-attribute zero, those that do use it are older ones unlikely to be
-updated to start with, and *then* needing to indicate that attribute 0
-is missing? Not going to happen.
-
-The extra code needed to handle this is therefore wasted.
-
-> Also, could you please attach a patch to iproute2 for example which
-> would make use of this. I just want to make sure it clicks.
-
-No, I'm not going to do that. If you want it, please do it yourself.
-I've done the testing on a slightly modified iw, but even there haven't
-done any pretty-printing or parsing, just made sure the attributes show
-up properly (by dumping them in hex).
-
-johannes
+Arushi, where does it say in the coding style that this is prefered?
