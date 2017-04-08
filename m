@@ -1,46 +1,93 @@
-From: David Ahern <dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
-Subject: Re: [PATCH 4/5] netlink: pass extended ACK struct to parsing
- functions
-Date: Sat, 8 Apr 2017 14:50:09 -0400
-Message-ID: <3077bf17-553d-f9e3-8873-c59fbb26e2aa@cumulusnetworks.com>
-References: <20170408174900.12820-1-johannes@sipsolutions.net>
- <20170408174900.12820-5-johannes@sipsolutions.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 8bit
-Cc: pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
-        Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org,
-        Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170408174900.12820-5-johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: [PATCH net-next] net_sched: allow configuring default qdisc
+Date: Sat,  8 Apr 2017 14:50:25 -0400
+Message-ID: <20170408185025.2104-1-sthemmin@microsoft.com>
+Cc: netdev@vger.kernel.org, Stephen Hemminger <sthemmin@microsoft.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f169.google.com ([209.85.223.169]:32773 "EHLO
+        mail-io0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751626AbdDHSug (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 8 Apr 2017 14:50:36 -0400
+Received: by mail-io0-f169.google.com with SMTP id t68so31799048iof.0
+        for <netdev@vger.kernel.org>; Sat, 08 Apr 2017 11:50:36 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 4/8/17 1:48 PM, Johannes Berg wrote:
-> From: Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-> 
-> Pass the new extended ACK reporting struct to all of the
-> generic netlink parsing functions. For now, pass NULL in
-> almost all callers (except for some in the core.)
-> 
-> Signed-off-by: Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Since 3.12 it has been possible to configure the default queuing discipline
+via sysctl. This patch adds ability to configure the default queue discipline
+in kernel configuration. This is useful for environments where configuring
+the value from userspace is difficult to manage.
 
-fails to compile as well:
+The default is still the same as before (pfifo_fast) and it is possible
+to change after kernel init with sysctl.  This is analagous to how
+TCP congestion control is configured.
 
-In file included from /home/dsa/kernel-4.git/net/sched/cls_rsvp.c:27:0:
-/home/dsa/kernel-4.git/net/sched/cls_rsvp.h: In function ‘rsvp_change’:
-/home/dsa/kernel-4.git/net/sched/cls_rsvp.h:487:8: error: too few
-arguments to function ‘nla_parse_nested’
-  err = nla_parse_nested(tb, TCA_RSVP_MAX, opt, rsvp_policy);
-        ^
-In file included from /home/dsa/kernel-4.git/include/net/rtnetlink.h:5:0,
-                 from /home/dsa/kernel-4.git/include/net/sch_generic.h:12,
-                 from /home/dsa/kernel-4.git/include/linux/filter.h:20,
-                 from /home/dsa/kernel-4.git/include/net/sock.h:64,
-                 from /home/dsa/kernel-4.git/include/net/inet_sock.h:27,
-                 from /home/dsa/kernel-4.git/include/net/ip.h:30,
-                 from /home/dsa/kernel-4.git/net/sched/cls_rsvp.c:18:
-/home/dsa/kernel-4.git/include/net/netlink.h:754:19: note: declared here
- static inline int nla_parse_nested(struct nlattr *tb[], int maxtype,
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+---
+ net/sched/Kconfig   | 31 +++++++++++++++++++++++++++++++
+ net/sched/sch_api.c |  7 +++++++
+ 2 files changed, 38 insertions(+)
+
+diff --git a/net/sched/Kconfig b/net/sched/Kconfig
+index 403790cce7d2..8fb45655e59b 100644
+--- a/net/sched/Kconfig
++++ b/net/sched/Kconfig
+@@ -820,6 +820,37 @@ config NET_CLS_IND
+ 	  classification based on the incoming device. This option is
+ 	  likely to disappear in favour of the metadata ematch.
+ 
++choice
++	prompt "Default queuing discipline"
++	default DEFAULT_PFIFO
++	help
++	  Select the queueing discipline that will be used by default
++	  for all network devices.
++
++	config DEFAULT_FQ
++		bool "Fair Queue" if NET_SCH_FQ
++
++	config DEFAULT_FQ_CODEL
++		bool "Fair Queue Controlled Delay (FQ_CODEL)" if NET_SCH_FQ_CODEL
++
++	config DEFAULT_CODEL
++		bool "Controlled Delay (CODEL)" if NET_SCH_CODEL
++
++	config DEFAULT_SFQ
++		bool "Stochastic Fair Queue (SFQ)" if NET_SCH_SFQ
++
++	config DEFAULT_PFIFO
++		bool "Priority FIFO"
++endchoice
++
++config DEFAULT_NET_SCH
++	string
++	default "pfifo" if DEFAULT_PFIFO
++	default "fq" if DEFAULT_FQ
++	default "fq_codel" if DEFAULT_FQ_CODEL
++	default "sfq" if DEFAULT_SFQ
++	default "pfifo"
++
+ endif # NET_SCHED
+ 
+ config NET_SCH_FIFO
+diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+index 62567bfe52c7..0d82f76f622d 100644
+--- a/net/sched/sch_api.c
++++ b/net/sched/sch_api.c
+@@ -251,6 +251,13 @@ int qdisc_set_default(const char *name)
+ 	return ops ? 0 : -ENOENT;
+ }
+ 
++/* Set default value from kernel config */
++static int __init sch_default_qdisc(void)
++{
++	return qdisc_set_default(CONFIG_DEFAULT_NET_SCH);
++}
++late_initcall(sch_default_qdisc);
++
+ /* We know handle. Find qdisc among all qdisc's attached to device
+  * (root qdisc, all its children, children of children etc.)
+  * Note: caller either uses rtnl or rcu_read_lock()
+-- 
+2.11.0
