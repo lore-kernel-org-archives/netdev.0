@@ -1,30 +1,48 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [RFC] netlink: send exterr cookie on success
-Date: Sat, 08 Apr 2017 17:50:03 +0200
-Message-ID: <1491666603.5800.22.camel@sipsolutions.net>
-References: <20170407194402.4181-1-johannes@sipsolutions.net>
-         <20170408112844.3aa4d448@griffin>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        pablo@netfilter.org, Jamal Hadi Salim <jhs@mojatatu.com>
-To: Jiri Benc <jbenc@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:36246 "EHLO sipsolutions.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751428AbdDHPuK (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 8 Apr 2017 11:50:10 -0400
-In-Reply-To: <20170408112844.3aa4d448@griffin>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next] net: dsa: mt7530: Include gpio/consumer.h for GPIO functions
+Date: Sat,  8 Apr 2017 08:52:02 -0700
+Message-ID: <20170408155202.20145-1-f.fainelli@gmail.com>
+Cc: sean.wang@mediatek.com, Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        linux-kernel@vger.kernel.org (open list)
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, 2017-04-08 at 11:28 -0400, Jiri Benc wrote:
-> Perhaps the structure should be named just "netlink_ext" or so? It
-> seems it'll pick up some non-error related usage, such as the cookies
-> here or, in the future, flags indicating how the message should be
-> parsed.
+Fixes build errors seen with CONFIG_GPIOLIB disabled and warnings enabled:
 
-Fair point, I'll call it netlink_ext_ack.
+drivers/net/dsa/mt7530.c: In function 'mt7530_setup':
+drivers/net/dsa/mt7530.c:948:3: error: implicit declaration of function 'gpiod_set_value_cansleep' [-Werror=implicit-function-declaration]
+   gpiod_set_value_cansleep(priv->reset, 0);
+   ^~~~~~~~~~~~~~~~~~~~~~~~
+drivers/net/dsa/mt7530.c: In function 'mt7530_probe':
+drivers/net/dsa/mt7530.c:1068:17: error: implicit declaration of function 'devm_gpiod_get_optional' [-Werror=implicit-function-declaration]
+   priv->reset = devm_gpiod_get_optional(&mdiodev->dev, "reset",
+                 ^~~~~~~~~~~~~~~~~~~~~~~
+drivers/net/dsa/mt7530.c:1069:13: error: 'GPIOD_OUT_LOW' undeclared (first use in this function)
+             GPIOD_OUT_LOW);
+             ^~~~~~~~~~~~~
+drivers/net/dsa/mt7530.c:1069:13:
 
-johannes
+Fixes: b8f126a8d543 ("net-next: dsa: add dsa support for Mediatek MT7530 switch")
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ drivers/net/dsa/mt7530.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/net/dsa/mt7530.c b/drivers/net/dsa/mt7530.c
+index a4f3b0b8c28e..b070c167e70f 100644
+--- a/drivers/net/dsa/mt7530.c
++++ b/drivers/net/dsa/mt7530.c
+@@ -26,6 +26,7 @@
+ #include <linux/regmap.h>
+ #include <linux/regulator/consumer.h>
+ #include <linux/reset.h>
++#include <linux/gpio/consumer.h>
+ #include <net/dsa.h>
+ #include <net/switchdev.h>
+ 
+-- 
+2.9.3
