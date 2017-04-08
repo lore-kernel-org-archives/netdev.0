@@ -1,8 +1,8 @@
 From: Deepa Dinamani <deepa.kernel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 05/12] fs: ufs: Use ktime_get_real_ts64() for
-	birthtime
-Date: Fri,  7 Apr 2017 17:57:03 -0700
-Message-ID: <1491613030-11599-6-git-send-email-deepa.kernel@gmail.com>
+Subject: [PATCH 07/12] fs: btrfs: Use ktime_get_real_ts for
+	root ctime
+Date: Fri,  7 Apr 2017 17:57:05 -0700
+Message-ID: <1491613030-11599-8-git-send-email-deepa.kernel@gmail.com>
 References: <1491613030-11599-1-git-send-email-deepa.kernel@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -37,39 +37,42 @@ Errors-To: lustre-devel-bounces-aLEFhgZF4x6X6Mz3xDxJMA@public.gmane.org
 Sender: "lustre-devel" <lustre-devel-bounces-aLEFhgZF4x6X6Mz3xDxJMA@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-CURRENT_TIME is not y2038 safe.
-Replace it with ktime_get_real_ts64().
-Inode time formats are already 64 bit long and
-accommodates time64_t.
+btrfs_root_item maintains the ctime for root updates.
+This is not part of vfs_inode.
+
+Since current_time() uses struct inode* as an argument
+as Linus suggested, this cannot be used to update root
+times unless, we modify the signature to use inode.
+
+Since btrfs uses nanosecond time granularity, it can also
+use ktime_get_real_ts directly to obtain timestamp for
+the root. It is necessary to use the timespec time api
+here because the same btrfs_set_stack_timespec_*() apis
+are used for vfs inode times as well. These can be
+transitioned to using timespec64 when btrfs internally
+changes to use timespec64 as well.
 
 Signed-off-by: Deepa Dinamani <deepa.kernel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Acked-by: David Sterba <dsterba-IBi9RG/b67k@public.gmane.org>
+Reviewed-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
 ---
- fs/ufs/ialloc.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+ fs/btrfs/root-tree.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/fs/ufs/ialloc.c b/fs/ufs/ialloc.c
-index 9774555..d1dd8cc 100644
---- a/fs/ufs/ialloc.c
-+++ b/fs/ufs/ialloc.c
-@@ -176,6 +176,7 @@ struct inode *ufs_new_inode(struct inode *dir, umode_t mode)
- 	struct ufs_cg_private_info * ucpi;
- 	struct ufs_cylinder_group * ucg;
- 	struct inode * inode;
-+	struct timespec64 ts;
- 	unsigned cg, bit, i, j, start;
- 	struct ufs_inode_info *ufsi;
- 	int err = -ENOSPC;
-@@ -323,8 +324,9 @@ struct inode *ufs_new_inode(struct inode *dir, umode_t mode)
- 		lock_buffer(bh);
- 		ufs2_inode = (struct ufs2_inode *)bh->b_data;
- 		ufs2_inode += ufs_inotofsbo(inode->i_ino);
--		ufs2_inode->ui_birthtime = cpu_to_fs64(sb, CURRENT_TIME.tv_sec);
--		ufs2_inode->ui_birthnsec = cpu_to_fs32(sb, CURRENT_TIME.tv_nsec);
-+		ktime_get_real_ts64(&ts);
-+		ufs2_inode->ui_birthtime = cpu_to_fs64(sb, ts.tv_sec);
-+		ufs2_inode->ui_birthnsec = cpu_to_fs32(sb, ts.tv_nsec);
- 		mark_buffer_dirty(bh);
- 		unlock_buffer(bh);
- 		if (sb->s_flags & MS_SYNCHRONOUS)
+diff --git a/fs/btrfs/root-tree.c b/fs/btrfs/root-tree.c
+index a08224e..7d6bc30 100644
+--- a/fs/btrfs/root-tree.c
++++ b/fs/btrfs/root-tree.c
+@@ -501,8 +501,9 @@ void btrfs_update_root_times(struct btrfs_trans_handle *trans,
+ 			     struct btrfs_root *root)
+ {
+ 	struct btrfs_root_item *item = &root->root_item;
+-	struct timespec ct = current_fs_time(root->fs_info->sb);
++	struct timespec ct;
+ 
++	ktime_get_real_ts(&ct);
+ 	spin_lock(&root->root_item_lock);
+ 	btrfs_set_root_ctransid(item, trans->transid);
+ 	btrfs_set_stack_timespec_sec(&item->ctime, ct.tv_sec);
 -- 
 2.7.4
