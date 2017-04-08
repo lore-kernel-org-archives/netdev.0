@@ -1,50 +1,149 @@
-From: Jarod Wilson <jarod@redhat.com>
-Subject: Horrid balance-rr bonding udp throughput
-Date: Sat, 8 Apr 2017 19:33:24 -0400
-Message-ID: <ea7fb030-f655-1658-14a6-6989e1e836ea@redhat.com>
+From: Joseph Lynch <joe.e.lynch@gmail.com>
+Subject: Performance regression on loopback devices when qdiscs are attached
+ in 4.4
+Date: Sat, 8 Apr 2017 16:56:46 -0700
+Message-ID: <CALShVHcROdaJnkyiOX9vqBROY=_XWX0HrpFaa+0zyOzrj3hJ=A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev <netdev@vger.kernel.org>
+Content-Type: multipart/mixed; boundary=f403045f517cb7f171054cb07ee8
+Cc: netdev@vger.kernel.org, phil@nwl.cc
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44986 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751662AbdDHXdZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 8 Apr 2017 19:33:25 -0400
-Received: from smtp.corp.redhat.com (int-mx03.intmail.prod.int.phx2.redhat.com [10.5.11.13])
-        (using TLSv1.2 with cipher AECDH-AES256-SHA (256/256 bits))
-        (No client certificate requested)
-        by mx1.redhat.com (Postfix) with ESMTPS id 31BD281F01
-        for <netdev@vger.kernel.org>; Sat,  8 Apr 2017 23:33:25 +0000 (UTC)
-Received: from [172.31.27.133] (dhcp-17-185.bos.redhat.com [10.18.17.185])
-        by smtp.corp.redhat.com (Postfix) with ESMTP id D9B6C89371
-        for <netdev@vger.kernel.org>; Sat,  8 Apr 2017 23:33:24 +0000 (UTC)
-Content-Language: en-US
+Received: from mail-wr0-f175.google.com ([209.85.128.175]:35028 "EHLO
+        mail-wr0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751110AbdDHX4t (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 8 Apr 2017 19:56:49 -0400
+Received: by mail-wr0-f175.google.com with SMTP id o21so100070286wrb.2
+        for <netdev@vger.kernel.org>; Sat, 08 Apr 2017 16:56:48 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I'm digging into some bug reports covering performance issues with 
-balance-rr, and discovered something even worse than the reporter. My 
-test setup has a pair of NICs, one e1000e, one e1000 (but dual e1000e 
-seems the same). When I do a test run in LNST with bonding mode 
-balance-rr and either miimon or arpmon, the throughput of the UDP_STREAM 
-netperf test is absolutely horrible:
+--f403045f517cb7f171054cb07ee8
+Content-Type: text/plain; charset=UTF-8
 
-TCP: 941.19 +-0.88 mbits/sec
-UDP: 45.42 +-4.59 mbits/sec
+Hello,
 
-I figured I'd try LNST's packet capture mode, so exact same test, add 
-the -p flag and I get:
+I apologize if this is the wrong list to report this bug to, I did not
+find a more specific listing in the maintainers file. I think this is
+a kernel issue and not an issue with my distro, but if you disagree I
+can re-direct this report as appropriate.
 
-TCP: 941.21 +-0.82 mbits/sec
-UDP: 961.54 +-0.01 mbits/sec
+I am upgrading some Linux 4.2 servers to Linux 4.4 (Ubuntu Xenial),
+and during testing I'm observing TCP segment re-transmits very
+occasionally on the loopback device, leading to 200ms latency spikes.
+I don't observe the issues on non loopback devices, and I believe that
+I've narrowed it down to an issue with qdiscs on loopback.
 
-Uh. What? So yeah. I can't capture the traffic in the bad case, but I 
-guess that gives some potential insight into what's not happening 
-correctly in either the bonding driver or the NIC drivers... More 
-digging forthcoming, but first I have a flooded basement to deal with, 
-so if in the interim, anyone has some insight, I'd be happy to hear it. :)
+It seems that when a queuing discipline other than noqueue is attached
+to a loopback device in 4.4+ kernels, packets will (very occasionally)
+get dropped completely leading to a re-transmit. I'm not sure how this
+can happen, and I've been trying to figure out what's going on, but if
+anyone has any pointers or suggestions I'd very much appreciate that.
 
--- 
-Jarod Wilson
-jarod@redhat.com
+I've attached the script I'm using to reproduce the bug and an example
+ab run that I believe shows the bug. In particular, the max timings of
+200ms in the ab output and seeing TCP segment re-transmits (and
+sometimes RSTs) in the tcpdump output is indicating the issue to me. I
+have tested on 3.13, 4.2 and 4.4 kernels and only 4.4 is showing the
+issue. Furthermore non loopback interfaces don't appear to have the
+bug. So I ran git diff v4.2..v4.4 drivers/net/loopback.c, and the only
+commit that seems to touch loopback.c is e65db2b7. I'm attempting to
+revert the change and re-compile to see if that commit triggers the
+bug, but I don't understand why that change would be breaking things
+in this way so that's just a guess.
+
+I'm continuing to try to debug this, but I figured it would be a good
+idea to report it here in case someone with more familiarity may know
+what's going on. Please let me know if there is any additional
+information I can provide or tests I can run.
+
+Thank you,
+-Joey Lynch
+
+--f403045f517cb7f171054cb07ee8
+Content-Type: text/plain; charset=US-ASCII; name="pfifo.txt"
+Content-Disposition: attachment; filename="pfifo.txt"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_j19wwirb1
+
+VGhpcyBpcyBBcGFjaGVCZW5jaCwgVmVyc2lvbiAyLjMgPCRSZXZpc2lvbjogMTUyODk2NSAkPgpD
+b3B5cmlnaHQgMTk5NiBBZGFtIFR3aXNzLCBaZXVzIFRlY2hub2xvZ3kgTHRkLCBodHRwOi8vd3d3
+LnpldXN0ZWNoLm5ldC8KTGljZW5zZWQgdG8gVGhlIEFwYWNoZSBTb2Z0d2FyZSBGb3VuZGF0aW9u
+LCBodHRwOi8vd3d3LmFwYWNoZS5vcmcvCgpCZW5jaG1hcmtpbmcgMTI3LjAuMC4xIChiZSBwYXRp
+ZW50KQpDb21wbGV0ZWQgMTAwMDAgcmVxdWVzdHMKQ29tcGxldGVkIDIwMDAwIHJlcXVlc3RzCkNv
+bXBsZXRlZCAzMDAwMCByZXF1ZXN0cwpDb21wbGV0ZWQgNDAwMDAgcmVxdWVzdHMKQ29tcGxldGVk
+IDUwMDAwIHJlcXVlc3RzCkNvbXBsZXRlZCA2MDAwMCByZXF1ZXN0cwpDb21wbGV0ZWQgNzAwMDAg
+cmVxdWVzdHMKQ29tcGxldGVkIDgwMDAwIHJlcXVlc3RzCkNvbXBsZXRlZCA5MDAwMCByZXF1ZXN0
+cwpDb21wbGV0ZWQgMTAwMDAwIHJlcXVlc3RzCkZpbmlzaGVkIDEwMDAwMCByZXF1ZXN0cwoKClNl
+cnZlciBTb2Z0d2FyZTogICAgICAgIG5naW54LzEuMTEuMwpTZXJ2ZXIgSG9zdG5hbWU6ICAgICAg
+ICAxMjcuMC4wLjEKU2VydmVyIFBvcnQ6ICAgICAgICAgICAgODAKCkRvY3VtZW50IFBhdGg6ICAg
+ICAgICAgIC8KRG9jdW1lbnQgTGVuZ3RoOiAgICAgICAgNjEyIGJ5dGVzCgpDb25jdXJyZW5jeSBM
+ZXZlbDogICAgICAxMDAKVGltZSB0YWtlbiBmb3IgdGVzdHM6ICAgMTAuNjM2IHNlY29uZHMKQ29t
+cGxldGUgcmVxdWVzdHM6ICAgICAgMTAwMDAwCkZhaWxlZCByZXF1ZXN0czogICAgICAgIDAKVG90
+YWwgdHJhbnNmZXJyZWQ6ICAgICAgODQ1MDAwMDAgYnl0ZXMKSFRNTCB0cmFuc2ZlcnJlZDogICAg
+ICAgNjEyMDAwMDAgYnl0ZXMKUmVxdWVzdHMgcGVyIHNlY29uZDogICAgOTQwMS45NyBbIy9zZWNd
+IChtZWFuKQpUaW1lIHBlciByZXF1ZXN0OiAgICAgICAxMC42MzYgW21zXSAobWVhbikKVGltZSBw
+ZXIgcmVxdWVzdDogICAgICAgMC4xMDYgW21zXSAobWVhbiwgYWNyb3NzIGFsbCBjb25jdXJyZW50
+IHJlcXVlc3RzKQpUcmFuc2ZlciByYXRlOiAgICAgICAgICA3NzU4LjQ2IFtLYnl0ZXMvc2VjXSBy
+ZWNlaXZlZAoKQ29ubmVjdGlvbiBUaW1lcyAobXMpCiAgICAgICAgICAgICAgbWluICBtZWFuWysv
+LXNkXSBtZWRpYW4gICBtYXgKQ29ubmVjdDogICAgICAgIDAgICAgMiAgIDEuOSAgICAgIDIgICAg
+ICAgOApQcm9jZXNzaW5nOiAgICAgMiAgICA5ICAgMi44ICAgICAgOSAgICAgMjA2CldhaXRpbmc6
+ICAgICAgICAxICAgIDggICAzLjEgICAgICA4ICAgICAyMDUKVG90YWw6ICAgICAgICAgIDYgICAx
+MSAgIDEuNiAgICAgMTEgICAgIDIwNgoKUGVyY2VudGFnZSBvZiB0aGUgcmVxdWVzdHMgc2VydmVk
+IHdpdGhpbiBhIGNlcnRhaW4gdGltZSAobXMpCiAgNTAlICAgICAxMQogIDY2JSAgICAgMTEKICA3
+NSUgICAgIDExCiAgODAlICAgICAxMQogIDkwJSAgICAgMTIKICA5NSUgICAgIDEyCiAgOTglICAg
+ICAxNAogIDk5JSAgICAgMTQKIDEwMCUgICAgMjA2IChsb25nZXN0IHJlcXVlc3QpCg==
+--f403045f517cb7f171054cb07ee8
+Content-Type: application/x-sh; name="repro.sh"
+Content-Disposition: attachment; filename="repro.sh"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_j19wwb6h0
+
+IyEvYmluL2Jhc2gKaWYgWyAteiAiJDEiIF07IHRoZW4KICAgIGVjaG8gIlBsZWFzZSBzdXBwbHkg
+YW4gb3V0cHV0IGRpcmVjdG9yeSBmb3IgdGhlIHRlc3QgcmVzdWx0cyIKICAgIGV4aXQgMQpmaQoK
+T1VUUFVUPSIkMSIKbWtkaXIgLXAgIiR7T1VUUFVUfSIKCmVjaG8gIlJlY29yZGluZyB1bmFtZSB0
+byBPdXRwdXQgZGlyZWN0b3J5ICR7MX0iCnVuYW1lIC1hICY+ICIke09VVFBVVH0vdW5hbWUudHh0
+IgoKZWNobyAiU3RhcnRpbmcgbmdpbngiCnN1ZG8gc2VydmljZSBuZ2lueCBzdGFydAoKZWNobyAi
+UmVtb3ZpbmcgYW55IHFkaXNjIG9uIGxvY2FsaG9zdCIKc3VkbyB0YyBxZGlzYyBkZWwgZGV2IGxv
+IHJvb3QKZWNobyAiUnVubmluZyB0ZXN0IG9mIG5vcXVldWUiCmFiIC1uIDEwMDAwMCAtYyAxMDAg
+aHR0cDovLzEyNy4wLjAuMTo4MC8gJj4gIiR7T1VUUFVUfS9ub3F1ZXVlLnR4dCIKCmVjaG8gIlN0
+YXJ0aW5nIFRDUER1bXAiCnN1ZG8gdGNwZHVtcCAtVSAtaSBsbyAtdyAiJHtPVVRQVVR9L3BhY2tl
+dF9kdW1wLnBjYXAiICdwb3J0IDgwJyAmCnNsZWVwIDIKCmVjaG8gIkFkZGluZyBhIHBmaWZvIDEw
+MDBwIHFkaXNjIG9uIGxvY2FsaG9zdCIKc3VkbyB0YyBxZGlzYyBhZGQgZGV2IGxvIHJvb3QgaGFu
+ZGxlIDE6IHBmaWZvIGxpbWl0IDEwMDAKCmVjaG8gIlJ1bm5pbmcgdGVzdCBvZiBwZmlmbyIKYWIg
+LXIgLW4gMTAwMDAwIC1jIDEwMCBodHRwOi8vMTI3LjAuMC4xOjgwLyAmPiAiJHtPVVRQVVR9L3Bm
+aWZvLnR4dCIKCmVjaG8gIktpbGxpbmcgVENQRHVtcCIKc3VkbyBwa2lsbCAtMiB0Y3BkdW1wCgpl
+Y2hvICJEb25lIHdpdGggVGVzdCIKCg==
+--f403045f517cb7f171054cb07ee8
+Content-Type: text/plain; charset=US-ASCII; name="noqueue.txt"
+Content-Disposition: attachment; filename="noqueue.txt"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_j19wy22l2
+
+VGhpcyBpcyBBcGFjaGVCZW5jaCwgVmVyc2lvbiAyLjMgPCRSZXZpc2lvbjogMTUyODk2NSAkPgpD
+b3B5cmlnaHQgMTk5NiBBZGFtIFR3aXNzLCBaZXVzIFRlY2hub2xvZ3kgTHRkLCBodHRwOi8vd3d3
+LnpldXN0ZWNoLm5ldC8KTGljZW5zZWQgdG8gVGhlIEFwYWNoZSBTb2Z0d2FyZSBGb3VuZGF0aW9u
+LCBodHRwOi8vd3d3LmFwYWNoZS5vcmcvCgpCZW5jaG1hcmtpbmcgMTI3LjAuMC4xIChiZSBwYXRp
+ZW50KQpDb21wbGV0ZWQgMTAwMDAgcmVxdWVzdHMKQ29tcGxldGVkIDIwMDAwIHJlcXVlc3RzCkNv
+bXBsZXRlZCAzMDAwMCByZXF1ZXN0cwpDb21wbGV0ZWQgNDAwMDAgcmVxdWVzdHMKQ29tcGxldGVk
+IDUwMDAwIHJlcXVlc3RzCkNvbXBsZXRlZCA2MDAwMCByZXF1ZXN0cwpDb21wbGV0ZWQgNzAwMDAg
+cmVxdWVzdHMKQ29tcGxldGVkIDgwMDAwIHJlcXVlc3RzCkNvbXBsZXRlZCA5MDAwMCByZXF1ZXN0
+cwpDb21wbGV0ZWQgMTAwMDAwIHJlcXVlc3RzCkZpbmlzaGVkIDEwMDAwMCByZXF1ZXN0cwoKClNl
+cnZlciBTb2Z0d2FyZTogICAgICAgIG5naW54LzEuMTEuMwpTZXJ2ZXIgSG9zdG5hbWU6ICAgICAg
+ICAxMjcuMC4wLjEKU2VydmVyIFBvcnQ6ICAgICAgICAgICAgODAKCkRvY3VtZW50IFBhdGg6ICAg
+ICAgICAgIC8KRG9jdW1lbnQgTGVuZ3RoOiAgICAgICAgNjEyIGJ5dGVzCgpDb25jdXJyZW5jeSBM
+ZXZlbDogICAgICAxMDAKVGltZSB0YWtlbiBmb3IgdGVzdHM6ICAgNy40MjMgc2Vjb25kcwpDb21w
+bGV0ZSByZXF1ZXN0czogICAgICAxMDAwMDAKRmFpbGVkIHJlcXVlc3RzOiAgICAgICAgMApUb3Rh
+bCB0cmFuc2ZlcnJlZDogICAgICA4NDUwMDAwMCBieXRlcwpIVE1MIHRyYW5zZmVycmVkOiAgICAg
+ICA2MTIwMDAwMCBieXRlcwpSZXF1ZXN0cyBwZXIgc2Vjb25kOiAgICAxMzQ3MS4wMSBbIy9zZWNd
+IChtZWFuKQpUaW1lIHBlciByZXF1ZXN0OiAgICAgICA3LjQyMyBbbXNdIChtZWFuKQpUaW1lIHBl
+ciByZXF1ZXN0OiAgICAgICAwLjA3NCBbbXNdIChtZWFuLCBhY3Jvc3MgYWxsIGNvbmN1cnJlbnQg
+cmVxdWVzdHMpClRyYW5zZmVyIHJhdGU6ICAgICAgICAgIDExMTE2LjIxIFtLYnl0ZXMvc2VjXSBy
+ZWNlaXZlZAoKQ29ubmVjdGlvbiBUaW1lcyAobXMpCiAgICAgICAgICAgICAgbWluICBtZWFuWysv
+LXNkXSBtZWRpYW4gICBtYXgKQ29ubmVjdDogICAgICAgIDAgICAgMCAgIDAuNSAgICAgIDAgICAg
+ICAgNQpQcm9jZXNzaW5nOiAgICAgMSAgICA3ICAgMC45ICAgICAgNyAgICAgIDEyCldhaXRpbmc6
+ICAgICAgICAxICAgIDcgICAwLjkgICAgICA3ICAgICAgMTIKVG90YWw6ICAgICAgICAgIDQgICAg
+NyAgIDAuNiAgICAgIDcgICAgICAxMgoKUGVyY2VudGFnZSBvZiB0aGUgcmVxdWVzdHMgc2VydmVk
+IHdpdGhpbiBhIGNlcnRhaW4gdGltZSAobXMpCiAgNTAlICAgICAgNwogIDY2JSAgICAgIDcKICA3
+NSUgICAgICA3CiAgODAlICAgICAgNwogIDkwJSAgICAgIDcKICA5NSUgICAgICA4CiAgOTglICAg
+ICAxMAogIDk5JSAgICAgMTEKIDEwMCUgICAgIDEyIChsb25nZXN0IHJlcXVlc3QpCg==
+--f403045f517cb7f171054cb07ee8--
