@@ -1,83 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] net_sched: allow configuring default qdisc
-Date: Sat, 08 Apr 2017 12:12:44 -0700
-Message-ID: <1491678764.10124.96.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20170408185025.2104-1-sthemmin@microsoft.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/1 v2] skbuff: Extend gso_type to unsigned
+ int.
+Date: Sat, 08 Apr 2017 12:32:34 -0700 (PDT)
+Message-ID: <20170408.123234.1062158742988397943.davem@davemloft.net>
+References: <1491676584-22421-1-git-send-email-steffen.klassert@secunet.com>
+        <1491676584-22421-2-git-send-email-steffen.klassert@secunet.com>
+        <1491677732.10124.94.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-        Stephen Hemminger <sthemmin@microsoft.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Cc: steffen.klassert@secunet.com, netdev@vger.kernel.org,
+        edumazet@google.com, alexander.duyck@gmail.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f194.google.com ([209.85.223.194]:33018 "EHLO
-        mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751543AbdDHTMr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 8 Apr 2017 15:12:47 -0400
-Received: by mail-io0-f194.google.com with SMTP id w130so117299iow.0
-        for <netdev@vger.kernel.org>; Sat, 08 Apr 2017 12:12:46 -0700 (PDT)
-In-Reply-To: <20170408185025.2104-1-sthemmin@microsoft.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:50298 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751010AbdDHTck (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 8 Apr 2017 15:32:40 -0400
+In-Reply-To: <1491677732.10124.94.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2017-04-08 at 14:50 -0400, Stephen Hemminger wrote:
-> Since 3.12 it has been possible to configure the default queuing discipline
-> via sysctl. This patch adds ability to configure the default queue discipline
-> in kernel configuration. This is useful for environments where configuring
-> the value from userspace is difficult to manage.
-> 
-> The default is still the same as before (pfifo_fast) and it is possible
-> to change after kernel init with sysctl.  This is analagous to how
-> TCP congestion control is configured.
-> 
-> Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
-> ---
->  net/sched/Kconfig   | 31 +++++++++++++++++++++++++++++++
->  net/sched/sch_api.c |  7 +++++++
->  2 files changed, 38 insertions(+)
-> 
-> diff --git a/net/sched/Kconfig b/net/sched/Kconfig
-> index 403790cce7d2..8fb45655e59b 100644
-> --- a/net/sched/Kconfig
-> +++ b/net/sched/Kconfig
-> @@ -820,6 +820,37 @@ config NET_CLS_IND
->  	  classification based on the incoming device. This option is
->  	  likely to disappear in favour of the metadata ematch.
->  
-> +choice
-> +	prompt "Default queuing discipline"
-> +	default DEFAULT_PFIFO
-> +	help
-> +	  Select the queueing discipline that will be used by default
-> +	  for all network devices.
-> +
-> +	config DEFAULT_FQ
-> +		bool "Fair Queue" if NET_SCH_FQ
-> +
-> +	config DEFAULT_FQ_CODEL
-> +		bool "Fair Queue Controlled Delay (FQ_CODEL)" if NET_SCH_FQ_CODEL
-> +
-> +	config DEFAULT_CODEL
-> +		bool "Controlled Delay (CODEL)" if NET_SCH_CODEL
-> +
-> +	config DEFAULT_SFQ
-> +		bool "Stochastic Fair Queue (SFQ)" if NET_SCH_SFQ
-> +
-> +	config DEFAULT_PFIFO
-> +		bool "Priority FIFO"
-> +endchoice
-> +
-> +config DEFAULT_NET_SCH
-> +	string
-> +	default "pfifo" if DEFAULT_PFIFO
-> +	default "fq" if DEFAULT_FQ
-> +	default "fq_codel" if DEFAULT_FQ_CODEL
-> +	default "sfq" if DEFAULT_SFQ
-> +	default "pfifo"
-> +
->  endif # NET_SCHED
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sat, 08 Apr 2017 11:55:32 -0700
 
+> On Sat, 2017-04-08 at 20:36 +0200, Steffen Klassert wrote:
+>> All available gso_type flags are currently in use, so
+>> extend gso_type from 'unsigned short' to 'unsigned int'
+>> to be able to add further flags.
+>> 
+>> We reorder the struct skb_shared_info to use
+>> two bytes of the four byte hole before dataref.
+>> All fields before dataref are cleared, i.e.
+>> four bytes more than before the change.
+>> 
+>> The remaining two byte hole is moved to the
+>> beginning of the structure, this protects us
+>> from immediate overwites on out of bound writes
+>> to the sk_buff head.
+> 
+>> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+...
+> This looks much better, thanks Steffen.
+> 
+> Acked-by: Eric Dumazet <edumazet@google.com>
 
-Note that pfifo != pfifo_fast
-
-We probably still want pfifo_fast being the default ?
+Applied, thanks everyone.
