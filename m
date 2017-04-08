@@ -1,47 +1,55 @@
 From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH 04/22] staging: rtl8723bs: Fix indenting warning in os_dep/os_intfs.c
-Date: Sat,  8 Apr 2017 11:07:27 -0500
-Message-ID: <20170408160745.14328-5-Larry.Finger@lwfinger.net>
+Subject: [PATCH 05/22] staging: rtl8723bs: Fix indenting mistake in
+ os_dep/mlme_linux.c
+Date: Sat,  8 Apr 2017 11:07:28 -0500
+Message-ID: <20170408160745.14328-6-Larry.Finger@lwfinger.net>
 References: <20170408160745.14328-1-Larry.Finger@lwfinger.net>
-Cc: netdev@vger.kernel.org, devel@driverdev.osuosl.org,
-        hdegoede@redhat.com, hadess@hadess.net, jes.sorensen@gmail.com,
-        Larry Finger <Larry.Finger@lwfinger.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: devel@driverdev.osuosl.org, jes.sorensen@gmail.com, netdev@vger.kernel.org,
+ hdegoede@redhat.com, hadess@hadess.net,
+ Larry Finger <Larry.Finger@lwfinger.net>
 To: gregkh@linuxfoundation.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f65.google.com ([209.85.218.65]:33294 "EHLO
-        mail-oi0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752539AbdDHQIG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 8 Apr 2017 12:08:06 -0400
-Received: by mail-oi0-f65.google.com with SMTP id t63so1022597oih.0
-        for <netdev@vger.kernel.org>; Sat, 08 Apr 2017 09:08:05 -0700 (PDT)
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
 In-Reply-To: <20170408160745.14328-1-Larry.Finger@lwfinger.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-Smatch logs the following warning:
+Smatch reports the following warning:
 
-  CHECK   drivers/staging/rtl8723bs/os_dep/os_intfs.c
-drivers/staging/rtl8723bs/os_dep/os_intfs.c:1082 ips_netdrv_open() warn: inconsistent indenting
+  CHECK   drivers/staging/rtl8723bs/os_dep/mlme_linux.c
+drivers/staging/rtl8723bs/os_dep/mlme_linux.c:149 rtw_os_indicate_disconnect() warn: inconsistent indenting
 
-A simple change in the white space handles this warning.
+Again, a simple change in the white space fixes this problem.
 
 Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
 ---
- drivers/staging/rtl8723bs/os_dep/os_intfs.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/staging/rtl8723bs/os_dep/mlme_linux.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/staging/rtl8723bs/os_dep/os_intfs.c b/drivers/staging/rtl8723bs/os_dep/os_intfs.c
-index 2ed3067b4af0..843be2cc6c10 100644
---- a/drivers/staging/rtl8723bs/os_dep/os_intfs.c
-+++ b/drivers/staging/rtl8723bs/os_dep/os_intfs.c
-@@ -1079,7 +1079,7 @@ static int  ips_netdrv_open(struct adapter *padapter)
+diff --git a/drivers/staging/rtl8723bs/os_dep/mlme_linux.c b/drivers/staging/rtl8723bs/os_dep/mlme_linux.c
+index aa1793389797..46315d1a82f7 100644
+--- a/drivers/staging/rtl8723bs/os_dep/mlme_linux.c
++++ b/drivers/staging/rtl8723bs/os_dep/mlme_linux.c
+@@ -145,8 +145,8 @@ void rtw_os_indicate_disconnect(struct adapter *adapter)
  
- 	_set_timer(&padapter->mlmepriv.dynamic_chk_timer, 2000);
+ 	rtw_indicate_wx_disassoc_event(adapter);
  
--	 return _SUCCESS;
-+	return _SUCCESS;
+-	 /* modify for CONFIG_IEEE80211W, none 11w also can use the same command */
+-	 rtw_reset_securitypriv_cmd(adapter);
++	/* modify for CONFIG_IEEE80211W, none 11w also can use the same command */
++	rtw_reset_securitypriv_cmd(adapter);
+ }
  
- netdev_open_error:
- 	/* padapter->bup = false; */
+ void rtw_report_sec_ie(struct adapter *adapter, u8 authmode, u8 *sec_ie)
 -- 
 2.12.0
