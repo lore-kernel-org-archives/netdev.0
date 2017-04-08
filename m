@@ -1,115 +1,96 @@
 From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH 20/22] staging rtl8723bs: Fix indenting errors and an off-by-one mistake in core/rtw_mlme_ext.c
-Date: Sat,  8 Apr 2017 11:07:43 -0500
-Message-ID: <20170408160745.14328-21-Larry.Finger@lwfinger.net>
+Subject: [PATCH 19/22] staging: rtl8723bs: Fix white-space errors in core/rtw_recv.c
+Date: Sat,  8 Apr 2017 11:07:42 -0500
+Message-ID: <20170408160745.14328-20-Larry.Finger@lwfinger.net>
 References: <20170408160745.14328-1-Larry.Finger@lwfinger.net>
 Cc: netdev@vger.kernel.org, devel@driverdev.osuosl.org,
         hdegoede@redhat.com, hadess@hadess.net, jes.sorensen@gmail.com,
         Larry Finger <Larry.Finger@lwfinger.net>
 To: gregkh@linuxfoundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f68.google.com ([209.85.218.68]:34885 "EHLO
+Received: from mail-oi0-f68.google.com ([209.85.218.68]:34880 "EHLO
         mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752719AbdDHQIU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 8 Apr 2017 12:08:20 -0400
-Received: by mail-oi0-f68.google.com with SMTP id g204so6269201oib.2
-        for <netdev@vger.kernel.org>; Sat, 08 Apr 2017 09:08:19 -0700 (PDT)
+        with ESMTP id S1752695AbdDHQIT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 8 Apr 2017 12:08:19 -0400
+Received: by mail-oi0-f68.google.com with SMTP id g204so6269170oib.2
+        for <netdev@vger.kernel.org>; Sat, 08 Apr 2017 09:08:18 -0700 (PDT)
 In-Reply-To: <20170408160745.14328-1-Larry.Finger@lwfinger.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Smatch lists the following:
+Smart reports the following:
 
-  CHECK   drivers/staging/rtl8723bs/core/rtw_mlme_ext.c
-drivers/staging/rtl8723bs/core/rtw_mlme_ext.c:525 _mgt_dispatcher() warn: inconsistent indenting
-drivers/staging/rtl8723bs/core/rtw_mlme_ext.c:1595 OnAssocReq() error: buffer overflow 'pstapriv->sta_aid' 32 <= 32
-drivers/staging/rtl8723bs/core/rtw_mlme_ext.c:2391 dump_mgntframe_and_wait() warn: inconsistent indenting
-drivers/staging/rtl8723bs/core/rtw_mlme_ext.c:2420 dump_mgntframe_and_wait_ack() warn: inconsistent indenting
-drivers/staging/rtl8723bs/core/rtw_mlme_ext.c:4969 process_80211d() error: testing array offset 'i' after use.
-drivers/staging/rtl8723bs/core/rtw_mlme_ext.c:5738 linked_status_chk() warn: inconsistent indenting
-drivers/staging/rtl8723bs/core/rtw_mlme_ext.c:6459 sitesurvey_cmd_hdl() warn: inconsistent indenting
-
-The indenting problems were fixed with white-space changes. The error at
-line 1595 was the result of an off-by-one error in a for loop. The error
-at line 4969 was not fixed as that code lies inside a block of code that
-only is needed for 5G channels. This chip only works at 2.4 GHz.
+  CHECK   drivers/staging/rtl8723bs/core/rtw_recv.c
+drivers/staging/rtl8723bs/core/rtw_recv.c:598 portctrl() warn: inconsistent indenting
+drivers/staging/rtl8723bs/core/rtw_recv.c:838 sta2sta_data_frame() warn: inconsistent indenting
+drivers/staging/rtl8723bs/core/rtw_recv.c:1547 validate_recv_frame() warn: inconsistent indenting
 
 Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
 ---
- drivers/staging/rtl8723bs/core/rtw_mlme_ext.c | 25 ++++++++++++-------------
- 1 file changed, 12 insertions(+), 13 deletions(-)
+ drivers/staging/rtl8723bs/core/rtw_recv.c | 21 ++++++++-------------
+ 1 file changed, 8 insertions(+), 13 deletions(-)
 
-diff --git a/drivers/staging/rtl8723bs/core/rtw_mlme_ext.c b/drivers/staging/rtl8723bs/core/rtw_mlme_ext.c
-index e0a3cd64777f..18e78d5198c3 100644
---- a/drivers/staging/rtl8723bs/core/rtw_mlme_ext.c
-+++ b/drivers/staging/rtl8723bs/core/rtw_mlme_ext.c
-@@ -522,15 +522,14 @@ static void _mgt_dispatcher(struct adapter *padapter, struct mlme_handler *ptabl
- 	u8 bc_addr[ETH_ALEN] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
- 	u8 *pframe = precv_frame->u.hdr.rx_data;
+diff --git a/drivers/staging/rtl8723bs/core/rtw_recv.c b/drivers/staging/rtl8723bs/core/rtw_recv.c
+index 864538e8299d..6e98a1bd3e77 100644
+--- a/drivers/staging/rtl8723bs/core/rtw_recv.c
++++ b/drivers/staging/rtl8723bs/core/rtw_recv.c
+@@ -595,7 +595,7 @@ union recv_frame *portctrl(struct adapter *adapter, union recv_frame *precv_fram
+ 			memcpy(&be_tmp, ptr, 2);
+ 			ether_type = ntohs(be_tmp);
  
--	  if (ptable->func) {
--		 /* receive the frames that ra(a1) is my address or ra(a1) is bc address. */
--			if (memcmp(GetAddr1Ptr(pframe), myid(&padapter->eeprompriv), ETH_ALEN) &&
--				memcmp(GetAddr1Ptr(pframe), bc_addr, ETH_ALEN))
--				return;
+-		  if (ether_type == eapol_type)
++			if (ether_type == eapol_type)
+ 				prtnframe = precv_frame;
+ 			else {
+ 				/* free this frame */
+@@ -827,17 +827,14 @@ sint sta2sta_data_frame(
+ 		sta_addr = pattrib->src;
+ 
+ 	} else if (check_fwstate(pmlmepriv, WIFI_STATION_STATE) == true) {
+-		{
+-			/*  For Station mode, sa and bssid should always be BSSID, and DA is my mac-address */
+-			if (memcmp(pattrib->bssid, pattrib->src, ETH_ALEN)) {
+-				RT_TRACE(_module_rtl871x_recv_c_, _drv_err_, ("bssid != TA under STATION_MODE; drop pkt\n"));
+-				ret = _FAIL;
+-				goto exit;
+-			}
 -
--			ptable->func(padapter, precv_frame);
--		}
-+	if (ptable->func) {
-+		/* receive the frames that ra(a1) is my address or ra(a1) is bc address. */
-+		if (memcmp(GetAddr1Ptr(pframe), myid(&padapter->eeprompriv), ETH_ALEN) &&
-+		    memcmp(GetAddr1Ptr(pframe), bc_addr, ETH_ALEN))
-+			return;
+-		sta_addr = pattrib->bssid;
++		/*  For Station mode, sa and bssid should always be BSSID, and DA is my mac-address */
++		if (memcmp(pattrib->bssid, pattrib->src, ETH_ALEN)) {
++			RT_TRACE(_module_rtl871x_recv_c_, _drv_err_, ("bssid != TA under STATION_MODE; drop pkt\n"));
++			ret = _FAIL;
++			goto exit;
+ 		}
  
-+		ptable->func(padapter, precv_frame);
-+	}
- }
++		sta_addr = pattrib->bssid;
+ 	} else if (check_fwstate(pmlmepriv, WIFI_AP_STATE) == true) {
+ 		if (bmcast) {
+ 			/*  For AP mode, if DA == MCAST, then BSSID should be also MCAST */
+@@ -1517,6 +1514,7 @@ sint validate_recv_frame(struct adapter *adapter, union recv_frame *precv_frame)
+ 	u8 type;
+ 	u8 subtype;
+ 	sint retval = _SUCCESS;
++	u8 bDumpRxPkt;
  
- void mgt_dispatcher(struct adapter *padapter, union recv_frame *precv_frame)
-@@ -1575,7 +1574,7 @@ unsigned int OnAssocReq(struct adapter *padapter, union recv_frame *precv_frame)
- 	if (pstat->aid > 0) {
- 		DBG_871X("  old AID %d\n", pstat->aid);
- 	} else {
--		for (pstat->aid = 1; pstat->aid <= NUM_STA; pstat->aid++)
-+		for (pstat->aid = 1; pstat->aid < NUM_STA; pstat->aid++)
- 			if (pstapriv->sta_aid[pstat->aid - 1] == NULL)
- 				break;
+ 	struct rx_pkt_attrib *pattrib = &precv_frame->u.hdr.attrib;
  
-@@ -2388,7 +2387,7 @@ s32 dump_mgntframe_and_wait(struct adapter *padapter, struct xmit_frame *pmgntfr
- 	pxmitbuf->sctx = NULL;
- 	spin_unlock_irqrestore(&pxmitpriv->lock_sctx, irqL);
+@@ -1544,8 +1542,6 @@ sint validate_recv_frame(struct adapter *adapter, union recv_frame *precv_frame)
+ 	pattrib->mdata = GetMData(ptr);
+ 	pattrib->privacy = GetPrivacy(ptr);
+ 	pattrib->order = GetOrder(ptr);
+-{
+-	u8 bDumpRxPkt;
+ 	rtw_hal_get_def_var(adapter, HAL_DEF_DBG_DUMP_RXPKT, &(bDumpRxPkt));
+ 	if (bDumpRxPkt == 1) /* dump all rx packets */
+ 		dump_rx_packet(ptr);
+@@ -1553,7 +1549,6 @@ sint validate_recv_frame(struct adapter *adapter, union recv_frame *precv_frame)
+ 		dump_rx_packet(ptr);
+ 	else if ((bDumpRxPkt == 3) && (type == WIFI_DATA_TYPE))
+ 		dump_rx_packet(ptr);
+-}
  
--	 return ret;
-+	return ret;
- }
- 
- s32 dump_mgntframe_and_wait_ack(struct adapter *padapter, struct xmit_frame *pmgntframe)
-@@ -2417,7 +2416,7 @@ s32 dump_mgntframe_and_wait_ack(struct adapter *padapter, struct xmit_frame *pmg
- 		mutex_unlock(&pxmitpriv->ack_tx_mutex);
- 	}
- 
--	 return ret;
-+	return ret;
- }
- 
- static int update_hidden_ssid(u8 *ies, u32 ies_len, u8 hidden_ssid_mode)
-@@ -5735,7 +5734,7 @@ void linked_status_chk(struct adapter *padapter)
- 		#else
- 		rx_chk_limit = 8;
- 		#endif
--			link_count_limit = 7; /*  16 sec */
-+		link_count_limit = 7; /*  16 sec */
- 
- 		/*  Marked by Kurt 20130715 */
- 		/*  For WiDi 3.5 and latered on, they don't ask WiDi sink to do roaming, so we could not check rx limit that strictly. */
-@@ -6456,7 +6455,7 @@ u8 sitesurvey_cmd_hdl(struct adapter *padapter, u8 *pbuf)
- 		Switch_DM_Func(padapter, DYNAMIC_FUNC_DISABLE, false);
- 
- 		/* config the initial gain under scaning, need to write the BB registers */
--			initialgain = 0x1e;
-+		initialgain = 0x1e;
- 
- 		rtw_hal_set_hwreg(padapter, HW_VAR_INITIAL_GAIN, (u8 *)(&initialgain));
- 
+ 	switch (type) {
+ 	case WIFI_MGT_TYPE: /* mgnt */
 -- 
 2.12.0
