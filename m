@@ -1,74 +1,50 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [RFC net-next] bpf: taint loading !is_gpl programs
-Date: Sat, 8 Apr 2017 19:11:28 -0400
-Message-ID: <20170408231124.GA6221@ast-mbp.thefacebook.com>
-References: <20170404183354.8579-1-aconole@bytheb.org>
- <58E40C2B.7040802@iogearbox.net>
- <f7tpogqmeai.fsf@redhat.com>
- <20170406124059.GB53880@ast-mbp.thefacebook.com>
- <f7tk26w3ybv.fsf@redhat.com>
+From: Jarod Wilson <jarod@redhat.com>
+Subject: Horrid balance-rr bonding udp throughput
+Date: Sat, 8 Apr 2017 19:33:24 -0400
+Message-ID: <ea7fb030-f655-1658-14a6-6989e1e836ea@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-        Alexei Starovoitov <ast@kernel.org>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Aaron Conole <aconole@bytheb.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <f7tk26w3ybv.fsf@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:44986 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751662AbdDHXdZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 8 Apr 2017 19:33:25 -0400
+Received: from smtp.corp.redhat.com (int-mx03.intmail.prod.int.phx2.redhat.com [10.5.11.13])
+        (using TLSv1.2 with cipher AECDH-AES256-SHA (256/256 bits))
+        (No client certificate requested)
+        by mx1.redhat.com (Postfix) with ESMTPS id 31BD281F01
+        for <netdev@vger.kernel.org>; Sat,  8 Apr 2017 23:33:25 +0000 (UTC)
+Received: from [172.31.27.133] (dhcp-17-185.bos.redhat.com [10.18.17.185])
+        by smtp.corp.redhat.com (Postfix) with ESMTP id D9B6C89371
+        for <netdev@vger.kernel.org>; Sat,  8 Apr 2017 23:33:24 +0000 (UTC)
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 07, 2017 at 01:46:28PM -0400, Aaron Conole wrote:
-> Hi Alexei, and Daniel,
-> 
-> Alexei Starovoitov <alexei.starovoitov@gmail.com> writes:
-> 
-> > On Wed, Apr 05, 2017 at 10:59:49PM -0400, Aaron Conole wrote:
-> >> Hi Daniel,
-> >> 
-> >> Daniel Borkmann <daniel@iogearbox.net> writes:
-> >> 
-> >> > On 04/04/2017 08:33 PM, Aaron Conole wrote:
-> >> >> The eBPF framework is used for more than just socket level filtering.  It
-> >> >> can also provide tracing, and even change the way packets coming into the
-> >> >> system look.  Most of the eBPF callable symbols are available to non-gpl
-> >> >> programs, and this includes helper functions which modify packets.  This
-> >> >> allows proprietary eBPF code to link to the kernel and make decisions
-> >> >> which can negatively impact network performance.
-> >> >>
-> >> >> Since the sources for these programs are only available under a proprietary
-> >> >> license, it seems better to treat them the same as other proprietary
-> >> >> modules: set the system taint flag.  An exemption is made for socket-level
-> >> >> filters, since they do not really impact networking for the whole kernel.
-> >> >>
-> >> >> Signed-off-by: Aaron Conole <aconole@bytheb.org>
-> >> >> ---
-> >> >
-> >> > Nacked-by: Daniel Borkmann <daniel@iogearbox.net>
-> 
-> Given we have different views about this, I think I am okay with some
-> middle ground.
-> 
-> Here's the next-steps plan.  Please tell if you dislike it or want to
-> change it:
-> 
-> 1. Add a ref counter for tracking load and unload, which can be queried
-> from a procfs or bpf fs interface
-> 
-> 2. Add a new print during panic when the refcount is non-zero.
-> 
-> This lets us know that there could be some kind of ebpf program loaded,
-> and we would ask for sources before trying to disassemble.
-> 
-> Does this sound reasonable?
+I'm digging into some bug reports covering performance issues with 
+balance-rr, and discovered something even worse than the reporter. My 
+test setup has a pair of NICs, one e1000e, one e1000 (but dual e1000e 
+seems the same). When I do a test run in LNST with bonding mode 
+balance-rr and either miimon or arpmon, the throughput of the UDP_STREAM 
+netperf test is absolutely horrible:
 
-yeah. for the purpose of identifying whether any classic or extended bpf
-programs loaded that makes sense. The only question how far we should
-take it, since nft and acpi bytecode falls into the same category.
-Also my understanding this is just one of out of many items on
-redhat todo list to make bpf supported in rhel, so I think it makes
-sense to discuss the whole list all at once. If we add patches here and
-there without having full picture we may end up with obsolete api
-or api superseded by other patches/features.
-So let's discuss all feature requests first.
+TCP: 941.19 +-0.88 mbits/sec
+UDP: 45.42 +-4.59 mbits/sec
+
+I figured I'd try LNST's packet capture mode, so exact same test, add 
+the -p flag and I get:
+
+TCP: 941.21 +-0.82 mbits/sec
+UDP: 961.54 +-0.01 mbits/sec
+
+Uh. What? So yeah. I can't capture the traffic in the bad case, but I 
+guess that gives some potential insight into what's not happening 
+correctly in either the bonding driver or the NIC drivers... More 
+digging forthcoming, but first I have a flooded basement to deal with, 
+so if in the interim, anyone has some insight, I'd be happy to hear it. :)
+
+-- 
+Jarod Wilson
+jarod@redhat.com
