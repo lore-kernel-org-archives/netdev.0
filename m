@@ -1,49 +1,368 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 09/12] i40e: clean up historic deprecated flag definitions
-Date: Sat,  8 Apr 2017 02:55:50 -0700
-Message-ID: <20170408095553.78307-10-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 11/12] i40e/i40evf: Add support for padding start of frames
+Date: Sat,  8 Apr 2017 02:55:52 -0700
+Message-ID: <20170408095553.78307-12-jeffrey.t.kirsher@intel.com>
 References: <20170408095553.78307-1-jeffrey.t.kirsher@intel.com>
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+        jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:25320 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:55938 "EHLO mga14.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751764AbdDHJ4N (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 8 Apr 2017 05:56:13 -0400
+        id S1752101AbdDHJ4O (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 8 Apr 2017 05:56:14 -0400
 In-Reply-To: <20170408095553.78307-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jacob Keller <jacob.e.keller@intel.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-Since an early commit a few flags have no longer
-been used. Remove these definitions to reduce code clutter.
+This patch adds padding to the start of frames to make room for headroom
+for us to eventually start using build_skb.  Right now we guarantee at
+least NET_SKB_PAD + NET_IP_ALIGN, however we allocate more space if more is
+available.  For example on x86 the headroom should be 192 bytes.
 
-Change-ID: I3589be4622574e747013cd4dc403e18b039f4965
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+On systems that have too large of a cache line size to support storing 1.5K
+padding and shared info we default to using 3K buffers and reserve
+everything that isn't used for skb_shared_info or the data buffer for
+headroom.
+
+Change-ID: I33c641c9a1ea10cf7cc484c2d20985368d2d709a
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e.h | 3 ---
- 1 file changed, 3 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c     |  9 +++-
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c     | 15 +++++-
+ drivers/net/ethernet/intel/i40e/i40e_txrx.h     | 70 ++++++++++++++++++++++++-
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c   | 15 +++++-
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.h   | 70 ++++++++++++++++++++++++-
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c |  8 ++-
+ 6 files changed, 179 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index ef64dc60f857..e987503f8517 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -390,11 +390,8 @@ struct i40e_pf {
- #define I40E_FLAG_RSS_ENABLED			BIT_ULL(6)
- #define I40E_FLAG_VMDQ_ENABLED			BIT_ULL(7)
- #define I40E_FLAG_IWARP_ENABLED			BIT_ULL(10)
--#define I40E_FLAG_CLEAN_ADMINQ			BIT_ULL(14)
- #define I40E_FLAG_FILTER_SYNC			BIT_ULL(15)
- #define I40E_FLAG_SERVICE_CLIENT_REQUESTED	BIT_ULL(16)
--#define I40E_FLAG_PROCESS_MDD_EVENT		BIT_ULL(17)
--#define I40E_FLAG_PROCESS_VFLR_EVENT		BIT_ULL(18)
- #define I40E_FLAG_SRIOV_ENABLED			BIT_ULL(19)
- #define I40E_FLAG_DCB_ENABLED			BIT_ULL(20)
- #define I40E_FLAG_FD_SB_ENABLED			BIT_ULL(21)
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 97489d69029a..b6ec9beeebff 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -3038,6 +3038,12 @@ static int i40e_configure_rx_ring(struct i40e_ring *ring)
+ 		return -ENOMEM;
+ 	}
+ 
++	/* configure Rx buffer alignment */
++	if (!vsi->netdev || (vsi->back->flags & I40E_FLAG_LEGACY_RX))
++		clear_ring_build_skb_enabled(ring);
++	else
++		set_ring_build_skb_enabled(ring);
++
+ 	/* cache tail for quicker writes, and clear the reg before use */
+ 	ring->tail = hw->hw_addr + I40E_QRX_TAIL(pf_q);
+ 	writel(0, ring->tail);
+@@ -3079,7 +3085,8 @@ static int i40e_vsi_configure_rx(struct i40e_vsi *vsi)
+ 		vsi->max_frame = I40E_MAX_RXBUFFER;
+ 		vsi->rx_buf_len = I40E_RXBUFFER_2048;
+ #if (PAGE_SIZE < 8192)
+-	} else if (vsi->netdev->mtu <= ETH_DATA_LEN) {
++	} else if (!I40E_2K_TOO_SMALL_WITH_PADDING &&
++		   (vsi->netdev->mtu <= ETH_DATA_LEN)) {
+ 		vsi->max_frame = I40E_RXBUFFER_1536 - NET_IP_ALIGN;
+ 		vsi->rx_buf_len = I40E_RXBUFFER_1536 - NET_IP_ALIGN;
+ #endif
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+index bee16726c104..f15e1bcf3555 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+@@ -1248,6 +1248,17 @@ static inline void i40e_release_rx_desc(struct i40e_ring *rx_ring, u32 val)
+ }
+ 
+ /**
++ * i40e_rx_offset - Return expected offset into page to access data
++ * @rx_ring: Ring we are requesting offset of
++ *
++ * Returns the offset value for ring into the data buffer.
++ */
++static inline unsigned int i40e_rx_offset(struct i40e_ring *rx_ring)
++{
++	return ring_uses_build_skb(rx_ring) ? I40E_SKB_PAD : 0;
++}
++
++/**
+  * i40e_alloc_mapped_page - recycle or make a new page
+  * @rx_ring: ring to use
+  * @bi: rx_buffer struct to modify
+@@ -1291,7 +1302,7 @@ static bool i40e_alloc_mapped_page(struct i40e_ring *rx_ring,
+ 
+ 	bi->dma = dma;
+ 	bi->page = page;
+-	bi->page_offset = 0;
++	bi->page_offset = i40e_rx_offset(rx_ring);
+ 
+ 	/* initialize pagecnt_bias to 1 representing we fully own page */
+ 	bi->pagecnt_bias = 1;
+@@ -1696,7 +1707,7 @@ static void i40e_add_rx_frag(struct i40e_ring *rx_ring,
+ #if (PAGE_SIZE < 8192)
+ 	unsigned int truesize = i40e_rx_pg_size(rx_ring) / 2;
+ #else
+-	unsigned int truesize = SKB_DATA_ALIGN(size);
++	unsigned int truesize = SKB_DATA_ALIGN(size + i40e_rx_offset(rx_ring));
+ #endif
+ 
+ 	skb_add_rx_frag(skb, skb_shinfo(skb)->nr_frags, rx_buffer->page,
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.h b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
+index 2f618539a436..f5de51124cae 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
+@@ -135,6 +135,58 @@ enum i40e_dyn_idx_t {
+ #define I40E_RX_DMA_ATTR \
+ 	(DMA_ATTR_SKIP_CPU_SYNC | DMA_ATTR_WEAK_ORDERING)
+ 
++/* Attempt to maximize the headroom available for incoming frames.  We
++ * use a 2K buffer for receives and need 1536/1534 to store the data for
++ * the frame.  This leaves us with 512 bytes of room.  From that we need
++ * to deduct the space needed for the shared info and the padding needed
++ * to IP align the frame.
++ *
++ * Note: For cache line sizes 256 or larger this value is going to end
++ *	 up negative.  In these cases we should fall back to the legacy
++ *	 receive path.
++ */
++#if (PAGE_SIZE < 8192)
++#define I40E_2K_TOO_SMALL_WITH_PADDING \
++((NET_SKB_PAD + I40E_RXBUFFER_1536) > SKB_WITH_OVERHEAD(I40E_RXBUFFER_2048))
++
++static inline int i40e_compute_pad(int rx_buf_len)
++{
++	int page_size, pad_size;
++
++	page_size = ALIGN(rx_buf_len, PAGE_SIZE / 2);
++	pad_size = SKB_WITH_OVERHEAD(page_size) - rx_buf_len;
++
++	return pad_size;
++}
++
++static inline int i40e_skb_pad(void)
++{
++	int rx_buf_len;
++
++	/* If a 2K buffer cannot handle a standard Ethernet frame then
++	 * optimize padding for a 3K buffer instead of a 1.5K buffer.
++	 *
++	 * For a 3K buffer we need to add enough padding to allow for
++	 * tailroom due to NET_IP_ALIGN possibly shifting us out of
++	 * cache-line alignment.
++	 */
++	if (I40E_2K_TOO_SMALL_WITH_PADDING)
++		rx_buf_len = I40E_RXBUFFER_3072 + SKB_DATA_ALIGN(NET_IP_ALIGN);
++	else
++		rx_buf_len = I40E_RXBUFFER_1536;
++
++	/* if needed make room for NET_IP_ALIGN */
++	rx_buf_len -= NET_IP_ALIGN;
++
++	return i40e_compute_pad(rx_buf_len);
++}
++
++#define I40E_SKB_PAD i40e_skb_pad()
++#else
++#define I40E_2K_TOO_SMALL_WITH_PADDING false
++#define I40E_SKB_PAD (NET_SKB_PAD + NET_IP_ALIGN)
++#endif
++
+ /**
+  * i40e_test_staterr - tests bits in Rx descriptor status and error fields
+  * @rx_desc: pointer to receive descriptor (in le64 format)
+@@ -341,7 +393,8 @@ struct i40e_ring {
+ 	u8 packet_stride;
+ 
+ 	u16 flags;
+-#define I40E_TXR_FLAGS_WB_ON_ITR	BIT(0)
++#define I40E_TXR_FLAGS_WB_ON_ITR		BIT(0)
++#define I40E_RXR_FLAGS_BUILD_SKB_ENABLED	BIT(1)
+ 
+ 	/* stats structs */
+ 	struct i40e_queue_stats	stats;
+@@ -369,6 +422,21 @@ struct i40e_ring {
+ 					 */
+ } ____cacheline_internodealigned_in_smp;
+ 
++static inline bool ring_uses_build_skb(struct i40e_ring *ring)
++{
++	return !!(ring->flags & I40E_RXR_FLAGS_BUILD_SKB_ENABLED);
++}
++
++static inline void set_ring_build_skb_enabled(struct i40e_ring *ring)
++{
++	ring->flags |= I40E_RXR_FLAGS_BUILD_SKB_ENABLED;
++}
++
++static inline void clear_ring_build_skb_enabled(struct i40e_ring *ring)
++{
++	ring->flags &= ~I40E_RXR_FLAGS_BUILD_SKB_ENABLED;
++}
++
+ enum i40e_latency_range {
+ 	I40E_LOWEST_LATENCY = 0,
+ 	I40E_LOW_LATENCY = 1,
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+index 6b60c19a794b..a71f81a9291f 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+@@ -619,6 +619,17 @@ static inline void i40e_release_rx_desc(struct i40e_ring *rx_ring, u32 val)
+ }
+ 
+ /**
++ * i40e_rx_offset - Return expected offset into page to access data
++ * @rx_ring: Ring we are requesting offset of
++ *
++ * Returns the offset value for ring into the data buffer.
++ */
++static inline unsigned int i40e_rx_offset(struct i40e_ring *rx_ring)
++{
++	return ring_uses_build_skb(rx_ring) ? I40E_SKB_PAD : 0;
++}
++
++/**
+  * i40e_alloc_mapped_page - recycle or make a new page
+  * @rx_ring: ring to use
+  * @bi: rx_buffer struct to modify
+@@ -662,7 +673,7 @@ static bool i40e_alloc_mapped_page(struct i40e_ring *rx_ring,
+ 
+ 	bi->dma = dma;
+ 	bi->page = page;
+-	bi->page_offset = 0;
++	bi->page_offset = i40e_rx_offset(rx_ring);
+ 
+ 	/* initialize pagecnt_bias to 1 representing we fully own page */
+ 	bi->pagecnt_bias = 1;
+@@ -1057,7 +1068,7 @@ static void i40e_add_rx_frag(struct i40e_ring *rx_ring,
+ #if (PAGE_SIZE < 8192)
+ 	unsigned int truesize = i40e_rx_pg_size(rx_ring) / 2;
+ #else
+-	unsigned int truesize = SKB_DATA_ALIGN(size);
++	unsigned int truesize = SKB_DATA_ALIGN(size + i40e_rx_offset(rx_ring));
+ #endif
+ 
+ 	skb_add_rx_frag(skb, skb_shinfo(skb)->nr_frags, rx_buffer->page,
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
+index dc82f65267ec..901282c87cf6 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
+@@ -122,6 +122,58 @@ enum i40e_dyn_idx_t {
+ #define I40E_RX_DMA_ATTR \
+ 	(DMA_ATTR_SKIP_CPU_SYNC | DMA_ATTR_WEAK_ORDERING)
+ 
++/* Attempt to maximize the headroom available for incoming frames.  We
++ * use a 2K buffer for receives and need 1536/1534 to store the data for
++ * the frame.  This leaves us with 512 bytes of room.  From that we need
++ * to deduct the space needed for the shared info and the padding needed
++ * to IP align the frame.
++ *
++ * Note: For cache line sizes 256 or larger this value is going to end
++ *	 up negative.  In these cases we should fall back to the legacy
++ *	 receive path.
++ */
++#if (PAGE_SIZE < 8192)
++#define I40E_2K_TOO_SMALL_WITH_PADDING \
++((NET_SKB_PAD + I40E_RXBUFFER_1536) > SKB_WITH_OVERHEAD(I40E_RXBUFFER_2048))
++
++static inline int i40e_compute_pad(int rx_buf_len)
++{
++	int page_size, pad_size;
++
++	page_size = ALIGN(rx_buf_len, PAGE_SIZE / 2);
++	pad_size = SKB_WITH_OVERHEAD(page_size) - rx_buf_len;
++
++	return pad_size;
++}
++
++static inline int i40e_skb_pad(void)
++{
++	int rx_buf_len;
++
++	/* If a 2K buffer cannot handle a standard Ethernet frame then
++	 * optimize padding for a 3K buffer instead of a 1.5K buffer.
++	 *
++	 * For a 3K buffer we need to add enough padding to allow for
++	 * tailroom due to NET_IP_ALIGN possibly shifting us out of
++	 * cache-line alignment.
++	 */
++	if (I40E_2K_TOO_SMALL_WITH_PADDING)
++		rx_buf_len = I40E_RXBUFFER_3072 + SKB_DATA_ALIGN(NET_IP_ALIGN);
++	else
++		rx_buf_len = I40E_RXBUFFER_1536;
++
++	/* if needed make room for NET_IP_ALIGN */
++	rx_buf_len -= NET_IP_ALIGN;
++
++	return i40e_compute_pad(rx_buf_len);
++}
++
++#define I40E_SKB_PAD i40e_skb_pad()
++#else
++#define I40E_2K_TOO_SMALL_WITH_PADDING false
++#define I40E_SKB_PAD (NET_SKB_PAD + NET_IP_ALIGN)
++#endif
++
+ /**
+  * i40e_test_staterr - tests bits in Rx descriptor status and error fields
+  * @rx_desc: pointer to receive descriptor (in le64 format)
+@@ -328,7 +380,8 @@ struct i40e_ring {
+ 	u8 packet_stride;
+ 
+ 	u16 flags;
+-#define I40E_TXR_FLAGS_WB_ON_ITR	BIT(0)
++#define I40E_TXR_FLAGS_WB_ON_ITR		BIT(0)
++#define I40E_RXR_FLAGS_BUILD_SKB_ENABLED	BIT(1)
+ 
+ 	/* stats structs */
+ 	struct i40e_queue_stats	stats;
+@@ -356,6 +409,21 @@ struct i40e_ring {
+ 					 */
+ } ____cacheline_internodealigned_in_smp;
+ 
++static inline bool ring_uses_build_skb(struct i40e_ring *ring)
++{
++	return !!(ring->flags & I40E_RXR_FLAGS_BUILD_SKB_ENABLED);
++}
++
++static inline void set_ring_build_skb_enabled(struct i40e_ring *ring)
++{
++	ring->flags |= I40E_RXR_FLAGS_BUILD_SKB_ENABLED;
++}
++
++static inline void clear_ring_build_skb_enabled(struct i40e_ring *ring)
++{
++	ring->flags &= ~I40E_RXR_FLAGS_BUILD_SKB_ENABLED;
++}
++
+ enum i40e_latency_range {
+ 	I40E_LOWEST_LATENCY = 0,
+ 	I40E_LOW_LATENCY = 1,
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index 7d00abae6104..12a930e879af 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -704,7 +704,8 @@ static void i40evf_configure_rx(struct i40evf_adapter *adapter)
+ 		 * standard Ethernet mtu.  On x86 this gives us enough room
+ 		 * for shared info and 192 bytes of padding.
+ 		 */
+-		if (netdev->mtu <= ETH_DATA_LEN)
++		if (!I40E_2K_TOO_SMALL_WITH_PADDING &&
++		    (netdev->mtu <= ETH_DATA_LEN))
+ 			rx_buf_len = I40E_RXBUFFER_1536 - NET_IP_ALIGN;
+ 	}
+ #endif
+@@ -712,6 +713,11 @@ static void i40evf_configure_rx(struct i40evf_adapter *adapter)
+ 	for (i = 0; i < adapter->num_active_queues; i++) {
+ 		adapter->rx_rings[i].tail = hw->hw_addr + I40E_QRX_TAIL1(i);
+ 		adapter->rx_rings[i].rx_buf_len = rx_buf_len;
++
++		if (adapter->flags & I40EVF_FLAG_LEGACY_RX)
++			clear_ring_build_skb_enabled(&adapter->rx_rings[i]);
++		else
++			set_ring_build_skb_enabled(&adapter->rx_rings[i]);
+ 	}
+ }
+ 
 -- 
 2.12.2
