@@ -1,31 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 0/3] net: dsa: Receive path simplifications
-Date: Sat, 08 Apr 2017 13:49:54 -0700 (PDT)
-Message-ID: <20170408.134954.1309724018854780313.davem@davemloft.net>
-References: <20170408155523.20447-1-f.fainelli@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com, sean.wang@mediatek.com
-To: f.fainelli@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:53036 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750982AbdDHUt4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 8 Apr 2017 16:49:56 -0400
-In-Reply-To: <20170408155523.20447-1-f.fainelli@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Hans de Goede <hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH] net: rfkill: gpio: Add OBDA8723 ACPI HID
+Date: Sat,  8 Apr 2017 23:05:20 +0200
+Message-ID: <20170408210520.2799-1-hdegoede@redhat.com>
+Cc: Hans de Goede <hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+        "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Sat,  8 Apr 2017 08:55:20 -0700
+The OBDA8723 ACPI HID is used on quite a few Bay Trail based tablets
+for bluetooth rfkill functionality.
 
-> This patch series does factor the common code found in all tag implementations
-> into dsa_switch_rcv(). The original motivation was to add GRO support, but this
-> may be a lot of work with unclear benefits at this point.
-> 
-> Changes in v2:
-> - take care of tag_mtk.c in the process
+Tested-by: russianneuromancer-k+OT61UuxXo@public.gmane.org <russianneuromancer-k+OT61UuxXo@public.gmane.org>
+Signed-off-by: Hans de Goede <hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+---
+ net/rfkill/rfkill-gpio.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-Series applied, thanks.
+diff --git a/net/rfkill/rfkill-gpio.c b/net/rfkill/rfkill-gpio.c
+index 76c01cb..50ca65e 100644
+--- a/net/rfkill/rfkill-gpio.c
++++ b/net/rfkill/rfkill-gpio.c
+@@ -163,6 +163,7 @@ static int rfkill_gpio_remove(struct platform_device *pdev)
+ static const struct acpi_device_id rfkill_acpi_match[] = {
+ 	{ "BCM4752", RFKILL_TYPE_GPS },
+ 	{ "LNV4752", RFKILL_TYPE_GPS },
++	{ "OBDA8723", RFKILL_TYPE_BLUETOOTH },
+ 	{ },
+ };
+ MODULE_DEVICE_TABLE(acpi, rfkill_acpi_match);
+-- 
+2.9.3
