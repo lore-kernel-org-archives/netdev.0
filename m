@@ -1,32 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netlink: uapi: use hex numbers for NLM_F_* flags
-Date: Sat, 08 Apr 2017 08:26:16 -0700 (PDT)
-Message-ID: <20170408.082616.616311937034774196.davem@davemloft.net>
-References: <20170406141042.30309-1-johannes@sipsolutions.net>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [RFC] netlink: send exterr cookie on success
+Date: Sat, 8 Apr 2017 11:28:43 -0400
+Message-ID: <20170408112844.3aa4d448@griffin>
+References: <20170407194402.4181-1-johannes@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, johannes.berg@intel.com
-To: johannes@sipsolutions.net
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        pablo@netfilter.org, Jamal Hadi Salim <jhs@mojatatu.com>,
+        Johannes Berg <johannes.berg@intel.com>
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:40716 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751499AbdDHP0S (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 8 Apr 2017 11:26:18 -0400
-In-Reply-To: <20170406141042.30309-1-johannes@sipsolutions.net>
+Received: from mx1.redhat.com ([209.132.183.28]:41552 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751137AbdDHP2v (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 8 Apr 2017 11:28:51 -0400
+In-Reply-To: <20170407194402.4181-1-johannes@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes@sipsolutions.net>
-Date: Thu,  6 Apr 2017 16:10:42 +0200
+On Fri,  7 Apr 2017 21:44:02 +0200, Johannes Berg wrote:
+> @@ -67,6 +67,8 @@ struct netlink_ext_err {
+>  	u32 ext_code;
+>  	u32 msg_offset;
+>  	u16 attr;
+> +	const u8 *cookie;
+> +	u8 cookie_len;
+>  };
 
-> From: Johannes Berg <johannes.berg@intel.com>
-> 
-> It's rather confusing that the netlink message flags are
-> numbered 1, 2, 4, 8, 16, 32, <unused>, 0x100. Make that
-> more understandable by numbering the lower ones with hex
-> constants as well.
-> 
-> Signed-off-by: Johannes Berg <johannes.berg@intel.com>
+Perhaps the structure should be named just "netlink_ext" or so? It
+seems it'll pick up some non-error related usage, such as the cookies
+here or, in the future, flags indicating how the message should be
+parsed.
 
-This is fine, applied, thanks.
+Thanks,
+
+ Jiri
