@@ -1,8 +1,9 @@
 From: Deepa Dinamani <deepa.kernel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 00/12] Delete CURRENT_TIME,
-	CURRENT_TIME_SEC and current_fs_time
-Date: Fri,  7 Apr 2017 17:56:58 -0700
-Message-ID: <1491613030-11599-1-git-send-email-deepa.kernel@gmail.com>
+Subject: [PATCH 01/12] fs: f2fs: Use ktime_get_real_seconds
+	for sit_info times
+Date: Fri,  7 Apr 2017 17:56:59 -0700
+Message-ID: <1491613030-11599-2-git-send-email-deepa.kernel@gmail.com>
+References: <1491613030-11599-1-git-send-email-deepa.kernel@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -24,6 +25,7 @@ Cc: yuchao0-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPv
 To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
 	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org
 Return-path: <lustre-devel-bounces-aLEFhgZF4x6X6Mz3xDxJMA@public.gmane.org>
+In-Reply-To: <1491613030-11599-1-git-send-email-deepa.kernel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 List-Unsubscribe: <http://lists.lustre.org/options.cgi/lustre-devel-lustre.org>,
 	<mailto:lustre-devel-request-aLEFhgZF4x6X6Mz3xDxJMA@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://lists.lustre.org/pipermail/lustre-devel-lustre.org/>
@@ -35,70 +37,47 @@ Errors-To: lustre-devel-bounces-aLEFhgZF4x6X6Mz3xDxJMA@public.gmane.org
 Sender: "lustre-devel" <lustre-devel-bounces-aLEFhgZF4x6X6Mz3xDxJMA@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-The series contains the last unmerged uses of CURRENT_TIME,
-CURRENT_TIME_SEC, and current_fs_time().
-The series also deletes these apis.
+CURRENT_TIME_SEC is not y2038 safe.
 
-All the patches except [PATCH 9/12] and [PATCH 10/12] are resend patches.
-These patches fix new instances of CURRENT_TIME.
-cifs and ceph patches have been squashed so that we have one patch per
-filesystem.
+Replace use of CURRENT_TIME_SEC with ktime_get_real_seconds
+in segment timestamps used by GC algorithm including the
+segment mtime timestamps.
 
-We want to get these merged onto 4.12 release so that I can post the series
-that changes vfs timestamps to use 64 bits for 4.13 release.
+Signed-off-by: Deepa Dinamani <deepa.kernel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Reviewed-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+---
+ fs/f2fs/segment.c | 2 +-
+ fs/f2fs/segment.h | 5 +++--
+ 2 files changed, 4 insertions(+), 3 deletions(-)
 
-I'm proposing these to be merged through Andrew's tree.
-
-Filesystem maintainers, please let Andrew know if you will be picking up
-the patch in your trees.
-
-Let me know if anybody has other preferences for merging.
-
-Deepa Dinamani (12):
-  fs: f2fs: Use ktime_get_real_seconds for sit_info times
-  trace: Make trace_hwlat timestamp y2038 safe
-  fs: cifs: Replace CURRENT_TIME by other appropriate apis
-  fs: ceph: CURRENT_TIME with ktime_get_real_ts()
-  fs: ufs: Use ktime_get_real_ts64() for birthtime
-  audit: Use timespec64 to represent audit timestamps
-  fs: btrfs: Use ktime_get_real_ts for root ctime
-  fs: ubifs: Replace CURRENT_TIME_SEC with current_time
-  lustre: Replace CURRENT_TIME macro
-  apparmorfs: Replace CURRENT_TIME with current_time()
-  time: Delete CURRENT_TIME_SEC and CURRENT_TIME
-  time: Delete current_fs_time() function
-
- drivers/block/rbd.c                             |  2 +-
- drivers/staging/lustre/lustre/llite/llite_lib.c |  6 +++---
- drivers/staging/lustre/lustre/osc/osc_io.c      |  4 ++--
- fs/btrfs/root-tree.c                            |  3 ++-
- fs/ceph/mds_client.c                            |  4 +++-
- fs/cifs/cifsencrypt.c                           |  4 +++-
- fs/cifs/cifssmb.c                               | 10 ++++-----
- fs/cifs/inode.c                                 | 28 +++++++++++++------------
- fs/f2fs/segment.c                               |  2 +-
- fs/f2fs/segment.h                               |  5 +++--
- fs/ubifs/dir.c                                  | 12 +++++------
- fs/ubifs/file.c                                 | 12 +++++------
- fs/ubifs/ioctl.c                                |  2 +-
- fs/ubifs/misc.h                                 | 10 ---------
- fs/ubifs/sb.c                                   | 14 +++++++++----
- fs/ubifs/xattr.c                                |  6 +++---
- fs/ufs/ialloc.c                                 |  6 ++++--
- include/linux/audit.h                           |  4 ++--
- include/linux/fs.h                              |  1 -
- include/linux/time.h                            |  3 ---
- kernel/audit.c                                  | 10 ++++-----
- kernel/audit.h                                  |  2 +-
- kernel/auditsc.c                                |  6 +++---
- kernel/time/time.c                              | 14 -------------
- kernel/trace/trace_entries.h                    |  6 +++---
- kernel/trace/trace_hwlat.c                      | 14 ++++++-------
- kernel/trace/trace_output.c                     |  9 ++++----
- net/ceph/messenger.c                            |  6 ++++--
- net/ceph/osd_client.c                           |  4 ++--
- security/apparmor/apparmorfs.c                  |  2 +-
- 30 files changed, 100 insertions(+), 111 deletions(-)
-
+diff --git a/fs/f2fs/segment.c b/fs/f2fs/segment.c
+index 010324c..0531500 100644
+--- a/fs/f2fs/segment.c
++++ b/fs/f2fs/segment.c
+@@ -2678,7 +2678,7 @@ static int build_sit_info(struct f2fs_sb_info *sbi)
+ 	sit_i->dirty_sentries = 0;
+ 	sit_i->sents_per_block = SIT_ENTRY_PER_BLOCK;
+ 	sit_i->elapsed_time = le64_to_cpu(sbi->ckpt->elapsed_time);
+-	sit_i->mounted_time = CURRENT_TIME_SEC.tv_sec;
++	sit_i->mounted_time = ktime_get_real_seconds();
+ 	mutex_init(&sit_i->sentry_lock);
+ 	return 0;
+ }
+diff --git a/fs/f2fs/segment.h b/fs/f2fs/segment.h
+index 57e36c1..156afc3 100644
+--- a/fs/f2fs/segment.h
++++ b/fs/f2fs/segment.h
+@@ -692,8 +692,9 @@ static inline void set_to_next_sit(struct sit_info *sit_i, unsigned int start)
+ static inline unsigned long long get_mtime(struct f2fs_sb_info *sbi)
+ {
+ 	struct sit_info *sit_i = SIT_I(sbi);
+-	return sit_i->elapsed_time + CURRENT_TIME_SEC.tv_sec -
+-						sit_i->mounted_time;
++	time64_t now = ktime_get_real_seconds();
++
++	return sit_i->elapsed_time + now - sit_i->mounted_time;
+ }
+ 
+ static inline void set_summary(struct f2fs_summary *sum, nid_t nid,
 -- 
 2.7.4
