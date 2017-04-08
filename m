@@ -1,162 +1,117 @@
 From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH 13/22] staging: rtl8723bs: Fix indenting mistake in
- core/rtw_ap.c
-Date: Sat,  8 Apr 2017 11:07:36 -0500
-Message-ID: <20170408160745.14328-14-Larry.Finger@lwfinger.net>
+Subject: [PATCH 15/22] staging: rtl8723bs: Fix indenting mistakes in core/rtw_mlme.c
+Date: Sat,  8 Apr 2017 11:07:38 -0500
+Message-ID: <20170408160745.14328-16-Larry.Finger@lwfinger.net>
 References: <20170408160745.14328-1-Larry.Finger@lwfinger.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org, jes.sorensen@gmail.com, netdev@vger.kernel.org,
- hdegoede@redhat.com, hadess@hadess.net,
- Larry Finger <Larry.Finger@lwfinger.net>
+Cc: netdev@vger.kernel.org, devel@driverdev.osuosl.org,
+        hdegoede@redhat.com, hadess@hadess.net, jes.sorensen@gmail.com,
+        Larry Finger <Larry.Finger@lwfinger.net>
 To: gregkh@linuxfoundation.org
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f66.google.com ([209.85.218.66]:34178 "EHLO
+        mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752720AbdDHQIU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 8 Apr 2017 12:08:20 -0400
+Received: by mail-oi0-f66.google.com with SMTP id w197so6121587oiw.1
+        for <netdev@vger.kernel.org>; Sat, 08 Apr 2017 09:08:20 -0700 (PDT)
 In-Reply-To: <20170408160745.14328-1-Larry.Finger@lwfinger.net>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Smatch reports the following:
 
-  CHECK   drivers/staging/rtl8723bs/core/rtw_ap.c
-drivers/staging/rtl8723bs/core/rtw_ap.c:382 expire_timeout_chk() warn: inconsistent indenting
+  CHECK   drivers/staging/rtl8723bs/core/rtw_mlme.c
+drivers/staging/rtl8723bs/core/rtw_mlme.c:862 rtw_survey_event_callback() warn: inconsistent indenting
+drivers/staging/rtl8723bs/core/rtw_mlme.c:1102 rtw_free_assoc_resources() warn: if statement not indented
+drivers/staging/rtl8723bs/core/rtw_mlme.c:1165 rtw_indicate_disconnect() warn: inconsistent indenting
+drivers/staging/rtl8723bs/core/rtw_mlme.c:2830 rtw_restructure_ht_ie() warn: inconsistent indenting
+drivers/staging/rtl8723bs/core/rtw_mlme.c:2991 rtw_update_ht_cap() warn: inconsistent indenting
 
-Fixing this requires changing the indentatikon of a long for loop.
+All of there are simple white-space errors. A typo is also fixed.
 
 Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
 ---
- drivers/staging/rtl8723bs/core/rtw_ap.c | 99 ++++++++++++++++-----------------
- 1 file changed, 47 insertions(+), 52 deletions(-)
+ drivers/staging/rtl8723bs/core/rtw_mlme.c | 37 +++++++++++++++----------------
+ 1 file changed, 18 insertions(+), 19 deletions(-)
 
-diff --git a/drivers/staging/rtl8723bs/core/rtw_ap.c b/drivers/staging/rtl8723bs/core/rtw_ap.c
-index 9c71692a3a05..68b750275dff 100644
---- a/drivers/staging/rtl8723bs/core/rtw_ap.c
-+++ b/drivers/staging/rtl8723bs/core/rtw_ap.c
-@@ -379,70 +379,65 @@ void expire_timeout_chk(struct adapter *padapter)
+diff --git a/drivers/staging/rtl8723bs/core/rtw_mlme.c b/drivers/staging/rtl8723bs/core/rtw_mlme.c
+index c95e0626b522..53755e5b97a6 100644
+--- a/drivers/staging/rtl8723bs/core/rtw_mlme.c
++++ b/drivers/staging/rtl8723bs/core/rtw_mlme.c
+@@ -856,7 +856,7 @@ void rtw_survey_event_callback(struct adapter	*adapter, u8 *pbuf)
  
- 	spin_unlock_bh(&pstapriv->asoc_list_lock);
- 
--if (chk_alive_num) {
-+	if (chk_alive_num) {
-+		u8 backup_oper_channel = 0;
-+		struct mlme_ext_priv *pmlmeext = &padapter->mlmeextpriv;
-+
-+		/* switch to correct channel of current network  before issue keep-alive frames */
-+		if (rtw_get_oper_ch(padapter) != pmlmeext->cur_channel) {
-+			backup_oper_channel = rtw_get_oper_ch(padapter);
-+			SelectChannel(padapter, pmlmeext->cur_channel);
-+		}
- 
--	u8 backup_oper_channel = 0;
--	struct mlme_ext_priv *pmlmeext = &padapter->mlmeextpriv;
--	/* switch to correct channel of current network  before issue keep-alive frames */
--	if (rtw_get_oper_ch(padapter) != pmlmeext->cur_channel) {
--		backup_oper_channel = rtw_get_oper_ch(padapter);
--		SelectChannel(padapter, pmlmeext->cur_channel);
--	}
-+		/* issue null data to check sta alive*/
-+		for (i = 0; i < chk_alive_num; i++) {
-+			int ret = _FAIL;
- 
--	/* issue null data to check sta alive*/
--	for (i = 0; i < chk_alive_num; i++) {
--		int ret = _FAIL;
-+			psta = rtw_get_stainfo_by_offset(pstapriv, chk_alive_list[i]);
-+			if (!(psta->state & _FW_LINKED))
-+				continue;
- 
--		psta = rtw_get_stainfo_by_offset(pstapriv, chk_alive_list[i]);
--		if (!(psta->state & _FW_LINKED))
--			continue;
-+			if (psta->state & WIFI_SLEEP_STATE)
-+				ret = issue_nulldata(padapter, psta->hwaddr, 0, 1, 50);
-+			else
-+				ret = issue_nulldata(padapter, psta->hwaddr, 0, 3, 50);
- 
--		if (psta->state & WIFI_SLEEP_STATE)
--			ret = issue_nulldata(padapter, psta->hwaddr, 0, 1, 50);
--		else
--			ret = issue_nulldata(padapter, psta->hwaddr, 0, 3, 50);
-+			psta->keep_alive_trycnt++;
-+			if (ret == _SUCCESS) {
-+				DBG_871X(
-+					"asoc check, sta(" MAC_FMT ") is alive\n",
-+					MAC_ARG(psta->hwaddr)
-+					);
-+				psta->expire_to = pstapriv->expire_to;
-+				psta->keep_alive_trycnt = 0;
-+				continue;
-+			} else if (psta->keep_alive_trycnt <= 3) {
- 
--		psta->keep_alive_trycnt++;
--		if (ret == _SUCCESS) {
-+				DBG_871X(
-+					"ack check for asoc expire, keep_alive_trycnt =%d\n",
-+					psta->keep_alive_trycnt);
-+				psta->expire_to = 1;
-+				continue;
-+			}
- 
--			DBG_871X(
--				"asoc check, sta(" MAC_FMT ") is alive\n",
--				MAC_ARG(psta->hwaddr)
--			);
--			psta->expire_to = pstapriv->expire_to;
- 			psta->keep_alive_trycnt = 0;
--			continue;
--		} else if (psta->keep_alive_trycnt <= 3) {
--
--
- 			DBG_871X(
--				"ack check for asoc expire, keep_alive_trycnt =%d\n",
--				psta->keep_alive_trycnt
--			);
--			psta->expire_to = 1;
--			continue;
--		}
--
--		psta->keep_alive_trycnt = 0;
--		DBG_871X(
--			"asoc expire "MAC_FMT", state = 0x%x\n",
--			MAC_ARG(psta->hwaddr),
--			psta->state
--		);
--		spin_lock_bh(&pstapriv->asoc_list_lock);
--		if (list_empty(&psta->asoc_list) == false) {
--			list_del_init(&psta->asoc_list);
--			pstapriv->asoc_list_cnt--;
--			updated = ap_free_sta(padapter, psta, false, WLAN_REASON_DEAUTH_LEAVING);
-+				"asoc expire "MAC_FMT", state = 0x%x\n",
-+				MAC_ARG(psta->hwaddr),
-+				psta->state);
-+			spin_lock_bh(&pstapriv->asoc_list_lock);
-+			if (list_empty(&psta->asoc_list) == false) {
-+				list_del_init(&psta->asoc_list);
-+				pstapriv->asoc_list_cnt--;
-+				updated = ap_free_sta(padapter, psta, false, WLAN_REASON_DEAUTH_LEAVING);
-+			}
-+			spin_unlock_bh(&pstapriv->asoc_list_lock);
+ 	/*  lock pmlmepriv->lock when you accessing network_q */
+ 	if ((check_fwstate(pmlmepriv, _FW_UNDER_LINKING)) == false) {
+-	  if (pnetwork->Ssid.Ssid[0] == 0) {
++		if (pnetwork->Ssid.Ssid[0] == 0) {
+ 			pnetwork->Ssid.SsidLength = 0;
  		}
--		spin_unlock_bh(&pstapriv->asoc_list_lock);
- 
-+		if (backup_oper_channel > 0) /* back to the original operation channel */
-+			SelectChannel(padapter, backup_oper_channel);
+ 		rtw_add_network(adapter, pnetwork);
+@@ -1100,8 +1100,7 @@ void rtw_free_assoc_resources(struct adapter *adapter, int lock_scanned_queue)
  	}
  
--	if (backup_oper_channel > 0) /* back to the original operation channel */
--		SelectChannel(padapter, backup_oper_channel);
--}
+ 	if (lock_scanned_queue)
 -
- 	associated_clients_update(padapter, updated);
+-	adapter->securitypriv.key_mask = 0;
++		adapter->securitypriv.key_mask = 0;
+ 
+ 	rtw_reset_rx_info(pdbgpriv);
  }
+@@ -1162,7 +1161,7 @@ void rtw_indicate_disconnect(struct adapter *padapter)
+ 		/* set ips_deny_time to avoid enter IPS before LPS leave */
+ 		rtw_set_ips_deny(padapter, 3000);
+ 
+-	      _clr_fwstate_(pmlmepriv, _FW_LINKED);
++		_clr_fwstate_(pmlmepriv, _FW_LINKED);
+ 
+ 		rtw_clear_scan_deny(padapter);
+ 	}
+@@ -2826,8 +2825,8 @@ unsigned int rtw_restructure_ht_ie(struct adapter *padapter, u8 *in_ie, u8 *out_
+ 		if (stbc_rx_enable)
+ 			ht_capie.cap_info |= cpu_to_le16(IEEE80211_HT_CAP_RX_STBC_1R);/* RX STBC One spatial stream */
+ 
+-	    set_mcs_rate_by_mask(ht_capie.supp_mcs_set, MCS_RATE_1R);
+-			break;
++		set_mcs_rate_by_mask(ht_capie.supp_mcs_set, MCS_RATE_1R);
++		break;
+ 
+ 	case RF_2T2R:
+ 	case RF_1T2R:
+@@ -2984,22 +2983,22 @@ void rtw_update_ht_cap(struct adapter *padapter, u8 *pie, uint ie_len, u8 channe
+ #else /* CONFIG_DISABLE_MCS13TO15 */
+ 			set_mcs_rate_by_mask(pmlmeinfo->HT_caps.u.HT_cap_element.MCS_rate, MCS_RATE_2R);
+ #endif /* CONFIG_DISABLE_MCS13TO15 */
+-	}
++		}
+ 
+-	/* switch to the 40M Hz mode accoring to the AP */
+-	/* pmlmeext->cur_bwmode = CHANNEL_WIDTH_40; */
+-	switch ((pmlmeinfo->HT_info.infos[0] & 0x3)) {
+-	case EXTCHNL_OFFSET_UPPER:
+-		pmlmeext->cur_ch_offset = HAL_PRIME_CHNL_OFFSET_LOWER;
+-		break;
++		/* switch to the 40M Hz mode according to the AP */
++		/* pmlmeext->cur_bwmode = CHANNEL_WIDTH_40; */
++		switch ((pmlmeinfo->HT_info.infos[0] & 0x3)) {
++		case EXTCHNL_OFFSET_UPPER:
++			pmlmeext->cur_ch_offset = HAL_PRIME_CHNL_OFFSET_LOWER;
++			break;
+ 
+-	case EXTCHNL_OFFSET_LOWER:
+-		pmlmeext->cur_ch_offset = HAL_PRIME_CHNL_OFFSET_UPPER;
+-		break;
++		case EXTCHNL_OFFSET_LOWER:
++			pmlmeext->cur_ch_offset = HAL_PRIME_CHNL_OFFSET_UPPER;
++			break;
+ 
+-	default:
+-		pmlmeext->cur_ch_offset = HAL_PRIME_CHNL_OFFSET_DONT_CARE;
+-		break;
++		default:
++			pmlmeext->cur_ch_offset = HAL_PRIME_CHNL_OFFSET_DONT_CARE;
++			break;
+ 		}
+ 	}
  
 -- 
 2.12.0
