@@ -1,118 +1,191 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v2 1/3] net: dsa: Do not check for NULL dst in tag parsers
-Date: Sat,  8 Apr 2017 08:55:21 -0700
-Message-ID: <20170408155523.20447-2-f.fainelli@gmail.com>
+Subject: [PATCH net-next v2 2/3] net: dsa: Move skb_unshare() to dsa_switch_rcv()
+Date: Sat,  8 Apr 2017 08:55:22 -0700
+Message-ID: <20170408155523.20447-3-f.fainelli@gmail.com>
 References: <20170408155523.20447-1-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, andrew@lunn.ch,
         vivien.didelot@savoirfairelinux.com, sean.wang@mediatek.com,
         Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f66.google.com ([209.85.214.66]:32833 "EHLO
-        mail-it0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751730AbdDHPza (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 8 Apr 2017 11:55:30 -0400
-Received: by mail-it0-f66.google.com with SMTP id w11so1620662itb.0
-        for <netdev@vger.kernel.org>; Sat, 08 Apr 2017 08:55:30 -0700 (PDT)
+Received: from mail-it0-f67.google.com ([209.85.214.67]:35874 "EHLO
+        mail-it0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751914AbdDHPzb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 8 Apr 2017 11:55:31 -0400
+Received: by mail-it0-f67.google.com with SMTP id a140so1600551ita.3
+        for <netdev@vger.kernel.org>; Sat, 08 Apr 2017 08:55:31 -0700 (PDT)
 In-Reply-To: <20170408155523.20447-1-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-dsa_switch_rcv() already tests for dst == NULL, so there is no need to duplicate
-the same check within the tag receive functions.
+All DSA tag receive functions need to unshare the skb before mangling it, move
+this to the generic dsa_switch_rcv() function which will allow us to make the
+tag receive function return their mangled skb without caring about freeing a
+NULL skb.
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- net/dsa/tag_brcm.c    | 3 ---
- net/dsa/tag_dsa.c     | 3 ---
- net/dsa/tag_edsa.c    | 3 ---
- net/dsa/tag_mtk.c     | 3 ---
- net/dsa/tag_qca.c     | 3 ---
- net/dsa/tag_trailer.c | 2 --
- 6 files changed, 17 deletions(-)
+ net/dsa/dsa.c         | 4 ++++
+ net/dsa/tag_brcm.c    | 5 -----
+ net/dsa/tag_dsa.c     | 5 -----
+ net/dsa/tag_edsa.c    | 5 -----
+ net/dsa/tag_mtk.c     | 5 -----
+ net/dsa/tag_qca.c     | 5 -----
+ net/dsa/tag_trailer.c | 5 -----
+ 7 files changed, 4 insertions(+), 30 deletions(-)
 
+diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+index 6cad15da5892..d370c8bfa372 100644
+--- a/net/dsa/dsa.c
++++ b/net/dsa/dsa.c
+@@ -906,6 +906,10 @@ static int dsa_switch_rcv(struct sk_buff *skb, struct net_device *dev,
+ 		return 0;
+ 	}
+ 
++	skb = skb_unshare(skb, GFP_ATOMIC);
++	if (!skb)
++		return 0;
++
+ 	return dst->rcv(skb, dev, pt, orig_dev);
+ }
+ 
 diff --git a/net/dsa/tag_brcm.c b/net/dsa/tag_brcm.c
-index e2ed6cf68261..68d4feef96d4 100644
+index 68d4feef96d4..263941769c88 100644
 --- a/net/dsa/tag_brcm.c
 +++ b/net/dsa/tag_brcm.c
-@@ -100,9 +100,6 @@ static int brcm_tag_rcv(struct sk_buff *skb, struct net_device *dev,
- 	int source_port;
- 	u8 *brcm_tag;
+@@ -102,10 +102,6 @@ static int brcm_tag_rcv(struct sk_buff *skb, struct net_device *dev,
  
--	if (unlikely(dst == NULL))
--		goto out_drop;
--
  	ds = dst->cpu_switch;
  
- 	skb = skb_unshare(skb, GFP_ATOMIC);
+-	skb = skb_unshare(skb, GFP_ATOMIC);
+-	if (skb == NULL)
+-		goto out;
+-
+ 	if (unlikely(!pskb_may_pull(skb, BRCM_TAG_LEN)))
+ 		goto out_drop;
+ 
+@@ -151,7 +147,6 @@ static int brcm_tag_rcv(struct sk_buff *skb, struct net_device *dev,
+ 
+ out_drop:
+ 	kfree_skb(skb);
+-out:
+ 	return 0;
+ }
+ 
 diff --git a/net/dsa/tag_dsa.c b/net/dsa/tag_dsa.c
-index e42ba906100c..377569c0e4f7 100644
+index 377569c0e4f7..b7032699eaad 100644
 --- a/net/dsa/tag_dsa.c
 +++ b/net/dsa/tag_dsa.c
-@@ -77,9 +77,6 @@ static int dsa_rcv(struct sk_buff *skb, struct net_device *dev,
+@@ -77,10 +77,6 @@ static int dsa_rcv(struct sk_buff *skb, struct net_device *dev,
  	int source_device;
  	int source_port;
  
--	if (unlikely(dst == NULL))
--		goto out_drop;
+-	skb = skb_unshare(skb, GFP_ATOMIC);
+-	if (skb == NULL)
+-		goto out;
 -
- 	skb = skb_unshare(skb, GFP_ATOMIC);
- 	if (skb == NULL)
- 		goto out;
+ 	if (unlikely(!pskb_may_pull(skb, DSA_HLEN)))
+ 		goto out_drop;
+ 
+@@ -175,7 +171,6 @@ static int dsa_rcv(struct sk_buff *skb, struct net_device *dev,
+ 
+ out_drop:
+ 	kfree_skb(skb);
+-out:
+ 	return 0;
+ }
+ 
 diff --git a/net/dsa/tag_edsa.c b/net/dsa/tag_edsa.c
-index 6a9b7a9e4e15..30520ff9c9a2 100644
+index 30520ff9c9a2..b87009672b40 100644
 --- a/net/dsa/tag_edsa.c
 +++ b/net/dsa/tag_edsa.c
-@@ -90,9 +90,6 @@ static int edsa_rcv(struct sk_buff *skb, struct net_device *dev,
+@@ -90,10 +90,6 @@ static int edsa_rcv(struct sk_buff *skb, struct net_device *dev,
  	int source_device;
  	int source_port;
  
--	if (unlikely(dst == NULL))
--		goto out_drop;
+-	skb = skb_unshare(skb, GFP_ATOMIC);
+-	if (skb == NULL)
+-		goto out;
 -
- 	skb = skb_unshare(skb, GFP_ATOMIC);
- 	if (skb == NULL)
- 		goto out;
+ 	if (unlikely(!pskb_may_pull(skb, EDSA_HLEN)))
+ 		goto out_drop;
+ 
+@@ -194,7 +190,6 @@ static int edsa_rcv(struct sk_buff *skb, struct net_device *dev,
+ 
+ out_drop:
+ 	kfree_skb(skb);
+-out:
+ 	return 0;
+ }
+ 
 diff --git a/net/dsa/tag_mtk.c b/net/dsa/tag_mtk.c
-index 44ae6353a521..836c311a3c38 100644
+index 836c311a3c38..d0a477084870 100644
 --- a/net/dsa/tag_mtk.c
 +++ b/net/dsa/tag_mtk.c
-@@ -55,9 +55,6 @@ static int mtk_tag_rcv(struct sk_buff *skb, struct net_device *dev,
+@@ -55,10 +55,6 @@ static int mtk_tag_rcv(struct sk_buff *skb, struct net_device *dev,
  	int port;
  	__be16 *phdr, hdr;
  
--	if (unlikely(!dst))
--		goto out_drop;
+-	skb = skb_unshare(skb, GFP_ATOMIC);
+-	if (!skb)
+-		goto out;
 -
- 	skb = skb_unshare(skb, GFP_ATOMIC);
- 	if (!skb)
- 		goto out;
+ 	if (unlikely(!pskb_may_pull(skb, MTK_HDR_LEN)))
+ 		goto out_drop;
+ 
+@@ -105,7 +101,6 @@ static int mtk_tag_rcv(struct sk_buff *skb, struct net_device *dev,
+ 
+ out_drop:
+ 	kfree_skb(skb);
+-out:
+ 	return 0;
+ }
+ 
 diff --git a/net/dsa/tag_qca.c b/net/dsa/tag_qca.c
-index 4e0dad759d04..6579d6db1bc6 100644
+index 6579d6db1bc6..d1324649808c 100644
 --- a/net/dsa/tag_qca.c
 +++ b/net/dsa/tag_qca.c
-@@ -75,9 +75,6 @@ static int qca_tag_rcv(struct sk_buff *skb, struct net_device *dev,
+@@ -75,10 +75,6 @@ static int qca_tag_rcv(struct sk_buff *skb, struct net_device *dev,
  	int port;
  	__be16 *phdr, hdr;
  
--	if (unlikely(!dst))
--		goto out_drop;
+-	skb = skb_unshare(skb, GFP_ATOMIC);
+-	if (!skb)
+-		goto out;
 -
- 	skb = skb_unshare(skb, GFP_ATOMIC);
- 	if (!skb)
- 		goto out;
+ 	if (unlikely(!pskb_may_pull(skb, QCA_HDR_LEN)))
+ 		goto out_drop;
+ 
+@@ -126,7 +122,6 @@ static int qca_tag_rcv(struct sk_buff *skb, struct net_device *dev,
+ 
+ out_drop:
+ 	kfree_skb(skb);
+-out:
+ 	return 0;
+ }
+ 
 diff --git a/net/dsa/tag_trailer.c b/net/dsa/tag_trailer.c
-index 74c948512550..f5c764ee2968 100644
+index f5c764ee2968..1fc0b221a70f 100644
 --- a/net/dsa/tag_trailer.c
 +++ b/net/dsa/tag_trailer.c
-@@ -66,8 +66,6 @@ static int trailer_rcv(struct sk_buff *skb, struct net_device *dev,
- 	u8 *trailer;
- 	int source_port;
+@@ -68,10 +68,6 @@ static int trailer_rcv(struct sk_buff *skb, struct net_device *dev,
  
--	if (unlikely(dst == NULL))
--		goto out_drop;
  	ds = dst->cpu_switch;
  
- 	skb = skb_unshare(skb, GFP_ATOMIC);
+-	skb = skb_unshare(skb, GFP_ATOMIC);
+-	if (skb == NULL)
+-		goto out;
+-
+ 	if (skb_linearize(skb))
+ 		goto out_drop;
+ 
+@@ -100,7 +96,6 @@ static int trailer_rcv(struct sk_buff *skb, struct net_device *dev,
+ 
+ out_drop:
+ 	kfree_skb(skb);
+-out:
+ 	return 0;
+ }
+ 
 -- 
 2.9.3
