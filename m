@@ -1,72 +1,48 @@
 From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH 11/22] staging: rtl8723bs: Fix indenting problems in core/rtw_xmit.c
-Date: Sat,  8 Apr 2017 11:07:34 -0500
-Message-ID: <20170408160745.14328-12-Larry.Finger@lwfinger.net>
+Subject: [PATCH 12/22] staging: rtl8723bs: Fix possible usage of NULL pointer in core/rtw_debug.c
+Date: Sat,  8 Apr 2017 11:07:35 -0500
+Message-ID: <20170408160745.14328-13-Larry.Finger@lwfinger.net>
 References: <20170408160745.14328-1-Larry.Finger@lwfinger.net>
 Cc: netdev@vger.kernel.org, devel@driverdev.osuosl.org,
         hdegoede@redhat.com, hadess@hadess.net, jes.sorensen@gmail.com,
         Larry Finger <Larry.Finger@lwfinger.net>
 To: gregkh@linuxfoundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f67.google.com ([209.85.218.67]:36138 "EHLO
-        mail-oi0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752577AbdDHQIL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 8 Apr 2017 12:08:11 -0400
-Received: by mail-oi0-f67.google.com with SMTP id b187so16472635oif.3
-        for <netdev@vger.kernel.org>; Sat, 08 Apr 2017 09:08:11 -0700 (PDT)
+Received: from mail-oi0-f65.google.com ([209.85.218.65]:34168 "EHLO
+        mail-oi0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752598AbdDHQIM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 8 Apr 2017 12:08:12 -0400
+Received: by mail-oi0-f65.google.com with SMTP id w197so6121484oiw.1
+        for <netdev@vger.kernel.org>; Sat, 08 Apr 2017 09:08:12 -0700 (PDT)
 In-Reply-To: <20170408160745.14328-1-Larry.Finger@lwfinger.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Smatch logs the following:
+Smatch reports the following:
 
-  CHECK   drivers/staging/rtl8723bs/core/rtw_xmit.c
-drivers/staging/rtl8723bs/core/rtw_xmit.c:277 _rtw_init_xmit_priv() warn: inconsistent indenting
-drivers/staging/rtl8723bs/core/rtw_xmit.c:294 _rtw_free_xmit_priv() warn: inconsistent indenting
-drivers/staging/rtl8723bs/core/rtw_xmit.c:295 _rtw_free_xmit_priv() warn: inconsistent indenting
-drivers/staging/rtl8723bs/core/rtw_xmit.c:946 xmitframe_addmic() warn: inconsistent indenting
+  CHECK   drivers/staging/rtl8723bs/core/rtw_debug.c
+drivers/staging/rtl8723bs/core/rtw_debug.c:454 proc_get_survey_info() error: we previously assumed 'phead' could be null (see line 453)
+drivers/staging/rtl8723bs/core/rtw_debug.c:455 proc_get_survey_info() warn: variable dereferenced before check 'phead' (see line 454)
 
-These are fixed with white-space changes.
+In the code, there are two successive calls to get_head(). The second
+is removed.
 
 Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
 ---
- drivers/staging/rtl8723bs/core/rtw_xmit.c | 10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
+ drivers/staging/rtl8723bs/core/rtw_debug.c | 1 -
+ 1 file changed, 1 deletion(-)
 
-diff --git a/drivers/staging/rtl8723bs/core/rtw_xmit.c b/drivers/staging/rtl8723bs/core/rtw_xmit.c
-index 60585540069a..8f2c9a6658bf 100644
---- a/drivers/staging/rtl8723bs/core/rtw_xmit.c
-+++ b/drivers/staging/rtl8723bs/core/rtw_xmit.c
-@@ -274,7 +274,7 @@ s32	_rtw_init_xmit_priv(struct xmit_priv *pxmitpriv, struct adapter *padapter)
- 	rtw_alloc_hwxmits(padapter);
- 	rtw_init_hwxmits(pxmitpriv->hwxmits, pxmitpriv->hwxmit_entry);
- 
--  for (i = 0; i < 4; i++) {
-+	for (i = 0; i < 4; i++) {
- 		pxmitpriv->wmm_para_seq[i] = i;
- 	}
- 
-@@ -290,8 +290,8 @@ s32	_rtw_init_xmit_priv(struct xmit_priv *pxmitpriv, struct adapter *padapter)
- 
- void _rtw_free_xmit_priv(struct xmit_priv *pxmitpriv)
- {
--       int i;
--      struct adapter *padapter = pxmitpriv->adapter;
-+	int i;
-+	struct adapter *padapter = pxmitpriv->adapter;
- 	struct xmit_frame	*pxmitframe = (struct xmit_frame *) pxmitpriv->pxmit_frame_buf;
- 	struct xmit_buf *pxmitbuf = (struct xmit_buf *)pxmitpriv->pxmitbuf;
- 
-@@ -942,8 +942,8 @@ static s32 xmitframe_addmic(struct adapter *padapter, struct xmit_frame *pxmitfr
- 
- 			}
- 
--      /* if (pqospriv->qos_option == 1) */
--      if (pattrib->qos_en)
-+			/* if (pqospriv->qos_option == 1) */
-+			if (pattrib->qos_en)
- 				priority[0] = (u8)pxmitframe->attrib.priority;
- 
- 
+diff --git a/drivers/staging/rtl8723bs/core/rtw_debug.c b/drivers/staging/rtl8723bs/core/rtw_debug.c
+index d34747b29309..51cef55d3f76 100644
+--- a/drivers/staging/rtl8723bs/core/rtw_debug.c
++++ b/drivers/staging/rtl8723bs/core/rtw_debug.c
+@@ -451,7 +451,6 @@ int proc_get_survey_info(struct seq_file *m, void *v)
+ 	spin_lock_bh(&(pmlmepriv->scanned_queue.lock));
+ 	phead = get_list_head(queue);
+ 	plist = phead ? get_next(phead) : NULL;
+-	plist = get_next(phead);
+ 	if ((!phead) || (!plist)) {
+ 		spin_unlock_bh(&(pmlmepriv->scanned_queue.lock));
+ 		return 0;
 -- 
 2.12.0
