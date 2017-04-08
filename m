@@ -1,42 +1,35 @@
-From: Johannes Berg <johannes@sipsolutions.net>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
 Subject: Re: [PATCH 1/5] netlink: extended ACK reporting
-Date: Sat, 08 Apr 2017 20:37:01 +0200
-Message-ID: <1491676621.5800.24.camel@sipsolutions.net>
+Date: Sat, 08 Apr 2017 20:37:50 +0200
+Message-ID: <1491676670.5800.25.camel@sipsolutions.net>
 References: <20170408174900.12820-1-johannes@sipsolutions.net>
          <20170408174900.12820-2-johannes@sipsolutions.net>
-         <20170408183440.GA1900@nanopsycho> (sfid-20170408_203444_598631_EBE98730)
+         <14c58480-cd03-4d61-fffa-fab6e437a7ea@cumulusnetworks.com>
+         (sfid-20170408_203643_247519_552A8ABE)
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 8bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        pablo@netfilter.org, Jamal Hadi Salim <jhs@mojatatu.com>,
-        Jiri Benc <jbenc@redhat.com>,
-        David Ahern <dsa@cumulusnetworks.com>
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:38860 "EHLO sipsolutions.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752612AbdDHShG (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 8 Apr 2017 14:37:06 -0400
-In-Reply-To: <20170408183440.GA1900@nanopsycho> (sfid-20170408_203444_598631_EBE98730)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
+        Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org
+To: David Ahern <dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>,
+        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <14c58480-cd03-4d61-fffa-fab6e437a7ea-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org> (sfid-20170408_203643_247519_552A8ABE)
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, 2017-04-08 at 20:34 +0200, Jiri Pirko wrote:
-> nla_total_size(sizeof(u32));
-> > +			if (extack &&
-> > +			    (extack->missing_attr || extack-
-> > >bad_attr))
+On Sat, 2017-04-08 at 14:36 -0400, David Ahern wrote:
 > 
-> Attr could be 0, right? I know that on the most of the places 0 is
-> UNSPEC, but I'm pretty sure not everywhere.
+> I think v3 is in your future ...
+> 
+> /home/dsa/kernel-4.git/include/linux/netlink.h:78:12: error:
+> ‘NETLINK_MAX_COOKIE_LEN’ undeclared here (not in a function)
+>   u8 cookie[NETLINK_MAX_COOKIE_LEN];
+>             ^
+> 
+> it's defined in patch 3; needed in patch 1
 
-Yeah, I guess we can't show a missing attribute of 0 now - bad_attr is
-a pointer so no problem there.
-
-I think I'll leave it like this - if anyone really wants to say
-"attribute 0 is missing" then we can add a flag later... The UAPI does
-take this into account by not including the attribute at all if the
-data is invalid, so 0 in the userspace API can be done
+Damn. Ok, that'll have to wait until Monday, unless the airport has
+useful wifi.
 
 johannes
