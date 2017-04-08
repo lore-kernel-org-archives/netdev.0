@@ -1,40 +1,50 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH] net: ipv6: Remove unneccessary comments
-Date: Sat, 8 Apr 2017 22:12:04 +0200
-Message-ID: <20170408201204.GA2679@salvia>
-References: <20170408154930.GA6924@arushi-HP-Pavilion-Notebook>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: [PATCH 1/5] netlink: extended ACK reporting
+Date: Sat, 08 Apr 2017 22:13:14 +0200
+Message-ID: <1491682394.2379.1.camel@sipsolutions.net>
+References: <20170408174900.12820-1-johannes@sipsolutions.net>
+         <20170408174900.12820-2-johannes@sipsolutions.net>
+         <20170408183440.GA1900@nanopsycho>
+         <1491676621.5800.24.camel@sipsolutions.net>
+         <20170408184008.GB1900@nanopsycho> (sfid-20170408_204012_186615_65B86B3C)
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-        "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Arushi Singhal <arushisinghal19971997@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:52972 "EHLO mail.us.es"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751505AbdDHUMM (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 8 Apr 2017 16:12:12 -0400
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id C97752493E
-        for <netdev@vger.kernel.org>; Sat,  8 Apr 2017 22:12:07 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 5D712DA7F7
-        for <netdev@vger.kernel.org>; Sat,  8 Apr 2017 22:12:12 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 82295DA86B
-        for <netdev@vger.kernel.org>; Sat,  8 Apr 2017 22:12:09 +0200 (CEST)
-Content-Disposition: inline
-In-Reply-To: <20170408154930.GA6924@arushi-HP-Pavilion-Notebook>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
+        Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        David Ahern <dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
+To: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170408184008.GB1900@nanopsycho> (sfid-20170408_204012_186615_65B86B3C)
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Apr 08, 2017 at 09:19:30PM +0530, Arushi Singhal wrote:
-> This comments are obsolete and should go, as there are no set of rules per
-> CPU anymore.
+On Sat, 2017-04-08 at 20:40 +0200, Jiri Pirko wrote:
 
-Applied, thanks.
+> > I think I'll leave it like this - if anyone really wants to say
+> > "attribute 0 is missing" then we can add a flag later... The UAPI
+> > does
+> > take this into account by not including the attribute at all if the
+> > data is invalid, so 0 in the userspace API can be done
+> 
+> It a known issue, should be fixed right now. We are in no hurry. This
+> waited +15 years to be done, no harm in couple more days.
+
+It's not about any timing or anything - I simply think the likelihood
+that this will be needed is zero, because almost no netlink family uses
+attribute zero, those that do use it are older ones unlikely to be
+updated to start with, and *then* needing to indicate that attribute 0
+is missing? Not going to happen.
+
+The extra code needed to handle this is therefore wasted.
+
+> Also, could you please attach a patch to iproute2 for example which
+> would make use of this. I just want to make sure it clicks.
+
+No, I'm not going to do that. If you want it, please do it yourself.
+I've done the testing on a slightly modified iw, but even there haven't
+done any pretty-printing or parsing, just made sure the attributes show
+up properly (by dumping them in hex).
+
+johannes
