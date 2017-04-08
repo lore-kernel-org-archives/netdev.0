@@ -1,41 +1,68 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] New getsockopt option to retrieve socket
- cookie
-Date: Sat, 08 Apr 2017 08:07:24 -0700 (PDT)
-Message-ID: <20170408.080724.442486952207900158.davem@davemloft.net>
-References: <1491444056-4312-1-git-send-email-chenbofeng.kernel@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] tcp: clear saved_syn in tcp_disconnect()
+Date: Sat, 08 Apr 2017 08:07:33 -0700
+Message-ID: <1491664053.10124.92.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, lorenzo@google.com, willemb@google.com,
-        fengc@google.com
-To: chenbofeng.kernel@gmail.com
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:39970 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751298AbdDHPHd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 8 Apr 2017 11:07:33 -0400
-In-Reply-To: <1491444056-4312-1-git-send-email-chenbofeng.kernel@gmail.com>
+Received: from mail-it0-f65.google.com ([209.85.214.65]:35239 "EHLO
+        mail-it0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752512AbdDHPHj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 8 Apr 2017 11:07:39 -0400
+Received: by mail-it0-f65.google.com with SMTP id y18so1537064itc.2
+        for <netdev@vger.kernel.org>; Sat, 08 Apr 2017 08:07:39 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Chenbo Feng <chenbofeng.kernel@gmail.com>
-Date: Wed,  5 Apr 2017 19:00:54 -0700
+From: Eric Dumazet <edumazet@google.com>
 
-> In the current kernel socket cookie implementation, there is no simple
-> and direct way to retrieve the socket cookie based on file descriptor. A
-> process mat need to get it from sock fd if it want to correlate with
-> sock_diag output or use a bpf map with new socket cookie function.
-> 
-> If userspace wants to receive the socket cookie for a given socket fd,
-> it must send a SOCK_DIAG_BY_FAMILY dump request and look for the 5-tuple.
-> This is slow and can be ambiguous in the case of sockets that have the
-> same 5-tuple (e.g., tproxy / transparent sockets, SO_REUSEPORT sockets,
-> etc.).
-> 
-> As shown in the example program. The xt_eBPF program is using socket cookie
-> to record the network traffics statistics and with the socket cookie
-> retrieved by getsockopt. The program can directly access to a specific
-> socket data without scanning the whole bpf map.
+In the (very unlikely) case a passive socket becomes a listener,
+we do not want to duplicate its saved SYN headers.
 
-Series applied, thank you.
+This would lead to double frees, use after free, and please hackers and
+various fuzzers 
+
+Tested:
+    0 socket(..., SOCK_STREAM, IPPROTO_TCP) = 3
+   +0 setsockopt(3, IPPROTO_TCP, TCP_SAVE_SYN, [1], 4) = 0
+   +0 fcntl(3, F_SETFL, O_RDWR|O_NONBLOCK) = 0
+
+   +0 bind(3, ..., ...) = 0
+   +0 listen(3, 5) = 0
+
+   +0 < S 0:0(0) win 32972 <mss 1460,nop,wscale 7>
+   +0 > S. 0:0(0) ack 1 <...>
+  +.1 < . 1:1(0) ack 1 win 257
+   +0 accept(3, ..., ...) = 4
+
+   +0 connect(4, AF_UNSPEC, ...) = 0
+   +0 close(3) = 0
+   +0 bind(4, ..., ...) = 0
+   +0 listen(4, 5) = 0
+
+   +0 < S 0:0(0) win 32972 <mss 1460,nop,wscale 7>
+   +0 > S. 0:0(0) ack 1 <...>
+  +.1 < . 1:1(0) ack 1 win 257
+
+
+Fixes: cd8ae85299d5 ("tcp: provide SYN headers for passive connections")
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/ipv4/tcp.c |    1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 94f0b5b50e0d728c3edab175aee9d769cd80907f..04843ae77b9ecacb3e4f2e81096f11d35ae1915e 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -2322,6 +2322,7 @@ int tcp_disconnect(struct sock *sk, int flags)
+ 	tcp_init_send_head(sk);
+ 	memset(&tp->rx_opt, 0, sizeof(tp->rx_opt));
+ 	__sk_dst_reset(sk);
++	tcp_saved_syn_free(tp);
+ 
+ 	/* Clean up fastopen related fields */
+ 	tcp_free_fastopen_req(tp);
