@@ -1,41 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ibmveth: Support to enable LSO/CSO for Trunk VEA.
-Date: Sat, 08 Apr 2017 11:45:15 -0700 (PDT)
-Message-ID: <20170408.114515.1339820744697810446.davem@davemloft.net>
-References: <1491559079-10855-1-git-send-email-ksiva@linux.vnet.ibm.com>
+From: David Ahern <dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
+Subject: Re: [PATCH 4/5] netlink: pass extended ACK struct to parsing
+ functions
+Date: Sat, 8 Apr 2017 14:50:09 -0400
+Message-ID: <3077bf17-553d-f9e3-8873-c59fbb26e2aa@cumulusnetworks.com>
+References: <20170408174900.12820-1-johannes@sipsolutions.net>
+ <20170408174900.12820-5-johannes@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tlfalcon@linux.vnet.ibm.com,
-        benh@kernel.crashing.org, paulus@samba.org, mpe@ellerman.id.au,
-        linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org,
-        brking@linux.vnet.ibm.com, seroyer@linux.vnet.ibm.com
-To: ksiva@linux.vnet.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:48746 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751955AbdDHSpT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 8 Apr 2017 14:45:19 -0400
-In-Reply-To: <1491559079-10855-1-git-send-email-ksiva@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 8bit
+Cc: pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
+        Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org,
+        Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170408174900.12820-5-johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Sivakumar Krishnasamy <ksiva@linux.vnet.ibm.com>
-Date: Fri,  7 Apr 2017 05:57:59 -0400
-
-> Enable largesend and checksum offload for ibmveth configured in trunk mode.
-> Added support to SKB frag_list in TX path by skb_linearize'ing such SKBs.
+On 4/8/17 1:48 PM, Johannes Berg wrote:
+> From: Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 > 
-> Signed-off-by: Sivakumar Krishnasamy <ksiva@linux.vnet.ibm.com>
+> Pass the new extended ACK reporting struct to all of the
+> generic netlink parsing functions. For now, pass NULL in
+> almost all callers (except for some in the core.)
+> 
+> Signed-off-by: Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 
-Why is linearization necessary?
+fails to compile as well:
 
-It would seem that the gains you get from GRO are nullified by
-linearizing the SKB and thus copying all the data around and
-allocating buffers.
-
-Finally, all of that new checksumming stuff looks extremely
-suspicious.  You have to explain why that is happening and why it
-isn't because this driver is doing something incorrectly.
-
-Thanks.
+In file included from /home/dsa/kernel-4.git/net/sched/cls_rsvp.c:27:0:
+/home/dsa/kernel-4.git/net/sched/cls_rsvp.h: In function ‘rsvp_change’:
+/home/dsa/kernel-4.git/net/sched/cls_rsvp.h:487:8: error: too few
+arguments to function ‘nla_parse_nested’
+  err = nla_parse_nested(tb, TCA_RSVP_MAX, opt, rsvp_policy);
+        ^
+In file included from /home/dsa/kernel-4.git/include/net/rtnetlink.h:5:0,
+                 from /home/dsa/kernel-4.git/include/net/sch_generic.h:12,
+                 from /home/dsa/kernel-4.git/include/linux/filter.h:20,
+                 from /home/dsa/kernel-4.git/include/net/sock.h:64,
+                 from /home/dsa/kernel-4.git/include/net/inet_sock.h:27,
+                 from /home/dsa/kernel-4.git/include/net/ip.h:30,
+                 from /home/dsa/kernel-4.git/net/sched/cls_rsvp.c:18:
+/home/dsa/kernel-4.git/include/net/netlink.h:754:19: note: declared here
+ static inline int nla_parse_nested(struct nlattr *tb[], int maxtype,
