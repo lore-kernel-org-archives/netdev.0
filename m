@@ -1,48 +1,97 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/1 v2] skbuff: Extend gso_type to unsigned
- int.
-Date: Sat, 08 Apr 2017 12:32:34 -0700 (PDT)
-Message-ID: <20170408.123234.1062158742988397943.davem@davemloft.net>
-References: <1491676584-22421-1-git-send-email-steffen.klassert@secunet.com>
-        <1491676584-22421-2-git-send-email-steffen.klassert@secunet.com>
-        <1491677732.10124.94.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: steffen.klassert@secunet.com, netdev@vger.kernel.org,
-        edumazet@google.com, alexander.duyck@gmail.com
-To: eric.dumazet@gmail.com
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: [PATCH net-next v2] net: allow configuring default qdisc
+Date: Sat,  8 Apr 2017 15:39:46 -0400
+Message-ID: <20170408193946.18469-1-sthemmin@microsoft.com>
+Cc: netdev@vger.kernel.org, Stephen Hemminger <sthemmin@microsoft.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:50298 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751010AbdDHTck (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 8 Apr 2017 15:32:40 -0400
-In-Reply-To: <1491677732.10124.94.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-io0-f182.google.com ([209.85.223.182]:33090 "EHLO
+        mail-io0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752741AbdDHTj5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 8 Apr 2017 15:39:57 -0400
+Received: by mail-io0-f182.google.com with SMTP id t68so32079280iof.0
+        for <netdev@vger.kernel.org>; Sat, 08 Apr 2017 12:39:57 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sat, 08 Apr 2017 11:55:32 -0700
+Since 3.12 it has been possible to configure the default queuing
+discipline via sysctl. This patch adds ability to configure the
+default queue discipline in kernel configuration. This is useful for
+environments where configuring the value from userspace is difficult
+to manage.
 
-> On Sat, 2017-04-08 at 20:36 +0200, Steffen Klassert wrote:
->> All available gso_type flags are currently in use, so
->> extend gso_type from 'unsigned short' to 'unsigned int'
->> to be able to add further flags.
->> 
->> We reorder the struct skb_shared_info to use
->> two bytes of the four byte hole before dataref.
->> All fields before dataref are cleared, i.e.
->> four bytes more than before the change.
->> 
->> The remaining two byte hole is moved to the
->> beginning of the structure, this protects us
->> from immediate overwites on out of bound writes
->> to the sk_buff head.
-> 
->> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
-...
-> This looks much better, thanks Steffen.
-> 
-> Acked-by: Eric Dumazet <edumazet@google.com>
+The default is still the same as before (pfifo_fast) and it is
+possible to change after kernel init with sysctl. This is similar
+to how TCP congestion control works.
 
-Applied, thanks everyone.
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+---
+v2 - rearrange order of menu items
+     use pfifo_fast not pfifo
+
+ net/sched/Kconfig   | 31 +++++++++++++++++++++++++++++++
+ net/sched/sch_api.c |  7 +++++++
+ 2 files changed, 38 insertions(+)
+
+diff --git a/net/sched/Kconfig b/net/sched/Kconfig
+index 403790cce7d2..c1243b8e6465 100644
+--- a/net/sched/Kconfig
++++ b/net/sched/Kconfig
+@@ -352,6 +352,37 @@ config NET_SCH_PLUG
+ 	  To compile this code as a module, choose M here: the
+ 	  module will be called sch_plug.
+ 
++choice
++	prompt "Default queuing discipline"
++	default DEFAULT_PFIFO_FAST
++	help
++	  Select the queueing discipline that will be used by default
++	  for all network devices.
++
++	config DEFAULT_FQ
++		bool "Fair Queue" if NET_SCH_FQ
++
++	config DEFAULT_CODEL
++		bool "Controlled Delay" if NET_SCH_CODEL
++
++	config DEFAULT_FQ_CODEL
++		bool "Fair Queue Controlled Delay" if NET_SCH_FQ_CODEL
++
++	config DEFAULT_SFQ
++		bool "Stochastic Fair Queue" if NET_SCH_SFQ
++
++	config DEFAULT_PFIFO_FAST
++		bool "Priority FIFO Fast"
++endchoice
++
++config DEFAULT_NET_SCH
++	string
++	default "pfifo_fast" if DEFAULT_PFIFO_FAST
++	default "fq" if DEFAULT_FQ
++	default "fq_codel" if DEFAULT_FQ_CODEL
++	default "sfq" if DEFAULT_SFQ
++	default "pfifo_fast"
++
+ comment "Classification"
+ 
+ config NET_CLS
+diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+index 62567bfe52c7..0d82f76f622d 100644
+--- a/net/sched/sch_api.c
++++ b/net/sched/sch_api.c
+@@ -251,6 +251,13 @@ int qdisc_set_default(const char *name)
+ 	return ops ? 0 : -ENOENT;
+ }
+ 
++/* Set default value from kernel config */
++static int __init sch_default_qdisc(void)
++{
++	return qdisc_set_default(CONFIG_DEFAULT_NET_SCH);
++}
++late_initcall(sch_default_qdisc);
++
+ /* We know handle. Find qdisc among all qdisc's attached to device
+  * (root qdisc, all its children, children of children etc.)
+  * Note: caller either uses rtnl or rcu_read_lock()
+-- 
+2.11.0
