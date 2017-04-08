@@ -1,18 +1,18 @@
 From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH 15/22] staging: rtl8723bs: Fix indenting mistakes in core/rtw_mlme.c
-Date: Sat,  8 Apr 2017 11:07:38 -0500
-Message-ID: <20170408160745.14328-16-Larry.Finger@lwfinger.net>
+Subject: [PATCH 21/22] staging: rtl8723bs: Fix indenting problems in core/rtw_odm.c
+Date: Sat,  8 Apr 2017 11:07:44 -0500
+Message-ID: <20170408160745.14328-22-Larry.Finger@lwfinger.net>
 References: <20170408160745.14328-1-Larry.Finger@lwfinger.net>
 Cc: netdev@vger.kernel.org, devel@driverdev.osuosl.org,
         hdegoede@redhat.com, hadess@hadess.net, jes.sorensen@gmail.com,
         Larry Finger <Larry.Finger@lwfinger.net>
 To: gregkh@linuxfoundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f66.google.com ([209.85.218.66]:34178 "EHLO
+Received: from mail-oi0-f66.google.com ([209.85.218.66]:34893 "EHLO
         mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752720AbdDHQIU (ORCPT
+        with ESMTP id S1752539AbdDHQIU (ORCPT
         <rfc822;netdev@vger.kernel.org>); Sat, 8 Apr 2017 12:08:20 -0400
-Received: by mail-oi0-f66.google.com with SMTP id w197so6121587oiw.1
+Received: by mail-oi0-f66.google.com with SMTP id g204so6269246oib.2
         for <netdev@vger.kernel.org>; Sat, 08 Apr 2017 09:08:20 -0700 (PDT)
 In-Reply-To: <20170408160745.14328-1-Larry.Finger@lwfinger.net>
 Sender: netdev-owner@vger.kernel.org
@@ -20,98 +20,42 @@ List-ID: <netdev.vger.kernel.org>
 
 Smatch reports the following:
 
-  CHECK   drivers/staging/rtl8723bs/core/rtw_mlme.c
-drivers/staging/rtl8723bs/core/rtw_mlme.c:862 rtw_survey_event_callback() warn: inconsistent indenting
-drivers/staging/rtl8723bs/core/rtw_mlme.c:1102 rtw_free_assoc_resources() warn: if statement not indented
-drivers/staging/rtl8723bs/core/rtw_mlme.c:1165 rtw_indicate_disconnect() warn: inconsistent indenting
-drivers/staging/rtl8723bs/core/rtw_mlme.c:2830 rtw_restructure_ht_ie() warn: inconsistent indenting
-drivers/staging/rtl8723bs/core/rtw_mlme.c:2991 rtw_update_ht_cap() warn: inconsistent indenting
-
-All of there are simple white-space errors. A typo is also fixed.
+  CHECK   drivers/staging/rtl8723bs/core/rtw_odm.c
+drivers/staging/rtl8723bs/core/rtw_odm.c:109 rtw_odm_dbg_comp_msg() warn: if statement not indented
+drivers/staging/rtl8723bs/core/rtw_odm.c:146 rtw_odm_ability_msg() warn: if statement not indented
 
 Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
 ---
- drivers/staging/rtl8723bs/core/rtw_mlme.c | 37 +++++++++++++++----------------
- 1 file changed, 18 insertions(+), 19 deletions(-)
+ drivers/staging/rtl8723bs/core/rtw_odm.c | 10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/staging/rtl8723bs/core/rtw_mlme.c b/drivers/staging/rtl8723bs/core/rtw_mlme.c
-index c95e0626b522..53755e5b97a6 100644
---- a/drivers/staging/rtl8723bs/core/rtw_mlme.c
-+++ b/drivers/staging/rtl8723bs/core/rtw_mlme.c
-@@ -856,7 +856,7 @@ void rtw_survey_event_callback(struct adapter	*adapter, u8 *pbuf)
- 
- 	/*  lock pmlmepriv->lock when you accessing network_q */
- 	if ((check_fwstate(pmlmepriv, _FW_UNDER_LINKING)) == false) {
--	  if (pnetwork->Ssid.Ssid[0] == 0) {
-+		if (pnetwork->Ssid.Ssid[0] == 0) {
- 			pnetwork->Ssid.SsidLength = 0;
- 		}
- 		rtw_add_network(adapter, pnetwork);
-@@ -1100,8 +1100,7 @@ void rtw_free_assoc_resources(struct adapter *adapter, int lock_scanned_queue)
+diff --git a/drivers/staging/rtl8723bs/core/rtw_odm.c b/drivers/staging/rtl8723bs/core/rtw_odm.c
+index 5bc573386ad1..3144e8ec2fa2 100644
+--- a/drivers/staging/rtl8723bs/core/rtw_odm.c
++++ b/drivers/staging/rtl8723bs/core/rtw_odm.c
+@@ -107,8 +107,9 @@ void rtw_odm_dbg_comp_msg(void *sel, struct adapter *adapter)
+ 	DBG_871X_SEL_NL(sel, "odm.DebugComponents = 0x%016llx\n", dbg_comp);
+ 	for (i = 0; i < RTW_ODM_COMP_MAX; i++) {
+ 		if (odm_comp_str[i])
+-		DBG_871X_SEL_NL(sel, "%cBIT%-2d %s\n",
+-			(BIT0 << i) & dbg_comp ? '+' : ' ', i, odm_comp_str[i]);
++			DBG_871X_SEL_NL(sel, "%cBIT%-2d %s\n",
++					(BIT0 << i) & dbg_comp ? '+' : ' ',
++					i, odm_comp_str[i]);
  	}
- 
- 	if (lock_scanned_queue)
--
--	adapter->securitypriv.key_mask = 0;
-+		adapter->securitypriv.key_mask = 0;
- 
- 	rtw_reset_rx_info(pdbgpriv);
  }
-@@ -1162,7 +1161,7 @@ void rtw_indicate_disconnect(struct adapter *padapter)
- 		/* set ips_deny_time to avoid enter IPS before LPS leave */
- 		rtw_set_ips_deny(padapter, 3000);
  
--	      _clr_fwstate_(pmlmepriv, _FW_LINKED);
-+		_clr_fwstate_(pmlmepriv, _FW_LINKED);
- 
- 		rtw_clear_scan_deny(padapter);
+@@ -144,8 +145,9 @@ void rtw_odm_ability_msg(void *sel, struct adapter *adapter)
+ 	DBG_871X_SEL_NL(sel, "odm.SupportAbility = 0x%08x\n", ability);
+ 	for (i = 0; i < RTW_ODM_ABILITY_MAX; i++) {
+ 		if (odm_ability_str[i])
+-		DBG_871X_SEL_NL(sel, "%cBIT%-2d %s\n",
+-			(BIT0 << i) & ability ? '+' : ' ', i, odm_ability_str[i]);
++			DBG_871X_SEL_NL(sel, "%cBIT%-2d %s\n",
++					(BIT0 << i) & ability ? '+' : ' ', i,
++					odm_ability_str[i]);
  	}
-@@ -2826,8 +2825,8 @@ unsigned int rtw_restructure_ht_ie(struct adapter *padapter, u8 *in_ie, u8 *out_
- 		if (stbc_rx_enable)
- 			ht_capie.cap_info |= cpu_to_le16(IEEE80211_HT_CAP_RX_STBC_1R);/* RX STBC One spatial stream */
- 
--	    set_mcs_rate_by_mask(ht_capie.supp_mcs_set, MCS_RATE_1R);
--			break;
-+		set_mcs_rate_by_mask(ht_capie.supp_mcs_set, MCS_RATE_1R);
-+		break;
- 
- 	case RF_2T2R:
- 	case RF_1T2R:
-@@ -2984,22 +2983,22 @@ void rtw_update_ht_cap(struct adapter *padapter, u8 *pie, uint ie_len, u8 channe
- #else /* CONFIG_DISABLE_MCS13TO15 */
- 			set_mcs_rate_by_mask(pmlmeinfo->HT_caps.u.HT_cap_element.MCS_rate, MCS_RATE_2R);
- #endif /* CONFIG_DISABLE_MCS13TO15 */
--	}
-+		}
- 
--	/* switch to the 40M Hz mode accoring to the AP */
--	/* pmlmeext->cur_bwmode = CHANNEL_WIDTH_40; */
--	switch ((pmlmeinfo->HT_info.infos[0] & 0x3)) {
--	case EXTCHNL_OFFSET_UPPER:
--		pmlmeext->cur_ch_offset = HAL_PRIME_CHNL_OFFSET_LOWER;
--		break;
-+		/* switch to the 40M Hz mode according to the AP */
-+		/* pmlmeext->cur_bwmode = CHANNEL_WIDTH_40; */
-+		switch ((pmlmeinfo->HT_info.infos[0] & 0x3)) {
-+		case EXTCHNL_OFFSET_UPPER:
-+			pmlmeext->cur_ch_offset = HAL_PRIME_CHNL_OFFSET_LOWER;
-+			break;
- 
--	case EXTCHNL_OFFSET_LOWER:
--		pmlmeext->cur_ch_offset = HAL_PRIME_CHNL_OFFSET_UPPER;
--		break;
-+		case EXTCHNL_OFFSET_LOWER:
-+			pmlmeext->cur_ch_offset = HAL_PRIME_CHNL_OFFSET_UPPER;
-+			break;
- 
--	default:
--		pmlmeext->cur_ch_offset = HAL_PRIME_CHNL_OFFSET_DONT_CARE;
--		break;
-+		default:
-+			pmlmeext->cur_ch_offset = HAL_PRIME_CHNL_OFFSET_DONT_CARE;
-+			break;
- 		}
- 	}
+ }
  
 -- 
 2.12.0
