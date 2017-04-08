@@ -1,39 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/1] netvsc: Initialize all channel related
- state prior to opening the channel
-Date: Sat, 08 Apr 2017 08:33:18 -0700 (PDT)
-Message-ID: <20170408.083318.370417877208769419.davem@davemloft.net>
-References: <1491515961-15624-1-git-send-email-kys@exchange.microsoft.com>
+Subject: Re: [PATCH net-next] liquidio: fix VF incorrectly indicating that
+ it successfully set its VLAN
+Date: Sat, 08 Apr 2017 08:39:05 -0700 (PDT)
+Message-ID: <20170408.083905.1266827432475392554.davem@davemloft.net>
+References: <20170407022222.GA1017@felix-thinkpad.cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, sthemmin@microsoft.com, netdev@vger.kernel.org,
- jasowang@redhat.com, linux-kernel@vger.kernel.org, marcelo.cerri@canonical.com,
- apw@canonical.com, devel@linuxdriverproject.org,
- leann.ogasawara@canonical.comi
-To: kys@microsoft.com, kys@exchange.microsoft.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1491515961-15624-1-git-send-email-kys@exchange.microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
+        derek.chickles@cavium.com
+To: felix.manlunas@cavium.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:41366 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751137AbdDHPjH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 8 Apr 2017 11:39:07 -0400
+In-Reply-To: <20170407022222.GA1017@felix-thinkpad.cavium.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: kys@exchange.microsoft.com
-Date: Thu,  6 Apr 2017 14:59:21 -0700
+From: Felix Manlunas <felix.manlunas@cavium.com>
+Date: Thu, 6 Apr 2017 19:22:22 -0700
 
-> From: K. Y. Srinivasan <kys@microsoft.com>
+> For security reasons, NIC firmware does not allow VF to set its VLAN if PF
+> set it already.  Firmware allows VF to set its VLAN if PF did not set it.
+> After the VF instructs the firmware to set the VLAN, VF always indicates
+> (via return 0) that the operation is successful--even for the times when it
+> isn't.
 > 
-> Prior to opening the channel we should have all the state setup to handle
-> interrupts. The current code does not do that; fix the bug. This bug
-> can result in faults in the interrupt path.
->  
-> Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+> Put in a mechanism for the VF's set VLAN function to receive the firmware
+> response code, then make that function return -EPERM if the firmware
+> forbids the operation.
+> 
+> Make that mechanism available for other functions that may, in the future,
+> be interested in receiving the response code from the firmware.  That
+> mechanism involves adding new fields to struct octnic_ctrl_pkt, so make all
+> users of struct octnic_ctrl_pkt initialize the struct to zero before using
+> it; otherwise, the mechanism might act on uninitialized garbage.
+> 
+> Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
+> Signed-off-by: Derek Chickles <derek.chickles@cavium.com>
 
 Applied, thanks.
