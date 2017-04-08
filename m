@@ -1,61 +1,46 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH 1/5] netlink: extended ACK reporting
-Date: Sat, 8 Apr 2017 16:14:39 -0400
-Message-ID: <647a29e0-fd0d-9bba-e38f-e73dc35ae414@cumulusnetworks.com>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: [PATCH 4/5] netlink: pass extended ACK struct to parsing
+ functions
+Date: Sat, 08 Apr 2017 22:15:11 +0200
+Message-ID: <1491682511.2379.2.camel@sipsolutions.net>
 References: <20170408174900.12820-1-johannes@sipsolutions.net>
- <20170408174900.12820-2-johannes@sipsolutions.net>
+         <20170408174900.12820-5-johannes@sipsolutions.net>
+         <3077bf17-553d-f9e3-8873-c59fbb26e2aa@cumulusnetworks.com>
+         (sfid-20170408_205014_016171_8149213D)
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: pablo@netfilter.org, Jamal Hadi Salim <jhs@mojatatu.com>,
-        Jiri Benc <jbenc@redhat.com>, jiri@resnulli.us,
-        Johannes Berg <johannes.berg@intel.com>
-To: Johannes Berg <johannes@sipsolutions.net>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f49.google.com ([74.125.83.49]:36522 "EHLO
-        mail-pg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751505AbdDHUOn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 8 Apr 2017 16:14:43 -0400
-Received: by mail-pg0-f49.google.com with SMTP id g2so86593050pge.3
-        for <netdev@vger.kernel.org>; Sat, 08 Apr 2017 13:14:43 -0700 (PDT)
-In-Reply-To: <20170408174900.12820-2-johannes@sipsolutions.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
+        Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org
+To: David Ahern <dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>,
+        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <3077bf17-553d-f9e3-8873-c59fbb26e2aa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org> (sfid-20170408_205014_016171_8149213D)
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 4/8/17 1:48 PM, Johannes Berg wrote:
-> diff --git a/include/uapi/linux/netlink.h b/include/uapi/linux/netlink.h
-> index f3946a27bd07..d1564557d645 100644
-> --- a/include/uapi/linux/netlink.h
-> +++ b/include/uapi/linux/netlink.h
-> @@ -101,6 +101,29 @@ struct nlmsghdr {
->  struct nlmsgerr {
->  	int		error;
->  	struct nlmsghdr msg;
-> +	/*
-> +	 * followed by the message contents unless NETLINK_CAP_ACK was set,
-> +	 * message length is aligned with NLMSG_ALIGN()
-> +	 */
-> +	/*
-> +	 * followed by TLVs defined in enum nlmsgerr_attrs
-> +	 * if NETLINK_EXT_ACK was set
-> +	 */
-> +};
-> +
-> +/**
-> + * enum nlmsgerr_attrs - netlink error message attributes
-> + * @NLMSGERR_ATTR_UNUSED: unused
-> + * @NLMSGERR_ATTR_MSG: error message string (string)
-> + * @NLMSGERR_ATTR_OFFS: error offset in the original message (u32)
-> + * @NLMSGERR_ATTR_ATTR: top-level attribute that caused the error
-> + *	(or is missing, u16)
-> + */
-> +enum nlmsgerr_attrs {
-> +	NLMSGERR_ATTR_UNUSED,
-> +	NLMSGERR_ATTR_MSG,
-> +	NLMSGERR_ATTR_OFFS,
-> +	NLMSGERR_ATTR_ATTR,
+On Sat, 2017-04-08 at 14:50 -0400, David Ahern wrote:
+> On 4/8/17 1:48 PM, Johannes Berg wrote:
+> > From: Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+> > 
+> > Pass the new extended ACK reporting struct to all of the
+> > generic netlink parsing functions. For now, pass NULL in
+> > almost all callers (except for some in the core.)
+> > 
+> > Signed-off-by: Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+> 
+> fails to compile as well:
+> 
+> In file included from /home/dsa/kernel-
+> 4.git/net/sched/cls_rsvp.c:27:0:
+> /home/dsa/kernel-4.git/net/sched/cls_rsvp.h: In function
+> ‘rsvp_change’:
+> /home/dsa/kernel-4.git/net/sched/cls_rsvp.h:487:8: error: too few
+> arguments to function ‘nla_parse_nested’
+>   err = nla_parse_nested(tb, TCA_RSVP_MAX, opt, rsvp_policy);
+>         ^
 
+Yeah, spatch misses header files without special command-line arguments
+... this should be fixed in v2, the kbuild bot also noticed it.
 
-can you add __NLMSGERR_ATTR_MAX and
-#define NLMSGERR_ATTR_MAX (__NLMSGERR_ATTR_MAX - 1)
+johannes
