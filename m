@@ -1,74 +1,70 @@
 From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH 07/22] staging: rtl8723bs: Fix potential usage while NULL error in hal/rtl8723b_hal_init.c
-Date: Sat,  8 Apr 2017 11:07:30 -0500
-Message-ID: <20170408160745.14328-8-Larry.Finger@lwfinger.net>
+Subject: [PATCH 14/22] staging: rtl8723bs: Fix indenting mistakes in core/rtw_ieee80211.c
+Date: Sat,  8 Apr 2017 11:07:37 -0500
+Message-ID: <20170408160745.14328-15-Larry.Finger@lwfinger.net>
 References: <20170408160745.14328-1-Larry.Finger@lwfinger.net>
 Cc: netdev@vger.kernel.org, devel@driverdev.osuosl.org,
         hdegoede@redhat.com, hadess@hadess.net, jes.sorensen@gmail.com,
         Larry Finger <Larry.Finger@lwfinger.net>
 To: gregkh@linuxfoundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f68.google.com ([209.85.218.68]:34832 "EHLO
-        mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752491AbdDHQIN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 8 Apr 2017 12:08:13 -0400
-Received: by mail-oi0-f68.google.com with SMTP id g204so6268765oib.2
-        for <netdev@vger.kernel.org>; Sat, 08 Apr 2017 09:08:08 -0700 (PDT)
+Received: from mail-oi0-f65.google.com ([209.85.218.65]:33328 "EHLO
+        mail-oi0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752618AbdDHQIP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 8 Apr 2017 12:08:15 -0400
+Received: by mail-oi0-f65.google.com with SMTP id t63so1022875oih.0
+        for <netdev@vger.kernel.org>; Sat, 08 Apr 2017 09:08:14 -0700 (PDT)
 In-Reply-To: <20170408160745.14328-1-Larry.Finger@lwfinger.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Smatch logs the following:
+Smatch reports the following:
 
-  CHECK   drivers/staging/rtl8723bs/hal/rtl8723b_hal_init.c
-drivers/staging/rtl8723bs/hal/rtl8723b_hal_init.c:518 rtl8723b_FirmwareDownload() error: we previously assumed 'pFirmware' could be null (see line 382)
+  CHECK   drivers/staging/rtl8723bs/core/rtw_ieee80211.c
+drivers/staging/rtl8723bs/core/rtw_ieee80211.c:83 rtw_is_cckrates_included() warn: if statement not indented
+drivers/staging/rtl8723bs/core/rtw_ieee80211.c:98 rtw_is_cckratesonly_included() warn: if statement not indented
 
-Fixing this error required a rewrite of the error exits from this routine.
+These warnings are fixed with white-space changes.
 
 Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
 ---
- drivers/staging/rtl8723bs/hal/rtl8723b_hal_init.c | 13 +++++++------
- 1 file changed, 7 insertions(+), 6 deletions(-)
+ drivers/staging/rtl8723bs/core/rtw_ieee80211.c | 13 +++++--------
+ 1 file changed, 5 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/staging/rtl8723bs/hal/rtl8723b_hal_init.c b/drivers/staging/rtl8723bs/hal/rtl8723b_hal_init.c
-index b7f6dc7ce318..d40ad03e99a3 100644
---- a/drivers/staging/rtl8723bs/hal/rtl8723b_hal_init.c
-+++ b/drivers/staging/rtl8723bs/hal/rtl8723b_hal_init.c
-@@ -377,13 +377,13 @@ s32 rtl8723b_FirmwareDownload(struct adapter *padapter, bool  bUsedWoWLANFw)
- 	RT_TRACE(_module_hal_init_c_, _drv_notice_, ("+%s, bUsedWoWLANFw:%d\n", __func__, bUsedWoWLANFw));
- #endif
- 	pFirmware = kzalloc(sizeof(struct rt_firmware), GFP_KERNEL);
-+	if (!pFirmware)
-+		return _FAIL;
- 	pBTFirmware = kzalloc(sizeof(struct rt_firmware), GFP_KERNEL);
+diff --git a/drivers/staging/rtl8723bs/core/rtw_ieee80211.c b/drivers/staging/rtl8723bs/core/rtw_ieee80211.c
+index af44a8cd26f8..4670e72368e5 100644
+--- a/drivers/staging/rtl8723bs/core/rtw_ieee80211.c
++++ b/drivers/staging/rtl8723bs/core/rtw_ieee80211.c
+@@ -81,8 +81,8 @@ uint	rtw_is_cckrates_included(u8 *rate)
+ 
+ 		while (rate[i] !=  0) {
+ 			if  ((((rate[i]) & 0x7f) == 2)	|| (((rate[i]) & 0x7f) == 4) ||
+-			(((rate[i]) & 0x7f) == 11)  || (((rate[i]) & 0x7f) == 22))
+-			return true;
++			     (((rate[i]) & 0x7f) == 11)  || (((rate[i]) & 0x7f) == 22))
++				return true;
+ 			i++;
+ 		}
+ 
+@@ -95,16 +95,13 @@ uint	rtw_is_cckratesonly_included(u8 *rate)
+ 
+ 
+ 	while (rate[i] != 0) {
+-			if  ((((rate[i]) & 0x7f) != 2) && (((rate[i]) & 0x7f) != 4) &&
+-				(((rate[i]) & 0x7f) != 11)  && (((rate[i]) & 0x7f) != 22))
 -
--	if (!pFirmware || !pBTFirmware) {
--		rtStatus = _FAIL;
--		goto exit;
-+	if (!pBTFirmware) {
-+		kfree(pFirmware);
-+		return _FAIL;
- 	}
++		if  ((((rate[i]) & 0x7f) != 2) && (((rate[i]) & 0x7f) != 4) &&
++		     (((rate[i]) & 0x7f) != 11)  && (((rate[i]) & 0x7f) != 22))
+ 			return false;
 -
- 	tmp_ps = rtw_read8(padapter, 0xa3);
- 	tmp_ps &= 0xf8;
- 	tmp_ps |= 0x02;
-@@ -441,7 +441,7 @@ s32 rtl8723b_FirmwareDownload(struct adapter *padapter, bool  bUsedWoWLANFw)
- 	if (pFirmware->ulFwLength > FW_8723B_SIZE) {
- 		rtStatus = _FAIL;
- 		DBG_871X_LEVEL(_drv_emerg_, "Firmware size:%u exceed %u\n", pFirmware->ulFwLength, FW_8723B_SIZE);
--		goto exit;
-+		goto release_fw1;
+-			i++;
++		i++;
  	}
  
- 	pFirmwareBuf = pFirmware->szFwBuffer;
-@@ -517,6 +517,7 @@ s32 rtl8723b_FirmwareDownload(struct adapter *padapter, bool  bUsedWoWLANFw)
- exit:
- 	kfree(pFirmware->szFwBuffer);
- 	kfree(pFirmware);
-+release_fw1:
- 	kfree(pBTFirmware);
- 	DBG_871X(" <=== rtl8723b_FirmwareDownload()\n");
- 	return rtStatus;
+ 	return true;
+-
+ }
+ 
+ int rtw_check_network_type(unsigned char *rate, int ratelen, int channel)
 -- 
 2.12.0
