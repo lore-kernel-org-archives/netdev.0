@@ -1,81 +1,98 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/12][pull request] 40GbE Intel Wired LAN Driver Updates 2017-04-08
-Date: Sat,  8 Apr 2017 02:55:41 -0700
-Message-ID: <20170408095553.78307-1-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
+Subject: [net-next 06/12] i40e: allow look-up of MAC address from Open Firmware or IDPROM
+Date: Sat,  8 Apr 2017 02:55:47 -0700
+Message-ID: <20170408095553.78307-7-jeffrey.t.kirsher@intel.com>
+References: <20170408095553.78307-1-jeffrey.t.kirsher@intel.com>
+Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:26215 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:25320 "EHLO mga14.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751243AbdDHJz5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 8 Apr 2017 05:55:57 -0400
+        id S1751902AbdDHJ4D (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 8 Apr 2017 05:56:03 -0400
+In-Reply-To: <20170408095553.78307-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to i40e and i40evf only.
+From: Jacob Keller <jacob.e.keller@intel.com>
 
-Mitch fixes an issue where the client driver (i40iw) was attempting to
-load on x710 devices (which do not support iWARP), so only register with
-the client if iWARP is supported.
+Look up the MAC address from the eth_get_platform_mac_address() function
+first before checking what the firmware provides. We already handle the
+case of re-writing the MAC-VLAN filter, so there is no need to add extra
+code for this. However, update the comment where we do this to indicate
+that it does impact the Open Firmware MAC address case.
 
-Jake fixes up error messages to better clarify to the user when adding a
-invalid flow type.  Updates the driver to look up the MAC address from
-eth_get_platform_mac_address() first before checking what the firmware
-provides.  Cleans up code so we are not repeating a duplicate loop, by
-checking both transmit and receive queues in a single loop.  Also cleans
-up flags never used, so remove the definitions.
+Change-ID: I73e59fbe0b0e7e6f3ee9f5170d0bd3a4d5faf4db
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 29 ++++++++++++++++-------------
+ 1 file changed, 16 insertions(+), 13 deletions(-)
 
-Alex does cleanup so that we are always updating pf->flags when a change
-is made to the private flags.  Adds support for 3K buffers to the receive
-path so that we can provide the additional padding needed in the event
-of NET_IP_ALIGN being non-zero or a cache line being greater than 64.
-Adds support for build_skb() to i40e/i40evf.
-
-Maciej adjusts the scope of the rtnl lock held during reset because it
-was stopping other PFs from running their reset procedures.
-
-Alan reduces code complexity in i40e_detect_recover_hung_queue().
-
-The following are changes since commit 3a9024f52c2e92a143195db43d2abbd5d0792c06:
-  net: thunderx: Enable TSO and checksum offloads for ipv6
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 40GbE
-
-Alan Brady (1):
-  i40e: Simplify i40e_detect_recover_hung_queue logic
-
-Alexander Duyck (4):
-  i40e: Swap use of pf->flags and pf->hw_disabled_flags for ATR Eviction
-  i40e/i40evf: Add support for using order 1 pages with a 3K buffer
-  i40e/i40evf: Add support for padding start of frames
-  i40e/i40evf: Use build_skb to build frames
-
-Alice Michael (1):
-  i40e: remove I40E_FLAG_NEED_LINK_UPDATE
-
-Jacob Keller (4):
-  i40e: update error message when trying to add invalid filters
-  i40e: allow look-up of MAC address from Open Firmware or IDPROM
-  i40e: remove extraneous loop in i40e_vsi_wait_queues_disabled
-  i40e: clean up historic deprecated flag definitions
-
-Maciej Sosin (1):
-  i40e: Decrease the scope of rtnl lock
-
-Mitch Williams (1):
-  i40e: only register client on iWarp-capable devices
-
- drivers/net/ethernet/intel/i40e/i40e.h          |  10 +-
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c  |   7 +-
- drivers/net/ethernet/intel/i40e/i40e_main.c     | 268 +++++++++++++-----------
- drivers/net/ethernet/intel/i40e/i40e_txrx.c     | 116 +++++++---
- drivers/net/ethernet/intel/i40e/i40e_txrx.h     |  85 +++++++-
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c   |  89 ++++++--
- drivers/net/ethernet/intel/i40evf/i40e_txrx.h   |  82 +++++++-
- drivers/net/ethernet/intel/i40evf/i40evf.h      |   1 -
- drivers/net/ethernet/intel/i40evf/i40evf_main.c |  14 +-
- 9 files changed, 486 insertions(+), 186 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 22831a4a9099..2111f120865a 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -9326,10 +9326,15 @@ static int i40e_config_netdev(struct i40e_vsi *vsi)
+ 	if (vsi->type == I40E_VSI_MAIN) {
+ 		SET_NETDEV_DEV(netdev, &pf->pdev->dev);
+ 		ether_addr_copy(mac_addr, hw->mac.perm_addr);
+-		/* The following steps are necessary to properly keep track of
+-		 * MAC-VLAN filters loaded into firmware - first we remove
+-		 * filter that is automatically generated by firmware and then
+-		 * add new filter both to the driver hash table and firmware.
++		/* The following steps are necessary for two reasons. First,
++		 * some older NVM configurations load a default MAC-VLAN
++		 * filter that will accept any tagged packet, and we want to
++		 * replace this with a normal filter. Additionally, it is
++		 * possible our MAC address was provided by the platform using
++		 * Open Firmware or similar.
++		 *
++		 * Thus, we need to remove the default filter and install one
++		 * specific to the MAC address.
+ 		 */
+ 		i40e_rm_default_mac_filter(vsi, mac_addr);
+ 		spin_lock_bh(&vsi->mac_filter_hash_lock);
+@@ -10834,20 +10839,18 @@ static void i40e_print_features(struct i40e_pf *pf)
+ 
+ /**
+  * i40e_get_platform_mac_addr - get platform-specific MAC address
+- *
+  * @pdev: PCI device information struct
+  * @pf: board private structure
+  *
+- * Look up the MAC address in Open Firmware  on systems that support it,
+- * and use IDPROM on SPARC if no OF address is found. On return, the
+- * I40E_FLAG_PF_MAC will be wset in pf->flags if a platform-specific value
+- * has been selected.
++ * Look up the MAC address for the device. First we'll try
++ * eth_platform_get_mac_address, which will check Open Firmware, or arch
++ * specific fallback. Otherwise, we'll default to the stored value in
++ * firmware.
+  **/
+ static void i40e_get_platform_mac_addr(struct pci_dev *pdev, struct i40e_pf *pf)
+ {
+-	pf->flags &= ~I40E_FLAG_PF_MAC;
+-	if (!eth_platform_get_mac_address(&pdev->dev, pf->hw.mac.addr))
+-		pf->flags |= I40E_FLAG_PF_MAC;
++	if (eth_platform_get_mac_address(&pdev->dev, pf->hw.mac.addr))
++		i40e_get_mac_addr(&pf->hw, pf->hw.mac.addr);
+ }
+ 
+ /**
+@@ -11061,9 +11064,9 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		i40e_aq_stop_lldp(hw, true, NULL);
+ 	}
+ 
+-	i40e_get_mac_addr(hw, hw->mac.addr);
+ 	/* allow a platform config to override the HW addr */
+ 	i40e_get_platform_mac_addr(pdev, pf);
++
+ 	if (!is_valid_ether_addr(hw->mac.addr)) {
+ 		dev_info(&pdev->dev, "invalid MAC address %pM\n", hw->mac.addr);
+ 		err = -EIO;
 -- 
 2.12.2
