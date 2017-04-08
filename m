@@ -1,54 +1,41 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH 1/5] netlink: extended ACK reporting
-Date: Sat, 8 Apr 2017 20:40:08 +0200
-Message-ID: <20170408184008.GB1900@nanopsycho>
-References: <20170408174900.12820-1-johannes@sipsolutions.net>
- <20170408174900.12820-2-johannes@sipsolutions.net>
- <20170408183440.GA1900@nanopsycho>
- <1491676621.5800.24.camel@sipsolutions.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ibmveth: Support to enable LSO/CSO for Trunk VEA.
+Date: Sat, 08 Apr 2017 11:45:15 -0700 (PDT)
+Message-ID: <20170408.114515.1339820744697810446.davem@davemloft.net>
+References: <1491559079-10855-1-git-send-email-ksiva@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        pablo@netfilter.org, Jamal Hadi Salim <jhs@mojatatu.com>,
-        Jiri Benc <jbenc@redhat.com>,
-        David Ahern <dsa@cumulusnetworks.com>
-To: Johannes Berg <johannes@sipsolutions.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, tlfalcon@linux.vnet.ibm.com,
+        benh@kernel.crashing.org, paulus@samba.org, mpe@ellerman.id.au,
+        linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org,
+        brking@linux.vnet.ibm.com, seroyer@linux.vnet.ibm.com
+To: ksiva@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f66.google.com ([209.85.214.66]:36773 "EHLO
-        mail-it0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752100AbdDHSkM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 8 Apr 2017 14:40:12 -0400
-Received: by mail-it0-f66.google.com with SMTP id a140so1823688ita.3
-        for <netdev@vger.kernel.org>; Sat, 08 Apr 2017 11:40:11 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1491676621.5800.24.camel@sipsolutions.net>
+Received: from shards.monkeyblade.net ([184.105.139.130]:48746 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751955AbdDHSpT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 8 Apr 2017 14:45:19 -0400
+In-Reply-To: <1491559079-10855-1-git-send-email-ksiva@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sat, Apr 08, 2017 at 08:37:01PM CEST, johannes@sipsolutions.net wrote:
->On Sat, 2017-04-08 at 20:34 +0200, Jiri Pirko wrote:
->> nla_total_size(sizeof(u32));
->> > +			if (extack &&
->> > +			    (extack->missing_attr || extack-
->> > >bad_attr))
->> 
->> Attr could be 0, right? I know that on the most of the places 0 is
->> UNSPEC, but I'm pretty sure not everywhere.
->
->Yeah, I guess we can't show a missing attribute of 0 now - bad_attr is
->a pointer so no problem there.
->
->I think I'll leave it like this - if anyone really wants to say
->"attribute 0 is missing" then we can add a flag later... The UAPI does
->take this into account by not including the attribute at all if the
->data is invalid, so 0 in the userspace API can be done
+From: Sivakumar Krishnasamy <ksiva@linux.vnet.ibm.com>
+Date: Fri,  7 Apr 2017 05:57:59 -0400
 
-It a known issue, should be fixed right now. We are in no hurry. This
-waited +15 years to be done, no harm in couple more days.
+> Enable largesend and checksum offload for ibmveth configured in trunk mode.
+> Added support to SKB frag_list in TX path by skb_linearize'ing such SKBs.
+> 
+> Signed-off-by: Sivakumar Krishnasamy <ksiva@linux.vnet.ibm.com>
 
+Why is linearization necessary?
 
-Also, could you please attach a patch to iproute2 for example which
-would make use of this. I just want to make sure it clicks.
+It would seem that the gains you get from GRO are nullified by
+linearizing the SKB and thus copying all the data around and
+allocating buffers.
 
-Thanks!
+Finally, all of that new checksumming stuff looks extremely
+suspicious.  You have to explain why that is happening and why it
+isn't because this driver is doing something incorrectly.
+
+Thanks.
