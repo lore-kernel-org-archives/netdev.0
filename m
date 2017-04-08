@@ -1,40 +1,74 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH v3 iproute] ip: Add support for netdev events to monitor
-Date: Sat, 8 Apr 2017 18:24:06 -0400
-Message-ID: <0a7efd86-3345-223a-7a39-8c8cd1a42f14@cumulusnetworks.com>
-References: <1491312333-18904-1-git-send-email-vyasevic@redhat.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [RFC net-next] bpf: taint loading !is_gpl programs
+Date: Sat, 8 Apr 2017 19:11:28 -0400
+Message-ID: <20170408231124.GA6221@ast-mbp.thefacebook.com>
+References: <20170404183354.8579-1-aconole@bytheb.org>
+ <58E40C2B.7040802@iogearbox.net>
+ <f7tpogqmeai.fsf@redhat.com>
+ <20170406124059.GB53880@ast-mbp.thefacebook.com>
+ <f7tk26w3ybv.fsf@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: roopa@cumulusnetworks.com, dsa@cumulusnetworks.com,
-        davem@davemloft.net
-To: Vladislav Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f174.google.com ([209.85.220.174]:33854 "EHLO
-        mail-qk0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751685AbdDHWYJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 8 Apr 2017 18:24:09 -0400
-Received: by mail-qk0-f174.google.com with SMTP id p68so60805717qke.1
-        for <netdev@vger.kernel.org>; Sat, 08 Apr 2017 15:24:09 -0700 (PDT)
-In-Reply-To: <1491312333-18904-1-git-send-email-vyasevic@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+        Alexei Starovoitov <ast@kernel.org>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Aaron Conole <aconole@bytheb.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <f7tk26w3ybv.fsf@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 4/4/17 9:25 AM, Vladislav Yasevich wrote:
-> Add IFLA_EVENT handling so that event types can be viewed with
-> 'monitor' command.  This gives a little more information for why
-> a given message was receivied.
+On Fri, Apr 07, 2017 at 01:46:28PM -0400, Aaron Conole wrote:
+> Hi Alexei, and Daniel,
 > 
-> Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
-> ---
->  include/linux/if_link.h | 21 +++++++++++++++++++++
->  ip/ipaddress.c          | 31 +++++++++++++++++++++++++++++++
->  2 files changed, 52 insertions(+)
+> Alexei Starovoitov <alexei.starovoitov@gmail.com> writes:
+> 
+> > On Wed, Apr 05, 2017 at 10:59:49PM -0400, Aaron Conole wrote:
+> >> Hi Daniel,
+> >> 
+> >> Daniel Borkmann <daniel@iogearbox.net> writes:
+> >> 
+> >> > On 04/04/2017 08:33 PM, Aaron Conole wrote:
+> >> >> The eBPF framework is used for more than just socket level filtering.  It
+> >> >> can also provide tracing, and even change the way packets coming into the
+> >> >> system look.  Most of the eBPF callable symbols are available to non-gpl
+> >> >> programs, and this includes helper functions which modify packets.  This
+> >> >> allows proprietary eBPF code to link to the kernel and make decisions
+> >> >> which can negatively impact network performance.
+> >> >>
+> >> >> Since the sources for these programs are only available under a proprietary
+> >> >> license, it seems better to treat them the same as other proprietary
+> >> >> modules: set the system taint flag.  An exemption is made for socket-level
+> >> >> filters, since they do not really impact networking for the whole kernel.
+> >> >>
+> >> >> Signed-off-by: Aaron Conole <aconole@bytheb.org>
+> >> >> ---
+> >> >
+> >> > Nacked-by: Daniel Borkmann <daniel@iogearbox.net>
+> 
+> Given we have different views about this, I think I am okay with some
+> middle ground.
+> 
+> Here's the next-steps plan.  Please tell if you dislike it or want to
+> change it:
+> 
+> 1. Add a ref counter for tracking load and unload, which can be queried
+> from a procfs or bpf fs interface
+> 
+> 2. Add a new print during panic when the refcount is non-zero.
+> 
+> This lets us know that there could be some kind of ebpf program loaded,
+> and we would ask for sources before trying to disassemble.
+> 
+> Does this sound reasonable?
 
-per comments on the email thread about reducing notifications, the
-kernel patch for this should be reverted (and hence this iproute2 patch
-is not needed) in favor of using a bitmask. Right now there are too many
-redundant notifications to userspace.
-
-Vlad: can you look at a bitmask version of IFLA_EVENT that shows what
-changed in the newlink message from do_setlink()?
+yeah. for the purpose of identifying whether any classic or extended bpf
+programs loaded that makes sense. The only question how far we should
+take it, since nft and acpi bytecode falls into the same category.
+Also my understanding this is just one of out of many items on
+redhat todo list to make bpf supported in rhel, so I think it makes
+sense to discuss the whole list all at once. If we add patches here and
+there without having full picture we may end up with obsolete api
+or api superseded by other patches/features.
+So let's discuss all feature requests first.
