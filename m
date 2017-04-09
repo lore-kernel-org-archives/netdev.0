@@ -1,34 +1,53 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: Re: [PATCH net-next 0/1 v2] skbuff: Extend gso_type to unsigned int.
-Date: Sun, 9 Apr 2017 19:07:24 +0300
-Message-ID: <20170409160724.GA28980@avx2>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next RFC] Generic XDP
+Date: Sun, 09 Apr 2017 12:24:07 -0700 (PDT)
+Message-ID: <20170409.122407.991589103284660026.davem@davemloft.net>
+References: <20170408.200721.109499285021338999.davem@davemloft.net>
+        <20170409134655.GA2133@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: edumazet@google.com, davem@davemloft.net, netdev@vger.kernel.org
-To: steffen.klassert@secunet.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, xdp-newbies@vger.kernel.org
+To: andrew@lunn.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f195.google.com ([209.85.128.195]:34035 "EHLO
-        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752342AbdDIQH2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 9 Apr 2017 12:07:28 -0400
-Received: by mail-wr0-f195.google.com with SMTP id u18so18173743wrc.1
-        for <netdev@vger.kernel.org>; Sun, 09 Apr 2017 09:07:28 -0700 (PDT)
-Content-Disposition: inline
+Received: from shards.monkeyblade.net ([184.105.139.130]:59290 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752376AbdDITYO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 9 Apr 2017 15:24:14 -0400
+In-Reply-To: <20170409134655.GA2133@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->  struct skb_shared_info {
-> +	unsigned short	_unused;
->  	unsigned char	nr_frags;
+From: Andrew Lunn <andrew@lunn.ch>
+Date: Sun, 9 Apr 2017 15:46:55 +0200
 
-This makes _all_ fields to be accessed with offset, but if you move
-padding down, at least ->nr_frags will enjoy clean and simple [R64]
-addressing.
+>> +	switch (act) {
+>> +	case XDP_PASS:
+>> +	case XDP_TX:
+>> +		break;
+>> +
+>> +	default:
+>> +		bpf_warn_invalid_xdp_action(act);
+> 
+> Hi David
+> 
+> You might want to put a /* fall through */ comment here, just to
+> prevent newbies from submitting patches moving the default clause to
+> the end.
 
-On allyesconfig-ish kernel:
+Probably need two, ala:
 
-	before:	+542 = 720-178
-	 after:	-158 =  53-211 (negative, because 16-bit field became 32-bit)
+	default:
+		bpf_warn_invalid_xdp_action(act);
+		/* fall through */
+	case XDP_ABORTED:
+		trace_xdp_exception(skb->dev, xdp_prog, act);
+		/* fall through */
+	case XDP_DROP:
+	do_drop:
+		kfree_skb(skb);
+		break;
 
-You may want to add configurable redzone there instead of padding
-if that what you want. 2 bytes is nothing.
+So that's what I've done.
+
+Thanks!
