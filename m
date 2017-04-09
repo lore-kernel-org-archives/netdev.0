@@ -1,58 +1,40 @@
-From: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-Subject: Re: [PATCH] net: rfkill: gpio: Add OBDA8723 ACPI HID
-Date: Sun, 9 Apr 2017 14:11:48 +0200
-Message-ID: <0939E68A-DBF5-40BF-B83B-73AF234EB60B@holtmann.org>
-References: <20170408210520.2799-1-hdegoede@redhat.com>
- <D47F8D1B-8EE0-4754-A0F2-EC823A9BDA11@holtmann.org>
- <d1206383-7fad-55ca-0717-5e485b9bee92@redhat.com>
-Mime-Version: 1.0 (Mac OS X Mail 10.3 \(3273\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        russianneuromancer-k+OT61UuxXo@public.gmane.org,
-        Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
-To: Hans de Goede <hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <d1206383-7fad-55ca-0717-5e485b9bee92-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: gfree.wind@foxmail.com
+Subject: [PATCH net 1/1] net: tcp: Increase TCPABORTONLINGER when send RST by linger2 in keepalive timer
+Date: Sun,  9 Apr 2017 20:44:41 +0800
+Message-ID: <1491741881-28322-1-git-send-email-gfree.wind@foxmail.com>
+Cc: Gao Feng <fgao@ikuai8.com>
+To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+        kaber@trash.net, ncardwell@google.com, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtpbgau1.qq.com ([54.206.16.166]:39464 "EHLO smtpbgau1.qq.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752069AbdDIMpL (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 9 Apr 2017 08:45:11 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Hans,
+From: Gao Feng <fgao@ikuai8.com>
 
->>> The OBDA8723 ACPI HID is used on quite a few Bay Trail based tablets
->>> for bluetooth rfkill functionality.
->>> 
->>> Tested-by: russianneuromancer-k+OT61UuxXo@public.gmane.org <russianneuromancer-k+OT61UuxXo@public.gmane.org>
->>> Signed-off-by: Hans de Goede <hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
->>> ---
->>> net/rfkill/rfkill-gpio.c | 1 +
->>> 1 file changed, 1 insertion(+)
->>> 
->>> diff --git a/net/rfkill/rfkill-gpio.c b/net/rfkill/rfkill-gpio.c
->>> index 76c01cb..50ca65e 100644
->>> --- a/net/rfkill/rfkill-gpio.c
->>> +++ b/net/rfkill/rfkill-gpio.c
->>> @@ -163,6 +163,7 @@ static int rfkill_gpio_remove(struct platform_device *pdev)
->>> static const struct acpi_device_id rfkill_acpi_match[] = {
->>> 	{ "BCM4752", RFKILL_TYPE_GPS },
->>> 	{ "LNV4752", RFKILL_TYPE_GPS },
->>> +	{ "OBDA8723", RFKILL_TYPE_BLUETOOTH },
->>> 	{ },
->>> };
->> 
->> NAK. We are integrating these with hci_bcm.c or hci_intel.c drivers.
-> 
-> This is for the bluetooth side of the rtl8723bs driver which recently
-> (yesterday) got merged in into drivers/staging. Which still needs
-> hciattach from userspace. I completely agree that eventually we should
-> fix that. In the mean time it would be nice if we could carry this
-> one line patch to give people using the staging driver working bluetooth.
+It should increase TCPABORTONLINGER counter when send RST caused by
+linger2 in keepalive timer.
 
-why are Bluetooth drivers in staging? I objected to them before. The only reason to have them in staging would be people being to lazy to clean things up.
+Signed-off-by: Gao Feng <fgao@ikuai8.com>
+---
+ net/ipv4/tcp_timer.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-Regards
-
-Marcel
+diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
+index b2ab411..5c01f21 100644
+--- a/net/ipv4/tcp_timer.c
++++ b/net/ipv4/tcp_timer.c
+@@ -650,6 +650,8 @@ static void tcp_keepalive_timer (unsigned long data)
+ 				tcp_time_wait(sk, TCP_FIN_WAIT2, tmo);
+ 				goto out;
+ 			}
++		} else {
++			NET_INC_STATS(sock_net(sk), LINUX_MIB_TCPABORTONLINGER);
+ 		}
+ 		tcp_send_active_reset(sk, GFP_ATOMIC);
+ 		goto death;
+-- 
+1.9.1
