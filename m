@@ -1,53 +1,300 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next RFC] Generic XDP
-Date: Sun, 09 Apr 2017 12:47:26 -0700 (PDT)
-Message-ID: <20170409.124726.911932420824458401.davem@davemloft.net>
-References: <20170408.200721.109499285021338999.davem@davemloft.net>
-        <1491719118.4309.1.camel@sipsolutions.net>
-        <1491721447.4309.2.camel@sipsolutions.net>
+Subject: [PATCH v2 net-next RFC] Generic XDP
+Date: Sun, 09 Apr 2017 13:35:28 -0700 (PDT)
+Message-ID: <20170409.133528.660876505013192371.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xdp-newbies@vger.kernel.org
-To: johannes@sipsolutions.net
+Cc: xdp-newbies@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:59682 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:60392 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752320AbdDITr3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 9 Apr 2017 15:47:29 -0400
-In-Reply-To: <1491721447.4309.2.camel@sipsolutions.net>
+        with ESMTP id S1752463AbdDIUff (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 9 Apr 2017 16:35:35 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes@sipsolutions.net>
-Date: Sun, 09 Apr 2017 09:04:07 +0200
 
-> On Sun, 2017-04-09 at 08:25 +0200, Johannes Berg wrote:
->> That would also let you use rcu_assign_pointer() which seems like the
->> right thing to do here, along with marking the xdp_prog pointer as
->> __rcu? That'd also let you use rcu_dereference() instead of
->> READ_ONCE() which seems like the better annotation?
-> 
-> Looks like drivers do it exactly this way too though.
+This provides a generic non-optimized XDP implementation when the
+device driver does not provide an optimized one.
 
-Every driver does things differently.  For example bnxt_en (which I
-largely based my patch upon) uses xchg(), whilst mlx4 uses RCU
-operations.
+It is arguable that perhaps I should have required something like
+this as part of the initial XDP feature merge.
 
-It just goes to show why it's good to have a common implementation of
-XDP like this.
+I believe this is critical for two reasons:
 
-> What I forgot: I guess we could make drivers use dev->xdp_prog after
-> this, instead of having their own?
+1) Accessibility.  More people can play with XDP with less
+   dependencies.  Yes I know we have XDP support in virtio_net, but
+   that just creates another depedency for learning how to use this
+   facility.
 
-Yes, but we have to resolve xchg() vs. RCU in order for that to work.
+   I wrote this to make life easier for the XDP newbies.
 
-When evaluating this, we have to keep in mind that drivers tend to
-have an extra pointer to the XDP program in their per-queue
-datastructures.  They do this for the purposes of locality of
-refernece during packet processing.
+2) As a model for what the expected semantics are.  If there is a pure
+   generic core implementation, it serves as a semantic example for
+   driver folks adding XDP support.
 
-Instinctively I agree with you that RCU should be the way to go so
-for now I'll adjust my patch to do things that way.
+This is just a rough draft and is untested.
 
-Thanks.
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+
+v2:
+ - Add some "fall through" comments in switch statements based
+   upon feedback from Andrew Lunn
+ - Use RCU for generic xdp_prog, thanks to Johannes Berg.
+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index cc07c3b..f8ff49c 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1892,6 +1892,7 @@ struct net_device {
+ 	struct lock_class_key	*qdisc_tx_busylock;
+ 	struct lock_class_key	*qdisc_running_key;
+ 	bool			proto_down;
++	struct bpf_prog __rcu	*xdp_prog;
+ };
+ #define to_net_dev(d) container_of(d, struct net_device, dev)
+ 
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 7efb417..ad6de2d 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -95,6 +95,7 @@
+ #include <linux/notifier.h>
+ #include <linux/skbuff.h>
+ #include <linux/bpf.h>
++#include <linux/bpf_trace.h>
+ #include <net/net_namespace.h>
+ #include <net/sock.h>
+ #include <net/busy_poll.h>
+@@ -4247,6 +4248,83 @@ static int __netif_receive_skb(struct sk_buff *skb)
+ 	return ret;
+ }
+ 
++static struct static_key generic_xdp_needed __read_mostly;
++
++static int generic_xdp_install(struct net_device *dev, struct netdev_xdp *xdp)
++{
++	struct bpf_prog *new = xdp->prog;
++	int ret = 0;
++
++	switch (xdp->command) {
++	case XDP_SETUP_PROG: {
++		struct bpf_prog *old = rtnl_dereference(dev->xdp_prog);
++
++		rcu_assign_pointer(dev->xdp_prog, new);
++		if (old)
++			bpf_prog_put(old);
++
++		if (old && !new)
++			static_key_slow_dec(&generic_xdp_needed);
++		else if (new && !old)
++			static_key_slow_inc(&generic_xdp_needed);
++		break;
++	}
++
++	case XDP_QUERY_PROG:
++		xdp->prog_attached = !!rcu_access_pointer(dev->xdp_prog);
++		break;
++
++	default:
++		ret = -EINVAL;
++		break;
++	}
++
++	return ret;
++}
++
++static u32 netif_receive_generic_xdp(struct sk_buff *skb,
++				     struct bpf_prog *xdp_prog)
++{
++	struct xdp_buff xdp;
++	u32 act = XDP_DROP;
++	void *orig_data;
++	int hlen, off;
++
++	if (skb_linearize(skb))
++		goto do_drop;
++
++	hlen = skb_headlen(skb);
++	xdp.data = skb->data;
++	xdp.data_end = xdp.data + hlen;
++	xdp.data_hard_start = xdp.data - skb_headroom(skb);
++	orig_data = xdp.data;
++
++	act = bpf_prog_run_xdp(xdp_prog, &xdp);
++
++	off = xdp.data - orig_data;
++	if (off)
++		__skb_push(skb, off);
++
++	switch (act) {
++	case XDP_PASS:
++	case XDP_TX:
++		break;
++
++	default:
++		bpf_warn_invalid_xdp_action(act);
++		/* fall through */
++	case XDP_ABORTED:
++		trace_xdp_exception(skb->dev, xdp_prog, act);
++		/* fall through */
++	case XDP_DROP:
++	do_drop:
++		kfree_skb(skb);
++		break;
++	}
++
++	return act;
++}
++
+ static int netif_receive_skb_internal(struct sk_buff *skb)
+ {
+ 	int ret;
+@@ -4258,6 +4336,21 @@ static int netif_receive_skb_internal(struct sk_buff *skb)
+ 
+ 	rcu_read_lock();
+ 
++	if (static_key_false(&generic_xdp_needed)) {
++		struct bpf_prog *xdp_prog = rcu_dereference(skb->dev->xdp_prog);
++
++		if (xdp_prog) {
++			u32 act = netif_receive_generic_xdp(skb, xdp_prog);
++
++			if (act != XDP_PASS) {
++				rcu_read_unlock();
++				if (act == XDP_TX)
++					dev_queue_xmit(skb);
++				return NET_RX_DROP;
++			}
++		}
++	}
++
+ #ifdef CONFIG_RPS
+ 	if (static_key_false(&rps_needed)) {
+ 		struct rps_dev_flow voidflow, *rflow = &voidflow;
+@@ -6718,6 +6811,7 @@ EXPORT_SYMBOL(dev_change_proto_down);
+  */
+ int dev_change_xdp_fd(struct net_device *dev, int fd, u32 flags)
+ {
++	int (*xdp_op)(struct net_device *dev, struct netdev_xdp *xdp);
+ 	const struct net_device_ops *ops = dev->netdev_ops;
+ 	struct bpf_prog *prog = NULL;
+ 	struct netdev_xdp xdp;
+@@ -6725,14 +6819,16 @@ int dev_change_xdp_fd(struct net_device *dev, int fd, u32 flags)
+ 
+ 	ASSERT_RTNL();
+ 
+-	if (!ops->ndo_xdp)
+-		return -EOPNOTSUPP;
++	xdp_op = ops->ndo_xdp;
++	if (!xdp_op)
++		xdp_op = generic_xdp_install;
++
+ 	if (fd >= 0) {
+ 		if (flags & XDP_FLAGS_UPDATE_IF_NOEXIST) {
+ 			memset(&xdp, 0, sizeof(xdp));
+ 			xdp.command = XDP_QUERY_PROG;
+ 
+-			err = ops->ndo_xdp(dev, &xdp);
++			err = xdp_op(dev, &xdp);
+ 			if (err < 0)
+ 				return err;
+ 			if (xdp.prog_attached)
+@@ -6748,7 +6844,7 @@ int dev_change_xdp_fd(struct net_device *dev, int fd, u32 flags)
+ 	xdp.command = XDP_SETUP_PROG;
+ 	xdp.prog = prog;
+ 
+-	err = ops->ndo_xdp(dev, &xdp);
++	err = xdp_op(dev, &xdp);
+ 	if (err < 0 && prog)
+ 		bpf_prog_put(prog);
+ 
+@@ -7789,6 +7885,7 @@ EXPORT_SYMBOL(alloc_netdev_mqs);
+ void free_netdev(struct net_device *dev)
+ {
+ 	struct napi_struct *p, *n;
++	struct bpf_prog *prog;
+ 
+ 	might_sleep();
+ 	netif_free_tx_queues(dev);
+@@ -7807,6 +7904,12 @@ void free_netdev(struct net_device *dev)
+ 	free_percpu(dev->pcpu_refcnt);
+ 	dev->pcpu_refcnt = NULL;
+ 
++	prog = rcu_dereference(dev->xdp_prog);
++	if (prog) {
++		bpf_prog_put(prog);
++		static_key_slow_dec(&generic_xdp_needed);
++	}
++
+ 	/*  Compatibility with error handling in drivers */
+ 	if (dev->reg_state == NETREG_UNINITIALIZED) {
+ 		netdev_freemem(dev);
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index b2bd4c9..c73c7b7 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -896,15 +896,12 @@ static size_t rtnl_port_size(const struct net_device *dev,
+ 		return port_self_size;
+ }
+ 
+-static size_t rtnl_xdp_size(const struct net_device *dev)
++static size_t rtnl_xdp_size(void)
+ {
+ 	size_t xdp_size = nla_total_size(0) +	/* nest IFLA_XDP */
+ 			  nla_total_size(1);	/* XDP_ATTACHED */
+ 
+-	if (!dev->netdev_ops->ndo_xdp)
+-		return 0;
+-	else
+-		return xdp_size;
++	return xdp_size;
+ }
+ 
+ static noinline size_t if_nlmsg_size(const struct net_device *dev,
+@@ -943,7 +940,7 @@ static noinline size_t if_nlmsg_size(const struct net_device *dev,
+ 	       + nla_total_size(MAX_PHYS_ITEM_ID_LEN) /* IFLA_PHYS_PORT_ID */
+ 	       + nla_total_size(MAX_PHYS_ITEM_ID_LEN) /* IFLA_PHYS_SWITCH_ID */
+ 	       + nla_total_size(IFNAMSIZ) /* IFLA_PHYS_PORT_NAME */
+-	       + rtnl_xdp_size(dev) /* IFLA_XDP */
++	       + rtnl_xdp_size() /* IFLA_XDP */
+ 	       + nla_total_size(4)  /* IFLA_EVENT */
+ 	       + nla_total_size(1); /* IFLA_PROTO_DOWN */
+ 
+@@ -1252,20 +1249,25 @@ static int rtnl_fill_link_ifmap(struct sk_buff *skb, struct net_device *dev)
+ 
+ static int rtnl_xdp_fill(struct sk_buff *skb, struct net_device *dev)
+ {
+-	struct netdev_xdp xdp_op = {};
+ 	struct nlattr *xdp;
+ 	int err;
++	u8 val;
+ 
+-	if (!dev->netdev_ops->ndo_xdp)
+-		return 0;
+ 	xdp = nla_nest_start(skb, IFLA_XDP);
+ 	if (!xdp)
+ 		return -EMSGSIZE;
+-	xdp_op.command = XDP_QUERY_PROG;
+-	err = dev->netdev_ops->ndo_xdp(dev, &xdp_op);
+-	if (err)
+-		goto err_cancel;
+-	err = nla_put_u8(skb, IFLA_XDP_ATTACHED, xdp_op.prog_attached);
++	if (dev->netdev_ops->ndo_xdp) {
++		struct netdev_xdp xdp_op = {};
++
++		xdp_op.command = XDP_QUERY_PROG;
++		err = dev->netdev_ops->ndo_xdp(dev, &xdp_op);
++		if (err)
++			goto err_cancel;
++		val = xdp_op.prog_attached;
++	} else {
++		val = rcu_access_pointer(dev->xdp_prog) ? 1 : 0;
++	}
++	err = nla_put_u8(skb, IFLA_XDP_ATTACHED, val);
+ 	if (err)
+ 		goto err_cancel;
+ 
