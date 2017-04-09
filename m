@@ -1,52 +1,83 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 iproute] ip: Add support for netdev events to monitor
-Date: Sun, 09 Apr 2017 14:47:21 -0700 (PDT)
-Message-ID: <20170409.144721.342305587683511172.davem@davemloft.net>
-References: <0a7efd86-3345-223a-7a39-8c8cd1a42f14@cumulusnetworks.com>
-        <20170408.193311.1975315968848220462.davem@davemloft.net>
-        <1cc68cb4-c4be-a399-b0ed-8179d27c1b6e@cumulusnetworks.com>
+From: <stef.ryckmans@kortenberg.be>
+Subject: (unknown)
+Date: Sun, 09 Apr 2017 22:03:48 -0000
+Message-ID: <149177542825.7951.1788566728224068993@business.telecomitalia.it>
+Reply-To: <stef.ryckmans@kortenberg.be>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: vyasevic@redhat.com, netdev@vger.kernel.org,
-        roopa@cumulusnetworks.com
-To: dsa@cumulusnetworks.com
+Content-Type: application/zip; name="2828_netdev.zip"
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:32838 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751307AbdDIVrY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 9 Apr 2017 17:47:24 -0400
-In-Reply-To: <1cc68cb4-c4be-a399-b0ed-8179d27c1b6e@cumulusnetworks.com>
+Received: from host150-213-static.45-88-b.business.telecomitalia.it ([88.45.213.150]:61224
+        "HELO business.telecomitalia.it" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with SMTP id S1751307AbdDIWD5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 9 Apr 2017 18:03:57 -0400
+Subject: 
+Content-Disposition: attachment
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Ahern <dsa@cumulusnetworks.com>
-Date: Sat, 8 Apr 2017 22:54:07 -0400
-
-> On 4/8/17 10:33 PM, David Miller wrote:
->> From: David Ahern <dsa@cumulusnetworks.com>
->> Date: Sat, 8 Apr 2017 18:24:06 -0400
->> 
->>> per comments on the email thread about reducing notifications, the
->>> kernel patch for this should be reverted (and hence this iproute2 patch
->>> is not needed) in favor of using a bitmask. Right now there are too many
->>> redundant notifications to userspace.
->> 
->> I must have missed something in all the discussion, which patch needs
->> to be reverted from my tree exactly?
->> 
-> 
-> Here's the thread:
-> https://www.spinics.net/lists/netdev/msg429154.html
-> 
-> The comment is that def12888c161 is adding a uapi that leads to way too
-> many notifications (e.g., on a setlink).
-> 
-> It would be more efficient (read less notifications) to have do_setlink
-> emit a single message with the IFLA_EVENT (or something else
-> appropriately named) that indicates what attributes changed. Right now,
-> a change MTU leads to 3 notifications causing unnecessary churn in
-> userspace to track what the state of the link is.
-
-Ok, I'll queue up the revert.  I guess this means your rtnetlink
-patch set is going to need changes or a respin, therefore.
+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
+AAAAAAEAAQBOAAAAtQ0AAAAA
