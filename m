@@ -1,40 +1,45 @@
-From: gfree.wind@foxmail.com
-Subject: [PATCH net 1/1] net: tcp: Increase TCPABORTONLINGER when send RST by linger2 in keepalive timer
-Date: Sun,  9 Apr 2017 20:44:41 +0800
-Message-ID: <1491741881-28322-1-git-send-email-gfree.wind@foxmail.com>
-Cc: Gao Feng <fgao@ikuai8.com>
-To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-        kaber@trash.net, ncardwell@google.com, netdev@vger.kernel.org
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next RFC] Generic XDP
+Date: Sun, 9 Apr 2017 15:46:55 +0200
+Message-ID: <20170409134655.GA2133@lunn.ch>
+References: <20170408.200721.109499285021338999.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, xdp-newbies@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpbgau1.qq.com ([54.206.16.166]:39464 "EHLO smtpbgau1.qq.com"
+Received: from vps0.lunn.ch ([178.209.37.122]:51327 "EHLO vps0.lunn.ch"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752069AbdDIMpL (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 9 Apr 2017 08:45:11 -0400
+        id S1752075AbdDINq7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 9 Apr 2017 09:46:59 -0400
+Content-Disposition: inline
+In-Reply-To: <20170408.200721.109499285021338999.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gao Feng <fgao@ikuai8.com>
+> +	switch (act) {
+> +	case XDP_PASS:
+> +	case XDP_TX:
+> +		break;
+> +
+> +	default:
+> +		bpf_warn_invalid_xdp_action(act);
 
-It should increase TCPABORTONLINGER counter when send RST caused by
-linger2 in keepalive timer.
+Hi David
 
-Signed-off-by: Gao Feng <fgao@ikuai8.com>
----
- net/ipv4/tcp_timer.c | 2 ++
- 1 file changed, 2 insertions(+)
+You might want to put a /* fall through */ comment here, just to
+prevent newbies from submitting patches moving the default clause to
+the end.
 
-diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
-index b2ab411..5c01f21 100644
---- a/net/ipv4/tcp_timer.c
-+++ b/net/ipv4/tcp_timer.c
-@@ -650,6 +650,8 @@ static void tcp_keepalive_timer (unsigned long data)
- 				tcp_time_wait(sk, TCP_FIN_WAIT2, tmo);
- 				goto out;
- 			}
-+		} else {
-+			NET_INC_STATS(sock_net(sk), LINUX_MIB_TCPABORTONLINGER);
- 		}
- 		tcp_send_active_reset(sk, GFP_ATOMIC);
- 		goto death;
--- 
-1.9.1
+    Andrew
+
+> +	case XDP_ABORTED:
+> +		trace_xdp_exception(skb->dev, xdp_prog, act);
+> +	case XDP_DROP:
+> +	do_drop:
+> +		kfree_skb(skb);
+> +		break;
+> +	}
+> +
+> +	return act;
+> +}
