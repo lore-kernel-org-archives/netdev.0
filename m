@@ -1,50 +1,58 @@
-From: Liping Zhang <zlpnobody@gmail.com>
-Subject: Re: [PATCH] net: netfilter: Replace explicit NULL comparisons
-Date: Sun, 9 Apr 2017 17:36:22 +0800
-Message-ID: <CAML_gOeX=c9AxpuFBGes_ogQSZe+s1Rg3-rBL1Q4RX9Gv5hcZg@mail.gmail.com>
-References: <20170408172113.GA9352@arushi-HP-Pavilion-Notebook>
- <nycvar.YFH.7.76.1704082020530.14011@n3.vanv.qr> <20170408201438.GC2679@salvia>
- <CA+XqjF_8=+GB7oq6wKoxk_+FfPeni+tLaVMAE6k6tP-KOOEi6Q@mail.gmail.com> <nycvar.YFH.7.76.1704091025350.18194@n3.vanv.qr>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Arushi Singhal <arushisinghal19971997@gmail.com>,
-        Pablo Neira Ayuso <pablo@netfilter.org>,
-        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-        "David S. Miller" <davem@davemloft.net>,
-        Netfilter Developer Mailing List
-        <netfilter-devel@vger.kernel.org>, coreteam@netfilter.org,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>
-To: Jan Engelhardt <jengelh@inai.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ua0-f193.google.com ([209.85.217.193]:34701 "EHLO
-        mail-ua0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752137AbdDIJgY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 9 Apr 2017 05:36:24 -0400
-In-Reply-To: <nycvar.YFH.7.76.1704091025350.18194@n3.vanv.qr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+Subject: Re: [PATCH] net: rfkill: gpio: Add OBDA8723 ACPI HID
+Date: Sun, 9 Apr 2017 14:11:48 +0200
+Message-ID: <0939E68A-DBF5-40BF-B83B-73AF234EB60B@holtmann.org>
+References: <20170408210520.2799-1-hdegoede@redhat.com>
+ <D47F8D1B-8EE0-4754-A0F2-EC823A9BDA11@holtmann.org>
+ <d1206383-7fad-55ca-0717-5e485b9bee92@redhat.com>
+Mime-Version: 1.0 (Mac OS X Mail 10.3 \(3273\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        russianneuromancer-k+OT61UuxXo@public.gmane.org,
+        Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
+To: Hans de Goede <hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <d1206383-7fad-55ca-0717-5e485b9bee92-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-2017-04-09 16:26 GMT+08:00 Jan Engelhardt <jengelh@inai.de>:
->
-> On Sunday 2017-04-09 05:42, Arushi Singhal wrote:
->>On Sun, Apr 9, 2017 at 1:44 AM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
->>      On Sat, Apr 08, 2017 at 08:21:56PM +0200, Jan Engelhardt wrote:
->>      > On Saturday 2017-04-08 19:21, Arushi Singhal wrote:
->>      >
->>      > >Replace explicit NULL comparison with ! operator to simplify code.
->>      >
->>      > I still wouldn't do this, for the same reason as before. Comparing to
->>      > NULL explicitly more or less gave an extra guarantee that the other
->>      > operand was also a pointer.
->>
->>      Arushi, where does it say in the coding style that this is prefered?
->>
->>This is reported by checkpatch.pl script.
->
-> checkpatch has been controversial at times, like when people took the 80
-> character limit way too literally. Changing pointer comparisons looks like
-> another thing that is better left ignored.
+Hi Hans,
 
-Yes, I agree too. Converting the "if (p != NULL)" to "if (p)" like this seems
-unnecessary.
+>>> The OBDA8723 ACPI HID is used on quite a few Bay Trail based tablets
+>>> for bluetooth rfkill functionality.
+>>> 
+>>> Tested-by: russianneuromancer-k+OT61UuxXo@public.gmane.org <russianneuromancer-k+OT61UuxXo@public.gmane.org>
+>>> Signed-off-by: Hans de Goede <hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+>>> ---
+>>> net/rfkill/rfkill-gpio.c | 1 +
+>>> 1 file changed, 1 insertion(+)
+>>> 
+>>> diff --git a/net/rfkill/rfkill-gpio.c b/net/rfkill/rfkill-gpio.c
+>>> index 76c01cb..50ca65e 100644
+>>> --- a/net/rfkill/rfkill-gpio.c
+>>> +++ b/net/rfkill/rfkill-gpio.c
+>>> @@ -163,6 +163,7 @@ static int rfkill_gpio_remove(struct platform_device *pdev)
+>>> static const struct acpi_device_id rfkill_acpi_match[] = {
+>>> 	{ "BCM4752", RFKILL_TYPE_GPS },
+>>> 	{ "LNV4752", RFKILL_TYPE_GPS },
+>>> +	{ "OBDA8723", RFKILL_TYPE_BLUETOOTH },
+>>> 	{ },
+>>> };
+>> 
+>> NAK. We are integrating these with hci_bcm.c or hci_intel.c drivers.
+> 
+> This is for the bluetooth side of the rtl8723bs driver which recently
+> (yesterday) got merged in into drivers/staging. Which still needs
+> hciattach from userspace. I completely agree that eventually we should
+> fix that. In the mean time it would be nice if we could carry this
+> one line patch to give people using the staging driver working bluetooth.
+
+why are Bluetooth drivers in staging? I objected to them before. The only reason to have them in staging would be people being to lazy to clean things up.
+
+Regards
+
+Marcel
