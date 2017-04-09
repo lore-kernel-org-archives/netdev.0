@@ -1,45 +1,27 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next RFC] Generic XDP
-Date: Sun, 9 Apr 2017 15:46:55 +0200
-Message-ID: <20170409134655.GA2133@lunn.ch>
-References: <20170408.200721.109499285021338999.davem@davemloft.net>
+From: Bastien Nocera <hadess@hadess.net>
+Subject: Re: [PATCH 16/22] staging: rtl8723bs: Fix some indenting problems
+ and a potential data overrun
+Date: Sun, 09 Apr 2017 17:28:32 +0200
+Message-ID: <1491751712.10783.20.camel@hadess.net>
+References: <20170408160745.14328-1-Larry.Finger@lwfinger.net>
+         <20170408160745.14328-17-Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, xdp-newbies@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, devel@driverdev.osuosl.org,
+        hdegoede@redhat.com, jes.sorensen@gmail.com
+To: Larry Finger <Larry.Finger@lwfinger.net>,
+        gregkh@linuxfoundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:51327 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752075AbdDINq7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 9 Apr 2017 09:46:59 -0400
-Content-Disposition: inline
-In-Reply-To: <20170408.200721.109499285021338999.davem@davemloft.net>
+Received: from relay4-d.mail.gandi.net ([217.70.183.196]:55672 "EHLO
+        relay4-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752360AbdDIP2h (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 9 Apr 2017 11:28:37 -0400
+In-Reply-To: <20170408160745.14328-17-Larry.Finger@lwfinger.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> +	switch (act) {
-> +	case XDP_PASS:
-> +	case XDP_TX:
-> +		break;
-> +
-> +	default:
-> +		bpf_warn_invalid_xdp_action(act);
+On Sat, 2017-04-08 at 11:07 -0500, Larry Finger wrote:
+> +       if (cam_id >= 0 && cam_id < 32)
 
-Hi David
-
-You might want to put a /* fall through */ comment here, just to
-prevent newbies from submitting patches moving the default clause to
-the end.
-
-    Andrew
-
-> +	case XDP_ABORTED:
-> +		trace_xdp_exception(skb->dev, xdp_prog, act);
-> +	case XDP_DROP:
-> +	do_drop:
-> +		kfree_skb(skb);
-> +		break;
-> +	}
-> +
-> +	return act;
-> +}
+Isn't there a constant we could use instead of hard-coding this?
