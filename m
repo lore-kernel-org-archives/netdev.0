@@ -1,7 +1,8 @@
 From: Nathan Fontenot <nfont@linux.vnet.ibm.com>
-Subject: [PATCH net-next 7/7] ibmvnic: Remove inflight list
-Date: Sun, 09 Apr 2017 00:12:09 -0400
-Message-ID: <20170409041209.47642.7113.stgit@ltcalpine2-lp14.aus.stglabs.ibm.com>
+Subject: [PATCH net-next 6/7] ibmvnic: Do not disable IRQ after scheduling
+ tasklet
+Date: Sun, 09 Apr 2017 00:12:03 -0400
+Message-ID: <20170409041203.47642.58397.stgit@ltcalpine2-lp14.aus.stglabs.ibm.com>
 References: <20170409040328.47642.33535.stgit@ltcalpine2-lp14.aus.stglabs.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,252 +11,90 @@ Cc: brking@linux.vnet.ibm.com, muvic@linux.vnet.ibm.com
 To: netdev@vger.kernel.org, tlfalcon@linux.vnet.ibm.com,
         jallen@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:38679 "EHLO
+Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:37718 "EHLO
         mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751940AbdDIEW7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 9 Apr 2017 00:22:59 -0400
-Received: from pps.filterd (m0098416.ppops.net [127.0.0.1])
-        by mx0b-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v394Ilst172727
-        for <netdev@vger.kernel.org>; Sun, 9 Apr 2017 00:22:58 -0400
-Received: from e13.ny.us.ibm.com (e13.ny.us.ibm.com [129.33.205.203])
-        by mx0b-001b2d01.pphosted.com with ESMTP id 29qa365fjp-1
+        by vger.kernel.org with ESMTP id S1751940AbdDIEWy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 9 Apr 2017 00:22:54 -0400
+Received: from pps.filterd (m0098413.ppops.net [127.0.0.1])
+        by mx0b-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v394JLu3116646
+        for <netdev@vger.kernel.org>; Sun, 9 Apr 2017 00:22:53 -0400
+Received: from e16.ny.us.ibm.com (e16.ny.us.ibm.com [129.33.205.206])
+        by mx0b-001b2d01.pphosted.com with ESMTP id 29qcs91jrq-1
         (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Sun, 09 Apr 2017 00:22:58 -0400
+        for <netdev@vger.kernel.org>; Sun, 09 Apr 2017 00:22:53 -0400
 Received: from localhost
-        by e13.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        by e16.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
         for <netdev@vger.kernel.org> from <nfont@linux.vnet.ibm.com>;
-        Sun, 9 Apr 2017 00:22:58 -0400
+        Sun, 9 Apr 2017 00:22:53 -0400
 In-Reply-To: <20170409040328.47642.33535.stgit@ltcalpine2-lp14.aus.stglabs.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The inflight list used to track memory that is allocated for crq that are
-inflight is not needed. The one piece of the inflight list that does need
-to be cleaned at module exit is the error buffer list which is already
-attached to the adapter struct.
+From: Brian King <brking@linux.vnet.ibm.com>
 
-This patch removes the inflight list and moves checking the error buffer
-list to ibmvnic_remove.
+Since the primary CRQ is only used for service functions and
+not in the performance path, simplify the code a bit and avoid
+disabling the IRQ.
 
+Signed-off-by: Brian King <brking@linux.vnet.ibm.com>
 Signed-off-by: Nathan Fontenot <nfont@linux.vnet.ibm.com>
 ---
- drivers/net/ethernet/ibm/ibmvnic.c |   98 +++++++-----------------------------
- drivers/net/ethernet/ibm/ibmvnic.h |    9 ---
- 2 files changed, 19 insertions(+), 88 deletions(-)
+ drivers/net/ethernet/ibm/ibmvnic.c |   25 ++++++-------------------
+ 1 file changed, 6 insertions(+), 19 deletions(-)
 
 diff --git a/drivers/net/ethernet/ibm/ibmvnic.c b/drivers/net/ethernet/ibm/ibmvnic.c
-index 5de8bae..152332b 100644
+index 4e27518..5de8bae 100644
 --- a/drivers/net/ethernet/ibm/ibmvnic.c
 +++ b/drivers/net/ethernet/ibm/ibmvnic.c
-@@ -546,6 +546,23 @@ static int init_bounce_buffer(struct net_device *netdev)
- 	return 0;
- }
- 
-+static void release_error_buffers(struct ibmvnic_adapter *adapter)
-+{
-+	struct device *dev = &adapter->vdev->dev;
-+	struct ibmvnic_error_buff *error_buff, *tmp;
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&adapter->error_list_lock, flags);
-+	list_for_each_entry_safe(error_buff, tmp, &adapter->errors, list) {
-+		list_del(&error_buff->list);
-+		dma_unmap_single(dev, error_buff->dma, error_buff->len,
-+				 DMA_FROM_DEVICE);
-+		kfree(error_buff->buff);
-+		kfree(error_buff);
-+	}
-+	spin_unlock_irqrestore(&adapter->error_list_lock, flags);
-+}
-+
- static int ibmvnic_login(struct net_device *netdev)
+@@ -3031,12 +3031,8 @@ static void ibmvnic_handle_crq(union ibmvnic_crq *crq,
+ static irqreturn_t ibmvnic_interrupt(int irq, void *instance)
  {
- 	struct ibmvnic_adapter *adapter = netdev_priv(netdev);
-@@ -588,6 +605,7 @@ static void release_resources(struct ibmvnic_adapter *adapter)
- 	release_crq_queue(adapter);
- 
- 	release_stats_token(adapter);
-+	release_error_buffers(adapter);
- }
- 
- static int ibmvnic_open(struct net_device *netdev)
-@@ -1959,13 +1977,11 @@ static void send_login(struct ibmvnic_adapter *adapter)
- {
- 	struct ibmvnic_login_rsp_buffer *login_rsp_buffer;
- 	struct ibmvnic_login_buffer *login_buffer;
--	struct ibmvnic_inflight_cmd *inflight_cmd;
- 	struct device *dev = &adapter->vdev->dev;
- 	dma_addr_t rsp_buffer_token;
- 	dma_addr_t buffer_token;
- 	size_t rsp_buffer_size;
- 	union ibmvnic_crq crq;
+ 	struct ibmvnic_adapter *adapter = instance;
 -	unsigned long flags;
- 	size_t buffer_size;
- 	__be64 *tx_list_p;
- 	__be64 *rx_list_p;
-@@ -2002,11 +2018,7 @@ static void send_login(struct ibmvnic_adapter *adapter)
- 		dev_err(dev, "Couldn't map login rsp buffer\n");
- 		goto buf_rsp_map_failed;
- 	}
--	inflight_cmd = kmalloc(sizeof(*inflight_cmd), GFP_ATOMIC);
--	if (!inflight_cmd) {
--		dev_err(dev, "Couldn't allocate inflight_cmd\n");
--		goto inflight_alloc_failed;
--	}
-+
- 	adapter->login_buf = login_buffer;
- 	adapter->login_buf_token = buffer_token;
- 	adapter->login_buf_sz = buffer_size;
-@@ -2057,20 +2069,10 @@ static void send_login(struct ibmvnic_adapter *adapter)
- 	crq.login.cmd = LOGIN;
- 	crq.login.ioba = cpu_to_be32(buffer_token);
- 	crq.login.len = cpu_to_be32(buffer_size);
--
--	memcpy(&inflight_cmd->crq, &crq, sizeof(crq));
--
--	spin_lock_irqsave(&adapter->inflight_lock, flags);
--	list_add_tail(&inflight_cmd->list, &adapter->inflight);
--	spin_unlock_irqrestore(&adapter->inflight_lock, flags);
--
- 	ibmvnic_send_crq(adapter, &crq);
  
- 	return;
+-	spin_lock_irqsave(&adapter->crq.lock, flags);
+-	vio_disable_interrupts(adapter->vdev);
+ 	tasklet_schedule(&adapter->tasklet);
+-	spin_unlock_irqrestore(&adapter->crq.lock, flags);
+ 	return IRQ_HANDLED;
+ }
  
--inflight_alloc_failed:
--	dma_unmap_single(dev, rsp_buffer_token, rsp_buffer_size,
--			 DMA_FROM_DEVICE);
- buf_rsp_map_failed:
- 	kfree(login_rsp_buffer);
- buf_rsp_alloc_failed:
-@@ -2376,7 +2378,6 @@ static void handle_error_indication(union ibmvnic_crq *crq,
- 				    struct ibmvnic_adapter *adapter)
+@@ -3044,32 +3040,23 @@ static void ibmvnic_tasklet(void *data)
  {
- 	int detail_len = be32_to_cpu(crq->error_indication.detail_error_sz);
--	struct ibmvnic_inflight_cmd *inflight_cmd;
- 	struct device *dev = &adapter->vdev->dev;
- 	struct ibmvnic_error_buff *error_buff;
- 	union ibmvnic_crq new_crq;
-@@ -2408,15 +2409,6 @@ static void handle_error_indication(union ibmvnic_crq *crq,
- 		return;
- 	}
+ 	struct ibmvnic_adapter *adapter = data;
+ 	struct ibmvnic_crq_queue *queue = &adapter->crq;
+-	struct vio_dev *vdev = adapter->vdev;
+ 	union ibmvnic_crq *crq;
+ 	unsigned long flags;
+ 	bool done = false;
  
--	inflight_cmd = kmalloc(sizeof(*inflight_cmd), GFP_ATOMIC);
--	if (!inflight_cmd) {
--		dma_unmap_single(dev, error_buff->dma, detail_len,
--				 DMA_FROM_DEVICE);
--		kfree(error_buff->buff);
--		kfree(error_buff);
--		return;
--	}
--
- 	error_buff->len = detail_len;
- 	error_buff->error_id = crq->error_indication.error_id;
- 
-@@ -2430,13 +2422,6 @@ static void handle_error_indication(union ibmvnic_crq *crq,
- 	new_crq.request_error_info.ioba = cpu_to_be32(error_buff->dma);
- 	new_crq.request_error_info.len = cpu_to_be32(detail_len);
- 	new_crq.request_error_info.error_id = crq->error_indication.error_id;
--
--	memcpy(&inflight_cmd->crq, &crq, sizeof(crq));
--
--	spin_lock_irqsave(&adapter->inflight_lock, flags);
--	list_add_tail(&inflight_cmd->list, &adapter->inflight);
--	spin_unlock_irqrestore(&adapter->inflight_lock, flags);
--
- 	ibmvnic_send_crq(adapter, &new_crq);
- }
- 
-@@ -2821,48 +2806,6 @@ static void handle_query_cap_rsp(union ibmvnic_crq *crq,
- 	}
- }
- 
--static void ibmvnic_free_inflight(struct ibmvnic_adapter *adapter)
--{
--	struct ibmvnic_inflight_cmd *inflight_cmd, *tmp1;
--	struct device *dev = &adapter->vdev->dev;
--	struct ibmvnic_error_buff *error_buff, *tmp2;
--	unsigned long flags;
--	unsigned long flags2;
--
--	spin_lock_irqsave(&adapter->inflight_lock, flags);
--	list_for_each_entry_safe(inflight_cmd, tmp1, &adapter->inflight, list) {
--		switch (inflight_cmd->crq.generic.cmd) {
--		case LOGIN:
--			dma_unmap_single(dev, adapter->login_buf_token,
--					 adapter->login_buf_sz,
--					 DMA_BIDIRECTIONAL);
--			dma_unmap_single(dev, adapter->login_rsp_buf_token,
--					 adapter->login_rsp_buf_sz,
--					 DMA_BIDIRECTIONAL);
--			kfree(adapter->login_rsp_buf);
--			kfree(adapter->login_buf);
--			break;
--		case REQUEST_ERROR_INFO:
--			spin_lock_irqsave(&adapter->error_list_lock, flags2);
--			list_for_each_entry_safe(error_buff, tmp2,
--						 &adapter->errors, list) {
--				dma_unmap_single(dev, error_buff->dma,
--						 error_buff->len,
--						 DMA_FROM_DEVICE);
--				kfree(error_buff->buff);
--				list_del(&error_buff->list);
--				kfree(error_buff);
--			}
--			spin_unlock_irqrestore(&adapter->error_list_lock,
--					       flags2);
--			break;
+ 	spin_lock_irqsave(&queue->lock, flags);
+-	vio_disable_interrupts(vdev);
+ 	while (!done) {
+ 		/* Pull all the valid messages off the CRQ */
+ 		while ((crq = ibmvnic_next_crq(adapter)) != NULL) {
+ 			ibmvnic_handle_crq(crq, adapter);
+ 			crq->generic.first = 0;
+ 		}
+-		vio_enable_interrupts(vdev);
+-		crq = ibmvnic_next_crq(adapter);
+-		if (crq) {
+-			vio_disable_interrupts(vdev);
+-			ibmvnic_handle_crq(crq, adapter);
+-			crq->generic.first = 0;
+-		} else {
+-			/* remain in tasklet until all
+-			 * capabilities responses are received
+-			 */
+-			if (!adapter->wait_capability)
+-				done = true;
 -		}
--		list_del(&inflight_cmd->list);
--		kfree(inflight_cmd);
--	}
--	spin_unlock_irqrestore(&adapter->inflight_lock, flags);
--}
--
- static void ibmvnic_xport_event(struct work_struct *work)
- {
- 	struct ibmvnic_adapter *adapter = container_of(work,
-@@ -2871,7 +2814,6 @@ static void ibmvnic_xport_event(struct work_struct *work)
- 	struct device *dev = &adapter->vdev->dev;
- 	long rc;
- 
--	ibmvnic_free_inflight(adapter);
- 	release_sub_crqs(adapter);
- 	if (adapter->migrated) {
- 		rc = ibmvnic_reenable_crq_queue(adapter);
-@@ -3337,9 +3279,7 @@ static int ibmvnic_probe(struct vio_dev *dev, const struct vio_device_id *id)
- 	spin_lock_init(&adapter->stats_lock);
- 
- 	INIT_LIST_HEAD(&adapter->errors);
--	INIT_LIST_HEAD(&adapter->inflight);
- 	spin_lock_init(&adapter->error_list_lock);
--	spin_lock_init(&adapter->inflight_lock);
- 
- 	rc = ibmvnic_init(adapter);
- 	if (rc) {
-diff --git a/drivers/net/ethernet/ibm/ibmvnic.h b/drivers/net/ethernet/ibm/ibmvnic.h
-index e6b0e60..650bb85 100644
---- a/drivers/net/ethernet/ibm/ibmvnic.h
-+++ b/drivers/net/ethernet/ibm/ibmvnic.h
-@@ -913,11 +913,6 @@ struct ibmvnic_error_buff {
- 	__be32 error_id;
- };
- 
--struct ibmvnic_inflight_cmd {
--	union ibmvnic_crq crq;
--	struct list_head list;
--};
--
- struct ibmvnic_adapter {
- 	struct vio_dev *vdev;
- 	struct net_device *netdev;
-@@ -978,10 +973,6 @@ struct ibmvnic_adapter {
- 
- 	struct completion fw_done;
- 
--	/* in-flight commands that allocate and/or map memory*/
--	struct list_head inflight;
--	spinlock_t inflight_lock;
--
- 	/* partner capabilities */
- 	u64 min_tx_queues;
- 	u64 min_rx_queues;
++		
++		/* remain in tasklet until all
++		 * capabilities responses are received
++		 */
++		if (!adapter->wait_capability)
++			done = true;
+ 	}
+ 	/* if capabilities CRQ's were sent in this tasklet, the following
+ 	 * tasklet must wait until all responses are received
