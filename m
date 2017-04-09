@@ -1,48 +1,52 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH v3 iproute] ip: Add support for netdev events to monitor
-Date: Sat, 8 Apr 2017 22:54:07 -0400
-Message-ID: <1cc68cb4-c4be-a399-b0ed-8179d27c1b6e@cumulusnetworks.com>
-References: <1491312333-18904-1-git-send-email-vyasevic@redhat.com>
- <0a7efd86-3345-223a-7a39-8c8cd1a42f14@cumulusnetworks.com>
- <20170408.193311.1975315968848220462.davem@davemloft.net>
+Subject: Re: [PATCH net-next 1/8] rtnetlink: Do not generate notifications for
+ MTU events
+Date: Sat, 8 Apr 2017 22:58:44 -0400
+Message-ID: <e3765283-f5e5-1f85-2762-b7b99f99bd1a@cumulusnetworks.com>
+References: <1491600340-8359-1-git-send-email-dsa@cumulusnetworks.com>
+ <1491600340-8359-2-git-send-email-dsa@cumulusnetworks.com>
+ <4ebd4c86-5fbe-f6d3-653b-5b9f0048f312@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: vyasevic@redhat.com, netdev@vger.kernel.org,
-        roopa@cumulusnetworks.com
-To: David Miller <davem@davemloft.net>
+Cc: davem@davemloft.net
+To: vyasevic@redhat.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f169.google.com ([209.85.192.169]:34123 "EHLO
-        mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751150AbdDICyK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 8 Apr 2017 22:54:10 -0400
-Received: by mail-pf0-f169.google.com with SMTP id c198so8138796pfc.1
-        for <netdev@vger.kernel.org>; Sat, 08 Apr 2017 19:54:10 -0700 (PDT)
-In-Reply-To: <20170408.193311.1975315968848220462.davem@davemloft.net>
+Received: from mail-pg0-f45.google.com ([74.125.83.45]:35980 "EHLO
+        mail-pg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751961AbdDIC6q (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 8 Apr 2017 22:58:46 -0400
+Received: by mail-pg0-f45.google.com with SMTP id g2so88741480pge.3
+        for <netdev@vger.kernel.org>; Sat, 08 Apr 2017 19:58:46 -0700 (PDT)
+In-Reply-To: <4ebd4c86-5fbe-f6d3-653b-5b9f0048f312@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 4/8/17 10:33 PM, David Miller wrote:
-> From: David Ahern <dsa@cumulusnetworks.com>
-> Date: Sat, 8 Apr 2017 18:24:06 -0400
-> 
->> per comments on the email thread about reducing notifications, the
->> kernel patch for this should be reverted (and hence this iproute2 patch
->> is not needed) in favor of using a bitmask. Right now there are too many
->> redundant notifications to userspace.
-> 
-> I must have missed something in all the discussion, which patch needs
-> to be reverted from my tree exactly?
-> 
+On 4/8/17 9:36 PM, Vlad Yasevich wrote:
+> On 04/07/2017 05:25 PM, David Ahern wrote:
+>> Changing MTU on a link currently causes 3 messages to be sent to userspace:
+>>
+>> [LINK]11: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1490 qdisc noqueue state UNKNOWN group default event PRE_CHANGE_MTU
+>>     link/ether f2:52:5c:6d:21:f3 brd ff:ff:ff:ff:ff:ff
+>>
+>> [LINK]11: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue state UNKNOWN group default event CHANGE_MTU
+>>     link/ether f2:52:5c:6d:21:f3 brd ff:ff:ff:ff:ff:ff
+>>
+>> [LINK]11: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue state UNKNOWN group default
+>>     link/ether f2:52:5c:6d:21:f3 brd ff:ff:ff:ff:ff:ff
+>>
+>> Remove the PRE_CHANGE_MTU and CHANGE_MTU messages.
+> Actually, I have plans for the CHANGE_MTU event.  The last message is not an event. If you
+> remove the event, it is much harder to track mtu changes.
 
-Here's the thread:
-https://www.spinics.net/lists/netdev/msg429154.html
+it is a set of redundant messages. Roopa suggested using a bitmask for
+the events changed by do_setlink which gets added to the last message
+seen above. In doing so you only generate 1 message. The above causes
+libnl (for example):
 
-The comment is that def12888c161 is adding a uapi that leads to way too
-many notifications (e.g., on a setlink).
+- message 1: delete dummy1 from its cache and re-create it
+- message 2: delete dummy1 from its cache and re-create it
+- message 3: delete dummy1 from its cache and re-create it
 
-It would be more efficient (read less notifications) to have do_setlink
-emit a single message with the IFLA_EVENT (or something else
-appropriately named) that indicates what attributes changed. Right now,
-a change MTU leads to 3 notifications causing unnecessary churn in
-userspace to track what the state of the link is.
+All you need is a single message at the end with an attribute that says
+"MTU changed"
