@@ -1,79 +1,40 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next 5/7] s390/qeth: improve endianness handling
-Date: Mon, 10 Apr 2017 15:22:10 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DCFFCAB25@AcuExch.aculab.com>
-References: <20170405084015.35772-1-ubraun@linux.vnet.ibm.com>
- <20170405084015.35772-6-ubraun@linux.vnet.ibm.com>
- <063D6719AE5E284EB5DD2968C1650D6DCFFC85F3@AcuExch.aculab.com>
- <8056aa76-8e2d-805e-1037-927714e9bfab@linux.vnet.ibm.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH v3 1/5] netlink: extended ACK reporting
+Date: Mon, 10 Apr 2017 09:26:05 -0600
+Message-ID: <fddba2c8-3b85-d5df-81c4-ef31c459e40c@cumulusnetworks.com>
+References: <20170408202434.12018-1-johannes@sipsolutions.net>
+ <20170408202434.12018-2-johannes@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-s390@vger.kernel.org" <linux-s390@vger.kernel.org>,
-        "jwi@linux.vnet.ibm.com" <jwi@linux.vnet.ibm.com>,
-        "schwidefsky@de.ibm.com" <schwidefsky@de.ibm.com>,
-        "heiko.carstens@de.ibm.com" <heiko.carstens@de.ibm.com>,
-        "raspl@linux.vnet.ibm.com" <raspl@linux.vnet.ibm.com>,
-        Hans Wippel <hwippel@linux.vnet.ibm.com>,
-        "Julian Wiedmann" <jwi@linux.vnet.ibm.com>
-To: 'Ursula Braun' <ubraun@linux.vnet.ibm.com>,
-        "davem@davemloft.net" <davem@davemloft.net>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: pablo@netfilter.org, Jamal Hadi Salim <jhs@mojatatu.com>,
+        Jiri Benc <jbenc@redhat.com>, jiri@resnulli.us,
+        Johannes Berg <johannes.berg@intel.com>
+To: Johannes Berg <johannes@sipsolutions.net>,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.186]:62227 "EHLO
-        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752841AbdDJPWT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 10 Apr 2017 11:22:19 -0400
-In-Reply-To: <8056aa76-8e2d-805e-1037-927714e9bfab@linux.vnet.ibm.com>
-Content-Language: en-US
+Received: from mail-pg0-f41.google.com ([74.125.83.41]:34313 "EHLO
+        mail-pg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753931AbdDJP0I (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 10 Apr 2017 11:26:08 -0400
+Received: by mail-pg0-f41.google.com with SMTP id 21so107672340pgg.1
+        for <netdev@vger.kernel.org>; Mon, 10 Apr 2017 08:26:08 -0700 (PDT)
+In-Reply-To: <20170408202434.12018-2-johannes@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ursula Braun
-> Sent: 07 April 2017 13:33
-> On 04/07/2017 01:25 PM, David Laight wrote:
-> > From: Ursula Braun
-> >> Sent: 05 April 2017 09:40
-> >> From: Hans Wippel <hwippel@linux.vnet.ibm.com>
-> >>
-> >> Avoid endianness warnings reported by sparse by (1) using endianness
-> >> conversions for assigning and using network packet fields, and (2)
-> >> removing unnecessary endianness conversions from qeth_l3_rebuild_skb. No
-> >> functional changes.
-> >>
-> >> Signed-off-by: Hans Wippel <hwippel@linux.vnet.ibm.com>
-> >> Signed-off-by: Ursula Braun <ubraun@linux.vnet.ibm.com>
-> >> ---
-> >>  drivers/s390/net/qeth_core.h      |  4 ++--
-> >>  drivers/s390/net/qeth_core_main.c | 11 +++++-----
-> >>  drivers/s390/net/qeth_l3_main.c   | 46 +++++++++++++++++++--------------------
-> >>  drivers/s390/net/qeth_l3_sys.c    |  4 ++--
-> >>  4 files changed, 33 insertions(+), 32 deletions(-)
-> >>
-> >> diff --git a/drivers/s390/net/qeth_core.h b/drivers/s390/net/qeth_core.h
-> >> index 22aa2cd..6764ab9 100644
-> >> --- a/drivers/s390/net/qeth_core.h
-> >> +++ b/drivers/s390/net/qeth_core.h
-> >> @@ -844,9 +844,9 @@ static inline int qeth_get_ip_version(struct sk_buff *skb)
-> >>  {
-> >>  	__be16 *p = &((struct ethhdr *)skb->data)->h_proto;
-> >>
-> >> -	if (*p == ETH_P_8021Q)
-> >> +	if (be16_to_cpu(*p) == ETH_P_8021Q)
-> >>  		p += 2;
-> >> -	switch (*p) {
-> >> +	switch (be16_to_cpu(*p)) {
-> >>  	case ETH_P_IPV6:
-> >
-> > These are definitely 'functional changes' on LE systems.
-> s390 is Big Endian; thus the change is basicly a NOP.
+On 4/8/17 2:24 PM, Johannes Berg wrote:
+> @@ -2300,14 +2332,35 @@ void netlink_ack(struct sk_buff *in_skb, struct nlmsghdr *nlh, int err)
+>  			  NLMSG_ERROR, payload, 0);
+>  	errmsg = nlmsg_data(rep);
+>  	errmsg->error = err;
+> -	memcpy(&errmsg->msg, nlh, payload > sizeof(*errmsg) ? nlh->nlmsg_len : sizeof(*nlh));
+> +	memcpy(&errmsg->msg, nlh,
+> +	       !(nlk->flags & NETLINK_F_CAP_ACK) ? nlh->nlmsg_len
+> +						 : sizeof(*nlh));
+> +
 
-> The only purpose of this kind of patches is getting rid
-> of sparse warnings with our code.
-
-Then say so in the commit message....
-
-What you are really doing is fixing the code in case anyone tries
-to use it on a LE system.
-
-	David
+generically this makes userspace parsing more problematic: the parsing
+layer may not know if the socket option has been set to precisely know
+the size of errmsg->msg and how much data needs to be skipped to get to
+the new attributes.
