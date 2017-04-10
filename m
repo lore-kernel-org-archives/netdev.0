@@ -1,53 +1,45 @@
-From: Ursula Braun <ubraun@linux.vnet.ibm.com>
-Subject: [PATCH net-next 01/10] net/smc: get rid of old comment
-Date: Mon, 10 Apr 2017 14:57:56 +0200
-Message-ID: <20170410125805.13653-2-ubraun@linux.vnet.ibm.com>
-References: <20170410125805.13653-1-ubraun@linux.vnet.ibm.com>
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
-        jwi@linux.vnet.ibm.com, schwidefsky@de.ibm.com,
-        heiko.carstens@de.ibm.com, raspl@linux.vnet.ibm.com,
-        ubraun@linux.vnet.ibm.com
-To: davem@davemloft.net
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Subject: [PATCH net-next] devlink: fix return value check in devlink_dpipe_header_put()
+Date: Mon, 10 Apr 2017 13:11:06 +0000
+Message-ID: <20170410131106.27683-1-weiyj.lk@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Wei Yongjun <weiyongjun1@huawei.com>, netdev@vger.kernel.org
+To: Jiri Pirko <jiri@mellanox.com>,
+        Arkadi Sharshevsky <arkadis@mellanox.com>,
+        "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:43656 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752894AbdDJM6R (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 10 Apr 2017 08:58:17 -0400
-Received: from pps.filterd (m0098409.ppops.net [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v3ACsAdr132400
-        for <netdev@vger.kernel.org>; Mon, 10 Apr 2017 08:58:17 -0400
-Received: from e06smtp12.uk.ibm.com (e06smtp12.uk.ibm.com [195.75.94.108])
-        by mx0a-001b2d01.pphosted.com with ESMTP id 29qym9u4sj-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Mon, 10 Apr 2017 08:58:16 -0400
-Received: from localhost
-        by e06smtp12.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <ubraun@linux.vnet.ibm.com>;
-        Mon, 10 Apr 2017 13:58:12 +0100
-In-Reply-To: <20170410125805.13653-1-ubraun@linux.vnet.ibm.com>
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:34136 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753310AbdDJNLN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 10 Apr 2017 09:11:13 -0400
+Received: by mail-pg0-f67.google.com with SMTP id o123so25691340pga.1
+        for <netdev@vger.kernel.org>; Mon, 10 Apr 2017 06:11:13 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch removes an outdated comment.
+From: Wei Yongjun <weiyongjun1@huawei.com>
 
-Signed-off-by: Ursula Braun <ubraun@linux.vnet.ibm.com>
-Reviewed-by: Thomas Richter <tmricht@linux.vnet.ibm.com>
+Fix the retrn value check which testing the wrong variable
+in devlink_dpipe_header_put().
+
+Fixes: 1555d204e743 ("devlink: Support for pipeline debug (dpipe)")
+Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
 ---
- net/smc/smc_cdc.c | 2 --
- 1 file changed, 2 deletions(-)
+ net/core/devlink.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/smc/smc_cdc.c b/net/smc/smc_cdc.c
-index 5a33949..4c9c2f6 100644
---- a/net/smc/smc_cdc.c
-+++ b/net/smc/smc_cdc.c
-@@ -228,8 +228,6 @@ static void smc_cdc_msg_recv_action(struct smc_sock *smc,
- 		smc_close_wake_tx_prepared(smc);
- 	}
+diff --git a/net/core/devlink.c b/net/core/devlink.c
+index 24b7660..0afac58 100644
+--- a/net/core/devlink.c
++++ b/net/core/devlink.c
+@@ -2031,7 +2031,7 @@ static int devlink_dpipe_header_put(struct sk_buff *skb,
+ 	int err;
  
--	/* subsequent patch: trigger socket release if connection closed */
--
- 	/* socket connected but not accepted */
- 	if (!smc->sk.sk_socket)
- 		return;
--- 
-2.10.2
+ 	header_attr = nla_nest_start(skb, DEVLINK_ATTR_DPIPE_HEADER);
+-	if (!header)
++	if (!header_attr)
+ 		return -EMSGSIZE;
+ 
+ 	if (nla_put_string(skb, DEVLINK_ATTR_DPIPE_HEADER_NAME, header->name) ||
