@@ -1,72 +1,65 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH] ipv6: Fix idev->addr_list corruption
-Date: Mon, 10 Apr 2017 10:24:11 -0600
-Message-ID: <590b8abc-93e3-f05e-bf63-5245a9860be1@cumulusnetworks.com>
-References: <1491806199-26115-1-git-send-email-rabin.vincent@axis.com>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: [PATCH v2 net-next RFC] Generic XDP
+Date: Mon, 10 Apr 2017 12:57:23 -0400
+Message-ID: <CAF=yD-LvwW4MLA8NeYzkfSu4ZXaZja7FH8EPm5KtrreOhNBCrw@mail.gmail.com>
+References: <20170409.133528.660876505013192371.davem@davemloft.net> <20170410021807.GA17150@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Rabin Vincent <rabinv@axis.com>,
-        Mike Manning <mmanning@brocade.com>
-To: Rabin Vincent <rabin.vincent@axis.com>, davem@davemloft.net
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+        Network Development <netdev@vger.kernel.org>,
+        xdp-newbies@vger.kernel.org
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f178.google.com ([209.85.192.178]:36265 "EHLO
-        mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752515AbdDJQYO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 10 Apr 2017 12:24:14 -0400
-Received: by mail-pf0-f178.google.com with SMTP id o126so35692277pfb.3
-        for <netdev@vger.kernel.org>; Mon, 10 Apr 2017 09:24:14 -0700 (PDT)
-In-Reply-To: <1491806199-26115-1-git-send-email-rabin.vincent@axis.com>
+Received: from mail-qk0-f176.google.com ([209.85.220.176]:35355 "EHLO
+        mail-qk0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932167AbdDJQ6E (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 10 Apr 2017 12:58:04 -0400
+In-Reply-To: <20170410021807.GA17150@ast-mbp.thefacebook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 4/10/17 12:36 AM, Rabin Vincent wrote:
-> From: Rabin Vincent <rabinv@axis.com>
-> 
-> addrconf_ifdown() removes elements from the idev->addr_list without
-> holding the idev->lock.
-> 
-> If this happens while the loop in __ipv6_dev_get_saddr() is handling the
-> same element, that function ends up in an infinite loop:
-> 
->   NMI watchdog: BUG: soft lockup - CPU#1 stuck for 23s! [test:1719]
->   Call Trace:
->    ipv6_get_saddr_eval+0x13c/0x3a0
->    __ipv6_dev_get_saddr+0xe4/0x1f0
->    ipv6_dev_get_saddr+0x1b4/0x204
->    ip6_dst_lookup_tail+0xcc/0x27c
->    ip6_dst_lookup_flow+0x38/0x80
->    udpv6_sendmsg+0x708/0xba8
->    sock_sendmsg+0x18/0x30
->    SyS_sendto+0xb8/0xf8
->    syscall_common+0x34/0x58
-> 
-> Fixes: 6a923934c33 (Revert "ipv6: Revert optional address flusing on ifdown.")
-> Signed-off-by: Rabin Vincent <rabinv@axis.com>
-> ---
->  net/ipv6/addrconf.c | 11 +++++++----
->  1 file changed, 7 insertions(+), 4 deletions(-)
-> 
-> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-> index 3631725..80ce478 100644
-> --- a/net/ipv6/addrconf.c
-> +++ b/net/ipv6/addrconf.c
-> @@ -3626,14 +3626,19 @@ static int addrconf_ifdown(struct net_device *dev, int how)
->  	INIT_LIST_HEAD(&del_list);
->  	list_for_each_entry_safe(ifa, tmp, &idev->addr_list, if_list) {
->  		struct rt6_info *rt = NULL;
-> +		bool keep;
->  
->  		addrconf_del_dad_work(ifa);
->  
-> +		keep = keep_addr && (ifa->flags & IFA_F_PERMANENT) &&
-> +			!addr_is_local(&ifa->addr);
-> +		if (!keep)
-> +			list_move(&ifa->if_list, &del_list);
-> +
->  		write_unlock_bh(&idev->lock);
+>>  static int netif_receive_skb_internal(struct sk_buff *skb)
+>>  {
+>>       int ret;
+>> @@ -4258,6 +4336,21 @@ static int netif_receive_skb_internal(struct sk_buff *skb)
+>>
+>>       rcu_read_lock();
+>>
+>> +     if (static_key_false(&generic_xdp_needed)) {
+>> +             struct bpf_prog *xdp_prog = rcu_dereference(skb->dev->xdp_prog);
+>> +
+>> +             if (xdp_prog) {
+>> +                     u32 act = netif_receive_generic_xdp(skb, xdp_prog);
+>
+> That's indeed the best attachment point in the stack.
+> I was trying to see whether it can be lowered into something like
+> dev_gro_receive(), but not everyone calls it.
 
-yes, the list manipulation should be done under the idev->lock. thanks
-for fixing.
+It would be a helpful (follow-on) optimization for packets that do
+pass through it. It allows skb recycling with napi_reuse_skb and can
+be used to protect if a vulnerability in the gro stack pops up.
 
-Acked-by: David Ahern <dsa@cumulusnetworks.com>
+> Another option to put it into eth_type_trans() itself, then
+> there are no problems with gro, l2 headers, and adjust_head,
+> but changing all drivers is too much.
+>
+>> +
+>> +                     if (act != XDP_PASS) {
+>> +                             rcu_read_unlock();
+>> +                             if (act == XDP_TX)
+>> +                                     dev_queue_xmit(skb);
+>
+> It should be fine. For cls_bpf we do recursion check __bpf_tx_skb()
+> but I forgot specific details. May be here it's fine as-is.
+> Daniel, do we need recursion check here?
+
+That limiter is for egress redirecting to egress, I believe. This
+ingress to egress will go through netif_rx and a softirq if looping.
+
+Another point on redirect is clearing skb state. queue_mapping and
+sender_cpu will be dirty, but should be able to handle it. It seems
+possible to attach to a virtual device, such as a tunnel. In that case
+the packet may have gone through a complex receive path before
+reaching the tunnel, including tc ingress, so even more skb fields may
+be set (e.g., priority). The same holds for act_mirred or
+__bpf_redirect, so I assume that this is safe.
