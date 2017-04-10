@@ -1,101 +1,81 @@
-From: idosch@idosch.org
-Subject: [PATCH net v3 2/2] bridge: netlink: register netdevice before executing changelink
-Date: Mon, 10 Apr 2017 14:59:28 +0300
-Message-ID: <20170410115928.9344-3-idosch@idosch.org>
-References: <20170410115928.9344-1-idosch@idosch.org>
-Cc: davem@davemloft.net, stephen@networkplumber.org,
-        bridge@lists.linux-foundation.org, mlxsw@mellanox.com,
-        peter@svinota.eu, nikolay@cumulusnetworks.com,
-        Ido Schimmel <idosch@mellanox.com>
-To: netdev@vger.kernel.org
+From: Ville =?iso-8859-1?Q?Syrj=E4l=E4?= <ville.syrjala@linux.intel.com>
+Subject: Re: [regression v4.11] 617f01211baf ("8139too: use
+ napi_complete_done()")
+Date: Mon, 10 Apr 2017 15:11:02 +0300
+Message-ID: <20170410121102.GM30290@intel.com>
+References: <20170407181754.GL30290@intel.com>
+ <1491590329.10124.86.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: Eric Dumazet <edumazet@google.com>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:34229 "EHLO
-        out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752955AbdDJMA4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 10 Apr 2017 08:00:56 -0400
-In-Reply-To: <20170410115928.9344-1-idosch@idosch.org>
+Received: from mga03.intel.com ([134.134.136.65]:22914 "EHLO mga03.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752955AbdDJMLH (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 10 Apr 2017 08:11:07 -0400
+Content-Disposition: inline
+In-Reply-To: <1491590329.10124.86.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ido Schimmel <idosch@mellanox.com>
+On Fri, Apr 07, 2017 at 11:38:49AM -0700, Eric Dumazet wrote:
+> On Fri, 2017-04-07 at 21:17 +0300, Ville Syrjälä wrote:
+> > Hi,
+> > 
+> > My old P3 laptop started to die on me in the middle of larger compile
+> > jobs (using distcc) after v4.11-rc<something>. I bisected the problem
+> > to 617f01211baf ("8139too: use napi_complete_done()").
+> > 
+> > Unfortunately I wasn't able to capture a full oops as the machine doesn't
+> > have serial and ramoops failed me. I did get one partial oops on vgacon
+> > which showed rtl8139_poll() being involved (EIP was around
+> > _raw_spin_unlock_irqrestore() supposedly), so seems to agree with my
+> > bisect result.
+> > 
+> > So maybe some kind of nasty thing going between the hard irq and
+> > softirq? Perhaps UP related? I tried to stare at the locking around
+> > rtl8139_poll() for a while but it looked mostly sane to me.
+> > 
+> 
+> Thanks a lot for the detective work, I am so sorry for this !
+> 
+> Could you try the following patch ?
+> 
+> I do not really see what could be wrong, the code should run just fine
+> on UP.
+> 
+> Thanks.
+> 
+> diff --git a/drivers/net/ethernet/realtek/8139too.c b/drivers/net/ethernet/realtek/8139too.c
+> index 89631753e79962d91456d93b71929af768917da1..cd2dbec331dd796f5296cd378561b3443f231673 100644
+> --- a/drivers/net/ethernet/realtek/8139too.c
+> +++ b/drivers/net/ethernet/realtek/8139too.c
+> @@ -2135,11 +2135,12 @@ static int rtl8139_poll(struct napi_struct *napi, int budget)
+>  	if (likely(RTL_R16(IntrStatus) & RxAckBits))
+>  		work_done += rtl8139_rx(dev, tp, budget);
+>  
+> -	if (work_done < budget && napi_complete_done(napi, work_done)) {
+> +	if (work_done < budget) {
+>  		unsigned long flags;
+>  
+>  		spin_lock_irqsave(&tp->lock, flags);
+> -		RTL_W16_F(IntrMask, rtl8139_intr_mask);
+> +		if (napi_complete_done(napi, work_done))
+> +			RTL_W16_F(IntrMask, rtl8139_intr_mask);
+>  		spin_unlock_irqrestore(&tp->lock, flags);
+>  	}
+>  	spin_unlock(&tp->rx_lock);
+> 
+> 
 
-Peter reported a kernel oops when executing the following command:
+Yep, that patch does appear to make it stable again.
 
-$ ip link add name test type bridge vlan_default_pvid 1
+Tested-by: Ville Syrjälä <ville.syrjala@linux.intel.com>
 
-[13634.939408] BUG: unable to handle kernel NULL pointer dereference at
-0000000000000190
-[13634.939436] IP: __vlan_add+0x73/0x5f0
-[...]
-[13634.939783] Call Trace:
-[13634.939791]  ? pcpu_next_unpop+0x3b/0x50
-[13634.939801]  ? pcpu_alloc+0x3d2/0x680
-[13634.939810]  ? br_vlan_add+0x135/0x1b0
-[13634.939820]  ? __br_vlan_set_default_pvid.part.28+0x204/0x2b0
-[13634.939834]  ? br_changelink+0x120/0x4e0
-[13634.939844]  ? br_dev_newlink+0x50/0x70
-[13634.939854]  ? rtnl_newlink+0x5f5/0x8a0
-[13634.939864]  ? rtnl_newlink+0x176/0x8a0
-[13634.939874]  ? mem_cgroup_commit_charge+0x7c/0x4e0
-[13634.939886]  ? rtnetlink_rcv_msg+0xe1/0x220
-[13634.939896]  ? lookup_fast+0x52/0x370
-[13634.939905]  ? rtnl_newlink+0x8a0/0x8a0
-[13634.939915]  ? netlink_rcv_skb+0xa1/0xc0
-[13634.939925]  ? rtnetlink_rcv+0x24/0x30
-[13634.939934]  ? netlink_unicast+0x177/0x220
-[13634.939944]  ? netlink_sendmsg+0x2fe/0x3b0
-[13634.939954]  ? _copy_from_user+0x39/0x40
-[13634.939964]  ? sock_sendmsg+0x30/0x40
-[13634.940159]  ? ___sys_sendmsg+0x29d/0x2b0
-[13634.940326]  ? __alloc_pages_nodemask+0xdf/0x230
-[13634.940478]  ? mem_cgroup_commit_charge+0x7c/0x4e0
-[13634.940592]  ? mem_cgroup_try_charge+0x76/0x1a0
-[13634.940701]  ? __handle_mm_fault+0xdb9/0x10b0
-[13634.940809]  ? __sys_sendmsg+0x51/0x90
-[13634.940917]  ? entry_SYSCALL_64_fastpath+0x1e/0xad
-
-The problem is that the bridge's VLAN group is created after setting the
-default PVID, when registering the netdevice and executing its
-ndo_init().
-
-Fix this by changing the order of both operations, so that
-br_changelink() is only processed after the netdevice is registered,
-when the VLAN group is already initialized.
-
-Fixes: b6677449dff6 ("bridge: netlink: call br_changelink() during br_dev_newlink()")
-Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-Reported-by: Peter V. Saveliev <peter@svinota.eu>
-Tested-by: Peter V. Saveliev <peter@svinota.eu>
----
-v2->v3:
-* Drop goto
-v1->v2:
-* Error-out on changelink() failure
-
- net/bridge/br_netlink.c | 7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
-
-diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
-index a8f6acd..225ef7d 100644
---- a/net/bridge/br_netlink.c
-+++ b/net/bridge/br_netlink.c
-@@ -1165,11 +1165,14 @@ static int br_dev_newlink(struct net *src_net, struct net_device *dev,
- 		spin_unlock_bh(&br->lock);
- 	}
- 
--	err = br_changelink(dev, tb, data);
-+	err = register_netdevice(dev);
- 	if (err)
- 		return err;
- 
--	return register_netdevice(dev);
-+	err = br_changelink(dev, tb, data);
-+	if (err)
-+		unregister_netdevice(dev);
-+	return err;
- }
- 
- static size_t br_get_size(const struct net_device *brdev)
 -- 
-2.9.3
+Ville Syrjälä
+Intel OTC
