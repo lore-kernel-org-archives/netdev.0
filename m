@@ -1,45 +1,83 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: Re: [PATCH v2 net-next RFC] Generic XDP
-Date: Mon, 10 Apr 2017 17:33:25 -0400
-Message-ID: <20170410213325.GD4730@C02RW35GFVH8.dhcp.broadcom.net>
-References: <20170409.133528.660876505013192371.davem@davemloft.net>
- <20170410183935.GB4730@C02RW35GFVH8.dhcp.broadcom.net>
- <20170410.153456.2120460675454633725.davem@davemloft.net>
+From: Matthias Kaehlcke <mka@chromium.org>
+Subject: Re: [PATCH v2] cfg80211: Fix array-bounds warning in fragment copy
+Date: Mon, 10 Apr 2017 14:36:04 -0700
+Message-ID: <20170410213604.GB28657@google.com>
+References: <20170327195822.123034-1-mka@chromium.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, xdp-newbies@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Grant Grundler <grundler@chromium.org>
+To: Johannes Berg <johannes@sipsolutions.net>,
+        "David S . Miller" <davem@davemloft.net>,
+        Felix Fietkau <nbd@openwrt.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f179.google.com ([209.85.216.179]:34186 "EHLO
-        mail-qt0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752877AbdDJVdc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 10 Apr 2017 17:33:32 -0400
-Received: by mail-qt0-f179.google.com with SMTP id c45so75149426qtb.1
-        for <netdev@vger.kernel.org>; Mon, 10 Apr 2017 14:33:32 -0700 (PDT)
+Received: from mail-pf0-f179.google.com ([209.85.192.179]:35608 "EHLO
+        mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752766AbdDJVgG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 10 Apr 2017 17:36:06 -0400
+Received: by mail-pf0-f179.google.com with SMTP id i5so39008118pfc.2
+        for <netdev@vger.kernel.org>; Mon, 10 Apr 2017 14:36:06 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20170410.153456.2120460675454633725.davem@davemloft.net>
+In-Reply-To: <20170327195822.123034-1-mka@chromium.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 10, 2017 at 03:34:56PM -0400, David Miller wrote:
-> From: Andy Gospodarek <andy@greyhouse.net>
-> Date: Mon, 10 Apr 2017 14:39:35 -0400
-> 
-> > I also noted that...
-> > 
-> > xdp1 not parsing the protocol correctly.   All traffic was showing up as
-> > protocol '0' instead of '17' in the output.  
-> > 
-> > xdp2 was not actually sending the frames back out when using this patch.
-> > 
-> > I'll take a look in a bit and see if I can track these two issues down.
-> 
-> Read Alexei's earlier posting, he spotted the bugs you are seeing
-> here.
-> 
-> Basically, the MAC header is pulled already so we have to push it back
-> before we run XDP over it.  We also have to be similarly careful with
-> the MAC header for XDP_TX cases.
+El Mon, Mar 27, 2017 at 12:58:22PM -0700 Matthias Kaehlcke ha dit:
 
-Yep, I saw those emails.  I just didn't want to be accused of not running all
-the tests.  :-D 
+> __ieee80211_amsdu_copy_frag intentionally initializes a pointer to
+> array[-1] to increment it later to valid values. clang rightfully
+> generates an array-bounds warning on the initialization statement.
+> 
+> Initialize the pointer to array[0] and change the algorithm from
+> increment before to increment after consume.
+> 
+> Signed-off-by: Matthias Kaehlcke <mka@chromium.org>
+> ---
+>  net/wireless/util.c | 6 +++---
+>  1 file changed, 3 insertions(+), 3 deletions(-)
+> 
+> diff --git a/net/wireless/util.c b/net/wireless/util.c
+> index 68e5f2ecee1a..52795ae5337f 100644
+> --- a/net/wireless/util.c
+> +++ b/net/wireless/util.c
+> @@ -659,7 +659,7 @@ __ieee80211_amsdu_copy_frag(struct sk_buff *skb, struct sk_buff *frame,
+>  			    int offset, int len)
+>  {
+>  	struct skb_shared_info *sh = skb_shinfo(skb);
+> -	const skb_frag_t *frag = &sh->frags[-1];
+> +	const skb_frag_t *frag = &sh->frags[0];
+>  	struct page *frag_page;
+>  	void *frag_ptr;
+>  	int frag_len, frag_size;
+> @@ -672,10 +672,10 @@ __ieee80211_amsdu_copy_frag(struct sk_buff *skb, struct sk_buff *frame,
+>  
+>  	while (offset >= frag_size) {
+>  		offset -= frag_size;
+> -		frag++;
+>  		frag_page = skb_frag_page(frag);
+>  		frag_ptr = skb_frag_address(frag);
+>  		frag_size = skb_frag_size(frag);
+> +		frag++;
+>  	}
+>  
+>  	frag_ptr += offset;
+> @@ -687,12 +687,12 @@ __ieee80211_amsdu_copy_frag(struct sk_buff *skb, struct sk_buff *frame,
+>  	len -= cur_len;
+>  
+>  	while (len > 0) {
+> -		frag++;
+>  		frag_len = skb_frag_size(frag);
+>  		cur_len = min(len, frag_len);
+>  		__frame_add_frag(frame, skb_frag_page(frag),
+>  				 skb_frag_address(frag), cur_len, frag_len);
+>  		len -= cur_len;
+> +		frag++;
+>  	}
+>  }
+>  
+
+Ping, any feedback on this patch?
+
+Thanks
+
+Matthias
