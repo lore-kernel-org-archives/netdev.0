@@ -1,64 +1,43 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] mac80211: Fix clang warning about constant operand in
- logical operation
-Date: Mon, 10 Apr 2017 14:12:00 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DCFFCA9CE@AcuExch.aculab.com>
-References: <20170406185633.91065-1-mka@chromium.org>
+From: Robert Shearman <rshearma@brocade.com>
+Subject: [PATCH net-next 0/3] l3mdev: Improve use with main table
+Date: Mon, 10 Apr 2017 15:21:59 +0100
+Message-ID: <1491834122-26252-1-git-send-email-rshearma@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Grant Grundler <grundler@chromium.org>,
-        Michael Davidson <md@google.com>,
-        Greg Hackmann <ghackmann@google.com>
-To: 'Matthias Kaehlcke' <mka@chromium.org>,
-        Johannes Berg <johannes@sipsolutions.net>,
-        "David S . Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170406185633.91065-1-mka@chromium.org>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, David Ahern <dsa@cumulusnetworks.com>,
+        "Robert Shearman" <rshearma@brocade.com>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:45918 "EHLO
+        mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1753165AbdDJOW0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 10 Apr 2017 10:22:26 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Matthias Kaehlcke
-> Sent: 06 April 2017 19:57
-> Clang raises a warning about the expression 'strlen(CONFIG_XXX)' being
-> used in a logical operation. Clangs' builtin strlen function resolves the
-> expression to a constant at compile time, which causes clang to generate
-> a 'constant-logical-operand' warning.
-> 
-> Split the if statement in two to avoid using the const expression in a
-> logical operation.
-> 
-> Signed-off-by: Matthias Kaehlcke <mka@chromium.org>
-> ---
->  net/mac80211/rate.c | 7 ++++++-
->  1 file changed, 6 insertions(+), 1 deletion(-)
-> 
-> diff --git a/net/mac80211/rate.c b/net/mac80211/rate.c
-> index 206698bc93f4..68ff202d6380 100644
-> --- a/net/mac80211/rate.c
-> +++ b/net/mac80211/rate.c
-> @@ -173,9 +173,14 @@ ieee80211_rate_control_ops_get(const char *name)
->  		/* try default if specific alg requested but not found */
->  		ops = ieee80211_try_rate_control_ops_get(ieee80211_default_rc_algo);
-> 
-> +	if (ops)
-> +		goto unlock;
-> +
->  	/* try built-in one if specific alg requested but not found */
-> -	if (!ops && strlen(CONFIG_MAC80211_RC_DEFAULT))
-> +	if (strlen(CONFIG_MAC80211_RC_DEFAULT))
->  		ops = ieee80211_try_rate_control_ops_get(CONFIG_MAC80211_RC_DEFAULT);
-> +
-> +unlock:
+Attempting to create a TCP socket not bound to a VRF device when a TCP
+socket bound to a VRF device with the same port exists (and vice
+versa) fails with EADDRINUSE. This limits the ability to use programs
+in selected mixed VRF/non-VRF contexts.
 
-Using the result of strlen() as a boolean should itself be a compilation error.
-You could change to code to the equivalent:
+This patch series solves the problem by extending the l3mdev be aware
+of the special semantics of the main table and fixing issues arising
+from the split local/main tables. A VRF master device created linking
+to the main table and used for these programs in the same way as those
+created for VRF tables can.
 
-	if (!ops && CONFIG_MAC80211_RC_DEFAULT[0])
-		ops = ...
+Robert Shearman (3):
+  ipv6: Fix route handling when using l3mdev set to main table
+  ipv4: Fix route handling when using l3mdev set to main table
+  l3mdev: Fix lookup in local table when using main table
 
-	David
+ net/ipv4/af_inet.c      |  4 +++-
+ net/ipv4/fib_frontend.c | 14 +++++++++-----
+ net/ipv4/raw.c          |  5 ++++-
+ net/ipv6/addrconf.c     | 12 +++++++++---
+ net/ipv6/route.c        | 23 ++++++++++++++++++-----
+ net/l3mdev/l3mdev.c     | 26 ++++++++++++++++++++------
+ 6 files changed, 63 insertions(+), 21 deletions(-)
+
+-- 
+2.1.4
