@@ -1,134 +1,39 @@
 From: Mel Gorman <mgorman@techsingularity.net>
-Subject: [PATCH] mm, page_alloc: re-enable softirq use of per-cpu page
- allocator
-Date: Mon, 10 Apr 2017 16:08:21 +0100
-Message-ID: <20170410150821.vcjlz7ntabtfsumm@techsingularity.net>
+Subject: Re: Page allocator order-0 optimizations merged
+Date: Mon, 10 Apr 2017 16:10:51 +0100
+Message-ID: <20170410151051.n4lytmha4tqh4l3t@techsingularity.net>
+References: <58b48b1f.F/jo2/WiSxvvGm/z%akpm@linux-foundation.org>
+ <20170301144845.783f8cad@redhat.com>
+ <58EB9754.3090202@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-15
-Cc: brouer@redhat.com, willy@infradead.org, peterz@infradead.org,
-	pagupta@redhat.com, ttoukan.linux@gmail.com, tariqt@mellanox.com,
-	netdev@vger.kernel.org, saeedm@mellanox.com,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org
-To: akpm@linux-foundation.org
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	akpm@linux-foundation.org, linux-mm <linux-mm@kvack.org>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Tariq Toukan <tariqt@mellanox.com>
+To: zhong jiang <zhongjiang@huawei.com>
 Return-path: <owner-linux-mm@kvack.org>
 Content-Disposition: inline
+In-Reply-To: <58EB9754.3090202@huawei.com>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-From: Jesper Dangaard Brouer <brouer@redhat.com>
+On Mon, Apr 10, 2017 at 10:31:48PM +0800, zhong jiang wrote:
+> Hi, Mel
+> 
+>      The patch I had test on arm64. I find the great degradation. I test it by micro-bench.
+>     The patrly data is as following.  and it is stable.  That stands for the allocate and free time. 
+>     
 
-IRQ context were excluded from using the Per-Cpu-Pages (PCP) lists caching
-of order-0 pages in commit 374ad05ab64d ("mm, page_alloc: only use per-cpu
-allocator for irq-safe requests").
+What type of allocations is the benchmark doing? In particular, what context
+is the microbenchmark allocating from? Lastly, how did you isolate the
+patch, did you test two specific commits in mainline or are you comparing
+4.10 with 4.11-rcX?
 
-This unfortunately also included excluded SoftIRQ.  This hurt the performance
-for the use-case of refilling DMA RX rings in softirq context.
-
-This patch re-allow softirq context, which should be safe by disabling
-BH/softirq, while accessing the list.  PCP-lists access from both hard-IRQ
-and NMI context must not be allowed.  Peter Zijlstra says in_nmi() code
-never access the page allocator, thus it should be sufficient to only test
-for !in_irq().
-
-One concern with this change is adding a BH (enable) scheduling point at
-both PCP alloc and free. If further concerns are highlighted by this patch,
-the result wiill be to revert 374ad05ab64d and try again at a later date
-to offset the irq enable/disable overhead.
-
-Fixes: 374ad05ab64d ("mm, page_alloc: only use per-cpu allocator for irq-safe requests")
-Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
-Signed-off-by: Mel Gorman <mgorman@techsingularity.net>
----
- mm/page_alloc.c | 26 +++++++++++++++++---------
- 1 file changed, 17 insertions(+), 9 deletions(-)
-
-diff --git a/mm/page_alloc.c b/mm/page_alloc.c
-index 6cbde310abed..d7e986967910 100644
---- a/mm/page_alloc.c
-+++ b/mm/page_alloc.c
-@@ -2351,9 +2351,9 @@ static void drain_local_pages_wq(struct work_struct *work)
- 	 * cpu which is allright but we also have to make sure to not move to
- 	 * a different one.
- 	 */
--	preempt_disable();
-+	local_bh_disable();
- 	drain_local_pages(NULL);
--	preempt_enable();
-+	local_bh_enable();
- }
- 
- /*
-@@ -2481,7 +2481,11 @@ void free_hot_cold_page(struct page *page, bool cold)
- 	unsigned long pfn = page_to_pfn(page);
- 	int migratetype;
- 
--	if (in_interrupt()) {
-+	/*
-+	 * Exclude (hard) IRQ and NMI context from using the pcplists.
-+	 * But allow softirq context, via disabling BH.
-+	 */
-+	if (in_irq() || irqs_disabled()) {
- 		__free_pages_ok(page, 0);
- 		return;
- 	}
-@@ -2491,7 +2495,7 @@ void free_hot_cold_page(struct page *page, bool cold)
- 
- 	migratetype = get_pfnblock_migratetype(page, pfn);
- 	set_pcppage_migratetype(page, migratetype);
--	preempt_disable();
-+	local_bh_disable();
- 
- 	/*
- 	 * We only track unmovable, reclaimable and movable on pcp lists.
-@@ -2522,7 +2526,7 @@ void free_hot_cold_page(struct page *page, bool cold)
- 	}
- 
- out:
--	preempt_enable();
-+	local_bh_enable();
- }
- 
- /*
-@@ -2647,7 +2651,7 @@ static struct page *__rmqueue_pcplist(struct zone *zone, int migratetype,
- {
- 	struct page *page;
- 
--	VM_BUG_ON(in_interrupt());
-+	VM_BUG_ON(in_irq() || irqs_disabled());
- 
- 	do {
- 		if (list_empty(list)) {
-@@ -2680,7 +2684,7 @@ static struct page *rmqueue_pcplist(struct zone *preferred_zone,
- 	bool cold = ((gfp_flags & __GFP_COLD) != 0);
- 	struct page *page;
- 
--	preempt_disable();
-+	local_bh_disable();
- 	pcp = &this_cpu_ptr(zone->pageset)->pcp;
- 	list = &pcp->lists[migratetype];
- 	page = __rmqueue_pcplist(zone,  migratetype, cold, pcp, list);
-@@ -2688,7 +2692,7 @@ static struct page *rmqueue_pcplist(struct zone *preferred_zone,
- 		__count_zid_vm_events(PGALLOC, page_zonenum(page), 1 << order);
- 		zone_statistics(preferred_zone, zone);
- 	}
--	preempt_enable();
-+	local_bh_enable();
- 	return page;
- }
- 
-@@ -2704,7 +2708,11 @@ struct page *rmqueue(struct zone *preferred_zone,
- 	unsigned long flags;
- 	struct page *page;
- 
--	if (likely(order == 0) && !in_interrupt()) {
-+	/*
-+	 * Exclude (hard) IRQ and NMI context from using the pcplists.
-+	 * But allow softirq context, via disabling BH.
-+	 */
-+	if (likely(order == 0) && !(in_irq() || irqs_disabled()) ) {
- 		page = rmqueue_pcplist(preferred_zone, zone, order,
- 				gfp_flags, migratetype);
- 		goto out;
+-- 
+Mel Gorman
+SUSE Labs
 
 --
 To unsubscribe, send a message with 'unsubscribe linux-mm' in
