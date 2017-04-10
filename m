@@ -1,7 +1,7 @@
 From: Robert Shearman <rshearma@brocade.com>
-Subject: [PATCH iproute2 net-next 2/2] iproute: Add support for MPLS LWT ttl attribute
-Date: Mon, 10 Apr 2017 15:36:12 +0100
-Message-ID: <1491834972-26668-3-git-send-email-rshearma@brocade.com>
+Subject: [PATCH iproute2 net-next 1/2] iproute: Add support for ttl-propagation attribute
+Date: Mon, 10 Apr 2017 15:36:11 +0100
+Message-ID: <1491834972-26668-2-git-send-email-rshearma@brocade.com>
 References: <1491834972-26668-1-git-send-email-rshearma@brocade.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,105 +9,98 @@ Cc: <stephen@networkplumber.org>,
         Robert Shearman <rshearma@brocade.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:35968 "EHLO
-        mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1753539AbdDJOhE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 10 Apr 2017 10:37:04 -0400
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:47214 "EHLO
+        mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751396AbdDJOhB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 10 Apr 2017 10:37:01 -0400
 In-Reply-To: <1491834972-26668-1-git-send-email-rshearma@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add support for setting and displaying the ttl attribute
-for MPLS IP lighweight tunnels.
+Add support for setting and displaying the ttl-propagation attribute
+initially used by MPLS to control propagation of MPLS TTL to IPv4/IPv6
+TTL/hop-limit on popping final label on a per-route basis.
 
 Signed-off-by: Robert Shearman <rshearma@brocade.com>
 ---
- ip/iproute_lwtunnel.c  | 31 +++++++++++++++++++++++++++++--
- man/man8/ip-route.8.in |  9 ++++++++-
- 2 files changed, 37 insertions(+), 3 deletions(-)
+ ip/iproute.c           | 22 ++++++++++++++++++++++
+ man/man8/ip-route.8.in | 10 +++++++++-
+ 2 files changed, 31 insertions(+), 1 deletion(-)
 
-diff --git a/ip/iproute_lwtunnel.c b/ip/iproute_lwtunnel.c
-index 0fa1cab0a790..845a115e9e41 100644
---- a/ip/iproute_lwtunnel.c
-+++ b/ip/iproute_lwtunnel.c
-@@ -84,6 +84,9 @@ static void print_encap_mpls(FILE *fp, struct rtattr *encap)
- 	if (tb[MPLS_IPTUNNEL_DST])
- 		fprintf(fp, " %s ",
- 			format_host_rta(AF_MPLS, tb[MPLS_IPTUNNEL_DST]));
-+	if (tb[MPLS_IPTUNNEL_TTL])
-+		fprintf(fp, "ttl %u ",
-+			rta_getattr_u8(tb[MPLS_IPTUNNEL_TTL]));
- }
+diff --git a/ip/iproute.c b/ip/iproute.c
+index 7cdf0726feb3..c2b681fc9730 100644
+--- a/ip/iproute.c
++++ b/ip/iproute.c
+@@ -77,6 +77,7 @@ static void usage(void)
+ 	fprintf(stderr, "NODE_SPEC := [ TYPE ] PREFIX [ tos TOS ]\n");
+ 	fprintf(stderr, "             [ table TABLE_ID ] [ proto RTPROTO ]\n");
+ 	fprintf(stderr, "             [ scope SCOPE ] [ metric METRIC ]\n");
++	fprintf(stderr, "             [ ttl-propagate { enabled | disabled } ]\n");
+ 	fprintf(stderr, "INFO_SPEC := NH OPTIONS FLAGS [ nexthop NH ]...\n");
+ 	fprintf(stderr, "NH := [ encap ENCAPTYPE ENCAPHDR ] [ via [ FAMILY ] ADDRESS ]\n");
+ 	fprintf(stderr, "	    [ dev STRING ] [ weight NUMBER ] NHFLAGS\n");
+@@ -714,6 +715,13 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+ 			fprintf(fp, "%u", pref);
+ 		}
+ 	}
++	if (tb[RTA_TTL_PROPAGATE]) {
++		fprintf(fp, "ttl-propagate ");
++		if (rta_getattr_u8(tb[RTA_TTL_PROPAGATE]))
++			fprintf(fp, "enabled");
++		else
++			fprintf(fp, "disabled");
++	}
+ 	fprintf(fp, "\n");
+ 	fflush(fp);
+ 	return 0;
+@@ -1184,6 +1192,20 @@ static int iproute_modify(int cmd, unsigned int flags, int argc, char **argv)
  
- static void print_encap_ip(FILE *fp, struct rtattr *encap)
-@@ -247,6 +250,7 @@ static int parse_encap_mpls(struct rtattr *rta, size_t len,
- 	inet_prefix addr;
- 	int argc = *argcp;
- 	char **argv = *argvp;
-+	int ttl_ok = 0;
- 
- 	if (get_addr(&addr, *argv, AF_MPLS)) {
- 		fprintf(stderr,
-@@ -258,8 +262,31 @@ static int parse_encap_mpls(struct rtattr *rta, size_t len,
- 	rta_addattr_l(rta, len, MPLS_IPTUNNEL_DST, &addr.data,
- 		      addr.bytelen);
- 
--	*argcp = argc;
--	*argvp = argv;
-+	argc--;
-+	argv++;
-+
-+	while (argc > 0) {
-+		if (strcmp(*argv, "ttl") == 0) {
-+			__u8 ttl;
+ 			if (rta->rta_len > RTA_LENGTH(0))
+ 				addraw_l(&req.n, 1024, RTA_DATA(rta), RTA_PAYLOAD(rta));
++		} else if (strcmp(*argv, "ttl-propagate") == 0) {
++			__u8 ttl_prop;
 +
 +			NEXT_ARG();
-+			if (ttl_ok++)
-+				duparg2("ttl", *argv);
-+			if (get_u8(&ttl, *argv, 0))
-+				invarg("\"ttl\" value is invalid\n", *argv);
-+			rta_addattr8(rta, len, MPLS_IPTUNNEL_TTL, ttl);
-+		} else {
-+			break;
-+		}
-+		argc--; argv++;
-+	}
++			if (strcmp(*argv, "enabled") == 0)
++				ttl_prop = 1;
++			else if (strcmp(*argv, "disabled") == 0)
++				ttl_prop = 0;
++			else
++				invarg("\"ttl-propagate\" value is invalid\n",
++				       *argv);
 +
-+	/* argv is currently the first unparsed argument,
-+	 * but the lwt_parse_encap() caller will move to the next,
-+	 * so step back
-+	 */
-+	*argcp = argc + 1;
-+	*argvp = argv - 1;
- 
- 	return 0;
- }
++			addattr8(&req.n, sizeof(req), RTA_TTL_PROPAGATE,
++				 ttl_prop);
+ 		} else {
+ 			int type;
+ 			inet_prefix dst;
 diff --git a/man/man8/ip-route.8.in b/man/man8/ip-route.8.in
-index fbe2711a4301..d2a44acf2793 100644
+index d6e06649a464..fbe2711a4301 100644
 --- a/man/man8/ip-route.8.in
 +++ b/man/man8/ip-route.8.in
-@@ -181,7 +181,9 @@ throw " | " unreachable " | " prohibit " | " blackhole " | " nat " ]"
- .ti -8
- .IR ENCAP_MPLS " := "
- .BR mpls " [ "
--.IR LABEL " ]"
-+.IR LABEL " ] ["
-+.B  ttl
-+.IR TTL " ]"
+@@ -75,7 +75,9 @@ replace " } "
+ .B  scope
+ .IR SCOPE " ] [ "
+ .B  metric
+-.IR METRIC " ]"
++.IR METRIC " ] [ "
++.B  ttl-propagate
++.RB "{ " enabled " | " disabled " } ]"
  
  .ti -8
- .IR ENCAP_IP " := "
-@@ -666,6 +668,11 @@ is a set of encapsulation attributes specific to the
- .I MPLSLABEL
- - mpls label stack with labels separated by
- .I "/"
-+.sp
+ .IR INFO_SPEC " := " "NH OPTIONS FLAGS" " ["
+@@ -710,6 +712,12 @@ is a set of encapsulation attributes specific to the
+ the route will be deleted after the expires time.
+ .B Only
+ support IPv6 at present.
 +
-+.B ttl
-+.I TTL
-+- TTL to use for MPLS header or 0 to inherit from IP header
- .in -2
- .sp
++.TP
++.BR ttl-propagate " { " enabled " | " disabled " } "
++Control whether TTL should be propagated from any encap into the
++un-encapsulated packet, overriding any global configuration. Only
++supported for MPLS at present.
+ .RE
  
+ .TP
 -- 
 2.1.4
