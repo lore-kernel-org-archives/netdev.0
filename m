@@ -1,52 +1,37 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH] net: netfilter: ipvs: Replace explicit NULL comparison
-Date: Mon, 10 Apr 2017 13:53:00 +0200
-Message-ID: <20170410115300.GB2155@salvia>
-References: <20170408171805.GA9156@arushi-HP-Pavilion-Notebook>
- <201704090633.AKZxFfWl%fengguang.wu@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Arushi Singhal <arushisinghal19971997@gmail.com>,
-        kbuild-all@01.org, wensong@linux-vs.org,
-        Simon Horman <horms@verge.net.au>,
-        Julian Anastasov <ja@ssi.bg>,
-        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-        coreteam@netfilter.org, linux-kernel@vger.kernel.org
-To: kbuild test robot <lkp@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <201704090633.AKZxFfWl%fengguang.wu@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: idosch@idosch.org
+Subject: [PATCH net v3 0/2] bridge: Fix kernel oops during bridge creation
+Date: Mon, 10 Apr 2017 14:59:26 +0300
+Message-ID: <20170410115928.9344-1-idosch@idosch.org>
+Cc: davem@davemloft.net, stephen@networkplumber.org,
+        bridge@lists.linux-foundation.org, mlxsw@mellanox.com,
+        peter@svinota.eu, nikolay@cumulusnetworks.com,
+        Ido Schimmel <idosch@mellanox.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:57884 "EHLO
+        out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752955AbdDJMAl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 10 Apr 2017 08:00:41 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Arushi,
+From: Ido Schimmel <idosch@mellanox.com>
 
-On Sun, Apr 09, 2017 at 06:21:51AM +0800, kbuild test robot wrote:
-> Hi Arushi,
-> 
-> [auto build test WARNING on ipvs-next/master]
-> [also build test WARNING on v4.11-rc5 next-20170407]
-> [if your patch is applied to the wrong git tree, please drop us a note to help improve the system]
-> 
-> url:    https://github.com/0day-ci/linux/commits/Arushi-Singhal/net-netfilter-ipvs-Replace-explicit-NULL-comparison/20170409-044710
-> base:   https://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs-next.git master
-> config: i386-randconfig-x002-201715 (attached as .config)
-> compiler: gcc-6 (Debian 6.2.0-3) 6.2.0 20160901
-> reproduce:
->         # save the attached .config to linux build tree
->         make ARCH=i386 
-> 
-> All warnings (new ones prefixed by >>):
-> 
->    net/netfilter/ipvs/ip_vs_proto.c: In function 'ip_vs_protocol_net_cleanup':
-> >> net/netfilter/ipvs/ip_vs_proto.c:350:3: warning: suggest parentheses around assignment used as truth value [-Wparentheses]
->       while (pd = ipvs->proto_data_table[i])
->       ^~~~~
+First patch adds a missing ndo_uninit() in the bridge driver, which is a
+prerequisite for the second patch that actually fixes the oops.
 
-This is bad, you have to be more careful in what you do. This is not a
-speed coding contest.
+Please consider both patches for 4.4.y, 4.9.y and 4.10.y
 
-Showing careful patchset handling, even if you submit less of them, is
-way more prefered in my opinion.
+Ido Schimmel (2):
+  bridge: implement missing ndo_uninit()
+  bridge: netlink: register netdevice before executing changelink
+
+ net/bridge/br_device.c    | 20 +++++++++++---------
+ net/bridge/br_if.c        |  1 -
+ net/bridge/br_multicast.c |  7 +++++--
+ net/bridge/br_netlink.c   |  7 +++++--
+ net/bridge/br_private.h   |  5 +++++
+ 5 files changed, 26 insertions(+), 14 deletions(-)
+
+-- 
+2.9.3
