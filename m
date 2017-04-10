@@ -1,46 +1,61 @@
-From: Oliver Neukum <oneukum@suse.com>
-Subject: Re: [PATCH] usbnet: make sure no NULL pointer is passed through
-Date: Mon, 10 Apr 2017 11:01:02 +0200
-Message-ID: <1491814862.1496.1.camel@suse.com>
-References: <20170405121439.22523-1-oneukum@suse.com>
-         <20170406.131907.1888296039502840628.davem@davemloft.net>
+From: <nmckenna@prospercanada.org>
+Subject: (unknown)
+Date: Mon, 10 Apr 2017 09:20:39 -0000
+Message-ID: <149181603931.7747.2178663909928938618@44.128.20.178.in-addr.arpa>
+Reply-To: <nmckenna@prospercanada.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: bjorn@mork.no, stephen@networkplumber.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: application/zip; name="5505890958_netdev.zip"
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:45977 "EHLO mx2.suse.de"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750989AbdDJJCI (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 10 Apr 2017 05:02:08 -0400
-In-Reply-To: <20170406.131907.1888296039502840628.davem@davemloft.net>
+Received: from 44.128.20.178.in-addr.arpa ([178.20.128.44]:49758 "HELO
+        44.128.20.178.in-addr.arpa" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with SMTP id S1752483AbdDJJUn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 10 Apr 2017 05:20:43 -0400
+Content-Disposition: attachment
+Subject: 
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am Donnerstag, den 06.04.2017, 13:19 -0700 schrieb David Miller:
-> From: Oliver Neukum <oneukum@suse.com>
-> Date: Wed,  5 Apr 2017 14:14:39 +0200
-> 
-> > Coverity reports:
->  ...
-> > It is valid to offer commands without a buffer, but then you need a size
-> > of zero. This should actually be checked.
-> > 
-> > Signed-off-by: Oliver Neukum <oneukum@suse.com>
-> 
-> Applied, thanks Oliver.
-> 
-> I had to apply this by hand via my inbox rather than using patchwork
-> because those coverity report delimiters cause patchwork to chop off
-> most of your commit message.
-> 
-
-Hi,
-
-thanks. That is not good. It seems to me that a Coverity report
-should be in the change log. Do you have suggestions how to do
-this in a friendly manner?
-
-	Regards
-		Oliver
+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
+AA==
