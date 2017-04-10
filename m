@@ -1,7 +1,7 @@
 From: Robert Shearman <rshearma@brocade.com>
-Subject: [PATCH net-next 1/3] ipv6: Fix route handling when using l3mdev set to main table
-Date: Mon, 10 Apr 2017 15:22:00 +0100
-Message-ID: <1491834122-26252-2-git-send-email-rshearma@brocade.com>
+Subject: [PATCH net-next 3/3] l3mdev: Fix lookup in local table when using main table
+Date: Mon, 10 Apr 2017 15:22:02 +0100
+Message-ID: <1491834122-26252-4-git-send-email-rshearma@brocade.com>
 References: <1491834122-26252-1-git-send-email-rshearma@brocade.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,161 +9,84 @@ Cc: <netdev@vger.kernel.org>, David Ahern <dsa@cumulusnetworks.com>,
         "Robert Shearman" <rshearma@brocade.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:51898 "EHLO
-        mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1753752AbdDJOWj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 10 Apr 2017 10:22:39 -0400
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:45922 "EHLO
+        mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1753243AbdDJOWc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 10 Apr 2017 10:22:32 -0400
 In-Reply-To: <1491834122-26252-1-git-send-email-rshearma@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If an l3mdev is set to use the main table then the use of the local
-table is overridden. This means that when split local/main table is in
-effect then local routes aren't added to the local table and so don't
-respect the order of ip rules.
+If an l3mdev is set to use the main table then the l3mdev rules will
+return this. This means that no lookup will be done in the local table
+if split local/main table is in effect and the local table lookup rule
+has been reordered to after the l3mdev rule. Related to this is that
+the order of the rule for looking up in the main table isn't
+respected.
 
-Fix this by assuming that no if no l3mdev is present then defaulting
-to RT6_TABLE_MAIN and then subsequently doing a translation from
-RT6_TABLE_MAIN to RT6_TABLE_LOCAL.
-
-Do the same translations for RT6_TABLE_INFO, RT6_TABLE_DFLT and
-RT6_TABLE_PREFIX even though they are just defined to RT6_TABLE_MAIN
-in case someone decides to change that in the future.
+Fix these two aspects by not returning a match if the l3mdev's table
+id is the main table. Processing will then proceed normally to the
+default rules and do the appropriate lookups.
 
 Signed-off-by: Robert Shearman <rshearma@brocade.com>
 ---
- net/ipv6/addrconf.c | 12 +++++++++---
- net/ipv6/route.c    | 23 ++++++++++++++++++-----
- 2 files changed, 27 insertions(+), 8 deletions(-)
+ net/l3mdev/l3mdev.c | 26 ++++++++++++++++++++------
+ 1 file changed, 20 insertions(+), 6 deletions(-)
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 67ec87ea5fb6..937c35581a28 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -2244,7 +2244,6 @@ addrconf_prefix_route(struct in6_addr *pfx, int plen, struct net_device *dev,
- 		      unsigned long expires, u32 flags)
+diff --git a/net/l3mdev/l3mdev.c b/net/l3mdev/l3mdev.c
+index 8da86ceca33d..5147959243c5 100644
+--- a/net/l3mdev/l3mdev.c
++++ b/net/l3mdev/l3mdev.c
+@@ -12,6 +12,7 @@
+ #include <linux/netdevice.h>
+ #include <net/fib_rules.h>
+ #include <net/l3mdev.h>
++#include <net/ip6_fib.h>
+ 
+ /**
+  *	l3mdev_master_ifindex - get index of L3 master device
+@@ -142,23 +143,36 @@ int l3mdev_fib_rule_match(struct net *net, struct flowi *fl,
  {
- 	struct fib6_config cfg = {
--		.fc_table = l3mdev_fib_table(dev) ? : RT6_TABLE_PREFIX,
- 		.fc_metric = IP6_RT_PRIO_ADDRCONF,
- 		.fc_ifindex = dev->ifindex,
- 		.fc_expires = expires,
-@@ -2254,6 +2253,9 @@ addrconf_prefix_route(struct in6_addr *pfx, int plen, struct net_device *dev,
- 		.fc_protocol = RTPROT_KERNEL,
- 	};
+ 	struct net_device *dev;
+ 	int rc = 0;
++	u32 tb_id;
  
-+	cfg.fc_table = l3mdev_fib_table(dev) ? : RT6_TABLE_MAIN;
-+	if (cfg.fc_table == RT6_TABLE_MAIN)
-+		cfg.fc_table = RT6_TABLE_PREFIX;
- 	cfg.fc_dst = *pfx;
+ 	rcu_read_lock();
  
- 	/* Prevent useless cloning on PtP SIT.
-@@ -2277,8 +2279,10 @@ static struct rt6_info *addrconf_get_prefix_route(const struct in6_addr *pfx,
- 	struct fib6_node *fn;
- 	struct rt6_info *rt = NULL;
- 	struct fib6_table *table;
--	u32 tb_id = l3mdev_fib_table(dev) ? : RT6_TABLE_PREFIX;
-+	u32 tb_id = l3mdev_fib_table(dev) ? : RT6_TABLE_MAIN;
+ 	dev = dev_get_by_index_rcu(net, fl->flowi_oif);
+ 	if (dev && netif_is_l3_master(dev) &&
+ 	    dev->l3mdev_ops->l3mdev_fib_table) {
+-		arg->table = dev->l3mdev_ops->l3mdev_fib_table(dev);
+-		rc = 1;
+-		goto out;
++		tb_id = dev->l3mdev_ops->l3mdev_fib_table(dev);
++		/* This requires the main table id to be consistent
++		 * between IPv4 and IPv6.
++		 */
++		BUILD_BUG_ON(RT_TABLE_MAIN != RT6_TABLE_MAIN);
++		/* main table is handled by default rules */
++		if (tb_id != RT_TABLE_MAIN) {
++			arg->table = tb_id;
++			rc = 1;
++			goto out;
++		}
+ 	}
  
-+	if (tb_id == RT6_TABLE_MAIN)
-+		tb_id = RT6_TABLE_PREFIX;
- 	table = fib6_get_table(dev_net(dev), tb_id);
- 	if (!table)
- 		return NULL;
-@@ -2310,7 +2314,6 @@ static struct rt6_info *addrconf_get_prefix_route(const struct in6_addr *pfx,
- static void addrconf_add_mroute(struct net_device *dev)
- {
- 	struct fib6_config cfg = {
--		.fc_table = l3mdev_fib_table(dev) ? : RT6_TABLE_LOCAL,
- 		.fc_metric = IP6_RT_PRIO_ADDRCONF,
- 		.fc_ifindex = dev->ifindex,
- 		.fc_dst_len = 8,
-@@ -2318,6 +2321,9 @@ static void addrconf_add_mroute(struct net_device *dev)
- 		.fc_nlinfo.nl_net = dev_net(dev),
- 	};
+ 	dev = dev_get_by_index_rcu(net, fl->flowi_iif);
+ 	if (dev && netif_is_l3_master(dev) &&
+ 	    dev->l3mdev_ops->l3mdev_fib_table) {
+-		arg->table = dev->l3mdev_ops->l3mdev_fib_table(dev);
+-		rc = 1;
+-		goto out;
++		tb_id = dev->l3mdev_ops->l3mdev_fib_table(dev);
++		/* main table is handled by default rules */
++		if (tb_id != RT_TABLE_MAIN) {
++			arg->table = tb_id;
++			rc = 1;
++			goto out;
++		}
+ 	}
  
-+	cfg.fc_table = l3mdev_fib_table(dev) ? : RT6_TABLE_MAIN;
-+	if (cfg.fc_table == RT6_TABLE_MAIN)
-+		cfg.fc_table = RT6_TABLE_LOCAL;
- 	ipv6_addr_set(&cfg.fc_dst, htonl(0xFF000000), 0, 0, 0);
- 
- 	ip6_route_add(&cfg);
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 9db1418993f2..490c74ed6a78 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -2424,12 +2424,15 @@ static struct rt6_info *rt6_get_route_info(struct net *net,
- 					   const struct in6_addr *gwaddr,
- 					   struct net_device *dev)
- {
--	u32 tb_id = l3mdev_fib_table(dev) ? : RT6_TABLE_INFO;
-+	u32 tb_id = l3mdev_fib_table(dev) ? : RT6_TABLE_MAIN;
- 	int ifindex = dev->ifindex;
- 	struct fib6_node *fn;
- 	struct rt6_info *rt = NULL;
- 	struct fib6_table *table;
- 
-+	if (tb_id == RT6_TABLE_MAIN)
-+		tb_id = RT6_TABLE_INFO;
-+
- 	table = fib6_get_table(net, tb_id);
- 	if (!table)
- 		return NULL;
-@@ -2471,7 +2474,9 @@ static struct rt6_info *rt6_add_route_info(struct net *net,
- 		.fc_nlinfo.nl_net = net,
- 	};
- 
--	cfg.fc_table = l3mdev_fib_table(dev) ? : RT6_TABLE_INFO,
-+	cfg.fc_table = l3mdev_fib_table(dev) ? : RT6_TABLE_MAIN;
-+	if (cfg.fc_table == RT6_TABLE_MAIN)
-+		cfg.fc_table = RT6_TABLE_INFO;
- 	cfg.fc_dst = *prefix;
- 	cfg.fc_gateway = *gwaddr;
- 
-@@ -2487,10 +2492,13 @@ static struct rt6_info *rt6_add_route_info(struct net *net,
- 
- struct rt6_info *rt6_get_dflt_router(const struct in6_addr *addr, struct net_device *dev)
- {
--	u32 tb_id = l3mdev_fib_table(dev) ? : RT6_TABLE_DFLT;
-+	u32 tb_id = l3mdev_fib_table(dev) ? : RT6_TABLE_MAIN;
- 	struct rt6_info *rt;
- 	struct fib6_table *table;
- 
-+	if (tb_id == RT6_TABLE_MAIN)
-+		tb_id = RT6_TABLE_DFLT;
-+
- 	table = fib6_get_table(dev_net(dev), tb_id);
- 	if (!table)
- 		return NULL;
-@@ -2513,7 +2521,6 @@ struct rt6_info *rt6_add_dflt_router(const struct in6_addr *gwaddr,
- 				     unsigned int pref)
- {
- 	struct fib6_config cfg = {
--		.fc_table	= l3mdev_fib_table(dev) ? : RT6_TABLE_DFLT,
- 		.fc_metric	= IP6_RT_PRIO_USER,
- 		.fc_ifindex	= dev->ifindex,
- 		.fc_flags	= RTF_GATEWAY | RTF_ADDRCONF | RTF_DEFAULT |
-@@ -2523,6 +2530,10 @@ struct rt6_info *rt6_add_dflt_router(const struct in6_addr *gwaddr,
- 		.fc_nlinfo.nl_net = dev_net(dev),
- 	};
- 
-+	cfg.fc_table = l3mdev_fib_table(dev) ? : RT6_TABLE_MAIN;
-+	if (cfg.fc_table == RT6_TABLE_MAIN)
-+		cfg.fc_table = RT6_TABLE_DFLT;
-+
- 	cfg.fc_gateway = *gwaddr;
- 
- 	if (!ip6_route_add(&cfg)) {
-@@ -2723,7 +2734,9 @@ struct rt6_info *addrconf_dst_alloc(struct inet6_dev *idev,
- 	rt->rt6i_gateway  = *addr;
- 	rt->rt6i_dst.addr = *addr;
- 	rt->rt6i_dst.plen = 128;
--	tb_id = l3mdev_fib_table(idev->dev) ? : RT6_TABLE_LOCAL;
-+	tb_id = l3mdev_fib_table(idev->dev) ? : RT6_TABLE_MAIN;
-+	if (tb_id == RT6_TABLE_MAIN)
-+		tb_id = RT6_TABLE_LOCAL;
- 	rt->rt6i_table = fib6_get_table(net, tb_id);
- 	rt->dst.flags |= DST_NOCACHE;
- 
+ out:
 -- 
 2.1.4
