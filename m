@@ -1,45 +1,38 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: [PATCH v3 1/5] netlink: extended ACK reporting
-Date: Mon, 10 Apr 2017 17:40:11 +0200
-Message-ID: <1491838811.28432.8.camel@sipsolutions.net>
-References: <20170408202434.12018-1-johannes@sipsolutions.net>
-         <20170408202434.12018-2-johannes@sipsolutions.net>
-         <fddba2c8-3b85-d5df-81c4-ef31c459e40c@cumulusnetworks.com>
-         <1491838218.28432.5.camel@sipsolutions.net>
-         <029e6587-c0e8-bdb0-49e9-2abe2946a7ff@cumulusnetworks.com>
-         (sfid-20170410_173530_723869_8DC854E1)
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 1/8] rtnetlink: Do not generate notifications for
+ MTU events
+Date: Mon, 10 Apr 2017 09:49:55 -0600
+Message-ID: <541c220b-9e55-8206-3886-6a98c86ae2e7@cumulusnetworks.com>
+References: <1491600340-8359-1-git-send-email-dsa@cumulusnetworks.com>
+ <1491600340-8359-2-git-send-email-dsa@cumulusnetworks.com>
+ <58E92699.6090909@cumulusnetworks.com>
+ <63e0a6c1-ec09-4f04-7e41-edd0adf871b2@cumulusnetworks.com>
+ <58E92966.5000506@cumulusnetworks.com>
+ <7dfa18fc-3e99-9630-7b3c-31823c66155a@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
-        Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org
-To: David Ahern <dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>,
-        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <029e6587-c0e8-bdb0-49e9-2abe2946a7ff-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org> (sfid-20170410_173530_723869_8DC854E1)
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: vyasevic@redhat.com, Roopa Prabhu <roopa@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f52.google.com ([74.125.83.52]:35478 "EHLO
+        mail-pg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754596AbdDJPuD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 10 Apr 2017 11:50:03 -0400
+Received: by mail-pg0-f52.google.com with SMTP id 81so107909763pgh.2
+        for <netdev@vger.kernel.org>; Mon, 10 Apr 2017 08:50:03 -0700 (PDT)
+In-Reply-To: <7dfa18fc-3e99-9630-7b3c-31823c66155a@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2017-04-10 at 09:35 -0600, David Ahern wrote:
-
-> > Do you have any better ideas?
+On 4/10/17 9:39 AM, Vlad Yasevich wrote:
+> OK, so this will work for the events that are generated as a result of device state change
+> (like mtu, address, and others).
 > 
-> NETLINK_F_CAP_ACK and NETLINK_F_EXT_ACK should be incompatible -- if
-> one is set the other can not be set. CAP_ACK means abbreviate the
-> response and EXT_ACK means give me more data.
+> However, the original event data may be needed for other events that may be
+> of use to userspace like NETDEV_NOTIFY_PEERS and NETDEV_RESEND_IGMP (possibly others...)
 
-So you mean if I want EXT_ACK I cannot also cap the message?
+sure. My objection is to multiple messages with identical content.
 
-I guess that's doable, but again wouldn't it hurt applications that
-want to use CAP? I assume every application wants to use EXT_ACK
-eventually, and those that use CAP right now wouldn't be able to.
-
-Another thought: if we add a new flag that indicates "message has been
-capped", which we introduce in this same patch, then we can disentangle
-this more easily, right?
-
-Adding a new flag for "TLVs present" won't really help, but if you know
-the message was capped then you know the TLVs start after the inner
-nlmsghdr and you ignore that header's nlmsg_len.
-
-johannes
+I think the rtnetlink_event message is unique for those 2 netdev events,
+so no objections if it has value.
