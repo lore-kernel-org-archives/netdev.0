@@ -1,42 +1,46 @@
-From: Mel Gorman <mgorman@techsingularity.net>
-Subject: Re: Page allocator order-0 optimizations merged
-Date: Mon, 10 Apr 2017 16:10:51 +0100
-Message-ID: <20170410151051.n4lytmha4tqh4l3t@techsingularity.net>
-References: <58b48b1f.F/jo2/WiSxvvGm/z%akpm@linux-foundation.org>
- <20170301144845.783f8cad@redhat.com>
- <58EB9754.3090202@huawei.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next V2 5/7] s390/qeth: improve endianness handling
+Date: Mon, 10 Apr 2017 15:16:27 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DCFFCAAFB@AcuExch.aculab.com>
+References: <20170407071538.63253-1-ubraun@linux.vnet.ibm.com>
+ <20170407071538.63253-6-ubraun@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	akpm@linux-foundation.org, linux-mm <linux-mm@kvack.org>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Tariq Toukan <tariqt@mellanox.com>
-To: zhong jiang <zhongjiang@huawei.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <58EB9754.3090202@huawei.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-s390@vger.kernel.org" <linux-s390@vger.kernel.org>,
+        "jwi@linux.vnet.ibm.com" <jwi@linux.vnet.ibm.com>,
+        "schwidefsky@de.ibm.com" <schwidefsky@de.ibm.com>,
+        "heiko.carstens@de.ibm.com" <heiko.carstens@de.ibm.com>,
+        "raspl@linux.vnet.ibm.com" <raspl@linux.vnet.ibm.com>
+To: 'Ursula Braun' <ubraun@linux.vnet.ibm.com>,
+        "davem@davemloft.net" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out6.electric.net ([192.162.217.189]:50727 "EHLO
+        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753340AbdDJPQg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 10 Apr 2017 11:16:36 -0400
+In-Reply-To: <20170407071538.63253-6-ubraun@linux.vnet.ibm.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 10, 2017 at 10:31:48PM +0800, zhong jiang wrote:
-> Hi, Mel
-> 
->      The patch I had test on arm64. I find the great degradation. I test it by micro-bench.
->     The patrly data is as following.  and it is stable.  That stands for the allocate and free time. 
->     
+From: Ursula Braun
+> Sent: 07 April 2017 08:16
+> Avoid endianness warnings reported by sparse by (1) using endianness
+> conversions for assigning and using network packet fields, and (2)
+> removing unnecessary endianness conversions from qeth_l3_rebuild_skb. No
+> functional changes.
+...
+> -	if (*p == ETH_P_8021Q)
+> +	if (be16_to_cpu(*p) == ETH_P_8021Q)
+...
 
-What type of allocations is the benchmark doing? In particular, what context
-is the microbenchmark allocating from? Lastly, how did you isolate the
-patch, did you test two specific commits in mainline or are you comparing
-4.10 with 4.11-rcX?
+This is clearly different on little-endian systems.
+Also (probably) better written as:
 
--- 
-Mel Gorman
-SUSE Labs
+	if (*p == cpu_to_be16(ETH_P_8021Q))
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+so that the constant can by byteswapped.
+
+	David
