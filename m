@@ -1,69 +1,42 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH v2 1/5] netlink: extended ACK reporting
-Date: Mon, 10 Apr 2017 12:15:40 +0200
-Message-ID: <1491819340.2455.7.camel@sipsolutions.net>
-References: <20170408183444.2796-1-johannes@sipsolutions.net>
-         <20170408183444.2796-2-johannes@sipsolutions.net>
-         (sfid-20170408_203507_265684_7230C4D6)
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: pablo@netfilter.org, Jamal Hadi Salim <jhs@mojatatu.com>,
-        Jiri Benc <jbenc@redhat.com>,
-        David Ahern <dsa@cumulusnetworks.com>, jiri@resnulli.us
-To: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+From: Joao Pinto <Joao.Pinto@synopsys.com>
+Subject: [PATCH] net: stmmac: use netif_set_real_num_{rx,tx}_queues
+Date: Mon, 10 Apr 2017 11:32:14 +0100
+Message-ID: <f0359c3d65fbb3f5220c23fc2833c4a094bec4a5.1491819975.git.jpinto@synopsys.com>
+Cc: netdev@vger.kernel.org, Joao Pinto <Joao.Pinto@synopsys.com>,
+        Arnd Bergmann <arnd@arndb.de>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:35448 "EHLO sipsolutions.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751968AbdDJKPo (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 10 Apr 2017 06:15:44 -0400
-In-Reply-To: <20170408183444.2796-2-johannes@sipsolutions.net> (sfid-20170408_203507_265684_7230C4D6)
+Received: from us01smtprelay-2.synopsys.com ([198.182.60.111]:33117 "EHLO
+        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752750AbdDJKcT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 10 Apr 2017 06:32:19 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+In the submission of the lastest multiple buffer patch set, this fix was lost.
+I am sending this patch to put it right again. The fix was originally proposed
+by Arnd Bergmann.
 
-> @@ -2300,14 +2332,35 @@ void netlink_ack(struct sk_buff *in_skb, struct nlmsghdr *nlh, int err)
-        rep = __nlmsg_put(skb, NETLINK_CB(in_skb).portid, nlh->nlmsg_seq,
->  			  NLMSG_ERROR, payload, 0);
->  	errmsg = nlmsg_data(rep);
->  	errmsg->error = err;
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Signed-off-by: Joao Pinto <jpinto@synopsys.com>
+---
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-This is still wrong - now the message length is too short.
-
-At the very least,
-
-> -	memcpy(&errmsg->msg, nlh, payload > sizeof(*errmsg) ? nlh-
-> >nlmsg_len : sizeof(*nlh));
-> +	memcpy(&errmsg->msg, nlh,
-> +	       !(nlk->flags & NETLINK_F_CAP_ACK) ? nlh->nlmsg_len
-> +						 : sizeof(*nlh));
-> +
-> +	if (err && nlk->flags & NETLINK_F_EXT_ACK && extack) {
-> +		if (extack->_msg)
-> +			WARN_ON(nla_put_string(skb,
-> NLMSGERR_ATTR_MSG,
-> +					       extack->_msg));
-> +		if (extack->bad_attr &&
-> +		    !WARN_ON((u8 *)extack->bad_attr < in_skb->data
-> ||
-> +			     (u8 *)extack->bad_attr >= in_skb->data
-> +
-> +						       in_skb->len))
-> +			WARN_ON(nla_put_u32(skb, NLMSGERR_ATTR_OFFS,
-> +					    (u8 *)extack->bad_attr -
-> +					    in_skb->data));
-> +		if (extack->missing_attr)
-> +			WARN_ON(nla_put_u16(skb, NLMSGERR_ATTR_ATTR,
-> +					    extack->missing_attr));
-> +	}
-
-I need to add
- rep->nlmsg_len = skb->len;
-
->  	netlink_unicast(in_skb->sk, skb, NETLINK_CB(in_skb).portid,
-> MSG_DONTWAIT);
-
-Here, but at that point I think it makes sense to rewrite this nlmsg
-put stuff here as well.
-
-johannes
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index a89f76b..85f315e 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -4103,8 +4103,8 @@ int stmmac_dvr_probe(struct device *device,
+ 		goto error_hw_init;
+ 
+ 	/* Configure real RX and TX queues */
+-	ndev->real_num_rx_queues = priv->plat->rx_queues_to_use;
+-	ndev->real_num_tx_queues = priv->plat->tx_queues_to_use;
++	netif_set_real_num_rx_queues(ndev, priv->plat->rx_queues_to_use);
++	netif_set_real_num_tx_queues(ndev, priv->plat->tx_queues_to_use);
+ 
+ 	ndev->netdev_ops = &stmmac_netdev_ops;
+ 
+-- 
+2.9.3
