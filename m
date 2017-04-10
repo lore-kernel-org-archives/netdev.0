@@ -1,63 +1,58 @@
-From: Juergen Borleis <jbe@pengutronix.de>
-Subject: Re: [PATCH v2 3/4] net: dsa: LAN9303: add I2C managed mode support
-Date: Mon, 10 Apr 2017 09:58:38 +0200
-Message-ID: <201704100958.38939.jbe@pengutronix.de>
-References: <20170407081502.30172-1-jbe@pengutronix.de> <20170407081502.30172-4-jbe@pengutronix.de> <20170407134007.GA22263@lunn.ch>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: [PATCH] net: move padding in struct skb_shared_info
+Date: Mon, 10 Apr 2017 11:07:56 +0300
+Message-ID: <20170410080755.GA24514@avx2>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 8BIT
-Cc: Andrew Lunn <andrew@lunn.ch>, f.fainelli@gmail.com,
-        vivien.didelot@savoirfairelinux.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, davem@davemloft.net
-To: kernel@pengutronix.de
+Content-Type: text/plain; charset=us-ascii
+Cc: steffen.klassert@secunet.com, edumazet@google.com,
+        netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:41719 "EHLO
-        metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750957AbdDJH7Q (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 10 Apr 2017 03:59:16 -0400
-In-Reply-To: <20170407134007.GA22263@lunn.ch>
+Received: from mail-lf0-f67.google.com ([209.85.215.67]:34678 "EHLO
+        mail-lf0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750989AbdDJIIA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 10 Apr 2017 04:08:00 -0400
+Received: by mail-lf0-f67.google.com with SMTP id x72so3254067lfb.1
+        for <netdev@vger.kernel.org>; Mon, 10 Apr 2017 01:08:00 -0700 (PDT)
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Andrew,
+commit 7f564528a480084e2318cd48caba7aef4a54a77f
+("skbuff: Extend gso_type to unsigned int.") created padding as first
+field of struct skb_shared_info requiring [R64+imm8] addressing mode
+for all fields.
 
-On Friday 07 April 2017 15:40:07 Andrew Lunn wrote:
-> > +Optional properties:
-> > +
-> > +- reset-gpios: GPIO to be used to reset the whole device, always low
-> > active
->
-> I would avoid the always low active comment. The input to the switch
-> is active low. But i've seen designs with an inverter in the reset
-> path, so from the perspective of the GPIO it would be active high. The
-> device tree binding allows for this, via the flags. And since you use
-> the gpiod API, it should all just work.
->
-> > +		ports {
-> > +			#address-cells = <1>;
-> > +			#size-cells = <0>;
-> > +
-> > +			port@0 { /* RMII fixed link to master */
-> > +				reg = <0>;
-> > +				label = "cpu";
-> > +				ethernet = <&master>;
-> > +			};
-> > +
-> > +			port@1 { /* external port 1 */
-> > +				compatible = "ethernet-phy-ieee802.3-c22";
-> > +				reg = <1>;
-> > +				label = "lan1;
-> > +			};
->
-> These are not PHY nodes, so does this compatible string do anything?
+Patch bubbles up padding brinding code size down to original levels and
+even smaller:
 
-I removed them and nothing changed.
+	add/remove: 0/0 grow/shrink: 4/304 up/down: 20/-720 (-700)
+	function                                     old     new   delta
+	iwl_trans_pcie_tx                           3994    4006     +12
+	tap_do_read                                 1070    1074      +4
+	packet_recvmsg                              1155    1157      +2
+	be_xmit                                     2038    2040      +2
+	zerocopy_sg_from_iter                        455     454      -1
+		...
+	__ef4_rx_packet                             1358    1349      -9
+	hix5hd2_poll                                1787    1777     -10
+	e1000_clean_jumbo_rx_irq                    3599    3587     -12
+	skb_try_coalesce                            1118    1105     -13
+	xenvif_tx_build_gops                        5057    5043     -14
 
-Regards,
-Juergen
+Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+---
 
--- 
-Pengutronix e.K.                             | Juergen Borleis             |
-Industrial Linux Solutions                   | http://www.pengutronix.de/  |
+ include/linux/skbuff.h |    1 -
+ 1 file changed, 1 deletion(-)
+
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -413,7 +413,6 @@ struct ubuf_info {
+  * the end of the header data, ie. at skb->end.
+  */
+ struct skb_shared_info {
+-	unsigned short	_unused;
+ 	unsigned char	nr_frags;
+ 	__u8		tx_flags;
+ 	unsigned short	gso_size;
