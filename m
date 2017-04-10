@@ -1,43 +1,44 @@
 From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: [PATCH v2 02/12] ftgmac100: Move ftgmac100_hard_start_xmit() around
-Date: Mon, 10 Apr 2017 11:15:16 +1000
-Message-ID: <20170410011526.4509-3-benh@kernel.crashing.org>
+Subject: [PATCH v2 03/12] ftgmac100: Merge ftgmac100_xmit() into ftgmac100_hard_start_xmit()
+Date: Mon, 10 Apr 2017 11:15:17 +1000
+Message-ID: <20170410011526.4509-4-benh@kernel.crashing.org>
 References: <20170410011526.4509-1-benh@kernel.crashing.org>
 Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from gate.crashing.org ([63.228.1.57]:33510 "EHLO gate.crashing.org"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751140AbdDJBoV (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 9 Apr 2017 21:44:21 -0400
+        id S1751004AbdDJBoW (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 9 Apr 2017 21:44:22 -0400
 In-Reply-To: <20170410011526.4509-1-benh@kernel.crashing.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move it below ftgmac100_xmit() and the rest of the tx path
-
-No code change.
+This will make subsequent rework of the tx path simpler
 
 Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 ---
-
-v2. - Fix patch splitting mistake
----
- drivers/net/ethernet/faraday/ftgmac100.c | 58 ++++++++++++++++----------------
- 1 file changed, 29 insertions(+), 29 deletions(-)
+ drivers/net/ethernet/faraday/ftgmac100.c | 58 ++++++++++++++------------------
+ 1 file changed, 25 insertions(+), 33 deletions(-)
 
 diff --git a/drivers/net/ethernet/faraday/ftgmac100.c b/drivers/net/ethernet/faraday/ftgmac100.c
-index f4b719214..21df322 100644
+index 21df322..a5bab0d 100644
 --- a/drivers/net/ethernet/faraday/ftgmac100.c
 +++ b/drivers/net/ethernet/faraday/ftgmac100.c
-@@ -673,6 +673,35 @@ static int ftgmac100_xmit(struct ftgmac100 *priv, struct sk_buff *skb,
- 	return NETDEV_TX_OK;
+@@ -627,12 +627,33 @@ static void ftgmac100_tx_complete(struct ftgmac100 *priv)
+ 		;
  }
  
+-static int ftgmac100_xmit(struct ftgmac100 *priv, struct sk_buff *skb,
+-			  dma_addr_t map)
 +static int ftgmac100_hard_start_xmit(struct sk_buff *skb,
 +				     struct net_device *netdev)
-+{
+ {
+-	struct net_device *netdev = priv->netdev;
+-	struct ftgmac100_txdes *txdes;
+ 	unsigned int len = (skb->len < ETH_ZLEN) ? ETH_ZLEN : skb->len;
 +	struct ftgmac100 *priv = netdev_priv(netdev);
++	struct ftgmac100_txdes *txdes;
 +	dma_addr_t map;
 +
 +	if (unlikely(skb->len > MAX_PKT_SIZE)) {
@@ -59,15 +60,11 @@ index f4b719214..21df322 100644
 +		kfree_skb(skb);
 +		return NETDEV_TX_OK;
 +	}
-+
-+	return ftgmac100_xmit(priv, skb, map);
-+}
-+
- static void ftgmac100_free_buffers(struct ftgmac100 *priv)
- {
- 	int i;
-@@ -1210,35 +1239,6 @@ static int ftgmac100_stop(struct net_device *netdev)
- 	return 0;
+ 
+ 	txdes = ftgmac100_current_txdes(priv);
+ 	ftgmac100_tx_pointer_advance(priv);
+@@ -673,35 +694,6 @@ static int ftgmac100_xmit(struct ftgmac100 *priv, struct sk_buff *skb,
+ 	return NETDEV_TX_OK;
  }
  
 -static int ftgmac100_hard_start_xmit(struct sk_buff *skb,
@@ -99,8 +96,8 @@ index f4b719214..21df322 100644
 -	return ftgmac100_xmit(priv, skb, map);
 -}
 -
- /* optional */
- static int ftgmac100_do_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
+ static void ftgmac100_free_buffers(struct ftgmac100 *priv)
  {
+ 	int i;
 -- 
 2.9.3
