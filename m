@@ -1,38 +1,75 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next RFC] Generic XDP
-Date: Mon, 10 Apr 2017 15:34:56 -0400 (EDT)
-Message-ID: <20170410.153456.2120460675454633725.davem@davemloft.net>
-References: <20170409.133528.660876505013192371.davem@davemloft.net>
-        <20170410183935.GB4730@C02RW35GFVH8.dhcp.broadcom.net>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xdp-newbies@vger.kernel.org
-To: andy@greyhouse.net
+From: Aaron Conole <aconole@bytheb.org>
+Subject: [PATCH nf-next] ipvs: remove unused function ip_vs_set_state_timeout
+Date: Mon, 10 Apr 2017 15:50:44 -0400
+Message-ID: <20170410195044.19646-1-aconole@bytheb.org>
+Cc: Wensong Zhang <wensong@linux-vs.org>,
+        Simon Horman <horms@verge.net.au>,
+        Julian Anastasov <ja@ssi.bg>, netdev@vger.kernel.org,
+        lvs-devel@vger.kernel.org, linux-kernel@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:50590 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751656AbdDJTe5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 10 Apr 2017 15:34:57 -0400
-In-Reply-To: <20170410183935.GB4730@C02RW35GFVH8.dhcp.broadcom.net>
+Received: from mail-qk0-f194.google.com ([209.85.220.194]:35993 "EHLO
+        mail-qk0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752155AbdDJTuw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 10 Apr 2017 15:50:52 -0400
+Received: by mail-qk0-f194.google.com with SMTP id v75so21370891qkb.3
+        for <netdev@vger.kernel.org>; Mon, 10 Apr 2017 12:50:52 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andy Gospodarek <andy@greyhouse.net>
-Date: Mon, 10 Apr 2017 14:39:35 -0400
+There are no in-tree callers of this function and it isn't exported.
 
-> I also noted that...
-> 
-> xdp1 not parsing the protocol correctly.   All traffic was showing up as
-> protocol '0' instead of '17' in the output.  
-> 
-> xdp2 was not actually sending the frames back out when using this patch.
-> 
-> I'll take a look in a bit and see if I can track these two issues down.
+Signed-off-by: Aaron Conole <aconole@bytheb.org>
+---
+ include/net/ip_vs.h              |  2 --
+ net/netfilter/ipvs/ip_vs_proto.c | 22 ----------------------
+ 2 files changed, 24 deletions(-)
 
-Read Alexei's earlier posting, he spotted the bugs you are seeing
-here.
-
-Basically, the MAC header is pulled already so we have to push it back
-before we run XDP over it.  We also have to be similarly careful with
-the MAC header for XDP_TX cases.
+diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
+index 8a4a57b8..c76fedb 100644
+--- a/include/net/ip_vs.h
++++ b/include/net/ip_vs.h
+@@ -1349,8 +1349,6 @@ int ip_vs_protocol_init(void);
+ void ip_vs_protocol_cleanup(void);
+ void ip_vs_protocol_timeout_change(struct netns_ipvs *ipvs, int flags);
+ int *ip_vs_create_timeout_table(int *table, int size);
+-int ip_vs_set_state_timeout(int *table, int num, const char *const *names,
+-			    const char *name, int to);
+ void ip_vs_tcpudp_debug_packet(int af, struct ip_vs_protocol *pp,
+ 			       const struct sk_buff *skb, int offset,
+ 			       const char *msg);
+diff --git a/net/netfilter/ipvs/ip_vs_proto.c b/net/netfilter/ipvs/ip_vs_proto.c
+index 8ae4807..ca880a3 100644
+--- a/net/netfilter/ipvs/ip_vs_proto.c
++++ b/net/netfilter/ipvs/ip_vs_proto.c
+@@ -193,28 +193,6 @@ ip_vs_create_timeout_table(int *table, int size)
+ }
+ 
+ 
+-/*
+- *	Set timeout value for state specified by name
+- */
+-int
+-ip_vs_set_state_timeout(int *table, int num, const char *const *names,
+-			const char *name, int to)
+-{
+-	int i;
+-
+-	if (!table || !name || !to)
+-		return -EINVAL;
+-
+-	for (i = 0; i < num; i++) {
+-		if (strcmp(names[i], name))
+-			continue;
+-		table[i] = to * HZ;
+-		return 0;
+-	}
+-	return -ENOENT;
+-}
+-
+-
+ const char * ip_vs_state_name(__u16 proto, int state)
+ {
+ 	struct ip_vs_protocol *pp = ip_vs_proto_get(proto);
+-- 
+2.9.3
