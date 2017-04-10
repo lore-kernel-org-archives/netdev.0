@@ -1,63 +1,82 @@
-From: Daniele Palmas <dnlplm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 1/1] drivers: net: usb: qmi_wwan: add QMI_QUIRK_SET_DTR for Telit PID 0x1201
-Date: Mon, 10 Apr 2017 17:34:23 +0200
-Message-ID: <1491838463-20299-1-git-send-email-dnlplm@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Non-standard TCP stack processing of packets with unacceptable
+ ACK numbers
+Date: Mon, 10 Apr 2017 08:34:53 -0700
+Message-ID: <1491838493.10587.14.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <fbb92f49-5eca-f411-dcab-253d2a222623@science.ru.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Daniele Palmas <dnlplm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Frits Vaandrager <F.Vaandrager@cs.ru.nl>
+To: Paul Fiterau Brostean <p.fiterau-brostean@science.ru.nl>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f45.google.com ([74.125.83.45]:34781 "EHLO
+        mail-pg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754762AbdDJPe5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 10 Apr 2017 11:34:57 -0400
+Received: by mail-pg0-f45.google.com with SMTP id 21so107790866pgg.1
+        for <netdev@vger.kernel.org>; Mon, 10 Apr 2017 08:34:56 -0700 (PDT)
+In-Reply-To: <fbb92f49-5eca-f411-dcab-253d2a222623@science.ru.nl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Telit LE920A4 uses the same pid 0x1201 of LE920, but modem
-implementation is different, since it requires DTR to be set for
-answering to qmi messages.
+On Sat, 2017-04-08 at 22:29 +0200, Paul Fiterau Brostean wrote:
+> Hello,
+> 
+> My name is Paul Fiterau, I am a PhD student at Radboud University whose 
+> focus for the past few years has been among others to develop and apply 
+> inference techniques on TCP stacks in order to obtain nice models, and 
+> to verify them if possible using formal methods.  We contacted you on 
+> something similar 2 years back.
+> 
+> The older (3.19 kernel release) Linux TCP stack we analyze exhibits 
+> behavior that seems odd to me. The scenario is as follows (all packets 
+> have empty payloads, no window scaling, rcv/snd window size should not 
+> be a factor):
+> 
+>        TEST HARNESS (CLIENT)                        LINUX SERVER
+> 
+>    1.  -                                          LISTEN (server listen, then accepts)
+> 
+>    2.  - --> <SEQ=100><CTL=SYN>               --> SYN-RECEIVED
+> 
+>    3.  - <-- <SEQ=300><ACK=101><CTL=SYN,ACK>  <-- SYN-RECEIVED
+> 
+>    4.  - --> <SEQ=101><ACK=301><CTL=ACK>      --> ESTABLISHED
+>   
+>    5.  - <-- <SEQ=301><ACK=101><CTL=FIN,ACK>  <-- FIN WAIT-1 (server opts to close the data connection calling "close" on the connection socket)
+> 
+>    6.  - --> <SEQ=101><ACK=99999><CTL=FIN,ACK> --> CLOSING (client sends FIN,ACK with not yet sent acknowledgement number)
+> 
+>    7.  - <-- <SEQ=302><ACK=102><CTL=ACK>      <-- CLOSING (ACK is 102 instead of 101, why?)
+>   
+> ... (silence from CLIENT)
+> 
+>    8.  - <-- <SEQ=301><ACK=102><CTL=FIN,ACK>  <-- CLOSING (retransmission, again ACK is 102)
+> 
+> 
+> Now, note that packet 6 while having the expected sequence number, 
+> acknowledges something that wasn't sent by the server. So I would expect 
+> the packet to maybe prompt an ACK response from the server, and then be 
+> ignored. Yet it is not ignored and actually leads to an increase of the 
+> acknowledgement number in the server's retransmission of the FIN,ACK 
+> packet. The explanation I found is that the FIN  in packet 6 was 
+> processed, despite the acknowledgement number being unacceptable. 
+> Further experiments indeed show that the server processes this FIN, 
+> transitioning to CLOSING, then on receiving an ACK for the FIN it had 
+> send in packet 5, the server (or better said connection) transitions 
+> from CLOSING to TIME_WAIT (as signaled by netstat).
+> 
+> 
+> I attached a capture showing the scenario, as well as an equivalent 
+> capture for a Windows 10 TCP server, which behaves exactly as I would 
+> expect by  not increasing the expected sequence number after packet 6, 
+> and thus not processing the FIN flag received.
+> 
+> I hope someone more knowledgeable can clear this up for me. Is it ok for 
+> the server to process the FIN bit in a packet with an unacceptable 
+> acknowledgement number? Could this be an inconsistency in the tested stack?
 
-This patch replaces QMI_FIXED_INTF with QMI_QUIRK_SET_DTR: tests on
-LE920 have been performed in order to verify backward compatibility.
+Hi Paul.
 
-Signed-off-by: Daniele Palmas <dnlplm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
----
-
-Hi Bjørn,
-
-as a side note in latest kernels I had troubles with qmi devices
-(e.g. I/O error when using qmicli).
-
-I found your suggestion in libqmi mailing list to revert commit
-
-833415a3e781a26fe480a34d45086bdb4fe1e4c0
-cdc-wdm: fix "out-of-sync" due to missing notifications
-
-and this seems to work.
-
-Regards,
-Daniele
-
----
- drivers/net/usb/qmi_wwan.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
-index 156f7f8..2474618 100644
---- a/drivers/net/usb/qmi_wwan.c
-+++ b/drivers/net/usb/qmi_wwan.c
-@@ -908,7 +908,7 @@ static const struct usb_device_id products[] = {
- 	{QMI_FIXED_INTF(0x2357, 0x9000, 4)},	/* TP-LINK MA260 */
- 	{QMI_QUIRK_SET_DTR(0x1bc7, 0x1040, 2)},	/* Telit LE922A */
- 	{QMI_FIXED_INTF(0x1bc7, 0x1200, 5)},	/* Telit LE920 */
--	{QMI_FIXED_INTF(0x1bc7, 0x1201, 2)},	/* Telit LE920 */
-+	{QMI_QUIRK_SET_DTR(0x1bc7, 0x1201, 2)},	/* Telit LE920, LE920A4 */
- 	{QMI_FIXED_INTF(0x1c9e, 0x9b01, 3)},	/* XS Stick W100-2 from 4G Systems */
- 	{QMI_FIXED_INTF(0x0b3c, 0xc000, 4)},	/* Olivetti Olicard 100 */
- 	{QMI_FIXED_INTF(0x0b3c, 0xc001, 4)},	/* Olivetti Olicard 120 */
--- 
-2.7.4
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks for your report, we will take a look at this today.
