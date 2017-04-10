@@ -1,62 +1,63 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH v3 1/5] netlink: extended ACK reporting
-Date: Mon, 10 Apr 2017 09:35:27 -0600
-Message-ID: <029e6587-c0e8-bdb0-49e9-2abe2946a7ff@cumulusnetworks.com>
-References: <20170408202434.12018-1-johannes@sipsolutions.net>
- <20170408202434.12018-2-johannes@sipsolutions.net>
- <fddba2c8-3b85-d5df-81c4-ef31c459e40c@cumulusnetworks.com>
- <1491838218.28432.5.camel@sipsolutions.net>
+From: Daniele Palmas <dnlplm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH 1/1] drivers: net: usb: qmi_wwan: add QMI_QUIRK_SET_DTR for Telit PID 0x1201
+Date: Mon, 10 Apr 2017 17:34:23 +0200
+Message-ID: <1491838463-20299-1-git-send-email-dnlplm@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: pablo@netfilter.org, Jamal Hadi Salim <jhs@mojatatu.com>,
-        Jiri Benc <jbenc@redhat.com>, jiri@resnulli.us
-To: Johannes Berg <johannes@sipsolutions.net>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f42.google.com ([74.125.83.42]:33925 "EHLO
-        mail-pg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753401AbdDJPfa (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 10 Apr 2017 11:35:30 -0400
-Received: by mail-pg0-f42.google.com with SMTP id 21so107798647pgg.1
-        for <netdev@vger.kernel.org>; Mon, 10 Apr 2017 08:35:30 -0700 (PDT)
-In-Reply-To: <1491838218.28432.5.camel@sipsolutions.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Daniele Palmas <dnlplm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 4/10/17 9:30 AM, Johannes Berg wrote:
-> On Mon, 2017-04-10 at 09:26 -0600, David Ahern wrote:
->> On 4/8/17 2:24 PM, Johannes Berg wrote:
->>> @@ -2300,14 +2332,35 @@ void netlink_ack(struct sk_buff *in_skb,
->>> struct nlmsghdr *nlh, int err)
->>>  			  NLMSG_ERROR, payload, 0);
->>>  	errmsg = nlmsg_data(rep);
->>>  	errmsg->error = err;
->>> -	memcpy(&errmsg->msg, nlh, payload > sizeof(*errmsg) ? nlh-
->>>> nlmsg_len : sizeof(*nlh));
->>> +	memcpy(&errmsg->msg, nlh,
->>> +	       !(nlk->flags & NETLINK_F_CAP_ACK) ? nlh->nlmsg_len
->>> +						 : sizeof(*nlh));
->>> +
->>
->> generically this makes userspace parsing more problematic: the
->> parsing layer may not know if the socket option has been set to
->> precisely know the size of errmsg->msg and how much data needs to be
->> skipped to get to the new attributes.
-> 
-> Yes, I know. I'd hope that userspace can remember that per socket - I
-> don't see a good other way to do this.
-> 
-> If we insert the TLVs in front of, or instead of (with a TLV containing
-> it), the request message then at least libnl's debugging will need to
-> be changed.
-> 
-> As it is, I can assume that libnl will not set the CAP setting, and
-> everything works fine even if I don't change libnl, which makes things
-> easier.
-> 
-> Do you have any better ideas?
+Telit LE920A4 uses the same pid 0x1201 of LE920, but modem
+implementation is different, since it requires DTR to be set for
+answering to qmi messages.
 
-NETLINK_F_CAP_ACK and NETLINK_F_EXT_ACK should be incompatible -- if one
-is set the other can not be set. CAP_ACK means abbreviate the response
-and EXT_ACK means give me more data.
+This patch replaces QMI_FIXED_INTF with QMI_QUIRK_SET_DTR: tests on
+LE920 have been performed in order to verify backward compatibility.
+
+Signed-off-by: Daniele Palmas <dnlplm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+---
+
+Hi Bjørn,
+
+as a side note in latest kernels I had troubles with qmi devices
+(e.g. I/O error when using qmicli).
+
+I found your suggestion in libqmi mailing list to revert commit
+
+833415a3e781a26fe480a34d45086bdb4fe1e4c0
+cdc-wdm: fix "out-of-sync" due to missing notifications
+
+and this seems to work.
+
+Regards,
+Daniele
+
+---
+ drivers/net/usb/qmi_wwan.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
+index 156f7f8..2474618 100644
+--- a/drivers/net/usb/qmi_wwan.c
++++ b/drivers/net/usb/qmi_wwan.c
+@@ -908,7 +908,7 @@ static const struct usb_device_id products[] = {
+ 	{QMI_FIXED_INTF(0x2357, 0x9000, 4)},	/* TP-LINK MA260 */
+ 	{QMI_QUIRK_SET_DTR(0x1bc7, 0x1040, 2)},	/* Telit LE922A */
+ 	{QMI_FIXED_INTF(0x1bc7, 0x1200, 5)},	/* Telit LE920 */
+-	{QMI_FIXED_INTF(0x1bc7, 0x1201, 2)},	/* Telit LE920 */
++	{QMI_QUIRK_SET_DTR(0x1bc7, 0x1201, 2)},	/* Telit LE920, LE920A4 */
+ 	{QMI_FIXED_INTF(0x1c9e, 0x9b01, 3)},	/* XS Stick W100-2 from 4G Systems */
+ 	{QMI_FIXED_INTF(0x0b3c, 0xc000, 4)},	/* Olivetti Olicard 100 */
+ 	{QMI_FIXED_INTF(0x0b3c, 0xc001, 4)},	/* Olivetti Olicard 120 */
+-- 
+2.7.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
