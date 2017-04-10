@@ -1,38 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 00/12] ftgmac100: Rework batch 3 - TX path
-Date: Mon, 10 Apr 2017 16:04:17 -0400 (EDT)
-Message-ID: <20170410.160417.1325099963902050953.davem@davemloft.net>
-References: <20170410011526.4509-1-benh@kernel.crashing.org>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH net v3 0/2] bridge: Fix kernel oops during bridge
+ creation
+Date: Mon, 10 Apr 2017 16:06:01 -0400
+Message-ID: <20170410160601.67120d94@plumbers-lap.home.lan>
+References: <20170410115928.9344-1-idosch@idosch.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: benh@kernel.crashing.org
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+        bridge@lists.linux-foundation.org, mlxsw@mellanox.com,
+        peter@svinota.eu, nikolay@cumulusnetworks.com,
+        Ido Schimmel <idosch@mellanox.com>
+To: idosch@idosch.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:51066 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752587AbdDJUEY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 10 Apr 2017 16:04:24 -0400
-In-Reply-To: <20170410011526.4509-1-benh@kernel.crashing.org>
+Received: from mail-qk0-f182.google.com ([209.85.220.182]:36623 "EHLO
+        mail-qk0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751890AbdDJUGF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 10 Apr 2017 16:06:05 -0400
+Received: by mail-qk0-f182.google.com with SMTP id d131so10176420qkc.3
+        for <netdev@vger.kernel.org>; Mon, 10 Apr 2017 13:06:05 -0700 (PDT)
+In-Reply-To: <20170410115928.9344-1-idosch@idosch.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Date: Mon, 10 Apr 2017 11:15:14 +1000
+On Mon, 10 Apr 2017 14:59:26 +0300
+idosch@idosch.org wrote:
 
-> This is version 2 of the third batch of updates to
-> the ftgmac100 driver.
+> From: Ido Schimmel <idosch@mellanox.com>
 > 
-> This one tackles the TX path of the driver. This provides the
-> bulk of the performance improvements by adding support for
-> fragmented sends along with a bunch of cleanups.
+> First patch adds a missing ndo_uninit() in the bridge driver, which is a
+> prerequisite for the second patch that actually fixes the oops.
 > 
-> Version 2 fixes a patch splitting mistake and uses
-> eth_skb_pad() (which uses skb_put_padto) to pad ethernet
-> frames rather than skb_padto(), thus removing the need to
-> also pad the packet headlen in a couple of places. 
+> Please consider both patches for 4.4.y, 4.9.y and 4.10.y
 > 
-> Subsequent batches will add various features (ethtool functions,
-> vlan offlan, ...) and cleanups.
+> Ido Schimmel (2):
+>   bridge: implement missing ndo_uninit()
+>   bridge: netlink: register netdevice before executing changelink
+> 
+>  net/bridge/br_device.c    | 20 +++++++++++---------
+>  net/bridge/br_if.c        |  1 -
+>  net/bridge/br_multicast.c |  7 +++++--
+>  net/bridge/br_netlink.c   |  7 +++++--
+>  net/bridge/br_private.h   |  5 +++++
+>  5 files changed, 26 insertions(+), 14 deletions(-)
+> 
 
-Series applied, thanks Ben.
+Looks good, thanks for following through on this.
+
+Reviewed-by: Stephen Hemminger <stephen@networkplumber.org>
