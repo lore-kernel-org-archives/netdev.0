@@ -1,84 +1,57 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PULL] vhost: cleanups and fixes
-Date: Tue, 11 Apr 2017 00:36:54 +0300
-Message-ID: <20170411003654-mutt-send-email-mst@kernel.org>
+Subject: Re: WARN_ON running XDP on virtio net device
+Date: Tue, 11 Apr 2017 00:37:54 +0300
+Message-ID: <20170411003729-mutt-send-email-mst@kernel.org>
+References: <9370d199-9a73-308c-97d0-8d473e8536b2@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, mst@redhat.com, marc.zyngier@arm.com,
-	netdev@vger.kernel.org, efault@gmx.de, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, cornelia.huck@de.ibm.com
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: jasowang@redhat.com,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Ahern <dsa@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:60376 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752040AbdDJVhz (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 10 Apr 2017 17:37:55 -0400
 Content-Disposition: inline
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <9370d199-9a73-308c-97d0-8d473e8536b2@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-These changes were as in linux-next as e1c287efcd4cf688564ed1112d032b5dac29b159 -
-I tweaked the commit log slightly.
+On Mon, Apr 10, 2017 at 03:21:53PM -0600, David Ahern wrote:
+> I'm hitting a WARN_ON running XDP with virtio net:
 
-Too many people were complaining of warnings and errors in virtio
-so I decided revert is the safest path forward right now.
+I just sent a pull request. Would appreciate reports on whether
+it helps.
 
-The following changes since commit a71c9a1c779f2499fb2afc0553e543f18aff6edf:
-
-  Linux 4.11-rc5 (2017-04-02 17:23:54 -0700)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git tags/for_linus
-
-for you to fetch changes up to 2f8dc3a01f1cf8ed17b1e295812ad12b688be5d3:
-
-  virtio-pci: Remove affinity hint before freeing the interrupt (2017-04-11 00:30:20 +0300)
-
-----------------------------------------------------------------
-virtio: oops fixes
-
-virtio pci rework using shared interrupts caused a lot of issues. We
-tried to fix them but run out of time. Revert for now, and revisit the
-issue for the next kernel.
-
-Luckily we are able to do this without loosing automatic
-interrupt NUMA affinity which was the main motivator for the
-rework.
-
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-
-----------------------------------------------------------------
-Cornelia Huck (1):
-      MAINTAINERS: fix virtio file pattern
-
-Marc Zyngier (1):
-      virtio-pci: Remove affinity hint before freeing the interrupt
-
-Michael S. Tsirkin (9):
-      virtio_net: enable big packets for large MTU values
-      virtio: allow drivers to validate features
-      virtio_net: clear MTU when out of range
-      virtio_console: fix uninitialized variable use
-      Revert "virtio_pci: fix out of bound access for msix_names"
-      Revert "virtio_pci: simplify MSI-X setup"
-      Revert "virtio_pci: don't duplicate the msix_enable flag in struct pci_dev"
-      Revert "virtio_pci: use shared interrupts for virtqueues"
-      Revert "virtio_pci: remove struct virtio_pci_vq_info"
-
- MAINTAINERS                        |   2 +-
- drivers/char/virtio_console.c      |   6 +-
- drivers/net/virtio_net.c           |  45 +++--
- drivers/virtio/virtio.c            |   6 +
- drivers/virtio/virtio_pci_common.c | 375 ++++++++++++++++++++++---------------
- drivers/virtio/virtio_pci_common.h |  43 ++++-
- drivers/virtio/virtio_pci_legacy.c |   8 +-
- drivers/virtio/virtio_pci_modern.c |   8 +-
- include/linux/virtio.h             |   1 +
- include/uapi/linux/virtio_pci.h    |   2 +-
- 10 files changed, 323 insertions(+), 173 deletions(-)
+> [  177.185570] ------------[ cut here ]------------
+> [  177.187250] WARNING: CPU: 0 PID: 880 at
+> /home/dsa/kernel.git/drivers/pci/msi.c:1251 pci_irq_vector+0x92/0x123
+> [  177.190932] Modules linked in: 8021q garp mrp stp llc vrf
+> [  177.193473] CPU: 0 PID: 880 Comm: xdp1 Not tainted 4.11.0-rc5+ #305
+> [  177.195640] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996),
+> BIOS 1.7.5-20140531_083030-gandalf 04/01/2014
+> [  177.199190] Call Trace:
+> [  177.200072]  dump_stack+0x81/0xb6
+> [  177.201018]  __warn+0x107/0x122
+> [  177.201899]  warn_slowpath_null+0x1d/0x1f
+> [  177.203014]  pci_irq_vector+0x92/0x123
+> [  177.204082]  vp_synchronize_vectors+0x6f/0x81
+> [  177.205293]  vp_reset+0x50/0x55
+> [  177.206174]  virtnet_xdp+0x346/0x6dd
+> [  177.207188]  dev_change_xdp_fd+0x12a/0x151
+> [  177.208256]  do_setlink+0x1288/0x130a
+> 
+> Seems to be something introduced in the past month or so. 2 attempts to
+> bisect it pointed to this commit:
+> 
+> commit 54d7989f476ca57fc3c5cc71524c480ccb74c481
+> Merge: 0f221a3102bb c4baad50297d
+> Author: Linus Torvalds <torvalds@linux-foundation.org>
+> Date:   Thu Mar 2 13:53:13 2017 -0800
+> 
+>     Merge tag 'for_linus' of
+> git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost
+> 
+>     Pull vhost updates from Michael Tsirkin:
+>      "virtio, vhost: optimizations, fixes
