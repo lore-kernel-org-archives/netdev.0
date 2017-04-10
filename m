@@ -1,40 +1,51 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH net-next v3 2/2] bpf: remove struct bpf_map_type_list
-Date: Mon, 10 Apr 2017 07:58:36 -0700
-Message-ID: <20170410145834.GB41264@ast-mbp.thefacebook.com>
-References: <20170410124431.4305-1-johannes@sipsolutions.net>
- <20170410124431.4305-3-johannes@sipsolutions.net>
+From: Eric Dumazet <edumazet@google.com>
+Subject: Re: [regression v4.11] 617f01211baf ("8139too: use napi_complete_done()")
+Date: Mon, 10 Apr 2017 07:55:31 -0700
+Message-ID: <CANn89iKK6VpTaPt_Azf+ELEEER9R+RbirKUzyPXqOGje_UbE8Q@mail.gmail.com>
+References: <20170407181754.GL30290@intel.com> <1491590329.10124.86.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20170407.114216.29873489271414092.davem@davemloft.net> <20170408102305.GA4522@electric-eye.fr.zoreil.com>
+ <CAP8WD_aos5u90cxS5+fCL9pVziHXV==1b+j2tzwxA5qxe7Ao-w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Johannes Berg <johannes.berg@intel.com>
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f54.google.com ([74.125.83.54]:33130 "EHLO
-        mail-pg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753861AbdDJO6p (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 10 Apr 2017 10:58:45 -0400
-Received: by mail-pg0-f54.google.com with SMTP id x125so107209364pgb.0
-        for <netdev@vger.kernel.org>; Mon, 10 Apr 2017 07:58:45 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20170410124431.4305-3-johannes@sipsolutions.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Francois Romieu <romieu@fr.zoreil.com>,
+        ville.syrjala@linux.intel.com, David Miller <davem@davemloft.net>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        netdev <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: whiteheadm@acm.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAP8WD_aos5u90cxS5+fCL9pVziHXV==1b+j2tzwxA5qxe7Ao-w@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 10, 2017 at 02:44:31PM +0200, Johannes Berg wrote:
-> From: Johannes Berg <johannes.berg@intel.com>
-> 
-> There's no need to have struct bpf_map_type_list since
-> it just contains a list_head, the type, and the ops
-> pointer. Since the types are densely packed and not
-> actually dynamically registered, it's much easier and
-> smaller to have an array of type->ops pointer. Also
-> initialize this array statically to remove code needed
-> to initialize it.
-> 
-> In order to save duplicating the list, move it to the
-> types header file added by the previous patch and
-> include it in the same fashion.
-> 
-> Signed-off-by: Johannes Berg <johannes.berg@intel.com>
+On Mon, Apr 10, 2017 at 7:22 AM, tedheadster <tedheadster@gmail.com> wrote:
+> On Sat, Apr 8, 2017 at 6:23 AM, Francois Romieu <romieu@fr.zoreil.com> wrote:
+>> David Miller <davem@davemloft.net> :
+>> [...]
+>>> One theory is that the interrupt masking isn't working properly
+>>> and interrupts are still arriving and hitting the NAPI state even
+>>> when we are actively polling NAPI.
+>>>
+>>> And this problem was masked by the locking done here.
+>>
+>> Yes.
+>>
+>> Ville, can you rule out irq sharing between the 8139 and some other
+>> device ? It's a candidate for unexpected interrupt handler invocation
+>> with older pc, even with properly working hardware.
+>>
+>
+> Eric,
+>   If napi_complete_done() calls could affect drivers on older
+> hardware, I can test the following:
+>
+> drivers/net/ethernet/3com/typhoon.c
+> drivers/net/ethernet/amd/pcnet32.c
+> drivers/net/ethernet/broadcom/tg3.c
+> drivers/net/ethernet/dec/tulip/interrupt.c
+> drivers/net/ethernet/intel/e100.c
+> drivers/net/ethernet/intel/e1000/e1000_main.c
+> drivers/net/ethernet/smsc/epic100.c
+> drivers/net/ethernet/via/via-rhine.c
 
-Acked-by: Alexei Starovoitov <ast@kernel.org>
+That would be great, thanks Matthew.
