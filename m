@@ -1,35 +1,88 @@
-From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Subject: Re: [PATCH 3/6] dt-bindings: correct marvell orion MDIO binding
- document
-Date: Mon, 10 Apr 2017 21:28:08 +0200
-Message-ID: <20170410192808.GC32277@lunn.ch>
-References: <20170410152728.GT17774@n2100.armlinux.org.uk>
- <E1cxbEl-0006gK-1Q@rmk-PC.armlinux.org.uk>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH v2 net-next RFC] Generic XDP
+Date: Mon, 10 Apr 2017 15:28:26 -0400
+Message-ID: <20170410152826.580db268@plumbers-lap.home.lan>
+References: <20170409.133528.660876505013192371.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Marcin Wojtas <mw-nYOzD4b6Jr9Wk0Htik3J/w@public.gmane.org>,
-        Stefan Chulski <stefanc-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
-        Thomas Petazzoni <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Russell King <rmk+kernel-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <E1cxbEl-0006gK-1Q-eh5Bv4kxaXIk46pC+1QYvQNdhmdF6hFW@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, xdp-newbies@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qt0-f182.google.com ([209.85.216.182]:35355 "EHLO
+        mail-qt0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751514AbdDJT2b (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 10 Apr 2017 15:28:31 -0400
+Received: by mail-qt0-f182.google.com with SMTP id n46so40061806qta.2
+        for <netdev@vger.kernel.org>; Mon, 10 Apr 2017 12:28:31 -0700 (PDT)
+In-Reply-To: <20170409.133528.660876505013192371.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 10, 2017 at 04:28:15PM +0100, Russell King wrote:
-> Correct the Marvell Orion MDIO binding document to properly reflect the
-> cases where an interrupt is present.  Augment the examples to show this.
+On Sun, 09 Apr 2017 13:35:28 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
+
+> This provides a generic non-optimized XDP implementation when the
+> device driver does not provide an optimized one.
 > 
-> Signed-off-by: Russell King <rmk+kernel-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>
+> It is arguable that perhaps I should have required something like
+> this as part of the initial XDP feature merge.
+> 
+> I believe this is critical for two reasons:
+> 
+> 1) Accessibility.  More people can play with XDP with less
+>    dependencies.  Yes I know we have XDP support in virtio_net, but
+>    that just creates another depedency for learning how to use this
+>    facility.
+> 
+>    I wrote this to make life easier for the XDP newbies.
+> 
+> 2) As a model for what the expected semantics are.  If there is a pure
+>    generic core implementation, it serves as a semantic example for
+>    driver folks adding XDP support.
+> 
+> This is just a rough draft and is untested.
+> 
+> Signed-off-by: David S. Miller <davem@davemloft.net>
 
-Reviewed-by: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+Agreed, XDP really needs this
 
-    Andrew
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> v2:
+>  - Add some "fall through" comments in switch statements based
+>    upon feedback from Andrew Lunn
+>  - Use RCU for generic xdp_prog, thanks to Johannes Berg.
+> 
+> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> index cc07c3b..f8ff49c 100644
+> --- a/include/linux/netdevice.h
+> +++ b/include/linux/netdevice.h
+> @@ -1892,6 +1892,7 @@ struct net_device {
+>  	struct lock_class_key	*qdisc_tx_busylock;
+>  	struct lock_class_key	*qdisc_running_key;
+>  	bool			proto_down;
+> +	struct bpf_prog __rcu	*xdp_prog;
+>  };
+>  #define to_net_dev(d) container_of(d, struct net_device, dev)
+>  
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index 7efb417..ad6de2d 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+
+...
+ 
+> +	if (static_key_false(&generic_xdp_needed)) {
+> +		struct bpf_prog *xdp_prog = rcu_dereference(skb->dev->xdp_prog);
+> +
+> +		if (xdp_prog) {
+> +			u32 act = netif_receive_generic_xdp(skb, xdp_prog);
+> +
+> +			if (act != XDP_PASS) {
+> +				rcu_read_unlock();
+> +				if (act == XDP_TX)
+> +					dev_queue_xmit(skb);
+> +				return NET_RX_DROP;
+> +			}
+
+Wouldn't it be cleaner if XDP returned an enumerated type and a
+switch was used? Safer than allowing arbitrary int.
