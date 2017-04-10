@@ -1,85 +1,43 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH v3 0/5] netlink extended ACK reporting
-Date: Mon, 10 Apr 2017 13:38:25 +0200
-Message-ID: <1491824305.2455.10.camel@sipsolutions.net>
-References: <20170408202434.12018-1-johannes@sipsolutions.net>
-         (sfid-20170408_222447_224133_39B19566)
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH] net: netfilter: Replace explicit NULL comparisons
+Date: Mon, 10 Apr 2017 13:51:44 +0200
+Message-ID: <20170410115144.GA2155@salvia>
+References: <20170408172113.GA9352@arushi-HP-Pavilion-Notebook>
+ <nycvar.YFH.7.76.1704082020530.14011@n3.vanv.qr>
+ <20170408201438.GC2679@salvia>
+ <CA+XqjF_8=+GB7oq6wKoxk_+FfPeni+tLaVMAE6k6tP-KOOEi6Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: pablo@netfilter.org, Jamal Hadi Salim <jhs@mojatatu.com>,
-        Jiri Benc <jbenc@redhat.com>,
-        David Ahern <dsa@cumulusnetworks.com>, jiri@resnulli.us
-To: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:36342 "EHLO sipsolutions.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751615AbdDJLi1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 10 Apr 2017 07:38:27 -0400
-In-Reply-To: <20170408202434.12018-1-johannes@sipsolutions.net> (sfid-20170408_222447_224133_39B19566)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jan Engelhardt <jengelh@inai.de>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        "David S. Miller" <davem@davemloft.net>,
+        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+        netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
+To: Arushi Singhal <arushisinghal19971997@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CA+XqjF_8=+GB7oq6wKoxk_+FfPeni+tLaVMAE6k6tP-KOOEi6Q@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Here's a simple iw patch that shows the error message string:
+On Sun, Apr 09, 2017 at 09:12:18AM +0530, Arushi Singhal wrote:
+> On Sun, Apr 9, 2017 at 1:44 AM, Pablo Neira Ayuso <pablo@netfilter.org>
+> wrote:
+> 
+> > On Sat, Apr 08, 2017 at 08:21:56PM +0200, Jan Engelhardt wrote:
+> > > On Saturday 2017-04-08 19:21, Arushi Singhal wrote:
+> > >
+> > > >Replace explicit NULL comparison with ! operator to simplify code.
+> > >
+> > > I still wouldn't do this, for the same reason as before. Comparing to
+> > > NULL explicitly more or less gave an extra guarantee that the other
+> > > operand was also a pointer.
+> >
+> > Arushi, where does it say in the coding style that this is prefered?
+> 
+> This is reported by checkpatch.pl script.
 
---- a/iw.c
-+++ b/iw.c
-@@ -62,6 +62,10 @@ static int nl80211_init(struct nl80211_state *state)
- 
- 	nl_socket_set_buffer_size(state->nl_sock, 8192, 8192);
- 
-+	/* try to set NETLINK_EXT_ACK to 1 (ignore errors) */
-+	err = 1;
-+	setsockopt(nl_socket_get_fd(state->nl_sock), SOL_NETLINK, 11, &err, sizeof(err));
-+
- 	state->nl80211_id = genl_ctrl_resolve(state->nl_sock, "nl80211");
- 	if (state->nl80211_id < 0) {
- 		fprintf(stderr, "nl80211 not found.\n");
-@@ -270,11 +274,45 @@ static int phy_lookup(char *name)
- 	return atoi(buf);
- }
- 
-+#ifndef NETLINK_EXT_ACK
-+enum nlmsgerr_attrs {
-+	NLMSGERR_ATTR_UNUSED,
-+	NLMSGERR_ATTR_MSG,
-+	NLMSGERR_ATTR_OFFS,
-+	NLMSGERR_ATTR_ATTR,
-+	NLMSGERR_ATTR_COOKIE,
-+
-+	NUM_NLMSGERR_ATTRS,
-+	NLMSGERR_ATTR_MAX = NUM_NLMSGERR_ATTRS - 1
-+};
-+#endif
-+
- static int error_handler(struct sockaddr_nl *nla, struct nlmsgerr *err,
- 			 void *arg)
- {
-+	struct nlmsghdr *nlh = (struct nlmsghdr *)err - 1;
-+	int len = nlh->nlmsg_len;
-+	struct nlattr *attrs;
-+	struct nlattr *tb[NUM_NLMSGERR_ATTRS];
- 	int *ret = arg;
-+	int ack_len = sizeof(*nlh) + sizeof(int) + err->msg.nlmsg_len;
-+
- 	*ret = err->error;
-+
-+	if (len <= ack_len)
-+		return NL_STOP;
-+
-+	attrs = (void *)((unsigned char *)nlh + ack_len);
-+	len -= ack_len;
-+
-+	nla_parse(tb, NLMSGERR_ATTR_MAX, attrs, len, NULL);
-+	if (tb[NLMSGERR_ATTR_MSG]) {
-+		len = strnlen((char *)nla_data(tb[NLMSGERR_ATTR_MSG]),
-+			      nla_len(tb[NLMSGERR_ATTR_MSG]));
-+		fprintf(stderr, "kernel reports: %*s\n", len,
-+			(char *)nla_data(tb[NLMSGERR_ATTR_MSG]));
-+	}
-+
- 	return NL_STOP;
- }
- 
-
-johannes
+I don't find it in the coding style. I think this is what it stands as
+preference in this case IMO. Otherwise, it would be good to get the
+kernel coding style document in sync with it, including the reason why
+this way to express thing is cleaner. We have to justify the changes.
