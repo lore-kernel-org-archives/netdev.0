@@ -1,30 +1,41 @@
-From: Frau SCHMIDT <darlehen.angebot@laposte.net>
-Subject: Darlehen angebot 3 %
-Date: Mon, 10 Apr 2017 20:41:08 +0100
-Message-ID: <65867a2200e6d839138ba3609a2e081b@localhost>
-Reply-To: info@rschmidt.online
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: Re: [PATCH v2 net-next RFC] Generic XDP
+Date: Mon, 10 Apr 2017 17:30:25 -0400
+Message-ID: <20170410213025.GC4730@C02RW35GFVH8.dhcp.broadcom.net>
+References: <20170409.133528.660876505013192371.davem@davemloft.net>
+ <20170410183935.GB4730@C02RW35GFVH8.dhcp.broadcom.net>
+ <20170410.152854.2025617543091711047.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
- format=flowed
-Content-Transfer-Encoding: 8bit
-To: undisclosed-recipients:;
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, xdp-newbies@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from host227-14-61-217.static.dns-aruba.cloud ([217.61.14.227]:37323
-        "EHLO mail.vps.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1752810AbdDJV3q (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 10 Apr 2017 17:29:46 -0400
+Received: from mail-pg0-f48.google.com ([74.125.83.48]:35976 "EHLO
+        mail-pg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752040AbdDJVaf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 10 Apr 2017 17:30:35 -0400
+Received: by mail-pg0-f48.google.com with SMTP id g2so110462496pge.3
+        for <netdev@vger.kernel.org>; Mon, 10 Apr 2017 14:30:35 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20170410.152854.2025617543091711047.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, Apr 10, 2017 at 03:28:54PM -0400, David Miller wrote:
+> From: Andy Gospodarek <andy@greyhouse.net>
+> Date: Mon, 10 Apr 2017 14:39:35 -0400
+> 
+> > As promised, I did some testing today with bnxt_en's implementation
+> > of XDP and this one.
+> 
+> Thanks a lot Andy, obviously the patch needs some more work.
+> 
+> I noticed GRO stuff in your profile, and Alexei mentioned this earlier
+> today.  We probably should elide GRO if generic XDP is attached, since
+> in particular this makes the skb_linearize() really expensive.
 
-Sehr geehrte Damen  und Herren,
+Good catch -- I actually thought we were disabling GRO automatically and it
+looks like we are not.  :-/  I'll send Michael a patch.  
 
-Haben Sie Interesse über einer finanziellen Darlehen zu 3%?
-kontaktieren Sie mich für mehr Details und Bedingungen. ich kann all 
-jenen helfen, wer ein Darlehen benötigen.
-Ich kann Ihnen biete ein darlehen in hohe von 10.000.000 EUR
-Meine mail: info@rschmidt.online
-
-Mit freundlichen Grüßen
-
-Frau SCHMIDT
+Disabling GRO allows me to process an additional 1Mpps, so I'm up to 7.5Mpps
+with this patch.
