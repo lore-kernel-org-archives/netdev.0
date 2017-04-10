@@ -1,51 +1,137 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: Re: [regression v4.11] 617f01211baf ("8139too: use napi_complete_done()")
-Date: Mon, 10 Apr 2017 07:55:31 -0700
-Message-ID: <CANn89iKK6VpTaPt_Azf+ELEEER9R+RbirKUzyPXqOGje_UbE8Q@mail.gmail.com>
-References: <20170407181754.GL30290@intel.com> <1491590329.10124.86.camel@edumazet-glaptop3.roam.corp.google.com>
- <20170407.114216.29873489271414092.davem@davemloft.net> <20170408102305.GA4522@electric-eye.fr.zoreil.com>
- <CAP8WD_aos5u90cxS5+fCL9pVziHXV==1b+j2tzwxA5qxe7Ao-w@mail.gmail.com>
+From: Mel Gorman <mgorman@techsingularity.net>
+Subject: [PATCH] mm, page_alloc: re-enable softirq use of per-cpu page
+ allocator
+Date: Mon, 10 Apr 2017 16:08:21 +0100
+Message-ID: <20170410150821.vcjlz7ntabtfsumm@techsingularity.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Francois Romieu <romieu@fr.zoreil.com>,
-        ville.syrjala@linux.intel.com, David Miller <davem@davemloft.net>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        netdev <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: whiteheadm@acm.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAP8WD_aos5u90cxS5+fCL9pVziHXV==1b+j2tzwxA5qxe7Ao-w@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-15
+Cc: brouer@redhat.com, willy@infradead.org, peterz@infradead.org,
+	pagupta@redhat.com, ttoukan.linux@gmail.com, tariqt@mellanox.com,
+	netdev@vger.kernel.org, saeedm@mellanox.com,
+	linux-kernel@vger.kernel.org, linux-mm@kvack.org
+To: akpm@linux-foundation.org
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 10, 2017 at 7:22 AM, tedheadster <tedheadster@gmail.com> wrote:
-> On Sat, Apr 8, 2017 at 6:23 AM, Francois Romieu <romieu@fr.zoreil.com> wrote:
->> David Miller <davem@davemloft.net> :
->> [...]
->>> One theory is that the interrupt masking isn't working properly
->>> and interrupts are still arriving and hitting the NAPI state even
->>> when we are actively polling NAPI.
->>>
->>> And this problem was masked by the locking done here.
->>
->> Yes.
->>
->> Ville, can you rule out irq sharing between the 8139 and some other
->> device ? It's a candidate for unexpected interrupt handler invocation
->> with older pc, even with properly working hardware.
->>
->
-> Eric,
->   If napi_complete_done() calls could affect drivers on older
-> hardware, I can test the following:
->
-> drivers/net/ethernet/3com/typhoon.c
-> drivers/net/ethernet/amd/pcnet32.c
-> drivers/net/ethernet/broadcom/tg3.c
-> drivers/net/ethernet/dec/tulip/interrupt.c
-> drivers/net/ethernet/intel/e100.c
-> drivers/net/ethernet/intel/e1000/e1000_main.c
-> drivers/net/ethernet/smsc/epic100.c
-> drivers/net/ethernet/via/via-rhine.c
+From: Jesper Dangaard Brouer <brouer@redhat.com>
 
-That would be great, thanks Matthew.
+IRQ context were excluded from using the Per-Cpu-Pages (PCP) lists caching
+of order-0 pages in commit 374ad05ab64d ("mm, page_alloc: only use per-cpu
+allocator for irq-safe requests").
+
+This unfortunately also included excluded SoftIRQ.  This hurt the performance
+for the use-case of refilling DMA RX rings in softirq context.
+
+This patch re-allow softirq context, which should be safe by disabling
+BH/softirq, while accessing the list.  PCP-lists access from both hard-IRQ
+and NMI context must not be allowed.  Peter Zijlstra says in_nmi() code
+never access the page allocator, thus it should be sufficient to only test
+for !in_irq().
+
+One concern with this change is adding a BH (enable) scheduling point at
+both PCP alloc and free. If further concerns are highlighted by this patch,
+the result wiill be to revert 374ad05ab64d and try again at a later date
+to offset the irq enable/disable overhead.
+
+Fixes: 374ad05ab64d ("mm, page_alloc: only use per-cpu allocator for irq-safe requests")
+Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+Signed-off-by: Mel Gorman <mgorman@techsingularity.net>
+---
+ mm/page_alloc.c | 26 +++++++++++++++++---------
+ 1 file changed, 17 insertions(+), 9 deletions(-)
+
+diff --git a/mm/page_alloc.c b/mm/page_alloc.c
+index 6cbde310abed..d7e986967910 100644
+--- a/mm/page_alloc.c
++++ b/mm/page_alloc.c
+@@ -2351,9 +2351,9 @@ static void drain_local_pages_wq(struct work_struct *work)
+ 	 * cpu which is allright but we also have to make sure to not move to
+ 	 * a different one.
+ 	 */
+-	preempt_disable();
++	local_bh_disable();
+ 	drain_local_pages(NULL);
+-	preempt_enable();
++	local_bh_enable();
+ }
+ 
+ /*
+@@ -2481,7 +2481,11 @@ void free_hot_cold_page(struct page *page, bool cold)
+ 	unsigned long pfn = page_to_pfn(page);
+ 	int migratetype;
+ 
+-	if (in_interrupt()) {
++	/*
++	 * Exclude (hard) IRQ and NMI context from using the pcplists.
++	 * But allow softirq context, via disabling BH.
++	 */
++	if (in_irq() || irqs_disabled()) {
+ 		__free_pages_ok(page, 0);
+ 		return;
+ 	}
+@@ -2491,7 +2495,7 @@ void free_hot_cold_page(struct page *page, bool cold)
+ 
+ 	migratetype = get_pfnblock_migratetype(page, pfn);
+ 	set_pcppage_migratetype(page, migratetype);
+-	preempt_disable();
++	local_bh_disable();
+ 
+ 	/*
+ 	 * We only track unmovable, reclaimable and movable on pcp lists.
+@@ -2522,7 +2526,7 @@ void free_hot_cold_page(struct page *page, bool cold)
+ 	}
+ 
+ out:
+-	preempt_enable();
++	local_bh_enable();
+ }
+ 
+ /*
+@@ -2647,7 +2651,7 @@ static struct page *__rmqueue_pcplist(struct zone *zone, int migratetype,
+ {
+ 	struct page *page;
+ 
+-	VM_BUG_ON(in_interrupt());
++	VM_BUG_ON(in_irq() || irqs_disabled());
+ 
+ 	do {
+ 		if (list_empty(list)) {
+@@ -2680,7 +2684,7 @@ static struct page *rmqueue_pcplist(struct zone *preferred_zone,
+ 	bool cold = ((gfp_flags & __GFP_COLD) != 0);
+ 	struct page *page;
+ 
+-	preempt_disable();
++	local_bh_disable();
+ 	pcp = &this_cpu_ptr(zone->pageset)->pcp;
+ 	list = &pcp->lists[migratetype];
+ 	page = __rmqueue_pcplist(zone,  migratetype, cold, pcp, list);
+@@ -2688,7 +2692,7 @@ static struct page *rmqueue_pcplist(struct zone *preferred_zone,
+ 		__count_zid_vm_events(PGALLOC, page_zonenum(page), 1 << order);
+ 		zone_statistics(preferred_zone, zone);
+ 	}
+-	preempt_enable();
++	local_bh_enable();
+ 	return page;
+ }
+ 
+@@ -2704,7 +2708,11 @@ struct page *rmqueue(struct zone *preferred_zone,
+ 	unsigned long flags;
+ 	struct page *page;
+ 
+-	if (likely(order == 0) && !in_interrupt()) {
++	/*
++	 * Exclude (hard) IRQ and NMI context from using the pcplists.
++	 * But allow softirq context, via disabling BH.
++	 */
++	if (likely(order == 0) && !(in_irq() || irqs_disabled()) ) {
+ 		page = rmqueue_pcplist(preferred_zone, zone, order,
+ 				gfp_flags, migratetype);
+ 		goto out;
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
