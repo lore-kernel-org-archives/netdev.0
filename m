@@ -1,53 +1,48 @@
 From: Russell King <rmk+kernel@armlinux.org.uk>
-Subject: [PATCH 4/6] net: mvmdio: disable interrupt if resource size is too
- small
-Date: Mon, 10 Apr 2017 16:28:20 +0100
-Message-ID: <E1cxbEq-0006gR-Dy@rmk-PC.armlinux.org.uk>
+Subject: [PATCH 5/6] dt-bindings: allow up to three clocks for orion-mdio
+Date: Mon, 10 Apr 2017 16:28:25 +0100
+Message-ID: <E1cxbEv-0006gY-PO@rmk-PC.armlinux.org.uk>
 References: <20170410152728.GT17774@n2100.armlinux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org
+Cc: Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>, netdev@vger.kernel.org,
+        devicetree@vger.kernel.org
 To: Marcin Wojtas <mw@semihalf.com>,
         Stefan Chulski <stefanc@marvell.com>,
         Andrew Lunn <andrew@lunn.ch>,
         Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.armlinux.org.uk ([78.32.30.218]:37680 "EHLO
+Received: from pandora.armlinux.org.uk ([78.32.30.218]:37700 "EHLO
         pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753334AbdDJP2b (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 10 Apr 2017 11:28:31 -0400
+        with ESMTP id S1753334AbdDJP2k (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 10 Apr 2017 11:28:40 -0400
 In-Reply-To: <20170410152728.GT17774@n2100.armlinux.org.uk>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Disable the MDIO interrupt, falling back to polled mode, if the resource
-size does not allow us to access the interrupt registers.  All current
-DT bindings use a size of 0x84, which allows access, but verifying it is
-good practice.
+Armada 8040 needs three clocks to be enabled for MDIO accesses to work.
+Update the binding to allow the extra clocks to be specified.
 
 Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
 ---
- drivers/net/ethernet/marvell/mvmdio.c | 6 ++++++
- 1 file changed, 6 insertions(+)
+ Documentation/devicetree/bindings/net/marvell-orion-mdio.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/marvell/mvmdio.c b/drivers/net/ethernet/marvell/mvmdio.c
-index 6ea5caddca62..614dfde657fe 100644
---- a/drivers/net/ethernet/marvell/mvmdio.c
-+++ b/drivers/net/ethernet/marvell/mvmdio.c
-@@ -221,6 +221,12 @@ static int orion_mdio_probe(struct platform_device *pdev)
- 		clk_prepare_enable(dev->clk);
+diff --git a/Documentation/devicetree/bindings/net/marvell-orion-mdio.txt b/Documentation/devicetree/bindings/net/marvell-orion-mdio.txt
+index ca733ff68ab9..ccdabdcc8618 100644
+--- a/Documentation/devicetree/bindings/net/marvell-orion-mdio.txt
++++ b/Documentation/devicetree/bindings/net/marvell-orion-mdio.txt
+@@ -14,7 +14,7 @@ interface.
  
- 	dev->err_interrupt = platform_get_irq(pdev, 0);
-+	if (dev->err_interrupt > 0 &&
-+	    resource_size(r) < MVMDIO_ERR_INT_MASK + 4) {
-+		dev_err(&pdev->dev,
-+			"disabling interrupt, resource size is too small\n");
-+		dev->err_interrupt = 0;
-+	}
- 	if (dev->err_interrupt > 0) {
- 		ret = devm_request_irq(&pdev->dev, dev->err_interrupt,
- 					orion_mdio_err_irq,
+ Optional properties:
+ - interrupts: interrupt line number for the SMI error/done interrupt
+-- clocks: Phandle to the clock control device and gate bit
++- clocks: phandle for up to three required clocks for the MDIO instance
+ 
+ The child nodes of the MDIO driver are the individual PHY devices
+ connected to this MDIO bus. They must have a "reg" property given the
 -- 
 2.7.4
