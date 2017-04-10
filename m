@@ -1,44 +1,32 @@
-From: Steve Wise <swise@opengridcomputing.com>
-Subject: Re: [PATCH rfc 0/6] Automatic affinity settings for nvme over rdma
-Date: Mon, 10 Apr 2017 13:05:50 -0500
-Message-ID: <14fd128d-7155-ab13-492f-952f072808d5@opengridcomputing.com>
-References: <1491140492-25703-1-git-send-email-sagi@grimberg.me>
+From: Tom Herbert <tom@herbertland.com>
+Subject: RFC: Checksum offload and XDP
+Date: Mon, 10 Apr 2017 11:26:36 -0700
+Message-ID: <CALx6S357=e3414sPBnW3ajzXfkvVBiGMChx+vgbf9snpe95-aQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Christoph Hellwig <hch@lst.de>
-To: Sagi Grimberg <sagi@grimberg.me>, linux-rdma@vger.kernel.org,
-        linux-nvme@lists.infradead.org, linux-block@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+To: Linux Kernel Network Developers <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.opengridcomputing.com ([72.48.136.20]:59096 "EHLO
-        smtp.opengridcomputing.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751064AbdDJSFv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 10 Apr 2017 14:05:51 -0400
-In-Reply-To: <1491140492-25703-1-git-send-email-sagi@grimberg.me>
+Received: from mail-qt0-f182.google.com ([209.85.216.182]:34577 "EHLO
+        mail-qt0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751780AbdDJS0i (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 10 Apr 2017 14:26:38 -0400
+Received: by mail-qt0-f182.google.com with SMTP id c45so71115980qtb.1
+        for <netdev@vger.kernel.org>; Mon, 10 Apr 2017 11:26:37 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 4/2/2017 8:41 AM, Sagi Grimberg wrote:
-> This patch set is aiming to automatically find the optimal
-> queue <-> irq multi-queue assignments in storage ULPs (demonstrated
-> on nvme-rdma) based on the underlying rdma device irq affinity
-> settings.
->
-> First two patches modify mlx5 core driver to use generic API
-> to allocate array of irq vectors with automatic affinity
-> settings instead of open-coding exactly what it does (and
-> slightly worse).
->
-> Then, in order to obtain an affinity map for a given completion
-> vector, we expose a new RDMA core API, and implement it in mlx5.
->
-> The third part is addition of a rdma-based queue mapping helper
-> to blk-mq that maps the tagset hctx's according to the device
-> affinity mappings.
->
-> I'd happily convert some more drivers, but I'll need volunteers
-> to test as I don't have access to any other devices.
+Not having checksum offload in XDP is going to get more painful once
+we start seeing a lot programs doing packet modifications. One nice
+thing we do for ILA router is pre-compute the checksum delta necessary
+to maintain checksum neutral property in the packet. So that after
+doing ILA routing in XDP the checksum complete value is still valid as
+is the transport layer checksum.
 
-I'll test cxgb4 if you convert it. :)
+It's conceivable we could generalize this by having a u16 checksum
+delta returned from XDP program. If the checksum diff can be
+pre-computed in a structure for doing the translation, then there
+should be little cost other than making API a little more complex. On
+return the checksum_complete value is updated jusy by adding in the
+diff value.
+
+Tom
