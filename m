@@ -1,111 +1,53 @@
-From: Russell King <rmk+kernel@armlinux.org.uk>
-Subject: [PATCH 6/6] net: mvmdio: allow up to three clocks to be specified for
- orion-mdio
-Date: Mon, 10 Apr 2017 16:28:31 +0100
-Message-ID: <E1cxbF1-0006gf-54@rmk-PC.armlinux.org.uk>
-References: <20170410152728.GT17774@n2100.armlinux.org.uk>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: [PATCH v3 1/5] netlink: extended ACK reporting
+Date: Mon, 10 Apr 2017 17:30:18 +0200
+Message-ID: <1491838218.28432.5.camel@sipsolutions.net>
+References: <20170408202434.12018-1-johannes@sipsolutions.net>
+         <20170408202434.12018-2-johannes@sipsolutions.net>
+         <fddba2c8-3b85-d5df-81c4-ef31c459e40c@cumulusnetworks.com>
+         (sfid-20170410_172609_028607_E5C0AF14)
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org
-To: Marcin Wojtas <mw@semihalf.com>,
-        Stefan Chulski <stefanc@marvell.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.armlinux.org.uk ([78.32.30.218]:37706 "EHLO
-        pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753339AbdDJP2n (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 10 Apr 2017 11:28:43 -0400
-In-Reply-To: <20170410152728.GT17774@n2100.armlinux.org.uk>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
+        Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org
+To: David Ahern <dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>,
+        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <fddba2c8-3b85-d5df-81c4-ef31c459e40c-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org> (sfid-20170410_172609_028607_E5C0AF14)
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Allow up to three clocks to be specified and enabled for the orion-mdio
-interface, which are required for this interface to be accessible on
-Armada 8k platforms.
+On Mon, 2017-04-10 at 09:26 -0600, David Ahern wrote:
+> On 4/8/17 2:24 PM, Johannes Berg wrote:
+> > @@ -2300,14 +2332,35 @@ void netlink_ack(struct sk_buff *in_skb,
+> > struct nlmsghdr *nlh, int err)
+> >  			  NLMSG_ERROR, payload, 0);
+> >  	errmsg = nlmsg_data(rep);
+> >  	errmsg->error = err;
+> > -	memcpy(&errmsg->msg, nlh, payload > sizeof(*errmsg) ? nlh-
+> > >nlmsg_len : sizeof(*nlh));
+> > +	memcpy(&errmsg->msg, nlh,
+> > +	       !(nlk->flags & NETLINK_F_CAP_ACK) ? nlh->nlmsg_len
+> > +						 : sizeof(*nlh));
+> > +
+> 
+> generically this makes userspace parsing more problematic: the
+> parsing layer may not know if the socket option has been set to
+> precisely know the size of errmsg->msg and how much data needs to be
+> skipped to get to the new attributes.
 
-Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
----
- drivers/net/ethernet/marvell/mvmdio.c | 33 ++++++++++++++++++++++++---------
- 1 file changed, 24 insertions(+), 9 deletions(-)
+Yes, I know. I'd hope that userspace can remember that per socket - I
+don't see a good other way to do this.
 
-diff --git a/drivers/net/ethernet/marvell/mvmdio.c b/drivers/net/ethernet/marvell/mvmdio.c
-index 614dfde657fe..90a60b98c28e 100644
---- a/drivers/net/ethernet/marvell/mvmdio.c
-+++ b/drivers/net/ethernet/marvell/mvmdio.c
-@@ -53,7 +53,7 @@
- struct orion_mdio_dev {
- 	struct mutex lock;
- 	void __iomem *regs;
--	struct clk *clk;
-+	struct clk *clk[3];
- 	/*
- 	 * If we have access to the error interrupt pin (which is
- 	 * somewhat misnamed as it not only reflects internal errors
-@@ -187,7 +187,7 @@ static int orion_mdio_probe(struct platform_device *pdev)
- 	struct resource *r;
- 	struct mii_bus *bus;
- 	struct orion_mdio_dev *dev;
--	int ret;
-+	int i, ret;
- 
- 	r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
- 	if (!r) {
-@@ -216,9 +216,12 @@ static int orion_mdio_probe(struct platform_device *pdev)
- 
- 	init_waitqueue_head(&dev->smi_busy_wait);
- 
--	dev->clk = devm_clk_get(&pdev->dev, NULL);
--	if (!IS_ERR(dev->clk))
--		clk_prepare_enable(dev->clk);
-+	for (i = 0; i < ARRAY_SIZE(dev->clk); i++) {
-+		dev->clk[i] = of_clk_get(pdev->dev.of_node, i);
-+		if (IS_ERR(dev->clk[i]))
-+			break;
-+		clk_prepare_enable(dev->clk[i]);
-+	}
- 
- 	dev->err_interrupt = platform_get_irq(pdev, 0);
- 	if (dev->err_interrupt > 0 &&
-@@ -259,8 +262,14 @@ static int orion_mdio_probe(struct platform_device *pdev)
- out_mdio:
- 	if (dev->err_interrupt > 0)
- 		writel(0, dev->regs + MVMDIO_ERR_INT_MASK);
--	if (!IS_ERR(dev->clk))
--		clk_disable_unprepare(dev->clk);
-+
-+	for (i = 0; i < ARRAY_SIZE(dev->clk); i++) {
-+		if (IS_ERR(dev->clk[i]))
-+			break;
-+		clk_disable_unprepare(dev->clk[i]);
-+		clk_put(dev->clk[i]);
-+	}
-+
- 	return ret;
- }
- 
-@@ -268,12 +277,18 @@ static int orion_mdio_remove(struct platform_device *pdev)
- {
- 	struct mii_bus *bus = platform_get_drvdata(pdev);
- 	struct orion_mdio_dev *dev = bus->priv;
-+	int i;
- 
- 	if (dev->err_interrupt > 0)
- 		writel(0, dev->regs + MVMDIO_ERR_INT_MASK);
- 	mdiobus_unregister(bus);
--	if (!IS_ERR(dev->clk))
--		clk_disable_unprepare(dev->clk);
-+
-+	for (i = 0; i < ARRAY_SIZE(dev->clk); i++) {
-+		if (IS_ERR(dev->clk[i]))
-+			break;
-+		clk_disable_unprepare(dev->clk[i]);
-+		clk_put(dev->clk[i]);
-+	}
- 
- 	return 0;
- }
--- 
-2.7.4
+If we insert the TLVs in front of, or instead of (with a TLV containing
+it), the request message then at least libnl's debugging will need to
+be changed.
+
+As it is, I can assume that libnl will not set the CAP setting, and
+everything works fine even if I don't change libnl, which makes things
+easier.
+
+Do you have any better ideas?
+
+johannes
