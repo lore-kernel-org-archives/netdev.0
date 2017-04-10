@@ -1,78 +1,59 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH v2 net-next RFC] Generic XDP
-Date: Mon, 10 Apr 2017 22:12:42 +0200
-Message-ID: <58EBE73A.7090202@iogearbox.net>
-References: <20170409.133528.660876505013192371.davem@davemloft.net> <20170410183935.GB4730@C02RW35GFVH8.dhcp.broadcom.net>
+From: Anthony Lineham <Anthony.Lineham@alliedtelesis.co.nz>
+Subject: Distinguishing between forwarded/bridged packets and locally
+ generated packets
+Date: Mon, 10 Apr 2017 20:49:02 +0000
+Message-ID: <1491857342293.80482@alliedtelesis.co.nz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xdp-newbies@vger.kernel.org
-To: Andy Gospodarek <andy@greyhouse.net>,
-        David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:55588 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751585AbdDJUMq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 10 Apr 2017 16:12:46 -0400
-In-Reply-To: <20170410183935.GB4730@C02RW35GFVH8.dhcp.broadcom.net>
+Received: from gate2.alliedtelesis.co.nz ([202.36.163.20]:58846 "EHLO
+        gate2.alliedtelesis.co.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751140AbdDJUtM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 10 Apr 2017 16:49:12 -0400
+Received: from mmarshal3.atlnz.lc (mmarshal3.atlnz.lc [10.32.18.43])
+        (using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+        (Client did not present a certificate)
+        by gate2.alliedtelesis.co.nz (Postfix) with ESMTPS id 5F399806CB
+        for <netdev@vger.kernel.org>; Tue, 11 Apr 2017 08:49:09 +1200 (NZST)
+Content-Language: en-NZ
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/10/2017 08:39 PM, Andy Gospodarek wrote:
-[...]
-> I ran this on a desktop-class system I have (i7-6700 CPU @ 3.40GHz)
-> and used pktgen_sample03_burst_single_flow.sh from another system to
-> throw ~6.5Mpps as a single UDP stream towards the system running XDP.
->
-> I just commented out the ndo_xdp op in bnxt.c to test this patch.  The
-> differences were pretty dramatic.
->
-> Using the ndo_xdp ndo in bnxt_en, my perf report output looked like
-> this (not sure why X is still running on this system!):
->
->      38.08%  swapper          [sysimgblt]                   [k] 0x0000000000005bd0
->      11.80%  swapper          [kernel.vmlinux]              [k] intel_idle
->      10.49%  swapper          [bnxt_en]                     [k] bnxt_rx_pkt
->       6.31%  swapper          [bnxt_en]                     [k] bnxt_rx_xdp
->       5.64%  swapper          [bnxt_en]                     [k] bnxt_poll
->       4.22%  swapper          [kernel.vmlinux]              [k] poll_idle
->       3.46%  swapper          [kernel.vmlinux]              [k] irq_entries_start
->       2.95%  swapper          [kernel.vmlinux]              [k] napi_complete_done
->       1.79%  swapper          [kernel.vmlinux]              [k] cpuidle_enter_state
->       1.53%  swapper          [kernel.vmlinux]              [k] menu_select
->       1.19%  swapper          [bnxt_en]                     [k] bnxt_reuse_rx_data
->       1.00%  swapper          [sysimgblt]                   [k] 0x0000000000005c6f
->       0.92%  swapper          [kernel.vmlinux]              [k] __next_timer_interrupt
->       0.71%  swapper          [kernel.vmlinux]              [k] _raw_spin_lock_irqsave
->       0.71%  swapper          [kernel.vmlinux]              [k] bpf_map_lookup_elem
->
-> mpstat reports that the CPU receiving and dropping the traffic is
-> basically running idle.  Dropping this amount of traffic in the driver
-> has very little impact on the system.
->
-> With v2 of this patch I see the following from perf report:
->
->      19.69%  ksoftirqd/3      [kernel.vmlinux]              [k] memcpy_erms
->      16.30%  ksoftirqd/3      [kernel.vmlinux]              [k] __bpf_prog_run
-
-Forgot echo 1 > /proc/sys/net/core/bpf_jit_enable? Was it disabled in both cases?
-
->      10.11%  ksoftirqd/3      [bnxt_en]                     [k] bnxt_rx_pkt
->       7.69%  ksoftirqd/3      [kernel.vmlinux]              [k] __build_skb
->       4.25%  ksoftirqd/3      [kernel.vmlinux]              [k] inet_gro_receive
->       3.74%  ksoftirqd/3      [kernel.vmlinux]              [k] kmem_cache_alloc
->       3.53%  ksoftirqd/3      [kernel.vmlinux]              [k] dev_gro_receive
->       3.43%  ksoftirqd/3      [kernel.vmlinux]              [k] page_frag_free
->       3.12%  ksoftirqd/3      [kernel.vmlinux]              [k] kmem_cache_free
->       2.56%  ksoftirqd/3      [bnxt_en]                     [k] bnxt_poll
->       2.46%  ksoftirqd/3      [kernel.vmlinux]              [k] netif_receive_skb_internal
->       2.13%  ksoftirqd/3      [kernel.vmlinux]              [k] __udp4_lib_lookup
->       1.63%  ksoftirqd/3      [kernel.vmlinux]              [k] __napi_alloc_skb
->       1.51%  ksoftirqd/3      [kernel.vmlinux]              [k] eth_type_trans
->       1.42%  ksoftirqd/3      [kernel.vmlinux]              [k] udp_gro_receive
->       1.29%  ksoftirqd/3      [kernel.vmlinux]              [k] napi_gro_receive
->       1.25%  ksoftirqd/3      [kernel.vmlinux]              [k] udp4_gro_receive
->       1.18%  ksoftirqd/3      [bnxt_en]                     [k] bnxt_rx_xdp
->       1.17%  ksoftirqd/3      [kernel.vmlinux]              [k] skb_release_data
->       1.11%  ksoftirqd/3      [bnxt_en]                     [k] bnxt_reuse_rx_data
->       1.07%  ksoftirqd/3      [kernel.vmlinux]              [k] net_rx_action
+Hi,=0A=
+=0A=
+=0A=
+I'm trying to find a way to distinguish between a packet that is being forw=
+arded/bridged and one that was locally generated by the host itself. I need=
+ to know this for a particular application at tx in an ethernet device driv=
+er. Forwarded/bridged packets are processed when received, but I need to ma=
+ke sure locally generated packets are processed too, and avoid reprocessing=
+ the forwarded packets.=0A=
+=0A=
+Up until now we have been using the skb_iif field in the socket buffer to d=
+o this. The logic is that forwarded/bridged packet has a non-zero value in =
+this field, indicating the incoming interface index and a locally generated=
+ packet has 0 as there is no incoming interface. However, we've recently re=
+alised that in some situations this information is scrubbed from the skb (b=
+y skb_scrub_packet), for example when the packet is being sent over a PPP l=
+ink. =0A=
+=0A=
+I'm looking for an alternative method to use. Currently I'm thinking about =
+using the sk field in the skb. In a locally generated packet this would hav=
+e the socket the packet was generated by. In the forwarding case it would n=
+ot be set. It looks like there are some cases that don't quite conform to t=
+his, such as ARP's, but I can probably live with that.=0A=
+=0A=
+Can anyone comment on the suitability of this method or if there is a more =
+appropriate way to achieve this.=0A=
+Any information is greatly appreciated.=0A=
+=0A=
+Thanks,=0A=
+Anthony=0A=
+=0A=
+=0A=
+=0A=
+=0A=
+=0A=
+=0A=
