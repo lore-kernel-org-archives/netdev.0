@@ -1,130 +1,401 @@
-From: Andrey Konovalov <andreyknvl@google.com>
-Subject: net: use-after-free in __ns_get_path
-Date: Mon, 10 Apr 2017 16:37:17 +0200
-Message-ID: <CAAeHK+xS17Mf-9Tkup6mOYUqgq3w3V5ELG1bWQVf5jL2NJy7Lw@mail.gmail.com>
+From: zhong jiang <zhongjiang@huawei.com>
+Subject: Re: Page allocator order-0 optimizations merged
+Date: Mon, 10 Apr 2017 22:31:48 +0800
+Message-ID: <58EB9754.3090202@huawei.com>
+References: <58b48b1f.F/jo2/WiSxvvGm/z%akpm@linux-foundation.org> <20170301144845.783f8cad@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <edumazet@google.com>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Kostya Serebryany <kcc@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: "David S. Miller" <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        <akpm@linux-foundation.org>, linux-mm <linux-mm@kvack.org>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Tariq Toukan <tariqt@mellanox.com>
+To: Mel Gorman <mgorman@techsingularity.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f169.google.com ([209.85.192.169]:34227 "EHLO
-        mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753604AbdDJOhS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 10 Apr 2017 10:37:18 -0400
-Received: by mail-pf0-f169.google.com with SMTP id c198so23181362pfc.1
-        for <netdev@vger.kernel.org>; Mon, 10 Apr 2017 07:37:18 -0700 (PDT)
+Received: from szxga03-in.huawei.com ([45.249.212.189]:5429 "EHLO
+        dggrg03-dlp.huawei.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1753638AbdDJOhZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 10 Apr 2017 10:37:25 -0400
+In-Reply-To: <20170301144845.783f8cad@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On 2017/3/1 21:48, Jesper Dangaard Brouer wrote:
+> Hi NetDev community,
+>
+> I just wanted to make net driver people aware that this MM commit[1] got
+> merged and is available in net-next.
+>
+>  commit 374ad05ab64d ("mm, page_alloc: only use per-cpu allocator for irq-safe requests")
+>  [1] https://git.kernel.org/davem/net-next/c/374ad05ab64d696
+>
+> It provides approx 14% speedup of order-0 page allocations.  I do know
+> most driver do their own page-recycling.  Thus, this gain will only be
+> seen when this page recycling is insufficient, which Tariq was affected
+> by AFAIK.
+>
+> We are also playing with a bulk page allocator facility[2], that I've
+> benchmarked[3][4].  While I'm seeing between 34%-46% improvements by
+> bulking, I believe we actually need to do better, before it reach our
+> performance target for high-speed networking.
+>
+> --Jesper
+>
+> [2] http://lkml.kernel.org/r/20170109163518.6001-5-mgorman%40techsingularity.net
+> [3] http://lkml.kernel.org/r/20170116152518.5519dc1e%40redhat.com
+> [4] https://github.com/netoptimizer/prototype-kernel/blob/master/kernel/mm/bench/page_bench04_bulk.c
+>
+>
+> On Mon, 27 Feb 2017 12:25:03 -0800 akpm@linux-foundation.org wrote:
+>
+>> The patch titled
+>>      Subject: mm, page_alloc: only use per-cpu allocator for irq-safe requests
+>> has been removed from the -mm tree.  Its filename was
+>>      mm-page_alloc-only-use-per-cpu-allocator-for-irq-safe-requests.patch
+>>
+>> This patch was dropped because it was merged into mainline or a subsystem tree
+>>
+>> ------------------------------------------------------
+>> From: Mel Gorman <mgorman@techsingularity.net>
+>> Subject: mm, page_alloc: only use per-cpu allocator for irq-safe requests
+>>
+>> Many workloads that allocate pages are not handling an interrupt at a
+>> time.  As allocation requests may be from IRQ context, it's necessary to
+>> disable/enable IRQs for every page allocation.  This cost is the bulk of
+>> the free path but also a significant percentage of the allocation path.
+>>
+>> This patch alters the locking and checks such that only irq-safe
+>> allocation requests use the per-cpu allocator.  All others acquire the
+>> irq-safe zone->lock and allocate from the buddy allocator.  It relies on
+>> disabling preemption to safely access the per-cpu structures.  It could be
+>> slightly modified to avoid soft IRQs using it but it's not clear it's
+>> worthwhile.
+>>
+>> This modification may slow allocations from IRQ context slightly but the
+>> main gain from the per-cpu allocator is that it scales better for
+>> allocations from multiple contexts.  There is an implicit assumption that
+>> intensive allocations from IRQ contexts on multiple CPUs from a single
+>> NUMA node are rare and that the fast majority of scaling issues are
+>> encountered in !IRQ contexts such as page faulting.  It's worth noting
+>> that this patch is not required for a bulk page allocator but it
+>> significantly reduces the overhead.
+>>
+>> The following is results from a page allocator micro-benchmark.  Only
+>> order-0 is interesting as higher orders do not use the per-cpu allocator
+>>
+>>                                           4.10.0-rc2                 4.10.0-rc2
+>>                                              vanilla               irqsafe-v1r5
+>> Amean    alloc-odr0-1               287.15 (  0.00%)           219.00 ( 23.73%)
+>> Amean    alloc-odr0-2               221.23 (  0.00%)           183.23 ( 17.18%)
+>> Amean    alloc-odr0-4               187.00 (  0.00%)           151.38 ( 19.05%)
+>> Amean    alloc-odr0-8               167.54 (  0.00%)           132.77 ( 20.75%)
+>> Amean    alloc-odr0-16              156.00 (  0.00%)           123.00 ( 21.15%)
+>> Amean    alloc-odr0-32              149.00 (  0.00%)           118.31 ( 20.60%)
+>> Amean    alloc-odr0-64              138.77 (  0.00%)           116.00 ( 16.41%)
+>> Amean    alloc-odr0-128             145.00 (  0.00%)           118.00 ( 18.62%)
+>> Amean    alloc-odr0-256             136.15 (  0.00%)           125.00 (  8.19%)
+>> Amean    alloc-odr0-512             147.92 (  0.00%)           121.77 ( 17.68%)
+>> Amean    alloc-odr0-1024            147.23 (  0.00%)           126.15 ( 14.32%)
+>> Amean    alloc-odr0-2048            155.15 (  0.00%)           129.92 ( 16.26%)
+>> Amean    alloc-odr0-4096            164.00 (  0.00%)           136.77 ( 16.60%)
+>> Amean    alloc-odr0-8192            166.92 (  0.00%)           138.08 ( 17.28%)
+>> Amean    alloc-odr0-16384           159.00 (  0.00%)           138.00 ( 13.21%)
+>> Amean    free-odr0-1                165.00 (  0.00%)            89.00 ( 46.06%)
+>> Amean    free-odr0-2                113.00 (  0.00%)            63.00 ( 44.25%)
+>> Amean    free-odr0-4                 99.00 (  0.00%)            54.00 ( 45.45%)
+>> Amean    free-odr0-8                 88.00 (  0.00%)            47.38 ( 46.15%)
+>> Amean    free-odr0-16                83.00 (  0.00%)            46.00 ( 44.58%)
+>> Amean    free-odr0-32                80.00 (  0.00%)            44.38 ( 44.52%)
+>> Amean    free-odr0-64                72.62 (  0.00%)            43.00 ( 40.78%)
+>> Amean    free-odr0-128               78.00 (  0.00%)            42.00 ( 46.15%)
+>> Amean    free-odr0-256               80.46 (  0.00%)            57.00 ( 29.16%)
+>> Amean    free-odr0-512               96.38 (  0.00%)            64.69 ( 32.88%)
+>> Amean    free-odr0-1024             107.31 (  0.00%)            72.54 ( 32.40%)
+>> Amean    free-odr0-2048             108.92 (  0.00%)            78.08 ( 28.32%)
+>> Amean    free-odr0-4096             113.38 (  0.00%)            82.23 ( 27.48%)
+>> Amean    free-odr0-8192             112.08 (  0.00%)            82.85 ( 26.08%)
+>> Amean    free-odr0-16384            110.38 (  0.00%)            81.92 ( 25.78%)
+>> Amean    total-odr0-1               452.15 (  0.00%)           308.00 ( 31.88%)
+>> Amean    total-odr0-2               334.23 (  0.00%)           246.23 ( 26.33%)
+>> Amean    total-odr0-4               286.00 (  0.00%)           205.38 ( 28.19%)
+>> Amean    total-odr0-8               255.54 (  0.00%)           180.15 ( 29.50%)
+>> Amean    total-odr0-16              239.00 (  0.00%)           169.00 ( 29.29%)
+>> Amean    total-odr0-32              229.00 (  0.00%)           162.69 ( 28.96%)
+>> Amean    total-odr0-64              211.38 (  0.00%)           159.00 ( 24.78%)
+>> Amean    total-odr0-128             223.00 (  0.00%)           160.00 ( 28.25%)
+>> Amean    total-odr0-256             216.62 (  0.00%)           182.00 ( 15.98%)
+>> Amean    total-odr0-512             244.31 (  0.00%)           186.46 ( 23.68%)
+>> Amean    total-odr0-1024            254.54 (  0.00%)           198.69 ( 21.94%)
+>> Amean    total-odr0-2048            264.08 (  0.00%)           208.00 ( 21.24%)
+>> Amean    total-odr0-4096            277.38 (  0.00%)           219.00 ( 21.05%)
+>> Amean    total-odr0-8192            279.00 (  0.00%)           220.92 ( 20.82%)
+>> Amean    total-odr0-16384           269.38 (  0.00%)           219.92 ( 18.36%)
+>>
+>> This is the alloc, free and total overhead of allocating order-0 pages in
+>> batches of 1 page up to 16384 pages.  Avoiding disabling/enabling overhead
+>> massively reduces overhead.  Alloc overhead is roughly reduced by 14-20%
+>> in most cases.  The free path is reduced by 26-46% and the total reduction
+>> is significant.
+>>
+>> Many users require zeroing of pages from the page allocator which is the
+>> vast cost of allocation.  Hence, the impact on a basic page faulting
+>> benchmark is not that significant
+>>
+>>                               4.10.0-rc2            4.10.0-rc2
+>>                                  vanilla          irqsafe-v1r5
+>> Hmean    page_test   656632.98 (  0.00%)   675536.13 (  2.88%)
+>> Hmean    brk_test   3845502.67 (  0.00%)  3867186.94 (  0.56%)
+>> Stddev   page_test    10543.29 (  0.00%)     4104.07 ( 61.07%)
+>> Stddev   brk_test     33472.36 (  0.00%)    15538.39 ( 53.58%)
+>> CoeffVar page_test        1.61 (  0.00%)        0.61 ( 62.15%)
+>> CoeffVar brk_test         0.87 (  0.00%)        0.40 ( 53.84%)
+>> Max      page_test   666513.33 (  0.00%)   678640.00 (  1.82%)
+>> Max      brk_test   3882800.00 (  0.00%)  3887008.66 (  0.11%)
+>>
+>> This is from aim9 and the most notable outcome is that fault variability
+>> is reduced by the patch.  The headline improvement is small as the overall
+>> fault cost, zeroing, page table insertion etc dominate relative to
+>> disabling/enabling IRQs in the per-cpu allocator.
+>>
+>> Similarly, little benefit was seen on networking benchmarks both localhost
+>> and between physical server/clients where other costs dominate.  It's
+>> possible that this will only be noticable on very high speed networks.
+>>
+>> Jesper Dangaard Brouer independently tested
+>> this with a separate microbenchmark from
+>> https://github.com/netoptimizer/prototype-kernel/tree/master/kernel/mm/bench
+>>
+>> Micro-benchmarked with [1] page_bench02:
+>>  modprobe page_bench02 page_order=0 run_flags=$((2#010)) loops=$((10**8)); \
+>>   rmmod page_bench02 ; dmesg --notime | tail -n 4
+>>
+>> Compared to baseline: 213 cycles(tsc) 53.417 ns
+>>  - against this     : 184 cycles(tsc) 46.056 ns
+>>  - Saving           : -29 cycles
+>>  - Very close to expected 27 cycles saving [see below [2]]
+>>
+>> Micro benchmarking via time_bench_sample[3], we get the cost of these
+>> operations:
+>>
+>>  time_bench: Type:for_loop                 Per elem: 0 cycles(tsc) 0.232 ns (step:0)
+>>  time_bench: Type:spin_lock_unlock         Per elem: 33 cycles(tsc) 8.334 ns (step:0)
+>>  time_bench: Type:spin_lock_unlock_irqsave Per elem: 62 cycles(tsc) 15.607 ns (step:0)
+>>  time_bench: Type:irqsave_before_lock      Per elem: 57 cycles(tsc) 14.344 ns (step:0)
+>>  time_bench: Type:spin_lock_unlock_irq     Per elem: 34 cycles(tsc) 8.560 ns (step:0)
+>>  time_bench: Type:simple_irq_disable_before_lock Per elem: 37 cycles(tsc) 9.289 ns (step:0)
+>>  time_bench: Type:local_BH_disable_enable  Per elem: 19 cycles(tsc) 4.920 ns (step:0)
+>>  time_bench: Type:local_IRQ_disable_enable Per elem: 7 cycles(tsc) 1.864 ns (step:0)
+>>  time_bench: Type:local_irq_save_restore   Per elem: 38 cycles(tsc) 9.665 ns (step:0)
+>>  [Mel's patch removes a ^^^^^^^^^^^^^^^^]            ^^^^^^^^^ expected saving - preempt cost
+>>  time_bench: Type:preempt_disable_enable   Per elem: 11 cycles(tsc) 2.794 ns (step:0)
+>>  [adds a preempt  ^^^^^^^^^^^^^^^^^^^^^^]            ^^^^^^^^^ adds this cost
+>>  time_bench: Type:funcion_call_cost        Per elem: 6 cycles(tsc) 1.689 ns (step:0)
+>>  time_bench: Type:func_ptr_call_cost       Per elem: 11 cycles(tsc) 2.767 ns (step:0)
+>>  time_bench: Type:page_alloc_put           Per elem: 211 cycles(tsc) 52.803 ns (step:0)
+>>
+>> Thus, expected improvement is: 38-11 = 27 cycles.
+>>
+>> [mgorman@techsingularity.net: s/preempt_enable_no_resched/preempt_enable/]
+>>   Link: http://lkml.kernel.org/r/20170208143128.25ahymqlyspjcixu@techsingularity.net
+>> Link: http://lkml.kernel.org/r/20170123153906.3122-5-mgorman@techsingularity.net
+>> Signed-off-by: Mel Gorman <mgorman@techsingularity.net>
+>> Acked-by: Hillf Danton <hillf.zj@alibaba-inc.com>
+>> Acked-by: Jesper Dangaard Brouer <brouer@redhat.com>
+>> Acked-by: Vlastimil Babka <vbabka@suse.cz>
+>> Cc: Hillf Danton <hillf.zj@alibaba-inc.com>
+>> Cc: Thomas Gleixner <tglx@linutronix.de>
+>> Cc: Vlastimil Babka <vbabka@suse.cz>
+>> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+>> ---
+>>
+>>  mm/page_alloc.c |   43 +++++++++++++++++++++++--------------------
+>>  1 file changed, 23 insertions(+), 20 deletions(-)
+>>
+>> diff -puN mm/page_alloc.c~mm-page_alloc-only-use-per-cpu-allocator-for-irq-safe-requests mm/page_alloc.c
+>> --- a/mm/page_alloc.c~mm-page_alloc-only-use-per-cpu-allocator-for-irq-safe-requests
+>> +++ a/mm/page_alloc.c
+>> @@ -1085,10 +1085,10 @@ static void free_pcppages_bulk(struct zo
+>>  {
+>>  	int migratetype = 0;
+>>  	int batch_free = 0;
+>> -	unsigned long nr_scanned;
+>> +	unsigned long nr_scanned, flags;
+>>  	bool isolated_pageblocks;
+>>  
+>> -	spin_lock(&zone->lock);
+>> +	spin_lock_irqsave(&zone->lock, flags);
+>>  	isolated_pageblocks = has_isolate_pageblock(zone);
+>>  	nr_scanned = node_page_state(zone->zone_pgdat, NR_PAGES_SCANNED);
+>>  	if (nr_scanned)
+>> @@ -1137,7 +1137,7 @@ static void free_pcppages_bulk(struct zo
+>>  			trace_mm_page_pcpu_drain(page, 0, mt);
+>>  		} while (--count && --batch_free && !list_empty(list));
+>>  	}
+>> -	spin_unlock(&zone->lock);
+>> +	spin_unlock_irqrestore(&zone->lock, flags);
+>>  }
+>>  
+>>  static void free_one_page(struct zone *zone,
+>> @@ -1145,8 +1145,9 @@ static void free_one_page(struct zone *z
+>>  				unsigned int order,
+>>  				int migratetype)
+>>  {
+>> -	unsigned long nr_scanned;
+>> -	spin_lock(&zone->lock);
+>> +	unsigned long nr_scanned, flags;
+>> +	spin_lock_irqsave(&zone->lock, flags);
+>> +	__count_vm_events(PGFREE, 1 << order);
+>>  	nr_scanned = node_page_state(zone->zone_pgdat, NR_PAGES_SCANNED);
+>>  	if (nr_scanned)
+>>  		__mod_node_page_state(zone->zone_pgdat, NR_PAGES_SCANNED, -nr_scanned);
+>> @@ -1156,7 +1157,7 @@ static void free_one_page(struct zone *z
+>>  		migratetype = get_pfnblock_migratetype(page, pfn);
+>>  	}
+>>  	__free_one_page(page, pfn, zone, order, migratetype);
+>> -	spin_unlock(&zone->lock);
+>> +	spin_unlock_irqrestore(&zone->lock, flags);
+>>  }
+>>  
+>>  static void __meminit __init_single_page(struct page *page, unsigned long pfn,
+>> @@ -1234,7 +1235,6 @@ void __meminit reserve_bootmem_region(ph
+>>  
+>>  static void __free_pages_ok(struct page *page, unsigned int order)
+>>  {
+>> -	unsigned long flags;
+>>  	int migratetype;
+>>  	unsigned long pfn = page_to_pfn(page);
+>>  
+>> @@ -1242,10 +1242,7 @@ static void __free_pages_ok(struct page
+>>  		return;
+>>  
+>>  	migratetype = get_pfnblock_migratetype(page, pfn);
+>> -	local_irq_save(flags);
+>> -	__count_vm_events(PGFREE, 1 << order);
+>>  	free_one_page(page_zone(page), page, pfn, order, migratetype);
+>> -	local_irq_restore(flags);
+>>  }
+>>  
+>>  static void __init __free_pages_boot_core(struct page *page, unsigned int order)
+>> @@ -2217,8 +2214,9 @@ static int rmqueue_bulk(struct zone *zon
+>>  			int migratetype, bool cold)
+>>  {
+>>  	int i, alloced = 0;
+>> +	unsigned long flags;
+>>  
+>> -	spin_lock(&zone->lock);
+>> +	spin_lock_irqsave(&zone->lock, flags);
+>>  	for (i = 0; i < count; ++i) {
+>>  		struct page *page = __rmqueue(zone, order, migratetype);
+>>  		if (unlikely(page == NULL))
+>> @@ -2254,7 +2252,7 @@ static int rmqueue_bulk(struct zone *zon
+>>  	 * pages added to the pcp list.
+>>  	 */
+>>  	__mod_zone_page_state(zone, NR_FREE_PAGES, -(i << order));
+>> -	spin_unlock(&zone->lock);
+>> +	spin_unlock_irqrestore(&zone->lock, flags);
+>>  	return alloced;
+>>  }
+>>  
+>> @@ -2475,17 +2473,20 @@ void free_hot_cold_page(struct page *pag
+>>  {
+>>  	struct zone *zone = page_zone(page);
+>>  	struct per_cpu_pages *pcp;
+>> -	unsigned long flags;
+>>  	unsigned long pfn = page_to_pfn(page);
+>>  	int migratetype;
+>>  
+>> +	if (in_interrupt()) {
+>> +		__free_pages_ok(page, 0);
+>> +		return;
+>> +	}
+>> +
+>>  	if (!free_pcp_prepare(page))
+>>  		return;
+>>  
+>>  	migratetype = get_pfnblock_migratetype(page, pfn);
+>>  	set_pcppage_migratetype(page, migratetype);
+>> -	local_irq_save(flags);
+>> -	__count_vm_event(PGFREE);
+>> +	preempt_disable();
+>>  
+>>  	/*
+>>  	 * We only track unmovable, reclaimable and movable on pcp lists.
+>> @@ -2502,6 +2503,7 @@ void free_hot_cold_page(struct page *pag
+>>  		migratetype = MIGRATE_MOVABLE;
+>>  	}
+>>  
+>> +	__count_vm_event(PGFREE);
+>>  	pcp = &this_cpu_ptr(zone->pageset)->pcp;
+>>  	if (!cold)
+>>  		list_add(&page->lru, &pcp->lists[migratetype]);
+>> @@ -2515,7 +2517,7 @@ void free_hot_cold_page(struct page *pag
+>>  	}
+>>  
+>>  out:
+>> -	local_irq_restore(flags);
+>> +	preempt_enable();
+>>  }
+>>  
+>>  /*
+>> @@ -2640,6 +2642,8 @@ static struct page *__rmqueue_pcplist(st
+>>  {
+>>  	struct page *page;
+>>  
+>> +	VM_BUG_ON(in_interrupt());
+>> +
+>>  	do {
+>>  		if (list_empty(list)) {
+>>  			pcp->count += rmqueue_bulk(zone, 0,
+>> @@ -2670,9 +2674,8 @@ static struct page *rmqueue_pcplist(stru
+>>  	struct list_head *list;
+>>  	bool cold = ((gfp_flags & __GFP_COLD) != 0);
+>>  	struct page *page;
+>> -	unsigned long flags;
+>>  
+>> -	local_irq_save(flags);
+>> +	preempt_disable();
+>>  	pcp = &this_cpu_ptr(zone->pageset)->pcp;
+>>  	list = &pcp->lists[migratetype];
+>>  	page = __rmqueue_pcplist(zone,  migratetype, cold, pcp, list);
+>> @@ -2680,7 +2683,7 @@ static struct page *rmqueue_pcplist(stru
+>>  		__count_zid_vm_events(PGALLOC, page_zonenum(page), 1 << order);
+>>  		zone_statistics(preferred_zone, zone);
+>>  	}
+>> -	local_irq_restore(flags);
+>> +	preempt_enable();
+>>  	return page;
+>>  }
+>>  
+>> @@ -2696,7 +2699,7 @@ struct page *rmqueue(struct zone *prefer
+>>  	unsigned long flags;
+>>  	struct page *page;
+>>  
+>> -	if (likely(order == 0)) {
+>> +	if (likely(order == 0) && !in_interrupt()) {
+>>  		page = rmqueue_pcplist(preferred_zone, zone, order,
+>>  				gfp_flags, migratetype);
+>>  		goto out;
+>> _
+>>
+>> Patches currently in -mm which might be from mgorman@techsingularity.net are
+>>
+>>
+>>
+Hi, Mel
 
-I've got the following error report while fuzzing the kernel with syzkaller.
+     The patch I had test on arm64. I find the great degradation. I test it by micro-bench.
+    The patrly data is as following.  and it is stable.  That stands for the allocate and free time. 
+    
+ 
+    before apply the patch:
+     order 0 batch 1       alloc 477 free 251    (unit: ns)
+    order 0  batch 1       alloc 475   free  250
 
-On commit 39da7c509acff13fc8cb12ec1bb20337c988ed36 (4.11-rc6).
+   after apply the patch:
+   order 0 batch 1         alloc 601  free 369   (unit: ns)
+   order 0 batch 1         alloc 600   free 370
 
-Unfortunately it's not reproducible.
 
-==================================================================
-BUG: KASAN: use-after-free in __read_once_size
-include/linux/compiler.h:254 [inline] at addr ffff880059ce6590
-BUG: KASAN: use-after-free in atomic_read
-arch/x86/include/asm/atomic.h:26 [inline] at addr ffff880059ce6590
-BUG: KASAN: use-after-free in virt_spin_lock
-arch/x86/include/asm/qspinlock.h:62 [inline] at addr ffff880059ce6590
-BUG: KASAN: use-after-free in queued_spin_lock_slowpath+0xb0a/0xfd0
-kernel/locking/qspinlock.c:421 at addr ffff880059ce6590
-Read of size 4 by task syz-executor6/567
-CPU: 1 PID: 567 Comm: syz-executor6 Not tainted 4.11.0-rc6+ #206
-Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
-Call Trace:
- __dump_stack lib/dump_stack.c:16 [inline]
- dump_stack+0x292/0x398 lib/dump_stack.c:52
- kasan_object_err+0x1c/0x70 mm/kasan/report.c:164
- print_address_description mm/kasan/report.c:202 [inline]
- kasan_report_error mm/kasan/report.c:291 [inline]
- kasan_report+0x252/0x510 mm/kasan/report.c:347
- __asan_report_load4_noabort+0x14/0x20 mm/kasan/report.c:367
- __read_once_size include/linux/compiler.h:254 [inline]
- atomic_read arch/x86/include/asm/atomic.h:26 [inline]
- virt_spin_lock arch/x86/include/asm/qspinlock.h:62 [inline]
- queued_spin_lock_slowpath+0xb0a/0xfd0 kernel/locking/qspinlock.c:421
- queued_spin_lock include/asm-generic/qspinlock.h:103 [inline]
- do_raw_spin_lock+0x151/0x1e0 kernel/locking/spinlock_debug.c:113
- __raw_spin_lock include/linux/spinlock_api_smp.h:143 [inline]
- _raw_spin_lock+0x32/0x40 kernel/locking/spinlock.c:151
- spin_lock include/linux/spinlock.h:299 [inline]
- lockref_get_not_dead+0x19/0x80 lib/lockref.c:179
- __ns_get_path+0x197/0x860 fs/nsfs.c:66
- open_related_ns+0xda/0x200 fs/nsfs.c:143
- sock_ioctl+0x39d/0x440 net/socket.c:1001
- vfs_ioctl fs/ioctl.c:45 [inline]
- do_vfs_ioctl+0x1bf/0x1780 fs/ioctl.c:685
- SYSC_ioctl fs/ioctl.c:700 [inline]
- SyS_ioctl+0x8f/0xc0 fs/ioctl.c:691
- entry_SYSCALL_64_fastpath+0x1f/0xc2
-RIP: 0033:0x4458d9
-RSP: 002b:00007f1c9259eb58 EFLAGS: 00000286 ORIG_RAX: 0000000000000010
-RAX: ffffffffffffffda RBX: 0000000000000016 RCX: 00000000004458d9
-RDX: 000000002090affc RSI: 000000000000894c RDI: 0000000000000016
-RBP: 00000000006e1c50 R08: 0000000000000000 R09: 0000000000000000
-R10: 0000000000000000 R11: 0000000000000286 R12: 0000000000708150
-R13: 0000000000000000 R14: 00007f1c9259f9c0 R15: 00007f1c9259f700
-Object at ffff880059ce6510, in cache dentry size: 288
-Allocated:
-PID = 565
- save_stack_trace+0x16/0x20 arch/x86/kernel/stacktrace.c:59
- save_stack+0x43/0xd0 mm/kasan/kasan.c:513
- set_track mm/kasan/kasan.c:525 [inline]
- kasan_kmalloc+0xad/0xe0 mm/kasan/kasan.c:616
- kasan_slab_alloc+0x12/0x20 mm/kasan/kasan.c:555
- slab_post_alloc_hook mm/slab.h:456 [inline]
- slab_alloc_node mm/slub.c:2718 [inline]
- slab_alloc mm/slub.c:2726 [inline]
- kmem_cache_alloc+0x1af/0x250 mm/slub.c:2731
- __d_alloc+0xb3/0xbd0 fs/dcache.c:1571
- d_alloc_pseudo+0x1d/0x30 fs/dcache.c:1692
- __ns_get_path+0x3e8/0x860 fs/nsfs.c:88
- open_related_ns+0xda/0x200 fs/nsfs.c:143
- sock_ioctl+0x39d/0x440 net/socket.c:1001
- vfs_ioctl fs/ioctl.c:45 [inline]
- do_vfs_ioctl+0x1bf/0x1780 fs/ioctl.c:685
- SYSC_ioctl fs/ioctl.c:700 [inline]
- SyS_ioctl+0x8f/0xc0 fs/ioctl.c:691
- entry_SYSCALL_64_fastpath+0x1f/0xc2
-Freed:
-PID = 566
- save_stack_trace+0x16/0x20 arch/x86/kernel/stacktrace.c:59
- save_stack+0x43/0xd0 mm/kasan/kasan.c:513
- set_track mm/kasan/kasan.c:525 [inline]
- kasan_slab_free+0x73/0xc0 mm/kasan/kasan.c:589
- slab_free_hook mm/slub.c:1357 [inline]
- slab_free_freelist_hook mm/slub.c:1379 [inline]
- slab_free mm/slub.c:2961 [inline]
- kmem_cache_free+0xb2/0x2c0 mm/slub.c:2983
- __d_free fs/dcache.c:265 [inline]
- dentry_free+0xd5/0x150 fs/dcache.c:314
- __dentry_kill+0x485/0x6e0 fs/dcache.c:552
- dentry_kill fs/dcache.c:579 [inline]
- dput.part.25+0x5cd/0x7c0 fs/dcache.c:791
- dput+0x1f/0x30 fs/dcache.c:753
- __fput+0x527/0x7f0 fs/file_table.c:227
- ____fput+0x15/0x20 fs/file_table.c:245
- task_work_run+0x19b/0x270 kernel/task_work.c:116
- tracehook_notify_resume include/linux/tracehook.h:191 [inline]
- exit_to_usermode_loop+0x1c2/0x200 arch/x86/entry/common.c:161
- prepare_exit_to_usermode arch/x86/entry/common.c:191 [inline]
- syscall_return_slowpath+0x3d3/0x420 arch/x86/entry/common.c:260
- entry_SYSCALL_64_fastpath+0xc0/0xc2
-Memory state around the buggy address:
- ffff880059ce6480: fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc
- ffff880059ce6500: fc fc fb fb fb fb fb fb fb fb fb fb fb fb fb fb
->ffff880059ce6580: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
-                         ^
- ffff880059ce6600: fb fb fb fb fb fb fc fc fc fc fc fc fc fc fc fc
- ffff880059ce6680: fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc
-==================================================================
+Thanks
+zhongjiang
