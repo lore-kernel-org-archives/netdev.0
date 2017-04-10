@@ -1,34 +1,38 @@
-From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Subject: Re: [PATCH 5/6] dt-bindings: allow up to three clocks for orion-mdio
-Date: Mon, 10 Apr 2017 21:57:57 +0200
-Message-ID: <20170410195757.GG32277@lunn.ch>
-References: <20170410152728.GT17774@n2100.armlinux.org.uk>
- <E1cxbEv-0006gY-PO@rmk-PC.armlinux.org.uk>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 00/12] ftgmac100: Rework batch 3 - TX path
+Date: Mon, 10 Apr 2017 16:04:17 -0400 (EDT)
+Message-ID: <20170410.160417.1325099963902050953.davem@davemloft.net>
+References: <20170410011526.4509-1-benh@kernel.crashing.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Marcin Wojtas <mw-nYOzD4b6Jr9Wk0Htik3J/w@public.gmane.org>,
-        Stefan Chulski <stefanc-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
-        Thomas Petazzoni <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Russell King <rmk+kernel-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <E1cxbEv-0006gY-PO-eh5Bv4kxaXIk46pC+1QYvQNdhmdF6hFW@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: benh@kernel.crashing.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:51066 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752587AbdDJUEY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 10 Apr 2017 16:04:24 -0400
+In-Reply-To: <20170410011526.4509-1-benh@kernel.crashing.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 10, 2017 at 04:28:25PM +0100, Russell King wrote:
-> Armada 8040 needs three clocks to be enabled for MDIO accesses to work.
-> Update the binding to allow the extra clocks to be specified.
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Date: Mon, 10 Apr 2017 11:15:14 +1000
+
+> This is version 2 of the third batch of updates to
+> the ftgmac100 driver.
 > 
-> Signed-off-by: Russell King <rmk+kernel-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>
+> This one tackles the TX path of the driver. This provides the
+> bulk of the performance improvements by adding support for
+> fragmented sends along with a bunch of cleanups.
+> 
+> Version 2 fixes a patch splitting mistake and uses
+> eth_skb_pad() (which uses skb_put_padto) to pad ethernet
+> frames rather than skb_padto(), thus removing the need to
+> also pad the packet headlen in a couple of places. 
+> 
+> Subsequent batches will add various features (ethtool functions,
+> vlan offlan, ...) and cleanups.
 
-Reviewed-by: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-
-    Andrew
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Series applied, thanks Ben.
