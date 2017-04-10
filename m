@@ -1,67 +1,64 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: WARN_ON running XDP on virtio net device
-Date: Tue, 11 Apr 2017 00:24:08 +0300
-Message-ID: <20170411002325-mutt-send-email-mst@kernel.org>
-References: <9370d199-9a73-308c-97d0-8d473e8536b2@cumulusnetworks.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH] mm, page_alloc: re-enable softirq use of per-cpu page
+ allocator
+Date: Mon, 10 Apr 2017 14:26:16 -0700
+Message-ID: <20170410142616.6d37a11904dd153298cf7f3b@linux-foundation.org>
+References: <20170410150821.vcjlz7ntabtfsumm@techsingularity.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jasowang@redhat.com,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Ahern <dsa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:36436 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752010AbdDJVYJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 10 Apr 2017 17:24:09 -0400
-Content-Disposition: inline
-In-Reply-To: <9370d199-9a73-308c-97d0-8d473e8536b2@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: brouer@redhat.com, willy@infradead.org, peterz@infradead.org,
+ pagupta@redhat.com, ttoukan.linux@gmail.com, tariqt@mellanox.com,
+ netdev@vger.kernel.org, saeedm@mellanox.com, linux-kernel@vger.kernel.org,
+ linux-mm@kvack.org
+To: Mel Gorman <mgorman@techsingularity.net>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20170410150821.vcjlz7ntabtfsumm@techsingularity.net>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 10, 2017 at 03:21:53PM -0600, David Ahern wrote:
-> I'm hitting a WARN_ON running XDP with virtio net:
+On Mon, 10 Apr 2017 16:08:21 +0100 Mel Gorman <mgorman@techsingularity.net> wrote:
+
+> IRQ context were excluded from using the Per-Cpu-Pages (PCP) lists caching
+> of order-0 pages in commit 374ad05ab64d ("mm, page_alloc: only use per-cpu
+> allocator for irq-safe requests").
 > 
-> [  177.185570] ------------[ cut here ]------------
-> [  177.187250] WARNING: CPU: 0 PID: 880 at
-> /home/dsa/kernel.git/drivers/pci/msi.c:1251 pci_irq_vector+0x92/0x123
-> [  177.190932] Modules linked in: 8021q garp mrp stp llc vrf
-> [  177.193473] CPU: 0 PID: 880 Comm: xdp1 Not tainted 4.11.0-rc5+ #305
-> [  177.195640] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996),
-> BIOS 1.7.5-20140531_083030-gandalf 04/01/2014
-> [  177.199190] Call Trace:
-> [  177.200072]  dump_stack+0x81/0xb6
-> [  177.201018]  __warn+0x107/0x122
-> [  177.201899]  warn_slowpath_null+0x1d/0x1f
-> [  177.203014]  pci_irq_vector+0x92/0x123
-> [  177.204082]  vp_synchronize_vectors+0x6f/0x81
-> [  177.205293]  vp_reset+0x50/0x55
-> [  177.206174]  virtnet_xdp+0x346/0x6dd
-> [  177.207188]  dev_change_xdp_fd+0x12a/0x151
-> [  177.208256]  do_setlink+0x1288/0x130a
+> This unfortunately also included excluded SoftIRQ.  This hurt the performance
+> for the use-case of refilling DMA RX rings in softirq context.
+
+Out of curiosity: by how much did it "hurt"?
+
+<ruffles through the archives>
+
+Tariq found:
+
+: I disabled the page-cache (recycle) mechanism to stress the page
+: allocator, and see a drastic degradation in BW, from 47.5 G in v4.10 to
+: 31.4 G in v4.11-rc1 (34% drop).
+
+then with this patch he found
+
+: It looks very good!  I get line-rate (94Gbits/sec) with 8 streams, in
+: comparison to less than 55Gbits/sec before.
+
+Can I take this to mean that the page allocator's per-cpu-pages feature
+ended up doubling the performance of this driver?  Better than the
+driver's private page recycling?  I'd like to believe that, but am
+having trouble doing so ;)
+
+> This patch re-allow softirq context, which should be safe by disabling
+> BH/softirq, while accessing the list.  PCP-lists access from both hard-IRQ
+> and NMI context must not be allowed.  Peter Zijlstra says in_nmi() code
+> never access the page allocator, thus it should be sufficient to only test
+> for !in_irq().
 > 
-> Seems to be something introduced in the past month or so. 2 attempts to
-> bisect it pointed to this commit:
-> 
-> commit 54d7989f476ca57fc3c5cc71524c480ccb74c481
-> Merge: 0f221a3102bb c4baad50297d
-> Author: Linus Torvalds <torvalds@linux-foundation.org>
-> Date:   Thu Mar 2 13:53:13 2017 -0800
-> 
->     Merge tag 'for_linus' of
-> git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost
-> 
->     Pull vhost updates from Michael Tsirkin:
->      "virtio, vhost: optimizations, fixes
+> One concern with this change is adding a BH (enable) scheduling point at
+> both PCP alloc and free. If further concerns are highlighted by this patch,
+> the result wiill be to revert 374ad05ab64d and try again at a later date
+> to offset the irq enable/disable overhead.
 
-I'm preparing a pull request reverting some changes we made
-there. I'd be thankful if you can check whether
-
-git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost linux-next
-
-help with this.
-
-
-Thanks
-
--- 
-MST
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
