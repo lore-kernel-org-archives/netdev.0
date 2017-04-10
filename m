@@ -1,34 +1,83 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH 6/6] net: mvmdio: allow up to three clocks to be
- specified for orion-mdio
-Date: Mon, 10 Apr 2017 21:31:28 +0200
-Message-ID: <20170410193128.GE32277@lunn.ch>
-References: <20170410152728.GT17774@n2100.armlinux.org.uk>
- <E1cxbF1-0006gf-54@rmk-PC.armlinux.org.uk>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next RFC] Generic XDP
+Date: Mon, 10 Apr 2017 15:33:26 -0400 (EDT)
+Message-ID: <20170410.153326.450347050098977889.davem@davemloft.net>
+References: <20170409.133528.660876505013192371.davem@davemloft.net>
+        <20170410021807.GA17150@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Marcin Wojtas <mw@semihalf.com>,
-        Stefan Chulski <stefanc@marvell.com>,
-        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-        netdev@vger.kernel.org
-To: Russell King <rmk+kernel@armlinux.org.uk>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, xdp-newbies@vger.kernel.org
+To: alexei.starovoitov@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:54067 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752086AbdDJTbd (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 10 Apr 2017 15:31:33 -0400
-Content-Disposition: inline
-In-Reply-To: <E1cxbF1-0006gf-54@rmk-PC.armlinux.org.uk>
+Received: from shards.monkeyblade.net ([184.105.139.130]:50556 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751656AbdDJTd2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 10 Apr 2017 15:33:28 -0400
+In-Reply-To: <20170410021807.GA17150@ast-mbp.thefacebook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 10, 2017 at 04:28:31PM +0100, Russell King wrote:
-> Allow up to three clocks to be specified and enabled for the orion-mdio
-> interface, which are required for this interface to be accessible on
-> Armada 8k platforms.
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Date: Sun, 9 Apr 2017 19:18:09 -0700
+
+> On Sun, Apr 09, 2017 at 01:35:28PM -0700, David Miller wrote:
+>> +	if (skb_linearize(skb))
+>> +		goto do_drop;
 > 
-> Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
+> do we need to force disable gro ?
 
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+I think we do.
 
-    Andrew
+> Otherwise if we linearize skb_is_gso packet it will be huge
+> and not similar to normal xdp packets?
+
+I completely agree.
+
+> gso probably needs to disabled too to avoid veth surprises?
+
+I'm not so sure about that.
+
+> 
+>> +
+>> +	hlen = skb_headlen(skb);
+>> +	xdp.data = skb->data;
+> 
+> it probably should be
+> hlen = skb_headlen(skb) + skb->mac_len;
+> xdp.data = skb->data - skb->mac_len;
+> to make sure xdp program is looking at l2 header.
+
+This is why Andy's tests aren't working properly, good find.
+
+>> +	xdp.data_end = xdp.data + hlen;
+>> +	xdp.data_hard_start = xdp.data - skb_headroom(skb);
+>> +	orig_data = xdp.data;
+>> +	act = bpf_prog_run_xdp(xdp_prog, &xdp);
+>> +
+>> +	off = xdp.data - orig_data;
+>> +	if (off)
+>> +		__skb_push(skb, off);
+> 
+> and restore l2 back somehow and get new skb->protocol ?
+> if we simply do __skb_pull(skb, skb->mac_len); like
+> we do with cls_bpf, it will not work correctly,
+
+Yep.
+
+I completely overlooked the fact that the MAC header was pulled
+by the time we get here already.
+
+> I suspect there always be drivers that don't support xdp (like e100),
+> so this generic_xdp_install() will stay with us forever.
+> Since it will stay, can we enable it for xdp enabled drivers too?
+
+Yes it will be useful for debugging.
+
+Andy already ran into this, he wanted to test it with a driver
+that supports XDP so he had to comment out the driver's ndo op.
+
+> Another advantage that it will help to flush out the differences
+> between skb- and raw- modes in the drivers that support xdp already.
+
+Indeed, this will be very valuable.
