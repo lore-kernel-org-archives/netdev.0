@@ -1,58 +1,47 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v2 2/4] net: dsa: add new DSA switch driver for the
- SMSC-LAN9303
-Date: Mon, 10 Apr 2017 15:25:46 +0200
-Message-ID: <20170410132546.GB19820@lunn.ch>
-References: <20170407081502.30172-1-jbe@pengutronix.de>
- <20170407081502.30172-3-jbe@pengutronix.de>
- <20170407142943.GC23415@lunn.ch>
- <201704100944.13165.jbe@pengutronix.de>
+From: Joao Pinto <Joao.Pinto@synopsys.com>
+Subject: Suggestion: Merge of sxgbe to stmmac
+Date: Mon, 10 Apr 2017 14:42:59 +0100
+Message-ID: <a5828934-d5fa-ae0f-4096-22f4a9395e7b@synopsys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        f.fainelli@gmail.com, kernel@pengutronix.de,
-        vivien.didelot@savoirfairelinux.com, davem@davemloft.net
-To: Juergen Borleis <jbe@pengutronix.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <201704100944.13165.jbe@pengutronix.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
+        Alexandre Torgue <alexandre.torgue@st.com>,
+        netdev <netdev@vger.kernel.org>,
+        Carlos Palminha <CARLOS.PALMINHA@synopsys.com>
+To: David Miller <davem@davemloft.net>, <bh74.an@samsung.com>,
+        <ks.giri@samsung.com>, <vipul.pandya@samsung.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from us01smtprelay-2.synopsys.com ([198.182.60.111]:35537 "EHLO
+        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752877AbdDJNok (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 10 Apr 2017 09:44:40 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 10, 2017 at 09:44:12AM +0200, Juergen Borleis wrote:
-> Hi Andrew,
-> 
-> On Friday 07 April 2017 16:29:43 Andrew Lunn wrote:
-> > > +static int lan9303_virt_phy_reg_read(struct lan9303 *chip, int regnum)
-> > > +{
-> > > +	int ret;
-> > > +	u32 val;
-> > > +
-> > > +	if (regnum > MII_EXPANSION) {
-> > > +		if (regnum == MII_LAN911X_SPECIAL_CONTROL_STATUS)
-> > > +			regnum = 7; /* map to LAN9303_VIRT_SPECIAL_CTRL */
-> > > +		else
-> > > +			return -EINVAL;
-> > > +	}
-> >
-> > What PHY ID does the virtual PHY use? The same as the LAN911X? Or 
-> > something different.
-> 
-> Something different: 0x00000000 (instead of 0x0007c0d1 the real PHYs are
-> using).
+Dear Byungho, Girish and David,
 
-Hi Juergen
+Today I was requested to analyse the Synopsys XGMAC IP support in the Linux
+kernel and I found AMD' xgbe and Samsung's sxgbe drivers.
 
-0x0 does not help us. We cannot bind a specific PHY driver to that.
+Samsung' driver has the same architecture as stmmac, so I am sending this e-mail
+to suggest the merge of sxgbe to stmmac.
 
-> For the virtual PHY the driver states (MDIO emulation case):
-> 
-> Generic PHY 63fec000.etherne:00: attached PHY driver [Generic PHY] (mii_bus:phy_addr=63fec000.etherne:00, irq=-1)
+Currently stmmac supports older cores like MAC 10/100/1000 but also one of the
+latest such as eQOS. The idea would be to add XGMAC support to stmmac by
+creating a dwxgmac_core.c and dwxgmac_dma.c with all XGMAC operations related to
+MAC and DMA and use the common infrastructure.
 
-This is what i would expect. But i think that means the redirect of
-MII_LAN911X_SPECIAL_CONTROL_STATUS to 7 is pointless. The generic PHY
-only uses registers below MII_EXPANSION. So unless there is a use of
-MII_LAN911X_SPECIAL_CONTROL_STATUS i don't see, you might as well
-remove this.
+This would bring many advantages like:
 
-     Andrew
+a) xgmac support would be available for all Synopsys XGMAC IP users
+b) stmmac has a great and wide community of users that maintain it, assuring
+quality and latest features availability
+c) avoid replication of code and this way we can work together and achieve
+better results
+d) maintaince becomes easier
+
+I would like to hear your thoughts about the subject.
+
+Thanks,
+Joao
