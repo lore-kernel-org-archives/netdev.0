@@ -1,36 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] tcp: clear saved_syn in tcp_disconnect()
-Date: Sun, 09 Apr 2017 18:28:17 -0700 (PDT)
-Message-ID: <20170409.182817.1110259190577384492.davem@davemloft.net>
-References: <1491664053.10124.92.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: Re: [PATCH net-next] net: dsa: mt7530: Include gpio/consumer.h for
+ GPIO functions
+Date: Sun, 09 Apr 2017 18:29:19 -0700 (PDT)
+Message-ID: <20170409.182919.1213834343222957819.davem@davemloft.net>
+References: <20170408155202.20145-1-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, sean.wang@mediatek.com, andrew@lunn.ch,
+        vivien.didelot@savoirfairelinux.com, linux-kernel@vger.kernel.org
+To: f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:34768 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:34778 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750988AbdDJB2S (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 9 Apr 2017 21:28:18 -0400
-In-Reply-To: <1491664053.10124.92.camel@edumazet-glaptop3.roam.corp.google.com>
+        with ESMTP id S1750729AbdDJB3V (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 9 Apr 2017 21:29:21 -0400
+In-Reply-To: <20170408155202.20145-1-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sat, 08 Apr 2017 08:07:33 -0700
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Sat,  8 Apr 2017 08:52:02 -0700
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> In the (very unlikely) case a passive socket becomes a listener,
-> we do not want to duplicate its saved SYN headers.
-> 
-> This would lead to double frees, use after free, and please hackers and
-> various fuzzers 
-> 
-> Tested:
+> Fixes build errors seen with CONFIG_GPIOLIB disabled and warnings enabled:
  ...
-> Fixes: cd8ae85299d5 ("tcp: provide SYN headers for passive connections")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Fixes: b8f126a8d543 ("net-next: dsa: add dsa support for Mediatek MT7530 switch")
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 
-Applied, thanks Eric.
+Applied, thanks Florian.
