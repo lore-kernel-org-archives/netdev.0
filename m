@@ -1,40 +1,53 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH v3 1/5] netlink: extended ACK reporting
-Date: Mon, 10 Apr 2017 09:26:05 -0600
-Message-ID: <fddba2c8-3b85-d5df-81c4-ef31c459e40c@cumulusnetworks.com>
-References: <20170408202434.12018-1-johannes@sipsolutions.net>
- <20170408202434.12018-2-johannes@sipsolutions.net>
+From: Russell King - ARM Linux <linux@armlinux.org.uk>
+Subject: [PATCH 0/6] mvmdio updates
+Date: Mon, 10 Apr 2017 16:27:28 +0100
+Message-ID: <20170410152728.GT17774@n2100.armlinux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: pablo@netfilter.org, Jamal Hadi Salim <jhs@mojatatu.com>,
-        Jiri Benc <jbenc@redhat.com>, jiri@resnulli.us,
-        Johannes Berg <johannes.berg@intel.com>
-To: Johannes Berg <johannes@sipsolutions.net>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: devicetree@vger.kernel.org, Mark Rutland <mark.rutland@arm.com>,
+        netdev@vger.kernel.org, Rob Herring <robh+dt@kernel.org>
+To: Marcin Wojtas <mw@semihalf.com>,
+        Stefan Chulski <stefanc@marvell.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f41.google.com ([74.125.83.41]:34313 "EHLO
-        mail-pg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753931AbdDJP0I (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 10 Apr 2017 11:26:08 -0400
-Received: by mail-pg0-f41.google.com with SMTP id 21so107672340pgg.1
-        for <netdev@vger.kernel.org>; Mon, 10 Apr 2017 08:26:08 -0700 (PDT)
-In-Reply-To: <20170408202434.12018-2-johannes@sipsolutions.net>
+Received: from pandora.armlinux.org.uk ([78.32.30.218]:37622 "EHLO
+        pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751396AbdDJP1m (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 10 Apr 2017 11:27:42 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 4/8/17 2:24 PM, Johannes Berg wrote:
-> @@ -2300,14 +2332,35 @@ void netlink_ack(struct sk_buff *in_skb, struct nlmsghdr *nlh, int err)
->  			  NLMSG_ERROR, payload, 0);
->  	errmsg = nlmsg_data(rep);
->  	errmsg->error = err;
-> -	memcpy(&errmsg->msg, nlh, payload > sizeof(*errmsg) ? nlh->nlmsg_len : sizeof(*nlh));
-> +	memcpy(&errmsg->msg, nlh,
-> +	       !(nlk->flags & NETLINK_F_CAP_ACK) ? nlh->nlmsg_len
-> +						 : sizeof(*nlh));
-> +
+This series of patches update mvmdio for Armada 8k CP110.  A number of
+issues were found:
 
-generically this makes userspace parsing more problematic: the parsing
-layer may not know if the socket option has been set to precisely know
-the size of errmsg->msg and how much data needs to be skipped to get to
-the new attributes.
+1. The driver fails to disable an interrupt when something goes wrong
+   in the probe function.
+
+2. The interrupt is specified in DT to be optional, but the driver
+   unconditionally writes to the interrupt mask register, which may
+   not exist.
+
+3. The DT binding specifies
+    "reg: address and length of the SMI register"
+   however, when supporting the interrupt, the size must cover the
+   interrupt register as well.  Update the binding documentation
+   with this information that was previously omitted.
+
+4. If the register size is too small, have the driver print an error
+   and disable use of the interrupt.
+
+5. Armada 8k needs three clocks for the MDIO interface, otherwise the
+   SoC hangs (since it is part of one of the ethernet interfaces.)
+   GOP clock, MG core clock and MG clock are needed on 8k. Augment the
+   binding and driver to allow three clocks to be specified.
+
+ .../devicetree/bindings/net/marvell-orion-mdio.txt | 19 ++++++++--
+ drivers/net/ethernet/marvell/mvmdio.c              | 44 +++++++++++++++++-----
+ 2 files changed, 50 insertions(+), 13 deletions(-)
+
+-- 
+RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
+FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
+according to speedtest.net.
