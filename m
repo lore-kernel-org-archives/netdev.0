@@ -1,240 +1,251 @@
 From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: [PATCH v2 07/12] ftgmac100: Cleanup tx queue handling
-Date: Mon, 10 Apr 2017 11:15:21 +1000
-Message-ID: <20170410011526.4509-8-benh@kernel.crashing.org>
+Subject: [PATCH v2 11/12] ftgmac100: Add support for fragmented tx
+Date: Mon, 10 Apr 2017 11:15:25 +1000
+Message-ID: <20170410011526.4509-12-benh@kernel.crashing.org>
 References: <20170410011526.4509-1-benh@kernel.crashing.org>
 Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:56945 "EHLO gate.crashing.org"
+Received: from gate.crashing.org ([63.228.1.57]:56952 "EHLO gate.crashing.org"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752315AbdDJBQK (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 9 Apr 2017 21:16:10 -0400
+        id S1752596AbdDJBQP (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 9 Apr 2017 21:16:15 -0400
 In-Reply-To: <20170410011526.4509-1-benh@kernel.crashing.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We have a private lock which isn't terribly useful, and we maintain
-a "tx_pending" counter for information that's already available
-via a trivial arithmetic operation. Then we unconditionaly wake
-the queue even when not stopped. Finally our code in tx isn't
-really safe vs. a concurrent reclaim. The aspeed chips aren't SMP
-today but I prefer the code being right and future proof.
+Add NETIF_F_SG and create multiple TX ring entries for skb fragments.
 
-So rip that out and replace it with more "standard" queue handling,
-currently with a threshold of 1 queue element, which will be
-increased when we implement fragmented sends.
+On reclaim, the skb is only freed on the segment marked as "last".
 
 Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+--
+
+v2. - Remove skb headlen size adjustments now that we use
+      eth_skb_pad().
 ---
- drivers/net/ethernet/faraday/ftgmac100.c | 103 ++++++++++++++++++++-----------
- 1 file changed, 68 insertions(+), 35 deletions(-)
+ drivers/net/ethernet/faraday/ftgmac100.c | 119 ++++++++++++++++++++++++-------
+ 1 file changed, 94 insertions(+), 25 deletions(-)
 
 diff --git a/drivers/net/ethernet/faraday/ftgmac100.c b/drivers/net/ethernet/faraday/ftgmac100.c
-index 8d85f1d..8078d65 100644
+index 8a44c22..2a4d903 100644
 --- a/drivers/net/ethernet/faraday/ftgmac100.c
 +++ b/drivers/net/ethernet/faraday/ftgmac100.c
-@@ -44,6 +44,9 @@
- #define MAX_PKT_SIZE		1536
+@@ -45,7 +45,7 @@
  #define RX_BUF_SIZE		MAX_PKT_SIZE	/* must be smaller than 0x3fff */
  
-+/* Min number of tx ring entries before stopping queue */
-+#define TX_THRESHOLD		(1)
-+
+ /* Min number of tx ring entries before stopping queue */
+-#define TX_THRESHOLD		(1)
++#define TX_THRESHOLD		(MAX_SKB_FRAGS + 1)
+ 
  struct ftgmac100_descs {
  	struct ftgmac100_rxdes rxdes[RX_QUEUE_ENTRIES];
- 	struct ftgmac100_txdes txdes[TX_QUEUE_ENTRIES];
-@@ -66,9 +69,7 @@ struct ftgmac100 {
- 	struct sk_buff *tx_skbs[TX_QUEUE_ENTRIES];
- 	unsigned int tx_clean_pointer;
- 	unsigned int tx_pointer;
--	unsigned int tx_pending;
- 	u32 txdes0_edotr_mask;
--	spinlock_t tx_lock;
- 
- 	/* Scratch page to use when rx skb alloc fails */
- 	void *rx_scratch;
-@@ -163,7 +164,6 @@ static int ftgmac100_reset_and_config_mac(struct ftgmac100 *priv)
- 	priv->rx_pointer = 0;
- 	priv->tx_clean_pointer = 0;
- 	priv->tx_pointer = 0;
--	priv->tx_pending = 0;
- 
- 	/* The doc says reset twice with 10us interval */
- 	if (ftgmac100_reset_mac(priv, maccr))
-@@ -549,6 +549,23 @@ static int ftgmac100_next_tx_pointer(int pointer)
- 	return (pointer + 1) & (TX_QUEUE_ENTRIES - 1);
+@@ -487,20 +487,30 @@ static void ftgmac100_txdes_set_first_segment(struct ftgmac100_txdes *txdes)
+ 	txdes->txdes0 |= cpu_to_le32(FTGMAC100_TXDES0_FTS);
  }
  
-+static u32 ftgmac100_tx_buf_avail(struct ftgmac100 *priv)
++static inline bool ftgmac100_txdes_get_first_segment(struct ftgmac100_txdes *txdes)
 +{
-+	/* Returns the number of available slots in the TX queue
-+	 *
-+	 * This always leaves one free slot so we don't have to
-+	 * worry about empty vs. full, and this simplifies the
-+	 * test for ftgmac100_tx_buf_cleanable() below
-+	 */
-+	return (priv->tx_clean_pointer - priv->tx_pointer - 1) &
-+		(TX_QUEUE_ENTRIES - 1);
++	return (txdes->txdes0 & cpu_to_le32(FTGMAC100_TXDES0_FTS)) != 0;
 +}
 +
-+static bool ftgmac100_tx_buf_cleanable(struct ftgmac100 *priv)
-+{
-+	return priv->tx_pointer != priv->tx_clean_pointer;
-+}
-+
- static bool ftgmac100_tx_complete_packet(struct ftgmac100 *priv)
+ static void ftgmac100_txdes_set_last_segment(struct ftgmac100_txdes *txdes)
  {
- 	struct net_device *netdev = priv->netdev;
-@@ -557,9 +574,6 @@ static bool ftgmac100_tx_complete_packet(struct ftgmac100 *priv)
- 	struct sk_buff *skb;
+ 	txdes->txdes0 |= cpu_to_le32(FTGMAC100_TXDES0_LTS);
+ }
+ 
++static inline bool ftgmac100_txdes_get_last_segment(struct ftgmac100_txdes *txdes)
++{
++	return (txdes->txdes0 & cpu_to_le32(FTGMAC100_TXDES0_LTS)) != 0;
++}
++
+ static void ftgmac100_txdes_set_buffer_size(struct ftgmac100_txdes *txdes,
+ 					    unsigned int len)
+ {
+ 	txdes->txdes0 |= cpu_to_le32(FTGMAC100_TXDES0_TXBUF_SIZE(len));
+ }
+ 
+-static void ftgmac100_txdes_set_txint(struct ftgmac100_txdes *txdes)
++static inline unsigned int ftgmac100_txdes_get_buffer_size(struct ftgmac100_txdes *txdes)
+ {
+-	txdes->txdes1 |= cpu_to_le32(FTGMAC100_TXDES1_TXIC);
++	return FTGMAC100_TXDES0_TXBUF_SIZE(cpu_to_le32(txdes->txdes0));
+ }
+ 
+ static void ftgmac100_txdes_set_tcpcs(struct ftgmac100_txdes *txdes)
+@@ -526,7 +536,7 @@ static void ftgmac100_txdes_set_dma_addr(struct ftgmac100_txdes *txdes,
+ 
+ static dma_addr_t ftgmac100_txdes_get_dma_addr(struct ftgmac100_txdes *txdes)
+ {
+-	return le32_to_cpu(txdes->txdes3);
++	return (dma_addr_t)le32_to_cpu(txdes->txdes3);
+ }
+ 
+ static int ftgmac100_next_tx_pointer(int pointer)
+@@ -556,13 +566,19 @@ static void ftgmac100_free_tx_packet(struct ftgmac100 *priv,
+ 				     struct sk_buff *skb,
+ 				     struct ftgmac100_txdes *txdes)
+ {
+-	dma_addr_t map;
++	dma_addr_t map = ftgmac100_txdes_get_dma_addr(txdes);
+ 
+-	map = ftgmac100_txdes_get_dma_addr(txdes);
+-
+-	dma_unmap_single(priv->dev, map, skb_headlen(skb), DMA_TO_DEVICE);
++	if (ftgmac100_txdes_get_first_segment(txdes)) {
++		dma_unmap_single(priv->dev, map, skb_headlen(skb),
++				 DMA_TO_DEVICE);
++	} else {
++		dma_unmap_page(priv->dev, map,
++			       ftgmac100_txdes_get_buffer_size(txdes),
++			       DMA_TO_DEVICE);
++	}
+ 
+-	dev_kfree_skb(skb);
++	if (ftgmac100_txdes_get_last_segment(txdes))
++		dev_kfree_skb(skb);
+ 	priv->tx_skbs[pointer] = NULL;
+ 
+ 	/* Clear txdes0 except end of ring bit, clear txdes1 as we
+@@ -624,8 +640,8 @@ static int ftgmac100_hard_start_xmit(struct sk_buff *skb,
+ 				     struct net_device *netdev)
+ {
+ 	struct ftgmac100 *priv = netdev_priv(netdev);
+-	struct ftgmac100_txdes *txdes;
+-	unsigned int pointer;
++	struct ftgmac100_txdes *txdes, *first;
++	unsigned int pointer, nfrags, len, i, j;
  	dma_addr_t map;
  
--	if (priv->tx_pending == 0)
--		return false;
+ 	/* The HW doesn't pad small frames */
+@@ -641,26 +657,33 @@ static int ftgmac100_hard_start_xmit(struct sk_buff *skb,
+ 		goto drop;
+ 	}
+ 
+-	map = dma_map_single(priv->dev, skb->data, skb_headlen(skb), DMA_TO_DEVICE);
+-	if (unlikely(dma_mapping_error(priv->dev, map))) {
+-		/* drop packet */
++	/* Do we have a limit on #fragments ? I yet have to get a reply
++	 * from Aspeed. If there's one I haven't hit it.
++	 */
++	nfrags = skb_shinfo(skb)->nr_frags;
++
++	/* Get header len */
++	len = skb_headlen(skb);
++
++	/* Map the packet head */
++	map = dma_map_single(priv->dev, skb->data, len, DMA_TO_DEVICE);
++	if (dma_mapping_error(priv->dev, map)) {
+ 		if (net_ratelimit())
+-			netdev_err(netdev, "map socket buffer failed\n");
++			netdev_err(netdev, "map tx packet head failed\n");
+ 		goto drop;
+ 	}
+ 
+ 	/* Grab the next free tx descriptor */
+ 	pointer = priv->tx_pointer;
+-	txdes = &priv->descs->txdes[pointer];
++	txdes = first = &priv->descs->txdes[pointer];
+ 
+-	/* setup TX descriptor */
++	/* Setup it up with the packet head. We don't set the OWN bit yet. */
+ 	priv->tx_skbs[pointer] = skb;
+ 	ftgmac100_txdes_set_dma_addr(txdes, map);
+-	ftgmac100_txdes_set_buffer_size(txdes, skb->len);
 -
- 	pointer = priv->tx_clean_pointer;
- 	txdes = &priv->descs->txdes[pointer];
- 
-@@ -581,18 +595,31 @@ static bool ftgmac100_tx_complete_packet(struct ftgmac100 *priv)
- 
- 	priv->tx_clean_pointer = ftgmac100_next_tx_pointer(pointer);
- 
--	spin_lock(&priv->tx_lock);
--	priv->tx_pending--;
--	spin_unlock(&priv->tx_lock);
--	netif_wake_queue(netdev);
--
- 	return true;
- }
- 
- static void ftgmac100_tx_complete(struct ftgmac100 *priv)
- {
--	while (ftgmac100_tx_complete_packet(priv))
-+	struct net_device *netdev = priv->netdev;
++	ftgmac100_txdes_set_buffer_size(txdes, len);
+ 	ftgmac100_txdes_set_first_segment(txdes);
+-	ftgmac100_txdes_set_last_segment(txdes);
+-	ftgmac100_txdes_set_txint(txdes);
 +
-+	/* Process all completed packets */
-+	while (ftgmac100_tx_buf_cleanable(priv) &&
-+	       ftgmac100_tx_complete_packet(priv))
- 		;
-+
-+	/* Restart queue if needed */
-+	smp_mb();
-+	if (unlikely(netif_queue_stopped(netdev) &&
-+		     ftgmac100_tx_buf_avail(priv) >= TX_THRESHOLD)) {
-+		struct netdev_queue *txq;
-+
-+		txq = netdev_get_tx_queue(netdev, 0);
-+		__netif_tx_lock(txq, smp_processor_id());
-+		if (netif_queue_stopped(netdev) &&
-+		    ftgmac100_tx_buf_avail(priv) >= TX_THRESHOLD)
-+			netif_wake_queue(netdev);
-+		__netif_tx_unlock(txq);
-+	}
- }
++	/* Setup HW checksumming */
+ 	if (skb->ip_summed == CHECKSUM_PARTIAL) {
+ 		__be16 protocol = skb->protocol;
  
- static int ftgmac100_hard_start_xmit(struct sk_buff *skb,
-@@ -650,17 +677,22 @@ static int ftgmac100_hard_start_xmit(struct sk_buff *skb,
+@@ -675,14 +698,41 @@ static int ftgmac100_hard_start_xmit(struct sk_buff *skb,
  		}
  	}
  
-+	ftgmac100_txdes_set_dma_own(txdes);
++	/* Next descriptor */
++	pointer = ftgmac100_next_tx_pointer(pointer);
 +
- 	/* Update next TX pointer */
- 	priv->tx_pointer = ftgmac100_next_tx_pointer(pointer);
- 
--	spin_lock(&priv->tx_lock);
--	priv->tx_pending++;
--	if (priv->tx_pending == TX_QUEUE_ENTRIES)
-+	/* If there isn't enough room for all the fragments of a new packet
-+	 * in the TX ring, stop the queue. The sequence below is race free
-+	 * vs. a concurrent restart in ftgmac100_poll()
-+	 */
-+	if (unlikely(ftgmac100_tx_buf_avail(priv) < TX_THRESHOLD)) {
- 		netif_stop_queue(netdev);
--
--	/* start transmit */
--	ftgmac100_txdes_set_dma_own(txdes);
--	spin_unlock(&priv->tx_lock);
-+		/* Order the queue stop with the test below */
-+		smp_mb();
-+		if (ftgmac100_tx_buf_avail(priv) >= TX_THRESHOLD)
-+			netif_wake_queue(netdev);
++	/* Add the fragments */
++	for (i = 0; i < nfrags; i++) {
++		skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
++
++		len = frag->size;
++
++		/* Map it */
++		map = skb_frag_dma_map(priv->dev, frag, 0, len,
++				       DMA_TO_DEVICE);
++		if (dma_mapping_error(priv->dev, map))
++			goto dma_err;
++
++		/* Setup descriptor */
++		priv->tx_skbs[pointer] = skb;
++		txdes = &priv->descs->txdes[pointer];
++		ftgmac100_txdes_set_dma_addr(txdes, map);
++		ftgmac100_txdes_set_buffer_size(txdes, len);
++		ftgmac100_txdes_set_dma_own(txdes);
++		pointer = ftgmac100_next_tx_pointer(pointer);
 +	}
++
++	/* Tag last fragment */
++	ftgmac100_txdes_set_last_segment(txdes);
++
+ 	/* Order the previous packet and descriptor udpates
+ 	 * before setting the OWN bit.
+ 	 */
+ 	dma_wmb();
+-	ftgmac100_txdes_set_dma_own(txdes);
++	ftgmac100_txdes_set_dma_own(first);
  
- 	ftgmac100_txdma_normal_prio_start_polling(priv);
+ 	/* Update next TX pointer */
+-	priv->tx_pointer = ftgmac100_next_tx_pointer(pointer);
++	priv->tx_pointer = pointer;
  
-@@ -978,17 +1010,17 @@ static bool ftgmac100_check_rx(struct ftgmac100 *priv)
- static int ftgmac100_poll(struct napi_struct *napi, int budget)
- {
- 	struct ftgmac100 *priv = container_of(napi, struct ftgmac100, napi);
--	bool more, completed = true;
--	int rx = 0;
-+	int work_done = 0;
-+	bool more;
+ 	/* If there isn't enough room for all the fragments of a new packet
+ 	 * in the TX ring, stop the queue. The sequence below is race free
+@@ -700,6 +750,25 @@ static int ftgmac100_hard_start_xmit(struct sk_buff *skb,
  
--	ftgmac100_tx_complete(priv);
-+	/* Handle TX completions */
-+	if (ftgmac100_tx_buf_cleanable(priv))
-+		ftgmac100_tx_complete(priv);
+ 	return NETDEV_TX_OK;
  
-+	/* Handle RX packets */
- 	do {
--		more = ftgmac100_rx_packet(priv, &rx);
--	} while (more && rx < budget);
--
--	if (more && rx == budget)
--		completed = false;
-+		more = ftgmac100_rx_packet(priv, &work_done);
-+	} while (more && work_done < budget);
- 
- 
- 	/* The interrupt is telling us to kick the MAC back to life
-@@ -1002,11 +1034,13 @@ static int ftgmac100_poll(struct napi_struct *napi, int budget)
- 			  priv->base + FTGMAC100_OFFSET_IER);
- 	}
- 
--	/* Keep NAPI going if we have still packets to reclaim */
--	if (priv->tx_pending)
--		return budget;
-+	/* As long as we are waiting for transmit packets to be
-+	 * completed we keep NAPI going
++ dma_err:
++	if (net_ratelimit())
++		netdev_err(netdev, "map tx fragment failed\n");
++
++	/* Free head */
++	pointer = priv->tx_pointer;
++	ftgmac100_free_tx_packet(priv, pointer, skb, first);
++
++	/* Then all fragments */
++	for (j = 0; j < i; j++) {
++		pointer = ftgmac100_next_tx_pointer(pointer);
++		txdes = &priv->descs->txdes[pointer];
++		ftgmac100_free_tx_packet(priv, pointer, skb, txdes);
++	}
++
++	/* This cannot be reached if we successfully mapped the
++	 * last fragment, so we know ftgmac100_free_tx_packet()
++	 * hasn't freed the skb yet.
 +	 */
-+	if (ftgmac100_tx_buf_cleanable(priv))
-+		work_done = budget;
+  drop:
+ 	/* Drop the packet */
+ 	dev_kfree_skb_any(skb);
+@@ -1439,12 +1508,12 @@ static int ftgmac100_probe(struct platform_device *pdev)
+ 	 * when NCSI is enabled on the interface. It doesn't work
+ 	 * in that case.
+ 	 */
+-	netdev->features = NETIF_F_RXCSUM | NETIF_F_IP_CSUM | NETIF_F_GRO;
++	netdev->features = NETIF_F_RXCSUM | NETIF_F_IP_CSUM |
++		NETIF_F_GRO | NETIF_F_SG;
+ 	if (priv->use_ncsi &&
+ 	    of_get_property(pdev->dev.of_node, "no-hw-checksum", NULL))
+ 		netdev->features &= ~NETIF_F_IP_CSUM;
  
--	if (completed) {
-+	if (work_done < budget) {
- 		/* We are about to re-enable all interrupts. However
- 		 * the HW has been latching RX/TX packet interrupts while
- 		 * they were masked. So we clear them first, then we need
-@@ -1014,7 +1048,8 @@ static int ftgmac100_poll(struct napi_struct *napi, int budget)
- 		 */
- 		iowrite32(FTGMAC100_INT_RXTX,
- 			  priv->base + FTGMAC100_OFFSET_ISR);
--		if (ftgmac100_check_rx(priv) || priv->tx_pending)
-+		if (ftgmac100_check_rx(priv) ||
-+		    ftgmac100_tx_buf_cleanable(priv))
- 			return budget;
- 
- 		/* deschedule NAPI */
-@@ -1025,7 +1060,7 @@ static int ftgmac100_poll(struct napi_struct *napi, int budget)
- 			  priv->base + FTGMAC100_OFFSET_IER);
- 	}
- 
--	return rx;
-+	return work_done;
- }
- 
- static int ftgmac100_init_all(struct ftgmac100 *priv, bool ignore_alloc_err)
-@@ -1353,8 +1388,6 @@ static int ftgmac100_probe(struct platform_device *pdev)
- 	priv->dev = &pdev->dev;
- 	INIT_WORK(&priv->reset_task, ftgmac100_reset_task);
- 
--	spin_lock_init(&priv->tx_lock);
 -
- 	/* map io memory */
- 	priv->res = request_mem_region(res->start, resource_size(res),
- 				       dev_name(&pdev->dev));
+ 	/* register network device */
+ 	err = register_netdev(netdev);
+ 	if (err) {
 -- 
 2.9.3
