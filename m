@@ -1,51 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] mlxsw: convert to pci_alloc_irq_vectors
-Date: Mon, 10 Apr 2017 07:06:16 -0700 (PDT)
-Message-ID: <20170410.070616.478356283361143853.davem@davemloft.net>
-References: <20170407130808.GA31087@splinter>
-        <20170407.071405.627036901988213530.davem@davemloft.net>
-        <20170410073551.GA6036@lst.de>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH] mac80211: Fix clang warning about constant operand in
+ logical operation
+Date: Mon, 10 Apr 2017 14:12:00 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DCFFCA9CE@AcuExch.aculab.com>
+References: <20170406185633.91065-1-mka@chromium.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: idosch@idosch.org, jiri@mellanox.com, idosch@mellanox.com,
-        netdev@vger.kernel.org
-To: hch@lst.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:45502 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752518AbdDJOGR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 10 Apr 2017 10:06:17 -0400
-In-Reply-To: <20170410073551.GA6036@lst.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Grant Grundler <grundler@chromium.org>,
+        Michael Davidson <md@google.com>,
+        Greg Hackmann <ghackmann@google.com>
+To: 'Matthias Kaehlcke' <mka@chromium.org>,
+        Johannes Berg <johannes@sipsolutions.net>,
+        "David S . Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170406185633.91065-1-mka@chromium.org>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Christoph Hellwig <hch@lst.de>
-Date: Mon, 10 Apr 2017 09:35:51 +0200
-
-> On Fri, Apr 07, 2017 at 07:14:05AM -0700, David Miller wrote:
->> >> For net-next:
->> > 
->> > I noticed this is marked as "Not Applicable" in patchwork:
->> > https://patchwork.ozlabs.org/patch/747723/
->> > 
->> > But I'm not quite sure why. Maybe you meant to mark only v1?
->> > https://patchwork.ozlabs.org/patch/747674/
->> 
->> If the last patch of his series removes a kernel global API,
->> it shouldn't go via my tree.  He can send it directly to Linus
->> or via the PCI maintainer.
+From: Matthias Kaehlcke
+> Sent: 06 April 2017 19:57
+> Clang raises a warning about the expression 'strlen(CONFIG_XXX)' being
+> used in a logical operation. Clangs' builtin strlen function resolves the
+> expression to a constant at compile time, which causes clang to generate
+> a 'constant-logical-operand' warning.
 > 
-> This is a single patch that does not remove anything.
+> Split the if statement in two to avoid using the const expression in a
+> logical operation.
 > 
-> For the different series I explicitly asked if it's okay if the whole
-> thing goes in through the net tree and Bjorn was fine it.  If you're
-> not it would be nice if you could state that in the series so that
-> the submitter can act on it.
+> Signed-off-by: Matthias Kaehlcke <mka@chromium.org>
+> ---
+>  net/mac80211/rate.c | 7 ++++++-
+>  1 file changed, 6 insertions(+), 1 deletion(-)
+> 
+> diff --git a/net/mac80211/rate.c b/net/mac80211/rate.c
+> index 206698bc93f4..68ff202d6380 100644
+> --- a/net/mac80211/rate.c
+> +++ b/net/mac80211/rate.c
+> @@ -173,9 +173,14 @@ ieee80211_rate_control_ops_get(const char *name)
+>  		/* try default if specific alg requested but not found */
+>  		ops = ieee80211_try_rate_control_ops_get(ieee80211_default_rc_algo);
+> 
+> +	if (ops)
+> +		goto unlock;
+> +
+>  	/* try built-in one if specific alg requested but not found */
+> -	if (!ops && strlen(CONFIG_MAC80211_RC_DEFAULT))
+> +	if (strlen(CONFIG_MAC80211_RC_DEFAULT))
+>  		ops = ieee80211_try_rate_control_ops_get(CONFIG_MAC80211_RC_DEFAULT);
+> +
+> +unlock:
 
-My bad I thought this was part of that series.
+Using the result of strlen() as a boolean should itself be a compilation error.
+You could change to code to the equivalent:
 
-Could you do me a favor and repost that series, with this mlxsw
-patch added to it.  I will apply it to net-next.
+	if (!ops && CONFIG_MAC80211_RC_DEFAULT[0])
+		ops = ...
 
-Thanks!
+	David
