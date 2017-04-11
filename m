@@ -1,49 +1,115 @@
 From: Robert Shearman <rshearma@brocade.com>
-Subject: Re: [PATCH iproute2 net-next 1/2] iproute: Add support for
- ttl-propagation attribute
-Date: Tue, 11 Apr 2017 09:35:53 +0100
-Message-ID: <82d66079-17ed-b17e-4bac-a84e89c3d1d7@brocade.com>
+Subject: [PATCH v2 iproute2 net-next 2/2] iproute: Add support for MPLS LWT ttl attribute
+Date: Tue, 11 Apr 2017 09:37:21 +0100
+Message-ID: <1491899841-1361-3-git-send-email-rshearma@brocade.com>
 References: <1491834972-26668-1-git-send-email-rshearma@brocade.com>
- <1491834972-26668-2-git-send-email-rshearma@brocade.com>
- <08e2c6b8-0910-0d0b-39a4-887a0d3e4f94@cumulusnetworks.com>
+ <1491899841-1361-1-git-send-email-rshearma@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <stephen@networkplumber.org>
-To: David Ahern <dsa@cumulusnetworks.com>, <netdev@vger.kernel.org>
+Content-Type: text/plain
+Cc: <stephen@networkplumber.org>,
+        David Ahern <dsa@cumulusnetworks.com>,
+        Robert Shearman <rshearma@brocade.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:52646 "EHLO
-        mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1753401AbdDKIgJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 11 Apr 2017 04:36:09 -0400
-In-Reply-To: <08e2c6b8-0910-0d0b-39a4-887a0d3e4f94@cumulusnetworks.com>
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:58485 "EHLO
+        mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751365AbdDKIhn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 11 Apr 2017 04:37:43 -0400
+In-Reply-To: <1491899841-1361-1-git-send-email-rshearma@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/04/17 04:43, David Ahern wrote:
-> On 4/10/17 8:36 AM, Robert Shearman wrote:
->> @@ -1184,6 +1192,20 @@ static int iproute_modify(int cmd, unsigned int flags, int argc, char **argv)
->>
->>  			if (rta->rta_len > RTA_LENGTH(0))
->>  				addraw_l(&req.n, 1024, RTA_DATA(rta), RTA_PAYLOAD(rta));
->> +		} else if (strcmp(*argv, "ttl-propagate") == 0) {
->> +			__u8 ttl_prop;
->> +
->> +			NEXT_ARG();
->> +			if (strcmp(*argv, "enabled") == 0)
->> +				ttl_prop = 1;
->> +			else if (strcmp(*argv, "disabled") == 0)
->> +				ttl_prop = 0;
->> +			else
->> +				invarg("\"ttl-propagate\" value is invalid\n",
->> +				       *argv);
->> +
->
-> matches() instead of strcmp() is more user friendly. 'enabled' is a lot
-> to type. ;-)
->
+Add support for setting and displaying the ttl attribute
+for MPLS IP lighweight tunnels.
 
-Ok, will change as suggested in v2.
+Signed-off-by: Robert Shearman <rshearma@brocade.com>
+---
+ ip/iproute_lwtunnel.c  | 31 +++++++++++++++++++++++++++++--
+ man/man8/ip-route.8.in |  9 ++++++++-
+ 2 files changed, 37 insertions(+), 3 deletions(-)
 
-Thanks for reviewing,
-Rob
+diff --git a/ip/iproute_lwtunnel.c b/ip/iproute_lwtunnel.c
+index 0fa1cab0a790..845a115e9e41 100644
+--- a/ip/iproute_lwtunnel.c
++++ b/ip/iproute_lwtunnel.c
+@@ -84,6 +84,9 @@ static void print_encap_mpls(FILE *fp, struct rtattr *encap)
+ 	if (tb[MPLS_IPTUNNEL_DST])
+ 		fprintf(fp, " %s ",
+ 			format_host_rta(AF_MPLS, tb[MPLS_IPTUNNEL_DST]));
++	if (tb[MPLS_IPTUNNEL_TTL])
++		fprintf(fp, "ttl %u ",
++			rta_getattr_u8(tb[MPLS_IPTUNNEL_TTL]));
+ }
+ 
+ static void print_encap_ip(FILE *fp, struct rtattr *encap)
+@@ -247,6 +250,7 @@ static int parse_encap_mpls(struct rtattr *rta, size_t len,
+ 	inet_prefix addr;
+ 	int argc = *argcp;
+ 	char **argv = *argvp;
++	int ttl_ok = 0;
+ 
+ 	if (get_addr(&addr, *argv, AF_MPLS)) {
+ 		fprintf(stderr,
+@@ -258,8 +262,31 @@ static int parse_encap_mpls(struct rtattr *rta, size_t len,
+ 	rta_addattr_l(rta, len, MPLS_IPTUNNEL_DST, &addr.data,
+ 		      addr.bytelen);
+ 
+-	*argcp = argc;
+-	*argvp = argv;
++	argc--;
++	argv++;
++
++	while (argc > 0) {
++		if (strcmp(*argv, "ttl") == 0) {
++			__u8 ttl;
++
++			NEXT_ARG();
++			if (ttl_ok++)
++				duparg2("ttl", *argv);
++			if (get_u8(&ttl, *argv, 0))
++				invarg("\"ttl\" value is invalid\n", *argv);
++			rta_addattr8(rta, len, MPLS_IPTUNNEL_TTL, ttl);
++		} else {
++			break;
++		}
++		argc--; argv++;
++	}
++
++	/* argv is currently the first unparsed argument,
++	 * but the lwt_parse_encap() caller will move to the next,
++	 * so step back
++	 */
++	*argcp = argc + 1;
++	*argvp = argv - 1;
+ 
+ 	return 0;
+ }
+diff --git a/man/man8/ip-route.8.in b/man/man8/ip-route.8.in
+index fbe2711a4301..d2a44acf2793 100644
+--- a/man/man8/ip-route.8.in
++++ b/man/man8/ip-route.8.in
+@@ -181,7 +181,9 @@ throw " | " unreachable " | " prohibit " | " blackhole " | " nat " ]"
+ .ti -8
+ .IR ENCAP_MPLS " := "
+ .BR mpls " [ "
+-.IR LABEL " ]"
++.IR LABEL " ] ["
++.B  ttl
++.IR TTL " ]"
+ 
+ .ti -8
+ .IR ENCAP_IP " := "
+@@ -666,6 +668,11 @@ is a set of encapsulation attributes specific to the
+ .I MPLSLABEL
+ - mpls label stack with labels separated by
+ .I "/"
++.sp
++
++.B ttl
++.I TTL
++- TTL to use for MPLS header or 0 to inherit from IP header
+ .in -2
+ .sp
+ 
+-- 
+2.1.4
