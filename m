@@ -1,47 +1,49 @@
-From: David Daney <ddaney@caviumnetworks.com>
-Subject: Re: [PATCH] tools: bpf_jit_disasm: Add option to dump JIT image to a
- file.
-Date: Tue, 11 Apr 2017 16:11:17 -0700
-Message-ID: <13a47f21-4459-04ef-a817-a6473c9b8f52@caviumnetworks.com>
-References: <20170411213052.7337-1-david.daney@cavium.com>
- <58ED508B.9010005@iogearbox.net>
+From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+Subject: Re: [RFC net-next] of: mdio: Honor hints from MDIO bus drivers
+Date: Wed, 12 Apr 2017 01:14:24 +0200
+Message-ID: <20170411231424.GA6174@lunn.ch>
+References: <20170410214258.9409-1-f.fainelli@gmail.com>
+ <8ef102a4-22e5-def8-b50e-04f84b5849d7@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>,
-        David Daney <david.daney@cavium.com>,
-        Alexei Starovoitov <ast@kernel.org>, netdev@vger.kernel.org,
-        "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <58ED508B.9010005@iogearbox.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Frank Rowand <frowand.list-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        "open list:OPEN FIRMWARE AND FLATTENED DEVICE TREE"
+        <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        open list <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <8ef102a4-22e5-def8-b50e-04f84b5849d7-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 04/11/2017 02:54 PM, Daniel Borkmann wrote:
-> On 04/11/2017 11:30 PM, David Daney wrote:
->> When debugging the JIT on an embedded platform or cross build
->> environment, libbfd may not be available, making it impossible to run
->> bpf_jit_disasm natively.
->>
->> Add an option to emit a binary image of the JIT code to a file.  This
->> file can then be disassembled off line.  Typical usage in this case
->> might be (pasting mips64 dmesg output to cat command):
->>
->>     $ cat > jit.raw
->>     $ bpf_jit_disasm -f jit.raw -O jit.bin
->>     $ mips64-linux-gnu-objdump -D -b binary -m mips:isa64r2 -EB jit.bin
->>
->> Signed-off-by: David Daney <david.daney@cavium.com>
->
-> Seems good, we could at some point also add an -I jit.bin option
-> if needed for offline analysis/comparison instead of using -f
-> plain text.
->
+> To give some more background and rational for this change.
+> 
+> On a platform where we have a parent MDIO bus, backed by the
+> mdio-bcm-unimac.c driver, we also register a slave MII bus (through
+> net/dsa/dsa2.c) which is parented to this UniMAC MDIO bus through an
+> assignment of of_node. This slave MII bus is created in order to
+> intercept reads/writes to problematic addresses (e.g: that clashes with
+> another piece of hardware).
+> 
+> This means that the slave DSA MII bus inherits all child nodes from the
+> originating master MII bus. This also means that when the slave MII bus
+> is probed via of_mdiobus_register(), we probe the same devices twice:
+> once through the master, another time through the slave.
 
-FWIW:  The objdump incantation in the changelog does just about the same 
-disassembly as the bpf_jit_disasm internal implementation.
+Ah, O.K. This makes more sense. On the hardware i have, we get three
+deep in MDIO busses. We have the FEC mdio bus. On top of that we have
+a gpio-mux-mdio, and on top of that we have the mv88e6xxx mdio
+bus. And i've never seen issues.
 
-> Thanks!
->
-> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+So your real problem here is you have two mdio busses using the same
+device tree properties. I would actually say that is just plain
+broken.
+
+	Andrew
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
