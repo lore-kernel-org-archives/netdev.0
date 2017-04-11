@@ -1,35 +1,34 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v3 1/4] net: dsa: add support for the SMSC-LAN9303
- tagging format
-Date: Tue, 11 Apr 2017 16:32:21 +0200
-Message-ID: <20170411143221.GG27307@lunn.ch>
-References: <20170411072259.15356-1-jbe@pengutronix.de>
- <20170411072259.15356-2-jbe@pengutronix.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull request (net-next): ipsec-next 2017-04-11
+Date: Tue, 11 Apr 2017 10:32:37 -0400 (EDT)
+Message-ID: <20170411.103237.1663193174723128796.davem@davemloft.net>
+References: <1491890032-28655-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        f.fainelli@gmail.com, kernel@pengutronix.de,
-        vivien.didelot@savoirfairelinux.com, davem@davemloft.net
-To: Juergen Borleis <jbe@pengutronix.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170411072259.15356-2-jbe@pengutronix.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
+To: steffen.klassert@secunet.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:59756 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753554AbdDKOcr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 11 Apr 2017 10:32:47 -0400
+In-Reply-To: <1491890032-28655-1-git-send-email-steffen.klassert@secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 11, 2017 at 09:22:56AM +0200, Juergen Borleis wrote:
-> To define the outgoing port and to discover the incoming port a regular
-> VLAN tag is used by the LAN9303. But its VID meaning is 'special'.
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Date: Tue, 11 Apr 2017 07:53:48 +0200
+
+> 1) Remove unused field from struct xfrm_mgr.
 > 
-> This tag handler/filter depends on some hardware features which must be
-> enabled in the device to provide and make use of this special VLAN tag
-> to control the destination and the source of an ethernet packet.
+> 2) Code size optimizations for the xfrm prefix hash and
+>    address match.
 > 
-> Signed-off-by: Juergen Borleis <jbe@pengutronix.de>
+> 3) Branch optimization for addr4_match.
+> 
+> All patches from Alexey Dobriyan.
+> 
+> Please pull or let me know if there are problems.
 
-Hi Juergen
-
-You need to rebase onto net-next, and look at the three patches
-Florian added recently.
-
-	Andrew
+Pulled, thanks Steffen.
