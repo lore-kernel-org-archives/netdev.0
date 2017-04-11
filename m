@@ -1,44 +1,43 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
+From: Andrew Lunn <andrew@lunn.ch>
 Subject: Re: [PATCH net-next] net: dsa: add CONFIG_NET_DSA_LEGACY
-Date: Tue, 11 Apr 2017 13:59:08 -0700
-Message-ID: <edc488b1-8ea1-fc69-0700-68ffaf8f6742@gmail.com>
+Date: Tue, 11 Apr 2017 23:20:26 +0200
+Message-ID: <20170411212026.GA7023@lunn.ch>
 References: <20170411205237.29309-1-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
-        Andrew Lunn <andrew@lunn.ch>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        netdev@vger.kernel.org
+        Florian Fainelli <f.fainelli@gmail.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:35986 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753618AbdDKU7K (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 11 Apr 2017 16:59:10 -0400
+Received: from vps0.lunn.ch ([178.209.37.122]:55844 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751608AbdDKVUb (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 11 Apr 2017 17:20:31 -0400
+Content-Disposition: inline
 In-Reply-To: <20170411205237.29309-1-vivien.didelot@savoirfairelinux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/11/2017 01:52 PM, Vivien Didelot wrote:
-> This patch moves as is the legacy DSA code from dsa.c to legacy.c,
-> except the few shared symbols which remain in dsa.c.
-> 
-> Compile legacy.o only if a new CONFIG_NET_DSA_LEGACY symbol is enabled,
-> which is true by default.
-> 
-> DSA drivers without legacy support don't need the probe function as well
-> as driver registration helpers anymore, so remove their definitions if
-> CONFIG_NET_DSA_LEGACY is disabled.
-> 
-> NET_DSA_MV88E6060 and NET_DSA_BCM_SF2 now depend on the legacy support.
+> +#ifdef CONFIG_NET_DSA_LEGACY
+>  static const char *mv88e6xxx_drv_probe(struct device *dsa_dev,
+>  				       struct device *host_dev, int sw_addr,
+>  				       void **priv)
+> @@ -4256,6 +4257,7 @@ static const char *mv88e6xxx_drv_probe(struct device *dsa_dev,
+>  
+>  	return NULL;
+>  }
+> +#endif /* CONFIG_NET_DSA_LEGACY */
 
-BCM_SF2 is not dependent on legacy support since it got converted to the
-new API in the past few months.
+Hi Vivien
 
-You may want to generate your patch with git format-patch -M to help
-detect renames/code movements.
+Rather than scatter #ifdef everywhere, can you use
 
-Thanks for doing this!
--- 
-Florian
+       if (!IS_ENABLED(CONFIG_NET_DSA_LEGACY))
+              return NULL
+
+The compiler will then throw away the rest of the function, after
+checking it does actually compile.
+
+	 Andrew
