@@ -1,75 +1,35 @@
-From: Jarod Wilson <jarod@redhat.com>
-Subject: Re: Horrid balance-rr bonding udp throughput
-Date: Tue, 11 Apr 2017 10:28:24 -0400
-Message-ID: <f8294df6-27f8-2385-9047-73f4aaab0c16@redhat.com>
-References: <ea7fb030-f655-1658-14a6-6989e1e836ea@redhat.com>
- <6f08f174-b087-32b7-91dd-ca72db50bd04@redhat.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH v3 1/4] net: dsa: add support for the SMSC-LAN9303
+ tagging format
+Date: Tue, 11 Apr 2017 16:32:21 +0200
+Message-ID: <20170411143221.GG27307@lunn.ch>
+References: <20170411072259.15356-1-jbe@pengutronix.de>
+ <20170411072259.15356-2-jbe@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33002 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753009AbdDKO2Y (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 11 Apr 2017 10:28:24 -0400
-Received: from smtp.corp.redhat.com (int-mx02.intmail.prod.int.phx2.redhat.com [10.5.11.12])
-        (using TLSv1.2 with cipher AECDH-AES256-SHA (256/256 bits))
-        (No client certificate requested)
-        by mx1.redhat.com (Postfix) with ESMTPS id 94F2F8124D
-        for <netdev@vger.kernel.org>; Tue, 11 Apr 2017 14:28:23 +0000 (UTC)
-Received: from [172.31.27.133] (dhcp-17-185.bos.redhat.com [10.18.17.185])
-        by smtp.corp.redhat.com (Postfix) with ESMTP id 42756B3F3F
-        for <netdev@vger.kernel.org>; Tue, 11 Apr 2017 14:28:23 +0000 (UTC)
-In-Reply-To: <6f08f174-b087-32b7-91dd-ca72db50bd04@redhat.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        f.fainelli@gmail.com, kernel@pengutronix.de,
+        vivien.didelot@savoirfairelinux.com, davem@davemloft.net
+To: Juergen Borleis <jbe@pengutronix.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170411072259.15356-2-jbe@pengutronix.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 2017-04-10 2:50 PM, Jarod Wilson wrote:
-> On 2017-04-08 7:33 PM, Jarod Wilson wrote:
->> I'm digging into some bug reports covering performance issues with 
->> balance-rr, and discovered something even worse than the reporter. My 
->> test setup has a pair of NICs, one e1000e, one e1000 (but dual e1000e 
->> seems the same). When I do a test run in LNST with bonding mode 
->> balance-rr and either miimon or arpmon, the throughput of the 
->> UDP_STREAM netperf test is absolutely horrible:
->>
->> TCP: 941.19 +-0.88 mbits/sec
->> UDP: 45.42 +-4.59 mbits/sec
->>
->> I figured I'd try LNST's packet capture mode, so exact same test, add 
->> the -p flag and I get:
->>
->> TCP: 941.21 +-0.82 mbits/sec
->> UDP: 961.54 +-0.01 mbits/sec
->>
->> Uh. What? So yeah. I can't capture the traffic in the bad case, but I 
->> guess that gives some potential insight into what's not happening 
->> correctly in either the bonding driver or the NIC drivers... More 
->> digging forthcoming, but first I have a flooded basement to deal with, 
->> so if in the interim, anyone has some insight, I'd be happy to hear 
->> it. :)
+On Tue, Apr 11, 2017 at 09:22:56AM +0200, Juergen Borleis wrote:
+> To define the outgoing port and to discover the incoming port a regular
+> VLAN tag is used by the LAN9303. But its VID meaning is 'special'.
 > 
-> Okay, ignore the bit about bonding, I should have eliminated the bond 
-> from the picture entirely. I think the traffic simply ended up on the 
-> e1000 on the non-capture test and on the e1000e for the capture test, as 
-> those numbers match perfectly with straight NIC to NIC testing, no bond 
-> involved. That said, really odd that the e1000 is so severely crippled 
-> for UDP, while TCP is still respectable. Not sure if I have a flaky NIC 
-> or what...
+> This tag handler/filter depends on some hardware features which must be
+> enabled in the device to provide and make use of this special VLAN tag
+> to control the destination and the source of an ethernet packet.
 > 
-> For reference, e1000 to e1000e netperf:
-> 
-> TCP_STREAM: Measured rate was 849.95 +-1.32 mbits/sec
-> UDP_STREAM: Measured rate was 44.73 +-5.73 mbits/sec
+> Signed-off-by: Juergen Borleis <jbe@pengutronix.de>
 
-The rabbit hole went even deeper. The actual problem was with the ITE 
-8893 PCIe bridge in the host not properly exposing capabilities, which 
-required a pci quirk identical to that of the ITE 8892 to work around. 
-With that in place, throughput on this venerable old e1000 goes back up 
-to a reasonable 900 mbits/sec, give or take.
+Hi Juergen
 
--- 
-Jarod Wilson
-jarod@redhat.com
+You need to rebase onto net-next, and look at the three patches
+Florian added recently.
+
+	Andrew
