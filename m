@@ -1,21 +1,24 @@
-From: Grace Medawesi <tijuanataxi@mbr.nifty.com>
-Subject: Hi, good day
-Date: Tue, 11 Apr 2017 21:25:14 +0900 (JST)
-Message-ID: <1011887165.487161491913514087.tijuanataxi@mbr.nifty.com>
-Reply-To: gracegreat2017@gmail.com
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH net-next v3 2/2] bpf: remove struct bpf_map_type_list
+Date: Tue, 11 Apr 2017 15:29:18 +0200
+Message-ID: <1491917358.31620.28.camel@sipsolutions.net>
+References: <20170410124431.4305-1-johannes@sipsolutions.net>
+         <20170410124431.4305-3-johannes@sipsolutions.net>
+         (sfid-20170410_144515_702266_3C441074)
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-2022-jp"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-To: gracegeret2017@gmail.com
+Cc: alexei.starovoitov@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from condef-10.nifty.com ([202.248.20.75]:39231 "EHLO
-        condef-10.nifty.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751921AbdDKMyy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 11 Apr 2017 08:54:54 -0400
+Received: from s3.sipsolutions.net ([5.9.151.49]:50620 "EHLO sipsolutions.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752052AbdDKN3V (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 11 Apr 2017 09:29:21 -0400
+In-Reply-To: <20170410124431.4305-3-johannes@sipsolutions.net> (sfid-20170410_144515_702266_3C441074)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi, my name is Grace.
-My dear, I have something important to tell you can I go ahead?
-Regards
-Grace.
+0-day found a linking problem with this, I'll resubmit later.
+
+johannes
