@@ -1,43 +1,49 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next] net: dsa: add CONFIG_NET_DSA_LEGACY
-Date: Tue, 11 Apr 2017 23:20:26 +0200
-Message-ID: <20170411212026.GA7023@lunn.ch>
-References: <20170411205237.29309-1-vivien.didelot@savoirfairelinux.com>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH] xen/9pfs: use %d format specifier instead of %u for a signed int
+Date: Tue, 11 Apr 2017 22:29:38 +0100
+Message-ID: <20170411212938.5901-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:55844 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751608AbdDKVUb (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 11 Apr 2017 17:20:31 -0400
-Content-Disposition: inline
-In-Reply-To: <20170411205237.29309-1-vivien.didelot@savoirfairelinux.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Eric Van Hensbergen <ericvh@gmail.com>,
+        Ron Minnich <rminnich@sandia.gov>,
+        Latchesar Ionkov <lucho@ionkov.net>,
+        "David S . Miller" <davem@davemloft.net>,
+        v9fs-developer@lists.sourceforge.net, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> +#ifdef CONFIG_NET_DSA_LEGACY
->  static const char *mv88e6xxx_drv_probe(struct device *dsa_dev,
->  				       struct device *host_dev, int sw_addr,
->  				       void **priv)
-> @@ -4256,6 +4257,7 @@ static const char *mv88e6xxx_drv_probe(struct device *dsa_dev,
->  
->  	return NULL;
->  }
-> +#endif /* CONFIG_NET_DSA_LEGACY */
+From: Colin Ian King <colin.king@canonical.com>
 
-Hi Vivien
+variable i is a signed int, so use the %d print format specifier instead of
+%u. Fixes two warnings by cppcheck.
 
-Rather than scatter #ifdef everywhere, can you use
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ net/9p/trans_xen.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-       if (!IS_ENABLED(CONFIG_NET_DSA_LEGACY))
-              return NULL
-
-The compiler will then throw away the rest of the function, after
-checking it does actually compile.
-
-	 Andrew
+diff --git a/net/9p/trans_xen.c b/net/9p/trans_xen.c
+index 47864245c0d4..9b66087bbc91 100644
+--- a/net/9p/trans_xen.c
++++ b/net/9p/trans_xen.c
+@@ -441,13 +441,13 @@ static int xen_9pfs_front_probe(struct xenbus_device *dev,
+ 		char str[16];
+ 
+ 		BUILD_BUG_ON(XEN_9PFS_NUM_RINGS > 9);
+-		sprintf(str, "ring-ref%u", i);
++		sprintf(str, "ring-ref%d", i);
+ 		ret = xenbus_printf(xbt, dev->nodename, str, "%d",
+ 				    priv->rings[i].ref);
+ 		if (ret)
+ 			goto error_xenbus;
+ 
+-		sprintf(str, "event-channel-%u", i);
++		sprintf(str, "event-channel-%d", i);
+ 		ret = xenbus_printf(xbt, dev->nodename, str, "%u",
+ 				    priv->rings[i].evtchn);
+ 		if (ret)
+-- 
+2.11.0
