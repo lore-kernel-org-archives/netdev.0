@@ -1,34 +1,53 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: ethernet: mediatek: enhance TX path with
- recycling more SKBs in one poll
-Date: Tue, 11 Apr 2017 10:49:24 -0400 (EDT)
-Message-ID: <20170411.104924.1724009300333538121.davem@davemloft.net>
-References: <1491899667-19596-1-git-send-email-sean.wang@mediatek.com>
+Subject: Re: [PATCH] net: move padding in struct skb_shared_info
+Date: Tue, 11 Apr 2017 10:52:26 -0400 (EDT)
+Message-ID: <20170411.105226.1838701404197948502.davem@davemloft.net>
+References: <20170410080755.GA24514@avx2>
+        <1491835406.10587.12.camel@edumazet-glaptop3.roam.corp.google.com>
+        <CACVxJT9ixBPtO4JN=dgLT_gbDOQ8tL_kTFfoYmDahaomatCKEw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: john@phrozen.org, nbd@openwrt.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, linux-mediatek@lists.infradead.org,
-        keyhaede@gmail.com
-To: sean.wang@mediatek.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1491899667-19596-1-git-send-email-sean.wang@mediatek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: eric.dumazet@gmail.com, steffen.klassert@secunet.com,
+        edumazet@google.com, netdev@vger.kernel.org
+To: adobriyan@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:60200 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752151AbdDKOw2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 11 Apr 2017 10:52:28 -0400
+In-Reply-To: <CACVxJT9ixBPtO4JN=dgLT_gbDOQ8tL_kTFfoYmDahaomatCKEw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: <sean.wang@mediatek.com>
-Date: Tue, 11 Apr 2017 16:34:27 +0800
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Date: Tue, 11 Apr 2017 12:41:08 +0300
 
-> From: Sean Wang <sean.wang@mediatek.com>
+> On Mon, Apr 10, 2017 at 5:43 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>> On Mon, 2017-04-10 at 11:07 +0300, Alexey Dobriyan wrote:
+>>>  struct skb_shared_info {
+>>> -     unsigned short  _unused;
+>>>       unsigned char   nr_frags;
+>>>       __u8            tx_flags;
+>>>       unsigned short  gso_size;
+>>
+>> Nack
+>>
+>> This exact placement was discussed at Netconf and Netdev.
+>>
+>> We had off-by-one errors in the past leading to nr_frags being mangled,
+>> and some exploits were quite happy to use these bugs.
+>>
+>> Some shuffling in shared_info might help us to find other bugs, and give
+>> more work to security researchers
 > 
-> The patch adds the enhancement for recycling more TX completed SKBs in
-> one NAPI polling handler if NAPI budgets are still available and hardware
-> raises status bit shown for certain SKBs are aready done.
-> 
-> Signed-off-by: Sean Wang <sean.wang@mediatek.com>
+> By this logic there should be redzone around every field in networking stack.
 
-You should always, unconditionally, process all TX reclaim events
-every NAPI poll, regardless of how much budget is left.
+It is not a general rule, but a situation we specifically know about
+here for this structure and how exploits are actively being coded.
 
-TX reclaim work is not counted against the NAPI budget, only RX work
-should be.
+I would like to politely ask that we don't strive so strongly for
+"tree wide rules" that we fail to see the need for specific handling
+in specific situations as is the case here.
+
+Thank you.
