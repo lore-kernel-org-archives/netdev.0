@@ -1,34 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request (net-next): ipsec-next 2017-04-11
-Date: Tue, 11 Apr 2017 10:32:37 -0400 (EDT)
-Message-ID: <20170411.103237.1663193174723128796.davem@davemloft.net>
-References: <1491890032-28655-1-git-send-email-steffen.klassert@secunet.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH v3 3/4] net: dsa: LAN9303: add I2C managed mode support
+Date: Tue, 11 Apr 2017 16:32:57 +0200
+Message-ID: <20170411143257.GH27307@lunn.ch>
+References: <20170411072259.15356-1-jbe@pengutronix.de>
+ <20170411072259.15356-4-jbe@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
-To: steffen.klassert@secunet.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        f.fainelli@gmail.com, kernel@pengutronix.de,
+        vivien.didelot@savoirfairelinux.com, davem@davemloft.net,
+        devicetree@vger.kernel.org, robh+dt@kernel.org,
+        mark.rutland@arm.com
+To: Juergen Borleis <jbe@pengutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:59756 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753554AbdDKOcr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 11 Apr 2017 10:32:47 -0400
-In-Reply-To: <1491890032-28655-1-git-send-email-steffen.klassert@secunet.com>
+Received: from vps0.lunn.ch ([178.209.37.122]:54973 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753625AbdDKOdC (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 11 Apr 2017 10:33:02 -0400
+Content-Disposition: inline
+In-Reply-To: <20170411072259.15356-4-jbe@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Date: Tue, 11 Apr 2017 07:53:48 +0200
+On Tue, Apr 11, 2017 at 09:22:58AM +0200, Juergen Borleis wrote:
+> In this mode the switch device and the internal phys will be managed via
+> I2C interface. The MDIO interface is still supported, but for the
+> (emulated) CPU port only.
+> 
+> Signed-off-by: Juergen Borleis <jbe@pengutronix.de>
 
-> 1) Remove unused field from struct xfrm_mgr.
-> 
-> 2) Code size optimizations for the xfrm prefix hash and
->    address match.
-> 
-> 3) Branch optimization for addr4_match.
-> 
-> All patches from Alexey Dobriyan.
-> 
-> Please pull or let me know if there are problems.
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 
-Pulled, thanks Steffen.
+    Andrew
