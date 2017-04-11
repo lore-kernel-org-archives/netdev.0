@@ -1,76 +1,87 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH net] xfrm: calculate L4 checksums also for GSO case
- before encrypting packets
-Date: Tue, 11 Apr 2017 09:07:55 +0200
-Message-ID: <20170411070755.GW5092@secunet.com>
-References: <1491849727-32008-1-git-send-email-aatteka@ovn.org>
+From: <sean.wang@mediatek.com>
+Subject: [PATCH net 1/2] net: ethernet: mediatek: fix inconsistency between TXD and the used buffer
+Date: Tue, 11 Apr 2017 15:12:33 +0800
+Message-ID: <1491894754-16384-2-git-send-email-sean.wang@mediatek.com>
+References: <1491894754-16384-1-git-send-email-sean.wang@mediatek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>
-To: Ansis Atteka <aatteka@ovn.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:58288 "EHLO a.mx.secunet.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753243AbdDKHIo (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 11 Apr 2017 03:08:44 -0400
-Content-Disposition: inline
-In-Reply-To: <1491849727-32008-1-git-send-email-aatteka@ovn.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <nbd@openwrt.org>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>,
+        <linux-mediatek@lists.infradead.org>, <keyhaede@gmail.com>,
+        Sean Wang <sean.wang@mediatek.com>
+To: <john@phrozen.org>, <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1491894754-16384-1-git-send-email-sean.wang@mediatek.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 10, 2017 at 11:42:07AM -0700, Ansis Atteka wrote:
-> Otherwise, if L4 checksum calculation is done after encryption,
-> then all ESP packets end up being corrupted at the location
-> where pre-encryption L4 checksum field resides.
-> 
-> One of the ways to reproduce this bug is to have a VM with virtio_net
-> driver (UFO set to ON in the guest VM); and then encapsulate all guest's
-> Ethernet frames in GENEVE; and then further encrypt GENEVE with IPsec.
-> In this case following symptoms are observed:
-> 1. If using ixgbe NIC, then the driver will also emit following
->    warning message:
->    ixgbe 0000:01:00.1: partial checksum but l4 proto=32!
-> 2. Receiving VM will drop all the corrupted ESP packets, hence UDP iperf test
->    with large packets will fail completely or TCP iperf will get ridiculously
->    low performance because TCP window will never grow above MTU.
-> 
-> Signed-off-by: Ansis Atteka <aatteka@ovn.org>
-> ---
->  net/xfrm/xfrm_output.c | 19 +++++++++++++------
->  1 file changed, 13 insertions(+), 6 deletions(-)
-> 
-> diff --git a/net/xfrm/xfrm_output.c b/net/xfrm/xfrm_output.c
-> index 8ba29fe..7ad7e5f 100644
-> --- a/net/xfrm/xfrm_output.c
-> +++ b/net/xfrm/xfrm_output.c
-> @@ -168,7 +168,8 @@ static int xfrm_output2(struct net *net, struct sock *sk, struct sk_buff *skb)
->  
->  static int xfrm_output_gso(struct net *net, struct sock *sk, struct sk_buff *skb)
->  {
-> -	struct sk_buff *segs;
-> +	struct sk_buff *segs, *nskb;
-> +	int err;
->  
->  	BUILD_BUG_ON(sizeof(*IPCB(skb)) > SKB_SGO_CB_OFFSET);
->  	BUILD_BUG_ON(sizeof(*IP6CB(skb)) > SKB_SGO_CB_OFFSET);
-> @@ -180,21 +181,27 @@ static int xfrm_output_gso(struct net *net, struct sock *sk, struct sk_buff *skb
->  		return -EINVAL;
->  
->  	do {
-> -		struct sk_buff *nskb = segs->next;
-> -		int err;
-> +		nskb = segs->next;
->  
->  		segs->next = NULL;
-> -		err = xfrm_output2(net, sk, segs);
-> +		err = skb_checksum_help(segs);
+From: Sean Wang <sean.wang@mediatek.com>
 
-What's wrong with the checksum provided by the GSO layer and
-why we have to do this unconditionally here?
+Fix inconsistency between the TXD descriptor and the used buffer that
+would cause unexpected logic at mtk_tx_unmap() during skb housekeeping.
 
-We don't announce any checksum capabilities, so the GSO
-layer should provide the checksum. If this is not the case,
-something along the path is taking wrong assumptions.
+Signed-off-by: Sean Wang <sean.wang@mediatek.com>
+---
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c | 17 ++++++++---------
+ 1 file changed, 8 insertions(+), 9 deletions(-)
 
-Btw. all GSO packets on a standard IPv4 xfrm tunnel are getting
-dropped with your patch applied.
+diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+index 14e1bd1..48ba617 100644
+--- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
++++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+@@ -613,7 +613,7 @@ static int mtk_tx_map(struct sk_buff *skb, struct net_device *dev,
+ 	struct mtk_mac *mac = netdev_priv(dev);
+ 	struct mtk_eth *eth = mac->hw;
+ 	struct mtk_tx_dma *itxd, *txd;
+-	struct mtk_tx_buf *tx_buf;
++	struct mtk_tx_buf *itx_buf, *tx_buf;
+ 	dma_addr_t mapped_addr;
+ 	unsigned int nr_frags;
+ 	int i, n_desc = 1;
+@@ -627,8 +627,8 @@ static int mtk_tx_map(struct sk_buff *skb, struct net_device *dev,
+ 	fport = (mac->id + 1) << TX_DMA_FPORT_SHIFT;
+ 	txd4 |= fport;
+ 
+-	tx_buf = mtk_desc_to_tx_buf(ring, itxd);
+-	memset(tx_buf, 0, sizeof(*tx_buf));
++	itx_buf = mtk_desc_to_tx_buf(ring, itxd);
++	memset(itx_buf, 0, sizeof(*itx_buf));
+ 
+ 	if (gso)
+ 		txd4 |= TX_DMA_TSO;
+@@ -647,9 +647,9 @@ static int mtk_tx_map(struct sk_buff *skb, struct net_device *dev,
+ 		return -ENOMEM;
+ 
+ 	WRITE_ONCE(itxd->txd1, mapped_addr);
+-	tx_buf->flags |= MTK_TX_FLAGS_SINGLE0;
+-	dma_unmap_addr_set(tx_buf, dma_addr0, mapped_addr);
+-	dma_unmap_len_set(tx_buf, dma_len0, skb_headlen(skb));
++	itx_buf->flags |= MTK_TX_FLAGS_SINGLE0;
++	dma_unmap_addr_set(itx_buf, dma_addr0, mapped_addr);
++	dma_unmap_len_set(itx_buf, dma_len0, skb_headlen(skb));
+ 
+ 	/* TX SG offload */
+ 	txd = itxd;
+@@ -685,10 +685,9 @@ static int mtk_tx_map(struct sk_buff *skb, struct net_device *dev,
+ 					       last_frag * TX_DMA_LS0));
+ 			WRITE_ONCE(txd->txd4, fport);
+ 
+-			tx_buf->skb = (struct sk_buff *)MTK_DMA_DUMMY_DESC;
+ 			tx_buf = mtk_desc_to_tx_buf(ring, txd);
+ 			memset(tx_buf, 0, sizeof(*tx_buf));
+-
++			tx_buf->skb = (struct sk_buff *)MTK_DMA_DUMMY_DESC;
+ 			tx_buf->flags |= MTK_TX_FLAGS_PAGE0;
+ 			dma_unmap_addr_set(tx_buf, dma_addr0, mapped_addr);
+ 			dma_unmap_len_set(tx_buf, dma_len0, frag_map_size);
+@@ -698,7 +697,7 @@ static int mtk_tx_map(struct sk_buff *skb, struct net_device *dev,
+ 	}
+ 
+ 	/* store skb to cleanup */
+-	tx_buf->skb = skb;
++	itx_buf->skb = skb;
+ 
+ 	WRITE_ONCE(itxd->txd4, txd4);
+ 	WRITE_ONCE(itxd->txd3, (TX_DMA_SWC | TX_DMA_PLEN0(skb_headlen(skb)) |
+-- 
+1.9.1
