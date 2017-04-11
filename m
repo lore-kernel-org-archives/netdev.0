@@ -1,104 +1,46 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] net: phy: micrel: KSZ9031: fix crash when statistic
- requested
-Date: Mon, 10 Apr 2017 16:40:37 -0700
-Message-ID: <e821198e-5a61-7912-d120-205f66c02650@gmail.com>
-References: <20170410233324.1178-1-grygorii.strashko@ti.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next RFC] Generic XDP
+Date: Mon, 10 Apr 2017 20:56:31 -0400 (EDT)
+Message-ID: <20170410.205631.1242763166483761576.davem@davemloft.net>
+References: <20170410.152854.2025617543091711047.davem@davemloft.net>
+        <20170410213025.GC4730@C02RW35GFVH8.dhcp.broadcom.net>
+        <CACKFLik+GKHPqKU7Mb4dXMLVLBKKDLVWZd7uuR=uA5yZ4_GmsQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Sekhar Nori <nsekhar@ti.com>, linux-kernel@vger.kernel.org
-To: Grygorii Strashko <grygorii.strashko@ti.com>,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170410233324.1178-1-grygorii.strashko@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: andy@greyhouse.net, netdev@vger.kernel.org,
+        xdp-newbies@vger.kernel.org
+To: michael.chan@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:53272 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750989AbdDKA4i (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 10 Apr 2017 20:56:38 -0400
+In-Reply-To: <CACKFLik+GKHPqKU7Mb4dXMLVLBKKDLVWZd7uuR=uA5yZ4_GmsQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04/10/2017 04:33 PM, Grygorii Strashko wrote:
-> Now the command:
-> 	ethtool --phy-statistics eth0
-> will cause system crash with meassage "Unable to handle kernel NULL pointer
-> dereference at virtual address 00000010" from:
+From: Michael Chan <michael.chan@broadcom.com>
+Date: Mon, 10 Apr 2017 14:47:04 -0700
+
+> On Mon, Apr 10, 2017 at 2:30 PM, Andy Gospodarek <andy@greyhouse.net> wrote:
+>> On Mon, Apr 10, 2017 at 03:28:54PM -0400, David Miller wrote:
+>>> From: Andy Gospodarek <andy@greyhouse.net>
+>>> Date: Mon, 10 Apr 2017 14:39:35 -0400
+>>>
+>>> > As promised, I did some testing today with bnxt_en's implementation
+>>> > of XDP and this one.
+>>>
+>>> Thanks a lot Andy, obviously the patch needs some more work.
+>>>
+>>> I noticed GRO stuff in your profile, and Alexei mentioned this earlier
+>>> today.  We probably should elide GRO if generic XDP is attached, since
+>>> in particular this makes the skb_linearize() really expensive.
+>>
+>> Good catch -- I actually thought we were disabling GRO automatically and it
+>> looks like we are not.  :-/  I'll send Michael a patch.
 > 
->  (kszphy_get_stats) from [<c069f1d8>] (ethtool_get_phy_stats+0xd8/0x210)
->  (ethtool_get_phy_stats) from [<c06a0738>] (dev_ethtool+0x5b8/0x228c)
->  (dev_ethtool) from [<c06b5484>] (dev_ioctl+0x3fc/0x964)
->  (dev_ioctl) from [<c0679f7c>] (sock_ioctl+0x170/0x2c0)
->  (sock_ioctl) from [<c02419d4>] (do_vfs_ioctl+0xa8/0x95c)
->  (do_vfs_ioctl) from [<c02422c4>] (SyS_ioctl+0x3c/0x64)
->  (SyS_ioctl) from [<c0107d60>] (ret_fast_syscall+0x0/0x44)
-> 
-> The reason: phy_driver structure for KSZ9031 phy has no .probe() callback
-> defined. As result, struct phy_device *phydev->priv pointer will not be
-> initializes (null).
+> Andy,  I think we only need to disable GRO if we are doing generic
+> XDP.  Optimized XDP can still use GRO for the XDP_PASS case.
 
-This is a strange way to fix the problem, presumably this PHY supports
-fetching statistics, if that is the case it sounds like we would want to
-sort of provide two probe function:
-
-- one which is just allocating the PHY device's private structure so we
-have enough room for statistics
-- another one which is doing all the reference clock fetching and so on
-
-By adding a NULL pointer check here, you'd be better off just removing
-all the function pointers pertaining to ethtool statistics.
-
-> 
-> Fix it by adding additional checks for !phydev->priv in
-> kszphy_get_stats(), kszphy_get_strings() and kszphy_get_sset_count()
-> 
-> Fixes: 2b2427d06426 ("phy: micrel: Add ethtool statistics counters")
-> Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
-> ---
->  drivers/net/phy/micrel.c | 10 +++++++++-
->  1 file changed, 9 insertions(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
-> index 6742070..8dbc1be 100644
-> --- a/drivers/net/phy/micrel.c
-> +++ b/drivers/net/phy/micrel.c
-> @@ -574,7 +574,6 @@ static int ksz9031_config_init(struct phy_device *phydev)
->  				MII_KSZ9031RN_TX_DATA_PAD_SKEW, 4,
->  				tx_data_skews, 4);
->  	}
-> -
->  	return ksz9031_center_flp_timing(phydev);
->  }
->  
-> @@ -654,6 +653,9 @@ ksz9021_wr_mmd_phyreg(struct phy_device *phydev, int ptrad, int devnum,
->  
->  static int kszphy_get_sset_count(struct phy_device *phydev)
->  {
-> +	if (!phydev->priv)
-> +		return -EOPNOTSUPP;
-> +
->  	return ARRAY_SIZE(kszphy_hw_stats);
->  }
->  
-> @@ -661,6 +663,9 @@ static void kszphy_get_strings(struct phy_device *phydev, u8 *data)
->  {
->  	int i;
->  
-> +	if (!phydev->priv)
-> +		return;
-> +
->  	for (i = 0; i < ARRAY_SIZE(kszphy_hw_stats); i++) {
->  		memcpy(data + i * ETH_GSTRING_LEN,
->  		       kszphy_hw_stats[i].string, ETH_GSTRING_LEN);
-> @@ -694,6 +699,9 @@ static void kszphy_get_stats(struct phy_device *phydev,
->  {
->  	int i;
->  
-> +	if (!phydev->priv)
-> +		return;
-> +
->  	for (i = 0; i < ARRAY_SIZE(kszphy_hw_stats); i++)
->  		data[i] = kszphy_get_stat(phydev, i);
->  }
-> 
-
-
--- 
-Florian
+Right.
