@@ -1,33 +1,46 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH v3 1/5] netlink: extended ACK reporting
-Date: Tue, 11 Apr 2017 12:57:59 -0600
-Message-ID: <cb6106f2-3128-da79-69bf-a10b249db054@cumulusnetworks.com>
-References: <1491894172.31620.2.camel@sipsolutions.net>
- <9a68aa01-474c-7054-30c2-473ee1250abe@cumulusnetworks.com>
- <20170411173143.GA1899@salvia>
- <20170411.134225.398046538225438175.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: RFC: Checksum offload and XDP
+Date: Tue, 11 Apr 2017 15:00:48 -0400 (EDT)
+Message-ID: <20170411.150048.966246483547817859.davem@davemloft.net>
+References: <63f0f671-5b33-4895-355c-be6259b16341@solarflare.com>
+        <58ED07C3.50308@iogearbox.net>
+        <20170411113402.48614665@cakuba.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: johannes@sipsolutions.net, linux-wireless@vger.kernel.org,
-        netdev@vger.kernel.org, jhs@mojatatu.com, jbenc@redhat.com,
-        jiri@resnulli.us
-To: David Miller <davem@davemloft.net>, pablo@netfilter.org
+Cc: daniel@iogearbox.net, ecree@solarflare.com, tom@herbertland.com,
+        netdev@vger.kernel.org, ast@kernel.org
+To: kubakici@wp.pl
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f46.google.com ([74.125.83.46]:35231 "EHLO
-        mail-pg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752151AbdDKS6B (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 11 Apr 2017 14:58:01 -0400
-Received: by mail-pg0-f46.google.com with SMTP id 81so2788046pgh.2
-        for <netdev@vger.kernel.org>; Tue, 11 Apr 2017 11:58:01 -0700 (PDT)
-In-Reply-To: <20170411.134225.398046538225438175.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([184.105.139.130]:35314 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752276AbdDKTAu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 11 Apr 2017 15:00:50 -0400
+In-Reply-To: <20170411113402.48614665@cakuba.lan>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 4/11/17 11:42 AM, David Miller wrote:
-> David, if you have a specific case where it's absolutely impossible
-> to resolve this when the library is converted to support extended
-> ACKs, please mention it.
+From: Jakub Kicinski <kubakici@wp.pl>
+Date: Tue, 11 Apr 2017 11:34:25 -0700
 
-I don't have a specific library in mind. It is more the disjoint nature
-of a socket option and message parsing, and thinking through the API.
+> On Tue, 11 Apr 2017 18:43:47 +0200, Daniel Borkmann wrote:
+>> cls_bpf has a couple of helpers like bpf_l3_csum_replace(), bpf_l4_csum_replace()
+>> bpf_csum_diff(), bpf_csum_update(), where we (cilium at least) use checksum
+>> diffs extensively. You can then also leave the option to the user to feed
+>> pre-computed diffs from a map, etc, or, to just not care at all when not
+>> necessary. Pushing this via return code seems a bit odd, perhaps a xdp->csum
+>> member could be populated before calling into the program and the resulting
+>> xdp->csum processed further upon exit.
+> 
+> +1 on exposing xdp->csum.  I think having the csum complete available
+> in the eBPF program (rather than diff) may be useful for apps doing
+> encap to a csumed tunnel (e.g. UDP).  If the header is pre-calculated
+> in the map, having csum complete makes calculating the outer csum
+> extremely easy, right?
+
+The outer checksum is constant because when the inner checksum is
+installed the inner frame checksums to zero.
+
+I really want to see how people are actually changing fields in XDP
+that requires special checksum facilities, that isn't already handled
+using the csum helpers Daniel mentioned.
