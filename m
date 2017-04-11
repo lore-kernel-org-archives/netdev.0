@@ -1,118 +1,77 @@
-From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: Re: [PATCH] net: phy: micrel: KSZ9031: fix crash when statistic
- requested
-Date: Tue, 11 Apr 2017 11:17:56 -0500
-Message-ID: <050b6778-276b-7094-36e1-1ccd06364766@ti.com>
-References: <20170410233324.1178-1-grygorii.strashko@ti.com>
- <e821198e-5a61-7912-d120-205f66c02650@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Sekhar Nori <nsekhar@ti.com>, <linux-kernel@vger.kernel.org>
-To: Florian Fainelli <f.fainelli@gmail.com>,
-        "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-        Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <e821198e-5a61-7912-d120-205f66c02650@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: [PATCH net-next] bpf: pass sk to helper functions
+Date: Tue, 11 Apr 2017 12:22:52 -0400
+Message-ID: <20170411162252.84985-1-willemdebruijn.kernel@gmail.com>
+Cc: ast@fb.com, daniel@iogearbox.net, davem@davemloft.net,
+        Willem de Bruijn <willemb@google.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f196.google.com ([209.85.220.196]:34016 "EHLO
+        mail-qk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751875AbdDKQWz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 11 Apr 2017 12:22:55 -0400
+Received: by mail-qk0-f196.google.com with SMTP id p68so306843qke.1
+        for <netdev@vger.kernel.org>; Tue, 11 Apr 2017 09:22:55 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Willem de Bruijn <willemb@google.com>
 
+BPF helper functions access socket fields through skb->sk. This is not
+set in ingress cgroup and socket filters. The association is only made
+in skb_set_owner_r once the filter has accepted the packet. Sk is
+available as socket lookup has taken place.
 
-On 04/10/2017 06:40 PM, Florian Fainelli wrote:
-> On 04/10/2017 04:33 PM, Grygorii Strashko wrote:
->> Now the command:
->> 	ethtool --phy-statistics eth0
->> will cause system crash with meassage "Unable to handle kernel NULL pointer
->> dereference at virtual address 00000010" from:
->>
->>  (kszphy_get_stats) from [<c069f1d8>] (ethtool_get_phy_stats+0xd8/0x210)
->>  (ethtool_get_phy_stats) from [<c06a0738>] (dev_ethtool+0x5b8/0x228c)
->>  (dev_ethtool) from [<c06b5484>] (dev_ioctl+0x3fc/0x964)
->>  (dev_ioctl) from [<c0679f7c>] (sock_ioctl+0x170/0x2c0)
->>  (sock_ioctl) from [<c02419d4>] (do_vfs_ioctl+0xa8/0x95c)
->>  (do_vfs_ioctl) from [<c02422c4>] (SyS_ioctl+0x3c/0x64)
->>  (SyS_ioctl) from [<c0107d60>] (ret_fast_syscall+0x0/0x44)
->>
->> The reason: phy_driver structure for KSZ9031 phy has no .probe() callback
->> defined. As result, struct phy_device *phydev->priv pointer will not be
->> initializes (null).
-> 
-> This is a strange way to fix the problem, presumably this PHY supports
-> fetching statistics, if that is the case it sounds like we would want to
-> sort of provide two probe function:
-> 
-> - one which is just allocating the PHY device's private structure so we
-> have enough room for statistics
-> - another one which is doing all the reference clock fetching and so on
-> 
-> By adding a NULL pointer check here, you'd be better off just removing
-> all the function pointers pertaining to ethtool statistics.
+Temporarily set skb->sk to sk in these cases.
 
-I've considered all this option, honestly, but I do not know if this
-phys (issue should affect KSZ886X, KSZ8873MLL, KSZ9031, KSZ9021, KSZ8061, KS8737)
-support fetching statistics or not and was hoping to get feedback from community.
+Signed-off-by: Willem de Bruijn <willemb@google.com>
+---
+ kernel/bpf/cgroup.c | 4 +++-
+ net/core/filter.c   | 6 +++++-
+ 2 files changed, 8 insertions(+), 2 deletions(-)
 
-Simples way for me was to block statistic callbacks for them,
-but I, of course, can just remove those callback for above phys if this is acceptable.
-
-> 
->>
->> Fix it by adding additional checks for !phydev->priv in
->> kszphy_get_stats(), kszphy_get_strings() and kszphy_get_sset_count()
->>
->> Fixes: 2b2427d06426 ("phy: micrel: Add ethtool statistics counters")
->> Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
->> ---
->>  drivers/net/phy/micrel.c | 10 +++++++++-
->>  1 file changed, 9 insertions(+), 1 deletion(-)
->>
->> diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
->> index 6742070..8dbc1be 100644
->> --- a/drivers/net/phy/micrel.c
->> +++ b/drivers/net/phy/micrel.c
->> @@ -574,7 +574,6 @@ static int ksz9031_config_init(struct phy_device *phydev)
->>  				MII_KSZ9031RN_TX_DATA_PAD_SKEW, 4,
->>  				tx_data_skews, 4);
->>  	}
->> -
->>  	return ksz9031_center_flp_timing(phydev);
->>  }
->>  
->> @@ -654,6 +653,9 @@ ksz9021_wr_mmd_phyreg(struct phy_device *phydev, int ptrad, int devnum,
->>  
->>  static int kszphy_get_sset_count(struct phy_device *phydev)
->>  {
->> +	if (!phydev->priv)
->> +		return -EOPNOTSUPP;
->> +
->>  	return ARRAY_SIZE(kszphy_hw_stats);
->>  }
->>  
->> @@ -661,6 +663,9 @@ static void kszphy_get_strings(struct phy_device *phydev, u8 *data)
->>  {
->>  	int i;
->>  
->> +	if (!phydev->priv)
->> +		return;
->> +
->>  	for (i = 0; i < ARRAY_SIZE(kszphy_hw_stats); i++) {
->>  		memcpy(data + i * ETH_GSTRING_LEN,
->>  		       kszphy_hw_stats[i].string, ETH_GSTRING_LEN);
->> @@ -694,6 +699,9 @@ static void kszphy_get_stats(struct phy_device *phydev,
->>  {
->>  	int i;
->>  
->> +	if (!phydev->priv)
->> +		return;
->> +
->>  	for (i = 0; i < ARRAY_SIZE(kszphy_hw_stats); i++)
->>  		data[i] = kszphy_get_stat(phydev, i);
->>  }
->>
-> 
-> 
-
+diff --git a/kernel/bpf/cgroup.c b/kernel/bpf/cgroup.c
+index da0f53690295..a2c387e433a4 100644
+--- a/kernel/bpf/cgroup.c
++++ b/kernel/bpf/cgroup.c
+@@ -154,7 +154,7 @@ int __cgroup_bpf_update(struct cgroup *cgrp, struct cgroup *parent,
+ 
+ /**
+  * __cgroup_bpf_run_filter_skb() - Run a program for packet filtering
+- * @sk: The socken sending or receiving traffic
++ * @sk: The socket sending or receiving traffic
+  * @skb: The skb that is being sent or received
+  * @type: The type of program to be exectuted
+  *
+@@ -190,9 +190,11 @@ int __cgroup_bpf_run_filter_skb(struct sock *sk,
+ 	if (prog) {
+ 		unsigned int offset = skb->data - skb_network_header(skb);
+ 
++		swap(skb->sk, sk);
+ 		__skb_push(skb, offset);
+ 		ret = bpf_prog_run_save_cb(prog, skb) == 1 ? 0 : -EPERM;
+ 		__skb_pull(skb, offset);
++		swap(skb->sk, sk);
+ 	}
+ 
+ 	rcu_read_unlock();
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 15e9a81ffebe..979cb508302a 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -92,8 +92,12 @@ int sk_filter_trim_cap(struct sock *sk, struct sk_buff *skb, unsigned int cap)
+ 	rcu_read_lock();
+ 	filter = rcu_dereference(sk->sk_filter);
+ 	if (filter) {
+-		unsigned int pkt_len = bpf_prog_run_save_cb(filter->prog, skb);
++		unsigned int pkt_len;
++
++		swap(skb->sk, sk);
++		pkt_len = bpf_prog_run_save_cb(filter->prog, skb);
+ 		err = pkt_len ? pskb_trim(skb, max(cap, pkt_len)) : -EPERM;
++		swap(skb->sk, sk);
+ 	}
+ 	rcu_read_unlock();
+ 
 -- 
-regards,
--grygorii
+2.12.2.715.g7642488e1d-goog
