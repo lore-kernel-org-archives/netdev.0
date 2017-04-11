@@ -1,104 +1,195 @@
-From: Alexander Alemayhu <alexander@alemayhu.com>
-Subject: Re: [PATCH net-next] bpf: add test_progs to .gitignore
-Date: Tue, 11 Apr 2017 14:14:27 +0200
-Message-ID: <20170411121427.GB5207@gmail.com>
-References: <20170411113538.31423-1-alexander@alemayhu.com>
- <58ECC2B6.1020104@iogearbox.net>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [PATCH net-next] net: stmmac: set total length of the packet to
+ be transmitted in TDES3
+Date: Tue, 11 Apr 2017 14:41:22 +0200
+Message-ID: <dc4750e7-ad06-5a8a-a87e-41a83b8d4b29@st.com>
+References: <20170410183329.28847-1-niklass@axis.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, ast@fb.com
-To: Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f47.google.com ([209.85.215.47]:34302 "EHLO
-        mail-lf0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751790AbdDKMOa (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 11 Apr 2017 08:14:30 -0400
-Received: by mail-lf0-f47.google.com with SMTP id z15so85815311lfd.1
-        for <netdev@vger.kernel.org>; Tue, 11 Apr 2017 05:14:29 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <58ECC2B6.1020104@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        Niklas Cassel <niklass@axis.com>
+To: Niklas Cassel <niklas.cassel@axis.com>, <alexandre.torgue@st.com>,
+        <Joao.Pinto@synopsys.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170410183329.28847-1-niklass@axis.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 11, 2017 at 01:49:10PM +0200, Daniel Borkmann wrote:
-> 
-> Good point, we should also add '*.o' in that case for the
-> TEST_GEN_FILES specified objs that clang generates.
+On 4/10/2017 8:33 PM, Niklas Cassel wrote:
+> From: Niklas Cassel <niklas.cassel@axis.com>
+>
+> Field FL/TPL in register TDES3 is not correctly set on GMAC4.
+> TX appears to be functional on GMAC 4.10a even if this field is not set,
+> however, to avoid relying on undefined behavior, set the length in TDES3.
+>
+> The field has a different meaning depending on if the TSE bit in TDES3
+> is set or not (TSO). However, regardless of the TSE bit, the field is
+> not optional. The field is already set correctly when the TSE bit is set.
+>
+> Since there is no limit for the number of descriptors that can be
+> used for a single packet, the field should be set to the sum of
+> the buffers contained in:
+> [<desc with First Descriptor bit set> ... <desc n> ...
+> <desc with Last Descriptor bit set>], which should be equal to skb->len.
+>
+> Signed-off-by: Niklas Cassel <niklas.cassel@axis.com>
 
-Think that is covered by other files but added. Would it be
-okay to ignore all the generated files, like the below?
+Acked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 
-commit 1036c0af4dc381c2571947f197c9d30c2c9f4510
-Author: Alexander Alemayhu <alexander@alemayhu.com>
-Date:   Tue Apr 11 13:31:32 2017 +0200
-
-    bpf: ignore generated files
-    
-    o add test_progs to tools/testing/selftests/bpf/.gitignore and the other
-    generated files.
-    o new ignore file in samples/bpf
-    
-    Signed-off-by: Alexander Alemayhu <alexander@alemayhu.com>
-
-diff --git a/samples/bpf/.gitignore b/samples/bpf/.gitignore
-new file mode 100644
-index 000000000000..6537659507f1
---- /dev/null
-+++ b/samples/bpf/.gitignore
-@@ -0,0 +1,35 @@
-+fds_example
-+lathist
-+lwt_len_hist
-+map_perf_test
-+offwaketime
-+per_socket_stats_example
-+sampleip
-+sock_example
-+sockex1
-+sockex2
-+sockex3
-+spintest
-+tc_l2_redirect
-+test_cgrp2_array_pin
-+test_cgrp2_attach
-+test_cgrp2_attach2
-+test_cgrp2_sock
-+test_cgrp2_sock2
-+test_current_task_under_cgroup
-+test_lru_dist
-+test_map_in_map
-+test_overhead
-+test_probe_write_user
-+trace_event
-+trace_output
-+tracex1
-+tracex2
-+tracex3
-+tracex4
-+tracex5
-+tracex6
-+xdp1
-+xdp2
-+xdp_tx_iptunnel
-+*.o
-diff --git a/tools/testing/selftests/bpf/.gitignore b/tools/testing/selftests/bpf/.gitignore
-index 541d9d7fad5a..78c8fb7077e0 100644
---- a/tools/testing/selftests/bpf/.gitignore
-+++ b/tools/testing/selftests/bpf/.gitignore
-@@ -3,3 +3,8 @@ test_maps
- test_lru_map
- test_lpm_map
- test_tag
-+test_progs
-+FEATURE-DUMP.libbpf
-+feature/
-+fixdep
-+*.o
-
-Thanks.
-
--- 
-Mit freundlichen Grüßen
-
-Alexander Alemayhu
+> ---
+>   drivers/net/ethernet/stmicro/stmmac/chain_mode.c   | 6 +++---
+>   drivers/net/ethernet/stmicro/stmmac/common.h       | 2 +-
+>   drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.c | 3 ++-
+>   drivers/net/ethernet/stmicro/stmmac/enh_desc.c     | 2 +-
+>   drivers/net/ethernet/stmicro/stmmac/norm_desc.c    | 2 +-
+>   drivers/net/ethernet/stmicro/stmmac/ring_mode.c    | 9 ++++++---
+>   drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  | 5 +++--
+>   7 files changed, 17 insertions(+), 12 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/chain_mode.c b/drivers/net/ethernet/stmicro/stmmac/chain_mode.c
+> index 37881f81319e..e93c40b4631e 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/chain_mode.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/chain_mode.c
+> @@ -52,7 +52,7 @@ static int stmmac_jumbo_frm(void *p, struct sk_buff *skb, int csum)
+>   	tx_q->tx_skbuff_dma[entry].len = bmax;
+>   	/* do not close the descriptor and do not set own bit */
+>   	priv->hw->desc->prepare_tx_desc(desc, 1, bmax, csum, STMMAC_CHAIN_MODE,
+> -					0, false);
+> +					0, false, skb->len);
+>   
+>   	while (len != 0) {
+>   		tx_q->tx_skbuff[entry] = NULL;
+> @@ -70,7 +70,7 @@ static int stmmac_jumbo_frm(void *p, struct sk_buff *skb, int csum)
+>   			tx_q->tx_skbuff_dma[entry].len = bmax;
+>   			priv->hw->desc->prepare_tx_desc(desc, 0, bmax, csum,
+>   							STMMAC_CHAIN_MODE, 1,
+> -							false);
+> +							false, skb->len);
+>   			len -= bmax;
+>   			i++;
+>   		} else {
+> @@ -85,7 +85,7 @@ static int stmmac_jumbo_frm(void *p, struct sk_buff *skb, int csum)
+>   			/* last descriptor can be set now */
+>   			priv->hw->desc->prepare_tx_desc(desc, 0, len, csum,
+>   							STMMAC_CHAIN_MODE, 1,
+> -							true);
+> +							true, skb->len);
+>   			len = 0;
+>   		}
+>   	}
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
+> index 90d28bcad880..b7ce3fbb5375 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/common.h
+> +++ b/drivers/net/ethernet/stmicro/stmmac/common.h
+> @@ -373,7 +373,7 @@ struct stmmac_desc_ops {
+>   	/* Invoked by the xmit function to prepare the tx descriptor */
+>   	void (*prepare_tx_desc) (struct dma_desc *p, int is_fs, int len,
+>   				 bool csum_flag, int mode, bool tx_own,
+> -				 bool ls);
+> +				 bool ls, unsigned int tot_pkt_len);
+>   	void (*prepare_tso_tx_desc)(struct dma_desc *p, int is_fs, int len1,
+>   				    int len2, bool tx_own, bool ls,
+>   				    unsigned int tcphdrlen,
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.c
+> index 843ec69222ea..aa6476439aee 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.c
+> @@ -304,12 +304,13 @@ static void dwmac4_rd_init_tx_desc(struct dma_desc *p, int mode, int end)
+>   
+>   static void dwmac4_rd_prepare_tx_desc(struct dma_desc *p, int is_fs, int len,
+>   				      bool csum_flag, int mode, bool tx_own,
+> -				      bool ls)
+> +				      bool ls, unsigned int tot_pkt_len)
+>   {
+>   	unsigned int tdes3 = le32_to_cpu(p->des3);
+>   
+>   	p->des2 |= cpu_to_le32(len & TDES2_BUFFER1_SIZE_MASK);
+>   
+> +	tdes3 |= tot_pkt_len & TDES3_PACKET_SIZE_MASK;
+>   	if (is_fs)
+>   		tdes3 |= TDES3_FIRST_DESCRIPTOR;
+>   	else
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/enh_desc.c b/drivers/net/ethernet/stmicro/stmmac/enh_desc.c
+> index 323b59ec74a3..7546b3664113 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/enh_desc.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/enh_desc.c
+> @@ -315,7 +315,7 @@ static void enh_desc_release_tx_desc(struct dma_desc *p, int mode)
+>   
+>   static void enh_desc_prepare_tx_desc(struct dma_desc *p, int is_fs, int len,
+>   				     bool csum_flag, int mode, bool tx_own,
+> -				     bool ls)
+> +				     bool ls, unsigned int tot_pkt_len)
+>   {
+>   	unsigned int tdes0 = le32_to_cpu(p->des0);
+>   
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/norm_desc.c b/drivers/net/ethernet/stmicro/stmmac/norm_desc.c
+> index efb818ebd55e..f817f8f36569 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/norm_desc.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/norm_desc.c
+> @@ -191,7 +191,7 @@ static void ndesc_release_tx_desc(struct dma_desc *p, int mode)
+>   
+>   static void ndesc_prepare_tx_desc(struct dma_desc *p, int is_fs, int len,
+>   				  bool csum_flag, int mode, bool tx_own,
+> -				  bool ls)
+> +				  bool ls, unsigned int tot_pkt_len)
+>   {
+>   	unsigned int tdes1 = le32_to_cpu(p->des1);
+>   
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/ring_mode.c b/drivers/net/ethernet/stmicro/stmmac/ring_mode.c
+> index 31213e64513d..28e4b5d50ce6 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/ring_mode.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/ring_mode.c
+> @@ -59,7 +59,8 @@ static int stmmac_jumbo_frm(void *p, struct sk_buff *skb, int csum)
+>   
+>   		desc->des3 = cpu_to_le32(des2 + BUF_SIZE_4KiB);
+>   		priv->hw->desc->prepare_tx_desc(desc, 1, bmax, csum,
+> -						STMMAC_RING_MODE, 0, false);
+> +						STMMAC_RING_MODE, 0,
+> +						false, skb->len);
+>   		tx_q->tx_skbuff[entry] = NULL;
+>   		entry = STMMAC_GET_ENTRY(entry, DMA_TX_SIZE);
+>   
+> @@ -79,7 +80,8 @@ static int stmmac_jumbo_frm(void *p, struct sk_buff *skb, int csum)
+>   
+>   		desc->des3 = cpu_to_le32(des2 + BUF_SIZE_4KiB);
+>   		priv->hw->desc->prepare_tx_desc(desc, 0, len, csum,
+> -						STMMAC_RING_MODE, 1, true);
+> +						STMMAC_RING_MODE, 1,
+> +						true, skb->len);
+>   	} else {
+>   		des2 = dma_map_single(priv->device, skb->data,
+>   				      nopaged_len, DMA_TO_DEVICE);
+> @@ -91,7 +93,8 @@ static int stmmac_jumbo_frm(void *p, struct sk_buff *skb, int csum)
+>   		tx_q->tx_skbuff_dma[entry].is_jumbo = true;
+>   		desc->des3 = cpu_to_le32(des2 + BUF_SIZE_4KiB);
+>   		priv->hw->desc->prepare_tx_desc(desc, 1, nopaged_len, csum,
+> -						STMMAC_RING_MODE, 0, true);
+> +						STMMAC_RING_MODE, 0,
+> +						true, skb->len);
+>   	}
+>   
+>   	tx_q->cur_tx = entry;
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> index a89f76b27ea2..5c1ebc70bebd 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> @@ -3033,7 +3033,8 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
+>   
+>   		/* Prepare the descriptor and set the own bit too */
+>   		priv->hw->desc->prepare_tx_desc(desc, 0, len, csum_insertion,
+> -						priv->mode, 1, last_segment);
+> +						priv->mode, 1, last_segment,
+> +						skb->len);
+>   	}
+>   
+>   	entry = STMMAC_GET_ENTRY(entry, DMA_TX_SIZE);
+> @@ -3116,7 +3117,7 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
+>   		/* Prepare the first descriptor setting the OWN bit too */
+>   		priv->hw->desc->prepare_tx_desc(first, 1, nopaged_len,
+>   						csum_insertion, priv->mode, 1,
+> -						last_segment);
+> +						last_segment, skb->len);
+>   
+>   		/* The own bit must be the latest setting done when prepare the
+>   		 * descriptor and then barrier is needed to make sure that
