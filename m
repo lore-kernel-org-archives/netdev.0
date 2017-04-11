@@ -1,44 +1,82 @@
-From: Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>
-Subject: Re: [PATCH v3 1/5] netlink: extended ACK reporting
-Date: Tue, 11 Apr 2017 19:31:43 +0200
-Message-ID: <20170411173143.GA1899@salvia>
-References: <20170408202434.12018-1-johannes@sipsolutions.net>
- <20170408202434.12018-2-johannes@sipsolutions.net>
- <fddba2c8-3b85-d5df-81c4-ef31c459e40c@cumulusnetworks.com>
- <1491838218.28432.5.camel@sipsolutions.net>
- <029e6587-c0e8-bdb0-49e9-2abe2946a7ff@cumulusnetworks.com>
- <20170411065908.GB1492@salvia>
- <1491894172.31620.2.camel@sipsolutions.net>
- <9a68aa01-474c-7054-30c2-473ee1250abe@cumulusnetworks.com>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: [PATCH net-next] bpf: pass sk to helper functions
+Date: Tue, 11 Apr 2017 13:31:49 -0400
+Message-ID: <CAF=yD-KKi8ihZHp0K7bgJZ1v4ez4n12gkzxL=YWZ1=Jpb62Arw@mail.gmail.com>
+References: <20170411162252.84985-1-willemdebruijn.kernel@gmail.com> <1491929464.10587.66.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
-        Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org
-To: David Ahern <dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <9a68aa01-474c-7054-30c2-473ee1250abe-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Network Development <netdev@vger.kernel.org>,
+        Alexei Starovoitov <ast@fb.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        David Miller <davem@davemloft.net>,
+        Willem de Bruijn <willemb@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f195.google.com ([209.85.220.195]:33010 "EHLO
+        mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752282AbdDKRca (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 11 Apr 2017 13:32:30 -0400
+Received: by mail-qk0-f195.google.com with SMTP id d131so597582qkc.0
+        for <netdev@vger.kernel.org>; Tue, 11 Apr 2017 10:32:30 -0700 (PDT)
+In-Reply-To: <1491929464.10587.66.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 11, 2017 at 08:25:57AM -0600, David Ahern wrote:
-> On 4/11/17 1:02 AM, Johannes Berg wrote:
-> > On Tue, 2017-04-11 at 08:59 +0200, Pablo Neira Ayuso wrote:
-> >> CAP_ACK means: trim off the payload that the netlink error message
-> >> is embedding, just like ICMP error does.
-> >>
-> >> What is exactly your concern? If the user explicitly requests this
-> >> via socket option for this socket, then we're expecting they do the
-> >> right handling for what they're asking for.
-> > 
-> > I think David's concern was that when you want to parse the ACK in a
-> > library (or application), you may not easily know if the application
-> > (or library) requested capping.
-> 
-> exactly.
+On Tue, Apr 11, 2017 at 12:51 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Tue, 2017-04-11 at 12:22 -0400, Willem de Bruijn wrote:
+>> From: Willem de Bruijn <willemb@google.com>
+>>
+>> BPF helper functions access socket fields through skb->sk. This is not
+>> set in ingress cgroup and socket filters. The association is only made
+>> in skb_set_owner_r once the filter has accepted the packet. Sk is
+>> available as socket lookup has taken place.
+>>
+>> Temporarily set skb->sk to sk in these cases.
+>>
+>> Signed-off-by: Willem de Bruijn <willemb@google.com>
+>> ---
+>>  kernel/bpf/cgroup.c | 4 +++-
+>>  net/core/filter.c   | 6 +++++-
+>>  2 files changed, 8 insertions(+), 2 deletions(-)
+>>
+>> diff --git a/kernel/bpf/cgroup.c b/kernel/bpf/cgroup.c
+>> index da0f53690295..a2c387e433a4 100644
+>> --- a/kernel/bpf/cgroup.c
+>> +++ b/kernel/bpf/cgroup.c
+>> @@ -154,7 +154,7 @@ int __cgroup_bpf_update(struct cgroup *cgrp, struct cgroup *parent,
+>>
+>>  /**
+>>   * __cgroup_bpf_run_filter_skb() - Run a program for packet filtering
+>> - * @sk: The socken sending or receiving traffic
+>> + * @sk: The socket sending or receiving traffic
+>>   * @skb: The skb that is being sent or received
+>>   * @type: The type of program to be exectuted
+>>   *
+>> @@ -190,9 +190,11 @@ int __cgroup_bpf_run_filter_skb(struct sock *sk,
+>>       if (prog) {
+>>               unsigned int offset = skb->data - skb_network_header(skb);
+>>
+>
+> It would be nice to not touch sk. swap() is a bit overkill here I think.
+>
+>         struct sock *save_sk = skb->sk;
+>
+>         skb->sk = sk;
+>
+>
+>> +             swap(skb->sk, sk);
+>>               __skb_push(skb, offset);
+>>               ret = bpf_prog_run_save_cb(prog, skb) == 1 ? 0 : -EPERM;
+>>               __skb_pull(skb, offset);
+>> +             swap(skb->sk, sk);
+>
+>         skb->sk = save_sk;
+>
+>>       }
 
-Then, the library needs to be extended to enable this handling to
-modify the way it needs to handle errors, together with the
-setsockopt().
+Thanks. I'll send a v2.
+
+>>
+>
+>
+>
