@@ -1,50 +1,68 @@
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Subject: [PATCH net-next v2] devlink: fix return value check in devlink_dpipe_header_put()
-Date: Tue, 11 Apr 2017 16:02:02 +0000
-Message-ID: <20170411160202.17469-1-weiyj.lk@gmail.com>
-References: <20170410131106.27683-1-weiyj.lk@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2 net-next RFC] Generic XDP
+Date: Tue, 11 Apr 2017 09:05:33 -0700
+Message-ID: <1491926733.10587.56.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20170409.133528.660876505013192371.davem@davemloft.net>
+         <20170410183935.GB4730@C02RW35GFVH8.dhcp.broadcom.net>
+         <58EBE73A.7090202@iogearbox.net>
+         <20170410214131.GE4730@C02RW35GFVH8.dhcp.broadcom.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Wei Yongjun <weiyongjun1@huawei.com>, netdev@vger.kernel.org
-To: Jiri Pirko <jiri@mellanox.com>,
-        Arkadi Sharshevsky <arkadis@mellanox.com>,
-        "David S. Miller" <davem@davemloft.net>
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+        David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+        xdp-newbies@vger.kernel.org
+To: Andy Gospodarek <andy@greyhouse.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:35943 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751396AbdDKQCP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 11 Apr 2017 12:02:15 -0400
-Received: by mail-pf0-f196.google.com with SMTP id i5so226551pfc.3
-        for <netdev@vger.kernel.org>; Tue, 11 Apr 2017 09:02:14 -0700 (PDT)
-In-Reply-To: <20170410131106.27683-1-weiyj.lk@gmail.com>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:35987 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751992AbdDKQFh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 11 Apr 2017 12:05:37 -0400
+In-Reply-To: <20170410214131.GE4730@C02RW35GFVH8.dhcp.broadcom.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <weiyongjun1@huawei.com>
+On Mon, 2017-04-10 at 17:41 -0400, Andy Gospodarek wrote:
 
-Fix the return value check which testing the wrong variable
-in devlink_dpipe_header_put().
+> Results with bpf_git_enable=1 and gro off, still only 7.5Mpps.
 
-Fixes: 1555d204e743 ("devlink: Support for pipeline debug (dpipe)")
-Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
-Acked-by: Jiri Pirko <jiri@mellanox.com>
----
-v1 -> v2: fix  a typo in patch comment
----
- net/core/devlink.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+7.5 Mpps is already a nice number.
 
-diff --git a/net/core/devlink.c b/net/core/devlink.c
-index 24b7660..0afac58 100644
---- a/net/core/devlink.c
-+++ b/net/core/devlink.c
-@@ -2031,7 +2031,7 @@ static int devlink_dpipe_header_put(struct sk_buff *skb,
- 	int err;
- 
- 	header_attr = nla_nest_start(skb, DEVLINK_ATTR_DPIPE_HEADER);
--	if (!header)
-+	if (!header_attr)
- 		return -EMSGSIZE;
- 
- 	if (nla_put_string(skb, DEVLINK_ATTR_DPIPE_HEADER_NAME, header->name) ||
+We all understand that using native XDP in the driver might give some
+extra pps, but for the ones that do not want to patch old drivers, it is
+probably good enough.
+
+> 
+>     26.34%  ksoftirqd/5      [kernel.vmlinux]              [k] memcpy_erms
+
+Can you investigate to see what are the call graphs ?
+
+Is this from copying headers to skb->head from bnxt driver ?
+
+Some kind of copybreak maybe ?
+
+perf record -a -g sleep 5
+perf report --stdio
+
+Copybreak is generally not really useful, and can have downsides.
+
+Much better to let upper stacks deciding this.
+
+For example, there is no point doing copy break for TCP ACK packets that
+are going to be consumed immediately.
+
+There is also no point doing copy break in case the packet will be
+dropped (say by ... XDP ;) )
+
+
+>     14.79%  ksoftirqd/5      [bnxt_en]                     [k] bnxt_rx_pkt
+>     10.11%  ksoftirqd/5      [kernel.vmlinux]              [k] __build_skb
+>      5.01%  ksoftirqd/5      [kernel.vmlinux]              [k] page_frag_free
+>      4.66%  ksoftirqd/5      [kernel.vmlinux]              [k] kmem_cache_alloc
+>      4.19%  ksoftirqd/5      [kernel.vmlinux]              [k] kmem_cache_free
+>      3.67%  ksoftirqd/5      [bnxt_en]                     [k] bnxt_poll
+>      2.97%  ksoftirqd/5      [kernel.vmlinux]              [k] netif_receive_skb_internal
+>      2.24%  ksoftirqd/5      [kernel.vmlinux]              [k] __napi_alloc_skb
+>      1.92%  ksoftirqd/5      [kernel.vmlinux]              [k] eth_type_trans
+>      1.78%  ksoftirqd/5      [bnxt_en]                     [k] bnxt_rx_xdp
+>      1.62%  ksoftirqd/5      [kernel.vmlinux]              [k] net_rx_action
