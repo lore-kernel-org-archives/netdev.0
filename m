@@ -1,7 +1,7 @@
 From: <sean.wang@mediatek.com>
-Subject: [PATCH net 1/2] net: ethernet: mediatek: fix inconsistency between TXD and the used buffer
-Date: Tue, 11 Apr 2017 15:12:33 +0800
-Message-ID: <1491894754-16384-2-git-send-email-sean.wang@mediatek.com>
+Subject: [PATCH net 2/2] net: ethernet: mediatek: fix inconsistency of port number carried in TXD
+Date: Tue, 11 Apr 2017 15:12:34 +0800
+Message-ID: <1491894754-16384-3-git-send-email-sean.wang@mediatek.com>
 References: <1491894754-16384-1-git-send-email-sean.wang@mediatek.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -17,71 +17,87 @@ List-Id: netdev.vger.kernel.org
 
 From: Sean Wang <sean.wang@mediatek.com>
 
-Fix inconsistency between the TXD descriptor and the used buffer that
-would cause unexpected logic at mtk_tx_unmap() during skb housekeeping.
+Fix port inconsistency on TXD due to hardware BUG that would cause
+different port number is carried on the same TXD between tx_map()
+and tx_unmap() with the iperf test. It would cause confusing BQL
+logic which leads to kernel panic when dual GMAC runs concurrently.
 
 Signed-off-by: Sean Wang <sean.wang@mediatek.com>
 ---
- drivers/net/ethernet/mediatek/mtk_eth_soc.c | 17 ++++++++---------
- 1 file changed, 8 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c | 14 +++++++++-----
+ drivers/net/ethernet/mediatek/mtk_eth_soc.h | 12 +++++++++---
+ 2 files changed, 18 insertions(+), 8 deletions(-)
 
 diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index 14e1bd1..48ba617 100644
+index 48ba617..502956c 100644
 --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
 +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -613,7 +613,7 @@ static int mtk_tx_map(struct sk_buff *skb, struct net_device *dev,
- 	struct mtk_mac *mac = netdev_priv(dev);
- 	struct mtk_eth *eth = mac->hw;
- 	struct mtk_tx_dma *itxd, *txd;
--	struct mtk_tx_buf *tx_buf;
-+	struct mtk_tx_buf *itx_buf, *tx_buf;
- 	dma_addr_t mapped_addr;
- 	unsigned int nr_frags;
- 	int i, n_desc = 1;
-@@ -627,8 +627,8 @@ static int mtk_tx_map(struct sk_buff *skb, struct net_device *dev,
- 	fport = (mac->id + 1) << TX_DMA_FPORT_SHIFT;
- 	txd4 |= fport;
- 
--	tx_buf = mtk_desc_to_tx_buf(ring, itxd);
--	memset(tx_buf, 0, sizeof(*tx_buf));
-+	itx_buf = mtk_desc_to_tx_buf(ring, itxd);
-+	memset(itx_buf, 0, sizeof(*itx_buf));
- 
- 	if (gso)
- 		txd4 |= TX_DMA_TSO;
-@@ -647,9 +647,9 @@ static int mtk_tx_map(struct sk_buff *skb, struct net_device *dev,
- 		return -ENOMEM;
+@@ -648,6 +648,8 @@ static int mtk_tx_map(struct sk_buff *skb, struct net_device *dev,
  
  	WRITE_ONCE(itxd->txd1, mapped_addr);
--	tx_buf->flags |= MTK_TX_FLAGS_SINGLE0;
--	dma_unmap_addr_set(tx_buf, dma_addr0, mapped_addr);
--	dma_unmap_len_set(tx_buf, dma_len0, skb_headlen(skb));
-+	itx_buf->flags |= MTK_TX_FLAGS_SINGLE0;
-+	dma_unmap_addr_set(itx_buf, dma_addr0, mapped_addr);
-+	dma_unmap_len_set(itx_buf, dma_len0, skb_headlen(skb));
+ 	itx_buf->flags |= MTK_TX_FLAGS_SINGLE0;
++	itx_buf->flags |= (!mac->id) ? BIT(MTK_TX_FLAGS_FPORT0) :
++			  BIT(MTK_TX_FLAGS_FPORT1);
+ 	dma_unmap_addr_set(itx_buf, dma_addr0, mapped_addr);
+ 	dma_unmap_len_set(itx_buf, dma_len0, skb_headlen(skb));
  
- 	/* TX SG offload */
- 	txd = itxd;
-@@ -685,10 +685,9 @@ static int mtk_tx_map(struct sk_buff *skb, struct net_device *dev,
- 					       last_frag * TX_DMA_LS0));
- 			WRITE_ONCE(txd->txd4, fport);
- 
--			tx_buf->skb = (struct sk_buff *)MTK_DMA_DUMMY_DESC;
- 			tx_buf = mtk_desc_to_tx_buf(ring, txd);
+@@ -689,6 +691,9 @@ static int mtk_tx_map(struct sk_buff *skb, struct net_device *dev,
  			memset(tx_buf, 0, sizeof(*tx_buf));
--
-+			tx_buf->skb = (struct sk_buff *)MTK_DMA_DUMMY_DESC;
+ 			tx_buf->skb = (struct sk_buff *)MTK_DMA_DUMMY_DESC;
  			tx_buf->flags |= MTK_TX_FLAGS_PAGE0;
++			tx_buf->flags |= (!mac->id) ? BIT(MTK_TX_FLAGS_FPORT0) :
++					 BIT(MTK_TX_FLAGS_FPORT1);
++
  			dma_unmap_addr_set(tx_buf, dma_addr0, mapped_addr);
  			dma_unmap_len_set(tx_buf, dma_len0, frag_map_size);
-@@ -698,7 +697,7 @@ static int mtk_tx_map(struct sk_buff *skb, struct net_device *dev,
- 	}
+ 			frag_size -= frag_map_size;
+@@ -1011,17 +1016,16 @@ static int mtk_poll_tx(struct mtk_eth *eth, int budget)
  
- 	/* store skb to cleanup */
--	tx_buf->skb = skb;
-+	itx_buf->skb = skb;
+ 	while ((cpu != dma) && budget) {
+ 		u32 next_cpu = desc->txd2;
+-		int mac;
++		int mac = 0;
  
- 	WRITE_ONCE(itxd->txd4, txd4);
- 	WRITE_ONCE(itxd->txd3, (TX_DMA_SWC | TX_DMA_PLEN0(skb_headlen(skb)) |
+ 		desc = mtk_qdma_phys_to_virt(ring, desc->txd2);
+ 		if ((desc->txd3 & TX_DMA_OWNER_CPU) == 0)
+ 			break;
+ 
+-		mac = (desc->txd4 >> TX_DMA_FPORT_SHIFT) &
+-		       TX_DMA_FPORT_MASK;
+-		mac--;
+-
+ 		tx_buf = mtk_desc_to_tx_buf(ring, desc);
++		if (tx_buf->flags & BIT(MTK_TX_FLAGS_FPORT1))
++			mac = 1;
++
+ 		skb = tx_buf->skb;
+ 		if (!skb) {
+ 			condition = 1;
+diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.h b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
+index 996024d..7327b23 100644
+--- a/drivers/net/ethernet/mediatek/mtk_eth_soc.h
++++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
+@@ -410,12 +410,18 @@ struct mtk_hw_stats {
+ 	struct u64_stats_sync	syncp;
+ };
+ 
+-/* PDMA descriptor can point at 1-2 segments. This enum allows us to track how
+- * memory was allocated so that it can be freed properly
+- */
+ enum mtk_tx_flags {
++	/* PDMA descriptor can point at 1-2 segments. This enum allows us to
++	 * track how memory was allocated so that it can be freed properly.
++	 */
+ 	MTK_TX_FLAGS_SINGLE0	= 0x01,
+ 	MTK_TX_FLAGS_PAGE0	= 0x02,
++
++	/* MTK_TX_FLAGS_FPORTx allows tracking which port the transmitted
++	 * SKB out instead of looking up through hardware TX descriptor.
++	 */
++	MTK_TX_FLAGS_FPORT1	= 0x03,
++	MTK_TX_FLAGS_FPORT0	= 0x04,
+ };
+ 
+ /* This enum allows us to identify how the clock is defined on the array of the
 -- 
 1.9.1
