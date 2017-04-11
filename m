@@ -1,54 +1,167 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 01/10] ftgmac100: Upgrade to NETIF_F_HW_CSUM
-Date: Tue, 11 Apr 2017 11:27:33 -0400 (EDT)
-Message-ID: <20170411.112733.1412982560568816717.davem@davemloft.net>
-References: <20170411010436.23290-2-benh@kernel.crashing.org>
-        <7d0f6000-3be5-ed70-49d3-3a3916dd79ff@cogentembedded.com>
-        <1491909225.4166.248.camel@kernel.crashing.org>
+From: Dmitry Krivenok <krivenok.dmitry@gmail.com>
+Subject: Re: macvlan on top of balance-alb bond
+Date: Tue, 11 Apr 2017 18:29:29 +0300
+Message-ID: <CAJN_NGZsxsqES0mS6BgL1tBsuia0TsVoTq=CZ4nNrhmubCovqA@mail.gmail.com>
+References: <CAJN_NGada81u96VSRz=puy3DOXjqJ6H9vNkMjgGFBea3vgrPPQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
-Cc: sergei.shtylyov@cogentembedded.com, netdev@vger.kernel.org
-To: benh@kernel.crashing.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Jay Vosburgh <j.vosburgh@gmail.com>,
+        Veaceslav Falico <vfalico@gmail.com>,
+        Andy Gospodarek <andy@greyhouse.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:60662 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753035AbdDKP1f (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 11 Apr 2017 11:27:35 -0400
-In-Reply-To: <1491909225.4166.248.camel@kernel.crashing.org>
+Received: from mail-yw0-f193.google.com ([209.85.161.193]:36759 "EHLO
+        mail-yw0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753078AbdDKP3l (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 11 Apr 2017 11:29:41 -0400
+Received: by mail-yw0-f193.google.com with SMTP id 203so36463ywk.3
+        for <netdev@vger.kernel.org>; Tue, 11 Apr 2017 08:29:35 -0700 (PDT)
+In-Reply-To: <CAJN_NGada81u96VSRz=puy3DOXjqJ6H9vNkMjgGFBea3vgrPPQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Date: Tue, 11 Apr 2017 21:13:45 +1000
+[FIXED FORMATTING]
 
-> On Tue, 2017-04-11 at 13:57 +0300, Sergei Shtylyov wrote:
->>     Need {} here as well since the 1st branch has it -- see 
->> Documentation/process/coding-style.rst (the end of the section 3).
-> 
-> Adding {} in that specific statements just makes things more
-> cluttered and less readable.
-> 
-> I can find a ton of examples of 
-> 
-> 	if (...) {
-> 		multi lines
-> 		...
-> 	} else if (...)
-> 		single_line()
-> 
-> In existing kernel code.
+Hello,
+I have a question concerning the setup where I have macvlan interface on to=
+p of
+bond device configured in balance-alb mode with 2 slave ports.
 
-Existing practice not following the coding style rules does not dictate
-that it's OK to do so.
+The problem is that I cannot ping an IP of macvlan device on the server fro=
+m the
+client machine. I do see that (as expected) the client never sees MAC addre=
+ss of
+macvlan device, but instead sees MAC address of one of the slave ports beca=
+use
+ARP replies are intercepted by bonding driver and MACs are replaced.
+However, I don=E2=80=99t see ICMP requests from the client on macvlan devic=
+e when I
+run tcpdump. I do see them on bond device and the slave assigned to the cli=
+ent
+though.
 
-> I'll fix it in a next spin if Dave wants it that way but otherwise
-> I'm keen to leave it as it is.
+I also tried active/passive, LACP and TLB bonding modes and they all work f=
+ine
+with my configuration. I only have a problem with ALB mode and macvlan.
+When I moved IP from macvlan device to the bond device, everything started
+working, so I guess it has something to do with virtual interfaces on top o=
+f the
+bond.
 
-Please fix this and respin.
+I=E2=80=99d think that such configuration is not supported, but I found the=
+ following
+patch that was merged few years ago:
+https://www.spinics.net/lists/netdev/msg285148.html
+>From the description, the patch was intended to add support of exactly my
+configuration. I confirmed that my 4.8.6 kernel does have those changes.
 
-Meanwhile get the coding style rules changed if you disagree with
-them.  A patch series review is not the place to argue about your
-disagreement with the coding style rules.
+I=E2=80=99m not familiar with the code of bonding driver and didn=E2=80=99t=
+ dig into the source
+code to see why packets get dropped. I see that they are dropped (via
+dropwatch).
+I tried to get more details via enabling dyndebug and playing with ftrace, =
+but
+with no luck yet.
 
-Thanks.
+Before I dig into that, I wanted check with experts to know if that
+configuration
+is supported at all with the latest Linux kernel? Any help is very apprecia=
+ted!
+
+Thanks,
+Dmitry
+
+On Tue, Apr 11, 2017 at 6:25 PM, Dmitry Krivenok
+<krivenok.dmitry@gmail.com> wrote:
+> Hello,
+>
+> I have a question concerning the setup where I have macvlan interface on =
+top of
+>
+> bond device configured in balance-alb mode with 2 slave ports.
+>
+>
+>
+> The problem is that I cannot ping an IP of macvlan device on the server f=
+rom the
+>
+> client machine. I do see that (as expected) the client never sees MAC add=
+ress of
+>
+> macvlan device, but instead sees MAC address of one of the slave ports be=
+cause
+>
+> ARP replies are intercepted by bonding driver and MACs are replaced.
+>
+> However, I don=E2=80=99t see ICMP requests from the client on macvlan dev=
+ice when I
+>
+> run tcpdump. I do see them on bond device and the slave assigned to the c=
+lient
+>
+> though.
+>
+>
+>
+> I also tried active/passive, LACP and TLB bonding modes and they all work=
+ fine
+>
+> with my configuration. I only have a problem with ALB mode and macvlan.
+>
+> When I moved IP from macvlan device to the bond device, everything starte=
+d
+>
+> working, so I guess it has something to do with virtual interfaces on top=
+ of the
+>
+> bond.
+>
+>
+>
+> I=E2=80=99d think that such configuration is not supported, but I found t=
+he following
+>
+> patch that was merged few years ago:
+>
+> https://www.spinics.net/lists/netdev/msg285148.html
+>
+> From the description, the patch was intended to add support of exactly my
+>
+> configuration. I confirmed that my 4.8.6 kernel does have those changes.
+>
+>
+>
+> I=E2=80=99m not familiar with the code of bonding driver and didn=E2=80=
+=99t dig into the source
+>
+> code to see why packets get dropped. I see that they are dropped (via
+> dropwatch).
+>
+> I tried to get more details via enabling dyndebug and playing with ftrace=
+, but
+>
+> with no luck yet.
+>
+>
+>
+> Before I dig into that, I wanted check with experts to know if that
+> configuration
+>
+> is supported at all with the latest Linux kernel? Any help is very apprec=
+iated!
+>
+>
+>
+> Thanks,
+>
+> Dmitry
+
+
+
+--=20
+Sincerely yours, Dmitry V. Krivenok
+e-mail: krivenok.dmitry@gmail.com
+skype: krivenok_dmitry
+jabber: krivenok_dmitry@jabber.ru
+icq: 242-526-443
