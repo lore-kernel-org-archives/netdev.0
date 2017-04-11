@@ -1,41 +1,41 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH net-next v4 1/2] bpf: remove struct bpf_prog_type_list
-Date: Tue, 11 Apr 2017 07:41:41 -0700
-Message-ID: <20170411144139.GA10662@ast-mbp.thefacebook.com>
-References: <20170411133458.26816-1-johannes@sipsolutions.net>
+From: Alexander Alemayhu <alexander@alemayhu.com>
+Subject: Re: [PATCH net-next] bpf: add test_progs to .gitignore
+Date: Tue, 11 Apr 2017 16:43:08 +0200
+Message-ID: <20170411144308.GA3700@gmail.com>
+References: <20170411113538.31423-1-alexander@alemayhu.com>
+ <58ECC2B6.1020104@iogearbox.net>
+ <20170411121427.GB5207@gmail.com>
+ <6cea626b-d95d-743b-2f3e-d64e65d9df88@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, daniel@iogearbox.net,
-        Johannes Berg <johannes.berg@intel.com>
-To: Johannes Berg <johannes@sipsolutions.net>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
+        ast@fb.com
+To: David Ahern <dsa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:33964 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751248AbdDKOlq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 11 Apr 2017 10:41:46 -0400
-Received: by mail-pf0-f196.google.com with SMTP id o126so13647773pfb.1
-        for <netdev@vger.kernel.org>; Tue, 11 Apr 2017 07:41:46 -0700 (PDT)
+Received: from mail-lf0-f46.google.com ([209.85.215.46]:33132 "EHLO
+        mail-lf0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753724AbdDKOnM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 11 Apr 2017 10:43:12 -0400
+Received: by mail-lf0-f46.google.com with SMTP id h125so88111097lfe.0
+        for <netdev@vger.kernel.org>; Tue, 11 Apr 2017 07:43:11 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20170411133458.26816-1-johannes@sipsolutions.net>
+In-Reply-To: <6cea626b-d95d-743b-2f3e-d64e65d9df88@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 11, 2017 at 03:34:57PM +0200, Johannes Berg wrote:
-> From: Johannes Berg <johannes.berg@intel.com>
+On Tue, Apr 11, 2017 at 08:08:24AM -0600, David Ahern wrote:
 > 
-> There's no need to have struct bpf_prog_type_list since
-> it just contains a list_head, the type, and the ops
-> pointer. Since the types are densely packed and not
-> actually dynamically registered, it's much easier and
-> smaller to have an array of type->ops pointer. Also
-> initialize this array statically to remove code needed
-> to initialize it.
-> 
-> In order to save duplicating the list, move it to a new
-> header file and include it in the places needing it.
-> 
-> Signed-off-by: Johannes Berg <johannes.berg@intel.com>
+> listing each program is not a sustainable way to do this. It would be
+> simpler to put build targets into a build directory and then ignore the
+> build directory.
 
-since there were no changes to the patch, plese carry over the acks:
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
-Acked-by: Alexei Starovoitov <ast@kernel.org>
+Agreed. It has probably been raised before, but if no one else does I can send
+something later (still learning the make syntax).
+
+Thanks.
+
+-- 
+Mit freundlichen Grüßen
+
+Alexander Alemayhu
