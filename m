@@ -1,216 +1,206 @@
-From: Alexandre Torgue <alexandre.torgue@st.com>
-Subject: Re: [PATCH net-next] net: stmmac: set total length of the packet to
- be transmitted in TDES3
-Date: Tue, 11 Apr 2017 09:20:33 +0200
-Message-ID: <76b6b77b-890e-77e8-5e82-f691982ebc34@st.com>
-References: <20170410183329.28847-1-niklass@axis.com>
- <a50439b5-0e39-7d67-6034-9cf25ff947a2@st.com>
+From: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>
+Subject: Re: [PATCH net-next v6 07/11] landlock: Add ptrace
+ restrictions
+Date: Tue, 11 Apr 2017 09:19:40 +0200
+Message-ID: <58fa97b0-61bf-a8c1-2800-07190dcd919e@digikod.net>
+References: <20170328234650.19695-1-mic@digikod.net>
+ <20170328234650.19695-8-mic@digikod.net>
+ <CAEiveUdXGEOywJoYTsBcxCp02_2gtj7Zw0zT_YdGWM3fJLYY7g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-        Niklas Cassel <niklass@axis.com>
-To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
-        Niklas Cassel <niklas.cassel@axis.com>,
-        <Joao.Pinto@synopsys.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <a50439b5-0e39-7d67-6034-9cf25ff947a2@st.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="WUtqJr8wLWHtUW6SOt8heiL3Q10NB5TPT"
+Cc: linux-kernel <linux-kernel@vger.kernel.org>,
+        Alexei Starovoitov <ast@kernel.org>,
+        Andy Lutomirski <luto@amacapital.net>,
+        Arnaldo Carvalho de Melo <acme@kernel.org>,
+        Casey Schaufler <casey@schaufler-ca.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        David Drysdale
+ <drysdale@google.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        "Eric W . Biederman" <ebiederm@xmission.com>,
+        James Morris <james.l.morris@oracle.com>, Jann Horn <jann@thejh.net>,
+        Jonathan Corbet <corbet@lwn.net>,
+        Matthew Garrett <mjg59@srcf.ucam.org>,
+        Michael Kerrisk <mtk.manpages@gmail.com>,
+        Kees Cook <keescook@chromium.org>, Paul Moore <paul@paul-moore.com>,
+        Sargun Dhillon <sargun@sargun.me>,
+        "Serge E . Hallyn" <serge@hallyn.com>, Shuah Khan <shuah@kernel.org>,
+        Tejun Heo <tj@kernel.org>, Thomas G
+To: Djalal Harouni <tixxdz@gmail.com>
+Return-path: <kernel-hardening-return-7364-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+List-Post: <mailto:kernel-hardening@lists.openwall.com>
+List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
+List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
+List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
+In-Reply-To: <CAEiveUdXGEOywJoYTsBcxCp02_2gtj7Zw0zT_YdGWM3fJLYY7g@mail.gmail.com>
 List-Id: netdev.vger.kernel.org
 
-Hi,
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--WUtqJr8wLWHtUW6SOt8heiL3Q10NB5TPT
+Content-Type: multipart/mixed; boundary="iPK0hi77ePOrB7lKp1b7C7TaXgMKoHN6F";
+ protected-headers="v1"
+From: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>
+To: Djalal Harouni <tixxdz@gmail.com>
+Cc: linux-kernel <linux-kernel@vger.kernel.org>,
+ Alexei Starovoitov <ast@kernel.org>, Andy Lutomirski <luto@amacapital.net>,
+ Arnaldo Carvalho de Melo <acme@kernel.org>,
+ Casey Schaufler <casey@schaufler-ca.com>,
+ Daniel Borkmann <daniel@iogearbox.net>, David Drysdale
+ <drysdale@google.com>, "David S . Miller" <davem@davemloft.net>,
+ "Eric W . Biederman" <ebiederm@xmission.com>,
+ James Morris <james.l.morris@oracle.com>, Jann Horn <jann@thejh.net>,
+ Jonathan Corbet <corbet@lwn.net>, Matthew Garrett <mjg59@srcf.ucam.org>,
+ Michael Kerrisk <mtk.manpages@gmail.com>, Kees Cook <keescook@chromium.org>,
+ Paul Moore <paul@paul-moore.com>, Sargun Dhillon <sargun@sargun.me>,
+ "Serge E . Hallyn" <serge@hallyn.com>, Shuah Khan <shuah@kernel.org>,
+ Tejun Heo <tj@kernel.org>, Thomas Graf <tgraf@suug.ch>,
+ Will Drewry <wad@chromium.org>, kernel-hardening@lists.openwall.com,
+ Linux API <linux-api@vger.kernel.org>,
+ LSM List <linux-security-module@vger.kernel.org>, netdev@vger.kernel.org
+Message-ID: <58fa97b0-61bf-a8c1-2800-07190dcd919e@digikod.net>
+Subject: Re: [kernel-hardening] [PATCH net-next v6 07/11] landlock: Add ptrace
+ restrictions
+References: <20170328234650.19695-1-mic@digikod.net>
+ <20170328234650.19695-8-mic@digikod.net>
+ <CAEiveUdXGEOywJoYTsBcxCp02_2gtj7Zw0zT_YdGWM3fJLYY7g@mail.gmail.com>
+In-Reply-To: <CAEiveUdXGEOywJoYTsBcxCp02_2gtj7Zw0zT_YdGWM3fJLYY7g@mail.gmail.com>
 
-On 04/11/2017 07:40 AM, Giuseppe CAVALLARO wrote:
-> Hi Niklas
->
-> patch looks ok for me, Alex any feedback?
+--iPK0hi77ePOrB7lKp1b7C7TaXgMKoHN6F
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-It sounds good for me to.
->
-> peppe
->
-> On 4/10/2017 8:33 PM, Niklas Cassel wrote:
->> From: Niklas Cassel <niklas.cassel@axis.com>
+
+On 10/04/2017 08:48, Djalal Harouni wrote:
+> On Wed, Mar 29, 2017 at 1:46 AM, Micka=C3=ABl Sala=C3=BCn <mic@digikod.=
+net> wrote:
+>> A landlocked process has less privileges than a non-landlocked process=
+
+>> and must then be subject to additional restrictions when manipulating
+>> processes. To be allowed to use ptrace(2) and related syscalls on a
+>> target process, a landlocked process must have a subset of the target
+>> process' rules.
 >>
->> Field FL/TPL in register TDES3 is not correctly set on GMAC4.
->> TX appears to be functional on GMAC 4.10a even if this field is not set,
->> however, to avoid relying on undefined behavior, set the length in TDES3.
+>> New in v6
 >>
->> The field has a different meaning depending on if the TSE bit in TDES3
->> is set or not (TSO). However, regardless of the TSE bit, the field is
->> not optional. The field is already set correctly when the TSE bit is set.
->>
->> Since there is no limit for the number of descriptors that can be
->> used for a single packet, the field should be set to the sum of
->> the buffers contained in:
->> [<desc with First Descriptor bit set> ... <desc n> ...
->> <desc with Last Descriptor bit set>], which should be equal to skb->len.
->>
->> Signed-off-by: Niklas Cassel <niklas.cassel@axis.com>
+>> Signed-off-by: Micka=C3=ABl Sala=C3=BCn <mic@digikod.net>
+>> Cc: Alexei Starovoitov <ast@kernel.org>
+>> Cc: Andy Lutomirski <luto@amacapital.net>
+>> Cc: Daniel Borkmann <daniel@iogearbox.net>
+>> Cc: David S. Miller <davem@davemloft.net>
+>> Cc: James Morris <james.l.morris@oracle.com>
+>> Cc: Kees Cook <keescook@chromium.org>
+>> Cc: Serge E. Hallyn <serge@hallyn.com>
 >> ---
->>   drivers/net/ethernet/stmicro/stmmac/chain_mode.c   | 6 +++---
->>   drivers/net/ethernet/stmicro/stmmac/common.h       | 2 +-
->>   drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.c | 3 ++-
->>   drivers/net/ethernet/stmicro/stmmac/enh_desc.c     | 2 +-
->>   drivers/net/ethernet/stmicro/stmmac/norm_desc.c    | 2 +-
->>   drivers/net/ethernet/stmicro/stmmac/ring_mode.c    | 9 ++++++---
->>   drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  | 5 +++--
->>   7 files changed, 17 insertions(+), 12 deletions(-)
+>>  security/landlock/Makefile       |   2 +-
+>>  security/landlock/hooks_ptrace.c | 126 ++++++++++++++++++++++++++++++=
++++++++++
+>>  security/landlock/hooks_ptrace.h |  11 ++++
+>>  security/landlock/init.c         |   2 +
+>>  4 files changed, 140 insertions(+), 1 deletion(-)
+>>  create mode 100644 security/landlock/hooks_ptrace.c
+>>  create mode 100644 security/landlock/hooks_ptrace.h
 >>
->> diff --git a/drivers/net/ethernet/stmicro/stmmac/chain_mode.c
->> b/drivers/net/ethernet/stmicro/stmmac/chain_mode.c
->> index 37881f81319e..e93c40b4631e 100644
->> --- a/drivers/net/ethernet/stmicro/stmmac/chain_mode.c
->> +++ b/drivers/net/ethernet/stmicro/stmmac/chain_mode.c
->> @@ -52,7 +52,7 @@ static int stmmac_jumbo_frm(void *p, struct sk_buff
->> *skb, int csum)
->>       tx_q->tx_skbuff_dma[entry].len = bmax;
->>       /* do not close the descriptor and do not set own bit */
->>       priv->hw->desc->prepare_tx_desc(desc, 1, bmax, csum,
->> STMMAC_CHAIN_MODE,
->> -                    0, false);
->> +                    0, false, skb->len);
->>         while (len != 0) {
->>           tx_q->tx_skbuff[entry] = NULL;
->> @@ -70,7 +70,7 @@ static int stmmac_jumbo_frm(void *p, struct sk_buff
->> *skb, int csum)
->>               tx_q->tx_skbuff_dma[entry].len = bmax;
->>               priv->hw->desc->prepare_tx_desc(desc, 0, bmax, csum,
->>                               STMMAC_CHAIN_MODE, 1,
->> -                            false);
->> +                            false, skb->len);
->>               len -= bmax;
->>               i++;
->>           } else {
->> @@ -85,7 +85,7 @@ static int stmmac_jumbo_frm(void *p, struct sk_buff
->> *skb, int csum)
->>               /* last descriptor can be set now */
->>               priv->hw->desc->prepare_tx_desc(desc, 0, len, csum,
->>                               STMMAC_CHAIN_MODE, 1,
->> -                            true);
->> +                            true, skb->len);
->>               len = 0;
->>           }
->>       }
->> diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h
->> b/drivers/net/ethernet/stmicro/stmmac/common.h
->> index 90d28bcad880..b7ce3fbb5375 100644
->> --- a/drivers/net/ethernet/stmicro/stmmac/common.h
->> +++ b/drivers/net/ethernet/stmicro/stmmac/common.h
->> @@ -373,7 +373,7 @@ struct stmmac_desc_ops {
->>       /* Invoked by the xmit function to prepare the tx descriptor */
->>       void (*prepare_tx_desc) (struct dma_desc *p, int is_fs, int len,
->>                    bool csum_flag, int mode, bool tx_own,
->> -                 bool ls);
->> +                 bool ls, unsigned int tot_pkt_len);
->>       void (*prepare_tso_tx_desc)(struct dma_desc *p, int is_fs, int
->> len1,
->>                       int len2, bool tx_own, bool ls,
->>                       unsigned int tcphdrlen,
->> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.c
->> b/drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.c
->> index 843ec69222ea..aa6476439aee 100644
->> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.c
->> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.c
->> @@ -304,12 +304,13 @@ static void dwmac4_rd_init_tx_desc(struct
->> dma_desc *p, int mode, int end)
->>     static void dwmac4_rd_prepare_tx_desc(struct dma_desc *p, int
->> is_fs, int len,
->>                         bool csum_flag, int mode, bool tx_own,
->> -                      bool ls)
->> +                      bool ls, unsigned int tot_pkt_len)
->>   {
->>       unsigned int tdes3 = le32_to_cpu(p->des3);
->>         p->des2 |= cpu_to_le32(len & TDES2_BUFFER1_SIZE_MASK);
->>   +    tdes3 |= tot_pkt_len & TDES3_PACKET_SIZE_MASK;
->>       if (is_fs)
->>           tdes3 |= TDES3_FIRST_DESCRIPTOR;
->>       else
->> diff --git a/drivers/net/ethernet/stmicro/stmmac/enh_desc.c
->> b/drivers/net/ethernet/stmicro/stmmac/enh_desc.c
->> index 323b59ec74a3..7546b3664113 100644
->> --- a/drivers/net/ethernet/stmicro/stmmac/enh_desc.c
->> +++ b/drivers/net/ethernet/stmicro/stmmac/enh_desc.c
->> @@ -315,7 +315,7 @@ static void enh_desc_release_tx_desc(struct
->> dma_desc *p, int mode)
->>     static void enh_desc_prepare_tx_desc(struct dma_desc *p, int
->> is_fs, int len,
->>                        bool csum_flag, int mode, bool tx_own,
->> -                     bool ls)
->> +                     bool ls, unsigned int tot_pkt_len)
->>   {
->>       unsigned int tdes0 = le32_to_cpu(p->des0);
->>   diff --git a/drivers/net/ethernet/stmicro/stmmac/norm_desc.c
->> b/drivers/net/ethernet/stmicro/stmmac/norm_desc.c
->> index efb818ebd55e..f817f8f36569 100644
->> --- a/drivers/net/ethernet/stmicro/stmmac/norm_desc.c
->> +++ b/drivers/net/ethernet/stmicro/stmmac/norm_desc.c
->> @@ -191,7 +191,7 @@ static void ndesc_release_tx_desc(struct dma_desc
->> *p, int mode)
->>     static void ndesc_prepare_tx_desc(struct dma_desc *p, int is_fs,
->> int len,
->>                     bool csum_flag, int mode, bool tx_own,
->> -                  bool ls)
->> +                  bool ls, unsigned int tot_pkt_len)
->>   {
->>       unsigned int tdes1 = le32_to_cpu(p->des1);
->>   diff --git a/drivers/net/ethernet/stmicro/stmmac/ring_mode.c
->> b/drivers/net/ethernet/stmicro/stmmac/ring_mode.c
->> index 31213e64513d..28e4b5d50ce6 100644
->> --- a/drivers/net/ethernet/stmicro/stmmac/ring_mode.c
->> +++ b/drivers/net/ethernet/stmicro/stmmac/ring_mode.c
->> @@ -59,7 +59,8 @@ static int stmmac_jumbo_frm(void *p, struct sk_buff
->> *skb, int csum)
->>             desc->des3 = cpu_to_le32(des2 + BUF_SIZE_4KiB);
->>           priv->hw->desc->prepare_tx_desc(desc, 1, bmax, csum,
->> -                        STMMAC_RING_MODE, 0, false);
->> +                        STMMAC_RING_MODE, 0,
->> +                        false, skb->len);
->>           tx_q->tx_skbuff[entry] = NULL;
->>           entry = STMMAC_GET_ENTRY(entry, DMA_TX_SIZE);
->>   @@ -79,7 +80,8 @@ static int stmmac_jumbo_frm(void *p, struct
->> sk_buff *skb, int csum)
->>             desc->des3 = cpu_to_le32(des2 + BUF_SIZE_4KiB);
->>           priv->hw->desc->prepare_tx_desc(desc, 0, len, csum,
->> -                        STMMAC_RING_MODE, 1, true);
->> +                        STMMAC_RING_MODE, 1,
->> +                        true, skb->len);
->>       } else {
->>           des2 = dma_map_single(priv->device, skb->data,
->>                         nopaged_len, DMA_TO_DEVICE);
->> @@ -91,7 +93,8 @@ static int stmmac_jumbo_frm(void *p, struct sk_buff
->> *skb, int csum)
->>           tx_q->tx_skbuff_dma[entry].is_jumbo = true;
->>           desc->des3 = cpu_to_le32(des2 + BUF_SIZE_4KiB);
->>           priv->hw->desc->prepare_tx_desc(desc, 1, nopaged_len, csum,
->> -                        STMMAC_RING_MODE, 0, true);
->> +                        STMMAC_RING_MODE, 0,
->> +                        true, skb->len);
->>       }
->>         tx_q->cur_tx = entry;
->> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
->> b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
->> index a89f76b27ea2..5c1ebc70bebd 100644
->> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
->> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
->> @@ -3033,7 +3033,8 @@ static netdev_tx_t stmmac_xmit(struct sk_buff
->> *skb, struct net_device *dev)
->>             /* Prepare the descriptor and set the own bit too */
->>           priv->hw->desc->prepare_tx_desc(desc, 0, len, csum_insertion,
->> -                        priv->mode, 1, last_segment);
->> +                        priv->mode, 1, last_segment,
->> +                        skb->len);
->>       }
->>         entry = STMMAC_GET_ENTRY(entry, DMA_TX_SIZE);
->> @@ -3116,7 +3117,7 @@ static netdev_tx_t stmmac_xmit(struct sk_buff
->> *skb, struct net_device *dev)
->>           /* Prepare the first descriptor setting the OWN bit too */
->>           priv->hw->desc->prepare_tx_desc(first, 1, nopaged_len,
->>                           csum_insertion, priv->mode, 1,
->> -                        last_segment);
->> +                        last_segment, skb->len);
->>             /* The own bit must be the latest setting done when
->> prepare the
->>            * descriptor and then barrier is needed to make sure that
->
->
+> [...]
+>=20
+>> +/**
+>> + * landlock_ptrace_access_check - determine whether the current proce=
+ss may
+>> + *                               access another
+>> + *
+>> + * @child: the process to be accessed
+>> + * @mode: the mode of attachment
+>> + *
+>> + * If the current task has Landlock rules, then the child must have a=
+t least
+>> + * the same rules.  Else denied.
+>> + *
+>> + * Determine whether a process may access another, returning 0 if per=
+mission
+>> + * granted, -errno if denied.
+>> + */
+>> +static int landlock_ptrace_access_check(struct task_struct *child,
+>> +               unsigned int mode)
+>> +{
+>> +       if (!landlocked(current))
+>> +               return 0;
+>> +
+>> +       if (!landlocked(child))
+>> +               return -EPERM;
+>> +
+>> +       if (landlock_task_has_subset_events(current, child))
+>> +               return 0;
+>> +
+>> +       return -EPERM;
+>> +}
+>> +
+>=20
+> Maybe you want to check the mode argument here if it is a
+> PTRACE_ATTACH which may translate to read/writes ? PTRACE_READ are
+> normally for reads only. Or also which creds were used if this was a
+> direct syscall or a filesystem call through procfs.
+
+The idea is to mimic the behavior of UID/GID checks, namespaces and so
+on. A hierarchy of Landlock rules has a similar semantic as namespaces,
+at least for now with the FS event.
+
+>=20
+> I'm bringing this, since you may want to make some room for landlock
+> ptrace events and what others may want to do with it. Also I'm
+
+I don't see any no problem to add a ptrace event in the future as long
+as the composition with this default rule is a logical AND to allow a
+ptrace action.
+
+It would be possible to relax this default policy for rules with a
+dedicated option flag, but the current behavior is a sane one from a
+security point of view.
+
+> planning to send another v2 RFC for procfs separate instances [1], the
+> aim is to give LSMs a security_ptrace_access_check hook path when
+> dealing with /proc/<pids>/ [2]  . Right now LSMs don't really have a
+> security path there, and the implementation does not guarantee that.
+> With this Yama ptrace scope or other LSMs may take advantage of it and
+> check the 'PTRACE_MODE_READ_FSCRED' mode for filesystem accesses.
+
+Interesting, feel free to CC me.
+
+> That's why I think it would be better if the default landlock ptrace
+> semantics are not that wide.
+>=20
+> Thanks!
+>=20
+> [1] https://lkml.org/lkml/2017/3/30/670
+> [2] http://lxr.free-electrons.com/source/fs/proc/base.c#L719
+>=20
+
+If a task is allowed to ptrace/read the memory of another task with
+different privileges, the tracer could also access sensitive data not
+allowed otherwise.
+
+Do you have an use case where this constraint would be an issue?
+
+ Micka=C3=ABl
+
+
+--iPK0hi77ePOrB7lKp1b7C7TaXgMKoHN6F--
+
+--WUtqJr8wLWHtUW6SOt8heiL3Q10NB5TPT
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQEzBAEBCgAdFiEEUysCyY8er9Axt7hqIt7+33O9apUFAljsg40ACgkQIt7+33O9
+apW43Af/WE/Y8YuuIQrCNKpdOxdQsVRY7FbbEiVZcY06CznsmpRv20itKQBKSRkx
+qaKwLxqid41ZhJxwFu42gQPqUTj427oHkoov1zn5r04Ht9SWDcOYETDPHxxa7i4Y
+dvhTyXWmWD+Unxlpqzum/yDSg9Mr9B3nTnNtb2LlCmZVg+gaGN0WR7axJjKr38TK
+9iB5za5YXJUZad9xNlSmnvSLoly69xCbaxGxqzpAAWPYR5MSjEYQH0pNpJSyin5q
+4z55VtvKofkXFwJQ2kTgCLUf5bNal426hdzrIA86Vh9oOxPPUqPt3+DDxoSHPxMU
+hJ5HbYOs/vazKjFS2jPvgxQUeVz+Cg==
+=h8Ph
+-----END PGP SIGNATURE-----
+
+--WUtqJr8wLWHtUW6SOt8heiL3Q10NB5TPT--
