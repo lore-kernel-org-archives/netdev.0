@@ -1,46 +1,53 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: eBPF - little-endian load instructions?
-Date: Tue, 11 Apr 2017 13:15:30 +0200
-Message-ID: <1491909330.31620.21.camel@sipsolutions.net>
-References: <1491907114.31620.18.camel@sipsolutions.net>
-         <58ECB8CF.8040409@iogearbox.net>
+From: Fugang Duan <fugang.duan@nxp.com>
+Subject: [PATCH net-next 2/6] net: fec: avoid BD pointer type cast to 32bit
+Date: Tue, 11 Apr 2017 19:13:04 +0800
+Message-ID: <1491909188-8971-3-git-send-email-fugang.duan@nxp.com>
+References: <1491909188-8971-1-git-send-email-fugang.duan@nxp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Alexei Starovoitov <ast@kernel.org>
-To: Daniel Borkmann <daniel@iogearbox.net>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <bhutchings@solarflare.com>,
+        <stephen@networkplumber.org>, <fugang.duan@nxp.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:49598 "EHLO sipsolutions.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753071AbdDKLPc (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 11 Apr 2017 07:15:32 -0400
-In-Reply-To: <58ECB8CF.8040409@iogearbox.net>
+Received: from mail-by2nam01on0059.outbound.protection.outlook.com ([104.47.34.59]:8556
+        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1754624AbdDKLPV (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 11 Apr 2017 07:15:21 -0400
+In-Reply-To: <1491909188-8971-1-git-send-email-fugang.duan@nxp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+In aarch64 system, the BD pointer is 64bit, and the high-order 32-bits
+of the address is effective, so replace usigned with (void *) type to
+aovid 64bit address is casted to 32bit in .fec_enet_get_nextdesc() and
+.fec_enet_get_prevdesc() functions.
 
-> Are you working with an skb at that point in time in wifi? 
+Signed-off-by: Fugang Duan <fugang.duan@nxp.com>
+---
+ drivers/net/ethernet/freescale/fec_main.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Yes.
-
-> There are
-> 3 different ways of accessing skb data, see [1] slide 7 - 10. The BPF
-> LD_ABS/IND instructions were carried over from cBPF and are the only
-> ones that convert to host endianess. It can be used in eBPF as well,
-> but there are more efficient ways like 'direct packet access' or
-> helpers such as bpf_skb_load_bytes() that load the raw buffers as-is,
-> which is probably what you want if I understand you correctly.
-
-Sounds like, yeah.
-
-> There are instructions to convert endianess, see __bpf_prog_run(),
-> the ALU_END_TO_BE, ALU_END_TO_LE labels for details. There's a
-> BPF_ENDIAN() macro used in the test suite and other places.
-
-Ok, thanks! :)
-
-So sounds like I don't need anything special - should have a patch to
-hook up the wifi stuff soon.
-
-johannes
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index 886a9c9..172624c 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -235,14 +235,14 @@ static struct bufdesc *fec_enet_get_nextdesc(struct bufdesc *bdp,
+ 					     struct bufdesc_prop *bd)
+ {
+ 	return (bdp >= bd->last) ? bd->base
+-			: (struct bufdesc *)(((unsigned)bdp) + bd->dsize);
++			: (struct bufdesc *)(((void *)bdp) + bd->dsize);
+ }
+ 
+ static struct bufdesc *fec_enet_get_prevdesc(struct bufdesc *bdp,
+ 					     struct bufdesc_prop *bd)
+ {
+ 	return (bdp <= bd->base) ? bd->last
+-			: (struct bufdesc *)(((unsigned)bdp) - bd->dsize);
++			: (struct bufdesc *)(((void *)bdp) - bd->dsize);
+ }
+ 
+ static int fec_enet_get_bd_index(struct bufdesc *bdp,
+-- 
+1.9.1
