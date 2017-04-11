@@ -1,48 +1,71 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH net-next v4 1/5] netlink: extended ACK reporting
-Date: Tue, 11 Apr 2017 10:29:52 +0200
-Message-ID: <1491899392.31620.14.camel@sipsolutions.net>
-References: <20170411065700.2623-1-johannes@sipsolutions.net>
-         <20170411065700.2623-2-johannes@sipsolutions.net>
-         <20170411071900.GC1976@nanopsycho>
-         <1491895758.31620.4.camel@sipsolutions.net>
-         <20170411081346.GD1976@nanopsycho> (sfid-20170411_101348_843690_BC897405)
+From: <sean.wang@mediatek.com>
+Subject: [PATCH net-next] net: ethernet: mediatek: enhance TX path with recycling more SKBs in one poll
+Date: Tue, 11 Apr 2017 16:34:27 +0800
+Message-ID: <1491899667-19596-1-git-send-email-sean.wang@mediatek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        pablo@netfilter.org, Jamal Hadi Salim <jhs@mojatatu.com>,
-        Jiri Benc <jbenc@redhat.com>,
-        David Ahern <dsa@cumulusnetworks.com>
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:48174 "EHLO sipsolutions.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751645AbdDKI34 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 11 Apr 2017 04:29:56 -0400
-In-Reply-To: <20170411081346.GD1976@nanopsycho> (sfid-20170411_101348_843690_BC897405)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <nbd@openwrt.org>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>,
+        <linux-mediatek@lists.infradead.org>, <keyhaede@gmail.com>,
+        Sean Wang <sean.wang@mediatek.com>
+To: <john@phrozen.org>, <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2017-04-11 at 10:13 +0200, Jiri Pirko wrote:
-> Tue, Apr 11, 2017 at 09:29:18AM CEST, johannes@sipsolutions.net
-> wrote:
-> > On Tue, 2017-04-11 at 09:19 +0200, Jiri Pirko wrote:
-> > > 
-> > > > +	NUM_NLMSGERR_ATTRS,
-> > > 
-> > > According to the rest of the uapi, this should be rather named:
-> > > 	__NLMSGERR_ATTR_MAX
-> > 
-> > nl80211 uses NUM_ so I guess that's a matter of convention, but I
-> > can
-> > change that I guess.
-> 
-> Please do.
+From: Sean Wang <sean.wang@mediatek.com>
 
-No further comments on any other parts of the patch(es)? :)
+The patch adds the enhancement for recycling more TX completed SKBs in
+one NAPI polling handler if NAPI budgets are still available and hardware
+raises status bit shown for certain SKBs are aready done.
 
-I don't want to be resending all the time, so I guess I'll wait. For
-now, all code is in the nl-err branch in mac80211-next.
+Signed-off-by: Sean Wang <sean.wang@mediatek.com>
+---
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c | 15 ++++++++++-----
+ 1 file changed, 10 insertions(+), 5 deletions(-)
 
-johannes
+diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+index 14e1bd1..ac8f1b9 100644
+--- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
++++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+@@ -1074,10 +1074,13 @@ static int mtk_napi_tx(struct napi_struct *napi, int budget)
+ 	struct mtk_eth *eth = container_of(napi, struct mtk_eth, tx_napi);
+ 	u32 status, mask;
+ 	int tx_done = 0;
++	int remain_budget = budget;
+ 
+ 	mtk_handle_status_irq(eth);
++
++poll_again:
+ 	mtk_w32(eth, MTK_TX_DONE_INT, MTK_QMTK_INT_STATUS);
+-	tx_done = mtk_poll_tx(eth, budget);
++	tx_done = mtk_poll_tx(eth, remain_budget);
+ 
+ 	if (unlikely(netif_msg_intr(eth))) {
+ 		status = mtk_r32(eth, MTK_QMTK_INT_STATUS);
+@@ -1087,17 +1090,19 @@ static int mtk_napi_tx(struct napi_struct *napi, int budget)
+ 			 tx_done, status, mask);
+ 	}
+ 
+-	if (tx_done == budget)
++	if (tx_done == remain_budget)
+ 		return budget;
+ 
+ 	status = mtk_r32(eth, MTK_QMTK_INT_STATUS);
+-	if (status & MTK_TX_DONE_INT)
+-		return budget;
++	if (status & MTK_TX_DONE_INT) {
++		remain_budget -= tx_done;
++		goto poll_again;
++	}
+ 
+ 	napi_complete(napi);
+ 	mtk_irq_enable(eth, MTK_QDMA_INT_MASK, MTK_TX_DONE_INT);
+ 
+-	return tx_done;
++	return tx_done + budget - remain_budget;
+ }
+ 
+ static int mtk_napi_rx(struct napi_struct *napi, int budget)
+-- 
+1.9.1
