@@ -1,206 +1,278 @@
-From: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>
-Subject: Re: [PATCH net-next v6 07/11] landlock: Add ptrace
- restrictions
-Date: Tue, 11 Apr 2017 09:19:40 +0200
-Message-ID: <58fa97b0-61bf-a8c1-2800-07190dcd919e@digikod.net>
-References: <20170328234650.19695-1-mic@digikod.net>
- <20170328234650.19695-8-mic@digikod.net>
- <CAEiveUdXGEOywJoYTsBcxCp02_2gtj7Zw0zT_YdGWM3fJLYY7g@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="WUtqJr8wLWHtUW6SOt8heiL3Q10NB5TPT"
-Cc: linux-kernel <linux-kernel@vger.kernel.org>,
-        Alexei Starovoitov <ast@kernel.org>,
-        Andy Lutomirski <luto@amacapital.net>,
-        Arnaldo Carvalho de Melo <acme@kernel.org>,
-        Casey Schaufler <casey@schaufler-ca.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        David Drysdale
- <drysdale@google.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        "Eric W . Biederman" <ebiederm@xmission.com>,
-        James Morris <james.l.morris@oracle.com>, Jann Horn <jann@thejh.net>,
-        Jonathan Corbet <corbet@lwn.net>,
-        Matthew Garrett <mjg59@srcf.ucam.org>,
-        Michael Kerrisk <mtk.manpages@gmail.com>,
-        Kees Cook <keescook@chromium.org>, Paul Moore <paul@paul-moore.com>,
-        Sargun Dhillon <sargun@sargun.me>,
-        "Serge E . Hallyn" <serge@hallyn.com>, Shuah Khan <shuah@kernel.org>,
-        Tejun Heo <tj@kernel.org>, Thomas G
-To: Djalal Harouni <tixxdz@gmail.com>
-Return-path: <kernel-hardening-return-7364-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-In-Reply-To: <CAEiveUdXGEOywJoYTsBcxCp02_2gtj7Zw0zT_YdGWM3fJLYY7g@mail.gmail.com>
-List-Id: netdev.vger.kernel.org
+From: Juergen Borleis <jbe@pengutronix.de>
+Subject: [PATCH v3 4/4] net: dsa: LAN9303: add MDIO managed mode support
+Date: Tue, 11 Apr 2017 09:22:59 +0200
+Message-ID: <20170411072259.15356-5-jbe@pengutronix.de>
+References: <20170411072259.15356-1-jbe@pengutronix.de>
+Cc: linux-kernel@vger.kernel.org, f.fainelli@gmail.com,
+        kernel@pengutronix.de, andrew@lunn.ch,
+        vivien.didelot@savoirfairelinux.com, davem@davemloft.net,
+        devicetree@vger.kernel.org, robh+dt@kernel.org,
+        mark.rutland@arm.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:44907 "EHLO
+        metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1753793AbdDKHXN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 11 Apr 2017 03:23:13 -0400
+In-Reply-To: <20170411072259.15356-1-jbe@pengutronix.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---WUtqJr8wLWHtUW6SOt8heiL3Q10NB5TPT
-Content-Type: multipart/mixed; boundary="iPK0hi77ePOrB7lKp1b7C7TaXgMKoHN6F";
- protected-headers="v1"
-From: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>
-To: Djalal Harouni <tixxdz@gmail.com>
-Cc: linux-kernel <linux-kernel@vger.kernel.org>,
- Alexei Starovoitov <ast@kernel.org>, Andy Lutomirski <luto@amacapital.net>,
- Arnaldo Carvalho de Melo <acme@kernel.org>,
- Casey Schaufler <casey@schaufler-ca.com>,
- Daniel Borkmann <daniel@iogearbox.net>, David Drysdale
- <drysdale@google.com>, "David S . Miller" <davem@davemloft.net>,
- "Eric W . Biederman" <ebiederm@xmission.com>,
- James Morris <james.l.morris@oracle.com>, Jann Horn <jann@thejh.net>,
- Jonathan Corbet <corbet@lwn.net>, Matthew Garrett <mjg59@srcf.ucam.org>,
- Michael Kerrisk <mtk.manpages@gmail.com>, Kees Cook <keescook@chromium.org>,
- Paul Moore <paul@paul-moore.com>, Sargun Dhillon <sargun@sargun.me>,
- "Serge E . Hallyn" <serge@hallyn.com>, Shuah Khan <shuah@kernel.org>,
- Tejun Heo <tj@kernel.org>, Thomas Graf <tgraf@suug.ch>,
- Will Drewry <wad@chromium.org>, kernel-hardening@lists.openwall.com,
- Linux API <linux-api@vger.kernel.org>,
- LSM List <linux-security-module@vger.kernel.org>, netdev@vger.kernel.org
-Message-ID: <58fa97b0-61bf-a8c1-2800-07190dcd919e@digikod.net>
-Subject: Re: [kernel-hardening] [PATCH net-next v6 07/11] landlock: Add ptrace
- restrictions
-References: <20170328234650.19695-1-mic@digikod.net>
- <20170328234650.19695-8-mic@digikod.net>
- <CAEiveUdXGEOywJoYTsBcxCp02_2gtj7Zw0zT_YdGWM3fJLYY7g@mail.gmail.com>
-In-Reply-To: <CAEiveUdXGEOywJoYTsBcxCp02_2gtj7Zw0zT_YdGWM3fJLYY7g@mail.gmail.com>
+When the LAN9303 device is in MDIO manged mode, all register accesses must
+be done via MDIO.
 
---iPK0hi77ePOrB7lKp1b7C7TaXgMKoHN6F
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+Please note: this code is compile time tested only due to the absence of such
+configured hardware. It is based on a patch from Stefan Roese from 2014.
 
+Signed-off-by: Juergen Borleis <jbe@pengutronix.de>
+CC: devicetree@vger.kernel.org
+CC: robh+dt@kernel.org
+CC: mark.rutland@arm.com
+---
+ .../devicetree/bindings/net/dsa/lan9303.txt        |  45 ++++++-
+ drivers/net/dsa/Kconfig                            |   8 ++
+ drivers/net/dsa/Makefile                           |   1 +
+ drivers/net/dsa/lan9303_mdio.c                     | 144 +++++++++++++++++++++
+ 4 files changed, 197 insertions(+), 1 deletion(-)
+ create mode 100644 drivers/net/dsa/lan9303_mdio.c
 
-On 10/04/2017 08:48, Djalal Harouni wrote:
-> On Wed, Mar 29, 2017 at 1:46 AM, Micka=C3=ABl Sala=C3=BCn <mic@digikod.=
-net> wrote:
->> A landlocked process has less privileges than a non-landlocked process=
-
->> and must then be subject to additional restrictions when manipulating
->> processes. To be allowed to use ptrace(2) and related syscalls on a
->> target process, a landlocked process must have a subset of the target
->> process' rules.
->>
->> New in v6
->>
->> Signed-off-by: Micka=C3=ABl Sala=C3=BCn <mic@digikod.net>
->> Cc: Alexei Starovoitov <ast@kernel.org>
->> Cc: Andy Lutomirski <luto@amacapital.net>
->> Cc: Daniel Borkmann <daniel@iogearbox.net>
->> Cc: David S. Miller <davem@davemloft.net>
->> Cc: James Morris <james.l.morris@oracle.com>
->> Cc: Kees Cook <keescook@chromium.org>
->> Cc: Serge E. Hallyn <serge@hallyn.com>
->> ---
->>  security/landlock/Makefile       |   2 +-
->>  security/landlock/hooks_ptrace.c | 126 ++++++++++++++++++++++++++++++=
-+++++++++
->>  security/landlock/hooks_ptrace.h |  11 ++++
->>  security/landlock/init.c         |   2 +
->>  4 files changed, 140 insertions(+), 1 deletion(-)
->>  create mode 100644 security/landlock/hooks_ptrace.c
->>  create mode 100644 security/landlock/hooks_ptrace.h
->>
-> [...]
->=20
->> +/**
->> + * landlock_ptrace_access_check - determine whether the current proce=
-ss may
->> + *                               access another
->> + *
->> + * @child: the process to be accessed
->> + * @mode: the mode of attachment
->> + *
->> + * If the current task has Landlock rules, then the child must have a=
-t least
->> + * the same rules.  Else denied.
->> + *
->> + * Determine whether a process may access another, returning 0 if per=
-mission
->> + * granted, -errno if denied.
->> + */
->> +static int landlock_ptrace_access_check(struct task_struct *child,
->> +               unsigned int mode)
->> +{
->> +       if (!landlocked(current))
->> +               return 0;
->> +
->> +       if (!landlocked(child))
->> +               return -EPERM;
->> +
->> +       if (landlock_task_has_subset_events(current, child))
->> +               return 0;
->> +
->> +       return -EPERM;
->> +}
->> +
->=20
-> Maybe you want to check the mode argument here if it is a
-> PTRACE_ATTACH which may translate to read/writes ? PTRACE_READ are
-> normally for reads only. Or also which creds were used if this was a
-> direct syscall or a filesystem call through procfs.
-
-The idea is to mimic the behavior of UID/GID checks, namespaces and so
-on. A hierarchy of Landlock rules has a similar semantic as namespaces,
-at least for now with the FS event.
-
->=20
-> I'm bringing this, since you may want to make some room for landlock
-> ptrace events and what others may want to do with it. Also I'm
-
-I don't see any no problem to add a ptrace event in the future as long
-as the composition with this default rule is a logical AND to allow a
-ptrace action.
-
-It would be possible to relax this default policy for rules with a
-dedicated option flag, but the current behavior is a sane one from a
-security point of view.
-
-> planning to send another v2 RFC for procfs separate instances [1], the
-> aim is to give LSMs a security_ptrace_access_check hook path when
-> dealing with /proc/<pids>/ [2]  . Right now LSMs don't really have a
-> security path there, and the implementation does not guarantee that.
-> With this Yama ptrace scope or other LSMs may take advantage of it and
-> check the 'PTRACE_MODE_READ_FSCRED' mode for filesystem accesses.
-
-Interesting, feel free to CC me.
-
-> That's why I think it would be better if the default landlock ptrace
-> semantics are not that wide.
->=20
-> Thanks!
->=20
-> [1] https://lkml.org/lkml/2017/3/30/670
-> [2] http://lxr.free-electrons.com/source/fs/proc/base.c#L719
->=20
-
-If a task is allowed to ptrace/read the memory of another task with
-different privileges, the tracer could also access sensitive data not
-allowed otherwise.
-
-Do you have an use case where this constraint would be an issue?
-
- Micka=C3=ABl
-
-
---iPK0hi77ePOrB7lKp1b7C7TaXgMKoHN6F--
-
---WUtqJr8wLWHtUW6SOt8heiL3Q10NB5TPT
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEzBAEBCgAdFiEEUysCyY8er9Axt7hqIt7+33O9apUFAljsg40ACgkQIt7+33O9
-apW43Af/WE/Y8YuuIQrCNKpdOxdQsVRY7FbbEiVZcY06CznsmpRv20itKQBKSRkx
-qaKwLxqid41ZhJxwFu42gQPqUTj427oHkoov1zn5r04Ht9SWDcOYETDPHxxa7i4Y
-dvhTyXWmWD+Unxlpqzum/yDSg9Mr9B3nTnNtb2LlCmZVg+gaGN0WR7axJjKr38TK
-9iB5za5YXJUZad9xNlSmnvSLoly69xCbaxGxqzpAAWPYR5MSjEYQH0pNpJSyin5q
-4z55VtvKofkXFwJQ2kTgCLUf5bNal426hdzrIA86Vh9oOxPPUqPt3+DDxoSHPxMU
-hJ5HbYOs/vazKjFS2jPvgxQUeVz+Cg==
-=h8Ph
------END PGP SIGNATURE-----
-
---WUtqJr8wLWHtUW6SOt8heiL3Q10NB5TPT--
+diff --git a/Documentation/devicetree/bindings/net/dsa/lan9303.txt b/Documentation/devicetree/bindings/net/dsa/lan9303.txt
+index 2edc2561467a7..04f2965a44676 100644
+--- a/Documentation/devicetree/bindings/net/dsa/lan9303.txt
++++ b/Documentation/devicetree/bindings/net/dsa/lan9303.txt
+@@ -3,7 +3,10 @@ SMSC/MicroChip LAN9303 three port ethernet switch
+ 
+ Required properties:
+ 
+-- compatible: should be "smsc,lan9303-i2c"
++- compatible: should be
++  - "smsc,lan9303-i2c" for I2C managed mode
++    or
++  - "smsc,lan9303-mdio" for mdio managed mode
+ 
+ Optional properties:
+ 
+@@ -60,3 +63,43 @@ I2C managed mode:
+ 			};
+ 		};
+ 	};
++
++MDIO managed mode:
++
++	master: masterdevice@X {
++		status = "okay";
++		phy-handle = <&switch>;
++
++		mdio {
++			#address-cells = <1>;
++			#size-cells = <0>;
++
++			switch: switch-phy@0 {
++				compatible = "smsc,lan9303-mdio";
++				reg = <0>;
++				reset-gpios = <&gpio7 6 GPIO_ACTIVE_LOW>;
++				reset-duration = <100>;
++
++				ports {
++					#address-cells = <1>;
++					#size-cells = <0>;
++
++					port@0 {
++						reg = <0>;
++						label = "cpu";
++						ethernet = <&master>;
++					};
++
++					port@1 { /* external port 1 */
++						reg = <1>;
++						label = "lan1;
++					};
++
++					port@2 { /* external port 2 */
++						reg = <2>;
++						label = "lan2";
++					};
++				};
++			};
++		};
++	};
+diff --git a/drivers/net/dsa/Kconfig b/drivers/net/dsa/Kconfig
+index 73c86a19ae094..a4d0ba43b0781 100644
+--- a/drivers/net/dsa/Kconfig
++++ b/drivers/net/dsa/Kconfig
+@@ -51,4 +51,12 @@ config NET_DSA_SMSC_LAN9303_I2C
+ 	  Enable access functions if the SMSC/Microchip LAN9303 is configured
+ 	  for I2C managed mode.
+ 
++config NET_DSA_SMSC_LAN9303_MDIO
++	bool "MDIO managed mode"
++	depends on NET_DSA_SMSC_LAN9303
++	depends on OF_MDIO
++	---help---
++	  Enable access functions if the SMSC/Microchip LAN9303 is configured
++	  for MDIO managed mode.
++
+ endmenu
+diff --git a/drivers/net/dsa/Makefile b/drivers/net/dsa/Makefile
+index 2711417c73ef3..6ccb8899f3082 100644
+--- a/drivers/net/dsa/Makefile
++++ b/drivers/net/dsa/Makefile
+@@ -1,5 +1,6 @@
+ lan9303-objs-y			:= lan9303-core.o
+ lan9303-objs-$(CONFIG_NET_DSA_SMSC_LAN9303_I2C) += lan9303_i2c.o
++lan9303-objs-$(CONFIG_NET_DSA_SMSC_LAN9303_MDIO) += lan9303_mdio.o
+ 
+ obj-$(CONFIG_NET_DSA_MV88E6060) += mv88e6060.o
+ obj-$(CONFIG_NET_DSA_BCM_SF2)	+= bcm-sf2.o
+diff --git a/drivers/net/dsa/lan9303_mdio.c b/drivers/net/dsa/lan9303_mdio.c
+new file mode 100644
+index 0000000000000..87c5cfa946a92
+--- /dev/null
++++ b/drivers/net/dsa/lan9303_mdio.c
+@@ -0,0 +1,144 @@
++/*
++ * Copyright (C) 2017 Pengutronix, Juergen Borleis <kernel@pengutronix.de>
++ *
++ * Partially based on a patch from
++ * Copyright (c) 2014 Stefan Roese <sr@denx.de>
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * version 2, as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ */
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/mdio.h>
++#include <linux/phy.h>
++#include <linux/of.h>
++
++#include "lan9303.h"
++
++/* Generate phy-addr and -reg from the input address */
++#define PHY_ADDR(x) ((((x) >> 6) + 0x10) & 0x1f)
++#define PHY_REG(x) (((x) >> 1) & 0x1f)
++
++struct lan9303_mdio {
++	struct mdio_device *device;
++	struct lan9303 chip;
++};
++
++static void lan9303_mdio_real_write(struct mdio_device *mdio, int reg, u16 val)
++{
++	mdio->bus->write(mdio->bus, PHY_ADDR(reg), PHY_REG(reg), val);
++}
++
++static int lan9303_mdio_write(void *ctx, uint32_t reg, uint32_t val)
++{
++	struct lan9303_mdio *sw_dev = (struct lan9303_mdio *)ctx;
++
++	mutex_lock(&sw_dev->device->bus->mdio_lock);
++	lan9303_mdio_real_write(sw_dev->device, reg, val & 0xffff);
++	lan9303_mdio_real_write(sw_dev->device, reg + 2, (val >> 16) & 0xffff);
++	mutex_unlock(&sw_dev->device->bus->mdio_lock);
++
++	return 0;
++}
++
++static u16 lan9303_mdio_real_read(struct mdio_device *mdio, int reg)
++{
++	return mdio->bus->read(mdio->bus, PHY_ADDR(reg), PHY_REG(reg));
++}
++
++static int lan9303_mdio_read(void *ctx, uint32_t reg, uint32_t *val)
++{
++	struct lan9303_mdio *sw_dev = (struct lan9303_mdio *)ctx;
++
++	mutex_lock(&sw_dev->device->bus->mdio_lock);
++	*val = lan9303_mdio_real_read(sw_dev->device, reg);
++	*val |= (lan9303_mdio_real_read(sw_dev->device, reg + 2) << 16);
++	mutex_unlock(&sw_dev->device->bus->mdio_lock);
++
++	return 0;
++}
++
++static const struct regmap_config lan9303_mdio_regmap_config = {
++	.reg_bits = 8,
++	.val_bits = 32,
++	.reg_stride = 1,
++	.can_multi_write = true,
++	.max_register = 0x0ff, /* address bits 0..1 are not used */
++	.reg_format_endian = REGMAP_ENDIAN_LITTLE,
++
++	.volatile_table = &lan9303_register_set,
++	.wr_table = &lan9303_register_set,
++	.rd_table = &lan9303_register_set,
++
++	.reg_read = lan9303_mdio_read,
++	.reg_write = lan9303_mdio_write,
++
++	.cache_type = REGCACHE_NONE,
++};
++
++static int lan9303_mdio_probe(struct mdio_device *mdiodev)
++{
++	struct lan9303_mdio *sw_dev;
++	int ret;
++
++	sw_dev = devm_kzalloc(&mdiodev->dev, sizeof(struct lan9303_mdio),
++			      GFP_KERNEL);
++	if (!sw_dev)
++		return -ENOMEM;
++
++	sw_dev->chip.regmap = devm_regmap_init(&mdiodev->dev, NULL, sw_dev,
++						&lan9303_mdio_regmap_config);
++	if (IS_ERR(sw_dev->chip.regmap)) {
++		ret = PTR_ERR(sw_dev->chip.regmap);
++		dev_err(&mdiodev->dev, "regmap init failed: %d\n", ret);
++		return ret;
++	}
++
++	/* link forward and backward */
++	sw_dev->device = mdiodev;
++	dev_set_drvdata(&mdiodev->dev, sw_dev);
++	sw_dev->chip.dev = &mdiodev->dev;
++
++	ret = lan9303_probe(&sw_dev->chip, mdiodev->dev.of_node);
++	if (ret != 0)
++		return ret;
++
++	dev_info(&mdiodev->dev, "LAN9303 MDIO driver loaded successfully\n");
++
++	return 0;
++}
++
++static void lan9303_mdio_remove(struct mdio_device *mdiodev)
++{
++	struct lan9303_mdio *sw_dev = dev_get_drvdata(&mdiodev->dev);
++
++	if (!sw_dev)
++		return;
++
++	lan9303_remove(&sw_dev->chip);
++}
++
++/*-------------------------------------------------------------------------*/
++
++static const struct of_device_id lan9303_mdio_of_match[] = {
++	{ .compatible = "smsc,lan9303-mdio" },
++	{ /* sentinel */ },
++};
++MODULE_DEVICE_TABLE(of, lan9303_mdio_of_match);
++
++static struct mdio_driver lan9303_mdio_driver = {
++	.mdiodrv.driver = {
++		.name = "LAN9303_MDIO",
++		.of_match_table = of_match_ptr(lan9303_mdio_of_match),
++	},
++	.probe  = lan9303_mdio_probe,
++	.remove = lan9303_mdio_remove,
++};
++mdio_module_driver(lan9303_mdio_driver);
+-- 
+2.11.0
