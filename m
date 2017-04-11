@@ -1,51 +1,101 @@
-From: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
-Subject: Re: [PATCH net-next v4 1/5] netlink: extended ACK reporting
-Date: Tue, 11 Apr 2017 10:57:23 +0200
-Message-ID: <20170411085723.GE1976@nanopsycho>
-References: <20170411065700.2623-1-johannes@sipsolutions.net>
- <20170411065700.2623-2-johannes@sipsolutions.net>
- <20170411071900.GC1976@nanopsycho>
- <1491895758.31620.4.camel@sipsolutions.net>
- <20170411081346.GD1976@nanopsycho>
- <1491899392.31620.14.camel@sipsolutions.net>
+From: Niklas Cassel <niklas.cassel@axis.com>
+Subject: Re: [PATCH net-next] net: stmmac: set total length of the packet to
+ be transmitted in TDES3
+Date: Tue, 11 Apr 2017 11:10:06 +0200
+Message-ID: <cfa7d7e4-621c-5b64-f707-51b0fa77ece9@axis.com>
+References: <20170410183329.28847-1-niklass@axis.com>
+ <8e26bc0b-62eb-da22-8144-7cae2efe8095@synopsys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
-        Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        David Ahern <dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
-To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1491899392.31620.14.camel-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 8bit
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: Joao Pinto <Joao.Pinto@synopsys.com>, <peppe.cavallaro@st.com>,
+        <alexandre.torgue@st.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <8e26bc0b-62eb-da22-8144-7cae2efe8095@synopsys.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Tue, Apr 11, 2017 at 10:29:52AM CEST, johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org wrote:
->On Tue, 2017-04-11 at 10:13 +0200, Jiri Pirko wrote:
->> Tue, Apr 11, 2017 at 09:29:18AM CEST, johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
->> wrote:
->> > On Tue, 2017-04-11 at 09:19 +0200, Jiri Pirko wrote:
->> > > 
->> > > > +	NUM_NLMSGERR_ATTRS,
->> > > 
->> > > According to the rest of the uapi, this should be rather named:
->> > > 	__NLMSGERR_ATTR_MAX
->> > 
->> > nl80211 uses NUM_ so I guess that's a matter of convention, but I
->> > can
->> > change that I guess.
->> 
->> Please do.
->
->No further comments on any other parts of the patch(es)? :)
+On 04/11/2017 10:48 AM, Joao Pinto wrote:
+> 
+> Hi Niklas,
+> 
+> Às 7:33 PM de 4/10/2017, Niklas Cassel escreveu:
+>> From: Niklas Cassel <niklas.cassel@axis.com>
+>>
+>> Field FL/TPL in register TDES3 is not correctly set on GMAC4.
+>> TX appears to be functional on GMAC 4.10a even if this field is not set,
+>> however, to avoid relying on undefined behavior, set the length in TDES3.
+>>
+>> The field has a different meaning depending on if the TSE bit in TDES3
+>> is set or not (TSO). However, regardless of the TSE bit, the field is
+>> not optional. The field is already set correctly when the TSE bit is set.
+>>
+>> Since there is no limit for the number of descriptors that can be
+>> used for a single packet, the field should be set to the sum of
+>> the buffers contained in:
+>> [<desc with First Descriptor bit set> ... <desc n> ...
+>> <desc with Last Descriptor bit set>], which should be equal to skb->len.
+>>
+>> Signed-off-by: Niklas Cassel <niklas.cassel@axis.com>
+> 
+> Sounds fine to me. Did you check for performance improvement? Thanks.
+> 
 
-I didn't found anything aside the narrow descriptions- you have it like
-that in 4 out of 5 patches :)
+Hello Joao,
+
+I could not see any difference with 1 TCP stream in iperf3
+
+Without the patch:
+# ./iperf3-armhf -c 192.168.0.1
+Connecting to host 192.168.0.1, port 5201
+[  4] local 192.168.0.105 port 51878 connected to 192.168.0.1 port 5201
+[   23.486426] random: fast init done
+[ ID] Interval           Transfer     Bandwidth       Retr  Cwnd
+[  4]   0.00-1.00   sec  61.7 MBytes   517 Mbits/sec    0    294 KBytes       
+[  4]   1.00-2.00   sec  61.3 MBytes   515 Mbits/sec    0    294 KBytes       
+[   26.043850] random: crng init done
+[  4]   2.00-3.00   sec  61.4 MBytes   515 Mbits/sec    0    294 KBytes       
+[  4]   3.00-4.00   sec  61.0 MBytes   512 Mbits/sec    0    294 KBytes       
+[  4]   4.00-5.00   sec  61.5 MBytes   516 Mbits/sec    0    294 KBytes       
+[  4]   5.00-6.00   sec  61.2 MBytes   514 Mbits/sec    0    294 KBytes       
+[  4]   6.00-7.00   sec  61.5 MBytes   516 Mbits/sec    0    294 KBytes       
+[  4]   7.00-8.00   sec  61.4 MBytes   515 Mbits/sec    0    294 KBytes       
+[  4]   8.00-9.00   sec  61.2 MBytes   514 Mbits/sec    0    294 KBytes       
+[  4]   9.00-10.00  sec  61.3 MBytes   514 Mbits/sec    0    294 KBytes       
+- - - - - - - - - - - - - - - - - - - - - - - - -
+[ ID] Interval           Transfer     Bandwidth       Retr
+[  4]   0.00-10.00  sec   614 MBytes   515 Mbits/sec    0             sender
+[  4]   0.00-10.00  sec   613 MBytes   514 Mbits/sec                  receiver
 
 
->
->I don't want to be resending all the time, so I guess I'll wait. For
->now, all code is in the nl-err branch in mac80211-next.
->
->johannes
+With the patch:
+# ./iperf3-armhf -c 192.168.0.1
+Connecting to host 192.168.0.1, port 5201
+[  4] local 192.168.0.105 port 37696 connected to 192.168.0.1 port 5201
+[   85.266262] random: fast init done
+[ ID] Interval           Transfer     Bandwidth       Retr  Cwnd
+[  4]   0.00-1.00   sec  62.1 MBytes   520 Mbits/sec    0    288 KBytes       
+[  4]   1.00-2.00   sec  61.0 MBytes   512 Mbits/sec    0    288 KBytes       
+[   87.782547] random: crng init done
+[  4]   2.00-3.00   sec  61.3 MBytes   515 Mbits/sec    0    300 KBytes       
+[  4]   3.00-4.00   sec  61.1 MBytes   512 Mbits/sec    0    300 KBytes       
+[  4]   4.00-5.00   sec  61.4 MBytes   515 Mbits/sec    0    300 KBytes       
+[  4]   5.00-6.00   sec  61.1 MBytes   513 Mbits/sec    0    300 KBytes       
+[  4]   6.00-7.00   sec  61.1 MBytes   513 Mbits/sec    0    300 KBytes       
+[  4]   7.00-8.00   sec  61.6 MBytes   517 Mbits/sec    0    300 KBytes       
+[  4]   8.00-9.00   sec  61.3 MBytes   515 Mbits/sec    0    300 KBytes       
+[  4]   9.00-10.00  sec  61.6 MBytes   517 Mbits/sec    0    300 KBytes       
+- - - - - - - - - - - - - - - - - - - - - - - - -
+[ ID] Interval           Transfer     Bandwidth       Retr
+[  4]   0.00-10.00  sec   614 MBytes   515 Mbits/sec    0             sender
+[  4]   0.00-10.00  sec   613 MBytes   514 Mbits/sec                  receiver
+
+
+Note that the results above are with TSO off.
+With TSO on, I get 921 Mbps.
+However, the patch should not affect the case where TSO is on.
+
+
+Regards,
+Niklas
