@@ -1,46 +1,97 @@
-From: Fugang Duan <fugang.duan@nxp.com>
-Subject: [PATCH net-next 6/6] net: fec: add ERR007885 for i.MX6ul enet IP
-Date: Tue, 11 Apr 2017 19:13:08 +0800
-Message-ID: <1491909188-8971-7-git-send-email-fugang.duan@nxp.com>
-References: <1491909188-8971-1-git-send-email-fugang.duan@nxp.com>
+From: Roger Quadros <rogerq@ti.com>
+Subject: Re: [PATCH v3 1/2] net: phy: Fix PHY AN done state machine for
+ interrupt driven PHYs
+Date: Tue, 11 Apr 2017 14:17:12 +0300
+Message-ID: <203afff4-7dd7-e185-000a-1689a97dfb67@ti.com>
+References: <1490180524-28675-1-git-send-email-rogerq@ti.com>
+ <1490180524-28675-2-git-send-email-rogerq@ti.com>
+ <078917ad-77a1-a722-1688-6203ae183a46@ti.com>
+ <bfaac2be-175b-c370-43ce-7a11b2933e1c@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <bhutchings@solarflare.com>,
-        <stephen@networkplumber.org>, <fugang.duan@nxp.com>
-To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2nam02on0053.outbound.protection.outlook.com ([104.47.38.53]:39161
-        "EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1754624AbdDKLP3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 11 Apr 2017 07:15:29 -0400
-In-Reply-To: <1491909188-8971-1-git-send-email-fugang.duan@nxp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <kyle.roeschley@ni.com>, <nsekhar@ti.com>,
+        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        "stable # v4 . 9+" <stable@vger.kernel.org>,
+        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        "Andrew F. Davis" <afd@ti.com>
+To: <f.fainelli@gmail.com>, <andrew@lunn.ch>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <bfaac2be-175b-c370-43ce-7a11b2933e1c@ti.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The errata ERR007885 HW fix don't add to i.MX6ul ENET IP version,
-so add sw workaroud for the chip.
+Hi,
 
-Signed-off-by: Fugang Duan <fugang.duan@nxp.com>
----
- drivers/net/ethernet/freescale/fec_main.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+On 28/03/17 13:05, Roger Quadros wrote:
+> +Andrew Davis & Sekhar.
+> 
+> Hi,
+> 
+> Andrew Davis posted a few comments offline which I'm clarifying here.
+> 
+> On 27/03/17 14:59, Roger Quadros wrote:
+>> The Ethernet link on an interrupt driven PHY was not coming up if the
+>> Ethernet cable was plugged before the Ethernet interface was brought up.
+>>
+>> The PHY state machine seems to be stuck from RUNNING to AN state
+>> with no new interrupts from the PHY. So it doesn't know when the
+>> PHY Auto-negotiation has been completed and doesn't transition to RUNNING
+>> state with ANEG done thus netif_carrier_on() is never called.
+>>
+>> NOTE: genphy_config_aneg() will not restart PHY Auto-negotiation of
+>> advertisement parameters didn't change.
+> 
+> Is phy->config_aneg expected to *always* restart auto-negotiation even if
+> advertisement parameters didn't change?
+> If so then we'll need to fix genphy_config_aneg().
+> 
+>>
+>> Fix this by scheduling the PHY state machine in phy_start_aneg().
+>> There is no way of knowing in phy.c whether auto-negotiation was
+>> restarted or not by the PHY driver so we just wait for the next
+>> poll/interrupt to update the PHY state machine.
+>>
+>> Fixes: 3c293f4e08b5 ("net: phy: Trigger state machine on state change and not polling.")
+>> Cc: stable <stable@vger.kernel.org> # v4.9+
+>> Signed-off-by: Roger Quadros <rogerq@ti.com>
+>> ---
+>> v3: Fix typo in commit message
+>>
+>>  drivers/net/phy/phy.c | 4 ++++
+>>  1 file changed, 4 insertions(+)
+>>
+>> diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+>> index 1be69d8..49dedf8 100644
+>> --- a/drivers/net/phy/phy.c
+>> +++ b/drivers/net/phy/phy.c
+>> @@ -630,6 +630,10 @@ int phy_start_aneg(struct phy_device *phydev)
+>>  
+>>  out_unlock:
+>>  	mutex_unlock(&phydev->lock);
+>> +	if (!err && phy_interrupt_is_valid(phydev))
+>> +		queue_delayed_work(system_power_efficient_wq,
+>> +				   &phydev->state_queue, HZ);
+>> +
+>>  	return err;
+>>  }
+>>  EXPORT_SYMBOL(phy_start_aneg);
+>>
+> 
+> There is still room for optimization for interrupt driven PHYs as I still
+> see a delay of 1 second between "ifconfig ethx up" and link status coming up
+> if cable was already plugged in. In fact if Auto-negotiation was already completed
+> and not required to be restarted, the PHY state machine should have move from
+> AN to RUNNING instantly without expecting a PHY interrupt.
+> 
+> How can we get rid of the unnecessary delay in the case where auto-negotiation
+> is not restarted?
+> Should we check for phy_aneg_done() immediately after issuing a phy_start_aneg()
+> in phy_state_machine() and switch from PHY_AN to PHY_RUNNING?
+> 
+> This should avoid the need to re-schedule the state machine in phy_start_angeg().
 
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index f3a7835..a92bf94 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -117,8 +117,9 @@
- 		.name = "imx6ul-fec",
- 		.driver_data = FEC_QUIRK_ENET_MAC | FEC_QUIRK_HAS_GBIT |
- 				FEC_QUIRK_HAS_BUFDESC_EX | FEC_QUIRK_HAS_CSUM |
--				FEC_QUIRK_HAS_VLAN | FEC_QUIRK_BUG_CAPTURE |
--				FEC_QUIRK_HAS_RACC | FEC_QUIRK_HAS_COALESCE,
-+				FEC_QUIRK_HAS_VLAN | FEC_QUIRK_ERR007885 |
-+				FEC_QUIRK_BUG_CAPTURE | FEC_QUIRK_HAS_RACC |
-+				FEC_QUIRK_HAS_COALESCE,
- 	}, {
- 		/* sentinel */
- 	}
--- 
-1.9.1
+Any comments on my questions?
+
+cheers,
+-roger
