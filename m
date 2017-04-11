@@ -1,7 +1,7 @@
 From: Christoph Hellwig <hch@lst.de>
-Subject: [PATCH 5/5] mlxsw: convert to pci_alloc_irq_vectors
-Date: Tue, 11 Apr 2017 13:01:25 +0200
-Message-ID: <20170411110125.3446-6-hch@lst.de>
+Subject: [PATCH 4/5] PCI: remove pci_enable_msix
+Date: Tue, 11 Apr 2017 13:01:24 +0200
+Message-ID: <20170411110125.3446-5-hch@lst.de>
 References: <20170411110125.3446-1-hch@lst.de>
 Cc: bhelgaas@google.com, netanel@annapurnalabs.com, jcliburn@gmail.com,
         chris.snook@gmail.com, sgoutham@cavium.com, rric@kernel.org,
@@ -9,83 +9,76 @@ Cc: bhelgaas@google.com, netanel@annapurnalabs.com, jcliburn@gmail.com,
         linux-pci@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([65.50.211.133]:45751 "EHLO
+Received: from bombadil.infradead.org ([65.50.211.133]:60960 "EHLO
         bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752841AbdDKLCA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 11 Apr 2017 07:02:00 -0400
+        with ESMTP id S1754164AbdDKLBu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 11 Apr 2017 07:01:50 -0400
 In-Reply-To: <20170411110125.3446-1-hch@lst.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Trivial conversion as only one vector is supported, but at least we
-lose the useless msix_entry member in the per-device structure.
+Unused now that all callers switched to pci_alloc_irq_vectors.
 
 Signed-off-by: Christoph Hellwig <hch@lst.de>
-Acked-by: Jiri Pirko <jiri@mellanox.com>
-Reviewed-by: Ido Schimmel <idosch@mellanox.com>
-Tested-by: Ido Schimmel <idosch@mellanox.com>
+Acked-by: Bjorn Helgaas <bhelgaas@google.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/pci.c | 13 ++++++-------
- 1 file changed, 6 insertions(+), 7 deletions(-)
+ drivers/pci/msi.c   | 21 ---------------------
+ include/linux/pci.h |  4 ----
+ 2 files changed, 25 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/pci.c b/drivers/net/ethernet/mellanox/mlxsw/pci.c
-index eaa3e3bf5a2b..23f7d828cf67 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/pci.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/pci.c
-@@ -136,7 +136,6 @@ struct mlxsw_pci {
- 	u8 __iomem *hw_addr;
- 	struct mlxsw_pci_queue_type_group queues[MLXSW_PCI_QUEUE_TYPE_COUNT];
- 	u32 doorbell_offset;
--	struct msix_entry msix_entry;
- 	struct mlxsw_core *core;
- 	struct {
- 		struct mlxsw_pci_mem_item *items;
-@@ -1409,7 +1408,7 @@ static int mlxsw_pci_init(void *bus_priv, struct mlxsw_core *mlxsw_core,
- 	if (err)
- 		goto err_aqs_init;
+diff --git a/drivers/pci/msi.c b/drivers/pci/msi.c
+index d571bc330686..0042c365b29b 100644
+--- a/drivers/pci/msi.c
++++ b/drivers/pci/msi.c
+@@ -973,27 +973,6 @@ static int __pci_enable_msix(struct pci_dev *dev, struct msix_entry *entries,
+ 	return msix_capability_init(dev, entries, nvec, affd);
+ }
  
--	err = request_irq(mlxsw_pci->msix_entry.vector,
-+	err = request_irq(pci_irq_vector(pdev, 0),
- 			  mlxsw_pci_eq_irq_handler, 0,
- 			  mlxsw_pci->bus_info.device_kind, mlxsw_pci);
- 	if (err) {
-@@ -1442,7 +1441,7 @@ static void mlxsw_pci_fini(void *bus_priv)
+-/**
+- * pci_enable_msix - configure device's MSI-X capability structure
+- * @dev: pointer to the pci_dev data structure of MSI-X device function
+- * @entries: pointer to an array of MSI-X entries (optional)
+- * @nvec: number of MSI-X irqs requested for allocation by device driver
+- *
+- * Setup the MSI-X capability structure of device function with the number
+- * of requested irqs upon its software driver call to request for
+- * MSI-X mode enabled on its hardware device function. A return of zero
+- * indicates the successful configuration of MSI-X capability structure
+- * with new allocated MSI-X irqs. A return of < 0 indicates a failure.
+- * Or a return of > 0 indicates that driver request is exceeding the number
+- * of irqs or MSI-X vectors available. Driver should use the returned value to
+- * re-send its request.
+- **/
+-int pci_enable_msix(struct pci_dev *dev, struct msix_entry *entries, int nvec)
+-{
+-	return __pci_enable_msix(dev, entries, nvec, NULL);
+-}
+-EXPORT_SYMBOL(pci_enable_msix);
+-
+ void pci_msix_shutdown(struct pci_dev *dev)
  {
- 	struct mlxsw_pci *mlxsw_pci = bus_priv;
- 
--	free_irq(mlxsw_pci->msix_entry.vector, mlxsw_pci);
-+	free_irq(pci_irq_vector(mlxsw_pci->pdev, 0), mlxsw_pci);
- 	mlxsw_pci_aqs_fini(mlxsw_pci);
- 	mlxsw_pci_fw_area_fini(mlxsw_pci);
- 	mlxsw_pci_mbox_free(mlxsw_pci, &mlxsw_pci->cmd.out_mbox);
-@@ -1717,8 +1716,8 @@ static int mlxsw_pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
- 		goto err_sw_reset;
- 	}
- 
--	err = pci_enable_msix_exact(pdev, &mlxsw_pci->msix_entry, 1);
--	if (err) {
-+	err = pci_alloc_irq_vectors(pdev, 1, 1, PCI_IRQ_MSIX);
-+	if (err < 0) {
- 		dev_err(&pdev->dev, "MSI-X init failed\n");
- 		goto err_msix_init;
- 	}
-@@ -1737,7 +1736,7 @@ static int mlxsw_pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
- 	return 0;
- 
- err_bus_device_register:
--	pci_disable_msix(mlxsw_pci->pdev);
-+	pci_free_irq_vectors(mlxsw_pci->pdev);
- err_msix_init:
- err_sw_reset:
- 	iounmap(mlxsw_pci->hw_addr);
-@@ -1757,7 +1756,7 @@ static void mlxsw_pci_remove(struct pci_dev *pdev)
- 	struct mlxsw_pci *mlxsw_pci = pci_get_drvdata(pdev);
- 
- 	mlxsw_core_bus_device_unregister(mlxsw_pci->core);
--	pci_disable_msix(mlxsw_pci->pdev);
-+	pci_free_irq_vectors(mlxsw_pci->pdev);
- 	iounmap(mlxsw_pci->hw_addr);
- 	pci_release_regions(mlxsw_pci->pdev);
- 	pci_disable_device(mlxsw_pci->pdev);
+ 	struct msi_desc *entry;
+diff --git a/include/linux/pci.h b/include/linux/pci.h
+index eb3da1a04e6c..82dec36845e6 100644
+--- a/include/linux/pci.h
++++ b/include/linux/pci.h
+@@ -1300,7 +1300,6 @@ int pci_msi_vec_count(struct pci_dev *dev);
+ void pci_msi_shutdown(struct pci_dev *dev);
+ void pci_disable_msi(struct pci_dev *dev);
+ int pci_msix_vec_count(struct pci_dev *dev);
+-int pci_enable_msix(struct pci_dev *dev, struct msix_entry *entries, int nvec);
+ void pci_msix_shutdown(struct pci_dev *dev);
+ void pci_disable_msix(struct pci_dev *dev);
+ void pci_restore_msi_state(struct pci_dev *dev);
+@@ -1330,9 +1329,6 @@ static inline int pci_msi_vec_count(struct pci_dev *dev) { return -ENOSYS; }
+ static inline void pci_msi_shutdown(struct pci_dev *dev) { }
+ static inline void pci_disable_msi(struct pci_dev *dev) { }
+ static inline int pci_msix_vec_count(struct pci_dev *dev) { return -ENOSYS; }
+-static inline int pci_enable_msix(struct pci_dev *dev,
+-				  struct msix_entry *entries, int nvec)
+-{ return -ENOSYS; }
+ static inline void pci_msix_shutdown(struct pci_dev *dev) { }
+ static inline void pci_disable_msix(struct pci_dev *dev) { }
+ static inline void pci_restore_msi_state(struct pci_dev *dev) { }
 -- 
 2.11.0
