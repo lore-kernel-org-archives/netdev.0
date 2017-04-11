@@ -1,7 +1,7 @@
 From: Julian Wiedmann <jwi@linux.vnet.ibm.com>
-Subject: [PATCH net-next 03/10] s390/qeth: move gdev shutdown handler to core
-Date: Tue, 11 Apr 2017 16:11:12 +0200
-Message-ID: <20170411141119.82526-4-jwi@linux.vnet.ibm.com>
+Subject: [PATCH net-next 09/10] s390/qeth: use LINK_MODE_* to report the link characteristics
+Date: Tue, 11 Apr 2017 16:11:18 +0200
+Message-ID: <20170411141119.82526-10-jwi@linux.vnet.ibm.com>
 References: <20170411141119.82526-1-jwi@linux.vnet.ibm.com>
 Cc: <netdev@vger.kernel.org>, <linux-s390@vger.kernel.org>,
         Martin Schwidefsky <schwidefsky@de.ibm.com>,
@@ -11,126 +11,138 @@ Cc: <netdev@vger.kernel.org>, <linux-s390@vger.kernel.org>,
         Julian Wiedmann <jwi@linux.vnet.ibm.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:33688 "EHLO
+Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:41765 "EHLO
         mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1753262AbdDKOLj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 11 Apr 2017 10:11:39 -0400
-Received: from pps.filterd (m0098419.ppops.net [127.0.0.1])
-        by mx0b-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v3BE8wMl025454
-        for <netdev@vger.kernel.org>; Tue, 11 Apr 2017 10:11:39 -0400
-Received: from e06smtp14.uk.ibm.com (e06smtp14.uk.ibm.com [195.75.94.110])
-        by mx0b-001b2d01.pphosted.com with ESMTP id 29ru2t0beq-1
+        by vger.kernel.org with ESMTP id S1753434AbdDKOLr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 11 Apr 2017 10:11:47 -0400
+Received: from pps.filterd (m0098413.ppops.net [127.0.0.1])
+        by mx0b-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v3BE91nZ047549
+        for <netdev@vger.kernel.org>; Tue, 11 Apr 2017 10:11:46 -0400
+Received: from e06smtp12.uk.ibm.com (e06smtp12.uk.ibm.com [195.75.94.108])
+        by mx0b-001b2d01.pphosted.com with ESMTP id 29rqsdfyan-1
         (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Tue, 11 Apr 2017 10:11:38 -0400
+        for <netdev@vger.kernel.org>; Tue, 11 Apr 2017 10:11:46 -0400
 Received: from localhost
-        by e06smtp14.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        by e06smtp12.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
         for <netdev@vger.kernel.org> from <jwi@linux.vnet.ibm.com>;
-        Tue, 11 Apr 2017 15:11:37 +0100
+        Tue, 11 Apr 2017 15:11:44 +0100
 In-Reply-To: <20170411141119.82526-1-jwi@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Duplicated code.
+LINK_MODE_* replaces the u32-limited SUPPORTED_* / ENABLED_*
+definitions.
 
 Signed-off-by: Julian Wiedmann <jwi@linux.vnet.ibm.com>
-Acked-by: Ursula Braun <ubraun@linux.vnet.ibm.com>
+Reviewed-by: Thomas Richter <tmricht@linux.vnet.ibm.com>
+Reviewed-by: Ursula Braun <ubraun@linux.vnet.ibm.com>
 ---
- drivers/s390/net/qeth_core.h      |  1 -
- drivers/s390/net/qeth_core_main.c |  8 ++++++--
- drivers/s390/net/qeth_l2_main.c   | 12 ------------
- drivers/s390/net/qeth_l3_main.c   | 12 ------------
- 4 files changed, 6 insertions(+), 27 deletions(-)
+ drivers/s390/net/qeth_core_main.c | 71 ++++++++++++++++++++++++++-------------
+ 1 file changed, 47 insertions(+), 24 deletions(-)
 
-diff --git a/drivers/s390/net/qeth_core.h b/drivers/s390/net/qeth_core.h
-index 196356e11077..cc1a4baeba55 100644
---- a/drivers/s390/net/qeth_core.h
-+++ b/drivers/s390/net/qeth_core.h
-@@ -711,7 +711,6 @@ struct qeth_discipline {
- 	void (*remove) (struct ccwgroup_device *);
- 	int (*set_online) (struct ccwgroup_device *);
- 	int (*set_offline) (struct ccwgroup_device *);
--	void (*shutdown)(struct ccwgroup_device *);
- 	int (*prepare) (struct ccwgroup_device *);
- 	void (*complete) (struct ccwgroup_device *);
- 	int (*freeze)(struct ccwgroup_device *);
 diff --git a/drivers/s390/net/qeth_core_main.c b/drivers/s390/net/qeth_core_main.c
-index b9063eb17436..cf5493e525e8 100644
+index 4304bc2a6620..88f4c6cff9a4 100644
 --- a/drivers/s390/net/qeth_core_main.c
 +++ b/drivers/s390/net/qeth_core_main.c
-@@ -5749,8 +5749,12 @@ static int qeth_core_set_offline(struct ccwgroup_device *gdev)
- static void qeth_core_shutdown(struct ccwgroup_device *gdev)
+@@ -6031,52 +6031,75 @@ EXPORT_SYMBOL_GPL(qeth_core_get_drvinfo);
+ static void qeth_set_cmd_adv_sup(struct ethtool_link_ksettings *cmd,
+ 				int maxspeed, int porttype)
  {
- 	struct qeth_card *card = dev_get_drvdata(&gdev->dev);
--	if (card->discipline && card->discipline->shutdown)
--		card->discipline->shutdown(gdev);
-+	qeth_set_allowed_threads(card, 0, 1);
-+	if ((gdev->state == CCWGROUP_ONLINE) && card->info.hwtrap)
-+		qeth_hw_trap(card, QETH_DIAGS_TRAP_DISARM);
-+	qeth_qdio_clear_card(card, 0);
-+	qeth_clear_qdio_buffers(card);
-+	qdio_free(CARD_DDEV(card));
- }
+-	u32 sup, adv;
++	ethtool_link_ksettings_zero_link_mode(cmd, supported);
++	ethtool_link_ksettings_zero_link_mode(cmd, advertising);
++	ethtool_link_ksettings_zero_link_mode(cmd, lp_advertising);
  
- static int qeth_core_prepare(struct ccwgroup_device *gdev)
-diff --git a/drivers/s390/net/qeth_l2_main.c b/drivers/s390/net/qeth_l2_main.c
-index 572347d65c1d..2ad378b57f9f 100644
---- a/drivers/s390/net/qeth_l2_main.c
-+++ b/drivers/s390/net/qeth_l2_main.c
-@@ -1200,17 +1200,6 @@ static void __exit qeth_l2_exit(void)
- 	pr_info("unregister layer 2 discipline\n");
- }
+-	sup = SUPPORTED_Autoneg;
+-	adv = ADVERTISED_Autoneg;
++	ethtool_link_ksettings_add_link_mode(cmd, supported, Autoneg);
++	ethtool_link_ksettings_add_link_mode(cmd, advertising, Autoneg);
  
--static void qeth_l2_shutdown(struct ccwgroup_device *gdev)
--{
--	struct qeth_card *card = dev_get_drvdata(&gdev->dev);
--	qeth_set_allowed_threads(card, 0, 1);
--	if ((gdev->state == CCWGROUP_ONLINE) && card->info.hwtrap)
--		qeth_hw_trap(card, QETH_DIAGS_TRAP_DISARM);
--	qeth_qdio_clear_card(card, 0);
--	qeth_clear_qdio_buffers(card);
--	qdio_free(CARD_DDEV(card));
--}
+ 	switch (porttype) {
+ 	case PORT_TP:
+-		sup |= SUPPORTED_TP;
+-		adv |= ADVERTISED_TP;
++		ethtool_link_ksettings_add_link_mode(cmd, supported, TP);
++		ethtool_link_ksettings_add_link_mode(cmd, advertising, TP);
+ 		break;
+ 	case PORT_FIBRE:
+-		sup |= SUPPORTED_FIBRE;
+-		adv |= ADVERTISED_FIBRE;
++		ethtool_link_ksettings_add_link_mode(cmd, supported, FIBRE);
++		ethtool_link_ksettings_add_link_mode(cmd, advertising, FIBRE);
+ 		break;
+ 	default:
+-		sup |= SUPPORTED_TP;
+-		adv |= ADVERTISED_TP;
++		ethtool_link_ksettings_add_link_mode(cmd, supported, TP);
++		ethtool_link_ksettings_add_link_mode(cmd, advertising, TP);
+ 		WARN_ON_ONCE(1);
+ 	}
+ 
+ 	/* fallthrough from high to low, to select all legal speeds: */
+ 	switch (maxspeed) {
+ 	case SPEED_10000:
+-		sup |= SUPPORTED_10000baseT_Full;
+-		adv |= ADVERTISED_10000baseT_Full;
++		ethtool_link_ksettings_add_link_mode(cmd, supported,
++						     10000baseT_Full);
++		ethtool_link_ksettings_add_link_mode(cmd, advertising,
++						     10000baseT_Full);
+ 	case SPEED_1000:
+-		sup |= SUPPORTED_1000baseT_Half | SUPPORTED_1000baseT_Full;
+-		adv |= ADVERTISED_1000baseT_Half | ADVERTISED_1000baseT_Full;
++		ethtool_link_ksettings_add_link_mode(cmd, supported,
++						     1000baseT_Full);
++		ethtool_link_ksettings_add_link_mode(cmd, advertising,
++						     1000baseT_Full);
++		ethtool_link_ksettings_add_link_mode(cmd, supported,
++						     1000baseT_Half);
++		ethtool_link_ksettings_add_link_mode(cmd, advertising,
++						     1000baseT_Half);
+ 	case SPEED_100:
+-		sup |= SUPPORTED_100baseT_Half | SUPPORTED_100baseT_Full;
+-		adv |= ADVERTISED_100baseT_Half | ADVERTISED_100baseT_Full;
++		ethtool_link_ksettings_add_link_mode(cmd, supported,
++						     100baseT_Full);
++		ethtool_link_ksettings_add_link_mode(cmd, advertising,
++						     100baseT_Full);
++		ethtool_link_ksettings_add_link_mode(cmd, supported,
++						     100baseT_Half);
++		ethtool_link_ksettings_add_link_mode(cmd, advertising,
++						     100baseT_Half);
+ 	case SPEED_10:
+-		sup |= SUPPORTED_10baseT_Half | SUPPORTED_10baseT_Full;
+-		adv |= ADVERTISED_10baseT_Half | ADVERTISED_10baseT_Full;
++		ethtool_link_ksettings_add_link_mode(cmd, supported,
++						     10baseT_Full);
++		ethtool_link_ksettings_add_link_mode(cmd, advertising,
++						     10baseT_Full);
++		ethtool_link_ksettings_add_link_mode(cmd, supported,
++						     10baseT_Half);
++		ethtool_link_ksettings_add_link_mode(cmd, advertising,
++						     10baseT_Half);
+ 		/* end fallthrough */
+ 		break;
+ 	default:
+-		sup |= SUPPORTED_10baseT_Half | SUPPORTED_10baseT_Full;
+-		adv |= ADVERTISED_10baseT_Half | ADVERTISED_10baseT_Full;
++		ethtool_link_ksettings_add_link_mode(cmd, supported,
++						     10baseT_Full);
++		ethtool_link_ksettings_add_link_mode(cmd, advertising,
++						     10baseT_Full);
++		ethtool_link_ksettings_add_link_mode(cmd, supported,
++						     10baseT_Half);
++		ethtool_link_ksettings_add_link_mode(cmd, advertising,
++						     10baseT_Half);
+ 		WARN_ON_ONCE(1);
+ 	}
 -
- static int qeth_l2_pm_suspend(struct ccwgroup_device *gdev)
- {
- 	struct qeth_card *card = dev_get_drvdata(&gdev->dev);
-@@ -1288,7 +1277,6 @@ struct qeth_discipline qeth_l2_discipline = {
- 	.remove = qeth_l2_remove_device,
- 	.set_online = qeth_l2_set_online,
- 	.set_offline = qeth_l2_set_offline,
--	.shutdown = qeth_l2_shutdown,
- 	.freeze = qeth_l2_pm_suspend,
- 	.thaw = qeth_l2_pm_resume,
- 	.restore = qeth_l2_pm_resume,
-diff --git a/drivers/s390/net/qeth_l3_main.c b/drivers/s390/net/qeth_l3_main.c
-index bd6ad9be9245..ca21a2065a5d 100644
---- a/drivers/s390/net/qeth_l3_main.c
-+++ b/drivers/s390/net/qeth_l3_main.c
-@@ -3251,17 +3251,6 @@ static int qeth_l3_recover(void *ptr)
- 	return 0;
+-	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.supported,
+-						sup);
+-	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.advertising,
+-						adv);
  }
  
--static void qeth_l3_shutdown(struct ccwgroup_device *gdev)
--{
--	struct qeth_card *card = dev_get_drvdata(&gdev->dev);
--	qeth_set_allowed_threads(card, 0, 1);
--	if ((gdev->state == CCWGROUP_ONLINE) && card->info.hwtrap)
--		qeth_hw_trap(card, QETH_DIAGS_TRAP_DISARM);
--	qeth_qdio_clear_card(card, 0);
--	qeth_clear_qdio_buffers(card);
--	qdio_free(CARD_DDEV(card));
--}
--
- static int qeth_l3_pm_suspend(struct ccwgroup_device *gdev)
- {
- 	struct qeth_card *card = dev_get_drvdata(&gdev->dev);
-@@ -3325,7 +3314,6 @@ struct qeth_discipline qeth_l3_discipline = {
- 	.remove = qeth_l3_remove_device,
- 	.set_online = qeth_l3_set_online,
- 	.set_offline = qeth_l3_set_offline,
--	.shutdown = qeth_l3_shutdown,
- 	.freeze = qeth_l3_pm_suspend,
- 	.thaw = qeth_l3_pm_resume,
- 	.restore = qeth_l3_pm_resume,
+ int qeth_core_ethtool_get_link_ksettings(struct net_device *netdev,
 -- 
 2.10.2
