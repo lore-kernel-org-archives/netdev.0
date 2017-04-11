@@ -1,43 +1,43 @@
-From: zhong jiang <zhongjiang@huawei.com>
-Subject: Re: Page allocator order-0 optimizations merged
-Date: Tue, 11 Apr 2017 09:54:39 +0800
-Message-ID: <58EC375F.5040800@huawei.com>
-References: <58b48b1f.F/jo2/WiSxvvGm/z%akpm@linux-foundation.org> <20170301144845.783f8cad@redhat.com> <58EB9754.3090202@huawei.com> <20170410151051.n4lytmha4tqh4l3t@techsingularity.net>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH iproute2 net-next 1/2] iproute: Add support for
+ ttl-propagation attribute
+Date: Mon, 10 Apr 2017 21:43:53 -0600
+Message-ID: <08e2c6b8-0910-0d0b-39a4-887a0d3e4f94@cumulusnetworks.com>
+References: <1491834972-26668-1-git-send-email-rshearma@brocade.com>
+ <1491834972-26668-2-git-send-email-rshearma@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-15"
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        <akpm@linux-foundation.org>, linux-mm <linux-mm@kvack.org>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Tariq Toukan <tariqt@mellanox.com>
-To: Mel Gorman <mgorman@techsingularity.net>
+Cc: stephen@networkplumber.org
+To: Robert Shearman <rshearma@brocade.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([45.249.212.188]:5357 "EHLO
-        dggrg02-dlp.huawei.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751101AbdDKB4B (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 10 Apr 2017 21:56:01 -0400
-In-Reply-To: <20170410151051.n4lytmha4tqh4l3t@techsingularity.net>
+Received: from mail-pg0-f53.google.com ([74.125.83.53]:36046 "EHLO
+        mail-pg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751101AbdDKDn4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 10 Apr 2017 23:43:56 -0400
+Received: by mail-pg0-f53.google.com with SMTP id g2so114160884pge.3
+        for <netdev@vger.kernel.org>; Mon, 10 Apr 2017 20:43:56 -0700 (PDT)
+In-Reply-To: <1491834972-26668-2-git-send-email-rshearma@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2017/4/10 23:10, Mel Gorman wrote:
-> On Mon, Apr 10, 2017 at 10:31:48PM +0800, zhong jiang wrote:
->> Hi, Mel
->>
->>      The patch I had test on arm64. I find the great degradation. I test it by micro-bench.
->>     The patrly data is as following.  and it is stable.  That stands for the allocate and free time. 
->>     
-> What type of allocations is the benchmark doing? In particular, what context
-> is the microbenchmark allocating from? Lastly, how did you isolate the
-> patch, did you test two specific commits in mainline or are you comparing
-> 4.10 with 4.11-rcX?
->
- Hi, Mel
+On 4/10/17 8:36 AM, Robert Shearman wrote:
+> @@ -1184,6 +1192,20 @@ static int iproute_modify(int cmd, unsigned int flags, int argc, char **argv)
+>  
+>  			if (rta->rta_len > RTA_LENGTH(0))
+>  				addraw_l(&req.n, 1024, RTA_DATA(rta), RTA_PAYLOAD(rta));
+> +		} else if (strcmp(*argv, "ttl-propagate") == 0) {
+> +			__u8 ttl_prop;
+> +
+> +			NEXT_ARG();
+> +			if (strcmp(*argv, "enabled") == 0)
+> +				ttl_prop = 1;
+> +			else if (strcmp(*argv, "disabled") == 0)
+> +				ttl_prop = 0;
+> +			else
+> +				invarg("\"ttl-propagate\" value is invalid\n",
+> +				       *argv);
+> +
 
-   benchmark adopt  0 order allocation.  just insmod module  allocate  memory by alloc_pages.
-   it is not interrupt context.  I test the patch in linux 4.1 stable. In x86 , it have 10% improve.
-   but in arm64,  it have great degradation.  
-
-  Thanks
-  zhongjiang
+matches() instead of strcmp() is more user friendly. 'enabled' is a lot
+to type. ;-)
