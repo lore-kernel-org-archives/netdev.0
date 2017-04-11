@@ -1,61 +1,50 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: Re: RFC: Checksum offload and XDP
-Date: Tue, 11 Apr 2017 16:55:38 +0100
-Message-ID: <63f0f671-5b33-4895-355c-be6259b16341@solarflare.com>
-References: <CALx6S357=e3414sPBnW3ajzXfkvVBiGMChx+vgbf9snpe95-aQ@mail.gmail.com>
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Subject: [PATCH net-next v2] devlink: fix return value check in devlink_dpipe_header_put()
+Date: Tue, 11 Apr 2017 16:02:02 +0000
+Message-ID: <20170411160202.17469-1-weiyj.lk@gmail.com>
+References: <20170410131106.27683-1-weiyj.lk@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: Tom Herbert <tom@herbertland.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Alexei Starovoitov <ast@kernel.org>
+Cc: Wei Yongjun <weiyongjun1@huawei.com>, netdev@vger.kernel.org
+To: Jiri Pirko <jiri@mellanox.com>,
+        Arkadi Sharshevsky <arkadis@mellanox.com>,
+        "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from connect-us.pphosted.com ([67.231.154.164]:46343 "EHLO
-        dispatch1-us1.ppe-hosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751564AbdDKPzv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 11 Apr 2017 11:55:51 -0400
-In-Reply-To: <CALx6S357=e3414sPBnW3ajzXfkvVBiGMChx+vgbf9snpe95-aQ@mail.gmail.com>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:35943 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751396AbdDKQCP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 11 Apr 2017 12:02:15 -0400
+Received: by mail-pf0-f196.google.com with SMTP id i5so226551pfc.3
+        for <netdev@vger.kernel.org>; Tue, 11 Apr 2017 09:02:14 -0700 (PDT)
+In-Reply-To: <20170410131106.27683-1-weiyj.lk@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/04/17 19:26, Tom Herbert wrote:
-> Not having checksum offload in XDP is going to get more painful once
-> we start seeing a lot programs doing packet modifications. One nice
-> thing we do for ILA router is pre-compute the checksum delta necessary
-> to maintain checksum neutral property in the packet. So that after
-> doing ILA routing in XDP the checksum complete value is still valid as
-> is the transport layer checksum.
->
-> It's conceivable we could generalize this by having a u16 checksum
-> delta returned from XDP program. If the checksum diff can be
-> pre-computed in a structure for doing the translation, then there
-> should be little cost other than making API a little more complex. On
-> return the checksum_complete value is updated jusy by adding in the
-> diff value.
->
-> Tom
+From: Wei Yongjun <weiyongjun1@huawei.com>
 
-AIUI you're suggesting to have the user's BPF program do this calculation  and (somehow) feed the diff back to the caller.  As well as adding work
- for the XDP program writer, it also means trusting they got it right.
-My suggestion was that the eBPF verifier could insert instructions around
- every write that update the diff value automagically, and not allow the
- user's program to touch it directly.
-There would be some cleverness required, for instance to determine which
- byte of the checksum to add to (and thus sometimes shift the byte diff
- by 8 before adding it in) - which might require a runtime check when the
- load is indexed.  Or might not, if the verifier sees something like
- packet[ETH_HLEN + (ihl << 2)] and can deduce the low bit of the offset.
-For the simple case, we would translate "write byte to packet+1" into:
-	diff -= packet[1];
-	write byte to packet+1;
-	diff += packet[1];
-Alexei, does this sound reasonable?
+Fix the return value check which testing the wrong variable
+in devlink_dpipe_header_put().
 
-The counter-argument, of course, is that if the XDP program edits fields
- that are protected by an Internet checksum (which in practice usually
- means anything but the Ethernet header) and then fixes up the checksums
- itself, we will edit our diff value twice just to conclude that diff==0.
- And maybe we are willing to trust root with the ability to lie to the
- kernel about incoming packets' checksum_complete values.
+Fixes: 1555d204e743 ("devlink: Support for pipeline debug (dpipe)")
+Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
+Acked-by: Jiri Pirko <jiri@mellanox.com>
+---
+v1 -> v2: fix  a typo in patch comment
+---
+ net/core/devlink.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
--Ed
+diff --git a/net/core/devlink.c b/net/core/devlink.c
+index 24b7660..0afac58 100644
+--- a/net/core/devlink.c
++++ b/net/core/devlink.c
+@@ -2031,7 +2031,7 @@ static int devlink_dpipe_header_put(struct sk_buff *skb,
+ 	int err;
+ 
+ 	header_attr = nla_nest_start(skb, DEVLINK_ATTR_DPIPE_HEADER);
+-	if (!header)
++	if (!header_attr)
+ 		return -EMSGSIZE;
+ 
+ 	if (nla_put_string(skb, DEVLINK_ATTR_DPIPE_HEADER_NAME, header->name) ||
