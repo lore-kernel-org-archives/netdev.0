@@ -1,31 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: stmmac: add drop transmit status feature
-Date: Tue, 11 Apr 2017 14:53:05 -0400 (EDT)
-Message-ID: <20170411.145305.907770601077151355.davem@davemloft.net>
-References: <738665b880f7c661c4108d34a9d8fc43ef2f9fa4.1491921785.git.jpinto@synopsys.com>
+Subject: Re: [PATCH net-next v2] devlink: fix return value check in
+ devlink_dpipe_header_put()
+Date: Tue, 11 Apr 2017 14:53:55 -0400 (EDT)
+Message-ID: <20170411.145355.641398899342897165.davem@davemloft.net>
+References: <20170410131106.27683-1-weiyj.lk@gmail.com>
+        <20170411160202.17469-1-weiyj.lk@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Joao.Pinto@synopsys.com
+Cc: jiri@mellanox.com, arkadis@mellanox.com, weiyongjun1@huawei.com,
+        netdev@vger.kernel.org
+To: weiyj.lk@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:35130 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:35150 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752224AbdDKSxG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 11 Apr 2017 14:53:06 -0400
-In-Reply-To: <738665b880f7c661c4108d34a9d8fc43ef2f9fa4.1491921785.git.jpinto@synopsys.com>
+        with ESMTP id S1752224AbdDKSx4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 11 Apr 2017 14:53:56 -0400
+In-Reply-To: <20170411160202.17469-1-weiyj.lk@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joao Pinto <Joao.Pinto@synopsys.com>
-Date: Tue, 11 Apr 2017 15:44:10 +0100
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Date: Tue, 11 Apr 2017 16:02:02 +0000
 
-> +static void dwmac4_enable_tx_drop(struct mac_device_info *hw)
-> +{
-> +	void __iomem *ioaddr = hw->pcsr;
-> +	u32 value = readl(ioaddr + MTL_OPERATION_MODE);
-> +
-> +	value &= ~MTL_OPERATION_DTXSTS;
-> +	value |= MTL_OPERATION_DTXSTS;
+> From: Wei Yongjun <weiyongjun1@huawei.com>
+> 
+> Fix the return value check which testing the wrong variable
+> in devlink_dpipe_header_put().
+> 
+> Fixes: 1555d204e743 ("devlink: Support for pipeline debug (dpipe)")
+> Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
+> Acked-by: Jiri Pirko <jiri@mellanox.com>
+> ---
+> v1 -> v2: fix  a typo in patch comment
 
-I think the mask is unnecessary, just simply set the bit.
+Applied, thanks.
