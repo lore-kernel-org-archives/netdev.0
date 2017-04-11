@@ -1,8 +1,7 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 2/4] xfrm: use "unsigned int" in __xfrm6_pref_hash()
-Date: Tue, 11 Apr 2017 07:53:50 +0200
-Message-ID: <1491890032-28655-3-git-send-email-steffen.klassert@secunet.com>
-References: <1491890032-28655-1-git-send-email-steffen.klassert@secunet.com>
+Subject: pull request (net-next): ipsec-next 2017-04-11
+Date: Tue, 11 Apr 2017 07:53:48 +0200
+Message-ID: <1491890032-28655-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Herbert Xu <herbert@gondor.apana.org.au>,
@@ -10,47 +9,47 @@ Cc: Herbert Xu <herbert@gondor.apana.org.au>,
         <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:56564 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([62.96.220.36]:56574 "EHLO a.mx.secunet.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752220AbdDKF7r (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 11 Apr 2017 01:59:47 -0400
-In-Reply-To: <1491890032-28655-1-git-send-email-steffen.klassert@secunet.com>
+        id S1752291AbdDKF74 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 11 Apr 2017 01:59:56 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexey Dobriyan <adobriyan@gmail.com>
+1) Remove unused field from struct xfrm_mgr.
 
-x86_64 is zero-extending arch so "unsigned int" is preferred over "int"
-for address calculations.
+2) Code size optimizations for the xfrm prefix hash and
+   address match.
 
-Space savings:
+3) Branch optimization for addr4_match.
 
-	add/remove: 0/0 grow/shrink: 0/3 up/down: 0/-58 (-58)
-	function                                     old     new   delta
-	xfrm_hash_resize                            2752    2743      -9
-	policy_hash_bysel                            985     973     -12
-	policy_hash_direct                          1036     999     -37
+All patches from Alexey Dobriyan.
 
-Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
-Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
----
- net/xfrm/xfrm_hash.h | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+Please pull or let me know if there are problems.
 
-diff --git a/net/xfrm/xfrm_hash.h b/net/xfrm/xfrm_hash.h
-index 666c5ff..eaea9c4 100644
---- a/net/xfrm/xfrm_hash.h
-+++ b/net/xfrm/xfrm_hash.h
-@@ -54,8 +54,8 @@ static inline unsigned int __xfrm4_dpref_spref_hash(const xfrm_address_t *daddr,
- static inline unsigned int __xfrm6_pref_hash(const xfrm_address_t *addr,
- 					     __u8 prefixlen)
- {
--	int pdw;
--	int pbi;
-+	unsigned int pdw;
-+	unsigned int pbi;
- 	u32 initval = 0;
- 
- 	pdw = prefixlen >> 5;     /* num of whole u32 in prefix */
--- 
-2.7.4
+Thanks!
+
+The following changes since commit add641e7dee31b36aee83412c29e39dd1f5e0c9c:
+
+  sched: act_csum: don't mangle TCP and UDP GSO packets (2017-03-23 17:40:33 -0700)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/klassert/ipsec-next.git master
+
+for you to fetch changes up to 6c786bcb29dd684533ec165057f437d5bb34a4b2:
+
+  xfrm: branchless addr4_match() on 64-bit (2017-03-27 07:04:14 +0200)
+
+----------------------------------------------------------------
+Alexey Dobriyan (4):
+      xfrm: remove unused struct xfrm_mgr::id
+      xfrm: use "unsigned int" in __xfrm6_pref_hash()
+      xfrm: use "unsigned int" in addr_match()
+      xfrm: branchless addr4_match() on 64-bit
+
+ include/net/xfrm.h   | 11 +++++------
+ net/key/af_key.c     |  1 -
+ net/xfrm/xfrm_hash.h |  4 ++--
+ net/xfrm/xfrm_user.c |  1 -
+ 4 files changed, 7 insertions(+), 10 deletions(-)
