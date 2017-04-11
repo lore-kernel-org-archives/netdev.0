@@ -1,7 +1,8 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: pull request (net-next): ipsec-next 2017-04-11
-Date: Tue, 11 Apr 2017 07:53:48 +0200
-Message-ID: <1491890032-28655-1-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH 4/4] xfrm: branchless addr4_match() on 64-bit
+Date: Tue, 11 Apr 2017 07:53:52 +0200
+Message-ID: <1491890032-28655-5-git-send-email-steffen.klassert@secunet.com>
+References: <1491890032-28655-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Herbert Xu <herbert@gondor.apana.org.au>,
@@ -9,47 +10,71 @@ Cc: Herbert Xu <herbert@gondor.apana.org.au>,
         <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:56574 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([62.96.220.36]:56586 "EHLO a.mx.secunet.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752291AbdDKF74 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 11 Apr 2017 01:59:56 -0400
+        id S1752291AbdDKGAD (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 11 Apr 2017 02:00:03 -0400
+In-Reply-To: <1491890032-28655-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-1) Remove unused field from struct xfrm_mgr.
+From: Alexey Dobriyan <adobriyan@gmail.com>
 
-2) Code size optimizations for the xfrm prefix hash and
-   address match.
+Current addr4_match() code has special test for /0 prefixes because of
+standard required undefined behaviour. However, it is possible to omit
+it on 64-bit because shifting can be done within a 64-bit register and
+then truncated to the expected value (which is 0 mask).
 
-3) Branch optimization for addr4_match.
+Implicit truncation by htonl() fits nicely into R32-within-R64 model
+on x86-64.
 
-All patches from Alexey Dobriyan.
+Space savings: none (coincidence)
+Branch savings: 1
 
-Please pull or let me know if there are problems.
+Before:
 
-Thanks!
+	movzx  eax,BYTE PTR [rdi+0x2a]		# ->prefixlen_d
+	test   al,al
+	jne    xfrm_selector_match + 0x23f
+		...
+	movzx  eax,BYTE PTR [rbx+0x2b]		# ->prefixlen_s
+	test   al,al
+	je     xfrm_selector_match + 0x1c7
 
-The following changes since commit add641e7dee31b36aee83412c29e39dd1f5e0c9c:
+After (no branches):
 
-  sched: act_csum: don't mangle TCP and UDP GSO packets (2017-03-23 17:40:33 -0700)
+	mov    r8d,0x20
+	mov    rdx,0xffffffffffffffff
+	mov    esi,DWORD PTR [rsi+0x2c]
+	mov    ecx,r8d
+	sub    cl,BYTE PTR [rdi+0x2a]
+	xor    esi,DWORD PTR [rbx]
+	mov    rdi,rdx
+	xor    eax,eax
+	shl    rdi,cl
+	bswap  edi
 
-are available in the git repository at:
+Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+---
+ include/net/xfrm.h | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/klassert/ipsec-next.git master
-
-for you to fetch changes up to 6c786bcb29dd684533ec165057f437d5bb34a4b2:
-
-  xfrm: branchless addr4_match() on 64-bit (2017-03-27 07:04:14 +0200)
-
-----------------------------------------------------------------
-Alexey Dobriyan (4):
-      xfrm: remove unused struct xfrm_mgr::id
-      xfrm: use "unsigned int" in __xfrm6_pref_hash()
-      xfrm: use "unsigned int" in addr_match()
-      xfrm: branchless addr4_match() on 64-bit
-
- include/net/xfrm.h   | 11 +++++------
- net/key/af_key.c     |  1 -
- net/xfrm/xfrm_hash.h |  4 ++--
- net/xfrm/xfrm_user.c |  1 -
- 4 files changed, 7 insertions(+), 10 deletions(-)
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index 43b93d1..9e3dc7b 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -845,9 +845,9 @@ static inline bool addr_match(const void *token1, const void *token2,
+ static inline bool addr4_match(__be32 a1, __be32 a2, u8 prefixlen)
+ {
+ 	/* C99 6.5.7 (3): u32 << 32 is undefined behaviour */
+-	if (prefixlen == 0)
++	if (sizeof(long) == 4 && prefixlen == 0)
+ 		return true;
+-	return !((a1 ^ a2) & htonl(0xFFFFFFFFu << (32 - prefixlen)));
++	return !((a1 ^ a2) & htonl(~0UL << (32 - prefixlen)));
+ }
+ 
+ static __inline__
+-- 
+2.7.4
