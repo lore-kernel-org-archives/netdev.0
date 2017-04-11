@@ -1,36 +1,33 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: eBPF - little-endian load instructions?
-Date: Tue, 11 Apr 2017 13:26:39 +0200
-Message-ID: <1491909999.31620.23.camel@sipsolutions.net>
-References: <1491907114.31620.18.camel@sipsolutions.net>
-                 <58ECB8CF.8040409@iogearbox.net>
-         <1491909330.31620.21.camel@sipsolutions.net>
-         <58ECBC80.1050009@iogearbox.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Alexei Starovoitov <ast@kernel.org>
-To: Daniel Borkmann <daniel@iogearbox.net>
+From: Alexander Alemayhu <alexander@alemayhu.com>
+Subject: [PATCH net-next] bpf: add test_progs to .gitignore
+Date: Tue, 11 Apr 2017 13:35:38 +0200
+Message-ID: <20170411113538.31423-1-alexander@alemayhu.com>
+Cc: daniel@iogearbox.net, ast@fb.com,
+        Alexander Alemayhu <alexander@alemayhu.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:49678 "EHLO sipsolutions.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751921AbdDKL0l (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 11 Apr 2017 07:26:41 -0400
-In-Reply-To: <58ECBC80.1050009@iogearbox.net>
+Received: from mail-lf0-f48.google.com ([209.85.215.48]:33492 "EHLO
+        mail-lf0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751921AbdDKLfn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 11 Apr 2017 07:35:43 -0400
+Received: by mail-lf0-f48.google.com with SMTP id h125so85187628lfe.0
+        for <netdev@vger.kernel.org>; Tue, 11 Apr 2017 04:35:42 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Signed-off-by: Alexander Alemayhu <alexander@alemayhu.com>
+---
+ tools/testing/selftests/bpf/.gitignore | 1 +
+ 1 file changed, 1 insertion(+)
 
-> Yeah, you shouldn't need anything special. 
-
-I did add that, yes.
-
-> In case the wifi progs have their own BPF program type, I wouldn't
-> even add it to may_access_skb() to not further encourage LD_ABS/IND
-> usage. F.e. lwt BPF programs are not hooked up there either.
-
-Interesting, ok. I still need to hook up get_func_proto though to
-actually be able to access that.
-
-johannes
+diff --git a/tools/testing/selftests/bpf/.gitignore b/tools/testing/selftests/bpf/.gitignore
+index 541d9d7fad5a..2fe8766e204f 100644
+--- a/tools/testing/selftests/bpf/.gitignore
++++ b/tools/testing/selftests/bpf/.gitignore
+@@ -3,3 +3,4 @@ test_maps
+ test_lru_map
+ test_lpm_map
+ test_tag
++test_progs
+-- 
+2.9.3
