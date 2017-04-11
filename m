@@ -1,51 +1,33 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: move padding in struct skb_shared_info
-Date: Tue, 11 Apr 2017 07:47:28 -0700
-Message-ID: <1491922048.10587.42.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20170410080755.GA24514@avx2>
-         <1491835406.10587.12.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CACVxJT9ixBPtO4JN=dgLT_gbDOQ8tL_kTFfoYmDahaomatCKEw@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net: dwc-xlgmac: add the initial ethtool
+ support
+Date: Tue, 11 Apr 2017 10:47:49 -0400 (EDT)
+Message-ID: <20170411.104749.1916353709565387637.davem@davemloft.net>
+References: <f1495b53a7ddd2c4bbccdd4b629f57035139c7b6.1491898365.git.jiedeng@synopsys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-        Steffen Klassert <steffen.klassert@secunet.com>,
-        Eric Dumazet <edumazet@google.com>,
-        netdev <netdev@vger.kernel.org>
-To: Alexey Dobriyan <adobriyan@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jie.Deng1@synopsys.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:33237 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751047AbdDKOrb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 11 Apr 2017 10:47:31 -0400
-Received: by mail-pg0-f67.google.com with SMTP id 79so30437866pgf.0
-        for <netdev@vger.kernel.org>; Tue, 11 Apr 2017 07:47:30 -0700 (PDT)
-In-Reply-To: <CACVxJT9ixBPtO4JN=dgLT_gbDOQ8tL_kTFfoYmDahaomatCKEw@mail.gmail.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:60126 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752914AbdDKOrv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 11 Apr 2017 10:47:51 -0400
+In-Reply-To: <f1495b53a7ddd2c4bbccdd4b629f57035139c7b6.1491898365.git.jiedeng@synopsys.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2017-04-11 at 12:41 +0300, Alexey Dobriyan wrote:
-> On Mon, Apr 10, 2017 at 5:43 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > On Mon, 2017-04-10 at 11:07 +0300, Alexey Dobriyan wrote:
-> >>  struct skb_shared_info {
-> >> -     unsigned short  _unused;
-> >>       unsigned char   nr_frags;
-> >>       __u8            tx_flags;
-> >>       unsigned short  gso_size;
-> >
-> > Nack
-> >
-> > This exact placement was discussed at Netconf and Netdev.
-> >
-> > We had off-by-one errors in the past leading to nr_frags being mangled,
-> > and some exploits were quite happy to use these bugs.
-> >
-> > Some shuffling in shared_info might help us to find other bugs, and give
-> > more work to security researchers
+From: Jie Deng <Jie.Deng1@synopsys.com>
+Date: Tue, 11 Apr 2017 16:14:04 +0800
+
+> It is necessary to provide ethtool support for displaying and
+> modifying parameters of dwc-xlgmac.
 > 
-> By this logic there should be redzone around every field in networking stack.
+> Signed-off-by: Jie Deng <jiedeng@synopsys.com>
 
-Only shared_info immediately follows skb->head
+I don't see why you cannot allow the statistics to be obtained when
+the device is not running.  Similarly for other ethtool calls that
+just fetch information stored in the software state of the driver.
 
-For other structures, standard debug tools in SLUB/SLB/KASAN already
-take care of redzones.
+I think your ->begin() method is way too restrictive.
