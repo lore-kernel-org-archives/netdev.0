@@ -1,137 +1,43 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: [PATCH 02/10] ftgmac100: Use device "compatible" property, not machine.
-Date: Tue, 11 Apr 2017 11:04:28 +1000
-Message-ID: <20170411010436.23290-3-benh@kernel.crashing.org>
-References: <20170411010436.23290-1-benh@kernel.crashing.org>
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-To: netdev@vger.kernel.org
+From: zhong jiang <zhongjiang@huawei.com>
+Subject: Re: Page allocator order-0 optimizations merged
+Date: Tue, 11 Apr 2017 09:54:39 +0800
+Message-ID: <58EC375F.5040800@huawei.com>
+References: <58b48b1f.F/jo2/WiSxvvGm/z%akpm@linux-foundation.org> <20170301144845.783f8cad@redhat.com> <58EB9754.3090202@huawei.com> <20170410151051.n4lytmha4tqh4l3t@techsingularity.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-15"
+Content-Transfer-Encoding: 7bit
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        <akpm@linux-foundation.org>, linux-mm <linux-mm@kvack.org>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Tariq Toukan <tariqt@mellanox.com>
+To: Mel Gorman <mgorman@techsingularity.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:57117 "EHLO gate.crashing.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752529AbdDKBoK (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 10 Apr 2017 21:44:10 -0400
-In-Reply-To: <20170411010436.23290-1-benh@kernel.crashing.org>
+Received: from szxga02-in.huawei.com ([45.249.212.188]:5357 "EHLO
+        dggrg02-dlp.huawei.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1751101AbdDKB4B (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 10 Apr 2017 21:56:01 -0400
+In-Reply-To: <20170410151051.n4lytmha4tqh4l3t@techsingularity.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We test for aspeed chips to handle a couple of special cases,
-but we do that by checking the machine type which isn't right.
+On 2017/4/10 23:10, Mel Gorman wrote:
+> On Mon, Apr 10, 2017 at 10:31:48PM +0800, zhong jiang wrote:
+>> Hi, Mel
+>>
+>>      The patch I had test on arm64. I find the great degradation. I test it by micro-bench.
+>>     The patrly data is as following.  and it is stable.  That stands for the allocate and free time. 
+>>     
+> What type of allocations is the benchmark doing? In particular, what context
+> is the microbenchmark allocating from? Lastly, how did you isolate the
+> patch, did you test two specific commits in mainline or are you comparing
+> 4.10 with 4.11-rcX?
+>
+ Hi, Mel
 
-Instead check the actual device compatible property. This also
-updates the dtsi files for the aspeed SoC to match.
+   benchmark adopt  0 order allocation.  just insmod module  allocate  memory by alloc_pages.
+   it is not interrupt context.  I test the patch in linux 4.1 stable. In x86 , it have 10% improve.
+   but in arm64,  it have great degradation.  
 
-Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
----
- arch/arm/boot/dts/aspeed-g4.dtsi         |  4 ++--
- arch/arm/boot/dts/aspeed-g5.dtsi         |  4 ++--
- drivers/net/ethernet/faraday/ftgmac100.c | 16 +++++++++-------
- 3 files changed, 13 insertions(+), 11 deletions(-)
-
-diff --git a/arch/arm/boot/dts/aspeed-g4.dtsi b/arch/arm/boot/dts/aspeed-g4.dtsi
-index 0b4932c..6068e79 100644
---- a/arch/arm/boot/dts/aspeed-g4.dtsi
-+++ b/arch/arm/boot/dts/aspeed-g4.dtsi
-@@ -42,7 +42,7 @@
- 		};
- 
- 		mac0: ethernet@1e660000 {
--			compatible = "faraday,ftgmac100";
-+			compatible = "aspeed,ast2400-mac", "faraday,ftgmac100";
- 			reg = <0x1e660000 0x180>;
- 			interrupts = <2>;
- 			no-hw-checksum;
-@@ -50,7 +50,7 @@
- 		};
- 
- 		mac1: ethernet@1e680000 {
--			compatible = "faraday,ftgmac100";
-+			compatible = "aspeed,ast2400-mac", "faraday,ftgmac100";
- 			reg = <0x1e680000 0x180>;
- 			interrupts = <3>;
- 			no-hw-checksum;
-diff --git a/arch/arm/boot/dts/aspeed-g5.dtsi b/arch/arm/boot/dts/aspeed-g5.dtsi
-index b664fe3..4dbe91a 100644
---- a/arch/arm/boot/dts/aspeed-g5.dtsi
-+++ b/arch/arm/boot/dts/aspeed-g5.dtsi
-@@ -33,7 +33,7 @@
- 		};
- 
- 		mac0: ethernet@1e660000 {
--			compatible = "faraday,ftgmac100";
-+			compatible = "aspeed,ast2500-mac", "faraday,ftgmac100";
- 			reg = <0x1e660000 0x180>;
- 			interrupts = <2>;
- 			no-hw-checksum;
-@@ -41,7 +41,7 @@
- 		};
- 
- 		mac1: ethernet@1e680000 {
--			compatible = "faraday,ftgmac100";
-+			compatible = "aspeed,ast2500-mac", "faraday,ftgmac100";
- 			reg = <0x1e680000 0x180>;
- 			interrupts = <3>;
- 			no-hw-checksum;
-diff --git a/drivers/net/ethernet/faraday/ftgmac100.c b/drivers/net/ethernet/faraday/ftgmac100.c
-index 85b650a..5e04717 100644
---- a/drivers/net/ethernet/faraday/ftgmac100.c
-+++ b/drivers/net/ethernet/faraday/ftgmac100.c
-@@ -90,6 +90,7 @@ struct ftgmac100 {
- 
- 	/* Misc */
- 	bool need_mac_restart;
-+	bool is_aspeed;
- };
- 
- static void ftgmac100_set_rx_ring_base(struct ftgmac100 *priv, dma_addr_t addr)
-@@ -1311,8 +1312,7 @@ static int ftgmac100_setup_mdio(struct net_device *netdev)
- 	if (!priv->mii_bus)
- 		return -EIO;
- 
--	if (of_machine_is_compatible("aspeed,ast2400") ||
--	    of_machine_is_compatible("aspeed,ast2500")) {
-+	if (priv->is_aspeed) {
- 		/* This driver supports the old MDIO interface */
- 		reg = ioread32(priv->base + FTGMAC100_OFFSET_REVR);
- 		reg &= ~FTGMAC100_REVR_NEW_MDIO_INTERFACE;
-@@ -1377,6 +1377,7 @@ static int ftgmac100_probe(struct platform_device *pdev)
- 	int irq;
- 	struct net_device *netdev;
- 	struct ftgmac100 *priv;
-+	struct device_node *np;
- 	int err = 0;
- 
- 	if (!pdev)
-@@ -1432,17 +1433,18 @@ static int ftgmac100_probe(struct platform_device *pdev)
- 	/* MAC address from chip or random one */
- 	ftgmac100_setup_mac(priv);
- 
--	if (of_machine_is_compatible("aspeed,ast2400") ||
--	    of_machine_is_compatible("aspeed,ast2500")) {
-+	np = pdev->dev.of_node;
-+	if (np && (of_device_is_compatible(np, "aspeed,ast2400-mac") ||
-+		   of_device_is_compatible(np, "aspeed,ast2500-mac"))) {
- 		priv->rxdes0_edorr_mask = BIT(30);
- 		priv->txdes0_edotr_mask = BIT(30);
-+		priv->is_aspeed = true;
- 	} else {
- 		priv->rxdes0_edorr_mask = BIT(15);
- 		priv->txdes0_edotr_mask = BIT(15);
- 	}
- 
--	if (pdev->dev.of_node &&
--	    of_get_property(pdev->dev.of_node, "use-ncsi", NULL)) {
-+	if (np && of_get_property(np, "use-ncsi", NULL)) {
- 		if (!IS_ENABLED(CONFIG_NET_NCSI)) {
- 			dev_err(&pdev->dev, "NCSI stack not enabled\n");
- 			goto err_ncsi_dev;
-@@ -1467,7 +1469,7 @@ static int ftgmac100_probe(struct platform_device *pdev)
- 	netdev->features = NETIF_F_RXCSUM | NETIF_F_HW_CSUM |
- 		NETIF_F_GRO | NETIF_F_SG;
- 	if (priv->use_ncsi &&
--	    of_get_property(pdev->dev.of_node, "no-hw-checksum", NULL))
-+	    of_get_property(np, "no-hw-checksum", NULL))
- 		netdev->features &= ~NETIF_F_HW_CSUM;
- 
- 	/* register network device */
--- 
-2.9.3
+  Thanks
+  zhongjiang
