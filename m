@@ -1,37 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] devlink: fix return value check in
- devlink_dpipe_header_put()
-Date: Tue, 11 Apr 2017 14:53:55 -0400 (EDT)
-Message-ID: <20170411.145355.641398899342897165.davem@davemloft.net>
-References: <20170410131106.27683-1-weiyj.lk@gmail.com>
-        <20170411160202.17469-1-weiyj.lk@gmail.com>
+Subject: Re: [PATCH net-next v2] bpf: pass sk to helper functions
+Date: Tue, 11 Apr 2017 14:54:46 -0400 (EDT)
+Message-ID: <20170411.145446.1300958521081310466.davem@davemloft.net>
+References: <20170411180808.109636-1-willemdebruijn.kernel@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jiri@mellanox.com, arkadis@mellanox.com, weiyongjun1@huawei.com,
-        netdev@vger.kernel.org
-To: weiyj.lk@gmail.com
+Cc: netdev@vger.kernel.org, ast@fb.com, daniel@iogearbox.net,
+        fengc@google.com, lorenzo@google.com, willemb@google.com
+To: willemdebruijn.kernel@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:35150 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:35176 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752224AbdDKSx4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 11 Apr 2017 14:53:56 -0400
-In-Reply-To: <20170411160202.17469-1-weiyj.lk@gmail.com>
+        with ESMTP id S1752224AbdDKSys (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 11 Apr 2017 14:54:48 -0400
+In-Reply-To: <20170411180808.109636-1-willemdebruijn.kernel@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Date: Tue, 11 Apr 2017 16:02:02 +0000
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Date: Tue, 11 Apr 2017 14:08:08 -0400
 
-> From: Wei Yongjun <weiyongjun1@huawei.com>
+> From: Willem de Bruijn <willemb@google.com>
 > 
-> Fix the return value check which testing the wrong variable
-> in devlink_dpipe_header_put().
+> BPF helper functions access socket fields through skb->sk. This is not
+> set in ingress cgroup and socket filters. The association is only made
+> in skb_set_owner_r once the filter has accepted the packet. Sk is
+> available as socket lookup has taken place.
 > 
-> Fixes: 1555d204e743 ("devlink: Support for pipeline debug (dpipe)")
-> Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
-> Acked-by: Jiri Pirko <jiri@mellanox.com>
-> ---
-> v1 -> v2: fix  a typo in patch comment
+> Temporarily set skb->sk to sk in these cases.
+> 
+> Signed-off-by: Willem de Bruijn <willemb@google.com>
 
-Applied, thanks.
+Applied, thank you.
