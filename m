@@ -1,82 +1,61 @@
-From: <energi@aaengineering.se>
-Subject: (unknown)
-Date: Tue, 11 Apr 2017 15:47:02 -0000
-Message-ID: <149192562270.16609.13408342199251139080@xplornet.com>
+From: Edward Cree <ecree@solarflare.com>
+Subject: Re: RFC: Checksum offload and XDP
+Date: Tue, 11 Apr 2017 16:55:38 +0100
+Message-ID: <63f0f671-5b33-4895-355c-be6259b16341@solarflare.com>
+References: <CALx6S357=e3414sPBnW3ajzXfkvVBiGMChx+vgbf9snpe95-aQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: application/zip; name="REPORT_7282175_netdev.zip"
-Content-Transfer-Encoding: base64
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+To: Tom Herbert <tom@herbertland.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Alexei Starovoitov <ast@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xplr-74-127-239-102.xplornet.com ([74.127.239.102]:34109 "HELO
-        xplornet.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-        id S1751372AbdDKPrG (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 11 Apr 2017 11:47:06 -0400
-Subject: 
-Content-Disposition: attachment
+Received: from connect-us.pphosted.com ([67.231.154.164]:46343 "EHLO
+        dispatch1-us1.ppe-hosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751564AbdDKPzv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 11 Apr 2017 11:55:51 -0400
+In-Reply-To: <CALx6S357=e3414sPBnW3ajzXfkvVBiGMChx+vgbf9snpe95-aQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-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
-AAAAAAEAAQBOAAAAtQ0AAAAA
+On 10/04/17 19:26, Tom Herbert wrote:
+> Not having checksum offload in XDP is going to get more painful once
+> we start seeing a lot programs doing packet modifications. One nice
+> thing we do for ILA router is pre-compute the checksum delta necessary
+> to maintain checksum neutral property in the packet. So that after
+> doing ILA routing in XDP the checksum complete value is still valid as
+> is the transport layer checksum.
+>
+> It's conceivable we could generalize this by having a u16 checksum
+> delta returned from XDP program. If the checksum diff can be
+> pre-computed in a structure for doing the translation, then there
+> should be little cost other than making API a little more complex. On
+> return the checksum_complete value is updated jusy by adding in the
+> diff value.
+>
+> Tom
+
+AIUI you're suggesting to have the user's BPF program do this calculation  and (somehow) feed the diff back to the caller.  As well as adding work
+ for the XDP program writer, it also means trusting they got it right.
+My suggestion was that the eBPF verifier could insert instructions around
+ every write that update the diff value automagically, and not allow the
+ user's program to touch it directly.
+There would be some cleverness required, for instance to determine which
+ byte of the checksum to add to (and thus sometimes shift the byte diff
+ by 8 before adding it in) - which might require a runtime check when the
+ load is indexed.  Or might not, if the verifier sees something like
+ packet[ETH_HLEN + (ihl << 2)] and can deduce the low bit of the offset.
+For the simple case, we would translate "write byte to packet+1" into:
+	diff -= packet[1];
+	write byte to packet+1;
+	diff += packet[1];
+Alexei, does this sound reasonable?
+
+The counter-argument, of course, is that if the XDP program edits fields
+ that are protected by an Internet checksum (which in practice usually
+ means anything but the Ethernet header) and then fixes up the checksums
+ itself, we will edit our diff value twice just to conclude that diff==0.
+ And maybe we are willing to trust root with the ability to lie to the
+ kernel about incoming packets' checksum_complete values.
+
+-Ed
