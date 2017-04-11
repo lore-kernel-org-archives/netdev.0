@@ -1,44 +1,137 @@
 From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [PATCH 00/10] ftgmac100: Rework batch 4 - Misc
-Date: Tue, 11 Apr 2017 11:08:15 +1000
-Message-ID: <1491872895.4166.217.camel@kernel.crashing.org>
+Subject: [PATCH 02/10] ftgmac100: Use device "compatible" property, not machine.
+Date: Tue, 11 Apr 2017 11:04:28 +1000
+Message-ID: <20170411010436.23290-3-benh@kernel.crashing.org>
 References: <20170411010436.23290-1-benh@kernel.crashing.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
+Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:51496 "EHLO gate.crashing.org"
+Received: from gate.crashing.org ([63.228.1.57]:57117 "EHLO gate.crashing.org"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750761AbdDKBIZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 10 Apr 2017 21:08:25 -0400
-Received: from localhost.localdomain (localhost.localdomain [127.0.0.1])
-        by gate.crashing.org (8.14.1/8.13.8) with ESMTP id v3B18FBA026514
-        for <netdev@vger.kernel.org>; Mon, 10 Apr 2017 20:08:17 -0500
+        id S1752529AbdDKBoK (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 10 Apr 2017 21:44:10 -0400
 In-Reply-To: <20170411010436.23290-1-benh@kernel.crashing.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2017-04-11 at 11:04 +1000, Benjamin Herrenschmidt wrote:
-> This is the fourth batch of updates to the ftgmac100 driver.
-> 
-> This is a bunch of misc cleanups and fixes, such as properly
-> disabling HW checksum generation on AST2400 where it's known
-> to be broken and some chip init updates.
-> 
-> This also adds the ability to turn HW checksum on/off and
-> configure the ring sizes via ethtool.
-> 
-> The next (and last) batch will add a few more "features" such
-> as netpoll, multicast/promist, vlan offload...
+We test for aspeed chips to handle a couple of special cases,
+but we do that by checking the machine type which isn't right.
 
-FYI. This series plays a bit with the device-tree properties for
-this driver. There is more in the last batch, which will also
-include an patch adding 
+Instead check the actual device compatible property. This also
+updates the dtsi files for the aspeed SoC to match.
 
-Documentation/devicetree/bindings/net/ftgmac100.txt
+Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+---
+ arch/arm/boot/dts/aspeed-g4.dtsi         |  4 ++--
+ arch/arm/boot/dts/aspeed-g5.dtsi         |  4 ++--
+ drivers/net/ethernet/faraday/ftgmac100.c | 16 +++++++++-------
+ 3 files changed, 13 insertions(+), 11 deletions(-)
 
-documenting all this.
-
-Cheers,
-Ben.
+diff --git a/arch/arm/boot/dts/aspeed-g4.dtsi b/arch/arm/boot/dts/aspeed-g4.dtsi
+index 0b4932c..6068e79 100644
+--- a/arch/arm/boot/dts/aspeed-g4.dtsi
++++ b/arch/arm/boot/dts/aspeed-g4.dtsi
+@@ -42,7 +42,7 @@
+ 		};
+ 
+ 		mac0: ethernet@1e660000 {
+-			compatible = "faraday,ftgmac100";
++			compatible = "aspeed,ast2400-mac", "faraday,ftgmac100";
+ 			reg = <0x1e660000 0x180>;
+ 			interrupts = <2>;
+ 			no-hw-checksum;
+@@ -50,7 +50,7 @@
+ 		};
+ 
+ 		mac1: ethernet@1e680000 {
+-			compatible = "faraday,ftgmac100";
++			compatible = "aspeed,ast2400-mac", "faraday,ftgmac100";
+ 			reg = <0x1e680000 0x180>;
+ 			interrupts = <3>;
+ 			no-hw-checksum;
+diff --git a/arch/arm/boot/dts/aspeed-g5.dtsi b/arch/arm/boot/dts/aspeed-g5.dtsi
+index b664fe3..4dbe91a 100644
+--- a/arch/arm/boot/dts/aspeed-g5.dtsi
++++ b/arch/arm/boot/dts/aspeed-g5.dtsi
+@@ -33,7 +33,7 @@
+ 		};
+ 
+ 		mac0: ethernet@1e660000 {
+-			compatible = "faraday,ftgmac100";
++			compatible = "aspeed,ast2500-mac", "faraday,ftgmac100";
+ 			reg = <0x1e660000 0x180>;
+ 			interrupts = <2>;
+ 			no-hw-checksum;
+@@ -41,7 +41,7 @@
+ 		};
+ 
+ 		mac1: ethernet@1e680000 {
+-			compatible = "faraday,ftgmac100";
++			compatible = "aspeed,ast2500-mac", "faraday,ftgmac100";
+ 			reg = <0x1e680000 0x180>;
+ 			interrupts = <3>;
+ 			no-hw-checksum;
+diff --git a/drivers/net/ethernet/faraday/ftgmac100.c b/drivers/net/ethernet/faraday/ftgmac100.c
+index 85b650a..5e04717 100644
+--- a/drivers/net/ethernet/faraday/ftgmac100.c
++++ b/drivers/net/ethernet/faraday/ftgmac100.c
+@@ -90,6 +90,7 @@ struct ftgmac100 {
+ 
+ 	/* Misc */
+ 	bool need_mac_restart;
++	bool is_aspeed;
+ };
+ 
+ static void ftgmac100_set_rx_ring_base(struct ftgmac100 *priv, dma_addr_t addr)
+@@ -1311,8 +1312,7 @@ static int ftgmac100_setup_mdio(struct net_device *netdev)
+ 	if (!priv->mii_bus)
+ 		return -EIO;
+ 
+-	if (of_machine_is_compatible("aspeed,ast2400") ||
+-	    of_machine_is_compatible("aspeed,ast2500")) {
++	if (priv->is_aspeed) {
+ 		/* This driver supports the old MDIO interface */
+ 		reg = ioread32(priv->base + FTGMAC100_OFFSET_REVR);
+ 		reg &= ~FTGMAC100_REVR_NEW_MDIO_INTERFACE;
+@@ -1377,6 +1377,7 @@ static int ftgmac100_probe(struct platform_device *pdev)
+ 	int irq;
+ 	struct net_device *netdev;
+ 	struct ftgmac100 *priv;
++	struct device_node *np;
+ 	int err = 0;
+ 
+ 	if (!pdev)
+@@ -1432,17 +1433,18 @@ static int ftgmac100_probe(struct platform_device *pdev)
+ 	/* MAC address from chip or random one */
+ 	ftgmac100_setup_mac(priv);
+ 
+-	if (of_machine_is_compatible("aspeed,ast2400") ||
+-	    of_machine_is_compatible("aspeed,ast2500")) {
++	np = pdev->dev.of_node;
++	if (np && (of_device_is_compatible(np, "aspeed,ast2400-mac") ||
++		   of_device_is_compatible(np, "aspeed,ast2500-mac"))) {
+ 		priv->rxdes0_edorr_mask = BIT(30);
+ 		priv->txdes0_edotr_mask = BIT(30);
++		priv->is_aspeed = true;
+ 	} else {
+ 		priv->rxdes0_edorr_mask = BIT(15);
+ 		priv->txdes0_edotr_mask = BIT(15);
+ 	}
+ 
+-	if (pdev->dev.of_node &&
+-	    of_get_property(pdev->dev.of_node, "use-ncsi", NULL)) {
++	if (np && of_get_property(np, "use-ncsi", NULL)) {
+ 		if (!IS_ENABLED(CONFIG_NET_NCSI)) {
+ 			dev_err(&pdev->dev, "NCSI stack not enabled\n");
+ 			goto err_ncsi_dev;
+@@ -1467,7 +1469,7 @@ static int ftgmac100_probe(struct platform_device *pdev)
+ 	netdev->features = NETIF_F_RXCSUM | NETIF_F_HW_CSUM |
+ 		NETIF_F_GRO | NETIF_F_SG;
+ 	if (priv->use_ncsi &&
+-	    of_get_property(pdev->dev.of_node, "no-hw-checksum", NULL))
++	    of_get_property(np, "no-hw-checksum", NULL))
+ 		netdev->features &= ~NETIF_F_HW_CSUM;
+ 
+ 	/* register network device */
+-- 
+2.9.3
