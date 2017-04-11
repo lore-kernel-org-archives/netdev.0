@@ -1,42 +1,38 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [PATCH 01/10] ftgmac100: Upgrade to NETIF_F_HW_CSUM
-Date: Tue, 11 Apr 2017 21:13:45 +1000
-Message-ID: <1491909225.4166.248.camel@kernel.crashing.org>
-References: <20170411010436.23290-1-benh@kernel.crashing.org>
-         <20170411010436.23290-2-benh@kernel.crashing.org>
-         <7d0f6000-3be5-ed70-49d3-3a3916dd79ff@cogentembedded.com>
+From: Fugang Duan <fugang.duan@nxp.com>
+Subject: [PATCH net-next 0/6] net: fec: driver code clean
+Date: Tue, 11 Apr 2017 19:13:02 +0800
+Message-ID: <1491909188-8971-1-git-send-email-fugang.duan@nxp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-        netdev@vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <bhutchings@solarflare.com>,
+        <stephen@networkplumber.org>, <fugang.duan@nxp.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:49712 "EHLO gate.crashing.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754668AbdDKLOP (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 11 Apr 2017 07:14:15 -0400
-In-Reply-To: <7d0f6000-3be5-ed70-49d3-3a3916dd79ff@cogentembedded.com>
+Received: from mail-sn1nam02on0075.outbound.protection.outlook.com ([104.47.36.75]:16288
+        "EHLO NAM02-SN1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1753246AbdDKLPO (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 11 Apr 2017 07:15:14 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2017-04-11 at 13:57 +0300, Sergei Shtylyov wrote:
->     Need {} here as well since the 1st branch has it -- see 
-> Documentation/process/coding-style.rst (the end of the section 3).
+The patch series are for fec ethernet driver code clean up, each patch is
+independent.
+Patch #1,#4,#5 are code clean up.
+Patch #2,#3 are for aarch64 platform.
+Patch #6 is for i.MX6UL to add lost errata workaround.
 
-Adding {} in that specific statements just makes things more
-cluttered and less readable.
 
-I can find a ton of examples of 
+Fugang Duan (6):
+  net: fec: add return value check after calling .of_property_read_u32()
+  net: fec: avoid BD pointer type cast to 32bit
+  net: fec: pass ->dev to dma_alloc/free__coherent() API
+  net: fec: add phy-reset-gpios PROBE_DEFER check
+  net: fec: correct the errata number comment typo
+  net: fec: add ERR007885 for i.MX6ul enet IP
 
-	if (...) {
-		multi lines
-		...
-	} else if (...)
-		single_line()
+ drivers/net/ethernet/freescale/fec_main.c | 45 +++++++++++++++++++------------
+ 1 file changed, 28 insertions(+), 17 deletions(-)
 
-In existing kernel code.
-
-I'll fix it in a next spin if Dave wants it that way but otherwise
-I'm keen to leave it as it is.
-
-Ben.
+-- 
+1.9.1
