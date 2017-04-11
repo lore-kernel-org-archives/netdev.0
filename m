@@ -1,73 +1,70 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] bpf: pass sk to helper functions
-Date: Tue, 11 Apr 2017 09:51:04 -0700
-Message-ID: <1491929464.10587.66.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20170411162252.84985-1-willemdebruijn.kernel@gmail.com>
+From: Guillaume Nault <g.nault@alphalink.fr>
+Subject: Re: [PATCH net-next v5 2/2] L2TP:Adjust intf MTU, add underlay L3,
+ L2 hdrs.
+Date: Tue, 11 Apr 2017 19:05:56 +0200
+Message-ID: <20170411170556.ciofp3nkttyhjwh3@alphalink.fr>
+References: <alpine.DEB.2.11.1704051650420.19131@vera98.eng.brocade.com>
+ <20170411104048.2lef7jl4f4qxqct3@alphalink.fr>
+ <CAGeBGG5EJ8zeyGEeOkr8HHx9dZ98veRYM2Reb_gqQp21pNgJmQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ast@fb.com, daniel@iogearbox.net,
-        davem@davemloft.net, Willem de Bruijn <willemb@google.com>
-To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:35243 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751656AbdDKQvH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 11 Apr 2017 12:51:07 -0400
-Received: by mail-pf0-f194.google.com with SMTP id a188so450096pfa.2
-        for <netdev@vger.kernel.org>; Tue, 11 Apr 2017 09:51:07 -0700 (PDT)
-In-Reply-To: <20170411162252.84985-1-willemdebruijn.kernel@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        James Chapman <jchapman@katalix.com>, kleptog@svana.org,
+        Nachi Prachanda <nprachan@brocade.com>,
+        Robert Shearman <rshearma@brocade.com>,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        Sven-Thorsten Dietrich <sdietric@brocade.com>,
+        Chas Williams III <ciwillia@brocade.com>,
+        Luca Boccassi <lboccass@brocade.com>,
+        Derek Fawcus <dfawcus@brocade.com>,
+        Bill Hong <bhong@brocade.com>,
+        Jan Blunck <jblunck@brocade.com>,
+        David Miller <davem@davemloft.net>,
+        LKML <linux-kernel@vger.kernel.org>
+To: R Parameswaran <parameswaran.r7@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAGeBGG5EJ8zeyGEeOkr8HHx9dZ98veRYM2Reb_gqQp21pNgJmQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2017-04-11 at 12:22 -0400, Willem de Bruijn wrote:
-> From: Willem de Bruijn <willemb@google.com>
+On Tue, Apr 11, 2017 at 09:39:58AM -0700, R Parameswaran wrote:
+> Hi Guillaume,
 > 
-> BPF helper functions access socket fields through skb->sk. This is not
-> set in ingress cgroup and socket filters. The association is only made
-> in skb_set_owner_r once the filter has accepted the packet. Sk is
-> available as socket lookup has taken place.
+> On Tue, Apr 11, 2017 at 3:40 AM, Guillaume Nault <g.nault@alphalink.fr> wrote:
+> > On Wed, Apr 05, 2017 at 05:00:07PM -0700, R. Parameswaran wrote:
+> >>
+> >> Change-set here uses the new kernel function, kernel_sock_ip_overhead(),
+> >> to factor the outer IP overhead on the L2TP tunnel socket (including
+> >> IP Options, if any) when calculating the default MTU for an Ethernet
+> >> pseudowire, along with consideration of the inner Ethernet header.
+> >>
+> > I get the following warning with CONFIG_LOCKDEP when creating a new
+> > session:
+> > # ip l2tp add tunnel local 10.1.8.64 remote 10.1.8.32 udp_sport 1701 udp_dport 1701 tunnel_id 1 peer_tunnel_id 1
+> > # ip l2tp add session tunnel_id 1 session_id 1 peer_session_id 1
+> > ...
 > 
-> Temporarily set skb->sk to sk in these cases.
+> Thanks for reporting this - I'll try and put up a patch soon,
+> hopefully the patch can stay in while I add this. One Q - how many CPU
+> cores do you have?
+This is a virtual machine with 4 vcores, but that shouldn't matter.
+
+> Can you give me some idea of how many tunnels and
+> sessions when you saw this?
 > 
-> Signed-off-by: Willem de Bruijn <willemb@google.com>
-> ---
->  kernel/bpf/cgroup.c | 4 +++-
->  net/core/filter.c   | 6 +++++-
->  2 files changed, 8 insertions(+), 2 deletions(-)
+Creating one session is enough. I simply used the following command:
+# ip l2tp add tunnel local 10.1.8.64 remote 10.1.8.32 udp_sport 1701 udp_dport 1701 tunnel_id 1 peer_tunnel_id 1
+# ip l2tp add session tunnel_id 1 session_id 1 peer_session_id 1
+
+> I did not see this warning in my testing, possibly because
+> CONFIG_LOCKDEP_SUPPORT is turned off on the product build? Will
+> re-test with this turned on.
 > 
-> diff --git a/kernel/bpf/cgroup.c b/kernel/bpf/cgroup.c
-> index da0f53690295..a2c387e433a4 100644
-> --- a/kernel/bpf/cgroup.c
-> +++ b/kernel/bpf/cgroup.c
-> @@ -154,7 +154,7 @@ int __cgroup_bpf_update(struct cgroup *cgrp, struct cgroup *parent,
->  
->  /**
->   * __cgroup_bpf_run_filter_skb() - Run a program for packet filtering
-> - * @sk: The socken sending or receiving traffic
-> + * @sk: The socket sending or receiving traffic
->   * @skb: The skb that is being sent or received
->   * @type: The type of program to be exectuted
->   *
-> @@ -190,9 +190,11 @@ int __cgroup_bpf_run_filter_skb(struct sock *sk,
->  	if (prog) {
->  		unsigned int offset = skb->data - skb_network_header(skb);
->  
+Yes, enabling lockdep should let you reproduce the problem.
 
-It would be nice to not touch sk. swap() is a bit overkill here I think.
-
-	struct sock *save_sk = skb->sk;
-
-	skb->sk = sk;
-
-
-> +		swap(skb->sk, sk);
->  		__skb_push(skb, offset);
->  		ret = bpf_prog_run_save_cb(prog, skb) == 1 ? 0 : -EPERM;
->  		__skb_pull(skb, offset);
-> +		swap(skb->sk, sk);
-
-	skb->sk = save_sk;
-
->  	}
->  
+The issue goes away if the tunnel's socket is locked while calling
+kernel_sock_ip_overhead():
++	lock_sock(tunnel->sock);
+	kernel_sock_ip_overhead(tunnel->sock);
++	release_sock(tunnel->sock);
