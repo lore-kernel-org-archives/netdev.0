@@ -1,33 +1,30 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bpf: reference may_access_skb() from __bpf_prog_run()
-Date: Tue, 11 Apr 2017 10:55:58 -0400 (EDT)
-Message-ID: <20170411.105558.942689285182526309.davem@davemloft.net>
-References: <20170411101058.13526-1-johannes@sipsolutions.net>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH] net: stmmac: add drop transmit status feature
+Date: Tue, 11 Apr 2017 17:04:58 +0200
+Message-ID: <20170411150458.GK27307@lunn.ch>
+References: <738665b880f7c661c4108d34a9d8fc43ef2f9fa4.1491921785.git.jpinto@synopsys.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, daniel@iogearbox.net,
-        alexei.starovoitov@gmail.com, johannes.berg@intel.com
-To: johannes@sipsolutions.net
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Joao Pinto <Joao.Pinto@synopsys.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:60242 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753017AbdDKO4L (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 11 Apr 2017 10:56:11 -0400
-In-Reply-To: <20170411101058.13526-1-johannes@sipsolutions.net>
+Received: from vps0.lunn.ch ([178.209.37.122]:55065 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753542AbdDKPFF (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 11 Apr 2017 11:05:05 -0400
+Content-Disposition: inline
+In-Reply-To: <738665b880f7c661c4108d34a9d8fc43ef2f9fa4.1491921785.git.jpinto@synopsys.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes@sipsolutions.net>
-Date: Tue, 11 Apr 2017 12:10:58 +0200
+On Tue, Apr 11, 2017 at 03:44:10PM +0100, Joao Pinto wrote:
+> When the Drop Transmit Status bit is set, the Tx packet status
+> received from the MAC is dropped in the MTL. When this bit is reset,
+> the Tx packet status received from the MAC is forwarded to the
+> application. This feature will cause a performance improvement.
 
-> From: Johannes Berg <johannes.berg@intel.com>
-> 
-> It took me quite some time to figure out how this was linked,
-> so in order to save the next person the effort of finding it
-> add a comment in __bpf_prog_run() that indicates what exactly
-> determines that a program can access the ctx == skb.
-> 
-> Signed-off-by: Johannes Berg <johannes.berg@intel.com>
+Hi Joao
 
-Applied, thanks Johannes.
+Is there a reason not to turn this on by default?
+
+   Andrew
