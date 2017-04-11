@@ -1,57 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 2/2] net: ethernet: mediatek: fix inconsistency of
- port number carried in TXD
-Date: Tue, 11 Apr 2017 10:35:35 -0400 (EDT)
-Message-ID: <20170411.103535.2136552403177283944.davem@davemloft.net>
-References: <1491894754-16384-1-git-send-email-sean.wang@mediatek.com>
-        <1491894754-16384-3-git-send-email-sean.wang@mediatek.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH net-next v4 1/2] bpf: remove struct bpf_prog_type_list
+Date: Tue, 11 Apr 2017 07:41:41 -0700
+Message-ID: <20170411144139.GA10662@ast-mbp.thefacebook.com>
+References: <20170411133458.26816-1-johannes@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: john@phrozen.org, nbd@openwrt.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, linux-mediatek@lists.infradead.org,
-        keyhaede@gmail.com
-To: sean.wang@mediatek.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1491894754-16384-3-git-send-email-sean.wang@mediatek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, daniel@iogearbox.net,
+        Johannes Berg <johannes.berg@intel.com>
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:33964 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751248AbdDKOlq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 11 Apr 2017 10:41:46 -0400
+Received: by mail-pf0-f196.google.com with SMTP id o126so13647773pfb.1
+        for <netdev@vger.kernel.org>; Tue, 11 Apr 2017 07:41:46 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20170411133458.26816-1-johannes@sipsolutions.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: <sean.wang@mediatek.com>
-Date: Tue, 11 Apr 2017 15:12:34 +0800
+On Tue, Apr 11, 2017 at 03:34:57PM +0200, Johannes Berg wrote:
+> From: Johannes Berg <johannes.berg@intel.com>
+> 
+> There's no need to have struct bpf_prog_type_list since
+> it just contains a list_head, the type, and the ops
+> pointer. Since the types are densely packed and not
+> actually dynamically registered, it's much easier and
+> smaller to have an array of type->ops pointer. Also
+> initialize this array statically to remove code needed
+> to initialize it.
+> 
+> In order to save duplicating the list, move it to a new
+> header file and include it in the places needing it.
+> 
+> Signed-off-by: Johannes Berg <johannes.berg@intel.com>
 
-> @@ -410,12 +410,18 @@ struct mtk_hw_stats {
->  	struct u64_stats_sync	syncp;
->  };
->  
-> -/* PDMA descriptor can point at 1-2 segments. This enum allows us to track how
-> - * memory was allocated so that it can be freed properly
-> - */
->  enum mtk_tx_flags {
-> +	/* PDMA descriptor can point at 1-2 segments. This enum allows us to
-> +	 * track how memory was allocated so that it can be freed properly.
-> +	 */
->  	MTK_TX_FLAGS_SINGLE0	= 0x01,
->  	MTK_TX_FLAGS_PAGE0	= 0x02,
-> +
-> +	/* MTK_TX_FLAGS_FPORTx allows tracking which port the transmitted
-> +	 * SKB out instead of looking up through hardware TX descriptor.
-> +	 */
-> +	MTK_TX_FLAGS_FPORT1	= 0x03,
-> +	MTK_TX_FLAGS_FPORT0	= 0x04,
->  };
-
-You're creating a confusing situation here and asking for bugs to be introduced
-into the driver.
-
-The existing two enumeration values are "bit masks", but these two new values
-are bit numbers and must be used with BIT().
-
-Make them consistent, and I would suggest to make all of them bit masks, thus:
-
-	MTK_TX_FLAGS_FPORT1	= 0x04,
-	MTK_TX_FLAGS_FPORT0	= 0x08,
-
-And then remove the use of BIT() to these values.
-
-Thanks.
+since there were no changes to the patch, plese carry over the acks:
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+Acked-by: Alexei Starovoitov <ast@kernel.org>
