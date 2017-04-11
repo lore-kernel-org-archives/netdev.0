@@ -1,40 +1,81 @@
-From: David Ahern <dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
-Subject: Re: [PATCH v3 1/5] netlink: extended ACK reporting
-Date: Tue, 11 Apr 2017 13:12:03 -0600
-Message-ID: <76edbeae-f050-092a-2b6a-01cb7d68cd36@cumulusnetworks.com>
-References: <20170411173143.GA1899@salvia>
- <20170411.134225.398046538225438175.davem@davemloft.net>
- <cb6106f2-3128-da79-69bf-a10b249db054@cumulusnetworks.com>
- <20170411.150527.283014710949232666.davem@davemloft.net>
+From: R Parameswaran <parameswaran.r7@gmail.com>
+Subject: Re: [PATCH net-next v5 2/2] L2TP:Adjust intf MTU, add underlay L3, L2 hdrs.
+Date: Tue, 11 Apr 2017 12:12:13 -0700
+Message-ID: <CAGeBGG4z+cSturXncb_RqtsEsWCM6bVQaT=9nnjkc-_5HqwQwA@mail.gmail.com>
+References: <alpine.DEB.2.11.1704051650420.19131@vera98.eng.brocade.com>
+ <20170411104048.2lef7jl4f4qxqct3@alphalink.fr> <CAGeBGG5EJ8zeyGEeOkr8HHx9dZ98veRYM2Reb_gqQp21pNgJmQ@mail.gmail.com>
+ <20170411170556.ciofp3nkttyhjwh3@alphalink.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org,
-        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org, jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170411.150527.283014710949232666.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        James Chapman <jchapman@katalix.com>, kleptog@svana.org,
+        Nachi Prachanda <nprachan@brocade.com>,
+        Robert Shearman <rshearma@brocade.com>,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        Sven-Thorsten Dietrich <sdietric@brocade.com>,
+        Chas Williams III <ciwillia@brocade.com>,
+        Luca Boccassi <lboccass@brocade.com>,
+        Derek Fawcus <dfawcus@brocade.com>,
+        Bill Hong <bhong@brocade.com>,
+        Jan Blunck <jblunck@brocade.com>,
+        David Miller <davem@davemloft.net>,
+        LKML <linux-kernel@vger.kernel.org>
+To: Guillaume Nault <g.nault@alphalink.fr>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170411170556.ciofp3nkttyhjwh3@alphalink.fr>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 4/11/17 1:05 PM, David Miller wrote:
-> From: David Ahern <dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
-> Date: Tue, 11 Apr 2017 12:57:59 -0600
-> 
->> On 4/11/17 11:42 AM, David Miller wrote:
->>> David, if you have a specific case where it's absolutely impossible
->>> to resolve this when the library is converted to support extended
->>> ACKs, please mention it.
->>
->> I don't have a specific library in mind. It is more the disjoint nature
->> of a socket option and message parsing, and thinking through the API.
-> 
-> Would you prefer it being passed via a control message at sendmsg()
-> time?  That would require more changes to userland programs, and also
-> increase the per-request overhead in the kernel as it parses this CMSG
-> every single time.
+Hi Guillaume,
 
-Johannes' v4 adds a flag in the response that the parser can use to
-definitely know the size of the errmsg.msg that was returned. That seems
-sufficient to me. Did you disagree with that suggestion?
+Please see inline:
+
+On Tue, Apr 11, 2017 at 10:05 AM, Guillaume Nault <g.nault@alphalink.fr> wrote:
+> On Tue, Apr 11, 2017 at 09:39:58AM -0700, R Parameswaran wrote:
+>> Hi Guillaume,
+>>
+>> On Tue, Apr 11, 2017 at 3:40 AM, Guillaume Nault <g.nault@alphalink.fr> wrote:
+>> > On Wed, Apr 05, 2017 at 05:00:07PM -0700, R. Parameswaran wrote:
+>> >>
+>> >> Change-set here uses the new kernel function, kernel_sock_ip_overhead(),
+>> >> to factor the outer IP overhead on the L2TP tunnel socket (including
+>> >> IP Options, if any) when calculating the default MTU for an Ethernet
+>> >> pseudowire, along with consideration of the inner Ethernet header.
+>> >>
+>> > I get the following warning with CONFIG_LOCKDEP when creating a new
+>> > session:
+>> > # ip l2tp add tunnel local 10.1.8.64 remote 10.1.8.32 udp_sport 1701 udp_dport 1701 tunnel_id 1 peer_tunnel_id 1
+>> > # ip l2tp add session tunnel_id 1 session_id 1 peer_session_id 1
+>> > ...
+>>
+>> Thanks for reporting this - I'll try and put up a patch soon,
+>> hopefully the patch can stay in while I add this. One Q - how many CPU
+>> cores do you have?
+> This is a virtual machine with 4 vcores, but that shouldn't matter.
+>
+>> Can you give me some idea of how many tunnels and
+>> sessions when you saw this?
+>>
+> Creating one session is enough. I simply used the following command:
+> # ip l2tp add tunnel local 10.1.8.64 remote 10.1.8.32 udp_sport 1701 udp_dport 1701 tunnel_id 1 peer_tunnel_id 1
+> # ip l2tp add session tunnel_id 1 session_id 1 peer_session_id 1
+>
+>> I did not see this warning in my testing, possibly because
+>> CONFIG_LOCKDEP_SUPPORT is turned off on the product build? Will
+>> re-test with this turned on.
+>>
+> Yes, enabling lockdep should let you reproduce the problem.
+>
+> The issue goes away if the tunnel's socket is locked while calling
+> kernel_sock_ip_overhead():
+> +       lock_sock(tunnel->sock);
+>         kernel_sock_ip_overhead(tunnel->sock);
+> +       release_sock(tunnel->sock);
+
+Ack, thanks - was thinking along this line, since I see similar code
+at other places in L2TP. I'll try and have a preliminary
+patch out by tonight.
+
+regards,
+
+Ramkumar
