@@ -1,37 +1,75 @@
-From: David Ahern <dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
-Subject: Re: [PATCH v3 1/5] netlink: extended ACK reporting
-Date: Tue, 11 Apr 2017 08:25:57 -0600
-Message-ID: <9a68aa01-474c-7054-30c2-473ee1250abe@cumulusnetworks.com>
-References: <20170408202434.12018-1-johannes@sipsolutions.net>
- <20170408202434.12018-2-johannes@sipsolutions.net>
- <fddba2c8-3b85-d5df-81c4-ef31c459e40c@cumulusnetworks.com>
- <1491838218.28432.5.camel@sipsolutions.net>
- <029e6587-c0e8-bdb0-49e9-2abe2946a7ff@cumulusnetworks.com>
- <20170411065908.GB1492@salvia> <1491894172.31620.2.camel@sipsolutions.net>
+From: Jarod Wilson <jarod@redhat.com>
+Subject: Re: Horrid balance-rr bonding udp throughput
+Date: Tue, 11 Apr 2017 10:28:24 -0400
+Message-ID: <f8294df6-27f8-2385-9047-73f4aaab0c16@redhat.com>
+References: <ea7fb030-f655-1658-14a6-6989e1e836ea@redhat.com>
+ <6f08f174-b087-32b7-91dd-ca72db50bd04@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
-        Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org
-To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-        Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1491894172.31620.2.camel-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:33002 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753009AbdDKO2Y (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 11 Apr 2017 10:28:24 -0400
+Received: from smtp.corp.redhat.com (int-mx02.intmail.prod.int.phx2.redhat.com [10.5.11.12])
+        (using TLSv1.2 with cipher AECDH-AES256-SHA (256/256 bits))
+        (No client certificate requested)
+        by mx1.redhat.com (Postfix) with ESMTPS id 94F2F8124D
+        for <netdev@vger.kernel.org>; Tue, 11 Apr 2017 14:28:23 +0000 (UTC)
+Received: from [172.31.27.133] (dhcp-17-185.bos.redhat.com [10.18.17.185])
+        by smtp.corp.redhat.com (Postfix) with ESMTP id 42756B3F3F
+        for <netdev@vger.kernel.org>; Tue, 11 Apr 2017 14:28:23 +0000 (UTC)
+In-Reply-To: <6f08f174-b087-32b7-91dd-ca72db50bd04@redhat.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 4/11/17 1:02 AM, Johannes Berg wrote:
-> On Tue, 2017-04-11 at 08:59 +0200, Pablo Neira Ayuso wrote:
->> CAP_ACK means: trim off the payload that the netlink error message
->> is embedding, just like ICMP error does.
+On 2017-04-10 2:50 PM, Jarod Wilson wrote:
+> On 2017-04-08 7:33 PM, Jarod Wilson wrote:
+>> I'm digging into some bug reports covering performance issues with 
+>> balance-rr, and discovered something even worse than the reporter. My 
+>> test setup has a pair of NICs, one e1000e, one e1000 (but dual e1000e 
+>> seems the same). When I do a test run in LNST with bonding mode 
+>> balance-rr and either miimon or arpmon, the throughput of the 
+>> UDP_STREAM netperf test is absolutely horrible:
 >>
->> What is exactly your concern? If the user explicitly requests this
->> via socket option for this socket, then we're expecting they do the
->> right handling for what they're asking for.
+>> TCP: 941.19 +-0.88 mbits/sec
+>> UDP: 45.42 +-4.59 mbits/sec
+>>
+>> I figured I'd try LNST's packet capture mode, so exact same test, add 
+>> the -p flag and I get:
+>>
+>> TCP: 941.21 +-0.82 mbits/sec
+>> UDP: 961.54 +-0.01 mbits/sec
+>>
+>> Uh. What? So yeah. I can't capture the traffic in the bad case, but I 
+>> guess that gives some potential insight into what's not happening 
+>> correctly in either the bonding driver or the NIC drivers... More 
+>> digging forthcoming, but first I have a flooded basement to deal with, 
+>> so if in the interim, anyone has some insight, I'd be happy to hear 
+>> it. :)
 > 
-> I think David's concern was that when you want to parse the ACK in a
-> library (or application), you may not easily know if the application
-> (or library) requested capping.
+> Okay, ignore the bit about bonding, I should have eliminated the bond 
+> from the picture entirely. I think the traffic simply ended up on the 
+> e1000 on the non-capture test and on the e1000e for the capture test, as 
+> those numbers match perfectly with straight NIC to NIC testing, no bond 
+> involved. That said, really odd that the e1000 is so severely crippled 
+> for UDP, while TCP is still respectable. Not sure if I have a flaky NIC 
+> or what...
+> 
+> For reference, e1000 to e1000e netperf:
+> 
+> TCP_STREAM: Measured rate was 849.95 +-1.32 mbits/sec
+> UDP_STREAM: Measured rate was 44.73 +-5.73 mbits/sec
 
-exactly.
+The rabbit hole went even deeper. The actual problem was with the ITE 
+8893 PCIe bridge in the host not properly exposing capabilities, which 
+required a pci quirk identical to that of the ITE 8892 to work around. 
+With that in place, throughput on this venerable old e1000 goes back up 
+to a reasonable 900 mbits/sec, give or take.
+
+-- 
+Jarod Wilson
+jarod@redhat.com
