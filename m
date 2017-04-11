@@ -1,46 +1,146 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH net-next v4 2/2] bpf: remove struct bpf_map_type_list
-Date: Tue, 11 Apr 2017 07:43:17 -0700
-Message-ID: <20170411144316.GB10662@ast-mbp.thefacebook.com>
-References: <20170411133458.26816-1-johannes@sipsolutions.net>
- <20170411133458.26816-2-johannes@sipsolutions.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, daniel@iogearbox.net,
-        Johannes Berg <johannes.berg@intel.com>
-To: Johannes Berg <johannes@sipsolutions.net>
+From: Joao Pinto <Joao.Pinto@synopsys.com>
+Subject: [PATCH] net: stmmac: add drop transmit status feature
+Date: Tue, 11 Apr 2017 15:44:10 +0100
+Message-ID: <738665b880f7c661c4108d34a9d8fc43ef2f9fa4.1491921785.git.jpinto@synopsys.com>
+Cc: netdev@vger.kernel.org, Joao Pinto <Joao.Pinto@synopsys.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f44.google.com ([74.125.83.44]:32998 "EHLO
-        mail-pg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752151AbdDKOnV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 11 Apr 2017 10:43:21 -0400
-Received: by mail-pg0-f44.google.com with SMTP id x125so123627673pgb.0
-        for <netdev@vger.kernel.org>; Tue, 11 Apr 2017 07:43:21 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20170411133458.26816-2-johannes@sipsolutions.net>
+Received: from smtprelay4.synopsys.com ([198.182.47.9]:49768 "EHLO
+        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751248AbdDKOoQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 11 Apr 2017 10:44:16 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 11, 2017 at 03:34:58PM +0200, Johannes Berg wrote:
-> From: Johannes Berg <johannes.berg@intel.com>
-> 
-> There's no need to have struct bpf_map_type_list since
-> it just contains a list_head, the type, and the ops
-> pointer. Since the types are densely packed and not
-> actually dynamically registered, it's much easier and
-> smaller to have an array of type->ops pointer. Also
-> initialize this array statically to remove code needed
-> to initialize it.
-> 
-> In order to save duplicating the list, move it to the
-> types header file added by the previous patch and
-> include it in the same fashion.
-> 
-> Signed-off-by: Johannes Berg <johannes.berg@intel.com>
-> ---
-> v4: add ifdef on CONFIG_PERF_EVENTS for stack_map_ops
+When the Drop Transmit Status bit is set, the Tx packet status
+received from the MAC is dropped in the MTL. When this bit is reset,
+the Tx packet status received from the MAC is forwarded to the
+application. This feature will cause a performance improvement.
 
-I'm ok if you keep my ack after minor changes like this.
-Acked-by: Alexei Starovoitov <ast@kernel.org>
+Signed-off-by: Joao Pinto <jpinto@synopsys.com>
+---
+ Documentation/devicetree/bindings/net/stmmac.txt      |  1 +
+ drivers/net/ethernet/stmicro/stmmac/common.h          |  2 ++
+ drivers/net/ethernet/stmicro/stmmac/dwmac4.h          |  1 +
+ drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c     | 13 +++++++++++++
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c     |  3 +++
+ drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c |  2 ++
+ include/linux/stmmac.h                                |  1 +
+ 7 files changed, 23 insertions(+)
 
-saves me typing another email and spamming everyone once more..
+diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
+index f652b0c..dbcb2cc 100644
+--- a/Documentation/devicetree/bindings/net/stmmac.txt
++++ b/Documentation/devicetree/bindings/net/stmmac.txt
+@@ -60,6 +60,7 @@ Optional properties:
+ 		 and MAC2MAC connection.
+ - snps,tso: this enables the TSO feature otherwise it will be managed by
+ 		 MAC HW capability register. Only for GMAC4 and newer.
++- snps,drop-tx-status: this enables drop tx status
+ - AXI BUS Mode parameters: below the list of all the parameters to program the
+ 			   AXI register inside the DMA module:
+ 	- snps,lpi_en: enable Low Power Interface
+diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
+index 90d28bc..312f9670 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/common.h
++++ b/drivers/net/ethernet/stmicro/stmmac/common.h
+@@ -487,6 +487,8 @@ struct stmmac_ops {
+ 	/* RX Queues Routing */
+ 	void (*rx_queue_routing)(struct mac_device_info *hw, u8 packet,
+ 				 u32 queue);
++	/* Enable TX drop */
++	void (*enable_tx_drop)(struct mac_device_info *hw);
+ 	/* Program RX Algorithms */
+ 	void (*prog_mtl_rx_algorithms)(struct mac_device_info *hw, u32 rx_alg);
+ 	/* Program TX Algorithms */
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4.h b/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
+index d74cedf..56ba01a 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
+@@ -202,6 +202,7 @@ enum power_event {
+ #define MTL_OPERATION_RAA		BIT(2)
+ #define MTL_OPERATION_RAA_SP		(0x0 << 2)
+ #define MTL_OPERATION_RAA_WSP		(0x1 << 2)
++#define MTL_OPERATION_DTXSTS		BIT(1)
+ 
+ #define MTL_INT_STATUS			0x00000c20
+ #define MTL_INT_QX(x)			BIT(x)
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
+index 48793f2..a71e9db 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
+@@ -142,6 +142,17 @@ static void dwmac4_tx_queue_routing(struct mac_device_info *hw,
+ 	writel(value, ioaddr + GMAC_RXQ_CTRL1);
+ }
+ 
++static void dwmac4_enable_tx_drop(struct mac_device_info *hw)
++{
++	void __iomem *ioaddr = hw->pcsr;
++	u32 value = readl(ioaddr + MTL_OPERATION_MODE);
++
++	value &= ~MTL_OPERATION_DTXSTS;
++	value |= MTL_OPERATION_DTXSTS;
++
++	writel(value, ioaddr + MTL_OPERATION_MODE);
++}
++
+ static void dwmac4_prog_mtl_rx_algorithms(struct mac_device_info *hw,
+ 					  u32 rx_alg)
+ {
+@@ -675,6 +686,7 @@ static const struct stmmac_ops dwmac4_ops = {
+ 	.rx_queue_prio = dwmac4_rx_queue_priority,
+ 	.tx_queue_prio = dwmac4_tx_queue_priority,
+ 	.rx_queue_routing = dwmac4_tx_queue_routing,
++	.enable_tx_drop = dwmac4_enable_tx_drop,
+ 	.prog_mtl_rx_algorithms = dwmac4_prog_mtl_rx_algorithms,
+ 	.prog_mtl_tx_algorithms = dwmac4_prog_mtl_tx_algorithms,
+ 	.set_mtl_tx_queue_weight = dwmac4_set_mtl_tx_queue_weight,
+@@ -706,6 +718,7 @@ static const struct stmmac_ops dwmac410_ops = {
+ 	.rx_queue_prio = dwmac4_rx_queue_priority,
+ 	.tx_queue_prio = dwmac4_tx_queue_priority,
+ 	.rx_queue_routing = dwmac4_tx_queue_routing,
++	.enable_tx_drop = dwmac4_enable_tx_drop,
+ 	.prog_mtl_rx_algorithms = dwmac4_prog_mtl_rx_algorithms,
+ 	.prog_mtl_tx_algorithms = dwmac4_prog_mtl_tx_algorithms,
+ 	.set_mtl_tx_queue_weight = dwmac4_set_mtl_tx_queue_weight,
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index a89f76b..bbde5b2 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -2368,6 +2368,9 @@ static void stmmac_mtl_configuration(struct stmmac_priv *priv)
+ 	u32 rx_queues_count = priv->plat->rx_queues_to_use;
+ 	u32 tx_queues_count = priv->plat->tx_queues_to_use;
+ 
++	if (priv->plat->drop_tx_status)
++		priv->hw->mac->enable_tx_drop(priv->hw);
++
+ 	if (tx_queues_count > 1 && priv->hw->mac->set_mtl_tx_queue_weight)
+ 		stmmac_set_tx_queue_weight(priv);
+ 
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+index 7fc3a1e..d15e650 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+@@ -451,6 +451,8 @@ stmmac_probe_config_dt(struct platform_device *pdev, const char **mac)
+ 		plat->has_gmac = 0;
+ 		plat->pmt = 1;
+ 		plat->tso_en = of_property_read_bool(np, "snps,tso");
++		plat->drop_tx_status =
++			of_property_read_bool(np, "snps,drop-tx-status");
+ 	}
+ 
+ 	if (of_device_is_compatible(np, "snps,dwmac-3.610") ||
+diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
+index 3921cb9..fe7940c 100644
+--- a/include/linux/stmmac.h
++++ b/include/linux/stmmac.h
+@@ -186,6 +186,7 @@ struct plat_stmmacenet_data {
+ 	struct stmmac_axi *axi;
+ 	int has_gmac4;
+ 	bool tso_en;
++	bool drop_tx_status;
+ 	int mac_port_sel_speed;
+ 	bool en_tx_lpi_clockgating;
+ };
+-- 
+2.9.3
