@@ -1,48 +1,107 @@
 From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: [PATCH 06/10] ftgmac100: Rename ftgmac100_setup_mac to ftgmac100_initial_mac
-Date: Tue, 11 Apr 2017 11:04:32 +1000
-Message-ID: <20170411010436.23290-7-benh@kernel.crashing.org>
+Subject: [PATCH 07/10] ftgmac100: Open code remaining register writes
+Date: Tue, 11 Apr 2017 11:04:33 +1000
+Message-ID: <20170411010436.23290-8-benh@kernel.crashing.org>
 References: <20170411010436.23290-1-benh@kernel.crashing.org>
 Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:51432 "EHLO gate.crashing.org"
+Received: from gate.crashing.org ([63.228.1.57]:51434 "EHLO gate.crashing.org"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753009AbdDKBGM (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 10 Apr 2017 21:06:12 -0400
+        id S1753032AbdDKBGO (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 10 Apr 2017 21:06:14 -0400
 In-Reply-To: <20170411010436.23290-1-benh@kernel.crashing.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-To remove more confusion. This function is about obtaining the
-initial MAC address at driver probe time.
+The helpers just take space but don't provide much value. Simple
+one line comments are more explanatory.
 
 Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 ---
- drivers/net/ethernet/faraday/ftgmac100.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/faraday/ftgmac100.c | 53 ++++++++++++--------------------
+ 1 file changed, 20 insertions(+), 33 deletions(-)
 
 diff --git a/drivers/net/ethernet/faraday/ftgmac100.c b/drivers/net/ethernet/faraday/ftgmac100.c
-index c2053e5..e92f382 100644
+index e92f382..3c7a1e4 100644
 --- a/drivers/net/ethernet/faraday/ftgmac100.c
 +++ b/drivers/net/ethernet/faraday/ftgmac100.c
-@@ -182,7 +182,7 @@ static void ftgmac100_write_mac_addr(struct ftgmac100 *priv, const u8 *mac)
- 	iowrite32(laddr, priv->base + FTGMAC100_OFFSET_MAC_LADR);
+@@ -93,29 +93,6 @@ struct ftgmac100 {
+ 	bool is_aspeed;
+ };
+ 
+-static void ftgmac100_set_rx_ring_base(struct ftgmac100 *priv, dma_addr_t addr)
+-{
+-	iowrite32(addr, priv->base + FTGMAC100_OFFSET_RXR_BADR);
+-}
+-
+-static void ftgmac100_set_rx_buffer_size(struct ftgmac100 *priv,
+-		unsigned int size)
+-{
+-	size = FTGMAC100_RBSR_SIZE(size);
+-	iowrite32(size, priv->base + FTGMAC100_OFFSET_RBSR);
+-}
+-
+-static void ftgmac100_set_normal_prio_tx_ring_base(struct ftgmac100 *priv,
+-						   dma_addr_t addr)
+-{
+-	iowrite32(addr, priv->base + FTGMAC100_OFFSET_NPTXR_BADR);
+-}
+-
+-static void ftgmac100_txdma_normal_prio_start_polling(struct ftgmac100 *priv)
+-{
+-	iowrite32(1, priv->base + FTGMAC100_OFFSET_NPTXPD);
+-}
+-
+ static int ftgmac100_reset_mac(struct ftgmac100 *priv, u32 maccr)
+ {
+ 	struct net_device *netdev = priv->netdev;
+@@ -233,18 +210,27 @@ static int ftgmac100_set_mac_addr(struct net_device *dev, void *p)
+ 
+ static void ftgmac100_init_hw(struct ftgmac100 *priv)
+ {
+-	/* setup ring buffer base registers */
+-	ftgmac100_set_rx_ring_base(priv,
+-				   priv->descs_dma_addr +
+-				   offsetof(struct ftgmac100_descs, rxdes));
+-	ftgmac100_set_normal_prio_tx_ring_base(priv,
+-					       priv->descs_dma_addr +
+-					       offsetof(struct ftgmac100_descs, txdes));
+ 
+-	ftgmac100_set_rx_buffer_size(priv, RX_BUF_SIZE);
+ 
+-	iowrite32(FTGMAC100_APTC_RXPOLL_CNT(1), priv->base + FTGMAC100_OFFSET_APTC);
++	/* Setup RX ring buffer base */
++	iowrite32(priv->descs_dma_addr +
++		  offsetof(struct ftgmac100_descs, rxdes),
++		  priv->base + FTGMAC100_OFFSET_RXR_BADR);
+ 
++	/* Setup TX ring buffer base */
++	iowrite32(priv->descs_dma_addr +
++		  offsetof(struct ftgmac100_descs, txdes),
++		  priv->base + FTGMAC100_OFFSET_NPTXR_BADR);
++
++	/* Configure RX buffer size */
++	iowrite32(FTGMAC100_RBSR_SIZE(RX_BUF_SIZE),
++		  priv->base + FTGMAC100_OFFSET_RBSR);
++
++	/* Set RX descriptor autopoll */
++	iowrite32(FTGMAC100_APTC_RXPOLL_CNT(1),
++		  priv->base + FTGMAC100_OFFSET_APTC);
++
++	/* Write MAC address */
+ 	ftgmac100_write_mac_addr(priv, priv->netdev->dev_addr);
  }
  
--static void ftgmac100_setup_mac(struct ftgmac100 *priv)
-+static void ftgmac100_initial_mac(struct ftgmac100 *priv)
- {
- 	u8 mac[ETH_ALEN];
- 	unsigned int m;
-@@ -1431,7 +1431,7 @@ static int ftgmac100_probe(struct platform_device *pdev)
- 	netdev->irq = irq;
+@@ -695,7 +681,8 @@ static int ftgmac100_hard_start_xmit(struct sk_buff *skb,
+ 			netif_wake_queue(netdev);
+ 	}
  
- 	/* MAC address from chip or random one */
--	ftgmac100_setup_mac(priv);
-+	ftgmac100_initial_mac(priv);
+-	ftgmac100_txdma_normal_prio_start_polling(priv);
++	/* Poke transmitter to read the updated TX descriptors */
++	iowrite32(1, priv->base + FTGMAC100_OFFSET_NPTXPD);
  
- 	np = pdev->dev.of_node;
- 	if (np && (of_device_is_compatible(np, "aspeed,ast2400-mac") ||
+ 	return NETDEV_TX_OK;
+ 
 -- 
 2.9.3
