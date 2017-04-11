@@ -1,36 +1,38 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH net-next v2] bpf: pass sk to helper functions
-Date: Tue, 11 Apr 2017 11:14:41 -0700
-Message-ID: <20170411181439.GA31880@ast-mbp.thefacebook.com>
-References: <20170411180808.109636-1-willemdebruijn.kernel@gmail.com>
+From: Jakub Kicinski <kubakici@wp.pl>
+Subject: Re: RFC: Checksum offload and XDP
+Date: Tue, 11 Apr 2017 11:34:25 -0700
+Message-ID: <20170411113402.48614665@cakuba.lan>
+References: <CALx6S357=e3414sPBnW3ajzXfkvVBiGMChx+vgbf9snpe95-aQ@mail.gmail.com>
+        <63f0f671-5b33-4895-355c-be6259b16341@solarflare.com>
+        <58ED07C3.50308@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, ast@fb.com, daniel@iogearbox.net,
-        davem@davemloft.net, fengc@google.com, lorenzo@google.com,
-        Willem de Bruijn <willemb@google.com>
-To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Edward Cree <ecree@solarflare.com>,
+        Tom Herbert <tom@herbertland.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Alexei Starovoitov <ast@kernel.org>
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:32952 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751995AbdDKSOp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 11 Apr 2017 14:14:45 -0400
-Received: by mail-pf0-f196.google.com with SMTP id c198so850972pfc.0
-        for <netdev@vger.kernel.org>; Tue, 11 Apr 2017 11:14:45 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20170411180808.109636-1-willemdebruijn.kernel@gmail.com>
+Received: from mx3.wp.pl ([212.77.101.10]:30182 "EHLO mx3.wp.pl"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753174AbdDKSen (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 11 Apr 2017 14:34:43 -0400
+In-Reply-To: <58ED07C3.50308@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 11, 2017 at 02:08:08PM -0400, Willem de Bruijn wrote:
-> From: Willem de Bruijn <willemb@google.com>
-> 
-> BPF helper functions access socket fields through skb->sk. This is not
-> set in ingress cgroup and socket filters. The association is only made
-> in skb_set_owner_r once the filter has accepted the packet. Sk is
-> available as socket lookup has taken place.
-> 
-> Temporarily set skb->sk to sk in these cases.
-> 
-> Signed-off-by: Willem de Bruijn <willemb@google.com>
+On Tue, 11 Apr 2017 18:43:47 +0200, Daniel Borkmann wrote:
+> cls_bpf has a couple of helpers like bpf_l3_csum_replace(), bpf_l4_csum_replace()
+> bpf_csum_diff(), bpf_csum_update(), where we (cilium at least) use checksum
+> diffs extensively. You can then also leave the option to the user to feed
+> pre-computed diffs from a map, etc, or, to just not care at all when not
+> necessary. Pushing this via return code seems a bit odd, perhaps a xdp->csum
+> member could be populated before calling into the program and the resulting
+> xdp->csum processed further upon exit.
 
-Acked-by: Alexei Starovoitov <ast@kernel.org>
++1 on exposing xdp->csum.  I think having the csum complete available
+in the eBPF program (rather than diff) may be useful for apps doing
+encap to a csumed tunnel (e.g. UDP).  If the header is pre-calculated
+in the map, having csum complete makes calculating the outer csum
+extremely easy, right?
