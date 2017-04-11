@@ -1,54 +1,50 @@
-From: carl h <heyen2000@gmail.com>
-Subject: vlan tagging problem
-Date: Tue, 11 Apr 2017 15:36:50 -0400
-Message-ID: <CABM+yxmxfFZRtOyKbU3f1MpseQYRCReHj5uqtE3rKhaV0cUb7A@mail.gmail.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH v3 1/5] netlink: extended ACK reporting
+Date: Tue, 11 Apr 2017 21:43:29 +0200
+Message-ID: <1491939809.27324.1.camel@sipsolutions.net>
+References: <1491894172.31620.2.camel@sipsolutions.net>
+         <9a68aa01-474c-7054-30c2-473ee1250abe@cumulusnetworks.com>
+         <20170411173143.GA1899@salvia>
+         <20170411.134225.398046538225438175.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: dsa@cumulusnetworks.com, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org, jhs@mojatatu.com, jbenc@redhat.com,
+        jiri@resnulli.us
+To: David Miller <davem@davemloft.net>, pablo@netfilter.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f45.google.com ([209.85.215.45]:35565 "EHLO
-        mail-lf0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752086AbdDKTgw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 11 Apr 2017 15:36:52 -0400
-Received: by mail-lf0-f45.google.com with SMTP id 75so3723922lfs.2
-        for <netdev@vger.kernel.org>; Tue, 11 Apr 2017 12:36:52 -0700 (PDT)
+Received: from s3.sipsolutions.net ([5.9.151.49]:54270 "EHLO sipsolutions.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752753AbdDKTng (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 11 Apr 2017 15:43:36 -0400
+In-Reply-To: <20170411.134225.398046538225438175.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi
+On Tue, 2017-04-11 at 13:42 -0400, David Miller wrote:
 
-Hope this is right place to ask this. Looking for help regarding vlan
-tagging done by the 8021q driver.
+> > Then, the library needs to be extended to enable this handling to
+> > modify the way it needs to handle errors, together with the
+> > setsockopt().
 
-I tried to manually configure a vlan on my target device. I use these
-2 vlan config commands, then I ping an IP address and sniff the
-packets to look for the vlan tag in the messages.
+So I'd tend to agree, but
 
-   vconfig add esw0
-   ifconfig esw0.10 10.93.1.2 netmask 255.255.255.0
+ * it was easy to solve this, with the flags I added
+ * the flags reduce the amount of parsing dependencies, for example, it
+   is then no longer necessary to check if error == 0 to know if the
+   message was capped or not (when not requested), since the flag
+   indicates it
+ * having the flag that TLVs were set lets us not store if the
+   setsockopt failed or not - this can be useful in the error report
+   case (but not in the success/cookie case) since it avoids extra
+   state that needs to be passed around
+ * libnl, which seems pretty common, allows just passing a single
+   pointer around as state, which is often already used for something
+   else, meaning a bigger refactoring can be required to pass the extra
+   state
 
-Despite my attempts, tagging does not occur in any outgoing packets.
-However when I tried the exact same method and commands on my Ubuntu
-workstation vlan tagging did work without problems.
+So yes, in theory we don't need this, but in practice it does make the
+userland parsing code quite a bit easier.
 
-    Target: mips32, Linux 2.6.39, 802.1Q driver version 1.8
-
-I have looked at the source for the 8021q.ko driver and I keep running
-into a dead end trying to figure out where the 4 bytes of vlan data
-gets added to the IP header. There are 2 key functions where vlan
-information is deciphered and added to a structure that contains vlan
-info, but the information never gets added to the header for some
-reason.
-
-   vlan_dev_hard_header()
-   vlan_dev_hard_start_xmit()
-
-It is clear in the code where vlan information in receive packets gets
-removed, but not so clear in the transmit direction where this is
-supposed to happen.
-
-Could someone explain to me what I'm missing, and where and how vlan
-info gets added to the header for outgoing packets?
-
-thx
-/carl
+johannes
