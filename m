@@ -1,84 +1,44 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: RFC: Checksum offload and XDP
-Date: Tue, 11 Apr 2017 10:26:38 -0700
-Message-ID: <CALx6S34isOnmRxp9V8XZBi02h0qwEUb2g_-rYg_WMnH6hERA7g@mail.gmail.com>
-References: <CALx6S357=e3414sPBnW3ajzXfkvVBiGMChx+vgbf9snpe95-aQ@mail.gmail.com>
- <63f0f671-5b33-4895-355c-be6259b16341@solarflare.com> <CALx6S347tj_nA0i4naN9SWaGVm27SPid3c=_KJcfQnsYAuqxSA@mail.gmail.com>
- <21cd2caf-56a8-a330-1260-a55ddf07d854@solarflare.com>
+From: Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>
+Subject: Re: [PATCH v3 1/5] netlink: extended ACK reporting
+Date: Tue, 11 Apr 2017 19:31:43 +0200
+Message-ID: <20170411173143.GA1899@salvia>
+References: <20170408202434.12018-1-johannes@sipsolutions.net>
+ <20170408202434.12018-2-johannes@sipsolutions.net>
+ <fddba2c8-3b85-d5df-81c4-ef31c459e40c@cumulusnetworks.com>
+ <1491838218.28432.5.camel@sipsolutions.net>
+ <029e6587-c0e8-bdb0-49e9-2abe2946a7ff@cumulusnetworks.com>
+ <20170411065908.GB1492@salvia>
+ <1491894172.31620.2.camel@sipsolutions.net>
+ <9a68aa01-474c-7054-30c2-473ee1250abe@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Alexei Starovoitov <ast@kernel.org>
-To: Edward Cree <ecree@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f172.google.com ([209.85.216.172]:35506 "EHLO
-        mail-qt0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751449AbdDKR0j (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 11 Apr 2017 13:26:39 -0400
-Received: by mail-qt0-f172.google.com with SMTP id n46so3415764qta.2
-        for <netdev@vger.kernel.org>; Tue, 11 Apr 2017 10:26:39 -0700 (PDT)
-In-Reply-To: <21cd2caf-56a8-a330-1260-a55ddf07d854@solarflare.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
+        Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org
+To: David Ahern <dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <9a68aa01-474c-7054-30c2-473ee1250abe-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 11, 2017 at 10:13 AM, Edward Cree <ecree@solarflare.com> wrote:
-> On 11/04/17 17:46, Tom Herbert wrote:
->> On Tue, Apr 11, 2017 at 8:55 AM, Edward Cree <ecree@solarflare.com> wrote:
->>> The counter-argument, of course, is that if the XDP program edits fields
->>>  that are protected by an Internet checksum (which in practice usually
->>>  means anything but the Ethernet header) and then fixes up the checksums
->>>  itself, we will edit our diff value twice just to conclude that diff==0.
->>>  And maybe we are willing to trust root with the ability to lie to the
->>>  kernel about incoming packets' checksum_complete values.
->>>
->> Works for modifying IPv4 or when we are expressly doing a checksum
->> neutral operation, but that doesn't cover the general case. Suppose we
->> simply want to pop an IPv6 header in IPv6/IPv6 encpasulation (there is
->> some push in IETF for expanded use of IPIP tunneling with IPv6 to deal
->> with the inserting EH into a packet problem). In that case the bits
->> being chucked won't sum to zero and they're probably not also the same
->> so the trick for ILA won't work so we need something to rectify the
->> checksum if we're doing XDP_PASS for instance.
-> Oh, I agree that if we don't do the rewriting we have to have some way
->  for XDP to output a diff.  I agree with Daniel that a helper function
->  seems the obvious way to get this information out.  My "counter-
->  argument" was about "user does it" vs. "verifier does it".
->> As far as trust is concerned I don't think that is a major issue. The
->> XDP program can already modify the packet in arbitrary ways so if the
->> checksum is messed up this likely results in unnecessarily dropping
->> packets that actually a good checksum (as opposed to allowing packets
->> with bad checksum to pass).
-> I wasn't thinking so much of trust in the security sense (I agree that's
->  not much of an argument since XDP programs are privileged already), but
->  rather as a reliability thing; it maybe being an easy thing for root to
->  get wrong ("hey, this bit only edits Ethernet headers so I don't have
->  to fix any checksums, job done.  Why is my network broken?")
-> So I think we'd have to assume that any program that _doesn't_ call the
->  helper function has invalidated any checksum_complete value we had; if
->  all the program's changes were balanced, it can call update_csum(0).
->> Note that this only applies to
->> checksum_complete, if we were to allow XDP program to return
->> checksum_unnecessary for instance then it's more a leap of faith that
->> things are always correct.
-> Speaking of checksum_unnecessary, it might still be useful for the
->  verifier to tell us whether the program contains any writes, since if
->  so any drivers using checksum_unnecessary will have to clear it when
->  calling XDP or else do conversion to checksum_complete beforehand.  (We
->  at sfc will probably take the latter path.)  But this can be elided if
->  the XDP program is known not to do writes or header adjustments,
->  potentially speeding things up for the pure drop case.
-> (Also we wouldn't require such a program to call update_csum for the
->  checksum_complete case, of course.)
->
-I don't think we need to do anything special for checksum_unnecessary
-other than what we need for checksum_complete. For instance, if we do
-return the checksum diff from XDP program then a non-zero value would
-be sufficient to invalidate the checksum_unnecessary. Of course, it's
-likely this is overkill since in many cases the changes wouldn't
-affect checksum_unnecessary setting, but trying to unravel that to
-preserve checksum_unnecessary would be a mess. checksum_unnecessary is
-considered deprecated anyway!
+On Tue, Apr 11, 2017 at 08:25:57AM -0600, David Ahern wrote:
+> On 4/11/17 1:02 AM, Johannes Berg wrote:
+> > On Tue, 2017-04-11 at 08:59 +0200, Pablo Neira Ayuso wrote:
+> >> CAP_ACK means: trim off the payload that the netlink error message
+> >> is embedding, just like ICMP error does.
+> >>
+> >> What is exactly your concern? If the user explicitly requests this
+> >> via socket option for this socket, then we're expecting they do the
+> >> right handling for what they're asking for.
+> > 
+> > I think David's concern was that when you want to parse the ACK in a
+> > library (or application), you may not easily know if the application
+> > (or library) requested capping.
+> 
+> exactly.
 
-Tom
-
-> -Ed
+Then, the library needs to be extended to enable this handling to
+modify the way it needs to handle errors, together with the
+setsockopt().
