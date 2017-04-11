@@ -1,80 +1,71 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 4/4] xfrm: branchless addr4_match() on 64-bit
-Date: Tue, 11 Apr 2017 07:53:52 +0200
-Message-ID: <1491890032-28655-5-git-send-email-steffen.klassert@secunet.com>
-References: <1491890032-28655-1-git-send-email-steffen.klassert@secunet.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [PATCH net-next v2] bindings: net: stmmac: add missing note about
+ LPI interrupt
+Date: Tue, 11 Apr 2017 08:08:35 +0200
+Message-ID: <3a2ab310-adc7-ad66-4094-13e2125734f2@st.com>
+References: <20170410074320.9506-1-niklass@axis.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-        Steffen Klassert <steffen.klassert@secunet.com>,
-        <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:56586 "EHLO a.mx.secunet.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752291AbdDKGAD (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 11 Apr 2017 02:00:03 -0400
-In-Reply-To: <1491890032-28655-1-git-send-email-steffen.klassert@secunet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <devicetree@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>
+To: Niklas Cassel <niklas.cassel@axis.com>,
+        Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Joao Pinto <Joao.Pinto@synopsys.com>,
+        Niklas Cassel <niklass@axis.com>,
+        Alexandre TORGUE <alexandre.torgue@st.com>,
+        Thierry Reding <treding@nvidia.com>,
+        Eric Engestrom <eric@engestrom.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170410074320.9506-1-niklass@axis.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Alexey Dobriyan <adobriyan@gmail.com>
+Hi Niklas
 
-Current addr4_match() code has special test for /0 prefixes because of
-standard required undefined behaviour. However, it is possible to omit
-it on 64-bit because shifting can be done within a 64-bit register and
-then truncated to the expected value (which is 0 mask).
+On 4/10/2017 9:43 AM, Niklas Cassel wrote:
+> From: Niklas Cassel <niklas.cassel@axis.com>
+>
+> The hardware has a LPI interrupt.
+> There is already code in the stmmac driver to parse and handle the
+> interrupt. However, this information was missing from the DT binding.
 
-Implicit truncation by htonl() fits nicely into R32-within-R64 model
-on x86-64.
+i wonder if we could improve the comments in this patch too
+> Signed-off-by: Niklas Cassel <niklas.cassel@axis.com>
+> ---
+>   Documentation/devicetree/bindings/net/stmmac.txt | 8 ++++----
+>   1 file changed, 4 insertions(+), 4 deletions(-)
+>
+> diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
+> index f652b0c384ce..84e4cbfd3b0f 100644
+> --- a/Documentation/devicetree/bindings/net/stmmac.txt
+> +++ b/Documentation/devicetree/bindings/net/stmmac.txt
+> @@ -8,8 +8,8 @@ Required properties:
+>     that services interrupts for this device
+>   - interrupts: Should contain the STMMAC interrupts
+>   - interrupt-names: Should contain the interrupt names "macirq"
+> -  "eth_wake_irq" if this interrupt is supported in the "interrupts"
+> -  property
+> +  "eth_wake_irq" if this interrupt is supported in the "interrupts" property
+this is the PMT interrupt to manage the remote wake-up packet detection
+> +  "eth_lpi" if this interrupt is supported in the "interrupts" property
+This is the interrupt that occurs when Tx or Rx enter/exit from LPI state
 
-Space savings: none (coincidence)
-Branch savings: 1
-
-Before:
-
-	movzx  eax,BYTE PTR [rdi+0x2a]		# ->prefixlen_d
-	test   al,al
-	jne    xfrm_selector_match + 0x23f
-		...
-	movzx  eax,BYTE PTR [rbx+0x2b]		# ->prefixlen_s
-	test   al,al
-	je     xfrm_selector_match + 0x1c7
-
-After (no branches):
-
-	mov    r8d,0x20
-	mov    rdx,0xffffffffffffffff
-	mov    esi,DWORD PTR [rsi+0x2c]
-	mov    ecx,r8d
-	sub    cl,BYTE PTR [rdi+0x2a]
-	xor    esi,DWORD PTR [rbx]
-	mov    rdi,rdx
-	xor    eax,eax
-	shl    rdi,cl
-	bswap  edi
-
-Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
-Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
----
- include/net/xfrm.h | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 43b93d1..9e3dc7b 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -845,9 +845,9 @@ static inline bool addr_match(const void *token1, const void *token2,
- static inline bool addr4_match(__be32 a1, __be32 a2, u8 prefixlen)
- {
- 	/* C99 6.5.7 (3): u32 << 32 is undefined behaviour */
--	if (prefixlen == 0)
-+	if (sizeof(long) == 4 && prefixlen == 0)
- 		return true;
--	return !((a1 ^ a2) & htonl(0xFFFFFFFFu << (32 - prefixlen)));
-+	return !((a1 ^ a2) & htonl(~0UL << (32 - prefixlen)));
- }
- 
- static __inline__
--- 
-2.7.4
+Regards
+Peppe
+>   - phy-mode: See ethernet.txt file in the same directory.
+>   - snps,reset-gpio 	gpio number for phy reset.
+>   - snps,reset-active-low boolean flag to indicate if phy reset is active low.
+> @@ -152,8 +152,8 @@ Examples:
+>   		compatible = "st,spear600-gmac";
+>   		reg = <0xe0800000 0x8000>;
+>   		interrupt-parent = <&vic1>;
+> -		interrupts = <24 23>;
+> -		interrupt-names = "macirq", "eth_wake_irq";
+> +		interrupts = <24 23 22>;
+> +		interrupt-names = "macirq", "eth_wake_irq", "eth_lpi";
+>   		mac-address = [000000000000]; /* Filled in by U-Boot */
+>   		max-frame-size = <3800>;
+>   		phy-mode = "gmii";
