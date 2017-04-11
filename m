@@ -1,30 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/6] net: fec: driver code clean
-Date: Tue, 11 Apr 2017 14:36:44 -0400 (EDT)
-Message-ID: <20170411.143644.1442648123167478431.davem@davemloft.net>
-References: <1491909188-8971-1-git-send-email-fugang.duan@nxp.com>
+Subject: Re: [PATCH net-next v4 1/2] bpf: remove struct bpf_prog_type_list
+Date: Tue, 11 Apr 2017 14:39:09 -0400 (EDT)
+Message-ID: <20170411.143909.674961610138152128.davem@davemloft.net>
+References: <20170411133458.26816-1-johannes@sipsolutions.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bhutchings@solarflare.com,
-        stephen@networkplumber.org
-To: fugang.duan@nxp.com
+Cc: netdev@vger.kernel.org, alexei.starovoitov@gmail.com,
+        daniel@iogearbox.net, johannes.berg@intel.com
+To: johannes@sipsolutions.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:34762 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:34828 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752291AbdDKSgs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 11 Apr 2017 14:36:48 -0400
-In-Reply-To: <1491909188-8971-1-git-send-email-fugang.duan@nxp.com>
+        with ESMTP id S1753172AbdDKSjM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 11 Apr 2017 14:39:12 -0400
+In-Reply-To: <20170411133458.26816-1-johannes@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Fugang Duan <fugang.duan@nxp.com>
-Date: Tue, 11 Apr 2017 19:13:02 +0800
+From: Johannes Berg <johannes@sipsolutions.net>
+Date: Tue, 11 Apr 2017 15:34:57 +0200
 
-> The patch series are for fec ethernet driver code clean up, each patch is
-> independent.
-> Patch #1,#4,#5 are code clean up.
-> Patch #2,#3 are for aarch64 platform.
-> Patch #6 is for i.MX6UL to add lost errata workaround.
+> From: Johannes Berg <johannes.berg@intel.com>
+> 
+> There's no need to have struct bpf_prog_type_list since
+> it just contains a list_head, the type, and the ops
+> pointer. Since the types are densely packed and not
+> actually dynamically registered, it's much easier and
+> smaller to have an array of type->ops pointer. Also
+> initialize this array statically to remove code needed
+> to initialize it.
+> 
+> In order to save duplicating the list, move it to a new
+> header file and include it in the places needing it.
+> 
+> Signed-off-by: Johannes Berg <johannes.berg@intel.com>
 
-Series applied, thank you.
+Applied.
