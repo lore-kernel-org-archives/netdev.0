@@ -1,38 +1,49 @@
-From: Steve Glendinning <steve-nksJyM/082jR7s880joybQ@public.gmane.org>
-Subject: Re: [PATCH v3] smsc95xx: Add comments to the registers definition
-Date: Wed, 12 Apr 2017 10:32:22 +0100
-Message-ID: <CAKh2mn6Mo1GcKB--t5o=EJiF8GQuOc3t-pGg_sHt-PNtfRCNhQ@mail.gmail.com>
-References: <20170410084521.w2kdjpdquvrg72mr@SMX-2> <20170410135251.GC19820@lunn.ch>
- <20170411.221836.113758478587841074.davem@davemloft.net> <20170412092405.doyczwsqnzkizarz@SMX-2>
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: Re: vlan tagging problem
+Date: Wed, 12 Apr 2017 11:45:16 +0200
+Message-ID: <20170412094516.GB13789@unicorn.suse.cz>
+References: <CABM+yxmxfFZRtOyKbU3f1MpseQYRCReHj5uqtE3rKhaV0cUb7A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, andrew-g2DYL2Zd6BY@public.gmane.org,
-        Steve Glendinning <steve.glendinning-nksJyM/082jR7s880joybQ@public.gmane.org>,
-        UNGLinuxDriver-UWL1GkI3JZL3oGB3hsPCZA@public.gmane.org, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Martin Wetterwald <martin-ufNpD2TjPakDzzZUHZsW5w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170412092405.doyczwsqnzkizarz@SMX-2>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: carl h <heyen2000@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx2.suse.de ([195.135.220.15]:36350 "EHLO mx2.suse.de"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751079AbdDLJpS (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 12 Apr 2017 05:45:18 -0400
+Content-Disposition: inline
+In-Reply-To: <CABM+yxmxfFZRtOyKbU3f1MpseQYRCReHj5uqtE3rKhaV0cUb7A@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12 April 2017 at 10:24, Martin Wetterwald <martin-ufNpD2TjPakDzzZUHZsW5w@public.gmane.org> wrote:
-> This chip is used by a lot of embedded devices and also by the Raspberry
-> Pi 1, 2 & 3 which were created to promote the study of computer
-> sciences. Students wanting to learn kernel / network device driver
-> programming through those devices can only rely on the Linux kernel
-> driver source to make their own.
->
-> This commit adds a lot of comments to the registers definition to expand
-> the register names.
->
-> Cc: Steve Glendinning <steve.glendinning-nksJyM/082jR7s880joybQ@public.gmane.org>
-> Cc: Microchip Linux Driver Support <UNGLinuxDriver-UWL1GkI3JZL3oGB3hsPCZA@public.gmane.org>
-> CC: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-> Signed-off-by: Martin Wetterwald <martin-ufNpD2TjPakDzzZUHZsW5w@public.gmane.org>
+On Tue, Apr 11, 2017 at 03:36:50PM -0400, carl h wrote:
+> 
+> I tried to manually configure a vlan on my target device. I use these
+> 2 vlan config commands, then I ping an IP address and sniff the
+> packets to look for the vlan tag in the messages.
+> 
+>    vconfig add esw0
+>    ifconfig esw0.10 10.93.1.2 netmask 255.255.255.0
 
-Acked-by: Steve Glendinning <steve.glendinning-nksJyM/082jR7s880joybQ@public.gmane.org>
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I would rather suggest
+
+  ip link add esw0.10 link esw0 type vlan id 10
+  ip addr add 10.93.1.2/24 brd + dev esw0.10
+  ip link set esw0.10 up
+
+> Despite my attempts, tagging does not occur in any outgoing packets.
+
+How do you check? If with tcpdump, on which interface?
+
+> However when I tried the exact same method and commands on my Ubuntu
+> workstation vlan tagging did work without problems.
+> 
+>     Target: mips32, Linux 2.6.39, 802.1Q driver version 1.8
+
+With older versions of libpcap, tcpdump wouldn't show VLAN tags if vlan
+information was passed in metadata rather than as a tag in packet itself
+(which is usually the case when outgoing/incoming device supports
+hardware vlan tagging/stripping). Make sure this is not your case.
+
+Michal Kubecek
