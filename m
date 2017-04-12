@@ -1,81 +1,104 @@
-From: Joao Pinto <Joao.Pinto@synopsys.com>
-Subject: Re: [PATCH v2 net-next] net: stmmac: add drop transmit status feature
-Date: Wed, 12 Apr 2017 13:07:02 +0100
-Message-ID: <d5e99129-eef0-1d15-7277-e3c82435bf9f@synopsys.com>
-References: <f43dda26d3c43fdf19d6872306741c16b635558c.1491989111.git.jpinto@synopsys.com>
- <20170412115643.GA32596@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 8bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>, Joao Pinto <Joao.Pinto@synopsys.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: [PATCH net-next v5 2/5] genetlink: pass extended ACK report down
+Date: Wed, 12 Apr 2017 14:34:05 +0200
+Message-ID: <20170412123408.22012-3-johannes@sipsolutions.net>
+References: <20170412123408.22012-1-johannes@sipsolutions.net>
+Cc: pablo@netfilter.org, Jamal Hadi Salim <jhs@mojatatu.com>,
+        Jiri Benc <jbenc@redhat.com>,
+        David Ahern <dsa@cumulusnetworks.com>, jiri@resnulli.us,
+        Johannes Berg <johannes.berg@intel.com>
+To: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay4.synopsys.com ([198.182.47.9]:52638 "EHLO
-        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753892AbdDLMI5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 12 Apr 2017 08:08:57 -0400
-In-Reply-To: <20170412115643.GA32596@lunn.ch>
+Received: from s3.sipsolutions.net ([5.9.151.49]:36130 "EHLO sipsolutions.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752940AbdDLMeM (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 12 Apr 2017 08:34:12 -0400
+In-Reply-To: <20170412123408.22012-1-johannes@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Andrew,
+From: Johannes Berg <johannes.berg@intel.com>
 
-Às 12:56 PM de 4/12/2017, Andrew Lunn escreveu:
-> On Wed, Apr 12, 2017 at 10:26:20AM +0100, Joao Pinto wrote:
->> When the Drop Transmit Status bit is set, the Tx packet status
->> received from the MAC is dropped in the MTL. When this bit is reset,
->> the Tx packet status received from the MAC is forwarded to the
->> application. This feature will cause a performance improvement.
->>
->> Signed-off-by: Joao Pinto <jpinto@synopsys.com>
->> ---
->> changes v1->v2:
->> - removed mask from dwmac4_enable_tx_drop()
->>
->>  Documentation/devicetree/bindings/net/stmmac.txt      |  1 +
->>  drivers/net/ethernet/stmicro/stmmac/common.h          |  2 ++
->>  drivers/net/ethernet/stmicro/stmmac/dwmac4.h          |  1 +
->>  drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c     | 12 ++++++++++++
->>  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c     |  3 +++
->>  drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c |  2 ++
->>  include/linux/stmmac.h                                |  1 +
->>  7 files changed, 22 insertions(+)
->>
->> diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
->> index f652b0c..dbcb2cc 100644
->> --- a/Documentation/devicetree/bindings/net/stmmac.txt
->> +++ b/Documentation/devicetree/bindings/net/stmmac.txt
->> @@ -60,6 +60,7 @@ Optional properties:
->>  		 and MAC2MAC connection.
->>  - snps,tso: this enables the TSO feature otherwise it will be managed by
->>  		 MAC HW capability register. Only for GMAC4 and newer.
->> +- snps,drop-tx-status: this enables drop tx status
-> 
-> Hi Joao
-> 
-> Was the conclusion from testing that this cannot be turned on by
-> default?
+Pass the extended ACK reporting struct down from generic
+netlink to the families, using the existing struct
+genl_info for simplicity.
 
-This feature is great for applications that need good performance, but has a
-drawback since it has an impact in timestamp feature in Tx. There are some
-operations in PTP where the timestamp is given to the host through the TX status
-in the descriptor, so this will have an impact.
+Also add support to set the extended ACK information from
+generic netlink users.
 
-There's a way of solving this of course by making the driver checking the
-timestamp in the MAC_Tx_Timestamp_Status_XXX registers, but I can only look into
-that feature later in the future.
+Signed-off-by: Johannes Berg <johannes.berg@intel.com>
+---
+ include/net/genetlink.h | 12 ++++++++++++
+ net/netlink/genetlink.c |  6 ++++--
+ 2 files changed, 16 insertions(+), 2 deletions(-)
 
-> 
-> What sort of performance improvement did you get? Do you have some
-> benchmark numbers?
-
-My setup is FPGA based, so it will have lower performance values.
-Iperf results with
-  "Drop Transmit Status" set: ~650Mbps.
-  "Drop Transmit Status" unset: ~450Mbps.
-
-> 
-> 	  Andrew
-> 
-
-Joao
+diff --git a/include/net/genetlink.h b/include/net/genetlink.h
+index a34275be3600..f18db6570f52 100644
+--- a/include/net/genetlink.h
++++ b/include/net/genetlink.h
+@@ -84,6 +84,7 @@ struct nlattr **genl_family_attrbuf(const struct genl_family *family);
+  * @attrs: netlink attributes
+  * @_net: network namespace
+  * @user_ptr: user pointers
++ * @extack: extended ACK report struct
+  */
+ struct genl_info {
+ 	u32			snd_seq;
+@@ -94,6 +95,7 @@ struct genl_info {
+ 	struct nlattr **	attrs;
+ 	possible_net_t		_net;
+ 	void *			user_ptr[2];
++	struct netlink_ext_ack *extack;
+ };
+ 
+ static inline struct net *genl_info_net(struct genl_info *info)
+@@ -106,6 +108,16 @@ static inline void genl_info_net_set(struct genl_info *info, struct net *net)
+ 	write_pnet(&info->_net, net);
+ }
+ 
++#define GENL_SET_ERR_MSG(info, msg) NL_SET_ERR_MSG((info)->extack, msg)
++
++static inline int genl_err_attr(struct genl_info *info, int err,
++				struct nlattr *attr)
++{
++	info->extack->bad_attr = attr;
++
++	return err;
++}
++
+ /**
+  * struct genl_ops - generic netlink operations
+  * @cmd: command identifier
+diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
+index 57b2e3648bc0..4b598a5999a2 100644
+--- a/net/netlink/genetlink.c
++++ b/net/netlink/genetlink.c
+@@ -497,7 +497,8 @@ static int genl_lock_done(struct netlink_callback *cb)
+ 
+ static int genl_family_rcv_msg(const struct genl_family *family,
+ 			       struct sk_buff *skb,
+-			       struct nlmsghdr *nlh)
++			       struct nlmsghdr *nlh,
++			       struct netlink_ext_ack *extack)
+ {
+ 	const struct genl_ops *ops;
+ 	struct net *net = sock_net(skb->sk);
+@@ -584,6 +585,7 @@ static int genl_family_rcv_msg(const struct genl_family *family,
+ 	info.genlhdr = nlmsg_data(nlh);
+ 	info.userhdr = nlmsg_data(nlh) + GENL_HDRLEN;
+ 	info.attrs = attrbuf;
++	info.extack = extack;
+ 	genl_info_net_set(&info, net);
+ 	memset(&info.user_ptr, 0, sizeof(info.user_ptr));
+ 
+@@ -618,7 +620,7 @@ static int genl_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 	if (!family->parallel_ops)
+ 		genl_lock();
+ 
+-	err = genl_family_rcv_msg(family, skb, nlh);
++	err = genl_family_rcv_msg(family, skb, nlh, extack);
+ 
+ 	if (!family->parallel_ops)
+ 		genl_unlock();
+-- 
+2.11.0
