@@ -1,32 +1,44 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v3 1/4] net: dsa: add support for the SMSC-LAN9303
- tagging format
-Date: Wed, 12 Apr 2017 16:45:21 +0200
-Message-ID: <20170412144521.GB7023@lunn.ch>
-References: <20170412140218.1076-1-jbe@pengutronix.de>
- <20170412140218.1076-2-jbe@pengutronix.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3] smsc95xx: Add comments to the registers definition
+Date: Wed, 12 Apr 2017 10:46:05 -0400 (EDT)
+Message-ID: <20170412.104605.1126970886368700459.davem@davemloft.net>
+References: <20170410135251.GC19820@lunn.ch>
+        <20170411.221836.113758478587841074.davem@davemloft.net>
+        <20170412092405.doyczwsqnzkizarz@SMX-2>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        f.fainelli@gmail.com, kernel@pengutronix.de,
-        vivien.didelot@savoirfairelinux.com, davem@davemloft.net
-To: Juergen Borleis <jbe@pengutronix.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170412140218.1076-2-jbe@pengutronix.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: andrew@lunn.ch, steve.glendinning@shawell.net,
+        UNGLinuxDriver@microchip.com, netdev@vger.kernel.org,
+        linux-usb@vger.kernel.org
+To: martin@wetterwald.eu
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:46086 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754338AbdDLOqI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 12 Apr 2017 10:46:08 -0400
+In-Reply-To: <20170412092405.doyczwsqnzkizarz@SMX-2>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 12, 2017 at 04:02:15PM +0200, Juergen Borleis wrote:
-> To define the outgoing port and to discover the incoming port a regular
-> VLAN tag is used by the LAN9303. But its VID meaning is 'special'.
+From: Martin Wetterwald <martin@wetterwald.eu>
+Date: Wed, 12 Apr 2017 11:24:05 +0200
+
+> This chip is used by a lot of embedded devices and also by the Raspberry
+> Pi 1, 2 & 3 which were created to promote the study of computer
+> sciences. Students wanting to learn kernel / network device driver
+> programming through those devices can only rely on the Linux kernel
+> driver source to make their own.
 > 
-> This tag handler/filter depends on some hardware features which must be
-> enabled in the device to provide and make use of this special VLAN tag
-> to control the destination and the source of an ethernet packet.
+> This commit adds a lot of comments to the registers definition to expand
+> the register names.
 > 
-> Signed-off-by: Juergen Borleis <jbe@pengutronix.de>
+> Cc: Steve Glendinning <steve.glendinning@shawell.net>
+> Cc: Microchip Linux Driver Support <UNGLinuxDriver@microchip.com>
+> CC: David Miller <davem@davemloft.net>
+> Signed-off-by: Martin Wetterwald <martin@wetterwald.eu>
+> ---
+> Changes in v3:
+>  * Restore previous name for TX_CMD_B_CSUM_ENABLE
 
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
-
-    Andrew
+Please fix the GPIO numbers as indicated by Woojung Huh.
