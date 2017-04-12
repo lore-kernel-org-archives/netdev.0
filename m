@@ -1,28 +1,66 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH nf-next] ip_vs_sync: change comparison on
- sync_refresh_period
-Date: Thu, 13 Apr 2017 07:48:08 +0900
-Message-ID: <20170412224808.GB7620@verge.net.au>
-References: <20170412203812.15091-1-aconole@bytheb.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, Wensong Zhang <wensong@linux-vs.org>,
-        Julian Anastasov <ja@ssi.bg>,
-        Pablo Neira Ayuso <pablo@netfilter.org>,
-        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-To: Aaron Conole <aconole@bytheb.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170412203812.15091-1-aconole@bytheb.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: [PATCH 8/8] ftgmac100: Document device-tree binding
+Date: Thu, 13 Apr 2017 08:44:43 +1000
+Message-ID: <20170412224443.17906-9-benh@kernel.crashing.org>
+References: <20170412224443.17906-1-benh@kernel.crashing.org>
+Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gate.crashing.org ([63.228.1.57]:33751 "EHLO gate.crashing.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1755593AbdDLWsQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 12 Apr 2017 18:48:16 -0400
+In-Reply-To: <20170412224443.17906-1-benh@kernel.crashing.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 12, 2017 at 04:38:12PM -0400, Aaron Conole wrote:
-> The sync_refresh_period variable is unsigned, so it can never be < 0.
-> 
-> Signed-off-by: Aaron Conole <aconole@bytheb.org>
+Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+---
+ .../devicetree/bindings/net/ftgmac100.txt          | 36 ++++++++++++++++++++++
+ 1 file changed, 36 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/net/ftgmac100.txt
 
-Thanks Aaron,
-
-I have applied this to ipvs-next after updating the prefix to "ipvs:".
+diff --git a/Documentation/devicetree/bindings/net/ftgmac100.txt b/Documentation/devicetree/bindings/net/ftgmac100.txt
+new file mode 100644
+index 0000000..68a694a
+--- /dev/null
++++ b/Documentation/devicetree/bindings/net/ftgmac100.txt
+@@ -0,0 +1,36 @@
++* Faraday Technology FTGMAC100 gigabit ethernet controller
++
++Required properties:
++- compatible: "faraday,ftgmac100"
++
++  Must also contain one of these if used as part of an Aspeed AST2400
++  or 2500 family SoC as they have some subtle tweaks to the
++  implementation:
++
++     - "aspeed,ast2400-mac"
++     - "aspeed,ast2500-mac"
++
++- reg: Address and length of the register set for the device
++- interrupts: Should contain ethernet controller interrupt
++
++Optional properties:
++- phy-mode: See ethernet.txt file in the same directory. If the property is
++  absent, "rgmii" is assumed. Supported values are "rgmii" and "rmii"
++- use-ncsi: Use the NC-SI stack instead of an MDIO PHY. Currently assumes
++  rmii (100bT) but kept as a separate property in case NC-SI grows support
++  for a gigabit link.
++- no-hw-checksum: Used to disable HW checksum support. Here for backward
++  compatibility as the driver now should have correct defaults based on
++  the SoC.
++
++Example:
++
++	mac0: ethernet@1e660000 {
++		compatible = "aspeed,ast2500-mac", "faraday,ftgmac100";
++		reg = <0x1e660000 0x180>;
++		interrupts = <2>;
++		status = "okay";
++		use-ncsi;
++	};
++
++
+-- 
+2.9.3
