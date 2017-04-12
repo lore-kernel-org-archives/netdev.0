@@ -1,51 +1,35 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH v2 1/3] mfd: max8998: Remove CONFIG_OF around max8998_dt_match
-Date: Tue, 11 Apr 2017 21:41:54 -0700
-Message-ID: <20170412044156.17351-2-f.fainelli@gmail.com>
-References: <20170412044156.17351-1-f.fainelli@gmail.com>
-Cc: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Lee Jones <lee.jones@linaro.org>,
-        Nicolas Ferre <nicolas.ferre@microchip.com>,
-        Rob Herring <robh+dt@kernel.org>,
-        Frank Rowand <frowand.list@gmail.com>,
-        netdev@vger.kernel.org (open list:NETWORKING DRIVERS),
-        devicetree@vger.kernel.org (open list:OPEN FIRMWARE AND FLATTENED
-        DEVICE TREE)
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170412044156.17351-1-f.fainelli@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jie Deng <Jie.Deng1@synopsys.com>
+Subject: Re: [PATCH net-next] net: dwc-xlgmac: add the initial ethtool support
+Date: Wed, 12 Apr 2017 13:08:08 +0800
+Message-ID: <2a437683-a422-4db0-8583-7b002e74e71d@synopsys.com>
+References: <f1495b53a7ddd2c4bbccdd4b629f57035139c7b6.1491898365.git.jiedeng@synopsys.com>
+ <20170411.104749.1916353709565387637.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>, <Jie.Deng1@synopsys.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtprelay2.synopsys.com ([198.182.60.111]:60467 "EHLO
+        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750899AbdDLFKU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 12 Apr 2017 01:10:20 -0400
+In-Reply-To: <20170411.104749.1916353709565387637.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-A subsequent patch is going to make of_match_node() an inline stub when
-CONFIG_OF is disabled which will properly take care of having the compiler
-eliminate the variable. To avoid more #ifdef/#else, just always make the match
-table available.
+On 2017/4/11 22:47, David Miller wrote:
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/mfd/max8998.c | 2 --
- 1 file changed, 2 deletions(-)
-
-diff --git a/drivers/mfd/max8998.c b/drivers/mfd/max8998.c
-index 4c33b8063bc3..372f681ec1bb 100644
---- a/drivers/mfd/max8998.c
-+++ b/drivers/mfd/max8998.c
-@@ -129,14 +129,12 @@ int max8998_update_reg(struct i2c_client *i2c, u8 reg, u8 val, u8 mask)
- }
- EXPORT_SYMBOL(max8998_update_reg);
- 
--#ifdef CONFIG_OF
- static const struct of_device_id max8998_dt_match[] = {
- 	{ .compatible = "maxim,max8998", .data = (void *)TYPE_MAX8998 },
- 	{ .compatible = "national,lp3974", .data = (void *)TYPE_LP3974 },
- 	{ .compatible = "ti,lp3974", .data = (void *)TYPE_LP3974 },
- 	{},
- };
--#endif
- 
- /*
-  * Only the common platform data elements for max8998 are parsed here from the
--- 
-2.9.3
+> From: Jie Deng <Jie.Deng1@synopsys.com>
+> Date: Tue, 11 Apr 2017 16:14:04 +0800
+>
+>> It is necessary to provide ethtool support for displaying and
+>> modifying parameters of dwc-xlgmac.
+>>
+>> Signed-off-by: Jie Deng <jiedeng@synopsys.com>
+> I don't see why you cannot allow the statistics to be obtained when
+> the device is not running.  Similarly for other ethtool calls that
+> just fetch information stored in the software state of the driver.
+>
+> I think your ->begin() method is way too restrictive.
+Yeah, begin() seems unreasonable here. I will remove it.
