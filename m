@@ -1,46 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] smsc95xx: Add comments to the registers definition
-Date: Tue, 11 Apr 2017 22:18:36 -0400 (EDT)
-Message-ID: <20170411.221836.113758478587841074.davem@davemloft.net>
-References: <20170410084521.w2kdjpdquvrg72mr@SMX-2>
-        <20170410135251.GC19820@lunn.ch>
+Subject: Re: [PATCH] net: stmmac: use netif_set_real_num_{rx,tx}_queues
+Date: Tue, 11 Apr 2017 22:21:22 -0400 (EDT)
+Message-ID: <20170411.222122.498286060501464190.davem@davemloft.net>
+References: <f0359c3d65fbb3f5220c23fc2833c4a094bec4a5.1491819975.git.jpinto@synopsys.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: martin@wetterwald.eu, davem@davemloft.org,
-        steve.glendinning@shawell.net, UNGLinuxDriver@microchip.com,
-        netdev@vger.kernel.org, linux-usb@vger.kernel.org
-To: andrew@lunn.ch
+Cc: netdev@vger.kernel.org, arnd@arndb.de
+To: Joao.Pinto@synopsys.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:39022 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:39046 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751992AbdDLCSi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 11 Apr 2017 22:18:38 -0400
-In-Reply-To: <20170410135251.GC19820@lunn.ch>
+        with ESMTP id S1751992AbdDLCVY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 11 Apr 2017 22:21:24 -0400
+In-Reply-To: <f0359c3d65fbb3f5220c23fc2833c4a094bec4a5.1491819975.git.jpinto@synopsys.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Lunn <andrew@lunn.ch>
-Date: Mon, 10 Apr 2017 15:52:51 +0200
+From: Joao Pinto <Joao.Pinto@synopsys.com>
+Date: Mon, 10 Apr 2017 11:32:14 +0100
 
-> Hi Martin
+> In the submission of the lastest multiple buffer patch set, this fix was lost.
+> I am sending this patch to put it right again. The fix was originally proposed
+> by Arnd Bergmann.
 > 
->> @@ -2032,7 +2032,7 @@ static struct sk_buff *smsc95xx_tx_fixup(struct usbnet *dev,
->>  	skb_push(skb, 4);
->>  	tx_cmd_b = (u32)(skb->len - 4);
->>  	if (csum)
->> -		tx_cmd_b |= TX_CMD_B_CSUM_ENABLE;
->> +		tx_cmd_b |= TX_CMD_B_CSUM_EN;
-> 
-> This changed seems a step backwards, ENABLE is much more readable than EN.
-> 
->>  
->> -#define TX_CMD_B_CSUM_ENABLE		(0x00004000)
->> -#define TX_CMD_B_ADD_CRC_DISABLE_	(0x00002000)
->> -#define TX_CMD_B_DISABLE_PADDING_	(0x00001000)
->> -#define TX_CMD_B_PKT_BYTE_LENGTH_	(0x000007FF)
->> +#define TX_CMD_B_CSUM_EN	(0x00004000)	/* TX Checksum Enable */
-> 
-> And there is space for ABLE here.
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> Signed-off-by: Joao Pinto <jpinto@synopsys.com>
 
-I completely agree, Martin please don't ENABLE to EN.
+Applied, thanks for catching this.
