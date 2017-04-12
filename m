@@ -1,41 +1,53 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: [PATCH v2 10/10] ftgmac100: Set default ring sizes to 128 entries
-Date: Wed, 12 Apr 2017 13:27:10 +1000
-Message-ID: <20170412032710.17546-11-benh@kernel.crashing.org>
-References: <20170412032710.17546-1-benh@kernel.crashing.org>
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-To: netdev@vger.kernel.org
+From: "weiyongjun (A)" <weiyongjun1@huawei.com>
+Subject: RE: [PATCH net-next] devlink: fix return value check in
+ devlink_dpipe_header_put()
+Date: Wed, 12 Apr 2017 03:30:25 +0000
+Message-ID: <6AADFAC011213A4C87B956458587ADB47B0128@SZXEMI508-MBX.china.huawei.com>
+References: <20170410131106.27683-1-weiyj.lk@gmail.com>
+ <20170411.230328.1122763321161603727.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "jiri@mellanox.com" <jiri@mellanox.com>,
+        "arkadis@mellanox.com" <arkadis@mellanox.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:41891 "EHLO gate.crashing.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752530AbdDLD2K (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 11 Apr 2017 23:28:10 -0400
-In-Reply-To: <20170412032710.17546-1-benh@kernel.crashing.org>
+Received: from szxga02-in.huawei.com ([45.249.212.188]:5360 "EHLO
+        dggrg02-dlp.huawei.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1751992AbdDLDaj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 11 Apr 2017 23:30:39 -0400
+In-Reply-To: <20170411.230328.1122763321161603727.davem@davemloft.net>
+Content-Language: zh-CN
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I haven't seen any improvement above that size on the machines
-I've tested with.
+Hi David,
 
-Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
----
- drivers/net/ethernet/faraday/ftgmac100.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Wednesday, April 12, 2017 11:03 AM
+> To: weiyj.lk@gmail.com
+> Cc: jiri@mellanox.com; arkadis@mellanox.com; weiyongjun (A)
+> <weiyongjun1@huawei.com>; netdev@vger.kernel.org
+> Subject: Re: [PATCH net-next] devlink: fix return value check in
+> devlink_dpipe_header_put()
+> 
+> From: Wei Yongjun <weiyj.lk@gmail.com>
+> Date: Mon, 10 Apr 2017 13:11:06 +0000
+> 
+> > From: Wei Yongjun <weiyongjun1@huawei.com>
+> >
+> > Fix the retrn value check which testing the wrong variable
+> > in devlink_dpipe_header_put().
+> >
+> > Fixes: 1555d204e743 ("devlink: Support for pipeline debug (dpipe)")
+> > Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
+> 
+> This doesn't apply cleanly to net-next, please respin and also fix
+> the typo in your commit message as pointed out by Jiri.
 
-diff --git a/drivers/net/ethernet/faraday/ftgmac100.c b/drivers/net/ethernet/faraday/ftgmac100.c
-index 0b92bde..796b37e 100644
---- a/drivers/net/ethernet/faraday/ftgmac100.c
-+++ b/drivers/net/ethernet/faraday/ftgmac100.c
-@@ -45,8 +45,8 @@
- #define MIN_TX_QUEUE_ENTRIES	32
- 
- /* Defaults */
--#define DEF_RX_QUEUE_ENTRIES	256
--#define DEF_TX_QUEUE_ENTRIES	512
-+#define DEF_RX_QUEUE_ENTRIES	128
-+#define DEF_TX_QUEUE_ENTRIES	128
- 
- #define MAX_PKT_SIZE		1536
- #define RX_BUF_SIZE		MAX_PKT_SIZE	/* must be smaller than 0x3fff */
--- 
-2.9.3
+You have applied the v2 version of this patch some hours ago.  
+
+Regards,
+Yongjun Wei
