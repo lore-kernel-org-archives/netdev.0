@@ -1,7 +1,7 @@
 From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH v4 10/18] arm: sun8i: orangepi-one: Enable dwmac-sun8i
-Date: Wed, 12 Apr 2017 13:13:52 +0200
-Message-ID: <20170412111400.2296-11-clabbe.montjoie@gmail.com>
+Subject: [PATCH v4 02/18] net: stmmac: add optional setup function
+Date: Wed, 12 Apr 2017 13:13:44 +0200
+Message-ID: <20170412111400.2296-3-clabbe.montjoie@gmail.com>
 References: <20170412111400.2296-1-clabbe.montjoie@gmail.com>
 Reply-To: clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
 Mime-Version: 1.0
@@ -21,7 +21,7 @@ To: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
 	will.deacon-5wv7dgnIgG8@public.gmane.org,
 	peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
 	alexandre.torgue-qxv4g6HH51o@public.gmane.org
-Return-path: <linux-sunxi+bncBD7YLCN32UNBBAUZXDDQKGQET3PG5GY-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Return-path: <linux-sunxi+bncBD7YLCN32UNBB6UYXDDQKGQEVZBX2UA-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 In-Reply-To: <20170412111400.2296-1-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
@@ -32,41 +32,42 @@ List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39
  <https://groups.google.com/group/linux-sunxi/subscribe>
 List-Id: netdev.vger.kernel.org
 
-The dwmac-sun8i hardware is present on the Orange PI One.
-It uses the internal PHY.
-
-This patch create the needed emac node.
+Instead of adding more ifthen logic for adding a new mac_device_info
+setup function, it is easier to add a function pointer to the function
+needed.
 
 Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- arch/arm/boot/dts/sun8i-h3-orangepi-one.dts | 8 ++++++++
- 1 file changed, 8 insertions(+)
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 4 +++-
+ include/linux/stmmac.h                            | 1 +
+ 2 files changed, 4 insertions(+), 1 deletion(-)
 
-diff --git a/arch/arm/boot/dts/sun8i-h3-orangepi-one.dts b/arch/arm/boot/dts/sun8i-h3-orangepi-one.dts
-index 5fea430..2ffa4c1 100644
---- a/arch/arm/boot/dts/sun8i-h3-orangepi-one.dts
-+++ b/arch/arm/boot/dts/sun8i-h3-orangepi-one.dts
-@@ -53,6 +53,7 @@
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index a89f76b..72d371d 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -3946,7 +3946,9 @@ static int stmmac_hw_init(struct stmmac_priv *priv)
+ 	struct mac_device_info *mac;
  
- 	aliases {
- 		serial0 = &uart0;
-+		ethernet0 = &emac;
- 	};
- 
- 	chosen {
-@@ -97,6 +98,13 @@
- 	status = "okay";
- };
- 
-+&emac {
-+	phy-handle = <&int_mii_phy>;
-+	phy-mode = "mii";
-+	allwinner,leds-active-low;
-+	status = "okay";
-+};
-+
- &mmc0 {
- 	pinctrl-names = "default";
- 	pinctrl-0 = <&mmc0_pins_a>, <&mmc0_cd_pin>;
+ 	/* Identify the MAC HW device */
+-	if (priv->plat->has_gmac) {
++	if (priv->plat->setup) {
++		mac = priv->plat->setup(priv);
++	} else if (priv->plat->has_gmac) {
+ 		priv->dev->priv_flags |= IFF_UNICAST_FLT;
+ 		mac = dwmac1000_setup(priv->ioaddr,
+ 				      priv->plat->multicast_filter_bins,
+diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
+index 3921cb9..8bb550b 100644
+--- a/include/linux/stmmac.h
++++ b/include/linux/stmmac.h
+@@ -177,6 +177,7 @@ struct plat_stmmacenet_data {
+ 	void (*fix_mac_speed)(void *priv, unsigned int speed);
+ 	int (*init)(struct platform_device *pdev, void *priv);
+ 	void (*exit)(struct platform_device *pdev, void *priv);
++	struct mac_device_info *(*setup)(void *priv);
+ 	void *bsp_priv;
+ 	struct clk *stmmac_clk;
+ 	struct clk *pclk;
 -- 
 2.10.2
