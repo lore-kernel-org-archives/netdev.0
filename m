@@ -1,7 +1,7 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH RFC ipsec-next 10/14] xfrm: Add xfrm_replay_overflow functions for offloading
-Date: Wed, 12 Apr 2017 08:26:49 +0200
-Message-ID: <1491978413-5700-11-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH RFC ipsec-next 13/14] xfrm: Add encapsulation header offsets while SKB is not encrypted
+Date: Wed, 12 Apr 2017 08:26:52 +0200
+Message-ID: <1491978413-5700-14-git-send-email-steffen.klassert@secunet.com>
 References: <1491978413-5700-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,211 +9,109 @@ Cc: Steffen Klassert <steffen.klassert@secunet.com>,
         Ilan Tayari <ilant@mellanox.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:57622 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([62.96.220.36]:57628 "EHLO a.mx.secunet.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751139AbdDLGaJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 12 Apr 2017 02:30:09 -0400
+        id S1751212AbdDLGaT (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 12 Apr 2017 02:30:19 -0400
 In-Reply-To: <1491978413-5700-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds functions that handles IPsec sequence
-numbers for GSO segments and TSO offloading. We need
-to calculate and update the sequence numbers based
-on the segments that GSO/TSO will generate. We need
-this to keep software and hardware sequence number
-counter in sync.
+From: Ilan Tayari <ilant@mellanox.com>
 
+Both esp4 and esp6 used to assume that the SKB payload is encrypted
+and therefore the inner_network and inner_transport offsets are
+not relevant.
+When doing crypto offload in the NIC, this is no longer the case
+and the NIC driver needs these offsets so it can do TX TCP checksum
+offloading.
+This patch sets the inner_network and inner_transport members of
+the SKB, as well as encapsulation, to reflect the actual positions
+of these headers, and removes them only once encryption is done
+on the payload.
+
+Signed-off-by: Ilan Tayari <ilant@mellanox.com>
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- net/xfrm/xfrm_replay.c | 159 ++++++++++++++++++++++++++++++++++++++++++++++++-
- 1 file changed, 157 insertions(+), 2 deletions(-)
+ net/ipv4/xfrm4_mode_transport.c | 2 ++
+ net/ipv4/xfrm4_mode_tunnel.c    | 3 +++
+ net/ipv6/xfrm6_mode_transport.c | 1 +
+ net/ipv6/xfrm6_mode_tunnel.c    | 3 +++
+ net/xfrm/xfrm_output.c          | 2 ++
+ 5 files changed, 11 insertions(+)
 
-diff --git a/net/xfrm/xfrm_replay.c b/net/xfrm/xfrm_replay.c
-index 20e68a3..8b23c5b 100644
---- a/net/xfrm/xfrm_replay.c
-+++ b/net/xfrm/xfrm_replay.c
-@@ -559,6 +559,158 @@ static void xfrm_replay_advance_esn(struct xfrm_state *x, __be32 net_seq)
- 		x->repl->notify(x, XFRM_REPLAY_UPDATE);
- }
+diff --git a/net/ipv4/xfrm4_mode_transport.c b/net/ipv4/xfrm4_mode_transport.c
+index 6c2411d..3d36644 100644
+--- a/net/ipv4/xfrm4_mode_transport.c
++++ b/net/ipv4/xfrm4_mode_transport.c
+@@ -24,6 +24,8 @@ static int xfrm4_transport_output(struct xfrm_state *x, struct sk_buff *skb)
+ 	struct iphdr *iph = ip_hdr(skb);
+ 	int ihl = iph->ihl * 4;
  
-+#ifdef CONFIG_XFRM_OFFLOAD
-+static int xfrm_replay_overflow_offload(struct xfrm_state *x, struct sk_buff *skb)
-+{
-+	int err = 0;
-+	struct net *net = xs_net(x);
-+	struct xfrm_offload *xo = xfrm_offload(skb);
-+	__u32 oseq = x->replay.oseq;
++	skb_set_inner_transport_header(skb, skb_transport_offset(skb));
 +
-+	if (!xo)
-+		return xfrm_replay_overflow(x, skb);
-+
-+	if (x->type->flags & XFRM_TYPE_REPLAY_PROT) {
-+		if (!skb_is_gso(skb)) {
-+			XFRM_SKB_CB(skb)->seq.output.low = ++oseq;
-+			xo->seq.low = oseq;
-+		} else {
-+			XFRM_SKB_CB(skb)->seq.output.low = oseq + 1;
-+			xo->seq.low = oseq + 1;
-+			oseq += skb_shinfo(skb)->gso_segs;
-+		}
-+
-+		XFRM_SKB_CB(skb)->seq.output.hi = 0;
-+		xo->seq.hi = 0;
-+		if (unlikely(oseq < x->replay.oseq)) {
-+			xfrm_audit_state_replay_overflow(x, skb);
-+			err = -EOVERFLOW;
-+
-+			return err;
-+		}
-+
-+		x->replay.oseq = oseq;
-+
-+		if (xfrm_aevent_is_on(net))
-+			x->repl->notify(x, XFRM_REPLAY_UPDATE);
-+	}
-+
-+	return err;
-+}
-+
-+static int xfrm_replay_overflow_offload_bmp(struct xfrm_state *x, struct sk_buff *skb)
-+{
-+	int err = 0;
-+	struct xfrm_offload *xo = xfrm_offload(skb);
-+	struct xfrm_replay_state_esn *replay_esn = x->replay_esn;
-+	struct net *net = xs_net(x);
-+	__u32 oseq = replay_esn->oseq;
-+
-+	if (!xo)
-+		return xfrm_replay_overflow_bmp(x, skb);
-+
-+	if (x->type->flags & XFRM_TYPE_REPLAY_PROT) {
-+		if (!skb_is_gso(skb)) {
-+			XFRM_SKB_CB(skb)->seq.output.low = ++oseq;
-+			xo->seq.low = oseq;
-+		} else {
-+			XFRM_SKB_CB(skb)->seq.output.low = oseq + 1;
-+			xo->seq.low = oseq + 1;
-+			oseq += skb_shinfo(skb)->gso_segs;
-+		}
-+
-+		XFRM_SKB_CB(skb)->seq.output.hi = 0;
-+		xo->seq.hi = 0;
-+		if (unlikely(oseq < replay_esn->oseq)) {
-+			xfrm_audit_state_replay_overflow(x, skb);
-+			err = -EOVERFLOW;
-+
-+			return err;
-+		} else {
-+			replay_esn->oseq = oseq;
-+		}
-+
-+		if (xfrm_aevent_is_on(net))
-+			x->repl->notify(x, XFRM_REPLAY_UPDATE);
-+	}
-+
-+	return err;
-+}
-+
-+static int xfrm_replay_overflow_offload_esn(struct xfrm_state *x, struct sk_buff *skb)
-+{
-+	int err = 0;
-+	struct xfrm_offload *xo = xfrm_offload(skb);
-+	struct xfrm_replay_state_esn *replay_esn = x->replay_esn;
-+	struct net *net = xs_net(x);
-+	__u32 oseq = replay_esn->oseq;
-+	__u32 oseq_hi = replay_esn->oseq_hi;
-+
-+	if (!xo)
-+		return xfrm_replay_overflow_esn(x, skb);
-+
-+	if (x->type->flags & XFRM_TYPE_REPLAY_PROT) {
-+		if (!skb_is_gso(skb)) {
-+			XFRM_SKB_CB(skb)->seq.output.low = ++oseq;
-+			XFRM_SKB_CB(skb)->seq.output.hi = oseq_hi;
-+			xo->seq.low = oseq;
-+			xo->seq.hi = oseq_hi;
-+		} else {
-+			XFRM_SKB_CB(skb)->seq.output.low = oseq + 1;
-+			XFRM_SKB_CB(skb)->seq.output.hi = oseq_hi;
-+			xo->seq.low = oseq = oseq + 1;
-+			xo->seq.hi = oseq_hi;
-+			oseq += skb_shinfo(skb)->gso_segs;
-+		}
-+
-+		if (unlikely(oseq < replay_esn->oseq)) {
-+			XFRM_SKB_CB(skb)->seq.output.hi = ++oseq_hi;
-+			xo->seq.hi = oseq_hi;
-+
-+			if (replay_esn->oseq_hi == 0) {
-+				replay_esn->oseq--;
-+				replay_esn->oseq_hi--;
-+				xfrm_audit_state_replay_overflow(x, skb);
-+				err = -EOVERFLOW;
-+
-+				return err;
-+			}
-+		}
-+
-+		replay_esn->oseq = oseq;
-+		replay_esn->oseq_hi = oseq_hi;
-+
-+		if (xfrm_aevent_is_on(net))
-+			x->repl->notify(x, XFRM_REPLAY_UPDATE);
-+	}
-+
-+	return err;
-+}
-+
-+static const struct xfrm_replay xfrm_replay_legacy = {
-+	.advance	= xfrm_replay_advance,
-+	.check		= xfrm_replay_check,
-+	.recheck	= xfrm_replay_check,
-+	.notify		= xfrm_replay_notify,
-+	.overflow	= xfrm_replay_overflow_offload,
-+};
-+
-+static const struct xfrm_replay xfrm_replay_bmp = {
-+	.advance	= xfrm_replay_advance_bmp,
-+	.check		= xfrm_replay_check_bmp,
-+	.recheck	= xfrm_replay_check_bmp,
-+	.notify		= xfrm_replay_notify_bmp,
-+	.overflow	= xfrm_replay_overflow_offload_bmp,
-+};
-+
-+static const struct xfrm_replay xfrm_replay_esn = {
-+	.advance	= xfrm_replay_advance_esn,
-+	.check		= xfrm_replay_check_esn,
-+	.recheck	= xfrm_replay_recheck_esn,
-+	.notify		= xfrm_replay_notify_esn,
-+	.overflow	= xfrm_replay_overflow_offload_esn,
-+};
-+#else
- static const struct xfrm_replay xfrm_replay_legacy = {
- 	.advance	= xfrm_replay_advance,
- 	.check		= xfrm_replay_check,
-@@ -582,6 +734,7 @@ static const struct xfrm_replay xfrm_replay_esn = {
- 	.notify		= xfrm_replay_notify_esn,
- 	.overflow	= xfrm_replay_overflow_esn,
- };
-+#endif
+ 	skb_set_network_header(skb, -x->props.header_len);
+ 	skb->mac_header = skb->network_header +
+ 			  offsetof(struct iphdr, protocol);
+diff --git a/net/ipv4/xfrm4_mode_tunnel.c b/net/ipv4/xfrm4_mode_tunnel.c
+index d3f2434..e6265e2 100644
+--- a/net/ipv4/xfrm4_mode_tunnel.c
++++ b/net/ipv4/xfrm4_mode_tunnel.c
+@@ -33,6 +33,9 @@ static int xfrm4_mode_tunnel_output(struct xfrm_state *x, struct sk_buff *skb)
+ 	struct iphdr *top_iph;
+ 	int flags;
  
- int xfrm_init_replay(struct xfrm_state *x)
- {
-@@ -596,10 +749,12 @@ int xfrm_init_replay(struct xfrm_state *x)
- 			if (replay_esn->replay_window == 0)
- 				return -EINVAL;
- 			x->repl = &xfrm_replay_esn;
--		} else
-+		} else {
- 			x->repl = &xfrm_replay_bmp;
--	} else
-+		}
-+	} else {
- 		x->repl = &xfrm_replay_legacy;
-+	}
++	skb_set_inner_network_header(skb, skb_network_offset(skb));
++	skb_set_inner_transport_header(skb, skb_transport_offset(skb));
++
+ 	skb_set_network_header(skb, -x->props.header_len);
+ 	skb->mac_header = skb->network_header +
+ 			  offsetof(struct iphdr, protocol);
+diff --git a/net/ipv6/xfrm6_mode_transport.c b/net/ipv6/xfrm6_mode_transport.c
+index eb9b36b..7a92c0f 100644
+--- a/net/ipv6/xfrm6_mode_transport.c
++++ b/net/ipv6/xfrm6_mode_transport.c
+@@ -27,6 +27,7 @@ static int xfrm6_transport_output(struct xfrm_state *x, struct sk_buff *skb)
+ 	int hdr_len;
  
- 	return 0;
- }
+ 	iph = ipv6_hdr(skb);
++	skb_set_inner_transport_header(skb, skb_transport_offset(skb));
+ 
+ 	hdr_len = x->type->hdr_offset(x, skb, &prevhdr);
+ 	skb_set_mac_header(skb, (prevhdr - x->props.header_len) - skb->data);
+diff --git a/net/ipv6/xfrm6_mode_tunnel.c b/net/ipv6/xfrm6_mode_tunnel.c
+index 19a60fc..02556e3 100644
+--- a/net/ipv6/xfrm6_mode_tunnel.c
++++ b/net/ipv6/xfrm6_mode_tunnel.c
+@@ -36,6 +36,9 @@ static int xfrm6_mode_tunnel_output(struct xfrm_state *x, struct sk_buff *skb)
+ 	struct ipv6hdr *top_iph;
+ 	int dsfield;
+ 
++	skb_set_inner_network_header(skb, skb_network_offset(skb));
++	skb_set_inner_transport_header(skb, skb_transport_offset(skb));
++
+ 	skb_set_network_header(skb, -x->props.header_len);
+ 	skb->mac_header = skb->network_header +
+ 			  offsetof(struct ipv6hdr, nexthdr);
+diff --git a/net/xfrm/xfrm_output.c b/net/xfrm/xfrm_output.c
+index a150886..8c0b672 100644
+--- a/net/xfrm/xfrm_output.c
++++ b/net/xfrm/xfrm_output.c
+@@ -205,6 +205,7 @@ int xfrm_output(struct sock *sk, struct sk_buff *skb)
+ 	int err;
+ 
+ 	secpath_reset(skb);
++	skb->encapsulation = 0;
+ 
+ 	if (xfrm_dev_offload_ok(skb, x)) {
+ 		struct sec_path *sp;
+@@ -218,6 +219,7 @@ int xfrm_output(struct sock *sk, struct sk_buff *skb)
+ 		if (skb->sp)
+ 			secpath_put(skb->sp);
+ 		skb->sp = sp;
++		skb->encapsulation = 1;
+ 
+ 		sp->olen++;
+ 		sp->xvec[skb->sp->len++] = x;
 -- 
 2.7.4
