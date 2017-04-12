@@ -1,124 +1,125 @@
 From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: [PATCH 3/8] ftgmac100: Add ndo_set_rx_mode() and support for multicast & promisc
-Date: Thu, 13 Apr 2017 08:44:38 +1000
-Message-ID: <20170412224443.17906-4-benh@kernel.crashing.org>
+Subject: [PATCH 4/8] ftgmac100: Add vlan HW offload
+Date: Thu, 13 Apr 2017 08:44:39 +1000
+Message-ID: <20170412224443.17906-5-benh@kernel.crashing.org>
 References: <20170412224443.17906-1-benh@kernel.crashing.org>
 Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:33735 "EHLO gate.crashing.org"
+Received: from gate.crashing.org ([63.228.1.57]:33739 "EHLO gate.crashing.org"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754818AbdDLWqs (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 12 Apr 2017 18:46:48 -0400
+        id S1754640AbdDLWrG (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 12 Apr 2017 18:47:06 -0400
 In-Reply-To: <20170412224443.17906-1-benh@kernel.crashing.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This adds the ndo_set_rx_mode() callback to configure the
-multicast filters, promisc and allmulti options.
+The chip supports HW vlan tag insertion and extraction. Add support
+for it.
 
 Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 ---
- drivers/net/ethernet/faraday/ftgmac100.c | 52 ++++++++++++++++++++++++++++++++
- 1 file changed, 52 insertions(+)
+ drivers/net/ethernet/faraday/ftgmac100.c | 46 +++++++++++++++++++++++++++++++-
+ 1 file changed, 45 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/faraday/ftgmac100.c b/drivers/net/ethernet/faraday/ftgmac100.c
-index 4f3ec2c..d86b27f 100644
+index d86b27f..ded3447 100644
 --- a/drivers/net/ethernet/faraday/ftgmac100.c
 +++ b/drivers/net/ethernet/faraday/ftgmac100.c
-@@ -30,6 +30,7 @@
- #include <linux/netdevice.h>
+@@ -31,6 +31,7 @@
  #include <linux/phy.h>
  #include <linux/platform_device.h>
-+#include <linux/crc32.h>
+ #include <linux/crc32.h>
++#include <linux/if_vlan.h>
  #include <net/ip.h>
  #include <net/ncsi.h>
  
-@@ -97,6 +98,10 @@ struct ftgmac100 {
- 	int cur_duplex;
- 	bool use_ncsi;
+@@ -333,6 +334,10 @@ static void ftgmac100_start_hw(struct ftgmac100 *priv)
+ 	else if (netdev_mc_count(priv->netdev))
+ 		maccr |= FTGMAC100_MACCR_HT_MULTI_EN;
  
-+	/* Multicast filter settings */
-+	u32 maht0;
-+	u32 maht1;
++	/* Vlan filtering enabled */
++	if (priv->netdev->features & NETIF_F_HW_VLAN_CTAG_RX)
++		maccr |= FTGMAC100_MACCR_RM_VLAN;
 +
- 	/* Flow control settings */
- 	bool tx_pause;
- 	bool rx_pause;
-@@ -264,6 +269,10 @@ static void ftgmac100_init_hw(struct ftgmac100 *priv)
- 	/* Write MAC address */
- 	ftgmac100_write_mac_addr(priv, priv->netdev->dev_addr);
- 
-+	/* Write multicast filter */
-+	iowrite32(priv->maht0, priv->base + FTGMAC100_OFFSET_MAHT0);
-+	iowrite32(priv->maht1, priv->base + FTGMAC100_OFFSET_MAHT1);
-+
- 	/* Configure descriptor sizes and increase burst sizes according
- 	 * to values in Aspeed SDK. The FIFO arbitration is enabled and
- 	 * the thresholds set based on the recommended values in the
-@@ -317,6 +326,12 @@ static void ftgmac100_start_hw(struct ftgmac100 *priv)
- 	/* Add other bits as needed */
- 	if (priv->cur_duplex == DUPLEX_FULL)
- 		maccr |= FTGMAC100_MACCR_FULLDUP;
-+	if (priv->netdev->flags & IFF_PROMISC)
-+		maccr |= FTGMAC100_MACCR_RX_ALL;
-+	if (priv->netdev->flags & IFF_ALLMULTI)
-+		maccr |= FTGMAC100_MACCR_RX_MULTIPKT;
-+	else if (netdev_mc_count(priv->netdev))
-+		maccr |= FTGMAC100_MACCR_HT_MULTI_EN;
- 
  	/* Hit the HW */
  	iowrite32(maccr, priv->base + FTGMAC100_OFFSET_MACCR);
-@@ -327,6 +342,42 @@ static void ftgmac100_stop_hw(struct ftgmac100 *priv)
- 	iowrite32(0, priv->base + FTGMAC100_OFFSET_MACCR);
+ }
+@@ -528,6 +533,12 @@ static bool ftgmac100_rx_packet(struct ftgmac100 *priv, int *processed)
+ 	/* Transfer received size to skb */
+ 	skb_put(skb, size);
+ 
++	/* Extract vlan tag */
++	if ((netdev->features & NETIF_F_HW_VLAN_CTAG_RX) &&
++	    (csum_vlan & FTGMAC100_RXDES1_VLANTAG_AVAIL))
++		__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q),
++				       csum_vlan & 0xffff);
++
+ 	/* Tear down DMA mapping, do necessary cache management */
+ 	map = le32_to_cpu(rxdes->rxdes3);
+ 
+@@ -752,6 +763,13 @@ static int ftgmac100_hard_start_xmit(struct sk_buff *skb,
+ 	if (skb->ip_summed == CHECKSUM_PARTIAL &&
+ 	    !ftgmac100_prep_tx_csum(skb, &csum_vlan))
+ 		goto drop;
++
++	/* Add VLAN tag */
++	if (skb_vlan_tag_present(skb)) {
++		csum_vlan |= FTGMAC100_TXDES1_INS_VLANTAG;
++		csum_vlan |= skb_vlan_tag_get(skb) & 0xffff;
++	}
++
+ 	txdes->txdes1 = cpu_to_le32(csum_vlan);
+ 
+ 	/* Next descriptor */
+@@ -1551,6 +1569,30 @@ static void ftgmac100_tx_timeout(struct net_device *netdev)
+ 	schedule_work(&priv->reset_task);
  }
  
-+static void ftgmac100_calc_mc_hash(struct ftgmac100 *priv)
-+{
-+	struct netdev_hw_addr *ha;
-+
-+	priv->maht1 = 0;
-+	priv->maht0 = 0;
-+	netdev_for_each_mc_addr(ha, priv->netdev) {
-+		u32 crc_val = ether_crc_le(ETH_ALEN, ha->addr);
-+
-+		crc_val = (~(crc_val >> 2)) & 0x3f;
-+		if (crc_val >= 32)
-+			priv->maht1 |= 1ul << (crc_val - 32);
-+		else
-+			priv->maht0 |= 1ul << (crc_val);
-+	}
-+}
-+
-+static void ftgmac100_set_rx_mode(struct net_device *netdev)
++static int ftgmac100_set_features(struct net_device *netdev,
++				  netdev_features_t features)
 +{
 +	struct ftgmac100 *priv = netdev_priv(netdev);
++	netdev_features_t changed = netdev->features ^ features;
 +
-+	/* Setup the hash filter */
-+	ftgmac100_calc_mc_hash(priv);
-+
-+	/* Interface down ? that's all there is to do */
 +	if (!netif_running(netdev))
-+		return;
++		return 0;
 +
-+	/* Update the HW */
-+	iowrite32(priv->maht0, priv->base + FTGMAC100_OFFSET_MAHT0);
-+	iowrite32(priv->maht1, priv->base + FTGMAC100_OFFSET_MAHT1);
++	/* Update the vlan filtering bit */
++	if (changed & NETIF_F_HW_VLAN_CTAG_RX) {
++		u32 maccr;
 +
-+	/* Reconfigure MACCR */
-+	ftgmac100_start_hw(priv);
++		maccr = ioread32(priv->base + FTGMAC100_OFFSET_MACCR);
++		if (priv->netdev->features & NETIF_F_HW_VLAN_CTAG_RX)
++			maccr |= FTGMAC100_MACCR_RM_VLAN;
++		else
++			maccr &= ~FTGMAC100_MACCR_RM_VLAN;
++		iowrite32(maccr, priv->base + FTGMAC100_OFFSET_MACCR);
++	}
++
++	return 0;
 +}
 +
- static int ftgmac100_alloc_rx_buf(struct ftgmac100 *priv, unsigned int entry,
- 				  struct ftgmac100_rxdes *rxdes, gfp_t gfp)
- {
-@@ -1508,6 +1559,7 @@ static const struct net_device_ops ftgmac100_netdev_ops = {
- 	.ndo_validate_addr	= eth_validate_addr,
+ static const struct net_device_ops ftgmac100_netdev_ops = {
+ 	.ndo_open		= ftgmac100_open,
+ 	.ndo_stop		= ftgmac100_stop,
+@@ -1560,6 +1602,7 @@ static const struct net_device_ops ftgmac100_netdev_ops = {
  	.ndo_do_ioctl		= ftgmac100_do_ioctl,
  	.ndo_tx_timeout		= ftgmac100_tx_timeout,
-+	.ndo_set_rx_mode	= ftgmac100_set_rx_mode,
+ 	.ndo_set_rx_mode	= ftgmac100_set_rx_mode,
++	.ndo_set_features	= ftgmac100_set_features,
  };
  
  static int ftgmac100_setup_mdio(struct net_device *netdev)
+@@ -1735,7 +1778,8 @@ static int ftgmac100_probe(struct platform_device *pdev)
+ 
+ 	/* Base feature set */
+ 	netdev->hw_features = NETIF_F_RXCSUM | NETIF_F_HW_CSUM |
+-		NETIF_F_GRO | NETIF_F_SG;
++		NETIF_F_GRO | NETIF_F_SG | NETIF_F_HW_VLAN_CTAG_RX |
++		NETIF_F_HW_VLAN_CTAG_TX;
+ 
+ 	/* AST2400  doesn't have working HW checksum generation */
+ 	if (np && (of_device_is_compatible(np, "aspeed,ast2400-mac")))
 -- 
 2.9.3
