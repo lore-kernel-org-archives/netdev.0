@@ -1,236 +1,409 @@
 From: "Vishwanathapura, Niranjana" <niranjana.vishwanathapura@intel.com>
-Subject: [PATCH rdma-next v1 06/12] IB/opa-vnic: VNIC statistics support
-Date: Tue, 11 Apr 2017 23:40:01 -0700
-Message-ID: <1491979207-18686-7-git-send-email-niranjana.vishwanathapura@intel.com>
+Subject: [PATCH rdma-next v1 07/12] IB/opa-vnic: VNIC MAC table support
+Date: Tue, 11 Apr 2017 23:40:02 -0700
+Message-ID: <1491979207-18686-8-git-send-email-niranjana.vishwanathapura@intel.com>
 References: <1491979207-18686-1-git-send-email-niranjana.vishwanathapura@intel.com>
 Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
         dennis.dalessandro@intel.com, ira.weiny@intel.com,
-        Niranjana Vishwanathapura <niranjana.vishwanathapura@intel.com>
+        Niranjana Vishwanathapura <niranjana.vishwanathapura@intel.com>,
+        Sadanand Warrier <sadanand.warrier@intel.com>
 To: dledford@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga05.intel.com ([192.55.52.43]:38060 "EHLO mga05.intel.com"
+Received: from mga05.intel.com ([192.55.52.43]:7705 "EHLO mga05.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752302AbdDLGkS (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 12 Apr 2017 02:40:18 -0400
+        id S1752546AbdDLGkU (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 12 Apr 2017 02:40:20 -0400
 In-Reply-To: <1491979207-18686-1-git-send-email-niranjana.vishwanathapura@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-OPA VNIC driver statistics support maintains various counters including
-standard netdev counters and the Ethernet manager defined counters.
-Add the Ethtool hook to read the counters.
+OPA VNIC MAC table contains the MAC address to DLID mappings provided by
+the Ethernet manager. During transmission, the MAC table provides the MAC
+address to DLID translation. Implement MAC table using simple hash list.
+Also provide support to update/query the MAC table by Ethernet manager.
 
 Reviewed-by: Dennis Dalessandro <dennis.dalessandro@intel.com>
 Reviewed-by: Ira Weiny <ira.weiny@intel.com>
 Signed-off-by: Niranjana Vishwanathapura <niranjana.vishwanathapura@intel.com>
+Signed-off-by: Sadanand Warrier <sadanand.warrier@intel.com>
 ---
- drivers/infiniband/ulp/opa_vnic/opa_vnic_ethtool.c | 110 +++++++++++++++++++++
- .../infiniband/ulp/opa_vnic/opa_vnic_internal.h    |   4 +
- drivers/infiniband/ulp/opa_vnic/opa_vnic_netdev.c  |  18 ++++
- 3 files changed, 132 insertions(+)
+ drivers/infiniband/ulp/opa_vnic/opa_vnic_encap.c   | 236 +++++++++++++++++++++
+ .../infiniband/ulp/opa_vnic/opa_vnic_internal.h    |  51 +++++
+ drivers/infiniband/ulp/opa_vnic/opa_vnic_netdev.c  |   4 +
+ 3 files changed, 291 insertions(+)
 
-diff --git a/drivers/infiniband/ulp/opa_vnic/opa_vnic_ethtool.c b/drivers/infiniband/ulp/opa_vnic/opa_vnic_ethtool.c
-index b74f6ad..a98948c 100644
---- a/drivers/infiniband/ulp/opa_vnic/opa_vnic_ethtool.c
-+++ b/drivers/infiniband/ulp/opa_vnic/opa_vnic_ethtool.c
-@@ -53,9 +53,119 @@
+diff --git a/drivers/infiniband/ulp/opa_vnic/opa_vnic_encap.c b/drivers/infiniband/ulp/opa_vnic/opa_vnic_encap.c
+index c74d02a..2e8fee9 100644
+--- a/drivers/infiniband/ulp/opa_vnic/opa_vnic_encap.c
++++ b/drivers/infiniband/ulp/opa_vnic/opa_vnic_encap.c
+@@ -96,6 +96,238 @@ static inline void opa_vnic_make_header(u8 *hdr, u32 slid, u32 dlid, u16 len,
+ 	memcpy(hdr, h, OPA_VNIC_HDR_LEN);
+ }
  
- #include "opa_vnic_internal.h"
- 
-+enum {NETDEV_STATS, VNIC_STATS};
-+
-+struct vnic_stats {
-+	char stat_string[ETH_GSTRING_LEN];
-+	struct {
-+		int sizeof_stat;
-+		int stat_offset;
-+	};
-+};
-+
-+#define VNIC_STAT(m)            { FIELD_SIZEOF(struct opa_vnic_stats, m),   \
-+				  offsetof(struct opa_vnic_stats, m) }
-+
-+static struct vnic_stats vnic_gstrings_stats[] = {
-+	/* NETDEV stats */
-+	{"rx_packets", VNIC_STAT(netstats.rx_packets)},
-+	{"tx_packets", VNIC_STAT(netstats.tx_packets)},
-+	{"rx_bytes", VNIC_STAT(netstats.rx_bytes)},
-+	{"tx_bytes", VNIC_STAT(netstats.tx_bytes)},
-+	{"rx_errors", VNIC_STAT(netstats.rx_errors)},
-+	{"tx_errors", VNIC_STAT(netstats.tx_errors)},
-+	{"rx_dropped", VNIC_STAT(netstats.rx_dropped)},
-+	{"tx_dropped", VNIC_STAT(netstats.tx_dropped)},
-+
-+	/* SUMMARY counters */
-+	{"tx_unicast", VNIC_STAT(tx_grp.unicast)},
-+	{"tx_mcastbcast", VNIC_STAT(tx_grp.mcastbcast)},
-+	{"tx_untagged", VNIC_STAT(tx_grp.untagged)},
-+	{"tx_vlan", VNIC_STAT(tx_grp.vlan)},
-+
-+	{"tx_64_size", VNIC_STAT(tx_grp.s_64)},
-+	{"tx_65_127", VNIC_STAT(tx_grp.s_65_127)},
-+	{"tx_128_255", VNIC_STAT(tx_grp.s_128_255)},
-+	{"tx_256_511", VNIC_STAT(tx_grp.s_256_511)},
-+	{"tx_512_1023", VNIC_STAT(tx_grp.s_512_1023)},
-+	{"tx_1024_1518", VNIC_STAT(tx_grp.s_1024_1518)},
-+	{"tx_1519_max", VNIC_STAT(tx_grp.s_1519_max)},
-+
-+	{"rx_unicast", VNIC_STAT(rx_grp.unicast)},
-+	{"rx_mcastbcast", VNIC_STAT(rx_grp.mcastbcast)},
-+	{"rx_untagged", VNIC_STAT(rx_grp.untagged)},
-+	{"rx_vlan", VNIC_STAT(rx_grp.vlan)},
-+
-+	{"rx_64_size", VNIC_STAT(rx_grp.s_64)},
-+	{"rx_65_127", VNIC_STAT(rx_grp.s_65_127)},
-+	{"rx_128_255", VNIC_STAT(rx_grp.s_128_255)},
-+	{"rx_256_511", VNIC_STAT(rx_grp.s_256_511)},
-+	{"rx_512_1023", VNIC_STAT(rx_grp.s_512_1023)},
-+	{"rx_1024_1518", VNIC_STAT(rx_grp.s_1024_1518)},
-+	{"rx_1519_max", VNIC_STAT(rx_grp.s_1519_max)},
-+
-+	/* ERROR counters */
-+	{"rx_fifo_errors", VNIC_STAT(netstats.rx_fifo_errors)},
-+	{"rx_length_errors", VNIC_STAT(netstats.rx_length_errors)},
-+
-+	{"tx_fifo_errors", VNIC_STAT(netstats.tx_fifo_errors)},
-+	{"tx_carrier_errors", VNIC_STAT(netstats.tx_carrier_errors)},
-+
-+	{"tx_dlid_zero", VNIC_STAT(tx_dlid_zero)},
-+	{"tx_drop_state", VNIC_STAT(tx_drop_state)},
-+	{"rx_drop_state", VNIC_STAT(rx_drop_state)},
-+	{"rx_oversize", VNIC_STAT(rx_oversize)},
-+	{"rx_runt", VNIC_STAT(rx_runt)},
-+};
-+
-+#define VNIC_STATS_LEN  ARRAY_SIZE(vnic_gstrings_stats)
-+
-+/* vnic_get_sset_count - get string set count */
-+static int vnic_get_sset_count(struct net_device *netdev, int sset)
++/*
++ * Using a simple hash table for mac table implementation with the last octet
++ * of mac address as a key.
++ */
++static void opa_vnic_free_mac_tbl(struct hlist_head *mactbl)
 +{
-+	return (sset == ETH_SS_STATS) ? VNIC_STATS_LEN : -EOPNOTSUPP;
-+}
++	struct opa_vnic_mac_tbl_node *node;
++	struct hlist_node *tmp;
++	int bkt;
 +
-+/* vnic_get_ethtool_stats - get statistics */
-+static void vnic_get_ethtool_stats(struct net_device *netdev,
-+				   struct ethtool_stats *stats, u64 *data)
-+{
-+	struct opa_vnic_adapter *adapter = opa_vnic_priv(netdev);
-+	struct opa_vnic_stats vstats;
-+	int i;
-+
-+	memset(&vstats, 0, sizeof(vstats));
-+	mutex_lock(&adapter->stats_lock);
-+	adapter->rn_ops->ndo_get_stats64(netdev, &vstats.netstats);
-+	for (i = 0; i < VNIC_STATS_LEN; i++) {
-+		char *p = (char *)&vstats + vnic_gstrings_stats[i].stat_offset;
-+
-+		data[i] = (vnic_gstrings_stats[i].sizeof_stat ==
-+			   sizeof(u64)) ? *(u64 *)p : *(u32 *)p;
-+	}
-+	mutex_unlock(&adapter->stats_lock);
-+}
-+
-+/* vnic_get_strings - get strings */
-+static void vnic_get_strings(struct net_device *netdev, u32 stringset, u8 *data)
-+{
-+	int i;
-+
-+	if (stringset != ETH_SS_STATS)
++	if (!mactbl)
 +		return;
 +
-+	for (i = 0; i < VNIC_STATS_LEN; i++)
-+		memcpy(data + i * ETH_GSTRING_LEN,
-+		       vnic_gstrings_stats[i].stat_string,
-+		       ETH_GSTRING_LEN);
++	vnic_hash_for_each_safe(mactbl, bkt, tmp, node, hlist) {
++		hash_del(&node->hlist);
++		kfree(node);
++	}
++	kfree(mactbl);
 +}
 +
- /* ethtool ops */
- static const struct ethtool_ops opa_vnic_ethtool_ops = {
- 	.get_link = ethtool_op_get_link,
-+	.get_strings = vnic_get_strings,
-+	.get_sset_count = vnic_get_sset_count,
-+	.get_ethtool_stats = vnic_get_ethtool_stats,
- };
++static struct hlist_head *opa_vnic_alloc_mac_tbl(void)
++{
++	u32 size = sizeof(struct hlist_head) * OPA_VNIC_MAC_TBL_SIZE;
++	struct hlist_head *mactbl;
++
++	mactbl = kzalloc(size, GFP_KERNEL);
++	if (!mactbl)
++		return ERR_PTR(-ENOMEM);
++
++	vnic_hash_init(mactbl);
++	return mactbl;
++}
++
++/* opa_vnic_release_mac_tbl - empty and free the mac table */
++void opa_vnic_release_mac_tbl(struct opa_vnic_adapter *adapter)
++{
++	struct hlist_head *mactbl;
++
++	mutex_lock(&adapter->mactbl_lock);
++	mactbl = rcu_access_pointer(adapter->mactbl);
++	rcu_assign_pointer(adapter->mactbl, NULL);
++	synchronize_rcu();
++	opa_vnic_free_mac_tbl(mactbl);
++	mutex_unlock(&adapter->mactbl_lock);
++}
++
++/*
++ * opa_vnic_query_mac_tbl - query the mac table for a section
++ *
++ * This function implements query of specific function of the mac table.
++ * The function also expects the requested range to be valid.
++ */
++void opa_vnic_query_mac_tbl(struct opa_vnic_adapter *adapter,
++			    struct opa_veswport_mactable *tbl)
++{
++	struct opa_vnic_mac_tbl_node *node;
++	struct hlist_head *mactbl;
++	int bkt;
++	u16 loffset, lnum_entries;
++
++	rcu_read_lock();
++	mactbl = rcu_dereference(adapter->mactbl);
++	if (!mactbl)
++		goto get_mac_done;
++
++	loffset = be16_to_cpu(tbl->offset);
++	lnum_entries = be16_to_cpu(tbl->num_entries);
++
++	vnic_hash_for_each(mactbl, bkt, node, hlist) {
++		struct __opa_vnic_mactable_entry *nentry = &node->entry;
++		struct opa_veswport_mactable_entry *entry;
++
++		if ((node->index < loffset) ||
++		    (node->index >= (loffset + lnum_entries)))
++			continue;
++
++		/* populate entry in the tbl corresponding to the index */
++		entry = &tbl->tbl_entries[node->index - loffset];
++		memcpy(entry->mac_addr, nentry->mac_addr,
++		       ARRAY_SIZE(entry->mac_addr));
++		memcpy(entry->mac_addr_mask, nentry->mac_addr_mask,
++		       ARRAY_SIZE(entry->mac_addr_mask));
++		entry->dlid_sd = cpu_to_be32(nentry->dlid_sd);
++	}
++	tbl->mac_tbl_digest = cpu_to_be32(adapter->info.vport.mac_tbl_digest);
++get_mac_done:
++	rcu_read_unlock();
++}
++
++/*
++ * opa_vnic_update_mac_tbl - update mac table section
++ *
++ * This function updates the specified section of the mac table.
++ * The procedure includes following steps.
++ *  - Allocate a new mac (hash) table.
++ *  - Add the specified entries to the new table.
++ *    (except the ones that are requested to be deleted).
++ *  - Add all the other entries from the old mac table.
++ *  - If there is a failure, free the new table and return.
++ *  - Switch to the new table.
++ *  - Free the old table and return.
++ *
++ * The function also expects the requested range to be valid.
++ */
++int opa_vnic_update_mac_tbl(struct opa_vnic_adapter *adapter,
++			    struct opa_veswport_mactable *tbl)
++{
++	struct opa_vnic_mac_tbl_node *node, *new_node;
++	struct hlist_head *new_mactbl, *old_mactbl;
++	int i, bkt, rc = 0;
++	u8 key;
++	u16 loffset, lnum_entries;
++
++	mutex_lock(&adapter->mactbl_lock);
++	/* allocate new mac table */
++	new_mactbl = opa_vnic_alloc_mac_tbl();
++	if (IS_ERR(new_mactbl)) {
++		mutex_unlock(&adapter->mactbl_lock);
++		return PTR_ERR(new_mactbl);
++	}
++
++	loffset = be16_to_cpu(tbl->offset);
++	lnum_entries = be16_to_cpu(tbl->num_entries);
++
++	/* add updated entries to the new mac table */
++	for (i = 0; i < lnum_entries; i++) {
++		struct __opa_vnic_mactable_entry *nentry;
++		struct opa_veswport_mactable_entry *entry =
++							&tbl->tbl_entries[i];
++		u8 *mac_addr = entry->mac_addr;
++		u8 empty_mac[ETH_ALEN] = { 0 };
++
++		v_dbg("new mac entry %4d: %02x:%02x:%02x:%02x:%02x:%02x %x\n",
++		      loffset + i, mac_addr[0], mac_addr[1], mac_addr[2],
++		      mac_addr[3], mac_addr[4], mac_addr[5],
++		      entry->dlid_sd);
++
++		/* if the entry is being removed, do not add it */
++		if (!memcmp(mac_addr, empty_mac, ARRAY_SIZE(empty_mac)))
++			continue;
++
++		node = kzalloc(sizeof(*node), GFP_KERNEL);
++		if (!node) {
++			rc = -ENOMEM;
++			goto updt_done;
++		}
++
++		node->index = loffset + i;
++		nentry = &node->entry;
++		memcpy(nentry->mac_addr, entry->mac_addr,
++		       ARRAY_SIZE(nentry->mac_addr));
++		memcpy(nentry->mac_addr_mask, entry->mac_addr_mask,
++		       ARRAY_SIZE(nentry->mac_addr_mask));
++		nentry->dlid_sd = be32_to_cpu(entry->dlid_sd);
++		key = node->entry.mac_addr[OPA_VNIC_MAC_HASH_IDX];
++		vnic_hash_add(new_mactbl, &node->hlist, key);
++	}
++
++	/* add other entries from current mac table to new mac table */
++	old_mactbl = rcu_access_pointer(adapter->mactbl);
++	if (!old_mactbl)
++		goto switch_tbl;
++
++	vnic_hash_for_each(old_mactbl, bkt, node, hlist) {
++		if ((node->index >= loffset) &&
++		    (node->index < (loffset + lnum_entries)))
++			continue;
++
++		new_node = kzalloc(sizeof(*new_node), GFP_KERNEL);
++		if (!new_node) {
++			rc = -ENOMEM;
++			goto updt_done;
++		}
++
++		new_node->index = node->index;
++		memcpy(&new_node->entry, &node->entry, sizeof(node->entry));
++		key = new_node->entry.mac_addr[OPA_VNIC_MAC_HASH_IDX];
++		vnic_hash_add(new_mactbl, &new_node->hlist, key);
++	}
++
++switch_tbl:
++	/* switch to new table */
++	rcu_assign_pointer(adapter->mactbl, new_mactbl);
++	synchronize_rcu();
++
++	adapter->info.vport.mac_tbl_digest = be32_to_cpu(tbl->mac_tbl_digest);
++updt_done:
++	/* upon failure, free the new table; otherwise, free the old table */
++	if (rc)
++		opa_vnic_free_mac_tbl(new_mactbl);
++	else
++		opa_vnic_free_mac_tbl(old_mactbl);
++
++	mutex_unlock(&adapter->mactbl_lock);
++	return rc;
++}
++
++/* opa_vnic_chk_mac_tbl - check mac table for dlid */
++static uint32_t opa_vnic_chk_mac_tbl(struct opa_vnic_adapter *adapter,
++				     struct ethhdr *mac_hdr)
++{
++	struct opa_vnic_mac_tbl_node *node;
++	struct hlist_head *mactbl;
++	u32 dlid = 0;
++	u8 key;
++
++	rcu_read_lock();
++	mactbl = rcu_dereference(adapter->mactbl);
++	if (unlikely(!mactbl))
++		goto chk_done;
++
++	key = mac_hdr->h_dest[OPA_VNIC_MAC_HASH_IDX];
++	vnic_hash_for_each_possible(mactbl, node, hlist, key) {
++		struct __opa_vnic_mactable_entry *entry = &node->entry;
++
++		/* if related to source mac, skip */
++		if (unlikely(OPA_VNIC_DLID_SD_IS_SRC_MAC(entry->dlid_sd)))
++			continue;
++
++		if (!memcmp(node->entry.mac_addr, mac_hdr->h_dest,
++			    ARRAY_SIZE(node->entry.mac_addr))) {
++			/* mac address found */
++			dlid = OPA_VNIC_DLID_SD_GET_DLID(node->entry.dlid_sd);
++			break;
++		}
++	}
++
++chk_done:
++	rcu_read_unlock();
++	return dlid;
++}
++
+ /* opa_vnic_get_dlid - find and return the DLID */
+ static uint32_t opa_vnic_get_dlid(struct opa_vnic_adapter *adapter,
+ 				  struct sk_buff *skb, u8 def_port)
+@@ -104,6 +336,10 @@ static uint32_t opa_vnic_get_dlid(struct opa_vnic_adapter *adapter,
+ 	struct ethhdr *mac_hdr = (struct ethhdr *)skb_mac_header(skb);
+ 	u32 dlid;
  
- /* opa_vnic_set_ethtool_ops - set ethtool ops */
++	dlid = opa_vnic_chk_mac_tbl(adapter, mac_hdr);
++	if (dlid)
++		return dlid;
++
+ 	if (is_multicast_ether_addr(mac_hdr->h_dest)) {
+ 		dlid = info->vesw.u_mcast_dlid;
+ 	} else {
 diff --git a/drivers/infiniband/ulp/opa_vnic/opa_vnic_internal.h b/drivers/infiniband/ulp/opa_vnic/opa_vnic_internal.h
-index 91c39ba..1c10dc2 100644
+index 1c10dc2..bec4866 100644
 --- a/drivers/infiniband/ulp/opa_vnic/opa_vnic_internal.h
 +++ b/drivers/infiniband/ulp/opa_vnic/opa_vnic_internal.h
-@@ -169,6 +169,7 @@ struct __opa_veswport_trap {
+@@ -169,6 +169,8 @@ struct __opa_veswport_trap {
   * @vport_num: vesw port number
   * @lock: adapter lock
   * @info: virtual ethernet switch port information
-+ * @stats_lock: statistics lock
++ * @mactbl: hash table of MAC entries
++ * @mactbl_lock: mac table lock
+  * @stats_lock: statistics lock
   * @flow_tbl: flow to default port redirection table
   */
- struct opa_vnic_adapter {
-@@ -184,6 +185,9 @@ struct opa_vnic_adapter {
+@@ -184,6 +186,10 @@ struct opa_vnic_adapter {
+ 	struct mutex lock;
  
  	struct __opa_veswport_info  info;
- 
-+	/* Lock used to protect access to vnic counters */
-+	struct mutex stats_lock;
++	struct hlist_head  __rcu   *mactbl;
 +
++	/* Lock used to protect updates to mac table */
++	struct mutex mactbl_lock;
+ 
+ 	/* Lock used to protect access to vnic counters */
+ 	struct mutex stats_lock;
+@@ -191,6 +197,25 @@ struct opa_vnic_adapter {
  	u8 flow_tbl[OPA_VNIC_FLOW_TBL_SIZE];
  };
  
++/* Same as opa_veswport_mactable_entry, but without bitwise attribute */
++struct __opa_vnic_mactable_entry {
++	u8  mac_addr[ETH_ALEN];
++	u8  mac_addr_mask[ETH_ALEN];
++	u32 dlid_sd;
++} __packed;
++
++/**
++ * struct opa_vnic_mac_tbl_node - OPA VNIC mac table node
++ * @hlist: hash list handle
++ * @index: index of entry in the mac table
++ * @entry: entry in the table
++ */
++struct opa_vnic_mac_tbl_node {
++	struct hlist_node                    hlist;
++	u16                                  index;
++	struct __opa_vnic_mactable_entry     entry;
++};
++
+ #define v_dbg(format, arg...) \
+ 	netdev_dbg(adapter->netdev, format, ## arg)
+ #define v_err(format, arg...) \
+@@ -212,12 +237,38 @@ struct opa_vnic_adapter {
+ #define OPA_VNIC_MAC_TBL_HASH_BITS    8
+ #define OPA_VNIC_MAC_TBL_SIZE  BIT(OPA_VNIC_MAC_TBL_HASH_BITS)
+ 
++/* VNIC HASH MACROS */
++#define vnic_hash_init(hashtable) __hash_init(hashtable, OPA_VNIC_MAC_TBL_SIZE)
++
++#define vnic_hash_add(hashtable, node, key)                                   \
++	hlist_add_head(node,                                                  \
++		&hashtable[hash_min(key, ilog2(OPA_VNIC_MAC_TBL_SIZE))])
++
++#define vnic_hash_for_each_safe(name, bkt, tmp, obj, member)                  \
++	for ((bkt) = 0, obj = NULL;                                           \
++		    !obj && (bkt) < OPA_VNIC_MAC_TBL_SIZE; (bkt)++)           \
++		hlist_for_each_entry_safe(obj, tmp, &name[bkt], member)
++
++#define vnic_hash_for_each_possible(name, obj, member, key)                   \
++	hlist_for_each_entry(obj,                                             \
++		&name[hash_min(key, ilog2(OPA_VNIC_MAC_TBL_SIZE))], member)
++
++#define vnic_hash_for_each(name, bkt, obj, member)                            \
++	for ((bkt) = 0, obj = NULL;                                           \
++		    !obj && (bkt) < OPA_VNIC_MAC_TBL_SIZE; (bkt)++)           \
++		hlist_for_each_entry(obj, &name[bkt], member)
++
+ struct opa_vnic_adapter *opa_vnic_add_netdev(struct ib_device *ibdev,
+ 					     u8 port_num, u8 vport_num);
+ void opa_vnic_rem_netdev(struct opa_vnic_adapter *adapter);
+ void opa_vnic_encap_skb(struct opa_vnic_adapter *adapter, struct sk_buff *skb);
+ u8 opa_vnic_get_vl(struct opa_vnic_adapter *adapter, struct sk_buff *skb);
+ u8 opa_vnic_calc_entropy(struct opa_vnic_adapter *adapter, struct sk_buff *skb);
++void opa_vnic_release_mac_tbl(struct opa_vnic_adapter *adapter);
++void opa_vnic_query_mac_tbl(struct opa_vnic_adapter *adapter,
++			    struct opa_veswport_mactable *tbl);
++int opa_vnic_update_mac_tbl(struct opa_vnic_adapter *adapter,
++			    struct opa_veswport_mactable *tbl);
+ void opa_vnic_set_ethtool_ops(struct net_device *netdev);
+ 
+ #endif /* _OPA_VNIC_INTERNAL_H */
 diff --git a/drivers/infiniband/ulp/opa_vnic/opa_vnic_netdev.c b/drivers/infiniband/ulp/opa_vnic/opa_vnic_netdev.c
-index 17e8d36..90fd783 100644
+index 90fd783..a077730 100644
 --- a/drivers/infiniband/ulp/opa_vnic/opa_vnic_netdev.c
 +++ b/drivers/infiniband/ulp/opa_vnic/opa_vnic_netdev.c
-@@ -60,6 +60,20 @@
- #define OPA_VNIC_SKB_HEADROOM  \
- 			ALIGN((OPA_VNIC_HDR_LEN + OPA_VNIC_SKB_MDATA_LEN), 8)
- 
-+/* This function is overloaded for opa_vnic specific implementation */
-+static void opa_vnic_get_stats64(struct net_device *netdev,
-+				 struct rtnl_link_stats64 *stats)
-+{
-+	struct opa_vnic_adapter *adapter = opa_vnic_priv(netdev);
-+	struct opa_vnic_stats vstats;
-+
-+	memset(&vstats, 0, sizeof(vstats));
-+	mutex_lock(&adapter->stats_lock);
-+	adapter->rn_ops->ndo_get_stats64(netdev, &vstats.netstats);
-+	mutex_unlock(&adapter->stats_lock);
-+	memcpy(stats, &vstats.netstats, sizeof(*stats));
-+}
-+
- /* opa_netdev_start_xmit - transmit function */
- static netdev_tx_t opa_netdev_start_xmit(struct sk_buff *skb,
- 					 struct net_device *netdev)
-@@ -151,6 +165,7 @@ static int opa_netdev_close(struct net_device *netdev)
- 	.ndo_open = opa_netdev_open,
- 	.ndo_stop = opa_netdev_close,
- 	.ndo_start_xmit = opa_netdev_start_xmit,
-+	.ndo_get_stats64 = opa_vnic_get_stats64,
- 	.ndo_select_queue = opa_vnic_select_queue,
- 	.ndo_set_mac_address = opa_vnic_set_mac_addr,
- };
-@@ -193,6 +208,7 @@ struct opa_vnic_adapter *opa_vnic_add_netdev(struct ib_device *ibdev,
+@@ -208,6 +208,7 @@ struct opa_vnic_adapter *opa_vnic_add_netdev(struct ib_device *ibdev,
  	netdev->priv_flags |= IFF_LIVE_ADDR_CHANGE;
  	netdev->hard_header_len += OPA_VNIC_SKB_HEADROOM;
  	mutex_init(&adapter->lock);
-+	mutex_init(&adapter->stats_lock);
++	mutex_init(&adapter->mactbl_lock);
+ 	mutex_init(&adapter->stats_lock);
  
  	SET_NETDEV_DEV(netdev, ibdev->dev.parent);
- 
-@@ -208,6 +224,7 @@ struct opa_vnic_adapter *opa_vnic_add_netdev(struct ib_device *ibdev,
+@@ -224,6 +225,7 @@ struct opa_vnic_adapter *opa_vnic_add_netdev(struct ib_device *ibdev,
  	return adapter;
  netdev_err:
  	mutex_destroy(&adapter->lock);
-+	mutex_destroy(&adapter->stats_lock);
++	mutex_destroy(&adapter->mactbl_lock);
+ 	mutex_destroy(&adapter->stats_lock);
  	kfree(adapter);
  adapter_err:
- 	ibdev->free_rdma_netdev(netdev);
-@@ -224,6 +241,7 @@ void opa_vnic_rem_netdev(struct opa_vnic_adapter *adapter)
+@@ -240,7 +242,9 @@ void opa_vnic_rem_netdev(struct opa_vnic_adapter *adapter)
+ 
  	v_info("removing\n");
  	unregister_netdev(netdev);
++	opa_vnic_release_mac_tbl(adapter);
  	mutex_destroy(&adapter->lock);
-+	mutex_destroy(&adapter->stats_lock);
++	mutex_destroy(&adapter->mactbl_lock);
+ 	mutex_destroy(&adapter->stats_lock);
  	kfree(adapter);
  	ibdev->free_rdma_netdev(netdev);
- }
 -- 
 1.8.3.1
