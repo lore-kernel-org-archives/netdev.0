@@ -1,7 +1,7 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH RFC ipsec-next 14/14] xfrm: Prepare the GRO codepath for hardware offloading.
-Date: Wed, 12 Apr 2017 08:26:53 +0200
-Message-ID: <1491978413-5700-15-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH RFC ipsec-next 10/14] xfrm: Add xfrm_replay_overflow functions for offloading
+Date: Wed, 12 Apr 2017 08:26:49 +0200
+Message-ID: <1491978413-5700-11-git-send-email-steffen.klassert@secunet.com>
 References: <1491978413-5700-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,203 +9,211 @@ Cc: Steffen Klassert <steffen.klassert@secunet.com>,
         Ilan Tayari <ilant@mellanox.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:57616 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([62.96.220.36]:57622 "EHLO a.mx.secunet.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751205AbdDLG36 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 12 Apr 2017 02:29:58 -0400
+        id S1751139AbdDLGaJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 12 Apr 2017 02:30:09 -0400
 In-Reply-To: <1491978413-5700-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On IPsec hardware offloading, we already get a secpath with
-valid state attached when the packet enters the GRO handlers.
-So check for hardware offload and skip the state lookup in this
-case.
+This patch adds functions that handles IPsec sequence
+numbers for GSO segments and TSO offloading. We need
+to calculate and update the sequence numbers based
+on the segments that GSO/TSO will generate. We need
+this to keep software and hardware sequence number
+counter in sync.
 
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- net/ipv4/esp4_offload.c | 42 ++++++++++++++++++++++-------------------
- net/ipv6/esp6_offload.c | 42 ++++++++++++++++++++++-------------------
- net/xfrm/xfrm_input.c   | 50 ++++++++++++++++++++++++-------------------------
- 3 files changed, 71 insertions(+), 63 deletions(-)
+ net/xfrm/xfrm_replay.c | 159 ++++++++++++++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 157 insertions(+), 2 deletions(-)
 
-diff --git a/net/ipv4/esp4_offload.c b/net/ipv4/esp4_offload.c
-index 1e39564..f3e33c2 100644
---- a/net/ipv4/esp4_offload.c
-+++ b/net/ipv4/esp4_offload.c
-@@ -43,27 +43,31 @@ static struct sk_buff **esp4_gro_receive(struct sk_buff **head,
- 	if ((err = xfrm_parse_spi(skb, IPPROTO_ESP, &spi, &seq)) != 0)
- 		goto out;
+diff --git a/net/xfrm/xfrm_replay.c b/net/xfrm/xfrm_replay.c
+index 20e68a3..8b23c5b 100644
+--- a/net/xfrm/xfrm_replay.c
++++ b/net/xfrm/xfrm_replay.c
+@@ -559,6 +559,158 @@ static void xfrm_replay_advance_esn(struct xfrm_state *x, __be32 net_seq)
+ 		x->repl->notify(x, XFRM_REPLAY_UPDATE);
+ }
  
--	err = secpath_set(skb);
--	if (err)
--		goto out;
--
--	if (skb->sp->len == XFRM_MAX_DEPTH)
--		goto out;
--
--	x = xfrm_state_lookup(dev_net(skb->dev), skb->mark,
--			      (xfrm_address_t *)&ip_hdr(skb)->daddr,
--			      spi, IPPROTO_ESP, AF_INET);
--	if (!x)
--		goto out;
--
--	skb->sp->xvec[skb->sp->len++] = x;
--	skb->sp->olen++;
--
- 	xo = xfrm_offload(skb);
--	if (!xo) {
--		xfrm_state_put(x);
--		goto out;
-+	if (!xo || !(xo->flags & CRYPTO_DONE)) {
-+		err = secpath_set(skb);
-+		if (err)
-+			goto out;
++#ifdef CONFIG_XFRM_OFFLOAD
++static int xfrm_replay_overflow_offload(struct xfrm_state *x, struct sk_buff *skb)
++{
++	int err = 0;
++	struct net *net = xs_net(x);
++	struct xfrm_offload *xo = xfrm_offload(skb);
++	__u32 oseq = x->replay.oseq;
 +
-+		if (skb->sp->len == XFRM_MAX_DEPTH)
-+			goto out;
++	if (!xo)
++		return xfrm_replay_overflow(x, skb);
 +
-+		x = xfrm_state_lookup(dev_net(skb->dev), skb->mark,
-+				      (xfrm_address_t *)&ip_hdr(skb)->daddr,
-+				      spi, IPPROTO_ESP, AF_INET);
-+		if (!x)
-+			goto out;
-+
-+		skb->sp->xvec[skb->sp->len++] = x;
-+		skb->sp->olen++;
-+
-+		xo = xfrm_offload(skb);
-+		if (!xo) {
-+			xfrm_state_put(x);
-+			goto out;
++	if (x->type->flags & XFRM_TYPE_REPLAY_PROT) {
++		if (!skb_is_gso(skb)) {
++			XFRM_SKB_CB(skb)->seq.output.low = ++oseq;
++			xo->seq.low = oseq;
++		} else {
++			XFRM_SKB_CB(skb)->seq.output.low = oseq + 1;
++			xo->seq.low = oseq + 1;
++			oseq += skb_shinfo(skb)->gso_segs;
 +		}
- 	}
 +
- 	xo->flags |= XFRM_GRO;
- 
- 	XFRM_TUNNEL_SKB_CB(skb)->tunnel.ip4 = NULL;
-diff --git a/net/ipv6/esp6_offload.c b/net/ipv6/esp6_offload.c
-index 06e9721..1cceeee 100644
---- a/net/ipv6/esp6_offload.c
-+++ b/net/ipv6/esp6_offload.c
-@@ -45,27 +45,31 @@ static struct sk_buff **esp6_gro_receive(struct sk_buff **head,
- 	if ((err = xfrm_parse_spi(skb, IPPROTO_ESP, &spi, &seq)) != 0)
- 		goto out;
- 
--	err = secpath_set(skb);
--	if (err)
--		goto out;
--
--	if (skb->sp->len == XFRM_MAX_DEPTH)
--		goto out;
--
--	x = xfrm_state_lookup(dev_net(skb->dev), skb->mark,
--			      (xfrm_address_t *)&ipv6_hdr(skb)->daddr,
--			      spi, IPPROTO_ESP, AF_INET6);
--	if (!x)
--		goto out;
--
--	skb->sp->xvec[skb->sp->len++] = x;
--	skb->sp->olen++;
--
- 	xo = xfrm_offload(skb);
--	if (!xo) {
--		xfrm_state_put(x);
--		goto out;
-+	if (!xo || !(xo->flags & CRYPTO_DONE)) {
-+		err = secpath_set(skb);
-+		if (err)
-+			goto out;
++		XFRM_SKB_CB(skb)->seq.output.hi = 0;
++		xo->seq.hi = 0;
++		if (unlikely(oseq < x->replay.oseq)) {
++			xfrm_audit_state_replay_overflow(x, skb);
++			err = -EOVERFLOW;
 +
-+		if (skb->sp->len == XFRM_MAX_DEPTH)
-+			goto out;
-+
-+		x = xfrm_state_lookup(dev_net(skb->dev), skb->mark,
-+				      (xfrm_address_t *)&ipv6_hdr(skb)->daddr,
-+				      spi, IPPROTO_ESP, AF_INET6);
-+		if (!x)
-+			goto out;
-+
-+		skb->sp->xvec[skb->sp->len++] = x;
-+		skb->sp->olen++;
-+
-+		xo = xfrm_offload(skb);
-+		if (!xo) {
-+			xfrm_state_put(x);
-+			goto out;
++			return err;
 +		}
- 	}
 +
- 	xo->flags |= XFRM_GRO;
- 
- 	XFRM_TUNNEL_SKB_CB(skb)->tunnel.ip6 = NULL;
-diff --git a/net/xfrm/xfrm_input.c b/net/xfrm/xfrm_input.c
-index 362d655..21c6cc9 100644
---- a/net/xfrm/xfrm_input.c
-+++ b/net/xfrm/xfrm_input.c
-@@ -223,38 +223,38 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
- 			seq = XFRM_SKB_CB(skb)->seq.input.low;
- 			goto resume;
- 		}
++		x->replay.oseq = oseq;
 +
- 		/* encap_type < -1 indicates a GRO call. */
- 		encap_type = 0;
- 		seq = XFRM_SPI_SKB_CB(skb)->seq;
--		goto lock;
--	}
--
--	if (xo && (xo->flags & CRYPTO_DONE)) {
--		crypto_done = true;
--		x = xfrm_input_state(skb);
--		family = XFRM_SPI_SKB_CB(skb)->family;
- 
--		if (!(xo->status & CRYPTO_SUCCESS)) {
--			if (xo->status &
--			    (CRYPTO_TRANSPORT_AH_AUTH_FAILED |
--			     CRYPTO_TRANSPORT_ESP_AUTH_FAILED |
--			     CRYPTO_TUNNEL_AH_AUTH_FAILED |
--			     CRYPTO_TUNNEL_ESP_AUTH_FAILED)) {
--
--				xfrm_audit_state_icvfail(x, skb,
--							 x->type->proto);
--				x->stats.integrity_failed++;
--				XFRM_INC_STATS(net, LINUX_MIB_XFRMINSTATEPROTOERROR);
-+		if (xo && (xo->flags & CRYPTO_DONE)) {
-+			crypto_done = true;
-+			x = xfrm_input_state(skb);
-+			family = XFRM_SPI_SKB_CB(skb)->family;
++		if (xfrm_aevent_is_on(net))
++			x->repl->notify(x, XFRM_REPLAY_UPDATE);
++	}
 +
-+			if (!(xo->status & CRYPTO_SUCCESS)) {
-+				if (xo->status &
-+				    (CRYPTO_TRANSPORT_AH_AUTH_FAILED |
-+				     CRYPTO_TRANSPORT_ESP_AUTH_FAILED |
-+				     CRYPTO_TUNNEL_AH_AUTH_FAILED |
-+				     CRYPTO_TUNNEL_ESP_AUTH_FAILED)) {
++	return err;
++}
 +
-+					xfrm_audit_state_icvfail(x, skb,
-+								 x->type->proto);
-+					x->stats.integrity_failed++;
-+					XFRM_INC_STATS(net, LINUX_MIB_XFRMINSTATEPROTOERROR);
-+					goto drop;
-+				}
++static int xfrm_replay_overflow_offload_bmp(struct xfrm_state *x, struct sk_buff *skb)
++{
++	int err = 0;
++	struct xfrm_offload *xo = xfrm_offload(skb);
++	struct xfrm_replay_state_esn *replay_esn = x->replay_esn;
++	struct net *net = xs_net(x);
++	__u32 oseq = replay_esn->oseq;
 +
-+				XFRM_INC_STATS(net, LINUX_MIB_XFRMINBUFFERERROR);
- 				goto drop;
- 			}
- 
--			XFRM_INC_STATS(net, LINUX_MIB_XFRMINBUFFERERROR);
--			goto drop;
--		}
--
--		if ((err = xfrm_parse_spi(skb, nexthdr, &spi, &seq)) != 0) {
--			XFRM_INC_STATS(net, LINUX_MIB_XFRMINHDRERROR);
--			goto drop;
-+			if ((err = xfrm_parse_spi(skb, nexthdr, &spi, &seq)) != 0) {
-+				XFRM_INC_STATS(net, LINUX_MIB_XFRMINHDRERROR);
-+				goto drop;
++	if (!xo)
++		return xfrm_replay_overflow_bmp(x, skb);
++
++	if (x->type->flags & XFRM_TYPE_REPLAY_PROT) {
++		if (!skb_is_gso(skb)) {
++			XFRM_SKB_CB(skb)->seq.output.low = ++oseq;
++			xo->seq.low = oseq;
++		} else {
++			XFRM_SKB_CB(skb)->seq.output.low = oseq + 1;
++			xo->seq.low = oseq + 1;
++			oseq += skb_shinfo(skb)->gso_segs;
++		}
++
++		XFRM_SKB_CB(skb)->seq.output.hi = 0;
++		xo->seq.hi = 0;
++		if (unlikely(oseq < replay_esn->oseq)) {
++			xfrm_audit_state_replay_overflow(x, skb);
++			err = -EOVERFLOW;
++
++			return err;
++		} else {
++			replay_esn->oseq = oseq;
++		}
++
++		if (xfrm_aevent_is_on(net))
++			x->repl->notify(x, XFRM_REPLAY_UPDATE);
++	}
++
++	return err;
++}
++
++static int xfrm_replay_overflow_offload_esn(struct xfrm_state *x, struct sk_buff *skb)
++{
++	int err = 0;
++	struct xfrm_offload *xo = xfrm_offload(skb);
++	struct xfrm_replay_state_esn *replay_esn = x->replay_esn;
++	struct net *net = xs_net(x);
++	__u32 oseq = replay_esn->oseq;
++	__u32 oseq_hi = replay_esn->oseq_hi;
++
++	if (!xo)
++		return xfrm_replay_overflow_esn(x, skb);
++
++	if (x->type->flags & XFRM_TYPE_REPLAY_PROT) {
++		if (!skb_is_gso(skb)) {
++			XFRM_SKB_CB(skb)->seq.output.low = ++oseq;
++			XFRM_SKB_CB(skb)->seq.output.hi = oseq_hi;
++			xo->seq.low = oseq;
++			xo->seq.hi = oseq_hi;
++		} else {
++			XFRM_SKB_CB(skb)->seq.output.low = oseq + 1;
++			XFRM_SKB_CB(skb)->seq.output.hi = oseq_hi;
++			xo->seq.low = oseq = oseq + 1;
++			xo->seq.hi = oseq_hi;
++			oseq += skb_shinfo(skb)->gso_segs;
++		}
++
++		if (unlikely(oseq < replay_esn->oseq)) {
++			XFRM_SKB_CB(skb)->seq.output.hi = ++oseq_hi;
++			xo->seq.hi = oseq_hi;
++
++			if (replay_esn->oseq_hi == 0) {
++				replay_esn->oseq--;
++				replay_esn->oseq_hi--;
++				xfrm_audit_state_replay_overflow(x, skb);
++				err = -EOVERFLOW;
++
++				return err;
 +			}
- 		}
++		}
++
++		replay_esn->oseq = oseq;
++		replay_esn->oseq_hi = oseq_hi;
++
++		if (xfrm_aevent_is_on(net))
++			x->repl->notify(x, XFRM_REPLAY_UPDATE);
++	}
++
++	return err;
++}
++
++static const struct xfrm_replay xfrm_replay_legacy = {
++	.advance	= xfrm_replay_advance,
++	.check		= xfrm_replay_check,
++	.recheck	= xfrm_replay_check,
++	.notify		= xfrm_replay_notify,
++	.overflow	= xfrm_replay_overflow_offload,
++};
++
++static const struct xfrm_replay xfrm_replay_bmp = {
++	.advance	= xfrm_replay_advance_bmp,
++	.check		= xfrm_replay_check_bmp,
++	.recheck	= xfrm_replay_check_bmp,
++	.notify		= xfrm_replay_notify_bmp,
++	.overflow	= xfrm_replay_overflow_offload_bmp,
++};
++
++static const struct xfrm_replay xfrm_replay_esn = {
++	.advance	= xfrm_replay_advance_esn,
++	.check		= xfrm_replay_check_esn,
++	.recheck	= xfrm_replay_recheck_esn,
++	.notify		= xfrm_replay_notify_esn,
++	.overflow	= xfrm_replay_overflow_offload_esn,
++};
++#else
+ static const struct xfrm_replay xfrm_replay_legacy = {
+ 	.advance	= xfrm_replay_advance,
+ 	.check		= xfrm_replay_check,
+@@ -582,6 +734,7 @@ static const struct xfrm_replay xfrm_replay_esn = {
+ 	.notify		= xfrm_replay_notify_esn,
+ 	.overflow	= xfrm_replay_overflow_esn,
+ };
++#endif
  
- 		goto lock;
+ int xfrm_init_replay(struct xfrm_state *x)
+ {
+@@ -596,10 +749,12 @@ int xfrm_init_replay(struct xfrm_state *x)
+ 			if (replay_esn->replay_window == 0)
+ 				return -EINVAL;
+ 			x->repl = &xfrm_replay_esn;
+-		} else
++		} else {
+ 			x->repl = &xfrm_replay_bmp;
+-	} else
++		}
++	} else {
+ 		x->repl = &xfrm_replay_legacy;
++	}
+ 
+ 	return 0;
+ }
 -- 
 2.7.4
