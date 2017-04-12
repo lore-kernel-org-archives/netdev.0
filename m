@@ -1,41 +1,36 @@
-From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH v3 01/20] net: stmmac: export
- stmmac_set_mac_addr/stmmac_get_mac_addr
-Date: Wed, 12 Apr 2017 09:42:57 +0200
-Message-ID: <20170412074257.GC11170@Red>
-References: <20170403091444.29876-1-clabbe.montjoie@gmail.com>
- <20170403091444.29876-2-clabbe.montjoie@gmail.com>
- <9514c077-1738-ea49-ca18-fbc46bac6144@st.com>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: Network driver "test suite"
+Date: Wed, 12 Apr 2017 17:47:53 +1000
+Message-ID: <1491983273.7236.50.camel@kernel.crashing.org>
+References: <1491956177.7236.34.camel@kernel.crashing.org>
+         <3c62188f-1378-a912-3045-97644fa386d5@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
-        maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org,
-        linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org,
-        will.deacon-5wv7dgnIgG8@public.gmane.org, alexandre.torgue-qxv4g6HH51o@public.gmane.org,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: Giuseppe CAVALLARO <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <9514c077-1738-ea49-ca18-fbc46bac6144-qxv4g6HH51o@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gate.crashing.org ([63.228.1.57]:52585 "EHLO gate.crashing.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751308AbdDLHsM (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 12 Apr 2017 03:48:12 -0400
+In-Reply-To: <3c62188f-1378-a912-3045-97644fa386d5@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 03, 2017 at 02:39:03PM +0200, Giuseppe CAVALLARO wrote:
-> Hello Alex
+On Tue, 2017-04-11 at 17:36 -0700, Florian Fainelli wrote:
 > 
-> do you can check if this has to be done for ST platforms?
-> I do not remember that it was necessary when build as module so
-> I cannot expect this should be only for dwmac-sun8i.
+> You could start with using LNST:
 > 
-> Regards
-> peppe
+> https://github.com/jpirko/lnst
 > 
+> and there is also Ostinato which is a great way to get access to
+> something IXIA-like, but all configurable in software through python
+> bindings. Andrew's dsa-tests make use of it, but they would not be
+> directly portable here [1].
+> 
+> [1]: https://github.com/lunn/dsa-tests
 
-dwmac-sun8i is simply the first "user" of stmmac_[sg]et_mac_addr outside of stmmac-objs
+Thanks. I'll play with these when I have a bit of spare time !
 
-Regards
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Cheers,
+Ben.
