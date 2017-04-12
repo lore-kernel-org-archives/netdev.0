@@ -1,39 +1,41 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: [PATCH] net: xdp: don't export dev_change_xdp_fd()
-Date: Wed, 12 Apr 2017 09:32:07 +0200
-Message-ID: <20170412073207.27029-1-johannes@sipsolutions.net>
-Cc: Brenden Blanco <bblanco@plumgrid.com>,
-        Johannes Berg <johannes.berg@intel.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:33032 "EHLO sipsolutions.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752302AbdDLHcN (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 12 Apr 2017 03:32:13 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH v3 01/20] net: stmmac: export
+ stmmac_set_mac_addr/stmmac_get_mac_addr
+Date: Wed, 12 Apr 2017 09:42:57 +0200
+Message-ID: <20170412074257.GC11170@Red>
+References: <20170403091444.29876-1-clabbe.montjoie@gmail.com>
+ <20170403091444.29876-2-clabbe.montjoie@gmail.com>
+ <9514c077-1738-ea49-ca18-fbc46bac6144@st.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
+        maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org,
+        linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org,
+        will.deacon-5wv7dgnIgG8@public.gmane.org, alexandre.torgue-qxv4g6HH51o@public.gmane.org,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+To: Giuseppe CAVALLARO <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <9514c077-1738-ea49-ca18-fbc46bac6144-qxv4g6HH51o@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Johannes Berg <johannes.berg@intel.com>
+On Mon, Apr 03, 2017 at 02:39:03PM +0200, Giuseppe CAVALLARO wrote:
+> Hello Alex
+> 
+> do you can check if this has to be done for ST platforms?
+> I do not remember that it was necessary when build as module so
+> I cannot expect this should be only for dwmac-sun8i.
+> 
+> Regards
+> peppe
+> 
 
-Since dev_change_xdp_fd() is only used in rtnetlink, which must
-be built-in, there's no reason to export dev_change_xdp_fd().
+dwmac-sun8i is simply the first "user" of stmmac_[sg]et_mac_addr outside of stmmac-objs
 
-Signed-off-by: Johannes Berg <johannes.berg@intel.com>
----
- net/core/dev.c | 1 -
- 1 file changed, 1 deletion(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index ef9fe60ee294..5d33e2baab2b 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -6754,7 +6754,6 @@ int dev_change_xdp_fd(struct net_device *dev, int fd, u32 flags)
- 
- 	return err;
- }
--EXPORT_SYMBOL(dev_change_xdp_fd);
- 
- /**
-  *	dev_new_index	-	allocate an ifindex
--- 
-2.11.0
+Regards
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
