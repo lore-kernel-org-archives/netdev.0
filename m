@@ -1,40 +1,58 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v3 net-next RFC] Generic XDP
-Date: Wed, 12 Apr 2017 14:49:53 -0700
-Message-ID: <1492033793.10587.73.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20170412.145415.1441440342830198148.davem@davemloft.net>
-         <20170412143037.5fd7a088@xeon-e3>
+From: <Woojung.Huh-UWL1GkI3JZL3oGB3hsPCZA@public.gmane.org>
+Subject: RE: [PATCH v3] smsc95xx: Add comments to the registers definition
+Date: Wed, 12 Apr 2017 22:10:06 +0000
+Message-ID: <9235D6609DB808459E95D78E17F2E43D40A421E3@CHN-SV-EXMX02.mchp-main.com>
+References: <20170410084521.w2kdjpdquvrg72mr@SMX-2>
+ <20170410135251.GC19820@lunn.ch>
+ <20170411.221836.113758478587841074.davem@davemloft.net>
+ <20170412092405.doyczwsqnzkizarz@SMX-2>
+ <9235D6609DB808459E95D78E17F2E43D40A41DA1@CHN-SV-EXMX02.mchp-main.com>
+ <20170412160123.zhzg67m4rpzcsmap@SMX-2>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-        xdp-newbies@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:34488 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752304AbdDLVt4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 12 Apr 2017 17:49:56 -0400
-In-Reply-To: <20170412143037.5fd7a088@xeon-e3>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <andrew-g2DYL2Zd6BY@public.gmane.org>,
+        <steve.glendinning-nksJyM/082jR7s880joybQ@public.gmane.org>, <UNGLinuxDriver-UWL1GkI3JZL3oGB3hsPCZA@public.gmane.org>,
+        <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: <martin-ufNpD2TjPakDzzZUHZsW5w@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170412160123.zhzg67m4rpzcsmap@SMX-2>
+Content-Language: en-US
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2017-04-12 at 14:30 -0700, Stephen Hemminger wrote:
-> On Wed, 12 Apr 2017 14:54:15 -0400 (EDT)
-> David Miller <davem@davemloft.net> wrote:
+> I based my comments on the datasheet. For the LED_GPIO_CFG register, the
+> datasheet says:
+> > This register configures the external GPIO[2:0] pins.
 > 
-> > diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> > index b0aa089..071a58b 100644
-> > --- a/include/linux/netdevice.h
-> > +++ b/include/linux/netdevice.h
-> > @@ -1891,9 +1891,17 @@ struct net_device {
-> >  	struct lock_class_key	*qdisc_tx_busylock;
-> >  	struct lock_class_key	*qdisc_running_key;
-> >  	bool			proto_down;
-> > +	struct bpf_prog __rcu	*xdp_prog;
+> QFN package description also indicates GPIOs 0, 1 & 2.
+> As an example for the LAN9514, pin 22 of the QFN indicates:
+> > nSPD_LED/GPIO2
 > 
-> It would be good if all devices could reuse this for the xdp_prog pointer.
-> It would allow for could be used for introspection utility functions in future.
+> In LED_GPIO_CFG register, GPCTL2 description indicates:
+> > The value of this field determines the function of the external GPIO2
+> > pin as follows
+> 
+> Do you confirm it's actually GPIO 10, 9 and 8?
+> I think I may have misunderstood something.
+Sorry forgetting that you are referring RPi which uses LAN9514.
+Because these LEDs' GPIO can vary per chip (LAN9500, 9514..), it would be better
+not putting GPIO number. LAN9500 are GPIO 10/9/8 as described.
 
-Problem is that some xdp usages were envisioning a per RX queue xdp
-program.
+> While we are here, could you indicate the meaning of the bit 2 of
+> HW_CFG register (it's named HW_CFG_PSEL_)? It's the only bit I didn't
+> succeed to comment because I didn't find it in the datasheet.
+> I will then add it to the patch!
+It indicates internal & external phy, PSEL means PHY Select.
+You can find at LAN9500 doc in http://ww1.microchip.com/downloads/en/DeviceDoc/00001875C.pdf.
+
+> I'm also wondering what the meaning of STRAP_STATUS is. I could also
+> comment it if you or Steve can provide the information.
+It is marked as reserved in above LAN9500 manual.
+You may guess from configuration straps in the manual and define names.
+
+Woojung
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
