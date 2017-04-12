@@ -1,9 +1,9 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH v3 1/3] VSOCK: Add vsockmon tap functions
-Date: Wed, 12 Apr 2017 19:37:36 +0300
-Message-ID: <20170412163736.GB22692@redhat.com>
+Subject: Re: [PATCH v3 2/3] VSOCK: Add vsockmon device
+Date: Wed, 12 Apr 2017 19:43:20 +0300
+Message-ID: <20170412193827-mutt-send-email-mst@kernel.org>
 References: <20170412160825.21037-1-stefanha@redhat.com>
- <20170412160825.21037-2-stefanha@redhat.com>
+ <20170412160825.21037-3-stefanha@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, Zhu Yanjun <zyjzyj2000@gmail.com>,
@@ -11,204 +11,98 @@ Cc: netdev@vger.kernel.org, Zhu Yanjun <zyjzyj2000@gmail.com>,
         Jorgen Hansen <jhansen@vmware.com>
 To: Stefan Hajnoczi <stefanha@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37080 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:42320 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752544AbdDLQhp (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 12 Apr 2017 12:37:45 -0400
+        id S1754805AbdDLQnX (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 12 Apr 2017 12:43:23 -0400
 Content-Disposition: inline
-In-Reply-To: <20170412160825.21037-2-stefanha@redhat.com>
+In-Reply-To: <20170412160825.21037-3-stefanha@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 12, 2017 at 05:08:23PM +0100, Stefan Hajnoczi wrote:
+On Wed, Apr 12, 2017 at 05:08:24PM +0100, Stefan Hajnoczi wrote:
 > From: Gerard Garcia <ggarcia@deic.uab.cat>
 > 
-> Add tap functions that can be used by the vsock transports to
-> deliver packets to vsockmon virtual network devices.
+> Add vsockmon virtual network device that receives packets from the vsock
+> transports and exposes them to user space.
+> 
+> Based on the nlmon device.
 > 
 > Signed-off-by: Gerard Garcia <ggarcia@deic.uab.cat>
 > Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
 > ---
 > v3:
->  * Include missing <linux/module.h> header in af_vsock_tap.c
+>  * Fix DEFAULT_MTU macro definition [Zhu Yanjun]
+>  * Rename af_vsockmon_hdr->t field ->transport for clarity
+>  * Update .ndo_get_stats64() return type since it has changed
 > ---
->  net/vmw_vsock/Makefile       |   2 +-
->  include/net/af_vsock.h       |  13 +++++
->  include/uapi/linux/if_arp.h  |   1 +
->  net/vmw_vsock/af_vsock_tap.c | 114 +++++++++++++++++++++++++++++++++++++++++++
->  4 files changed, 129 insertions(+), 1 deletion(-)
->  create mode 100644 net/vmw_vsock/af_vsock_tap.c
+>  drivers/net/Makefile          |   1 +
+>  include/uapi/linux/vsockmon.h |  57 ++++++++++++++
+>  drivers/net/vsockmon.c        | 167 ++++++++++++++++++++++++++++++++++++++++++
+>  drivers/net/Kconfig           |   8 ++
+>  include/uapi/linux/Kbuild     |   1 +
+>  5 files changed, 234 insertions(+)
+>  create mode 100644 include/uapi/linux/vsockmon.h
+>  create mode 100644 drivers/net/vsockmon.c
 > 
-> diff --git a/net/vmw_vsock/Makefile b/net/vmw_vsock/Makefile
-> index bc27c70..09fc2eb 100644
-> --- a/net/vmw_vsock/Makefile
-> +++ b/net/vmw_vsock/Makefile
-> @@ -3,7 +3,7 @@ obj-$(CONFIG_VMWARE_VMCI_VSOCKETS) += vmw_vsock_vmci_transport.o
->  obj-$(CONFIG_VIRTIO_VSOCKETS) += vmw_vsock_virtio_transport.o
->  obj-$(CONFIG_VIRTIO_VSOCKETS_COMMON) += vmw_vsock_virtio_transport_common.o
+> diff --git a/drivers/net/Makefile b/drivers/net/Makefile
+> index 98ed4d9..2d54930 100644
+> --- a/drivers/net/Makefile
+> +++ b/drivers/net/Makefile
+> @@ -30,6 +30,7 @@ obj-$(CONFIG_GENEVE) += geneve.o
+>  obj-$(CONFIG_GTP) += gtp.o
+>  obj-$(CONFIG_NLMON) += nlmon.o
+>  obj-$(CONFIG_NET_VRF) += vrf.o
+> +obj-$(CONFIG_VSOCKMON) += vsockmon.o
 >  
-> -vsock-y += af_vsock.o vsock_addr.o
-> +vsock-y += af_vsock.o af_vsock_tap.o vsock_addr.o
->  
->  vmw_vsock_vmci_transport-y += vmci_transport.o vmci_transport_notify.o \
->  	vmci_transport_notify_qstate.o
-> diff --git a/include/net/af_vsock.h b/include/net/af_vsock.h
-> index f32ed9a..c526d4f 100644
-> --- a/include/net/af_vsock.h
-> +++ b/include/net/af_vsock.h
-> @@ -188,4 +188,17 @@ struct sock *vsock_find_connected_socket(struct sockaddr_vm *src,
->  void vsock_remove_sock(struct vsock_sock *vsk);
->  void vsock_for_each_connected_socket(void (*fn)(struct sock *sk));
->  
-> +/**** TAP ****/
-> +
-> +struct vsock_tap {
-> +	struct net_device *dev;
-> +	struct module *module;
-> +	struct list_head list;
-> +};
-> +
-> +int vsock_init_tap(void);
-> +int vsock_add_tap(struct vsock_tap *vt);
-> +int vsock_remove_tap(struct vsock_tap *vt);
-> +void vsock_deliver_tap(struct sk_buff *skb);
-> +
->  #endif /* __AF_VSOCK_H__ */
-> diff --git a/include/uapi/linux/if_arp.h b/include/uapi/linux/if_arp.h
-> index 4d024d7..cf73510 100644
-> --- a/include/uapi/linux/if_arp.h
-> +++ b/include/uapi/linux/if_arp.h
-> @@ -95,6 +95,7 @@
->  #define ARPHRD_IP6GRE	823		/* GRE over IPv6		*/
->  #define ARPHRD_NETLINK	824		/* Netlink header		*/
->  #define ARPHRD_6LOWPAN	825		/* IPv6 over LoWPAN             */
-> +#define ARPHRD_VSOCKMON	826		/* Vsock monitor header		*/
->  
->  #define ARPHRD_VOID	  0xFFFF	/* Void type, nothing is known */
->  #define ARPHRD_NONE	  0xFFFE	/* zero header length */
-> diff --git a/net/vmw_vsock/af_vsock_tap.c b/net/vmw_vsock/af_vsock_tap.c
+>  #
+>  # Networking Drivers
+> diff --git a/include/uapi/linux/vsockmon.h b/include/uapi/linux/vsockmon.h
 > new file mode 100644
-> index 0000000..db3188e
+> index 0000000..484e59e
 > --- /dev/null
-> +++ b/net/vmw_vsock/af_vsock_tap.c
-> @@ -0,0 +1,114 @@
+> +++ b/include/uapi/linux/vsockmon.h
+> @@ -0,0 +1,57 @@
+> +#ifndef _UAPI_VSOCKMON_H
+> +#define _UAPI_VSOCKMON_H
+> +
+> +#include <linux/virtio_vsock.h>
+> +
 > +/*
-> + * Tap functions for AF_VSOCK sockets.
+> + * vsockmon is the AF_VSOCK packet capture device.  Packets captured have the
+> + * following layout:
 > + *
-> + * Code based on net/netlink/af_netlink.c tap functions.
+> + *   +-----------------------------------+
+> + *   |           vsockmon header         |
+> + *   |      (struct af_vsockmon_hdr)     |
+> + *   +-----------------------------------+
+> + *   |          transport header         |
+> + *   | (af_vsockmon_hdr->len bytes long) |
+> + *   +-----------------------------------+
+> + *   |              payload              |
+> + *   |       (until end of packet)       |
+> + *   +-----------------------------------+
 > + *
-> + * This program is free software; you can redistribute it and/or
-> + * modify it under the terms of the GNU General Public License
-> + * as published by the Free Software Foundation; either version
-> + * 2 of the License, or (at your option) any later version.
+> + * The vsockmon header is a transport-independent description of the packet.
+> + * It duplicates some of the information from the transport header so that
+> + * no transport-specific knowledge is necessary to process packets.
+> + *
+> + * The transport header is useful for low-level transport-specific packet
+> + * analysis.  Transport type is given in af_vsockmon_hdr->transport and
+> + * transport header length is given in af_vsockmon_hdr->len.
+> + *
+> + * If af_vsockmon_hdr->op is AF_VSOCK_OP_PAYLOAD then the payload follows the
+> + * transport header.  Other ops do not have a payload.
 > + */
 > +
-> +#include <linux/module.h>
-> +#include <net/sock.h>
-> +#include <net/af_vsock.h>
-> +#include <linux/if_arp.h>
-> +
-> +static DEFINE_SPINLOCK(vsock_tap_lock);
-> +static struct list_head vsock_tap_all __read_mostly =
-> +				LIST_HEAD_INIT(vsock_tap_all);
-> +
-> +int vsock_add_tap(struct vsock_tap *vt) {
-> +	if (unlikely(vt->dev->type != ARPHRD_VSOCKMON))
-> +		return -EINVAL;
-> +
-> +	__module_get(vt->module);
-> +
-> +	spin_lock(&vsock_tap_lock);
-> +	list_add_rcu(&vt->list, &vsock_tap_all);
-> +	spin_unlock(&vsock_tap_lock);
-> +
-> +
-> +	return 0;
-> +}
-> +EXPORT_SYMBOL_GPL(vsock_add_tap);
-> +
-> +int __vsock_remove_tap(struct vsock_tap *vt) {
-> +	bool found = false;
-> +	struct vsock_tap *tmp;
-> +
-> +	spin_lock(&vsock_tap_lock);
-> +
-> +	list_for_each_entry(tmp, &vsock_tap_all, list) {
-> +		if (vt == tmp) {
-> +			list_del_rcu(&vt->list);
-> +			found = true;
-> +			goto out;
-> +		}
-> +	}
-> +
-> +	pr_warn("__vsock_remove_tap: %p not found\n", vt);
-> +out:
-> +	spin_unlock(&vsock_tap_lock);
-> +
-> +	if (found)
-> +		module_put(vt->module);
+> +struct af_vsockmon_hdr {
+> +	__le64 src_cid;
+> +	__le64 dst_cid;
+> +	__le32 src_port;
+> +	__le32 dst_port;
+> +	__le16 op;			/* enum af_vsockmon_op */
+> +	__le16 transport;		/* enum af_vsockmon_transport */
+> +	__le16 len;			/* Transport header length */
+> +} __attribute__((packed));
 
-This is called before synchronize_net so there might
-still be users for this tap.
-
-> +
-> +	return found ? 0 : -ENODEV;
-> +}
-> +
-> +int vsock_remove_tap(struct vsock_tap *vt)
-> +{
-> +	int ret;
-> +
-> +	ret = __vsock_remove_tap(vt);
-> +	synchronize_net();
-> +
-> +	return ret;
-> +}
-> +EXPORT_SYMBOL_GPL(vsock_remove_tap);
-> +
-> +static int __vsock_deliver_tap_skb(struct sk_buff *skb,
-> +				     struct net_device *dev)
-> +{
-> +	int ret = 0;
-> +	struct sk_buff *nskb = skb_clone(skb, GFP_ATOMIC);
-> +
-> +	if (nskb) {
-> +		dev_hold(dev);
-> +
-> +		nskb->dev = dev;
-> +		ret = dev_queue_xmit(nskb);
-> +		if (unlikely(ret > 0))
-> +			ret = net_xmit_errno(ret);
-> +
-> +		dev_put(dev);
-> +	}
-> +
-> +	return ret;
-> +}
-> +
-> +static void __vsock_deliver_tap(struct sk_buff *skb)
-> +{
-> +	int ret;
-> +	struct vsock_tap *tmp;
-> +
-> +	list_for_each_entry_rcu(tmp, &vsock_tap_all, list) {
-> +		ret = __vsock_deliver_tap_skb(skb, tmp->dev);
-> +		if (unlikely(ret))
-> +			break;
-> +	}
-> +
-> +	consume_skb(skb);
-> +}
-> +
-> +void vsock_deliver_tap(struct sk_buff *skb)
-> +{
-> +	rcu_read_lock();
-> +
-> +	if (unlikely(!list_empty(&vsock_tap_all)))
-> +		__vsock_deliver_tap(skb);
-> +
-> +	rcu_read_unlock();
-> +}
-> +EXPORT_SYMBOL_GPL(vsock_deliver_tap);
-> -- 
-> 2.9.3
+I'd add a 2 byte padding here and then you do not need to pack it.
