@@ -1,59 +1,67 @@
-From: Rob Herring <robh+dt@kernel.org>
-Subject: Re: [PATCH v2 2/3] net: macb: Remove CONFIG_OF around DT match table
-Date: Wed, 12 Apr 2017 15:51:34 -0500
-Message-ID: <CAL_JsqLm_cP7zF71HwX8UZOLaWQf0Q90zOrXyXjU96xc5Cchrg@mail.gmail.com>
-References: <20170412044156.17351-1-f.fainelli@gmail.com> <20170412044156.17351-3-f.fainelli@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Lee Jones <lee.jones@linaro.org>,
-        Nicolas Ferre <nicolas.ferre@microchip.com>,
-        Frank Rowand <frowand.list@gmail.com>,
-        "open list:NETWORKING DRIVERS" <netdev@vger.kernel.org>,
-        "open list:OPEN FIRMWARE AND FLATTENED DEVICE TREE"
-        <devicetree@vger.kernel.org>
-To: Florian Fainelli <f.fainelli@gmail.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch] nsfs: mark dentry with DCACHE_RCUACCESS
+Date: Wed, 12 Apr 2017 13:55:28 -0700
+Message-ID: <1492030528-3919-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: andreyknvl@google.com, Cong Wang <xiyou.wangcong@gmail.com>,
+        Alexander Viro <viro@zeniv.linux.org.uk>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.136]:35300 "EHLO mail.kernel.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751131AbdDLUv7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 12 Apr 2017 16:51:59 -0400
-In-Reply-To: <20170412044156.17351-3-f.fainelli@gmail.com>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:32963 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755716AbdDLUzh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 12 Apr 2017 16:55:37 -0400
+Received: by mail-pf0-f194.google.com with SMTP id c198so7119983pfc.0
+        for <netdev@vger.kernel.org>; Wed, 12 Apr 2017 13:55:37 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 11, 2017 at 11:41 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
-> A subsequent patch is going to make of_match_node() an inline stub when
-> CONFIG_OF is disabled, which will let the compiler eliminate unused variables.
-> In order not to clutter the code more, remove the CONFIG_OF #ifdef such that
-> macb_dt_ids and what it references are always defined.
->
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
-> ---
->  drivers/net/ethernet/cadence/macb.c | 2 --
->  1 file changed, 2 deletions(-)
->
-> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-> index 30606b11b128..01016e9525ee 100644
-> --- a/drivers/net/ethernet/cadence/macb.c
-> +++ b/drivers/net/ethernet/cadence/macb.c
-> @@ -2811,7 +2811,6 @@ static int macb_init(struct platform_device *pdev)
->         return 0;
->  }
->
-> -#if defined(CONFIG_OF)
->  /* 1518 rounded up */
->  #define AT91ETHER_MAX_RBUFF_SZ 0x600
->  /* max number of receive buffers */
-> @@ -3215,7 +3214,6 @@ static const struct of_device_id macb_dt_ids[] = {
->         { /* sentinel */ }
->  };
->  MODULE_DEVICE_TABLE(of, macb_dt_ids);
+Andrey reported a use-after-free in __ns_get_path():
 
-Did you actually check that the compiler can eliminate things when
-modules are enabled? Because it's not going to be able to eliminate
-MODULE_DEVICE_TABLE entry AFAICT.
+ spin_lock include/linux/spinlock.h:299 [inline]
+ lockref_get_not_dead+0x19/0x80 lib/lockref.c:179
+ __ns_get_path+0x197/0x860 fs/nsfs.c:66
+ open_related_ns+0xda/0x200 fs/nsfs.c:143
+ sock_ioctl+0x39d/0x440 net/socket.c:1001
+ vfs_ioctl fs/ioctl.c:45 [inline]
+ do_vfs_ioctl+0x1bf/0x1780 fs/ioctl.c:685
+ SYSC_ioctl fs/ioctl.c:700 [inline]
+ SyS_ioctl+0x8f/0xc0 fs/ioctl.c:691
 
-Rob
+We are under rcu read lock protection at that point:
+
+        rcu_read_lock();
+        d = atomic_long_read(&ns->stashed);
+        if (!d)
+                goto slow;
+        dentry = (struct dentry *)d;
+        if (!lockref_get_not_dead(&dentry->d_lockref))
+                goto slow;
+        rcu_read_unlock();
+
+but don't use a proper RCU API on the free path, therefore
+a parallel __d_free() could free it at the same time.
+We need to mark the stashed dentry with DCACHE_RCUACCESS so
+that __d_free() will be called after all readers leave RCU.
+
+Fixes: e149ed2b805f ("take the targets of /proc/*/ns/* symlinks to separate fs")
+Cc: Alexander Viro <viro@zeniv.linux.org.uk>
+Reported-by: Andrey Konovalov <andreyknvl@google.com>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+---
+ fs/nsfs.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/fs/nsfs.c b/fs/nsfs.c
+index 1656843..323f492 100644
+--- a/fs/nsfs.c
++++ b/fs/nsfs.c
+@@ -91,6 +91,7 @@ static void *__ns_get_path(struct path *path, struct ns_common *ns)
+ 		return ERR_PTR(-ENOMEM);
+ 	}
+ 	d_instantiate(dentry, inode);
++	dentry->d_flags |= DCACHE_RCUACCESS;
+ 	dentry->d_fsdata = (void *)ns->ops;
+ 	d = atomic_long_cmpxchg(&ns->stashed, 0, (unsigned long)dentry);
+ 	if (d) {
+-- 
+2.5.5
