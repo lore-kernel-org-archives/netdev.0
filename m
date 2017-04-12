@@ -1,48 +1,51 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: [PATCH v2 06/10] ftgmac100: Rename ftgmac100_setup_mac to ftgmac100_initial_mac
-Date: Wed, 12 Apr 2017 13:27:06 +1000
-Message-ID: <20170412032710.17546-7-benh@kernel.crashing.org>
-References: <20170412032710.17546-1-benh@kernel.crashing.org>
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-To: netdev@vger.kernel.org
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next v2 1/1] net: ipv4: Refine the
+ ipv4_default_advmss
+Date: Tue, 11 Apr 2017 20:57:24 -0700
+Message-ID: <1491969444.17839.30.camel@perches.com>
+References: <1491964333-69989-1-git-send-email-gfree.wind@foxmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Gao Feng <fgao@ikuai8.com>
+To: gfree.wind@foxmail.com, davem@davemloft.net, kuznet@ms2.inr.ac.ru,
+        jmorris@namei.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:36102 "EHLO gate.crashing.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752076AbdDLDoI (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 11 Apr 2017 23:44:08 -0400
-In-Reply-To: <20170412032710.17546-1-benh@kernel.crashing.org>
+Received: from smtprelay0121.hostedemail.com ([216.40.44.121]:60213 "EHLO
+        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751992AbdDLD5a (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 11 Apr 2017 23:57:30 -0400
+In-Reply-To: <1491964333-69989-1-git-send-email-gfree.wind@foxmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-To remove more confusion. This function is about obtaining the
-initial MAC address at driver probe time.
+On Wed, 2017-04-12 at 10:32 +0800, gfree.wind@foxmail.com wrote:
+> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
 
-Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
----
- drivers/net/ethernet/faraday/ftgmac100.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+more trivia:
 
-diff --git a/drivers/net/ethernet/faraday/ftgmac100.c b/drivers/net/ethernet/faraday/ftgmac100.c
-index 4bcd22b..35c54e8 100644
---- a/drivers/net/ethernet/faraday/ftgmac100.c
-+++ b/drivers/net/ethernet/faraday/ftgmac100.c
-@@ -182,7 +182,7 @@ static void ftgmac100_write_mac_addr(struct ftgmac100 *priv, const u8 *mac)
- 	iowrite32(laddr, priv->base + FTGMAC100_OFFSET_MAC_LADR);
- }
- 
--static void ftgmac100_setup_mac(struct ftgmac100 *priv)
-+static void ftgmac100_initial_mac(struct ftgmac100 *priv)
- {
- 	u8 mac[ETH_ALEN];
- 	unsigned int m;
-@@ -1440,7 +1440,7 @@ static int ftgmac100_probe(struct platform_device *pdev)
- 	netdev->irq = irq;
- 
- 	/* MAC address from chip or random one */
--	ftgmac100_setup_mac(priv);
-+	ftgmac100_initial_mac(priv);
- 
- 	np = pdev->dev.of_node;
- 	if (np && (of_device_is_compatible(np, "aspeed,ast2400-mac") ||
--- 
-2.9.3
+> @@ -1250,14 +1250,11 @@ static void set_class_tag(struct rtable *rt, u32 tag)
+>  
+>  static unsigned int ipv4_default_advmss(const struct dst_entry *dst)
+>  {
+> -	unsigned int advmss = dst_metric_raw(dst, RTAX_ADVMSS);
+> +	unsigned int header_size = sizeof(struct tcphdr) + sizeof(struct iphdr);
+> +	unsigned int advmss = max_t(unsigned int, dst->dev->mtu - header_size,
+> +				    ip_rt_min_advmss);
+>  
+> -	if (advmss == 0) {
+> -		advmss = max_t(unsigned int, dst->dev->mtu - 40,
+> -			       ip_rt_min_advmss);
+> -		if (advmss > 65535 - 40)
+> -			advmss = 65535 - 40;
+> -	}
+> +	advmss = min(advmss, IPV4_MAX_PMTU - header_size);
+>  	return advmss;
+>  }
+
+This would probably be simpler to read as:
+
+	return min(advmss, IPV4_MAX_PMTU - header_size);
+
+though it's almost certain that the compiler emits identical
+object code.
