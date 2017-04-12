@@ -1,39 +1,94 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 2/3] VSOCK: Add vsockmon device
-Date: Wed, 12 Apr 2017 13:05:10 -0400 (EDT)
-Message-ID: <20170412.130510.1661492983569723913.davem@davemloft.net>
-References: <20170412160825.21037-1-stefanha@redhat.com>
-        <20170412160825.21037-3-stefanha@redhat.com>
-        <20170412193827-mutt-send-email-mst@kernel.org>
+Subject: Re: [PATCHv4] net: dsa: add SMSC/Microchip LAN9303 three port
+ ethernet switch driver
+Date: Wed, 12 Apr 2017 13:15:20 -0400 (EDT)
+Message-ID: <20170412.131520.2000433123223699514.davem@davemloft.net>
+References: <20170412140218.1076-1-jbe@pengutronix.de>
+        <20170412.120446.1436199142955903765.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: stefanha@redhat.com, netdev@vger.kernel.org, zyjzyj2000@gmail.com,
-        ggarcia@abra.uab.cat, jhansen@vmware.com
-To: mst@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:48080 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752557AbdDLRFO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 12 Apr 2017 13:05:14 -0400
-In-Reply-To: <20170412193827-mutt-send-email-mst@kernel.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        f.fainelli@gmail.com, kernel@pengutronix.de, andrew@lunn.ch,
+        vivien.didelot@savoirfairelinux.com
+To: jbe@pengutronix.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170412.120446.1436199142955903765.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Wed, 12 Apr 2017 19:43:20 +0300
-
-> On Wed, Apr 12, 2017 at 05:08:24PM +0100, Stefan Hajnoczi wrote:
->> +struct af_vsockmon_hdr {
->> +	__le64 src_cid;
->> +	__le64 dst_cid;
->> +	__le32 src_port;
->> +	__le32 dst_port;
->> +	__le16 op;			/* enum af_vsockmon_op */
->> +	__le16 transport;		/* enum af_vsockmon_transport */
->> +	__le16 len;			/* Transport header length */
->> +} __attribute__((packed));
-> 
-> I'd add a 2 byte padding here and then you do not need to pack it.
-
-Indeed, use of the packed attribute is strongly discouraged.
+RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogV2VkLCAxMiBB
+cHIgMjAxNyAxMjowNDo0NiAtMDQwMCAoRURUKQ0KDQo+IEZyb206IEp1ZXJnZW4gQm9ybGVpcyA8
+amJlQHBlbmd1dHJvbml4LmRlPg0KPiBEYXRlOiBXZWQsIDEyIEFwciAyMDE3IDE2OjAyOjE0ICsw
+MjAwDQo+IA0KPj4gVGhlIExBTjkzMDMgaXMgYSB0aHJlZSBwb3J0IDEwLzEwMCBldGhlcm5ldCBz
+d2l0Y2ggd2l0aCBpbnRlZ3JhdGVkIHBoeXMNCj4+IGZvciB0aGUgdHdvIGV4dGVybmFsIGV0aGVy
+bmV0IHBvcnRzLiBUaGUgdGhpcmQgcG9ydCBpcyBhbiBSTUlJL01JSQ0KPj4gaW50ZXJmYWNlIHRv
+IGEgaG9zdCBtYXN0ZXIgbmV0d29yayBpbnRlcmZhY2UgKGUuZy4gZml4ZWQgbGluaykuDQo+PiAN
+Cj4+IFdoaWxlIHRoZSBMQU45MzAzIGRldmljZSBpdHNlbGYgc3VwcG9ydHMgb2ZmbG9hZCBwYWNr
+ZXQgcHJvY2Vzc2luZywgdGhpcw0KPj4gZHJpdmVyIGRvZXMgbm90IG1ha2UgdXNlIG9mIGl0IHll
+dC4gVGhpcyBkcml2ZXIganVzdCBjb25maWd1cmVzIHRoZSBkZXZpY2UNCj4+IHRvIHByb3ZpZGUg
+dHdvIHNlcGFyYXRlIG5ldHdvcmsgaW50ZXJmYWNlcyAod2hpY2ggaXMgdGhlIGRlZmF1bHQgc3Rh
+dGUgb2YNCj4+IGEgRFNBIGRldmljZSkuDQo+PiANCj4+IFBsZWFzZSBub3RlOiB0aGUgIk1ESU8g
+bWFuYWdlZCBtb2RlIiBkcml2ZXIgcGFydCBpc24ndCB0ZXN0ZWQgeWV0LiBJIGhhdmUNCj4+IHVz
+ZWQgYW5kIHRlc3RlZCB0aGUgIkkyQyBtYW5hZ2VkIG1vZGUiIG9ubHkuDQo+IA0KPiBTZXJpZXMg
+YXBwbGllZCwgdGhhbmsgeW91Lg0KDQpBY3R1YWxseSwgdGhpcyBkb2Vzbid0IGV2ZW4gYnVpbGQu
+ICBQbGVhc2UgZml4IHRoaXMgYW5kIHJlc3VibWl0Lg0KDQpUaGFuayB5b3UuDQoNCkluIGZpbGUg
+aW5jbHVkZWQgZnJvbSBuZXQvZHNhL3RhZ19sYW45MzAzLmM6MTc6MDoNCm5ldC9kc2EvZHNhX3By
+aXYuaDo1MjoxNjogd2FybmluZzogoXN0cnVjdCBkc2Ffc3dpdGNooiBkZWNsYXJlZCBpbnNpZGUg
+cGFyYW1ldGVyIGxpc3QNCiAgICAgICAgIHN0cnVjdCBkc2FfcG9ydCAqZHBvcnQsIGludCBwb3J0
+KTsNCiAgICAgICAgICAgICAgICBeDQpuZXQvZHNhL2RzYV9wcml2Lmg6NTI6MTY6IHdhcm5pbmc6
+IGl0cyBzY29wZSBpcyBvbmx5IHRoaXMgZGVmaW5pdGlvbiBvciBkZWNsYXJhdGlvbiwgd2hpY2gg
+aXMgcHJvYmFibHkgbm90IHdoYXQgeW91IHdhbnQNCm5ldC9kc2EvZHNhX3ByaXYuaDo1NTozOTog
+d2FybmluZzogoXN0cnVjdCBkc2Ffc3dpdGNooiBkZWNsYXJlZCBpbnNpZGUgcGFyYW1ldGVyIGxp
+c3QNCiBpbnQgZHNhX2NwdV9wb3J0X2V0aHRvb2xfc2V0dXAoc3RydWN0IGRzYV9zd2l0Y2ggKmRz
+KTsNCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIF4NCm5ldC9kc2EvZHNh
+X3ByaXYuaDo1Njo0Mjogd2FybmluZzogoXN0cnVjdCBkc2Ffc3dpdGNooiBkZWNsYXJlZCBpbnNp
+ZGUgcGFyYW1ldGVyIGxpc3QNCiB2b2lkIGRzYV9jcHVfcG9ydF9ldGh0b29sX3Jlc3RvcmUoc3Ry
+dWN0IGRzYV9zd2l0Y2ggKmRzKTsNCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgIF4NCm5ldC9kc2EvZHNhX3ByaXYuaDo2MDozNjogd2FybmluZzogoXN0cnVjdCBkc2Ff
+c3dpdGNooiBkZWNsYXJlZCBpbnNpZGUgcGFyYW1ldGVyIGxpc3QNCiB2b2lkIGRzYV9zbGF2ZV9t
+aWlfYnVzX2luaXQoc3RydWN0IGRzYV9zd2l0Y2ggKmRzKTsNCiAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgIF4NCm5ldC9kc2EvZHNhX3ByaXYuaDo2Mzo4OiB3YXJuaW5nOiChc3Ry
+dWN0IGRzYV9zd2l0Y2iiIGRlY2xhcmVkIGluc2lkZSBwYXJhbWV0ZXIgbGlzdA0KICAgICAgICBp
+bnQgcG9ydCwgY29uc3QgY2hhciAqbmFtZSk7DQogICAgICAgIF4NCm5ldC9kc2EvZHNhX3ByaXYu
+aDo3MTo0MTogd2FybmluZzogoXN0cnVjdCBkc2Ffc3dpdGNooiBkZWNsYXJlZCBpbnNpZGUgcGFy
+YW1ldGVyIGxpc3QNCiBpbnQgZHNhX3N3aXRjaF9yZWdpc3Rlcl9ub3RpZmllcihzdHJ1Y3QgZHNh
+X3N3aXRjaCAqZHMpOw0KICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBe
+DQpuZXQvZHNhL2RzYV9wcml2Lmg6NzI6NDQ6IHdhcm5pbmc6IKFzdHJ1Y3QgZHNhX3N3aXRjaKIg
+ZGVjbGFyZWQgaW5zaWRlIHBhcmFtZXRlciBsaXN0DQogdm9pZCBkc2Ffc3dpdGNoX3VucmVnaXN0
+ZXJfbm90aWZpZXIoc3RydWN0IGRzYV9zd2l0Y2ggKmRzKTsNCiAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgXg0KSW4gZmlsZSBpbmNsdWRlZCBmcm9tIC4vaW5jbHVk
+ZS9saW51eC9zd2FiLmg6NDowLA0KICAgICAgICAgICAgICAgICBmcm9tIC4vaW5jbHVkZS91YXBp
+L2xpbnV4L2J5dGVvcmRlci9saXR0bGVfZW5kaWFuLmg6MTIsDQogICAgICAgICAgICAgICAgIGZy
+b20gLi9pbmNsdWRlL2xpbnV4L2J5dGVvcmRlci9saXR0bGVfZW5kaWFuLmg6NCwNCiAgICAgICAg
+ICAgICAgICAgZnJvbSAuL2FyY2gveDg2L2luY2x1ZGUvdWFwaS9hc20vYnl0ZW9yZGVyLmg6NCwN
+CiAgICAgICAgICAgICAgICAgZnJvbSAuL2luY2x1ZGUvYXNtLWdlbmVyaWMvYml0b3BzL2xlLmg6
+NSwNCiAgICAgICAgICAgICAgICAgZnJvbSAuL2FyY2gveDg2L2luY2x1ZGUvYXNtL2JpdG9wcy5o
+OjUxNywNCiAgICAgICAgICAgICAgICAgZnJvbSAuL2luY2x1ZGUvbGludXgvYml0b3BzLmg6MzYs
+DQogICAgICAgICAgICAgICAgIGZyb20gLi9pbmNsdWRlL2xpbnV4L2tlcm5lbC5oOjEwLA0KICAg
+ICAgICAgICAgICAgICBmcm9tIC4vaW5jbHVkZS9saW51eC9za2J1ZmYuaDoxNywNCiAgICAgICAg
+ICAgICAgICAgZnJvbSAuL2luY2x1ZGUvbGludXgvaWZfZXRoZXIuaDoyMywNCiAgICAgICAgICAg
+ICAgICAgZnJvbSAuL2luY2x1ZGUvbGludXgvZXRoZXJkZXZpY2UuaDoyNSwNCiAgICAgICAgICAg
+ICAgICAgZnJvbSBuZXQvZHNhL3RhZ19sYW45MzAzLmM6MTQ6DQpuZXQvZHNhL3RhZ19sYW45MzAz
+LmM6IEluIGZ1bmN0aW9uIKFsYW45MzAzX3htaXSiOg0KbmV0L2RzYS90YWdfbGFuOTMwMy5jOjY1
+OjMwOiBlcnJvcjogZGVyZWZlcmVuY2luZyBwb2ludGVyIHRvIGluY29tcGxldGUgdHlwZSChc3Ry
+dWN0IGRzYV9wb3J0og0KICBsYW45MzAzX3RhZ1sxXSA9IGh0b25zKHAtPmRwLT5pbmRleCB8IEJJ
+VCg0KSk7DQogICAgICAgICAgICAgICAgICAgICAgICAgICAgICBeDQouL2luY2x1ZGUvdWFwaS9s
+aW51eC9zd2FiLmg6MTAwOjU0OiBub3RlOiBpbiBkZWZpbml0aW9uIG9mIG1hY3JvIKFfX3N3YWIx
+NqINCiAjZGVmaW5lIF9fc3dhYjE2KHgpIChfX3UxNilfX2J1aWx0aW5fYnN3YXAxNigoX191MTYp
+KHgpKQ0KICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgXg0KLi9pbmNsdWRlL2xpbnV4L2J5dGVvcmRlci9nZW5lcmljLmg6MTM0OjIxOiBub3RlOiBp
+biBleHBhbnNpb24gb2YgbWFjcm8goV9fY3B1X3RvX2JlMTaiDQogI2RlZmluZSBfX19odG9ucyh4
+KSBfX2NwdV90b19iZTE2KHgpDQogICAgICAgICAgICAgICAgICAgICBeDQouL2luY2x1ZGUvbGlu
+dXgvYnl0ZW9yZGVyL2dlbmVyaWMuaDoxNDA6MTg6IG5vdGU6IGluIGV4cGFuc2lvbiBvZiBtYWNy
+byChX19faHRvbnOiDQogI2RlZmluZSBodG9ucyh4KSBfX19odG9ucyh4KQ0KICAgICAgICAgICAg
+ICAgICAgXg0KbmV0L2RzYS90YWdfbGFuOTMwMy5jOjY1OjE5OiBub3RlOiBpbiBleHBhbnNpb24g
+b2YgbWFjcm8goWh0b25zog0KICBsYW45MzAzX3RhZ1sxXSA9IGh0b25zKHAtPmRwLT5pbmRleCB8
+IEJJVCg0KSk7DQogICAgICAgICAgICAgICAgICAgXg0KbmV0L2RzYS90YWdfbGFuOTMwMy5jOiBJ
+biBmdW5jdGlvbiChbGFuOTMwM19yY3aiOg0KbmV0L2RzYS90YWdfbGFuOTMwMy5jOjg2OjEwOiBl
+cnJvcjogZGVyZWZlcmVuY2luZyBwb2ludGVyIHRvIGluY29tcGxldGUgdHlwZSChc3RydWN0IGRz
+YV9zd2l0Y2hfdHJlZaINCiAgZHMgPSBkc3QtPmRzWzBdOw0KICAgICAgICAgIF4NCm5ldC9kc2Ev
+dGFnX2xhbjkzMDMuYzoxMTk6OTogZXJyb3I6IGRlcmVmZXJlbmNpbmcgcG9pbnRlciB0byBpbmNv
+bXBsZXRlIHR5cGUgoXN0cnVjdCBkc2Ffc3dpdGNoog0KICBpZiAoIWRzLT5wb3J0c1tzb3VyY2Vf
+cG9ydF0ubmV0ZGV2KSB7DQogICAgICAgICBeDQpzY3JpcHRzL01ha2VmaWxlLmJ1aWxkOjI5NDog
+cmVjaXBlIGZvciB0YXJnZXQgJ25ldC9kc2EvdGFnX2xhbjkzMDMubycgZmFpbGVkDQo=
