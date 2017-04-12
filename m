@@ -1,109 +1,40 @@
-From: Haiyang Zhang <haiyangz@exchange.microsoft.com>
-Subject: [PATCH net-next,1/2] hv_netvsc: Fix the queue index computation in forwarding case
-Date: Wed, 12 Apr 2017 11:35:05 -0700
-Message-ID: <1492022106-4070-1-git-send-email-haiyangz@exchange.microsoft.com>
-Reply-To: haiyangz@microsoft.com
-Cc: haiyangz@microsoft.com, kys@microsoft.com, olaf@aepfle.de,
-        vkuznets@redhat.com, linux-kernel@vger.kernel.org
-To: davem@davemloft.net, netdev@vger.kernel.org
+From: "Vishwanathapura, Niranjana" <niranjana.vishwanathapura@intel.com>
+Subject: Re: [PATCH rdma-next v1 10/12] IB/hfi1: OPA_VNIC RDMA netdev support
+Date: Wed, 12 Apr 2017 11:38:35 -0700
+Message-ID: <20170412183835.GB19704@knc-06.sc.intel.com>
+References: <1491979207-18686-1-git-send-email-niranjana.vishwanathapura@intel.com>
+ <1491979207-18686-11-git-send-email-niranjana.vishwanathapura@intel.com>
+ <20170412155621.GC14409@obsidianresearch.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: dledford@redhat.com, linux-rdma@vger.kernel.org,
+        netdev@vger.kernel.org, dennis.dalessandro@intel.com,
+        ira.weiny@intel.com,
+        Andrzej Kacprowski <andrzej.kacprowski@intel.com>
+To: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a2nlsmtp01-05.prod.iad2.secureserver.net ([198.71.225.49]:39458
-        "EHLO a2nlsmtp01-05.prod.iad2.secureserver.net" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752256AbdDLSgP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 12 Apr 2017 14:36:15 -0400
+Received: from mga05.intel.com ([192.55.52.43]:14834 "EHLO mga05.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752286AbdDLSig (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 12 Apr 2017 14:38:36 -0400
+Content-Disposition: inline
+In-Reply-To: <20170412155621.GC14409@obsidianresearch.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Haiyang Zhang <haiyangz@microsoft.com>
+On Wed, Apr 12, 2017 at 09:56:21AM -0600, Jason Gunthorpe wrote:
+>On Tue, Apr 11, 2017 at 11:40:05PM -0700, Vishwanathapura, Niranjana wrote:
+>> Add support to create and free OPA_VNIC rdma netdev devices.
+>> Implement netstack interface functionality including xmit_skb,
+>> receive side NAPI etc. Also implement rdma netdev control functions.
+>
+>Now that you have all this infrastructure, and Erez as produced a
+>ipoib patch to use it, are you going to look at implementing the ipoib
+>rdma_netdev variant too?
 
-If the outgoing skb has a RX queue mapping available, we use the queue
-number directly, other than put it through Send Indirection Table.
+For hfi1? Yah, I can give it a try later once both these patch series gets 
+accepted (to avoid any rework or duplicate work).
 
-Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-Reviewed-by: Stephen Hemminger <sthemmin@microsoft.com>
----
- drivers/net/hyperv/hyperv_net.h |    2 +-
- drivers/net/hyperv/netvsc_drv.c |   46 ++++++++++++++++++++++++++------------
- 2 files changed, 32 insertions(+), 16 deletions(-)
+Niranjana
 
-diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index 4747ad4..768b3ae 100644
---- a/drivers/net/hyperv/hyperv_net.h
-+++ b/drivers/net/hyperv/hyperv_net.h
-@@ -633,7 +633,7 @@ struct nvsp_message {
- 
- #define NETVSC_PACKET_SIZE                      4096
- 
--#define VRSS_SEND_TAB_SIZE 16
-+#define VRSS_SEND_TAB_SIZE 16  /* must be power of 2 */
- #define VRSS_CHANNEL_MAX 64
- #define VRSS_CHANNEL_DEFAULT 8
- 
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index f24c289..e813eaf 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -191,6 +191,24 @@ static int netvsc_close(struct net_device *net)
- 	return ppi;
- }
- 
-+static inline int netvsc_get_tx_queue(struct net_device *ndev,
-+				      struct sk_buff *skb, int old_idx)
-+{
-+	const struct net_device_context *ndc = netdev_priv(ndev);
-+	struct sock *sk = skb->sk;
-+	int q_idx;
-+
-+	q_idx = ndc->tx_send_table[skb_get_hash(skb) &
-+				   (VRSS_SEND_TAB_SIZE - 1)];
-+
-+	/* If queue index changed record the new value */
-+	if (q_idx != old_idx &&
-+	    sk && sk_fullsock(sk) && rcu_access_pointer(sk->sk_dst_cache))
-+		sk_tx_queue_set(sk, q_idx);
-+
-+	return q_idx;
-+}
-+
- /*
-  * Select queue for transmit.
-  *
-@@ -205,24 +223,22 @@ static int netvsc_close(struct net_device *net)
- static u16 netvsc_select_queue(struct net_device *ndev, struct sk_buff *skb,
- 			void *accel_priv, select_queue_fallback_t fallback)
- {
--	struct net_device_context *net_device_ctx = netdev_priv(ndev);
- 	unsigned int num_tx_queues = ndev->real_num_tx_queues;
--	struct sock *sk = skb->sk;
--	int q_idx = sk_tx_queue_get(sk);
--
--	if (q_idx < 0 || skb->ooo_okay || q_idx >= num_tx_queues) {
--		u16 hash = __skb_tx_hash(ndev, skb, VRSS_SEND_TAB_SIZE);
--		int new_idx;
--
--		new_idx = net_device_ctx->tx_send_table[hash] % num_tx_queues;
-+	int q_idx = sk_tx_queue_get(skb->sk);
- 
--		if (q_idx != new_idx && sk &&
--		    sk_fullsock(sk) && rcu_access_pointer(sk->sk_dst_cache))
--			sk_tx_queue_set(sk, new_idx);
--
--		q_idx = new_idx;
-+	if (q_idx < 0 || skb->ooo_okay) {
-+		/* If forwarding a packet, we use the recorded queue when
-+		 * available for better cache locality.
-+		 */
-+		if (skb_rx_queue_recorded(skb))
-+			q_idx = skb_get_rx_queue(skb);
-+		else
-+			q_idx = netvsc_get_tx_queue(ndev, skb, q_idx);
- 	}
- 
-+	while (unlikely(q_idx >= num_tx_queues))
-+		q_idx -= num_tx_queues;
-+
- 	return q_idx;
- }
- 
--- 
-1.7.1
+>
