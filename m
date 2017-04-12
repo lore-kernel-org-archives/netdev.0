@@ -1,55 +1,52 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [RFC 1/3] bpf/wireless: add wifimon program type
-Date: Wed, 12 Apr 2017 17:30:40 +0200
-Message-ID: <1492011040.2855.18.camel@sipsolutions.net>
-References: <20170412110726.9689-1-johannes@sipsolutions.net>
-         <1492007254.2855.10.camel@sipsolutions.net>
-         <20170412.111913.497795978751789475.davem@davemloft.net>
+From: David Ahern <dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
+Subject: Re: [PATCH net-next v5 1/5] netlink: extended ACK reporting
+Date: Wed, 12 Apr 2017 09:32:59 -0600
+Message-ID: <dd9f0bb0-df0d-bf04-9d17-90d611af7cbc@cumulusnetworks.com>
+References: <20170412123408.22012-1-johannes@sipsolutions.net>
+ <20170412123408.22012-2-johannes@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        daniel@iogearbox.net, ast@kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:38256 "EHLO sipsolutions.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753860AbdDLPa4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 12 Apr 2017 11:30:56 -0400
-In-Reply-To: <20170412.111913.497795978751789475.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
+        Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org,
+        Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170412123408.22012-2-johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2017-04-12 at 11:19 -0400, David Miller wrote:
+On 4/12/17 6:34 AM, Johannes Berg wrote:
+> From: Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 > 
-> > Instead it may make more sense to just have a "wifi_info(skb,
-> info)"
-> > function you can call, e.g. with a structure that has various
-> fields
-> > and flags to see which you care about.
+> Add the base infrastructure and UAPI for netlink extended ACK
+> reporting. All "manual" calls to netlink_ack() pass NULL for
+> now and thus don't get extended ACK reporting.
 > 
-> I would advise against this, let the parsing part use __sk_buff and
-> therefore have maximum flexibility.  You really cannot predict the
-> future, so in my opinion it might be unwise to constrain at this
-> point.
+> Big thanks goes to Pablo Neira Ayuso for not only bringing up
+> the whole topic at netconf (again) but also coming up with the
+> nlattr passing trick and various other ideas.
+> 
+> Signed-off-by: Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+> ---
+>  crypto/crypto_user.c              |  3 +-
+>  drivers/infiniband/core/netlink.c |  5 +--
+>  drivers/scsi/scsi_netlink.c       |  2 +-
+>  include/linux/netlink.h           | 26 +++++++++++++-
+>  include/net/netlink.h             |  3 +-
+>  include/uapi/linux/netlink.h      | 32 ++++++++++++++++++
+>  kernel/audit.c                    |  2 +-
+>  net/core/rtnetlink.c              |  3 +-
+>  net/core/sock_diag.c              |  3 +-
+>  net/decnet/netfilter/dn_rtmsg.c   |  2 +-
+>  net/hsr/hsr_netlink.c             |  4 +--
+>  net/netfilter/ipset/ip_set_core.c |  2 +-
+>  net/netfilter/nfnetlink.c         | 22 ++++++------
+>  net/netlink/af_netlink.c          | 71 ++++++++++++++++++++++++++++++++++-----
+>  net/netlink/af_netlink.h          |  1 +
+>  net/netlink/genetlink.c           |  3 +-
+>  net/xfrm/xfrm_user.c              |  3 +-
+>  17 files changed, 153 insertions(+), 34 deletions(-)
 
-So my point with the wifi_info() function to call from the BPF program
-was just that putting something that's not already in struct sk_buff
-into __sk_buff doesn't really make a lot of sense - we still have to
-actually build it somewhere/somehow without knowing if it's going to be
-needed by the program. We already have things like prog->cb_access and
-prog->dst_needed now, but I'm not sure we want to blow that up much.
-
-At the same time, technically I *do* have the information in skb->cb,
-but the format thereof is something I really wouldn't want to let
-trickle into the ABI. Therefore, I think if somebody needs something
-like the bitrate, we should have a wifi_info() function that can return
-the bitrate (among other things) without having to pre-build the data.
-We can still cache it in mac80211 if multiple programs are there, dunno
-if that makes sense.
-
-Nevertheless, I think if I don't use __sk_buff as the program argument
-then things get really messy, so I'll stick to that, and avoid adding
-anything to it as much as possible.
-
-johannes
+Reviewed-by: David Ahern <dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
