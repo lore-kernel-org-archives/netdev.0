@@ -1,37 +1,50 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH v2 0/3] of: Make of_match_node() an inline stub for
- CONFIG_OF=n
-Date: Wed, 12 Apr 2017 10:22:13 -0400 (EDT)
-Message-ID: <20170412.102213.2073576709258606056.davem@davemloft.net>
-References: <20170412044156.17351-1-f.fainelli@gmail.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next] net: dsa: add CONFIG_NET_DSA_LEGACY
+Date: Wed, 12 Apr 2017 10:22:34 -0400
+Message-ID: <871ssx1z9x.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+References: <20170411205237.29309-1-vivien.didelot@savoirfairelinux.com> <edc488b1-8ea1-fc69-0700-68ffaf8f6742@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org,
-        vivien.didelot-4ysUXcep3aM1wj+D4I0NRVaTQe2KTcn/@public.gmane.org, lee.jones-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org,
-        nicolas.ferre-UWL1GkI3JZL3oGB3hsPCZA@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
-        frowand.list-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170412044156.17351-1-f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Andrew Lunn <andrew@lunn.ch>
+To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:50608 "EHLO
+        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752209AbdDLOYE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 12 Apr 2017 10:24:04 -0400
+In-Reply-To: <edc488b1-8ea1-fc69-0700-68ffaf8f6742@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date: Tue, 11 Apr 2017 21:41:53 -0700
+Hi Florian,
 
-> Hi all,
-> 
-> This patch series makes of_match_node() an inline stub for CONFIG_OF=n. kbuild
-> reported two build errors which are fixed as preriquisite patches.
-> 
-> This is based on Linus' master, not sure which tree would merge this, Frank's?
+Florian Fainelli <f.fainelli@gmail.com> writes:
 
-I think Frank's would be best.  For the series:
+> On 04/11/2017 01:52 PM, Vivien Didelot wrote:
+>> This patch moves as is the legacy DSA code from dsa.c to legacy.c,
+>> except the few shared symbols which remain in dsa.c.
+>> 
+>> Compile legacy.o only if a new CONFIG_NET_DSA_LEGACY symbol is enabled,
+>> which is true by default.
+>> 
+>> DSA drivers without legacy support don't need the probe function as well
+>> as driver registration helpers anymore, so remove their definitions if
+>> CONFIG_NET_DSA_LEGACY is disabled.
+>> 
+>> NET_DSA_MV88E6060 and NET_DSA_BCM_SF2 now depend on the legacy support.
+>
+> BCM_SF2 is not dependent on legacy support since it got converted to the
+> new API in the past few months.
 
-Acked-by: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Oops, my bad. Fixing it.
+
+> You may want to generate your patch with git format-patch -M to help
+> detect renames/code movements.
+
+I used --find-copies-harder -C for easier review but I can use -M.
+
+Thanks,
+
+        Vivien
