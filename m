@@ -1,13 +1,14 @@
 From: R Parameswaran <parameswaran.r7@gmail.com>
 Subject: Re: [PATCH net-next v1 1/1] L2TP device MTU setup - tunnel socket
  needs a lock
-Date: Wed, 12 Apr 2017 13:38:42 -0700
-Message-ID: <CAGeBGG6zrCVTBnpphXc94p=FjWRbVXhH7=zfY8o73TQsRReR_A@mail.gmail.com>
-References: <alpine.DEB.2.11.1704112010410.8819@nelson51.eng.vyatta.net> <20170412.101300.1946293471196203044.davem@davemloft.net>
+Date: Wed, 12 Apr 2017 13:42:06 -0700
+Message-ID: <CAGeBGG5GMOB1qi5rkOqTT2Oh+Mrv2zP0VhZSM08n_HeXgK9Jkw@mail.gmail.com>
+References: <alpine.DEB.2.11.1704112010410.8819@nelson51.eng.vyatta.net> <20170412075355.mjgaerruslswcjmw@alphalink.fr>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
         kleptog@svana.org, James Chapman <jchapman@katalix.com>,
+        David Miller <davem@redhat.com>,
         Nachi Prachanda <nprachan@brocade.com>,
         Robert Shearman <rshearma@brocade.com>,
         Stephen Hemminger <stephen@networkplumber.org>,
@@ -18,20 +19,18 @@ Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
         Bill Hong <bhong@brocade.com>,
         Jan Blunck <jblunck@brocade.com>,
         LKML <linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+To: Guillaume Nault <g.nault@alphalink.fr>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170412.101300.1946293471196203044.davem@davemloft.net>
+In-Reply-To: <20170412075355.mjgaerruslswcjmw@alphalink.fr>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Dave,
+Hi Guillaume,
 
 Please see inline:
 
-On Wed, Apr 12, 2017 at 7:13 AM, David Miller <davem@davemloft.net> wrote:
-> From: "R. Parameswaran" <parameswaran.r7@gmail.com>
-> Date: Tue, 11 Apr 2017 20:14:37 -0700 (PDT)
->
+On Wed, Apr 12, 2017 at 12:53 AM, Guillaume Nault <g.nault@alphalink.fr> wrote:
+> On Tue, Apr 11, 2017 at 08:14:37PM -0700, R. Parameswaran wrote:
 >>
 >> The MTU overhead calculation in L2TP device set-up
 >> merged via commit b784e7ebfce8cfb16c6f95e14e8532d0768ab7ff
@@ -39,15 +38,22 @@ On Wed, Apr 12, 2017 at 7:13 AM, David Miller <davem@davemloft.net> wrote:
 >> referencing the sub-data structures to derive the
 >> socket's IP overhead.
 >
-> This is missing a proper signoff.
+> Thanks.
 >
-> The subject line also needs to be fixed "[PATCH net-next] l2tp: " as explained
-> by Guillaume.
+> Tested-by: Guillaume Nault <g.nault@alphalink.fr>
 >
+> BTW, you don't need to add "v1" for the first version of a patch.
+> There's also no need for numbering pathes when there's only one in the
+> series. And we normally prefix the commit message with "<subsystem>: ".
+> For this patch, your subject would look like " [PATCH net-next] l2tp: ...".
+>
+> Also, you could have added a "Reported-by:" tag (I don't really mind
+> in this case, but that's good practice).
 
-Thanks, I will re-spin with these corrections by tonight PT.
+Thanks for correcting these (and for testing the changes) and sorry
+for the Reported-by omission. I'll respin by tonight
+with these, per reply to Dave.
 
 regards,
 
 Ramkumar
-> Thanks.
