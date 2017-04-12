@@ -1,144 +1,113 @@
-From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH rdma-next v1 04/12] IB/opa-vnic: Virtual Network
- Interface Controller (VNIC) netdev
-Date: Wed, 12 Apr 2017 22:21:31 +0300
-Message-ID: <20170412192131.GB1343@mtr-leonro.local>
-References: <1491979207-18686-1-git-send-email-niranjana.vishwanathapura@intel.com>
- <1491979207-18686-5-git-send-email-niranjana.vishwanathapura@intel.com>
- <20170412070830.GR2269@mtr-leonro.local>
- <20170412183136.GA19704@knc-06.sc.intel.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="0F1p//8PRICkK4MW"
-Cc: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-        ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, Sadanand Warrier <sadanand.warrier-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        Sudeep Dutt <sudeep.dutt-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        Andrzej Kacprowski <andrzej.kacprowski-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-To: "Vishwanathapura, Niranjana" <niranjana.vishwanathapura-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20170412183136.GA19704-wPcXA7LoDC+1XWohqUldA0EOCMrvLtNR@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net] ipv4: fix a deadlock in ip_ra_control
+Date: Wed, 12 Apr 2017 12:32:13 -0700
+Message-ID: <1492025533-23084-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: dvyukov@google.com, andreyknvl@google.com,
+        Cong Wang <xiyou.wangcong@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:33285 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752304AbdDLTc3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 12 Apr 2017 15:32:29 -0400
+Received: by mail-pf0-f194.google.com with SMTP id c198so6849855pfc.0
+        for <netdev@vger.kernel.org>; Wed, 12 Apr 2017 12:32:29 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Similar to commit 87e9f0315952
+("ipv4: fix a potential deadlock in mcast getsockopt() path"),
+there is a deadlock scenario for IP_ROUTER_ALERT too:
 
---0F1p//8PRICkK4MW
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+       CPU0                    CPU1
+       ----                    ----
+  lock(rtnl_mutex);
+                               lock(sk_lock-AF_INET);
+                               lock(rtnl_mutex);
+  lock(sk_lock-AF_INET);
 
-On Wed, Apr 12, 2017 at 11:31:37AM -0700, Vishwanathapura, Niranjana wrote:
-> On Wed, Apr 12, 2017 at 10:08:30AM +0300, Leon Romanovsky wrote:
-> > > +#define v_dbg(format, arg...) \
-> > > +	netdev_dbg(adapter->netdev, format, ## arg)
-> > > +#define v_err(format, arg...) \
-> > > +	netdev_err(adapter->netdev, format, ## arg)
-> > > +#define v_info(format, arg...) \
-> > > +	netdev_info(adapter->netdev, format, ## arg)
-> > > +#define v_warn(format, arg...) \
-> > > +	netdev_warn(adapter->netdev, format, ## arg)
-> > > +
-> >
-> > IMHO, these wrappers are redundant.
-> >
->
-> Using same constructs as some Intel standard ethernet drivers.
+Fix this by always locking RTNL first on all setsockopt() paths.
 
-I'll leave this decision to Doug. IMHO open coded variant is preferable.
+Note, after this patch ip_ra_lock is no longer needed either.
 
->
-> > > +/* opa_netdev_open - activate network interface */
-> > > +static int opa_netdev_open(struct net_device *netdev)
-> > > +{
-> > > +	struct opa_vnic_adapter *adapter = opa_vnic_priv(netdev);
-> > > +	int rc;
-> > > +
-> > > +	rc = adapter->rn_ops->ndo_open(adapter->netdev);
-> > > +	if (rc) {
-> > > +		v_dbg("open failed %d\n", rc);
-> > > +		return rc;
-> > > +	}
-> > > +
-> > > +	v_info("opened\n");
-> >
-> > All these v_info are achieved by tracepoints (function tracer).
-> >
->
-> Some of these messages are useful for analysing reported logs.
-> Let me change these opened/closed messges to debug level.
+Reported-by: Dmitry Vyukov <dvyukov@google.com>
+Tested-by: Andrey Konovalov <andreyknvl@google.com>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+---
+ net/ipv4/ip_sockglue.c |  1 +
+ net/ipv4/ipmr.c        | 11 ++---------
+ net/ipv4/raw.c         |  2 ++
+ 3 files changed, 5 insertions(+), 9 deletions(-)
 
-I agree with you regarding error messages, I disagree regarding
-flow/info messages.
-
->
-> > > +
-> > > +	netdev = ibdev->alloc_rdma_netdev(ibdev, port_num,
-> > > +					  RDMA_NETDEV_OPA_VNIC,
-> > > +					  "veth%d", NET_NAME_UNKNOWN,
-> > > +					  ether_setup);
-> > > +	if (!netdev)
-> > > +		return ERR_PTR(-ENOMEM);
-> > > +	else if (IS_ERR(netdev))
-> > > +		return ERR_CAST(netdev);
-> > > +
-> >
->
-> > Erez and Jason came to this code for IPoIB, it is better to have same
-> > error handling for all alloc_rdma_netdev callers.
-> > +       if (hca->alloc_rdma_netdev) {
-> > +               dev = hca->alloc_rdma_netdev(hca, port,
-> > +                                            RDMA_NETDEV_IPOIB, name,
-> > +                                            NET_NAME_UNKNOWN,
-> > +                                            ipoib_setup_common);
-> > +               if (IS_ERR_OR_NULL(dev) && PTR_ERR(dev) != -EOPNOTSUPP)
-> > +                       return NULL;
-> > +       }
-> >
-> >
->
-> IPoIB handles EOPNOTSUPP differently (by assigning default operations).
-> It is not applicable to OPA VNIC, hence it just returns the error code.
->
-> I just noticed that IPoIB is using EOPNOTSUPP, however OPA VNIC is using
-> ENOTSUPP. EOPNOTSUPP seesm to be widely used, so I will change OPA VNIC to
-> use the same. Will also document this requirement in ib_verbs.h where this
-> function is defined.
-
-The ENOTSUPP is for NFS and it can't be returned to user space. The proper
-error is EOPNOTSUPP.
-
-Thanks
-
->
-> Niranjana
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
---0F1p//8PRICkK4MW
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAljufjsACgkQ5GN7iDZy
-WKcwNRAAgWs96rSbPfXOzDIYNY1/3xPUqtEVC6hjfmLCJZRUrzBxAu9Cn/VKcDlt
-XjiPiqvvpSfvRho599BmJLIu69a8oSdwN6uzF2Hyk52LRUXii/UrUMYmxSrFeSmB
-iuotteKvqp5nLnyyh5gLvKbWPWxCYI2OrfYvVCHbbKBzoN+4rPIaO5Wn3RIudyjt
-G0phLq08iM2Fe79qFNYvd+K4o+MUgAcIXSFpw9AljCFkH9l+Ewa7u58aQwh+w630
-sPvXN0BAae1kuW+N2/5nOQlJM7BZnr/0DZzYC88FZnmrU5RgiMml+aoa6MtxlU3+
-/nk1Ajz+PNFDTitVzdmwc1FjnMX252C3X6dj1NWuO/rAF0+1COzZuRHhdiTt4Py4
-8cumnO0Gj+xYEMjt/aoKTM7KyzM9ixAPxpdQ7MNxcT9tfz6AOlJuCcUidNr2QG5Z
-gzLt4DWD1KXFhAPUIgVXx11WuLS2kedA88TzgM90WloEzK0FLqiqIao3Eneu9bCk
-3TQXelA3AccE/laO4dqOuh1x4ZUIieEHWTbHk5+75/nMaxxsqlXKwWICQoWQy5GG
-ht8whLRIbUTmHHbU79pm7UeqqL1GvI0s2eGppjJ+paULZCh32Ut5E33wBdP7SpTc
-cnrkv+Q0oAIQm0NaMw3Kk4VhOHrVzEU/LZw7V0jdLWeubYIP0W4=
-=TUwg
------END PGP SIGNATURE-----
-
---0F1p//8PRICkK4MW--
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
+index ebd953b..bda318a 100644
+--- a/net/ipv4/ip_sockglue.c
++++ b/net/ipv4/ip_sockglue.c
+@@ -591,6 +591,7 @@ static bool setsockopt_needs_rtnl(int optname)
+ 	case MCAST_LEAVE_GROUP:
+ 	case MCAST_LEAVE_SOURCE_GROUP:
+ 	case MCAST_UNBLOCK_SOURCE:
++	case IP_ROUTER_ALERT:
+ 		return true;
+ 	}
+ 	return false;
+diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+index c0317c9..b036e85 100644
+--- a/net/ipv4/ipmr.c
++++ b/net/ipv4/ipmr.c
+@@ -1278,7 +1278,7 @@ static void mrtsock_destruct(struct sock *sk)
+ 	struct net *net = sock_net(sk);
+ 	struct mr_table *mrt;
+ 
+-	rtnl_lock();
++	ASSERT_RTNL();
+ 	ipmr_for_each_table(mrt, net) {
+ 		if (sk == rtnl_dereference(mrt->mroute_sk)) {
+ 			IPV4_DEVCONF_ALL(net, MC_FORWARDING)--;
+@@ -1289,7 +1289,6 @@ static void mrtsock_destruct(struct sock *sk)
+ 			mroute_clean_tables(mrt, false);
+ 		}
+ 	}
+-	rtnl_unlock();
+ }
+ 
+ /* Socket options and virtual interface manipulation. The whole
+@@ -1353,13 +1352,8 @@ int ip_mroute_setsockopt(struct sock *sk, int optname, char __user *optval,
+ 		if (sk != rcu_access_pointer(mrt->mroute_sk)) {
+ 			ret = -EACCES;
+ 		} else {
+-			/* We need to unlock here because mrtsock_destruct takes
+-			 * care of rtnl itself and we can't change that due to
+-			 * the IP_ROUTER_ALERT setsockopt which runs without it.
+-			 */
+-			rtnl_unlock();
+ 			ret = ip_ra_control(sk, 0, NULL);
+-			goto out;
++			goto out_unlock;
+ 		}
+ 		break;
+ 	case MRT_ADD_VIF:
+@@ -1470,7 +1464,6 @@ int ip_mroute_setsockopt(struct sock *sk, int optname, char __user *optval,
+ 	}
+ out_unlock:
+ 	rtnl_unlock();
+-out:
+ 	return ret;
+ }
+ 
+diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
+index 8119e1f..9d94397 100644
+--- a/net/ipv4/raw.c
++++ b/net/ipv4/raw.c
+@@ -682,7 +682,9 @@ static void raw_close(struct sock *sk, long timeout)
+ 	/*
+ 	 * Raw sockets may have direct kernel references. Kill them.
+ 	 */
++	rtnl_lock();
+ 	ip_ra_control(sk, 0, NULL);
++	rtnl_unlock();
+ 
+ 	sk_common_release(sk);
+ }
+-- 
+2.5.5
