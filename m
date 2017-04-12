@@ -1,130 +1,59 @@
-From: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
-Subject: Re: [PATCH net-next v5 1/5] netlink: extended ACK reporting
-Date: Wed, 12 Apr 2017 15:41:37 +0200
-Message-ID: <20170412134137.GE1952@nanopsycho>
-References: <20170412123408.22012-1-johannes@sipsolutions.net>
- <20170412123408.22012-2-johannes@sipsolutions.net>
+From: David Sterba <dsterba@suse.cz>
+Subject: Re: [PATCH 07/12] fs: btrfs: Use ktime_get_real_ts for root
+	ctime
+Date: Wed, 12 Apr 2017 15:42:45 +0200
+Message-ID: <20170412134245.GK4781@twin.jikos.cz>
+References: <1491613030-11599-1-git-send-email-deepa.kernel@gmail.com>
+ <1491613030-11599-8-git-send-email-deepa.kernel@gmail.com>
+Reply-To: dsterba@suse.cz
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
-        Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        David Ahern <dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>,
-        Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: yuchao0@huawei.com, bfields@fieldses.org, clm@fb.com,
+ linux-mtd@lists.infradead.org, dushistov@mail.ru, jlayton@poochiereds.net,
+ ceph-devel@vger.kernel.org, devel@driverdev.osuosl.org,
+ linux-cifs@vger.kernel.org, paul@paul-moore.com, y2038@lists.linaro.org,
+ mingo@redhat.com, jsimmons@infradead.org, arnd@arndb.de, rostedt@goodmis.org,
+ oleg.drokin@intel.com, john.stultz@linaro.org, viro@zeniv.linux.org.uk,
+ dsterba@suse.com, jaegeuk@kernel.org, tglx@linutronix.de,
+ andreas.dilger@intel.com, jbacik@fb.com, gregkh@linuxfoundation.org,
+ samba-technical@lists.samba.org, linux-kernel@vger.kernel.org,
+ eparis@redhat.com, linux-f2fs-devel@lists.sourceforge.net,
+ linux-security-module@vger.kernel.org, linux-audit@redhat.com,
+ netdev@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+ akpm@linux-foundation.org, davem@davemloft.net, linux-btrfs@vger.kernel.org,
+ lustre-devel@lists.lustre.org
+To: Deepa Dinamani <deepa.kernel@gmail.com>
+Return-path: <y2038-bounces@lists.linaro.org>
 Content-Disposition: inline
-In-Reply-To: <20170412123408.22012-2-johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <1491613030-11599-8-git-send-email-deepa.kernel@gmail.com>
+List-Unsubscribe: <https://lists.linaro.org/mailman/options/y2038>,
+ <mailto:y2038-request@lists.linaro.org?subject=unsubscribe>
+List-Archive: <http://lists.linaro.org/pipermail/y2038/>
+List-Post: <mailto:y2038@lists.linaro.org>
+List-Help: <mailto:y2038-request@lists.linaro.org?subject=help>
+List-Subscribe: <https://lists.linaro.org/mailman/listinfo/y2038>,
+ <mailto:y2038-request@lists.linaro.org?subject=subscribe>
+Errors-To: y2038-bounces@lists.linaro.org
+Sender: "Y2038" <y2038-bounces@lists.linaro.org>
 List-Id: netdev.vger.kernel.org
 
-Wed, Apr 12, 2017 at 02:34:04PM CEST, johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org wrote:
->From: Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
->
->Add the base infrastructure and UAPI for netlink extended ACK
->reporting. All "manual" calls to netlink_ack() pass NULL for
->now and thus don't get extended ACK reporting.
->
->Big thanks goes to Pablo Neira Ayuso for not only bringing up
->the whole topic at netconf (again) but also coming up with the
->nlattr passing trick and various other ideas.
->
->Signed-off-by: Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
->---
-
-[...]
-
-
->diff --git a/include/uapi/linux/netlink.h b/include/uapi/linux/netlink.h
->index b2c9c26ea30f..7df88770e029 100644
->--- a/include/uapi/linux/netlink.h
->+++ b/include/uapi/linux/netlink.h
->@@ -69,6 +69,10 @@ struct nlmsghdr {
-> #define NLM_F_CREATE	0x400	/* Create, if it does not exist	*/
-> #define NLM_F_APPEND	0x800	/* Add to end of list		*/
-> 
->+/* Flags for ACK message */
->+#define NLM_F_CAPPED	0x100	/* request was capped */
-
-The comment did not help me. What is this supposed to signalize?
-
-
->+#define NLM_F_ACK_TLVS	0x200	/* extended ACK TVLs were included */
->+
-> /*
->    4.4BSD ADD		NLM_F_CREATE|NLM_F_EXCL
->    4.4BSD CHANGE	NLM_F_REPLACE
->@@ -101,6 +105,33 @@ struct nlmsghdr {
-
-[...]
-
-
->diff --git a/net/decnet/netfilter/dn_rtmsg.c b/net/decnet/netfilter/dn_rtmsg.c
->index 85f2fdc360c2..c8bf5136a72b 100644
->--- a/net/decnet/netfilter/dn_rtmsg.c
->+++ b/net/decnet/netfilter/dn_rtmsg.c
->@@ -96,7 +96,7 @@ static unsigned int dnrmg_hook(void *priv,
-> }
-> 
-> 
->-#define RCV_SKB_FAIL(err) do { netlink_ack(skb, nlh, (err)); return; } while (0)
->+#define RCV_SKB_FAIL(err) do { netlink_ack(skb, nlh, (err), NULL); return; } while (0)
-
-You can easily break this into multiple lines to avoid over-80
-
-
-> 
-> static inline void dnrmg_receive_user_skb(struct sk_buff *skb)
-> {
-
-[...]
-
-
->-void netlink_ack(struct sk_buff *in_skb, struct nlmsghdr *nlh, int err)
->+void netlink_ack(struct sk_buff *in_skb, struct nlmsghdr *nlh, int err,
->+		 const struct netlink_ext_ack *extack)
-> {
-> 	struct sk_buff *skb;
-> 	struct nlmsghdr *rep;
-> 	struct nlmsgerr *errmsg;
-> 	size_t payload = sizeof(*errmsg);
->+	size_t tlvlen = 0;
-> 	struct netlink_sock *nlk = nlk_sk(NETLINK_CB(in_skb).sk);
->+	unsigned int flags = 0;
-> 
-> 	/* Error messages get the original request appened, unless the user
->-	 * requests to cap the error message.
->+	 * requests to cap the error message, and get extra error data if
->+	 * requested.
-> 	 */
->-	if (!(nlk->flags & NETLINK_F_CAP_ACK) && err)
->-		payload += nlmsg_len(nlh);
->+	if (err) {
->+		if (!(nlk->flags & NETLINK_F_CAP_ACK))
->+			payload += nlmsg_len(nlh);
->+		else
->+			flags |= NLM_F_CAPPED;
->+		if (nlk->flags & NETLINK_F_EXT_ACK && extack) {
->+			if (extack->_msg)
->+				tlvlen += nla_total_size(strlen(extack->_msg) + 1);
->+			if (extack->bad_attr)
->+				tlvlen += nla_total_size(sizeof(u32));
->+		}
->+	} else {
->+		flags |= NLM_F_CAPPED;
->+	}
-> 
->-	skb = nlmsg_new(payload, GFP_KERNEL);
->+	if (tlvlen)
->+		flags |= NLM_F_ACK_TLVS;
-
-You can move this check and bitset to the end of
-	"if (nlk->flags & NETLINK_F_EXT_ACK && extack) { "
-as it is directly related to that.
-
-
->+
->+	skb = nlmsg_new(payload + tlvlen, GFP_KERNEL);
-> 	if (!skb) {
-> 		struct sock *sk;
-> 
+T24gRnJpLCBBcHIgMDcsIDIwMTcgYXQgMDU6NTc6MDVQTSAtMDcwMCwgRGVlcGEgRGluYW1hbmkg
+d3JvdGU6Cj4gYnRyZnNfcm9vdF9pdGVtIG1haW50YWlucyB0aGUgY3RpbWUgZm9yIHJvb3QgdXBk
+YXRlcy4KPiBUaGlzIGlzIG5vdCBwYXJ0IG9mIHZmc19pbm9kZS4KPiAKPiBTaW5jZSBjdXJyZW50
+X3RpbWUoKSB1c2VzIHN0cnVjdCBpbm9kZSogYXMgYW4gYXJndW1lbnQKPiBhcyBMaW51cyBzdWdn
+ZXN0ZWQsIHRoaXMgY2Fubm90IGJlIHVzZWQgdG8gdXBkYXRlIHJvb3QKPiB0aW1lcyB1bmxlc3Ms
+IHdlIG1vZGlmeSB0aGUgc2lnbmF0dXJlIHRvIHVzZSBpbm9kZS4KPiAKPiBTaW5jZSBidHJmcyB1
+c2VzIG5hbm9zZWNvbmQgdGltZSBncmFudWxhcml0eSwgaXQgY2FuIGFsc28KPiB1c2Uga3RpbWVf
+Z2V0X3JlYWxfdHMgZGlyZWN0bHkgdG8gb2J0YWluIHRpbWVzdGFtcCBmb3IKPiB0aGUgcm9vdC4g
+SXQgaXMgbmVjZXNzYXJ5IHRvIHVzZSB0aGUgdGltZXNwZWMgdGltZSBhcGkKPiBoZXJlIGJlY2F1
+c2UgdGhlIHNhbWUgYnRyZnNfc2V0X3N0YWNrX3RpbWVzcGVjXyooKSBhcGlzCj4gYXJlIHVzZWQg
+Zm9yIHZmcyBpbm9kZSB0aW1lcyBhcyB3ZWxsLiBUaGVzZSBjYW4gYmUKPiB0cmFuc2l0aW9uZWQg
+dG8gdXNpbmcgdGltZXNwZWM2NCB3aGVuIGJ0cmZzIGludGVybmFsbHkKPiBjaGFuZ2VzIHRvIHVz
+ZSB0aW1lc3BlYzY0IGFzIHdlbGwuCj4gCj4gU2lnbmVkLW9mZi1ieTogRGVlcGEgRGluYW1hbmkg
+PGRlZXBhLmtlcm5lbEBnbWFpbC5jb20+Cj4gQWNrZWQtYnk6IERhdmlkIFN0ZXJiYSA8ZHN0ZXJi
+YUBzdXNlLmNvbT4KPiBSZXZpZXdlZC1ieTogQXJuZCBCZXJnbWFubiA8YXJuZEBhcm5kYi5kZT4K
+CkknbSBnb2luZyB0byBhZGQgdGhlIHBhdGNoIHRvIG15IDQuMTIgcXVldWUgYW5kIHdpbGwgbGV0
+IEFuZHJldyBrbm93LgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fXwpZMjAzOCBtYWlsaW5nIGxpc3QKWTIwMzhAbGlzdHMubGluYXJvLm9yZwpodHRwczovL2xp
+c3RzLmxpbmFyby5vcmcvbWFpbG1hbi9saXN0aW5mby95MjAzOAo=
