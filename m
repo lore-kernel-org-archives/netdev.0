@@ -1,80 +1,59 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: net/ipv4: use-after-free in ipv4_datagram_support_cmsg
-Date: Wed, 12 Apr 2017 13:47:26 -0700
-Message-ID: <1492030046.10587.72.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <CAAeHK+ysUb+yuES_XYYPDWGrXS4VUXLmQRrD2dJTeXDPL5BKpw@mail.gmail.com>
-         <CAF=yD-++XtWeaVmdhnrwiYLOG84JTMEuZr9mxyTRnde8vE7AFQ@mail.gmail.com>
-         <CAM_iQpVVc1ev8juG8=dQ0wu8c_RoJ8HfDUewRc1AempvV=85kw@mail.gmail.com>
+From: Rob Herring <robh+dt@kernel.org>
+Subject: Re: [PATCH v2 2/3] net: macb: Remove CONFIG_OF around DT match table
+Date: Wed, 12 Apr 2017 15:51:34 -0500
+Message-ID: <CAL_JsqLm_cP7zF71HwX8UZOLaWQf0Q90zOrXyXjU96xc5Cchrg@mail.gmail.com>
+References: <20170412044156.17351-1-f.fainelli@gmail.com> <20170412044156.17351-3-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Willem de Bruijn <willemdebruijn.kernel@gmail.com>,
-        Andrey Konovalov <andreyknvl@google.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Kostya Serebryany <kcc@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Lee Jones <lee.jones@linaro.org>,
+        Nicolas Ferre <nicolas.ferre@microchip.com>,
+        Frank Rowand <frowand.list@gmail.com>,
+        "open list:NETWORKING DRIVERS" <netdev@vger.kernel.org>,
+        "open list:OPEN FIRMWARE AND FLATTENED DEVICE TREE"
+        <devicetree@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:34441 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752851AbdDLUr2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 12 Apr 2017 16:47:28 -0400
-In-Reply-To: <CAM_iQpVVc1ev8juG8=dQ0wu8c_RoJ8HfDUewRc1AempvV=85kw@mail.gmail.com>
+Received: from mail.kernel.org ([198.145.29.136]:35300 "EHLO mail.kernel.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751131AbdDLUv7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 12 Apr 2017 16:51:59 -0400
+In-Reply-To: <20170412044156.17351-3-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2017-04-12 at 13:07 -0700, Cong Wang wrote:
-> On Wed, Apr 12, 2017 at 8:39 AM, Willem de Bruijn
-> <willemdebruijn.kernel@gmail.com> wrote:
-> > ===================
-> >> BUG: KASAN: use-after-free in ipv4_datagram_support_cmsg
-> >> net/ipv4/ip_sockglue.c:500 [inline] at addr ffff880059be0128
-> >
-> > Thanks for the report. This is accessing skb->dev from within recvmsg() at line
-> >
-> >         info->ipi_ifindex = skb->dev->ifindex;
-> >
-> > Introduced in 829ae9d61165 ("net-timestamp: allow reading recv cmsg on
-> > errqueue with origin tstamp"). At this time the device may indeed have
-> > gone away. I'm having a look at a way to read this in the receive BH
-> > and store the ifindex.
-> 
-> Why not use skb_iif?
-> 
-> diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
-> index ebd953b..a2aef45 100644
-> --- a/net/ipv4/ip_sockglue.c
-> +++ b/net/ipv4/ip_sockglue.c
-> @@ -497,7 +497,7 @@ static bool ipv4_datagram_support_cmsg(const
-> struct sock *sk,
-> 
->         info = PKTINFO_SKB_CB(skb);
->         info->ipi_spec_dst.s_addr = ip_hdr(skb)->saddr;
-> -       info->ipi_ifindex = skb->dev->ifindex;
-> +       info->ipi_ifindex = skb->skb_iif;
->         return true;
+On Tue, Apr 11, 2017 at 11:41 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+> A subsequent patch is going to make of_match_node() an inline stub when
+> CONFIG_OF is disabled, which will let the compiler eliminate unused variables.
+> In order not to clutter the code more, remove the CONFIG_OF #ifdef such that
+> macb_dt_ids and what it references are always defined.
+>
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> ---
+>  drivers/net/ethernet/cadence/macb.c | 2 --
+>  1 file changed, 2 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+> index 30606b11b128..01016e9525ee 100644
+> --- a/drivers/net/ethernet/cadence/macb.c
+> +++ b/drivers/net/ethernet/cadence/macb.c
+> @@ -2811,7 +2811,6 @@ static int macb_init(struct platform_device *pdev)
+>         return 0;
 >  }
+>
+> -#if defined(CONFIG_OF)
+>  /* 1518 rounded up */
+>  #define AT91ETHER_MAX_RBUFF_SZ 0x600
+>  /* max number of receive buffers */
+> @@ -3215,7 +3214,6 @@ static const struct of_device_id macb_dt_ids[] = {
+>         { /* sentinel */ }
+>  };
+>  MODULE_DEVICE_TABLE(of, macb_dt_ids);
 
-This seems to differ from the code in ipv4_pktinfo_prepare()
+Did you actually check that the compiler can eliminate things when
+modules are enabled? Because it's not going to be able to eliminate
+MODULE_DEVICE_TABLE entry AFAICT.
 
-We probably want to unify things a bit.
-
-                /* skb->cb is overloaded: prior to this point it is IP{6}CB
-                 * which has interface index (iif) as the first member of the
-                 * underlying inet{6}_skb_parm struct. This code then overlays
-                 * PKTINFO_SKB_CB and in_pktinfo also has iif as the first
-                 * element so the iif is picked up from the prior IPCB. If iif
-                 * is the loopback interface, then return the sending interface
-                 * (e.g., process binds socket to eth0 for Tx which is
-                 * redirected to loopback in the rtable/dst).
-                 */
-                if (pktinfo->ipi_ifindex == LOOPBACK_IFINDEX)
-                        pktinfo->ipi_ifindex = inet_iif(skb);
+Rob
