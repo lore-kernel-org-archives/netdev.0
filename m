@@ -1,80 +1,40 @@
-From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [RFC net-next] of: mdio: Honor hints from MDIO bus drivers
-Date: Wed, 12 Apr 2017 14:48:48 -0700
-Message-ID: <417fdaa1-7aba-e646-8a50-043322f1410d@gmail.com>
-References: <20170410214258.9409-1-f.fainelli@gmail.com>
- <8ef102a4-22e5-def8-b50e-04f84b5849d7@gmail.com>
- <20170411231424.GA6174@lunn.ch>
- <6de72d4c-5634-f3d6-5bfd-fcc0acda0b83@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v3 net-next RFC] Generic XDP
+Date: Wed, 12 Apr 2017 14:49:53 -0700
+Message-ID: <1492033793.10587.73.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20170412.145415.1441440342830198148.davem@davemloft.net>
+         <20170412143037.5fd7a088@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Frank Rowand <frowand.list-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        "open list:OPEN FIRMWARE AND FLATTENED DEVICE TREE"
-        <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        open list <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <6de72d4c-5634-f3d6-5bfd-fcc0acda0b83-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+        xdp-newbies@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:34488 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752304AbdDLVt4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 12 Apr 2017 17:49:56 -0400
+In-Reply-To: <20170412143037.5fd7a088@xeon-e3>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04/11/2017 04:23 PM, Florian Fainelli wrote:
-> On 04/11/2017 04:14 PM, Andrew Lunn wrote:
->>> To give some more background and rational for this change.
->>>
->>> On a platform where we have a parent MDIO bus, backed by the
->>> mdio-bcm-unimac.c driver, we also register a slave MII bus (through
->>> net/dsa/dsa2.c) which is parented to this UniMAC MDIO bus through an
->>> assignment of of_node. This slave MII bus is created in order to
->>> intercept reads/writes to problematic addresses (e.g: that clashes with
->>> another piece of hardware).
->>>
->>> This means that the slave DSA MII bus inherits all child nodes from the
->>> originating master MII bus. This also means that when the slave MII bus
->>> is probed via of_mdiobus_register(), we probe the same devices twice:
->>> once through the master, another time through the slave.
->>
->> Ah, O.K. This makes more sense. On the hardware i have, we get three
->> deep in MDIO busses. We have the FEC mdio bus. On top of that we have
->> a gpio-mux-mdio, and on top of that we have the mv88e6xxx mdio
->> bus. And i've never seen issues.
->>
->> So your real problem here is you have two mdio busses using the same
->> device tree properties. I would actually say that is just plain
->> broken.
+On Wed, 2017-04-12 at 14:30 -0700, Stephen Hemminger wrote:
+> On Wed, 12 Apr 2017 14:54:15 -0400 (EDT)
+> David Miller <davem@davemloft.net> wrote:
 > 
-> From a Device Tree/HW representation perspective, we do have the
-> external BCM53125 switch physically attached to the 7445/7278
-> SWITCH_MDIO bus (backed by mdio-bcm-unimac) so in that regard the
-> representation is correct. There is also an integrated Gigabit PHY
-> (bcm7xxx) which is attached to that bus.
+> > diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> > index b0aa089..071a58b 100644
+> > --- a/include/linux/netdevice.h
+> > +++ b/include/linux/netdevice.h
+> > @@ -1891,9 +1891,17 @@ struct net_device {
+> >  	struct lock_class_key	*qdisc_tx_busylock;
+> >  	struct lock_class_key	*qdisc_running_key;
+> >  	bool			proto_down;
+> > +	struct bpf_prog __rcu	*xdp_prog;
 > 
-> From a SW perspective though, we want to talk to the integrated Gigabit
-> PHY using mdio-bcm-unimac but talk to the external BCM53125 switch using
-> the slave MII bus created by the bcm_sf2 driver in order to create an
-> isolation. We need to inherit some of the parent (mdio-bcm-unimac) child
-> DT nodes (such as the BCM53125), but not the GPHY. The easiest solution
-> I found was to use this patch.
-> 
-> Using mdiobus_register() instead of of_mdiobus_register() was
-> considered, but then, the child BCM53125 has no more "visbility" into
-> the OF world at all, and it matters, because this switch is also driven
-> via a DSA switch driver and its Ethernet data-path is connected to one
-> port of the bcm_sf2 switch..
-> 
-> Thankfully the HW bug was fixed eventually ;)
+> It would be good if all devices could reuse this for the xdp_prog pointer.
+> It would allow for could be used for introspection utility functions in future.
 
-In fact, all I need is to flag the internal Gigabit PHY for the slave
-MII bus node with something that makes it appear as "disabled" which I
-can presumably do with of_update_property() and putting a status =
-"disabled" property in there. Let me do something like that and see how
-big of a hack this becomes.
--- 
-Florian
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Problem is that some xdp usages were envisioning a per RX queue xdp
+program.
