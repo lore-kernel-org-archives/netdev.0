@@ -1,71 +1,50 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: [RFC 3/3] mac80211: support bpf monitor filter
-Date: Wed, 12 Apr 2017 17:25:29 +0200
-Message-ID: <1492010729.2855.16.camel@sipsolutions.net>
-References: <20170412110726.9689-1-johannes@sipsolutions.net>
-         <20170412110726.9689-3-johannes@sipsolutions.net>
-         <1492007347.2855.12.camel@sipsolutions.net>
-         <20170412.112212.441025205054195351.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next] net: stmmac: add drop transmit status
+ feature
+Date: Wed, 12 Apr 2017 11:28:25 -0400 (EDT)
+Message-ID: <20170412.112825.1170167825508436176.davem@davemloft.net>
+References: <efbda38a-2146-06b2-9151-19294c654d28@synopsys.com>
+        <20170412.105101.58827766857310782.davem@davemloft.net>
+        <13ddd2d8-c2a4-4983-a9af-8e34f605374c@synopsys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170412.112212.441025205054195351.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
+Cc: andrew@lunn.ch, netdev@vger.kernel.org
+To: Joao.Pinto@synopsys.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:46832 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752379AbdDLP20 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 12 Apr 2017 11:28:26 -0400
+In-Reply-To: <13ddd2d8-c2a4-4983-a9af-8e34f605374c@synopsys.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2017-04-12 at 11:22 -0400, David Miller wrote:
-> From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-> Date: Wed, 12 Apr 2017 16:29:07 +0200
+From: Joao Pinto <Joao.Pinto@synopsys.com>
+Date: Wed, 12 Apr 2017 16:13:33 +0100
+
+> �s 3:51 PM de 4/12/2017, David Miller escreveu:
+>> You cannot develop performance based features and only test their
+>> impact on FPGA when almost all users are on real silicon.
+>> 
+>> And this requirement is absolutely non-negotiable.
+>> 
+>> You must test the impact on real silicon otherwise your performance
+>> numbers, which are required to be provided in the commit message
+>> for any "performance" feature or change, are completely useless.
 > 
-> > On Wed, 2017-04-12 at 13:07 +0200, Johannes Berg wrote:
-> >> 
-> >>  struct ieee80211_if_mntr {
-> >>      u32 flags;
-> >> 
-> > [...]
-> > +     bool deliver;
-> > 
-> > That's ... broken for multi-queue RX. I haven't really found a good
-> > other way to do it. The best way will likely be to copy the SKB the
-> > first time it's needed, build the radiotap header, and then keep a
-> > reference to it to be able to clone it later if it's needed again.
-> 
-> If you don't recurse into the receive path for different devices
-> before you are done with this boolean, simply make a global per-cpu
-> boolean and use that.
+> Next time I won't mention anything about performance, honestly. "Drop TX Status"
+> is just an IP Core feature that can or not be used, it is up to the driver user.
 
-No, that won't work. We don't recurse, but this is a per-interface
-bool, as we can have multiple monitor interfaces (possibly with
-different filters).
+Being dishonest about why a change might be desirable doesn't help things, in fact
+now that you've stated this intent in the future, people know to be suspucious of
+your changes.
 
-The problem comes from the fact that I did
+I seriously don't think you realize the ramifications of what you just said right
+there.
 
-for_each_interface()
-	iface.deliver = run_bpf_program();
+Everything here is about trust, and if you create a situation where you can't be
+trusted then the process of doing upstream development will be extremely difficult
+and time consuming for you.
 
-if (nobody_wanted_it)
-	return;
-
-skb = build_monitor_skb()
-
-for_each_interface()
-	if (iface.monitor)
-		deliver(skb);
-
-
-What I should be doing is something like this:
-
-for_each_interface() {
-	if (run_bpf_program()) {
-		if (!skb)
-			skb = build_monitor_skb();
-		deliver(skb);
-	}
-}
-
-where deliver() does skb_clone() internally or so.
-
-johannes
+Thanks.
