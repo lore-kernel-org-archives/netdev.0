@@ -1,45 +1,38 @@
 From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [PATCH 01/10] ftgmac100: Upgrade to NETIF_F_HW_CSUM
-Date: Wed, 12 Apr 2017 10:08:22 +1000
-Message-ID: <1491955702.7236.32.camel@kernel.crashing.org>
-References: <20170411.112733.1412982560568816717.davem@davemloft.net>
-         <1491948401.7236.20.camel@kernel.crashing.org>
-         <1491953765.7236.28.camel@kernel.crashing.org>
-         <20170411.200347.823503315758200310.davem@davemloft.net>
+Subject: Network driver "test suite"
+Date: Wed, 12 Apr 2017 10:16:17 +1000
+Message-ID: <1491956177.7236.34.camel@kernel.crashing.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: sergei.shtylyov@cogentembedded.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:40125 "EHLO gate.crashing.org"
+Received: from gate.crashing.org ([63.228.1.57]:60983 "EHLO gate.crashing.org"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752290AbdDLAIl (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 11 Apr 2017 20:08:41 -0400
-In-Reply-To: <20170411.200347.823503315758200310.davem@davemloft.net>
+        id S1752327AbdDLAQY (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 11 Apr 2017 20:16:24 -0400
+Received: from localhost.localdomain (localhost.localdomain [127.0.0.1])
+        by gate.crashing.org (8.14.1/8.13.8) with ESMTP id v3C0GIjY007232
+        for <netdev@vger.kernel.org>; Tue, 11 Apr 2017 19:16:21 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2017-04-11 at 20:03 -0400, David Miller wrote:
-> > From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-> Date: Wed, 12 Apr 2017 09:36:05 +1000
-> 
-> > I should call the helper when I don't recognize the protocol type in
-> > the IP header, not just when the main skb protocol type is not IP.
-> 
-> That's correct.
-> 
-> > BTW. I'm not too familiar with how encapsulation works these days. I
-> > wouldn't throw at that HW anything other than unencapsulated packets
-> > for HW checksumming. Is checking skb->protocol to be IP and
-> > ip_hdr(skb)->protocol to be IP, UDP or TCP enough ? IE. Will the latter
-> > especially return the outer header ?
-> 
-> If skb->protocol is IP then yes ip_hdr() will point at the outermost
-> header.
+Hi folks !
 
-Great thanks. I'll repost later today in case some other comments still
-come in.
+Does anybody knows of an existing kind of automated "test suite" for a
+network/ethernet driver ?
+
+IE. Something we could run both on the "tested" driver and a cross-over 
+"known good" peer (possibly the latter set to promisc & no offload for
+proper analysis), that would out the driver through a whole bunch of
+tests, such as verifying the checksum offload on a various combinations
+of headers lenghts and encapsulation, vlan stuff, multicast filters,
+etc... ?
+
+I've hacking on a driver recently and ended up "manually" testing a
+bunch of these things using a palette of tools (iperf, nuttcp, some
+multicast hack I have around, etc... along with tcpdump) but it feels
+like this is the kind of things that could be greatly automated.
 
 Cheers,
 Ben.
