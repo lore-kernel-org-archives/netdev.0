@@ -1,8 +1,8 @@
 From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH v4 12/18] arm64: allwinner: sun50i-a64: Add dt
- node for the syscon control module
-Date: Wed, 12 Apr 2017 13:13:54 +0200
-Message-ID: <20170412111400.2296-13-clabbe.montjoie@gmail.com>
+Subject: [PATCH v4 18/18] arm: multi_v7: Enable dwmac-sun8i
+ driver on multi_v7_defconfig
+Date: Wed, 12 Apr 2017 13:14:00 +0200
+Message-ID: <20170412111400.2296-19-clabbe.montjoie@gmail.com>
 References: <20170412111400.2296-1-clabbe.montjoie@gmail.com>
 Reply-To: clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
 Mime-Version: 1.0
@@ -22,7 +22,7 @@ To: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
 	will.deacon-5wv7dgnIgG8@public.gmane.org,
 	peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
 	alexandre.torgue-qxv4g6HH51o@public.gmane.org
-Return-path: <linux-sunxi+bncBD7YLCN32UNBBBEZXDDQKGQEBR2KVGQ-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Return-path: <linux-sunxi+bncBD7YLCN32UNBBCUZXDDQKGQE2AVHGKY-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 In-Reply-To: <20170412111400.2296-1-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
@@ -33,33 +33,24 @@ List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39
  <https://groups.google.com/group/linux-sunxi/subscribe>
 List-Id: netdev.vger.kernel.org
 
-This patch add the dt node for the syscon register present on the
-Allwinner A64.
-
-Only two register are present in this syscon and the only one useful is
-the one dedicated to EMAC clock.
+Enable the dwmac-sun8i driver in the multi_v7 default configuration
 
 Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi | 6 ++++++
- 1 file changed, 6 insertions(+)
+ arch/arm/configs/multi_v7_defconfig | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi b/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi
-index c7f669f..0b0f4ab 100644
---- a/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi
-+++ b/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi
-@@ -129,6 +129,12 @@
- 		#size-cells = <1>;
- 		ranges;
- 
-+		syscon: syscon@01c00000 {
-+			compatible = "allwinner,sun8i-a64-system-controller",
-+				"syscon";
-+			reg = <0x01c00000 0x1000>;
-+		};
-+
- 		mmc0: mmc@1c0f000 {
- 			compatible = "allwinner,sun50i-a64-mmc";
- 			reg = <0x01c0f000 0x1000>;
+diff --git a/arch/arm/configs/multi_v7_defconfig b/arch/arm/configs/multi_v7_defconfig
+index 8f6167e..5a553ba 100644
+--- a/arch/arm/configs/multi_v7_defconfig
++++ b/arch/arm/configs/multi_v7_defconfig
+@@ -257,6 +257,7 @@ CONFIG_SMSC911X=y
+ CONFIG_STMMAC_ETH=y
+ CONFIG_STMMAC_PLATFORM=y
+ CONFIG_DWMAC_DWC_QOS_ETH=y
++CONFIG_DWMAC_SUN8I=y
+ CONFIG_TI_CPSW=y
+ CONFIG_XILINX_EMACLITE=y
+ CONFIG_AT803X_PHY=y
 -- 
 2.10.2
