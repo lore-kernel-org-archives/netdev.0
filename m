@@ -1,69 +1,88 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: net/ipv4: use-after-free in ipv4_datagram_support_cmsg
-Date: Wed, 12 Apr 2017 18:25:26 -0400
-Message-ID: <CAF=yD-KN8Z3MyxsWsC-8sAk7kzSU7w7GQGbkUBUh-FuXm0fYWg@mail.gmail.com>
-References: <CAAeHK+ysUb+yuES_XYYPDWGrXS4VUXLmQRrD2dJTeXDPL5BKpw@mail.gmail.com>
- <CAF=yD-++XtWeaVmdhnrwiYLOG84JTMEuZr9mxyTRnde8vE7AFQ@mail.gmail.com>
- <CAM_iQpVVc1ev8juG8=dQ0wu8c_RoJ8HfDUewRc1AempvV=85kw@mail.gmail.com> <1492030046.10587.72.camel@edumazet-glaptop3.roam.corp.google.com>
+From: tndave <tushar.n.dave@oracle.com>
+Subject: Re: [PATCH] netpoll: Check for skb->queue_mapping
+Date: Wed, 12 Apr 2017 15:37:27 -0700
+Message-ID: <b98cb4f6-2e4c-71ba-1431-1824bf334f8e@oracle.com>
+References: <1491444383-29017-1-git-send-email-tushar.n.dave@oracle.com>
+ <1491474377.10124.57.camel@edumazet-glaptop3.roam.corp.google.com>
+ <5927b630-865e-b7af-33a1-1a6b772e3fb7@oracle.com>
+ <1491506056.10124.81.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-        Andrey Konovalov <andreyknvl@google.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Kostya Serebryany <kcc@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, edumazet@google.com, brouer@redhat.com,
+        netdev@vger.kernel.org, sowmini.varadhan@oracle.com
 To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1492030046.10587.72.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from userp1040.oracle.com ([156.151.31.81]:42114 "EHLO
+        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755742AbdDLWi6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 12 Apr 2017 18:38:58 -0400
+In-Reply-To: <1491506056.10124.81.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 12, 2017 at 4:47 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Wed, 2017-04-12 at 13:07 -0700, Cong Wang wrote:
->> On Wed, Apr 12, 2017 at 8:39 AM, Willem de Bruijn
->> <willemdebruijn.kernel@gmail.com> wrote:
->> > ===================
->> >> BUG: KASAN: use-after-free in ipv4_datagram_support_cmsg
->> >> net/ipv4/ip_sockglue.c:500 [inline] at addr ffff880059be0128
->> >
->> > Thanks for the report. This is accessing skb->dev from within recvmsg() at line
->> >
->> >         info->ipi_ifindex = skb->dev->ifindex;
->> >
->> > Introduced in 829ae9d61165 ("net-timestamp: allow reading recv cmsg on
->> > errqueue with origin tstamp"). At this time the device may indeed have
->> > gone away. I'm having a look at a way to read this in the receive BH
->> > and store the ifindex.
->>
->> Why not use skb_iif?
 
-This code is called from the error path for transmit timestamps.
 
-We can make use of the fact that SKB_EXT_ERR used on enqueue has iif as
-the first field in its control block. This also holds for the PKTINFO_SKB_CB
-struct to which skb->cb is cast on dequeue when it copies pktinfo to userspace.
-So if set on enqueue in __skb_complete_tx_timestamp, no conversion operation
-is even needed on dequeue, let alone the currently buggy line that touches
-skb->dev.
+On 04/06/2017 12:14 PM, Eric Dumazet wrote:
+> On Thu, 2017-04-06 at 12:07 -0700, tndave wrote:
+>
+>>> +			q_index = q_index % dev->real_num_tx_queues;
+>> cpu interrupted here and dev->real_num_tx_queues has reduced!
+>>> +			skb_set_queue_mapping(skb, q_index);
+>>> +		}
+>>> +		txq = netdev_get_tx_queue(dev, q_index);
+>> or cpu interrupted here and dev->real_num_tx_queues has reduced!
+>
+> If dev->real_num_tx_queues can be changed while this code is running we
+> are in deep deep trouble.
+>
+> Better make sure that when control path does this change, device (and/pr
+> netpoll) is frozen and no packet can be sent.
+When control path is making change to real_num_tx_queues, underlying
+device is disabled; also netdev tx queues are stopped/disabled so
+certainly no transmit is happening.
 
-This iif cast was added for this purpose in the receive path in 0b922b7a829c
-("net: original ingress device index in PKTINFO").
 
-The device pointer is valid on enqueue for all paths called from device drivers,
-as well as from dev_queue_xmit for SCM_TSTAMP_SCHED generation in
-__dev_queue_xmit. The exception is SCM_TSTAMP_ACK generation, but
-there skb->dev is NULL.
+The corner case I was referring is if netpoll's queue_process() code is
+interrupted and while it is not running, control path makes change to
+dev->real_num_tx_queues and exits. Later on, interrupted queue_process()
+resume execution and it can end up with wrong skb->queue_mapping and txq.
+We can prevent this case with below change:
 
-The v6 path does need a conversion, but already does this in
-ip6_datagram_recv_common_ctl. There, too, we can remove the buggy
-logic to set it from skb->dev->ifindex in ip6_datagram_support_cmsg.
+diff --git a/net/core/netpoll.c b/net/core/netpoll.c
+index 9424673..29be246 100644
+--- a/net/core/netpoll.c
++++ b/net/core/netpoll.c
+@@ -105,15 +105,21 @@ static void queue_process(struct work_struct *work)
+         while ((skb = skb_dequeue(&npinfo->txq))) {
+                 struct net_device *dev = skb->dev;
+                 struct netdev_queue *txq;
++               unsigned int q_index;
 
-I will send a patch.
+                 if (!netif_device_present(dev) || !netif_running(dev)) {
+                         kfree_skb(skb);
+                         continue;
+                 }
+
+-               txq = skb_get_tx_queue(dev, skb);
+-
+                 local_irq_save(flags);
++               /* check if skb->queue_mapping is still valid */
++               q_index = skb_get_queue_mapping(skb);
++               if (unlikely(q_index >= dev->real_num_tx_queues)) {
++                       q_index = q_index % dev->real_num_tx_queues;
++                       skb_set_queue_mapping(skb, q_index);
++               }
++               txq = netdev_get_tx_queue(dev, q_index);
+                 HARD_TX_LOCK(dev, txq, smp_processor_id());
+                 if (netif_xmit_frozen_or_stopped(txq) ||
+                     netpoll_start_xmit(skb, dev, txq) != NETDEV_TX_OK) {
+
+
+Thanks for your patience.
+
+-Tushar
+>
+>
+>
+>
