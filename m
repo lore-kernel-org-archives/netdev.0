@@ -1,82 +1,59 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: RE: [PATCH net-next,1/3] hv_netvsc: Use per socket hash when
- available
-Date: Wed, 12 Apr 2017 16:24:36 +0000
-Message-ID: <BLUPR03MB14123B438231A0EFAC4DCBCBCA030@BLUPR03MB1412.namprd03.prod.outlook.com>
-References: <1491699241-9944-1-git-send-email-haiyangz@exchange.microsoft.com>
- <20170411.221241.2175639910931847215.davem@davemloft.net>
+From: Fabio Estevam <festevam@gmail.com>
+Subject: Re: IMX6 FEC connection drops occasionally with 'MDIO read timeout'
+Date: Wed, 12 Apr 2017 13:26:39 -0300
+Message-ID: <CAOMZO5DnKfNF__HThRBMix-yr6X9-x0VOVm57oeCQ2iwyL8gzg@mail.gmail.com>
+References: <CAJ+vNU1UG2EeJSTStT_BJ+RiRe4a8YwfRgnE6DsRghTLetq_rg@mail.gmail.com>
+ <20170407160915.GF23415@lunn.ch> <CAJ+vNU2itJEBMLNz--w9FOis_jMHW9c+UPwU6wh+ma59kbeswA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        KY Srinivasan <kys@microsoft.com>,
-        "olaf@aepfle.de" <olaf@aepfle.de>,
-        "vkuznets@redhat.com" <vkuznets@redhat.com>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Andrew Lunn <andrew@lunn.ch>, netdev <netdev@vger.kernel.org>,
+        Fabio Estevam <fabio.estevam@nxp.com>,
+        Lucas Stach <l.stach@pengutronix.de>,
+        Fugang Duan <fugang.duan@nxp.com>,
+        Koen Vandeputte <koen.vandeputte@ncentric.com>
+To: Tim Harvey <tharvey@gateworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-cys01nam02on0100.outbound.protection.outlook.com ([104.47.37.100]:59744
-        "EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1754946AbdDLQYk (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 12 Apr 2017 12:24:40 -0400
-In-Reply-To: <20170411.221241.2175639910931847215.davem@davemloft.net>
-Content-Language: en-US
+Received: from mail-oi0-f45.google.com ([209.85.218.45]:34928 "EHLO
+        mail-oi0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755011AbdDLQ0p (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 12 Apr 2017 12:26:45 -0400
+Received: by mail-oi0-f45.google.com with SMTP id f22so37992199oib.2
+        for <netdev@vger.kernel.org>; Wed, 12 Apr 2017 09:26:44 -0700 (PDT)
+In-Reply-To: <CAJ+vNU2itJEBMLNz--w9FOis_jMHW9c+UPwU6wh+ma59kbeswA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi Tim,
+
+On Wed, Apr 12, 2017 at 1:15 PM, Tim Harvey <tharvey@gateworks.com> wrote:
+>
+> Andrew,
+>
+> Thanks for the reply. Your talking about suspend/resume power
+> management right? The users reporting this were not using
+> suspend/resume.
+>
+> With regards to clock are you talking about the IPG clock? Is there
+> any other way that would get turned off other than fec suspend/resume?
+
+Yes, through pm_runtime.
+
+Can you check if this quick debug change help?
+
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -3606,8 +3606,6 @@ static int __maybe_unused
+fec_runtime_suspend(struct device *dev)
+        struct net_device *ndev = dev_get_drvdata(dev);
+        struct fec_enet_private *fep = netdev_priv(ndev);
+
+-       clk_disable_unprepare(fep->clk_ipg);
+-
+        return 0;
+ }
 
 
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Tuesday, April 11, 2017 10:13 PM
-> To: Haiyang Zhang <haiyangz@microsoft.com>; Haiyang Zhang
-> <haiyangz@microsoft.com>
-> Cc: netdev@vger.kernel.org; KY Srinivasan <kys@microsoft.com>;
-> olaf@aepfle.de; vkuznets@redhat.com; linux-kernel@vger.kernel.org
-> Subject: Re: [PATCH net-next,1/3] hv_netvsc: Use per socket hash when
-> available
->=20
-> From: Haiyang Zhang <haiyangz@exchange.microsoft.com>
-> Date: Sat,  8 Apr 2017 17:53:59 -0700
->=20
-> > diff --git a/drivers/net/hyperv/netvsc_drv.c
-> b/drivers/net/hyperv/netvsc_drv.c
-> > index f24c289..0a129cb 100644
-> > --- a/drivers/net/hyperv/netvsc_drv.c
-> > +++ b/drivers/net/hyperv/netvsc_drv.c
-> > @@ -211,9 +211,14 @@ static u16 netvsc_select_queue(struct net_device
-> *ndev, struct sk_buff *skb,
-> >  	int q_idx =3D sk_tx_queue_get(sk);
-> >
-> >  	if (q_idx < 0 || skb->ooo_okay || q_idx >=3D num_tx_queues) {
-> > -		u16 hash =3D __skb_tx_hash(ndev, skb, VRSS_SEND_TAB_SIZE);
-> > +		u16 hash;
-> >  		int new_idx;
-> >
-> > +		if (sk)
-> > +			skb_set_hash_from_sk(skb, sk);
-> > +
-> > +		hash =3D __skb_tx_hash(ndev, skb, VRSS_SEND_TAB_SIZE);
->=20
-> Please do not do this.
->=20
-> TCP performs this operation for you for every pack it emits.
->=20
-> And also every socket family that uses skb_set_owner_w() either
-> directly or indirectly gets this done as well.
->=20
-> I do not want to see drivers start to get peppered with calls to this
-> thing.
->=20
-> Explain the case which is missing that matters, and we can address
-> that instead.
->=20
-> Thanks.
+If you don't see the problem with it, then it means we need to fix the
+pm runtime support in this driver.
 
-Thanks for pointing this out. I did some tests, the skb->hash is indeed
-set to the sk->sk_txhash by upper layer. I will remove this patch, and
-re-submit other patches.
-
-Thanks,
-- Haiyang
+Most likely pm runtime is turning off the clocks when it should not.
