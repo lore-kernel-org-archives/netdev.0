@@ -1,58 +1,37 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next v2 1/8] rtnetlink: Do not generate notifications for MTU events
-Date: Tue, 11 Apr 2017 17:02:40 -0700
-Message-ID: <1491955367-12443-2-git-send-email-dsa@cumulusnetworks.com>
-References: <1491955367-12443-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 01/10] ftgmac100: Upgrade to NETIF_F_HW_CSUM
+Date: Tue, 11 Apr 2017 20:03:47 -0400 (EDT)
+Message-ID: <20170411.200347.823503315758200310.davem@davemloft.net>
+References: <20170411.112733.1412982560568816717.davem@davemloft.net>
+        <1491948401.7236.20.camel@kernel.crashing.org>
+        <1491953765.7236.28.camel@kernel.crashing.org>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: sergei.shtylyov@cogentembedded.com, netdev@vger.kernel.org
+To: benh@kernel.crashing.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f179.google.com ([209.85.192.179]:34413 "EHLO
-        mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752603AbdDLACx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 11 Apr 2017 20:02:53 -0400
-Received: by mail-pf0-f179.google.com with SMTP id c198so5460358pfc.1
-        for <netdev@vger.kernel.org>; Tue, 11 Apr 2017 17:02:53 -0700 (PDT)
-In-Reply-To: <1491955367-12443-1-git-send-email-dsa@cumulusnetworks.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:37976 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752523AbdDLAEK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 11 Apr 2017 20:04:10 -0400
+In-Reply-To: <1491953765.7236.28.camel@kernel.crashing.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Changing MTU on a link currently causes 3 messages to be sent to userspace:
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Date: Wed, 12 Apr 2017 09:36:05 +1000
 
-[LINK]11: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1490 qdisc noqueue state UNKNOWN group default
-    link/ether f2:52:5c:6d:21:f3 brd ff:ff:ff:ff:ff:ff
+> I should call the helper when I don't recognize the protocol type in
+> the IP header, not just when the main skb protocol type is not IP.
 
-[LINK]11: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue state UNKNOWN group default
-    link/ether f2:52:5c:6d:21:f3 brd ff:ff:ff:ff:ff:ff
+That's correct.
 
-[LINK]11: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue state UNKNOWN group default
-    link/ether f2:52:5c:6d:21:f3 brd ff:ff:ff:ff:ff:ff
+> BTW. I'm not too familiar with how encapsulation works these days. I
+> wouldn't throw at that HW anything other than unencapsulated packets
+> for HW checksumming. Is checking skb->protocol to be IP and
+> ip_hdr(skb)->protocol to be IP, UDP or TCP enough ? IE. Will the latter
+> especially return the outer header ?
 
-Remove the messages sent for PRE_CHANGE_MTU and CHANGE_MTU netdev events.
-
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
----
- net/core/rtnetlink.c | 2 --
- 1 file changed, 2 deletions(-)
-
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 58419da7961b..79ab43796b08 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -4117,7 +4117,6 @@ static int rtnetlink_event(struct notifier_block *this, unsigned long event, voi
- 
- 	switch (event) {
- 	case NETDEV_REBOOT:
--	case NETDEV_CHANGEMTU:
- 	case NETDEV_CHANGEADDR:
- 	case NETDEV_CHANGENAME:
- 	case NETDEV_FEAT_CHANGE:
-@@ -4126,7 +4125,6 @@ static int rtnetlink_event(struct notifier_block *this, unsigned long event, voi
- 	case NETDEV_NOTIFY_PEERS:
- 	case NETDEV_CHANGEUPPER:
- 	case NETDEV_RESEND_IGMP:
--	case NETDEV_PRECHANGEMTU:
- 	case NETDEV_CHANGEINFODATA:
- 	case NETDEV_PRECHANGEUPPER:
- 	case NETDEV_CHANGELOWERSTATE:
--- 
-2.1.4
+If skb->protocol is IP then yes ip_hdr() will point at the outermost
+header.
