@@ -1,12 +1,14 @@
 From: Haiyang Zhang <haiyangz@exchange.microsoft.com>
 Subject: [PATCH net-next,2/2] hv_netvsc: Exclude non-TCP port numbers from vRSS hashing
-Date: Wed, 12 Apr 2017 11:45:18 -0700
-Message-ID: <1492022718-4301-2-git-send-email-haiyangz@exchange.microsoft.com>
+Date: Wed, 12 Apr 2017 11:35:06 -0700
+Message-ID: <1492022106-4070-2-git-send-email-haiyangz@exchange.microsoft.com>
+References: <1492022106-4070-1-git-send-email-haiyangz@exchange.microsoft.com>
 Reply-To: haiyangz@microsoft.com
 Cc: haiyangz@microsoft.com, kys@microsoft.com, olaf@aepfle.de,
         vkuznets@redhat.com, linux-kernel@vger.kernel.org
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1492022106-4070-1-git-send-email-haiyangz@exchange.microsoft.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
