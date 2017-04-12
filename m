@@ -1,36 +1,36 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH net-next v5 1/5] netlink: extended ACK reporting
-Date: Wed, 12 Apr 2017 17:21:43 +0200
-Message-ID: <1492010503.2855.14.camel@sipsolutions.net>
-References: <20170412123408.22012-1-johannes@sipsolutions.net>
-         <20170412123408.22012-2-johannes@sipsolutions.net>
-         <dbc81431-487b-f218-a4c6-2caa44783d97@cumulusnetworks.com>
-         (sfid-20170412_170649_644527_0ED3DE34)
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [RFC 3/3] mac80211: support bpf monitor filter
+Date: Wed, 12 Apr 2017 11:22:12 -0400 (EDT)
+Message-ID: <20170412.112212.441025205054195351.davem@davemloft.net>
+References: <20170412110726.9689-1-johannes@sipsolutions.net>
+        <20170412110726.9689-3-johannes@sipsolutions.net>
+        <1492007347.2855.12.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: pablo@netfilter.org, Jamal Hadi Salim <jhs@mojatatu.com>,
-        Jiri Benc <jbenc@redhat.com>, jiri@resnulli.us
-To: David Ahern <dsa@cumulusnetworks.com>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:38184 "EHLO sipsolutions.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752513AbdDLPVr (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 12 Apr 2017 11:21:47 -0400
-In-Reply-To: <dbc81431-487b-f218-a4c6-2caa44783d97@cumulusnetworks.com> (sfid-20170412_170649_644527_0ED3DE34)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1492007347.2855.12.camel-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2017-04-12 at 09:06 -0600, David Ahern wrote:
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Date: Wed, 12 Apr 2017 16:29:07 +0200
+
+> On Wed, 2017-04-12 at 13:07 +0200, Johannes Berg wrote:
+>> 
+>>  struct ieee80211_if_mntr {
+>>  	u32 flags;
+>> 
+> [...]
+> +	bool deliver;
 > 
-> There was a discussion about side effects of adding strings (bloat,
-> internationalization). Should ATTR_MSG be removed until that is
-> ironed out? Leaving it in suggests it is ok to start adding strings.
+> That's ... broken for multi-queue RX. I haven't really found a good
+> other way to do it. The best way will likely be to copy the SKB the
+> first time it's needed, build the radiotap header, and then keep a
+> reference to it to be able to clone it later if it's needed again.
 
-I really do want the strings; this is why I named the struct member
-"_msg" and added the NL_SET_ERR_MSG() macro, that will easily allow
-both making the strings optional with Kconfig (bloat) and collecting
-them into a separate data section (translation).
-
-johannes
+If you don't recurse into the receive path for different devices before
+you are done with this boolean, simply make a global per-cpu boolean
+and use that.
