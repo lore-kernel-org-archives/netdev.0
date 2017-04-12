@@ -1,113 +1,57 @@
 From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: [PATCH 6/8] ftgmac100: Allow configuration of phy interface via device-tree
-Date: Thu, 13 Apr 2017 08:44:41 +1000
-Message-ID: <20170412224443.17906-7-benh@kernel.crashing.org>
+Subject: [PATCH 5/8] ftgmac100: Add netpoll support
+Date: Thu, 13 Apr 2017 08:44:40 +1000
+Message-ID: <20170412224443.17906-6-benh@kernel.crashing.org>
 References: <20170412224443.17906-1-benh@kernel.crashing.org>
 Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:33744 "EHLO gate.crashing.org"
+Received: from gate.crashing.org ([63.228.1.57]:33747 "EHLO gate.crashing.org"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754419AbdDLWr1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 12 Apr 2017 18:47:27 -0400
+        id S1752851AbdDLWro (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 12 Apr 2017 18:47:44 -0400
 In-Reply-To: <20170412224443.17906-1-benh@kernel.crashing.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This uses the standard phy-mode property
+Just call the interrupt handler with interrupts locally disabled
 
 Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 ---
- drivers/net/ethernet/faraday/ftgmac100.c | 42 +++++++++++++++++++++++++++++---
- 1 file changed, 39 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/faraday/ftgmac100.c | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
 
 diff --git a/drivers/net/ethernet/faraday/ftgmac100.c b/drivers/net/ethernet/faraday/ftgmac100.c
-index e71b9c4..c1afda8 100644
+index ded3447..e71b9c4 100644
 --- a/drivers/net/ethernet/faraday/ftgmac100.c
 +++ b/drivers/net/ethernet/faraday/ftgmac100.c
-@@ -32,6 +32,7 @@
- #include <linux/platform_device.h>
- #include <linux/crc32.h>
- #include <linux/if_vlan.h>
-+#include <linux/of_net.h>
- #include <net/ip.h>
- #include <net/ncsi.h>
- 
-@@ -1049,7 +1050,7 @@ static void ftgmac100_adjust_link(struct net_device *netdev)
- 	schedule_work(&priv->reset_task);
+@@ -1593,6 +1593,17 @@ static int ftgmac100_set_features(struct net_device *netdev,
+ 	return 0;
  }
  
--static int ftgmac100_mii_probe(struct ftgmac100 *priv)
-+static int ftgmac100_mii_probe(struct ftgmac100 *priv, phy_interface_t intf)
- {
- 	struct net_device *netdev = priv->netdev;
- 	struct phy_device *phydev;
-@@ -1061,7 +1062,7 @@ static int ftgmac100_mii_probe(struct ftgmac100 *priv)
- 	}
- 
- 	phydev = phy_connect(netdev, phydev_name(phydev),
--			     &ftgmac100_adjust_link, PHY_INTERFACE_MODE_GMII);
-+			     &ftgmac100_adjust_link, intf);
- 
- 	if (IS_ERR(phydev)) {
- 		netdev_err(netdev, "%s: Could not attach to PHY\n", netdev->name);
-@@ -1623,6 +1624,8 @@ static int ftgmac100_setup_mdio(struct net_device *netdev)
- {
- 	struct ftgmac100 *priv = netdev_priv(netdev);
- 	struct platform_device *pdev = to_platform_device(priv->dev);
-+	int phy_intf = PHY_INTERFACE_MODE_RGMII;
-+	struct device_node *np = pdev->dev.of_node;
- 	int i, err = 0;
- 	u32 reg;
- 
-@@ -1638,6 +1641,39 @@ static int ftgmac100_setup_mdio(struct net_device *netdev)
- 		iowrite32(reg, priv->base + FTGMAC100_OFFSET_REVR);
- 	};
- 
-+	/* Get PHY mode from device-tree */
-+	if (np) {
-+		/* Default to RGMII. It's a gigabit part after all */
-+		phy_intf = of_get_phy_mode(np);
-+		if (phy_intf < 0)
-+			phy_intf = PHY_INTERFACE_MODE_RGMII;
++#ifdef CONFIG_NET_POLL_CONTROLLER
++static void ftgmac100_poll_controller(struct net_device *netdev)
++{
++	unsigned long flags;
 +
-+		/* Aspeed only supports these. I don't know about other IP
-+		 * block vendors so I'm going to just let them through for
-+		 * now. Note that this is only a warning if for some obscure
-+		 * reason the DT really means to lie about it or it's a newer
-+		 * part we don't know about.
-+		 *
-+		 * On the Aspeed SoC there are additionally straps and SCU
-+		 * control bits that could tell us what the interface is
-+		 * (or allow us to configure it while the IP block is held
-+		 * in reset). For now I chose to keep this driver away from
-+		 * those SoC specific bits and assume the device-tree is
-+		 * right and the SCU has been configured properly by pinmux
-+		 * or the firmware.
-+		 */
-+		if (priv->is_aspeed &&
-+		    phy_intf != PHY_INTERFACE_MODE_RMII &&
-+		    phy_intf != PHY_INTERFACE_MODE_RGMII &&
-+		    phy_intf != PHY_INTERFACE_MODE_RGMII_ID &&
-+		    phy_intf != PHY_INTERFACE_MODE_RGMII_RXID &&
-+		    phy_intf != PHY_INTERFACE_MODE_RGMII_TXID) {
-+			netdev_warn(netdev,
-+				   "Unsupported PHY mode %s !\n",
-+				   phy_modes(phy_intf));
-+		}
-+	}
++	local_irq_save(flags);
++	ftgmac100_interrupt(netdev->irq, netdev);
++	local_irq_restore(flags);
++}
++#endif
 +
- 	priv->mii_bus->name = "ftgmac100_mdio";
- 	snprintf(priv->mii_bus->id, MII_BUS_ID_SIZE, "%s-%d",
- 		 pdev->name, pdev->id);
-@@ -1654,7 +1690,7 @@ static int ftgmac100_setup_mdio(struct net_device *netdev)
- 		goto err_register_mdiobus;
- 	}
+ static const struct net_device_ops ftgmac100_netdev_ops = {
+ 	.ndo_open		= ftgmac100_open,
+ 	.ndo_stop		= ftgmac100_stop,
+@@ -1603,6 +1614,9 @@ static const struct net_device_ops ftgmac100_netdev_ops = {
+ 	.ndo_tx_timeout		= ftgmac100_tx_timeout,
+ 	.ndo_set_rx_mode	= ftgmac100_set_rx_mode,
+ 	.ndo_set_features	= ftgmac100_set_features,
++#ifdef CONFIG_NET_POLL_CONTROLLER
++	.ndo_poll_controller	= ftgmac100_poll_controller,
++#endif
+ };
  
--	err = ftgmac100_mii_probe(priv);
-+	err = ftgmac100_mii_probe(priv, phy_intf);
- 	if (err) {
- 		dev_err(priv->dev, "MII Probe failed!\n");
- 		goto err_mii_probe;
+ static int ftgmac100_setup_mdio(struct net_device *netdev)
 -- 
 2.9.3
