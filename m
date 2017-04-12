@@ -1,44 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] smsc95xx: Add comments to the registers definition
-Date: Wed, 12 Apr 2017 10:46:05 -0400 (EDT)
-Message-ID: <20170412.104605.1126970886368700459.davem@davemloft.net>
-References: <20170410135251.GC19820@lunn.ch>
-        <20170411.221836.113758478587841074.davem@davemloft.net>
-        <20170412092405.doyczwsqnzkizarz@SMX-2>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCHv4] net: dsa: add SMSC/Microchip LAN9303 three port
+ ethernet switch driver
+Date: Wed, 12 Apr 2017 16:46:16 +0200
+Message-ID: <20170412144616.GC7023@lunn.ch>
+References: <20170412140218.1076-1-jbe@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: andrew@lunn.ch, steve.glendinning@shawell.net,
-        UNGLinuxDriver@microchip.com, netdev@vger.kernel.org,
-        linux-usb@vger.kernel.org
-To: martin@wetterwald.eu
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:46086 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754338AbdDLOqI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 12 Apr 2017 10:46:08 -0400
-In-Reply-To: <20170412092405.doyczwsqnzkizarz@SMX-2>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        f.fainelli@gmail.com, kernel@pengutronix.de,
+        vivien.didelot@savoirfairelinux.com, davem@davemloft.net
+To: Juergen Borleis <jbe@pengutronix.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170412140218.1076-1-jbe@pengutronix.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Martin Wetterwald <martin@wetterwald.eu>
-Date: Wed, 12 Apr 2017 11:24:05 +0200
-
-> This chip is used by a lot of embedded devices and also by the Raspberry
-> Pi 1, 2 & 3 which were created to promote the study of computer
-> sciences. Students wanting to learn kernel / network device driver
-> programming through those devices can only rely on the Linux kernel
-> driver source to make their own.
+On Wed, Apr 12, 2017 at 04:02:14PM +0200, Juergen Borleis wrote:
+> The LAN9303 is a three port 10/100 ethernet switch with integrated phys
+> for the two external ethernet ports. The third port is an RMII/MII
+> interface to a host master network interface (e.g. fixed link).
 > 
-> This commit adds a lot of comments to the registers definition to expand
-> the register names.
+> While the LAN9303 device itself supports offload packet processing, this
+> driver does not make use of it yet. This driver just configures the device
+> to provide two separate network interfaces (which is the default state of
+> a DSA device).
 > 
-> Cc: Steve Glendinning <steve.glendinning@shawell.net>
-> Cc: Microchip Linux Driver Support <UNGLinuxDriver@microchip.com>
-> CC: David Miller <davem@davemloft.net>
-> Signed-off-by: Martin Wetterwald <martin@wetterwald.eu>
-> ---
-> Changes in v3:
->  * Restore previous name for TX_CMD_B_CSUM_ENABLE
+> Please note: the "MDIO managed mode" driver part isn't tested yet. I have
+> used and tested the "I2C managed mode" only.
+> 
+> Changes in v4:
+> 
+> - rebased on net-next, 'net/dsa/tag_lan9303.c' adapted to new API
 
-Please fix the GPIO numbers as indicated by Woojung Huh.
+Thanks for this last change.
+
+I would say this driver is now ready for acceptance.
+
+Thanks
+	Andrew
