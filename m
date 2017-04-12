@@ -1,83 +1,60 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH v3 net-next RFC] Generic XDP
-Date: Wed, 12 Apr 2017 13:54:20 -0600
-Message-ID: <0861d2c9-a5ec-f40e-b849-f6421938b357@cumulusnetworks.com>
-References: <20170412.145415.1441440342830198148.davem@davemloft.net>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: net/ipv4: use-after-free in ipv4_datagram_support_cmsg
+Date: Wed, 12 Apr 2017 13:07:59 -0700
+Message-ID: <CAM_iQpVVc1ev8juG8=dQ0wu8c_RoJ8HfDUewRc1AempvV=85kw@mail.gmail.com>
+References: <CAAeHK+ysUb+yuES_XYYPDWGrXS4VUXLmQRrD2dJTeXDPL5BKpw@mail.gmail.com>
+ <CAF=yD-++XtWeaVmdhnrwiYLOG84JTMEuZr9mxyTRnde8vE7AFQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: xdp-newbies@vger.kernel.org
-To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Andrey Konovalov <andreyknvl@google.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Eric Dumazet <edumazet@google.com>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f54.google.com ([74.125.83.54]:33436 "EHLO
-        mail-pg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754445AbdDLTyW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 12 Apr 2017 15:54:22 -0400
-Received: by mail-pg0-f54.google.com with SMTP id x125so19611148pgb.0
-        for <netdev@vger.kernel.org>; Wed, 12 Apr 2017 12:54:22 -0700 (PDT)
-In-Reply-To: <20170412.145415.1441440342830198148.davem@davemloft.net>
+Received: from mail-wm0-f45.google.com ([74.125.82.45]:38767 "EHLO
+        mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751620AbdDLUIV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 12 Apr 2017 16:08:21 -0400
+In-Reply-To: <CAF=yD-++XtWeaVmdhnrwiYLOG84JTMEuZr9mxyTRnde8vE7AFQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 4/12/17 12:54 PM, David Miller wrote:
-> 
-> This provides a generic SKB based non-optimized XDP path which is used
-> if either the driver lacks a specific XDP implementation, or the user
-> requests it via a new IFLA_XDP_FLAGS value named XDP_FLAGS_SKB_MODE.
-> 
-> It is arguable that perhaps I should have required something like
-> this as part of the initial XDP feature merge.
-> 
-> I believe this is critical for two reasons:
-> 
-> 1) Accessibility.  More people can play with XDP with less
->    dependencies.  Yes I know we have XDP support in virtio_net, but
->    that just creates another depedency for learning how to use this
->    facility.
-> 
->    I wrote this to make life easier for the XDP newbies.
-> 
-> 2) As a model for what the expected semantics are.  If there is a pure
->    generic core implementation, it serves as a semantic example for
->    driver folks adding XDP support.
-> 
-> This is just a rough draft and is untested.
+On Wed, Apr 12, 2017 at 8:39 AM, Willem de Bruijn
+<willemdebruijn.kernel@gmail.com> wrote:
+> ===================
+>> BUG: KASAN: use-after-free in ipv4_datagram_support_cmsg
+>> net/ipv4/ip_sockglue.c:500 [inline] at addr ffff880059be0128
+>
+> Thanks for the report. This is accessing skb->dev from within recvmsg() at line
+>
+>         info->ipi_ifindex = skb->dev->ifindex;
+>
+> Introduced in 829ae9d61165 ("net-timestamp: allow reading recv cmsg on
+> errqueue with origin tstamp"). At this time the device may indeed have
+> gone away. I'm having a look at a way to read this in the receive BH
+> and store the ifindex.
 
+Why not use skb_iif?
 
-packet passed to xdp seems to be messed up. Using samples/bpf/xdp1*.c as
-an example:
+diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
+index ebd953b..a2aef45 100644
+--- a/net/ipv4/ip_sockglue.c
++++ b/net/ipv4/ip_sockglue.c
+@@ -497,7 +497,7 @@ static bool ipv4_datagram_support_cmsg(const
+struct sock *sk,
 
-Current with virtio-net:
-# xdp1 3
-proto 0:          0 pkt/s
-proto 6:          2 pkt/s
-proto 17:       1610 pkt/s
-proto 17:      22785 pkt/s
-
-Using the skb-mode:
-
-# xdp1 3 skb-mode
-proto 0:          2 pkt/s
-proto 0:      10880 pkt/s
-proto 0:      29990 pkt/s
-proto 0:      16972 pkt/s
-
-
-If I change ipproto in samples/bpf/xdp1_kern.c:
-
-        if (h_proto == htons(ETH_P_IP))
-                ipproto = parse_ipv4(data, nh_off, data_end);
-        else if (h_proto == htons(ETH_P_IPV6))
-                ipproto = parse_ipv6(data, nh_off, data_end);
-        else
-                ipproto = 63;
-
-I get:
-
-# xdp1 3 skb-mode
-proto 63:       6538 pkt/s
-proto 63:      23679 pkt/s
-proto 63:      29974 pkt/s
-proto 63:      29599 pkt/s
-
-which suggests h_proto is goofed up with skb-mode.
+        info = PKTINFO_SKB_CB(skb);
+        info->ipi_spec_dst.s_addr = ip_hdr(skb)->saddr;
+-       info->ipi_ifindex = skb->dev->ifindex;
++       info->ipi_ifindex = skb->skb_iif;
+        return true;
+ }
