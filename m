@@ -1,52 +1,41 @@
-From: David Ahern <dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
-Subject: Re: [PATCH net-next v5 1/5] netlink: extended ACK reporting
-Date: Wed, 12 Apr 2017 09:32:59 -0600
-Message-ID: <dd9f0bb0-df0d-bf04-9d17-90d611af7cbc@cumulusnetworks.com>
-References: <20170412123408.22012-1-johannes@sipsolutions.net>
- <20170412123408.22012-2-johannes@sipsolutions.net>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: net/ipv4: use-after-free in ipv4_datagram_support_cmsg
+Date: Wed, 12 Apr 2017 11:39:16 -0400
+Message-ID: <CAF=yD-++XtWeaVmdhnrwiYLOG84JTMEuZr9mxyTRnde8vE7AFQ@mail.gmail.com>
+References: <CAAeHK+ysUb+yuES_XYYPDWGrXS4VUXLmQRrD2dJTeXDPL5BKpw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
-        Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org,
-        Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170412123408.22012-2-johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Andrey Konovalov <andreyknvl@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f181.google.com ([209.85.220.181]:34821 "EHLO
+        mail-qk0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752513AbdDLPj6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 12 Apr 2017 11:39:58 -0400
+In-Reply-To: <CAAeHK+ysUb+yuES_XYYPDWGrXS4VUXLmQRrD2dJTeXDPL5BKpw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 4/12/17 6:34 AM, Johannes Berg wrote:
-> From: Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-> 
-> Add the base infrastructure and UAPI for netlink extended ACK
-> reporting. All "manual" calls to netlink_ack() pass NULL for
-> now and thus don't get extended ACK reporting.
-> 
-> Big thanks goes to Pablo Neira Ayuso for not only bringing up
-> the whole topic at netconf (again) but also coming up with the
-> nlattr passing trick and various other ideas.
-> 
-> Signed-off-by: Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-> ---
->  crypto/crypto_user.c              |  3 +-
->  drivers/infiniband/core/netlink.c |  5 +--
->  drivers/scsi/scsi_netlink.c       |  2 +-
->  include/linux/netlink.h           | 26 +++++++++++++-
->  include/net/netlink.h             |  3 +-
->  include/uapi/linux/netlink.h      | 32 ++++++++++++++++++
->  kernel/audit.c                    |  2 +-
->  net/core/rtnetlink.c              |  3 +-
->  net/core/sock_diag.c              |  3 +-
->  net/decnet/netfilter/dn_rtmsg.c   |  2 +-
->  net/hsr/hsr_netlink.c             |  4 +--
->  net/netfilter/ipset/ip_set_core.c |  2 +-
->  net/netfilter/nfnetlink.c         | 22 ++++++------
->  net/netlink/af_netlink.c          | 71 ++++++++++++++++++++++++++++++++++-----
->  net/netlink/af_netlink.h          |  1 +
->  net/netlink/genetlink.c           |  3 +-
->  net/xfrm/xfrm_user.c              |  3 +-
->  17 files changed, 153 insertions(+), 34 deletions(-)
+===================
+> BUG: KASAN: use-after-free in ipv4_datagram_support_cmsg
+> net/ipv4/ip_sockglue.c:500 [inline] at addr ffff880059be0128
 
-Reviewed-by: David Ahern <dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
+Thanks for the report. This is accessing skb->dev from within recvmsg() at line
+
+        info->ipi_ifindex = skb->dev->ifindex;
+
+Introduced in 829ae9d61165 ("net-timestamp: allow reading recv cmsg on
+errqueue with origin tstamp"). At this time the device may indeed have
+gone away. I'm having a look at a way to read this in the receive BH
+and store the ifindex.
