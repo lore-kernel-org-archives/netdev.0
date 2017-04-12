@@ -1,37 +1,32 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next v5 5/5] netlink: pass extended ACK struct where
- available
-Date: Wed, 12 Apr 2017 17:15:31 +0200
-Message-ID: <20170412151531.GL1952@nanopsycho>
-References: <20170412123408.22012-1-johannes@sipsolutions.net>
- <20170412123408.22012-6-johannes@sipsolutions.net>
- <20170412140043.GH1952@nanopsycho>
- <1fdfb890-162a-a22c-53e0-101b9ef3bfa2@cumulusnetworks.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [RFC 1/3] bpf/wireless: add wifimon program type
+Date: Wed, 12 Apr 2017 11:19:13 -0400 (EDT)
+Message-ID: <20170412.111913.497795978751789475.davem@davemloft.net>
+References: <20170412110726.9689-1-johannes@sipsolutions.net>
+        <1492007254.2855.10.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        pablo@netfilter.org, Jamal Hadi Salim <jhs@mojatatu.com>,
-        Jiri Benc <jbenc@redhat.com>,
-        Johannes Berg <johannes.berg@intel.com>
-To: David Ahern <dsa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f193.google.com ([209.85.128.193]:36509 "EHLO
-        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754240AbdDLPPe (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 12 Apr 2017 11:15:34 -0400
-Received: by mail-wr0-f193.google.com with SMTP id o21so4676147wrb.3
-        for <netdev@vger.kernel.org>; Wed, 12 Apr 2017 08:15:34 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1fdfb890-162a-a22c-53e0-101b9ef3bfa2@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org, ast-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
+To: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1492007254.2855.10.camel-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Wed, Apr 12, 2017 at 04:55:07PM CEST, dsa@cumulusnetworks.com wrote:
->On 4/12/17 8:00 AM, Jiri Pirko wrote:
->> Aside from the tinyfication of desc lines
->
->channel your inner Elsa and just let it go
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Date: Wed, 12 Apr 2017 16:27:34 +0200
 
-Not sure why. I still believe it is a mistake so I like to point it out.
-Don't see anything wrong about it :)
+> This works. An example BPF program is here:
+> https://p.sipsolutions.net/ca32264f2b705e5e.txt
+ ...
+> One thing I'm not so sure about is the usage of __sk_buff.
+ ...
+> Instead it may make more sense to just have a "wifi_info(skb, info)"
+> function you can call, e.g. with a structure that has various fields
+> and flags to see which you care about.
+
+I would advise against this, let the parsing part use __sk_buff and
+therefore have maximum flexibility.  You really cannot predict the
+future, so in my opinion it might be unwise to constrain at this point.
