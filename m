@@ -1,121 +1,74 @@
 From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: [PATCH net] net-timestamp: avoid use-after-free in ip_recv_error
-Date: Wed, 12 Apr 2017 19:24:35 -0400
-Message-ID: <20170412232435.80455-1-willemdebruijn.kernel@gmail.com>
-Cc: andreyknvl@google.com, davem@davemloft.net, eric.dumazet@gmail.com,
-        xiyou.wangcong@gmail.com, Willem de Bruijn <willemb@google.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f196.google.com ([209.85.216.196]:36438 "EHLO
-        mail-qt0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755360AbdDLXYi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 12 Apr 2017 19:24:38 -0400
-Received: by mail-qt0-f196.google.com with SMTP id v3so5881081qtd.3
-        for <netdev@vger.kernel.org>; Wed, 12 Apr 2017 16:24:38 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Subject: Re: net/ipv4: use-after-free in ipv4_datagram_support_cmsg
+Date: Wed, 12 Apr 2017 19:26:22 -0400
+Message-ID: <CAF=yD-KL5i_567+fUjny=0VWwDRFb0mh0UE-9ahZFRB__i=brA@mail.gmail.com>
+References: <CAAeHK+ysUb+yuES_XYYPDWGrXS4VUXLmQRrD2dJTeXDPL5BKpw@mail.gmail.com>
+ <CAF=yD-++XtWeaVmdhnrwiYLOG84JTMEuZr9mxyTRnde8vE7AFQ@mail.gmail.com>
+ <CAM_iQpVVc1ev8juG8=dQ0wu8c_RoJ8HfDUewRc1AempvV=85kw@mail.gmail.com>
+ <1492030046.10587.72.camel@edumazet-glaptop3.roam.corp.google.com> <CAF=yD-KN8Z3MyxsWsC-8sAk7kzSU7w7GQGbkUBUh-FuXm0fYWg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+        Andrey Konovalov <andreyknvl@google.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Eric Dumazet <edumazet@google.com>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAF=yD-KN8Z3MyxsWsC-8sAk7kzSU7w7GQGbkUBUh-FuXm0fYWg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Willem de Bruijn <willemb@google.com>
+On Wed, Apr 12, 2017 at 6:25 PM, Willem de Bruijn
+<willemdebruijn.kernel@gmail.com> wrote:
+> On Wed, Apr 12, 2017 at 4:47 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>> On Wed, 2017-04-12 at 13:07 -0700, Cong Wang wrote:
+>>> On Wed, Apr 12, 2017 at 8:39 AM, Willem de Bruijn
+>>> <willemdebruijn.kernel@gmail.com> wrote:
+>>> > ===================
+>>> >> BUG: KASAN: use-after-free in ipv4_datagram_support_cmsg
+>>> >> net/ipv4/ip_sockglue.c:500 [inline] at addr ffff880059be0128
+>>> >
+>>> > Thanks for the report. This is accessing skb->dev from within recvmsg() at line
+>>> >
+>>> >         info->ipi_ifindex = skb->dev->ifindex;
+>>> >
+>>> > Introduced in 829ae9d61165 ("net-timestamp: allow reading recv cmsg on
+>>> > errqueue with origin tstamp"). At this time the device may indeed have
+>>> > gone away. I'm having a look at a way to read this in the receive BH
+>>> > and store the ifindex.
+>>>
+>>> Why not use skb_iif?
+>
+> This code is called from the error path for transmit timestamps.
+>
+> We can make use of the fact that SKB_EXT_ERR used on enqueue has iif as
+> the first field in its control block. This also holds for the PKTINFO_SKB_CB
+> struct to which skb->cb is cast on dequeue when it copies pktinfo to userspace.
+> So if set on enqueue in __skb_complete_tx_timestamp, no conversion operation
+> is even needed on dequeue, let alone the currently buggy line that touches
+> skb->dev.
+>
+> This iif cast was added for this purpose in the receive path in 0b922b7a829c
+> ("net: original ingress device index in PKTINFO").
+>
+> The device pointer is valid on enqueue for all paths called from device drivers,
+> as well as from dev_queue_xmit for SCM_TSTAMP_SCHED generation in
+> __dev_queue_xmit. The exception is SCM_TSTAMP_ACK generation, but
+> there skb->dev is NULL.
+>
+> The v6 path does need a conversion, but already does this in
+> ip6_datagram_recv_common_ctl. There, too, we can remove the buggy
+> logic to set it from skb->dev->ifindex in ip6_datagram_support_cmsg.
+>
+> I will send a patch.
 
-Syzkaller reported a use-after-free in ip_recv_error at line
-
-    info->ipi_ifindex = skb->dev->ifindex;
-
-This function is called on dequeue from the error queue, at which
-point the device pointer may no longer be valid.
-
-Save ifindex on enqueue in __skb_complete_tx_timestamp, when the
-pointer is valid or NULL. Store it in temporary storage skb->cb.
-
-It is safe to reference skb->dev here, as called from device drivers
-or dev_queue_xmit. The exception is when called from tcp_ack_tstamp;
-in that case it is NULL and ifindex is set to 0 (invalid).
-
-Do not return a pktinfo cmsg if ifindex is 0. This maintains the
-current behavior of not returning a cmsg if skb->dev was NULL.
-
-On dequeue, the ipv4 path will cast from sock_exterr_skb to
-in_pktinfo. Both have ifindex as their first element, so no explicit
-conversion is needed. This is by design, introduced in commit
-0b922b7a829c ("net: original ingress device index in PKTINFO"). For
-ipv6 ip6_datagram_support_cmsg converts to in6_pktinfo.
-
-Fixes: 829ae9d61165 ("net-timestamp: allow reading recv cmsg on errqueue with origin tstamp")
-
-Reported-by: Andrey Konovalov <andreyknvl@google.com>
-Signed-off-by: Willem de Bruijn <willemb@google.com>
----
- net/core/skbuff.c      |  1 +
- net/ipv4/ip_sockglue.c |  9 ++++-----
- net/ipv6/datagram.c    | 10 +---------
- 3 files changed, 6 insertions(+), 14 deletions(-)
-
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 9f781092fda9..35c1e2460206 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -3807,6 +3807,7 @@ static void __skb_complete_tx_timestamp(struct sk_buff *skb,
- 	serr->ee.ee_origin = SO_EE_ORIGIN_TIMESTAMPING;
- 	serr->ee.ee_info = tstype;
- 	serr->opt_stats = opt_stats;
-+	serr->header.h4.iif = skb->dev ? skb->dev->ifindex : 0;
- 	if (sk->sk_tsflags & SOF_TIMESTAMPING_OPT_ID) {
- 		serr->ee.ee_data = skb_shinfo(skb)->tskey;
- 		if (sk->sk_protocol == IPPROTO_TCP &&
-diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
-index ebd953bc5607..35076792caa5 100644
---- a/net/ipv4/ip_sockglue.c
-+++ b/net/ipv4/ip_sockglue.c
-@@ -488,16 +488,15 @@ static bool ipv4_datagram_support_cmsg(const struct sock *sk,
- 		return false;
- 
- 	/* Support IP_PKTINFO on tstamp packets if requested, to correlate
--	 * timestamp with egress dev. Not possible for packets without dev
-+	 * timestamp with egress dev. Not possible for packets without iif
- 	 * or without payload (SOF_TIMESTAMPING_OPT_TSONLY).
- 	 */
--	if ((!(sk->sk_tsflags & SOF_TIMESTAMPING_OPT_CMSG)) ||
--	    (!skb->dev))
-+	info = PKTINFO_SKB_CB(skb);
-+	if (!(sk->sk_tsflags & SOF_TIMESTAMPING_OPT_CMSG) ||
-+	    !info->ipi_ifindex)
- 		return false;
- 
--	info = PKTINFO_SKB_CB(skb);
- 	info->ipi_spec_dst.s_addr = ip_hdr(skb)->saddr;
--	info->ipi_ifindex = skb->dev->ifindex;
- 	return true;
- }
- 
-diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
-index eec27f87efac..e011122ebd43 100644
---- a/net/ipv6/datagram.c
-+++ b/net/ipv6/datagram.c
-@@ -405,9 +405,6 @@ static inline bool ipv6_datagram_support_addr(struct sock_exterr_skb *serr)
-  * At one point, excluding local errors was a quick test to identify icmp/icmp6
-  * errors. This is no longer true, but the test remained, so the v6 stack,
-  * unlike v4, also honors cmsg requests on all wifi and timestamp errors.
-- *
-- * Timestamp code paths do not initialize the fields expected by cmsg:
-- * the PKTINFO fields in skb->cb[]. Fill those in here.
-  */
- static bool ip6_datagram_support_cmsg(struct sk_buff *skb,
- 				      struct sock_exterr_skb *serr)
-@@ -419,14 +416,9 @@ static bool ip6_datagram_support_cmsg(struct sk_buff *skb,
- 	if (serr->ee.ee_origin == SO_EE_ORIGIN_LOCAL)
- 		return false;
- 
--	if (!skb->dev)
-+	if (!IP6CB(skb)->iif)
- 		return false;
- 
--	if (skb->protocol == htons(ETH_P_IPV6))
--		IP6CB(skb)->iif = skb->dev->ifindex;
--	else
--		PKTINFO_SKB_CB(skb)->ipi_ifindex = skb->dev->ifindex;
--
- 	return true;
- }
- 
--- 
-2.12.2.715.g7642488e1d-goog
+Sent http://patchwork.ozlabs.org/patch/750197
