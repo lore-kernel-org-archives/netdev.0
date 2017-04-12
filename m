@@ -1,74 +1,198 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: net/ipv4: use-after-free in ipv4_datagram_support_cmsg
-Date: Wed, 12 Apr 2017 19:26:22 -0400
-Message-ID: <CAF=yD-KL5i_567+fUjny=0VWwDRFb0mh0UE-9ahZFRB__i=brA@mail.gmail.com>
-References: <CAAeHK+ysUb+yuES_XYYPDWGrXS4VUXLmQRrD2dJTeXDPL5BKpw@mail.gmail.com>
- <CAF=yD-++XtWeaVmdhnrwiYLOG84JTMEuZr9mxyTRnde8vE7AFQ@mail.gmail.com>
- <CAM_iQpVVc1ev8juG8=dQ0wu8c_RoJ8HfDUewRc1AempvV=85kw@mail.gmail.com>
- <1492030046.10587.72.camel@edumazet-glaptop3.roam.corp.google.com> <CAF=yD-KN8Z3MyxsWsC-8sAk7kzSU7w7GQGbkUBUh-FuXm0fYWg@mail.gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [patch iproute2/net-next repost] devlink: Add support for
+ pipeline debug (dpipe)
+Date: Wed, 12 Apr 2017 16:45:25 -0700
+Message-ID: <20170412164525.1c0468d0@xeon-e3>
+References: <1490714657-6116-1-git-send-email-jiri@resnulli.us>
+        <1490714814-6724-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-        Andrey Konovalov <andreyknvl@google.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Kostya Serebryany <kcc@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAF=yD-KN8Z3MyxsWsC-8sAk7kzSU7w7GQGbkUBUh-FuXm0fYWg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, arkadis@mellanox.com,
+        idosch@mellanox.com, mlxsw@mellanox.com, jhs@mojatatu.com,
+        ivecera@redhat.com, roopa@cumulusnetworks.com,
+        f.fainelli@gmail.com, vivien.didelot@savoirfairelinux.com,
+        john.fastabend@gmail.com, andrew@lunn.ch,
+        simon.horman@netronome.com
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f53.google.com ([74.125.83.53]:35338 "EHLO
+        mail-pg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754721AbdDLXp2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 12 Apr 2017 19:45:28 -0400
+Received: by mail-pg0-f53.google.com with SMTP id 72so13382722pge.2
+        for <netdev@vger.kernel.org>; Wed, 12 Apr 2017 16:45:28 -0700 (PDT)
+In-Reply-To: <1490714814-6724-1-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 12, 2017 at 6:25 PM, Willem de Bruijn
-<willemdebruijn.kernel@gmail.com> wrote:
-> On Wed, Apr 12, 2017 at 4:47 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->> On Wed, 2017-04-12 at 13:07 -0700, Cong Wang wrote:
->>> On Wed, Apr 12, 2017 at 8:39 AM, Willem de Bruijn
->>> <willemdebruijn.kernel@gmail.com> wrote:
->>> > ===================
->>> >> BUG: KASAN: use-after-free in ipv4_datagram_support_cmsg
->>> >> net/ipv4/ip_sockglue.c:500 [inline] at addr ffff880059be0128
->>> >
->>> > Thanks for the report. This is accessing skb->dev from within recvmsg() at line
->>> >
->>> >         info->ipi_ifindex = skb->dev->ifindex;
->>> >
->>> > Introduced in 829ae9d61165 ("net-timestamp: allow reading recv cmsg on
->>> > errqueue with origin tstamp"). At this time the device may indeed have
->>> > gone away. I'm having a look at a way to read this in the receive BH
->>> > and store the ifindex.
->>>
->>> Why not use skb_iif?
->
-> This code is called from the error path for transmit timestamps.
->
-> We can make use of the fact that SKB_EXT_ERR used on enqueue has iif as
-> the first field in its control block. This also holds for the PKTINFO_SKB_CB
-> struct to which skb->cb is cast on dequeue when it copies pktinfo to userspace.
-> So if set on enqueue in __skb_complete_tx_timestamp, no conversion operation
-> is even needed on dequeue, let alone the currently buggy line that touches
-> skb->dev.
->
-> This iif cast was added for this purpose in the receive path in 0b922b7a829c
-> ("net: original ingress device index in PKTINFO").
->
-> The device pointer is valid on enqueue for all paths called from device drivers,
-> as well as from dev_queue_xmit for SCM_TSTAMP_SCHED generation in
-> __dev_queue_xmit. The exception is SCM_TSTAMP_ACK generation, but
-> there skb->dev is NULL.
->
-> The v6 path does need a conversion, but already does this in
-> ip6_datagram_recv_common_ctl. There, too, we can remove the buggy
-> logic to set it from skb->dev->ifindex in ip6_datagram_support_cmsg.
->
-> I will send a patch.
+On Tue, 28 Mar 2017 17:26:54 +0200
+Jiri Pirko <jiri@resnulli.us> wrote:
 
-Sent http://patchwork.ozlabs.org/patch/750197
+>  
+>  #define pr_err(args...) fprintf(stderr, ##args)
+> -#define pr_out(args...) fprintf(stdout, ##args)
+> +#define pr_out(args...)						\
+> +	do {							\
+> +		if (g_indent_newline) {				\
+> +			fprintf(stdout, "%s", g_indent_str);	\
+> +			g_indent_newline = false;		\
+> +		}						\
+> +		fprintf(stdout, ##args);			\
+> +	} while (0)
+> +
+>  #define pr_out_sp(num, args...)					\
+>  	do {							\
+>  		int ret = fprintf(stdout, ##args);		\
+> @@ -42,6 +50,35 @@
+>  			fprintf(stdout, "%*s", num - ret, "");	\
+>  	} while (0)
+>  
+> +static int g_indent_level;
+> +static bool g_indent_newline;
+> +#define INDENT_STR_STEP 2
+> +#define INDENT_STR_MAXLEN 32
+> +static char g_indent_str[INDENT_STR_MAXLEN + 1] = "";
+> +
+> +static void __pr_out_indent_inc(void)
+> +{
+> +	if (g_indent_level + INDENT_STR_STEP > INDENT_STR_MAXLEN)
+> +		return;
+> +	g_indent_level += INDENT_STR_STEP;
+> +	memset(g_indent_str, ' ', sizeof(g_indent_str));
+> +	g_indent_str[g_indent_level] = '\0';
+> +}
+> +
+> +static void __pr_out_indent_dec(void)
+> +{
+> +	if (g_indent_level - INDENT_STR_STEP < 0)
+> +		return;
+> +	g_indent_level -= INDENT_STR_STEP;
+> +	g_indent_str[g_indent_level] = '\0';
+> +}
+> +
+> +static void __pr_out_newline(void)
+> +{
+> +	pr_out("\n");
+> +	g_indent_newline = true;
+> +}
+> +
+
+Thanks for adding the support. Like many reviews, I am fine with the
+functionality but it is the details of the implementation that are of
+concern.
+
+Why this new set of output formatting routines, this doesn't resemble other code
+in ip utilities. Looks more like you copied and pasted it from somewhere else.
+The indentation in existing ip command output isn't pretty or fancy but it works.
+
+Please try and make this code look like all the other code. Yes, I know it
+may not be to your taste (it isn't mine either), but consistency is more important
+than individual style.
+
+> @ -314,6 +356,102 @@ static int attr_cb(const struct nlattr *attr, void *data)
+>  	if (type == DEVLINK_ATTR_ESWITCH_INLINE_MODE &&
+>  	    mnl_attr_validate(attr, MNL_TYPE_U8) < 0)
+>  		return MNL_CB_ERROR;
+> +	if (type == DEVLINK_ATTR_DPIPE_TABLES &&
+> +	    mnl_attr_validate(attr, MNL_TYPE_NESTED) < 0)
+> +		return MNL_CB_ERROR;
+> +	if (type == DEVLINK_ATTR_DPIPE_TABLE &&
+> +	    mnl_attr_validate(attr, MNL_TYPE_NESTED) < 0)
+> +		return MNL_CB_ERROR;
+> +	if (type == DEVLINK_ATTR_DPIPE_TABLE_NAME &&
+> +	    mnl_attr_validate(attr, MNL_TYPE_STRING) < 0)
+> +		return MNL_CB_ERROR;
+> +	if (type == DEVLINK_ATTR_DPIPE_TABLE_SIZE &&
+> +	    mnl_attr_validate(attr, MNL_TYPE_U64) < 0)
+> +		return MNL_CB_ERROR;
+> +	if (type == DEVLINK_ATTR_DPIPE_TABLE_MATCHES &&
+> +	    mnl_attr_validate(attr, MNL_TYPE_NESTED) < 0)
+> +		return MNL_CB_ERROR;
+> +	if (type == DEVLINK_ATTR_DPIPE_TABLE_ACTIONS &&
+> +	    mnl_attr_validate(attr, MNL_TYPE_NESTED) < 0)
+> +		return MNL_CB_ERROR;
+> +	if (type == DEVLINK_ATTR_DPIPE_TABLE_COUNTERS_ENABLED &&
+> +	    mnl_attr_validate(attr, MNL_TYPE_U8) < 0)
+> +		return MNL_CB_ERROR;
+> +	if (type == DEVLINK_ATTR_DPIPE_ENTRIES &&
+> +	    mnl_attr_validate(attr, MNL_TYPE_NESTED) < 0)
+> +		return MNL_CB_ERROR;
+> +	if (type == DEVLINK_ATTR_DPIPE_ENTRY &&
+> +	    mnl_attr_validate(attr, MNL_TYPE_NESTED) < 0)
+> +		return MNL_CB_ERROR;
+> +	if (type == DEVLINK_ATTR_DPIPE_ENTRY_INDEX &&
+> +	    mnl_attr_validate(attr, MNL_TYPE_U64) < 0)
+> +		return MNL_CB_ERROR;
+> +	if (type == DEVLINK_ATTR_DPIPE_ENTRY_MATCH_VALUES &&
+> +	    mnl_attr_validate(attr, MNL_TYPE_NESTED) < 0)
+> +		return MNL_CB_ERROR;
+> +	if (type == DEVLINK_ATTR_DPIPE_ENTRY_ACTION_VALUES &&
+> +	    mnl_attr_validate(attr, MNL_TYPE_NESTED) < 0)
+> +		return MNL_CB_ERROR;
+> +	if (type == DEVLINK_ATTR_DPIPE_ENTRY_COUNTER &&
+> +	    mnl_attr_validate(attr, MNL_TYPE_U64) < 0)
+> +		return MNL_CB_ERROR;
+> +	if (type == DEVLINK_ATTR_DPIPE_MATCH &&
+> +	    mnl_attr_validate(attr, MNL_TYPE_NESTED) < 0)
+> +		return MNL_CB_ERROR;
+> +	if (type == DEVLINK_ATTR_DPIPE_MATCH_VALUE &&
+> +	    mnl_attr_validate(attr, MNL_TYPE_NESTED) < 0)
+> +		return MNL_CB_ERROR;
+> +	if (type == DEVLINK_ATTR_DPIPE_MATCH_TYPE &&
+> +	    mnl_attr_validate(attr, MNL_TYPE_U32) < 0)
+> +		return MNL_CB_ERROR;
+> +	if (type == DEVLINK_ATTR_DPIPE_ACTION &&
+> +	    mnl_attr_validate(attr, MNL_TYPE_NESTED) < 0)
+> +		return MNL_CB_ERROR;
+> +	if (type == DEVLINK_ATTR_DPIPE_ACTION_VALUE &&
+> +	    mnl_attr_validate(attr, MNL_TYPE_NESTED) < 0)
+> +		return MNL_CB_ERROR;
+> +	if (type == DEVLINK_ATTR_DPIPE_ACTION_TYPE &&
+> +	    mnl_attr_validate(attr, MNL_TYPE_U32) < 0)
+> +		return MNL_CB_ERROR;
+> +	if (type == DEVLINK_ATTR_DPIPE_VALUE_MAPPING &&
+> +	    mnl_attr_validate(attr, MNL_TYPE_U32) < 0)
+> +		return MNL_CB_ERROR;
+> +	if (type == DEVLINK_ATTR_DPIPE_HEADERS &&
+> +	    mnl_attr_validate(attr, MNL_TYPE_NESTED) < 0)
+> +		return MNL_CB_ERROR;
+> +	if (type == DEVLINK_ATTR_DPIPE_HEADER &&
+> +	    mnl_attr_validate(attr, MNL_TYPE_NESTED) < 0)
+> +		return MNL_CB_ERROR;
+> +	if (type == DEVLINK_ATTR_DPIPE_HEADER_NAME &&
+> +	    mnl_attr_validate(attr, MNL_TYPE_STRING) < 0)
+> +		return MNL_CB_ERROR;
+> +	if (type == DEVLINK_ATTR_DPIPE_HEADER_ID &&
+> +	    mnl_attr_validate(attr, MNL_TYPE_U32) < 0)
+> +		return MNL_CB_ERROR;
+> +	if (type == DEVLINK_ATTR_DPIPE_HEADER_FIELDS &&
+> +	    mnl_attr_validate(attr, MNL_TYPE_NESTED) < 0)
+> +		return MNL_CB_ERROR;
+> +	if (type == DEVLINK_ATTR_DPIPE_HEADER_GLOBAL &&
+> +	    mnl_attr_validate(attr, MNL_TYPE_U8) < 0)
+> +		return MNL_CB_ERROR;
+> +	if (type == DEVLINK_ATTR_DPIPE_HEADER_INDEX &&
+> +	    mnl_attr_validate(attr, MNL_TYPE_U32) < 0)
+> +		return MNL_CB_ERROR;
+> +	if (type == DEVLINK_ATTR_DPIPE_FIELD &&
+> +	    mnl_attr_validate(attr, MNL_TYPE_NESTED) < 0)
+> +		return MNL_CB_ERROR;
+> +	if (type == DEVLINK_ATTR_DPIPE_FIELD_NAME &&
+> +	    mnl_attr_validate(attr, MNL_TYPE_STRING) < 0)
+> +		return MNL_CB_ERROR;
+> +	if (type == DEVLINK_ATTR_DPIPE_FIELD_ID &&
+> +	    mnl_attr_validate(attr, MNL_TYPE_U32) < 0)
+> +		return MNL_CB_ERROR;
+> +	if (type == DEVLINK_ATTR_DPIPE_FIELD_BITWIDTH &&
+> +	    mnl_attr_validate(attr, MNL_TYPE_U32) < 0)
+> +		return MNL_CB_ERROR;
+> +	if (type == DEVLINK_ATTR_DPIPE_FIELD_MAPPING_TYPE &&
+> +	    mnl_attr_validate(attr, MNL_TYPE_U32) < 0)
+> +		return MNL_CB_ERROR;
+>  	tb[type] = attr;
+>  	return MNL_CB_OK;
+>  }
+
+Ok, this code has gotten so long that it really needs to be handled as a table
+rather than linear sequence of if's.
