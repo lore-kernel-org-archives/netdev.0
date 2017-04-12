@@ -1,64 +1,116 @@
-From: Mahesh Bandewar <mahesh@bandewar.net>
-Subject: [PATCH next] bonding: handle link transition from FAIL to UP correctly
-Date: Tue, 11 Apr 2017 22:36:00 -0700
-Message-ID: <20170412053600.35646-1-mahesh@bandewar.net>
-Cc: netdev <netdev@vger.kernel.org>,
-        Mahesh Bandewar <mahesh@bandewar.net>,
-        Mahesh Bandewar <maheshb@google.com>
-To: Jay Vosburgh <j.vosburgh@gmail.com>,
-        Andy Gospodarek <andy@greyhouse.net>,
-        Veaceslav Falico <vfalico@gmail.com>,
-        Nikolay Aleksandrov <nikolay@redhat.com>,
-        David Miller <davem@davemloft.net>,
-        Eric Dumazet <edumazet@google.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: [PATCH RFC ipsec-next 01/14] net: Add ESP offload features
+Date: Wed, 12 Apr 2017 08:26:40 +0200
+Message-ID: <1491978413-5700-2-git-send-email-steffen.klassert@secunet.com>
+References: <1491978413-5700-1-git-send-email-steffen.klassert@secunet.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: Steffen Klassert <steffen.klassert@secunet.com>,
+        Ilan Tayari <ilant@mellanox.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:33080 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750915AbdDLFg2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 12 Apr 2017 01:36:28 -0400
-Received: by mail-pf0-f193.google.com with SMTP id c198so3023015pfc.0
-        for <netdev@vger.kernel.org>; Tue, 11 Apr 2017 22:36:28 -0700 (PDT)
+Received: from a.mx.secunet.com ([62.96.220.36]:57544 "EHLO a.mx.secunet.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751042AbdDLG1y (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 12 Apr 2017 02:27:54 -0400
+In-Reply-To: <1491978413-5700-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mahesh Bandewar <maheshb@google.com>
+This patch adds netdev features to configure IPsec offloads.
 
-When link transitions from LINK_FAIL to LINK_UP, the commit phase is
-not called. This leads to an erroneous state causing slave-link state to
-get stuck in "going down" state while its speed and duplex are perfectly
-fine. This issue is a side-effect of splitting link-set into propose and
-commit phases introduced by de77ecd4ef02 ("bonding: improve link-status
-update in mii-monitoring")
-
-This patch fixes these issues by calling commit phase whenever link
-state change is proposed.
-
-Fixes: de77ecd4ef02 ("bonding: improve link-status update in mii-monitoring")
-Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- drivers/net/bonding/bond_main.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ include/linux/netdev_features.h | 8 +++++++-
+ include/linux/netdevice.h       | 1 +
+ include/linux/skbuff.h          | 2 ++
+ net/core/ethtool.c              | 3 +++
+ 4 files changed, 13 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index aba7352906a5..01e4a69af421 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -2064,6 +2064,7 @@ static int bond_miimon_inspect(struct bonding *bond)
- 					    (bond->params.downdelay - slave->delay) *
- 					    bond->params.miimon,
- 					    slave->dev->name);
-+				commit++;
- 				continue;
- 			}
+diff --git a/include/linux/netdev_features.h b/include/linux/netdev_features.h
+index 9a04195..1d4737c 100644
+--- a/include/linux/netdev_features.h
++++ b/include/linux/netdev_features.h
+@@ -54,8 +54,9 @@ enum {
+ 					 */
+ 	NETIF_F_GSO_TUNNEL_REMCSUM_BIT, /* ... TUNNEL with TSO & REMCSUM */
+ 	NETIF_F_GSO_SCTP_BIT,		/* ... SCTP fragmentation */
++	NETIF_F_GSO_ESP_BIT,		/* ... ESP with TSO */
+ 	/**/NETIF_F_GSO_LAST =		/* last bit, see GSO_MASK */
+-		NETIF_F_GSO_SCTP_BIT,
++		NETIF_F_GSO_ESP_BIT,
  
-@@ -2098,7 +2099,7 @@ static int bond_miimon_inspect(struct bonding *bond)
- 					    (bond->params.updelay - slave->delay) *
- 					    bond->params.miimon,
- 					    slave->dev->name);
--
-+				commit++;
- 				continue;
- 			}
+ 	NETIF_F_FCOE_CRC_BIT,		/* FCoE CRC32 */
+ 	NETIF_F_SCTP_CRC_BIT,		/* SCTP checksum offload */
+@@ -73,6 +74,8 @@ enum {
+ 	NETIF_F_HW_L2FW_DOFFLOAD_BIT,	/* Allow L2 Forwarding in Hardware */
  
+ 	NETIF_F_HW_TC_BIT,		/* Offload TC infrastructure */
++	NETIF_F_HW_ESP_BIT,		/* Hardware ESP transformation offload */
++	NETIF_F_HW_ESP_TX_CSUM_BIT,	/* ESP with TX checksum offload */
+ 
+ 	/*
+ 	 * Add your fresh new feature above and remember to update
+@@ -129,11 +132,14 @@ enum {
+ #define NETIF_F_GSO_PARTIAL	 __NETIF_F(GSO_PARTIAL)
+ #define NETIF_F_GSO_TUNNEL_REMCSUM __NETIF_F(GSO_TUNNEL_REMCSUM)
+ #define NETIF_F_GSO_SCTP	__NETIF_F(GSO_SCTP)
++#define NETIF_F_GSO_ESP		__NETIF_F(GSO_ESP)
+ #define NETIF_F_HW_VLAN_STAG_FILTER __NETIF_F(HW_VLAN_STAG_FILTER)
+ #define NETIF_F_HW_VLAN_STAG_RX	__NETIF_F(HW_VLAN_STAG_RX)
+ #define NETIF_F_HW_VLAN_STAG_TX	__NETIF_F(HW_VLAN_STAG_TX)
+ #define NETIF_F_HW_L2FW_DOFFLOAD	__NETIF_F(HW_L2FW_DOFFLOAD)
+ #define NETIF_F_HW_TC		__NETIF_F(HW_TC)
++#define NETIF_F_HW_ESP		__NETIF_F(HW_ESP)
++#define NETIF_F_HW_ESP_TX_CSUM	__NETIF_F(HW_ESP_TX_CSUM)
+ 
+ #define for_each_netdev_feature(mask_addr, bit)	\
+ 	for_each_set_bit(bit, (unsigned long *)mask_addr, NETDEV_FEATURE_COUNT)
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index cc07c3b..5bb03d1 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -4070,6 +4070,7 @@ static inline bool net_gso_ok(netdev_features_t features, int gso_type)
+ 	BUILD_BUG_ON(SKB_GSO_PARTIAL != (NETIF_F_GSO_PARTIAL >> NETIF_F_GSO_SHIFT));
+ 	BUILD_BUG_ON(SKB_GSO_TUNNEL_REMCSUM != (NETIF_F_GSO_TUNNEL_REMCSUM >> NETIF_F_GSO_SHIFT));
+ 	BUILD_BUG_ON(SKB_GSO_SCTP    != (NETIF_F_GSO_SCTP >> NETIF_F_GSO_SHIFT));
++	BUILD_BUG_ON(SKB_GSO_ESP != (NETIF_F_GSO_ESP >> NETIF_F_GSO_SHIFT));
+ 
+ 	return (features & feature) == feature;
+ }
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 741d75c..81ef53f 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -492,6 +492,8 @@ enum {
+ 	SKB_GSO_TUNNEL_REMCSUM = 1 << 14,
+ 
+ 	SKB_GSO_SCTP = 1 << 15,
++
++	SKB_GSO_ESP = 1 << 16,
+ };
+ 
+ #if BITS_PER_LONG > 32
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index 905a88a..03111a2 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -90,6 +90,7 @@ static const char netdev_features_strings[NETDEV_FEATURE_COUNT][ETH_GSTRING_LEN]
+ 	[NETIF_F_GSO_UDP_TUNNEL_CSUM_BIT] = "tx-udp_tnl-csum-segmentation",
+ 	[NETIF_F_GSO_PARTIAL_BIT] =	 "tx-gso-partial",
+ 	[NETIF_F_GSO_SCTP_BIT] =	 "tx-sctp-segmentation",
++	[NETIF_F_GSO_ESP_BIT] =		 "tx-esp-segmentation",
+ 
+ 	[NETIF_F_FCOE_CRC_BIT] =         "tx-checksum-fcoe-crc",
+ 	[NETIF_F_SCTP_CRC_BIT] =        "tx-checksum-sctp",
+@@ -103,6 +104,8 @@ static const char netdev_features_strings[NETDEV_FEATURE_COUNT][ETH_GSTRING_LEN]
+ 	[NETIF_F_RXALL_BIT] =            "rx-all",
+ 	[NETIF_F_HW_L2FW_DOFFLOAD_BIT] = "l2-fwd-offload",
+ 	[NETIF_F_HW_TC_BIT] =		 "hw-tc-offload",
++	[NETIF_F_HW_ESP_BIT] =		 "esp-hw-offload",
++	[NETIF_F_HW_ESP_TX_CSUM_BIT] =	 "esp-tx-csum-hw-offload",
+ };
+ 
+ static const char
 -- 
-2.12.2.715.g7642488e1d-goog
+2.7.4
