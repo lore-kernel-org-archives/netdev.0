@@ -1,88 +1,96 @@
 From: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Subject: Re: [PATCH v4 08/18] arm: sun8i: orangepi-pc: Enable dwmac-sun8i
-Date: Wed, 12 Apr 2017 14:39:08 +0200
-Message-ID: <20170412123908.vho6eodh4p3t7fry@lukather>
+Subject: Re: [PATCH v4 13/18] arm64: allwinner: sun50i-a64: add dwmac-sun8i
+ Ethernet driver
+Date: Wed, 12 Apr 2017 14:41:53 +0200
+Message-ID: <20170412124153.q6zvdvqkroizaxgb@lukather>
 References: <20170412111400.2296-1-clabbe.montjoie@gmail.com>
- <20170412111400.2296-9-clabbe.montjoie@gmail.com>
-Reply-To: maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org
+ <20170412111400.2296-14-clabbe.montjoie@gmail.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha256;
-	protocol="application/pgp-signature"; boundary="d4sutcdjykfj5rbu"
+        protocol="application/pgp-signature"; boundary="vggbggij6e3f5b5f"
 Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org,
-	linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org, will.deacon-5wv7dgnIgG8@public.gmane.org,
-	peppe.cavallaro-qxv4g6HH51o@public.gmane.org, alexandre.torgue-qxv4g6HH51o@public.gmane.org,
-	linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+        linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org,
+        will.deacon-5wv7dgnIgG8@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
+        alexandre.torgue-qxv4g6HH51o@public.gmane.org, linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
 To: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-sunxi+bncBDSJBYGBRIMBB557XDDQKGQEI6KBYLA-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20170412111400.2296-9-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <https://groups.google.com/group/linux-sunxi
-List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
- <https://groups.google.com/group/linux-sunxi/subscribe>
+In-Reply-To: <20170412111400.2296-14-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 
---d4sutcdjykfj5rbu
-Content-Type: text/plain; charset=UTF-8
+--vggbggij6e3f5b5f
+Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Hi Corentin,
-
-On Wed, Apr 12, 2017 at 01:13:50PM +0200, Corentin Labbe wrote:
-> The dwmac-sun8i hardware is present on the Orange PI PC.
-> It uses the internal PHY.
-> 
-> This patch create the needed emac node.
-> 
+On Wed, Apr 12, 2017 at 01:13:55PM +0200, Corentin Labbe wrote:
+> The dwmac-sun8i is an Ethernet MAC that supports 10/100/1000 Mbit
+> connections. It is very similar to the device found in the Allwinner
+> H3, but lacks the internal 100 Mbit PHY and its associated control
+> bits.
+> This adds the necessary bits to the Allwinner A64 SoC .dtsi, but keeps
+> it disabled at this level.
+>=20
 > Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 > ---
->  arch/arm/boot/dts/sun8i-h3-orangepi-pc.dts | 8 ++++++++
->  1 file changed, 8 insertions(+)
-> 
-> diff --git a/arch/arm/boot/dts/sun8i-h3-orangepi-pc.dts b/arch/arm/boot/dts/sun8i-h3-orangepi-pc.dts
-> index f148111..746c25a 100644
-> --- a/arch/arm/boot/dts/sun8i-h3-orangepi-pc.dts
-> +++ b/arch/arm/boot/dts/sun8i-h3-orangepi-pc.dts
-> @@ -53,6 +53,7 @@
->  
->  	aliases {
->  		serial0 = &uart0;
-> +		ethernet0 = &emac;
+>  arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi | 37 +++++++++++++++++++++=
+++++++
+>  1 file changed, 37 insertions(+)
+>=20
+> diff --git a/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi b/arch/arm64/b=
+oot/dts/allwinner/sun50i-a64.dtsi
+> index 0b0f4ab..2569827 100644
+> --- a/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi
+> +++ b/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi
+> @@ -287,6 +287,23 @@
+>  				bias-pull-up;
+>  			};
+> =20
+> +			rmii_pins: rmii_pins {
+> +				pins =3D "PD10", "PD11", "PD13", "PD14",
+> +						"PD17", "PD18", "PD19", "PD20",
+> +						"PD22", "PD23";
 
-Sorry for not spotting this earlier...
+Please align the wrapped lines on the first pin.
 
-This should be ordered by alphabetical order, 
+> +				function =3D "emac";
+> +				drive-strength =3D <40>;
 
->  	};
->  
->  	chosen {
-> @@ -184,3 +185,10 @@
->  	/* USB VBUS is always on */
->  	status = "okay";
->  };
-> +
-> +&emac {
-> +	phy-handle = <&int_mii_phy>;
-> +	phy-mode = "mii";
-> +	allwinner,leds-active-low;
-> +	status = "okay";
-> +};
-
-And the node here as well.
-
-Almost all your other DT patches also have this issue, please fix it
-in all of them.
+Do you actually need that for all the boards, or only a few of them?
 
 Maxime
 
--- 
+--=20
 Maxime Ripard, Free Electrons
 Embedded Linux and Kernel engineering
 http://free-electrons.com
---d4sutcdjykfj5rbu--
+
+--vggbggij6e3f5b5f
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIcBAEBCAAGBQJY7iCRAAoJEBx+YmzsjxAgMBgP/2ZVzIHhX/NflpKuJijgewLb
+ukRjBSwO9fsYjYAt+FmR8y3JuX6jtoTx7UagPJ/rH5z01Vq7Vf1mAlk47koHP6HD
+HmhhB/LpG0l7VvpH30j/bIOgWb8BMkjgebXmE7iWyz0khWkkv8jnNRk3vcAGeG8p
+jYVrjgIV1Z/DVNqPzU0IW1wAhwmRjvGEewyiZU/Iesie9Ij3IX8NHMFjnbEUid/P
+Tuv6UluInBm1jumxY3fOFGFIvdL7M9eocMRT2YNOjB+n0MIBWyt42iKAN6Xd2uJC
+sg0WToVdHm5UHa12qlO3JzXPgBtfz5/MKyIU9HcspZQlMcqDlBUN5IVE8jDOkz2R
+nz3M2gmfeIOyxmwAhR2F34elrc93TD3/OsSRsdLZ6os1Tn34cdx6d+98P5Sms9sY
+qW6r9wQsWx3g2D72MKTDhQYA/OimMBs8MuMe80++rN210PL9CH2d6Tlg+Cbvx/Rw
+9mBfA4UqAzwHoESviKbn6g7L5DVdPNvTX4MdB+Msn0GwbQl7BmhB9zG22Fz1RK9l
+24tl33RxFEcpxp9gKV1isS1hohlVYirn71vlvYstZly3SHGJEkmMzXXdjEn7cWau
+sRExD4YQfi4IBCADfn1bw6QUmiXfv++bO3j4b2SI/Ko/jB0rstKJFE1i0Csx5IWe
+pFCU0oPwCzd4VdzD/bT7
+=tERr
+-----END PGP SIGNATURE-----
+
+--vggbggij6e3f5b5f--
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
