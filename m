@@ -1,64 +1,82 @@
-From: Tim Harvey <tharvey@gateworks.com>
-Subject: Re: IMX6 FEC connection drops occasionally with 'MDIO read timeout'
-Date: Wed, 12 Apr 2017 09:16:04 -0700
-Message-ID: <CAJ+vNU3u8JGXfXU6z6Rk4ur2j14q00jiXJB13f8MRN8_F1SFMQ@mail.gmail.com>
-References: <CAJ+vNU1UG2EeJSTStT_BJ+RiRe4a8YwfRgnE6DsRghTLetq_rg@mail.gmail.com>
- <AM4PR0401MB2260310769B1983FAE5D7814FF010@AM4PR0401MB2260.eurprd04.prod.outlook.com>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: RE: [PATCH net-next,1/3] hv_netvsc: Use per socket hash when
+ available
+Date: Wed, 12 Apr 2017 16:24:36 +0000
+Message-ID: <BLUPR03MB14123B438231A0EFAC4DCBCBCA030@BLUPR03MB1412.namprd03.prod.outlook.com>
+References: <1491699241-9944-1-git-send-email-haiyangz@exchange.microsoft.com>
+ <20170411.221241.2175639910931847215.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-        Fabio Estevam <fabio.estevam@nxp.com>,
-        Lucas Stach <l.stach@pengutronix.de>,
-        Koen Vandeputte <koen.vandeputte@ncentric.com>
-To: Andy Duan <fugang.duan@nxp.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        KY Srinivasan <kys@microsoft.com>,
+        "olaf@aepfle.de" <olaf@aepfle.de>,
+        "vkuznets@redhat.com" <vkuznets@redhat.com>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f47.google.com ([74.125.82.47]:35362 "EHLO
-        mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752928AbdDLQQH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 12 Apr 2017 12:16:07 -0400
-Received: by mail-wm0-f47.google.com with SMTP id w64so92083364wma.0
-        for <netdev@vger.kernel.org>; Wed, 12 Apr 2017 09:16:06 -0700 (PDT)
-In-Reply-To: <AM4PR0401MB2260310769B1983FAE5D7814FF010@AM4PR0401MB2260.eurprd04.prod.outlook.com>
+Received: from mail-cys01nam02on0100.outbound.protection.outlook.com ([104.47.37.100]:59744
+        "EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1754946AbdDLQYk (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 12 Apr 2017 12:24:40 -0400
+In-Reply-To: <20170411.221241.2175639910931847215.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Apr 9, 2017 at 6:42 PM, Andy Duan <fugang.duan@nxp.com> wrote:
-> From: Tim Harvey <tharvey@gateworks.com> Sent: Friday, April 07, 2017 10:47 PM
->>To: netdev <netdev@vger.kernel.org>
->>Cc: Fabio Estevam <fabio.estevam@nxp.com>; Lucas Stach
->><l.stach@pengutronix.de>; Andy Duan <fugang.duan@nxp.com>; Koen
->>Vandeputte <koen.vandeputte@ncentric.com>
->>Subject: IMX6 FEC connection drops occasionally with 'MDIO read timeout'
->>
->>Greetings,
->>
->>I've had a couple of users report that they are getting occasional link drops
->>when using IMX6 FEC on our boards which are using a Marvell
->>88E1510 PHY:
->>
->>[ 9348.474418] fec 2188000.ethernet eth0: MDIO read timeout [ 9350.478804]
->>fec 2188000.ethernet eth0: Link is Down
->>
->>If they bring the interface back up it works fine.
->>
->>The most recent version of Linux they have tested and seen this on is
->>v4.9 with CONFIG_MARVELL_PHY=y
->>
->>Has anyone else run into this or know what the issue could be? Should there
->>be any retries at the MDIO level or above?
->>
->>Regards,
->>
->>Tim
->
-> Pls keep ipg clock always on and try it.
-> In general, MDIO timeout maybe caused by ipg clock off and mii interrupt lost.
->
 
-Andy,
 
-Sounds like what Andrew was talking about. In this case suspend/resume
-is not being used. Is there any other way IPG can get turned off that
-I should be looking at?
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Tuesday, April 11, 2017 10:13 PM
+> To: Haiyang Zhang <haiyangz@microsoft.com>; Haiyang Zhang
+> <haiyangz@microsoft.com>
+> Cc: netdev@vger.kernel.org; KY Srinivasan <kys@microsoft.com>;
+> olaf@aepfle.de; vkuznets@redhat.com; linux-kernel@vger.kernel.org
+> Subject: Re: [PATCH net-next,1/3] hv_netvsc: Use per socket hash when
+> available
+>=20
+> From: Haiyang Zhang <haiyangz@exchange.microsoft.com>
+> Date: Sat,  8 Apr 2017 17:53:59 -0700
+>=20
+> > diff --git a/drivers/net/hyperv/netvsc_drv.c
+> b/drivers/net/hyperv/netvsc_drv.c
+> > index f24c289..0a129cb 100644
+> > --- a/drivers/net/hyperv/netvsc_drv.c
+> > +++ b/drivers/net/hyperv/netvsc_drv.c
+> > @@ -211,9 +211,14 @@ static u16 netvsc_select_queue(struct net_device
+> *ndev, struct sk_buff *skb,
+> >  	int q_idx =3D sk_tx_queue_get(sk);
+> >
+> >  	if (q_idx < 0 || skb->ooo_okay || q_idx >=3D num_tx_queues) {
+> > -		u16 hash =3D __skb_tx_hash(ndev, skb, VRSS_SEND_TAB_SIZE);
+> > +		u16 hash;
+> >  		int new_idx;
+> >
+> > +		if (sk)
+> > +			skb_set_hash_from_sk(skb, sk);
+> > +
+> > +		hash =3D __skb_tx_hash(ndev, skb, VRSS_SEND_TAB_SIZE);
+>=20
+> Please do not do this.
+>=20
+> TCP performs this operation for you for every pack it emits.
+>=20
+> And also every socket family that uses skb_set_owner_w() either
+> directly or indirectly gets this done as well.
+>=20
+> I do not want to see drivers start to get peppered with calls to this
+> thing.
+>=20
+> Explain the case which is missing that matters, and we can address
+> that instead.
+>=20
+> Thanks.
 
-Tim
+Thanks for pointing this out. I did some tests, the skb->hash is indeed
+set to the sk->sk_txhash by upper layer. I will remove this patch, and
+re-submit other patches.
+
+Thanks,
+- Haiyang
