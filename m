@@ -1,48 +1,39 @@
-From: Corentin Labbe <clabbe.montjoie@gmail.com>
-Subject: Re: Network driver "test suite"
-Date: Wed, 12 Apr 2017 09:18:57 +0200
-Message-ID: <20170412071857.GB11170@Red>
-References: <1491956177.7236.34.camel@kernel.crashing.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: [PATCH] net: xdp: don't export dev_change_xdp_fd()
+Date: Wed, 12 Apr 2017 09:32:07 +0200
+Message-ID: <20170412073207.27029-1-johannes@sipsolutions.net>
+Cc: Brenden Blanco <bblanco@plumgrid.com>,
+        Johannes Berg <johannes.berg@intel.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f46.google.com ([74.125.82.46]:36065 "EHLO
-        mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753179AbdDLHTB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 12 Apr 2017 03:19:01 -0400
-Received: by mail-wm0-f46.google.com with SMTP id o81so79903544wmb.1
-        for <netdev@vger.kernel.org>; Wed, 12 Apr 2017 00:19:00 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1491956177.7236.34.camel@kernel.crashing.org>
+Received: from s3.sipsolutions.net ([5.9.151.49]:33032 "EHLO sipsolutions.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752302AbdDLHcN (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 12 Apr 2017 03:32:13 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 12, 2017 at 10:16:17AM +1000, Benjamin Herrenschmidt wrote:
-> Hi folks !
-> 
-> Does anybody knows of an existing kind of automated "test suite" for a
-> network/ethernet driver ?
-> 
-> IE. Something we could run both on the "tested" driver and a cross-over 
-> "known good" peer (possibly the latter set to promisc & no offload for
-> proper analysis), that would out the driver through a whole bunch of
-> tests, such as verifying the checksum offload on a various combinations
-> of headers lenghts and encapsulation, vlan stuff, multicast filters,
-> etc... ?
-> 
-> I've hacking on a driver recently and ended up "manually" testing a
-> bunch of these things using a palette of tools (iperf, nuttcp, some
-> multicast hack I have around, etc... along with tcpdump) but it feels
-> like this is the kind of things that could be greatly automated.
-> 
-> Cheers,
-> Ben.
-> 
+From: Johannes Berg <johannes.berg@intel.com>
 
-I have started to add some tests to kselftests (tools/testing/selftests/net/netdevice.sh)
-The major intent is that thoses tests could be run without any user directive. (and so could be usefull in kernelci)
-I just need to share the next serie of patch.
+Since dev_change_xdp_fd() is only used in rtnetlink, which must
+be built-in, there's no reason to export dev_change_xdp_fd().
 
-Regards
+Signed-off-by: Johannes Berg <johannes.berg@intel.com>
+---
+ net/core/dev.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index ef9fe60ee294..5d33e2baab2b 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -6754,7 +6754,6 @@ int dev_change_xdp_fd(struct net_device *dev, int fd, u32 flags)
+ 
+ 	return err;
+ }
+-EXPORT_SYMBOL(dev_change_xdp_fd);
+ 
+ /**
+  *	dev_new_index	-	allocate an ifindex
+-- 
+2.11.0
