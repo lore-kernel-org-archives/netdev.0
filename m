@@ -1,50 +1,80 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next] net: stmmac: add drop transmit status
- feature
-Date: Wed, 12 Apr 2017 11:28:25 -0400 (EDT)
-Message-ID: <20170412.112825.1170167825508436176.davem@davemloft.net>
-References: <efbda38a-2146-06b2-9151-19294c654d28@synopsys.com>
-        <20170412.105101.58827766857310782.davem@davemloft.net>
-        <13ddd2d8-c2a4-4983-a9af-8e34f605374c@synopsys.com>
+Subject: Re: [PATCH net-next v5 1/5] netlink: extended ACK reporting
+Date: Wed, 12 Apr 2017 11:28:34 -0400 (EDT)
+Message-ID: <20170412.112834.2012799294298123411.davem@davemloft.net>
+References: <20170412123408.22012-2-johannes@sipsolutions.net>
+        <dbc81431-487b-f218-a4c6-2caa44783d97@cumulusnetworks.com>
+        <20170412151303.GK1952@nanopsycho>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
-Cc: andrew@lunn.ch, netdev@vger.kernel.org
-To: Joao.Pinto@synopsys.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: dsa@cumulusnetworks.com, johannes@sipsolutions.net,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        pablo@netfilter.org, jhs@mojatatu.com, jbenc@redhat.com,
+        johannes.berg@intel.com
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:46832 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:46842 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752379AbdDLP20 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 12 Apr 2017 11:28:26 -0400
-In-Reply-To: <13ddd2d8-c2a4-4983-a9af-8e34f605374c@synopsys.com>
+        with ESMTP id S1751349AbdDLP2l (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 12 Apr 2017 11:28:41 -0400
+In-Reply-To: <20170412151303.GK1952@nanopsycho>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joao Pinto <Joao.Pinto@synopsys.com>
-Date: Wed, 12 Apr 2017 16:13:33 +0100
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Wed, 12 Apr 2017 17:13:03 +0200
 
-> Às 3:51 PM de 4/12/2017, David Miller escreveu:
->> You cannot develop performance based features and only test their
->> impact on FPGA when almost all users are on real silicon.
->> 
->> And this requirement is absolutely non-negotiable.
->> 
->> You must test the impact on real silicon otherwise your performance
->> numbers, which are required to be provided in the commit message
->> for any "performance" feature or change, are completely useless.
+> Wed, Apr 12, 2017 at 05:06:48PM CEST, dsa@cumulusnetworks.com wrote:
+>>On 4/12/17 6:34 AM, Johannes Berg wrote:
+>>> diff --git a/include/uapi/linux/netlink.h b/include/uapi/linux/netlink.h
+>>> index b2c9c26ea30f..7df88770e029 100644
+>>> --- a/include/uapi/linux/netlink.h
+>>> +++ b/include/uapi/linux/netlink.h
+>>> @@ -69,6 +69,10 @@ struct nlmsghdr {
+>>>  #define NLM_F_CREATE	0x400	/* Create, if it does not exist	*/
+>>>  #define NLM_F_APPEND	0x800	/* Add to end of list		*/
+>>>  
+>>> +/* Flags for ACK message */
+>>> +#define NLM_F_CAPPED	0x100	/* request was capped */
+>>> +#define NLM_F_ACK_TLVS	0x200	/* extended ACK TVLs were included */
+>>> +
+>>>  /*
+>>>     4.4BSD ADD		NLM_F_CREATE|NLM_F_EXCL
+>>>     4.4BSD CHANGE	NLM_F_REPLACE
+>>> @@ -101,6 +105,33 @@ struct nlmsghdr {
+>>>  struct nlmsgerr {
+>>>  	int		error;
+>>>  	struct nlmsghdr msg;
+>>> +	/*
+>>> +	 * followed by the message contents unless NETLINK_CAP_ACK was set
+>>> +	 * or the ACK indicates success (error == 0)
+>>> +	 * message length is aligned with NLMSG_ALIGN()
+>>> +	 */
+>>> +	/*
+>>> +	 * followed by TLVs defined in enum nlmsgerr_attrs
+>>> +	 * if NETLINK_EXT_ACK was set
+>>> +	 */
+>>> +};
+>>> +
+>>> +/**
+>>> + * enum nlmsgerr_attrs - nlmsgerr attributes
+>>> + * @NLMSGERR_ATTR_UNUSED: unused
+>>> + * @NLMSGERR_ATTR_MSG: error message string (string)
+>>> + * @NLMSGERR_ATTR_OFFS: offset of the invalid attribute in the original
+>>> + *	 message, counting from the beginning of the header (u32)
+>>> + * @__NLMSGERR_ATTR_MAX: number of attributes
+>>> + * @NLMSGERR_ATTR_MAX: highest attribute number
+>>> + */
+>>> +enum nlmsgerr_attrs {
+>>> +	NLMSGERR_ATTR_UNUSED,
+>>> +	NLMSGERR_ATTR_MSG,
+>>
+>>There was a discussion about side effects of adding strings (bloat,
+>>internationalization). Should ATTR_MSG be removed until that is ironed
+>>out? Leaving it in suggests it is ok to start adding strings.
 > 
-> Next time I won't mention anything about performance, honestly. "Drop TX Status"
-> is just an IP Core feature that can or not be used, it is up to the driver user.
+> I believe that we need strings right away. Without them, this patchset
+> really does not make much sense.
 
-Being dishonest about why a change might be desirable doesn't help things, in fact
-now that you've stated this intent in the future, people know to be suspucious of
-your changes.
-
-I seriously don't think you realize the ramifications of what you just said right
-there.
-
-Everything here is about trust, and if you create a situation where you can't be
-trusted then the process of doing upstream development will be extremely difficult
-and time consuming for you.
-
-Thanks.
+Agreed.
