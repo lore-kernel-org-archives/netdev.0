@@ -1,43 +1,43 @@
 From: Aaron Conole <aconole@bytheb.org>
-Subject: [PATCH nf-next] nf_conntrack: remove double assignment
-Date: Wed, 12 Apr 2017 16:32:54 -0400
-Message-ID: <20170412203254.14625-1-aconole@bytheb.org>
+Subject: [PATCH nf-next] ip_vs_sync: change comparison on sync_refresh_period
+Date: Wed, 12 Apr 2017 16:38:12 -0400
+Message-ID: <20170412203812.15091-1-aconole@bytheb.org>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Wensong Zhang <wensong@linux-vs.org>,
+        Simon Horman <horms@verge.net.au>,
+        Julian Anastasov <ja@ssi.bg>,
         Pablo Neira Ayuso <pablo@netfilter.org>,
         Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f194.google.com ([209.85.220.194]:36611 "EHLO
-        mail-qk0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755512AbdDLUdC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 12 Apr 2017 16:33:02 -0400
-Received: by mail-qk0-f194.google.com with SMTP id v75so5659318qkb.3
-        for <netdev@vger.kernel.org>; Wed, 12 Apr 2017 13:33:01 -0700 (PDT)
+Received: from mail-qt0-f194.google.com ([209.85.216.194]:33339 "EHLO
+        mail-qt0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754805AbdDLUiU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 12 Apr 2017 16:38:20 -0400
+Received: by mail-qt0-f194.google.com with SMTP id c45so5445585qtb.0
+        for <netdev@vger.kernel.org>; Wed, 12 Apr 2017 13:38:20 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The protonet pointer will unconditionally be rewritten, so just do the
-needed assignment first.
+The sync_refresh_period variable is unsigned, so it can never be < 0.
 
 Signed-off-by: Aaron Conole <aconole@bytheb.org>
 ---
- net/netfilter/nf_conntrack_proto.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ net/netfilter/ipvs/ip_vs_sync.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/netfilter/nf_conntrack_proto.c b/net/netfilter/nf_conntrack_proto.c
-index 2d6ee18..e6d2945 100644
---- a/net/netfilter/nf_conntrack_proto.c
-+++ b/net/netfilter/nf_conntrack_proto.c
-@@ -441,9 +441,8 @@ EXPORT_SYMBOL_GPL(nf_ct_l4proto_unregister_one);
- void nf_ct_l4proto_pernet_unregister_one(struct net *net,
- 					 struct nf_conntrack_l4proto *l4proto)
- {
--	struct nf_proto_net *pn = NULL;
-+	struct nf_proto_net *pn = nf_ct_l4proto_net(net, l4proto);
- 
--	pn = nf_ct_l4proto_net(net, l4proto);
- 	if (pn == NULL)
- 		return;
+diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
+index b03c280..123dc0f 100644
+--- a/net/netfilter/ipvs/ip_vs_sync.c
++++ b/net/netfilter/ipvs/ip_vs_sync.c
+@@ -520,7 +520,7 @@ static int ip_vs_sync_conn_needed(struct netns_ipvs *ipvs,
+ 		if (!(cp->flags & IP_VS_CONN_F_TEMPLATE) &&
+ 		    pkts % sync_period != sysctl_sync_threshold(ipvs))
+ 			return 0;
+-	} else if (sync_refresh_period <= 0 &&
++	} else if (!sync_refresh_period &&
+ 		   pkts != sysctl_sync_threshold(ipvs))
+ 		return 0;
  
 -- 
 2.9.3
