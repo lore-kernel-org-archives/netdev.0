@@ -1,7 +1,7 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH RFC ipsec-next 11/14] esp: Use a synchronous crypto algorithm on offloading.
-Date: Wed, 12 Apr 2017 08:26:50 +0200
-Message-ID: <1491978413-5700-12-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH RFC ipsec-next 12/14] net: Add a xfrm validate function to validate_xmit_skb
+Date: Wed, 12 Apr 2017 08:26:51 +0200
+Message-ID: <1491978413-5700-13-git-send-email-steffen.klassert@secunet.com>
 References: <1491978413-5700-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,111 +9,107 @@ Cc: Steffen Klassert <steffen.klassert@secunet.com>,
         Ilan Tayari <ilant@mellanox.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:57586 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([62.96.220.36]:57592 "EHLO a.mx.secunet.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751619AbdDLG3E (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 12 Apr 2017 02:29:04 -0400
+        id S1751212AbdDLG3P (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 12 Apr 2017 02:29:15 -0400
 In-Reply-To: <1491978413-5700-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We need a fallback algorithm for crypto offloading to a NIC.
-This is because packets can be rerouted to other NICs that
-don't support crypto offloading. The fallback is going to be
-implemented at layer2 where we know the final output device
-but can't handle asynchronous returns fron the crypto layer.
+When we do IPsec offloading, we need a fallback for
+packets that were targeted to be IPsec offloaded but
+rerouted to a device that does not support IPsec offload.
+For that we add a function that checks the offloading
+features of the sending device and and flags the
+requirement of a fallback before it calls the IPsec
+output function. The IPsec output function adds the IPsec
+trailer and does encryption if needed.
 
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- net/ipv4/esp4.c | 12 ++++++++++--
- net/ipv6/esp6.c | 12 ++++++++++--
- 2 files changed, 20 insertions(+), 4 deletions(-)
+ include/net/xfrm.h     |  6 ++++++
+ net/core/dev.c         |  3 +++
+ net/xfrm/xfrm_device.c | 29 +++++++++++++++++++++++++++++
+ 3 files changed, 38 insertions(+)
 
-diff --git a/net/ipv4/esp4.c b/net/ipv4/esp4.c
-index 4382f30..7e501ad 100644
---- a/net/ipv4/esp4.c
-+++ b/net/ipv4/esp4.c
-@@ -783,13 +783,17 @@ static int esp_init_aead(struct xfrm_state *x)
- 	char aead_name[CRYPTO_MAX_ALG_NAME];
- 	struct crypto_aead *aead;
- 	int err;
-+	u32 mask = 0;
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index 17603bf..6793a30c 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -1862,6 +1862,7 @@ static inline struct xfrm_offload *xfrm_offload(struct sk_buff *skb)
  
- 	err = -ENAMETOOLONG;
- 	if (snprintf(aead_name, CRYPTO_MAX_ALG_NAME, "%s(%s)",
- 		     x->geniv, x->aead->alg_name) >= CRYPTO_MAX_ALG_NAME)
- 		goto error;
+ #ifdef CONFIG_XFRM_OFFLOAD
+ void __net_init xfrm_dev_init(void);
++int validate_xmit_xfrm(struct sk_buff *skb, netdev_features_t features);
+ int xfrm_dev_state_add(struct net *net, struct xfrm_state *x,
+ 		       struct xfrm_user_offload *xuo);
+ bool xfrm_dev_offload_ok(struct sk_buff *skb, struct xfrm_state *x);
+@@ -1890,6 +1891,11 @@ static inline void __net_init xfrm_dev_init(void)
+ {
+ }
  
--	aead = crypto_alloc_aead(aead_name, 0, 0);
-+	if (x->xso.offload_handle)
-+		mask |= CRYPTO_ALG_ASYNC;
++static inline int validate_xmit_xfrm(struct sk_buff *skb, netdev_features_t features)
++{
++	return 0;
++}
 +
-+	aead = crypto_alloc_aead(aead_name, 0, mask);
- 	err = PTR_ERR(aead);
- 	if (IS_ERR(aead))
- 		goto error;
-@@ -819,6 +823,7 @@ static int esp_init_authenc(struct xfrm_state *x)
- 	char authenc_name[CRYPTO_MAX_ALG_NAME];
- 	unsigned int keylen;
- 	int err;
-+	u32 mask = 0;
+ static inline int xfrm_dev_state_add(struct net *net, struct xfrm_state *x, struct xfrm_user_offload *xuo)
+ {
+ 	return 0;
+diff --git a/net/core/dev.c b/net/core/dev.c
+index ef9fe60e..5f0a864 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2972,6 +2972,9 @@ static struct sk_buff *validate_xmit_skb(struct sk_buff *skb, struct net_device
+ 		    __skb_linearize(skb))
+ 			goto out_kfree_skb;
  
- 	err = -EINVAL;
- 	if (!x->ealg)
-@@ -844,7 +849,10 @@ static int esp_init_authenc(struct xfrm_state *x)
- 			goto error;
- 	}
- 
--	aead = crypto_alloc_aead(authenc_name, 0, 0);
-+	if (x->xso.offload_handle)
-+		mask |= CRYPTO_ALG_ASYNC;
++		if (validate_xmit_xfrm(skb, features))
++			goto out_kfree_skb;
 +
-+	aead = crypto_alloc_aead(authenc_name, 0, mask);
- 	err = PTR_ERR(aead);
- 	if (IS_ERR(aead))
- 		goto error;
-diff --git a/net/ipv6/esp6.c b/net/ipv6/esp6.c
-index 82d3da8..8b55abf 100644
---- a/net/ipv6/esp6.c
-+++ b/net/ipv6/esp6.c
-@@ -704,13 +704,17 @@ static int esp_init_aead(struct xfrm_state *x)
- 	char aead_name[CRYPTO_MAX_ALG_NAME];
- 	struct crypto_aead *aead;
- 	int err;
-+	u32 mask = 0;
+ 		/* If packet is not checksummed and device does not
+ 		 * support checksumming for this protocol, complete
+ 		 * checksumming here.
+diff --git a/net/xfrm/xfrm_device.c b/net/xfrm/xfrm_device.c
+index 9bac2ba..8ec8a3f 100644
+--- a/net/xfrm/xfrm_device.c
++++ b/net/xfrm/xfrm_device.c
+@@ -22,6 +22,35 @@
+ #include <net/xfrm.h>
+ #include <linux/notifier.h>
  
- 	err = -ENAMETOOLONG;
- 	if (snprintf(aead_name, CRYPTO_MAX_ALG_NAME, "%s(%s)",
- 		     x->geniv, x->aead->alg_name) >= CRYPTO_MAX_ALG_NAME)
- 		goto error;
- 
--	aead = crypto_alloc_aead(aead_name, 0, 0);
-+	if (x->xso.offload_handle)
-+		mask |= CRYPTO_ALG_ASYNC;
++int validate_xmit_xfrm(struct sk_buff *skb, netdev_features_t features)
++{
++	int err;
++	struct xfrm_state *x;
++	struct xfrm_offload *xo = xfrm_offload(skb);
 +
-+	aead = crypto_alloc_aead(aead_name, 0, mask);
- 	err = PTR_ERR(aead);
- 	if (IS_ERR(aead))
- 		goto error;
-@@ -740,6 +744,7 @@ static int esp_init_authenc(struct xfrm_state *x)
- 	char authenc_name[CRYPTO_MAX_ALG_NAME];
- 	unsigned int keylen;
- 	int err;
-+	u32 mask = 0;
- 
- 	err = -EINVAL;
- 	if (!x->ealg)
-@@ -765,7 +770,10 @@ static int esp_init_authenc(struct xfrm_state *x)
- 			goto error;
- 	}
- 
--	aead = crypto_alloc_aead(authenc_name, 0, 0);
-+	if (x->xso.offload_handle)
-+		mask |= CRYPTO_ALG_ASYNC;
++	if (skb_is_gso(skb))
++		return 0;
 +
-+	aead = crypto_alloc_aead(authenc_name, 0, mask);
- 	err = PTR_ERR(aead);
- 	if (IS_ERR(aead))
- 		goto error;
++	if (xo) {
++		x = skb->sp->xvec[skb->sp->len - 1];
++		if (xo->flags & XFRM_GRO || x->xso.flags & XFRM_OFFLOAD_INBOUND)
++			return 0;
++
++		x->outer_mode->xmit(x, skb);
++
++		err = x->type_offload->xmit(x, skb, features);
++		if (err) {
++			XFRM_INC_STATS(xs_net(x), LINUX_MIB_XFRMOUTSTATEPROTOERROR);
++			return err;
++		}
++
++		skb_push(skb, skb->data - skb_mac_header(skb));
++	}
++
++	return 0;
++}
++EXPORT_SYMBOL_GPL(validate_xmit_xfrm);
++
+ int xfrm_dev_state_add(struct net *net, struct xfrm_state *x,
+ 		       struct xfrm_user_offload *xuo)
+ {
 -- 
 2.7.4
