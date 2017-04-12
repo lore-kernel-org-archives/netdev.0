@@ -1,7 +1,7 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH RFC ipsec-next 06/14] esp6: Remame esp_input_done2
-Date: Wed, 12 Apr 2017 08:26:45 +0200
-Message-ID: <1491978413-5700-7-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH RFC ipsec-next 11/14] esp: Use a synchronous crypto algorithm on offloading.
+Date: Wed, 12 Apr 2017 08:26:50 +0200
+Message-ID: <1491978413-5700-12-git-send-email-steffen.klassert@secunet.com>
 References: <1491978413-5700-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,54 +9,111 @@ Cc: Steffen Klassert <steffen.klassert@secunet.com>,
         Ilan Tayari <ilant@mellanox.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:57580 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([62.96.220.36]:57586 "EHLO a.mx.secunet.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752725AbdDLG24 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 12 Apr 2017 02:28:56 -0400
+        id S1751619AbdDLG3E (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 12 Apr 2017 02:29:04 -0400
 In-Reply-To: <1491978413-5700-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We are going to export the ipv4 and the ipv6
-version of esp_input_done2. They are not static
-anymore and can't have the same name. So rename
-the ipv6 version to esp6_input_done2.
+We need a fallback algorithm for crypto offloading to a NIC.
+This is because packets can be rerouted to other NICs that
+don't support crypto offloading. The fallback is going to be
+implemented at layer2 where we know the final output device
+but can't handle asynchronous returns fron the crypto layer.
 
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- net/ipv6/esp6.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ net/ipv4/esp4.c | 12 ++++++++++--
+ net/ipv6/esp6.c | 12 ++++++++++--
+ 2 files changed, 20 insertions(+), 4 deletions(-)
 
+diff --git a/net/ipv4/esp4.c b/net/ipv4/esp4.c
+index 4382f30..7e501ad 100644
+--- a/net/ipv4/esp4.c
++++ b/net/ipv4/esp4.c
+@@ -783,13 +783,17 @@ static int esp_init_aead(struct xfrm_state *x)
+ 	char aead_name[CRYPTO_MAX_ALG_NAME];
+ 	struct crypto_aead *aead;
+ 	int err;
++	u32 mask = 0;
+ 
+ 	err = -ENAMETOOLONG;
+ 	if (snprintf(aead_name, CRYPTO_MAX_ALG_NAME, "%s(%s)",
+ 		     x->geniv, x->aead->alg_name) >= CRYPTO_MAX_ALG_NAME)
+ 		goto error;
+ 
+-	aead = crypto_alloc_aead(aead_name, 0, 0);
++	if (x->xso.offload_handle)
++		mask |= CRYPTO_ALG_ASYNC;
++
++	aead = crypto_alloc_aead(aead_name, 0, mask);
+ 	err = PTR_ERR(aead);
+ 	if (IS_ERR(aead))
+ 		goto error;
+@@ -819,6 +823,7 @@ static int esp_init_authenc(struct xfrm_state *x)
+ 	char authenc_name[CRYPTO_MAX_ALG_NAME];
+ 	unsigned int keylen;
+ 	int err;
++	u32 mask = 0;
+ 
+ 	err = -EINVAL;
+ 	if (!x->ealg)
+@@ -844,7 +849,10 @@ static int esp_init_authenc(struct xfrm_state *x)
+ 			goto error;
+ 	}
+ 
+-	aead = crypto_alloc_aead(authenc_name, 0, 0);
++	if (x->xso.offload_handle)
++		mask |= CRYPTO_ALG_ASYNC;
++
++	aead = crypto_alloc_aead(authenc_name, 0, mask);
+ 	err = PTR_ERR(aead);
+ 	if (IS_ERR(aead))
+ 		goto error;
 diff --git a/net/ipv6/esp6.c b/net/ipv6/esp6.c
-index 3d3757d..5bd1dcc 100644
+index 82d3da8..8b55abf 100644
 --- a/net/ipv6/esp6.c
 +++ b/net/ipv6/esp6.c
-@@ -447,7 +447,7 @@ static int esp6_output(struct xfrm_state *x, struct sk_buff *skb)
- 	return err;
- }
+@@ -704,13 +704,17 @@ static int esp_init_aead(struct xfrm_state *x)
+ 	char aead_name[CRYPTO_MAX_ALG_NAME];
+ 	struct crypto_aead *aead;
+ 	int err;
++	u32 mask = 0;
  
--static int esp_input_done2(struct sk_buff *skb, int err)
-+static int esp6_input_done2(struct sk_buff *skb, int err)
- {
- 	struct xfrm_state *x = xfrm_input_state(skb);
- 	struct xfrm_offload *xo = xfrm_offload(skb);
-@@ -499,7 +499,7 @@ static void esp_input_done(struct crypto_async_request *base, int err)
- {
- 	struct sk_buff *skb = base->data;
+ 	err = -ENAMETOOLONG;
+ 	if (snprintf(aead_name, CRYPTO_MAX_ALG_NAME, "%s(%s)",
+ 		     x->geniv, x->aead->alg_name) >= CRYPTO_MAX_ALG_NAME)
+ 		goto error;
  
--	xfrm_input_resume(skb, esp_input_done2(skb, err));
-+	xfrm_input_resume(skb, esp6_input_done2(skb, err));
- }
+-	aead = crypto_alloc_aead(aead_name, 0, 0);
++	if (x->xso.offload_handle)
++		mask |= CRYPTO_ALG_ASYNC;
++
++	aead = crypto_alloc_aead(aead_name, 0, mask);
+ 	err = PTR_ERR(aead);
+ 	if (IS_ERR(aead))
+ 		goto error;
+@@ -740,6 +744,7 @@ static int esp_init_authenc(struct xfrm_state *x)
+ 	char authenc_name[CRYPTO_MAX_ALG_NAME];
+ 	unsigned int keylen;
+ 	int err;
++	u32 mask = 0;
  
- static void esp_input_restore_header(struct sk_buff *skb)
-@@ -621,7 +621,7 @@ static int esp6_input(struct xfrm_state *x, struct sk_buff *skb)
- 	if ((x->props.flags & XFRM_STATE_ESN))
- 		esp_input_restore_header(skb);
+ 	err = -EINVAL;
+ 	if (!x->ealg)
+@@ -765,7 +770,10 @@ static int esp_init_authenc(struct xfrm_state *x)
+ 			goto error;
+ 	}
  
--	ret = esp_input_done2(skb, ret);
-+	ret = esp6_input_done2(skb, ret);
- 
- out:
- 	return ret;
+-	aead = crypto_alloc_aead(authenc_name, 0, 0);
++	if (x->xso.offload_handle)
++		mask |= CRYPTO_ALG_ASYNC;
++
++	aead = crypto_alloc_aead(authenc_name, 0, mask);
+ 	err = PTR_ERR(aead);
+ 	if (IS_ERR(aead))
+ 		goto error;
 -- 
 2.7.4
