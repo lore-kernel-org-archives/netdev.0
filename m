@@ -1,97 +1,109 @@
-From: "Vishwanathapura, Niranjana" <niranjana.vishwanathapura-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH rdma-next v1 04/12] IB/opa-vnic: Virtual Network
- Interface Controller (VNIC) netdev
-Date: Wed, 12 Apr 2017 11:31:37 -0700
-Message-ID: <20170412183136.GA19704@knc-06.sc.intel.com>
-References: <1491979207-18686-1-git-send-email-niranjana.vishwanathapura@intel.com>
- <1491979207-18686-5-git-send-email-niranjana.vishwanathapura@intel.com>
- <20170412070830.GR2269@mtr-leonro.local>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-        ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, Sadanand Warrier <sadanand.warrier-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        Sudeep Dutt <sudeep.dutt-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        Andrzej Kacprowski <andrzej.kacprowski-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-To: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20170412070830.GR2269-U/DQcQFIOTAAJjI8aNfphQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Haiyang Zhang <haiyangz@exchange.microsoft.com>
+Subject: [PATCH net-next,1/2] hv_netvsc: Fix the queue index computation in forwarding case
+Date: Wed, 12 Apr 2017 11:35:05 -0700
+Message-ID: <1492022106-4070-1-git-send-email-haiyangz@exchange.microsoft.com>
+Reply-To: haiyangz@microsoft.com
+Cc: haiyangz@microsoft.com, kys@microsoft.com, olaf@aepfle.de,
+        vkuznets@redhat.com, linux-kernel@vger.kernel.org
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a2nlsmtp01-05.prod.iad2.secureserver.net ([198.71.225.49]:39458
+        "EHLO a2nlsmtp01-05.prod.iad2.secureserver.net" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752256AbdDLSgP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 12 Apr 2017 14:36:15 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 12, 2017 at 10:08:30AM +0300, Leon Romanovsky wrote:
->> +#define v_dbg(format, arg...) \
->> +	netdev_dbg(adapter->netdev, format, ## arg)
->> +#define v_err(format, arg...) \
->> +	netdev_err(adapter->netdev, format, ## arg)
->> +#define v_info(format, arg...) \
->> +	netdev_info(adapter->netdev, format, ## arg)
->> +#define v_warn(format, arg...) \
->> +	netdev_warn(adapter->netdev, format, ## arg)
->> +
->
->IMHO, these wrappers are redundant.
->
+From: Haiyang Zhang <haiyangz@microsoft.com>
 
-Using same constructs as some Intel standard ethernet drivers.
+If the outgoing skb has a RX queue mapping available, we use the queue
+number directly, other than put it through Send Indirection Table.
 
->> +/* opa_netdev_open - activate network interface */
->> +static int opa_netdev_open(struct net_device *netdev)
->> +{
->> +	struct opa_vnic_adapter *adapter = opa_vnic_priv(netdev);
->> +	int rc;
->> +
->> +	rc = adapter->rn_ops->ndo_open(adapter->netdev);
->> +	if (rc) {
->> +		v_dbg("open failed %d\n", rc);
->> +		return rc;
->> +	}
->> +
->> +	v_info("opened\n");
->
->All these v_info are achieved by tracepoints (function tracer).
->
+Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+Reviewed-by: Stephen Hemminger <sthemmin@microsoft.com>
+---
+ drivers/net/hyperv/hyperv_net.h |    2 +-
+ drivers/net/hyperv/netvsc_drv.c |   46 ++++++++++++++++++++++++++------------
+ 2 files changed, 32 insertions(+), 16 deletions(-)
 
-Some of these messages are useful for analysing reported logs.
-Let me change these opened/closed messges to debug level.
-
->> +
->> +	netdev = ibdev->alloc_rdma_netdev(ibdev, port_num,
->> +					  RDMA_NETDEV_OPA_VNIC,
->> +					  "veth%d", NET_NAME_UNKNOWN,
->> +					  ether_setup);
->> +	if (!netdev)
->> +		return ERR_PTR(-ENOMEM);
->> +	else if (IS_ERR(netdev))
->> +		return ERR_CAST(netdev);
->> +
->
-
->Erez and Jason came to this code for IPoIB, it is better to have same
->error handling for all alloc_rdma_netdev callers.
->+       if (hca->alloc_rdma_netdev) {
->+               dev = hca->alloc_rdma_netdev(hca, port,
->+                                            RDMA_NETDEV_IPOIB, name,
->+                                            NET_NAME_UNKNOWN,
->+                                            ipoib_setup_common);
->+               if (IS_ERR_OR_NULL(dev) && PTR_ERR(dev) != -EOPNOTSUPP)
->+                       return NULL;
->+       }
->
->
-
-IPoIB handles EOPNOTSUPP differently (by assigning default operations).
-It is not applicable to OPA VNIC, hence it just returns the error code.
-
-I just noticed that IPoIB is using EOPNOTSUPP, however OPA VNIC is using 
-ENOTSUPP. EOPNOTSUPP seesm to be widely used, so I will change OPA VNIC to use 
-the same. Will also document this requirement in ib_verbs.h where this function 
-is defined.
-
-Niranjana
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index 4747ad4..768b3ae 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -633,7 +633,7 @@ struct nvsp_message {
+ 
+ #define NETVSC_PACKET_SIZE                      4096
+ 
+-#define VRSS_SEND_TAB_SIZE 16
++#define VRSS_SEND_TAB_SIZE 16  /* must be power of 2 */
+ #define VRSS_CHANNEL_MAX 64
+ #define VRSS_CHANNEL_DEFAULT 8
+ 
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index f24c289..e813eaf 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -191,6 +191,24 @@ static int netvsc_close(struct net_device *net)
+ 	return ppi;
+ }
+ 
++static inline int netvsc_get_tx_queue(struct net_device *ndev,
++				      struct sk_buff *skb, int old_idx)
++{
++	const struct net_device_context *ndc = netdev_priv(ndev);
++	struct sock *sk = skb->sk;
++	int q_idx;
++
++	q_idx = ndc->tx_send_table[skb_get_hash(skb) &
++				   (VRSS_SEND_TAB_SIZE - 1)];
++
++	/* If queue index changed record the new value */
++	if (q_idx != old_idx &&
++	    sk && sk_fullsock(sk) && rcu_access_pointer(sk->sk_dst_cache))
++		sk_tx_queue_set(sk, q_idx);
++
++	return q_idx;
++}
++
+ /*
+  * Select queue for transmit.
+  *
+@@ -205,24 +223,22 @@ static int netvsc_close(struct net_device *net)
+ static u16 netvsc_select_queue(struct net_device *ndev, struct sk_buff *skb,
+ 			void *accel_priv, select_queue_fallback_t fallback)
+ {
+-	struct net_device_context *net_device_ctx = netdev_priv(ndev);
+ 	unsigned int num_tx_queues = ndev->real_num_tx_queues;
+-	struct sock *sk = skb->sk;
+-	int q_idx = sk_tx_queue_get(sk);
+-
+-	if (q_idx < 0 || skb->ooo_okay || q_idx >= num_tx_queues) {
+-		u16 hash = __skb_tx_hash(ndev, skb, VRSS_SEND_TAB_SIZE);
+-		int new_idx;
+-
+-		new_idx = net_device_ctx->tx_send_table[hash] % num_tx_queues;
++	int q_idx = sk_tx_queue_get(skb->sk);
+ 
+-		if (q_idx != new_idx && sk &&
+-		    sk_fullsock(sk) && rcu_access_pointer(sk->sk_dst_cache))
+-			sk_tx_queue_set(sk, new_idx);
+-
+-		q_idx = new_idx;
++	if (q_idx < 0 || skb->ooo_okay) {
++		/* If forwarding a packet, we use the recorded queue when
++		 * available for better cache locality.
++		 */
++		if (skb_rx_queue_recorded(skb))
++			q_idx = skb_get_rx_queue(skb);
++		else
++			q_idx = netvsc_get_tx_queue(ndev, skb, q_idx);
+ 	}
+ 
++	while (unlikely(q_idx >= num_tx_queues))
++		q_idx -= num_tx_queues;
++
+ 	return q_idx;
+ }
+ 
+-- 
+1.7.1
