@@ -1,55 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next,1/3] hv_netvsc: Use per socket hash when
- available
-Date: Tue, 11 Apr 2017 22:12:41 -0400 (EDT)
-Message-ID: <20170411.221241.2175639910931847215.davem@davemloft.net>
-References: <1491699241-9944-1-git-send-email-haiyangz@exchange.microsoft.com>
+Subject: Re: [PATCH] smsc95xx: Add comments to the registers definition
+Date: Tue, 11 Apr 2017 22:18:36 -0400 (EDT)
+Message-ID: <20170411.221836.113758478587841074.davem@davemloft.net>
+References: <20170410084521.w2kdjpdquvrg72mr@SMX-2>
+        <20170410135251.GC19820@lunn.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kys@microsoft.com, olaf@aepfle.de,
-        vkuznets@redhat.com, linux-kernel@vger.kernel.org
-To: haiyangz@microsoft.com, haiyangz@exchange.microsoft.com
+Cc: martin@wetterwald.eu, davem@davemloft.org,
+        steve.glendinning@shawell.net, UNGLinuxDriver@microchip.com,
+        netdev@vger.kernel.org, linux-usb@vger.kernel.org
+To: andrew@lunn.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38960 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:39022 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751951AbdDLCMn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 11 Apr 2017 22:12:43 -0400
-In-Reply-To: <1491699241-9944-1-git-send-email-haiyangz@exchange.microsoft.com>
+        with ESMTP id S1751992AbdDLCSi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 11 Apr 2017 22:18:38 -0400
+In-Reply-To: <20170410135251.GC19820@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Haiyang Zhang <haiyangz@exchange.microsoft.com>
-Date: Sat,  8 Apr 2017 17:53:59 -0700
+From: Andrew Lunn <andrew@lunn.ch>
+Date: Mon, 10 Apr 2017 15:52:51 +0200
 
-> diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-> index f24c289..0a129cb 100644
-> --- a/drivers/net/hyperv/netvsc_drv.c
-> +++ b/drivers/net/hyperv/netvsc_drv.c
-> @@ -211,9 +211,14 @@ static u16 netvsc_select_queue(struct net_device *ndev, struct sk_buff *skb,
->  	int q_idx = sk_tx_queue_get(sk);
->  
->  	if (q_idx < 0 || skb->ooo_okay || q_idx >= num_tx_queues) {
-> -		u16 hash = __skb_tx_hash(ndev, skb, VRSS_SEND_TAB_SIZE);
-> +		u16 hash;
->  		int new_idx;
->  
-> +		if (sk)
-> +			skb_set_hash_from_sk(skb, sk);
-> +
-> +		hash = __skb_tx_hash(ndev, skb, VRSS_SEND_TAB_SIZE);
+> Hi Martin
+> 
+>> @@ -2032,7 +2032,7 @@ static struct sk_buff *smsc95xx_tx_fixup(struct usbnet *dev,
+>>  	skb_push(skb, 4);
+>>  	tx_cmd_b = (u32)(skb->len - 4);
+>>  	if (csum)
+>> -		tx_cmd_b |= TX_CMD_B_CSUM_ENABLE;
+>> +		tx_cmd_b |= TX_CMD_B_CSUM_EN;
+> 
+> This changed seems a step backwards, ENABLE is much more readable than EN.
+> 
+>>  
+>> -#define TX_CMD_B_CSUM_ENABLE		(0x00004000)
+>> -#define TX_CMD_B_ADD_CRC_DISABLE_	(0x00002000)
+>> -#define TX_CMD_B_DISABLE_PADDING_	(0x00001000)
+>> -#define TX_CMD_B_PKT_BYTE_LENGTH_	(0x000007FF)
+>> +#define TX_CMD_B_CSUM_EN	(0x00004000)	/* TX Checksum Enable */
+> 
+> And there is space for ABLE here.
 
-Please do not do this.
-
-TCP performs this operation for you for every pack it emits.
-
-And also every socket family that uses skb_set_owner_w() either
-directly or indirectly gets this done as well.
-
-I do not want to see drivers start to get peppered with calls to this
-thing.
-
-Explain the case which is missing that matters, and we can address
-that instead.
-
-Thanks.
+I completely agree, Martin please don't ENABLE to EN.
