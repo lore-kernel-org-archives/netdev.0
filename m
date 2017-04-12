@@ -1,125 +1,113 @@
 From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: [PATCH 4/8] ftgmac100: Add vlan HW offload
-Date: Thu, 13 Apr 2017 08:44:39 +1000
-Message-ID: <20170412224443.17906-5-benh@kernel.crashing.org>
+Subject: [PATCH 6/8] ftgmac100: Allow configuration of phy interface via device-tree
+Date: Thu, 13 Apr 2017 08:44:41 +1000
+Message-ID: <20170412224443.17906-7-benh@kernel.crashing.org>
 References: <20170412224443.17906-1-benh@kernel.crashing.org>
 Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:33739 "EHLO gate.crashing.org"
+Received: from gate.crashing.org ([63.228.1.57]:33744 "EHLO gate.crashing.org"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754640AbdDLWrG (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 12 Apr 2017 18:47:06 -0400
+        id S1754419AbdDLWr1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 12 Apr 2017 18:47:27 -0400
 In-Reply-To: <20170412224443.17906-1-benh@kernel.crashing.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The chip supports HW vlan tag insertion and extraction. Add support
-for it.
+This uses the standard phy-mode property
 
 Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 ---
- drivers/net/ethernet/faraday/ftgmac100.c | 46 +++++++++++++++++++++++++++++++-
- 1 file changed, 45 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/faraday/ftgmac100.c | 42 +++++++++++++++++++++++++++++---
+ 1 file changed, 39 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/ethernet/faraday/ftgmac100.c b/drivers/net/ethernet/faraday/ftgmac100.c
-index d86b27f..ded3447 100644
+index e71b9c4..c1afda8 100644
 --- a/drivers/net/ethernet/faraday/ftgmac100.c
 +++ b/drivers/net/ethernet/faraday/ftgmac100.c
-@@ -31,6 +31,7 @@
- #include <linux/phy.h>
+@@ -32,6 +32,7 @@
  #include <linux/platform_device.h>
  #include <linux/crc32.h>
-+#include <linux/if_vlan.h>
+ #include <linux/if_vlan.h>
++#include <linux/of_net.h>
  #include <net/ip.h>
  #include <net/ncsi.h>
  
-@@ -333,6 +334,10 @@ static void ftgmac100_start_hw(struct ftgmac100 *priv)
- 	else if (netdev_mc_count(priv->netdev))
- 		maccr |= FTGMAC100_MACCR_HT_MULTI_EN;
- 
-+	/* Vlan filtering enabled */
-+	if (priv->netdev->features & NETIF_F_HW_VLAN_CTAG_RX)
-+		maccr |= FTGMAC100_MACCR_RM_VLAN;
-+
- 	/* Hit the HW */
- 	iowrite32(maccr, priv->base + FTGMAC100_OFFSET_MACCR);
- }
-@@ -528,6 +533,12 @@ static bool ftgmac100_rx_packet(struct ftgmac100 *priv, int *processed)
- 	/* Transfer received size to skb */
- 	skb_put(skb, size);
- 
-+	/* Extract vlan tag */
-+	if ((netdev->features & NETIF_F_HW_VLAN_CTAG_RX) &&
-+	    (csum_vlan & FTGMAC100_RXDES1_VLANTAG_AVAIL))
-+		__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q),
-+				       csum_vlan & 0xffff);
-+
- 	/* Tear down DMA mapping, do necessary cache management */
- 	map = le32_to_cpu(rxdes->rxdes3);
- 
-@@ -752,6 +763,13 @@ static int ftgmac100_hard_start_xmit(struct sk_buff *skb,
- 	if (skb->ip_summed == CHECKSUM_PARTIAL &&
- 	    !ftgmac100_prep_tx_csum(skb, &csum_vlan))
- 		goto drop;
-+
-+	/* Add VLAN tag */
-+	if (skb_vlan_tag_present(skb)) {
-+		csum_vlan |= FTGMAC100_TXDES1_INS_VLANTAG;
-+		csum_vlan |= skb_vlan_tag_get(skb) & 0xffff;
-+	}
-+
- 	txdes->txdes1 = cpu_to_le32(csum_vlan);
- 
- 	/* Next descriptor */
-@@ -1551,6 +1569,30 @@ static void ftgmac100_tx_timeout(struct net_device *netdev)
+@@ -1049,7 +1050,7 @@ static void ftgmac100_adjust_link(struct net_device *netdev)
  	schedule_work(&priv->reset_task);
  }
  
-+static int ftgmac100_set_features(struct net_device *netdev,
-+				  netdev_features_t features)
-+{
-+	struct ftgmac100 *priv = netdev_priv(netdev);
-+	netdev_features_t changed = netdev->features ^ features;
+-static int ftgmac100_mii_probe(struct ftgmac100 *priv)
++static int ftgmac100_mii_probe(struct ftgmac100 *priv, phy_interface_t intf)
+ {
+ 	struct net_device *netdev = priv->netdev;
+ 	struct phy_device *phydev;
+@@ -1061,7 +1062,7 @@ static int ftgmac100_mii_probe(struct ftgmac100 *priv)
+ 	}
+ 
+ 	phydev = phy_connect(netdev, phydev_name(phydev),
+-			     &ftgmac100_adjust_link, PHY_INTERFACE_MODE_GMII);
++			     &ftgmac100_adjust_link, intf);
+ 
+ 	if (IS_ERR(phydev)) {
+ 		netdev_err(netdev, "%s: Could not attach to PHY\n", netdev->name);
+@@ -1623,6 +1624,8 @@ static int ftgmac100_setup_mdio(struct net_device *netdev)
+ {
+ 	struct ftgmac100 *priv = netdev_priv(netdev);
+ 	struct platform_device *pdev = to_platform_device(priv->dev);
++	int phy_intf = PHY_INTERFACE_MODE_RGMII;
++	struct device_node *np = pdev->dev.of_node;
+ 	int i, err = 0;
+ 	u32 reg;
+ 
+@@ -1638,6 +1641,39 @@ static int ftgmac100_setup_mdio(struct net_device *netdev)
+ 		iowrite32(reg, priv->base + FTGMAC100_OFFSET_REVR);
+ 	};
+ 
++	/* Get PHY mode from device-tree */
++	if (np) {
++		/* Default to RGMII. It's a gigabit part after all */
++		phy_intf = of_get_phy_mode(np);
++		if (phy_intf < 0)
++			phy_intf = PHY_INTERFACE_MODE_RGMII;
 +
-+	if (!netif_running(netdev))
-+		return 0;
-+
-+	/* Update the vlan filtering bit */
-+	if (changed & NETIF_F_HW_VLAN_CTAG_RX) {
-+		u32 maccr;
-+
-+		maccr = ioread32(priv->base + FTGMAC100_OFFSET_MACCR);
-+		if (priv->netdev->features & NETIF_F_HW_VLAN_CTAG_RX)
-+			maccr |= FTGMAC100_MACCR_RM_VLAN;
-+		else
-+			maccr &= ~FTGMAC100_MACCR_RM_VLAN;
-+		iowrite32(maccr, priv->base + FTGMAC100_OFFSET_MACCR);
++		/* Aspeed only supports these. I don't know about other IP
++		 * block vendors so I'm going to just let them through for
++		 * now. Note that this is only a warning if for some obscure
++		 * reason the DT really means to lie about it or it's a newer
++		 * part we don't know about.
++		 *
++		 * On the Aspeed SoC there are additionally straps and SCU
++		 * control bits that could tell us what the interface is
++		 * (or allow us to configure it while the IP block is held
++		 * in reset). For now I chose to keep this driver away from
++		 * those SoC specific bits and assume the device-tree is
++		 * right and the SCU has been configured properly by pinmux
++		 * or the firmware.
++		 */
++		if (priv->is_aspeed &&
++		    phy_intf != PHY_INTERFACE_MODE_RMII &&
++		    phy_intf != PHY_INTERFACE_MODE_RGMII &&
++		    phy_intf != PHY_INTERFACE_MODE_RGMII_ID &&
++		    phy_intf != PHY_INTERFACE_MODE_RGMII_RXID &&
++		    phy_intf != PHY_INTERFACE_MODE_RGMII_TXID) {
++			netdev_warn(netdev,
++				   "Unsupported PHY mode %s !\n",
++				   phy_modes(phy_intf));
++		}
 +	}
 +
-+	return 0;
-+}
-+
- static const struct net_device_ops ftgmac100_netdev_ops = {
- 	.ndo_open		= ftgmac100_open,
- 	.ndo_stop		= ftgmac100_stop,
-@@ -1560,6 +1602,7 @@ static const struct net_device_ops ftgmac100_netdev_ops = {
- 	.ndo_do_ioctl		= ftgmac100_do_ioctl,
- 	.ndo_tx_timeout		= ftgmac100_tx_timeout,
- 	.ndo_set_rx_mode	= ftgmac100_set_rx_mode,
-+	.ndo_set_features	= ftgmac100_set_features,
- };
+ 	priv->mii_bus->name = "ftgmac100_mdio";
+ 	snprintf(priv->mii_bus->id, MII_BUS_ID_SIZE, "%s-%d",
+ 		 pdev->name, pdev->id);
+@@ -1654,7 +1690,7 @@ static int ftgmac100_setup_mdio(struct net_device *netdev)
+ 		goto err_register_mdiobus;
+ 	}
  
- static int ftgmac100_setup_mdio(struct net_device *netdev)
-@@ -1735,7 +1778,8 @@ static int ftgmac100_probe(struct platform_device *pdev)
- 
- 	/* Base feature set */
- 	netdev->hw_features = NETIF_F_RXCSUM | NETIF_F_HW_CSUM |
--		NETIF_F_GRO | NETIF_F_SG;
-+		NETIF_F_GRO | NETIF_F_SG | NETIF_F_HW_VLAN_CTAG_RX |
-+		NETIF_F_HW_VLAN_CTAG_TX;
- 
- 	/* AST2400  doesn't have working HW checksum generation */
- 	if (np && (of_device_is_compatible(np, "aspeed,ast2400-mac")))
+-	err = ftgmac100_mii_probe(priv);
++	err = ftgmac100_mii_probe(priv, phy_intf);
+ 	if (err) {
+ 		dev_err(priv->dev, "MII Probe failed!\n");
+ 		goto err_mii_probe;
 -- 
 2.9.3
