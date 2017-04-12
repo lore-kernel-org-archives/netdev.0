@@ -1,59 +1,155 @@
-From: Joao Pinto <Joao.Pinto@synopsys.com>
-Subject: Re: [PATCH v2 net-next] net: stmmac: add drop transmit status feature
-Date: Wed, 12 Apr 2017 14:55:03 +0100
-Message-ID: <efbda38a-2146-06b2-9151-19294c654d28@synopsys.com>
-References: <f43dda26d3c43fdf19d6872306741c16b635558c.1491989111.git.jpinto@synopsys.com>
- <20170412115643.GA32596@lunn.ch>
- <d5e99129-eef0-1d15-7277-e3c82435bf9f@synopsys.com>
- <20170412131008.GC32596@lunn.ch>
- <37cc8294-5514-ed02-9b41-86f8cc9c20ad@synopsys.com>
- <20170412135239.GD32596@lunn.ch>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next v5 5/5] netlink: pass extended ACK struct where
+ available
+Date: Wed, 12 Apr 2017 16:00:43 +0200
+Message-ID: <20170412140043.GH1952@nanopsycho>
+References: <20170412123408.22012-1-johannes@sipsolutions.net>
+ <20170412123408.22012-6-johannes@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 8bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>, Joao Pinto <Joao.Pinto@synopsys.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        pablo@netfilter.org, Jamal Hadi Salim <jhs@mojatatu.com>,
+        Jiri Benc <jbenc@redhat.com>,
+        David Ahern <dsa@cumulusnetworks.com>,
+        Johannes Berg <johannes.berg@intel.com>
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from us01smtprelay-2.synopsys.com ([198.182.60.111]:39897 "EHLO
-        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752497AbdDLN4a (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 12 Apr 2017 09:56:30 -0400
-In-Reply-To: <20170412135239.GD32596@lunn.ch>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:34413 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752458AbdDLOAq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 12 Apr 2017 10:00:46 -0400
+Received: by mail-wm0-f66.google.com with SMTP id x75so6599356wma.1
+        for <netdev@vger.kernel.org>; Wed, 12 Apr 2017 07:00:45 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20170412123408.22012-6-johannes@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Às 2:52 PM de 4/12/2017, Andrew Lunn escreveu:
->>>> My setup is FPGA based, so it will have lower performance values.
->>>> Iperf results with
->>>>   "Drop Transmit Status" set: ~650Mbps.
->>>>   "Drop Transmit Status" unset: ~450Mbps.
->>>
->>> What percentage of your customers use FPGAs? When i look at the users
->>> of this driver, i see ST, Allwinner, Rockchip, Meson, etc. So silicon,
->>> not FPGA. Does it make sense to do performance measurements on FPGA,
->>> when you say it has lower performance?
->>
->> I don't understand your question. Synopsys is an IP vendor, so all recent IPs
->> are available for prototyping as you can understand and so early development is
->> done using a FPGA.
-> 
-> Sure, early development on FPGA makes sense. But my guess is, > 95% of
-> the devices running this driver are silicon, not FPGA. The customers
-> you sell the IP to want to know that the driver is going to work well
-> on their silicon, not your internal FPGA development setup. The kernel
-> community want a warm fuzzy feeling that you care about the real
-> devices out in the wild using this driver. So if you could say, "I
-> tested on a STM DISCO devel board, and performance went up 20%, an
-> RK3288 devel board and got 18% performance boost, and a Merrii A80
-> Optimus Board showed 22% improvements", we would have a lot better
-> feeling about these patches.
+Wed, Apr 12, 2017 at 02:34:08PM CEST, johannes@sipsolutions.net wrote:
+>From: Johannes Berg <johannes.berg@intel.com>
+>
+>This is an add-on to the previous patch that passes
+>the extended ACK structure where it's already available
+>by existing genl_info or extack function arguments.
+>
+>This was done with this spatch (with some manual
+>adjustment of indentation):
+>
+>@@
+>expression A, B, C, D, E;
+>identifier fn, info;
+>@@
+>fn(..., struct genl_info *info, ...) {
+>...
+>-nlmsg_parse(A, B, C, D, E, NULL)
+>+nlmsg_parse(A, B, C, D, E, info->extack)
+>...
+>}
+>
+>@@
+>expression A, B, C, D, E;
+>identifier fn, info;
+>@@
+>fn(..., struct genl_info *info, ...) {
+><...
+>-nla_parse_nested(A, B, C, D, NULL)
+>+nla_parse_nested(A, B, C, D, info->extack)
+>...>
+>}
+>
+>@@
+>expression A, B, C, D, E;
+>identifier fn, extack;
+>@@
+>fn(..., struct netlink_ext_ack *extack, ...) {
+><...
+>-nlmsg_parse(A, B, C, D, E, NULL)
+>+nlmsg_parse(A, B, C, D, E, extack)
+>...>
+>}
+>
+>@@
+>expression A, B, C, D, E;
+>identifier fn, extack;
+>@@
+>fn(..., struct netlink_ext_ack *extack, ...) {
+><...
+>-nla_parse(A, B, C, D, E, NULL)
+>+nla_parse(A, B, C, D, E, extack)
+>...>
+>}
+>
+>@@
+>expression A, B, C, D, E;
+>identifier fn, extack;
+>@@
+>fn(..., struct netlink_ext_ack *extack, ...) {
+>...
+>-nlmsg_parse(A, B, C, D, E, NULL)
+>+nlmsg_parse(A, B, C, D, E, extack)
+>...
+>}
+>
+>@@
+>expression A, B, C, D;
+>identifier fn, extack;
+>@@
+>fn(..., struct netlink_ext_ack *extack, ...) {
+><...
+>-nla_parse_nested(A, B, C, D, NULL)
+>+nla_parse_nested(A, B, C, D, extack)
+>...>
+>}
+>
+>@@
+>expression A, B, C, D;
+>identifier fn, extack;
+>@@
+>fn(..., struct netlink_ext_ack *extack, ...) {
+><...
+>-nlmsg_validate(A, B, C, D, NULL)
+>+nlmsg_validate(A, B, C, D, extack)
+>...>
+>}
+>
+>@@
+>expression A, B, C, D;
+>identifier fn, extack;
+>@@
+>fn(..., struct netlink_ext_ack *extack, ...) {
+><...
+>-nla_validate(A, B, C, D, NULL)
+>+nla_validate(A, B, C, D, extack)
+>...>
+>}
+>
+>@@
+>expression A, B, C;
+>identifier fn, extack;
+>@@
+>fn(..., struct netlink_ext_ack *extack, ...) {
+><...
+>-nla_validate_nested(A, B, C, NULL)
+>+nla_validate_nested(A, B, C, extack)
+>...>
+>}
+>
+>Signed-off-by: Johannes Berg <johannes.berg@intel.com>
+>---
+> crypto/crypto_user.c           |  2 +-
+> drivers/net/team/team.c        |  3 ++-
+> net/ieee802154/nl802154.c      | 10 +++++-----
+> net/netfilter/ipvs/ip_vs_ctl.c |  2 +-
+> net/netfilter/nfnetlink.c      |  2 +-
+> net/netlink/genetlink.c        |  2 +-
+> net/nfc/netlink.c              |  2 +-
+> net/tipc/bearer.c              | 14 +++++++-------
+> net/tipc/net.c                 |  2 +-
+> net/tipc/node.c                |  8 ++++----
+> net/wireless/nl80211.c         | 33 ++++++++++++++++++---------------
+> net/xfrm/xfrm_user.c           |  2 +-
+> 12 files changed, 43 insertions(+), 39 deletions(-)
 
-Understand your point, but for now our development and testing setup will be
-based on the IP Prototyping Kit, consisting of a FPGA + PHY.
+Aside from the tinyfication of desc lines, this looks good to me
 
-Thanks,
-Joao
-
-> 
-> 	Andrew
-> 
+Reviewed-by: Jiri Pirko <jiri@mellanox.com>
