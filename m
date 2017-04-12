@@ -1,8 +1,7 @@
 From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH v4 04/18] dt-bindings: syscon: Add DT bindings
- documentation for Allwinner syscon
-Date: Wed, 12 Apr 2017 13:13:46 +0200
-Message-ID: <20170412111400.2296-5-clabbe.montjoie@gmail.com>
+Subject: [PATCH v4 10/18] arm: sun8i: orangepi-one: Enable dwmac-sun8i
+Date: Wed, 12 Apr 2017 13:13:52 +0200
+Message-ID: <20170412111400.2296-11-clabbe.montjoie@gmail.com>
 References: <20170412111400.2296-1-clabbe.montjoie@gmail.com>
 Reply-To: clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
 Mime-Version: 1.0
@@ -22,7 +21,7 @@ To: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
 	will.deacon-5wv7dgnIgG8@public.gmane.org,
 	peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
 	alexandre.torgue-qxv4g6HH51o@public.gmane.org
-Return-path: <linux-sunxi+bncBD7YLCN32UNBB7EYXDDQKGQE6SYCHQI-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Return-path: <linux-sunxi+bncBD7YLCN32UNBBAUZXDDQKGQET3PG5GY-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 In-Reply-To: <20170412111400.2296-1-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
@@ -33,39 +32,41 @@ List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39
  <https://groups.google.com/group/linux-sunxi/subscribe>
 List-Id: netdev.vger.kernel.org
 
-This patch adds documentation for Device-Tree bindings for the
-syscon present in allwinner devices.
+The dwmac-sun8i hardware is present on the Orange PI One.
+It uses the internal PHY.
+
+This patch create the needed emac node.
 
 Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- .../devicetree/bindings/misc/allwinner,syscon.txt     | 19 +++++++++++++++++++
- 1 file changed, 19 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/misc/allwinner,syscon.txt
+ arch/arm/boot/dts/sun8i-h3-orangepi-one.dts | 8 ++++++++
+ 1 file changed, 8 insertions(+)
 
-diff --git a/Documentation/devicetree/bindings/misc/allwinner,syscon.txt b/Documentation/devicetree/bindings/misc/allwinner,syscon.txt
-new file mode 100644
-index 0000000..c056c5b
---- /dev/null
-+++ b/Documentation/devicetree/bindings/misc/allwinner,syscon.txt
-@@ -0,0 +1,19 @@
-+* Allwinner sun8i system controller
-+
-+This file describes the bindings for the system controller present in
-+Allwinner SoC H3, A83T and A64.
-+The principal function of this syscon is to control EMAC PHY choice and
-+config.
-+
-+Required properties for the system controller:
-+- reg: address and length of the register for the device.
-+- compatible: should be "syscon" and one of the following string:
-+		"allwinner,sun8i-h3-system-controller"
-+		"allwinner,sun8i-a64-system-controller"
-+		"allwinner,sun8i-a83t-system-controller"
-+
-+Example:
-+syscon: syscon@01c00000 {
-+	compatible = "allwinner,sun8i-h3-system-controller", "syscon";
-+	reg = <0x01c00000 0x1000>;
+diff --git a/arch/arm/boot/dts/sun8i-h3-orangepi-one.dts b/arch/arm/boot/dts/sun8i-h3-orangepi-one.dts
+index 5fea430..2ffa4c1 100644
+--- a/arch/arm/boot/dts/sun8i-h3-orangepi-one.dts
++++ b/arch/arm/boot/dts/sun8i-h3-orangepi-one.dts
+@@ -53,6 +53,7 @@
+ 
+ 	aliases {
+ 		serial0 = &uart0;
++		ethernet0 = &emac;
+ 	};
+ 
+ 	chosen {
+@@ -97,6 +98,13 @@
+ 	status = "okay";
+ };
+ 
++&emac {
++	phy-handle = <&int_mii_phy>;
++	phy-mode = "mii";
++	allwinner,leds-active-low;
++	status = "okay";
 +};
++
+ &mmc0 {
+ 	pinctrl-names = "default";
+ 	pinctrl-0 = <&mmc0_pins_a>, <&mmc0_cd_pin>;
 -- 
 2.10.2
