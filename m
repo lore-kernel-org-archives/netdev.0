@@ -1,40 +1,53 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 00/10] ftgmac100: Rework batch 4 - Misc
-Date: Wed, 12 Apr 2017 10:19:34 -0400 (EDT)
-Message-ID: <20170412.101934.2165788638655556260.davem@davemloft.net>
-References: <20170412032710.17546-1-benh@kernel.crashing.org>
+Subject: Re: [PATCH net-next] devlink: fix return value check in
+ devlink_dpipe_header_put()
+Date: Wed, 12 Apr 2017 10:19:48 -0400 (EDT)
+Message-ID: <20170412.101948.1029703170663355691.davem@davemloft.net>
+References: <20170410131106.27683-1-weiyj.lk@gmail.com>
+        <20170411.230328.1122763321161603727.davem@davemloft.net>
+        <6AADFAC011213A4C87B956458587ADB47B0128@SZXEMI508-MBX.china.huawei.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: benh@kernel.crashing.org
+Cc: jiri@mellanox.com, arkadis@mellanox.com, netdev@vger.kernel.org
+To: weiyongjun1@huawei.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:45568 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:45588 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751349AbdDLOTg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 12 Apr 2017 10:19:36 -0400
-In-Reply-To: <20170412032710.17546-1-benh@kernel.crashing.org>
+        with ESMTP id S1753881AbdDLOTt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 12 Apr 2017 10:19:49 -0400
+In-Reply-To: <6AADFAC011213A4C87B956458587ADB47B0128@SZXEMI508-MBX.china.huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Date: Wed, 12 Apr 2017 13:27:00 +1000
+From: "weiyongjun (A)" <weiyongjun1@huawei.com>
+Date: Wed, 12 Apr 2017 03:30:25 +0000
 
-> This is v2 of the fourth batch of updates to the ftgmac100 driver.
+> Hi David,
 > 
-> This is a bunch of misc cleanups and fixes, such as properly
-> disabling HW checksum generation on AST2400 where it's known
-> to be broken and some chip init updates.
+>> -----Original Message-----
+>> From: David Miller [mailto:davem@davemloft.net]
+>> Sent: Wednesday, April 12, 2017 11:03 AM
+>> To: weiyj.lk@gmail.com
+>> Cc: jiri@mellanox.com; arkadis@mellanox.com; weiyongjun (A)
+>> <weiyongjun1@huawei.com>; netdev@vger.kernel.org
+>> Subject: Re: [PATCH net-next] devlink: fix return value check in
+>> devlink_dpipe_header_put()
+>> 
+>> From: Wei Yongjun <weiyj.lk@gmail.com>
+>> Date: Mon, 10 Apr 2017 13:11:06 +0000
+>> 
+>> > From: Wei Yongjun <weiyongjun1@huawei.com>
+>> >
+>> > Fix the retrn value check which testing the wrong variable
+>> > in devlink_dpipe_header_put().
+>> >
+>> > Fixes: 1555d204e743 ("devlink: Support for pipeline debug (dpipe)")
+>> > Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
+>> 
+>> This doesn't apply cleanly to net-next, please respin and also fix
+>> the typo in your commit message as pointed out by Jiri.
 > 
-> This also adds the ability to turn HW checksum on/off and
-> configure the ring sizes via ethtool.
-> 
-> v2 Fixes patch 1/10 (NETIF_F_HW_CSUM conversion)
-> 
-> The next (and last) batch will add a few more "features" such
-> as netpoll, multicast/promist, vlan offload...
-> 
+> You have applied the v2 version of this patch some hours ago.  
 
-Series applied, thanks Benjamin.
-
-I really like how you use the reset task to implement ring resizing.
+Aha, my bad.  Thanks!
