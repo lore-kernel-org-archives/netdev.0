@@ -1,37 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v1 1/1] L2TP device MTU setup - tunnel socket
- needs a lock
-Date: Wed, 12 Apr 2017 10:13:00 -0400 (EDT)
-Message-ID: <20170412.101300.1946293471196203044.davem@davemloft.net>
-References: <alpine.DEB.2.11.1704112010410.8819@nelson51.eng.vyatta.net>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kleptog@svana.org, jchapman@katalix.com,
-        nprachan@brocade.com, rshearma@brocade.com,
-        stephen@networkplumber.org, sdietric@brocade.com,
-        ciwillia@brocade.com, lboccass@brocade.com, dfawcus@brocade.com,
-        bhong@brocade.com, jblunck@brocade.com,
-        linux-kernel@vger.kernel.org
-To: parameswaran.r7@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.11.1704112010410.8819@nelson51.eng.vyatta.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Miroslav Lichvar <mlichvar@redhat.com>
+Subject: [RFC PATCH 1/7] net: define receive timestamp filter for NTP
+Date: Wed, 12 Apr 2017 16:17:31 +0200
+Message-ID: <20170412141737.5881-2-mlichvar@redhat.com>
+References: <20170412141737.5881-1-mlichvar@redhat.com>
+Cc: Richard Cochran <richardcochran@gmail.com>,
+        Willem de Bruijn <willemb@google.com>,
+        Soheil Hassas Yeganeh <soheil@google.com>,
+        "Keller, Jacob E" <jacob.e.keller@intel.com>,
+        Denny Page <dennypage@me.com>, Jiri Benc <jbenc@redhat.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:62947 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752432AbdDLORo (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 12 Apr 2017 10:17:44 -0400
+In-Reply-To: <20170412141737.5881-1-mlichvar@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "R. Parameswaran" <parameswaran.r7@gmail.com>
-Date: Tue, 11 Apr 2017 20:14:37 -0700 (PDT)
+Add HWTSTAMP_FILTER_NTP_ALL to the hwtstamp_rx_filters enum for
+timestamping of NTP packets. There is currently only one driver that
+could support it directly, but it may change in the future.
 
-> 
-> The MTU overhead calculation in L2TP device set-up
-> merged via commit b784e7ebfce8cfb16c6f95e14e8532d0768ab7ff
-> needs to be adjusted to lock the tunnel socket while
-> referencing the sub-data structures to derive the
-> socket's IP overhead.
+CC: Richard Cochran <richardcochran@gmail.com>
+CC: Willem de Bruijn <willemb@google.com>
+Signed-off-by: Miroslav Lichvar <mlichvar@redhat.com>
+---
+ include/uapi/linux/net_tstamp.h | 3 +++
+ 1 file changed, 3 insertions(+)
 
-This is missing a proper signoff.
-
-The subject line also needs to be fixed "[PATCH net-next] l2tp: " as explained
-by Guillaume.
-
-Thanks.
+diff --git a/include/uapi/linux/net_tstamp.h b/include/uapi/linux/net_tstamp.h
+index 464dcca..0749fb1 100644
+--- a/include/uapi/linux/net_tstamp.h
++++ b/include/uapi/linux/net_tstamp.h
+@@ -125,6 +125,9 @@ enum hwtstamp_rx_filters {
+ 	HWTSTAMP_FILTER_PTP_V2_SYNC,
+ 	/* PTP v2/802.AS1, any layer, Delay_req packet */
+ 	HWTSTAMP_FILTER_PTP_V2_DELAY_REQ,
++
++	/* NTP, UDP, all versions and packet modes */
++	HWTSTAMP_FILTER_NTP_ALL,
+ };
+ 
+ #endif /* _NET_TIMESTAMPING_H */
+-- 
+2.9.3
