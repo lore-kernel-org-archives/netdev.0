@@ -1,40 +1,39 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 net-next 0/2] ip: Allow TTL propagation to/from
- IP packets to be configured
-Date: Wed, 12 Apr 2017 10:00:28 -0700
-Message-ID: <20170412100028.22db144a@xeon-e3>
-References: <1491834972-26668-1-git-send-email-rshearma@brocade.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3 2/3] VSOCK: Add vsockmon device
+Date: Wed, 12 Apr 2017 13:05:10 -0400 (EDT)
+Message-ID: <20170412.130510.1661492983569723913.davem@davemloft.net>
+References: <20170412160825.21037-1-stefanha@redhat.com>
+        <20170412160825.21037-3-stefanha@redhat.com>
+        <20170412193827-mutt-send-email-mst@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Robert Shearman <rshearma@brocade.com>
+Cc: stefanha@redhat.com, netdev@vger.kernel.org, zyjzyj2000@gmail.com,
+        ggarcia@abra.uab.cat, jhansen@vmware.com
+To: mst@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f170.google.com ([209.85.192.170]:35284 "EHLO
-        mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753947AbdDLRAb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 12 Apr 2017 13:00:31 -0400
-Received: by mail-pf0-f170.google.com with SMTP id i5so16490364pfc.2
-        for <netdev@vger.kernel.org>; Wed, 12 Apr 2017 10:00:30 -0700 (PDT)
-In-Reply-To: <1491834972-26668-1-git-send-email-rshearma@brocade.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:48080 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752557AbdDLRFO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 12 Apr 2017 13:05:14 -0400
+In-Reply-To: <20170412193827-mutt-send-email-mst@kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 10 Apr 2017 15:36:10 +0100
-Robert Shearman <rshearma@brocade.com> wrote:
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Wed, 12 Apr 2017 19:43:20 +0300
 
-> This patch series adds support for per-MPLS-lightweight-tunnel ttl
-> values and per route ttl-propagation for the purposes of MPLS to be
-> specified.
+> On Wed, Apr 12, 2017 at 05:08:24PM +0100, Stefan Hajnoczi wrote:
+>> +struct af_vsockmon_hdr {
+>> +	__le64 src_cid;
+>> +	__le64 dst_cid;
+>> +	__le32 src_port;
+>> +	__le32 dst_port;
+>> +	__le16 op;			/* enum af_vsockmon_op */
+>> +	__le16 transport;		/* enum af_vsockmon_transport */
+>> +	__le16 len;			/* Transport header length */
+>> +} __attribute__((packed));
 > 
-> Robert Shearman (2):
->   iproute: Add support for ttl-propagation attribute
->   iproute: Add support for MPLS LWT ttl attribute
-> 
->  ip/iproute.c           | 22 ++++++++++++++++++++++
->  ip/iproute_lwtunnel.c  | 31 +++++++++++++++++++++++++++++--
->  man/man8/ip-route.8.in | 19 +++++++++++++++++--
->  3 files changed, 68 insertions(+), 4 deletions(-)
-> 
+> I'd add a 2 byte padding here and then you do not need to pack it.
 
-Both applied, thanks
+Indeed, use of the packed attribute is strongly discouraged.
