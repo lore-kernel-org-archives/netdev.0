@@ -1,8 +1,7 @@
 From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH v4 07/18] arm: sun8i: sunxi-h3-h5: add
- dwmac-sun8i ethernet driver
-Date: Wed, 12 Apr 2017 13:13:49 +0200
-Message-ID: <20170412111400.2296-8-clabbe.montjoie@gmail.com>
+Subject: [PATCH v4 09/18] arm: sun8i: orangepi-2: Enable dwmac-sun8i
+Date: Wed, 12 Apr 2017 13:13:51 +0200
+Message-ID: <20170412111400.2296-10-clabbe.montjoie@gmail.com>
 References: <20170412111400.2296-1-clabbe.montjoie@gmail.com>
 Reply-To: clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
 Mime-Version: 1.0
@@ -22,7 +21,7 @@ To: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
 	will.deacon-5wv7dgnIgG8@public.gmane.org,
 	peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
 	alexandre.torgue-qxv4g6HH51o@public.gmane.org
-Return-path: <linux-sunxi+bncBD7YLCN32UNBB74YXDDQKGQE5MNNHQA-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Return-path: <linux-sunxi+bncBD7YLCN32UNBBAMZXDDQKGQEEOGLQ6Y-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 In-Reply-To: <20170412111400.2296-1-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
@@ -33,68 +32,38 @@ List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39
  <https://groups.google.com/group/linux-sunxi/subscribe>
 List-Id: netdev.vger.kernel.org
 
-The dwmac-sun8i is an ethernet MAC hardware that support 10/100/1000
-speed.
+The dwmac-sun8i hardware is present on the Orange PI 2.
+It uses the internal PHY.
 
-This patch enable the dwmac-sun8i on Allwinner H3/H5 SoC Device-tree.
-SoC H3/H5 have an internal PHY, so optionals syscon and ephy are set.
+This patch create the needed emac node.
 
 Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- arch/arm/boot/dts/sunxi-h3-h5.dtsi | 34 ++++++++++++++++++++++++++++++++++
- 1 file changed, 34 insertions(+)
+ arch/arm/boot/dts/sun8i-h3-orangepi-2.dts | 8 ++++++++
+ 1 file changed, 8 insertions(+)
 
-diff --git a/arch/arm/boot/dts/sunxi-h3-h5.dtsi b/arch/arm/boot/dts/sunxi-h3-h5.dtsi
-index 78d1d61..34ec227 100644
---- a/arch/arm/boot/dts/sunxi-h3-h5.dtsi
-+++ b/arch/arm/boot/dts/sunxi-h3-h5.dtsi
-@@ -285,6 +285,14 @@
- 			interrupt-controller;
- 			#interrupt-cells = <3>;
+diff --git a/arch/arm/boot/dts/sun8i-h3-orangepi-2.dts b/arch/arm/boot/dts/sun8i-h3-orangepi-2.dts
+index 5b6d145..3f54b12 100644
+--- a/arch/arm/boot/dts/sun8i-h3-orangepi-2.dts
++++ b/arch/arm/boot/dts/sun8i-h3-orangepi-2.dts
+@@ -55,6 +55,7 @@
+ 		serial0 = &uart0;
+ 		/* ethernet0 is the H3 emac, defined in sun8i-h3.dtsi */
+ 		ethernet1 = &rtl8189;
++		ethernet0 = &emac;
+ 	};
  
-+			emac_rgmii_pins: emac0@0 {
-+				pins = "PD0", "PD1", "PD2", "PD3", "PD4",
-+					"PD5", "PD7", "PD8", "PD9", "PD10",
-+					"PD12", "PD13", "PD15", "PD16", "PD17";
-+				function = "emac";
-+				drive-strength = <40>;
-+			};
+ 	chosen {
+@@ -203,3 +204,10 @@
+ 	usb1_vbus-supply = <&reg_usb1_vbus>;
+ 	status = "okay";
+ };
 +
- 			i2c0_pins: i2c0 {
- 				pins = "PA11", "PA12";
- 				function = "i2c0";
-@@ -381,6 +389,32 @@
- 			clocks = <&osc24M>;
- 		};
- 
-+		emac: ethernet@1c30000 {
-+			compatible = "allwinner,sun8i-h3-emac";
-+			syscon = <&syscon>;
-+			reg = <0x01c30000 0x104>;
-+			interrupts = <GIC_SPI 82 IRQ_TYPE_LEVEL_HIGH>;
-+			interrupt-names = "macirq";
-+			resets = <&ccu RST_BUS_EMAC>;
-+			reset-names = "stmmaceth";
-+			clocks = <&ccu CLK_BUS_EMAC>;
-+			clock-names = "stmmaceth";
-+			#address-cells = <1>;
-+			#size-cells = <0>;
-+			status = "disabled";
-+
-+			mdio: mdio {
-+				#address-cells = <1>;
-+				#size-cells = <0>;
-+				int_mii_phy: ethernet-phy@1 {
-+					compatible = "ethernet-phy-ieee802.3-c22";
-+					reg = <1>;
-+					clocks = <&ccu CLK_BUS_EPHY>;
-+					resets = <&ccu RST_BUS_EPHY>;
-+				};
-+			};
-+		};
-+
- 		spi0: spi@01c68000 {
- 			compatible = "allwinner,sun8i-h3-spi";
- 			reg = <0x01c68000 0x1000>;
++&emac {
++	phy-handle = <&int_mii_phy>;
++	phy-mode = "mii";
++	allwinner,leds-active-low;
++	status = "okay";
++};
 -- 
 2.10.2
