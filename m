@@ -1,8 +1,8 @@
 From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH v4 06/18] arm: sun8i: sunxi-h3-h5: Add dt node
- for the syscon control module
-Date: Wed, 12 Apr 2017 13:13:48 +0200
-Message-ID: <20170412111400.2296-7-clabbe.montjoie@gmail.com>
+Subject: [PATCH v4 13/18] arm64: allwinner: sun50i-a64: add
+ dwmac-sun8i Ethernet driver
+Date: Wed, 12 Apr 2017 13:13:55 +0200
+Message-ID: <20170412111400.2296-14-clabbe.montjoie@gmail.com>
 References: <20170412111400.2296-1-clabbe.montjoie@gmail.com>
 Reply-To: clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
 Mime-Version: 1.0
@@ -22,7 +22,7 @@ To: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
 	will.deacon-5wv7dgnIgG8@public.gmane.org,
 	peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
 	alexandre.torgue-qxv4g6HH51o@public.gmane.org
-Return-path: <linux-sunxi+bncBD7YLCN32UNBB7UYXDDQKGQELJSKACQ-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Return-path: <linux-sunxi+bncBD7YLCN32UNBBBMZXDDQKGQEZPAIVNA-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 In-Reply-To: <20170412111400.2296-1-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
@@ -33,33 +33,72 @@ List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39
  <https://groups.google.com/group/linux-sunxi/subscribe>
 List-Id: netdev.vger.kernel.org
 
-This patch add the dt node for the syscon register present on the
-Allwinner H3/H5
-
-Only two register are present in this syscon and the only one useful is
-the one dedicated to EMAC clock..
+The dwmac-sun8i is an Ethernet MAC that supports 10/100/1000 Mbit
+connections. It is very similar to the device found in the Allwinner
+H3, but lacks the internal 100 Mbit PHY and its associated control
+bits.
+This adds the necessary bits to the Allwinner A64 SoC .dtsi, but keeps
+it disabled at this level.
 
 Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- arch/arm/boot/dts/sunxi-h3-h5.dtsi | 6 ++++++
- 1 file changed, 6 insertions(+)
+ arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi | 37 +++++++++++++++++++++++++++
+ 1 file changed, 37 insertions(+)
 
-diff --git a/arch/arm/boot/dts/sunxi-h3-h5.dtsi b/arch/arm/boot/dts/sunxi-h3-h5.dtsi
-index 1aeeacb..78d1d61 100644
---- a/arch/arm/boot/dts/sunxi-h3-h5.dtsi
-+++ b/arch/arm/boot/dts/sunxi-h3-h5.dtsi
-@@ -83,6 +83,12 @@
- 		#size-cells = <1>;
- 		ranges;
+diff --git a/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi b/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi
+index 0b0f4ab..2569827 100644
+--- a/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi
++++ b/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi
+@@ -287,6 +287,23 @@
+ 				bias-pull-up;
+ 			};
  
-+		syscon: syscon@01c00000 {
-+			compatible = "allwinner,sun8i-h3-system-controller",
-+				"syscon";
-+			reg = <0x01c00000 0x1000>;
++			rmii_pins: rmii_pins {
++				pins = "PD10", "PD11", "PD13", "PD14",
++						"PD17", "PD18", "PD19", "PD20",
++						"PD22", "PD23";
++				function = "emac";
++				drive-strength = <40>;
++			};
++
++			rgmii_pins: rgmii_pins {
++				pins = "PD8", "PD9", "PD10", "PD11",
++						"PD12", "PD13", "PD15",
++						"PD16", "PD17", "PD18", "PD19",
++						"PD20", "PD21", "PD22", "PD23";
++				function = "emac";
++				drive-strength = <40>;
++			};
++
+ 			uart0_pins_a: uart0@0 {
+ 				pins = "PB8", "PB9";
+ 				function = "uart0";
+@@ -391,6 +408,26 @@
+ 			#size-cells = <0>;
+ 		};
+ 
++		emac: ethernet@1c30000 {
++			compatible = "allwinner,sun50i-a64-emac";
++			syscon = <&syscon>;
++			reg = <0x01c30000 0x100>;
++			interrupts = <GIC_SPI 82 IRQ_TYPE_LEVEL_HIGH>;
++			interrupt-names = "macirq";
++			resets = <&ccu RST_BUS_EMAC>;
++			reset-names = "stmmaceth";
++			clocks = <&ccu CLK_BUS_EMAC>;
++			clock-names = "stmmaceth";
++			status = "disabled";
++			#address-cells = <1>;
++			#size-cells = <0>;
++
++			mdio: mdio {
++				#address-cells = <1>;
++				#size-cells = <0>;
++			};
 +		};
 +
- 		dma: dma-controller@01c02000 {
- 			compatible = "allwinner,sun8i-h3-dma";
- 			reg = <0x01c02000 0x1000>;
+ 		gic: interrupt-controller@1c81000 {
+ 			compatible = "arm,gic-400";
+ 			reg = <0x01c81000 0x1000>,
 -- 
 2.10.2
