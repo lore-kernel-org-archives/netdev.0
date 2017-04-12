@@ -1,14 +1,14 @@
 From: Johannes Berg <johannes@sipsolutions.net>
-Subject: [RFC 3/3] mac80211: support bpf monitor filter
-Date: Wed, 12 Apr 2017 13:07:26 +0200
-Message-ID: <20170412110726.9689-3-johannes@sipsolutions.net>
+Subject: [RFC 2/3] cfg80211: add API to attach monitor filter program
+Date: Wed, 12 Apr 2017 13:07:25 +0200
+Message-ID: <20170412110726.9689-2-johannes@sipsolutions.net>
 References: <20170412110726.9689-1-johannes@sipsolutions.net>
 Cc: Johannes Berg <johannes.berg@intel.com>
 To: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:35294 "EHLO sipsolutions.net"
+Received: from s3.sipsolutions.net ([5.9.151.49]:35290 "EHLO sipsolutions.net"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753792AbdDLLHh (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1753789AbdDLLHh (ORCPT <rfc822;netdev@vger.kernel.org>);
         Wed, 12 Apr 2017 07:07:37 -0400
 In-Reply-To: <20170412110726.9689-1-johannes@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
@@ -16,191 +16,184 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Johannes Berg <johannes.berg@intel.com>
 
-Add the necessary hooks for running monitor filter programs
-in mac80211's RX path, before a frame is handed off to a
-monitor interface. If the frame isn't accepted then this
-will save the overhead of creating a new SKB and building
-the radiotap header.
+Some people have suggested that the nl80211 API to look at
+management frames should be extended to allow multiple
+registrations, in order to allow applications other than
+the usual controllers (wpa_supplicant/hostapd) to look out
+for frames, e.g. for statistics or similar. Suggestions to
+use monitor interfaces were rejected, because the overhead
+is too big, even when a socket filter is installed. Adding
+this to the nl80211 API is, however, problematic because
+it then becomes undefined who is responsible for a frame,
+e.g. when action frames have multiple listeners - but only
+one can be responsible for handling them.
+
+To solve this problem, we can allow installing a BPF filter
+program that gets run on the raw 802.11 frame received from
+the driver, before the frame is even considered for copying
+the SKB or building the radiotap header for a given monitor
+interface.
+
+Add the necessary API to attach a monitor filter program
+to a newly created monitor interface, or allow changing
+it. Also allow clearing it by passing -1 as the FD.
+
+NOTE/WARNING
+We really should first figure out what we want to do with
+802.3 frames that are received by the driver. Do they at
+all show up on monitor? For the use case described above,
+that doesn't matter - however, it's easy to imagine other
+use cases, like using BPF for packet statistics (like the
+never-merged per-rate statistics), and then seeing data
+frames as well would be good. Perhaps the program can get
+a different metadata struct rather than __sk_buff, that
+indiciates whether the frames has 802.11 or 802.3 format?
+However, if it already has 802.3 format, the TA might no
+longer be present (in AP -> STA frames), which would then
+no longer allow collecting such statistics anyway ...
 
 Signed-off-by: Johannes Berg <johannes.berg@intel.com>
 ---
- net/mac80211/Kconfig       |  1 +
- net/mac80211/cfg.c         | 13 +++++++++++++
- net/mac80211/ieee80211_i.h |  6 ++++++
- net/mac80211/iface.c       |  9 ++++++++-
- net/mac80211/main.c        |  3 +++
- net/mac80211/rx.c          | 45 +++++++++++++++++++++++++++++++++++++++++++++
- 6 files changed, 76 insertions(+), 1 deletion(-)
+ include/net/cfg80211.h       |  3 +++
+ include/uapi/linux/nl80211.h |  7 +++++++
+ net/wireless/core.c          |  5 +++++
+ net/wireless/nl80211.c       | 27 +++++++++++++++++++++++++++
+ 4 files changed, 42 insertions(+)
 
-diff --git a/net/mac80211/Kconfig b/net/mac80211/Kconfig
-index 76e30f4797fb..080e0c705c72 100644
---- a/net/mac80211/Kconfig
-+++ b/net/mac80211/Kconfig
-@@ -8,6 +8,7 @@ config MAC80211
- 	select CRYPTO_GCM
- 	select CRYPTO_CMAC
- 	select CRC32
-+	select WANT_BPF_WIFIMON
- 	---help---
- 	  This option enables the hardware independent IEEE 802.11
- 	  networking stack.
-diff --git a/net/mac80211/cfg.c b/net/mac80211/cfg.c
-index 4ff03c88022e..c394c08ed0e0 100644
---- a/net/mac80211/cfg.c
-+++ b/net/mac80211/cfg.c
-@@ -106,6 +106,19 @@ static int ieee80211_set_mon_options(struct ieee80211_sub_if_data *sdata,
- 		}
- 	}
- 
-+	if (params->filter) {
-+		struct bpf_prog *old = rtnl_dereference(sdata->u.mntr.filter);
-+
-+		if (IS_ERR(params->filter))
-+			RCU_INIT_POINTER(sdata->u.mntr.filter, NULL);
-+		else
-+			rcu_assign_pointer(sdata->u.mntr.filter,
-+					   params->filter);
-+
-+		if (old)
-+			bpf_prog_put(old);
-+	}
-+
- 	return 0;
- }
- 
-diff --git a/net/mac80211/ieee80211_i.h b/net/mac80211/ieee80211_i.h
-index 0e718437d080..06a2e2cdde83 100644
---- a/net/mac80211/ieee80211_i.h
-+++ b/net/mac80211/ieee80211_i.h
-@@ -27,6 +27,8 @@
- #include <linux/leds.h>
- #include <linux/idr.h>
- #include <linux/rhashtable.h>
-+#include <linux/filter.h>
-+#include <linux/bpf.h>
- #include <net/ieee80211_radiotap.h>
- #include <net/cfg80211.h>
- #include <net/mac80211.h>
-@@ -839,6 +841,10 @@ struct txq_info {
- struct ieee80211_if_mntr {
+diff --git a/include/net/cfg80211.h b/include/net/cfg80211.h
+index a8faf9f0cac2..a59a8917a74c 100644
+--- a/include/net/cfg80211.h
++++ b/include/net/cfg80211.h
+@@ -376,6 +376,8 @@ static inline void wiphy_read_of_freq_limits(struct wiphy *wiphy)
+  *	belonging to that MU-MIMO groupID; %NULL if not changed
+  * @vht_mumimo_follow_addr: MU-MIMO follow address, used for monitoring
+  *	MU-MIMO packets going to the specified station; %NULL if not changed
++ * @filter: wifi monitor BPF program, %NULL if not changed, an ERR_PTR()
++ *	if the program should be removed
+  */
+ struct vif_params {
  	u32 flags;
- 	u8 mu_follow_addr[ETH_ALEN] __aligned(2);
-+#ifdef CONFIG_BPF_WIFIMON
+@@ -383,6 +385,7 @@ struct vif_params {
+ 	u8 macaddr[ETH_ALEN];
+ 	const u8 *vht_mumimo_groups;
+ 	const u8 *vht_mumimo_follow_addr;
 +	struct bpf_prog *filter;
-+	bool deliver;
-+#endif
  };
  
  /**
-diff --git a/net/mac80211/iface.c b/net/mac80211/iface.c
-index 5bb0c5012819..05258fd9dda2 100644
---- a/net/mac80211/iface.c
-+++ b/net/mac80211/iface.c
-@@ -1107,8 +1107,15 @@ static void ieee80211_teardown_sdata(struct ieee80211_sub_if_data *sdata)
- 		__skb_queue_purge(&sdata->fragments[i].skb_list);
- 	sdata->fragment_next = 0;
+diff --git a/include/uapi/linux/nl80211.h b/include/uapi/linux/nl80211.h
+index 5ed257c4cd4e..4a33cac2a41a 100644
+--- a/include/uapi/linux/nl80211.h
++++ b/include/uapi/linux/nl80211.h
+@@ -2012,6 +2012,8 @@ enum nl80211_commands {
+  *	u32 attribute with an &enum nl80211_timeout_reason value. This is used,
+  *	e.g., with %NL80211_CMD_CONNECT event.
+  *
++ * @NL80211_ATTR_BPF_FD: BPF file descriptor (s32), use -1 to remove a program
++ *
+  * @NUM_NL80211_ATTR: total number of nl80211_attrs available
+  * @NL80211_ATTR_MAX: highest attribute number currently defined
+  * @__NL80211_ATTR_AFTER_LAST: internal use
+@@ -2423,6 +2425,8 @@ enum nl80211_attrs {
  
--	if (ieee80211_vif_is_mesh(&sdata->vif))
-+	if (ieee80211_vif_is_mesh(&sdata->vif)) {
- 		ieee80211_mesh_teardown_sdata(sdata);
-+	} else if (sdata->vif.type == NL80211_IFTYPE_MONITOR) {
-+		struct bpf_prog *old = rtnl_dereference(sdata->u.mntr.filter);
+ 	NL80211_ATTR_TIMEOUT_REASON,
+ 
++	NL80211_ATTR_BPF_FD,
 +
-+		RCU_INIT_POINTER(sdata->u.mntr.filter, NULL);
-+		if (old)
-+			bpf_prog_put(old);
-+	}
- }
+ 	/* add attributes here, update the policy in nl80211.c */
  
- static void ieee80211_uninit(struct net_device *dev)
-diff --git a/net/mac80211/main.c b/net/mac80211/main.c
-index 56fb47953b72..e9d13dedcca4 100644
---- a/net/mac80211/main.c
-+++ b/net/mac80211/main.c
-@@ -551,6 +551,9 @@ struct ieee80211_hw *ieee80211_alloc_hw_nm(size_t priv_data_len,
- 			   NL80211_FEATURE_FULL_AP_CLIENT_STATE;
- 	wiphy_ext_feature_set(wiphy, NL80211_EXT_FEATURE_FILS_STA);
+ 	__NL80211_ATTR_AFTER_LAST,
+@@ -4753,6 +4757,8 @@ enum nl80211_feature_flags {
+  * @NL80211_EXT_FEATURE_SCHED_SCAN_RELATIVE_RSSI: The driver supports sched_scan
+  *	for reporting BSSs with better RSSI than the current connected BSS
+  *	(%NL80211_ATTR_SCHED_SCAN_RELATIVE_RSSI).
++ * @NL80211_EXT_FEATURE_WIFIMON_BPF: supports running BPF filter programs
++ *	for frames seen on monitor interfaces
+  *
+  * @NUM_NL80211_EXT_FEATURES: number of extended features.
+  * @MAX_NL80211_EXT_FEATURES: highest extended feature index.
+@@ -4771,6 +4777,7 @@ enum nl80211_ext_feature_index {
+ 	NL80211_EXT_FEATURE_MGMT_TX_RANDOM_TA,
+ 	NL80211_EXT_FEATURE_MGMT_TX_RANDOM_TA_CONNECTED,
+ 	NL80211_EXT_FEATURE_SCHED_SCAN_RELATIVE_RSSI,
++	NL80211_EXT_FEATURE_WIFIMON_BPF,
  
-+	if (IS_ENABLED(CONFIG_BPF_WIFIMON))
-+		wiphy_ext_feature_isset(wiphy, NL80211_EXT_FEATURE_WIFIMON_BPF);
+ 	/* add new features before the definition below */
+ 	NUM_NL80211_EXT_FEATURES,
+diff --git a/net/wireless/core.c b/net/wireless/core.c
+index e55e05bc4805..6d9a38e9a375 100644
+--- a/net/wireless/core.c
++++ b/net/wireless/core.c
+@@ -691,6 +691,11 @@ int wiphy_register(struct wiphy *wiphy)
+ 		    (wiphy->bss_select_support & ~(BIT(__NL80211_BSS_SELECT_ATTR_AFTER_LAST) - 2))))
+ 		return -EINVAL;
+ 
++	if (WARN_ON(!IS_ENABLED(CONFIG_BPF_WIFIMON) &&
++		    wiphy_ext_feature_isset(wiphy,
++					    NL80211_EXT_FEATURE_WIFIMON_BPF)))
++		return -EINVAL;
 +
- 	if (!ops->hw_scan)
- 		wiphy->features |= NL80211_FEATURE_LOW_PRIORITY_SCAN |
- 				   NL80211_FEATURE_AP_SCAN;
-diff --git a/net/mac80211/rx.c b/net/mac80211/rx.c
-index 335c7843169f..8c811deaf3cd 100644
---- a/net/mac80211/rx.c
-+++ b/net/mac80211/rx.c
-@@ -508,6 +508,7 @@ ieee80211_rx_monitor(struct ieee80211_local *local, struct sk_buff *origskb,
- 	struct ieee80211_mgmt *mgmt;
- 	struct ieee80211_sub_if_data *monitor_sdata =
- 		rcu_dereference(local->monitor_sdata);
-+	bool deliver __maybe_unused = false;
+ 	if (wiphy->addresses)
+ 		memcpy(wiphy->perm_addr, wiphy->addresses[0].addr, ETH_ALEN);
  
- 	if (unlikely(status->flag & RX_FLAG_RADIOTAP_VENDOR_DATA)) {
- 		struct ieee80211_vendor_radiotap *rtap = (void *)origskb->data;
-@@ -552,6 +553,45 @@ ieee80211_rx_monitor(struct ieee80211_local *local, struct sk_buff *origskb,
- 		return origskb;
+diff --git a/net/wireless/nl80211.c b/net/wireless/nl80211.c
+index 9516840b6e5f..505e6db633c6 100644
+--- a/net/wireless/nl80211.c
++++ b/net/wireless/nl80211.c
+@@ -17,6 +17,7 @@
+ #include <linux/rtnetlink.h>
+ #include <linux/netlink.h>
+ #include <linux/etherdevice.h>
++#include <linux/bpf.h>
+ #include <net/net_namespace.h>
+ #include <net/genetlink.h>
+ #include <net/cfg80211.h>
+@@ -410,6 +411,7 @@ static const struct nla_policy nl80211_policy[NUM_NL80211_ATTR] = {
+ 		.len = sizeof(struct nl80211_bss_select_rssi_adjust)
+ 	},
+ 	[NL80211_ATTR_TIMEOUT_REASON] = { .type = NLA_U32 },
++	[NL80211_ATTR_BPF_FD] = { .type = NLA_U32 },
+ };
+ 
+ /* policy for the key attributes */
+@@ -2768,6 +2770,28 @@ static int nl80211_parse_mon_options(struct cfg80211_registered_device *rdev,
+ 		change = true;
  	}
  
-+#ifdef CONFIG_BPF_WIFIMON
-+	/* pretend all the monitor info isn't there */
-+	__pskb_pull(origskb, rtap_vendor_space);
-+	origskb->len -= present_fcs_len;
++	if (info->attrs[NL80211_ATTR_BPF_FD]) {
++		struct bpf_prog *prog = ERR_PTR(-ENODATA);
++		int fd = nla_get_s32(info->attrs[NL80211_ATTR_BPF_FD]);
++		u32 cap_flag = NL80211_EXT_FEATURE_WIFIMON_BPF;
 +
-+	list_for_each_entry_rcu(sdata, &local->interfaces, list) {
-+		const struct bpf_prog *filter;
++		if (!IS_ENABLED(CONFIG_BPF_WIFIMON) ||
++		    !wiphy_ext_feature_isset(&rdev->wiphy, cap_flag))
++			return -EOPNOTSUPP;
 +
-+		if (sdata->vif.type != NL80211_IFTYPE_MONITOR)
-+			continue;
++		if (type != NL80211_IFTYPE_MONITOR)
++			return -EINVAL;
 +
-+		if (sdata->u.mntr.flags & MONITOR_FLAG_COOK_FRAMES)
-+			continue;
-+
-+		if (!ieee80211_sdata_running(sdata))
-+			continue;
-+
-+		filter = rcu_dereference(sdata->u.mntr.filter);
-+		if (filter) {
-+			sdata->u.mntr.deliver = BPF_PROG_RUN(filter, origskb);
-+			if (sdata->u.mntr.deliver)
-+				deliver = true;
-+		} else {
-+			sdata->u.mntr.deliver = true;
-+			deliver = true;
++		if (fd >= 0) {
++			prog = bpf_prog_get_type(fd, BPF_PROG_TYPE_WIFIMON);
++			if (IS_ERR(prog))
++				return PTR_ERR(prog);
 +		}
++
++		params->filter = prog;
++		change = true;
 +	}
 +
-+	/* stop pretending the monitor info isn't there */
-+	origskb->len += present_fcs_len;
-+	__skb_push(origskb, rtap_vendor_space);
+ 	return change ? 1 : 0;
+ }
+ 
+@@ -2857,6 +2881,9 @@ static int nl80211_set_interface(struct sk_buff *skb, struct genl_info *info)
+ 	else
+ 		err = 0;
+ 
++	if (err && params.filter)
++		bpf_prog_put(params.filter);
 +
-+	if (!deliver) {
-+		remove_monitor_info(local, origskb, present_fcs_len,
-+				    rtap_vendor_space);
-+		return origskb;
-+	}
-+#endif
-+
- 	/* room for the radiotap header based on driver features */
- 	rt_hdrlen = ieee80211_rx_radiotap_hdrlen(local, status, origskb);
- 	needed_headroom = rt_hdrlen - rtap_vendor_space;
-@@ -598,11 +638,16 @@ ieee80211_rx_monitor(struct ieee80211_local *local, struct sk_buff *origskb,
- 		if (sdata->vif.type != NL80211_IFTYPE_MONITOR)
- 			continue;
+ 	if (!err && params.use_4addr != -1)
+ 		dev->ieee80211_ptr->use_4addr = params.use_4addr;
  
-+#ifdef CONFIG_BPF_WIFIMON
-+		if (!sdata->u.mntr.deliver)
-+			continue;
-+#else
- 		if (sdata->u.mntr.flags & MONITOR_FLAG_COOK_FRAMES)
- 			continue;
- 
- 		if (!ieee80211_sdata_running(sdata))
- 			continue;
-+#endif
- 
- 		if (prev_dev) {
- 			skb2 = skb_clone(skb, GFP_ATOMIC);
 -- 
 2.11.0
