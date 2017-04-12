@@ -1,50 +1,37 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next] net: dsa: add CONFIG_NET_DSA_LEGACY
-Date: Wed, 12 Apr 2017 10:22:34 -0400
-Message-ID: <871ssx1z9x.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-References: <20170411205237.29309-1-vivien.didelot@savoirfairelinux.com> <edc488b1-8ea1-fc69-0700-68ffaf8f6742@gmail.com>
+From: <Woojung.Huh@microchip.com>
+Subject: RE: [PATCH v3] smsc95xx: Add comments to the registers definition
+Date: Wed, 12 Apr 2017 14:25:18 +0000
+Message-ID: <9235D6609DB808459E95D78E17F2E43D40A41DA1@CHN-SV-EXMX02.mchp-main.com>
+References: <20170410084521.w2kdjpdquvrg72mr@SMX-2>
+ <20170410135251.GC19820@lunn.ch>
+ <20170411.221836.113758478587841074.davem@davemloft.net>
+ <20170412092405.doyczwsqnzkizarz@SMX-2>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Andrew Lunn <andrew@lunn.ch>
-To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <andrew@lunn.ch>, <steve.glendinning@shawell.net>,
+        <UNGLinuxDriver@microchip.com>, <netdev@vger.kernel.org>,
+        <linux-usb@vger.kernel.org>
+To: <martin@wetterwald.eu>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:50608 "EHLO
-        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752209AbdDLOYE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 12 Apr 2017 10:24:04 -0400
-In-Reply-To: <edc488b1-8ea1-fc69-0700-68ffaf8f6742@gmail.com>
+Received: from esa2.microchip.iphmx.com ([68.232.149.84]:16071 "EHLO
+        esa2.microchip.iphmx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752384AbdDLOZV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 12 Apr 2017 10:25:21 -0400
+In-Reply-To: <20170412092405.doyczwsqnzkizarz@SMX-2>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Florian,
+> +/* LED General Purpose IO Configuration Register */
+> +#define LED_GPIO_CFG		(0x24)
+> +#define LED_GPIO_CFG_SPD_LED	(0x01000000)	/* GPIO2 as SPD LED
+> */
+> +#define LED_GPIO_CFG_LNK_LED	(0x00100000)	/* GPIO1 as LNK LED
+> */
+> +#define LED_GPIO_CFG_FDX_LED	(0x00010000)	/* GPIO0 as FDX LED
+> */
+Because comments are one of main reason for this patch.
+It is GPIO 10, 9 & 8.
 
-Florian Fainelli <f.fainelli@gmail.com> writes:
-
-> On 04/11/2017 01:52 PM, Vivien Didelot wrote:
->> This patch moves as is the legacy DSA code from dsa.c to legacy.c,
->> except the few shared symbols which remain in dsa.c.
->> 
->> Compile legacy.o only if a new CONFIG_NET_DSA_LEGACY symbol is enabled,
->> which is true by default.
->> 
->> DSA drivers without legacy support don't need the probe function as well
->> as driver registration helpers anymore, so remove their definitions if
->> CONFIG_NET_DSA_LEGACY is disabled.
->> 
->> NET_DSA_MV88E6060 and NET_DSA_BCM_SF2 now depend on the legacy support.
->
-> BCM_SF2 is not dependent on legacy support since it got converted to the
-> new API in the past few months.
-
-Oops, my bad. Fixing it.
-
-> You may want to generate your patch with git format-patch -M to help
-> detect renames/code movements.
-
-I used --find-copies-harder -C for easier review but I can use -M.
-
-Thanks,
-
-        Vivien
+Woojung
