@@ -1,48 +1,83 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [RFC PATCH 2/7] net: ethernet: update drivers to handle
- HWTSTAMP_FILTER_NTP_ALL
-Date: Wed, 12 Apr 2017 21:49:44 +0200
-Message-ID: <20170412194944.GB10454@localhost.localdomain>
-References: <20170412141737.5881-1-mlichvar@redhat.com>
- <20170412141737.5881-3-mlichvar@redhat.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH v3 net-next RFC] Generic XDP
+Date: Wed, 12 Apr 2017 13:54:20 -0600
+Message-ID: <0861d2c9-a5ec-f40e-b849-f6421938b357@cumulusnetworks.com>
+References: <20170412.145415.1441440342830198148.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Willem de Bruijn <willemb@google.com>,
-        Soheil Hassas Yeganeh <soheil@google.com>,
-        "Keller, Jacob E" <jacob.e.keller@intel.com>,
-        Denny Page <dennypage@me.com>, Jiri Benc <jbenc@redhat.com>
-To: Miroslav Lichvar <mlichvar@redhat.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: xdp-newbies@vger.kernel.org
+To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:33835 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754445AbdDLTtu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 12 Apr 2017 15:49:50 -0400
-Received: by mail-wm0-f66.google.com with SMTP id x75so8626624wma.1
-        for <netdev@vger.kernel.org>; Wed, 12 Apr 2017 12:49:49 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20170412141737.5881-3-mlichvar@redhat.com>
+Received: from mail-pg0-f54.google.com ([74.125.83.54]:33436 "EHLO
+        mail-pg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754445AbdDLTyW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 12 Apr 2017 15:54:22 -0400
+Received: by mail-pg0-f54.google.com with SMTP id x125so19611148pgb.0
+        for <netdev@vger.kernel.org>; Wed, 12 Apr 2017 12:54:22 -0700 (PDT)
+In-Reply-To: <20170412.145415.1441440342830198148.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 12, 2017 at 04:17:32PM +0200, Miroslav Lichvar wrote:
-> Update drivers which can timestamp all packets to handle also
-> HWTSTAMP_FILTER_NTP_ALL.
+On 4/12/17 12:54 PM, David Miller wrote:
+> 
+> This provides a generic SKB based non-optimized XDP path which is used
+> if either the driver lacks a specific XDP implementation, or the user
+> requests it via a new IFLA_XDP_FLAGS value named XDP_FLAGS_SKB_MODE.
+> 
+> It is arguable that perhaps I should have required something like
+> this as part of the initial XDP feature merge.
+> 
+> I believe this is critical for two reasons:
+> 
+> 1) Accessibility.  More people can play with XDP with less
+>    dependencies.  Yes I know we have XDP support in virtio_net, but
+>    that just creates another depedency for learning how to use this
+>    facility.
+> 
+>    I wrote this to make life easier for the XDP newbies.
+> 
+> 2) As a model for what the expected semantics are.  If there is a pure
+>    generic core implementation, it serves as a semantic example for
+>    driver folks adding XDP support.
+> 
+> This is just a rough draft and is untested.
 
-The $subject and message are bit confusing, as some of those do _not_
-handle ALL ...
 
-> diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-> index a851f95..2f30b1a 100644
-> --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-> +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-> @@ -15351,6 +15351,7 @@ int bnx2x_configure_ptp_filters(struct bnx2x *bp)
->  		break;
->  	case HWTSTAMP_FILTER_ALL:
->  	case HWTSTAMP_FILTER_SOME:
-> +	case HWTSTAMP_FILTER_NTP_ALL:
->  		bp->rx_filter = HWTSTAMP_FILTER_NONE;
+packet passed to xdp seems to be messed up. Using samples/bpf/xdp1*.c as
+an example:
 
-... like here, for example.
+Current with virtio-net:
+# xdp1 3
+proto 0:          0 pkt/s
+proto 6:          2 pkt/s
+proto 17:       1610 pkt/s
+proto 17:      22785 pkt/s
 
-Thanks,
-Richard
+Using the skb-mode:
+
+# xdp1 3 skb-mode
+proto 0:          2 pkt/s
+proto 0:      10880 pkt/s
+proto 0:      29990 pkt/s
+proto 0:      16972 pkt/s
+
+
+If I change ipproto in samples/bpf/xdp1_kern.c:
+
+        if (h_proto == htons(ETH_P_IP))
+                ipproto = parse_ipv4(data, nh_off, data_end);
+        else if (h_proto == htons(ETH_P_IPV6))
+                ipproto = parse_ipv6(data, nh_off, data_end);
+        else
+                ipproto = 63;
+
+I get:
+
+# xdp1 3 skb-mode
+proto 63:       6538 pkt/s
+proto 63:      23679 pkt/s
+proto 63:      29974 pkt/s
+proto 63:      29599 pkt/s
+
+which suggests h_proto is goofed up with skb-mode.
