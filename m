@@ -1,44 +1,26 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next] net: dsa: add CONFIG_NET_DSA_LEGACY
-Date: Wed, 12 Apr 2017 10:50:17 -0400
-Message-ID: <87shldznme.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-References: <20170411205237.29309-1-vivien.didelot@savoirfairelinux.com> <20170411212026.GA7023@lunn.ch>
+From: David Ahern <dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
+Subject: Re: [PATCH net-next v5 5/5] netlink: pass extended ACK struct where
+ available
+Date: Wed, 12 Apr 2017 08:55:07 -0600
+Message-ID: <1fdfb890-162a-a22c-53e0-101b9ef3bfa2@cumulusnetworks.com>
+References: <20170412123408.22012-1-johannes@sipsolutions.net>
+ <20170412123408.22012-6-johannes@sipsolutions.net>
+ <20170412140043.GH1952@nanopsycho>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170411212026.GA7023@lunn.ch>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
+        Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+To: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>,
+        Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170412140043.GH1952@nanopsycho>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi Andrew,
+On 4/12/17 8:00 AM, Jiri Pirko wrote:
+> Aside from the tinyfication of desc lines
 
-Andrew Lunn <andrew@lunn.ch> writes:
-
->> +#ifdef CONFIG_NET_DSA_LEGACY
->>  static const char *mv88e6xxx_drv_probe(struct device *dsa_dev,
->>  				       struct device *host_dev, int sw_addr,
->>  				       void **priv)
->> @@ -4256,6 +4257,7 @@ static const char *mv88e6xxx_drv_probe(struct device *dsa_dev,
->>  
->>  	return NULL;
->>  }
->> +#endif /* CONFIG_NET_DSA_LEGACY */
->
-> Rather than scatter #ifdef everywhere, can you use
->
->        if (!IS_ENABLED(CONFIG_NET_DSA_LEGACY))
->               return NULL
->
-> The compiler will then throw away the rest of the function, after
-> checking it does actually compile.
-
-I'll make the legacy code compile anyway then.
-
-Thanks!
-
-        Vivien
+channel your inner Elsa and just let it go
