@@ -1,72 +1,72 @@
-From: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
-Subject: Re: [PATCH net-next v5 1/5] netlink: extended ACK reporting
-Date: Wed, 12 Apr 2017 17:13:03 +0200
-Message-ID: <20170412151303.GK1952@nanopsycho>
-References: <20170412123408.22012-1-johannes@sipsolutions.net>
- <20170412123408.22012-2-johannes@sipsolutions.net>
- <dbc81431-487b-f218-a4c6-2caa44783d97@cumulusnetworks.com>
+From: Joao Pinto <Joao.Pinto@synopsys.com>
+Subject: Re: [PATCH v2 net-next] net: stmmac: add drop transmit status feature
+Date: Wed, 12 Apr 2017 16:13:33 +0100
+Message-ID: <13ddd2d8-c2a4-4983-a9af-8e34f605374c@synopsys.com>
+References: <37cc8294-5514-ed02-9b41-86f8cc9c20ad@synopsys.com>
+ <20170412135239.GD32596@lunn.ch>
+ <efbda38a-2146-06b2-9151-19294c654d28@synopsys.com>
+ <20170412.105101.58827766857310782.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
-        Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-To: David Ahern <dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <dbc81431-487b-f218-a4c6-2caa44783d97-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 8bit
+Cc: <andrew@lunn.ch>, <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>, <Joao.Pinto@synopsys.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtprelay4.synopsys.com ([198.182.47.9]:55161 "EHLO
+        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752650AbdDLPNs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 12 Apr 2017 11:13:48 -0400
+In-Reply-To: <20170412.105101.58827766857310782.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Wed, Apr 12, 2017 at 05:06:48PM CEST, dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org wrote:
->On 4/12/17 6:34 AM, Johannes Berg wrote:
->> diff --git a/include/uapi/linux/netlink.h b/include/uapi/linux/netlink.h
->> index b2c9c26ea30f..7df88770e029 100644
->> --- a/include/uapi/linux/netlink.h
->> +++ b/include/uapi/linux/netlink.h
->> @@ -69,6 +69,10 @@ struct nlmsghdr {
->>  #define NLM_F_CREATE	0x400	/* Create, if it does not exist	*/
->>  #define NLM_F_APPEND	0x800	/* Add to end of list		*/
->>  
->> +/* Flags for ACK message */
->> +#define NLM_F_CAPPED	0x100	/* request was capped */
->> +#define NLM_F_ACK_TLVS	0x200	/* extended ACK TVLs were included */
->> +
->>  /*
->>     4.4BSD ADD		NLM_F_CREATE|NLM_F_EXCL
->>     4.4BSD CHANGE	NLM_F_REPLACE
->> @@ -101,6 +105,33 @@ struct nlmsghdr {
->>  struct nlmsgerr {
->>  	int		error;
->>  	struct nlmsghdr msg;
->> +	/*
->> +	 * followed by the message contents unless NETLINK_CAP_ACK was set
->> +	 * or the ACK indicates success (error == 0)
->> +	 * message length is aligned with NLMSG_ALIGN()
->> +	 */
->> +	/*
->> +	 * followed by TLVs defined in enum nlmsgerr_attrs
->> +	 * if NETLINK_EXT_ACK was set
->> +	 */
->> +};
->> +
->> +/**
->> + * enum nlmsgerr_attrs - nlmsgerr attributes
->> + * @NLMSGERR_ATTR_UNUSED: unused
->> + * @NLMSGERR_ATTR_MSG: error message string (string)
->> + * @NLMSGERR_ATTR_OFFS: offset of the invalid attribute in the original
->> + *	 message, counting from the beginning of the header (u32)
->> + * @__NLMSGERR_ATTR_MAX: number of attributes
->> + * @NLMSGERR_ATTR_MAX: highest attribute number
->> + */
->> +enum nlmsgerr_attrs {
->> +	NLMSGERR_ATTR_UNUSED,
->> +	NLMSGERR_ATTR_MSG,
->
->There was a discussion about side effects of adding strings (bloat,
->internationalization). Should ATTR_MSG be removed until that is ironed
->out? Leaving it in suggests it is ok to start adding strings.
 
-I believe that we need strings right away. Without them, this patchset
-really does not make much sense.
+Hello,
+
+Às 3:51 PM de 4/12/2017, David Miller escreveu:
+> From: Joao Pinto <Joao.Pinto@synopsys.com>
+> Date: Wed, 12 Apr 2017 14:55:03 +0100
+> 
+>> Understand your point, but for now our development and testing setup will be
+>> based on the IP Prototyping Kit, consisting of a FPGA + PHY.
+> 
+> That's completely, and utterly, unacceptable.
+> 
+> I will be quite frank with you, that instances like this are causing
+> people to contact me privately and telling me that your handling of
+> becomming the stmmac driver maintainer is causing very real and
+> serious concerns.
+
+So, adding features to the driver are causing concerns to people? People don't
+have to worry about maintenance, since goals are not to be a maintainer. My job
+is just to help improve and add missing features to the driver and that's it.
+
+> 
+> You cannot develop performance based features and only test their
+> impact on FPGA when almost all users are on real silicon.
+> 
+> And this requirement is absolutely non-negotiable.
+> 
+> You must test the impact on real silicon otherwise your performance
+> numbers, which are required to be provided in the commit message
+> for any "performance" feature or change, are completely useless.
+
+Next time I won't mention anything about performance, honestly. "Drop TX Status"
+is just an IP Core feature that can or not be used, it is up to the driver user.
+
+> 
+> I want your attitude on these matters to change quickly, as myself
+> and many other interested parties are becomming extremely frustrated
+> with how you are handling things.
+
+Attitude? Are there complaints with my attitude? I try to help in everything I
+can, I listen to feedback, I did the rework on the Multiple Buffers patch to try
+to solve the negative impact in sunxi board. Sincerely I don't see a bad attitude.
+
+Are you mentioning the e-mail about sxgbe?
+
+> 
+> Thank you.
+> 
+
+Thank you.
