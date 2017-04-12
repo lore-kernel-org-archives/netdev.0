@@ -1,56 +1,40 @@
-From: Miroslav Lichvar <mlichvar@redhat.com>
-Subject: [RFC PATCH 5/7] net: don't make false software transmit timestamps
-Date: Wed, 12 Apr 2017 16:17:35 +0200
-Message-ID: <20170412141737.5881-6-mlichvar@redhat.com>
-References: <20170412141737.5881-1-mlichvar@redhat.com>
-Cc: Richard Cochran <richardcochran@gmail.com>,
-        Willem de Bruijn <willemb@google.com>,
-        Soheil Hassas Yeganeh <soheil@google.com>,
-        "Keller, Jacob E" <jacob.e.keller@intel.com>,
-        Denny Page <dennypage@me.com>, Jiri Benc <jbenc@redhat.com>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 00/10] ftgmac100: Rework batch 4 - Misc
+Date: Wed, 12 Apr 2017 10:19:34 -0400 (EDT)
+Message-ID: <20170412.101934.2165788638655556260.davem@davemloft.net>
+References: <20170412032710.17546-1-benh@kernel.crashing.org>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: benh@kernel.crashing.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33576 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753306AbdDLOR5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 12 Apr 2017 10:17:57 -0400
-In-Reply-To: <20170412141737.5881-1-mlichvar@redhat.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:45568 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751349AbdDLOTg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 12 Apr 2017 10:19:36 -0400
+In-Reply-To: <20170412032710.17546-1-benh@kernel.crashing.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If software timestamping is enabled by the SO_TIMESTAMP(NS) option
-when a message without timestamp is already waiting in the queue, the
-__sock_recv_timestamp() function will read the current time to make a
-timestamp in order to always have something for the application.
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Date: Wed, 12 Apr 2017 13:27:00 +1000
 
-However, this applies also to outgoing packets looped back to the error
-queue when hardware timestamping is enabled by the SO_TIMESTAMPING
-option. A software transmit timestamp made after the actual transmission
-is added to messages with hardware timestamps.
+> This is v2 of the fourth batch of updates to the ftgmac100 driver.
+> 
+> This is a bunch of misc cleanups and fixes, such as properly
+> disabling HW checksum generation on AST2400 where it's known
+> to be broken and some chip init updates.
+> 
+> This also adds the ability to turn HW checksum on/off and
+> configure the ring sizes via ethtool.
+> 
+> v2 Fixes patch 1/10 (NETIF_F_HW_CSUM conversion)
+> 
+> The next (and last) batch will add a few more "features" such
+> as netpoll, multicast/promist, vlan offload...
+> 
 
-Modify the function to save the current time as a software timestamp
-only if it's for a received packet (i.e. it's not in the error queue).
+Series applied, thanks Benjamin.
 
-CC: Richard Cochran <richardcochran@gmail.com>
-CC: Willem de Bruijn <willemb@google.com>
-Signed-off-by: Miroslav Lichvar <mlichvar@redhat.com>
----
- net/socket.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/net/socket.c b/net/socket.c
-index f272019..32e78de 100644
---- a/net/socket.c
-+++ b/net/socket.c
-@@ -668,7 +668,8 @@ static bool skb_is_err_queue(const struct sk_buff *skb)
- void __sock_recv_timestamp(struct msghdr *msg, struct sock *sk,
- 	struct sk_buff *skb)
- {
--	int need_software_tstamp = sock_flag(sk, SOCK_RCVTSTAMP);
-+	int need_software_tstamp = sock_flag(sk, SOCK_RCVTSTAMP) &&
-+				   !skb_is_err_queue(skb);
- 	struct scm_timestamping tss;
- 	struct scm_ts_pktinfo ts_pktinfo;
- 	int empty = 1;
--- 
-2.9.3
+I really like how you use the reset task to implement ring resizing.
