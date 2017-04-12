@@ -1,47 +1,37 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next v5 4/5] netlink: pass extended ACK struct to
- parsing functions
-Date: Wed, 12 Apr 2017 16:08:23 +0200
-Message-ID: <20170412140823.GJ1952@nanopsycho>
-References: <20170412123408.22012-1-johannes@sipsolutions.net>
- <20170412123408.22012-5-johannes@sipsolutions.net>
- <20170412131708.GC1952@nanopsycho>
- <8737ddd8r0.fsf@purkki.adurom.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v1 1/1] L2TP device MTU setup - tunnel socket
+ needs a lock
+Date: Wed, 12 Apr 2017 10:13:00 -0400 (EDT)
+Message-ID: <20170412.101300.1946293471196203044.davem@davemloft.net>
+References: <alpine.DEB.2.11.1704112010410.8819@nelson51.eng.vyatta.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        pablo@netfilter.org, Jamal Hadi Salim <jhs@mojatatu.com>,
-        Jiri Benc <jbenc@redhat.com>,
-        David Ahern <dsa@cumulusnetworks.com>,
-        Johannes Berg <johannes.berg@intel.com>
-To: Kalle Valo <kvalo@codeaurora.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:35167 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751123AbdDLOIZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 12 Apr 2017 10:08:25 -0400
-Received: by mail-wm0-f65.google.com with SMTP id d79so6675910wmi.2
-        for <netdev@vger.kernel.org>; Wed, 12 Apr 2017 07:08:25 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <8737ddd8r0.fsf@purkki.adurom.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kleptog@svana.org, jchapman@katalix.com,
+        nprachan@brocade.com, rshearma@brocade.com,
+        stephen@networkplumber.org, sdietric@brocade.com,
+        ciwillia@brocade.com, lboccass@brocade.com, dfawcus@brocade.com,
+        bhong@brocade.com, jblunck@brocade.com,
+        linux-kernel@vger.kernel.org
+To: parameswaran.r7@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.11.1704112010410.8819@nelson51.eng.vyatta.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Wed, Apr 12, 2017 at 04:02:27PM CEST, kvalo@codeaurora.org wrote:
->Jiri Pirko <jiri@resnulli.us> writes:
->
->> Wed, Apr 12, 2017 at 02:34:07PM CEST, johannes@sipsolutions.net wrote:
->>>From: Johannes Berg <johannes.berg@intel.com>
->>>
->>>Pass the new extended ACK reporting struct to all of the
->>
->> Johannes, I wonder, is there a reason you ignore my comments about
->> narrow descriptions? Why don't you use the whole line?
->
->Seriously, you ask that with totally unnecessary 3800 lines of quotes?
->
->(Or at least I assume so, I didn't bother to check if you had any
->comments there as it would have taken forever to find them.)
+From: "R. Parameswaran" <parameswaran.r7@gmail.com>
+Date: Tue, 11 Apr 2017 20:14:37 -0700 (PDT)
 
-Yep, that I did not remove. Sorry about that. Will behave the next time.
+> 
+> The MTU overhead calculation in L2TP device set-up
+> merged via commit b784e7ebfce8cfb16c6f95e14e8532d0768ab7ff
+> needs to be adjusted to lock the tunnel socket while
+> referencing the sub-data structures to derive the
+> socket's IP overhead.
+
+This is missing a proper signoff.
+
+The subject line also needs to be fixed "[PATCH net-next] l2tp: " as explained
+by Guillaume.
+
+Thanks.
