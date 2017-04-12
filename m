@@ -1,76 +1,121 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net-next v2] net: allow configuring default qdisc
-Date: Wed, 12 Apr 2017 15:59:25 -0700
-Message-ID: <20170412155925.4bd3ed5e@xeon-e3>
-References: <20170408193946.18469-1-sthemmin@microsoft.com>
-        <20170411.220959.313852914647879245.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sthemmin@microsoft.com
-To: David Miller <davem@davemloft.net>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: [PATCH net] net-timestamp: avoid use-after-free in ip_recv_error
+Date: Wed, 12 Apr 2017 19:24:35 -0400
+Message-ID: <20170412232435.80455-1-willemdebruijn.kernel@gmail.com>
+Cc: andreyknvl@google.com, davem@davemloft.net, eric.dumazet@gmail.com,
+        xiyou.wangcong@gmail.com, Willem de Bruijn <willemb@google.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f169.google.com ([209.85.192.169]:33704 "EHLO
-        mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755387AbdDLW72 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 12 Apr 2017 18:59:28 -0400
-Received: by mail-pf0-f169.google.com with SMTP id s16so20125944pfs.0
-        for <netdev@vger.kernel.org>; Wed, 12 Apr 2017 15:59:28 -0700 (PDT)
-In-Reply-To: <20170411.220959.313852914647879245.davem@davemloft.net>
+Received: from mail-qt0-f196.google.com ([209.85.216.196]:36438 "EHLO
+        mail-qt0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755360AbdDLXYi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 12 Apr 2017 19:24:38 -0400
+Received: by mail-qt0-f196.google.com with SMTP id v3so5881081qtd.3
+        for <netdev@vger.kernel.org>; Wed, 12 Apr 2017 16:24:38 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 11 Apr 2017 22:09:59 -0400 (EDT)
-David Miller <davem@davemloft.net> wrote:
+From: Willem de Bruijn <willemb@google.com>
 
-> From: Stephen Hemminger <stephen@networkplumber.org>
-> Date: Sat,  8 Apr 2017 15:39:46 -0400
-> 
-> > Since 3.12 it has been possible to configure the default queuing
-> > discipline via sysctl. This patch adds ability to configure the
-> > default queue discipline in kernel configuration. This is useful for
-> > environments where configuring the value from userspace is difficult
-> > to manage.
-> > 
-> > The default is still the same as before (pfifo_fast) and it is
-> > possible to change after kernel init with sysctl. This is similar
-> > to how TCP congestion control works.
-> > 
-> > Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
-> > ---
-> > v2 - rearrange order of menu items
-> >      use pfifo_fast not pfifo  
-> 
-> Stephen I'm still thinking about this.
-> 
-> Normal users typing "make oldconfig" shouldn't be asked a question
-> like this.  They have no idea.  This is just like how we hide all the
-> advanced ipv4 routing choices behind the Kconfig symbol
-> IP_ADVANCED_ROUTER and TCP congestion control with TCP_CONG_ADVANCED.
-> 
-> And from experience I know that if it shows up when Linus types 'make'
-> after pulling this in, he will complain :-)
+Syzkaller reported a use-after-free in ip_recv_error at line
 
+    info->ipi_ifindex = skb->dev->ifindex;
 
-I understand your concern about less clueful users not knowing what
-to answer. But there have been many recent cases where things have
-been added with the adage "just hit return and take the default".
+This function is called on dequeue from the error queue, at which
+point the device pointer may no longer be valid.
 
-The most recent example was in the block layer.
+Save ifindex on enqueue in __skb_complete_tx_timestamp, when the
+pointer is valid or NULL. Store it in temporary storage skb->cb.
 
-commit d34849913819a5e0cbfbe724dbe79df89278c524
-Author: Jens Axboe <axboe@fb.com>
-Date:   Fri Jan 13 14:43:58 2017 -0700
+It is safe to reference skb->dev here, as called from device drivers
+or dev_queue_xmit. The exception is when called from tcp_ack_tstamp;
+in that case it is NULL and ifindex is set to 0 (invalid).
 
-    blk-mq-sched: allow setting of default IO scheduler
-    
-    Add Kconfig entries to manage what devices get assigned an MQ
-    scheduler, and add a blk-mq flag for drivers to opt out of scheduling.
-    The latter is useful for admin type queues that still allocate a blk-mq
-    queue and tag set, but aren't use for normal IO.
-    
-    Signed-off-by: Jens Axboe <axboe@fb.com>
-    Reviewed-by: Bart Van Assche <bart.vanassche@sandisk.com>
-    Reviewed-by: Omar Sandoval <osandov@fb.com>
+Do not return a pktinfo cmsg if ifindex is 0. This maintains the
+current behavior of not returning a cmsg if skb->dev was NULL.
 
-Maybe Linus understands IO better than networking :=)
+On dequeue, the ipv4 path will cast from sock_exterr_skb to
+in_pktinfo. Both have ifindex as their first element, so no explicit
+conversion is needed. This is by design, introduced in commit
+0b922b7a829c ("net: original ingress device index in PKTINFO"). For
+ipv6 ip6_datagram_support_cmsg converts to in6_pktinfo.
+
+Fixes: 829ae9d61165 ("net-timestamp: allow reading recv cmsg on errqueue with origin tstamp")
+
+Reported-by: Andrey Konovalov <andreyknvl@google.com>
+Signed-off-by: Willem de Bruijn <willemb@google.com>
+---
+ net/core/skbuff.c      |  1 +
+ net/ipv4/ip_sockglue.c |  9 ++++-----
+ net/ipv6/datagram.c    | 10 +---------
+ 3 files changed, 6 insertions(+), 14 deletions(-)
+
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 9f781092fda9..35c1e2460206 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -3807,6 +3807,7 @@ static void __skb_complete_tx_timestamp(struct sk_buff *skb,
+ 	serr->ee.ee_origin = SO_EE_ORIGIN_TIMESTAMPING;
+ 	serr->ee.ee_info = tstype;
+ 	serr->opt_stats = opt_stats;
++	serr->header.h4.iif = skb->dev ? skb->dev->ifindex : 0;
+ 	if (sk->sk_tsflags & SOF_TIMESTAMPING_OPT_ID) {
+ 		serr->ee.ee_data = skb_shinfo(skb)->tskey;
+ 		if (sk->sk_protocol == IPPROTO_TCP &&
+diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
+index ebd953bc5607..35076792caa5 100644
+--- a/net/ipv4/ip_sockglue.c
++++ b/net/ipv4/ip_sockglue.c
+@@ -488,16 +488,15 @@ static bool ipv4_datagram_support_cmsg(const struct sock *sk,
+ 		return false;
+ 
+ 	/* Support IP_PKTINFO on tstamp packets if requested, to correlate
+-	 * timestamp with egress dev. Not possible for packets without dev
++	 * timestamp with egress dev. Not possible for packets without iif
+ 	 * or without payload (SOF_TIMESTAMPING_OPT_TSONLY).
+ 	 */
+-	if ((!(sk->sk_tsflags & SOF_TIMESTAMPING_OPT_CMSG)) ||
+-	    (!skb->dev))
++	info = PKTINFO_SKB_CB(skb);
++	if (!(sk->sk_tsflags & SOF_TIMESTAMPING_OPT_CMSG) ||
++	    !info->ipi_ifindex)
+ 		return false;
+ 
+-	info = PKTINFO_SKB_CB(skb);
+ 	info->ipi_spec_dst.s_addr = ip_hdr(skb)->saddr;
+-	info->ipi_ifindex = skb->dev->ifindex;
+ 	return true;
+ }
+ 
+diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
+index eec27f87efac..e011122ebd43 100644
+--- a/net/ipv6/datagram.c
++++ b/net/ipv6/datagram.c
+@@ -405,9 +405,6 @@ static inline bool ipv6_datagram_support_addr(struct sock_exterr_skb *serr)
+  * At one point, excluding local errors was a quick test to identify icmp/icmp6
+  * errors. This is no longer true, but the test remained, so the v6 stack,
+  * unlike v4, also honors cmsg requests on all wifi and timestamp errors.
+- *
+- * Timestamp code paths do not initialize the fields expected by cmsg:
+- * the PKTINFO fields in skb->cb[]. Fill those in here.
+  */
+ static bool ip6_datagram_support_cmsg(struct sk_buff *skb,
+ 				      struct sock_exterr_skb *serr)
+@@ -419,14 +416,9 @@ static bool ip6_datagram_support_cmsg(struct sk_buff *skb,
+ 	if (serr->ee.ee_origin == SO_EE_ORIGIN_LOCAL)
+ 		return false;
+ 
+-	if (!skb->dev)
++	if (!IP6CB(skb)->iif)
+ 		return false;
+ 
+-	if (skb->protocol == htons(ETH_P_IPV6))
+-		IP6CB(skb)->iif = skb->dev->ifindex;
+-	else
+-		PKTINFO_SKB_CB(skb)->ipi_ifindex = skb->dev->ifindex;
+-
+ 	return true;
+ }
+ 
+-- 
+2.12.2.715.g7642488e1d-goog
