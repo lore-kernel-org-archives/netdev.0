@@ -1,49 +1,38 @@
-From: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Subject: Re: [PATCH v4 18/18] arm: multi_v7: Enable dwmac-sun8i
- driver on multi_v7_defconfig
-Date: Wed, 12 Apr 2017 14:42:59 +0200
-Message-ID: <20170412124259.rbspyuxlui6y77q3@lukather>
-References: <20170412111400.2296-1-clabbe.montjoie@gmail.com>
- <20170412111400.2296-19-clabbe.montjoie@gmail.com>
-Reply-To: maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: eBPF - little-endian load instructions?
+Date: Wed, 12 Apr 2017 15:02:00 +0200
+Message-ID: <1492002120.2855.3.camel@sipsolutions.net>
+References: <1491907114.31620.18.camel@sipsolutions.net>
+         <58ECB8CF.8040409@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-	protocol="application/pgp-signature"; boundary="dlrah7t653l3beju"
-Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org,
-	linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org, will.deacon-5wv7dgnIgG8@public.gmane.org,
-	peppe.cavallaro-qxv4g6HH51o@public.gmane.org, alexandre.torgue-qxv4g6HH51o@public.gmane.org,
-	linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-sunxi+bncBDSJBYGBRIMBB7OBXDDQKGQEXRRCQMY-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-Content-Disposition: inline
-In-Reply-To: <20170412111400.2296-19-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <https://groups.google.com/group/linux-sunxi
-List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
- <https://groups.google.com/group/linux-sunxi/subscribe>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Alexei Starovoitov <ast@kernel.org>
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s3.sipsolutions.net ([5.9.151.49]:36448 "EHLO sipsolutions.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751218AbdDLNCH (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 12 Apr 2017 09:02:07 -0400
+In-Reply-To: <58ECB8CF.8040409@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
---dlrah7t653l3beju
-Content-Type: text/plain; charset=UTF-8
-Content-Disposition: inline
-
-On Wed, Apr 12, 2017 at 01:14:00PM +0200, Corentin Labbe wrote:
-> Enable the dwmac-sun8i driver in the multi_v7 default configuration
+On Tue, 2017-04-11 at 13:06 +0200, Daniel Borkmann wrote:
 > 
-> Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> There are instructions to convert endianess, see __bpf_prog_run(),
+> the ALU_END_TO_BE, ALU_END_TO_LE labels for details. There's a
+> BPF_ENDIAN() macro used in the test suite and other places.
 
-Maybe we should enable that in arm64's defconfig too?
+Are these hooked up to llvm intrinsics or so? If not, can I do that
+through some kind of inline asm statement?
 
-Maxime
+In the samples, I only see people doing
 
--- 
-Maxime Ripard, Free Electrons
-Embedded Linux and Kernel engineering
-http://free-electrons.com
---dlrah7t653l3beju--
+#define _htonl __builtin_bswap32
+
+but I'm not even completely convinced that's correct, since it assumes
+a little-endian host?
+
+johannes
