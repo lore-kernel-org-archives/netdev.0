@@ -1,37 +1,54 @@
-From: <Woojung.Huh@microchip.com>
-Subject: RE: [PATCH v3] smsc95xx: Add comments to the registers definition
-Date: Wed, 12 Apr 2017 14:25:18 +0000
-Message-ID: <9235D6609DB808459E95D78E17F2E43D40A41DA1@CHN-SV-EXMX02.mchp-main.com>
-References: <20170410084521.w2kdjpdquvrg72mr@SMX-2>
- <20170410135251.GC19820@lunn.ch>
- <20170411.221836.113758478587841074.davem@davemloft.net>
- <20170412092405.doyczwsqnzkizarz@SMX-2>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: [RFC 1/3] bpf/wireless: add wifimon program type
+Date: Wed, 12 Apr 2017 16:27:34 +0200
+Message-ID: <1492007254.2855.10.camel@sipsolutions.net>
+References: <20170412110726.9689-1-johannes@sipsolutions.net>
+         (sfid-20170412_130910_059795_2268F0CA)
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <andrew@lunn.ch>, <steve.glendinning@shawell.net>,
-        <UNGLinuxDriver@microchip.com>, <netdev@vger.kernel.org>,
-        <linux-usb@vger.kernel.org>
-To: <martin@wetterwald.eu>, <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from esa2.microchip.iphmx.com ([68.232.149.84]:16071 "EHLO
-        esa2.microchip.iphmx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752384AbdDLOZV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 12 Apr 2017 10:25:21 -0400
-In-Reply-To: <20170412092405.doyczwsqnzkizarz@SMX-2>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
+        Alexei Starovoitov <ast-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170412110726.9689-1-johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org> (sfid-20170412_130910_059795_2268F0CA)
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-> +/* LED General Purpose IO Configuration Register */
-> +#define LED_GPIO_CFG		(0x24)
-> +#define LED_GPIO_CFG_SPD_LED	(0x01000000)	/* GPIO2 as SPD LED
-> */
-> +#define LED_GPIO_CFG_LNK_LED	(0x00100000)	/* GPIO1 as LNK LED
-> */
-> +#define LED_GPIO_CFG_FDX_LED	(0x00010000)	/* GPIO0 as FDX LED
-> */
-Because comments are one of main reason for this patch.
-It is GPIO 10, 9 & 8.
+On Wed, 2017-04-12 at 13:07 +0200, Johannes Berg wrote:
+> From: Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+> 
+> Add a new program type for wifi monitor interfaces. This program
+> type can
+>  * access __sk_buff, but only skb->len
+>  * call bpf_skb_load_bytes()
+> 
+> The program type is only enabled when something selects the new
+> Kconfig symbol WANT_BPF_WIFIMON, which will be done by mac80211
+> in a follow-up patch.
 
-Woojung
+This works. An example BPF program is here:
+https://p.sipsolutions.net/ca32264f2b705e5e.txt
+
+I haven't really done any performance measurements and only tested it
+in a virtual environment, but it's nice to see that in principle I can
+get it working relatively easily.
+
+One thing I'm not so sure about is the usage of __sk_buff.
+
+Clearly, I need to pass the struct sk_buff internally for
+bpf_skb_load_bytes() to work. However, using __sk_buff seems a bit
+strange since I only let the program access the len field.
+
+Perhaps adding a __wifi_sk_buff would work, but then clang will
+probably complain if you pass that to bpf_skb_load_bytes().
+
+The alternative will be to add any wifi fields we might need eventually
+to __sk_buff, which perhaps isn't such a big deal since accesses are
+optimized away anyway through convert_ctx_access.
+
+Instead it may make more sense to just have a "wifi_info(skb, info)"
+function you can call, e.g. with a structure that has various fields
+and flags to see which you care about.
+
+johannes
