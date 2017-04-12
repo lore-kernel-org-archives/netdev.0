@@ -1,84 +1,67 @@
 From: Guillaume Nault <g.nault@alphalink.fr>
-Subject: [PATCH net-next 1/2] l2tp: define parameters of l2tp_session_get*()
+Subject: [PATCH net-next 2/2] l2tp: define parameters of l2tp_tunnel_find*()
  as "const"
-Date: Wed, 12 Apr 2017 10:05:29 +0200
-Message-ID: <7359b757d5546700e4dd42704afbd928c4262d2e.1491984104.git.g.nault@alphalink.fr>
+Date: Wed, 12 Apr 2017 10:05:30 +0200
+Message-ID: <2e88f5ce221477cffc73a01d8792a5b92d79a67d.1491984104.git.g.nault@alphalink.fr>
 References: <cover.1491984104.git.g.nault@alphalink.fr>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: James Chapman <jchapman@katalix.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zimbra.alphalink.fr ([217.15.80.77]:37847 "EHLO
+Received: from zimbra.alphalink.fr ([217.15.80.77]:37851 "EHLO
         zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752546AbdDLIFg (ORCPT
+        with ESMTP id S1752719AbdDLIFg (ORCPT
         <rfc822;netdev@vger.kernel.org>); Wed, 12 Apr 2017 04:05:36 -0400
 Content-Disposition: inline
 In-Reply-To: <cover.1491984104.git.g.nault@alphalink.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Make l2tp_pernet()'s parameter constant, so that l2tp_session_get*() can
-declare their "net" variable as "const".
-Also constify "ifname" in l2tp_session_get_by_ifname().
+l2tp_tunnel_find() and l2tp_tunnel_find_nth() don't modify "net".
 
 Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
 ---
- net/l2tp/l2tp_core.c | 7 ++++---
- net/l2tp/l2tp_core.h | 5 +++--
- 2 files changed, 7 insertions(+), 5 deletions(-)
+ net/l2tp/l2tp_core.c | 4 ++--
+ net/l2tp/l2tp_core.h | 4 ++--
+ 2 files changed, 4 insertions(+), 4 deletions(-)
 
 diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
-index 154974be1eed..4828111c9ea7 100644
+index 4828111c9ea7..fa0342574b89 100644
 --- a/net/l2tp/l2tp_core.c
 +++ b/net/l2tp/l2tp_core.c
-@@ -120,7 +120,7 @@ static inline struct l2tp_tunnel *l2tp_tunnel(struct sock *sk)
- 	return sk->sk_user_data;
+@@ -379,7 +379,7 @@ static int l2tp_session_add_to_tunnel(struct l2tp_tunnel *tunnel,
+ 
+ /* Lookup a tunnel by id
+  */
+-struct l2tp_tunnel *l2tp_tunnel_find(struct net *net, u32 tunnel_id)
++struct l2tp_tunnel *l2tp_tunnel_find(const struct net *net, u32 tunnel_id)
+ {
+ 	struct l2tp_tunnel *tunnel;
+ 	struct l2tp_net *pn = l2tp_pernet(net);
+@@ -397,7 +397,7 @@ struct l2tp_tunnel *l2tp_tunnel_find(struct net *net, u32 tunnel_id)
  }
+ EXPORT_SYMBOL_GPL(l2tp_tunnel_find);
  
--static inline struct l2tp_net *l2tp_pernet(struct net *net)
-+static inline struct l2tp_net *l2tp_pernet(const struct net *net)
- {
- 	BUG_ON(!net);
- 
-@@ -232,7 +232,7 @@ l2tp_session_id_hash(struct l2tp_tunnel *tunnel, u32 session_id)
- /* Lookup a session. A new reference is held on the returned session.
-  * Optionally calls session->ref() too if do_ref is true.
-  */
--struct l2tp_session *l2tp_session_get(struct net *net,
-+struct l2tp_session *l2tp_session_get(const struct net *net,
- 				      struct l2tp_tunnel *tunnel,
- 				      u32 session_id, bool do_ref)
- {
-@@ -307,7 +307,8 @@ EXPORT_SYMBOL_GPL(l2tp_session_get_nth);
- /* Lookup a session by interface name.
-  * This is very inefficient but is only used by management interfaces.
-  */
--struct l2tp_session *l2tp_session_get_by_ifname(struct net *net, char *ifname,
-+struct l2tp_session *l2tp_session_get_by_ifname(const struct net *net,
-+						const char *ifname,
- 						bool do_ref)
+-struct l2tp_tunnel *l2tp_tunnel_find_nth(struct net *net, int nth)
++struct l2tp_tunnel *l2tp_tunnel_find_nth(const struct net *net, int nth)
  {
  	struct l2tp_net *pn = l2tp_pernet(net);
+ 	struct l2tp_tunnel *tunnel;
 diff --git a/net/l2tp/l2tp_core.h b/net/l2tp/l2tp_core.h
-index a3248e18badb..1a46bc44632f 100644
+index 1a46bc44632f..eec5ad2ebb93 100644
 --- a/net/l2tp/l2tp_core.h
 +++ b/net/l2tp/l2tp_core.h
-@@ -230,12 +230,13 @@ static inline struct l2tp_tunnel *l2tp_sock_to_tunnel(struct sock *sk)
- 	return tunnel;
- }
- 
--struct l2tp_session *l2tp_session_get(struct net *net,
-+struct l2tp_session *l2tp_session_get(const struct net *net,
- 				      struct l2tp_tunnel *tunnel,
- 				      u32 session_id, bool do_ref);
- struct l2tp_session *l2tp_session_get_nth(struct l2tp_tunnel *tunnel, int nth,
- 					  bool do_ref);
--struct l2tp_session *l2tp_session_get_by_ifname(struct net *net, char *ifname,
-+struct l2tp_session *l2tp_session_get_by_ifname(const struct net *net,
-+						const char *ifname,
+@@ -238,8 +238,8 @@ struct l2tp_session *l2tp_session_get_nth(struct l2tp_tunnel *tunnel, int nth,
+ struct l2tp_session *l2tp_session_get_by_ifname(const struct net *net,
+ 						const char *ifname,
  						bool do_ref);
- struct l2tp_tunnel *l2tp_tunnel_find(struct net *net, u32 tunnel_id);
- struct l2tp_tunnel *l2tp_tunnel_find_nth(struct net *net, int nth);
+-struct l2tp_tunnel *l2tp_tunnel_find(struct net *net, u32 tunnel_id);
+-struct l2tp_tunnel *l2tp_tunnel_find_nth(struct net *net, int nth);
++struct l2tp_tunnel *l2tp_tunnel_find(const struct net *net, u32 tunnel_id);
++struct l2tp_tunnel *l2tp_tunnel_find_nth(const struct net *net, int nth);
+ 
+ int l2tp_tunnel_create(struct net *net, int fd, int version, u32 tunnel_id,
+ 		       u32 peer_tunnel_id, struct l2tp_tunnel_cfg *cfg,
 -- 
 2.11.0
