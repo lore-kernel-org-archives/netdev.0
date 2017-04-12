@@ -1,137 +1,107 @@
 From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: [PATCH v2 02/10] ftgmac100: Use device "compatible" property, not machine.
-Date: Wed, 12 Apr 2017 13:27:02 +1000
-Message-ID: <20170412032710.17546-3-benh@kernel.crashing.org>
+Subject: [PATCH v2 07/10] ftgmac100: Open code remaining register writes
+Date: Wed, 12 Apr 2017 13:27:07 +1000
+Message-ID: <20170412032710.17546-8-benh@kernel.crashing.org>
 References: <20170412032710.17546-1-benh@kernel.crashing.org>
 Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:41863 "EHLO gate.crashing.org"
+Received: from gate.crashing.org ([63.228.1.57]:41869 "EHLO gate.crashing.org"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752731AbdDLD1p (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 11 Apr 2017 23:27:45 -0400
+        id S1752741AbdDLD1t (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 11 Apr 2017 23:27:49 -0400
 In-Reply-To: <20170412032710.17546-1-benh@kernel.crashing.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We test for aspeed chips to handle a couple of special cases,
-but we do that by checking the machine type which isn't right.
-
-Instead check the actual device compatible property. This also
-updates the dtsi files for the aspeed SoC to match.
+The helpers just take space but don't provide much value. Simple
+one line comments are more explanatory.
 
 Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 ---
- arch/arm/boot/dts/aspeed-g4.dtsi         |  4 ++--
- arch/arm/boot/dts/aspeed-g5.dtsi         |  4 ++--
- drivers/net/ethernet/faraday/ftgmac100.c | 16 +++++++++-------
- 3 files changed, 13 insertions(+), 11 deletions(-)
+ drivers/net/ethernet/faraday/ftgmac100.c | 53 ++++++++++++--------------------
+ 1 file changed, 20 insertions(+), 33 deletions(-)
 
-diff --git a/arch/arm/boot/dts/aspeed-g4.dtsi b/arch/arm/boot/dts/aspeed-g4.dtsi
-index 0b4932c..6068e79 100644
---- a/arch/arm/boot/dts/aspeed-g4.dtsi
-+++ b/arch/arm/boot/dts/aspeed-g4.dtsi
-@@ -42,7 +42,7 @@
- 		};
- 
- 		mac0: ethernet@1e660000 {
--			compatible = "faraday,ftgmac100";
-+			compatible = "aspeed,ast2400-mac", "faraday,ftgmac100";
- 			reg = <0x1e660000 0x180>;
- 			interrupts = <2>;
- 			no-hw-checksum;
-@@ -50,7 +50,7 @@
- 		};
- 
- 		mac1: ethernet@1e680000 {
--			compatible = "faraday,ftgmac100";
-+			compatible = "aspeed,ast2400-mac", "faraday,ftgmac100";
- 			reg = <0x1e680000 0x180>;
- 			interrupts = <3>;
- 			no-hw-checksum;
-diff --git a/arch/arm/boot/dts/aspeed-g5.dtsi b/arch/arm/boot/dts/aspeed-g5.dtsi
-index b664fe3..4dbe91a 100644
---- a/arch/arm/boot/dts/aspeed-g5.dtsi
-+++ b/arch/arm/boot/dts/aspeed-g5.dtsi
-@@ -33,7 +33,7 @@
- 		};
- 
- 		mac0: ethernet@1e660000 {
--			compatible = "faraday,ftgmac100";
-+			compatible = "aspeed,ast2500-mac", "faraday,ftgmac100";
- 			reg = <0x1e660000 0x180>;
- 			interrupts = <2>;
- 			no-hw-checksum;
-@@ -41,7 +41,7 @@
- 		};
- 
- 		mac1: ethernet@1e680000 {
--			compatible = "faraday,ftgmac100";
-+			compatible = "aspeed,ast2500-mac", "faraday,ftgmac100";
- 			reg = <0x1e680000 0x180>;
- 			interrupts = <3>;
- 			no-hw-checksum;
 diff --git a/drivers/net/ethernet/faraday/ftgmac100.c b/drivers/net/ethernet/faraday/ftgmac100.c
-index bfa7d0a..6a4fed6 100644
+index 35c54e8..c679a09 100644
 --- a/drivers/net/ethernet/faraday/ftgmac100.c
 +++ b/drivers/net/ethernet/faraday/ftgmac100.c
-@@ -90,6 +90,7 @@ struct ftgmac100 {
- 
- 	/* Misc */
- 	bool need_mac_restart;
-+	bool is_aspeed;
+@@ -93,29 +93,6 @@ struct ftgmac100 {
+ 	bool is_aspeed;
  };
  
- static void ftgmac100_set_rx_ring_base(struct ftgmac100 *priv, dma_addr_t addr)
-@@ -1320,8 +1321,7 @@ static int ftgmac100_setup_mdio(struct net_device *netdev)
- 	if (!priv->mii_bus)
- 		return -EIO;
+-static void ftgmac100_set_rx_ring_base(struct ftgmac100 *priv, dma_addr_t addr)
+-{
+-	iowrite32(addr, priv->base + FTGMAC100_OFFSET_RXR_BADR);
+-}
+-
+-static void ftgmac100_set_rx_buffer_size(struct ftgmac100 *priv,
+-		unsigned int size)
+-{
+-	size = FTGMAC100_RBSR_SIZE(size);
+-	iowrite32(size, priv->base + FTGMAC100_OFFSET_RBSR);
+-}
+-
+-static void ftgmac100_set_normal_prio_tx_ring_base(struct ftgmac100 *priv,
+-						   dma_addr_t addr)
+-{
+-	iowrite32(addr, priv->base + FTGMAC100_OFFSET_NPTXR_BADR);
+-}
+-
+-static void ftgmac100_txdma_normal_prio_start_polling(struct ftgmac100 *priv)
+-{
+-	iowrite32(1, priv->base + FTGMAC100_OFFSET_NPTXPD);
+-}
+-
+ static int ftgmac100_reset_mac(struct ftgmac100 *priv, u32 maccr)
+ {
+ 	struct net_device *netdev = priv->netdev;
+@@ -233,18 +210,27 @@ static int ftgmac100_set_mac_addr(struct net_device *dev, void *p)
  
--	if (of_machine_is_compatible("aspeed,ast2400") ||
--	    of_machine_is_compatible("aspeed,ast2500")) {
-+	if (priv->is_aspeed) {
- 		/* This driver supports the old MDIO interface */
- 		reg = ioread32(priv->base + FTGMAC100_OFFSET_REVR);
- 		reg &= ~FTGMAC100_REVR_NEW_MDIO_INTERFACE;
-@@ -1386,6 +1386,7 @@ static int ftgmac100_probe(struct platform_device *pdev)
- 	int irq;
- 	struct net_device *netdev;
- 	struct ftgmac100 *priv;
-+	struct device_node *np;
- 	int err = 0;
+ static void ftgmac100_init_hw(struct ftgmac100 *priv)
+ {
+-	/* setup ring buffer base registers */
+-	ftgmac100_set_rx_ring_base(priv,
+-				   priv->descs_dma_addr +
+-				   offsetof(struct ftgmac100_descs, rxdes));
+-	ftgmac100_set_normal_prio_tx_ring_base(priv,
+-					       priv->descs_dma_addr +
+-					       offsetof(struct ftgmac100_descs, txdes));
  
- 	if (!pdev)
-@@ -1441,17 +1442,18 @@ static int ftgmac100_probe(struct platform_device *pdev)
- 	/* MAC address from chip or random one */
- 	ftgmac100_setup_mac(priv);
+-	ftgmac100_set_rx_buffer_size(priv, RX_BUF_SIZE);
  
--	if (of_machine_is_compatible("aspeed,ast2400") ||
--	    of_machine_is_compatible("aspeed,ast2500")) {
-+	np = pdev->dev.of_node;
-+	if (np && (of_device_is_compatible(np, "aspeed,ast2400-mac") ||
-+		   of_device_is_compatible(np, "aspeed,ast2500-mac"))) {
- 		priv->rxdes0_edorr_mask = BIT(30);
- 		priv->txdes0_edotr_mask = BIT(30);
-+		priv->is_aspeed = true;
- 	} else {
- 		priv->rxdes0_edorr_mask = BIT(15);
- 		priv->txdes0_edotr_mask = BIT(15);
+-	iowrite32(FTGMAC100_APTC_RXPOLL_CNT(1), priv->base + FTGMAC100_OFFSET_APTC);
++	/* Setup RX ring buffer base */
++	iowrite32(priv->descs_dma_addr +
++		  offsetof(struct ftgmac100_descs, rxdes),
++		  priv->base + FTGMAC100_OFFSET_RXR_BADR);
+ 
++	/* Setup TX ring buffer base */
++	iowrite32(priv->descs_dma_addr +
++		  offsetof(struct ftgmac100_descs, txdes),
++		  priv->base + FTGMAC100_OFFSET_NPTXR_BADR);
++
++	/* Configure RX buffer size */
++	iowrite32(FTGMAC100_RBSR_SIZE(RX_BUF_SIZE),
++		  priv->base + FTGMAC100_OFFSET_RBSR);
++
++	/* Set RX descriptor autopoll */
++	iowrite32(FTGMAC100_APTC_RXPOLL_CNT(1),
++		  priv->base + FTGMAC100_OFFSET_APTC);
++
++	/* Write MAC address */
+ 	ftgmac100_write_mac_addr(priv, priv->netdev->dev_addr);
+ }
+ 
+@@ -704,7 +690,8 @@ static int ftgmac100_hard_start_xmit(struct sk_buff *skb,
+ 			netif_wake_queue(netdev);
  	}
  
--	if (pdev->dev.of_node &&
--	    of_get_property(pdev->dev.of_node, "use-ncsi", NULL)) {
-+	if (np && of_get_property(np, "use-ncsi", NULL)) {
- 		if (!IS_ENABLED(CONFIG_NET_NCSI)) {
- 			dev_err(&pdev->dev, "NCSI stack not enabled\n");
- 			goto err_ncsi_dev;
-@@ -1476,7 +1478,7 @@ static int ftgmac100_probe(struct platform_device *pdev)
- 	netdev->features = NETIF_F_RXCSUM | NETIF_F_HW_CSUM |
- 		NETIF_F_GRO | NETIF_F_SG;
- 	if (priv->use_ncsi &&
--	    of_get_property(pdev->dev.of_node, "no-hw-checksum", NULL))
-+	    of_get_property(np, "no-hw-checksum", NULL))
- 		netdev->features &= ~NETIF_F_HW_CSUM;
+-	ftgmac100_txdma_normal_prio_start_polling(priv);
++	/* Poke transmitter to read the updated TX descriptors */
++	iowrite32(1, priv->base + FTGMAC100_OFFSET_NPTXPD);
  
- 	/* register network device */
+ 	return NETDEV_TX_OK;
+ 
 -- 
 2.9.3
