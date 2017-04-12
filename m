@@ -1,7 +1,7 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH RFC ipsec-next 01/14] net: Add ESP offload features
-Date: Wed, 12 Apr 2017 08:26:40 +0200
-Message-ID: <1491978413-5700-2-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH RFC ipsec-next 04/14] xfrm: Add mode handlers for IPsec on layer 2
+Date: Wed, 12 Apr 2017 08:26:43 +0200
+Message-ID: <1491978413-5700-5-git-send-email-steffen.klassert@secunet.com>
 References: <1491978413-5700-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,108 +9,235 @@ Cc: Steffen Klassert <steffen.klassert@secunet.com>,
         Ilan Tayari <ilant@mellanox.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:57544 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([62.96.220.36]:57550 "EHLO a.mx.secunet.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751042AbdDLG1y (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 12 Apr 2017 02:27:54 -0400
+        id S1752278AbdDLG2D (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 12 Apr 2017 02:28:03 -0400
 In-Reply-To: <1491978413-5700-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds netdev features to configure IPsec offloads.
+This patch adds a gso_segment and xmit callback for the
+xfrm_mode and implement these functions for tunnel and
+transport mode.
 
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- include/linux/netdev_features.h | 8 +++++++-
- include/linux/netdevice.h       | 1 +
- include/linux/skbuff.h          | 2 ++
- net/core/ethtool.c              | 3 +++
- 4 files changed, 13 insertions(+), 1 deletion(-)
+ include/net/xfrm.h              | 10 ++++++++++
+ net/ipv4/xfrm4_mode_transport.c | 32 ++++++++++++++++++++++++++++++++
+ net/ipv4/xfrm4_mode_tunnel.c    | 25 +++++++++++++++++++++++++
+ net/ipv6/xfrm6_mode_transport.c | 33 +++++++++++++++++++++++++++++++++
+ net/ipv6/xfrm6_mode_tunnel.c    | 24 ++++++++++++++++++++++++
+ 5 files changed, 124 insertions(+)
 
-diff --git a/include/linux/netdev_features.h b/include/linux/netdev_features.h
-index 9a04195..1d4737c 100644
---- a/include/linux/netdev_features.h
-+++ b/include/linux/netdev_features.h
-@@ -54,8 +54,9 @@ enum {
- 					 */
- 	NETIF_F_GSO_TUNNEL_REMCSUM_BIT, /* ... TUNNEL with TSO & REMCSUM */
- 	NETIF_F_GSO_SCTP_BIT,		/* ... SCTP fragmentation */
-+	NETIF_F_GSO_ESP_BIT,		/* ... ESP with TSO */
- 	/**/NETIF_F_GSO_LAST =		/* last bit, see GSO_MASK */
--		NETIF_F_GSO_SCTP_BIT,
-+		NETIF_F_GSO_ESP_BIT,
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index ac984da..54515d9 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -444,6 +444,16 @@ struct xfrm_mode {
+ 	 */
+ 	int (*output)(struct xfrm_state *x, struct sk_buff *skb);
  
- 	NETIF_F_FCOE_CRC_BIT,		/* FCoE CRC32 */
- 	NETIF_F_SCTP_CRC_BIT,		/* SCTP checksum offload */
-@@ -73,6 +74,8 @@ enum {
- 	NETIF_F_HW_L2FW_DOFFLOAD_BIT,	/* Allow L2 Forwarding in Hardware */
- 
- 	NETIF_F_HW_TC_BIT,		/* Offload TC infrastructure */
-+	NETIF_F_HW_ESP_BIT,		/* Hardware ESP transformation offload */
-+	NETIF_F_HW_ESP_TX_CSUM_BIT,	/* ESP with TX checksum offload */
- 
- 	/*
- 	 * Add your fresh new feature above and remember to update
-@@ -129,11 +132,14 @@ enum {
- #define NETIF_F_GSO_PARTIAL	 __NETIF_F(GSO_PARTIAL)
- #define NETIF_F_GSO_TUNNEL_REMCSUM __NETIF_F(GSO_TUNNEL_REMCSUM)
- #define NETIF_F_GSO_SCTP	__NETIF_F(GSO_SCTP)
-+#define NETIF_F_GSO_ESP		__NETIF_F(GSO_ESP)
- #define NETIF_F_HW_VLAN_STAG_FILTER __NETIF_F(HW_VLAN_STAG_FILTER)
- #define NETIF_F_HW_VLAN_STAG_RX	__NETIF_F(HW_VLAN_STAG_RX)
- #define NETIF_F_HW_VLAN_STAG_TX	__NETIF_F(HW_VLAN_STAG_TX)
- #define NETIF_F_HW_L2FW_DOFFLOAD	__NETIF_F(HW_L2FW_DOFFLOAD)
- #define NETIF_F_HW_TC		__NETIF_F(HW_TC)
-+#define NETIF_F_HW_ESP		__NETIF_F(HW_ESP)
-+#define NETIF_F_HW_ESP_TX_CSUM	__NETIF_F(HW_ESP_TX_CSUM)
- 
- #define for_each_netdev_feature(mask_addr, bit)	\
- 	for_each_set_bit(bit, (unsigned long *)mask_addr, NETDEV_FEATURE_COUNT)
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index cc07c3b..5bb03d1 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -4070,6 +4070,7 @@ static inline bool net_gso_ok(netdev_features_t features, int gso_type)
- 	BUILD_BUG_ON(SKB_GSO_PARTIAL != (NETIF_F_GSO_PARTIAL >> NETIF_F_GSO_SHIFT));
- 	BUILD_BUG_ON(SKB_GSO_TUNNEL_REMCSUM != (NETIF_F_GSO_TUNNEL_REMCSUM >> NETIF_F_GSO_SHIFT));
- 	BUILD_BUG_ON(SKB_GSO_SCTP    != (NETIF_F_GSO_SCTP >> NETIF_F_GSO_SHIFT));
-+	BUILD_BUG_ON(SKB_GSO_ESP != (NETIF_F_GSO_ESP >> NETIF_F_GSO_SHIFT));
- 
- 	return (features & feature) == feature;
- }
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 741d75c..81ef53f 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -492,6 +492,8 @@ enum {
- 	SKB_GSO_TUNNEL_REMCSUM = 1 << 14,
- 
- 	SKB_GSO_SCTP = 1 << 15,
++	/*
++	 * Adjust pointers into the packet and do GSO segmentation.
++	 */
++	struct sk_buff *(*gso_segment)(struct xfrm_state *x, struct sk_buff *skb, netdev_features_t features);
 +
-+	SKB_GSO_ESP = 1 << 16,
++	/*
++	 * Adjust pointers into the packet when IPsec is done at layer2.
++	 */
++	void (*xmit)(struct xfrm_state *x, struct sk_buff *skb);
++
+ 	struct xfrm_state_afinfo *afinfo;
+ 	struct module *owner;
+ 	unsigned int encap;
+diff --git a/net/ipv4/xfrm4_mode_transport.c b/net/ipv4/xfrm4_mode_transport.c
+index 4acc050..6c2411d 100644
+--- a/net/ipv4/xfrm4_mode_transport.c
++++ b/net/ipv4/xfrm4_mode_transport.c
+@@ -12,6 +12,7 @@
+ #include <net/dst.h>
+ #include <net/ip.h>
+ #include <net/xfrm.h>
++#include <net/protocol.h>
+ 
+ /* Add encapsulation header.
+  *
+@@ -56,9 +57,40 @@ static int xfrm4_transport_input(struct xfrm_state *x, struct sk_buff *skb)
+ 	return 0;
+ }
+ 
++static struct sk_buff *xfrm4_transport_gso_segment(struct xfrm_state *x,
++						   struct sk_buff *skb,
++						   netdev_features_t features)
++{
++	const struct net_offload *ops;
++	struct sk_buff *segs = ERR_PTR(-EINVAL);
++	struct xfrm_offload *xo = xfrm_offload(skb);
++
++	skb->transport_header += x->props.header_len;
++	ops = rcu_dereference(inet_offloads[xo->proto]);
++	if (likely(ops && ops->callbacks.gso_segment))
++		segs = ops->callbacks.gso_segment(skb, features);
++
++	return segs;
++}
++
++static void xfrm4_transport_xmit(struct xfrm_state *x, struct sk_buff *skb)
++{
++	struct xfrm_offload *xo = xfrm_offload(skb);
++
++	skb_reset_mac_len(skb);
++	pskb_pull(skb, skb->mac_len + sizeof(struct iphdr) + x->props.header_len);
++
++	if (xo->flags & XFRM_GSO_SEGMENT) {
++		 skb_reset_transport_header(skb);
++		 skb->transport_header -= x->props.header_len;
++	}
++}
++
+ static struct xfrm_mode xfrm4_transport_mode = {
+ 	.input = xfrm4_transport_input,
+ 	.output = xfrm4_transport_output,
++	.gso_segment = xfrm4_transport_gso_segment,
++	.xmit = xfrm4_transport_xmit,
+ 	.owner = THIS_MODULE,
+ 	.encap = XFRM_MODE_TRANSPORT,
  };
+diff --git a/net/ipv4/xfrm4_mode_tunnel.c b/net/ipv4/xfrm4_mode_tunnel.c
+index 35feda6..d3f2434 100644
+--- a/net/ipv4/xfrm4_mode_tunnel.c
++++ b/net/ipv4/xfrm4_mode_tunnel.c
+@@ -96,11 +96,36 @@ static int xfrm4_mode_tunnel_input(struct xfrm_state *x, struct sk_buff *skb)
+ 	return err;
+ }
  
- #if BITS_PER_LONG > 32
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index 905a88a..03111a2 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -90,6 +90,7 @@ static const char netdev_features_strings[NETDEV_FEATURE_COUNT][ETH_GSTRING_LEN]
- 	[NETIF_F_GSO_UDP_TUNNEL_CSUM_BIT] = "tx-udp_tnl-csum-segmentation",
- 	[NETIF_F_GSO_PARTIAL_BIT] =	 "tx-gso-partial",
- 	[NETIF_F_GSO_SCTP_BIT] =	 "tx-sctp-segmentation",
-+	[NETIF_F_GSO_ESP_BIT] =		 "tx-esp-segmentation",
++static struct sk_buff *xfrm4_mode_tunnel_gso_segment(struct xfrm_state *x,
++						     struct sk_buff *skb,
++						     netdev_features_t features)
++{
++	__skb_push(skb, skb->mac_len);
++	return skb_mac_gso_segment(skb, features);
++
++}
++
++static void xfrm4_mode_tunnel_xmit(struct xfrm_state *x, struct sk_buff *skb)
++{
++	struct xfrm_offload *xo = xfrm_offload(skb);
++
++	if (xo->flags & XFRM_GSO_SEGMENT) {
++		skb->network_header = skb->network_header - x->props.header_len;
++		skb->transport_header = skb->network_header +
++					sizeof(struct iphdr);
++	}
++
++	skb_reset_mac_len(skb);
++	pskb_pull(skb, skb->mac_len + x->props.header_len);
++}
++
+ static struct xfrm_mode xfrm4_tunnel_mode = {
+ 	.input2 = xfrm4_mode_tunnel_input,
+ 	.input = xfrm_prepare_input,
+ 	.output2 = xfrm4_mode_tunnel_output,
+ 	.output = xfrm4_prepare_output,
++	.gso_segment = xfrm4_mode_tunnel_gso_segment,
++	.xmit = xfrm4_mode_tunnel_xmit,
+ 	.owner = THIS_MODULE,
+ 	.encap = XFRM_MODE_TUNNEL,
+ 	.flags = XFRM_MODE_FLAG_TUNNEL,
+diff --git a/net/ipv6/xfrm6_mode_transport.c b/net/ipv6/xfrm6_mode_transport.c
+index 4439ee4..eb9b36b 100644
+--- a/net/ipv6/xfrm6_mode_transport.c
++++ b/net/ipv6/xfrm6_mode_transport.c
+@@ -13,6 +13,7 @@
+ #include <net/dst.h>
+ #include <net/ipv6.h>
+ #include <net/xfrm.h>
++#include <net/protocol.h>
  
- 	[NETIF_F_FCOE_CRC_BIT] =         "tx-checksum-fcoe-crc",
- 	[NETIF_F_SCTP_CRC_BIT] =        "tx-checksum-sctp",
-@@ -103,6 +104,8 @@ static const char netdev_features_strings[NETDEV_FEATURE_COUNT][ETH_GSTRING_LEN]
- 	[NETIF_F_RXALL_BIT] =            "rx-all",
- 	[NETIF_F_HW_L2FW_DOFFLOAD_BIT] = "l2-fwd-offload",
- 	[NETIF_F_HW_TC_BIT] =		 "hw-tc-offload",
-+	[NETIF_F_HW_ESP_BIT] =		 "esp-hw-offload",
-+	[NETIF_F_HW_ESP_TX_CSUM_BIT] =	 "esp-tx-csum-hw-offload",
+ /* Add encapsulation header.
+  *
+@@ -61,9 +62,41 @@ static int xfrm6_transport_input(struct xfrm_state *x, struct sk_buff *skb)
+ 	return 0;
+ }
+ 
++static struct sk_buff *xfrm4_transport_gso_segment(struct xfrm_state *x,
++						   struct sk_buff *skb,
++						   netdev_features_t features)
++{
++	const struct net_offload *ops;
++	struct sk_buff *segs = ERR_PTR(-EINVAL);
++	struct xfrm_offload *xo = xfrm_offload(skb);
++
++	skb->transport_header += x->props.header_len;
++	ops = rcu_dereference(inet6_offloads[xo->proto]);
++	if (likely(ops && ops->callbacks.gso_segment))
++		segs = ops->callbacks.gso_segment(skb, features);
++
++	return segs;
++}
++
++static void xfrm6_transport_xmit(struct xfrm_state *x, struct sk_buff *skb)
++{
++	struct xfrm_offload *xo = xfrm_offload(skb);
++
++	skb_reset_mac_len(skb);
++	pskb_pull(skb, skb->mac_len + sizeof(struct ipv6hdr) + x->props.header_len);
++
++	if (xo->flags & XFRM_GSO_SEGMENT) {
++		 skb_reset_transport_header(skb);
++		 skb->transport_header -= x->props.header_len;
++	}
++}
++
++
+ static struct xfrm_mode xfrm6_transport_mode = {
+ 	.input = xfrm6_transport_input,
+ 	.output = xfrm6_transport_output,
++	.gso_segment = xfrm4_transport_gso_segment,
++	.xmit = xfrm6_transport_xmit,
+ 	.owner = THIS_MODULE,
+ 	.encap = XFRM_MODE_TRANSPORT,
  };
+diff --git a/net/ipv6/xfrm6_mode_tunnel.c b/net/ipv6/xfrm6_mode_tunnel.c
+index 372855e..19a60fc 100644
+--- a/net/ipv6/xfrm6_mode_tunnel.c
++++ b/net/ipv6/xfrm6_mode_tunnel.c
+@@ -96,11 +96,35 @@ static int xfrm6_mode_tunnel_input(struct xfrm_state *x, struct sk_buff *skb)
+ 	return err;
+ }
  
- static const char
++static struct sk_buff *xfrm6_mode_tunnel_gso_segment(struct xfrm_state *x,
++						     struct sk_buff *skb,
++						     netdev_features_t features)
++{
++	__skb_push(skb, skb->mac_len);
++	return skb_mac_gso_segment(skb, features);
++
++}
++
++static void xfrm6_mode_tunnel_xmit(struct xfrm_state *x, struct sk_buff *skb)
++{
++	struct xfrm_offload *xo = xfrm_offload(skb);
++
++	if (xo->flags & XFRM_GSO_SEGMENT) {
++		skb->network_header = skb->network_header - x->props.header_len;
++		skb->transport_header = skb->network_header + sizeof(struct ipv6hdr);
++	}
++
++	skb_reset_mac_len(skb);
++	pskb_pull(skb, skb->mac_len + x->props.header_len);
++}
++
+ static struct xfrm_mode xfrm6_tunnel_mode = {
+ 	.input2 = xfrm6_mode_tunnel_input,
+ 	.input = xfrm_prepare_input,
+ 	.output2 = xfrm6_mode_tunnel_output,
+ 	.output = xfrm6_prepare_output,
++	.gso_segment = xfrm6_mode_tunnel_gso_segment,
++	.xmit = xfrm6_mode_tunnel_xmit,
+ 	.owner = THIS_MODULE,
+ 	.encap = XFRM_MODE_TUNNEL,
+ 	.flags = XFRM_MODE_FLAG_TUNNEL,
 -- 
 2.7.4
