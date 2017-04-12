@@ -1,34 +1,55 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net-next v5 1/5] netlink: extended ACK reporting
-Date: Wed, 12 Apr 2017 11:30:56 -0400 (EDT)
-Message-ID: <20170412.113056.1269483192753304111.davem@davemloft.net>
-References: <20170412123408.22012-2-johannes@sipsolutions.net>
-        <dbc81431-487b-f218-a4c6-2caa44783d97@cumulusnetworks.com>
-        <1492010503.2855.14.camel@sipsolutions.net>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [RFC 1/3] bpf/wireless: add wifimon program type
+Date: Wed, 12 Apr 2017 17:30:40 +0200
+Message-ID: <1492011040.2855.18.camel@sipsolutions.net>
+References: <20170412110726.9689-1-johannes@sipsolutions.net>
+         <1492007254.2855.10.camel@sipsolutions.net>
+         <20170412.111913.497795978751789475.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org,
-        jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org
-To: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1492010503.2855.14.camel-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        daniel@iogearbox.net, ast@kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s3.sipsolutions.net ([5.9.151.49]:38256 "EHLO sipsolutions.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753860AbdDLPa4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 12 Apr 2017 11:30:56 -0400
+In-Reply-To: <20170412.111913.497795978751789475.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Date: Wed, 12 Apr 2017 17:21:43 +0200
-
-> On Wed, 2017-04-12 at 09:06 -0600, David Ahern wrote:
->> 
->> There was a discussion about side effects of adding strings (bloat,
->> internationalization). Should ATTR_MSG be removed until that is
->> ironed out? Leaving it in suggests it is ok to start adding strings.
+On Wed, 2017-04-12 at 11:19 -0400, David Miller wrote:
 > 
-> I really do want the strings; this is why I named the struct member
-> "_msg" and added the NL_SET_ERR_MSG() macro, that will easily allow
-> both making the strings optional with Kconfig (bloat) and collecting
-> them into a separate data section (translation).
+> > Instead it may make more sense to just have a "wifi_info(skb,
+> info)"
+> > function you can call, e.g. with a structure that has various
+> fields
+> > and flags to see which you care about.
+> 
+> I would advise against this, let the parsing part use __sk_buff and
+> therefore have maximum flexibility.  You really cannot predict the
+> future, so in my opinion it might be unwise to constrain at this
+> point.
 
-Yep, this is a long range plan.
+So my point with the wifi_info() function to call from the BPF program
+was just that putting something that's not already in struct sk_buff
+into __sk_buff doesn't really make a lot of sense - we still have to
+actually build it somewhere/somehow without knowing if it's going to be
+needed by the program. We already have things like prog->cb_access and
+prog->dst_needed now, but I'm not sure we want to blow that up much.
+
+At the same time, technically I *do* have the information in skb->cb,
+but the format thereof is something I really wouldn't want to let
+trickle into the ABI. Therefore, I think if somebody needs something
+like the bitrate, we should have a wifi_info() function that can return
+the bitrate (among other things) without having to pre-build the data.
+We can still cache it in mac80211 if multiple programs are there, dunno
+if that makes sense.
+
+Nevertheless, I think if I don't use __sk_buff as the program argument
+then things get really messy, so I'll stick to that, and avoid adding
+anything to it as much as possible.
+
+johannes
