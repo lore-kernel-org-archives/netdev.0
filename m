@@ -1,67 +1,71 @@
-From: Guillaume Nault <g.nault@alphalink.fr>
-Subject: [PATCH net-next 2/2] l2tp: define parameters of l2tp_tunnel_find*()
- as "const"
-Date: Wed, 12 Apr 2017 10:05:30 +0200
-Message-ID: <2e88f5ce221477cffc73a01d8792a5b92d79a67d.1491984104.git.g.nault@alphalink.fr>
-References: <cover.1491984104.git.g.nault@alphalink.fr>
+From: <salome.khum@vision-france.net>
+Subject: 57392 netdev
+Date: Wed, 12 Apr 2017 08:57:08 -0000
+Message-ID: <149198742894.21476.8264016577181919639@telenet.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: James Chapman <jchapman@katalix.com>
-To: netdev@vger.kernel.org
+Content-Type: application/zip; name="0191959.zip"
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zimbra.alphalink.fr ([217.15.80.77]:37851 "EHLO
-        zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752719AbdDLIFg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 12 Apr 2017 04:05:36 -0400
-Content-Disposition: inline
-In-Reply-To: <cover.1491984104.git.g.nault@alphalink.fr>
+Received: from 140.105-157-90.telenet.ru ([90.157.105.140]:38244 "HELO
+        telenet.ru" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+        id S1753600AbdDLI5S (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 12 Apr 2017 04:57:18 -0400
+Content-Disposition: attachment
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-l2tp_tunnel_find() and l2tp_tunnel_find_nth() don't modify "net".
-
-Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
----
- net/l2tp/l2tp_core.c | 4 ++--
- net/l2tp/l2tp_core.h | 4 ++--
- 2 files changed, 4 insertions(+), 4 deletions(-)
-
-diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
-index 4828111c9ea7..fa0342574b89 100644
---- a/net/l2tp/l2tp_core.c
-+++ b/net/l2tp/l2tp_core.c
-@@ -379,7 +379,7 @@ static int l2tp_session_add_to_tunnel(struct l2tp_tunnel *tunnel,
- 
- /* Lookup a tunnel by id
-  */
--struct l2tp_tunnel *l2tp_tunnel_find(struct net *net, u32 tunnel_id)
-+struct l2tp_tunnel *l2tp_tunnel_find(const struct net *net, u32 tunnel_id)
- {
- 	struct l2tp_tunnel *tunnel;
- 	struct l2tp_net *pn = l2tp_pernet(net);
-@@ -397,7 +397,7 @@ struct l2tp_tunnel *l2tp_tunnel_find(struct net *net, u32 tunnel_id)
- }
- EXPORT_SYMBOL_GPL(l2tp_tunnel_find);
- 
--struct l2tp_tunnel *l2tp_tunnel_find_nth(struct net *net, int nth)
-+struct l2tp_tunnel *l2tp_tunnel_find_nth(const struct net *net, int nth)
- {
- 	struct l2tp_net *pn = l2tp_pernet(net);
- 	struct l2tp_tunnel *tunnel;
-diff --git a/net/l2tp/l2tp_core.h b/net/l2tp/l2tp_core.h
-index 1a46bc44632f..eec5ad2ebb93 100644
---- a/net/l2tp/l2tp_core.h
-+++ b/net/l2tp/l2tp_core.h
-@@ -238,8 +238,8 @@ struct l2tp_session *l2tp_session_get_nth(struct l2tp_tunnel *tunnel, int nth,
- struct l2tp_session *l2tp_session_get_by_ifname(const struct net *net,
- 						const char *ifname,
- 						bool do_ref);
--struct l2tp_tunnel *l2tp_tunnel_find(struct net *net, u32 tunnel_id);
--struct l2tp_tunnel *l2tp_tunnel_find_nth(struct net *net, int nth);
-+struct l2tp_tunnel *l2tp_tunnel_find(const struct net *net, u32 tunnel_id);
-+struct l2tp_tunnel *l2tp_tunnel_find_nth(const struct net *net, int nth);
- 
- int l2tp_tunnel_create(struct net *net, int fd, int version, u32 tunnel_id,
- 		       u32 peer_tunnel_id, struct l2tp_tunnel_cfg *cfg,
--- 
-2.11.0
+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
