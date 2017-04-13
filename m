@@ -1,8 +1,7 @@
 From: Logan Gunthorpe <logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH 20/22] mmc: sdricoh_cs: Make use of the new sg_map helper
- function
-Date: Thu, 13 Apr 2017 16:05:33 -0600
-Message-ID: <1492121135-4437-21-git-send-email-logang@deltatee.com>
+Subject: [PATCH 17/22] mmc: sdhci: Make use of the new sg_map helper function
+Date: Thu, 13 Apr 2017 16:05:30 -0600
+Message-ID: <1492121135-4437-18-git-send-email-logang@deltatee.com>
 References: <1492121135-4437-1-git-send-email-logang@deltatee.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -37,42 +36,81 @@ Errors-To: linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org
 Sender: "Linux-nvdimm" <linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-This is a straightforward conversion to the new function.
+Straightforward conversion, except due to the lack of error path we
+have to WARN if the memory in the SGL is not mappable.
 
 Signed-off-by: Logan Gunthorpe <logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
 ---
- drivers/mmc/host/sdricoh_cs.c | 14 +++++++++-----
- 1 file changed, 9 insertions(+), 5 deletions(-)
+ drivers/mmc/host/sdhci.c | 35 ++++++++++++++++++++++++++++++-----
+ 1 file changed, 30 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/mmc/host/sdricoh_cs.c b/drivers/mmc/host/sdricoh_cs.c
-index 5ff26ab..7eeed23 100644
---- a/drivers/mmc/host/sdricoh_cs.c
-+++ b/drivers/mmc/host/sdricoh_cs.c
-@@ -319,16 +319,20 @@ static void sdricoh_request(struct mmc_host *mmc, struct mmc_request *mrq)
- 		for (i = 0; i < data->blocks; i++) {
- 			size_t len = data->blksz;
- 			u8 *buf;
--			struct page *page;
- 			int result;
--			page = sg_page(data->sg);
+diff --git a/drivers/mmc/host/sdhci.c b/drivers/mmc/host/sdhci.c
+index 63bc33a..af0c107 100644
+--- a/drivers/mmc/host/sdhci.c
++++ b/drivers/mmc/host/sdhci.c
+@@ -497,15 +497,34 @@ static int sdhci_pre_dma_transfer(struct sdhci_host *host,
+ 	return sg_count;
+ }
  
--			buf = kmap(page) + data->sg->offset + (len * i);
-+			buf = sg_map_offset(data->sg, (len * i), SG_KMAP);
-+			if (IS_ERR(buf)) {
-+				cmd->error = PTR_ERR(buf);
-+				break;
-+			}
++/*
++ * Note this function may return PTR_ERR and must be checked.
++ */
+ static char *sdhci_kmap_atomic(struct scatterlist *sg, unsigned long *flags)
+ {
++	void *ret;
 +
- 			result =
- 				sdricoh_blockio(host,
- 					data->flags & MMC_DATA_READ, buf, len);
--			kunmap(page);
--			flush_dcache_page(page);
-+			sg_unmap_offset(data->sg, buf, (len * i), SG_KMAP);
+ 	local_irq_save(*flags);
+-	return kmap_atomic(sg_page(sg)) + sg->offset;
 +
-+			flush_dcache_page(sg_page(data->sg));
- 			if (result) {
- 				dev_err(dev, "sdricoh_request: cmd %i "
- 					"block transfer failed\n", cmd->opcode);
++	ret = sg_map(sg, SG_KMAP_ATOMIC);
++	if (IS_ERR(ret)) {
++		/*
++		 * This should really never happen unless the code is changed
++		 * to use memory that is not mappable in the sg. Seeing there
++		 * doesn't seem to be any error path out of here, we can only
++		 * WARN.
++		 */
++		WARN(1, "Non-mappable memory used in sg!");
++		local_irq_restore(*flags);
++	}
++
++	return ret;
+ }
+ 
+-static void sdhci_kunmap_atomic(void *buffer, unsigned long *flags)
++static void sdhci_kunmap_atomic(struct scatterlist *sg, void *buffer,
++				unsigned long *flags)
+ {
+-	kunmap_atomic(buffer);
++	sg_unmap(sg, buffer, SG_KMAP_ATOMIC);
+ 	local_irq_restore(*flags);
+ }
+ 
+@@ -568,8 +587,11 @@ static void sdhci_adma_table_pre(struct sdhci_host *host,
+ 		if (offset) {
+ 			if (data->flags & MMC_DATA_WRITE) {
+ 				buffer = sdhci_kmap_atomic(sg, &flags);
++				if (IS_ERR(buffer))
++					return;
++
+ 				memcpy(align, buffer, offset);
+-				sdhci_kunmap_atomic(buffer, &flags);
++				sdhci_kunmap_atomic(sg, buffer, &flags);
+ 			}
+ 
+ 			/* tran, valid */
+@@ -646,8 +668,11 @@ static void sdhci_adma_table_post(struct sdhci_host *host,
+ 					       (sg_dma_address(sg) & SDHCI_ADMA2_MASK);
+ 
+ 					buffer = sdhci_kmap_atomic(sg, &flags);
++					if (IS_ERR(buffer))
++						return;
++
+ 					memcpy(buffer, align, size);
+-					sdhci_kunmap_atomic(buffer, &flags);
++					sdhci_kunmap_atomic(sg, buffer, &flags);
+ 
+ 					align += SDHCI_ADMA2_ALIGN;
+ 				}
 -- 
 2.1.4
