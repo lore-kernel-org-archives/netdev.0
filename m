@@ -1,7 +1,7 @@
 From: Logan Gunthorpe <logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH 05/22] drm/i915: Make use of the new sg_map helper function
-Date: Thu, 13 Apr 2017 16:05:18 -0600
-Message-ID: <1492121135-4437-6-git-send-email-logang@deltatee.com>
+Subject: [PATCH 16/22] xen-blkfront: Make use of the new sg_map helper function
+Date: Thu, 13 Apr 2017 16:05:29 -0600
+Message-ID: <1492121135-4437-17-git-send-email-logang@deltatee.com>
 References: <1492121135-4437-1-git-send-email-logang@deltatee.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -36,71 +36,79 @@ Errors-To: linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org
 Sender: "Linux-nvdimm" <linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-This is a single straightforward conversion from kmap to sg_map.
+Straightforward conversion to the new helper, except due to
+the lack of error path, we have to warn if unmapable memory
+is ever present in the sgl.
 
 Signed-off-by: Logan Gunthorpe <logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
 ---
- drivers/gpu/drm/i915/i915_gem.c | 27 ++++++++++++++++-----------
- 1 file changed, 16 insertions(+), 11 deletions(-)
+ drivers/block/xen-blkfront.c | 33 +++++++++++++++++++++++++++------
+ 1 file changed, 27 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/gpu/drm/i915/i915_gem.c b/drivers/gpu/drm/i915/i915_gem.c
-index 67b1fc5..1b1b91a 100644
---- a/drivers/gpu/drm/i915/i915_gem.c
-+++ b/drivers/gpu/drm/i915/i915_gem.c
-@@ -2188,6 +2188,15 @@ static void __i915_gem_object_reset_page_iter(struct drm_i915_gem_object *obj)
- 		radix_tree_delete(&obj->mm.get_page.radix, iter.index);
- }
+diff --git a/drivers/block/xen-blkfront.c b/drivers/block/xen-blkfront.c
+index 5067a0a..7dcf41d 100644
+--- a/drivers/block/xen-blkfront.c
++++ b/drivers/block/xen-blkfront.c
+@@ -807,8 +807,19 @@ static int blkif_queue_rw_req(struct request *req, struct blkfront_ring_info *ri
+ 		BUG_ON(sg->offset + sg->length > PAGE_SIZE);
  
-+static void i915_gem_object_unmap(const struct drm_i915_gem_object *obj,
-+				  void *ptr)
-+{
-+	if (is_vmalloc_addr(ptr))
-+		vunmap(ptr);
-+	else
-+		sg_unmap(obj->mm.pages->sgl, ptr, SG_KMAP);
-+}
-+
- void __i915_gem_object_put_pages(struct drm_i915_gem_object *obj,
- 				 enum i915_mm_subclass subclass)
- {
-@@ -2215,10 +2224,7 @@ void __i915_gem_object_put_pages(struct drm_i915_gem_object *obj,
- 		void *ptr;
- 
- 		ptr = ptr_mask_bits(obj->mm.mapping);
--		if (is_vmalloc_addr(ptr))
--			vunmap(ptr);
--		else
--			kunmap(kmap_to_page(ptr));
-+		i915_gem_object_unmap(obj, ptr);
- 
- 		obj->mm.mapping = NULL;
- 	}
-@@ -2475,8 +2481,11 @@ static void *i915_gem_object_map(const struct drm_i915_gem_object *obj,
- 	void *addr;
- 
- 	/* A single page can always be kmapped */
--	if (n_pages == 1 && type == I915_MAP_WB)
--		return kmap(sg_page(sgt->sgl));
-+	if (n_pages == 1 && type == I915_MAP_WB) {
-+		addr = sg_map(sgt->sgl, SG_KMAP);
-+		if (IS_ERR(addr))
-+			return NULL;
-+	}
- 
- 	if (n_pages > ARRAY_SIZE(stack_pages)) {
- 		/* Too big for stack -- allocate temporary array instead */
-@@ -2543,11 +2552,7 @@ void *i915_gem_object_pin_map(struct drm_i915_gem_object *obj,
- 			goto err_unpin;
+ 		if (setup.need_copy) {
+-			setup.bvec_off = sg->offset;
+-			setup.bvec_data = kmap_atomic(sg_page(sg));
++			setup.bvec_off = 0;
++			setup.bvec_data = sg_map(sg, SG_KMAP_ATOMIC);
++			if (IS_ERR(setup.bvec_data)) {
++				/*
++				 * This should really never happen unless
++				 * the code is changed to use memory that is
++				 * not mappable in the sg. Seeing there is a
++				 * questionable error path out of here,
++				 * we WARN.
++				 */
++				WARN(1, "Non-mappable memory used in sg!");
++				return 1;
++			}
  		}
  
--		if (is_vmalloc_addr(ptr))
--			vunmap(ptr);
--		else
--			kunmap(kmap_to_page(ptr));
--
-+		i915_gem_object_unmap(obj, ptr);
- 		ptr = obj->mm.mapping = NULL;
- 	}
+ 		gnttab_foreach_grant_in_range(sg_page(sg),
+@@ -818,7 +829,7 @@ static int blkif_queue_rw_req(struct request *req, struct blkfront_ring_info *ri
+ 					      &setup);
  
+ 		if (setup.need_copy)
+-			kunmap_atomic(setup.bvec_data);
++			sg_unmap(sg, setup.bvec_data, SG_KMAP_ATOMIC);
+ 	}
+ 	if (setup.segments)
+ 		kunmap_atomic(setup.segments);
+@@ -1468,8 +1479,18 @@ static bool blkif_completion(unsigned long *id,
+ 		for_each_sg(s->sg, sg, num_sg, i) {
+ 			BUG_ON(sg->offset + sg->length > PAGE_SIZE);
+ 
+-			data.bvec_offset = sg->offset;
+-			data.bvec_data = kmap_atomic(sg_page(sg));
++			data.bvec_offset = 0;
++			data.bvec_data = sg_map(sg, SG_KMAP_ATOMIC);
++			if (IS_ERR(data.bvec_data)) {
++				/*
++				 * This should really never happen unless
++				 * the code is changed to use memory that is
++				 * not mappable in the sg. Seeing there is no
++				 * clear error path, we WARN.
++				 */
++				WARN(1, "Non-mappable memory used in sg!");
++				return 1;
++			}
+ 
+ 			gnttab_foreach_grant_in_range(sg_page(sg),
+ 						      sg->offset,
+@@ -1477,7 +1498,7 @@ static bool blkif_completion(unsigned long *id,
+ 						      blkif_copy_from_grant,
+ 						      &data);
+ 
+-			kunmap_atomic(data.bvec_data);
++			sg_unmap(sg, data.bvec_data, SG_KMAP_ATOMIC);
+ 		}
+ 	}
+ 	/* Add the persistent grant into the list of free grants */
 -- 
 2.1.4
