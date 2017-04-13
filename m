@@ -1,51 +1,113 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 net-next RFC] Generic XDP
-Date: Thu, 13 Apr 2017 11:38:26 -0400 (EDT)
-Message-ID: <20170413.113826.446126425559844668.davem@davemloft.net>
-References: <20170412.145415.1441440342830198148.davem@davemloft.net>
-        <CACKFLikqDDLDSywxTNJoktpO0ViggH=Lbzebw27RaUPSGp0knQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xdp-newbies@vger.kernel.org
-To: michael.chan@broadcom.com
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: [PATCH net-next  v2] Subject: net: allow configuring default qdisc
+Date: Thu, 13 Apr 2017 08:40:53 -0700
+Message-ID: <20170413154053.27568-1-sthemmin@microsoft.com>
+Cc: netdev@vger.kernel.org, Stephen Hemminger <sthemmin@microsoft.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:60564 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751003AbdDMPi1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 13 Apr 2017 11:38:27 -0400
-In-Reply-To: <CACKFLikqDDLDSywxTNJoktpO0ViggH=Lbzebw27RaUPSGp0knQ@mail.gmail.com>
+Received: from mail-pf0-f181.google.com ([209.85.192.181]:34029 "EHLO
+        mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753623AbdDMPlD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 13 Apr 2017 11:41:03 -0400
+Received: by mail-pf0-f181.google.com with SMTP id c198so30259064pfc.1
+        for <netdev@vger.kernel.org>; Thu, 13 Apr 2017 08:40:57 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Michael Chan <michael.chan@broadcom.com>
-Date: Wed, 12 Apr 2017 23:48:22 -0700
+Since 3.12 it has been possible to configure the default queuing
+discipline via sysctl. This patch adds ability to configure the
+default queue discipline in kernel configuration. This is useful for
+environments where configuring the value from userspace is difficult
+to manage.
 
-> On Wed, Apr 12, 2017 at 11:54 AM, David Miller <davem@davemloft.net> wrote:
->>
->> +static struct static_key generic_xdp_needed __read_mostly;
->> +
->> +static int generic_xdp_install(struct net_device *dev, struct netdev_xdp *xdp)
->> +{
->> +       struct bpf_prog *new = xdp->prog;
->> +       int ret = 0;
->> +
->> +       switch (xdp->command) {
->> +       case XDP_SETUP_PROG: {
->> +               struct bpf_prog *old = rtnl_dereference(dev->xdp_prog);
->> +
->> +               rcu_assign_pointer(dev->xdp_prog, new);
->> +               if (old)
->> +                       bpf_prog_put(old);
->> +
->> +               if (old && !new)
->> +                       static_key_slow_dec(&generic_xdp_needed);
->> +               else if (new && !old)
->> +                       static_key_slow_inc(&generic_xdp_needed);
-> 
-> I think we need to call dev_disable_lro(dev) to disable LRO also when
-> a BPF program is installed.
+The default is still the same as before (pfifo_fast) and it is
+possible to change after kernel init with sysctl. This is similar
+to how TCP congestion control works.
 
-Agreed, I'll add this.
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+---
+v2 -- add another level of indirection to make it easier for
+      users blindly doing make oldconfig
 
-Thanks Michael.
+ net/sched/Kconfig   | 45 +++++++++++++++++++++++++++++++++++++++++++++
+ net/sched/sch_api.c |  9 +++++++++
+ 2 files changed, 54 insertions(+)
+
+diff --git a/net/sched/Kconfig b/net/sched/Kconfig
+index 403790cce7d2..9fb84f0de6af 100644
+--- a/net/sched/Kconfig
++++ b/net/sched/Kconfig
+@@ -352,6 +352,51 @@ config NET_SCH_PLUG
+ 	  To compile this code as a module, choose M here: the
+ 	  module will be called sch_plug.
+ 
++menuconfig NET_SCH_DEFAULT
++	bool "Allow override default queue discipline"
++	---help---
++	  Support for selection of default queuing discipline.
++
++	  Nearly all users can safely say no here, and the default
++	  of pfifo_fast will be used. Many distributions already set
++	  the default value via /proc/sys/net/core/default_qdisc.
++
++	  If unsure, say N.
++
++if NET_SCH_DEFAULT
++
++choice
++	prompt "Default queuing discipline"
++	default DEFAULT_PFIFO_FAST
++	help
++	  Select the queueing discipline that will be used by default
++	  for all network devices.
++
++	config DEFAULT_FQ
++		bool "Fair Queue" if NET_SCH_FQ
++
++	config DEFAULT_CODEL
++		bool "Controlled Delay" if NET_SCH_CODEL
++
++	config DEFAULT_FQ_CODEL
++		bool "Fair Queue Controlled Delay" if NET_SCH_FQ_CODEL
++
++	config DEFAULT_SFQ
++		bool "Stochastic Fair Queue" if NET_SCH_SFQ
++
++	config DEFAULT_PFIFO_FAST
++		bool "Priority FIFO Fast"
++endchoice
++
++config DEFAULT_NET_SCH
++	string
++	default "pfifo_fast" if DEFAULT_PFIFO_FAST
++	default "fq" if DEFAULT_FQ
++	default "fq_codel" if DEFAULT_FQ_CODEL
++	default "sfq" if DEFAULT_SFQ
++	default "pfifo_fast"
++endif
++
+ comment "Classification"
+ 
+ config NET_CLS
+diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+index 62567bfe52c7..3ec4e77a76c7 100644
+--- a/net/sched/sch_api.c
++++ b/net/sched/sch_api.c
+@@ -251,6 +251,15 @@ int qdisc_set_default(const char *name)
+ 	return ops ? 0 : -ENOENT;
+ }
+ 
++#ifdef CONFIG_NET_SCH_DEFAULT
++/* Set default value from kernel config */
++static int __init sch_default_qdisc(void)
++{
++	return qdisc_set_default(CONFIG_DEFAULT_NET_SCH);
++}
++late_initcall(sch_default_qdisc);
++#endif
++
+ /* We know handle. Find qdisc among all qdisc's attached to device
+  * (root qdisc, all its children, children of children etc.)
+  * Note: caller either uses rtnl or rcu_read_lock()
+-- 
+2.11.0
