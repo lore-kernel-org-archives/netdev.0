@@ -1,40 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: stmmac: set total length of the packet
- to be transmitted in TDES3
-Date: Thu, 13 Apr 2017 12:40:23 -0400 (EDT)
-Message-ID: <20170413.124023.506336754463093992.davem@davemloft.net>
-References: <20170410183329.28847-1-niklass@axis.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next] net: ipv6: send unsolicited NA on admin up
+Date: Thu, 13 Apr 2017 10:41:42 -0600
+Message-ID: <14982ed9-77b0-0e61-e938-b73c4807e30f@cumulusnetworks.com>
+References: <1492022944-18842-1-git-send-email-dsa@cumulusnetworks.com>
+ <1492083944.2160091.943541576.3F765BD2@webmail.messagingengine.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        Joao.Pinto@synopsys.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, niklass@axis.com
-To: niklas.cassel@axis.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170410183329.28847-1-niklass@axis.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f44.google.com ([74.125.83.44]:35508 "EHLO
+        mail-pg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755127AbdDMQlp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 13 Apr 2017 12:41:45 -0400
+Received: by mail-pg0-f44.google.com with SMTP id 72so24541722pge.2
+        for <netdev@vger.kernel.org>; Thu, 13 Apr 2017 09:41:45 -0700 (PDT)
+In-Reply-To: <1492083944.2160091.943541576.3F765BD2@webmail.messagingengine.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Niklas Cassel <niklas.cassel@axis.com>
-Date: Mon, 10 Apr 2017 20:33:29 +0200
+On 4/13/17 5:45 AM, Hannes Frederic Sowa wrote:
+> 
+> 
+> On Wed, Apr 12, 2017, at 20:49, David Ahern wrote:
+>> ndisc_notify is the ipv6 equivalent to arp_notify. When arp_notify is
+>> set to 1, gratuitous arp requests are sent when the device is brought up.
+>> The same is expected when ndisc_notify is set to 1 (per ndisc_notify in
+>> Documentation/networking/ip-sysctl.txt). The NA is not sent on NETDEV_UP
+>> event; add it.
+>>
+>> Fixes: 5cb04436eef6 ("ipv6: add knob to send unsolicited ND on link-layer
+>> address change")
+>> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+> 
+> Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> 
+> In future we might be able to make this a bit more robust when DAD is
+> happening at the same time.
 
-> From: Niklas Cassel <niklas.cassel@axis.com>
-> 
-> Field FL/TPL in register TDES3 is not correctly set on GMAC4.
-> TX appears to be functional on GMAC 4.10a even if this field is not set,
-> however, to avoid relying on undefined behavior, set the length in TDES3.
-> 
-> The field has a different meaning depending on if the TSE bit in TDES3
-> is set or not (TSO). However, regardless of the TSE bit, the field is
-> not optional. The field is already set correctly when the TSE bit is set.
-> 
-> Since there is no limit for the number of descriptors that can be
-> used for a single packet, the field should be set to the sum of
-> the buffers contained in:
-> [<desc with First Descriptor bit set> ... <desc n> ...
-> <desc with Last Descriptor bit set>], which should be equal to skb->len.
-> 
-> Signed-off-by: Niklas Cassel <niklas.cassel@axis.com>
 
-Applied, thanks.
+agreed.
