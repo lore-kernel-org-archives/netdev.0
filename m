@@ -1,7 +1,8 @@
 From: Logan Gunthorpe <logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH 19/22] mmc: tmio: Make use of the new sg_map helper function
-Date: Thu, 13 Apr 2017 16:05:32 -0600
-Message-ID: <1492121135-4437-20-git-send-email-logang@deltatee.com>
+Subject: [PATCH 07/22] crypto: shash,
+ caam: Make use of the new sg_map helper function
+Date: Thu, 13 Apr 2017 16:05:20 -0600
+Message-ID: <1492121135-4437-8-git-send-email-logang@deltatee.com>
 References: <1492121135-4437-1-git-send-email-logang@deltatee.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -36,105 +37,70 @@ Errors-To: linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org
 Sender: "Linux-nvdimm" <linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-Straightforward conversion to sg_map helper. A couple paths will
-WARN if the memory does not end up being mappable.
+Very straightforward conversion to the new function in two crypto
+drivers.
 
 Signed-off-by: Logan Gunthorpe <logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
 ---
- drivers/mmc/host/tmio_mmc.h     | 12 ++++++++++--
- drivers/mmc/host/tmio_mmc_dma.c |  5 +++++
- drivers/mmc/host/tmio_mmc_pio.c | 24 ++++++++++++++++++++++++
- 3 files changed, 39 insertions(+), 2 deletions(-)
+ crypto/shash.c                | 9 ++++++---
+ drivers/crypto/caam/caamalg.c | 8 +++-----
+ 2 files changed, 9 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/mmc/host/tmio_mmc.h b/drivers/mmc/host/tmio_mmc.h
-index 2b349d4..ba68c9fed 100644
---- a/drivers/mmc/host/tmio_mmc.h
-+++ b/drivers/mmc/host/tmio_mmc.h
-@@ -198,17 +198,25 @@ void tmio_mmc_enable_mmc_irqs(struct tmio_mmc_host *host, u32 i);
- void tmio_mmc_disable_mmc_irqs(struct tmio_mmc_host *host, u32 i);
- irqreturn_t tmio_mmc_irq(int irq, void *devid);
+diff --git a/crypto/shash.c b/crypto/shash.c
+index 5e31c8d..2b7de94 100644
+--- a/crypto/shash.c
++++ b/crypto/shash.c
+@@ -283,10 +283,13 @@ int shash_ahash_digest(struct ahash_request *req, struct shash_desc *desc)
+ 	if (nbytes < min(sg->length, ((unsigned int)(PAGE_SIZE)) - offset)) {
+ 		void *data;
  
-+/* Note: this function may return PTR_ERR and must be checked! */
- static inline char *tmio_mmc_kmap_atomic(struct scatterlist *sg,
- 					 unsigned long *flags)
+-		data = kmap_atomic(sg_page(sg));
+-		err = crypto_shash_digest(desc, data + offset, nbytes,
++		data = sg_map(sg, SG_KMAP_ATOMIC);
++		if (IS_ERR(data))
++			return PTR_ERR(data);
++
++		err = crypto_shash_digest(desc, data, nbytes,
+ 					  req->result);
+-		kunmap_atomic(data);
++		sg_unmap(sg, data, SG_KMAP_ATOMIC);
+ 		crypto_yield(desc->flags);
+ 	} else
+ 		err = crypto_shash_init(desc) ?:
+diff --git a/drivers/crypto/caam/caamalg.c b/drivers/crypto/caam/caamalg.c
+index 9bc80eb..76b97de 100644
+--- a/drivers/crypto/caam/caamalg.c
++++ b/drivers/crypto/caam/caamalg.c
+@@ -89,7 +89,6 @@ static void dbg_dump_sg(const char *level, const char *prefix_str,
+ 			struct scatterlist *sg, size_t tlen, bool ascii)
  {
-+	void *ret;
-+
- 	local_irq_save(*flags);
--	return kmap_atomic(sg_page(sg)) + sg->offset;
-+	ret = sg_map(sg, SG_KMAP_ATOMIC);
-+
-+	if (IS_ERR(ret))
-+		local_irq_restore(*flags);
-+
-+	return ret;
- }
+ 	struct scatterlist *it;
+-	void *it_page;
+ 	size_t len;
+ 	void *buf;
  
- static inline void tmio_mmc_kunmap_atomic(struct scatterlist *sg,
- 					  unsigned long *flags, void *virt)
- {
--	kunmap_atomic(virt - sg->offset);
-+	sg_unmap(sg, virt, SG_KMAP_ATOMIC);
- 	local_irq_restore(*flags);
- }
+@@ -98,19 +97,18 @@ static void dbg_dump_sg(const char *level, const char *prefix_str,
+ 		 * make sure the scatterlist's page
+ 		 * has a valid virtual memory mapping
+ 		 */
+-		it_page = kmap_atomic(sg_page(it));
+-		if (unlikely(!it_page)) {
++		buf = sg_map(it, SG_KMAP_ATOMIC);
++		if (IS_ERR(buf)) {
+ 			printk(KERN_ERR "dbg_dump_sg: kmap failed\n");
+ 			return;
+ 		}
  
-diff --git a/drivers/mmc/host/tmio_mmc_dma.c b/drivers/mmc/host/tmio_mmc_dma.c
-index fa8a936..07531f7 100644
---- a/drivers/mmc/host/tmio_mmc_dma.c
-+++ b/drivers/mmc/host/tmio_mmc_dma.c
-@@ -149,6 +149,11 @@ static void tmio_mmc_start_dma_tx(struct tmio_mmc_host *host)
- 	if (!aligned) {
- 		unsigned long flags;
- 		void *sg_vaddr = tmio_mmc_kmap_atomic(sg, &flags);
-+		if (IS_ERR(sg_vaddr)) {
-+			ret = PTR_ERR(sg_vaddr);
-+			goto pio;
-+		}
-+
- 		sg_init_one(&host->bounce_sg, host->bounce_buf, sg->length);
- 		memcpy(host->bounce_buf, sg_vaddr, host->bounce_sg.length);
- 		tmio_mmc_kunmap_atomic(sg, &flags, sg_vaddr);
-diff --git a/drivers/mmc/host/tmio_mmc_pio.c b/drivers/mmc/host/tmio_mmc_pio.c
-index 6b789a7..d6fdbf6 100644
---- a/drivers/mmc/host/tmio_mmc_pio.c
-+++ b/drivers/mmc/host/tmio_mmc_pio.c
-@@ -479,6 +479,18 @@ static void tmio_mmc_pio_irq(struct tmio_mmc_host *host)
+-		buf = it_page + it->offset;
+ 		len = min_t(size_t, tlen, it->length);
+ 		print_hex_dump(level, prefix_str, prefix_type, rowsize,
+ 			       groupsize, buf, len, ascii);
+ 		tlen -= len;
+ 
+-		kunmap_atomic(it_page);
++		sg_unmap(it, buf, SG_KMAP_ATOMIC);
  	}
- 
- 	sg_virt = tmio_mmc_kmap_atomic(host->sg_ptr, &flags);
-+	if (IS_ERR(sg_virt)) {
-+		/*
-+		 * This should really never happen unless
-+		 * the code is changed to use memory that is
-+		 * not mappable in the sg. Seeing there doesn't
-+		 * seem to be any error path out of here,
-+		 * we can only WARN.
-+		 */
-+		WARN(1, "Non-mappable memory used in sg!");
-+		return;
-+	}
-+
- 	buf = (unsigned short *)(sg_virt + host->sg_off);
- 
- 	count = host->sg_ptr->length - host->sg_off;
-@@ -506,6 +518,18 @@ static void tmio_mmc_check_bounce_buffer(struct tmio_mmc_host *host)
- 	if (host->sg_ptr == &host->bounce_sg) {
- 		unsigned long flags;
- 		void *sg_vaddr = tmio_mmc_kmap_atomic(host->sg_orig, &flags);
-+		if (IS_ERR(sg_vaddr)) {
-+			/*
-+			 * This should really never happen unless
-+			 * the code is changed to use memory that is
-+			 * not mappable in the sg. Seeing there doesn't
-+			 * seem to be any error path out of here,
-+			 * we can only WARN.
-+			 */
-+			WARN(1, "Non-mappable memory used in sg!");
-+			return;
-+		}
-+
- 		memcpy(sg_vaddr, host->bounce_buf, host->bounce_sg.length);
- 		tmio_mmc_kunmap_atomic(host->sg_orig, &flags, sg_vaddr);
- 	}
+ }
+ #endif
 -- 
 2.1.4
