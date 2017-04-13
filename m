@@ -1,30 +1,66 @@
-From: Kalle Valo <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
-Subject: Re: ath6kl: Add __printf verification to ath6kl_dbg
-Date: Thu, 13 Apr 2017 14:43:58 +0200
-Message-ID: <94241a9e2ed247a0a000ea3179a2ffe3@euamsexm01a.eu.qualcomm.com>
-References: <e4556e95a5935f591fdff67c6fb2f7ef5c7fd04f.1490914618.git.joe@perches.com>
+From: Robert Shearman <rshearma@brocade.com>
+Subject: Re: [PATCH net-next 0/3] l3mdev: Improve use with main table
+Date: Thu, 13 Apr 2017 13:48:03 +0100
+Message-ID: <a7204fbc-68b5-c6f4-c76c-d33b9c85d663@brocade.com>
+References: <1491834122-26252-1-git-send-email-rshearma@brocade.com>
+ <822ee9b5-09d6-6987-deb3-6af9d537c891@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <e4556e95a5935f591fdff67c6fb2f7ef5c7fd04f.1490914618.git.joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>
+To: David Ahern <dsa@cumulusnetworks.com>, <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:39696 "EHLO
+        mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751192AbdDMMsR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 13 Apr 2017 08:48:17 -0400
+In-Reply-To: <822ee9b5-09d6-6987-deb3-6af9d537c891@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org> wrote:
-> Fix fallout too.
-> 
-> Signed-off-by: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-> Reviewed-by: Steve deRosier <derosier-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+On 12/04/17 17:51, David Ahern wrote:
+> On 4/10/17 8:21 AM, Robert Shearman wrote:
+>> Attempting to create a TCP socket not bound to a VRF device when a TCP
+>> socket bound to a VRF device with the same port exists (and vice
+>> versa) fails with EADDRINUSE. This limits the ability to use programs
+>> in selected mixed VRF/non-VRF contexts.
+>>
+>> This patch series solves the problem by extending the l3mdev be aware
+>> of the special semantics of the main table and fixing issues arising
+>> from the split local/main tables. A VRF master device created linking
+>> to the main table and used for these programs in the same way as those
+>> created for VRF tables can.
+>>
+>> Robert Shearman (3):
+>>   ipv6: Fix route handling when using l3mdev set to main table
+>>   ipv4: Fix route handling when using l3mdev set to main table
+>>   l3mdev: Fix lookup in local table when using main table
+>>
+>>  net/ipv4/af_inet.c      |  4 +++-
+>>  net/ipv4/fib_frontend.c | 14 +++++++++-----
+>>  net/ipv4/raw.c          |  5 ++++-
+>>  net/ipv6/addrconf.c     | 12 +++++++++---
+>>  net/ipv6/route.c        | 23 ++++++++++++++++++-----
+>>  net/l3mdev/l3mdev.c     | 26 ++++++++++++++++++++------
+>>  6 files changed, 63 insertions(+), 21 deletions(-)
+>>
+>
+> the patches look ok to me, but in testing them I see I refcnt problem.
+> simple reproducer:
+>
+> ip li add red type vrf table 254
+> ip link set dev eth1 vrf red
+> ip addr add 127.0.0.1/8 dev red
+> ip link set dev eth1 up
+> ip li set red up
+> ping -c1 -w1 -I red 127.0.0.1
+> ip li del red
+> --> hangs with 'uregister_netdevice: waiting for red to become free.'
 
-Patch applied to ath-next branch of ath.git, thanks.
+Right, I've reproduced the same and it occurs even without using the 
+main table and I believe it has been introduced within the last week.
 
-169345d40d0f ath6kl: add __printf verification to ath6kl_dbg
+I'll bisect to find out the cause.
 
--- 
-https://patchwork.kernel.org/patch/9655275/
-
-https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
+Thanks for reviewing and testing,
+Rob
