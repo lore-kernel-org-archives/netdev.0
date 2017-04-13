@@ -1,8 +1,7 @@
 From: Logan Gunthorpe <logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH 10/22] staging: unisys: visorbus: Make use of the new sg_map
- helper function
-Date: Thu, 13 Apr 2017 16:05:23 -0600
-Message-ID: <1492121135-4437-11-git-send-email-logang@deltatee.com>
+Subject: [PATCH 18/22] mmc: spi: Make use of the new sg_map helper function
+Date: Thu, 13 Apr 2017 16:05:31 -0600
+Message-ID: <1492121135-4437-19-git-send-email-logang@deltatee.com>
 References: <1492121135-4437-1-git-send-email-logang@deltatee.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -37,43 +36,93 @@ Errors-To: linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org
 Sender: "Linux-nvdimm" <linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-Straightforward conversion to the new function.
+We use the sg_map helper but it's slightly more complicated
+as we only check for the error when the mapping actually gets used.
+Such that if the mapping failed but wasn't needed then no
+error occurs.
 
 Signed-off-by: Logan Gunthorpe <logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
 ---
- drivers/staging/unisys/visorhba/visorhba_main.c | 12 +++++++-----
- 1 file changed, 7 insertions(+), 5 deletions(-)
+ drivers/mmc/host/mmc_spi.c | 26 +++++++++++++++++++-------
+ 1 file changed, 19 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/staging/unisys/visorhba/visorhba_main.c b/drivers/staging/unisys/visorhba/visorhba_main.c
-index 0ce92c8..2d8c8bc 100644
---- a/drivers/staging/unisys/visorhba/visorhba_main.c
-+++ b/drivers/staging/unisys/visorhba/visorhba_main.c
-@@ -842,7 +842,6 @@ do_scsi_nolinuxstat(struct uiscmdrsp *cmdrsp, struct scsi_cmnd *scsicmd)
- 	struct scatterlist *sg;
- 	unsigned int i;
- 	char *this_page;
--	char *this_page_orig;
- 	int bufind = 0;
- 	struct visordisk_info *vdisk;
- 	struct visorhba_devdata *devdata;
-@@ -869,11 +868,14 @@ do_scsi_nolinuxstat(struct uiscmdrsp *cmdrsp, struct scsi_cmnd *scsicmd)
+diff --git a/drivers/mmc/host/mmc_spi.c b/drivers/mmc/host/mmc_spi.c
+index e77d79c..82f786d 100644
+--- a/drivers/mmc/host/mmc_spi.c
++++ b/drivers/mmc/host/mmc_spi.c
+@@ -676,9 +676,15 @@ mmc_spi_writeblock(struct mmc_spi_host *host, struct spi_transfer *t,
+ 	struct scratch		*scratch = host->data;
+ 	u32			pattern;
  
- 		sg = scsi_sglist(scsicmd);
- 		for (i = 0; i < scsi_sg_count(scsicmd); i++) {
--			this_page_orig = kmap_atomic(sg_page(sg + i));
--			this_page = (void *)((unsigned long)this_page_orig |
--					     sg[i].offset);
-+			this_page = sg_map(sg + i, SG_KMAP_ATOMIC);
-+			if (IS_ERR(this_page)) {
-+				scsicmd->result = DID_ERROR << 16;
-+				return;
-+			}
+-	if (host->mmc->use_spi_crc)
++	if (host->mmc->use_spi_crc) {
++		if (IS_ERR(t->tx_buf))
++			return PTR_ERR(t->tx_buf);
 +
- 			memcpy(this_page, buf + bufind, sg[i].length);
--			kunmap_atomic(this_page_orig);
-+			sg_unmap(sg + i, this_page, SG_KMAP_ATOMIC);
+ 		scratch->crc_val = cpu_to_be16(
+ 				crc_itu_t(0, t->tx_buf, t->len));
++		t->tx_buf += t->len;
++	}
++
+ 	if (host->dma_dev)
+ 		dma_sync_single_for_device(host->dma_dev,
+ 				host->data_dma, sizeof(*scratch),
+@@ -743,7 +749,6 @@ mmc_spi_writeblock(struct mmc_spi_host *host, struct spi_transfer *t,
+ 		return status;
+ 	}
+ 
+-	t->tx_buf += t->len;
+ 	if (host->dma_dev)
+ 		t->tx_dma += t->len;
+ 
+@@ -809,6 +814,11 @@ mmc_spi_readblock(struct mmc_spi_host *host, struct spi_transfer *t,
+ 	}
+ 	leftover = status << 1;
+ 
++	if (bitshift || host->mmc->use_spi_crc) {
++		if (IS_ERR(t->rx_buf))
++			return PTR_ERR(t->rx_buf);
++	}
++
+ 	if (host->dma_dev) {
+ 		dma_sync_single_for_device(host->dma_dev,
+ 				host->data_dma, sizeof(*scratch),
+@@ -860,9 +870,10 @@ mmc_spi_readblock(struct mmc_spi_host *host, struct spi_transfer *t,
+ 					scratch->crc_val, crc, t->len);
+ 			return -EILSEQ;
  		}
- 	} else {
- 		devdata = (struct visorhba_devdata *)scsidev->host->hostdata;
++
++		t->rx_buf += t->len;
+ 	}
+ 
+-	t->rx_buf += t->len;
+ 	if (host->dma_dev)
+ 		t->rx_dma += t->len;
+ 
+@@ -936,11 +947,11 @@ mmc_spi_data_do(struct mmc_spi_host *host, struct mmc_command *cmd,
+ 		}
+ 
+ 		/* allow pio too; we don't allow highmem */
+-		kmap_addr = kmap(sg_page(sg));
++		kmap_addr = sg_map(sg, SG_KMAP);
+ 		if (direction == DMA_TO_DEVICE)
+-			t->tx_buf = kmap_addr + sg->offset;
++			t->tx_buf = kmap_addr;
+ 		else
+-			t->rx_buf = kmap_addr + sg->offset;
++			t->rx_buf = kmap_addr;
+ 
+ 		/* transfer each block, and update request status */
+ 		while (length) {
+@@ -970,7 +981,8 @@ mmc_spi_data_do(struct mmc_spi_host *host, struct mmc_command *cmd,
+ 		/* discard mappings */
+ 		if (direction == DMA_FROM_DEVICE)
+ 			flush_kernel_dcache_page(sg_page(sg));
+-		kunmap(sg_page(sg));
++		if (!IS_ERR(kmap_addr))
++			sg_unmap(sg, kmap_addr, SG_KMAP);
+ 		if (dma_dev)
+ 			dma_unmap_page(dma_dev, dma_addr, PAGE_SIZE, dir);
+ 
 -- 
 2.1.4
