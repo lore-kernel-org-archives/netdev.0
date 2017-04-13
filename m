@@ -1,29 +1,61 @@
-From: Sarah JOHNSON <sarahjohnson197070@gmail.com>
-Subject: Greetings.
-Date: Thu, 13 Apr 2017 13:12:58 +0000 (UTC)
-Message-ID: <374590025.1221965.1492089178456@mail.yahoo.com>
-References: <374590025.1221965.1492089178456.ref@mail.yahoo.com>
-Reply-To: Sarah JOHNSON <sarah.johnson197070@yahoo.com>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [PATCH] mwifiex: MAC randomization should not be persistent
+Date: Thu, 13 Apr 2017 16:13:40 +0300
+Message-ID: <87o9w0bgcb.fsf@kamboji.qca.qualcomm.com>
+References: <20170405222640.4494-1-briannorris@chromium.org>
+        <87inmifak8.fsf@kamboji.qca.qualcomm.com>
+        <20170406164807.GB25323@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-To: unlisted-recipients:; (no To-header on input)
+Content-Type: text/plain
+Cc: Nishant Sarmukadam <nishants@marvell.com>,
+        Ganapathi Bhat <gbhat@marvell.com>,
+        Xinming Hu <huxm@marvell.com>, linux-kernel@vger.kernel.org,
+        Dmitry Torokhov <dmitry.torokhov@gmail.com>,
+        netdev@vger.kernel.org, linux-wireless@vger.kernel.org
+To: Brian Norris <briannorris@chromium.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm16-vm2.bullet.mail.ne1.yahoo.com ([98.138.91.92]:60553 "EHLO
-        nm16-vm2.bullet.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751645AbdDMNNA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 13 Apr 2017 09:13:00 -0400
+Received: from smtp.codeaurora.org ([198.145.29.96]:35926 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751255AbdDMNNt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 13 Apr 2017 09:13:49 -0400
+In-Reply-To: <20170406164807.GB25323@google.com> (Brian Norris's message of
+        "Thu, 6 Apr 2017 09:48:08 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Good Day Dearest.
+Brian Norris <briannorris@chromium.org> writes:
 
-My name is Sarah JOHNSON I am 18 years old, the only daughter of late Mr. Raymond JOHNSON from Burkina Faso, I am contacting you to help me relocate to your country to continue my university education in  your country, before my father died he gave me a deposit slip document of ($7,000,000 USD) and made me understand that it was because of his position in the government that his government associates planed and poisoned him on a business trip with them to France and he advised me to look for a faithful and reliable foreigner who will help me to transfer this money to his country and help me to relocate over there to continue my studies.
+> On Thu, Apr 06, 2017 at 07:02:15AM +0300, Kalle Valo wrote:
+>> Brian Norris <briannorris@chromium.org> writes:
+>> 
+>> > nl80211 provides the NL80211_SCAN_FLAG_RANDOM_ADDR for every scan
+>> > request that should be randomized; the absence of such a flag means we
+>> > should not randomize. However, mwifiex was stashing the latest
+>> > randomization request and *always* using it for future scans, even those
+>> > that didn't set the flag.
+>> >
+>> > Let's zero out the randomization info whenever we get a scan request
+>> > without NL80211_SCAN_FLAG_RANDOM_ADDR. I'd prefer to remove
+>> > priv->random_mac entirely (and plumb the randomization MAC properly
+>> > through the call sequence), but the spaghetti is a little difficult to
+>> > unravel here for me.
+>> >
+>> > Fixes: c2a8f0ff9c6c ("mwifiex: support random MAC address for scanning")
+>> 
+>> So the first release with this was v4.9.
+>> 
+>> > Signed-off-by: Brian Norris <briannorris@chromium.org>
+>> > ---
+>> > Should this be tagged for -stable?
+>> 
+>> IMHO yes.
+>
+> Sounds fine to me. I suppose you'll do this when applying? Or I can
+> resend...
 
-I hope you will help me with the good faith and trust I have in you, after you have secured the money and settle my education, I will give you 30% of the money for your good and kind assistance to me. Please Contact me e-Mail:sarah.johnson197070@yahoo.com 
+I can add this:
 
-I am waiting on your reply
+Cc: <stable@vger.kernel.org> # 4.9+
 
-Regards,
-
-Sarah.
+-- 
+Kalle Valo
