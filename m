@@ -1,401 +1,320 @@
-From: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH net-next 04/16] net/mlx5e: More generic netdev management API
-Date: Thu, 13 Apr 2017 06:36:54 +0300
-Message-ID: <20170413033706.19016-5-saeedm@mellanox.com>
-References: <20170413033706.19016-1-saeedm@mellanox.com>
-Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Erez Shitrit <erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>,
-        Vishwanathapura Niranjana <niranjana.vishwanathapura-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170413033706.19016-1-saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Gavin Shan <gwshan@linux.vnet.ibm.com>
+Subject: [PATCH net-next 4/8] net/ncsi: Add debugging infrastructurre
+Date: Thu, 13 Apr 2017 12:46:36 +1000
+Message-ID: <1492051600-26706-5-git-send-email-gwshan@linux.vnet.ibm.com>
+References: <1492051600-26706-1-git-send-email-gwshan@linux.vnet.ibm.com>
+Cc: davem@davemloft.net, Gavin Shan <gwshan@linux.vnet.ibm.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:52483 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1756038AbdDMDij (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 12 Apr 2017 23:38:39 -0400
+Received: from pps.filterd (m0098421.ppops.net [127.0.0.1])
+        by mx0a-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v3D3YQcJ026183
+        for <netdev@vger.kernel.org>; Wed, 12 Apr 2017 23:38:38 -0400
+Received: from e23smtp08.au.ibm.com (e23smtp08.au.ibm.com [202.81.31.141])
+        by mx0a-001b2d01.pphosted.com with ESMTP id 29sx7qx712-1
+        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Wed, 12 Apr 2017 23:38:38 -0400
+Received: from localhost
+        by e23smtp08.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        for <netdev@vger.kernel.org> from <gwshan@linux.vnet.ibm.com>;
+        Thu, 13 Apr 2017 13:38:35 +1000
+Received: from d23av04.au.ibm.com (d23av04.au.ibm.com [9.190.235.139])
+        by d23relay09.au.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id v3D3cPXN11469030
+        for <netdev@vger.kernel.org>; Thu, 13 Apr 2017 13:38:33 +1000
+Received: from d23av04.au.ibm.com (localhost [127.0.0.1])
+        by d23av04.au.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id v3D3bwRg018475
+        for <netdev@vger.kernel.org>; Thu, 13 Apr 2017 13:37:59 +1000
+In-Reply-To: <1492051600-26706-1-git-send-email-gwshan@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In preparation for mlx5e RDMA net_device support, here we generalize
-mlx5e_attach/detach in a way that those functions will be agnostic
-to link type.  For that we move ethernet specific NIC net device logic out
-of those functions into {nic,rep}_{enable/disable} mlx5e NIC and
-representor profiles callbacks.
+This creates procfs directories as NCSI debugging infrastructure.
+With the patch applied, We will see below procfs directories. Every
+NCSI package and channel has one corresponding directory. Other than
+presenting the NCSI topology, No real function has been achieved
+through these procfs directories so far.
 
-Also some of the logic was moved only to NIC profile since it is not right
-to have this logic for representor net device (e.g. set port MTU).
+     /proc/ncsi/eth0
+     /proc/ncsi/eth0/p0
+     /proc/ncsi/eth0/p0/c0
+     /proc/ncsi/eth0/p0/c1
 
-Signed-off-by: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Reviewed-by: Erez Shitrit <erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Signed-off-by: Gavin Shan <gwshan@linux.vnet.ibm.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en.h      |  15 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 160 +++++++++++-----------
- drivers/net/ethernet/mellanox/mlx5/core/en_rep.c  |  12 +-
- 3 files changed, 96 insertions(+), 91 deletions(-)
+ net/ncsi/Kconfig       |  9 +++++
+ net/ncsi/Makefile      |  1 +
+ net/ncsi/internal.h    | 45 ++++++++++++++++++++++++
+ net/ncsi/ncsi-debug.c  | 95 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ net/ncsi/ncsi-manage.c | 16 +++++++++
+ 5 files changed, 166 insertions(+)
+ create mode 100644 net/ncsi/ncsi-debug.c
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-index b7feecfbb5a5..ced31906b8fd 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-@@ -999,12 +999,6 @@ void mlx5e_cleanup_nic_tx(struct mlx5e_priv *priv);
- int mlx5e_close(struct net_device *netdev);
- int mlx5e_open(struct net_device *netdev);
- void mlx5e_update_stats_work(struct work_struct *work);
--struct net_device *mlx5e_create_netdev(struct mlx5_core_dev *mdev,
--				       const struct mlx5e_profile *profile,
--				       void *ppriv);
--void mlx5e_destroy_netdev(struct mlx5_core_dev *mdev, struct mlx5e_priv *priv);
--int mlx5e_attach_netdev(struct mlx5_core_dev *mdev, struct net_device *netdev);
--void mlx5e_detach_netdev(struct mlx5_core_dev *mdev, struct net_device *netdev);
- u32 mlx5e_choose_lro_timeout(struct mlx5_core_dev *mdev, u32 wanted_timeout);
- 
- int mlx5e_get_offload_stats(int attr_id, const struct net_device *dev,
-@@ -1013,4 +1007,13 @@ bool mlx5e_has_offload_stats(const struct net_device *dev, int attr_id);
- 
- bool mlx5e_is_uplink_rep(struct mlx5e_priv *priv);
- bool mlx5e_is_vf_vport_rep(struct mlx5e_priv *priv);
+diff --git a/net/ncsi/Kconfig b/net/ncsi/Kconfig
+index 08a8a60..b73ce24 100644
+--- a/net/ncsi/Kconfig
++++ b/net/ncsi/Kconfig
+@@ -10,3 +10,12 @@ config NET_NCSI
+ 	  support. Enable this only if your system connects to a network
+ 	  device via NCSI and the ethernet driver you're using supports
+ 	  the protocol explicitly.
 +
-+/* mlx5e generic netdev management API */
-+struct net_device*
-+mlx5e_create_netdev(struct mlx5_core_dev *mdev, const struct mlx5e_profile *profile,
-+		    void *ppriv);
-+int mlx5e_attach_netdev(struct mlx5e_priv *priv);
-+void mlx5e_detach_netdev(struct mlx5e_priv *priv);
-+void mlx5e_destroy_netdev(struct mlx5e_priv *priv);
++config NET_NCSI_DEBUG
++	bool "Enable NCSI debugging"
++	depends on NET_NCSI && PROC_FS
++	default n
++	---help---
++	  This enables the interfaces (e.g. procfs) for NCSI debugging purpose.
 +
- #endif /* __MLX5_EN_H__ */
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 8b7b7e604ea0..cdc34ba354c8 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -4121,12 +4121,57 @@ static int mlx5e_init_nic_tx(struct mlx5e_priv *priv)
- 	return 0;
- }
- 
-+static void mlx5e_register_vport_rep(struct mlx5_core_dev *mdev)
-+{
-+	struct mlx5_eswitch *esw = mdev->priv.eswitch;
-+	int total_vfs = MLX5_TOTAL_VPORTS(mdev);
-+	int vport;
-+	u8 mac[ETH_ALEN];
-+
-+	if (!MLX5_CAP_GEN(mdev, vport_group_manager))
-+		return;
-+
-+	mlx5_query_nic_vport_mac_address(mdev, 0, mac);
-+
-+	for (vport = 1; vport < total_vfs; vport++) {
-+		struct mlx5_eswitch_rep rep;
-+
-+		rep.load = mlx5e_vport_rep_load;
-+		rep.unload = mlx5e_vport_rep_unload;
-+		rep.vport = vport;
-+		ether_addr_copy(rep.hw_id, mac);
-+		mlx5_eswitch_register_vport_rep(esw, vport, &rep);
-+	}
-+}
-+
-+static void mlx5e_unregister_vport_rep(struct mlx5_core_dev *mdev)
-+{
-+	struct mlx5_eswitch *esw = mdev->priv.eswitch;
-+	int total_vfs = MLX5_TOTAL_VPORTS(mdev);
-+	int vport;
-+
-+	if (!MLX5_CAP_GEN(mdev, vport_group_manager))
-+		return;
-+
-+	for (vport = 1; vport < total_vfs; vport++)
-+		mlx5_eswitch_unregister_vport_rep(esw, vport);
-+}
-+
- static void mlx5e_nic_enable(struct mlx5e_priv *priv)
- {
- 	struct net_device *netdev = priv->netdev;
- 	struct mlx5_core_dev *mdev = priv->mdev;
- 	struct mlx5_eswitch *esw = mdev->priv.eswitch;
- 	struct mlx5_eswitch_rep rep;
-+	u16 max_mtu;
-+
-+	mlx5e_init_l2_addr(priv);
-+
-+	/* MTU range: 68 - hw-specific max */
-+	netdev->min_mtu = ETH_MIN_MTU;
-+	mlx5_query_port_max_mtu(priv->mdev, &max_mtu, 1);
-+	netdev->max_mtu = MLX5E_HW2SW_MTU(max_mtu);
-+	mlx5e_set_dev_port_mtu(priv);
- 
- 	mlx5_lag_add(mdev, netdev);
- 
-@@ -4141,6 +4186,8 @@ static void mlx5e_nic_enable(struct mlx5e_priv *priv)
- 		mlx5_eswitch_register_vport_rep(esw, 0, &rep);
- 	}
- 
-+	mlx5e_register_vport_rep(mdev);
-+
- 	if (netdev->reg_state != NETREG_REGISTERED)
- 		return;
- 
-@@ -4152,6 +4199,12 @@ static void mlx5e_nic_enable(struct mlx5e_priv *priv)
- 	}
- 
- 	queue_work(priv->wq, &priv->set_rx_mode_work);
-+
-+	rtnl_lock();
-+	if (netif_running(netdev))
-+		mlx5e_open(netdev);
-+	netif_device_attach(netdev);
-+	rtnl_unlock();
- }
- 
- static void mlx5e_nic_disable(struct mlx5e_priv *priv)
-@@ -4159,7 +4212,14 @@ static void mlx5e_nic_disable(struct mlx5e_priv *priv)
- 	struct mlx5_core_dev *mdev = priv->mdev;
- 	struct mlx5_eswitch *esw = mdev->priv.eswitch;
- 
-+	rtnl_lock();
-+	if (netif_running(priv->netdev))
-+		mlx5e_close(priv->netdev);
-+	netif_device_detach(priv->netdev);
-+	rtnl_unlock();
-+
- 	queue_work(priv->wq, &priv->set_rx_mode_work);
-+	mlx5e_unregister_vport_rep(mdev);
- 	if (MLX5_CAP_GEN(mdev, vport_group_manager))
- 		mlx5_eswitch_unregister_vport_rep(esw, 0);
- 	mlx5e_disable_async_events(priv);
-@@ -4180,6 +4240,8 @@ static const struct mlx5e_profile mlx5e_nic_profile = {
- 	.max_tc		   = MLX5E_MAX_NUM_TC,
++	  If unsure, say Y.
+diff --git a/net/ncsi/Makefile b/net/ncsi/Makefile
+index dd12b56..2897fa0 100644
+--- a/net/ncsi/Makefile
++++ b/net/ncsi/Makefile
+@@ -2,3 +2,4 @@
+ # Makefile for NCSI API
+ #
+ obj-$(CONFIG_NET_NCSI) += ncsi-cmd.o ncsi-rsp.o ncsi-aen.o ncsi-manage.o
++obj-$(CONFIG_NET_NCSI_DEBUG) += ncsi-debug.o
+diff --git a/net/ncsi/internal.h b/net/ncsi/internal.h
+index 1308a56..2a08168 100644
+--- a/net/ncsi/internal.h
++++ b/net/ncsi/internal.h
+@@ -198,6 +198,9 @@ struct ncsi_channel {
+ 	} monitor;
+ 	struct list_head            node;
+ 	struct list_head            link;
++#ifdef CONFIG_NET_NCSI_DEBUG
++	struct proc_dir_entry       *pde;       /* Procfs directory    */
++#endif
  };
  
-+/* mlx5e generic netdev management API (move to en_common.c) */
-+
- struct net_device *mlx5e_create_netdev(struct mlx5_core_dev *mdev,
- 				       const struct mlx5e_profile *profile,
- 				       void *ppriv)
-@@ -4219,14 +4281,12 @@ struct net_device *mlx5e_create_netdev(struct mlx5_core_dev *mdev,
- 	return NULL;
- }
+ struct ncsi_package {
+@@ -208,6 +211,9 @@ struct ncsi_package {
+ 	unsigned int         channel_num; /* Number of channels     */
+ 	struct list_head     channels;    /* List of chanels        */
+ 	struct list_head     node;        /* Form list of packages  */
++#ifdef CONFIG_NET_NCSI_DEBUG
++	struct proc_dir_entry *pde;       /* Procfs directory       */
++#endif
+ };
  
--int mlx5e_attach_netdev(struct mlx5_core_dev *mdev, struct net_device *netdev)
-+int mlx5e_attach_netdev(struct mlx5e_priv *priv)
- {
-+	struct mlx5_core_dev *mdev = priv->mdev;
- 	const struct mlx5e_profile *profile;
--	struct mlx5e_priv *priv;
--	u16 max_mtu;
- 	int err;
+ struct ncsi_request {
+@@ -276,6 +282,9 @@ struct ncsi_dev_priv {
+ 	struct work_struct  work;            /* For channel management     */
+ 	struct packet_type  ptype;           /* NCSI packet Rx handler     */
+ 	struct list_head    node;            /* Form NCSI device list      */
++#ifdef CONFIG_NET_NCSI_DEBUG
++	struct proc_dir_entry    *pde;       /* Procfs directory           */
++#endif
+ };
  
--	priv = netdev_priv(netdev);
- 	profile = priv->profile;
- 	clear_bit(MLX5E_STATE_DESTROYING, &priv->state);
+ struct ncsi_cmd_arg {
+@@ -337,4 +346,40 @@ int ncsi_rcv_rsp(struct sk_buff *skb, struct net_device *dev,
+ 		 struct packet_type *pt, struct net_device *orig_dev);
+ int ncsi_aen_handler(struct ncsi_dev_priv *ndp, struct sk_buff *skb);
  
-@@ -4246,24 +4306,9 @@ int mlx5e_attach_netdev(struct mlx5_core_dev *mdev, struct net_device *netdev)
- 
- 	mlx5e_create_q_counter(priv);
- 
--	mlx5e_init_l2_addr(priv);
--
--	/* MTU range: 68 - hw-specific max */
--	netdev->min_mtu = ETH_MIN_MTU;
--	mlx5_query_port_max_mtu(priv->mdev, &max_mtu, 1);
--	netdev->max_mtu = MLX5E_HW2SW_MTU(max_mtu);
--
--	mlx5e_set_dev_port_mtu(priv);
--
- 	if (profile->enable)
- 		profile->enable(priv);
- 
--	rtnl_lock();
--	if (netif_running(netdev))
--		mlx5e_open(netdev);
--	netif_device_attach(netdev);
--	rtnl_unlock();
--
- 	return 0;
- 
- err_close_drop_rq:
-@@ -4276,55 +4321,12 @@ int mlx5e_attach_netdev(struct mlx5_core_dev *mdev, struct net_device *netdev)
- 	return err;
- }
- 
--static void mlx5e_register_vport_rep(struct mlx5_core_dev *mdev)
--{
--	struct mlx5_eswitch *esw = mdev->priv.eswitch;
--	int total_vfs = MLX5_TOTAL_VPORTS(mdev);
--	int vport;
--	u8 mac[ETH_ALEN];
--
--	if (!MLX5_CAP_GEN(mdev, vport_group_manager))
--		return;
--
--	mlx5_query_nic_vport_mac_address(mdev, 0, mac);
--
--	for (vport = 1; vport < total_vfs; vport++) {
--		struct mlx5_eswitch_rep rep;
--
--		rep.load = mlx5e_vport_rep_load;
--		rep.unload = mlx5e_vport_rep_unload;
--		rep.vport = vport;
--		ether_addr_copy(rep.hw_id, mac);
--		mlx5_eswitch_register_vport_rep(esw, vport, &rep);
--	}
--}
--
--static void mlx5e_unregister_vport_rep(struct mlx5_core_dev *mdev)
--{
--	struct mlx5_eswitch *esw = mdev->priv.eswitch;
--	int total_vfs = MLX5_TOTAL_VPORTS(mdev);
--	int vport;
--
--	if (!MLX5_CAP_GEN(mdev, vport_group_manager))
--		return;
--
--	for (vport = 1; vport < total_vfs; vport++)
--		mlx5_eswitch_unregister_vport_rep(esw, vport);
--}
--
--void mlx5e_detach_netdev(struct mlx5_core_dev *mdev, struct net_device *netdev)
-+void mlx5e_detach_netdev(struct mlx5e_priv *priv)
- {
--	struct mlx5e_priv *priv = netdev_priv(netdev);
- 	const struct mlx5e_profile *profile = priv->profile;
- 
- 	set_bit(MLX5E_STATE_DESTROYING, &priv->state);
- 
--	rtnl_lock();
--	if (netif_running(netdev))
--		mlx5e_close(netdev);
--	netif_device_detach(netdev);
--	rtnl_unlock();
--
- 	if (profile->disable)
- 		profile->disable(priv);
- 	flush_workqueue(priv->wq);
-@@ -4336,6 +4338,17 @@ void mlx5e_detach_netdev(struct mlx5_core_dev *mdev, struct net_device *netdev)
- 	cancel_delayed_work_sync(&priv->update_stats_work);
- }
- 
-+void mlx5e_destroy_netdev(struct mlx5e_priv *priv)
++/* Debugging functionality */
++#ifdef CONFIG_NET_NCSI_DEBUG
++int ncsi_dev_init_debug(struct ncsi_dev_priv *ndp);
++void ncsi_dev_release_debug(struct ncsi_dev_priv *ndp);
++int ncsi_package_init_debug(struct ncsi_package *np);
++void ncsi_package_release_debug(struct ncsi_package *np);
++int ncsi_channel_init_debug(struct ncsi_channel *nc);
++void ncsi_channel_release_debug(struct ncsi_channel *nc);
++#else
++static inline int ncsi_dev_init_debug(struct ncsi_dev_priv *ndp)
 +{
-+	const struct mlx5e_profile *profile = priv->profile;
-+	struct net_device *netdev = priv->netdev;
-+
-+	destroy_workqueue(priv->wq);
-+	if (profile->cleanup)
-+		profile->cleanup(priv);
-+	free_netdev(netdev);
++	return -ENOTTY;
 +}
 +
- /* mlx5e_attach and mlx5e_detach scope should be only creating/destroying
-  * hardware contexts and to connect it to the current netdev.
-  */
-@@ -4352,13 +4365,12 @@ static int mlx5e_attach(struct mlx5_core_dev *mdev, void *vpriv)
- 	if (err)
- 		return err;
++static inline void ncsi_dev_release_debug(struct ncsi_dev_priv *ndp)
++{
++}
++
++static inline int ncsi_package_init_debug(struct ncsi_package *np)
++{
++	return -ENOTTY;
++}
++
++static inline void ncsi_package_release_debug(struct ncsi_package *np)
++{
++}
++
++static inline int ncsi_channel_init_debug(struct ncsi_channel *nc)
++{
++	return -ENOTTY;
++}
++
++static inline void ncsi_channel_release_debug(struct ncsi_channel *nc)
++{
++}
++#endif /* CONFIG_NET_NCSI_DEBUG */
+ #endif /* __NCSI_INTERNAL_H__ */
+diff --git a/net/ncsi/ncsi-debug.c b/net/ncsi/ncsi-debug.c
+new file mode 100644
+index 0000000..1909b00
+--- /dev/null
++++ b/net/ncsi/ncsi-debug.c
+@@ -0,0 +1,95 @@
++/*
++ * Copyright Gavin Shan, IBM Corporation 2017.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
++
++#include <linux/module.h>
++#include <linux/kernel.h>
++#include <linux/init.h>
++#include <linux/atomic.h>
++#include <linux/netdevice.h>
++#include <linux/proc_fs.h>
++#include <linux/skbuff.h>
++
++#include <net/ncsi.h>
++#include <net/net_namespace.h>
++#include <net/sock.h>
++
++#include "internal.h"
++#include "ncsi-pkt.h"
++
++static struct proc_dir_entry *ncsi_pde;
++
++int ncsi_dev_init_debug(struct ncsi_dev_priv *ndp)
++{
++	if (WARN_ON_ONCE(ndp->pde))
++		return 0;
++
++	if (!ncsi_pde) {
++		ncsi_pde = proc_mkdir("ncsi", NULL);
++		if (!ncsi_pde) {
++			pr_warn("NCSI: Cannot create /proc/ncsi\n");
++			return -ENOENT;
++		}
++	}
++
++	ndp->pde = proc_mkdir(netdev_name(ndp->ndev.dev), ncsi_pde);
++	if (!ndp->pde)
++		return -ENOMEM;
++
++	return 0;
++}
++
++void ncsi_dev_release_debug(struct ncsi_dev_priv *ndp)
++{
++	if (ndp->pde)
++		proc_remove(ndp->pde);
++}
++
++int ncsi_package_init_debug(struct ncsi_package *np)
++{
++	struct ncsi_dev_priv *ndp = np->ndp;
++	char name[4];
++
++	if (!ndp->pde)
++		return -ENOENT;
++
++	sprintf(name, "p%d", np->id);
++	np->pde = proc_mkdir(name, ndp->pde);
++	if (!np->pde)
++		return -ENOMEM;
++
++	return 0;
++}
++
++void ncsi_package_release_debug(struct ncsi_package *np)
++{
++	if (np->pde)
++		proc_remove(np->pde);
++}
++
++int ncsi_channel_init_debug(struct ncsi_channel *nc)
++{
++	struct ncsi_package *np = nc->package;
++	char name[3];
++
++	if (!np->pde)
++		return -ENOENT;
++
++	sprintf(name, "c%d", nc->id);
++	nc->pde = proc_mkdir(name, np->pde);
++	if (!nc->pde)
++		return -ENOMEM;
++
++	return 0;
++}
++
++void ncsi_channel_release_debug(struct ncsi_channel *nc)
++{
++	if (nc->pde)
++		proc_remove(nc->pde);
++}
+diff --git a/net/ncsi/ncsi-manage.c b/net/ncsi/ncsi-manage.c
+index 13ad1f26..84f1405 100644
+--- a/net/ncsi/ncsi-manage.c
++++ b/net/ncsi/ncsi-manage.c
+@@ -322,6 +322,8 @@ struct ncsi_channel *ncsi_add_channel(struct ncsi_package *np, unsigned char id)
+ 	np->channel_num++;
+ 	spin_unlock_irqrestore(&np->lock, flags);
  
--	err = mlx5e_attach_netdev(mdev, netdev);
-+	err = mlx5e_attach_netdev(priv);
- 	if (err) {
- 		mlx5e_destroy_mdev_resources(mdev);
- 		return err;
- 	}
- 
--	mlx5e_register_vport_rep(mdev);
- 	return 0;
++	ncsi_channel_init_debug(nc);
++
+ 	return nc;
  }
  
-@@ -4370,8 +4382,7 @@ static void mlx5e_detach(struct mlx5_core_dev *mdev, void *vpriv)
- 	if (!netif_device_present(netdev))
- 		return;
- 
--	mlx5e_unregister_vport_rep(mdev);
--	mlx5e_detach_netdev(mdev, netdev);
-+	mlx5e_detach_netdev(priv);
- 	mlx5e_destroy_mdev_resources(mdev);
- }
- 
-@@ -4418,7 +4429,7 @@ static void *mlx5e_add(struct mlx5_core_dev *mdev)
- 	mlx5e_detach(mdev, priv);
- 
- err_destroy_netdev:
--	mlx5e_destroy_netdev(mdev, priv);
-+	mlx5e_destroy_netdev(priv);
- 
- err_unregister_reps:
- 	for (vport = 1; vport < total_vfs; vport++)
-@@ -4427,24 +4438,13 @@ static void *mlx5e_add(struct mlx5_core_dev *mdev)
- 	return NULL;
- }
- 
--void mlx5e_destroy_netdev(struct mlx5_core_dev *mdev, struct mlx5e_priv *priv)
--{
--	const struct mlx5e_profile *profile = priv->profile;
--	struct net_device *netdev = priv->netdev;
--
--	destroy_workqueue(priv->wq);
--	if (profile->cleanup)
--		profile->cleanup(priv);
--	free_netdev(netdev);
--}
--
- static void mlx5e_remove(struct mlx5_core_dev *mdev, void *vpriv)
- {
- 	struct mlx5e_priv *priv = vpriv;
- 
- 	unregister_netdev(priv->netdev);
- 	mlx5e_detach(mdev, vpriv);
--	mlx5e_destroy_netdev(mdev, priv);
-+	mlx5e_destroy_netdev(priv);
- }
- 
- static void *mlx5e_get_netdev(void *vpriv)
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
-index 53db5ec2c122..d7664ff5c736 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
-@@ -470,6 +470,8 @@ static int mlx5e_init_rep_rx(struct mlx5e_priv *priv)
- 	int err;
+@@ -332,6 +334,8 @@ static void ncsi_remove_channel(struct ncsi_channel *nc)
+ 	unsigned long flags;
  	int i;
  
-+	mlx5e_init_l2_addr(priv);
++	ncsi_channel_release_debug(nc);
 +
- 	err = mlx5e_create_direct_rqts(priv);
- 	if (err) {
- 		mlx5_core_warn(mdev, "create direct rqts failed, %d\n", err);
-@@ -563,7 +565,7 @@ int mlx5e_vport_rep_load(struct mlx5_eswitch *esw,
+ 	/* Release filters */
+ 	spin_lock_irqsave(&nc->lock, flags);
+ 	for (i = 0; i < NCSI_FILTER_MAX; i++) {
+@@ -396,6 +400,8 @@ struct ncsi_package *ncsi_add_package(struct ncsi_dev_priv *ndp,
+ 	ndp->package_num++;
+ 	spin_unlock_irqrestore(&ndp->lock, flags);
  
- 	rep->netdev = netdev;
- 
--	err = mlx5e_attach_netdev(esw->dev, netdev);
-+	err = mlx5e_attach_netdev(netdev_priv(netdev));
- 	if (err) {
- 		pr_warn("Failed to attach representor netdev for vport %d\n",
- 			rep->vport);
-@@ -580,10 +582,10 @@ int mlx5e_vport_rep_load(struct mlx5_eswitch *esw,
- 	return 0;
- 
- err_detach_netdev:
--	mlx5e_detach_netdev(esw->dev, netdev);
-+	mlx5e_detach_netdev(netdev_priv(netdev));
- 
- err_destroy_netdev:
--	mlx5e_destroy_netdev(esw->dev, netdev_priv(netdev));
-+	mlx5e_destroy_netdev(netdev_priv(netdev));
- 
- 	return err;
- 
-@@ -595,6 +597,6 @@ void mlx5e_vport_rep_unload(struct mlx5_eswitch *esw,
- 	struct net_device *netdev = rep->netdev;
- 
- 	unregister_netdev(netdev);
--	mlx5e_detach_netdev(esw->dev, netdev);
--	mlx5e_destroy_netdev(esw->dev, netdev_priv(netdev));
-+	mlx5e_detach_netdev(netdev_priv(netdev));
-+	mlx5e_destroy_netdev(netdev_priv(netdev));
++	ncsi_package_init_debug(np);
++
+ 	return np;
  }
+ 
+@@ -409,6 +415,8 @@ void ncsi_remove_package(struct ncsi_package *np)
+ 	list_for_each_entry_safe(nc, tmp, &np->channels, node)
+ 		ncsi_remove_channel(nc);
+ 
++	ncsi_package_release_debug(np);
++
+ 	/* Remove and free package */
+ 	spin_lock_irqsave(&ndp->lock, flags);
+ 	list_del_rcu(&np->node);
+@@ -1280,6 +1288,13 @@ int ncsi_start_dev(struct ncsi_dev *nd)
+ 		return -ENOTTY;
+ 
+ 	if (!(ndp->flags & NCSI_DEV_PROBED)) {
++		/* The debugging functionality should have been initialized
++		 * when registerring the NCSI device. As the network device
++		 * name isn't available that time, we have to delay the work
++		 * to here.
++		 */
++		ncsi_dev_init_debug(ndp);
++
+ 		nd->state = ncsi_dev_state_probe;
+ 		schedule_work(&ndp->work);
+ 		return 0;
+@@ -1329,6 +1344,7 @@ void ncsi_unregister_dev(struct ncsi_dev *nd)
+ 	struct ncsi_package *np, *tmp;
+ 	unsigned long flags;
+ 
++	ncsi_dev_release_debug(ndp);
+ 	dev_remove_pack(&ndp->ptype);
+ 
+ 	list_for_each_entry_safe(np, tmp, &ndp->packages, node)
 -- 
-2.11.0
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+2.7.4
