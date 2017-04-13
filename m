@@ -1,38 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 net-next RFC] Generic XDP
-Date: Thu, 13 Apr 2017 16:01:48 -0400 (EDT)
-Message-ID: <20170413.160148.1850150011941347398.davem@davemloft.net>
-References: <20170413042036.GA46229@ast-mbp.thefacebook.com>
-        <20170413.113722.2174945057832588335.davem@davemloft.net>
-        <1492111341.29526.5.camel@sipsolutions.net>
+From: Michael Chan <michael.chan@broadcom.com>
+Subject: Re: [PATCH v4 net-next RFC] net: Generic XDP
+Date: Thu, 13 Apr 2017 13:16:43 -0700
+Message-ID: <CACKFLikm1vDzz8eQJMJOEsbv-NNV41ki2TEPVPCSpP6VjaowBA@mail.gmail.com>
+References: <20170413.120925.2082322246776478766.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: alexei.starovoitov@gmail.com, netdev@vger.kernel.org,
-        xdp-newbies@vger.kernel.org
-To: johannes@sipsolutions.net
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>, xdp-newbies@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:36222 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755085AbdDMUBw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 13 Apr 2017 16:01:52 -0400
-In-Reply-To: <1492111341.29526.5.camel@sipsolutions.net>
+Received: from mail-lf0-f51.google.com ([209.85.215.51]:36413 "EHLO
+        mail-lf0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755261AbdDMUQp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 13 Apr 2017 16:16:45 -0400
+Received: by mail-lf0-f51.google.com with SMTP id s141so34757869lfe.3
+        for <netdev@vger.kernel.org>; Thu, 13 Apr 2017 13:16:44 -0700 (PDT)
+In-Reply-To: <20170413.120925.2082322246776478766.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes@sipsolutions.net>
-Date: Thu, 13 Apr 2017 21:22:21 +0200
+On Thu, Apr 13, 2017 at 9:09 AM, David Miller <davem@davemloft.net> wrote:
+>
+> ---
+>
+> v4:
+>  - Fix MAC header adjustmnet before calling prog (David Ahern)
+>  - Disable LRO when generic XDP is installed (Michael Chan)
 
-> OTOH, it might depend on the frame data itself, if the program does
-> something like
-> 
-> xdp->data[xdp->data[0] & 0xf]
-> 
-> (read or write, doesn't really matter) so then the verifier would have
-> to take the maximum possible value there into account.
+I don't see where you are disabling LRO in the patch.
 
-I am not well versed enough with the verifier to understand exactly
-how and to what extent SKB accesses are validated by the verifier.
-
-My, perhaps mistaken, impression is that access range validation is
-still at least partially done at run time.
+>  - Bypass qdisc et al. on XDP_TX and record the event (Alexei)
+>  - Do not perform generic XDP on reinjected packets (DaveM)
+>
