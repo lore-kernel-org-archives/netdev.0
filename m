@@ -1,35 +1,44 @@
-From: Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
-Subject: How to debug DMAR errors?
-Date: Thu, 13 Apr 2017 11:12:12 -0700
-Message-ID: <a21d8845-ae8d-fae0-b1b4-7bf6751b04b5@candelatech.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: "linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net-next] kcm: remove a useless copy_from_user()
+Date: Thu, 13 Apr 2017 11:38:02 -0700
+Message-ID: <1492108682-30505-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+        Tom Herbert <tom@herbertland.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:35221 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752273AbdDMSiQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 13 Apr 2017 14:38:16 -0400
+Received: by mail-pf0-f194.google.com with SMTP id a188so12188701pfa.2
+        for <netdev@vger.kernel.org>; Thu, 13 Apr 2017 11:38:16 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello,
+struct kcm_clone only contains fd, and kcm_clone() only
+writes this struct, so there is no need to copy it from user.
 
-I have been seeing a regular occurrence of DMAR errors, looking something
-like this when testing my ath10k driver/firmware under some specific loads
-(maximum receive of 512 byte frames in AP mode):
+Cc: Tom Herbert <tom@herbertland.com>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+---
+ net/kcm/kcmsock.c | 4 ----
+ 1 file changed, 4 deletions(-)
 
-DMAR: DRHD: handling fault status reg 3
-DMAR: [DMA Read] Request device [05:00.0] fault addr fd99f000 [fault reason 06] PTE Read access is not set
-ath10k_pci 0000:05:00.0: firmware crashed! (uuid 594b1393-ae35-42b5-9dec-74ff0c6791ff)
-
-So, I am wondering if there is any way I can get more information about what this fd99f000 address
-is?
-
-Once this problem hits, the entire OS locks hard (not even sysrq-boot will do anything),
-so I guess I would need the DMAR logic to print out more info on that address somehow.
-
-Thanks,
-Ben
-
+diff --git a/net/kcm/kcmsock.c b/net/kcm/kcmsock.c
+index 31762f7..deca20f 100644
+--- a/net/kcm/kcmsock.c
++++ b/net/kcm/kcmsock.c
+@@ -1707,11 +1707,7 @@ static int kcm_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
+ 		struct kcm_clone info;
+ 		struct socket *newsock = NULL;
+ 
+-		if (copy_from_user(&info, (void __user *)arg, sizeof(info)))
+-			return -EFAULT;
+-
+ 		err = kcm_clone(sock, &info, &newsock);
+-
+ 		if (!err) {
+ 			if (copy_to_user((void __user *)arg, &info,
+ 					 sizeof(info))) {
 -- 
-Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
-Candela Technologies Inc  http://www.candelatech.com
+2.5.5
