@@ -1,81 +1,33 @@
-From: Murali Karicheri <m-karicheri2@ti.com>
-Subject: Re: IGMP on IPv6
-Date: Thu, 13 Apr 2017 12:36:35 -0400
-Message-ID: <58EFA913.5060604@ti.com>
-References: <1479111388-25383-1-git-send-email-liuhangbin@gmail.com>
- <58D29265.1020604@ti.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/1] drivers: net: usb: qmi_wwan: add QMI_QUIRK_SET_DTR
+ for Telit PID 0x1201
+Date: Thu, 13 Apr 2017 12:36:51 -0400 (EDT)
+Message-ID: <20170413.123651.102212178600257027.davem@davemloft.net>
+References: <1491838463-20299-1-git-send-email-dnlplm@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: Hangbin Liu <liuhangbin@gmail.com>,
-        "open list:TI NETCP ETHERNET DRIVER" <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>
+Cc: bjorn@mork.no, netdev@vger.kernel.org, linux-usb@vger.kernel.org
+To: dnlplm@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lelnx193.ext.ti.com ([198.47.27.77]:54666 "EHLO
-        lelnx193.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750730AbdDMQgZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 13 Apr 2017 12:36:25 -0400
-In-Reply-To: <58D29265.1020604@ti.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:32952 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752842AbdDMQgx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 13 Apr 2017 12:36:53 -0400
+In-Reply-To: <1491838463-20299-1-git-send-email-dnlplm@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/22/2017 11:04 AM, Murali Karicheri wrote:
-> Hi Liu,
-> 
-> I saw that you have sent patches to the list for IGMP and have a question on IGMP on IPv6.
-> Hope you can clarify. I have posted the question already to the list and is reproduced
-> below. Let me know if you have an answer.
-> 
-> ========= See email with subject "IPv6 IGMP issue in v4.4.44 ?? ========================
-> Cut-n-paste from that email....
-> 
-> I see an issue with IGMP for IPv6 when I test HSR redundancy network
-> interface. As soon as I set up an HSR interface, I see some IGMP messages
-> (destination mac address: 33 33 00 00 00 02 going over HSR interface to
-> slave interfaces, at the egress where as for IPv6, I see similar messages
-> going directly over the Ethernet interfaces that are attached to
-> HSR master. It appears that the NETDEV_CHANGEUPPER is not handled properly
-> and the mcast snoop sends the packets over the old interfaces at timer
-> expiry. 
-> 
-> A dump of the message at the slave Ethernet interface looks like below.
-> 
-> IPv4
-> 
-> [   64.643842] 33 33 00 00 00 02 70 ff 76 1c 0f 8d 89 2f 10 3e fc 
-> [   64.649910] 18 86 dd 60 00 00 00 00 10 3a ff fe 80 00 00 00 
-> [   64.655705] 00 00 00 72 ff 76 ff fe 1c 0f 8d ff 02 00 00 00 
-> [   64.661503] 00 00 00 00 00 00 00 00 00 00 02 85 00 8d dc 
-> 
-> 
-> You can see this is tagged with HSR.
-> 
-> IPv6
-> 
-> [   65.559130] 33 33 00 00 00 02 70 ff 76 1c 0f 8d 86 dd 60 00 00 
-> [   65.565205] 00 00 10 3a ff fe 80 00 00 00 00 00 00 72 ff 76 
-> [   65.571011] ff fe 1c 0f 8d ff 02 00 00 00 00 00 00 00 00 00 
-> [   65.576806] 00 00 00 00 02 85 00 8d dc 00 00 00 00 01 01 
-> 
-> This is going directly to the slave Ethernet interface.
-> 
-> When I put a WARN_ONCE, I found this is coming directly from 
-> mld_ifc_timer_expire() -> mld_sendpack() -> ip6_output()
-> 
-> Do you think this is fixed in latest kernel at master? If so, could
-> you point me to some commits.
-> 
-> 
-Ping... I see this behavior is also seen on v4.9.x Kernel. Any clue if 
-this is fixed by some commit or I need to debug? I see IGMPv6 has some 
-fixes on the list to make it similar to IGMPv4. So can someone clarify this is
-is a bug at IGMPv6 code or I need to look into the HSR driver code?
-Since IGMPv4 is going over the HSR interface I am assuming this is a
-bug in the IGMPv6 code. But since I have not experience with this code
-can some expert comment please?
+From: Daniele Palmas <dnlplm@gmail.com>
+Date: Mon, 10 Apr 2017 17:34:23 +0200
 
-Murali
+> Telit LE920A4 uses the same pid 0x1201 of LE920, but modem
+> implementation is different, since it requires DTR to be set for
+> answering to qmi messages.
+> 
+> This patch replaces QMI_FIXED_INTF with QMI_QUIRK_SET_DTR: tests on
+> LE920 have been performed in order to verify backward compatibility.
+> 
+> Signed-off-by: Daniele Palmas <dnlplm@gmail.com>
 
--- 
-Murali Karicheri
-Linux Kernel, Keystone
+Applied, thank you.
