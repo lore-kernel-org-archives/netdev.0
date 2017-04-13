@@ -1,88 +1,210 @@
-From: Gabriele Paoloni <gabriele.paoloni@huawei.com>
-Subject: RE: Re: [PATCH net-next 1/4] ixgbe: sparc: rename the
- ARCH_WANT_RELAX_ORDER to IXGBE_ALLOW_RELAXED_ORDER
-Date: Thu, 13 Apr 2017 09:10:32 +0000
-Message-ID: <EE11001F9E5DDD47B7634E2F8A612F2E205199C0@FRAEML521-MBX.china.huawei.com>
-References: <20170401.112603.1991545644693496714.davem@davemloft.net>
- <42428725-89f1-1508-4e3d-723e087b3bbb@huawei.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch iproute2/net-next repost] devlink: Add support for
+ pipeline debug (dpipe)
+Date: Thu, 13 Apr 2017 11:30:27 +0200
+Message-ID: <20170413093027.GA1961@nanopsycho>
+References: <1490714657-6116-1-git-send-email-jiri@resnulli.us>
+ <1490714814-6724-1-git-send-email-jiri@resnulli.us>
+ <20170412164525.1c0468d0@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Mark Rutland <mark.rutland@arm.com>,
- Catalin Marinas <catalin.marinas@arm.com>,
- Dingtianhong <dingtianhong@huawei.com>, Will Deacon <will.deacon@arm.com>,
- Linuxarm <linuxarm@huawei.com>,
- "alexander.duyck@gmail.com" <alexander.duyck@gmail.com>,
- "jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- Robin Murphy <Robin.Murphy@arm.com>,
- "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>
-To: "davem@davemloft.net" <davem@davemloft.net>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <42428725-89f1-1508-4e3d-723e087b3bbb@huawei.com>
-Content-Language: en-US
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, arkadis@mellanox.com,
+        idosch@mellanox.com, mlxsw@mellanox.com, jhs@mojatatu.com,
+        ivecera@redhat.com, roopa@cumulusnetworks.com,
+        f.fainelli@gmail.com, vivien.didelot@savoirfairelinux.com,
+        john.fastabend@gmail.com, andrew@lunn.ch,
+        simon.horman@netronome.com
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:34652 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750764AbdDMJab (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 13 Apr 2017 05:30:31 -0400
+Received: by mail-wm0-f68.google.com with SMTP id x75so11389498wma.1
+        for <netdev@vger.kernel.org>; Thu, 13 Apr 2017 02:30:31 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20170412164525.1c0468d0@xeon-e3>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi David
+Thu, Apr 13, 2017 at 01:45:25AM CEST, stephen@networkplumber.org wrote:
+>On Tue, 28 Mar 2017 17:26:54 +0200
+>Jiri Pirko <jiri@resnulli.us> wrote:
+>
+>>  
+>>  #define pr_err(args...) fprintf(stderr, ##args)
+>> -#define pr_out(args...) fprintf(stdout, ##args)
+>> +#define pr_out(args...)						\
+>> +	do {							\
+>> +		if (g_indent_newline) {				\
+>> +			fprintf(stdout, "%s", g_indent_str);	\
+>> +			g_indent_newline = false;		\
+>> +		}						\
+>> +		fprintf(stdout, ##args);			\
+>> +	} while (0)
+>> +
+>>  #define pr_out_sp(num, args...)					\
+>>  	do {							\
+>>  		int ret = fprintf(stdout, ##args);		\
+>> @@ -42,6 +50,35 @@
+>>  			fprintf(stdout, "%*s", num - ret, "");	\
+>>  	} while (0)
+>>  
+>> +static int g_indent_level;
+>> +static bool g_indent_newline;
+>> +#define INDENT_STR_STEP 2
+>> +#define INDENT_STR_MAXLEN 32
+>> +static char g_indent_str[INDENT_STR_MAXLEN + 1] = "";
+>> +
+>> +static void __pr_out_indent_inc(void)
+>> +{
+>> +	if (g_indent_level + INDENT_STR_STEP > INDENT_STR_MAXLEN)
+>> +		return;
+>> +	g_indent_level += INDENT_STR_STEP;
+>> +	memset(g_indent_str, ' ', sizeof(g_indent_str));
+>> +	g_indent_str[g_indent_level] = '\0';
+>> +}
+>> +
+>> +static void __pr_out_indent_dec(void)
+>> +{
+>> +	if (g_indent_level - INDENT_STR_STEP < 0)
+>> +		return;
+>> +	g_indent_level -= INDENT_STR_STEP;
+>> +	g_indent_str[g_indent_level] = '\0';
+>> +}
+>> +
+>> +static void __pr_out_newline(void)
+>> +{
+>> +	pr_out("\n");
+>> +	g_indent_newline = true;
+>> +}
+>> +
+>
+>Thanks for adding the support. Like many reviews, I am fine with the
+>functionality but it is the details of the implementation that are of
+>concern.
+>
+>Why this new set of output formatting routines, this doesn't resemble other code
+>in ip utilities. Looks more like you copied and pasted it from somewhere else.
+>The indentation in existing ip command output isn't pretty or fancy but it works.
+>
+>Please try and make this code look like all the other code. Yes, I know it
+>may not be to your taste (it isn't mine either), but consistency is more important
+>than individual style.
 
-> -----Original Message-----
-> Subject: Re: [PATCH net-next 1/4] ixgbe: sparc: rename the
-> ARCH_WANT_RELAX_ORDER to IXGBE_ALLOW_RELAXED_ORDER
-> Date: Sat, 1 Apr 2017 11:26:03 -0700
-> From: David Miller <davem@davemloft.net>
-> To: dingtianhong@huawei.com
-> CC: catalin.marinas@arm.com, will.deacon@arm.com, mark.rutland@arm.com,
-> robin.murphy@arm.com, jeffrey.t.kirsher@intel.com,
-> alexander.duyck@gmail.com, linux-arm-kernel@lists.infradead.org,
-> netdev@vger.kernel.org
-> 
-> From: Ding Tianhong <dingtianhong@huawei.com>
-> Date: Sat, 1 Apr 2017 15:25:51 +0800
-> 
-> > Till now only the Intel ixgbe could support enable
-> > Relaxed ordering in the drivers for special architecture,
-> > but the ARCH_WANT_RELAX_ORDER is looks like a general name
-> > for all arch, so rename to a specific name for intel
-> > card looks more appropriate.
-> >
-> > Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
-> 
-> This is not a driver specific facility.
-> 
-> Any driver can test this symbol and act accordingly.
-> 
-> Just because IXGBE is the first and only user, doesn't mean
-> the facility is driver specific.
+We actually took this code from teamdctl (at least it was an influence).
+Devlink style is so much different in every aspect from the rest of the
+iproute2 suite. And I did it on purpose, because it is much nicer and
+easier to read. I would like to continue on this and don't do things in
+the was the existing tools do. I don't see any problem with that.
 
-
-Please correct me if I am wrong but my understanding is that the standard
-way to enable/disable relaxed ordering is to set/clear bit 4 of the Device
-Control Register (PCI_EXP_DEVCTL_RELAX_EN 0x0010 /* Enable relaxed
-ordering */).
-Now I have looked up for all drivers either enabling or disabling relaxed
-ordering and none of them seems to need a symbol to decide whether to
-enable it or not.
-Also it seems to me enabling/disabling relaxed ordering is never bound to the
-host architecture.
-
-So why this should be (or it is expected to be) a generic symbol?
-Wouldn't it be more correct to have this as a driver specific symbol now and
-move it to a generic one later once we have other drivers requiring it?
-  
-Many thanks
-Gab
-
-> 
-> Thank you.
-> 
-> .
-> 
+	
+>
+>> @ -314,6 +356,102 @@ static int attr_cb(const struct nlattr *attr, void *data)
+>>  	if (type == DEVLINK_ATTR_ESWITCH_INLINE_MODE &&
+>>  	    mnl_attr_validate(attr, MNL_TYPE_U8) < 0)
+>>  		return MNL_CB_ERROR;
+>> +	if (type == DEVLINK_ATTR_DPIPE_TABLES &&
+>> +	    mnl_attr_validate(attr, MNL_TYPE_NESTED) < 0)
+>> +		return MNL_CB_ERROR;
+>> +	if (type == DEVLINK_ATTR_DPIPE_TABLE &&
+>> +	    mnl_attr_validate(attr, MNL_TYPE_NESTED) < 0)
+>> +		return MNL_CB_ERROR;
+>> +	if (type == DEVLINK_ATTR_DPIPE_TABLE_NAME &&
+>> +	    mnl_attr_validate(attr, MNL_TYPE_STRING) < 0)
+>> +		return MNL_CB_ERROR;
+>> +	if (type == DEVLINK_ATTR_DPIPE_TABLE_SIZE &&
+>> +	    mnl_attr_validate(attr, MNL_TYPE_U64) < 0)
+>> +		return MNL_CB_ERROR;
+>> +	if (type == DEVLINK_ATTR_DPIPE_TABLE_MATCHES &&
+>> +	    mnl_attr_validate(attr, MNL_TYPE_NESTED) < 0)
+>> +		return MNL_CB_ERROR;
+>> +	if (type == DEVLINK_ATTR_DPIPE_TABLE_ACTIONS &&
+>> +	    mnl_attr_validate(attr, MNL_TYPE_NESTED) < 0)
+>> +		return MNL_CB_ERROR;
+>> +	if (type == DEVLINK_ATTR_DPIPE_TABLE_COUNTERS_ENABLED &&
+>> +	    mnl_attr_validate(attr, MNL_TYPE_U8) < 0)
+>> +		return MNL_CB_ERROR;
+>> +	if (type == DEVLINK_ATTR_DPIPE_ENTRIES &&
+>> +	    mnl_attr_validate(attr, MNL_TYPE_NESTED) < 0)
+>> +		return MNL_CB_ERROR;
+>> +	if (type == DEVLINK_ATTR_DPIPE_ENTRY &&
+>> +	    mnl_attr_validate(attr, MNL_TYPE_NESTED) < 0)
+>> +		return MNL_CB_ERROR;
+>> +	if (type == DEVLINK_ATTR_DPIPE_ENTRY_INDEX &&
+>> +	    mnl_attr_validate(attr, MNL_TYPE_U64) < 0)
+>> +		return MNL_CB_ERROR;
+>> +	if (type == DEVLINK_ATTR_DPIPE_ENTRY_MATCH_VALUES &&
+>> +	    mnl_attr_validate(attr, MNL_TYPE_NESTED) < 0)
+>> +		return MNL_CB_ERROR;
+>> +	if (type == DEVLINK_ATTR_DPIPE_ENTRY_ACTION_VALUES &&
+>> +	    mnl_attr_validate(attr, MNL_TYPE_NESTED) < 0)
+>> +		return MNL_CB_ERROR;
+>> +	if (type == DEVLINK_ATTR_DPIPE_ENTRY_COUNTER &&
+>> +	    mnl_attr_validate(attr, MNL_TYPE_U64) < 0)
+>> +		return MNL_CB_ERROR;
+>> +	if (type == DEVLINK_ATTR_DPIPE_MATCH &&
+>> +	    mnl_attr_validate(attr, MNL_TYPE_NESTED) < 0)
+>> +		return MNL_CB_ERROR;
+>> +	if (type == DEVLINK_ATTR_DPIPE_MATCH_VALUE &&
+>> +	    mnl_attr_validate(attr, MNL_TYPE_NESTED) < 0)
+>> +		return MNL_CB_ERROR;
+>> +	if (type == DEVLINK_ATTR_DPIPE_MATCH_TYPE &&
+>> +	    mnl_attr_validate(attr, MNL_TYPE_U32) < 0)
+>> +		return MNL_CB_ERROR;
+>> +	if (type == DEVLINK_ATTR_DPIPE_ACTION &&
+>> +	    mnl_attr_validate(attr, MNL_TYPE_NESTED) < 0)
+>> +		return MNL_CB_ERROR;
+>> +	if (type == DEVLINK_ATTR_DPIPE_ACTION_VALUE &&
+>> +	    mnl_attr_validate(attr, MNL_TYPE_NESTED) < 0)
+>> +		return MNL_CB_ERROR;
+>> +	if (type == DEVLINK_ATTR_DPIPE_ACTION_TYPE &&
+>> +	    mnl_attr_validate(attr, MNL_TYPE_U32) < 0)
+>> +		return MNL_CB_ERROR;
+>> +	if (type == DEVLINK_ATTR_DPIPE_VALUE_MAPPING &&
+>> +	    mnl_attr_validate(attr, MNL_TYPE_U32) < 0)
+>> +		return MNL_CB_ERROR;
+>> +	if (type == DEVLINK_ATTR_DPIPE_HEADERS &&
+>> +	    mnl_attr_validate(attr, MNL_TYPE_NESTED) < 0)
+>> +		return MNL_CB_ERROR;
+>> +	if (type == DEVLINK_ATTR_DPIPE_HEADER &&
+>> +	    mnl_attr_validate(attr, MNL_TYPE_NESTED) < 0)
+>> +		return MNL_CB_ERROR;
+>> +	if (type == DEVLINK_ATTR_DPIPE_HEADER_NAME &&
+>> +	    mnl_attr_validate(attr, MNL_TYPE_STRING) < 0)
+>> +		return MNL_CB_ERROR;
+>> +	if (type == DEVLINK_ATTR_DPIPE_HEADER_ID &&
+>> +	    mnl_attr_validate(attr, MNL_TYPE_U32) < 0)
+>> +		return MNL_CB_ERROR;
+>> +	if (type == DEVLINK_ATTR_DPIPE_HEADER_FIELDS &&
+>> +	    mnl_attr_validate(attr, MNL_TYPE_NESTED) < 0)
+>> +		return MNL_CB_ERROR;
+>> +	if (type == DEVLINK_ATTR_DPIPE_HEADER_GLOBAL &&
+>> +	    mnl_attr_validate(attr, MNL_TYPE_U8) < 0)
+>> +		return MNL_CB_ERROR;
+>> +	if (type == DEVLINK_ATTR_DPIPE_HEADER_INDEX &&
+>> +	    mnl_attr_validate(attr, MNL_TYPE_U32) < 0)
+>> +		return MNL_CB_ERROR;
+>> +	if (type == DEVLINK_ATTR_DPIPE_FIELD &&
+>> +	    mnl_attr_validate(attr, MNL_TYPE_NESTED) < 0)
+>> +		return MNL_CB_ERROR;
+>> +	if (type == DEVLINK_ATTR_DPIPE_FIELD_NAME &&
+>> +	    mnl_attr_validate(attr, MNL_TYPE_STRING) < 0)
+>> +		return MNL_CB_ERROR;
+>> +	if (type == DEVLINK_ATTR_DPIPE_FIELD_ID &&
+>> +	    mnl_attr_validate(attr, MNL_TYPE_U32) < 0)
+>> +		return MNL_CB_ERROR;
+>> +	if (type == DEVLINK_ATTR_DPIPE_FIELD_BITWIDTH &&
+>> +	    mnl_attr_validate(attr, MNL_TYPE_U32) < 0)
+>> +		return MNL_CB_ERROR;
+>> +	if (type == DEVLINK_ATTR_DPIPE_FIELD_MAPPING_TYPE &&
+>> +	    mnl_attr_validate(attr, MNL_TYPE_U32) < 0)
+>> +		return MNL_CB_ERROR;
+>>  	tb[type] = attr;
+>>  	return MNL_CB_OK;
+>>  }
+>
+>Ok, this code has gotten so long that it really needs to be handled as a table
+>rather than linear sequence of if's.
+>
+>
