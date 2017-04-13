@@ -1,7 +1,7 @@
 From: Logan Gunthorpe <logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH 02/22] nvmet: Make use of the new sg_map helper function
-Date: Thu, 13 Apr 2017 16:05:15 -0600
-Message-ID: <1492121135-4437-3-git-send-email-logang@deltatee.com>
+Subject: [PATCH 22/22] memstick: Make use of the new sg_map helper function
+Date: Thu, 13 Apr 2017 16:05:35 -0600
+Message-ID: <1492121135-4437-23-git-send-email-logang@deltatee.com>
 References: <1492121135-4437-1-git-send-email-logang@deltatee.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -36,61 +36,119 @@ Errors-To: linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org
 Sender: "Linux-nvdimm" <linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-This is a straight forward conversion in two places. Should kmap fail,
-the code will return an INVALD_DATA error in the completion.
+Straightforward conversion, but we have to WARN if unmappable
+memory finds its way into the sgl.
 
 Signed-off-by: Logan Gunthorpe <logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
 ---
- drivers/nvme/target/fabrics-cmd.c | 16 ++++++++++++----
- 1 file changed, 12 insertions(+), 4 deletions(-)
+ drivers/memstick/host/jmb38x_ms.c | 23 ++++++++++++++++++-----
+ drivers/memstick/host/tifm_ms.c   | 22 +++++++++++++++++-----
+ 2 files changed, 35 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/nvme/target/fabrics-cmd.c b/drivers/nvme/target/fabrics-cmd.c
-index 8bd022af..f62a634 100644
---- a/drivers/nvme/target/fabrics-cmd.c
-+++ b/drivers/nvme/target/fabrics-cmd.c
-@@ -122,7 +122,11 @@ static void nvmet_execute_admin_connect(struct nvmet_req *req)
- 	struct nvmet_ctrl *ctrl = NULL;
- 	u16 status = 0;
+diff --git a/drivers/memstick/host/jmb38x_ms.c b/drivers/memstick/host/jmb38x_ms.c
+index 48db922..256cf41 100644
+--- a/drivers/memstick/host/jmb38x_ms.c
++++ b/drivers/memstick/host/jmb38x_ms.c
+@@ -303,7 +303,6 @@ static int jmb38x_ms_transfer_data(struct jmb38x_ms_host *host)
+ 	unsigned int off;
+ 	unsigned int t_size, p_cnt;
+ 	unsigned char *buf;
+-	struct page *pg;
+ 	unsigned long flags = 0;
  
--	d = kmap(sg_page(req->sg)) + req->sg->offset;
-+	d = sg_map(req->sg, SG_KMAP);
-+	if (IS_ERR(d)) {
-+		status = NVME_SC_SGL_INVALID_DATA;
-+		goto out;
-+	}
+ 	if (host->req->long_data) {
+@@ -318,14 +317,26 @@ static int jmb38x_ms_transfer_data(struct jmb38x_ms_host *host)
+ 		unsigned int uninitialized_var(p_off);
  
- 	/* zero out initial completion result, assign values as needed */
- 	req->rsp->result.u32 = 0;
-@@ -158,7 +162,7 @@ static void nvmet_execute_admin_connect(struct nvmet_req *req)
- 	req->rsp->result.u16 = cpu_to_le16(ctrl->cntlid);
+ 		if (host->req->long_data) {
+-			pg = nth_page(sg_page(&host->req->sg),
+-				      off >> PAGE_SHIFT);
+ 			p_off = offset_in_page(off);
+ 			p_cnt = PAGE_SIZE - p_off;
+ 			p_cnt = min(p_cnt, length);
  
- out:
--	kunmap(sg_page(req->sg));
-+	sg_unmap(req->sg, d, SG_KMAP);
- 	nvmet_req_complete(req, status);
- }
+ 			local_irq_save(flags);
+-			buf = kmap_atomic(pg) + p_off;
++			buf = sg_map_offset(&host->req->sg,
++					     off - host->req->sg.offset,
++					     SG_KMAP_ATOMIC);
++			if (IS_ERR(buf)) {
++				/*
++				 * This should really never happen unless
++				 * the code is changed to use memory that is
++				 * not mappable in the sg. Seeing there doesn't
++				 * seem to be any error path out of here,
++				 * we can only WARN.
++				 */
++				WARN(1, "Non-mappable memory used in sg!");
++				break;
++			}
++
+ 		} else {
+ 			buf = host->req->data + host->block_pos;
+ 			p_cnt = host->req->data_len - host->block_pos;
+@@ -341,7 +352,9 @@ static int jmb38x_ms_transfer_data(struct jmb38x_ms_host *host)
+ 				 : jmb38x_ms_read_reg_data(host, buf, p_cnt);
  
-@@ -170,7 +174,11 @@ static void nvmet_execute_io_connect(struct nvmet_req *req)
- 	u16 qid = le16_to_cpu(c->qid);
- 	u16 status = 0;
+ 		if (host->req->long_data) {
+-			kunmap_atomic(buf - p_off);
++			sg_unmap_offset(&host->req->sg, buf,
++					 off - host->req->sg.offset,
++					 SG_KMAP_ATOMIC);
+ 			local_irq_restore(flags);
+ 		}
  
--	d = kmap(sg_page(req->sg)) + req->sg->offset;
-+	d = sg_map(req->sg, SG_KMAP);
-+	if (IS_ERR(d)) {
-+		status = NVME_SC_SGL_INVALID_DATA;
-+		goto out;
-+	}
+diff --git a/drivers/memstick/host/tifm_ms.c b/drivers/memstick/host/tifm_ms.c
+index 7bafa72..c0bc40e 100644
+--- a/drivers/memstick/host/tifm_ms.c
++++ b/drivers/memstick/host/tifm_ms.c
+@@ -186,7 +186,6 @@ static unsigned int tifm_ms_transfer_data(struct tifm_ms *host)
+ 	unsigned int off;
+ 	unsigned int t_size, p_cnt;
+ 	unsigned char *buf;
+-	struct page *pg;
+ 	unsigned long flags = 0;
  
- 	/* zero out initial completion result, assign values as needed */
- 	req->rsp->result.u32 = 0;
-@@ -205,7 +213,7 @@ static void nvmet_execute_io_connect(struct nvmet_req *req)
- 	pr_info("adding queue %d to ctrl %d.\n", qid, ctrl->cntlid);
+ 	if (host->req->long_data) {
+@@ -203,14 +202,25 @@ static unsigned int tifm_ms_transfer_data(struct tifm_ms *host)
+ 		unsigned int uninitialized_var(p_off);
  
- out:
--	kunmap(sg_page(req->sg));
-+	sg_unmap(req->sg, d, SG_KMAP);
- 	nvmet_req_complete(req, status);
- 	return;
+ 		if (host->req->long_data) {
+-			pg = nth_page(sg_page(&host->req->sg),
+-				      off >> PAGE_SHIFT);
+ 			p_off = offset_in_page(off);
+ 			p_cnt = PAGE_SIZE - p_off;
+ 			p_cnt = min(p_cnt, length);
+ 
+ 			local_irq_save(flags);
+-			buf = kmap_atomic(pg) + p_off;
++			buf = sg_map_offset(&host->req->sg,
++					     off - host->req->sg.offset,
++					     SG_KMAP_ATOMIC);
++			if (IS_ERR(buf)) {
++				/*
++				 * This should really never happen unless
++				 * the code is changed to use memory that is
++				 * not mappable in the sg. Seeing there doesn't
++				 * seem to be any error path out of here,
++				 * we can only WARN.
++				 */
++				WARN(1, "Non-mappable memory used in sg!");
++				break;
++			}
+ 		} else {
+ 			buf = host->req->data + host->block_pos;
+ 			p_cnt = host->req->data_len - host->block_pos;
+@@ -221,7 +231,9 @@ static unsigned int tifm_ms_transfer_data(struct tifm_ms *host)
+ 			 : tifm_ms_read_data(host, buf, p_cnt);
+ 
+ 		if (host->req->long_data) {
+-			kunmap_atomic(buf - p_off);
++			sg_unmap_offset(&host->req->sg, buf,
++					 off - host->req->sg.offset,
++					 SG_KMAP_ATOMIC);
+ 			local_irq_restore(flags);
+ 		}
  
 -- 
 2.1.4
