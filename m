@@ -1,55 +1,28 @@
-From: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-Subject: Re: [PATCH v3 0/4] TI Bluetooth serdev support
-Date: Thu, 13 Apr 2017 19:24:30 +0200
-Message-ID: <A73F0F81-63B4-4555-9865-F35469902338@holtmann.org>
-References: <20170413150353.7389-1-robh@kernel.org>
-Mime-Version: 1.0 (Mac OS X Mail 10.3 \(3273\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: Linux Bluetooth <linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        linux-arm-kernel <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-        "Gustavo F. Padovan" <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>,
-        Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        Wei Xu <xuwei5-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>, Eyal Reizer <eyalr-l0cyMroinI0@public.gmane.org>,
-        Satish Patel <satish.patel-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-        Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170413150353.7389-1-robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next] net: dwc-xlgmac: add the initial ethtool
+ support
+Date: Thu, 13 Apr 2017 13:49:27 -0400 (EDT)
+Message-ID: <20170413.134927.472362128497538724.davem@davemloft.net>
+References: <b52830f81e6a02782fd070e2509c5cf3557d5e07.1491970570.git.jiedeng@synopsys.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jie.Deng1@synopsys.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <b52830f81e6a02782fd070e2509c5cf3557d5e07.1491970570.git.jiedeng@synopsys.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Rob,
+From: Jie Deng <Jie.Deng1@synopsys.com>
+Date: Wed, 12 Apr 2017 13:10:06 +0800
 
-> This series adds serdev support to the HCI LL protocol used on TI BT
-> modules and enables support on HiKey board with with the WL1835 module.
-> With this the custom TI UIM daemon and btattach are no longer needed.
+> It is necessary to provide ethtool support for displaying and
+> modifying parameters of dwc-xlgmac.
 > 
-> The series is available on this git branch[1]. This version is rebased on 
-> bluetooth-next tree containing its dependencies.
-> 
-> Rob
-> 
-> [1] git://git.kernel.org/pub/scm/linux/kernel/git/robh/linux.git ti-bluetooth
-> 
-> Rob Herring (4):
->  dt-bindings: net: Add TI WiLink shared transport binding
->  bluetooth: hci_uart: remove unused hci_uart_init_tty
->  bluetooth: hci_uart: add LL protocol serdev driver support
->  arm64: dts: hikey: add WL1835 Bluetooth device node
-> 
-> .../devicetree/bindings/net/ti,wilink-st.txt       |  35 +++
-> arch/arm64/boot/dts/hisilicon/hi6220-hikey.dts     |   5 +
-> drivers/bluetooth/hci_ldisc.c                      |  19 --
-> drivers/bluetooth/hci_ll.c                         | 262 ++++++++++++++++++++-
-> drivers/bluetooth/hci_uart.h                       |   1 -
-> 5 files changed, 301 insertions(+), 21 deletions(-)
-> create mode 100644 Documentation/devicetree/bindings/net/ti,wilink-st.txt
+> Signed-off-by: Jie Deng <jiedeng@synopsys.com>
+> ---
+> v1->v2:
+> 	- remove begin() method which is unnecessary
 
-all 4 patches have been applied to bluetooth-next tree.
-
-Regards
-
-Marcel
+Applied, thank you.
