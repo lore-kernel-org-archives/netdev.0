@@ -1,60 +1,38 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH v2 net-next 5/8] net/ncsi: Dump NCSI packet statistics
-Date: Thu, 13 Apr 2017 03:50:40 -0700
-Message-ID: <1492080640.28586.15.camel@perches.com>
-References: <1492069701-20772-1-git-send-email-gwshan@linux.vnet.ibm.com>
-         <1492069701-20772-6-git-send-email-gwshan@linux.vnet.ibm.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next] net: ipv6: send unsolicited NA on admin up
+Date: Thu, 13 Apr 2017 13:45:44 +0200
+Message-ID: <1492083944.2160091.943541576.3F765BD2@webmail.messagingengine.com>
+References: <1492022944-18842-1-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net
-To: Gavin Shan <gwshan@linux.vnet.ibm.com>, netdev@vger.kernel.org
+To: David Ahern <dsa@cumulusnetworks.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0079.hostedemail.com ([216.40.44.79]:35662 "EHLO
-        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1750952AbdDMKuq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 13 Apr 2017 06:50:46 -0400
-In-Reply-To: <1492069701-20772-6-git-send-email-gwshan@linux.vnet.ibm.com>
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:50754 "EHLO
+        out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751473AbdDMLpp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 13 Apr 2017 07:45:45 -0400
+In-Reply-To: <1492022944-18842-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2017-04-13 at 17:48 +1000, Gavin Shan wrote:
-> This creates /sys/kernel/debug/ncsi/<eth0>/stats to dump the NCSI
-> packets sent and received over all packages and channels. It's useful
-> to diagnose NCSI problems, especially when NCSI packages and channels
-> aren't probed properly.
 
-trivia:
 
-> diff --git a/net/ncsi/ncsi-debug.c b/net/ncsi/ncsi-debug.c
-> index 6c00e9b..29c233c 100644
-> --- a/net/ncsi/ncsi-debug.c
-> +++ b/net/ncsi/ncsi-debug.c
-> @@ -23,6 +23,235 @@
->  #include "ncsi-pkt.h"
->  
->  static struct dentry *ncsi_dentry;
-> +static struct ncsi_pkt_handler {
+On Wed, Apr 12, 2017, at 20:49, David Ahern wrote:
+> ndisc_notify is the ipv6 equivalent to arp_notify. When arp_notify is
+> set to 1, gratuitous arp requests are sent when the device is brought up.
+> The same is expected when ndisc_notify is set to 1 (per ndisc_notify in
+> Documentation/networking/ip-sysctl.txt). The NA is not sent on NETDEV_UP
+> event; add it.
+> 
+> Fixes: 5cb04436eef6 ("ipv6: add knob to send unsolicited ND on link-layer
+> address change")
+> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 
-static const struct etc...
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-> +	unsigned char	type;
-> +	const char	*name;
-> +} ncsi_pkt_handlers[] = {
-> +	{ NCSI_PKT_CMD_CIS,    "CIS"    },
-[]
-> +static bool ncsi_dev_stats_index(struct ncsi_dev_priv *ndp, loff_t pos,
-> +				 unsigned long *type, unsigned long *index,
-> +				 unsigned long *entries)
-> +{
-> +	int i;
-> +	unsigned long ranges[3][2] = {
-> +		{ 1,
-> +		  ARRAY_SIZE(ndp->stats.cmd) - 1		},
-> +		{ ranges[0][1] + 2,
-> +		  ranges[1][0] + ARRAY_SIZE(ndp->stats.rsp) - 1	},
-> +		{ ranges[1][1] + 2,
-> +		  ranges[2][0] + ARRAY_SIZE(ndp->stats.aen) - 1 }
-> +	};
+In future we might be able to make this a bit more robust when DAD is
+happening at the same time.
 
-const?
+Thanks,
+Hannes
