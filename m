@@ -1,61 +1,48 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [PATCH] mwifiex: MAC randomization should not be persistent
-Date: Thu, 13 Apr 2017 16:13:40 +0300
-Message-ID: <87o9w0bgcb.fsf@kamboji.qca.qualcomm.com>
-References: <20170405222640.4494-1-briannorris@chromium.org>
-        <87inmifak8.fsf@kamboji.qca.qualcomm.com>
-        <20170406164807.GB25323@google.com>
+From: Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 1/5] netlink: extended ACK reporting
+Date: Thu, 13 Apr 2017 15:27:31 +0200
+Message-ID: <c0b35e6e-e5cb-25f6-7ccf-eec33ba39f3b@6wind.com>
+References: <20170408174900.12820-1-johannes@sipsolutions.net>
+ <20170408174900.12820-2-johannes@sipsolutions.net>
+ <20170408183440.GA1900@nanopsycho>
+ <1491676621.5800.24.camel@sipsolutions.net>
+ <20170408184008.GB1900@nanopsycho>
+ <990b5610-a894-b3d2-d3a7-536dfd25adb8@cumulusnetworks.com>
+ <1491805089.2455.3.camel@sipsolutions.net>
+Reply-To: nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Nishant Sarmukadam <nishants@marvell.com>,
-        Ganapathi Bhat <gbhat@marvell.com>,
-        Xinming Hu <huxm@marvell.com>, linux-kernel@vger.kernel.org,
-        Dmitry Torokhov <dmitry.torokhov@gmail.com>,
-        netdev@vger.kernel.org, linux-wireless@vger.kernel.org
-To: Brian Norris <briannorris@chromium.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:35926 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751255AbdDMNNt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 13 Apr 2017 09:13:49 -0400
-In-Reply-To: <20170406164807.GB25323@google.com> (Brian Norris's message of
-        "Thu, 6 Apr 2017 09:48:08 -0700")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
+        Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+        David Ahern <dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>,
+        Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1491805089.2455.3.camel-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Brian Norris <briannorris@chromium.org> writes:
+Le 10/04/2017 à 08:18, Johannes Berg a écrit :
+> 
+>> perhaps I misunderstand something, but nla_parse suggests attribute
+>> type can not be 0:
+> [...]
+> 
+> Yes, some - very few - families still insist on using attribute 0,
+> perhaps parsing by hand or so. Like you say though, the entire
+> infrastructure makes that hard and undesirable, so I don't really see
+> why we need to invest the extra code/work into making it work *here*,
+> especially since it's such a corner case as I described in my other
+> email.
 
-> On Thu, Apr 06, 2017 at 07:02:15AM +0300, Kalle Valo wrote:
->> Brian Norris <briannorris@chromium.org> writes:
->> 
->> > nl80211 provides the NL80211_SCAN_FLAG_RANDOM_ADDR for every scan
->> > request that should be randomized; the absence of such a flag means we
->> > should not randomize. However, mwifiex was stashing the latest
->> > randomization request and *always* using it for future scans, even those
->> > that didn't set the flag.
->> >
->> > Let's zero out the randomization info whenever we get a scan request
->> > without NL80211_SCAN_FLAG_RANDOM_ADDR. I'd prefer to remove
->> > priv->random_mac entirely (and plumb the randomization MAC properly
->> > through the call sequence), but the spaghetti is a little difficult to
->> > unravel here for me.
->> >
->> > Fixes: c2a8f0ff9c6c ("mwifiex: support random MAC address for scanning")
->> 
->> So the first release with this was v4.9.
->> 
->> > Signed-off-by: Brian Norris <briannorris@chromium.org>
->> > ---
->> > Should this be tagged for -stable?
->> 
->> IMHO yes.
->
-> Sounds fine to me. I suppose you'll do this when applying? Or I can
-> resend...
+Here is an example:
+https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=31e20bad8d58
 
-I can add this:
+I also see one in openvswitch (I will send a similar patch), but there are
+probably some others.
 
-Cc: <stable@vger.kernel.org> # 4.9+
 
--- 
-Kalle Valo
+Regards,
+Nicolas
