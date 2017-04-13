@@ -1,106 +1,34 @@
-From: Christoph Hellwig <hch@lst.de>
-Subject: [PATCH 5/7] IB/hfi1: use pcie_flr instead of duplicating it
-Date: Thu, 13 Apr 2017 16:53:37 +0200
-Message-ID: <20170413145339.20186-6-hch@lst.de>
-References: <20170413145339.20186-1-hch@lst.de>
-Cc: linux-pci@vger.kernel.org, qat-linux@intel.com,
-        linux-crypto@vger.kernel.org, linux-rdma@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Bjorn Helgaas <bhelgaas@google.com>,
-        Giovanni Cabiddu <giovanni.cabiddu@intel.com>,
-        Salvatore Benedetto <salvatore.benedetto@intel.com>,
-        Mike Marciniszyn <mike.marciniszyn@intel.com>,
-        Dennis Dalessandro <dennis.dalessandro@intel.com>,
-        Derek Chickles <derek.chickles@caviumnetworks.com>,
-        Satanand Burla <satananda.burla@caviumnetworks.com>,
-        Felix Manlunas <felix.manlunas@caviumnetworks.com>,
-        Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170413145339.20186-1-hch@lst.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 1/4] ixgbe: sparc: rename the
+ ARCH_WANT_RELAX_ORDER to IXGBE_ALLOW_RELAXED_ORDER
+Date: Thu, 13 Apr 2017 10:53:58 -0400 (EDT)
+Message-ID: <20170413.105358.633309964366964915.davem@davemloft.net>
+References: <20170401.112603.1991545644693496714.davem@davemloft.net>
+        <42428725-89f1-1508-4e3d-723e087b3bbb@huawei.com>
+        <EE11001F9E5DDD47B7634E2F8A612F2E205199C0@FRAEML521-MBX.china.huawei.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: catalin.marinas@arm.com, will.deacon@arm.com, mark.rutland@arm.com,
+        Robin.Murphy@arm.com, jeffrey.t.kirsher@intel.com,
+        alexander.duyck@gmail.com, linux-arm-kernel@lists.infradead.org,
+        netdev@vger.kernel.org, dingtianhong@huawei.com,
+        linuxarm@huawei.com
+To: gabriele.paoloni@huawei.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:60048 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754026AbdDMOyK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 13 Apr 2017 10:54:10 -0400
+In-Reply-To: <EE11001F9E5DDD47B7634E2F8A612F2E205199C0@FRAEML521-MBX.china.huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
----
- drivers/infiniband/hw/hfi1/chip.c |  4 ++--
- drivers/infiniband/hw/hfi1/hfi.h  |  1 -
- drivers/infiniband/hw/hfi1/pcie.c | 30 ------------------------------
- 3 files changed, 2 insertions(+), 33 deletions(-)
+From: Gabriele Paoloni <gabriele.paoloni@huawei.com>
+Date: Thu, 13 Apr 2017 09:10:32 +0000
 
-diff --git a/drivers/infiniband/hw/hfi1/chip.c b/drivers/infiniband/hw/hfi1/chip.c
-index 121a4c920f1b..d037f72e4d96 100644
---- a/drivers/infiniband/hw/hfi1/chip.c
-+++ b/drivers/infiniband/hw/hfi1/chip.c
-@@ -13610,14 +13610,14 @@ static void init_chip(struct hfi1_devdata *dd)
- 		dd_dev_info(dd, "Resetting CSRs with FLR\n");
- 
- 		/* do the FLR, the DC reset will remain */
--		hfi1_pcie_flr(dd);
-+		pcie_flr(dd->pcidev);
- 
- 		/* restore command and BARs */
- 		restore_pci_variables(dd);
- 
- 		if (is_ax(dd)) {
- 			dd_dev_info(dd, "Resetting CSRs with FLR\n");
--			hfi1_pcie_flr(dd);
-+			pcie_flr(dd->pcidev);
- 			restore_pci_variables(dd);
- 		}
- 	} else {
-diff --git a/drivers/infiniband/hw/hfi1/hfi.h b/drivers/infiniband/hw/hfi1/hfi.h
-index 0808e3c3ba39..40d7559fa723 100644
---- a/drivers/infiniband/hw/hfi1/hfi.h
-+++ b/drivers/infiniband/hw/hfi1/hfi.h
-@@ -1764,7 +1764,6 @@ int hfi1_pcie_init(struct pci_dev *, const struct pci_device_id *);
- void hfi1_pcie_cleanup(struct pci_dev *);
- int hfi1_pcie_ddinit(struct hfi1_devdata *, struct pci_dev *);
- void hfi1_pcie_ddcleanup(struct hfi1_devdata *);
--void hfi1_pcie_flr(struct hfi1_devdata *);
- int pcie_speeds(struct hfi1_devdata *);
- void request_msix(struct hfi1_devdata *, u32 *, struct hfi1_msix_entry *);
- void hfi1_enable_intx(struct pci_dev *);
-diff --git a/drivers/infiniband/hw/hfi1/pcie.c b/drivers/infiniband/hw/hfi1/pcie.c
-index 0829fce06172..c81556e84831 100644
---- a/drivers/infiniband/hw/hfi1/pcie.c
-+++ b/drivers/infiniband/hw/hfi1/pcie.c
-@@ -240,36 +240,6 @@ void hfi1_pcie_ddcleanup(struct hfi1_devdata *dd)
- 		iounmap(dd->piobase);
- }
- 
--/*
-- * Do a Function Level Reset (FLR) on the device.
-- * Based on static function drivers/pci/pci.c:pcie_flr().
-- */
--void hfi1_pcie_flr(struct hfi1_devdata *dd)
--{
--	int i;
--	u16 status;
--
--	/* no need to check for the capability - we know the device has it */
--
--	/* wait for Transaction Pending bit to clear, at most a few ms */
--	for (i = 0; i < 4; i++) {
--		if (i)
--			msleep((1 << (i - 1)) * 100);
--
--		pcie_capability_read_word(dd->pcidev, PCI_EXP_DEVSTA, &status);
--		if (!(status & PCI_EXP_DEVSTA_TRPND))
--			goto clear;
--	}
--
--	dd_dev_err(dd, "Transaction Pending bit is not clearing, proceeding with reset anyway\n");
--
--clear:
--	pcie_capability_set_word(dd->pcidev, PCI_EXP_DEVCTL,
--				 PCI_EXP_DEVCTL_BCR_FLR);
--	/* PCIe spec requires the function to be back within 100ms */
--	msleep(100);
--}
--
- static void msix_setup(struct hfi1_devdata *dd, int pos, u32 *msixcnt,
- 		       struct hfi1_msix_entry *hfi1_msix_entry)
- {
--- 
-2.11.0
+> Wouldn't it be more correct to have this as a driver specific symbol
+> now and move it to a generic one later once we have other drivers
+> requiring it?
+
+No, it would not.
