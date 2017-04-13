@@ -1,34 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/4] ixgbe: sparc: rename the
- ARCH_WANT_RELAX_ORDER to IXGBE_ALLOW_RELAXED_ORDER
-Date: Thu, 13 Apr 2017 10:53:58 -0400 (EDT)
-Message-ID: <20170413.105358.633309964366964915.davem@davemloft.net>
-References: <20170401.112603.1991545644693496714.davem@davemloft.net>
-        <42428725-89f1-1508-4e3d-723e087b3bbb@huawei.com>
-        <EE11001F9E5DDD47B7634E2F8A612F2E205199C0@FRAEML521-MBX.china.huawei.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: catalin.marinas@arm.com, will.deacon@arm.com, mark.rutland@arm.com,
-        Robin.Murphy@arm.com, jeffrey.t.kirsher@intel.com,
-        alexander.duyck@gmail.com, linux-arm-kernel@lists.infradead.org,
-        netdev@vger.kernel.org, dingtianhong@huawei.com,
-        linuxarm@huawei.com
-To: gabriele.paoloni@huawei.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:60048 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754026AbdDMOyK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 13 Apr 2017 10:54:10 -0400
-In-Reply-To: <EE11001F9E5DDD47B7634E2F8A612F2E205199C0@FRAEML521-MBX.china.huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Christoph Hellwig <hch@lst.de>
+Subject: [PATCH 6/7] crypto: qat: use pcie_flr instead of duplicating it
+Date: Thu, 13 Apr 2017 16:53:38 +0200
+Message-ID: <20170413145339.20186-7-hch@lst.de>
+References: <20170413145339.20186-1-hch@lst.de>
+Cc: linux-pci@vger.kernel.org, qat-linux@intel.com,
+        linux-crypto@vger.kernel.org, linux-rdma@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Bjorn Helgaas <bhelgaas@google.com>,
+        Giovanni Cabiddu <giovanni.cabiddu@intel.com>,
+        Salvatore Benedetto <salvatore.benedetto@intel.com>,
+        Mike Marciniszyn <mike.marciniszyn@intel.com>,
+        Dennis Dalessandro <dennis.dalessandro@intel.com>,
+        Derek Chickles <derek.chickles@caviumnetworks.com>,
+        Satanand Burla <satananda.burla@caviumnetworks.com>,
+        Felix Manlunas <felix.manlunas@caviumnetworks.com>,
+        Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <20170413145339.20186-1-hch@lst.de>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Gabriele Paoloni <gabriele.paoloni@huawei.com>
-Date: Thu, 13 Apr 2017 09:10:32 +0000
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+---
+ drivers/crypto/qat/qat_common/adf_aer.c | 15 +--------------
+ 1 file changed, 1 insertion(+), 14 deletions(-)
 
-> Wouldn't it be more correct to have this as a driver specific symbol
-> now and move it to a generic one later once we have other drivers
-> requiring it?
-
-No, it would not.
+diff --git a/drivers/crypto/qat/qat_common/adf_aer.c b/drivers/crypto/qat/qat_common/adf_aer.c
+index 2839fccdd84b..d3e25c37dc33 100644
+--- a/drivers/crypto/qat/qat_common/adf_aer.c
++++ b/drivers/crypto/qat/qat_common/adf_aer.c
+@@ -109,20 +109,7 @@ EXPORT_SYMBOL_GPL(adf_reset_sbr);
+ 
+ void adf_reset_flr(struct adf_accel_dev *accel_dev)
+ {
+-	struct pci_dev *pdev = accel_to_pci_dev(accel_dev);
+-	u16 control = 0;
+-	int pos = 0;
+-
+-	dev_info(&GET_DEV(accel_dev), "Function level reset\n");
+-	pos = pci_pcie_cap(pdev);
+-	if (!pos) {
+-		dev_err(&GET_DEV(accel_dev), "Restart device failed\n");
+-		return;
+-	}
+-	pci_read_config_word(pdev, pos + PCI_EXP_DEVCTL, &control);
+-	control |= PCI_EXP_DEVCTL_BCR_FLR;
+-	pci_write_config_word(pdev, pos + PCI_EXP_DEVCTL, control);
+-	msleep(100);
++	pcie_flr(accel_to_pci_dev(accel_dev));
+ }
+ EXPORT_SYMBOL_GPL(adf_reset_flr);
+ 
+-- 
+2.11.0
