@@ -1,56 +1,52 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH nf-next] ipset: remove unused function
- __ip_set_get_netlink
-Date: Fri, 14 Apr 2017 01:28:42 +0200
-Message-ID: <20170413232842.GC7721@salvia>
-References: <20170410195237.19909-1-aconole@bytheb.org>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [GIT 0/3] Second Round of IPVS Updates for v4.12
+Date: Fri, 14 Apr 2017 08:51:19 +0900
+Message-ID: <20170413235115.GA5948@verge.net.au>
+References: <1491843515-1627-1-git-send-email-horms@verge.net.au>
+ <20170413230134.GA5724@salvia>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Aaron Conole <aconole@bytheb.org>,
-        linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+        netfilter-devel@vger.kernel.org,
+        Wensong Zhang <wensong@linux-vs.org>,
+        Julian Anastasov <ja@ssi.bg>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <lvs-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20170410195237.19909-1-aconole@bytheb.org>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <20170413230134.GA5724@salvia>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 10, 2017 at 03:52:37PM -0400, Aaron Conole wrote:
-> There are no in-tree callers.
-
-@Jozsef, let me know if I should just take this to save you a pull
-request.
-
-Thanks.
-
-> Signed-off-by: Aaron Conole <aconole@bytheb.org>
-> ---
->  net/netfilter/ipset/ip_set_core.c | 8 --------
->  1 file changed, 8 deletions(-)
+On Fri, Apr 14, 2017 at 01:01:34AM +0200, Pablo Neira Ayuso wrote:
+> Hi Simon,
 > 
-> diff --git a/net/netfilter/ipset/ip_set_core.c b/net/netfilter/ipset/ip_set_core.c
-> index c296f9b..68ba531 100644
-> --- a/net/netfilter/ipset/ip_set_core.c
-> +++ b/net/netfilter/ipset/ip_set_core.c
-> @@ -501,14 +501,6 @@ __ip_set_put(struct ip_set *set)
->   * a separate reference counter
->   */
->  static inline void
-> -__ip_set_get_netlink(struct ip_set *set)
-> -{
-> -	write_lock_bh(&ip_set_ref_lock);
-> -	set->ref_netlink++;
-> -	write_unlock_bh(&ip_set_ref_lock);
-> -}
-> -
-> -static inline void
->  __ip_set_put_netlink(struct ip_set *set)
->  {
->  	write_lock_bh(&ip_set_ref_lock);
-> -- 
-> 2.9.3
+> On Mon, Apr 10, 2017 at 09:58:32AM -0700, Simon Horman wrote:
+> > Hi Pablo,
+> > 
+> > please consider these clean-ups and enhancements to IPVS for v4.12.
+> > 
+> > * Removal unused variable
+> > * Use kzalloc where appropriate
+> > * More efficient detection of presence of NAT extension
+> > 
+> > 
+> > The following changes since commit 592d42ac7fd36408979e09bf2f170f2595dab7b8:
+> > 
+> >   Merge branch 'qed-IOV-cleanups' (2017-03-21 19:02:38 -0700)
+> > 
+> > are available in the git repository at:
+> > 
+> >   https://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs-next.git ipvs2-for-v4.12
 > 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netfilter-devel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> This says:
+> 
+> $ git pull
+> https://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs-next.git ipvs2-for-v4.12
+> fatal: Couldn't find remote ref ipvs2-for-v4.12
+> 
+> I don't any tag for this name in:
+> 
+> https://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs-next.git/refs/tags
+
+Sorry about that, it looks like I forgot to push the tag.
+It should be there now.
