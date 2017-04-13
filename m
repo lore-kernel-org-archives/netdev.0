@@ -1,45 +1,60 @@
-From: <Woojung.Huh@microchip.com>
-Subject: RE: [PATCH v4] smsc95xx: Add comments to the registers definition
-Date: Thu, 13 Apr 2017 22:23:09 +0000
-Message-ID: <9235D6609DB808459E95D78E17F2E43D40A43974@CHN-SV-EXMX02.mchp-main.com>
-References: <20170410135251.GC19820@lunn.ch>
- <20170411.221836.113758478587841074.davem@davemloft.net>
- <20170412092405.doyczwsqnzkizarz@SMX-2>
- <20170412.104605.1126970886368700459.davem@davemloft.net>
- <20170413080844.zgud2zr7ht6kw2tx@SMX-2>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [GIT 0/3] Second Round of IPVS Updates for v4.12
+Date: Fri, 14 Apr 2017 01:01:34 +0200
+Message-ID: <20170413230134.GA5724@salvia>
+References: <1491843515-1627-1-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <andrew@lunn.ch>, <steve.glendinning@shawell.net>,
-        <UNGLinuxDriver@microchip.com>, <netdev@vger.kernel.org>,
-        <linux-usb@vger.kernel.org>
-To: <martin@wetterwald.eu>, <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+        netfilter-devel@vger.kernel.org,
+        Wensong Zhang <wensong@linux-vs.org>,
+        Julian Anastasov <ja@ssi.bg>
+To: Simon Horman <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from esa2.microchip.iphmx.com ([68.232.149.84]:21402 "EHLO
-        esa2.microchip.iphmx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750915AbdDMWXL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 13 Apr 2017 18:23:11 -0400
-In-Reply-To: <20170413080844.zgud2zr7ht6kw2tx@SMX-2>
-Content-Language: en-US
+Received: from mail.us.es ([193.147.175.20]:53564 "EHLO mail.us.es"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751670AbdDMXBl (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 13 Apr 2017 19:01:41 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+        by mail.us.es (Postfix) with ESMTP id D119FBDF68
+        for <netdev@vger.kernel.org>; Fri, 14 Apr 2017 01:01:36 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 1B95BDA86B
+        for <netdev@vger.kernel.org>; Fri, 14 Apr 2017 01:01:42 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 8D373DA862
+        for <netdev@vger.kernel.org>; Fri, 14 Apr 2017 01:01:39 +0200 (CEST)
+Content-Disposition: inline
+In-Reply-To: <1491843515-1627-1-git-send-email-horms@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> This chip is used by a lot of embedded devices and also by the Raspberry
-> Pi 1, 2 & 3 which were created to promote the study of computer
-> sciences. Students wanting to learn kernel / network device driver
-> programming through those devices can only rely on the Linux kernel
-> driver source to make their own.
-> 
-> This commit adds a lot of comments to the registers definition to expand
-> the register names.
-> 
-> Cc: Steve Glendinning <steve.glendinning@shawell.net>
-> Cc: Microchip Linux Driver Support <UNGLinuxDriver@microchip.com>
-> CC: David Miller <davem@davemloft.net>
-> Signed-off-by: Martin Wetterwald <martin@wetterwald.eu>
-> Reviewed-by: Andrew Lunn <andrew@lunn.ch>
-> Acked-by: Steve Glendinning <steve.glendinning@shawell.net>
+Hi Simon,
 
-Acked-by: Woojung Huh <Woojung.Huh@microchip.com>
+On Mon, Apr 10, 2017 at 09:58:32AM -0700, Simon Horman wrote:
+> Hi Pablo,
+> 
+> please consider these clean-ups and enhancements to IPVS for v4.12.
+> 
+> * Removal unused variable
+> * Use kzalloc where appropriate
+> * More efficient detection of presence of NAT extension
+> 
+> 
+> The following changes since commit 592d42ac7fd36408979e09bf2f170f2595dab7b8:
+> 
+>   Merge branch 'qed-IOV-cleanups' (2017-03-21 19:02:38 -0700)
+> 
+> are available in the git repository at:
+> 
+>   https://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs-next.git ipvs2-for-v4.12
 
-Woojung
+This says:
+
+$ git pull
+https://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs-next.git ipvs2-for-v4.12
+fatal: Couldn't find remote ref ipvs2-for-v4.12
+
+I don't any tag for this name in:
+
+https://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs-next.git/refs/tags
