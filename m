@@ -1,121 +1,205 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [RFC net-next] of: mdio: Honor hints from MDIO bus drivers
-Date: Thu, 13 Apr 2017 23:51:14 +0200
-Message-ID: <20170413215114.GB29708@lunn.ch>
-References: <20170410214258.9409-1-f.fainelli@gmail.com>
- <8ef102a4-22e5-def8-b50e-04f84b5849d7@gmail.com>
- <20170411231424.GA6174@lunn.ch>
- <6de72d4c-5634-f3d6-5bfd-fcc0acda0b83@gmail.com>
- <417fdaa1-7aba-e646-8a50-043322f1410d@gmail.com>
- <20170412221016.GA29708@lunn.ch>
- <6fdcec91-829b-70c9-8780-992b67f6831a@gmail.com>
+From: Logan Gunthorpe <logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
+Subject: [PATCH 01/22] scatterlist: Introduce sg_map helper functions
+Date: Thu, 13 Apr 2017 16:05:14 -0600
+Message-ID: <1492121135-4437-2-git-send-email-logang@deltatee.com>
+References: <1492121135-4437-1-git-send-email-logang@deltatee.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-        Rob Herring <robh+dt@kernel.org>,
-        Frank Rowand <frowand.list@gmail.com>,
-        "open list:OPEN FIRMWARE AND FLATTENED DEVICE TREE"
-        <devicetree@vger.kernel.org>,
-        open list <linux-kernel@vger.kernel.org>
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:58049 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751554AbdDMVvU (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 13 Apr 2017 17:51:20 -0400
-Content-Disposition: inline
-In-Reply-To: <6fdcec91-829b-70c9-8780-992b67f6831a@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
+To: Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>,
+ "Martin K. Petersen" <martin.petersen-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
+ Sagi Grimberg <sagi-NQWnxTmZq1alnMjI0IkVqw@public.gmane.org>, Jens Axboe <axboe-tSWWG44O7X1aa/9Udqfwiw@public.gmane.org>,
+ Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+ Dan Williams <dan.j.williams-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+ Ross Zwisler <ross.zwisler-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+ Matthew Wilcox <mawilcox-0li6OtcxBFHby3iVrkZq2A@public.gmane.org>,
+ Sumit Semwal <sumit.semwal-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, Ming Lin <ming.l-Vzezgt5dB6uUEJcrhfAQsw@public.gmane.org>,
+ linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-crypto-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org,
+ linaro-mm-sig-cunTk1MwBs8s++Sfvej+rw@public.gmane.org, intel-gfx-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org,
+ linux-raid-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ linux-nvme-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-nvdimm-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org,
+ linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, fcoe-devel-s9riP+hp16TNLxjTenLetw@public.gmane.org,
+ open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org, megaraidlinux.pdl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
+ sparmaintainer-GLv8BlqOqDDQT0dZR+AlfA@public.gmane.org, devel@driverd
+Return-path: <linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
+In-Reply-To: <1492121135-4437-1-git-send-email-logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
+List-Unsubscribe: <https://lists.01.org/mailman/options/linux-nvdimm>,
+ <mailto:linux-nvdimm-request-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.01.org/pipermail/linux-nvdimm/>
+List-Post: <mailto:linux-nvdimm-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
+List-Help: <mailto:linux-nvdimm-request-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.01.org/mailman/listinfo/linux-nvdimm>,
+ <mailto:linux-nvdimm-request-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org?subject=subscribe>
+Errors-To: linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org
+Sender: "Linux-nvdimm" <linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-> The DT binding is in tree and provides an example of how the switch
-> looks like, below is the example, but I am also adding the MDIO bus and
-> the PHYs just so you can see how things wind up:
-> 
-> switch_top@f0b00000 {
->         compatible = "simple-bus";
->         #size-cells = <1>;
->         #address-cells = <1>;
->         ranges = <0 0xf0b00000 0x40804>;
-> 
->         ethernet_switch@0 {
->                 compatible = "brcm,bcm7445-switch-v4.0";
->                 #size-cells = <0>;
->                 #address-cells = <1>;
->                 reg = <0x0 0x40000
->                         0x40000 0x110
->                         0x40340 0x30
->                         0x40380 0x30
->                         0x40400 0x34
->                         0x40600 0x208>;
->                 reg-names = "core", "reg", intrl2_0", "intrl2_1",
->                             "fcb, "acb";
->                 interrupts = <0 0x18 0
->                                 0 0x19 0>;
->                 brcm,num-gphy = <1>;
->                 brcm,num-rgmii-ports = <2>;
->                 brcm,fcb-pause-override;
->                 brcm,acb-packets-inflight;
-> 
->                 ports {
->                         #address-cells = <1>;
->                         #size-cells = <0>;
-> 
->                         port@0 {
->                                 label = "gphy";
->                                 reg = <0>;
-> 				phy-handle = <&phy5>;
->                         };
-> 
-> 			sw0port1: port@1 {
-> 				label = "rgmii_1";
-> 				reg = <1>;
-> 				phy-mode = "rgmii";
-> 				fixed-link {
-> 					speed = <1000>;
-> 					full-duplex;
-> 				};
-> 			}
->                 };
->         };
-> 
-> 	mdio@403c0 {
-> 		reg = <0x403c0 0x8 0x40300 0x18>;
-> 		#address-cells = <0x1>;
-> 		#size-cells = <0x0>;
-> 		compatible = "brcm,unimac-mdio";
-> 		reg-names = "mdio", "mdio_indir_rw";
-> 
-> 		switch: switch@0 {
-> 			broken-turn-around;
-> 			reg = <0x0>;
-> 			compatible = "brcm,bcm53125";
-> 			#address-cells = <1>;
-> 			#size-cells = <0>;
-> 
-> 			ports {
-> 				..
-> 				port@8 {
-> 					ethernet = <&sw0port1>;
-> 				};
-> 				...
-> 			};
-> 		};
-> 
-> 		phy5: ethernet-phy@5 {
-> 			reg = <0x5>;
-> 			compatible = "ethernet-phy-ieee802.3-c22";
-> 		};
-> 	};
-> };
+This patch introduces functions which kmap the pages inside an sgl. Two
+variants are provided: one if an offset is required and one if the
+offset is zero. These functions replace a common pattern of
+kmap(sg_page(sg)) that is used in about 50 places within the kernel.
 
-So phy5 is connected to the internal switch with a phy-handle. But
-because of your double usage of this node, it also can be mapped into
-the external switches port 5?
+The motivation for this work is to eventually safely support sgls that
+contain io memory. In order for that to work, any access to the contents
+of an iomem SGL will need to be done with iomemcpy or hit some warning.
+(The exact details of how this will work have yet to be worked out.)
+Having all the kmaps in one place is just a first step in that
+direction. Additionally, seeing this helps cut down the users of sg_page,
+it should make any effort to go to struct-page-less DMAs a little
+easier (should that idea ever swing back into favour again).
 
-Is that your problem?
+A flags option is added to select between a regular or atomic mapping so
+these functions can replace kmap(sg_page or kmap_atomic(sg_page.
+Future work may expand this to have flags for using page_address or
+vmap. Much further in the future, there may be a flag to allocate memory
+and copy the data from/to iomem.
 
-It seems like you should add an mdio node inside your switch node, and
-list your external switch internal/external phys there if needed.
+We also add the semantic that sg_map can fail to create a mapping,
+despite the fact that the current code this is replacing is assumed to
+never fail and the current version of these functions cannot fail. This
+is to support iomem which either have to fail to create the mapping or
+allocate memory as a bounce buffer which itself can fail.
 
-   Andrew
+Also, in terms of cleanup, a few of the existing kmap(sg_page) users
+play things a bit loose in terms of whether they apply sg->offset
+so using these helper functions should help avoid such issues.
+
+Signed-off-by: Logan Gunthorpe <logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
+---
+ drivers/dma-buf/dma-buf.c   |  3 ++
+ include/linux/scatterlist.h | 97 +++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 100 insertions(+)
+
+diff --git a/drivers/dma-buf/dma-buf.c b/drivers/dma-buf/dma-buf.c
+index 0007b79..b95934b 100644
+--- a/drivers/dma-buf/dma-buf.c
++++ b/drivers/dma-buf/dma-buf.c
+@@ -37,6 +37,9 @@
+ 
+ #include <uapi/linux/dma-buf.h>
+ 
++/* Prevent the highmem.h macro from aliasing ops->kunmap_atomic */
++#undef kunmap_atomic
++
+ static inline int is_dma_buf_file(struct file *);
+ 
+ struct dma_buf_list {
+diff --git a/include/linux/scatterlist.h b/include/linux/scatterlist.h
+index cb3c8fe..acd4d73 100644
+--- a/include/linux/scatterlist.h
++++ b/include/linux/scatterlist.h
+@@ -5,6 +5,7 @@
+ #include <linux/types.h>
+ #include <linux/bug.h>
+ #include <linux/mm.h>
++#include <linux/highmem.h>
+ #include <asm/io.h>
+ 
+ struct scatterlist {
+@@ -126,6 +127,102 @@ static inline struct page *sg_page(struct scatterlist *sg)
+ 	return (struct page *)((sg)->page_link & ~0x3);
+ }
+ 
++#define SG_KMAP		(1 << 0)	/* create a mapping with kmap */
++#define SG_KMAP_ATOMIC	(1 << 1)	/* create a mapping with kmap_atomic */
++
++/**
++ * sg_map_offset - kmap a page inside an sgl
++ * @sg:		SG entry
++ * @offset:	Offset into entry
++ * @flags:	Flags for creating the mapping
++ *
++ * Description:
++ *   Use this function to map a page in the scatterlist at the specified
++ *   offset. sg->offset is already added for you. Note: the semantics of
++ *   this function are that it may fail. Thus, its output should be checked
++ *   with IS_ERR and PTR_ERR. Otherwise, a pointer to the specified offset
++ *   in the mapped page is returned.
++ *
++ *   Flags can be any of:
++ *	* SG_KMAP	 - Use kmap to create the mapping
++ *	* SG_KMAP_ATOMIC - Use kmap_atomic to map the page atommically.
++ *			   Thus, the rules of that function apply: the cpu
++ *			   may not sleep until it is unmaped.
++ *
++ *   Also, consider carefully whether this function is appropriate. It is
++ *   largely not recommended for new code and if the sgl came from another
++ *   subsystem and you don't know what kind of memory might be in the list
++ *   then you definitely should not call it. Non-mappable memory may be in
++ *   the sgl and thus this function may fail unexpectedly.
++ **/
++static inline void *sg_map_offset(struct scatterlist *sg, size_t offset,
++				   int flags)
++{
++	struct page *pg;
++	unsigned int pg_off;
++
++	offset += sg->offset;
++	pg = nth_page(sg_page(sg), offset >> PAGE_SHIFT);
++	pg_off = offset_in_page(offset);
++
++	if (flags & SG_KMAP_ATOMIC)
++		return kmap_atomic(pg) + pg_off;
++	else
++		return kmap(pg) + pg_off;
++}
++
++/**
++ * sg_unkmap_offset - unmap a page that was mapped with sg_map_offset
++ * @sg:		SG entry
++ * @addr:	address returned by sg_map_offset
++ * @offset:	Offset into entry (same as specified for sg_map_offset)
++ * @flags:	Flags, which are the same specified for sg_map_offset
++ *
++ * Description:
++ *   Unmap the page that was mapped with sg_map_offset
++ *
++ **/
++static inline void sg_unmap_offset(struct scatterlist *sg, void *addr,
++				    size_t offset, int flags)
++{
++	struct page *pg = nth_page(sg_page(sg), offset >> PAGE_SHIFT);
++	unsigned int pg_off = offset_in_page(offset);
++
++	if (flags & SG_KMAP_ATOMIC)
++		kunmap_atomic(addr - sg->offset - pg_off);
++	else
++		kunmap(pg);
++}
++
++/**
++ * sg_map - map the first page in the scatterlist entry
++ * @sg:		SG entry
++ * @flags:	Flags, see sg_map_offset for a description
++ *
++ * Description:
++ *   Same as sg_map_offset(sg, 0, flags);
++ *
++ **/
++static inline void *sg_map(struct scatterlist *sg, int flags)
++{
++	return sg_map_offset(sg, 0, flags);
++}
++
++/**
++ * sg_unmap - unmap a page mapped with sg_map
++ * @sg:		SG entry
++ * @addr:       address returned by sg_map
++ * @flags:	Flags, see sg_map_offset for a description
++ *
++ * Description:
++ *   Same as sg_map_offset(sg, 0, flags);
++ *
++ **/
++static inline void sg_unmap(struct scatterlist *sg, void *addr, int flags)
++{
++	sg_unmap_offset(sg, addr, 0, flags);
++}
++
+ /**
+  * sg_set_buf - Set sg entry to point at given data
+  * @sg:		 SG entry
+-- 
+2.1.4
