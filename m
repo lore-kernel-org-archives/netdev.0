@@ -1,90 +1,201 @@
-From: Davide Caratti <dcaratti@redhat.com>
-Subject: Re: [PATCH RFC net-next v3 4/7] net: use skb->csum_algo to identify packets needing crc32c
-Date: Thu, 13 Apr 2017 12:36:34 +0200
-Message-ID: <cover.1492077747.git.dcaratti@redhat.com>
-References: <CALx6S36rem=OuN_At6qYA=se5cpuYM1N2R8efoaszvo8b8Tz5A@mail.gmail.com>
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
-To: Tom Herbert <tom@herbertland.com>,
-        Alexander Duyck <alexander.duyck@gmail.com>,
-        David Laight <David.Laight@aculab.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:36076 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751235AbdDMKgl (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 13 Apr 2017 06:36:41 -0400
-In-Reply-To: <CALx6S36rem=OuN_At6qYA=se5cpuYM1N2R8efoaszvo8b8Tz5A@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: ney/key: slab-out-of-bounds in parse_ipsecrequests
+Date: Thu, 13 Apr 2017 18:35:59 +0800
+Message-ID: <20170413103559.GA23263@gondor.apana.org.au>
+References: <CAAeHK+yuQZ1v-BBLoeGxfuXg-5uFe6sS5qC-gagaVkq4YroS8g@mail.gmail.com>
+ <CAM_iQpXC03OpCxMQd3VoaVuDHma0Z6h=BuDUf63qc5x1aZvdww@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrey Konovalov <andreyknvl@google.com>,
+        Steffen Klassert <steffen.klassert@secunet.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        syzkaller <syzkaller@googlegroups.com>,
+        Eric Dumazet <edumazet@google.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAM_iQpXC03OpCxMQd3VoaVuDHma0Z6h=BuDUf63qc5x1aZvdww@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-thank you,
+On Wed, Apr 12, 2017 at 05:39:22PM -0700, Cong Wang wrote:
+> On Wed, Apr 12, 2017 at 8:02 AM, Andrey Konovalov <andreyknvl@google.com> wrote:
+> > Hi,
+> >
+> > I've got the following error report while fuzzing the kernel with syzkaller.
+> >
+> > On commit 39da7c509acff13fc8cb12ec1bb20337c988ed36 (4.11-rc6).
+> >
+> > A reproducer and .config are attached.
+> >
+> > When subtracting rq->sadb_x_ipsecrequest_len from len it can become
+> > negative and the while loop condition remains true.
+> 
+> Good catch! Seems the fix is pretty straight forward:
+> 
+> diff --git a/net/key/af_key.c b/net/key/af_key.c
+> index c6252ed..cbce595 100644
+> --- a/net/key/af_key.c
+> +++ b/net/key/af_key.c
+> @@ -1945,7 +1945,7 @@ parse_ipsecrequests(struct xfrm_policy *xp,
+> struct sadb_x_policy *pol)
+>         if (pol->sadb_x_policy_len * 8 < sizeof(struct sadb_x_policy))
+>                 return -EINVAL;
+> 
+> -       while (len >= sizeof(struct sadb_x_ipsecrequest)) {
+> +       while (len >= (int)sizeof(struct sadb_x_ipsecrequest)) {
+>                 if ((err = parse_ipsecrequest(xp, rq)) < 0)
+>                         return err;
+>                 len -= rq->sadb_x_ipsecrequest_len;
+> 
+> But pol->sadb_x_policy_len and rq->sadb_x_ipsecrequest_len
+> are controllable by user (fortunately root), I am feeling there might
+> be other problem I miss too.
 
-On Fri, 2017-04-07 at 08:43 -0700, Tom Herbert wrote:
-> Maybe just call it csum_not_ip then. Then just do "if
-> (unlikely(skb->csum_not_ip)) ..."
+Well the fact that it is negative means that you've already parsed
+crap in the previous loop.  This interface really needs to die.
 
-OK, I will rename the bit, avoid the enum and use the 'unlikely'. Up to now,
-this series uses the bit for SCTP only and leaves unmodified behavior of
-offloaded FCoE frames: please let me know if you disagree on that.
+---8<---
+Subject: af_key: Fix sadb_x_ipsecrequest parsing
 
-On Fri, 2017-04-07 at 08:43 -0700, Tom Herbert wrote:
-> On Fri, Apr 7, 2017 at 10:29 AM, Davide Caratti <dcaratti@redhat.com> wrote:
-> > In my understanding, csum_algo needs to be set to INTERNET_CHECKSUM after the
-> > CRC32c is computed. Otherwise, after subsequent operation on the skb (e.g. it
-> > is encapsulated in a UDP frame), there is the possibility for skb->ip_summed
-> > to become CHECKSUM_PARTIAL again. So, to ensure that skb_checksum_help() and
-> > not skb_crc32c_help() will be called, csum_algo must be 0.
+The parsing of sadb_x_ipsecrequest is broken in a number of ways.
+First of all we're not verifying sadb_x_ipsecrequest_len.  This
+is needed when the structure carries addresses at the end.  Worse
+we don't even look at the length when we parse those optional
+addresses.
 
-> ip_summed should no longer be CHECKSUM_PARTIAL with CRC32c is computed.
+The migration code had similar parsing code that's better but
+it also has some deficiencies.  The length is overcounted first
+of all as it includes the header itself.  It also fails to check
+the length before dereferencing the sa_family field.
 
-Even though it's uncommon, skb->ip_summed can become CHECKSUM_PARTIAL again
-after the CRC32c is computed and CHECKSUM_NONE is set: for example, when a
-veth and a vxlan with UDP checksums are enslaved to the same bridge, and the
-NIC below vxlan has no checksumming capabilities. Here, validate_xmit_skb is
-called three times on the same skb (see perf output at the bottom): 
+This patch fixes those problems in parse_sockaddr_pair and then
+uses it in parse_ipsecrequest.
 
-* before transmission on the veth: here ip_summed is CHECKSUM_PARTIAL, but
-the device supports CRC32c offload so the skb is (correctly) untouched.
+Reported-by: Andrey Konovalov <andreyknvl@google.com>
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-* before vxlan encapsulation: here ip_summed is CHECKSUM_PARTIAL,
-skb->csum_not_inet is 1 and NETIF_F_SCTP_CRC is not set. Here,
-skb_csum_hwoffload_help() correctly fills the CRC32c and assigns ip_summed
-to CHECKSUM_NONE.
-
-* before transmission on the NIC: ip_summed is CHECKSUM_PARTIAL again (because
-udp_set_csum changed csum_start and csum_offset to point to the tunnel
-UDP header). No bit in NETIF_F_HW_CSUM is set: if skb->csum_not_inet is still 1,
-the helper (wrongly) computes CRC32c again, thus corrupting the outer UDP
-transport header. On the contrary, if skb->csum_not_inet is 0, skb_checksum_help()
-correctly resolves CHECKSUM_PARTIAL.
-
-To avoid this problem, skb->csum_not_inet must be assigned to 0 every time
-the CHECKSUM_PARTIAL is resolved on skb carrying SCTP packets.
-
-> > To minimize the impact of the patch, I substituted all assignments of skb->ip_summed,
-> > done by SCTP-related code, with calls to skb_set_crc32c_ipsummed(). The alternative is
-> > to explicitly set csum_algo to 0 (INTERNET_CHECKSUM) in SCTP-related code. Do you agree?
-
-> No, like I said the only case where this new bit is relevant is when
-> CHECKSUM_PARTIAL for a CRC is being done. When it's set for offloading
-> sctp crc it must be set. When CRC is resolved, in the helper for
-> instance, it must be cleared. If these rules are properly followed
-> then the bit will be zero in all other cases without needing any
-> additional work or conditionals.
-
-At a minimum, this csum_not_inet bit needs to be cleared in three places:
-1) in skb_crc32c_csum_help, to fix scenarios like veth->bridge->vxlan->NIC above.
-2) in sctp_gso_make_checksum, a SCTP GSO packet is segmented and CRC32c is written
-on each segment. skb->ip_summed transitions from CHECKSUM_PARTIAL to CHECKSUM_NONE.
-3) in act_csum, because TC action mangling the packet are called before 
-validate_xmit_skb().
-
-It is not necessary to do it in netfilter NAT (even it is harmless), because
-SCTP packets having CHECKSUM_PARTIAL are not resolved (since commit 3189a290f98d
-"netfilter: nat: skip checksum on offload SCTP packets"). And it should be not
-needed in IPVS code, because ip_summed is set to CHECKSUM_UNNECESSARY, so skb
-is not going to be checksummed anymore.
-
-thank you in advance for the feedback!
-regards,
+diff --git a/net/key/af_key.c b/net/key/af_key.c
+index c6252ed..6ea5751 100644
+--- a/net/key/af_key.c
++++ b/net/key/af_key.c
+@@ -65,6 +65,10 @@ struct pfkey_sock {
+ 	} dump;
+ };
+ 
++static int parse_sockaddr_pair(struct sockaddr *sa, int ext_len,
++			       xfrm_address_t *saddr, xfrm_address_t *daddr,
++			       u16 *family);
++
+ static inline struct pfkey_sock *pfkey_sk(struct sock *sk)
+ {
+ 	return (struct pfkey_sock *)sk;
+@@ -1913,19 +1917,14 @@ static u32 gen_reqid(struct net *net)
+ 
+ 	/* addresses present only in tunnel mode */
+ 	if (t->mode == XFRM_MODE_TUNNEL) {
+-		u8 *sa = (u8 *) (rq + 1);
+-		int family, socklen;
++		int err;
+ 
+-		family = pfkey_sockaddr_extract((struct sockaddr *)sa,
+-						&t->saddr);
+-		if (!family)
+-			return -EINVAL;
+-
+-		socklen = pfkey_sockaddr_len(family);
+-		if (pfkey_sockaddr_extract((struct sockaddr *)(sa + socklen),
+-					   &t->id.daddr) != family)
+-			return -EINVAL;
+-		t->encap_family = family;
++		err = parse_sockaddr_pair(
++			(struct sockaddr *)(rq + 1),
++			rq->sadb_x_ipsecrequest_len - sizeof(*rq),
++			&t->saddr, &t->id.daddr, &t->encap_family);
++		if (err)
++			return err;
+ 	} else
+ 		t->encap_family = xp->family;
+ 
+@@ -1945,7 +1944,11 @@ static u32 gen_reqid(struct net *net)
+ 	if (pol->sadb_x_policy_len * 8 < sizeof(struct sadb_x_policy))
+ 		return -EINVAL;
+ 
+-	while (len >= sizeof(struct sadb_x_ipsecrequest)) {
++	while (len >= sizeof(*rq)) {
++		if (len < rq->sadb_x_ipsecrequest_len ||
++		    rq->sadb_x_ipsecrequest_len < sizeof(*rq))
++			return -EINVAL;
++
+ 		if ((err = parse_ipsecrequest(xp, rq)) < 0)
+ 			return err;
+ 		len -= rq->sadb_x_ipsecrequest_len;
+@@ -2408,7 +2411,6 @@ static int key_pol_get_resp(struct sock *sk, struct xfrm_policy *xp, const struc
+ 	return err;
+ }
+ 
+-#ifdef CONFIG_NET_KEY_MIGRATE
+ static int pfkey_sockaddr_pair_size(sa_family_t family)
+ {
+ 	return PFKEY_ALIGN8(pfkey_sockaddr_len(family) * 2);
+@@ -2420,7 +2422,7 @@ static int parse_sockaddr_pair(struct sockaddr *sa, int ext_len,
+ {
+ 	int af, socklen;
+ 
+-	if (ext_len < pfkey_sockaddr_pair_size(sa->sa_family))
++	if (ext_len < 2 || ext_len < pfkey_sockaddr_pair_size(sa->sa_family))
+ 		return -EINVAL;
+ 
+ 	af = pfkey_sockaddr_extract(sa, saddr);
+@@ -2436,6 +2438,7 @@ static int parse_sockaddr_pair(struct sockaddr *sa, int ext_len,
+ 	return 0;
+ }
+ 
++#ifdef CONFIG_NET_KEY_MIGRATE
+ static int ipsecrequests_to_migrate(struct sadb_x_ipsecrequest *rq1, int len,
+ 				    struct xfrm_migrate *m)
+ {
+@@ -2443,13 +2446,14 @@ static int ipsecrequests_to_migrate(struct sadb_x_ipsecrequest *rq1, int len,
+ 	struct sadb_x_ipsecrequest *rq2;
+ 	int mode;
+ 
+-	if (len <= sizeof(struct sadb_x_ipsecrequest) ||
+-	    len < rq1->sadb_x_ipsecrequest_len)
++	if (len < sizeof(*rq1) ||
++	    len < rq1->sadb_x_ipsecrequest_len ||
++	    rq1->sadb_x_ipsecrequest_len < sizeof(*rq1))
+ 		return -EINVAL;
+ 
+ 	/* old endoints */
+ 	err = parse_sockaddr_pair((struct sockaddr *)(rq1 + 1),
+-				  rq1->sadb_x_ipsecrequest_len,
++				  rq1->sadb_x_ipsecrequest_len - sizeof(*rq1),
+ 				  &m->old_saddr, &m->old_daddr,
+ 				  &m->old_family);
+ 	if (err)
+@@ -2458,13 +2462,14 @@ static int ipsecrequests_to_migrate(struct sadb_x_ipsecrequest *rq1, int len,
+ 	rq2 = (struct sadb_x_ipsecrequest *)((u8 *)rq1 + rq1->sadb_x_ipsecrequest_len);
+ 	len -= rq1->sadb_x_ipsecrequest_len;
+ 
+-	if (len <= sizeof(struct sadb_x_ipsecrequest) ||
+-	    len < rq2->sadb_x_ipsecrequest_len)
++	if (len <= sizeof(*rq2) ||
++	    len < rq2->sadb_x_ipsecrequest_len ||
++	    rq2->sadb_x_ipsecrequest_len < sizeof(*rq2))
+ 		return -EINVAL;
+ 
+ 	/* new endpoints */
+ 	err = parse_sockaddr_pair((struct sockaddr *)(rq2 + 1),
+-				  rq2->sadb_x_ipsecrequest_len,
++				  rq2->sadb_x_ipsecrequest_len - sizeof(*rq2),
+ 				  &m->new_saddr, &m->new_daddr,
+ 				  &m->new_family);
+ 	if (err)
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
