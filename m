@@ -1,43 +1,55 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next] net: ipv6: send unsolicited NA on admin up
-Date: Thu, 13 Apr 2017 10:41:42 -0600
-Message-ID: <14982ed9-77b0-0e61-e938-b73c4807e30f@cumulusnetworks.com>
-References: <1492022944-18842-1-git-send-email-dsa@cumulusnetworks.com>
- <1492083944.2160091.943541576.3F765BD2@webmail.messagingengine.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [RFC net-next] of: mdio: Honor hints from MDIO bus drivers
+Date: Thu, 13 Apr 2017 12:49:17 -0400 (EDT)
+Message-ID: <20170413.124917.1229157998659042404.davem@davemloft.net>
+References: <20170410214258.9409-1-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f44.google.com ([74.125.83.44]:35508 "EHLO
-        mail-pg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755127AbdDMQlp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 13 Apr 2017 12:41:45 -0400
-Received: by mail-pg0-f44.google.com with SMTP id 72so24541722pge.2
-        for <netdev@vger.kernel.org>; Thu, 13 Apr 2017 09:41:45 -0700 (PDT)
-In-Reply-To: <1492083944.2160091.943541576.3F765BD2@webmail.messagingengine.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+        frowand.list-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170410214258.9409-1-f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 4/13/17 5:45 AM, Hannes Frederic Sowa wrote:
-> 
-> 
-> On Wed, Apr 12, 2017, at 20:49, David Ahern wrote:
->> ndisc_notify is the ipv6 equivalent to arp_notify. When arp_notify is
->> set to 1, gratuitous arp requests are sent when the device is brought up.
->> The same is expected when ndisc_notify is set to 1 (per ndisc_notify in
->> Documentation/networking/ip-sysctl.txt). The NA is not sent on NETDEV_UP
->> event; add it.
->>
->> Fixes: 5cb04436eef6 ("ipv6: add knob to send unsolicited ND on link-layer
->> address change")
->> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
-> 
-> Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> 
-> In future we might be able to make this a bit more robust when DAD is
-> happening at the same time.
+From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Mon, 10 Apr 2017 14:42:58 -0700
 
+> A MDIO bus driver can set phy_mask to indicate which PHYs should be
+> probed and which should not. Right now, of_mdiobus_register() always
+> sets mdio->phy_mask to ~0 which means: don't probe anything yourself,
+> and let the Device Tree scanning do it based on the availability of
+> child nodes.
+> 
+> When MDIO buses are stacked together (on purpose, as is done by DSA), we
+> run into possible double probing which is, at best unnecessary, and at
+> worse, can cause problems if that's not expected (e.g: during probe
+> deferral).
+> 
+> Fix this by remember the original mdio->phy_mask, and make sure that if
+> it was set to all 0xF, we set it to zero internally in order not to
+> influence how the child PHY/MDIO device registration is going to behave.
+> When the original mdio->phy_mask is set to something non-zero, we honor
+> this value and utilize it as a hint to register only the child nodes
+> that we have both found, and indicated to be necessary.
+> 
+> Signed-off-by: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 
-agreed.
+I don't think it's valid to have a unique OF node appear twice in the
+device tree hiearchy.
+
+Even if you can somehow hack this situation into working, you are
+asking for all kinds of problems in the long run by doing things that
+way.
+
+If you have to, instantiate a new dummy device (perhaps a
+platform_device, which thus can have private attributes you can store
+in a structure whose layout you control) to act as the placeholder for
+operation interception and property duplication.
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
