@@ -1,60 +1,54 @@
-From: Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 1/5] netlink: extended ACK reporting
-Date: Thu, 13 Apr 2017 16:05:38 +0200
-Message-ID: <28b0d93a-7e96-f7eb-b140-afc9ad429c30@6wind.com>
-References: <20170408174900.12820-1-johannes@sipsolutions.net>
- <20170408174900.12820-2-johannes@sipsolutions.net>
- <20170408183440.GA1900@nanopsycho>
- <1491676621.5800.24.camel@sipsolutions.net>
- <20170408184008.GB1900@nanopsycho>
- <990b5610-a894-b3d2-d3a7-536dfd25adb8@cumulusnetworks.com>
- <1491805089.2455.3.camel@sipsolutions.net>
- <c0b35e6e-e5cb-25f6-7ccf-eec33ba39f3b@6wind.com>
- <1492090170.29526.1.camel@sipsolutions.net>
-Reply-To: nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org
+From: George Cherian <george.cherian@cavium.com>
+Subject: [PATCH] net: thunderx: Fix set_max_bgx_per_node for 81xx rgx
+Date: Thu, 13 Apr 2017 07:25:01 +0000
+Message-ID: <1492068301-1141-1-git-send-email-george.cherian@cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
-        Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-        David Ahern <dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>,
-        Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1492090170.29526.1.camel-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain
+Cc: rric@kernel.org, sgoutham@cavium.com,
+        George Cherian <george.cherian@cavium.com>
+To: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Le 13/04/2017 à 15:29, Johannes Berg a écrit :
-> On Thu, 2017-04-13 at 15:27 +0200, Nicolas Dichtel wrote:
->>
->>> Yes, some - very few - families still insist on using attribute 0,
->>> perhaps parsing by hand or so. Like you say though, the entire
->>> infrastructure makes that hard and undesirable, so I don't really
->>> see
->>> why we need to invest the extra code/work into making it work
->>> *here*,
->>> especially since it's such a corner case as I described in my other
->>> email.
->>
->> Here is an example:
->> https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/co
->> mmit/?id=31e20bad8d58
->>
->> I also see one in openvswitch (I will send a similar patch), but
->> there are probably some others.
-> 
-> Yeah. I'm not really sure what the point of such a patch is though -
-> the API is set now, and can't really be changed.
-The goal is to avoid copy and paste error, like it was done in diag subsystem.
+Add the PCI_SUBSYS_DEVID_81XX_RGX and use the same to set
+the max bgx per node count.
 
-> 
-> Anyway, the ones you point out are only used for *output* by the
-> kernel, so wouldn't be affected by any "missing attribute" reporting
-> anyway.
-Sure. It was just to mention that attribute 0 exists somewhere.
-The other 0 attribute is OVS_TUNNEL_KEY_ATTR_ID. But I agree with you that it
-remains a corner case.
+This fixes the issue intoduced by following commit
+78aacb6f6 net: thunderx: Fix invalid mac addresses for node1 interfaces
+With this commit the max_bgx_per_node for 81xx is set as 2 instead of 3
+because of which num_vfs is always calculated as zero.
 
-Nicolas
+Signed-off-by: George Cherian <george.cherian@cavium.com>
+---
+ drivers/net/ethernet/cavium/thunder/thunder_bgx.c | 1 +
+ drivers/net/ethernet/cavium/thunder/thunder_bgx.h | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
+index 64a1095..a0ca68c 100644
+--- a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
++++ b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
+@@ -134,6 +134,7 @@ static void set_max_bgx_per_node(struct pci_dev *pdev)
+ 	pci_read_config_word(pdev, PCI_SUBSYSTEM_ID, &sdevid);
+ 	switch (sdevid) {
+ 	case PCI_SUBSYS_DEVID_81XX_BGX:
++	case PCI_SUBSYS_DEVID_81XX_RGX:
+ 		max_bgx_per_node = MAX_BGX_PER_CN81XX;
+ 		break;
+ 	case PCI_SUBSYS_DEVID_83XX_BGX:
+diff --git a/drivers/net/ethernet/cavium/thunder/thunder_bgx.h b/drivers/net/ethernet/cavium/thunder/thunder_bgx.h
+index c5080f2c..6b7fe6fd 100644
+--- a/drivers/net/ethernet/cavium/thunder/thunder_bgx.h
++++ b/drivers/net/ethernet/cavium/thunder/thunder_bgx.h
+@@ -16,6 +16,7 @@
+ /* Subsystem device IDs */
+ #define PCI_SUBSYS_DEVID_88XX_BGX		0xA126
+ #define PCI_SUBSYS_DEVID_81XX_BGX		0xA226
++#define PCI_SUBSYS_DEVID_81XX_RGX		0xA254
+ #define PCI_SUBSYS_DEVID_83XX_BGX		0xA326
+ 
+ #define    MAX_BGX_THUNDER			8 /* Max 2 nodes, 4 per node */
+-- 
+2.1.4
