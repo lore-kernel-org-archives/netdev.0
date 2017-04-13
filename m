@@ -1,190 +1,192 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH v4 3/3] VSOCK: Add virtio vsock vsockmon hooks
-Date: Thu, 13 Apr 2017 21:47:08 +0300
-Message-ID: <20170413214410-mutt-send-email-mst@kernel.org>
-References: <20170413161811.8953-1-stefanha@redhat.com>
- <20170413161811.8953-4-stefanha@redhat.com>
+From: Andrey Konovalov <andreyknvl@google.com>
+Subject: Re: net/ipv4: use-after-free in ip_queue_xmit
+Date: Thu, 13 Apr 2017 20:49:36 +0200
+Message-ID: <CAAeHK+wV1aKoP_2cog-dp0-17g4QimfK5j8P3oxypE3mCxMGUw@mail.gmail.com>
+References: <CAAeHK+z5=b4PdSrq8ff-btYbd-aKFR+uzQnoC5Pq4du4uVQjzQ@mail.gmail.com>
+ <CAM_iQpWsEpJYHG1WvC9kQPt8iezBuLC8PeSqM20=W9cpkRE6=Q@mail.gmail.com> <CAAeHK+xZG+V8W85=bzpj0EgbmZo0c2Sq6e0LxtHMZM8wje-yPA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Zhu Yanjun <zyjzyj2000@gmail.com>,
-        Gerard Garcia <ggarcia@abra.uab.cat>,
-        Jorgen Hansen <jhansen@vmware.com>
-To: Stefan Hajnoczi <stefanha@redhat.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Eric Dumazet <edumazet@google.com>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:42922 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754010AbdDMSrO (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 13 Apr 2017 14:47:14 -0400
-Content-Disposition: inline
-In-Reply-To: <20170413161811.8953-4-stefanha@redhat.com>
+Received: from mail-pg0-f53.google.com ([74.125.83.53]:34191 "EHLO
+        mail-pg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751944AbdDMSti (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 13 Apr 2017 14:49:38 -0400
+Received: by mail-pg0-f53.google.com with SMTP id 21so34423161pgg.1
+        for <netdev@vger.kernel.org>; Thu, 13 Apr 2017 11:49:38 -0700 (PDT)
+In-Reply-To: <CAAeHK+xZG+V8W85=bzpj0EgbmZo0c2Sq6e0LxtHMZM8wje-yPA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 13, 2017 at 05:18:11PM +0100, Stefan Hajnoczi wrote:
-> From: Gerard Garcia <ggarcia@deic.uab.cat>
-> 
-> The virtio drivers deal with struct virtio_vsock_pkt.  Add
-> virtio_transport_deliver_tap_pkt(pkt) for handing packets to the
-> vsockmon device.
-> 
-> We call virtio_transport_deliver_tap_pkt(pkt) from
-> net/vmw_vsock/virtio_transport.c and drivers/vhost/vsock.c instead of
-> common code.  This is because the drivers may drop packets before
-> handing them to common code - we still want to capture them.
-> 
-> Signed-off-by: Gerard Garcia <ggarcia@deic.uab.cat>
-> Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
-> ---
-> v3:
->  * Hook virtio_transport.c (guest driver), not just
->    drivers/vhost/vsock.c (host driver)
-> ---
->  include/linux/virtio_vsock.h            |  1 +
->  drivers/vhost/vsock.c                   |  8 +++++
->  net/vmw_vsock/virtio_transport.c        |  3 ++
->  net/vmw_vsock/virtio_transport_common.c | 58 +++++++++++++++++++++++++++++++++
->  4 files changed, 70 insertions(+)
-> 
-> diff --git a/include/linux/virtio_vsock.h b/include/linux/virtio_vsock.h
-> index 584f9a6..ab13f07 100644
-> --- a/include/linux/virtio_vsock.h
-> +++ b/include/linux/virtio_vsock.h
-> @@ -153,5 +153,6 @@ void virtio_transport_free_pkt(struct virtio_vsock_pkt *pkt);
->  void virtio_transport_inc_tx_pkt(struct virtio_vsock_sock *vvs, struct virtio_vsock_pkt *pkt);
->  u32 virtio_transport_get_credit(struct virtio_vsock_sock *vvs, u32 wanted);
->  void virtio_transport_put_credit(struct virtio_vsock_sock *vvs, u32 credit);
-> +void virtio_transport_deliver_tap_pkt(struct virtio_vsock_pkt *pkt);
->  
->  #endif /* _LINUX_VIRTIO_VSOCK_H */
-> diff --git a/drivers/vhost/vsock.c b/drivers/vhost/vsock.c
-> index 44eed8e..d939ac1 100644
-> --- a/drivers/vhost/vsock.c
-> +++ b/drivers/vhost/vsock.c
-> @@ -176,6 +176,11 @@ vhost_transport_do_send_pkt(struct vhost_vsock *vsock,
->  				restart_tx = true;
->  		}
->  
-> +		/* Deliver to monitoring devices all correctly transmitted
-> +		 * packets.
-> +		 */
-> +		virtio_transport_deliver_tap_pkt(pkt);
-> +
->  		virtio_transport_free_pkt(pkt);
->  	}
->  	if (added)
-> @@ -383,6 +388,9 @@ static void vhost_vsock_handle_tx_kick(struct vhost_work *work)
->  
->  		len = pkt->len;
->  
-> +		/* Deliver to monitoring devices all received packets */
-> +		virtio_transport_deliver_tap_pkt(pkt);
-> +
->  		/* Only accept correctly addressed packets */
->  		if (le64_to_cpu(pkt->hdr.src_cid) == vsock->guest_cid)
->  			virtio_transport_recv_pkt(pkt);
-> diff --git a/net/vmw_vsock/virtio_transport.c b/net/vmw_vsock/virtio_transport.c
-> index 68675a1..9dffe02 100644
-> --- a/net/vmw_vsock/virtio_transport.c
-> +++ b/net/vmw_vsock/virtio_transport.c
-> @@ -144,6 +144,8 @@ virtio_transport_send_pkt_work(struct work_struct *work)
->  		list_del_init(&pkt->list);
->  		spin_unlock_bh(&vsock->send_pkt_list_lock);
->  
-> +		virtio_transport_deliver_tap_pkt(pkt);
-> +
->  		reply = pkt->reply;
->  
->  		sg_init_one(&hdr, &pkt->hdr, sizeof(pkt->hdr));
-> @@ -370,6 +372,7 @@ static void virtio_transport_rx_work(struct work_struct *work)
->  			}
->  
->  			pkt->len = len - sizeof(pkt->hdr);
-> +			virtio_transport_deliver_tap_pkt(pkt);
->  			virtio_transport_recv_pkt(pkt);
->  		}
->  	} while (!virtqueue_enable_cb(vq));
-> diff --git a/net/vmw_vsock/virtio_transport_common.c b/net/vmw_vsock/virtio_transport_common.c
-> index af087b4..aae60c1 100644
-> --- a/net/vmw_vsock/virtio_transport_common.c
-> +++ b/net/vmw_vsock/virtio_transport_common.c
-> @@ -16,6 +16,7 @@
->  #include <linux/virtio_ids.h>
->  #include <linux/virtio_config.h>
->  #include <linux/virtio_vsock.h>
-> +#include <uapi/linux/vsockmon.h>
->  
->  #include <net/sock.h>
->  #include <net/af_vsock.h>
-> @@ -85,6 +86,63 @@ virtio_transport_alloc_pkt(struct virtio_vsock_pkt_info *info,
->  	return NULL;
->  }
->  
-> +/* Packet capture */
-> +void virtio_transport_deliver_tap_pkt(struct virtio_vsock_pkt *pkt)
-> +{
-> +	struct sk_buff *skb;
-> +	struct af_vsockmon_hdr *hdr;
-> +	unsigned char *t_hdr, *payload;
-> +
-> +	skb = alloc_skb(sizeof(*hdr) + sizeof(pkt->hdr) + pkt->len,
-> +			GFP_ATOMIC);
-> +	if (!skb)
-> +		return; /* nevermind if we cannot capture the packet */
-> +
-> +	hdr = (struct af_vsockmon_hdr *)skb_put(skb, sizeof(*hdr));
-> +
-> +	/* pkt->hdr is little-endian so no need to byteswap here */
+On Mon, Apr 10, 2017 at 7:46 PM, Andrey Konovalov <andreyknvl@google.com> w=
+rote:
+> On Mon, Apr 10, 2017 at 7:42 PM, Cong Wang <xiyou.wangcong@gmail.com> wro=
+te:
+>> On Mon, Apr 10, 2017 at 7:40 AM, Andrey Konovalov <andreyknvl@google.com=
+> wrote:
+>>> Hi,
+>>>
+>>> I've got the following error report while fuzzing the kernel with syzka=
+ller.
+>>>
+>>> On commit 39da7c509acff13fc8cb12ec1bb20337c988ed36 (4.11-rc6).
+>>>
+>>> Unfortunately it's not reproducible.
+>>>
+>>> BUG: KASAN: use-after-free in ip_select_ttl include/net/dst.h:176
+>>> [inline] at addr ffff88006ab3602c
+>>> BUG: KASAN: use-after-free in ip_queue_xmit+0x1817/0x1a30
+>>> net/ipv4/ip_output.c:485 at addr ffff88006ab3602c
+>>> Read of size 4 by task syz-executor1/12627
+>>> CPU: 3 PID: 12627 Comm: syz-executor1 Not tainted 4.11.0-rc6+ #206
+>>> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01=
+/2011
+>>> Call Trace:
+>>>  __dump_stack lib/dump_stack.c:16 [inline]
+>>>  dump_stack+0x292/0x398 lib/dump_stack.c:52
+>>>  kasan_object_err+0x1c/0x70 mm/kasan/report.c:164
+>>>  print_address_description mm/kasan/report.c:202 [inline]
+>>>  kasan_report_error mm/kasan/report.c:291 [inline]
+>>>  kasan_report+0x252/0x510 mm/kasan/report.c:347
+>>>  __asan_report_load4_noabort+0x14/0x20 mm/kasan/report.c:367
+>>>  ip_select_ttl include/net/dst.h:176 [inline]
+>>
+>> Probably same as the one you reported on ipv4_mtu(), it would
+>> be nice if you could test the patch I proposed:
+>>
+>> https://patchwork.ozlabs.org/patch/747556/
+>
+> Applied your patch.
 
-Comment does not seem to make sense. Drop it?
+Oops, apparently your patch doesn't compile:
 
-> +	hdr->src_cid = pkt->hdr.src_cid;
-> +	hdr->src_port = pkt->hdr.src_port;
-> +	hdr->dst_cid = pkt->hdr.dst_cid;
-> +	hdr->dst_port = pkt->hdr.dst_port;
-> +
-> +	hdr->transport = cpu_to_le16(AF_VSOCK_TRANSPORT_VIRTIO);
-> +	hdr->len = cpu_to_le16(sizeof(pkt->hdr));
-> +	hdr->reserved[0] = hdr->reserved[1] = 0;
-> +
-> +	switch(cpu_to_le16(pkt->hdr.op)) {
+  CC      net/ipv4/route.o
+net/ipv4/route.c: In function =E2=80=98ipv4_dst_destroy=E2=80=99:
+net/ipv4/route.c:1394:8: error: =E2=80=98struct rtable=E2=80=99 has no memb=
+er named =E2=80=98fi=E2=80=99
+  if (rt->fi) {
+        ^~
+net/ipv4/route.c:1395:18: error: =E2=80=98struct rtable=E2=80=99 has no mem=
+ber named =E2=80=98fi=E2=80=99
+   fib_info_put(rt->fi);
+                  ^~
+net/ipv4/route.c:1396:5: error: =E2=80=98struct rtable=E2=80=99 has no memb=
+er named =E2=80=98fi=E2=80=99
+   rt->fi =3D NULL;
+     ^~
+net/ipv4/route.c: In function =E2=80=98rt_init_metrics=E2=80=99:
+net/ipv4/route.c:1440:5: error: =E2=80=98struct rtable=E2=80=99 has no memb=
+er named =E2=80=98fi=E2=80=99
+   rt->fi =3D fi;
+     ^~
+net/ipv4/route.c: In function =E2=80=98rt_dst_alloc=E2=80=99:
+net/ipv4/route.c:1512:5: error: =E2=80=98struct rtable=E2=80=99 has no memb=
+er named =E2=80=98fi=E2=80=99
+   rt->fi =3D NULL;
+     ^~
+make[2]: *** [net/ipv4/route.o] Error 1
+make[1]: *** [net/ipv4] Error 2
+make[1]: *** Waiting for unfinished jobs....
+make: *** [net] Error 2
 
-I'd expect this to be le16_to_cpu.
-Does this pass check build?
 
-> +	case VIRTIO_VSOCK_OP_REQUEST:
-> +	case VIRTIO_VSOCK_OP_RESPONSE:
-> +		hdr->op = cpu_to_le16(AF_VSOCK_OP_CONNECT);
-> +		break;
-> +	case VIRTIO_VSOCK_OP_RST:
-> +	case VIRTIO_VSOCK_OP_SHUTDOWN:
-> +		hdr->op = cpu_to_le16(AF_VSOCK_OP_DISCONNECT);
-> +		break;
-> +	case VIRTIO_VSOCK_OP_RW:
-> +		hdr->op = cpu_to_le16(AF_VSOCK_OP_PAYLOAD);
-> +		break;
-> +	case VIRTIO_VSOCK_OP_CREDIT_UPDATE:
-> +	case VIRTIO_VSOCK_OP_CREDIT_REQUEST:
-> +		hdr->op = cpu_to_le16(AF_VSOCK_OP_CONTROL);
-> +		break;
-> +	default:
-> +		hdr->op = cpu_to_le16(AF_VSOCK_OP_UNKNOWN);
-> +		break;
-> +	}
-> +
-> +	t_hdr = skb_put(skb, sizeof(pkt->hdr));
-> +	memcpy(t_hdr, &pkt->hdr, sizeof(pkt->hdr));
-> +
-> +	if (pkt->len) {
-> +		payload = skb_put(skb, pkt->len);
-> +		memcpy(payload, pkt->buf, pkt->len);
-> +	}
-> +
-> +	vsock_deliver_tap(skb);
-> +}
-> +EXPORT_SYMBOL_GPL(virtio_transport_deliver_tap_pkt);
-> +
->  static int virtio_transport_send_pkt_info(struct vsock_sock *vsk,
->  					  struct virtio_vsock_pkt_info *info)
->  {
-> -- 
-> 2.9.3
+>
+> The bug gets triggered very rarely (only twice so far), but I'll let
+> you know if I see it again.
+>
+> Thanks!
+>
+>>
+>>
+>> Thanks!
+>>
+>>>  ip_queue_xmit+0x1817/0x1a30 net/ipv4/ip_output.c:485
+>>>  sctp_v4_xmit+0x10d/0x140 net/sctp/protocol.c:994
+>>>  sctp_packet_transmit+0x215c/0x3560 net/sctp/output.c:637
+>>>  sctp_outq_flush+0xade/0x3f90 net/sctp/outqueue.c:885
+>>>  sctp_outq_uncork+0x5a/0x70 net/sctp/outqueue.c:750
+>>>  sctp_cmd_interpreter net/sctp/sm_sideeffect.c:1773 [inline]
+>>>  sctp_side_effects net/sctp/sm_sideeffect.c:1175 [inline]
+>>>  sctp_do_sm+0x5a0/0x6a50 net/sctp/sm_sideeffect.c:1147
+>>>  sctp_primitive_ASSOCIATE+0x9d/0xd0 net/sctp/primitive.c:88
+>>>  sctp_sendmsg+0x270d/0x3b50 net/sctp/socket.c:1954
+>>>  inet_sendmsg+0x164/0x5b0 net/ipv4/af_inet.c:762
+>>>  sock_sendmsg_nosec net/socket.c:633 [inline]
+>>>  sock_sendmsg+0xca/0x110 net/socket.c:643
+>>>  SYSC_sendto+0x660/0x810 net/socket.c:1696
+>>>  SyS_sendto+0x40/0x50 net/socket.c:1664
+>>>  entry_SYSCALL_64_fastpath+0x1f/0xc2
+>>> RIP: 0033:0x4458d9
+>>> RSP: 002b:00007fdceca85b58 EFLAGS: 00000282 ORIG_RAX: 000000000000002c
+>>> RAX: ffffffffffffffda RBX: 0000000000000016 RCX: 00000000004458d9
+>>> RDX: 0000000000000087 RSI: 0000000020003000 RDI: 0000000000000016
+>>> RBP: 00000000006e2fe0 R08: 0000000020003000 R09: 0000000000000010
+>>> R10: 0000000000040841 R11: 0000000000000282 R12: 00000000007080a8
+>>> R13: 000000000000000a R14: 0000000000000005 R15: 0000000000000084
+>>> Object at ffff88006ab36008, in cache kmalloc-64 size: 64
+>>> Allocated:
+>>> PID =3D 7243
+>>>  save_stack_trace+0x16/0x20 arch/x86/kernel/stacktrace.c:59
+>>>  save_stack+0x43/0xd0 mm/kasan/kasan.c:513
+>>>  set_track mm/kasan/kasan.c:525 [inline]
+>>>  kasan_kmalloc+0xad/0xe0 mm/kasan/kasan.c:616
+>>>  kmem_cache_alloc_trace+0x82/0x270 mm/slub.c:2745
+>>>  kmalloc include/linux/slab.h:490 [inline]
+>>>  kzalloc include/linux/slab.h:663 [inline]
+>>>  fib_create_info+0x8e0/0x3a30 net/ipv4/fib_semantics.c:1040
+>>>  fib_table_insert+0x1a5/0x1550 net/ipv4/fib_trie.c:1221
+>>>  ip_rt_ioctl+0xddc/0x1590 net/ipv4/fib_frontend.c:597
+>>>  inet_ioctl+0xf2/0x1c0 net/ipv4/af_inet.c:882
+>>>  sock_do_ioctl+0x65/0xb0 net/socket.c:906
+>>>  sock_ioctl+0x28f/0x440 net/socket.c:1004
+>>>  vfs_ioctl fs/ioctl.c:45 [inline]
+>>>  do_vfs_ioctl+0x1bf/0x1780 fs/ioctl.c:685
+>>>  SYSC_ioctl fs/ioctl.c:700 [inline]
+>>>  SyS_ioctl+0x8f/0xc0 fs/ioctl.c:691
+>>>  entry_SYSCALL_64_fastpath+0x1f/0xc2
+>>> Freed:
+>>> PID =3D 12622
+>>>  save_stack_trace+0x16/0x20 arch/x86/kernel/stacktrace.c:59
+>>>  save_stack+0x43/0xd0 mm/kasan/kasan.c:513
+>>>  set_track mm/kasan/kasan.c:525 [inline]
+>>>  kasan_slab_free+0x73/0xc0 mm/kasan/kasan.c:589
+>>>  slab_free_hook mm/slub.c:1357 [inline]
+>>>  slab_free_freelist_hook mm/slub.c:1379 [inline]
+>>>  slab_free mm/slub.c:2961 [inline]
+>>>  kfree+0xe8/0x2b0 mm/slub.c:3882
+>>>  free_fib_info_rcu+0x4ba/0x5e0 net/ipv4/fib_semantics.c:218
+>>>  __rcu_reclaim kernel/rcu/rcu.h:118 [inline]
+>>>  rcu_do_batch.isra.64+0x947/0xcc0 kernel/rcu/tree.c:2879
+>>>  invoke_rcu_callbacks kernel/rcu/tree.c:3142 [inline]
+>>>  __rcu_process_callbacks kernel/rcu/tree.c:3109 [inline]
+>>>  rcu_process_callbacks+0x2cc/0xb90 kernel/rcu/tree.c:3126
+>>>  __do_softirq+0x2fb/0xb7d kernel/softirq.c:284
+>>> Memory state around the buggy address:
+>>>  ffff88006ab35f00: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+>>>  ffff88006ab35f80: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+>>>>ffff88006ab36000: fc fb fb fb fb fb fb fb fb fc fc fc fc fc fc fc
+>>>                                   ^
+>>>  ffff88006ab36080: fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc
+>>>  ffff88006ab36100: fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc
+>>> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+>>
+>> --
+>> You received this message because you are subscribed to the Google Group=
+s "syzkaller" group.
+>> To unsubscribe from this group and stop receiving emails from it, send a=
+n email to syzkaller+unsubscribe@googlegroups.com.
+>> For more options, visit https://groups.google.com/d/optout.
