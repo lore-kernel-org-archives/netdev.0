@@ -1,320 +1,73 @@
-From: Gavin Shan <gwshan@linux.vnet.ibm.com>
-Subject: [PATCH net-next 4/8] net/ncsi: Add debugging infrastructurre
-Date: Thu, 13 Apr 2017 12:46:36 +1000
-Message-ID: <1492051600-26706-5-git-send-email-gwshan@linux.vnet.ibm.com>
-References: <1492051600-26706-1-git-send-email-gwshan@linux.vnet.ibm.com>
-Cc: davem@davemloft.net, Gavin Shan <gwshan@linux.vnet.ibm.com>
-To: netdev@vger.kernel.org
+From: Saeed Mahameed <saeedm@mellanox.com>
+Subject: [PATCH net-next 01/16] net/mlx5: Add IPoIB enhanced offloads bits to mlx5_ifc
+Date: Thu, 13 Apr 2017 06:36:51 +0300
+Message-ID: <20170413033706.19016-2-saeedm@mellanox.com>
+References: <20170413033706.19016-1-saeedm@mellanox.com>
+Cc: linux-rdma@vger.kernel.org, Doug Ledford <dledford@redhat.com>,
+        Leon Romanovsky <leonro@mellanox.com>,
+        Erez Shitrit <erezsh@mellanox.com>,
+        Jason Gunthorpe <jgunthorpe@obsidianresearch.com>,
+        Vishwanathapura Niranjana <niranjana.vishwanathapura@intel.com>,
+        Saeed Mahameed <saeedm@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:52483 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1756038AbdDMDij (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 12 Apr 2017 23:38:39 -0400
-Received: from pps.filterd (m0098421.ppops.net [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v3D3YQcJ026183
-        for <netdev@vger.kernel.org>; Wed, 12 Apr 2017 23:38:38 -0400
-Received: from e23smtp08.au.ibm.com (e23smtp08.au.ibm.com [202.81.31.141])
-        by mx0a-001b2d01.pphosted.com with ESMTP id 29sx7qx712-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Wed, 12 Apr 2017 23:38:38 -0400
-Received: from localhost
-        by e23smtp08.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <gwshan@linux.vnet.ibm.com>;
-        Thu, 13 Apr 2017 13:38:35 +1000
-Received: from d23av04.au.ibm.com (d23av04.au.ibm.com [9.190.235.139])
-        by d23relay09.au.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id v3D3cPXN11469030
-        for <netdev@vger.kernel.org>; Thu, 13 Apr 2017 13:38:33 +1000
-Received: from d23av04.au.ibm.com (localhost [127.0.0.1])
-        by d23av04.au.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id v3D3bwRg018475
-        for <netdev@vger.kernel.org>; Thu, 13 Apr 2017 13:37:59 +1000
-In-Reply-To: <1492051600-26706-1-git-send-email-gwshan@linux.vnet.ibm.com>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:41681 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1756050AbdDMDhn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 12 Apr 2017 23:37:43 -0400
+In-Reply-To: <20170413033706.19016-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This creates procfs directories as NCSI debugging infrastructure.
-With the patch applied, We will see below procfs directories. Every
-NCSI package and channel has one corresponding directory. Other than
-presenting the NCSI topology, No real function has been achieved
-through these procfs directories so far.
+From: Erez Shitrit <erezsh@mellanox.com>
 
-     /proc/ncsi/eth0
-     /proc/ncsi/eth0/p0
-     /proc/ncsi/eth0/p0/c0
-     /proc/ncsi/eth0/p0/c1
+New capability bit: ipoib_enhanced_offloads, indicates new ability for UD
+QP to do RSS and enhanced IPoIB offloads and acceleration.
 
-Signed-off-by: Gavin Shan <gwshan@linux.vnet.ibm.com>
+Add underlay_qpn to the TIS and flow_table objects In order to support
+SET_ROOT command, to connect between IPoIB QPs and flow steering tables.
+
+Signed-off-by: Erez Shitrit <erezsh@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- net/ncsi/Kconfig       |  9 +++++
- net/ncsi/Makefile      |  1 +
- net/ncsi/internal.h    | 45 ++++++++++++++++++++++++
- net/ncsi/ncsi-debug.c  | 95 ++++++++++++++++++++++++++++++++++++++++++++++++++
- net/ncsi/ncsi-manage.c | 16 +++++++++
- 5 files changed, 166 insertions(+)
- create mode 100644 net/ncsi/ncsi-debug.c
+ include/linux/mlx5/mlx5_ifc.h | 11 ++++++++---
+ 1 file changed, 8 insertions(+), 3 deletions(-)
 
-diff --git a/net/ncsi/Kconfig b/net/ncsi/Kconfig
-index 08a8a60..b73ce24 100644
---- a/net/ncsi/Kconfig
-+++ b/net/ncsi/Kconfig
-@@ -10,3 +10,12 @@ config NET_NCSI
- 	  support. Enable this only if your system connects to a network
- 	  device via NCSI and the ethernet driver you're using supports
- 	  the protocol explicitly.
-+
-+config NET_NCSI_DEBUG
-+	bool "Enable NCSI debugging"
-+	depends on NET_NCSI && PROC_FS
-+	default n
-+	---help---
-+	  This enables the interfaces (e.g. procfs) for NCSI debugging purpose.
-+
-+	  If unsure, say Y.
-diff --git a/net/ncsi/Makefile b/net/ncsi/Makefile
-index dd12b56..2897fa0 100644
---- a/net/ncsi/Makefile
-+++ b/net/ncsi/Makefile
-@@ -2,3 +2,4 @@
- # Makefile for NCSI API
- #
- obj-$(CONFIG_NET_NCSI) += ncsi-cmd.o ncsi-rsp.o ncsi-aen.o ncsi-manage.o
-+obj-$(CONFIG_NET_NCSI_DEBUG) += ncsi-debug.o
-diff --git a/net/ncsi/internal.h b/net/ncsi/internal.h
-index 1308a56..2a08168 100644
---- a/net/ncsi/internal.h
-+++ b/net/ncsi/internal.h
-@@ -198,6 +198,9 @@ struct ncsi_channel {
- 	} monitor;
- 	struct list_head            node;
- 	struct list_head            link;
-+#ifdef CONFIG_NET_NCSI_DEBUG
-+	struct proc_dir_entry       *pde;       /* Procfs directory    */
-+#endif
+diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
+index 1993adbd2c82..7c50bd39b297 100644
+--- a/include/linux/mlx5/mlx5_ifc.h
++++ b/include/linux/mlx5/mlx5_ifc.h
+@@ -872,7 +872,8 @@ struct mlx5_ifc_cmd_hca_cap_bits {
+ 
+ 	u8         compact_address_vector[0x1];
+ 	u8         striding_rq[0x1];
+-	u8         reserved_at_202[0x2];
++	u8         reserved_at_202[0x1];
++	u8         ipoib_enhanced_offloads[0x1];
+ 	u8         ipoib_basic_offloads[0x1];
+ 	u8         reserved_at_205[0xa];
+ 	u8         drain_sigerr[0x1];
+@@ -2293,7 +2294,9 @@ struct mlx5_ifc_tisc_bits {
+ 	u8         reserved_at_120[0x8];
+ 	u8         transport_domain[0x18];
+ 
+-	u8         reserved_at_140[0x3c0];
++	u8         reserved_at_140[0x8];
++	u8         underlay_qpn[0x18];
++	u8         reserved_at_160[0x3a0];
  };
  
- struct ncsi_package {
-@@ -208,6 +211,9 @@ struct ncsi_package {
- 	unsigned int         channel_num; /* Number of channels     */
- 	struct list_head     channels;    /* List of chanels        */
- 	struct list_head     node;        /* Form list of packages  */
-+#ifdef CONFIG_NET_NCSI_DEBUG
-+	struct proc_dir_entry *pde;       /* Procfs directory       */
-+#endif
+ enum {
+@@ -8218,7 +8221,9 @@ struct mlx5_ifc_set_flow_table_root_in_bits {
+ 	u8         reserved_at_a0[0x8];
+ 	u8         table_id[0x18];
+ 
+-	u8         reserved_at_c0[0x140];
++	u8         reserved_at_c0[0x8];
++	u8         underlay_qpn[0x18];
++	u8         reserved_at_e0[0x120];
  };
  
- struct ncsi_request {
-@@ -276,6 +282,9 @@ struct ncsi_dev_priv {
- 	struct work_struct  work;            /* For channel management     */
- 	struct packet_type  ptype;           /* NCSI packet Rx handler     */
- 	struct list_head    node;            /* Form NCSI device list      */
-+#ifdef CONFIG_NET_NCSI_DEBUG
-+	struct proc_dir_entry    *pde;       /* Procfs directory           */
-+#endif
- };
- 
- struct ncsi_cmd_arg {
-@@ -337,4 +346,40 @@ int ncsi_rcv_rsp(struct sk_buff *skb, struct net_device *dev,
- 		 struct packet_type *pt, struct net_device *orig_dev);
- int ncsi_aen_handler(struct ncsi_dev_priv *ndp, struct sk_buff *skb);
- 
-+/* Debugging functionality */
-+#ifdef CONFIG_NET_NCSI_DEBUG
-+int ncsi_dev_init_debug(struct ncsi_dev_priv *ndp);
-+void ncsi_dev_release_debug(struct ncsi_dev_priv *ndp);
-+int ncsi_package_init_debug(struct ncsi_package *np);
-+void ncsi_package_release_debug(struct ncsi_package *np);
-+int ncsi_channel_init_debug(struct ncsi_channel *nc);
-+void ncsi_channel_release_debug(struct ncsi_channel *nc);
-+#else
-+static inline int ncsi_dev_init_debug(struct ncsi_dev_priv *ndp)
-+{
-+	return -ENOTTY;
-+}
-+
-+static inline void ncsi_dev_release_debug(struct ncsi_dev_priv *ndp)
-+{
-+}
-+
-+static inline int ncsi_package_init_debug(struct ncsi_package *np)
-+{
-+	return -ENOTTY;
-+}
-+
-+static inline void ncsi_package_release_debug(struct ncsi_package *np)
-+{
-+}
-+
-+static inline int ncsi_channel_init_debug(struct ncsi_channel *nc)
-+{
-+	return -ENOTTY;
-+}
-+
-+static inline void ncsi_channel_release_debug(struct ncsi_channel *nc)
-+{
-+}
-+#endif /* CONFIG_NET_NCSI_DEBUG */
- #endif /* __NCSI_INTERNAL_H__ */
-diff --git a/net/ncsi/ncsi-debug.c b/net/ncsi/ncsi-debug.c
-new file mode 100644
-index 0000000..1909b00
---- /dev/null
-+++ b/net/ncsi/ncsi-debug.c
-@@ -0,0 +1,95 @@
-+/*
-+ * Copyright Gavin Shan, IBM Corporation 2017.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ */
-+
-+#include <linux/module.h>
-+#include <linux/kernel.h>
-+#include <linux/init.h>
-+#include <linux/atomic.h>
-+#include <linux/netdevice.h>
-+#include <linux/proc_fs.h>
-+#include <linux/skbuff.h>
-+
-+#include <net/ncsi.h>
-+#include <net/net_namespace.h>
-+#include <net/sock.h>
-+
-+#include "internal.h"
-+#include "ncsi-pkt.h"
-+
-+static struct proc_dir_entry *ncsi_pde;
-+
-+int ncsi_dev_init_debug(struct ncsi_dev_priv *ndp)
-+{
-+	if (WARN_ON_ONCE(ndp->pde))
-+		return 0;
-+
-+	if (!ncsi_pde) {
-+		ncsi_pde = proc_mkdir("ncsi", NULL);
-+		if (!ncsi_pde) {
-+			pr_warn("NCSI: Cannot create /proc/ncsi\n");
-+			return -ENOENT;
-+		}
-+	}
-+
-+	ndp->pde = proc_mkdir(netdev_name(ndp->ndev.dev), ncsi_pde);
-+	if (!ndp->pde)
-+		return -ENOMEM;
-+
-+	return 0;
-+}
-+
-+void ncsi_dev_release_debug(struct ncsi_dev_priv *ndp)
-+{
-+	if (ndp->pde)
-+		proc_remove(ndp->pde);
-+}
-+
-+int ncsi_package_init_debug(struct ncsi_package *np)
-+{
-+	struct ncsi_dev_priv *ndp = np->ndp;
-+	char name[4];
-+
-+	if (!ndp->pde)
-+		return -ENOENT;
-+
-+	sprintf(name, "p%d", np->id);
-+	np->pde = proc_mkdir(name, ndp->pde);
-+	if (!np->pde)
-+		return -ENOMEM;
-+
-+	return 0;
-+}
-+
-+void ncsi_package_release_debug(struct ncsi_package *np)
-+{
-+	if (np->pde)
-+		proc_remove(np->pde);
-+}
-+
-+int ncsi_channel_init_debug(struct ncsi_channel *nc)
-+{
-+	struct ncsi_package *np = nc->package;
-+	char name[3];
-+
-+	if (!np->pde)
-+		return -ENOENT;
-+
-+	sprintf(name, "c%d", nc->id);
-+	nc->pde = proc_mkdir(name, np->pde);
-+	if (!nc->pde)
-+		return -ENOMEM;
-+
-+	return 0;
-+}
-+
-+void ncsi_channel_release_debug(struct ncsi_channel *nc)
-+{
-+	if (nc->pde)
-+		proc_remove(nc->pde);
-+}
-diff --git a/net/ncsi/ncsi-manage.c b/net/ncsi/ncsi-manage.c
-index 13ad1f26..84f1405 100644
---- a/net/ncsi/ncsi-manage.c
-+++ b/net/ncsi/ncsi-manage.c
-@@ -322,6 +322,8 @@ struct ncsi_channel *ncsi_add_channel(struct ncsi_package *np, unsigned char id)
- 	np->channel_num++;
- 	spin_unlock_irqrestore(&np->lock, flags);
- 
-+	ncsi_channel_init_debug(nc);
-+
- 	return nc;
- }
- 
-@@ -332,6 +334,8 @@ static void ncsi_remove_channel(struct ncsi_channel *nc)
- 	unsigned long flags;
- 	int i;
- 
-+	ncsi_channel_release_debug(nc);
-+
- 	/* Release filters */
- 	spin_lock_irqsave(&nc->lock, flags);
- 	for (i = 0; i < NCSI_FILTER_MAX; i++) {
-@@ -396,6 +400,8 @@ struct ncsi_package *ncsi_add_package(struct ncsi_dev_priv *ndp,
- 	ndp->package_num++;
- 	spin_unlock_irqrestore(&ndp->lock, flags);
- 
-+	ncsi_package_init_debug(np);
-+
- 	return np;
- }
- 
-@@ -409,6 +415,8 @@ void ncsi_remove_package(struct ncsi_package *np)
- 	list_for_each_entry_safe(nc, tmp, &np->channels, node)
- 		ncsi_remove_channel(nc);
- 
-+	ncsi_package_release_debug(np);
-+
- 	/* Remove and free package */
- 	spin_lock_irqsave(&ndp->lock, flags);
- 	list_del_rcu(&np->node);
-@@ -1280,6 +1288,13 @@ int ncsi_start_dev(struct ncsi_dev *nd)
- 		return -ENOTTY;
- 
- 	if (!(ndp->flags & NCSI_DEV_PROBED)) {
-+		/* The debugging functionality should have been initialized
-+		 * when registerring the NCSI device. As the network device
-+		 * name isn't available that time, we have to delay the work
-+		 * to here.
-+		 */
-+		ncsi_dev_init_debug(ndp);
-+
- 		nd->state = ncsi_dev_state_probe;
- 		schedule_work(&ndp->work);
- 		return 0;
-@@ -1329,6 +1344,7 @@ void ncsi_unregister_dev(struct ncsi_dev *nd)
- 	struct ncsi_package *np, *tmp;
- 	unsigned long flags;
- 
-+	ncsi_dev_release_debug(ndp);
- 	dev_remove_pack(&ndp->ptype);
- 
- 	list_for_each_entry_safe(np, tmp, &ndp->packages, node)
+ enum {
 -- 
-2.7.4
+2.11.0
