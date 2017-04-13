@@ -1,46 +1,45 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next 0/3] l3mdev: Improve use with main table
-Date: Thu, 13 Apr 2017 08:36:38 -0600
-Message-ID: <e9cbd091-bb51-6f30-f31b-9080145caa93@cumulusnetworks.com>
-References: <1491834122-26252-1-git-send-email-rshearma@brocade.com>
- <822ee9b5-09d6-6987-deb3-6af9d537c891@cumulusnetworks.com>
- <a7204fbc-68b5-c6f4-c76c-d33b9c85d663@brocade.com>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: [RFC PATCH 3/7] net: add option to get information about
+ timestamped packets
+Date: Thu, 13 Apr 2017 10:37:07 -0400
+Message-ID: <CAF=yD-Lsbr7f7aPUsFF3gCtFdyR8yb1=VBPJGQuxv_JbrJud6Q@mail.gmail.com>
+References: <20170412141737.5881-1-mlichvar@redhat.com> <20170412141737.5881-4-mlichvar@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Robert Shearman <rshearma@brocade.com>, davem@davemloft.net
+Content-Type: text/plain; charset=UTF-8
+Cc: Network Development <netdev@vger.kernel.org>,
+        Richard Cochran <richardcochran@gmail.com>,
+        Willem de Bruijn <willemb@google.com>,
+        Soheil Hassas Yeganeh <soheil@google.com>,
+        "Keller, Jacob E" <jacob.e.keller@intel.com>,
+        Denny Page <dennypage@me.com>, Jiri Benc <jbenc@redhat.com>
+To: Miroslav Lichvar <mlichvar@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f51.google.com ([209.85.218.51]:34359 "EHLO
-        mail-oi0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752341AbdDMOgl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 13 Apr 2017 10:36:41 -0400
-Received: by mail-oi0-f51.google.com with SMTP id g204so67551233oib.1
-        for <netdev@vger.kernel.org>; Thu, 13 Apr 2017 07:36:39 -0700 (PDT)
-In-Reply-To: <a7204fbc-68b5-c6f4-c76c-d33b9c85d663@brocade.com>
+Received: from mail-qt0-f182.google.com ([209.85.216.182]:36093 "EHLO
+        mail-qt0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752446AbdDMOhy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 13 Apr 2017 10:37:54 -0400
+Received: by mail-qt0-f182.google.com with SMTP id v3so47222842qtd.3
+        for <netdev@vger.kernel.org>; Thu, 13 Apr 2017 07:37:48 -0700 (PDT)
+In-Reply-To: <20170412141737.5881-4-mlichvar@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 4/13/17 6:48 AM, Robert Shearman wrote:
->> the patches look ok to me, but in testing them I see I refcnt problem.
->> simple reproducer:
->>
->> ip li add red type vrf table 254
->> ip link set dev eth1 vrf red
->> ip addr add 127.0.0.1/8 dev red
->> ip link set dev eth1 up
->> ip li set red up
->> ping -c1 -w1 -I red 127.0.0.1
->> ip li del red
->> --> hangs with 'uregister_netdevice: waiting for red to become free.'
-> 
-> Right, I've reproduced the same and it occurs even without using the
-> main table and I believe it has been introduced within the last week.
+On Wed, Apr 12, 2017 at 10:17 AM, Miroslav Lichvar <mlichvar@redhat.com> wrote:
+> Extend the skb_shared_hwtstamps structure with the index of the
+> real interface which received or transmitted the packet and the length
+> of the packet at layer 2.
 
-The cached dst on sockets is one known place that causes a hang on a
-delete. Basically the delete stalls until the sockets are closed. I have
-a patch for sk_rx_dst which is the one I chased down last week.
-sk_dst_cache is another possibility.
+The original packet is received along with the timestamp. Why is this L2
+length needed?
 
-Neither of those should be at play with the above example because the
-ping command runs and then exits.
+> Add a SOF_TIMESTAMPING_OPT_PKTINFO flag to
+> the SO_TIMESTAMPING option to allow applications to get this information
+> as struct scm_ts_pktinfo in SCM_TIMESTAMPING_PKTINFO control message.
+
+This patch saves skb->dev->ifindex, which is the same as existing
+SOF_TIMESTAMPING_OPT_CMSG. See also the bug fix for that
+feature I sent yesterday: http://patchwork.ozlabs.org/patch/750197/
+
+If the intent is to return a different ifindex, I would still suggest using
+the existing pktinfo infrastructure, but changing the ifindex that is
+recorded.
