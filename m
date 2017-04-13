@@ -1,69 +1,105 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: [RFC PATCH 3/7] net: add option to get information about
- timestamped packets
-Date: Thu, 13 Apr 2017 12:16:09 -0400
-Message-ID: <CAF=yD-+tJpY7XJrqxga=0_kn-FjS0M=yuu59m_ZRRrrcpJCbZw@mail.gmail.com>
-References: <20170412141737.5881-1-mlichvar@redhat.com> <20170412141737.5881-4-mlichvar@redhat.com>
- <CAF=yD-Lsbr7f7aPUsFF3gCtFdyR8yb1=VBPJGQuxv_JbrJud6Q@mail.gmail.com> <20170413151806.GA26613@localhost>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Network Development <netdev@vger.kernel.org>,
-        Richard Cochran <richardcochran@gmail.com>,
-        Willem de Bruijn <willemb@google.com>,
-        Soheil Hassas Yeganeh <soheil@google.com>,
-        "Keller, Jacob E" <jacob.e.keller@intel.com>,
-        Denny Page <dennypage@me.com>, Jiri Benc <jbenc@redhat.com>
-To: Miroslav Lichvar <mlichvar@redhat.com>
+From: Stefan Hajnoczi <stefanha@redhat.com>
+Subject: [PATCH v4 0/3] VSOCK: vsockmon virtual device to monitor AF_VSOCK sockets.
+Date: Thu, 13 Apr 2017 17:18:08 +0100
+Message-ID: <20170413161811.8953-1-stefanha@redhat.com>
+Cc: Zhu Yanjun <zyjzyj2000@gmail.com>,
+        "Michael S. Tsirkin" <mst@redhat.com>,
+        Gerard Garcia <ggarcia@abra.uab.cat>,
+        Jorgen Hansen <jhansen@vmware.com>,
+        Stefan Hajnoczi <stefanha@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f180.google.com ([209.85.216.180]:36303 "EHLO
-        mail-qt0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752106AbdDMQQu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 13 Apr 2017 12:16:50 -0400
-Received: by mail-qt0-f180.google.com with SMTP id v3so49527825qtd.3
-        for <netdev@vger.kernel.org>; Thu, 13 Apr 2017 09:16:50 -0700 (PDT)
-In-Reply-To: <20170413151806.GA26613@localhost>
+Received: from mx1.redhat.com ([209.132.183.28]:49634 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752106AbdDMQSS (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 13 Apr 2017 12:18:18 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 13, 2017 at 11:18 AM, Miroslav Lichvar <mlichvar@redhat.com> wrote:
-> On Thu, Apr 13, 2017 at 10:37:07AM -0400, Willem de Bruijn wrote:
->> On Wed, Apr 12, 2017 at 10:17 AM, Miroslav Lichvar <mlichvar@redhat.com> wrote:
->> > Extend the skb_shared_hwtstamps structure with the index of the
->> > real interface which received or transmitted the packet and the length
->> > of the packet at layer 2.
->>
->> The original packet is received along with the timestamp.
->
-> But only outgoing packets, right?
+v4:
+ * Add explicit reserved padding field to struct af_vsockmon_hdr and
+   drop __attribute__((packed)) [Michael, DaveM]
+ * Call synchronize_net() before module_put() [Michael]
 
-Timestamps for incoming packets are also passed alongside the original packet.
+v3:
+ * Hook virtio_transport.c (guest driver), not just drivers/vhost/vsock.c (host
+   driver)
+ * Fix DEFAULT_MTU macro definition [Zhu Yanjun]
+ * Rename af_vsockmon_hdr->t field ->transport for clarity
+ * Update .ndo_get_stats64() return type since it has changed
+ * Include missing <linux/module.h> header in af_vsock_tap.c
 
->> Why is this L2 length needed?
->
-> It's needed for incoming packets to allow converting of preamble
-> timestamps to trailer timestamps.
+This is a continuation of Gerard Garcia's work on the vsockmon packet capture
+interface for AF_VSOCK.  Packet capture is an essential feature for network
+communication.  Gerard began addressing this feature gap in his Google Summer
+of Code 2016 project.  I have cleaned up, rebased, and retested the v2 series
+he posted previously.
 
-Receiving the mac length of a packet sounds like a feature independent
-from timestamping. Either an ioctl similar to SIOCGIFMTU or, if it may
-vary due to existince of vlan headers, a new independent cmsg at the
-SOL_SOCKET layer.
+The design follows the nlmon packet capture interface closely.  This is because
+vsock has the same problem as netlink: there is no netdev on which packets can
+be captured.  The nlmon driver is a synthetic netdev purely for the purpose of
+enabling packet capture.  We follow the same approach here with vsockmon.
 
->> > Add a SOF_TIMESTAMPING_OPT_PKTINFO flag to
->> > the SO_TIMESTAMPING option to allow applications to get this information
->> > as struct scm_ts_pktinfo in SCM_TIMESTAMPING_PKTINFO control message.
->>
->> This patch saves skb->dev->ifindex, which is the same as existing
->> SOF_TIMESTAMPING_OPT_CMSG. See also the bug fix for that
->> feature I sent yesterday: http://patchwork.ozlabs.org/patch/750197/
->
-> The main point is that it provides the index of the device which
-> received the packet. It does duplicate the functionality of OPT_CMSG +
-> IP_PKTINFO for outgoing packets, but I thought it might be useful with
-> the TSONLY option.
+See include/uapi/linux/vsockmon.h in this series for details on the packet
+layout.
 
-Agreed. I'd prefer to reuse the existing option for that and just extend it
-to work together with TSONLY.
+How to try it:
 
-We will have to set serr->header.h4.iif from something other than skb->dev
-if the skb was allocated fresh in __skb_tstamp_tx without the device
-association.
+1. Build tcpdump with vsockmon patches:
+
+  $ git clone -b vsock https://github.com/stefanha/libpcap
+  $ (cd libcap && ./configure && make)
+  $ git clone -b vsock https://github.com/stefanha/tcpdump
+  $ (cd tcpdump && ./configure && make)
+
+2. Build nc-vsock (a netcat-like tool):
+
+  $ git clone https://github.com/stefanha/nc-vsock
+  $ (cd nc-vsock && make)
+
+3. Launch a virtual machine:
+
+  # modprobe vhost_vsock
+  # qemu-system-x86_64 -M accel=kvm -m 1024 -cpu host \
+      -drive if=virtio,file=test.img,format=raw \
+      -device vhost-vsock-pci,guest-cid=3
+
+  (Assumes guest is running a kernel with this patch)
+
+4. Capture AF_VSOCK traffic in guest and/or host:
+
+  # modprobe vsockmon
+  # ip link add type vsockmon
+  # ip link set vsockmon0 up
+  # tcpdump -i vsockmon0 -vvv
+
+5. Communicate!
+
+  (host)$ nc-vsock -l 1234
+  (guest)$ nc-vsock 2 1234
+
+Gerard Garcia (3):
+  VSOCK: Add vsockmon tap functions
+  VSOCK: Add vsockmon device
+  VSOCK: Add virtio vsock vsockmon hooks
+
+ drivers/net/Makefile                    |   1 +
+ net/vmw_vsock/Makefile                  |   2 +-
+ include/linux/virtio_vsock.h            |   1 +
+ include/net/af_vsock.h                  |  13 +++
+ include/uapi/linux/if_arp.h             |   1 +
+ include/uapi/linux/vsockmon.h           |  58 +++++++++++
+ drivers/net/vsockmon.c                  | 167 ++++++++++++++++++++++++++++++++
+ drivers/vhost/vsock.c                   |   8 ++
+ net/vmw_vsock/af_vsock_tap.c            | 107 ++++++++++++++++++++
+ net/vmw_vsock/virtio_transport.c        |   3 +
+ net/vmw_vsock/virtio_transport_common.c |  58 +++++++++++
+ drivers/net/Kconfig                     |   8 ++
+ include/uapi/linux/Kbuild               |   1 +
+ 13 files changed, 427 insertions(+), 1 deletion(-)
+ create mode 100644 include/uapi/linux/vsockmon.h
+ create mode 100644 drivers/net/vsockmon.c
+ create mode 100644 net/vmw_vsock/af_vsock_tap.c
+
+-- 
+2.9.3
