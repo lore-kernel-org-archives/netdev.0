@@ -1,7 +1,8 @@
 From: Logan Gunthorpe <logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH 11/22] RDS: Make use of the new sg_map helper function
-Date: Thu, 13 Apr 2017 16:05:24 -0600
-Message-ID: <1492121135-4437-12-git-send-email-logang@deltatee.com>
+Subject: [PATCH 09/22] dm-crypt: Make use of the new sg_map helper in 4 call
+ sites
+Date: Thu, 13 Apr 2017 16:05:22 -0600
+Message-ID: <1492121135-4437-10-git-send-email-logang@deltatee.com>
 References: <1492121135-4437-1-git-send-email-logang@deltatee.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -36,49 +37,86 @@ Errors-To: linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org
 Sender: "Linux-nvdimm" <linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-Straightforward conversion except there's no error path, so we WARN if
-the sg_map fails.
+Very straightforward conversion to the new function in all four spots.
 
 Signed-off-by: Logan Gunthorpe <logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
 ---
- net/rds/ib_recv.c | 17 ++++++++++++++---
- 1 file changed, 14 insertions(+), 3 deletions(-)
+ drivers/md/dm-crypt.c | 38 +++++++++++++++++++++++++-------------
+ 1 file changed, 25 insertions(+), 13 deletions(-)
 
-diff --git a/net/rds/ib_recv.c b/net/rds/ib_recv.c
-index e10624a..7f8fa99 100644
---- a/net/rds/ib_recv.c
-+++ b/net/rds/ib_recv.c
-@@ -801,9 +801,20 @@ static void rds_ib_cong_recv(struct rds_connection *conn,
- 		to_copy = min(RDS_FRAG_SIZE - frag_off, PAGE_SIZE - map_off);
- 		BUG_ON(to_copy & 7); /* Must be 64bit aligned. */
+diff --git a/drivers/md/dm-crypt.c b/drivers/md/dm-crypt.c
+index 389a363..6bd0ffc 100644
+--- a/drivers/md/dm-crypt.c
++++ b/drivers/md/dm-crypt.c
+@@ -589,9 +589,12 @@ static int crypt_iv_lmk_gen(struct crypt_config *cc, u8 *iv,
+ 	int r = 0;
  
--		addr = kmap_atomic(sg_page(&frag->f_sg));
-+		addr = sg_map(&frag->f_sg, SG_KMAP_ATOMIC);
-+		if (IS_ERR(addr)) {
-+			/*
-+			 * This should really never happen unless
-+			 * the code is changed to use memory that is
-+			 * not mappable in the sg. Seeing there doesn't
-+			 * seem to be any error path out of here,
-+			 * we can only WARN.
-+			 */
-+			WARN(1, "Non-mappable memory used in sg!");
-+			return;
-+		}
+ 	if (bio_data_dir(dmreq->ctx->bio_in) == WRITE) {
+-		src = kmap_atomic(sg_page(&dmreq->sg_in));
+-		r = crypt_iv_lmk_one(cc, iv, dmreq, src + dmreq->sg_in.offset);
+-		kunmap_atomic(src);
++		src = sg_map(&dmreq->sg_in, SG_KMAP_ATOMIC);
++		if (IS_ERR(src))
++			return PTR_ERR(src);
++
++		r = crypt_iv_lmk_one(cc, iv, dmreq, src);
++		sg_unmap(&dmreq->sg_in, src, SG_KMAP_ATOMIC);
+ 	} else
+ 		memset(iv, 0, cc->iv_size);
  
--		src = addr + frag->f_sg.offset + frag_off;
-+		src = addr + frag_off;
- 		dst = (void *)map->m_page_addrs[map_page] + map_off;
- 		for (k = 0; k < to_copy; k += 8) {
- 			/* Record ports that became uncongested, ie
-@@ -811,7 +822,7 @@ static void rds_ib_cong_recv(struct rds_connection *conn,
- 			uncongested |= ~(*src) & *dst;
- 			*dst++ = *src++;
- 		}
--		kunmap_atomic(addr);
-+		sg_unmap(&frag->f_sg, addr, SG_KMAP_ATOMIC);
+@@ -607,14 +610,17 @@ static int crypt_iv_lmk_post(struct crypt_config *cc, u8 *iv,
+ 	if (bio_data_dir(dmreq->ctx->bio_in) == WRITE)
+ 		return 0;
  
- 		copied += to_copy;
+-	dst = kmap_atomic(sg_page(&dmreq->sg_out));
+-	r = crypt_iv_lmk_one(cc, iv, dmreq, dst + dmreq->sg_out.offset);
++	dst = sg_map(&dmreq->sg_out, SG_KMAP_ATOMIC);
++	if (IS_ERR(dst))
++		return PTR_ERR(dst);
++
++	r = crypt_iv_lmk_one(cc, iv, dmreq, dst);
  
+ 	/* Tweak the first block of plaintext sector */
+ 	if (!r)
+-		crypto_xor(dst + dmreq->sg_out.offset, iv, cc->iv_size);
++		crypto_xor(dst, iv, cc->iv_size);
+ 
+-	kunmap_atomic(dst);
++	sg_unmap(&dmreq->sg_out, dst, SG_KMAP_ATOMIC);
+ 	return r;
+ }
+ 
+@@ -731,9 +737,12 @@ static int crypt_iv_tcw_gen(struct crypt_config *cc, u8 *iv,
+ 
+ 	/* Remove whitening from ciphertext */
+ 	if (bio_data_dir(dmreq->ctx->bio_in) != WRITE) {
+-		src = kmap_atomic(sg_page(&dmreq->sg_in));
+-		r = crypt_iv_tcw_whitening(cc, dmreq, src + dmreq->sg_in.offset);
+-		kunmap_atomic(src);
++		src = sg_map(&dmreq->sg_in, SG_KMAP_ATOMIC);
++		if (IS_ERR(src))
++			return PTR_ERR(src);
++
++		r = crypt_iv_tcw_whitening(cc, dmreq, src);
++		sg_unmap(&dmreq->sg_in, src, SG_KMAP_ATOMIC);
+ 	}
+ 
+ 	/* Calculate IV */
+@@ -755,9 +764,12 @@ static int crypt_iv_tcw_post(struct crypt_config *cc, u8 *iv,
+ 		return 0;
+ 
+ 	/* Apply whitening on ciphertext */
+-	dst = kmap_atomic(sg_page(&dmreq->sg_out));
+-	r = crypt_iv_tcw_whitening(cc, dmreq, dst + dmreq->sg_out.offset);
+-	kunmap_atomic(dst);
++	dst = sg_map(&dmreq->sg_out, SG_KMAP_ATOMIC);
++	if (IS_ERR(dst))
++		return PTR_ERR(dst);
++
++	r = crypt_iv_tcw_whitening(cc, dmreq, dst);
++	sg_unmap(&dmreq->sg_out, dst, SG_KMAP_ATOMIC);
+ 
+ 	return r;
+ }
 -- 
 2.1.4
