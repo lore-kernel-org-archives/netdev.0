@@ -1,8 +1,7 @@
 From: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH net-next 07/16] net/mlx5e: IPoIB, RSS flow steering tables
-Date: Thu, 13 Apr 2017 06:36:57 +0300
-Message-ID: <20170413033706.19016-8-saeedm@mellanox.com>
-References: <20170413033706.19016-1-saeedm@mellanox.com>
+Subject: [PATCH net-next 00/16] Mellanox, mlx5 RDMA net device support
+Date: Thu, 13 Apr 2017 06:36:50 +0300
+Message-ID: <20170413033706.19016-1-saeedm@mellanox.com>
 Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
         Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
         Erez Shitrit <erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
@@ -11,161 +10,148 @@ Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Doug Ledford <dledford-H
         Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170413033706.19016-1-saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Like the mlx5e ethernet mode, on IPoIB mode we need to create RX steering
-tables, but IPoIB do not require MAC and VLAN steering tables so the
-only tables we create in here are:
-1. TTC Table (Traffic Type Classifier table for RSS steering)
-2. ARFS Table (for accelerated RFS support)
+Hi Dave and Doug.
 
-Creation of those tables is identical to mlx5e ethernet mode, hence the
-use of mlx5e_create_ttc_table and mlx5e_arfs_create_tables.
+This series provides the lower level mlx5 support of RDMA netdevice
+creation API [1] suggested and introduced by Intel's HFI OPA VNIC
+netdevice driver [2], to enable IPoIB mlx5 RDMA netdevice creation.
 
-Signed-off-by: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Reviewed-by: Erez Shitrit <erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
----
- drivers/net/ethernet/mellanox/mlx5/core/en.h    |  4 +++
- drivers/net/ethernet/mellanox/mlx5/core/en_fs.c |  7 ++--
- drivers/net/ethernet/mellanox/mlx5/core/ipoib.c | 46 +++++++++++++++++++++++++
- 3 files changed, 54 insertions(+), 3 deletions(-)
+mlx5 IPoIB RDMA netdev will serve as an acceleration netdevice for the current
+IPoIB ULP generic netdevice, providing:
+	- mlx5 RSS support.
+	- mlx5 HW RX,TX offloads (checksum, TSO, LRO, etc ..).
+	- Full mlx5 HW features transparent to the ULP itself.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-index e5518536d56f..c813eab5d764 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-@@ -999,6 +999,7 @@ int mlx5e_attr_get(struct net_device *dev, struct switchdev_attr *attr);
- void mlx5e_handle_rx_cqe_rep(struct mlx5e_rq *rq, struct mlx5_cqe64 *cqe);
- void mlx5e_update_hw_rep_counters(struct mlx5e_priv *priv);
- 
-+/* common netdev helpers */
- int mlx5e_create_indirect_rqt(struct mlx5e_priv *priv);
- 
- int mlx5e_create_indirect_tirs(struct mlx5e_priv *priv);
-@@ -1010,6 +1011,9 @@ int mlx5e_create_direct_tirs(struct mlx5e_priv *priv);
- void mlx5e_destroy_direct_tirs(struct mlx5e_priv *priv);
- void mlx5e_destroy_rqt(struct mlx5e_priv *priv, struct mlx5e_rqt *rqt);
- 
-+int mlx5e_create_ttc_table(struct mlx5e_priv *priv, u32 underlay_qpn);
-+void mlx5e_destroy_ttc_table(struct mlx5e_priv *priv);
-+
- int mlx5e_create_tises(struct mlx5e_priv *priv);
- void mlx5e_cleanup_nic_tx(struct mlx5e_priv *priv);
- int mlx5e_close(struct net_device *netdev);
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_fs.c b/drivers/net/ethernet/mellanox/mlx5/core/en_fs.c
-index 729904c43801..576d6787b484 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_fs.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_fs.c
-@@ -792,7 +792,7 @@ static int mlx5e_create_ttc_table_groups(struct mlx5e_ttc_table *ttc)
- 	return err;
- }
- 
--static void mlx5e_destroy_ttc_table(struct mlx5e_priv *priv)
-+void mlx5e_destroy_ttc_table(struct mlx5e_priv *priv)
- {
- 	struct mlx5e_ttc_table *ttc = &priv->fs.ttc;
- 
-@@ -800,7 +800,7 @@ static void mlx5e_destroy_ttc_table(struct mlx5e_priv *priv)
- 	mlx5e_destroy_flow_table(&ttc->ft);
- }
- 
--static int mlx5e_create_ttc_table(struct mlx5e_priv *priv)
-+int mlx5e_create_ttc_table(struct mlx5e_priv *priv, u32 underlay_qpn)
- {
- 	struct mlx5e_ttc_table *ttc = &priv->fs.ttc;
- 	struct mlx5_flow_table_attr ft_attr = {};
-@@ -810,6 +810,7 @@ static int mlx5e_create_ttc_table(struct mlx5e_priv *priv)
- 	ft_attr.max_fte = MLX5E_TTC_TABLE_SIZE;
- 	ft_attr.level = MLX5E_TTC_FT_LEVEL;
- 	ft_attr.prio = MLX5E_NIC_PRIO;
-+	ft_attr.underlay_qpn = underlay_qpn;
- 
- 	ft->t = mlx5_create_flow_table(priv->fs.ns, &ft_attr);
- 	if (IS_ERR(ft->t)) {
-@@ -1146,7 +1147,7 @@ int mlx5e_create_flow_steering(struct mlx5e_priv *priv)
- 		priv->netdev->hw_features &= ~NETIF_F_NTUPLE;
- 	}
- 
--	err = mlx5e_create_ttc_table(priv);
-+	err = mlx5e_create_ttc_table(priv, 0);
- 	if (err) {
- 		netdev_err(priv->netdev, "Failed to create ttc table, err=%d\n",
- 			   err);
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/ipoib.c b/drivers/net/ethernet/mellanox/mlx5/core/ipoib.c
-index f0318920844e..e16e1c7b246e 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/ipoib.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/ipoib.c
-@@ -72,6 +72,45 @@ static void mlx5i_cleanup_tx(struct mlx5e_priv *priv)
- {
- }
- 
-+static int mlx5i_create_flow_steering(struct mlx5e_priv *priv)
-+{
-+	struct mlx5i_priv *ipriv = priv->ppriv;
-+	int err;
-+
-+	priv->fs.ns = mlx5_get_flow_namespace(priv->mdev,
-+					       MLX5_FLOW_NAMESPACE_KERNEL);
-+
-+	if (!priv->fs.ns)
-+		return -EINVAL;
-+
-+	err = mlx5e_arfs_create_tables(priv);
-+	if (err) {
-+		netdev_err(priv->netdev, "Failed to create arfs tables, err=%d\n",
-+			   err);
-+		priv->netdev->hw_features &= ~NETIF_F_NTUPLE;
-+	}
-+
-+	err = mlx5e_create_ttc_table(priv, ipriv->qp.qpn);
-+	if (err) {
-+		netdev_err(priv->netdev, "Failed to create ttc table, err=%d\n",
-+			   err);
-+		goto err_destroy_arfs_tables;
-+	}
-+
-+	return 0;
-+
-+err_destroy_arfs_tables:
-+	mlx5e_arfs_destroy_tables(priv);
-+
-+	return err;
-+}
-+
-+static void mlx5i_destroy_flow_steering(struct mlx5e_priv *priv)
-+{
-+	mlx5e_destroy_ttc_table(priv);
-+	mlx5e_arfs_destroy_tables(priv);
-+}
-+
- static int mlx5i_init_rx(struct mlx5e_priv *priv)
- {
- 	int err;
-@@ -92,8 +131,14 @@ static int mlx5i_init_rx(struct mlx5e_priv *priv)
- 	if (err)
- 		goto err_destroy_indirect_tirs;
- 
-+	err = mlx5i_create_flow_steering(priv);
-+	if (err)
-+		goto err_destroy_direct_tirs;
-+
- 	return 0;
- 
-+err_destroy_direct_tirs:
-+	mlx5e_destroy_direct_tirs(priv);
- err_destroy_indirect_tirs:
- 	mlx5e_destroy_indirect_tirs(priv);
- err_destroy_direct_rqts:
-@@ -105,6 +150,7 @@ static int mlx5i_init_rx(struct mlx5e_priv *priv)
- 
- static void mlx5i_cleanup_rx(struct mlx5e_priv *priv)
- {
-+	mlx5i_destroy_flow_steering(priv);
- 	mlx5e_destroy_direct_tirs(priv);
- 	mlx5e_destroy_indirect_tirs(priv);
- 	mlx5e_destroy_direct_rqts(priv);
+The idea here is to reuse and benefit from the already implemented mlx5e netdevice
+management and channels API for both etherent and RDMA netdevices, since both IPoIB
+and Ethernet netdevices share same common mlx5 HW resources (with some small
+exceptions) and share most of the control/data path logic, it is more natural to
+have them share the same code.
+
+The differences between IPoIB and Ethernet netdevices can be summarized to:
+
+Steering:
+In mlx5, IPoIB traffic is sent and received from an underlay special QP, and in Ethernet
+the traffic is handled by vports and vport steering is managed by e-switch or FW.
+
+For IPoIB traffic to get steered correctly the only thing we need to do is to create RSS
+HW contexts for RX and TX HW contexts for TX (similar to mlx5e) with the underlay QP attached to
+them (underlay QP will be 0 in case of Ethernet).
+
+RX,TX:
+Since IPoIB traffic is different, slightly modified RX and TX handlers are required,
+still we do some code reuse in data path via common helper functions.
+
+All of the other generic netdevice and mlx5 aspects will be shared between mlx5 Ethernet
+and IPoIB netdevices, e.g.
+	- Channels creation and handling (RQs,SQs,CQs, NAPI, interrupt moderation, etc..)
+	- Offloads, checksum, GRO, LRO, TSO, and more.
+        - netdevice logic and non Ethernet specific ndos (open/close, etc..)
+
+In order to achieve what we want:
+
+In patchet 1 to 3, Erez added the supported for underlay QP in mlx5_ifc and refactored 
+the mlx5 steering code to accept the underlay QP as a parameter for creating steering
+objects and enabled flow steering for IB link.
+
+Then we are going to use the mlx5e netdevice profile, which is already used to separate between
+NIC and VF representors netdevices, to create new type of IPoIB netdevice profile.
+
+For that, one small refactoring is required to make mlx5e netdevice profile management
+more genetic and agnostic to link type which is done in patch #4.
+
+In patch #5, we introduce ipoib.c to host all of mlx5 IPoIB (mlx5i) specific logic and a 
+skeleton for the IPoIB mlx5 netdevice profile, and we will start filling it in next patches,
+using mlx5e already existing APIs.
+
+Patch #6 and #7, Implement init/cleanup RX mlx5i netdev profile handlers to create mlx5 RSS
+resources, same as mlx5e but without vlan and L2 steering tables.
+
+Patch #8, Implement init/cleanup TX mlx5i netdev profile handlers, to create TX resources
+same as mlx5e but with one TC (tc = 0) support.
+
+Patch #9, Implement mlx5i open/close ndos, where we reuese the mlx5e channels API, to start/stop TX/RX channels.
+
+Patch #10, Create the underlay QP and attach it to mlx5i RSS and TX HW contexts.
+
+Patch #11 and #12, Break down the mlx5e xmit flow into smaller helper function and implement the
+mlx5i IPoIB xmit routine.
+
+Patch #13 and #14, Have an RX handler per netdevice profile. We already do this before this series
+in a non clean way to separate between NIC netdev and VF representor RX handlers, in patch 13 we make
+the RX handler generic and bound to a profile and in patch 14 we implement the IPoIB RX handlers.
+
+Patch #15, Small cleanup to avoid e-switch with IPoIB netdev. 
+
+
+In order to enable mlx5 IPoIB, a merge between the IPoIB RDMA netdev offolad support [3]
+- which was alread submitted to the rdma mailing list - and this series is required
+plus an extra small patch [4] which will connect between both sides and actually enables the offload.
+
+Once both patch-sets are merged into linux we will have to submit the extra small patch [4], to enable
+the feature.
+
+Thanks,
+Saeed.
+
+[1] https://patchwork.kernel.org/patch/9676637/
+
+[2] https://lwn.net/Articles/715453/
+    https://patchwork.kernel.org/patch/9587815/
+
+[3] https://patchwork.kernel.org/patch/9672069/
+[4] https://git.kernel.org/pub/scm/linux/kernel/git/mellanox/linux.git/commit/?id=0141db6a686e32294dee015b7d07706162ba48d8
+
+
+Erez Shitrit (4):
+  net/mlx5: Add IPoIB enhanced offloads bits to mlx5_ifc
+  net/mlx5: Refactor create flow table method to accept underlay QP
+  net/mlx5: Enable flow-steering for IB link
+  hw/mlx5: Add New bit to check over QP creation
+
+Saeed Mahameed (12):
+  net/mlx5e: More generic netdev management API
+  net/mlx5e: IPoIB, Add netdevice profile skeleton
+  net/mlx5e: IPoIB, RX steering RSS RQTs and TIRs
+  net/mlx5e: IPoIB, RSS flow steering tables
+  net/mlx5e: IPoIB, TX TIS creation
+  net/mlx5e: IPoIB, Basic netdev ndos open/close
+  net/mlx5e: IPoIB, Underlay QP
+  net/mlx5e: Xmit flow break down
+  net/mlx5e: IPoIB, Xmit flow
+  net/mlx5e: RX handlers per netdev profile
+  net/mlx5e: IPoIB, RX handler
+  net/mlx5e: E-switch vport manager is valid for ethernet only
+
+ drivers/infiniband/hw/mlx5/mlx5_ib.h               |  10 -
+ drivers/infiniband/hw/mlx5/qp.c                    |   1 +
+ drivers/net/ethernet/mellanox/mlx5/core/Kconfig    |   7 +
+ drivers/net/ethernet/mellanox/mlx5/core/Makefile   |   2 +
+ drivers/net/ethernet/mellanox/mlx5/core/en.h       |  53 ++-
+ drivers/net/ethernet/mellanox/mlx5/core/en_arfs.c  |  10 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_fs.c    |  32 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c  | 292 ++++++------
+ drivers/net/ethernet/mellanox/mlx5/core/en_rep.c   |  33 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_rx.c    |  78 ++++
+ drivers/net/ethernet/mellanox/mlx5/core/en_tx.c    | 286 ++++++++----
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.c  |   5 +-
+ .../ethernet/mellanox/mlx5/core/eswitch_offloads.c |  16 +-
+ drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c   |   8 +
+ drivers/net/ethernet/mellanox/mlx5/core/fs_core.c  |  95 ++--
+ drivers/net/ethernet/mellanox/mlx5/core/fs_core.h  |   1 +
+ drivers/net/ethernet/mellanox/mlx5/core/fw.c       |   3 +-
+ drivers/net/ethernet/mellanox/mlx5/core/ipoib.c    | 495 +++++++++++++++++++++
+ .../ethernet/mellanox/mlx5/core/ipoib.h}           |  26 +-
+ include/linux/mlx5/fs.h                            |  14 +-
+ include/linux/mlx5/mlx5_ifc.h                      |  11 +-
+ include/linux/mlx5/qp.h                            |  10 +
+ 22 files changed, 1153 insertions(+), 335 deletions(-)
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/ipoib.c
+ copy drivers/{infiniband/hw/mlx5/cmd.h => net/ethernet/mellanox/mlx5/core/ipoib.h} (70%)
+
 -- 
 2.11.0
 
