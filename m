@@ -1,113 +1,66 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: [PATCH v2 6/9] ftgmac100: Allow configuration of phy interface via device-tree
-Date: Thu, 13 Apr 2017 14:39:13 +1000
-Message-ID: <20170413043916.7793-7-benh@kernel.crashing.org>
-References: <20170413043916.7793-1-benh@kernel.crashing.org>
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-To: netdev@vger.kernel.org
+From: Gavin Shan <gwshan@linux.vnet.ibm.com>
+Subject: Re: [PATCH net-next 4/8] net/ncsi: Add debugging infrastructurre
+Date: Thu, 13 Apr 2017 15:11:12 +1000
+Message-ID: <20170413051112.GA28206@gwshan>
+References: <1492051600-26706-1-git-send-email-gwshan@linux.vnet.ibm.com>
+ <1492051600-26706-5-git-send-email-gwshan@linux.vnet.ibm.com>
+ <1492057706.28586.10.camel@perches.com>
+Reply-To: Gavin Shan <gwshan@linux.vnet.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Gavin Shan <gwshan@linux.vnet.ibm.com>, netdev@vger.kernel.org,
+        davem@davemloft.net
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:57829 "EHLO gate.crashing.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751312AbdDMEju (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 13 Apr 2017 00:39:50 -0400
-In-Reply-To: <20170413043916.7793-1-benh@kernel.crashing.org>
+Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:53416 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751312AbdDMFMO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 13 Apr 2017 01:12:14 -0400
+Received: from pps.filterd (m0098420.ppops.net [127.0.0.1])
+        by mx0b-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v3D58dES117018
+        for <netdev@vger.kernel.org>; Thu, 13 Apr 2017 01:12:13 -0400
+Received: from e23smtp07.au.ibm.com (e23smtp07.au.ibm.com [202.81.31.140])
+        by mx0b-001b2d01.pphosted.com with ESMTP id 29snvjq7b4-1
+        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Thu, 13 Apr 2017 01:12:13 -0400
+Received: from localhost
+        by e23smtp07.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        for <netdev@vger.kernel.org> from <gwshan@linux.vnet.ibm.com>;
+        Thu, 13 Apr 2017 15:12:10 +1000
+Received: from d23av01.au.ibm.com (d23av01.au.ibm.com [9.190.234.96])
+        by d23relay09.au.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id v3D5C1Tf47382760
+        for <netdev@vger.kernel.org>; Thu, 13 Apr 2017 15:12:09 +1000
+Received: from d23av01.au.ibm.com (localhost [127.0.0.1])
+        by d23av01.au.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id v3D5Bail011259
+        for <netdev@vger.kernel.org>; Thu, 13 Apr 2017 15:11:37 +1000
+Content-Disposition: inline
+In-Reply-To: <1492057706.28586.10.camel@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This uses the standard phy-mode property
+On Wed, Apr 12, 2017 at 09:28:26PM -0700, Joe Perches wrote:
+>On Thu, 2017-04-13 at 12:46 +1000, Gavin Shan wrote:
+>> This creates procfs directories as NCSI debugging infrastructure.
+>> With the patch applied, We will see below procfs directories. Every
+>> NCSI package and channel has one corresponding directory. Other than
+>> presenting the NCSI topology, No real function has been achieved
+>> through these procfs directories so far.
+>
+>/proc is meant to be stable.
+>
+>Why not use debugfs?
+>
 
-Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
----
- drivers/net/ethernet/faraday/ftgmac100.c | 42 +++++++++++++++++++++++++++++---
- 1 file changed, 39 insertions(+), 3 deletions(-)
+Joe, thanks for the comment. I think debugfs makes more sense than
+procfs in this case. I will use it in next respin. The directory
+structure won't change, meaning /sys/kernel/debug/ncsi/ will be
+created.
 
-diff --git a/drivers/net/ethernet/faraday/ftgmac100.c b/drivers/net/ethernet/faraday/ftgmac100.c
-index b1fb729..7c607eb 100644
---- a/drivers/net/ethernet/faraday/ftgmac100.c
-+++ b/drivers/net/ethernet/faraday/ftgmac100.c
-@@ -32,6 +32,7 @@
- #include <linux/platform_device.h>
- #include <linux/crc32.h>
- #include <linux/if_vlan.h>
-+#include <linux/of_net.h>
- #include <net/ip.h>
- #include <net/ncsi.h>
- 
-@@ -1049,7 +1050,7 @@ static void ftgmac100_adjust_link(struct net_device *netdev)
- 	schedule_work(&priv->reset_task);
- }
- 
--static int ftgmac100_mii_probe(struct ftgmac100 *priv)
-+static int ftgmac100_mii_probe(struct ftgmac100 *priv, phy_interface_t intf)
- {
- 	struct net_device *netdev = priv->netdev;
- 	struct phy_device *phydev;
-@@ -1061,7 +1062,7 @@ static int ftgmac100_mii_probe(struct ftgmac100 *priv)
- 	}
- 
- 	phydev = phy_connect(netdev, phydev_name(phydev),
--			     &ftgmac100_adjust_link, PHY_INTERFACE_MODE_GMII);
-+			     &ftgmac100_adjust_link, intf);
- 
- 	if (IS_ERR(phydev)) {
- 		netdev_err(netdev, "%s: Could not attach to PHY\n", netdev->name);
-@@ -1616,6 +1617,8 @@ static int ftgmac100_setup_mdio(struct net_device *netdev)
- {
- 	struct ftgmac100 *priv = netdev_priv(netdev);
- 	struct platform_device *pdev = to_platform_device(priv->dev);
-+	int phy_intf = PHY_INTERFACE_MODE_RGMII;
-+	struct device_node *np = pdev->dev.of_node;
- 	int i, err = 0;
- 	u32 reg;
- 
-@@ -1631,6 +1634,39 @@ static int ftgmac100_setup_mdio(struct net_device *netdev)
- 		iowrite32(reg, priv->base + FTGMAC100_OFFSET_REVR);
- 	};
- 
-+	/* Get PHY mode from device-tree */
-+	if (np) {
-+		/* Default to RGMII. It's a gigabit part after all */
-+		phy_intf = of_get_phy_mode(np);
-+		if (phy_intf < 0)
-+			phy_intf = PHY_INTERFACE_MODE_RGMII;
-+
-+		/* Aspeed only supports these. I don't know about other IP
-+		 * block vendors so I'm going to just let them through for
-+		 * now. Note that this is only a warning if for some obscure
-+		 * reason the DT really means to lie about it or it's a newer
-+		 * part we don't know about.
-+		 *
-+		 * On the Aspeed SoC there are additionally straps and SCU
-+		 * control bits that could tell us what the interface is
-+		 * (or allow us to configure it while the IP block is held
-+		 * in reset). For now I chose to keep this driver away from
-+		 * those SoC specific bits and assume the device-tree is
-+		 * right and the SCU has been configured properly by pinmux
-+		 * or the firmware.
-+		 */
-+		if (priv->is_aspeed &&
-+		    phy_intf != PHY_INTERFACE_MODE_RMII &&
-+		    phy_intf != PHY_INTERFACE_MODE_RGMII &&
-+		    phy_intf != PHY_INTERFACE_MODE_RGMII_ID &&
-+		    phy_intf != PHY_INTERFACE_MODE_RGMII_RXID &&
-+		    phy_intf != PHY_INTERFACE_MODE_RGMII_TXID) {
-+			netdev_warn(netdev,
-+				   "Unsupported PHY mode %s !\n",
-+				   phy_modes(phy_intf));
-+		}
-+	}
-+
- 	priv->mii_bus->name = "ftgmac100_mdio";
- 	snprintf(priv->mii_bus->id, MII_BUS_ID_SIZE, "%s-%d",
- 		 pdev->name, pdev->id);
-@@ -1647,7 +1683,7 @@ static int ftgmac100_setup_mdio(struct net_device *netdev)
- 		goto err_register_mdiobus;
- 	}
- 
--	err = ftgmac100_mii_probe(priv);
-+	err = ftgmac100_mii_probe(priv, phy_intf);
- 	if (err) {
- 		dev_err(priv->dev, "MII Probe failed!\n");
- 		goto err_mii_probe;
--- 
-2.9.3
+>>      /proc/ncsi/eth0
+>>      /proc/ncsi/eth0/p0
+>>      /proc/ncsi/eth0/p0/c0
+>>      /proc/ncsi/eth0/p0/c1
+>
+
+Thanks,
+Gavin
