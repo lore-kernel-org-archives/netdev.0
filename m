@@ -1,59 +1,121 @@
-From: Joe Stringer <joe-LZ6Gd1LRuIk@public.gmane.org>
-Subject: Re: [PATCH 1/5] netlink: extended ACK reporting
-Date: Thu, 13 Apr 2017 14:44:21 -0700
-Message-ID: <CAPWQB7FWOcEen3SGyQtW7t2WpDNLE08JEdHeZHmM738J=Rur0g@mail.gmail.com>
-References: <20170408174900.12820-1-johannes@sipsolutions.net>
-	<20170408174900.12820-2-johannes@sipsolutions.net>
-	<20170408183440.GA1900@nanopsycho>
-	<1491676621.5800.24.camel@sipsolutions.net>
-	<20170408184008.GB1900@nanopsycho>
-	<990b5610-a894-b3d2-d3a7-536dfd25adb8@cumulusnetworks.com>
-	<1491805089.2455.3.camel@sipsolutions.net>
-	<c0b35e6e-e5cb-25f6-7ccf-eec33ba39f3b@6wind.com>
-	<1492090170.29526.1.camel@sipsolutions.net>
-	<28b0d93a-7e96-f7eb-b140-afc9ad429c30@6wind.com>
-	<1492111480.29526.7.camel@sipsolutions.net>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [RFC net-next] of: mdio: Honor hints from MDIO bus drivers
+Date: Thu, 13 Apr 2017 23:51:14 +0200
+Message-ID: <20170413215114.GB29708@lunn.ch>
+References: <20170410214258.9409-1-f.fainelli@gmail.com>
+ <8ef102a4-22e5-def8-b50e-04f84b5849d7@gmail.com>
+ <20170411231424.GA6174@lunn.ch>
+ <6de72d4c-5634-f3d6-5bfd-fcc0acda0b83@gmail.com>
+ <417fdaa1-7aba-e646-8a50-043322f1410d@gmail.com>
+ <20170412221016.GA29708@lunn.ch>
+ <6fdcec91-829b-70c9-8780-992b67f6831a@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>, Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
-	David Ahern <dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>,
-	Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>,
-	Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>
-To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1492111480.29526.7.camel-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
-List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+        Rob Herring <robh+dt@kernel.org>,
+        Frank Rowand <frowand.list@gmail.com>,
+        "open list:OPEN FIRMWARE AND FLATTENED DEVICE TREE"
+        <devicetree@vger.kernel.org>,
+        open list <linux-kernel@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:58049 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751554AbdDMVvU (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 13 Apr 2017 17:51:20 -0400
+Content-Disposition: inline
+In-Reply-To: <6fdcec91-829b-70c9-8780-992b67f6831a@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 13/04/2017 12:24, "Johannes Berg" <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org> wrote:
+> The DT binding is in tree and provides an example of how the switch
+> looks like, below is the example, but I am also adding the MDIO bus and
+> the PHYs just so you can see how things wind up:
+> 
+> switch_top@f0b00000 {
+>         compatible = "simple-bus";
+>         #size-cells = <1>;
+>         #address-cells = <1>;
+>         ranges = <0 0xf0b00000 0x40804>;
+> 
+>         ethernet_switch@0 {
+>                 compatible = "brcm,bcm7445-switch-v4.0";
+>                 #size-cells = <0>;
+>                 #address-cells = <1>;
+>                 reg = <0x0 0x40000
+>                         0x40000 0x110
+>                         0x40340 0x30
+>                         0x40380 0x30
+>                         0x40400 0x34
+>                         0x40600 0x208>;
+>                 reg-names = "core", "reg", intrl2_0", "intrl2_1",
+>                             "fcb, "acb";
+>                 interrupts = <0 0x18 0
+>                                 0 0x19 0>;
+>                 brcm,num-gphy = <1>;
+>                 brcm,num-rgmii-ports = <2>;
+>                 brcm,fcb-pause-override;
+>                 brcm,acb-packets-inflight;
+> 
+>                 ports {
+>                         #address-cells = <1>;
+>                         #size-cells = <0>;
+> 
+>                         port@0 {
+>                                 label = "gphy";
+>                                 reg = <0>;
+> 				phy-handle = <&phy5>;
+>                         };
+> 
+> 			sw0port1: port@1 {
+> 				label = "rgmii_1";
+> 				reg = <1>;
+> 				phy-mode = "rgmii";
+> 				fixed-link {
+> 					speed = <1000>;
+> 					full-duplex;
+> 				};
+> 			}
+>                 };
+>         };
+> 
+> 	mdio@403c0 {
+> 		reg = <0x403c0 0x8 0x40300 0x18>;
+> 		#address-cells = <0x1>;
+> 		#size-cells = <0x0>;
+> 		compatible = "brcm,unimac-mdio";
+> 		reg-names = "mdio", "mdio_indir_rw";
+> 
+> 		switch: switch@0 {
+> 			broken-turn-around;
+> 			reg = <0x0>;
+> 			compatible = "brcm,bcm53125";
+> 			#address-cells = <1>;
+> 			#size-cells = <0>;
+> 
+> 			ports {
+> 				..
+> 				port@8 {
+> 					ethernet = <&sw0port1>;
+> 				};
+> 				...
+> 			};
+> 		};
+> 
+> 		phy5: ethernet-phy@5 {
+> 			reg = <0x5>;
+> 			compatible = "ethernet-phy-ieee802.3-c22";
+> 		};
+> 	};
+> };
 
-> On Thu, 2017-04-13 at 16:05 +0200, Nicolas Dichtel wrote:
->
-> > Sure. It was just to mention that attribute 0 exists somewhere.
-> > The other 0 attribute is OVS_TUNNEL_KEY_ATTR_ID.
->
-> That looks like some really awkward hand-grown parsing - with all these
-> "struct ovs_len_tbl" looking almost like a policy, but not using that
-> code?
->
-> Seems like something somebody should take a hard look at and see if it
-> can't use more standard infrastructure.
->
+So phy5 is connected to the internal switch with a phy-handle. But
+because of your double usage of this node, it also can be mapped into
+the external switches port 5?
 
-I think that OVS was doing some more elaborate validation than most users,
-so over time we picked up a bunch of extra parsing code that layers on top
-of nla_parse(). I took a look at trying to broaden this and make it useful
-to other users a while ago, but when I posted there wasn't much interest
-from others on it so I just moved on. Maybe it's about time to pick that
-back up.
+Is that your problem?
+
+It seems like you should add an mdio node inside your switch node, and
+list your external switch internal/external phys there if needed.
+
+   Andrew
