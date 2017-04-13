@@ -1,8 +1,8 @@
 From: Logan Gunthorpe <logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH 09/22] dm-crypt: Make use of the new sg_map helper in 4 call
- sites
-Date: Thu, 13 Apr 2017 16:05:22 -0600
-Message-ID: <1492121135-4437-10-git-send-email-logang@deltatee.com>
+Subject: [PATCH 13/22] scsi: hisi_sas, mvsas,
+ gdth: Make use of the new sg_map helper function
+Date: Thu, 13 Apr 2017 16:05:26 -0600
+Message-ID: <1492121135-4437-14-git-send-email-logang@deltatee.com>
 References: <1492121135-4437-1-git-send-email-logang@deltatee.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -37,86 +37,122 @@ Errors-To: linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org
 Sender: "Linux-nvdimm" <linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-Very straightforward conversion to the new function in all four spots.
+Very straightforward conversion of three scsi drivers.
 
 Signed-off-by: Logan Gunthorpe <logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
 ---
- drivers/md/dm-crypt.c | 38 +++++++++++++++++++++++++-------------
- 1 file changed, 25 insertions(+), 13 deletions(-)
+ drivers/scsi/gdth.c                    |  9 +++++++--
+ drivers/scsi/hisi_sas/hisi_sas_v1_hw.c | 14 +++++++++-----
+ drivers/scsi/hisi_sas/hisi_sas_v2_hw.c | 13 +++++++++----
+ drivers/scsi/mvsas/mv_sas.c            | 10 +++++-----
+ 4 files changed, 30 insertions(+), 16 deletions(-)
 
-diff --git a/drivers/md/dm-crypt.c b/drivers/md/dm-crypt.c
-index 389a363..6bd0ffc 100644
---- a/drivers/md/dm-crypt.c
-+++ b/drivers/md/dm-crypt.c
-@@ -589,9 +589,12 @@ static int crypt_iv_lmk_gen(struct crypt_config *cc, u8 *iv,
- 	int r = 0;
- 
- 	if (bio_data_dir(dmreq->ctx->bio_in) == WRITE) {
--		src = kmap_atomic(sg_page(&dmreq->sg_in));
--		r = crypt_iv_lmk_one(cc, iv, dmreq, src + dmreq->sg_in.offset);
--		kunmap_atomic(src);
-+		src = sg_map(&dmreq->sg_in, SG_KMAP_ATOMIC);
-+		if (IS_ERR(src))
-+			return PTR_ERR(src);
+diff --git a/drivers/scsi/gdth.c b/drivers/scsi/gdth.c
+index d020a13..82c9fba 100644
+--- a/drivers/scsi/gdth.c
++++ b/drivers/scsi/gdth.c
+@@ -2301,10 +2301,15 @@ static void gdth_copy_internal_data(gdth_ha_str *ha, Scsi_Cmnd *scp,
+                 return;
+             }
+             local_irq_save(flags);
+-            address = kmap_atomic(sg_page(sl)) + sl->offset;
++            address = sg_map(sl, SG_KMAP_ATOMIC);
++            if (IS_ERR(address)) {
++                scp->result = DID_ERROR << 16;
++                return;
++	    }
 +
-+		r = crypt_iv_lmk_one(cc, iv, dmreq, src);
-+		sg_unmap(&dmreq->sg_in, src, SG_KMAP_ATOMIC);
- 	} else
- 		memset(iv, 0, cc->iv_size);
+             memcpy(address, buffer, cpnow);
+             flush_dcache_page(sg_page(sl));
+-            kunmap_atomic(address);
++            sg_unmap(sl, address, SG_KMAP_ATOMIC);
+             local_irq_restore(flags);
+             if (cpsum == cpcount)
+                 break;
+diff --git a/drivers/scsi/hisi_sas/hisi_sas_v1_hw.c b/drivers/scsi/hisi_sas/hisi_sas_v1_hw.c
+index 854fbea..30408f8 100644
+--- a/drivers/scsi/hisi_sas/hisi_sas_v1_hw.c
++++ b/drivers/scsi/hisi_sas/hisi_sas_v1_hw.c
+@@ -1377,18 +1377,22 @@ static int slot_complete_v1_hw(struct hisi_hba *hisi_hba,
+ 		void *to;
+ 		struct scatterlist *sg_resp = &task->smp_task.smp_resp;
  
-@@ -607,14 +610,17 @@ static int crypt_iv_lmk_post(struct crypt_config *cc, u8 *iv,
- 	if (bio_data_dir(dmreq->ctx->bio_in) == WRITE)
- 		return 0;
+-		ts->stat = SAM_STAT_GOOD;
+-		to = kmap_atomic(sg_page(sg_resp));
++		to = sg_map(sg_resp, SG_KMAP_ATOMIC);
++		if (IS_ERR(to)) {
++			dev_err(dev, "slot complete: error mapping memory");
++			ts->stat = SAS_SG_ERR;
++			break;
++		}
  
--	dst = kmap_atomic(sg_page(&dmreq->sg_out));
--	r = crypt_iv_lmk_one(cc, iv, dmreq, dst + dmreq->sg_out.offset);
-+	dst = sg_map(&dmreq->sg_out, SG_KMAP_ATOMIC);
-+	if (IS_ERR(dst))
-+		return PTR_ERR(dst);
-+
-+	r = crypt_iv_lmk_one(cc, iv, dmreq, dst);
- 
- 	/* Tweak the first block of plaintext sector */
- 	if (!r)
--		crypto_xor(dst + dmreq->sg_out.offset, iv, cc->iv_size);
-+		crypto_xor(dst, iv, cc->iv_size);
- 
--	kunmap_atomic(dst);
-+	sg_unmap(&dmreq->sg_out, dst, SG_KMAP_ATOMIC);
- 	return r;
- }
- 
-@@ -731,9 +737,12 @@ static int crypt_iv_tcw_gen(struct crypt_config *cc, u8 *iv,
- 
- 	/* Remove whitening from ciphertext */
- 	if (bio_data_dir(dmreq->ctx->bio_in) != WRITE) {
--		src = kmap_atomic(sg_page(&dmreq->sg_in));
--		r = crypt_iv_tcw_whitening(cc, dmreq, src + dmreq->sg_in.offset);
--		kunmap_atomic(src);
-+		src = sg_map(&dmreq->sg_in, SG_KMAP_ATOMIC);
-+		if (IS_ERR(src))
-+			return PTR_ERR(src);
-+
-+		r = crypt_iv_tcw_whitening(cc, dmreq, src);
-+		sg_unmap(&dmreq->sg_in, src, SG_KMAP_ATOMIC);
++		ts->stat = SAM_STAT_GOOD;
+ 		dma_unmap_sg(dev, &task->smp_task.smp_resp, 1,
+ 			     DMA_FROM_DEVICE);
+ 		dma_unmap_sg(dev, &task->smp_task.smp_req, 1,
+ 			     DMA_TO_DEVICE);
+-		memcpy(to + sg_resp->offset,
+-		       slot->status_buffer +
++		memcpy(to, slot->status_buffer +
+ 		       sizeof(struct hisi_sas_err_record),
+ 		       sg_dma_len(sg_resp));
+-		kunmap_atomic(to);
++		sg_unmap(sg_resp, to, SG_KMAP_ATOMIC);
+ 		break;
  	}
+ 	case SAS_PROTOCOL_SATA:
+diff --git a/drivers/scsi/hisi_sas/hisi_sas_v2_hw.c b/drivers/scsi/hisi_sas/hisi_sas_v2_hw.c
+index 1b21445..0907947 100644
+--- a/drivers/scsi/hisi_sas/hisi_sas_v2_hw.c
++++ b/drivers/scsi/hisi_sas/hisi_sas_v2_hw.c
+@@ -1796,18 +1796,23 @@ slot_complete_v2_hw(struct hisi_hba *hisi_hba, struct hisi_sas_slot *slot,
+ 		struct scatterlist *sg_resp = &task->smp_task.smp_resp;
+ 		void *to;
  
- 	/* Calculate IV */
-@@ -755,9 +764,12 @@ static int crypt_iv_tcw_post(struct crypt_config *cc, u8 *iv,
- 		return 0;
- 
- 	/* Apply whitening on ciphertext */
--	dst = kmap_atomic(sg_page(&dmreq->sg_out));
--	r = crypt_iv_tcw_whitening(cc, dmreq, dst + dmreq->sg_out.offset);
--	kunmap_atomic(dst);
-+	dst = sg_map(&dmreq->sg_out, SG_KMAP_ATOMIC);
-+	if (IS_ERR(dst))
-+		return PTR_ERR(dst);
++		to = sg_map(sg_resp, SG_KMAP_ATOMIC);
++		if (IS_ERR(to)) {
++			dev_err(dev, "slot complete: error mapping memory");
++			ts->stat = SAS_SG_ERR;
++			break;
++		}
 +
-+	r = crypt_iv_tcw_whitening(cc, dmreq, dst);
-+	sg_unmap(&dmreq->sg_out, dst, SG_KMAP_ATOMIC);
+ 		ts->stat = SAM_STAT_GOOD;
+-		to = kmap_atomic(sg_page(sg_resp));
  
- 	return r;
- }
+ 		dma_unmap_sg(dev, &task->smp_task.smp_resp, 1,
+ 			     DMA_FROM_DEVICE);
+ 		dma_unmap_sg(dev, &task->smp_task.smp_req, 1,
+ 			     DMA_TO_DEVICE);
+-		memcpy(to + sg_resp->offset,
+-		       slot->status_buffer +
++		memcpy(to, slot->status_buffer +
+ 		       sizeof(struct hisi_sas_err_record),
+ 		       sg_dma_len(sg_resp));
+-		kunmap_atomic(to);
++		sg_unmap(sg_resp, to, SG_KMAP_ATOMIC);
+ 		break;
+ 	}
+ 	case SAS_PROTOCOL_SATA:
+diff --git a/drivers/scsi/mvsas/mv_sas.c b/drivers/scsi/mvsas/mv_sas.c
+index c7cc803..374d0e0 100644
+--- a/drivers/scsi/mvsas/mv_sas.c
++++ b/drivers/scsi/mvsas/mv_sas.c
+@@ -1798,11 +1798,11 @@ int mvs_slot_complete(struct mvs_info *mvi, u32 rx_desc, u32 flags)
+ 	case SAS_PROTOCOL_SMP: {
+ 			struct scatterlist *sg_resp = &task->smp_task.smp_resp;
+ 			tstat->stat = SAM_STAT_GOOD;
+-			to = kmap_atomic(sg_page(sg_resp));
+-			memcpy(to + sg_resp->offset,
+-				slot->response + sizeof(struct mvs_err_info),
+-				sg_dma_len(sg_resp));
+-			kunmap_atomic(to);
++			to = sg_map(sg_resp, SG_KMAP_ATOMIC);
++			memcpy(to,
++			       slot->response + sizeof(struct mvs_err_info),
++			       sg_dma_len(sg_resp));
++			sg_unmap(sg_resp, to, SG_KMAP_ATOMIC);
+ 			break;
+ 		}
+ 
 -- 
 2.1.4
