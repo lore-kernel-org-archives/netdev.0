@@ -1,113 +1,244 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net-next  v2] Subject: net: allow configuring default qdisc
-Date: Thu, 13 Apr 2017 08:40:53 -0700
-Message-ID: <20170413154053.27568-1-sthemmin@microsoft.com>
-Cc: netdev@vger.kernel.org, Stephen Hemminger <sthemmin@microsoft.com>
-To: davem@davemloft.net
+From: Russell King <rmk+kernel@armlinux.org.uk>
+Subject: [PATCH 1/2] net: phy: improve phylib correctness for non-autoneg
+ settings
+Date: Thu, 13 Apr 2017 16:49:15 +0100
+Message-ID: <E1cygzj-0002rx-PW@rmk-PC.armlinux.org.uk>
+References: <20170406100033.GA24671@n2100.armlinux.org.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f181.google.com ([209.85.192.181]:34029 "EHLO
-        mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753623AbdDMPlD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 13 Apr 2017 11:41:03 -0400
-Received: by mail-pf0-f181.google.com with SMTP id c198so30259064pfc.1
-        for <netdev@vger.kernel.org>; Thu, 13 Apr 2017 08:40:57 -0700 (PDT)
+Received: from pandora.armlinux.org.uk ([78.32.30.218]:60508 "EHLO
+        pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752799AbdDMPt0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 13 Apr 2017 11:49:26 -0400
+In-Reply-To: <20170406100033.GA24671@n2100.armlinux.org.uk>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since 3.12 it has been possible to configure the default queuing
-discipline via sysctl. This patch adds ability to configure the
-default queue discipline in kernel configuration. This is useful for
-environments where configuring the value from userspace is difficult
-to manage.
+phylib has some undesirable behaviour when forcing a link mode through
+ethtool.  phylib uses this code:
 
-The default is still the same as before (pfifo_fast) and it is
-possible to change after kernel init with sysctl. This is similar
-to how TCP congestion control works.
+	idx = phy_find_valid(phy_find_setting(phydev->speed, phydev->duplex),
+			features);
 
-Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+to find an index in the settings table.  phy_find_setting() starts at
+index 0, and scans upwards looking for an exact speed and duplex match.
+When it doesn't find it, it returns MAX_NUM_SETTINGS - 1, which is
+10baseT-Half duplex.
+
+phy_find_valid() then scans from the point (and effectively only checks
+one entry) before bailing out, returning MAX_NUM_SETTINGS - 1.
+
+phy_sanitize_settings() then sets ->speed to SPEED_10 and ->duplex to
+DUPLEX_HALF whether or not 10baseT-Half is supported or not.  This goes
+against all the comments against these functions, and 10baseT-Half may
+not even be supported by the hardware.
+
+Rework these functions, introducing a new method of scanning the table.
+There are two modes of lookup that phylib wants: exact, and inexact.
+
+- in exact mode, we return either an exact match or failure
+- in inexact mode, we return an exact match if it exists, a match at
+  the highest speed that is not greater than the requested speed
+  (ignoring duplex), or failing that, the lowest supported speed, or
+  failure.
+
+The biggest difference is that we always check whether the entry is
+supported before further consideration, so all unsupported entries are
+not considered as candidates.
+
+This results in arguably saner behaviour, better matches the comments,
+and is probably what users would expect.
+
+This becomes important as ethernet speeds increase, PHYs exist which do
+not support the 10Mbit speeds, and half-duplex is likely to become
+obsolete - it's already not even an option on 10Gbit and faster links.
+
+Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
 ---
-v2 -- add another level of indirection to make it easier for
-      users blindly doing make oldconfig
+ drivers/net/phy/phy.c | 109 ++++++++++++++++++++++++++++++--------------------
+ 1 file changed, 66 insertions(+), 43 deletions(-)
 
- net/sched/Kconfig   | 45 +++++++++++++++++++++++++++++++++++++++++++++
- net/sched/sch_api.c |  9 +++++++++
- 2 files changed, 54 insertions(+)
-
-diff --git a/net/sched/Kconfig b/net/sched/Kconfig
-index 403790cce7d2..9fb84f0de6af 100644
---- a/net/sched/Kconfig
-+++ b/net/sched/Kconfig
-@@ -352,6 +352,51 @@ config NET_SCH_PLUG
- 	  To compile this code as a module, choose M here: the
- 	  module will be called sch_plug.
+diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+index bf7d614ff18f..00280d4eeb56 100644
+--- a/drivers/net/phy/phy.c
++++ b/drivers/net/phy/phy.c
+@@ -176,7 +176,9 @@ struct phy_setting {
+ 	u32 setting;
+ };
  
-+menuconfig NET_SCH_DEFAULT
-+	bool "Allow override default queue discipline"
-+	---help---
-+	  Support for selection of default queuing discipline.
-+
-+	  Nearly all users can safely say no here, and the default
-+	  of pfifo_fast will be used. Many distributions already set
-+	  the default value via /proc/sys/net/core/default_qdisc.
-+
-+	  If unsure, say N.
-+
-+if NET_SCH_DEFAULT
-+
-+choice
-+	prompt "Default queuing discipline"
-+	default DEFAULT_PFIFO_FAST
-+	help
-+	  Select the queueing discipline that will be used by default
-+	  for all network devices.
-+
-+	config DEFAULT_FQ
-+		bool "Fair Queue" if NET_SCH_FQ
-+
-+	config DEFAULT_CODEL
-+		bool "Controlled Delay" if NET_SCH_CODEL
-+
-+	config DEFAULT_FQ_CODEL
-+		bool "Fair Queue Controlled Delay" if NET_SCH_FQ_CODEL
-+
-+	config DEFAULT_SFQ
-+		bool "Stochastic Fair Queue" if NET_SCH_SFQ
-+
-+	config DEFAULT_PFIFO_FAST
-+		bool "Priority FIFO Fast"
-+endchoice
-+
-+config DEFAULT_NET_SCH
-+	string
-+	default "pfifo_fast" if DEFAULT_PFIFO_FAST
-+	default "fq" if DEFAULT_FQ
-+	default "fq_codel" if DEFAULT_FQ_CODEL
-+	default "sfq" if DEFAULT_SFQ
-+	default "pfifo_fast"
-+endif
-+
- comment "Classification"
+-/* A mapping of all SUPPORTED settings to speed/duplex */
++/* A mapping of all SUPPORTED settings to speed/duplex.  This table
++ * must be grouped by speed and sorted in descending match priority
++ * - iow, descending speed. */
+ static const struct phy_setting settings[] = {
+ 	{
+ 		.speed = SPEED_10000,
+@@ -235,45 +237,70 @@ static const struct phy_setting settings[] = {
+ 	},
+ };
  
- config NET_CLS
-diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-index 62567bfe52c7..3ec4e77a76c7 100644
---- a/net/sched/sch_api.c
-+++ b/net/sched/sch_api.c
-@@ -251,6 +251,15 @@ int qdisc_set_default(const char *name)
- 	return ops ? 0 : -ENOENT;
+-#define MAX_NUM_SETTINGS ARRAY_SIZE(settings)
+-
+ /**
+- * phy_find_setting - find a PHY settings array entry that matches speed & duplex
++ * phy_lookup_setting - lookup a PHY setting
+  * @speed: speed to match
+  * @duplex: duplex to match
++ * @feature: allowed link modes
++ * @exact: an exact match is required
++ *
++ * Search the settings array for a setting that matches the speed and
++ * duplex, and which is supported.
++ *
++ * If @exact is unset, either an exact match or %NULL for no match will
++ * be returned.
+  *
+- * Description: Searches the settings array for the setting which
+- *   matches the desired speed and duplex, and returns the index
+- *   of that setting.  Returns the index of the last setting if
+- *   none of the others match.
++ * If @exact is set, an exact match, the fastest supported setting at
++ * or below the specified speed, the slowest supported setting, or if
++ * they all fail, %NULL will be returned.
+  */
+-static inline unsigned int phy_find_setting(int speed, int duplex)
++static const struct phy_setting *
++phy_lookup_setting(int speed, int duplex, u32 features, bool exact)
+ {
+-	unsigned int idx = 0;
++	const struct phy_setting *p, *match = NULL, *last = NULL;
++	int i;
++
++	for (i = 0, p = settings; i < ARRAY_SIZE(settings); i++, p++) {
++		if (p->setting & features) {
++			last = p;
++			if (p->speed == speed && p->duplex == duplex) {
++				/* Exact match for speed and duplex */
++				match = p;
++				break;
++			} else if (!exact) {
++				if (!match && p->speed <= speed)
++					/* Candidate */
++					match = p;
++
++				if (p->speed < speed)
++					break;
++			}
++		}
++	}
+ 
+-	while (idx < ARRAY_SIZE(settings) &&
+-	       (settings[idx].speed != speed || settings[idx].duplex != duplex))
+-		idx++;
++	if (!match && !exact)
++		match = last;
+ 
+-	return idx < MAX_NUM_SETTINGS ? idx : MAX_NUM_SETTINGS - 1;
++	return match;
  }
  
-+#ifdef CONFIG_NET_SCH_DEFAULT
-+/* Set default value from kernel config */
-+static int __init sch_default_qdisc(void)
-+{
-+	return qdisc_set_default(CONFIG_DEFAULT_NET_SCH);
-+}
-+late_initcall(sch_default_qdisc);
-+#endif
-+
- /* We know handle. Find qdisc among all qdisc's attached to device
-  * (root qdisc, all its children, children of children etc.)
-  * Note: caller either uses rtnl or rcu_read_lock()
+ /**
+- * phy_find_valid - find a PHY setting that matches the requested features mask
+- * @idx: The first index in settings[] to search
+- * @features: A mask of the valid settings
++ * phy_find_valid - find a PHY setting that matches the requested parameters
++ * @speed: desired speed
++ * @duplex: desired duplex
++ * @supported: mask of supported link modes
+  *
+- * Description: Returns the index of the first valid setting less
+- *   than or equal to the one pointed to by idx, as determined by
+- *   the mask in features.  Returns the index of the last setting
+- *   if nothing else matches.
++ * Locate a supported phy setting that is, in priority order:
++ * - an exact match for the specified speed and duplex mode
++ * - a match for the specified speed, or slower speed
++ * - the slowest supported speed
++ * Returns the matched phy_setting entry, or %NULL if no supported phy
++ * settings were found.
+  */
+-static inline unsigned int phy_find_valid(unsigned int idx, u32 features)
++static const struct phy_setting *
++phy_find_valid(int speed, int duplex, u32 supported)
+ {
+-	while (idx < MAX_NUM_SETTINGS && !(settings[idx].setting & features))
+-		idx++;
+-
+-	return idx < MAX_NUM_SETTINGS ? idx : MAX_NUM_SETTINGS - 1;
++	return phy_lookup_setting(speed, duplex, supported, false);
+ }
+ 
+ /**
+@@ -293,11 +320,9 @@ unsigned int phy_supported_speeds(struct phy_device *phy,
+ 	unsigned int count = 0;
+ 	unsigned int idx = 0;
+ 
+-	while (idx < MAX_NUM_SETTINGS && count < size) {
+-		idx = phy_find_valid(idx, phy->supported);
+-
++	for (idx = 0; idx < ARRAY_SIZE(settings) && count < size; idx++) {
+ 		if (!(settings[idx].setting & phy->supported))
+-			break;
++			continue;
+ 
+ 		/* Assumes settings are grouped by speed */
+ 		if ((count == 0) ||
+@@ -305,7 +330,6 @@ unsigned int phy_supported_speeds(struct phy_device *phy,
+ 			speeds[count] = settings[idx].speed;
+ 			count++;
+ 		}
+-		idx++;
+ 	}
+ 
+ 	return count;
+@@ -322,12 +346,7 @@ unsigned int phy_supported_speeds(struct phy_device *phy,
+  */
+ static inline bool phy_check_valid(int speed, int duplex, u32 features)
+ {
+-	unsigned int idx;
+-
+-	idx = phy_find_valid(phy_find_setting(speed, duplex), features);
+-
+-	return settings[idx].speed == speed && settings[idx].duplex == duplex &&
+-		(settings[idx].setting & features);
++	return !!phy_lookup_setting(speed, duplex, features, true);
+ }
+ 
+ /**
+@@ -340,18 +359,22 @@ static inline bool phy_check_valid(int speed, int duplex, u32 features)
+  */
+ static void phy_sanitize_settings(struct phy_device *phydev)
+ {
++	const struct phy_setting *setting;
+ 	u32 features = phydev->supported;
+-	unsigned int idx;
+ 
+ 	/* Sanitize settings based on PHY capabilities */
+ 	if ((features & SUPPORTED_Autoneg) == 0)
+ 		phydev->autoneg = AUTONEG_DISABLE;
+ 
+-	idx = phy_find_valid(phy_find_setting(phydev->speed, phydev->duplex),
+-			features);
+-
+-	phydev->speed = settings[idx].speed;
+-	phydev->duplex = settings[idx].duplex;
++	setting = phy_find_valid(phydev->speed, phydev->duplex, features);
++	if (setting) {
++		phydev->speed = setting->speed;
++		phydev->duplex = setting->duplex;
++	} else {
++		/* We failed to find anything (no supported speeds?) */
++		phydev->speed = SPEED_UNKNOWN;
++		phydev->duplex = DUPLEX_UNKNOWN;
++	}
+ }
+ 
+ /**
 -- 
-2.11.0
+2.7.4
