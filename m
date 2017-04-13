@@ -1,656 +1,766 @@
 From: Manish Chopra <manish.chopra@cavium.com>
-Subject: [PATCH net-next 2/2] qede: Add aRFS support
-Date: Thu, 13 Apr 2017 04:54:45 -0700
-Message-ID: <20170413115445.16662-3-manish.chopra@cavium.com>
+Subject: [PATCH net-next 1/2] qed: aRFS infrastructure support
+Date: Thu, 13 Apr 2017 04:54:44 -0700
+Message-ID: <20170413115445.16662-2-manish.chopra@cavium.com>
 References: <20170413115445.16662-1-manish.chopra@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <Yuval.Mintz@cavium.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn3nam01on0050.outbound.protection.outlook.com ([104.47.33.50]:32235
-        "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
+Received: from mail-by2nam03on0086.outbound.protection.outlook.com ([104.47.42.86]:14512
+        "EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1753293AbdDMLzL (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 13 Apr 2017 07:55:11 -0400
+        id S1751473AbdDMLzJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 13 Apr 2017 07:55:09 -0400
 In-Reply-To: <20170413115445.16662-1-manish.chopra@cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds support for aRFS for TCP and UDP
-protocols with IPv4/IPv6.
+This patch adds necessary APIs to interface with
+qede aRFS support in successive patch.
+
+It also reserves separate PTT entry for aRFS,
+[as being in fastpath flow] for hardware access instead of
+trying to acquire it at run time from the ptt pool.
 
 Signed-off-by: Manish Chopra <manish.chopra@cavium.com>
 Signed-off-by: Yuval Mintz <yuval.mintz@cavium.com>
 ---
- drivers/net/ethernet/qlogic/qede/qede.h        |  22 +-
- drivers/net/ethernet/qlogic/qede/qede_filter.c | 441 +++++++++++++++++++++++++
- drivers/net/ethernet/qlogic/qede/qede_main.c   |  50 ++-
- 3 files changed, 508 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/qlogic/qed/qed.h              |   2 +
+ drivers/net/ethernet/qlogic/qed/qed_cxt.c          |  13 +-
+ drivers/net/ethernet/qlogic/qed/qed_hsi.h          | 187 +++++++++++++++++++++
+ .../net/ethernet/qlogic/qed/qed_init_fw_funcs.c    | 129 ++++++++++++++
+ drivers/net/ethernet/qlogic/qed/qed_l2.c           | 133 +++++++++++++++
+ drivers/net/ethernet/qlogic/qed/qed_l2.h           |   8 +
+ drivers/net/ethernet/qlogic/qed/qed_main.c         |  26 +++
+ drivers/net/ethernet/qlogic/qed/qed_reg_addr.h     |   8 +
+ drivers/net/ethernet/qlogic/qed/qed_sp.h           |   1 +
+ include/linux/qed/qed_eth_if.h                     |   8 +
+ include/linux/qed/qed_if.h                         |   7 +
+ 11 files changed, 519 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qede/qede.h b/drivers/net/ethernet/qlogic/qede/qede.h
-index 5e7ad25..7e18ae6 100644
---- a/drivers/net/ethernet/qlogic/qede/qede.h
-+++ b/drivers/net/ethernet/qlogic/qede/qede.h
-@@ -41,6 +41,9 @@
- #include <linux/mutex.h>
- #include <linux/bpf.h>
- #include <linux/io.h>
-+#ifdef CONFIG_RFS_ACCEL
-+#include <linux/cpu_rmap.h>
-+#endif
- #include <linux/qed/common_hsi.h>
- #include <linux/qed/eth_common.h>
- #include <linux/qed/qed_if.h>
-@@ -237,7 +240,10 @@ struct qede_dev {
- 	u16				vxlan_dst_port;
- 	u16				geneve_dst_port;
+diff --git a/drivers/net/ethernet/qlogic/qed/qed.h b/drivers/net/ethernet/qlogic/qed/qed.h
+index 4896ee0..c539ba1 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed.h
++++ b/drivers/net/ethernet/qlogic/qed/qed.h
+@@ -504,6 +504,8 @@ struct qed_hwfn {
+ 	u8 dcbx_no_edpm;
+ 	u8 db_bar_no_edpm;
  
--	bool wol_enabled;
-+#ifdef CONFIG_RFS_ACCEL
-+	struct qede_arfs		*arfs;
-+#endif
-+	bool				wol_enabled;
- 
- 	struct qede_rdma_dev		rdma_info;
- 
-@@ -439,6 +445,20 @@ struct qede_fastpath {
- #define QEDE_SP_VXLAN_PORT_CONFIG	2
- #define QEDE_SP_GENEVE_PORT_CONFIG	3
- 
-+#ifdef CONFIG_RFS_ACCEL
-+int qede_rx_flow_steer(struct net_device *dev, const struct sk_buff *skb,
-+		       u16 rxq_index, u32 flow_id);
-+void qede_process_arfs_filters(struct qede_dev *edev, bool free_fltr);
-+void qede_poll_for_freeing_arfs_filters(struct qede_dev *edev);
-+void qede_arfs_filter_op(void *dev, void *filter, u8 fw_rc);
-+void qede_free_arfs(struct qede_dev *edev);
-+int qede_alloc_arfs(struct qede_dev *edev);
++	struct qed_ptt *p_arfs_ptt;
 +
-+#define QEDE_SP_ARFS_CONFIG	4
-+#define QEDE_SP_TASK_POLL_DELAY	(5 * HZ)
-+#define QEDE_RFS_MAX_FLTR	256
-+#endif
-+
- struct qede_reload_args {
- 	void (*func)(struct qede_dev *edev, struct qede_reload_args *args);
- 	union {
-diff --git a/drivers/net/ethernet/qlogic/qede/qede_filter.c b/drivers/net/ethernet/qlogic/qede/qede_filter.c
-index b00a4fc..8c594a3 100644
---- a/drivers/net/ethernet/qlogic/qede/qede_filter.c
-+++ b/drivers/net/ethernet/qlogic/qede/qede_filter.c
-@@ -38,6 +38,447 @@
- #include <linux/qed/qed_if.h>
- #include "qede.h"
+ 	/* p_ptp_ptt is valid for leading HWFN only */
+ 	struct qed_ptt *p_ptp_ptt;
+ 	struct qed_simd_fp_handler	simd_proto_handler[64];
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_cxt.c b/drivers/net/ethernet/qlogic/qed/qed_cxt.c
+index 15ef6eb..b3aaa98 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_cxt.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_cxt.c
+@@ -219,9 +219,6 @@ struct qed_cxt_mngr {
+ 	 */
+ 	u32				vf_count;
  
-+#ifdef CONFIG_RFS_ACCEL
-+struct qede_arfs_tuple {
-+	union {
-+		__be32 src_ipv4;
-+		struct in6_addr src_ipv6;
-+	};
-+	union {
-+		__be32 dst_ipv4;
-+		struct in6_addr dst_ipv6;
-+	};
-+	__be16  src_port;
-+	__be16  dst_port;
-+	__be16  eth_proto;
-+	u8      ip_proto;
+-	/* total number of SRQ's for this hwfn */
+-	u32 srq_count;
+-
+ 	/* Acquired CIDs */
+ 	struct qed_cid_acquired_map	acquired[MAX_CONN_TYPES];
+ 
+@@ -237,6 +234,12 @@ struct qed_cxt_mngr {
+ 	u32 t2_num_pages;
+ 	u64 first_free;
+ 	u64 last_free;
++
++	/* total number of SRQ's for this hwfn */
++	u32 srq_count;
++
++	/* Maximal number of L2 steering filters */
++	u32 arfs_count;
+ };
+ static bool src_proto(enum protocol_type type)
+ {
+@@ -291,6 +294,9 @@ static void qed_cxt_src_iids(struct qed_cxt_mngr *p_mngr,
+ 		iids->pf_cids += p_mngr->conn_cfg[i].cid_count;
+ 		iids->per_vf_cids += p_mngr->conn_cfg[i].cids_per_vf;
+ 	}
++
++	/* Add L2 filtering filters in addition */
++	iids->pf_cids += p_mngr->arfs_count;
+ }
+ 
+ /* counts the iids for the Timers block configuration */
+@@ -2007,6 +2013,7 @@ int qed_cxt_set_pf_params(struct qed_hwfn *p_hwfn, u32 rdma_tasks)
+ 
+ 		qed_cxt_set_proto_cid_count(p_hwfn, PROTOCOLID_ETH,
+ 					    p_params->num_cons, 1);
++		p_hwfn->p_cxt_mngr->arfs_count = p_params->num_arfs_filters;
+ 		break;
+ 	}
+ 	case QED_PCI_FCOE:
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_hsi.h b/drivers/net/ethernet/qlogic/qed/qed_hsi.h
+index 815c4ec..858a57a 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_hsi.h
++++ b/drivers/net/ethernet/qlogic/qed/qed_hsi.h
+@@ -3473,6 +3473,11 @@ void qed_set_geneve_dest_port(struct qed_hwfn *p_hwfn,
+ void qed_set_geneve_enable(struct qed_hwfn *p_hwfn,
+ 			   struct qed_ptt *p_ptt,
+ 			   bool eth_geneve_enable, bool ip_geneve_enable);
++void qed_set_rfs_mode_disable(struct qed_hwfn *p_hwfn,
++			      struct qed_ptt *p_ptt, u16 pf_id);
++void qed_set_rfs_mode_enable(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt,
++			     u16 pf_id, bool tcp, bool udp,
++			     bool ipv4, bool ipv6);
+ 
+ #define	YSTORM_FLOW_CONTROL_MODE_OFFSET			(IRO[0].base)
+ #define	YSTORM_FLOW_CONTROL_MODE_SIZE			(IRO[0].size)
+@@ -4862,6 +4867,18 @@ struct eth_vport_tx_mode {
+ 	__le16 reserved2[3];
+ };
+ 
++enum gft_filter_update_action {
++	GFT_ADD_FILTER,
++	GFT_DELETE_FILTER,
++	MAX_GFT_FILTER_UPDATE_ACTION
 +};
 +
-+struct qede_arfs_fltr_node {
-+#define QEDE_FLTR_VALID	 0
-+	unsigned long state;
-+
-+	/* pointer to aRFS packet buffer */
-+	void *data;
-+
-+	/* dma map address of aRFS packet buffer */
-+	dma_addr_t mapping;
-+
-+	/* length of aRFS packet buffer */
-+	int buf_len;
-+
-+	/* tuples to hold from aRFS packet buffer */
-+	struct qede_arfs_tuple tuple;
-+
-+	u32 flow_id;
-+	u16 sw_id;
-+	u16 rxq_id;
-+	u16 next_rxq_id;
-+	bool filter_op;
-+	bool used;
-+	struct hlist_node node;
++enum gft_logic_filter_type {
++	GFT_FILTER_TYPE,
++	RFS_FILTER_TYPE,
++	MAX_GFT_LOGIC_FILTER_TYPE
 +};
 +
-+struct qede_arfs {
-+#define QEDE_ARFS_POLL_COUNT	100
-+#define QEDE_RFS_FLW_BITSHIFT	(4)
-+#define QEDE_RFS_FLW_MASK	((1 << QEDE_RFS_FLW_BITSHIFT) - 1)
-+	struct hlist_head	arfs_hl_head[1 << QEDE_RFS_FLW_BITSHIFT];
-+
-+	/* lock for filter list access */
-+	spinlock_t		arfs_list_lock;
-+	unsigned long		*arfs_fltr_bmap;
-+	int			filter_count;
-+	bool			enable;
+ /* Ramrod data for rx queue start ramrod */
+ struct rx_queue_start_ramrod_data {
+ 	__le16 rx_queue_id;
+@@ -4932,6 +4949,16 @@ struct rx_udp_filter_data {
+ 	__le32 tenant_id;
+ };
+ 
++struct rx_update_gft_filter_data {
++	struct regpair pkt_hdr_addr;
++	__le16 pkt_hdr_length;
++	__le16 rx_qid_or_action_icid;
++	u8 vport_id;
++	u8 filter_type;
++	u8 filter_action;
++	u8 reserved;
 +};
 +
-+static void qede_configure_arfs_fltr(struct qede_dev *edev,
-+				     struct qede_arfs_fltr_node *n,
-+				     u16 rxq_id, bool add_fltr)
+ /* Ramrod data for rx queue start ramrod */
+ struct tx_queue_start_ramrod_data {
+ 	__le16 sb_id;
+@@ -5075,6 +5102,166 @@ struct vport_update_ramrod_data {
+ 	struct eth_vport_rss_config rss_config;
+ };
+ 
++struct gft_cam_line {
++	__le32 camline;
++#define GFT_CAM_LINE_VALID_MASK		0x1
++#define GFT_CAM_LINE_VALID_SHIFT	0
++#define GFT_CAM_LINE_DATA_MASK		0x3FFF
++#define GFT_CAM_LINE_DATA_SHIFT		1
++#define GFT_CAM_LINE_MASK_BITS_MASK	0x3FFF
++#define GFT_CAM_LINE_MASK_BITS_SHIFT	15
++#define GFT_CAM_LINE_RESERVED1_MASK	0x7
++#define GFT_CAM_LINE_RESERVED1_SHIFT	29
++};
++
++struct gft_cam_line_mapped {
++	__le32 camline;
++#define GFT_CAM_LINE_MAPPED_VALID_MASK				0x1
++#define GFT_CAM_LINE_MAPPED_VALID_SHIFT				0
++#define GFT_CAM_LINE_MAPPED_IP_VERSION_MASK			0x1
++#define GFT_CAM_LINE_MAPPED_IP_VERSION_SHIFT			1
++#define GFT_CAM_LINE_MAPPED_TUNNEL_IP_VERSION_MASK		0x1
++#define GFT_CAM_LINE_MAPPED_TUNNEL_IP_VERSION_SHIFT		2
++#define GFT_CAM_LINE_MAPPED_UPPER_PROTOCOL_TYPE_MASK		0xF
++#define GFT_CAM_LINE_MAPPED_UPPER_PROTOCOL_TYPE_SHIFT		3
++#define GFT_CAM_LINE_MAPPED_TUNNEL_TYPE_MASK			0xF
++#define GFT_CAM_LINE_MAPPED_TUNNEL_TYPE_SHIFT			7
++#define GFT_CAM_LINE_MAPPED_PF_ID_MASK				0xF
++#define GFT_CAM_LINE_MAPPED_PF_ID_SHIFT				11
++#define GFT_CAM_LINE_MAPPED_IP_VERSION_MASK_MASK		0x1
++#define GFT_CAM_LINE_MAPPED_IP_VERSION_MASK_SHIFT		15
++#define GFT_CAM_LINE_MAPPED_TUNNEL_IP_VERSION_MASK_MASK		0x1
++#define GFT_CAM_LINE_MAPPED_TUNNEL_IP_VERSION_MASK_SHIFT	16
++#define GFT_CAM_LINE_MAPPED_UPPER_PROTOCOL_TYPE_MASK_MASK	0xF
++#define GFT_CAM_LINE_MAPPED_UPPER_PROTOCOL_TYPE_MASK_SHIFT	17
++#define GFT_CAM_LINE_MAPPED_TUNNEL_TYPE_MASK_MASK		0xF
++#define GFT_CAM_LINE_MAPPED_TUNNEL_TYPE_MASK_SHIFT		21
++#define GFT_CAM_LINE_MAPPED_PF_ID_MASK_MASK			0xF
++#define GFT_CAM_LINE_MAPPED_PF_ID_MASK_SHIFT			25
++#define GFT_CAM_LINE_MAPPED_RESERVED1_MASK			0x7
++#define GFT_CAM_LINE_MAPPED_RESERVED1_SHIFT			29
++};
++
++union gft_cam_line_union {
++	struct gft_cam_line cam_line;
++	struct gft_cam_line_mapped cam_line_mapped;
++};
++
++enum gft_profile_ip_version {
++	GFT_PROFILE_IPV4 = 0,
++	GFT_PROFILE_IPV6 = 1,
++	MAX_GFT_PROFILE_IP_VERSION
++};
++
++enum gft_profile_upper_protocol_type {
++	GFT_PROFILE_ROCE_PROTOCOL = 0,
++	GFT_PROFILE_RROCE_PROTOCOL = 1,
++	GFT_PROFILE_FCOE_PROTOCOL = 2,
++	GFT_PROFILE_ICMP_PROTOCOL = 3,
++	GFT_PROFILE_ARP_PROTOCOL = 4,
++	GFT_PROFILE_USER_TCP_SRC_PORT_1_INNER = 5,
++	GFT_PROFILE_USER_TCP_DST_PORT_1_INNER = 6,
++	GFT_PROFILE_TCP_PROTOCOL = 7,
++	GFT_PROFILE_USER_UDP_DST_PORT_1_INNER = 8,
++	GFT_PROFILE_USER_UDP_DST_PORT_2_OUTER = 9,
++	GFT_PROFILE_UDP_PROTOCOL = 10,
++	GFT_PROFILE_USER_IP_1_INNER = 11,
++	GFT_PROFILE_USER_IP_2_OUTER = 12,
++	GFT_PROFILE_USER_ETH_1_INNER = 13,
++	GFT_PROFILE_USER_ETH_2_OUTER = 14,
++	GFT_PROFILE_RAW = 15,
++	MAX_GFT_PROFILE_UPPER_PROTOCOL_TYPE
++};
++
++struct gft_ram_line {
++	__le32 low32bits;
++#define GFT_RAM_LINE_VLAN_SELECT_MASK			0x3
++#define GFT_RAM_LINE_VLAN_SELECT_SHIFT			0
++#define GFT_RAM_LINE_TUNNEL_ENTROPHY_MASK		0x1
++#define GFT_RAM_LINE_TUNNEL_ENTROPHY_SHIFT		2
++#define GFT_RAM_LINE_TUNNEL_TTL_EQUAL_ONE_MASK		0x1
++#define GFT_RAM_LINE_TUNNEL_TTL_EQUAL_ONE_SHIFT		3
++#define GFT_RAM_LINE_TUNNEL_TTL_MASK			0x1
++#define GFT_RAM_LINE_TUNNEL_TTL_SHIFT			4
++#define GFT_RAM_LINE_TUNNEL_ETHERTYPE_MASK		0x1
++#define GFT_RAM_LINE_TUNNEL_ETHERTYPE_SHIFT		5
++#define GFT_RAM_LINE_TUNNEL_DST_PORT_MASK		0x1
++#define GFT_RAM_LINE_TUNNEL_DST_PORT_SHIFT		6
++#define GFT_RAM_LINE_TUNNEL_SRC_PORT_MASK		0x1
++#define GFT_RAM_LINE_TUNNEL_SRC_PORT_SHIFT		7
++#define GFT_RAM_LINE_TUNNEL_DSCP_MASK			0x1
++#define GFT_RAM_LINE_TUNNEL_DSCP_SHIFT			8
++#define GFT_RAM_LINE_TUNNEL_OVER_IP_PROTOCOL_MASK	0x1
++#define GFT_RAM_LINE_TUNNEL_OVER_IP_PROTOCOL_SHIFT	9
++#define GFT_RAM_LINE_TUNNEL_DST_IP_MASK			0x1
++#define GFT_RAM_LINE_TUNNEL_DST_IP_SHIFT		10
++#define GFT_RAM_LINE_TUNNEL_SRC_IP_MASK			0x1
++#define GFT_RAM_LINE_TUNNEL_SRC_IP_SHIFT		11
++#define GFT_RAM_LINE_TUNNEL_PRIORITY_MASK		0x1
++#define GFT_RAM_LINE_TUNNEL_PRIORITY_SHIFT		12
++#define GFT_RAM_LINE_TUNNEL_PROVIDER_VLAN_MASK		0x1
++#define GFT_RAM_LINE_TUNNEL_PROVIDER_VLAN_SHIFT		13
++#define GFT_RAM_LINE_TUNNEL_VLAN_MASK			0x1
++#define GFT_RAM_LINE_TUNNEL_VLAN_SHIFT			14
++#define GFT_RAM_LINE_TUNNEL_DST_MAC_MASK		0x1
++#define GFT_RAM_LINE_TUNNEL_DST_MAC_SHIFT		15
++#define GFT_RAM_LINE_TUNNEL_SRC_MAC_MASK		0x1
++#define GFT_RAM_LINE_TUNNEL_SRC_MAC_SHIFT		16
++#define GFT_RAM_LINE_TTL_EQUAL_ONE_MASK			0x1
++#define GFT_RAM_LINE_TTL_EQUAL_ONE_SHIFT		17
++#define GFT_RAM_LINE_TTL_MASK				0x1
++#define GFT_RAM_LINE_TTL_SHIFT				18
++#define GFT_RAM_LINE_ETHERTYPE_MASK			0x1
++#define GFT_RAM_LINE_ETHERTYPE_SHIFT			19
++#define GFT_RAM_LINE_RESERVED0_MASK			0x1
++#define GFT_RAM_LINE_RESERVED0_SHIFT			20
++#define GFT_RAM_LINE_TCP_FLAG_FIN_MASK			0x1
++#define GFT_RAM_LINE_TCP_FLAG_FIN_SHIFT			21
++#define GFT_RAM_LINE_TCP_FLAG_SYN_MASK			0x1
++#define GFT_RAM_LINE_TCP_FLAG_SYN_SHIFT			22
++#define GFT_RAM_LINE_TCP_FLAG_RST_MASK			0x1
++#define GFT_RAM_LINE_TCP_FLAG_RST_SHIFT			23
++#define GFT_RAM_LINE_TCP_FLAG_PSH_MASK			0x1
++#define GFT_RAM_LINE_TCP_FLAG_PSH_SHIFT			24
++#define GFT_RAM_LINE_TCP_FLAG_ACK_MASK			0x1
++#define GFT_RAM_LINE_TCP_FLAG_ACK_SHIFT			25
++#define GFT_RAM_LINE_TCP_FLAG_URG_MASK			0x1
++#define GFT_RAM_LINE_TCP_FLAG_URG_SHIFT			26
++#define GFT_RAM_LINE_TCP_FLAG_ECE_MASK			0x1
++#define GFT_RAM_LINE_TCP_FLAG_ECE_SHIFT			27
++#define GFT_RAM_LINE_TCP_FLAG_CWR_MASK			0x1
++#define GFT_RAM_LINE_TCP_FLAG_CWR_SHIFT			28
++#define GFT_RAM_LINE_TCP_FLAG_NS_MASK			0x1
++#define GFT_RAM_LINE_TCP_FLAG_NS_SHIFT			29
++#define GFT_RAM_LINE_DST_PORT_MASK			0x1
++#define GFT_RAM_LINE_DST_PORT_SHIFT			30
++#define GFT_RAM_LINE_SRC_PORT_MASK			0x1
++#define GFT_RAM_LINE_SRC_PORT_SHIFT			31
++	__le32 high32bits;
++#define GFT_RAM_LINE_DSCP_MASK				0x1
++#define GFT_RAM_LINE_DSCP_SHIFT				0
++#define GFT_RAM_LINE_OVER_IP_PROTOCOL_MASK		0x1
++#define GFT_RAM_LINE_OVER_IP_PROTOCOL_SHIFT		1
++#define GFT_RAM_LINE_DST_IP_MASK			0x1
++#define GFT_RAM_LINE_DST_IP_SHIFT			2
++#define GFT_RAM_LINE_SRC_IP_MASK			0x1
++#define GFT_RAM_LINE_SRC_IP_SHIFT			3
++#define GFT_RAM_LINE_PRIORITY_MASK			0x1
++#define GFT_RAM_LINE_PRIORITY_SHIFT			4
++#define GFT_RAM_LINE_PROVIDER_VLAN_MASK			0x1
++#define GFT_RAM_LINE_PROVIDER_VLAN_SHIFT		5
++#define GFT_RAM_LINE_VLAN_MASK				0x1
++#define GFT_RAM_LINE_VLAN_SHIFT				6
++#define GFT_RAM_LINE_DST_MAC_MASK			0x1
++#define GFT_RAM_LINE_DST_MAC_SHIFT			7
++#define GFT_RAM_LINE_SRC_MAC_MASK			0x1
++#define GFT_RAM_LINE_SRC_MAC_SHIFT			8
++#define GFT_RAM_LINE_TENANT_ID_MASK			0x1
++#define GFT_RAM_LINE_TENANT_ID_SHIFT			9
++#define GFT_RAM_LINE_RESERVED1_MASK			0x3FFFFF
++#define GFT_RAM_LINE_RESERVED1_SHIFT			10
++};
++
+ struct mstorm_eth_conn_ag_ctx {
+ 	u8 byte0;
+ 	u8 byte1;
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_init_fw_funcs.c b/drivers/net/ethernet/qlogic/qed/qed_init_fw_funcs.c
+index 2a50e2b..67200c5 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_init_fw_funcs.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_init_fw_funcs.c
+@@ -961,3 +961,132 @@ void qed_set_geneve_enable(struct qed_hwfn *p_hwfn,
+ 	qed_wr(p_hwfn, p_ptt, DORQ_REG_L2_EDPM_TUNNEL_NGE_IP_EN,
+ 	       ip_geneve_enable ? 1 : 0);
+ }
++
++#define T_ETH_PACKET_MATCH_RFS_EVENTID 25
++#define PARSER_ETH_CONN_CM_HDR (0x0)
++#define CAM_LINE_SIZE sizeof(u32)
++#define RAM_LINE_SIZE sizeof(u64)
++#define REG_SIZE sizeof(u32)
++
++void qed_set_rfs_mode_disable(struct qed_hwfn *p_hwfn,
++			      struct qed_ptt *p_ptt, u16 pf_id)
 +{
-+	const struct qed_eth_ops *op = edev->ops;
++	union gft_cam_line_union camline;
++	struct gft_ram_line ramline;
++	u32 *p_ramline, i;
 +
-+	if (n->used)
-+		return;
++	p_ramline = (u32 *)&ramline;
 +
-+	DP_VERBOSE(edev, NETIF_MSG_RX_STATUS,
-+		   "%s arfs filter flow_id=%d, sw_id=%d, src_port=%d, dst_port=%d, rxq=%d\n",
-+		   add_fltr ? "Adding" : "Deleting",
-+		   n->flow_id, n->sw_id, ntohs(n->tuple.src_port),
-+		   ntohs(n->tuple.dst_port), rxq_id);
++	/*stop using gft logic */
++	qed_wr(p_hwfn, p_ptt, PRS_REG_SEARCH_GFT, 0);
++	qed_wr(p_hwfn, p_ptt, PRS_REG_CM_HDR_GFT, 0x0);
++	memset(&camline, 0, sizeof(union gft_cam_line_union));
++	qed_wr(p_hwfn, p_ptt, PRS_REG_GFT_CAM + CAM_LINE_SIZE * pf_id,
++	       camline.cam_line_mapped.camline);
++	memset(&ramline, 0, sizeof(union gft_cam_line_union));
 +
-+	n->used = true;
-+	n->filter_op = add_fltr;
-+	op->ntuple_filter_config(edev->cdev, n, n->mapping, n->buf_len, 0,
-+				 rxq_id, add_fltr);
++	for (i = 0; i < RAM_LINE_SIZE / REG_SIZE; i++) {
++		u32 hw_addr = PRS_REG_GFT_PROFILE_MASK_RAM;
++
++		hw_addr += (RAM_LINE_SIZE * pf_id + i * REG_SIZE);
++
++		qed_wr(p_hwfn, p_ptt, hw_addr, *(p_ramline + i));
++	}
 +}
 +
++void qed_set_rfs_mode_enable(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt,
++			     u16 pf_id, bool tcp, bool udp,
++			     bool ipv4, bool ipv6)
++{
++	u32 rfs_cm_hdr_event_id, *p_ramline;
++	union gft_cam_line_union camline;
++	struct gft_ram_line ramline;
++	int i;
++
++	rfs_cm_hdr_event_id = qed_rd(p_hwfn, p_ptt, PRS_REG_CM_HDR_GFT);
++	p_ramline = (u32 *)&ramline;
++
++	if (!ipv6 && !ipv4)
++		DP_NOTICE(p_hwfn,
++			  "set_rfs_mode_enable: must accept at least on of - ipv4 or ipv6");
++	if (!tcp && !udp)
++		DP_NOTICE(p_hwfn,
++			  "set_rfs_mode_enable: must accept at least on of - udp or tcp");
++
++	rfs_cm_hdr_event_id |= T_ETH_PACKET_MATCH_RFS_EVENTID <<
++					PRS_REG_CM_HDR_GFT_EVENT_ID_SHIFT;
++	rfs_cm_hdr_event_id |= PARSER_ETH_CONN_CM_HDR <<
++					PRS_REG_CM_HDR_GFT_CM_HDR_SHIFT;
++	qed_wr(p_hwfn, p_ptt, PRS_REG_CM_HDR_GFT, rfs_cm_hdr_event_id);
++
++	/* Configure Registers for RFS mode */
++	qed_wr(p_hwfn, p_ptt, PRS_REG_SEARCH_GFT, 1);
++	qed_wr(p_hwfn, p_ptt, PRS_REG_LOAD_L2_FILTER, 0);
++	camline.cam_line_mapped.camline = 0;
++
++	/* cam line is now valid!! */
++	SET_FIELD(camline.cam_line_mapped.camline,
++		  GFT_CAM_LINE_MAPPED_VALID, 1);
++
++	/* filters are per PF!! */
++	SET_FIELD(camline.cam_line_mapped.camline,
++		  GFT_CAM_LINE_MAPPED_PF_ID_MASK, 1);
++	SET_FIELD(camline.cam_line_mapped.camline,
++		  GFT_CAM_LINE_MAPPED_PF_ID, pf_id);
++	if (!(tcp && udp)) {
++		SET_FIELD(camline.cam_line_mapped.camline,
++			  GFT_CAM_LINE_MAPPED_UPPER_PROTOCOL_TYPE_MASK, 1);
++		if (tcp)
++			SET_FIELD(camline.cam_line_mapped.camline,
++				  GFT_CAM_LINE_MAPPED_UPPER_PROTOCOL_TYPE,
++				  GFT_PROFILE_TCP_PROTOCOL);
++		else
++			SET_FIELD(camline.cam_line_mapped.camline,
++				  GFT_CAM_LINE_MAPPED_UPPER_PROTOCOL_TYPE,
++				  GFT_PROFILE_UDP_PROTOCOL);
++	}
++
++	if (!(ipv4 && ipv6)) {
++		SET_FIELD(camline.cam_line_mapped.camline,
++			  GFT_CAM_LINE_MAPPED_IP_VERSION_MASK, 1);
++		if (ipv4)
++			SET_FIELD(camline.cam_line_mapped.camline,
++				  GFT_CAM_LINE_MAPPED_IP_VERSION,
++				  GFT_PROFILE_IPV4);
++		else
++			SET_FIELD(camline.cam_line_mapped.camline,
++				  GFT_CAM_LINE_MAPPED_IP_VERSION,
++				  GFT_PROFILE_IPV6);
++	}
++
++	/* write characteristics to cam */
++	qed_wr(p_hwfn, p_ptt, PRS_REG_GFT_CAM + CAM_LINE_SIZE * pf_id,
++	       camline.cam_line_mapped.camline);
++	camline.cam_line_mapped.camline = qed_rd(p_hwfn, p_ptt,
++						 PRS_REG_GFT_CAM +
++						 CAM_LINE_SIZE * pf_id);
++
++	/* write line to RAM - compare to filter 4 tuple */
++	ramline.low32bits = 0;
++	ramline.high32bits = 0;
++	SET_FIELD(ramline.high32bits, GFT_RAM_LINE_DST_IP, 1);
++	SET_FIELD(ramline.high32bits, GFT_RAM_LINE_SRC_IP, 1);
++	SET_FIELD(ramline.low32bits, GFT_RAM_LINE_SRC_PORT, 1);
++	SET_FIELD(ramline.low32bits, GFT_RAM_LINE_DST_PORT, 1);
++
++	/* each iteration write to reg */
++	for (i = 0; i < RAM_LINE_SIZE / REG_SIZE; i++)
++		qed_wr(p_hwfn, p_ptt,
++		       PRS_REG_GFT_PROFILE_MASK_RAM + RAM_LINE_SIZE * pf_id +
++		       i * REG_SIZE, *(p_ramline + i));
++
++	/* set default profile so that no filter match will happen */
++	ramline.low32bits = 0xffff;
++	ramline.high32bits = 0xffff;
++
++	for (i = 0; i < RAM_LINE_SIZE / REG_SIZE; i++)
++		qed_wr(p_hwfn, p_ptt,
++		       PRS_REG_GFT_PROFILE_MASK_RAM + RAM_LINE_SIZE *
++		       PRS_GFT_CAM_LINES_NO_MATCH + i * REG_SIZE,
++		       *(p_ramline + i));
++}
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_l2.c b/drivers/net/ethernet/qlogic/qed/qed_l2.c
+index d56441d..eb5e280 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_l2.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_l2.c
+@@ -1799,6 +1799,84 @@ void qed_reset_vport_stats(struct qed_dev *cdev)
+ 		_qed_get_vport_stats(cdev, cdev->reset_stats);
+ }
+ 
 +static void
-+qede_free_arfs_filter(struct qede_dev *edev,  struct qede_arfs_fltr_node *fltr)
++qed_arfs_mode_configure(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt,
++			struct qed_arfs_config_params *p_cfg_params)
 +{
-+	kfree(fltr->data);
-+	clear_bit(fltr->sw_id, edev->arfs->arfs_fltr_bmap);
-+	kfree(fltr);
-+}
-+
-+void qede_arfs_filter_op(void *dev, void *filter, u8 fw_rc)
-+{
-+	struct qede_arfs_fltr_node *fltr = filter;
-+	struct qede_dev *edev = dev;
-+
-+	if (fw_rc) {
-+		DP_NOTICE(edev,
-+			  "Failed arfs filter configuration fw_rc=%d, flow_id=%d, sw_id=%d, src_port=%d, dst_port=%d, rxq=%d\n",
-+			  fw_rc, fltr->flow_id, fltr->sw_id,
-+			  ntohs(fltr->tuple.src_port),
-+			  ntohs(fltr->tuple.dst_port), fltr->rxq_id);
-+
-+		spin_lock_bh(&edev->arfs->arfs_list_lock);
-+
-+		fltr->used = false;
-+		clear_bit(QEDE_FLTR_VALID, &fltr->state);
-+
-+		spin_unlock_bh(&edev->arfs->arfs_list_lock);
-+		return;
-+	}
-+
-+	spin_lock_bh(&edev->arfs->arfs_list_lock);
-+
-+	fltr->used = false;
-+
-+	if (fltr->filter_op) {
-+		set_bit(QEDE_FLTR_VALID, &fltr->state);
-+		if (fltr->rxq_id != fltr->next_rxq_id)
-+			qede_configure_arfs_fltr(edev, fltr, fltr->rxq_id,
-+						 false);
++	if (p_cfg_params->arfs_enable) {
++		qed_set_rfs_mode_enable(p_hwfn, p_ptt, p_hwfn->rel_pf_id,
++					p_cfg_params->tcp, p_cfg_params->udp,
++					p_cfg_params->ipv4, p_cfg_params->ipv6);
++		DP_VERBOSE(p_hwfn, QED_MSG_SP,
++			   "tcp = %s, udp = %s, ipv4 = %s, ipv6 =%s\n",
++			   p_cfg_params->tcp ? "Enable" : "Disable",
++			   p_cfg_params->udp ? "Enable" : "Disable",
++			   p_cfg_params->ipv4 ? "Enable" : "Disable",
++			   p_cfg_params->ipv6 ? "Enable" : "Disable");
 +	} else {
-+		clear_bit(QEDE_FLTR_VALID, &fltr->state);
-+		if (fltr->rxq_id != fltr->next_rxq_id) {
-+			fltr->rxq_id = fltr->next_rxq_id;
-+			qede_configure_arfs_fltr(edev, fltr,
-+						 fltr->rxq_id, true);
-+		}
++		qed_set_rfs_mode_disable(p_hwfn, p_ptt, p_hwfn->rel_pf_id);
 +	}
 +
-+	spin_unlock_bh(&edev->arfs->arfs_list_lock);
++	DP_VERBOSE(p_hwfn, QED_MSG_SP, "Configured ARFS mode : %s\n",
++		   p_cfg_params->arfs_enable ? "Enable" : "Disable");
 +}
 +
-+/* Should be called while qede_lock is held */
-+void qede_process_arfs_filters(struct qede_dev *edev, bool free_fltr)
++static int
++qed_configure_rfs_ntuple_filter(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt,
++				struct qed_spq_comp_cb *p_cb,
++				dma_addr_t p_addr, u16 length, u16 qid,
++				u8 vport_id, bool b_is_add)
 +{
-+	int i;
++	struct rx_update_gft_filter_data *p_ramrod = NULL;
++	struct qed_spq_entry *p_ent = NULL;
++	struct qed_sp_init_data init_data;
++	u16 abs_rx_q_id = 0;
++	u8 abs_vport_id = 0;
++	int rc = -EINVAL;
 +
-+	for (i = 0; i <= QEDE_RFS_FLW_MASK; i++) {
-+		struct hlist_node *temp;
-+		struct hlist_head *head;
-+		struct qede_arfs_fltr_node *fltr;
++	rc = qed_fw_vport(p_hwfn, vport_id, &abs_vport_id);
++	if (rc)
++		return rc;
 +
-+		head = &edev->arfs->arfs_hl_head[i];
++	rc = qed_fw_l2_queue(p_hwfn, qid, &abs_rx_q_id);
++	if (rc)
++		return rc;
 +
-+		hlist_for_each_entry_safe(fltr, temp, head, node) {
-+			bool del = false;
++	/* Get SPQ entry */
++	memset(&init_data, 0, sizeof(init_data));
++	init_data.cid = qed_spq_get_cid(p_hwfn);
 +
-+			if (edev->state != QEDE_STATE_OPEN)
-+				del = true;
++	init_data.opaque_fid = p_hwfn->hw_info.opaque_fid;
 +
-+			spin_lock_bh(&edev->arfs->arfs_list_lock);
-+
-+			if ((!test_bit(QEDE_FLTR_VALID, &fltr->state) &&
-+			     !fltr->used) || free_fltr) {
-+				hlist_del(&fltr->node);
-+				dma_unmap_single(&edev->pdev->dev,
-+						 fltr->mapping,
-+						 fltr->buf_len, DMA_TO_DEVICE);
-+				qede_free_arfs_filter(edev, fltr);
-+				edev->arfs->filter_count--;
-+			} else {
-+				if ((rps_may_expire_flow(edev->ndev,
-+							 fltr->rxq_id,
-+							 fltr->flow_id,
-+							 fltr->sw_id) || del) &&
-+							 !free_fltr)
-+					qede_configure_arfs_fltr(edev, fltr,
-+								 fltr->rxq_id,
-+								 false);
-+			}
-+
-+			spin_unlock_bh(&edev->arfs->arfs_list_lock);
-+		}
-+	}
-+
-+	spin_lock_bh(&edev->arfs->arfs_list_lock);
-+
-+	if (!edev->arfs->filter_count) {
-+		if (edev->arfs->enable) {
-+			edev->arfs->enable = false;
-+			edev->ops->configure_arfs_searcher(edev->cdev, false);
-+		}
++	if (p_cb) {
++		init_data.comp_mode = QED_SPQ_MODE_CB;
++		init_data.p_comp_data = p_cb;
 +	} else {
-+		set_bit(QEDE_SP_ARFS_CONFIG, &edev->sp_flags);
-+		schedule_delayed_work(&edev->sp_task,
-+				      QEDE_SP_TASK_POLL_DELAY);
++		init_data.comp_mode = QED_SPQ_MODE_EBLOCK;
 +	}
 +
-+	spin_unlock_bh(&edev->arfs->arfs_list_lock);
++	rc = qed_sp_init_request(p_hwfn, &p_ent,
++				 ETH_RAMROD_GFT_UPDATE_FILTER,
++				 PROTOCOLID_ETH, &init_data);
++	if (rc)
++		return rc;
++
++	p_ramrod = &p_ent->ramrod.rx_update_gft;
++	DMA_REGPAIR_LE(p_ramrod->pkt_hdr_addr, p_addr);
++	p_ramrod->pkt_hdr_length = cpu_to_le16(length);
++	p_ramrod->rx_qid_or_action_icid = cpu_to_le16(abs_rx_q_id);
++	p_ramrod->vport_id = abs_vport_id;
++	p_ramrod->filter_type = RFS_FILTER_TYPE;
++	p_ramrod->filter_action = b_is_add ? GFT_ADD_FILTER : GFT_DELETE_FILTER;
++
++	DP_VERBOSE(p_hwfn, QED_MSG_SP,
++		   "V[%0x], Q[%04x] - %s filter from 0x%llx [length %04xb]\n",
++		   abs_vport_id, abs_rx_q_id,
++		   b_is_add ? "Adding" : "Removing", (u64)p_addr, length);
++
++	return qed_spq_post(p_hwfn, p_ent, NULL);
 +}
 +
-+/* This function waits until all aRFS filters get deleted and freed.
-+ * On timeout it frees all filters forcefully.
-+ */
-+void qede_poll_for_freeing_arfs_filters(struct qede_dev *edev)
+ static int qed_fill_eth_dev_info(struct qed_dev *cdev,
+ 				 struct qed_dev_eth_info *info)
+ {
+@@ -2356,6 +2434,59 @@ static int qed_configure_filter(struct qed_dev *cdev,
+ 	}
+ }
+ 
++static int qed_configure_arfs_searcher(struct qed_dev *cdev, bool en_searcher)
 +{
-+	int count = QEDE_ARFS_POLL_COUNT;
++	struct qed_hwfn *p_hwfn = QED_LEADING_HWFN(cdev);
++	struct qed_arfs_config_params arfs_config_params;
 +
-+	while (count) {
-+		qede_process_arfs_filters(edev, false);
++	memset(&arfs_config_params, 0, sizeof(arfs_config_params));
++	arfs_config_params.tcp = true;
++	arfs_config_params.udp = true;
++	arfs_config_params.ipv4 = true;
++	arfs_config_params.ipv6 = true;
++	arfs_config_params.arfs_enable = en_searcher;
 +
-+		if (!edev->arfs->filter_count)
-+			break;
-+
-+		msleep(100);
-+		count--;
-+	}
-+
-+	if (!count) {
-+		DP_NOTICE(edev, "Timeout in polling for arfs filter free\n");
-+
-+		/* Something is terribly wrong, free forcefully */
-+		qede_process_arfs_filters(edev, true);
-+	}
-+}
-+
-+int qede_alloc_arfs(struct qede_dev *edev)
-+{
-+	int i;
-+
-+	edev->arfs = vzalloc(sizeof(*edev->arfs));
-+	if (!edev->arfs)
-+		return -ENOMEM;
-+
-+	spin_lock_init(&edev->arfs->arfs_list_lock);
-+
-+	for (i = 0; i <= QEDE_RFS_FLW_MASK; i++)
-+		INIT_HLIST_HEAD(&edev->arfs->arfs_hl_head[i]);
-+
-+	edev->ndev->rx_cpu_rmap = alloc_irq_cpu_rmap(QEDE_RSS_COUNT(edev));
-+	if (!edev->ndev->rx_cpu_rmap) {
-+		vfree(edev->arfs);
-+		edev->arfs = NULL;
-+		return -ENOMEM;
-+	}
-+
-+	edev->arfs->arfs_fltr_bmap = vzalloc(BITS_TO_LONGS(QEDE_RFS_MAX_FLTR));
-+	if (!edev->arfs->arfs_fltr_bmap) {
-+		free_irq_cpu_rmap(edev->ndev->rx_cpu_rmap);
-+		edev->ndev->rx_cpu_rmap = NULL;
-+		vfree(edev->arfs);
-+		edev->arfs = NULL;
-+		return -ENOMEM;
-+	}
-+
++	qed_arfs_mode_configure(p_hwfn, p_hwfn->p_arfs_ptt,
++				&arfs_config_params);
 +	return 0;
 +}
 +
-+void qede_free_arfs(struct qede_dev *edev)
++static void
++qed_arfs_sp_response_handler(struct qed_hwfn *p_hwfn,
++			     void *cookie, union event_ring_data *data,
++			     u8 fw_return_code)
 +{
-+	if (!edev->arfs)
-+		return;
++	struct qed_common_cb_ops *op = p_hwfn->cdev->protocol_ops.common;
++	void *dev = p_hwfn->cdev->ops_cookie;
 +
-+	if (edev->ndev->rx_cpu_rmap)
-+		free_irq_cpu_rmap(edev->ndev->rx_cpu_rmap);
-+
-+	edev->ndev->rx_cpu_rmap = NULL;
-+	vfree(edev->arfs->arfs_fltr_bmap);
-+	edev->arfs->arfs_fltr_bmap = NULL;
-+	vfree(edev->arfs);
-+	edev->arfs = NULL;
++	op->arfs_filter_op(dev, cookie, fw_return_code);
 +}
 +
-+static bool qede_compare_ip_addr(struct qede_arfs_fltr_node *tpos,
-+				 const struct sk_buff *skb)
++static int qed_ntuple_arfs_filter_config(struct qed_dev *cdev, void *cookie,
++					 dma_addr_t mapping, u16 length,
++					 u16 vport_id, u16 rx_queue_id,
++					 bool add_filter)
 +{
-+	if (skb->protocol == htons(ETH_P_IP)) {
-+		if (tpos->tuple.src_ipv4 == ip_hdr(skb)->saddr &&
-+		    tpos->tuple.dst_ipv4 == ip_hdr(skb)->daddr)
-+			return true;
-+		else
-+			return false;
-+	} else {
-+		struct in6_addr *src = &tpos->tuple.src_ipv6;
-+		u8 size = sizeof(struct in6_addr);
++	struct qed_hwfn *p_hwfn = QED_LEADING_HWFN(cdev);
++	struct qed_spq_comp_cb cb;
++	int rc = -EINVAL;
 +
-+		if (!memcmp(src, &ipv6_hdr(skb)->saddr, size) &&
-+		    !memcmp(&tpos->tuple.dst_ipv6, &ipv6_hdr(skb)->daddr, size))
-+			return true;
-+		else
-+			return false;
-+	}
-+}
++	cb.function = qed_arfs_sp_response_handler;
++	cb.cookie = cookie;
 +
-+static struct qede_arfs_fltr_node *
-+qede_arfs_htbl_key_search(struct hlist_head *h, const struct sk_buff *skb,
-+			  __be16 src_port, __be16 dst_port, u8 ip_proto)
-+{
-+	struct qede_arfs_fltr_node *tpos;
++	rc = qed_configure_rfs_ntuple_filter(p_hwfn, p_hwfn->p_arfs_ptt,
++					     &cb, mapping, length, rx_queue_id,
++					     vport_id, add_filter);
++	if (rc)
++		DP_NOTICE(p_hwfn,
++			  "Failed to issue a-RFS filter configuration\n");
++	else
++		DP_VERBOSE(p_hwfn, NETIF_MSG_DRV,
++			   "Successfully issued a-RFS filter configuration\n");
 +
-+	hlist_for_each_entry(tpos, h, node)
-+		if (tpos->tuple.ip_proto == ip_proto &&
-+		    tpos->tuple.eth_proto == skb->protocol &&
-+		    qede_compare_ip_addr(tpos, skb) &&
-+		    tpos->tuple.src_port == src_port &&
-+		    tpos->tuple.dst_port == dst_port)
-+			return tpos;
-+
-+	return NULL;
-+}
-+
-+static struct qede_arfs_fltr_node *
-+qede_alloc_filter(struct qede_dev *edev, int min_hlen)
-+{
-+	struct qede_arfs_fltr_node *n;
-+	int bit_id;
-+
-+	bit_id = find_first_zero_bit(edev->arfs->arfs_fltr_bmap,
-+				     QEDE_RFS_MAX_FLTR);
-+
-+	if (bit_id >= QEDE_RFS_MAX_FLTR)
-+		return NULL;
-+
-+	n = kzalloc(sizeof(*n), GFP_ATOMIC);
-+	if (!n)
-+		return NULL;
-+
-+	n->data = kzalloc(min_hlen, GFP_ATOMIC);
-+	if (!n->data) {
-+		kfree(n);
-+		return NULL;
-+	}
-+
-+	n->sw_id = (u16)bit_id;
-+	set_bit(bit_id, edev->arfs->arfs_fltr_bmap);
-+	return n;
-+}
-+
-+int qede_rx_flow_steer(struct net_device *dev, const struct sk_buff *skb,
-+		       u16 rxq_index, u32 flow_id)
-+{
-+	struct qede_dev *edev = netdev_priv(dev);
-+	struct qede_arfs_fltr_node *n;
-+	int min_hlen, rc, tp_offset;
-+	struct ethhdr *eth;
-+	__be16 *ports;
-+	u16 tbl_idx;
-+	u8 ip_proto;
-+
-+	if (skb->encapsulation)
-+		return -EPROTONOSUPPORT;
-+
-+	if (skb->protocol != htons(ETH_P_IP) &&
-+	    skb->protocol != htons(ETH_P_IPV6))
-+		return -EPROTONOSUPPORT;
-+
-+	if (skb->protocol == htons(ETH_P_IP)) {
-+		ip_proto = ip_hdr(skb)->protocol;
-+		tp_offset = sizeof(struct iphdr);
-+	} else {
-+		ip_proto = ipv6_hdr(skb)->nexthdr;
-+		tp_offset = sizeof(struct ipv6hdr);
-+	}
-+
-+	if (ip_proto != IPPROTO_TCP && ip_proto != IPPROTO_UDP)
-+		return -EPROTONOSUPPORT;
-+
-+	ports = (__be16 *)(skb->data + tp_offset);
-+	tbl_idx = skb_get_hash_raw(skb) & QEDE_RFS_FLW_MASK;
-+
-+	spin_lock_bh(&edev->arfs->arfs_list_lock);
-+
-+	n = qede_arfs_htbl_key_search(&edev->arfs->arfs_hl_head[tbl_idx],
-+				      skb, ports[0], ports[1], ip_proto);
-+
-+	if (n) {
-+		/* Filter match */
-+		n->next_rxq_id = rxq_index;
-+
-+		if (test_bit(QEDE_FLTR_VALID, &n->state)) {
-+			if (n->rxq_id != rxq_index)
-+				qede_configure_arfs_fltr(edev, n, n->rxq_id,
-+							 false);
-+		} else {
-+			if (!n->used) {
-+				n->rxq_id = rxq_index;
-+				qede_configure_arfs_fltr(edev, n, n->rxq_id,
-+							 true);
-+			}
-+		}
-+
-+		rc = n->sw_id;
-+		goto ret_unlock;
-+	}
-+
-+	min_hlen = ETH_HLEN + skb_headlen(skb);
-+
-+	n = qede_alloc_filter(edev, min_hlen);
-+	if (!n) {
-+		rc = -ENOMEM;
-+		goto ret_unlock;
-+	}
-+
-+	n->buf_len = min_hlen;
-+	n->rxq_id = rxq_index;
-+	n->next_rxq_id = rxq_index;
-+	n->tuple.src_port = ports[0];
-+	n->tuple.dst_port = ports[1];
-+	n->flow_id = flow_id;
-+
-+	if (skb->protocol == htons(ETH_P_IP)) {
-+		n->tuple.src_ipv4 = ip_hdr(skb)->saddr;
-+		n->tuple.dst_ipv4 = ip_hdr(skb)->daddr;
-+	} else {
-+		memcpy(&n->tuple.src_ipv6, &ipv6_hdr(skb)->saddr,
-+		       sizeof(struct in6_addr));
-+		memcpy(&n->tuple.dst_ipv6, &ipv6_hdr(skb)->daddr,
-+		       sizeof(struct in6_addr));
-+	}
-+
-+	eth = (struct ethhdr *)n->data;
-+	eth->h_proto = skb->protocol;
-+	n->tuple.eth_proto = skb->protocol;
-+	n->tuple.ip_proto = ip_proto;
-+	memcpy(n->data + ETH_HLEN, skb->data, skb_headlen(skb));
-+
-+	n->mapping = dma_map_single(&edev->pdev->dev, n->data,
-+				    n->buf_len, DMA_TO_DEVICE);
-+	if (dma_mapping_error(&edev->pdev->dev, n->mapping)) {
-+		DP_NOTICE(edev, "Failed to map DMA memory for arfs\n");
-+		qede_free_arfs_filter(edev, n);
-+		rc = -ENOMEM;
-+		goto ret_unlock;
-+	}
-+
-+	INIT_HLIST_NODE(&n->node);
-+	hlist_add_head(&n->node, &edev->arfs->arfs_hl_head[tbl_idx]);
-+	edev->arfs->filter_count++;
-+
-+	if (edev->arfs->filter_count == 1 && !edev->arfs->enable) {
-+		edev->ops->configure_arfs_searcher(edev->cdev, true);
-+		edev->arfs->enable = true;
-+	}
-+
-+	qede_configure_arfs_fltr(edev, n, n->rxq_id, true);
-+
-+	spin_unlock_bh(&edev->arfs->arfs_list_lock);
-+
-+	set_bit(QEDE_SP_ARFS_CONFIG, &edev->sp_flags);
-+	schedule_delayed_work(&edev->sp_task, 0);
-+	return n->sw_id;
-+
-+ret_unlock:
-+	spin_unlock_bh(&edev->arfs->arfs_list_lock);
 +	return rc;
 +}
-+#endif
 +
- void qede_force_mac(void *dev, u8 *mac, bool forced)
+ static int qed_fp_cqe_completion(struct qed_dev *dev,
+ 				 u8 rss_id, struct eth_slow_path_rx_cqe *cqe)
  {
- 	struct qede_dev *edev = dev;
-diff --git a/drivers/net/ethernet/qlogic/qede/qede_main.c b/drivers/net/ethernet/qlogic/qede/qede_main.c
-index 8c2baf8..02b305c 100644
---- a/drivers/net/ethernet/qlogic/qede/qede_main.c
-+++ b/drivers/net/ethernet/qlogic/qede/qede_main.c
-@@ -225,6 +225,9 @@ static struct pci_driver qede_pci_driver = {
- 
- static struct qed_eth_cb_ops qede_ll_ops = {
- 	{
-+#ifdef CONFIG_RFS_ACCEL
-+		.arfs_filter_op = qede_arfs_filter_op,
-+#endif
- 		.link_update = qede_link_update,
- 	},
- 	.force_mac = qede_force_mac,
-@@ -554,6 +557,9 @@ static const struct net_device_ops qede_netdev_ops = {
- 	.ndo_udp_tunnel_del = qede_udp_tunnel_del,
- 	.ndo_features_check = qede_features_check,
- 	.ndo_xdp = qede_xdp,
-+#ifdef CONFIG_RFS_ACCEL
-+	.ndo_rx_flow_steer = qede_rx_flow_steer,
-+#endif
+@@ -2397,6 +2528,8 @@ static const struct qed_eth_ops qed_eth_ops_pass = {
+ 	.eth_cqe_completion = &qed_fp_cqe_completion,
+ 	.get_vport_stats = &qed_get_vport_stats,
+ 	.tunn_config = &qed_tunn_configure,
++	.ntuple_filter_config = &qed_ntuple_arfs_filter_config,
++	.configure_arfs_searcher = &qed_configure_arfs_searcher,
  };
  
- /* -------------------------------------------------------------------------
-@@ -603,7 +609,7 @@ static void qede_init_ndev(struct qede_dev *edev)
- {
- 	struct net_device *ndev = edev->ndev;
- 	struct pci_dev *pdev = edev->pdev;
--	u32 hw_features;
-+	netdev_features_t hw_features;
+ const struct qed_eth_ops *qed_get_eth_ops(void)
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_l2.h b/drivers/net/ethernet/qlogic/qed/qed_l2.h
+index e763abd..6f44229 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_l2.h
++++ b/drivers/net/ethernet/qlogic/qed/qed_l2.h
+@@ -185,6 +185,14 @@ struct qed_filter_accept_flags {
+ #define QED_ACCEPT_BCAST                0x20
+ };
  
- 	pci_set_drvdata(pdev, ndev);
- 
-@@ -629,6 +635,10 @@ static void qede_init_ndev(struct qede_dev *edev)
- 	hw_features |= NETIF_F_GSO_GRE | NETIF_F_GSO_UDP_TUNNEL |
- 		       NETIF_F_TSO_ECN | NETIF_F_GSO_UDP_TUNNEL_CSUM |
- 		       NETIF_F_GSO_GRE_CSUM;
++struct qed_arfs_config_params {
++	bool tcp;
++	bool udp;
++	bool ipv4;
++	bool ipv6;
++	bool arfs_enable;
++};
 +
-+	if (!IS_VF(edev) && edev->dev_info.common.num_hwfns == 1)
-+		hw_features |= NETIF_F_NTUPLE;
-+
- 	ndev->hw_enc_features = NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
- 				NETIF_F_SG | NETIF_F_TSO | NETIF_F_TSO_ECN |
- 				NETIF_F_TSO6 | NETIF_F_GSO_GRE |
-@@ -798,6 +808,12 @@ static void qede_sp_task(struct work_struct *work)
- 		qed_ops->tunn_config(cdev, &tunn_params);
+ struct qed_sp_vport_update_params {
+ 	u16				opaque_fid;
+ 	u8				vport_id;
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_main.c b/drivers/net/ethernet/qlogic/qed/qed_main.c
+index 029f431..da562cf 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_main.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_main.c
+@@ -883,6 +883,9 @@ static void qed_update_pf_params(struct qed_dev *cdev,
+ 		params->rdma_pf_params.gl_pi = QED_ROCE_PROTOCOL_INDEX;
  	}
  
-+#ifdef CONFIG_RFS_ACCEL
-+	if (test_and_clear_bit(QEDE_SP_ARFS_CONFIG, &edev->sp_flags)) {
-+		if (edev->state == QEDE_STATE_OPEN)
-+			qede_process_arfs_filters(edev, false);
-+	}
-+#endif
- 	__qede_unlock(edev);
- }
- 
-@@ -808,6 +824,9 @@ static void qede_update_pf_params(struct qed_dev *cdev)
- 	/* 64 rx + 64 tx + 64 XDP */
- 	memset(&pf_params, 0, sizeof(struct qed_pf_params));
- 	pf_params.eth_pf_params.num_cons = (MAX_SB_PER_PF_MIMD - 1) * 3;
-+#ifdef CONFIG_RFS_ACCEL
-+	pf_params.eth_pf_params.num_arfs_filters = QEDE_RFS_MAX_FLTR;
-+#endif
- 	qed_ops->common->update_pf_params(cdev, &pf_params);
- }
- 
-@@ -962,9 +981,8 @@ static void __qede_remove(struct pci_dev *pdev, enum qede_remove_mode mode)
- 
- 	DP_INFO(edev, "Starting qede_remove\n");
- 
--	cancel_delayed_work_sync(&edev->sp_task);
--
- 	unregister_netdev(ndev);
-+	cancel_delayed_work_sync(&edev->sp_task);
- 
- 	qede_ptp_remove(edev);
- 
-@@ -1490,6 +1508,18 @@ static int qede_req_msix_irqs(struct qede_dev *edev)
- 	}
- 
- 	for (i = 0; i < QEDE_QUEUE_CNT(edev); i++) {
-+#ifdef CONFIG_RFS_ACCEL
-+		struct qede_fastpath *fp = &edev->fp_array[i];
++	if (cdev->num_hwfns > 1 || IS_VF(cdev))
++		params->eth_pf_params.num_arfs_filters = 0;
 +
-+		if (edev->ndev->rx_cpu_rmap && (fp->type & QEDE_FASTPATH_RX)) {
-+			rc = irq_cpu_rmap_add(edev->ndev->rx_cpu_rmap,
-+					      edev->int_info.msix[i].vector);
-+			if (rc) {
-+				DP_ERR(edev, "Failed to add CPU rmap\n");
-+				qede_free_arfs(edev);
+ 	/* In case we might support RDMA, don't allow qede to be greedy
+ 	 * with the L2 contexts. Allow for 64 queues [rx, tx, xdp] per hwfn.
+ 	 */
+@@ -926,6 +929,18 @@ static int qed_slowpath_start(struct qed_dev *cdev,
+ 			goto err;
+ 		}
+ 
++#ifdef CONFIG_RFS_ACCEL
++		if (cdev->num_hwfns == 1) {
++			p_ptt = qed_ptt_acquire(QED_LEADING_HWFN(cdev));
++			if (p_ptt) {
++				QED_LEADING_HWFN(cdev)->p_arfs_ptt = p_ptt;
++			} else {
++				DP_NOTICE(cdev,
++					  "Failed to acquire PTT for aRFS\n");
++				goto err;
 +			}
 +		}
 +#endif
- 		rc = request_irq(edev->int_info.msix[i].vector,
- 				 qede_msix_fp_int, 0, edev->fp_array[i].name,
- 				 &edev->fp_array[i]);
-@@ -1871,7 +1901,12 @@ static void qede_unload(struct qede_dev *edev, enum qede_unload_mode mode,
- 
- 	qede_vlan_mark_nonconfigured(edev);
- 	edev->ops->fastpath_stop(edev->cdev);
--
-+#ifdef CONFIG_RFS_ACCEL
-+	if (!IS_VF(edev) && edev->dev_info.common.num_hwfns == 1) {
-+		qede_poll_for_freeing_arfs_filters(edev);
-+		qede_free_arfs(edev);
-+	}
-+#endif
- 	/* Release the interrupts */
- 	qede_sync_free_irqs(edev);
- 	edev->ops->common->set_fp_int(edev->cdev, 0);
-@@ -1923,6 +1958,13 @@ static int qede_load(struct qede_dev *edev, enum qede_load_mode mode,
- 	if (rc)
- 		goto err2;
+ 		p_ptt = qed_ptt_acquire(QED_LEADING_HWFN(cdev));
+ 		if (p_ptt) {
+ 			QED_LEADING_HWFN(cdev)->p_ptp_ptt = p_ptt;
+@@ -1032,6 +1047,12 @@ static int qed_slowpath_start(struct qed_dev *cdev,
+ 	if (IS_PF(cdev))
+ 		release_firmware(cdev->firmware);
  
 +#ifdef CONFIG_RFS_ACCEL
-+	if (!IS_VF(edev) && edev->dev_info.common.num_hwfns == 1) {
-+		rc = qede_alloc_arfs(edev);
-+		if (rc)
-+			DP_NOTICE(edev, "aRFS memory allocation failed\n");
-+	}
++	if (IS_PF(cdev) && (cdev->num_hwfns == 1) &&
++	    QED_LEADING_HWFN(cdev)->p_arfs_ptt)
++		qed_ptt_release(QED_LEADING_HWFN(cdev),
++				QED_LEADING_HWFN(cdev)->p_arfs_ptt);
 +#endif
- 	qede_napi_add_enable(edev);
- 	DP_INFO(edev, "Napi added and enabled\n");
+ 	if (IS_PF(cdev) && QED_LEADING_HWFN(cdev)->p_ptp_ptt)
+ 		qed_ptt_release(QED_LEADING_HWFN(cdev),
+ 				QED_LEADING_HWFN(cdev)->p_ptp_ptt);
+@@ -1049,6 +1070,11 @@ static int qed_slowpath_stop(struct qed_dev *cdev)
+ 	qed_ll2_dealloc_if(cdev);
  
+ 	if (IS_PF(cdev)) {
++#ifdef CONFIG_RFS_ACCEL
++		if (cdev->num_hwfns == 1)
++			qed_ptt_release(QED_LEADING_HWFN(cdev),
++					QED_LEADING_HWFN(cdev)->p_arfs_ptt);
++#endif
+ 		qed_ptt_release(QED_LEADING_HWFN(cdev),
+ 				QED_LEADING_HWFN(cdev)->p_ptp_ptt);
+ 		qed_free_stream_mem(cdev);
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_reg_addr.h b/drivers/net/ethernet/qlogic/qed/qed_reg_addr.h
+index e65397360..1ae73b2 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_reg_addr.h
++++ b/drivers/net/ethernet/qlogic/qed/qed_reg_addr.h
+@@ -1560,4 +1560,12 @@
+ #define NIG_REG_TSGEN_FREECNT_UPDATE_K2 0x509008UL
+ #define CNIG_REG_NIG_PORT0_CONF_K2 0x218200UL
+ 
++#define PRS_REG_SEARCH_GFT 0x1f11bcUL
++#define PRS_REG_CM_HDR_GFT 0x1f11c8UL
++#define PRS_REG_GFT_CAM 0x1f1100UL
++#define PRS_REG_GFT_PROFILE_MASK_RAM 0x1f1000UL
++#define PRS_REG_CM_HDR_GFT_EVENT_ID_SHIFT 0
++#define PRS_REG_CM_HDR_GFT_CM_HDR_SHIFT 8
++#define PRS_REG_LOAD_L2_FILTER 0x1f0198UL
++
+ #endif
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_sp.h b/drivers/net/ethernet/qlogic/qed/qed_sp.h
+index 30393ff..583c8d3 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_sp.h
++++ b/drivers/net/ethernet/qlogic/qed/qed_sp.h
+@@ -84,6 +84,7 @@ union ramrod_data {
+ 	struct tx_queue_stop_ramrod_data tx_queue_stop;
+ 	struct vport_start_ramrod_data vport_start;
+ 	struct vport_stop_ramrod_data vport_stop;
++	struct rx_update_gft_filter_data rx_update_gft;
+ 	struct vport_update_ramrod_data vport_update;
+ 	struct core_rx_start_ramrod_data core_rx_queue_start;
+ 	struct core_rx_stop_ramrod_data core_rx_queue_stop;
+diff --git a/include/linux/qed/qed_eth_if.h b/include/linux/qed/qed_eth_if.h
+index 4cd1f0c..1eba803c 100644
+--- a/include/linux/qed/qed_eth_if.h
++++ b/include/linux/qed/qed_eth_if.h
+@@ -301,6 +301,14 @@ struct qed_eth_ops {
+ 
+ 	int (*tunn_config)(struct qed_dev *cdev,
+ 			   struct qed_tunn_params *params);
++
++	int (*ntuple_filter_config)(struct qed_dev *cdev, void *cookie,
++				    dma_addr_t mapping, u16 length,
++				    u16 vport_id, u16 rx_queue_id,
++				    bool add_filter);
++
++	int (*configure_arfs_searcher)(struct qed_dev *cdev,
++				       bool en_searcher);
+ };
+ 
+ const struct qed_eth_ops *qed_get_eth_ops(void);
+diff --git a/include/linux/qed/qed_if.h b/include/linux/qed/qed_if.h
+index 625f80f..d44933a 100644
+--- a/include/linux/qed/qed_if.h
++++ b/include/linux/qed/qed_if.h
+@@ -178,6 +178,12 @@ struct qed_eth_pf_params {
+ 	 * to update_pf_params routine invoked before slowpath start
+ 	 */
+ 	u16 num_cons;
++
++	/* To enable arfs, previous to HW-init a positive number needs to be
++	 * set [as filters require allocated searcher ILT memory].
++	 * This will set the maximal number of configured steering-filters.
++	 */
++	u32 num_arfs_filters;
+ };
+ 
+ struct qed_fcoe_pf_params {
+@@ -427,6 +433,7 @@ struct qed_int_info {
+ };
+ 
+ struct qed_common_cb_ops {
++	void (*arfs_filter_op)(void *dev, void *fltr, u8 fw_rc);
+ 	void	(*link_update)(void			*dev,
+ 			       struct qed_link_output	*link);
+ 	void	(*dcbx_aen)(void *dev, struct qed_dcbx_get *get, u32 mib_type);
 -- 
 2.7.2
