@@ -1,7 +1,7 @@
 From: Logan Gunthorpe <logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH 22/22] memstick: Make use of the new sg_map helper function
-Date: Thu, 13 Apr 2017 16:05:35 -0600
-Message-ID: <1492121135-4437-23-git-send-email-logang@deltatee.com>
+Subject: [PATCH 08/22] crypto: chcr: Make use of the new sg_map helper function
+Date: Thu, 13 Apr 2017 16:05:21 -0600
+Message-ID: <1492121135-4437-9-git-send-email-logang@deltatee.com>
 References: <1492121135-4437-1-git-send-email-logang@deltatee.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -36,119 +36,67 @@ Errors-To: linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org
 Sender: "Linux-nvdimm" <linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-Straightforward conversion, but we have to WARN if unmappable
-memory finds its way into the sgl.
+The get_page in this area looks *highly* suspect due to there being no
+corresponding put_page. However, I've left that as is to avoid breaking
+things.
+
+I've also removed the KMAP_ATOMIC_ARGS check as it appears to be dead
+code that dates back to when it was first committed...
 
 Signed-off-by: Logan Gunthorpe <logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
 ---
- drivers/memstick/host/jmb38x_ms.c | 23 ++++++++++++++++++-----
- drivers/memstick/host/tifm_ms.c   | 22 +++++++++++++++++-----
- 2 files changed, 35 insertions(+), 10 deletions(-)
+ drivers/crypto/chelsio/chcr_algo.c | 28 +++++++++++++++-------------
+ 1 file changed, 15 insertions(+), 13 deletions(-)
 
-diff --git a/drivers/memstick/host/jmb38x_ms.c b/drivers/memstick/host/jmb38x_ms.c
-index 48db922..256cf41 100644
---- a/drivers/memstick/host/jmb38x_ms.c
-+++ b/drivers/memstick/host/jmb38x_ms.c
-@@ -303,7 +303,6 @@ static int jmb38x_ms_transfer_data(struct jmb38x_ms_host *host)
- 	unsigned int off;
- 	unsigned int t_size, p_cnt;
- 	unsigned char *buf;
--	struct page *pg;
- 	unsigned long flags = 0;
+diff --git a/drivers/crypto/chelsio/chcr_algo.c b/drivers/crypto/chelsio/chcr_algo.c
+index 41bc7f4..a993d1d 100644
+--- a/drivers/crypto/chelsio/chcr_algo.c
++++ b/drivers/crypto/chelsio/chcr_algo.c
+@@ -1489,22 +1489,21 @@ static struct sk_buff *create_authenc_wr(struct aead_request *req,
+ 	return ERR_PTR(-EINVAL);
+ }
  
- 	if (host->req->long_data) {
-@@ -318,14 +317,26 @@ static int jmb38x_ms_transfer_data(struct jmb38x_ms_host *host)
- 		unsigned int uninitialized_var(p_off);
+-static void aes_gcm_empty_pld_pad(struct scatterlist *sg,
+-				  unsigned short offset)
++static int aes_gcm_empty_pld_pad(struct scatterlist *sg,
++				 unsigned short offset)
+ {
+-	struct page *spage;
+ 	unsigned char *addr;
  
- 		if (host->req->long_data) {
--			pg = nth_page(sg_page(&host->req->sg),
--				      off >> PAGE_SHIFT);
- 			p_off = offset_in_page(off);
- 			p_cnt = PAGE_SIZE - p_off;
- 			p_cnt = min(p_cnt, length);
- 
- 			local_irq_save(flags);
--			buf = kmap_atomic(pg) + p_off;
-+			buf = sg_map_offset(&host->req->sg,
-+					     off - host->req->sg.offset,
-+					     SG_KMAP_ATOMIC);
-+			if (IS_ERR(buf)) {
-+				/*
-+				 * This should really never happen unless
-+				 * the code is changed to use memory that is
-+				 * not mappable in the sg. Seeing there doesn't
-+				 * seem to be any error path out of here,
-+				 * we can only WARN.
-+				 */
-+				WARN(1, "Non-mappable memory used in sg!");
-+				break;
-+			}
+-	spage = sg_page(sg);
+-	get_page(spage); /* so that it is not freed by NIC */
+-#ifdef KMAP_ATOMIC_ARGS
+-	addr = kmap_atomic(spage, KM_SOFTIRQ0);
+-#else
+-	addr = kmap_atomic(spage);
+-#endif
+-	memset(addr + sg->offset, 0, offset + 1);
++	get_page(sg_page(sg)); /* so that it is not freed by NIC */
 +
- 		} else {
- 			buf = host->req->data + host->block_pos;
- 			p_cnt = host->req->data_len - host->block_pos;
-@@ -341,7 +352,9 @@ static int jmb38x_ms_transfer_data(struct jmb38x_ms_host *host)
- 				 : jmb38x_ms_read_reg_data(host, buf, p_cnt);
++	addr = sg_map(sg, SG_KMAP_ATOMIC);
++	if (IS_ERR(addr))
++		return PTR_ERR(addr);
++
++	memset(addr, 0, offset + 1);
++	sg_unmap(sg, addr, SG_KMAP_ATOMIC);
  
- 		if (host->req->long_data) {
--			kunmap_atomic(buf - p_off);
-+			sg_unmap_offset(&host->req->sg, buf,
-+					 off - host->req->sg.offset,
-+					 SG_KMAP_ATOMIC);
- 			local_irq_restore(flags);
- 		}
+-	kunmap_atomic(addr);
++	return 0;
+ }
  
-diff --git a/drivers/memstick/host/tifm_ms.c b/drivers/memstick/host/tifm_ms.c
-index 7bafa72..c0bc40e 100644
---- a/drivers/memstick/host/tifm_ms.c
-+++ b/drivers/memstick/host/tifm_ms.c
-@@ -186,7 +186,6 @@ static unsigned int tifm_ms_transfer_data(struct tifm_ms *host)
- 	unsigned int off;
- 	unsigned int t_size, p_cnt;
- 	unsigned char *buf;
--	struct page *pg;
- 	unsigned long flags = 0;
+ static int set_msg_len(u8 *block, unsigned int msglen, int csize)
+@@ -1940,7 +1939,10 @@ static struct sk_buff *create_gcm_wr(struct aead_request *req,
+ 	if (req->cryptlen) {
+ 		write_sg_to_skb(skb, &frags, src, req->cryptlen);
+ 	} else {
+-		aes_gcm_empty_pld_pad(req->dst, authsize - 1);
++		err = aes_gcm_empty_pld_pad(req->dst, authsize - 1);
++		if (err)
++			goto dstmap_fail;
++
+ 		write_sg_to_skb(skb, &frags, reqctx->dst, crypt_len);
  
- 	if (host->req->long_data) {
-@@ -203,14 +202,25 @@ static unsigned int tifm_ms_transfer_data(struct tifm_ms *host)
- 		unsigned int uninitialized_var(p_off);
- 
- 		if (host->req->long_data) {
--			pg = nth_page(sg_page(&host->req->sg),
--				      off >> PAGE_SHIFT);
- 			p_off = offset_in_page(off);
- 			p_cnt = PAGE_SIZE - p_off;
- 			p_cnt = min(p_cnt, length);
- 
- 			local_irq_save(flags);
--			buf = kmap_atomic(pg) + p_off;
-+			buf = sg_map_offset(&host->req->sg,
-+					     off - host->req->sg.offset,
-+					     SG_KMAP_ATOMIC);
-+			if (IS_ERR(buf)) {
-+				/*
-+				 * This should really never happen unless
-+				 * the code is changed to use memory that is
-+				 * not mappable in the sg. Seeing there doesn't
-+				 * seem to be any error path out of here,
-+				 * we can only WARN.
-+				 */
-+				WARN(1, "Non-mappable memory used in sg!");
-+				break;
-+			}
- 		} else {
- 			buf = host->req->data + host->block_pos;
- 			p_cnt = host->req->data_len - host->block_pos;
-@@ -221,7 +231,9 @@ static unsigned int tifm_ms_transfer_data(struct tifm_ms *host)
- 			 : tifm_ms_read_data(host, buf, p_cnt);
- 
- 		if (host->req->long_data) {
--			kunmap_atomic(buf - p_off);
-+			sg_unmap_offset(&host->req->sg, buf,
-+					 off - host->req->sg.offset,
-+					 SG_KMAP_ATOMIC);
- 			local_irq_restore(flags);
- 		}
- 
+ 	}
 -- 
 2.1.4
