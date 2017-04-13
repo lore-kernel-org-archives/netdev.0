@@ -1,1549 +1,755 @@
 From: "Vishwanathapura, Niranjana" <niranjana.vishwanathapura@intel.com>
-Subject: [PATCH rdma-next v2 11/12] IB/hfi1: Virtual Network Interface Controller (VNIC) HW support
-Date: Wed, 12 Apr 2017 20:29:29 -0700
-Message-ID: <1492054170-23577-12-git-send-email-niranjana.vishwanathapura@intel.com>
+Subject: [PATCH rdma-next v2 08/12] IB/opa-vnic: VNIC Ethernet Management Agent (VEMA) interface
+Date: Wed, 12 Apr 2017 20:29:26 -0700
+Message-ID: <1492054170-23577-9-git-send-email-niranjana.vishwanathapura@intel.com>
 References: <1492054170-23577-1-git-send-email-niranjana.vishwanathapura@intel.com>
 Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
         dennis.dalessandro@intel.com, ira.weiny@intel.com,
         Niranjana Vishwanathapura <niranjana.vishwanathapura@intel.com>,
-        Andrzej Kacprowski <andrzej.kacprowski@intel.com>
+        Sadanand Warrier <sadanand.warrier@intel.com>
 To: dledford@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:28888 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:14351 "EHLO mga02.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1756081AbdDMD3r (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 12 Apr 2017 23:29:47 -0400
+        id S1756078AbdDMD3q (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 12 Apr 2017 23:29:46 -0400
 In-Reply-To: <1492054170-23577-1-git-send-email-niranjana.vishwanathapura@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-HFI1 HW specific support for VNIC functionality.
-Dynamically allocate a set of contexts for VNIC when the first vnic
-port is instantiated. Allocate VNIC contexts from user contexts pool
-and return them back to the same pool while freeing up. Set aside
-enough MSI-X interrupts for VNIC contexts and assign them when the
-contexts are allocated. On the receive side, use an RSM rule to
-spread TCP/UDP streams among VNIC contexts.
+OPA VNIC EMA interface functions are the management interfaces to the OPA
+VNIC netdev. Add support to add and remove VNIC ports. Implement the
+required GET/SET management interface functions and processing of new
+management information. Add support to send trap notifications upon various
+events like interface status change, unicast/multicast mac list update and
+mac address change.
 
 Reviewed-by: Dennis Dalessandro <dennis.dalessandro@intel.com>
 Reviewed-by: Ira Weiny <ira.weiny@intel.com>
 Signed-off-by: Niranjana Vishwanathapura <niranjana.vishwanathapura@intel.com>
-Signed-off-by: Andrzej Kacprowski <andrzej.kacprowski@intel.com>
+Signed-off-by: Sadanand Warrier <sadanand.warrier@intel.com>
 ---
- drivers/infiniband/hw/hfi1/aspm.h         |  15 +-
- drivers/infiniband/hw/hfi1/chip.c         | 291 +++++++++++++++++++++++++-----
- drivers/infiniband/hw/hfi1/chip.h         |   2 +
- drivers/infiniband/hw/hfi1/debugfs.c      |   8 +-
- drivers/infiniband/hw/hfi1/driver.c       |  52 ++++--
- drivers/infiniband/hw/hfi1/file_ops.c     |  27 ++-
- drivers/infiniband/hw/hfi1/hfi.h          |  29 ++-
- drivers/infiniband/hw/hfi1/init.c         |  29 +--
- drivers/infiniband/hw/hfi1/mad.c          |  10 +-
- drivers/infiniband/hw/hfi1/pio.c          |  19 +-
- drivers/infiniband/hw/hfi1/pio.h          |   8 +-
- drivers/infiniband/hw/hfi1/sysfs.c        |   4 +-
- drivers/infiniband/hw/hfi1/user_exp_rcv.c |   8 +-
- drivers/infiniband/hw/hfi1/user_pages.c   |   5 +-
- drivers/infiniband/hw/hfi1/verbs.c        |   6 +-
- drivers/infiniband/hw/hfi1/vnic.h         |   3 +
- drivers/infiniband/hw/hfi1/vnic_main.c    | 245 ++++++++++++++++++++++++-
- include/rdma/opa_port_info.h              |   3 +-
- 18 files changed, 660 insertions(+), 104 deletions(-)
+ drivers/infiniband/ulp/opa_vnic/Makefile           |   3 +-
+ drivers/infiniband/ulp/opa_vnic/opa_vnic_encap.h   |   4 +
+ .../infiniband/ulp/opa_vnic/opa_vnic_internal.h    |  44 +++
+ drivers/infiniband/ulp/opa_vnic/opa_vnic_netdev.c  | 142 +++++++-
+ .../infiniband/ulp/opa_vnic/opa_vnic_vema_iface.c  | 390 +++++++++++++++++++++
+ 5 files changed, 581 insertions(+), 2 deletions(-)
+ create mode 100644 drivers/infiniband/ulp/opa_vnic/opa_vnic_vema_iface.c
 
-diff --git a/drivers/infiniband/hw/hfi1/aspm.h b/drivers/infiniband/hw/hfi1/aspm.h
-index 0d58fe3..794e681 100644
---- a/drivers/infiniband/hw/hfi1/aspm.h
-+++ b/drivers/infiniband/hw/hfi1/aspm.h
-@@ -1,5 +1,5 @@
- /*
-- * Copyright(c) 2015, 2016 Intel Corporation.
-+ * Copyright(c) 2015-2017 Intel Corporation.
-  *
-  * This file is provided under a dual BSD/GPLv2 license.  When using or
-  * redistributing this file, you may do so under either license.
-@@ -229,14 +229,17 @@ static inline void aspm_ctx_timer_function(unsigned long data)
- 	spin_unlock_irqrestore(&rcd->aspm_lock, flags);
- }
+diff --git a/drivers/infiniband/ulp/opa_vnic/Makefile b/drivers/infiniband/ulp/opa_vnic/Makefile
+index 975c313..e8d1ea1 100644
+--- a/drivers/infiniband/ulp/opa_vnic/Makefile
++++ b/drivers/infiniband/ulp/opa_vnic/Makefile
+@@ -3,4 +3,5 @@
+ #
+ obj-$(CONFIG_INFINIBAND_OPA_VNIC) += opa_vnic.o
  
--/* Disable interrupt processing for verbs contexts when PSM contexts are open */
-+/*
-+ * Disable interrupt processing for verbs contexts when PSM or VNIC contexts
-+ * are open.
+-opa_vnic-y := opa_vnic_netdev.o opa_vnic_encap.o opa_vnic_ethtool.o
++opa_vnic-y := opa_vnic_netdev.o opa_vnic_encap.o opa_vnic_ethtool.o \
++              opa_vnic_vema_iface.o
+diff --git a/drivers/infiniband/ulp/opa_vnic/opa_vnic_encap.h b/drivers/infiniband/ulp/opa_vnic/opa_vnic_encap.h
+index c025cde..4c434b9 100644
+--- a/drivers/infiniband/ulp/opa_vnic/opa_vnic_encap.h
++++ b/drivers/infiniband/ulp/opa_vnic/opa_vnic_encap.h
+@@ -99,6 +99,10 @@
+ #define OPA_VNIC_DLID_SD_IS_SRC_MAC(dlid_sd)  (!!((dlid_sd) & 0x20))
+ #define OPA_VNIC_DLID_SD_GET_DLID(dlid_sd)    ((dlid_sd) >> 8)
+ 
++/* VNIC Ethernet link status */
++#define OPA_VNIC_ETH_LINK_UP     1
++#define OPA_VNIC_ETH_LINK_DOWN   2
++
+ /**
+  * struct opa_vesw_info - OPA vnic switch information
+  * @fabric_id: 10-bit fabric id
+diff --git a/drivers/infiniband/ulp/opa_vnic/opa_vnic_internal.h b/drivers/infiniband/ulp/opa_vnic/opa_vnic_internal.h
+index bec4866..b49f5d7 100644
+--- a/drivers/infiniband/ulp/opa_vnic/opa_vnic_internal.h
++++ b/drivers/infiniband/ulp/opa_vnic/opa_vnic_internal.h
+@@ -161,14 +161,28 @@ struct __opa_veswport_trap {
+ } __packed;
+ 
+ /**
++ * struct opa_vnic_ctrl_port - OPA virtual NIC control port
++ * @ibdev: pointer to ib device
++ * @ops: opa vnic control operations
 + */
- static inline void aspm_disable_all(struct hfi1_devdata *dd)
- {
- 	struct hfi1_ctxtdata *rcd;
- 	unsigned long flags;
- 	unsigned i;
++struct opa_vnic_ctrl_port {
++	struct ib_device           *ibdev;
++	struct opa_vnic_ctrl_ops   *ops;
++};
++
++/**
+  * struct opa_vnic_adapter - OPA VNIC netdev private data structure
+  * @netdev: pointer to associated netdev
+  * @ibdev: ib device
++ * @cport: pointer to opa vnic control port
+  * @rn_ops: rdma netdev's net_device_ops
+  * @port_num: OPA port number
+  * @vport_num: vesw port number
+  * @lock: adapter lock
+  * @info: virtual ethernet switch port information
++ * @vema_mac_addr: mac address configured by vema
++ * @umac_hash: unicast maclist hash
++ * @mmac_hash: multicast maclist hash
+  * @mactbl: hash table of MAC entries
+  * @mactbl_lock: mac table lock
+  * @stats_lock: statistics lock
+@@ -177,6 +191,7 @@ struct __opa_veswport_trap {
+ struct opa_vnic_adapter {
+ 	struct net_device             *netdev;
+ 	struct ib_device              *ibdev;
++	struct opa_vnic_ctrl_port     *cport;
+ 	const struct net_device_ops   *rn_ops;
  
--	for (i = 0; i < dd->first_user_ctxt; i++) {
-+	for (i = 0; i < dd->first_dyn_alloc_ctxt; i++) {
- 		rcd = dd->rcd[i];
- 		del_timer_sync(&rcd->aspm_timer);
- 		spin_lock_irqsave(&rcd->aspm_lock, flags);
-@@ -260,7 +263,7 @@ static inline void aspm_enable_all(struct hfi1_devdata *dd)
- 	if (aspm_mode != ASPM_MODE_DYNAMIC)
- 		return;
+ 	u8 port_num;
+@@ -186,6 +201,9 @@ struct opa_vnic_adapter {
+ 	struct mutex lock;
  
--	for (i = 0; i < dd->first_user_ctxt; i++) {
-+	for (i = 0; i < dd->first_dyn_alloc_ctxt; i++) {
- 		rcd = dd->rcd[i];
- 		spin_lock_irqsave(&rcd->aspm_lock, flags);
- 		rcd->aspm_intr_enable = true;
-@@ -276,7 +279,7 @@ static inline void aspm_ctx_init(struct hfi1_ctxtdata *rcd)
- 		    (unsigned long)rcd);
- 	rcd->aspm_intr_supported = rcd->dd->aspm_supported &&
- 		aspm_mode == ASPM_MODE_DYNAMIC &&
--		rcd->ctxt < rcd->dd->first_user_ctxt;
-+		rcd->ctxt < rcd->dd->first_dyn_alloc_ctxt;
+ 	struct __opa_veswport_info  info;
++	u8                          vema_mac_addr[ETH_ALEN];
++	u32                         umac_hash;
++	u32                         mmac_hash;
+ 	struct hlist_head  __rcu   *mactbl;
+ 
+ 	/* Lock used to protect updates to mac table */
+@@ -225,6 +243,11 @@ struct opa_vnic_mac_tbl_node {
+ #define v_warn(format, arg...) \
+ 	netdev_warn(adapter->netdev, format, ## arg)
+ 
++#define c_err(format, arg...) \
++	dev_err(&cport->ibdev->dev, format, ## arg)
++#define c_info(format, arg...) \
++	dev_info(&cport->ibdev->dev, format, ## arg)
++
+ /* The maximum allowed entries in the mac table */
+ #define OPA_VNIC_MAC_TBL_MAX_ENTRIES  2048
+ /* Limit of smac entries in mac table */
+@@ -264,11 +287,32 @@ struct opa_vnic_adapter *opa_vnic_add_netdev(struct ib_device *ibdev,
+ void opa_vnic_encap_skb(struct opa_vnic_adapter *adapter, struct sk_buff *skb);
+ u8 opa_vnic_get_vl(struct opa_vnic_adapter *adapter, struct sk_buff *skb);
+ u8 opa_vnic_calc_entropy(struct opa_vnic_adapter *adapter, struct sk_buff *skb);
++void opa_vnic_process_vema_config(struct opa_vnic_adapter *adapter);
+ void opa_vnic_release_mac_tbl(struct opa_vnic_adapter *adapter);
+ void opa_vnic_query_mac_tbl(struct opa_vnic_adapter *adapter,
+ 			    struct opa_veswport_mactable *tbl);
+ int opa_vnic_update_mac_tbl(struct opa_vnic_adapter *adapter,
+ 			    struct opa_veswport_mactable *tbl);
++void opa_vnic_query_ucast_macs(struct opa_vnic_adapter *adapter,
++			       struct opa_veswport_iface_macs *macs);
++void opa_vnic_query_mcast_macs(struct opa_vnic_adapter *adapter,
++			       struct opa_veswport_iface_macs *macs);
++void opa_vnic_get_summary_counters(struct opa_vnic_adapter *adapter,
++				   struct opa_veswport_summary_counters *cntrs);
++void opa_vnic_get_error_counters(struct opa_vnic_adapter *adapter,
++				 struct opa_veswport_error_counters *cntrs);
++void opa_vnic_get_vesw_info(struct opa_vnic_adapter *adapter,
++			    struct opa_vesw_info *info);
++void opa_vnic_set_vesw_info(struct opa_vnic_adapter *adapter,
++			    struct opa_vesw_info *info);
++void opa_vnic_get_per_veswport_info(struct opa_vnic_adapter *adapter,
++				    struct opa_per_veswport_info *info);
++void opa_vnic_set_per_veswport_info(struct opa_vnic_adapter *adapter,
++				    struct opa_per_veswport_info *info);
++void opa_vnic_vema_report_event(struct opa_vnic_adapter *adapter, u8 event);
++struct opa_vnic_adapter *opa_vnic_add_vport(struct opa_vnic_ctrl_port *cport,
++					    u8 port_num, u8 vport_num);
++void opa_vnic_rem_vport(struct opa_vnic_adapter *adapter);
+ void opa_vnic_set_ethtool_ops(struct net_device *netdev);
+ 
+ #endif /* _OPA_VNIC_INTERNAL_H */
+diff --git a/drivers/infiniband/ulp/opa_vnic/opa_vnic_netdev.c b/drivers/infiniband/ulp/opa_vnic/opa_vnic_netdev.c
+index e0a108f..905f39d 100644
+--- a/drivers/infiniband/ulp/opa_vnic/opa_vnic_netdev.c
++++ b/drivers/infiniband/ulp/opa_vnic/opa_vnic_netdev.c
+@@ -52,6 +52,7 @@
+ 
+ #include <linux/module.h>
+ #include <linux/if_vlan.h>
++#include <linux/crc32.h>
+ 
+ #include "opa_vnic_internal.h"
+ 
+@@ -111,6 +112,79 @@ static u16 opa_vnic_select_queue(struct net_device *netdev, struct sk_buff *skb,
+ 	return rc;
  }
  
- static inline void aspm_init(struct hfi1_devdata *dd)
-@@ -286,7 +289,7 @@ static inline void aspm_init(struct hfi1_devdata *dd)
- 	spin_lock_init(&dd->aspm_lock);
- 	dd->aspm_supported = aspm_hw_l1_supported(dd);
- 
--	for (i = 0; i < dd->first_user_ctxt; i++)
-+	for (i = 0; i < dd->first_dyn_alloc_ctxt; i++)
- 		aspm_ctx_init(dd->rcd[i]);
- 
- 	/* Start with ASPM disabled */
-diff --git a/drivers/infiniband/hw/hfi1/chip.c b/drivers/infiniband/hw/hfi1/chip.c
-index 79a316a..e520929 100644
---- a/drivers/infiniband/hw/hfi1/chip.c
-+++ b/drivers/infiniband/hw/hfi1/chip.c
-@@ -126,9 +126,16 @@ struct flag_table {
- #define DEFAULT_KRCVQS		  2
- #define MIN_KERNEL_KCTXTS         2
- #define FIRST_KERNEL_KCTXT        1
--/* sizes for both the QP and RSM map tables */
--#define NUM_MAP_ENTRIES		256
--#define NUM_MAP_REGS             32
++/* opa_vnic_process_vema_config - process vema configuration updates */
++void opa_vnic_process_vema_config(struct opa_vnic_adapter *adapter)
++{
++	struct __opa_veswport_info *info = &adapter->info;
++	struct rdma_netdev *rn = netdev_priv(adapter->netdev);
++	u8 port_num[OPA_VESW_MAX_NUM_DEF_PORT] = { 0 };
++	struct net_device *netdev = adapter->netdev;
++	u8 i, port_count = 0;
++	u16 port_mask;
++
++	/* If the base_mac_addr is changed, update the interface mac address */
++	if (memcmp(info->vport.base_mac_addr, adapter->vema_mac_addr,
++		   ARRAY_SIZE(info->vport.base_mac_addr))) {
++		struct sockaddr saddr;
++
++		memcpy(saddr.sa_data, info->vport.base_mac_addr,
++		       ARRAY_SIZE(info->vport.base_mac_addr));
++		mutex_lock(&adapter->lock);
++		eth_mac_addr(netdev, &saddr);
++		memcpy(adapter->vema_mac_addr,
++		       info->vport.base_mac_addr, ETH_ALEN);
++		mutex_unlock(&adapter->lock);
++	}
++
++	rn->set_id(netdev, info->vesw.vesw_id);
++
++	/* Handle MTU limit change */
++	rtnl_lock();
++	netdev->max_mtu = max_t(unsigned int, info->vesw.eth_mtu_non_vlan,
++				netdev->min_mtu);
++	if (netdev->mtu > netdev->max_mtu)
++		dev_set_mtu(netdev, netdev->max_mtu);
++	rtnl_unlock();
++
++	/* Update flow to default port redirection table */
++	port_mask = info->vesw.def_port_mask;
++	for (i = 0; i < OPA_VESW_MAX_NUM_DEF_PORT; i++) {
++		if (port_mask & 1)
++			port_num[port_count++] = i;
++		port_mask >>= 1;
++	}
++
++	/*
++	 * Build the flow table. Flow table is required when destination LID
++	 * is not available. Up to OPA_VNIC_FLOW_TBL_SIZE flows supported.
++	 * Each flow need a default port number to get its dlid from the
++	 * u_ucast_dlid array.
++	 */
++	for (i = 0; i < OPA_VNIC_FLOW_TBL_SIZE; i++)
++		adapter->flow_tbl[i] = port_count ? port_num[i % port_count] :
++						    OPA_VNIC_INVALID_PORT;
++
++	/* Operational state can only be DROP_ALL or FORWARDING */
++	if (info->vport.config_state == OPA_VNIC_STATE_FORWARDING) {
++		info->vport.oper_state = OPA_VNIC_STATE_FORWARDING;
++		netif_dormant_off(netdev);
++	} else {
++		info->vport.oper_state = OPA_VNIC_STATE_DROP_ALL;
++		netif_dormant_on(netdev);
++	}
++}
 +
 +/*
-+ * RSM instance allocation
-+ *   0 - Verbs
-+ *   1 - User Fecn Handling
-+ *   2 - Vnic
++ * Set the power on default values in adapter's vema interface structure.
 + */
-+#define RSM_INS_VERBS             0
-+#define RSM_INS_FECN              1
-+#define RSM_INS_VNIC              2
- 
- /* Bit offset into the GUID which carries HFI id information */
- #define GUID_HFI_INDEX_SHIFT     39
-@@ -139,8 +146,7 @@ struct flag_table {
- #define is_emulator_p(dd) ((((dd)->irev) & 0xf) == 3)
- #define is_emulator_s(dd) ((((dd)->irev) & 0xf) == 4)
- 
--/* RSM fields */
--
-+/* RSM fields for Verbs */
- /* packet type */
- #define IB_PACKET_TYPE         2ull
- #define QW_SHIFT               6ull
-@@ -170,6 +176,28 @@ struct flag_table {
- /* QPN[m+n:1] QW 1, OFFSET 1 */
- #define QPN_SELECT_OFFSET      ((1ull << QW_SHIFT) | (1ull))
- 
-+/* RSM fields for Vnic */
-+/* L2_TYPE: QW 0, OFFSET 61 - for match */
-+#define L2_TYPE_QW             0ull
-+#define L2_TYPE_BIT_OFFSET     61ull
-+#define L2_TYPE_OFFSET(off)    ((L2_TYPE_QW << QW_SHIFT) | (off))
-+#define L2_TYPE_MATCH_OFFSET   L2_TYPE_OFFSET(L2_TYPE_BIT_OFFSET)
-+#define L2_TYPE_MASK           3ull
-+#define L2_16B_VALUE           2ull
-+
-+/* L4_TYPE QW 1, OFFSET 0 - for match */
-+#define L4_TYPE_QW              1ull
-+#define L4_TYPE_BIT_OFFSET      0ull
-+#define L4_TYPE_OFFSET(off)     ((L4_TYPE_QW << QW_SHIFT) | (off))
-+#define L4_TYPE_MATCH_OFFSET    L4_TYPE_OFFSET(L4_TYPE_BIT_OFFSET)
-+#define L4_16B_TYPE_MASK        0xFFull
-+#define L4_16B_ETH_VALUE        0x78ull
-+
-+/* 16B VESWID - for select */
-+#define L4_16B_HDR_VESWID_OFFSET  ((2 << QW_SHIFT) | (16ull))
-+/* 16B ENTROPY - for select */
-+#define L2_16B_ENTROPY_OFFSET     ((1 << QW_SHIFT) | (32ull))
-+
- /* defines to build power on SC2VL table */
- #define SC2VL_VAL( \
- 	num, \
-@@ -1047,6 +1075,7 @@ static int qos_rmt_entries(struct hfi1_devdata *dd, unsigned int *mp,
- 			   unsigned int *np);
- static void clear_full_mgmt_pkey(struct hfi1_pportdata *ppd);
- static int wait_link_transfer_active(struct hfi1_devdata *dd, int wait_ms);
-+static void clear_rsm_rule(struct hfi1_devdata *dd, u8 rule_index);
- 
- /*
-  * Error interrupt table entry.  This is used as input to the interrupt
-@@ -6703,7 +6732,13 @@ static void rxe_kernel_unfreeze(struct hfi1_devdata *dd)
- 	int i;
- 
- 	/* enable all kernel contexts */
--	for (i = 0; i < dd->n_krcv_queues; i++) {
-+	for (i = 0; i < dd->num_rcv_contexts; i++) {
-+		struct hfi1_ctxtdata *rcd = dd->rcd[i];
-+
-+		/* Ensure all non-user contexts(including vnic) are enabled */
-+		if (!rcd || !rcd->sc || (rcd->sc->type == SC_USER))
-+			continue;
-+
- 		rcvmask = HFI1_RCVCTRL_CTXT_ENB;
- 		/* HFI1_RCVCTRL_TAILUPD_[ENB|DIS] needs to be set explicitly */
- 		rcvmask |= HFI1_CAP_KGET_MASK(dd->rcd[i]->flags, DMA_RTAIL) ?
-@@ -8000,7 +8035,9 @@ static void is_rcv_avail_int(struct hfi1_devdata *dd, unsigned int source)
- 	if (likely(source < dd->num_rcv_contexts)) {
- 		rcd = dd->rcd[source];
- 		if (rcd) {
--			if (source < dd->first_user_ctxt)
-+			/* Check for non-user contexts, including vnic */
-+			if ((source < dd->first_dyn_alloc_ctxt) ||
-+			    (rcd->sc && (rcd->sc->type == SC_KERNEL)))
- 				rcd->do_interrupt(rcd, 0);
- 			else
- 				handle_user_interrupt(rcd);
-@@ -8028,7 +8065,8 @@ static void is_rcv_urgent_int(struct hfi1_devdata *dd, unsigned int source)
- 		rcd = dd->rcd[source];
- 		if (rcd) {
- 			/* only pay attention to user urgent interrupts */
--			if (source >= dd->first_user_ctxt)
-+			if ((source >= dd->first_dyn_alloc_ctxt) &&
-+			    (!rcd->sc || (rcd->sc->type == SC_USER)))
- 				handle_user_interrupt(rcd);
- 			return;	/* OK */
- 		}
-@@ -12842,7 +12880,10 @@ static int request_msix_irqs(struct hfi1_devdata *dd)
- 	first_sdma = last_general;
- 	last_sdma = first_sdma + dd->num_sdma;
- 	first_rx = last_sdma;
--	last_rx = first_rx + dd->n_krcv_queues;
-+	last_rx = first_rx + dd->n_krcv_queues + HFI1_NUM_VNIC_CTXT;
-+
-+	/* VNIC MSIx interrupts get mapped when VNIC contexts are created */
-+	dd->first_dyn_msix_idx = first_rx + dd->n_krcv_queues;
- 
- 	/*
- 	 * Sanity check - the code expects all SDMA chip source
-@@ -12856,7 +12897,7 @@ static int request_msix_irqs(struct hfi1_devdata *dd)
- 		const char *err_info;
- 		irq_handler_t handler;
- 		irq_handler_t thread = NULL;
--		void *arg;
-+		void *arg = NULL;
- 		int idx;
- 		struct hfi1_ctxtdata *rcd = NULL;
- 		struct sdma_engine *sde = NULL;
-@@ -12883,24 +12924,25 @@ static int request_msix_irqs(struct hfi1_devdata *dd)
- 		} else if (first_rx <= i && i < last_rx) {
- 			idx = i - first_rx;
- 			rcd = dd->rcd[idx];
--			/* no interrupt if no rcd */
--			if (!rcd)
--				continue;
--			/*
--			 * Set the interrupt register and mask for this
--			 * context's interrupt.
--			 */
--			rcd->ireg = (IS_RCVAVAIL_START + idx) / 64;
--			rcd->imask = ((u64)1) <<
--					((IS_RCVAVAIL_START + idx) % 64);
--			handler = receive_context_interrupt;
--			thread = receive_context_thread;
--			arg = rcd;
--			snprintf(me->name, sizeof(me->name),
--				 DRIVER_NAME "_%d kctxt%d", dd->unit, idx);
--			err_info = "receive context";
--			remap_intr(dd, IS_RCVAVAIL_START + idx, i);
--			me->type = IRQ_RCVCTXT;
-+			if (rcd) {
-+				/*
-+				 * Set the interrupt register and mask for this
-+				 * context's interrupt.
-+				 */
-+				rcd->ireg = (IS_RCVAVAIL_START + idx) / 64;
-+				rcd->imask = ((u64)1) <<
-+					  ((IS_RCVAVAIL_START + idx) % 64);
-+				handler = receive_context_interrupt;
-+				thread = receive_context_thread;
-+				arg = rcd;
-+				snprintf(me->name, sizeof(me->name),
-+					 DRIVER_NAME "_%d kctxt%d",
-+					 dd->unit, idx);
-+				err_info = "receive context";
-+				remap_intr(dd, IS_RCVAVAIL_START + idx, i);
-+				me->type = IRQ_RCVCTXT;
-+				rcd->msix_intr = i;
-+			}
- 		} else {
- 			/* not in our expected range - complain, then
- 			 * ignore it
-@@ -12938,6 +12980,84 @@ static int request_msix_irqs(struct hfi1_devdata *dd)
- 	return ret;
- }
- 
-+void hfi1_vnic_synchronize_irq(struct hfi1_devdata *dd)
++static inline void opa_vnic_set_pod_values(struct opa_vnic_adapter *adapter)
 +{
-+	int i;
-+
-+	if (!dd->num_msix_entries) {
-+		synchronize_irq(dd->pcidev->irq);
-+		return;
-+	}
-+
-+	for (i = 0; i < dd->vnic.num_ctxt; i++) {
-+		struct hfi1_ctxtdata *rcd = dd->vnic.ctxt[i];
-+		struct hfi1_msix_entry *me = &dd->msix_entries[rcd->msix_intr];
-+
-+		synchronize_irq(me->msix.vector);
-+	}
++	adapter->info.vport.max_mac_tbl_ent = OPA_VNIC_MAC_TBL_MAX_ENTRIES;
++	adapter->info.vport.max_smac_ent = OPA_VNIC_MAX_SMAC_LIMIT;
++	adapter->info.vport.config_state = OPA_VNIC_STATE_DROP_ALL;
++	adapter->info.vport.eth_link_status = OPA_VNIC_ETH_LINK_DOWN;
 +}
 +
-+void hfi1_reset_vnic_msix_info(struct hfi1_ctxtdata *rcd)
-+{
-+	struct hfi1_devdata *dd = rcd->dd;
-+	struct hfi1_msix_entry *me = &dd->msix_entries[rcd->msix_intr];
-+
-+	if (!me->arg) /* => no irq, no affinity */
-+		return;
-+
-+	hfi1_put_irq_affinity(dd, me);
-+	free_irq(me->msix.vector, me->arg);
-+
-+	me->arg = NULL;
+ /* opa_vnic_set_mac_addr - change mac address */
+ static int opa_vnic_set_mac_addr(struct net_device *netdev, void *addr)
+ {
+@@ -124,8 +198,62 @@ static int opa_vnic_set_mac_addr(struct net_device *netdev, void *addr)
+ 	mutex_lock(&adapter->lock);
+ 	rc = eth_mac_addr(netdev, addr);
+ 	mutex_unlock(&adapter->lock);
++	if (rc)
++		return rc;
+ 
+-	return rc;
++	adapter->info.vport.uc_macs_gen_count++;
++	opa_vnic_vema_report_event(adapter,
++				   OPA_VESWPORT_TRAP_IFACE_UCAST_MAC_CHANGE);
++	return 0;
 +}
 +
-+void hfi1_set_vnic_msix_info(struct hfi1_ctxtdata *rcd)
-+{
-+	struct hfi1_devdata *dd = rcd->dd;
-+	struct hfi1_msix_entry *me;
-+	int idx = rcd->ctxt;
-+	void *arg = rcd;
-+	int ret;
-+
-+	rcd->msix_intr = dd->vnic.msix_idx++;
-+	me = &dd->msix_entries[rcd->msix_intr];
-+
-+	/*
-+	 * Set the interrupt register and mask for this
-+	 * context's interrupt.
-+	 */
-+	rcd->ireg = (IS_RCVAVAIL_START + idx) / 64;
-+	rcd->imask = ((u64)1) <<
-+		  ((IS_RCVAVAIL_START + idx) % 64);
-+
-+	snprintf(me->name, sizeof(me->name),
-+		 DRIVER_NAME "_%d kctxt%d", dd->unit, idx);
-+	me->name[sizeof(me->name) - 1] = 0;
-+	me->type = IRQ_RCVCTXT;
-+
-+	remap_intr(dd, IS_RCVAVAIL_START + idx, rcd->msix_intr);
-+
-+	ret = request_threaded_irq(me->msix.vector, receive_context_interrupt,
-+				   receive_context_thread, 0, me->name, arg);
-+	if (ret) {
-+		dd_dev_err(dd, "vnic irq request (vector %d, idx %d) fail %d\n",
-+			   me->msix.vector, idx, ret);
-+		return;
-+	}
-+	/*
-+	 * assign arg after request_irq call, so it will be
-+	 * cleaned up
-+	 */
-+	me->arg = arg;
-+
-+	ret = hfi1_get_irq_affinity(dd, me);
-+	if (ret) {
-+		dd_dev_err(dd,
-+			   "unable to pin IRQ %d\n", ret);
-+		free_irq(me->msix.vector, me->arg);
-+	}
-+}
-+
- /*
-  * Set the general handler to accept all interrupts, remap all
-  * chip interrupts back to MSI-X 0.
-@@ -12969,7 +13089,7 @@ static int set_up_interrupts(struct hfi1_devdata *dd)
- 	 *	N interrupts - one per used SDMA engine
- 	 *	M interrupt - one per kernel receive context
- 	 */
--	total = 1 + dd->num_sdma + dd->n_krcv_queues;
-+	total = 1 + dd->num_sdma + dd->n_krcv_queues + HFI1_NUM_VNIC_CTXT;
- 
- 	entries = kcalloc(total, sizeof(*entries), GFP_KERNEL);
- 	if (!entries) {
-@@ -13034,7 +13154,8 @@ static int set_up_interrupts(struct hfi1_devdata *dd)
-  *
-  *	num_rcv_contexts - number of contexts being used
-  *	n_krcv_queues - number of kernel contexts
-- *	first_user_ctxt - first non-kernel context in array of contexts
-+ *	first_dyn_alloc_ctxt - first dynamically allocated context
-+ *                             in array of contexts
-  *	freectxts  - number of free user contexts
-  *	num_send_contexts - number of PIO send contexts being used
-  */
-@@ -13111,10 +13232,14 @@ static int set_up_context_variables(struct hfi1_devdata *dd)
- 		total_contexts = num_kernel_contexts + num_user_contexts;
- 	}
- 
--	/* the first N are kernel contexts, the rest are user contexts */
-+	/* Accommodate VNIC contexts */
-+	if ((total_contexts + HFI1_NUM_VNIC_CTXT) <= dd->chip_rcv_contexts)
-+		total_contexts += HFI1_NUM_VNIC_CTXT;
-+
-+	/* the first N are kernel contexts, the rest are user/vnic contexts */
- 	dd->num_rcv_contexts = total_contexts;
- 	dd->n_krcv_queues = num_kernel_contexts;
--	dd->first_user_ctxt = num_kernel_contexts;
-+	dd->first_dyn_alloc_ctxt = num_kernel_contexts;
- 	dd->num_user_contexts = num_user_contexts;
- 	dd->freectxts = num_user_contexts;
- 	dd_dev_info(dd,
-@@ -13570,11 +13695,8 @@ static void reset_rxe_csrs(struct hfi1_devdata *dd)
- 		write_csr(dd, RCV_COUNTER_ARRAY32 + (8 * i), 0);
- 	for (i = 0; i < RXE_NUM_64_BIT_COUNTERS; i++)
- 		write_csr(dd, RCV_COUNTER_ARRAY64 + (8 * i), 0);
--	for (i = 0; i < RXE_NUM_RSM_INSTANCES; i++) {
--		write_csr(dd, RCV_RSM_CFG + (8 * i), 0);
--		write_csr(dd, RCV_RSM_SELECT + (8 * i), 0);
--		write_csr(dd, RCV_RSM_MATCH + (8 * i), 0);
--	}
-+	for (i = 0; i < RXE_NUM_RSM_INSTANCES; i++)
-+		clear_rsm_rule(dd, i);
- 	for (i = 0; i < 32; i++)
- 		write_csr(dd, RCV_RSM_MAP_TABLE + (8 * i), 0);
- 
-@@ -13933,6 +14055,16 @@ static void add_rsm_rule(struct hfi1_devdata *dd, u8 rule_index,
- 		  (u64)rrd->value2 << RCV_RSM_MATCH_VALUE2_SHIFT);
- }
- 
 +/*
-+ * Clear a receive side mapping rule.
++ * opa_vnic_mac_send_event - post event on possible mac list exchange
++ *  Send trap when digest from uc/mc mac list differs from previous run.
++ *  Digest is evaluated similar to how cksum does.
 + */
-+static void clear_rsm_rule(struct hfi1_devdata *dd, u8 rule_index)
++static void opa_vnic_mac_send_event(struct net_device *netdev, u8 event)
 +{
-+	write_csr(dd, RCV_RSM_CFG + (8 * rule_index), 0);
-+	write_csr(dd, RCV_RSM_SELECT + (8 * rule_index), 0);
-+	write_csr(dd, RCV_RSM_MATCH + (8 * rule_index), 0);
-+}
++	struct opa_vnic_adapter *adapter = opa_vnic_priv(netdev);
++	struct netdev_hw_addr *ha;
++	struct netdev_hw_addr_list *hw_list;
++	u32 *ref_crc;
++	u32 l, crc = 0;
 +
- /* return the number of RSM map table entries that will be used for QOS */
- static int qos_rmt_entries(struct hfi1_devdata *dd, unsigned int *mp,
- 			   unsigned int *np)
-@@ -14048,7 +14180,7 @@ static void init_qos(struct hfi1_devdata *dd, struct rsm_map_table *rmt)
- 	rrd.value2 = LRH_SC_VALUE;
- 
- 	/* add rule 0 */
--	add_rsm_rule(dd, 0, &rrd);
-+	add_rsm_rule(dd, RSM_INS_VERBS, &rrd);
- 
- 	/* mark RSM map entries as used */
- 	rmt->used += rmt_entries;
-@@ -14078,7 +14210,7 @@ static void init_user_fecn_handling(struct hfi1_devdata *dd,
- 	/*
- 	 * RSM will extract the destination context as an index into the
- 	 * map table.  The destination contexts are a sequential block
--	 * in the range first_user_ctxt...num_rcv_contexts-1 (inclusive).
-+	 * in the range first_dyn_alloc_ctxt...num_rcv_contexts-1 (inclusive).
- 	 * Map entries are accessed as offset + extracted value.  Adjust
- 	 * the added offset so this sequence can be placed anywhere in
- 	 * the table - as long as the entries themselves do not wrap.
-@@ -14086,9 +14218,9 @@ static void init_user_fecn_handling(struct hfi1_devdata *dd,
- 	 * start with that to allow for a "negative" offset.
- 	 */
- 	offset = (u8)(NUM_MAP_ENTRIES + (int)rmt->used -
--						(int)dd->first_user_ctxt);
-+						(int)dd->first_dyn_alloc_ctxt);
- 
--	for (i = dd->first_user_ctxt, idx = rmt->used;
-+	for (i = dd->first_dyn_alloc_ctxt, idx = rmt->used;
- 				i < dd->num_rcv_contexts; i++, idx++) {
- 		/* replace with identity mapping */
- 		regoff = (idx % 8) * 8;
-@@ -14122,11 +14254,84 @@ static void init_user_fecn_handling(struct hfi1_devdata *dd,
- 	rrd.value2 = 1;
- 
- 	/* add rule 1 */
--	add_rsm_rule(dd, 1, &rrd);
-+	add_rsm_rule(dd, RSM_INS_FECN, &rrd);
- 
- 	rmt->used += dd->num_user_contexts;
- }
- 
-+/* Initialize RSM for VNIC */
-+void hfi1_init_vnic_rsm(struct hfi1_devdata *dd)
-+{
-+	u8 i, j;
-+	u8 ctx_id = 0;
-+	u64 reg;
-+	u32 regoff;
-+	struct rsm_rule_data rrd;
-+
-+	if (hfi1_vnic_is_rsm_full(dd, NUM_VNIC_MAP_ENTRIES)) {
-+		dd_dev_err(dd, "Vnic RSM disabled, rmt entries used = %d\n",
-+			   dd->vnic.rmt_start);
++	switch (event) {
++	case OPA_VESWPORT_TRAP_IFACE_UCAST_MAC_CHANGE:
++		hw_list = &netdev->uc;
++		adapter->info.vport.uc_macs_gen_count++;
++		ref_crc = &adapter->umac_hash;
++		break;
++	case OPA_VESWPORT_TRAP_IFACE_MCAST_MAC_CHANGE:
++		hw_list = &netdev->mc;
++		adapter->info.vport.mc_macs_gen_count++;
++		ref_crc = &adapter->mmac_hash;
++		break;
++	default:
 +		return;
 +	}
-+
-+	dev_dbg(&(dd)->pcidev->dev, "Vnic rsm start = %d, end %d\n",
-+		dd->vnic.rmt_start,
-+		dd->vnic.rmt_start + NUM_VNIC_MAP_ENTRIES);
-+
-+	/* Update RSM mapping table, 32 regs, 256 entries - 1 ctx per byte */
-+	regoff = RCV_RSM_MAP_TABLE + (dd->vnic.rmt_start / 8) * 8;
-+	reg = read_csr(dd, regoff);
-+	for (i = 0; i < NUM_VNIC_MAP_ENTRIES; i++) {
-+		/* Update map register with vnic context */
-+		j = (dd->vnic.rmt_start + i) % 8;
-+		reg &= ~(0xffllu << (j * 8));
-+		reg |= (u64)dd->vnic.ctxt[ctx_id++]->ctxt << (j * 8);
-+		/* Wrap up vnic ctx index */
-+		ctx_id %= dd->vnic.num_ctxt;
-+		/* Write back map register */
-+		if (j == 7 || ((i + 1) == NUM_VNIC_MAP_ENTRIES)) {
-+			dev_dbg(&(dd)->pcidev->dev,
-+				"Vnic rsm map reg[%d] =0x%llx\n",
-+				regoff - RCV_RSM_MAP_TABLE, reg);
-+
-+			write_csr(dd, regoff, reg);
-+			regoff += 8;
-+			if (i < (NUM_VNIC_MAP_ENTRIES - 1))
-+				reg = read_csr(dd, regoff);
-+		}
++	netdev_hw_addr_list_for_each(ha, hw_list) {
++		crc = crc32_le(crc, ha->addr, ETH_ALEN);
 +	}
++	l = netdev_hw_addr_list_count(hw_list) * ETH_ALEN;
++	crc = ~crc32_le(crc, (void *)&l, sizeof(l));
 +
-+	/* Add rule for vnic */
-+	rrd.offset = dd->vnic.rmt_start;
-+	rrd.pkt_type = 4;
-+	/* Match 16B packets */
-+	rrd.field1_off = L2_TYPE_MATCH_OFFSET;
-+	rrd.mask1 = L2_TYPE_MASK;
-+	rrd.value1 = L2_16B_VALUE;
-+	/* Match ETH L4 packets */
-+	rrd.field2_off = L4_TYPE_MATCH_OFFSET;
-+	rrd.mask2 = L4_16B_TYPE_MASK;
-+	rrd.value2 = L4_16B_ETH_VALUE;
-+	/* Calc context from veswid and entropy */
-+	rrd.index1_off = L4_16B_HDR_VESWID_OFFSET;
-+	rrd.index1_width = ilog2(NUM_VNIC_MAP_ENTRIES);
-+	rrd.index2_off = L2_16B_ENTROPY_OFFSET;
-+	rrd.index2_width = ilog2(NUM_VNIC_MAP_ENTRIES);
-+	add_rsm_rule(dd, RSM_INS_VNIC, &rrd);
-+
-+	/* Enable RSM if not already enabled */
-+	add_rcvctrl(dd, RCV_CTRL_RCV_RSM_ENABLE_SMASK);
++	if (crc != *ref_crc) {
++		*ref_crc = crc;
++		opa_vnic_vema_report_event(adapter, event);
++	}
 +}
 +
-+void hfi1_deinit_vnic_rsm(struct hfi1_devdata *dd)
++/* opa_vnic_set_rx_mode - handle uc/mc mac list change */
++static void opa_vnic_set_rx_mode(struct net_device *netdev)
 +{
-+	clear_rsm_rule(dd, RSM_INS_VNIC);
++	opa_vnic_mac_send_event(netdev,
++				OPA_VESWPORT_TRAP_IFACE_UCAST_MAC_CHANGE);
 +
-+	/* Disable RSM if used only by vnic */
-+	if (dd->vnic.rmt_start == 0)
-+		clear_rcvctrl(dd, RCV_CTRL_RCV_RSM_ENABLE_SMASK);
-+}
-+
- static void init_rxe(struct hfi1_devdata *dd)
- {
- 	struct rsm_map_table *rmt;
-@@ -14139,6 +14344,8 @@ static void init_rxe(struct hfi1_devdata *dd)
- 	init_qos(dd, rmt);
- 	init_user_fecn_handling(dd, rmt);
- 	complete_rsm_map_table(dd, rmt);
-+	/* record number of used rsm map entries for vnic */
-+	dd->vnic.rmt_start = rmt->used;
- 	kfree(rmt);
- 
- 	/*
-diff --git a/drivers/infiniband/hw/hfi1/chip.h b/drivers/infiniband/hw/hfi1/chip.h
-index 24df45f..b9dbf16 100644
---- a/drivers/infiniband/hw/hfi1/chip.h
-+++ b/drivers/infiniband/hw/hfi1/chip.h
-@@ -1362,6 +1362,8 @@ void hfi1_put_tid(struct hfi1_devdata *dd, u32 index,
- int hfi1_set_ctxt_pkey(struct hfi1_devdata *dd, unsigned ctxt, u16 pkey);
- int hfi1_clear_ctxt_pkey(struct hfi1_devdata *dd, unsigned ctxt);
- void hfi1_read_link_quality(struct hfi1_devdata *dd, u8 *link_quality);
-+void hfi1_init_vnic_rsm(struct hfi1_devdata *dd);
-+void hfi1_deinit_vnic_rsm(struct hfi1_devdata *dd);
- 
- /*
-  * Interrupt source table.
-diff --git a/drivers/infiniband/hw/hfi1/debugfs.c b/drivers/infiniband/hw/hfi1/debugfs.c
-index dc2c1c9..5da0375 100644
---- a/drivers/infiniband/hw/hfi1/debugfs.c
-+++ b/drivers/infiniband/hw/hfi1/debugfs.c
-@@ -1,6 +1,6 @@
- #ifdef CONFIG_DEBUG_FS
- /*
-- * Copyright(c) 2015, 2016 Intel Corporation.
-+ * Copyright(c) 2015-2017 Intel Corporation.
-  *
-  * This file is provided under a dual BSD/GPLv2 license.  When using or
-  * redistributing this file, you may do so under either license.
-@@ -174,7 +174,7 @@ static int _opcode_stats_seq_show(struct seq_file *s, void *v)
- 	struct hfi1_ibdev *ibd = (struct hfi1_ibdev *)s->private;
- 	struct hfi1_devdata *dd = dd_from_dev(ibd);
- 
--	for (j = 0; j < dd->first_user_ctxt; j++) {
-+	for (j = 0; j < dd->first_dyn_alloc_ctxt; j++) {
- 		if (!dd->rcd[j])
- 			continue;
- 		n_packets += dd->rcd[j]->opstats->stats[i].n_packets;
-@@ -200,7 +200,7 @@ static void *_ctx_stats_seq_start(struct seq_file *s, loff_t *pos)
- 
- 	if (!*pos)
- 		return SEQ_START_TOKEN;
--	if (*pos >= dd->first_user_ctxt)
-+	if (*pos >= dd->first_dyn_alloc_ctxt)
- 		return NULL;
- 	return pos;
- }
-@@ -214,7 +214,7 @@ static void *_ctx_stats_seq_next(struct seq_file *s, void *v, loff_t *pos)
- 		return pos;
- 
- 	++*pos;
--	if (*pos >= dd->first_user_ctxt)
-+	if (*pos >= dd->first_dyn_alloc_ctxt)
- 		return NULL;
- 	return pos;
- }
-diff --git a/drivers/infiniband/hw/hfi1/driver.c b/drivers/infiniband/hw/hfi1/driver.c
-index e4dc6a5..6b38695 100644
---- a/drivers/infiniband/hw/hfi1/driver.c
-+++ b/drivers/infiniband/hw/hfi1/driver.c
-@@ -874,20 +874,42 @@ int handle_receive_interrupt_dma_rtail(struct hfi1_ctxtdata *rcd, int thread)
- 	return last;
++	opa_vnic_mac_send_event(netdev,
++				OPA_VESWPORT_TRAP_IFACE_MCAST_MAC_CHANGE);
  }
  
--static inline void set_all_nodma_rtail(struct hfi1_devdata *dd)
-+static inline void set_nodma_rtail(struct hfi1_devdata *dd, u8 ctxt)
- {
- 	int i;
- 
--	for (i = HFI1_CTRL_CTXT + 1; i < dd->first_user_ctxt; i++)
-+	/*
-+	 * For dynamically allocated kernel contexts (like vnic) switch
-+	 * interrupt handler only for that context. Otherwise, switch
-+	 * interrupt handler for all statically allocated kernel contexts.
-+	 */
-+	if (ctxt >= dd->first_dyn_alloc_ctxt) {
-+		dd->rcd[ctxt]->do_interrupt =
-+			&handle_receive_interrupt_nodma_rtail;
-+		return;
-+	}
-+
-+	for (i = HFI1_CTRL_CTXT + 1; i < dd->first_dyn_alloc_ctxt; i++)
- 		dd->rcd[i]->do_interrupt =
- 			&handle_receive_interrupt_nodma_rtail;
- }
- 
--static inline void set_all_dma_rtail(struct hfi1_devdata *dd)
-+static inline void set_dma_rtail(struct hfi1_devdata *dd, u8 ctxt)
- {
- 	int i;
- 
--	for (i = HFI1_CTRL_CTXT + 1; i < dd->first_user_ctxt; i++)
-+	/*
-+	 * For dynamically allocated kernel contexts (like vnic) switch
-+	 * interrupt handler only for that context. Otherwise, switch
-+	 * interrupt handler for all statically allocated kernel contexts.
-+	 */
-+	if (ctxt >= dd->first_dyn_alloc_ctxt) {
-+		dd->rcd[ctxt]->do_interrupt =
-+			&handle_receive_interrupt_dma_rtail;
-+		return;
-+	}
-+
-+	for (i = HFI1_CTRL_CTXT + 1; i < dd->first_dyn_alloc_ctxt; i++)
- 		dd->rcd[i]->do_interrupt =
- 			&handle_receive_interrupt_dma_rtail;
- }
-@@ -897,8 +919,13 @@ void set_all_slowpath(struct hfi1_devdata *dd)
- 	int i;
- 
- 	/* HFI1_CTRL_CTXT must always use the slow path interrupt handler */
--	for (i = HFI1_CTRL_CTXT + 1; i < dd->first_user_ctxt; i++)
--		dd->rcd[i]->do_interrupt = &handle_receive_interrupt;
-+	for (i = HFI1_CTRL_CTXT + 1; i < dd->num_rcv_contexts; i++) {
-+		struct hfi1_ctxtdata *rcd = dd->rcd[i];
-+
-+		if ((i < dd->first_dyn_alloc_ctxt) ||
-+		    (rcd && rcd->sc && (rcd->sc->type == SC_KERNEL)))
-+			rcd->do_interrupt = &handle_receive_interrupt;
-+	}
- }
- 
- static inline int set_armed_to_active(struct hfi1_ctxtdata *rcd,
-@@ -1008,7 +1035,7 @@ int handle_receive_interrupt(struct hfi1_ctxtdata *rcd, int thread)
- 				last = RCV_PKT_DONE;
- 			if (needset) {
- 				dd_dev_info(dd, "Switching to NO_DMA_RTAIL\n");
--				set_all_nodma_rtail(dd);
-+				set_nodma_rtail(dd, rcd->ctxt);
- 				needset = 0;
- 			}
- 		} else {
-@@ -1030,7 +1057,7 @@ int handle_receive_interrupt(struct hfi1_ctxtdata *rcd, int thread)
- 			if (needset) {
- 				dd_dev_info(dd,
- 					    "Switching to DMA_RTAIL\n");
--				set_all_dma_rtail(dd);
-+				set_dma_rtail(dd, rcd->ctxt);
- 				needset = 0;
- 			}
- 		}
-@@ -1079,10 +1106,10 @@ void receive_interrupt_work(struct work_struct *work)
- 	set_link_state(ppd, HLS_UP_ACTIVE);
- 
- 	/*
--	 * Interrupt all kernel contexts that could have had an
--	 * interrupt during auto activation.
-+	 * Interrupt all statically allocated kernel contexts that could
-+	 * have had an interrupt during auto activation.
- 	 */
--	for (i = HFI1_CTRL_CTXT; i < dd->first_user_ctxt; i++)
-+	for (i = HFI1_CTRL_CTXT; i < dd->first_dyn_alloc_ctxt; i++)
- 		force_recv_intr(dd->rcd[i]);
- }
- 
-@@ -1296,7 +1323,8 @@ int hfi1_reset_device(int unit)
- 
- 	spin_lock_irqsave(&dd->uctxt_lock, flags);
- 	if (dd->rcd)
--		for (i = dd->first_user_ctxt; i < dd->num_rcv_contexts; i++) {
-+		for (i = dd->first_dyn_alloc_ctxt;
-+		     i < dd->num_rcv_contexts; i++) {
- 			if (!dd->rcd[i] || !dd->rcd[i]->cnt)
- 				continue;
- 			spin_unlock_irqrestore(&dd->uctxt_lock, flags);
-diff --git a/drivers/infiniband/hw/hfi1/file_ops.c b/drivers/infiniband/hw/hfi1/file_ops.c
-index f78c739..6059886 100644
---- a/drivers/infiniband/hw/hfi1/file_ops.c
-+++ b/drivers/infiniband/hw/hfi1/file_ops.c
-@@ -1,5 +1,5 @@
- /*
-- * Copyright(c) 2015, 2016 Intel Corporation.
-+ * Copyright(c) 2015-2017 Intel Corporation.
-  *
-  * This file is provided under a dual BSD/GPLv2 license.  When using or
-  * redistributing this file, you may do so under either license.
-@@ -586,8 +586,8 @@ static int hfi1_file_mmap(struct file *fp, struct vm_area_struct *vma)
- 		 * knows where it's own bitmap is within the page.
- 		 */
- 		memaddr = (unsigned long)(dd->events +
--					  ((uctxt->ctxt - dd->first_user_ctxt) *
--					   HFI1_MAX_SHARED_CTXTS)) & PAGE_MASK;
-+				  ((uctxt->ctxt - dd->first_dyn_alloc_ctxt) *
-+				   HFI1_MAX_SHARED_CTXTS)) & PAGE_MASK;
- 		memlen = PAGE_SIZE;
- 		/*
- 		 * v3.7 removes VM_RESERVED but the effect is kept by
-@@ -756,7 +756,7 @@ static int hfi1_file_close(struct inode *inode, struct file *fp)
- 	 * Clear any left over, unhandled events so the next process that
- 	 * gets this context doesn't get confused.
- 	 */
--	ev = dd->events + ((uctxt->ctxt - dd->first_user_ctxt) *
-+	ev = dd->events + ((uctxt->ctxt - dd->first_dyn_alloc_ctxt) *
- 			   HFI1_MAX_SHARED_CTXTS) + fdata->subctxt;
- 	*ev = 0;
- 
-@@ -909,12 +909,18 @@ static int find_shared_ctxt(struct file *fp,
- 
- 		if (!(dd && (dd->flags & HFI1_PRESENT) && dd->kregbase))
- 			continue;
--		for (i = dd->first_user_ctxt; i < dd->num_rcv_contexts; i++) {
-+		for (i = dd->first_dyn_alloc_ctxt;
-+		     i < dd->num_rcv_contexts; i++) {
- 			struct hfi1_ctxtdata *uctxt = dd->rcd[i];
- 
- 			/* Skip ctxts which are not yet open */
- 			if (!uctxt || !uctxt->cnt)
- 				continue;
-+
-+			/* Skip dynamically allocted kernel contexts */
-+			if (uctxt->sc && (uctxt->sc->type == SC_KERNEL))
-+				continue;
-+
- 			/* Skip ctxt if it doesn't match the requested one */
- 			if (memcmp(uctxt->uuid, uinfo->uuid,
- 				   sizeof(uctxt->uuid)) ||
-@@ -960,7 +966,8 @@ static int allocate_ctxt(struct file *fp, struct hfi1_devdata *dd,
- 		return -EIO;
+ /* opa_netdev_open - activate network interface */
+@@ -140,6 +268,10 @@ static int opa_netdev_open(struct net_device *netdev)
+ 		return rc;
  	}
  
--	for (ctxt = dd->first_user_ctxt; ctxt < dd->num_rcv_contexts; ctxt++)
-+	for (ctxt = dd->first_dyn_alloc_ctxt;
-+	     ctxt < dd->num_rcv_contexts; ctxt++)
- 		if (!dd->rcd[ctxt])
- 			break;
- 
-@@ -1306,7 +1313,7 @@ static int get_base_info(struct file *fp, void __user *ubase, __u32 len)
- 	 */
- 	binfo.user_regbase = HFI1_MMAP_TOKEN(UREGS, uctxt->ctxt,
- 					    fd->subctxt, 0);
--	offset = offset_in_page((((uctxt->ctxt - dd->first_user_ctxt) *
-+	offset = offset_in_page((((uctxt->ctxt - dd->first_dyn_alloc_ctxt) *
- 		    HFI1_MAX_SHARED_CTXTS) + fd->subctxt) *
- 		  sizeof(*dd->events));
- 	binfo.events_bufbase = HFI1_MMAP_TOKEN(EVENTS, uctxt->ctxt,
-@@ -1400,12 +1407,12 @@ int hfi1_set_uevent_bits(struct hfi1_pportdata *ppd, const int evtbit)
- 	}
- 
- 	spin_lock_irqsave(&dd->uctxt_lock, flags);
--	for (ctxt = dd->first_user_ctxt; ctxt < dd->num_rcv_contexts;
-+	for (ctxt = dd->first_dyn_alloc_ctxt; ctxt < dd->num_rcv_contexts;
- 	     ctxt++) {
- 		uctxt = dd->rcd[ctxt];
- 		if (uctxt) {
- 			unsigned long *evs = dd->events +
--				(uctxt->ctxt - dd->first_user_ctxt) *
-+				(uctxt->ctxt - dd->first_dyn_alloc_ctxt) *
- 				HFI1_MAX_SHARED_CTXTS;
- 			int i;
- 			/*
-@@ -1477,7 +1484,7 @@ static int user_event_ack(struct hfi1_ctxtdata *uctxt, int subctxt,
- 	if (!dd->events)
- 		return 0;
- 
--	evs = dd->events + ((uctxt->ctxt - dd->first_user_ctxt) *
-+	evs = dd->events + ((uctxt->ctxt - dd->first_dyn_alloc_ctxt) *
- 			    HFI1_MAX_SHARED_CTXTS) + subctxt;
- 
- 	for (i = 0; i <= _HFI1_MAX_EVENT_BIT; i++) {
-diff --git a/drivers/infiniband/hw/hfi1/hfi.h b/drivers/infiniband/hw/hfi1/hfi.h
-index f85e8f4..a12bb46 100644
---- a/drivers/infiniband/hw/hfi1/hfi.h
-+++ b/drivers/infiniband/hw/hfi1/hfi.h
-@@ -54,6 +54,7 @@
- #include <linux/list.h>
- #include <linux/scatterlist.h>
- #include <linux/slab.h>
-+#include <linux/idr.h>
- #include <linux/io.h>
- #include <linux/fs.h>
- #include <linux/completion.h>
-@@ -66,6 +67,7 @@
- #include <linux/i2c-algo-bit.h>
- #include <rdma/ib_hdrs.h>
- #include <linux/rhashtable.h>
-+#include <linux/netdevice.h>
- #include <rdma/rdma_vt.h>
- 
- #include "chip_registers.h"
-@@ -278,6 +280,8 @@ struct hfi1_ctxtdata {
- 	struct hfi1_devdata *dd;
- 	/* so functions that need physical port can get it easily */
- 	struct hfi1_pportdata *ppd;
-+	/* associated msix interrupt */
-+	u32 msix_intr;
- 	/* A page of memory for rcvhdrhead, rcvegrhead, rcvegrtail * N */
- 	void *subctxt_uregbase;
- 	/* An array of pages for the eager receive buffers * N */
-@@ -814,15 +818,27 @@ struct hfi1_asic_data {
- 	struct hfi1_i2c_bus *i2c_bus1;
- };
- 
-+/* sizes for both the QP and RSM map tables */
-+#define NUM_MAP_ENTRIES	 256
-+#define NUM_MAP_REGS      32
-+
- /*
-  * Number of VNIC contexts used. Ensure it is less than or equal to
-  * max queues supported by VNIC (HFI1_VNIC_MAX_QUEUE).
-  */
- #define HFI1_NUM_VNIC_CTXT   8
- 
-+/* Number of VNIC RSM entries */
-+#define NUM_VNIC_MAP_ENTRIES 8
-+
- /* Virtual NIC information */
- struct hfi1_vnic_data {
-+	struct hfi1_ctxtdata *ctxt[HFI1_NUM_VNIC_CTXT];
-+	u8 num_vports;
- 	struct idr vesw_idr;
-+	u8 rmt_start;
-+	u8 num_ctxt;
-+	u32 msix_idx;
- };
- 
- struct hfi1_vnic_vport_info;
-@@ -1050,6 +1066,7 @@ struct hfi1_devdata {
- 	/* MSI-X information */
- 	struct hfi1_msix_entry *msix_entries;
- 	u32 num_msix_entries;
-+	u32 first_dyn_msix_idx;
- 
- 	/* INTx information */
- 	u32 requested_intx_irq;		/* did we request one? */
-@@ -1148,8 +1165,8 @@ struct hfi1_devdata {
- 	u16 flags;
- 	/* Number of physical ports available */
- 	u8 num_pports;
--	/* Lowest context number which can be used by user processes */
--	u8 first_user_ctxt;
-+	/* Lowest context number which can be used by user processes or VNIC */
-+	u8 first_dyn_alloc_ctxt;
- 	/* adding a new field here would make it part of this cacheline */
- 
- 	/* seqlock for sc2vl */
-@@ -1197,6 +1214,11 @@ struct hfi1_devdata {
- 	struct hfi1_vnic_data vnic;
- };
- 
-+static inline bool hfi1_vnic_is_rsm_full(struct hfi1_devdata *dd, int spare)
-+{
-+	return (dd->vnic.rmt_start + spare) > NUM_MAP_ENTRIES;
-+}
-+
- /* 8051 firmware version helper */
- #define dc8051_ver(a, b, c) ((a) << 16 | (b) << 8 | (c))
- #define dc8051_ver_maj(a) (((a) & 0xff0000) >> 16)
-@@ -1261,6 +1283,9 @@ void hfi1_init_pportdata(struct pci_dev *, struct hfi1_pportdata *,
- int handle_receive_interrupt_nodma_rtail(struct hfi1_ctxtdata *, int);
- int handle_receive_interrupt_dma_rtail(struct hfi1_ctxtdata *, int);
- void set_all_slowpath(struct hfi1_devdata *dd);
-+void hfi1_vnic_synchronize_irq(struct hfi1_devdata *dd);
-+void hfi1_set_vnic_msix_info(struct hfi1_ctxtdata *rcd);
-+void hfi1_reset_vnic_msix_info(struct hfi1_ctxtdata *rcd);
- 
- extern const struct pci_device_id hfi1_pci_tbl[];
- 
-diff --git a/drivers/infiniband/hw/hfi1/init.c b/drivers/infiniband/hw/hfi1/init.c
-index e84f95d..de2eec4 100644
---- a/drivers/infiniband/hw/hfi1/init.c
-+++ b/drivers/infiniband/hw/hfi1/init.c
-@@ -140,7 +140,7 @@ int hfi1_create_ctxts(struct hfi1_devdata *dd)
- 		goto nomem;
- 
- 	/* create one or more kernel contexts */
--	for (i = 0; i < dd->first_user_ctxt; ++i) {
-+	for (i = 0; i < dd->first_dyn_alloc_ctxt; ++i) {
- 		struct hfi1_pportdata *ppd;
- 		struct hfi1_ctxtdata *rcd;
- 
-@@ -215,9 +215,9 @@ struct hfi1_ctxtdata *hfi1_create_ctxtdata(struct hfi1_pportdata *ppd, u32 ctxt,
- 	u32 base;
- 
- 	if (dd->rcv_entries.nctxt_extra >
--	    dd->num_rcv_contexts - dd->first_user_ctxt)
-+	    dd->num_rcv_contexts - dd->first_dyn_alloc_ctxt)
- 		kctxt_ngroups = (dd->rcv_entries.nctxt_extra -
--				 (dd->num_rcv_contexts - dd->first_user_ctxt));
-+			 (dd->num_rcv_contexts - dd->first_dyn_alloc_ctxt));
- 	rcd = kzalloc_node(sizeof(*rcd), GFP_KERNEL, numa);
- 	if (rcd) {
- 		u32 rcvtids, max_entries;
-@@ -239,10 +239,10 @@ struct hfi1_ctxtdata *hfi1_create_ctxtdata(struct hfi1_pportdata *ppd, u32 ctxt,
- 		 * Calculate the context's RcvArray entry starting point.
- 		 * We do this here because we have to take into account all
- 		 * the RcvArray entries that previous context would have
--		 * taken and we have to account for any extra groups
--		 * assigned to the kernel or user contexts.
-+		 * taken and we have to account for any extra groups assigned
-+		 * to the static (kernel) or dynamic (vnic/user) contexts.
- 		 */
--		if (ctxt < dd->first_user_ctxt) {
-+		if (ctxt < dd->first_dyn_alloc_ctxt) {
- 			if (ctxt < kctxt_ngroups) {
- 				base = ctxt * (dd->rcv_entries.ngroups + 1);
- 				rcd->rcv_array_groups++;
-@@ -250,7 +250,7 @@ struct hfi1_ctxtdata *hfi1_create_ctxtdata(struct hfi1_pportdata *ppd, u32 ctxt,
- 				base = kctxt_ngroups +
- 					(ctxt * dd->rcv_entries.ngroups);
- 		} else {
--			u16 ct = ctxt - dd->first_user_ctxt;
-+			u16 ct = ctxt - dd->first_dyn_alloc_ctxt;
- 
- 			base = ((dd->n_krcv_queues * dd->rcv_entries.ngroups) +
- 				kctxt_ngroups);
-@@ -323,7 +323,8 @@ struct hfi1_ctxtdata *hfi1_create_ctxtdata(struct hfi1_pportdata *ppd, u32 ctxt,
- 		}
- 		rcd->egrbufs.rcvtid_size = HFI1_MAX_EAGER_BUFFER_SIZE;
- 
--		if (ctxt < dd->first_user_ctxt) { /* N/A for PSM contexts */
-+		/* Applicable only for statically created kernel contexts */
-+		if (ctxt < dd->first_dyn_alloc_ctxt) {
- 			rcd->opstats = kzalloc_node(sizeof(*rcd->opstats),
- 						    GFP_KERNEL, numa);
- 			if (!rcd->opstats)
-@@ -586,7 +587,7 @@ static void enable_chip(struct hfi1_devdata *dd)
- 	 * Enable kernel ctxts' receive and receive interrupt.
- 	 * Other ctxts done as user opens and initializes them.
- 	 */
--	for (i = 0; i < dd->first_user_ctxt; ++i) {
-+	for (i = 0; i < dd->first_dyn_alloc_ctxt; ++i) {
- 		rcvmask = HFI1_RCVCTRL_CTXT_ENB | HFI1_RCVCTRL_INTRAVAIL_ENB;
- 		rcvmask |= HFI1_CAP_KGET_MASK(dd->rcd[i]->flags, DMA_RTAIL) ?
- 			HFI1_RCVCTRL_TAILUPD_ENB : HFI1_RCVCTRL_TAILUPD_DIS;
-@@ -715,7 +716,7 @@ int hfi1_init(struct hfi1_devdata *dd, int reinit)
- 	}
- 
- 	/* dd->rcd can be NULL if early initialization failed */
--	for (i = 0; dd->rcd && i < dd->first_user_ctxt; ++i) {
-+	for (i = 0; dd->rcd && i < dd->first_dyn_alloc_ctxt; ++i) {
- 		/*
- 		 * Set up the (kernel) rcvhdr queue and egr TIDs.  If doing
- 		 * re-init, the simplest way to handle this is to free
-@@ -1535,6 +1536,7 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 			hfi1_device_remove(dd);
- 		if (!ret)
- 			hfi1_unregister_ib_device(dd);
-+		hfi1_vnic_cleanup(dd);
- 		postinit_cleanup(dd);
- 		if (initfail)
- 			ret = initfail;
-@@ -1621,8 +1623,11 @@ int hfi1_create_rcvhdrq(struct hfi1_devdata *dd, struct hfi1_ctxtdata *rcd)
- 		amt = PAGE_ALIGN(rcd->rcvhdrq_cnt * rcd->rcvhdrqentsize *
- 				 sizeof(u32));
- 
--		gfp_flags = (rcd->ctxt >= dd->first_user_ctxt) ?
--			GFP_USER : GFP_KERNEL;
-+		if ((rcd->ctxt < dd->first_dyn_alloc_ctxt) ||
-+		    (rcd->sc && (rcd->sc->type == SC_KERNEL)))
-+			gfp_flags = GFP_KERNEL;
-+		else
-+			gfp_flags = GFP_USER;
- 		rcd->rcvhdrq = dma_zalloc_coherent(
- 			&dd->pcidev->dev, amt, &rcd->rcvhdrq_dma,
- 			gfp_flags | __GFP_COMP);
-diff --git a/drivers/infiniband/hw/hfi1/mad.c b/drivers/infiniband/hw/hfi1/mad.c
-index 09cda3c..955e5fc 100644
---- a/drivers/infiniband/hw/hfi1/mad.c
-+++ b/drivers/infiniband/hw/hfi1/mad.c
-@@ -53,6 +53,7 @@
- #include "mad.h"
- #include "trace.h"
- #include "qp.h"
-+#include "vnic.h"
- 
- /* the reset value from the FM is supposed to be 0xffff, handle both */
- #define OPA_LINK_WIDTH_RESET_OLD 0x0fff
-@@ -650,9 +651,11 @@ static int __subn_get_opa_portinfo(struct opa_smp *smp, u32 am, u8 *data,
- 					OPA_PI_MASK_PORT_ACTIVE_OPTOMIZE : 0);
- 
- 	pi->port_packet_format.supported =
--		cpu_to_be16(OPA_PORT_PACKET_FORMAT_9B);
-+		cpu_to_be16(OPA_PORT_PACKET_FORMAT_9B |
-+			    OPA_PORT_PACKET_FORMAT_16B);
- 	pi->port_packet_format.enabled =
--		cpu_to_be16(OPA_PORT_PACKET_FORMAT_9B);
-+		cpu_to_be16(OPA_PORT_PACKET_FORMAT_9B |
-+			    OPA_PORT_PACKET_FORMAT_16B);
- 
- 	/* flit_control.interleave is (OPA V1, version .76):
- 	 * bits		use
-@@ -701,7 +704,8 @@ static int __subn_get_opa_portinfo(struct opa_smp *smp, u32 am, u8 *data,
- 	buffer_units |= (dd->vl15_init << 11) & OPA_PI_MASK_BUF_UNIT_VL15_INIT;
- 	pi->buffer_units = cpu_to_be32(buffer_units);
- 
--	pi->opa_cap_mask = cpu_to_be16(OPA_CAP_MASK3_IsSharedSpaceSupported);
-+	pi->opa_cap_mask = cpu_to_be16(OPA_CAP_MASK3_IsSharedSpaceSupported |
-+				       OPA_CAP_MASK3_IsEthOnFabricSupported);
- 
- 	/* HFI supports a replay buffer 128 LTPs in size */
- 	pi->replay_depth.buffer = 0x80;
-diff --git a/drivers/infiniband/hw/hfi1/pio.c b/drivers/infiniband/hw/hfi1/pio.c
-index 615be68..ed72b5a 100644
---- a/drivers/infiniband/hw/hfi1/pio.c
-+++ b/drivers/infiniband/hw/hfi1/pio.c
-@@ -1,5 +1,5 @@
- /*
-- * Copyright(c) 2015, 2016 Intel Corporation.
-+ * Copyright(c) 2015-2017 Intel Corporation.
-  *
-  * This file is provided under a dual BSD/GPLv2 license.  When using or
-  * redistributing this file, you may do so under either license.
-@@ -703,6 +703,7 @@ struct send_context *sc_alloc(struct hfi1_devdata *dd, int type,
- {
- 	struct send_context_info *sci;
- 	struct send_context *sc = NULL;
-+	int req_type = type;
- 	dma_addr_t dma;
- 	unsigned long flags;
- 	u64 reg;
-@@ -729,6 +730,13 @@ struct send_context *sc_alloc(struct hfi1_devdata *dd, int type,
- 		return NULL;
- 	}
- 
-+	/*
-+	 * VNIC contexts are dynamically allocated.
-+	 * Hence, pick a user context for VNIC.
-+	 */
-+	if (type == SC_VNIC)
-+		type = SC_USER;
-+
- 	spin_lock_irqsave(&dd->sc_lock, flags);
- 	ret = sc_hw_alloc(dd, type, &sw_index, &hw_context);
- 	if (ret) {
-@@ -738,6 +746,15 @@ struct send_context *sc_alloc(struct hfi1_devdata *dd, int type,
- 		return NULL;
- 	}
- 
-+	/*
-+	 * VNIC contexts are used by kernel driver.
-+	 * Hence, mark them as kernel contexts.
-+	 */
-+	if (req_type == SC_VNIC) {
-+		dd->send_contexts[sw_index].type = SC_KERNEL;
-+		type = SC_KERNEL;
-+	}
-+
- 	sci = &dd->send_contexts[sw_index];
- 	sci->sc = sc;
- 
-diff --git a/drivers/infiniband/hw/hfi1/pio.h b/drivers/infiniband/hw/hfi1/pio.h
-index 867e5ff..a6fb700 100644
---- a/drivers/infiniband/hw/hfi1/pio.h
-+++ b/drivers/infiniband/hw/hfi1/pio.h
-@@ -1,7 +1,7 @@
- #ifndef _PIO_H
- #define _PIO_H
- /*
-- * Copyright(c) 2015, 2016 Intel Corporation.
-+ * Copyright(c) 2015-2017 Intel Corporation.
-  *
-  * This file is provided under a dual BSD/GPLv2 license.  When using or
-  * redistributing this file, you may do so under either license.
-@@ -54,6 +54,12 @@
- #define SC_USER   3	/* must be the last one: it may take all left */
- #define SC_MAX    4	/* count of send context types */
- 
-+/*
-+ * SC_VNIC types are allocated (dynamically) from the user context pool,
-+ * (SC_USER) and used by kernel driver as kernel contexts (SC_KERNEL).
-+ */
-+#define SC_VNIC   SC_MAX
-+
- /* invalid send context index */
- #define INVALID_SCI 0xff
- 
-diff --git a/drivers/infiniband/hw/hfi1/sysfs.c b/drivers/infiniband/hw/hfi1/sysfs.c
-index 919a547..50d140d 100644
---- a/drivers/infiniband/hw/hfi1/sysfs.c
-+++ b/drivers/infiniband/hw/hfi1/sysfs.c
-@@ -1,5 +1,5 @@
- /*
-- * Copyright(c) 2015, 2016 Intel Corporation.
-+ * Copyright(c) 2015-2017 Intel Corporation.
-  *
-  * This file is provided under a dual BSD/GPLv2 license.  When using or
-  * redistributing this file, you may do so under either license.
-@@ -542,7 +542,7 @@ static ssize_t show_nctxts(struct device *device,
- 	 * give a more accurate picture of total contexts available.
- 	 */
- 	return scnprintf(buf, PAGE_SIZE, "%u\n",
--			 min(dd->num_rcv_contexts - dd->first_user_ctxt,
-+			 min(dd->num_rcv_contexts - dd->first_dyn_alloc_ctxt,
- 			     (u32)dd->sc_sizes[SC_USER].count));
- }
- 
-diff --git a/drivers/infiniband/hw/hfi1/user_exp_rcv.c b/drivers/infiniband/hw/hfi1/user_exp_rcv.c
-index 4a82953..25a8698 100644
---- a/drivers/infiniband/hw/hfi1/user_exp_rcv.c
-+++ b/drivers/infiniband/hw/hfi1/user_exp_rcv.c
-@@ -1,5 +1,5 @@
- /*
-- * Copyright(c) 2015, 2016 Intel Corporation.
-+ * Copyright(c) 2015-2017 Intel Corporation.
-  *
-  * This file is provided under a dual BSD/GPLv2 license.  When using or
-  * redistributing this file, you may do so under either license.
-@@ -607,7 +607,7 @@ int hfi1_user_exp_rcv_invalid(struct file *fp, struct hfi1_tid_info *tinfo)
- 	struct hfi1_filedata *fd = fp->private_data;
- 	struct hfi1_ctxtdata *uctxt = fd->uctxt;
- 	unsigned long *ev = uctxt->dd->events +
--		(((uctxt->ctxt - uctxt->dd->first_user_ctxt) *
-+		(((uctxt->ctxt - uctxt->dd->first_dyn_alloc_ctxt) *
- 		  HFI1_MAX_SHARED_CTXTS) + fd->subctxt);
- 	u32 *array;
- 	int ret = 0;
-@@ -1011,8 +1011,8 @@ static int tid_rb_invalidate(void *arg, struct mmu_rb_node *mnode)
- 			 * process in question.
- 			 */
- 			ev = uctxt->dd->events +
--				(((uctxt->ctxt - uctxt->dd->first_user_ctxt) *
--				  HFI1_MAX_SHARED_CTXTS) + fdata->subctxt);
-+			  (((uctxt->ctxt - uctxt->dd->first_dyn_alloc_ctxt) *
-+			    HFI1_MAX_SHARED_CTXTS) + fdata->subctxt);
- 			set_bit(_HFI1_EVENT_TID_MMU_NOTIFY_BIT, ev);
- 		}
- 		fdata->invalid_tid_idx++;
-diff --git a/drivers/infiniband/hw/hfi1/user_pages.c b/drivers/infiniband/hw/hfi1/user_pages.c
-index 68295a1..e341e6d 100644
---- a/drivers/infiniband/hw/hfi1/user_pages.c
-+++ b/drivers/infiniband/hw/hfi1/user_pages.c
-@@ -1,5 +1,5 @@
- /*
-- * Copyright(c) 2015, 2016 Intel Corporation.
-+ * Copyright(c) 2015-2017 Intel Corporation.
-  *
-  * This file is provided under a dual BSD/GPLv2 license.  When using or
-  * redistributing this file, you may do so under either license.
-@@ -73,7 +73,8 @@ bool hfi1_can_pin_pages(struct hfi1_devdata *dd, struct mm_struct *mm,
- {
- 	unsigned long ulimit = rlimit(RLIMIT_MEMLOCK), pinned, cache_limit,
- 		size = (cache_size * (1UL << 20)); /* convert to bytes */
--	unsigned usr_ctxts = dd->num_rcv_contexts - dd->first_user_ctxt;
-+	unsigned int usr_ctxts =
-+			dd->num_rcv_contexts - dd->first_dyn_alloc_ctxt;
- 	bool can_lock = capable(CAP_IPC_LOCK);
- 
- 	/*
-diff --git a/drivers/infiniband/hw/hfi1/verbs.c b/drivers/infiniband/hw/hfi1/verbs.c
-index 070a349..239fa48 100644
---- a/drivers/infiniband/hw/hfi1/verbs.c
-+++ b/drivers/infiniband/hw/hfi1/verbs.c
-@@ -61,6 +61,7 @@
- #include "qp.h"
- #include "verbs_txreq.h"
- #include "debugfs.h"
-+#include "vnic.h"
- 
- static unsigned int hfi1_lkey_table_size = 16;
- module_param_named(lkey_table_size, hfi1_lkey_table_size, uint,
-@@ -1289,7 +1290,8 @@ static void hfi1_fill_device_attr(struct hfi1_devdata *dd)
- 			IB_DEVICE_BAD_QKEY_CNTR | IB_DEVICE_SHUTDOWN_PORT |
- 			IB_DEVICE_SYS_IMAGE_GUID | IB_DEVICE_RC_RNR_NAK_GEN |
- 			IB_DEVICE_PORT_ACTIVE_EVENT | IB_DEVICE_SRQ_RESIZE |
--			IB_DEVICE_MEM_MGT_EXTENSIONS;
-+			IB_DEVICE_MEM_MGT_EXTENSIONS |
-+			IB_DEVICE_RDMA_NETDEV_OPA_VNIC;
- 	rdi->dparms.props.page_size_cap = PAGE_SIZE;
- 	rdi->dparms.props.vendor_id = dd->oui1 << 16 | dd->oui2 << 8 | dd->oui3;
- 	rdi->dparms.props.vendor_part_id = dd->pcidev->device;
-@@ -1772,6 +1774,8 @@ int hfi1_register_ib_device(struct hfi1_devdata *dd)
- 	ibdev->modify_device = modify_device;
- 	ibdev->alloc_hw_stats = alloc_hw_stats;
- 	ibdev->get_hw_stats = get_hw_stats;
-+	ibdev->alloc_rdma_netdev = hfi1_vnic_alloc_rn;
-+	ibdev->free_rdma_netdev = hfi1_vnic_free_rn;
- 
- 	/* keep process mad in the driver */
- 	ibdev->process_mad = hfi1_process_mad;
-diff --git a/drivers/infiniband/hw/hfi1/vnic.h b/drivers/infiniband/hw/hfi1/vnic.h
-index 04723b1..9bed40d 100644
---- a/drivers/infiniband/hw/hfi1/vnic.h
-+++ b/drivers/infiniband/hw/hfi1/vnic.h
-@@ -149,5 +149,8 @@ struct net_device *hfi1_vnic_alloc_rn(struct ib_device *device,
- 				      unsigned char name_assign_type,
- 				      void (*setup)(struct net_device *));
- void hfi1_vnic_free_rn(struct net_device *netdev);
-+int hfi1_vnic_send_dma(struct hfi1_devdata *dd, u8 q_idx,
-+		       struct hfi1_vnic_vport_info *vinfo,
-+		       struct sk_buff *skb, u64 pbc, u8 plen);
- 
- #endif /* _HFI1_VNIC_H */
-diff --git a/drivers/infiniband/hw/hfi1/vnic_main.c b/drivers/infiniband/hw/hfi1/vnic_main.c
-index fb23f9f..32d91b6 100644
---- a/drivers/infiniband/hw/hfi1/vnic_main.c
-+++ b/drivers/infiniband/hw/hfi1/vnic_main.c
-@@ -62,6 +62,159 @@
- 
- static DEFINE_SPINLOCK(vport_cntr_lock);
- 
-+static int setup_vnic_ctxt(struct hfi1_devdata *dd, struct hfi1_ctxtdata *uctxt)
-+{
-+	unsigned int rcvctrl_ops = 0;
-+	int ret;
-+
-+	ret = hfi1_init_ctxt(uctxt->sc);
-+	if (ret)
-+		goto done;
-+
-+	uctxt->do_interrupt = &handle_receive_interrupt;
-+
-+	/* Now allocate the RcvHdr queue and eager buffers. */
-+	ret = hfi1_create_rcvhdrq(dd, uctxt);
-+	if (ret)
-+		goto done;
-+
-+	ret = hfi1_setup_eagerbufs(uctxt);
-+	if (ret)
-+		goto done;
-+
-+	set_bit(HFI1_CTXT_SETUP_DONE, &uctxt->event_flags);
-+
-+	if (uctxt->rcvhdrtail_kvaddr)
-+		clear_rcvhdrtail(uctxt);
-+
-+	rcvctrl_ops = HFI1_RCVCTRL_CTXT_ENB;
-+	rcvctrl_ops |= HFI1_RCVCTRL_INTRAVAIL_ENB;
-+
-+	if (!HFI1_CAP_KGET_MASK(uctxt->flags, MULTI_PKT_EGR))
-+		rcvctrl_ops |= HFI1_RCVCTRL_ONE_PKT_EGR_ENB;
-+	if (HFI1_CAP_KGET_MASK(uctxt->flags, NODROP_EGR_FULL))
-+		rcvctrl_ops |= HFI1_RCVCTRL_NO_EGR_DROP_ENB;
-+	if (HFI1_CAP_KGET_MASK(uctxt->flags, NODROP_RHQ_FULL))
-+		rcvctrl_ops |= HFI1_RCVCTRL_NO_RHQ_DROP_ENB;
-+	if (HFI1_CAP_KGET_MASK(uctxt->flags, DMA_RTAIL))
-+		rcvctrl_ops |= HFI1_RCVCTRL_TAILUPD_ENB;
-+
-+	hfi1_rcvctrl(uctxt->dd, rcvctrl_ops, uctxt->ctxt);
-+
-+	uctxt->is_vnic = true;
-+done:
-+	return ret;
-+}
-+
-+static int allocate_vnic_ctxt(struct hfi1_devdata *dd,
-+			      struct hfi1_ctxtdata **vnic_ctxt)
-+{
-+	struct hfi1_ctxtdata *uctxt;
-+	unsigned int ctxt;
-+	int ret;
-+
-+	if (dd->flags & HFI1_FROZEN)
-+		return -EIO;
-+
-+	for (ctxt = dd->first_dyn_alloc_ctxt;
-+	     ctxt < dd->num_rcv_contexts; ctxt++)
-+		if (!dd->rcd[ctxt])
-+			break;
-+
-+	if (ctxt == dd->num_rcv_contexts)
-+		return -EBUSY;
-+
-+	uctxt = hfi1_create_ctxtdata(dd->pport, ctxt, dd->node);
-+	if (!uctxt) {
-+		dd_dev_err(dd, "Unable to create ctxtdata, failing open\n");
-+		return -ENOMEM;
-+	}
-+
-+	uctxt->flags = HFI1_CAP_KGET(MULTI_PKT_EGR) |
-+			HFI1_CAP_KGET(NODROP_RHQ_FULL) |
-+			HFI1_CAP_KGET(NODROP_EGR_FULL) |
-+			HFI1_CAP_KGET(DMA_RTAIL);
-+	uctxt->seq_cnt = 1;
-+
-+	/* Allocate and enable a PIO send context */
-+	uctxt->sc = sc_alloc(dd, SC_VNIC, uctxt->rcvhdrqentsize,
-+			     uctxt->numa_id);
-+
-+	ret = uctxt->sc ? 0 : -ENOMEM;
-+	if (ret)
-+		goto bail;
-+
-+	dd_dev_dbg(dd, "allocated vnic send context %u(%u)\n",
-+		   uctxt->sc->sw_index, uctxt->sc->hw_context);
-+	ret = sc_enable(uctxt->sc);
-+	if (ret)
-+		goto bail;
-+
-+	if (dd->num_msix_entries)
-+		hfi1_set_vnic_msix_info(uctxt);
-+
-+	hfi1_stats.sps_ctxts++;
-+	dd_dev_dbg(dd, "created vnic context %d\n", uctxt->ctxt);
-+	*vnic_ctxt = uctxt;
-+
-+	return ret;
-+bail:
-+	/*
-+	 * hfi1_free_ctxtdata() also releases send_context
-+	 * structure if uctxt->sc is not null
-+	 */
-+	dd->rcd[uctxt->ctxt] = NULL;
-+	hfi1_free_ctxtdata(dd, uctxt);
-+	dd_dev_dbg(dd, "vnic allocation failed. rc %d\n", ret);
-+	return ret;
-+}
-+
-+static void deallocate_vnic_ctxt(struct hfi1_devdata *dd,
-+				 struct hfi1_ctxtdata *uctxt)
-+{
-+	unsigned long flags;
-+
-+	dd_dev_dbg(dd, "closing vnic context %d\n", uctxt->ctxt);
-+	flush_wc();
-+
-+	if (dd->num_msix_entries)
-+		hfi1_reset_vnic_msix_info(uctxt);
-+
-+	spin_lock_irqsave(&dd->uctxt_lock, flags);
-+	/*
-+	 * Disable receive context and interrupt available, reset all
-+	 * RcvCtxtCtrl bits to default values.
-+	 */
-+	hfi1_rcvctrl(dd, HFI1_RCVCTRL_CTXT_DIS |
-+		     HFI1_RCVCTRL_TIDFLOW_DIS |
-+		     HFI1_RCVCTRL_INTRAVAIL_DIS |
-+		     HFI1_RCVCTRL_ONE_PKT_EGR_DIS |
-+		     HFI1_RCVCTRL_NO_RHQ_DROP_DIS |
-+		     HFI1_RCVCTRL_NO_EGR_DROP_DIS, uctxt->ctxt);
-+	/*
-+	 * VNIC contexts are allocated from user context pool.
-+	 * Release them back to user context pool.
-+	 *
-+	 * Reset context integrity checks to default.
-+	 * (writes to CSRs probably belong in chip.c)
-+	 */
-+	write_kctxt_csr(dd, uctxt->sc->hw_context, SEND_CTXT_CHECK_ENABLE,
-+			hfi1_pkt_default_send_ctxt_mask(dd, SC_USER));
-+	sc_disable(uctxt->sc);
-+
-+	dd->send_contexts[uctxt->sc->sw_index].type = SC_USER;
-+	spin_unlock_irqrestore(&dd->uctxt_lock, flags);
-+
-+	dd->rcd[uctxt->ctxt] = NULL;
-+	uctxt->event_flags = 0;
-+
-+	hfi1_clear_tids(uctxt);
-+	hfi1_clear_ctxt_pkey(dd, uctxt->ctxt);
-+
-+	hfi1_stats.sps_ctxts--;
-+	hfi1_free_ctxtdata(dd, uctxt);
-+}
-+
- void hfi1_vnic_setup(struct hfi1_devdata *dd)
- {
- 	idr_init(&dd->vnic.vesw_idr);
-@@ -519,6 +672,9 @@ static void hfi1_vnic_down(struct hfi1_vnic_vport_info *vinfo)
- 	netif_tx_disable(vinfo->netdev);
- 	idr_remove(&dd->vnic.vesw_idr, vinfo->vesw_id);
- 
-+	/* ensure irqs see the change */
-+	hfi1_vnic_synchronize_irq(dd);
-+
- 	/* remove unread skbs */
- 	for (i = 0; i < vinfo->num_rx_q; i++) {
- 		struct hfi1_vnic_rx_queue *rxq = &vinfo->rxq[i];
-@@ -550,6 +706,84 @@ static int hfi1_netdev_close(struct net_device *netdev)
++	/* Update eth link status and send trap */
++	adapter->info.vport.eth_link_status = OPA_VNIC_ETH_LINK_UP;
++	opa_vnic_vema_report_event(adapter,
++				   OPA_VESWPORT_TRAP_ETH_LINK_STATUS_CHANGE);
  	return 0;
  }
  
-+static int hfi1_vnic_allot_ctxt(struct hfi1_devdata *dd,
-+				struct hfi1_ctxtdata **vnic_ctxt)
-+{
-+	int rc;
-+
-+	rc = allocate_vnic_ctxt(dd, vnic_ctxt);
-+	if (rc) {
-+		dd_dev_err(dd, "vnic ctxt alloc failed %d\n", rc);
-+		return rc;
-+	}
-+
-+	rc = setup_vnic_ctxt(dd, *vnic_ctxt);
-+	if (rc) {
-+		dd_dev_err(dd, "vnic ctxt setup failed %d\n", rc);
-+		deallocate_vnic_ctxt(dd, *vnic_ctxt);
-+		*vnic_ctxt = NULL;
-+	}
-+
-+	return rc;
-+}
-+
-+static int hfi1_vnic_init(struct hfi1_vnic_vport_info *vinfo)
-+{
-+	struct hfi1_devdata *dd = vinfo->dd;
-+	int i, rc = 0;
-+
-+	mutex_lock(&hfi1_mutex);
-+	if (!dd->vnic.num_vports)
-+		dd->vnic.msix_idx = dd->first_dyn_msix_idx;
-+
-+	for (i = dd->vnic.num_ctxt; i < vinfo->num_rx_q; i++) {
-+		rc = hfi1_vnic_allot_ctxt(dd, &dd->vnic.ctxt[i]);
-+		if (rc)
-+			break;
-+		dd->vnic.ctxt[i]->vnic_q_idx = i;
-+	}
-+
-+	if (i < vinfo->num_rx_q) {
-+		/*
-+		 * If required amount of contexts is not
-+		 * allocated successfully then remaining contexts
-+		 * are released.
-+		 */
-+		while (i-- > dd->vnic.num_ctxt) {
-+			deallocate_vnic_ctxt(dd, dd->vnic.ctxt[i]);
-+			dd->vnic.ctxt[i] = NULL;
-+		}
-+		goto alloc_fail;
-+	}
-+
-+	if (dd->vnic.num_ctxt != i) {
-+		dd->vnic.num_ctxt = i;
-+		hfi1_init_vnic_rsm(dd);
-+	}
-+
-+	dd->vnic.num_vports++;
-+alloc_fail:
-+	mutex_unlock(&hfi1_mutex);
-+	return rc;
-+}
-+
-+static void hfi1_vnic_deinit(struct hfi1_vnic_vport_info *vinfo)
-+{
-+	struct hfi1_devdata *dd = vinfo->dd;
-+	int i;
-+
-+	mutex_lock(&hfi1_mutex);
-+	if (--dd->vnic.num_vports == 0) {
-+		for (i = 0; i < dd->vnic.num_ctxt; i++) {
-+			deallocate_vnic_ctxt(dd, dd->vnic.ctxt[i]);
-+			dd->vnic.ctxt[i] = NULL;
-+		}
-+		hfi1_deinit_vnic_rsm(dd);
-+		dd->vnic.num_ctxt = 0;
-+	}
-+	mutex_unlock(&hfi1_mutex);
-+}
-+
- static void hfi1_vnic_set_vesw_id(struct net_device *netdev, int id)
- {
- 	struct hfi1_vnic_vport_info *vinfo = opa_vnic_dev_priv(netdev);
-@@ -594,7 +828,7 @@ struct net_device *hfi1_vnic_alloc_rn(struct ib_device *device,
- 	struct hfi1_vnic_vport_info *vinfo;
- 	struct net_device *netdev;
- 	struct rdma_netdev *rn;
--	int i, size;
-+	int i, size, rc;
- 
- 	if (!port_num || (port_num > dd->num_pports))
- 		return ERR_PTR(-EINVAL);
-@@ -632,13 +866,22 @@ struct net_device *hfi1_vnic_alloc_rn(struct ib_device *device,
- 		netif_napi_add(netdev, &rxq->napi, hfi1_vnic_napi, 64);
+@@ -155,6 +287,10 @@ static int opa_netdev_close(struct net_device *netdev)
+ 		return rc;
  	}
  
-+	rc = hfi1_vnic_init(vinfo);
-+	if (rc)
-+		goto init_fail;
++	/* Update eth link status and send trap */
++	adapter->info.vport.eth_link_status = OPA_VNIC_ETH_LINK_DOWN;
++	opa_vnic_vema_report_event(adapter,
++				   OPA_VESWPORT_TRAP_ETH_LINK_STATUS_CHANGE);
+ 	return 0;
+ }
+ 
+@@ -164,6 +300,7 @@ static int opa_netdev_close(struct net_device *netdev)
+ 	.ndo_stop = opa_netdev_close,
+ 	.ndo_start_xmit = opa_netdev_start_xmit,
+ 	.ndo_get_stats64 = opa_vnic_get_stats64,
++	.ndo_set_rx_mode = opa_vnic_set_rx_mode,
+ 	.ndo_select_queue = opa_vnic_select_queue,
+ 	.ndo_set_mac_address = opa_vnic_set_mac_addr,
+ };
+@@ -212,6 +349,9 @@ struct opa_vnic_adapter *opa_vnic_add_netdev(struct ib_device *ibdev,
+ 	SET_NETDEV_DEV(netdev, ibdev->dev.parent);
+ 
+ 	opa_vnic_set_ethtool_ops(netdev);
 +
- 	return netdev;
-+init_fail:
-+	mutex_destroy(&vinfo->lock);
-+	free_netdev(netdev);
-+	return ERR_PTR(rc);
- }
- 
- void hfi1_vnic_free_rn(struct net_device *netdev)
- {
- 	struct hfi1_vnic_vport_info *vinfo = opa_vnic_dev_priv(netdev);
- 
-+	hfi1_vnic_deinit(vinfo);
- 	mutex_destroy(&vinfo->lock);
- 	free_netdev(netdev);
- }
-diff --git a/include/rdma/opa_port_info.h b/include/rdma/opa_port_info.h
-index 9303e0e..b4f0ac0 100644
---- a/include/rdma/opa_port_info.h
-+++ b/include/rdma/opa_port_info.h
-@@ -1,5 +1,5 @@
- /*
-- * Copyright (c) 2014 Intel Corporation.  All rights reserved.
-+ * Copyright (c) 2014-2017 Intel Corporation.  All rights reserved.
-  *
-  * This software is available to you under a choice of one of two
-  * licenses.  You may choose to be licensed under the terms of the GNU
-@@ -127,6 +127,7 @@
- #define OPA_LINK_WIDTH_3X            0x0004
- #define OPA_LINK_WIDTH_4X            0x0008
- 
-+#define OPA_CAP_MASK3_IsEthOnFabricSupported      (1 << 13)
- #define OPA_CAP_MASK3_IsSnoopSupported            (1 << 7)
- #define OPA_CAP_MASK3_IsAsyncSC2VLSupported       (1 << 6)
- #define OPA_CAP_MASK3_IsAddrRangeConfigSupported  (1 << 5)
++	opa_vnic_set_pod_values(adapter);
++
+ 	rc = register_netdev(netdev);
+ 	if (rc)
+ 		goto netdev_err;
+diff --git a/drivers/infiniband/ulp/opa_vnic/opa_vnic_vema_iface.c b/drivers/infiniband/ulp/opa_vnic/opa_vnic_vema_iface.c
+new file mode 100644
+index 0000000..2e01149
+--- /dev/null
++++ b/drivers/infiniband/ulp/opa_vnic/opa_vnic_vema_iface.c
+@@ -0,0 +1,390 @@
++/*
++ * Copyright(c) 2017 Intel Corporation.
++ *
++ * This file is provided under a dual BSD/GPLv2 license.  When using or
++ * redistributing this file, you may do so under either license.
++ *
++ * GPL LICENSE SUMMARY
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of version 2 of the GNU General Public License as
++ * published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * General Public License for more details.
++ *
++ * BSD LICENSE
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ *
++ *  - Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ *  - Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in
++ *    the documentation and/or other materials provided with the
++ *    distribution.
++ *  - Neither the name of Intel Corporation nor the names of its
++ *    contributors may be used to endorse or promote products derived
++ *    from this software without specific prior written permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
++ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
++ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
++ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
++ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
++ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
++ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
++ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
++ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ *
++ */
++
++/*
++ * This file contains OPA VNIC EMA Interface functions.
++ */
++
++#include "opa_vnic_internal.h"
++
++/**
++ * opa_vnic_vema_report_event - sent trap to report the specified event
++ * @adapter: vnic port adapter
++ * @event: event to be reported
++ *
++ * This function calls vema api to sent a trap for the given event.
++ */
++void opa_vnic_vema_report_event(struct opa_vnic_adapter *adapter, u8 event)
++{
++	struct __opa_veswport_info *info = &adapter->info;
++	struct __opa_veswport_trap trap_data;
++
++	trap_data.fabric_id = info->vesw.fabric_id;
++	trap_data.veswid = info->vesw.vesw_id;
++	trap_data.veswportnum = info->vport.port_num;
++	trap_data.opaportnum = adapter->port_num;
++	trap_data.veswportindex = adapter->vport_num;
++	trap_data.opcode = event;
++
++	/* Need to send trap here */
++}
++
++/**
++ * opa_vnic_get_error_counters - get summary counters
++ * @adapter: vnic port adapter
++ * @cntrs: pointer to destination summary counters structure
++ *
++ * This function populates the summary counters that is maintained by the
++ * given adapter to destination address provided.
++ */
++void opa_vnic_get_summary_counters(struct opa_vnic_adapter *adapter,
++				   struct opa_veswport_summary_counters *cntrs)
++{
++	struct opa_vnic_stats vstats;
++	__be64 *dst;
++	u64 *src;
++
++	memset(&vstats, 0, sizeof(vstats));
++	mutex_lock(&adapter->stats_lock);
++	adapter->rn_ops->ndo_get_stats64(adapter->netdev, &vstats.netstats);
++	mutex_unlock(&adapter->stats_lock);
++
++	cntrs->vp_instance = cpu_to_be16(adapter->vport_num);
++	cntrs->vesw_id = cpu_to_be16(adapter->info.vesw.vesw_id);
++	cntrs->veswport_num = cpu_to_be32(adapter->port_num);
++
++	cntrs->tx_errors = cpu_to_be64(vstats.netstats.tx_errors);
++	cntrs->rx_errors = cpu_to_be64(vstats.netstats.rx_errors);
++	cntrs->tx_packets = cpu_to_be64(vstats.netstats.tx_packets);
++	cntrs->rx_packets = cpu_to_be64(vstats.netstats.rx_packets);
++	cntrs->tx_bytes = cpu_to_be64(vstats.netstats.tx_bytes);
++	cntrs->rx_bytes = cpu_to_be64(vstats.netstats.rx_bytes);
++
++	/*
++	 * This loop depends on layout of
++	 * opa_veswport_summary_counters opa_vnic_stats structures.
++	 */
++	for (dst = &cntrs->tx_unicast, src = &vstats.tx_grp.unicast;
++	     dst < &cntrs->reserved[0]; dst++, src++) {
++		*dst = cpu_to_be64(*src);
++	}
++}
++
++/**
++ * opa_vnic_get_error_counters - get error counters
++ * @adapter: vnic port adapter
++ * @cntrs: pointer to destination error counters structure
++ *
++ * This function populates the error counters that is maintained by the
++ * given adapter to destination address provided.
++ */
++void opa_vnic_get_error_counters(struct opa_vnic_adapter *adapter,
++				 struct opa_veswport_error_counters *cntrs)
++{
++	struct opa_vnic_stats vstats;
++
++	memset(&vstats, 0, sizeof(vstats));
++	mutex_lock(&adapter->stats_lock);
++	adapter->rn_ops->ndo_get_stats64(adapter->netdev, &vstats.netstats);
++	mutex_unlock(&adapter->stats_lock);
++
++	cntrs->vp_instance = cpu_to_be16(adapter->vport_num);
++	cntrs->vesw_id = cpu_to_be16(adapter->info.vesw.vesw_id);
++	cntrs->veswport_num = cpu_to_be32(adapter->port_num);
++
++	cntrs->tx_errors = cpu_to_be64(vstats.netstats.tx_errors);
++	cntrs->rx_errors = cpu_to_be64(vstats.netstats.rx_errors);
++	cntrs->tx_dlid_zero = cpu_to_be64(vstats.tx_dlid_zero);
++	cntrs->tx_drop_state = cpu_to_be64(vstats.tx_drop_state);
++	cntrs->tx_logic = cpu_to_be64(vstats.netstats.tx_fifo_errors +
++				      vstats.netstats.tx_carrier_errors);
++
++	cntrs->rx_bad_veswid = cpu_to_be64(vstats.netstats.rx_nohandler);
++	cntrs->rx_runt = cpu_to_be64(vstats.rx_runt);
++	cntrs->rx_oversize = cpu_to_be64(vstats.rx_oversize);
++	cntrs->rx_drop_state = cpu_to_be64(vstats.rx_drop_state);
++	cntrs->rx_logic = cpu_to_be64(vstats.netstats.rx_fifo_errors);
++}
++
++/**
++ * opa_vnic_get_vesw_info -- Get the vesw information
++ * @adapter: vnic port adapter
++ * @info: pointer to destination vesw info structure
++ *
++ * This function copies the vesw info that is maintained by the
++ * given adapter to destination address provided.
++ */
++void opa_vnic_get_vesw_info(struct opa_vnic_adapter *adapter,
++			    struct opa_vesw_info *info)
++{
++	struct __opa_vesw_info *src = &adapter->info.vesw;
++	int i;
++
++	info->fabric_id = cpu_to_be16(src->fabric_id);
++	info->vesw_id = cpu_to_be16(src->vesw_id);
++	memcpy(info->rsvd0, src->rsvd0, ARRAY_SIZE(src->rsvd0));
++	info->def_port_mask = cpu_to_be16(src->def_port_mask);
++	memcpy(info->rsvd1, src->rsvd1, ARRAY_SIZE(src->rsvd1));
++	info->pkey = cpu_to_be16(src->pkey);
++
++	memcpy(info->rsvd2, src->rsvd2, ARRAY_SIZE(src->rsvd2));
++	info->u_mcast_dlid = cpu_to_be32(src->u_mcast_dlid);
++	for (i = 0; i < OPA_VESW_MAX_NUM_DEF_PORT; i++)
++		info->u_ucast_dlid[i] = cpu_to_be32(src->u_ucast_dlid[i]);
++
++	memcpy(info->rsvd3, src->rsvd3, ARRAY_SIZE(src->rsvd3));
++	for (i = 0; i < OPA_VNIC_MAX_NUM_PCP; i++)
++		info->eth_mtu[i] = cpu_to_be16(src->eth_mtu[i]);
++
++	info->eth_mtu_non_vlan = cpu_to_be16(src->eth_mtu_non_vlan);
++	memcpy(info->rsvd4, src->rsvd4, ARRAY_SIZE(src->rsvd4));
++}
++
++/**
++ * opa_vnic_set_vesw_info -- Set the vesw information
++ * @adapter: vnic port adapter
++ * @info: pointer to vesw info structure
++ *
++ * This function updates the vesw info that is maintained by the
++ * given adapter with vesw info provided. Reserved fields are stored
++ * and returned back to EM as is.
++ */
++void opa_vnic_set_vesw_info(struct opa_vnic_adapter *adapter,
++			    struct opa_vesw_info *info)
++{
++	struct __opa_vesw_info *dst = &adapter->info.vesw;
++	int i;
++
++	dst->fabric_id = be16_to_cpu(info->fabric_id);
++	dst->vesw_id = be16_to_cpu(info->vesw_id);
++	memcpy(dst->rsvd0, info->rsvd0, ARRAY_SIZE(info->rsvd0));
++	dst->def_port_mask = be16_to_cpu(info->def_port_mask);
++	memcpy(dst->rsvd1, info->rsvd1, ARRAY_SIZE(info->rsvd1));
++	dst->pkey = be16_to_cpu(info->pkey);
++
++	memcpy(dst->rsvd2, info->rsvd2, ARRAY_SIZE(info->rsvd2));
++	dst->u_mcast_dlid = be32_to_cpu(info->u_mcast_dlid);
++	for (i = 0; i < OPA_VESW_MAX_NUM_DEF_PORT; i++)
++		dst->u_ucast_dlid[i] = be32_to_cpu(info->u_ucast_dlid[i]);
++
++	memcpy(dst->rsvd3, info->rsvd3, ARRAY_SIZE(info->rsvd3));
++	for (i = 0; i < OPA_VNIC_MAX_NUM_PCP; i++)
++		dst->eth_mtu[i] = be16_to_cpu(info->eth_mtu[i]);
++
++	dst->eth_mtu_non_vlan = be16_to_cpu(info->eth_mtu_non_vlan);
++	memcpy(dst->rsvd4, info->rsvd4, ARRAY_SIZE(info->rsvd4));
++}
++
++/**
++ * opa_vnic_get_per_veswport_info -- Get the vesw per port information
++ * @adapter: vnic port adapter
++ * @info: pointer to destination vport info structure
++ *
++ * This function copies the vesw per port info that is maintained by the
++ * given adapter to destination address provided.
++ * Note that the read only fields are not copied.
++ */
++void opa_vnic_get_per_veswport_info(struct opa_vnic_adapter *adapter,
++				    struct opa_per_veswport_info *info)
++{
++	struct __opa_per_veswport_info *src = &adapter->info.vport;
++
++	info->port_num = cpu_to_be32(src->port_num);
++	info->eth_link_status = src->eth_link_status;
++	memcpy(info->rsvd0, src->rsvd0, ARRAY_SIZE(src->rsvd0));
++
++	memcpy(info->base_mac_addr, src->base_mac_addr,
++	       ARRAY_SIZE(info->base_mac_addr));
++	info->config_state = src->config_state;
++	info->oper_state = src->oper_state;
++	info->max_mac_tbl_ent = cpu_to_be16(src->max_mac_tbl_ent);
++	info->max_smac_ent = cpu_to_be16(src->max_smac_ent);
++	info->mac_tbl_digest = cpu_to_be32(src->mac_tbl_digest);
++	memcpy(info->rsvd1, src->rsvd1, ARRAY_SIZE(src->rsvd1));
++
++	info->encap_slid = cpu_to_be32(src->encap_slid);
++	memcpy(info->pcp_to_sc_uc, src->pcp_to_sc_uc,
++	       ARRAY_SIZE(info->pcp_to_sc_uc));
++	memcpy(info->pcp_to_vl_uc, src->pcp_to_vl_uc,
++	       ARRAY_SIZE(info->pcp_to_vl_uc));
++	memcpy(info->pcp_to_sc_mc, src->pcp_to_sc_mc,
++	       ARRAY_SIZE(info->pcp_to_sc_mc));
++	memcpy(info->pcp_to_vl_mc, src->pcp_to_vl_mc,
++	       ARRAY_SIZE(info->pcp_to_vl_mc));
++	info->non_vlan_sc_uc = src->non_vlan_sc_uc;
++	info->non_vlan_vl_uc = src->non_vlan_vl_uc;
++	info->non_vlan_sc_mc = src->non_vlan_sc_mc;
++	info->non_vlan_vl_mc = src->non_vlan_vl_mc;
++	memcpy(info->rsvd2, src->rsvd2, ARRAY_SIZE(src->rsvd2));
++
++	info->uc_macs_gen_count = cpu_to_be16(src->uc_macs_gen_count);
++	info->mc_macs_gen_count = cpu_to_be16(src->mc_macs_gen_count);
++	memcpy(info->rsvd3, src->rsvd3, ARRAY_SIZE(src->rsvd3));
++}
++
++/**
++ * opa_vnic_set_per_veswport_info -- Set vesw per port information
++ * @adapter: vnic port adapter
++ * @info: pointer to vport info structure
++ *
++ * This function updates the vesw per port info that is maintained by the
++ * given adapter with vesw per port info provided. Reserved fields are
++ * stored and returned back to EM as is.
++ */
++void opa_vnic_set_per_veswport_info(struct opa_vnic_adapter *adapter,
++				    struct opa_per_veswport_info *info)
++{
++	struct __opa_per_veswport_info *dst = &adapter->info.vport;
++
++	dst->port_num = be32_to_cpu(info->port_num);
++	memcpy(dst->rsvd0, info->rsvd0, ARRAY_SIZE(info->rsvd0));
++
++	memcpy(dst->base_mac_addr, info->base_mac_addr,
++	       ARRAY_SIZE(dst->base_mac_addr));
++	dst->config_state = info->config_state;
++	memcpy(dst->rsvd1, info->rsvd1, ARRAY_SIZE(info->rsvd1));
++
++	dst->encap_slid = be32_to_cpu(info->encap_slid);
++	memcpy(dst->pcp_to_sc_uc, info->pcp_to_sc_uc,
++	       ARRAY_SIZE(dst->pcp_to_sc_uc));
++	memcpy(dst->pcp_to_vl_uc, info->pcp_to_vl_uc,
++	       ARRAY_SIZE(dst->pcp_to_vl_uc));
++	memcpy(dst->pcp_to_sc_mc, info->pcp_to_sc_mc,
++	       ARRAY_SIZE(dst->pcp_to_sc_mc));
++	memcpy(dst->pcp_to_vl_mc, info->pcp_to_vl_mc,
++	       ARRAY_SIZE(dst->pcp_to_vl_mc));
++	dst->non_vlan_sc_uc = info->non_vlan_sc_uc;
++	dst->non_vlan_vl_uc = info->non_vlan_vl_uc;
++	dst->non_vlan_sc_mc = info->non_vlan_sc_mc;
++	dst->non_vlan_vl_mc = info->non_vlan_vl_mc;
++	memcpy(dst->rsvd2, info->rsvd2, ARRAY_SIZE(info->rsvd2));
++	memcpy(dst->rsvd3, info->rsvd3, ARRAY_SIZE(info->rsvd3));
++}
++
++/**
++ * opa_vnic_query_mcast_macs - query multicast mac list
++ * @adapter: vnic port adapter
++ * @macs: pointer mac list
++ *
++ * This function populates the provided mac list with the configured
++ * multicast addresses in the adapter.
++ */
++void opa_vnic_query_mcast_macs(struct opa_vnic_adapter *adapter,
++			       struct opa_veswport_iface_macs *macs)
++{
++	u16 start_idx, num_macs, idx = 0, count = 0;
++	struct netdev_hw_addr *ha;
++
++	start_idx = be16_to_cpu(macs->start_idx);
++	num_macs = be16_to_cpu(macs->num_macs_in_msg);
++	netdev_for_each_mc_addr(ha, adapter->netdev) {
++		struct opa_vnic_iface_mac_entry *entry = &macs->entry[count];
++
++		if (start_idx > idx++)
++			continue;
++		else if (num_macs == count)
++			break;
++		memcpy(entry, ha->addr, sizeof(*entry));
++		count++;
++	}
++
++	macs->tot_macs_in_lst = cpu_to_be16(netdev_mc_count(adapter->netdev));
++	macs->num_macs_in_msg = cpu_to_be16(count);
++	macs->gen_count = cpu_to_be16(adapter->info.vport.mc_macs_gen_count);
++}
++
++/**
++ * opa_vnic_query_ucast_macs - query unicast mac list
++ * @adapter: vnic port adapter
++ * @macs: pointer mac list
++ *
++ * This function populates the provided mac list with the configured
++ * unicast addresses in the adapter.
++ */
++void opa_vnic_query_ucast_macs(struct opa_vnic_adapter *adapter,
++			       struct opa_veswport_iface_macs *macs)
++{
++	u16 start_idx, tot_macs, num_macs, idx = 0, count = 0;
++	struct netdev_hw_addr *ha;
++
++	start_idx = be16_to_cpu(macs->start_idx);
++	num_macs = be16_to_cpu(macs->num_macs_in_msg);
++	/* loop through dev_addrs list first */
++	for_each_dev_addr(adapter->netdev, ha) {
++		struct opa_vnic_iface_mac_entry *entry = &macs->entry[count];
++
++		/* Do not include EM specified MAC address */
++		if (!memcmp(adapter->info.vport.base_mac_addr, ha->addr,
++			    ARRAY_SIZE(adapter->info.vport.base_mac_addr)))
++			continue;
++
++		if (start_idx > idx++)
++			continue;
++		else if (num_macs == count)
++			break;
++		memcpy(entry, ha->addr, sizeof(*entry));
++		count++;
++	}
++
++	/* loop through uc list */
++	netdev_for_each_uc_addr(ha, adapter->netdev) {
++		struct opa_vnic_iface_mac_entry *entry = &macs->entry[count];
++
++		if (start_idx > idx++)
++			continue;
++		else if (num_macs == count)
++			break;
++		memcpy(entry, ha->addr, sizeof(*entry));
++		count++;
++	}
++
++	tot_macs = netdev_hw_addr_list_count(&adapter->netdev->dev_addrs) +
++		   netdev_uc_count(adapter->netdev);
++	macs->tot_macs_in_lst = cpu_to_be16(tot_macs);
++	macs->num_macs_in_msg = cpu_to_be16(count);
++	macs->gen_count = cpu_to_be16(adapter->info.vport.uc_macs_gen_count);
++}
 -- 
 1.8.3.1
