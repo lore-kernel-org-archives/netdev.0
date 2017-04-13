@@ -1,8 +1,7 @@
 From: Logan Gunthorpe <logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH 06/22] crypto: hifn_795x: Make use of the new sg_map helper
- function
-Date: Thu, 13 Apr 2017 16:05:19 -0600
-Message-ID: <1492121135-4437-7-git-send-email-logang@deltatee.com>
+Subject: [PATCH 02/22] nvmet: Make use of the new sg_map helper function
+Date: Thu, 13 Apr 2017 16:05:15 -0600
+Message-ID: <1492121135-4437-3-git-send-email-logang@deltatee.com>
 References: <1492121135-4437-1-git-send-email-logang@deltatee.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -37,102 +36,61 @@ Errors-To: linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org
 Sender: "Linux-nvdimm" <linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-Conversion of a couple kmap_atomic instances to the sg_map helper
-function.
-
-However, it looks like there was a bug in the original code: the source
-scatter lists offset (t->offset) was passed to ablkcipher_get which
-added it to the destination address. This doesn't make a lot of
-sense, but t->offset is likely always zero anyway. So, this patch cleans
-that brokeness up.
-
-Also, a change to the error path: if ablkcipher_get failed, everything
-seemed to proceed as if it hadn't. Setting 'error' should hopefully
-clear that up.
+This is a straight forward conversion in two places. Should kmap fail,
+the code will return an INVALD_DATA error in the completion.
 
 Signed-off-by: Logan Gunthorpe <logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
 ---
- drivers/crypto/hifn_795x.c | 32 +++++++++++++++++++++-----------
- 1 file changed, 21 insertions(+), 11 deletions(-)
+ drivers/nvme/target/fabrics-cmd.c | 16 ++++++++++++----
+ 1 file changed, 12 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/crypto/hifn_795x.c b/drivers/crypto/hifn_795x.c
-index e09d405..8e2c6a9 100644
---- a/drivers/crypto/hifn_795x.c
-+++ b/drivers/crypto/hifn_795x.c
-@@ -1619,7 +1619,7 @@ static int hifn_start_device(struct hifn_device *dev)
- 	return 0;
+diff --git a/drivers/nvme/target/fabrics-cmd.c b/drivers/nvme/target/fabrics-cmd.c
+index 8bd022af..f62a634 100644
+--- a/drivers/nvme/target/fabrics-cmd.c
++++ b/drivers/nvme/target/fabrics-cmd.c
+@@ -122,7 +122,11 @@ static void nvmet_execute_admin_connect(struct nvmet_req *req)
+ 	struct nvmet_ctrl *ctrl = NULL;
+ 	u16 status = 0;
+ 
+-	d = kmap(sg_page(req->sg)) + req->sg->offset;
++	d = sg_map(req->sg, SG_KMAP);
++	if (IS_ERR(d)) {
++		status = NVME_SC_SGL_INVALID_DATA;
++		goto out;
++	}
+ 
+ 	/* zero out initial completion result, assign values as needed */
+ 	req->rsp->result.u32 = 0;
+@@ -158,7 +162,7 @@ static void nvmet_execute_admin_connect(struct nvmet_req *req)
+ 	req->rsp->result.u16 = cpu_to_le16(ctrl->cntlid);
+ 
+ out:
+-	kunmap(sg_page(req->sg));
++	sg_unmap(req->sg, d, SG_KMAP);
+ 	nvmet_req_complete(req, status);
  }
  
--static int ablkcipher_get(void *saddr, unsigned int *srestp, unsigned int offset,
-+static int ablkcipher_get(void *saddr, unsigned int *srestp,
- 		struct scatterlist *dst, unsigned int size, unsigned int *nbytesp)
- {
- 	unsigned int srest = *srestp, nbytes = *nbytesp, copy;
-@@ -1632,15 +1632,17 @@ static int ablkcipher_get(void *saddr, unsigned int *srestp, unsigned int offset
- 	while (size) {
- 		copy = min3(srest, dst->length, size);
+@@ -170,7 +174,11 @@ static void nvmet_execute_io_connect(struct nvmet_req *req)
+ 	u16 qid = le16_to_cpu(c->qid);
+ 	u16 status = 0;
  
--		daddr = kmap_atomic(sg_page(dst));
--		memcpy(daddr + dst->offset + offset, saddr, copy);
--		kunmap_atomic(daddr);
-+		daddr = sg_map(dst, SG_KMAP_ATOMIC);
-+		if (IS_ERR(daddr))
-+			return PTR_ERR(daddr);
-+
-+		memcpy(daddr, saddr, copy);
-+		sg_unmap(dst, daddr, SG_KMAP_ATOMIC);
+-	d = kmap(sg_page(req->sg)) + req->sg->offset;
++	d = sg_map(req->sg, SG_KMAP);
++	if (IS_ERR(d)) {
++		status = NVME_SC_SGL_INVALID_DATA;
++		goto out;
++	}
  
- 		nbytes -= copy;
- 		size -= copy;
- 		srest -= copy;
- 		saddr += copy;
--		offset = 0;
+ 	/* zero out initial completion result, assign values as needed */
+ 	req->rsp->result.u32 = 0;
+@@ -205,7 +213,7 @@ static void nvmet_execute_io_connect(struct nvmet_req *req)
+ 	pr_info("adding queue %d to ctrl %d.\n", qid, ctrl->cntlid);
  
- 		pr_debug("%s: copy: %u, size: %u, srest: %u, nbytes: %u.\n",
- 			 __func__, copy, size, srest, nbytes);
-@@ -1671,11 +1673,12 @@ static inline void hifn_complete_sa(struct hifn_device *dev, int i)
+ out:
+-	kunmap(sg_page(req->sg));
++	sg_unmap(req->sg, d, SG_KMAP);
+ 	nvmet_req_complete(req, status);
+ 	return;
  
- static void hifn_process_ready(struct ablkcipher_request *req, int error)
- {
-+	int err;
- 	struct hifn_request_context *rctx = ablkcipher_request_ctx(req);
- 
- 	if (rctx->walk.flags & ASYNC_FLAGS_MISALIGNED) {
- 		unsigned int nbytes = req->nbytes;
--		int idx = 0, err;
-+		int idx = 0;
- 		struct scatterlist *dst, *t;
- 		void *saddr;
- 
-@@ -1695,17 +1698,24 @@ static void hifn_process_ready(struct ablkcipher_request *req, int error)
- 				continue;
- 			}
- 
--			saddr = kmap_atomic(sg_page(t));
-+			saddr = sg_map(t, SG_KMAP_ATOMIC);
-+			if (IS_ERR(saddr)) {
-+				if (!error)
-+					error = PTR_ERR(saddr);
-+				break;
-+			}
-+
-+			err = ablkcipher_get(saddr, &t->length,
-+					     dst, nbytes, &nbytes);
-+			sg_unmap(t, saddr, SG_KMAP_ATOMIC);
- 
--			err = ablkcipher_get(saddr, &t->length, t->offset,
--					dst, nbytes, &nbytes);
- 			if (err < 0) {
--				kunmap_atomic(saddr);
-+				if (!error)
-+					error = err;
- 				break;
- 			}
- 
- 			idx += err;
--			kunmap_atomic(saddr);
- 		}
- 
- 		hifn_cipher_walk_exit(&rctx->walk);
 -- 
 2.1.4
