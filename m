@@ -1,210 +1,43 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch iproute2/net-next repost] devlink: Add support for
- pipeline debug (dpipe)
-Date: Thu, 13 Apr 2017 11:30:27 +0200
-Message-ID: <20170413093027.GA1961@nanopsycho>
-References: <1490714657-6116-1-git-send-email-jiri@resnulli.us>
- <1490714814-6724-1-git-send-email-jiri@resnulli.us>
- <20170412164525.1c0468d0@xeon-e3>
+From: Miroslav Lichvar <mlichvar@redhat.com>
+Subject: Re: [RFC PATCH 0/7] Extend socket timestamping API
+Date: Thu, 13 Apr 2017 11:53:54 +0200
+Message-ID: <20170413095354.GA7490@localhost>
+References: <20170412141737.5881-1-mlichvar@redhat.com>
+ <02874ECE860811409154E81DA85FBB5857E00EB6@ORSMSX115.amr.corp.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, arkadis@mellanox.com,
-        idosch@mellanox.com, mlxsw@mellanox.com, jhs@mojatatu.com,
-        ivecera@redhat.com, roopa@cumulusnetworks.com,
-        f.fainelli@gmail.com, vivien.didelot@savoirfairelinux.com,
-        john.fastabend@gmail.com, andrew@lunn.ch,
-        simon.horman@netronome.com
-To: Stephen Hemminger <stephen@networkplumber.org>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Richard Cochran <richardcochran@gmail.com>,
+        Willem de Bruijn <willemb@google.com>,
+        Soheil Hassas Yeganeh <soheil@google.com>,
+        Denny Page <dennypage@me.com>, Jiri Benc <jbenc@redhat.com>
+To: "Keller, Jacob E" <jacob.e.keller@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:34652 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750764AbdDMJab (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 13 Apr 2017 05:30:31 -0400
-Received: by mail-wm0-f68.google.com with SMTP id x75so11389498wma.1
-        for <netdev@vger.kernel.org>; Thu, 13 Apr 2017 02:30:31 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:34600 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751368AbdDMJyG (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 13 Apr 2017 05:54:06 -0400
 Content-Disposition: inline
-In-Reply-To: <20170412164525.1c0468d0@xeon-e3>
+In-Reply-To: <02874ECE860811409154E81DA85FBB5857E00EB6@ORSMSX115.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thu, Apr 13, 2017 at 01:45:25AM CEST, stephen@networkplumber.org wrote:
->On Tue, 28 Mar 2017 17:26:54 +0200
->Jiri Pirko <jiri@resnulli.us> wrote:
->
->>  
->>  #define pr_err(args...) fprintf(stderr, ##args)
->> -#define pr_out(args...) fprintf(stdout, ##args)
->> +#define pr_out(args...)						\
->> +	do {							\
->> +		if (g_indent_newline) {				\
->> +			fprintf(stdout, "%s", g_indent_str);	\
->> +			g_indent_newline = false;		\
->> +		}						\
->> +		fprintf(stdout, ##args);			\
->> +	} while (0)
->> +
->>  #define pr_out_sp(num, args...)					\
->>  	do {							\
->>  		int ret = fprintf(stdout, ##args);		\
->> @@ -42,6 +50,35 @@
->>  			fprintf(stdout, "%*s", num - ret, "");	\
->>  	} while (0)
->>  
->> +static int g_indent_level;
->> +static bool g_indent_newline;
->> +#define INDENT_STR_STEP 2
->> +#define INDENT_STR_MAXLEN 32
->> +static char g_indent_str[INDENT_STR_MAXLEN + 1] = "";
->> +
->> +static void __pr_out_indent_inc(void)
->> +{
->> +	if (g_indent_level + INDENT_STR_STEP > INDENT_STR_MAXLEN)
->> +		return;
->> +	g_indent_level += INDENT_STR_STEP;
->> +	memset(g_indent_str, ' ', sizeof(g_indent_str));
->> +	g_indent_str[g_indent_level] = '\0';
->> +}
->> +
->> +static void __pr_out_indent_dec(void)
->> +{
->> +	if (g_indent_level - INDENT_STR_STEP < 0)
->> +		return;
->> +	g_indent_level -= INDENT_STR_STEP;
->> +	g_indent_str[g_indent_level] = '\0';
->> +}
->> +
->> +static void __pr_out_newline(void)
->> +{
->> +	pr_out("\n");
->> +	g_indent_newline = true;
->> +}
->> +
->
->Thanks for adding the support. Like many reviews, I am fine with the
->functionality but it is the details of the implementation that are of
->concern.
->
->Why this new set of output formatting routines, this doesn't resemble other code
->in ip utilities. Looks more like you copied and pasted it from somewhere else.
->The indentation in existing ip command output isn't pretty or fancy but it works.
->
->Please try and make this code look like all the other code. Yes, I know it
->may not be to your taste (it isn't mine either), but consistency is more important
->than individual style.
+On Thu, Apr 13, 2017 at 09:08:08AM +0000, Keller, Jacob E wrote:
+> > -----Original Message-----
+> > This patchset adds new options to the timestamping API that will be
+> > useful for NTP implementations and possibly other applications.
 
-We actually took this code from teamdctl (at least it was an influence).
-Devlink style is so much different in every aspect from the rest of the
-iproute2 suite. And I did it on purpose, because it is much nicer and
-easier to read. I would like to continue on this and don't do things in
-the was the existing tools do. I don't see any problem with that.
+> I think this looks pretty good, straight forward and useful. I agree with Richard about the one commit message, but the rest looks good modulo missing updates for all the other drivers.
 
-	
->
->> @ -314,6 +356,102 @@ static int attr_cb(const struct nlattr *attr, void *data)
->>  	if (type == DEVLINK_ATTR_ESWITCH_INLINE_MODE &&
->>  	    mnl_attr_validate(attr, MNL_TYPE_U8) < 0)
->>  		return MNL_CB_ERROR;
->> +	if (type == DEVLINK_ATTR_DPIPE_TABLES &&
->> +	    mnl_attr_validate(attr, MNL_TYPE_NESTED) < 0)
->> +		return MNL_CB_ERROR;
->> +	if (type == DEVLINK_ATTR_DPIPE_TABLE &&
->> +	    mnl_attr_validate(attr, MNL_TYPE_NESTED) < 0)
->> +		return MNL_CB_ERROR;
->> +	if (type == DEVLINK_ATTR_DPIPE_TABLE_NAME &&
->> +	    mnl_attr_validate(attr, MNL_TYPE_STRING) < 0)
->> +		return MNL_CB_ERROR;
->> +	if (type == DEVLINK_ATTR_DPIPE_TABLE_SIZE &&
->> +	    mnl_attr_validate(attr, MNL_TYPE_U64) < 0)
->> +		return MNL_CB_ERROR;
->> +	if (type == DEVLINK_ATTR_DPIPE_TABLE_MATCHES &&
->> +	    mnl_attr_validate(attr, MNL_TYPE_NESTED) < 0)
->> +		return MNL_CB_ERROR;
->> +	if (type == DEVLINK_ATTR_DPIPE_TABLE_ACTIONS &&
->> +	    mnl_attr_validate(attr, MNL_TYPE_NESTED) < 0)
->> +		return MNL_CB_ERROR;
->> +	if (type == DEVLINK_ATTR_DPIPE_TABLE_COUNTERS_ENABLED &&
->> +	    mnl_attr_validate(attr, MNL_TYPE_U8) < 0)
->> +		return MNL_CB_ERROR;
->> +	if (type == DEVLINK_ATTR_DPIPE_ENTRIES &&
->> +	    mnl_attr_validate(attr, MNL_TYPE_NESTED) < 0)
->> +		return MNL_CB_ERROR;
->> +	if (type == DEVLINK_ATTR_DPIPE_ENTRY &&
->> +	    mnl_attr_validate(attr, MNL_TYPE_NESTED) < 0)
->> +		return MNL_CB_ERROR;
->> +	if (type == DEVLINK_ATTR_DPIPE_ENTRY_INDEX &&
->> +	    mnl_attr_validate(attr, MNL_TYPE_U64) < 0)
->> +		return MNL_CB_ERROR;
->> +	if (type == DEVLINK_ATTR_DPIPE_ENTRY_MATCH_VALUES &&
->> +	    mnl_attr_validate(attr, MNL_TYPE_NESTED) < 0)
->> +		return MNL_CB_ERROR;
->> +	if (type == DEVLINK_ATTR_DPIPE_ENTRY_ACTION_VALUES &&
->> +	    mnl_attr_validate(attr, MNL_TYPE_NESTED) < 0)
->> +		return MNL_CB_ERROR;
->> +	if (type == DEVLINK_ATTR_DPIPE_ENTRY_COUNTER &&
->> +	    mnl_attr_validate(attr, MNL_TYPE_U64) < 0)
->> +		return MNL_CB_ERROR;
->> +	if (type == DEVLINK_ATTR_DPIPE_MATCH &&
->> +	    mnl_attr_validate(attr, MNL_TYPE_NESTED) < 0)
->> +		return MNL_CB_ERROR;
->> +	if (type == DEVLINK_ATTR_DPIPE_MATCH_VALUE &&
->> +	    mnl_attr_validate(attr, MNL_TYPE_NESTED) < 0)
->> +		return MNL_CB_ERROR;
->> +	if (type == DEVLINK_ATTR_DPIPE_MATCH_TYPE &&
->> +	    mnl_attr_validate(attr, MNL_TYPE_U32) < 0)
->> +		return MNL_CB_ERROR;
->> +	if (type == DEVLINK_ATTR_DPIPE_ACTION &&
->> +	    mnl_attr_validate(attr, MNL_TYPE_NESTED) < 0)
->> +		return MNL_CB_ERROR;
->> +	if (type == DEVLINK_ATTR_DPIPE_ACTION_VALUE &&
->> +	    mnl_attr_validate(attr, MNL_TYPE_NESTED) < 0)
->> +		return MNL_CB_ERROR;
->> +	if (type == DEVLINK_ATTR_DPIPE_ACTION_TYPE &&
->> +	    mnl_attr_validate(attr, MNL_TYPE_U32) < 0)
->> +		return MNL_CB_ERROR;
->> +	if (type == DEVLINK_ATTR_DPIPE_VALUE_MAPPING &&
->> +	    mnl_attr_validate(attr, MNL_TYPE_U32) < 0)
->> +		return MNL_CB_ERROR;
->> +	if (type == DEVLINK_ATTR_DPIPE_HEADERS &&
->> +	    mnl_attr_validate(attr, MNL_TYPE_NESTED) < 0)
->> +		return MNL_CB_ERROR;
->> +	if (type == DEVLINK_ATTR_DPIPE_HEADER &&
->> +	    mnl_attr_validate(attr, MNL_TYPE_NESTED) < 0)
->> +		return MNL_CB_ERROR;
->> +	if (type == DEVLINK_ATTR_DPIPE_HEADER_NAME &&
->> +	    mnl_attr_validate(attr, MNL_TYPE_STRING) < 0)
->> +		return MNL_CB_ERROR;
->> +	if (type == DEVLINK_ATTR_DPIPE_HEADER_ID &&
->> +	    mnl_attr_validate(attr, MNL_TYPE_U32) < 0)
->> +		return MNL_CB_ERROR;
->> +	if (type == DEVLINK_ATTR_DPIPE_HEADER_FIELDS &&
->> +	    mnl_attr_validate(attr, MNL_TYPE_NESTED) < 0)
->> +		return MNL_CB_ERROR;
->> +	if (type == DEVLINK_ATTR_DPIPE_HEADER_GLOBAL &&
->> +	    mnl_attr_validate(attr, MNL_TYPE_U8) < 0)
->> +		return MNL_CB_ERROR;
->> +	if (type == DEVLINK_ATTR_DPIPE_HEADER_INDEX &&
->> +	    mnl_attr_validate(attr, MNL_TYPE_U32) < 0)
->> +		return MNL_CB_ERROR;
->> +	if (type == DEVLINK_ATTR_DPIPE_FIELD &&
->> +	    mnl_attr_validate(attr, MNL_TYPE_NESTED) < 0)
->> +		return MNL_CB_ERROR;
->> +	if (type == DEVLINK_ATTR_DPIPE_FIELD_NAME &&
->> +	    mnl_attr_validate(attr, MNL_TYPE_STRING) < 0)
->> +		return MNL_CB_ERROR;
->> +	if (type == DEVLINK_ATTR_DPIPE_FIELD_ID &&
->> +	    mnl_attr_validate(attr, MNL_TYPE_U32) < 0)
->> +		return MNL_CB_ERROR;
->> +	if (type == DEVLINK_ATTR_DPIPE_FIELD_BITWIDTH &&
->> +	    mnl_attr_validate(attr, MNL_TYPE_U32) < 0)
->> +		return MNL_CB_ERROR;
->> +	if (type == DEVLINK_ATTR_DPIPE_FIELD_MAPPING_TYPE &&
->> +	    mnl_attr_validate(attr, MNL_TYPE_U32) < 0)
->> +		return MNL_CB_ERROR;
->>  	tb[type] = attr;
->>  	return MNL_CB_OK;
->>  }
->
->Ok, this code has gotten so long that it really needs to be handled as a table
->rather than linear sequence of if's.
->
->
+Thanks for the review.
+
+> I didn't see any code to update the ethtool get_ts_info data for _NTP_ALL either.
+
+My understanding was that ethtool should list only filters that are
+actually supported by the HW and are not handled just by switching to
+a more general filter. I think that's what drivers I've looked were
+doing. The phyter driver would be the only one that could list the
+filter as supported. Is that correct?
+
+-- 
+Miroslav Lichvar
