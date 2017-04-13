@@ -1,71 +1,143 @@
-From: <agar2000@hotmail.com>
-Subject: 25351 netdev
-Date: Thu, 13 Apr 2017 15:35:41 -0000
-Message-ID: <149209774130.20709.9199465936916598159@avanzed.com.es>
-Reply-To: <agar2000@hotmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3 net-next RFC] Generic XDP
+Date: Thu, 13 Apr 2017 11:37:22 -0400 (EDT)
+Message-ID: <20170413.113722.2174945057832588335.davem@davemloft.net>
+References: <20170412.145415.1441440342830198148.davem@davemloft.net>
+        <20170413042036.GA46229@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: application/zip; name="1.zip"
-Content-Transfer-Encoding: base64
-To: "netdev" <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, xdp-newbies@vger.kernel.org
+To: alexei.starovoitov@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from avanzed.com.es ([31.47.76.14]:54420 "HELO avanzed.com.es"
-        rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
-        id S1751083AbdDMPfo (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 13 Apr 2017 11:35:44 -0400
-Content-Disposition: attachment
+Received: from shards.monkeyblade.net ([184.105.139.130]:60544 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750765AbdDMPh0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 13 Apr 2017 11:37:26 -0400
+In-Reply-To: <20170413042036.GA46229@ast-mbp.thefacebook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-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
-SwUGAAAAAAEAAQBOAAAARQsAAAAA
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Date: Wed, 12 Apr 2017 21:20:38 -0700
+
+> On Wed, Apr 12, 2017 at 02:54:15PM -0400, David Miller wrote:
+>> One thing I have not tried to address here is the issue of
+>> XDP_PACKET_HEADROOM, thanks to Daniel for spotting that.  It seems
+>> incredibly expensive to do a skb_cow(skb, XDP_PACKET_HEADROOM) or
+>> whatever even if the XDP program doesn't try to push headers at all.
+>> I think we really need the verifier to somehow propagate whether
+>> certain XDP helpers are used or not.
+> 
+> Looks like we need to relax the headroom requirement.
+> I really wanted to simplify the life of program writers,
+> but intel drivers insist on 192 headroom already, then for skb
+> every driver does 64 and netronome doesn't have the room by default at all
+> even for XDP and relies on expensive copy when xdp_adjust_head is used
+> so that dream isn't going to come true.
+> I guess for now every driver should _try_ to give XDP_PACKET_HEADROOM
+> bytes, but the driver can omit it completely if xdp_adjust_head()
+> is not used for performance reasons.
+
+If the capability is variable, it must be communicated to the user
+somehow at program load time.
+
+We are consistently finding that there is this real need to
+communicate XDP capabilities, or somehow verify that the needs
+of an XDP program can be satisfied by a given implementation.
+
+Maximum headroom is just one.
+
+Simply having bpf_xdp_adjust_head() fail and therefore drop packets
+isn't good behavior at all.  But that is the situation we have
+right now.
+
+>> +	if (skb_linearize(skb))
+>> +		goto do_drop;
+> 
+> when we discussed supporting jumbo frames in XDP, the idea
+> was that the program would need to look at first 3+k bytes only
+> and the rest of the packet will be in non-contiguous pages.
+> If we do that, it means that XDP program would have to assume
+> that the packet is more than [data, data_end] and this range
+> only covers linear part.
+> If that's the future, we don't need to linearize the skb here
+> and can let the program access headlen only.
+> It means that we'd need to add 'len' field to 'struct xdp_md' uapi.
+> For our existing programs (ddos and l4lb) it's not a problem,
+> since for MTU < 3.xK and physical XDP the driver guarantees that
+> data_end - data == len, so nothing will break.
+> So I'm proposing to do two things:
+> - drop skb_linearize here
+> - introduce 'len' to 'struct xdp_md' and update it here and
+> in the existing drivers that support xdp.
+
+I don't think this is reasonable.  The amount of inconsistency will be
+quite huge.
+
+First of all, every driver pulls a different amount of bytes into the
+linear area when building frag based SKBs on receive.  There are
+drivers that only put the MAC header in the linear area, and depend
+upon the logic in the stack which does pskb_may_pull() before touching
+deeper headers.
+
+Of course, such drivers should be using eth_get_headlen().  But they
+don't, and what they are doing is not a bug.
+
+And eth_get_headlen() only pulls protocol headers, which precludes XDP
+inspecting anything below TCP/UDP/etc.  This is also not reasonable.
+
+Right now, as it stands, we have to assume the program can potentially
+be interested in the entire packet.
+
+We can only optimize this and elide things when we have a facility in
+the future for the program to express it's needs precisely.  I think
+we will have to add some control structure to XDP programs that can
+be filled in for this purpose.
+
+Right now the two things we know would need to be expressed are 1)
+maximum headroom needed and 2) parsing depth.  I'm not %100 clear on
+how #2 should be specified, but in it's simplest sense it could take
+on two values, either "what eth_get_headlen() returns" or "entire
+packet" to start with.
+
+> 
+>> +				if (act == XDP_TX)
+>> +					dev_queue_xmit(skb);
+> 
+> this will go through qdisc which is not a problem per-se,
+> but may mislead poor users that XDP_TX goes through qdisc
+> even for in-driver XDP which is not the case.
+> So I think we need to bypass qdisc somehow. Like
+> txq = netdev_pick_tx(skb,..
+> HARD_TX_LOCK(dev, txq..
+> if (!netif_xmit_stopped(txq)) {
+>   dev_hard_start_xmit(skb, dev, txq,
+> } else {
+>   kfree_skb(skb);
+>   txq->xdp_tx_full++;
+> }
+> HARD_TX_UNLOCK(dev, txq);
+> 
+> this way it will be similar to in-driver XDP which
+> also has xdp_tx_full counter when HW TX queue is full.
+
+Ok, this makes sense.  I'll work on that.
+
+> Re: csum and skb->encapsulate issues that were raised in the previous thread
+> 
+> Today all cls_bpf csum helpers are currently disabled for XDP
+> and if the program mangles the packet and then does XDP_PASS,
+> the packet will be dropped by the stack due to incorrect csum.
+> So we're no better here and need a solution for both in-driver XDP and generic XDP.
+
+I'm not so sure how I feel about checksums, I've been busy following
+the thread started by Tom.  I want to strive for something simple.
+
+> I think the green light to apply this patch will be when
+> samples/bpf/xdp1, xdp2 and xdp_tx_iptunnel
+> work just like they do in in-driver XDP and I think we're pretty close.
+> 
+> If desired I can start hacking on this patch and testing mid next week.
+
+I'll try to accomplish what I can today...
