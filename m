@@ -1,73 +1,68 @@
 From: Stefan Hajnoczi <stefanha@redhat.com>
-Subject: Re: [PATCH v3 1/3] VSOCK: Add vsockmon tap functions
-Date: Thu, 13 Apr 2017 16:01:33 +0100
-Message-ID: <20170413150133.GG13387@stefanha-x1.localdomain>
+Subject: Re: [PATCH v3 2/3] VSOCK: Add vsockmon device
+Date: Thu, 13 Apr 2017 16:02:13 +0100
+Message-ID: <20170413150213.GH13387@stefanha-x1.localdomain>
 References: <20170412160825.21037-1-stefanha@redhat.com>
- <20170412160825.21037-2-stefanha@redhat.com>
- <20170412163736.GB22692@redhat.com>
+ <20170412160825.21037-3-stefanha@redhat.com>
+ <20170412193827-mutt-send-email-mst@kernel.org>
+ <20170412.130510.1661492983569723913.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="S5HS5MvDw4DmbRmb"
-Cc: netdev@vger.kernel.org, Zhu Yanjun <zyjzyj2000@gmail.com>,
-        Gerard Garcia <ggarcia@abra.uab.cat>,
-        Jorgen Hansen <jhansen@vmware.com>
-To: "Michael S. Tsirkin" <mst@redhat.com>
+        protocol="application/pgp-signature"; boundary="0XhtP95kHFp3KGBe"
+Cc: mst@redhat.com, netdev@vger.kernel.org, zyjzyj2000@gmail.com,
+        ggarcia@abra.uab.cat, jhansen@vmware.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40974 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:55036 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751212AbdDMPBl (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 13 Apr 2017 11:01:41 -0400
+        id S1754004AbdDMPCS (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 13 Apr 2017 11:02:18 -0400
 Content-Disposition: inline
-In-Reply-To: <20170412163736.GB22692@redhat.com>
+In-Reply-To: <20170412.130510.1661492983569723913.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---S5HS5MvDw4DmbRmb
+--0XhtP95kHFp3KGBe
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
 
-On Wed, Apr 12, 2017 at 07:37:36PM +0300, Michael S. Tsirkin wrote:
-> On Wed, Apr 12, 2017 at 05:08:23PM +0100, Stefan Hajnoczi wrote:
-> > +int __vsock_remove_tap(struct vsock_tap *vt) {
-> > +	bool found =3D false;
-> > +	struct vsock_tap *tmp;
-> > +
-> > +	spin_lock(&vsock_tap_lock);
-> > +
-> > +	list_for_each_entry(tmp, &vsock_tap_all, list) {
-> > +		if (vt =3D=3D tmp) {
-> > +			list_del_rcu(&vt->list);
-> > +			found =3D true;
-> > +			goto out;
-> > +		}
-> > +	}
-> > +
-> > +	pr_warn("__vsock_remove_tap: %p not found\n", vt);
-> > +out:
-> > +	spin_unlock(&vsock_tap_lock);
-> > +
-> > +	if (found)
-> > +		module_put(vt->module);
+On Wed, Apr 12, 2017 at 01:05:10PM -0400, David Miller wrote:
+> From: "Michael S. Tsirkin" <mst@redhat.com>
+> Date: Wed, 12 Apr 2017 19:43:20 +0300
 >=20
-> This is called before synchronize_net so there might
-> still be users for this tap.
+> > On Wed, Apr 12, 2017 at 05:08:24PM +0100, Stefan Hajnoczi wrote:
+> >> +struct af_vsockmon_hdr {
+> >> +	__le64 src_cid;
+> >> +	__le64 dst_cid;
+> >> +	__le32 src_port;
+> >> +	__le32 dst_port;
+> >> +	__le16 op;			/* enum af_vsockmon_op */
+> >> +	__le16 transport;		/* enum af_vsockmon_transport */
+> >> +	__le16 len;			/* Transport header length */
+> >> +} __attribute__((packed));
+> >=20
+> > I'd add a 2 byte padding here and then you do not need to pack it.
+>=20
+> Indeed, use of the packed attribute is strongly discouraged.
 
-Thanks, will fix.
+Thanks will fix.
 
---S5HS5MvDw4DmbRmb
+Stefan
+
+--0XhtP95kHFp3KGBe
 Content-Type: application/pgp-signature; name="signature.asc"
 
 -----BEGIN PGP SIGNATURE-----
 
-iQEcBAEBAgAGBQJY75LNAAoJEJykq7OBq3PIuQEH/2NPDz1XY6RmjLQI7x7RcUD2
-d3z/5dYnk/LHYzwF9So4fVi9vUqXmW2EsbqJv970vfK7qFPFU5i1aKUCfQVvBFQk
-WeRKu9g61uzzDMYdUsckHxiC9LJJrt/vTT1BcB4GGai1Y3pwX1GUlHNm5ru2Nboy
-ibGelK6qHK8lgBEH/U4yDXA7JiZi+4CkXe4J2qZRLkMfsZF9jgudrpjyoJgca7BD
-inMOAhXcLqsafjKbTKrf/TgCYmUznEdYhBHVRCeqiTWTwhs5CoXNvb2+srlpeT7w
-Fiva6G3gxKuuPz2pI9mXMze9YxmDM3NAcREskBeQXjLpX3OnQBcBUddnnwaG++s=
-=jWgA
+iQEcBAEBAgAGBQJY75L1AAoJEJykq7OBq3PI9KwH/0C6kLlZ65DEFCNyba4bL234
+eDJQzSE1FzWQEeO6WvXbqZbNfMvP+bR5qftWkkxdqI5u8QBBQfnz7rNdYnCvmhYh
+l+mfp3QXb3tanyk481nOCPjWFhaykvmGSKIJ+Pxc8888pBq3eY8QGPJEQ00BHfBn
+Qyr58b7G91S1ngkk1T74VggC2oYnDWZgM+TGvizx0zjXuH++8He2xZczoIapTG4o
+b/+vurQvEYzrX/Zi4p2EFdzvJzmZOXJCzenLceoBvWCI2qIGRDKTiGAGz0dRDEdU
+/AN+Dmb0jkpkTJSwHWNfBWt0eI3LL8uNzeSoMrF6jGjC9D11Idvp+Vcyxc4ZtxM=
+=iaqY
 -----END PGP SIGNATURE-----
 
---S5HS5MvDw4DmbRmb--
+--0XhtP95kHFp3KGBe--
