@@ -1,55 +1,51 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch net-next v2] net_sched: move the empty tp check from
- ->destroy() to ->delete()
-Date: Thu, 13 Apr 2017 09:13:07 -0700
-Message-ID: <CAM_iQpUzYT50JpR_ayBFCMZT=80kSM3cnL6dwFcL4XymO=-gNQ@mail.gmail.com>
-References: <1492062580-31547-1-git-send-email-xiyou.wangcong@gmail.com> <201704131514.fLLOlm8n%fengguang.wu@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: kbuild-all@01.org,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Roi Dayan <roid@mellanox.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        John Fastabend <john.fastabend@gmail.com>
-To: kbuild test robot <lkp@intel.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next] MAINTAINERS: rename TC entry and add couple of header files
+Date: Thu, 13 Apr 2017 18:13:51 +0200
+Message-ID: <1492100031-13462-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, mlxsw@mellanox.com, jhs@mojatatu.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f48.google.com ([74.125.82.48]:33509 "EHLO
-        mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752746AbdDMQN2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 13 Apr 2017 12:13:28 -0400
-Received: by mail-wm0-f48.google.com with SMTP id y18so4561350wmh.0
-        for <netdev@vger.kernel.org>; Thu, 13 Apr 2017 09:13:28 -0700 (PDT)
-In-Reply-To: <201704131514.fLLOlm8n%fengguang.wu@intel.com>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:34416 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752935AbdDMQNy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 13 Apr 2017 12:13:54 -0400
+Received: by mail-wm0-f66.google.com with SMTP id x75so13417378wma.1
+        for <netdev@vger.kernel.org>; Thu, 13 Apr 2017 09:13:54 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 13, 2017 at 12:28 AM, kbuild test robot <lkp@intel.com> wrote:
-> Hi Cong,
->
-> [auto build test WARNING on net-next/master]
->
-> url:    https://github.com/0day-ci/linux/commits/Cong-Wang/net_sched-move-the-empty-tp-check-from-destroy-to-delete/20170413-145318
-> config: x86_64-randconfig-x004-201715 (attached as .config)
-> compiler: gcc-6 (Debian 6.2.0-3) 6.2.0 20160901
-> reproduce:
->         # save the attached .config to linux build tree
->         make ARCH=x86_64
->
-> All warnings (new ones prefixed by >>):
->
->    net/sched/cls_matchall.c: In function 'mall_destroy':
->>> net/sched/cls_matchall.c:99:10: warning: 'return' with a value, in function returning void
->       return true;
->              ^~~~
->    net/sched/cls_matchall.c:93:13: note: declared here
->     static void mall_destroy(struct tcf_proto *tp)
->                 ^~~~~~~~~~~~
->    net/sched/cls_matchall.c:105:9: warning: 'return' with a value, in function returning void
->      return true;
->             ^~~~
->    net/sched/cls_matchall.c:93:13: note: declared here
->     static void mall_destroy(struct tcf_proto *tp)
->                 ^~~~~~~~~~~~
+From: Jiri Pirko <jiri@mellanox.com>
 
-Ah, I must miss it while compiling... Will send v3 after waiting for
-other comments.
+The section is not specific only to "TC classifiers", but applies to the
+whole TC subsystem. Also, add couple of forgotten headers.
+
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ MAINTAINERS | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 5397f54..549e8e1 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -12180,12 +12180,17 @@ F:	Documentation/accounting/taskstats*
+ F:	include/linux/taskstats*
+ F:	kernel/taskstats.c
+ 
+-TC CLASSIFIER
++TC subsystem
+ M:	Jamal Hadi Salim <jhs@mojatatu.com>
+ L:	netdev@vger.kernel.org
+ S:	Maintained
+ F:	include/net/pkt_cls.h
++F:	include/net/pkt_sched.h
++F:	include/net/tc_act/
+ F:	include/uapi/linux/pkt_cls.h
++F:	include/uapi/linux/pkt_sched.h
++F:	include/uapi/linux/tc_act/
++F:	include/uapi/linux/tc_ematch/
+ F:	net/sched/
+ 
+ TCP LOW PRIORITY MODULE
+-- 
+2.7.4
