@@ -1,45 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3 1/1] net: ipv4: Refine the
- ipv4_default_advmss
-Date: Thu, 13 Apr 2017 13:20:20 -0400 (EDT)
-Message-ID: <20170413.132020.858368201657633084.davem@davemloft.net>
-References: <1491971643-117736-1-git-send-email-gfree.wind@foxmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, netdev@vger.kernel.org,
-        fgao@ikuai8.com
-To: gfree.wind@foxmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:33902 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754148AbdDMRUW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 13 Apr 2017 13:20:22 -0400
-In-Reply-To: <1491971643-117736-1-git-send-email-gfree.wind@foxmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+Subject: Re: [PATCH v3 0/4] TI Bluetooth serdev support
+Date: Thu, 13 Apr 2017 19:24:30 +0200
+Message-ID: <A73F0F81-63B4-4555-9865-F35469902338@holtmann.org>
+References: <20170413150353.7389-1-robh@kernel.org>
+Mime-Version: 1.0 (Mac OS X Mail 10.3 \(3273\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: Linux Bluetooth <linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        linux-arm-kernel <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+        "Gustavo F. Padovan" <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>,
+        Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        Wei Xu <xuwei5-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>, Eyal Reizer <eyalr-l0cyMroinI0@public.gmane.org>,
+        Satish Patel <satish.patel-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+        Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170413150353.7389-1-robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: gfree.wind@foxmail.com
-Date: Wed, 12 Apr 2017 12:34:03 +0800
+Hi Rob,
 
-> From: Gao Feng <fgao@ikuai8.com>
+> This series adds serdev support to the HCI LL protocol used on TI BT
+> modules and enables support on HiKey board with with the WL1835 module.
+> With this the custom TI UIM daemon and btattach are no longer needed.
 > 
-> 1. Don't get the metric RTAX_ADVMSS of dst.
-> There are two reasons.
-> 1) Its caller dst_metric_advmss has already invoke dst_metric_advmss
-> before invoke default_advmss.
-> 2) The ipv4_default_advmss is used to get the default mss, it should
-> not try to get the metric like ip6_default_advmss.
+> The series is available on this git branch[1]. This version is rebased on 
+> bluetooth-next tree containing its dependencies.
 > 
-> 2. Use sizeof(tcphdr)+sizeof(iphdr) instead of literal 40.
+> Rob
 > 
-> 3. Define one new macro IPV4_MAX_PMTU instead of 65535 according to
-> RFC 2675, section 5.1.
+> [1] git://git.kernel.org/pub/scm/linux/kernel/git/robh/linux.git ti-bluetooth
 > 
-> Signed-off-by: Gao Feng <fgao@ikuai8.com>
-> ---
->  v3: Simplify the codes again, per Joe
->  v2: Use min instead of unnecessary min_t, per Joe
->  v1: initial version
+> Rob Herring (4):
+>  dt-bindings: net: Add TI WiLink shared transport binding
+>  bluetooth: hci_uart: remove unused hci_uart_init_tty
+>  bluetooth: hci_uart: add LL protocol serdev driver support
+>  arm64: dts: hikey: add WL1835 Bluetooth device node
+> 
+> .../devicetree/bindings/net/ti,wilink-st.txt       |  35 +++
+> arch/arm64/boot/dts/hisilicon/hi6220-hikey.dts     |   5 +
+> drivers/bluetooth/hci_ldisc.c                      |  19 --
+> drivers/bluetooth/hci_ll.c                         | 262 ++++++++++++++++++++-
+> drivers/bluetooth/hci_uart.h                       |   1 -
+> 5 files changed, 301 insertions(+), 21 deletions(-)
+> create mode 100644 Documentation/devicetree/bindings/net/ti,wilink-st.txt
 
-Applied, thanks.
+all 4 patches have been applied to bluetooth-next tree.
+
+Regards
+
+Marcel
