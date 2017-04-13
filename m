@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH net-next 05/16] net/mlx5e: IPoIB, Add netdevice profile skeleton
-Date: Thu, 13 Apr 2017 06:36:55 +0300
-Message-ID: <20170413033706.19016-6-saeedm@mellanox.com>
+Subject: [PATCH net-next 02/16] net/mlx5: Refactor create flow table method to accept underlay QP
+Date: Thu, 13 Apr 2017 06:36:52 +0300
+Message-ID: <20170413033706.19016-3-saeedm@mellanox.com>
 References: <20170413033706.19016-1-saeedm@mellanox.com>
 Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
         Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
@@ -15,329 +15,408 @@ In-Reply-To: <20170413033706.19016-1-saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.
 Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Create mlx5e IPoIB netdevice profile skeleton in the new ipoib.c
-file with empty implementation.
+From: Erez Shitrit <erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 
-Downstream patches will provide the full mlx5 rdma netdevice acceleration
-support for IPoIB into this new file, by using the mlx5e netdevice
-profile and new mlx5_channels APIs and infrastructures.
-Same as already done in mlx5e NIC netdevice and switchdev mode VF
-representors.
+IB flow tables need the underlay qp to perform flow steering.
+Here we change the API of the flow tables creation to accept the
+underlay QP number as a parameter in order to support IB (IPoIB) flow
+steering.
 
+Signed-off-by: Erez Shitrit <erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 Signed-off-by: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Reviewed-by: Erez Shitrit <erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/Kconfig    |   7 +
- drivers/net/ethernet/mellanox/mlx5/core/Makefile   |   2 +
- drivers/net/ethernet/mellanox/mlx5/core/en.h       |   9 +
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |   9 -
- drivers/net/ethernet/mellanox/mlx5/core/ipoib.c    | 181 +++++++++++++++++++++
- .../ethernet/mellanox/mlx5/core/ipoib.h}           |  22 ++-
- 6 files changed, 215 insertions(+), 15 deletions(-)
- create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/ipoib.c
- copy drivers/{infiniband/hw/mlx5/cmd.h => net/ethernet/mellanox/mlx5/core/ipoib.h} (77%)
+ drivers/net/ethernet/mellanox/mlx5/core/en_arfs.c  | 10 ++-
+ drivers/net/ethernet/mellanox/mlx5/core/en_fs.c    | 25 +++++--
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.c  |  5 +-
+ .../ethernet/mellanox/mlx5/core/eswitch_offloads.c | 16 +++--
+ drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c   |  8 +++
+ drivers/net/ethernet/mellanox/mlx5/core/fs_core.c  | 84 +++++++++++++---------
+ drivers/net/ethernet/mellanox/mlx5/core/fs_core.h  |  1 +
+ include/linux/mlx5/fs.h                            | 14 ++--
+ 8 files changed, 113 insertions(+), 50 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/Kconfig b/drivers/net/ethernet/mellanox/mlx5/core/Kconfig
-index 117170014e88..a84b652f9b54 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/Kconfig
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/Kconfig
-@@ -31,3 +31,10 @@ config MLX5_CORE_EN_DCB
- 	  This flag is depended on the kernel's DCB support.
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_arfs.c b/drivers/net/ethernet/mellanox/mlx5/core/en_arfs.c
+index c4e9cc79f5c7..c8a005326e30 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_arfs.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_arfs.c
+@@ -321,10 +321,16 @@ static int arfs_create_table(struct mlx5e_priv *priv,
+ {
+ 	struct mlx5e_arfs_tables *arfs = &priv->fs.arfs;
+ 	struct mlx5e_flow_table *ft = &arfs->arfs_tables[type].ft;
++	struct mlx5_flow_table_attr ft_attr = {};
+ 	int err;
  
- 	  If unsure, set to Y
+-	ft->t = mlx5_create_flow_table(priv->fs.ns, MLX5E_NIC_PRIO,
+-				       MLX5E_ARFS_TABLE_SIZE, MLX5E_ARFS_FT_LEVEL, 0);
++	ft->num_groups = 0;
 +
-+config MLX5_CORE_IPOIB
-+	bool "Mellanox Technologies ConnectX-4 IPoIB offloads support"
-+	depends on MLX5_CORE_EN
-+	default y
-+	---help---
-+	  MLX5 IPoIB offloads & acceleration support.
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/Makefile b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
-index 9f43beb86250..9e644615f07a 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/Makefile
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
-@@ -11,3 +11,5 @@ mlx5_core-$(CONFIG_MLX5_CORE_EN) += wq.o eswitch.o eswitch_offloads.o \
- 		en_tc.o en_arfs.o en_rep.o en_fs_ethtool.o en_selftest.o
++	ft_attr.max_fte = MLX5E_ARFS_TABLE_SIZE;
++	ft_attr.level = MLX5E_ARFS_FT_LEVEL;
++	ft_attr.prio = MLX5E_NIC_PRIO;
++
++	ft->t = mlx5_create_flow_table(priv->fs.ns, &ft_attr);
+ 	if (IS_ERR(ft->t)) {
+ 		err = PTR_ERR(ft->t);
+ 		ft->t = NULL;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_fs.c b/drivers/net/ethernet/mellanox/mlx5/core/en_fs.c
+index 5376d69a6b1a..729904c43801 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_fs.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_fs.c
+@@ -803,11 +803,15 @@ static void mlx5e_destroy_ttc_table(struct mlx5e_priv *priv)
+ static int mlx5e_create_ttc_table(struct mlx5e_priv *priv)
+ {
+ 	struct mlx5e_ttc_table *ttc = &priv->fs.ttc;
++	struct mlx5_flow_table_attr ft_attr = {};
+ 	struct mlx5e_flow_table *ft = &ttc->ft;
+ 	int err;
  
- mlx5_core-$(CONFIG_MLX5_CORE_EN_DCB) +=  en_dcbnl.o
+-	ft->t = mlx5_create_flow_table(priv->fs.ns, MLX5E_NIC_PRIO,
+-				       MLX5E_TTC_TABLE_SIZE, MLX5E_TTC_FT_LEVEL, 0);
++	ft_attr.max_fte = MLX5E_TTC_TABLE_SIZE;
++	ft_attr.level = MLX5E_TTC_FT_LEVEL;
++	ft_attr.prio = MLX5E_NIC_PRIO;
 +
-+mlx5_core-$(CONFIG_MLX5_CORE_IPOIB) += ipoib.o
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-index ced31906b8fd..02aa3cc59dc3 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-@@ -37,6 +37,7 @@
- #include <linux/timecounter.h>
- #include <linux/net_tstamp.h>
- #include <linux/ptp_clock_kernel.h>
-+#include <linux/crash_dump.h>
- #include <linux/mlx5/driver.h>
- #include <linux/mlx5/qp.h>
- #include <linux/mlx5/cq.h>
-@@ -153,6 +154,14 @@ static inline int mlx5_max_log_rq_size(int wq_type)
++	ft->t = mlx5_create_flow_table(priv->fs.ns, &ft_attr);
+ 	if (IS_ERR(ft->t)) {
+ 		err = PTR_ERR(ft->t);
+ 		ft->t = NULL;
+@@ -973,12 +977,16 @@ static int mlx5e_create_l2_table(struct mlx5e_priv *priv)
+ {
+ 	struct mlx5e_l2_table *l2_table = &priv->fs.l2;
+ 	struct mlx5e_flow_table *ft = &l2_table->ft;
++	struct mlx5_flow_table_attr ft_attr = {};
+ 	int err;
+ 
+ 	ft->num_groups = 0;
+-	ft->t = mlx5_create_flow_table(priv->fs.ns, MLX5E_NIC_PRIO,
+-				       MLX5E_L2_TABLE_SIZE, MLX5E_L2_FT_LEVEL, 0);
+ 
++	ft_attr.max_fte = MLX5E_L2_TABLE_SIZE;
++	ft_attr.level = MLX5E_L2_FT_LEVEL;
++	ft_attr.prio = MLX5E_NIC_PRIO;
++
++	ft->t = mlx5_create_flow_table(priv->fs.ns, &ft_attr);
+ 	if (IS_ERR(ft->t)) {
+ 		err = PTR_ERR(ft->t);
+ 		ft->t = NULL;
+@@ -1076,11 +1084,16 @@ static int mlx5e_create_vlan_table_groups(struct mlx5e_flow_table *ft)
+ static int mlx5e_create_vlan_table(struct mlx5e_priv *priv)
+ {
+ 	struct mlx5e_flow_table *ft = &priv->fs.vlan.ft;
++	struct mlx5_flow_table_attr ft_attr = {};
+ 	int err;
+ 
+ 	ft->num_groups = 0;
+-	ft->t = mlx5_create_flow_table(priv->fs.ns, MLX5E_NIC_PRIO,
+-				       MLX5E_VLAN_TABLE_SIZE, MLX5E_VLAN_FT_LEVEL, 0);
++
++	ft_attr.max_fte = MLX5E_VLAN_TABLE_SIZE;
++	ft_attr.level = MLX5E_VLAN_FT_LEVEL;
++	ft_attr.prio = MLX5E_NIC_PRIO;
++
++	ft->t = mlx5_create_flow_table(priv->fs.ns, &ft_attr);
+ 
+ 	if (IS_ERR(ft->t)) {
+ 		err = PTR_ERR(ft->t);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
+index fcd5bc7e31db..b3281d1118b3 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
+@@ -337,6 +337,7 @@ esw_fdb_set_vport_promisc_rule(struct mlx5_eswitch *esw, u32 vport)
+ static int esw_create_legacy_fdb_table(struct mlx5_eswitch *esw, int nvports)
+ {
+ 	int inlen = MLX5_ST_SZ_BYTES(create_flow_group_in);
++	struct mlx5_flow_table_attr ft_attr = {};
+ 	struct mlx5_core_dev *dev = esw->dev;
+ 	struct mlx5_flow_namespace *root_ns;
+ 	struct mlx5_flow_table *fdb;
+@@ -362,7 +363,9 @@ static int esw_create_legacy_fdb_table(struct mlx5_eswitch *esw, int nvports)
+ 	memset(flow_group_in, 0, inlen);
+ 
+ 	table_size = BIT(MLX5_CAP_ESW_FLOWTABLE_FDB(dev, log_max_ft_size));
+-	fdb = mlx5_create_flow_table(root_ns, 0, table_size, 0, 0);
++
++	ft_attr.max_fte = table_size;
++	fdb = mlx5_create_flow_table(root_ns, &ft_attr);
+ 	if (IS_ERR(fdb)) {
+ 		err = PTR_ERR(fdb);
+ 		esw_warn(dev, "Failed to create FDB Table err %d\n", err);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+index fff962dac8e3..992b380d36be 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+@@ -432,6 +432,7 @@ static int esw_add_fdb_miss_rule(struct mlx5_eswitch *esw)
+ static int esw_create_offloads_fdb_table(struct mlx5_eswitch *esw, int nvports)
+ {
+ 	int inlen = MLX5_ST_SZ_BYTES(create_flow_group_in);
++	struct mlx5_flow_table_attr ft_attr = {};
+ 	int table_size, ix, esw_size, err = 0;
+ 	struct mlx5_core_dev *dev = esw->dev;
+ 	struct mlx5_flow_namespace *root_ns;
+@@ -475,7 +476,11 @@ static int esw_create_offloads_fdb_table(struct mlx5_eswitch *esw, int nvports)
+ 	esw->fdb_table.fdb = fdb;
+ 
+ 	table_size = nvports + MAX_PF_SQ + 1;
+-	fdb = mlx5_create_flow_table(root_ns, FDB_SLOW_PATH, table_size, 0, 0);
++
++	ft_attr.max_fte = table_size;
++	ft_attr.prio = FDB_SLOW_PATH;
++
++	fdb = mlx5_create_flow_table(root_ns, &ft_attr);
+ 	if (IS_ERR(fdb)) {
+ 		err = PTR_ERR(fdb);
+ 		esw_warn(dev, "Failed to create slow path FDB Table err %d\n", err);
+@@ -556,9 +561,10 @@ static void esw_destroy_offloads_fdb_table(struct mlx5_eswitch *esw)
+ 
+ static int esw_create_offloads_table(struct mlx5_eswitch *esw)
+ {
+-	struct mlx5_flow_namespace *ns;
+-	struct mlx5_flow_table *ft_offloads;
++	struct mlx5_flow_table_attr ft_attr = {};
+ 	struct mlx5_core_dev *dev = esw->dev;
++	struct mlx5_flow_table *ft_offloads;
++	struct mlx5_flow_namespace *ns;
+ 	int err = 0;
+ 
+ 	ns = mlx5_get_flow_namespace(dev, MLX5_FLOW_NAMESPACE_OFFLOADS);
+@@ -567,7 +573,9 @@ static int esw_create_offloads_table(struct mlx5_eswitch *esw)
+ 		return -EOPNOTSUPP;
  	}
+ 
+-	ft_offloads = mlx5_create_flow_table(ns, 0, dev->priv.sriov.num_vfs + 2, 0, 0);
++	ft_attr.max_fte = dev->priv.sriov.num_vfs + 2;
++
++	ft_offloads = mlx5_create_flow_table(ns, &ft_attr);
+ 	if (IS_ERR(ft_offloads)) {
+ 		err = PTR_ERR(ft_offloads);
+ 		esw_warn(esw->dev, "Failed to create offloads table, err %d\n", err);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c
+index c6178ea1a461..19e3d2fc2099 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c
+@@ -45,6 +45,10 @@ int mlx5_cmd_update_root_ft(struct mlx5_core_dev *dev,
+ 	u32 in[MLX5_ST_SZ_DW(set_flow_table_root_in)]   = {0};
+ 	u32 out[MLX5_ST_SZ_DW(set_flow_table_root_out)] = {0};
+ 
++	if ((MLX5_CAP_GEN(dev, port_type) == MLX5_CAP_PORT_TYPE_IB) &&
++	    ft->underlay_qpn == 0)
++		return 0;
++
+ 	MLX5_SET(set_flow_table_root_in, in, opcode,
+ 		 MLX5_CMD_OP_SET_FLOW_TABLE_ROOT);
+ 	MLX5_SET(set_flow_table_root_in, in, table_type, ft->type);
+@@ -54,6 +58,10 @@ int mlx5_cmd_update_root_ft(struct mlx5_core_dev *dev,
+ 		MLX5_SET(set_flow_table_root_in, in, other_vport, 1);
+ 	}
+ 
++	if ((MLX5_CAP_GEN(dev, port_type) == MLX5_CAP_PORT_TYPE_IB) &&
++	    ft->underlay_qpn != 0)
++		MLX5_SET(set_flow_table_root_in, in, underlay_qpn, ft->underlay_qpn);
++
+ 	return mlx5_cmd_exec(dev, in, sizeof(in), out, sizeof(out));
  }
  
-+static inline int mlx5e_get_max_num_channels(struct mlx5_core_dev *mdev)
-+{
-+	return is_kdump_kernel() ?
-+		MLX5E_MIN_NUM_CHANNELS :
-+		min_t(int, mdev->priv.eq_table.num_comp_vectors,
-+		      MLX5E_MAX_NUM_CHANNELS);
-+}
-+
- struct mlx5e_tx_wqe {
- 	struct mlx5_wqe_ctrl_seg ctrl;
- 	struct mlx5_wqe_eth_seg  eth;
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index cdc34ba354c8..14c7452a6348 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -31,7 +31,6 @@
-  */
- 
- #include <net/tc_act/tc_gact.h>
--#include <linux/crash_dump.h>
- #include <net/pkt_cls.h>
- #include <linux/mlx5/fs.h>
- #include <net/vxlan.h>
-@@ -1710,14 +1709,6 @@ static int mlx5e_set_tx_maxrate(struct net_device *dev, int index, u32 rate)
- 	return err;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+index 27ff815600f7..55182d0b06e8 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+@@ -778,18 +778,16 @@ static void list_add_flow_table(struct mlx5_flow_table *ft,
  }
  
--static inline int mlx5e_get_max_num_channels(struct mlx5_core_dev *mdev)
--{
--	return is_kdump_kernel() ?
--		MLX5E_MIN_NUM_CHANNELS :
--		min_t(int, mdev->priv.eq_table.num_comp_vectors,
--		      MLX5E_MAX_NUM_CHANNELS);
--}
--
- static int mlx5e_open_channel(struct mlx5e_priv *priv, int ix,
- 			      struct mlx5e_params *params,
- 			      struct mlx5e_channel_param *cparam,
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/ipoib.c b/drivers/net/ethernet/mellanox/mlx5/core/ipoib.c
-new file mode 100644
-index 000000000000..2f65927a8d03
---- /dev/null
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/ipoib.c
-@@ -0,0 +1,181 @@
-+/*
-+ * Copyright (c) 2017, Mellanox Technologies. All rights reserved.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
-+
-+#include <linux/mlx5/fs.h>
-+#include "en.h"
-+#include "ipoib.h"
-+
-+/* IPoIB mlx5 netdev profile */
-+
-+/* Called directly after IPoIB netdevice was created to initialize SW structs */
-+static void mlx5i_init(struct mlx5_core_dev *mdev,
-+		       struct net_device *netdev,
-+		       const struct mlx5e_profile *profile,
-+		       void *ppriv)
-+{
-+	struct mlx5e_priv *priv  = mlx5i_epriv(netdev);
-+
-+	priv->ppriv = ppriv;
-+	/*  TODO: init netdev and mlx5e_params here */
-+}
-+
-+/* Called directly before IPoIB netdevice is destroyed to cleanup SW structs */
-+static void mlx5i_cleanup(struct mlx5e_priv *priv)
-+{
-+	/* Do nothing .. */
-+}
-+
-+static int mlx5i_init_tx(struct mlx5e_priv *priv)
-+{
-+	/* TODO: Create IPoIB underlay QP */
-+	/* TODO: create IPoIB TX HW TIS */
-+	return 0;
-+}
-+
-+static void mlx5i_cleanup_tx(struct mlx5e_priv *priv)
-+{
-+}
-+
-+static int mlx5i_init_rx(struct mlx5e_priv *priv)
-+{
-+	/* TODO: create IPoIB RX HW steering contexts */
-+	return 0;
-+}
-+
-+static void mlx5i_cleanup_rx(struct mlx5e_priv *priv)
-+{
-+}
-+
-+static const struct mlx5e_profile mlx5i_nic_profile = {
-+	.init		   = mlx5i_init,
-+	.cleanup	   = mlx5i_cleanup,
-+	.init_tx	   = mlx5i_init_tx,
-+	.cleanup_tx	   = mlx5i_cleanup_tx,
-+	.init_rx	   = mlx5i_init_rx,
-+	.cleanup_rx	   = mlx5i_cleanup_rx,
-+	.enable		   = NULL, /* mlx5i_enable */
-+	.disable	   = NULL, /* mlx5i_disable */
-+	.update_stats	   = NULL, /* mlx5i_update_stats */
-+	.max_nch	   = mlx5e_get_max_num_channels,
-+	.max_tc		   = MLX5I_MAX_NUM_TC,
-+};
-+
-+/* IPoIB RDMA netdev callbacks */
-+
-+static int mlx5i_check_required_hca_cap(struct mlx5_core_dev *mdev)
-+{
-+	if (MLX5_CAP_GEN(mdev, port_type) != MLX5_CAP_PORT_TYPE_IB)
-+		return -EOPNOTSUPP;
-+
-+	if (!MLX5_CAP_GEN(mdev, ipoib_enhanced_offloads)) {
-+		mlx5_core_warn(mdev, "IPoIB enhanced offloads are not supported\n");
-+		return -ENOTSUPP;
-+	}
-+
-+	return 0;
-+}
-+
-+struct net_device *mlx5_rdma_netdev_alloc(struct mlx5_core_dev *mdev,
-+					  struct ib_device *ibdev,
-+					  const char *name,
-+					  void (*setup)(struct net_device *))
-+{
-+	const struct mlx5e_profile *profile = &mlx5i_nic_profile;
-+	int nch = profile->max_nch(mdev);
-+	struct net_device *netdev;
-+	struct mlx5i_priv *ipriv;
-+	struct mlx5e_priv *epriv;
+ static struct mlx5_flow_table *__mlx5_create_flow_table(struct mlx5_flow_namespace *ns,
++							struct mlx5_flow_table_attr *ft_attr,
+ 							enum fs_flow_table_op_mod op_mod,
+-							u16 vport, int prio,
+-							int max_fte, u32 level,
+-							u32 flags)
++							u16 vport)
+ {
++	struct mlx5_flow_root_namespace *root = find_root(&ns->node);
+ 	struct mlx5_flow_table *next_ft = NULL;
++	struct fs_prio *fs_prio = NULL;
+ 	struct mlx5_flow_table *ft;
+-	int err;
+ 	int log_table_sz;
+-	struct mlx5_flow_root_namespace *root =
+-		find_root(&ns->node);
+-	struct fs_prio *fs_prio = NULL;
 +	int err;
-+
-+	if (mlx5i_check_required_hca_cap(mdev)) {
-+		mlx5_core_warn(mdev, "Accelerated mode is not supported\n");
-+		return ERR_PTR(-EOPNOTSUPP);
-+	}
-+
-+	/* This function should only be called once per mdev */
-+	err = mlx5e_create_mdev_resources(mdev);
-+	if (err)
-+		return NULL;
-+
-+	netdev = alloc_netdev_mqs(sizeof(struct mlx5i_priv) + sizeof(struct mlx5e_priv),
-+				  name, NET_NAME_UNKNOWN,
-+				  setup,
-+				  nch * MLX5E_MAX_NUM_TC,
-+				  nch);
-+	if (!netdev) {
-+		mlx5_core_warn(mdev, "alloc_netdev_mqs failed\n");
-+		goto free_mdev_resources;
-+	}
-+
-+	ipriv = netdev_priv(netdev);
-+	epriv = mlx5i_epriv(netdev);
-+
-+	epriv->wq = create_singlethread_workqueue("mlx5i");
-+	if (!epriv->wq)
-+		goto err_free_netdev;
-+
-+	profile->init(mdev, netdev, profile, ipriv);
-+
-+	mlx5e_attach_netdev(epriv);
-+	netif_carrier_off(netdev);
-+
-+	/* TODO: set rdma_netdev func pointers
-+	 * rn = &ipriv->rn;
-+	 * rn->hca  = ibdev;
-+	 * rn->send = mlx5i_xmit;
-+	 * rn->attach_mcast = mlx5i_attach_mcast;
-+	 * rn->detach_mcast = mlx5i_detach_mcast;
-+	 */
-+	return netdev;
-+
-+free_mdev_resources:
-+	mlx5e_destroy_mdev_resources(mdev);
-+err_free_netdev:
-+	free_netdev(netdev);
-+	return NULL;
-+}
-+EXPORT_SYMBOL(mlx5_rdma_netdev_alloc);
-+
-+void mlx5_rdma_netdev_free(struct net_device *netdev)
-+{
-+	struct mlx5e_priv          *priv    = mlx5i_epriv(netdev);
-+	const struct mlx5e_profile *profile = priv->profile;
-+
-+	mlx5e_detach_netdev(priv);
-+	profile->cleanup(priv);
-+	destroy_workqueue(priv->wq);
-+	free_netdev(netdev);
-+
-+	mlx5e_destroy_mdev_resources(priv->mdev);
-+}
-+EXPORT_SYMBOL(mlx5_rdma_netdev_free);
-+
-diff --git a/drivers/infiniband/hw/mlx5/cmd.h b/drivers/net/ethernet/mellanox/mlx5/core/ipoib.h
-similarity index 77%
-copy from drivers/infiniband/hw/mlx5/cmd.h
-copy to drivers/net/ethernet/mellanox/mlx5/core/ipoib.h
-index 7ca8a7b6434d..25b8b8a33e24 100644
---- a/drivers/infiniband/hw/mlx5/cmd.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/ipoib.h
-@@ -30,11 +30,21 @@
-  * SOFTWARE.
-  */
  
--#ifndef MLX5_IB_CMD_H
--#define MLX5_IB_CMD_H
-+#ifndef __MLX5E_IPOB_H__
-+#define __MLX5E_IPOB_H__
+ 	if (!root) {
+ 		pr_err("mlx5: flow steering failed to find root of namespace\n");
+@@ -797,29 +795,31 @@ static struct mlx5_flow_table *__mlx5_create_flow_table(struct mlx5_flow_namespa
+ 	}
  
--#include <linux/kernel.h>
--#include <linux/mlx5/driver.h>
-+#include <linux/mlx5/fs.h>
-+#include "en.h"
+ 	mutex_lock(&root->chain_lock);
+-	fs_prio = find_prio(ns, prio);
++	fs_prio = find_prio(ns, ft_attr->prio);
+ 	if (!fs_prio) {
+ 		err = -EINVAL;
+ 		goto unlock_root;
+ 	}
+-	if (level >= fs_prio->num_levels) {
++	if (ft_attr->level >= fs_prio->num_levels) {
+ 		err = -ENOSPC;
+ 		goto unlock_root;
+ 	}
+ 	/* The level is related to the
+ 	 * priority level range.
+ 	 */
+-	level += fs_prio->start_level;
+-	ft = alloc_flow_table(level,
++	ft_attr->level += fs_prio->start_level;
++	ft = alloc_flow_table(ft_attr->level,
+ 			      vport,
+-			      max_fte ? roundup_pow_of_two(max_fte) : 0,
++			      ft_attr->max_fte ? roundup_pow_of_two(ft_attr->max_fte) : 0,
+ 			      root->table_type,
+-			      op_mod, flags);
++			      op_mod, ft_attr->flags);
+ 	if (!ft) {
+ 		err = -ENOMEM;
+ 		goto unlock_root;
+ 	}
  
--int mlx5_cmd_null_mkey(struct mlx5_core_dev *dev, u32 *null_mkey);
--#endif /* MLX5_IB_CMD_H */
-+#define MLX5I_MAX_NUM_TC 1
++	ft->underlay_qpn = ft_attr->underlay_qpn;
 +
-+/* ipoib rdma netdev's private data structure */
-+struct mlx5i_priv {
-+	struct mlx5_core_qp qp;
-+	char  *mlx5e_priv[0];
+ 	tree_init_node(&ft->node, 1, del_flow_table);
+ 	log_table_sz = ft->max_fte ? ilog2(ft->max_fte) : 0;
+ 	next_ft = find_next_chained_ft(fs_prio);
+@@ -849,44 +849,56 @@ static struct mlx5_flow_table *__mlx5_create_flow_table(struct mlx5_flow_namespa
+ }
+ 
+ struct mlx5_flow_table *mlx5_create_flow_table(struct mlx5_flow_namespace *ns,
+-					       int prio, int max_fte,
+-					       u32 level,
+-					       u32 flags)
++					       struct mlx5_flow_table_attr *ft_attr)
+ {
+-	return __mlx5_create_flow_table(ns, FS_FT_OP_MOD_NORMAL, 0, prio,
+-					max_fte, level, flags);
++	return __mlx5_create_flow_table(ns, ft_attr, FS_FT_OP_MOD_NORMAL, 0);
+ }
+ 
+ struct mlx5_flow_table *mlx5_create_vport_flow_table(struct mlx5_flow_namespace *ns,
+ 						     int prio, int max_fte,
+ 						     u32 level, u16 vport)
+ {
+-	return __mlx5_create_flow_table(ns, FS_FT_OP_MOD_NORMAL, vport, prio,
+-					max_fte, level, 0);
++	struct mlx5_flow_table_attr ft_attr = {};
++
++	ft_attr.max_fte = max_fte;
++	ft_attr.level   = level;
++	ft_attr.prio    = prio;
++
++	return __mlx5_create_flow_table(ns, &ft_attr, FS_FT_OP_MOD_NORMAL, 0);
+ }
+ 
+-struct mlx5_flow_table *mlx5_create_lag_demux_flow_table(
+-					       struct mlx5_flow_namespace *ns,
+-					       int prio, u32 level)
++struct mlx5_flow_table*
++mlx5_create_lag_demux_flow_table(struct mlx5_flow_namespace *ns,
++				 int prio, u32 level)
+ {
+-	return __mlx5_create_flow_table(ns, FS_FT_OP_MOD_LAG_DEMUX, 0, prio, 0,
+-					level, 0);
++	struct mlx5_flow_table_attr ft_attr = {};
++
++	ft_attr.level = level;
++	ft_attr.prio  = prio;
++	return __mlx5_create_flow_table(ns, &ft_attr, FS_FT_OP_MOD_LAG_DEMUX, 0);
+ }
+ EXPORT_SYMBOL(mlx5_create_lag_demux_flow_table);
+ 
+-struct mlx5_flow_table *mlx5_create_auto_grouped_flow_table(struct mlx5_flow_namespace *ns,
+-							    int prio,
+-							    int num_flow_table_entries,
+-							    int max_num_groups,
+-							    u32 level,
+-							    u32 flags)
++struct mlx5_flow_table*
++mlx5_create_auto_grouped_flow_table(struct mlx5_flow_namespace *ns,
++				    int prio,
++				    int num_flow_table_entries,
++				    int max_num_groups,
++				    u32 level,
++				    u32 flags)
+ {
++	struct mlx5_flow_table_attr ft_attr = {};
+ 	struct mlx5_flow_table *ft;
+ 
+ 	if (max_num_groups > num_flow_table_entries)
+ 		return ERR_PTR(-EINVAL);
+ 
+-	ft = mlx5_create_flow_table(ns, prio, num_flow_table_entries, level, flags);
++	ft_attr.max_fte = num_flow_table_entries;
++	ft_attr.prio    = prio;
++	ft_attr.level   = level;
++	ft_attr.flags   = flags;
++
++	ft = mlx5_create_flow_table(ns, &ft_attr);
+ 	if (IS_ERR(ft))
+ 		return ft;
+ 
+@@ -1828,12 +1840,18 @@ static void set_prio_attrs(struct mlx5_flow_root_namespace *root_ns)
+ static int create_anchor_flow_table(struct mlx5_flow_steering *steering)
+ {
+ 	struct mlx5_flow_namespace *ns = NULL;
++	struct mlx5_flow_table_attr ft_attr = {};
+ 	struct mlx5_flow_table *ft;
+ 
+ 	ns = mlx5_get_flow_namespace(steering->dev, MLX5_FLOW_NAMESPACE_ANCHOR);
+ 	if (WARN_ON(!ns))
+ 		return -EINVAL;
+-	ft = mlx5_create_flow_table(ns, ANCHOR_PRIO, ANCHOR_SIZE, ANCHOR_LEVEL, 0);
++
++	ft_attr.max_fte = ANCHOR_SIZE;
++	ft_attr.level   = ANCHOR_LEVEL;
++	ft_attr.prio    = ANCHOR_PRIO;
++
++	ft = mlx5_create_flow_table(ns, &ft_attr);
+ 	if (IS_ERR(ft)) {
+ 		mlx5_core_err(steering->dev, "Failed to create last anchor flow table");
+ 		return PTR_ERR(ft);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h
+index 03af2e7989f3..577d056bf3df 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h
+@@ -118,6 +118,7 @@ struct mlx5_flow_table {
+ 	/* FWD rules that point on this flow table */
+ 	struct list_head		fwd_rules;
+ 	u32				flags;
++	u32				underlay_qpn;
+ };
+ 
+ struct mlx5_fc_cache {
+diff --git a/include/linux/mlx5/fs.h b/include/linux/mlx5/fs.h
+index ae91a4bda1a3..1b166d2e19c5 100644
+--- a/include/linux/mlx5/fs.h
++++ b/include/linux/mlx5/fs.h
+@@ -104,12 +104,18 @@ mlx5_create_auto_grouped_flow_table(struct mlx5_flow_namespace *ns,
+ 				    u32 level,
+ 				    u32 flags);
+ 
++struct mlx5_flow_table_attr {
++	int prio;
++	int max_fte;
++	u32 level;
++	u32 flags;
++	u32 underlay_qpn;
 +};
 +
-+/* Extract mlx5e_priv from IPoIB netdev */
-+#define mlx5i_epriv(netdev) ((void *)(((struct mlx5i_priv *)netdev_priv(netdev))->mlx5e_priv))
+ struct mlx5_flow_table *
+ mlx5_create_flow_table(struct mlx5_flow_namespace *ns,
+-		       int prio,
+-		       int num_flow_table_entries,
+-		       u32 level,
+-		       u32 flags);
++		       struct mlx5_flow_table_attr *ft_attr);
 +
-+#endif /* __MLX5E_IPOB_H__ */
+ struct mlx5_flow_table *
+ mlx5_create_vport_flow_table(struct mlx5_flow_namespace *ns,
+ 			     int prio,
 -- 
 2.11.0
 
