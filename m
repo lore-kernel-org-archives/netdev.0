@@ -1,7 +1,8 @@
 From: Logan Gunthorpe <logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH 03/22] libiscsi: Make use of new the sg_map helper function
-Date: Thu, 13 Apr 2017 16:05:16 -0600
-Message-ID: <1492121135-4437-4-git-send-email-logang@deltatee.com>
+Subject: [PATCH 14/22] scsi: arcmsr, ips,
+ megaraid: Make use of the new sg_map helper function
+Date: Thu, 13 Apr 2017 16:05:27 -0600
+Message-ID: <1492121135-4437-15-git-send-email-logang@deltatee.com>
 References: <1492121135-4437-1-git-send-email-logang@deltatee.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -36,118 +37,103 @@ Errors-To: linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org
 Sender: "Linux-nvdimm" <linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-Convert the kmap and kmap_atomic uses to the sg_map function. We now
-store the flags for the kmap instead of a boolean to indicate
-atomicitiy. We also propogate a possible kmap error down and create
-a new ISCSI_TCP_INTERNAL_ERR error type for this.
+Very straightforward conversion of three scsi drivers
 
 Signed-off-by: Logan Gunthorpe <logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
 ---
- drivers/scsi/cxgbi/libcxgbi.c |  5 +++++
- drivers/scsi/libiscsi_tcp.c   | 32 ++++++++++++++++++++------------
- include/scsi/libiscsi_tcp.h   |  3 ++-
- 3 files changed, 27 insertions(+), 13 deletions(-)
+ drivers/scsi/arcmsr/arcmsr_hba.c | 16 ++++++++++++----
+ drivers/scsi/ips.c               |  8 ++++----
+ drivers/scsi/megaraid.c          |  9 +++++++--
+ 3 files changed, 23 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/scsi/cxgbi/libcxgbi.c b/drivers/scsi/cxgbi/libcxgbi.c
-index bd7d39e..e38d0c1 100644
---- a/drivers/scsi/cxgbi/libcxgbi.c
-+++ b/drivers/scsi/cxgbi/libcxgbi.c
-@@ -1556,6 +1556,11 @@ static inline int read_pdu_skb(struct iscsi_conn *conn,
- 		 */
- 		iscsi_conn_printk(KERN_ERR, conn, "Invalid pdu or skb.");
- 		return -EFAULT;
-+	case ISCSI_TCP_INTERNAL_ERR:
-+		pr_info("skb 0x%p, off %u, %d, TCP_INTERNAL_ERR.\n",
-+			skb, offset, offloaded);
-+		iscsi_conn_printk(KERN_ERR, conn, "Internal error.");
-+		return -EFAULT;
- 	case ISCSI_TCP_SEGMENT_DONE:
- 		log_debug(1 << CXGBI_DBG_PDU_RX,
- 			"skb 0x%p, off %u, %d, TCP_SEG_DONE, rc %d.\n",
-diff --git a/drivers/scsi/libiscsi_tcp.c b/drivers/scsi/libiscsi_tcp.c
-index 63a1d69..a2427699 100644
---- a/drivers/scsi/libiscsi_tcp.c
-+++ b/drivers/scsi/libiscsi_tcp.c
-@@ -133,25 +133,23 @@ static void iscsi_tcp_segment_map(struct iscsi_segment *segment, int recv)
- 	if (page_count(sg_page(sg)) >= 1 && !recv)
- 		return;
+diff --git a/drivers/scsi/arcmsr/arcmsr_hba.c b/drivers/scsi/arcmsr/arcmsr_hba.c
+index af032c4..3cd485c 100644
+--- a/drivers/scsi/arcmsr/arcmsr_hba.c
++++ b/drivers/scsi/arcmsr/arcmsr_hba.c
+@@ -2306,7 +2306,10 @@ static int arcmsr_iop_message_xfer(struct AdapterControlBlock *acb,
  
--	if (recv) {
--		segment->atomic_mapped = true;
--		segment->sg_mapped = kmap_atomic(sg_page(sg));
--	} else {
--		segment->atomic_mapped = false;
--		/* the xmit path can sleep with the page mapped so use kmap */
--		segment->sg_mapped = kmap(sg_page(sg));
-+	/* the xmit path can sleep with the page mapped so don't use atomic */
-+	segment->sg_map_flags = recv ? SG_KMAP_ATOMIC : SG_KMAP;
-+	segment->sg_mapped = sg_map(sg, segment->sg_map_flags);
+ 	use_sg = scsi_sg_count(cmd);
+ 	sg = scsi_sglist(cmd);
+-	buffer = kmap_atomic(sg_page(sg)) + sg->offset;
++	buffer = sg_map(sg, SG_KMAP_ATOMIC);
++	if (IS_ERR(buffer))
++		return ARCMSR_MESSAGE_FAIL;
 +
-+	if (IS_ERR(segment->sg_mapped)) {
-+		segment->sg_mapped = NULL;
-+		return;
+ 	if (use_sg > 1) {
+ 		retvalue = ARCMSR_MESSAGE_FAIL;
+ 		goto message_out;
+@@ -2539,7 +2542,7 @@ static int arcmsr_iop_message_xfer(struct AdapterControlBlock *acb,
+ message_out:
+ 	if (use_sg) {
+ 		struct scatterlist *sg = scsi_sglist(cmd);
+-		kunmap_atomic(buffer - sg->offset);
++		sg_unmap(sg, buffer, SG_KMAP_ATOMIC);
  	}
- 
--	segment->data = segment->sg_mapped + sg->offset + segment->sg_offset;
-+	segment->data = segment->sg_mapped + segment->sg_offset;
+ 	return retvalue;
  }
+@@ -2590,11 +2593,16 @@ static void arcmsr_handle_virtual_command(struct AdapterControlBlock *acb,
+ 		strncpy(&inqdata[32], "R001", 4); /* Product Revision */
  
- void iscsi_tcp_segment_unmap(struct iscsi_segment *segment)
- {
- 	if (segment->sg_mapped) {
--		if (segment->atomic_mapped)
--			kunmap_atomic(segment->sg_mapped);
--		else
--			kunmap(sg_page(segment->sg));
-+		sg_unmap(segment->sg, segment->sg_mapped,
-+			  segment->sg_map_flags);
- 		segment->sg_mapped = NULL;
- 		segment->data = NULL;
- 	}
-@@ -304,6 +302,9 @@ iscsi_tcp_segment_recv(struct iscsi_tcp_conn *tcp_conn,
- 			break;
- 		}
- 
-+		if (segment->data)
-+			return -EFAULT;
-+
- 		copy = min(len - copied, segment->size - segment->copied);
- 		ISCSI_DBG_TCP(tcp_conn->iscsi_conn, "copying %d\n", copy);
- 		memcpy(segment->data + segment->copied, ptr + copied, copy);
-@@ -927,6 +928,13 @@ int iscsi_tcp_recv_skb(struct iscsi_conn *conn, struct sk_buff *skb,
- 			      avail);
- 		rc = iscsi_tcp_segment_recv(tcp_conn, segment, ptr, avail);
- 		BUG_ON(rc == 0);
-+		if (rc < 0) {
-+			ISCSI_DBG_TCP(conn, "memory fault. Consumed %d\n",
-+				      consumed);
-+			*status = ISCSI_TCP_INTERNAL_ERR;
-+			goto skb_done;
+ 		sg = scsi_sglist(cmd);
+-		buffer = kmap_atomic(sg_page(sg)) + sg->offset;
++		buffer = sg_map(sg, SG_KMAP_ATOMIC);
++		if (IS_ERR(buffer)) {
++			cmd->result = (DID_ERROR << 16);
++			cmd->scsi_done(cmd);
++			return;
 +		}
-+
- 		consumed += rc;
  
- 		if (segment->total_copied >= segment->total_size) {
-diff --git a/include/scsi/libiscsi_tcp.h b/include/scsi/libiscsi_tcp.h
-index 30520d5..58c79af 100644
---- a/include/scsi/libiscsi_tcp.h
-+++ b/include/scsi/libiscsi_tcp.h
-@@ -47,7 +47,7 @@ struct iscsi_segment {
- 	struct scatterlist	*sg;
- 	void			*sg_mapped;
- 	unsigned int		sg_offset;
--	bool			atomic_mapped;
-+	int			sg_map_flags;
+ 		memcpy(buffer, inqdata, sizeof(inqdata));
+ 		sg = scsi_sglist(cmd);
+-		kunmap_atomic(buffer - sg->offset);
++		sg_unmap(sg, buffer, SG_KMAP_ATOMIC);
  
- 	iscsi_segment_done_fn_t	*done;
- };
-@@ -92,6 +92,7 @@ enum {
- 	ISCSI_TCP_SKB_DONE,		/* skb is out of data */
- 	ISCSI_TCP_CONN_ERR,		/* iscsi layer has fired a conn err */
- 	ISCSI_TCP_SUSPENDED,		/* conn is suspended */
-+	ISCSI_TCP_INTERNAL_ERR,         /* an internal error occurred */
- };
+ 		cmd->scsi_done(cmd);
+ 	}
+diff --git a/drivers/scsi/ips.c b/drivers/scsi/ips.c
+index 3419e1b..a44291d 100644
+--- a/drivers/scsi/ips.c
++++ b/drivers/scsi/ips.c
+@@ -1506,14 +1506,14 @@ static int ips_is_passthru(struct scsi_cmnd *SC)
+                 /* kmap_atomic() ensures addressability of the user buffer.*/
+                 /* local_irq_save() protects the KM_IRQ0 address slot.     */
+                 local_irq_save(flags);
+-                buffer = kmap_atomic(sg_page(sg)) + sg->offset;
+-                if (buffer && buffer[0] == 'C' && buffer[1] == 'O' &&
++                buffer = sg_map(sg, SG_KMAP_ATOMIC);
++                if (!IS_ERR(buffer) && buffer[0] == 'C' && buffer[1] == 'O' &&
+                     buffer[2] == 'P' && buffer[3] == 'P') {
+-                        kunmap_atomic(buffer - sg->offset);
++                        sg_unmap(sg, buffer, SG_KMAP_ATOMIC);
+                         local_irq_restore(flags);
+                         return 1;
+                 }
+-                kunmap_atomic(buffer - sg->offset);
++                sg_unmap(sg, buffer, SG_KMAP_ATOMIC);
+                 local_irq_restore(flags);
+ 	}
+ 	return 0;
+diff --git a/drivers/scsi/megaraid.c b/drivers/scsi/megaraid.c
+index 3c63c29..0b66e50 100644
+--- a/drivers/scsi/megaraid.c
++++ b/drivers/scsi/megaraid.c
+@@ -663,10 +663,15 @@ mega_build_cmd(adapter_t *adapter, Scsi_Cmnd *cmd, int *busy)
+ 			struct scatterlist *sg;
  
- extern void iscsi_tcp_hdr_recv_prep(struct iscsi_tcp_conn *tcp_conn);
+ 			sg = scsi_sglist(cmd);
+-			buf = kmap_atomic(sg_page(sg)) + sg->offset;
++			buf = sg_map(sg, SG_KMAP_ATOMIC);
++			if (IS_ERR(buf)) {
++                                cmd->result = (DID_ERROR << 16);
++				cmd->scsi_done(cmd);
++				return NULL;
++			}
+ 
+ 			memset(buf, 0, cmd->cmnd[4]);
+-			kunmap_atomic(buf - sg->offset);
++			sg_unmap(sg, buf, SG_KMAP_ATOMIC);
+ 
+ 			cmd->result = (DID_OK << 16);
+ 			cmd->scsi_done(cmd);
 -- 
 2.1.4
