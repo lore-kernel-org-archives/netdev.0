@@ -1,8 +1,7 @@
 From: Logan Gunthorpe <logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH 15/22] scsi: libfc,
- csiostor: Change to sg_copy_buffer in two drivers
-Date: Thu, 13 Apr 2017 16:05:28 -0600
-Message-ID: <1492121135-4437-16-git-send-email-logang@deltatee.com>
+Subject: [PATCH 05/22] drm/i915: Make use of the new sg_map helper function
+Date: Thu, 13 Apr 2017 16:05:18 -0600
+Message-ID: <1492121135-4437-6-git-send-email-logang@deltatee.com>
 References: <1492121135-4437-1-git-send-email-logang@deltatee.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -37,146 +36,71 @@ Errors-To: linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org
 Sender: "Linux-nvdimm" <linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-These two drivers appear to duplicate the functionality of
-sg_copy_buffer. So we clean them up to use the common code.
-
-This helps us remove a couple of instances that would otherwise be
-slightly tricky sg_map usages.
+This is a single straightforward conversion from kmap to sg_map.
 
 Signed-off-by: Logan Gunthorpe <logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
 ---
- drivers/scsi/csiostor/csio_scsi.c | 54 +++------------------------------------
- drivers/scsi/libfc/fc_libfc.c     | 49 ++++++++---------------------------
- 2 files changed, 14 insertions(+), 89 deletions(-)
+ drivers/gpu/drm/i915/i915_gem.c | 27 ++++++++++++++++-----------
+ 1 file changed, 16 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/scsi/csiostor/csio_scsi.c b/drivers/scsi/csiostor/csio_scsi.c
-index a1ff75f..bd9d062 100644
---- a/drivers/scsi/csiostor/csio_scsi.c
-+++ b/drivers/scsi/csiostor/csio_scsi.c
-@@ -1489,60 +1489,14 @@ static inline uint32_t
- csio_scsi_copy_to_sgl(struct csio_hw *hw, struct csio_ioreq *req)
- {
- 	struct scsi_cmnd *scmnd  = (struct scsi_cmnd *)csio_scsi_cmnd(req);
--	struct scatterlist *sg;
--	uint32_t bytes_left;
--	uint32_t bytes_copy;
--	uint32_t buf_off = 0;
--	uint32_t start_off = 0;
--	uint32_t sg_off = 0;
--	void *sg_addr;
--	void *buf_addr;
- 	struct csio_dma_buf *dma_buf;
-+	size_t copied;
- 
--	bytes_left = scsi_bufflen(scmnd);
--	sg = scsi_sglist(scmnd);
- 	dma_buf = (struct csio_dma_buf *)csio_list_next(&req->gen_list);
-+	copied = sg_copy_from_buffer(scsi_sglist(scmnd), scsi_sg_count(scmnd),
-+				     dma_buf->vaddr, scsi_bufflen(scmnd));
- 
--	/* Copy data from driver buffer to SGs of SCSI CMD */
--	while (bytes_left > 0 && sg && dma_buf) {
--		if (buf_off >= dma_buf->len) {
--			buf_off = 0;
--			dma_buf = (struct csio_dma_buf *)
--					csio_list_next(dma_buf);
--			continue;
--		}
--
--		if (start_off >= sg->length) {
--			start_off -= sg->length;
--			sg = sg_next(sg);
--			continue;
--		}
--
--		buf_addr = dma_buf->vaddr + buf_off;
--		sg_off = sg->offset + start_off;
--		bytes_copy = min((dma_buf->len - buf_off),
--				sg->length - start_off);
--		bytes_copy = min((uint32_t)(PAGE_SIZE - (sg_off & ~PAGE_MASK)),
--				 bytes_copy);
--
--		sg_addr = kmap_atomic(sg_page(sg) + (sg_off >> PAGE_SHIFT));
--		if (!sg_addr) {
--			csio_err(hw, "failed to kmap sg:%p of ioreq:%p\n",
--				sg, req);
--			break;
--		}
--
--		csio_dbg(hw, "copy_to_sgl:sg_addr %p sg_off %d buf %p len %d\n",
--				sg_addr, sg_off, buf_addr, bytes_copy);
--		memcpy(sg_addr + (sg_off & ~PAGE_MASK), buf_addr, bytes_copy);
--		kunmap_atomic(sg_addr);
--
--		start_off +=  bytes_copy;
--		buf_off += bytes_copy;
--		bytes_left -= bytes_copy;
--	}
--
--	if (bytes_left > 0)
-+	if (copied != scsi_bufflen(scmnd))
- 		return DID_ERROR;
- 	else
- 		return DID_OK;
-diff --git a/drivers/scsi/libfc/fc_libfc.c b/drivers/scsi/libfc/fc_libfc.c
-index d623d08..ce0805a 100644
---- a/drivers/scsi/libfc/fc_libfc.c
-+++ b/drivers/scsi/libfc/fc_libfc.c
-@@ -113,45 +113,16 @@ u32 fc_copy_buffer_to_sglist(void *buf, size_t len,
- 			     u32 *nents, size_t *offset,
- 			     u32 *crc)
- {
--	size_t remaining = len;
--	u32 copy_len = 0;
--
--	while (remaining > 0 && sg) {
--		size_t off, sg_bytes;
--		void *page_addr;
--
--		if (*offset >= sg->length) {
--			/*
--			 * Check for end and drop resources
--			 * from the last iteration.
--			 */
--			if (!(*nents))
--				break;
--			--(*nents);
--			*offset -= sg->length;
--			sg = sg_next(sg);
--			continue;
--		}
--		sg_bytes = min(remaining, sg->length - *offset);
--
--		/*
--		 * The scatterlist item may be bigger than PAGE_SIZE,
--		 * but we are limited to mapping PAGE_SIZE at a time.
--		 */
--		off = *offset + sg->offset;
--		sg_bytes = min(sg_bytes,
--			       (size_t)(PAGE_SIZE - (off & ~PAGE_MASK)));
--		page_addr = kmap_atomic(sg_page(sg) + (off >> PAGE_SHIFT));
--		if (crc)
--			*crc = crc32(*crc, buf, sg_bytes);
--		memcpy((char *)page_addr + (off & ~PAGE_MASK), buf, sg_bytes);
--		kunmap_atomic(page_addr);
--		buf += sg_bytes;
--		*offset += sg_bytes;
--		remaining -= sg_bytes;
--		copy_len += sg_bytes;
--	}
--	return copy_len;
-+	size_t copied;
-+
-+	copied = sg_pcopy_from_buffer(sg, sg_nents(sg),
-+				      buf, len, *offset);
-+
-+	*offset += copied;
-+	if (crc)
-+		*crc = crc32(*crc, buf, copied);
-+
-+	return copied;
+diff --git a/drivers/gpu/drm/i915/i915_gem.c b/drivers/gpu/drm/i915/i915_gem.c
+index 67b1fc5..1b1b91a 100644
+--- a/drivers/gpu/drm/i915/i915_gem.c
++++ b/drivers/gpu/drm/i915/i915_gem.c
+@@ -2188,6 +2188,15 @@ static void __i915_gem_object_reset_page_iter(struct drm_i915_gem_object *obj)
+ 		radix_tree_delete(&obj->mm.get_page.radix, iter.index);
  }
  
- /**
++static void i915_gem_object_unmap(const struct drm_i915_gem_object *obj,
++				  void *ptr)
++{
++	if (is_vmalloc_addr(ptr))
++		vunmap(ptr);
++	else
++		sg_unmap(obj->mm.pages->sgl, ptr, SG_KMAP);
++}
++
+ void __i915_gem_object_put_pages(struct drm_i915_gem_object *obj,
+ 				 enum i915_mm_subclass subclass)
+ {
+@@ -2215,10 +2224,7 @@ void __i915_gem_object_put_pages(struct drm_i915_gem_object *obj,
+ 		void *ptr;
+ 
+ 		ptr = ptr_mask_bits(obj->mm.mapping);
+-		if (is_vmalloc_addr(ptr))
+-			vunmap(ptr);
+-		else
+-			kunmap(kmap_to_page(ptr));
++		i915_gem_object_unmap(obj, ptr);
+ 
+ 		obj->mm.mapping = NULL;
+ 	}
+@@ -2475,8 +2481,11 @@ static void *i915_gem_object_map(const struct drm_i915_gem_object *obj,
+ 	void *addr;
+ 
+ 	/* A single page can always be kmapped */
+-	if (n_pages == 1 && type == I915_MAP_WB)
+-		return kmap(sg_page(sgt->sgl));
++	if (n_pages == 1 && type == I915_MAP_WB) {
++		addr = sg_map(sgt->sgl, SG_KMAP);
++		if (IS_ERR(addr))
++			return NULL;
++	}
+ 
+ 	if (n_pages > ARRAY_SIZE(stack_pages)) {
+ 		/* Too big for stack -- allocate temporary array instead */
+@@ -2543,11 +2552,7 @@ void *i915_gem_object_pin_map(struct drm_i915_gem_object *obj,
+ 			goto err_unpin;
+ 		}
+ 
+-		if (is_vmalloc_addr(ptr))
+-			vunmap(ptr);
+-		else
+-			kunmap(kmap_to_page(ptr));
+-
++		i915_gem_object_unmap(obj, ptr);
+ 		ptr = obj->mm.mapping = NULL;
+ 	}
+ 
 -- 
 2.1.4
