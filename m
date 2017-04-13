@@ -1,7 +1,7 @@
 From: Christoph Hellwig <hch@lst.de>
-Subject: [PATCH 4/7] ixgbe: use pcie_flr instead of duplicating it
-Date: Thu, 13 Apr 2017 16:53:36 +0200
-Message-ID: <20170413145339.20186-5-hch@lst.de>
+Subject: [PATCH 3/7] PCI: call pcie_flr from reset_chelsio_generic_dev
+Date: Thu, 13 Apr 2017 16:53:35 +0200
+Message-ID: <20170413145339.20186-4-hch@lst.de>
 References: <20170413145339.20186-1-hch@lst.de>
 Cc: linux-pci@vger.kernel.org, qat-linux@intel.com,
         linux-crypto@vger.kernel.org, linux-rdma@vger.kernel.org,
@@ -21,51 +21,38 @@ In-Reply-To: <20170413145339.20186-1-hch@lst.de>
 Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Instead of copy & pasting and old version of the code.
+
 Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 16 ++--------------
- 1 file changed, 2 insertions(+), 14 deletions(-)
+ drivers/pci/quirks.c | 15 +--------------
+ 1 file changed, 1 insertion(+), 14 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index a7a430a7be2c..543ddde5f8e2 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -7112,18 +7112,6 @@ static void ixgbe_watchdog_flush_tx(struct ixgbe_adapter *adapter)
- }
+diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
+index b1775354cc69..b54c0d986f2a 100644
+--- a/drivers/pci/quirks.c
++++ b/drivers/pci/quirks.c
+@@ -3751,20 +3751,7 @@ static int reset_chelsio_generic_dev(struct pci_dev *dev, int probe)
+ 				      PCI_MSIX_FLAGS_ENABLE |
+ 				      PCI_MSIX_FLAGS_MASKALL);
  
- #ifdef CONFIG_PCI_IOV
--static inline void ixgbe_issue_vf_flr(struct ixgbe_adapter *adapter,
--				      struct pci_dev *vfdev)
--{
--	if (!pci_wait_for_pending_transaction(vfdev))
--		e_dev_warn("Issuing VFLR with pending transactions\n");
+-	/*
+-	 * Start of pcie_flr() code sequence.  This reset code is a copy of
+-	 * the guts of pcie_flr() because that's not an exported function.
+-	 */
 -
--	e_dev_err("Issuing VFLR for VF %s\n", pci_name(vfdev));
--	pcie_capability_set_word(vfdev, PCI_EXP_DEVCTL, PCI_EXP_DEVCTL_BCR_FLR);
+-	if (!pci_wait_for_pending_transaction(dev))
+-		dev_err(&dev->dev, "transaction is not cleared; proceeding with reset anyway\n");
 -
+-	pcie_capability_set_word(dev, PCI_EXP_DEVCTL, PCI_EXP_DEVCTL_BCR_FLR);
 -	msleep(100);
--}
 -
- static void ixgbe_check_for_bad_vf(struct ixgbe_adapter *adapter)
- {
- 	struct ixgbe_hw *hw = &adapter->hw;
-@@ -7156,7 +7144,7 @@ static void ixgbe_check_for_bad_vf(struct ixgbe_adapter *adapter)
- 		pci_read_config_word(vfdev, PCI_STATUS, &status_reg);
- 		if (status_reg != IXGBE_FAILED_READ_CFG_WORD &&
- 		    status_reg & PCI_STATUS_REC_MASTER_ABORT)
--			ixgbe_issue_vf_flr(adapter, vfdev);
-+			pcie_flr(vfdev);
- 	}
- }
+-	/*
+-	 * End of pcie_flr() code sequence.
+-	 */
++	pcie_flr(dev);
  
-@@ -10244,7 +10232,7 @@ static pci_ers_result_t ixgbe_io_error_detected(struct pci_dev *pdev,
- 		 * VFLR.  Just clean up the AER in that case.
- 		 */
- 		if (vfdev) {
--			ixgbe_issue_vf_flr(adapter, vfdev);
-+			pcie_flr(vfdev);
- 			/* Free device reference count */
- 			pci_dev_put(vfdev);
- 		}
+ 	/*
+ 	 * Restore the configuration information (BAR values, etc.) including
 -- 
 2.11.0
