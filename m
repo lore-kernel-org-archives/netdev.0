@@ -1,8 +1,7 @@
 From: Logan Gunthorpe <logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH 07/22] crypto: shash,
- caam: Make use of the new sg_map helper function
-Date: Thu, 13 Apr 2017 16:05:20 -0600
-Message-ID: <1492121135-4437-8-git-send-email-logang@deltatee.com>
+Subject: [PATCH 03/22] libiscsi: Make use of new the sg_map helper function
+Date: Thu, 13 Apr 2017 16:05:16 -0600
+Message-ID: <1492121135-4437-4-git-send-email-logang@deltatee.com>
 References: <1492121135-4437-1-git-send-email-logang@deltatee.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -37,70 +36,118 @@ Errors-To: linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org
 Sender: "Linux-nvdimm" <linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-Very straightforward conversion to the new function in two crypto
-drivers.
+Convert the kmap and kmap_atomic uses to the sg_map function. We now
+store the flags for the kmap instead of a boolean to indicate
+atomicitiy. We also propogate a possible kmap error down and create
+a new ISCSI_TCP_INTERNAL_ERR error type for this.
 
 Signed-off-by: Logan Gunthorpe <logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
 ---
- crypto/shash.c                | 9 ++++++---
- drivers/crypto/caam/caamalg.c | 8 +++-----
- 2 files changed, 9 insertions(+), 8 deletions(-)
+ drivers/scsi/cxgbi/libcxgbi.c |  5 +++++
+ drivers/scsi/libiscsi_tcp.c   | 32 ++++++++++++++++++++------------
+ include/scsi/libiscsi_tcp.h   |  3 ++-
+ 3 files changed, 27 insertions(+), 13 deletions(-)
 
-diff --git a/crypto/shash.c b/crypto/shash.c
-index 5e31c8d..2b7de94 100644
---- a/crypto/shash.c
-+++ b/crypto/shash.c
-@@ -283,10 +283,13 @@ int shash_ahash_digest(struct ahash_request *req, struct shash_desc *desc)
- 	if (nbytes < min(sg->length, ((unsigned int)(PAGE_SIZE)) - offset)) {
- 		void *data;
- 
--		data = kmap_atomic(sg_page(sg));
--		err = crypto_shash_digest(desc, data + offset, nbytes,
-+		data = sg_map(sg, SG_KMAP_ATOMIC);
-+		if (IS_ERR(data))
-+			return PTR_ERR(data);
-+
-+		err = crypto_shash_digest(desc, data, nbytes,
- 					  req->result);
--		kunmap_atomic(data);
-+		sg_unmap(sg, data, SG_KMAP_ATOMIC);
- 		crypto_yield(desc->flags);
- 	} else
- 		err = crypto_shash_init(desc) ?:
-diff --git a/drivers/crypto/caam/caamalg.c b/drivers/crypto/caam/caamalg.c
-index 9bc80eb..76b97de 100644
---- a/drivers/crypto/caam/caamalg.c
-+++ b/drivers/crypto/caam/caamalg.c
-@@ -89,7 +89,6 @@ static void dbg_dump_sg(const char *level, const char *prefix_str,
- 			struct scatterlist *sg, size_t tlen, bool ascii)
- {
- 	struct scatterlist *it;
--	void *it_page;
- 	size_t len;
- 	void *buf;
- 
-@@ -98,19 +97,18 @@ static void dbg_dump_sg(const char *level, const char *prefix_str,
- 		 * make sure the scatterlist's page
- 		 * has a valid virtual memory mapping
+diff --git a/drivers/scsi/cxgbi/libcxgbi.c b/drivers/scsi/cxgbi/libcxgbi.c
+index bd7d39e..e38d0c1 100644
+--- a/drivers/scsi/cxgbi/libcxgbi.c
++++ b/drivers/scsi/cxgbi/libcxgbi.c
+@@ -1556,6 +1556,11 @@ static inline int read_pdu_skb(struct iscsi_conn *conn,
  		 */
--		it_page = kmap_atomic(sg_page(it));
--		if (unlikely(!it_page)) {
-+		buf = sg_map(it, SG_KMAP_ATOMIC);
-+		if (IS_ERR(buf)) {
- 			printk(KERN_ERR "dbg_dump_sg: kmap failed\n");
- 			return;
+ 		iscsi_conn_printk(KERN_ERR, conn, "Invalid pdu or skb.");
+ 		return -EFAULT;
++	case ISCSI_TCP_INTERNAL_ERR:
++		pr_info("skb 0x%p, off %u, %d, TCP_INTERNAL_ERR.\n",
++			skb, offset, offloaded);
++		iscsi_conn_printk(KERN_ERR, conn, "Internal error.");
++		return -EFAULT;
+ 	case ISCSI_TCP_SEGMENT_DONE:
+ 		log_debug(1 << CXGBI_DBG_PDU_RX,
+ 			"skb 0x%p, off %u, %d, TCP_SEG_DONE, rc %d.\n",
+diff --git a/drivers/scsi/libiscsi_tcp.c b/drivers/scsi/libiscsi_tcp.c
+index 63a1d69..a2427699 100644
+--- a/drivers/scsi/libiscsi_tcp.c
++++ b/drivers/scsi/libiscsi_tcp.c
+@@ -133,25 +133,23 @@ static void iscsi_tcp_segment_map(struct iscsi_segment *segment, int recv)
+ 	if (page_count(sg_page(sg)) >= 1 && !recv)
+ 		return;
+ 
+-	if (recv) {
+-		segment->atomic_mapped = true;
+-		segment->sg_mapped = kmap_atomic(sg_page(sg));
+-	} else {
+-		segment->atomic_mapped = false;
+-		/* the xmit path can sleep with the page mapped so use kmap */
+-		segment->sg_mapped = kmap(sg_page(sg));
++	/* the xmit path can sleep with the page mapped so don't use atomic */
++	segment->sg_map_flags = recv ? SG_KMAP_ATOMIC : SG_KMAP;
++	segment->sg_mapped = sg_map(sg, segment->sg_map_flags);
++
++	if (IS_ERR(segment->sg_mapped)) {
++		segment->sg_mapped = NULL;
++		return;
+ 	}
+ 
+-	segment->data = segment->sg_mapped + sg->offset + segment->sg_offset;
++	segment->data = segment->sg_mapped + segment->sg_offset;
+ }
+ 
+ void iscsi_tcp_segment_unmap(struct iscsi_segment *segment)
+ {
+ 	if (segment->sg_mapped) {
+-		if (segment->atomic_mapped)
+-			kunmap_atomic(segment->sg_mapped);
+-		else
+-			kunmap(sg_page(segment->sg));
++		sg_unmap(segment->sg, segment->sg_mapped,
++			  segment->sg_map_flags);
+ 		segment->sg_mapped = NULL;
+ 		segment->data = NULL;
+ 	}
+@@ -304,6 +302,9 @@ iscsi_tcp_segment_recv(struct iscsi_tcp_conn *tcp_conn,
+ 			break;
  		}
  
--		buf = it_page + it->offset;
- 		len = min_t(size_t, tlen, it->length);
- 		print_hex_dump(level, prefix_str, prefix_type, rowsize,
- 			       groupsize, buf, len, ascii);
- 		tlen -= len;
++		if (segment->data)
++			return -EFAULT;
++
+ 		copy = min(len - copied, segment->size - segment->copied);
+ 		ISCSI_DBG_TCP(tcp_conn->iscsi_conn, "copying %d\n", copy);
+ 		memcpy(segment->data + segment->copied, ptr + copied, copy);
+@@ -927,6 +928,13 @@ int iscsi_tcp_recv_skb(struct iscsi_conn *conn, struct sk_buff *skb,
+ 			      avail);
+ 		rc = iscsi_tcp_segment_recv(tcp_conn, segment, ptr, avail);
+ 		BUG_ON(rc == 0);
++		if (rc < 0) {
++			ISCSI_DBG_TCP(conn, "memory fault. Consumed %d\n",
++				      consumed);
++			*status = ISCSI_TCP_INTERNAL_ERR;
++			goto skb_done;
++		}
++
+ 		consumed += rc;
  
--		kunmap_atomic(it_page);
-+		sg_unmap(it, buf, SG_KMAP_ATOMIC);
- 	}
- }
- #endif
+ 		if (segment->total_copied >= segment->total_size) {
+diff --git a/include/scsi/libiscsi_tcp.h b/include/scsi/libiscsi_tcp.h
+index 30520d5..58c79af 100644
+--- a/include/scsi/libiscsi_tcp.h
++++ b/include/scsi/libiscsi_tcp.h
+@@ -47,7 +47,7 @@ struct iscsi_segment {
+ 	struct scatterlist	*sg;
+ 	void			*sg_mapped;
+ 	unsigned int		sg_offset;
+-	bool			atomic_mapped;
++	int			sg_map_flags;
+ 
+ 	iscsi_segment_done_fn_t	*done;
+ };
+@@ -92,6 +92,7 @@ enum {
+ 	ISCSI_TCP_SKB_DONE,		/* skb is out of data */
+ 	ISCSI_TCP_CONN_ERR,		/* iscsi layer has fired a conn err */
+ 	ISCSI_TCP_SUSPENDED,		/* conn is suspended */
++	ISCSI_TCP_INTERNAL_ERR,         /* an internal error occurred */
+ };
+ 
+ extern void iscsi_tcp_hdr_recv_prep(struct iscsi_tcp_conn *tcp_conn);
 -- 
 2.1.4
