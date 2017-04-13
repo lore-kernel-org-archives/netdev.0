@@ -1,180 +1,81 @@
-From: Stefan Hajnoczi <stefanha@redhat.com>
-Subject: [PATCH v4 3/3] VSOCK: Add virtio vsock vsockmon hooks
-Date: Thu, 13 Apr 2017 17:18:11 +0100
-Message-ID: <20170413161811.8953-4-stefanha@redhat.com>
-References: <20170413161811.8953-1-stefanha@redhat.com>
-Cc: Zhu Yanjun <zyjzyj2000@gmail.com>,
-        "Michael S. Tsirkin" <mst@redhat.com>,
-        Gerard Garcia <ggarcia@abra.uab.cat>,
-        Jorgen Hansen <jhansen@vmware.com>,
-        Stefan Hajnoczi <stefanha@redhat.com>
-To: netdev@vger.kernel.org
+From: Murali Karicheri <m-karicheri2@ti.com>
+Subject: Re: IGMP on IPv6
+Date: Thu, 13 Apr 2017 12:36:35 -0400
+Message-ID: <58EFA913.5060604@ti.com>
+References: <1479111388-25383-1-git-send-email-liuhangbin@gmail.com>
+ <58D29265.1020604@ti.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+To: Hangbin Liu <liuhangbin@gmail.com>,
+        "open list:TI NETCP ETHERNET DRIVER" <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44564 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751573AbdDMQSq (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 13 Apr 2017 12:18:46 -0400
-In-Reply-To: <20170413161811.8953-1-stefanha@redhat.com>
+Received: from lelnx193.ext.ti.com ([198.47.27.77]:54666 "EHLO
+        lelnx193.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750730AbdDMQgZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 13 Apr 2017 12:36:25 -0400
+In-Reply-To: <58D29265.1020604@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gerard Garcia <ggarcia@deic.uab.cat>
+On 03/22/2017 11:04 AM, Murali Karicheri wrote:
+> Hi Liu,
+> 
+> I saw that you have sent patches to the list for IGMP and have a question on IGMP on IPv6.
+> Hope you can clarify. I have posted the question already to the list and is reproduced
+> below. Let me know if you have an answer.
+> 
+> ========= See email with subject "IPv6 IGMP issue in v4.4.44 ?? ========================
+> Cut-n-paste from that email....
+> 
+> I see an issue with IGMP for IPv6 when I test HSR redundancy network
+> interface. As soon as I set up an HSR interface, I see some IGMP messages
+> (destination mac address: 33 33 00 00 00 02 going over HSR interface to
+> slave interfaces, at the egress where as for IPv6, I see similar messages
+> going directly over the Ethernet interfaces that are attached to
+> HSR master. It appears that the NETDEV_CHANGEUPPER is not handled properly
+> and the mcast snoop sends the packets over the old interfaces at timer
+> expiry. 
+> 
+> A dump of the message at the slave Ethernet interface looks like below.
+> 
+> IPv4
+> 
+> [   64.643842] 33 33 00 00 00 02 70 ff 76 1c 0f 8d 89 2f 10 3e fc 
+> [   64.649910] 18 86 dd 60 00 00 00 00 10 3a ff fe 80 00 00 00 
+> [   64.655705] 00 00 00 72 ff 76 ff fe 1c 0f 8d ff 02 00 00 00 
+> [   64.661503] 00 00 00 00 00 00 00 00 00 00 02 85 00 8d dc 
+> 
+> 
+> You can see this is tagged with HSR.
+> 
+> IPv6
+> 
+> [   65.559130] 33 33 00 00 00 02 70 ff 76 1c 0f 8d 86 dd 60 00 00 
+> [   65.565205] 00 00 10 3a ff fe 80 00 00 00 00 00 00 72 ff 76 
+> [   65.571011] ff fe 1c 0f 8d ff 02 00 00 00 00 00 00 00 00 00 
+> [   65.576806] 00 00 00 00 02 85 00 8d dc 00 00 00 00 01 01 
+> 
+> This is going directly to the slave Ethernet interface.
+> 
+> When I put a WARN_ONCE, I found this is coming directly from 
+> mld_ifc_timer_expire() -> mld_sendpack() -> ip6_output()
+> 
+> Do you think this is fixed in latest kernel at master? If so, could
+> you point me to some commits.
+> 
+> 
+Ping... I see this behavior is also seen on v4.9.x Kernel. Any clue if 
+this is fixed by some commit or I need to debug? I see IGMPv6 has some 
+fixes on the list to make it similar to IGMPv4. So can someone clarify this is
+is a bug at IGMPv6 code or I need to look into the HSR driver code?
+Since IGMPv4 is going over the HSR interface I am assuming this is a
+bug in the IGMPv6 code. But since I have not experience with this code
+can some expert comment please?
 
-The virtio drivers deal with struct virtio_vsock_pkt.  Add
-virtio_transport_deliver_tap_pkt(pkt) for handing packets to the
-vsockmon device.
+Murali
 
-We call virtio_transport_deliver_tap_pkt(pkt) from
-net/vmw_vsock/virtio_transport.c and drivers/vhost/vsock.c instead of
-common code.  This is because the drivers may drop packets before
-handing them to common code - we still want to capture them.
-
-Signed-off-by: Gerard Garcia <ggarcia@deic.uab.cat>
-Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
----
-v3:
- * Hook virtio_transport.c (guest driver), not just
-   drivers/vhost/vsock.c (host driver)
----
- include/linux/virtio_vsock.h            |  1 +
- drivers/vhost/vsock.c                   |  8 +++++
- net/vmw_vsock/virtio_transport.c        |  3 ++
- net/vmw_vsock/virtio_transport_common.c | 58 +++++++++++++++++++++++++++++++++
- 4 files changed, 70 insertions(+)
-
-diff --git a/include/linux/virtio_vsock.h b/include/linux/virtio_vsock.h
-index 584f9a6..ab13f07 100644
---- a/include/linux/virtio_vsock.h
-+++ b/include/linux/virtio_vsock.h
-@@ -153,5 +153,6 @@ void virtio_transport_free_pkt(struct virtio_vsock_pkt *pkt);
- void virtio_transport_inc_tx_pkt(struct virtio_vsock_sock *vvs, struct virtio_vsock_pkt *pkt);
- u32 virtio_transport_get_credit(struct virtio_vsock_sock *vvs, u32 wanted);
- void virtio_transport_put_credit(struct virtio_vsock_sock *vvs, u32 credit);
-+void virtio_transport_deliver_tap_pkt(struct virtio_vsock_pkt *pkt);
- 
- #endif /* _LINUX_VIRTIO_VSOCK_H */
-diff --git a/drivers/vhost/vsock.c b/drivers/vhost/vsock.c
-index 44eed8e..d939ac1 100644
---- a/drivers/vhost/vsock.c
-+++ b/drivers/vhost/vsock.c
-@@ -176,6 +176,11 @@ vhost_transport_do_send_pkt(struct vhost_vsock *vsock,
- 				restart_tx = true;
- 		}
- 
-+		/* Deliver to monitoring devices all correctly transmitted
-+		 * packets.
-+		 */
-+		virtio_transport_deliver_tap_pkt(pkt);
-+
- 		virtio_transport_free_pkt(pkt);
- 	}
- 	if (added)
-@@ -383,6 +388,9 @@ static void vhost_vsock_handle_tx_kick(struct vhost_work *work)
- 
- 		len = pkt->len;
- 
-+		/* Deliver to monitoring devices all received packets */
-+		virtio_transport_deliver_tap_pkt(pkt);
-+
- 		/* Only accept correctly addressed packets */
- 		if (le64_to_cpu(pkt->hdr.src_cid) == vsock->guest_cid)
- 			virtio_transport_recv_pkt(pkt);
-diff --git a/net/vmw_vsock/virtio_transport.c b/net/vmw_vsock/virtio_transport.c
-index 68675a1..9dffe02 100644
---- a/net/vmw_vsock/virtio_transport.c
-+++ b/net/vmw_vsock/virtio_transport.c
-@@ -144,6 +144,8 @@ virtio_transport_send_pkt_work(struct work_struct *work)
- 		list_del_init(&pkt->list);
- 		spin_unlock_bh(&vsock->send_pkt_list_lock);
- 
-+		virtio_transport_deliver_tap_pkt(pkt);
-+
- 		reply = pkt->reply;
- 
- 		sg_init_one(&hdr, &pkt->hdr, sizeof(pkt->hdr));
-@@ -370,6 +372,7 @@ static void virtio_transport_rx_work(struct work_struct *work)
- 			}
- 
- 			pkt->len = len - sizeof(pkt->hdr);
-+			virtio_transport_deliver_tap_pkt(pkt);
- 			virtio_transport_recv_pkt(pkt);
- 		}
- 	} while (!virtqueue_enable_cb(vq));
-diff --git a/net/vmw_vsock/virtio_transport_common.c b/net/vmw_vsock/virtio_transport_common.c
-index af087b4..aae60c1 100644
---- a/net/vmw_vsock/virtio_transport_common.c
-+++ b/net/vmw_vsock/virtio_transport_common.c
-@@ -16,6 +16,7 @@
- #include <linux/virtio_ids.h>
- #include <linux/virtio_config.h>
- #include <linux/virtio_vsock.h>
-+#include <uapi/linux/vsockmon.h>
- 
- #include <net/sock.h>
- #include <net/af_vsock.h>
-@@ -85,6 +86,63 @@ virtio_transport_alloc_pkt(struct virtio_vsock_pkt_info *info,
- 	return NULL;
- }
- 
-+/* Packet capture */
-+void virtio_transport_deliver_tap_pkt(struct virtio_vsock_pkt *pkt)
-+{
-+	struct sk_buff *skb;
-+	struct af_vsockmon_hdr *hdr;
-+	unsigned char *t_hdr, *payload;
-+
-+	skb = alloc_skb(sizeof(*hdr) + sizeof(pkt->hdr) + pkt->len,
-+			GFP_ATOMIC);
-+	if (!skb)
-+		return; /* nevermind if we cannot capture the packet */
-+
-+	hdr = (struct af_vsockmon_hdr *)skb_put(skb, sizeof(*hdr));
-+
-+	/* pkt->hdr is little-endian so no need to byteswap here */
-+	hdr->src_cid = pkt->hdr.src_cid;
-+	hdr->src_port = pkt->hdr.src_port;
-+	hdr->dst_cid = pkt->hdr.dst_cid;
-+	hdr->dst_port = pkt->hdr.dst_port;
-+
-+	hdr->transport = cpu_to_le16(AF_VSOCK_TRANSPORT_VIRTIO);
-+	hdr->len = cpu_to_le16(sizeof(pkt->hdr));
-+	hdr->reserved[0] = hdr->reserved[1] = 0;
-+
-+	switch(cpu_to_le16(pkt->hdr.op)) {
-+	case VIRTIO_VSOCK_OP_REQUEST:
-+	case VIRTIO_VSOCK_OP_RESPONSE:
-+		hdr->op = cpu_to_le16(AF_VSOCK_OP_CONNECT);
-+		break;
-+	case VIRTIO_VSOCK_OP_RST:
-+	case VIRTIO_VSOCK_OP_SHUTDOWN:
-+		hdr->op = cpu_to_le16(AF_VSOCK_OP_DISCONNECT);
-+		break;
-+	case VIRTIO_VSOCK_OP_RW:
-+		hdr->op = cpu_to_le16(AF_VSOCK_OP_PAYLOAD);
-+		break;
-+	case VIRTIO_VSOCK_OP_CREDIT_UPDATE:
-+	case VIRTIO_VSOCK_OP_CREDIT_REQUEST:
-+		hdr->op = cpu_to_le16(AF_VSOCK_OP_CONTROL);
-+		break;
-+	default:
-+		hdr->op = cpu_to_le16(AF_VSOCK_OP_UNKNOWN);
-+		break;
-+	}
-+
-+	t_hdr = skb_put(skb, sizeof(pkt->hdr));
-+	memcpy(t_hdr, &pkt->hdr, sizeof(pkt->hdr));
-+
-+	if (pkt->len) {
-+		payload = skb_put(skb, pkt->len);
-+		memcpy(payload, pkt->buf, pkt->len);
-+	}
-+
-+	vsock_deliver_tap(skb);
-+}
-+EXPORT_SYMBOL_GPL(virtio_transport_deliver_tap_pkt);
-+
- static int virtio_transport_send_pkt_info(struct vsock_sock *vsk,
- 					  struct virtio_vsock_pkt_info *info)
- {
 -- 
-2.9.3
+Murali Karicheri
+Linux Kernel, Keystone
