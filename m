@@ -1,144 +1,144 @@
-From: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH net-next 14/16] net/mlx5e: IPoIB, RX handler
-Date: Thu, 13 Apr 2017 06:37:04 +0300
-Message-ID: <20170413033706.19016-15-saeedm@mellanox.com>
+From: Saeed Mahameed <saeedm@mellanox.com>
+Subject: [PATCH net-next 13/16] net/mlx5e: RX handlers per netdev profile
+Date: Thu, 13 Apr 2017 06:37:03 +0300
+Message-ID: <20170413033706.19016-14-saeedm@mellanox.com>
 References: <20170413033706.19016-1-saeedm@mellanox.com>
-Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Erez Shitrit <erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>,
-        Vishwanathapura Niranjana <niranjana.vishwanathapura-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170413033706.19016-1-saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-rdma@vger.kernel.org, Doug Ledford <dledford@redhat.com>,
+        Leon Romanovsky <leonro@mellanox.com>,
+        Erez Shitrit <erezsh@mellanox.com>,
+        Jason Gunthorpe <jgunthorpe@obsidianresearch.com>,
+        Vishwanathapura Niranjana <niranjana.vishwanathapura@intel.com>,
+        Saeed Mahameed <saeedm@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:41824 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1755400AbdDMDhu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 12 Apr 2017 23:37:50 -0400
+In-Reply-To: <20170413033706.19016-1-saeedm@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Implement IPoIB RX SKB handler.
+In order to have different RX handler per profile, fix and refactor the
+current code to take the rx handler directly from the netdevice profile
+rather than computing it on runtime as it was done with the switchdev
+mode representor rx handler.
 
-Signed-off-by: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Reviewed-by: Erez Shitrit <erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+This will also remove the current wrong assumption in mlx5e_alloc_rq
+code that mlx5e_priv->ppriv is of the type vport_rep.
+
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Reviewed-by: Erez Shitrit <erezsh@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_rx.c | 78 +++++++++++++++++++++++++
- drivers/net/ethernet/mellanox/mlx5/core/ipoib.c |  2 +
- drivers/net/ethernet/mellanox/mlx5/core/ipoib.h |  1 +
- 3 files changed, 81 insertions(+)
+ drivers/net/ethernet/mellanox/mlx5/core/en.h      |  5 +++-
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 28 ++++++++++++++---------
+ drivers/net/ethernet/mellanox/mlx5/core/en_rep.c  |  4 +++-
+ 3 files changed, 24 insertions(+), 13 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-index 1a9532b31635..43308243f519 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-@@ -1031,3 +1031,81 @@ void mlx5e_free_xdpsq_descs(struct mlx5e_xdpsq *sq)
- 		mlx5e_page_release(rq, di, false);
- 	}
- }
-+
-+#ifdef CONFIG_MLX5_CORE_IPOIB
-+
-+#define MLX5_IB_GRH_DGID_OFFSET 24
-+#define MLX5_IB_GRH_BYTES       40
-+#define MLX5_IPOIB_ENCAP_LEN    4
-+#define MLX5_GID_SIZE           16
-+
-+static inline void mlx5i_complete_rx_cqe(struct mlx5e_rq *rq,
-+					 struct mlx5_cqe64 *cqe,
-+					 u32 cqe_bcnt,
-+					 struct sk_buff *skb)
-+{
-+	struct net_device *netdev = rq->netdev;
-+	u8 *dgid;
-+	u8 g;
-+
-+	g = (be32_to_cpu(cqe->flags_rqpn) >> 28) & 3;
-+	dgid = skb->data + MLX5_IB_GRH_DGID_OFFSET;
-+	if ((!g) || dgid[0] != 0xff)
-+		skb->pkt_type = PACKET_HOST;
-+	else if (memcmp(dgid, netdev->broadcast + 4, MLX5_GID_SIZE) == 0)
-+		skb->pkt_type = PACKET_BROADCAST;
-+	else
-+		skb->pkt_type = PACKET_MULTICAST;
-+
-+	/* TODO: IB/ipoib: Allow mcast packets from other VFs
-+	 * 68996a6e760e5c74654723eeb57bf65628ae87f4
-+	 */
-+
-+	skb_pull(skb, MLX5_IB_GRH_BYTES);
-+
-+	skb->protocol = *((__be16 *)(skb->data));
-+
-+	skb->ip_summed = CHECKSUM_COMPLETE;
-+	skb->csum = csum_unfold((__force __sum16)cqe->check_sum);
-+
-+	skb_record_rx_queue(skb, rq->ix);
-+
-+	if (likely(netdev->features & NETIF_F_RXHASH))
-+		mlx5e_skb_set_hash(cqe, skb);
-+
-+	skb_reset_mac_header(skb);
-+	skb_pull(skb, MLX5_IPOIB_ENCAP_LEN);
-+
-+	skb->dev = netdev;
-+
-+	rq->stats.csum_complete++;
-+	rq->stats.packets++;
-+	rq->stats.bytes += cqe_bcnt;
-+}
-+
-+void mlx5i_handle_rx_cqe(struct mlx5e_rq *rq, struct mlx5_cqe64 *cqe)
-+{
-+	struct mlx5e_rx_wqe *wqe;
-+	__be16 wqe_counter_be;
-+	struct sk_buff *skb;
-+	u16 wqe_counter;
-+	u32 cqe_bcnt;
-+
-+	wqe_counter_be = cqe->wqe_counter;
-+	wqe_counter    = be16_to_cpu(wqe_counter_be);
-+	wqe            = mlx5_wq_ll_get_wqe(&rq->wq, wqe_counter);
-+	cqe_bcnt       = be32_to_cpu(cqe->byte_cnt);
-+
-+	skb = skb_from_cqe(rq, cqe, wqe_counter, cqe_bcnt);
-+	if (!skb)
-+		goto wq_ll_pop;
-+
-+	mlx5i_complete_rx_cqe(rq, cqe, cqe_bcnt, skb);
-+	napi_gro_receive(rq->cq.napi, skb);
-+
-+wq_ll_pop:
-+	mlx5_wq_ll_pop(&rq->wq, wqe_counter_be,
-+		       &wqe->next.next_wqe_index);
-+}
-+
-+#endif /* CONFIG_MLX5_CORE_IPOIB */
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/ipoib.c b/drivers/net/ethernet/mellanox/mlx5/core/ipoib.c
-index c468aaedf0a6..001d2953cb6d 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/ipoib.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/ipoib.c
-@@ -282,6 +282,8 @@ static const struct mlx5e_profile mlx5i_nic_profile = {
- 	.disable	   = NULL, /* mlx5i_disable */
- 	.update_stats	   = NULL, /* mlx5i_update_stats */
- 	.max_nch	   = mlx5e_get_max_num_channels,
-+	.rx_handlers.handle_rx_cqe       = mlx5i_handle_rx_cqe,
-+	.rx_handlers.handle_rx_cqe_mpwqe = NULL, /* Not supported */
- 	.max_tc		   = MLX5I_MAX_NUM_TC,
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+index 25185f8c3562..0881325fba04 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+@@ -779,6 +779,10 @@ struct mlx5e_profile {
+ 	void	(*disable)(struct mlx5e_priv *priv);
+ 	void	(*update_stats)(struct mlx5e_priv *priv);
+ 	int	(*max_nch)(struct mlx5_core_dev *mdev);
++	struct {
++		mlx5e_fp_handle_rx_cqe handle_rx_cqe;
++		mlx5e_fp_handle_rx_cqe handle_rx_cqe_mpwqe;
++	} rx_handlers;
+ 	int	max_tc;
  };
  
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/ipoib.h b/drivers/net/ethernet/mellanox/mlx5/core/ipoib.h
-index 89bca182464c..bae0a5cbc8ad 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/ipoib.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/ipoib.h
-@@ -49,5 +49,6 @@ struct mlx5i_priv {
+@@ -1032,7 +1036,6 @@ int mlx5e_get_offload_stats(int attr_id, const struct net_device *dev,
+ bool mlx5e_has_offload_stats(const struct net_device *dev, int attr_id);
  
- netdev_tx_t mlx5i_sq_xmit(struct mlx5e_txqsq *sq, struct sk_buff *skb,
- 			  struct mlx5_av *av, u32 dqpn, u32 dqkey);
-+void mlx5i_handle_rx_cqe(struct mlx5e_rq *rq, struct mlx5_cqe64 *cqe);
+ bool mlx5e_is_uplink_rep(struct mlx5e_priv *priv);
+-bool mlx5e_is_vf_vport_rep(struct mlx5e_priv *priv);
  
- #endif /* __MLX5E_IPOB_H__ */
+ /* mlx5e generic netdev management API */
+ struct net_device*
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 2201b7ea05f4..6a164aff404c 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -585,15 +585,17 @@ static int mlx5e_alloc_rq(struct mlx5e_channel *c,
+ 
+ 	switch (rq->wq_type) {
+ 	case MLX5_WQ_TYPE_LINKED_LIST_STRIDING_RQ:
+-		if (mlx5e_is_vf_vport_rep(c->priv)) {
+-			err = -EINVAL;
+-			goto err_rq_wq_destroy;
+-		}
+ 
+-		rq->handle_rx_cqe = mlx5e_handle_rx_cqe_mpwrq;
+ 		rq->alloc_wqe = mlx5e_alloc_rx_mpwqe;
+ 		rq->dealloc_wqe = mlx5e_dealloc_rx_mpwqe;
+ 
++		rq->handle_rx_cqe = c->priv->profile->rx_handlers.handle_rx_cqe_mpwqe;
++		if (!rq->handle_rx_cqe) {
++			err = -EINVAL;
++			netdev_err(c->netdev, "RX handler of MPWQE RQ is not set, err %d\n", err);
++			goto err_rq_wq_destroy;
++		}
++
+ 		rq->mpwqe_stride_sz = BIT(params->mpwqe_log_stride_sz);
+ 		rq->mpwqe_num_strides = BIT(params->mpwqe_log_num_strides);
+ 
+@@ -616,15 +618,17 @@ static int mlx5e_alloc_rq(struct mlx5e_channel *c,
+ 			err = -ENOMEM;
+ 			goto err_rq_wq_destroy;
+ 		}
+-
+-		if (mlx5e_is_vf_vport_rep(c->priv))
+-			rq->handle_rx_cqe = mlx5e_handle_rx_cqe_rep;
+-		else
+-			rq->handle_rx_cqe = mlx5e_handle_rx_cqe;
+-
+ 		rq->alloc_wqe = mlx5e_alloc_rx_wqe;
+ 		rq->dealloc_wqe = mlx5e_dealloc_rx_wqe;
+ 
++		rq->handle_rx_cqe = c->priv->profile->rx_handlers.handle_rx_cqe;
++		if (!rq->handle_rx_cqe) {
++			kfree(rq->dma_info);
++			err = -EINVAL;
++			netdev_err(c->netdev, "RX handler of RQ is not set, err %d\n", err);
++			goto err_rq_wq_destroy;
++		}
++
+ 		rq->buff.wqe_sz = params->lro_en  ?
+ 				params->lro_wqe_sz :
+ 				MLX5E_SW2HW_MTU(c->netdev->mtu);
+@@ -4229,6 +4233,8 @@ static const struct mlx5e_profile mlx5e_nic_profile = {
+ 	.disable	   = mlx5e_nic_disable,
+ 	.update_stats	   = mlx5e_update_stats,
+ 	.max_nch	   = mlx5e_get_max_num_channels,
++	.rx_handlers.handle_rx_cqe       = mlx5e_handle_rx_cqe,
++	.rx_handlers.handle_rx_cqe_mpwqe = mlx5e_handle_rx_cqe_mpwrq,
+ 	.max_tc		   = MLX5E_MAX_NUM_TC,
+ };
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
+index da85b0ad3e92..16b683e8226d 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
+@@ -329,7 +329,7 @@ bool mlx5e_is_uplink_rep(struct mlx5e_priv *priv)
+ 	return false;
+ }
+ 
+-bool mlx5e_is_vf_vport_rep(struct mlx5e_priv *priv)
++static bool mlx5e_is_vf_vport_rep(struct mlx5e_priv *priv)
+ {
+ 	struct mlx5_eswitch_rep *rep = (struct mlx5_eswitch_rep *)priv->ppriv;
+ 
+@@ -538,6 +538,8 @@ static struct mlx5e_profile mlx5e_rep_profile = {
+ 	.cleanup_tx		= mlx5e_cleanup_nic_tx,
+ 	.update_stats           = mlx5e_rep_update_stats,
+ 	.max_nch		= mlx5e_get_rep_max_num_channels,
++	.rx_handlers.handle_rx_cqe       = mlx5e_handle_rx_cqe_rep,
++	.rx_handlers.handle_rx_cqe_mpwqe = NULL /* Not supported */,
+ 	.max_tc			= 1,
+ };
+ 
 -- 
 2.11.0
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
