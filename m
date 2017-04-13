@@ -1,107 +1,137 @@
-From: Juergen Borleis <jbe@pengutronix.de>
-Subject: [PATCH v5 1/4] net: dsa: add support for the SMSC-LAN9303 tagging format
-Date: Thu, 13 Apr 2017 09:33:40 +0200
-Message-ID: <20170413073343.8067-2-jbe@pengutronix.de>
+From: Juergen Borleis <jbe-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Subject: [PATCH v5 4/4] net: dsa: LAN9303: add MDIO managed mode support
+Date: Thu, 13 Apr 2017 09:33:43 +0200
+Message-ID: <20170413073343.8067-5-jbe@pengutronix.de>
 References: <20170413073343.8067-1-jbe@pengutronix.de>
-Cc: linux-kernel@vger.kernel.org, f.fainelli@gmail.com,
-        kernel@pengutronix.de, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com, davem@davemloft.net
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:47949 "EHLO
-        metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S932130AbdDMHdw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 13 Apr 2017 03:33:52 -0400
-In-Reply-To: <20170413073343.8067-1-jbe@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+        kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org,
+        vivien.didelot-4ysUXcep3aM1wj+D4I0NRVaTQe2KTcn/@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+        mark.rutland-5wv7dgnIgG8@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170413073343.8067-1-jbe-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-To define the outgoing port and to discover the incoming port a regular
-VLAN tag is used by the LAN9303. But its VID meaning is 'special'.
+When the LAN9303 device is in MDIO manged mode, all register accesses must
+be done via MDIO.
 
-This tag handler/filter depends on some hardware features which must be
-enabled in the device to provide and make use of this special VLAN tag
-to control the destination and the source of an ethernet packet.
+Please note: this code is compile time tested only due to the absence of such
+configured hardware. It is based on a patch from Stefan Roese from 2014.
 
-Signed-off-by: Juergen Borleis <jbe@pengutronix.de>
+Signed-off-by: Juergen Borleis <jbe-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Reviewed-by: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+CC: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+CC: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
+CC: mark.rutland-5wv7dgnIgG8@public.gmane.org
 ---
- include/net/dsa.h     |   1 +
- net/dsa/Kconfig       |   4 ++
- net/dsa/Makefile      |   1 +
- net/dsa/dsa.c         |   3 ++
- net/dsa/dsa_priv.h    |   3 ++
- net/dsa/tag_lan9303.c | 141 ++++++++++++++++++++++++++++++++++++++++++++++++++
- 6 files changed, 153 insertions(+)
- create mode 100644 net/dsa/tag_lan9303.c
+ .../devicetree/bindings/net/dsa/lan9303.txt        |  45 ++++++-
+ drivers/net/dsa/Kconfig                            |   8 ++
+ drivers/net/dsa/Makefile                           |   1 +
+ drivers/net/dsa/lan9303_mdio.c                     | 144 +++++++++++++++++++++
+ 4 files changed, 197 insertions(+), 1 deletion(-)
+ create mode 100644 drivers/net/dsa/lan9303_mdio.c
 
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index 9b1c1eb4147a1..51aac97a735fd 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -33,6 +33,7 @@ enum dsa_tag_protocol {
- 	DSA_TAG_PROTO_BRCM,
- 	DSA_TAG_PROTO_QCA,
- 	DSA_TAG_PROTO_MTK,
-+	DSA_TAG_PROTO_LAN9303,
- 	DSA_TAG_LAST,		/* MUST BE LAST */
- };
+diff --git a/Documentation/devicetree/bindings/net/dsa/lan9303.txt b/Documentation/devicetree/bindings/net/dsa/lan9303.txt
+index 2edc2561467a7..04f2965a44676 100644
+--- a/Documentation/devicetree/bindings/net/dsa/lan9303.txt
++++ b/Documentation/devicetree/bindings/net/dsa/lan9303.txt
+@@ -3,7 +3,10 @@ SMSC/MicroChip LAN9303 three port ethernet switch
  
-diff --git a/net/dsa/Kconfig b/net/dsa/Kconfig
-index aa21f49f12156..81a0868edb1d6 100644
---- a/net/dsa/Kconfig
-+++ b/net/dsa/Kconfig
-@@ -33,4 +33,8 @@ config NET_DSA_TAG_QCA
+ Required properties:
  
- config NET_DSA_TAG_MTK
- 	bool
+-- compatible: should be "smsc,lan9303-i2c"
++- compatible: should be
++  - "smsc,lan9303-i2c" for I2C managed mode
++    or
++  - "smsc,lan9303-mdio" for mdio managed mode
+ 
+ Optional properties:
+ 
+@@ -60,3 +63,43 @@ I2C managed mode:
+ 			};
+ 		};
+ 	};
 +
-+config NET_DSA_TAG_LAN9303
-+	bool
++MDIO managed mode:
 +
- endif
-diff --git a/net/dsa/Makefile b/net/dsa/Makefile
-index 9b1d478f3713f..2cc661eab5528 100644
---- a/net/dsa/Makefile
-+++ b/net/dsa/Makefile
-@@ -9,3 +9,4 @@ dsa_core-$(CONFIG_NET_DSA_TAG_EDSA) += tag_edsa.o
- dsa_core-$(CONFIG_NET_DSA_TAG_TRAILER) += tag_trailer.o
- dsa_core-$(CONFIG_NET_DSA_TAG_QCA) += tag_qca.o
- dsa_core-$(CONFIG_NET_DSA_TAG_MTK) += tag_mtk.o
-+dsa_core-$(CONFIG_NET_DSA_TAG_LAN9303) += tag_lan9303.o
-diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index 1fb9cf7aaaf49..c88466ecfa97b 100644
---- a/net/dsa/dsa.c
-+++ b/net/dsa/dsa.c
-@@ -58,6 +58,9 @@ const struct dsa_device_ops *dsa_device_ops[DSA_TAG_LAST] = {
- #ifdef CONFIG_NET_DSA_TAG_MTK
- 	[DSA_TAG_PROTO_MTK] = &mtk_netdev_ops,
- #endif
-+#ifdef CONFIG_NET_DSA_TAG_LAN9303
-+	[DSA_TAG_PROTO_LAN9303] = &lan9303_netdev_ops,
-+#endif
- 	[DSA_TAG_PROTO_NONE] = &none_ops,
- };
- 
-diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
-index 107138a55bd86..1f8a12859bd2a 100644
---- a/net/dsa/dsa_priv.h
-+++ b/net/dsa/dsa_priv.h
-@@ -89,4 +89,7 @@ extern const struct dsa_device_ops qca_netdev_ops;
- /* tag_mtk.c */
- extern const struct dsa_device_ops mtk_netdev_ops;
- 
-+/* tag_lan9303.c */
-+extern const struct dsa_device_ops lan9303_netdev_ops;
++	master: masterdevice@X {
++		status = "okay";
++		phy-handle = <&switch>;
 +
- #endif
-diff --git a/net/dsa/tag_lan9303.c b/net/dsa/tag_lan9303.c
++		mdio {
++			#address-cells = <1>;
++			#size-cells = <0>;
++
++			switch: switch-phy@0 {
++				compatible = "smsc,lan9303-mdio";
++				reg = <0>;
++				reset-gpios = <&gpio7 6 GPIO_ACTIVE_LOW>;
++				reset-duration = <100>;
++
++				ports {
++					#address-cells = <1>;
++					#size-cells = <0>;
++
++					port@0 {
++						reg = <0>;
++						label = "cpu";
++						ethernet = <&master>;
++					};
++
++					port@1 { /* external port 1 */
++						reg = <1>;
++						label = "lan1;
++					};
++
++					port@2 { /* external port 2 */
++						reg = <2>;
++						label = "lan2";
++					};
++				};
++			};
++		};
++	};
+diff --git a/drivers/net/dsa/Kconfig b/drivers/net/dsa/Kconfig
+index 83887c68ef7a3..e52b298853474 100644
+--- a/drivers/net/dsa/Kconfig
++++ b/drivers/net/dsa/Kconfig
+@@ -67,4 +67,12 @@ config NET_DSA_SMSC_LAN9303_I2C
+ 	  Enable access functions if the SMSC/Microchip LAN9303 is configured
+ 	  for I2C managed mode.
+ 
++config NET_DSA_SMSC_LAN9303_MDIO
++	bool "MDIO managed mode"
++	depends on NET_DSA_SMSC_LAN9303
++	depends on OF_MDIO
++	---help---
++	  Enable access functions if the SMSC/Microchip LAN9303 is configured
++	  for MDIO managed mode.
++
+ endmenu
+diff --git a/drivers/net/dsa/Makefile b/drivers/net/dsa/Makefile
+index e626aeba8525e..e782d9648bc8c 100644
+--- a/drivers/net/dsa/Makefile
++++ b/drivers/net/dsa/Makefile
+@@ -1,5 +1,6 @@
+ lan9303-objs-y			:= lan9303-core.o
+ lan9303-objs-$(CONFIG_NET_DSA_SMSC_LAN9303_I2C) += lan9303_i2c.o
++lan9303-objs-$(CONFIG_NET_DSA_SMSC_LAN9303_MDIO) += lan9303_mdio.o
+ 
+ obj-$(CONFIG_NET_DSA_MV88E6060) += mv88e6060.o
+ obj-$(CONFIG_NET_DSA_BCM_SF2)	+= bcm-sf2.o
+diff --git a/drivers/net/dsa/lan9303_mdio.c b/drivers/net/dsa/lan9303_mdio.c
 new file mode 100644
-index 0000000000000..563b6c8fe445e
+index 0000000000000..87c5cfa946a92
 --- /dev/null
-+++ b/net/dsa/tag_lan9303.c
-@@ -0,0 +1,141 @@
++++ b/drivers/net/dsa/lan9303_mdio.c
+@@ -0,0 +1,144 @@
 +/*
-+ * Copyright (C) 2017 Pengutronix, Juergen Borleis <jbe@pengutronix.de>
++ * Copyright (C) 2017 Pengutronix, Juergen Borleis <kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
++ *
++ * Partially based on a patch from
++ * Copyright (c) 2014 Stefan Roese <sr-ynQEQJNshbs@public.gmane.org>
 + *
 + * This program is free software; you can redistribute it and/or
 + * modify it under the terms of the GNU General Public License
@@ -113,133 +143,138 @@ index 0000000000000..563b6c8fe445e
 + * GNU General Public License for more details.
 + *
 + */
-+#include <linux/etherdevice.h>
-+#include <linux/list.h>
-+#include <linux/slab.h>
-+#include <net/dsa.h>
-+#include "dsa_priv.h"
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/mdio.h>
++#include <linux/phy.h>
++#include <linux/of.h>
 +
-+/* To define the outgoing port and to discover the incoming port a regular
-+ * VLAN tag is used by the LAN9303. But its VID meaning is 'special':
-+ *
-+ *       Dest MAC       Src MAC        TAG    Type
-+ * ...| 1 2 3 4 5 6 | 1 2 3 4 5 6 | 1 2 3 4 | 1 2 |...
-+ *                                |<------->|
-+ * TAG:
-+ *    |<------------->|
-+ *    |  1  2 | 3  4  |
-+ *      TPID    VID
-+ *     0x8100
-+ *
-+ * VID bit 3 indicates a request for an ALR lookup.
-+ *
-+ * If VID bit 3 is zero, then bits 0 and 1 specify the destination port
-+ * (0, 1, 2) or broadcast (3) or the source port (1, 2).
-+ *
-+ * VID bit 4 is used to specify if the STP port state should be overridden.
-+ * Required when no forwarding between the external ports should happen.
-+ */
++#include "lan9303.h"
 +
-+#define LAN9303_TAG_LEN 4
-+#define LAN9303_MAX_PORTS 3
++/* Generate phy-addr and -reg from the input address */
++#define PHY_ADDR(x) ((((x) >> 6) + 0x10) & 0x1f)
++#define PHY_REG(x) (((x) >> 1) & 0x1f)
 +
-+static struct sk_buff *lan9303_xmit(struct sk_buff *skb, struct net_device *dev)
-+{
-+	struct dsa_slave_priv *p = netdev_priv(dev);
-+	u16 *lan9303_tag;
-+
-+	/* insert a special VLAN tag between the MAC addresses
-+	 * and the current ethertype field.
-+	 */
-+	if (skb_cow_head(skb, LAN9303_TAG_LEN) < 0) {
-+		dev_dbg(&dev->dev,
-+			"Cannot make room for the special tag. Dropping packet\n");
-+		goto out_free;
-+	}
-+
-+	/* provide 'LAN9303_TAG_LEN' bytes additional space */
-+	skb_push(skb, LAN9303_TAG_LEN);
-+
-+	/* make room between MACs and Ether-Type */
-+	memmove(skb->data, skb->data + LAN9303_TAG_LEN, 2 * ETH_ALEN);
-+
-+	lan9303_tag = (u16 *)(skb->data + 2 * ETH_ALEN);
-+	lan9303_tag[0] = htons(ETH_P_8021Q);
-+	lan9303_tag[1] = htons(p->dp->index | BIT(4));
-+
-+	return skb;
-+out_free:
-+	kfree_skb(skb);
-+	return NULL;
-+}
-+
-+static struct sk_buff *lan9303_rcv(struct sk_buff *skb, struct net_device *dev,
-+			struct packet_type *pt, struct net_device *orig_dev)
-+{
-+	u16 *lan9303_tag;
-+	struct dsa_switch_tree *dst = dev->dsa_ptr;
-+	struct dsa_switch *ds;
-+	unsigned int source_port;
-+
-+	if (unlikely(!dst)) {
-+		dev_warn_ratelimited(&dev->dev, "Dropping packet, due to missing switch tree device\n");
-+		return NULL;
-+	}
-+
-+	ds = dst->ds[0];
-+
-+	if (unlikely(!ds)) {
-+		dev_warn_ratelimited(&dev->dev, "Dropping packet, due to missing DSA switch device\n");
-+		return NULL;
-+	}
-+
-+	if (unlikely(!pskb_may_pull(skb, LAN9303_TAG_LEN))) {
-+		dev_warn_ratelimited(&dev->dev,
-+				     "Dropping packet, cannot pull\n");
-+		return NULL;
-+	}
-+
-+	/* '->data' points into the middle of our special VLAN tag information:
-+	 *
-+	 * ~ MAC src   | 0x81 | 0x00 | 0xyy | 0xzz | ether type
-+	 *                           ^
-+	 *                        ->data
-+	 */
-+	lan9303_tag = (u16 *)(skb->data - 2);
-+
-+	if (lan9303_tag[0] != htons(ETH_P_8021Q)) {
-+		dev_warn_ratelimited(&dev->dev, "Dropping packet due to invalid VLAN marker\n");
-+		return NULL;
-+	}
-+
-+	source_port = ntohs(lan9303_tag[1]) & 0x3;
-+
-+	if (source_port >= LAN9303_MAX_PORTS) {
-+		dev_warn_ratelimited(&dev->dev, "Dropping packet due to invalid source port\n");
-+		return NULL;
-+	}
-+
-+	if (!ds->ports[source_port].netdev) {
-+		dev_warn_ratelimited(&dev->dev, "Dropping packet due to invalid netdev or device\n");
-+		return NULL;
-+	}
-+
-+	/* remove the special VLAN tag between the MAC addresses
-+	 * and the current ethertype field.
-+	 */
-+	skb_pull_rcsum(skb, 2 + 2);
-+	memmove(skb->data - ETH_HLEN, skb->data - (ETH_HLEN + LAN9303_TAG_LEN),
-+		2 * ETH_ALEN);
-+
-+	/* forward the packet to the dedicated interface */
-+	skb->dev = ds->ports[source_port].netdev;
-+
-+	return skb;
-+}
-+
-+const struct dsa_device_ops lan9303_netdev_ops = {
-+	.xmit = lan9303_xmit,
-+	.rcv = lan9303_rcv,
++struct lan9303_mdio {
++	struct mdio_device *device;
++	struct lan9303 chip;
 +};
++
++static void lan9303_mdio_real_write(struct mdio_device *mdio, int reg, u16 val)
++{
++	mdio->bus->write(mdio->bus, PHY_ADDR(reg), PHY_REG(reg), val);
++}
++
++static int lan9303_mdio_write(void *ctx, uint32_t reg, uint32_t val)
++{
++	struct lan9303_mdio *sw_dev = (struct lan9303_mdio *)ctx;
++
++	mutex_lock(&sw_dev->device->bus->mdio_lock);
++	lan9303_mdio_real_write(sw_dev->device, reg, val & 0xffff);
++	lan9303_mdio_real_write(sw_dev->device, reg + 2, (val >> 16) & 0xffff);
++	mutex_unlock(&sw_dev->device->bus->mdio_lock);
++
++	return 0;
++}
++
++static u16 lan9303_mdio_real_read(struct mdio_device *mdio, int reg)
++{
++	return mdio->bus->read(mdio->bus, PHY_ADDR(reg), PHY_REG(reg));
++}
++
++static int lan9303_mdio_read(void *ctx, uint32_t reg, uint32_t *val)
++{
++	struct lan9303_mdio *sw_dev = (struct lan9303_mdio *)ctx;
++
++	mutex_lock(&sw_dev->device->bus->mdio_lock);
++	*val = lan9303_mdio_real_read(sw_dev->device, reg);
++	*val |= (lan9303_mdio_real_read(sw_dev->device, reg + 2) << 16);
++	mutex_unlock(&sw_dev->device->bus->mdio_lock);
++
++	return 0;
++}
++
++static const struct regmap_config lan9303_mdio_regmap_config = {
++	.reg_bits = 8,
++	.val_bits = 32,
++	.reg_stride = 1,
++	.can_multi_write = true,
++	.max_register = 0x0ff, /* address bits 0..1 are not used */
++	.reg_format_endian = REGMAP_ENDIAN_LITTLE,
++
++	.volatile_table = &lan9303_register_set,
++	.wr_table = &lan9303_register_set,
++	.rd_table = &lan9303_register_set,
++
++	.reg_read = lan9303_mdio_read,
++	.reg_write = lan9303_mdio_write,
++
++	.cache_type = REGCACHE_NONE,
++};
++
++static int lan9303_mdio_probe(struct mdio_device *mdiodev)
++{
++	struct lan9303_mdio *sw_dev;
++	int ret;
++
++	sw_dev = devm_kzalloc(&mdiodev->dev, sizeof(struct lan9303_mdio),
++			      GFP_KERNEL);
++	if (!sw_dev)
++		return -ENOMEM;
++
++	sw_dev->chip.regmap = devm_regmap_init(&mdiodev->dev, NULL, sw_dev,
++						&lan9303_mdio_regmap_config);
++	if (IS_ERR(sw_dev->chip.regmap)) {
++		ret = PTR_ERR(sw_dev->chip.regmap);
++		dev_err(&mdiodev->dev, "regmap init failed: %d\n", ret);
++		return ret;
++	}
++
++	/* link forward and backward */
++	sw_dev->device = mdiodev;
++	dev_set_drvdata(&mdiodev->dev, sw_dev);
++	sw_dev->chip.dev = &mdiodev->dev;
++
++	ret = lan9303_probe(&sw_dev->chip, mdiodev->dev.of_node);
++	if (ret != 0)
++		return ret;
++
++	dev_info(&mdiodev->dev, "LAN9303 MDIO driver loaded successfully\n");
++
++	return 0;
++}
++
++static void lan9303_mdio_remove(struct mdio_device *mdiodev)
++{
++	struct lan9303_mdio *sw_dev = dev_get_drvdata(&mdiodev->dev);
++
++	if (!sw_dev)
++		return;
++
++	lan9303_remove(&sw_dev->chip);
++}
++
++/*-------------------------------------------------------------------------*/
++
++static const struct of_device_id lan9303_mdio_of_match[] = {
++	{ .compatible = "smsc,lan9303-mdio" },
++	{ /* sentinel */ },
++};
++MODULE_DEVICE_TABLE(of, lan9303_mdio_of_match);
++
++static struct mdio_driver lan9303_mdio_driver = {
++	.mdiodrv.driver = {
++		.name = "LAN9303_MDIO",
++		.of_match_table = of_match_ptr(lan9303_mdio_of_match),
++	},
++	.probe  = lan9303_mdio_probe,
++	.remove = lan9303_mdio_remove,
++};
++mdio_module_driver(lan9303_mdio_driver);
 -- 
 2.11.0
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
