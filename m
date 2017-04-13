@@ -1,82 +1,68 @@
-From: Rob Herring <robh@kernel.org>
-Subject: [PATCH v3 2/4] bluetooth: hci_uart: remove unused hci_uart_init_tty
-Date: Thu, 13 Apr 2017 10:03:51 -0500
-Message-ID: <20170413150353.7389-3-robh@kernel.org>
-References: <20170413150353.7389-1-robh@kernel.org>
-Cc: linux-arm-kernel@lists.infradead.org,
-        Gustavo Padovan <gustavo@padovan.org>,
-        Johan Hedberg <johan.hedberg@gmail.com>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Wei Xu <xuwei5@hisilicon.com>, Eyal Reizer <eyalr@ti.com>,
-        Satish Patel <satish.patel@linaro.org>, netdev@vger.kernel.org,
-        devicetree@vger.kernel.org
-To: Marcel Holtmann <marcel@holtmann.org>,
-        linux-bluetooth@vger.kernel.org
+From: Miroslav Lichvar <mlichvar@redhat.com>
+Subject: Re: [RFC PATCH 3/7] net: add option to get information about
+ timestamped packets
+Date: Thu, 13 Apr 2017 17:18:06 +0200
+Message-ID: <20170413151806.GA26613@localhost>
+References: <20170412141737.5881-1-mlichvar@redhat.com>
+ <20170412141737.5881-4-mlichvar@redhat.com>
+ <CAF=yD-Lsbr7f7aPUsFF3gCtFdyR8yb1=VBPJGQuxv_JbrJud6Q@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Network Development <netdev@vger.kernel.org>,
+        Richard Cochran <richardcochran@gmail.com>,
+        Willem de Bruijn <willemb@google.com>,
+        Soheil Hassas Yeganeh <soheil@google.com>,
+        "Keller, Jacob E" <jacob.e.keller@intel.com>,
+        Denny Page <dennypage@me.com>, Jiri Benc <jbenc@redhat.com>
+To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f67.google.com ([209.85.218.67]:33660 "EHLO
-        mail-oi0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754503AbdDMPEF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 13 Apr 2017 11:04:05 -0400
-In-Reply-To: <20170413150353.7389-1-robh@kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:35068 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751666AbdDMPSJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 13 Apr 2017 11:18:09 -0400
+Content-Disposition: inline
+In-Reply-To: <CAF=yD-Lsbr7f7aPUsFF3gCtFdyR8yb1=VBPJGQuxv_JbrJud6Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There are no users of hci_uart_init_tty, so remove it.
+On Thu, Apr 13, 2017 at 10:37:07AM -0400, Willem de Bruijn wrote:
+> On Wed, Apr 12, 2017 at 10:17 AM, Miroslav Lichvar <mlichvar@redhat.com> wrote:
+> > Extend the skb_shared_hwtstamps structure with the index of the
+> > real interface which received or transmitted the packet and the length
+> > of the packet at layer 2.
+> 
+> The original packet is received along with the timestamp.
 
-Signed-off-by: Rob Herring <robh@kernel.org>
-Cc: Marcel Holtmann <marcel@holtmann.org>
-Cc: Gustavo Padovan <gustavo@padovan.org>
-Cc: Johan Hedberg <johan.hedberg@gmail.com>
-Cc: linux-bluetooth@vger.kernel.org
----
-v3:
-- rebase on bluetooth-next
+But only outgoing packets, right?
 
- drivers/bluetooth/hci_ldisc.c | 19 -------------------
- drivers/bluetooth/hci_uart.h  |  1 -
- 2 files changed, 20 deletions(-)
+> Why is this L2 length needed?
 
-diff --git a/drivers/bluetooth/hci_ldisc.c b/drivers/bluetooth/hci_ldisc.c
-index 17bcbc13623f..cec4438ede01 100644
---- a/drivers/bluetooth/hci_ldisc.c
-+++ b/drivers/bluetooth/hci_ldisc.c
-@@ -319,25 +319,6 @@ void hci_uart_set_speeds(struct hci_uart *hu, unsigned int init_speed,
- 	hu->oper_speed = oper_speed;
- }
- 
--void hci_uart_init_tty(struct hci_uart *hu)
--{
--	struct tty_struct *tty = hu->tty;
--	struct ktermios ktermios;
--
--	/* Bring the UART into a known 8 bits no parity hw fc state */
--	ktermios = tty->termios;
--	ktermios.c_iflag &= ~(IGNBRK | BRKINT | PARMRK | ISTRIP |
--			      INLCR | IGNCR | ICRNL | IXON);
--	ktermios.c_oflag &= ~OPOST;
--	ktermios.c_lflag &= ~(ECHO | ECHONL | ICANON | ISIG | IEXTEN);
--	ktermios.c_cflag &= ~(CSIZE | PARENB);
--	ktermios.c_cflag |= CS8;
--	ktermios.c_cflag |= CRTSCTS;
--
--	/* tty_set_termios() return not checked as it is always 0 */
--	tty_set_termios(tty, &ktermios);
--}
--
- void hci_uart_set_baudrate(struct hci_uart *hu, unsigned int speed)
- {
- 	struct tty_struct *tty = hu->tty;
-diff --git a/drivers/bluetooth/hci_uart.h b/drivers/bluetooth/hci_uart.h
-index 1b41c661bbb8..2b05e557fad0 100644
---- a/drivers/bluetooth/hci_uart.h
-+++ b/drivers/bluetooth/hci_uart.h
-@@ -114,7 +114,6 @@ int hci_uart_register_device(struct hci_uart *hu, const struct hci_uart_proto *p
- 
- int hci_uart_tx_wakeup(struct hci_uart *hu);
- int hci_uart_init_ready(struct hci_uart *hu);
--void hci_uart_init_tty(struct hci_uart *hu);
- void hci_uart_set_baudrate(struct hci_uart *hu, unsigned int speed);
- void hci_uart_set_flow_control(struct hci_uart *hu, bool enable);
- void hci_uart_set_speeds(struct hci_uart *hu, unsigned int init_speed,
+It's needed for incoming packets to allow converting of preamble
+timestamps to trailer timestamps.
+
+> > Add a SOF_TIMESTAMPING_OPT_PKTINFO flag to
+> > the SO_TIMESTAMPING option to allow applications to get this information
+> > as struct scm_ts_pktinfo in SCM_TIMESTAMPING_PKTINFO control message.
+> 
+> This patch saves skb->dev->ifindex, which is the same as existing
+> SOF_TIMESTAMPING_OPT_CMSG. See also the bug fix for that
+> feature I sent yesterday: http://patchwork.ozlabs.org/patch/750197/
+
+The main point is that it provides the index of the device which
+received the packet. It does duplicate the functionality of OPT_CMSG +
+IP_PKTINFO for outgoing packets, but I thought it might be useful with
+the TSONLY option.
+
+BTW, the original ifindex used to be in skb->skb_iif, but that changed
+in b6858177.
+
+> If the intent is to return a different ifindex, I would still suggest using
+> the existing pktinfo infrastructure, but changing the ifindex that is
+> recorded.
+
+How would the application get the l2 length? If this (l2 length,
+if_index) tuple is specific to timestamping, I think it would make
+sense to keep it out of the IP layer.
+
 -- 
-2.11.0
+Miroslav Lichvar
