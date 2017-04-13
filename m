@@ -1,38 +1,49 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next] net: ipv6: send unsolicited NA on admin up
-Date: Thu, 13 Apr 2017 13:45:44 +0200
-Message-ID: <1492083944.2160091.943541576.3F765BD2@webmail.messagingengine.com>
-References: <1492022944-18842-1-git-send-email-dsa@cumulusnetworks.com>
+From: Manish Chopra <manish.chopra@cavium.com>
+Subject: [PATCH net-next 0/2] qed/qede: aRFS support
+Date: Thu, 13 Apr 2017 04:54:43 -0700
+Message-ID: <20170413115445.16662-1-manish.chopra@cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: David Ahern <dsa@cumulusnetworks.com>, netdev@vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <Yuval.Mintz@cavium.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:50754 "EHLO
-        out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751473AbdDMLpp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 13 Apr 2017 07:45:45 -0400
-In-Reply-To: <1492022944-18842-1-git-send-email-dsa@cumulusnetworks.com>
+Received: from mail-co1nam03on0067.outbound.protection.outlook.com ([104.47.40.67]:48715
+        "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751473AbdDMLzH (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 13 Apr 2017 07:55:07 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi David,
 
+This series adds support for Accelerated Flow Steering
+in qede driver for TCP/UDP over IPv4/IPv6 protocols.
 
-On Wed, Apr 12, 2017, at 20:49, David Ahern wrote:
-> ndisc_notify is the ipv6 equivalent to arp_notify. When arp_notify is
-> set to 1, gratuitous arp requests are sent when the device is brought up.
-> The same is expected when ndisc_notify is set to 1 (per ndisc_notify in
-> Documentation/networking/ip-sysctl.txt). The NA is not sent on NETDEV_UP
-> event; add it.
-> 
-> Fixes: 5cb04436eef6 ("ipv6: add knob to send unsolicited ND on link-layer
-> address change")
-> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
-
-Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-
-In future we might be able to make this a bit more robust when DAD is
-happening at the same time.
+Please consider applying this series to "net-next"
 
 Thanks,
-Hannes
+Manish
+
+Manish Chopra (2):
+  qed: aRFS infrastructure support
+  qede: Add aRFS support
+
+ drivers/net/ethernet/qlogic/qed/qed.h              |   2 +
+ drivers/net/ethernet/qlogic/qed/qed_cxt.c          |  13 +-
+ drivers/net/ethernet/qlogic/qed/qed_hsi.h          | 187 +++++++++
+ .../net/ethernet/qlogic/qed/qed_init_fw_funcs.c    | 129 ++++++
+ drivers/net/ethernet/qlogic/qed/qed_l2.c           | 133 +++++++
+ drivers/net/ethernet/qlogic/qed/qed_l2.h           |   8 +
+ drivers/net/ethernet/qlogic/qed/qed_main.c         |  26 ++
+ drivers/net/ethernet/qlogic/qed/qed_reg_addr.h     |   8 +
+ drivers/net/ethernet/qlogic/qed/qed_sp.h           |   1 +
+ drivers/net/ethernet/qlogic/qede/qede.h            |  22 +-
+ drivers/net/ethernet/qlogic/qede/qede_filter.c     | 441 +++++++++++++++++++++
+ drivers/net/ethernet/qlogic/qede/qede_main.c       |  50 ++-
+ include/linux/qed/qed_eth_if.h                     |   8 +
+ include/linux/qed/qed_if.h                         |   7 +
+ 14 files changed, 1027 insertions(+), 8 deletions(-)
+
+-- 
+2.7.2
