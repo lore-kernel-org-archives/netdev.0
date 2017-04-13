@@ -1,52 +1,61 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH v2 net-next 4/8] net/ncsi: Add debugging infrastructurre
-Date: Thu, 13 Apr 2017 03:41:46 -0700
-Message-ID: <1492080106.28586.13.camel@perches.com>
-References: <1492069701-20772-1-git-send-email-gwshan@linux.vnet.ibm.com>
-         <1492069701-20772-5-git-send-email-gwshan@linux.vnet.ibm.com>
+From: "Keller, Jacob E" <jacob.e.keller@intel.com>
+Subject: RE: [RFC PATCH 0/7] Extend socket timestamping API
+Date: Thu, 13 Apr 2017 10:45:55 +0000
+Message-ID: <02874ECE860811409154E81DA85FBB5857E00F8D@ORSMSX115.amr.corp.intel.com>
+References: <20170412141737.5881-1-mlichvar@redhat.com>
+ <02874ECE860811409154E81DA85FBB5857E00EB6@ORSMSX115.amr.corp.intel.com>
+ <20170413095354.GA7490@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net
-To: Gavin Shan <gwshan@linux.vnet.ibm.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Richard Cochran <richardcochran@gmail.com>,
+        Willem de Bruijn <willemb@google.com>,
+        "Soheil Hassas Yeganeh" <soheil@google.com>,
+        Denny Page <dennypage@me.com>, Jiri Benc <jbenc@redhat.com>
+To: Miroslav Lichvar <mlichvar@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0202.hostedemail.com ([216.40.44.202]:41413 "EHLO
-        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1750915AbdDMKlx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 13 Apr 2017 06:41:53 -0400
-In-Reply-To: <1492069701-20772-5-git-send-email-gwshan@linux.vnet.ibm.com>
+Received: from mga02.intel.com ([134.134.136.20]:13942 "EHLO mga02.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750915AbdDMKp6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 13 Apr 2017 06:45:58 -0400
+In-Reply-To: <20170413095354.GA7490@localhost>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2017-04-13 at 17:48 +1000, Gavin Shan wrote:
-> This creates debugfs directories as NCSI debugging infrastructure.
-> With the patch applied, We will see below debugfs directories. Every
-> NCSI package and channel has one corresponding directory. Other than
-> presenting the NCSI topology, No real function has been achieved
-> through these debugfs directories so far.
-> 
->      /sys/kernel/debug/ncsi/eth0
->      /sys/kernel/debug/ncsi/eth0/p0
->      /sys/kernel/debug/ncsi/eth0/p0/c0
->      /sys/kernel/debug/ncsi/eth0/p0/c1
-
-[]
-
-> diff --git a/net/ncsi/ncsi-debug.c b/net/ncsi/ncsi-debug.c
-[]
-> +int ncsi_dev_init_debug(struct ncsi_dev_priv *ndp)
-> +{
-> +	if (WARN_ON_ONCE(ndp->dentry))
-> +		return 0;
-> +
-> +	if (!ncsi_dentry) {
-> +		ncsi_dentry = debugfs_create_dir("ncsi", NULL);
-> +		if (!ncsi_dentry) {
-> +			pr_warn("NCSI: Cannot create /sys/kernel/debug/ncsi\n");
-> +			return -ENOENT;
-
-debugfs does not have a fixed path.
-
-Most error messages for this just use something like
-	pr_<level>("Failed to create debugfs directory '%s'\n", foo)
-And most failures don't emit any error message at all.
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5r
+ZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZ10NCj4gT24gQmVo
+YWxmIE9mIE1pcm9zbGF2IExpY2h2YXINCj4gU2VudDogVGh1cnNkYXksIEFwcmlsIDEzLCAyMDE3
+IDI6NTQgQU0NCj4gVG86IEtlbGxlciwgSmFjb2IgRSA8amFjb2IuZS5rZWxsZXJAaW50ZWwuY29t
+Pg0KPiBDYzogbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgUmljaGFyZCBDb2NocmFuIDxyaWNoYXJk
+Y29jaHJhbkBnbWFpbC5jb20+Ow0KPiBXaWxsZW0gZGUgQnJ1aWpuIDx3aWxsZW1iQGdvb2dsZS5j
+b20+OyBTb2hlaWwgSGFzc2FzIFllZ2FuZWgNCj4gPHNvaGVpbEBnb29nbGUuY29tPjsgRGVubnkg
+UGFnZSA8ZGVubnlwYWdlQG1lLmNvbT47IEppcmkgQmVuYw0KPiA8amJlbmNAcmVkaGF0LmNvbT4N
+Cj4gU3ViamVjdDogUmU6IFtSRkMgUEFUQ0ggMC83XSBFeHRlbmQgc29ja2V0IHRpbWVzdGFtcGlu
+ZyBBUEkNCj4gDQo+IE9uIFRodSwgQXByIDEzLCAyMDE3IGF0IDA5OjA4OjA4QU0gKzAwMDAsIEtl
+bGxlciwgSmFjb2IgRSB3cm90ZToNCj4gPiA+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+
+ID4gPiBUaGlzIHBhdGNoc2V0IGFkZHMgbmV3IG9wdGlvbnMgdG8gdGhlIHRpbWVzdGFtcGluZyBB
+UEkgdGhhdCB3aWxsIGJlDQo+ID4gPiB1c2VmdWwgZm9yIE5UUCBpbXBsZW1lbnRhdGlvbnMgYW5k
+IHBvc3NpYmx5IG90aGVyIGFwcGxpY2F0aW9ucy4NCj4gDQo+ID4gSSB0aGluayB0aGlzIGxvb2tz
+IHByZXR0eSBnb29kLCBzdHJhaWdodCBmb3J3YXJkIGFuZCB1c2VmdWwuIEkgYWdyZWUgd2l0aCBS
+aWNoYXJkDQo+IGFib3V0IHRoZSBvbmUgY29tbWl0IG1lc3NhZ2UsIGJ1dCB0aGUgcmVzdCBsb29r
+cyBnb29kIG1vZHVsbyBtaXNzaW5nIHVwZGF0ZXMNCj4gZm9yIGFsbCB0aGUgb3RoZXIgZHJpdmVy
+cy4NCj4gDQo+IFRoYW5rcyBmb3IgdGhlIHJldmlldy4NCj4gDQo+ID4gSSBkaWRuJ3Qgc2VlIGFu
+eSBjb2RlIHRvIHVwZGF0ZSB0aGUgZXRodG9vbCBnZXRfdHNfaW5mbyBkYXRhIGZvciBfTlRQX0FM
+TA0KPiBlaXRoZXIuDQo+IA0KPiBNeSB1bmRlcnN0YW5kaW5nIHdhcyB0aGF0IGV0aHRvb2wgc2hv
+dWxkIGxpc3Qgb25seSBmaWx0ZXJzIHRoYXQgYXJlDQo+IGFjdHVhbGx5IHN1cHBvcnRlZCBieSB0
+aGUgSFcgYW5kIGFyZSBub3QgaGFuZGxlZCBqdXN0IGJ5IHN3aXRjaGluZyB0bw0KPiBhIG1vcmUg
+Z2VuZXJhbCBmaWx0ZXIuIEkgdGhpbmsgdGhhdCdzIHdoYXQgZHJpdmVycyBJJ3ZlIGxvb2tlZCB3
+ZXJlDQo+IGRvaW5nLiBUaGUgcGh5dGVyIGRyaXZlciB3b3VsZCBiZSB0aGUgb25seSBvbmUgdGhh
+dCBjb3VsZCBsaXN0IHRoZQ0KPiBmaWx0ZXIgYXMgc3VwcG9ydGVkLiBJcyB0aGF0IGNvcnJlY3Q/
+DQo+IA0KPiAtLQ0KPiBNaXJvc2xhdiBMaWNodmFyDQoNCkknbSBub3Qgc3VyZSB3aGV0aGVyIHRo
+YXQncyBob3cgYWxsIGRyaXZlcnMgYXJlIGltcGxlbWVudGVkLCBvciB3aGV0aGVyIHRoYXQgbWFr
+ZXMgc2Vuc2UuIFN1cHBvc2UgYW4gYXBwbGljYXRpb24gd2FudHMgdG8ga25vdyBpZiBhIHBhcnRp
+Y3VsYXIgZmlsdGVyIGlzIHN1cHBvcnRlZCwgdGhleSBtaWdodCBhc2sgdXNpbmcgZ2V0X3RzX2lu
+Zm8sIGJ1dCBub3cgdGhlIGFwcGxpY2F0aW9uIG11c3QgZW5jb2RlIHRoZSBydWxlcyBmb3Igd2hp
+Y2ggZmlsdGVycyBhcmUgbW9yZSBnZW5lcmFsLiBJIHN1cHBvc2UgdGhpcyBsb2dpYyBpc24ndCBh
+bGwgdGhhdCBjb21wbGljYXRlZCBhbmQgaXMgc3RyYWlnaHQgZm9yd2FyZCBkZWR1Y3Rpb25zIGJh
+c2VkIG9uIHRoZSBuYW1lIGFuZCBnZW5lcmFsbHkgd2UgcHJlZmVyIGlmIGRyaXZlciBvciBoYXJk
+d2FyZSBzdXBwb3J0cyB0aW1lc3RhbXBpbmcgYWxsIGZyYW1lcyBhbnl3YXlzLg0KDQpJbiB0aGlz
+IHJlZ2FyZCBJIGd1ZXNzIHlvdSdkIGJlIHJpZ2h0Lg0KDQpUaGFua3MsDQpKYWtlDQogDQo=
