@@ -1,37 +1,60 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH v2] mac80211: Fix clang warning about constant operand
- in logical operation
-Date: Thu, 13 Apr 2017 08:27:30 +0200
-Message-ID: <1492064850.19193.6.camel@sipsolutions.net>
-References: <20170406233141.123098-1-mka@chromium.org>
-         (sfid-20170407_013202_907352_DB786B38)
+From: Michael Chan <michael.chan@broadcom.com>
+Subject: Re: [PATCH v3 net-next RFC] Generic XDP
+Date: Wed, 12 Apr 2017 23:48:22 -0700
+Message-ID: <CACKFLikqDDLDSywxTNJoktpO0ViggH=Lbzebw27RaUPSGp0knQ@mail.gmail.com>
+References: <20170412.145415.1441440342830198148.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
-        netdev@vger.kernel.org, Grant Grundler <grundler@chromium.org>,
-        Michael Davidson <md@google.com>,
-        Greg Hackmann <ghackmann@google.com>
-To: Matthias Kaehlcke <mka@chromium.org>,
-        "David S . Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170406233141.123098-1-mka@chromium.org> (sfid-20170407_013202_907352_DB786B38)
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>, xdp-newbies@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f52.google.com ([209.85.215.52]:36426 "EHLO
+        mail-lf0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750811AbdDMGsZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 13 Apr 2017 02:48:25 -0400
+Received: by mail-lf0-f52.google.com with SMTP id s141so24866313lfe.3
+        for <netdev@vger.kernel.org>; Wed, 12 Apr 2017 23:48:24 -0700 (PDT)
+In-Reply-To: <20170412.145415.1441440342830198148.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2017-04-06 at 16:31 -0700, Matthias Kaehlcke wrote:
-> When clang detects a non-boolean constant in a logical operation it
-> generates a 'constant-logical-operand' warning. In
-> ieee80211_try_rate_control_ops_get() the result of strlen(<const
-> str>)
-> is used in a logical operation, clang resolves the expression to an
-> (integer) constant at compile time when clang's builtin strlen
-> function
-> is used.
-> 
-> Change the condition to check for strlen() > 0 to make the constant
-> operand boolean and thus avoid the warning.
-> 
-Applied.
+On Wed, Apr 12, 2017 at 11:54 AM, David Miller <davem@davemloft.net> wrote:
+>
+> +static struct static_key generic_xdp_needed __read_mostly;
+> +
+> +static int generic_xdp_install(struct net_device *dev, struct netdev_xdp *xdp)
+> +{
+> +       struct bpf_prog *new = xdp->prog;
+> +       int ret = 0;
+> +
+> +       switch (xdp->command) {
+> +       case XDP_SETUP_PROG: {
+> +               struct bpf_prog *old = rtnl_dereference(dev->xdp_prog);
+> +
+> +               rcu_assign_pointer(dev->xdp_prog, new);
+> +               if (old)
+> +                       bpf_prog_put(old);
+> +
+> +               if (old && !new)
+> +                       static_key_slow_dec(&generic_xdp_needed);
+> +               else if (new && !old)
+> +                       static_key_slow_inc(&generic_xdp_needed);
 
-johannes
+I think we need to call dev_disable_lro(dev) to disable LRO also when
+a BPF program is installed.
+
+> +               break;
+> +       }
+> +
+> +       case XDP_QUERY_PROG:
+> +               xdp->prog_attached = !!rcu_access_pointer(dev->xdp_prog);
+> +               break;
+> +
+> +       default:
+> +               ret = -EINVAL;
+> +               break;
+> +       }
+> +
+> +       return ret;
+> +}
+> +
