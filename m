@@ -1,45 +1,51 @@
-From: Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>
-Subject: Re: [PATCH net-next v2 6/6] vxlan: allow multiple VXLANs
- with same VNI for IPv6 link-local addresses
-Date: Fri, 14 Apr 2017 10:38:30 -0700
-Message-ID: <20170414103830.111a24a8@xeon-e3>
-References: <cover.1492187126.git.mschiffer@universe-factory.net>
-	<95533e3ca4958ba2eca3efcc661713638feea220.1492187126.git.mschiffer@universe-factory.net>
+From: Chonggang Li <chonggangli@google.com>
+Subject: [PATCH net-next] bonding: do not pass link-local packets to master-interface
+Date: Fri, 14 Apr 2017 11:00:22 -0700
+Message-ID: <20170414180022.124453-1-chonggangli@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org,
-	jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, aduyck-nYU0QVwCCFFWk0Htik3J/w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Matthias Schiffer <mschiffer-Nyw9WiXk/RKXhJHkyCwd5uTW4wlIGRCZ@public.gmane.org>
-Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <95533e3ca4958ba2eca3efcc661713638feea220.1492187126.git.mschiffer-Nyw9WiXk/RKXhJHkyCwd5uTW4wlIGRCZ@public.gmane.org>
-List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
-List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, Chonggang Li <chonggangli@google.com>,
+        Mahesh Bandewar <maheshb@google.com>,
+        =?UTF-8?q?Maciej=20=C5=BBenczykowski?= <maze@google.com>
+To: j.vosburgh@gmail.com, andy@greyhouse.net, vfalico@gmail.com,
+        nikolay@redhat.com, edumazet@google.com, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f178.google.com ([209.85.192.178]:35727 "EHLO
+        mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751677AbdDNSAn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 14 Apr 2017 14:00:43 -0400
+Received: by mail-pf0-f178.google.com with SMTP id i5so43224437pfc.2
+        for <netdev@vger.kernel.org>; Fri, 14 Apr 2017 11:00:43 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 14 Apr 2017 18:44:46 +0200
-Matthias Schiffer <mschiffer-Nyw9WiXk/RKXhJHkyCwd5uTW4wlIGRCZ@public.gmane.org> wrote:
+Previously link-local packets excluding LACP (which are handled by
+the recv_probe) received on bond slave interfaces are delivered to
+stack with bond-master device with RX_HANDLER_ANOTHER, however all
+link-local packets are link specific and should be delivered with
+exact same link/dev.
 
-> As link-local addresses are only valid for a single interface, we can allow
-> to use the same VNI for multiple independent VXLANs, as long as the used
-> interfaces are distinct. This way, VXLANs can always be used as a drop-in
-> replacement for VLANs with greater ID space.
-> 
-> This also extends VNI lookup to respect the ifindex when link-local IPv6
-> addresses are used, so using the same VNI on multiple interfaces can
-> actually work.
-> 
-> Signed-off-by: Matthias Schiffer <mschiffer-Nyw9WiXk/RKXhJHkyCwd5uTW4wlIGRCZ@public.gmane.org>
+Signed-off-by: Chonggang Li <chonggangli@google.com>
+Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+Signed-off-by: Maciej Żenczykowski <maze@google.com>
+---
+ drivers/net/bonding/bond_main.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-Why does this have to be IPv6 specific?
-
-What about the case where VXLAN is not bound to an interface?
-If that is used then that could be a problem.
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 01e4a69af421..aeca3d8541b9 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1176,6 +1176,9 @@ static rx_handler_result_t bond_handle_frame(struct sk_buff **pskb)
+ 		}
+ 	}
+ 
++	/* link-local packets should not be passed to master interface */
++	if (is_link_local_ether_addr(eth_hdr(skb)->h_dest))
++		return RX_HANDLER_PASS;
+ 	if (bond_should_deliver_exact_match(skb, slave, bond))
+ 		return RX_HANDLER_EXACT;
+ 
+-- 
+2.12.2.762.g0e3151a226-goog
