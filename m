@@ -1,97 +1,113 @@
-From: Nathan Fontenot <nfont@linux.vnet.ibm.com>
-Subject: [PATCH net-next] ibmvnic: Do not disable IRQ after scheduling
- tasklet
-Date: Fri, 14 Apr 2017 12:49:56 -0400
-Message-ID: <20170414164956.50601.20659.stgit@ltcalpine2-lp23.aus.stglabs.ibm.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH 18/38] Annotate hardware config module parameters in
+ drivers/net/can/
+Date: Fri, 14 Apr 2017 15:08:13 +0200
+Message-ID: <8f7e225b-15fb-58c8-9e3f-34cfafb330d6@pengutronix.de>
+References: <149141141298.29162.5612793122429261720.stgit@warthog.procyon.org.uk>
+ <149141157162.29162.10145088436840145584.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: jallen@linux.vnet.ibm.com, tlfalcon@linux.vnet.ibm.com
-To: brking@linux.vnet.ibm.com, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:33038 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751473AbdDNNAy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 14 Apr 2017 09:00:54 -0400
-Received: from pps.filterd (m0098404.ppops.net [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v3ECwliK086879
-        for <netdev@vger.kernel.org>; Fri, 14 Apr 2017 09:00:54 -0400
-Received: from e19.ny.us.ibm.com (e19.ny.us.ibm.com [129.33.205.209])
-        by mx0a-001b2d01.pphosted.com with ESMTP id 29tw55m0u7-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Fri, 14 Apr 2017 09:00:53 -0400
-Received: from localhost
-        by e19.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <nfont@linux.vnet.ibm.com>;
-        Fri, 14 Apr 2017 09:00:52 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="olBsFKamhQTkREcfvHemkOaQRclQPh2ox"
+Cc: gnomes@lxorguk.ukuu.org.uk, netdev@vger.kernel.org,
+        linux-can@vger.kernel.org, linux-security-module@vger.kernel.org,
+        keyrings@vger.kernel.org, gregkh@linuxfoundation.org,
+        Wolfgang Grandegger <wg@grandegger.com>
+To: David Howells <dhowells@redhat.com>, linux-kernel@vger.kernel.org
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <149141157162.29162.10145088436840145584.stgit@warthog.procyon.org.uk>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Brian King <brking@linux.vnet.ibm.com>
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--olBsFKamhQTkREcfvHemkOaQRclQPh2ox
+Content-Type: multipart/mixed; boundary="Qha9AQibvj5dtJ9SqfSMIFgaWPs2egNeq";
+ protected-headers="v1"
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+To: David Howells <dhowells@redhat.com>, linux-kernel@vger.kernel.org
+Cc: gnomes@lxorguk.ukuu.org.uk, netdev@vger.kernel.org,
+ linux-can@vger.kernel.org, linux-security-module@vger.kernel.org,
+ keyrings@vger.kernel.org, gregkh@linuxfoundation.org,
+ Wolfgang Grandegger <wg@grandegger.com>
+Message-ID: <8f7e225b-15fb-58c8-9e3f-34cfafb330d6@pengutronix.de>
+Subject: Re: [PATCH 18/38] Annotate hardware config module parameters in
+ drivers/net/can/
+References: <149141141298.29162.5612793122429261720.stgit@warthog.procyon.org.uk>
+ <149141157162.29162.10145088436840145584.stgit@warthog.procyon.org.uk>
+In-Reply-To: <149141157162.29162.10145088436840145584.stgit@warthog.procyon.org.uk>
 
-Since the primary CRQ is only used for service functions and
-not in the performance path, simplify the code a bit and avoid
-disabling the IRQ.
+--Qha9AQibvj5dtJ9SqfSMIFgaWPs2egNeq
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Brian King <brking@linux.vnet.ibm.com>
-Signed-off-by: Nathan Fontenot <nfont@linux.vnet.ibm.com>
----
- drivers/net/ethernet/ibm/ibmvnic.c |   25 ++++++-------------------
- 1 file changed, 6 insertions(+), 19 deletions(-)
+On 04/05/2017 06:59 PM, David Howells wrote:
+> When the kernel is running in secure boot mode, we lock down the kernel=
+ to
+> prevent userspace from modifying the running kernel image.  Whilst this=
 
-diff --git a/drivers/net/ethernet/ibm/ibmvnic.c b/drivers/net/ethernet/ibm/ibmvnic.c
-index b5871df..27d7d27 100644
---- a/drivers/net/ethernet/ibm/ibmvnic.c
-+++ b/drivers/net/ethernet/ibm/ibmvnic.c
-@@ -3027,12 +3027,8 @@ static void ibmvnic_handle_crq(union ibmvnic_crq *crq,
- static irqreturn_t ibmvnic_interrupt(int irq, void *instance)
- {
- 	struct ibmvnic_adapter *adapter = instance;
--	unsigned long flags;
- 
--	spin_lock_irqsave(&adapter->crq.lock, flags);
--	vio_disable_interrupts(adapter->vdev);
- 	tasklet_schedule(&adapter->tasklet);
--	spin_unlock_irqrestore(&adapter->crq.lock, flags);
- 	return IRQ_HANDLED;
- }
- 
-@@ -3040,32 +3036,23 @@ static void ibmvnic_tasklet(void *data)
- {
- 	struct ibmvnic_adapter *adapter = data;
- 	struct ibmvnic_crq_queue *queue = &adapter->crq;
--	struct vio_dev *vdev = adapter->vdev;
- 	union ibmvnic_crq *crq;
- 	unsigned long flags;
- 	bool done = false;
- 
- 	spin_lock_irqsave(&queue->lock, flags);
--	vio_disable_interrupts(vdev);
- 	while (!done) {
- 		/* Pull all the valid messages off the CRQ */
- 		while ((crq = ibmvnic_next_crq(adapter)) != NULL) {
- 			ibmvnic_handle_crq(crq, adapter);
- 			crq->generic.first = 0;
- 		}
--		vio_enable_interrupts(vdev);
--		crq = ibmvnic_next_crq(adapter);
--		if (crq) {
--			vio_disable_interrupts(vdev);
--			ibmvnic_handle_crq(crq, adapter);
--			crq->generic.first = 0;
--		} else {
--			/* remain in tasklet until all
--			 * capabilities responses are received
--			 */
--			if (!adapter->wait_capability)
--				done = true;
--		}
-+
-+		/* remain in tasklet until all
-+		 * capabilities responses are received
-+		 */
-+		if (!adapter->wait_capability)
-+			done = true;
- 	}
- 	/* if capabilities CRQ's were sent in this tasklet, the following
- 	 * tasklet must wait until all responses are received
+> includes prohibiting access to things like /dev/mem, it must also preve=
+nt
+> access by means of configuring driver modules in such a way as to cause=
+ a
+> device to access or modify the kernel image.
+>=20
+> To this end, annotate module_param* statements that refer to hardware
+> configuration and indicate for future reference what type of parameter =
+they
+> specify.  The parameter parser in the core sees this information and ca=
+n
+> skip such parameters with an error message if the kernel is locked down=
+=2E
+> The module initialisation then runs as normal, but just sees whatever t=
+he
+> default values for those parameters is.
+>=20
+> Note that we do still need to do the module initialisation because some=
+
+> drivers have viable defaults set in case parameters aren't specified an=
+d
+> some drivers support automatic configuration (e.g. PNP or PCI) in addit=
+ion
+> to manually coded parameters.
+>=20
+> This patch annotates drivers in drivers/net/can/.
+>=20
+> Suggested-by: Alan Cox <gnomes@lxorguk.ukuu.org.uk>
+> Signed-off-by: David Howells <dhowells@redhat.com>
+> Acked-by: Marc Kleine-Budde <mkl@pengutronix.de>
+> cc: Wolfgang Grandegger <wg@grandegger.com>
+> cc: linux-can@vger.kernel.org
+> cc: netdev@vger.kernel.org
+
+Who whill take this patch? Or will it be allied as part of the series by
+some of my upstreams?
+
+Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--Qha9AQibvj5dtJ9SqfSMIFgaWPs2egNeq--
+
+--olBsFKamhQTkREcfvHemkOaQRclQPh2ox
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQEzBAEBCgAdFiEE4bay/IylYqM/npjQHv7KIOw4HPYFAljwyb4ACgkQHv7KIOw4
+HPYMGAf/YtnBEkHSaSbXxSFzV80ka1beSa0k5UYuBBqoQ/ezinWO1ktSghNXEtf3
+PairBJxKIhs873E4+oFl75A1vkIMmSfMTg+J2aLzO2A5PByeVz9eQybhguRXFftn
+aapItLAKCe15B+4nNWONTbEvkCZGQFss5cLn03xJDtetoWAZ3+HAumtpYGfMrFkX
+26enYopfkzjX6A3EToaNqNdtIPCM9sMT275qrdcTB5377lI2uJrrhOTyKmmGkQaF
+g2/YZBRrMStm1USAQkkrnuCHxiZANFu5GMqeBMVCZtV92BZY5pQnkfqnpDMNZVci
+TJtqtRfjlTYyVWD0WBqDmf/N84YWUw==
+=ij7U
+-----END PGP SIGNATURE-----
+
+--olBsFKamhQTkREcfvHemkOaQRclQPh2ox--
