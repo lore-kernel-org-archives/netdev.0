@@ -1,103 +1,47 @@
-From: <sean.wang@mediatek.com>
-Subject: [PATCH v2 net 2/2] net: ethernet: mediatek: fix inconsistency of port number carried in TXD
-Date: Fri, 14 Apr 2017 11:19:12 +0800
-Message-ID: <1492139952-8104-3-git-send-email-sean.wang@mediatek.com>
-References: <1492139952-8104-1-git-send-email-sean.wang@mediatek.com>
+From: Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>
+Subject: Re: [PATCH 02/22] nvmet: Make use of the new sg_map helper function
+Date: Fri, 14 Apr 2017 06:59:51 +0200
+Message-ID: <20170414045951.GA22206@lst.de>
+References: <1492121135-4437-1-git-send-email-logang@deltatee.com>
+ <1492121135-4437-3-git-send-email-logang@deltatee.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <nbd@openwrt.org>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>,
-        <linux-mediatek@lists.infradead.org>, <keyhaede@gmail.com>,
-        Sean Wang <sean.wang@mediatek.com>
-To: <john@phrozen.org>, <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1492139952-8104-1-git-send-email-sean.wang@mediatek.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>, linux-nvme-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+ target-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Sumit Semwal <sumit.semwal-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+ devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org, rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org,
+ linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Matthew Wilcox <mawilcox-0li6OtcxBFHby3iVrkZq2A@public.gmane.org>,
+ linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>,
+ fcoe-devel-s9riP+hp16TNLxjTenLetw@public.gmane.org, open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org,
+ linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Ming Lin <ming.l-Vzezgt5dB6uUEJcrhfAQsw@public.gmane.org>,
+ intel-gfx-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org, sparmaintainer-GLv8BlqOqDDQT0dZR+AlfA@public.gmane.org,
+ linux-raid-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org,
+ megaraidlinux.pdl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, Jens Axboe <axboe-tSWWG44O7X1aa/9Udqfwiw@public.gmane.org>,
+ linaro-mm-sig-cunTk1MwBs8s++Sfvej+rw@public.gmane.org,
+ "Martin K. Petersen" <martin.petersen-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
+ Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>, linux-nvdimm-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org,
+ linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ linux-crypto-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev@
+To: Logan Gunthorpe <logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1492121135-4437-3-git-send-email-logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
+List-Unsubscribe: <https://lists.01.org/mailman/options/linux-nvdimm>,
+ <mailto:linux-nvdimm-request-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.01.org/pipermail/linux-nvdimm/>
+List-Post: <mailto:linux-nvdimm-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
+List-Help: <mailto:linux-nvdimm-request-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.01.org/mailman/listinfo/linux-nvdimm>,
+ <mailto:linux-nvdimm-request-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org?subject=subscribe>
+Errors-To: linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org
+Sender: "Linux-nvdimm" <linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-From: Sean Wang <sean.wang@mediatek.com>
+On Thu, Apr 13, 2017 at 04:05:15PM -0600, Logan Gunthorpe wrote:
+> This is a straight forward conversion in two places. Should kmap fail,
+> the code will return an INVALD_DATA error in the completion.
 
-Fix port inconsistency on TXD due to hardware BUG that would cause
-different port number is carried on the same TXD between tx_map()
-and tx_unmap() with the iperf test. It would cause confusing BQL
-logic which leads to kernel panic when dual GMAC runs concurrently.
-
-Signed-off-by: Sean Wang <sean.wang@mediatek.com>
----
- drivers/net/ethernet/mediatek/mtk_eth_soc.c | 14 +++++++++-----
- drivers/net/ethernet/mediatek/mtk_eth_soc.h | 12 +++++++++---
- 2 files changed, 18 insertions(+), 8 deletions(-)
-
-diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index 48ba617..6313c53 100644
---- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-+++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -648,6 +648,8 @@ static int mtk_tx_map(struct sk_buff *skb, struct net_device *dev,
- 
- 	WRITE_ONCE(itxd->txd1, mapped_addr);
- 	itx_buf->flags |= MTK_TX_FLAGS_SINGLE0;
-+	itx_buf->flags |= (!mac->id) ? MTK_TX_FLAGS_FPORT0 :
-+			  MTK_TX_FLAGS_FPORT1;
- 	dma_unmap_addr_set(itx_buf, dma_addr0, mapped_addr);
- 	dma_unmap_len_set(itx_buf, dma_len0, skb_headlen(skb));
- 
-@@ -689,6 +691,9 @@ static int mtk_tx_map(struct sk_buff *skb, struct net_device *dev,
- 			memset(tx_buf, 0, sizeof(*tx_buf));
- 			tx_buf->skb = (struct sk_buff *)MTK_DMA_DUMMY_DESC;
- 			tx_buf->flags |= MTK_TX_FLAGS_PAGE0;
-+			tx_buf->flags |= (!mac->id) ? MTK_TX_FLAGS_FPORT0 :
-+					 MTK_TX_FLAGS_FPORT1;
-+
- 			dma_unmap_addr_set(tx_buf, dma_addr0, mapped_addr);
- 			dma_unmap_len_set(tx_buf, dma_len0, frag_map_size);
- 			frag_size -= frag_map_size;
-@@ -1011,17 +1016,16 @@ static int mtk_poll_tx(struct mtk_eth *eth, int budget)
- 
- 	while ((cpu != dma) && budget) {
- 		u32 next_cpu = desc->txd2;
--		int mac;
-+		int mac = 0;
- 
- 		desc = mtk_qdma_phys_to_virt(ring, desc->txd2);
- 		if ((desc->txd3 & TX_DMA_OWNER_CPU) == 0)
- 			break;
- 
--		mac = (desc->txd4 >> TX_DMA_FPORT_SHIFT) &
--		       TX_DMA_FPORT_MASK;
--		mac--;
--
- 		tx_buf = mtk_desc_to_tx_buf(ring, desc);
-+		if (tx_buf->flags & MTK_TX_FLAGS_FPORT1)
-+			mac = 1;
-+
- 		skb = tx_buf->skb;
- 		if (!skb) {
- 			condition = 1;
-diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.h b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
-index 996024d..3c46a3b 100644
---- a/drivers/net/ethernet/mediatek/mtk_eth_soc.h
-+++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
-@@ -410,12 +410,18 @@ struct mtk_hw_stats {
- 	struct u64_stats_sync	syncp;
- };
- 
--/* PDMA descriptor can point at 1-2 segments. This enum allows us to track how
-- * memory was allocated so that it can be freed properly
-- */
- enum mtk_tx_flags {
-+	/* PDMA descriptor can point at 1-2 segments. This enum allows us to
-+	 * track how memory was allocated so that it can be freed properly.
-+	 */
- 	MTK_TX_FLAGS_SINGLE0	= 0x01,
- 	MTK_TX_FLAGS_PAGE0	= 0x02,
-+
-+	/* MTK_TX_FLAGS_FPORTx allows tracking which port the transmitted
-+	 * SKB out instead of looking up through hardware TX descriptor.
-+	 */
-+	MTK_TX_FLAGS_FPORT0	= 0x04,
-+	MTK_TX_FLAGS_FPORT1	= 0x08,
- };
- 
- /* This enum allows us to identify how the clock is defined on the array of the
--- 
-1.9.1
+It really should be using nvmet_copy_from_sgl to make things safer,
+as we don't want to rely on any particular SG list layout.  In fact
+I'm pretty sure I did the conversion at some point, but it must never
+have made it upstream.
