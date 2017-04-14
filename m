@@ -1,50 +1,131 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [iproute2 net-next v2 0/3] ip netconf improvements
-Date: Fri, 14 Apr 2017 16:02:31 -0700
-Message-ID: <20170414160231.4ce987a9@xeon-e3>
-References: <1490323882-11609-1-git-send-email-dsa@cumulusnetworks.com>
+From: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+Subject: Re: [PATCH net-next 1/1 v3] drivers: net: rmnet: Initial
+ implementation
+Date: Fri, 14 Apr 2017 17:02:54 -0600
+Message-ID: <36dd3dd490657d214e034a9c294621db@codeaurora.org>
+References: <1492146329-4304-1-git-send-email-subashab@codeaurora.org>
+ <1492146329-4304-2-git-send-email-subashab@codeaurora.org>
+ <20170414091030.2a657c9f@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=US-ASCII;
+ format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nicolas.dichtel@6wind.com
-To: David Ahern <dsa@cumulusnetworks.com>
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+        fengguang.wu@intel.com, dcbw@redhat.com, jiri@resnulli.us
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f171.google.com ([209.85.192.171]:35745 "EHLO
-        mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754731AbdDNXCd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 14 Apr 2017 19:02:33 -0400
-Received: by mail-pf0-f171.google.com with SMTP id i5so45271429pfc.2
-        for <netdev@vger.kernel.org>; Fri, 14 Apr 2017 16:02:33 -0700 (PDT)
-In-Reply-To: <1490323882-11609-1-git-send-email-dsa@cumulusnetworks.com>
+Received: from smtp.codeaurora.org ([198.145.29.96]:39418 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755432AbdDNXC4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 14 Apr 2017 19:02:56 -0400
+In-Reply-To: <20170414091030.2a657c9f@xeon-e3>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 23 Mar 2017 19:51:19 -0700
-David Ahern <dsa@cumulusnetworks.com> wrote:
+>> +https://source.codeaurora.org/quic/la/platform/vendor/qcom-opensource/\
+>> +dataservices/tree/rmnetctl
+> 
+> Don't split URL better to have long line.
+>> diff --git a/drivers/net/rmnet/Kconfig b/drivers/net/rmnet/Kconfig
+> 
+> Since this is Qualcomm and Ethernet specific, maybe better to put
+> in drivers/net/ethernet/qualcom/rmnet
+> 
+>> +config RMNET_DEBUG
+> 
+> Please use network device standard debug mechanism.
+> netif_msg_XXX
+> 
+>> +		buffloc += snprintf(&buffer[buffloc], sizeof(buffer) - buffloc,
+>> +					" %02x", skb->data[i]);
+> 
+> If you really have to do this. Use hex_dump_bytes API.
+> 
+>> +	skb->mac_header = 0;
+>> +	skb->mac_len = 0;
+>> +}
+> 
+> Why not use sbk_set_mac_header(skb, 0)?
+> 
+>> +static inline struct rmnet_phys_ep_conf_s *_rmnet_get_phys_ep_config
+>> +						(struct net_device *dev)
+> awkward line break.
+> dev could be const
+> 
+>> +	config = (struct rmnet_phys_ep_conf_s *)
+>> +		  rcu_dereference(dev->rx_handler_data);
+> 
+> Please don't directly reference rx_handler. There is already functions
+> like netdev_is_rx_handler_busy() to abstract that API.
+> 
+>> + * @epconfig:    endpoint configuration structure to set
+>> + */
+> 
+> You are using docbook format here, but this is not a docbook comment.
+> ie.
+> /**
+>  * function - This is a docbook comment
+>  * @dev: this is a param
+>  */
+> 
+> Plus these are static functions so there is no point in documentating
+> internal API with docbook.
+> 
+>> +	ASSERT_RTNL();
+>> +
+>> +	if (!dev || config_id < RMNET_LOCAL_LOGICAL_ENDPOINT ||
+>> +	    config_id >= RMNET_MAX_LOGICAL_EP)
+>> +		return -EINVAL;
+> 
+> For internal API's you should validate parmeters at the external
+> entry point not in each call. Otherwise you have a multitude of
+> impossible error checks and dead code paths.
+> 
+>> +	.next = 0,
+>> +	.priority = 0
+>> +};
+> Don't initialize fields that are not used or should be zero.
+> 
 
-> Currently, ip netconf only shows data for ipv4 and ipv6 for dumps
-> and just ipv4 for device requests. Improve the user experience by
-> using the new kernel patch to dump all address families that have
-> registered. For example, if mpls_router module is loaded then mpls
-> values are displayed along with ipv4 and ipv6.
+Hi Stephen
+
+I'll make these changes.
+
 > 
-> If the new feature is not supported (new iproute2 on older kernel)
-> the kernel returns the nlmsg error EOPNOTSUPP which can be trapped
-> and fallback to existing behavior.
+> Could just be:
 > 
-> v2
-> - fixed index conversion in patch 3 per nicholas' comment
+> static inline int _rmnet_is_physical_endpoint_associated(const struct
+> net_device *dev)
+> {
+> 	rx_handler_func_t *rx_handler
+> 		= rcu_dereference(dev->rx_handler);
 > 
-> David Ahern (3):
->   netlink: Add flag to suppress print of nlmsg error
->   ip netconf: Show all address families by default in dumps
->   ip netconf: show all families on dev request
+> 	return rx_handler == rmet_rx_handler;
+> }
 > 
->  include/libnetlink.h |  1 +
->  ip/ipnetconf.c       | 36 +++++++++++++++++++++++++-----------
->  lib/libnetlink.c     |  3 ++-
->  3 files changed, 28 insertions(+), 12 deletions(-)
+> But standard practice is to use ndo_ops to identify self in network 
+> drivers.
+> I.e
+> 	return dev->netdev_ops == &rmnet_device_ops;
 > 
 
-Sure applied, just wanted to make sure there was nothing interrelated
-with recent spate of changes to netlink notifications.
+The netdevice which is associated is the physical (real_dev). This 
+device
+can vary based on hardware and will have its own netdev_ops associated 
+with it.
+rmnet_device_ops applies to the rmnet devices only. I'll use the first
+option you have suggested.
+
+>> +	if (!data[IFLA_RMNET_MUX_ID])
+>> +		return -EINVAL;
+> 
+> So you are inventing private link netlink attributes.
+> Why? Why can't you use device switch, bridge, or other master/slave 
+> model.
+> 
+
+I would like to eventually add more configuration options for the
+ingress & egress data formats as well as the endpoint configuration
+(VND mode vs BRIDGE mode). I was able to re-use IFLA_VLAN_ID for
+IFLA_RMNET_MUX_ID and test but it wasn't sufficient for the additional
+parameters. I'll check the bridge attributes and try to reuse it.
