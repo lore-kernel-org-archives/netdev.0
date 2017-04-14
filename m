@@ -1,94 +1,78 @@
-From: Logan Gunthorpe <logang@deltatee.com>
-Subject: Re: [PATCH 10/22] staging: unisys: visorbus: Make use of the new
- sg_map helper function
-Date: Fri, 14 Apr 2017 10:12:30 -0600
-Message-ID: <a182336f-ebda-66c6-3a2e-90f2d43582d7__1319.02628713778$1492186379$gmane$org@deltatee.com>
-References: <1492121135-4437-1-git-send-email-logang@deltatee.com>
- <1492121135-4437-11-git-send-email-logang@deltatee.com>
- <CY4PR07MB317691139A5B2F902CDA9B0EF0050@CY4PR07MB3176.namprd07.prod.outlook.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: How to debug DMAR errors?
+Date: Fri, 14 Apr 2017 09:19:36 -0700
+Message-ID: <fdbc5502-e388-b614-4f09-fa7de9a4f40e@candelatech.com>
+References: <a21d8845-ae8d-fae0-b1b4-7bf6751b04b5@candelatech.com>
+ <CAKgT0UcEKTsc6-tSHXMHFybnE4NQASKWHziq2SV+spOCLJGH-g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Steve Wise <swise@opengridcomputing.com>,
-        Stephen Bates <sbates@raithlin.com>
-To: "Kershner, David A" <David.Kershner@unisys.com>,
-        Christoph Hellwig <hch@lst.de>,
-        "Martin K. Petersen" <martin.petersen@oracle.com>,
-        Sagi Grimberg <sagi@grimberg.me>, Jens Axboe <axboe@kernel.dk>,
-        Tejun Heo <tj@kernel.org>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        Dan Williams <dan.j.williams@intel.com>,
-        Ross Zwisler <ross.zwisler@linux.intel.com>,
-        Matthew Wilcox <mawilcox@microsoft.com>,
-        Sumit Semwal <sumit.semwal@linaro.org>,
-        Ming Lin <ming.l@ssi.samsung.com>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "linux-crypto@vger.kernel.org" <linux-crypto@vger.kernel.org>,
-        "linux-media@vger.kernel.org" <linux-media@vger.kernel.org>,
-        "dri-devel@lists.freedesktop.org" <dri-devel@lists.freedesktop.org>,
-        "linaro-mm-sig@lists.linaro.org" <linaro-mm-si
+Cc: "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+        netdev <netdev@vger.kernel.org>
+To: Alexander Duyck <alexander.duyck@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ale.deltatee.com ([207.54.116.67]:41026 "EHLO ale.deltatee.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751687AbdDNQMt (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 14 Apr 2017 12:12:49 -0400
-In-Reply-To: <CY4PR07MB317691139A5B2F902CDA9B0EF0050@CY4PR07MB3176.namprd07.prod.outlook.com>
+Received: from mail2.candelatech.com ([208.74.158.173]:60552 "EHLO
+        mail2.candelatech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751993AbdDNQTj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 14 Apr 2017 12:19:39 -0400
+In-Reply-To: <CAKgT0UcEKTsc6-tSHXMHFybnE4NQASKWHziq2SV+spOCLJGH-g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Great, thanks!
 
-Logan
 
-On 14/04/17 10:07 AM, Kershner, David A wrote:
-> Can you add Acked-by for this patch? 
-> 
-> Acked-by: David Kershner <david.kershner@unisys.com>
-> 
-> Tested on s-Par and no problems. 
-> 
-> Thanks,
-> David Kershner
-> 
->> ---
->>  drivers/staging/unisys/visorhba/visorhba_main.c | 12 +++++++-----
->>  1 file changed, 7 insertions(+), 5 deletions(-)
+On 04/14/2017 08:45 AM, Alexander Duyck wrote:
+> On Thu, Apr 13, 2017 at 11:12 AM, Ben Greear <greearb@candelatech.com> wrote:
+>> Hello,
 >>
->> diff --git a/drivers/staging/unisys/visorhba/visorhba_main.c
->> b/drivers/staging/unisys/visorhba/visorhba_main.c
->> index 0ce92c8..2d8c8bc 100644
->> --- a/drivers/staging/unisys/visorhba/visorhba_main.c
->> +++ b/drivers/staging/unisys/visorhba/visorhba_main.c
->> @@ -842,7 +842,6 @@ do_scsi_nolinuxstat(struct uiscmdrsp *cmdrsp, struct
->> scsi_cmnd *scsicmd)
->>  	struct scatterlist *sg;
->>  	unsigned int i;
->>  	char *this_page;
->> -	char *this_page_orig;
->>  	int bufind = 0;
->>  	struct visordisk_info *vdisk;
->>  	struct visorhba_devdata *devdata;
->> @@ -869,11 +868,14 @@ do_scsi_nolinuxstat(struct uiscmdrsp *cmdrsp,
->> struct scsi_cmnd *scsicmd)
+>> I have been seeing a regular occurrence of DMAR errors, looking something
+>> like this when testing my ath10k driver/firmware under some specific loads
+>> (maximum receive of 512 byte frames in AP mode):
 >>
->>  		sg = scsi_sglist(scsicmd);
->>  		for (i = 0; i < scsi_sg_count(scsicmd); i++) {
->> -			this_page_orig = kmap_atomic(sg_page(sg + i));
->> -			this_page = (void *)((unsigned long)this_page_orig |
->> -					     sg[i].offset);
->> +			this_page = sg_map(sg + i, SG_KMAP_ATOMIC);
->> +			if (IS_ERR(this_page)) {
->> +				scsicmd->result = DID_ERROR << 16;
->> +				return;
->> +			}
->> +
->>  			memcpy(this_page, buf + bufind, sg[i].length);
->> -			kunmap_atomic(this_page_orig);
->> +			sg_unmap(sg + i, this_page, SG_KMAP_ATOMIC);
->>  		}
->>  	} else {
->>  		devdata = (struct visorhba_devdata *)scsidev->host-
->>> hostdata;
->> --
->> 2.1.4
-> 
+>> DMAR: DRHD: handling fault status reg 3
+>> DMAR: [DMA Read] Request device [05:00.0] fault addr fd99f000 [fault reason
+>> 06] PTE Read access is not set
+>> ath10k_pci 0000:05:00.0: firmware crashed! (uuid
+>> 594b1393-ae35-42b5-9dec-74ff0c6791ff)
+>>
+>> So, I am wondering if there is any way I can get more information about what
+>> this fd99f000 address
+>> is?
+>>
+>> Once this problem hits, the entire OS locks hard (not even sysrq-boot will
+>> do anything),
+>> so I guess I would need the DMAR logic to print out more info on that
+>> address somehow.
+>>
+>> Thanks,
+>> Ben
+>
+> There isn't much more info to give you. The problem is that the device
+> at 5:00.0 attempted to read at fd99f000 even though it didn't have
+> permissions. In response this should trigger a PCI Master Abort
+> message to that function. It looks like the firmware for the device
+> doesn't handle that and so that is likely why things got hung.
+>
+> Really you would need to interrogate the ath10k_pci to see if there
+> is/was a mapping somewhere for that address and what it was supposed
+> to be used for.
+
+I'm working on a hook in DMAR logic to call into ath10k_pci when the
+error is seen, so the ath10k can dump debug info, including recent DMA
+addresses.
+
+My code is an awful hack so far, but if someone could add a clean way to register
+DMAR error callbacks, I think that would be very welcome.  It might could tie into
+automated dma map/unmap debugging logic, and at the least, someone could write custom debugging callbacks
+for the driver(s) in question.
+
+Thanks,
+Ben
+
+>
+> - Alex
+>
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
