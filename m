@@ -1,128 +1,47 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH v2 net-next 5/8] net/ncsi: Dump NCSI packet statistics
-Date: Thu, 13 Apr 2017 19:30:45 -0700
-Message-ID: <1492137045.28586.26.camel@perches.com>
-References: <1492069701-20772-1-git-send-email-gwshan@linux.vnet.ibm.com>
-         <1492069701-20772-6-git-send-email-gwshan@linux.vnet.ibm.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: af_packet vs virtio
+Date: Fri, 14 Apr 2017 05:42:59 +0300
+Message-ID: <20170414051304-mutt-send-email-mst@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 8bit
-Cc: davem@davemloft.net
-To: Gavin Shan <gwshan@linux.vnet.ibm.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: alexei.starovoitov@gmail.com, netdev@vger.kernel.org
+To: john.fastabend@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0106.hostedemail.com ([216.40.44.106]:42067 "EHLO
-        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751368AbdDNCas (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 13 Apr 2017 22:30:48 -0400
-In-Reply-To: <1492069701-20772-6-git-send-email-gwshan@linux.vnet.ibm.com>
+Received: from mx1.redhat.com ([209.132.183.28]:47820 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752432AbdDNCnA (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 13 Apr 2017 22:43:00 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2017-04-13 at 17:48 +1000, Gavin Shan wrote:
-> This creates /sys/kernel/debug/ncsi/<eth0>/stats to dump the NCSI
-> packets sent and received over all packages and channels. It's useful
-> to diagnose NCSI problems, especially when NCSI packages and channels
-> aren't probed properly. The statistics can be gained from debugfs file
-> as below:
-> 
->  # cat /sys/kernel/debug/ncsi/eth0/stats
-> 
->  CMD          OK       TIMEOUT  ERROR
->  =======================================
->  CIS          32       29       0
->  SP           10       7        0
->  DP           17       14       0
->  EC           1        0        0
->  ECNT         1        0        0
->  AE           1        0        0
->  GLS          11       0        0
->  SMA          1        0        0
->  EBF          1        0        0
->  GVI          2        0        0
->  GC           2        0        0
+Hi all, I wanted to raise the question of similarities between virtio
+and new zero copy af_packet interfaces.
 
-more trivia:
+First I would like to mention that virtio device development isn't spec
+limited - spec is there to help interoperability and add peace of mind
+for people worried about IPR.
 
-> diff --git a/net/ncsi/ncsi-debug.c b/net/ncsi/ncsi-debug.c
-[]
-> @@ -23,6 +23,235 @@
->  #include "ncsi-pkt.h"
->  
->  static struct dentry *ncsi_dentry;
-> +static struct ncsi_pkt_handler {
-> +	unsigned char	type;
-> +	const char	*name;
-> +} ncsi_pkt_handlers[] = {
-> +	{ NCSI_PKT_CMD_CIS,    "CIS"    },
-> +	{ NCSI_PKT_CMD_SP,     "SP"     },
-> +	{ NCSI_PKT_CMD_DP,     "DP"     },
-> +	{ NCSI_PKT_CMD_EC,     "EC"     },
-> +	{ NCSI_PKT_CMD_DC,     "DC"     },
-> +	{ NCSI_PKT_CMD_RC,     "RC"     },
-> +	{ NCSI_PKT_CMD_ECNT,   "ECNT"   },
-> +	{ NCSI_PKT_CMD_DCNT,   "DCNT"   },
-> +	{ NCSI_PKT_CMD_AE,     "AE"     },
-> +	{ NCSI_PKT_CMD_SL,     "SL"     },
-> +	{ NCSI_PKT_CMD_GLS,    "GLS"    },
-> +	{ NCSI_PKT_CMD_SVF,    "SVF"    },
-> +	{ NCSI_PKT_CMD_EV,     "EV"     },
-> +	{ NCSI_PKT_CMD_DV,     "DV"     },
-> +	{ NCSI_PKT_CMD_SMA,    "SMA"    },
-> +	{ NCSI_PKT_CMD_EBF,    "EBF"    },
-> +	{ NCSI_PKT_CMD_DBF,    "DBF"    },
-> +	{ NCSI_PKT_CMD_EGMF,   "EGMF"   },
-> +	{ NCSI_PKT_CMD_DGMF,   "DGMF"   },
-> +	{ NCSI_PKT_CMD_SNFC,   "SNFC"   },
-> +	{ NCSI_PKT_CMD_GVI,    "GVI"    },
-> +	{ NCSI_PKT_CMD_GC,     "GC"     },
-> +	{ NCSI_PKT_CMD_GP,     "GP"     },
-> +	{ NCSI_PKT_CMD_GCPS,   "GCPS"   },
-> +	{ NCSI_PKT_CMD_GNS,    "GNS"    },
-> +	{ NCSI_PKT_CMD_GNPTS,  "GNPTS"  },
-> +	{ NCSI_PKT_CMD_GPS,    "GPS"    },
-> +	{ NCSI_PKT_CMD_OEM,    "OEM"    },
-> +	{ NCSI_PKT_CMD_PLDM,   "PLDM"   },
-> +	{ NCSI_PKT_CMD_GPUUID, "GPUUID" },
+So I tend to accept patches without requiring people write it up in the
+spec as work on spec proceeds at its own pace - all I ask is that the
+virtio mailing list is copied, this requires contributor to subscribe
+and in the process contributor promises that it's ok for us to add this
+to spec in the future.
 
-I don't know how common these are and how
-intelligible these acronyms are to knowledgeable
-developer/users, but maybe it'd be better to
-spell out what these are instead of having to
-look up what the acronyms stand for
+There shouldn't thus be a fundamental problem preventing use of virtio
+format or reusing some of the code for af_packet, but it still might or
+might not make sense - it was designed for CPU to CPU communication so
+it seems to make sense though.  So I would like that discussion to
+happen even if we decide against.
 
-	CIS - Clear Initial State
-	SP - Select Package
-	etc...
+And even if people decide against, the problem space is very similar.  You
+can look up packed ring layout proposal v2 - should I repost here?  Our
+prototyping shows significant performance improvements from using it as
+compared to head/tail layout.
 
-Maybe copy the descriptions from the ncsi-pkt.h file
+To start this discission I'm going to reply to this email reposting a
+copy of the simplified virtio layout that might be appropriate for
+af_packet as well.
 
-#define NCSI_PKT_CMD_CIS	0x00 /* Clear Initial State              */
-#define NCSI_PKT_CMD_SP		0x01 /* Select Package                   */
-#define NCSI_PKT_CMD_DP		0x02 /* Deselect Package                 */
-#define NCSI_PKT_CMD_EC		0x03 /* Enable Channel                   */
-#define NCSI_PKT_CMD_DC		0x04 /* Disable Channel                  */
-#define NCSI_PKT_CMD_RC		0x05 /* Reset Channel                    */
-#define NCSI_PKT_CMD_ECNT	0x06 /* Enable Channel Network Tx        */
-#define NCSI_PKT_CMD_DCNT	0x07 /* Disable Channel Network Tx       */
-#define NCSI_PKT_CMD_AE		0x08 /* AEN Enable                       */
-#define NCSI_PKT_CMD_SL		0x09 /* Set Link                         */
-#define NCSI_PKT_CMD_GLS	0x0a /* Get Link                         */
-#define NCSI_PKT_CMD_SVF	0x0b /* Set VLAN Filter                  */
-#define NCSI_PKT_CMD_EV		0x0c /* Enable VLAN                      */
-#define NCSI_PKT_CMD_DV		0x0d /* Disable VLAN                     */
-#define NCSI_PKT_CMD_SMA	0x0e /* Set MAC address                  */
-#define NCSI_PKT_CMD_EBF	0x10 /* Enable Broadcast Filter          */
-#define NCSI_PKT_CMD_DBF	0x11 /* Disable Broadcast Filter         */
-#define NCSI_PKT_CMD_EGMF	0x12 /* Enable Global Multicast Filter   */
-#define NCSI_PKT_CMD_DGMF	0x13 /* Disable Global Multicast Filter  */
-#define NCSI_PKT_CMD_SNFC	0x14 /* Set NCSI Flow Control            */
-#define NCSI_PKT_CMD_GVI	0x15 /* Get Version ID                   */
-#define NCSI_PKT_CMD_GC		0x16 /* Get Capabilities                 */
-#define NCSI_PKT_CMD_GP		0x17 /* Get Parameters                   */
-#define NCSI_PKT_CMD_GCPS	0x18 /* Get Controller Packet Statistics */
-#define NCSI_PKT_CMD_GNS	0x19 /* Get NCSI Statistics              */
-#define NCSI_PKT_CMD_GNPTS	0x1a /* Get NCSI Pass-throu Statistics   */
-#define NCSI_PKT_CMD_GPS	0x1b /* Get package status               */
-#define NCSI_PKT_CMD_OEM	0x50 /* OEM                              */
-#define NCSI_PKT_CMD_PLDM	0x51 /* PLDM request over NCSI over RBT  */
-#define NCSI_PKT_CMD_GPUUID	0x52 /* Get package UUID                 */
+-- 
+MST
