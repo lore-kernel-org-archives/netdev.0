@@ -1,10 +1,10 @@
 From: Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>
-Subject: Re: [PATCH net-next v2 4/6] vxlan: check valid
- combinations of address scopes
-Date: Fri, 14 Apr 2017 10:36:04 -0700
-Message-ID: <20170414103604.61ecffa9@xeon-e3>
+Subject: Re: [PATCH net-next v2 6/6] vxlan: allow multiple VXLANs
+ with same VNI for IPv6 link-local addresses
+Date: Fri, 14 Apr 2017 10:38:30 -0700
+Message-ID: <20170414103830.111a24a8@xeon-e3>
 References: <cover.1492187126.git.mschiffer@universe-factory.net>
-	<49cd788f13c2cd3f6a42f34c219c9511cc1f9cec.1492187126.git.mschiffer@universe-factory.net>
+	<95533e3ca4958ba2eca3efcc661713638feea220.1492187126.git.mschiffer@universe-factory.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -13,7 +13,7 @@ Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@p
 	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 To: Matthias Schiffer <mschiffer-Nyw9WiXk/RKXhJHkyCwd5uTW4wlIGRCZ@public.gmane.org>
 Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <49cd788f13c2cd3f6a42f34c219c9511cc1f9cec.1492187126.git.mschiffer-Nyw9WiXk/RKXhJHkyCwd5uTW4wlIGRCZ@public.gmane.org>
+In-Reply-To: <95533e3ca4958ba2eca3efcc661713638feea220.1492187126.git.mschiffer-Nyw9WiXk/RKXhJHkyCwd5uTW4wlIGRCZ@public.gmane.org>
 List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
 	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
@@ -25,37 +25,21 @@ Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 14 Apr 2017 18:44:44 +0200
+On Fri, 14 Apr 2017 18:44:46 +0200
 Matthias Schiffer <mschiffer-Nyw9WiXk/RKXhJHkyCwd5uTW4wlIGRCZ@public.gmane.org> wrote:
 
-> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-> index 07f89b037681..95a71546e8f2 100644
-> --- a/drivers/net/vxlan.c
-> +++ b/drivers/net/vxlan.c
-> @@ -2881,11 +2881,39 @@ static int vxlan_config_validate(struct net *src_net, struct vxlan_config *conf,
->  	if (conf->saddr.sa.sa_family != conf->remote_ip.sa.sa_family)
->  		return -EINVAL;
->  
-> +	if (vxlan_addr_multicast(&conf->saddr))
-> +		return -EINVAL;
-> +
->  	if (conf->saddr.sa.sa_family == AF_INET6) {
->  		if (!IS_ENABLED(CONFIG_IPV6))
->  			return -EPFNOSUPPORT;
->  		use_ipv6 = true;
->  		conf->flags |= VXLAN_F_IPV6;
-> +
-> +		if (!(conf->flags & VXLAN_F_COLLECT_METADATA)) {
-> +			int local_type =
-> +				ipv6_addr_type(&conf->saddr.sin6.sin6_addr);
-> +			int remote_type =
-> +				ipv6_addr_type(&conf->remote_ip.sin6.sin6_addr);
-> +
-> +			if (local_type & IPV6_ADDR_LINKLOCAL) {
-> +				if (!(remote_type & IPV6_ADDR_LINKLOCAL) &&
-> +				    (remote_type != IPV6_ADDR_ANY)) {
-> +					pr_info("invalid combination of address scopes\n");
+> As link-local addresses are only valid for a single interface, we can allow
+> to use the same VNI for multiple independent VXLANs, as long as the used
+> interfaces are distinct. This way, VXLANs can always be used as a drop-in
+> replacement for VLANs with greater ID space.
+> 
+> This also extends VNI lookup to respect the ifindex when link-local IPv6
+> addresses are used, so using the same VNI on multiple interfaces can
+> actually work.
+> 
+> Signed-off-by: Matthias Schiffer <mschiffer-Nyw9WiXk/RKXhJHkyCwd5uTW4wlIGRCZ@public.gmane.org>
 
-It is always helpful to include device if possible in error message.
-					netdev_notice(old->dev, " invalid combination of address scopes\n");
-Also vxlan is good candidate for extended netlink error reporting.
+Why does this have to be IPv6 specific?
+
+What about the case where VXLAN is not bound to an interface?
+If that is used then that could be a problem.
