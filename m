@@ -1,7 +1,7 @@
 From: Christoph Hellwig <hch@lst.de>
-Subject: [PATCH 6/7] crypto: qat: use pcie_flr instead of duplicating it
-Date: Fri, 14 Apr 2017 21:11:30 +0200
-Message-ID: <20170414191131.14286-7-hch@lst.de>
+Subject: [PATCH 3/7] PCI: call pcie_flr from reset_chelsio_generic_dev
+Date: Fri, 14 Apr 2017 21:11:27 +0200
+Message-ID: <20170414191131.14286-4-hch@lst.de>
 References: <20170414191131.14286-1-hch@lst.de>
 Cc: linux-pci@vger.kernel.org, qat-linux@intel.com,
         linux-crypto@vger.kernel.org, linux-rdma@vger.kernel.org,
@@ -16,41 +16,44 @@ To: Bjorn Helgaas <bhelgaas@google.com>,
         Felix Manlunas <felix.manlunas@caviumnetworks.com>,
         Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <linux-crypto-owner@vger.kernel.org>
+Return-path: <linux-pci-owner@vger.kernel.org>
 In-Reply-To: <20170414191131.14286-1-hch@lst.de>
-Sender: linux-crypto-owner@vger.kernel.org
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Instead of copy & pasting and old version of the code.
+
 Signed-off-by: Christoph Hellwig <hch@lst.de>
+Acked-by: Bjorn Helgaas <bhelgaas@google.com>
 ---
- drivers/crypto/qat/qat_common/adf_aer.c | 15 +--------------
+ drivers/pci/quirks.c | 15 +--------------
  1 file changed, 1 insertion(+), 14 deletions(-)
 
-diff --git a/drivers/crypto/qat/qat_common/adf_aer.c b/drivers/crypto/qat/qat_common/adf_aer.c
-index 2839fccdd84b..d3e25c37dc33 100644
---- a/drivers/crypto/qat/qat_common/adf_aer.c
-+++ b/drivers/crypto/qat/qat_common/adf_aer.c
-@@ -109,20 +109,7 @@ EXPORT_SYMBOL_GPL(adf_reset_sbr);
+diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
+index 8195ca294ee5..715ed8c08fa3 100644
+--- a/drivers/pci/quirks.c
++++ b/drivers/pci/quirks.c
+@@ -3750,20 +3750,7 @@ static int reset_chelsio_generic_dev(struct pci_dev *dev, int probe)
+ 				      PCI_MSIX_FLAGS_ENABLE |
+ 				      PCI_MSIX_FLAGS_MASKALL);
  
- void adf_reset_flr(struct adf_accel_dev *accel_dev)
- {
--	struct pci_dev *pdev = accel_to_pci_dev(accel_dev);
--	u16 control = 0;
--	int pos = 0;
+-	/*
+-	 * Start of pcie_flr() code sequence.  This reset code is a copy of
+-	 * the guts of pcie_flr() because that's not an exported function.
+-	 */
 -
--	dev_info(&GET_DEV(accel_dev), "Function level reset\n");
--	pos = pci_pcie_cap(pdev);
--	if (!pos) {
--		dev_err(&GET_DEV(accel_dev), "Restart device failed\n");
--		return;
--	}
--	pci_read_config_word(pdev, pos + PCI_EXP_DEVCTL, &control);
--	control |= PCI_EXP_DEVCTL_BCR_FLR;
--	pci_write_config_word(pdev, pos + PCI_EXP_DEVCTL, control);
+-	if (!pci_wait_for_pending_transaction(dev))
+-		dev_err(&dev->dev, "transaction is not cleared; proceeding with reset anyway\n");
+-
+-	pcie_capability_set_word(dev, PCI_EXP_DEVCTL, PCI_EXP_DEVCTL_BCR_FLR);
 -	msleep(100);
-+	pcie_flr(accel_to_pci_dev(accel_dev));
- }
- EXPORT_SYMBOL_GPL(adf_reset_flr);
+-
+-	/*
+-	 * End of pcie_flr() code sequence.
+-	 */
++	pcie_flr(dev);
  
+ 	/*
+ 	 * Restore the configuration information (BAR values, etc.) including
 -- 
 2.11.0
