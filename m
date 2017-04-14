@@ -1,68 +1,101 @@
-From: Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [RFC 1/3] bpf/wireless: add wifimon program type
-Date: Fri, 14 Apr 2017 11:51:45 -0700
-Message-ID: <20170414185144.GB41922@ast-mbp.thefacebook.com>
-References: <20170412110726.9689-1-johannes@sipsolutions.net>
- <1492007254.2855.10.camel@sipsolutions.net>
- <20170412.111913.497795978751789475.davem@davemloft.net>
- <1492011040.2855.18.camel@sipsolutions.net>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH v3 net-next RFC] Generic XDP
+Date: Fri, 14 Apr 2017 12:09:40 -0700
+Message-ID: <20170414190939.GC41922@ast-mbp.thefacebook.com>
+References: <20170413042036.GA46229@ast-mbp.thefacebook.com>
+ <20170413.113722.2174945057832588335.davem@davemloft.net>
+ <1492111341.29526.5.camel@sipsolutions.net>
+ <20170413.160148.1850150011941347398.davem@davemloft.net>
+ <1492157260.4735.1.camel@sipsolutions.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: 8bit
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org, ast-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
-To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+        xdp-newbies@vger.kernel.org
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f176.google.com ([209.85.192.176]:34685 "EHLO
+        mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752080AbdDNTJp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 14 Apr 2017 15:09:45 -0400
 Content-Disposition: inline
-In-Reply-To: <1492011040.2855.18.camel-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1492157260.4735.1.camel@sipsolutions.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 12, 2017 at 05:30:40PM +0200, Johannes Berg wrote:
-> On Wed, 2017-04-12 at 11:19 -0400, David Miller wrote:
+On Fri, Apr 14, 2017 at 10:07:40AM +0200, Johannes Berg wrote:
+> On Thu, 2017-04-13 at 16:01 -0400, David Miller wrote:
+> > From: Johannes Berg <johannes@sipsolutions.net>
+> > Date: Thu, 13 Apr 2017 21:22:21 +0200
 > > 
-> > > Instead it may make more sense to just have a "wifi_info(skb,
-> > info)"
-> > > function you can call, e.g. with a structure that has various
-> > fields
-> > > and flags to see which you care about.
+> > > OTOH, it might depend on the frame data itself, if the program does
+> > > something like
+> > > 
+> > > xdp->data[xdp->data[0] & 0xf]
+> > > 
+> > > (read or write, doesn't really matter) so then the verifier would
+> > have
+> > > to take the maximum possible value there into account.
 > > 
-> > I would advise against this, let the parsing part use __sk_buff and
-> > therefore have maximum flexibility.  You really cannot predict the
-> > future, so in my opinion it might be unwise to constrain at this
-> > point.
+> > I am not well versed enough with the verifier to understand exactly
+> > how and to what extent SKB accesses are validated by the verifier.
+> > 
+> > My, perhaps mistaken, impression is that access range validation is
+> > still at least partially done at run time.
 > 
-> So my point with the wifi_info() function to call from the BPF program
-> was just that putting something that's not already in struct sk_buff
-> into __sk_buff doesn't really make a lot of sense - we still have to
-> actually build it somewhere/somehow without knowing if it's going to be
-> needed by the program. We already have things like prog->cb_access and
-> prog->dst_needed now, but I'm not sure we want to blow that up much.
+> I think you're right for SKB accesses, but I'm pretty sure that for XDP
+> the verifier checks that the program can't possibly access outside of
+> [xdp->data, xdp->data_end], see compare_ptrs_to_packet().
 > 
-> At the same time, technically I *do* have the information in skb->cb,
-> but the format thereof is something I really wouldn't want to let
-> trickle into the ABI. Therefore, I think if somebody needs something
-> like the bitrate, we should have a wifi_info() function that can return
-> the bitrate (among other things) without having to pre-build the data.
-> We can still cache it in mac80211 if multiple programs are there, dunno
-> if that makes sense.
+> This checks that comparisons to data_end are all there, i.e. that the
+> program verifies it may access some bytes before actually doing so.
+> However, the program could start with
 > 
-> Nevertheless, I think if I don't use __sk_buff as the program argument
-> then things get really messy, so I'll stick to that, and avoid adding
-> anything to it as much as possible.
+> if (xdp->data_end < xdp->data + 1024)
+> 	return DROP;
+> [...]
+> 
+> and then the verifier would consider it safe.
+> 
+> Still, it has to track down into the [...] code to actually understand
+> that it now didn't try to access xdp->data+1025, and as such it should
+> be able to determine the maximum desired offset.
+> 
+> However, I'm coming to realize that may not necessarily mean that the
+> program really *needs* to access that data.
+> 
+> For example, a hypothetical wifi program might want to recalculate and
+> compare the CRC checksum (for whatever reason, say a driver/hardware
+> bug). This would require accessing the last 4 bytes of the packet,
+> which may not be present. The program could, however, accept that
+> sometimes this isn't possible, and simply accept frames when it can't
+> see the last 4 bytes (or if the last 4 bytes aren't the CRC because
+> that isn't reported now, but whatever, I'm handwaving anyway.)
+> 
+> So perhaps this isn't really a good idea. The program should probably
+> separately say how much data it really *needs* there, and then perhaps
+> a warning could be emitted if it never accesses the data that it
+> advertises as needing (i.e. if it says "I want 1024 bytes" but then
+> can't possibly read more than 14)
 
-so today only 'len' field is needed, but the plan to add wifi specific
-stuff to bpf context?
-If so, adding these very wifi specific fields to __sk_buff will confuse
-other program types, so new program type (like you did) and new
-'struct bpf_wifi_md' are probably cleaner.
-Physically the R1 register to bpf program will still be 'struct sk_buff',
-but from bpf program side it will be:
-struct bpf_wifi_md {
-  __u32 len;
-  __u32 wifi_things;
-};
+The above descrption is correct. Also note that the offset within the packet
+can be a variable as well, since that's the only way to do variable
+length parsing (like ip options), so the verifier cannot tell how far
+into the packet the program is going to parse. The program author cannot
+tell that either!
+Consider samples/bpf/parse_varlen.c:
+        ihl_len = iph->ihl * 4;
 
-At the same time if most of the __sk_buff fields can be useful to wifimon,
-then just use it as-is (without restricting to 'len' only) and add wifi
-specific fields to it with a comment.
+        if (iph->protocol == IPPROTO_IPIP) {
+                iph = data + nh_off + ihl_len;
+                if (iph + 1 > data_end)
+                        return 0;
+
+'ihl' is 4 bit, so 2nd ip hdr may start at sizeof(eth) + 64 bytes,
+but we cannot ask the driver to always provide these many bytes.
+Technically we can add a feature to verifier to calculate the max range
+into the packet that the program may look at, but it will be large.
+Like if the program parses IPIP the range will be 64(first ip) + 64(second ip)
++ 64 (if it looks at tcp options).
+If the program parses TLVs then the range will be 64k, so I'm not sure what
+would be the value of such verifier feature.
