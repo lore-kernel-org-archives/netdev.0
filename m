@@ -1,57 +1,76 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH v3 net-next RFC] Generic XDP
-Date: Fri, 14 Apr 2017 12:28:15 -0700
-Message-ID: <20170414192814.GD41922@ast-mbp.thefacebook.com>
-References: <20170412.145415.1441440342830198148.davem@davemloft.net>
- <20170413042036.GA46229@ast-mbp.thefacebook.com>
- <20170413.113722.2174945057832588335.davem@davemloft.net>
- <20170414110525.41317f5a@redhat.com>
+From: Jay Vosburgh <jay.vosburgh@canonical.com>
+Subject: Re: [PATCH net-next] bonding: do not pass link-local packets to master-interface
+Date: Fri, 14 Apr 2017 12:30:24 -0700
+Message-ID: <2810.1492198224@famine>
+References: <20170414180022.124453-1-chonggangli@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-        xdp-newbies@vger.kernel.org
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8BIT
+Cc: andy@greyhouse.net, vfalico@gmail.com, nikolay@redhat.com,
+        edumazet@google.com, davem@davemloft.net, netdev@vger.kernel.org,
+        Mahesh Bandewar <maheshb@google.com>,
+        =?UTF-8?q?Maciej=20=C5=BBenczykowski?= <maze@google.com>
+To: Chonggang Li <chonggangli@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f176.google.com ([209.85.192.176]:33051 "EHLO
-        mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751854AbdDNT2T (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 14 Apr 2017 15:28:19 -0400
-Content-Disposition: inline
-In-Reply-To: <20170414110525.41317f5a@redhat.com>
+Received: from youngberry.canonical.com ([91.189.89.112]:42016 "EHLO
+        youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752257AbdDNTab (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 14 Apr 2017 15:30:31 -0400
+In-reply-to: <20170414180022.124453-1-chonggangli@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 14, 2017 at 11:05:25AM +0200, Jesper Dangaard Brouer wrote:
-> > 
-> > We are consistently finding that there is this real need to
-> > communicate XDP capabilities, or somehow verify that the needs
-> > of an XDP program can be satisfied by a given implementation.
+
+Chonggang Li <chonggangli@google.com> wrote:
+
+>Previously link-local packets excluding LACP (which are handled by
+>the recv_probe) received on bond slave interfaces are delivered to
+>stack with bond-master device with RX_HANDLER_ANOTHER, however all
+>link-local packets are link specific and should be delivered with
+>exact same link/dev.
+
+	In what case is the current behavior a problem (my guess would
+be something related to LLDP)?  What if, e.g., the bond is a bridge
+port, will STP frames no longer propagate to the bridge?
+
+	Also, I think the description would be better if it mentioned
+specifically that the patch is changing how skb->dev is set for link
+local frames (bond->dev vs receiving interface), e.g.,
+
+	"[...] however all link-local packets are link specific and
+	should be delivered with skb->dev set to the original device."
+
+>Signed-off-by: Chonggang Li <chonggangli@google.com>
+>Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+>Signed-off-by: Maciej Żenczykowski <maze@google.com>
+>---
+> drivers/net/bonding/bond_main.c | 3 +++
+> 1 file changed, 3 insertions(+)
+>
+>diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+>index 01e4a69af421..aeca3d8541b9 100644
+>--- a/drivers/net/bonding/bond_main.c
+>+++ b/drivers/net/bonding/bond_main.c
+>@@ -1176,6 +1176,9 @@ static rx_handler_result_t bond_handle_frame(struct sk_buff **pskb)
+> 		}
+> 	}
 > 
-> I fully agree that we need some way to express capabilities[1]
+>+	/* link-local packets should not be passed to master interface */
+>+	if (is_link_local_ether_addr(eth_hdr(skb)->h_dest))
+>+		return RX_HANDLER_PASS;
+
+	Since this returns _PASS and not _EXACT, the packet will go
+through the ptype_base packet handlers, so is the comment strictly
+correct?
+
+	-J
+
+> 	if (bond_should_deliver_exact_match(skb, slave, bond))
+> 		return RX_HANDLER_EXACT;
 > 
-> > Maximum headroom is just one.
+>-- 
+>2.12.2.762.g0e3151a226-goog
+>
 
-I don't like the idea of asking program author to explain capabilities
-to the kernel. Right now the verifier already understands more about
-the program than human does. If the verifier cannot deduct from the
-insns what program will be doing, it's pretty much guarantee
-that program author has no idea either.
-If we add 'required_headroom' as an extra flag to BPF_PROG_LOAD,
-the users will just pass something like 64 or 128 whereas the program
-might only be doing IPIP encap and that will cause kernel to
-provide extra headroom for no good reason or reject the program
-whereas it could have run just fine.
-
-So I very much agree with this part:
-> ... or somehow verify that the needs
-> of an XDP program can be satisfied by a given implementation.
-
-we already have cb_access, dst_needed, xdp_adjust_head flags
-that verifier discovers in the program.
-For headroom we need one more. The verifier can see
-the constant passed into bpf_xdp_adjust_head().
-It's trickier if it's a variable, but the verifier can estimate min/max
-of the variable already and worst case it can say that it
-will be XDP_PACKET_HEADROOM.
-If the program is doing variable length bpf_xdp_adjust_head(),
-the human has no idea how much they need and cannot tell kernel anyway.
+---
+	-Jay Vosburgh, jay.vosburgh@canonical.com
