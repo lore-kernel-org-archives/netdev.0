@@ -1,122 +1,57 @@
-From: Christoph Hellwig <hch@lst.de>
-Subject: [PATCH 1/7] PCI: export pcie_flr
-Date: Fri, 14 Apr 2017 21:11:25 +0200
-Message-ID: <20170414191131.14286-2-hch@lst.de>
-References: <20170414191131.14286-1-hch@lst.de>
-Cc: linux-pci@vger.kernel.org, qat-linux@intel.com,
-        linux-crypto@vger.kernel.org, linux-rdma@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Bjorn Helgaas <bhelgaas@google.com>,
-        Giovanni Cabiddu <giovanni.cabiddu@intel.com>,
-        Salvatore Benedetto <salvatore.benedetto@intel.com>,
-        Mike Marciniszyn <mike.marciniszyn@intel.com>,
-        Dennis Dalessandro <dennis.dalessandro@intel.com>,
-        Derek Chickles <derek.chickles@caviumnetworks.com>,
-        Satanand Burla <satananda.burla@caviumnetworks.com>,
-        Felix Manlunas <felix.manlunas@caviumnetworks.com>,
-        Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <20170414191131.14286-1-hch@lst.de>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH v3 net-next RFC] Generic XDP
+Date: Fri, 14 Apr 2017 12:28:15 -0700
+Message-ID: <20170414192814.GD41922@ast-mbp.thefacebook.com>
+References: <20170412.145415.1441440342830198148.davem@davemloft.net>
+ <20170413042036.GA46229@ast-mbp.thefacebook.com>
+ <20170413.113722.2174945057832588335.davem@davemloft.net>
+ <20170414110525.41317f5a@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+        xdp-newbies@vger.kernel.org
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f176.google.com ([209.85.192.176]:33051 "EHLO
+        mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751854AbdDNT2T (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 14 Apr 2017 15:28:19 -0400
+Content-Disposition: inline
+In-Reply-To: <20170414110525.41317f5a@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Currently we opencode the FLR sequence in lots of place, export a core
-helper instead.  We split out the probing for FLR support as all the
-non-core callers already know their hardware.
+On Fri, Apr 14, 2017 at 11:05:25AM +0200, Jesper Dangaard Brouer wrote:
+> > 
+> > We are consistently finding that there is this real need to
+> > communicate XDP capabilities, or somehow verify that the needs
+> > of an XDP program can be satisfied by a given implementation.
+> 
+> I fully agree that we need some way to express capabilities[1]
+> 
+> > Maximum headroom is just one.
 
-Note that in the new pci_has_flr function the quirk check has been moved
-before the capability check as there is no point in reading the
-capability in this case.
+I don't like the idea of asking program author to explain capabilities
+to the kernel. Right now the verifier already understands more about
+the program than human does. If the verifier cannot deduct from the
+insns what program will be doing, it's pretty much guarantee
+that program author has no idea either.
+If we add 'required_headroom' as an extra flag to BPF_PROG_LOAD,
+the users will just pass something like 64 or 128 whereas the program
+might only be doing IPIP encap and that will cause kernel to
+provide extra headroom for no good reason or reject the program
+whereas it could have run just fine.
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
-Acked-by: Bjorn Helgaas <bhelgaas@google.com>
----
- drivers/pci/pci.c   | 39 ++++++++++++++++++++++++++++-----------
- include/linux/pci.h |  1 +
- 2 files changed, 29 insertions(+), 11 deletions(-)
+So I very much agree with this part:
+> ... or somehow verify that the needs
+> of an XDP program can be satisfied by a given implementation.
 
-diff --git a/drivers/pci/pci.c b/drivers/pci/pci.c
-index bef14777bb30..957a11a6a840 100644
---- a/drivers/pci/pci.c
-+++ b/drivers/pci/pci.c
-@@ -3773,27 +3773,41 @@ static void pci_flr_wait(struct pci_dev *dev)
- 			 (i - 1) * 100);
- }
- 
--static int pcie_flr(struct pci_dev *dev, int probe)
-+/**
-+ * pcie_has_flr - check if a device supports function level resets
-+ * @dev:	device to check
-+ *
-+ * Returns true if the device advertises support for PCIe function level
-+ * resets.
-+ */
-+static bool pcie_has_flr(struct pci_dev *dev)
- {
- 	u32 cap;
- 
--	pcie_capability_read_dword(dev, PCI_EXP_DEVCAP, &cap);
--	if (!(cap & PCI_EXP_DEVCAP_FLR))
--		return -ENOTTY;
--
- 	if (dev->dev_flags & PCI_DEV_FLAGS_NO_FLR_RESET)
--		return -ENOTTY;
-+		return false;
- 
--	if (probe)
--		return 0;
-+	pcie_capability_read_dword(dev, PCI_EXP_DEVCAP, &cap);
-+	return cap & PCI_EXP_DEVCAP_FLR;
-+}
- 
-+/**
-+ * pcie_flr - initiate a PCIe function level reset
-+ * @dev:	device to reset
-+ *
-+ * Initiate a function level reset on @dev.  The caller should ensure the
-+ * device supports FLR before calling this function, e.g. by using the
-+ * pcie_has_flr() helper.
-+ */
-+void pcie_flr(struct pci_dev *dev)
-+{
- 	if (!pci_wait_for_pending_transaction(dev))
- 		dev_err(&dev->dev, "timed out waiting for pending transaction; performing function level reset anyway\n");
- 
- 	pcie_capability_set_word(dev, PCI_EXP_DEVCTL, PCI_EXP_DEVCTL_BCR_FLR);
- 	pci_flr_wait(dev);
--	return 0;
- }
-+EXPORT_SYMBOL_GPL(pcie_flr);
- 
- static int pci_af_flr(struct pci_dev *dev, int probe)
- {
-@@ -3977,9 +3991,12 @@ static int __pci_dev_reset(struct pci_dev *dev, int probe)
- 	if (rc != -ENOTTY)
- 		goto done;
- 
--	rc = pcie_flr(dev, probe);
--	if (rc != -ENOTTY)
-+	if (pcie_has_flr(dev)) {
-+		if (!probe)
-+			pcie_flr(dev);
-+		rc = 0;
- 		goto done;
-+	}
- 
- 	rc = pci_af_flr(dev, probe);
- 	if (rc != -ENOTTY)
-diff --git a/include/linux/pci.h b/include/linux/pci.h
-index 20e1865233a4..60162f51227a 100644
---- a/include/linux/pci.h
-+++ b/include/linux/pci.h
-@@ -1054,6 +1054,7 @@ int pcie_get_mps(struct pci_dev *dev);
- int pcie_set_mps(struct pci_dev *dev, int mps);
- int pcie_get_minimum_link(struct pci_dev *dev, enum pci_bus_speed *speed,
- 			  enum pcie_link_width *width);
-+void pcie_flr(struct pci_dev *dev);
- int __pci_reset_function(struct pci_dev *dev);
- int __pci_reset_function_locked(struct pci_dev *dev);
- int pci_reset_function(struct pci_dev *dev);
--- 
-2.11.0
+we already have cb_access, dst_needed, xdp_adjust_head flags
+that verifier discovers in the program.
+For headroom we need one more. The verifier can see
+the constant passed into bpf_xdp_adjust_head().
+It's trickier if it's a variable, but the verifier can estimate min/max
+of the variable already and worst case it can say that it
+will be XDP_PACKET_HEADROOM.
+If the program is doing variable length bpf_xdp_adjust_head(),
+the human has no idea how much they need and cannot tell kernel anyway.
