@@ -1,156 +1,48 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH iproute2 v2] ip vrf: Add command name next to pid
-Date: Fri, 14 Apr 2017 16:09:56 -0700
-Message-ID: <1492211396-18494-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: David Ahern <dsa@cumulusnetworks.com>
-To: stephen@networkplumber.org, netdev@vger.kernel.org
+From: Chenbo Feng <chenbofeng.kernel@gmail.com>
+Subject: [PATCH net-next] Add uid and cookie bpf helper to cg_skb_func_proto
+Date: Fri, 14 Apr 2017 16:12:14 -0700
+Message-ID: <1492211534-6363-1-git-send-email-chenbofeng.kernel@gmail.com>
+Cc: Chenbo Feng <fengc@google.com>
+To: netdev@vger.kernel.org, Lorenzo Colitti <lorenzo@google.com>,
+        Willem de Bruijn <willemb@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f44.google.com ([74.125.83.44]:36122 "EHLO
-        mail-pg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754731AbdDNXKG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 14 Apr 2017 19:10:06 -0400
-Received: by mail-pg0-f44.google.com with SMTP id g2so48229580pge.3
-        for <netdev@vger.kernel.org>; Fri, 14 Apr 2017 16:10:06 -0700 (PDT)
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:33991 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754731AbdDNXMX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 14 Apr 2017 19:12:23 -0400
+Received: by mail-pf0-f194.google.com with SMTP id g23so2121713pfj.1
+        for <netdev@vger.kernel.org>; Fri, 14 Apr 2017 16:12:23 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-'ip vrf pids' is used to list processes bound to a vrf, but it only
-shows the pid leaving a lot of work for the user. Add the command
-name to the output. With this patch you get the more user friendly:
+From: Chenbo Feng <fengc@google.com>
 
-    $ ip vrf pids mgmt
-     1121  ntpd
-     1418  gdm-session-wor
-     1488  gnome-session
-     1491  dbus-launch
-     1492  dbus-daemon
-     1565  sshd
-     ...
+BPF helper functions get_socket_cookie and get_socket_uid can be
+used for network traffic classifications, among others. Expose
+them also to programs of type BPF_PROG_TYPE_CGROUP_SKB. As of
+commit 8f917bba0042 ("bpf: pass sk to helper functions") the required
+skb->sk function is available at both cgroup bpf ingress and egress
+hooks.
 
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+Signed-off-by: Chenbo Feng <fengc@google.com>
 ---
-v2
-- changed get_comm to get_command_name with size_t for len type as
-  requested by Stephen
+ net/core/filter.c | 4 ++++
+ 1 file changed, 4 insertions(+)
 
- include/utils.h |  1 +
- ip/ipvrf.c      | 24 ++++++++++++++----------
- lib/fs.c        | 42 ++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 57 insertions(+), 10 deletions(-)
-
-diff --git a/include/utils.h b/include/utils.h
-index 22369e0b4e03..8c12e1e2a60c 100644
---- a/include/utils.h
-+++ b/include/utils.h
-@@ -260,5 +260,6 @@ int get_real_family(int rtm_type, int rtm_family);
- int cmd_exec(const char *cmd, char **argv, bool do_fork);
- int make_path(const char *path, mode_t mode);
- char *find_cgroup2_mount(void);
-+int get_command_name(const char *pid, char *comm, size_t len);
- 
- #endif /* __UTILS_H__ */
-diff --git a/ip/ipvrf.c b/ip/ipvrf.c
-index 5e204a9ebbb1..0f611b44b78a 100644
---- a/ip/ipvrf.c
-+++ b/ip/ipvrf.c
-@@ -111,27 +111,31 @@ static void read_cgroup_pids(const char *base_path, char *name)
- {
- 	char path[PATH_MAX];
- 	char buf[4096];
--	ssize_t n;
--	int fd;
-+	FILE *fp;
- 
- 	if (snprintf(path, sizeof(path), "%s/vrf/%s%s",
- 		     base_path, name, CGRP_PROC_FILE) >= sizeof(path))
- 		return;
- 
--	fd = open(path, O_RDONLY);
--	if (fd < 0)
-+	fp = fopen(path, "r");
-+	if (!fp)
- 		return; /* no cgroup file, nothing to show */
- 
- 	/* dump contents (pids) of cgroup.procs */
--	while (1) {
--		n = read(fd, buf, sizeof(buf) - 1);
--		if (n <= 0)
--			break;
-+	while (fgets(buf, sizeof(buf), fp)) {
-+		char *nl, comm[32];
- 
--		printf("%s", buf);
-+		nl = strchr(buf, '\n');
-+		if (nl)
-+			*nl = '\0';
-+
-+		if (get_command_name(buf, comm, sizeof(comm)))
-+			strcpy(comm, "<terminated?>");
-+
-+		printf("%5s  %s\n", buf, comm);
+diff --git a/net/core/filter.c b/net/core/filter.c
+index ce2a19d..b6db9e330 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -2769,6 +2769,10 @@ cg_skb_func_proto(enum bpf_func_id func_id)
+ 	switch (func_id) {
+ 	case BPF_FUNC_skb_load_bytes:
+ 		return &bpf_skb_load_bytes_proto;
++	case BPF_FUNC_get_socket_cookie:
++		return &bpf_get_socket_cookie_proto;
++	case BPF_FUNC_get_socket_uid:
++		return &bpf_get_socket_uid_proto;
+ 	default:
+ 		return bpf_base_func_proto(func_id);
  	}
- 
--	close(fd);
-+	fclose(fp);
- }
- 
- /* recurse path looking for PATH[/NETNS]/vrf/NAME */
-diff --git a/lib/fs.c b/lib/fs.c
-index 12a4657a0bc9..c59ac564581d 100644
---- a/lib/fs.c
-+++ b/lib/fs.c
-@@ -14,6 +14,7 @@
- #include <sys/stat.h>
- #include <sys/socket.h>
- #include <sys/mount.h>
-+#include <ctype.h>
- #include <fcntl.h>
- #include <stdio.h>
- #include <stdlib.h>
-@@ -149,3 +150,44 @@ int make_path(const char *path, mode_t mode)
- 
- 	return rc;
- }
-+
-+int get_command_name(const char *pid, char *comm, size_t len)
-+{
-+	char path[PATH_MAX];
-+	char line[128];
-+	FILE *fp;
-+
-+	if (snprintf(path, sizeof(path),
-+		     "/proc/%s/status", pid) >= sizeof(path)) {
-+		return -1;
-+	}
-+
-+	fp = fopen(path, "r");
-+	if (!fp)
-+		return -1;
-+
-+	comm[0] = '\0';
-+	while (fgets(line, sizeof(line), fp)) {
-+		char *nl, *name;
-+
-+		name = strstr(line, "Name:");
-+		if (!name)
-+			continue;
-+
-+		name += 5;
-+		while (isspace(*name))
-+			name++;
-+
-+		nl = strchr(name, '\n');
-+		if (nl)
-+			*nl = '\0';
-+
-+		strncpy(comm, name, len - 1);
-+		comm[len - 1] = '\0';
-+		break;
-+	}
-+
-+	fclose(fp);
-+
-+	return 0;
-+}
 -- 
-2.1.4
+2.7.4
