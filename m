@@ -1,45 +1,45 @@
-From: =?UTF-8?q?C=C3=A9dric=20Le=20Goater?= <clg@kaod.org>
-Subject: [PATCH] net/ncsi: fix checksum validation in response packet
-Date: Fri, 14 Apr 2017 10:56:37 +0200
-Message-ID: <1492160197-13816-1-git-send-email-clg@kaod.org>
+From: David Lebrun <david.lebrun@uclouvain.be>
+Subject: [PATCH iproute2 net-next 0/3] Add support for IPv6 Segment Routing
+Date: Fri, 14 Apr 2017 14:36:20 +0200
+Message-ID: <20170414123623.28190-1-david.lebrun@uclouvain.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: Gavin Shan <gwshan@linux.vnet.ibm.com>,
-        Joel Stanley <joel@jms.id.au>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        =?UTF-8?q?C=C3=A9dric=20Le=20Goater?= <clg@kaod.org>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain
+Cc: David Lebrun <david.lebrun@uclouvain.be>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 2.mo178.mail-out.ovh.net ([46.105.39.61]:40792 "EHLO
-        2.mo178.mail-out.ovh.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751323AbdDNLXg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 14 Apr 2017 07:23:36 -0400
-Received: from player715.ha.ovh.net (b9.ovh.net [213.186.33.59])
-        by mo178.mail-out.ovh.net (Postfix) with ESMTP id 0BFF531896
-        for <netdev@vger.kernel.org>; Fri, 14 Apr 2017 10:56:55 +0200 (CEST)
+Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:47482 "EHLO
+        smtp1.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751305AbdDNMgY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 14 Apr 2017 08:36:24 -0400
+Received: from mailboxes.uclouvain.be (mailboxes.uclouvain.be [130.104.6.131])
+        (using TLSv1.2 with cipher ECDHE-RSA-AES256-SHA384 (256/256 bits))
+        (No client certificate requested)
+        by smtp1.sgsi.ucl.ac.be (Postfix) with ESMTPS id B8AA967DF35
+        for <netdev@vger.kernel.org>; Fri, 14 Apr 2017 14:36:15 +0200 (CEST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-htonl was used instead of ntohl. Surely a typo.
+This patch series adds support and documentation in iproute2 for
+encapsulation with IPv6 SR, and for control of HMAC mappings.
 
-Signed-off-by: Cédric Le Goater <clg@kaod.org>
----
- net/ncsi/ncsi-rsp.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Signed-off-by: David Lebrun <david.lebrun@uclouvain.be>
 
-diff --git a/net/ncsi/ncsi-rsp.c b/net/ncsi/ncsi-rsp.c
-index 087db775b3dc..d375286b79f2 100644
---- a/net/ncsi/ncsi-rsp.c
-+++ b/net/ncsi/ncsi-rsp.c
-@@ -52,7 +52,7 @@ static int ncsi_validate_rsp_pkt(struct ncsi_request *nr,
- 
- 	checksum = ncsi_calculate_checksum((unsigned char *)h,
- 					   sizeof(*h) + payload - 4);
--	if (*pchecksum != htonl(checksum))
-+	if (*pchecksum != ntohl(checksum))
- 		return -EINVAL;
- 
- 	return 0;
+David Lebrun (3):
+  ip: add ip sr command to control SR-IPv6 internal structures
+  iproute: add support for SR-IPv6 lwtunnel encapsulation
+  man: add documentation for IPv6 SR commands
+
+ ip/Makefile            |   2 +-
+ ip/ip.c                |   3 +-
+ ip/ip_common.h         |   1 +
+ ip/iproute.c           |   6 +-
+ ip/iproute_lwtunnel.c  | 154 ++++++++++++++++++++++++++++++++
+ ip/ipseg6.c            | 238 +++++++++++++++++++++++++++++++++++++++++++++++++
+ man/man8/ip-route.8.in |  39 +++++++-
+ man/man8/ip-sr.8       |  58 ++++++++++++
+ 8 files changed, 495 insertions(+), 6 deletions(-)
+ create mode 100644 ip/ipseg6.c
+ create mode 100644 man/man8/ip-sr.8
+
 -- 
-2.7.4
+2.10.2
