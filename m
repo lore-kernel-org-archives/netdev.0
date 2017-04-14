@@ -1,56 +1,51 @@
-From: Logan Gunthorpe <logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH 03/22] libiscsi: Make use of new the sg_map helper function
-Date: Fri, 14 Apr 2017 09:37:20 -0600
-Message-ID: <85eda3a6-edab-e59e-d2d4-c3af5599d0fd@deltatee.com>
-References: <1492121135-4437-1-git-send-email-logang@deltatee.com>
- <1492121135-4437-4-git-send-email-logang@deltatee.com>
- <20170414083607.GB25471@lst.de>
+From: Alexander Duyck <alexander.duyck-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: How to debug DMAR errors?
+Date: Fri, 14 Apr 2017 08:45:15 -0700
+Message-ID: <CAKgT0UcEKTsc6-tSHXMHFybnE4NQASKWHziq2SV+spOCLJGH-g@mail.gmail.com>
+References: <a21d8845-ae8d-fae0-b1b4-7bf6751b04b5@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>, linux-nvme-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
- target-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Sumit Semwal <sumit.semwal-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
- devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org, rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org,
- linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Matthew Wilcox <mawilcox-0li6OtcxBFHby3iVrkZq2A@public.gmane.org>,
- linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, fcoe-devel-s9riP+hp16TNLxjTenLetw@public.gmane.org,
- open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org, linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- Ming Lin <ming.l-Vzezgt5dB6uUEJcrhfAQsw@public.gmane.org>, intel-gfx-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org,
- sparmaintainer-GLv8BlqOqDDQT0dZR+AlfA@public.gmane.org, linux-raid-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org, megaraidlinux.pdl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
- Jens Axboe <axboe-tSWWG44O7X1aa/9Udqfwiw@public.gmane.org>, linaro-mm-sig-cunTk1MwBs8s++Sfvej+rw@public.gmane.org,
- "Martin K. Petersen" <martin.petersen-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
- Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>, linux-nvdimm-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org,
- linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-crypto-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- Tejun Heo <tj@k
-To: Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>
-Return-path: <linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
-In-Reply-To: <20170414083607.GB25471-jcswGhMUV9g@public.gmane.org>
-List-Unsubscribe: <https://lists.01.org/mailman/options/linux-nvdimm>,
- <mailto:linux-nvdimm-request-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.01.org/pipermail/linux-nvdimm/>
-List-Post: <mailto:linux-nvdimm-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
-List-Help: <mailto:linux-nvdimm-request-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.01.org/mailman/listinfo/linux-nvdimm>,
- <mailto:linux-nvdimm-request-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org?subject=subscribe>
-Errors-To: linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org
-Sender: "Linux-nvdimm" <linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <a21d8845-ae8d-fae0-b1b4-7bf6751b04b5-my8/4N5VtI7c+919tysfdA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+On Thu, Apr 13, 2017 at 11:12 AM, Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org> wrote:
+> Hello,
+>
+> I have been seeing a regular occurrence of DMAR errors, looking something
+> like this when testing my ath10k driver/firmware under some specific loads
+> (maximum receive of 512 byte frames in AP mode):
+>
+> DMAR: DRHD: handling fault status reg 3
+> DMAR: [DMA Read] Request device [05:00.0] fault addr fd99f000 [fault reason
+> 06] PTE Read access is not set
+> ath10k_pci 0000:05:00.0: firmware crashed! (uuid
+> 594b1393-ae35-42b5-9dec-74ff0c6791ff)
+>
+> So, I am wondering if there is any way I can get more information about what
+> this fd99f000 address
+> is?
+>
+> Once this problem hits, the entire OS locks hard (not even sysrq-boot will
+> do anything),
+> so I guess I would need the DMAR logic to print out more info on that
+> address somehow.
+>
+> Thanks,
+> Ben
 
+There isn't much more info to give you. The problem is that the device
+at 5:00.0 attempted to read at fd99f000 even though it didn't have
+permissions. In response this should trigger a PCI Master Abort
+message to that function. It looks like the firmware for the device
+doesn't handle that and so that is likely why things got hung.
 
-On 14/04/17 02:36 AM, Christoph Hellwig wrote:
-> On Thu, Apr 13, 2017 at 04:05:16PM -0600, Logan Gunthorpe wrote:
->> Convert the kmap and kmap_atomic uses to the sg_map function. We now
->> store the flags for the kmap instead of a boolean to indicate
->> atomicitiy. We also propogate a possible kmap error down and create
->> a new ISCSI_TCP_INTERNAL_ERR error type for this.
-> 
-> Can you split out the new error handling into a separate prep patch
-> which should go to the iscsi maintainers ASAP?
-> 
+Really you would need to interrogate the ath10k_pci to see if there
+is/was a mapping somewhere for that address and what it was supposed
+to be used for.
 
-Yes, I can do that. I'd just have thought they'd want to see the use
-case for the new error before accepting a patch like that...
-
-Logan
+- Alex
