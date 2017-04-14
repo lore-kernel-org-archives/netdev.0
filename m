@@ -1,10 +1,10 @@
 From: Logan Gunthorpe <logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH 01/22] scatterlist: Introduce sg_map helper functions
-Date: Fri, 14 Apr 2017 09:34:28 -0600
-Message-ID: <18f05078-5b2c-2e9b-c8ad-e23c02942b58@deltatee.com>
+Subject: Re: [PATCH 03/22] libiscsi: Make use of new the sg_map helper function
+Date: Fri, 14 Apr 2017 09:37:20 -0600
+Message-ID: <85eda3a6-edab-e59e-d2d4-c3af5599d0fd@deltatee.com>
 References: <1492121135-4437-1-git-send-email-logang@deltatee.com>
- <1492121135-4437-2-git-send-email-logang@deltatee.com>
- <20170414083518.GA25471@lst.de>
+ <1492121135-4437-4-git-send-email-logang@deltatee.com>
+ <20170414083607.GB25471@lst.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -25,7 +25,7 @@ Cc: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>, linux-
  Tejun Heo <tj@k
 To: Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>
 Return-path: <linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
-In-Reply-To: <20170414083518.GA25471-jcswGhMUV9g@public.gmane.org>
+In-Reply-To: <20170414083607.GB25471-jcswGhMUV9g@public.gmane.org>
 List-Unsubscribe: <https://lists.01.org/mailman/options/linux-nvdimm>,
  <mailto:linux-nvdimm-request-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://lists.01.org/pipermail/linux-nvdimm/>
@@ -39,36 +39,18 @@ List-Id: netdev.vger.kernel.org
 
 
 
-On 14/04/17 02:35 AM, Christoph Hellwig wrote:
->> +
->>  static inline int is_dma_buf_file(struct file *);
->>  
->>  struct dma_buf_list {
+On 14/04/17 02:36 AM, Christoph Hellwig wrote:
+> On Thu, Apr 13, 2017 at 04:05:16PM -0600, Logan Gunthorpe wrote:
+>> Convert the kmap and kmap_atomic uses to the sg_map function. We now
+>> store the flags for the kmap instead of a boolean to indicate
+>> atomicitiy. We also propogate a possible kmap error down and create
+>> a new ISCSI_TCP_INTERNAL_ERR error type for this.
 > 
-> I think the right fix here is to rename the operation to unmap_atomic
-> and send out a little patch for that ASAP.
-
-Ok, I can do that next week.
-
-> I'd rather have separate functions for kmap vs kmap_atomic instead of
-> the flags parameter.  And while you're at it just always pass the 0
-> offset parameter instead of adding a wrapper..
+> Can you split out the new error handling into a separate prep patch
+> which should go to the iscsi maintainers ASAP?
 > 
-> Otherwise this looks good to me.
 
-I settled on the flags because I thought the interface could be expanded
-to do more things like automatically copy iomem to a bounce buffer (with
-a flag). It'd also be possible to add things like vmap and
-physical_address to the interface which would cover even more sg_page
-users. All the implementations would then share the common offset
-calculations, and switching between them becomes a matter of changing a
-couple flags.
-
-If you're still not convinced by the above arguments  then I'll change
-it but I did have reasons for choosing to do it this way.
-
-I am fine with removing the offset versions. I will make that change.
-
-Thanks,
+Yes, I can do that. I'd just have thought they'd want to see the use
+case for the new error before accepting a patch like that...
 
 Logan
