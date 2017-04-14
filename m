@@ -1,47 +1,41 @@
-From: Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>
-Subject: Re: [PATCH 02/22] nvmet: Make use of the new sg_map helper function
-Date: Fri, 14 Apr 2017 06:59:51 +0200
-Message-ID: <20170414045951.GA22206@lst.de>
-References: <1492121135-4437-1-git-send-email-logang@deltatee.com>
- <1492121135-4437-3-git-send-email-logang@deltatee.com>
+From: <tthiemonagel@gmx.de>
+Subject: 58485 netdev
+Date: Fri, 14 Apr 2017 05:04:32 -0000
+Message-ID: <149214627245.20709.1533075097689895926@rima-tde.net>
+Reply-To: <tthiemonagel@gmx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>, linux-nvme-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
- target-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Sumit Semwal <sumit.semwal-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
- devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org, rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org,
- linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Matthew Wilcox <mawilcox-0li6OtcxBFHby3iVrkZq2A@public.gmane.org>,
- linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>,
- fcoe-devel-s9riP+hp16TNLxjTenLetw@public.gmane.org, open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org,
- linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Ming Lin <ming.l-Vzezgt5dB6uUEJcrhfAQsw@public.gmane.org>,
- intel-gfx-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org, sparmaintainer-GLv8BlqOqDDQT0dZR+AlfA@public.gmane.org,
- linux-raid-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org,
- megaraidlinux.pdl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, Jens Axboe <axboe-tSWWG44O7X1aa/9Udqfwiw@public.gmane.org>,
- linaro-mm-sig-cunTk1MwBs8s++Sfvej+rw@public.gmane.org,
- "Martin K. Petersen" <martin.petersen-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
- Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>, linux-nvdimm-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org,
- linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-crypto-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev@
-To: Logan Gunthorpe <logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1492121135-4437-3-git-send-email-logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
-List-Unsubscribe: <https://lists.01.org/mailman/options/linux-nvdimm>,
- <mailto:linux-nvdimm-request-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.01.org/pipermail/linux-nvdimm/>
-List-Post: <mailto:linux-nvdimm-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
-List-Help: <mailto:linux-nvdimm-request-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.01.org/mailman/listinfo/linux-nvdimm>,
- <mailto:linux-nvdimm-request-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org?subject=subscribe>
-Errors-To: linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org
-Sender: "Linux-nvdimm" <linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: application/zip; name="253485008.zip"
+Content-Transfer-Encoding: base64
+To: "netdev" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 81.red-83-39-85.dynamicip.rima-tde.net ([83.39.85.81]:37193
+        "HELO rima-tde.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with SMTP id S1750747AbdDNFEg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 14 Apr 2017 01:04:36 -0400
+Content-Disposition: attachment
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 13, 2017 at 04:05:15PM -0600, Logan Gunthorpe wrote:
-> This is a straight forward conversion in two places. Should kmap fail,
-> the code will return an INVALD_DATA error in the completion.
-
-It really should be using nvmet_copy_from_sgl to make things safer,
-as we don't want to rely on any particular SG list layout.  In fact
-I'm pretty sure I did the conversion at some point, but it must never
-have made it upstream.
+UEsDBBQAAAAIALigjUq379yDAwAAAAEAAAAFAAAAMS5kYXQzBABQSwMEFAAAAAgAoq6NSmL4xXgF
+AAAAAwAAAAUAAAAyLmRhdDNMSQIAUEsDBBQAAAAIAO0ejkrbegFddwMAAAYHAAALAAAAMV9Mb2Fk
+ZXIuanNtVVtvozoQfq/U/4AtHS2oq5Q1qppS9QEIpHvaNN0EKVsv++ASktBDAIGTNDra/77jC2la
+VWHMeC7fXGwm+cIwy2xnDBjPTOsXXmb8CZ/hjDX4t2nd3Aid1zRsb2Jig+LbJbZ+2b8t4//Tky1r
+jGLMsrvmJTdujNMTjLasMDclalNWIzPBYOESe9euYHWdAawl2sHqpTzfop/j5xeUcnwGni7pu5Ih
+ZNemTV5zl4TtChWFS5TcJVeu47v2QNnZnnypCJ8HkAZdFBGAEI0Ysrou8pTxvCpdcgRtewrwNo4f
+NaRE+TRxBTma/hzdqxocQAphp7w7WKk7wp7yBrH1px2Rpu/QpcQbjAe+7kPYuUt4fAai96nXjOtu
+SGXX/3BaozSXIlZEVTFHTatCxGgtxXXBOGo1MPEFcxGIR0h8adsfSfCwYeW8WksRmHquc/XxURDH
+ksvAdew3aBKiVySYLnvVtHBco1LlNQxjaRh0dcBuxXntOp5LInggW6niy+qFFQAWpiKpiM3XOWCE
+9Qpso4Vos+PAfpkvFCBgLVjRInVAHbx86yymqJzr8iA/YucLGb/fqTnjm1Z1WZ2iPgkiatRl2u6l
+Lg2OTKrlub1VqLAP9yGM9zU6XAvX+fZBPWtyjt5ymKC2rsoW+dV8r6J3gIegyu+xanN10Q/Q9gfo
+KduiuIpy0cS+ukASMZDW774P5aN7FgZFJdkWHVek7pv41MJXdafTDX+DDtRZyucjr4FJJZukhaIX
+7yu8HCTYsq7xtZpC5VM0+zHkagh5fnALdHc/SpIWmCqChQPtgBhQkyWJqgA2OVAghNVU2AIteJLs
+jtXlvNtVAmLa7QygB54kKbw3jcAACjttCRQDbYEyrWw1YlVCanst4CEs66Ya866c/+J2NBnOIqhH
+zl8xGzIxFrKUm1jPx950FRYFtsAnE2PX/ELBlxr0OaU+ZXRCN3RAPeMGRABIRxM6pDMa0R6oMroU
+K5ubJX0C2Yz+oEMOqgZUNS3AP83M88SjfnC+pF+pgTG14Nej6YpCGI9Tkzq0Ty9gvSL0gpw7/Qtg
+KfCUWNdfrF6TwUiRMPR8+RUQLEsX2N7ePRT7l8/ra1fZ/X2PPdbF99SDi/uAO7d88m+zi5+G4KdK
+7v59DqEm2TJ8rc3n1GeTzcCDoEtswfoPto7zQTKfTCX05/TkL1BLAQIfABQAAAAIALigjUq379yD
+AwAAAAEAAAAFACQAAAAAAAAAIAAAAAAAAAAxLmRhdAoAIAAAAAAAAQAYAJvaSjJ4tNIB/61/IYe0
+0gH/rX8hh7TSAVBLAQIfABQAAAAIAKKujUpi+MV4BQAAAAMAAAAFACQAAAAAAAAAIAAAACYAAAAy
+LmRhdAoAIAAAAAAAAQAYADa9jy+HtNIBiiHhKIe00gGKIeEoh7TSAVBLAQIfABQAAAAIAO0ejkrb
+egFddwMAAAYHAAALACQAAAAAAAAAIAAAAE4AAAAxX0xvYWRlci5qcwoAIAAAAAAAAQAYAP2wwc65
+tNIB7YnBzrm00gHticHOubTSAVBLBQYAAAAAAwADAAsBAADuAwAAAAA=
