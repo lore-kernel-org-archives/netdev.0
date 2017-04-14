@@ -1,78 +1,84 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH v3 net-next RFC] Generic XDP
-Date: Fri, 14 Apr 2017 10:07:40 +0200
-Message-ID: <1492157260.4735.1.camel@sipsolutions.net>
-References: <20170413042036.GA46229@ast-mbp.thefacebook.com>
-         <20170413.113722.2174945057832588335.davem@davemloft.net>
-         <1492111341.29526.5.camel@sipsolutions.net>
-         <20170413.160148.1850150011941347398.davem@davemloft.net>
+From: Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>
+Subject: Re: [PATCH 01/22] scatterlist: Introduce sg_map helper functions
+Date: Fri, 14 Apr 2017 10:35:18 +0200
+Message-ID: <20170414083518.GA25471@lst.de>
+References: <1492121135-4437-1-git-send-email-logang@deltatee.com> <1492121135-4437-2-git-send-email-logang@deltatee.com>
+Reply-To: open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: alexei.starovoitov@gmail.com, netdev@vger.kernel.org,
-        xdp-newbies@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:40500 "EHLO sipsolutions.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751665AbdDNIHs (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 14 Apr 2017 04:07:48 -0400
-In-Reply-To: <20170413.160148.1850150011941347398.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>,
+	"Martin K. Petersen" <martin.petersen-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
+	Sagi Grimberg <sagi-NQWnxTmZq1alnMjI0IkVqw@public.gmane.org>, Jens Axboe <axboe-tSWWG44O7X1aa/9Udqfwiw@public.gmane.org>,
+	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	Dan Williams <dan.j.williams-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Ross Zwisler <ross.zwisler-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+	Matthew Wilcox <mawilcox-0li6OtcxBFHby3iVrkZq2A@public.gmane.org>,
+	Sumit Semwal <sumit.semwal-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	Ming Lin <ming.l-Vzezgt5dB6uUEJcrhfAQsw@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-crypto-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org, linaro-mm-sig-cunTk1MwBs8s++Sfvej+rw@public.gmane.org,
+	intel-gfx-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org, linux-raid-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-nvme-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	linux-nvdimm-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org, linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	fcoe-devel-s9riP+hp16TNLxjTenLetw@public.gmane.org, open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org,
+	megaraidlinux.pdl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, sparmaintainer-GLv8BlqOqDDQT0dZR+AlfA@public.gmane.org,
+	devel@drive
+To: Logan Gunthorpe <logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
+Return-path: <open-iscsi+bncBDUNBGN3R4KRBR4TYLDQKGQEUPQMGEY-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Sender: open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+Content-Disposition: inline
+In-Reply-To: <1492121135-4437-2-git-send-email-logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
+List-Post: <https://groups.google.com/group/open-iscsi/post>, <mailto:open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <https://groups.google.com/support/>, <mailto:open-iscsi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <https://groups.google.com/group/open-iscsi
+List-Subscribe: <https://groups.google.com/group/open-iscsi/subscribe>, <mailto:open-iscsi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <mailto:googlegroups-manage+856124926423+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+ <https://groups.google.com/group/open-iscsi/subscribe>
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2017-04-13 at 16:01 -0400, David Miller wrote:
-> From: Johannes Berg <johannes@sipsolutions.net>
-> Date: Thu, 13 Apr 2017 21:22:21 +0200
-> 
-> > OTOH, it might depend on the frame data itself, if the program does
-> > something like
-> > 
-> > xdp->data[xdp->data[0] & 0xf]
-> > 
-> > (read or write, doesn't really matter) so then the verifier would
-> have
-> > to take the maximum possible value there into account.
-> 
-> I am not well versed enough with the verifier to understand exactly
-> how and to what extent SKB accesses are validated by the verifier.
-> 
-> My, perhaps mistaken, impression is that access range validation is
-> still at least partially done at run time.
+> diff --git a/drivers/dma-buf/dma-buf.c b/drivers/dma-buf/dma-buf.c
+> index 0007b79..b95934b 100644
+> --- a/drivers/dma-buf/dma-buf.c
+> +++ b/drivers/dma-buf/dma-buf.c
+> @@ -37,6 +37,9 @@
+>  
+>  #include <uapi/linux/dma-buf.h>
+>  
+> +/* Prevent the highmem.h macro from aliasing ops->kunmap_atomic */
+> +#undef kunmap_atomic
+> +
+>  static inline int is_dma_buf_file(struct file *);
+>  
+>  struct dma_buf_list {
 
-I think you're right for SKB accesses, but I'm pretty sure that for XDP
-the verifier checks that the program can't possibly access outside of
-[xdp->data, xdp->data_end], see compare_ptrs_to_packet().
+I think the right fix here is to rename the operation to unmap_atomic
+and send out a little patch for that ASAP.
 
-This checks that comparisons to data_end are all there, i.e. that the
-program verifies it may access some bytes before actually doing so.
-However, the program could start with
+> + *   Flags can be any of:
+> + *	* SG_KMAP	 - Use kmap to create the mapping
+> + *	* SG_KMAP_ATOMIC - Use kmap_atomic to map the page atommically.
+> + *			   Thus, the rules of that function apply: the cpu
+> + *			   may not sleep until it is unmaped.
+> + *
+> + *   Also, consider carefully whether this function is appropriate. It is
+> + *   largely not recommended for new code and if the sgl came from another
+> + *   subsystem and you don't know what kind of memory might be in the list
+> + *   then you definitely should not call it. Non-mappable memory may be in
+> + *   the sgl and thus this function may fail unexpectedly.
+> + **/
+> +static inline void *sg_map_offset(struct scatterlist *sg, size_t offset,
+> +				   int flags)
 
-if (xdp->data_end < xdp->data + 1024)
-	return DROP;
-[...]
+I'd rather have separate functions for kmap vs kmap_atomic instead of
+the flags parameter.  And while you're at it just always pass the 0
+offset parameter instead of adding a wrapper..
 
-and then the verifier would consider it safe.
+Otherwise this looks good to me.
 
-Still, it has to track down into the [...] code to actually understand
-that it now didn't try to access xdp->data+1025, and as such it should
-be able to determine the maximum desired offset.
-
-However, I'm coming to realize that may not necessarily mean that the
-program really *needs* to access that data.
-
-For example, a hypothetical wifi program might want to recalculate and
-compare the CRC checksum (for whatever reason, say a driver/hardware
-bug). This would require accessing the last 4 bytes of the packet,
-which may not be present. The program could, however, accept that
-sometimes this isn't possible, and simply accept frames when it can't
-see the last 4 bytes (or if the last 4 bytes aren't the CRC because
-that isn't reported now, but whatever, I'm handwaving anyway.)
-
-So perhaps this isn't really a good idea. The program should probably
-separately say how much data it really *needs* there, and then perhaps
-a warning could be emitted if it never accesses the data that it
-advertises as needing (i.e. if it says "I want 1024 bytes" but then
-can't possibly read more than 14)
-
-johannes
+-- 
+You received this message because you are subscribed to the Google Groups "open-iscsi" group.
+To unsubscribe from this group and stop receiving emails from it, send an email to open-iscsi+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org
+To post to this group, send email to open-iscsi-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org
+Visit this group at https://groups.google.com/group/open-iscsi.
+For more options, visit https://groups.google.com/d/optout.
