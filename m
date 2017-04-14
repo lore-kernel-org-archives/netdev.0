@@ -1,91 +1,113 @@
-From: Wolfgang Bumiller <w.bumiller@proxmox.com>
-Subject: Re: [PATCH linux 2/2] net sched actions: fix refcount decrement on
- error
-Date: Fri, 14 Apr 2017 11:08:53 +0200
-Message-ID: <20170414090853.oqqdsu6xufr4n2nv@olga.proxmox.com>
-References: <20170412142140.26649-1-w.bumiller@proxmox.com>
- <20170412142140.26649-3-w.bumiller@proxmox.com>
- <CAM_iQpUxgF2X9z+mNhBUtPJsFPy8pyiDDhqz726Qt_aeEeLpeA@mail.gmail.com>
- <20170413080648.bbiikladwevaribf@olga.proxmox.com>
- <CAM_iQpUWASuFdzLc6j+EyCj68=BnT6-bKXr=e=858Zkf9f6dSg@mail.gmail.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH] mm, page_alloc: re-enable softirq use of per-cpu page
+ allocator
+Date: Fri, 14 Apr 2017 12:10:27 +0200
+Message-ID: <20170414121027.079e5a4c@redhat.com>
+References: <20170410150821.vcjlz7ntabtfsumm@techsingularity.net>
+	<20170410142616.6d37a11904dd153298cf7f3b@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Roman Mashak <mrv@mojatatu.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from proxmox.maurer-it.com ([212.186.127.180]:56816 "EHLO
-        proxmox.maurer-it.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751838AbdDNJI4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 14 Apr 2017 05:08:56 -0400
-Content-Disposition: inline
-In-Reply-To: <CAM_iQpUWASuFdzLc6j+EyCj68=BnT6-bKXr=e=858Zkf9f6dSg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Mel Gorman <mgorman@techsingularity.net>, willy@infradead.org,
+ peterz@infradead.org, pagupta@redhat.com, ttoukan.linux@gmail.com,
+ tariqt@mellanox.com, netdev@vger.kernel.org, saeedm@mellanox.com,
+ linux-kernel@vger.kernel.org, linux-mm@kvack.org, brouer@redhat.com
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20170410142616.6d37a11904dd153298cf7f3b@linux-foundation.org>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 13, 2017 at 11:03:37AM -0700, Cong Wang wrote:
-> On Thu, Apr 13, 2017 at 1:06 AM, Wolfgang Bumiller
-> <w.bumiller@proxmox.com> wrote:
-> > On Wed, Apr 12, 2017 at 09:27:31PM -0700, Cong Wang wrote:
-> >> Instead of duplicating code, you can add the check
-> >> to the module_put() next to err_mod label? I mean:
-> >
-> > I just realized that with module_put() happening in both error and
-> > success cases if `err != ACT_P_CREATED`, we could just move that code up
-> > to above the TCA_ACT_COOKIE handling?
-> 
-> Yes, even better.
-> 
-> > Btw., the comment confused me a little at first as I thought it's about
-> > what happens in ->init(). But reading the code I then noticed the module
-> > count is increased in tc_lookup_action_n() (which calls try_module_get)
-> > in this functions and it's about how this function itself is supposed
-> > to affect the count - if I'm not mistaken.
-> > => so I think it makes sense to deal with this earlier.
-> 
-> Yes, the module reference count is not increased inside ->init(),
-> it is because of the semantic of ->init(), it could create a new action
-> or modify existing one, for the cast latter we need to rollback the
-> refcount. Please feel free to update that comment to make it more
-> clear, since you are already on it. ;)
+On Mon, 10 Apr 2017 14:26:16 -0700
+Andrew Morton <akpm@linux-foundation.org> wrote:
 
-Will do.
+> On Mon, 10 Apr 2017 16:08:21 +0100 Mel Gorman <mgorman@techsingularity.net> wrote:
+> 
+> > IRQ context were excluded from using the Per-Cpu-Pages (PCP) lists caching
+> > of order-0 pages in commit 374ad05ab64d ("mm, page_alloc: only use per-cpu
+> > allocator for irq-safe requests").
+> > 
+> > This unfortunately also included excluded SoftIRQ.  This hurt the performance
+> > for the use-case of refilling DMA RX rings in softirq context.  
+> 
+> Out of curiosity: by how much did it "hurt"?
+>
+> <ruffles through the archives>
+> 
+> Tariq found:
+> 
+> : I disabled the page-cache (recycle) mechanism to stress the page
+> : allocator, and see a drastic degradation in BW, from 47.5 G in v4.10 to
+> : 31.4 G in v4.11-rc1 (34% drop).
 
-> 
-> >
-> > Otherwise I'd have to save `err != ACT_P_CREATED` in an additional
-> > variable for the err_mod case since the cookie handling modifies `err`.
-> >
-> > What about this? (Since it's a separate issue not directly related to
-> > patch 1 of the series I can send it as separate mail based on master if
-> > you prefer - the diff below is based on master+patch1 for now.)
-> >
-> 
-> Looks good, this could also address Roman's comment. Please remove
-> the RFC tag and resend the whole series.
-> 
-> You can also add my:
-> 
-> Acked-by: Cong Wang <xiyou.wangcong@gmail.com>
+I've tried to reproduce this in my home testlab, using ConnectX-4 dual
+100Gbit/s. Hardware limits cause that I cannot reach 100Gbit/s, once a
+memory copy is performed.  (Word of warning: you need PCIe Gen3 width
+16 (which I do have) to handle 100Gbit/s, and the memory bandwidth of
+the system also need something like 2x 12500MBytes/s (which is where my
+system failed)).
 
-Before I do that - trying to wrap my head around the interdependencies
-here better to be thorough - I noticed that tcf_hash_release() can
-return ACT_P_DELETED. The ACT_P_CREATED case means tcf_hash_create()
-was used, in the other case the tc_action's ref & bind count is bumped
-by tcf_hash_check() and then also decremented by tcf_hash_release() if
-it existed, iow. kept at 1, but not always: It does always happen in
-act_police.c but in other files such as act_bpf.c or act_connmark.c if
-eg. bind is set they return without decrementing, so both ref&bind count
-are bumped when they return - the refcount logic isn't easy to follow
-for a newcomer. Now there are two uses of __tcf_hash_release() in
-act_api.c which check for a return value of ACT_P_DELETED, in which case
-they call module_put().
-So I'm not sure exactly how the module and tc_action counts are related
-(and I usually like to understand my own patches ;-) ).
-Maybe I'm missing something obvious but I'm currently a bit confused as
-to whether the tcf_hash_release() call there is okay, or should have its
-return value checked or should depend on ->init()'s ACT_P_CREATED value
-as well?
+The mlx5 driver have a driver local page recycler, which I can see fail
+between 29%-38% of the time, with 8 parallel netperf TCP_STREAMs.  I
+speculate adding more streams will make in fail more.  To factor out
+the driver recycler, I simply disable it (like I believe Tariq also did).
+
+With disabled-mlx5-recycler, 8 parallel netperf TCP_STREAMs:
+
+Baseline v4.10.0  : 60316 Mbit/s
+Current 4.11.0-rc6: 47491 Mbit/s
+This patch        : 60662 Mbit/s
+
+While this patch does "fix" the performance regression, it does not
+bring any noticeable improvement (as my micro-bench also indicated),
+thus I feel our previous optimization is almost nullified. (p.s. It
+does feel wrong to argue against my own patch ;-)).
+
+The reason for the current 4.11.0-rc6 regression is lock congestion on
+the (per NUMA) page allocator lock, perf report show we spend 34.92% in
+queued_spin_lock_slowpath (compared to top#2 copy cost of 13.81% in
+copy_user_enhanced_fast_string).
+
+
+> then with this patch he found
+> 
+> : It looks very good!  I get line-rate (94Gbits/sec) with 8 streams, in
+> : comparison to less than 55Gbits/sec before.
+> 
+> Can I take this to mean that the page allocator's per-cpu-pages feature
+> ended up doubling the performance of this driver?  Better than the
+> driver's private page recycling?  I'd like to believe that, but am
+> having trouble doing so ;)
+
+I would not conclude that. I'm also very suspicious about such big
+performance "jumps".  Tariq should also benchmark with v4.10 and a
+disabled mlx5-recycler, as I believe the results should be the same as
+after this patch.
+
+That said, it is possible to see a regression this large, when all the
+CPUs are congesting on the page allocator lock. AFAIK Tariq also
+mentioned seeing 60% spend on the lock, which would confirm this theory.
+
+ 
+> > This patch re-allow softirq context, which should be safe by disabling
+> > BH/softirq, while accessing the list.  PCP-lists access from both hard-IRQ
+> > and NMI context must not be allowed.  Peter Zijlstra says in_nmi() code
+> > never access the page allocator, thus it should be sufficient to only test
+> > for !in_irq().
+> > 
+> > One concern with this change is adding a BH (enable) scheduling point at
+> > both PCP alloc and free. If further concerns are highlighted by this patch,
+> > the result wiill be to revert 374ad05ab64d and try again at a later date
+> > to offset the irq enable/disable overhead.  
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
