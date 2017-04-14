@@ -1,58 +1,99 @@
-From: Logan Gunthorpe <logang@deltatee.com>
-Subject: Re: [PATCH 09/22] dm-crypt: Make use of the new sg_map helper in 4
- call sites
-Date: Fri, 14 Apr 2017 10:03:43 -0600
-Message-ID: <302ae5ab-d515-5427-2e54-d58a9cdb8241@deltatee.com>
+From: "Kershner, David A" <David.Kershner@unisys.com>
+Subject: RE: [PATCH 10/22] staging: unisys: visorbus: Make use of the new
+ sg_map helper function
+Date: Fri, 14 Apr 2017 16:07:14 +0000
+Message-ID: <CY4PR07MB317691139A5B2F902CDA9B0EF0050__40660.1976174445$1492186053$gmane$org@CY4PR07MB3176.namprd07.prod.outlook.com>
 References: <1492121135-4437-1-git-send-email-logang@deltatee.com>
- <1492121135-4437-10-git-send-email-logang@deltatee.com>
- <20170414083921.GC25471@lst.de>
+ <1492121135-4437-11-git-send-email-logang@deltatee.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Steve Wise <swise@opengridcomputing.com>, linux-nvme@lists.infradead.org,
- Stephen Bates <sbates@raithlin.com>, target-devel@vger.kernel.org,
- Sumit Semwal <sumit.semwal@linaro.org>, devel@driverdev.osuosl.org,
- rds-devel@oss.oracle.com, Sagi Grimberg <sagi@grimberg.me>,
- linux-scsi@vger.kernel.org, Matthew Wilcox <mawilcox@microsoft.com>,
- linux-rdma@vger.kernel.org, fcoe-devel@open-fcoe.org,
- Ross Zwisler <ross.zwisler@linux.intel.com>, open-iscsi@googlegroups.com,
- linux-media@vger.kernel.org, Ming Lin <ming.l@ssi.samsung.com>,
- intel-gfx@lists.freedesktop.org, sparmaintainer@unisys.com,
- linux-raid@vger.kernel.org, dri-devel@lists.freedesktop.org,
- Dan Williams <dan.j.williams@intel.com>, megaraidlinux.pdl@broadcom.com,
- Jens Axboe <axboe@kernel.dk>, linaro-mm-sig@lists.linaro.org,
- "Martin K. Petersen" <martin.petersen@oracle.com>,
- Greg Kroah-Hartman <gregkh@linuxfoundation.org
-To: Christoph Hellwig <hch@lst.de>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <20170414083921.GC25471@lst.de>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: quoted-printable
+Cc: Steve Wise <swise@opengridcomputing.com>,
+        Stephen Bates <sbates@raithlin.com>
+To: Logan Gunthorpe <logang@deltatee.com>,
+        Christoph Hellwig <hch@lst.de>,
+        "Martin K. Petersen" <martin.petersen@oracle.com>,
+        Sagi Grimberg <sagi@grimberg.me>, Jens Axboe <axboe@kernel.dk>,
+        Tejun Heo <tj@kernel.org>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        Dan Williams <dan.j.williams@intel.com>,
+        Ross Zwisler <ross.zwisler@linux.intel.com>,
+        Matthew Wilcox <mawilcox@microsoft.com>,
+        Sumit Semwal <sumit.semwal@linaro.org>,
+        Ming Lin <ming.l@ssi.samsung.com>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "linux-crypto@vger.kernel.org" <linux-crypto@vger.kernel.org>,
+        "linux-media@vger.kernel.org" <linux-media@vger.kernel.org>,
+        "dri-devel@lists.freedesktop.org" <dri-devel@lists.freedesktop.org>,
+        "linaro-mm-sig@lists.linaro.org" <linaro-mm-sig@lists.li
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bn3nam01on0061.outbound.protection.outlook.com ([104.47.33.61]:59193
+        "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751147AbdDNQHW (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 14 Apr 2017 12:07:22 -0400
+In-Reply-To: <1492121135-4437-11-git-send-email-logang@deltatee.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+> -----Original Message-----
+> From: Logan Gunthorpe [mailto:logang@deltatee.com]
+...
+> Subject: [PATCH 10/22] staging: unisys: visorbus: Make use of the new
+> sg_map helper function
+>=20
+> Straightforward conversion to the new function.
+>=20
+> Signed-off-by: Logan Gunthorpe <logang@deltatee.com>
 
+Can you add Acked-by for this patch?=20
 
-On 14/04/17 02:39 AM, Christoph Hellwig wrote:
-> On Thu, Apr 13, 2017 at 04:05:22PM -0600, Logan Gunthorpe wrote:
->> Very straightforward conversion to the new function in all four spots.
-> 
-> I think the right fix here is to switch dm-crypt to the ahash API
-> that takes a scatterlist.
+Acked-by: David Kershner <david.kershner@unisys.com>
 
-Hmm, well I'm not sure I understand the code enough to make that
-conversion. But I was looking at it. One tricky bit seems to be that
-crypt_iv_lmk_one adds a seed, skips the first 16 bytes in the page and
-then hashes another 16 bytes from other data. What would you do
-construct a new sgl for it and pass it to the ahash api?
+Tested on s-Par and no problems.=20
 
-The other thing is crypt_iv_lmk_post also seems to modify the page after
-the hash with a  crypto_xor so you'd still need at least one kmap in there.
+Thanks,
+David Kershner
 
-Logan
+> ---
+>  drivers/staging/unisys/visorhba/visorhba_main.c | 12 +++++++-----
+>  1 file changed, 7 insertions(+), 5 deletions(-)
+>=20
+> diff --git a/drivers/staging/unisys/visorhba/visorhba_main.c
+> b/drivers/staging/unisys/visorhba/visorhba_main.c
+> index 0ce92c8..2d8c8bc 100644
+> --- a/drivers/staging/unisys/visorhba/visorhba_main.c
+> +++ b/drivers/staging/unisys/visorhba/visorhba_main.c
+> @@ -842,7 +842,6 @@ do_scsi_nolinuxstat(struct uiscmdrsp *cmdrsp, struct
+> scsi_cmnd *scsicmd)
+>  	struct scatterlist *sg;
+>  	unsigned int i;
+>  	char *this_page;
+> -	char *this_page_orig;
+>  	int bufind =3D 0;
+>  	struct visordisk_info *vdisk;
+>  	struct visorhba_devdata *devdata;
+> @@ -869,11 +868,14 @@ do_scsi_nolinuxstat(struct uiscmdrsp *cmdrsp,
+> struct scsi_cmnd *scsicmd)
+>=20
+>  		sg =3D scsi_sglist(scsicmd);
+>  		for (i =3D 0; i < scsi_sg_count(scsicmd); i++) {
+> -			this_page_orig =3D kmap_atomic(sg_page(sg + i));
+> -			this_page =3D (void *)((unsigned long)this_page_orig |
+> -					     sg[i].offset);
+> +			this_page =3D sg_map(sg + i, SG_KMAP_ATOMIC);
+> +			if (IS_ERR(this_page)) {
+> +				scsicmd->result =3D DID_ERROR << 16;
+> +				return;
+> +			}
+> +
+>  			memcpy(this_page, buf + bufind, sg[i].length);
+> -			kunmap_atomic(this_page_orig);
+> +			sg_unmap(sg + i, this_page, SG_KMAP_ATOMIC);
+>  		}
+>  	} else {
+>  		devdata =3D (struct visorhba_devdata *)scsidev->host-
+> >hostdata;
+> --
+> 2.1.4
