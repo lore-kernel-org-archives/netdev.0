@@ -1,7 +1,7 @@
 From: Martin KaFai Lau <kafai@fb.com>
-Subject: [PATCH net-next 5/6] bpf: lru: Lower the PERCPU_NR_SCANS from 16 to 4
-Date: Fri, 14 Apr 2017 10:30:29 -0700
-Message-ID: <20170414173030.2853860-6-kafai@fb.com>
+Subject: [PATCH net-next 3/6] bpf: lru: Refactor LRU map tests in map_perf_test
+Date: Fri, 14 Apr 2017 10:30:27 -0700
+Message-ID: <20170414173030.2853860-4-kafai@fb.com>
 References: <20170414173030.2853860-1-kafai@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,98 +9,208 @@ Cc: Alexei Starovoitov <ast@fb.com>,
         Daniel Borkmann <daniel@iogearbox.net>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:58145 "EHLO
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:58144 "EHLO
         mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1754139AbdDNRad (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 14 Apr 2017 13:30:33 -0400
+        by vger.kernel.org with ESMTP id S1754091AbdDNRac (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 14 Apr 2017 13:30:32 -0400
 Received: from pps.filterd (m0001255.ppops.net [127.0.0.1])
-        by mx0b-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v3EHMVcu016626
+        by mx0b-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v3EHMVct016626
         for <netdev@vger.kernel.org>; Fri, 14 Apr 2017 10:30:32 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0b-00082601.pphosted.com with ESMTP id 29tp48tret-3
+        by mx0b-00082601.pphosted.com with ESMTP id 29tp48tret-2
         (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
         for <netdev@vger.kernel.org>; Fri, 14 Apr 2017 10:30:32 -0700
 Received: from facebook.com (2401:db00:11:d09a:face:0:41:0)     by
  mx-out.facebook.com (10.102.107.97) with ESMTP id
- 0ea6d628213811e78efd0002c99331b0-b31f39a0 for <netdev@vger.kernel.org>;        Fri,
+ 0e9753c4213811e7aaef0002c99331b0-b29f29a0 for <netdev@vger.kernel.org>;        Fri,
  14 Apr 2017 10:30:30 -0700
 In-Reply-To: <20170414173030.2853860-1-kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-After doing map_perf_test with a much bigger
-BPF_F_NO_COMMON_LRU map, the perf report shows a
-lot of time spent in rotating the inactive list (i.e.
-__bpf_lru_list_rotate_inactive):
-> map_perf_test 32 8 10000 1000000 | awk '{sum += $3}END{print sum}'
-19644783 (19M/s)
-> map_perf_test 32 8 10000000 10000000 |  awk '{sum += $3}END{print sum}'
-6283930 (6.28M/s)
+One more LRU test will be added later in this patch series.
+In this patch, we first move all existing LRU map tests into
+a single syscall (connect) first so that the future new
+LRU test can be added without hunting another syscall.
 
-By inactive, it usually means the element is not in cache.  Hence,
-there is a need to tune the PERCPU_NR_SCANS value.
-
-This patch finds a better number of elements to
-scan during each list rotation.  The PERCPU_NR_SCANS (which
-is defined the same as PERCPU_FREE_TARGET) decreases
-from 16 elements to 4 elements.  This change only
-affects the BPF_F_NO_COMMON_LRU map.
-
-The test_lru_dist does not show meaningful difference
-between 16 and 4.  Our production L4 load balancer which uses
-the LRU map for conntrack-ing also shows little change in cache
-hit rate.  Since both benchmark and production data show no
-cache-hit difference, PERCPU_NR_SCANS is lowered from 16 to 4.
-We can consider making it configurable if we find a usecase
-later that shows another value works better and/or use
-a different rotation strategy.
-
-After this change:
-> map_perf_test 32 8 10000000 10000000 |  awk '{sum += $3}END{print sum}'
-9240324 (9.2M/s)
-
-i.e. 6.28M/s -> 9.2M/s
-
-The test_lru_dist has not shown meaningful difference:
-> test_lru_dist zipf.100k.a1_01.out 4000 1:
-nr_misses: 31575 (Before) vs 31566 (After)
-
-> test_lru_dist zipf.100k.a0_01.out 40000 1
-nr_misses: 67036 (Before) vs 67031 (After)
+One of the map name is also changed from percpu_lru_hash_map
+to nocommon_lru_hash_map to avoid the confusion with percpu_hash_map.
 
 Signed-off-by: Martin KaFai Lau <kafai@fb.com>
 Acked-by: Alexei Starovoitov <ast@kernel.org>
 Acked-by: Daniel Borkmann <daniel@iogearbox.net>
 ---
- kernel/bpf/bpf_lru_list.c                  | 2 +-
- tools/testing/selftests/bpf/test_lru_map.c | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ samples/bpf/map_perf_test_kern.c | 43 +++++++++++++++++++++++---------
+ samples/bpf/map_perf_test_user.c | 53 +++++++++++++++++++++++++++-------------
+ 2 files changed, 67 insertions(+), 29 deletions(-)
 
-diff --git a/kernel/bpf/bpf_lru_list.c b/kernel/bpf/bpf_lru_list.c
-index f62d1d56f41d..e6ef4401a138 100644
---- a/kernel/bpf/bpf_lru_list.c
-+++ b/kernel/bpf/bpf_lru_list.c
-@@ -13,7 +13,7 @@
- #define LOCAL_FREE_TARGET		(128)
- #define LOCAL_NR_SCANS			LOCAL_FREE_TARGET
+diff --git a/samples/bpf/map_perf_test_kern.c b/samples/bpf/map_perf_test_kern.c
+index 9da2a3441b0a..404ed53b8a53 100644
+--- a/samples/bpf/map_perf_test_kern.c
++++ b/samples/bpf/map_perf_test_kern.c
+@@ -26,7 +26,7 @@ struct bpf_map_def SEC("maps") lru_hash_map = {
+ 	.max_entries = 10000,
+ };
  
--#define PERCPU_FREE_TARGET		(16)
-+#define PERCPU_FREE_TARGET		(4)
- #define PERCPU_NR_SCANS			PERCPU_FREE_TARGET
+-struct bpf_map_def SEC("maps") percpu_lru_hash_map = {
++struct bpf_map_def SEC("maps") nocommon_lru_hash_map = {
+ 	.type = BPF_MAP_TYPE_LRU_HASH,
+ 	.key_size = sizeof(u32),
+ 	.value_size = sizeof(long),
+@@ -100,6 +100,7 @@ int stress_percpu_hmap(struct pt_regs *ctx)
+ 		bpf_map_delete_elem(&percpu_hash_map, &key);
+ 	return 0;
+ }
++
+ SEC("kprobe/sys_getgid")
+ int stress_hmap_alloc(struct pt_regs *ctx)
+ {
+@@ -128,24 +129,42 @@ int stress_percpu_hmap_alloc(struct pt_regs *ctx)
+ 	return 0;
+ }
  
- /* Helpers to get the local list index */
-diff --git a/tools/testing/selftests/bpf/test_lru_map.c b/tools/testing/selftests/bpf/test_lru_map.c
-index 87c05e5bdfdd..8c10c9180c1a 100644
---- a/tools/testing/selftests/bpf/test_lru_map.c
-+++ b/tools/testing/selftests/bpf/test_lru_map.c
-@@ -22,7 +22,7 @@
- #include "bpf_util.h"
+-SEC("kprobe/sys_getpid")
++SEC("kprobe/sys_connect")
+ int stress_lru_hmap_alloc(struct pt_regs *ctx)
+ {
+-	u32 key = bpf_get_prandom_u32();
++	struct sockaddr_in6 *in6;
++	u16 test_case, dst6[8];
++	int addrlen, ret;
++	char fmt[] = "Failed at stress_lru_hmap_alloc. ret:%d\n";
+ 	long val = 1;
++	u32 key = bpf_get_prandom_u32();
  
- #define LOCAL_FREE_TARGET	(128)
--#define PERCPU_FREE_TARGET	(16)
-+#define PERCPU_FREE_TARGET	(4)
+-	bpf_map_update_elem(&lru_hash_map, &key, &val, BPF_ANY);
++	in6 = (struct sockaddr_in6 *)PT_REGS_PARM2(ctx);
++	addrlen = (int)PT_REGS_PARM3(ctx);
  
- static int nr_cpus;
+-	return 0;
+-}
++	if (addrlen != sizeof(*in6))
++		return 0;
  
+-SEC("kprobe/sys_getppid")
+-int stress_percpu_lru_hmap_alloc(struct pt_regs *ctx)
+-{
+-	u32 key = bpf_get_prandom_u32();
+-	long val = 1;
++	ret = bpf_probe_read(dst6, sizeof(dst6), &in6->sin6_addr);
++	if (ret)
++		goto done;
++
++	if (dst6[0] != 0xdead || dst6[1] != 0xbeef)
++		return 0;
++
++	test_case = dst6[7];
++
++	if (test_case == 0)
++		ret = bpf_map_update_elem(&lru_hash_map, &key, &val, BPF_ANY);
++	else if (test_case == 1)
++		ret = bpf_map_update_elem(&nocommon_lru_hash_map, &key, &val,
++					  BPF_ANY);
++	else
++		ret = -EINVAL;
+ 
+-	bpf_map_update_elem(&percpu_lru_hash_map, &key, &val, BPF_ANY);
++done:
++	if (ret)
++		bpf_trace_printk(fmt, sizeof(fmt), ret);
+ 
+ 	return 0;
+ }
+diff --git a/samples/bpf/map_perf_test_user.c b/samples/bpf/map_perf_test_user.c
+index e29ff318a793..51cb8f238aa2 100644
+--- a/samples/bpf/map_perf_test_user.c
++++ b/samples/bpf/map_perf_test_user.c
+@@ -18,6 +18,9 @@
+ #include <string.h>
+ #include <time.h>
+ #include <sys/resource.h>
++#include <arpa/inet.h>
++#include <errno.h>
++
+ #include "libbpf.h"
+ #include "bpf_load.h"
+ 
+@@ -36,7 +39,7 @@ static __u64 time_get_ns(void)
+ #define HASH_KMALLOC		(1 << 2)
+ #define PERCPU_HASH_KMALLOC	(1 << 3)
+ #define LRU_HASH_PREALLOC	(1 << 4)
+-#define PERCPU_LRU_HASH_PREALLOC	(1 << 5)
++#define NOCOMMON_LRU_HASH_PREALLOC	(1 << 5)
+ #define LPM_KMALLOC		(1 << 6)
+ #define HASH_LOOKUP		(1 << 7)
+ #define ARRAY_LOOKUP		(1 << 8)
+@@ -55,28 +58,44 @@ static void test_hash_prealloc(int cpu)
+ 	       cpu, MAX_CNT * 1000000000ll / (time_get_ns() - start_time));
+ }
+ 
+-static void test_lru_hash_prealloc(int cpu)
++static void do_test_lru(int lru_test_flag, int cpu)
+ {
++	struct sockaddr_in6 in6 = { .sin6_family = AF_INET6 };
++	const char *test_name;
+ 	__u64 start_time;
+-	int i;
++	int i, ret;
++
++	in6.sin6_addr.s6_addr16[0] = 0xdead;
++	in6.sin6_addr.s6_addr16[1] = 0xbeef;
++
++	if (lru_test_flag & LRU_HASH_PREALLOC) {
++		test_name = "lru_hash_map_perf";
++		in6.sin6_addr.s6_addr16[7] = 0;
++	} else if (lru_test_flag & NOCOMMON_LRU_HASH_PREALLOC) {
++		test_name = "nocommon_lru_hash_map_perf";
++		in6.sin6_addr.s6_addr16[7] = 1;
++	} else {
++		assert(0);
++	}
+ 
+ 	start_time = time_get_ns();
+-	for (i = 0; i < MAX_CNT; i++)
+-		syscall(__NR_getpid);
+-	printf("%d:lru_hash_map_perf pre-alloc %lld events per sec\n",
+-	       cpu, MAX_CNT * 1000000000ll / (time_get_ns() - start_time));
++	for (i = 0; i < MAX_CNT; i++) {
++		ret = connect(-1, (const struct sockaddr *)&in6, sizeof(in6));
++		assert(ret == -1 && errno == EBADF);
++	}
++	printf("%d:%s pre-alloc %lld events per sec\n",
++	       cpu, test_name,
++	       MAX_CNT * 1000000000ll / (time_get_ns() - start_time));
+ }
+ 
+-static void test_percpu_lru_hash_prealloc(int cpu)
++static void test_lru_hash_prealloc(int cpu)
+ {
+-	__u64 start_time;
+-	int i;
++	do_test_lru(LRU_HASH_PREALLOC, cpu);
++}
+ 
+-	start_time = time_get_ns();
+-	for (i = 0; i < MAX_CNT; i++)
+-		syscall(__NR_getppid);
+-	printf("%d:lru_hash_map_perf pre-alloc %lld events per sec\n",
+-	       cpu, MAX_CNT * 1000000000ll / (time_get_ns() - start_time));
++static void test_nocommon_lru_hash_prealloc(int cpu)
++{
++	do_test_lru(NOCOMMON_LRU_HASH_PREALLOC, cpu);
+ }
+ 
+ static void test_percpu_hash_prealloc(int cpu)
+@@ -174,8 +193,8 @@ static void loop(int cpu)
+ 	if (test_flags & LRU_HASH_PREALLOC)
+ 		test_lru_hash_prealloc(cpu);
+ 
+-	if (test_flags & PERCPU_LRU_HASH_PREALLOC)
+-		test_percpu_lru_hash_prealloc(cpu);
++	if (test_flags & NOCOMMON_LRU_HASH_PREALLOC)
++		test_nocommon_lru_hash_prealloc(cpu);
+ 
+ 	if (test_flags & LPM_KMALLOC)
+ 		test_lpm_kmalloc(cpu);
 -- 
 2.9.3
