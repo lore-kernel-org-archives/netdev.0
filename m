@@ -1,40 +1,44 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net-next 1/2] netvsc: fix RCU warning in get_stats
-Date: Fri, 14 Apr 2017 14:42:57 -0700
-Message-ID: <20170414214258.3367-1-sthemmin@microsoft.com>
-Cc: netdev@vger.kernel.org, Stephen Hemminger <sthemmin@microsoft.com>
+Subject: [PATCH net-next 2/2] hv_netvsc: change netvsc device default duplex to FULL
+Date: Fri, 14 Apr 2017 14:42:58 -0700
+Message-ID: <20170414214258.3367-2-sthemmin@microsoft.com>
+References: <20170414214258.3367-1-sthemmin@microsoft.com>
+Cc: netdev@vger.kernel.org, Simon Xiao <sixiao@microsoft.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f170.google.com ([209.85.192.170]:35602 "EHLO
-        mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751962AbdDNVnB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 14 Apr 2017 17:43:01 -0400
-Received: by mail-pf0-f170.google.com with SMTP id i5so44783863pfc.2
-        for <netdev@vger.kernel.org>; Fri, 14 Apr 2017 14:43:01 -0700 (PDT)
+Received: from mail-pf0-f180.google.com ([209.85.192.180]:36046 "EHLO
+        mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752705AbdDNVnC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 14 Apr 2017 17:43:02 -0400
+Received: by mail-pf0-f180.google.com with SMTP id 194so5509992pfv.3
+        for <netdev@vger.kernel.org>; Fri, 14 Apr 2017 14:43:02 -0700 (PDT)
+In-Reply-To: <20170414214258.3367-1-sthemmin@microsoft.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The statistics functionis called with RTNL held during probe
-but with RCU held during access from /proc and elsewhere.
-This is safe so update the lockdep annotation.
+From: Simon Xiao <sixiao@microsoft.com>
 
-Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+The netvsc device supports full duplex by default.
+This warnings in log from bonding device which did not like
+seeing UNKNOWN duplex.
+
+Signed-off-by: Simon Xiao <sixiao@microsoft.com>
 ---
  drivers/net/hyperv/netvsc_drv.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index f24c2891dd0c..76489a06ef3b 100644
+index 76489a06ef3b..fad5a57765b9 100644
 --- a/drivers/net/hyperv/netvsc_drv.c
 +++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -897,7 +897,7 @@ static void netvsc_get_stats64(struct net_device *net,
- 			       struct rtnl_link_stats64 *t)
- {
- 	struct net_device_context *ndev_ctx = netdev_priv(net);
--	struct netvsc_device *nvdev = rcu_dereference(ndev_ctx->nvdev);
-+	struct netvsc_device *nvdev = rcu_dereference_rtnl(ndev_ctx->nvdev);
- 	int i;
+@@ -815,7 +815,7 @@ static void netvsc_init_settings(struct net_device *dev)
+ 	struct net_device_context *ndc = netdev_priv(dev);
  
- 	if (!nvdev)
+ 	ndc->speed = SPEED_UNKNOWN;
+-	ndc->duplex = DUPLEX_UNKNOWN;
++	ndc->duplex = DUPLEX_FULL;
+ }
+ 
+ static int netvsc_get_link_ksettings(struct net_device *dev,
 -- 
 2.11.0
