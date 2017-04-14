@@ -1,7 +1,7 @@
 From: Christoph Hellwig <hch@lst.de>
-Subject: [PATCH 2/7] PCI: call pcie_flr from reset_intel_82599_sfp_virtfn
-Date: Fri, 14 Apr 2017 21:11:26 +0200
-Message-ID: <20170414191131.14286-3-hch@lst.de>
+Subject: [PATCH 4/7] ixgbe: use pcie_flr instead of duplicating it
+Date: Fri, 14 Apr 2017 21:11:28 +0200
+Message-ID: <20170414191131.14286-5-hch@lst.de>
 References: <20170414191131.14286-1-hch@lst.de>
 Cc: linux-pci@vger.kernel.org, qat-linux@intel.com,
         linux-crypto@vger.kernel.org, linux-rdma@vger.kernel.org,
@@ -16,46 +16,56 @@ To: Bjorn Helgaas <bhelgaas@google.com>,
         Felix Manlunas <felix.manlunas@caviumnetworks.com>,
         Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <linux-crypto-owner@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20170414191131.14286-1-hch@lst.de>
-Sender: linux-crypto-owner@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The 82599 quirk contained an outdated copy of the FLR code.
-
 Signed-off-by: Christoph Hellwig <hch@lst.de>
-Acked-by: Bjorn Helgaas <bhelgaas@google.com>
 ---
- drivers/pci/quirks.c | 16 ++++------------
- 1 file changed, 4 insertions(+), 12 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 16 ++--------------
+ 1 file changed, 2 insertions(+), 14 deletions(-)
 
-diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
-index 823271b13d12..8195ca294ee5 100644
---- a/drivers/pci/quirks.c
-+++ b/drivers/pci/quirks.c
-@@ -3641,19 +3641,11 @@ static int reset_intel_82599_sfp_virtfn(struct pci_dev *dev, int probe)
- 	 *
- 	 * The 82599 supports FLR on VFs, but FLR support is reported only
- 	 * in the PF DEVCAP (sec 9.3.10.4), not in the VF DEVCAP (sec 9.5).
--	 * Therefore, we can't use pcie_flr(), which checks the VF DEVCAP.
-+	 * Thus we must call pcie_flr directly without first checking if it is
-+	 * supported.
- 	 */
--
--	if (probe)
--		return 0;
--
--	if (!pci_wait_for_pending_transaction(dev))
--		dev_err(&dev->dev, "transaction is not cleared; proceeding with reset anyway\n");
--
--	pcie_capability_set_word(dev, PCI_EXP_DEVCTL, PCI_EXP_DEVCTL_BCR_FLR);
--
--	msleep(100);
--
-+	if (!probe)
-+		pcie_flr(dev);
- 	return 0;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index a7a430a7be2c..543ddde5f8e2 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -7112,18 +7112,6 @@ static void ixgbe_watchdog_flush_tx(struct ixgbe_adapter *adapter)
  }
  
+ #ifdef CONFIG_PCI_IOV
+-static inline void ixgbe_issue_vf_flr(struct ixgbe_adapter *adapter,
+-				      struct pci_dev *vfdev)
+-{
+-	if (!pci_wait_for_pending_transaction(vfdev))
+-		e_dev_warn("Issuing VFLR with pending transactions\n");
+-
+-	e_dev_err("Issuing VFLR for VF %s\n", pci_name(vfdev));
+-	pcie_capability_set_word(vfdev, PCI_EXP_DEVCTL, PCI_EXP_DEVCTL_BCR_FLR);
+-
+-	msleep(100);
+-}
+-
+ static void ixgbe_check_for_bad_vf(struct ixgbe_adapter *adapter)
+ {
+ 	struct ixgbe_hw *hw = &adapter->hw;
+@@ -7156,7 +7144,7 @@ static void ixgbe_check_for_bad_vf(struct ixgbe_adapter *adapter)
+ 		pci_read_config_word(vfdev, PCI_STATUS, &status_reg);
+ 		if (status_reg != IXGBE_FAILED_READ_CFG_WORD &&
+ 		    status_reg & PCI_STATUS_REC_MASTER_ABORT)
+-			ixgbe_issue_vf_flr(adapter, vfdev);
++			pcie_flr(vfdev);
+ 	}
+ }
+ 
+@@ -10244,7 +10232,7 @@ static pci_ers_result_t ixgbe_io_error_detected(struct pci_dev *pdev,
+ 		 * VFLR.  Just clean up the AER in that case.
+ 		 */
+ 		if (vfdev) {
+-			ixgbe_issue_vf_flr(adapter, vfdev);
++			pcie_flr(vfdev);
+ 			/* Free device reference count */
+ 			pci_dev_put(vfdev);
+ 		}
 -- 
 2.11.0
