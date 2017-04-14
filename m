@@ -1,59 +1,32 @@
-From: Christoph Hellwig <hch@lst.de>
-Subject: [PATCH 3/7] PCI: call pcie_flr from reset_chelsio_generic_dev
-Date: Fri, 14 Apr 2017 21:11:27 +0200
-Message-ID: <20170414191131.14286-4-hch@lst.de>
-References: <20170414191131.14286-1-hch@lst.de>
-Cc: linux-pci@vger.kernel.org, qat-linux@intel.com,
-        linux-crypto@vger.kernel.org, linux-rdma@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Bjorn Helgaas <bhelgaas@google.com>,
-        Giovanni Cabiddu <giovanni.cabiddu@intel.com>,
-        Salvatore Benedetto <salvatore.benedetto@intel.com>,
-        Mike Marciniszyn <mike.marciniszyn@intel.com>,
-        Dennis Dalessandro <dennis.dalessandro@intel.com>,
-        Derek Chickles <derek.chickles@caviumnetworks.com>,
-        Satanand Burla <satananda.burla@caviumnetworks.com>,
-        Felix Manlunas <felix.manlunas@caviumnetworks.com>,
-        Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <20170414191131.14286-1-hch@lst.de>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH -next] net: phy: test the right variable in
+ phy_write_mmd()
+Date: Fri, 14 Apr 2017 21:14:24 +0200
+Message-ID: <20170414191424.GA17758@lunn.ch>
+References: <20170414191041.GA27478@mwanda>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Russell King <rmk+kernel@armlinux.org.uk>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Dan Carpenter <dan.carpenter@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:58792 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1755455AbdDNTOf (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 14 Apr 2017 15:14:35 -0400
+Content-Disposition: inline
+In-Reply-To: <20170414191041.GA27478@mwanda>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Instead of copy & pasting and old version of the code.
+On Fri, Apr 14, 2017 at 10:10:41PM +0300, Dan Carpenter wrote:
+> This is a copy and paste buglet.  We meant to test for ->write_mmd but
+> we test for ->read_mmd.
+> 
+> Fixes: 1ee6b9bc6206 ("net: phy: make phy_(read|write)_mmd() generic MMD accessors")
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
-Acked-by: Bjorn Helgaas <bhelgaas@google.com>
----
- drivers/pci/quirks.c | 15 +--------------
- 1 file changed, 1 insertion(+), 14 deletions(-)
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 
-diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
-index 8195ca294ee5..715ed8c08fa3 100644
---- a/drivers/pci/quirks.c
-+++ b/drivers/pci/quirks.c
-@@ -3750,20 +3750,7 @@ static int reset_chelsio_generic_dev(struct pci_dev *dev, int probe)
- 				      PCI_MSIX_FLAGS_ENABLE |
- 				      PCI_MSIX_FLAGS_MASKALL);
- 
--	/*
--	 * Start of pcie_flr() code sequence.  This reset code is a copy of
--	 * the guts of pcie_flr() because that's not an exported function.
--	 */
--
--	if (!pci_wait_for_pending_transaction(dev))
--		dev_err(&dev->dev, "transaction is not cleared; proceeding with reset anyway\n");
--
--	pcie_capability_set_word(dev, PCI_EXP_DEVCTL, PCI_EXP_DEVCTL_BCR_FLR);
--	msleep(100);
--
--	/*
--	 * End of pcie_flr() code sequence.
--	 */
-+	pcie_flr(dev);
- 
- 	/*
- 	 * Restore the configuration information (BAR values, etc.) including
--- 
-2.11.0
+    Andrew
