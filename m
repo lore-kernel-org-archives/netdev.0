@@ -1,52 +1,69 @@
-From: Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>
-Subject: Re: [PATCH 09/22] dm-crypt: Make use of the new sg_map helper in 4
-	call sites
-Date: Fri, 14 Apr 2017 10:39:21 +0200
-Message-ID: <20170414083921.GC25471@lst.de>
-References: <1492121135-4437-1-git-send-email-logang@deltatee.com> <1492121135-4437-10-git-send-email-logang@deltatee.com>
-Reply-To: open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH v3 net-next RFC] Generic XDP
+Date: Fri, 14 Apr 2017 11:05:25 +0200
+Message-ID: <20170414110525.41317f5a@redhat.com>
+References: <20170412.145415.1441440342830198148.davem@davemloft.net>
+        <20170413042036.GA46229@ast-mbp.thefacebook.com>
+        <20170413.113722.2174945057832588335.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>,
-	"Martin K. Petersen" <martin.petersen-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
-	Sagi Grimberg <sagi-NQWnxTmZq1alnMjI0IkVqw@public.gmane.org>, Jens Axboe <axboe-tSWWG44O7X1aa/9Udqfwiw@public.gmane.org>,
-	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	Dan Williams <dan.j.williams-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Ross Zwisler <ross.zwisler-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	Matthew Wilcox <mawilcox-0li6OtcxBFHby3iVrkZq2A@public.gmane.org>,
-	Sumit Semwal <sumit.semwal-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	Ming Lin <ming.l-Vzezgt5dB6uUEJcrhfAQsw@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-crypto-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org, linaro-mm-sig-cunTk1MwBs8s++Sfvej+rw@public.gmane.org,
-	intel-gfx-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org, linux-raid-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-nvme-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	linux-nvdimm-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org, linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	fcoe-devel-s9riP+hp16TNLxjTenLetw@public.gmane.org, open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org,
-	megaraidlinux.pdl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, sparmaintainer-GLv8BlqOqDDQT0dZR+AlfA@public.gmane.org,
-	devel@drive
-To: Logan Gunthorpe <logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
-Return-path: <open-iscsi+bncBDUNBGN3R4KRBOUVYLDQKGQEJ6GSOFY-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-Sender: open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-Content-Disposition: inline
-In-Reply-To: <1492121135-4437-10-git-send-email-logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
-List-Post: <https://groups.google.com/group/open-iscsi/post>, <mailto:open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <https://groups.google.com/support/>, <mailto:open-iscsi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <https://groups.google.com/group/open-iscsi
-List-Subscribe: <https://groups.google.com/group/open-iscsi/subscribe>, <mailto:open-iscsi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <mailto:googlegroups-manage+856124926423+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
- <https://groups.google.com/group/open-iscsi/subscribe>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: alexei.starovoitov@gmail.com, netdev@vger.kernel.org,
+        xdp-newbies@vger.kernel.org, brouer@redhat.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:59756 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751693AbdDNJFb (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 14 Apr 2017 05:05:31 -0400
+In-Reply-To: <20170413.113722.2174945057832588335.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 13, 2017 at 04:05:22PM -0600, Logan Gunthorpe wrote:
-> Very straightforward conversion to the new function in all four spots.
+On Thu, 13 Apr 2017 11:37:22 -0400 (EDT)
+David Miller <davem@davemloft.net> wrote:
 
-I think the right fix here is to switch dm-crypt to the ahash API
-that takes a scatterlist.
+> From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+> Date: Wed, 12 Apr 2017 21:20:38 -0700
+> 
+> > On Wed, Apr 12, 2017 at 02:54:15PM -0400, David Miller wrote:  
+[...]
+> 
+> If the capability is variable, it must be communicated to the user
+> somehow at program load time.
+> 
+> We are consistently finding that there is this real need to
+> communicate XDP capabilities, or somehow verify that the needs
+> of an XDP program can be satisfied by a given implementation.
+
+I fully agree that we need some way to express capabilities[1]
+
+[1] http://prototype-kernel.readthedocs.io/en/latest/networking/XDP/design/design.html#capabilities-negotiation
+
+> Maximum headroom is just one.
+
+[...]
+> 
+> We can only optimize this and elide things when we have a facility in
+> the future for the program to express it's needs precisely.  I think
+> we will have to add some control structure to XDP programs that can
+> be filled in for this purpose.
+
+I fully agree that we need some control structure to XDP programs.  My
+previous attempt was shot-down due to performance concerns of an extra
+pointer dereference. As I explained before, this is not a concern as
+the dereference will happen once per N packets in the NAPI loop.
+
+Plus now we see a need to elide things based on facilities the XDP
+program choose to use/enable, for performance reasons.  I would prefer
+keeping these facility settings in control structure to XDP programs,
+instead of pulling in derived bits runtime.   Again remember, adding
+if/branch statements checking for facilities, should have little
+performance impact as the branch predictor should guess correctly given
+we process N packets in the NAPI loop with same facilities.
 
 -- 
-You received this message because you are subscribed to the Google Groups "open-iscsi" group.
-To unsubscribe from this group and stop receiving emails from it, send an email to open-iscsi+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org
-To post to this group, send email to open-iscsi-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org
-Visit this group at https://groups.google.com/group/open-iscsi.
-For more options, visit https://groups.google.com/d/optout.
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
