@@ -1,7 +1,7 @@
 From: Martin KaFai Lau <kafai@fb.com>
-Subject: [PATCH net-next 3/6] bpf: lru: Refactor LRU map tests in map_perf_test
-Date: Fri, 14 Apr 2017 10:30:27 -0700
-Message-ID: <20170414173030.2853860-4-kafai@fb.com>
+Subject: [PATCH net-next 2/6] bpf: lru: Cleanup test_lru_map.c
+Date: Fri, 14 Apr 2017 10:30:26 -0700
+Message-ID: <20170414173030.2853860-3-kafai@fb.com>
 References: <20170414173030.2853860-1-kafai@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,208 +9,135 @@ Cc: Alexei Starovoitov <ast@fb.com>,
         Daniel Borkmann <daniel@iogearbox.net>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:58144 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1754091AbdDNRac (ORCPT
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:49890 "EHLO
+        mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1754002AbdDNRac (ORCPT
         <rfc822;netdev@vger.kernel.org>); Fri, 14 Apr 2017 13:30:32 -0400
-Received: from pps.filterd (m0001255.ppops.net [127.0.0.1])
-        by mx0b-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v3EHMVct016626
-        for <netdev@vger.kernel.org>; Fri, 14 Apr 2017 10:30:32 -0700
+Received: from pps.filterd (m0109332.ppops.net [127.0.0.1])
+        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v3EHNSVg030510
+        for <netdev@vger.kernel.org>; Fri, 14 Apr 2017 10:30:31 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0b-00082601.pphosted.com with ESMTP id 29tp48tret-2
+        by mx0a-00082601.pphosted.com with ESMTP id 29u27a087e-1
         (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Fri, 14 Apr 2017 10:30:32 -0700
+        for <netdev@vger.kernel.org>; Fri, 14 Apr 2017 10:30:31 -0700
 Received: from facebook.com (2401:db00:11:d09a:face:0:41:0)     by
- mx-out.facebook.com (10.102.107.97) with ESMTP id
- 0e9753c4213811e7aaef0002c99331b0-b29f29a0 for <netdev@vger.kernel.org>;        Fri,
+ mx-out.facebook.com (10.103.99.99) with ESMTP  id
+ 0e77b398213811e7b9420002c9dfb610-5d7f09a0 for <netdev@vger.kernel.org>;        Fri,
  14 Apr 2017 10:30:30 -0700
 In-Reply-To: <20170414173030.2853860-1-kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-One more LRU test will be added later in this patch series.
-In this patch, we first move all existing LRU map tests into
-a single syscall (connect) first so that the future new
-LRU test can be added without hunting another syscall.
-
-One of the map name is also changed from percpu_lru_hash_map
-to nocommon_lru_hash_map to avoid the confusion with percpu_hash_map.
+This patch does the following cleanup on test_lru_map.c
+1) Fix indentation (Replace spaces by tabs)
+2) Remove redundant BPF_F_NO_COMMON_LRU test
+3) Simplify some comments
 
 Signed-off-by: Martin KaFai Lau <kafai@fb.com>
 Acked-by: Alexei Starovoitov <ast@kernel.org>
 Acked-by: Daniel Borkmann <daniel@iogearbox.net>
 ---
- samples/bpf/map_perf_test_kern.c | 43 +++++++++++++++++++++++---------
- samples/bpf/map_perf_test_user.c | 53 +++++++++++++++++++++++++++-------------
- 2 files changed, 67 insertions(+), 29 deletions(-)
+ tools/testing/selftests/bpf/test_lru_map.c | 32 +++++++++---------------------
+ 1 file changed, 9 insertions(+), 23 deletions(-)
 
-diff --git a/samples/bpf/map_perf_test_kern.c b/samples/bpf/map_perf_test_kern.c
-index 9da2a3441b0a..404ed53b8a53 100644
---- a/samples/bpf/map_perf_test_kern.c
-+++ b/samples/bpf/map_perf_test_kern.c
-@@ -26,7 +26,7 @@ struct bpf_map_def SEC("maps") lru_hash_map = {
- 	.max_entries = 10000,
- };
+diff --git a/tools/testing/selftests/bpf/test_lru_map.c b/tools/testing/selftests/bpf/test_lru_map.c
+index 04b2242937cc..87c05e5bdfdd 100644
+--- a/tools/testing/selftests/bpf/test_lru_map.c
++++ b/tools/testing/selftests/bpf/test_lru_map.c
+@@ -191,12 +191,7 @@ static void test_lru_sanity1(int map_type, int map_flags, unsigned int tgt_free)
+ 	int next_cpu = 0;
  
--struct bpf_map_def SEC("maps") percpu_lru_hash_map = {
-+struct bpf_map_def SEC("maps") nocommon_lru_hash_map = {
- 	.type = BPF_MAP_TYPE_LRU_HASH,
- 	.key_size = sizeof(u32),
- 	.value_size = sizeof(long),
-@@ -100,6 +100,7 @@ int stress_percpu_hmap(struct pt_regs *ctx)
- 		bpf_map_delete_elem(&percpu_hash_map, &key);
- 	return 0;
- }
-+
- SEC("kprobe/sys_getgid")
- int stress_hmap_alloc(struct pt_regs *ctx)
- {
-@@ -128,24 +129,42 @@ int stress_percpu_hmap_alloc(struct pt_regs *ctx)
- 	return 0;
- }
+ 	if (map_flags & BPF_F_NO_COMMON_LRU)
+-		/* Ther percpu lru list (i.e each cpu has its own LRU
+-		 * list) does not have a local free list.  Hence,
+-		 * it will only free old nodes till there is no free
+-		 * from the LRU list.  Hence, this test does not apply
+-		 * to BPF_F_NO_COMMON_LRU
+-		 */
++		/* This test is only applicable to common LRU list */
+ 		return;
  
--SEC("kprobe/sys_getpid")
-+SEC("kprobe/sys_connect")
- int stress_lru_hmap_alloc(struct pt_regs *ctx)
- {
--	u32 key = bpf_get_prandom_u32();
-+	struct sockaddr_in6 *in6;
-+	u16 test_case, dst6[8];
-+	int addrlen, ret;
-+	char fmt[] = "Failed at stress_lru_hmap_alloc. ret:%d\n";
- 	long val = 1;
-+	u32 key = bpf_get_prandom_u32();
+ 	printf("%s (map_type:%d map_flags:0x%X): ", __func__, map_type,
+@@ -227,7 +222,7 @@ static void test_lru_sanity1(int map_type, int map_flags, unsigned int tgt_free)
+ 	for (key = 1; key < end_key; key++) {
+ 		assert(!bpf_map_lookup_elem(lru_map_fd, &key, value));
+ 		assert(!bpf_map_update_elem(expected_map_fd, &key, value,
+-				            BPF_NOEXIST));
++					    BPF_NOEXIST));
+ 	}
  
--	bpf_map_update_elem(&lru_hash_map, &key, &val, BPF_ANY);
-+	in6 = (struct sockaddr_in6 *)PT_REGS_PARM2(ctx);
-+	addrlen = (int)PT_REGS_PARM3(ctx);
+ 	/* Insert 1+tgt_free to 2*tgt_free
+@@ -273,12 +268,7 @@ static void test_lru_sanity2(int map_type, int map_flags, unsigned int tgt_free)
+ 	int next_cpu = 0;
  
--	return 0;
--}
-+	if (addrlen != sizeof(*in6))
-+		return 0;
+ 	if (map_flags & BPF_F_NO_COMMON_LRU)
+-		/* Ther percpu lru list (i.e each cpu has its own LRU
+-		 * list) does not have a local free list.  Hence,
+-		 * it will only free old nodes till there is no free
+-		 * from the LRU list.  Hence, this test does not apply
+-		 * to BPF_F_NO_COMMON_LRU
+-		 */
++		/* This test is only applicable to common LRU list */
+ 		return;
  
--SEC("kprobe/sys_getppid")
--int stress_percpu_lru_hmap_alloc(struct pt_regs *ctx)
--{
--	u32 key = bpf_get_prandom_u32();
--	long val = 1;
-+	ret = bpf_probe_read(dst6, sizeof(dst6), &in6->sin6_addr);
-+	if (ret)
-+		goto done;
-+
-+	if (dst6[0] != 0xdead || dst6[1] != 0xbeef)
-+		return 0;
-+
-+	test_case = dst6[7];
-+
-+	if (test_case == 0)
-+		ret = bpf_map_update_elem(&lru_hash_map, &key, &val, BPF_ANY);
-+	else if (test_case == 1)
-+		ret = bpf_map_update_elem(&nocommon_lru_hash_map, &key, &val,
-+					  BPF_ANY);
-+	else
-+		ret = -EINVAL;
+ 	printf("%s (map_type:%d map_flags:0x%X): ", __func__, map_type,
+@@ -290,11 +280,7 @@ static void test_lru_sanity2(int map_type, int map_flags, unsigned int tgt_free)
+ 	assert(batch_size * 2 == tgt_free);
  
--	bpf_map_update_elem(&percpu_lru_hash_map, &key, &val, BPF_ANY);
-+done:
-+	if (ret)
-+		bpf_trace_printk(fmt, sizeof(fmt), ret);
+ 	map_size = tgt_free + batch_size;
+-	if (map_flags & BPF_F_NO_COMMON_LRU)
+-		lru_map_fd = create_map(map_type, map_flags,
+-					map_size * nr_cpus);
+-	else
+-		lru_map_fd = create_map(map_type, map_flags, map_size);
++	lru_map_fd = create_map(map_type, map_flags, map_size);
+ 	assert(lru_map_fd != -1);
  
- 	return 0;
- }
-diff --git a/samples/bpf/map_perf_test_user.c b/samples/bpf/map_perf_test_user.c
-index e29ff318a793..51cb8f238aa2 100644
---- a/samples/bpf/map_perf_test_user.c
-+++ b/samples/bpf/map_perf_test_user.c
-@@ -18,6 +18,9 @@
- #include <string.h>
- #include <time.h>
- #include <sys/resource.h>
-+#include <arpa/inet.h>
-+#include <errno.h>
-+
- #include "libbpf.h"
- #include "bpf_load.h"
+ 	expected_map_fd = create_map(BPF_MAP_TYPE_HASH, 0, map_size);
+@@ -341,7 +327,7 @@ static void test_lru_sanity2(int map_type, int map_flags, unsigned int tgt_free)
+ 		assert(!bpf_map_lookup_elem(lru_map_fd, &key, value));
+ 		assert(value[0] == 4321);
+ 		assert(!bpf_map_update_elem(expected_map_fd, &key, value,
+-				            BPF_NOEXIST));
++					    BPF_NOEXIST));
+ 	}
  
-@@ -36,7 +39,7 @@ static __u64 time_get_ns(void)
- #define HASH_KMALLOC		(1 << 2)
- #define PERCPU_HASH_KMALLOC	(1 << 3)
- #define LRU_HASH_PREALLOC	(1 << 4)
--#define PERCPU_LRU_HASH_PREALLOC	(1 << 5)
-+#define NOCOMMON_LRU_HASH_PREALLOC	(1 << 5)
- #define LPM_KMALLOC		(1 << 6)
- #define HASH_LOOKUP		(1 << 7)
- #define ARRAY_LOOKUP		(1 << 8)
-@@ -55,28 +58,44 @@ static void test_hash_prealloc(int cpu)
- 	       cpu, MAX_CNT * 1000000000ll / (time_get_ns() - start_time));
- }
+ 	value[0] = 1234;
+@@ -361,7 +347,7 @@ static void test_lru_sanity2(int map_type, int map_flags, unsigned int tgt_free)
+ 		assert(!bpf_map_update_elem(lru_map_fd, &key, value,
+ 					    BPF_NOEXIST));
+ 		assert(!bpf_map_update_elem(expected_map_fd, &key, value,
+-				            BPF_NOEXIST));
++					    BPF_NOEXIST));
+ 	}
  
--static void test_lru_hash_prealloc(int cpu)
-+static void do_test_lru(int lru_test_flag, int cpu)
- {
-+	struct sockaddr_in6 in6 = { .sin6_family = AF_INET6 };
-+	const char *test_name;
- 	__u64 start_time;
--	int i;
-+	int i, ret;
-+
-+	in6.sin6_addr.s6_addr16[0] = 0xdead;
-+	in6.sin6_addr.s6_addr16[1] = 0xbeef;
-+
-+	if (lru_test_flag & LRU_HASH_PREALLOC) {
-+		test_name = "lru_hash_map_perf";
-+		in6.sin6_addr.s6_addr16[7] = 0;
-+	} else if (lru_test_flag & NOCOMMON_LRU_HASH_PREALLOC) {
-+		test_name = "nocommon_lru_hash_map_perf";
-+		in6.sin6_addr.s6_addr16[7] = 1;
-+	} else {
-+		assert(0);
-+	}
+ 	assert(map_equal(lru_map_fd, expected_map_fd));
+@@ -419,7 +405,7 @@ static void test_lru_sanity3(int map_type, int map_flags, unsigned int tgt_free)
+ 	for (key = 1; key < end_key; key++) {
+ 		assert(!bpf_map_lookup_elem(lru_map_fd, &key, value));
+ 		assert(!bpf_map_update_elem(expected_map_fd, &key, value,
+-				            BPF_NOEXIST));
++					    BPF_NOEXIST));
+ 	}
  
- 	start_time = time_get_ns();
--	for (i = 0; i < MAX_CNT; i++)
--		syscall(__NR_getpid);
--	printf("%d:lru_hash_map_perf pre-alloc %lld events per sec\n",
--	       cpu, MAX_CNT * 1000000000ll / (time_get_ns() - start_time));
-+	for (i = 0; i < MAX_CNT; i++) {
-+		ret = connect(-1, (const struct sockaddr *)&in6, sizeof(in6));
-+		assert(ret == -1 && errno == EBADF);
-+	}
-+	printf("%d:%s pre-alloc %lld events per sec\n",
-+	       cpu, test_name,
-+	       MAX_CNT * 1000000000ll / (time_get_ns() - start_time));
- }
+ 	/* Add 1+2*tgt_free to tgt_free*5/2
+@@ -431,7 +417,7 @@ static void test_lru_sanity3(int map_type, int map_flags, unsigned int tgt_free)
+ 		assert(!bpf_map_update_elem(lru_map_fd, &key, value,
+ 					    BPF_NOEXIST));
+ 		assert(!bpf_map_update_elem(expected_map_fd, &key, value,
+-				            BPF_NOEXIST));
++					    BPF_NOEXIST));
+ 	}
  
--static void test_percpu_lru_hash_prealloc(int cpu)
-+static void test_lru_hash_prealloc(int cpu)
- {
--	__u64 start_time;
--	int i;
-+	do_test_lru(LRU_HASH_PREALLOC, cpu);
-+}
+ 	assert(map_equal(lru_map_fd, expected_map_fd));
+@@ -491,7 +477,7 @@ static void test_lru_sanity4(int map_type, int map_flags, unsigned int tgt_free)
+ 		assert(!bpf_map_update_elem(lru_map_fd, &key, value,
+ 					    BPF_NOEXIST));
+ 		assert(!bpf_map_update_elem(expected_map_fd, &key, value,
+-				            BPF_NOEXIST));
++					    BPF_NOEXIST));
+ 	}
  
--	start_time = time_get_ns();
--	for (i = 0; i < MAX_CNT; i++)
--		syscall(__NR_getppid);
--	printf("%d:lru_hash_map_perf pre-alloc %lld events per sec\n",
--	       cpu, MAX_CNT * 1000000000ll / (time_get_ns() - start_time));
-+static void test_nocommon_lru_hash_prealloc(int cpu)
-+{
-+	do_test_lru(NOCOMMON_LRU_HASH_PREALLOC, cpu);
- }
- 
- static void test_percpu_hash_prealloc(int cpu)
-@@ -174,8 +193,8 @@ static void loop(int cpu)
- 	if (test_flags & LRU_HASH_PREALLOC)
- 		test_lru_hash_prealloc(cpu);
- 
--	if (test_flags & PERCPU_LRU_HASH_PREALLOC)
--		test_percpu_lru_hash_prealloc(cpu);
-+	if (test_flags & NOCOMMON_LRU_HASH_PREALLOC)
-+		test_nocommon_lru_hash_prealloc(cpu);
- 
- 	if (test_flags & LPM_KMALLOC)
- 		test_lpm_kmalloc(cpu);
+ 	assert(map_equal(lru_map_fd, expected_map_fd));
 -- 
 2.9.3
