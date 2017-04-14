@@ -1,141 +1,971 @@
-From: "Samudrala, Sridhar" <sridhar.samudrala@intel.com>
-Subject: Re: [Intel-wired-lan] [next-queue v6 PATCH 5/7] i40e: Add TX and RX
- support over port netdev's in switchdev mode
-Date: Fri, 14 Apr 2017 11:26:25 -0700
-Message-ID: <58F11451.9020104@intel.com>
-References: <1490833375-2788-1-git-send-email-sridhar.samudrala@intel.com>
- <1490833375-2788-6-git-send-email-sridhar.samudrala@intel.com>
- <CAKgT0UfE5LPb1YPEQpE76JFcGg8Ja_RHaUQDch6P4icyCpsbaQ@mail.gmail.com>
+From: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 3/4] net: macb: Add hardware PTP support
+Date: Fri, 14 Apr 2017 20:28:50 +0200
+Message-ID: <20170414182850.GB7751@localhost.localdomain>
+References: <1492090439-11793-1-git-send-email-rafalo@cadence.com>
+ <1492090763-15686-1-git-send-email-rafalo@cadence.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
-        Netdev <netdev@vger.kernel.org>,
-        "Duyck, Alexander H" <alexander.h.duyck@intel.com>,
-        Anjali Singhai Jain <anjali.singhai@intel.com>,
-        Jakub Kicinski <jakub.kicinski@netronome.com>,
-        Or Gerlitz <gerlitz.or@gmail.com>,
-        Jiri Pirko <jiri@resnulli.us>
-To: Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga04.intel.com ([192.55.52.120]:9587 "EHLO mga04.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754147AbdDNS00 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 14 Apr 2017 14:26:26 -0400
-In-Reply-To: <CAKgT0UfE5LPb1YPEQpE76JFcGg8Ja_RHaUQDch6P4icyCpsbaQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, nicolas.ferre-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+        harinikatakamlinux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, harini.katakam-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org,
+        Andrei.Pistirica-UWL1GkI3JZL3oGB3hsPCZA@public.gmane.org
+To: Rafal Ozieblo <rafalo-vna1KIf7WgpBDgjK7y7TUQ@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1492090763-15686-1-git-send-email-rafalo-vna1KIf7WgpBDgjK7y7TUQ@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+On Thu, Apr 13, 2017 at 02:39:23PM +0100, Rafal Ozieblo wrote:
+> This patch is based on original Harini's patch and Andrei's patch,
+> implemented in a separate file to ease the review/maintanance
+> and integration with other platforms.
 
+Please see if you can break this patch into 2 parts:
 
-On 4/14/2017 9:47 AM, Alexander Duyck wrote:
-> On Wed, Mar 29, 2017 at 5:22 PM, Sridhar Samudrala
-> <sridhar.samudrala@intel.com> wrote:
->> In switchdev mode, broadcasts from VFs are received by the PF and passed
->> to corresponding port representor netdev.
->> Any frames sent via port netdevs are sent as directed transmits to the
->> corresponding VFs. To enable directed transmit, skb metadata dst is used
->> to pass the port id and the frame is requeued to call the PFs transmit
->> routine. VF id is used as port id for VFs and PF port id is defined as
->> I40_MAIN_VSI_PORT_ID.
->>
->> Small script to demonstrate inter VF and PF to VF pings in switchdev mode.
->> PF: p4p1, VFs: p4p1_0,p4p1_1 VF Port Reps:p4p1-vf0, p4p1-vf1
->> PF Port rep: p4p1-pf
->>
->> # rmmod i40e; modprobe i40e
->> # devlink dev eswitch set pci/0000:05:00.0 mode switchdev
->> # echo 2 > /sys/class/net/p4p1/device/sriov_numvfs
->> # ip link set p4p1 vf 0 mac 00:11:22:33:44:55
->> # ip link set p4p1 vf 1 mac 00:11:22:33:44:56
->> # rmmod i40evf; modprobe i40evf
->>
->> /* Create 2 namespaces and move the VFs to the corresponding ns */
->> # ip netns add ns0
->> # ip link set p4p1_0 netns ns0
->> # ip netns exec ns0 ip addr add 192.168.1.10/24 dev p4p1_0
->> # ip netns exec ns0 ip link set p4p1_0 up
->> # ip netns add ns1
->> # ip link set p4p1_1 netns ns1
->> # ip netns exec ns1 ip addr add 192.168.1.11/24 dev p4p1_1
->> # ip netns exec ns1 ip link set p4p1_1 up
->>
->> /* bring up pf and port netdevs */
->> # ip addr add 192.168.1.1/24 dev p4p1
->> # ip link set p4p1 up
->> # ip link set p4p1-vf0 up
->> # ip link set p4p1-vf1 up
->> # ip link set p4p1-pf up
->>
->> # ip netns exec ns0 ping -c3 192.168.1.11  /* VF0 -> VF1 */
->> # ip netns exec ns1 ping -c3 192.168.1.10  /* VF1 -> VF0 */
->> # ping -c3 192.168.1.10   /* PF -> VF0 */
->> # ping -c3 192.168.1.11   /* PF -> VF1 */
->>
->> /* VF0 -> IP in same subnet - broadcasts will be seen on p4p1-vf0 & p4p1 */
->> # ip netns exec ns0 ping -c1 -W1 192.168.1.200
->> /* VF1 -> IP in same subnet -  broadcasts will be seen on p4p1-vf1 & p4p1*/
->> # ip netns exec ns0 ping -c1 -W1 192.168.1.200
->> /* port rep VF0 -> IP in same subnet - broadcasts will be seen on p4p1_0 */
->> # ping -I p4p1-vf0 -c1 -W1 192.168.1.200
->> /* port rep VF1 -> IP in same subnet  - broadcasts will be seen on p4p1_1 */
->> # ping -I p4p1-vf1 -c1 -W1 192.168.1.200
->>
->> Signed-off-by: Sridhar Samudrala <sridhar.samudrala@intel.com>
->> ---
->>   drivers/net/ethernet/intel/i40e/i40e.h             |   4 +
->>   drivers/net/ethernet/intel/i40e/i40e_main.c        |  27 +++-
->>   drivers/net/ethernet/intel/i40e/i40e_txrx.c        | 148 ++++++++++++++++++++-
->>   drivers/net/ethernet/intel/i40e/i40e_txrx.h        |   2 +
->>   drivers/net/ethernet/intel/i40e/i40e_type.h        |   3 +
->>   drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |   8 +-
->>   6 files changed, 184 insertions(+), 8 deletions(-)
->>
-> <snip>
->
->> diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
->> index ebffca0..86d2510 100644
->> --- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
->> +++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
->> @@ -1302,20 +1302,64 @@ static bool i40e_alloc_mapped_page(struct i40e_ring *rx_ring,
->>   }
->>
->>   /**
->> + * i40e_handle_lpbk_skb - Update skb->dev of a loopback frame
->> + * @rx_ring: rx ring in play
->> + * @skb: packet to send up
->> + **/
->> +static void i40e_handle_lpbk_skb(struct i40e_ring *rx_ring, struct sk_buff *skb)
->> +{
->> +       struct i40e_q_vector *q_vector = rx_ring->q_vector;
->> +       struct i40e_pf *pf = rx_ring->vsi->back;
->> +       struct sk_buff *nskb;
->> +       struct i40e_vf *vf;
->> +       struct ethhdr *eth;
->> +       int vf_id;
->> +
->> +       if ((skb->pkt_type != PACKET_BROADCAST) &&
->> +           (skb->pkt_type != PACKET_MULTICAST) &&
->> +           (skb->pkt_type != PACKET_OTHERHOST))
->> +               return;
->> +
->> +       eth = (struct ethhdr *)skb_mac_header(skb);
->> +
->> +       /* If a loopback packet is received in switchdev mode, clone the skb
->> +        * and pass it to the corresponding port netdev based on the source MAC.
->> +        */
->> +       for (vf_id = 0; vf_id < pf->num_alloc_vfs; vf_id++) {
->> +               vf = &pf->vf[vf_id];
->> +               if (ether_addr_equal(eth->h_source,
->> +                                    vf->default_lan_addr.addr)) {
->> +                       nskb = skb_clone(skb, GFP_ATOMIC);
->> +                       if (!nskb)
->> +                               break;
->> +                       nskb->offload_fwd_mark = 1;
-> So this line is causing build errors when switchdev is not enabled.
-> This whole function should probably be wrapped in a check to see if
-> switchdev support is enabled or not.
-Yes. will fix it in the next revision.
+1. SO_TIMESTAMPING
+2. PHC support
+ 
+> This driver does support GEM-GXL:
 
-Thanks
-Sridhar
+"This driver supports GEM-GXL:"
+
+> - HW time stamp on the PTP Ethernet packets are received using the
+>   SO_TIMESTAMPING API. Where timers are obtained from the dma buffer
+>   descriptors
+
+This text is poor.  No "timers" are obtained but rather time stamps.
+Also, second sentence is not a sentence.  (An english sentence has a
+noun and a verb.)
+
+> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+> index 59d459b..603bac1 100644
+> --- a/drivers/net/ethernet/cadence/macb.c
+> +++ b/drivers/net/ethernet/cadence/macb.c
+> @@ -826,6 +826,15 @@ static void macb_tx_interrupt(struct macb_queue *queue)
+>  
+>  			/* First, update TX stats if needed */
+>  			if (skb) {
+> +#ifdef CONFIG_MACB_USE_HWSTAMP
+
+No need for ifdef here.  Instead, let gem_ptp_do_txstamp() return -1.
+
+> +				if (gem_ptp_do_txstamp(queue, skb, desc) == 0) {
+> +					/* skb now belongs to timestamp buffer
+> +					 * and will be removed later
+> +					 */
+> +					tx_skb->skb = NULL;
+> +					schedule_work(&queue->tx_ts_task);
+> +				}
+> +#endif
+>  				netdev_vdbg(bp->dev, "skb %u (data %p) TX complete\n",
+>  					    macb_tx_ring_wrap(bp, tail),
+>  					    skb->data);
+> @@ -992,6 +1001,10 @@ static int gem_rx(struct macb *bp, int budget)
+>  		bp->dev->stats.rx_packets++;
+>  		bp->dev->stats.rx_bytes += skb->len;
+>  
+> +#ifdef CONFIG_MACB_USE_HWSTAMP
+
+No ifdef needed.
+
+> +		gem_ptp_do_rxstamp(bp, skb, desc);
+> +#endif
+> +
+>  #if defined(DEBUG) && defined(VERBOSE_DEBUG)
+>  		netdev_vdbg(bp->dev, "received skb of length %u, csum: %08x\n",
+>  			    skb->len, skb->csum);
+> @@ -1314,6 +1327,11 @@ static irqreturn_t macb_interrupt(int irq, void *dev_id)
+>  				queue_writel(queue, ISR, MACB_BIT(HRESP));
+>  		}
+>  
+> +#ifdef CONFIG_MACB_USE_HWSTAMP
+> +		if (status & MACB_PTP_INT_MASK)
+
+Can't you use IS_ENABLED(CONFIG_MACB_USE_HWSTAMP) here?
+
+> +			macb_ptp_int(queue, status);
+> +#endif
+> +
+>  		status = queue_readl(queue, ISR);
+>  	}
+>  
+> @@ -1643,8 +1661,10 @@ static int macb_start_xmit(struct sk_buff *skb, struct net_device *dev)
+>  
+>  	/* Make newly initialized descriptor visible to hardware */
+>  	wmb();
+> -
+> -	skb_tx_timestamp(skb);
+> +#ifdef CONFIG_MACB_USE_HWSTAMP
+> +	if (!bp->ptp_hw_support)
+> +#endif
+> +		skb_tx_timestamp(skb);
+
+This is wrong.  You should call skb_tx_timestamp() unconditionally,
+but be sure to set SKBTX_IN_PROGRESS when appropriate.
+
+> diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
+> index 2606970..5295045 100644
+> --- a/drivers/net/ethernet/cadence/macb.h
+> +++ b/drivers/net/ethernet/cadence/macb.h
+> @@ -11,6 +11,9 @@
+>  #define _MACB_H
+>  
+>  #include <linux/phy.h>
+> +#include <linux/ptp_clock.h>
+
+You don't need to include ptp_clock.h.
+
+> +#include <linux/ptp_clock_kernel.h>
+> +#include <linux/net_tstamp.h>
+>  
+>  #if defined(CONFIG_ARCH_DMA_ADDR_T_64BIT) || defined(CONFIG_MACB_USE_HWSTAMP)
+>  #define MACB_EXT_DESC
+
+...
+
+> @@ -527,6 +595,8 @@
+>  #define queue_readl(queue, reg)		(queue)->bp->macb_reg_readl((queue)->bp, (queue)->reg)
+>  #define queue_writel(queue, reg, value)	(queue)->bp->macb_reg_writel((queue)->bp, (queue)->reg, (value))
+>  
+> +#define PTP_TS_BUFFER_SIZE		128 /* must be power of 2 */
+> +
+>  /* Conditional GEM/MACB macros.  These perform the operation to the correct
+>   * register dependent on whether the device is a GEM or a MACB.  For registers
+>   * and bitfields that are common across both devices, use macb_{read,write}l
+> @@ -889,6 +959,18 @@ struct macb_config {
+>  	int	jumbo_max_len;
+>  };
+>  
+> +#ifdef CONFIG_MACB_USE_HWSTAMP
+
+No need for ifdef here.
+
+> +struct tsu_incr {
+> +	u32 sub_ns;
+> +	u32 ns;
+> +};
+> +
+> +struct gem_tx_ts {
+> +	struct sk_buff *skb;
+> +	struct macb_dma_desc_ptp desc_ptp;
+> +};
+> +#endif
+> +
+>  struct macb_queue {
+>  	struct macb		*bp;
+>  	int			irq;
+
+...
+
+> diff --git a/drivers/net/ethernet/cadence/macb_ptp.c b/drivers/net/ethernet/cadence/macb_ptp.c
+> new file mode 100755
+> index 0000000..72a79c4
+> --- /dev/null
+> +++ b/drivers/net/ethernet/cadence/macb_ptp.c
+> @@ -0,0 +1,724 @@
+> +/**
+> + * 1588 PTP support for Cadence GEM device.
+> + *
+> + * Copyright (C) 2017 Cadence Design Systems - http://www.cadence.com
+> + *
+> + * Authors: Rafal Ozieblo <rafalo-vna1KIf7WgpBDgjK7y7TUQ@public.gmane.org>
+> + *          Bartosz Folta <bfolta-vna1KIf7WgpBDgjK7y7TUQ@public.gmane.org>
+> + *
+> + * This program is free software: you can redistribute it and/or modify
+> + * it under the terms of the GNU General Public License version 2  of
+> + * the License as published by the Free Software Foundation.
+> + *
+> + * This program is distributed in the hope that it will be useful,
+> + * but WITHOUT ANY WARRANTY; without even the implied warranty of
+> + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+> + * GNU General Public License for more details.
+> + *
+> + * You should have received a copy of the GNU General Public License
+> + * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+> + */
+> +#include <linux/kernel.h>
+> +#include <linux/types.h>
+> +#include <linux/clk.h>
+> +#include <linux/device.h>
+> +#include <linux/etherdevice.h>
+> +#include <linux/platform_device.h>
+> +#include <linux/time64.h>
+> +#include <linux/ptp_classify.h>
+> +#include <linux/if_ether.h>
+> +#include <linux/if_vlan.h>
+> +#include <linux/net_tstamp.h>
+> +#include <linux/circ_buf.h>
+> +#include <linux/spinlock.h>
+> +
+> +#include "macb.h"
+> +
+> +#define  GEM_PTP_TIMER_NAME "gem-ptp-timer"
+> +
+> +static struct macb_dma_desc_ptp *macb_ptp_desc(struct macb *bp,
+> +		struct macb_dma_desc *desc)
+> +{
+> +	if (bp->hw_dma_cap == HW_DMA_CAP_PTP)
+> +		return (struct macb_dma_desc_ptp *)
+> +				((u8 *)desc + sizeof(struct macb_dma_desc));
+> +	if (bp->hw_dma_cap == HW_DMA_CAP_64B_PTP)
+> +		return (struct macb_dma_desc_ptp *)
+> +				((u8 *)desc + sizeof(struct macb_dma_desc)
+> +				+ sizeof(struct macb_dma_desc_64));
+> +	return NULL;
+> +}
+> +
+> +static int gem_tsu_get_time(struct macb *bp, struct timespec64 *ts)
+> +{
+> +	long first, second;
+> +	u32 secl, sech;
+> +	unsigned long flags;
+> +
+> +	if (!bp || !ts)
+> +		return -EINVAL;
+
+Useless test.
+
+> +
+> +	spin_lock_irqsave(&bp->tsu_clk_lock, flags);
+> +	first = gem_readl(bp, TN);
+> +	secl = gem_readl(bp, TSL);
+> +	sech = gem_readl(bp, TSH);
+> +	second = gem_readl(bp, TN);
+> +
+> +	/* test for nsec rollover */
+> +	if (first > second) {
+> +		/* if so, use later read & re-read seconds
+> +		 * (assume all done within 1s)
+> +		 */
+> +		ts->tv_nsec = gem_readl(bp, TN);
+> +		secl = gem_readl(bp, TSL);
+> +		sech = gem_readl(bp, TSH);
+> +	} else
+> +		ts->tv_nsec = first;
+
+CodingStyle.
+
+Also, this assignment does not need the lock...
+
+> +
+> +	ts->tv_sec = (((u64)sech << GEM_TSL_SIZE) | secl)
+> +			& TSU_SEC_MAX_VAL;
+
+... nor this one.
+
+> +
+> +	spin_unlock_irqrestore(&bp->tsu_clk_lock, flags);
+> +	return 0;
+> +}
+> +
+> +static int gem_tsu_set_time(struct macb *bp, const struct timespec64 *ts)
+> +{
+> +	u32 ns, sech, secl;
+> +	unsigned long flags;
+> +
+> +	if (!bp || !ts)
+> +		return -EINVAL;
+
+Useless test.
+
+> +
+> +	secl = (u32)ts->tv_sec;
+> +	sech = (ts->tv_sec >> GEM_TSL_SIZE) & ((1 << GEM_TSH_SIZE) - 1);
+> +	ns = ts->tv_nsec;
+> +
+> +	spin_lock_irqsave(&bp->tsu_clk_lock, flags);
+> +
+> +	/* TSH doesn't latch the time and no atomicity! */
+> +	gem_writel(bp, TN, 0); /* clear to avoid overflow */
+> +	gem_writel(bp, TSH, sech);
+> +	/* write lower bits 2nd, for synchronized secs update */
+> +	gem_writel(bp, TSL, secl);
+> +	gem_writel(bp, TN, ns);
+> +
+> +	spin_unlock_irqrestore(&bp->tsu_clk_lock, flags);
+> +
+> +	return 0;
+> +}
+> +
+> +static int gem_tsu_incr_set(struct macb *bp, struct tsu_incr *incr_spec)
+> +{
+> +	unsigned long flags;
+> +
+> +	if (!bp || !incr_spec)
+> +		return -EINVAL;
+
+Useless test.
+
+> +
+> +	/* tsu_timer_incr register must be written after
+> +	 * the tsu_timer_incr_sub_ns register and the write operation
+> +	 * will cause the value written to the tsu_timer_incr_sub_ns register
+> +	 * to take effect.
+> +	 */
+> +	spin_lock_irqsave(&bp->tsu_clk_lock, flags);
+> +	gem_writel(bp, TISUBN, GEM_BF(SUBNSINCR, incr_spec->sub_ns));
+> +	gem_writel(bp, TI, GEM_BF(NSINCR, incr_spec->ns));
+> +	spin_unlock_irqrestore(&bp->tsu_clk_lock, flags);
+> +
+> +	return 0;
+> +}
+> +
+> +static int gem_ptp_adjfine(struct ptp_clock_info *ptp, long scaled_ppm)
+> +{
+> +	struct tsu_incr incr_spec;
+> +	struct macb *bp = container_of(ptp, struct macb, ptp_clock_info);
+> +	u64 adj;
+> +	u32 word;
+> +	bool neg_adj = false;
+> +
+> +	if (!ptp)
+> +		return -EINVAL;
+
+Useless test (or can ptp be null?)
+
+> +
+> +	if (scaled_ppm < 0) {
+> +		neg_adj = true;
+> +		scaled_ppm = -scaled_ppm;
+> +	}
+> +
+> +	/* Adjustment is relative to base frequency */
+> +	incr_spec.sub_ns = bp->tsu_incr.sub_ns;
+> +	incr_spec.ns = bp->tsu_incr.ns;
+> +
+> +	/* scaling: unused(8bit) | ns(8bit) | fractions(16bit) */
+> +	word = ((u64)incr_spec.ns << GEM_SUBNSINCR_SIZE) + incr_spec.sub_ns;
+> +	adj = (u64)scaled_ppm * word;
+> +	/* Divide with rounding, equivalent to floating dividing:
+> +	 * (temp / USEC_PER_SEC) + 0.5
+> +	 */
+> +	adj += (USEC_PER_SEC >> 1);
+> +	adj >>= GEM_SUBNSINCR_SIZE; /* remove fractions */
+> +	adj = div_u64(adj, USEC_PER_SEC);
+> +	adj = neg_adj ? (word - adj) : (word + adj);
+> +
+> +	incr_spec.ns = (adj >> GEM_SUBNSINCR_SIZE)
+> +			& ((1 << GEM_NSINCR_SIZE) - 1);
+> +	incr_spec.sub_ns = adj & ((1 << GEM_SUBNSINCR_SIZE) - 1);
+> +	gem_tsu_incr_set(bp, &incr_spec);
+> +	return 0;
+> +}
+> +
+> +static int gem_ptp_adjtime(struct ptp_clock_info *ptp, s64 delta)
+> +{
+> +	struct timespec64 now, then = ns_to_timespec64(delta);
+> +	struct macb *bp = container_of(ptp, struct macb, ptp_clock_info);
+> +	u32 adj, sign = 0;
+> +
+> +	if (!ptp)
+> +		return -EINVAL;
+
+Useless test.
+
+> +
+> +	if (delta < 0) {
+> +		sign = 1;
+> +		delta = -delta;
+> +	}
+> +
+> +	if (delta > TSU_NSEC_MAX_VAL) {
+> +		gem_tsu_get_time(bp, &now);
+> +		if (sign)
+> +			now = timespec64_sub(now, then);
+> +		else
+> +			now = timespec64_add(now, then);
+> +
+> +		gem_tsu_set_time(bp, (const struct timespec64 *)&now);
+> +	} else {
+> +		adj = (sign << GEM_ADDSUB_OFFSET) | delta;
+> +
+> +		gem_writel(bp, TA, adj);
+> +	}
+> +
+> +	return 0;
+> +}
+> +
+> +static int gem_ptp_gettime(struct ptp_clock_info *ptp, struct timespec64 *ts)
+> +{
+> +	struct macb *bp = container_of(ptp, struct macb, ptp_clock_info);
+> +
+> +	if (!ptp || !ts)
+> +		return -EINVAL;
+
+Useles test.
+
+What is the point of this wrapper function anyhow?  Please remove it.
+
+> +
+> +	gem_tsu_get_time(bp, ts);
+> +	return 0;
+> +}
+> +
+> +static int gem_ptp_settime(struct ptp_clock_info *ptp,
+> +		const struct timespec64 *ts)
+> +{
+> +	struct macb *bp = container_of(ptp, struct macb, ptp_clock_info);
+> +
+> +	if (!ptp || !ts)
+> +		return -EINVAL;
+
+Another useless function.
+
+> +	gem_tsu_set_time(bp, ts);
+> +	return 0;
+> +}
+> +
+> +static int gem_ptp_enable(struct ptp_clock_info *ptp,
+> +			  struct ptp_clock_request *rq, int on)
+> +{
+> +	struct macb *bp = container_of(ptp, struct macb, ptp_clock_info);
+> +
+> +	if (!ptp || !rq)
+> +		return -EINVAL;
+
+Sigh.
+
+> +
+> +	switch (rq->type) {
+> +	case PTP_CLK_REQ_EXTTS:	/* Toggle TSU match interrupt */
+> +		if (on)
+> +			macb_writel(bp, IER, MACB_BIT(TCI));
+
+No locking to protect IER and IDE?
+
+> +		else
+> +			macb_writel(bp, IDR, MACB_BIT(TCI));
+> +		break;
+> +	case PTP_CLK_REQ_PEROUT: /* Toggle Periodic output */
+> +		return -EOPNOTSUPP;
+> +		/* break; */
+> +	case PTP_CLK_REQ_PPS:	/* Toggle TSU periodic (second) interrupt */
+> +		if (on)
+> +			macb_writel(bp, IER, MACB_BIT(SRI));
+> +		else
+> +			macb_writel(bp, IDR, MACB_BIT(SRI));
+> +		break;
+> +	default:
+> +		break;
+> +	}
+> +	return 0;
+> +}
+> +
+> +static struct ptp_clock_info gem_ptp_caps_template = {
+> +	.owner		= THIS_MODULE,
+> +	.name		= GEM_PTP_TIMER_NAME,
+> +	.max_adj	= 0,
+> +	.n_alarm	= 1,
+
+You can't support alarms, because they are not implemented in the PHC
+subsystem at all.
+
+> +	.n_ext_ts	= 1,
+
+(see last 2 functions in this patch)
+
+> +	.n_per_out	= 0,
+> +	.n_pins		= 0,
+> +	.pps		= 1,
+> +	.adjfine	= gem_ptp_adjfine,
+> +	.adjtime	= gem_ptp_adjtime,
+> +	.gettime64	= gem_ptp_gettime,
+> +	.settime64	= gem_ptp_settime,
+> +	.enable		= gem_ptp_enable,
+> +};
+> +
+> +static void gem_ptp_init_timer(struct macb *bp)
+> +{
+> +	u32 rem = 0;
+> +
+> +	bp->tsu_incr.ns = div_u64_rem(NSEC_PER_SEC, bp->tsu_rate, &rem);
+> +	if (rem) {
+> +		u64 adj = rem;
+> +
+> +		adj <<= GEM_SUBNSINCR_SIZE;
+> +		bp->tsu_incr.sub_ns = div_u64(adj, bp->tsu_rate);
+> +	} else {
+> +		bp->tsu_incr.sub_ns = 0;
+> +	}
+> +}
+> +
+> +static void gem_ptp_init_tsu(struct macb *bp)
+> +{
+> +	struct timespec64 ts;
+> +
+> +	/* 1. get current system time */
+> +	ts = ns_to_timespec64(ktime_to_ns(ktime_get_real()));
+> +
+> +	/* 2. set ptp timer */
+> +	gem_tsu_set_time(bp, &ts);
+> +
+> +	/* 3. set PTP timer increment value to BASE_INCREMENT */
+> +	gem_tsu_incr_set(bp, &bp->tsu_incr);
+> +
+> +	gem_writel(bp, TA, 0);
+> +}
+> +
+> +static void gem_ptp_clear_timer(struct macb *bp)
+> +{
+> +	bp->tsu_incr.ns = 0;
+> +	bp->tsu_incr.sub_ns = 0;
+> +
+> +	gem_writel(bp, TISUBN, GEM_BF(SUBNSINCR, 0));
+> +	gem_writel(bp, TI, GEM_BF(NSINCR, 0));
+> +	gem_writel(bp, TA, 0);
+> +}
+> +
+> +static int gem_hw_timestamp(struct macb *bp,
+> +		u32 dma_desc_ts_1, u32 dma_desc_ts_2, struct timespec64 *ts)
+> +{
+> +	struct timespec64 tsu;
+> +
+> +	ts->tv_sec = (GEM_BFEXT(DMA_SECH, dma_desc_ts_2) << GEM_DMA_SECL_SIZE) |
+> +			GEM_BFEXT(DMA_SECL, dma_desc_ts_1);
+> +	ts->tv_nsec = GEM_BFEXT(DMA_NSEC, dma_desc_ts_1);
+> +
+> +	/* TSU overlaping workaround
+> +	 * The timestamp only contains lower few bits of seconds,
+> +	 * so add value from 1588 timer
+> +	 */
+> +	gem_tsu_get_time(bp, &tsu);
+> +
+> +	/* If the top bit is set in the timestamp,
+> +	 * but not in 1588 timer, it has rolled over,
+> +	 * so subtract max size
+> +	 */
+> +	if ((ts->tv_sec & (GEM_DMA_SEC_TOP >> 1)) &&
+> +		!(tsu.tv_sec & (GEM_DMA_SEC_TOP >> 1)))
+> +		ts->tv_sec -= GEM_DMA_SEC_TOP;
+> +
+> +	ts->tv_sec += ((~GEM_DMA_SEC_MASK) & (tsu.tv_sec));
+> +
+> +	return 0;
+> +}
+> +
+> +void gem_ptp_rxstamp(struct macb *bp, struct sk_buff *skb,
+> +		struct macb_dma_desc *desc)
+> +{
+> +	struct timespec64 ts;
+> +	struct skb_shared_hwtstamps *shhwtstamps = skb_hwtstamps(skb);
+> +	struct macb_dma_desc_ptp *desc_ptp;
+> +
+> +	if (GEM_BFEXT(DMA_RXVALID, desc->addr)) {
+> +		desc_ptp = macb_ptp_desc(bp, desc);
+> +		gem_hw_timestamp(bp, desc_ptp->ts_1, desc_ptp->ts_2, &ts);
+> +		memset(shhwtstamps, 0, sizeof(struct skb_shared_hwtstamps));
+> +		shhwtstamps->hwtstamp = ktime_set(ts.tv_sec, ts.tv_nsec);
+> +	}
+> +}
+> +
+> +static void gem_tstamp_tx(struct macb *bp, struct sk_buff *skb,
+> +		struct macb_dma_desc_ptp *desc_ptp)
+> +{
+> +	struct skb_shared_hwtstamps shhwtstamps;
+> +	struct timespec64 ts;
+> +
+> +	gem_hw_timestamp(bp, desc_ptp->ts_1, desc_ptp->ts_2, &ts);
+> +	memset(&shhwtstamps, 0, sizeof(shhwtstamps));
+> +	shhwtstamps.hwtstamp = ktime_set(ts.tv_sec, ts.tv_nsec);
+> +	skb_tstamp_tx(skb, &shhwtstamps);
+> +}
+> +
+> +int gem_ptp_txstamp(struct macb_queue *queue, struct sk_buff *skb,
+> +		struct macb_dma_desc *desc)
+> +{
+> +	struct gem_tx_ts *tx_timestamp;
+> +	struct macb_dma_desc_ptp *desc_ptp;
+> +	unsigned long head = queue->tx_ts_head;
+> +	unsigned long tail = READ_ONCE(queue->tx_ts_tail);
+> +
+> +	if (!GEM_BFEXT(DMA_TXVALID, desc->ctrl))
+> +		return -EINVAL;
+> +
+> +	if (CIRC_SPACE(head, tail, PTP_TS_BUFFER_SIZE) == 0)
+> +		return -ENOMEM;
+> +
+> +	desc_ptp = macb_ptp_desc(queue->bp, desc);
+> +	tx_timestamp = &queue->tx_timestamps[head];
+> +	tx_timestamp->skb = skb;
+> +	tx_timestamp->desc_ptp.ts_1 = desc_ptp->ts_1;
+> +	tx_timestamp->desc_ptp.ts_2 = desc_ptp->ts_2;
+> +	/* move head */
+> +	smp_store_release(&queue->tx_ts_head,
+> +			(head + 1) & (PTP_TS_BUFFER_SIZE - 1));
+> +	return 0;
+> +}
+> +
+> +static void gem_tx_timestamp_flush(struct work_struct *work)
+> +{
+> +	struct macb_queue *queue =
+> +			container_of(work, struct macb_queue, tx_ts_task);
+> +	struct gem_tx_ts *tx_ts;
+> +	unsigned long head, tail;
+> +
+> +	/* take current head */
+> +	head = smp_load_acquire(&queue->tx_ts_head);
+> +	tail = queue->tx_ts_tail;
+> +
+> +	while (CIRC_CNT(head, tail, PTP_TS_BUFFER_SIZE)) {
+> +		tx_ts = &queue->tx_timestamps[tail];
+> +		gem_tstamp_tx(queue->bp, tx_ts->skb, &tx_ts->desc_ptp);
+> +		/* cleanup */
+> +		dev_kfree_skb_any(tx_ts->skb);
+> +		/* remove old tail */
+> +		smp_store_release(&queue->tx_ts_tail,
+> +				(tail + 1) & (PTP_TS_BUFFER_SIZE - 1));
+> +		tail = queue->tx_ts_tail;
+> +	}
+> +}
+> +
+> +void gem_ptp_init(struct net_device *dev)
+> +{
+> +	struct macb *bp = netdev_priv(dev);
+> +	unsigned int q;
+> +	struct macb_queue *queue;
+> +
+> +	bp->ptp_clock_info = gem_ptp_caps_template;
+> +
+> +	/* nominal frequency and maximum adjustment in ppb */
+> +	bp->tsu_rate = bp->ptp_info->get_tsu_rate(bp);
+> +	bp->ptp_clock_info.max_adj = bp->ptp_info->get_ptp_max_adj();
+> +	gem_ptp_init_timer(bp);
+> +	bp->ptp_clock = ptp_clock_register(&bp->ptp_clock_info, &dev->dev);
+> +	if (IS_ERR(&bp->ptp_clock)) {
+> +		bp->ptp_clock = NULL;
+> +		pr_err("ptp clock register failed\n");
+> +		return;
+> +	}
+> +
+> +	spin_lock_init(&bp->tsu_clk_lock);
+> +	for (q = 0, queue = bp->queues; q < bp->num_queues; ++q, ++queue) {
+> +		queue->tx_ts_head = 0;
+> +		queue->tx_ts_tail = 0;
+> +		INIT_WORK(&queue->tx_ts_task, gem_tx_timestamp_flush);
+> +		queue_writel(queue, IER, MACB_PTP_INT_MASK);
+> +	}
+> +
+> +	gem_ptp_init_tsu(bp);
+> +
+> +	dev_info(&bp->pdev->dev, "%s ptp clock registered.\n",
+> +		 GEM_PTP_TIMER_NAME);
+> +}
+> +
+> +void gem_ptp_remove(struct net_device *ndev)
+> +{
+> +	struct macb *bp = netdev_priv(ndev);
+> +
+> +	if (bp->ptp_clock)
+> +		ptp_clock_unregister(bp->ptp_clock);
+> +
+> +	gem_ptp_clear_timer(bp);
+> +
+> +	dev_info(&bp->pdev->dev, "%s ptp clock unregistered.\n",
+> +		 GEM_PTP_TIMER_NAME);
+> +}
+> +
+> +static int gem_ptp_set_ts_mode(struct macb *bp,
+> +			     enum macb_bd_control tx_bd_control,
+> +			     enum macb_bd_control rx_bd_control)
+> +{
+> +	if (!bp)
+> +		return -EINVAL;
+
+Useless test.
+
+> +
+> +	gem_writel(bp, TXBDCTRL, GEM_BF(TXTSMODE, tx_bd_control));
+> +	gem_writel(bp, RXBDCTRL, GEM_BF(RXTSMODE, rx_bd_control));
+> +
+> +	return 0;
+> +}
+> +
+> +int gem_get_hwtst(struct net_device *dev, struct ifreq *rq)
+> +{
+> +	struct macb *bp = netdev_priv(dev);
+> +	struct hwtstamp_config *tstamp_config = &bp->tstamp_config;
+> +
+> +	if (!bp->ptp_hw_support)
+> +		return -EFAULT;
+> +
+> +	if (copy_to_user(rq->ifr_data, tstamp_config, sizeof(*tstamp_config)))
+> +		return -EFAULT;
+> +	else
+> +		return 0;
+> +}
+> +
+> +static int gem_ptp_set_one_step_sync(struct macb *bp, u8 enable)
+> +{
+> +	u32 reg_val;
+> +
+> +	if (!bp || enable > 1)
+> +		return -EINVAL;
+
+Useless test.
+
+> +
+> +	reg_val = macb_readl(bp, NCR);
+> +
+> +	if (enable)
+> +		macb_writel(bp, NCR, reg_val | MACB_BIT(OSSMODE));
+> +	else
+> +		macb_writel(bp, NCR, reg_val & ~MACB_BIT(OSSMODE));
+> +
+> +	return 0;
+> +}
+> +
+> +int gem_set_hwtst(struct net_device *dev, struct ifreq *ifr, int cmd)
+> +{
+> +	struct macb *bp = netdev_priv(dev);
+> +	struct hwtstamp_config *tstamp_config = &bp->tstamp_config;
+> +	enum macb_bd_control tx_bd_control = TSTAMP_DISABLED;
+> +	enum macb_bd_control rx_bd_control = TSTAMP_DISABLED;
+> +	u32 regval;
+> +
+> +	if (!bp->ptp_hw_support)
+> +		return -EFAULT;
+> +
+> +	if (copy_from_user(tstamp_config, ifr->ifr_data,
+> +			sizeof(*tstamp_config)))
+> +		return -EFAULT;
+> +
+> +	/* reserved for future extensions */
+> +	if (tstamp_config->flags)
+> +		return -EINVAL;
+> +
+> +	switch (tstamp_config->tx_type) {
+> +	case HWTSTAMP_TX_OFF:
+> +		break;
+> +	case HWTSTAMP_TX_ONESTEP_SYNC:
+> +		if (gem_ptp_set_one_step_sync(bp, 1) != 0)
+> +			return -ERANGE;
+> +	case HWTSTAMP_TX_ON:
+> +		tx_bd_control = TSTAMP_ALL_FRAMES;
+> +		break;
+> +	default:
+> +		return -ERANGE;
+> +	}
+> +
+> +	switch (tstamp_config->rx_filter) {
+> +	case HWTSTAMP_FILTER_NONE:
+> +		break;
+> +	case HWTSTAMP_FILTER_PTP_V1_L4_SYNC:
+> +		break;
+> +	case HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ:
+> +		break;
+> +	case HWTSTAMP_FILTER_PTP_V2_EVENT:
+> +	case HWTSTAMP_FILTER_PTP_V2_L2_EVENT:
+> +	case HWTSTAMP_FILTER_PTP_V2_L4_EVENT:
+> +	case HWTSTAMP_FILTER_PTP_V2_SYNC:
+> +	case HWTSTAMP_FILTER_PTP_V2_L2_SYNC:
+> +	case HWTSTAMP_FILTER_PTP_V2_L4_SYNC:
+> +	case HWTSTAMP_FILTER_PTP_V2_DELAY_REQ:
+> +	case HWTSTAMP_FILTER_PTP_V2_L2_DELAY_REQ:
+> +	case HWTSTAMP_FILTER_PTP_V2_L4_DELAY_REQ:
+> +		rx_bd_control =  TSTAMP_ALL_PTP_FRAMES;
+> +		tstamp_config->rx_filter = HWTSTAMP_FILTER_PTP_V2_EVENT;
+> +		regval = macb_readl(bp, NCR);
+> +		macb_writel(bp, NCR, (regval | MACB_BIT(SRTSM)));
+> +		break;
+> +	case HWTSTAMP_FILTER_PTP_V1_L4_EVENT:
+> +	case HWTSTAMP_FILTER_ALL:
+> +		rx_bd_control = TSTAMP_ALL_FRAMES;
+> +		tstamp_config->rx_filter = HWTSTAMP_FILTER_ALL;
+> +		break;
+> +	default:
+> +		tstamp_config->rx_filter = HWTSTAMP_FILTER_NONE;
+> +		return -ERANGE;
+> +	}
+> +
+> +	if (gem_ptp_set_ts_mode(bp, tx_bd_control, rx_bd_control) != 0)
+> +		return -ERANGE;
+> +
+> +	if (copy_to_user(ifr->ifr_data, tstamp_config, sizeof(*tstamp_config)))
+> +		return -EFAULT;
+> +	else
+> +		return 0;
+> +}
+> +
+> +static int gem_ptp_time_peer_frame_tx_get(struct macb *bp,
+> +		struct timespec64 *ts)
+> +{
+> +	if (!bp || !ts)
+> +		return -EINVAL;
+> +
+> +	ts->tv_sec = (((u64)gem_readl(bp, PEFTSH) << 32) |
+> +		gem_readl(bp, PEFTSL)) & TSU_SEC_MAX_VAL;
+> +	ts->tv_nsec = gem_readl(bp, PEFTN);
+> +
+> +	return 0;
+> +}
+> +
+> +static int gem_ptp_time_peer_frame_rx_get(struct macb *bp,
+> +		struct timespec64 *ts)
+> +{
+> +	if (!bp || !ts)
+> +		return -EINVAL;
+> +
+> +	ts->tv_sec = (((u64)gem_readl(bp, PEFRSH) << 32) |
+> +		gem_readl(bp, PEFRSL)) & TSU_SEC_MAX_VAL;
+> +	ts->tv_nsec = gem_readl(bp, PEFRN);
+> +
+> +	return 0;
+> +}
+> +
+> +static int gem_ptp_time_frame_tx_get(struct macb *bp, struct timespec64 *ts)
+> +{
+> +	if (!bp || !ts)
+> +		return -EINVAL;
+> +
+> +	ts->tv_sec = (((u64)gem_readl(bp, EFTSH) << 32) |
+> +		gem_readl(bp, EFTSL)) & TSU_SEC_MAX_VAL;
+> +	ts->tv_nsec = gem_readl(bp, EFTN);
+> +
+> +	return 0;
+> +}
+> +
+> +static int gem_ptp_time_frame_rx_get(struct macb *bp, struct timespec64 *ts)
+> +{
+> +	if (!bp || !ts)
+> +		return -EINVAL;
+> +
+> +	ts->tv_sec = (((u64)gem_readl(bp, EFRSH) << 32) |
+> +		      gem_readl(bp, EFRSL)) & TSU_SEC_MAX_VAL;
+> +	ts->tv_nsec = gem_readl(bp, EFRN);
+> +
+> +	return 0;
+> +}
+> +
+> +static int gem_ptp_event(struct macb *bp, struct timespec64 *ts)
+> +{
+> +	struct ptp_clock_event event;
+> +
+> +	event.type = PTP_CLOCK_EXTTS;
+> +	event.index = 0;
+> +	event.timestamp = ts->tv_sec * NSEC_PER_SEC + ts->tv_nsec;
+> +
+> +	ptp_clock_event(bp->ptp_clock, &event);
+
+Here you produce time stamps on external input events, but you said
+that you have only one channel:
+
+	.n_ext_ts	= 1,
+
+So why do you call this function...
+
+> +
+> +	return 0;
+> +}
+> +
+> +void macb_ptp_int(struct macb_queue *queue, u32 status)
+> +{
+> +	struct macb *bp = queue->bp;
+> +	struct timespec64 ts;
+> +
+> +	if (status & MACB_BIT(DRQFR)) {
+> +		if (bp->caps & MACB_CAPS_ISR_CLEAR_ON_WRITE)
+> +			queue_writel(queue, ISR, MACB_BIT(DRQFR));
+> +		if (gem_ptp_time_frame_rx_get(bp, &ts) != 0) {
+> +			ts.tv_sec = 0;
+> +			ts.tv_nsec = 0;
+> +		}
+> +		gem_ptp_event(bp, &ts);
+
+One ...
+
+> +	}
+> +
+> +	if (status & MACB_BIT(SFR)) {
+> +		if (bp->caps & MACB_CAPS_ISR_CLEAR_ON_WRITE)
+> +			queue_writel(queue, ISR, MACB_BIT(SFR));
+> +		if (gem_ptp_time_frame_rx_get(bp, &ts) != 0) {
+> +			ts.tv_sec = 0;
+> +			ts.tv_nsec = 0;
+> +		}
+> +		gem_ptp_event(bp, &ts);
+
+Two ...
+
+> +	}
+> +
+> +	if (status & MACB_BIT(DRQFT)) {
+> +		if (bp->caps & MACB_CAPS_ISR_CLEAR_ON_WRITE)
+> +			queue_writel(queue, ISR, MACB_BIT(DRQFT));
+> +		if (gem_ptp_time_frame_tx_get(bp, &ts) != 0) {
+> +			ts.tv_sec = 0;
+> +			ts.tv_nsec = 0;
+> +		}
+> +		gem_ptp_event(bp, &ts);
+
+Three ...
+
+> +	}
+> +
+> +	if (status & MACB_BIT(SFT)) {
+> +		if (bp->caps & MACB_CAPS_ISR_CLEAR_ON_WRITE)
+> +			queue_writel(queue, ISR, MACB_BIT(SFT));
+> +		if (gem_ptp_time_frame_tx_get(bp, &ts) != 0) {
+> +			ts.tv_sec = 0;
+> +			ts.tv_nsec = 0;
+> +		}
+> +		gem_ptp_event(bp, &ts);
+> +	}
+> +
+> +	if (status & MACB_BIT(PDRQFR)) {
+> +		if (bp->caps & MACB_CAPS_ISR_CLEAR_ON_WRITE)
+> +			queue_writel(queue, ISR, MACB_BIT(PDRQFR));
+> +		if (gem_ptp_time_peer_frame_rx_get(bp, &ts) != 0) {
+> +			ts.tv_sec = 0;
+> +			ts.tv_nsec = 0;
+> +		}
+> +		gem_ptp_event(bp, &ts);
+> +	}
+> +
+> +	if (status & MACB_BIT(PDRSFR)) {
+> +		if (bp->caps & MACB_CAPS_ISR_CLEAR_ON_WRITE)
+> +			queue_writel(queue, ISR, MACB_BIT(PDRSFR));
+> +		if (gem_ptp_time_peer_frame_rx_get(bp, &ts) != 0) {
+> +			ts.tv_sec = 0;
+> +			ts.tv_nsec = 0;
+> +		}
+> +		gem_ptp_event(bp, &ts);
+> +	}
+> +
+> +	if (status & MACB_BIT(PDRQFT)) {
+> +		if (bp->caps & MACB_CAPS_ISR_CLEAR_ON_WRITE)
+> +			queue_writel(queue, ISR,
+> +					MACB_BIT(PDRQFT));
+> +		if (gem_ptp_time_peer_frame_tx_get(bp, &ts) != 0) {
+> +			ts.tv_sec = 0;
+> +			ts.tv_nsec = 0;
+> +		}
+> +		gem_ptp_event(bp, &ts);
+> +	}
+> +
+> +	if (status & MACB_BIT(PDRSFT)) {
+> +		if (bp->caps & MACB_CAPS_ISR_CLEAR_ON_WRITE)
+> +			queue_writel(queue, ISR,
+> +					MACB_BIT(PDRSFT));
+> +		if (gem_ptp_time_peer_frame_tx_get(bp, &ts) != 0) {
+> +			ts.tv_sec = 0;
+> +			ts.tv_nsec = 0;
+> +		}
+> +		gem_ptp_event(bp, &ts);
+
+.. eight times?
+
+> +	}
+> +}
+> -- 
+> 2.4.5
+> 
+
+Thanks,
+Richard
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
