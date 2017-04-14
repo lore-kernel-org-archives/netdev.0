@@ -1,28 +1,46 @@
-From: Jens Axboe <axboe@fb.com>
-Subject: Re: [PATCH block-tree] net: off by one in inet6_pton()
-Date: Fri, 14 Apr 2017 14:09:30 -0600
-Message-ID: <fa3631c5-8f5a-1d45-0968-33a4219aab24@fb.com>
-References: <20170413194231.GD591@mwanda>
+From: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>
+Subject: Re: [PATCH net-next] bonding: do not pass link-local packets to master-interface
+Date: Fri, 14 Apr 2017 22:26:36 +0200
+Message-ID: <CAHo-OoxPWyYJ+Zn37S9+uQHiDksnE8KZNsCkHSPND4A8uqWU4g@mail.gmail.com>
+References: <20170414180022.124453-1-chonggangli@google.com> <2810.1492198224@famine>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: Wei Tang <tangwei@cmss.chinamobile.com>,
-        Alexey Dobriyan <adobriyan@gmail.com>,
-        <netdev@vger.kernel.org>, <linux-block@vger.kernel.org>,
-        <kernel-janitors@vger.kernel.org>
-To: Dan Carpenter <dan.carpenter@oracle.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Sagi Grimberg <sagi@grimberg.me>
-Return-path: <linux-block-owner@vger.kernel.org>
-In-Reply-To: <20170413194231.GD591@mwanda>
-Sender: linux-block-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Chonggang Li <chonggangli@google.com>,
+        Andy Gospodarek <andy@greyhouse.net>,
+        Veaceslav Falico <vfalico@gmail.com>,
+        Nikolay Aleksandrov <nikolay@redhat.com>,
+        Eric Dumazet <edumazet@google.com>,
+        David Miller <davem@davemloft.net>,
+        Linux NetDev <netdev@vger.kernel.org>,
+        Mahesh Bandewar <maheshb@google.com>
+To: Jay Vosburgh <jay.vosburgh@canonical.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f172.google.com ([209.85.161.172]:33611 "EHLO
+        mail-yw0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753574AbdDNU0h (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 14 Apr 2017 16:26:37 -0400
+Received: by mail-yw0-f172.google.com with SMTP id l189so38851184ywb.0
+        for <netdev@vger.kernel.org>; Fri, 14 Apr 2017 13:26:37 -0700 (PDT)
+In-Reply-To: <2810.1492198224@famine>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04/13/2017 01:42 PM, Dan Carpenter wrote:
-> If "scope_len" is sizeof(scope_id) then we would put the NUL terminator
-> one space beyond the end of the buffer.
+>         In what case is the current behavior a problem (my guess would
+> be something related to LLDP)?
 
-Added, thanks Dan.
+LLDP is indeed the case we're trying to solve here.
+Listen on one socket and get LLDP for all interfaces in the system.
 
--- 
-Jens Axboe
+>  What if, e.g., the bond is a bridge
+> port, will STP frames no longer propagate to the bridge?
+
+That's an interesting question.
+I don't actually know how this should work.
+
+Should this change perhaps only apply to packets we would otherwise
+RX_HANDLER_EXACT?
+
+ie. only affect link local packets on inactive slaves?
+but continue reparenting link local packets on active slaves?
+
+That would seem a little inconsistent... but less of a change.
