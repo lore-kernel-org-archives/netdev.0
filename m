@@ -1,101 +1,149 @@
-From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
-Subject: Re: [PATCH net-next v2 4/6] vxlan: check valid
- combinations of address scopes
-Date: Fri, 14 Apr 2017 20:27:43 +0300
-Message-ID: <0dd0812f-41d7-f4d8-2b40-0ff5b4553cf5@cogentembedded.com>
-References: <cover.1492187126.git.mschiffer@universe-factory.net>
-	<49cd788f13c2cd3f6a42f34c219c9511cc1f9cec.1492187126.git.mschiffer@universe-factory.net>
+From: Martin KaFai Lau <kafai@fb.com>
+Subject: [PATCH net-next 1/6] bpf: lru: Add test_lru_sanity6 for BPF_F_NO_COMMON_LRU
+Date: Fri, 14 Apr 2017 10:30:25 -0700
+Message-ID: <20170414173030.2853860-2-kafai@fb.com>
+References: <20170414173030.2853860-1-kafai@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Matthias Schiffer <mschiffer-Nyw9WiXk/RKXhJHkyCwd5uTW4wlIGRCZ@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org, pshelar-LZ6Gd1LRuIk@public.gmane.org,
-	aduyck-nYU0QVwCCFFWk0Htik3J/w@public.gmane.org, roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org
-Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <49cd788f13c2cd3f6a42f34c219c9511cc1f9cec.1492187126.git.mschiffer-Nyw9WiXk/RKXhJHkyCwd5uTW4wlIGRCZ@public.gmane.org>
-List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
-List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Alexei Starovoitov <ast@fb.com>,
+        Daniel Borkmann <daniel@iogearbox.net>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:41835 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751612AbdDNRac (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 14 Apr 2017 13:30:32 -0400
+Received: from pps.filterd (m0044010.ppops.net [127.0.0.1])
+        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v3EHPLLZ026252
+        for <netdev@vger.kernel.org>; Fri, 14 Apr 2017 10:30:31 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+        by mx0a-00082601.pphosted.com with ESMTP id 29u1phrfm1-2
+        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Fri, 14 Apr 2017 10:30:31 -0700
+Received: from facebook.com (2401:db00:11:d09a:face:0:41:0)     by
+ mx-out.facebook.com (10.103.99.97) with ESMTP  id
+ 0e817644213811e79e5b0002c9931860-3dffa9a0 for <netdev@vger.kernel.org>;        Fri,
+ 14 Apr 2017 10:30:30 -0700
+In-Reply-To: <20170414173030.2853860-1-kafai@fb.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04/14/2017 07:44 PM, Matthias Schiffer wrote:
+test_lru_sanity3 is not applicable to BPF_F_NO_COMMON_LRU.
+It just happens to work when PERCPU_FREE_TARGET == 16.
 
-> * Multicast addresses are never valid as local address
-> * Link-local IPv6 unicast addresses may only be used as remote when the
->   local address is link-local as well
-> * Don't allow link-local IPv6 local/remote addresses without interface
->
-> We also store in the flags field if link-local addresses are used for the
-> follow-up patches that actually make VXLAN over link-local IPv6 work.
->
-> Signed-off-by: Matthias Schiffer <mschiffer-Nyw9WiXk/RKXhJHkyCwd5uTW4wlIGRCZ@public.gmane.org>
-> ---
->
-> v2: was "vxlan: don't allow link-local IPv6 local/remote addresses without
-> interface" before. v2 does a lot more checks and adds the
-> VXLAN_F_IPV6_LINKLOCAL flag.
->
->  drivers/net/vxlan.c | 35 +++++++++++++++++++++++++++++++++++
->  include/net/vxlan.h |  2 ++
->  2 files changed, 37 insertions(+)
->
-> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-> index 07f89b037681..95a71546e8f2 100644
-> --- a/drivers/net/vxlan.c
-> +++ b/drivers/net/vxlan.c
-> @@ -2881,11 +2881,39 @@ static int vxlan_config_validate(struct net *src_net, struct vxlan_config *conf,
->  	if (conf->saddr.sa.sa_family != conf->remote_ip.sa.sa_family)
->  		return -EINVAL;
->
-> +	if (vxlan_addr_multicast(&conf->saddr))
-> +		return -EINVAL;
-> +
->  	if (conf->saddr.sa.sa_family == AF_INET6) {
->  		if (!IS_ENABLED(CONFIG_IPV6))
->  			return -EPFNOSUPPORT;
->  		use_ipv6 = true;
->  		conf->flags |= VXLAN_F_IPV6;
-> +
-> +		if (!(conf->flags & VXLAN_F_COLLECT_METADATA)) {
-> +			int local_type =
-> +				ipv6_addr_type(&conf->saddr.sin6.sin6_addr);
-> +			int remote_type =
-> +				ipv6_addr_type(&conf->remote_ip.sin6.sin6_addr);
-> +
-> +			if (local_type & IPV6_ADDR_LINKLOCAL) {
-> +				if (!(remote_type & IPV6_ADDR_LINKLOCAL) &&
-> +				    (remote_type != IPV6_ADDR_ANY)) {
-> +					pr_info("invalid combination of address scopes\n");
+This patch:
+1) Disable test_lru_sanity3 for BPF_F_NO_COMMON_LRU
+2) Add test_lru_sanity6 to test list rotation for
+   the BPF_F_NO_COMMON_LRU map.
 
-    Maybe pr_err()?
+Signed-off-by: Martin KaFai Lau <kafai@fb.com>
+Acked-by: Alexei Starovoitov <ast@kernel.org>
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+---
+ tools/testing/selftests/bpf/test_lru_map.c | 70 +++++++++++++++++++++++++++---
+ 1 file changed, 65 insertions(+), 5 deletions(-)
 
-> +					return -EINVAL;
-> +				}
-> +
-> +				conf->flags |= VXLAN_F_IPV6_LINKLOCAL;
-> +			} else {
-> +				if (remote_type ==
-> +				    (IPV6_ADDR_UNICAST | IPV6_ADDR_LINKLOCAL)) {
-> +					pr_info("invalid combination of address scopes\n");
-
-    Here as well...
-
-> +					return -EINVAL;
-> +				}
-> +
-> +				conf->flags &= ~VXLAN_F_IPV6_LINKLOCAL;
-> +			}
-> +		}
->  	}
->
->  	if (conf->label && !use_ipv6) {
-[...]
-
-MBR, Sergei
+diff --git a/tools/testing/selftests/bpf/test_lru_map.c b/tools/testing/selftests/bpf/test_lru_map.c
+index 00b0aff56e2e..04b2242937cc 100644
+--- a/tools/testing/selftests/bpf/test_lru_map.c
++++ b/tools/testing/selftests/bpf/test_lru_map.c
+@@ -387,6 +387,10 @@ static void test_lru_sanity3(int map_type, int map_flags, unsigned int tgt_free)
+ 	unsigned int map_size;
+ 	int next_cpu = 0;
+ 
++	if (map_flags & BPF_F_NO_COMMON_LRU)
++		/* This test is only applicable to common LRU list */
++		return;
++
+ 	printf("%s (map_type:%d map_flags:0x%X): ", __func__, map_type,
+ 	       map_flags);
+ 
+@@ -396,11 +400,7 @@ static void test_lru_sanity3(int map_type, int map_flags, unsigned int tgt_free)
+ 	assert(batch_size * 2 == tgt_free);
+ 
+ 	map_size = tgt_free * 2;
+-	if (map_flags & BPF_F_NO_COMMON_LRU)
+-		lru_map_fd = create_map(map_type, map_flags,
+-					map_size * nr_cpus);
+-	else
+-		lru_map_fd = create_map(map_type, map_flags, map_size);
++	lru_map_fd = create_map(map_type, map_flags, map_size);
+ 	assert(lru_map_fd != -1);
+ 
+ 	expected_map_fd = create_map(BPF_MAP_TYPE_HASH, 0, map_size);
+@@ -566,6 +566,65 @@ static void test_lru_sanity5(int map_type, int map_flags)
+ 	printf("Pass\n");
+ }
+ 
++/* Test list rotation for BPF_F_NO_COMMON_LRU map */
++static void test_lru_sanity6(int map_type, int map_flags, int tgt_free)
++{
++	int lru_map_fd, expected_map_fd;
++	unsigned long long key, value[nr_cpus];
++	unsigned int map_size = tgt_free * 2;
++	int next_cpu = 0;
++
++	if (!(map_flags & BPF_F_NO_COMMON_LRU))
++		return;
++
++	printf("%s (map_type:%d map_flags:0x%X): ", __func__, map_type,
++	       map_flags);
++
++	assert(sched_next_online(0, &next_cpu) != -1);
++
++	expected_map_fd = create_map(BPF_MAP_TYPE_HASH, 0, map_size);
++	assert(expected_map_fd != -1);
++
++	lru_map_fd = create_map(map_type, map_flags, map_size * nr_cpus);
++	assert(lru_map_fd != -1);
++
++	value[0] = 1234;
++
++	for (key = 1; key <= tgt_free; key++) {
++		assert(!bpf_map_update_elem(lru_map_fd, &key, value,
++					    BPF_NOEXIST));
++		assert(!bpf_map_update_elem(expected_map_fd, &key, value,
++					    BPF_NOEXIST));
++	}
++
++	for (; key <= tgt_free * 2; key++) {
++		unsigned long long stable_key;
++
++		/* Make ref bit sticky for key: [1, tgt_free] */
++		for (stable_key = 1; stable_key <= tgt_free; stable_key++) {
++			/* Mark the ref bit */
++			assert(!bpf_map_lookup_elem(lru_map_fd, &stable_key,
++						    value));
++		}
++		assert(!bpf_map_update_elem(lru_map_fd, &key, value,
++					    BPF_NOEXIST));
++	}
++
++	for (; key <= tgt_free * 3; key++) {
++		assert(!bpf_map_update_elem(lru_map_fd, &key, value,
++					    BPF_NOEXIST));
++		assert(!bpf_map_update_elem(expected_map_fd, &key, value,
++					    BPF_NOEXIST));
++	}
++
++	assert(map_equal(lru_map_fd, expected_map_fd));
++
++	close(expected_map_fd);
++	close(lru_map_fd);
++
++	printf("Pass\n");
++}
++
+ int main(int argc, char **argv)
+ {
+ 	struct rlimit r = {RLIM_INFINITY, RLIM_INFINITY};
+@@ -593,6 +652,7 @@ int main(int argc, char **argv)
+ 			test_lru_sanity3(map_types[t], map_flags[f], tgt_free);
+ 			test_lru_sanity4(map_types[t], map_flags[f], tgt_free);
+ 			test_lru_sanity5(map_types[t], map_flags[f]);
++			test_lru_sanity6(map_types[t], map_flags[f], tgt_free);
+ 
+ 			printf("\n");
+ 		}
+-- 
+2.9.3
