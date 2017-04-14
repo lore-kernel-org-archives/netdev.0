@@ -1,56 +1,94 @@
-From: <scooter_308@hotmail.com>
-Subject: 10782 netdev
-Date: Fri, 14 Apr 2017 16:12:18 -0000
-Message-ID: <149218633872.20709.1965474670474645967@rima-tde.net>
-Reply-To: <scooter_308@hotmail.com>
+From: Logan Gunthorpe <logang@deltatee.com>
+Subject: Re: [PATCH 10/22] staging: unisys: visorbus: Make use of the new
+ sg_map helper function
+Date: Fri, 14 Apr 2017 10:12:30 -0600
+Message-ID: <a182336f-ebda-66c6-3a2e-90f2d43582d7__1319.02628713778$1492186379$gmane$org@deltatee.com>
+References: <1492121135-4437-1-git-send-email-logang@deltatee.com>
+ <1492121135-4437-11-git-send-email-logang@deltatee.com>
+ <CY4PR07MB317691139A5B2F902CDA9B0EF0050@CY4PR07MB3176.namprd07.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: application/zip; name="9931.zip"
-Content-Transfer-Encoding: base64
-To: "netdev" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Steve Wise <swise@opengridcomputing.com>,
+        Stephen Bates <sbates@raithlin.com>
+To: "Kershner, David A" <David.Kershner@unisys.com>,
+        Christoph Hellwig <hch@lst.de>,
+        "Martin K. Petersen" <martin.petersen@oracle.com>,
+        Sagi Grimberg <sagi@grimberg.me>, Jens Axboe <axboe@kernel.dk>,
+        Tejun Heo <tj@kernel.org>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        Dan Williams <dan.j.williams@intel.com>,
+        Ross Zwisler <ross.zwisler@linux.intel.com>,
+        Matthew Wilcox <mawilcox@microsoft.com>,
+        Sumit Semwal <sumit.semwal@linaro.org>,
+        Ming Lin <ming.l@ssi.samsung.com>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "linux-crypto@vger.kernel.org" <linux-crypto@vger.kernel.org>,
+        "linux-media@vger.kernel.org" <linux-media@vger.kernel.org>,
+        "dri-devel@lists.freedesktop.org" <dri-devel@lists.freedesktop.org>,
+        "linaro-mm-sig@lists.linaro.org" <linaro-mm-si
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 42.red-88-6-202.staticip.rima-tde.net ([88.6.202.42]:33024 "HELO
-        rima-tde.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-        id S1751147AbdDNQMW (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 14 Apr 2017 12:12:22 -0400
-Content-Disposition: attachment
+Received: from ale.deltatee.com ([207.54.116.67]:41026 "EHLO ale.deltatee.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751687AbdDNQMt (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 14 Apr 2017 12:12:49 -0400
+In-Reply-To: <CY4PR07MB317691139A5B2F902CDA9B0EF0050@CY4PR07MB3176.namprd07.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-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
+Great, thanks!
+
+Logan
+
+On 14/04/17 10:07 AM, Kershner, David A wrote:
+> Can you add Acked-by for this patch? 
+> 
+> Acked-by: David Kershner <david.kershner@unisys.com>
+> 
+> Tested on s-Par and no problems. 
+> 
+> Thanks,
+> David Kershner
+> 
+>> ---
+>>  drivers/staging/unisys/visorhba/visorhba_main.c | 12 +++++++-----
+>>  1 file changed, 7 insertions(+), 5 deletions(-)
+>>
+>> diff --git a/drivers/staging/unisys/visorhba/visorhba_main.c
+>> b/drivers/staging/unisys/visorhba/visorhba_main.c
+>> index 0ce92c8..2d8c8bc 100644
+>> --- a/drivers/staging/unisys/visorhba/visorhba_main.c
+>> +++ b/drivers/staging/unisys/visorhba/visorhba_main.c
+>> @@ -842,7 +842,6 @@ do_scsi_nolinuxstat(struct uiscmdrsp *cmdrsp, struct
+>> scsi_cmnd *scsicmd)
+>>  	struct scatterlist *sg;
+>>  	unsigned int i;
+>>  	char *this_page;
+>> -	char *this_page_orig;
+>>  	int bufind = 0;
+>>  	struct visordisk_info *vdisk;
+>>  	struct visorhba_devdata *devdata;
+>> @@ -869,11 +868,14 @@ do_scsi_nolinuxstat(struct uiscmdrsp *cmdrsp,
+>> struct scsi_cmnd *scsicmd)
+>>
+>>  		sg = scsi_sglist(scsicmd);
+>>  		for (i = 0; i < scsi_sg_count(scsicmd); i++) {
+>> -			this_page_orig = kmap_atomic(sg_page(sg + i));
+>> -			this_page = (void *)((unsigned long)this_page_orig |
+>> -					     sg[i].offset);
+>> +			this_page = sg_map(sg + i, SG_KMAP_ATOMIC);
+>> +			if (IS_ERR(this_page)) {
+>> +				scsicmd->result = DID_ERROR << 16;
+>> +				return;
+>> +			}
+>> +
+>>  			memcpy(this_page, buf + bufind, sg[i].length);
+>> -			kunmap_atomic(this_page_orig);
+>> +			sg_unmap(sg + i, this_page, SG_KMAP_ATOMIC);
+>>  		}
+>>  	} else {
+>>  		devdata = (struct visorhba_devdata *)scsidev->host-
+>>> hostdata;
+>> --
+>> 2.1.4
+> 
