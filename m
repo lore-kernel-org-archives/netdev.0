@@ -1,68 +1,95 @@
-From: Mel Gorman <mgorman@techsingularity.net>
-Subject: Re: [PATCH] Revert "mm, page_alloc: only use per-cpu allocator for
- irq-safe requests"
-Date: Sat, 15 Apr 2017 20:57:35 +0100
-Message-ID: <20170415195734.avk2zk237a2oe5cd@techsingularity.net>
-References: <20170415145350.ixy7vtrzdzve57mh@techsingularity.net>
- <20170415212833.30ed3f2b@redhat.com>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: 4.10.9 nok with realtek wlan, atom
+Date: Sat, 15 Apr 2017 15:40:57 -0500
+Message-ID: <9e48930c-4822-5af4-2ebb-4d2dcd12d448@lwfinger.net>
+References: <CAJs9aZ8HVPn_J9yPjvdBm-A_d3FiquPMGoy1xFsGopF8Xg_89Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Cc: Andrew Morton <akpm@linux-foundation.org>, willy@infradead.org,
-	peterz@infradead.org, pagupta@redhat.com, ttoukan.linux@gmail.com,
-	tariqt@mellanox.com, netdev@vger.kernel.org, saeedm@mellanox.com,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20170415212833.30ed3f2b@redhat.com>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Bjorn Helgaas <helgaas@kernel.org>, linux-pci@vger.kernel.org,
+        Chaoming Li <chaoming_li@realsil.com.cn>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: rupert THURNER <rupert.thurner@gmail.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <CAJs9aZ8HVPn_J9yPjvdBm-A_d3FiquPMGoy1xFsGopF8Xg_89Q@mail.gmail.com>
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Apr 15, 2017 at 09:28:33PM +0200, Jesper Dangaard Brouer wrote:
-> On Sat, 15 Apr 2017 15:53:50 +0100
-> Mel Gorman <mgorman@techsingularity.net> wrote:
-> 
-> > This reverts commit 374ad05ab64d696303cec5cc8ec3a65d457b7b1c. While the
-> > patch worked great for userspace allocations, the fact that softirq loses
-> > the per-cpu allocator caused problems. It needs to be redone taking into
-> > account that a separate list is needed for hard/soft IRQs or alternatively
-> > find a cheap way of detecting reentry due to an interrupt. Both are possible
-> > but sufficiently tricky that it shouldn't be rushed. Jesper had one method
-> > for allowing softirqs but reported that the cost was high enough that it
-> > performed similarly to a plain revert. His figures for netperf TCP_STREAM
-> > were as follows
-> > 
-> > Baseline v4.10.0  : 60316 Mbit/s
-> > Current 4.11.0-rc6: 47491 Mbit/s
-> > This patch        : 60662 Mbit/s
-> (should instead state "Jesper's patch" or "His patch")
-> 
+On 04/14/2017 03:26 PM, rupert THURNER wrote:
+> On Thu, Feb 9, 2017 at 9:09 PM, Larry Finger <Larry.Finger@lwfinger.net> wrote:
+>> On 02/09/2017 01:43 PM, Bjorn Helgaas wrote:
+>>>
+>>> [+cc rtl8192ce folks in case they've seen this]
+>>>
+>>> On Thu, Feb 09, 2017 at 03:45:01PM +0100, rupert THURNER wrote:
+>>>>
+>>>> hi,
+>>>>
+>>>> not technical expert enough, i just wanted to give a short user
+>>>> feedback. for realtek wlan on atom, kernels up to 4.9.5 are ok, and
+>>>> kernel 4.10.0-rc7-g926af6273fc6 (arch linux-git version numbering) as
+>>>> well. kernels 4.9.6, 4.9.7, and 4.9.8 fail, i.e. connection to a WLAN
+>>>> hotspot is possible then drops, or connecting to wlan fails
+>>>> alltogether.
+>>>
+>>>
+>>> Thanks very much for your report, and sorry for the inconvenience.
+>>>
+>>> v4.10-rc7 works, so I guess we don't need to worry about fixing v4.10.
+>>>
+>>> But the stable kernels v4.9.6, v4.9.7, and v4.9.8 are broken, so we
+>>> need to figure out why and make sure we fix the v4.9 stable series.
+>>>
+>>> I can't tell yet whether this is PCI-related or not.  If it is,
+>>> 4922a6a5cfa7 ("PCI: Enumerate switches below PCI-to-PCIe bridges")
+>>> appeared in v4.9.6, and there is a known issue with that.  The issue
+>>> should be fixed by 610c2b7ff8f6 ("PCI/ASPM: Handle PCI-to-PCIe bridges
+>>> as roots of PCIe hierarchies"), which appeared in v4.9.9, so I guess
+>>> the first thing to do would be to test v4.9.9.
+>>>
+>>> If it's not fixed in v4.9.9, can you share the complete dmesg log
+>>> (output of "dmesg" command) and "lspci -vv" output for v4.9.5 (last
+>>> known working version) and v4.9.6 (first known broken version)?  On
+>>> v4.9.6, collect the dmesg output after the failure occurs.
+>>>
+>>>> 24: PCI 300.0: 0282 WLAN controller
+>>>>   [Created at pci.366]
+>>>>   Model: "Realtek RTL8188CE 802.11b/g/n WiFi Adapter"
+>>>>   Device: pci 0x8176 "RTL8188CE 802.11b/g/n WiFi Adapter"
+>>>>   Revision: 0x01
+>>>>   Driver: "rtl8192ce"
+>>>>   Driver Modules: "rtl8192ce"
+>>>>   Device File: wlp3s0
+>>>>   Features: WLAN
+>>
+>>
+>> It would be helpful if someone were to bisect this issue. The only issue
+>> that comes to mind was fixed in commit 52f5631a4c05 ("rtlwifi: rtl8192ce:
+>> Fix loading of incorrect firmware") which is in 4.10-rc7 and will be
+>> backported to 4.9.
+>>
+>> The above issue is one that could not be reproduced on my hardware, thus it
+>> took Jurij Smakov to find the fix. Without his bisection of the problem, who
+>> knows how long it would have taken to find my edit mistake.
+>
+> larry, using the newest kernel 4.10.8 the network connection dropps
+> again irregular.
+>
+> # dmesg
+> [    0.000000] Linux version 4.10.9-1-ARCH (builduser@tobias) (gcc
+> version 6.3.1 20170306 (GCC) ) #1 SMP PREEMPT Sat Apr 8 12:39:59 CEST
+> 2017
+> [   11.933373] rtl8192ce: rtl8192ce: Power Save off (module option)
+> [   11.933396] rtl8192ce: Using firmware rtlwifi/rtl8192cfw.bin
+> [   11.978307] ieee80211 phy0: Selected rate control algorithm 'rtl_rc'
+> [   11.978945] rtlwifi: rtlwifi: wireless switch is on
+>
+> # lspci -vv
+> Subsystem: Realtek Semiconductor Co., Ltd. RTL8188CE 802.11b/g/n WiFi Adapter
+> Kernel driver in use: rtl8192ce
 
-Yes, you are correct of course.
+Is firmware rtlwifi/rtl8192cfw.bin also used on kernels that work?
 
-> Ran same test (8 parallel netperf TCP_STREAMs) with this patch applied:
-> 
->  This patch 60106 Mbit/s (average of 7 iteration 60 sec runs)
-> 
-> With these speeds I'm starting to hit the memory bandwidth of my machines.
-> Thus, the 60 GBit/s measurement cannot be used to validate the
-> performance impact of reverting this compared to my softirq patch, it
-> only shows we fixed the regression.  (I'm suspicious as I see a higher
-> contention on the page allocator lock (4% vs 1.3%) with this patch and
-> still same performance... but lets worry about that outside the rc-series).
-> 
-
-Well, in itself that limitation highlights that evaluating this is
-challenging and needs careful treatment. Otherwise two different
-approaches can seem equivalent only because a hardware-related
-bottleneck was at play.
-
--- 
-Mel Gorman
-SUSE Labs
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Larry
