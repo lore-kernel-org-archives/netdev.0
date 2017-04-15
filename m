@@ -1,65 +1,47 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [GIT 0/3] Second Round of IPVS Updates for v4.12
-Date: Sat, 15 Apr 2017 10:59:13 +0200
-Message-ID: <20170415085913.GA3652@salvia>
-References: <1491843515-1627-1-git-send-email-horms@verge.net.au>
- <20170413230134.GA5724@salvia>
- <20170413235115.GA5948@verge.net.au>
- <20170414000625.GB10583@salvia>
+From: David Lebrun <david.lebrun@uclouvain.be>
+Subject: [PATCH iproute2 net-next v2 0/3] Add support for IPv6 Segment Routing
+Date: Sat, 15 Apr 2017 12:17:14 +0200
+Message-ID: <20170415101717.18730-1-david.lebrun@uclouvain.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-        netfilter-devel@vger.kernel.org,
-        Wensong Zhang <wensong@linux-vs.org>,
-        Julian Anastasov <ja@ssi.bg>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170414000625.GB10583@salvia>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: David Lebrun <david.lebrun@uclouvain.be>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:39942 "EHLO
+        smtp2.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752091AbdDOKRO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 15 Apr 2017 06:17:14 -0400
+Received: from mailboxes.uclouvain.be (mailboxes.uclouvain.be [130.104.6.131])
+        (using TLSv1.2 with cipher ECDHE-RSA-AES256-SHA384 (256/256 bits))
+        (No client certificate requested)
+        by smtp2.sgsi.ucl.ac.be (Postfix) with ESMTPS id 7939067DF71
+        for <netdev@vger.kernel.org>; Sat, 15 Apr 2017 12:17:05 +0200 (CEST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 14, 2017 at 02:06:25AM +0200, Pablo Neira Ayuso wrote:
-> On Fri, Apr 14, 2017 at 08:51:19AM +0900, Simon Horman wrote:
-> > On Fri, Apr 14, 2017 at 01:01:34AM +0200, Pablo Neira Ayuso wrote:
-> > > Hi Simon,
-> > > 
-> > > On Mon, Apr 10, 2017 at 09:58:32AM -0700, Simon Horman wrote:
-> > > > Hi Pablo,
-> > > > 
-> > > > please consider these clean-ups and enhancements to IPVS for v4.12.
-> > > > 
-> > > > * Removal unused variable
-> > > > * Use kzalloc where appropriate
-> > > > * More efficient detection of presence of NAT extension
-> > > > 
-> > > > 
-> > > > The following changes since commit 592d42ac7fd36408979e09bf2f170f2595dab7b8:
-> > > > 
-> > > >   Merge branch 'qed-IOV-cleanups' (2017-03-21 19:02:38 -0700)
-> > > > 
-> > > > are available in the git repository at:
-> > > > 
-> > > >   https://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs-next.git ipvs2-for-v4.12
-> > > 
-> > > This says:
-> > > 
-> > > $ git pull
-> > > https://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs-next.git ipvs2-for-v4.12
-> > > fatal: Couldn't find remote ref ipvs2-for-v4.12
-> > > 
-> > > I don't any tag for this name in:
-> > > 
-> > > https://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs-next.git/refs/tags
-> > 
-> > Sorry about that, it looks like I forgot to push the tag.
-> > It should be there now.
-> 
-> I'm hitting a conflict between this and what I have in nf-next.git.
-> 
-> If you can have a look, otherwise I will check tomorrow with fresher
-> mind.
+This patch series adds support and documentation in iproute2 for
+encapsulation with IPv6 SR, and for control of HMAC mappings.
 
-Fixed this here.
+v2: fix bad types and indentation
 
-Pulled, thanks.
+Signed-off-by: David Lebrun <david.lebrun@uclouvain.be>
+
+David Lebrun (3):
+  ip: add ip sr command to control SR-IPv6 internal structures
+  iproute: add support for SR-IPv6 lwtunnel encapsulation
+  man: add documentation for IPv6 SR commands
+
+ ip/Makefile            |   2 +-
+ ip/ip.c                |   3 +-
+ ip/ip_common.h         |   1 +
+ ip/iproute.c           |   6 +-
+ ip/iproute_lwtunnel.c  | 154 ++++++++++++++++++++++++++++++++
+ ip/ipseg6.c            | 238 +++++++++++++++++++++++++++++++++++++++++++++++++
+ man/man8/ip-route.8.in |  39 +++++++-
+ man/man8/ip-sr.8       |  58 ++++++++++++
+ 8 files changed, 495 insertions(+), 6 deletions(-)
+ create mode 100644 ip/ipseg6.c
+ create mode 100644 man/man8/ip-sr.8
+
+-- 
+2.10.2
