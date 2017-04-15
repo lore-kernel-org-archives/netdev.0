@@ -1,92 +1,50 @@
-From: <chacoma4018@windstream.net>
-Subject: 49545 netdev
-Date: Sat, 15 Apr 2017 05:40:35 -0000
-Message-ID: <149223483502.20709.3705294722309356184@telebucaramanga.net.co>
-Reply-To: <chacoma4018@windstream.net>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: eBPF - little-endian load instructions?
+Date: Sat, 15 Apr 2017 09:06:11 +0200
+Message-ID: <1492239971.4735.5.camel@sipsolutions.net>
+References: <1491907114.31620.18.camel@sipsolutions.net>
+         <58ECB8CF.8040409@iogearbox.net> <1492002120.2855.3.camel@sipsolutions.net>
+         <20170412165804.GA75807@ast-mbp.thefacebook.com>
+         <1492025919.2855.20.camel@sipsolutions.net>
+         <20170413030818.GA42879@ast-mbp.thefacebook.com>
+         <1492063125.19193.1.camel@sipsolutions.net>
+         <20170414184228.GA41922@ast-mbp.thefacebook.com>
+         (sfid-20170414_204234_987955_362A9588)
 Mime-Version: 1.0
-Content-Type: application/zip; name="8704608785.zip"
-Content-Transfer-Encoding: base64
-To: "netdev" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Alexei Starovoitov <ast@kernel.org>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 181-174-61-145.telebucaramanga.net.co ([181.174.61.145]:37149
-        "HELO telebucaramanga.net.co" rhost-flags-OK-FAIL-OK-FAIL)
-        by vger.kernel.org with SMTP id S1750981AbdDOFki (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 15 Apr 2017 01:40:38 -0400
-Content-Disposition: attachment
+Received: from s3.sipsolutions.net ([5.9.151.49]:52868 "EHLO sipsolutions.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751494AbdDOHGP (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 15 Apr 2017 03:06:15 -0400
+In-Reply-To: <20170414184228.GA41922@ast-mbp.thefacebook.com> (sfid-20170414_204234_987955_362A9588)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-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
+On Fri, 2017-04-14 at 11:42 -0700, Alexei Starovoitov wrote:
+
+> bpf takes endianness of the cpu it runs on.
+
+Ok, so then things are actually not as difficult as I thought.
+
+> if we said that bpf 32-bit load insn is little endian, it would have
+> screwed up all big-endian archs and the other way around.
+
+Right.
+
+But then basically we do only need to have builtins for endian
+conversion, and #define them appropriately, as done anywhere else.
+
+Perhaps we want to eventually be able to take advantage of "other-
+endian" loads the CPU may have through the JIT, but getting it correct
+first would be good :)
+
+Either way though, it could be done with something like inline
+assembly.
+
+johannes
