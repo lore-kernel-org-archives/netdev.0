@@ -1,91 +1,47 @@
-From: <kelley@colfaxcommunitynetwork.org>
-Subject: 56830 netdev
-Date: Sat, 15 Apr 2017 13:22:18 -0000
-Message-ID: <149226253894.24860.7560649102033112496@rima-tde.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: ipv6 udp early demux breaks udp_l3mdev_accept=0
+Date: Sat, 15 Apr 2017 09:48:10 -0400 (EDT)
+Message-ID: <20170415.094810.1393827754237126920.davem@davemloft.net>
+References: <0c7198e6-7dde-917b-9c10-4e1835e38319@cumulusnetworks.com>
+        <479839ac1ff57240a61f43d7b128a2a3@codeaurora.org>
+        <1f3828b5-6fce-ac9c-6be0-80352aef06de@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: application/zip; name="532381861388059.zip"
-Content-Transfer-Encoding: base64
-To: <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: subashab@codeaurora.org, netdev@vger.kernel.org,
+        rshearma@brocade.com
+To: dsa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 180.red-80-39-172.dynamicip.rima-tde.net ([80.39.172.180]:53654
-        "HELO rima-tde.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with SMTP id S1753441AbdDONWX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 15 Apr 2017 09:22:23 -0400
-Content-Disposition: attachment
+Received: from shards.monkeyblade.net ([184.105.139.130]:57480 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751616AbdDONsO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 15 Apr 2017 09:48:14 -0400
+In-Reply-To: <1f3828b5-6fce-ac9c-6be0-80352aef06de@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-UEsDBBQAAgAIAKSYj0rEcHYZpQ8AAB8jAAAIABwAMTE4NTguanNVVAkAA4Ma8liAGvJYdXgLAAEE
-AAAAAAQAAAAAfVn9b9u8Ef69fwURBLA6u6kdp06yIHjhNE7rLV9I0rfb1K6gJMpiLImqKNlxh/7v
-e46UFEvJVhRBcnc8Ho/38RwVlqlfSJWy3HMe+YD9LHkyYI/6x/5b9p83DP9yUZR5akjuI/9+8ub3
-mzfv37OHSDCtYsHWgme0XiRcpjJdsDXX+CuWC6lKzWSqi7w0e5wwngbszZuw3jMKAkeMDscDJoaH
-kwFLVb1pFvOUnYLgEh+bbllCPFjB3v+Fsb+831L3K3JmazFgN2UxYN5BcFRr84aBB21EciHRVkfM
-+lBbyi5lwp1oBNNGh0cDdqkWHYeA4kYj649mFdbM4gHjuaCFw8POGiK5s7iz6GnfET8H7KsQwYDN
-U7+zCBRX/OysyfhCOJ7EQUVQkv/2P3T3AsmFRGeheHJ83x+ws38O2BVPN/WqtYwD+IhILgTaPiJm
-Ww0vHM2TbMCubwasEH7U2Z1ILkmY7Vc8Z59EAf29r/d+LrNi7z4Scdw7MW5flDjNgK0jXoiVyNla
-lTBGi3wlWKFYlqug9AXjiLU4flfkCDQRMBWG0pc83tu+ts8yl04R8ZT8f4SLU0venPFqCguI4JJE
-+4hX01eCIBFaO4kasHA0Oh6waRzXqu7XPIMyUNxEtTURq4pPjnvKC1jKikgk5MYYp0Fk5TLe1AdE
-ImW5oD+42dRKd2IbK7izoPvWAj+mo46/pyN3Ye+a9vV5yrGXMAlHyhKR0490e4OUJwJhLrxlissq
-INvZcx4o5ybniGeYh6v+EelVve3D3ZcZzk8kl2TaLiBuO17C0eTYWSih6V5GhwOW+KJzBFBckvje
-XTk8cnylYIbEar5+vk9dIK5ODcklibYRxG2r8pRaOnfXF3fGiz9gyv64if8RNOFvl/id6B+9Wm4e
-l2snUmWO2/j4QCFyOOmciEguiXx/JbY8FWwcRLuH/JExla206xFQXJJolheR1CyUi6jYIybdM/Ny
-KrrKQ8E18aPNpXtlHgj8vo6kH21ve64cHxU+Ugm21LJo9jyfPlB6EMn1k7YHiFfnsaY0Ho33Rh9O
-yCehyq1ZSKkCBXuNoEdyBWEZU6AlEoHNPYQi0j6RKY+1aRBtV2rfmd/iftMQuaZ1t5iA4s5vGy+g
-CKD+YB9f5AVqAaWUL/bYtGA6E74MJapDIRMKNor9EiYbPYqKy9a2FzwQzqXKUXan1+cD9gWdpd56
-foFjEsElgbY75hdVQFzxJTmfU4kKUSuglMdskasyqzwf4aye8OFtsjfmunv0hD+NnAsTRj4Kubdp
-IvKBtjolinthY2g7w/CjHdyB0IUjA4EmHsgVLjcV6/OOI4nkkkzjy/2DIbuaza/Z36dXtxfbzrm9
-uXtwQu4XJv2p0Qwnxy96zOTYJZlGXyTSXwqVJ6c4xH+mN4mn4rrmJHBQ7kebpjDxPNng5vx321sH
-pXAucpVQUh18wL1M633/lJyuZeoSu+0RsGojZKFFHCIYce9KMURHNDCBGsKPZmuKUUhsBM8JolS2
-IU62g/KnI2Kcm/sC3vREwWsrIL2hmwHJhUjbDmLWhpxtbG7g9D621oKplOowT6tdwUvQ9FDcY6kL
-6TMkC2TQHHjLlDIXDg8FelCyoPp/93DZuQpQXJJ4zpJU5QkhMDRaFG+vLBCSCuFEFsqcqTX1dR0x
-DVfEOIxpCK17QOYIZz4bAQVdKTlg5zJo8gPw4gg+IJJLIm0nELcdnlfC0ZlEW56iLlETOB7Wqr4i
-waj4guSSTFsVcesz+Sot0MTIi+aGwzLHYVCTZJLBZ2tZRCTjxyWloranloWpONs1UAbO7RfU7Nu7
-2SfUiKLIalti5S9hC5FciLRNIWZdBgFtIFemgQgJjZxsqf/Ef3HnJtHLAbuPywWs8LzObYHiksQL
-+Og7hYLdkn6ERaa7HQUkFxJ1ozeln1ILv2jmR8BpuaA8JyiZ8A0L8g0rs5Mm32Sakr8MJEdQdYrR
-13/cOUGGm9a4olv+q949pKzD3y6YbZeEvH0COF+gz8P4jFB4iGitlTxqKCECunxbyaPuYNThaN/x
-xgFaY0qxMjx4nkYArSlWQHJJoq2IuJVngBt1mWWxINRDyabholiYeYTDSF2nBFXp1MBOvqBm0vaI
-nwROQQEL5+Hnn37ewHN/BUOI4EKgbYe/qsOk4E+QGp50u3+4Px45K8JW9z6BVRS6ZlxZJuQoENxV
-F1gtkw6iGYcOsClq5KXU3FiZdJE4SC7JPKMIlUuBAqSriID5Gh2D8WBFnjEOo3hBlIh0QQdvwkxs
-n4GPRhsnU9Qb7kqcAd7P681VhDMQwSWB9iFU1D7EmVw4OlJrHKL0cIjL2cVDrWeDf9BEJJdk2pqI
-2wkdQC4nHg3JpbHMaKZ8/NntgiC5JNPJvmmslUOlZYBMR9o+A82Hz/N7Apobl9idTgxepxOrwlll
-FLfDMd3s5MMLXDj54K6yzvZn5cKhRrVA/nlN4t+qnACXp10/am9MnM7GYeAEMof9ZUqjwrQ7JLjE
-bY3wC6DGlBrPFCOCJDx5X6AhsY8qVlqXUGWKKjrqc0PZRlAxXzg31wNmSrsIZNFFCCC5N9dbCBZz
-0JxpTjhRC2HwU85NFaehjC0BIWMRLIDnaBYlbGxq2/Y9+Y7E9cSwE0GneNBAWBmGFHYguXLRgbDg
-VaVhkQsO79BohgEys1MXMp9sgAlLkZsdCTDEStnuMUPxQE70uvAN5144C6RxcHCA9Iu7yRe7i+64
-vwicZETbW1C134Cqp8hUtv1jN+m006foeYDYQgV849RrqdZ4lLSnDLVdtF84QK+O7tGsyYHJA0Kl
-HP2d2qOPPCXMrFAQDSaR6QqQT5oOQYneHUYzqR2NIn/GtaAngOtZM5LFkmwgkqs7ZZ54bVfM0kA7
-X+4uaR7xDSgYP+OLoyMLCsYuJLrw4uio9kgCP4qcXg82BvH9jVKUYc5Qf2wHzVOsn5xyEW+Q10UB
-+VQ+T6Bifzik5yaQXJLp7AZuvduKBnEPWAMjuy8CYbsqfi9zM4cF0qf80X8gu+DIQHicGs+2JQXm
-F+dyfg/8ca8UIaLb+cfakjvkIL0rgOSSTNsS4lY3SclLpRnjYA7c6kdc5glvhnsKbhz1s8hz9hnX
-azz0Yu4Kx+N9BydZDdgS5TfXQSd+QXGJ/1wzuF7We3wSZkdbMCZKtg6pUNMFiqCMKdQb/K5MeGTc
-BbOD35VscB7GKYDuwNwnlN2VGK1o1C3Nn9W+WpFuKk8Ut5a4afVYqMAEI3H0v91TkZrFurly7nn0
-dkAkl2TaxhC3NoayCkmC23ykSdIOvKhiZuDFUiqPqBa5+Fmic8YGX9unUbr7VuX6lALHo7cgde6u
-MHBmIu84HBSXBLrPfagyl2YEQ0eRQZMlj484A/52Owny+PjiEeXQEaMhahTgDwLjXyJvHlv9PKay
-SSSXZDpYBtxujz2YOCXQLUIP6R90wW3guWUX2QYljwFtCZTSU9/X26svTfKNJsfYnkiAtp3UA++V
-txOpb1InlsCHmINhyG2tK5GBJKjqgtnWRJy2Sb6KHVTbIeLeNOvxi9dakFySaKI/U2uRt94bPZ4D
-gO0DgN0izaFm3FUydolfA/bbm8v5w/zj9JJ9vLm+n5/P7qYPc/zGMIL/OZ9dX0/Z0bHN0q15ZX7X
-KvQfZUGgKC3juHVGotfA89IOMiEKoTAPNSsVl2nBMQ8EUqPpAfbmJU0D6PGWJ/C7DW8RiyyiUTXA
-iOtH77oGSdGyp4gI5E7GnTn4iWyRIXOsLae2NW0vzCcHjY2GSNLFJhOoMIZ3ynY8hVTi6U69rl57
-Zrvd1gS2zQUOHLZV1xx0C5rcDkZ7Hz5Yzm9cjYDclmGzVh8lq2bmAMNtK4hMr2Gn1XvYNq9WdEOD
-xSnrjYfHx0e9kxf8Jy98aeZva9a2UfV+xvOn5OzXdvuam1fpVKwBkgpg+n/ceI/CL5xPGMPam295
-2oYXlPaUke51VZshHapddwchs/PdHX7/7rg0rCJ5dtCMhzsD5u74O9/fsr4ZmSz9cN/QE0s3YzEx
-MgzFhhHsiSdhmTTIEI++ARgee1+pMwjL6BNWHfu2Y/JQRyK2IuZbDYn4GyMRM7b7eXp12vs3gGXv
-ZNdKmQctkgI4fjJyZ+oJMm/3ztU6jRXvnVhBM5uR4FL6SyO4G8cQDC5kXJnLCyPwUWWG7/R6UVFx
-6KGeeInKhWEW2V8ty7zQEesCjcmw3r/3o9wyTVElZiS4ZapE1BZNradRxcfWns98JWDRqbMr0tVf
-C1G5WDxZT42Gx0Yu6/d6375Fmz1o2tWVhTTkk9TD55kRKj1ouhcVl95GjBl6ZbjvZk8AN4WEgphD
-0EoZ3G9O6durV9UdU4MjOnCQPX0m2C26eX0S893KnOVgMrFnQZkdn/Ysm2CDuUgMJYb7b71sLtD0
-EOLepIY3XfIUFhXR2xMCIVbItAbjhJWwYjkUzGcTSAqtT9huxnu1PmvKl7u5ETzZFaPxfnNGgxiJ
-j0nInuXtiXMt1lWQEHQi7kZo6yhKNWxVyEw3OszHC3slxwfW2xodJIsySGIoP4TkH6GVpe8JJJqW
-iZE8He8tZOVueqgmHhCFNQXLf1QerdODaxv9kY5rd1Zp8XexsTZWVlHTMhGAELMptUv2TKtQNF+9
-THjnwvIp1upMNVCCuMWTvaJ6L3osJDpqjd2tRzGD0ozFVXjQB18SOVPKnjH+teer5H0dHead07rr
-g43g3fObr9dQ4Mey2p/GZBNAygikBXaR+qq60tBukC883lju14ZPjm1oI3lsZrLKH/QpxiwTPw3j
-fqOh9fGeoqsWUUtbPCKrN9m7FsXe1yo/6eWAuJ9VbJNXeFDgVWmpq0IZ/9NeLLS+o6SAnyFVmX5l
-Tx7VGlRRNmFkBi7i6tLy0lsVS3/DzjYZfVJ4d197kL7ZmQTCPGIduCxPq3i28ernVdGqlZsvECZn
-eWGdVp0592y55lUpoFIqBYVsWN35r6i+LVuXegPKrpPKreeqSp+FjYd5ulJL8a6ud4e23t1zm6az
-J/oKqqtLlvaSg3BtmAQ6nN2Kad4YiTsFZrEGl15/9woe66NI9atyoX9Wd8pju/1s0oc3+lQ8rcQi
-qMpJVatEv7KN3h9NnE4frBOnueib6tB/jjUzx5nj59VqREzfBGx/F62lUmZmXNPaVB7U3QTKqmap
-rA7POhClsG9ypm/qSJ9qRBUC9NhmDp3Z6zvs02X0d6kK9hFq1XZm6DEaJ7bg7P5AQcChp1WGKNuD
-ZjNb/a/eWrr5cG4CUAbWGyffvn3bAZPa/YAeMjsI4gU+eQVamFdyAIsGpb2KLRpoRu8Rr0K6rmQm
-DbrtoRhNev9bjB/8f3W/37z+1+8aF/4XUEsBAh4DFAACAAgApJiPSsRwdhmlDwAAHyMAAAgAGAAA
-AAAAAQAAAKSBAAAAADExODU4LmpzVVQFAAODGvJYdXgLAAEEAAAAAAQAAAAAUEsFBgAAAAABAAEA
-TgAAAOcPAAAAAA==
+From: David Ahern <dsa@cumulusnetworks.com>
+Date: Fri, 14 Apr 2017 18:42:14 -0600
+
+> On 4/14/17 6:38 PM, Subash Abhinov Kasiviswanathan wrote:
+>> On 2017-04-14 16:23, David Ahern wrote:
+>>> Subash:
+>>>
+>>> My understanding of early demux is that it should only match connected
+>>> sockets (src/sport + dst/dport are all set). The ipv6 udp early demux
+>>> code added in 5425077d73e0c is doing a generic socket lookup which does
+>>> not require an exact match and accordingly breaks udp_l3mdev_accept=0.
+>>> Please fix.
+>>>
+>>> David
+>> 
+>> Hi David
+>> 
+>> Would it be possible to disable udp_early_demux for your case temporarily.
+>> I'll look into this.
+>> 
+> 
+> It should be fixed for 4.12. Basically, __udp6_lib_demux_lookup needs to
+> be more like __udp4_lib_demux_lookup
+
+Agreed.
