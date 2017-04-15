@@ -1,55 +1,59 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: [RFC patch 1/1] large netlink dumps
-Date: Sat, 15 Apr 2017 13:07:51 -0400
-Message-ID: <e17f52a6-b2ad-6b39-a655-2e8779a5d192@mojatatu.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH linux 2/2] net sched actions: fix refcount decrement on error
+Date: Sat, 15 Apr 2017 11:20:54 -0700
+Message-ID: <CAM_iQpWSszPtMSG+vb+sowDcBeerWwufYARXmaiU-D4KJsyq8w@mail.gmail.com>
+References: <20170412142140.26649-1-w.bumiller@proxmox.com>
+ <20170412142140.26649-3-w.bumiller@proxmox.com> <CAM_iQpUxgF2X9z+mNhBUtPJsFPy8pyiDDhqz726Qt_aeEeLpeA@mail.gmail.com>
+ <20170413080648.bbiikladwevaribf@olga.proxmox.com> <CAM_iQpUWASuFdzLc6j+EyCj68=BnT6-bKXr=e=858Zkf9f6dSg@mail.gmail.com>
+ <20170414090853.oqqdsu6xufr4n2nv@olga.proxmox.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------D1D219853012C143045ACEF3"
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-        Pablo Neira Ayuso <pablo@netfilter.org>,
-        David Miller <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f47.google.com ([209.85.214.47]:38192 "EHLO
-        mail-it0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751364AbdDORHy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 15 Apr 2017 13:07:54 -0400
-Received: by mail-it0-f47.google.com with SMTP id e132so6785750ite.1
-        for <netdev@vger.kernel.org>; Sat, 15 Apr 2017 10:07:54 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Roman Mashak <mrv@mojatatu.com>
+To: Wolfgang Bumiller <w.bumiller@proxmox.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170414090853.oqqdsu6xufr4n2nv@olga.proxmox.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------D1D219853012C143045ACEF3
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
+On Fri, Apr 14, 2017 at 2:08 AM, Wolfgang Bumiller
+<w.bumiller@proxmox.com> wrote:
+> Before I do that - trying to wrap my head around the interdependencies
+> here better to be thorough - I noticed that tcf_hash_release() can
+> return ACT_P_DELETED. The ACT_P_CREATED case means tcf_hash_create()
+> was used, in the other case the tc_action's ref & bind count is bumped
+> by tcf_hash_check() and then also decremented by tcf_hash_release() if
+> it existed, iow. kept at 1, but not always: It does always happen in
+> act_police.c but in other files such as act_bpf.c or act_connmark.c if
+> eg. bind is set they return without decrementing, so both ref&bind count
+> are bumped when they return - the refcount logic isn't easy to follow
+> for a newcomer. Now there are two uses of __tcf_hash_release() in
+> act_api.c which check for a return value of ACT_P_DELETED, in which case
+> they call module_put().
 
-Eric,
 
-How does attached look instead of the 32K?
-I found it helps to let user space suggest something
-larger.
+That's the nasty part... IIRC, Jamal has fixed two bugs on action refcnt'ing.
+We really need to clean up the code.
 
-cheers,
-jamal
+> So I'm not sure exactly how the module and tc_action counts are related
+> (and I usually like to understand my own patches ;-) ).
 
---------------D1D219853012C143045ACEF3
-Content-Type: text/plain; charset=UTF-8;
- name="patch-netlink-large-dump"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment;
- filename="patch-netlink-large-dump"
 
-ZGlmZiAtLWdpdCBhL25ldC9uZXRsaW5rL2FmX25ldGxpbmsuYyBiL25ldC9uZXRsaW5rL2Fm
-X25ldGxpbmsuYwppbmRleCA3YjczYzdjLi5iYzk4MmVmIDEwMDY0NAotLS0gYS9uZXQvbmV0
-bGluay9hZl9uZXRsaW5rLmMKKysrIGIvbmV0L25ldGxpbmsvYWZfbmV0bGluay5jCkBAIC0x
-ODQ5LDcgKzE4NDksNyBAQCBzdGF0aWMgaW50IG5ldGxpbmtfcmVjdm1zZyhzdHJ1Y3Qgc29j
-a2V0ICpzb2NrLCBzdHJ1Y3QgbXNnaGRyICptc2csIHNpemVfdCBsZW4sCiAJLyogUmVjb3Jk
-IHRoZSBtYXggbGVuZ3RoIG9mIHJlY3Ztc2coKSBjYWxscyBmb3IgZnV0dXJlIGFsbG9jYXRp
-b25zICovCiAJbmxrLT5tYXhfcmVjdm1zZ19sZW4gPSBtYXgobmxrLT5tYXhfcmVjdm1zZ19s
-ZW4sIGxlbik7CiAJbmxrLT5tYXhfcmVjdm1zZ19sZW4gPSBtaW5fdChzaXplX3QsIG5say0+
-bWF4X3JlY3Ztc2dfbGVuLAotCQkJCSAgICAgU0tCX1dJVEhfT1ZFUkhFQUQoMzI3NjgpKTsK
-KwkJCQkgICAgIHNrLT5za19yY3ZidWYgLyA0KTsKIAogCWNvcGllZCA9IGRhdGFfc2tiLT5s
-ZW47CiAJaWYgKGxlbiA8IGNvcGllZCkgewo=
---------------D1D219853012C143045ACEF3--
+Each action holds a refcnt to its module, each filter holds a refcnt to
+its bound or referenced (unbound) action.
+
+
+> Maybe I'm missing something obvious but I'm currently a bit confused as
+> to whether the tcf_hash_release() call there is okay, or should have its
+> return value checked or should depend on ->init()'s ACT_P_CREATED value
+> as well?
+>
+
+I think it's the same? If we have ACT_P_CREATED here, tcf_hash_release()
+will return ACT_P_DELETED for sure because the newly created action has
+refcnt==1?
+
+Thanks.
