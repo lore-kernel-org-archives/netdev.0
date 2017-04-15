@@ -1,251 +1,61 @@
-From: David Lebrun <david.lebrun@uclouvain.be>
-Subject: [PATCH iproute2 net-next v2 2/3] iproute: add support for SR-IPv6 lwtunnel encapsulation
-Date: Sat, 15 Apr 2017 12:17:16 +0200
-Message-ID: <20170415101717.18730-3-david.lebrun@uclouvain.be>
-References: <20170415101717.18730-1-david.lebrun@uclouvain.be>
+From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Subject: Re: [PATCH 06/12] audit: Use timespec64 to represent
+	audit timestamps
+Date: Sat, 15 Apr 2017 10:29:00 +0000
+Message-ID: <CAK8P3a3w_3JKxW6kz-V9roxzf9RwbVgHaK8XjO5OOktVvZ_Sog@mail.gmail.com>
+References: <1491613030-11599-1-git-send-email-deepa.kernel@gmail.com>
+	<1491613030-11599-7-git-send-email-deepa.kernel@gmail.com>
+	<CAHC9VhTYWeKL+BAb6F3tfwzs7OKUEA8ANM=V05sfoiahNNX=9w@mail.gmail.com>
+	<CABeXuvoKmvbo_n3XQ0Y+iWGz88Jr3TwbPA7GiR3pia9407ANLw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: David Lebrun <david.lebrun@uclouvain.be>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:49083 "EHLO
-        smtp5.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752855AbdDOKRP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 15 Apr 2017 06:17:15 -0400
-Received: from mailboxes.uclouvain.be (mailboxes.uclouvain.be [130.104.6.131])
-        (using TLSv1.2 with cipher ECDHE-RSA-AES256-SHA384 (256/256 bits))
-        (No client certificate requested)
-        by smtp5.sgsi.ucl.ac.be (Postfix) with ESMTPS id EFDD267DDC2
-        for <netdev@vger.kernel.org>; Sat, 15 Apr 2017 12:17:05 +0200 (CEST)
-In-Reply-To: <20170415101717.18730-1-david.lebrun@uclouvain.be>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: yuchao0-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	Chris Mason <clm-b10kYP2dOMg@public.gmane.org>, linux-mtd <linux-mtd-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	Evgeniy Dushistov <dushistov-JGs/UdohzUI@public.gmane.org>,
+	Jeff Layton <jlayton-vpEMnDpepFuMZCB2o+C8xQ@public.gmane.org>,
+	ceph-devel <ceph-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org, linux-cifs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Paul Moore <paul-r2n+y4ga6xFZroRs9YW3xA@public.gmane.org>,
+	y2038 Mailman List <y2038-cunTk1MwBs8s++Sfvej+rw@public.gmane.org>,
+	Ingo Molnar <mingo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>, "Drokin,
+	Oleg" <oleg.drokin-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, John Stultz <john.stultz-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	Alexander Viro <viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org>, David Sterba <dsterba-IBi9RG/b67k@public.gmane.org>,
+	Jaegeuk Kim <jaegeuk-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>,
+	Josef Bacik <jbacik-b10kYP2dOMg@public.gmane.org>, Greg KH <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	samba-technical-w/Ol4Ecudpl8XjKLYN78aQ@public.gmane.org,
+	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Eric Paris <eparis-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, "Linux F2F
+To: Deepa Dinamani <deepa.kernel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <lustre-devel-bounces-aLEFhgZF4x6X6Mz3xDxJMA@public.gmane.org>
+In-Reply-To: <CABeXuvoKmvbo_n3XQ0Y+iWGz88Jr3TwbPA7GiR3pia9407ANLw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <http://lists.lustre.org/options.cgi/lustre-devel-lustre.org>,
+	<mailto:lustre-devel-request-aLEFhgZF4x6X6Mz3xDxJMA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.lustre.org/pipermail/lustre-devel-lustre.org/>
+List-Post: <mailto:lustre-devel-aLEFhgZF4x6X6Mz3xDxJMA@public.gmane.org>
+List-Help: <mailto:lustre-devel-request-aLEFhgZF4x6X6Mz3xDxJMA@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.lustre.org/listinfo.cgi/lustre-devel-lustre.org>,
+	<mailto:lustre-devel-request-aLEFhgZF4x6X6Mz3xDxJMA@public.gmane.org?subject=subscribe>
+Errors-To: lustre-devel-bounces-aLEFhgZF4x6X6Mz3xDxJMA@public.gmane.org
+Sender: "lustre-devel" <lustre-devel-bounces-aLEFhgZF4x6X6Mz3xDxJMA@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-This patch adds support for SEG6 encapsulation type
-("ip route add ... encap seg6 ...").
+On Sat, Apr 8, 2017 at 5:58 PM, Deepa Dinamani <deepa.kernel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+>> I have no problem merging this patch into audit/next for v4.12, would
+>> you prefer me to do that so at least this patch is merged?
+>
+> This would be fine.
+> But, I think whoever takes the last 2 deletion patches should also take them.
+> I'm not sure how that part works out.
+>
+>> It would probably make life a small bit easier for us in the audit
+>> world too as it would reduce the potential merge conflict.  However,
+>> that's a relatively small thing to worry about.
 
-Signed-off-by: David Lebrun <david.lebrun@uclouvain.be>
----
- ip/iproute.c          |   6 +-
- ip/iproute_lwtunnel.c | 154 ++++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 158 insertions(+), 2 deletions(-)
+As Andrew has picked the remaining patches up into -mm, this will work
+out fine: any patches picked up by the respective maintainers for v4.12
+should arrive as git pull requests before the -mm patches get applied
+at a later stage of the merge window.
 
-diff --git a/ip/iproute.c b/ip/iproute.c
-index eedcc2f..b4ca291 100644
---- a/ip/iproute.c
-+++ b/ip/iproute.c
-@@ -99,8 +99,10 @@ static void usage(void)
- 	fprintf(stderr, "TIME := NUMBER[s|ms]\n");
- 	fprintf(stderr, "BOOL := [1|0]\n");
- 	fprintf(stderr, "FEATURES := ecn\n");
--	fprintf(stderr, "ENCAPTYPE := [ mpls | ip | ip6 ]\n");
--	fprintf(stderr, "ENCAPHDR := [ MPLSLABEL ]\n");
-+	fprintf(stderr, "ENCAPTYPE := [ mpls | ip | ip6 | seg6 ]\n");
-+	fprintf(stderr, "ENCAPHDR := [ MPLSLABEL | SEG6HDR ]\n");
-+	fprintf(stderr, "SEG6HDR := [ mode SEGMODE ] segs ADDR1,ADDRi,ADDRn [hmac HMACKEYID] [cleanup]\n");
-+	fprintf(stderr, "SEGMODE := [ encap | inline ]\n");
- 	exit(-1);
- }
- 
-diff --git a/ip/iproute_lwtunnel.c b/ip/iproute_lwtunnel.c
-index 845a115..1395f03 100644
---- a/ip/iproute_lwtunnel.c
-+++ b/ip/iproute_lwtunnel.c
-@@ -19,6 +19,13 @@
- #include <linux/ila.h>
- #include <linux/lwtunnel.h>
- #include <linux/mpls_iptunnel.h>
-+
-+#ifndef __USE_KERNEL_IPV6_DEFS
-+#define __USE_KERNEL_IPV6_DEFS
-+#endif
-+#include <linux/seg6.h>
-+#include <linux/seg6_iptunnel.h>
-+#include <linux/seg6_hmac.h>
- #include <errno.h>
- 
- #include "rt_names.h"
-@@ -39,6 +46,8 @@ static const char *format_encap_type(int type)
- 		return "ila";
- 	case LWTUNNEL_ENCAP_BPF:
- 		return "bpf";
-+	case LWTUNNEL_ENCAP_SEG6:
-+		return "seg6";
- 	default:
- 		return "unknown";
- 	}
-@@ -69,12 +78,49 @@ static int read_encap_type(const char *name)
- 		return LWTUNNEL_ENCAP_ILA;
- 	else if (strcmp(name, "bpf") == 0)
- 		return LWTUNNEL_ENCAP_BPF;
-+	else if (strcmp(name, "seg6") == 0)
-+		return LWTUNNEL_ENCAP_SEG6;
- 	else if (strcmp(name, "help") == 0)
- 		encap_type_usage();
- 
- 	return LWTUNNEL_ENCAP_NONE;
- }
- 
-+static void print_encap_seg6(FILE *fp, struct rtattr *encap)
-+{
-+	struct rtattr *tb[SEG6_IPTUNNEL_MAX+1];
-+	struct seg6_iptunnel_encap *tuninfo;
-+	struct ipv6_sr_hdr *srh;
-+	int i;
-+
-+	parse_rtattr_nested(tb, SEG6_IPTUNNEL_MAX, encap);
-+
-+	if (!tb[SEG6_IPTUNNEL_SRH])
-+		return;
-+
-+	tuninfo = RTA_DATA(tb[SEG6_IPTUNNEL_SRH]);
-+	fprintf(fp, "mode %s ",
-+		(tuninfo->mode == SEG6_IPTUN_MODE_ENCAP) ? "encap" : "inline");
-+
-+	srh = tuninfo->srh;
-+
-+	fprintf(fp, "segs %d [ ", srh->first_segment + 1);
-+
-+	for (i = srh->first_segment; i >= 0; i--)
-+		fprintf(fp, "%s ",
-+			rt_addr_n2a(AF_INET6, 16, &srh->segments[i]));
-+
-+	fprintf(fp, "] ");
-+
-+	if (sr_has_hmac(srh)) {
-+		unsigned int offset = ((srh->hdrlen + 1) << 3) - 40;
-+		struct sr6_tlv_hmac *tlv;
-+
-+		tlv = (struct sr6_tlv_hmac *)((char *)srh + offset);
-+		fprintf(fp, "hmac 0x%X ", ntohl(tlv->hmackeyid));
-+	}
-+}
-+
- static void print_encap_mpls(FILE *fp, struct rtattr *encap)
- {
- 	struct rtattr *tb[MPLS_IPTUNNEL_MAX+1];
-@@ -241,7 +287,112 @@ void lwt_print_encap(FILE *fp, struct rtattr *encap_type,
- 	case LWTUNNEL_ENCAP_BPF:
- 		print_encap_bpf(fp, encap);
- 		break;
-+	case LWTUNNEL_ENCAP_SEG6:
-+		print_encap_seg6(fp, encap);
-+		break;
-+	}
-+}
-+
-+static int parse_encap_seg6(struct rtattr *rta, size_t len, int *argcp,
-+			    char ***argvp)
-+{
-+	int mode_ok = 0, segs_ok = 0, hmac_ok = 0;
-+	struct seg6_iptunnel_encap *tuninfo;
-+	struct ipv6_sr_hdr *srh;
-+	char **argv = *argvp;
-+	char segbuf[1024];
-+	int argc = *argcp;
-+	int encap = -1;
-+	__u32 hmac = 0;
-+	int nsegs = 0;
-+	int srhlen;
-+	char *s;
-+	int i;
-+
-+	while (argc > 0) {
-+		if (strcmp(*argv, "mode") == 0) {
-+			NEXT_ARG();
-+			if (mode_ok++)
-+				duparg2("mode", *argv);
-+			if (strcmp(*argv, "encap") == 0)
-+				encap = 1;
-+			else if (strcmp(*argv, "inline") == 0)
-+				encap = 0;
-+			else
-+				invarg("\"mode\" value is invalid\n", *argv);
-+		} else if (strcmp(*argv, "segs") == 0) {
-+			NEXT_ARG();
-+			if (segs_ok++)
-+				duparg2("segs", *argv);
-+			if (encap == -1)
-+				invarg("\"segs\" provided before \"mode\"\n",
-+				       *argv);
-+
-+			strncpy(segbuf, *argv, 1024);
-+			segbuf[1023] = 0;
-+		} else if (strcmp(*argv, "hmac") == 0) {
-+			NEXT_ARG();
-+			if (hmac_ok++)
-+				duparg2("hmac", *argv);
-+			get_u32(&hmac, *argv, 0);
-+		} else {
-+			break;
-+		}
-+		argc--; argv++;
-+	}
-+
-+	s = segbuf;
-+	for (i = 0; *s; *s++ == ',' ? i++ : *s);
-+	nsegs = i + 1;
-+
-+	if (!encap)
-+		nsegs++;
-+
-+	srhlen = 8 + 16*nsegs;
-+
-+	if (hmac)
-+		srhlen += 40;
-+
-+	tuninfo = malloc(sizeof(*tuninfo) + srhlen);
-+	memset(tuninfo, 0, sizeof(*tuninfo) + srhlen);
-+
-+	if (encap)
-+		tuninfo->mode = SEG6_IPTUN_MODE_ENCAP;
-+	else
-+		tuninfo->mode = SEG6_IPTUN_MODE_INLINE;
-+
-+	srh = tuninfo->srh;
-+	srh->hdrlen = (srhlen >> 3) - 1;
-+	srh->type = 4;
-+	srh->segments_left = nsegs - 1;
-+	srh->first_segment = nsegs - 1;
-+
-+	if (hmac)
-+		srh->flags |= SR6_FLAG1_HMAC;
-+
-+	i = srh->first_segment;
-+	for (s = strtok(segbuf, ","); s; s = strtok(NULL, ",")) {
-+		inet_get_addr(s, NULL, &srh->segments[i]);
-+		i--;
-+	}
-+
-+	if (hmac) {
-+		struct sr6_tlv_hmac *tlv;
-+
-+		tlv = (struct sr6_tlv_hmac *)((char *)srh + srhlen - 40);
-+		tlv->tlvhdr.type = SR6_TLV_HMAC;
-+		tlv->tlvhdr.len = 38;
-+		tlv->hmackeyid = htonl(hmac);
- 	}
-+
-+	rta_addattr_l(rta, len, SEG6_IPTUNNEL_SRH, tuninfo,
-+		      sizeof(*tuninfo) + srhlen);
-+	free(tuninfo);
-+
-+	*argcp = argc + 1;
-+	*argvp = argv - 1;
-+
-+	return 0;
- }
- 
- static int parse_encap_mpls(struct rtattr *rta, size_t len,
-@@ -600,6 +751,9 @@ int lwt_parse_encap(struct rtattr *rta, size_t len, int *argcp, char ***argvp)
- 		if (parse_encap_bpf(rta, len, &argc, &argv) < 0)
- 			exit(-1);
- 		break;
-+	case LWTUNNEL_ENCAP_SEG6:
-+		parse_encap_seg6(rta, len, &argc, &argv);
-+		break;
- 	default:
- 		fprintf(stderr, "Error: unsupported encap type\n");
- 		break;
--- 
-2.10.2
+     Arnd
