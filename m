@@ -1,243 +1,122 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [PATCH] Revert "mm, page_alloc: only use per-cpu allocator for
- irq-safe requests"
-Date: Sat, 15 Apr 2017 21:28:33 +0200
-Message-ID: <20170415212833.30ed3f2b@redhat.com>
-References: <20170415145350.ixy7vtrzdzve57mh@techsingularity.net>
+From: Sebastian Reichel <sre-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH v3 1/4] dt-bindings: net: Add TI WiLink shared transport
+ binding
+Date: Sat, 15 Apr 2017 21:38:18 +0200
+Message-ID: <20170415193817.r57lubkln72vvjcn@earth>
+References: <20170413150353.7389-1-robh@kernel.org>
+ <20170413150353.7389-2-robh@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>, willy@infradead.org,
- peterz@infradead.org, pagupta@redhat.com, ttoukan.linux@gmail.com,
- tariqt@mellanox.com, netdev@vger.kernel.org, saeedm@mellanox.com,
- linux-kernel@vger.kernel.org, linux-mm@kvack.org, brouer@redhat.com
-To: Mel Gorman <mgorman@techsingularity.net>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20170415145350.ixy7vtrzdzve57mh@techsingularity.net>
-Sender: owner-linux-mm@kvack.org
+Content-Type: multipart/signed; micalg=pgp-sha512;
+        protocol="application/pgp-signature"; boundary="mcpuvkep2cnkpc7f"
+Cc: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
+        linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+        Gustavo Padovan <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>,
+        Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        Wei Xu <xuwei5-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>, Eyal Reizer <eyalr-l0cyMroinI0@public.gmane.org>,
+        Satish Patel <satish.patel-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20170413150353.7389-2-robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 15 Apr 2017 15:53:50 +0100
-Mel Gorman <mgorman@techsingularity.net> wrote:
 
-> This reverts commit 374ad05ab64d696303cec5cc8ec3a65d457b7b1c. While the
-> patch worked great for userspace allocations, the fact that softirq loses
-> the per-cpu allocator caused problems. It needs to be redone taking into
-> account that a separate list is needed for hard/soft IRQs or alternatively
-> find a cheap way of detecting reentry due to an interrupt. Both are possible
-> but sufficiently tricky that it shouldn't be rushed. Jesper had one method
-> for allowing softirqs but reported that the cost was high enough that it
-> performed similarly to a plain revert. His figures for netperf TCP_STREAM
-> were as follows
-> 
-> Baseline v4.10.0  : 60316 Mbit/s
-> Current 4.11.0-rc6: 47491 Mbit/s
-> This patch        : 60662 Mbit/s
-(should instead state "Jesper's patch" or "His patch")
+--mcpuvkep2cnkpc7f
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Ran same test (8 parallel netperf TCP_STREAMs) with this patch applied:
+Hi,
 
- This patch 60106 Mbit/s (average of 7 iteration 60 sec runs)
-
-With these speeds I'm starting to hit the memory bandwidth of my machines.
-Thus, the 60 GBit/s measurement cannot be used to validate the
-performance impact of reverting this compared to my softirq patch, it
-only shows we fixed the regression.  (I'm suspicious as I see a higher
-contention on the page allocator lock (4% vs 1.3%) with this patch and
-still same performance... but lets worry about that outside the rc-series).
-
-I would be interested in Tariq to re-run these benchmarks on some
-hardware with enough memory bandwidth for 100Gbit/s throughput.
-
-
-> As this is a regression, I wish to revert to noirq allocator for now and
-> go back to the drawing board.
-> 
-> Signed-off-by: Mel Gorman <mgorman@techsingularity.net>
-> Reported-by: Tariq Toukan <ttoukan.linux@gmail.com>
-
-Acked-by: Jesper Dangaard Brouer <brouer@redhat.com>
-
+On Thu, Apr 13, 2017 at 10:03:50AM -0500, Rob Herring wrote:
+> Add serial slave device binding for the TI WiLink series of Bluetooth/FM/=
+GPS
+> devices.
+>=20
+> Signed-off-by: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+> Cc: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>
+> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 > ---
->  mm/page_alloc.c | 43 ++++++++++++++++++++-----------------------
->  1 file changed, 20 insertions(+), 23 deletions(-)
-> 
-> diff --git a/mm/page_alloc.c b/mm/page_alloc.c
-> index 6cbde310abed..3bba4f46214c 100644
-> --- a/mm/page_alloc.c
-> +++ b/mm/page_alloc.c
-> @@ -1090,10 +1090,10 @@ static void free_pcppages_bulk(struct zone *zone, int count,
->  {
->  	int migratetype = 0;
->  	int batch_free = 0;
-> -	unsigned long nr_scanned, flags;
-> +	unsigned long nr_scanned;
->  	bool isolated_pageblocks;
->  
-> -	spin_lock_irqsave(&zone->lock, flags);
-> +	spin_lock(&zone->lock);
->  	isolated_pageblocks = has_isolate_pageblock(zone);
->  	nr_scanned = node_page_state(zone->zone_pgdat, NR_PAGES_SCANNED);
->  	if (nr_scanned)
-> @@ -1142,7 +1142,7 @@ static void free_pcppages_bulk(struct zone *zone, int count,
->  			trace_mm_page_pcpu_drain(page, 0, mt);
->  		} while (--count && --batch_free && !list_empty(list));
->  	}
-> -	spin_unlock_irqrestore(&zone->lock, flags);
-> +	spin_unlock(&zone->lock);
->  }
->  
->  static void free_one_page(struct zone *zone,
-> @@ -1150,9 +1150,8 @@ static void free_one_page(struct zone *zone,
->  				unsigned int order,
->  				int migratetype)
->  {
-> -	unsigned long nr_scanned, flags;
-> -	spin_lock_irqsave(&zone->lock, flags);
-> -	__count_vm_events(PGFREE, 1 << order);
-> +	unsigned long nr_scanned;
-> +	spin_lock(&zone->lock);
->  	nr_scanned = node_page_state(zone->zone_pgdat, NR_PAGES_SCANNED);
->  	if (nr_scanned)
->  		__mod_node_page_state(zone->zone_pgdat, NR_PAGES_SCANNED, -nr_scanned);
-> @@ -1162,7 +1161,7 @@ static void free_one_page(struct zone *zone,
->  		migratetype = get_pfnblock_migratetype(page, pfn);
->  	}
->  	__free_one_page(page, pfn, zone, order, migratetype);
-> -	spin_unlock_irqrestore(&zone->lock, flags);
-> +	spin_unlock(&zone->lock);
->  }
->  
->  static void __meminit __init_single_page(struct page *page, unsigned long pfn,
-> @@ -1240,6 +1239,7 @@ void __meminit reserve_bootmem_region(phys_addr_t start, phys_addr_t end)
->  
->  static void __free_pages_ok(struct page *page, unsigned int order)
->  {
-> +	unsigned long flags;
->  	int migratetype;
->  	unsigned long pfn = page_to_pfn(page);
->  
-> @@ -1247,7 +1247,10 @@ static void __free_pages_ok(struct page *page, unsigned int order)
->  		return;
->  
->  	migratetype = get_pfnblock_migratetype(page, pfn);
-> +	local_irq_save(flags);
-> +	__count_vm_events(PGFREE, 1 << order);
->  	free_one_page(page_zone(page), page, pfn, order, migratetype);
-> +	local_irq_restore(flags);
->  }
->  
->  static void __init __free_pages_boot_core(struct page *page, unsigned int order)
-> @@ -2219,9 +2222,8 @@ static int rmqueue_bulk(struct zone *zone, unsigned int order,
->  			int migratetype, bool cold)
->  {
->  	int i, alloced = 0;
-> -	unsigned long flags;
->  
-> -	spin_lock_irqsave(&zone->lock, flags);
-> +	spin_lock(&zone->lock);
->  	for (i = 0; i < count; ++i) {
->  		struct page *page = __rmqueue(zone, order, migratetype);
->  		if (unlikely(page == NULL))
-> @@ -2257,7 +2259,7 @@ static int rmqueue_bulk(struct zone *zone, unsigned int order,
->  	 * pages added to the pcp list.
->  	 */
->  	__mod_zone_page_state(zone, NR_FREE_PAGES, -(i << order));
-> -	spin_unlock_irqrestore(&zone->lock, flags);
-> +	spin_unlock(&zone->lock);
->  	return alloced;
->  }
->  
-> @@ -2478,20 +2480,17 @@ void free_hot_cold_page(struct page *page, bool cold)
->  {
->  	struct zone *zone = page_zone(page);
->  	struct per_cpu_pages *pcp;
-> +	unsigned long flags;
->  	unsigned long pfn = page_to_pfn(page);
->  	int migratetype;
->  
-> -	if (in_interrupt()) {
-> -		__free_pages_ok(page, 0);
-> -		return;
-> -	}
-> -
->  	if (!free_pcp_prepare(page))
->  		return;
->  
->  	migratetype = get_pfnblock_migratetype(page, pfn);
->  	set_pcppage_migratetype(page, migratetype);
-> -	preempt_disable();
-> +	local_irq_save(flags);
-> +	__count_vm_event(PGFREE);
->  
->  	/*
->  	 * We only track unmovable, reclaimable and movable on pcp lists.
-> @@ -2508,7 +2507,6 @@ void free_hot_cold_page(struct page *page, bool cold)
->  		migratetype = MIGRATE_MOVABLE;
->  	}
->  
-> -	__count_vm_event(PGFREE);
->  	pcp = &this_cpu_ptr(zone->pageset)->pcp;
->  	if (!cold)
->  		list_add(&page->lru, &pcp->lists[migratetype]);
-> @@ -2522,7 +2520,7 @@ void free_hot_cold_page(struct page *page, bool cold)
->  	}
->  
->  out:
-> -	preempt_enable();
-> +	local_irq_restore(flags);
->  }
->  
->  /*
-> @@ -2647,8 +2645,6 @@ static struct page *__rmqueue_pcplist(struct zone *zone, int migratetype,
->  {
->  	struct page *page;
->  
-> -	VM_BUG_ON(in_interrupt());
-> -
->  	do {
->  		if (list_empty(list)) {
->  			pcp->count += rmqueue_bulk(zone, 0,
-> @@ -2679,8 +2675,9 @@ static struct page *rmqueue_pcplist(struct zone *preferred_zone,
->  	struct list_head *list;
->  	bool cold = ((gfp_flags & __GFP_COLD) != 0);
->  	struct page *page;
-> +	unsigned long flags;
->  
-> -	preempt_disable();
-> +	local_irq_save(flags);
->  	pcp = &this_cpu_ptr(zone->pageset)->pcp;
->  	list = &pcp->lists[migratetype];
->  	page = __rmqueue_pcplist(zone,  migratetype, cold, pcp, list);
-> @@ -2688,7 +2685,7 @@ static struct page *rmqueue_pcplist(struct zone *preferred_zone,
->  		__count_zid_vm_events(PGALLOC, page_zonenum(page), 1 << order);
->  		zone_statistics(preferred_zone, zone);
->  	}
-> -	preempt_enable();
-> +	local_irq_restore(flags);
->  	return page;
->  }
->  
-> @@ -2704,7 +2701,7 @@ struct page *rmqueue(struct zone *preferred_zone,
->  	unsigned long flags;
->  	struct page *page;
->  
-> -	if (likely(order == 0) && !in_interrupt()) {
-> +	if (likely(order == 0)) {
->  		page = rmqueue_pcplist(preferred_zone, zone, order,
->  				gfp_flags, migratetype);
->  		goto out;
+> v3:
+> - rebase on bluetooth-next
+>=20
+>  .../devicetree/bindings/net/ti,wilink-st.txt       | 35 ++++++++++++++++=
+++++++
+>  1 file changed, 35 insertions(+)
+>  create mode 100644 Documentation/devicetree/bindings/net/ti,wilink-st.txt
+>=20
+> diff --git a/Documentation/devicetree/bindings/net/ti,wilink-st.txt b/Doc=
+umentation/devicetree/bindings/net/ti,wilink-st.txt
+> new file mode 100644
+> index 000000000000..cbad73a84ac4
+> --- /dev/null
+> +++ b/Documentation/devicetree/bindings/net/ti,wilink-st.txt
+> @@ -0,0 +1,35 @@
+> +TI WiLink 7/8 (wl12xx/wl18xx) Shared Transport BT/FM/GPS devices
+> +
+> +TI WiLink devices have a UART interface for providing Bluetooth, FM radi=
+o,
+> +and GPS over what's called "shared transport". The shared transport is
+> +standard BT HCI protocol with additional channels for the other function=
+s.
+> +
+> +These devices also have a separate WiFi interface as described in
+> +wireless/ti,wlcore.txt.
+> +
+> +This bindings follows the UART slave device binding in
+> +../serial/slave-device.txt.
+> +
+> +Required properties:
+> + - compatible: should be one of the following:
+> +    "ti,wl1271-st"
+> +    "ti,wl1273-st"
+> +    "ti,wl1831-st"
+> +    "ti,wl1835-st"
+> +    "ti,wl1837-st"
+> +
+> +Optional properties:
+> + - enable-gpios : GPIO signal controlling enabling of BT. Active high.
+> + - vio-supply : Vio input supply (1.8V)
+> + - vbat-supply : Vbat input supply (2.9-4.8V)
+> +
+> +Example:
+> +
+> +&serial0 {
+> +	compatible =3D "ns16550a";
+> +	...
+> +	bluetooth {
+> +		compatible =3D "ti,wl1835-st";
+> +		enable-gpios =3D <&gpio1 7 GPIO_ACTIVE_HIGH>;
+> +	};
+> +};
 
+Reviewed-by: Sebastian Reichel <sre-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
 
+-- Sebastian
 
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
+--mcpuvkep2cnkpc7f
+Content-Type: application/pgp-signature; name="signature.asc"
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAABCgAdFiEE72YNB0Y/i3JqeVQT2O7X88g7+poFAljydqcACgkQ2O7X88g7
++poIAQ/+IVVT4w5FCkq5wlBYNb9AhYbE9+9Kt9o6RM+FMShesp5yOq61F5IfUTJJ
+vSsnwFjnwnyc78KUw4Rp2Q1WjUvo71B5r3nM0NrFkp0HU+Idf+gQL3N8jieIUl4b
+rSL1+lpEK5EsR7Uv8SS7huB5DnwGT1cL7goSF4l/TCPhiOEU6eJrSZrD8sYhtYGz
+yXHpxjojKhJiLP8ZVCPnD7QBi/BjiExCsjIoWR45WBhxVpMVxWu0ZaK5p5S8sGLw
+IrEjHgXwQ2PACbAAgsWQe1kOqD5/2mJ9a1PbhrIfCvcg89cMDwDb8Wojf+nnIAQ5
+dWl7dqfMffCYEFjlWhSXXhEZ+MVJOzQwncU4R1ZNRFZiZ6MKcPJUrXxPgD+V58xo
+5nsbp7u0BDu71/rJ3XAUX+M0ygMvy/7VJ8uXqYxKlPp5RyRCXxSV8Dgf1l2LDiMd
+NBClFKwqvq+il7oB8sVK1/4Lpwxyf2+HF3mT8rrUAjsJ7mrXSeQtoqB7T6aiv7nT
+L3jTzCyYHo6/NNVqk0ENaRh32Kv6JvNMN2GK1Jm9R9IHDw6gevSOo29xRIWTtoz+
+n7hfeImJYSR/imFOJLdh87Gq/+OdtDkAKMUr5G07tYOtEHzm3YZnP1GrJPiC6LTJ
+zSMcCuO2URcPTri25mmhgQMTh9GCAgd4ZOJ/+uv1Q/EA1Kd4IVo=
+=y9TH
+-----END PGP SIGNATURE-----
+
+--mcpuvkep2cnkpc7f--
