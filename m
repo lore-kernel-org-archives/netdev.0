@@ -1,7 +1,7 @@
 From: Vladislav Yasevich <vyasevich@gmail.com>
-Subject: [PATCH RFC (resend) net-next 5/6] virtio-net: Add support for vlan acceleration vnet header extension.
-Date: Sat, 15 Apr 2017 12:38:17 -0400
-Message-ID: <1492274298-17362-6-git-send-email-vyasevic@redhat.com>
+Subject: [PATCH RFC (resend) net-next 2/6] virtio-net: make header length handling uniform
+Date: Sat, 15 Apr 2017 12:38:14 -0400
+Message-ID: <1492274298-17362-3-git-send-email-vyasevic@redhat.com>
 References: <1492274298-17362-1-git-send-email-vyasevic@redhat.com>
 Cc: virtualization@lists.linux-foundation.org,
         virtio-dev@lists.oasis-open.org, mst@redhat.com,
@@ -9,144 +9,59 @@ Cc: virtualization@lists.linux-foundation.org,
         Vladislav Yasevich <vyasevic@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f196.google.com ([209.85.216.196]:36827 "EHLO
-        mail-qt0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752219AbdDOQin (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 15 Apr 2017 12:38:43 -0400
-Received: by mail-qt0-f196.google.com with SMTP id t52so2772223qtb.3
-        for <netdev@vger.kernel.org>; Sat, 15 Apr 2017 09:38:42 -0700 (PDT)
+Received: from mail-qt0-f193.google.com ([209.85.216.193]:34246 "EHLO
+        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752219AbdDOQih (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 15 Apr 2017 12:38:37 -0400
+Received: by mail-qt0-f193.google.com with SMTP id y33so243753qta.1
+        for <netdev@vger.kernel.org>; Sat, 15 Apr 2017 09:38:37 -0700 (PDT)
 In-Reply-To: <1492274298-17362-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This extension allows us to pass vlan ID and vlan protocol data to the
-host hypervisor as part of the vnet header and lets us take advantage
-of HW accelerated vlan tagging in the host.  It requires support in the
-host to negotiate the feature.  When the extension is enabled, the
-virtio device will enabled HW accelerated vlan features.
+Consistently use hdr_len stored in virtnet_info
+structure instead of direclty using specific sizes.
+This will be required as the size of the virtio net
+header grows due to future extensions.
 
 Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
 ---
- drivers/net/virtio_net.c        | 17 ++++++++++++++++-
- include/linux/virtio_net.h      | 17 +++++++++++++++++
- include/uapi/linux/virtio_net.h |  7 +++++++
- 3 files changed, 40 insertions(+), 1 deletion(-)
+ drivers/net/virtio_net.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 18eb0dd..696ef4a 100644
+index 2937a98..5ad6ee6 100644
 --- a/drivers/net/virtio_net.c
 +++ b/drivers/net/virtio_net.c
-@@ -182,6 +182,7 @@ struct virtio_net_hdr_max {
- 	struct virtio_net_hdr_mrg_rxbuf hdr;
- 	struct virtio_net_ext_hdr ext_hdr;
- 	struct virtio_net_ext_ip6frag ip6f_ext;
-+	struct virtio_net_ext_vlan vlan_ext;
- };
- 
- static inline u8 padded_vnet_hdr(struct virtnet_info *vi)
-@@ -2276,6 +2277,11 @@ static void virtnet_init_extensions(struct virtio_device *vdev)
- 		vi->hdr_len += sizeof(u32);
- 		vi->ext_mask |= VIRTIO_NET_EXT_F_IP6FRAG;
- 	}
-+
-+	if (virtio_has_feature(vdev, VIRTIO_NET_F_VLAN_OFFLOAD)) {
-+		vi->hdr_len += sizeof(struct virtio_net_ext_vlan);
-+		vi->ext_mask |= VIRTIO_NET_EXT_F_VLAN;
-+	}
+@@ -855,9 +855,9 @@ static int add_recvbuf_big(struct virtnet_info *vi, struct receive_queue *rq,
+ 	return err;
  }
  
- #define MIN_MTU ETH_MIN_MTU
-@@ -2352,6 +2358,14 @@ static int virtnet_probe(struct virtio_device *vdev)
- 	if (virtio_has_feature(vdev, VIRTIO_NET_F_GUEST_CSUM))
- 		dev->features |= NETIF_F_RXCSUM;
+-static unsigned int get_mergeable_buf_len(struct ewma_pkt_len *avg_pkt_len)
++static unsigned int get_mergeable_buf_len(struct ewma_pkt_len *avg_pkt_len,
++					  u8 hdr_len)
+ {
+-	const size_t hdr_len = sizeof(struct virtio_net_hdr_mrg_rxbuf);
+ 	unsigned int len;
  
-+	if (virtio_has_feature(vdev, VIRTIO_NET_F_VLAN_OFFLOAD)) {
-+		dev->features |= NETIF_F_HW_VLAN_CTAG_TX |
-+				 NETIF_F_HW_VLAN_CTAG_RX |
-+				 NETIF_F_HW_VLAN_STAG_TX |
-+				 NETIF_F_HW_VLAN_STAG_RX;
-+	}
-+
-+
- 	dev->vlan_features = dev->features;
+ 	len = hdr_len + clamp_t(unsigned int, ewma_pkt_len_read(avg_pkt_len),
+@@ -875,7 +875,7 @@ static int add_recvbuf_mergeable(struct virtnet_info *vi,
+ 	int err;
+ 	unsigned int len, hole;
  
- 	/* MTU range: 68 - 65535 */
-@@ -2395,7 +2409,8 @@ static int virtnet_probe(struct virtio_device *vdev)
- 	if (virtio_has_feature(vdev, VIRTIO_NET_F_MRG_RXBUF))
- 		vi->mergeable_rx_bufs = true;
+-	len = get_mergeable_buf_len(&rq->mrg_avg_pkt_len);
++	len = get_mergeable_buf_len(&rq->mrg_avg_pkt_len, vi->hdr_len);
+ 	if (unlikely(!skb_page_frag_refill(len + headroom, alloc_frag, gfp)))
+ 		return -ENOMEM;
  
--	if (virtio_has_feature(vdev, VIRTIO_NET_F_IP6_FRAGID))
-+	if (virtio_has_feature(vdev, VIRTIO_NET_F_IP6_FRAGID) ||
-+	    virtio_has_feature(vdev, VIRTIO_NET_F_VLAN_OFFLOAD))
- 		vi->hdr_ext = true;
+@@ -2188,7 +2188,7 @@ static ssize_t mergeable_rx_buffer_size_show(struct netdev_rx_queue *queue,
  
- 	if (vi->hdr_ext)
-diff --git a/include/linux/virtio_net.h b/include/linux/virtio_net.h
-index 3b259dc..e790191 100644
---- a/include/linux/virtio_net.h
-+++ b/include/linux/virtio_net.h
-@@ -113,6 +113,14 @@ static inline int virtio_net_ext_to_skb(struct sk_buff *skb,
- 		ptr += sizeof(struct virtio_net_ext_ip6frag);
- 	}
- 
-+	if (ext->flags & VIRTIO_NET_EXT_F_VLAN) {
-+		struct virtio_net_ext_vlan *vhdr =
-+					(struct virtio_net_ext_vlan *)ptr;
-+
-+		__vlan_hwaccel_put_tag(skb, vhdr->vlan_proto, vhdr->vlan_tci);
-+		ptr += sizeof(struct virtio_net_ext_vlan);
-+	}
-+
- 	return 0;
+ 	BUG_ON(queue_index >= vi->max_queue_pairs);
+ 	avg = &vi->rq[queue_index].mrg_avg_pkt_len;
+-	return sprintf(buf, "%u\n", get_mergeable_buf_len(avg));
++	return sprintf(buf, "%u\n", get_mergeable_buf_len(avg, vi->hdr_len));
  }
  
-@@ -130,6 +138,15 @@ static inline int virtio_net_ext_from_skb(const struct sk_buff *skb,
- 		ext->flags |= VIRTIO_NET_EXT_F_IP6FRAG;
- 	}
- 
-+	if (ext_mask & VIRTIO_NET_EXT_F_VLAN && skb_vlan_tag_present(skb)) {
-+		struct virtio_net_ext_vlan *vhdr =
-+					(struct virtio_net_ext_vlan *)ptr;
-+
-+		vlan_get_tag(skb, &vhdr->vlan_tci);
-+		vhdr->vlan_proto = skb->vlan_proto;
-+		ext->flags |= VIRTIO_NET_EXT_F_VLAN;
-+	}
-+
- 	return 0;
- }
- #endif /* _LINUX_VIRTIO_NET_H */
-diff --git a/include/uapi/linux/virtio_net.h b/include/uapi/linux/virtio_net.h
-index eac8d94..6125de7 100644
---- a/include/uapi/linux/virtio_net.h
-+++ b/include/uapi/linux/virtio_net.h
-@@ -57,6 +57,7 @@
- 					 * Steering */
- #define VIRTIO_NET_F_CTRL_MAC_ADDR 23	/* Set MAC address */
- #define VIRTIO_NET_F_IP6_FRAGID    24	/* Host supports VLAN accleration */
-+#define VIRTIO_NET_F_VLAN_OFFLOAD 25	/* Host supports VLAN accleration */
- 
- #ifndef VIRTIO_NET_NO_LEGACY
- #define VIRTIO_NET_F_GSO	6	/* Host handles pkts w/ any GSO type */
-@@ -111,6 +112,7 @@ struct virtio_net_hdr_v1 {
-  */
- struct virtio_net_ext_hdr {
- #define VIRTIO_NET_EXT_F_IP6FRAG	(1<<0)
-+#define VIRTIO_NET_EXT_F_VLAN		(1<<1)
- 	__u32 flags;
- 	__u8 extensions[];
- };
-@@ -120,6 +122,11 @@ struct virtio_net_ext_ip6frag {
- 	__be32 frag_id;
- };
- 
-+struct virtio_net_ext_vlan {
-+	__be16 vlan_tci;
-+	__be16 vlan_proto;
-+};
-+
- #ifndef VIRTIO_NET_NO_LEGACY
- /* This header comes first in the scatter-gather list.
-  * For legacy virtio, if VIRTIO_F_ANY_LAYOUT is not negotiated, it must
+ static struct rx_queue_attribute mergeable_rx_buffer_size_attribute =
 -- 
 2.7.4
