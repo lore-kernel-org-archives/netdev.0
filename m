@@ -1,50 +1,48 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: eBPF - little-endian load instructions?
-Date: Sat, 15 Apr 2017 09:06:11 +0200
-Message-ID: <1492239971.4735.5.camel@sipsolutions.net>
-References: <1491907114.31620.18.camel@sipsolutions.net>
-         <58ECB8CF.8040409@iogearbox.net> <1492002120.2855.3.camel@sipsolutions.net>
-         <20170412165804.GA75807@ast-mbp.thefacebook.com>
-         <1492025919.2855.20.camel@sipsolutions.net>
-         <20170413030818.GA42879@ast-mbp.thefacebook.com>
-         <1492063125.19193.1.camel@sipsolutions.net>
-         <20170414184228.GA41922@ast-mbp.thefacebook.com>
-         (sfid-20170414_204234_987955_362A9588)
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH nf-next] ipset: remove unused function
+ __ip_set_get_netlink
+Date: Sat, 15 Apr 2017 10:45:50 +0200
+Message-ID: <20170415084550.GA1284@salvia>
+References: <20170410195237.19909-1-aconole@bytheb.org>
+ <20170413232842.GC7721@salvia>
+ <alpine.DEB.2.11.1704141612410.5084@blackhole.kfki.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Alexei Starovoitov <ast@kernel.org>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Aaron Conole <aconole@bytheb.org>,
+        linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:52868 "EHLO sipsolutions.net"
+Received: from mail.us.es ([193.147.175.20]:56312 "EHLO mail.us.es"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751494AbdDOHGP (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 15 Apr 2017 03:06:15 -0400
-In-Reply-To: <20170414184228.GA41922@ast-mbp.thefacebook.com> (sfid-20170414_204234_987955_362A9588)
+        id S1752091AbdDOIqC (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 15 Apr 2017 04:46:02 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+        by mail.us.es (Postfix) with ESMTP id 4D58AE045C
+        for <netdev@vger.kernel.org>; Sat, 15 Apr 2017 10:45:57 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 3E2D3DA391
+        for <netdev@vger.kernel.org>; Sat, 15 Apr 2017 10:45:57 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id A1AC5DA390
+        for <netdev@vger.kernel.org>; Sat, 15 Apr 2017 10:45:53 +0200 (CEST)
+Content-Disposition: inline
+In-Reply-To: <alpine.DEB.2.11.1704141612410.5084@blackhole.kfki.hu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2017-04-14 at 11:42 -0700, Alexei Starovoitov wrote:
+On Fri, Apr 14, 2017 at 04:15:41PM +0200, Jozsef Kadlecsik wrote:
+> Hi Pablo,
+> 
+> On Fri, 14 Apr 2017, Pablo Neira Ayuso wrote:
+> 
+> > On Mon, Apr 10, 2017 at 03:52:37PM -0400, Aaron Conole wrote:
+> > > There are no in-tree callers.
+> > 
+> > @Jozsef, let me know if I should just take this to save you a pull
+> > request.
+> 
+> Just take it, thank you.
+> 
+> Acked-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 
-> bpf takes endianness of the cpu it runs on.
-
-Ok, so then things are actually not as difficult as I thought.
-
-> if we said that bpf 32-bit load insn is little endian, it would have
-> screwed up all big-endian archs and the other way around.
-
-Right.
-
-But then basically we do only need to have builtins for endian
-conversion, and #define them appropriately, as done anywhere else.
-
-Perhaps we want to eventually be able to take advantage of "other-
-endian" loads the CPU may have through the JIT, but getting it correct
-first would be good :)
-
-Either way though, it could be done with something like inline
-assembly.
-
-johannes
+Applied, thanks Jozsef.
