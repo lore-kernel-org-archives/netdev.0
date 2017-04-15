@@ -1,99 +1,68 @@
-From: Sebastian Reichel <sre-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH v3 3/4] bluetooth: hci_uart: add LL protocol serdev
- driver support
-Date: Sat, 15 Apr 2017 21:48:54 +0200
-Message-ID: <20170415194854.byado7bxupbdhivp@earth>
-References: <20170413150353.7389-1-robh@kernel.org>
- <20170413150353.7389-4-robh@kernel.org>
+From: Mel Gorman <mgorman@techsingularity.net>
+Subject: Re: [PATCH] Revert "mm, page_alloc: only use per-cpu allocator for
+ irq-safe requests"
+Date: Sat, 15 Apr 2017 20:57:35 +0100
+Message-ID: <20170415195734.avk2zk237a2oe5cd@techsingularity.net>
+References: <20170415145350.ixy7vtrzdzve57mh@techsingularity.net>
+ <20170415212833.30ed3f2b@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
-        protocol="application/pgp-signature"; boundary="agbrdpyrwwvtb7cb"
-Cc: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
-        linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-        Gustavo Padovan <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>,
-        Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        Wei Xu <xuwei5-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>, Eyal Reizer <eyalr-l0cyMroinI0@public.gmane.org>,
-        Satish Patel <satish.patel-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: text/plain; charset=iso-8859-15
+Cc: Andrew Morton <akpm@linux-foundation.org>, willy@infradead.org,
+	peterz@infradead.org, pagupta@redhat.com, ttoukan.linux@gmail.com,
+	tariqt@mellanox.com, netdev@vger.kernel.org, saeedm@mellanox.com,
+	linux-kernel@vger.kernel.org, linux-mm@kvack.org
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <owner-linux-mm@kvack.org>
 Content-Disposition: inline
-In-Reply-To: <20170413150353.7389-4-robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <20170415212833.30ed3f2b@redhat.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
+On Sat, Apr 15, 2017 at 09:28:33PM +0200, Jesper Dangaard Brouer wrote:
+> On Sat, 15 Apr 2017 15:53:50 +0100
+> Mel Gorman <mgorman@techsingularity.net> wrote:
+> 
+> > This reverts commit 374ad05ab64d696303cec5cc8ec3a65d457b7b1c. While the
+> > patch worked great for userspace allocations, the fact that softirq loses
+> > the per-cpu allocator caused problems. It needs to be redone taking into
+> > account that a separate list is needed for hard/soft IRQs or alternatively
+> > find a cheap way of detecting reentry due to an interrupt. Both are possible
+> > but sufficiently tricky that it shouldn't be rushed. Jesper had one method
+> > for allowing softirqs but reported that the cost was high enough that it
+> > performed similarly to a plain revert. His figures for netperf TCP_STREAM
+> > were as follows
+> > 
+> > Baseline v4.10.0  : 60316 Mbit/s
+> > Current 4.11.0-rc6: 47491 Mbit/s
+> > This patch        : 60662 Mbit/s
+> (should instead state "Jesper's patch" or "His patch")
+> 
 
---agbrdpyrwwvtb7cb
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+Yes, you are correct of course.
 
-Hi,
+> Ran same test (8 parallel netperf TCP_STREAMs) with this patch applied:
+> 
+>  This patch 60106 Mbit/s (average of 7 iteration 60 sec runs)
+> 
+> With these speeds I'm starting to hit the memory bandwidth of my machines.
+> Thus, the 60 GBit/s measurement cannot be used to validate the
+> performance impact of reverting this compared to my softirq patch, it
+> only shows we fixed the regression.  (I'm suspicious as I see a higher
+> contention on the page allocator lock (4% vs 1.3%) with this patch and
+> still same performance... but lets worry about that outside the rc-series).
+> 
 
-On Thu, Apr 13, 2017 at 10:03:52AM -0500, Rob Herring wrote:
-> +static int read_local_version(struct hci_dev *hdev)
-> +{
-> +	int err = 0;
-> +	unsigned short version = 0;
-> +	struct sk_buff *skb;
-> +	struct hci_rp_read_local_version *ver;
-> +
-> +	skb = __hci_cmd_sync(hdev, HCI_OP_READ_LOCAL_VERSION, 0, NULL, HCI_INIT_TIMEOUT);
-> +	if (IS_ERR(skb)) {
-> +		bt_dev_err(hdev, "Reading TI version information failed (%ld)",
-> +			   PTR_ERR(skb));
-> +		err = PTR_ERR(skb);
-> +		goto out;
+Well, in itself that limitation highlights that evaluating this is
+challenging and needs careful treatment. Otherwise two different
+approaches can seem equivalent only because a hardware-related
+bottleneck was at play.
 
-If __hci_cmd_sync() fails the code tries to kfree_skb() an error pointer
-resulting in NULL pointer dereference warning + strack trace. This
-can just return err instead.
+-- 
+Mel Gorman
+SUSE Labs
 
-> +	}
-> +	if (skb->len != sizeof(*ver)) {
-> +		err = -EILSEQ;
-> +		goto out;
-> +	}
-> +
-> +	ver = (struct hci_rp_read_local_version *)skb->data;
-> +	if (le16_to_cpu(ver->manufacturer) != 13) {
-> +		err = -ENODEV;
-> +		goto out;
-> +	}
-> +
-> +	version = le16_to_cpu(ver->lmp_subver);
-> +
-> +out:
-> +	if (err) bt_dev_err(hdev, "Failed to read TI version info: %d", err);
-> +	kfree_skb(skb);
-> +	return err ? err : version;
-> +}
-
--- Sebastian
-
---agbrdpyrwwvtb7cb
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQIzBAABCgAdFiEE72YNB0Y/i3JqeVQT2O7X88g7+poFAljyeSQACgkQ2O7X88g7
-+poEEA/5AYD6nBWwKDCfL7FxsyOf67BEnX+lmrbC/YuheR5Ms+jNTUd6aV3eri4q
-wUKuDQ2/kO8NJG2abB+PYQLwkHfWuGbOyOr0eIdRi7nNRFje2IJIZQ3IItlqP1do
-1H9YiKv5nCo8Q6RKuhr4onYXjGC1SRLLqIioKBIfVK834jadUi/jxllAU4RRdls3
-qqXbGjqLlLhFaMzDTK7OQRKQRlMHoPLUoM4W4qp205fLmBF61AYiTEi3FNdaYi1G
-ShkmzFTnaEpyLtvFlU/dFm50suZgZZ1FN8jrg45P2pJw7XMXiYGP1mA3+EqKNPik
-QT984FMAkObCObHHc1+R5AHeXg16N3P3ReQbGnVJ4yzzaFoGNRWqnT+tYrSVNXAz
-YADpppKu8HCv0wShcxU6l/4PPLKHlqGD1GRFvF+qV1M6Rszwxx4sd3rOl9LPev0K
-EbLXxl4vJUYeLz7xBuG3yLTIFvTdLxw1G9aCvP/AE9gL1Nb9IIT3HXpnCyCL9nDm
-5jRaxyL1IcOGJoO+lCsk1ckmXwzn//2HoTfJdig1ZklcdKJUFPjSAAzirVPZV8cS
-18OqUxWcAetrOyaE4MCiw5GXoP11N38Kc9ner04XOk8I2zGiIrBSK5nM1o3DkU6T
-H4qxH0fCaCDfI2e1TwiZ1g/ToShgE0PvbnFEivpXzPHY3fYvWgo=
-=mBSk
------END PGP SIGNATURE-----
-
---agbrdpyrwwvtb7cb--
 --
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
