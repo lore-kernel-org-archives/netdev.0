@@ -1,47 +1,65 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch iproute2/net-next repost] devlink: Add support for
- pipeline debug (dpipe)
-Date: Sat, 15 Apr 2017 10:59:03 +0200
-Message-ID: <20170415085903.GA2142@nanopsycho.orion>
-References: <1490714657-6116-1-git-send-email-jiri@resnulli.us>
- <1490714814-6724-1-git-send-email-jiri@resnulli.us>
- <20170412164525.1c0468d0@xeon-e3>
- <20170413093027.GA1961@nanopsycho>
- <20170414160138.5f218c11@xeon-e3>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [GIT 0/3] Second Round of IPVS Updates for v4.12
+Date: Sat, 15 Apr 2017 10:59:13 +0200
+Message-ID: <20170415085913.GA3652@salvia>
+References: <1491843515-1627-1-git-send-email-horms@verge.net.au>
+ <20170413230134.GA5724@salvia>
+ <20170413235115.GA5948@verge.net.au>
+ <20170414000625.GB10583@salvia>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, arkadis@mellanox.com,
-        idosch@mellanox.com, mlxsw@mellanox.com, jhs@mojatatu.com,
-        ivecera@redhat.com, roopa@cumulusnetworks.com,
-        f.fainelli@gmail.com, vivien.didelot@savoirfairelinux.com,
-        john.fastabend@gmail.com, andrew@lunn.ch,
-        simon.horman@netronome.com
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:33285 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751511AbdDOI7H (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 15 Apr 2017 04:59:07 -0400
-Received: by mail-wm0-f68.google.com with SMTP id o81so1740522wmb.0
-        for <netdev@vger.kernel.org>; Sat, 15 Apr 2017 01:59:06 -0700 (PDT)
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+        netfilter-devel@vger.kernel.org,
+        Wensong Zhang <wensong@linux-vs.org>,
+        Julian Anastasov <ja@ssi.bg>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <lvs-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20170414160138.5f218c11@xeon-e3>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20170414000625.GB10583@salvia>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Sat, Apr 15, 2017 at 01:01:38AM CEST, stephen@networkplumber.org wrote:
->On Thu, 13 Apr 2017 11:30:27 +0200
->Jiri Pirko <jiri@resnulli.us> wrote:
->
->> We actually took this code from teamdctl (at least it was an influence).
->> Devlink style is so much different in every aspect from the rest of the
->> iproute2 suite. And I did it on purpose, because it is much nicer and
->> easier to read. I would like to continue on this and don't do things in
->> the was the existing tools do. I don't see any problem with that.
->
->No. That is road to ruin. Every package is free to use what ever style
->it wants. But don't crossover please.
+On Fri, Apr 14, 2017 at 02:06:25AM +0200, Pablo Neira Ayuso wrote:
+> On Fri, Apr 14, 2017 at 08:51:19AM +0900, Simon Horman wrote:
+> > On Fri, Apr 14, 2017 at 01:01:34AM +0200, Pablo Neira Ayuso wrote:
+> > > Hi Simon,
+> > > 
+> > > On Mon, Apr 10, 2017 at 09:58:32AM -0700, Simon Horman wrote:
+> > > > Hi Pablo,
+> > > > 
+> > > > please consider these clean-ups and enhancements to IPVS for v4.12.
+> > > > 
+> > > > * Removal unused variable
+> > > > * Use kzalloc where appropriate
+> > > > * More efficient detection of presence of NAT extension
+> > > > 
+> > > > 
+> > > > The following changes since commit 592d42ac7fd36408979e09bf2f170f2595dab7b8:
+> > > > 
+> > > >   Merge branch 'qed-IOV-cleanups' (2017-03-21 19:02:38 -0700)
+> > > > 
+> > > > are available in the git repository at:
+> > > > 
+> > > >   https://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs-next.git ipvs2-for-v4.12
+> > > 
+> > > This says:
+> > > 
+> > > $ git pull
+> > > https://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs-next.git ipvs2-for-v4.12
+> > > fatal: Couldn't find remote ref ipvs2-for-v4.12
+> > > 
+> > > I don't any tag for this name in:
+> > > 
+> > > https://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs-next.git/refs/tags
+> > 
+> > Sorry about that, it looks like I forgot to push the tag.
+> > It should be there now.
+> 
+> I'm hitting a conflict between this and what I have in nf-next.git.
+> 
+> If you can have a look, otherwise I will check tomorrow with fresher
+> mind.
 
-So we are stuck with some ugly way just because some other util does it?
-Well, in devlink I wrote lot of things differently, nicer. For example
-cmdline parsing. Why is it a "road to ruin"?
+Fixed this here.
+
+Pulled, thanks.
