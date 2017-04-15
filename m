@@ -1,120 +1,99 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: TPACKET_V3 timeout bug?
-Date: Sat, 15 Apr 2017 21:40:42 +0200
-Message-ID: <20170415194042.GA5936@lunn.ch>
+From: Sebastian Reichel <sre-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH v3 3/4] bluetooth: hci_uart: add LL protocol serdev
+ driver support
+Date: Sat, 15 Apr 2017 21:48:54 +0200
+Message-ID: <20170415194854.byado7bxupbdhivp@earth>
+References: <20170413150353.7389-1-robh@kernel.org>
+ <20170413150353.7389-4-robh@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:59413 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754504AbdDOTko (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 15 Apr 2017 15:40:44 -0400
-Received: from andrew by vps0.lunn.ch with local (Exim 4.80)
-        (envelope-from <andrew@lunn.ch>)
-        id 1czTYo-0001qD-H3
-        for netdev@vger.kernel.org; Sat, 15 Apr 2017 21:40:42 +0200
+Content-Type: multipart/signed; micalg=pgp-sha512;
+        protocol="application/pgp-signature"; boundary="agbrdpyrwwvtb7cb"
+Cc: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
+        linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+        Gustavo Padovan <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>,
+        Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        Wei Xu <xuwei5-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>, Eyal Reizer <eyalr-l0cyMroinI0@public.gmane.org>,
+        Satish Patel <satish.patel-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-Hi Folks
-
-I'm running this simple program using libpcap:
-
-#include <stdio.h>
-#include <stdint.h>
-#include <pcap/pcap.h>
-#include <stdlib.h>
-
-int main(int argc, char *argv[])
-{
-        struct pcap_pkthdr *hdr;
-        const uint8_t *data;
-        pcap_t *handle;
-        int ret;
+In-Reply-To: <20170413150353.7389-4-robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 
-        handle = pcap_open_live("lan3", 65535, 1, 1000, NULL);
-        if (handle == NULL)
-                exit(EXIT_FAILURE);
+--agbrdpyrwwvtb7cb
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-        while (1) {
-                ret = pcap_next_ex(handle, &hdr, &data);
-                printf("ret: %d\n", ret);
-        }
-}
+Hi,
 
-The man page says:
+On Thu, Apr 13, 2017 at 10:03:52AM -0500, Rob Herring wrote:
+> +static int read_local_version(struct hci_dev *hdev)
+> +{
+> +	int err = 0;
+> +	unsigned short version = 0;
+> +	struct sk_buff *skb;
+> +	struct hci_rp_read_local_version *ver;
+> +
+> +	skb = __hci_cmd_sync(hdev, HCI_OP_READ_LOCAL_VERSION, 0, NULL, HCI_INIT_TIMEOUT);
+> +	if (IS_ERR(skb)) {
+> +		bt_dev_err(hdev, "Reading TI version information failed (%ld)",
+> +			   PTR_ERR(skb));
+> +		err = PTR_ERR(skb);
+> +		goto out;
 
-       pcap_t *pcap_open_live(const char *device, int snaplen,
-               int promisc, int to_ms, char *errbuf);
+If __hci_cmd_sync() fails the code tries to kfree_skb() an error pointer
+resulting in NULL pointer dereference warning + strack trace. This
+can just return err instead.
 
-DESCRIPTION
+> +	}
+> +	if (skb->len != sizeof(*ver)) {
+> +		err = -EILSEQ;
+> +		goto out;
+> +	}
+> +
+> +	ver = (struct hci_rp_read_local_version *)skb->data;
+> +	if (le16_to_cpu(ver->manufacturer) != 13) {
+> +		err = -ENODEV;
+> +		goto out;
+> +	}
+> +
+> +	version = le16_to_cpu(ver->lmp_subver);
+> +
+> +out:
+> +	if (err) bt_dev_err(hdev, "Failed to read TI version info: %d", err);
+> +	kfree_skb(skb);
+> +	return err ? err : version;
+> +}
 
-       pcap_open_live() is used to obtain a packet capture handle to
-       look at packets on the network.  device is a string that
-       specifies the network device to open; on Linux systems with 2.2
-       or later kernels, a device argument of "any" or NULL can be
-       used to capture packets from all interfaces.
+-- Sebastian
 
-       snaplen specifies the snapshot length to be set on the handle.
+--agbrdpyrwwvtb7cb
+Content-Type: application/pgp-signature; name="signature.asc"
 
-       promisc specifies if the interface is to be put into promiscuous mode.
+-----BEGIN PGP SIGNATURE-----
 
-       to_ms specifies the read timeout in milliseconds.
+iQIzBAABCgAdFiEE72YNB0Y/i3JqeVQT2O7X88g7+poFAljyeSQACgkQ2O7X88g7
++poEEA/5AYD6nBWwKDCfL7FxsyOf67BEnX+lmrbC/YuheR5Ms+jNTUd6aV3eri4q
+wUKuDQ2/kO8NJG2abB+PYQLwkHfWuGbOyOr0eIdRi7nNRFje2IJIZQ3IItlqP1do
+1H9YiKv5nCo8Q6RKuhr4onYXjGC1SRLLqIioKBIfVK834jadUi/jxllAU4RRdls3
+qqXbGjqLlLhFaMzDTK7OQRKQRlMHoPLUoM4W4qp205fLmBF61AYiTEi3FNdaYi1G
+ShkmzFTnaEpyLtvFlU/dFm50suZgZZ1FN8jrg45P2pJw7XMXiYGP1mA3+EqKNPik
+QT984FMAkObCObHHc1+R5AHeXg16N3P3ReQbGnVJ4yzzaFoGNRWqnT+tYrSVNXAz
+YADpppKu8HCv0wShcxU6l/4PPLKHlqGD1GRFvF+qV1M6Rszwxx4sd3rOl9LPev0K
+EbLXxl4vJUYeLz7xBuG3yLTIFvTdLxw1G9aCvP/AE9gL1Nb9IIT3HXpnCyCL9nDm
+5jRaxyL1IcOGJoO+lCsk1ckmXwzn//2HoTfJdig1ZklcdKJUFPjSAAzirVPZV8cS
+18OqUxWcAetrOyaE4MCiw5GXoP11N38Kc9ner04XOk8I2zGiIrBSK5nM1o3DkU6T
+H4qxH0fCaCDfI2e1TwiZ1g/ToShgE0PvbnFEivpXzPHY3fYvWgo=
+=mBSk
+-----END PGP SIGNATURE-----
 
-so i'm passing to_ms for 1000ms.
-
-and the man page for pcap_next_ex() says:
-
-RETURN VALUE
-
-       pcap_next_ex() returns 1 if the packet was read without
-       problems, 0 if packets are being read from a live capture and
-       the timeout expired
-
-In my case, lan3 is up and idle, there are no packets flying around to
-be captured. So i would expect pcap_next_ex() to exit once a second,
-with a return value of 0. But it is not, it blocks and stays blocked.
-
-strace shows:
-
-socket(AF_PACKET, SOCK_RAW, 768)        = 3
-ioctl(3, SIOCGIFINDEX, {ifr_name="lo", }) = 0
-ioctl(3, SIOCGIFHWADDR, {ifr_name="lan3", ifr_hwaddr=94:10:3e:80:bc:f3}) = 0
-stat64("/sys/class/net/lan3/wireless", 0xbe9443a0) = -1 ENOENT (No such file or directory)
-ioctl(3, SIOCBONDINFOQUERY, 0xbe944304) = -1 EOPNOTSUPP (Operation not supported)
-ioctl(3, SIOCGIWNAME, 0xbe944354)       = -1 EINVAL (Invalid argument)
-ioctl(3, SIOCGIFINDEX, {ifr_name="lan3", }) = 0
-bind(3, {sa_family=AF_PACKET, sll_protocol=htons(ETH_P_ALL), sll_ifindex=if_nametoindex("lan3"), sll_hatype=ARPHRD_NETROM, sll_pkttype=PACKET_HOST, sll_halen=0}, 20) = 0
-getsockopt(3, SOL_SOCKET, SO_ERROR, [0], [4]) = 0
-setsockopt(3, SOL_PACKET, PACKET_ADD_MEMBERSHIP, {mr_ifindex=5, mr_type=PACKET_MR_PROMISC, mr_alen=0, mr_address=}, 16) = 0
-setsockopt(3, SOL_PACKET, PACKET_AUXDATA, [1], 4) = 0
-getsockopt(3, SOL_SOCKET, SO_BPF_EXTENSIONS, [64], [4]) = 0
-getsockopt(3, SOL_PACKET, PACKET_HDRLEN, [48], [4]) = 0
-setsockopt(3, SOL_PACKET, PACKET_VERSION, [2], 4) = 0
-setsockopt(3, SOL_PACKET, PACKET_RESERVE, [4], 4) = 0
-setsockopt(3, SOL_PACKET, PACKET_RX_RING, 0xbe9445c0, 28) = 0
-mmap2(NULL, 2097152, PROT_READ|PROT_WRITE, MAP_SHARED, 3, 0) = 0xb6c93000
-uname({sysname="Linux", nodename="wrt1900ac", ...}) = 0
-poll([{fd=3, events=POLLIN}], 1, -1
-
-Looking at the libpcap source, the 1000ms timeout is being used as
-part of the setsockopt(3, SOL_PACKET, PACKET_RX_RING, 0xbe9445c0, 28)
-call, req.tp_retire_blk_tov is set to the timeoutval.
-
-And libpcap, when determining the timeout value to pass to poll has
-the comment:
-
-	 * For TPACKET_V3, the timeout is handled by the kernel,
-	 * so block forever; that way, we don't get extra timeouts.
-
-So it is expecting poll() to exit from a blocking call when
-req.tp_retire_blk_tov expires.
-
-So i think there is a bug, or a wrong understanding of the kernel API.
-Any suggestions which?
-
-Thanks
-	Andrew
+--agbrdpyrwwvtb7cb--
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
