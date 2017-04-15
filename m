@@ -1,53 +1,55 @@
 From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [RFC PATCH linux 0/2] net sched actions: access to uninitialized
- data and error handling
-Date: Sat, 15 Apr 2017 12:51:24 -0400
-Message-ID: <08ae66eb-5629-f5d9-f951-2510f041028f@mojatatu.com>
-References: <20170412142140.26649-1-w.bumiller@proxmox.com>
- <CAM_iQpUvt9G+kqHUN9keuXeQ2HEtwTgBrpb3Bkzk6nxzhvdAhA@mail.gmail.com>
- <5da86d13-0e61-8282-614e-b8ade10c75e6@mojatatu.com>
+Subject: [RFC patch 1/1] large netlink dumps
+Date: Sat, 15 Apr 2017 13:07:51 -0400
+Message-ID: <e17f52a6-b2ad-6b39-a655-2e8779a5d192@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Roman Mashak <mrv@mojatatu.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>,
-        Wolfgang Bumiller <w.bumiller@proxmox.com>
+Content-Type: multipart/mixed;
+ boundary="------------D1D219853012C143045ACEF3"
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+        Pablo Neira Ayuso <pablo@netfilter.org>,
+        David Miller <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f194.google.com ([209.85.223.194]:35688 "EHLO
-        mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753827AbdDOQv1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 15 Apr 2017 12:51:27 -0400
-Received: by mail-io0-f194.google.com with SMTP id d203so19290706iof.2
-        for <netdev@vger.kernel.org>; Sat, 15 Apr 2017 09:51:27 -0700 (PDT)
-In-Reply-To: <5da86d13-0e61-8282-614e-b8ade10c75e6@mojatatu.com>
+Received: from mail-it0-f47.google.com ([209.85.214.47]:38192 "EHLO
+        mail-it0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751364AbdDORHy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 15 Apr 2017 13:07:54 -0400
+Received: by mail-it0-f47.google.com with SMTP id e132so6785750ite.1
+        for <netdev@vger.kernel.org>; Sat, 15 Apr 2017 10:07:54 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17-04-15 10:12 AM, Jamal Hadi Salim wrote:
-> On 17-04-12 09:22 PM, Cong Wang wrote:
+This is a multi-part message in MIME format.
+--------------D1D219853012C143045ACEF3
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
 
-> Sorry - didnt get the full thread (the OP managed to post to CC
-> linux kernel list but not me); trying to catch up.
->
-> So the issue if i understood:
-> Policer was created but failed and we the error code mistakenly
-> did a hash_release?
->
-> I do observe an issue if the above was to happen. I think we need
-> two variables instead of one.
-> Will dig through the list.
+Eric,
 
-
-I found them. The patches look sane.
-
-Please resend v2 (the second version of patch 2 where you moved
-module check up) and add my Acked-by.
-Also - please dont cross post to linux kernel list (and Cc me).
-
-I think Roman has  slightly different use case but
-he triggers a related issue your patch seems to address.
+How does attached look instead of the 32K?
+I found it helps to let user space suggest something
+larger.
 
 cheers,
 jamal
+
+--------------D1D219853012C143045ACEF3
+Content-Type: text/plain; charset=UTF-8;
+ name="patch-netlink-large-dump"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment;
+ filename="patch-netlink-large-dump"
+
+ZGlmZiAtLWdpdCBhL25ldC9uZXRsaW5rL2FmX25ldGxpbmsuYyBiL25ldC9uZXRsaW5rL2Fm
+X25ldGxpbmsuYwppbmRleCA3YjczYzdjLi5iYzk4MmVmIDEwMDY0NAotLS0gYS9uZXQvbmV0
+bGluay9hZl9uZXRsaW5rLmMKKysrIGIvbmV0L25ldGxpbmsvYWZfbmV0bGluay5jCkBAIC0x
+ODQ5LDcgKzE4NDksNyBAQCBzdGF0aWMgaW50IG5ldGxpbmtfcmVjdm1zZyhzdHJ1Y3Qgc29j
+a2V0ICpzb2NrLCBzdHJ1Y3QgbXNnaGRyICptc2csIHNpemVfdCBsZW4sCiAJLyogUmVjb3Jk
+IHRoZSBtYXggbGVuZ3RoIG9mIHJlY3Ztc2coKSBjYWxscyBmb3IgZnV0dXJlIGFsbG9jYXRp
+b25zICovCiAJbmxrLT5tYXhfcmVjdm1zZ19sZW4gPSBtYXgobmxrLT5tYXhfcmVjdm1zZ19s
+ZW4sIGxlbik7CiAJbmxrLT5tYXhfcmVjdm1zZ19sZW4gPSBtaW5fdChzaXplX3QsIG5say0+
+bWF4X3JlY3Ztc2dfbGVuLAotCQkJCSAgICAgU0tCX1dJVEhfT1ZFUkhFQUQoMzI3NjgpKTsK
+KwkJCQkgICAgIHNrLT5za19yY3ZidWYgLyA0KTsKIAogCWNvcGllZCA9IGRhdGFfc2tiLT5s
+ZW47CiAJaWYgKGxlbiA8IGNvcGllZCkgewo=
+--------------D1D219853012C143045ACEF3--
