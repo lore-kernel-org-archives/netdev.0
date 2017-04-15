@@ -1,61 +1,40 @@
-From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Subject: Re: [PATCH 06/12] audit: Use timespec64 to represent
-	audit timestamps
-Date: Sat, 15 Apr 2017 10:29:00 +0000
-Message-ID: <CAK8P3a3w_3JKxW6kz-V9roxzf9RwbVgHaK8XjO5OOktVvZ_Sog@mail.gmail.com>
-References: <1491613030-11599-1-git-send-email-deepa.kernel@gmail.com>
-	<1491613030-11599-7-git-send-email-deepa.kernel@gmail.com>
-	<CAHC9VhTYWeKL+BAb6F3tfwzs7OKUEA8ANM=V05sfoiahNNX=9w@mail.gmail.com>
-	<CABeXuvoKmvbo_n3XQ0Y+iWGz88Jr3TwbPA7GiR3pia9407ANLw@mail.gmail.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next v2] Add uid and cookie bpf helper to cg_skb_func_proto
+Date: Sat, 15 Apr 2017 13:30:11 +0200
+Message-ID: <58F20443.4040405@iogearbox.net>
+References: <1492219526-2945-1-git-send-email-chenbofeng.kernel@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: yuchao0-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
-	Chris Mason <clm-b10kYP2dOMg@public.gmane.org>, linux-mtd <linux-mtd-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-	Evgeniy Dushistov <dushistov-JGs/UdohzUI@public.gmane.org>,
-	Jeff Layton <jlayton-vpEMnDpepFuMZCB2o+C8xQ@public.gmane.org>,
-	ceph-devel <ceph-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org, linux-cifs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Paul Moore <paul-r2n+y4ga6xFZroRs9YW3xA@public.gmane.org>,
-	y2038 Mailman List <y2038-cunTk1MwBs8s++Sfvej+rw@public.gmane.org>,
-	Ingo Molnar <mingo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>, "Drokin,
-	Oleg" <oleg.drokin-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, John Stultz <john.stultz-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	Alexander Viro <viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org>, David Sterba <dsterba-IBi9RG/b67k@public.gmane.org>,
-	Jaegeuk Kim <jaegeuk-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>,
-	Josef Bacik <jbacik-b10kYP2dOMg@public.gmane.org>, Greg KH <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	samba-technical-w/Ol4Ecudpl8XjKLYN78aQ@public.gmane.org,
-	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Eric Paris <eparis-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, "Linux F2F
-To: Deepa Dinamani <deepa.kernel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <lustre-devel-bounces-aLEFhgZF4x6X6Mz3xDxJMA@public.gmane.org>
-In-Reply-To: <CABeXuvoKmvbo_n3XQ0Y+iWGz88Jr3TwbPA7GiR3pia9407ANLw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <http://lists.lustre.org/options.cgi/lustre-devel-lustre.org>,
-	<mailto:lustre-devel-request-aLEFhgZF4x6X6Mz3xDxJMA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.lustre.org/pipermail/lustre-devel-lustre.org/>
-List-Post: <mailto:lustre-devel-aLEFhgZF4x6X6Mz3xDxJMA@public.gmane.org>
-List-Help: <mailto:lustre-devel-request-aLEFhgZF4x6X6Mz3xDxJMA@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.lustre.org/listinfo.cgi/lustre-devel-lustre.org>,
-	<mailto:lustre-devel-request-aLEFhgZF4x6X6Mz3xDxJMA@public.gmane.org?subject=subscribe>
-Errors-To: lustre-devel-bounces-aLEFhgZF4x6X6Mz3xDxJMA@public.gmane.org
-Sender: "lustre-devel" <lustre-devel-bounces-aLEFhgZF4x6X6Mz3xDxJMA@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Cc: Lorenzo Colitti <lorenzo@google.com>,
+        Willem de Bruijn <willemb@google.com>,
+        Chenbo Feng <fengc@google.com>
+To: Chenbo Feng <chenbofeng.kernel@gmail.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:41615 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753553AbdDOLaO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 15 Apr 2017 07:30:14 -0400
+In-Reply-To: <1492219526-2945-1-git-send-email-chenbofeng.kernel@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Apr 8, 2017 at 5:58 PM, Deepa Dinamani <deepa.kernel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
->> I have no problem merging this patch into audit/next for v4.12, would
->> you prefer me to do that so at least this patch is merged?
+On 04/15/2017 03:25 AM, Chenbo Feng wrote:
+> From: Chenbo Feng <fengc@google.com>
 >
-> This would be fine.
-> But, I think whoever takes the last 2 deletion patches should also take them.
-> I'm not sure how that part works out.
+> BPF helper functions get_socket_cookie and get_socket_uid can be
+> used for network traffic classifications, among others. Expose
+> them also to programs of type BPF_PROG_TYPE_CGROUP_SKB. As of
+> commit 8f917bba0042 ("bpf: pass sk to helper functions") the
+> required skb->sk function is available at both cgroup bpf ingress
+> and egress hooks. With these two new helper, cg_skb_func_proto is
+> effectively the same as sk_filter_func_proto.
 >
->> It would probably make life a small bit easier for us in the audit
->> world too as it would reduce the potential merge conflict.  However,
->> that's a relatively small thing to worry about.
+> Change since V1:
+> Instead of add the helper to cg_skb_func_proto, redirect the
+> cg_skb_func_proto to sk_filter_func_proto since all helper function
+> in sk_filter_func_proto are applicable to cg_skb_func_proto now.
+>
+> Signed-off-by: Chenbo Feng <fengc@google.com>
 
-As Andrew has picked the remaining patches up into -mm, this will work
-out fine: any patches picked up by the respective maintainers for v4.12
-should arrive as git pull requests before the -mm patches get applied
-at a later stage of the merge window.
-
-     Arnd
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
