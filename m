@@ -1,116 +1,126 @@
-From: rupert THURNER <rupert.thurner@gmail.com>
-Subject: Re: 4.10.9 nok with realtek wlan, atom
-Date: Sun, 16 Apr 2017 12:23:41 +0200
-Message-ID: <CAJs9aZ9Hwnjb60mCycR3T2TWH75ZTdtEeWQ1iHRN+6NkkD+pZA@mail.gmail.com>
-References: <CAJs9aZ8HVPn_J9yPjvdBm-A_d3FiquPMGoy1xFsGopF8Xg_89Q@mail.gmail.com>
- <9e48930c-4822-5af4-2ebb-4d2dcd12d448@lwfinger.net>
+From: David Lebrun <david.lebrun@uclouvain.be>
+Subject: [PATCH net-next 1/1] ipv6: sr: fix BUG due to headroom too small after SRH push
+Date: Sun, 16 Apr 2017 12:27:14 +0200
+Message-ID: <20170416102714.11508-1-david.lebrun@uclouvain.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Bjorn Helgaas <helgaas@kernel.org>, linux-pci@vger.kernel.org,
-        Chaoming Li <chaoming_li@realsil.com.cn>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Larry Finger <Larry.Finger@lwfinger.net>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <9e48930c-4822-5af4-2ebb-4d2dcd12d448@lwfinger.net>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: David Lebrun <david.lebrun@uclouvain.be>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:35945 "EHLO
+        smtp6.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754304AbdDPK1T (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 16 Apr 2017 06:27:19 -0400
+Received: from mailboxes.uclouvain.be (mailboxes.uclouvain.be [130.104.6.131])
+        (using TLSv1.2 with cipher ECDHE-RSA-AES256-SHA384 (256/256 bits))
+        (No client certificate requested)
+        by smtp6.sgsi.ucl.ac.be (Postfix) with ESMTPS id C1C5A67DB2F
+        for <netdev@vger.kernel.org>; Sun, 16 Apr 2017 12:27:04 +0200 (CEST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Apr 15, 2017 at 10:40 PM, Larry Finger
-<Larry.Finger@lwfinger.net> wrote:
-> On 04/14/2017 03:26 PM, rupert THURNER wrote:
->>
->> On Thu, Feb 9, 2017 at 9:09 PM, Larry Finger <Larry.Finger@lwfinger.net>
->> wrote:
->>>
->>> On 02/09/2017 01:43 PM, Bjorn Helgaas wrote:
->>>>
->>>>
->>>> [+cc rtl8192ce folks in case they've seen this]
->>>>
->>>> On Thu, Feb 09, 2017 at 03:45:01PM +0100, rupert THURNER wrote:
->>>>>
->>>>>
->>>>> hi,
->>>>>
->>>>> not technical expert enough, i just wanted to give a short user
->>>>> feedback. for realtek wlan on atom, kernels up to 4.9.5 are ok, and
->>>>> kernel 4.10.0-rc7-g926af6273fc6 (arch linux-git version numbering) as
->>>>> well. kernels 4.9.6, 4.9.7, and 4.9.8 fail, i.e. connection to a WLAN
->>>>> hotspot is possible then drops, or connecting to wlan fails
->>>>> alltogether.
->>>>
->>>>
->>>>
->>>> Thanks very much for your report, and sorry for the inconvenience.
->>>>
->>>> v4.10-rc7 works, so I guess we don't need to worry about fixing v4.10.
->>>>
->>>> But the stable kernels v4.9.6, v4.9.7, and v4.9.8 are broken, so we
->>>> need to figure out why and make sure we fix the v4.9 stable series.
->>>>
->>>> I can't tell yet whether this is PCI-related or not.  If it is,
->>>> 4922a6a5cfa7 ("PCI: Enumerate switches below PCI-to-PCIe bridges")
->>>> appeared in v4.9.6, and there is a known issue with that.  The issue
->>>> should be fixed by 610c2b7ff8f6 ("PCI/ASPM: Handle PCI-to-PCIe bridges
->>>> as roots of PCIe hierarchies"), which appeared in v4.9.9, so I guess
->>>> the first thing to do would be to test v4.9.9.
->>>>
->>>> If it's not fixed in v4.9.9, can you share the complete dmesg log
->>>> (output of "dmesg" command) and "lspci -vv" output for v4.9.5 (last
->>>> known working version) and v4.9.6 (first known broken version)?  On
->>>> v4.9.6, collect the dmesg output after the failure occurs.
->>>>
->>>>> 24: PCI 300.0: 0282 WLAN controller
->>>>>   [Created at pci.366]
->>>>>   Model: "Realtek RTL8188CE 802.11b/g/n WiFi Adapter"
->>>>>   Device: pci 0x8176 "RTL8188CE 802.11b/g/n WiFi Adapter"
->>>>>   Revision: 0x01
->>>>>   Driver: "rtl8192ce"
->>>>>   Driver Modules: "rtl8192ce"
->>>>>   Device File: wlp3s0
->>>>>   Features: WLAN
->>>
->>>
->>>
->>> It would be helpful if someone were to bisect this issue. The only issue
->>> that comes to mind was fixed in commit 52f5631a4c05 ("rtlwifi: rtl8192ce:
->>> Fix loading of incorrect firmware") which is in 4.10-rc7 and will be
->>> backported to 4.9.
->>>
->>> The above issue is one that could not be reproduced on my hardware, thus
->>> it
->>> took Jurij Smakov to find the fix. Without his bisection of the problem,
->>> who
->>> knows how long it would have taken to find my edit mistake.
->>
->>
->> larry, using the newest kernel 4.10.8 the network connection dropps
->> again irregular.
->>
->> # dmesg
->> [    0.000000] Linux version 4.10.9-1-ARCH (builduser@tobias) (gcc
->> version 6.3.1 20170306 (GCC) ) #1 SMP PREEMPT Sat Apr 8 12:39:59 CEST
->> 2017
->> [   11.933373] rtl8192ce: rtl8192ce: Power Save off (module option)
->> [   11.933396] rtl8192ce: Using firmware rtlwifi/rtl8192cfw.bin
->> [   11.978307] ieee80211 phy0: Selected rate control algorithm 'rtl_rc'
->> [   11.978945] rtlwifi: rtlwifi: wireless switch is on
->>
->> # lspci -vv
->> Subsystem: Realtek Semiconductor Co., Ltd. RTL8188CE 802.11b/g/n WiFi
->> Adapter
->> Kernel driver in use: rtl8192ce
->
->
-> Is firmware rtlwifi/rtl8192cfw.bin also used on kernels that work?
+When a locally generated packet receives an SRH with two or more segments,
+the remaining headroom is too small to push an ethernet header. This patch
+ensures that the headroom is large enough after SRH push.
 
-4.10.x used to work. 4.10.6 or 4.10.7 it started failing? i am not too
-sure about it.
+The BUG generated the following trace.
 
-# ls -l /usr/lib/firmware/rtlwifi/rtl8192cfw.bin
--rw-r--r-- 1 root root 16192 Mar 10 12:15
-/usr/lib/firmware/rtlwifi/rtl8192cfw.bin
+[  192.950285] skbuff: skb_under_panic: text:ffffffff81809675 len:198 put:14 head:ffff88006f306400 data:ffff88006f3063fa tail:0xc0 end:0x2c0 dev:A-1
+[  192.952456] ------------[ cut here ]------------
+[  192.953218] kernel BUG at net/core/skbuff.c:105!
+[  192.953411] invalid opcode: 0000 [#1] PREEMPT SMP
+[  192.953411] Modules linked in:
+[  192.953411] CPU: 5 PID: 3433 Comm: ping6 Not tainted 4.11.0-rc3+ #237
+[  192.953411] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS rel-1.10.1-0-g8891697-prebuilt.qemu-project.org 04/01/2014
+[  192.953411] task: ffff88007c2d42c0 task.stack: ffffc90000ef4000
+[  192.953411] RIP: 0010:skb_panic+0x61/0x70
+[  192.953411] RSP: 0018:ffffc90000ef7900 EFLAGS: 00010286
+[  192.953411] RAX: 0000000000000085 RBX: 00000000000086dd RCX: 0000000000000201
+[  192.953411] RDX: 0000000080000201 RSI: ffffffff81d104c5 RDI: 00000000ffffffff
+[  192.953411] RBP: ffffc90000ef7920 R08: 0000000000000001 R09: 0000000000000000
+[  192.953411] R10: 0000000000000000 R11: 0000000000000000 R12: 0000000000000000
+[  192.953411] R13: ffff88007c5a4000 R14: ffff88007b363d80 R15: 00000000000000b8
+[  192.953411] FS:  00007f94b558b700(0000) GS:ffff88007fd40000(0000) knlGS:0000000000000000
+[  192.953411] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+[  192.953411] CR2: 00007fff5ecd5080 CR3: 0000000074141000 CR4: 00000000001406e0
+[  192.953411] Call Trace:
+[  192.953411]  skb_push+0x3b/0x40
+[  192.953411]  eth_header+0x25/0xc0
+[  192.953411]  neigh_resolve_output+0x168/0x230
+[  192.953411]  ? ip6_finish_output2+0x242/0x8f0
+[  192.953411]  ip6_finish_output2+0x242/0x8f0
+[  192.953411]  ? ip6_finish_output2+0x76/0x8f0
+[  192.953411]  ip6_finish_output+0xa8/0x1d0
+[  192.953411]  ip6_output+0x64/0x2d0
+[  192.953411]  ? ip6_output+0x73/0x2d0
+[  192.953411]  ? ip6_dst_check+0xb5/0xc0
+[  192.953411]  ? dst_cache_per_cpu_get.isra.2+0x40/0x80
+[  192.953411]  seg6_output+0xb0/0x220
+[  192.953411]  lwtunnel_output+0xcf/0x210
+[  192.953411]  ? lwtunnel_output+0x59/0x210
+[  192.953411]  ip6_local_out+0x38/0x70
+[  192.953411]  ip6_send_skb+0x2a/0xb0
+[  192.953411]  ip6_push_pending_frames+0x48/0x50
+[  192.953411]  rawv6_sendmsg+0xa39/0xf10
+[  192.953411]  ? __lock_acquire+0x489/0x890
+[  192.953411]  ? __mutex_lock+0x1fc/0x970
+[  192.953411]  ? __lock_acquire+0x489/0x890
+[  192.953411]  ? __mutex_lock+0x1fc/0x970
+[  192.953411]  ? tty_ioctl+0x283/0xec0
+[  192.953411]  inet_sendmsg+0x45/0x1d0
+[  192.953411]  ? _copy_from_user+0x54/0x80
+[  192.953411]  sock_sendmsg+0x33/0x40
+[  192.953411]  SYSC_sendto+0xef/0x170
+[  192.953411]  ? entry_SYSCALL_64_fastpath+0x5/0xc2
+[  192.953411]  ? trace_hardirqs_on_caller+0x12b/0x1b0
+[  192.953411]  ? trace_hardirqs_on_thunk+0x1a/0x1c
+[  192.953411]  SyS_sendto+0x9/0x10
+[  192.953411]  entry_SYSCALL_64_fastpath+0x1f/0xc2
+[  192.953411] RIP: 0033:0x7f94b453db33
+[  192.953411] RSP: 002b:00007fff5ecd0578 EFLAGS: 00000246 ORIG_RAX: 000000000000002c
+[  192.953411] RAX: ffffffffffffffda RBX: 00007fff5ecd16e0 RCX: 00007f94b453db33
+[  192.953411] RDX: 0000000000000040 RSI: 000055a78352e9c0 RDI: 0000000000000003
+[  192.953411] RBP: 00007fff5ecd1690 R08: 000055a78352c940 R09: 000000000000001c
+[  192.953411] R10: 0000000000000000 R11: 0000000000000246 R12: 000055a783321e10
+[  192.953411] R13: 000055a7839890c0 R14: 0000000000000004 R15: 0000000000000000
+[  192.953411] Code: 00 00 48 89 44 24 10 8b 87 c4 00 00 00 48 89 44 24 08 48 8b 87 d8 00 00 00 48 c7 c7 90 58 d2 81 48 89 04 24 31 c0 e8 4f 70 9a ff <0f> 0b 0f 1f 00 66 2e 0f 1f 84 00 00 00 00 00 48 8b 97 d8 00 00
+[  192.953411] RIP: skb_panic+0x61/0x70 RSP: ffffc90000ef7900
+[  193.000186] ---[ end trace bd0b89fabdf2f92c ]---
+[  193.000951] Kernel panic - not syncing: Fatal exception in interrupt
+[  193.001137] Kernel Offset: disabled
+[  193.001169] ---[ end Kernel panic - not syncing: Fatal exception in interrupt
 
-rupert
+Fixes: 19d5a26f5ef8de5dcb78799feaf404d717b1aac3 ("ipv6: sr: expand skb head only if necessary")
+Signed-off-by: David Lebrun <david.lebrun@uclouvain.be>
+---
+ net/ipv6/seg6_iptunnel.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/net/ipv6/seg6_iptunnel.c b/net/ipv6/seg6_iptunnel.c
+index 7436a4a..6a49549 100644
+--- a/net/ipv6/seg6_iptunnel.c
++++ b/net/ipv6/seg6_iptunnel.c
+@@ -265,6 +265,10 @@ static int seg6_input(struct sk_buff *skb)
+ 		skb_dst_set(skb, dst);
+ 	}
+ 
++	err = skb_cow_head(skb, LL_RESERVED_SPACE(dst->dev));
++	if (unlikely(err))
++		return err;
++
+ 	return dst_input(skb);
+ }
+ 
+@@ -310,6 +314,10 @@ static int seg6_output(struct net *net, struct sock *sk, struct sk_buff *skb)
+ 	skb_dst_drop(skb);
+ 	skb_dst_set(skb, dst);
+ 
++	err = skb_cow_head(skb, LL_RESERVED_SPACE(dst->dev));
++	if (unlikely(err))
++		goto drop;
++
+ 	return dst_output(net, sk, skb);
+ drop:
+ 	kfree_skb(skb);
+-- 
+2.10.2
