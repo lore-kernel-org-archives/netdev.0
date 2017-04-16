@@ -1,98 +1,25 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Subject: [PATCH 3.18 043/145] [PATCH 093/760] net: sctp, forbid negative length
-Date: Sun, 16 Apr 2017 12:48:56 +0200
-Message-ID: <20170416080202.784111731@linuxfoundation.org>
-References: <20170416080200.205458595@linuxfoundation.org>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH RFC ipsec-next 0/14] IPsec hardware offloding API
+Date: Sun, 16 Apr 2017 13:49:24 +0200
+Message-ID: <20170416114924.GD5340@secunet.com>
+References: <1491978413-5700-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        stable@vger.kernel.org, Jiri Slaby <jslaby@suse.cz>,
-        Vlad Yasevich <vyasevich@gmail.com>,
-        Neil Horman <nhorman@tuxdriver.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        linux-sctp@vger.kernel.org, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170416080200.205458595@linuxfoundation.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: Ilan Tayari <ilant@mellanox.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([62.96.220.36]:46578 "EHLO a.mx.secunet.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754438AbdDPLt2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 16 Apr 2017 07:49:28 -0400
+Content-Disposition: inline
+In-Reply-To: <1491978413-5700-1-git-send-email-steffen.klassert@secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-3.18-stable review patch.  If anyone has any objections, please let me know.
+On Wed, Apr 12, 2017 at 08:26:39AM +0200, Steffen Klassert wrote:
+> This patchset adds the basic infrastructure for IPsec hardware
+> offloading, it creates a configuration API and adjusts the
+> packet path.
 
-------------------
-
-From: Jiri Slaby <jslaby@suse.cz>
-
-
-[ Upstream commit a4b8e71b05c27bae6bad3bdecddbc6b68a3ad8cf ]
-
-Most of getsockopt handlers in net/sctp/socket.c check len against
-sizeof some structure like:
-        if (len < sizeof(int))
-                return -EINVAL;
-
-On the first look, the check seems to be correct. But since len is int
-and sizeof returns size_t, int gets promoted to unsigned size_t too. So
-the test returns false for negative lengths. Yes, (-1 < sizeof(long)) is
-false.
-
-Fix this in sctp by explicitly checking len < 0 before any getsockopt
-handler is called.
-
-Note that sctp_getsockopt_events already handled the negative case.
-Since we added the < 0 check elsewhere, this one can be removed.
-
-If not checked, this is the result:
-UBSAN: Undefined behaviour in ../mm/page_alloc.c:2722:19
-shift exponent 52 is too large for 32-bit type 'int'
-CPU: 1 PID: 24535 Comm: syz-executor Not tainted 4.8.1-0-syzkaller #1
-Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS rel-1.9.1-0-gb3ef39f-prebuilt.qemu-project.org 04/01/2014
- 0000000000000000 ffff88006d99f2a8 ffffffffb2f7bdea 0000000041b58ab3
- ffffffffb4363c14 ffffffffb2f7bcde ffff88006d99f2d0 ffff88006d99f270
- 0000000000000000 0000000000000000 0000000000000034 ffffffffb5096422
-Call Trace:
- [<ffffffffb3051498>] ? __ubsan_handle_shift_out_of_bounds+0x29c/0x300
-...
- [<ffffffffb273f0e4>] ? kmalloc_order+0x24/0x90
- [<ffffffffb27416a4>] ? kmalloc_order_trace+0x24/0x220
- [<ffffffffb2819a30>] ? __kmalloc+0x330/0x540
- [<ffffffffc18c25f4>] ? sctp_getsockopt_local_addrs+0x174/0xca0 [sctp]
- [<ffffffffc18d2bcd>] ? sctp_getsockopt+0x10d/0x1b0 [sctp]
- [<ffffffffb37c1219>] ? sock_common_getsockopt+0xb9/0x150
- [<ffffffffb37be2f5>] ? SyS_getsockopt+0x1a5/0x270
-
-Signed-off-by: Jiri Slaby <jslaby@suse.cz>
-Cc: Vlad Yasevich <vyasevich@gmail.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: linux-sctp@vger.kernel.org
-Cc: netdev@vger.kernel.org
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
-Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
----
- net/sctp/socket.c |    5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
-
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -4385,7 +4385,7 @@ static int sctp_getsockopt_disable_fragm
- static int sctp_getsockopt_events(struct sock *sk, int len, char __user *optval,
- 				  int __user *optlen)
- {
--	if (len <= 0)
-+	if (len == 0)
- 		return -EINVAL;
- 	if (len > sizeof(struct sctp_event_subscribe))
- 		len = sizeof(struct sctp_event_subscribe);
-@@ -5981,6 +5981,9 @@ static int sctp_getsockopt(struct sock *
- 	if (get_user(len, optlen))
- 		return -EFAULT;
- 
-+	if (len < 0)
-+		return -EINVAL;
-+
- 	lock_sock(sk);
- 
- 	switch (optname) {
+This is now applied to ipsec-next.
