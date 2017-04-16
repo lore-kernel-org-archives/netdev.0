@@ -1,90 +1,116 @@
-From: <ilant@mellanox.com>
-Subject: [PATCH] gso: Validate assumption of frag_list segementation
-Date: Sun, 16 Apr 2017 11:00:07 +0300
-Message-ID: <20170416080007.15990-1-ilant@mellanox.com>
+From: rupert THURNER <rupert.thurner@gmail.com>
+Subject: Re: 4.10.9 nok with realtek wlan, atom
+Date: Sun, 16 Apr 2017 12:23:41 +0200
+Message-ID: <CAJs9aZ9Hwnjb60mCycR3T2TWH75ZTdtEeWQ1iHRN+6NkkD+pZA@mail.gmail.com>
+References: <CAJs9aZ8HVPn_J9yPjvdBm-A_d3FiquPMGoy1xFsGopF8Xg_89Q@mail.gmail.com>
+ <9e48930c-4822-5af4-2ebb-4d2dcd12d448@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        Steffen Klassert <steffen.klassert@secunet.com>,
-        Boris Pismenny <borisp@mellanox.com>,
-        Ilya Lesokhin <ilyal@mellanox.com>,
-        Ilan Tayari <ilant@mellanox.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve1eur01on0043.outbound.protection.outlook.com ([104.47.1.43]:43340
-        "EHLO EUR01-VE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1754553AbdDPIAc (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 16 Apr 2017 04:00:32 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Bjorn Helgaas <helgaas@kernel.org>, linux-pci@vger.kernel.org,
+        Chaoming Li <chaoming_li@realsil.com.cn>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Larry Finger <Larry.Finger@lwfinger.net>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <9e48930c-4822-5af4-2ebb-4d2dcd12d448@lwfinger.net>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ilan Tayari <ilant@mellanox.com>
+On Sat, Apr 15, 2017 at 10:40 PM, Larry Finger
+<Larry.Finger@lwfinger.net> wrote:
+> On 04/14/2017 03:26 PM, rupert THURNER wrote:
+>>
+>> On Thu, Feb 9, 2017 at 9:09 PM, Larry Finger <Larry.Finger@lwfinger.net>
+>> wrote:
+>>>
+>>> On 02/09/2017 01:43 PM, Bjorn Helgaas wrote:
+>>>>
+>>>>
+>>>> [+cc rtl8192ce folks in case they've seen this]
+>>>>
+>>>> On Thu, Feb 09, 2017 at 03:45:01PM +0100, rupert THURNER wrote:
+>>>>>
+>>>>>
+>>>>> hi,
+>>>>>
+>>>>> not technical expert enough, i just wanted to give a short user
+>>>>> feedback. for realtek wlan on atom, kernels up to 4.9.5 are ok, and
+>>>>> kernel 4.10.0-rc7-g926af6273fc6 (arch linux-git version numbering) as
+>>>>> well. kernels 4.9.6, 4.9.7, and 4.9.8 fail, i.e. connection to a WLAN
+>>>>> hotspot is possible then drops, or connecting to wlan fails
+>>>>> alltogether.
+>>>>
+>>>>
+>>>>
+>>>> Thanks very much for your report, and sorry for the inconvenience.
+>>>>
+>>>> v4.10-rc7 works, so I guess we don't need to worry about fixing v4.10.
+>>>>
+>>>> But the stable kernels v4.9.6, v4.9.7, and v4.9.8 are broken, so we
+>>>> need to figure out why and make sure we fix the v4.9 stable series.
+>>>>
+>>>> I can't tell yet whether this is PCI-related or not.  If it is,
+>>>> 4922a6a5cfa7 ("PCI: Enumerate switches below PCI-to-PCIe bridges")
+>>>> appeared in v4.9.6, and there is a known issue with that.  The issue
+>>>> should be fixed by 610c2b7ff8f6 ("PCI/ASPM: Handle PCI-to-PCIe bridges
+>>>> as roots of PCIe hierarchies"), which appeared in v4.9.9, so I guess
+>>>> the first thing to do would be to test v4.9.9.
+>>>>
+>>>> If it's not fixed in v4.9.9, can you share the complete dmesg log
+>>>> (output of "dmesg" command) and "lspci -vv" output for v4.9.5 (last
+>>>> known working version) and v4.9.6 (first known broken version)?  On
+>>>> v4.9.6, collect the dmesg output after the failure occurs.
+>>>>
+>>>>> 24: PCI 300.0: 0282 WLAN controller
+>>>>>   [Created at pci.366]
+>>>>>   Model: "Realtek RTL8188CE 802.11b/g/n WiFi Adapter"
+>>>>>   Device: pci 0x8176 "RTL8188CE 802.11b/g/n WiFi Adapter"
+>>>>>   Revision: 0x01
+>>>>>   Driver: "rtl8192ce"
+>>>>>   Driver Modules: "rtl8192ce"
+>>>>>   Device File: wlp3s0
+>>>>>   Features: WLAN
+>>>
+>>>
+>>>
+>>> It would be helpful if someone were to bisect this issue. The only issue
+>>> that comes to mind was fixed in commit 52f5631a4c05 ("rtlwifi: rtl8192ce:
+>>> Fix loading of incorrect firmware") which is in 4.10-rc7 and will be
+>>> backported to 4.9.
+>>>
+>>> The above issue is one that could not be reproduced on my hardware, thus
+>>> it
+>>> took Jurij Smakov to find the fix. Without his bisection of the problem,
+>>> who
+>>> knows how long it would have taken to find my edit mistake.
+>>
+>>
+>> larry, using the newest kernel 4.10.8 the network connection dropps
+>> again irregular.
+>>
+>> # dmesg
+>> [    0.000000] Linux version 4.10.9-1-ARCH (builduser@tobias) (gcc
+>> version 6.3.1 20170306 (GCC) ) #1 SMP PREEMPT Sat Apr 8 12:39:59 CEST
+>> 2017
+>> [   11.933373] rtl8192ce: rtl8192ce: Power Save off (module option)
+>> [   11.933396] rtl8192ce: Using firmware rtlwifi/rtl8192cfw.bin
+>> [   11.978307] ieee80211 phy0: Selected rate control algorithm 'rtl_rc'
+>> [   11.978945] rtlwifi: rtlwifi: wireless switch is on
+>>
+>> # lspci -vv
+>> Subsystem: Realtek Semiconductor Co., Ltd. RTL8188CE 802.11b/g/n WiFi
+>> Adapter
+>> Kernel driver in use: rtl8192ce
+>
+>
+> Is firmware rtlwifi/rtl8192cfw.bin also used on kernels that work?
 
-Commit 07b26c9454a2 ("gso: Support partial splitting at the frag_list
-pointer") assumes that all SKBs in a frag_list (except maybe the last
-one) contain the same amount of GSO payload.
+4.10.x used to work. 4.10.6 or 4.10.7 it started failing? i am not too
+sure about it.
 
-This assumption is not always correct, resulting in the following
-warning message in the log:
-    skb_segment: too many frags
+# ls -l /usr/lib/firmware/rtlwifi/rtl8192cfw.bin
+-rw-r--r-- 1 root root 16192 Mar 10 12:15
+/usr/lib/firmware/rtlwifi/rtl8192cfw.bin
 
-For example, mlx5 driver in Striding RQ mode creates some RX SKBs with
-one frag, and some with 2 frags.
-After GRO, the frag_list SKBs end up having different amounts of payload.
-If this frag_list SKB is then forwarded, the aforementioned assumption
-is violated.
-
-Validate the assumption, and fall back to software GSO if it not true.
-
-Fixes: 07b26c9454a2 ("gso: Support partial splitting at the frag_list pointer")
-Signed-off-by: Ilan Tayari <ilant@mellanox.com>
-Signed-off-by: Ilya Lesokhin <ilyal@mellanox.com>
----
- net/core/skbuff.c | 18 ++++++++++++++----
- 1 file changed, 14 insertions(+), 4 deletions(-)
-
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 5d9a11eafbf5..ad2af563756a 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -3082,22 +3082,32 @@ struct sk_buff *skb_segment(struct sk_buff *head_skb,
- 	if (sg && csum && (mss != GSO_BY_FRAGS))  {
- 		if (!(features & NETIF_F_GSO_PARTIAL)) {
- 			struct sk_buff *iter;
-+			unsigned int frag_len;
- 
- 			if (!list_skb ||
- 			    !net_gso_ok(features, skb_shinfo(head_skb)->gso_type))
- 				goto normal;
- 
--			/* Split the buffer at the frag_list pointer.
--			 * This is based on the assumption that all
--			 * buffers in the chain excluding the last
--			 * containing the same amount of data.
-+			/* If we get here then all the required
-+			 * GSO features except frag_list are supported.
-+			 * Try to split the SKB to multiple GSO SKBs
-+			 * with no frag_list.
-+			 * Currently we can do that only when the buffers don't
-+			 * have a linear part and all the buffers except
-+			 * the last are of the same length.
- 			 */
-+			frag_len = list_skb->len;
- 			skb_walk_frags(head_skb, iter) {
-+				if (frag_len != iter->len && iter->next)
-+					goto normal;
- 				if (skb_headlen(iter) && !iter->head_frag)
- 					goto normal;
- 
- 				len -= iter->len;
- 			}
-+
-+			if (len != frag_len)
-+				goto normal;
- 		}
- 
- 		/* GSO partial only requires that we trim off any excess that
--- 
-2.11.0
+rupert
