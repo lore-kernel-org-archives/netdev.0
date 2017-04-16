@@ -1,54 +1,56 @@
-From: <cbordinaro@csudh.edu>
-Subject: (unknown)
-Date: Sun, 16 Apr 2017 18:50:44 -0000
-Message-ID: <149236864485.20711.4643356016786476236@bol-online.com>
+From: Chonggang Li <chonggangli@google.com>
+Subject: [PATCH net-next v2] bonding: deliver link-local packets with skb->dev set to link that packets arrived on
+Date: Sun, 16 Apr 2017 12:02:18 -0700
+Message-ID: <20170416190218.57224-1-chonggangli@google.com>
 Mime-Version: 1.0
-Content-Type: application/zip; name="EMAIL_165222_netdev.zip"
-Content-Transfer-Encoding: base64
-To: "netdev" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, Chonggang Li <chonggangli@google.com>,
+        Mahesh Bandewar <maheshb@google.com>,
+        =?UTF-8?q?Maciej=20=C5=BBenczykowski?= <maze@google.com>
+To: j.vosburgh@gmail.com, andy@greyhouse.net, vfalico@gmail.com,
+        nikolay@redhat.com, edumazet@google.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from SITA-Sylhet-PC2.bol-online.com ([122.144.10.134]:51474 "HELO
-        bol-online.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-        with SMTP id S1756557AbdDPSus (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 16 Apr 2017 14:50:48 -0400
-Content-Disposition: attachment
-Subject: 
+Received: from mail-pf0-f174.google.com ([209.85.192.174]:36372 "EHLO
+        mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756597AbdDPTDb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 16 Apr 2017 15:03:31 -0400
+Received: by mail-pf0-f174.google.com with SMTP id 194so18217901pfv.3
+        for <netdev@vger.kernel.org>; Sun, 16 Apr 2017 12:03:31 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-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
-AAAAAA==
+Bonding driver changes the skb->dev to the bonding-master before
+passing the packet to stack for further processing. This, however
+does not make sense for the link-local packets and it looses "the
+link info" once its skb->dev is changed to bonding-master.  This
+patch changes this behavior for link-local packets by not changing
+the skb->dev to the bonding-master and maintaining it as it is,
+i.e. the link on which the packet arrived.
+
+Signed-off-by: Chonggang Li <chonggangli@google.com>
+Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+Signed-off-by: Maciej Żenczykowski <maze@google.com>
+---
+Changes in v2:
+  - Make the commit message more clearer.
+
+ drivers/net/bonding/bond_main.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 01e4a69af421..6bd3b50faf48 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1176,6 +1176,9 @@ static rx_handler_result_t bond_handle_frame(struct sk_buff **pskb)
+ 		}
+ 	}
+ 
++	/* don't change skb->dev for link-local packets */
++	if (is_link_local_ether_addr(eth_hdr(skb)->h_dest))
++		return RX_HANDLER_PASS;
+ 	if (bond_should_deliver_exact_match(skb, slave, bond))
+ 		return RX_HANDLER_EXACT;
+ 
+-- 
+2.12.2.762.g0e3151a226-goog
