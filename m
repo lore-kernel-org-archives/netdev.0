@@ -1,54 +1,90 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC patch 1/1] large netlink dumps
-Date: Sat, 15 Apr 2017 20:08:57 -0700
-Message-ID: <1492312137.10587.87.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <e17f52a6-b2ad-6b39-a655-2e8779a5d192@mojatatu.com>
+From: <ilant@mellanox.com>
+Subject: [PATCH] gso: Validate assumption of frag_list segementation
+Date: Sun, 16 Apr 2017 11:00:07 +0300
+Message-ID: <20170416080007.15990-1-ilant@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-        Pablo Neira Ayuso <pablo@netfilter.org>,
-        David Miller <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Content-Type: text/plain
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        Steffen Klassert <steffen.klassert@secunet.com>,
+        Boris Pismenny <borisp@mellanox.com>,
+        Ilya Lesokhin <ilyal@mellanox.com>,
+        Ilan Tayari <ilant@mellanox.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:33859 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754704AbdDPDJA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 15 Apr 2017 23:09:00 -0400
-Received: by mail-pf0-f194.google.com with SMTP id g23so5288473pfj.1
-        for <netdev@vger.kernel.org>; Sat, 15 Apr 2017 20:08:59 -0700 (PDT)
-In-Reply-To: <e17f52a6-b2ad-6b39-a655-2e8779a5d192@mojatatu.com>
+Received: from mail-ve1eur01on0043.outbound.protection.outlook.com ([104.47.1.43]:43340
+        "EHLO EUR01-VE1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1754553AbdDPIAc (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 16 Apr 2017 04:00:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2017-04-15 at 13:07 -0400, Jamal Hadi Salim wrote:
-> Eric,
-> 
-> How does attached look instead of the 32K?
-> I found it helps to let user space suggest something
-> larger.
-> 
-> cheers,
-> jamal
+From: Ilan Tayari <ilant@mellanox.com>
 
-Looks dangerous to me, for various reasons.
+Commit 07b26c9454a2 ("gso: Support partial splitting at the frag_list
+pointer") assumes that all SKBs in a frag_list (except maybe the last
+one) contain the same amount of GSO payload.
 
-1) Memory allocations might not like it
+This assumption is not always correct, resulting in the following
+warning message in the log:
+    skb_segment: too many frags
 
-Have you tried your change after user does a
-setsockopt(    SO_RCVBUFFORCE,  256 Mbytes), and a 
-recvmsg ( .. 64 Mbytes) ?
+For example, mlx5 driver in Striding RQ mode creates some RX SKBs with
+one frag, and some with 2 frags.
+After GRO, the frag_list SKBs end up having different amounts of payload.
+If this frag_list SKB is then forwarded, the aforementioned assumption
+is violated.
 
-Presumably, we could replace 32768 by (PAGE_SIZE <<
-PAGE_ALLOC_COSTLY_ORDER), but this will not matter on x86.
+Validate the assumption, and fall back to software GSO if it not true.
 
-2) We might have paths in the kernel filling a potential big skb without
-yielding cpu or a spinlock or a mutex. -> latency source.
+Fixes: 07b26c9454a2 ("gso: Support partial splitting at the frag_list pointer")
+Signed-off-by: Ilan Tayari <ilant@mellanox.com>
+Signed-off-by: Ilya Lesokhin <ilyal@mellanox.com>
+---
+ net/core/skbuff.c | 18 ++++++++++++++----
+ 1 file changed, 14 insertions(+), 4 deletions(-)
 
-
-What perf numbers do you have, using 1MB buffers instead of 32KB ?
-
-The syscall overhead seems tiny compared to the actual cost of filling
-the netlink message, accessing thousands of cache lines all over the
-places.
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 5d9a11eafbf5..ad2af563756a 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -3082,22 +3082,32 @@ struct sk_buff *skb_segment(struct sk_buff *head_skb,
+ 	if (sg && csum && (mss != GSO_BY_FRAGS))  {
+ 		if (!(features & NETIF_F_GSO_PARTIAL)) {
+ 			struct sk_buff *iter;
++			unsigned int frag_len;
+ 
+ 			if (!list_skb ||
+ 			    !net_gso_ok(features, skb_shinfo(head_skb)->gso_type))
+ 				goto normal;
+ 
+-			/* Split the buffer at the frag_list pointer.
+-			 * This is based on the assumption that all
+-			 * buffers in the chain excluding the last
+-			 * containing the same amount of data.
++			/* If we get here then all the required
++			 * GSO features except frag_list are supported.
++			 * Try to split the SKB to multiple GSO SKBs
++			 * with no frag_list.
++			 * Currently we can do that only when the buffers don't
++			 * have a linear part and all the buffers except
++			 * the last are of the same length.
+ 			 */
++			frag_len = list_skb->len;
+ 			skb_walk_frags(head_skb, iter) {
++				if (frag_len != iter->len && iter->next)
++					goto normal;
+ 				if (skb_headlen(iter) && !iter->head_frag)
+ 					goto normal;
+ 
+ 				len -= iter->len;
+ 			}
++
++			if (len != frag_len)
++				goto normal;
+ 		}
+ 
+ 		/* GSO partial only requires that we trim off any excess that
+-- 
+2.11.0
