@@ -1,121 +1,96 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: 4.10.9 nok with realtek wlan, atom
-Date: Sun, 16 Apr 2017 11:02:32 -0500
-Message-ID: <40bc6004-519c-7bf1-874b-3ae169140637@lwfinger.net>
-References: <CAJs9aZ8HVPn_J9yPjvdBm-A_d3FiquPMGoy1xFsGopF8Xg_89Q@mail.gmail.com>
- <9e48930c-4822-5af4-2ebb-4d2dcd12d448@lwfinger.net>
- <CAJs9aZ9Hwnjb60mCycR3T2TWH75ZTdtEeWQ1iHRN+6NkkD+pZA@mail.gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [RFC patch 1/1] large netlink dumps
+Date: Sun, 16 Apr 2017 09:37:08 -0700
+Message-ID: <20170416093708.6e95aedd@xeon-e3>
+References: <e17f52a6-b2ad-6b39-a655-2e8779a5d192@mojatatu.com>
+        <1492312137.10587.87.camel@edumazet-glaptop3.roam.corp.google.com>
+        <ae839ce5-351b-f351-3852-2d9f78669efb@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Bjorn Helgaas <helgaas@kernel.org>, linux-pci@vger.kernel.org,
-        Chaoming Li <chaoming_li@realsil.com.cn>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: rupert THURNER <rupert.thurner@gmail.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <CAJs9aZ9Hwnjb60mCycR3T2TWH75ZTdtEeWQ1iHRN+6NkkD+pZA@mail.gmail.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+        Johannes Berg <johannes@sipsolutions.net>,
+        Pablo Neira Ayuso <pablo@netfilter.org>,
+        David Miller <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f172.google.com ([209.85.192.172]:33598 "EHLO
+        mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756115AbdDPQhR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 16 Apr 2017 12:37:17 -0400
+Received: by mail-pf0-f172.google.com with SMTP id s16so56939138pfs.0
+        for <netdev@vger.kernel.org>; Sun, 16 Apr 2017 09:37:16 -0700 (PDT)
+In-Reply-To: <ae839ce5-351b-f351-3852-2d9f78669efb@mojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04/16/2017 05:23 AM, rupert THURNER wrote:
-> On Sat, Apr 15, 2017 at 10:40 PM, Larry Finger
-> <Larry.Finger@lwfinger.net> wrote:
->> On 04/14/2017 03:26 PM, rupert THURNER wrote:
->>>
->>> On Thu, Feb 9, 2017 at 9:09 PM, Larry Finger <Larry.Finger@lwfinger.net>
->>> wrote:
->>>>
->>>> On 02/09/2017 01:43 PM, Bjorn Helgaas wrote:
->>>>>
->>>>>
->>>>> [+cc rtl8192ce folks in case they've seen this]
->>>>>
->>>>> On Thu, Feb 09, 2017 at 03:45:01PM +0100, rupert THURNER wrote:
->>>>>>
->>>>>>
->>>>>> hi,
->>>>>>
->>>>>> not technical expert enough, i just wanted to give a short user
->>>>>> feedback. for realtek wlan on atom, kernels up to 4.9.5 are ok, and
->>>>>> kernel 4.10.0-rc7-g926af6273fc6 (arch linux-git version numbering) as
->>>>>> well. kernels 4.9.6, 4.9.7, and 4.9.8 fail, i.e. connection to a WLAN
->>>>>> hotspot is possible then drops, or connecting to wlan fails
->>>>>> alltogether.
->>>>>
->>>>>
->>>>>
->>>>> Thanks very much for your report, and sorry for the inconvenience.
->>>>>
->>>>> v4.10-rc7 works, so I guess we don't need to worry about fixing v4.10.
->>>>>
->>>>> But the stable kernels v4.9.6, v4.9.7, and v4.9.8 are broken, so we
->>>>> need to figure out why and make sure we fix the v4.9 stable series.
->>>>>
->>>>> I can't tell yet whether this is PCI-related or not.  If it is,
->>>>> 4922a6a5cfa7 ("PCI: Enumerate switches below PCI-to-PCIe bridges")
->>>>> appeared in v4.9.6, and there is a known issue with that.  The issue
->>>>> should be fixed by 610c2b7ff8f6 ("PCI/ASPM: Handle PCI-to-PCIe bridges
->>>>> as roots of PCIe hierarchies"), which appeared in v4.9.9, so I guess
->>>>> the first thing to do would be to test v4.9.9.
->>>>>
->>>>> If it's not fixed in v4.9.9, can you share the complete dmesg log
->>>>> (output of "dmesg" command) and "lspci -vv" output for v4.9.5 (last
->>>>> known working version) and v4.9.6 (first known broken version)?  On
->>>>> v4.9.6, collect the dmesg output after the failure occurs.
->>>>>
->>>>>> 24: PCI 300.0: 0282 WLAN controller
->>>>>>   [Created at pci.366]
->>>>>>   Model: "Realtek RTL8188CE 802.11b/g/n WiFi Adapter"
->>>>>>   Device: pci 0x8176 "RTL8188CE 802.11b/g/n WiFi Adapter"
->>>>>>   Revision: 0x01
->>>>>>   Driver: "rtl8192ce"
->>>>>>   Driver Modules: "rtl8192ce"
->>>>>>   Device File: wlp3s0
->>>>>>   Features: WLAN
->>>>
->>>>
->>>>
->>>> It would be helpful if someone were to bisect this issue. The only issue
->>>> that comes to mind was fixed in commit 52f5631a4c05 ("rtlwifi: rtl8192ce:
->>>> Fix loading of incorrect firmware") which is in 4.10-rc7 and will be
->>>> backported to 4.9.
->>>>
->>>> The above issue is one that could not be reproduced on my hardware, thus
->>>> it
->>>> took Jurij Smakov to find the fix. Without his bisection of the problem,
->>>> who
->>>> knows how long it would have taken to find my edit mistake.
->>>
->>>
->>> larry, using the newest kernel 4.10.8 the network connection dropps
->>> again irregular.
->>>
->>> # dmesg
->>> [    0.000000] Linux version 4.10.9-1-ARCH (builduser@tobias) (gcc
->>> version 6.3.1 20170306 (GCC) ) #1 SMP PREEMPT Sat Apr 8 12:39:59 CEST
->>> 2017
->>> [   11.933373] rtl8192ce: rtl8192ce: Power Save off (module option)
->>> [   11.933396] rtl8192ce: Using firmware rtlwifi/rtl8192cfw.bin
->>> [   11.978307] ieee80211 phy0: Selected rate control algorithm 'rtl_rc'
->>> [   11.978945] rtlwifi: rtlwifi: wireless switch is on
->>>
->>> # lspci -vv
->>> Subsystem: Realtek Semiconductor Co., Ltd. RTL8188CE 802.11b/g/n WiFi
->>> Adapter
->>> Kernel driver in use: rtl8192ce
->>
->>
->> Is firmware rtlwifi/rtl8192cfw.bin also used on kernels that work?
->
-> 4.10.x used to work. 4.10.6 or 4.10.7 it started failing? i am not too
-> sure about it.
->
-> # ls -l /usr/lib/firmware/rtlwifi/rtl8192cfw.bin
-> -rw-r--r-- 1 root root 16192 Mar 10 12:15
-> /usr/lib/firmware/rtlwifi/rtl8192cfw.bin
+On Sun, 16 Apr 2017 09:03:08 -0400
+Jamal Hadi Salim <jhs@mojatatu.com> wrote:
 
-That does not answer my question.
+> On 17-04-15 11:08 PM, Eric Dumazet wrote:
+> > On Sat, 2017-04-15 at 13:07 -0400, Jamal Hadi Salim wrote:  
+> >> Eric,
+> >>
+> >> How does attached look instead of the 32K?
+> >> I found it helps to let user space suggest something
+> >> larger.
+> >>
+> >> cheers,
+> >> jamal  
+> >
+> > Looks dangerous to me, for various reasons.
+> >
+> > 1) Memory allocations might not like it
+> >
+> > Have you tried your change after user does a
+> > setsockopt(    SO_RCVBUFFORCE,  256 Mbytes), and a
+> > recvmsg ( .. 64 Mbytes) ?
+> >
+> > Presumably, we could replace 32768 by (PAGE_SIZE <<
+> > PAGE_ALLOC_COSTLY_ORDER), but this will not matter on x86.
+> >  
+> 
+> For my use case I dont need to go that high, but i can see
+> plausibility that someone else will. Is there a reasonable
+> large number other than 32K? 128K-512K would be way sufficient.
 
-Larry
+It was common with routing daemons to set SO_RCVBUF to very large values
+to avoid losing notifications.
+
+> > 2) We might have paths in the kernel filling a potential big skb without
+> > yielding cpu or a spinlock or a mutex. -> latency source.
+> >
+> >
+> > What perf numbers do you have, using 1MB buffers instead of 32KB ?
+> >
+> > The syscall overhead seems tiny compared to the actual cost of filling
+> > the netlink message, accessing thousands of cache lines all over the
+> > places.
+> >  
+> 
+> sycall is affecting me - but I have only compared with limited
+> traffic running at the same time as dumping. The more i can batch
+> the sooner i can stop polluting the cache.
+> 
+> The tests I have done are with a default socket buffer of 4M
+> and say recvmsg(... 128K). I dont need to go higher
+> that 256-512K to achieve my goals.
+> With default of 32K I can fit about 250-60 actions in one batch.
+> With 128K I can fit 4x that.
+> It takes about 1.5 minutes for one process to dump 1M actions
+> on my laptop (Intel(R) Core(TM) i7-5500U CPU @ 2.40GHz) with
+> 32K; 25% of that time with 128K. tc is single threaded, so i can
+> keep one cpu busy 100% while I dump which means latency fear
+> is lowered.
+> 
+> My eventual need: To dump all relevant stats every 5 seconds.
+> I will send the other patch I talked about which filters based
+> on time which helps in most cases but not always.
+> 
+> I am also now thinking of adding "a range index filter" and then
+> multi-threading several parrallel requests, one for each range of
+> indices.
+> 
+> cheers,
+> jamal
