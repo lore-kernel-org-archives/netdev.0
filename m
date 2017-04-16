@@ -1,62 +1,160 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: TPACKET_V3 timeout bug?
-Date: Sun, 16 Apr 2017 01:44:37 +0200
-Message-ID: <20170415234437.GA21836@lunn.ch>
-References: <20170415194042.GA5936@lunn.ch>
- <20170415224530.GA21010@oracle.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH RFC (resend) net-next 5/6] virtio-net: Add support for
+ vlan acceleration vnet header extension.
+Date: Sun, 16 Apr 2017 03:28:08 +0300
+Message-ID: <20170416032628-mutt-send-email-mst@kernel.org>
+References: <1492274298-17362-1-git-send-email-vyasevic@redhat.com>
+ <1492274298-17362-6-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>
-To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:59467 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754683AbdDOXoj (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 15 Apr 2017 19:44:39 -0400
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	virtio-dev@lists.oasis-open.org, jasowang@redhat.com,
+	maxime.coquelin@redhat.com,
+	Vladislav Yasevich <vyasevic@redhat.com>
+To: Vladislav Yasevich <vyasevich@gmail.com>
+Return-path: <virtio-dev-return-2092-gcvd-virtio-dev=m.gmane.org@lists.oasis-open.org>
+Sender: <virtio-dev@lists.oasis-open.org>
+List-Post: <mailto:virtio-dev@lists.oasis-open.org>
+List-Help: <mailto:virtio-dev-help@lists.oasis-open.org>
+List-Unsubscribe: <mailto:virtio-dev-unsubscribe@lists.oasis-open.org>
+List-Subscribe: <mailto:virtio-dev-subscribe@lists.oasis-open.org>
 Content-Disposition: inline
-In-Reply-To: <20170415224530.GA21010@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1492274298-17362-6-git-send-email-vyasevic@redhat.com>
+List-Id: netdev.vger.kernel.org
 
-On Sat, Apr 15, 2017 at 06:45:36PM -0400, Sowmini Varadhan wrote:
-> On (04/15/17 21:40), Andrew Lunn wrote:
-> > 
-> > In my case, lan3 is up and idle, there are no packets flying around to
-> > be captured. So i would expect pcap_next_ex() to exit once a second,
-> > with a return value of 0. But it is not, it blocks and stays blocked.
->    :
-> > Looking at the libpcap source, the 1000ms timeout is being used as
-> > part of the setsockopt(3, SOL_PACKET, PACKET_RX_RING, 0xbe9445c0, 28)
-> > call, req.tp_retire_blk_tov is set to the timeoutval.
+On Sat, Apr 15, 2017 at 12:38:17PM -0400, Vladislav Yasevich wrote:
+> This extension allows us to pass vlan ID and vlan protocol data to the
+> host hypervisor as part of the vnet header and lets us take advantage
+> of HW accelerated vlan tagging in the host.  It requires support in the
+> host to negotiate the feature.  When the extension is enabled, the
+> virtio device will enabled HW accelerated vlan features.
 > 
-> right, aiui, the retire_blk_tov will only kick in if we have at
-> least one frame in a block, but the block is not filled up yet,
-> before the req.tp_retire_blk_tov (1s in your case) expires.
+> Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
+
+Performance data will be required to justify this.
+
+
+> ---
+>  drivers/net/virtio_net.c        | 17 ++++++++++++++++-
+>  include/linux/virtio_net.h      | 17 +++++++++++++++++
+>  include/uapi/linux/virtio_net.h |  7 +++++++
+>  3 files changed, 40 insertions(+), 1 deletion(-)
 > 
-> If there are 0 frames pending, we should not be waking up the app,
-> so everything seems to be behaving as it should?
-
-Hi Sowmini 
-
-Humm, i can see the logic of that, it puts an upper bound on the
-latency for delivering a frame to user space, but does not wake user
-space when there is nothing in the queue.
-
-Yet i'm debugging an application which expects a timeout even when
-there are 0 packets. The Ostinator drone. It is a multi thread
-process, with a thread performing capture, and another thread doing
-control stuff. When the control thread wants to stop the capturing, it
-is setting a variable.  The next time the capture thread comes out of
-pcap_next_en() it checks the variable and close the capture and the
-thread exists. But if there is no network traffic, it never
-exists. This scheme has worked before, but suddenly stopped when i
-upgraded something. What i cannot say is if that is libpcap, or a
-kernel, since i upgraded both at the same time.
-
-But it does seem like a regression somewhere.
-
-Looking at libpcap, it does seem to expect a timeout to happen even
-when there are 0 packets available. Has there been a kernel change
-with respect to this behaviour?
-
-  Andrew
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index 18eb0dd..696ef4a 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -182,6 +182,7 @@ struct virtio_net_hdr_max {
+>  	struct virtio_net_hdr_mrg_rxbuf hdr;
+>  	struct virtio_net_ext_hdr ext_hdr;
+>  	struct virtio_net_ext_ip6frag ip6f_ext;
+> +	struct virtio_net_ext_vlan vlan_ext;
+>  };
+>  
+>  static inline u8 padded_vnet_hdr(struct virtnet_info *vi)
+> @@ -2276,6 +2277,11 @@ static void virtnet_init_extensions(struct virtio_device *vdev)
+>  		vi->hdr_len += sizeof(u32);
+>  		vi->ext_mask |= VIRTIO_NET_EXT_F_IP6FRAG;
+>  	}
+> +
+> +	if (virtio_has_feature(vdev, VIRTIO_NET_F_VLAN_OFFLOAD)) {
+> +		vi->hdr_len += sizeof(struct virtio_net_ext_vlan);
+> +		vi->ext_mask |= VIRTIO_NET_EXT_F_VLAN;
+> +	}
+>  }
+>  
+>  #define MIN_MTU ETH_MIN_MTU
+> @@ -2352,6 +2358,14 @@ static int virtnet_probe(struct virtio_device *vdev)
+>  	if (virtio_has_feature(vdev, VIRTIO_NET_F_GUEST_CSUM))
+>  		dev->features |= NETIF_F_RXCSUM;
+>  
+> +	if (virtio_has_feature(vdev, VIRTIO_NET_F_VLAN_OFFLOAD)) {
+> +		dev->features |= NETIF_F_HW_VLAN_CTAG_TX |
+> +				 NETIF_F_HW_VLAN_CTAG_RX |
+> +				 NETIF_F_HW_VLAN_STAG_TX |
+> +				 NETIF_F_HW_VLAN_STAG_RX;
+> +	}
+> +
+> +
+>  	dev->vlan_features = dev->features;
+>  
+>  	/* MTU range: 68 - 65535 */
+> @@ -2395,7 +2409,8 @@ static int virtnet_probe(struct virtio_device *vdev)
+>  	if (virtio_has_feature(vdev, VIRTIO_NET_F_MRG_RXBUF))
+>  		vi->mergeable_rx_bufs = true;
+>  
+> -	if (virtio_has_feature(vdev, VIRTIO_NET_F_IP6_FRAGID))
+> +	if (virtio_has_feature(vdev, VIRTIO_NET_F_IP6_FRAGID) ||
+> +	    virtio_has_feature(vdev, VIRTIO_NET_F_VLAN_OFFLOAD))
+>  		vi->hdr_ext = true;
+>  
+>  	if (vi->hdr_ext)
+> diff --git a/include/linux/virtio_net.h b/include/linux/virtio_net.h
+> index 3b259dc..e790191 100644
+> --- a/include/linux/virtio_net.h
+> +++ b/include/linux/virtio_net.h
+> @@ -113,6 +113,14 @@ static inline int virtio_net_ext_to_skb(struct sk_buff *skb,
+>  		ptr += sizeof(struct virtio_net_ext_ip6frag);
+>  	}
+>  
+> +	if (ext->flags & VIRTIO_NET_EXT_F_VLAN) {
+> +		struct virtio_net_ext_vlan *vhdr =
+> +					(struct virtio_net_ext_vlan *)ptr;
+> +
+> +		__vlan_hwaccel_put_tag(skb, vhdr->vlan_proto, vhdr->vlan_tci);
+> +		ptr += sizeof(struct virtio_net_ext_vlan);
+> +	}
+> +
+>  	return 0;
+>  }
+>  
+> @@ -130,6 +138,15 @@ static inline int virtio_net_ext_from_skb(const struct sk_buff *skb,
+>  		ext->flags |= VIRTIO_NET_EXT_F_IP6FRAG;
+>  	}
+>  
+> +	if (ext_mask & VIRTIO_NET_EXT_F_VLAN && skb_vlan_tag_present(skb)) {
+> +		struct virtio_net_ext_vlan *vhdr =
+> +					(struct virtio_net_ext_vlan *)ptr;
+> +
+> +		vlan_get_tag(skb, &vhdr->vlan_tci);
+> +		vhdr->vlan_proto = skb->vlan_proto;
+> +		ext->flags |= VIRTIO_NET_EXT_F_VLAN;
+> +	}
+> +
+>  	return 0;
+>  }
+>  #endif /* _LINUX_VIRTIO_NET_H */
+> diff --git a/include/uapi/linux/virtio_net.h b/include/uapi/linux/virtio_net.h
+> index eac8d94..6125de7 100644
+> --- a/include/uapi/linux/virtio_net.h
+> +++ b/include/uapi/linux/virtio_net.h
+> @@ -57,6 +57,7 @@
+>  					 * Steering */
+>  #define VIRTIO_NET_F_CTRL_MAC_ADDR 23	/* Set MAC address */
+>  #define VIRTIO_NET_F_IP6_FRAGID    24	/* Host supports VLAN accleration */
+> +#define VIRTIO_NET_F_VLAN_OFFLOAD 25	/* Host supports VLAN accleration */
+>  
+>  #ifndef VIRTIO_NET_NO_LEGACY
+>  #define VIRTIO_NET_F_GSO	6	/* Host handles pkts w/ any GSO type */
+> @@ -111,6 +112,7 @@ struct virtio_net_hdr_v1 {
+>   */
+>  struct virtio_net_ext_hdr {
+>  #define VIRTIO_NET_EXT_F_IP6FRAG	(1<<0)
+> +#define VIRTIO_NET_EXT_F_VLAN		(1<<1)
+>  	__u32 flags;
+>  	__u8 extensions[];
+>  };
+> @@ -120,6 +122,11 @@ struct virtio_net_ext_ip6frag {
+>  	__be32 frag_id;
+>  };
+>  
+> +struct virtio_net_ext_vlan {
+> +	__be16 vlan_tci;
+> +	__be16 vlan_proto;
+> +};
+> +
+>  #ifndef VIRTIO_NET_NO_LEGACY
+>  /* This header comes first in the scatter-gather list.
+>   * For legacy virtio, if VIRTIO_F_ANY_LAYOUT is not negotiated, it must
+> -- 
+> 2.7.4
