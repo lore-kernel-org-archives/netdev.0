@@ -1,28 +1,54 @@
-From: Guy Harris <guy@alum.mit.edu>
-Subject: Re: TPACKET_V3 timeout bug?
-Date: Sat, 15 Apr 2017 19:41:46 -0700
-Message-ID: <251BA382-D82C-4931-A98F-A23AD88F9811@alum.mit.edu>
-References: <20170415194042.GA5936@lunn.ch>
- <20170415224530.GA21010@oracle.com> <20170416021050.GA16418@lunn.ch>
-Mime-Version: 1.0 (Mac OS X Mail 10.3 \(3273\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: Sowmini Varadhan <sowmini.varadhan@oracle.com>,
-        netdev <netdev@vger.kernel.org>,
-        tcpdump-workers@lists.tcpdump.org
-To: Andrew Lunn <andrew@lunn.ch>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC patch 1/1] large netlink dumps
+Date: Sat, 15 Apr 2017 20:08:57 -0700
+Message-ID: <1492312137.10587.87.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <e17f52a6-b2ad-6b39-a655-2e8779a5d192@mojatatu.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+        Pablo Neira Ayuso <pablo@netfilter.org>,
+        David Miller <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from c.mail.sonic.net ([64.142.111.80]:42510 "EHLO c.mail.sonic.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754504AbdDPCwy (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 15 Apr 2017 22:52:54 -0400
-In-Reply-To: <20170416021050.GA16418@lunn.ch>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:33859 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754704AbdDPDJA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 15 Apr 2017 23:09:00 -0400
+Received: by mail-pf0-f194.google.com with SMTP id g23so5288473pfj.1
+        for <netdev@vger.kernel.org>; Sat, 15 Apr 2017 20:08:59 -0700 (PDT)
+In-Reply-To: <e17f52a6-b2ad-6b39-a655-2e8779a5d192@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Apr 15, 2017, at 7:10 PM, Andrew Lunn <andrew@lunn.ch> wrote:
+On Sat, 2017-04-15 at 13:07 -0400, Jamal Hadi Salim wrote:
+> Eric,
+> 
+> How does attached look instead of the 32K?
+> I found it helps to let user space suggest something
+> larger.
+> 
+> cheers,
+> jamal
 
-> Do you think this is a kernel problem, libpcap problem, or an
-> application problem?
+Looks dangerous to me, for various reasons.
 
-An application problem.  See my response on netdev; the timeout (which is provided by the kernel's capture mechanism, in most cases) is to make sure packets don't stay stuck in the kernel's packet buffer for an indefinite period of time, it's *not* to make sure a thread capturing packets doesn't stay blocked for an indefinite period of time.  Whether the timer goes off even if no packets have arrived is platform-dependent; code capturing packets should neither depend on it doing so or on it not doing so.
+1) Memory allocations might not like it
+
+Have you tried your change after user does a
+setsockopt(    SO_RCVBUFFORCE,  256 Mbytes), and a 
+recvmsg ( .. 64 Mbytes) ?
+
+Presumably, we could replace 32768 by (PAGE_SIZE <<
+PAGE_ALLOC_COSTLY_ORDER), but this will not matter on x86.
+
+2) We might have paths in the kernel filling a potential big skb without
+yielding cpu or a spinlock or a mutex. -> latency source.
+
+
+What perf numbers do you have, using 1MB buffers instead of 32KB ?
+
+The syscall overhead seems tiny compared to the actual cost of filling
+the netlink message, accessing thousands of cache lines all over the
+places.
