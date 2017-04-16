@@ -1,19 +1,19 @@
 From: Matthias Schiffer <mschiffer-Nyw9WiXk/RKXhJHkyCwd5uTW4wlIGRCZ@public.gmane.org>
-Subject: Re: [PATCH net-next v2 4/6] vxlan: check valid
- combinations of address scopes
-Date: Sun, 16 Apr 2017 17:03:53 +0200
-Message-ID: <d401b6c7-357a-1e1c-13bd-64e9af951971@universe-factory.net>
+Subject: Re: [PATCH net-next v2 6/6] vxlan: allow multiple VXLANs
+ with same VNI for IPv6 link-local addresses
+Date: Sun, 16 Apr 2017 17:15:42 +0200
+Message-ID: <3c054ae3-ec68-ab20-0928-81e313a53cde@universe-factory.net>
 References: <cover.1492187126.git.mschiffer@universe-factory.net>
-	<49cd788f13c2cd3f6a42f34c219c9511cc1f9cec.1492187126.git.mschiffer@universe-factory.net>
-	<20170414103604.61ecffa9@xeon-e3>
+	<95533e3ca4958ba2eca3efcc661713638feea220.1492187126.git.mschiffer@universe-factory.net>
+	<20170414103830.111a24a8@xeon-e3>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============5487935961027068258=="
+Content-Type: multipart/mixed; boundary="===============0430265894201160579=="
 Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org,
 	jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, aduyck-nYU0QVwCCFFWk0Htik3J/w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
 	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 To: Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>
 Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <20170414103604.61ecffa9@xeon-e3>
+In-Reply-To: <20170414103830.111a24a8@xeon-e3>
 List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
 	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
@@ -26,92 +26,82 @@ Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---===============5487935961027068258==
+--===============0430265894201160579==
 Content-Type: multipart/signed; micalg=pgp-sha512;
  protocol="application/pgp-signature";
- boundary="VbTrHkq6VFJqm8MjCDLbKmikOxfAPlAqI"
+ boundary="JuXnqjarqDiS4BpaQrhbesiIPn8wECC0V"
 
 This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---VbTrHkq6VFJqm8MjCDLbKmikOxfAPlAqI
-Content-Type: multipart/mixed; boundary="eLgAFfxR30hUrVmSvktLso4HpDfTCLXtN";
+--JuXnqjarqDiS4BpaQrhbesiIPn8wECC0V
+Content-Type: multipart/mixed; boundary="e9sgaWALmGCrRmhoEjqbHEULBeiMTohxm";
  protected-headers="v1"
 From: Matthias Schiffer <mschiffer-Nyw9WiXk/RKXhJHkyCwd5uTW4wlIGRCZ@public.gmane.org>
 To: Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>
 Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org,
  pshelar-LZ6Gd1LRuIk@public.gmane.org, aduyck-nYU0QVwCCFFWk0Htik3J/w@public.gmane.org, roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org,
  netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Message-ID: <d401b6c7-357a-1e1c-13bd-64e9af951971-Nyw9WiXk/RKXhJHkyCwd5uTW4wlIGRCZ@public.gmane.org>
-Subject: Re: [PATCH net-next v2 4/6] vxlan: check valid combinations of
- address scopes
+Message-ID: <3c054ae3-ec68-ab20-0928-81e313a53cde-Nyw9WiXk/RKXhJHkyCwd5uTW4wlIGRCZ@public.gmane.org>
+Subject: Re: [PATCH net-next v2 6/6] vxlan: allow multiple VXLANs with same
+ VNI for IPv6 link-local addresses
 References: <cover.1492187126.git.mschiffer-Nyw9WiXk/RKXhJHkyCwd5uTW4wlIGRCZ@public.gmane.org>
- <49cd788f13c2cd3f6a42f34c219c9511cc1f9cec.1492187126.git.mschiffer-Nyw9WiXk/RKXhJHkyCwd5uTW4wlIGRCZ@public.gmane.org>
- <20170414103604.61ecffa9@xeon-e3>
-In-Reply-To: <20170414103604.61ecffa9@xeon-e3>
+ <95533e3ca4958ba2eca3efcc661713638feea220.1492187126.git.mschiffer-Nyw9WiXk/RKXhJHkyCwd5uTW4wlIGRCZ@public.gmane.org>
+ <20170414103830.111a24a8@xeon-e3>
+In-Reply-To: <20170414103830.111a24a8@xeon-e3>
 
---eLgAFfxR30hUrVmSvktLso4HpDfTCLXtN
+--e9sgaWALmGCrRmhoEjqbHEULBeiMTohxm
 Content-Type: text/plain; charset=utf-8
 Content-Language: en-US
 Content-Transfer-Encoding: quoted-printable
 
-On 04/14/2017 07:36 PM, Stephen Hemminger wrote:
-> On Fri, 14 Apr 2017 18:44:44 +0200
+On 04/14/2017 07:38 PM, Stephen Hemminger wrote:
+> On Fri, 14 Apr 2017 18:44:46 +0200
 > Matthias Schiffer <mschiffer-Nyw9WiXk/RKXhJHkyCwd5uTW4wlIGRCZ@public.gmane.org> wrote:
 >=20
->> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
->> index 07f89b037681..95a71546e8f2 100644
->> --- a/drivers/net/vxlan.c
->> +++ b/drivers/net/vxlan.c
->> @@ -2881,11 +2881,39 @@ static int vxlan_config_validate(struct net *s=
-rc_net, struct vxlan_config *conf,
->>  	if (conf->saddr.sa.sa_family !=3D conf->remote_ip.sa.sa_family)
->>  		return -EINVAL;
->> =20
->> +	if (vxlan_addr_multicast(&conf->saddr))
->> +		return -EINVAL;
->> +
->>  	if (conf->saddr.sa.sa_family =3D=3D AF_INET6) {
->>  		if (!IS_ENABLED(CONFIG_IPV6))
->>  			return -EPFNOSUPPORT;
->>  		use_ipv6 =3D true;
->>  		conf->flags |=3D VXLAN_F_IPV6;
->> +
->> +		if (!(conf->flags & VXLAN_F_COLLECT_METADATA)) {
->> +			int local_type =3D
->> +				ipv6_addr_type(&conf->saddr.sin6.sin6_addr);
->> +			int remote_type =3D
->> +				ipv6_addr_type(&conf->remote_ip.sin6.sin6_addr);
->> +
->> +			if (local_type & IPV6_ADDR_LINKLOCAL) {
->> +				if (!(remote_type & IPV6_ADDR_LINKLOCAL) &&
->> +				    (remote_type !=3D IPV6_ADDR_ANY)) {
->> +					pr_info("invalid combination of address scopes\n");
+>> As link-local addresses are only valid for a single interface, we can =
+allow
+>> to use the same VNI for multiple independent VXLANs, as long as the us=
+ed
+>> interfaces are distinct. This way, VXLANs can always be used as a drop=
+-in
+>> replacement for VLANs with greater ID space.
+>>
+>> This also extends VNI lookup to respect the ifindex when link-local IP=
+v6
+>> addresses are used, so using the same VNI on multiple interfaces can
+>> actually work.
+>>
+>> Signed-off-by: Matthias Schiffer <mschiffer-Nyw9WiXk/RKXhJHkyCwd5uTW4wlIGRCZ@public.gmane.org>
 >=20
-> It is always helpful to include device if possible in error message.
-> 					netdev_notice(old->dev, " invalid combination of address scopes\n"=
-);
+> Why does this have to be IPv6 specific?
 
-That makes sense, I'll change it in v3.
+I'm not familar with IPv4 link-local addresses and how route lookup works=
 
-> Also vxlan is good candidate for extended netlink error reporting.
+for them. vxlan_get_route() sets flowi4_oif to the outgoing interface; do=
+es
+__ip_route_output_key_hash() do the right thing for link-local addresses
+when such addresses are used on multiple interfaces? I see some special
+casing for multicast destinations, but none for link-local ones.
 
-Can you point me to a piece of code that does this? Unless you insist, I
-wouldn't do it in this patchset, but I might implement the extended error=
+>=20
+> What about the case where VXLAN is not bound to an interface?
+> If that is used then that could be a problem.
+>=20
 
-reporting later.
+With patch 4/6, link-local IPv6 addresses can't be configured without an
+interface anymore.
 
 Matthias
 
 
+--e9sgaWALmGCrRmhoEjqbHEULBeiMTohxm--
 
---eLgAFfxR30hUrVmSvktLso4HpDfTCLXtN--
+--JuXnqjarqDiS4BpaQrhbesiIPn8wECC0V--
 
---VbTrHkq6VFJqm8MjCDLbKmikOxfAPlAqI--
-
---===============5487935961027068258==
+--===============0430265894201160579==
 Content-Type: text/plain; charset="us-ascii"
 MIME-Version: 1.0
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline
 
 
---===============5487935961027068258==--
+--===============0430265894201160579==--
