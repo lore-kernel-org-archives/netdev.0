@@ -1,54 +1,40 @@
-From: David Ahern <dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
-Subject: Re: second wave of netlink extended ACK reporting
-Date: Sun, 16 Apr 2017 10:55:14 -0600
-Message-ID: <4846bb66-d169-dba7-7a1e-0665fe41083d@cumulusnetworks.com>
-References: <20170408174900.12820-1-johannes@sipsolutions.net>
-	<20170408174900.12820-2-johannes@sipsolutions.net>
-	<20170408183440.GA1900@nanopsycho>
-	<1491676621.5800.24.camel@sipsolutions.net>
-	<20170408184008.GB1900@nanopsycho>
-	<990b5610-a894-b3d2-d3a7-536dfd25adb8@cumulusnetworks.com>
-	<1491805089.2455.3.camel@sipsolutions.net>
-	<c0b35e6e-e5cb-25f6-7ccf-eec33ba39f3b@6wind.com>
-	<1492090170.29526.1.camel@sipsolutions.net>
-	<28b0d93a-7e96-f7eb-b140-afc9ad429c30@6wind.com>
-	<1492111480.29526.7.camel@sipsolutions.net>
-	<826de765-dd18-f6a3-8e37-7b55398ad99b@mojatatu.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2 v2] ip vrf: Add command name next to pid
+Date: Sun, 16 Apr 2017 10:07:18 -0700
+Message-ID: <20170416100718.3e094f79@xeon-e3>
+References: <1492211396-18494-1-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org
-To: Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
-	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>, nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org,
-	Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>, Pravin Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>,
-	dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <826de765-dd18-f6a3-8e37-7b55398ad99b-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>
-List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
-List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: David Ahern <dsa@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f169.google.com ([209.85.192.169]:36423 "EHLO
+        mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756061AbdDPRH0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 16 Apr 2017 13:07:26 -0400
+Received: by mail-pf0-f169.google.com with SMTP id 194so17778156pfv.3
+        for <netdev@vger.kernel.org>; Sun, 16 Apr 2017 10:07:26 -0700 (PDT)
+In-Reply-To: <1492211396-18494-1-git-send-email-dsa@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 4/16/17 8:40 AM, Jamal Hadi Salim wrote:
+On Fri, 14 Apr 2017 16:09:56 -0700
+David Ahern <dsa@cumulusnetworks.com> wrote:
+
+> 'ip vrf pids' is used to list processes bound to a vrf, but it only
+> shows the pid leaving a lot of work for the user. Add the command
+> name to the output. With this patch you get the more user friendly:
 > 
-> Johannes or anybody else working on it?
-> i.e one which sends the extack to the bowels of callees
-> so we can return meaningful messages
-> example: rtnetlink::doit() or equivalent seems to be a candidate for
-> taking it as a param
-> For things that call netlink_ack it may be easier if they create
-> the extack.
-> For dumps it makes it tricky since their lifetime is much
-> longer..
+>     $ ip vrf pids mgmt
+>      1121  ntpd
+>      1418  gdm-session-wor
+>      1488  gnome-session
+>      1491  dbus-launch
+>      1492  dbus-daemon
+>      1565  sshd
+>      ...
+> 
+> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 
-
-I have a start to a patch for iproute2 as well. It needs some
-improvements before I can send it. Should be able to get to it Monday or
-Tuesday.
+Looks good, applied.
