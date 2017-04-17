@@ -1,72 +1,53 @@
-From: Alexander Aring <aar@pengutronix.de>
-Subject: Re: skb_over_panic using UDP and 6lowpan / fakelb
-Date: Mon, 17 Apr 2017 15:25:48 +0200
-Message-ID: <0ddbdbde-8610-0ea5-bae2-4ec2702927dc@pengutronix.de>
-References: <56012235-e1d0-1e5e-840a-cc8d5938c380@ntnu.no>
- <CAM_iQpWqQj3FLpBLE1Z+==Z7tJGXHyHXTvLmKRCNjyc=vtQvnQ@mail.gmail.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH net-next 1/1] net sched actions: dump more than
+ TCA_ACT_MAX_PRIO actions per batch
+Date: Mon, 17 Apr 2017 10:02:30 -0400
+Message-ID: <7a49a797-d9cb-37c1-e46b-bec6888539b9@mojatatu.com>
+References: <1492346070-6002-1-git-send-email-jhs@emojatatu.com>
+ <20170417081936.GA1892@nanopsycho.orion>
+ <dfc1485f-7d7e-f52e-f62e-273063a59abc@mojatatu.com>
+ <1492434659.10587.90.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Palma <david.palma@ntnu.no>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        stefan@osg.samsung.com, linux-wpan@vger.kernel.org
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Cc: Jiri Pirko <jiri@resnulli.us>, davem@davemloft.net,
+        netdev@vger.kernel.org, xiyou.wangcong@gmail.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:58031 "EHLO
-        metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1753348AbdDQNZy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 17 Apr 2017 09:25:54 -0400
-In-Reply-To: <CAM_iQpWqQj3FLpBLE1Z+==Z7tJGXHyHXTvLmKRCNjyc=vtQvnQ@mail.gmail.com>
+Received: from mail-io0-f178.google.com ([209.85.223.178]:36588 "EHLO
+        mail-io0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751171AbdDQOCg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 17 Apr 2017 10:02:36 -0400
+Received: by mail-io0-f178.google.com with SMTP id o22so30594829iod.3
+        for <netdev@vger.kernel.org>; Mon, 17 Apr 2017 07:02:36 -0700 (PDT)
+In-Reply-To: <1492434659.10587.90.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 17-04-17 09:10 AM, Eric Dumazet wrote:
 
-Hi,
+[..]
+>
+> We can not assume user programs properly cleared the paddings anyway.
+>
+> Using them for 'new features' is risky, since it might break programs.
+>
+> So the safe way is using new attributes really.
 
-sorry for the late reply.
+Since we agreed to have longer discussions on uapis
+when we met I'd like to digress:
+Can we talk about what it means to define pads in data
+structures and then never using them?
+As an example, no-one is setting these fields anywhere on any
+app i know of. Would a union not be good enough for new name
+vs old name? old binaries should continue to work.
+Breakage with any app during compile should be fixable
+within the breaking app (since whoever it is would have source).
+Maybe by breaking some weird app we can experiment on finding
+out.
 
-On 04/03/2017 07:29 PM, Cong Wang wrote:
-> (Cc'ing netdev and maintainers)
-> 
-> On Mon, Mar 27, 2017 at 2:16 AM, David Palma <david.palma@ntnu.no> wrote:
->>
->> Hi,
->>
->> Sending a simple UDP packet (39 bytes long), over a 6lowpan interface
->> (using fakelb), creates a kernel panic (skb_over_panic).
->>
->> Steps to reproduce, and more details, can be found in:
->> https://github.com/PalmaITEM/6lowpan-skb_over_panic
->>
->> This bug has been reported in
->> https://bugzilla.kernel.org/show_bug.cgi?id=195059
->>
->> I have found that lengths around 39 bytes can also trigger this
->> behaviour and that longer packets are handled without problem.
->>
->> Verified in:
->>
->> - Linux version 4.9.0-0.bpo.2-amd64 (debian-kernel@lists.debian.org)
->> (gcc version 4.9.2 (Debian 4.9.2-10) ) #1 SMP Debian 4.9.13-1~bpo8+1
->> (2017-02-27)
->> - Linux version 4.10.4-1-ARCH (builduser@tobias) (gcc version 6.3.1
->> 20170306 (GCC) ) #1 SMP PREEMPT Sat Mar 18 19:39:18 CET 2017
->>
->>
->> I am not familiar with the process of reporting kernel bugs, so
->> apologies beforehand. I am also available to provide any missing
->> information.
->>
+My contention is that it is not nice to continue to define uapi
+pads and  then say they cant be used ever.
 
-I will try to reproduce the failure with an x86_64 qemu virtual machine.
-Myself I use a 32 Bit qemu machine because I have a dependency on
-userspace software which use x86 assembler (somebody should change it to
-setjmp/longjmp)... it's the RIOT-OS native plattform. I use some cross
-compiling environment which doesn't support multilib yet, so I used
-always 32 Bit.
-
-btw: the github stuff is very useful and thanks for the hard work! I am
-on it to reproduce it. I will report when I have more information.
-
-- Alex
+cheers,
+jamal
