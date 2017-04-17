@@ -1,31 +1,37 @@
-From: David Miller <davem@redhat.com>
-Subject: Re: [PATCH] net: cx89x0: move attribute declaration before struct
- keyword
-Date: Mon, 17 Apr 2017 16:44:27 -0400 (EDT)
-Message-ID: <20170417.164427.2187992626189209767.davem@redhat.com>
-References: <20170417062032.22764-1-stefan@agner.ch>
-        <20170417.160942.2196583103295700079.davem@redhat.com>
-        <6fbaa209a827778ff56a7ac3b36e5e17@agner.ch>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: shc_work@mail.ru, jarod@redhat.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: stefan@agner.ch
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:45828 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755023AbdDQUoc (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 17 Apr 2017 16:44:32 -0400
-In-Reply-To: <6fbaa209a827778ff56a7ac3b36e5e17@agner.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
 From: Stefan Agner <stefan@agner.ch>
-Date: Mon, 17 Apr 2017 13:31:28 -0700
+Subject: [PATCH v2] net: cx89x0: move attribute declaration before struct keyword
+Date: Mon, 17 Apr 2017 13:54:34 -0700
+Message-ID: <20170417205434.12663-1-stefan@agner.ch>
+Cc: shc_work@mail.ru, jarod@redhat.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, Stefan Agner <stefan@agner.ch>
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> Given that, can you reconsider?
+The attribute declaration is typically before the definition. Move
+the __maybe_unused attribute declaration before the struct keyword.
 
-Please put the attribute after the compete type.
+Signed-off-by: Stefan Agner <stefan@agner.ch>
+---
+Changes in v2:
+- Move __maybe_unused after the complete type
 
-Thanks.
+ drivers/net/ethernet/cirrus/cs89x0.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/cirrus/cs89x0.c b/drivers/net/ethernet/cirrus/cs89x0.c
+index 3647b28e8de0..47384f7323ac 100644
+--- a/drivers/net/ethernet/cirrus/cs89x0.c
++++ b/drivers/net/ethernet/cirrus/cs89x0.c
+@@ -1896,7 +1896,7 @@ static int cs89x0_platform_remove(struct platform_device *pdev)
+ 	return 0;
+ }
+ 
+-static const struct __maybe_unused of_device_id cs89x0_match[] = {
++static const struct of_device_id __maybe_unused cs89x0_match[] = {
+ 	{ .compatible = "cirrus,cs8900", },
+ 	{ .compatible = "cirrus,cs8920", },
+ 	{ },
+-- 
+2.12.2
