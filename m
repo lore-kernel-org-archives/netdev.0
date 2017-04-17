@@ -1,82 +1,64 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH linux 2/2] net sched actions: fix refcount decrement on error
-Date: Mon, 17 Apr 2017 11:10:57 -0700
-Message-ID: <CAM_iQpVfCO+QCUFhkz=933bk4-pry6tDo6HxfUcwoVcjM4S7yA@mail.gmail.com>
-References: <20170412142140.26649-1-w.bumiller@proxmox.com>
- <20170412142140.26649-3-w.bumiller@proxmox.com> <CAM_iQpUxgF2X9z+mNhBUtPJsFPy8pyiDDhqz726Qt_aeEeLpeA@mail.gmail.com>
- <20170413080648.bbiikladwevaribf@olga.proxmox.com> <CAM_iQpUWASuFdzLc6j+EyCj68=BnT6-bKXr=e=858Zkf9f6dSg@mail.gmail.com>
- <20170414090853.oqqdsu6xufr4n2nv@olga.proxmox.com> <CAM_iQpWSszPtMSG+vb+sowDcBeerWwufYARXmaiU-D4KJsyq8w@mail.gmail.com>
- <1985738840.18.1492282135309@webmail.proxmox.com>
+From: Jay Vosburgh <jay.vosburgh@canonical.com>
+Subject: Re: [PATCH net-next v2] bonding: deliver link-local packets with skb->dev set to link that packets arrived on
+Date: Mon, 17 Apr 2017 11:28:17 -0700
+Message-ID: <14204.1492453697@famine>
+References: <20170416190218.57224-1-chonggangli@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Roman Mashak <mrv@mojatatu.com>
-To: Wolfgang Bumiller <w.bumiller@proxmox.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1985738840.18.1492282135309@webmail.proxmox.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8BIT
+Cc: andy@greyhouse.net, vfalico@gmail.com, nikolay@redhat.com,
+        edumazet@google.com, davem@davemloft.net, netdev@vger.kernel.org,
+        Mahesh Bandewar <maheshb@google.com>,
+        =?UTF-8?q?Maciej=20=C5=BBenczykowski?= <maze@google.com>
+To: Chonggang Li <chonggangli@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from youngberry.canonical.com ([91.189.89.112]:39179 "EHLO
+        youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752107AbdDQS2Z (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 17 Apr 2017 14:28:25 -0400
+In-reply-to: <20170416190218.57224-1-chonggangli@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Apr 15, 2017 at 11:48 AM, Wolfgang Bumiller
-<w.bumiller@proxmox.com> wrote:
+Chonggang Li <chonggangli@google.com> wrote:
+
+>Bonding driver changes the skb->dev to the bonding-master before
+>passing the packet to stack for further processing. This, however
+>does not make sense for the link-local packets and it looses "the
+>link info" once its skb->dev is changed to bonding-master.  This
+>patch changes this behavior for link-local packets by not changing
+>the skb->dev to the bonding-master and maintaining it as it is,
+>i.e. the link on which the packet arrived.
+
+	Minor nit: "looses" should be "loses".  Other than that:
+
+Signed-off-by: Jay Vosburgh <jay.vosburgh@canonical.com>
+
+
+>Signed-off-by: Chonggang Li <chonggangli@google.com>
+>Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+>Signed-off-by: Maciej Żenczykowski <maze@google.com>
+>---
+>Changes in v2:
+>  - Make the commit message more clearer.
 >
->> On April 15, 2017 at 8:20 PM Cong Wang <xiyou.wangcong@gmail.com> wrote:
->>
->>
->> On Fri, Apr 14, 2017 at 2:08 AM, Wolfgang Bumiller
->> <w.bumiller@proxmox.com> wrote:
->> > Before I do that - trying to wrap my head around the interdependencies
->> > here better to be thorough - I noticed that tcf_hash_release() can
->> > return ACT_P_DELETED. The ACT_P_CREATED case means tcf_hash_create()
->> > was used, in the other case the tc_action's ref & bind count is bumped
->> > by tcf_hash_check() and then also decremented by tcf_hash_release() if
->> > it existed, iow. kept at 1, but not always: It does always happen in
->> > act_police.c but in other files such as act_bpf.c or act_connmark.c if
->> > eg. bind is set they return without decrementing, so both ref&bind count
->> > are bumped when they return - the refcount logic isn't easy to follow
->> > for a newcomer. Now there are two uses of __tcf_hash_release() in
->> > act_api.c which check for a return value of ACT_P_DELETED, in which case
->> > they call module_put().
->>
->>
->> That's the nasty part... IIRC, Jamal has fixed two bugs on action refcnt'ing.
->> We really need to clean up the code.
->>
->> > So I'm not sure exactly how the module and tc_action counts are related
->> > (and I usually like to understand my own patches ;-) ).
->>
->>
->> Each action holds a refcnt to its module, each filter holds a refcnt to
->> its bound or referenced (unbound) action.
->>
->>
->> > Maybe I'm missing something obvious but I'm currently a bit confused as
->> > to whether the tcf_hash_release() call there is okay, or should have its
->> > return value checked or should depend on ->init()'s ACT_P_CREATED value
->> > as well?
->> >
->>
->> I think it's the same? If we have ACT_P_CREATED here, tcf_hash_release()
->> will return ACT_P_DELETED for sure because the newly created action has
->> refcnt==1?
+> drivers/net/bonding/bond_main.c | 3 +++
+> 1 file changed, 3 insertions(+)
 >
-> Makes sense on the one hand, but for ACT_P_DELETED both ref and bind
-> count need to reach 0, so I'm still concerned that the different behaviors
-
-Bind refcnt is only used when it is bound to a filter and refcnt is always used,
-so either bind refcnt is 0 or it is same with refcnt.
-
-> I mentioned above might be problematic if we use ACT_P_CREATED only.
-> (It also means my patches still leak a count - which is probably still
-> better than the previous underflow, but ultimately doesn't satisfy me.)
-> Should I still resend it this way for the record with the Acked-bys?
-> (Since given the fact that with unprivileged containers it's possible to
-> trigger this access and potentially crash the kernel I strongly feel that
-> some version of this should end up in the 4.11 release.)
-
-I think so.
-
-Thanks.
+>diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+>index 01e4a69af421..6bd3b50faf48 100644
+>--- a/drivers/net/bonding/bond_main.c
+>+++ b/drivers/net/bonding/bond_main.c
+>@@ -1176,6 +1176,9 @@ static rx_handler_result_t bond_handle_frame(struct sk_buff **pskb)
+> 		}
+> 	}
+> 
+>+	/* don't change skb->dev for link-local packets */
+>+	if (is_link_local_ether_addr(eth_hdr(skb)->h_dest))
+>+		return RX_HANDLER_PASS;
+> 	if (bond_should_deliver_exact_match(skb, slave, bond))
+> 		return RX_HANDLER_EXACT;
+> 
+>-- 
+>2.12.2.762.g0e3151a226-goog
+>
