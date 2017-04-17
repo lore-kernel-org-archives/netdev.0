@@ -1,7 +1,8 @@
 From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH 19/25] net: mvpp2: Rename a jump label in mvpp2_prs_vlan_add()
-Date: Mon, 17 Apr 2017 17:29:04 +0200
-Message-ID: <949a3bd7-7b65-8a9e-c535-6fafeb06f1a2@users.sourceforge.net>
+Subject: [PATCH 20/25] net: mvpp2: Adjust a null pointer check in
+ mvpp2_egress_enable()
+Date: Mon, 17 Apr 2017 17:30:12 +0200
+Message-ID: <54acb3f4-8a0c-90ba-4267-f62e10baa252@users.sourceforge.net>
 References: <d6f26bba-c678-5b66-4f5d-85f56d895190@users.sourceforge.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
@@ -25,37 +26,31 @@ Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Mon, 17 Apr 2017 13:50:35 +0200
+Date: Mon, 17 Apr 2017 14:07:52 +0200
 
-Adjust jump labels according to the Linux coding style convention.
+The script "checkpatch.pl" pointed information out like the following.
+
+Comparison to NULL could be written "txq->descs".
+
+Thus fix the affected source code place.
 
 Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
 ---
- drivers/net/ethernet/marvell/mvpp2.c | 5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/marvell/mvpp2.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index 0c190bd003b1..3bdd3f1fe34e 100644
+index 3bdd3f1fe34e..9b875d776b29 100644
 --- a/drivers/net/ethernet/marvell/mvpp2.c
 +++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -2021,7 +2021,7 @@ static int mvpp2_prs_vlan_add(struct mvpp2 *priv, unsigned short tpid, int ai,
+@@ -4415,7 +4415,7 @@ static void mvpp2_egress_enable(struct mvpp2_port *port)
+ 	for (queue = 0; queue < txq_number; queue++) {
+ 		struct mvpp2_tx_queue *txq = port->txqs[queue];
  
- 		if (tid <= tid_aux) {
- 			ret = -EINVAL;
--			goto error;
-+			goto free_pe;
- 		}
+-		if (txq->descs != NULL)
++		if (txq->descs)
+ 			qmap |= (1 << queue);
+ 	}
  
- 		memset(pe, 0, sizeof(*pe));
-@@ -2053,8 +2053,7 @@ static int mvpp2_prs_vlan_add(struct mvpp2 *priv, unsigned short tpid, int ai,
- 	mvpp2_prs_tcam_port_map_set(pe, port_map);
- 
- 	mvpp2_prs_hw_write(priv, pe);
--
--error:
-+free_pe:
- 	kfree(pe);
- 
- 	return ret;
 -- 
 2.12.2
