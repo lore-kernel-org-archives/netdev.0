@@ -1,217 +1,127 @@
 From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: [PATCH v3 2/9] ftgmac100: Add pause frames configuration and support
-Date: Tue, 18 Apr 2017 08:36:59 +1000
-Message-ID: <20170417223706.16483-3-benh@kernel.crashing.org>
+Subject: [PATCH v3 3/9] ftgmac100: Add ndo_set_rx_mode() and support for multicast & promisc
+Date: Tue, 18 Apr 2017 08:37:00 +1000
+Message-ID: <20170417223706.16483-4-benh@kernel.crashing.org>
 References: <20170417223706.16483-1-benh@kernel.crashing.org>
 Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:51403 "EHLO gate.crashing.org"
+Received: from gate.crashing.org ([63.228.1.57]:51404 "EHLO gate.crashing.org"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754784AbdDQWlD (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 17 Apr 2017 18:41:03 -0400
+        id S1754830AbdDQWlF (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 17 Apr 2017 18:41:05 -0400
 In-Reply-To: <20170417223706.16483-1-benh@kernel.crashing.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hopefully my understanding of how the hardware works is correct,
-as the documentation isn't completely clear. So far I have seen
-no obvious issue. Pause seem to also work with NC-SI.
+This adds the ndo_set_rx_mode() callback to configure the
+multicast filters, promisc and allmulti options.
 
 Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+--
+
+v3. - Rebase to fix conflict with #include changes
 ---
- drivers/net/ethernet/faraday/ftgmac100.c | 96 +++++++++++++++++++++++++++++++-
- drivers/net/ethernet/faraday/ftgmac100.h |  7 +++
- 2 files changed, 102 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/faraday/ftgmac100.c | 52 ++++++++++++++++++++++++++++++++
+ 1 file changed, 52 insertions(+)
 
 diff --git a/drivers/net/ethernet/faraday/ftgmac100.c b/drivers/net/ethernet/faraday/ftgmac100.c
-index 4cdd25a..949b48c 100644
+index 949b48c..f4db6e2 100644
 --- a/drivers/net/ethernet/faraday/ftgmac100.c
 +++ b/drivers/net/ethernet/faraday/ftgmac100.c
-@@ -99,6 +99,11 @@ struct ftgmac100 {
+@@ -32,6 +32,7 @@
+ #include <linux/phy.h>
+ #include <linux/platform_device.h>
+ #include <linux/property.h>
++#include <linux/crc32.h>
+ #include <net/ip.h>
+ #include <net/ncsi.h>
+ 
+@@ -99,6 +100,10 @@ struct ftgmac100 {
  	int cur_duplex;
  	bool use_ncsi;
  
-+	/* Flow control settings */
-+	bool tx_pause;
-+	bool rx_pause;
-+	bool aneg_pause;
++	/* Multicast filter settings */
++	u32 maht0;
++	u32 maht1;
 +
- 	/* Misc */
- 	bool need_mac_restart;
- 	bool is_aspeed;
-@@ -219,6 +224,23 @@ static int ftgmac100_set_mac_addr(struct net_device *dev, void *p)
- 	return 0;
+ 	/* Flow control settings */
+ 	bool tx_pause;
+ 	bool rx_pause;
+@@ -266,6 +271,10 @@ static void ftgmac100_init_hw(struct ftgmac100 *priv)
+ 	/* Write MAC address */
+ 	ftgmac100_write_mac_addr(priv, priv->netdev->dev_addr);
+ 
++	/* Write multicast filter */
++	iowrite32(priv->maht0, priv->base + FTGMAC100_OFFSET_MAHT0);
++	iowrite32(priv->maht1, priv->base + FTGMAC100_OFFSET_MAHT1);
++
+ 	/* Configure descriptor sizes and increase burst sizes according
+ 	 * to values in Aspeed SDK. The FIFO arbitration is enabled and
+ 	 * the thresholds set based on the recommended values in the
+@@ -319,6 +328,12 @@ static void ftgmac100_start_hw(struct ftgmac100 *priv)
+ 	/* Add other bits as needed */
+ 	if (priv->cur_duplex == DUPLEX_FULL)
+ 		maccr |= FTGMAC100_MACCR_FULLDUP;
++	if (priv->netdev->flags & IFF_PROMISC)
++		maccr |= FTGMAC100_MACCR_RX_ALL;
++	if (priv->netdev->flags & IFF_ALLMULTI)
++		maccr |= FTGMAC100_MACCR_RX_MULTIPKT;
++	else if (netdev_mc_count(priv->netdev))
++		maccr |= FTGMAC100_MACCR_HT_MULTI_EN;
+ 
+ 	/* Hit the HW */
+ 	iowrite32(maccr, priv->base + FTGMAC100_OFFSET_MACCR);
+@@ -329,6 +344,42 @@ static void ftgmac100_stop_hw(struct ftgmac100 *priv)
+ 	iowrite32(0, priv->base + FTGMAC100_OFFSET_MACCR);
  }
  
-+static void ftgmac100_config_pause(struct ftgmac100 *priv)
++static void ftgmac100_calc_mc_hash(struct ftgmac100 *priv)
 +{
-+	u32 fcr = FTGMAC100_FCR_PAUSE_TIME(16);
++	struct netdev_hw_addr *ha;
 +
-+	/* Throttle tx queue when receiving pause frames */
-+	if (priv->rx_pause)
-+		fcr |= FTGMAC100_FCR_FC_EN;
++	priv->maht1 = 0;
++	priv->maht0 = 0;
++	netdev_for_each_mc_addr(ha, priv->netdev) {
++		u32 crc_val = ether_crc_le(ETH_ALEN, ha->addr);
 +
-+	/* Enables sending pause frames when the RX queue is past a
-+	 * certain threshold.
-+	 */
-+	if (priv->tx_pause)
-+		fcr |= FTGMAC100_FCR_FCTHR_EN;
-+
-+	iowrite32(fcr, priv->base + FTGMAC100_OFFSET_FCR);
-+}
-+
- static void ftgmac100_init_hw(struct ftgmac100 *priv)
- {
- 	u32 reg, rfifo_sz, tfifo_sz;
-@@ -912,6 +934,7 @@ static void ftgmac100_adjust_link(struct net_device *netdev)
- {
- 	struct ftgmac100 *priv = netdev_priv(netdev);
- 	struct phy_device *phydev = netdev->phydev;
-+	bool tx_pause, rx_pause;
- 	int new_speed;
- 
- 	/* We store "no link" as speed 0 */
-@@ -920,8 +943,21 @@ static void ftgmac100_adjust_link(struct net_device *netdev)
- 	else
- 		new_speed = phydev->speed;
- 
-+	/* Grab pause settings from PHY if configured to do so */
-+	if (priv->aneg_pause) {
-+		rx_pause = tx_pause = phydev->pause;
-+		if (phydev->asym_pause)
-+			tx_pause = !rx_pause;
-+	} else {
-+		rx_pause = priv->rx_pause;
-+		tx_pause = priv->tx_pause;
-+	}
-+
-+	/* Link hasn't changed, do nothing */
- 	if (phydev->speed == priv->cur_speed &&
--	    phydev->duplex == priv->cur_duplex)
-+	    phydev->duplex == priv->cur_duplex &&
-+	    rx_pause == priv->rx_pause &&
-+	    tx_pause == priv->tx_pause)
- 		return;
- 
- 	/* Print status if we have a link or we had one and just lost it,
-@@ -932,6 +968,8 @@ static void ftgmac100_adjust_link(struct net_device *netdev)
- 
- 	priv->cur_speed = new_speed;
- 	priv->cur_duplex = phydev->duplex;
-+	priv->rx_pause = rx_pause;
-+	priv->tx_pause = tx_pause;
- 
- 	/* Link is down, do nothing else */
- 	if (!new_speed)
-@@ -963,6 +1001,12 @@ static int ftgmac100_mii_probe(struct ftgmac100 *priv)
- 		return PTR_ERR(phydev);
- 	}
- 
-+	/* Indicate that we support PAUSE frames (see comment in
-+	 * Documentation/networking/phy.txt)
-+	 */
-+	phydev->supported |= SUPPORTED_Pause | SUPPORTED_Asym_Pause;
-+	phydev->advertising = phydev->supported;
-+
- 	return 0;
- }
- 
-@@ -1078,6 +1122,48 @@ static int ftgmac100_set_ringparam(struct net_device *netdev,
- 	return 0;
- }
- 
-+static void ftgmac100_get_pauseparam(struct net_device *netdev,
-+				     struct ethtool_pauseparam *pause)
-+{
-+	struct ftgmac100 *priv = netdev_priv(netdev);
-+
-+	pause->autoneg = priv->aneg_pause;
-+	pause->tx_pause = priv->tx_pause;
-+	pause->rx_pause = priv->rx_pause;
-+}
-+
-+static int ftgmac100_set_pauseparam(struct net_device *netdev,
-+				    struct ethtool_pauseparam *pause)
-+{
-+	struct ftgmac100 *priv = netdev_priv(netdev);
-+	struct phy_device *phydev = netdev->phydev;
-+
-+	priv->aneg_pause = pause->autoneg;
-+	priv->tx_pause = pause->tx_pause;
-+	priv->rx_pause = pause->rx_pause;
-+
-+	if (phydev) {
-+		phydev->advertising &= ~ADVERTISED_Pause;
-+		phydev->advertising &= ~ADVERTISED_Asym_Pause;
-+
-+		if (pause->rx_pause) {
-+			phydev->advertising |= ADVERTISED_Pause;
-+			phydev->advertising |= ADVERTISED_Asym_Pause;
-+		}
-+
-+		if (pause->tx_pause)
-+			phydev->advertising ^= ADVERTISED_Asym_Pause;
-+	}
-+	if (netif_running(netdev)) {
-+		if (phydev && priv->aneg_pause)
-+			phy_start_aneg(phydev);
++		crc_val = (~(crc_val >> 2)) & 0x3f;
++		if (crc_val >= 32)
++			priv->maht1 |= 1ul << (crc_val - 32);
 +		else
-+			ftgmac100_config_pause(priv);
++			priv->maht0 |= 1ul << (crc_val);
 +	}
-+
-+	return 0;
 +}
 +
- static const struct ethtool_ops ftgmac100_ethtool_ops = {
- 	.get_drvinfo		= ftgmac100_get_drvinfo,
- 	.get_link		= ethtool_op_get_link,
-@@ -1086,6 +1172,8 @@ static const struct ethtool_ops ftgmac100_ethtool_ops = {
- 	.nway_reset		= phy_ethtool_nway_reset,
- 	.get_ringparam		= ftgmac100_get_ringparam,
- 	.set_ringparam		= ftgmac100_set_ringparam,
-+	.get_pauseparam		= ftgmac100_get_pauseparam,
-+	.set_pauseparam		= ftgmac100_set_pauseparam,
++static void ftgmac100_set_rx_mode(struct net_device *netdev)
++{
++	struct ftgmac100 *priv = netdev_priv(netdev);
++
++	/* Setup the hash filter */
++	ftgmac100_calc_mc_hash(priv);
++
++	/* Interface down ? that's all there is to do */
++	if (!netif_running(netdev))
++		return;
++
++	/* Update the HW */
++	iowrite32(priv->maht0, priv->base + FTGMAC100_OFFSET_MAHT0);
++	iowrite32(priv->maht1, priv->base + FTGMAC100_OFFSET_MAHT1);
++
++	/* Reconfigure MACCR */
++	ftgmac100_start_hw(priv);
++}
++
+ static int ftgmac100_alloc_rx_buf(struct ftgmac100 *priv, unsigned int entry,
+ 				  struct ftgmac100_rxdes *rxdes, gfp_t gfp)
+ {
+@@ -1503,6 +1554,7 @@ static const struct net_device_ops ftgmac100_netdev_ops = {
+ 	.ndo_validate_addr	= eth_validate_addr,
+ 	.ndo_do_ioctl		= ftgmac100_do_ioctl,
+ 	.ndo_tx_timeout		= ftgmac100_tx_timeout,
++	.ndo_set_rx_mode	= ftgmac100_set_rx_mode,
  };
  
- static irqreturn_t ftgmac100_interrupt(int irq, void *dev_id)
-@@ -1217,6 +1305,7 @@ static int ftgmac100_init_all(struct ftgmac100 *priv, bool ignore_alloc_err)
- 
- 	/* Reinit and restart HW */
- 	ftgmac100_init_hw(priv);
-+	ftgmac100_config_pause(priv);
- 	ftgmac100_start_hw(priv);
- 
- 	/* Re-enable the device */
-@@ -1546,6 +1635,11 @@ static int ftgmac100_probe(struct platform_device *pdev)
- 
- 	netdev->irq = irq;
- 
-+	/* Enable pause */
-+	priv->tx_pause = true;
-+	priv->rx_pause = true;
-+	priv->aneg_pause = true;
-+
- 	/* MAC address from chip or random one */
- 	ftgmac100_initial_mac(priv);
- 
-diff --git a/drivers/net/ethernet/faraday/ftgmac100.h b/drivers/net/ethernet/faraday/ftgmac100.h
-index 97912c4..0653d81 100644
---- a/drivers/net/ethernet/faraday/ftgmac100.h
-+++ b/drivers/net/ethernet/faraday/ftgmac100.h
-@@ -199,6 +199,13 @@
- #define FTGMAC100_PHYDATA_MIIRDATA(phydata)	(((phydata) >> 16) & 0xffff)
- 
- /*
-+ * Flow control register
-+ */
-+#define FTGMAC100_FCR_FC_EN		(1 << 0)
-+#define FTGMAC100_FCR_FCTHR_EN		(1 << 2)
-+#define FTGMAC100_FCR_PAUSE_TIME(x)	(((x) & 0xffff) << 16)
-+
-+/*
-  * Transmit descriptor, aligned to 16 bytes
-  */
- struct ftgmac100_txdes {
+ static int ftgmac100_setup_mdio(struct net_device *netdev)
 -- 
 2.9.3
