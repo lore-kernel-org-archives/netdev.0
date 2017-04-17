@@ -1,58 +1,65 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH 25/25] sky2: Use seq_puts() in sky2_debug_show()
-Date: Mon, 17 Apr 2017 17:35:05 +0200
-Message-ID: <32a994ea-00cf-75e8-d816-b6bdc04d5ab6@users.sourceforge.net>
-References: <d6f26bba-c678-5b66-4f5d-85f56d895190@users.sourceforge.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Use of skb_unclone in drivers
+Date: Mon, 17 Apr 2017 09:07:12 -0700
+Message-ID: <1492445232.10587.107.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <CAE_XsMLcUbCdJvzkW8E0rh7NjJHG8vEa-PhKgR3RzzFHaGBS6w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-        kernel-janitors@vger.kernel.org
-To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Jarod Wilson <jarod@redhat.com>,
-        Jisheng Zhang <jszhang@marvell.com>,
-        Mirko Lindner <mlindner@marvell.com>,
-        Philippe Reynes <tremyfr@gmail.com>,
-        Russell King <rmk+kernel@armlinux.org.uk>,
-        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Cc: netdev@vger.kernel.org
+To: James Hughes <james.hughes@raspberrypi.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.web.de ([212.227.17.11]:58987 "EHLO mout.web.de"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754505AbdDQPf1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 17 Apr 2017 11:35:27 -0400
-In-Reply-To: <d6f26bba-c678-5b66-4f5d-85f56d895190@users.sourceforge.net>
-Content-Language: en-GB
+Received: from mail-pg0-f49.google.com ([74.125.83.49]:35929 "EHLO
+        mail-pg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754157AbdDQQHO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 17 Apr 2017 12:07:14 -0400
+Received: by mail-pg0-f49.google.com with SMTP id g2so73811844pge.3
+        for <netdev@vger.kernel.org>; Mon, 17 Apr 2017 09:07:14 -0700 (PDT)
+In-Reply-To: <CAE_XsMLcUbCdJvzkW8E0rh7NjJHG8vEa-PhKgR3RzzFHaGBS6w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Mon, 17 Apr 2017 16:15:12 +0200
+On Mon, 2017-04-17 at 16:02 +0100, James Hughes wrote:
+> Netdevs,
+> 
+> We have recently got to the bottom of an issue which we have been
+> encountering on a Raspberry Pi being used as an access point, and we
+> need a bit of advice on the correct way of fixing the issue.
+> 
+> The set up is a Raspberry Pi 3 running hostapd on its inbuilt wireless
+> adaptor (Brcm43438 ), bridged to the built in ethernet adaptor
+> (smsc9514). Using the standard drivers for these devices as of 4.9
+> (looking at 4.11, no changes noted that would affect the issue. I will
+> be trying the latest kernel once I get back in to the office).
+> 
+> We were encountering an error in the Brcm Wireless driver that after
+> investigation was a skb_buff being corrupted by an action in the smsc
+> Ethernet driver. Further digging shows that the bridge was cloning an
+> incoming skb from the Ethernet, then sending it out to both the
+> Ethernet and wlan ports. This mean that both the Ethernet driver and
+> the wireless driver were looking at the same physical data, and one or
+> both were altering that data in different ways (varied headers) ,
+> which mean that headers were corrupted. This was only happening on
+> broadcast packets.
+> 
+> We can fix the issue by, in the drivers, using skb_unclone in
+> appropriate places in the driver.
+> 
+> So now to the questions. Is adding the unclone to the drivers the
+> correct way of dealing with this issue? Examining other drivers shows
+> that unclone is not particularly common, presumably in many cases,
+> where the driver does not alter the skb, it doesn't matter. However,
+> in any case where a driver may add header information to the skb (as
+> is the case with the Brcm wireless driver), when the incoming skb has
+> been cloned, the results must surely be undetermined unless an unclone
+> is performed.
+> 
+> Or, is the bridging code making a mistake by cloning the skb and
+> passing it to multiple recipients?
+> 
 
-A string which did not contain a data format specification should be put
-into a sequence. Thus use the corresponding function "seq_puts".
 
-This issue was detected by using the Coccinelle software.
+bridge code is fine.
 
-Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
----
- drivers/net/ethernet/marvell/sky2.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/marvell/sky2.c b/drivers/net/ethernet/marvell/sky2.c
-index 2b2cc3f3ca10..1145cde2274a 100644
---- a/drivers/net/ethernet/marvell/sky2.c
-+++ b/drivers/net/ethernet/marvell/sky2.c
-@@ -4544,7 +4544,7 @@ static int sky2_debug_show(struct seq_file *seq, void *v)
- 		   sky2_read32(hw, B0_Y2_SP_ICR));
- 
- 	if (!netif_running(dev)) {
--		seq_printf(seq, "network not running\n");
-+		seq_puts(seq, "network not running\n");
- 		return 0;
- 	}
- 
--- 
-2.12.2
+Problem is that some drivers lack calls to skb_cow_head() before they
+mess with headers.
