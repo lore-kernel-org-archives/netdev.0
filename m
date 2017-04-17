@@ -1,8 +1,8 @@
 From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH 07/25] net: mvpp2: Improve another size determination in
- mvpp2_init()
-Date: Mon, 17 Apr 2017 17:17:13 +0200
-Message-ID: <9efcf14a-9531-084a-f26f-c9e5eb767f9b@users.sourceforge.net>
+Subject: [PATCH 08/25] net: mvpp2: Improve another size determination in
+ mvpp2_port_probe()
+Date: Mon, 17 Apr 2017 17:18:09 +0200
+Message-ID: <b7882f0e-30b8-9851-131d-3d5a4cb2f89c@users.sourceforge.net>
 References: <d6f26bba-c678-5b66-4f5d-85f56d895190@users.sourceforge.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
@@ -26,7 +26,7 @@ Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Mon, 17 Apr 2017 08:48:23 +0200
+Date: Mon, 17 Apr 2017 08:55:42 +0200
 
 Replace the specification of a data structure by a pointer dereference
 as the parameter for the operator "sizeof" to make the corresponding size
@@ -34,21 +34,22 @@ determination a bit safer according to the Linux coding style convention.
 
 Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
 ---
- drivers/net/ethernet/marvell/mvpp2.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/marvell/mvpp2.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index 04aba2307b60..e35c4d0b112a 100644
+index e35c4d0b112a..8f1fec2986f9 100644
 --- a/drivers/net/ethernet/marvell/mvpp2.c
 +++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -6806,7 +6806,7 @@ static int mvpp2_init(struct platform_device *pdev, struct mvpp2 *priv)
+@@ -6487,8 +6487,7 @@ static int mvpp2_port_probe(struct platform_device *pdev,
+ 	int phy_mode;
+ 	int err, i, cpu;
  
- 	/* Allocate and initialize aggregated TXQs */
- 	priv->aggr_txqs = devm_kcalloc(&pdev->dev, num_present_cpus(),
--				       sizeof(struct mvpp2_tx_queue),
-+				       sizeof(*priv->aggr_txqs),
- 				       GFP_KERNEL);
- 	if (!priv->aggr_txqs)
+-	dev = alloc_etherdev_mqs(sizeof(struct mvpp2_port), txq_number,
+-				 rxq_number);
++	dev = alloc_etherdev_mqs(sizeof(*port), txq_number, rxq_number);
+ 	if (!dev)
  		return -ENOMEM;
+ 
 -- 
 2.12.2
