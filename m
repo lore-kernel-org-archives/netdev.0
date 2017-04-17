@@ -1,42 +1,72 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 1/1] net sched actions: dump more than
- TCA_ACT_MAX_PRIO actions per batch
-Date: Mon, 17 Apr 2017 06:10:59 -0700
-Message-ID: <1492434659.10587.90.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1492346070-6002-1-git-send-email-jhs@emojatatu.com>
-         <20170417081936.GA1892@nanopsycho.orion>
-         <dfc1485f-7d7e-f52e-f62e-273063a59abc@mojatatu.com>
+From: Alexander Aring <aar@pengutronix.de>
+Subject: Re: skb_over_panic using UDP and 6lowpan / fakelb
+Date: Mon, 17 Apr 2017 15:25:48 +0200
+Message-ID: <0ddbdbde-8610-0ea5-bae2-4ec2702927dc@pengutronix.de>
+References: <56012235-e1d0-1e5e-840a-cc8d5938c380@ntnu.no>
+ <CAM_iQpWqQj3FLpBLE1Z+==Z7tJGXHyHXTvLmKRCNjyc=vtQvnQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: Jiri Pirko <jiri@resnulli.us>, davem@davemloft.net,
-        netdev@vger.kernel.org, xiyou.wangcong@gmail.com
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Cc: David Palma <david.palma@ntnu.no>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        stefan@osg.samsung.com, linux-wpan@vger.kernel.org
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:36063 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752238AbdDQNLB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 17 Apr 2017 09:11:01 -0400
-Received: by mail-pf0-f195.google.com with SMTP id i5so24788251pfc.3
-        for <netdev@vger.kernel.org>; Mon, 17 Apr 2017 06:11:01 -0700 (PDT)
-In-Reply-To: <dfc1485f-7d7e-f52e-f62e-273063a59abc@mojatatu.com>
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:58031 "EHLO
+        metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1753348AbdDQNZy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 17 Apr 2017 09:25:54 -0400
+In-Reply-To: <CAM_iQpWqQj3FLpBLE1Z+==Z7tJGXHyHXTvLmKRCNjyc=vtQvnQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2017-04-17 at 07:01 -0400, Jamal Hadi Salim wrote:
 
-> The name "pad" is ugly - but _we need to put these reserved spaces
-> to good use_. We cant keep declaring pads and say they should never
-> be used in the future.
-> We dont need more than 2-3 bits for the flags for example and i dont
-> see anyone dumping 64K actions in one message.
-> An attribute is a big waste of space. I cant change the name pad - 
-> perhaps a union with a new name? We had a similar discussion a while 
-> back on some netlink header, i just dont remember the details.
-> Suggestions?
+Hi,
 
-We can not assume user programs properly cleared the paddings anyway.
+sorry for the late reply.
 
-Using them for 'new features' is risky, since it might break programs.
+On 04/03/2017 07:29 PM, Cong Wang wrote:
+> (Cc'ing netdev and maintainers)
+> 
+> On Mon, Mar 27, 2017 at 2:16 AM, David Palma <david.palma@ntnu.no> wrote:
+>>
+>> Hi,
+>>
+>> Sending a simple UDP packet (39 bytes long), over a 6lowpan interface
+>> (using fakelb), creates a kernel panic (skb_over_panic).
+>>
+>> Steps to reproduce, and more details, can be found in:
+>> https://github.com/PalmaITEM/6lowpan-skb_over_panic
+>>
+>> This bug has been reported in
+>> https://bugzilla.kernel.org/show_bug.cgi?id=195059
+>>
+>> I have found that lengths around 39 bytes can also trigger this
+>> behaviour and that longer packets are handled without problem.
+>>
+>> Verified in:
+>>
+>> - Linux version 4.9.0-0.bpo.2-amd64 (debian-kernel@lists.debian.org)
+>> (gcc version 4.9.2 (Debian 4.9.2-10) ) #1 SMP Debian 4.9.13-1~bpo8+1
+>> (2017-02-27)
+>> - Linux version 4.10.4-1-ARCH (builduser@tobias) (gcc version 6.3.1
+>> 20170306 (GCC) ) #1 SMP PREEMPT Sat Mar 18 19:39:18 CET 2017
+>>
+>>
+>> I am not familiar with the process of reporting kernel bugs, so
+>> apologies beforehand. I am also available to provide any missing
+>> information.
+>>
 
-So the safe way is using new attributes really.
+I will try to reproduce the failure with an x86_64 qemu virtual machine.
+Myself I use a 32 Bit qemu machine because I have a dependency on
+userspace software which use x86 assembler (somebody should change it to
+setjmp/longjmp)... it's the RIOT-OS native plattform. I use some cross
+compiling environment which doesn't support multilib yet, so I used
+always 32 Bit.
+
+btw: the github stuff is very useful and thanks for the hard work! I am
+on it to reproduce it. I will report when I have more information.
+
+- Alex
