@@ -1,33 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/1] ipv6: sr: fix BUG due to headroom too
- small after SRH push
-Date: Mon, 17 Apr 2017 15:34:21 -0400 (EDT)
-Message-ID: <20170417.153421.626707285296729621.davem@davemloft.net>
-References: <20170416102714.11508-1-david.lebrun@uclouvain.be>
+Subject: Re: [PATCH net-next] net: rtnetlink: plumb extended ack to doit
+ function
+Date: Mon, 17 Apr 2017 15:45:10 -0400 (EDT)
+Message-ID: <20170417.154510.1235069954550923423.davem@davemloft.net>
+References: <1492361304-6116-1-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: david.lebrun@uclouvain.be
+Cc: netdev@vger.kernel.org, jhs@mojatatu.com
+To: dsa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:57418 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:57534 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756627AbdDQTeX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 17 Apr 2017 15:34:23 -0400
-In-Reply-To: <20170416102714.11508-1-david.lebrun@uclouvain.be>
+        with ESMTP id S1753700AbdDQTpM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 17 Apr 2017 15:45:12 -0400
+In-Reply-To: <1492361304-6116-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Lebrun <david.lebrun@uclouvain.be>
-Date: Sun, 16 Apr 2017 12:27:14 +0200
+From: David Ahern <dsa@cumulusnetworks.com>
+Date: Sun, 16 Apr 2017 09:48:24 -0700
 
-> When a locally generated packet receives an SRH with two or more segments,
-> the remaining headroom is too small to push an ethernet header. This patch
-> ensures that the headroom is large enough after SRH push.
+> Add netlink_ext_ack arg to rtnl_doit_func. Pass extack arg to nlmsg_parse
+> for doit functions that call it directly.
 > 
-> The BUG generated the following trace.
- ...
-> Fixes: 19d5a26f5ef8de5dcb78799feaf404d717b1aac3 ("ipv6: sr: expand skb head only if necessary")
-> Signed-off-by: David Lebrun <david.lebrun@uclouvain.be>
+> This is the first step to using extended error reporting in rtnetlink.
+> From here individual subsystems can be updated to set netlink_ext_ack as
+> needed.
+> 
+> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 
-Applied, thank you.
+Applied, thanks David.
