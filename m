@@ -1,65 +1,30 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH 01/25] net: mvneta: Use devm_kmalloc_array() in mvneta_init()
-Date: Mon, 17 Apr 2017 17:08:29 +0200
-Message-ID: <c97b4f03-f596-687a-ad28-3216185260a4@users.sourceforge.net>
-References: <d6f26bba-c678-5b66-4f5d-85f56d895190@users.sourceforge.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 00/16] Mellanox, mlx5 RDMA net device support
+Date: Mon, 17 Apr 2017 11:08:51 -0400 (EDT)
+Message-ID: <20170417.110851.1496380796999919507.davem@davemloft.net>
+References: <20170413033706.19016-1-saeedm@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-        kernel-janitors@vger.kernel.org
-To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Jarod Wilson <jarod@redhat.com>,
-        Jisheng Zhang <jszhang@marvell.com>,
-        Mirko Lindner <mlindner@marvell.com>,
-        Philippe Reynes <tremyfr@gmail.com>,
-        Russell King <rmk+kernel@armlinux.org.uk>,
-        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <d6f26bba-c678-5b66-4f5d-85f56d895190@users.sourceforge.net>
-Content-Language: en-GB
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
+        dledford@redhat.com, leonro@mellanox.com, erezsh@mellanox.com,
+        jgunthorpe@obsidianresearch.com,
+        niranjana.vishwanathapura@intel.com
+To: saeedm@mellanox.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:53426 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754008AbdDQPJN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 17 Apr 2017 11:09:13 -0400
+In-Reply-To: <20170413033706.19016-1-saeedm@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Sun, 16 Apr 2017 21:23:19 +0200
+From: Saeed Mahameed <saeedm@mellanox.com>
+Date: Thu, 13 Apr 2017 06:36:50 +0300
 
-* A multiplication for the size determination of a memory allocation
-  indicated that an array data structure should be processed.
-  Thus use the corresponding function "devm_kmalloc_array".
+> This series provides the lower level mlx5 support of RDMA netdevice
+> creation API [1] suggested and introduced by Intel's HFI OPA VNIC
+> netdevice driver [2], to enable IPoIB mlx5 RDMA netdevice creation.
 
-  This issue was detected by using the Coccinelle software.
-
-* Replace the specification of a data type by a pointer dereference
-  to make the corresponding size determination a bit safer according to
-  the Linux coding style convention.
-
-Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
----
- drivers/net/ethernet/marvell/mvneta.c | 8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index 34a3686d2ce6..46fa74e93814 100644
---- a/drivers/net/ethernet/marvell/mvneta.c
-+++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -4017,9 +4017,11 @@ static int mvneta_init(struct device *dev, struct mvneta_port *pp)
- 		rxq->size = pp->rx_ring_size;
- 		rxq->pkts_coal = MVNETA_RX_COAL_PKTS;
- 		rxq->time_coal = MVNETA_RX_COAL_USEC;
--		rxq->buf_virt_addr = devm_kmalloc(pp->dev->dev.parent,
--						  rxq->size * sizeof(void *),
--						  GFP_KERNEL);
-+		rxq->buf_virt_addr
-+			= devm_kmalloc_array(pp->dev->dev.parent,
-+					     rxq->size,
-+					     sizeof(*rxq->buf_virt_addr),
-+					     GFP_KERNEL);
- 		if (!rxq->buf_virt_addr)
- 			return -ENOMEM;
- 	}
--- 
-2.12.2
+Series applied to net-next.
