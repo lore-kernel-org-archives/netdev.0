@@ -1,65 +1,62 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Use of skb_unclone in drivers
-Date: Mon, 17 Apr 2017 09:07:12 -0700
-Message-ID: <1492445232.10587.107.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <CAE_XsMLcUbCdJvzkW8E0rh7NjJHG8vEa-PhKgR3RzzFHaGBS6w@mail.gmail.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH net-next 1/1] net sched actions: dump more than
+ TCA_ACT_MAX_PRIO actions per batch
+Date: Mon, 17 Apr 2017 12:40:26 -0400
+Message-ID: <1243c0c5-4a96-c54a-cdd2-17ea440ff6ad@mojatatu.com>
+References: <1492346070-6002-1-git-send-email-jhs@emojatatu.com>
+ <20170417081936.GA1892@nanopsycho.orion>
+ <dfc1485f-7d7e-f52e-f62e-273063a59abc@mojatatu.com>
+ <1492434659.10587.90.camel@edumazet-glaptop3.roam.corp.google.com>
+ <7a49a797-d9cb-37c1-e46b-bec6888539b9@mojatatu.com>
+ <1492441116.10587.96.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: James Hughes <james.hughes@raspberrypi.org>
+Cc: Jiri Pirko <jiri@resnulli.us>, davem@davemloft.net,
+        netdev@vger.kernel.org, xiyou.wangcong@gmail.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f49.google.com ([74.125.83.49]:35929 "EHLO
-        mail-pg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754157AbdDQQHO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 17 Apr 2017 12:07:14 -0400
-Received: by mail-pg0-f49.google.com with SMTP id g2so73811844pge.3
-        for <netdev@vger.kernel.org>; Mon, 17 Apr 2017 09:07:14 -0700 (PDT)
-In-Reply-To: <CAE_XsMLcUbCdJvzkW8E0rh7NjJHG8vEa-PhKgR3RzzFHaGBS6w@mail.gmail.com>
+Received: from mail-io0-f196.google.com ([209.85.223.196]:36265 "EHLO
+        mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752751AbdDQQk3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 17 Apr 2017 12:40:29 -0400
+Received: by mail-io0-f196.google.com with SMTP id x86so27798601ioe.3
+        for <netdev@vger.kernel.org>; Mon, 17 Apr 2017 09:40:28 -0700 (PDT)
+In-Reply-To: <1492441116.10587.96.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2017-04-17 at 16:02 +0100, James Hughes wrote:
-> Netdevs,
-> 
-> We have recently got to the bottom of an issue which we have been
-> encountering on a Raspberry Pi being used as an access point, and we
-> need a bit of advice on the correct way of fixing the issue.
-> 
-> The set up is a Raspberry Pi 3 running hostapd on its inbuilt wireless
-> adaptor (Brcm43438 ), bridged to the built in ethernet adaptor
-> (smsc9514). Using the standard drivers for these devices as of 4.9
-> (looking at 4.11, no changes noted that would affect the issue. I will
-> be trying the latest kernel once I get back in to the office).
-> 
-> We were encountering an error in the Brcm Wireless driver that after
-> investigation was a skb_buff being corrupted by an action in the smsc
-> Ethernet driver. Further digging shows that the bridge was cloning an
-> incoming skb from the Ethernet, then sending it out to both the
-> Ethernet and wlan ports. This mean that both the Ethernet driver and
-> the wireless driver were looking at the same physical data, and one or
-> both were altering that data in different ways (varied headers) ,
-> which mean that headers were corrupted. This was only happening on
-> broadcast packets.
-> 
-> We can fix the issue by, in the drivers, using skb_unclone in
-> appropriate places in the driver.
-> 
-> So now to the questions. Is adding the unclone to the drivers the
-> correct way of dealing with this issue? Examining other drivers shows
-> that unclone is not particularly common, presumably in many cases,
-> where the driver does not alter the skb, it doesn't matter. However,
-> in any case where a driver may add header information to the skb (as
-> is the case with the Brcm wireless driver), when the incoming skb has
-> been cloned, the results must surely be undetermined unless an unclone
-> is performed.
-> 
-> Or, is the bridging code making a mistake by cloning the skb and
-> passing it to multiple recipients?
-> 
+On 17-04-17 10:58 AM, Eric Dumazet wrote:
+[..]
+> Very often, pads are there because of ABI constraints.
+>
+> We 'name' them to make clear to developers that they are there,
+> and avoid security issues, because of say few bytes from kernel stack
+> are copied to user space.
+>
+> struct foo {
+>   __u32 a;
+>   __u16 b;
+> };
+>
+>
+> Note that the 16bit padding is there, even if you do not name it.
+>
 
+Agreed. But note netlink is defined as "a wire protocol" which
+has explicit requirement to pad/align to 32 bit boundary. Therefore
+we _always_ explicitly name the pads.
 
-bridge code is fine.
+> Once this structure had been exported to some include file and in a
+> kernel, there is little point trying to 'reuse' the padding, unless for
+> very specific cases.
+>
+> If you name paddings, then developers might think about it.
+>
 
-Problem is that some drivers lack calls to skb_cow_head() before they
-mess with headers.
+We always name them for netlink. The challenge is a few months later
+we are not allowed to use the fields we name. I see these netlink
+struct pads in the same manner as say reserved packet header fields.
+
+cheers,
+jamal
