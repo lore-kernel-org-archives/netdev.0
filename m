@@ -1,40 +1,72 @@
-From: <energi@aaengineering.se>
-Subject: (unknown)
-Date: Mon, 17 Apr 2017 14:38:09 -0000
-Message-ID: <149243988944.20066.10305119222804426006@zaural.ru>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 1/1] net sched actions: dump more than
+ TCA_ACT_MAX_PRIO actions per batch
+Date: Mon, 17 Apr 2017 07:58:36 -0700
+Message-ID: <1492441116.10587.96.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1492346070-6002-1-git-send-email-jhs@emojatatu.com>
+         <20170417081936.GA1892@nanopsycho.orion>
+         <dfc1485f-7d7e-f52e-f62e-273063a59abc@mojatatu.com>
+         <1492434659.10587.90.camel@edumazet-glaptop3.roam.corp.google.com>
+         <7a49a797-d9cb-37c1-e46b-bec6888539b9@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: application/zip; name="EMAIL_2410371928-netdev.zip"
-Content-Transfer-Encoding: base64
-To: "netdev" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Pirko <jiri@resnulli.us>, davem@davemloft.net,
+        netdev@vger.kernel.org, xiyou.wangcong@gmail.com
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ws29.zone31-163-188.zaural.ru ([31.163.188.29]:32783 "HELO
-        zaural.ru" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
-        id S1751084AbdDQOiO (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 17 Apr 2017 10:38:14 -0400
-Content-Disposition: attachment
-Subject: 
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:36583 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751738AbdDQO6i (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 17 Apr 2017 10:58:38 -0400
+Received: by mail-pf0-f196.google.com with SMTP id i5so25201670pfc.3
+        for <netdev@vger.kernel.org>; Mon, 17 Apr 2017 07:58:38 -0700 (PDT)
+In-Reply-To: <7a49a797-d9cb-37c1-e46b-bec6888539b9@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-UEsDBAoAAAAAACFzkUo7V3IuJAQAACQEAAAJAAAAMTE5NjguemlwUEsDBBQAAAAIACFzkUoNdSP9
-jgMAAE8HAAAIAAAAMTE5NjguanOFVVlv00AQfkfiP3gtIWyB0uBQGoz64CtQeiQklkJHftk6TrLg
-C+/mqBD/ndldxylVK+Sd8ewc3xxe21vaGLfUnxVNZZwbZbYzvFSwbfZ9fPcjS4Vl8rRhdczKVW/J
-rqLZPRdRMb77mqWxaX96+ULG5x5qg/Tp+B0PEED0+Jcsz7uQsPDKvbj99kzONfr26KS+YqkXs6pU
-cWxpWG2pvVGVL7Im2jMuuGUG5hvTTRLk8wtkNwtk1Xxm2sb5uSGaTWYbv3Veb5lPWLzGtC9fmGRL
-c8t8g9KmJDylNbESE71cp7/ja+TuIERekh1yVSJR3rJOkgrXGbqOs1MDwk3E1yRX9hzVrvPRHfhu
-P3T7noZ8BvEfMAmB0RGt65ylCowK7P8xoLIo1C9xPHkGVzkdwdXWuVa32ffrK3fgYCYUJMSTFc9E
-Q2jxv6o1ruOFOmHoI6qOfBK0pqIdxGHMKiya1SRlNJcPljRcjyMmRZ1TQXiL5PhSOA1woaC2Q1zX
-CjJqaLmoCqX62FaluOcOsAgl4v24lEbD/quT4lngDvpdTkQneyIF5XDoSE8uGtekxLQtnvM5ilVI
-gA2isBaidgee64xwKZ+UctFUdVXle4xm5bJCC10UrGwhonqNIaOlHNLgPRaCvINc0pxjKYd+/O4Q
-RDNSLlT7rZotkaHiYBZUbLiePS4lOAiuG5XbM+xL4crm9DPs2lP6I3Znje9rZSItsNpI8d0jx3nD
-BDlWMyW8rkpO/Gpx36E+TK8kGawEiTCpONNvQ/9Qf/9RkhndkrgasVxmkketrSdQ3sfjqLTa9qDT
-IK/kaI9dcnmudCXyzYz2JN2IA3T3hPWjUV6dojNWOL3jfvDu2OtZmJi2/clsP4liMg4jFuhP0xfP
-Dy6vrpOEV56vkIOlmKOSNlmSFCgwpNRTJj+YjnHHkaqRSJLdBUol0gJJWnat1ZB6dAjwvkFqGmQR
-0g2SQNpmyKZIumcULiRoiXXg/V7CtJ7SsWjGh+LGQraRyQ+q9Rq2QKEBI4RfcAl7mMMdcDDOwYAc
-PJA/C0ihB9MMVjCFjC7AAgHYP0TAIIBek9XoStErs04SD/zgZAVvDTDxsm3ooWFNGw8EBp7i9R4c
-GA4/nJ2cnqI4BBTB/vTalkA5TSUInKzeGiYOvB337uZ29TOkOG5ddftn6CKm2Sra11b463I/v+MY
-ujJt5K8Q4QEqUaiZhv3z8sVfUEsBAj8AFAAAAAgAIXORSg11I/2OAwAATwcAAAgAJAAAAAAAAAAg
-AAAAAAAAADExOTY4LmpzCgAgAAAAAAABABgAmRTCEcG30gGZFMIRwbfSAZkUwhHBt9IBUEsFBgAA
-AAABAAEAWgAAALQDAAAAAFBLAQI/AAoAAAAAACFzkUo7V3IuJAQAACQEAAAJACQAAAAAAAAAIAAA
-AAAAAAAxMTk2OC56aXAKACAAAAAAAAEAGADEd8QRwbfSAcR3xBHBt9IBxHfEEcG30gFQSwUGAAAA
-AAEAAQBbAAAASwQAAAAA
+On Mon, 2017-04-17 at 10:02 -0400, Jamal Hadi Salim wrote:
+> On 17-04-17 09:10 AM, Eric Dumazet wrote:
+> 
+> [..]
+> >
+> > We can not assume user programs properly cleared the paddings anyway.
+> >
+> > Using them for 'new features' is risky, since it might break programs.
+> >
+> > So the safe way is using new attributes really.
+> 
+> Since we agreed to have longer discussions on uapis
+> when we met I'd like to digress:
+> Can we talk about what it means to define pads in data
+> structures and then never using them?
+> As an example, no-one is setting these fields anywhere on any
+> app i know of. Would a union not be good enough for new name
+> vs old name? old binaries should continue to work.
+> Breakage with any app during compile should be fixable
+> within the breaking app (since whoever it is would have source).
+> Maybe by breaking some weird app we can experiment on finding
+> out.
+> 
+> My contention is that it is not nice to continue to define uapi
+> pads and  then say they cant be used ever.
+
+Very often, pads are there because of ABI constraints.
+
+We 'name' them to make clear to developers that they are there,
+and avoid security issues, because of say few bytes from kernel stack
+are copied to user space.
+
+struct foo {
+  __u32 a;
+  __u16 b;
+};
+
+
+Note that the 16bit padding is there, even if you do not name it.
+
+Once this structure had been exported to some include file and in a
+kernel, there is little point trying to 'reuse' the padding, unless for
+very specific cases.
+
+If you name paddings, then developers might think about it.
