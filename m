@@ -1,31 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] drivers: net: xgene-v2: Extend ethtool
- statistics
-Date: Mon, 17 Apr 2017 15:20:53 -0400 (EDT)
-Message-ID: <20170417.152053.19747385045166399.davem@davemloft.net>
-References: <1492213698-27813-1-git-send-email-isubramanian@apm.com>
+Subject: Re: [PATCH net-next v2] Add uid and cookie bpf helper to
+ cg_skb_func_proto
+Date: Mon, 17 Apr 2017 15:22:26 -0400 (EDT)
+Message-ID: <20170417.152226.777719963255509302.davem@davemloft.net>
+References: <1492219526-2945-1-git-send-email-chenbofeng.kernel@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-        patches@apm.com, kchudgar@apm.com
-To: isubramanian@apm.com
+Cc: netdev@vger.kernel.org, lorenzo@google.com, willemb@google.com,
+        fengc@google.com
+To: chenbofeng.kernel@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:57216 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:57236 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757205AbdDQTVA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 17 Apr 2017 15:21:00 -0400
-In-Reply-To: <1492213698-27813-1-git-send-email-isubramanian@apm.com>
+        with ESMTP id S1756612AbdDQTWd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 17 Apr 2017 15:22:33 -0400
+In-Reply-To: <1492219526-2945-1-git-send-email-chenbofeng.kernel@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Iyappan Subramanian <isubramanian@apm.com>
-Date: Fri, 14 Apr 2017 16:48:18 -0700
+From: Chenbo Feng <chenbofeng.kernel@gmail.com>
+Date: Fri, 14 Apr 2017 18:25:26 -0700
 
-> +	XGE_EXTD_STAT(rx_byte_cntr, RBYT),
-> +	XGE_EXTD_STAT(rx_pkt_cntr, RPKT),
-> +	XGE_EXTD_STAT(rx_fcs_error_cntr, RFCS),
-> +	XGE_EXTD_STAT(rx_multicast_pkt_cntr, RMCA),
-> +	XGE_EXTD_STAT(rx_broadcast_pkt_cntr, RBCA),
+> From: Chenbo Feng <fengc@google.com>
+> 
+> BPF helper functions get_socket_cookie and get_socket_uid can be
+> used for network traffic classifications, among others. Expose
+> them also to programs of type BPF_PROG_TYPE_CGROUP_SKB. As of
+> commit 8f917bba0042 ("bpf: pass sk to helper functions") the
+> required skb->sk function is available at both cgroup bpf ingress
+> and egress hooks. With these two new helper, cg_skb_func_proto is
+> effectively the same as sk_filter_func_proto.
+> 
+> Change since V1:
+> Instead of add the helper to cg_skb_func_proto, redirect the
+> cg_skb_func_proto to sk_filter_func_proto since all helper function
+> in sk_filter_func_proto are applicable to cg_skb_func_proto now.
+> 
+> Signed-off-by: Chenbo Feng <fengc@google.com>
 
-Do not duplicate statistics already reported via xge_get_stats64().
+Applied, thanks.
