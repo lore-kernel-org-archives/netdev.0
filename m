@@ -1,37 +1,52 @@
-From: Stefan Agner <stefan@agner.ch>
-Subject: [PATCH v2] net: cx89x0: move attribute declaration before struct keyword
-Date: Mon, 17 Apr 2017 13:54:34 -0700
-Message-ID: <20170417205434.12663-1-stefan@agner.ch>
-Cc: shc_work@mail.ru, jarod@redhat.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, Stefan Agner <stefan@agner.ch>
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH RFC] sparc64: eBPF JIT
+Date: Mon, 17 Apr 2017 22:55:01 +0200
+Message-ID: <58F52BA5.1090808@iogearbox.net>
+References: <20170416.233825.1748421481008153466.davem@davemloft.net>        <58F50D13.3090001@iogearbox.net> <20170417.150326.345314944044934203.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: sparclinux@vger.kernel.org, netdev@vger.kernel.org, ast@kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <sparclinux-owner@vger.kernel.org>
+In-Reply-To: <20170417.150326.345314944044934203.davem@davemloft.net>
+Sender: sparclinux-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The attribute declaration is typically before the definition. Move
-the __maybe_unused attribute declaration before the struct keyword.
+On 04/17/2017 09:03 PM, David Miller wrote:
+> From: Daniel Borkmann <daniel@iogearbox.net>
+> Date: Mon, 17 Apr 2017 20:44:35 +0200
+>
+>> On 04/17/2017 05:38 AM, David Miller wrote:
+>>> +/* Map BPF registers to SPARC registers */
+>>> +static const int bpf2sparc[] = {
+>>> + /* return value from in-kernel function, and exit value from eBPF */
+>>> +	[BPF_REG_0] = I5,
+>>> +
+>>> +	/* arguments from eBPF program to in-kernel function */
+>>> +	[BPF_REG_1] = I0,
+>>> +	[BPF_REG_2] = I1,
+>>> +	[BPF_REG_3] = I2,
+>>> +	[BPF_REG_4] = I3,
+>>> +	[BPF_REG_5] = I4,
+>>> +
+>>> + /* callee saved registers that in-kernel function will preserve */
+>>> +	[BPF_REG_6] = L0,
+>>> +	[BPF_REG_7] = L1,
+>>> +	[BPF_REG_8] = L2,
+>>> +	[BPF_REG_9] = L3,
+>>> +
+>>> +	/* read-only frame pointer to access stack */
+>>> +	[BPF_REG_FP] = FP,
+>>
+>> On a quick initial glance, you also need to map BPF_REG_AX. If
+>> I understand the convention correctly, you could use L7 for that.
+>>
+>> You can test for it through tools/testing/selftests/bpf/test_kmod.sh
+>> which exercises the test_bpf.ko under various sysctl combinations as
+>> part of the BPF selftest suite.
+>
+> Oh I see, it's used for constant blinding.  I can use a global register
+> for that since it's only used as a temporary right?
 
-Signed-off-by: Stefan Agner <stefan@agner.ch>
----
-Changes in v2:
-- Move __maybe_unused after the complete type
-
- drivers/net/ethernet/cirrus/cs89x0.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/cirrus/cs89x0.c b/drivers/net/ethernet/cirrus/cs89x0.c
-index 3647b28e8de0..47384f7323ac 100644
---- a/drivers/net/ethernet/cirrus/cs89x0.c
-+++ b/drivers/net/ethernet/cirrus/cs89x0.c
-@@ -1896,7 +1896,7 @@ static int cs89x0_platform_remove(struct platform_device *pdev)
- 	return 0;
- }
- 
--static const struct __maybe_unused of_device_id cs89x0_match[] = {
-+static const struct of_device_id __maybe_unused cs89x0_match[] = {
- 	{ .compatible = "cirrus,cs8900", },
- 	{ .compatible = "cirrus,cs8920", },
- 	{ },
--- 
-2.12.2
+Yeah, correct.
