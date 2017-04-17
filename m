@@ -1,42 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net] ipv4: fix a deadlock in ip_ra_control
-Date: Mon, 17 Apr 2017 12:47:22 -0400 (EDT)
-Message-ID: <20170417.124722.952972773056039579.davem@davemloft.net>
-References: <1492025533-23084-1-git-send-email-xiyou.wangcong@gmail.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [patch net-next] MAINTAINERS: rename TC entry and add couple of
+ header files
+Date: Mon, 17 Apr 2017 12:49:04 -0400
+Message-ID: <951c33b2-ebfa-67cd-a1f2-1a1ea4d0ccae@mojatatu.com>
+References: <1492100031-13462-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dvyukov@google.com, andreyknvl@google.com
-To: xiyou.wangcong@gmail.com
+Cc: davem@davemloft.net, mlxsw@mellanox.com
+To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:55162 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755042AbdDQQrX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 17 Apr 2017 12:47:23 -0400
-In-Reply-To: <1492025533-23084-1-git-send-email-xiyou.wangcong@gmail.com>
+Received: from mail-io0-f181.google.com ([209.85.223.181]:32925 "EHLO
+        mail-io0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755007AbdDQQtH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 17 Apr 2017 12:49:07 -0400
+Received: by mail-io0-f181.google.com with SMTP id k87so136553503ioi.0
+        for <netdev@vger.kernel.org>; Mon, 17 Apr 2017 09:49:07 -0700 (PDT)
+In-Reply-To: <1492100031-13462-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Wed, 12 Apr 2017 12:32:13 -0700
+On 17-04-13 12:13 PM, Jiri Pirko wrote:
+> From: Jiri Pirko <jiri@mellanox.com>
+>
+> The section is not specific only to "TC classifiers", but applies to the
+> whole TC subsystem. Also, add couple of forgotten headers.
+>
+> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 
-> Similar to commit 87e9f0315952
-> ("ipv4: fix a potential deadlock in mcast getsockopt() path"),
-> there is a deadlock scenario for IP_ROUTER_ALERT too:
-> 
->        CPU0                    CPU1
->        ----                    ----
->   lock(rtnl_mutex);
->                                lock(sk_lock-AF_INET);
->                                lock(rtnl_mutex);
->   lock(sk_lock-AF_INET);
-> 
-> Fix this by always locking RTNL first on all setsockopt() paths.
-> 
-> Note, after this patch ip_ra_lock is no longer needed either.
-> 
-> Reported-by: Dmitry Vyukov <dvyukov@google.com>
-> Tested-by: Andrey Konovalov <andreyknvl@google.com>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
 
-Applied.
+cheers,
+jamal
