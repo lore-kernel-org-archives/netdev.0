@@ -1,40 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] l2tp: device MTU setup, tunnel socket needs a
- lock
-Date: Mon, 17 Apr 2017 13:02:19 -0400 (EDT)
-Message-ID: <20170417.130219.1164262427000511625.davem@davemloft.net>
-References: <alpine.DEB.2.11.1704121825410.1923@nelson51.eng.vyatta.net>
+Subject: Re: [PATCH] net: thunderx: Fix set_max_bgx_per_node for 81xx rgx
+Date: Mon, 17 Apr 2017 13:04:17 -0400 (EDT)
+Message-ID: <20170417.130417.1899748229201291787.davem@davemloft.net>
+References: <1492068301-1141-1-git-send-email-george.cherian@cavium.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kleptog@svana.org, jchapman@katalix.com,
-        nprachan@brocade.com, rshearma@brocade.com,
-        stephen@networkplumber.org, sdietric@brocade.com,
-        ciwillia@brocade.com, lboccass@brocade.com, dfawcus@brocade.com,
-        bhong@brocade.com, jblunck@brocade.com, g.nault@alphalink.fr,
-        linux-kernel@vger.kernel.org
-To: parameswaran.r7@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:55406 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752389AbdDQRC3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 17 Apr 2017 13:02:29 -0400
-In-Reply-To: <alpine.DEB.2.11.1704121825410.1923@nelson51.eng.vyatta.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, rric@kernel.org, sgoutham@cavium.com
+To: george.cherian@cavium.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1492068301-1141-1-git-send-email-george.cherian@cavium.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "R. Parameswaran" <parameswaran.r7@gmail.com>
-Date: Wed, 12 Apr 2017 18:31:04 -0700 (PDT)
+From: George Cherian <george.cherian@cavium.com>
+Date: Thu, 13 Apr 2017 07:25:01 +0000
 
+> Add the PCI_SUBSYS_DEVID_81XX_RGX and use the same to set
+> the max bgx per node count.
 > 
-> The MTU overhead calculation in L2TP device set-up
-> merged via commit b784e7ebfce8cfb16c6f95e14e8532d0768ab7ff
-> needs to be adjusted to lock the tunnel socket while
-> referencing the sub-data structures to derive the
-> socket's IP overhead.
+> This fixes the issue intoduced by following commit
+> 78aacb6f6 net: thunderx: Fix invalid mac addresses for node1 interfaces
+> With this commit the max_bgx_per_node for 81xx is set as 2 instead of 3
+> because of which num_vfs is always calculated as zero.
 > 
-> Reported-by: Guillaume Nault <g.nault@alphalink.fr>
-> Tested-by: Guillaume Nault <g.nault@alphalink.fr>
-> Signed-off-by: R. Parameswaran <rparames@brocade.com>
+> Signed-off-by: George Cherian <george.cherian@cavium.com>
 
-Applied, thanks.
+Applied.
