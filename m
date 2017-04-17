@@ -1,71 +1,59 @@
-From: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
-Subject: Re: ipv6 udp early demux breaks udp_l3mdev_accept=0
-Date: Sun, 16 Apr 2017 18:44:30 -0600
-Message-ID: <1492389870-22733-1-git-send-email-subashab@codeaurora.org>
-References: <3639a683-2839-4363-2cd2-c2a040402c93@cumulusnetworks.com>
-Cc: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
-To: dsa@cumulusnetworks.com, davem@davemloft.net,
-        netdev@vger.kernel.org, rshearma@brocade.com
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net 2/2] bpf: fix checking xdp_adjust_head on tail calls
+Date: Mon, 17 Apr 2017 03:12:07 +0200
+Message-ID: <d729c74d7a3d56bd4e26eeb23cf8d14a07e54c80.1492390940.git.daniel@iogearbox.net>
+References: <cover.1492390940.git.daniel@iogearbox.net>
+Cc: alexei.starovoitov@gmail.com, kubakici@wp.pl,
+        netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>,
+        Martin KaFai Lau <kafai@fb.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:44508 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757011AbdDQApB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 16 Apr 2017 20:45:01 -0400
-In-Reply-To: <3639a683-2839-4363-2cd2-c2a040402c93@cumulusnetworks.com>
+Received: from www62.your-server.de ([213.133.104.62]:51335 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757031AbdDQBMR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 16 Apr 2017 21:12:17 -0400
+In-Reply-To: <cover.1492390940.git.daniel@iogearbox.net>
+In-Reply-To: <cover.1492390940.git.daniel@iogearbox.net>
+References: <cover.1492390940.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Can you try this
+Commit 17bedab27231 ("bpf: xdp: Allow head adjustment in XDP prog")
+added the xdp_adjust_head bit to the BPF prog in order to tell drivers
+that the program that is to be attached requires support for the XDP
+bpf_xdp_adjust_head() helper such that drivers not supporting this
+helper can reject the program. There are also drivers that do support
+the helper, but need to check for xdp_adjust_head bit in order to move
+packet metadata prepended by the firmware away for making headroom.
 
+For these cases, the current check for xdp_adjust_head bit is insufficient
+since there can be cases where the program itself does not use the
+bpf_xdp_adjust_head() helper, but tail calls into another program that
+uses bpf_xdp_adjust_head(). As such, the xdp_adjust_head bit is still
+set to 0. Since the first program has no control over which program it
+calls into, we need to assume that bpf_xdp_adjust_head() helper is used
+upon tail calls. Thus, for the very same reasons in cb_access, set the
+xdp_adjust_head bit to 1 when the main program uses tail calls.
+
+Fixes: 17bedab27231 ("bpf: xdp: Allow head adjustment in XDP prog")
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Acked-by: Alexei Starovoitov <ast@kernel.org>
+Cc: Martin KaFai Lau <kafai@fb.com>
 ---
- net/ipv6/udp.c | 21 +++++++++++++--------
- 1 file changed, 13 insertions(+), 8 deletions(-)
+ kernel/bpf/syscall.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index b793ed1..0e307e5 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -46,6 +46,7 @@
- #include <net/tcp_states.h>
- #include <net/ip6_checksum.h>
- #include <net/xfrm.h>
-+#include <net/inet_hashtables.h>
- #include <net/inet6_hashtables.h>
- #include <net/busy_poll.h>
- #include <net/sock_reuseport.h>
-@@ -864,21 +865,25 @@ int __udp6_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
- 	return 0;
- }
+diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
+index ee5c969..821f9e8 100644
+--- a/kernel/bpf/syscall.c
++++ b/kernel/bpf/syscall.c
+@@ -623,6 +623,7 @@ static void fixup_bpf_calls(struct bpf_prog *prog)
+ 				 * in the program array.
+ 				 */
+ 				prog->cb_access = 1;
++				prog->xdp_adjust_head = 1;
  
-+
- static struct sock *__udp6_lib_demux_lookup(struct net *net,
- 			__be16 loc_port, const struct in6_addr *loc_addr,
- 			__be16 rmt_port, const struct in6_addr *rmt_addr,
- 			int dif)
- {
-+	unsigned short hnum = ntohs(loc_port);
-+	unsigned int hash2 = udp6_portaddr_hash(net, loc_addr, hnum);
-+	unsigned int slot2 = hash2 & udp_table.mask;
-+	struct udp_hslot *hslot2 = &udp_table.hash2[slot2];
-+	const __portpair ports = INET_COMBINED_PORTS(rmt_port, hnum);
- 	struct sock *sk;
- 
--	rcu_read_lock();
--	sk = __udp6_lib_lookup(net, rmt_addr, rmt_port, loc_addr, loc_port,
--			       dif, &udp_table, NULL);
--	if (sk && !atomic_inc_not_zero(&sk->sk_refcnt))
--		sk = NULL;
--	rcu_read_unlock();
--
--	return sk;
-+	udp_portaddr_for_each_entry_rcu(sk, &hslot2->head) {
-+		if (INET6_MATCH(sk, net, rmt_addr, loc_addr, ports, dif))
-+			return sk;
-+		break;
-+	}
-+	return NULL;
- }
- 
- static void udp_v6_early_demux(struct sk_buff *skb)
+ 				/* mark bpf_tail_call as different opcode
+ 				 * to avoid conditional branch in
 -- 
-1.9.1
+1.9.3
