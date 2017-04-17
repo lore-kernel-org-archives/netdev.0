@@ -1,42 +1,38 @@
 From: David Miller <davem@redhat.com>
-Subject: Re: [PATCH] net: cx89x0: move attribute declaration before struct
- keyword
-Date: Mon, 17 Apr 2017 16:09:42 -0400 (EDT)
-Message-ID: <20170417.160942.2196583103295700079.davem@redhat.com>
-References: <20170417062032.22764-1-stefan@agner.ch>
+Subject: Re: [PATCH v2] sh_eth: unmap DMA buffers when freeing rings
+Date: Mon, 17 Apr 2017 16:10:51 -0400 (EDT)
+Message-ID: <20170417.161051.805859402797991771.davem@redhat.com>
+References: <20170417125532.826640693@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shc_work@mail.ru, jarod@redhat.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: stefan@agner.ch
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170417062032.22764-1-stefan@agner.ch>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org,
+        horms@verge.net.au
+To: sergei.shtylyov@cogentembedded.com
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+In-Reply-To: <20170417125532.826640693@cogentembedded.com>
+Sender: linux-renesas-soc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stefan Agner <stefan@agner.ch>
-Date: Sun, 16 Apr 2017 23:20:32 -0700
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Date: Mon, 17 Apr 2017 15:55:22 +0300
 
-> The attribute declaration is typically before the definition. Move
-> the __maybe_unused attribute declaration before the struct keyword.
+> The DMA API debugging (when enabled) causes:
 > 
-> Signed-off-by: Stefan Agner <stefan@agner.ch>
+> WARNING: CPU: 0 PID: 1445 at lib/dma-debug.c:519 add_dma_entry+0xe0/0x12c
+> DMA-API: exceeded 7 overlapping mappings of cacheline 0x01b2974d
+> 
+> to be  printed after repeated initialization of the Ether device, e.g.
+> suspend/resume or 'ifconfig' up/down. This is because DMA buffers mapped
+> using dma_map_single() in sh_eth_ring_format() and sh_eth_start_xmit() are
+> never unmapped. Resolve this problem by unmapping the buffers when freeing
+> the descriptor  rings;  in order  to do it right, we'd have to add an extra
+> parameter to sh_eth_txfree() (we rename this function to sh_eth_tx_free(),
+> while at it).
+> 
+> Based on the commit a47b70ea86bd ("ravb: unmap descriptors when freeing
+> rings").
+> 
+> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
-Well, I see if just as often after the variable name too:
-
-net/irda/iriap.c:static const char *const ias_charset_types[] __maybe_unused = {
-net/irda/irlap.c:static const char *const lap_reasons[] __maybe_unused = {
-net/irda/irlap_event.c:static const char *const irlap_event[] __maybe_unused = {
-net/irda/irlmp_event.c:static const char *const irlmp_event[] __maybe_unused = {
-
-Or after the struct:
-
-drivers/net/phy/ste10Xp.c:static struct mdio_device_id __maybe_unused ste10Xp_tbl[] = {
-drivers/net/phy/teranetics.c:static struct mdio_device_id __maybe_unused teranetics_tbl[] = {
-drivers/net/phy/vitesse.c:static struct mdio_device_id __maybe_unused vitesse_tbl[] = {
-
-So unless we decide tree wide to do it in one order or another, such changes
-are largely a waste of time.
-
-Sorry I'm not applying this patch.
+Applied, thanks.
