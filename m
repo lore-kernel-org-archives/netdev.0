@@ -1,56 +1,81 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next 1/1] net sched actions: dump more than
- TCA_ACT_MAX_PRIO actions per batch
-Date: Mon, 17 Apr 2017 17:31:33 +0200
-Message-ID: <20170417153133.GA1895@nanopsycho.orion>
-References: <1492346070-6002-1-git-send-email-jhs@emojatatu.com>
- <20170417081936.GA1892@nanopsycho.orion>
- <dfc1485f-7d7e-f52e-f62e-273063a59abc@mojatatu.com>
- <1492434659.10587.90.camel@edumazet-glaptop3.roam.corp.google.com>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: [PATCH 22/25] net: pxa168_eth: Adjust four checks for null pointers
+Date: Mon, 17 Apr 2017 17:32:16 +0200
+Message-ID: <be75e4f2-8af8-6527-298c-1c5ceb3a0583@users.sourceforge.net>
+References: <d6f26bba-c678-5b66-4f5d-85f56d895190@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>, davem@davemloft.net,
-        netdev@vger.kernel.org, xiyou.wangcong@gmail.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f193.google.com ([209.85.128.193]:35685 "EHLO
-        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932198AbdDQPbg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 17 Apr 2017 11:31:36 -0400
-Received: by mail-wr0-f193.google.com with SMTP id l44so20714581wrc.2
-        for <netdev@vger.kernel.org>; Mon, 17 Apr 2017 08:31:35 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1492434659.10587.90.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: LKML <linux-kernel@vger.kernel.org>,
+        kernel-janitors@vger.kernel.org
+To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Jarod Wilson <jarod@redhat.com>,
+        Jisheng Zhang <jszhang@marvell.com>,
+        Mirko Lindner <mlindner@marvell.com>,
+        Philippe Reynes <tremyfr@gmail.com>,
+        Russell King <rmk+kernel@armlinux.org.uk>,
+        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <d6f26bba-c678-5b66-4f5d-85f56d895190@users.sourceforge.net>
+Content-Language: en-GB
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Mon, Apr 17, 2017 at 03:10:59PM CEST, eric.dumazet@gmail.com wrote:
->On Mon, 2017-04-17 at 07:01 -0400, Jamal Hadi Salim wrote:
->
->> The name "pad" is ugly - but _we need to put these reserved spaces
->> to good use_. We cant keep declaring pads and say they should never
->> be used in the future.
->> We dont need more than 2-3 bits for the flags for example and i dont
->> see anyone dumping 64K actions in one message.
->> An attribute is a big waste of space. I cant change the name pad - 
->> perhaps a union with a new name? We had a similar discussion a while 
->> back on some netlink header, i just dont remember the details.
->> Suggestions?
->
->We can not assume user programs properly cleared the paddings anyway.
->
->Using them for 'new features' is risky, since it might break programs.
->
->So the safe way is using new attributes really.
+From: Markus Elfring <elfring@users.sourceforge.net>
+Date: Mon, 17 Apr 2017 15:23:45 +0200
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
 
-Agreed.
+The script “checkpatch.pl” pointed information out like the following.
 
-Plus the argument that attributes are "a big waste" sounds to me really
-silly. What is couple of bytes? Please do this properly, as it should
-be done.
+Comparison to NULL could be written …
 
+Thus fix the affected source code places.
 
->
->
->
->
+Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+---
+ drivers/net/ethernet/marvell/pxa168_eth.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/marvell/pxa168_eth.c b/drivers/net/ethernet/marvell/pxa168_eth.c
+index 2404eac51c63..993724959a7c 100644
+--- a/drivers/net/ethernet/marvell/pxa168_eth.c
++++ b/drivers/net/ethernet/marvell/pxa168_eth.c
+@@ -556,11 +556,11 @@ static int init_hash_table(struct pxa168_eth_private *pep)
+ 	 * function.Driver can dynamically switch to them if the 1/2kB hash
+ 	 * table is full.
+ 	 */
+-	if (pep->htpr == NULL) {
++	if (!pep->htpr) {
+ 		pep->htpr = dma_zalloc_coherent(pep->dev->dev.parent,
+ 						HASH_ADDR_TABLE_SIZE,
+ 						&pep->htpr_dma, GFP_KERNEL);
+-		if (pep->htpr == NULL)
++		if (!pep->htpr)
+ 			return -ENOMEM;
+ 	} else {
+ 		memset(pep->htpr, 0, HASH_ADDR_TABLE_SIZE);
+@@ -1356,7 +1356,7 @@ static int pxa168_smi_write(struct mii_bus *bus, int phy_addr, int regnum,
+ static int pxa168_eth_do_ioctl(struct net_device *dev, struct ifreq *ifr,
+ 			       int cmd)
+ {
+-	if (dev->phydev != NULL)
++	if (dev->phydev)
+ 		return phy_mii_ioctl(dev->phydev, ifr, cmd);
+ 
+ 	return -EOPNOTSUPP;
+@@ -1501,7 +1501,7 @@ static int pxa168_eth_probe(struct platform_device *pdev)
+ 	pep->timeout.data = (unsigned long)pep;
+ 
+ 	pep->smi_bus = mdiobus_alloc();
+-	if (pep->smi_bus == NULL) {
++	if (!pep->smi_bus) {
+ 		err = -ENOMEM;
+ 		goto err_netdev;
+ 	}
+-- 
+2.12.2
