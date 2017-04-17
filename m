@@ -1,55 +1,265 @@
-From: <kelley@colfaxcommunitynetwork.org>
-Subject: (unknown)
-Date: Mon, 17 Apr 2017 09:12:32 -0000
-Message-ID: <149242035248.22386.10630698097987421385@telenet.ru>
-Mime-Version: 1.0
-Content-Type: application/zip; name="MICROSOFT-17050-netdev.zip"
-Content-Transfer-Encoding: base64
-To: "netdev" <netdev@vger.kernel.org>
+From: Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
+Subject: [PATCH net] be2net: VxLAN offload should be re-enabled when only 1 UDP port is left
+Date: Mon, 17 Apr 2017 21:33:13 +0530
+Message-ID: <20170417160313.1548-1-sriharsha.basavapatna@broadcom.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 154.129-31-94.telenet.ru ([94.31.129.154]:58907 "HELO
-        telenet.ru" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-        id S1753609AbdDQJMg (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 17 Apr 2017 05:12:36 -0400
-Subject: 
-Content-Disposition: attachment
+Received: from mail-wm0-f44.google.com ([74.125.82.44]:38455 "EHLO
+        mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753266AbdDQJ2D (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 17 Apr 2017 05:28:03 -0400
+Received: by mail-wm0-f44.google.com with SMTP id t189so29094669wmt.1
+        for <netdev@vger.kernel.org>; Mon, 17 Apr 2017 02:28:03 -0700 (PDT)
+Received: from dhcp-10-192-207-73.iig.avagotech.net ([192.19.239.250])
+        by smtp.gmail.com with ESMTPSA id w52sm13494395wrc.14.2017.04.17.02.27.59
+        for <netdev@vger.kernel.org>
+        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+        Mon, 17 Apr 2017 02:28:01 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-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
-AACbBwAAAAA=
+We disable VxLAN offload when more than 1 UDP port is added to the driver,
+since Skyhawk doesn't support offload with multiple ports. The existing
+driver design expects the user to delete all port configurations and create
+a configuration with a single UDP port for VxLAN offload to be re-enabled.
+Remove this restriction by tracking the ports added and re-enabling offload
+when ports get deleted and only 1 port is left.
+
+Signed-off-by: Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
+Reviewed-by: Sathya Perla <sathya.perla@broadcom.com>
+---
+ drivers/net/ethernet/emulex/benet/be.h      |  12 ++-
+ drivers/net/ethernet/emulex/benet/be_main.c | 134 +++++++++++++++++++---------
+ 2 files changed, 102 insertions(+), 44 deletions(-)
+
+diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
+index d49528ad7821..50566243e6fa 100644
+--- a/drivers/net/ethernet/emulex/benet/be.h
++++ b/drivers/net/ethernet/emulex/benet/be.h
+@@ -567,6 +567,12 @@ struct be_error_recovery {
+ /* Ethtool priv_flags */
+ #define	BE_DISABLE_TPE_RECOVERY	0x1
+ 
++struct be_vxlan_port {
++	struct list_head list;
++	__be16 port;		/* VxLAN UDP dst port */
++	int port_aliases;	/* alias count */
++};
++
+ struct be_adapter {
+ 	struct pci_dev *pdev;
+ 	struct net_device *netdev;
+@@ -671,9 +677,9 @@ struct be_adapter {
+ 	u32 sli_family;
+ 	u8 hba_port_num;
+ 	u16 pvid;
+-	__be16 vxlan_port;
+-	int vxlan_port_count;
+-	int vxlan_port_aliases;
++	__be16 vxlan_port;		/* offloaded vxlan port num */
++	int vxlan_port_count;		/* active vxlan port count */
++	struct list_head vxlan_port_list;	/* vxlan port list */
+ 	struct phy_info phy;
+ 	u8 wol_cap;
+ 	bool wol_en;
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index 6be3b9aba8ed..8702661b99c0 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -3857,6 +3857,44 @@ static void be_cancel_err_detection(struct be_adapter *adapter)
+ 	}
+ }
+ 
++static int be_enable_vxlan_offloads(struct be_adapter *adapter)
++{
++	struct net_device *netdev = adapter->netdev;
++	struct device *dev = &adapter->pdev->dev;
++	struct be_vxlan_port *vxlan_port;
++	__be16 port;
++	int status;
++
++	vxlan_port = list_first_entry(&adapter->vxlan_port_list,
++				      struct be_vxlan_port, list);
++	port = vxlan_port->port;
++
++	status = be_cmd_manage_iface(adapter, adapter->if_handle,
++				     OP_CONVERT_NORMAL_TO_TUNNEL);
++	if (status) {
++		dev_warn(dev, "Failed to convert normal interface to tunnel\n");
++		return status;
++	}
++	adapter->flags |= BE_FLAGS_VXLAN_OFFLOADS;
++
++	status = be_cmd_set_vxlan_port(adapter, port);
++	if (status) {
++		dev_warn(dev, "Failed to add VxLAN port\n");
++		return status;
++	}
++	adapter->vxlan_port = port;
++
++	netdev->hw_enc_features |= NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
++				   NETIF_F_TSO | NETIF_F_TSO6 |
++				   NETIF_F_GSO_UDP_TUNNEL;
++	netdev->hw_features |= NETIF_F_GSO_UDP_TUNNEL;
++	netdev->features |= NETIF_F_GSO_UDP_TUNNEL;
++
++	dev_info(dev, "Enabled VxLAN offloads for UDP port %d\n",
++		 be16_to_cpu(port));
++	return 0;
++}
++
+ static void be_disable_vxlan_offloads(struct be_adapter *adapter)
+ {
+ 	struct net_device *netdev = adapter->netdev;
+@@ -4903,63 +4941,59 @@ static struct be_cmd_work *be_alloc_work(struct be_adapter *adapter,
+  * those other tunnels are unexported on the fly through ndo_features_check().
+  *
+  * Skyhawk supports VxLAN offloads only for one UDP dport. So, if the stack
+- * adds more than one port, disable offloads and don't re-enable them again
+- * until after all the tunnels are removed.
++ * adds more than one port, disable offloads and re-enable them again when
++ * there's only one port left. We maintain a list of ports for this purpose.
+  */
+ static void be_work_add_vxlan_port(struct work_struct *work)
+ {
+ 	struct be_cmd_work *cmd_work =
+ 				container_of(work, struct be_cmd_work, work);
+ 	struct be_adapter *adapter = cmd_work->adapter;
+-	struct net_device *netdev = adapter->netdev;
+ 	struct device *dev = &adapter->pdev->dev;
+ 	__be16 port = cmd_work->info.vxlan_port;
++	struct be_vxlan_port *vxlan_port;
+ 	int status;
+ 
+-	if (adapter->vxlan_port == port && adapter->vxlan_port_count) {
+-		adapter->vxlan_port_aliases++;
+-		goto done;
++	/* Bump up the alias count if it is an existing port */
++	list_for_each_entry(vxlan_port, &adapter->vxlan_port_list, list) {
++		if (vxlan_port->port == port) {
++			vxlan_port->port_aliases++;
++			goto done;
++		}
+ 	}
+ 
++	/* Add a new port to our list. We don't need a lock here since port
++	 * add/delete are done only in the context of a single-threaded work
++	 * queue (be_wq).
++	 */
++	vxlan_port = kzalloc(sizeof(*vxlan_port), GFP_KERNEL);
++	if (!vxlan_port)
++		goto done;
++
++	vxlan_port->port = port;
++	INIT_LIST_HEAD(&vxlan_port->list);
++	list_add_tail(&vxlan_port->list, &adapter->vxlan_port_list);
++	adapter->vxlan_port_count++;
++
+ 	if (adapter->flags & BE_FLAGS_VXLAN_OFFLOADS) {
+ 		dev_info(dev,
+ 			 "Only one UDP port supported for VxLAN offloads\n");
+ 		dev_info(dev, "Disabling VxLAN offloads\n");
+-		adapter->vxlan_port_count++;
+ 		goto err;
+ 	}
+ 
+-	if (adapter->vxlan_port_count++ >= 1)
++	if (adapter->vxlan_port_count > 1)
+ 		goto done;
+ 
+-	status = be_cmd_manage_iface(adapter, adapter->if_handle,
+-				     OP_CONVERT_NORMAL_TO_TUNNEL);
+-	if (status) {
+-		dev_warn(dev, "Failed to convert normal interface to tunnel\n");
+-		goto err;
+-	}
+-
+-	status = be_cmd_set_vxlan_port(adapter, port);
+-	if (status) {
+-		dev_warn(dev, "Failed to add VxLAN port\n");
+-		goto err;
+-	}
+-	adapter->flags |= BE_FLAGS_VXLAN_OFFLOADS;
+-	adapter->vxlan_port = port;
+-
+-	netdev->hw_enc_features |= NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
+-				   NETIF_F_TSO | NETIF_F_TSO6 |
+-				   NETIF_F_GSO_UDP_TUNNEL;
+-	netdev->hw_features |= NETIF_F_GSO_UDP_TUNNEL;
+-	netdev->features |= NETIF_F_GSO_UDP_TUNNEL;
++	status = be_enable_vxlan_offloads(adapter);
++	if (!status)
++		goto done;
+ 
+-	dev_info(dev, "Enabled VxLAN offloads for UDP port %d\n",
+-		 be16_to_cpu(port));
+-	goto done;
+ err:
+ 	be_disable_vxlan_offloads(adapter);
+ done:
+ 	kfree(cmd_work);
++	return;
+ }
+ 
+ static void be_work_del_vxlan_port(struct work_struct *work)
+@@ -4968,23 +5002,40 @@ static void be_work_del_vxlan_port(struct work_struct *work)
+ 				container_of(work, struct be_cmd_work, work);
+ 	struct be_adapter *adapter = cmd_work->adapter;
+ 	__be16 port = cmd_work->info.vxlan_port;
++	struct be_vxlan_port *vxlan_port;
+ 
+-	if (adapter->vxlan_port != port)
+-		goto done;
++	/* Nothing to be done if a port alias is being deleted */
++	list_for_each_entry(vxlan_port, &adapter->vxlan_port_list, list) {
++		if (vxlan_port->port == port) {
++			if (vxlan_port->port_aliases) {
++				vxlan_port->port_aliases--;
++				goto done;
++			}
++			break;
++		}
++	}
++
++	/* No port aliases left; delete the port from the list */
++	list_del(&vxlan_port->list);
++	adapter->vxlan_port_count--;
+ 
+-	if (adapter->vxlan_port_aliases) {
+-		adapter->vxlan_port_aliases--;
++	/* Disable VxLAN offload if this is the offloaded port */
++	if (adapter->vxlan_port == vxlan_port->port) {
++		WARN_ON(adapter->vxlan_port_count);
++		be_disable_vxlan_offloads(adapter);
++		dev_info(&adapter->pdev->dev,
++			 "Disabled VxLAN offloads for UDP port %d\n",
++			 be16_to_cpu(port));
+ 		goto out;
+ 	}
+ 
+-	be_disable_vxlan_offloads(adapter);
++	/* If only 1 port is left, re-enable VxLAN offload */
++	if (adapter->vxlan_port_count == 1)
++		be_enable_vxlan_offloads(adapter);
+ 
+-	dev_info(&adapter->pdev->dev,
+-		 "Disabled VxLAN offloads for UDP port %d\n",
+-		 be16_to_cpu(port));
+-done:
+-	adapter->vxlan_port_count--;
+ out:
++	kfree(vxlan_port);
++done:
+ 	kfree(cmd_work);
+ }
+ 
+@@ -5626,6 +5677,7 @@ static int be_drv_init(struct be_adapter *adapter)
+ 	/* Must be a power of 2 or else MODULO will BUG_ON */
+ 	adapter->be_get_temp_freq = 64;
+ 
++	INIT_LIST_HEAD(&adapter->vxlan_port_list);
+ 	return 0;
+ 
+ free_rx_filter:
+-- 
+2.11.0.258.ge05806da9
