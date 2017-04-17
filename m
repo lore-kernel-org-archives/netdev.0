@@ -1,222 +1,54 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: [PATCH v2] sh_eth: unmap DMA buffers when freeing rings
-Date: Mon, 17 Apr 2017 15:55:22 +0300
-Message-ID: <20170417125532.826640693@cogentembedded.com>
+From: <openhackbangalore@gmail.com>
+Subject: (unknown)
+Date: Mon, 17 Apr 2017 12:59:12 -0000
+Message-ID: <149243395278.27513.16737801462035696003@baydenet.com.br>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Cc: linux-renesas-soc@vger.kernel.org,
-        Simon Horman <horms@verge.net.au>,
-        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-Content-Disposition: inline; filename=sh_eth-unmap-DMA-buffers-when-freeing-rings-v2.patch
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: application/zip; name="EMAIL_5758843219-netdev.zip"
+Content-Transfer-Encoding: base64
+To: "netdev" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 201-20-103-149.baydenet.com.br ([201.20.103.149]:34032 "HELO
+        baydenet.com.br" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+        with SMTP id S1751217AbdDQM7Q (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 17 Apr 2017 08:59:16 -0400
+Content-Disposition: attachment
+Subject: 
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The DMA API debugging (when enabled) causes:
-
-WARNING: CPU: 0 PID: 1445 at lib/dma-debug.c:519 add_dma_entry+0xe0/0x12c
-DMA-API: exceeded 7 overlapping mappings of cacheline 0x01b2974d
-
-to be  printed after repeated initialization of the Ether device, e.g.
-suspend/resume or 'ifconfig' up/down. This is because DMA buffers mapped
-using dma_map_single() in sh_eth_ring_format() and sh_eth_start_xmit() are
-never unmapped. Resolve this problem by unmapping the buffers when freeing
-the descriptor  rings;  in order  to do it right, we'd have to add an extra
-parameter to sh_eth_txfree() (we rename this function to sh_eth_tx_free(),
-while at it).
-
-Based on the commit a47b70ea86bd ("ravb: unmap descriptors when freeing
-rings").
-
-Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-
----
-This patch is against DaveM's 'net.git' repo.
-
-Changed in version 2:
-- fixed the "packet sent" condition in sh_eth_tx_free().
-
- drivers/net/ethernet/renesas/sh_eth.c |  122 ++++++++++++++++++----------------
- 1 file changed, 67 insertions(+), 55 deletions(-)
-
-Index: net/drivers/net/ethernet/renesas/sh_eth.c
-===================================================================
---- net.orig/drivers/net/ethernet/renesas/sh_eth.c
-+++ net/drivers/net/ethernet/renesas/sh_eth.c
-@@ -1127,12 +1127,70 @@ static struct mdiobb_ops bb_ops = {
- 	.get_mdio_data = sh_get_mdio,
- };
- 
-+/* free Tx skb function */
-+static int sh_eth_tx_free(struct net_device *ndev, bool sent_only)
-+{
-+	struct sh_eth_private *mdp = netdev_priv(ndev);
-+	struct sh_eth_txdesc *txdesc;
-+	int free_num = 0;
-+	int entry;
-+	bool sent;
-+
-+	for (; mdp->cur_tx - mdp->dirty_tx > 0; mdp->dirty_tx++) {
-+		entry = mdp->dirty_tx % mdp->num_tx_ring;
-+		txdesc = &mdp->tx_ring[entry];
-+		sent = !(txdesc->status & cpu_to_le32(TD_TACT));
-+		if (sent_only && !sent)
-+			break;
-+		/* TACT bit must be checked before all the following reads */
-+		dma_rmb();
-+		netif_info(mdp, tx_done, ndev,
-+			   "tx entry %d status 0x%08x\n",
-+			   entry, le32_to_cpu(txdesc->status));
-+		/* Free the original skb. */
-+		if (mdp->tx_skbuff[entry]) {
-+			dma_unmap_single(&ndev->dev, le32_to_cpu(txdesc->addr),
-+					 le32_to_cpu(txdesc->len) >> 16,
-+					 DMA_TO_DEVICE);
-+			dev_kfree_skb_irq(mdp->tx_skbuff[entry]);
-+			mdp->tx_skbuff[entry] = NULL;
-+			free_num++;
-+		}
-+		txdesc->status = cpu_to_le32(TD_TFP);
-+		if (entry >= mdp->num_tx_ring - 1)
-+			txdesc->status |= cpu_to_le32(TD_TDLE);
-+
-+		if (sent) {
-+			ndev->stats.tx_packets++;
-+			ndev->stats.tx_bytes += le32_to_cpu(txdesc->len) >> 16;
-+		}
-+	}
-+	return free_num;
-+}
-+
- /* free skb and descriptor buffer */
- static void sh_eth_ring_free(struct net_device *ndev)
- {
- 	struct sh_eth_private *mdp = netdev_priv(ndev);
- 	int ringsize, i;
- 
-+	if (mdp->rx_ring) {
-+		for (i = 0; i < mdp->num_rx_ring; i++) {
-+			if (mdp->rx_skbuff[i]) {
-+				struct sh_eth_rxdesc *rxdesc = &mdp->rx_ring[i];
-+
-+				dma_unmap_single(&ndev->dev,
-+						 le32_to_cpu(rxdesc->addr),
-+						 ALIGN(mdp->rx_buf_sz, 32),
-+						 DMA_FROM_DEVICE);
-+			}
-+		}
-+		ringsize = sizeof(struct sh_eth_rxdesc) * mdp->num_rx_ring;
-+		dma_free_coherent(NULL, ringsize, mdp->rx_ring,
-+				  mdp->rx_desc_dma);
-+		mdp->rx_ring = NULL;
-+	}
-+
- 	/* Free Rx skb ringbuffer */
- 	if (mdp->rx_skbuff) {
- 		for (i = 0; i < mdp->num_rx_ring; i++)
-@@ -1141,27 +1199,18 @@ static void sh_eth_ring_free(struct net_
- 	kfree(mdp->rx_skbuff);
- 	mdp->rx_skbuff = NULL;
- 
--	/* Free Tx skb ringbuffer */
--	if (mdp->tx_skbuff) {
--		for (i = 0; i < mdp->num_tx_ring; i++)
--			dev_kfree_skb(mdp->tx_skbuff[i]);
--	}
--	kfree(mdp->tx_skbuff);
--	mdp->tx_skbuff = NULL;
--
--	if (mdp->rx_ring) {
--		ringsize = sizeof(struct sh_eth_rxdesc) * mdp->num_rx_ring;
--		dma_free_coherent(NULL, ringsize, mdp->rx_ring,
--				  mdp->rx_desc_dma);
--		mdp->rx_ring = NULL;
--	}
--
- 	if (mdp->tx_ring) {
-+		sh_eth_tx_free(ndev, false);
-+
- 		ringsize = sizeof(struct sh_eth_txdesc) * mdp->num_tx_ring;
- 		dma_free_coherent(NULL, ringsize, mdp->tx_ring,
- 				  mdp->tx_desc_dma);
- 		mdp->tx_ring = NULL;
- 	}
-+
-+	/* Free Tx skb ringbuffer */
-+	kfree(mdp->tx_skbuff);
-+	mdp->tx_skbuff = NULL;
- }
- 
- /* format skb and descriptor buffer */
-@@ -1409,43 +1458,6 @@ static void sh_eth_dev_exit(struct net_d
- 	update_mac_address(ndev);
- }
- 
--/* free Tx skb function */
--static int sh_eth_txfree(struct net_device *ndev)
--{
--	struct sh_eth_private *mdp = netdev_priv(ndev);
--	struct sh_eth_txdesc *txdesc;
--	int free_num = 0;
--	int entry;
--
--	for (; mdp->cur_tx - mdp->dirty_tx > 0; mdp->dirty_tx++) {
--		entry = mdp->dirty_tx % mdp->num_tx_ring;
--		txdesc = &mdp->tx_ring[entry];
--		if (txdesc->status & cpu_to_le32(TD_TACT))
--			break;
--		/* TACT bit must be checked before all the following reads */
--		dma_rmb();
--		netif_info(mdp, tx_done, ndev,
--			   "tx entry %d status 0x%08x\n",
--			   entry, le32_to_cpu(txdesc->status));
--		/* Free the original skb. */
--		if (mdp->tx_skbuff[entry]) {
--			dma_unmap_single(&ndev->dev, le32_to_cpu(txdesc->addr),
--					 le32_to_cpu(txdesc->len) >> 16,
--					 DMA_TO_DEVICE);
--			dev_kfree_skb_irq(mdp->tx_skbuff[entry]);
--			mdp->tx_skbuff[entry] = NULL;
--			free_num++;
--		}
--		txdesc->status = cpu_to_le32(TD_TFP);
--		if (entry >= mdp->num_tx_ring - 1)
--			txdesc->status |= cpu_to_le32(TD_TDLE);
--
--		ndev->stats.tx_packets++;
--		ndev->stats.tx_bytes += le32_to_cpu(txdesc->len) >> 16;
--	}
--	return free_num;
--}
--
- /* Packet receive function */
- static int sh_eth_rx(struct net_device *ndev, u32 intr_status, int *quota)
- {
-@@ -1690,7 +1702,7 @@ static void sh_eth_error(struct net_devi
- 			   intr_status, mdp->cur_tx, mdp->dirty_tx,
- 			   (u32)ndev->state, edtrr);
- 		/* dirty buffer free */
--		sh_eth_txfree(ndev);
-+		sh_eth_tx_free(ndev, true);
- 
- 		/* SH7712 BUG */
- 		if (edtrr ^ sh_eth_get_edtrr_trns(mdp)) {
-@@ -1751,7 +1763,7 @@ static irqreturn_t sh_eth_interrupt(int
- 		/* Clear Tx interrupts */
- 		sh_eth_write(ndev, intr_status & cd->tx_check, EESR);
- 
--		sh_eth_txfree(ndev);
-+		sh_eth_tx_free(ndev, true);
- 		netif_wake_queue(ndev);
- 	}
- 
-@@ -2412,7 +2424,7 @@ static int sh_eth_start_xmit(struct sk_b
- 
- 	spin_lock_irqsave(&mdp->lock, flags);
- 	if ((mdp->cur_tx - mdp->dirty_tx) >= (mdp->num_tx_ring - 4)) {
--		if (!sh_eth_txfree(ndev)) {
-+		if (!sh_eth_tx_free(ndev, true)) {
- 			netif_warn(mdp, tx_queued, ndev, "TxFD exhausted.\n");
- 			netif_stop_queue(ndev);
- 			spin_unlock_irqrestore(&mdp->lock, flags);
+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
+AAABAAEAWwAAAGoHAAAAAA==
