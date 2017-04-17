@@ -1,46 +1,72 @@
-From: Roman Mashak <mrv@mojatatu.com>
-Subject: Re: [PATCH net-next 1/1] net sched actions: dump more than TCA_ACT_MAX_PRIO actions per batch
-Date: Mon, 17 Apr 2017 13:51:32 -0400
-Message-ID: <851ssqq5wb.fsf@mojatatu.com>
-References: <1492346070-6002-1-git-send-email-jhs@emojatatu.com>
-        <20170417081936.GA1892@nanopsycho.orion>
-        <dfc1485f-7d7e-f52e-f62e-273063a59abc@mojatatu.com>
-        <1492434659.10587.90.camel@edumazet-glaptop3.roam.corp.google.com>
-        <20170417153133.GA1895@nanopsycho.orion>
-        <0bd1e885-cdf3-60fc-783b-a075b777560b@mojatatu.com>
-        <1492448905.10587.109.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Alexander Aring <aar@pengutronix.de>
+Subject: bluetooth 6lowpan interfaces are not virtual anymore
+Date: Mon, 17 Apr 2017 19:56:12 +0200
+Message-ID: <2d178eb8-3fbc-3385-6e0c-fa9941713959@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>, Jiri Pirko <jiri@resnulli.us>,
-        davem@davemloft.net, netdev@vger.kernel.org,
-        xiyou.wangcong@gmail.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Jukka Rissanen <jukka.rissanen@linux.intel.com>,
+        Luiz Augusto von Dentz <luiz.dentz@gmail.com>,
+        "linux-wpan@vger.kernel.org" <linux-wpan@vger.kernel.org>,
+        Linux Bluetooth <linux-bluetooth@vger.kernel.org>
+To: Network Development <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f194.google.com ([209.85.223.194]:33454 "EHLO
-        mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754658AbdDQRvf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 17 Apr 2017 13:51:35 -0400
-Received: by mail-io0-f194.google.com with SMTP id k87so28012377ioi.0
-        for <netdev@vger.kernel.org>; Mon, 17 Apr 2017 10:51:35 -0700 (PDT)
-In-Reply-To: <1492448905.10587.109.camel@edumazet-glaptop3.roam.corp.google.com>
-        (Eric Dumazet's message of "Mon, 17 Apr 2017 10:08:25 -0700")
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:48405 "EHLO
+        metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752904AbdDQR4S (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 17 Apr 2017 13:56:18 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet <eric.dumazet@gmail.com> writes:
+Hi,
 
-> On Mon, 2017-04-17 at 12:46 -0400, Jamal Hadi Salim wrote:
->
->> Of course it is trivial to add this as attributes and 32 bits
->> for this case is not a big deal because it is done once. I want to talk
->> about the pads instead ;-> What do you suggest we do with pads?
->
-> We do nothing with pads. Just leave them.
->
-> Or, you need something to make sure to not break old user applications.
->
-> Something like a version.
+bluetooth-next contains patches which introduces a queue for bluetooth
+6LoWPAN interfaces. [0]
 
-Would be a new NLM_F_* modifier for GET request an option for large
-dumps implementation? Looks like there are extract bits and Johannes'
-patches for extended ACK do not use it.
+At first, the current behaviour is now that 802.15.4 6LoWPAN interfaces
+are virtual and bluetooth 6LoWPAN interfaces are not virtual anymore.
+To have a different handling in both subsystems is _definitely_ wrong.
+
+What does the 6LoWPAN interface?
+
+It will do a protocol change (an adaptation, because 6LoWPAN should
+provide the same functionality as IPv6) from IPv6 to 6LoWPAN (tx) and
+vice versa for (rx). In my opinion this should be handled as a virtual
+interface and not as an interface with a queue.
+
+What makes a queue on 6LoWPAN interfaces?
+
+It will queue IPv6 packets which waits for it adaptation (the protocol
+change) with some additional qdisc handling.
+If finally the xmit_do callback will occur it will replace IPv6 header
+with 6LoWPAN, etc. After that it should be queued into some queue on
+link layer side which should be do the transmit finally.
+
+Why I think bluetooth introduced a queue handling on 6LoWPAN interfaces?
+
+Because I think they don't like their own *qdisc* handling on their link
+layer interface. I write *qdisc* here because, they have no net_devices
+and use some kind of own qdisc handling.
+
+My question: is this correct?
+
+How to fix that (In my opinion):
+
+So commit [0] says something "out of credits" that's what I think it's
+the *qdisc* handling. If you cannot queue anymore -> you need to drop
+it. If you don't like how the current behaviour is, you need to change
+your *qdisc* handling on your link layer interface. Introducing queue at
+6LoWPAN interfaces will introduce "buffer bloating".
+
+---
+
+I don't care what bluetooth does with the 6LoWPAN interface. If bluetooth
+people wants such behaviour, then I am okay with that.
+
+I will bookmark this mail for the time when somebody reverts it to a
+virtual interface again. I think somebody will change it again, or maybe
+somebody will argument why we need a queue here. 
+
+- Alex
+
+[0] https://git.kernel.org/pub/scm/linux/kernel/git/bluetooth/bluetooth-next.git/commit/?id=814f1b243d2c63928f6aa72d66bec0e5fae2f4a9
