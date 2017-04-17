@@ -1,32 +1,67 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] net: dsa: isolate legacy code
-Date: Mon, 17 Apr 2017 11:03:30 -0400 (EDT)
-Message-ID: <20170417.110330.1378120902638943806.davem@davemloft.net>
-References: <20170412164503.28264-1-vivien.didelot@savoirfairelinux.com>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: [PATCH 00/25] Ethernet-Marvell: Fine-tuning for several function
+ implementations
+Date: Mon, 17 Apr 2017 17:03:33 +0200
+Message-ID: <d6f26bba-c678-5b66-4f5d-85f56d895190@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com, f.fainelli@gmail.com, andrew@lunn.ch
-To: vivien.didelot@savoirfairelinux.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:53298 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752107AbdDQPDc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 17 Apr 2017 11:03:32 -0400
-In-Reply-To: <20170412164503.28264-1-vivien.didelot@savoirfairelinux.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: LKML <linux-kernel@vger.kernel.org>,
+        kernel-janitors@vger.kernel.org
+To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Jarod Wilson <jarod@redhat.com>,
+        Jisheng Zhang <jszhang@marvell.com>,
+        Mirko Lindner <mlindner@marvell.com>,
+        Philippe Reynes <tremyfr@gmail.com>,
+        Russell King <rmk+kernel@armlinux.org.uk>,
+        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Language: en-GB
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Date: Wed, 12 Apr 2017 12:45:03 -0400
+From: Markus Elfring <elfring@users.sourceforge.net>
+Date: Mon, 17 Apr 2017 16:44:32 +0200
 
-> This patch moves as is the legacy DSA code from dsa.c to legacy.c,
-> except the few shared symbols which remain in dsa.c.
-> 
-> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-> ---
-> Changes in v2:
->   - drop CONFIG_NET_DSA_LEGACY so that legacy code gets compiled anyway
+Several update suggestions were taken into account
+from static source code analysis.
 
-Applied, thanks.
+Markus Elfring (25):
+  Use devm_kmalloc_array() in mvneta_init()
+  Improve two size determinations in mvneta_init()
+  Use kmalloc_array() in mvneta_txq_init()
+  Adjust six checks for null pointers
+  Use kmalloc_array() in mvpp2_txq_init()
+  Improve two size determinations in mvpp2_probe()
+  Improve another size determination in mvpp2_init()
+  Improve another size determination in mvpp2_port_probe()
+  Improve another size determination in mvpp2_bm_init()
+  Improve another size determination in mvpp2_prs_default_init()
+  Improve 27 size determinations
+  Improve a size determination in two functions
+  Fix a jump label position in mvpp2_rx()
+  Rename a jump label in two functions
+  Adjust three error messages
+  Rename a jump label in mvpp2_tx_frag_process()
+  Rename a jump label in mvpp2_txq_init()
+  Rename a jump label in mvpp2_prs_double_vlan_add()
+  Rename a jump label in mvpp2_prs_vlan_add()
+  Adjust a null pointer check in mvpp2_egress_enable()
+  Use kcalloc() in two functions
+  Adjust four checks for null pointers
+  Use seq_puts() in skge_debug_show()
+  Adjust a null pointer check in skge_down()
+  Use seq_puts() in sky2_debug_show()
+
+ drivers/net/ethernet/marvell/mvneta.c     |  29 +++----
+ drivers/net/ethernet/marvell/mvpp2.c      | 127 ++++++++++++++----------------
+ drivers/net/ethernet/marvell/pxa168_eth.c |  14 ++--
+ drivers/net/ethernet/marvell/skge.c       |   4 +-
+ drivers/net/ethernet/marvell/sky2.c       |   2 +-
+ 5 files changed, 84 insertions(+), 92 deletions(-)
+
+-- 
+2.12.2
