@@ -1,58 +1,77 @@
-From: Matthias Kaehlcke <mka@chromium.org>
-Subject: [PATCH] mac80211: ibss: Fix channel type enum in ieee80211_sta_join_ibss()
-Date: Mon, 17 Apr 2017 13:59:53 -0700
-Message-ID: <20170417205953.4719-1-mka@chromium.org>
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        Grant Grundler <grundler@chromium.org>,
-        Greg Hackmann <ghackmann@google.com>,
-        Michael Davidson <md@google.com>,
-        Matthias Kaehlcke <mka@chromium.org>
-To: Johannes Berg <johannes@sipsolutions.net>,
-        "David S . Miller" <davem@davemloft.net>,
-        Simon Wunderlich <simon.wunderlich@s2003.tu-chemnitz.de>
+From: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+Subject: [PATCH net-next] net: ipv6: Fix UDP early demux lookup with udp_l3mdev_accept=0
+Date: Mon, 17 Apr 2017 15:11:43 -0600
+Message-ID: <1492463503-3351-1-git-send-email-subashab@codeaurora.org>
+Cc: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+To: dsa@cumulusnetworks.com, davem@davemloft.net,
+        netdev@vger.kernel.org, rshearma@brocade.com,
+        eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f45.google.com ([74.125.83.45]:33937 "EHLO
-        mail-pg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754219AbdDQVAk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 17 Apr 2017 17:00:40 -0400
-Received: by mail-pg0-f45.google.com with SMTP id z127so13511443pgb.1
-        for <netdev@vger.kernel.org>; Mon, 17 Apr 2017 14:00:40 -0700 (PDT)
+Received: from smtp.codeaurora.org ([198.145.29.96]:41746 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752484AbdDQVPX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 17 Apr 2017 17:15:23 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-cfg80211_chandef_create() expects an 'enum nl80211_channel_type' as
-channel type however in ieee80211_sta_join_ibss()
-NL80211_CHAN_WIDTH_20_NOHT is passed in two occasions, which is of
-the enum type 'nl80211_chan_width'. Change the value to NL80211_CHAN_NO_HT
-(20 MHz, non-HT channel) of the channel type enum.
+David Ahern reported that 5425077d73e0c ("net: ipv6: Add early demux
+handler for UDP unicast") breaks udp_l3mdev_accept=0 since early
+demux for IPv6 UDP was doing a generic socket lookup which does not
+require an exact match. Fix this by making UDPv6 early demux match
+connected sockets only.
 
-Signed-off-by: Matthias Kaehlcke <mka@chromium.org>
+Fixes: 5425077d73e0c ("net: ipv6: Add early demux handler for UDP unicast")
+Reported-by: David Ahern <dsa@cumulusnetworks.com>
+Signed-off-by: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
 ---
- net/mac80211/ibss.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ net/ipv6/udp.c | 21 +++++++++++++--------
+ 1 file changed, 13 insertions(+), 8 deletions(-)
 
-diff --git a/net/mac80211/ibss.c b/net/mac80211/ibss.c
-index 98999d3d5262..e957351976a2 100644
---- a/net/mac80211/ibss.c
-+++ b/net/mac80211/ibss.c
-@@ -425,7 +425,7 @@ static void ieee80211_sta_join_ibss(struct ieee80211_sub_if_data *sdata,
- 	case NL80211_CHAN_WIDTH_5:
- 	case NL80211_CHAN_WIDTH_10:
- 		cfg80211_chandef_create(&chandef, cbss->channel,
--					NL80211_CHAN_WIDTH_20_NOHT);
-+					NL80211_CHAN_NO_HT);
- 		chandef.width = sdata->u.ibss.chandef.width;
- 		break;
- 	case NL80211_CHAN_WIDTH_80:
-@@ -437,7 +437,7 @@ static void ieee80211_sta_join_ibss(struct ieee80211_sub_if_data *sdata,
- 	default:
- 		/* fall back to 20 MHz for unsupported modes */
- 		cfg80211_chandef_create(&chandef, cbss->channel,
--					NL80211_CHAN_WIDTH_20_NOHT);
-+					NL80211_CHAN_NO_HT);
- 		break;
- 	}
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index b793ed1..0e307e5 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -46,6 +46,7 @@
+ #include <net/tcp_states.h>
+ #include <net/ip6_checksum.h>
+ #include <net/xfrm.h>
++#include <net/inet_hashtables.h>
+ #include <net/inet6_hashtables.h>
+ #include <net/busy_poll.h>
+ #include <net/sock_reuseport.h>
+@@ -864,21 +865,25 @@ int __udp6_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
+ 	return 0;
+ }
  
++
+ static struct sock *__udp6_lib_demux_lookup(struct net *net,
+ 			__be16 loc_port, const struct in6_addr *loc_addr,
+ 			__be16 rmt_port, const struct in6_addr *rmt_addr,
+ 			int dif)
+ {
++	unsigned short hnum = ntohs(loc_port);
++	unsigned int hash2 = udp6_portaddr_hash(net, loc_addr, hnum);
++	unsigned int slot2 = hash2 & udp_table.mask;
++	struct udp_hslot *hslot2 = &udp_table.hash2[slot2];
++	const __portpair ports = INET_COMBINED_PORTS(rmt_port, hnum);
+ 	struct sock *sk;
+ 
+-	rcu_read_lock();
+-	sk = __udp6_lib_lookup(net, rmt_addr, rmt_port, loc_addr, loc_port,
+-			       dif, &udp_table, NULL);
+-	if (sk && !atomic_inc_not_zero(&sk->sk_refcnt))
+-		sk = NULL;
+-	rcu_read_unlock();
+-
+-	return sk;
++	udp_portaddr_for_each_entry_rcu(sk, &hslot2->head) {
++		if (INET6_MATCH(sk, net, rmt_addr, loc_addr, ports, dif))
++			return sk;
++		break;
++	}
++	return NULL;
+ }
+ 
+ static void udp_v6_early_demux(struct sk_buff *skb)
 -- 
-2.12.2.762.g0e3151a226-goog
+1.9.1
