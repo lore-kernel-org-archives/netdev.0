@@ -1,7 +1,7 @@
 From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH 23/25] skge: Use seq_puts() in skge_debug_show()
-Date: Mon, 17 Apr 2017 17:33:09 +0200
-Message-ID: <6eb36737-cad0-34bf-0ac0-c7d176519e05@users.sourceforge.net>
+Subject: [PATCH 24/25] skge: Adjust a null pointer check in skge_down()
+Date: Mon, 17 Apr 2017 17:34:05 +0200
+Message-ID: <2122f892-68a6-e9cc-d15e-e82e62fc50b9@users.sourceforge.net>
 References: <d6f26bba-c678-5b66-4f5d-85f56d895190@users.sourceforge.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
@@ -25,12 +25,13 @@ Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Mon, 17 Apr 2017 15:43:08 +0200
+Date: Mon, 17 Apr 2017 16:08:39 +0200
 
-A string which did not contain a data format specification should be put
-into a sequence. Thus use the corresponding function "seq_puts".
+The script "checkpatch.pl" pointed information out like the following.
 
-This issue was detected by using the Coccinelle software.
+Comparison to NULL could be written "!skge->mem".
+
+Thus fix the affected source code place.
 
 Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
 ---
@@ -38,17 +39,17 @@ Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/marvell/skge.c b/drivers/net/ethernet/marvell/skge.c
-index edb95271a4f2..90bfdbcfd910 100644
+index 90bfdbcfd910..5d7d94de4e00 100644
 --- a/drivers/net/ethernet/marvell/skge.c
 +++ b/drivers/net/ethernet/marvell/skge.c
-@@ -3718,7 +3718,7 @@ static int skge_debug_show(struct seq_file *seq, void *v)
- 			   t->csum_offs, t->csum_write, t->csum_start);
- 	}
+@@ -2657,7 +2657,7 @@ static int skge_down(struct net_device *dev)
+ 	struct skge_hw *hw = skge->hw;
+ 	int port = skge->port;
  
--	seq_printf(seq, "\nRx Ring:\n");
-+	seq_puts(seq, "\nRx Ring:\n");
- 	for (e = skge->rx_ring.to_clean; ; e = e->next) {
- 		const struct skge_rx_desc *r = e->desc;
+-	if (skge->mem == NULL)
++	if (!skge->mem)
+ 		return 0;
  
+ 	netif_info(skge, ifdown, skge->netdev, "disabling interface\n");
 -- 
 2.12.2
