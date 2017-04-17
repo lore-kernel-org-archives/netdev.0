@@ -1,31 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next] MAINTAINERS: rename TC entry and add couple
- of header files
-Date: Mon, 17 Apr 2017 13:26:33 -0400 (EDT)
-Message-ID: <20170417.132633.1757956310905193195.davem@davemloft.net>
-References: <1492100031-13462-1-git-send-email-jiri@resnulli.us>
+Subject: Re: [PATCH net] net: vrf: Fix setting NLM_F_EXCL flag when adding
+ l3mdev rule
+Date: Mon, 17 Apr 2017 13:28:29 -0400 (EDT)
+Message-ID: <20170417.132829.1427802343081416162.davem@davemloft.net>
+References: <20170413165715.10365-1-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mlxsw@mellanox.com, jhs@mojatatu.com
-To: jiri@resnulli.us
+Cc: netdev@vger.kernel.org
+To: dsa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:55748 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:55778 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752180AbdDQR0f (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 17 Apr 2017 13:26:35 -0400
-In-Reply-To: <1492100031-13462-1-git-send-email-jiri@resnulli.us>
+        with ESMTP id S1752223AbdDQR2b (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 17 Apr 2017 13:28:31 -0400
+In-Reply-To: <20170413165715.10365-1-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Thu, 13 Apr 2017 18:13:51 +0200
+From: David Ahern <dsa@cumulusnetworks.com>
+Date: Thu, 13 Apr 2017 10:57:15 -0600
 
-> From: Jiri Pirko <jiri@mellanox.com>
+> Only need 1 l3mdev FIB rule. Fix setting NLM_F_EXCL in the nlmsghdr.
 > 
-> The section is not specific only to "TC classifiers", but applies to the
-> whole TC subsystem. Also, add couple of forgotten headers.
-> 
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+> Fixes: 1aa6c4f6b8cd8 ("net: vrf: Add l3mdev rules on first device create")
+> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 
-Applied.
+Applied and queued up for -stable, thanks.
