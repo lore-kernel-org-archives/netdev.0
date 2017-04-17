@@ -1,65 +1,78 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net 1/2] bpf: fix cb access in socket filter programs on tail calls
-Date: Mon, 17 Apr 2017 03:12:06 +0200
-Message-ID: <c60acf3aec547185f9753494876fbd9b14ba54a2.1492390940.git.daniel@iogearbox.net>
-References: <cover.1492390940.git.daniel@iogearbox.net>
-Cc: alexei.starovoitov@gmail.com, kubakici@wp.pl,
-        netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
-To: davem@davemloft.net
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: ipv6 udp early demux breaks udp_l3mdev_accept=0
+Date: Sun, 16 Apr 2017 20:59:44 -0600
+Message-ID: <e8f9b5aa-4f17-478c-bc2c-51757e86683d@cumulusnetworks.com>
+References: <3639a683-2839-4363-2cd2-c2a040402c93@cumulusnetworks.com>
+ <1492389870-22733-1-git-send-email-subashab@codeaurora.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+To: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>,
+        davem@davemloft.net, netdev@vger.kernel.org, rshearma@brocade.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:51322 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756945AbdDQBMR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 16 Apr 2017 21:12:17 -0400
-In-Reply-To: <cover.1492390940.git.daniel@iogearbox.net>
-In-Reply-To: <cover.1492390940.git.daniel@iogearbox.net>
-References: <cover.1492390940.git.daniel@iogearbox.net>
+Received: from mail-pg0-f44.google.com ([74.125.83.44]:34262 "EHLO
+        mail-pg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932401AbdDQC7v (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 16 Apr 2017 22:59:51 -0400
+Received: by mail-pg0-f44.google.com with SMTP id z127so2102642pgb.1
+        for <netdev@vger.kernel.org>; Sun, 16 Apr 2017 19:59:51 -0700 (PDT)
+In-Reply-To: <1492389870-22733-1-git-send-email-subashab@codeaurora.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit ff936a04e5f2 ("bpf: fix cb access in socket filter programs")
-added a fix for socket filter programs such that in i) AF_PACKET the
-20 bytes of skb->cb[] area gets zeroed before use in order to not leak
-data, and ii) socket filter programs attached to TCP/UDP sockets need
-to save/restore these 20 bytes since they are also used by protocol
-layers at that time.
+On 4/16/17 6:44 PM, Subash Abhinov Kasiviswanathan wrote:
+> Can you try this
+> 
+> ---
+>  net/ipv6/udp.c | 21 +++++++++++++--------
+>  1 file changed, 13 insertions(+), 8 deletions(-)
+> 
+> diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+> index b793ed1..0e307e5 100644
+> --- a/net/ipv6/udp.c
+> +++ b/net/ipv6/udp.c
+> @@ -46,6 +46,7 @@
+>  #include <net/tcp_states.h>
+>  #include <net/ip6_checksum.h>
+>  #include <net/xfrm.h>
+> +#include <net/inet_hashtables.h>
+>  #include <net/inet6_hashtables.h>
+>  #include <net/busy_poll.h>
+>  #include <net/sock_reuseport.h>
+> @@ -864,21 +865,25 @@ int __udp6_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
+>  	return 0;
+>  }
+>  
+> +
+>  static struct sock *__udp6_lib_demux_lookup(struct net *net,
+>  			__be16 loc_port, const struct in6_addr *loc_addr,
+>  			__be16 rmt_port, const struct in6_addr *rmt_addr,
+>  			int dif)
+>  {
+> +	unsigned short hnum = ntohs(loc_port);
+> +	unsigned int hash2 = udp6_portaddr_hash(net, loc_addr, hnum);
+> +	unsigned int slot2 = hash2 & udp_table.mask;
+> +	struct udp_hslot *hslot2 = &udp_table.hash2[slot2];
+> +	const __portpair ports = INET_COMBINED_PORTS(rmt_port, hnum);
+>  	struct sock *sk;
+>  
+> -	rcu_read_lock();
+> -	sk = __udp6_lib_lookup(net, rmt_addr, rmt_port, loc_addr, loc_port,
+> -			       dif, &udp_table, NULL);
+> -	if (sk && !atomic_inc_not_zero(&sk->sk_refcnt))
+> -		sk = NULL;
+> -	rcu_read_unlock();
+> -
+> -	return sk;
+> +	udp_portaddr_for_each_entry_rcu(sk, &hslot2->head) {
+> +		if (INET6_MATCH(sk, net, rmt_addr, loc_addr, ports, dif))
+> +			return sk;
+> +		break;
+> +	}
+> +	return NULL;
+>  }
+>  
+>  static void udp_v6_early_demux(struct sk_buff *skb)
+> 
 
-The problem is that bpf_prog_run_save_cb() and bpf_prog_run_clear_cb()
-only look at the actual attached program to determine whether to zero
-or save/restore the skb->cb[] parts. There can be cases where the
-actual attached program does not access the skb->cb[], but the program
-tail calls into another program which does access this area. In such
-a case, the zero or save/restore is currently not performed.
-
-Since the programs we tail call into are unknown at verification time
-and can dynamically change, we need to assume that whenever the attached
-program performs a tail call, that later programs could access the
-skb->cb[], and therefore we need to always set cb_access to 1.
-
-Fixes: ff936a04e5f2 ("bpf: fix cb access in socket filter programs")
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-Acked-by: Alexei Starovoitov <ast@kernel.org>
----
- kernel/bpf/syscall.c | 7 +++++++
- 1 file changed, 7 insertions(+)
-
-diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
-index 7af0dcc..ee5c969 100644
---- a/kernel/bpf/syscall.c
-+++ b/kernel/bpf/syscall.c
-@@ -617,6 +617,13 @@ static void fixup_bpf_calls(struct bpf_prog *prog)
- 			if (insn->imm == BPF_FUNC_xdp_adjust_head)
- 				prog->xdp_adjust_head = 1;
- 			if (insn->imm == BPF_FUNC_tail_call) {
-+				/* If we tail call into other programs, we
-+				 * cannot make any assumptions since they
-+				 * can be replaced dynamically during runtime
-+				 * in the program array.
-+				 */
-+				prog->cb_access = 1;
-+
- 				/* mark bpf_tail_call as different opcode
- 				 * to avoid conditional branch in
- 				 * interpeter for every normal call
--- 
-1.9.3
+That works for me. Thanks for the fast turn around.
