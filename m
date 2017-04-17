@@ -1,46 +1,56 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] Replace constant with sysctl
- netdev_budget_jiffies to enable tuning
-Date: Mon, 17 Apr 2017 08:11:34 -0700
-Message-ID: <1492441894.10587.105.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1492439349-21081-1-git-send-email-tedheadster@gmail.com>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: [PATCH 03/25] net: mvneta: Use kmalloc_array() in mvneta_txq_init()
+Date: Mon, 17 Apr 2017 17:13:08 +0200
+Message-ID: <d3e0290e-78fe-9134-4e1f-6f09d82c2a56@users.sourceforge.net>
+References: <d6f26bba-c678-5b66-4f5d-85f56d895190@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Matthew Whitehead <tedheadster@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f181.google.com ([209.85.192.181]:33131 "EHLO
-        mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753427AbdDQPLg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 17 Apr 2017 11:11:36 -0400
-Received: by mail-pf0-f181.google.com with SMTP id s16so67070952pfs.0
-        for <netdev@vger.kernel.org>; Mon, 17 Apr 2017 08:11:36 -0700 (PDT)
-In-Reply-To: <1492439349-21081-1-git-send-email-tedheadster@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: LKML <linux-kernel@vger.kernel.org>,
+        kernel-janitors@vger.kernel.org
+To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Jarod Wilson <jarod@redhat.com>,
+        Jisheng Zhang <jszhang@marvell.com>,
+        Mirko Lindner <mlindner@marvell.com>,
+        Philippe Reynes <tremyfr@gmail.com>,
+        Russell King <rmk+kernel@armlinux.org.uk>,
+        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <d6f26bba-c678-5b66-4f5d-85f56d895190@users.sourceforge.net>
+Content-Language: en-GB
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2017-04-17 at 10:29 -0400, Matthew Whitehead wrote:
-> Constants used for tuning are generally a bad idea, especially as hardware
-> changes over time. Replace the constant '2' with netdev_budget_jiffies to
-> enable sysadmins to tune the behavior. Also document the variable.
-> 
-> For example, a very fast machine might tune this to 1, while my regression
-> testing 486DX-25 needs it to be 4 on a nearly idle network to prevent
-> time_squeeze from being incremented.
+From: Markus Elfring <elfring@users.sourceforge.net>
+Date: Sun, 16 Apr 2017 22:11:22 +0200
 
-Hi Matthew
+A multiplication for the size determination of a memory allocation
+indicated that an array data structure should be processed.
+Thus use the corresponding function "kmalloc_array".
 
-What is the problem with this 'time_squeeze' being incremented ?
+This issue was detected by using the Coccinelle software.
 
-This is an indicator, but not something bad per se.
+Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+---
+ drivers/net/ethernet/marvell/mvneta.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-Maybe your 486DX-25 should use HZ=100 ;)
-
-Really I do not believe we should let admins/users play with this limit,
-they will most likely shoot themselves.
-
-Anyway, exporting in /proc/sys some time limit in 'jiffies' is not
-recommended. We prefer portable msecs , usec or nanosec units.
-
-Thanks.
+diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+index 9c9eed5a8e28..9c2ddd22a86f 100644
+--- a/drivers/net/ethernet/marvell/mvneta.c
++++ b/drivers/net/ethernet/marvell/mvneta.c
+@@ -2933,7 +2933,8 @@ static int mvneta_txq_init(struct mvneta_port *pp,
+ 	mvreg_write(pp, MVNETA_TXQ_BASE_ADDR_REG(txq->id), txq->descs_phys);
+ 	mvreg_write(pp, MVNETA_TXQ_SIZE_REG(txq->id), txq->size);
+ 
+-	txq->tx_skb = kmalloc(txq->size * sizeof(*txq->tx_skb), GFP_KERNEL);
++	txq->tx_skb = kmalloc_array(txq->size, sizeof(*txq->tx_skb),
++				    GFP_KERNEL);
+ 	if (txq->tx_skb == NULL) {
+ 		dma_free_coherent(pp->dev->dev.parent,
+ 				  txq->size * MVNETA_DESC_ALIGNED_SIZE,
+-- 
+2.12.2
