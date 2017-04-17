@@ -1,33 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/2] Two BPF fixes
-Date: Mon, 17 Apr 2017 15:52:50 -0400 (EDT)
-Message-ID: <20170417.155250.1243917459853868743.davem@davemloft.net>
-References: <cover.1492390940.git.daniel@iogearbox.net>
+From: David Miller <davem@redhat.com>
+Subject: Re: [PATCH] net: cx89x0: move attribute declaration before struct
+ keyword
+Date: Mon, 17 Apr 2017 16:09:42 -0400 (EDT)
+Message-ID: <20170417.160942.2196583103295700079.davem@redhat.com>
+References: <20170417062032.22764-1-stefan@agner.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: alexei.starovoitov@gmail.com, kubakici@wp.pl,
-        netdev@vger.kernel.org
-To: daniel@iogearbox.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:57636 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753761AbdDQTwv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 17 Apr 2017 15:52:51 -0400
-In-Reply-To: <cover.1492390940.git.daniel@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: shc_work@mail.ru, jarod@redhat.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: stefan@agner.ch
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170417062032.22764-1-stefan@agner.ch>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Borkmann <daniel@iogearbox.net>
-Date: Mon, 17 Apr 2017 03:12:05 +0200
+From: Stefan Agner <stefan@agner.ch>
+Date: Sun, 16 Apr 2017 23:20:32 -0700
 
-> The set fixes cb_access and xdp_adjust_head bits in struct bpf_prog,
-> that are used for requirement checks on the program rather than f.e.
-> heuristics. Thus, for tail calls, we cannot make any assumptions and
-> are forced to set them.
+> The attribute declaration is typically before the definition. Move
+> the __maybe_unused attribute declaration before the struct keyword.
+> 
+> Signed-off-by: Stefan Agner <stefan@agner.ch>
 
-Series applied, thanks.
+Well, I see if just as often after the variable name too:
 
-Tail calls bring up all kinds of caching and assumption issues, see my
-question in another thread about how register cached SKB parameters
-are handled in JITs across tail calls.
+net/irda/iriap.c:static const char *const ias_charset_types[] __maybe_unused = {
+net/irda/irlap.c:static const char *const lap_reasons[] __maybe_unused = {
+net/irda/irlap_event.c:static const char *const irlap_event[] __maybe_unused = {
+net/irda/irlmp_event.c:static const char *const irlmp_event[] __maybe_unused = {
+
+Or after the struct:
+
+drivers/net/phy/ste10Xp.c:static struct mdio_device_id __maybe_unused ste10Xp_tbl[] = {
+drivers/net/phy/teranetics.c:static struct mdio_device_id __maybe_unused teranetics_tbl[] = {
+drivers/net/phy/vitesse.c:static struct mdio_device_id __maybe_unused vitesse_tbl[] = {
+
+So unless we decide tree wide to do it in one order or another, such changes
+are largely a waste of time.
+
+Sorry I'm not applying this patch.
