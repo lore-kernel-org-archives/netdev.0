@@ -1,69 +1,28 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH 02/25] net: mvneta: Improve two size determinations in
- mvneta_init()
-Date: Mon, 17 Apr 2017 17:10:22 +0200
-Message-ID: <34ff173b-9727-ff30-677b-f27c54c7c0bd@users.sourceforge.net>
-References: <d6f26bba-c678-5b66-4f5d-85f56d895190@users.sourceforge.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 0/9] ftgmac100: Rework batch 5 - Features
+Date: Mon, 17 Apr 2017 11:11:31 -0400 (EDT)
+Message-ID: <20170417.111131.340382798463663490.davem@davemloft.net>
+References: <20170413043916.7793-1-benh@kernel.crashing.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-        kernel-janitors@vger.kernel.org
-To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Jarod Wilson <jarod@redhat.com>,
-        Jisheng Zhang <jszhang@marvell.com>,
-        Mirko Lindner <mlindner@marvell.com>,
-        Philippe Reynes <tremyfr@gmail.com>,
-        Russell King <rmk+kernel@armlinux.org.uk>,
-        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Cc: netdev@vger.kernel.org
+To: benh@kernel.crashing.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.web.de ([217.72.192.78]:53298 "EHLO mout.web.de"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753427AbdDQPKo (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 17 Apr 2017 11:10:44 -0400
-In-Reply-To: <d6f26bba-c678-5b66-4f5d-85f56d895190@users.sourceforge.net>
-Content-Language: en-GB
+Received: from shards.monkeyblade.net ([184.105.139.130]:53550 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753427AbdDQPLd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 17 Apr 2017 11:11:33 -0400
+In-Reply-To: <20170413043916.7793-1-benh@kernel.crashing.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Sun, 16 Apr 2017 21:45:38 +0200
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Date: Thu, 13 Apr 2017 14:39:07 +1000
 
-Replace the specification of two data structures by pointer dereferences
-as the parameter for the operator "sizeof" to make the corresponding size
-determination a bit safer according to the Linux coding style convention.
+> This is the second spin of the fifth and last batch of
+> updates to the ftgmac100 driver.
 
-Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
----
- drivers/net/ethernet/marvell/mvneta.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
+This series doesn't apply cleanly to net-next, please respin.
 
-diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index 46fa74e93814..9c9eed5a8e28 100644
---- a/drivers/net/ethernet/marvell/mvneta.c
-+++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -3992,8 +3992,7 @@ static int mvneta_init(struct device *dev, struct mvneta_port *pp)
- 	/* Set port default values */
- 	mvneta_defaults_set(pp);
- 
--	pp->txqs = devm_kcalloc(dev, txq_number, sizeof(struct mvneta_tx_queue),
--				GFP_KERNEL);
-+	pp->txqs = devm_kcalloc(dev, txq_number, sizeof(*pp->txqs), GFP_KERNEL);
- 	if (!pp->txqs)
- 		return -ENOMEM;
- 
-@@ -4005,8 +4004,7 @@ static int mvneta_init(struct device *dev, struct mvneta_port *pp)
- 		txq->done_pkts_coal = MVNETA_TXDONE_COAL_PKTS;
- 	}
- 
--	pp->rxqs = devm_kcalloc(dev, rxq_number, sizeof(struct mvneta_rx_queue),
--				GFP_KERNEL);
-+	pp->rxqs = devm_kcalloc(dev, rxq_number, sizeof(*pp->rxqs), GFP_KERNEL);
- 	if (!pp->rxqs)
- 		return -ENOMEM;
- 
--- 
-2.12.2
+Thanks.
