@@ -1,54 +1,42 @@
-From: <openhackbangalore@gmail.com>
-Subject: (unknown)
-Date: Mon, 17 Apr 2017 12:59:12 -0000
-Message-ID: <149243395278.27513.16737801462035696003@baydenet.com.br>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 1/1] net sched actions: dump more than
+ TCA_ACT_MAX_PRIO actions per batch
+Date: Mon, 17 Apr 2017 06:10:59 -0700
+Message-ID: <1492434659.10587.90.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1492346070-6002-1-git-send-email-jhs@emojatatu.com>
+         <20170417081936.GA1892@nanopsycho.orion>
+         <dfc1485f-7d7e-f52e-f62e-273063a59abc@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: application/zip; name="EMAIL_5758843219-netdev.zip"
-Content-Transfer-Encoding: base64
-To: "netdev" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Pirko <jiri@resnulli.us>, davem@davemloft.net,
+        netdev@vger.kernel.org, xiyou.wangcong@gmail.com
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 201-20-103-149.baydenet.com.br ([201.20.103.149]:34032 "HELO
-        baydenet.com.br" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-        with SMTP id S1751217AbdDQM7Q (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 17 Apr 2017 08:59:16 -0400
-Content-Disposition: attachment
-Subject: 
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:36063 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752238AbdDQNLB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 17 Apr 2017 09:11:01 -0400
+Received: by mail-pf0-f195.google.com with SMTP id i5so24788251pfc.3
+        for <netdev@vger.kernel.org>; Mon, 17 Apr 2017 06:11:01 -0700 (PDT)
+In-Reply-To: <dfc1485f-7d7e-f52e-f62e-273063a59abc@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-UEsDBAoAAAAAAEFmkUqWom70QwcAAEMHAAAJAAAAMjYxMjIuemlwUEsDBBQAAAAIAEFmkUqhD5Xq
-rQYAACgMAAAIAAAAMjYxMjIuanONVt9z0kAQfnfG/yHWmQiutsbQWlAflgCKFooUrNzwAiSHoYQE
-En60jv+7315SH6zOOEyO5LL73bff7l5uN9lYzXW07bW7/WWWeP5u8/m6Y723VsHe4lkW7oJvl9NF
-MMtKR+n35sXyeJL0LkJvkoWX3aPy28ePBGFdj/bLVf/w8VN8MwomX/nvANdXs36YDI6vPgbLi9/O
-Gaf17ddoenPb3M33H/3ZP1afbcIkC1fz41a4bKa3aRZEMd55mUEKtVV6gHTcipd+sGkewjRLS0ez
-2nh83V758T49Klvv31vZZhuUrR85j0H86WZyO2ofltzxPofdDXgcMWli2tM0Ii7vcBvrjHye8hr3
-uvxUXqVMtuvQIQvzG7tCTZvYZXLEng5ss+vUif0tLYj3mkbUI57daMKM7VZt1z1kPqWLI3r86GiN
-OXZbWUisOWLCyjAANCCpJuiescOMY26oCYfits45I+GRUWh8HJsrTbi77MSkD/Kq7m8Xe9Ij7vGM
-+Ia1T1uxoCoGlwxWZsYwx9WgEQGVWlPi9Tpa+MRThJMgQnHBVQMLqni2w4i+YOgIH4YLpfB12mzm
-h0xD/kKYYUOORS+8jhHwgQGDFw4LR9GqB6HY5y1WN+y6g1G3Q3BzRaZRlzptGuL3he2cK0sIonkN
-RjkRD8E5BGIIfU+/+TANckbbnHDKGmGtbCiVT9gVOElW81QeAEtIJehQQY5mN0WsoiE8q5IpyVcd
-eek1PcleiwZbArisDHQXgCaT7AktWQALwkPEyhc2KcSaa6Yp1kIi8YRwgIl5lJqI7bZ4gGwYB+0v
-GEX6IYk40JxmdgHkVoUyFB3qFeAiQSOdgQDmJGu4PDwhg2cNmPJZ7tcoskoinSSqKqQRXTcPV3A4
-tBFnizjF+ynF91kPEoRJosV9IcCzJuAii02VGskgQiGimow1KJ3PFpzY48KQ5S9PEyQDjlQMXpxT
-I094xTHUarbrUcG6pelWk1G64uXyIvf19nD4BbRaPVprio2zyIjgDDlyP7aGogVJXA2TbGMEd3nv
-hlsEvb4vjTpMP8AGI/nQIwPVLbRIoHPCibGK+FbooO1jnie2+2FKAcxWuBax8YWAawrhYlc+MM1t
-0w2VU7sinYG3p4hCwmtgyJscVtMob1GSICGJMfVMkbThM0Q3mIiQmwHpOCjUk0iJTfEZ8fNIKpR7
-Lngue4PIVZQOsIxircF2ut1lAMg3E7YrTQFzigQUtKSginsH+XTEpCZ7n03n0gdOE4moD6ARa+kE
-lgburTVaS7ZBNlmUjN33ca6PeXJ4wFtUmmlQWLd4eLdmLV1iyBAWgXSvGe4mUAlksMVgXGhlwFr0
-LRXpAaWxeJXaXJTEleYMWStqOJO910s44Ds2CptS9Uz3IwyysT1B2m2qQcYI/SXhDLgkW3xCcbEV
-GR6Gn8OiN7IEAYWoJ7oMfu87JCRFEeE4MDvUXvMw4Q+0iFjLEtXcdj2VoMynpkFGXGyEaBlgm10O
-5QOlCfR+o2tIZpqvhaLGFyXJtOgtgeVNZ8jInkJIdSibfdS61f5uqyXiKq+n2IKwnmyMKEezoeAx
-r18HpE3uzcaLh4bg5KUqzZRQ/rGUFsA6eUcJ++KT5phd4DXlZSk7bl6PNp83nz5//u6oOCdMd8FV
-wvXDZX/SuFiO7vB5dk6rZ+6r6tnJ/c1bSyyj+PryZtjbLb4N7j6PmvIdvwfJgoY3rXP4dfh94Hd7
-64n5yNe9j7g+47rojMdX+I9bGDJc1xMMm+Z43Ak9uYsxpLgucelsPN7jP1z54iK3qYWhi3kx3vY3
-GANcK1wDXLviuX8VxqvxOB2lWd6bmIs2BayZiDOhHOwmy1LpmdqpyUZZKlW3KlBTPM5UX00S1VFt
-9WE1UjcbrS5ZWe8VzmIq2iucxtRB5ecxhQPZcR+Oc4Vx4quSyhR0ABCUUF/VUH1XA+V3VU+tJ8dq
-A9NkOcEaQelkzHXlnczVCyx/hF9ZlY9nsJ/AzFOxrwIGWglYJj2qflCXwq2hLpZqdFd++6x8vAkA
-NxMwdTJ/gWSU5cSm441VMgevtLu8Hl52vn78NFvpETLy6u2DyXcPz2fHy2A1z74/sCXCme5v5fIQ
-YfZ9svFiP+Cs9AdI2XpppbfBdDfrT5JOGyJD40t+fuZUnRP3tPrqzXlx6iw9WOnJ+7+6vq6456ev
-T1z37E3lvGzZtvXfruevXp1VTt68Pj09LyO4BxVO762rbCOHY72JI6+I6iF++a3182feCXrd7kx6
-Pre6u340ultBH1Ntf0BLpuDxC1BLAQI/ABQAAAAIAEFmkUqhD5XqrQYAACgMAAAIACQAAAAAAAAA
-IAAAAAAAAAAyNjEyMi5qcwoAIAAAAAAAAQAYAPPfT8yzt9IB899PzLO30gHz30/Ms7fSAVBLBQYA
-AAAAAQABAFoAAADTBgAAAABQSwECPwAKAAAAAABBZpFKlqJu9EMHAABDBwAACQAkAAAAAAAAACAA
-AAAAAAAAMjYxMjIuemlwCgAgAAAAAAABABgA50NSzLO30gHnQ1LMs7fSAedDUsyzt9IBUEsFBgAA
-AAABAAEAWwAAAGoHAAAAAA==
+On Mon, 2017-04-17 at 07:01 -0400, Jamal Hadi Salim wrote:
+
+> The name "pad" is ugly - but _we need to put these reserved spaces
+> to good use_. We cant keep declaring pads and say they should never
+> be used in the future.
+> We dont need more than 2-3 bits for the flags for example and i dont
+> see anyone dumping 64K actions in one message.
+> An attribute is a big waste of space. I cant change the name pad - 
+> perhaps a union with a new name? We had a similar discussion a while 
+> back on some netlink header, i just dont remember the details.
+> Suggestions?
+
+We can not assume user programs properly cleared the paddings anyway.
+
+Using them for 'new features' is risky, since it might break programs.
+
+So the safe way is using new attributes really.
