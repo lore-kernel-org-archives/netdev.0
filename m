@@ -1,38 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: bluetooth-next 2017-04-14
-Date: Mon, 17 Apr 2017 15:02:17 -0400 (EDT)
-Message-ID: <20170417.150217.1911065261318715863.davem@davemloft.net>
-References: <20170414181212.GA27363@x1c.P-661HNU-F1>
+Subject: Re: [PATCH RFC] sparc64: eBPF JIT
+Date: Mon, 17 Apr 2017 15:03:26 -0400 (EDT)
+Message-ID: <20170417.150326.345314944044934203.davem@davemloft.net>
+References: <20170416.233825.1748421481008153466.davem@davemloft.net>
+        <58F50D13.3090001@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org
-To: johan.hedberg@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:56980 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751874AbdDQTCV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 17 Apr 2017 15:02:21 -0400
-In-Reply-To: <20170414181212.GA27363@x1c.P-661HNU-F1>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: sparclinux@vger.kernel.org, netdev@vger.kernel.org, ast@kernel.org
+To: daniel@iogearbox.net
+Return-path: <sparclinux-owner@vger.kernel.org>
+In-Reply-To: <58F50D13.3090001@iogearbox.net>
+Sender: sparclinux-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Johan Hedberg <johan.hedberg@gmail.com>
-Date: Fri, 14 Apr 2017 21:12:12 +0300
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Mon, 17 Apr 2017 20:44:35 +0200
 
-> Here's the main batch of Bluetooth & 802.15.4 patches for the 4.12
-> kernel.
+> On 04/17/2017 05:38 AM, David Miller wrote:
+>> +/* Map BPF registers to SPARC registers */
+>> +static const int bpf2sparc[] = {
+>> + /* return value from in-kernel function, and exit value from eBPF */
+>> +	[BPF_REG_0] = I5,
+>> +
+>> +	/* arguments from eBPF program to in-kernel function */
+>> +	[BPF_REG_1] = I0,
+>> +	[BPF_REG_2] = I1,
+>> +	[BPF_REG_3] = I2,
+>> +	[BPF_REG_4] = I3,
+>> +	[BPF_REG_5] = I4,
+>> +
+>> + /* callee saved registers that in-kernel function will preserve */
+>> +	[BPF_REG_6] = L0,
+>> +	[BPF_REG_7] = L1,
+>> +	[BPF_REG_8] = L2,
+>> +	[BPF_REG_9] = L3,
+>> +
+>> +	/* read-only frame pointer to access stack */
+>> +	[BPF_REG_FP] = FP,
 > 
->  - Many fixes to 6LoWPAN, in particular for BLE
->  - New CA8210 IEEE 802.15.4 device driver (accounting for most of the
->    lines of code added in this pull request)
->  - Added Nokia Bluetooth (UART) HCI driver
->  - Some serdev & TTY changes that are dependencies for the Nokia
->    driver (with acks from relevant maintainers and an agreement that
->    these come through the bluetooth tree)
->  - Support for new Intel Bluetooth device
->  - Various other minor cleanups/fixes here and there
+> On a quick initial glance, you also need to map BPF_REG_AX. If
+> I understand the convention correctly, you could use L7 for that.
 > 
-> Please let me know if there are any issues pulling. Thanks.
+> You can test for it through tools/testing/selftests/bpf/test_kmod.sh
+> which exercises the test_bpf.ko under various sysctl combinations as
+> part of the BPF selftest suite.
 
-Applied, thanks.
+Oh I see, it's used for constant blinding.  I can use a global register
+for that since it's only used as a temporary right?
