@@ -1,29 +1,56 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net-next] kcm: remove a useless copy_from_user()
-Date: Mon, 17 Apr 2017 13:28:58 -0400 (EDT)
-Message-ID: <20170417.132858.1476125185920937797.davem@davemloft.net>
-References: <1492108682-30505-1-git-send-email-xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH v3] net: phy: micrel: fix crash when statistic
+ requested for KSZ9031 phy
+Date: Mon, 17 Apr 2017 13:33:08 -0400 (EDT)
+Message-ID: <20170417.133308.930459119262835945.davem@davemloft.net>
+References: <20170413191127.5406-1-grygorii.strashko@ti.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tom@herbertland.com
-To: xiyou.wangcong@gmail.com
+Cc: netdev@vger.kernel.org, andrew@lunn.ch, f.fainelli@gmail.com,
+        nsekhar@ti.com, linux-kernel@vger.kernel.org
+To: grygorii.strashko@ti.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:55792 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:55860 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752223AbdDQR3A (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 17 Apr 2017 13:29:00 -0400
-In-Reply-To: <1492108682-30505-1-git-send-email-xiyou.wangcong@gmail.com>
+        with ESMTP id S1753810AbdDQRdL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 17 Apr 2017 13:33:11 -0400
+In-Reply-To: <20170413191127.5406-1-grygorii.strashko@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Thu, 13 Apr 2017 11:38:02 -0700
+From: Grygorii Strashko <grygorii.strashko@ti.com>
+Date: Thu, 13 Apr 2017 14:11:27 -0500
 
-> struct kcm_clone only contains fd, and kcm_clone() only
-> writes this struct, so there is no need to copy it from user.
+> Now the command:
+> 	ethtool --phy-statistics eth0
+> will cause system crash with meassage "Unable to handle kernel NULL pointer
+> dereference at virtual address 00000010" from:
 > 
-> Cc: Tom Herbert <tom@herbertland.com>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+>  (kszphy_get_stats) from [<c069f1d8>] (ethtool_get_phy_stats+0xd8/0x210)
+>  (ethtool_get_phy_stats) from [<c06a0738>] (dev_ethtool+0x5b8/0x228c)
+>  (dev_ethtool) from [<c06b5484>] (dev_ioctl+0x3fc/0x964)
+>  (dev_ioctl) from [<c0679f7c>] (sock_ioctl+0x170/0x2c0)
+>  (sock_ioctl) from [<c02419d4>] (do_vfs_ioctl+0xa8/0x95c)
+>  (do_vfs_ioctl) from [<c02422c4>] (SyS_ioctl+0x3c/0x64)
+>  (SyS_ioctl) from [<c0107d60>] (ret_fast_syscall+0x0/0x44)
+> 
+> The reason: phy_driver structure for KSZ9031 phy has no .probe() callback
+> defined. As result, struct phy_device *phydev->priv pointer will not be
+> initializes (null).
+> This issue will affect also following phys:
+>  KSZ8795, KSZ886X, KSZ8873MLL, KSZ9031, KSZ9021, KSZ8061, KS8737
+> 
+> Fix it by:
+> - adding .probe() = kszphy_probe() callback to KSZ9031, KSZ9021
+> phys. The kszphy_probe() can be re-used as it doesn't do any phy specific
+> settings.
+> - removing statistic callbacks from other phys (KSZ8795, KSZ886X,
+> KSZ8873MLL, KSZ8061, KS8737) as they doesn't have corresponding
+> statistic counters.
+> 
+> Fixes: 2b2427d06426 ("phy: micrel: Add ethtool statistics counters")
+> Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
+> Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 
 Applied.
