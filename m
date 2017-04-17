@@ -1,72 +1,37 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 1/1] net sched actions: dump more than
- TCA_ACT_MAX_PRIO actions per batch
-Date: Mon, 17 Apr 2017 07:58:36 -0700
-Message-ID: <1492441116.10587.96.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1492346070-6002-1-git-send-email-jhs@emojatatu.com>
-         <20170417081936.GA1892@nanopsycho.orion>
-         <dfc1485f-7d7e-f52e-f62e-273063a59abc@mojatatu.com>
-         <1492434659.10587.90.camel@edumazet-glaptop3.roam.corp.google.com>
-         <7a49a797-d9cb-37c1-e46b-bec6888539b9@mojatatu.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC PATCH linux 0/2] net sched actions: access to
+ uninitialized data and error handling
+Date: Mon, 17 Apr 2017 10:59:47 -0400 (EDT)
+Message-ID: <20170417.105947.202929252465875756.davem@davemloft.net>
+References: <20170412142140.26649-1-w.bumiller@proxmox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Jiri Pirko <jiri@resnulli.us>, davem@davemloft.net,
-        netdev@vger.kernel.org, xiyou.wangcong@gmail.com
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        jhs@mojatatu.com
+To: w.bumiller@proxmox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:36583 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751738AbdDQO6i (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 17 Apr 2017 10:58:38 -0400
-Received: by mail-pf0-f196.google.com with SMTP id i5so25201670pfc.3
-        for <netdev@vger.kernel.org>; Mon, 17 Apr 2017 07:58:38 -0700 (PDT)
-In-Reply-To: <7a49a797-d9cb-37c1-e46b-bec6888539b9@mojatatu.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:53224 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751738AbdDQO7u (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 17 Apr 2017 10:59:50 -0400
+In-Reply-To: <20170412142140.26649-1-w.bumiller@proxmox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2017-04-17 at 10:02 -0400, Jamal Hadi Salim wrote:
-> On 17-04-17 09:10 AM, Eric Dumazet wrote:
-> 
-> [..]
-> >
-> > We can not assume user programs properly cleared the paddings anyway.
-> >
-> > Using them for 'new features' is risky, since it might break programs.
-> >
-> > So the safe way is using new attributes really.
-> 
-> Since we agreed to have longer discussions on uapis
-> when we met I'd like to digress:
-> Can we talk about what it means to define pads in data
-> structures and then never using them?
-> As an example, no-one is setting these fields anywhere on any
-> app i know of. Would a union not be good enough for new name
-> vs old name? old binaries should continue to work.
-> Breakage with any app during compile should be fixable
-> within the breaking app (since whoever it is would have source).
-> Maybe by breaking some weird app we can experiment on finding
-> out.
-> 
-> My contention is that it is not nice to continue to define uapi
-> pads and  then say they cant be used ever.
+From: Wolfgang Bumiller <w.bumiller@proxmox.com>
+Date: Wed, 12 Apr 2017 16:21:38 +0200
 
-Very often, pads are there because of ABI constraints.
+> Commit 1045ba77a ("net sched actions: Add support for user cookies")
+> added code to net/sched/act_api.c's tcf_action_init_1 using the `tb`
+> nlattr array unconditionally, while it was otherwise used as well as
+> initialized only when `name == NULL`:
+...
+> I'm not sure why the TC_ACT_COOKIE code was added to tcf_action_init_1
+> where it is now. It makes me think that it's supposed to be available
+> universally, but the `name == NULL` check for how nla is used or passed
+> to ->init() shows that the there are various different TC_ACT_* enums in
+> use at this point, hence the 'RFC' part of the patches, I'm not that
+> familiar with the code yet.
 
-We 'name' them to make clear to developers that they are there,
-and avoid security issues, because of say few bytes from kernel stack
-are copied to user space.
-
-struct foo {
-  __u32 a;
-  __u16 b;
-};
-
-
-Note that the 16bit padding is there, even if you do not name it.
-
-Once this structure had been exported to some include file and in a
-kernel, there is little point trying to 'reuse' the padding, unless for
-very specific cases.
-
-If you name paddings, then developers might think about it.
+Jamal please review this.
