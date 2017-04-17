@@ -1,31 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net 0/2] Fix crash caused by reporting inconsistent
- skb->len to BQL
-Date: Mon, 17 Apr 2017 13:34:23 -0400 (EDT)
-Message-ID: <20170417.133423.1964068698419105282.davem@davemloft.net>
-References: <1492139952-8104-1-git-send-email-sean.wang@mediatek.com>
+Subject: Re: [PATCH] net/ncsi: fix checksum validation in response packet
+Date: Mon, 17 Apr 2017 13:36:19 -0400 (EDT)
+Message-ID: <20170417.133619.1515025171498720534.davem@davemloft.net>
+References: <1492160197-13816-1-git-send-email-clg@kaod.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: john@phrozen.org, nbd@openwrt.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, linux-mediatek@lists.infradead.org,
-        keyhaede@gmail.com
-To: sean.wang@mediatek.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:55880 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752751AbdDQReZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 17 Apr 2017 13:34:25 -0400
-In-Reply-To: <1492139952-8104-1-git-send-email-sean.wang@mediatek.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
+Cc: gwshan@linux.vnet.ibm.com, joel@jms.id.au, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: clg@kaod.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1492160197-13816-1-git-send-email-clg@kaod.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: <sean.wang@mediatek.com>
-Date: Fri, 14 Apr 2017 11:19:10 +0800
+From: Cédric Le Goater <clg@kaod.org>
+Date: Fri, 14 Apr 2017 10:56:37 +0200
 
-> From: Sean Wang <sean.wang@mediatek.com>
+> htonl was used instead of ntohl. Surely a typo.
 > 
-> Changes since v1:
-> - fix inconsistent enumeration which easily causes the potential bug
+> Signed-off-by: Cédric Le Goater <clg@kaod.org>
 
-Series applied, thanks.
+I don't think so, "checksum" is of type "u32" thus is in host byte
+order.  Therefore "htonl()" is correct.
