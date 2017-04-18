@@ -1,235 +1,97 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: [PATCH net-next v2 2/5] virtio-net: transmit napi
-Date: Tue, 18 Apr 2017 16:21:05 -0400
-Message-ID: <20170418202108.61920-3-willemdebruijn.kernel@gmail.com>
-References: <20170418202108.61920-1-willemdebruijn.kernel@gmail.com>
-Cc: mst@redhat.com, jasowang@redhat.com,
-        virtualization@lists.linux-foundation.org, davem@davemloft.net,
-        Willem de Bruijn <willemb@google.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f193.google.com ([209.85.216.193]:34752 "EHLO
-        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753467AbdDRUVM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 16:21:12 -0400
-Received: by mail-qt0-f193.google.com with SMTP id y33so604914qta.1
-        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 13:21:12 -0700 (PDT)
-In-Reply-To: <20170418202108.61920-1-willemdebruijn.kernel@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: [GIT] Networking
+Date: Tue, 18 Apr 2017 16:23:13 -0400 (EDT)
+Message-ID: <20170418.162313.1554593582235878572.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Willem de Bruijn <willemb@google.com>
 
-Convert virtio-net to a standard napi tx completion path. This enables
-better TCP pacing using TCP small queues and increases single stream
-throughput.
+1) BPF tail call handling bug fixes from Daniel Borkmann.
 
-The virtio-net driver currently cleans tx descriptors on transmission
-of new packets in ndo_start_xmit. Latency depends on new traffic, so
-is unbounded. To avoid deadlock when a socket reaches its snd limit,
-packets are orphaned on tranmission. This breaks socket backpressure,
-including TSQ.
+2) Fix allowance of too many rx queues in sfc driver, from Bert
+   Kenward.
 
-Napi increases the number of interrupts generated compared to the
-current model, which keeps interrupts disabled as long as the ring
-has enough free descriptors. Keep tx napi optional and disabled for
-now. Follow-on patches will reduce the interrupt cost.
+3) Non-loopback ipv6 packets claiming src of ::1 should be dropped,
+   from Florian Westphal.
 
-Signed-off-by: Willem de Bruijn <willemb@google.com>
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
- drivers/net/virtio_net.c | 77 +++++++++++++++++++++++++++++++++++++++++-------
- 1 file changed, 67 insertions(+), 10 deletions(-)
+4) Statistics requests on KSZ9031 can crash, fix from Grygorii
+   Strashko.
 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index b9c1df29892c..c173e85dc7b8 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -33,9 +33,10 @@
- static int napi_weight = NAPI_POLL_WEIGHT;
- module_param(napi_weight, int, 0444);
- 
--static bool csum = true, gso = true;
-+static bool csum = true, gso = true, napi_tx;
- module_param(csum, bool, 0444);
- module_param(gso, bool, 0444);
-+module_param(napi_tx, bool, 0644);
- 
- /* FIXME: MTU in config. */
- #define GOOD_PACKET_LEN (ETH_HLEN + VLAN_HLEN + ETH_DATA_LEN)
-@@ -86,6 +87,8 @@ struct send_queue {
- 
- 	/* Name of the send queue: output.$index */
- 	char name[40];
-+
-+	struct napi_struct napi;
- };
- 
- /* Internal representation of a receive virtqueue */
-@@ -262,12 +265,16 @@ static void virtqueue_napi_complete(struct napi_struct *napi,
- static void skb_xmit_done(struct virtqueue *vq)
- {
- 	struct virtnet_info *vi = vq->vdev->priv;
-+	struct napi_struct *napi = &vi->sq[vq2txq(vq)].napi;
- 
- 	/* Suppress further interrupts. */
- 	virtqueue_disable_cb(vq);
- 
--	/* We were probably waiting for more output buffers. */
--	netif_wake_subqueue(vi->dev, vq2txq(vq));
-+	if (napi->weight)
-+		virtqueue_napi_schedule(napi, vq);
-+	else
-+		/* We were probably waiting for more output buffers. */
-+		netif_wake_subqueue(vi->dev, vq2txq(vq));
- }
- 
- static unsigned int mergeable_ctx_to_buf_truesize(unsigned long mrg_ctx)
-@@ -972,6 +979,21 @@ static void virtnet_napi_enable(struct virtqueue *vq, struct napi_struct *napi)
- 	local_bh_enable();
- }
- 
-+static void virtnet_napi_tx_enable(struct virtnet_info *vi,
-+				   struct virtqueue *vq,
-+				   struct napi_struct *napi)
-+{
-+	if (!napi->weight)
-+		return;
-+
-+	if (!vi->affinity_hint_set) {
-+		napi->weight = 0;
-+		return;
-+	}
-+
-+	return virtnet_napi_enable(vq, napi);
-+}
-+
- static void refill_work(struct work_struct *work)
- {
- 	struct virtnet_info *vi =
-@@ -1046,6 +1068,7 @@ static int virtnet_open(struct net_device *dev)
- 			if (!try_fill_recv(vi, &vi->rq[i], GFP_KERNEL))
- 				schedule_delayed_work(&vi->refill, 0);
- 		virtnet_napi_enable(vi->rq[i].vq, &vi->rq[i].napi);
-+		virtnet_napi_tx_enable(vi, vi->sq[i].vq, &vi->sq[i].napi);
- 	}
- 
- 	return 0;
-@@ -1081,6 +1104,25 @@ static void free_old_xmit_skbs(struct send_queue *sq)
- 	u64_stats_update_end(&stats->tx_syncp);
- }
- 
-+static int virtnet_poll_tx(struct napi_struct *napi, int budget)
-+{
-+	struct send_queue *sq = container_of(napi, struct send_queue, napi);
-+	struct virtnet_info *vi = sq->vq->vdev->priv;
-+	struct netdev_queue *txq = netdev_get_tx_queue(vi->dev, vq2txq(sq->vq));
-+
-+	if (__netif_tx_trylock(txq)) {
-+		free_old_xmit_skbs(sq);
-+		__netif_tx_unlock(txq);
-+	}
-+
-+	virtqueue_napi_complete(napi, sq->vq, 0);
-+
-+	if (sq->vq->num_free >= 2 + MAX_SKB_FRAGS)
-+		netif_tx_wake_queue(txq);
-+
-+	return 0;
-+}
-+
- static int xmit_skb(struct send_queue *sq, struct sk_buff *skb)
- {
- 	struct virtio_net_hdr_mrg_rxbuf *hdr;
-@@ -1130,9 +1172,11 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	int err;
- 	struct netdev_queue *txq = netdev_get_tx_queue(dev, qnum);
- 	bool kick = !skb->xmit_more;
-+	bool use_napi = sq->napi.weight;
- 
- 	/* Free up any pending old buffers before queueing new ones. */
--	free_old_xmit_skbs(sq);
-+	if (!use_napi)
-+		free_old_xmit_skbs(sq);
- 
- 	/* timestamp packet in software */
- 	skb_tx_timestamp(skb);
-@@ -1152,8 +1196,10 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	}
- 
- 	/* Don't wait up for transmitted skbs to be freed. */
--	skb_orphan(skb);
--	nf_reset(skb);
-+	if (!use_napi) {
-+		skb_orphan(skb);
-+		nf_reset(skb);
-+	}
- 
- 	/* If running out of space, stop queue to avoid getting packets that we
- 	 * are then unable to transmit.
-@@ -1167,7 +1213,8 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	 */
- 	if (sq->vq->num_free < 2+MAX_SKB_FRAGS) {
- 		netif_stop_subqueue(dev, qnum);
--		if (unlikely(!virtqueue_enable_cb_delayed(sq->vq))) {
-+		if (!use_napi &&
-+		    unlikely(!virtqueue_enable_cb_delayed(sq->vq))) {
- 			/* More just got used, free them then recheck. */
- 			free_old_xmit_skbs(sq);
- 			if (sq->vq->num_free >= 2+MAX_SKB_FRAGS) {
-@@ -1371,8 +1418,10 @@ static int virtnet_close(struct net_device *dev)
- 	/* Make sure refill_work doesn't re-enable napi! */
- 	cancel_delayed_work_sync(&vi->refill);
- 
--	for (i = 0; i < vi->max_queue_pairs; i++)
-+	for (i = 0; i < vi->max_queue_pairs; i++) {
- 		napi_disable(&vi->rq[i].napi);
-+		napi_disable(&vi->sq[i].napi);
-+	}
- 
- 	return 0;
- }
-@@ -1727,8 +1776,10 @@ static void virtnet_freeze_down(struct virtio_device *vdev)
- 	cancel_delayed_work_sync(&vi->refill);
- 
- 	if (netif_running(vi->dev)) {
--		for (i = 0; i < vi->max_queue_pairs; i++)
-+		for (i = 0; i < vi->max_queue_pairs; i++) {
- 			napi_disable(&vi->rq[i].napi);
-+			napi_disable(&vi->sq[i].napi);
-+		}
- 	}
- }
- 
-@@ -1751,8 +1802,11 @@ static int virtnet_restore_up(struct virtio_device *vdev)
- 			if (!try_fill_recv(vi, &vi->rq[i], GFP_KERNEL))
- 				schedule_delayed_work(&vi->refill, 0);
- 
--		for (i = 0; i < vi->max_queue_pairs; i++)
-+		for (i = 0; i < vi->max_queue_pairs; i++) {
- 			virtnet_napi_enable(vi->rq[i].vq, &vi->rq[i].napi);
-+			virtnet_napi_tx_enable(vi, vi->sq[i].vq,
-+					       &vi->sq[i].napi);
-+		}
- 	}
- 
- 	netif_device_attach(vi->dev);
-@@ -1957,6 +2011,7 @@ static void virtnet_free_queues(struct virtnet_info *vi)
- 	for (i = 0; i < vi->max_queue_pairs; i++) {
- 		napi_hash_del(&vi->rq[i].napi);
- 		netif_napi_del(&vi->rq[i].napi);
-+		netif_napi_del(&vi->sq[i].napi);
- 	}
- 
- 	/* We called napi_hash_del() before netif_napi_del(),
-@@ -2142,6 +2197,8 @@ static int virtnet_alloc_queues(struct virtnet_info *vi)
- 		vi->rq[i].pages = NULL;
- 		netif_napi_add(vi->dev, &vi->rq[i].napi, virtnet_poll,
- 			       napi_weight);
-+		netif_napi_add(vi->dev, &vi->sq[i].napi, virtnet_poll_tx,
-+			       napi_tx ? napi_weight : 0);
- 
- 		sg_init_table(vi->rq[i].sg, ARRAY_SIZE(vi->rq[i].sg));
- 		ewma_pkt_len_init(&vi->rq[i].mrg_avg_pkt_len);
--- 
-2.12.2.816.g2cccc81164-goog
+5) TX ring handling fixes in mediatek driver, from Sean Wang.
+
+6) ip_ra_control can deadlock, fix lock acquisition ordering to
+   fix, from Cong WANG.
+
+7) Fix use after free in ip_recv_error(), from Willem de Buijn.
+
+Please pull, thanks a lot!
+
+The following changes since commit 1bf4b1268e66d9364fc6fd41f906bc01458530ac:
+
+  Merge branch 'for-linus' of git://git.kernel.org/pub/scm/linux/kernel/git/dtor/input (2017-04-14 17:51:16 -0700)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git 
+
+for you to fetch changes up to acf167f3f2495f0b6565f6e8ac9bd87158a0e98d:
+
+  Merge branch 'bpf-fixes' (2017-04-17 15:51:58 -0400)
+
+----------------------------------------------------------------
+Bert Kenward (1):
+      sfc: limit the number of receive queues
+
+Daniel Borkmann (2):
+      bpf: fix cb access in socket filter programs on tail calls
+      bpf: fix checking xdp_adjust_head on tail calls
+
+David Ahern (1):
+      net: vrf: Fix setting NLM_F_EXCL flag when adding l3mdev rule
+
+David S. Miller (2):
+      Merge branch 'mediatek-tx-bugs'
+      Merge branch 'bpf-fixes'
+
+Florian Westphal (1):
+      ipv6: drop non loopback packets claiming to originate from ::1
+
+George Cherian (1):
+      net: thunderx: Fix set_max_bgx_per_node for 81xx rgx
+
+Grygorii Strashko (1):
+      net: phy: micrel: fix crash when statistic requested for KSZ9031 phy
+
+Sean Wang (2):
+      net: ethernet: mediatek: fix inconsistency between TXD and the used buffer
+      net: ethernet: mediatek: fix inconsistency of port number carried in TXD
+
+WANG Cong (1):
+      ipv4: fix a deadlock in ip_ra_control
+
+Willem de Bruijn (1):
+      net-timestamp: avoid use-after-free in ip_recv_error
+
+ drivers/net/ethernet/cavium/thunder/thunder_bgx.c |  1 +
+ drivers/net/ethernet/cavium/thunder/thunder_bgx.h |  1 +
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c       | 31 +++++++++++++++++--------------
+ drivers/net/ethernet/mediatek/mtk_eth_soc.h       | 12 +++++++++---
+ drivers/net/ethernet/sfc/efx.c                    |  7 +++++++
+ drivers/net/ethernet/sfc/falcon/efx.c             |  7 +++++++
+ drivers/net/phy/micrel.c                          | 17 ++---------------
+ drivers/net/vrf.c                                 |  2 +-
+ kernel/bpf/syscall.c                              |  8 ++++++++
+ net/core/skbuff.c                                 |  1 +
+ net/ipv4/ip_sockglue.c                            | 10 +++++-----
+ net/ipv4/ipmr.c                                   | 11 ++---------
+ net/ipv4/raw.c                                    |  2 ++
+ net/ipv6/datagram.c                               | 10 +---------
+ net/ipv6/ip6_input.c                              |  7 +++++--
+ 15 files changed, 69 insertions(+), 58 deletions(-)
