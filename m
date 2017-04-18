@@ -1,83 +1,53 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [RFC 1/3] bpf/wireless: add wifimon program type
-Date: Tue, 18 Apr 2017 11:55:49 +0200
-Message-ID: <1492509349.2472.15.camel@sipsolutions.net>
-References: <20170412110726.9689-1-johannes@sipsolutions.net>
-         <1492007254.2855.10.camel@sipsolutions.net>
-         <20170412.111913.497795978751789475.davem@davemloft.net>
-         <1492011040.2855.18.camel@sipsolutions.net>
-         <20170414185144.GB41922@ast-mbp.thefacebook.com>
-         (sfid-20170414_205150_417889_20631AEB)
+From: Johan Hovold <johan@kernel.org>
+Subject: Re: [PATCH v2 0/8] NFC: fix device allocation and nfcmrvl crashes
+Date: Tue, 18 Apr 2017 12:09:16 +0200
+Message-ID: <20170418100916.GB2823@localhost>
+References: <20170330101542.15384-1-johan@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: David Miller <davem@davemloft.net>, linux-wireless@vger.kernel.org,
-        netdev@vger.kernel.org, daniel@iogearbox.net, ast@kernel.org
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, Johan Hovold <johan@kernel.org>,
+        Aloisio Almeida Jr <aloisio.almeida@openbossa.org>,
+        Lauro Ramos Venancio <lauro.venancio@openbossa.org>
+To: Samuel Ortiz <sameo@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:47564 "EHLO sipsolutions.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751228AbdDRJzy (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 18 Apr 2017 05:55:54 -0400
-In-Reply-To: <20170414185144.GB41922@ast-mbp.thefacebook.com> (sfid-20170414_205150_417889_20631AEB)
+Received: from mail-lf0-f43.google.com ([209.85.215.43]:35031 "EHLO
+        mail-lf0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755066AbdDRKJU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 06:09:20 -0400
+Content-Disposition: inline
+In-Reply-To: <20170330101542.15384-1-johan@kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2017-04-14 at 11:51 -0700, Alexei Starovoitov wrote:
+On Thu, Mar 30, 2017 at 12:15:34PM +0200, Johan Hovold wrote:
+> This started out with the observation that the nfcmrvl_uart driver
+> unconditionally dereferenced the tty class device despite the fact that
+> not every tty has an associated struct device (Unix98 ptys). Some
+> further changes were needed in the common nfcmrvl code to fully address
+> this, some of which also incidentally fixed a few related bugs (e.g.
+> resource leaks in error paths).
 > 
-> so today only 'len' field is needed,
+> While fixing this I stumbled over a regression in NFC core that lead to
+> broken registration error paths and misnamed workqueues.
+> 
+> Note that this has only been tested by configuring the n_hci line
+> discipline for different ttys without any actual NFC hardware connected.
 
-Correct, the other __sk_buff fields don't apply.
+> Johan Hovold (8):
+>   NFC: fix broken device allocation
+>   NFC: nfcmrvl_uart: add missing tty-device sanity check
+>   NFC: nfcmrvl: do not use device-managed resources
+>   NFC: nfcmrvl: use nfc-device for firmware download
+>   NFC: nfcmrvl: fix firmware-management initialisation
+>   NFC: nfcmrvl_uart: fix device-node leak during probe
+>   NFC: nfcmrvl_usb: use interface as phy device
+>   NFC: nfcmrvl: allow gpio 0 for reset signalling
 
-It's more of an XDP model (with data/data_end), but as the SKB might be
-non-linear at this point I prefer to have the SKB so that skb data
-access (skb_copy_bits equivalent) works.
+Any chance of getting these into 4.12, Samuel?
 
-> but the plan to add wifi specific
-> stuff to bpf context?
+Note that patches 2 and 4 fixes NULL-derefs that can be triggered by an
+unprivileged user.
 
-Maybe, maybe not.
-
-> If so, adding these very wifi specific fields to __sk_buff will
-> confuse other program types,
-
-I don't think this is true - the verifier still checks that you can't
-actually use them. It might confuse authors though, if not documented
-well.
-
-> so new program type (like you did) and new 'struct bpf_wifi_md' are
-> probably cleaner.
-
-The problem is that I still need struct __wifi_sk_buff or so, and need
-to internally let it operate like an SKB, since I need
-bpf_skb_load_bytes().
-
-Now, bpf_helpers declares bpf_skb_load_bytes() to take an argument of
-type "struct __sk_buff *", and thus I either need to provide an alias
-to it, or cast every time I use this function.
-
-> Physically the R1 register to bpf program will still be 'struct
-> sk_buff', but from bpf program side it will be:
-> struct bpf_wifi_md {
->   __u32 len;
->   __u32 wifi_things;
-> };
-
-Right, that would work immediately if it's only about the extra fields.
-But it's more about being able to call bpf_skb_load_bytes() easily.
-
-I don't even know if I want to add *any* wifi_things here at all. I
-don't actually have much data available directly at this point, or at
-least not in a format that would be useful, so I think it'd be better
-to have a BPF helper function to obtain wifi_things outside of the
-struct itself, passing the struct bpf_wifi_md * (and thus getting
-struct sk_buff * in the kernel code) to it.
-
-
-> At the same time if most of the __sk_buff fields can be useful to
-> wifimon, then just use it as-is (without restricting to 'len' only)
-> and add wifi specific fields to it with a comment.
-
-No, I don't think they can ever be useful.
-
-johannes
+Thanks,
+Johan
