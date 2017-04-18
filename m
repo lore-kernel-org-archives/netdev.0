@@ -1,66 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] smsc95xx: Use skb_cow to deal with cloned skbs
-Date: Tue, 18 Apr 2017 11:55:46 -0400 (EDT)
-Message-ID: <20170418.115546.921863837348166438.davem@davemloft.net>
-References: <20170418144857.7810-1-james.hughes@raspberrypi.org>
-        <1492530711.10587.125.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Mike Maloney <maloneykernel@gmail.com>
+Subject: Re: [PATCH net] selftests/net: Fixes psock_fanout CBPF test case
+Date: Tue, 18 Apr 2017 11:56:56 -0400
+Message-ID: <CAJegeYmU4ntddE8cHFZT5QM0=aOzu0s1pYkQMehREv56JorEog@mail.gmail.com>
+References: <20170418151416.17858-1-maloneykernel@gmail.com> <20170418152616.GE18699@oracle.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: james.hughes@raspberrypi.org, netdev@vger.kernel.org,
-        steve.glendinning@shawell.net, UNGLinuxDriver@microchip.com
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+        Mike Maloney <maloney@google.com>
+To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:41182 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752748AbdDRPzs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 11:55:48 -0400
-In-Reply-To: <1492530711.10587.125.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-ua0-f176.google.com ([209.85.217.176]:36424 "EHLO
+        mail-ua0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751849AbdDRP45 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 11:56:57 -0400
+Received: by mail-ua0-f176.google.com with SMTP id a1so94048526uaf.3
+        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 08:56:57 -0700 (PDT)
+In-Reply-To: <20170418152616.GE18699@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 18 Apr 2017 08:51:51 -0700
+On Tue, Apr 18, 2017 at 11:26 AM, Sowmini Varadhan
+<sowmini.varadhan@oracle.com> wrote:
+> On (04/18/17 11:14), Mike Maloney wrote:
+>> Change 'psock_fanout' to use SOCK_RAW so that the CBPF program used with
+>> SO_ATTACH_FILTER can examine the entire frame.  Create a new CBPF
+>> program for use with PACKET_FANOUT_DATA which ignores the header, as it
+>> cannot see the ethernet header.
+>
+> Fix look good to me, but could you please also add the bpf_asm input
+> as a comment to the C code, in case we want to to read/extend  this
+> down the road?
+>
+> --Sowmini
+>
 
-> On Tue, 2017-04-18 at 15:48 +0100, James Hughes wrote:
->> The driver was failing to check that the SKB wasn't cloned
->> before adding checksum data or adding header data.
->> Replace existing handling to extend the buffer with
->> skb_cow. Don't use skb_cow_head as the sw checksum
->> code modifies the data portion.
->> 
->> Signed-off-by: James Hughes <james.hughes@raspberrypi.org>
->> ---
->>  drivers/net/usb/smsc95xx.c | 10 +++-------
->>  1 file changed, 3 insertions(+), 7 deletions(-)
->> 
->> diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
->> index df60c98..04f6397 100644
->> --- a/drivers/net/usb/smsc95xx.c
->> +++ b/drivers/net/usb/smsc95xx.c
->> @@ -2067,13 +2067,9 @@ static struct sk_buff *smsc95xx_tx_fixup(struct usbnet *dev,
->>  	/* We do not advertise SG, so skbs should be already linearized */
->>  	BUG_ON(skb_shinfo(skb)->nr_frags);
->>  
->> -	if (skb_headroom(skb) < overhead) {
->> -		struct sk_buff *skb2 = skb_copy_expand(skb,
->> -			overhead, 0, flags);
->> -		dev_kfree_skb_any(skb);
->> -		skb = skb2;
->> -		if (!skb)
->> -			return NULL;
->> +	/* Make writable and expand space by overhead if required */
->> +	if (skb_cow(skb, overhead)) {
->> +		return NULL;
->>  	}
-> 
-> Note that this patch will probably force a copy of all locally generated
-> TCP packets.
-> 
-> For them skb_cloned(skb) is true.
-> 
-> I do believe skb_cow_head() would be better, since TCP stack uses the
-> __skb_header_release() helper to tell lower stacks they can write the
-> header part, even on a clone.
+I am not 100% sure what you are asking for, as the instructions you
+can feed to bpf_asm are already commented to the right of the program.
 
-Agreed.
+-Mike
