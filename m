@@ -1,61 +1,120 @@
-From: Michael Richardson <mcr@sandelman.ca>
-Subject: Re: bluetooth 6lowpan interfaces are not virtual anymore
-Date: Tue, 18 Apr 2017 12:59:43 -0400
-Message-ID: <28530.1492534783@obiwan.sandelman.ca>
-References: <2d178eb8-3fbc-3385-6e0c-fa9941713959@pengutronix.de>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] smsc95xx: Use skb_cow to deal with cloned skbs
+Date: Tue, 18 Apr 2017 10:10:46 -0700
+Message-ID: <eb8f4cda-d1b1-1038-513b-08ef016042ae@gmail.com>
+References: <20170418144857.7810-1-james.hughes@raspberrypi.org>
+ <1492530711.10587.125.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20170418.115546.921863837348166438.davem@davemloft.net>
+ <CAE_XsMJZGPvENhCgyvuz48PyLk=T7L-tGoktzVBLPPYDP7oR8A@mail.gmail.com>
+ <1492534347.10587.130.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="=-=-=";
-        micalg=pgp-sha256; protocol="application/pgp-signature"
-Cc: Network Development <netdev@vger.kernel.org>,
-        Jukka Rissanen <jukka.rissanen@linux.intel.com>,
-        Luiz Augusto von Dentz <luiz.dentz@gmail.com>,
-        "linux-wpan\@vger.kernel.org" <linux-wpan@vger.kernel.org>,
-        Linux Bluetooth <linux-bluetooth@vger.kernel.org>
-To: Alexander Aring <aar@pengutronix.de>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+        Steve Glendinning <steve.glendinning@shawell.net>,
+        Microchip Linux Driver Support <UNGLinuxDriver@microchip.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+        James Hughes <james.hughes@raspberrypi.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tuna.sandelman.ca ([209.87.249.19]:45313 "EHLO
-        tuna.sandelman.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757328AbdDRRHf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 13:07:35 -0400
-In-Reply-To: <2d178eb8-3fbc-3385-6e0c-fa9941713959@pengutronix.de>
+Received: from mail-qt0-f195.google.com ([209.85.216.195]:36378 "EHLO
+        mail-qt0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754663AbdDRRKu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 13:10:50 -0400
+Received: by mail-qt0-f195.google.com with SMTP id t52so12240596qtb.3
+        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 10:10:50 -0700 (PDT)
+In-Reply-To: <1492534347.10587.130.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---=-=-=
-Content-Type: text/plain
+On 04/18/2017 09:52 AM, Eric Dumazet wrote:
+> On Tue, 2017-04-18 at 17:16 +0100, James Hughes wrote:
+>> On 18 April 2017 at 16:55, David Miller <davem@davemloft.net> wrote:
+>>> From: Eric Dumazet <eric.dumazet@gmail.com>
+>>> Date: Tue, 18 Apr 2017 08:51:51 -0700
+>>>
+>>>> On Tue, 2017-04-18 at 15:48 +0100, James Hughes wrote:
+>>>>> The driver was failing to check that the SKB wasn't cloned
+>>>>> before adding checksum data or adding header data.
+>>>>> Replace existing handling to extend the buffer with
+>>>>> skb_cow. Don't use skb_cow_head as the sw checksum
+>>>>> code modifies the data portion.
+>>>>>
+>>>>> Signed-off-by: James Hughes <james.hughes@raspberrypi.org>
+>>>>> ---
+>>>>>  drivers/net/usb/smsc95xx.c | 10 +++-------
+>>>>>  1 file changed, 3 insertions(+), 7 deletions(-)
+>>>>>
+>>>>> diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
+>>>>> index df60c98..04f6397 100644
+>>>>> --- a/drivers/net/usb/smsc95xx.c
+>>>>> +++ b/drivers/net/usb/smsc95xx.c
+>>>>> @@ -2067,13 +2067,9 @@ static struct sk_buff *smsc95xx_tx_fixup(struct usbnet *dev,
+>>>>>      /* We do not advertise SG, so skbs should be already linearized */
+>>>>>      BUG_ON(skb_shinfo(skb)->nr_frags);
+>>>>>
+>>>>> -    if (skb_headroom(skb) < overhead) {
+>>>>> -            struct sk_buff *skb2 = skb_copy_expand(skb,
+>>>>> -                    overhead, 0, flags);
+>>>>> -            dev_kfree_skb_any(skb);
+>>>>> -            skb = skb2;
+>>>>> -            if (!skb)
+>>>>> -                    return NULL;
+>>>>> +    /* Make writable and expand space by overhead if required */
+>>>>> +    if (skb_cow(skb, overhead)) {
+>>>>> +            return NULL;
+>>>>>      }
+>>>>
+>>>> Note that this patch will probably force a copy of all locally generated
+>>>> TCP packets.
+>>>>
+>>>> For them skb_cloned(skb) is true.
+>>>>
+>>>> I do believe skb_cow_head() would be better, since TCP stack uses the
+>>>> __skb_header_release() helper to tell lower stacks they can write the
+>>>> header part, even on a clone.
+>>>
+>>> Agreed.
+>>
+>> I'm happy to work it as you see fit - you know this code far better than I do.
+>>
+>> Our reading of the code is that the software checksum path is
+>> modifying the data rather than just adding a header. Based on the
+>> description of skb_cow_head it therefore isn't appropriate. If that
+>> isn't a concern in reality then skb_cow_head is fine and I'll make a
+>> V2 patchset.
+>> Or do we need to skb_cow if doing the software checksum, but
+>> skb_cow_head normally? That can be done instead but requires a
+>> slightly larger change.
+>>
+>> The failure case we were seeing was with a bridged network using
+>> SMSC9514 and a Broadcom wifi chip on Raspberry Pi 3. The bridge was
+>> making an SKB clone of broadcasts for the two interfaces, and then
+>> both drivers were adding headers without checking skb_cloned(skb)
+>> first, hence trampling on each other. For small packets the SMSC95xx
+>> driver will be computing the software checksum and writing it in to
+>> the data, so the wifi driver will also be seeing it. For many drivers
+>> that probably won't matter, but is that always true?
+>>
+>> (Patches for the Broadcom wifi driver will be coming once we've worked
+>> out the best way of fixing this - there is no error path easily
+>> available if the skb_cow_head call fails).
+>>
+> 
+> You misread what the driver does.
+> 
+> The TCP data (payload) is _not_ modified.
+> 
+> Only additional headers are pushed in front of the existing (Ethernet,
+> IP, TCP) headers.
+> 
+> For this, skb_cow_head() is the perfect solution.
 
+BTW, this pattern of using skb_headroom() ... skb_copy_expand() seems to
+be recurring in pretty much all USB network drivers that have a tx_fixup
+callback set. The problem is that each driver needs its own
+headroom/tailroom so the fix is not as simple as putting the
+skb_cow_head() before the call to the drivers' tx_fixup...
 
-Alexander Aring <aar@pengutronix.de> wrote:
-    > What does the 6LoWPAN interface?
-
-    > It will do a protocol change (an adaptation, because 6LoWPAN should
-    > provide the same functionality as IPv6) from IPv6 to 6LoWPAN (tx) and
-    > vice versa for (rx). In my opinion this should be handled as a virtual
-    > interface and not as an interface with a queue.
-
-I wonder if modeling all the 6lowpan work as a virtual interface is even
-the right abstraction anymore.  I think that it was certainly a good model at
-the time the interface was created, given no other clear thing to do.
-
-We don't model IPv6 ND (or IPv4 ARP) or fragmentation in general as a
-virtual interface on top of a raw interface.
-
-Really, it's a set of operations that happens on a packet.
-802.15.4 is notable for it's current lack of an ethertype (IEEE is fixing
-that though), so you can't actually run different protocols on the
-same PANID.
-BT does have a variety of different protocols, and IPv6 is only one.
-
-In a classic SVR4 STREAMS works, it would have been just another module.
-(No, I'm not a fan of *STREAMS* or of SVR4 in general,  although I liked
-some of the ideas).
-
-At this time, things like PANID and channel are set on the wpanX interface.
-If they were set on the 6lowpan interface, such that one could (in theory,
-assuming the hardware could do it, which some can, and some can not) then
-one could have multiple 6lowpan interfaces on top of the same wpanX.
-Or one could run some non-IP protocol like pre-IP Zigbee on one PANID
-while one runs 6lowpan on another.  THEN, a virtual interface would make
-sense for the same reason VLAN interfaces make sense.
-
---=-=-=--
+I wonder if a coccinelle patch would be able to do that for us?
+-- 
+Florian
