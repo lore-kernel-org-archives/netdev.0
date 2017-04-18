@@ -1,109 +1,101 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH RFC (resend) net-next 0/6] virtio-net: Add support for
- virtio-net header extensions
-Date: Tue, 18 Apr 2017 11:01:02 +0800
-Message-ID: <0d9216af-e3db-e06b-f70d-d77f519c3fd4@redhat.com>
-References: <1492274298-17362-1-git-send-email-vyasevic@redhat.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: build failure after merge of the block tree
+Date: Tue, 18 Apr 2017 13:02:29 +1000
+Message-ID: <20170418130229.04289bd6@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: virtualization@lists.linux-foundation.org,
- virtio-dev@lists.oasis-open.org, mst@redhat.com, maxime.coquelin@redhat.com,
- Vladislav Yasevich <vyasevic@redhat.com>
-To: Vladislav Yasevich <vyasevich@gmail.com>, netdev@vger.kernel.org
-Return-path: <virtio-dev-return-2096-gcvd-virtio-dev=m.gmane.org@lists.oasis-open.org>
-Sender: <virtio-dev@lists.oasis-open.org>
-List-Post: <mailto:virtio-dev@lists.oasis-open.org>
-List-Help: <mailto:virtio-dev-help@lists.oasis-open.org>
-List-Unsubscribe: <mailto:virtio-dev-unsubscribe@lists.oasis-open.org>
-List-Subscribe: <mailto:virtio-dev-subscribe@lists.oasis-open.org>
-In-Reply-To: <1492274298-17362-1-git-send-email-vyasevic@redhat.com>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Linux-Next Mailing List <linux-next@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        Josef Bacik <josef@toxicpanda.com>,
+        Johannes Berg <johannes.berg@intel.com>
+To: Jens Axboe <axboe@kernel.dk>, David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ozlabs.org ([103.22.144.67]:33953 "EHLO ozlabs.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752136AbdDRDCc (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 17 Apr 2017 23:02:32 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Hi all,
 
+After merging the block tree, today's linux-next build (powerpc
+ppc64_defconfig) failed like this:
 
-On 2017年04月16日 00:38, Vladislav Yasevich wrote:
-> Curreclty virtion net header is fixed size and adding things to it is rather
-> difficult to do.  This series attempt to add the infrastructure as well as some
-> extensions that try to resolve some deficiencies we currently have.
->
-> First, vnet header only has space for 16 flags.  This may not be enough
-> in the future.  The extensions will provide space for 32 possbile extension
-> flags and 32 possible extensions.   These flags will be carried in the
-> first pseudo extension header, the presense of which will be determined by
-> the flag in the virtio net header.
->
-> The extensions themselves will immidiately follow the extension header itself.
-> They will be added to the packet in the same order as they appear in the
-> extension flags.  No padding is placed between the extensions and any
-> extensions negotiated, but not used need by a given packet will convert to
-> trailing padding.
+drivers/block/nbd.c: In function 'nbd_genl_connect':
+drivers/block/nbd.c:1662:10: error: too few arguments to function 'nla_parse_nested'
+    ret = nla_parse_nested(socks, NBD_SOCK_MAX, attr,
+          ^
+In file included from include/net/rtnetlink.h:5:0,
+                 from include/net/sch_generic.h:12,
+                 from include/linux/filter.h:20,
+                 from include/net/sock.h:64,
+                 from drivers/block/nbd.c:32:
+include/net/netlink.h:754:19: note: declared here
+ static inline int nla_parse_nested(struct nlattr *tb[], int maxtype,
+                   ^
+drivers/block/nbd.c: In function 'nbd_genl_reconfigure':
+drivers/block/nbd.c:1818:10: error: too few arguments to function 'nla_parse_nested'
+    ret = nla_parse_nested(socks, NBD_SOCK_MAX, attr,
+          ^
+In file included from include/net/rtnetlink.h:5:0,
+                 from include/net/sch_generic.h:12,
+                 from include/linux/filter.h:20,
+                 from include/net/sock.h:64,
+                 from drivers/block/nbd.c:32:
+include/net/netlink.h:754:19: note: declared here
+ static inline int nla_parse_nested(struct nlattr *tb[], int maxtype,
+                   ^
 
-Do we need a explicit padding (e.g an extension) which could be 
-controlled by each side?
+Caused by commits
 
->
-> For example:
->   | vnet mrg hdr | ext hdr | ext 1 | ext 2 | ext 5 | .. pad .. | packet data |
+  e46c7287b1c2 ("nbd: add a basic netlink interface")
+  b7aa3d39385d ("nbd: add a reconfigure netlink command")
 
-Just some rough thoughts:
+interacting with commit
 
-- Is this better to use TLV instead of bitmap here? One advantage of TLV 
-is that the length is not limited by the length of bitmap.
-- For 1.1, do we really want something like vnet header? AFAIK, it was 
-not used by modern NICs, is this better to pack all meta-data into 
-descriptor itself? This may need a some changes in tun/macvtap, but 
-looks more PCIE friendly.
+  fceb6435e852 ("netlink: pass extended ACK struct to parsing functions")
 
-Thanks
+from the net-next tree.
 
->
-> Extensions proposed in this series are:
->   - IPv6 fragment id extension
->     * Currently, the guest generated fragment id is discarded and the host
->       generates an IPv6 fragment id if the packet has to be fragmented.  The
->       code attempts to add time based perturbation to id generation to make
->       it harder to guess the next fragment id to be used.  However, doing this
->       on the host may result is less perturbation (due to differnet timing)
->       and might make id guessing easier.  Ideally, the ids generated by the
->       guest should be used.  One could also argue that we a "violating" the
->       IPv6 protocol in the if the _strict_ interpretation of the spec.
->
->   - VLAN header acceleration
->     * Currently virtio doesn't not do vlan header acceleration and instead
->       uses software tagging.  One of the first things that the host will do is
->       strip the vlan header out.  When passing the packet the a guest the
->       vlan header is re-inserted in to the packet.  We can skip all that work
->       if we can pass the vlan data in accelearted format.  Then the host will
->       not do any extra work.  However, so far, this yeilded a very small
->       perf bump (only ~1%).  I am still looking into this.
->
->   - UDP tunnel offload
->     * Similar to vlan acceleration, with this extension we can pass additional
->       data to host for support GSO with udp tunnel and possible other
->       encapsulations.  This yeilds a significant perfromance improvement
->      (still testing remote checksum code).
->
-> An addition extension that is unfinished (due to still testing for any
-> side-effects) is checksum passthrough to support drivers that set
-> CHECKSUM_COMPLETE.  This would eliminate the need for guests to compute
-> the software checksum.
->
-> This series only takes care of virtio net.  I have addition patches for the
-> host side (vhost and tap/macvtap as well as qemu), but wanted to get feedback
-> on the general approach first.
->
-> Vladislav Yasevich (6):
->    virtio-net: Remove the use the padded vnet_header structure
->    virtio-net: make header length handling uniform
->    virtio_net: Add basic skeleton for handling vnet header extensions.
->    virtio-net: Add support for IPv6 fragment id vnet header extension.
->    virtio-net: Add support for vlan acceleration vnet header extension.
->    virtio-net: Add support for UDP tunnel offload and extension.
->
->   drivers/net/virtio_net.c        | 132 +++++++++++++++++++++++++++++++++-------
->   include/linux/skbuff.h          |   5 ++
->   include/linux/virtio_net.h      |  91 ++++++++++++++++++++++++++-
->   include/uapi/linux/virtio_net.h |  38 ++++++++++++
->   4 files changed, 242 insertions(+), 24 deletions(-)
->
+I have applied the following merge fix patch:
+
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Tue, 18 Apr 2017 12:59:05 +1000
+Subject: [PATCH] nbd: fix up for nla_parse_nested() API change
+
+Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
+---
+ drivers/block/nbd.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/block/nbd.c b/drivers/block/nbd.c
+index b78f23ce2395..5049d19f3940 100644
+--- a/drivers/block/nbd.c
++++ b/drivers/block/nbd.c
+@@ -1660,7 +1660,7 @@ static int nbd_genl_connect(struct sk_buff *skb, struct genl_info *info)
+ 				goto out;
+ 			}
+ 			ret = nla_parse_nested(socks, NBD_SOCK_MAX, attr,
+-					       nbd_sock_policy);
++					       nbd_sock_policy, NULL);
+ 			if (ret != 0) {
+ 				printk(KERN_ERR "nbd: error processing sock list\n");
+ 				ret = -EINVAL;
+@@ -1816,7 +1816,7 @@ static int nbd_genl_reconfigure(struct sk_buff *skb, struct genl_info *info)
+ 				goto out;
+ 			}
+ 			ret = nla_parse_nested(socks, NBD_SOCK_MAX, attr,
+-					       nbd_sock_policy);
++					       nbd_sock_policy, NULL);
+ 			if (ret != 0) {
+ 				printk(KERN_ERR "nbd: error processing sock list\n");
+ 				ret = -EINVAL;
+-- 
+2.11.0
+
+-- 
+Cheers,
+Stephen Rothwell
