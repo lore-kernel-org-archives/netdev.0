@@ -1,119 +1,153 @@
-From: James Hughes <james.hughes@raspberrypi.org>
-Subject: Re: [PATCH] smsc95xx: Use skb_cow to deal with cloned skbs
-Date: Tue, 18 Apr 2017 17:56:34 +0100
-Message-ID: <CAE_XsMLr=hVuL-RhsbYv0VwTjFSXmFXCkCBOV+aGcjeuKvdJXg@mail.gmail.com>
-References: <20170418144857.7810-1-james.hughes@raspberrypi.org>
- <1492530711.10587.125.camel@edumazet-glaptop3.roam.corp.google.com>
- <20170418.115546.921863837348166438.davem@davemloft.net> <CAE_XsMJZGPvENhCgyvuz48PyLk=T7L-tGoktzVBLPPYDP7oR8A@mail.gmail.com>
- <1492534347.10587.130.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [Patch net-next v3] net_sched: move the empty tp check from ->destroy()
+ to ->delete()
+Date: Tue, 18 Apr 2017 19:01:29 +0200
+Message-ID: <58F64669.1080608@iogearbox.net>
+References: <1492453840-15816-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-        Steve Glendinning <steve.glendinning@shawell.net>,
-        Microchip Linux Driver Support <UNGLinuxDriver@microchip.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: John Fastabend <john.fastabend@gmail.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>, lucasb@mojatatu.com
+To: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx07-00252a01.pphosted.com ([62.209.51.214]:12257 "EHLO
-        mx07-00252a01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S932347AbdDRQ4i (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 12:56:38 -0400
-Received: from pps.filterd (m0102628.ppops.net [127.0.0.1])
-        by mx07-00252a01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v3IGuaCZ021894
-        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 17:56:36 +0100
-Received: from mail-wr0-f200.google.com (mail-wr0-f200.google.com [209.85.128.200])
-        by mx07-00252a01.pphosted.com with ESMTP id 29u8x0a0sy-1
-        (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128 verify=OK)
-        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 17:56:36 +0100
-Received: by mail-wr0-f200.google.com with SMTP id f13so19554659wrf.3
-        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 09:56:36 -0700 (PDT)
-In-Reply-To: <1492534347.10587.130.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from www62.your-server.de ([213.133.104.62]:41756 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932534AbdDRRBe (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 13:01:34 -0400
+In-Reply-To: <1492453840-15816-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 18 April 2017 at 17:52, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Tue, 2017-04-18 at 17:16 +0100, James Hughes wrote:
->> On 18 April 2017 at 16:55, David Miller <davem@davemloft.net> wrote:
->> > From: Eric Dumazet <eric.dumazet@gmail.com>
->> > Date: Tue, 18 Apr 2017 08:51:51 -0700
->> >
->> >> On Tue, 2017-04-18 at 15:48 +0100, James Hughes wrote:
->> >>> The driver was failing to check that the SKB wasn't cloned
->> >>> before adding checksum data or adding header data.
->> >>> Replace existing handling to extend the buffer with
->> >>> skb_cow. Don't use skb_cow_head as the sw checksum
->> >>> code modifies the data portion.
->> >>>
->> >>> Signed-off-by: James Hughes <james.hughes@raspberrypi.org>
->> >>> ---
->> >>>  drivers/net/usb/smsc95xx.c | 10 +++-------
->> >>>  1 file changed, 3 insertions(+), 7 deletions(-)
->> >>>
->> >>> diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
->> >>> index df60c98..04f6397 100644
->> >>> --- a/drivers/net/usb/smsc95xx.c
->> >>> +++ b/drivers/net/usb/smsc95xx.c
->> >>> @@ -2067,13 +2067,9 @@ static struct sk_buff *smsc95xx_tx_fixup(struct usbnet *dev,
->> >>>      /* We do not advertise SG, so skbs should be already linearized */
->> >>>      BUG_ON(skb_shinfo(skb)->nr_frags);
->> >>>
->> >>> -    if (skb_headroom(skb) < overhead) {
->> >>> -            struct sk_buff *skb2 = skb_copy_expand(skb,
->> >>> -                    overhead, 0, flags);
->> >>> -            dev_kfree_skb_any(skb);
->> >>> -            skb = skb2;
->> >>> -            if (!skb)
->> >>> -                    return NULL;
->> >>> +    /* Make writable and expand space by overhead if required */
->> >>> +    if (skb_cow(skb, overhead)) {
->> >>> +            return NULL;
->> >>>      }
->> >>
->> >> Note that this patch will probably force a copy of all locally generated
->> >> TCP packets.
->> >>
->> >> For them skb_cloned(skb) is true.
->> >>
->> >> I do believe skb_cow_head() would be better, since TCP stack uses the
->> >> __skb_header_release() helper to tell lower stacks they can write the
->> >> header part, even on a clone.
->> >
->> > Agreed.
->>
->> I'm happy to work it as you see fit - you know this code far better than I do.
->>
->> Our reading of the code is that the software checksum path is
->> modifying the data rather than just adding a header. Based on the
->> description of skb_cow_head it therefore isn't appropriate. If that
->> isn't a concern in reality then skb_cow_head is fine and I'll make a
->> V2 patchset.
->> Or do we need to skb_cow if doing the software checksum, but
->> skb_cow_head normally? That can be done instead but requires a
->> slightly larger change.
->>
->> The failure case we were seeing was with a bridged network using
->> SMSC9514 and a Broadcom wifi chip on Raspberry Pi 3. The bridge was
->> making an SKB clone of broadcasts for the two interfaces, and then
->> both drivers were adding headers without checking skb_cloned(skb)
->> first, hence trampling on each other. For small packets the SMSC95xx
->> driver will be computing the software checksum and writing it in to
->> the data, so the wifi driver will also be seeing it. For many drivers
->> that probably won't matter, but is that always true?
->>
->> (Patches for the Broadcom wifi driver will be coming once we've worked
->> out the best way of fixing this - there is no error path easily
->> available if the skb_cow_head call fails).
->>
->
-> You misread what the driver does.
->
-> The TCP data (payload) is _not_ modified.
->
-> Only additional headers are pushed in front of the existing (Ethernet,
-> IP, TCP) headers.
->
-> For this, skb_cow_head() is the perfect solution.
->
+Hi Cong,
 
-OK, will modify the patch, commit and resubmit. Thanks
+sorry for the late reply. Generally the patch looks good to me, just
+a few comments inline:
 
-James
+On 04/17/2017 08:30 PM, Cong Wang wrote:
+> Roi reported we could have a race condition where in ->classify() path
+> we dereference tp->root and meanwhile a parallel ->destroy() makes it
+> a NULL.
+
+Correct.
+
+> This is possible because ->destroy() could be called when deleting
+> a filter to check if we are the last one in tp, this tp is still
+> linked and visible at that time.
+>
+> Daniel fixed this in commit d936377414fa
+> ("net, sched: respect rcu grace period on cls destruction"), but
+> the root cause of this problem is the semantic of ->destroy(), it
+> does two things (for non-force case):
+>
+> 1) check if tp is empty
+> 2) if tp is empty we could really destroy it
+>
+> and its caller, if cares, needs to check its return value to see if
+> it is really destroyed. Therefore we can't unlink tp unless we know
+> it is empty.
+>
+> As suggested by Daniel, we could actually move the test logic to ->delete()
+> so that we can safely unlink tp after ->delete() tells us the last one is
+> just deleted and before ->destroy().
+>
+> What's more, even we unlink it before ->destroy(), it could still have
+> readers since we don't wait for a grace period here, we should not modify
+> tp->root in ->destroy() either.
+
+Here seems to be a bit of a mixup in this analysis, imo. The issue
+that Roi reported back then was exactly the one that d936377414fa ("net,
+sched: respect rcu grace period on cls destruction") fixed, which
+affected flower and other classifiers:
+
+     Roi reported a crash in flower where tp->root was NULL in ->classify()
+     callbacks. Reason is that in ->destroy() tp->root is set to NULL via
+     RCU_INIT_POINTER(). It's problematic for some of the classifiers, because
+     this doesn't respect RCU grace period for them, and as a result, still
+     outstanding readers from tc_classify() will try to blindly dereference
+     a NULL tp->root.
+
+The ->delete() callback was never used by Roi back then, he said that
+he just removed the ingress qdisc in his test, which implicitly purges
+all cls attached to it via tcf_destroy_chain(). So the above description
+with regards to the "root cause" of Roi's reported issue is not correct.
+
+The issue that this patch fixes is an _independent_ race that we found
+while auditing the code when looking into Roi's report back then. It
+fixes commit 1e052be69d04 ("net_sched: destroy proto tp when all filters
+are gone"), which added the RCU_INIT_POINTER() after the tcf_destroy() in
+RTM_DELTFILTER case. That part of the description looks good, where you
+describe that "[...] we need to move the test logic to ->delete(), so
+that we can safely unlink tp after ->delete() tells us the last one is
+just deleted and before ->destroy()."
+
+Please also add Fixes tag, so it can be better tracked for backports.
+
+Fixes: 1e052be69d04 ("net_sched: destroy proto tp when all filters are gone")
+
+> Reported-by: Roi Dayan <roid@mellanox.com>
+> Cc: Daniel Borkmann <daniel@iogearbox.net>
+> Cc: John Fastabend <john.fastabend@gmail.com>
+> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+[...]
+
+> diff --git a/net/sched/cls_fw.c b/net/sched/cls_fw.c
+> index 9962090..d388536 100644
+> --- a/net/sched/cls_fw.c
+> +++ b/net/sched/cls_fw.c
+[...]
+> @@ -150,17 +144,17 @@ static bool fw_destroy(struct tcf_proto *tp, bool force)
+>   			call_rcu(&f->rcu, fw_delete_filter);
+>   		}
+>   	}
+> -	RCU_INIT_POINTER(tp->root, NULL);
+>   	kfree_rcu(head, rcu);
+> -	return true;
+>   }
+
+> diff --git a/net/sched/cls_route.c b/net/sched/cls_route.c
+> index a371075..8e2baf8 100644
+> --- a/net/sched/cls_route.c
+> +++ b/net/sched/cls_route.c
+> @@ -312,12 +305,10 @@ static bool route4_destroy(struct tcf_proto *tp, bool force)
+>   			kfree_rcu(b, rcu);
+>   		}
+>   	}
+> -	RCU_INIT_POINTER(tp->root, NULL);
+>   	kfree_rcu(head, rcu);
+> -	return true;
+>   }
+
+> diff --git a/net/sched/cls_rsvp.h b/net/sched/cls_rsvp.h
+> index d7f2923..9e3748b 100644
+> --- a/net/sched/cls_rsvp.h
+> +++ b/net/sched/cls_rsvp.h
+> @@ -302,22 +302,13 @@ static void rsvp_delete_filter(struct tcf_proto *tp, struct rsvp_filter *f)
+[...]
+> -	}
+> -
+> -	RCU_INIT_POINTER(tp->root, NULL);
+> +		return;
+>
+>   	for (h1 = 0; h1 < 256; h1++) {
+>   		struct rsvp_session *s;
+> @@ -337,10 +328,9 @@ static bool rsvp_destroy(struct tcf_proto *tp, bool force)
+[...]
+
+The above three RCU_INIT_POINTER(tp->root, NULL) are independent
+of the fix and actually do no harm right now. I described that in
+d936377414fa ("net, sched: respect rcu grace period on cls destruction")
+as well, meaning that they each handle tp->root being NULL in ->classify()
+path (for historic reasons), so this is handled gracefully, readers use
+rcu_dereference_bh(tp->root) and test for this being NULL.
+
+But I agree that this could be cleaned up along with the check in the
+->classify() callbacks for these three (not sure if really worth it,
+though). However, such cleanup should be a separate patch and not
+included in this fix.
+
+Other than the mentioned things, this looks good to me.
+
+Thanks,
+Daniel
