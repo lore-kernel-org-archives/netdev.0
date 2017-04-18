@@ -1,96 +1,97 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 12/15] ixgbevf: use new api ethtool_{get|set}_link_ksettings
-Date: Tue, 18 Apr 2017 16:02:02 -0700
-Message-ID: <20170418230205.37223-13-jeffrey.t.kirsher@intel.com>
-References: <20170418230205.37223-1-jeffrey.t.kirsher@intel.com>
-Cc: Philippe Reynes <tremyfr@gmail.com>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH v3 net-next RFC] Generic XDP
+Date: Tue, 18 Apr 2017 16:05:51 -0700
+Message-ID: <20170418230549.GB65449@ast-mbp.thefacebook.com>
+References: <20170416222601.671f037c@redhat.com>
+ <20170417.154955.1624611510140672627.davem@davemloft.net>
+ <20170417230436.GA96258@ast-mbp.thefacebook.com>
+ <20170418.144625.406577615158455684.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: brouer@redhat.com, kubakici@wp.pl, netdev@vger.kernel.org,
+        xdp-newbies@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga06.intel.com ([134.134.136.31]:61886 "EHLO mga06.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1757662AbdDRXCP (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 18 Apr 2017 19:02:15 -0400
-In-Reply-To: <20170418230205.37223-1-jeffrey.t.kirsher@intel.com>
+Received: from mail-pg0-f44.google.com ([74.125.83.44]:36012 "EHLO
+        mail-pg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757924AbdDRXGA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 19:06:00 -0400
+Content-Disposition: inline
+In-Reply-To: <20170418.144625.406577615158455684.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Philippe Reynes <tremyfr@gmail.com>
+On Tue, Apr 18, 2017 at 02:46:25PM -0400, David Miller wrote:
+> From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+> Date: Mon, 17 Apr 2017 16:04:38 -0700
+> 
+> > On Mon, Apr 17, 2017 at 03:49:55PM -0400, David Miller wrote:
+> >> From: Jesper Dangaard Brouer <brouer@redhat.com>
+> >> Date: Sun, 16 Apr 2017 22:26:01 +0200
+> >> 
+> >> > The bpf tail-call use-case is a very good example of why the
+> >> > verifier cannot deduct the needed HEADROOM upfront.
+> >> 
+> >> This brings up a very interesting question for me.
+> >> 
+> >> I notice that tail calls are implemented by JITs largely by skipping
+> >> over the prologue of that destination program.
+> >> 
+> >> However, many JITs preload cached SKB values into fixed registers in
+> >> the prologue.  But they only do this if the program being JITed needs
+> >> those values.
+> >> 
+> >> So how can it work properly if a program that does not need the SKB
+> >> values tail calls into one that does?
+> > 
+> > For x86 JIT it's fine, since caching of skb values is not part of the prologue:
+> >   emit_prologue(&prog);
+> >   if (seen_ld_abs)
+> >           emit_load_skb_data_hlen(&prog);
+> > and tail_call jumps into the next program as:
+> >   EMIT4(0x48, 0x83, 0xC0, PROLOGUE_SIZE);   /* add rax, prologue_size */
+> >   EMIT2(0xFF, 0xE0);                        /* jmp rax */
+> > whereas inside emit_prologue() we have:
+> > B  UILD_BUG_ON(cnt != PROLOGUE_SIZE);
+> > 
+> > arm64 has similar proplogue skipping code and it's even
+> > simpler than x86, since it doesn't try to optimize LD_ABS/IND in assembler
+> > and instead calls into bpf_load_pointer() from generated code,
+> > so no caching of skb values at all.
+> > 
+> > s390 jit has partial skipping of prologue, since bunch
+> > of registers are save/restored during tail_call and it looks fine
+> > to me as well.
+> 
+> Ok, what about stack usage?
+> 
+> Currently if I don't see a reference to FP then I elide allocating
+> MAX_BPF_STACK stack space.
+> 
+> What if, with tail calls, some programs need that stack space whilst
+> other's done?
+> 
+> It looks like, for example, JITs like powerpc avoids this issue
+> because they allocate the full MAX_BPF_STACK all the time.  That seems
+> like overkill to me and bad for cache locality.
 
-The ethtool api {get|set}_settings is deprecated.
-We move this driver to new api {get|set}_link_ksettings.
+For x86 we also give proper stack frame always, since optimizing
+for leaf functions is very rare. Most eBPF progs have at least
+one helper call. Even cBPF often use SKF_AD_CPU or SKF_AD_RANDOM
+which translate to function call as well and need stack frame.
+I think stack frames on sparc are much more expensive than on x86
+due to register window architecture, so there it may make sense
+to squeeze these extra cycles, but it will be rarely exercised
+in practice.
 
-As I don't have the hardware, I'd be very pleased if
-someone may test this patch.
+I was thinking to teach verifier to recognize required stack size,
+so we can JIT with that size instead of 512, but that's mainly
+to reduce kernel stack usage. I doubt it will make any performance
+difference.
 
-Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/ixgbevf/ethtool.c | 22 +++++++++++-----------
- 1 file changed, 11 insertions(+), 11 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ethtool.c b/drivers/net/ethernet/intel/ixgbevf/ethtool.c
-index 1f6c0ecd50bb..6bf740945260 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ethtool.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/ethtool.c
-@@ -91,18 +91,18 @@ static const char ixgbe_gstrings_test[][ETH_GSTRING_LEN] = {
- 
- #define IXGBEVF_TEST_LEN (sizeof(ixgbe_gstrings_test) / ETH_GSTRING_LEN)
- 
--static int ixgbevf_get_settings(struct net_device *netdev,
--				struct ethtool_cmd *ecmd)
-+static int ixgbevf_get_link_ksettings(struct net_device *netdev,
-+				      struct ethtool_link_ksettings *cmd)
- {
- 	struct ixgbevf_adapter *adapter = netdev_priv(netdev);
- 	struct ixgbe_hw *hw = &adapter->hw;
- 	u32 link_speed = 0;
- 	bool link_up;
- 
--	ecmd->supported = SUPPORTED_10000baseT_Full;
--	ecmd->autoneg = AUTONEG_DISABLE;
--	ecmd->transceiver = XCVR_DUMMY1;
--	ecmd->port = -1;
-+	ethtool_link_ksettings_zero_link_mode(cmd, supported);
-+	ethtool_link_ksettings_add_link_mode(cmd, supported, 10000baseT_Full);
-+	cmd->base.autoneg = AUTONEG_DISABLE;
-+	cmd->base.port = -1;
- 
- 	hw->mac.get_link_status = 1;
- 	hw->mac.ops.check_link(hw, &link_speed, &link_up, false);
-@@ -122,11 +122,11 @@ static int ixgbevf_get_settings(struct net_device *netdev,
- 			break;
- 		}
- 
--		ethtool_cmd_speed_set(ecmd, speed);
--		ecmd->duplex = DUPLEX_FULL;
-+		cmd->base.speed = speed;
-+		cmd->base.duplex = DUPLEX_FULL;
- 	} else {
--		ethtool_cmd_speed_set(ecmd, SPEED_UNKNOWN);
--		ecmd->duplex = DUPLEX_UNKNOWN;
-+		cmd->base.speed = SPEED_UNKNOWN;
-+		cmd->base.duplex = DUPLEX_UNKNOWN;
- 	}
- 
- 	return 0;
-@@ -885,7 +885,6 @@ static int ixgbevf_get_rxfh(struct net_device *netdev, u32 *indir, u8 *key,
- }
- 
- static const struct ethtool_ops ixgbevf_ethtool_ops = {
--	.get_settings		= ixgbevf_get_settings,
- 	.get_drvinfo		= ixgbevf_get_drvinfo,
- 	.get_regs_len		= ixgbevf_get_regs_len,
- 	.get_regs		= ixgbevf_get_regs,
-@@ -905,6 +904,7 @@ static const struct ethtool_ops ixgbevf_ethtool_ops = {
- 	.get_rxfh_indir_size	= ixgbevf_get_rxfh_indir_size,
- 	.get_rxfh_key_size	= ixgbevf_get_rxfh_key_size,
- 	.get_rxfh		= ixgbevf_get_rxfh,
-+	.get_link_ksettings	= ixgbevf_get_link_ksettings,
- };
- 
- void ixgbevf_set_ethtool_ops(struct net_device *netdev)
--- 
-2.12.2
+As far as big sparc and other archs JIT optimizations would be
+great somehow to take advantage of extra registers that these
+archs have. I think it will only be possible once we have
+verifier 2.0 with proper register liveness and stuff, so
+we can convert spill/fills into register copies and may be
+even run simple regalloc pass after verifier. Crazy talk ;)
