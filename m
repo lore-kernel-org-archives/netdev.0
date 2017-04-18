@@ -1,55 +1,66 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH v3 net-next RFC] Generic XDP
-Date: Tue, 18 Apr 2017 11:47:59 +0200
-Message-ID: <1492508879.2472.13.camel@sipsolutions.net>
-References: <20170412.145415.1441440342830198148.davem@davemloft.net>
-         <20170413042036.GA46229@ast-mbp.thefacebook.com>
-         <1492063856.19193.4.camel@sipsolutions.net>
-         <20170413.113810.703136630867928001.davem@davemloft.net>
-         <20170414194105.GA51147@ast-mbp.thefacebook.com>
-         (sfid-20170414_214112_825421_99F913DC)
+From: Yankejian <yankejian@huawei.com>
+Subject: [PATCH net-next 1/3] net: hns: support deferred probe when can not obtain irq
+Date: Tue, 18 Apr 2017 18:12:32 +0800
+Message-ID: <1492510354-11300-2-git-send-email-yankejian@huawei.com>
+References: <1492510354-11300-1-git-send-email-yankejian@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xdp-newbies@vger.kernel.org
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <charles.chenxin@huawei.com>,
+        <linuxarm@huawei.com>
+To: <davem@davemloft.net>, <salil.mehta@huawei.com>,
+        <yisen.zhuang@huawei.com>, <allenhuangsz10@gmail.com>,
+        <lipeng321@huawei.com>, <huangdaode@hisilicon.com>,
+        <hjat.hejun@huawei.com>, <zhangping5@huawei.com>,
+        <qichengming@huawei.com>, <qumingguang@hisilicon.com>,
+        <zhouhuiru@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:47340 "EHLO sipsolutions.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754871AbdDRJsE (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 18 Apr 2017 05:48:04 -0400
-In-Reply-To: <20170414194105.GA51147@ast-mbp.thefacebook.com> (sfid-20170414_214112_825421_99F913DC)
+Received: from szxga01-in.huawei.com ([45.249.212.187]:5771 "EHLO
+        dggrg01-dlp.huawei.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1754813AbdDRJwW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 05:52:22 -0400
+In-Reply-To: <1492510354-11300-1-git-send-email-yankejian@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2017-04-14 at 12:41 -0700, Alexei Starovoitov wrote:
-> 
-> ahh. i thought all drivers do at least copy-break (256) bytes 
+From: lipeng <lipeng321@huawei.com>
 
-We do copy-break, but that's only applicable when there's no non-linear 
-data left afterwards :)
+In the hip06 and hip07 SoCs, the interrupt lines from the
+DSAF controllers are connected to mbigen hw module.
+The mbigen module is probed with module_init, and, as such,
+is not guaranteed to probe before the HNS driver. So we need
+to support deferred probe.
 
-> or copy
-> get_headlen or build_skb the whole thing.
-> Since wireless does eth_hlen, then yeah, skb_linearize() is the only
-> way.
+We check for probe deferral in the hw layer probe, so we not
+probe into the main layer and memories, etc., to later learn
+that we need to defer the probe.
 
-It's rather difficult to do this in wifi because we'd need to parse
-deep into the packet - at a point where we haven't even parsed the
-802.11 header (which has variable length) fully.
+Signed-off-by: lipeng <lipeng321@huawei.com>
+---
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
 
-So that leaves us to do it at the very end, after conversion to
-ethernet format, but then it feels pointless since we might as well let
-the rest of the stack do it.
-
-> I guess any driver that would care about XDP performance would either
-> implement in-driver XDP or make sure that skb_linearize() doesn't
-> happen in generic XDP by doing build_skb() with the whole packet.
-> The driver can be smart and avoid doing copy-break if generic XDP is
-> on.
-
-Indeed. I think this is less about performance than ease of
-experimentation.
-
-johannes
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
+index 403ea9d..2da5b42 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
+@@ -2971,6 +2971,18 @@ static int hns_dsaf_probe(struct platform_device *pdev)
+ 	struct dsaf_device *dsaf_dev;
+ 	int ret;
+ 
++	/*
++	 * Check if we should defer the probe before we probe the
++	 * dsaf, as it's hard to defer later on.
++	 */
++	ret = platform_get_irq(pdev, 0);
++	if (ret < 0) {
++		if (ret != -EPROBE_DEFER)
++			dev_err(&pdev->dev, "Cannot obtain irq\n");
++
++		return ret;
++	}
++
+ 	dsaf_dev = hns_dsaf_alloc_dev(&pdev->dev, sizeof(struct dsaf_drv_priv));
+ 	if (IS_ERR(dsaf_dev)) {
+ 		ret = PTR_ERR(dsaf_dev);
+-- 
+1.9.1
