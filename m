@@ -1,120 +1,33 @@
-From: James Hughes <james.hughes@raspberrypi.org>
-Subject: Re: Use of skb_unclone in drivers
-Date: Tue, 18 Apr 2017 17:43:44 +0100
-Message-ID: <CAE_XsMJysdO-WvyVRuS=SsBjYpVV5QMYeVkxbumP2SjngV986Q@mail.gmail.com>
-References: <CAE_XsMLcUbCdJvzkW8E0rh7NjJHG8vEa-PhKgR3RzzFHaGBS6w@mail.gmail.com>
- <1492445232.10587.107.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAE_XsMLghPZTe69-eUF322U53gZcUfXzu-0VScf7yNCrLkgOBA@mail.gmail.com> <75112dc9-dd75-3473-b39d-0687cdff3391@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org
-To: Florian Fainelli <f.fainelli@gmail.com>
+From: Eric Dumazet <edumazet@google.com>
+Subject: [PATCH net-next 0/2] tcp: address two poll() flakes
+Date: Tue, 18 Apr 2017 09:45:50 -0700
+Message-ID: <20170418164552.29261-1-edumazet@google.com>
+Cc: netdev <netdev@vger.kernel.org>,
+        Eric Dumazet <edumazet@google.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>
+To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx07-00252a01.pphosted.com ([62.209.51.214]:2877 "EHLO
-        mx07-00252a01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751012AbdDRQn5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 12:43:57 -0400
-Received: from pps.filterd (m0102628.ppops.net [127.0.0.1])
-        by mx07-00252a01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v3IGe1dd012265
-        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 17:43:46 +0100
-Received: from mail-wr0-f198.google.com (mail-wr0-f198.google.com [209.85.128.198])
-        by mx07-00252a01.pphosted.com with ESMTP id 29u8x0a0pb-1
-        (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128 verify=OK)
-        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 17:43:46 +0100
-Received: by mail-wr0-f198.google.com with SMTP id x61so19479958wrb.8
-        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 09:43:45 -0700 (PDT)
-In-Reply-To: <75112dc9-dd75-3473-b39d-0687cdff3391@gmail.com>
+Received: from mail-pg0-f54.google.com ([74.125.83.54]:36586 "EHLO
+        mail-pg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754406AbdDRQp5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 12:45:57 -0400
+Received: by mail-pg0-f54.google.com with SMTP id g2so90473762pge.3
+        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 09:45:57 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 18 April 2017 at 17:34, Florian Fainelli <f.fainelli@gmail.com> wrote:
-> On 04/18/2017 01:34 AM, James Hughes wrote:
->> Thanks,
->
-> (please don't top-post on netdev)
->
+Some packetdrill tests are failing when host kernel is using ASAN
+or other debugging infrastructure.
 
-Trying not to! New to this.
+I was able to fix the flakes by making sure we were not
+sending wakeup events too soon.
 
->>
->> Quick check on that function - very similar to unclone which we know
->> ameliorates the issue, just has the headroom parameter rather than
->> priority. So clearly the right way to go. Just one more question I
->> hope - where is the appropriate  place for the skb_cow_head call in
->> the driver - at the main entry point, or closer or in the function(s)
->> that may alter the header itself?
->
-> You should place the call to skb_cow_head() in the same function(s) that
-> do(es) the header(s) modifications, that way it's clear to the reader
-> what the intent is, and the code is reasonably easy to audit.
->
+Eric Dumazet (2):
+  tcp: remove poll() flakes when receiving RST
+  tcp: remove poll() flakes with FastOpen
 
-OK, thanks - have done that and posted a patch for the SMSC driver which
-others are reviewing. Still trying to sort out the Brcm wireless driver which
-is lacking any sane error path should the skb_cow_head function fail in
-the same function where the header modification is made.
-
->>
->> James
->>
->> (Apologies to Eric for originally sending him this message rather than
->> to netdev - was doing it all from a phone and screwed it up)
->>
->> On 17 April 2017 at 17:07, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->>> On Mon, 2017-04-17 at 16:02 +0100, James Hughes wrote:
->>>> Netdevs,
->>>>
->>>> We have recently got to the bottom of an issue which we have been
->>>> encountering on a Raspberry Pi being used as an access point, and we
->>>> need a bit of advice on the correct way of fixing the issue.
->>>>
->>>> The set up is a Raspberry Pi 3 running hostapd on its inbuilt wireless
->>>> adaptor (Brcm43438 ), bridged to the built in ethernet adaptor
->>>> (smsc9514). Using the standard drivers for these devices as of 4.9
->>>> (looking at 4.11, no changes noted that would affect the issue. I will
->>>> be trying the latest kernel once I get back in to the office).
->>>>
->>>> We were encountering an error in the Brcm Wireless driver that after
->>>> investigation was a skb_buff being corrupted by an action in the smsc
->>>> Ethernet driver. Further digging shows that the bridge was cloning an
->>>> incoming skb from the Ethernet, then sending it out to both the
->>>> Ethernet and wlan ports. This mean that both the Ethernet driver and
->>>> the wireless driver were looking at the same physical data, and one or
->>>> both were altering that data in different ways (varied headers) ,
->>>> which mean that headers were corrupted. This was only happening on
->>>> broadcast packets.
->>>>
->>>> We can fix the issue by, in the drivers, using skb_unclone in
->>>> appropriate places in the driver.
->>>>
->>>> So now to the questions. Is adding the unclone to the drivers the
->>>> correct way of dealing with this issue? Examining other drivers shows
->>>> that unclone is not particularly common, presumably in many cases,
->>>> where the driver does not alter the skb, it doesn't matter. However,
->>>> in any case where a driver may add header information to the skb (as
->>>> is the case with the Brcm wireless driver), when the incoming skb has
->>>> been cloned, the results must surely be undetermined unless an unclone
->>>> is performed.
->>>>
->>>> Or, is the bridging code making a mistake by cloning the skb and
->>>> passing it to multiple recipients?
->>>>
->>>
->>>
->>> bridge code is fine.
->>>
->>> Problem is that some drivers lack calls to skb_cow_head() before they
->>> mess with headers.
->>>
->>
->
->
-> --
-> Florian
-
-
+ net/ipv4/tcp_input.c | 20 +++++++++++---------
+ 1 file changed, 11 insertions(+), 9 deletions(-)
 
 -- 
-James Hughes
-Principal Software Engineer,
-Raspberry Pi (Trading) Ltd
+2.12.2.762.g0e3151a226-goog
