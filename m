@@ -1,34 +1,31 @@
-From: Code Soldier1 <codesoldier1@gmail.com>
-Subject: question about size of sk_buff and skb_shared_info
-Date: Tue, 18 Apr 2017 10:34:08 -0700
-Message-ID: <CABGNecyP8tpBtbOPL_4fyhqnkTYEa80sHCuDrUJdm9gxihFX6w@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/3] sctp: add proper process for duplicated
+ stream reconf requests
+Date: Tue, 18 Apr 2017 13:40:22 -0400 (EDT)
+Message-ID: <20170418.134022.1168044044884653759.davem@davemloft.net>
+References: <cover.1492264734.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+        marcelo.leitner@gmail.com, nhorman@tuxdriver.com
+To: lucien.xin@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f175.google.com ([209.85.223.175]:34419 "EHLO
-        mail-io0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753636AbdDRReJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 13:34:09 -0400
-Received: by mail-io0-f175.google.com with SMTP id a103so5297183ioj.1
-        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 10:34:09 -0700 (PDT)
+Received: from shards.monkeyblade.net ([184.105.139.130]:42472 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755566AbdDRRka (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 13:40:30 -0400
+In-Reply-To: <cover.1492264734.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Folks,
+From: Xin Long <lucien.xin@gmail.com>
+Date: Sat, 15 Apr 2017 22:00:26 +0800
 
-I am sure there is a reason for the current sizes of these structures,
-However the reason is not obvious to me. So please help me understand.
+> Now sctp stream reconf will process a request again even if it's seqno
+> is less than asoc->strreset_inseq. It may cause a replay attack.
+> 
+> This patchset is to avoid it by add proper process for all duplicated
+> stream reconf requests.
 
-Currently the size of sk_buff on an x86_64 system is 232 bytes -- Why
-is that. I expected it to be a multiple of 32/64 as they are the most
-common cache lines. Since the alignment calculation will align the
-structure with the hw cache line, it seems like we might be wasting
-space ?
-
-skb_shared_info on the other hand is perfectly aligned with a size of 320 bytes.
-
-Thanks,
-
--- 
-CS1
+Series applied, thanks.
