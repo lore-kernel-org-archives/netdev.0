@@ -1,130 +1,108 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 2/8] mlxsw: spectrum: Implement action to set FID
-Date: Tue, 18 Apr 2017 16:55:32 +0200
-Message-ID: <1492527338-13298-3-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 3/8] mlxsw: spectrum: Add dummy FID initialization
+Date: Tue, 18 Apr 2017 16:55:33 +0200
+Message-ID: <1492527338-13298-4-git-send-email-jiri@resnulli.us>
 References: <1492527338-13298-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:34585 "EHLO
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:35450 "EHLO
         mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753401AbdDROzn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 10:55:43 -0400
-Received: by mail-wm0-f66.google.com with SMTP id z129so12635628wmb.1
-        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 07:55:43 -0700 (PDT)
+        with ESMTP id S1754471AbdDROzo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 10:55:44 -0400
+Received: by mail-wm0-f66.google.com with SMTP id d79so15276351wmi.2
+        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 07:55:44 -0700 (PDT)
 In-Reply-To: <1492527338-13298-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-Implement part of multipurpose Virtual Router and Forwarding Domain
-Action that takes care of setting up FID. We need to use it to be able
-to forward packets using ACL action when no FID is associated on RX.
+For forwarding using ACL action, HW needs a valid FID to be setup. It
+does not actually use it, so it can be any valid FID. So create a dummy
+FID only for this purpose.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 Reviewed-by: Ido Schimmel <idosch@mellanox.com>
 ---
- .../mellanox/mlxsw/core_acl_flex_actions.c         | 44 ++++++++++++++++++++++
- .../mellanox/mlxsw/core_acl_flex_actions.h         |  1 +
- drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |  3 ++
- drivers/net/ethernet/mellanox/mlxsw/spectrum_acl.c |  7 ++++
- 4 files changed, 55 insertions(+)
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 21 +++++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h |  4 +++-
+ 2 files changed, 24 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/core_acl_flex_actions.c b/drivers/net/ethernet/mellanox/mlxsw/core_acl_flex_actions.c
-index a984c36..46304ff 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/core_acl_flex_actions.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/core_acl_flex_actions.c
-@@ -811,3 +811,47 @@ int mlxsw_afa_block_append_counter(struct mlxsw_afa_block *block,
- 	return 0;
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+index 9b9861a..6e113c3 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+@@ -3268,6 +3268,18 @@ static int mlxsw_sp_basic_trap_groups_set(struct mlxsw_core *mlxsw_core)
+ 	return mlxsw_reg_write(mlxsw_core, MLXSW_REG(htgt), htgt_pl);
  }
- EXPORT_SYMBOL(mlxsw_afa_block_append_counter);
-+
-+/* Virtual Router and Forwarding Domain Action
-+ * -------------------------------------------
-+ * Virtual Switch action is used for manipulate the Virtual Router (VR),
-+ * MPLS label space and the Forwarding Identifier (FID).
-+ */
-+
-+#define MLXSW_AFA_VIRFWD_CODE 0x0E
-+#define MLXSW_AFA_VIRFWD_SIZE 1
-+
-+enum mlxsw_afa_virfwd_fid_cmd {
-+	/* Do nothing */
-+	MLXSW_AFA_VIRFWD_FID_CMD_NOOP,
-+	/* Set the Forwarding Identifier (FID) to fid */
-+	MLXSW_AFA_VIRFWD_FID_CMD_SET,
-+};
-+
-+/* afa_virfwd_fid_cmd */
-+MLXSW_ITEM32(afa, virfwd, fid_cmd, 0x08, 29, 3);
-+
-+/* afa_virfwd_fid
-+ * The FID value.
-+ */
-+MLXSW_ITEM32(afa, virfwd, fid, 0x08, 0, 16);
-+
-+static inline void mlxsw_afa_virfwd_pack(char *payload,
-+					 enum mlxsw_afa_virfwd_fid_cmd fid_cmd,
-+					 u16 fid)
-+{
-+	mlxsw_afa_virfwd_fid_cmd_set(payload, fid_cmd);
-+	mlxsw_afa_virfwd_fid_set(payload, fid);
-+}
-+
-+int mlxsw_afa_block_append_fid_set(struct mlxsw_afa_block *block, u16 fid)
-+{
-+	char *act = mlxsw_afa_block_append_action(block,
-+						  MLXSW_AFA_VIRFWD_CODE,
-+						  MLXSW_AFA_VIRFWD_SIZE);
-+	if (!act)
-+		return -ENOBUFS;
-+	mlxsw_afa_virfwd_pack(act, MLXSW_AFA_VIRFWD_FID_CMD_SET, fid);
-+	return 0;
-+}
-+EXPORT_SYMBOL(mlxsw_afa_block_append_fid_set);
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/core_acl_flex_actions.h b/drivers/net/ethernet/mellanox/mlxsw/core_acl_flex_actions.h
-index a03362c..bd8b91d 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/core_acl_flex_actions.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/core_acl_flex_actions.h
-@@ -66,5 +66,6 @@ int mlxsw_afa_block_append_vlan_modify(struct mlxsw_afa_block *block,
- 				       u16 vid, u8 pcp, u8 et);
- int mlxsw_afa_block_append_counter(struct mlxsw_afa_block *block,
- 				   u32 counter_index);
-+int mlxsw_afa_block_append_fid_set(struct mlxsw_afa_block *block, u16 fid);
  
- #endif
++static int mlxsw_sp_vfid_op(struct mlxsw_sp *mlxsw_sp, u16 fid, bool create);
++
++static int mlxsw_sp_dummy_fid_init(struct mlxsw_sp *mlxsw_sp)
++{
++	return mlxsw_sp_vfid_op(mlxsw_sp, MLXSW_SP_DUMMY_FID, true);
++}
++
++static void mlxsw_sp_dummy_fid_fini(struct mlxsw_sp *mlxsw_sp)
++{
++	mlxsw_sp_vfid_op(mlxsw_sp, MLXSW_SP_DUMMY_FID, false);
++}
++
+ static int mlxsw_sp_init(struct mlxsw_core *mlxsw_core,
+ 			 const struct mlxsw_bus_info *mlxsw_bus_info)
+ {
+@@ -3346,6 +3358,12 @@ static int mlxsw_sp_init(struct mlxsw_core *mlxsw_core,
+ 		goto err_dpipe_init;
+ 	}
+ 
++	err = mlxsw_sp_dummy_fid_init(mlxsw_sp);
++	if (err) {
++		dev_err(mlxsw_sp->bus_info->dev, "Failed to init dummy FID\n");
++		goto err_dummy_fid_init;
++	}
++
+ 	err = mlxsw_sp_ports_create(mlxsw_sp);
+ 	if (err) {
+ 		dev_err(mlxsw_sp->bus_info->dev, "Failed to create ports\n");
+@@ -3355,6 +3373,8 @@ static int mlxsw_sp_init(struct mlxsw_core *mlxsw_core,
+ 	return 0;
+ 
+ err_ports_create:
++	mlxsw_sp_dummy_fid_fini(mlxsw_sp);
++err_dummy_fid_init:
+ 	mlxsw_sp_dpipe_fini(mlxsw_sp);
+ err_dpipe_init:
+ 	mlxsw_sp_counter_pool_fini(mlxsw_sp);
+@@ -3381,6 +3401,7 @@ static void mlxsw_sp_fini(struct mlxsw_core *mlxsw_core)
+ 	struct mlxsw_sp *mlxsw_sp = mlxsw_core_driver_priv(mlxsw_core);
+ 
+ 	mlxsw_sp_ports_remove(mlxsw_sp);
++	mlxsw_sp_dummy_fid_fini(mlxsw_sp);
+ 	mlxsw_sp_dpipe_fini(mlxsw_sp);
+ 	mlxsw_sp_counter_pool_fini(mlxsw_sp);
+ 	mlxsw_sp_acl_fini(mlxsw_sp);
 diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-index c245e4c..3d32b15 100644
+index 3d32b15..0af6e1a 100644
 --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
 +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-@@ -661,6 +661,9 @@ int mlxsw_sp_acl_rulei_act_vlan(struct mlxsw_sp *mlxsw_sp,
- 				u32 action, u16 vid, u16 proto, u8 prio);
- int mlxsw_sp_acl_rulei_act_count(struct mlxsw_sp *mlxsw_sp,
- 				 struct mlxsw_sp_acl_rule_info *rulei);
-+int mlxsw_sp_acl_rulei_act_fid_set(struct mlxsw_sp *mlxsw_sp,
-+				   struct mlxsw_sp_acl_rule_info *rulei,
-+				   u16 fid);
+@@ -57,6 +57,8 @@
+ #define MLXSW_SP_VFID_BASE VLAN_N_VID
+ #define MLXSW_SP_VFID_MAX 1024	/* Bridged VLAN interfaces */
  
- struct mlxsw_sp_acl_rule;
++#define MLXSW_SP_DUMMY_FID 15359
++
+ #define MLXSW_SP_RFID_BASE 15360
  
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_acl.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_acl.c
-index d3b791f..317f7b1 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_acl.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_acl.c
-@@ -403,6 +403,13 @@ int mlxsw_sp_acl_rulei_act_count(struct mlxsw_sp *mlxsw_sp,
- 					      rulei->counter_index);
+ #define MLXSW_SP_MID_MAX 7000
+@@ -105,7 +107,7 @@ static inline u16 mlxsw_sp_fid_to_vfid(u16 fid)
+ 
+ static inline bool mlxsw_sp_fid_is_vfid(u16 fid)
+ {
+-	return fid >= MLXSW_SP_VFID_BASE && fid < MLXSW_SP_RFID_BASE;
++	return fid >= MLXSW_SP_VFID_BASE && fid < MLXSW_SP_DUMMY_FID;
  }
  
-+int mlxsw_sp_acl_rulei_act_fid_set(struct mlxsw_sp *mlxsw_sp,
-+				   struct mlxsw_sp_acl_rule_info *rulei,
-+				   u16 fid)
-+{
-+	return mlxsw_afa_block_append_fid_set(rulei->act_block, fid);
-+}
-+
- struct mlxsw_sp_acl_rule *
- mlxsw_sp_acl_rule_create(struct mlxsw_sp *mlxsw_sp,
- 			 struct mlxsw_sp_acl_ruleset *ruleset,
+ struct mlxsw_sp_sb_pr {
 -- 
 2.7.4
