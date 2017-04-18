@@ -1,77 +1,40 @@
-From: Murali Karicheri <m-karicheri2@ti.com>
-Subject: Re: IGMP on IPv6
-Date: Tue, 18 Apr 2017 13:20:27 -0400
-Message-ID: <58F64ADB.8040900@ti.com>
-References: <1479111388-25383-1-git-send-email-liuhangbin@gmail.com>
- <58D29265.1020604@ti.com> <58EFA913.5060604@ti.com>
- <CAM_iQpWYuQdxF0AOEMHRy7BSmxMVUb-7w7OdgYeOKe6atATsFQ@mail.gmail.com>
- <58F648FB.10606@ti.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] smsc95xx: Use skb_cow to deal with cloned skbs
+Date: Tue, 18 Apr 2017 10:23:32 -0700
+Message-ID: <1492536212.10587.133.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20170418144857.7810-1-james.hughes@raspberrypi.org>
+         <1492530711.10587.125.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20170418.115546.921863837348166438.davem@davemloft.net>
+         <CAE_XsMJZGPvENhCgyvuz48PyLk=T7L-tGoktzVBLPPYDP7oR8A@mail.gmail.com>
+         <1492534347.10587.130.camel@edumazet-glaptop3.roam.corp.google.com>
+         <eb8f4cda-d1b1-1038-513b-08ef016042ae@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Hangbin Liu <liuhangbin@gmail.com>,
-        "open list:TI NETCP ETHERNET DRIVER" <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Cc: James Hughes <james.hughes@raspberrypi.org>,
+        David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+        Steve Glendinning <steve.glendinning@shawell.net>,
+        Microchip Linux Driver Support <UNGLinuxDriver@microchip.com>
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lelnx193.ext.ti.com ([198.47.27.77]:58396 "EHLO
-        lelnx193.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753580AbdDRRUR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 13:20:17 -0400
-In-Reply-To: <58F648FB.10606@ti.com>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:34808 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753042AbdDRRXe (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 13:23:34 -0400
+Received: by mail-pf0-f195.google.com with SMTP id g23so16906757pfj.1
+        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 10:23:34 -0700 (PDT)
+In-Reply-To: <eb8f4cda-d1b1-1038-513b-08ef016042ae@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/18/2017 01:12 PM, Murali Karicheri wrote:
-> On 04/17/2017 05:38 PM, Cong Wang wrote:
->> Hello,
->>
->> On Thu, Apr 13, 2017 at 9:36 AM, Murali Karicheri <m-karicheri2@ti.com> wrote:
->>> On 03/22/2017 11:04 AM, Murali Karicheri wrote:
->>>> This is going directly to the slave Ethernet interface.
->>>>
->>>> When I put a WARN_ONCE, I found this is coming directly from
->>>> mld_ifc_timer_expire() -> mld_sendpack() -> ip6_output()
->>>>
->>>> Do you think this is fixed in latest kernel at master? If so, could
->>>> you point me to some commits.
->>>>
->>>>
->>> Ping... I see this behavior is also seen on v4.9.x Kernel. Any clue if
->>> this is fixed by some commit or I need to debug? I see IGMPv6 has some
->>> fixes on the list to make it similar to IGMPv4. So can someone clarify this is
->>> is a bug at IGMPv6 code or I need to look into the HSR driver code?
->>> Since IGMPv4 is going over the HSR interface I am assuming this is a
->>> bug in the IGMPv6 code. But since I have not experience with this code
->>> can some expert comment please?
->>>
->>
->> How did you configure your network interfaces and IPv4/IPv6 multicast?
->> IOW, how did you reproduce this? For example, did you change your
->> HSR setup when this happened since you mentioned
->> NETDEV_CHANGEUPPER?
->>
-> Thanks for responding! Really appreciate.
-> 
-> I didn't set up anything explicitly for IPv4/IPv6 multicast. As part of
-> my testing, I dump the packets going through the slave interfaces attached
-> to the hsr interface (for example my Ethernet interfaces eth2 and eth3
-> are attached to the hsr interface and I dump the packets at the egress
-> of eth2 and eth3 in my driver along with that at hsr xmit function). As
-> soon as I create the hsr interface, I see a bunch of packets going directly
-> through the lower interface, not through the upper one (i.e hsr interface)
-> and these are of eth_type = 86 dd. Please ignore my reference to 
-> NETDEV_CHANGEUPPER for now as it was wild guess.
-> 
-> I have not done any debugging, but the WARN_ONCE which I have placed
-> in the lower level driver looking for eth_type = 86 dd provided the 
-> above trace. 
-> 
-Here is the command I have used to create the hsr interface...
+On Tue, 2017-04-18 at 10:10 -0700, Florian Fainelli wrote:
 
-ip link add name hsr0 type hsr slave1 eth2 slave2 eth3 supervision 45 version 1
+> BTW, this pattern of using skb_headroom() ... skb_copy_expand() seems to
+> be recurring in pretty much all USB network drivers that have a tx_fixup
+> callback set. The problem is that each driver needs its own
+> headroom/tailroom so the fix is not as simple as putting the
+> skb_cow_head() before the call to the drivers' tx_fixup...
+> 
+> I wonder if a coccinelle patch would be able to do that for us?
 
-
--- 
-Murali Karicheri
-Linux Kernel, Keystone
+Not sure about coccinelle, because some drivers also need some tailroom.
