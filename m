@@ -1,17 +1,18 @@
 From: Kees Cook <keescook@chromium.org>
 Subject: Re: [PATCH net-next v6 04/11] landlock: Add LSM hooks related to filesystem
-Date: Tue, 18 Apr 2017 16:39:05 -0700
-Message-ID: <CAGXu5j+0CEVaJW5-m1S6AMoVGF2Q5kR33LTy8tqepfgBDR04rA@mail.gmail.com>
+Date: Tue, 18 Apr 2017 16:40:34 -0700
+Message-ID: <CAGXu5jKCr1qPqJ8YWAjK1Lj-fThAhMnrxFW8twFcj6C9ODBpsA@mail.gmail.com>
 References: <20170328234650.19695-1-mic@digikod.net> <20170328234650.19695-5-mic@digikod.net>
- <CAGXu5jJKNp8R5kZ1U=K7KwgnV=NvH5aoAbftA-05a_Sa4pOg1Q@mail.gmail.com> <9a69055a-b4cf-00b0-da5e-2e45ff88059c@digikod.net>
+ <CAGXu5jJKNp8R5kZ1U=K7KwgnV=NvH5aoAbftA-05a_Sa4pOg1Q@mail.gmail.com>
+ <9a69055a-b4cf-00b0-da5e-2e45ff88059c@digikod.net> <c122415d-c2be-d013-efb4-833ba87d144d@schaufler-ca.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: quoted-printable
-Cc: LKML <linux-kernel@vger.kernel.org>,
+Cc: =?UTF-8?B?TWlja2HDq2wgU2FsYcO8bg==?= <mic@digikod.net>,
+        LKML <linux-kernel@vger.kernel.org>,
         Alexei Starovoitov <ast@kernel.org>,
         Andy Lutomirski <luto@amacapital.net>,
         Arnaldo Carvalho de Melo <acme@kernel.org>,
-        Casey Schaufler <casey@schaufler-ca.com>,
         Daniel Borkmann <daniel@iogearbox.net>,
         David Drysdale <drysdale@google.com>,
         "David S . Miller" <davem@davemloft.net>,
@@ -24,179 +25,58 @@ Cc: LKML <linux-kernel@vger.kernel.org>,
         Sargun Dhillon <sargun@sargun.me>,
         "Serge E . Hallyn" <serge@hallyn.com>,
         Shuah Khan <shuah@kernel.org>, Tejun Heo <tj@kernel.org>,
-        Thomas Graf <tgraf@suug.ch>, Will Drewry <wa
-To: =?UTF-8?B?TWlja2HDq2wgU2FsYcO8bg==?= <mic@digikod.net>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <9a69055a-b4cf-00b0-da5e-2e45ff88059c@digikod.net>
-Sender: owner-linux-security-module@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+        Thomas Graf <tgraf@suug.ch>, W
+To: Casey Schaufler <casey@schaufler-ca.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-it0-f53.google.com ([209.85.214.53]:36816 "EHLO
+        mail-it0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1758371AbdDRXkg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 19:40:36 -0400
+Received: by mail-it0-f53.google.com with SMTP id b15so19775797iti.1
+        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 16:40:35 -0700 (PDT)
+In-Reply-To: <c122415d-c2be-d013-efb4-833ba87d144d@schaufler-ca.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 18, 2017 at 3:44 PM, Micka=C3=ABl Sala=C3=BCn <mic@digikod.net>=
- wrote:
+On Tue, Apr 18, 2017 at 4:16 PM, Casey Schaufler <casey@schaufler-ca.com> w=
+rote:
+> On 4/18/2017 3:44 PM, Micka=C3=ABl Sala=C3=BCn wrote:
+>> On 19/04/2017 00:17, Kees Cook wrote:
+>>> On Tue, Mar 28, 2017 at 4:46 PM, Micka=C3=ABl Sala=C3=BCn <mic@digikod.=
+net> wrote:
+>>>> +void __init landlock_add_hooks(void)
+>>>> +{
+>>>> +       pr_info("landlock: Version %u", LANDLOCK_VERSION);
+>>>> +       landlock_add_hooks_fs();
+>>>> +       security_add_hooks(NULL, 0, "landlock");
+>>>> +       bpf_register_prog_type(&bpf_landlock_type);
+>>> I'm confused by the separation of hook registration here. The call to
+>>> security_add_hooks is with count=3D0 is especially weird. Why isn't thi=
+s
+>>> just a single call with security_add_hooks(landlock_hooks,
+>>> ARRAY_SIZE(landlock_hooks), "landlock")?
+>> Yes, this is ugly with the new security_add_hooks() with three arguments
+>> but I wanted to split the hooks definition in multiple files.
 >
-> On 19/04/2017 00:17, Kees Cook wrote:
->> On Tue, Mar 28, 2017 at 4:46 PM, Micka=C3=ABl Sala=C3=BCn <mic@digikod.n=
-et> wrote:
->>> Handle 33 filesystem-related LSM hooks for the Landlock filesystem
->>> event: LANDLOCK_SUBTYPE_EVENT_FS.
->>>
->>> A Landlock event wrap LSM hooks for similar kernel object types (e.g.
->>> struct file, struct path...). Multiple LSM hooks can trigger the same
->>> Landlock event.
->>>
->>> Landlock handle nine coarse-grained actions: read, write, execute, new,
->>> get, remove, ioctl, lock and fcntl. Each of them abstract LSM hook
->>> access control in a way that can be extended in the future.
->>>
->>> The Landlock LSM hook registration is done after other LSM to only run
->>> actions from user-space, via eBPF programs, if the access was granted b=
-y
->>> major (privileged) LSMs.
->>>
->>> Changes since v5:
->>> * split hooks.[ch] into hooks.[ch] and hooks_fs.[ch]
->>> * add more documentation
->>> * cosmetic fixes
->>>
->>> Changes since v4:
->>> * add LSM hook abstraction called Landlock event
->>>   * use the compiler type checking to verify hooks use by an event
->>>   * handle all filesystem related LSM hooks (e.g. file_permission,
->>>     mmap_file, sb_mount...)
->>> * register BPF programs for Landlock just after LSM hooks registration
->>> * move hooks registration after other LSMs
->>> * add failsafes to check if a hook is not used by the kernel
->>> * allow partial raw value access form the context (needed for programs
->>>   generated by LLVM)
->>>
->>> Changes since v3:
->>> * split commit
->>> * add hooks dealing with struct inode and struct path pointers:
->>>   inode_permission and inode_getattr
->>> * add abstraction over eBPF helper arguments thanks to wrapping structs
->>>
->>> Signed-off-by: Micka=C3=ABl Sala=C3=BCn <mic@digikod.net>
->>> Cc: Alexei Starovoitov <ast@kernel.org>
->>> Cc: Andy Lutomirski <luto@amacapital.net>
->>> Cc: Daniel Borkmann <daniel@iogearbox.net>
->>> Cc: David S. Miller <davem@davemloft.net>
->>> Cc: James Morris <james.l.morris@oracle.com>
->>> Cc: Kees Cook <keescook@chromium.org>
->>> Cc: Serge E. Hallyn <serge@hallyn.com>
->>> ---
->>>  include/linux/lsm_hooks.h    |   5 +
->>>  security/landlock/Makefile   |   4 +-
->>>  security/landlock/hooks.c    | 115 +++++++++
->>>  security/landlock/hooks.h    | 177 ++++++++++++++
->>>  security/landlock/hooks_fs.c | 563 +++++++++++++++++++++++++++++++++++=
-++++++++
->>>  security/landlock/hooks_fs.h |  19 ++
->>>  security/landlock/init.c     |  13 +
->>>  security/security.c          |   7 +-
->>>  8 files changed, 901 insertions(+), 2 deletions(-)
->>>  create mode 100644 security/landlock/hooks.c
->>>  create mode 100644 security/landlock/hooks.h
->>>  create mode 100644 security/landlock/hooks_fs.c
->>>  create mode 100644 security/landlock/hooks_fs.h
->>>
->>> diff --git a/include/linux/lsm_hooks.h b/include/linux/lsm_hooks.h
->>> index e29d4c62a3c8..884289166a0e 100644
->>> --- a/include/linux/lsm_hooks.h
->>> +++ b/include/linux/lsm_hooks.h
->>> @@ -1920,5 +1920,10 @@ void __init loadpin_add_hooks(void);
->>>  #else
->>>  static inline void loadpin_add_hooks(void) { };
->>>  #endif
->>> +#ifdef CONFIG_SECURITY_LANDLOCK
->>> +extern void __init landlock_add_hooks(void);
->>> +#else
->>> +static inline void __init landlock_add_hooks(void) { }
->>> +#endif /* CONFIG_SECURITY_LANDLOCK */
->>>
->>>  #endif /* ! __LINUX_LSM_HOOKS_H */
->>> diff --git a/security/landlock/Makefile b/security/landlock/Makefile
->>> index 7205f9a7a2ee..c0db504a6335 100644
->>> --- a/security/landlock/Makefile
->>> +++ b/security/landlock/Makefile
->>> @@ -1,3 +1,5 @@
->>> +ccflags-$(CONFIG_SECURITY_LANDLOCK) +=3D -Werror=3Dunused-function
->>
->> Why is this needed? If it can't be avoided, a comment should exist
->> here explaining why.
->
-> This is useful to catch defined but unused hooks: error out if a
-> HOOK_NEW_FS(foo) is not used with a HOOK_INIT_FS(foo) in the struct
-> security_hook_list landlock_hooks.
-
-Gotcha. Please convert into a comment for the next revision. :)
-
+> Why? I'll buy a good argument, but there are dangers in
+> allowing multiple calls to security_add_hooks().
 >
 >>
->>> [...]
->>> @@ -127,3 +132,11 @@ static struct bpf_prog_type_list bpf_landlock_type=
- __ro_after_init =3D {
->>>         .ops =3D &bpf_landlock_ops,
->>>         .type =3D BPF_PROG_TYPE_LANDLOCK,
->>>  };
->>> +
->>> +void __init landlock_add_hooks(void)
->>> +{
->>> +       pr_info("landlock: Version %u", LANDLOCK_VERSION);
->>> +       landlock_add_hooks_fs();
->>> +       security_add_hooks(NULL, 0, "landlock");
->>> +       bpf_register_prog_type(&bpf_landlock_type);
->>
->> I'm confused by the separation of hook registration here. The call to
->> security_add_hooks is with count=3D0 is especially weird. Why isn't this
->> just a single call with security_add_hooks(landlock_hooks,
->> ARRAY_SIZE(landlock_hooks), "landlock")?
->
-> Yes, this is ugly with the new security_add_hooks() with three arguments
-> but I wanted to split the hooks definition in multiple files.
->
-> The current security_add_hooks() use lsm_append(lsm, &lsm_names) which
-> is not exported. Unfortunately, calling multiple security_add_hooks()
-> with the same LSM name would register multiple names for the same LSM=E2=
+>> The current security_add_hooks() use lsm_append(lsm, &lsm_names) which
+>> is not exported. Unfortunately, calling multiple security_add_hooks()
+>> with the same LSM name would register multiple names for the same LSM=E2=
 =80=A6
-> Is it OK if I modify this function to not add duplicated entries?
-
-I'm not sure which would be more sane: a single table (constructed
-from header-defined function declarations), or changes to this core
-area.
-
->>> diff --git a/security/security.c b/security/security.c
->>> index d0e07f269b2d..a3e9f4625991 100644
->>> --- a/security/security.c
->>> +++ b/security/security.c
->>> @@ -64,10 +64,15 @@ int __init security_init(void)
->>>         loadpin_add_hooks();
->>>
->>>         /*
->>> -        * Load all the remaining security modules.
->>> +        * Load all remaining privileged security modules.
->>>          */
->>>         do_security_initcalls();
->>>
->>> +       /*
->>> +        * Load potentially-unprivileged security modules at the end.
->>> +        */
->>> +       landlock_add_hooks();
->>
->> Oh, is this to make it last in the list? Is there a reason it has to be =
-last?
+>> Is it OK if I modify this function to not add duplicated entries?
 >
-> Right, this is the intend. I'm not sure it is the only way to register
-> hooks, though.
->
-> For an unprivileged access-control, we don't want to give the ability to
-> any process to do some checks, through an eBPF program, on kernel
-> objects (e.g. files) if they should not be accessible (because of a
-> following LSM hook check).
+> It may seem absurd, but it's conceivable that a module might
+> have two hooks it wants called. My example is a module that
+> counts the number of times SELinux denies a process access to
+> things (which needs to be called before and after SELinux in
+> order to detect denials) and takes "appropriate action" if
+> too many denials occur. It would be weird, wonky and hackish,
+> but that never stopped anybody before.
 
-Ah right, yes. I thought some of that was already going to be handled
-by getting handles to things, but yeah, best to run last. (If you can
-expand the comment above the call to landlock_add_hooks() that would
-be great.)
+If ends up being sane and clear, I'm fine with allowing multiple calls.
 
 -Kees
 
