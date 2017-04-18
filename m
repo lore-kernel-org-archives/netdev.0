@@ -1,57 +1,153 @@
 From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: [PATCH net-next v2 5/5] virtio-net: keep tx interrupts disabled unless kick
-Date: Tue, 18 Apr 2017 16:21:08 -0400
-Message-ID: <20170418202108.61920-6-willemdebruijn.kernel@gmail.com>
+Subject: [PATCH net-next v2 1/5] virtio-net: napi helper functions
+Date: Tue, 18 Apr 2017 16:21:04 -0400
+Message-ID: <20170418202108.61920-2-willemdebruijn.kernel@gmail.com>
 References: <20170418202108.61920-1-willemdebruijn.kernel@gmail.com>
 Cc: mst@redhat.com, jasowang@redhat.com,
         virtualization@lists.linux-foundation.org, davem@davemloft.net,
         Willem de Bruijn <willemb@google.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f195.google.com ([209.85.216.195]:36629 "EHLO
-        mail-qt0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752809AbdDRUVO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 16:21:14 -0400
-Received: by mail-qt0-f195.google.com with SMTP id t52so598531qtb.3
-        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 13:21:14 -0700 (PDT)
+Received: from mail-qk0-f196.google.com ([209.85.220.196]:33102 "EHLO
+        mail-qk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753411AbdDRUVM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 16:21:12 -0400
+Received: by mail-qk0-f196.google.com with SMTP id d131so652065qkc.0
+        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 13:21:11 -0700 (PDT)
 In-Reply-To: <20170418202108.61920-1-willemdebruijn.kernel@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Willem de Bruijn <willemb@google.com>
 
-Tx napi mode increases the rate of transmit interrupts. Suppress some
-by masking interrupts while more packets are expected. The interrupts
-will be reenabled before the last packet is sent.
-
-This optimization reduces the througput drop with tx napi for
-unidirectional flows such as UDP_STREAM that do not benefit from
-cleaning tx completions in the the receive napi handler.
+Prepare virtio-net for tx napi by converting existing napi code to
+use helper functions. This also deduplicates some logic.
 
 Signed-off-by: Willem de Bruijn <willemb@google.com>
+Signed-off-by: Jason Wang <jasowang@redhat.com>
 ---
- drivers/net/virtio_net.c | 8 +++++++-
- 1 file changed, 7 insertions(+), 1 deletion(-)
+ drivers/net/virtio_net.c | 65 ++++++++++++++++++++++++++----------------------
+ 1 file changed, 35 insertions(+), 30 deletions(-)
 
 diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index b14c82ce0032..b107ae011632 100644
+index 666ada6130ab..b9c1df29892c 100644
 --- a/drivers/net/virtio_net.c
 +++ b/drivers/net/virtio_net.c
-@@ -1196,8 +1196,14 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	bool use_napi = sq->napi.weight;
+@@ -239,6 +239,26 @@ static struct page *get_a_page(struct receive_queue *rq, gfp_t gfp_mask)
+ 	return p;
+ }
  
- 	/* Free up any pending old buffers before queueing new ones. */
--	if (!use_napi)
-+	if (use_napi) {
-+		if (kick)
-+			virtqueue_enable_cb_delayed(sq->vq);
-+		else
-+			virtqueue_disable_cb(sq->vq);
-+	} else {
- 		free_old_xmit_skbs(sq);
++static void virtqueue_napi_schedule(struct napi_struct *napi,
++				    struct virtqueue *vq)
++{
++	if (napi_schedule_prep(napi)) {
++		virtqueue_disable_cb(vq);
++		__napi_schedule(napi);
 +	}
++}
++
++static void virtqueue_napi_complete(struct napi_struct *napi,
++				    struct virtqueue *vq, int processed)
++{
++	int opaque;
++
++	opaque = virtqueue_enable_cb_prepare(vq);
++	if (napi_complete_done(napi, processed) &&
++	    unlikely(virtqueue_poll(vq, opaque)))
++		virtqueue_napi_schedule(napi, vq);
++}
++
+ static void skb_xmit_done(struct virtqueue *vq)
+ {
+ 	struct virtnet_info *vi = vq->vdev->priv;
+@@ -936,27 +956,20 @@ static void skb_recv_done(struct virtqueue *rvq)
+ 	struct virtnet_info *vi = rvq->vdev->priv;
+ 	struct receive_queue *rq = &vi->rq[vq2rxq(rvq)];
  
- 	/* timestamp packet in software */
- 	skb_tx_timestamp(skb);
+-	/* Schedule NAPI, Suppress further interrupts if successful. */
+-	if (napi_schedule_prep(&rq->napi)) {
+-		virtqueue_disable_cb(rvq);
+-		__napi_schedule(&rq->napi);
+-	}
++	virtqueue_napi_schedule(&rq->napi, rvq);
+ }
+ 
+-static void virtnet_napi_enable(struct receive_queue *rq)
++static void virtnet_napi_enable(struct virtqueue *vq, struct napi_struct *napi)
+ {
+-	napi_enable(&rq->napi);
++	napi_enable(napi);
+ 
+ 	/* If all buffers were filled by other side before we napi_enabled, we
+-	 * won't get another interrupt, so process any outstanding packets
+-	 * now.  virtnet_poll wants re-enable the queue, so we disable here.
+-	 * We synchronize against interrupts via NAPI_STATE_SCHED */
+-	if (napi_schedule_prep(&rq->napi)) {
+-		virtqueue_disable_cb(rq->vq);
+-		local_bh_disable();
+-		__napi_schedule(&rq->napi);
+-		local_bh_enable();
+-	}
++	 * won't get another interrupt, so process any outstanding packets now.
++	 * Call local_bh_enable after to trigger softIRQ processing.
++	 */
++	local_bh_disable();
++	virtqueue_napi_schedule(napi, vq);
++	local_bh_enable();
+ }
+ 
+ static void refill_work(struct work_struct *work)
+@@ -971,7 +984,7 @@ static void refill_work(struct work_struct *work)
+ 
+ 		napi_disable(&rq->napi);
+ 		still_empty = !try_fill_recv(vi, rq, GFP_KERNEL);
+-		virtnet_napi_enable(rq);
++		virtnet_napi_enable(rq->vq, &rq->napi);
+ 
+ 		/* In theory, this can happen: if we don't get any buffers in
+ 		 * we will *never* try to fill again.
+@@ -1011,21 +1024,13 @@ static int virtnet_poll(struct napi_struct *napi, int budget)
+ {
+ 	struct receive_queue *rq =
+ 		container_of(napi, struct receive_queue, napi);
+-	unsigned int r, received;
++	unsigned int received;
+ 
+ 	received = virtnet_receive(rq, budget);
+ 
+ 	/* Out of packets? */
+-	if (received < budget) {
+-		r = virtqueue_enable_cb_prepare(rq->vq);
+-		if (napi_complete_done(napi, received)) {
+-			if (unlikely(virtqueue_poll(rq->vq, r)) &&
+-			    napi_schedule_prep(napi)) {
+-				virtqueue_disable_cb(rq->vq);
+-				__napi_schedule(napi);
+-			}
+-		}
+-	}
++	if (received < budget)
++		virtqueue_napi_complete(napi, rq->vq, received);
+ 
+ 	return received;
+ }
+@@ -1040,7 +1045,7 @@ static int virtnet_open(struct net_device *dev)
+ 			/* Make sure we have some buffers: if oom use wq. */
+ 			if (!try_fill_recv(vi, &vi->rq[i], GFP_KERNEL))
+ 				schedule_delayed_work(&vi->refill, 0);
+-		virtnet_napi_enable(&vi->rq[i]);
++		virtnet_napi_enable(vi->rq[i].vq, &vi->rq[i].napi);
+ 	}
+ 
+ 	return 0;
+@@ -1747,7 +1752,7 @@ static int virtnet_restore_up(struct virtio_device *vdev)
+ 				schedule_delayed_work(&vi->refill, 0);
+ 
+ 		for (i = 0; i < vi->max_queue_pairs; i++)
+-			virtnet_napi_enable(&vi->rq[i]);
++			virtnet_napi_enable(vi->rq[i].vq, &vi->rq[i].napi);
+ 	}
+ 
+ 	netif_device_attach(vi->dev);
 -- 
 2.12.2.816.g2cccc81164-goog
