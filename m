@@ -1,52 +1,46 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [PATCH net-next] net: ipv6: Add early demux handler for UDP
- unicast
-Date: Tue, 18 Apr 2017 17:09:04 +0900
-Message-ID: <20170418080902.GA25804@vergenet.net>
-References: <1488997457-24554-1-git-send-email-subashab@codeaurora.org>
- <1488998446.28631.13.camel@edumazet-glaptop3.roam.corp.google.com>
- <8b6968063320eb8ddc654f79d3461f21@codeaurora.org>
- <1489000921.28631.18.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>,
-        netdev@vger.kernel.org, netdev-owner@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f46.google.com ([74.125.83.46]:33745 "EHLO
-        mail-pg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754700AbdDRIJK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 04:09:10 -0400
-Received: by mail-pg0-f46.google.com with SMTP id 63so24146116pgh.0
-        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 01:09:10 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1489000921.28631.18.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: pull-request: mac80211 2017-04-18
+Date: Tue, 18 Apr 2017 10:21:55 +0200
+Message-ID: <20170418082156.4706-1-johannes@sipsolutions.net>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 08, 2017 at 11:22:01AM -0800, Eric Dumazet wrote:
-> On Wed, 2017-03-08 at 12:11 -0700, Subash Abhinov Kasiviswanathan wrote:
-> > On 2017-03-08 11:40, Eric Dumazet wrote:
-> > > Well, this 'optimization' actually hurts when UDP sockets are not
-> > > connected, since this adds an extra cache line miss per incoming 
-> > > packet.
-> > > 
-> > > (DNS servers for example)
-> > 
-> > Hi Eric
-> > 
-> > Thanks for your comments. Would it be preferable to disable early demux 
-> > for the
-> > servers with large unconnected workloads in that case?
-> 
-> Well, many servers handle both TCP and UDP.
-> 
-> For TCP, there is no question about early demux, this is definitely a
-> win.
-> 
-> We probably should have one sysctl to enable TCP early demux, one for
-> UDP early demux.
+Hi Dave,
 
-If early demux is a clear win for TCP then I wonder if it is
-unnecessary and by some leap also undesirable to have a configuration
-knob for that case.
+Here's a single remaining fix - it's not even super urgent for
+this cycle since it's in a "fringe" feature, but it's for an
+SKB out-of-bounds access.
+
+Please pull and let me know if there's any problem.
+
+Thanks,
+johannes
+
+
+
+The following changes since commit fc9c89b19c56813434c3d2967652a4fa6906926a:
+
+  Merge branch 'bridge-register-netdev-before-changelink' (2017-04-11 22:22:45 -0400)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211.git tags/mac80211-for-davem-2017-04-18
+
+for you to fetch changes up to 9e478066eae41211c92a8f63cc69aafc391bd6ab:
+
+  mac80211: fix MU-MIMO follow-MAC mode (2017-04-13 14:35:53 +0200)
+
+----------------------------------------------------------------
+A single fix, for the MU-MIMO monitor mode, that fixes
+bad SKB accesses if the SKB was paged, which is the case
+for the only driver supporting this - iwlwifi.
+
+----------------------------------------------------------------
+Johannes Berg (1):
+      mac80211: fix MU-MIMO follow-MAC mode
+
+ net/mac80211/rx.c | 65 ++++++++++++++++++++++++++++++++++++++++---------------
+ 1 file changed, 47 insertions(+), 18 deletions(-)
