@@ -1,44 +1,70 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [PATCH] dp83640: don't recieve time stamps twice
-Date: Tue, 18 Apr 2017 22:14:26 +0300
-Message-ID: <20170418191426.GA17838@mwanda>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v4 net-next RFC] net: Generic XDP
+Date: Tue, 18 Apr 2017 15:29:16 -0400 (EDT)
+Message-ID: <20170418.152916.1361453741909754079.davem@davemloft.net>
+References: <20170415005949.GB73685@ast-mbp.thefacebook.com>
+        <20170418190535.GG4730@C02RW35GFVH8.dhcp.broadcom.net>
+        <20170418.150708.1605529107204449972.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Lunn <andrew@lunn.ch>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Richard Cochran <richardcochran@gmail.com>,
-        Stefan =?iso-8859-1?Q?S=F8rensen?=
-        <stefan.sorensen@spectralink.com>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: alexei.starovoitov@gmail.com, michael.chan@broadcom.com,
+        netdev@vger.kernel.org, xdp-newbies@vger.kernel.org
+To: andy@greyhouse.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:43792 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756009AbdDRT3X (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 15:29:23 -0400
+In-Reply-To: <20170418.150708.1605529107204449972.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch is prompted by a static checker warning about a potential
-use after free.  The concern is that netif_rx_ni() can free "skb" and we
-call it twice.
+From: David Miller <davem@davemloft.net>
+Date: Tue, 18 Apr 2017 15:07:08 -0400 (EDT)
 
-When I look at the commit that added this, it looks like some stray
-lines were added accidentally.  It doesn't make sense to me that we
-would recieve the same data two times.  I asked the author but never
-recieved a response.
+> From: Andy Gospodarek <andy@greyhouse.net>
+> Date: Tue, 18 Apr 2017 15:05:35 -0400
+> 
+>> On Fri, Apr 14, 2017 at 05:59:51PM -0700, Alexei Starovoitov wrote:
+>>> On Thu, Apr 13, 2017 at 04:23:15PM -0400, David Miller wrote:
+>>> > +
+>>> > +	switch (act) {
+>>> > +	case XDP_TX:
+>>> > +		__skb_push(skb, skb->mac_len);
+>>> 
+>>> s/skb->mac_len/mac_len/
+>>> 
+>> 
+>> I was away from my keyboard for a few days, but was able to get some
+>> time to test this today.
+>> 
+>> When using this change above suggested by Alexei, XDP_DROP and XDP_TX
+>> actions appear to work well with xdp1 and xdp2.
+>> 
+>> I'm seeing some rather odd behavior with xdp_tx_tunnel so it might be
+>> good to hold off on committing this just yet.
+>> 
+>> At first glance, it looks like there is enough headroom for the new
+>> frame, but the resulting packet data do not look right and I'm actually
+>> seeing some data that may be left on the stack from a previous caller.
+> 
+> Thanks for testing Andy, I'll take a look and see if I can figure it out.
 
-I can't test this code, but I'm pretty sure my patch is correct.
+Andy, I think we might be getting burnt by signedness issues in the
+offset handling when the XDP program adjusts the packet data pointer.
 
-Fixes: 4b063258ab93 ("dp83640: Delay scheduled work.")
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+In netif_receive_generic_xdp(), try changing the offset handling code to
+read something like:
 
-diff --git a/drivers/net/phy/dp83640.c b/drivers/net/phy/dp83640.c
-index e2460a57e4b1..ed0d10f54f26 100644
---- a/drivers/net/phy/dp83640.c
-+++ b/drivers/net/phy/dp83640.c
-@@ -1438,8 +1438,6 @@ static bool dp83640_rxtstamp(struct phy_device *phydev,
- 		skb_info->tmo = jiffies + SKB_TIMESTAMP_TIMEOUT;
- 		skb_queue_tail(&dp83640->rx_queue, skb);
- 		schedule_delayed_work(&dp83640->ts_work, SKB_TIMESTAMP_TIMEOUT);
--	} else {
--		netif_rx_ni(skb);
- 	}
- 
- 	return true;
+	off = xdp.data - orig_data;
+	if (off > 0)
+		__skb_pull(skb, off);
+	else if (off < 0)
+		__skb_push(skb, -off);
+
+If that doesn't work try adding:
+
+	__skb_cow(skb, XDP_PACKET_HEADROOM, 0);
+
+right after the skb_linearize() call in that same function.
