@@ -1,7 +1,7 @@
 From: Yankejian <yankejian@huawei.com>
-Subject: [PATCH net-next 1/3] net: hns: support deferred probe when can not obtain irq
-Date: Tue, 18 Apr 2017 18:12:32 +0800
-Message-ID: <1492510354-11300-2-git-send-email-yankejian@huawei.com>
+Subject: [PATCH net-next 3/3] net: hns: fixed bug that skb used after kfree
+Date: Tue, 18 Apr 2017 18:12:34 +0800
+Message-ID: <1492510354-11300-4-git-send-email-yankejian@huawei.com>
 References: <1492510354-11300-1-git-send-email-yankejian@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -14,53 +14,181 @@ To: <davem@davemloft.net>, <salil.mehta@huawei.com>,
         <qichengming@huawei.com>, <qumingguang@hisilicon.com>,
         <zhouhuiru@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([45.249.212.187]:5771 "EHLO
+Received: from szxga01-in.huawei.com ([45.249.212.187]:5772 "EHLO
         dggrg01-dlp.huawei.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1754813AbdDRJwW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 05:52:22 -0400
+        with ESMTP id S1754871AbdDRJw1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 05:52:27 -0400
 In-Reply-To: <1492510354-11300-1-git-send-email-yankejian@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: lipeng <lipeng321@huawei.com>
 
-In the hip06 and hip07 SoCs, the interrupt lines from the
-DSAF controllers are connected to mbigen hw module.
-The mbigen module is probed with module_init, and, as such,
-is not guaranteed to probe before the HNS driver. So we need
-to support deferred probe.
+There is KASAN warning which turn out it's a skb used after free:
 
-We check for probe deferral in the hw layer probe, so we not
-probe into the main layer and memories, etc., to later learn
-that we need to defer the probe.
+    BUG: KASAN: use-after-free in hns_nic_net_xmit_hw+0x62c/0x940...
+    [17659.112635]      alloc_debug_processing+0x18c/0x1a0
+    [17659.117208]      __slab_alloc+0x52c/0x560
+    [17659.120909]      kmem_cache_alloc_node+0xac/0x2c0
+    [17659.125309]      __alloc_skb+0x6c/0x260
+    [17659.128837]      tcp_send_ack+0x8c/0x280
+    [17659.132449]      __tcp_ack_snd_check+0x9c/0xf0
+    [17659.136587]      tcp_rcv_established+0x5a4/0xa70
+    [17659.140899]      tcp_v4_do_rcv+0x27c/0x620
+    [17659.144687]      tcp_prequeue_process+0x108/0x170
+    [17659.149085]      tcp_recvmsg+0x940/0x1020
+    [17659.152787]      inet_recvmsg+0x124/0x180
+    [17659.156488]      sock_recvmsg+0x64/0x80
+    [17659.160012]      SyS_recvfrom+0xd8/0x180
+    [17659.163626]      __sys_trace_return+0x0/0x4
+    [17659.167506] INFO: Freed in kfree_skbmem+0xa0/0xb0 age=23 cpu=1 pid=13
+    [17659.174000]      free_debug_processing+0x1d4/0x2c0
+    [17659.178486]      __slab_free+0x240/0x390
+    [17659.182100]      kmem_cache_free+0x24c/0x270
+    [17659.186062]      kfree_skbmem+0xa0/0xb0
+    [17659.189587]      __kfree_skb+0x28/0x40
+    [17659.193025]      napi_gro_receive+0x168/0x1c0
+    [17659.197074]      hns_nic_rx_up_pro+0x58/0x90
+    [17659.201038]      hns_nic_rx_poll_one+0x518/0xbc0
+    [17659.205352]      hns_nic_common_poll+0x94/0x140
+    [17659.209576]      net_rx_action+0x458/0x5e0
+    [17659.213363]      __do_softirq+0x1b8/0x480
+    [17659.217062]      run_ksoftirqd+0x64/0x80
+    [17659.220679]      smpboot_thread_fn+0x224/0x310
+    [17659.224821]      kthread+0x150/0x170
+    [17659.228084]      ret_from_fork+0x10/0x40
 
+    BUG: KASAN: use-after-free in hns_nic_net_xmit+0x8c/0xc0...
+    [17751.080490]      __slab_alloc+0x52c/0x560
+    [17751.084188]      kmem_cache_alloc+0x244/0x280
+    [17751.088238]      __build_skb+0x40/0x150
+    [17751.091764]      build_skb+0x28/0x100
+    [17751.095115]      __alloc_rx_skb+0x94/0x150
+    [17751.098900]      __napi_alloc_skb+0x34/0x90
+    [17751.102776]      hns_nic_rx_poll_one+0x180/0xbc0
+    [17751.107097]      hns_nic_common_poll+0x94/0x140
+    [17751.111333]      net_rx_action+0x458/0x5e0
+    [17751.115123]      __do_softirq+0x1b8/0x480
+    [17751.118823]      run_ksoftirqd+0x64/0x80
+    [17751.122437]      smpboot_thread_fn+0x224/0x310
+    [17751.126575]      kthread+0x150/0x170
+    [17751.129838]      ret_from_fork+0x10/0x40
+    [17751.133454] INFO: Freed in kfree_skbmem+0xa0/0xb0 age=19 cpu=7 pid=43
+    [17751.139951]      free_debug_processing+0x1d4/0x2c0
+    [17751.144436]      __slab_free+0x240/0x390
+    [17751.148051]      kmem_cache_free+0x24c/0x270
+    [17751.152014]      kfree_skbmem+0xa0/0xb0
+    [17751.155543]      __kfree_skb+0x28/0x40
+    [17751.159022]      napi_gro_receive+0x168/0x1c0
+    [17751.163074]      hns_nic_rx_up_pro+0x58/0x90
+    [17751.167041]      hns_nic_rx_poll_one+0x518/0xbc0
+    [17751.171358]      hns_nic_common_poll+0x94/0x140
+    [17751.175585]      net_rx_action+0x458/0x5e0
+    [17751.179373]      __do_softirq+0x1b8/0x480
+    [17751.183076]      run_ksoftirqd+0x64/0x80
+    [17751.186691]      smpboot_thread_fn+0x224/0x310
+    [17751.190826]      kthread+0x150/0x170
+    [17751.194093]      ret_from_fork+0x10/0x40
+
+in drivers/net/ethernet/hisilicon/hns/hns_enet.c
+
+    static netdev_tx_t hns_nic_net_xmit(struct sk_buff *skb,
+                                        struct net_device *ndev)
+    {
+        struct hns_nic_priv *priv = netdev_priv(ndev);
+        int ret;
+
+        assert(skb->queue_mapping < ndev->ae_handle->q_num);
+        ret = hns_nic_net_xmit_hw(ndev, skb,
+                                  &tx_ring_data(priv, skb->queue_mapping));
+        if (ret == NETDEV_TX_OK) {
+                netif_trans_update(ndev);
+                ndev->stats.tx_bytes += skb->len;
+                ndev->stats.tx_packets++;
+        }
+         return (netdev_tx_t)ret;
+    }
+
+skb maybe freed in hns_nic_net_xmit_hw() and return NETDEV_TX_OK:
+
+    out_err_tx_ok:
+
+        dev_kfree_skb_any(skb);
+        return NETDEV_TX_OK;
+
+This patch fix this bug.
+
+Reported-by: Jun He <hjat2005@huawei.com>
 Signed-off-by: lipeng <lipeng321@huawei.com>
 ---
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c | 12 ++++++++++++
- 1 file changed, 12 insertions(+)
+ drivers/net/ethernet/hisilicon/hns/hns_enet.c | 22 ++++++++++------------
+ drivers/net/ethernet/hisilicon/hns/hns_enet.h |  6 +++---
+ 2 files changed, 13 insertions(+), 15 deletions(-)
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-index 403ea9d..2da5b42 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-@@ -2971,6 +2971,18 @@ static int hns_dsaf_probe(struct platform_device *pdev)
- 	struct dsaf_device *dsaf_dev;
- 	int ret;
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.c b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+index fca37e2..1e04df6 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+@@ -300,9 +300,9 @@ static void fill_tso_desc(struct hnae_ring *ring, void *priv,
+ 			     mtu);
+ }
  
-+	/*
-+	 * Check if we should defer the probe before we probe the
-+	 * dsaf, as it's hard to defer later on.
-+	 */
-+	ret = platform_get_irq(pdev, 0);
-+	if (ret < 0) {
-+		if (ret != -EPROBE_DEFER)
-+			dev_err(&pdev->dev, "Cannot obtain irq\n");
+-int hns_nic_net_xmit_hw(struct net_device *ndev,
+-			struct sk_buff *skb,
+-			struct hns_nic_ring_data *ring_data)
++netdev_tx_t hns_nic_net_xmit_hw(struct net_device *ndev,
++				struct sk_buff *skb,
++				struct hns_nic_ring_data *ring_data)
+ {
+ 	struct hns_nic_priv *priv = netdev_priv(ndev);
+ 	struct hnae_ring *ring = ring_data->ring;
+@@ -361,6 +361,10 @@ int hns_nic_net_xmit_hw(struct net_device *ndev,
+ 	dev_queue = netdev_get_tx_queue(ndev, skb->queue_mapping);
+ 	netdev_tx_sent_queue(dev_queue, skb->len);
+ 
++	netif_trans_update(ndev);
++	ndev->stats.tx_bytes += skb->len;
++	ndev->stats.tx_packets++;
 +
-+		return ret;
-+	}
+ 	wmb(); /* commit all data before submit */
+ 	assert(skb->queue_mapping < priv->ae_handle->q_num);
+ 	hnae_queue_xmit(priv->ae_handle->qs[skb->queue_mapping], buf_num);
+@@ -1474,17 +1478,11 @@ static netdev_tx_t hns_nic_net_xmit(struct sk_buff *skb,
+ 				    struct net_device *ndev)
+ {
+ 	struct hns_nic_priv *priv = netdev_priv(ndev);
+-	int ret;
+ 
+ 	assert(skb->queue_mapping < ndev->ae_handle->q_num);
+-	ret = hns_nic_net_xmit_hw(ndev, skb,
+-				  &tx_ring_data(priv, skb->queue_mapping));
+-	if (ret == NETDEV_TX_OK) {
+-		netif_trans_update(ndev);
+-		ndev->stats.tx_bytes += skb->len;
+-		ndev->stats.tx_packets++;
+-	}
+-	return (netdev_tx_t)ret;
 +
- 	dsaf_dev = hns_dsaf_alloc_dev(&pdev->dev, sizeof(struct dsaf_drv_priv));
- 	if (IS_ERR(dsaf_dev)) {
- 		ret = PTR_ERR(dsaf_dev);
++	return hns_nic_net_xmit_hw(ndev, skb,
++				   &tx_ring_data(priv, skb->queue_mapping));
+ }
+ 
+ static int hns_nic_change_mtu(struct net_device *ndev, int new_mtu)
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.h b/drivers/net/ethernet/hisilicon/hns/hns_enet.h
+index 5b412de..7bc6a6e 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_enet.h
++++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.h
+@@ -91,8 +91,8 @@ struct hns_nic_priv {
+ void hns_nic_net_reset(struct net_device *ndev);
+ void hns_nic_net_reinit(struct net_device *netdev);
+ int hns_nic_init_phy(struct net_device *ndev, struct hnae_handle *h);
+-int hns_nic_net_xmit_hw(struct net_device *ndev,
+-			struct sk_buff *skb,
+-			struct hns_nic_ring_data *ring_data);
++netdev_tx_t hns_nic_net_xmit_hw(struct net_device *ndev,
++				struct sk_buff *skb,
++				struct hns_nic_ring_data *ring_data);
+ 
+ #endif	/**__HNS_ENET_H */
 -- 
 1.9.1
