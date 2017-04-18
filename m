@@ -1,95 +1,82 @@
-From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Subject: Re: [PATCH 16/22] xen-blkfront: Make use of the new sg_map helper
- function
-Date: Tue, 18 Apr 2017 10:27:23 -0400
-Message-ID: <20170418142723.GA27133@char.us.oracle.com>
-References: <1492121135-4437-1-git-send-email-logang@deltatee.com>
- <1492121135-4437-17-git-send-email-logang@deltatee.com>
- <063D6719AE5E284EB5DD2968C1650D6DCFFD3CD7@AcuExch.aculab.com>
+From: Daniel Walker <danielwa@cisco.com>
+Subject: Re: Marvell phy errata origins?
+Date: Tue, 18 Apr 2017 07:18:03 -0700
+Message-ID: <3c16d944-9874-d016-e3f1-68055a22c173@cisco.com>
+References: <59691a35-a89c-f9ca-c7b0-73134a737f4c@cisco.com>
+ <20170418140450.GB13724@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "linux-nvdimm@lists.01.org" <linux-nvdimm@ml01.01.org>,
- Steve Wise <swise@opengridcomputing.com>,
- "linux-nvme@lists.infradead.org" <linux-nvme@lists.infradead.org>,
- "target-devel@vger.kernel.org" <target-devel@vger.kernel.org>,
- Sumit Semwal <sumit.semwal@linaro.org>,
- "devel@driverdev.osuosl.org" <devel@driverdev.osuosl.org>,
- "rds-devel@oss.oracle.com" <rds-devel@oss.oracle.com>,
- Sagi Grimberg <sagi@grimberg.me>,
- "linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
- Matthew Wilcox <mawilcox@microsoft.com>,
- "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
- Christoph Hellwig <hch@lst.de>,
- "fcoe-devel@open-fcoe.org" <fcoe-devel@open-fcoe.org>,
- Ross Zwisler <ross.zwisler@linux.intel.com>,
- "open-iscsi@googlegroups.com" <open-iscsi@googlegroups.com>,
- "linux-media@vger.kernel.org" <linux-media@vger.kernel.org>,
- Ming Lin <ming.l@ssi.samsung.com>,
- "intel-gfx@list
-To: David Laight <David.Laight@ACULAB.COM>, xen-devel@lists.xensource.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-Content-Disposition: inline
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DCFFD3CD7@AcuExch.aculab.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+        Andy Fleming <afleming@freescale.com>,
+        Harini Katakam <harini.katakam@xilinx.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        HEMANT RAMDASI <hramdasi@cisco.com>,
+        "Julius Hemanth Pitti -X (jpitti - MONTA VISTA SOFTWARE INC at Cisco)"
+        <jpitti@cisco.com>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bgl-iport-2.cisco.com ([72.163.197.26]:3604 "EHLO
+        bgl-iport-2.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750758AbdDRO2I (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 10:28:08 -0400
+In-Reply-To: <20170418140450.GB13724@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 18, 2017 at 02:13:59PM +0000, David Laight wrote:
-> From: Logan Gunthorpe
-> > Sent: 13 April 2017 23:05
-> > Straightforward conversion to the new helper, except due to
-> > the lack of error path, we have to warn if unmapable memory
-> > is ever present in the sgl.
+On 04/18/2017 07:04 AM, Andrew Lunn wrote:
+> On Tue, Apr 18, 2017 at 06:16:33AM -0700, Daniel Walker wrote:
+>> Hi,
+>>
+>> Cisco is using a Marvell 88E1112 phy. It seems to be fairly similar
+>> to the 88E1111 which Harini added a fix for.
+> Hi Daniel
+>
+> If you look at Marvell reference drive, DSDT, they are actually quite
+> different. Different virtual cable tester, different downshift
+> configuration, different packet generator, different loopback. I would
+> say they are different generations of PHY.
 
-Interesting that you didn't CC any of the maintainers. Could you 
-do that in the future please?
+Ok .
 
-> > 
-> > Signed-off-by: Logan Gunthorpe <logang@deltatee.com>
-> > ---
-> >  drivers/block/xen-blkfront.c | 33 +++++++++++++++++++++++++++------
-> >  1 file changed, 27 insertions(+), 6 deletions(-)
-> > 
-> > diff --git a/drivers/block/xen-blkfront.c b/drivers/block/xen-blkfront.c
-> > index 5067a0a..7dcf41d 100644
-> > --- a/drivers/block/xen-blkfront.c
-> > +++ b/drivers/block/xen-blkfront.c
-> > @@ -807,8 +807,19 @@ static int blkif_queue_rw_req(struct request *req, struct blkfront_ring_info *ri
-> >  		BUG_ON(sg->offset + sg->length > PAGE_SIZE);
-> > 
-> >  		if (setup.need_copy) {
-> > -			setup.bvec_off = sg->offset;
-> > -			setup.bvec_data = kmap_atomic(sg_page(sg));
-> > +			setup.bvec_off = 0;
-> > +			setup.bvec_data = sg_map(sg, SG_KMAP_ATOMIC);
-> > +			if (IS_ERR(setup.bvec_data)) {
-> > +				/*
-> > +				 * This should really never happen unless
-> > +				 * the code is changed to use memory that is
-> > +				 * not mappable in the sg. Seeing there is a
-> > +				 * questionable error path out of here,
-> > +				 * we WARN.
-> > +				 */
-> > +				WARN(1, "Non-mappable memory used in sg!");
-> > +				return 1;
-> > +			}
-> ...
-> 
-> Perhaps add a flag to mark failure as 'unexpected' and trace (and panic?)
-> inside sg_map().
-> 
-> 	David
-> 
-> 
-> _______________________________________________
-> Linux-nvdimm mailing list
-> Linux-nvdimm@lists.01.org
-> https://lists.01.org/mailman/listinfo/linux-nvdimm
+>
+>> In Harini's commit
+>> message for ,
+>>
+>> https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/drivers/net/phy/marvell.c?id=3ec0a0f10ceb
+>>
+>> "This function has a sequence accessing Page 5 and Register 31, both
+>> of which are not defined or reserved for this PHY"
+>>
+>> For the 88E1112 we see that these are "Factory Test Modes" which the
+>> contents of are not documented. They aren't really "not defied", and
+>> aren't really "reserved" .. Marvell support claims they don't
+>> support these drivers, and Freescale seems to be adding these
+>> drivers, and the line we are looking at.
+>>
+>> We had some issues with our PHY which were corrected with the same
+>> patch Harini used but modified for the M88E1112. We're trying to get
+>> to the bottom of where this code came from and what it was suppose
+>> to be doing.
+> I tried to find this errata fix in the Marvell reference code. And
+> failed to find it. But it is "Vendor Crap" code, hard to find anything
+> in it.
+>
+> My guess is, this errata just applies to one model of PHY, maybe even
+> one revision of one model of a PHY. The hard bit is figuring out what
+> actually needs it. Do you have access to Marvell datasheets?
+
+Prior to Andy's commit this code was duplicated in at least a couple of 
+the ethernet drivers from Freescale. I think all Andy did was combine 
+them all.
+
+I think the data sheet is here for the 1112,
+
+http://www.dexsilicium.com/Marvell_88E1112.pdf
+
+This is what I've been using. My contact with Marvell for support is 
+minimal. Andy's email at Freescale bounced , so maybe someone else form 
+Freescale could comment. There must have been something very strange 
+getting fixed due to using unnamed hex values in the code.
+
+Daniel
