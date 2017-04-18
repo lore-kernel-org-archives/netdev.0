@@ -1,69 +1,61 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH net] xfrm: calculate L4 checksums also for GSO case
- before encrypting packets
-Date: Tue, 18 Apr 2017 11:09:19 +0200
-Message-ID: <20170418090919.GD30104@secunet.com>
-References: <1491849727-32008-1-git-send-email-aatteka@ovn.org>
- <20170411070755.GW5092@secunet.com>
- <CAMQa7Biajree5Kc1fOWQN42R1UDDGp7ZevZZRtUMZOKDWTk-Vw@mail.gmail.com>
+From: Juergen Borleis <jbe@pengutronix.de>
+Subject: Re: [PATCHv5] net: dsa: add SMSC/Microchip LAN9303 three port ethernet switch driver
+Date: Tue, 18 Apr 2017 11:10:29 +0200
+Message-ID: <201704181110.30446.jbe@pengutronix.de>
+References: <20170413073343.8067-1-jbe@pengutronix.de> <20170413.104604.168979376298793906.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Ansis Atteka <aatteka@ovn.org>, <netdev@vger.kernel.org>
-To: Ansis Atteka <ansisatteka@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:44564 "EHLO a.mx.secunet.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755947AbdDRJJa (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 18 Apr 2017 05:09:30 -0400
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 8BIT
+Cc: David Miller <davem@davemloft.net>, andrew@lunn.ch,
+        f.fainelli@gmail.com, vivien.didelot@savoirfairelinux.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: kernel@pengutronix.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170413.104604.168979376298793906.davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <CAMQa7Biajree5Kc1fOWQN42R1UDDGp7ZevZZRtUMZOKDWTk-Vw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 13, 2017 at 07:45:08PM -0700, Ansis Atteka wrote:
-> On 11 April 2017 at 00:07, Steffen Klassert <steffen.klassert@secunet.com>
-> wrote:
+Hi David,
+
+On Thursday 13 April 2017 16:46:04 David Miller wrote:
+> > Changes in v5:
 > >
-> > What's wrong with the checksum provided by the GSO layer and
-> > why we have to do this unconditionally here?
-> >
-> 
-> I believe with "GSO layer" you meant the skb_gso_segment() function
-> invocation from xfrm_output_gso()?
-> 
-> If so, then the problem with that is that the list of the skb's returned by
-> that function could be in CHECKSUM_PARTIAL state if skb came from a UDP
-> tunnel such as Geneve:
+> > - missing include file to 'net/dsa/tag_lan9303.c' added
+>
+> This still doesn't build cleanly.
+>
+> drivers/net/dsa/lan9303_mdio.o: In function `mdio_module_init':
+> lan9303_mdio.c:(.init.text+0x0): multiple definition of `init_module'
+> drivers/net/dsa/lan9303_i2c.o:lan9303_i2c.c:(.init.text+0x0): first
+> defined here drivers/net/dsa/lan9303_mdio.o: In function
+> `mdio_module_exit':
+> lan9303_mdio.c:(.exit.text+0x0): multiple definition of `cleanup_module'
+> drivers/net/dsa/lan9303_i2c.o:lan9303_i2c.c:(.exit.text+0x0): first
+> defined here scripts/Makefile.build:540: recipe for target
+> 'drivers/net/dsa/lan9303.o' failed
+>
+> Please test with NET_DSA_SMSC_LAN9303=m, NET_DSA_SMSC_LAN9303_I2C=y and
+> NET_DSA_SMSC_LAN9303_MDIO=y as that is what I used to reproduce the
+> problem above.
 
-This should not happen. We don't announce checksum capabilities,
-so the GSO layer should generate the full checksum.
+Sorry, missed that, due to the need for a static driver by NFSroot...
 
-__skb_udp_tunnel_segment() and udp4_ufo_fragment() add the
-NETIF_F_HW_CSUM flag to features. This is certainly wrong
-if the packet undergoes an IPsec transformation.
+> You cannot really use module_i2c_driver() and mdio_module_driver()
+> at the same time in the same driver module.
+>
+> You're going to have to have a common module init function which you
+> code up by hand, which conditionally handles I2C and MDIO based
+> probing based upon Kconfig symbol settings.
 
-I don't have a testcase for this, so not sure if this is
-your problem. Could you try the (untested) patch below?
+I'm now [v6] using the same build-method like the mfd driver mc13xx (which 
+can be accessed via I2C or SPI). I've now compile time tested all module 
+and static variants (hopefully) and run-time tested the static variant and 
+the I2C module variant.
 
-diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
-index b2be1d9..cc0c89c 100644
---- a/net/ipv4/udp_offload.c
-+++ b/net/ipv4/udp_offload.c
-@@ -74,7 +74,7 @@ static struct sk_buff *__skb_udp_tunnel_segment(struct sk_buff *skb,
- 	 * outer one so strip the existing checksum feature flags and
- 	 * instead set the flag based on our outer checksum offload value.
- 	 */
--	if (remcsum || ufo) {
-+	if ((remcsum || ufo) && !(skb_dst(skb) && dst_xfrm(skb_dst(skb)))) {
- 		features &= ~NETIF_F_CSUM_MASK;
- 		if (!need_csum || offload_csum)
- 			features |= NETIF_F_HW_CSUM;
-@@ -238,7 +238,7 @@ static struct sk_buff *udp4_ufo_fragment(struct sk_buff *skb,
- 	 * due to the fact that we have already done the checksum in
- 	 * software prior to segmenting the frame.
- 	 */
--	if (!skb->encap_hdr_csum)
-+	if (!skb->encap_hdr_csum && !(skb_dst(skb) && dst_xfrm(skb_dst(skb))))
- 		features |= NETIF_F_HW_CSUM;
- 
- 	/* Fragment the skb. IP headers of the fragments are updated in
+jb
+
+-- 
+Pengutronix e.K.                             | Juergen Borleis             |
+Industrial Linux Solutions                   | http://www.pengutronix.de/  |
