@@ -1,53 +1,91 @@
-From: Johan Hovold <johan@kernel.org>
-Subject: Re: [PATCH v2 0/8] NFC: fix device allocation and nfcmrvl crashes
-Date: Tue, 18 Apr 2017 12:09:16 +0200
-Message-ID: <20170418100916.GB2823@localhost>
-References: <20170330101542.15384-1-johan@kernel.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, Johan Hovold <johan@kernel.org>,
-        Aloisio Almeida Jr <aloisio.almeida@openbossa.org>,
-        Lauro Ramos Venancio <lauro.venancio@openbossa.org>
-To: Samuel Ortiz <sameo@linux.intel.com>
+From: Wolfgang Bumiller <w.bumiller@proxmox.com>
+Subject: [PATCH v2 net 2/2] net sched actions: decrement module refcount earlier
+Date: Tue, 18 Apr 2017 12:13:22 +0200
+Message-ID: <20170418101322.27666-2-w.bumiller@proxmox.com>
+References: <20170418101322.27666-1-w.bumiller@proxmox.com>
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Cong Wang <xiyou.wangcong@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f43.google.com ([209.85.215.43]:35031 "EHLO
-        mail-lf0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755066AbdDRKJU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 06:09:20 -0400
-Content-Disposition: inline
-In-Reply-To: <20170330101542.15384-1-johan@kernel.org>
+Received: from proxmox.maurer-it.com ([212.186.127.180]:4296 "EHLO
+        proxmox.maurer-it.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755547AbdDRKN0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 06:13:26 -0400
+In-Reply-To: <20170418101322.27666-1-w.bumiller@proxmox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 30, 2017 at 12:15:34PM +0200, Johan Hovold wrote:
-> This started out with the observation that the nfcmrvl_uart driver
-> unconditionally dereferenced the tty class device despite the fact that
-> not every tty has an associated struct device (Unix98 ptys). Some
-> further changes were needed in the common nfcmrvl code to fully address
-> this, some of which also incidentally fixed a few related bugs (e.g.
-> resource leaks in error paths).
-> 
-> While fixing this I stumbled over a regression in NFC core that lead to
-> broken registration error paths and misnamed workqueues.
-> 
-> Note that this has only been tested by configuring the n_hci line
-> discipline for different ttys without any actual NFC hardware connected.
+Whether the reference count has to be decremented depends
+on whether the policy was created. If TCA_ACT_COOKIE is
+passed and an error occurs there, the same condition still
+has to be honored.
 
-> Johan Hovold (8):
->   NFC: fix broken device allocation
->   NFC: nfcmrvl_uart: add missing tty-device sanity check
->   NFC: nfcmrvl: do not use device-managed resources
->   NFC: nfcmrvl: use nfc-device for firmware download
->   NFC: nfcmrvl: fix firmware-management initialisation
->   NFC: nfcmrvl_uart: fix device-node leak during probe
->   NFC: nfcmrvl_usb: use interface as phy device
->   NFC: nfcmrvl: allow gpio 0 for reset signalling
+Signed-off-by: Wolfgang Bumiller <w.bumiller@proxmox.com>
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+---
 
-Any chance of getting these into 4.12, Samuel?
+I did not include the Acked-bys here because I've noticed that this
+is still wrong. After reading a bit more and doing more tests with
+different filters I realized that the `name != NULL` case is specific
+to the police filter only. For the other filters this patch here breaks
+refcounting in the error case (I included it for reference only).
+I'm thinking the first patch should be enough. (I've tested forcing the
+other filters into the error path *without* this patch and couldn't
+produce crashes or reference count problems (while with this patch
+applied it was leaking reference counts on creation (which makes sense
+considering tcf_hash_release is used and the ACT_P_CREATED case will
+keep repeating)). (Whereas without both patches simply looking through
+creating and deleting a policing filter pretty much always resulted in
+crashes with various different backtraces.)
 
-Note that patches 2 and 4 fixes NULL-derefs that can be triggered by an
-unprivileged user.
+(I'd still like to clarify the comment in the code btw.)
 
-Thanks,
-Johan
+ net/sched/act_api.c | 18 ++++++++++--------
+ 1 file changed, 10 insertions(+), 8 deletions(-)
+
+diff --git a/net/sched/act_api.c b/net/sched/act_api.c
+index 8cc883c063f0..4493f1b9d22b 100644
+--- a/net/sched/act_api.c
++++ b/net/sched/act_api.c
+@@ -604,28 +604,30 @@ struct tc_action *tcf_action_init_1(struct net *net, struct nlattr *nla,
+ 	if (err < 0)
+ 		goto err_mod;
+ 
++	/* The module count should only go up when a brand new policy was
++	 * created, if it exists and is only bound to in a_o->init() then
++	 * ACT_P_CREATED is not returned (a zero is), and we need to roll back
++	 * the bump caused by tc_lookup_action_n().
++	 */
++	if (err != ACT_P_CREATED)
++		module_put(a_o->owner);
++
+ 	if (name == NULL && tb[TCA_ACT_COOKIE]) {
+ 		int cklen = nla_len(tb[TCA_ACT_COOKIE]);
+ 
+ 		if (cklen > TC_COOKIE_MAX_SIZE) {
+ 			err = -EINVAL;
+ 			tcf_hash_release(a, bind);
+-			goto err_mod;
++			goto err_out;
+ 		}
+ 
+ 		if (nla_memdup_cookie(a, tb) < 0) {
+ 			err = -ENOMEM;
+ 			tcf_hash_release(a, bind);
+-			goto err_mod;
++			goto err_out;
+ 		}
+ 	}
+ 
+-	/* module count goes up only when brand new policy is created
+-	 * if it exists and is only bound to in a_o->init() then
+-	 * ACT_P_CREATED is not returned (a zero is).
+-	 */
+-	if (err != ACT_P_CREATED)
+-		module_put(a_o->owner);
+ 
+ 	return a;
+ 
+-- 
+2.11.0
