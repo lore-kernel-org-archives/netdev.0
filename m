@@ -1,86 +1,156 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 04/15] ixgbe: Complete support for X553 sgmii
-Date: Tue, 18 Apr 2017 16:01:54 -0700
-Message-ID: <20170418230205.37223-5-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 14/15] ixgbe: Add support for maximum headroom when using build_skb
+Date: Tue, 18 Apr 2017 16:02:04 -0700
+Message-ID: <20170418230205.37223-15-jeffrey.t.kirsher@intel.com>
 References: <20170418230205.37223-1-jeffrey.t.kirsher@intel.com>
-Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+        jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga06.intel.com ([134.134.136.31]:58032 "EHLO mga06.intel.com"
+Received: from mga06.intel.com ([134.134.136.31]:61886 "EHLO mga06.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755228AbdDRXCM (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 18 Apr 2017 19:02:12 -0400
+        id S1757759AbdDRXCQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 18 Apr 2017 19:02:16 -0400
 In-Reply-To: <20170418230205.37223-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Don Skidmore <donald.c.skidmore@intel.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-The initial patches supporting X553 sgmii forgot some details.  This patch
-should cover those missing spots.
+This patch increases the headroom allocated when using build_skb on a
+system with 4K pages.  Specifically the breakdown of headroom versus cache
+size is as follows:
+    L1 Cache Size           Headroom
+    64                      192
+    64, NET_IP_ALIGN == 2   194
+    128                     128
+    128, NET_IP_ALIGN == 2  130
+    256                     512
+    256, NET_IP_ALIGN == 2  258
 
-Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
-Tested-by: Krishneil Singh <krishneil.k.singh@intel.com>
+I stopped at supporting only a cache line size of 256 as that was the
+largest cache size I could find supported in the kernel.
+
+With this we are guaranteeing at least 128 bytes of headroom to spare in
+the frame.  This should be enough for us to insert a couple of IPv6 headers
+if needed which is likely enough room for anything XDP should need.
+
+I'm leaving the padding for systems with pages larger than 4K unmodified
+for now.  XDP currently isn't really setup to work on those types of
+systems so we can cross that bridge when we get there.
+
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c | 29 +++++++++++++++++++++++++--
- 1 file changed, 27 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h      | 55 ++++++++++++++++++++++++---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |  6 +--
+ 2 files changed, 53 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-index 0a2eacff7327..633079eaf8fb 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-@@ -334,6 +334,16 @@ static s32 ixgbe_identify_phy_x550em(struct ixgbe_hw *hw)
- 	case IXGBE_DEV_ID_X550EM_X_1G_T:
- 	case IXGBE_DEV_ID_X550EM_X_10G_T:
- 		return ixgbe_identify_phy_generic(hw);
-+	case IXGBE_DEV_ID_X550EM_A_1G_T:
-+	case IXGBE_DEV_ID_X550EM_A_1G_T_L:
-+		hw->phy.type = ixgbe_phy_fw;
-+		hw->phy.ops.read_reg = NULL;
-+		hw->phy.ops.write_reg = NULL;
-+		if (hw->bus.lan_id)
-+			hw->phy.phy_semaphore_mask |= IXGBE_GSSR_PHY1_SM;
-+		else
-+			hw->phy.phy_semaphore_mask |= IXGBE_GSSR_PHY0_SM;
-+		break;
- 	default:
- 		break;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+index b1ecc2627a5a..656ca8f69768 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+@@ -86,17 +86,62 @@
+ 
+ /* Supported Rx Buffer Sizes */
+ #define IXGBE_RXBUFFER_256    256  /* Used for skb receive header */
++#define IXGBE_RXBUFFER_1536  1536
+ #define IXGBE_RXBUFFER_2K    2048
+ #define IXGBE_RXBUFFER_3K    3072
+ #define IXGBE_RXBUFFER_4K    4096
+ #define IXGBE_MAX_RXBUFFER  16384  /* largest size for a single descriptor */
+ 
+-#define IXGBE_SKB_PAD		(NET_SKB_PAD + NET_IP_ALIGN)
++/* Attempt to maximize the headroom available for incoming frames.  We
++ * use a 2K buffer for receives and need 1536/1534 to store the data for
++ * the frame.  This leaves us with 512 bytes of room.  From that we need
++ * to deduct the space needed for the shared info and the padding needed
++ * to IP align the frame.
++ *
++ * Note: For cache line sizes 256 or larger this value is going to end
++ *	 up negative.  In these cases we should fall back to the 3K
++ *	 buffers.
++ */
+ #if (PAGE_SIZE < 8192)
+-#define IXGBE_MAX_FRAME_BUILD_SKB \
+-	(SKB_WITH_OVERHEAD(IXGBE_RXBUFFER_2K) - IXGBE_SKB_PAD)
++#define IXGBE_MAX_2K_FRAME_BUILD_SKB (IXGBE_RXBUFFER_1536 - NET_IP_ALIGN)
++#define IXGBE_2K_TOO_SMALL_WITH_PADDING \
++((NET_SKB_PAD + IXGBE_RXBUFFER_1536) > SKB_WITH_OVERHEAD(IXGBE_RXBUFFER_2K))
++
++static inline int ixgbe_compute_pad(int rx_buf_len)
++{
++	int page_size, pad_size;
++
++	page_size = ALIGN(rx_buf_len, PAGE_SIZE / 2);
++	pad_size = SKB_WITH_OVERHEAD(page_size) - rx_buf_len;
++
++	return pad_size;
++}
++
++static inline int ixgbe_skb_pad(void)
++{
++	int rx_buf_len;
++
++	/* If a 2K buffer cannot handle a standard Ethernet frame then
++	 * optimize padding for a 3K buffer instead of a 1.5K buffer.
++	 *
++	 * For a 3K buffer we need to add enough padding to allow for
++	 * tailroom due to NET_IP_ALIGN possibly shifting us out of
++	 * cache-line alignment.
++	 */
++	if (IXGBE_2K_TOO_SMALL_WITH_PADDING)
++		rx_buf_len = IXGBE_RXBUFFER_3K + SKB_DATA_ALIGN(NET_IP_ALIGN);
++	else
++		rx_buf_len = IXGBE_RXBUFFER_1536;
++
++	/* if needed make room for NET_IP_ALIGN */
++	rx_buf_len -= NET_IP_ALIGN;
++
++	return ixgbe_compute_pad(rx_buf_len);
++}
++
++#define IXGBE_SKB_PAD	ixgbe_skb_pad()
+ #else
+-#define IXGBE_MAX_FRAME_BUILD_SKB IXGBE_RXBUFFER_2K
++#define IXGBE_SKB_PAD	(NET_SKB_PAD + NET_IP_ALIGN)
+ #endif
+ 
+ /*
+@@ -361,7 +406,7 @@ static inline unsigned int ixgbe_rx_bufsz(struct ixgbe_ring *ring)
+ 		return IXGBE_RXBUFFER_3K;
+ #if (PAGE_SIZE < 8192)
+ 	if (ring_uses_build_skb(ring))
+-		return IXGBE_MAX_FRAME_BUILD_SKB;
++		return IXGBE_MAX_2K_FRAME_BUILD_SKB;
+ #endif
+ 	return IXGBE_RXBUFFER_2K;
+ }
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index dcc8a5c26276..536dd9b1ad97 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -3813,7 +3813,7 @@ void ixgbe_configure_rx_ring(struct ixgbe_adapter *adapter,
+ 		/* Limit the maximum frame size so we don't overrun the skb */
+ 		if (ring_uses_build_skb(ring) &&
+ 		    !test_bit(__IXGBE_RX_3K_BUFFER, &ring->state))
+-			rxdctl |= IXGBE_MAX_FRAME_BUILD_SKB |
++			rxdctl |= IXGBE_MAX_2K_FRAME_BUILD_SKB |
+ 				  IXGBE_RXDCTL_RLPML_EN;
+ #endif
  	}
-@@ -2215,8 +2225,20 @@ static s32 ixgbe_get_link_capabilities_X550em(struct ixgbe_hw *hw,
- 		else
- 			*speed = IXGBE_LINK_SPEED_10GB_FULL;
- 	} else {
--		*speed = IXGBE_LINK_SPEED_10GB_FULL |
--			 IXGBE_LINK_SPEED_1GB_FULL;
-+		switch (hw->phy.type) {
-+		case ixgbe_phy_x550em_kx4:
-+			*speed = IXGBE_LINK_SPEED_1GB_FULL |
-+				 IXGBE_LINK_SPEED_2_5GB_FULL |
-+				 IXGBE_LINK_SPEED_10GB_FULL;
-+			break;
-+		case ixgbe_phy_sgmii:
-+			*speed = IXGBE_LINK_SPEED_1GB_FULL;
-+			break;
-+		default:
-+			*speed = IXGBE_LINK_SPEED_10GB_FULL |
-+				 IXGBE_LINK_SPEED_1GB_FULL;
-+			break;
-+		}
- 		*autoneg = true;
+@@ -3983,8 +3983,8 @@ static void ixgbe_set_rx_buffer_len(struct ixgbe_adapter *adapter)
+ 		if (adapter->flags2 & IXGBE_FLAG2_RSC_ENABLED)
+ 			set_bit(__IXGBE_RX_3K_BUFFER, &rx_ring->state);
+ 
+-		if ((max_frame > (ETH_FRAME_LEN + ETH_FCS_LEN)) ||
+-		    (max_frame > IXGBE_MAX_FRAME_BUILD_SKB))
++		if (IXGBE_2K_TOO_SMALL_WITH_PADDING ||
++		    (max_frame > (ETH_FRAME_LEN + ETH_FCS_LEN)))
+ 			set_bit(__IXGBE_RX_3K_BUFFER, &rx_ring->state);
+ #endif
  	}
- 	return 0;
-@@ -3126,6 +3148,9 @@ static s32 ixgbe_init_phy_ops_X550em(struct ixgbe_hw *hw)
- 		phy->ops.handle_lasi = ixgbe_handle_lasi_ext_t_x550em;
- 		phy->ops.reset = ixgbe_reset_phy_t_X550em;
- 		break;
-+	case ixgbe_phy_sgmii:
-+		phy->ops.setup_link = NULL;
-+		break;
- 	case ixgbe_phy_fw:
- 		phy->ops.setup_link = ixgbe_setup_fw_link;
- 		phy->ops.reset = ixgbe_reset_phy_fw;
 -- 
 2.12.2
