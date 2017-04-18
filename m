@@ -1,85 +1,58 @@
-From: Kees Cook <keescook@chromium.org>
-Subject: Re: [PATCH net-next v6 04/11] landlock: Add LSM hooks related to filesystem
-Date: Tue, 18 Apr 2017 16:40:34 -0700
-Message-ID: <CAGXu5jKCr1qPqJ8YWAjK1Lj-fThAhMnrxFW8twFcj6C9ODBpsA@mail.gmail.com>
-References: <20170328234650.19695-1-mic@digikod.net> <20170328234650.19695-5-mic@digikod.net>
- <CAGXu5jJKNp8R5kZ1U=K7KwgnV=NvH5aoAbftA-05a_Sa4pOg1Q@mail.gmail.com>
- <9a69055a-b4cf-00b0-da5e-2e45ff88059c@digikod.net> <c122415d-c2be-d013-efb4-833ba87d144d@schaufler-ca.com>
+From: Joe Stringer <joe-LZ6Gd1LRuIk@public.gmane.org>
+Subject: Re: [PATCH 1/5] netlink: extended ACK reporting
+Date: Tue, 18 Apr 2017 16:46:15 -0700
+Message-ID: <CAPWQB7FeSe6dMBObgFGcpJa5eLGYA81gTiEG=9PCtstiJxfgqQ@mail.gmail.com>
+References: <20170408174900.12820-1-johannes@sipsolutions.net>
+	<20170408174900.12820-2-johannes@sipsolutions.net>
+	<20170408183440.GA1900@nanopsycho>
+	<1491676621.5800.24.camel@sipsolutions.net>
+	<20170408184008.GB1900@nanopsycho>
+	<990b5610-a894-b3d2-d3a7-536dfd25adb8@cumulusnetworks.com>
+	<1491805089.2455.3.camel@sipsolutions.net>
+	<c0b35e6e-e5cb-25f6-7ccf-eec33ba39f3b@6wind.com>
+	<1492090170.29526.1.camel@sipsolutions.net>
+	<28b0d93a-7e96-f7eb-b140-afc9ad429c30@6wind.com>
+	<1492111480.29526.7.camel@sipsolutions.net>
+	<CAPWQB7FWOcEen3SGyQtW7t2WpDNLE08JEdHeZHmM738J=Rur0g@mail.gmail.com>
+	<1492508494.2472.11.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: =?UTF-8?B?TWlja2HDq2wgU2FsYcO8bg==?= <mic@digikod.net>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Alexei Starovoitov <ast@kernel.org>,
-        Andy Lutomirski <luto@amacapital.net>,
-        Arnaldo Carvalho de Melo <acme@kernel.org>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        David Drysdale <drysdale@google.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        "Eric W . Biederman" <ebiederm@xmission.com>,
-        James Morris <james.l.morris@oracle.com>,
-        Jann Horn <jann@thejh.net>, Jonathan Corbet <corbet@lwn.net>,
-        Matthew Garrett <mjg59@srcf.ucam.org>,
-        Michael Kerrisk <mtk.manpages@gmail.com>,
-        Paul Moore <paul@paul-moore.com>,
-        Sargun Dhillon <sargun@sargun.me>,
-        "Serge E . Hallyn" <serge@hallyn.com>,
-        Shuah Khan <shuah@kernel.org>, Tejun Heo <tj@kernel.org>,
-        Thomas Graf <tgraf@suug.ch>, W
-To: Casey Schaufler <casey@schaufler-ca.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f53.google.com ([209.85.214.53]:36816 "EHLO
-        mail-it0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1758371AbdDRXkg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 19:40:36 -0400
-Received: by mail-it0-f53.google.com with SMTP id b15so19775797iti.1
-        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 16:40:35 -0700 (PDT)
-In-Reply-To: <c122415d-c2be-d013-efb4-833ba87d144d@schaufler-ca.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>, Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
+	David Ahern <dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>,
+	Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>,
+	Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1492508494.2472.11.camel-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
+	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
+List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
+	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 18, 2017 at 4:16 PM, Casey Schaufler <casey@schaufler-ca.com> w=
-rote:
-> On 4/18/2017 3:44 PM, Micka=C3=ABl Sala=C3=BCn wrote:
->> On 19/04/2017 00:17, Kees Cook wrote:
->>> On Tue, Mar 28, 2017 at 4:46 PM, Micka=C3=ABl Sala=C3=BCn <mic@digikod.=
-net> wrote:
->>>> +void __init landlock_add_hooks(void)
->>>> +{
->>>> +       pr_info("landlock: Version %u", LANDLOCK_VERSION);
->>>> +       landlock_add_hooks_fs();
->>>> +       security_add_hooks(NULL, 0, "landlock");
->>>> +       bpf_register_prog_type(&bpf_landlock_type);
->>> I'm confused by the separation of hook registration here. The call to
->>> security_add_hooks is with count=3D0 is especially weird. Why isn't thi=
-s
->>> just a single call with security_add_hooks(landlock_hooks,
->>> ARRAY_SIZE(landlock_hooks), "landlock")?
->> Yes, this is ugly with the new security_add_hooks() with three arguments
->> but I wanted to split the hooks definition in multiple files.
->
-> Why? I'll buy a good argument, but there are dangers in
-> allowing multiple calls to security_add_hooks().
->
+On 18 April 2017 at 02:41, Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org> wrote:
+> On Thu, 2017-04-13 at 14:44 -0700, Joe Stringer wrote
+> (something that never made it to the list, due to HTML formatting)
 >>
->> The current security_add_hooks() use lsm_append(lsm, &lsm_names) which
->> is not exported. Unfortunately, calling multiple security_add_hooks()
->> with the same LSM name would register multiple names for the same LSM=E2=
-=80=A6
->> Is it OK if I modify this function to not add duplicated entries?
+>> I think that OVS was doing some more elaborate validation than most
+>> users, so over time we picked up a bunch of extra parsing code that
+>> layers on top of nla_parse(). I took a look at trying to broaden this
+>> and make it useful to other users a while ago, but when I posted
+>> there wasn't much interest from others on it so I just moved on.
+>> Maybe it's about time to pick that back up.
 >
-> It may seem absurd, but it's conceivable that a module might
-> have two hooks it wants called. My example is a module that
-> counts the number of times SELinux denies a process access to
-> things (which needs to be called before and after SELinux in
-> order to detect denials) and takes "appropriate action" if
-> too many denials occur. It would be weird, wonky and hackish,
-> but that never stopped anybody before.
+> Ah, ok. I didn't realize it was actually on top of nla_parse(). Some of
+> this does seem rather useful though, and having more expressive policy
+> would seem very useful too - I'd love to be able to express nesting
+> better, for example.
 
-If ends up being sane and clear, I'm fine with allowing multiple calls.
-
--Kees
-
---=20
-Kees Cook
-Pixel Security
+Ah, correction - nla_parse() is used in some parts but not all of it.
+More expressive policy sounds useful for OVS cases too.
