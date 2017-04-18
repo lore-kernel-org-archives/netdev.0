@@ -1,47 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH next RFC] net: sched: mirred: move xmit to tasklet
-Date: Tue, 18 Apr 2017 13:15:48 -0400 (EDT)
-Message-ID: <20170418.131548.824211762596103433.davem@davemloft.net>
-References: <20170418130331.14268-1-fw@strlen.de>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: fw@strlen.de
+From: James Hughes <james.hughes@raspberrypi.org>
+Subject: [PATCH v2] smsc95xx: Use skb_cow_head to deal with cloned skbs
+Date: Tue, 18 Apr 2017 18:17:06 +0100
+Message-ID: <20170418171706.21190-1-james.hughes@raspberrypi.org>
+Cc: James Hughes <james.hughes@raspberrypi.org>
+To: netdev@vger.kernel.org,
+        Steve Glendinning <steve.glendinning@shawell.net>,
+        Microchip Linux Driver Support <UNGLinuxDriver@microchip.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:42144 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757238AbdDRRPu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 13:15:50 -0400
-In-Reply-To: <20170418130331.14268-1-fw@strlen.de>
+Received: from mx08-00252a01.pphosted.com ([91.207.212.211]:35082 "EHLO
+        mx08-00252a01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1753817AbdDRRRf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 13:17:35 -0400
+Received: from pps.filterd (m0102629.ppops.net [127.0.0.1])
+        by mx08-00252a01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v3IHHY9H021594
+        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 18:17:34 +0100
+Received: from mail-wr0-f198.google.com (mail-wr0-f198.google.com [209.85.128.198])
+        by mx08-00252a01.pphosted.com with ESMTP id 29u80f9m6u-1
+        (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128 verify=OK)
+        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 18:17:33 +0100
+Received: by mail-wr0-f198.google.com with SMTP id v52so19551173wrb.14
+        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 10:17:33 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
-Date: Tue, 18 Apr 2017 15:03:31 +0200
+The driver was failing to check that the SKB wasn't cloned
+before adding checksum data.
+Replace existing handling to extend/copy the header buffer
+with skb_cow_head.
 
-> mirred is prone to deadlocks as it invokes dev_queue_xmit while
-> holding one or more qdisc locks.
-> 
-> Avoid lock recursions by moving tx context to a tasklet.
-> 
-> Signed-off-by: Florian Westphal <fw@strlen.de>
-> ---
->  This a stab at removing the lock recursions discussed during netconf.
-> 
->  Taking the cost of the tasklet appears to be the only solution;
->  i tried to use a percpu 'history' instead but its not clear to
->  me that this avoids all corner cases.
-> 
->  While this patch doesn't avoid loops we don't hang the kernel
->  anymore and removing the 'looping' filter makes things calm
->  down again (there are also other ways to create such loops anyway,
->  including use of a cable... )
+Signed-off-by: James Hughes <james.hughes@raspberrypi.org>
+---
+Changes in v2
+ - Changed skb_cow to skb_cow_head as suggested by netdev list
 
-The thing is, those qdisc's are per-device.
 
-So we could return the locking cpu and back out of deadlocks just like
-we do for the netdev tx lock.
+ drivers/net/usb/smsc95xx.c | 10 +++-------
+ 1 file changed, 3 insertions(+), 7 deletions(-)
 
-Given that, maybe the remaining part of the equation could possibly be
-handled by a ttl.
+diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
+index df60c98..094f0ee 100644
+--- a/drivers/net/usb/smsc95xx.c
++++ b/drivers/net/usb/smsc95xx.c
+@@ -2067,13 +2067,9 @@ static struct sk_buff *smsc95xx_tx_fixup(struct usbnet *dev,
+ 	/* We do not advertise SG, so skbs should be already linearized */
+ 	BUG_ON(skb_shinfo(skb)->nr_frags);
+ 
+-	if (skb_headroom(skb) < overhead) {
+-		struct sk_buff *skb2 = skb_copy_expand(skb,
+-			overhead, 0, flags);
+-		dev_kfree_skb_any(skb);
+-		skb = skb2;
+-		if (!skb)
+-			return NULL;
++	/* Make writable and expand header space by overhead if required */
++	if (skb_cow_head(skb, overhead)) {
++		return NULL;
+ 	}
+ 
+ 	if (csum) {
+-- 
+2.9.3
