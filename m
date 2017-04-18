@@ -1,158 +1,141 @@
-From: Joao Pinto <Joao.Pinto@synopsys.com>
-Subject: Re: [PATCH v2 net-next] net: stmmac: add drop transmit status feature
-Date: Tue, 18 Apr 2017 11:25:46 +0100
-Message-ID: <a52b781a-fa2a-0143-14ee-fe2a21468677@synopsys.com>
-References: <f43dda26d3c43fdf19d6872306741c16b635558c.1491989111.git.jpinto@synopsys.com>
- <20170412115643.GA32596@lunn.ch>
- <d5e99129-eef0-1d15-7277-e3c82435bf9f@synopsys.com>
- <20170412145833.GD7023@lunn.ch>
- <b8207712-0191-20be-a6dd-ca91d9fa1440@gmail.com>
+From: Luiz Augusto von Dentz <luiz.dentz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: bluetooth 6lowpan interfaces are not virtual anymore
+Date: Tue, 18 Apr 2017 13:43:42 +0300
+Message-ID: <CABBYNZLqTvd5cnG4fKJgPKJGvS6hsk8vOM+7NQ_RhLJ-WOszmg@mail.gmail.com>
+References: <2d178eb8-3fbc-3385-6e0c-fa9941713959@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Joao Pinto <Joao.Pinto@synopsys.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay4.synopsys.com ([198.182.47.9]:59490 "EHLO
-        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752481AbdDRKZv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 06:25:51 -0400
-In-Reply-To: <b8207712-0191-20be-a6dd-ca91d9fa1440@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Jukka Rissanen <jukka.rissanen-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+        "linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Linux Bluetooth <linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Alexander Aring <aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <2d178eb8-3fbc-3385-6e0c-fa9941713959-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
+
+Hi Alex,
+
+On Mon, Apr 17, 2017 at 8:56 PM, Alexander Aring <aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org> wrote:
+> Hi,
+>
+> bluetooth-next contains patches which introduces a queue for bluetooth
+> 6LoWPAN interfaces. [0]
+>
+> At first, the current behaviour is now that 802.15.4 6LoWPAN interfaces
+> are virtual and bluetooth 6LoWPAN interfaces are not virtual anymore.
+> To have a different handling in both subsystems is _definitely_ wrong.
+
+Well 15.4 and Bluetooth have very different handling, iirc in 15.4 you
+do have a real interface which has, in fact, queueing support:
+
+net/mac802154/iface.c:ieee802154_if_setup:
+dev->tx_queue_len = 300;
+
+> What does the 6LoWPAN interface?
+>
+> It will do a protocol change (an adaptation, because 6LoWPAN should
+> provide the same functionality as IPv6) from IPv6 to 6LoWPAN (tx) and
+> vice versa for (rx). In my opinion this should be handled as a virtual
+> interface and not as an interface with a queue.
+
+Then we need a real netif for Bluetooth as well, one that does
+queueing since introducing for l2cap_chan makes no sense when most of
+time the userspace has a socket which does its own queueing. Btw, I
+have the opinion that doing a second interface just to make Bluetooth
+behave like 15.4 is very wasteful since we don't have any other
+network support except for bnep, which in fact does the same thing
+regarding queueing.
+
+> What makes a queue on 6LoWPAN interfaces?
+>
+> It will queue IPv6 packets which waits for it adaptation (the protocol
+> change) with some additional qdisc handling.
+> If finally the xmit_do callback will occur it will replace IPv6 header
+> with 6LoWPAN, etc. After that it should be queued into some queue on
+> link layer side which should be do the transmit finally.
+
+In case of Bluetooth it does the Link Layer using L2CAP, which is not
+exactly at Link Layer, in fact it is one of the major problems of
+having this in Kernel space since it is similar of doing IP over TCP
+tunnel.
+
+> Why I think bluetooth introduced a queue handling on 6LoWPAN interfaces?
+>
+> Because I think they don't like their own *qdisc* handling on their link
+> layer interface. I write *qdisc* here because, they have no net_devices
+> and use some kind of own qdisc handling.
+
+No we don't, and except we do change the whole architecture of
+Bluetooth to work as a net_device I don't think we can have a similar
+design as 15.4. Anyway Bluetooth is not really designed to carry IP,
+the L2CAP and other profiles above are mostly a Bluetooth thing so
+having a net_device would not buy us much more than queueing for bnep
+and ipsp.
+
+> My question: is this correct?
+>
+> How to fix that (In my opinion):
+>
+> So commit [0] says something "out of credits" that's what I think it's
+> the *qdisc* handling. If you cannot queue anymore -> you need to drop
+> it. If you don't like how the current behaviour is, you need to change
+> your *qdisc* handling on your link layer interface. Introducing queue at
+> 6LoWPAN interfaces will introduce "buffer bloating".
+
+That is not what the code comments says, eg. netif_stop_queue:
+
+ * Stop upper layers calling the device hard_start_xmit routine.
+ * Used for flow control when transmit resources are unavailable.
+
+The fact 15.4, and bnep, uses these APIs makes me believe this is the
+proper way of using qdisc handling, the only difference here is at
+what level we would be using them.
+
+> ---
+>
+> I don't care what bluetooth does with the 6LoWPAN interface. If bluetooth
+> people wants such behaviour, then I am okay with that.
+>
+> I will bookmark this mail for the time when somebody reverts it to a
+> virtual interface again. I think somebody will change it again, or maybe
+> somebody will argument why we need a queue here.
+
+>From what I could grasp from the code except if 6LoWPAN start creating
+its own interface, which it doesn't currently, it should never assume
+any specific behavior for an interface. 6LoWPAN right now only have
+helper functions which the interface code call on TX/RX, and by
+looking at code under 15.4 the only thing we would be doing is to set
+skb->dev = wdev; (wdev being the real device) as Bluetooth don't use
+6lowpan fragmentation.
+
+Btw, another big different in terms of design that it seems 15.4 does
+create interfaces to each and every link, in Bluetooth the interface
+is per adapter so it is in fact multi-link, I guess in practice 15.4
+shall only have one 6lowpan link since it is connected to mesh, but in
+Bluetooth we may have more than one Link and I don't think it would be
+a good idea to have each of these links as a different interface,
+especially not with the same mac address as it seems to be what 15.4
+code is doing:
+
+/* Set the lowpan hardware address to the wpan hardware address. */
+memcpy(ldev->dev_addr, wdev->dev_addr, IEEE802154_ADDR_LEN);
+
+So at least with IPSP/RFC-7668 the topology is completely different
+from what we can see in 15.4, it may happen that this changes with
+upcoming changes to Bluetooth, adding yet another topology that we
+will need to support. Personally I wouldn't mind if 15.4 and Bluetooth
+had more in common, at least at 6lowpan level, so we wouldn't have the
+need to create separated modules just to deal with their differences,
+but in reality, these technologies are competing for the same market
+so I don't think it will happen, unfortunately.
+
+> - Alex
+>
+> [0] https://git.kernel.org/pub/scm/linux/kernel/git/bluetooth/bluetooth-next.git/commit/?id=814f1b243d2c63928f6aa72d66bec0e5fae2f4a9
 
 
-Hi Florian,
 
-Às 6:43 PM de 4/12/2017, Florian Fainelli escreveu:
-> On 04/12/2017 07:58 AM, Andrew Lunn wrote:
->> On Wed, Apr 12, 2017 at 01:07:02PM +0100, Joao Pinto wrote:
->>> Hi Andrew,
->>>
->>> Às 12:56 PM de 4/12/2017, Andrew Lunn escreveu:
->>>> On Wed, Apr 12, 2017 at 10:26:20AM +0100, Joao Pinto wrote:
->>>>> When the Drop Transmit Status bit is set, the Tx packet status
->>>>> received from the MAC is dropped in the MTL. When this bit is reset,
->>>>> the Tx packet status received from the MAC is forwarded to the
->>>>> application. This feature will cause a performance improvement.
->>>>>
->>>>> Signed-off-by: Joao Pinto <jpinto@synopsys.com>
->>>>> ---
->>>>> changes v1->v2:
->>>>> - removed mask from dwmac4_enable_tx_drop()
->>>>>
->>>>>  Documentation/devicetree/bindings/net/stmmac.txt      |  1 +
->>>>>  drivers/net/ethernet/stmicro/stmmac/common.h          |  2 ++
->>>>>  drivers/net/ethernet/stmicro/stmmac/dwmac4.h          |  1 +
->>>>>  drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c     | 12 ++++++++++++
->>>>>  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c     |  3 +++
->>>>>  drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c |  2 ++
->>>>>  include/linux/stmmac.h                                |  1 +
->>>>>  7 files changed, 22 insertions(+)
->>>>>
->>>>> diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
->>>>> index f652b0c..dbcb2cc 100644
->>>>> --- a/Documentation/devicetree/bindings/net/stmmac.txt
->>>>> +++ b/Documentation/devicetree/bindings/net/stmmac.txt
->>>>> @@ -60,6 +60,7 @@ Optional properties:
->>>>>  		 and MAC2MAC connection.
->>>>>  - snps,tso: this enables the TSO feature otherwise it will be managed by
->>>>>  		 MAC HW capability register. Only for GMAC4 and newer.
->>>>> +- snps,drop-tx-status: this enables drop tx status
->>>>
->>>> Hi Joao
->>>>
->>>> Was the conclusion from testing that this cannot be turned on by
->>>> default?
->>>
->>> This feature is great for applications that need good performance, but has a
->>> drawback since it has an impact in timestamp feature in Tx. There are some
->>> operations in PTP where the timestamp is given to the host through the TX status
->>> in the descriptor, so this will have an impact.
->>>
->>> There's a way of solving this of course by making the driver checking the
->>> timestamp in the MAC_Tx_Timestamp_Status_XXX registers, but I can only look into
->>> that feature later in the future.
->>
->> So the numbers you show, even if they are not on real hardware that
->> anybody uses, do look good.
->>
->> But i don't like this DT property, it sounds like it can potential do
->> bad things to PTP, and you say it can be done without the DT or PTP
->> problems. So I would personally NACK this patch, and ask you to
->> re-submit when you have solved these issues.
-> 
-> Is not it possible to simply figure out whether this can safely be
-> enabled at run time or not? If nobody uses PTP, then turn that on as
-> soon as you get someone using PTP, turn this back off?
-
-Yes that might work, and cause a performance improvement since TX processing
-would be lighter. According to the R&D, the PTP problem can be overcome by
-reading a special register that contains the timestamping, but I will need to
-investigate that more.
-
-I am going to start working on TSN features soon, and then I will get the "Drop
-Status" topic again with the PTP issue solved and submit the patch again.
-
-> 
-> The problem is the commit message is extremely scarce about what this
-> implies, and quite frankly, I don't understand what "application" means
-> here, whether this means:
-> 
-> - application in the sense of the HW IP, which is then, the OS'
-> networking stack presumably?
-> 
-> - application in the sense of the OS, which is sort of conflated with
-> the socket user?
-> 
-> Worst case, can't you create a new netdev feature (e.g: similar to
-> NETIF_F_RXFCS) that allows dynamically turning this on based on user
-> configuration? Not suggesting this is the right approach here, but it
-> should be thought of. Maybe an ethtool private flag is more appropriate?
-> 
-> One perspective you need to look at is the following:
-> 
-> - as an IP vendor, you would like to exercise every little configuration
-> knob that the IP can be synthesized with, and that's fine and fun to do
-> as long as you are in your controlled environment, this may result in
-> custom DT properties, but those may not be candidate for the upstream
-> kernel (just downstream)
-
-Totally agree :), I done that with a local gitlab, since the Drop Status feature
-will useful in some test cases I will be working on.
-Sometimes we don't have the 100% of the thing and as you say some things work
-well in a controlled environment but can be complicated in production
-environment if not done to wok out of the box.
-
-> 
-> - customers want something that works out of the box, don't require
-> reading a DT binding (in fact, not reading at all is best) and just get
-> the promised performance, and the upstream kernel is the best place to
-> get this done, but it needs to be painless
-
-Understand and totally agree with you.
-
-> 
-> Finally, and completely tangential to this patch, pretty much *every*
-> SoC that has a STMMAC is reasonably cheap to buy, so if Synopsys does
-> not, you could, with your own personal money acquire a full set of
-> Allwinner, Meson, Sunxi and what not platforms and put these in a test
-> labs, heck, I'm sure someone could offer these. Most maintainers just
-> collect HW as well as tribal knowledge about what typically breaks on
-> this or that platform, and then run their tests on said platforms.
-> 
-
-I managed to get a several prototypes for ETH 3.x, 4.x and latest 5.x to have
-more test power, but they are prototypes with the "ideal" design configuration,
-so we can have suprises in real world hardware, since the original designs are
-then adapted to fit the SoC. I totally understand this topic and I already
-raised the question inside, so lets see how it develops.
-
-> Hope this helps!
-> 
-
-Thank you very much for your e-mail, it was very helpful!
-
-Joao
+-- 
+Luiz Augusto von Dentz
