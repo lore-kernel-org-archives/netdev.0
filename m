@@ -1,101 +1,140 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: build failure after merge of the block tree
-Date: Tue, 18 Apr 2017 13:02:29 +1000
-Message-ID: <20170418130229.04289bd6@canb.auug.org.au>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH RFC] ptr_ring: add ptr_ring_unconsume
+Date: Tue, 18 Apr 2017 11:07:42 +0800
+Message-ID: <0defb746-3d4b-14b3-1ad7-82842048ebba@redhat.com>
+References: <1492384496-22644-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Linux-Next Mailing List <linux-next@vger.kernel.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        Josef Bacik <josef@toxicpanda.com>,
-        Johannes Berg <johannes.berg@intel.com>
-To: Jens Axboe <axboe@kernel.dk>, David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([103.22.144.67]:33953 "EHLO ozlabs.org"
+Received: from mx1.redhat.com ([209.132.183.28]:39448 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752136AbdDRDCc (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 17 Apr 2017 23:02:32 -0400
+        id S1752136AbdDRDHu (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 17 Apr 2017 23:07:50 -0400
+In-Reply-To: <1492384496-22644-1-git-send-email-mst@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi all,
 
-After merging the block tree, today's linux-next build (powerpc
-ppc64_defconfig) failed like this:
 
-drivers/block/nbd.c: In function 'nbd_genl_connect':
-drivers/block/nbd.c:1662:10: error: too few arguments to function 'nla_parse_nested'
-    ret = nla_parse_nested(socks, NBD_SOCK_MAX, attr,
-          ^
-In file included from include/net/rtnetlink.h:5:0,
-                 from include/net/sch_generic.h:12,
-                 from include/linux/filter.h:20,
-                 from include/net/sock.h:64,
-                 from drivers/block/nbd.c:32:
-include/net/netlink.h:754:19: note: declared here
- static inline int nla_parse_nested(struct nlattr *tb[], int maxtype,
-                   ^
-drivers/block/nbd.c: In function 'nbd_genl_reconfigure':
-drivers/block/nbd.c:1818:10: error: too few arguments to function 'nla_parse_nested'
-    ret = nla_parse_nested(socks, NBD_SOCK_MAX, attr,
-          ^
-In file included from include/net/rtnetlink.h:5:0,
-                 from include/net/sch_generic.h:12,
-                 from include/linux/filter.h:20,
-                 from include/net/sock.h:64,
-                 from drivers/block/nbd.c:32:
-include/net/netlink.h:754:19: note: declared here
- static inline int nla_parse_nested(struct nlattr *tb[], int maxtype,
-                   ^
+On 2017年04月17日 07:19, Michael S. Tsirkin wrote:
+> Applications that consume a batch of entries in one go
+> can benefit from ability to return some of them back
+> into the ring.
+>
+> Add an API for that - assuming there's space. If there's no space
+> naturally we can't do this and have to drop entries, but this implies
+> ring is full so we'd likely drop some anyway.
+>
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> ---
+>
+> Jason, in my mind the biggest issue with your batching patchset is the
+> backet drops on disconnect.  This API will help avoid that in the common
+> case.
 
-Caused by commits
+Ok, I will rebase the series on top of this. (Though I don't think we 
+care the packet loss).
 
-  e46c7287b1c2 ("nbd: add a basic netlink interface")
-  b7aa3d39385d ("nbd: add a reconfigure netlink command")
+>
+> I would still prefer that we understand what's going on,
 
-interacting with commit
+I try to reply in another thread, does it make sense?
 
-  fceb6435e852 ("netlink: pass extended ACK struct to parsing functions")
+>   and I would
+> like to know what's the smallest batch size that's still helpful,
 
-from the net-next tree.
+Yes, I've replied in another thread, the result is:
 
-I have applied the following merge fix patch:
 
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Tue, 18 Apr 2017 12:59:05 +1000
-Subject: [PATCH] nbd: fix up for nla_parse_nested() API change
+no batching   1.88Mpps
+RX_BATCH=1    1.93Mpps
+RX_BATCH=4    2.11Mpps
+RX_BATCH=16   2.14Mpps
+RX_BATCH=64   2.25Mpps
+RX_BATCH=256  2.18Mpps
 
-Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
----
- drivers/block/nbd.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+>   but
+> I'm not going to block the patch on these grounds assuming packet drops
+> are fixed.
 
-diff --git a/drivers/block/nbd.c b/drivers/block/nbd.c
-index b78f23ce2395..5049d19f3940 100644
---- a/drivers/block/nbd.c
-+++ b/drivers/block/nbd.c
-@@ -1660,7 +1660,7 @@ static int nbd_genl_connect(struct sk_buff *skb, struct genl_info *info)
- 				goto out;
- 			}
- 			ret = nla_parse_nested(socks, NBD_SOCK_MAX, attr,
--					       nbd_sock_policy);
-+					       nbd_sock_policy, NULL);
- 			if (ret != 0) {
- 				printk(KERN_ERR "nbd: error processing sock list\n");
- 				ret = -EINVAL;
-@@ -1816,7 +1816,7 @@ static int nbd_genl_reconfigure(struct sk_buff *skb, struct genl_info *info)
- 				goto out;
- 			}
- 			ret = nla_parse_nested(socks, NBD_SOCK_MAX, attr,
--					       nbd_sock_policy);
-+					       nbd_sock_policy, NULL);
- 			if (ret != 0) {
- 				printk(KERN_ERR "nbd: error processing sock list\n");
- 				ret = -EINVAL;
--- 
-2.11.0
+Thanks a lot.
 
--- 
-Cheers,
-Stephen Rothwell
+>
+> Lightly tested - this is on top of consumer batching patches.
+>
+> Thanks!
+>
+>   include/linux/ptr_ring.h | 57 ++++++++++++++++++++++++++++++++++++++++++++++++
+>   1 file changed, 57 insertions(+)
+>
+> diff --git a/include/linux/ptr_ring.h b/include/linux/ptr_ring.h
+> index 783e7f5..5fbeab4 100644
+> --- a/include/linux/ptr_ring.h
+> +++ b/include/linux/ptr_ring.h
+> @@ -457,6 +457,63 @@ static inline int ptr_ring_init(struct ptr_ring *r, int size, gfp_t gfp)
+>   	return 0;
+>   }
+>   
+> +/*
+> + * Return entries into ring. Destroy entries that don't fit.
+> + *
+> + * Note: this is expected to be a rare slow path operation.
+> + *
+> + * Note: producer lock is nested within consumer lock, so if you
+> + * resize you must make sure all uses nest correctly.
+> + * In particular if you consume ring in interrupt or BH context, you must
+> + * disable interrupts/BH when doing so.
+> + */
+> +static inline void ptr_ring_unconsume(struct ptr_ring *r, void **batch, int n,
+> +				      void (*destroy)(void *))
+> +{
+> +	unsigned long flags;
+> +	int head;
+> +
+> +	spin_lock_irqsave(&(r)->consumer_lock, flags);
+> +	spin_lock(&(r)->producer_lock);
+> +
+> +	if (!r->size)
+> +		goto done;
+> +
+> +	/*
+> +	 * Clean out buffered entries (for simplicity). This way following code
+> +	 * can test entries for NULL and if not assume they are valid.
+> +	 */
+> +	head = r->consumer_head - 1;
+> +	while (likely(head >= r->consumer_tail))
+> +		r->queue[head--] = NULL;
+> +	r->consumer_tail = r->consumer_head;
+> +
+> +	/*
+> +	 * Go over entries in batch, start moving head back and copy entries.
+> +	 * Stop when we run into previously unconsumed entries.
+> +	 */
+> +	while (n--) {
+> +		head = r->consumer_head - 1;
+> +		if (head < 0)
+> +			head = r->size - 1;
+> +		if (r->queue[head]) {
+> +			/* This batch entry will have to be destroyed. */
+> +			++n;
+> +			goto done;
+> +		}
+> +		r->queue[head] = batch[n];
+> +		r->consumer_tail = r->consumer_head = head;
+> +	}
+> +
+> +done:
+> +	/* Destroy all entries left in the batch. */
+> +	while (n--) {
+> +		destroy(batch[n]);
+> +	}
+> +	spin_unlock(&(r)->producer_lock);
+> +	spin_unlock_irqrestore(&(r)->consumer_lock, flags);
+> +}
+> +
+>   static inline void **__ptr_ring_swap_queue(struct ptr_ring *r, void **queue,
+>   					   int size, gfp_t gfp,
+>   					   void (*destroy)(void *))
