@@ -1,84 +1,90 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next] ravb: Fix ravb_ptp_interrupt clear interrupt all
- status
-Date: Tue, 18 Apr 2017 15:47:21 +0300
-Message-ID: <6c952a9b-a8f3-9890-e985-8081ee8de215@cogentembedded.com>
-References: <1492476933-7952-1-git-send-email-horms+renesas@verge.net.au>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Case for reusing netlink PADs WAS(Re: [PATCH net-next 1/1] net sched
+ actions: dump more than TCA_ACT_MAX_PRIO actions per batch
+Date: Tue, 18 Apr 2017 08:48:57 -0400
+Message-ID: <560eeb0b-7a34-484a-e4a1-c637b31eba59@mojatatu.com>
+References: <1492346070-6002-1-git-send-email-jhs@emojatatu.com>
+ <20170417081936.GA1892@nanopsycho.orion>
+ <dfc1485f-7d7e-f52e-f62e-273063a59abc@mojatatu.com>
+ <1492434659.10587.90.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20170417153133.GA1895@nanopsycho.orion>
+ <0bd1e885-cdf3-60fc-783b-a075b777560b@mojatatu.com>
+ <1492448905.10587.109.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Magnus Damm <magnus.damm@gmail.com>, netdev@vger.kernel.org,
-        linux-renesas-soc@vger.kernel.org
-To: Simon Horman <horms+renesas@verge.net.au>,
-        David Miller <davem@davemloft.net>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <1492476933-7952-1-git-send-email-horms+renesas@verge.net.au>
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Jiri Pirko <jiri@resnulli.us>, davem@davemloft.net,
+        netdev@vger.kernel.org, xiyou.wangcong@gmail.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f195.google.com ([209.85.223.195]:35903 "EHLO
+        mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756034AbdDRMs7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 08:48:59 -0400
+Received: by mail-io0-f195.google.com with SMTP id x86so32793187ioe.3
+        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 05:48:59 -0700 (PDT)
+In-Reply-To: <1492448905.10587.109.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello!
-
-On 04/18/2017 03:55 AM, Simon Horman wrote:
-
-> From: Tsutomu Izawa <tsutomu.izawa.xk@renesas.com>
+On 17-04-17 01:08 PM, Eric Dumazet wrote:
+> On Mon, 2017-04-17 at 12:46 -0400, Jamal Hadi Salim wrote:
 >
-> This patch fixes ravb_ptp_interrupt clears GIS register of all interrupts
-
-     Clearing, maybe?
-
-> status. It corrects to clear PTCF bit or PTMF bit.
-
-     Well, it's safer to clear all of them, I think...
-
-> Also it fixes returned value to IRQ_HANDLED or IRQ_NONE.
+>> Of course it is trivial to add this as attributes and 32 bits
+>> for this case is not a big deal because it is done once. I want to talk
+>> about the pads instead ;-> What do you suggest we do with pads?
 >
-> Signed-off-by: Tsutomu Izawa <tsutomu.izawa.xk@renesas.com>
-> Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
-> Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
-> ---
->  drivers/net/ethernet/renesas/ravb.h      |  4 ++--
->  drivers/net/ethernet/renesas/ravb_main.c | 12 ++++--------
->  drivers/net/ethernet/renesas/ravb_ptp.c  | 15 ++++++++++++---
->  3 files changed, 18 insertions(+), 13 deletions(-)
+> We do nothing with pads. Just leave them.
 >
-> diff --git a/drivers/net/ethernet/renesas/ravb.h b/drivers/net/ethernet/renesas/ravb.h
-> index 0525bd696d5d..fbfdefa659ce 100644
-> --- a/drivers/net/ethernet/renesas/ravb.h
-> +++ b/drivers/net/ethernet/renesas/ravb.h
-[...]
-> diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
-> index 8cfc4a54f2dc..747686386513 100644
-> --- a/drivers/net/ethernet/renesas/ravb_main.c
-> +++ b/drivers/net/ethernet/renesas/ravb_main.c
-> @@ -820,10 +820,8 @@ static irqreturn_t ravb_interrupt(int irq, void *dev_id)
->  	}
+> Or, you need something to make sure to not break old user applications.
 >
->  	/* gPTP interrupt status summary */
-> -	if (iss & ISS_CGIS) {
-> -		ravb_ptp_interrupt(ndev);
-> -		result = IRQ_HANDLED;
-> -	}
-> +	if (iss & ISS_CGIS)
-> +		result = ravb_ptp_interrupt(ndev);
-
-    No, this reintroduces the same kind of bug that we've fixed already:
-
-https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=38c848c73180fb1d142a39e664b6d9663751f6b2
-
-[...]
-> @@ -853,10 +851,8 @@ static irqreturn_t ravb_multi_interrupt(int irq, void *dev_id)
->  	}
+> Something like a version.
 >
->  	/* gPTP interrupt status summary */
-> -	if (iss & ISS_CGIS) {
-> -		ravb_ptp_interrupt(ndev);
-> -		result = IRQ_HANDLED;
-> -	}
-> +	if (iss & ISS_CGIS)
-> +		result = ravb_ptp_interrupt(ndev);
+>
 
-    Here as well... look at the other handlers returning success.
+Dave is not fond of version fields - they tend to be abused
+although looking at the idiag and tpacket stuff there is a case
+to be made for versioning ;->
 
-[...]
 
-MBR, Sergei
+For the patches I posted, I will work on getting an attribute based
+variant of the patches out - but i wanted to have this discussion a
+little more if you bear with me.
+
+Netlink is a wire protocol. When a protocol is defined with rules such
+as alignment (which lead to explicit padding) then those are equivalent
+to "reserved bits" in standard wire protocols. Good practise is:
+all sender zero those bits(MBZ); and all receivers must ignore them
+unless they wish to interpret them. Not everyone follows these rules
+(I remember the havoc ECN caused when TCP/IP started using the different
+reserved fields).
+
+For our case it is _very sad_ that someone actually explicitly defined
+pads - in my opinion for no other purpose other than reuse and then
+we say we cant use them after.
+
+I believe you understand what I was saying, but to clarify, here is
+what i meant:
+---
+struct tcamsg {
+         unsigned char   tca_family;
+         union {
+                 unsigned char   tca__pad1;
+                 unsigned char   tca_flags;
+         };
+         union {
+                 unsigned short  tca__pad2;
+                 unsigned char   tca_foobar;
+         };
+};
+---
+
+This should work with old binaries and kernels.
+It will work with someone referencing sizeof tcamsg.
+It will work with unchanged source that memsets the struct.
+It will work with things that explicitly set the pad1 and pad2.
+
+What is the downside?
+
+cheers,
+jamal
