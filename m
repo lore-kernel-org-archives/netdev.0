@@ -1,46 +1,61 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: pull-request: mac80211 2017-04-18
-Date: Tue, 18 Apr 2017 10:21:55 +0200
-Message-ID: <20170418082156.4706-1-johannes@sipsolutions.net>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Juergen Borleis <jbe@pengutronix.de>
+Subject: [PATCHv6] net: dsa: add SMSC/Microchip LAN9303 three port ethernet switch driver
+Date: Tue, 18 Apr 2017 10:48:23 +0200
+Message-ID: <20170418084827.19613-1-jbe@pengutronix.de>
+Cc: linux-kernel@vger.kernel.org, f.fainelli@gmail.com,
+        kernel@pengutronix.de, andrew@lunn.ch,
+        vivien.didelot@savoirfairelinux.com, davem@davemloft.net
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:39201 "EHLO
+        metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S932590AbdDRIsg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 04:48:36 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+The LAN9303 is a three port 10/100 ethernet switch with integrated phys
+for the two external ethernet ports. The third port is an RMII/MII
+interface to a host master network interface (e.g. fixed link).
 
-Here's a single remaining fix - it's not even super urgent for
-this cycle since it's in a "fringe" feature, but it's for an
-SKB out-of-bounds access.
+While the LAN9303 device itself supports offload packet processing, this
+driver does not make use of it yet. This driver just configures the device
+to provide two separate network interfaces (which is the default state of
+a DSA device).
 
-Please pull and let me know if there's any problem.
+Please note: the "MDIO managed mode" driver part isn't tested yet. I have
+used and tested the "I2C managed mode" only.
 
-Thanks,
-johannes
+Changes in v6:
 
+- fix support to use the driver as a module (core, i2c and mdio)
+- license info added in all parts of the driver (for module support)
 
+Changes in v5:
 
-The following changes since commit fc9c89b19c56813434c3d2967652a4fa6906926a:
+- add missing include file to 'net/dsa/tag_lan9303.c'
 
-  Merge branch 'bridge-register-netdev-before-changelink' (2017-04-11 22:22:45 -0400)
+Changes in v4:
 
-are available in the git repository at:
+- rebased on net-next, 'net/dsa/tag_lan9303.c' adapted to changed API
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211.git tags/mac80211-for-davem-2017-04-18
+Changes in v3:
 
-for you to fetch changes up to 9e478066eae41211c92a8f63cc69aafc391bd6ab:
+- 'ds_to_lan9303()' removed
+- special PHY reg MII_LAN911X_SPECIAL_CONTROL_STATUS mapping removed
+- compatible strings for I2C and MDIO are now different
+- MDIO-managed-mode devicetree binding added (still compile time tested only)
 
-  mac80211: fix MU-MIMO follow-MAC mode (2017-04-13 14:35:53 +0200)
+Changes in v2:
 
-----------------------------------------------------------------
-A single fix, for the MU-MIMO monitor mode, that fixes
-bad SKB accesses if the SKB was paged, which is the case
-for the only driver supporting this - iwlwifi.
+- code moved to 'drivers/net/dsa'
+- timeouts in completion wait loops
+- macros instead of various magic numbers
+- development code removed
+- devicetree property names changed
+- devicetree example adapted
+- tried to avoid to mix 'switching' and 'forwarding'...
 
-----------------------------------------------------------------
-Johannes Berg (1):
-      mac80211: fix MU-MIMO follow-MAC mode
+Comments are welcome.
 
- net/mac80211/rx.c | 65 ++++++++++++++++++++++++++++++++++++++++---------------
- 1 file changed, 47 insertions(+), 18 deletions(-)
+jb
