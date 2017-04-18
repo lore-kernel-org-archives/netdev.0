@@ -1,117 +1,63 @@
-From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Subject: Re: [PATCH 16/22] xen-blkfront: Make use of the new sg_map helper
- function
-Date: Tue, 18 Apr 2017 11:50:20 -0400
-Message-ID: <20170418155020.GF12001@char.us.oracle.com>
-References: <1492121135-4437-1-git-send-email-logang@deltatee.com>
- <1492121135-4437-17-git-send-email-logang@deltatee.com>
- <063D6719AE5E284EB5DD2968C1650D6DCFFD3CD7@AcuExch.aculab.com>
- <20170418142723.GA27133@char.us.oracle.com>
- <7930aa93-6106-e12f-ba76-e2771d4ec2dc@deltatee.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] smsc95xx: Use skb_cow to deal with cloned skbs
+Date: Tue, 18 Apr 2017 08:51:51 -0700
+Message-ID: <1492530711.10587.125.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20170418144857.7810-1-james.hughes@raspberrypi.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "linux-nvdimm@lists.01.org" <linux-nvdimm@ml01.01.org>,
- Steve Wise <swise@opengridcomputing.com>,
- "linux-nvme@lists.infradead.org" <linux-nvme@lists.infradead.org>,
- "target-devel@vger.kernel.org" <target-devel@vger.kernel.org>,
- Sumit Semwal <sumit.semwal@linaro.org>,
- "devel@driverdev.osuosl.org" <devel@driverdev.osuosl.org>,
- "rds-devel@oss.oracle.com" <rds-devel@oss.oracle.com>,
- xen-devel@lists.xensource.com, Sagi Grimberg <sagi@grimberg.me>,
- "linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
- Matthew Wilcox <mawilcox@microsoft.com>,
- "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
- Christoph Hellwig <hch@lst.de>,
- "fcoe-devel@open-fcoe.org" <fcoe-devel@open-fcoe.org>,
- Ross Zwisler <ross.zwisler@linux.intel.com>,
- "open-iscsi@googlegroups.com" <open-iscsi@googlegroups.com>,
- "linux-media@vger.kernel.org" <linux-media@vger.kernel.org>,
- Ming Lin <ming.l@ssi
-To: Logan Gunthorpe <logang@deltatee.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-Content-Disposition: inline
-In-Reply-To: <7930aa93-6106-e12f-ba76-e2771d4ec2dc@deltatee.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org,
+        Steve Glendinning <steve.glendinning@shawell.net>,
+        Microchip Linux Driver Support <UNGLinuxDriver@microchip.com>
+To: James Hughes <james.hughes@raspberrypi.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:33141 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755123AbdDRPvx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 11:51:53 -0400
+Received: by mail-pf0-f195.google.com with SMTP id c198so31278570pfc.0
+        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 08:51:53 -0700 (PDT)
+In-Reply-To: <20170418144857.7810-1-james.hughes@raspberrypi.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 18, 2017 at 09:42:20AM -0600, Logan Gunthorpe wrote:
+On Tue, 2017-04-18 at 15:48 +0100, James Hughes wrote:
+> The driver was failing to check that the SKB wasn't cloned
+> before adding checksum data or adding header data.
+> Replace existing handling to extend the buffer with
+> skb_cow. Don't use skb_cow_head as the sw checksum
+> code modifies the data portion.
 > 
+> Signed-off-by: James Hughes <james.hughes@raspberrypi.org>
+> ---
+>  drivers/net/usb/smsc95xx.c | 10 +++-------
+>  1 file changed, 3 insertions(+), 7 deletions(-)
 > 
-> On 18/04/17 08:27 AM, Konrad Rzeszutek Wilk wrote:
-> > Interesting that you didn't CC any of the maintainers. Could you 
-> > do that in the future please?
-> 
-> Please read the cover letter. The distribution list for the patchset
-> would have been way too large to cc every maintainer (even as limited as
-> it was, I had mailing lists yelling at me). My plan was to get buy in
+> diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
+> index df60c98..04f6397 100644
+> --- a/drivers/net/usb/smsc95xx.c
+> +++ b/drivers/net/usb/smsc95xx.c
+> @@ -2067,13 +2067,9 @@ static struct sk_buff *smsc95xx_tx_fixup(struct usbnet *dev,
+>  	/* We do not advertise SG, so skbs should be already linearized */
+>  	BUG_ON(skb_shinfo(skb)->nr_frags);
+>  
+> -	if (skb_headroom(skb) < overhead) {
+> -		struct sk_buff *skb2 = skb_copy_expand(skb,
+> -			overhead, 0, flags);
+> -		dev_kfree_skb_any(skb);
+> -		skb = skb2;
+> -		if (!skb)
+> -			return NULL;
+> +	/* Make writable and expand space by overhead if required */
+> +	if (skb_cow(skb, overhead)) {
+> +		return NULL;
+>  	}
 
-I am not sure if you know, but you can add on each patch the respective
-maintainer via 'CC'. That way you can have certain maintainers CCed only
-on the subsystems they cover. You put it after (or before) your SoB and
-git send-email happilly picks it up.
+Note that this patch will probably force a copy of all locally generated
+TCP packets.
 
-It does mean that for every patch you have to run something like this:
+For them skb_cloned(skb) is true.
 
-$ more add_cc 
-#!/bin/bash
-
-git diff HEAD^.. > /tmp/a
-echo "---"
-scripts/get_maintainer.pl --no-l /tmp/a | while read file
-do
-    echo "Cc: $file"
-done
-
-Or such.
-
-
-> for the first patch, get it merged and resend the rest independently to
-> their respective maintainers. Of course, though, I'd be open to other
-> suggestions.
-> 
-> >>>
-> >>> Signed-off-by: Logan Gunthorpe <logang@deltatee.com>
-> >>> ---
-> >>>  drivers/block/xen-blkfront.c | 33 +++++++++++++++++++++++++++------
-> >>>  1 file changed, 27 insertions(+), 6 deletions(-)
-> >>>
-> >>> diff --git a/drivers/block/xen-blkfront.c b/drivers/block/xen-blkfront.c
-> >>> index 5067a0a..7dcf41d 100644
-> >>> --- a/drivers/block/xen-blkfront.c
-> >>> +++ b/drivers/block/xen-blkfront.c
-> >>> @@ -807,8 +807,19 @@ static int blkif_queue_rw_req(struct request *req, struct blkfront_ring_info *ri
-> >>>  		BUG_ON(sg->offset + sg->length > PAGE_SIZE);
-> >>>
-> >>>  		if (setup.need_copy) {
-> >>> -			setup.bvec_off = sg->offset;
-> >>> -			setup.bvec_data = kmap_atomic(sg_page(sg));
-> >>> +			setup.bvec_off = 0;
-> >>> +			setup.bvec_data = sg_map(sg, SG_KMAP_ATOMIC);
-> >>> +			if (IS_ERR(setup.bvec_data)) {
-> >>> +				/*
-> >>> +				 * This should really never happen unless
-> >>> +				 * the code is changed to use memory that is
-> >>> +				 * not mappable in the sg. Seeing there is a
-> >>> +				 * questionable error path out of here,
-> >>> +				 * we WARN.
-> >>> +				 */
-> >>> +				WARN(1, "Non-mappable memory used in sg!");
-> >>> +				return 1;
-> >>> +			}
-> >> ...
-> >>
-> >> Perhaps add a flag to mark failure as 'unexpected' and trace (and panic?)
-> >> inside sg_map().
-> 
-> Thanks, that's a good suggestion. I'll make the change for v2.
-> 
-> Logan
+I do believe skb_cow_head() would be better, since TCP stack uses the
+__skb_header_release() helper to tell lower stacks they can write the
+header part, even on a clone.
