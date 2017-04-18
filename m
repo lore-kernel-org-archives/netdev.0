@@ -1,58 +1,48 @@
-From: Logan Gunthorpe <logang@deltatee.com>
-Subject: Re: [PATCH 16/22] xen-blkfront: Make use of the new
- sg_map helper function
-Date: Tue, 18 Apr 2017 09:59:09 -0600
-Message-ID: <bed54c06-eb00-e682-8a50-236ebb9c1db4@deltatee.com>
-References: <1492121135-4437-1-git-send-email-logang@deltatee.com>
- <1492121135-4437-17-git-send-email-logang@deltatee.com>
- <063D6719AE5E284EB5DD2968C1650D6DCFFD3CD7@AcuExch.aculab.com>
- <20170418142723.GA27133@char.us.oracle.com>
- <7930aa93-6106-e12f-ba76-e2771d4ec2dc@deltatee.com>
- <20170418155020.GF12001@char.us.oracle.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next v2] net: ipv6: Fix UDP early demux lookup with
+ udp_l3mdev_accept=0
+Date: Tue, 18 Apr 2017 09:59:30 -0600
+Message-ID: <60e43d02-035e-6536-4284-1c5b31c696ab@cumulusnetworks.com>
+References: <1492471495-13073-1-git-send-email-subashab@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "linux-nvdimm@lists.01.org" <linux-nvdimm@ml01.01.org>,
- Steve Wise <swise@opengridcomputing.com>,
- "linux-nvme@lists.infradead.org" <linux-nvme@lists.infradead.org>,
- "target-devel@vger.kernel.org" <target-devel@vger.kernel.org>,
- Sumit Semwal <sumit.semwal@linaro.org>,
- "devel@driverdev.osuosl.org" <devel@driverdev.osuosl.org>,
- "rds-devel@oss.oracle.com" <rds-devel@oss.oracle.com>,
- xen-devel@lists.xensource.com, Sagi Grimberg <sagi@grimberg.me>,
- "linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
- Matthew Wilcox <mawilcox@microsoft.com>,
- "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
- Christoph Hellwig <hch@lst.de>, Ross Zwisler <ross.zwisler@linux.intel.com>,
- "open-iscsi@googlegroups.com" <open-iscsi@googlegroups.com>,
- "linux-media@vger.kernel.org" <linux-media@vger.kernel.org>,
- "intel-gfx@lists.freedesktop.org" <intel-gfx@lists.freedesktop.org>,
- "sparma
-To: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Return-path: <intel-gfx-bounces@lists.freedesktop.org>
-In-Reply-To: <20170418155020.GF12001@char.us.oracle.com>
-List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/intel-gfx>,
- <mailto:intel-gfx-request@lists.freedesktop.org?subject=unsubscribe>
-List-Archive: <https://lists.freedesktop.org/archives/intel-gfx>
-List-Post: <mailto:intel-gfx@lists.freedesktop.org>
-List-Help: <mailto:intel-gfx-request@lists.freedesktop.org?subject=help>
-List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/intel-gfx>,
- <mailto:intel-gfx-request@lists.freedesktop.org?subject=subscribe>
-Errors-To: intel-gfx-bounces@lists.freedesktop.org
-Sender: "Intel-gfx" <intel-gfx-bounces@lists.freedesktop.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <edumazet@google.com>
+To: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>,
+        davem@davemloft.net, netdev@vger.kernel.org, rshearma@brocade.com,
+        eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f51.google.com ([74.125.83.51]:33398 "EHLO
+        mail-pg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753372AbdDRP7b (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 11:59:31 -0400
+Received: by mail-pg0-f51.google.com with SMTP id 63so30043543pgh.0
+        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 08:59:31 -0700 (PDT)
+In-Reply-To: <1492471495-13073-1-git-send-email-subashab@codeaurora.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-CgpPbiAxOC8wNC8xNyAwOTo1MCBBTSwgS29ucmFkIFJ6ZXN6dXRlayBXaWxrIHdyb3RlOgo+IEkg
-YW0gbm90IHN1cmUgaWYgeW91IGtub3csIGJ1dCB5b3UgY2FuIGFkZCBvbiBlYWNoIHBhdGNoIHRo
-ZSByZXNwZWN0aXZlCj4gbWFpbnRhaW5lciB2aWEgJ0NDJy4gVGhhdCB3YXkgeW91IGNhbiBoYXZl
-IGNlcnRhaW4gbWFpbnRhaW5lcnMgQ0NlZCBvbmx5Cj4gb24gdGhlIHN1YnN5c3RlbXMgdGhleSBj
-b3Zlci4gWW91IHB1dCBpdCBhZnRlciAob3IgYmVmb3JlKSB5b3VyIFNvQiBhbmQKPiBnaXQgc2Vu
-ZC1lbWFpbCBoYXBwaWxseSBwaWNrcyBpdCB1cC4KClllcywgYnV0IEkndmUgc2VlbiBzb21lIG1h
-aW50YWluZXJzIGNvbXBsYWluIHdoZW4gdGhleSByZWNlaXZlIGEgcGF0Y2gKd2l0aCBubyBjb250
-ZXh0IChpZS4gY292ZXIgbGV0dGVyIGFuZCBmaXJzdCBwYXRjaCkuIFNvIEkgY2hvc2UgdG8gZG8g
-aXQKdGhpcyB3YXkuIEkgZXhwZWN0IGluIHRoaXMgc2l0dWF0aW9uLCBubyBtYXR0ZXIgd2hhdCB5
-b3UgZG8sIHNvbWVvbmUgaXMKZ29pbmcgdG8gY29tcGxhaW4gYWJvdXQgdGhlIGFwcHJvYWNoIGNo
-b3Nlbi4KClRoYW5rcyBhbnl3YXkgZm9yIHRoZSB0aXAuCgpMb2dhbgpfX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpJbnRlbC1nZnggbWFpbGluZyBsaXN0Cklu
-dGVsLWdmeEBsaXN0cy5mcmVlZGVza3RvcC5vcmcKaHR0cHM6Ly9saXN0cy5mcmVlZGVza3RvcC5v
-cmcvbWFpbG1hbi9saXN0aW5mby9pbnRlbC1nZngK
+On 4/17/17 5:24 PM, Subash Abhinov Kasiviswanathan wrote:
+> David Ahern reported that 5425077d73e0c ("net: ipv6: Add early demux
+> handler for UDP unicast") breaks udp_l3mdev_accept=0 since early
+> demux for IPv6 UDP was doing a generic socket lookup which does not
+> require an exact match. Fix this by making UDPv6 early demux match
+> connected sockets only.
+> 
+> v1->v2: Take reference to socket after match as suggested by Eric
+> 
+> Fixes: 5425077d73e0c ("net: ipv6: Add early demux handler for UDP unicast")
+> Reported-by: David Ahern <dsa@cumulusnetworks.com>
+> Signed-off-by: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+> Cc: Eric Dumazet <edumazet@google.com>
+> ---
+>  net/ipv6/udp.c | 23 ++++++++++++++---------
+>  1 file changed, 14 insertions(+), 9 deletions(-)
+
+Besides adding the comment before the break, this looks fine to me.
+
+Acked-by: David Ahern <dsa@cumulusnetworks.com>
+Tested-by: David Ahern <dsa@cumulusnetworks.com>
+
+If the only change for v3 is the comment before the break, please keep
+the above with the new patch.
