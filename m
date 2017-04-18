@@ -1,84 +1,71 @@
-From: Kees Cook <keescook@chromium.org>
-Subject: Re: [PATCH net-next v6 00/11] Landlock LSM: Toward unprivileged sandboxing
-Date: Tue, 18 Apr 2017 16:26:05 -0700
-Message-ID: <CAGXu5jLpM13xmFf2_bcWH=db7LEavfpZswvPbAM3+66dBPtMTg@mail.gmail.com>
-References: <20170328234650.19695-1-mic@digikod.net>
+From: Code Soldier1 <codesoldier1@gmail.com>
+Subject: Re: question about size of sk_buff and skb_shared_info
+Date: Tue, 18 Apr 2017 16:26:31 -0700
+Message-ID: <CABGNecz7oRk8PZS_YzG2QzpMXi78rQX4zPpt_28ZgJYYZS-ytg@mail.gmail.com>
+References: <CABGNecyP8tpBtbOPL_4fyhqnkTYEa80sHCuDrUJdm9gxihFX6w@mail.gmail.com>
+ <1492542021.10587.137.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: LKML <linux-kernel@vger.kernel.org>,
-        Alexei Starovoitov <ast@kernel.org>,
-        Andy Lutomirski <luto@amacapital.net>,
-        Arnaldo Carvalho de Melo <acme@kernel.org>,
-        Casey Schaufler <casey@schaufler-ca.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        David Drysdale <drysdale@google.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        "Eric W . Biederman" <ebiederm@xmission.com>,
-        James Morris <james.l.morris@oracle.com>,
-        Jann Horn <jann@thejh.net>, Jonathan Corbet <corbet@lwn.net>,
-        Matthew Garrett <mjg59@srcf.ucam.org>,
-        Michael Kerrisk <mtk.manpages@gmail.com>,
-        Paul Moore <paul@paul-moore.com>,
-        Sargun Dhillon <sargun@sargun.me>,
-        "Serge E . Hallyn" <serge@hallyn.com>,
-        Shuah Khan <shuah@kernel.org>, Tejun Heo <tj@kernel.org>,
-        Thomas Graf <tgraf@suug.ch>, Will Drewry <wa
-To: =?UTF-8?B?TWlja2HDq2wgU2FsYcO8bg==?= <mic@digikod.net>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <20170328234650.19695-1-mic@digikod.net>
-Sender: owner-linux-security-module@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-it0-f46.google.com ([209.85.214.46]:37828 "EHLO
+        mail-it0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757908AbdDRX0c (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 19:26:32 -0400
+Received: by mail-it0-f46.google.com with SMTP id a140so3919812ita.0
+        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 16:26:32 -0700 (PDT)
+In-Reply-To: <1492542021.10587.137.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 28, 2017 at 4:46 PM, Micka=C3=ABl Sala=C3=BCn <mic@digikod.net>=
- wrote:
-> This sixth series add some changes to the previous one [1], including a s=
-impler
-> rule inheritance hierarchy (similar to seccomp-bpf), a ptrace scope prote=
-ction,
-> some file renaming (better feature identification per file), a future-pro=
-of
-> eBPF subtype and miscellaneous cosmetic fixes.
+Eric,
 
-Sorry for the delay in review! I finally had a chunk of time I could
-devote to this. I really like how it's heading. I still wonder about
-its overlap with seccomp (it's really only using the syscall now...),
-but that's just a detail. Getting the abstraction away from direct LSM
-hooks looks good.
+This alignment flag is passed to the cache constructor and the
+allocation is indeed cache aligned. However, since the allocated size
+is not a multiple of the alignment, wont memory be wasted ?. We can
+get 40 extra bytes without any side effects since they are on the same
+cache line ?
 
-> There is as yet no way to allow a process to access only a subset of the
-> filesystem where the subset is specified via a path or a file descriptor.=
-  This
-> feature is intentionally left out so as to minimize the amount of code of=
- this
-> patch series but will come in a following series.  However, it is possibl=
-e to
-> check the file type, as done in the following example.
+kmem_cache_create() code does an ALIGN() to round up the size.
 
-I understand why you've taken a progressive approach here, but I think
-there are two fundamental areas where people will use Landlock: path
-evaluation and network address evaluation. I think it's worth
-expanding this series to include those two confinement examples, since
-that can help people understand what the "general" case will look
-like.
+        kasan_cache_create(cachep, &size, &flags);
 
-As I mentioned in one of the patch review emails, I think there needs
-to be a clearer explanation of how usage counting works vs the
-"events" (which I think of as "rule tables" not events -- maybe it
-needs a new name?) and "rule" lists. I think I understand it, but I
-spent a lot of time trying to get there. More comments would help.
+        size = ALIGN(size, cachep->align);
 
-Finally, another thing I'm curious about is how to deal with the
-thread-sync issue. Seccomp uses its TSYNC thing, and I'd expect we'd
-want something similar for landlock... but that looks really hairy as
-far as locking goes. Perhaps it's already solved by using the same
-locking seccomp uses, in which case I'm less inclined to kick landlock
-out of seccomp.c. :)
+This is the size used in calculate_slab_order() to calculate num. I am
+assuming that in the non debug case gfp_order will be 0.
 
-Looks like it's coming along nicely! Thanks for continuing to work on this!
+Perhaps I am missing something.
 
--Kees
 
---=20
-Kees Cook
-Pixel Security
+On Tue, Apr 18, 2017 at 12:00 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Tue, 2017-04-18 at 10:34 -0700, Code Soldier1 wrote:
+>> Hi Folks,
+>>
+>> I am sure there is a reason for the current sizes of these structures,
+>> However the reason is not obvious to me. So please help me understand.
+>>
+>> Currently the size of sk_buff on an x86_64 system is 232 bytes -- Why
+>> is that. I expected it to be a multiple of 32/64 as they are the most
+>> common cache lines. Since the alignment calculation will align the
+>> structure with the hw cache line, it seems like we might be wasting
+>> space ?
+>>
+>> skb_shared_info on the other hand is perfectly aligned with a size of 320 bytes.
+>>
+>> Thanks,
+>>
+>
+> The alignment is there.
+> Look at skb_init() code, using SLAB_HWCACHE_ALIGN
+>
+>
+>
+>
+>
+
+
+
+-- 
+CS1
