@@ -1,45 +1,32 @@
-From: Bjorn Helgaas <helgaas@kernel.org>
-Subject: Re: export pcie_flr and remove copies of it in drivers V2
-Date: Tue, 18 Apr 2017 13:36:12 -0500
-Message-ID: <20170418183612.GC25295@bhelgaas-glaptop.roam.corp.google.com>
-References: <20170414191131.14286-1-hch@lst.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH RFC] sparc64: eBPF JIT
+Date: Tue, 18 Apr 2017 14:37:32 -0400 (EDT)
+Message-ID: <20170418.143732.1494140903085244508.davem@davemloft.net>
+References: <20170417232740.GB96258@ast-mbp.thefacebook.com>
+        <20170417.181245.1402412750148031248.davem@davemloft.net>
+        <20170418054444.GA36377@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Bjorn Helgaas <bhelgaas@google.com>,
-        Giovanni Cabiddu <giovanni.cabiddu@intel.com>,
-        Salvatore Benedetto <salvatore.benedetto@intel.com>,
-        Mike Marciniszyn <mike.marciniszyn@intel.com>,
-        Dennis Dalessandro <dennis.dalessandro@intel.com>,
-        Derek Chickles <derek.chickles@caviumnetworks.com>,
-        Satanand Burla <satananda.burla@caviumnetworks.com>,
-        Felix Manlunas <felix.manlunas@caviumnetworks.com>,
-        Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        linux-pci@vger.kernel.org, qat-linux@intel.com,
-        linux-crypto@vger.kernel.org, linux-rdma@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Christoph Hellwig <hch@lst.de>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170414191131.14286-1-hch@lst.de>
-Sender: linux-crypto-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: sparclinux@vger.kernel.org, netdev@vger.kernel.org, ast@kernel.org,
+        daniel@iogearbox.net
+To: alexei.starovoitov@gmail.com
+Return-path: <sparclinux-owner@vger.kernel.org>
+In-Reply-To: <20170418054444.GA36377@ast-mbp.thefacebook.com>
+Sender: sparclinux-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Apr 14, 2017 at 09:11:24PM +0200, Christoph Hellwig wrote:
-> Hi all,
-> 
-> this exports the PCI layer pcie_flr helper, and removes various opencoded
-> copies of it.
-> 
-> Changes since V1:
->  - rebase on top of the pci/virtualization branch
->  - fixed the probe case in __pci_dev_reset
->  - added ACKs from Bjorn
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Date: Mon, 17 Apr 2017 22:44:47 -0700
 
-Applied the first three patches:
- 
-  bc13871ef35a PCI: Export pcie_flr()
-  e641c375d414 PCI: Call pcie_flr() from reset_intel_82599_sfp_virtfn()
-  40e0901ea4bf PCI: Call pcie_flr() from reset_chelsio_generic_dev()
+> The way llvm generates stack access is:
+> rX = r10
+> rX += imm
+> and that's the only thing verifier recognizes as valid ptr_to_stack.
+> Like rX -= imm will not be recognized as proper stack offset,
+> since llvm never does it.
 
-to pci/virtualization for v4.12, thanks!
+That simplifies things significantly for me.
+
+I only allow moves from the frame pointer to another register,
+and when I see that I rewrite it to "add FP, STACK_BIAS, DST_REG"
