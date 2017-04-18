@@ -1,120 +1,70 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] smsc95xx: Use skb_cow to deal with cloned skbs
-Date: Tue, 18 Apr 2017 10:10:46 -0700
-Message-ID: <eb8f4cda-d1b1-1038-513b-08ef016042ae@gmail.com>
-References: <20170418144857.7810-1-james.hughes@raspberrypi.org>
- <1492530711.10587.125.camel@edumazet-glaptop3.roam.corp.google.com>
- <20170418.115546.921863837348166438.davem@davemloft.net>
- <CAE_XsMJZGPvENhCgyvuz48PyLk=T7L-tGoktzVBLPPYDP7oR8A@mail.gmail.com>
- <1492534347.10587.130.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Murali Karicheri <m-karicheri2@ti.com>
+Subject: Re: IGMP on IPv6
+Date: Tue, 18 Apr 2017 13:12:27 -0400
+Message-ID: <58F648FB.10606@ti.com>
+References: <1479111388-25383-1-git-send-email-liuhangbin@gmail.com>
+ <58D29265.1020604@ti.com> <58EFA913.5060604@ti.com>
+ <CAM_iQpWYuQdxF0AOEMHRy7BSmxMVUb-7w7OdgYeOKe6atATsFQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-        Steve Glendinning <steve.glendinning@shawell.net>,
-        Microchip Linux Driver Support <UNGLinuxDriver@microchip.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-        James Hughes <james.hughes@raspberrypi.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Hangbin Liu <liuhangbin@gmail.com>,
+        "open list:TI NETCP ETHERNET DRIVER" <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f195.google.com ([209.85.216.195]:36378 "EHLO
-        mail-qt0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754663AbdDRRKu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 13:10:50 -0400
-Received: by mail-qt0-f195.google.com with SMTP id t52so12240596qtb.3
-        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 10:10:50 -0700 (PDT)
-In-Reply-To: <1492534347.10587.130.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from fllnx210.ext.ti.com ([198.47.19.17]:54393 "EHLO
+        fllnx210.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753561AbdDRRMQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 13:12:16 -0400
+In-Reply-To: <CAM_iQpWYuQdxF0AOEMHRy7BSmxMVUb-7w7OdgYeOKe6atATsFQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/18/2017 09:52 AM, Eric Dumazet wrote:
-> On Tue, 2017-04-18 at 17:16 +0100, James Hughes wrote:
->> On 18 April 2017 at 16:55, David Miller <davem@davemloft.net> wrote:
->>> From: Eric Dumazet <eric.dumazet@gmail.com>
->>> Date: Tue, 18 Apr 2017 08:51:51 -0700
+On 04/17/2017 05:38 PM, Cong Wang wrote:
+> Hello,
+> 
+> On Thu, Apr 13, 2017 at 9:36 AM, Murali Karicheri <m-karicheri2@ti.com> wrote:
+>> On 03/22/2017 11:04 AM, Murali Karicheri wrote:
+>>> This is going directly to the slave Ethernet interface.
 >>>
->>>> On Tue, 2017-04-18 at 15:48 +0100, James Hughes wrote:
->>>>> The driver was failing to check that the SKB wasn't cloned
->>>>> before adding checksum data or adding header data.
->>>>> Replace existing handling to extend the buffer with
->>>>> skb_cow. Don't use skb_cow_head as the sw checksum
->>>>> code modifies the data portion.
->>>>>
->>>>> Signed-off-by: James Hughes <james.hughes@raspberrypi.org>
->>>>> ---
->>>>>  drivers/net/usb/smsc95xx.c | 10 +++-------
->>>>>  1 file changed, 3 insertions(+), 7 deletions(-)
->>>>>
->>>>> diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
->>>>> index df60c98..04f6397 100644
->>>>> --- a/drivers/net/usb/smsc95xx.c
->>>>> +++ b/drivers/net/usb/smsc95xx.c
->>>>> @@ -2067,13 +2067,9 @@ static struct sk_buff *smsc95xx_tx_fixup(struct usbnet *dev,
->>>>>      /* We do not advertise SG, so skbs should be already linearized */
->>>>>      BUG_ON(skb_shinfo(skb)->nr_frags);
->>>>>
->>>>> -    if (skb_headroom(skb) < overhead) {
->>>>> -            struct sk_buff *skb2 = skb_copy_expand(skb,
->>>>> -                    overhead, 0, flags);
->>>>> -            dev_kfree_skb_any(skb);
->>>>> -            skb = skb2;
->>>>> -            if (!skb)
->>>>> -                    return NULL;
->>>>> +    /* Make writable and expand space by overhead if required */
->>>>> +    if (skb_cow(skb, overhead)) {
->>>>> +            return NULL;
->>>>>      }
->>>>
->>>> Note that this patch will probably force a copy of all locally generated
->>>> TCP packets.
->>>>
->>>> For them skb_cloned(skb) is true.
->>>>
->>>> I do believe skb_cow_head() would be better, since TCP stack uses the
->>>> __skb_header_release() helper to tell lower stacks they can write the
->>>> header part, even on a clone.
+>>> When I put a WARN_ONCE, I found this is coming directly from
+>>> mld_ifc_timer_expire() -> mld_sendpack() -> ip6_output()
 >>>
->>> Agreed.
->>
->> I'm happy to work it as you see fit - you know this code far better than I do.
->>
->> Our reading of the code is that the software checksum path is
->> modifying the data rather than just adding a header. Based on the
->> description of skb_cow_head it therefore isn't appropriate. If that
->> isn't a concern in reality then skb_cow_head is fine and I'll make a
->> V2 patchset.
->> Or do we need to skb_cow if doing the software checksum, but
->> skb_cow_head normally? That can be done instead but requires a
->> slightly larger change.
->>
->> The failure case we were seeing was with a bridged network using
->> SMSC9514 and a Broadcom wifi chip on Raspberry Pi 3. The bridge was
->> making an SKB clone of broadcasts for the two interfaces, and then
->> both drivers were adding headers without checking skb_cloned(skb)
->> first, hence trampling on each other. For small packets the SMSC95xx
->> driver will be computing the software checksum and writing it in to
->> the data, so the wifi driver will also be seeing it. For many drivers
->> that probably won't matter, but is that always true?
->>
->> (Patches for the Broadcom wifi driver will be coming once we've worked
->> out the best way of fixing this - there is no error path easily
->> available if the skb_cow_head call fails).
+>>> Do you think this is fixed in latest kernel at master? If so, could
+>>> you point me to some commits.
+>>>
+>>>
+>> Ping... I see this behavior is also seen on v4.9.x Kernel. Any clue if
+>> this is fixed by some commit or I need to debug? I see IGMPv6 has some
+>> fixes on the list to make it similar to IGMPv4. So can someone clarify this is
+>> is a bug at IGMPv6 code or I need to look into the HSR driver code?
+>> Since IGMPv4 is going over the HSR interface I am assuming this is a
+>> bug in the IGMPv6 code. But since I have not experience with this code
+>> can some expert comment please?
 >>
 > 
-> You misread what the driver does.
+> How did you configure your network interfaces and IPv4/IPv6 multicast?
+> IOW, how did you reproduce this? For example, did you change your
+> HSR setup when this happened since you mentioned
+> NETDEV_CHANGEUPPER?
 > 
-> The TCP data (payload) is _not_ modified.
-> 
-> Only additional headers are pushed in front of the existing (Ethernet,
-> IP, TCP) headers.
-> 
-> For this, skb_cow_head() is the perfect solution.
+Thanks for responding! Really appreciate.
 
-BTW, this pattern of using skb_headroom() ... skb_copy_expand() seems to
-be recurring in pretty much all USB network drivers that have a tx_fixup
-callback set. The problem is that each driver needs its own
-headroom/tailroom so the fix is not as simple as putting the
-skb_cow_head() before the call to the drivers' tx_fixup...
+I didn't set up anything explicitly for IPv4/IPv6 multicast. As part of
+my testing, I dump the packets going through the slave interfaces attached
+to the hsr interface (for example my Ethernet interfaces eth2 and eth3
+are attached to the hsr interface and I dump the packets at the egress
+of eth2 and eth3 in my driver along with that at hsr xmit function). As
+soon as I create the hsr interface, I see a bunch of packets going directly
+through the lower interface, not through the upper one (i.e hsr interface)
+and these are of eth_type = 86 dd. Please ignore my reference to 
+NETDEV_CHANGEUPPER for now as it was wild guess.
 
-I wonder if a coccinelle patch would be able to do that for us?
+I have not done any debugging, but the WARN_ONCE which I have placed
+in the lower level driver looking for eth_type = 86 dd provided the 
+above trace. 
+
 -- 
-Florian
+Murali Karicheri
+Linux Kernel, Keystone
