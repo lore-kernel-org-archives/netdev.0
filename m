@@ -1,72 +1,84 @@
-From: Niklas Cassel <niklas.cassel-VrBV9hrLPhE@public.gmane.org>
-Subject: [PATCH net-next v3] bindings: net: stmmac: add missing note about LPI interrupt
-Date: Tue, 18 Apr 2017 14:39:53 +0200
-Message-ID: <20170418123955.21335-1-niklass@axis.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next] ravb: Fix ravb_ptp_interrupt clear interrupt all
+ status
+Date: Tue, 18 Apr 2017 15:47:21 +0300
+Message-ID: <6c952a9b-a8f3-9890-e985-8081ee8de215@cogentembedded.com>
+References: <1492476933-7952-1-git-send-email-horms+renesas@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Joao Pinto <Joao.Pinto-HKixBCOQz3hWk0Htik3J/w@public.gmane.org>,
-        Niklas Cassel <niklass-VrBV9hrLPhE@public.gmane.org>,
-        Alexandre TORGUE <alexandre.torgue-qxv4g6HH51o@public.gmane.org>,
-        Giuseppe CAVALLARO <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
-        Thierry Reding <treding-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>,
-        Eric Engestrom <eric-op+oiCINJLTt9jDmeYuA0g@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Magnus Damm <magnus.damm@gmail.com>, netdev@vger.kernel.org,
+        linux-renesas-soc@vger.kernel.org
+To: Simon Horman <horms+renesas@verge.net.au>,
+        David Miller <davem@davemloft.net>
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+In-Reply-To: <1492476933-7952-1-git-send-email-horms+renesas@verge.net.au>
+Sender: linux-renesas-soc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Niklas Cassel <niklas.cassel-VrBV9hrLPhE@public.gmane.org>
+Hello!
 
-The hardware has a LPI interrupt.
-There is already code in the stmmac driver to parse and handle the
-interrupt. However, this information was missing from the DT binding.
+On 04/18/2017 03:55 AM, Simon Horman wrote:
 
-At the same time, improve the description of the existing interrupts.
+> From: Tsutomu Izawa <tsutomu.izawa.xk@renesas.com>
+>
+> This patch fixes ravb_ptp_interrupt clears GIS register of all interrupts
 
-Signed-off-by: Niklas Cassel <niklas.cassel-VrBV9hrLPhE@public.gmane.org>
----
- Documentation/devicetree/bindings/net/stmmac.txt | 13 ++++++++-----
- 1 file changed, 8 insertions(+), 5 deletions(-)
+     Clearing, maybe?
 
-diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
-index f652b0c384ce..c3a7be6615c5 100644
---- a/Documentation/devicetree/bindings/net/stmmac.txt
-+++ b/Documentation/devicetree/bindings/net/stmmac.txt
-@@ -7,9 +7,12 @@ Required properties:
- - interrupt-parent: Should be the phandle for the interrupt controller
-   that services interrupts for this device
- - interrupts: Should contain the STMMAC interrupts
--- interrupt-names: Should contain the interrupt names "macirq"
--  "eth_wake_irq" if this interrupt is supported in the "interrupts"
--  property
-+- interrupt-names: Should contain a list of interrupt names corresponding to
-+	the interrupts in the interrupts property, if available.
-+	Valid interrupt names are:
-+  - "macirq" (combined signal for various interrupt events)
-+  - "eth_wake_irq" (the interrupt to manage the remote wake-up packet detection)
-+  - "eth_lpi" (the interrupt that occurs when Tx or Rx enters/exits LPI state)
- - phy-mode: See ethernet.txt file in the same directory.
- - snps,reset-gpio 	gpio number for phy reset.
- - snps,reset-active-low boolean flag to indicate if phy reset is active low.
-@@ -152,8 +155,8 @@ Examples:
- 		compatible = "st,spear600-gmac";
- 		reg = <0xe0800000 0x8000>;
- 		interrupt-parent = <&vic1>;
--		interrupts = <24 23>;
--		interrupt-names = "macirq", "eth_wake_irq";
-+		interrupts = <24 23 22>;
-+		interrupt-names = "macirq", "eth_wake_irq", "eth_lpi";
- 		mac-address = [000000000000]; /* Filled in by U-Boot */
- 		max-frame-size = <3800>;
- 		phy-mode = "gmii";
--- 
-2.11.0
+> status. It corrects to clear PTCF bit or PTMF bit.
 
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+     Well, it's safer to clear all of them, I think...
+
+> Also it fixes returned value to IRQ_HANDLED or IRQ_NONE.
+>
+> Signed-off-by: Tsutomu Izawa <tsutomu.izawa.xk@renesas.com>
+> Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+> Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
+> ---
+>  drivers/net/ethernet/renesas/ravb.h      |  4 ++--
+>  drivers/net/ethernet/renesas/ravb_main.c | 12 ++++--------
+>  drivers/net/ethernet/renesas/ravb_ptp.c  | 15 ++++++++++++---
+>  3 files changed, 18 insertions(+), 13 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/renesas/ravb.h b/drivers/net/ethernet/renesas/ravb.h
+> index 0525bd696d5d..fbfdefa659ce 100644
+> --- a/drivers/net/ethernet/renesas/ravb.h
+> +++ b/drivers/net/ethernet/renesas/ravb.h
+[...]
+> diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
+> index 8cfc4a54f2dc..747686386513 100644
+> --- a/drivers/net/ethernet/renesas/ravb_main.c
+> +++ b/drivers/net/ethernet/renesas/ravb_main.c
+> @@ -820,10 +820,8 @@ static irqreturn_t ravb_interrupt(int irq, void *dev_id)
+>  	}
+>
+>  	/* gPTP interrupt status summary */
+> -	if (iss & ISS_CGIS) {
+> -		ravb_ptp_interrupt(ndev);
+> -		result = IRQ_HANDLED;
+> -	}
+> +	if (iss & ISS_CGIS)
+> +		result = ravb_ptp_interrupt(ndev);
+
+    No, this reintroduces the same kind of bug that we've fixed already:
+
+https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=38c848c73180fb1d142a39e664b6d9663751f6b2
+
+[...]
+> @@ -853,10 +851,8 @@ static irqreturn_t ravb_multi_interrupt(int irq, void *dev_id)
+>  	}
+>
+>  	/* gPTP interrupt status summary */
+> -	if (iss & ISS_CGIS) {
+> -		ravb_ptp_interrupt(ndev);
+> -		result = IRQ_HANDLED;
+> -	}
+> +	if (iss & ISS_CGIS)
+> +		result = ravb_ptp_interrupt(ndev);
+
+    Here as well... look at the other handlers returning success.
+
+[...]
+
+MBR, Sergei
