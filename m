@@ -1,140 +1,77 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH RFC] ptr_ring: add ptr_ring_unconsume
-Date: Tue, 18 Apr 2017 11:07:42 +0800
-Message-ID: <0defb746-3d4b-14b3-1ad7-82842048ebba@redhat.com>
-References: <1492384496-22644-1-git-send-email-mst@redhat.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH RFC] sparc64: eBPF JIT
+Date: Mon, 17 Apr 2017 22:44:47 -0700
+Message-ID: <20170418054444.GA36377@ast-mbp.thefacebook.com>
+References: <20170416.233825.1748421481008153466.davem@davemloft.net>
+ <20170417232740.GB96258@ast-mbp.thefacebook.com>
+ <20170417.181245.1402412750148031248.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>, linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:39448 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752136AbdDRDHu (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 17 Apr 2017 23:07:50 -0400
-In-Reply-To: <1492384496-22644-1-git-send-email-mst@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: sparclinux@vger.kernel.org, netdev@vger.kernel.org, ast@kernel.org,
+        daniel@iogearbox.net
+To: David Miller <davem@davemloft.net>
+Return-path: <sparclinux-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170417.181245.1402412750148031248.davem@davemloft.net>
+Sender: sparclinux-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Mon, Apr 17, 2017 at 06:12:45PM -0700, David Miller wrote:
+> > 
+> >> +	if (insn->src_reg == BPF_REG_FP || insn->dst_reg == BPF_REG_FP) {
+> >> +		ctx->saw_frame_pointer = true;
+> >> +		if (BPF_CLASS(code) == BPF_ALU ||
+> >> +		    BPF_CLASS(code) == BPF_ALU64) {
+> >> +			pr_err_once("ALU op on FP not supported by JIT\n");
+> >> +			return -EINVAL;
+> > 
+> > That should be fine. The verifier checks for that:
+> >   /* check whether register used as dest operand can be written to */
+> >   if (regno == BPF_REG_FP) {
+> >           verbose("frame pointer is read only\n");
+> >           return -EACCES;
+> >   }
+> 
+> I need to trap it as a source as well, because if that is allowed then
+> I have to add special handling to every ALU operation we allow.
+> 
+> The reason is that the sparc64 stack is biased by 2047 bytes.  So
+> I have to adjust every FP relative reference to include that 2047
+> bias.
+> 
+> Can LLVM and CLANG emit arithmetic operations with FP as source?
 
+The way llvm generates stack access is:
+rX = r10
+rX += imm
+and that's the only thing verifier recognizes as valid ptr_to_stack.
+Like rX -= imm will not be recognized as proper stack offset,
+since llvm never does it.
+I guess that counts as ALU on FP ?
+Looks like we don't have such tests in test_bpf.ko. Hmm.
+Pretty much all compiled C code should have such stack access.
+The easiest test is tools/testing/selftests/bpf/test_progs
 
-On 2017年04月17日 07:19, Michael S. Tsirkin wrote:
-> Applications that consume a batch of entries in one go
-> can benefit from ability to return some of them back
-> into the ring.
->
-> Add an API for that - assuming there's space. If there's no space
-> naturally we can't do this and have to drop entries, but this implies
-> ring is full so we'd likely drop some anyway.
->
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> ---
->
-> Jason, in my mind the biggest issue with your batching patchset is the
-> backet drops on disconnect.  This API will help avoid that in the common
-> case.
+> >> +	/* dst = imm64 */
+> >> +	case BPF_LD | BPF_IMM | BPF_DW:
+> >> +	{
+> >> +		const struct bpf_insn insn1 = insn[1];
+> >> +		u64 imm64;
+> >> +
+> >> +		if (insn1.code != 0 || insn1.src_reg != 0 ||
+> >> +		    insn1.dst_reg != 0 || insn1.off != 0) {
+> >> +			/* Note: verifier in BPF core must catch invalid
+> >> +			 * instructions.
+> >> +			 */
+> >> +			pr_err_once("Invalid BPF_LD_IMM64 instruction\n");
+> >> +			return -EINVAL;
+> > 
+> > verifier should catch that too, but extra check doesn't hurt.
+> 
+> I just copied from anoter JIT, I can remove it.
 
-Ok, I will rebase the series on top of this. (Though I don't think we 
-care the packet loss).
+That check was added to x64 JIT, because JIT patches were submitted
+before eBPF was known to user space. There was no verifier at that time.
+So JIT had do some checking, just for sanity.
+It's probably ok to remove it now... or leave it as-is as historical artifact.
 
->
-> I would still prefer that we understand what's going on,
-
-I try to reply in another thread, does it make sense?
-
->   and I would
-> like to know what's the smallest batch size that's still helpful,
-
-Yes, I've replied in another thread, the result is:
-
-
-no batching   1.88Mpps
-RX_BATCH=1    1.93Mpps
-RX_BATCH=4    2.11Mpps
-RX_BATCH=16   2.14Mpps
-RX_BATCH=64   2.25Mpps
-RX_BATCH=256  2.18Mpps
-
->   but
-> I'm not going to block the patch on these grounds assuming packet drops
-> are fixed.
-
-Thanks a lot.
-
->
-> Lightly tested - this is on top of consumer batching patches.
->
-> Thanks!
->
->   include/linux/ptr_ring.h | 57 ++++++++++++++++++++++++++++++++++++++++++++++++
->   1 file changed, 57 insertions(+)
->
-> diff --git a/include/linux/ptr_ring.h b/include/linux/ptr_ring.h
-> index 783e7f5..5fbeab4 100644
-> --- a/include/linux/ptr_ring.h
-> +++ b/include/linux/ptr_ring.h
-> @@ -457,6 +457,63 @@ static inline int ptr_ring_init(struct ptr_ring *r, int size, gfp_t gfp)
->   	return 0;
->   }
->   
-> +/*
-> + * Return entries into ring. Destroy entries that don't fit.
-> + *
-> + * Note: this is expected to be a rare slow path operation.
-> + *
-> + * Note: producer lock is nested within consumer lock, so if you
-> + * resize you must make sure all uses nest correctly.
-> + * In particular if you consume ring in interrupt or BH context, you must
-> + * disable interrupts/BH when doing so.
-> + */
-> +static inline void ptr_ring_unconsume(struct ptr_ring *r, void **batch, int n,
-> +				      void (*destroy)(void *))
-> +{
-> +	unsigned long flags;
-> +	int head;
-> +
-> +	spin_lock_irqsave(&(r)->consumer_lock, flags);
-> +	spin_lock(&(r)->producer_lock);
-> +
-> +	if (!r->size)
-> +		goto done;
-> +
-> +	/*
-> +	 * Clean out buffered entries (for simplicity). This way following code
-> +	 * can test entries for NULL and if not assume they are valid.
-> +	 */
-> +	head = r->consumer_head - 1;
-> +	while (likely(head >= r->consumer_tail))
-> +		r->queue[head--] = NULL;
-> +	r->consumer_tail = r->consumer_head;
-> +
-> +	/*
-> +	 * Go over entries in batch, start moving head back and copy entries.
-> +	 * Stop when we run into previously unconsumed entries.
-> +	 */
-> +	while (n--) {
-> +		head = r->consumer_head - 1;
-> +		if (head < 0)
-> +			head = r->size - 1;
-> +		if (r->queue[head]) {
-> +			/* This batch entry will have to be destroyed. */
-> +			++n;
-> +			goto done;
-> +		}
-> +		r->queue[head] = batch[n];
-> +		r->consumer_tail = r->consumer_head = head;
-> +	}
-> +
-> +done:
-> +	/* Destroy all entries left in the batch. */
-> +	while (n--) {
-> +		destroy(batch[n]);
-> +	}
-> +	spin_unlock(&(r)->producer_lock);
-> +	spin_unlock_irqrestore(&(r)->consumer_lock, flags);
-> +}
-> +
->   static inline void **__ptr_ring_swap_queue(struct ptr_ring *r, void **queue,
->   					   int size, gfp_t gfp,
->   					   void (*destroy)(void *))
