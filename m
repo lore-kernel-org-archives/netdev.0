@@ -1,43 +1,57 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH] dp83640: don't recieve time stamps twice
-Date: Tue, 18 Apr 2017 22:19:17 +0200
-Message-ID: <20170418201917.GA4428@localhost.localdomain>
-References: <20170418191426.GA17838@mwanda>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stefan =?iso-8859-1?Q?S=F8rensen?=
-        <stefan.sorensen@spectralink.com>, Andrew Lunn <andrew@lunn.ch>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Dan Carpenter <dan.carpenter@oracle.com>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: [PATCH net-next v2 5/5] virtio-net: keep tx interrupts disabled unless kick
+Date: Tue, 18 Apr 2017 16:21:08 -0400
+Message-ID: <20170418202108.61920-6-willemdebruijn.kernel@gmail.com>
+References: <20170418202108.61920-1-willemdebruijn.kernel@gmail.com>
+Cc: mst@redhat.com, jasowang@redhat.com,
+        virtualization@lists.linux-foundation.org, davem@davemloft.net,
+        Willem de Bruijn <willemb@google.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f169.google.com ([209.85.128.169]:35631 "EHLO
-        mail-wr0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754908AbdDRUT3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 16:19:29 -0400
-Content-Disposition: inline
-In-Reply-To: <20170418191426.GA17838@mwanda>
+Received: from mail-qt0-f195.google.com ([209.85.216.195]:36629 "EHLO
+        mail-qt0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752809AbdDRUVO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 16:21:14 -0400
+Received: by mail-qt0-f195.google.com with SMTP id t52so598531qtb.3
+        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 13:21:14 -0700 (PDT)
+In-Reply-To: <20170418202108.61920-1-willemdebruijn.kernel@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 18, 2017 at 10:14:26PM +0300, Dan Carpenter wrote:
-> This patch is prompted by a static checker warning about a potential
-> use after free.  The concern is that netif_rx_ni() can free "skb" and we
-> call it twice.
+From: Willem de Bruijn <willemb@google.com>
 
-Right, the code already calls netif_rx_ni() in the list_for_each_safe()
-loop just above, in the case that the shhwtstamps pointer has been set.
+Tx napi mode increases the rate of transmit interrupts. Suppress some
+by masking interrupts while more packets are expected. The interrupts
+will be reenabled before the last packet is sent.
+
+This optimization reduces the througput drop with tx napi for
+unidirectional flows such as UDP_STREAM that do not benefit from
+cleaning tx completions in the the receive napi handler.
+
+Signed-off-by: Willem de Bruijn <willemb@google.com>
+---
+ drivers/net/virtio_net.c | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index b14c82ce0032..b107ae011632 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -1196,8 +1196,14 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	bool use_napi = sq->napi.weight;
  
-> When I look at the commit that added this, it looks like some stray
-> lines were added accidentally.  It doesn't make sense to me that we
-> would recieve the same data two times.  I asked the author but never
-> recieved a response.
-
-Hm, maybe the intent was to move the call to netif_rx_ni() outside of
-the spin_lock_irqsave() region (which how I had it before Stefan's
-changes).
-
-But calling netif_rx_ni() twice is clearly wrong.
-
-Thanks,
-Richard
+ 	/* Free up any pending old buffers before queueing new ones. */
+-	if (!use_napi)
++	if (use_napi) {
++		if (kick)
++			virtqueue_enable_cb_delayed(sq->vq);
++		else
++			virtqueue_disable_cb(sq->vq);
++	} else {
+ 		free_old_xmit_skbs(sq);
++	}
+ 
+ 	/* timestamp packet in software */
+ 	skb_tx_timestamp(skb);
+-- 
+2.12.2.816.g2cccc81164-goog
