@@ -1,43 +1,39 @@
-From: David Lebrun <david.lebrun@uclouvain.be>
-Subject: [PATCH net] ipv6: sr: fix out-of-bounds access in SRH validation
-Date: Tue, 18 Apr 2017 17:59:49 +0200
-Message-ID: <20170418155949.1028-1-david.lebrun@uclouvain.be>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: net/ipv4: use-after-free in ip_queue_xmit
+Date: Tue, 18 Apr 2017 09:05:43 -0700
+Message-ID: <CAM_iQpVXKA6S2Nc1+UAW6q5X-iiSCU3UQaAsCm2SAkA5Axct+A@mail.gmail.com>
+References: <CAAeHK+z5=b4PdSrq8ff-btYbd-aKFR+uzQnoC5Pq4du4uVQjzQ@mail.gmail.com>
+ <CAM_iQpWsEpJYHG1WvC9kQPt8iezBuLC8PeSqM20=W9cpkRE6=Q@mail.gmail.com>
+ <CAAeHK+xZG+V8W85=bzpj0EgbmZo0c2Sq6e0LxtHMZM8wje-yPA@mail.gmail.com>
+ <CAAeHK+wV1aKoP_2cog-dp0-17g4QimfK5j8P3oxypE3mCxMGUw@mail.gmail.com>
+ <CAM_iQpU_frn6bB6HHrRrF6omKDoXjxZmSoJZSu=PjZ35pUVOuA@mail.gmail.com> <CAAeHK+wYLwZqGWjBNbw6mbvTiHCeXC91dYmMY410YwprU8OG1w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: David Lebrun <david.lebrun@uclouvain.be>,
-        Andrey Konovalov <andreyknvl@google.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:40764 "EHLO
-        smtp2.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932413AbdDRP76 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 11:59:58 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Eric Dumazet <edumazet@google.com>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Andrey Konovalov <andreyknvl@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAAeHK+wYLwZqGWjBNbw6mbvTiHCeXC91dYmMY410YwprU8OG1w@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch fixes an out-of-bounds access in seg6_validate_srh() when the
-trailing data is less than sizeof(struct sr6_tlv).
+On Tue, Apr 18, 2017 at 5:15 AM, Andrey Konovalov <andreyknvl@google.com> wrote:
+> Yes, I don't have this field in the rtable struct.
+>
+> I'm on 39da7c509acff13fc8cb12ec1bb20337c988ed36 (4.11-rc6).
+>
+> I also don't see it in the cross reference:
+> http://lxr.free-electrons.com/source/include/net/route.h#L51
+>
 
-Reported-by: Andrey Konovalov <andreyknvl@google.com>
-Cc: Andrey Konovalov <andreyknvl@google.com>
-Signed-off-by: David Lebrun <david.lebrun@uclouvain.be>
----
- net/ipv6/seg6.c | 3 +++
- 1 file changed, 3 insertions(+)
-
-diff --git a/net/ipv6/seg6.c b/net/ipv6/seg6.c
-index a855eb3..5f44ffe 100644
---- a/net/ipv6/seg6.c
-+++ b/net/ipv6/seg6.c
-@@ -53,6 +53,9 @@ bool seg6_validate_srh(struct ipv6_sr_hdr *srh, int len)
- 		struct sr6_tlv *tlv;
- 		unsigned int tlv_len;
- 
-+		if (trailing < sizeof(*tlv))
-+			return false;
-+
- 		tlv = (struct sr6_tlv *)((unsigned char *)srh + tlv_offset);
- 		tlv_len = sizeof(*tlv) + tlv->len;
- 
--- 
-2.10.2
+It is provided by my patch: https://patchwork.ozlabs.org/patch/747556/
+which means you applied an incomplete patch... :-/
