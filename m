@@ -1,62 +1,77 @@
-From: James Hughes <james.hughes@raspberrypi.org>
-Subject: [PATCH v2] smsc95xx: Use skb_cow_head to deal with cloned skbs
-Date: Tue, 18 Apr 2017 18:17:06 +0100
-Message-ID: <20170418171706.21190-1-james.hughes@raspberrypi.org>
-Cc: James Hughes <james.hughes@raspberrypi.org>
-To: netdev@vger.kernel.org,
-        Steve Glendinning <steve.glendinning@shawell.net>,
-        Microchip Linux Driver Support <UNGLinuxDriver@microchip.com>
+From: Murali Karicheri <m-karicheri2@ti.com>
+Subject: Re: IGMP on IPv6
+Date: Tue, 18 Apr 2017 13:20:27 -0400
+Message-ID: <58F64ADB.8040900@ti.com>
+References: <1479111388-25383-1-git-send-email-liuhangbin@gmail.com>
+ <58D29265.1020604@ti.com> <58EFA913.5060604@ti.com>
+ <CAM_iQpWYuQdxF0AOEMHRy7BSmxMVUb-7w7OdgYeOKe6atATsFQ@mail.gmail.com>
+ <58F648FB.10606@ti.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Hangbin Liu <liuhangbin@gmail.com>,
+        "open list:TI NETCP ETHERNET DRIVER" <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx08-00252a01.pphosted.com ([91.207.212.211]:35082 "EHLO
-        mx08-00252a01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1753817AbdDRRRf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 13:17:35 -0400
-Received: from pps.filterd (m0102629.ppops.net [127.0.0.1])
-        by mx08-00252a01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v3IHHY9H021594
-        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 18:17:34 +0100
-Received: from mail-wr0-f198.google.com (mail-wr0-f198.google.com [209.85.128.198])
-        by mx08-00252a01.pphosted.com with ESMTP id 29u80f9m6u-1
-        (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128 verify=OK)
-        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 18:17:33 +0100
-Received: by mail-wr0-f198.google.com with SMTP id v52so19551173wrb.14
-        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 10:17:33 -0700 (PDT)
+Received: from lelnx193.ext.ti.com ([198.47.27.77]:58396 "EHLO
+        lelnx193.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753580AbdDRRUR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 13:20:17 -0400
+In-Reply-To: <58F648FB.10606@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The driver was failing to check that the SKB wasn't cloned
-before adding checksum data.
-Replace existing handling to extend/copy the header buffer
-with skb_cow_head.
+On 04/18/2017 01:12 PM, Murali Karicheri wrote:
+> On 04/17/2017 05:38 PM, Cong Wang wrote:
+>> Hello,
+>>
+>> On Thu, Apr 13, 2017 at 9:36 AM, Murali Karicheri <m-karicheri2@ti.com> wrote:
+>>> On 03/22/2017 11:04 AM, Murali Karicheri wrote:
+>>>> This is going directly to the slave Ethernet interface.
+>>>>
+>>>> When I put a WARN_ONCE, I found this is coming directly from
+>>>> mld_ifc_timer_expire() -> mld_sendpack() -> ip6_output()
+>>>>
+>>>> Do you think this is fixed in latest kernel at master? If so, could
+>>>> you point me to some commits.
+>>>>
+>>>>
+>>> Ping... I see this behavior is also seen on v4.9.x Kernel. Any clue if
+>>> this is fixed by some commit or I need to debug? I see IGMPv6 has some
+>>> fixes on the list to make it similar to IGMPv4. So can someone clarify this is
+>>> is a bug at IGMPv6 code or I need to look into the HSR driver code?
+>>> Since IGMPv4 is going over the HSR interface I am assuming this is a
+>>> bug in the IGMPv6 code. But since I have not experience with this code
+>>> can some expert comment please?
+>>>
+>>
+>> How did you configure your network interfaces and IPv4/IPv6 multicast?
+>> IOW, how did you reproduce this? For example, did you change your
+>> HSR setup when this happened since you mentioned
+>> NETDEV_CHANGEUPPER?
+>>
+> Thanks for responding! Really appreciate.
+> 
+> I didn't set up anything explicitly for IPv4/IPv6 multicast. As part of
+> my testing, I dump the packets going through the slave interfaces attached
+> to the hsr interface (for example my Ethernet interfaces eth2 and eth3
+> are attached to the hsr interface and I dump the packets at the egress
+> of eth2 and eth3 in my driver along with that at hsr xmit function). As
+> soon as I create the hsr interface, I see a bunch of packets going directly
+> through the lower interface, not through the upper one (i.e hsr interface)
+> and these are of eth_type = 86 dd. Please ignore my reference to 
+> NETDEV_CHANGEUPPER for now as it was wild guess.
+> 
+> I have not done any debugging, but the WARN_ONCE which I have placed
+> in the lower level driver looking for eth_type = 86 dd provided the 
+> above trace. 
+> 
+Here is the command I have used to create the hsr interface...
 
-Signed-off-by: James Hughes <james.hughes@raspberrypi.org>
----
-Changes in v2
- - Changed skb_cow to skb_cow_head as suggested by netdev list
+ip link add name hsr0 type hsr slave1 eth2 slave2 eth3 supervision 45 version 1
 
 
- drivers/net/usb/smsc95xx.c | 10 +++-------
- 1 file changed, 3 insertions(+), 7 deletions(-)
-
-diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
-index df60c98..094f0ee 100644
---- a/drivers/net/usb/smsc95xx.c
-+++ b/drivers/net/usb/smsc95xx.c
-@@ -2067,13 +2067,9 @@ static struct sk_buff *smsc95xx_tx_fixup(struct usbnet *dev,
- 	/* We do not advertise SG, so skbs should be already linearized */
- 	BUG_ON(skb_shinfo(skb)->nr_frags);
- 
--	if (skb_headroom(skb) < overhead) {
--		struct sk_buff *skb2 = skb_copy_expand(skb,
--			overhead, 0, flags);
--		dev_kfree_skb_any(skb);
--		skb = skb2;
--		if (!skb)
--			return NULL;
-+	/* Make writable and expand header space by overhead if required */
-+	if (skb_cow_head(skb, overhead)) {
-+		return NULL;
- 	}
- 
- 	if (csum) {
 -- 
-2.9.3
+Murali Karicheri
+Linux Kernel, Keystone
