@@ -1,97 +1,76 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT] Networking
-Date: Tue, 18 Apr 2017 16:23:13 -0400 (EDT)
-Message-ID: <20170418.162313.1554593582235878572.davem@davemloft.net>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH v4 net-next RFC] net: Generic XDP
+Date: Tue, 18 Apr 2017 22:26:16 +0200
+Message-ID: <20170418222616.4761a781@redhat.com>
+References: <20170413.120925.2082322246776478766.davem@davemloft.net>
+        <CACKFLikm1vDzz8eQJMJOEsbv-NNV41ki2TEPVPCSpP6VjaowBA@mail.gmail.com>
+        <20170413.162315.1889531431093534154.davem@davemloft.net>
+        <20170415005949.GB73685@ast-mbp.thefacebook.com>
+        <20170418190535.GG4730@C02RW35GFVH8.dhcp.broadcom.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        David Miller <davem@davemloft.net>, michael.chan@broadcom.com,
+        netdev@vger.kernel.org, xdp-newbies@vger.kernel.org,
+        brouer@redhat.com
+To: Andy Gospodarek <andy@greyhouse.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:57948 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1755109AbdDRU00 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 18 Apr 2017 16:26:26 -0400
+In-Reply-To: <20170418190535.GG4730@C02RW35GFVH8.dhcp.broadcom.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-1) BPF tail call handling bug fixes from Daniel Borkmann.
+On Tue, 18 Apr 2017 15:05:35 -0400 Andy Gospodarek <andy@greyhouse.net> wrote:
 
-2) Fix allowance of too many rx queues in sfc driver, from Bert
-   Kenward.
+> On Fri, Apr 14, 2017 at 05:59:51PM -0700, Alexei Starovoitov wrote:
+> > On Thu, Apr 13, 2017 at 04:23:15PM -0400, David Miller wrote:  
+> > > +
+> > > +	switch (act) {
+> > > +	case XDP_TX:
+> > > +		__skb_push(skb, skb->mac_len);  
+> > 
+> > s/skb->mac_len/mac_len/
+> >   
+> 
+[...]
+> 
+> When using this change above suggested by Alexei, XDP_DROP and XDP_TX
+> actions appear to work well with xdp1 and xdp2.
 
-3) Non-loopback ipv6 packets claiming src of ::1 should be dropped,
-   from Florian Westphal.
+Also adjusted patch accordingly.
 
-4) Statistics requests on KSZ9031 can crash, fix from Grygorii
-   Strashko.
+Ran a few quick tests today, but just against an really old e1000 NIC
+attached to a PCI-bus (32bit).  There were not difference between DROP
+and PASS, but this is likely due to a NIC HW limit.
 
-5) TX ring handling fixes in mediatek driver, from Sean Wang.
+Sender were sending 951,146 pps (<= tx_queue_0_packets /sec)
 
-6) ip_ra_control can deadlock, fix lock acquisition ordering to
-   fix, from Cong WANG.
+$ sudo ./xdp_bench01_mem_access_cost --readmem --action XDP_DROP --dev e1000
+XDP_action   pps        pps-human-readable mem      
+XDP_DROP     671975     671,975            read     
+XDP_DROP     671997     671,997            read     
+XDP_DROP     672061     672,061            read     
+XDP_DROP     671861     671,861            read     
+^CInterrupted: Removing XDP program on ifindex:2 device:e1000
 
-7) Fix use after free in ip_recv_error(), from Willem de Buijn.
+$ sudo ./xdp_bench01_mem_access_cost --readmem --action XDP_PASS --dev e1000
+XDP_action   pps        pps-human-readable mem      
+XDP_PASS     672032     672,032            read     
+XDP_PASS     671910     671,910            read     
+XDP_PASS     671926     671,926            read     
+XDP_PASS     671947     671,947            read     
+^CInterrupted: Removing XDP program on ifindex:2 device:e1000
 
-Please pull, thanks a lot!
+Program xdp_bench01_mem_access_cost avail here:
+ https://github.com/netoptimizer/prototype-kernel/tree/master/kernel/samples/bpf
 
-The following changes since commit 1bf4b1268e66d9364fc6fd41f906bc01458530ac:
-
-  Merge branch 'for-linus' of git://git.kernel.org/pub/scm/linux/kernel/git/dtor/input (2017-04-14 17:51:16 -0700)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git 
-
-for you to fetch changes up to acf167f3f2495f0b6565f6e8ac9bd87158a0e98d:
-
-  Merge branch 'bpf-fixes' (2017-04-17 15:51:58 -0400)
-
-----------------------------------------------------------------
-Bert Kenward (1):
-      sfc: limit the number of receive queues
-
-Daniel Borkmann (2):
-      bpf: fix cb access in socket filter programs on tail calls
-      bpf: fix checking xdp_adjust_head on tail calls
-
-David Ahern (1):
-      net: vrf: Fix setting NLM_F_EXCL flag when adding l3mdev rule
-
-David S. Miller (2):
-      Merge branch 'mediatek-tx-bugs'
-      Merge branch 'bpf-fixes'
-
-Florian Westphal (1):
-      ipv6: drop non loopback packets claiming to originate from ::1
-
-George Cherian (1):
-      net: thunderx: Fix set_max_bgx_per_node for 81xx rgx
-
-Grygorii Strashko (1):
-      net: phy: micrel: fix crash when statistic requested for KSZ9031 phy
-
-Sean Wang (2):
-      net: ethernet: mediatek: fix inconsistency between TXD and the used buffer
-      net: ethernet: mediatek: fix inconsistency of port number carried in TXD
-
-WANG Cong (1):
-      ipv4: fix a deadlock in ip_ra_control
-
-Willem de Bruijn (1):
-      net-timestamp: avoid use-after-free in ip_recv_error
-
- drivers/net/ethernet/cavium/thunder/thunder_bgx.c |  1 +
- drivers/net/ethernet/cavium/thunder/thunder_bgx.h |  1 +
- drivers/net/ethernet/mediatek/mtk_eth_soc.c       | 31 +++++++++++++++++--------------
- drivers/net/ethernet/mediatek/mtk_eth_soc.h       | 12 +++++++++---
- drivers/net/ethernet/sfc/efx.c                    |  7 +++++++
- drivers/net/ethernet/sfc/falcon/efx.c             |  7 +++++++
- drivers/net/phy/micrel.c                          | 17 ++---------------
- drivers/net/vrf.c                                 |  2 +-
- kernel/bpf/syscall.c                              |  8 ++++++++
- net/core/skbuff.c                                 |  1 +
- net/ipv4/ip_sockglue.c                            | 10 +++++-----
- net/ipv4/ipmr.c                                   | 11 ++---------
- net/ipv4/raw.c                                    |  2 ++
- net/ipv6/datagram.c                               | 10 +---------
- net/ipv6/ip6_input.c                              |  7 +++++--
- 15 files changed, 69 insertions(+), 58 deletions(-)
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
