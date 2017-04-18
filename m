@@ -1,59 +1,39 @@
-From: Logan Gunthorpe <logang@deltatee.com>
-Subject: Re: [PATCH 05/22] drm/i915: Make use of the new sg_map helper function
-Date: Tue, 18 Apr 2017 09:44:43 -0600
-Message-ID: <303094a1-15e0-de95-5157-493a6da039bc@deltatee.com>
-References: <1492121135-4437-1-git-send-email-logang@deltatee.com>
- <1492121135-4437-6-git-send-email-logang@deltatee.com>
- <20170418064427.r5ewu3p66p2zwdru@phenom.ffwll.local>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next v2] net: ipv6: Fix UDP early demux lookup with
+ udp_l3mdev_accept=0
+Date: Tue, 18 Apr 2017 09:46:18 -0600
+Message-ID: <d2f5b51a-9cf2-d35b-2f3c-1b22f3d8b31a@cumulusnetworks.com>
+References: <1492471495-13073-1-git-send-email-subashab@codeaurora.org>
+ <8729016553E3654398EA69218DA29EEF15B8090F@cnshjmbx02>
+ <2a12c7c44ddd3e372a84db9318a40c98@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-To: Christoph Hellwig <hch@lst.de>,
- "Martin K. Petersen" <martin.petersen@oracle.com>,
- Sagi Grimberg <sagi@grimberg.me>, Jens Axboe <axboe@kernel.dk>,
- Tejun Heo <tj@kernel.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
- Dan Williams <dan.j.williams@intel.com>,
- Ross Zwisler <ross.zwisler@linux.intel.com>,
- Matthew Wilcox <mawilcox@microsoft.com>,
- Sumit Semwal <sumit.semwal@linaro.org>, Ming Lin <ming.l@ssi.samsung.com>,
- linux-kernel@vger.kernel.org, linux-crypto@vger.kernel.org,
- linux-media@vger.kernel.org, dri-devel@lists.freedesktop.org,
- linaro-mm-sig@lists.linaro.org, intel-gfx@lists.freedesktop.org,
- linux-raid@vger.kernel.org, linux-mmc@vger.kernel.org,
- linux-nvme@lists.infradead.org, linux-nvdimm@lists.01.org,
- linux-scsi@vger.kernel.org, fcoe-devel@open-fcoe.org,
- open-iscsi@googlegroups.com, megaraidlinux.pdl@broadcom.com,
- sparmaintainer@unisys.com, devel@driverd
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <20170418064427.r5ewu3p66p2zwdru@phenom.ffwll.local>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org, rshearma@brocade.com,
+        eric.dumazet@gmail.com, Eric Dumazet <edumazet@google.com>
+To: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>,
+        YUAN Linyu <Linyu.Yuan@alcatel-sbell.com.cn>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f181.google.com ([209.85.192.181]:33889 "EHLO
+        mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752202AbdDRPqT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 11:46:19 -0400
+Received: by mail-pf0-f181.google.com with SMTP id c198so82847048pfc.1
+        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 08:46:19 -0700 (PDT)
+In-Reply-To: <2a12c7c44ddd3e372a84db9318a40c98@codeaurora.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-
-On 18/04/17 12:44 AM, Daniel Vetter wrote:
-> On Thu, Apr 13, 2017 at 04:05:18PM -0600, Logan Gunthorpe wrote:
->> This is a single straightforward conversion from kmap to sg_map.
->>
->> Signed-off-by: Logan Gunthorpe <logang@deltatee.com>
+On 4/17/17 7:07 PM, Subash Abhinov Kasiviswanathan wrote:
+>>> +        break;
+>> I think break here should remove ?
 > 
-> Acked-by: Daniel Vetter <daniel.vetter@ffwll.ch>
+> Hi Yuan
 > 
-> Probably makes sense to merge through some other tree, but please be aware
-> of the considerable churn rate in i915 (i.e. make sure your tree is in
-> linux-next before you send a pull request for this). Plane B would be to
-> get the prep patch in first and then merge the i915 conversion one kernel
-> release later.
+> This is similar to __udp4_lib_demux_lookup where we need to check if the
+> first
+> socket is an exact match or break since chains maybe long.
+> 
 
-Yes, as per what I said in my cover letter, I was leaning towards a
-"Plan B" style approach.
-
-Logan
+I suggest adding the same comment as __udp4_lib_demux_lookup; it does
+look odd.
