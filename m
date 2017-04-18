@@ -1,92 +1,55 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: ney/key: slab-out-of-bounds in parse_ipsecrequests
-Date: Tue, 18 Apr 2017 13:34:12 +0200
-Message-ID: <20170418113412.GA15917@secunet.com>
-References: <CAAeHK+yuQZ1v-BBLoeGxfuXg-5uFe6sS5qC-gagaVkq4YroS8g@mail.gmail.com>
- <CAM_iQpXC03OpCxMQd3VoaVuDHma0Z6h=BuDUf63qc5x1aZvdww@mail.gmail.com>
- <20170413103559.GA23263@gondor.apana.org.au>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [RFC 1/3] bpf/wireless: add wifimon program type
+Date: Tue, 18 Apr 2017 13:35:15 +0200
+Message-ID: <1492515315.2472.24.camel@sipsolutions.net>
+References: <20170412110726.9689-1-johannes@sipsolutions.net>
+         <1492007254.2855.10.camel@sipsolutions.net>
+         <20170412.111913.497795978751789475.davem@davemloft.net>
+         <1492011040.2855.18.camel@sipsolutions.net>
+         <20170414185144.GB41922@ast-mbp.thefacebook.com>
+         (sfid-20170414_205150_417889_20631AEB) <1492509349.2472.15.camel@sipsolutions.net>
+         <58F5F148.1090700@iogearbox.net>
+         <1492514882.2472.22.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-        Andrey Konovalov <andreyknvl@google.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Kostya Serebryany <kcc@google.com>,
-        syzkaller <syzkaller@googlegroups.com>,
-        Eric Dumazet <edumazet@google.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org, ast@kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:50088 "EHLO a.mx.secunet.com"
+Received: from s3.sipsolutions.net ([5.9.151.49]:48790 "EHLO sipsolutions.net"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751228AbdDRLeX (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 18 Apr 2017 07:34:23 -0400
-Content-Disposition: inline
-In-Reply-To: <20170413103559.GA23263@gondor.apana.org.au>
+        id S1756368AbdDRLfW (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 18 Apr 2017 07:35:22 -0400
+In-Reply-To: <1492514882.2472.22.camel@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 13, 2017 at 06:35:59PM +0800, Herbert Xu wrote:
-> On Wed, Apr 12, 2017 at 05:39:22PM -0700, Cong Wang wrote:
-> > On Wed, Apr 12, 2017 at 8:02 AM, Andrey Konovalov <andreyknvl@google.com> wrote:
-> > > Hi,
-> > >
-> > > I've got the following error report while fuzzing the kernel with syzkaller.
-> > >
-> > > On commit 39da7c509acff13fc8cb12ec1bb20337c988ed36 (4.11-rc6).
-> > >
-> > > A reproducer and .config are attached.
-> > >
-> > > When subtracting rq->sadb_x_ipsecrequest_len from len it can become
-> > > negative and the while loop condition remains true.
-> > 
-> > Good catch! Seems the fix is pretty straight forward:
-> > 
-> > diff --git a/net/key/af_key.c b/net/key/af_key.c
-> > index c6252ed..cbce595 100644
-> > --- a/net/key/af_key.c
-> > +++ b/net/key/af_key.c
-> > @@ -1945,7 +1945,7 @@ parse_ipsecrequests(struct xfrm_policy *xp,
-> > struct sadb_x_policy *pol)
-> >         if (pol->sadb_x_policy_len * 8 < sizeof(struct sadb_x_policy))
-> >                 return -EINVAL;
-> > 
-> > -       while (len >= sizeof(struct sadb_x_ipsecrequest)) {
-> > +       while (len >= (int)sizeof(struct sadb_x_ipsecrequest)) {
-> >                 if ((err = parse_ipsecrequest(xp, rq)) < 0)
-> >                         return err;
-> >                 len -= rq->sadb_x_ipsecrequest_len;
-> > 
-> > But pol->sadb_x_policy_len and rq->sadb_x_ipsecrequest_len
-> > are controllable by user (fortunately root), I am feeling there might
-> > be other problem I miss too.
-> 
-> Well the fact that it is negative means that you've already parsed
-> crap in the previous loop.  This interface really needs to die.
+So actually, come to think of it ...
 
-Do you see a chance to remove this? I guess it is not used frequently
-anymore, but distros still ship the old ipsec tools.
+> > The mapping in samples/bpf/bpf_helpers.h, for example, for
+> > mentioned
+> > bpf_skb_load_bytes() would also work out of the box, since it takes
+> > a
+> > void *ctx as an argument, so you can just pass the __wifi_sk_buff
+> > pointer as ctx there from program side.
+> 
+> Hah. That's what I was missing - I always assumed the argument was
+> "struct __sk_buff *" without ever checking that assumption.
 
-> 
-> ---8<---
-> Subject: af_key: Fix sadb_x_ipsecrequest parsing
-> 
-> The parsing of sadb_x_ipsecrequest is broken in a number of ways.
-> First of all we're not verifying sadb_x_ipsecrequest_len.  This
-> is needed when the structure carries addresses at the end.  Worse
-> we don't even look at the length when we parse those optional
-> addresses.
-> 
-> The migration code had similar parsing code that's better but
-> it also has some deficiencies.  The length is overcounted first
-> of all as it includes the header itself.  It also fails to check
-> the length before dereferencing the sa_family field.
-> 
-> This patch fixes those problems in parse_sockaddr_pair and then
-> uses it in parse_ipsecrequest.
-> 
-> Reported-by: Andrey Konovalov <andreyknvl@google.com>
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+Given this, I think I'll actually make a __wifi_sk_buff.
 
-Applied to the ipsec tree, thanks Herbert!
+> The thing is that __wifi_sk_buff doesn't have much information that's
+> generally useful available
+
+Because I just realized that this isn't true. To make sense of the SKB
+beyond the 802.11 header, which may not be possible at all though due
+to encryption happening in software later, it will have to know a few
+things like whether or not it was encrypted and if the IV was stripped
+etc.
+
+Actually, perhaps we should just restrict it to just look at the header
+;-)
+
+johannes
