@@ -1,35 +1,166 @@
-From: Jakub Kicinski <kubakici@wp.pl>
-Subject: Re: [PATCH net-next 1/1] net sched actions: add time filter for
- action dumping
-Date: Tue, 18 Apr 2017 15:12:59 -0700
-Message-ID: <20170418151259.72eaa05a@cakuba.lan>
-References: <1492350973-6846-1-git-send-email-jhs@emojatatu.com>
+From: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+Subject: Re: [PATCH net-next v6 04/11] landlock: Add LSM hooks related to filesystem
+Date: Tue, 18 Apr 2017 15:17:03 -0700
+Message-ID: <CAGXu5jJKNp8R5kZ1U=K7KwgnV=NvH5aoAbftA-05a_Sa4pOg1Q@mail.gmail.com>
+References: <20170328234650.19695-1-mic@digikod.net> <20170328234650.19695-5-mic@digikod.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-        xiyou.wangcong@gmail.com, eric.dumazet@gmail.com, jiri@resnulli.us
-To: Jamal Hadi Salim <jhs@mojatatu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.wp.pl ([212.77.101.10]:44279 "EHLO mx3.wp.pl"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753472AbdDRWNQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 18 Apr 2017 18:13:16 -0400
-In-Reply-To: <1492350973-6846-1-git-send-email-jhs@emojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Alexei Starovoitov <ast-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
+        Arnaldo Carvalho de Melo <acme-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Casey Schaufler <casey-iSGtlc1asvQWG2LlvL+J4A@public.gmane.org>,
+        Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
+        David Drysdale <drysdale-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+        "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        "Eric W . Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
+        James Morris <james.l.morris-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
+        Jann Horn <jann-XZ1E9jl8jIdeoWH0uzbU5w@public.gmane.org>, Jonathan Corbet <corbet-T1hC0tSOHrs@public.gmane.org>,
+        Matthew Garrett <mjg59-1xO5oi07KQx4cg9Nei1l7Q@public.gmane.org>,
+        Michael Kerrisk <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Paul Moore <paul-r2n+y4ga6xFZroRs9YW3xA@public.gmane.org>,
+        Sargun Dhillon <sargun-GaZTRHToo+CzQB+pC5nmwQ@public.gmane.org>,
+        "Serge E . Hallyn" <serge-A9i7LUbDfNHQT0dZR+AlfA@public.gmane.org>,
+        Shuah Khan <shuah-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>, Will Drewry <wa
+To: =?UTF-8?B?TWlja2HDq2wgU2FsYcO8bg==?= <mic-WFhQfpSGs3bR7s880joybQ@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170328234650.19695-5-mic-WFhQfpSGs3bR7s880joybQ@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 16 Apr 2017 09:56:13 -0400, Jamal Hadi Salim wrote:
-> From: Jamal Hadi Salim <jhs@mojatatu.com>
-> 
-> This adds support for filtering based on time since last used.
-> When we are dumping a large number of actions it is useful to
-> have the option of filtering based on when the action was last
-> used to reduce the amount of data crossing to user space.
+On Tue, Mar 28, 2017 at 4:46 PM, Micka=C3=ABl Sala=C3=BCn <mic-WFhQfpSGs3bR7s880joybQ@public.gmane.org>=
+ wrote:
+> Handle 33 filesystem-related LSM hooks for the Landlock filesystem
+> event: LANDLOCK_SUBTYPE_EVENT_FS.
+>
+> A Landlock event wrap LSM hooks for similar kernel object types (e.g.
+> struct file, struct path...). Multiple LSM hooks can trigger the same
+> Landlock event.
+>
+> Landlock handle nine coarse-grained actions: read, write, execute, new,
+> get, remove, ioctl, lock and fcntl. Each of them abstract LSM hook
+> access control in a way that can be extended in the future.
+>
+> The Landlock LSM hook registration is done after other LSM to only run
+> actions from user-space, via eBPF programs, if the access was granted by
+> major (privileged) LSMs.
+>
+> Changes since v5:
+> * split hooks.[ch] into hooks.[ch] and hooks_fs.[ch]
+> * add more documentation
+> * cosmetic fixes
+>
+> Changes since v4:
+> * add LSM hook abstraction called Landlock event
+>   * use the compiler type checking to verify hooks use by an event
+>   * handle all filesystem related LSM hooks (e.g. file_permission,
+>     mmap_file, sb_mount...)
+> * register BPF programs for Landlock just after LSM hooks registration
+> * move hooks registration after other LSMs
+> * add failsafes to check if a hook is not used by the kernel
+> * allow partial raw value access form the context (needed for programs
+>   generated by LLVM)
+>
+> Changes since v3:
+> * split commit
+> * add hooks dealing with struct inode and struct path pointers:
+>   inode_permission and inode_getattr
+> * add abstraction over eBPF helper arguments thanks to wrapping structs
+>
+> Signed-off-by: Micka=C3=ABl Sala=C3=BCn <mic-WFhQfpSGs3bR7s880joybQ@public.gmane.org>
+> Cc: Alexei Starovoitov <ast-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+> Cc: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
+> Cc: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
+> Cc: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+> Cc: James Morris <james.l.morris-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+> Cc: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+> Cc: Serge E. Hallyn <serge-A9i7LUbDfNHQT0dZR+AlfA@public.gmane.org>
+> ---
+>  include/linux/lsm_hooks.h    |   5 +
+>  security/landlock/Makefile   |   4 +-
+>  security/landlock/hooks.c    | 115 +++++++++
+>  security/landlock/hooks.h    | 177 ++++++++++++++
+>  security/landlock/hooks_fs.c | 563 +++++++++++++++++++++++++++++++++++++=
+++++++
+>  security/landlock/hooks_fs.h |  19 ++
+>  security/landlock/init.c     |  13 +
+>  security/security.c          |   7 +-
+>  8 files changed, 901 insertions(+), 2 deletions(-)
+>  create mode 100644 security/landlock/hooks.c
+>  create mode 100644 security/landlock/hooks.h
+>  create mode 100644 security/landlock/hooks_fs.c
+>  create mode 100644 security/landlock/hooks_fs.h
+>
+> diff --git a/include/linux/lsm_hooks.h b/include/linux/lsm_hooks.h
+> index e29d4c62a3c8..884289166a0e 100644
+> --- a/include/linux/lsm_hooks.h
+> +++ b/include/linux/lsm_hooks.h
+> @@ -1920,5 +1920,10 @@ void __init loadpin_add_hooks(void);
+>  #else
+>  static inline void loadpin_add_hooks(void) { };
+>  #endif
+> +#ifdef CONFIG_SECURITY_LANDLOCK
+> +extern void __init landlock_add_hooks(void);
+> +#else
+> +static inline void __init landlock_add_hooks(void) { }
+> +#endif /* CONFIG_SECURITY_LANDLOCK */
+>
+>  #endif /* ! __LINUX_LSM_HOOKS_H */
+> diff --git a/security/landlock/Makefile b/security/landlock/Makefile
+> index 7205f9a7a2ee..c0db504a6335 100644
+> --- a/security/landlock/Makefile
+> +++ b/security/landlock/Makefile
+> @@ -1,3 +1,5 @@
+> +ccflags-$(CONFIG_SECURITY_LANDLOCK) +=3D -Werror=3Dunused-function
 
-Noob question - would it be an option to establish some form of
-streaming statistic updates out of the kernel?  The notion of user
-space trying to keep track of the time here seems a bit shaky.  Would
-it be an option with netlink to open a socket and request specific
-set of statistic to be dumped on it periodically if they changed?
-I guess it would be way more code that the patch you present...
+Why is this needed? If it can't be avoided, a comment should exist
+here explaining why.
+
+> [...]
+> @@ -127,3 +132,11 @@ static struct bpf_prog_type_list bpf_landlock_type _=
+_ro_after_init =3D {
+>         .ops =3D &bpf_landlock_ops,
+>         .type =3D BPF_PROG_TYPE_LANDLOCK,
+>  };
+> +
+> +void __init landlock_add_hooks(void)
+> +{
+> +       pr_info("landlock: Version %u", LANDLOCK_VERSION);
+> +       landlock_add_hooks_fs();
+> +       security_add_hooks(NULL, 0, "landlock");
+> +       bpf_register_prog_type(&bpf_landlock_type);
+
+I'm confused by the separation of hook registration here. The call to
+security_add_hooks is with count=3D0 is especially weird. Why isn't this
+just a single call with security_add_hooks(landlock_hooks,
+ARRAY_SIZE(landlock_hooks), "landlock")?
+
+> +}
+> diff --git a/security/security.c b/security/security.c
+> index d0e07f269b2d..a3e9f4625991 100644
+> --- a/security/security.c
+> +++ b/security/security.c
+> @@ -64,10 +64,15 @@ int __init security_init(void)
+>         loadpin_add_hooks();
+>
+>         /*
+> -        * Load all the remaining security modules.
+> +        * Load all remaining privileged security modules.
+>          */
+>         do_security_initcalls();
+>
+> +       /*
+> +        * Load potentially-unprivileged security modules at the end.
+> +        */
+> +       landlock_add_hooks();
+
+Oh, is this to make it last in the list? Is there a reason it has to be las=
+t?
+
+-Kees
+
+--=20
+Kees Cook
+Pixel Security
