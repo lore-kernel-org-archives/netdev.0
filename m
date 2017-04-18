@@ -1,456 +1,838 @@
 From: Gavin Shan <gwshan@linux.vnet.ibm.com>
-Subject: [PATCH v3 net-next 5/8] net/ncsi: Dump NCSI packet statistics
-Date: Tue, 18 Apr 2017 16:51:32 +1000
-Message-ID: <1492498295-14385-6-git-send-email-gwshan@linux.vnet.ibm.com>
+Subject: [PATCH v3 net-next 6/8] net/ncsi: Support NCSI packet generation
+Date: Tue, 18 Apr 2017 16:51:33 +1000
+Message-ID: <1492498295-14385-7-git-send-email-gwshan@linux.vnet.ibm.com>
 References: <1492498295-14385-1-git-send-email-gwshan@linux.vnet.ibm.com>
 Cc: joe@perches.com, kubakici@wp.pl, davem@davemloft.net,
         Gavin Shan <gwshan@linux.vnet.ibm.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:58906 "EHLO
+Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:55802 "EHLO
         mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1755236AbdDRGxF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 02:53:05 -0400
-Received: from pps.filterd (m0098416.ppops.net [127.0.0.1])
-        by mx0b-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v3I6mbtg002178
-        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 02:53:04 -0400
-Received: from e23smtp05.au.ibm.com (e23smtp05.au.ibm.com [202.81.31.147])
-        by mx0b-001b2d01.pphosted.com with ESMTP id 29vwu1axk8-1
+        by vger.kernel.org with ESMTP id S1755239AbdDRGxD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 02:53:03 -0400
+Received: from pps.filterd (m0098414.ppops.net [127.0.0.1])
+        by mx0b-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v3I6n0X7027500
+        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 02:53:03 -0400
+Received: from e23smtp01.au.ibm.com (e23smtp01.au.ibm.com [202.81.31.143])
+        by mx0b-001b2d01.pphosted.com with ESMTP id 29w2e9q147-1
         (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 02:53:04 -0400
+        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 02:53:02 -0400
 Received: from localhost
-        by e23smtp05.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        by e23smtp01.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
         for <netdev@vger.kernel.org> from <gwshan@linux.vnet.ibm.com>;
-        Tue, 18 Apr 2017 16:53:01 +1000
+        Tue, 18 Apr 2017 16:52:59 +1000
 Received: from d23av05.au.ibm.com (d23av05.au.ibm.com [9.190.234.119])
-        by d23relay09.au.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id v3I6qovR35061802
+        by d23relay07.au.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id v3I6qo2C7406006
         for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 16:52:58 +1000
 Received: from d23av05.au.ibm.com (localhost [127.0.0.1])
-        by d23av05.au.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id v3I6qP40029891
+        by d23av05.au.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id v3I6qPDt029892
         for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 16:52:26 +1000
 In-Reply-To: <1492498295-14385-1-git-send-email-gwshan@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This creates /sys/kernel/debug/ncsi/<eth0>/stats to dump the NCSI
-packets sent and received over all packages and channels. It's useful
-to diagnose NCSI problems, especially when NCSI packages and channels
-aren't probed properly. The statistics can be gained from debugfs file
-as below:
+This introduces /sys/kernel/debug/ncsi/eth0/pkt. The debugfs entry
+can accept parameters to produce NCSI command packet. The received
+NCSI response packet is dumped on read. Below is an example to send
+CIS command and dump its response.
 
- # cat /sys/kernel/debug/ncsi/eth0/stats
+   # echo CIS,0,0 > /sys/kernel/debug/ncsi/eth0/pkt
+   # cat /sys/kernel/debug/ncsi/eth0/pkt
+   NCSI response [CIS] packet received
 
- CMD          OK       TIMEOUT  ERROR
- =======================================
- CIS          32       29       0
- SP           10       7        0
- DP           17       14       0
- EC           1        0        0
- ECNT         1        0        0
- AE           1        0        0
- GLS          11       0        0
- SMA          1        0        0
- EBF          1        0        0
- GVI          2        0        0
- GC           2        0        0
-
- RSP          OK       TIMEOUT  ERROR
- =======================================
- CIS          3        0        0
- SP           3        0        0
- DP           2        0        1
- EC           1        0        0
- ECNT         1        0        0
- AE           1        0        0
- GLS          11       0        0
- SMA          1        0        0
- EBF          1        0        0
- GVI          0        0        2
- GC           2        0        0
-
- AEN          OK       TIMEOUT  ERROR
- =======================================
+   00 01 dd 80 00 0004 0000 0000
 
 Signed-off-by: Gavin Shan <gwshan@linux.vnet.ibm.com>
 ---
- net/ncsi/internal.h    |  17 ++++
- net/ncsi/ncsi-aen.c    |  13 ++-
- net/ncsi/ncsi-cmd.c    |  12 ++-
- net/ncsi/ncsi-debug.c  | 252 +++++++++++++++++++++++++++++++++++++++++++++++++
- net/ncsi/ncsi-manage.c |   4 +
- net/ncsi/ncsi-rsp.c    |  11 ++-
- 6 files changed, 306 insertions(+), 3 deletions(-)
+ net/ncsi/internal.h    |  43 +++
+ net/ncsi/ncsi-cmd.c    |   1 +
+ net/ncsi/ncsi-debug.c  | 697 ++++++++++++++++++++++++++++++++++++++++++++++---
+ net/ncsi/ncsi-manage.c |   2 +
+ net/ncsi/ncsi-rsp.c    |   9 +
+ 5 files changed, 722 insertions(+), 30 deletions(-)
 
 diff --git a/net/ncsi/internal.h b/net/ncsi/internal.h
-index e9ede4f..c0b50a9 100644
+index c0b50a9..67d987b 100644
 --- a/net/ncsi/internal.h
 +++ b/net/ncsi/internal.h
-@@ -282,7 +282,17 @@ struct ncsi_dev_priv {
- 	struct work_struct  work;            /* For channel management     */
- 	struct packet_type  ptype;           /* NCSI packet Rx handler     */
- 	struct list_head    node;            /* Form NCSI device list      */
-+#define NCSI_PKT_STAT_OK	0
-+#define NCSI_PKT_STAT_TIMEOUT	1
-+#define NCSI_PKT_STAT_ERROR	2
-+#define NCSI_PKT_STAT_MAX	3
- #ifdef CONFIG_NET_NCSI_DEBUG
+@@ -221,6 +221,9 @@ struct ncsi_request {
+ 	bool                 used;    /* Request that has been assigned  */
+ 	unsigned int         flags;   /* NCSI request property           */
+ #define NCSI_REQ_FLAG_EVENT_DRIVEN	1
++#ifdef CONFIG_NET_NCSI_DEBUG
++#define NCSI_REQ_FLAG_DEBUG		2
++#endif
+ 	struct ncsi_dev_priv *ndp;    /* Associated NCSI device          */
+ 	struct sk_buff       *cmd;    /* Associated NCSI command packet  */
+ 	struct sk_buff       *rsp;    /* Associated NCSI response packet */
+@@ -293,6 +296,14 @@ struct ncsi_dev_priv {
+ 		unsigned long  rsp[128][NCSI_PKT_STAT_MAX];
+ 		unsigned long  aen[256][NCSI_PKT_STAT_MAX];
+ 	} stats;
 +	struct {
 +		struct dentry  *dentry;
-+		unsigned long  cmd[128][NCSI_PKT_STAT_MAX];
-+		unsigned long  rsp[128][NCSI_PKT_STAT_MAX];
-+		unsigned long  aen[256][NCSI_PKT_STAT_MAX];
-+	} stats;
++		unsigned int   req;
++#define NCSI_PKT_REQ_FREE	0
++#define NCSI_PKT_REQ_BUSY	0xFFFFFFFF
++		int            errno;
++		struct sk_buff *rsp;
++	} pkt;
  	struct dentry       *dentry;         /* Procfs directory           */
  #endif
  };
-@@ -349,6 +359,8 @@ int ncsi_aen_handler(struct ncsi_dev_priv *ndp, struct sk_buff *skb);
- /* Debugging functionality */
- #ifdef CONFIG_NET_NCSI_DEBUG
+@@ -361,6 +372,22 @@ int ncsi_aen_handler(struct ncsi_dev_priv *ndp, struct sk_buff *skb);
  int ncsi_dev_init_debug(struct ncsi_dev_priv *ndp);
-+void ncsi_dev_update_stats(struct ncsi_dev_priv *ndp,
-+			   int type, int subtype, int errno);
+ void ncsi_dev_update_stats(struct ncsi_dev_priv *ndp,
+ 			   int type, int subtype, int errno);
++
++static inline bool ncsi_dev_is_debug_pkt(struct ncsi_dev_priv *ndp,
++					 struct ncsi_request *nr)
++{
++	return ((nr->flags & NCSI_REQ_FLAG_DEBUG) && ndp->pkt.req == nr->id);
++}
++
++static inline void ncsi_dev_set_debug_pkt(struct ncsi_dev_priv *ndp,
++					  struct ncsi_request *nr)
++{
++	if (nr->flags & NCSI_REQ_FLAG_DEBUG)
++		ndp->pkt.req = nr->id;
++}
++
++void ncsi_dev_reset_debug_pkt(struct ncsi_dev_priv *ndp,
++			      struct sk_buff *skb, int errno);
  void ncsi_dev_release_debug(struct ncsi_dev_priv *ndp);
  int ncsi_package_init_debug(struct ncsi_package *np);
  void ncsi_package_release_debug(struct ncsi_package *np);
-@@ -360,6 +372,11 @@ static inline int ncsi_dev_init_debug(struct ncsi_dev_priv *ndp)
- 	return -ENOTTY;
+@@ -377,6 +404,22 @@ static inline void ncsi_dev_update_stats(struct ncsi_dev_priv *ndp,
+ {
  }
  
-+static inline void ncsi_dev_update_stats(struct ncsi_dev_priv *ndp,
-+					 int type, int subtype, int errno)
++static inline bool ncsi_dev_is_debug_pkt(struct ncsi_dev_priv *ndp,
++					 struct ncsi_request *nr)
++{
++	return false;
++}
++
++static inline void ncsi_dev_set_debug_pkt(struct ncsi_dev_priv *ndp,
++					  struct ncsi_request *nr)
++{
++}
++
++static inline void ncsi_dev_reset_debug_pkt(struct ncsi_dev_priv *ndp,
++					    struct sk_buff *skb, int errno)
 +{
 +}
 +
  static inline void ncsi_dev_release_debug(struct ncsi_dev_priv *ndp)
  {
  }
-diff --git a/net/ncsi/ncsi-aen.c b/net/ncsi/ncsi-aen.c
-index 6898e72..72bac7c 100644
---- a/net/ncsi/ncsi-aen.c
-+++ b/net/ncsi/ncsi-aen.c
-@@ -206,16 +206,27 @@ int ncsi_aen_handler(struct ncsi_dev_priv *ndp, struct sk_buff *skb)
- 	}
- 
- 	if (!nah) {
-+		ncsi_dev_update_stats(ndp, NCSI_PKT_AEN,
-+				      h->type, NCSI_PKT_STAT_ERROR);
- 		netdev_warn(ndp->ndev.dev, "Invalid AEN (0x%x) received\n",
- 			    h->type);
- 		return -ENOENT;
- 	}
- 
- 	ret = ncsi_validate_aen_pkt(h, nah->payload);
--	if (ret)
-+	if (ret) {
-+		ncsi_dev_update_stats(ndp, NCSI_PKT_AEN,
-+				      h->type, NCSI_PKT_STAT_ERROR);
- 		goto out;
-+	}
- 
- 	ret = nah->handler(ndp, h);
-+	if (ret)
-+		ncsi_dev_update_stats(ndp, NCSI_PKT_AEN,
-+				      h->type, NCSI_PKT_STAT_ERROR);
-+	else
-+		ncsi_dev_update_stats(ndp, NCSI_PKT_AEN,
-+				      h->type, NCSI_PKT_STAT_OK);
- out:
- 	consume_skb(skb);
- 	return ret;
 diff --git a/net/ncsi/ncsi-cmd.c b/net/ncsi/ncsi-cmd.c
-index db7083b..9a8dac2 100644
+index 9a8dac2..baf82b3 100644
 --- a/net/ncsi/ncsi-cmd.c
 +++ b/net/ncsi/ncsi-cmd.c
-@@ -323,6 +323,8 @@ int ncsi_xmit_cmd(struct ncsi_cmd_arg *nca)
- 	}
+@@ -361,6 +361,7 @@ int ncsi_xmit_cmd(struct ncsi_cmd_arg *nca)
+ 	 */
+ 	nr->enabled = true;
+ 	mod_timer(&nr->timer, jiffies + 1 * HZ);
++	ncsi_dev_set_debug_pkt(nca->ndp, nr);
  
- 	if (!nch) {
-+		ncsi_dev_update_stats(nca->ndp, nca->type,
-+				      0, NCSI_PKT_STAT_ERROR);
- 		netdev_err(nca->ndp->ndev.dev,
- 			   "Cannot send packet with type 0x%02x\n", nca->type);
- 		return -ENOENT;
-@@ -331,13 +333,18 @@ int ncsi_xmit_cmd(struct ncsi_cmd_arg *nca)
- 	/* Get packet payload length and allocate the request */
- 	nca->payload = nch->payload;
- 	nr = ncsi_alloc_command(nca);
--	if (!nr)
-+	if (!nr) {
-+		ncsi_dev_update_stats(nca->ndp, nca->type,
-+				      0, NCSI_PKT_STAT_ERROR);
- 		return -ENOMEM;
-+	}
- 
- 	/* Prepare the packet */
- 	nca->id = nr->id;
- 	ret = nch->handler(nr->cmd, nca);
- 	if (ret) {
-+		ncsi_dev_update_stats(nca->ndp, nca->type,
-+				      0, NCSI_PKT_STAT_ERROR);
- 		ncsi_free_request(nr);
- 		return ret;
- 	}
-@@ -359,9 +366,12 @@ int ncsi_xmit_cmd(struct ncsi_cmd_arg *nca)
+ 	/* Send NCSI packet */
  	skb_get(nr->cmd);
- 	ret = dev_queue_xmit(nr->cmd);
- 	if (ret < 0) {
-+		ncsi_dev_update_stats(nca->ndp, nca->type,
-+				      0, NCSI_PKT_STAT_ERROR);
- 		ncsi_free_request(nr);
- 		return ret;
- 	}
- 
-+	ncsi_dev_update_stats(nca->ndp, nca->type, 0, NCSI_PKT_STAT_OK);
- 	return 0;
- }
 diff --git a/net/ncsi/ncsi-debug.c b/net/ncsi/ncsi-debug.c
-index f38483d..b6df895 100644
+index b6df895..4f2b72c 100644
 --- a/net/ncsi/ncsi-debug.c
 +++ b/net/ncsi/ncsi-debug.c
-@@ -23,6 +23,235 @@
+@@ -23,40 +23,651 @@
  #include "ncsi-pkt.h"
  
  static struct dentry *ncsi_dentry;
-+static const struct ncsi_pkt_handler {
-+	unsigned char	type;
-+	const char	*name;
-+} ncsi_pkt_handlers[] = {
-+	{ NCSI_PKT_CMD_CIS,    "CIS"    },
-+	{ NCSI_PKT_CMD_SP,     "SP"     },
-+	{ NCSI_PKT_CMD_DP,     "DP"     },
-+	{ NCSI_PKT_CMD_EC,     "EC"     },
-+	{ NCSI_PKT_CMD_DC,     "DC"     },
-+	{ NCSI_PKT_CMD_RC,     "RC"     },
-+	{ NCSI_PKT_CMD_ECNT,   "ECNT"   },
-+	{ NCSI_PKT_CMD_DCNT,   "DCNT"   },
-+	{ NCSI_PKT_CMD_AE,     "AE"     },
-+	{ NCSI_PKT_CMD_SL,     "SL"     },
-+	{ NCSI_PKT_CMD_GLS,    "GLS"    },
-+	{ NCSI_PKT_CMD_SVF,    "SVF"    },
-+	{ NCSI_PKT_CMD_EV,     "EV"     },
-+	{ NCSI_PKT_CMD_DV,     "DV"     },
-+	{ NCSI_PKT_CMD_SMA,    "SMA"    },
-+	{ NCSI_PKT_CMD_EBF,    "EBF"    },
-+	{ NCSI_PKT_CMD_DBF,    "DBF"    },
-+	{ NCSI_PKT_CMD_EGMF,   "EGMF"   },
-+	{ NCSI_PKT_CMD_DGMF,   "DGMF"   },
-+	{ NCSI_PKT_CMD_SNFC,   "SNFC"   },
-+	{ NCSI_PKT_CMD_GVI,    "GVI"    },
-+	{ NCSI_PKT_CMD_GC,     "GC"     },
-+	{ NCSI_PKT_CMD_GP,     "GP"     },
-+	{ NCSI_PKT_CMD_GCPS,   "GCPS"   },
-+	{ NCSI_PKT_CMD_GNS,    "GNS"    },
-+	{ NCSI_PKT_CMD_GNPTS,  "GNPTS"  },
-+	{ NCSI_PKT_CMD_GPS,    "GPS"    },
-+	{ NCSI_PKT_CMD_OEM,    "OEM"    },
-+	{ NCSI_PKT_CMD_PLDM,   "PLDM"   },
-+	{ NCSI_PKT_CMD_GPUUID, "GPUUID" },
-+};
 +
-+static bool ncsi_dev_stats_index(struct ncsi_dev_priv *ndp, loff_t pos,
-+				 unsigned long *type, unsigned long *index,
-+				 unsigned long *entries)
++static const char *ncsi_pkt_type_name(unsigned int type);
++
++static int ncsi_pkt_input_default(struct ncsi_dev_priv *ndp,
++				  struct ncsi_cmd_arg *nca, char *buf)
 +{
-+	const unsigned long ranges[3][2] = {
-+		{ 1,
-+		  ARRAY_SIZE(ndp->stats.cmd) - 1		},
-+		{ ranges[0][1] + 2,
-+		  ranges[1][0] + ARRAY_SIZE(ndp->stats.rsp) - 1	},
-+		{ ranges[1][1] + 2,
-+		  ranges[2][0] + ARRAY_SIZE(ndp->stats.aen) - 1 }
-+	};
-+	int i;
-+
-+	for (i = 0; i < 3; i++) {
-+		if (pos == (ranges[i][0] - 1)) {
-+			*index = i;
-+			*entries = 0;
-+			return true;
-+		}
-+
-+		if (pos >= ranges[i][0] && pos <= ranges[i][1]) {
-+			*type = i;
-+			*index = (pos - ranges[i][0]);
-+			*entries = NCSI_PKT_STAT_MAX;
-+			return true;
-+		}
-+	}
-+
-+	return false;
++	return 0;
 +}
 +
-+static void *ncsi_dev_stats_data(struct ncsi_dev_priv *ndp, loff_t pos)
++static int ncsi_pkt_input_params(char *buf, int *outval, int count)
 +{
-+	unsigned long type, index, entries;
-+	bool valid;
++	int num, i;
 +
-+	valid = ncsi_dev_stats_index(ndp, pos, &type, &index, &entries);
-+	if (!valid)
-+		return NULL;
++	for (i = 0; i < count; i++, outval++) {
++		if (sscanf(buf, "%x%n", outval, &num) != 1)
++			return -EINVAL;
 +
-+	/* The bits in return value are assigned as below:
-+	 *
-+	 * Bit[7:0]:   Number of ulong entries
-+	 * Bit[23:8]:  Offset to that specific data entry
-+	 * Bit[30:24]: Type of packet statistics
-+	 * Bit[31]:    0x1 as valid flag.
-+	 */
-+	if (!entries)
-+		index += ((unsigned long)SEQ_START_TOKEN);
-+	else
-+		index = (1 << 31) | (type << 24) | (index << 8) | entries;
-+
-+	return (void *)index;
-+}
-+
-+static void *ncsi_dev_stats_seq_start(struct seq_file *seq, loff_t *pos)
-+{
-+	struct ncsi_dev_priv *ndp = seq->private;
-+	void *data;
-+
-+	data = ncsi_dev_stats_data(ndp, *pos);
-+	++(*pos);
-+
-+	return data;
-+}
-+
-+static void *ncsi_dev_stats_seq_next(struct seq_file *seq, void *v, loff_t *pos)
-+{
-+	struct ncsi_dev_priv *ndp = seq->private;
-+	void *data;
-+
-+	data = ncsi_dev_stats_data(ndp, *pos);
-+	++(*pos);
-+	return data;
-+}
-+
-+static void ncsi_dev_stats_seq_stop(struct seq_file *seq, void *v)
-+{
-+}
-+
-+static const char *ncsi_pkt_type_name(unsigned int type)
-+{
-+	int i;
-+
-+	for (i = 0; i < ARRAY_SIZE(ncsi_pkt_handlers); i++) {
-+		if (ncsi_pkt_handlers[i].type == type)
-+			return ncsi_pkt_handlers[i].name;
-+	}
-+
-+	return "N/A";
-+}
-+
-+static const char *ncsi_dev_stats_pkt_name(unsigned long type,
-+					   unsigned long index)
-+{
-+	switch (type) {
-+	case 0: /* Command */
-+	case 1: /* Response */
-+		return ncsi_pkt_type_name(index);
-+	case 2: /* AEN */
-+		switch (index) {
-+		case NCSI_PKT_AEN_LSC:
-+			return "LSC";
-+		case NCSI_PKT_AEN_CR:
-+			return "CR";
-+		case NCSI_PKT_AEN_HNCDSC:
-+			return "HNCDSC";
-+		default:
-+			return "N/A";
-+		}
-+	}
-+
-+	return "N/A";
-+}
-+
-+static int ncsi_dev_stats_seq_show(struct seq_file *seq, void *v)
-+{
-+	struct ncsi_dev_priv *ndp = seq->private;
-+	unsigned long type, index, entries, *data;
-+	const char *name;
-+
-+	if (v >= SEQ_START_TOKEN && v <= (SEQ_START_TOKEN + 2)) {
-+		static const char * const header[] = { "CMD", "RSP", "AEN" };
-+
-+		seq_puts(seq, "\n");
-+		seq_printf(seq, "%-12s %-8s %-8s %-8s\n",
-+			   header[v - SEQ_START_TOKEN],
-+			   "OK", "TIMEOUT", "ERROR");
-+		seq_puts(seq, "=======================================\n");
-+		return 0;
-+	}
-+
-+	index = (unsigned long)v;
-+	type = (index >> 24) & 0x7F;
-+	entries = (index & 0xFF);
-+	index = ((index >> 8) & 0xFFFF);
-+	name = ncsi_dev_stats_pkt_name(type, index);
-+	if (WARN_ON_ONCE(entries != NCSI_PKT_STAT_MAX))
-+		return 0;
-+
-+	switch (type) {
-+	case 0: /* Command */
-+		data = &ndp->stats.cmd[0][0];
-+		break;
-+	case 1: /* Response */
-+		data = &ndp->stats.rsp[0][0];
-+		break;
-+	case 2: /* AEN */
-+		data = &ndp->stats.aen[0][0];
-+		break;
-+	default:
-+		pr_warn("%s: Unsupported type %ld\n", __func__, type);
-+		return 0;
-+	}
-+
-+	data += (index * NCSI_PKT_STAT_MAX);
-+	if (*data || *(data + 1) || *(data + 2)) {
-+		seq_printf(seq, "%-12s %-8ld %-8ld %-8ld\n",
-+			   name, *data, *(data + 1), *(data + 2));
++		if (buf[num] == ',')
++			buf += (count + 1);
++		else
++			buf += count;
 +	}
 +
 +	return 0;
 +}
 +
-+static const struct seq_operations ncsi_dev_stats_seq_ops = {
-+	.start = ncsi_dev_stats_seq_start,
-+	.next  = ncsi_dev_stats_seq_next,
-+	.stop  = ncsi_dev_stats_seq_stop,
-+	.show  = ncsi_dev_stats_seq_show,
-+};
-+
-+static int ncsi_dev_stats_seq_open(struct inode *inode, struct file *file)
++static int ncsi_pkt_input_sp(struct ncsi_dev_priv *ndp,
++			     struct ncsi_cmd_arg *nca, char *buf)
 +{
-+	struct seq_file *sf;
-+	int ret;
++	int param, ret;
 +
-+	ret = seq_open(file, &ncsi_dev_stats_seq_ops);
-+	if (!ret) {
-+		sf = file->private_data;
-+		sf->private = inode->i_private;
-+	}
++	/* The hardware arbitration will be configured according
++	 * to the NCSI's capability if it's not specified.
++	 */
++	ret = ncsi_pkt_input_params(buf, &param, 1);
++	if (!ret && param != 0 && param != 1)
++		return -EINVAL;
++	else if (ret)
++		param = (ndp->flags & NCSI_DEV_HWA) ? 1 : 0;
 +
-+	return ret;
++	nca->bytes[0] = param;
++
++	return 0;
 +}
 +
-+static const struct file_operations ncsi_dev_stats_fops = {
++static int ncsi_pkt_input_dc(struct ncsi_dev_priv *ndp,
++			     struct ncsi_cmd_arg *nca, char *buf)
++{
++	int param, ret;
++
++	/* Allow link down will be disallowed if it's not specified */
++	ret = ncsi_pkt_input_params(buf, &param, 1);
++	if (!ret && param != 0 && param != 1)
++		return -EINVAL;
++	else if (ret)
++		param = 0;
++
++	nca->bytes[0] = param;
++
++	return 0;
++}
++
++static int ncsi_pkt_input_ae(struct ncsi_dev_priv *ndp,
++			     struct ncsi_cmd_arg *nca, char *buf)
++{
++	int param[2], ret;
++
++	/* MC ID and AE mode are mandatory */
++	ret = ncsi_pkt_input_params(buf, param, 2);
++	if (ret)
++		return -EINVAL;
++
++	nca->bytes[0] = param[0];
++	nca->dwords[1] = param[1];
++
++	return 0;
++}
++
++static int ncsi_pkt_input_sl(struct ncsi_dev_priv *ndp,
++			     struct ncsi_cmd_arg *nca, char *buf)
++{
++	int param[2], ret;
++
++	/* Link mode and OEM mode are mandatory */
++	ret = ncsi_pkt_input_params(buf, param, 2);
++	if (ret)
++		return -EINVAL;
++
++	nca->dwords[0] = param[0];
++	nca->dwords[1] = param[1];
++
++	return 0;
++}
++
++static int ncsi_pkt_input_svf(struct ncsi_dev_priv *ndp,
++			      struct ncsi_cmd_arg *nca, char *buf)
++{
++	int param[3], ret;
++
++	/* VLAN ID, table index and enable */
++	ret = ncsi_pkt_input_params(buf, param, 3);
++	if (ret)
++		return -EINVAL;
++
++	if (param[2] != 0 && param[2] != 1)
++		return -EINVAL;
++
++	nca->words[0] = param[0];
++	nca->bytes[2] = param[1];
++	nca->bytes[3] = param[2];
++
++	return 0;
++}
++
++static int ncsi_pkt_input_ev(struct ncsi_dev_priv *ndp,
++			     struct ncsi_cmd_arg *nca, char *buf)
++{
++	int param, ret;
++
++	/* VLAN filter mode */
++	ret = ncsi_pkt_input_params(buf, &param, 1);
++	if (ret)
++		return -EINVAL;
++
++	nca->bytes[0] = param;
++
++	return 0;
++}
++
++static int ncsi_pkt_input_sma(struct ncsi_dev_priv *ndp,
++			      struct ncsi_cmd_arg *nca, char *buf)
++{
++	int param[8], ret;
++
++	/* MAC address, MAC table index, Address type and operation */
++	ret = ncsi_pkt_input_params(buf, param, 8);
++	if (ret)
++		return -EINVAL;
++
++	if (param[7] & ~0x9)
++		return -EINVAL;
++
++	nca->bytes[0] = param[0];
++	nca->bytes[1] = param[1];
++	nca->bytes[2] = param[2];
++	nca->bytes[3] = param[3];
++	nca->bytes[4] = param[4];
++	nca->bytes[5] = param[5];
++
++	nca->bytes[6] = param[6];
++	nca->bytes[7] = param[7];
++
++	return 0;
++}
++
++static int ncsi_pkt_input_ebf(struct ncsi_dev_priv *ndp,
++			      struct ncsi_cmd_arg *nca, char *buf)
++{
++	int param, ret;
++
++	/* Broadcast filter mode */
++	ret = ncsi_pkt_input_params(buf, &param, 1);
++	if (ret)
++		return -EINVAL;
++
++	nca->dwords[0] = param;
++
++	return 0;
++}
++
++static int ncsi_pkt_input_egmf(struct ncsi_dev_priv *ndp,
++			       struct ncsi_cmd_arg *nca, char *buf)
++{
++	int param, ret;
++
++	/* Global multicast filter mode */
++	ret = ncsi_pkt_input_params(buf, &param, 1);
++	if (ret)
++		return -EINVAL;
++
++	nca->dwords[0] = param;
++
++	return 0;
++}
++
++static int ncsi_pkt_input_snfc(struct ncsi_dev_priv *ndp,
++			       struct ncsi_cmd_arg *nca, char *buf)
++{
++	int param, ret;
++
++	/* NCSI flow control mode */
++	ret = ncsi_pkt_input_params(buf, &param, 1);
++	if (ret)
++		return -EINVAL;
++
++	nca->bytes[0] = param;
++
++	return 0;
++}
++
++static void ncsi_pkt_output_header(struct ncsi_dev_priv *ndp,
++				   struct seq_file *seq,
++				   struct ncsi_rsp_pkt_hdr *h)
++{
++	seq_printf(seq, "NCSI response [%s] packet received\n\n",
++		   ncsi_pkt_type_name(h->common.type - 0x80));
++	seq_printf(seq, "%02x %02x %02x %02x %02x %04x %04x %04x\n",
++		   h->common.mc_id, h->common.revision, h->common.id,
++		   h->common.type, h->common.channel, ntohs(h->common.length),
++		   ntohs(h->code), ntohs(h->reason));
++}
++
++static int ncsi_pkt_output_default(struct ncsi_dev_priv *ndp,
++				   struct seq_file *seq,
++				   struct sk_buff *skb)
++{
++	struct ncsi_rsp_pkt_hdr *hdr;
++
++	hdr = (struct ncsi_rsp_pkt_hdr *)skb_network_header(skb);
++	ncsi_pkt_output_header(ndp, seq, hdr);
++
++	return 0;
++}
++
++static int ncsi_pkt_output_gls(struct ncsi_dev_priv *ndp,
++			       struct seq_file *seq, struct sk_buff *skb)
++{
++	struct ncsi_rsp_gls_pkt *gls;
++
++	ncsi_pkt_output_default(ndp, seq, skb);
++
++	gls = (struct ncsi_rsp_gls_pkt *)skb_network_header(skb);
++	seq_printf(seq, "Status: %08x Other: %08x OEM: %08x\n",
++		   ntohl(gls->status), ntohl(gls->other),
++		   ntohl(gls->oem_status));
++
++	return 0;
++}
++
++static int ncsi_pkt_output_gvi(struct ncsi_dev_priv *ndp,
++			       struct seq_file *seq, struct sk_buff *skb)
++{
++	struct ncsi_rsp_gvi_pkt *gvi;
++
++	ncsi_pkt_output_default(ndp, seq, skb);
++
++	gvi = (struct ncsi_rsp_gvi_pkt *)skb_network_header(skb);
++	seq_printf(seq, "NCSI Version: %08x Alpha2: %02x\n",
++		   ntohl(gvi->ncsi_version), gvi->alpha2);
++	seq_printf(seq, "Firmware: %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x Version: %08x\n",
++		   gvi->fw_name[0], gvi->fw_name[1], gvi->fw_name[2],
++		   gvi->fw_name[3], gvi->fw_name[4], gvi->fw_name[5],
++		   gvi->fw_name[6], gvi->fw_name[7], gvi->fw_name[8],
++		   gvi->fw_name[9], gvi->fw_name[10], gvi->fw_name[11],
++		   ntohl(gvi->fw_version));
++	seq_printf(seq, "PCI: %04x %04x %04x %04x Manufacture ID: %08x\n",
++		   ntohs(gvi->pci_ids[0]), ntohs(gvi->pci_ids[1]),
++		   ntohs(gvi->pci_ids[2]), ntohs(gvi->pci_ids[3]),
++		   ntohl(gvi->mf_id));
++
++	return 0;
++}
++
++static int ncsi_pkt_output_gc(struct ncsi_dev_priv *ndp,
++			      struct seq_file *seq, struct sk_buff *skb)
++{
++	struct ncsi_rsp_gc_pkt *gc;
++
++	ncsi_pkt_output_default(ndp, seq, skb);
++
++	gc = (struct ncsi_rsp_gc_pkt *)skb_network_header(skb);
++	seq_printf(seq, "Cap: %08x BC: %08x MC: %08x Buf: %08x AEN: %08x\n",
++		   ntohl(gc->cap), ntohl(gc->bc_cap), ntohl(gc->mc_cap),
++		   ntohl(gc->buf_cap), ntohl(gc->aen_cap));
++	seq_printf(seq, "VLAN: %02x Mixed: %02x MC: %02x UC: %02x\n",
++		   gc->vlan_cnt, gc->mixed_cnt, gc->mc_cnt, gc->uc_cnt);
++	seq_printf(seq, "VLAN Mode: %02x Channels: %02x\n",
++		   gc->vlan_mode, gc->channel_cnt);
++
++	return 0;
++}
++
++static int ncsi_pkt_output_gp(struct ncsi_dev_priv *ndp,
++			      struct seq_file *seq, struct sk_buff *skb)
++{
++	struct ncsi_rsp_gp_pkt *gp;
++
++	ncsi_pkt_output_default(ndp, seq, skb);
++
++	gp = (struct ncsi_rsp_gp_pkt *)skb_network_header(skb);
++	seq_printf(seq, "MAC: %02x %02x VLAN: %02x %04x\n",
++		   gp->mac_cnt, gp->mac_enable, gp->vlan_cnt,
++		   ntohs(gp->vlan_enable));
++	seq_printf(seq, "Link: %08x BC: %08x Valid: %08x\n",
++		   ntohl(gp->link_mode), ntohl(gp->bc_mode),
++		   ntohl(gp->valid_modes));
++	seq_printf(seq, "VLAN: %02x FC: %02x AEN: %08x\n",
++		   gp->vlan_mode, gp->fc_mode, ntohl(gp->aen_mode));
++	seq_printf(seq, "MAC: %02x %02x %02x %02x %02x %02x VLAN: %04x\n",
++		   gp->mac[5], gp->mac[4], gp->mac[3], gp->mac[2],
++		   gp->mac[1], gp->mac[0], ntohs(gp->vlan));
++
++	return 0;
++}
++
++static int ncsi_pkt_output_gcps(struct ncsi_dev_priv *ndp,
++				struct seq_file *seq, struct sk_buff *skb)
++{
++	struct ncsi_rsp_gcps_pkt *gcps;
++
++	ncsi_pkt_output_default(ndp, seq, skb);
++
++	gcps = (struct ncsi_rsp_gcps_pkt *)skb_network_header(skb);
++	seq_printf(seq, "cnt_hi: %08x cnt_lo: %08x rx_bytes: %08x\n",
++		   ntohl(gcps->cnt_hi), ntohl(gcps->cnt_lo),
++		   ntohl(gcps->rx_bytes));
++	seq_printf(seq, "tx_bytes: %08x rx_uc_pkts: %08x rx_mc_pkts: %08x\n",
++		   ntohl(gcps->tx_bytes), ntohl(gcps->rx_uc_pkts),
++		   ntohl(gcps->rx_mc_pkts));
++	seq_printf(seq, "rx_bc_pkts: %08x tx_uc_pkts: %08x tx_mc_pkts: %08x\n",
++		   ntohl(gcps->rx_bc_pkts), ntohl(gcps->tx_uc_pkts),
++		   ntohl(gcps->tx_mc_pkts));
++	seq_printf(seq, "tx_bc_pkts: %08x fcs_err: %08x align_err: %08x\n",
++		   ntohl(gcps->tx_bc_pkts), ntohl(gcps->fcs_err),
++		   ntohl(gcps->align_err));
++	seq_printf(seq, "false_carrier: %08x runt_pkts: %08x jabber_pkts: %08x\n",
++		   ntohl(gcps->false_carrier), ntohl(gcps->runt_pkts),
++		   ntohl(gcps->jabber_pkts));
++	seq_printf(seq, "rx_pause_xon: %08x rx_pause_xoff: %08x tx_pause_xon: %08x",
++		   ntohl(gcps->rx_pause_xon), ntohl(gcps->rx_pause_xoff),
++		   ntohl(gcps->tx_pause_xon));
++	seq_printf(seq, "tx_pause_xoff: %08x tx_s_collision: %08x tx_m_collision: %08x\n",
++		   ntohl(gcps->tx_pause_xoff), ntohl(gcps->tx_s_collision),
++		   ntohl(gcps->tx_m_collision));
++	seq_printf(seq, "l_collision: %08x e_collision: %08x rx_ctl_frames: %08x\n",
++		   ntohl(gcps->l_collision), ntohl(gcps->e_collision),
++		   ntohl(gcps->rx_ctl_frames));
++	seq_printf(seq, "rx_64_frames: %08x rx_127_frames: %08x rx_255_frames: %08x\n",
++		   ntohl(gcps->rx_64_frames), ntohl(gcps->rx_127_frames),
++		   ntohl(gcps->rx_255_frames));
++	seq_printf(seq, "rx_511_frames: %08x rx_1023_frames: %08x rx_1522_frames: %08x\n",
++		   ntohl(gcps->rx_511_frames), ntohl(gcps->rx_1023_frames),
++		   ntohl(gcps->rx_1522_frames));
++	seq_printf(seq, "rx_9022_frames: %08x tx_64_frames: %08x tx_127_frames: %08x\n",
++		   ntohl(gcps->rx_9022_frames), ntohl(gcps->tx_64_frames),
++		   ntohl(gcps->tx_127_frames));
++	seq_printf(seq, "tx_255_frames: %08x tx_511_frames: %08x tx_1023_frames: %08x\n",
++		   ntohl(gcps->tx_255_frames), ntohl(gcps->tx_511_frames),
++		   ntohl(gcps->tx_1023_frames));
++	seq_printf(seq, "tx_1522_frames: %08x tx_9022_frames: %08x rx_valid_bytes: %08x\n",
++		   ntohl(gcps->tx_1522_frames), ntohl(gcps->tx_9022_frames),
++		   ntohl(gcps->rx_valid_bytes));
++	seq_printf(seq, "rx_runt_pkts: %08x rx_jabber_pkts: %08x\n",
++		   ntohl(gcps->rx_runt_pkts), ntohl(gcps->rx_jabber_pkts));
++
++	return 0;
++}
++
++static int ncsi_pkt_output_gns(struct ncsi_dev_priv *ndp,
++			       struct seq_file *seq, struct sk_buff *skb)
++{
++	struct ncsi_rsp_gns_pkt *gns;
++
++	ncsi_pkt_output_default(ndp, seq, skb);
++
++	gns = (struct ncsi_rsp_gns_pkt *)skb_network_header(skb);
++	seq_printf(seq, "rx_cmds: %08x dropped_cmds: %08x cmd_type_errs: %08x\n",
++		   ntohl(gns->rx_cmds), ntohl(gns->dropped_cmds),
++		   ntohl(gns->cmd_type_errs));
++	seq_printf(seq, "cmd_csum_errs: %08x rx_pkts: %08x tx_pkts: %08x\n",
++		   ntohl(gns->cmd_csum_errs), ntohl(gns->rx_pkts),
++		   ntohl(gns->tx_pkts));
++	seq_printf(seq, "tx_aen_pkts: %08x\n",
++		   ntohl(gns->tx_aen_pkts));
++
++	return 0;
++}
++
++static int ncsi_pkt_output_gnpts(struct ncsi_dev_priv *ndp,
++				 struct seq_file *seq, struct sk_buff *skb)
++{
++	struct ncsi_rsp_gnpts_pkt *gnpts;
++
++	ncsi_pkt_output_default(ndp, seq, skb);
++
++	gnpts = (struct ncsi_rsp_gnpts_pkt *)skb_network_header(skb);
++	seq_printf(seq, "tx_pkts: %08x tx_dropped: %08x tx_channel_err: %08x\n",
++		   ntohl(gnpts->tx_pkts), ntohl(gnpts->tx_dropped),
++		   ntohl(gnpts->tx_channel_err));
++	seq_printf(seq, "tx_us_err: %08x rx_pkts: %08x rx_dropped: %08x\n",
++		   ntohl(gnpts->tx_us_err), ntohl(gnpts->rx_pkts),
++		   ntohl(gnpts->rx_dropped));
++	seq_printf(seq, "rx_channel_err: %08x rx_us_err: %08x rx_os_err: %08x\n",
++		   ntohl(gnpts->rx_channel_err), ntohl(gnpts->rx_us_err),
++		   ntohl(gnpts->rx_os_err));
++
++	return 0;
++}
++
++static int ncsi_pkt_output_gps(struct ncsi_dev_priv *ndp,
++			       struct seq_file *seq, struct sk_buff *skb)
++{
++	struct ncsi_rsp_gps_pkt *gps;
++
++	ncsi_pkt_output_default(ndp, seq, skb);
++
++	gps = (struct ncsi_rsp_gps_pkt *)skb_network_header(skb);
++	seq_printf(seq, "Status: %08x\n", ntohl(gps->status));
++
++	return 0;
++}
++
++static int ncsi_pkt_output_gpuuid(struct ncsi_dev_priv *ndp,
++				  struct seq_file *seq, struct sk_buff *skb)
++{
++	struct ncsi_rsp_gpuuid_pkt *gpuuid;
++
++	ncsi_pkt_output_default(ndp, seq, skb);
++
++	gpuuid = (struct ncsi_rsp_gpuuid_pkt *)skb_network_header(skb);
++	seq_printf(seq, "UUID: %02x %02x %02x %02x %02x %02x %02x %02x\n",
++		   gpuuid->uuid[15], gpuuid->uuid[14], gpuuid->uuid[13],
++		   gpuuid->uuid[12], gpuuid->uuid[11], gpuuid->uuid[10],
++		   gpuuid->uuid[9],  gpuuid->uuid[8]);
++	seq_printf(seq, "      %02x %02x %02x %02x %02x %02x %02x %02x\n",
++		   gpuuid->uuid[7], gpuuid->uuid[6], gpuuid->uuid[5],
++		   gpuuid->uuid[4], gpuuid->uuid[3], gpuuid->uuid[2],
++		   gpuuid->uuid[1], gpuuid->uuid[0]);
++
++	return 0;
++}
++
+ static const struct ncsi_pkt_handler {
+ 	unsigned char	type;
+ 	const char	*name;
++	int		(*input)(struct ncsi_dev_priv *ndp,
++				 struct ncsi_cmd_arg *nca, char *buf);
++	int		(*output)(struct ncsi_dev_priv *ndp,
++				  struct seq_file *seq, struct sk_buff *skb);
+ } ncsi_pkt_handlers[] = {
+-	{ NCSI_PKT_CMD_CIS,    "CIS"    },
+-	{ NCSI_PKT_CMD_SP,     "SP"     },
+-	{ NCSI_PKT_CMD_DP,     "DP"     },
+-	{ NCSI_PKT_CMD_EC,     "EC"     },
+-	{ NCSI_PKT_CMD_DC,     "DC"     },
+-	{ NCSI_PKT_CMD_RC,     "RC"     },
+-	{ NCSI_PKT_CMD_ECNT,   "ECNT"   },
+-	{ NCSI_PKT_CMD_DCNT,   "DCNT"   },
+-	{ NCSI_PKT_CMD_AE,     "AE"     },
+-	{ NCSI_PKT_CMD_SL,     "SL"     },
+-	{ NCSI_PKT_CMD_GLS,    "GLS"    },
+-	{ NCSI_PKT_CMD_SVF,    "SVF"    },
+-	{ NCSI_PKT_CMD_EV,     "EV"     },
+-	{ NCSI_PKT_CMD_DV,     "DV"     },
+-	{ NCSI_PKT_CMD_SMA,    "SMA"    },
+-	{ NCSI_PKT_CMD_EBF,    "EBF"    },
+-	{ NCSI_PKT_CMD_DBF,    "DBF"    },
+-	{ NCSI_PKT_CMD_EGMF,   "EGMF"   },
+-	{ NCSI_PKT_CMD_DGMF,   "DGMF"   },
+-	{ NCSI_PKT_CMD_SNFC,   "SNFC"   },
+-	{ NCSI_PKT_CMD_GVI,    "GVI"    },
+-	{ NCSI_PKT_CMD_GC,     "GC"     },
+-	{ NCSI_PKT_CMD_GP,     "GP"     },
+-	{ NCSI_PKT_CMD_GCPS,   "GCPS"   },
+-	{ NCSI_PKT_CMD_GNS,    "GNS"    },
+-	{ NCSI_PKT_CMD_GNPTS,  "GNPTS"  },
+-	{ NCSI_PKT_CMD_GPS,    "GPS"    },
+-	{ NCSI_PKT_CMD_OEM,    "OEM"    },
+-	{ NCSI_PKT_CMD_PLDM,   "PLDM"   },
+-	{ NCSI_PKT_CMD_GPUUID, "GPUUID" },
++	{ NCSI_PKT_CMD_CIS,    "CIS",
++	  ncsi_pkt_input_default, ncsi_pkt_output_default },
++	{ NCSI_PKT_CMD_SP,     "SP",
++	  ncsi_pkt_input_sp,      ncsi_pkt_output_default },
++	{ NCSI_PKT_CMD_DP,     "DP",
++	  ncsi_pkt_input_default, ncsi_pkt_output_default },
++	{ NCSI_PKT_CMD_EC,     "EC",
++	  ncsi_pkt_input_default, ncsi_pkt_output_default },
++	{ NCSI_PKT_CMD_DC,     "DC",
++	  ncsi_pkt_input_dc,      ncsi_pkt_output_default },
++	{ NCSI_PKT_CMD_RC,     "RC",
++	  ncsi_pkt_input_default, ncsi_pkt_output_default },
++	{ NCSI_PKT_CMD_ECNT,   "ECNT",
++	  ncsi_pkt_input_default, ncsi_pkt_output_default },
++	{ NCSI_PKT_CMD_DCNT,   "DCNT",
++	  ncsi_pkt_input_default, ncsi_pkt_output_default },
++	{ NCSI_PKT_CMD_AE,     "AE",
++	  ncsi_pkt_input_ae,      ncsi_pkt_output_default },
++	{ NCSI_PKT_CMD_SL,     "SL",
++	  ncsi_pkt_input_sl,      ncsi_pkt_output_default },
++	{ NCSI_PKT_CMD_GLS,    "GLS",
++	  ncsi_pkt_input_default, ncsi_pkt_output_gls     },
++	{ NCSI_PKT_CMD_SVF,    "SVF",
++	  ncsi_pkt_input_svf,     ncsi_pkt_output_default },
++	{ NCSI_PKT_CMD_EV,     "EV",
++	  ncsi_pkt_input_ev,      ncsi_pkt_output_default },
++	{ NCSI_PKT_CMD_DV,     "DV",
++	  ncsi_pkt_input_default, ncsi_pkt_output_default },
++	{ NCSI_PKT_CMD_SMA,    "SMA",
++	  ncsi_pkt_input_sma,     ncsi_pkt_output_default },
++	{ NCSI_PKT_CMD_EBF,    "EBF",
++	  ncsi_pkt_input_ebf,     ncsi_pkt_output_default },
++	{ NCSI_PKT_CMD_DBF,    "DBF",
++	  ncsi_pkt_input_default, ncsi_pkt_output_default },
++	{ NCSI_PKT_CMD_EGMF,   "EGMF",
++	  ncsi_pkt_input_egmf,    ncsi_pkt_output_default },
++	{ NCSI_PKT_CMD_DGMF,   "DGMF",
++	  ncsi_pkt_input_default, ncsi_pkt_output_default },
++	{ NCSI_PKT_CMD_SNFC,   "SNFC",
++	  ncsi_pkt_input_snfc,    ncsi_pkt_output_default },
++	{ NCSI_PKT_CMD_GVI,    "GVI",
++	  ncsi_pkt_input_default, ncsi_pkt_output_gvi     },
++	{ NCSI_PKT_CMD_GC,     "GC",
++	  ncsi_pkt_input_default, ncsi_pkt_output_gc      },
++	{ NCSI_PKT_CMD_GP,     "GP",
++	  ncsi_pkt_input_default, ncsi_pkt_output_gp      },
++	{ NCSI_PKT_CMD_GCPS,   "GCPS",
++	  ncsi_pkt_input_default, ncsi_pkt_output_gcps    },
++	{ NCSI_PKT_CMD_GNS,    "GNS",
++	  ncsi_pkt_input_default, ncsi_pkt_output_gns     },
++	{ NCSI_PKT_CMD_GNPTS,  "GNPTS",
++	  ncsi_pkt_input_default, ncsi_pkt_output_gnpts   },
++	{ NCSI_PKT_CMD_GPS,    "GPS",
++	  ncsi_pkt_input_default, ncsi_pkt_output_gps     },
++	{ NCSI_PKT_CMD_OEM,    "OEM",
++	  NULL,                   NULL                    },
++	{ NCSI_PKT_CMD_PLDM,   "PLDM",
++	  NULL,                   NULL                    },
++	{ NCSI_PKT_CMD_GPUUID, "GPUUID",
++	  ncsi_pkt_input_default, ncsi_pkt_output_gpuuid  },
++};
++
++static int ncsi_dev_pkt_seq_show(struct seq_file *seq, void *v)
++{
++	struct ncsi_dev_priv *ndp = seq->private;
++	const struct ncsi_pkt_handler *h = NULL;
++	struct ncsi_pkt_hdr *hdr;
++	struct sk_buff *skb;
++	int i, errno;
++	unsigned long flags;
++
++	spin_lock_irqsave(&ndp->lock, flags);
++	errno = ndp->pkt.errno;
++	skb = ndp->pkt.rsp;
++	ndp->pkt.rsp = NULL;
++	spin_unlock_irqrestore(&ndp->lock, flags);
++	ncsi_dev_reset_debug_pkt(ndp, NULL, 0);
++
++	if (errno) {
++		WARN_ON(skb);
++		seq_printf(seq, "Error %d receiving response packet\n", errno);
++		return 0;
++	} else if (!skb) {
++		seq_puts(seq, "No available response packet\n");
++		return 0;
++	}
++
++	hdr = (struct ncsi_pkt_hdr *)skb_network_header(skb);
++	for (i = 0; i < ARRAY_SIZE(ncsi_pkt_handlers); i++) {
++		if (ncsi_pkt_handlers[i].type == (hdr->type - 0x80)) {
++			h = &ncsi_pkt_handlers[i];
++			break;
++		}
++	}
++
++	if (!h || !h->output) {
++		consume_skb(skb);
++		return 0;
++	}
++
++	h->output(ndp, seq, skb);
++	return 0;
++}
++
++static int ncsi_dev_pkt_seq_open(struct inode *inode, struct file *file)
++{
++	return single_open(file, ncsi_dev_pkt_seq_show, inode->i_private);
++}
++
++static ssize_t ncsi_dev_pkt_seq_write(struct file *file,
++				      const char __user *buffer,
++				      size_t count, loff_t *pos)
++{
++	struct seq_file *seq = file->private_data;
++	struct ncsi_dev_priv *ndp = seq->private;
++	struct ncsi_cmd_arg nca;
++	char buf[64], name[64], *pbuf;
++	const struct ncsi_pkt_handler *h;
++	int num, package, channel, i, ret;
++	unsigned long flags;
++
++	if (count >= sizeof(buf))
++		return -EINVAL;
++
++	/* Copy the buffer from user space. Currently we have 64 bytes as
++	 * the length limitation. It should be enough as there are no bunch
++	 * of parameters to be specified when sending NCSI command packet.
++	 */
++	memset(buf, 0, sizeof(buf));
++	if (copy_from_user(buf, buffer, count))
++		return -EFAULT;
++
++	/* Extract the specified command */
++	memset(name, 0, sizeof(name));
++	pbuf = strchr(buf, ',');
++	if (!pbuf)
++		return -EINVAL;
++	memcpy(name, buf, pbuf - buf);
++	pbuf++;
++
++	/* Extract mandatory parameters: package and channel ID */
++	memset(&nca, 0, sizeof(struct ncsi_cmd_arg));
++	if (sscanf(pbuf, "%x,%x%n", &package, &channel, &num) != 2)
++		return -EINVAL;
++	if (package < 0 || package >= 8 ||
++	    channel < 0 || channel > NCSI_RESERVED_CHANNEL)
++		return -EINVAL;
++
++	nca.package = package;
++	nca.channel = channel;
++	if (pbuf[num] == ',')
++		pbuf += (count + 1);
++	else
++		pbuf += count;
++
++	/* Search for handler */
++	h = NULL;
++	for (i = 0; i < ARRAY_SIZE(ncsi_pkt_handlers); i++) {
++		if (!strcmp(ncsi_pkt_handlers[i].name, name)) {
++			h = &ncsi_pkt_handlers[i];
++			nca.type = h->type;
++			break;
++		}
++	}
++
++	if (!h || !h->input)
++		return -ERANGE;
++
++	/* Sort out additional parameters */
++	nca.ndp = ndp;
++	nca.req_flags = NCSI_REQ_FLAG_DEBUG;
++	ret = h->input(ndp, &nca, pbuf);
++	if (ret)
++		return ret;
++
++	/* This interface works in serialized fashion, meaning new command
++	 * cannot be sent until previous one has been finalized.
++	 */
++	spin_lock_irqsave(&ndp->lock, flags);
++	if (ndp->pkt.req != NCSI_PKT_REQ_FREE) {
++		spin_unlock_irqrestore(&ndp->lock, flags);
++		return -EBUSY;
++	}
++
++	ndp->pkt.req = NCSI_PKT_REQ_BUSY;
++	spin_unlock_irqrestore(&ndp->lock, flags);
++
++	ret = ncsi_xmit_cmd(&nca);
++	if (ret) {
++		spin_lock_irqsave(&ndp->lock, flags);
++		ndp->pkt.req = NCSI_PKT_REQ_FREE;
++		spin_unlock_irqrestore(&ndp->lock, flags);
++		return ret;
++	}
++
++	return count;
++}
++
++static const struct file_operations ncsi_dev_pkt_fops = {
 +	.owner   = THIS_MODULE,
-+	.open    = ncsi_dev_stats_seq_open,
++	.open    = ncsi_dev_pkt_seq_open,
 +	.read    = seq_read,
++	.write   = ncsi_dev_pkt_seq_write,
 +	.llseek  = seq_lseek,
 +	.release = seq_release,
-+};
+ };
  
- int ncsi_dev_init_debug(struct ncsi_dev_priv *ndp)
- {
-@@ -45,11 +274,34 @@ int ncsi_dev_init_debug(struct ncsi_dev_priv *ndp)
+ static bool ncsi_dev_stats_index(struct ncsi_dev_priv *ndp, loff_t pos,
+@@ -282,6 +893,14 @@ int ncsi_dev_init_debug(struct ncsi_dev_priv *ndp)
  		return -ENOMEM;
  	}
  
-+	ndp->stats.dentry = debugfs_create_file("stats", 0400, ndp->dentry,
-+						ndp, &ncsi_dev_stats_fops);
-+	if (!ndp->stats.dentry) {
-+		pr_debug("Failed to create debugfs file 'ncsi/%s/stats'\n",
++	ndp->pkt.dentry = debugfs_create_file("pkt", 0600, ndp->dentry,
++					      ndp, &ncsi_dev_pkt_fops);
++	if (!ndp->pkt.dentry) {
++		pr_debug("Failed to create debugfs file 'ncsi/%s/pkt'\n",
 +			 netdev_name(ndp->ndev.dev));
 +		return -ENOMEM;
 +	}
@@ -458,93 +840,69 @@ index f38483d..b6df895 100644
  	return 0;
  }
  
-+void ncsi_dev_update_stats(struct ncsi_dev_priv *ndp,
-+			   int type, int subtype, int errno)
+@@ -299,8 +918,26 @@ void ncsi_dev_update_stats(struct ncsi_dev_priv *ndp,
+ 		ndp->stats.cmd[type][errno]++;
+ }
+ 
++void ncsi_dev_reset_debug_pkt(struct ncsi_dev_priv *ndp,
++			      struct sk_buff *skb, int errno)
 +{
-+	if (errno >= NCSI_PKT_STAT_MAX)
-+		return;
++	unsigned long flags;
++	struct sk_buff *old;
 +
-+	if (type == NCSI_PKT_AEN)
-+		ndp->stats.aen[subtype][errno]++;
-+	else if (type >= 0x80)
-+		ndp->stats.rsp[type - 0x80][errno]++;
-+	else
-+		ndp->stats.cmd[type][errno]++;
++	spin_lock_irqsave(&ndp->lock, flags);
++	ndp->pkt.req = NCSI_PKT_REQ_FREE;
++	ndp->pkt.errno = errno;
++
++	old = ndp->pkt.rsp;
++	ndp->pkt.rsp = skb;
++	spin_unlock_irqrestore(&ndp->lock, flags);
++
++	consume_skb(old);
 +}
 +
  void ncsi_dev_release_debug(struct ncsi_dev_priv *ndp)
  {
-+	debugfs_remove(ndp->stats.dentry);
++	debugfs_remove(ndp->pkt.dentry);
+ 	debugfs_remove(ndp->stats.dentry);
  	debugfs_remove(ndp->dentry);
  }
- 
 diff --git a/net/ncsi/ncsi-manage.c b/net/ncsi/ncsi-manage.c
-index 84f1405..be7d907 100644
+index be7d907..84c3d8e 100644
 --- a/net/ncsi/ncsi-manage.c
 +++ b/net/ncsi/ncsi-manage.c
-@@ -530,6 +530,7 @@ static void ncsi_request_timeout(unsigned long data)
- 	struct ncsi_request *nr = (struct ncsi_request *)data;
- 	struct ncsi_dev_priv *ndp = nr->ndp;
- 	unsigned long flags;
-+	struct ncsi_pkt_hdr *hdr;
+@@ -545,6 +545,8 @@ static void ncsi_request_timeout(unsigned long data)
  
- 	/* If the request already had associated response,
- 	 * let the response handler to release it.
-@@ -542,6 +543,9 @@ static void ncsi_request_timeout(unsigned long data)
- 	}
- 	spin_unlock_irqrestore(&ndp->lock, flags);
+ 	hdr = (struct ncsi_pkt_hdr *)skb_network_header(nr->cmd);
+ 	ncsi_dev_update_stats(ndp, hdr->type, 0, NCSI_PKT_STAT_TIMEOUT);
++	if (ncsi_dev_is_debug_pkt(ndp, nr))
++		ncsi_dev_reset_debug_pkt(ndp, NULL, -ETIMEDOUT);
  
-+	hdr = (struct ncsi_pkt_hdr *)skb_network_header(nr->cmd);
-+	ncsi_dev_update_stats(ndp, hdr->type, 0, NCSI_PKT_STAT_TIMEOUT);
-+
  	/* Release the request */
  	ncsi_free_request(nr);
- }
 diff --git a/net/ncsi/ncsi-rsp.c b/net/ncsi/ncsi-rsp.c
-index 087db77..a164eb1 100644
+index a164eb1..24154fc 100644
 --- a/net/ncsi/ncsi-rsp.c
 +++ b/net/ncsi/ncsi-rsp.c
-@@ -998,6 +998,7 @@ int ncsi_rcv_rsp(struct sk_buff *skb, struct net_device *dev,
- 	}
- 
- 	if (!nrh) {
-+		ncsi_dev_update_stats(ndp, hdr->type, 0, NCSI_PKT_STAT_ERROR);
- 		netdev_err(nd->dev, "Received unrecognized packet (0x%x)\n",
- 			   hdr->type);
- 		return -ENOENT;
-@@ -1007,12 +1008,14 @@ int ncsi_rcv_rsp(struct sk_buff *skb, struct net_device *dev,
- 	spin_lock_irqsave(&ndp->lock, flags);
- 	nr = &ndp->requests[hdr->id];
- 	if (!nr->used) {
-+		ncsi_dev_update_stats(ndp, hdr->type, 0, NCSI_PKT_STAT_TIMEOUT);
- 		spin_unlock_irqrestore(&ndp->lock, flags);
- 		return -ENODEV;
- 	}
- 
- 	nr->rsp = skb;
- 	if (!nr->enabled) {
-+		ncsi_dev_update_stats(ndp, hdr->type, 0, NCSI_PKT_STAT_TIMEOUT);
- 		spin_unlock_irqrestore(&ndp->lock, flags);
- 		ret = -ENOENT;
- 		goto out;
-@@ -1024,11 +1027,17 @@ int ncsi_rcv_rsp(struct sk_buff *skb, struct net_device *dev,
- 	if (payload < 0)
- 		payload = ntohs(hdr->length);
+@@ -1029,10 +1029,19 @@ int ncsi_rcv_rsp(struct sk_buff *skb, struct net_device *dev,
  	ret = ncsi_validate_rsp_pkt(nr, payload);
--	if (ret)
-+	if (ret) {
-+		ncsi_dev_update_stats(ndp, hdr->type, 0, NCSI_PKT_STAT_ERROR);
+ 	if (ret) {
+ 		ncsi_dev_update_stats(ndp, hdr->type, 0, NCSI_PKT_STAT_ERROR);
++		if (ncsi_dev_is_debug_pkt(ndp, nr))
++			ncsi_dev_reset_debug_pkt(ndp, NULL, -EINVAL);
  		goto out;
-+	}
+ 	}
  
  	/* Process the packet */
- 	ret = nrh->handler(nr);
-+	if (ret)
-+		ncsi_dev_update_stats(ndp, hdr->type, 0, NCSI_PKT_STAT_ERROR);
-+	else
++	if (ncsi_dev_is_debug_pkt(ndp, nr)) {
 +		ncsi_dev_update_stats(ndp, hdr->type, 0, NCSI_PKT_STAT_OK);
- out:
- 	ncsi_free_request(nr);
- 	return ret;
++		ncsi_dev_reset_debug_pkt(ndp, nr->rsp, 0);
++		nr->rsp = NULL;
++		goto out;
++	}
++
+ 	ret = nrh->handler(nr);
+ 	if (ret)
+ 		ncsi_dev_update_stats(ndp, hdr->type, 0, NCSI_PKT_STAT_ERROR);
 -- 
 2.7.4
