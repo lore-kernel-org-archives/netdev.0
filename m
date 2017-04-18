@@ -1,92 +1,329 @@
-From: Daniel Vetter <daniel@ffwll.ch>
-Subject: Re: [PATCH 05/22] drm/i915: Make use of the new sg_map
- helper function
-Date: Tue, 18 Apr 2017 08:44:27 +0200
-Message-ID: <20170418064427.r5ewu3p66p2zwdru@phenom.ffwll.local>
-References: <1492121135-4437-1-git-send-email-logang@deltatee.com>
- <1492121135-4437-6-git-send-email-logang@deltatee.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Steve Wise <swise@opengridcomputing.com>, linux-nvme@lists.infradead.org,
- Stephen Bates <sbates@raithlin.com>, target-devel@vger.kernel.org,
- Sumit Semwal <sumit.semwal@linaro.org>, devel@driverdev.osuosl.org,
- rds-devel@oss.oracle.com, Sagi Grimberg <sagi@grimberg.me>,
- linux-scsi@vger.kernel.org, Matthew Wilcox <mawilcox@microsoft.com>,
- linux-rdma@vger.kernel.org, Christoph Hellwig <hch@lst.de>,
- fcoe-devel@open-fcoe.org, Ross Zwisler <ross.zwisler@linux.intel.com>,
- open-iscsi@googlegroups.com, linux-media@vger.kernel.org,
- Ming Lin <ming.l@ssi.samsung.com>, intel-gfx@lists.freedesktop.org,
- sparmaintainer@unisys.com, linux-raid@vger.kernel.org,
- dri-devel@lists.freedesktop.org, Dan Williams <dan.j.williams@intel.com>,
- megaraidlinux.pdl@broadcom.com, Jens Axboe <axboe@kernel.dk>,
- linaro-mm-sig@lists.linaro.org,
- "Martin K. Petersen" <martin.petersen@oracle.com>,
- Greg Kroah-Ha
-To: Logan Gunthorpe <logang@deltatee.com>
-Return-path: <intel-gfx-bounces@lists.freedesktop.org>
-Content-Disposition: inline
-In-Reply-To: <1492121135-4437-6-git-send-email-logang@deltatee.com>
-List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/intel-gfx>,
- <mailto:intel-gfx-request@lists.freedesktop.org?subject=unsubscribe>
-List-Archive: <https://lists.freedesktop.org/archives/intel-gfx>
-List-Post: <mailto:intel-gfx@lists.freedesktop.org>
-List-Help: <mailto:intel-gfx-request@lists.freedesktop.org?subject=help>
-List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/intel-gfx>,
- <mailto:intel-gfx-request@lists.freedesktop.org?subject=subscribe>
-Errors-To: intel-gfx-bounces@lists.freedesktop.org
-Sender: "Intel-gfx" <intel-gfx-bounces@lists.freedesktop.org>
-List-Id: netdev.vger.kernel.org
+From: Gavin Shan <gwshan@linux.vnet.ibm.com>
+Subject: [PATCH v3 net-next 4/8] net/ncsi: Add debugging infrastructurre
+Date: Tue, 18 Apr 2017 16:51:31 +1000
+Message-ID: <1492498295-14385-5-git-send-email-gwshan@linux.vnet.ibm.com>
+References: <1492498295-14385-1-git-send-email-gwshan@linux.vnet.ibm.com>
+Cc: joe@perches.com, kubakici@wp.pl, davem@davemloft.net,
+        Gavin Shan <gwshan@linux.vnet.ibm.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:37953 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S932195AbdDRGwl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 02:52:41 -0400
+Received: from pps.filterd (m0098394.ppops.net [127.0.0.1])
+        by mx0a-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v3I6mZbl143391
+        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 02:52:41 -0400
+Received: from e23smtp03.au.ibm.com (e23smtp03.au.ibm.com [202.81.31.145])
+        by mx0a-001b2d01.pphosted.com with ESMTP id 29w26aqms6-1
+        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 02:52:40 -0400
+Received: from localhost
+        by e23smtp03.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        for <netdev@vger.kernel.org> from <gwshan@linux.vnet.ibm.com>;
+        Tue, 18 Apr 2017 16:52:38 +1000
+Received: from d23av03.au.ibm.com (d23av03.au.ibm.com [9.190.234.97])
+        by d23relay06.au.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id v3I6qRll51773492
+        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 16:52:35 +1000
+Received: from d23av03.au.ibm.com (localhost [127.0.0.1])
+        by d23av03.au.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id v3I6pwQu002648
+        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 16:51:59 +1000
+In-Reply-To: <1492498295-14385-1-git-send-email-gwshan@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gVGh1LCBBcHIgMTMsIDIwMTcgYXQgMDQ6MDU6MThQTSAtMDYwMCwgTG9nYW4gR3VudGhvcnBl
-IHdyb3RlOgo+IFRoaXMgaXMgYSBzaW5nbGUgc3RyYWlnaHRmb3J3YXJkIGNvbnZlcnNpb24gZnJv
-bSBrbWFwIHRvIHNnX21hcC4KPiAKPiBTaWduZWQtb2ZmLWJ5OiBMb2dhbiBHdW50aG9ycGUgPGxv
-Z2FuZ0BkZWx0YXRlZS5jb20+CgpBY2tlZC1ieTogRGFuaWVsIFZldHRlciA8ZGFuaWVsLnZldHRl
-ckBmZndsbC5jaD4KClByb2JhYmx5IG1ha2VzIHNlbnNlIHRvIG1lcmdlIHRocm91Z2ggc29tZSBv
-dGhlciB0cmVlLCBidXQgcGxlYXNlIGJlIGF3YXJlCm9mIHRoZSBjb25zaWRlcmFibGUgY2h1cm4g
-cmF0ZSBpbiBpOTE1IChpLmUuIG1ha2Ugc3VyZSB5b3VyIHRyZWUgaXMgaW4KbGludXgtbmV4dCBi
-ZWZvcmUgeW91IHNlbmQgYSBwdWxsIHJlcXVlc3QgZm9yIHRoaXMpLiBQbGFuZSBCIHdvdWxkIGJl
-IHRvCmdldCB0aGUgcHJlcCBwYXRjaCBpbiBmaXJzdCBhbmQgdGhlbiBtZXJnZSB0aGUgaTkxNSBj
-b252ZXJzaW9uIG9uZSBrZXJuZWwKcmVsZWFzZSBsYXRlci4KLURhbmllbAoKPiAtLS0KPiAgZHJp
-dmVycy9ncHUvZHJtL2k5MTUvaTkxNV9nZW0uYyB8IDI3ICsrKysrKysrKysrKysrKystLS0tLS0t
-LS0tLQo+ICAxIGZpbGUgY2hhbmdlZCwgMTYgaW5zZXJ0aW9ucygrKSwgMTEgZGVsZXRpb25zKC0p
-Cj4gCj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvZ3B1L2RybS9pOTE1L2k5MTVfZ2VtLmMgYi9kcml2
-ZXJzL2dwdS9kcm0vaTkxNS9pOTE1X2dlbS5jCj4gaW5kZXggNjdiMWZjNS4uMWIxYjkxYSAxMDA2
-NDQKPiAtLS0gYS9kcml2ZXJzL2dwdS9kcm0vaTkxNS9pOTE1X2dlbS5jCj4gKysrIGIvZHJpdmVy
-cy9ncHUvZHJtL2k5MTUvaTkxNV9nZW0uYwo+IEBAIC0yMTg4LDYgKzIxODgsMTUgQEAgc3RhdGlj
-IHZvaWQgX19pOTE1X2dlbV9vYmplY3RfcmVzZXRfcGFnZV9pdGVyKHN0cnVjdCBkcm1faTkxNV9n
-ZW1fb2JqZWN0ICpvYmopCj4gIAkJcmFkaXhfdHJlZV9kZWxldGUoJm9iai0+bW0uZ2V0X3BhZ2Uu
-cmFkaXgsIGl0ZXIuaW5kZXgpOwo+ICB9Cj4gIAo+ICtzdGF0aWMgdm9pZCBpOTE1X2dlbV9vYmpl
-Y3RfdW5tYXAoY29uc3Qgc3RydWN0IGRybV9pOTE1X2dlbV9vYmplY3QgKm9iaiwKPiArCQkJCSAg
-dm9pZCAqcHRyKQo+ICt7Cj4gKwlpZiAoaXNfdm1hbGxvY19hZGRyKHB0cikpCj4gKwkJdnVubWFw
-KHB0cik7Cj4gKwllbHNlCj4gKwkJc2dfdW5tYXAob2JqLT5tbS5wYWdlcy0+c2dsLCBwdHIsIFNH
-X0tNQVApOwo+ICt9Cj4gKwo+ICB2b2lkIF9faTkxNV9nZW1fb2JqZWN0X3B1dF9wYWdlcyhzdHJ1
-Y3QgZHJtX2k5MTVfZ2VtX29iamVjdCAqb2JqLAo+ICAJCQkJIGVudW0gaTkxNV9tbV9zdWJjbGFz
-cyBzdWJjbGFzcykKPiAgewo+IEBAIC0yMjE1LDEwICsyMjI0LDcgQEAgdm9pZCBfX2k5MTVfZ2Vt
-X29iamVjdF9wdXRfcGFnZXMoc3RydWN0IGRybV9pOTE1X2dlbV9vYmplY3QgKm9iaiwKPiAgCQl2
-b2lkICpwdHI7Cj4gIAo+ICAJCXB0ciA9IHB0cl9tYXNrX2JpdHMob2JqLT5tbS5tYXBwaW5nKTsK
-PiAtCQlpZiAoaXNfdm1hbGxvY19hZGRyKHB0cikpCj4gLQkJCXZ1bm1hcChwdHIpOwo+IC0JCWVs
-c2UKPiAtCQkJa3VubWFwKGttYXBfdG9fcGFnZShwdHIpKTsKPiArCQlpOTE1X2dlbV9vYmplY3Rf
-dW5tYXAob2JqLCBwdHIpOwo+ICAKPiAgCQlvYmotPm1tLm1hcHBpbmcgPSBOVUxMOwo+ICAJfQo+
-IEBAIC0yNDc1LDggKzI0ODEsMTEgQEAgc3RhdGljIHZvaWQgKmk5MTVfZ2VtX29iamVjdF9tYXAo
-Y29uc3Qgc3RydWN0IGRybV9pOTE1X2dlbV9vYmplY3QgKm9iaiwKPiAgCXZvaWQgKmFkZHI7Cj4g
-IAo+ICAJLyogQSBzaW5nbGUgcGFnZSBjYW4gYWx3YXlzIGJlIGttYXBwZWQgKi8KPiAtCWlmIChu
-X3BhZ2VzID09IDEgJiYgdHlwZSA9PSBJOTE1X01BUF9XQikKPiAtCQlyZXR1cm4ga21hcChzZ19w
-YWdlKHNndC0+c2dsKSk7Cj4gKwlpZiAobl9wYWdlcyA9PSAxICYmIHR5cGUgPT0gSTkxNV9NQVBf
-V0IpIHsKPiArCQlhZGRyID0gc2dfbWFwKHNndC0+c2dsLCBTR19LTUFQKTsKPiArCQlpZiAoSVNf
-RVJSKGFkZHIpKQo+ICsJCQlyZXR1cm4gTlVMTDsKPiArCX0KPiAgCj4gIAlpZiAobl9wYWdlcyA+
-IEFSUkFZX1NJWkUoc3RhY2tfcGFnZXMpKSB7Cj4gIAkJLyogVG9vIGJpZyBmb3Igc3RhY2sgLS0g
-YWxsb2NhdGUgdGVtcG9yYXJ5IGFycmF5IGluc3RlYWQgKi8KPiBAQCAtMjU0MywxMSArMjU1Miw3
-IEBAIHZvaWQgKmk5MTVfZ2VtX29iamVjdF9waW5fbWFwKHN0cnVjdCBkcm1faTkxNV9nZW1fb2Jq
-ZWN0ICpvYmosCj4gIAkJCWdvdG8gZXJyX3VucGluOwo+ICAJCX0KPiAgCj4gLQkJaWYgKGlzX3Zt
-YWxsb2NfYWRkcihwdHIpKQo+IC0JCQl2dW5tYXAocHRyKTsKPiAtCQllbHNlCj4gLQkJCWt1bm1h
-cChrbWFwX3RvX3BhZ2UocHRyKSk7Cj4gLQo+ICsJCWk5MTVfZ2VtX29iamVjdF91bm1hcChvYmos
-IHB0cik7Cj4gIAkJcHRyID0gb2JqLT5tbS5tYXBwaW5nID0gTlVMTDsKPiAgCX0KPiAgCj4gLS0g
-Cj4gMi4xLjQKPiAKPiBfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fXwo+IGRyaS1kZXZlbCBtYWlsaW5nIGxpc3QKPiBkcmktZGV2ZWxAbGlzdHMuZnJlZWRlc2t0
-b3Aub3JnCj4gaHR0cHM6Ly9saXN0cy5mcmVlZGVza3RvcC5vcmcvbWFpbG1hbi9saXN0aW5mby9k
-cmktZGV2ZWwKCi0tIApEYW5pZWwgVmV0dGVyClNvZnR3YXJlIEVuZ2luZWVyLCBJbnRlbCBDb3Jw
-b3JhdGlvbgpodHRwOi8vYmxvZy5mZndsbC5jaApfX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fXwpJbnRlbC1nZnggbWFpbGluZyBsaXN0CkludGVsLWdmeEBsaXN0
-cy5mcmVlZGVza3RvcC5vcmcKaHR0cHM6Ly9saXN0cy5mcmVlZGVza3RvcC5vcmcvbWFpbG1hbi9s
-aXN0aW5mby9pbnRlbC1nZngK
+This creates debugfs directories as NCSI debugging infrastructure.
+With the patch applied, We will see below debugfs directories. Every
+NCSI package and channel has one corresponding directory. Other than
+presenting the NCSI topology, No real function has been achieved
+through these debugfs directories so far.
+
+     /sys/kernel/debug/ncsi/eth0
+     /sys/kernel/debug/ncsi/eth0/p0
+     /sys/kernel/debug/ncsi/eth0/p0/c0
+     /sys/kernel/debug/ncsi/eth0/p0/c1
+
+Signed-off-by: Gavin Shan <gwshan@linux.vnet.ibm.com>
+---
+ net/ncsi/Kconfig       |   9 +++++
+ net/ncsi/Makefile      |   1 +
+ net/ncsi/internal.h    |  45 +++++++++++++++++++++
+ net/ncsi/ncsi-debug.c  | 103 +++++++++++++++++++++++++++++++++++++++++++++++++
+ net/ncsi/ncsi-manage.c |  16 ++++++++
+ 5 files changed, 174 insertions(+)
+ create mode 100644 net/ncsi/ncsi-debug.c
+
+diff --git a/net/ncsi/Kconfig b/net/ncsi/Kconfig
+index 08a8a60..baa42501 100644
+--- a/net/ncsi/Kconfig
++++ b/net/ncsi/Kconfig
+@@ -10,3 +10,12 @@ config NET_NCSI
+ 	  support. Enable this only if your system connects to a network
+ 	  device via NCSI and the ethernet driver you're using supports
+ 	  the protocol explicitly.
++
++config NET_NCSI_DEBUG
++	bool "Enable NCSI debugging"
++	depends on NET_NCSI && DEBUG_FS
++	default n
++	---help---
++	  This enables the interfaces (e.g. debugfs) for NCSI debugging purpose.
++
++	  If unsure, say Y.
+diff --git a/net/ncsi/Makefile b/net/ncsi/Makefile
+index dd12b56..2897fa0 100644
+--- a/net/ncsi/Makefile
++++ b/net/ncsi/Makefile
+@@ -2,3 +2,4 @@
+ # Makefile for NCSI API
+ #
+ obj-$(CONFIG_NET_NCSI) += ncsi-cmd.o ncsi-rsp.o ncsi-aen.o ncsi-manage.o
++obj-$(CONFIG_NET_NCSI_DEBUG) += ncsi-debug.o
+diff --git a/net/ncsi/internal.h b/net/ncsi/internal.h
+index 1308a56..e9ede4f 100644
+--- a/net/ncsi/internal.h
++++ b/net/ncsi/internal.h
+@@ -198,6 +198,9 @@ struct ncsi_channel {
+ 	} monitor;
+ 	struct list_head            node;
+ 	struct list_head            link;
++#ifdef CONFIG_NET_NCSI_DEBUG
++	struct dentry               *dentry;    /* Debugfs directory    */
++#endif
+ };
+ 
+ struct ncsi_package {
+@@ -208,6 +211,9 @@ struct ncsi_package {
+ 	unsigned int         channel_num; /* Number of channels     */
+ 	struct list_head     channels;    /* List of chanels        */
+ 	struct list_head     node;        /* Form list of packages  */
++#ifdef CONFIG_NET_NCSI_DEBUG
++	struct dentry        *dentry;     /* Debugfs directory       */
++#endif
+ };
+ 
+ struct ncsi_request {
+@@ -276,6 +282,9 @@ struct ncsi_dev_priv {
+ 	struct work_struct  work;            /* For channel management     */
+ 	struct packet_type  ptype;           /* NCSI packet Rx handler     */
+ 	struct list_head    node;            /* Form NCSI device list      */
++#ifdef CONFIG_NET_NCSI_DEBUG
++	struct dentry       *dentry;         /* Procfs directory           */
++#endif
+ };
+ 
+ struct ncsi_cmd_arg {
+@@ -337,4 +346,40 @@ int ncsi_rcv_rsp(struct sk_buff *skb, struct net_device *dev,
+ 		 struct packet_type *pt, struct net_device *orig_dev);
+ int ncsi_aen_handler(struct ncsi_dev_priv *ndp, struct sk_buff *skb);
+ 
++/* Debugging functionality */
++#ifdef CONFIG_NET_NCSI_DEBUG
++int ncsi_dev_init_debug(struct ncsi_dev_priv *ndp);
++void ncsi_dev_release_debug(struct ncsi_dev_priv *ndp);
++int ncsi_package_init_debug(struct ncsi_package *np);
++void ncsi_package_release_debug(struct ncsi_package *np);
++int ncsi_channel_init_debug(struct ncsi_channel *nc);
++void ncsi_channel_release_debug(struct ncsi_channel *nc);
++#else
++static inline int ncsi_dev_init_debug(struct ncsi_dev_priv *ndp)
++{
++	return -ENOTTY;
++}
++
++static inline void ncsi_dev_release_debug(struct ncsi_dev_priv *ndp)
++{
++}
++
++static inline int ncsi_package_init_debug(struct ncsi_package *np)
++{
++	return -ENOTTY;
++}
++
++static inline void ncsi_package_release_debug(struct ncsi_package *np)
++{
++}
++
++static inline int ncsi_channel_init_debug(struct ncsi_channel *nc)
++{
++	return -ENOTTY;
++}
++
++static inline void ncsi_channel_release_debug(struct ncsi_channel *nc)
++{
++}
++#endif /* CONFIG_NET_NCSI_DEBUG */
+ #endif /* __NCSI_INTERNAL_H__ */
+diff --git a/net/ncsi/ncsi-debug.c b/net/ncsi/ncsi-debug.c
+new file mode 100644
+index 0000000..f38483d
+--- /dev/null
++++ b/net/ncsi/ncsi-debug.c
+@@ -0,0 +1,103 @@
++/*
++ * Copyright Gavin Shan, IBM Corporation 2017.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
++
++#include <linux/module.h>
++#include <linux/kernel.h>
++#include <linux/init.h>
++#include <linux/atomic.h>
++#include <linux/netdevice.h>
++#include <linux/debugfs.h>
++#include <linux/skbuff.h>
++
++#include <net/ncsi.h>
++#include <net/net_namespace.h>
++#include <net/sock.h>
++
++#include "internal.h"
++#include "ncsi-pkt.h"
++
++static struct dentry *ncsi_dentry;
++
++int ncsi_dev_init_debug(struct ncsi_dev_priv *ndp)
++{
++	if (WARN_ON_ONCE(ndp->dentry))
++		return 0;
++
++	if (!ncsi_dentry) {
++		ncsi_dentry = debugfs_create_dir("ncsi", NULL);
++		if (!ncsi_dentry) {
++			pr_debug("Failed to create debugfs directory 'ncsi'\n");
++			return -ENOMEM;
++		}
++	}
++
++	ndp->dentry = debugfs_create_dir(netdev_name(ndp->ndev.dev),
++					 ncsi_dentry);
++	if (!ndp->dentry) {
++		pr_debug("Failed to create debugfs directory 'ncsi/%s'\n",
++			 netdev_name(ndp->ndev.dev));
++		return -ENOMEM;
++	}
++
++	return 0;
++}
++
++void ncsi_dev_release_debug(struct ncsi_dev_priv *ndp)
++{
++	debugfs_remove(ndp->dentry);
++}
++
++int ncsi_package_init_debug(struct ncsi_package *np)
++{
++	struct ncsi_dev_priv *ndp = np->ndp;
++	char name[4];
++
++	if (!ndp->dentry)
++		return -ENOENT;
++
++	sprintf(name, "p%d", np->id);
++	np->dentry = debugfs_create_dir(name, ndp->dentry);
++	if (!np->dentry) {
++		pr_debug("Failed to create debugfs directory ncsi/%s/%s\n",
++			 netdev_name(ndp->ndev.dev), name);
++		return -ENOMEM;
++	}
++
++	return 0;
++}
++
++void ncsi_package_release_debug(struct ncsi_package *np)
++{
++	debugfs_remove(np->dentry);
++}
++
++int ncsi_channel_init_debug(struct ncsi_channel *nc)
++{
++	struct ncsi_package *np = nc->package;
++	struct ncsi_dev_priv *ndp = np->ndp;
++	char name[3];
++
++	if (!np->dentry)
++		return -ENOENT;
++
++	sprintf(name, "c%d", nc->id);
++	nc->dentry = debugfs_create_dir(name, np->dentry);
++	if (!nc->dentry) {
++		pr_debug("Failed to create debugfs directory ncsi/%s/p%d/c%d\n",
++			 netdev_name(ndp->ndev.dev), np->id, nc->id);
++		return -ENOMEM;
++	}
++
++	return 0;
++}
++
++void ncsi_channel_release_debug(struct ncsi_channel *nc)
++{
++	debugfs_remove(nc->dentry);
++}
+diff --git a/net/ncsi/ncsi-manage.c b/net/ncsi/ncsi-manage.c
+index 13ad1f26..84f1405 100644
+--- a/net/ncsi/ncsi-manage.c
++++ b/net/ncsi/ncsi-manage.c
+@@ -322,6 +322,8 @@ struct ncsi_channel *ncsi_add_channel(struct ncsi_package *np, unsigned char id)
+ 	np->channel_num++;
+ 	spin_unlock_irqrestore(&np->lock, flags);
+ 
++	ncsi_channel_init_debug(nc);
++
+ 	return nc;
+ }
+ 
+@@ -332,6 +334,8 @@ static void ncsi_remove_channel(struct ncsi_channel *nc)
+ 	unsigned long flags;
+ 	int i;
+ 
++	ncsi_channel_release_debug(nc);
++
+ 	/* Release filters */
+ 	spin_lock_irqsave(&nc->lock, flags);
+ 	for (i = 0; i < NCSI_FILTER_MAX; i++) {
+@@ -396,6 +400,8 @@ struct ncsi_package *ncsi_add_package(struct ncsi_dev_priv *ndp,
+ 	ndp->package_num++;
+ 	spin_unlock_irqrestore(&ndp->lock, flags);
+ 
++	ncsi_package_init_debug(np);
++
+ 	return np;
+ }
+ 
+@@ -409,6 +415,8 @@ void ncsi_remove_package(struct ncsi_package *np)
+ 	list_for_each_entry_safe(nc, tmp, &np->channels, node)
+ 		ncsi_remove_channel(nc);
+ 
++	ncsi_package_release_debug(np);
++
+ 	/* Remove and free package */
+ 	spin_lock_irqsave(&ndp->lock, flags);
+ 	list_del_rcu(&np->node);
+@@ -1280,6 +1288,13 @@ int ncsi_start_dev(struct ncsi_dev *nd)
+ 		return -ENOTTY;
+ 
+ 	if (!(ndp->flags & NCSI_DEV_PROBED)) {
++		/* The debugging functionality should have been initialized
++		 * when registerring the NCSI device. As the network device
++		 * name isn't available that time, we have to delay the work
++		 * to here.
++		 */
++		ncsi_dev_init_debug(ndp);
++
+ 		nd->state = ncsi_dev_state_probe;
+ 		schedule_work(&ndp->work);
+ 		return 0;
+@@ -1329,6 +1344,7 @@ void ncsi_unregister_dev(struct ncsi_dev *nd)
+ 	struct ncsi_package *np, *tmp;
+ 	unsigned long flags;
+ 
++	ncsi_dev_release_debug(ndp);
+ 	dev_remove_pack(&ndp->ptype);
+ 
+ 	list_for_each_entry_safe(np, tmp, &ndp->packages, node)
+-- 
+2.7.4
