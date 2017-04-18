@@ -1,56 +1,43 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 0/8] mlxsw: Allow flow based forwarding in OVS
-Date: Tue, 18 Apr 2017 16:55:30 +0200
-Message-ID: <1492527338-13298-1-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 1/8] mlxsw: spectrum: Fix indent in mlxsw_sp_netdevice_port_upper_event
+Date: Tue, 18 Apr 2017 16:55:31 +0200
+Message-ID: <1492527338-13298-2-git-send-email-jiri@resnulli.us>
+References: <1492527338-13298-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f196.google.com ([209.85.128.196]:34186 "EHLO
-        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752936AbdDROzk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 10:55:40 -0400
-Received: by mail-wr0-f196.google.com with SMTP id u18so25245188wrc.1
-        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 07:55:40 -0700 (PDT)
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:33226 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754395AbdDROzm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 10:55:42 -0400
+Received: by mail-wm0-f66.google.com with SMTP id o81so15233374wmb.0
+        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 07:55:42 -0700 (PDT)
+In-Reply-To: <1492527338-13298-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-This patchset does some fixes so the HW is setup correctly to do
-flow-based (ACL based) forwarding for OVS-enslaved port.
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Reviewed-by: Ido Schimmel <idosch@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-The first patch is just trivial fix spotted on the way.
-
-Patches 2-4 take care of proper FID setup which HW needs in order to
-for ACL based forwarding.
-
-The 7th patch (with dependency of patch 5 and 6) takes care of proper setup
-of ports that are enslaved in OVS.
-
-The last patch implements new FID miss trap that is used to push
-packets belonging to unknown flows to kernel and userspace.
-
-Jiri Pirko (8):
-  mlxsw: spectrum: Fix indent in mlxsw_sp_netdevice_port_upper_event
-  mlxsw: spectrum: Implement action to set FID
-  mlxsw: spectrum: Add dummy FID initialization
-  mlxsw: spectrum_flower: Set dummy FID before forward action
-  mlxsw: spectrum: Teach mlxsw_sp_port_vlan_set to accept any vlan range
-  net: add netif_is_ovs_port helper
-  mlxsw: spectrum: Allow ports to work under OVS master
-  mlxsw: spectrum: Add FID miss trap
-
- .../mellanox/mlxsw/core_acl_flex_actions.c         |  44 ++++++++
- .../mellanox/mlxsw/core_acl_flex_actions.h         |   1 +
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c     | 113 ++++++++++++++++++++-
- drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |   7 +-
- drivers/net/ethernet/mellanox/mlxsw/spectrum_acl.c |   7 ++
- .../net/ethernet/mellanox/mlxsw/spectrum_flower.c  |   5 +
- .../net/ethernet/mellanox/mlxsw/spectrum_router.c  |   4 +-
- .../ethernet/mellanox/mlxsw/spectrum_switchdev.c   |  33 ++----
- drivers/net/ethernet/mellanox/mlxsw/trap.h         |   1 +
- include/linux/netdevice.h                          |   5 +
- 10 files changed, 186 insertions(+), 34 deletions(-)
-
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+index b031f09..9b9861a 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+@@ -4038,8 +4038,8 @@ static int mlxsw_sp_netdevice_port_upper_event(struct net_device *dev,
+ 				err = mlxsw_sp_port_vlan_link(mlxsw_sp_port,
+ 							      upper_dev);
+ 			else
+-				 mlxsw_sp_port_vlan_unlink(mlxsw_sp_port,
+-							   upper_dev);
++				mlxsw_sp_port_vlan_unlink(mlxsw_sp_port,
++							  upper_dev);
+ 		} else if (netif_is_bridge_master(upper_dev)) {
+ 			if (info->linking)
+ 				err = mlxsw_sp_port_bridge_join(mlxsw_sp_port,
 -- 
 2.7.4
