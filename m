@@ -1,71 +1,40 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [PATCH net-next] net: ipv6: Add early demux handler for UDP
- unicast
-Date: Wed, 19 Apr 2017 08:06:59 +0900
-Message-ID: <20170418230656.GC10104@vergenet.net>
-References: <8b6968063320eb8ddc654f79d3461f21@codeaurora.org>
- <1489000921.28631.18.camel@edumazet-glaptop3.roam.corp.google.com>
- <20170418080902.GA25804@vergenet.net>
- <20170418.111633.1943544161712972224.davem@davemloft.net>
- <1492538948.1052073.948360488.79052FB2@webmail.messagingengine.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH v3 net-next RFC] Generic XDP
+Date: Tue, 18 Apr 2017 16:09:02 -0700
+Message-ID: <20170418230900.GC65449@ast-mbp.thefacebook.com>
+References: <20170412.145415.1441440342830198148.davem@davemloft.net>
+ <20170413042036.GA46229@ast-mbp.thefacebook.com>
+ <1492063856.19193.4.camel@sipsolutions.net>
+ <20170413.113810.703136630867928001.davem@davemloft.net>
+ <20170414194105.GA51147@ast-mbp.thefacebook.com>
+ <1492508879.2472.13.camel@sipsolutions.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
-        subashab@codeaurora.org, netdev@vger.kernel.org,
-        netdev-owner@vger.kernel.org
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+        xdp-newbies@vger.kernel.org
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f178.google.com ([209.85.192.178]:36841 "EHLO
-        mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1758138AbdDRXHE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 19:07:04 -0400
-Received: by mail-pf0-f178.google.com with SMTP id 194so3278690pfv.3
-        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 16:07:03 -0700 (PDT)
+Received: from mail-pg0-f52.google.com ([74.125.83.52]:36611 "EHLO
+        mail-pg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1758179AbdDRXJM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 19:09:12 -0400
 Content-Disposition: inline
-In-Reply-To: <1492538948.1052073.948360488.79052FB2@webmail.messagingengine.com>
+In-Reply-To: <1492508879.2472.13.camel@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 18, 2017 at 08:09:08PM +0200, Hannes Frederic Sowa wrote:
+On Tue, Apr 18, 2017 at 11:47:59AM +0200, Johannes Berg wrote:
+> > I guess any driver that would care about XDP performance would either
+> > implement in-driver XDP or make sure that skb_linearize() doesn't
+> > happen in generic XDP by doing build_skb() with the whole packet.
+> > The driver can be smart and avoid doing copy-break if generic XDP is
+> > on.
 > 
-> 
-> On Tue, Apr 18, 2017, at 17:16, David Miller wrote:
-> > From: Simon Horman <simon.horman@netronome.com>
-> > Date: Tue, 18 Apr 2017 17:09:04 +0900
-> > 
-> > > On Wed, Mar 08, 2017 at 11:22:01AM -0800, Eric Dumazet wrote:
-> > >> On Wed, 2017-03-08 at 12:11 -0700, Subash Abhinov Kasiviswanathan wrote:
-> > >> > On 2017-03-08 11:40, Eric Dumazet wrote:
-> > >> > > Well, this 'optimization' actually hurts when UDP sockets are not
-> > >> > > connected, since this adds an extra cache line miss per incoming 
-> > >> > > packet.
-> > >> > > 
-> > >> > > (DNS servers for example)
-> > >> > 
-> > >> > Hi Eric
-> > >> > 
-> > >> > Thanks for your comments. Would it be preferable to disable early demux 
-> > >> > for the
-> > >> > servers with large unconnected workloads in that case?
-> > >> 
-> > >> Well, many servers handle both TCP and UDP.
-> > >> 
-> > >> For TCP, there is no question about early demux, this is definitely a
-> > >> win.
-> > >> 
-> > >> We probably should have one sysctl to enable TCP early demux, one for
-> > >> UDP early demux.
-> > > 
-> > > If early demux is a clear win for TCP then I wonder if it is
-> > > unnecessary and by some leap also undesirable to have a configuration
-> > > knob for that case.
-> > 
-> > For forwarding workloads it is pure overhead since the early demux will
-> > never find a local socket, and therefore it is wasted work.
-> 
-> Also for some more complicated fib rules setups the early demux logic
-> could end up causing doing wrong lookups, because some route might not
-> be actually local in one fib rule but it is in another one.
+> Indeed. I think this is less about performance than ease of
+> experimentation.
 
-Thanks for the clarification. Knobs for both TCP and UDP now make perfect
-sense to me.
+yes. I'm bringing it up only to hopefully find cases where this
+generic XDP can be used for real data path too (and not only experimentation).
+Like if it can do 6Mpps whereas in-driver XDP will do 20Mpps (when implemented),
+for some folks it may be good enough already to start using it.
+Which will put more pressure on NIC vendor to implement it.
