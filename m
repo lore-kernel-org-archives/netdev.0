@@ -1,55 +1,92 @@
-From: Greg Thelen <gthelen-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH] net/mlx4: suppress 'may be used uninitialized' warning
-Date: Mon, 17 Apr 2017 23:21:35 -0700
-Message-ID: <20170418062135.76698-1-gthelen@google.com>
-Cc: Ido Shamay <idos-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Yishai Hadas <yishaih-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Amir Vadai <amirv-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Roland Dreier <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Greg Thelen <gthelen-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-To: Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Jack Morgenstein <jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>,
-        Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Daniel Vetter <daniel@ffwll.ch>
+Subject: Re: [PATCH 05/22] drm/i915: Make use of the new sg_map
+ helper function
+Date: Tue, 18 Apr 2017 08:44:27 +0200
+Message-ID: <20170418064427.r5ewu3p66p2zwdru@phenom.ffwll.local>
+References: <1492121135-4437-1-git-send-email-logang@deltatee.com>
+ <1492121135-4437-6-git-send-email-logang@deltatee.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Steve Wise <swise@opengridcomputing.com>, linux-nvme@lists.infradead.org,
+ Stephen Bates <sbates@raithlin.com>, target-devel@vger.kernel.org,
+ Sumit Semwal <sumit.semwal@linaro.org>, devel@driverdev.osuosl.org,
+ rds-devel@oss.oracle.com, Sagi Grimberg <sagi@grimberg.me>,
+ linux-scsi@vger.kernel.org, Matthew Wilcox <mawilcox@microsoft.com>,
+ linux-rdma@vger.kernel.org, Christoph Hellwig <hch@lst.de>,
+ fcoe-devel@open-fcoe.org, Ross Zwisler <ross.zwisler@linux.intel.com>,
+ open-iscsi@googlegroups.com, linux-media@vger.kernel.org,
+ Ming Lin <ming.l@ssi.samsung.com>, intel-gfx@lists.freedesktop.org,
+ sparmaintainer@unisys.com, linux-raid@vger.kernel.org,
+ dri-devel@lists.freedesktop.org, Dan Williams <dan.j.williams@intel.com>,
+ megaraidlinux.pdl@broadcom.com, Jens Axboe <axboe@kernel.dk>,
+ linaro-mm-sig@lists.linaro.org,
+ "Martin K. Petersen" <martin.petersen@oracle.com>,
+ Greg Kroah-Ha
+To: Logan Gunthorpe <logang@deltatee.com>
+Return-path: <intel-gfx-bounces@lists.freedesktop.org>
+Content-Disposition: inline
+In-Reply-To: <1492121135-4437-6-git-send-email-logang@deltatee.com>
+List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/intel-gfx>,
+ <mailto:intel-gfx-request@lists.freedesktop.org?subject=unsubscribe>
+List-Archive: <https://lists.freedesktop.org/archives/intel-gfx>
+List-Post: <mailto:intel-gfx@lists.freedesktop.org>
+List-Help: <mailto:intel-gfx-request@lists.freedesktop.org?subject=help>
+List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/intel-gfx>,
+ <mailto:intel-gfx-request@lists.freedesktop.org?subject=subscribe>
+Errors-To: intel-gfx-bounces@lists.freedesktop.org
+Sender: "Intel-gfx" <intel-gfx-bounces@lists.freedesktop.org>
 List-Id: netdev.vger.kernel.org
 
-gcc 4.8.4 complains that mlx4_SW2HW_MPT_wrapper() uses an uninitialized
-'mpt' variable:
-  drivers/net/ethernet/mellanox/mlx4/resource_tracker.c: In function 'mlx4_SW2HW_MPT_wrapper':
-  drivers/net/ethernet/mellanox/mlx4/resource_tracker.c:2802:12: warning: 'mpt' may be used uninitialized in this function [-Wmaybe-uninitialized]
-     mpt->mtt = mtt;
-
-I think this warning is a false complaint.  mpt is only used when
-mr_res_start_move_to() return zero, and in all such cases it initializes
-mpt.  But apparently gcc cannot see that.
-
-Initialize mpt to avoid the warning.
-
-Signed-off-by: Greg Thelen <gthelen-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
----
- drivers/net/ethernet/mellanox/mlx4/resource_tracker.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-index d8d5d161b8c7..4aa29ee93013 100644
---- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-@@ -2749,7 +2749,7 @@ int mlx4_SW2HW_MPT_wrapper(struct mlx4_dev *dev, int slave,
- 	int err;
- 	int index = vhcr->in_modifier;
- 	struct res_mtt *mtt;
--	struct res_mpt *mpt;
-+	struct res_mpt *mpt = NULL;
- 	int mtt_base = mr_get_mtt_addr(inbox->buf) / dev->caps.mtt_entry_sz;
- 	int phys;
- 	int id;
--- 
-2.12.2.762.g0e3151a226-goog
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+T24gVGh1LCBBcHIgMTMsIDIwMTcgYXQgMDQ6MDU6MThQTSAtMDYwMCwgTG9nYW4gR3VudGhvcnBl
+IHdyb3RlOgo+IFRoaXMgaXMgYSBzaW5nbGUgc3RyYWlnaHRmb3J3YXJkIGNvbnZlcnNpb24gZnJv
+bSBrbWFwIHRvIHNnX21hcC4KPiAKPiBTaWduZWQtb2ZmLWJ5OiBMb2dhbiBHdW50aG9ycGUgPGxv
+Z2FuZ0BkZWx0YXRlZS5jb20+CgpBY2tlZC1ieTogRGFuaWVsIFZldHRlciA8ZGFuaWVsLnZldHRl
+ckBmZndsbC5jaD4KClByb2JhYmx5IG1ha2VzIHNlbnNlIHRvIG1lcmdlIHRocm91Z2ggc29tZSBv
+dGhlciB0cmVlLCBidXQgcGxlYXNlIGJlIGF3YXJlCm9mIHRoZSBjb25zaWRlcmFibGUgY2h1cm4g
+cmF0ZSBpbiBpOTE1IChpLmUuIG1ha2Ugc3VyZSB5b3VyIHRyZWUgaXMgaW4KbGludXgtbmV4dCBi
+ZWZvcmUgeW91IHNlbmQgYSBwdWxsIHJlcXVlc3QgZm9yIHRoaXMpLiBQbGFuZSBCIHdvdWxkIGJl
+IHRvCmdldCB0aGUgcHJlcCBwYXRjaCBpbiBmaXJzdCBhbmQgdGhlbiBtZXJnZSB0aGUgaTkxNSBj
+b252ZXJzaW9uIG9uZSBrZXJuZWwKcmVsZWFzZSBsYXRlci4KLURhbmllbAoKPiAtLS0KPiAgZHJp
+dmVycy9ncHUvZHJtL2k5MTUvaTkxNV9nZW0uYyB8IDI3ICsrKysrKysrKysrKysrKystLS0tLS0t
+LS0tLQo+ICAxIGZpbGUgY2hhbmdlZCwgMTYgaW5zZXJ0aW9ucygrKSwgMTEgZGVsZXRpb25zKC0p
+Cj4gCj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvZ3B1L2RybS9pOTE1L2k5MTVfZ2VtLmMgYi9kcml2
+ZXJzL2dwdS9kcm0vaTkxNS9pOTE1X2dlbS5jCj4gaW5kZXggNjdiMWZjNS4uMWIxYjkxYSAxMDA2
+NDQKPiAtLS0gYS9kcml2ZXJzL2dwdS9kcm0vaTkxNS9pOTE1X2dlbS5jCj4gKysrIGIvZHJpdmVy
+cy9ncHUvZHJtL2k5MTUvaTkxNV9nZW0uYwo+IEBAIC0yMTg4LDYgKzIxODgsMTUgQEAgc3RhdGlj
+IHZvaWQgX19pOTE1X2dlbV9vYmplY3RfcmVzZXRfcGFnZV9pdGVyKHN0cnVjdCBkcm1faTkxNV9n
+ZW1fb2JqZWN0ICpvYmopCj4gIAkJcmFkaXhfdHJlZV9kZWxldGUoJm9iai0+bW0uZ2V0X3BhZ2Uu
+cmFkaXgsIGl0ZXIuaW5kZXgpOwo+ICB9Cj4gIAo+ICtzdGF0aWMgdm9pZCBpOTE1X2dlbV9vYmpl
+Y3RfdW5tYXAoY29uc3Qgc3RydWN0IGRybV9pOTE1X2dlbV9vYmplY3QgKm9iaiwKPiArCQkJCSAg
+dm9pZCAqcHRyKQo+ICt7Cj4gKwlpZiAoaXNfdm1hbGxvY19hZGRyKHB0cikpCj4gKwkJdnVubWFw
+KHB0cik7Cj4gKwllbHNlCj4gKwkJc2dfdW5tYXAob2JqLT5tbS5wYWdlcy0+c2dsLCBwdHIsIFNH
+X0tNQVApOwo+ICt9Cj4gKwo+ICB2b2lkIF9faTkxNV9nZW1fb2JqZWN0X3B1dF9wYWdlcyhzdHJ1
+Y3QgZHJtX2k5MTVfZ2VtX29iamVjdCAqb2JqLAo+ICAJCQkJIGVudW0gaTkxNV9tbV9zdWJjbGFz
+cyBzdWJjbGFzcykKPiAgewo+IEBAIC0yMjE1LDEwICsyMjI0LDcgQEAgdm9pZCBfX2k5MTVfZ2Vt
+X29iamVjdF9wdXRfcGFnZXMoc3RydWN0IGRybV9pOTE1X2dlbV9vYmplY3QgKm9iaiwKPiAgCQl2
+b2lkICpwdHI7Cj4gIAo+ICAJCXB0ciA9IHB0cl9tYXNrX2JpdHMob2JqLT5tbS5tYXBwaW5nKTsK
+PiAtCQlpZiAoaXNfdm1hbGxvY19hZGRyKHB0cikpCj4gLQkJCXZ1bm1hcChwdHIpOwo+IC0JCWVs
+c2UKPiAtCQkJa3VubWFwKGttYXBfdG9fcGFnZShwdHIpKTsKPiArCQlpOTE1X2dlbV9vYmplY3Rf
+dW5tYXAob2JqLCBwdHIpOwo+ICAKPiAgCQlvYmotPm1tLm1hcHBpbmcgPSBOVUxMOwo+ICAJfQo+
+IEBAIC0yNDc1LDggKzI0ODEsMTEgQEAgc3RhdGljIHZvaWQgKmk5MTVfZ2VtX29iamVjdF9tYXAo
+Y29uc3Qgc3RydWN0IGRybV9pOTE1X2dlbV9vYmplY3QgKm9iaiwKPiAgCXZvaWQgKmFkZHI7Cj4g
+IAo+ICAJLyogQSBzaW5nbGUgcGFnZSBjYW4gYWx3YXlzIGJlIGttYXBwZWQgKi8KPiAtCWlmIChu
+X3BhZ2VzID09IDEgJiYgdHlwZSA9PSBJOTE1X01BUF9XQikKPiAtCQlyZXR1cm4ga21hcChzZ19w
+YWdlKHNndC0+c2dsKSk7Cj4gKwlpZiAobl9wYWdlcyA9PSAxICYmIHR5cGUgPT0gSTkxNV9NQVBf
+V0IpIHsKPiArCQlhZGRyID0gc2dfbWFwKHNndC0+c2dsLCBTR19LTUFQKTsKPiArCQlpZiAoSVNf
+RVJSKGFkZHIpKQo+ICsJCQlyZXR1cm4gTlVMTDsKPiArCX0KPiAgCj4gIAlpZiAobl9wYWdlcyA+
+IEFSUkFZX1NJWkUoc3RhY2tfcGFnZXMpKSB7Cj4gIAkJLyogVG9vIGJpZyBmb3Igc3RhY2sgLS0g
+YWxsb2NhdGUgdGVtcG9yYXJ5IGFycmF5IGluc3RlYWQgKi8KPiBAQCAtMjU0MywxMSArMjU1Miw3
+IEBAIHZvaWQgKmk5MTVfZ2VtX29iamVjdF9waW5fbWFwKHN0cnVjdCBkcm1faTkxNV9nZW1fb2Jq
+ZWN0ICpvYmosCj4gIAkJCWdvdG8gZXJyX3VucGluOwo+ICAJCX0KPiAgCj4gLQkJaWYgKGlzX3Zt
+YWxsb2NfYWRkcihwdHIpKQo+IC0JCQl2dW5tYXAocHRyKTsKPiAtCQllbHNlCj4gLQkJCWt1bm1h
+cChrbWFwX3RvX3BhZ2UocHRyKSk7Cj4gLQo+ICsJCWk5MTVfZ2VtX29iamVjdF91bm1hcChvYmos
+IHB0cik7Cj4gIAkJcHRyID0gb2JqLT5tbS5tYXBwaW5nID0gTlVMTDsKPiAgCX0KPiAgCj4gLS0g
+Cj4gMi4xLjQKPiAKPiBfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fXwo+IGRyaS1kZXZlbCBtYWlsaW5nIGxpc3QKPiBkcmktZGV2ZWxAbGlzdHMuZnJlZWRlc2t0
+b3Aub3JnCj4gaHR0cHM6Ly9saXN0cy5mcmVlZGVza3RvcC5vcmcvbWFpbG1hbi9saXN0aW5mby9k
+cmktZGV2ZWwKCi0tIApEYW5pZWwgVmV0dGVyClNvZnR3YXJlIEVuZ2luZWVyLCBJbnRlbCBDb3Jw
+b3JhdGlvbgpodHRwOi8vYmxvZy5mZndsbC5jaApfX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fXwpJbnRlbC1nZnggbWFpbGluZyBsaXN0CkludGVsLWdmeEBsaXN0
+cy5mcmVlZGVza3RvcC5vcmcKaHR0cHM6Ly9saXN0cy5mcmVlZGVza3RvcC5vcmcvbWFpbG1hbi9s
+aXN0aW5mby9pbnRlbC1nZngK
