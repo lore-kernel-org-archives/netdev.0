@@ -1,41 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][net-next] esp6: fix incorrect null pointer check on xo
-Date: Tue, 18 Apr 2017 13:12:53 -0400 (EDT)
-Message-ID: <20170418.131253.2065320027211688167.davem@davemloft.net>
-References: <20170418140653.8839-1-colin.king@canonical.com>
+Subject: Re: [PATCH next RFC] net: sched: mirred: move xmit to tasklet
+Date: Tue, 18 Apr 2017 13:15:48 -0400 (EDT)
+Message-ID: <20170418.131548.824211762596103433.davem@davemloft.net>
+References: <20170418130331.14268-1-fw@strlen.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, steffen.klassert@secunet.com
-To: colin.king@canonical.com
+Cc: netdev@vger.kernel.org
+To: fw@strlen.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:42112 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:42144 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754590AbdDRRM5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 13:12:57 -0400
-In-Reply-To: <20170418140653.8839-1-colin.king@canonical.com>
+        with ESMTP id S1757238AbdDRRPu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 13:15:50 -0400
+In-Reply-To: <20170418130331.14268-1-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Colin King <colin.king@canonical.com>
-Date: Tue, 18 Apr 2017 15:06:53 +0100
+From: Florian Westphal <fw@strlen.de>
+Date: Tue, 18 Apr 2017 15:03:31 +0200
 
-Trimming the CC: list down to something that actually makes
-sense.
-
-> From: Colin Ian King <colin.king@canonical.com>
+> mirred is prone to deadlocks as it invokes dev_queue_xmit while
+> holding one or more qdisc locks.
 > 
-> The check for xo being null is incorrect, currently it is checking
-> for non-null, it should be checking for null.
+> Avoid lock recursions by moving tx context to a tasklet.
 > 
-> Detected with CoverityScan, CID#1429349 ("Dereference after null check")
+> Signed-off-by: Florian Westphal <fw@strlen.de>
+> ---
+>  This a stab at removing the lock recursions discussed during netconf.
 > 
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+>  Taking the cost of the tasklet appears to be the only solution;
+>  i tried to use a percpu 'history' instead but its not clear to
+>  me that this avoids all corner cases.
+> 
+>  While this patch doesn't avoid loops we don't hang the kernel
+>  anymore and removing the 'looping' filter makes things calm
+>  down again (there are also other ways to create such loops anyway,
+>  including use of a cable... )
 
-At a minimum you should work to check that you are CC:'ing the person
-who added the code you are fixing.  You can use "git blame" for this.
+The thing is, those qdisc's are per-device.
 
-Also, Steffen, you need to add the new IPSEC offload files to the
-MAINTAINERS entry for iPSEC.
+So we could return the locking cpu and back out of deadlocks just like
+we do for the netdev tx lock.
 
-Thank you.
+Given that, maybe the remaining part of the equation could possibly be
+handled by a ttl.
