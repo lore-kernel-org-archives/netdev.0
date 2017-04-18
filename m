@@ -1,96 +1,201 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/15][pull request] 10GbE Intel Wired LAN Driver Updates 2017-04-18
-Date: Tue, 18 Apr 2017 16:01:50 -0700
-Message-ID: <20170418230205.37223-1-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
+Subject: [net-next 02/15] ixgbe: Remove pr_cont uses
+Date: Tue, 18 Apr 2017 16:01:52 -0700
+Message-ID: <20170418230205.37223-3-jeffrey.t.kirsher@intel.com>
+References: <20170418230205.37223-1-jeffrey.t.kirsher@intel.com>
+Cc: Joe Perches <joe@perches.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga06.intel.com ([134.134.136.31]:61886 "EHLO mga06.intel.com"
+Received: from mga06.intel.com ([134.134.136.31]:55358 "EHLO mga06.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752280AbdDRXCK (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 18 Apr 2017 19:02:10 -0400
+        id S1754076AbdDRXCL (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 18 Apr 2017 19:02:11 -0400
+In-Reply-To: <20170418230205.37223-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to mainly ixgbe with only one ixgbevf change.
+From: Joe Perches <joe@perches.com>
 
-Usha adds a check to ensure the creation of number of VF's is valid based
-on the traffic classes configured, all to avoid transmit hangs.
+As pr_cont output can be interleaved by other processes,
+using pr_cont should be avoided where possible.
 
-Joe Perches reduces the use of pr_cont since the output can be interleaved
-by other processes.
+Miscellanea:
 
-Tony cleans up the code overwriting the KX4 config, which is configured by
-the NVM.  Adds a check for MMNGC.MNG_VETO, to resolve an issue where we
-were getting a link loss for the BMC when loading the driver.
+- Use a temporary pointer to hold the next descriptions and
+  consolidate the pr_cont uses
+- Use the temporary buffer to hold the 8 u32 register values and
+  emit those in a single go
+- Coalesce formats and logging neatening around those changes
+- Fix a defective output for the rx ring entry description when
+  also emitting rx_buffer_info data
 
-Don fixes up SGMII x553 config details which were missed in earlier
-implementations.  Added support for x552 XFI backplane interface support.
-Cleaned up an unused define, which was causing confusion on supported
-devices.
+This reduces overall object size a tiny bit too.
 
-Emil fixes a link issue on KR parts by making sure the default setting is
-set.  Refactors the code so that the code for allocating memory for the
-list of MAC addresses that the VFs can use into its own function.  Made
-some code cleans to help readability and ensure notification of SRIOV
-being enabled is done upon completion.  Fixed an issue where if we failed
-to allocate vfinfo in __ixgbe_enable_sriov() the driver would crash with
-a NULL pointer dereference.
+$ size drivers/net/ethernet/intel/ixgbe/*.o*
+   text	   data	    bss	    dec	    hex	filename
+  62167	    728	     12	  62907	   f5bb	drivers/net/ethernet/intel/ixgbe/ixgbe_main.o.new
+  62273	    728	     12	  63013	   f625	drivers/net/ethernet/intel/ixgbe/ixgbe_main.o.old
 
-Philippe Reynes updates ixgbevf to use the new API for
-{get|set}_link_ksettings.
+Signed-off-by: Joe Perches <joe@perches.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 84 +++++++++++++++------------
+ 1 file changed, 47 insertions(+), 37 deletions(-)
 
-Alex increases the headroom allocation when using build_skb() on a
-system with 4K pages.  Fixed an issue in ixgbe_dump() where we were no
-longer clearing the status bit.
-
-The following are changes since commit 4116c97689b9b1732ac5b68afd922406f9fc842e:
-  Merge branch 'ftgmac100-batch5-features'
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 10GbE
-
-Alexander Duyck (2):
-  ixgbe: Add support for maximum headroom when using build_skb
-  ixgbe: Fix output from ixgbe_dump
-
-Don Skidmore (4):
-  ixgbe: Complete support for X553 sgmii
-  ixgbe: Add X552 XFI backplane support
-  ixgbe: list X553 backplane speeds correctly
-  ixgbe: Remove unused define
-
-Emil Tantilov (4):
-  ixgbe: add default setup_link for x550em_a MAC type
-  ixgbe: move num_vfs_macvlans allocation into separate function
-  ixgbe: return early instead of wrap block in if statement
-  ixgbe: do not use adapter->num_vfs when setting VFs via module
-    parameter
-
-Joe Perches (1):
-  ixgbe: Remove pr_cont uses
-
-Philippe Reynes (1):
-  ixgbevf: use new api ethtool_{get|set}_link_ksettings
-
-Tony Nguyen (2):
-  ixgbe: Remove driver config for KX4 PHY
-  ixgbe: add check for VETO bit when configuring link for KR
-
-Usha Ketineni (1):
-  ixgbe: Avoid Tx hang by not allowing more than the number of VFs
-    supported.
-
- drivers/net/ethernet/intel/ixgbe/ixgbe.h         |  55 +++++++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |   1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    | 101 +++++++-------
- drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c     |   3 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c   | 169 +++++++++++++----------
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h   |   5 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h    |  22 +--
- drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c    | 102 ++++++++------
- drivers/net/ethernet/intel/ixgbevf/ethtool.c     |  22 +--
- 9 files changed, 287 insertions(+), 193 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 852a2e7e25ed..848dea922b2a 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -508,7 +508,7 @@ static const struct ixgbe_reg_info ixgbe_reg_info_tbl[] = {
+  */
+ static void ixgbe_regdump(struct ixgbe_hw *hw, struct ixgbe_reg_info *reginfo)
+ {
+-	int i = 0, j = 0;
++	int i;
+ 	char rname[16];
+ 	u32 regs[64];
+ 
+@@ -570,17 +570,21 @@ static void ixgbe_regdump(struct ixgbe_hw *hw, struct ixgbe_reg_info *reginfo)
+ 			regs[i] = IXGBE_READ_REG(hw, IXGBE_TXDCTL(i));
+ 		break;
+ 	default:
+-		pr_info("%-15s %08x\n", reginfo->name,
+-			IXGBE_READ_REG(hw, reginfo->ofs));
++		pr_info("%-15s %08x\n",
++			reginfo->name, IXGBE_READ_REG(hw, reginfo->ofs));
+ 		return;
+ 	}
+ 
+-	for (i = 0; i < 8; i++) {
+-		snprintf(rname, 16, "%s[%d-%d]", reginfo->name, i*8, i*8+7);
+-		pr_err("%-15s", rname);
++	i = 0;
++	while (i < 64) {
++		int j;
++		char buf[9 * 8 + 1];
++		char *p = buf;
++
++		snprintf(rname, 16, "%s[%d-%d]", reginfo->name, i, i + 7);
+ 		for (j = 0; j < 8; j++)
+-			pr_cont(" %08x", regs[i*8+j]);
+-		pr_cont("\n");
++			p += sprintf(p, " %08x", regs[i++]);
++		pr_err("%-15s%s\n", rname, buf);
+ 	}
+ 
+ }
+@@ -701,7 +705,18 @@ static void ixgbe_dump(struct ixgbe_adapter *adapter)
+ 			tx_buffer = &tx_ring->tx_buffer_info[i];
+ 			u0 = (struct my_u0 *)tx_desc;
+ 			if (dma_unmap_len(tx_buffer, len) > 0) {
+-				pr_info("T [0x%03X]    %016llX %016llX %016llX %08X %p %016llX %p",
++				const char *ring_desc;
++
++				if (i == tx_ring->next_to_use &&
++				    i == tx_ring->next_to_clean)
++					ring_desc = " NTC/U";
++				else if (i == tx_ring->next_to_use)
++					ring_desc = " NTU";
++				else if (i == tx_ring->next_to_clean)
++					ring_desc = " NTC";
++				else
++					ring_desc = "";
++				pr_info("T [0x%03X]    %016llX %016llX %016llX %08X %p %016llX %p%s",
+ 					i,
+ 					le64_to_cpu(u0->a),
+ 					le64_to_cpu(u0->b),
+@@ -709,16 +724,8 @@ static void ixgbe_dump(struct ixgbe_adapter *adapter)
+ 					dma_unmap_len(tx_buffer, len),
+ 					tx_buffer->next_to_watch,
+ 					(u64)tx_buffer->time_stamp,
+-					tx_buffer->skb);
+-				if (i == tx_ring->next_to_use &&
+-					i == tx_ring->next_to_clean)
+-					pr_cont(" NTC/U\n");
+-				else if (i == tx_ring->next_to_use)
+-					pr_cont(" NTU\n");
+-				else if (i == tx_ring->next_to_clean)
+-					pr_cont(" NTC\n");
+-				else
+-					pr_cont("\n");
++					tx_buffer->skb,
++					ring_desc);
+ 
+ 				if (netif_msg_pktdata(adapter) &&
+ 				    tx_buffer->skb)
+@@ -797,34 +804,45 @@ static void ixgbe_dump(struct ixgbe_adapter *adapter)
+ 		pr_info("------------------------------------\n");
+ 		pr_info("RX QUEUE INDEX = %d\n", rx_ring->queue_index);
+ 		pr_info("------------------------------------\n");
+-		pr_info("%s%s%s",
++		pr_info("%s%s%s\n",
+ 			"R  [desc]      [ PktBuf     A0] ",
+ 			"[  HeadBuf   DD] [bi->dma       ] [bi->skb       ] ",
+-			"<-- Adv Rx Read format\n");
+-		pr_info("%s%s%s",
++			"<-- Adv Rx Read format");
++		pr_info("%s%s%s\n",
+ 			"RWB[desc]      [PcsmIpSHl PtRs] ",
+ 			"[vl er S cks ln] ---------------- [bi->skb       ] ",
+-			"<-- Adv Rx Write-Back format\n");
++			"<-- Adv Rx Write-Back format");
+ 
+ 		for (i = 0; i < rx_ring->count; i++) {
++			const char *ring_desc;
++
++			if (i == rx_ring->next_to_use)
++				ring_desc = " NTU";
++			else if (i == rx_ring->next_to_clean)
++				ring_desc = " NTC";
++			else
++				ring_desc = "";
++
+ 			rx_buffer_info = &rx_ring->rx_buffer_info[i];
+ 			rx_desc = IXGBE_RX_DESC(rx_ring, i);
+ 			u0 = (struct my_u0 *)rx_desc;
+ 			staterr = le32_to_cpu(rx_desc->wb.upper.status_error);
+ 			if (staterr & IXGBE_RXD_STAT_DD) {
+ 				/* Descriptor Done */
+-				pr_info("RWB[0x%03X]     %016llX "
+-					"%016llX ---------------- %p", i,
++				pr_info("RWB[0x%03X]     %016llX %016llX ---------------- %p%s\n",
++					i,
+ 					le64_to_cpu(u0->a),
+ 					le64_to_cpu(u0->b),
+-					rx_buffer_info->skb);
++					rx_buffer_info->skb,
++					ring_desc);
+ 			} else {
+-				pr_info("R  [0x%03X]     %016llX "
+-					"%016llX %016llX %p", i,
++				pr_info("R  [0x%03X]     %016llX %016llX %016llX %p%s\n",
++					i,
+ 					le64_to_cpu(u0->a),
+ 					le64_to_cpu(u0->b),
+ 					(u64)rx_buffer_info->dma,
+-					rx_buffer_info->skb);
++					rx_buffer_info->skb,
++					ring_desc);
+ 
+ 				if (netif_msg_pktdata(adapter) &&
+ 				    rx_buffer_info->dma) {
+@@ -835,14 +853,6 @@ static void ixgbe_dump(struct ixgbe_adapter *adapter)
+ 					   ixgbe_rx_bufsz(rx_ring), true);
+ 				}
+ 			}
+-
+-			if (i == rx_ring->next_to_use)
+-				pr_cont(" NTU\n");
+-			else if (i == rx_ring->next_to_clean)
+-				pr_cont(" NTC\n");
+-			else
+-				pr_cont("\n");
+-
+ 		}
+ 	}
+ }
 -- 
 2.12.2
