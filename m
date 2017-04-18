@@ -1,7 +1,7 @@
 From: Hauke Mehrtens <hauke@hauke-m.de>
-Subject: [PATCH v2 3/3] uapi/if_ether.h: prevent redefinition of struct ethhdr
-Date: Tue, 18 Apr 2017 23:00:36 +0200
-Message-ID: <20170418210036.26039-4-hauke@hauke-m.de>
+Subject: [PATCH v2 1/3] uapi glibc compat: add libc compat code when not build for kernel
+Date: Tue, 18 Apr 2017 23:00:34 +0200
+Message-ID: <20170418210036.26039-2-hauke@hauke-m.de>
 References: <20170418210036.26039-1-hauke@hauke-m.de>
 Cc: linux-kernel@vger.kernel.org, jarod@redhat.com, jogo@openwrt.org,
         david.heidelberger@ixit.cz, maillist-linux@barfooze.de,
@@ -13,75 +13,58 @@ In-Reply-To: <20170418210036.26039-1-hauke@hauke-m.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: David Heidelberger <david.heidelberger@ixit.cz>
+Instead of checking if this header file is used in the glibc, check if
+it is not used in kernel context, this way it will also work with other
+libc implementations like musl.
 
-Musl provides its own ethhdr struct definition. Add a guard to prevent
-its definition of the appropriate musl header has already been included.
+The __USE_MISC symbol is glibc specific and not available in musl libc.
+Only do this check when glibc is used.
+
+This is based on an older patch from David Heidelberger
+<david.heidelberger@ixit.cz>
 
 Acked-by: Mikko Rapeli <mikko.rapeli@iki.fi>
-Signed-off-by: John Spencer <maillist-linux@barfooze.de>
-Tested-by: David Heidelberger <david.heidelberger@ixit.cz>
-Signed-off-by: Jonas Gorski <jogo@openwrt.org>
 Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
 ---
- include/uapi/linux/if_ether.h    |  3 +++
- include/uapi/linux/libc-compat.h | 11 +++++++++++
- 2 files changed, 14 insertions(+)
+ include/uapi/linux/libc-compat.h | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/include/uapi/linux/if_ether.h b/include/uapi/linux/if_ether.h
-index 5bc9bfd816b7..fb5ab8c1e753 100644
---- a/include/uapi/linux/if_ether.h
-+++ b/include/uapi/linux/if_ether.h
-@@ -22,6 +22,7 @@
- #define _UAPI_LINUX_IF_ETHER_H
- 
- #include <linux/types.h>
-+#include <linux/libc-compat.h>
- 
- /*
-  *	IEEE 802.3 Ethernet magic constants.  The frame sizes omit the preamble
-@@ -142,11 +143,13 @@
-  *	This is an Ethernet frame header.
-  */
- 
-+#if __UAPI_DEF_ETHHDR
- struct ethhdr {
- 	unsigned char	h_dest[ETH_ALEN];	/* destination eth addr	*/
- 	unsigned char	h_source[ETH_ALEN];	/* source ether addr	*/
- 	__be16		h_proto;		/* packet type ID field	*/
- } __attribute__((packed));
-+#endif
- 
- 
- #endif /* _UAPI_LINUX_IF_ETHER_H */
 diff --git a/include/uapi/linux/libc-compat.h b/include/uapi/linux/libc-compat.h
-index ce2fa8a4ced6..c92d32f213d1 100644
+index 44b8a6bd5fe1..43a81136ea6e 100644
 --- a/include/uapi/linux/libc-compat.h
 +++ b/include/uapi/linux/libc-compat.h
-@@ -87,6 +87,14 @@
+@@ -48,11 +48,11 @@
+ #ifndef _UAPI_LIBC_COMPAT_H
+ #define _UAPI_LIBC_COMPAT_H
  
- #endif /* _NET_IF_H */
+-/* We have included glibc headers... */
+-#if defined(__GLIBC__)
++/* We have included libc headers... */
++#if !defined(__KERNEL__)
  
-+/* musl defines the ethhdr struct itself in its netinet/if_ether.h.
-+ * Glibc just includes the kernel header and uses a different guard. */
-+#if defined(_NETINET_IF_ETHER_H)
-+#define __UAPI_DEF_ETHHDR		0
-+#else
-+#define __UAPI_DEF_ETHHDR		1
-+#endif
-+
- /* Coordinate with glibc netinet/in.h header. */
- #if defined(_NETINET_IN_H)
+-/* Coordinate with glibc net/if.h header. */
+-#if defined(_NET_IF_H) && defined(__USE_MISC)
++/* Coordinate with libc net/if.h header. */
++#if defined(_NET_IF_H) && (!defined(__GLIBC__) || defined(__USE_MISC))
  
-@@ -182,6 +190,9 @@
- /* For the future if glibc adds IFF_LOWER_UP, IFF_DORMANT and IFF_ECHO */
- #define __UAPI_DEF_IF_NET_DEVICE_FLAGS_LOWER_UP_DORMANT_ECHO 1
+ /* GLIBC headers included first so don't define anything
+  * that would already be defined. */
+@@ -168,7 +168,7 @@
+ /* If we did not see any headers from any supported C libraries,
+  * or we are being included in the kernel, then define everything
+  * that we need. */
+-#else /* !defined(__GLIBC__) */
++#else /* defined(__KERNEL__) */
  
-+/* Definitions for if_ether.h */
-+#define __UAPI_DEF_ETHHDR 		1
-+
- /* Definitions for in.h */
- #define __UAPI_DEF_IN_ADDR		1
- #define __UAPI_DEF_IN_IPPROTO		1
+ /* Definitions for if.h */
+ #define __UAPI_DEF_IF_IFCONF 1
+@@ -208,6 +208,6 @@
+ /* Definitions for xattr.h */
+ #define __UAPI_DEF_XATTR		1
+ 
+-#endif /* __GLIBC__ */
++#endif /* __KERNEL__ */
+ 
+ #endif /* _UAPI_LIBC_COMPAT_H */
 -- 
 2.11.0
