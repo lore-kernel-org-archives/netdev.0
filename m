@@ -1,83 +1,72 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: Re: [PATCH net-next 1/4] ixgbe: sparc: rename the
- ARCH_WANT_RELAX_ORDER to IXGBE_ALLOW_RELAXED_ORDER
-Date: Tue, 18 Apr 2017 13:25:44 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DCFFD3C52@AcuExch.aculab.com>
-References: <20170401.112603.1991545644693496714.davem@davemloft.net>
- <42428725-89f1-1508-4e3d-723e087b3bbb@huawei.com>
- <EE11001F9E5DDD47B7634E2F8A612F2E205199C0@FRAEML521-MBX.china.huawei.com>
+From: Daniel Walker <danielwa@cisco.com>
+Subject: Marvell phy errata origins?
+Date: Tue, 18 Apr 2017 06:16:33 -0700
+Message-ID: <59691a35-a89c-f9ca-c7b0-73134a737f4c@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: Catalin Marinas <catalin.marinas@arm.com>,
-        Will Deacon <will.deacon@arm.com>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Robin Murphy <Robin.Murphy@arm.com>,
-        "jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
-        "alexander.duyck@gmail.com" <alexander.duyck@gmail.com>,
-        "linux-arm-kernel@lists.infradead.org"
-        <linux-arm-kernel@lists.infradead.org>,
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Florian Fainelli <f.fainelli@gmail.com>,
+        Andy Fleming <afleming@freescale.com>,
+        Harini Katakam <harini.katakam@xilinx.com>,
         "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Dingtianhong <dingtianhong@huawei.com>,
-        Linuxarm <linuxarm@huawei.com>
-To: 'Gabriele Paoloni' <gabriele.paoloni@huawei.com>,
-        "davem@davemloft.net" <davem@davemloft.net>
+        HEMANT RAMDASI <hramdasi@cisco.com>,
+        "Julius Hemanth Pitti -X (jpitti - MONTA VISTA SOFTWARE INC at Cisco)"
+        <jpitti@cisco.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.195]:58762 "EHLO
-        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752469AbdDRNZ5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 09:25:57 -0400
-In-Reply-To: <EE11001F9E5DDD47B7634E2F8A612F2E205199C0@FRAEML521-MBX.china.huawei.com>
-Content-Language: en-US
+Received: from alln-iport-4.cisco.com ([173.37.142.91]:29751 "EHLO
+        alln-iport-4.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751467AbdDRN0H (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 09:26:07 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gabriele Paoloni
-> Sent: 13 April 2017 10:11
-> > > Till now only the Intel ixgbe could support enable
-> > > Relaxed ordering in the drivers for special architecture,
-> > > but the ARCH_WANT_RELAX_ORDER is looks like a general name
-> > > for all arch, so rename to a specific name for intel
-> > > card looks more appropriate.
-> > >
-> > > Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
-> >
-> > This is not a driver specific facility.
-> >
-> > Any driver can test this symbol and act accordingly.
-> >
-> > Just because IXGBE is the first and only user, doesn't mean
-> > the facility is driver specific.
-> 
-> 
-> Please correct me if I am wrong but my understanding is that the standard
-> way to enable/disable relaxed ordering is to set/clear bit 4 of the Device
-> Control Register (PCI_EXP_DEVCTL_RELAX_EN 0x0010 /* Enable relaxed
-> ordering */).
-> Now I have looked up for all drivers either enabling or disabling relaxed
-> ordering and none of them seems to need a symbol to decide whether to
-> enable it or not.
-> Also it seems to me enabling/disabling relaxed ordering is never bound to the
-> host architecture.
-> 
-> So why this should be (or it is expected to be) a generic symbol?
-> Wouldn't it be more correct to have this as a driver specific symbol now and
-> move it to a generic one later once we have other drivers requiring it?
 
-'Relaxed ordering' is a bit in the TLP header.
-A device (like the ixgbe hardware) can set it for some transactions and
-still have the transactions 'ordered enough' for the driver to work.
-(If all transactions have 'relaxed ordering' set then I suspect it is
-almost impossible to write a working driver.)
-The host side could (probably does) have a bit to enable 'relaxed ordering',
-it could also enforce stronger ordering than required by the PCIe spec
-(eg keeping reads in order).
+Hi,
 
-Clearly, on some sparc64 systems, ixgbe needs to use 'relaxed ordering'.
-To me this requires two separate bits be enabled:
-1) to the ixgbe driver to generate the 'relaxed' TLP.
-2) to the host to actually act on them.
-If the ixgbe driver works when both are enabled why have options to
-disable either (except for bug-finding)?
+Cisco is using a Marvell 88E1112 phy. It seems to be fairly similar to 
+the 88E1111 which Harini added a fix for. In Harini's commit message for ,
 
-	David
+https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/drivers/net/phy/marvell.c?id=3ec0a0f10ceb
+
+"This function has a sequence accessing Page 5 and Register 31, both of 
+which are not defined or reserved for this PHY"
+
+For the 88E1112 we see that these are "Factory Test Modes" which the 
+contents of are not documented. They aren't really "not defied", and 
+aren't really "reserved" .. Marvell support claims they don't support 
+these drivers, and Freescale seems to be adding these drivers, and the 
+line we are looking at.
+
+We had some issues with our PHY which were corrected with the same patch 
+Harini used but modified for the M88E1112. We're trying to get to the 
+bottom of where this code came from and what it was suppose to be doing.
+
+Here are the problem lines where were removed,
+
+drivers/net/phy/marvell.c:marvell_config_aneg()
+
+  266         err = phy_write(phydev, 0x1d, 0x1f);
+  267         if (err < 0)
+  268                 return err;
+  269
+  270         err = phy_write(phydev, 0x1e, 0x200c);
+  271         if (err < 0)
+  272                 return err;
+  273
+  274         err = phy_write(phydev, 0x1d, 0x5);
+  275         if (err < 0)
+  276                 return err;
+  277
+  278         err = phy_write(phydev, 0x1e, 0);
+  279         if (err < 0)
+  280                 return err;
+  281
+  282         err = phy_write(phydev, 0x1e, 0x100);
+  283         if (err < 0)
+  284                 return err;
+
+Does anyone have any clues as to why this was added?
+
+Thanks,
+
+Daniel
