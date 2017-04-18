@@ -1,48 +1,59 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: NFS over NAT causes e1000e transmit hangs
-Date: Tue, 18 Apr 2017 12:05:11 -0700
-Message-ID: <9fa24846-3a2d-26d3-2963-f5e6ec6808a5@gmail.com>
-References: <42af0e78-3107-1605-f8e1-d73a8c441ff0@gmail.com>
- <1492542204.10587.138.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: Re: [PATCH v4 net-next RFC] net: Generic XDP
+Date: Tue, 18 Apr 2017 15:05:35 -0400
+Message-ID: <20170418190535.GG4730@C02RW35GFVH8.dhcp.broadcom.net>
+References: <20170413.120925.2082322246776478766.davem@davemloft.net>
+ <CACKFLikm1vDzz8eQJMJOEsbv-NNV41ki2TEPVPCSpP6VjaowBA@mail.gmail.com>
+ <20170413.162315.1889531431093534154.davem@davemloft.net>
+ <20170415005949.GB73685@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: intel-wired-lan@lists.osuosl.org, jeffrey.t.kirsher@intel.com,
-        netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, michael.chan@broadcom.com,
+        netdev@vger.kernel.org, xdp-newbies@vger.kernel.org
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:32783 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753374AbdDRTFS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 15:05:18 -0400
-Received: by mail-pf0-f195.google.com with SMTP id c198so282152pfc.0
-        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 12:05:18 -0700 (PDT)
-In-Reply-To: <1492542204.10587.138.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-oi0-f65.google.com ([209.85.218.65]:33856 "EHLO
+        mail-oi0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754811AbdDRTFp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 15:05:45 -0400
+Received: by mail-oi0-f65.google.com with SMTP id t14so444553oif.1
+        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 12:05:45 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20170415005949.GB73685@ast-mbp.thefacebook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/18/2017 12:03 PM, Eric Dumazet wrote:
-> On Tue, 2017-04-18 at 11:18 -0700, Florian Fainelli wrote:
->> Hi,
->>
->> I am using NFS over a NAT with two e1000e adapters and with eth1 being
->> the LAN interface and eth0 the WAN interface. The kernel is Ubuntu's
->> 16.10 kernel: 4.8.0-46-generic. The device doing NAT over NFS is just
->> mounting a remote folder and doing normal execution/file accesses. It's
->> enough to untar a file from this device onto a NFS share to expose the
->> problem.
->>
->> The transmit hangs look like the ones below, doing a rmmod/insmod does
->> not help eliminated the problem, nor does a power cycle. Stopping the
->> NFS over NAT definitively does let the adapter recover.
+On Fri, Apr 14, 2017 at 05:59:51PM -0700, Alexei Starovoitov wrote:
+> On Thu, Apr 13, 2017 at 04:23:15PM -0400, David Miller wrote:
+> > +
+> > +	switch (act) {
+> > +	case XDP_TX:
+> > +		__skb_push(skb, skb->mac_len);
 > 
-> Is this NFS over TCP or UDP ?
+> s/skb->mac_len/mac_len/
+> 
 
-This is NFS over TCP mounted with the following:
+I was away from my keyboard for a few days, but was able to get some
+time to test this today.
 
-type nfs
-(rw,relatime,vers=3,rsize=1048576,wsize=1048576,namlen=255,hard,proto=tcp,port=2049,timeo=70,retrans=3,sec=sys,local_lock=none,addr=X.X.X.X)
+When using this change above suggested by Alexei, XDP_DROP and XDP_TX
+actions appear to work well with xdp1 and xdp2.
 
-Thanks Eric!
--- 
-Florian
+I'm seeing some rather odd behavior with xdp_tx_tunnel so it might be
+good to hold off on committing this just yet.
+
+At first glance, it looks like there is enough headroom for the new
+frame, but the resulting packet data do not look right and I'm actually
+seeing some data that may be left on the stack from a previous caller.
+
+> > +	HARD_TX_UNLOCK(dev, txq);
+> > +	if (free_skb) {
+> > +		trace_xdp_exception(dev, xdp_prog, XDP_TX);
+> > +		kfree_skb(skb);
+> 
+> nice that you didn't forget to add trace_xdp_exception in this path :)
+> 
+> Overall looks good to me and other than the minor nit in tx, i think it
+> should work for programs already used with in-driver xdp.
+> I'll test it next week unless people beat me to it.
+> 
