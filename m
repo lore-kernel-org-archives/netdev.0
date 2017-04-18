@@ -1,79 +1,107 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH net-next 2/2] tcp: remove poll() flakes with FastOpen
-Date: Tue, 18 Apr 2017 09:45:52 -0700
-Message-ID: <20170418164552.29261-3-edumazet@google.com>
-References: <20170418164552.29261-1-edumazet@google.com>
-Cc: netdev <netdev@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>
-To: "David S . Miller" <davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] smsc95xx: Use skb_cow to deal with cloned skbs
+Date: Tue, 18 Apr 2017 09:52:27 -0700
+Message-ID: <1492534347.10587.130.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20170418144857.7810-1-james.hughes@raspberrypi.org>
+         <1492530711.10587.125.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20170418.115546.921863837348166438.davem@davemloft.net>
+         <CAE_XsMJZGPvENhCgyvuz48PyLk=T7L-tGoktzVBLPPYDP7oR8A@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+        Steve Glendinning <steve.glendinning@shawell.net>,
+        Microchip Linux Driver Support <UNGLinuxDriver@microchip.com>
+To: James Hughes <james.hughes@raspberrypi.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f50.google.com ([74.125.83.50]:34964 "EHLO
-        mail-pg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757285AbdDRQqo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 12:46:44 -0400
-Received: by mail-pg0-f50.google.com with SMTP id 72so82274417pge.2
-        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 09:46:44 -0700 (PDT)
-In-Reply-To: <20170418164552.29261-1-edumazet@google.com>
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:33673 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753360AbdDRQw3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 12:52:29 -0400
+Received: by mail-pg0-f66.google.com with SMTP id 63so21508532pgh.0
+        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 09:52:29 -0700 (PDT)
+In-Reply-To: <CAE_XsMJZGPvENhCgyvuz48PyLk=T7L-tGoktzVBLPPYDP7oR8A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When using TCP FastOpen for an active session, we send one wakeup event
-from tcp_finish_connect(), right before the data eventually contained in
-the received SYNACK is queued to sk->sk_receive_queue.
+On Tue, 2017-04-18 at 17:16 +0100, James Hughes wrote:
+> On 18 April 2017 at 16:55, David Miller <davem@davemloft.net> wrote:
+> > From: Eric Dumazet <eric.dumazet@gmail.com>
+> > Date: Tue, 18 Apr 2017 08:51:51 -0700
+> >
+> >> On Tue, 2017-04-18 at 15:48 +0100, James Hughes wrote:
+> >>> The driver was failing to check that the SKB wasn't cloned
+> >>> before adding checksum data or adding header data.
+> >>> Replace existing handling to extend the buffer with
+> >>> skb_cow. Don't use skb_cow_head as the sw checksum
+> >>> code modifies the data portion.
+> >>>
+> >>> Signed-off-by: James Hughes <james.hughes@raspberrypi.org>
+> >>> ---
+> >>>  drivers/net/usb/smsc95xx.c | 10 +++-------
+> >>>  1 file changed, 3 insertions(+), 7 deletions(-)
+> >>>
+> >>> diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
+> >>> index df60c98..04f6397 100644
+> >>> --- a/drivers/net/usb/smsc95xx.c
+> >>> +++ b/drivers/net/usb/smsc95xx.c
+> >>> @@ -2067,13 +2067,9 @@ static struct sk_buff *smsc95xx_tx_fixup(struct usbnet *dev,
+> >>>      /* We do not advertise SG, so skbs should be already linearized */
+> >>>      BUG_ON(skb_shinfo(skb)->nr_frags);
+> >>>
+> >>> -    if (skb_headroom(skb) < overhead) {
+> >>> -            struct sk_buff *skb2 = skb_copy_expand(skb,
+> >>> -                    overhead, 0, flags);
+> >>> -            dev_kfree_skb_any(skb);
+> >>> -            skb = skb2;
+> >>> -            if (!skb)
+> >>> -                    return NULL;
+> >>> +    /* Make writable and expand space by overhead if required */
+> >>> +    if (skb_cow(skb, overhead)) {
+> >>> +            return NULL;
+> >>>      }
+> >>
+> >> Note that this patch will probably force a copy of all locally generated
+> >> TCP packets.
+> >>
+> >> For them skb_cloned(skb) is true.
+> >>
+> >> I do believe skb_cow_head() would be better, since TCP stack uses the
+> >> __skb_header_release() helper to tell lower stacks they can write the
+> >> header part, even on a clone.
+> >
+> > Agreed.
+> 
+> I'm happy to work it as you see fit - you know this code far better than I do.
+> 
+> Our reading of the code is that the software checksum path is
+> modifying the data rather than just adding a header. Based on the
+> description of skb_cow_head it therefore isn't appropriate. If that
+> isn't a concern in reality then skb_cow_head is fine and I'll make a
+> V2 patchset.
+> Or do we need to skb_cow if doing the software checksum, but
+> skb_cow_head normally? That can be done instead but requires a
+> slightly larger change.
+> 
+> The failure case we were seeing was with a bridged network using
+> SMSC9514 and a Broadcom wifi chip on Raspberry Pi 3. The bridge was
+> making an SKB clone of broadcasts for the two interfaces, and then
+> both drivers were adding headers without checking skb_cloned(skb)
+> first, hence trampling on each other. For small packets the SMSC95xx
+> driver will be computing the software checksum and writing it in to
+> the data, so the wifi driver will also be seeing it. For many drivers
+> that probably won't matter, but is that always true?
+> 
+> (Patches for the Broadcom wifi driver will be coming once we've worked
+> out the best way of fixing this - there is no error path easily
+> available if the skb_cow_head call fails).
+> 
 
-This means that depending on machine load or luck, poll() users
-might receive POLLOUT events instead of POLLIN|POLLOUT
+You misread what the driver does.
 
-To fix this, we need to move the call to sk->sk_state_change()
-after the (optional) call to tcp_rcv_fastopen_synack()
+The TCP data (payload) is _not_ modified.
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/ipv4/tcp_input.c | 16 +++++++++-------
- 1 file changed, 9 insertions(+), 7 deletions(-)
+Only additional headers are pushed in front of the existing (Ethernet,
+IP, TCP) headers.
 
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 37e2aa925f62395cfb48145cd3a76b6afebb64b1..341f021f02a2931cd75b2e1e71af9729fc4c7895 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -5580,10 +5580,6 @@ void tcp_finish_connect(struct sock *sk, struct sk_buff *skb)
- 	else
- 		tp->pred_flags = 0;
- 
--	if (!sock_flag(sk, SOCK_DEAD)) {
--		sk->sk_state_change(sk);
--		sk_wake_async(sk, SOCK_WAKE_IO, POLL_OUT);
--	}
- }
- 
- static bool tcp_rcv_fastopen_synack(struct sock *sk, struct sk_buff *synack,
-@@ -5652,6 +5648,7 @@ static int tcp_rcv_synsent_state_process(struct sock *sk, struct sk_buff *skb,
- 	struct tcp_sock *tp = tcp_sk(sk);
- 	struct tcp_fastopen_cookie foc = { .len = -1 };
- 	int saved_clamp = tp->rx_opt.mss_clamp;
-+	bool fastopen_fail;
- 
- 	tcp_parse_options(skb, &tp->rx_opt, 0, &foc);
- 	if (tp->rx_opt.saw_tstamp && tp->rx_opt.rcv_tsecr)
-@@ -5755,10 +5752,15 @@ static int tcp_rcv_synsent_state_process(struct sock *sk, struct sk_buff *skb,
- 
- 		tcp_finish_connect(sk, skb);
- 
--		if ((tp->syn_fastopen || tp->syn_data) &&
--		    tcp_rcv_fastopen_synack(sk, skb, &foc))
--			return -1;
-+		fastopen_fail = (tp->syn_fastopen || tp->syn_data) &&
-+				tcp_rcv_fastopen_synack(sk, skb, &foc);
- 
-+		if (!sock_flag(sk, SOCK_DEAD)) {
-+			sk->sk_state_change(sk);
-+			sk_wake_async(sk, SOCK_WAKE_IO, POLL_OUT);
-+		}
-+		if (fastopen_fail)
-+			return -1;
- 		if (sk->sk_write_pending ||
- 		    icsk->icsk_accept_queue.rskq_defer_accept ||
- 		    icsk->icsk_ack.pingpong) {
--- 
-2.12.2.762.g0e3151a226-goog
+For this, skb_cow_head() is the perfect solution.
