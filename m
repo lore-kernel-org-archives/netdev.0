@@ -1,80 +1,550 @@
 From: Gavin Shan <gwshan@linux.vnet.ibm.com>
-Subject: [PATCH v3 net-next 0/8] net/ncsi: Add debugging functionality
-Date: Tue, 18 Apr 2017 16:51:27 +1000
-Message-ID: <1492498295-14385-1-git-send-email-gwshan@linux.vnet.ibm.com>
+Subject: [PATCH v3 net-next 5/8] net/ncsi: Dump NCSI packet statistics
+Date: Tue, 18 Apr 2017 16:51:32 +1000
+Message-ID: <1492498295-14385-6-git-send-email-gwshan@linux.vnet.ibm.com>
+References: <1492498295-14385-1-git-send-email-gwshan@linux.vnet.ibm.com>
 Cc: joe@perches.com, kubakici@wp.pl, davem@davemloft.net,
         Gavin Shan <gwshan@linux.vnet.ibm.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:41979 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S932260AbdDRGwu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 02:52:50 -0400
-Received: from pps.filterd (m0098409.ppops.net [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v3I6maRI112597
-        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 02:52:39 -0400
-Received: from e23smtp02.au.ibm.com (e23smtp02.au.ibm.com [202.81.31.144])
-        by mx0a-001b2d01.pphosted.com with ESMTP id 29vx44jt0a-1
+Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:58906 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1755236AbdDRGxF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 02:53:05 -0400
+Received: from pps.filterd (m0098416.ppops.net [127.0.0.1])
+        by mx0b-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v3I6mbtg002178
+        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 02:53:04 -0400
+Received: from e23smtp05.au.ibm.com (e23smtp05.au.ibm.com [202.81.31.147])
+        by mx0b-001b2d01.pphosted.com with ESMTP id 29vwu1axk8-1
         (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 02:52:39 -0400
+        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 02:53:04 -0400
 Received: from localhost
-        by e23smtp02.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        by e23smtp05.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
         for <netdev@vger.kernel.org> from <gwshan@linux.vnet.ibm.com>;
-        Tue, 18 Apr 2017 16:52:35 +1000
-Received: from d23av04.au.ibm.com (d23av04.au.ibm.com [9.190.235.139])
-        by d23relay07.au.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id v3I6qPkV59113606
-        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 16:52:33 +1000
-Received: from d23av04.au.ibm.com (localhost [127.0.0.1])
-        by d23av04.au.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id v3I6q0fE027619
-        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 16:52:00 +1000
+        Tue, 18 Apr 2017 16:53:01 +1000
+Received: from d23av05.au.ibm.com (d23av05.au.ibm.com [9.190.234.119])
+        by d23relay09.au.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id v3I6qovR35061802
+        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 16:52:58 +1000
+Received: from d23av05.au.ibm.com (localhost [127.0.0.1])
+        by d23av05.au.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id v3I6qP40029891
+        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 16:52:26 +1000
+In-Reply-To: <1492498295-14385-1-git-send-email-gwshan@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series supports NCSI debugging infrastructure by adding several
-debugfs files. It was inspired by the reported issues: No available
-package and channel are probed successfully. Obviously, we don't
-have a debugging infrastructure for NCSI stack yet.
+This creates /sys/kernel/debug/ncsi/<eth0>/stats to dump the NCSI
+packets sent and received over all packages and channels. It's useful
+to diagnose NCSI problems, especially when NCSI packages and channels
+aren't probed properly. The statistics can be gained from debugfs file
+as below:
 
-The first 3 patches, fixing some issues, aren't relevant to the
-subject. I included them because I expect they can be merged beofre
-the code for debugging infrastructure. PATCH[4,5,6/8] adds debugfs
-directories and files to support the debugging infrastructure for
-several purposes: presenting the NCSI topology; statistics on sent
-and received NCSI packets; generate NCSI command packet manually.
-PATCH[7,8/8] fixes two issues found from the debugging functionality.
+ # cat /sys/kernel/debug/ncsi/eth0/stats
 
-Changelog
-=========
-v3:
-   * Use pr_debug() instead of pr_warn() upon failure to create
-     debugfs directory or file                                       (Joe Perches)
-   * Use relative debugfs path/file names in debug messages in
-     ncsi-debug.c                                                    (Joe Perches)
-   * Use const specifier for @ncsi_pkt_handlers and @ranges          (Joe Perches)
-   * Eliminate CONFIG_NET_NCSI_DEBUG ifdef's in *.c                  (Jakub Kicinski)
-v2:
-   * Use debugfs instead of procfs                                   (Joe Perches)
+ CMD          OK       TIMEOUT  ERROR
+ =======================================
+ CIS          32       29       0
+ SP           10       7        0
+ DP           17       14       0
+ EC           1        0        0
+ ECNT         1        0        0
+ AE           1        0        0
+ GLS          11       0        0
+ SMA          1        0        0
+ EBF          1        0        0
+ GVI          2        0        0
+ GC           2        0        0
 
-Gavin Shan (8):
-  net/ncsi: Disable HWA mode when no channels are found
-  net/ncsi: Properly track channel monitor timer state
-  net/ncsi: Enforce failover on link monitor timeout
-  net/ncsi: Add debugging infrastructurre
-  net/ncsi: Dump NCSI packet statistics
-  net/ncsi: Support NCSI packet generation
-  net/ncsi: No error report on DP response to non-existing package
-  net/ncsi: Fix length of GVI response packet
+ RSP          OK       TIMEOUT  ERROR
+ =======================================
+ CIS          3        0        0
+ SP           3        0        0
+ DP           2        0        1
+ EC           1        0        0
+ ECNT         1        0        0
+ AE           1        0        0
+ GLS          11       0        0
+ SMA          1        0        0
+ EBF          1        0        0
+ GVI          0        0        2
+ GC           2        0        0
 
- net/ncsi/Kconfig       |   9 +
- net/ncsi/Makefile      |   1 +
- net/ncsi/internal.h    | 105 ++++++
- net/ncsi/ncsi-aen.c    |  13 +-
- net/ncsi/ncsi-cmd.c    |  13 +-
- net/ncsi/ncsi-debug.c  | 992 +++++++++++++++++++++++++++++++++++++++++++++++++
- net/ncsi/ncsi-manage.c |  58 ++-
- net/ncsi/ncsi-rsp.c    |  24 +-
- 8 files changed, 1203 insertions(+), 12 deletions(-)
- create mode 100644 net/ncsi/ncsi-debug.c
+ AEN          OK       TIMEOUT  ERROR
+ =======================================
 
+Signed-off-by: Gavin Shan <gwshan@linux.vnet.ibm.com>
+---
+ net/ncsi/internal.h    |  17 ++++
+ net/ncsi/ncsi-aen.c    |  13 ++-
+ net/ncsi/ncsi-cmd.c    |  12 ++-
+ net/ncsi/ncsi-debug.c  | 252 +++++++++++++++++++++++++++++++++++++++++++++++++
+ net/ncsi/ncsi-manage.c |   4 +
+ net/ncsi/ncsi-rsp.c    |  11 ++-
+ 6 files changed, 306 insertions(+), 3 deletions(-)
+
+diff --git a/net/ncsi/internal.h b/net/ncsi/internal.h
+index e9ede4f..c0b50a9 100644
+--- a/net/ncsi/internal.h
++++ b/net/ncsi/internal.h
+@@ -282,7 +282,17 @@ struct ncsi_dev_priv {
+ 	struct work_struct  work;            /* For channel management     */
+ 	struct packet_type  ptype;           /* NCSI packet Rx handler     */
+ 	struct list_head    node;            /* Form NCSI device list      */
++#define NCSI_PKT_STAT_OK	0
++#define NCSI_PKT_STAT_TIMEOUT	1
++#define NCSI_PKT_STAT_ERROR	2
++#define NCSI_PKT_STAT_MAX	3
+ #ifdef CONFIG_NET_NCSI_DEBUG
++	struct {
++		struct dentry  *dentry;
++		unsigned long  cmd[128][NCSI_PKT_STAT_MAX];
++		unsigned long  rsp[128][NCSI_PKT_STAT_MAX];
++		unsigned long  aen[256][NCSI_PKT_STAT_MAX];
++	} stats;
+ 	struct dentry       *dentry;         /* Procfs directory           */
+ #endif
+ };
+@@ -349,6 +359,8 @@ int ncsi_aen_handler(struct ncsi_dev_priv *ndp, struct sk_buff *skb);
+ /* Debugging functionality */
+ #ifdef CONFIG_NET_NCSI_DEBUG
+ int ncsi_dev_init_debug(struct ncsi_dev_priv *ndp);
++void ncsi_dev_update_stats(struct ncsi_dev_priv *ndp,
++			   int type, int subtype, int errno);
+ void ncsi_dev_release_debug(struct ncsi_dev_priv *ndp);
+ int ncsi_package_init_debug(struct ncsi_package *np);
+ void ncsi_package_release_debug(struct ncsi_package *np);
+@@ -360,6 +372,11 @@ static inline int ncsi_dev_init_debug(struct ncsi_dev_priv *ndp)
+ 	return -ENOTTY;
+ }
+ 
++static inline void ncsi_dev_update_stats(struct ncsi_dev_priv *ndp,
++					 int type, int subtype, int errno)
++{
++}
++
+ static inline void ncsi_dev_release_debug(struct ncsi_dev_priv *ndp)
+ {
+ }
+diff --git a/net/ncsi/ncsi-aen.c b/net/ncsi/ncsi-aen.c
+index 6898e72..72bac7c 100644
+--- a/net/ncsi/ncsi-aen.c
++++ b/net/ncsi/ncsi-aen.c
+@@ -206,16 +206,27 @@ int ncsi_aen_handler(struct ncsi_dev_priv *ndp, struct sk_buff *skb)
+ 	}
+ 
+ 	if (!nah) {
++		ncsi_dev_update_stats(ndp, NCSI_PKT_AEN,
++				      h->type, NCSI_PKT_STAT_ERROR);
+ 		netdev_warn(ndp->ndev.dev, "Invalid AEN (0x%x) received\n",
+ 			    h->type);
+ 		return -ENOENT;
+ 	}
+ 
+ 	ret = ncsi_validate_aen_pkt(h, nah->payload);
+-	if (ret)
++	if (ret) {
++		ncsi_dev_update_stats(ndp, NCSI_PKT_AEN,
++				      h->type, NCSI_PKT_STAT_ERROR);
+ 		goto out;
++	}
+ 
+ 	ret = nah->handler(ndp, h);
++	if (ret)
++		ncsi_dev_update_stats(ndp, NCSI_PKT_AEN,
++				      h->type, NCSI_PKT_STAT_ERROR);
++	else
++		ncsi_dev_update_stats(ndp, NCSI_PKT_AEN,
++				      h->type, NCSI_PKT_STAT_OK);
+ out:
+ 	consume_skb(skb);
+ 	return ret;
+diff --git a/net/ncsi/ncsi-cmd.c b/net/ncsi/ncsi-cmd.c
+index db7083b..9a8dac2 100644
+--- a/net/ncsi/ncsi-cmd.c
++++ b/net/ncsi/ncsi-cmd.c
+@@ -323,6 +323,8 @@ int ncsi_xmit_cmd(struct ncsi_cmd_arg *nca)
+ 	}
+ 
+ 	if (!nch) {
++		ncsi_dev_update_stats(nca->ndp, nca->type,
++				      0, NCSI_PKT_STAT_ERROR);
+ 		netdev_err(nca->ndp->ndev.dev,
+ 			   "Cannot send packet with type 0x%02x\n", nca->type);
+ 		return -ENOENT;
+@@ -331,13 +333,18 @@ int ncsi_xmit_cmd(struct ncsi_cmd_arg *nca)
+ 	/* Get packet payload length and allocate the request */
+ 	nca->payload = nch->payload;
+ 	nr = ncsi_alloc_command(nca);
+-	if (!nr)
++	if (!nr) {
++		ncsi_dev_update_stats(nca->ndp, nca->type,
++				      0, NCSI_PKT_STAT_ERROR);
+ 		return -ENOMEM;
++	}
+ 
+ 	/* Prepare the packet */
+ 	nca->id = nr->id;
+ 	ret = nch->handler(nr->cmd, nca);
+ 	if (ret) {
++		ncsi_dev_update_stats(nca->ndp, nca->type,
++				      0, NCSI_PKT_STAT_ERROR);
+ 		ncsi_free_request(nr);
+ 		return ret;
+ 	}
+@@ -359,9 +366,12 @@ int ncsi_xmit_cmd(struct ncsi_cmd_arg *nca)
+ 	skb_get(nr->cmd);
+ 	ret = dev_queue_xmit(nr->cmd);
+ 	if (ret < 0) {
++		ncsi_dev_update_stats(nca->ndp, nca->type,
++				      0, NCSI_PKT_STAT_ERROR);
+ 		ncsi_free_request(nr);
+ 		return ret;
+ 	}
+ 
++	ncsi_dev_update_stats(nca->ndp, nca->type, 0, NCSI_PKT_STAT_OK);
+ 	return 0;
+ }
+diff --git a/net/ncsi/ncsi-debug.c b/net/ncsi/ncsi-debug.c
+index f38483d..b6df895 100644
+--- a/net/ncsi/ncsi-debug.c
++++ b/net/ncsi/ncsi-debug.c
+@@ -23,6 +23,235 @@
+ #include "ncsi-pkt.h"
+ 
+ static struct dentry *ncsi_dentry;
++static const struct ncsi_pkt_handler {
++	unsigned char	type;
++	const char	*name;
++} ncsi_pkt_handlers[] = {
++	{ NCSI_PKT_CMD_CIS,    "CIS"    },
++	{ NCSI_PKT_CMD_SP,     "SP"     },
++	{ NCSI_PKT_CMD_DP,     "DP"     },
++	{ NCSI_PKT_CMD_EC,     "EC"     },
++	{ NCSI_PKT_CMD_DC,     "DC"     },
++	{ NCSI_PKT_CMD_RC,     "RC"     },
++	{ NCSI_PKT_CMD_ECNT,   "ECNT"   },
++	{ NCSI_PKT_CMD_DCNT,   "DCNT"   },
++	{ NCSI_PKT_CMD_AE,     "AE"     },
++	{ NCSI_PKT_CMD_SL,     "SL"     },
++	{ NCSI_PKT_CMD_GLS,    "GLS"    },
++	{ NCSI_PKT_CMD_SVF,    "SVF"    },
++	{ NCSI_PKT_CMD_EV,     "EV"     },
++	{ NCSI_PKT_CMD_DV,     "DV"     },
++	{ NCSI_PKT_CMD_SMA,    "SMA"    },
++	{ NCSI_PKT_CMD_EBF,    "EBF"    },
++	{ NCSI_PKT_CMD_DBF,    "DBF"    },
++	{ NCSI_PKT_CMD_EGMF,   "EGMF"   },
++	{ NCSI_PKT_CMD_DGMF,   "DGMF"   },
++	{ NCSI_PKT_CMD_SNFC,   "SNFC"   },
++	{ NCSI_PKT_CMD_GVI,    "GVI"    },
++	{ NCSI_PKT_CMD_GC,     "GC"     },
++	{ NCSI_PKT_CMD_GP,     "GP"     },
++	{ NCSI_PKT_CMD_GCPS,   "GCPS"   },
++	{ NCSI_PKT_CMD_GNS,    "GNS"    },
++	{ NCSI_PKT_CMD_GNPTS,  "GNPTS"  },
++	{ NCSI_PKT_CMD_GPS,    "GPS"    },
++	{ NCSI_PKT_CMD_OEM,    "OEM"    },
++	{ NCSI_PKT_CMD_PLDM,   "PLDM"   },
++	{ NCSI_PKT_CMD_GPUUID, "GPUUID" },
++};
++
++static bool ncsi_dev_stats_index(struct ncsi_dev_priv *ndp, loff_t pos,
++				 unsigned long *type, unsigned long *index,
++				 unsigned long *entries)
++{
++	const unsigned long ranges[3][2] = {
++		{ 1,
++		  ARRAY_SIZE(ndp->stats.cmd) - 1		},
++		{ ranges[0][1] + 2,
++		  ranges[1][0] + ARRAY_SIZE(ndp->stats.rsp) - 1	},
++		{ ranges[1][1] + 2,
++		  ranges[2][0] + ARRAY_SIZE(ndp->stats.aen) - 1 }
++	};
++	int i;
++
++	for (i = 0; i < 3; i++) {
++		if (pos == (ranges[i][0] - 1)) {
++			*index = i;
++			*entries = 0;
++			return true;
++		}
++
++		if (pos >= ranges[i][0] && pos <= ranges[i][1]) {
++			*type = i;
++			*index = (pos - ranges[i][0]);
++			*entries = NCSI_PKT_STAT_MAX;
++			return true;
++		}
++	}
++
++	return false;
++}
++
++static void *ncsi_dev_stats_data(struct ncsi_dev_priv *ndp, loff_t pos)
++{
++	unsigned long type, index, entries;
++	bool valid;
++
++	valid = ncsi_dev_stats_index(ndp, pos, &type, &index, &entries);
++	if (!valid)
++		return NULL;
++
++	/* The bits in return value are assigned as below:
++	 *
++	 * Bit[7:0]:   Number of ulong entries
++	 * Bit[23:8]:  Offset to that specific data entry
++	 * Bit[30:24]: Type of packet statistics
++	 * Bit[31]:    0x1 as valid flag.
++	 */
++	if (!entries)
++		index += ((unsigned long)SEQ_START_TOKEN);
++	else
++		index = (1 << 31) | (type << 24) | (index << 8) | entries;
++
++	return (void *)index;
++}
++
++static void *ncsi_dev_stats_seq_start(struct seq_file *seq, loff_t *pos)
++{
++	struct ncsi_dev_priv *ndp = seq->private;
++	void *data;
++
++	data = ncsi_dev_stats_data(ndp, *pos);
++	++(*pos);
++
++	return data;
++}
++
++static void *ncsi_dev_stats_seq_next(struct seq_file *seq, void *v, loff_t *pos)
++{
++	struct ncsi_dev_priv *ndp = seq->private;
++	void *data;
++
++	data = ncsi_dev_stats_data(ndp, *pos);
++	++(*pos);
++	return data;
++}
++
++static void ncsi_dev_stats_seq_stop(struct seq_file *seq, void *v)
++{
++}
++
++static const char *ncsi_pkt_type_name(unsigned int type)
++{
++	int i;
++
++	for (i = 0; i < ARRAY_SIZE(ncsi_pkt_handlers); i++) {
++		if (ncsi_pkt_handlers[i].type == type)
++			return ncsi_pkt_handlers[i].name;
++	}
++
++	return "N/A";
++}
++
++static const char *ncsi_dev_stats_pkt_name(unsigned long type,
++					   unsigned long index)
++{
++	switch (type) {
++	case 0: /* Command */
++	case 1: /* Response */
++		return ncsi_pkt_type_name(index);
++	case 2: /* AEN */
++		switch (index) {
++		case NCSI_PKT_AEN_LSC:
++			return "LSC";
++		case NCSI_PKT_AEN_CR:
++			return "CR";
++		case NCSI_PKT_AEN_HNCDSC:
++			return "HNCDSC";
++		default:
++			return "N/A";
++		}
++	}
++
++	return "N/A";
++}
++
++static int ncsi_dev_stats_seq_show(struct seq_file *seq, void *v)
++{
++	struct ncsi_dev_priv *ndp = seq->private;
++	unsigned long type, index, entries, *data;
++	const char *name;
++
++	if (v >= SEQ_START_TOKEN && v <= (SEQ_START_TOKEN + 2)) {
++		static const char * const header[] = { "CMD", "RSP", "AEN" };
++
++		seq_puts(seq, "\n");
++		seq_printf(seq, "%-12s %-8s %-8s %-8s\n",
++			   header[v - SEQ_START_TOKEN],
++			   "OK", "TIMEOUT", "ERROR");
++		seq_puts(seq, "=======================================\n");
++		return 0;
++	}
++
++	index = (unsigned long)v;
++	type = (index >> 24) & 0x7F;
++	entries = (index & 0xFF);
++	index = ((index >> 8) & 0xFFFF);
++	name = ncsi_dev_stats_pkt_name(type, index);
++	if (WARN_ON_ONCE(entries != NCSI_PKT_STAT_MAX))
++		return 0;
++
++	switch (type) {
++	case 0: /* Command */
++		data = &ndp->stats.cmd[0][0];
++		break;
++	case 1: /* Response */
++		data = &ndp->stats.rsp[0][0];
++		break;
++	case 2: /* AEN */
++		data = &ndp->stats.aen[0][0];
++		break;
++	default:
++		pr_warn("%s: Unsupported type %ld\n", __func__, type);
++		return 0;
++	}
++
++	data += (index * NCSI_PKT_STAT_MAX);
++	if (*data || *(data + 1) || *(data + 2)) {
++		seq_printf(seq, "%-12s %-8ld %-8ld %-8ld\n",
++			   name, *data, *(data + 1), *(data + 2));
++	}
++
++	return 0;
++}
++
++static const struct seq_operations ncsi_dev_stats_seq_ops = {
++	.start = ncsi_dev_stats_seq_start,
++	.next  = ncsi_dev_stats_seq_next,
++	.stop  = ncsi_dev_stats_seq_stop,
++	.show  = ncsi_dev_stats_seq_show,
++};
++
++static int ncsi_dev_stats_seq_open(struct inode *inode, struct file *file)
++{
++	struct seq_file *sf;
++	int ret;
++
++	ret = seq_open(file, &ncsi_dev_stats_seq_ops);
++	if (!ret) {
++		sf = file->private_data;
++		sf->private = inode->i_private;
++	}
++
++	return ret;
++}
++
++static const struct file_operations ncsi_dev_stats_fops = {
++	.owner   = THIS_MODULE,
++	.open    = ncsi_dev_stats_seq_open,
++	.read    = seq_read,
++	.llseek  = seq_lseek,
++	.release = seq_release,
++};
+ 
+ int ncsi_dev_init_debug(struct ncsi_dev_priv *ndp)
+ {
+@@ -45,11 +274,34 @@ int ncsi_dev_init_debug(struct ncsi_dev_priv *ndp)
+ 		return -ENOMEM;
+ 	}
+ 
++	ndp->stats.dentry = debugfs_create_file("stats", 0400, ndp->dentry,
++						ndp, &ncsi_dev_stats_fops);
++	if (!ndp->stats.dentry) {
++		pr_debug("Failed to create debugfs file 'ncsi/%s/stats'\n",
++			 netdev_name(ndp->ndev.dev));
++		return -ENOMEM;
++	}
++
+ 	return 0;
+ }
+ 
++void ncsi_dev_update_stats(struct ncsi_dev_priv *ndp,
++			   int type, int subtype, int errno)
++{
++	if (errno >= NCSI_PKT_STAT_MAX)
++		return;
++
++	if (type == NCSI_PKT_AEN)
++		ndp->stats.aen[subtype][errno]++;
++	else if (type >= 0x80)
++		ndp->stats.rsp[type - 0x80][errno]++;
++	else
++		ndp->stats.cmd[type][errno]++;
++}
++
+ void ncsi_dev_release_debug(struct ncsi_dev_priv *ndp)
+ {
++	debugfs_remove(ndp->stats.dentry);
+ 	debugfs_remove(ndp->dentry);
+ }
+ 
+diff --git a/net/ncsi/ncsi-manage.c b/net/ncsi/ncsi-manage.c
+index 84f1405..be7d907 100644
+--- a/net/ncsi/ncsi-manage.c
++++ b/net/ncsi/ncsi-manage.c
+@@ -530,6 +530,7 @@ static void ncsi_request_timeout(unsigned long data)
+ 	struct ncsi_request *nr = (struct ncsi_request *)data;
+ 	struct ncsi_dev_priv *ndp = nr->ndp;
+ 	unsigned long flags;
++	struct ncsi_pkt_hdr *hdr;
+ 
+ 	/* If the request already had associated response,
+ 	 * let the response handler to release it.
+@@ -542,6 +543,9 @@ static void ncsi_request_timeout(unsigned long data)
+ 	}
+ 	spin_unlock_irqrestore(&ndp->lock, flags);
+ 
++	hdr = (struct ncsi_pkt_hdr *)skb_network_header(nr->cmd);
++	ncsi_dev_update_stats(ndp, hdr->type, 0, NCSI_PKT_STAT_TIMEOUT);
++
+ 	/* Release the request */
+ 	ncsi_free_request(nr);
+ }
+diff --git a/net/ncsi/ncsi-rsp.c b/net/ncsi/ncsi-rsp.c
+index 087db77..a164eb1 100644
+--- a/net/ncsi/ncsi-rsp.c
++++ b/net/ncsi/ncsi-rsp.c
+@@ -998,6 +998,7 @@ int ncsi_rcv_rsp(struct sk_buff *skb, struct net_device *dev,
+ 	}
+ 
+ 	if (!nrh) {
++		ncsi_dev_update_stats(ndp, hdr->type, 0, NCSI_PKT_STAT_ERROR);
+ 		netdev_err(nd->dev, "Received unrecognized packet (0x%x)\n",
+ 			   hdr->type);
+ 		return -ENOENT;
+@@ -1007,12 +1008,14 @@ int ncsi_rcv_rsp(struct sk_buff *skb, struct net_device *dev,
+ 	spin_lock_irqsave(&ndp->lock, flags);
+ 	nr = &ndp->requests[hdr->id];
+ 	if (!nr->used) {
++		ncsi_dev_update_stats(ndp, hdr->type, 0, NCSI_PKT_STAT_TIMEOUT);
+ 		spin_unlock_irqrestore(&ndp->lock, flags);
+ 		return -ENODEV;
+ 	}
+ 
+ 	nr->rsp = skb;
+ 	if (!nr->enabled) {
++		ncsi_dev_update_stats(ndp, hdr->type, 0, NCSI_PKT_STAT_TIMEOUT);
+ 		spin_unlock_irqrestore(&ndp->lock, flags);
+ 		ret = -ENOENT;
+ 		goto out;
+@@ -1024,11 +1027,17 @@ int ncsi_rcv_rsp(struct sk_buff *skb, struct net_device *dev,
+ 	if (payload < 0)
+ 		payload = ntohs(hdr->length);
+ 	ret = ncsi_validate_rsp_pkt(nr, payload);
+-	if (ret)
++	if (ret) {
++		ncsi_dev_update_stats(ndp, hdr->type, 0, NCSI_PKT_STAT_ERROR);
+ 		goto out;
++	}
+ 
+ 	/* Process the packet */
+ 	ret = nrh->handler(nr);
++	if (ret)
++		ncsi_dev_update_stats(ndp, hdr->type, 0, NCSI_PKT_STAT_ERROR);
++	else
++		ncsi_dev_update_stats(ndp, hdr->type, 0, NCSI_PKT_STAT_OK);
+ out:
+ 	ncsi_free_request(nr);
+ 	return ret;
 -- 
 2.7.4
