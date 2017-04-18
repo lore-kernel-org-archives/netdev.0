@@ -1,94 +1,53 @@
-From: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
-Subject: [PATCH net-next v3] net: ipv6: Fix UDP early demux lookup with udp_l3mdev_accept=0
-Date: Tue, 18 Apr 2017 11:39:41 -0600
-Message-ID: <1492537181-9595-1-git-send-email-subashab@codeaurora.org>
-Cc: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>,
-        Eric Dumazet <edumazet@google.com>
-To: dsa@cumulusnetworks.com, davem@davemloft.net,
-        netdev@vger.kernel.org, rshearma@brocade.com,
-        eric.dumazet@gmail.com
+From: Andrey Konovalov <andreyknvl@google.com>
+Subject: Re: net/ipv4: use-after-free in ip_queue_xmit
+Date: Tue, 18 Apr 2017 19:45:04 +0200
+Message-ID: <CAAeHK+w+DcYC8NVSCJeX-=8H7OYeEpeMU4n8y7-ofPVCorwqqg@mail.gmail.com>
+References: <CAAeHK+z5=b4PdSrq8ff-btYbd-aKFR+uzQnoC5Pq4du4uVQjzQ@mail.gmail.com>
+ <CAM_iQpWsEpJYHG1WvC9kQPt8iezBuLC8PeSqM20=W9cpkRE6=Q@mail.gmail.com>
+ <CAAeHK+xZG+V8W85=bzpj0EgbmZo0c2Sq6e0LxtHMZM8wje-yPA@mail.gmail.com>
+ <CAAeHK+wV1aKoP_2cog-dp0-17g4QimfK5j8P3oxypE3mCxMGUw@mail.gmail.com>
+ <CAM_iQpU_frn6bB6HHrRrF6omKDoXjxZmSoJZSu=PjZ35pUVOuA@mail.gmail.com>
+ <CAAeHK+wYLwZqGWjBNbw6mbvTiHCeXC91dYmMY410YwprU8OG1w@mail.gmail.com> <CAM_iQpVXKA6S2Nc1+UAW6q5X-iiSCU3UQaAsCm2SAkA5Axct+A@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Eric Dumazet <edumazet@google.com>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:39478 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757744AbdDRRlT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 13:41:19 -0400
+Received: from mail-pg0-f47.google.com ([74.125.83.47]:33261 "EHLO
+        mail-pg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754503AbdDRRpF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 13:45:05 -0400
+Received: by mail-pg0-f47.google.com with SMTP id 63so80540pgh.0
+        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 10:45:05 -0700 (PDT)
+In-Reply-To: <CAM_iQpVXKA6S2Nc1+UAW6q5X-iiSCU3UQaAsCm2SAkA5Axct+A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Ahern reported that 5425077d73e0c ("net: ipv6: Add early demux
-handler for UDP unicast") breaks udp_l3mdev_accept=0 since early
-demux for IPv6 UDP was doing a generic socket lookup which does not
-require an exact match. Fix this by making UDPv6 early demux match
-connected sockets only.
+On Tue, Apr 18, 2017 at 6:05 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+> On Tue, Apr 18, 2017 at 5:15 AM, Andrey Konovalov <andreyknvl@google.com> wrote:
+>> Yes, I don't have this field in the rtable struct.
+>>
+>> I'm on 39da7c509acff13fc8cb12ec1bb20337c988ed36 (4.11-rc6).
+>>
+>> I also don't see it in the cross reference:
+>> http://lxr.free-electrons.com/source/include/net/route.h#L51
+>>
+>
+> It is provided by my patch: https://patchwork.ozlabs.org/patch/747556/
+> which means you applied an incomplete patch... :-/
 
-v1->v2: Take reference to socket after match as suggested by Eric
-v2->v3: Add comment before break
+Oops, my bad.
 
-Fixes: 5425077d73e0c ("net: ipv6: Add early demux handler for UDP unicast")
-Reported-by: David Ahern <dsa@cumulusnetworks.com>
-Signed-off-by: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
-Cc: Eric Dumazet <edumazet@google.com>
-Acked-by: David Ahern <dsa@cumulusnetworks.com>
-Tested-by: David Ahern <dsa@cumulusnetworks.com>
----
- net/ipv6/udp.c | 24 +++++++++++++++---------
- 1 file changed, 15 insertions(+), 9 deletions(-)
+Applied the patch.
 
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index b793ed1..b615e7a 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -46,6 +46,7 @@
- #include <net/tcp_states.h>
- #include <net/ip6_checksum.h>
- #include <net/xfrm.h>
-+#include <net/inet_hashtables.h>
- #include <net/inet6_hashtables.h>
- #include <net/busy_poll.h>
- #include <net/sock_reuseport.h>
-@@ -864,21 +865,26 @@ int __udp6_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
- 	return 0;
- }
- 
-+
- static struct sock *__udp6_lib_demux_lookup(struct net *net,
- 			__be16 loc_port, const struct in6_addr *loc_addr,
- 			__be16 rmt_port, const struct in6_addr *rmt_addr,
- 			int dif)
- {
-+	unsigned short hnum = ntohs(loc_port);
-+	unsigned int hash2 = udp6_portaddr_hash(net, loc_addr, hnum);
-+	unsigned int slot2 = hash2 & udp_table.mask;
-+	struct udp_hslot *hslot2 = &udp_table.hash2[slot2];
-+	const __portpair ports = INET_COMBINED_PORTS(rmt_port, hnum);
- 	struct sock *sk;
- 
--	rcu_read_lock();
--	sk = __udp6_lib_lookup(net, rmt_addr, rmt_port, loc_addr, loc_port,
--			       dif, &udp_table, NULL);
--	if (sk && !atomic_inc_not_zero(&sk->sk_refcnt))
--		sk = NULL;
--	rcu_read_unlock();
--
--	return sk;
-+	udp_portaddr_for_each_entry_rcu(sk, &hslot2->head) {
-+		if (INET6_MATCH(sk, net, rmt_addr, loc_addr, ports, dif))
-+			return sk;
-+		/* Only check first socket in chain */
-+		break;
-+	}
-+	return NULL;
- }
- 
- static void udp_v6_early_demux(struct sk_buff *skb)
-@@ -903,7 +909,7 @@ static void udp_v6_early_demux(struct sk_buff *skb)
- 	else
- 		return;
- 
--	if (!sk)
-+	if (!sk || !atomic_inc_not_zero_hint(&sk->sk_refcnt, 2))
- 		return;
- 
- 	skb->sk = sk;
--- 
-1.9.1
+Thanks!
