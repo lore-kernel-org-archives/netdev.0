@@ -1,62 +1,94 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH v2 net 2/2] net sched actions: decrement module refcount
- earlier
-Date: Tue, 18 Apr 2017 09:03:51 -0400
-Message-ID: <d5cc1abc-1ea0-5041-504a-4c162eaafceb@mojatatu.com>
-References: <20170418101322.27666-1-w.bumiller@proxmox.com>
- <20170418101322.27666-2-w.bumiller@proxmox.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: Case for reusing netlink PADs WAS(Re: [PATCH net-next 1/1] net
+ sched actions: dump more than TCA_ACT_MAX_PRIO actions per batch
+Date: Tue, 18 Apr 2017 15:16:56 +0200
+Message-ID: <20170418131656.GG1871@nanopsycho.orion>
+References: <1492346070-6002-1-git-send-email-jhs@emojatatu.com>
+ <20170417081936.GA1892@nanopsycho.orion>
+ <dfc1485f-7d7e-f52e-f62e-273063a59abc@mojatatu.com>
+ <1492434659.10587.90.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20170417153133.GA1895@nanopsycho.orion>
+ <0bd1e885-cdf3-60fc-783b-a075b777560b@mojatatu.com>
+ <1492448905.10587.109.camel@edumazet-glaptop3.roam.corp.google.com>
+ <560eeb0b-7a34-484a-e4a1-c637b31eba59@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Roman Mashak <mrv@mojatatu.com>
-To: Wolfgang Bumiller <w.bumiller@proxmox.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, davem@davemloft.net,
+        netdev@vger.kernel.org, xiyou.wangcong@gmail.com
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f193.google.com ([209.85.223.193]:35709 "EHLO
-        mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753254AbdDRNDx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 09:03:53 -0400
-Received: by mail-io0-f193.google.com with SMTP id d203so30715042iof.2
-        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 06:03:53 -0700 (PDT)
-In-Reply-To: <20170418101322.27666-2-w.bumiller@proxmox.com>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:34288 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751520AbdDRNQ7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 09:16:59 -0400
+Received: by mail-wm0-f65.google.com with SMTP id z129so12036214wmb.1
+        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 06:16:59 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <560eeb0b-7a34-484a-e4a1-c637b31eba59@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17-04-18 06:13 AM, Wolfgang Bumiller wrote:
-> Whether the reference count has to be decremented depends
-> on whether the policy was created. If TCA_ACT_COOKIE is
-> passed and an error occurs there, the same condition still
-> has to be honored.
+Tue, Apr 18, 2017 at 02:48:57PM CEST, jhs@mojatatu.com wrote:
+>On 17-04-17 01:08 PM, Eric Dumazet wrote:
+>> On Mon, 2017-04-17 at 12:46 -0400, Jamal Hadi Salim wrote:
+>> 
+>> > Of course it is trivial to add this as attributes and 32 bits
+>> > for this case is not a big deal because it is done once. I want to talk
+>> > about the pads instead ;-> What do you suggest we do with pads?
+>> 
+>> We do nothing with pads. Just leave them.
+>> 
+>> Or, you need something to make sure to not break old user applications.
+>> 
+>> Something like a version.
+>> 
+>> 
 >
-> Signed-off-by: Wolfgang Bumiller <w.bumiller@proxmox.com>
-> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-> ---
+>Dave is not fond of version fields - they tend to be abused
+>although looking at the idiag and tpacket stuff there is a case
+>to be made for versioning ;->
 >
-> I did not include the Acked-bys here because I've noticed that this
-> is still wrong. After reading a bit more and doing more tests with
-> different filters I realized that the `name != NULL` case is specific
-> to the police filter only. For the other filters this patch here breaks
-> refcounting in the error case (I included it for reference only).
-> I'm thinking the first patch should be enough. (I've tested forcing the
-> other filters into the error path *without* this patch and couldn't
-> produce crashes or reference count problems (while with this patch
-> applied it was leaking reference counts on creation (which makes sense
-> considering tcf_hash_release is used and the ACT_P_CREATED case will
-> keep repeating)). (Whereas without both patches simply looking through
-> creating and deleting a policing filter pretty much always resulted in
-> crashes with various different backtraces.)
 >
+>For the patches I posted, I will work on getting an attribute based
+>variant of the patches out - but i wanted to have this discussion a
+>little more if you bear with me.
+>
+>Netlink is a wire protocol. When a protocol is defined with rules such
+>as alignment (which lead to explicit padding) then those are equivalent
+>to "reserved bits" in standard wire protocols. Good practise is:
+>all sender zero those bits(MBZ); and all receivers must ignore them
+>unless they wish to interpret them. Not everyone follows these rules
+>(I remember the havoc ECN caused when TCP/IP started using the different
+>reserved fields).
+>
+>For our case it is _very sad_ that someone actually explicitly defined
+>pads - in my opinion for no other purpose other than reuse and then
+>we say we cant use them after.
+>
+>I believe you understand what I was saying, but to clarify, here is
+>what i meant:
+>---
+>struct tcamsg {
+>        unsigned char   tca_family;
+>        union {
+>                unsigned char   tca__pad1;
+>                unsigned char   tca_flags;
+>        };
+>        union {
+>                unsigned short  tca__pad2;
+>                unsigned char   tca_foobar;
+>        };
+>};
+>---
+>
+>This should work with old binaries and kernels.
+>It will work with someone referencing sizeof tcamsg.
+>It will work with unchanged source that memsets the struct.
+>It will work with things that explicitly set the pad1 and pad2.
+>
+>What is the downside?
 
-The error path for cookie failure still needs handling.
-In retrospect:
-I think you should leave the module_put() to the end,
-it protects any unloading while the action is being
-processed.
-It may be worth remembering a_o->init() results and
-conditionally calling tcf_hash_release() based on whether
-a creation happened or not. I think your original patch had
-a similar idea without the extra variable I am suggesting.
-
-cheers,
-jamal
+It's ugly. Plus user may pass garbage in pads from current apps.
+Why you don't just use new attributes? I don't get it.
+I still don't understand why people feel need to do struct style message
+passing in TLV-designed Netlink interface...
