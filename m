@@ -1,53 +1,74 @@
-From: Andrey Konovalov <andreyknvl@google.com>
-Subject: Re: net/ipv4: use-after-free in ip_queue_xmit
-Date: Tue, 18 Apr 2017 19:45:04 +0200
-Message-ID: <CAAeHK+w+DcYC8NVSCJeX-=8H7OYeEpeMU4n8y7-ofPVCorwqqg@mail.gmail.com>
-References: <CAAeHK+z5=b4PdSrq8ff-btYbd-aKFR+uzQnoC5Pq4du4uVQjzQ@mail.gmail.com>
- <CAM_iQpWsEpJYHG1WvC9kQPt8iezBuLC8PeSqM20=W9cpkRE6=Q@mail.gmail.com>
- <CAAeHK+xZG+V8W85=bzpj0EgbmZo0c2Sq6e0LxtHMZM8wje-yPA@mail.gmail.com>
- <CAAeHK+wV1aKoP_2cog-dp0-17g4QimfK5j8P3oxypE3mCxMGUw@mail.gmail.com>
- <CAM_iQpU_frn6bB6HHrRrF6omKDoXjxZmSoJZSu=PjZ35pUVOuA@mail.gmail.com>
- <CAAeHK+wYLwZqGWjBNbw6mbvTiHCeXC91dYmMY410YwprU8OG1w@mail.gmail.com> <CAM_iQpVXKA6S2Nc1+UAW6q5X-iiSCU3UQaAsCm2SAkA5Axct+A@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Kostya Serebryany <kcc@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+From: Alexander Potapenko <glider@google.com>
+Subject: [PATCH] net/packet: initialize val in packet_getsockopt()
+Date: Tue, 18 Apr 2017 19:47:08 +0200
+Message-ID: <20170418174708.26341-1-glider@google.com>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: dvyukov@google.com, kcc@google.com, edumazet@google.com,
+        davem@davemloft.net, kuznet@ms2.inr.ac.ru
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f47.google.com ([74.125.83.47]:33261 "EHLO
-        mail-pg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754503AbdDRRpF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 13:45:05 -0400
-Received: by mail-pg0-f47.google.com with SMTP id 63so80540pgh.0
-        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 10:45:05 -0700 (PDT)
-In-Reply-To: <CAM_iQpVXKA6S2Nc1+UAW6q5X-iiSCU3UQaAsCm2SAkA5Axct+A@mail.gmail.com>
+Received: from mail-wr0-f171.google.com ([209.85.128.171]:35313 "EHLO
+        mail-wr0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757822AbdDRRrN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 13:47:13 -0400
+Received: by mail-wr0-f171.google.com with SMTP id o21so81437wrb.2
+        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 10:47:13 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 18, 2017 at 6:05 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> On Tue, Apr 18, 2017 at 5:15 AM, Andrey Konovalov <andreyknvl@google.com> wrote:
->> Yes, I don't have this field in the rtable struct.
->>
->> I'm on 39da7c509acff13fc8cb12ec1bb20337c988ed36 (4.11-rc6).
->>
->> I also don't see it in the cross reference:
->> http://lxr.free-electrons.com/source/include/net/route.h#L51
->>
->
-> It is provided by my patch: https://patchwork.ozlabs.org/patch/747556/
-> which means you applied an incomplete patch... :-/
+In the case getsockopt() is called with PACKET_HDRLEN and zero length,
+|val| remains uninitialized and the syscall may behave differently
+depending on its value. This doesn't have security consequences (as the
+uninit bytes aren't copied back), but it's still cleaner to initialize
+|val|.
 
-Oops, my bad.
+This bug has been detected with KMSAN.
 
-Applied the patch.
+Signed-off-by: Alexander Potapenko <glider@google.com>
+---
+KMSAN report below:
 
-Thanks!
+==================================================================
+BUG: KMSAN: use of unitialized memory in packet_getsockopt+0xb9b/0xbe0
+inter: 0
+CPU: 0 PID: 1036 Comm: probe Tainted: G    B           4.11.0-rc5+ #2444
+Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+Call Trace:
+ __dump_stack lib/dump_stack.c:16
+ dump_stack+0x143/0x1b0 lib/dump_stack.c:52
+ kmsan_report+0x16b/0x1e0 mm/kmsan/kmsan.c:1078
+ __kmsan_warning_32+0x5c/0xa0 mm/kmsan/kmsan_instr.c:510
+ packet_getsockopt+0xb9b/0xbe0 net/packet/af_packet.c:3839
+ SYSC_getsockopt+0x495/0x540 net/socket.c:1829
+ SyS_getsockopt+0xb0/0xd0 net/socket.c:1811
+ entry_SYSCALL_64_fastpath+0x13/0x94 arch/x86/entry/entry_64.S:204
+RIP: 0033:0x436d8a
+RSP: 002b:00007ffce54e52c8 EFLAGS: 00000203 ORIG_RAX: 0000000000000037
+RAX: ffffffffffffffda RBX: 0000000000000000 RCX: 0000000000436d8a
+RDX: 000000000000000b RSI: 0000000000000107 RDI: 0000000000000003
+RBP: 00007ffce54e52b0 R08: 00007ffce54e52d8 R09: 0000000000000004
+R10: 00007ffce54e52d4 R11: 0000000000000203 R12: 00007ffce54e53c8
+R13: 00007ffce54e53d8 R14: 0000000000000002 R15: 0000000000000000
+origin description: ----val@packet_getsockopt (origin=00000000f6600052)
+local variable created at:
+ packet_getsockopt+0xcd/0xbe0 net/packet/af_packet.c:3789
+ SYSC_getsockopt+0x495/0x540 net/socket.c:1829
+==================================================================
+---
+ net/packet/af_packet.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 8489beff5c25..09398454ec66 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -3787,7 +3787,7 @@ static int packet_getsockopt(struct socket *sock, int level, int optname,
+ 			     char __user *optval, int __user *optlen)
+ {
+ 	int len;
+-	int val, lv = sizeof(val);
++	int val = 0, lv = sizeof(val);
+ 	struct sock *sk = sock->sk;
+ 	struct packet_sock *po = pkt_sk(sk);
+ 	void *data = &val;
+-- 
+2.12.2.816.g2cccc81164-goog
