@@ -1,40 +1,54 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH v3 net-next RFC] Generic XDP
-Date: Tue, 18 Apr 2017 16:09:02 -0700
-Message-ID: <20170418230900.GC65449@ast-mbp.thefacebook.com>
-References: <20170412.145415.1441440342830198148.davem@davemloft.net>
- <20170413042036.GA46229@ast-mbp.thefacebook.com>
- <1492063856.19193.4.camel@sipsolutions.net>
- <20170413.113810.703136630867928001.davem@davemloft.net>
- <20170414194105.GA51147@ast-mbp.thefacebook.com>
- <1492508879.2472.13.camel@sipsolutions.net>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: Corrupted SKB
+Date: Tue, 18 Apr 2017 16:12:44 -0700
+Message-ID: <CAM_iQpVOi0FH_quusHHpvREdvpqq6=RjVOQvcjAWGbh1X0_5tA@mail.gmail.com>
+References: <CAAmHdhx14ZH3ftE2SovFZfy8ZfOCEgsyqqcSbGPHqg87Wc+5SQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-        xdp-newbies@vger.kernel.org
-To: Johannes Berg <johannes@sipsolutions.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Michael Ma <make0818@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f52.google.com ([74.125.83.52]:36611 "EHLO
-        mail-pg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1758179AbdDRXJM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 19:09:12 -0400
-Content-Disposition: inline
-In-Reply-To: <1492508879.2472.13.camel@sipsolutions.net>
+Received: from mail-wr0-f177.google.com ([209.85.128.177]:33478 "EHLO
+        mail-wr0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756213AbdDRXNG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 19:13:06 -0400
+Received: by mail-wr0-f177.google.com with SMTP id l28so4513604wre.0
+        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 16:13:05 -0700 (PDT)
+In-Reply-To: <CAAmHdhx14ZH3ftE2SovFZfy8ZfOCEgsyqqcSbGPHqg87Wc+5SQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 18, 2017 at 11:47:59AM +0200, Johannes Berg wrote:
-> > I guess any driver that would care about XDP performance would either
-> > implement in-driver XDP or make sure that skb_linearize() doesn't
-> > happen in generic XDP by doing build_skb() with the whole packet.
-> > The driver can be smart and avoid doing copy-break if generic XDP is
-> > on.
-> 
-> Indeed. I think this is less about performance than ease of
-> experimentation.
+On Mon, Apr 17, 2017 at 5:39 PM, Michael Ma <make0818@gmail.com> wrote:
+> Hi -
+>
+> We've implemented a "glue" qdisc similar to mqprio which can associate
+> one qdisc to multiple txqs as the root qdisc. Reference count of the
+> child qdiscs have been adjusted properly in this case so that it
+> represents the number of txqs it has been attached to. However when
+> sending packets we saw the skb from dequeue_skb() corrupted with the
+> following call stack:
+>
+>     [exception RIP: netif_skb_features+51]
+>     RIP: ffffffff815292b3  RSP: ffff8817f6987940  RFLAGS: 00010246
+>
+>  #9 [ffff8817f6987968] validate_xmit_skb at ffffffff815294aa
+> #10 [ffff8817f69879a0] validate_xmit_skb at ffffffff8152a0d9
+> #11 [ffff8817f69879b0] __qdisc_run at ffffffff8154a193
+> #12 [ffff8817f6987a00] dev_queue_xmit at ffffffff81529e03
+>
+> It looks like the skb has already been released since its dev pointer
+> field is invalid.
+>
+> Any clue on how this can be investigated further? My current thought
+> is to add some instrumentation to the place where skb is released and
+> analyze whether there is any race condition happening there. However
 
-yes. I'm bringing it up only to hopefully find cases where this
-generic XDP can be used for real data path too (and not only experimentation).
-Like if it can do 6Mpps whereas in-driver XDP will do 20Mpps (when implemented),
-for some folks it may be good enough already to start using it.
-Which will put more pressure on NIC vendor to implement it.
+Either dropwatch or perf could do the work to instrument kfree_skb().
+
+> by looking through the existing code I think the case where one root
+> qdisc is associated with multiple txqs already exists (when mqprio is
+> not used) so not sure why it won't work when we group txqs and assign
+> each group a root qdisc. Any insight on this issue would be much
+> appreciated!
+
+How do you implement ->attach()? How does it work with netdev_pick_tx()?
