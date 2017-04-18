@@ -1,54 +1,194 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: Corrupted SKB
-Date: Tue, 18 Apr 2017 16:12:44 -0700
-Message-ID: <CAM_iQpVOi0FH_quusHHpvREdvpqq6=RjVOQvcjAWGbh1X0_5tA@mail.gmail.com>
-References: <CAAmHdhx14ZH3ftE2SovFZfy8ZfOCEgsyqqcSbGPHqg87Wc+5SQ@mail.gmail.com>
+From: Casey Schaufler <casey-iSGtlc1asvQWG2LlvL+J4A@public.gmane.org>
+Subject: Re: [PATCH net-next v6 04/11] landlock: Add LSM hooks related to
+ filesystem
+Date: Tue, 18 Apr 2017 16:16:18 -0700
+Message-ID: <c122415d-c2be-d013-efb4-833ba87d144d@schaufler-ca.com>
+References: <20170328234650.19695-1-mic@digikod.net>
+ <20170328234650.19695-5-mic@digikod.net>
+ <CAGXu5jJKNp8R5kZ1U=K7KwgnV=NvH5aoAbftA-05a_Sa4pOg1Q@mail.gmail.com>
+ <9a69055a-b4cf-00b0-da5e-2e45ff88059c@digikod.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Michael Ma <make0818@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f177.google.com ([209.85.128.177]:33478 "EHLO
-        mail-wr0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756213AbdDRXNG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 19:13:06 -0400
-Received: by mail-wr0-f177.google.com with SMTP id l28so4513604wre.0
-        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 16:13:05 -0700 (PDT)
-In-Reply-To: <CAAmHdhx14ZH3ftE2SovFZfy8ZfOCEgsyqqcSbGPHqg87Wc+5SQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Alexei Starovoitov <ast-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
+        Arnaldo Carvalho de Melo <acme-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
+        David Drysdale <drysdale-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+        "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        "Eric W . Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
+        James Morris <james.l.morris-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
+        Jann Horn <jann-XZ1E9jl8jIdeoWH0uzbU5w@public.gmane.org>, Jonathan Corbet <corbet-T1hC0tSOHrs@public.gmane.org>,
+        Matthew Garrett <mjg59-1xO5oi07KQx4cg9Nei1l7Q@public.gmane.org>,
+        Michael Kerrisk <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Paul Moore <paul-r2n+y4ga6xFZroRs9YW3xA@public.gmane.org>,
+        Sargun Dhillon <sargun-GaZTRHToo+CzQB+pC5nmwQ@public.gmane.org>,
+        "Serge E . Hallyn" <serge-A9i7LUbDfNHQT0dZR+AlfA@public.gmane.org>,
+        Shuah Khan <shuah-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>, Will Drewry <wad-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+        "kernel-hardening@lists.o
+To: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic-WFhQfpSGs3bR7s880joybQ@public.gmane.org>,
+        Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <9a69055a-b4cf-00b0-da5e-2e45ff88059c-WFhQfpSGs3bR7s880joybQ@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 17, 2017 at 5:39 PM, Michael Ma <make0818@gmail.com> wrote:
-> Hi -
+On 4/18/2017 3:44 PM, Mickaël Salaün wrote:
+> On 19/04/2017 00:17, Kees Cook wrote:
+>> On Tue, Mar 28, 2017 at 4:46 PM, Mickaël Salaün <mic-WFhQfpSGs3bR7s880joybQ@public.gmane.org> wrote:
+>>> Handle 33 filesystem-related LSM hooks for the Landlock filesystem
+>>> event: LANDLOCK_SUBTYPE_EVENT_FS.
+>>>
+>>> A Landlock event wrap LSM hooks for similar kernel object types (e.g.
+>>> struct file, struct path...). Multiple LSM hooks can trigger the same
+>>> Landlock event.
+>>>
+>>> Landlock handle nine coarse-grained actions: read, write, execute, new,
+>>> get, remove, ioctl, lock and fcntl. Each of them abstract LSM hook
+>>> access control in a way that can be extended in the future.
+>>>
+>>> The Landlock LSM hook registration is done after other LSM to only run
+>>> actions from user-space, via eBPF programs, if the access was granted by
+>>> major (privileged) LSMs.
+>>>
+>>> Changes since v5:
+>>> * split hooks.[ch] into hooks.[ch] and hooks_fs.[ch]
+>>> * add more documentation
+>>> * cosmetic fixes
+>>>
+>>> Changes since v4:
+>>> * add LSM hook abstraction called Landlock event
+>>>   * use the compiler type checking to verify hooks use by an event
+>>>   * handle all filesystem related LSM hooks (e.g. file_permission,
+>>>     mmap_file, sb_mount...)
+>>> * register BPF programs for Landlock just after LSM hooks registration
+>>> * move hooks registration after other LSMs
+>>> * add failsafes to check if a hook is not used by the kernel
+>>> * allow partial raw value access form the context (needed for programs
+>>>   generated by LLVM)
+>>>
+>>> Changes since v3:
+>>> * split commit
+>>> * add hooks dealing with struct inode and struct path pointers:
+>>>   inode_permission and inode_getattr
+>>> * add abstraction over eBPF helper arguments thanks to wrapping structs
+>>>
+>>> Signed-off-by: Mickaël Salaün <mic-WFhQfpSGs3bR7s880joybQ@public.gmane.org>
+>>> Cc: Alexei Starovoitov <ast-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+>>> Cc: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
+>>> Cc: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
+>>> Cc: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+>>> Cc: James Morris <james.l.morris-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+>>> Cc: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+>>> Cc: Serge E. Hallyn <serge-A9i7LUbDfNHQT0dZR+AlfA@public.gmane.org>
+>>> ---
+>>>  include/linux/lsm_hooks.h    |   5 +
+>>>  security/landlock/Makefile   |   4 +-
+>>>  security/landlock/hooks.c    | 115 +++++++++
+>>>  security/landlock/hooks.h    | 177 ++++++++++++++
+>>>  security/landlock/hooks_fs.c | 563 +++++++++++++++++++++++++++++++++++++++++++
+>>>  security/landlock/hooks_fs.h |  19 ++
+>>>  security/landlock/init.c     |  13 +
+>>>  security/security.c          |   7 +-
+>>>  8 files changed, 901 insertions(+), 2 deletions(-)
+>>>  create mode 100644 security/landlock/hooks.c
+>>>  create mode 100644 security/landlock/hooks.h
+>>>  create mode 100644 security/landlock/hooks_fs.c
+>>>  create mode 100644 security/landlock/hooks_fs.h
+>>>
+>>> diff --git a/include/linux/lsm_hooks.h b/include/linux/lsm_hooks.h
+>>> index e29d4c62a3c8..884289166a0e 100644
+>>> --- a/include/linux/lsm_hooks.h
+>>> +++ b/include/linux/lsm_hooks.h
+>>> @@ -1920,5 +1920,10 @@ void __init loadpin_add_hooks(void);
+>>>  #else
+>>>  static inline void loadpin_add_hooks(void) { };
+>>>  #endif
+>>> +#ifdef CONFIG_SECURITY_LANDLOCK
+>>> +extern void __init landlock_add_hooks(void);
+>>> +#else
+>>> +static inline void __init landlock_add_hooks(void) { }
+>>> +#endif /* CONFIG_SECURITY_LANDLOCK */
+>>>
+>>>  #endif /* ! __LINUX_LSM_HOOKS_H */
+>>> diff --git a/security/landlock/Makefile b/security/landlock/Makefile
+>>> index 7205f9a7a2ee..c0db504a6335 100644
+>>> --- a/security/landlock/Makefile
+>>> +++ b/security/landlock/Makefile
+>>> @@ -1,3 +1,5 @@
+>>> +ccflags-$(CONFIG_SECURITY_LANDLOCK) += -Werror=unused-function
+>> Why is this needed? If it can't be avoided, a comment should exist
+>> here explaining why.
+> This is useful to catch defined but unused hooks: error out if a
+> HOOK_NEW_FS(foo) is not used with a HOOK_INIT_FS(foo) in the struct
+> security_hook_list landlock_hooks.
 >
-> We've implemented a "glue" qdisc similar to mqprio which can associate
-> one qdisc to multiple txqs as the root qdisc. Reference count of the
-> child qdiscs have been adjusted properly in this case so that it
-> represents the number of txqs it has been attached to. However when
-> sending packets we saw the skb from dequeue_skb() corrupted with the
-> following call stack:
->
->     [exception RIP: netif_skb_features+51]
->     RIP: ffffffff815292b3  RSP: ffff8817f6987940  RFLAGS: 00010246
->
->  #9 [ffff8817f6987968] validate_xmit_skb at ffffffff815294aa
-> #10 [ffff8817f69879a0] validate_xmit_skb at ffffffff8152a0d9
-> #11 [ffff8817f69879b0] __qdisc_run at ffffffff8154a193
-> #12 [ffff8817f6987a00] dev_queue_xmit at ffffffff81529e03
->
-> It looks like the skb has already been released since its dev pointer
-> field is invalid.
->
-> Any clue on how this can be investigated further? My current thought
-> is to add some instrumentation to the place where skb is released and
-> analyze whether there is any race condition happening there. However
+>>> [...]
+>>> @@ -127,3 +132,11 @@ static struct bpf_prog_type_list bpf_landlock_type __ro_after_init = {
+>>>         .ops = &bpf_landlock_ops,
+>>>         .type = BPF_PROG_TYPE_LANDLOCK,
+>>>  };
+>>> +
+>>> +void __init landlock_add_hooks(void)
+>>> +{
+>>> +       pr_info("landlock: Version %u", LANDLOCK_VERSION);
+>>> +       landlock_add_hooks_fs();
+>>> +       security_add_hooks(NULL, 0, "landlock");
+>>> +       bpf_register_prog_type(&bpf_landlock_type);
+>> I'm confused by the separation of hook registration here. The call to
+>> security_add_hooks is with count=0 is especially weird. Why isn't this
+>> just a single call with security_add_hooks(landlock_hooks,
+>> ARRAY_SIZE(landlock_hooks), "landlock")?
+> Yes, this is ugly with the new security_add_hooks() with three arguments
+> but I wanted to split the hooks definition in multiple files.
 
-Either dropwatch or perf could do the work to instrument kfree_skb().
+Why? I'll buy a good argument, but there are dangers in
+allowing multiple calls to security_add_hooks(). 
 
-> by looking through the existing code I think the case where one root
-> qdisc is associated with multiple txqs already exists (when mqprio is
-> not used) so not sure why it won't work when we group txqs and assign
-> each group a root qdisc. Any insight on this issue would be much
-> appreciated!
+>
+> The current security_add_hooks() use lsm_append(lsm, &lsm_names) which
+> is not exported. Unfortunately, calling multiple security_add_hooks()
+> with the same LSM name would register multiple names for the same LSM…
+> Is it OK if I modify this function to not add duplicated entries?
 
-How do you implement ->attach()? How does it work with netdev_pick_tx()?
+It may seem absurd, but it's conceivable that a module might
+have two hooks it wants called. My example is a module that
+counts the number of times SELinux denies a process access to
+things (which needs to be called before and after SELinux in
+order to detect denials) and takes "appropriate action" if
+too many denials occur. It would be weird, wonky and hackish,
+but that never stopped anybody before.
+
+>
+>
+>>> +}
+>>> diff --git a/security/security.c b/security/security.c
+>>> index d0e07f269b2d..a3e9f4625991 100644
+>>> --- a/security/security.c
+>>> +++ b/security/security.c
+>>> @@ -64,10 +64,15 @@ int __init security_init(void)
+>>>         loadpin_add_hooks();
+>>>
+>>>         /*
+>>> -        * Load all the remaining security modules.
+>>> +        * Load all remaining privileged security modules.
+>>>          */
+>>>         do_security_initcalls();
+>>>
+>>> +       /*
+>>> +        * Load potentially-unprivileged security modules at the end.
+>>> +        */
+>>> +       landlock_add_hooks();
+>> Oh, is this to make it last in the list? Is there a reason it has to be last?
+> Right, this is the intend. I'm not sure it is the only way to register
+> hooks, though.
+>
+> For an unprivileged access-control, we don't want to give the ability to
+> any process to do some checks, through an eBPF program, on kernel
+> objects (e.g. files) if they should not be accessible (because of a
+> following LSM hook check).
+>
+>  Mickaël
+>
