@@ -1,262 +1,188 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH net-next v4 2/2] net sched actions: add time filter for
- action dumping
-Date: Wed, 19 Apr 2017 09:11:26 -0400
-Message-ID: <f1704aae-af9d-75eb-47f7-64950f2b841b@mojatatu.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next v4 1/2] net sched actions: dump more than
+ TCA_ACT_MAX_PRIO actions per batch
+Date: Wed, 19 Apr 2017 15:13:23 +0200
+Message-ID: <20170419131323.GE3357@nanopsycho.orion>
 References: <1492603050-9318-1-git-send-email-jhs@emojatatu.com>
- <1492603050-9318-2-git-send-email-jhs@emojatatu.com>
- <20170419125336.GC3357@nanopsycho.orion>
+ <20170419123645.GB3357@nanopsycho.orion>
+ <705a4d67-4a81-113f-e22a-0ca0bb6cf1eb@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: davem@davemloft.net, netdev@vger.kernel.org,
         eric.dumazet@gmail.com, xiyou.wangcong@gmail.com
-To: Jiri Pirko <jiri@resnulli.us>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f67.google.com ([209.85.214.67]:34769 "EHLO
-        mail-it0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934273AbdDSNL3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2017 09:11:29 -0400
-Received: by mail-it0-f67.google.com with SMTP id 193so2728844itm.1
-        for <netdev@vger.kernel.org>; Wed, 19 Apr 2017 06:11:28 -0700 (PDT)
-In-Reply-To: <20170419125336.GC3357@nanopsycho.orion>
+Received: from mail-wr0-f193.google.com ([209.85.128.193]:35814 "EHLO
+        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934409AbdDSNN1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2017 09:13:27 -0400
+Received: by mail-wr0-f193.google.com with SMTP id l44so3180874wrc.2
+        for <netdev@vger.kernel.org>; Wed, 19 Apr 2017 06:13:26 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <705a4d67-4a81-113f-e22a-0ca0bb6cf1eb@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17-04-19 08:53 AM, Jiri Pirko wrote:
-> Wed, Apr 19, 2017 at 01:57:30PM CEST, jhs@mojatatu.com wrote:
->> From: Jamal Hadi Salim <jhs@mojatatu.com>
->>
->> This adds support for filtering based on time since last used.
->> When we are dumping a large number of actions it is useful to
->> have the option of filtering based on when the action was last
->> used to reduce the amount of data crossing to user space.
->>
->> With this patch the user space app sets the TCAA_ACT_TIME_FILTER
->> attribute with the value in milliseconds with "time of interest
->> since now".  The kernel converts this to jiffies and does the
->> filtering comparison matching entries that have seen activity
->> since then and returns them to user space.
->> Old kernels and old tc continue to work in legacy mode since
->> they dont specify this attribute.
->>
->> Some example (we have 400 actions bound to 400 filters); at installation
->> time using  hacked tc which sets the time of interest to 120 seconds:
->>
->> prompt$ hackedtc actions ls action gact | grep index | wc -l
->> 400
->>
->> go get some coffee and  wait for > 120 seconds and try again:
->>
->> prompt$ hackedtc actions ls action gact | grep index | wc -l
->> 0
->>
->> Lets see a filter bound to one of these actions:
->> ..
->> filter pref 10 u32
->> filter pref 10 u32 fh 800: ht divisor 1
->> filter pref 10 u32 fh 800::800 order 2048 key ht 800 bkt 0 flowid 1:10  (rule hit 2 success 1)
->>  match 7f000002/ffffffff at 12 (success 1 )
->>    action order 1: gact action pass
->>     random type none pass val 0
->>     index 23 ref 2 bind 1 installed 1145 sec used 802 sec
->>    Action statistics:
->>    Sent 84 bytes 1 pkt (dropped 0, overlimits 0 requeues 0)
->>    backlog 0b 0p requeues 0
->> ....
->>
->> that coffee took long, no? It was good.
->>
->> Now lets ping -c 1 127.0.0.2, then run the actions again:
->>
->> prompt$ hackedtc actions ls action gact | grep index | wc -l
->> 1
->>
->> More details please:
->>
->> prompt$ hackedtc -s actions ls action gact
+Wed, Apr 19, 2017 at 03:03:59PM CEST, jhs@mojatatu.com wrote:
+>On 17-04-19 08:36 AM, Jiri Pirko wrote:
+>> Wed, Apr 19, 2017 at 01:57:29PM CEST, jhs@mojatatu.com wrote:
+>> > From: Jamal Hadi Salim <jhs@mojatatu.com>
 >
-> I don't see where you pass the time.
+>> > include/uapi/linux/rtnetlink.h | 21 +++++++++++++++++++--
+>> > net/sched/act_api.c            | 43 ++++++++++++++++++++++++++++++++----------
+>> > 3 files changed, 53 insertions(+), 12 deletions(-)
+>> > 
+>> > diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
+>> > index cce0613..c7080ec 100644
+>> > --- a/include/uapi/linux/rtnetlink.h
+>> > +++ b/include/uapi/linux/rtnetlink.h
+>> > @@ -674,10 +674,27 @@ struct tcamsg {
+>> > 	unsigned char	tca__pad1;
+>> > 	unsigned short	tca__pad2;
+>> > };
+>> > +
+>> > +enum {
+>> > +	TCAA_UNSPEC,
+>> > +	TCAA_ACT_TAB,
+>> > +	TCAA_ACT_FLAGS,
+>> > +	TCAA_ACT_COUNT,
+>> > +	__TCAA_MAX
+>> > +};
+>> > +
+>> > +#define TCAA_MAX (__TCAA_MAX - 1)
+>> > #define TA_RTA(r)  ((struct rtattr*)(((char*)(r)) + NLMSG_ALIGN(sizeof(struct tcamsg))))
+>> > #define TA_PAYLOAD(n) NLMSG_PAYLOAD(n,sizeof(struct tcamsg))
+>> > -#define TCA_ACT_TAB 1 /* attr type must be >=1 */	
+>> > -#define TCAA_MAX 1
+>> > +#define TCA_ACT_TAB TCAA_ACT_TAB
+>> 
+>> This is mess. What does "TCAA" stand for?
 >
+>TC Actions Attributes.  What would you call it? I could have
+>called it TCA_ROOT etc. But maybe a comment to just call it
+>TC Actions Attributes would be enough?
 
-User space sets the TCAA_ACT_TIME_FILTER value.
-Jiri - this is described in the commit log ;->
-I have some tc changes which set this value.
-In the example below it was 120 seconds.
+TCA_DUMP_X
+
+it is only for dumping. Naming it "attribute" seems weird. Same as if
+you have: int variable_something;
 
 
 >
->>
->>    action order 0: gact action pass
->>     random type none pass val 0
->>     index 23 ref 2 bind 1 installed 1270 sec used 30 sec
->>    Action statistics:
->>    Sent 168 bytes 2 pkt (dropped 0, overlimits 0 requeues 0)
->>    backlog 0b 0p requeues 0
->>
->> And the filter?
->>
->> filter pref 10 u32
->> filter pref 10 u32 fh 800: ht divisor 1
->> filter pref 10 u32 fh 800::800 order 2048 key ht 800 bkt 0 flowid 1:10  (rule hit 4 success 2)
->>  match 7f000002/ffffffff at 12 (success 2 )
->>    action order 1: gact action pass
->>     random type none pass val 0
->>     index 23 ref 2 bind 1 installed 1324 sec used 84 sec
->>    Action statistics:
->>    Sent 168 bytes 2 pkt (dropped 0, overlimits 0 requeues 0)
->>    backlog 0b 0p requeues 0
->>
->> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
->> ---
->> include/uapi/linux/rtnetlink.h |  1 +
->> net/sched/act_api.c            | 25 +++++++++++++++++++++++--
->> 2 files changed, 24 insertions(+), 2 deletions(-)
->>
->> diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
->> index c7080ec..1b36cc0 100644
->> --- a/include/uapi/linux/rtnetlink.h
->> +++ b/include/uapi/linux/rtnetlink.h
->> @@ -680,6 +680,7 @@ enum {
->> 	TCAA_ACT_TAB,
->> 	TCAA_ACT_FLAGS,
->> 	TCAA_ACT_COUNT,
->> +	TCAA_ACT_TIME_FILTER,
+>> I suggest some more meaningful naming of the enum items and define
+>> TCA_ACT_TAB and TCAA_MAX to the new values in order to maintain UAPI
 >
-> Another use of word "filter" for something else. I believe that we need
-> to reduce confusion, not to make it worse.
 >
+>Thats what the above does (for UAPI) maintainance, no?
 
-It is a time filter. What do you want to call it?
+It does it for TCA_ACT_TAB. We need to do it for both TCA_ACT_TAB and TCAA_MAX
 
 
 >
->> 	__TCAA_MAX
->> };
->>
->> diff --git a/net/sched/act_api.c b/net/sched/act_api.c
->> index 45e1cf7..b03863a 100644
->> --- a/net/sched/act_api.c
->> +++ b/net/sched/act_api.c
->> @@ -84,11 +84,12 @@ static int tcf_dump_walker(struct tcf_hashinfo *hinfo, struct sk_buff *skb,
->> {
->> 	int err = 0, index = -1, i = 0, s_i = 0, n_i = 0;
->> 	unsigned short act_flags = cb->args[2];
->> +	unsigned long jiffy_filter = cb->args[3];
+>> Also, please put X_MAX = __X_MAX - 1 into enum
 >
-> call this "jiffy_since" for example
->
+>That is diverting from the norm which defines it outside
+>of the enum. A good reason could be: You, Jiri, plan to go and
+>cleanup all the netlink stuff which uses this style.
+>Or you think we should start a trend which leads us
+>to a new clean style.
 
-Sure.
+I would start now. I can take of the follow-up patch to change the rest.
+
 
 
 >
->> 	struct nlattr *nest;
->>
->> 	spin_lock_bh(&hinfo->lock);
->>
->> -	s_i = cb->args[0];
->> +	s_i = cb->args[4];
->>
->> 	for (i = 0; i < (hinfo->hmask + 1); i++) {
->> 		struct hlist_head *head;
->> @@ -101,6 +102,11 @@ static int tcf_dump_walker(struct tcf_hashinfo *hinfo, struct sk_buff *skb,
->> 			if (index < s_i)
->> 				continue;
->>
->> +			if (jiffy_filter &&
->> +			    time_after(jiffy_filter,
->> +				       (unsigned long)p->tcfa_tm.lastuse))
->> +				continue;
->> +
->> 			nest = nla_nest_start(skb, n_i);
->> 			if (nest == NULL)
->> 				goto nla_put_failure;
->> @@ -118,6 +124,9 @@ static int tcf_dump_walker(struct tcf_hashinfo *hinfo, struct sk_buff *skb,
->> 		}
->> 	}
->> done:
->> +	if (index > 0)
->> +		cb->args[4] = index + 1;
->> +
->> 	spin_unlock_bh(&hinfo->lock);
->> 	if (n_i) {
->> 		cb->args[0] += n_i;
+>> 
+>> > +/* tcamsg flags stored in attribute TCAA_ACT_FLAGS
+>> > + *
+>> > + * ACT_LARGE_DUMP_ON user->kernel to request for larger than TCA_ACT_MAX_PRIO
+>> > + * actions in a dump. All dump responses will contain the number of actions
+>> > + * being dumped stored in for user app's consumption in TCAA_ACT_COUNT
+>> > + *
+>> > + */
+>> > +#define ACT_LARGE_DUMP_ON		(1 << 0)
+>> 
+>> Use "BIT(0)"
+>> 
 >
-> You don't use "cb->args[0]" anymore. Why do you need this?
+>Same question as before.
 
-You are right - will remove this.
+Same answer :)
 
-> Just use cb->args[0] instead of 4
+
+>Are you planning to cleanup the rest of the code which
+>follows the same style? example, look at this:
+>        TCA_FLOWER_KEY_FLAGS_IS_FRAGMENT = (1 << 0),
 >
+>
+>> Also use the same prefix as for the enum.
+>> 
+>> + you can have each potential flag as a separate u8 attribute. That is the
+>> clearest approach and easily extendable. That's how we do it in devlink
+>> for example.
+>> 
+>
+>So you are using 8 bits for one flag which requires one bit?
+>+ the TLV header? Sounds like overkill.
+>Note: We dont need more than 1 or 2 bits for this case.
+>Even 32 bits is overkill for what I am doing.
+>When do i need to extend a single bit representation?
 
-I can do that too.
+I don't see any problem adding couple of bytes if it increases cleannes
+and easy extendability.
 
 
 >
->> @@ -1000,6 +1009,7 @@ static int tcf_action_add(struct net *net, struct nlattr *nla,
->>
->> static const struct nla_policy tcaa_policy[TCAA_MAX + 1] = {
->> 	[TCAA_ACT_FLAGS]      = { .type = NLA_U32 },
->> +	[TCAA_ACT_TIME_FILTER]      = { .type = NLA_U32 },
->> };
->>
->> static int tc_ctl_action(struct sk_buff *skb, struct nlmsghdr *n,
->> @@ -1090,13 +1100,14 @@ static int tc_dump_action(struct sk_buff *skb, struct netlink_callback *cb)
->> 	struct tcamsg *t = (struct tcamsg *) nlmsg_data(cb->nlh);
->> 	struct nlattr *kind = NULL;
->> 	u32 act_flags = 0;
->> +	u32 msecs_filter = 0;
->> +	unsigned long jiffy_wanted = 0;
+>> 
+>> > 	struct net *net = sock_net(skb->sk);
+>> > -	struct nlattr *tca[TCA_ACT_MAX + 1];
+>> > +	struct nlattr *tca[TCAA_MAX + 1];
+>> 
+>> This is certainly wrong.
+>> 
 >
-> Also, "jiffy_since". Same variable, same name please.
->
+>Why is it wrong?
 
-np.
-
->>
->> 	ret = nlmsg_parse(cb->nlh, sizeof(struct tcamsg), tcaa, TCAA_MAX,
->> 			  tcaa_policy, NULL);
->> 	if (ret < 0)
->> 		return ret;
->>
->> -
->
-> This should not be part of this patch.
->
-
-Will remove.
-
->
->> 	kind = find_dump_kind(tcaa);
->> 	if (kind == NULL) {
->> 		pr_info("tc_dump_action: action bad kind\n");
->> @@ -1110,12 +1121,22 @@ static int tc_dump_action(struct sk_buff *skb, struct netlink_callback *cb)
->> 	if (tcaa[TCAA_ACT_FLAGS])
->> 		act_flags = nla_get_u32(tcaa[TCAA_ACT_FLAGS]);
->>
->> +	if (tcaa[TCAA_ACT_TIME_FILTER])
->> +		msecs_filter = nla_get_u32(tcaa[TCAA_ACT_TIME_FILTER]);
->> +
->> 	nlh = nlmsg_put(skb, NETLINK_CB(cb->skb).portid, cb->nlh->nlmsg_seq,
->> 			cb->nlh->nlmsg_type, sizeof(*t), 0);
->> 	if (!nlh)
->> 		goto out_module_put;
->>
->> +	if (msecs_filter) {
->> +		unsigned long jiffy_msecs = msecs_to_jiffies(msecs_filter);
->> +
->> +		jiffy_wanted = jiffies - jiffy_msecs;
->
-> you can do just:
-> 		jiffy_wanted = jiffies - msecs_to_jiffies(msecs_filter);
->
-> Also, you can put this under "if (tcaa[TCAA_ACT_TIME_FILTER])" so it's
-> all in one place.
->
-
-Will do - next cycle run.
+Because you use existing TCA_ACT_ attr enum.
 
 
-cheers,
-jamal
+>
+>> 
+>> > 	u32 portid = skb ? NETLINK_CB(skb).portid : 0;
+>> > 	int ret = 0, ovr = 0;
+>> > 
+>> > @@ -1005,7 +1014,7 @@ static int tc_ctl_action(struct sk_buff *skb, struct nlmsghdr *n,
+>> > 	    !netlink_capable(skb, CAP_NET_ADMIN))
+>> > 		return -EPERM;
+>> > 
+>> > -	ret = nlmsg_parse(n, sizeof(struct tcamsg), tca, TCA_ACT_MAX, NULL,
+>> > +	ret = nlmsg_parse(n, sizeof(struct tcamsg), tca, TCAA_MAX, tcaa_policy,
+>> 
+>> This is certainly wrong.
+>> 
+>
+>Same question as above.
+
+Same answer.
+
+
+>
+>
+>> > +		if (nla_put_u32(skb, TCAA_ACT_COUNT, cb->args[1]))
+>> > +			goto out_module_put;
+>> > +		cb->args[1] = 0;
+>> 
+>> Why you need to zero this?
+>> 
+>> 
+>
+>The count is per submitted message - every time we succesfuly send a msg
+>to user, we start the recount.
+
+ok
+
+
+>
+>cheers,
+>jamal
+>
