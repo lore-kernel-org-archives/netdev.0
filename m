@@ -1,88 +1,47 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net] net: ipv6: RTF_PCPU should not be settable from userspace
-Date: Wed, 19 Apr 2017 14:19:43 -0700
-Message-ID: <1492636783-29756-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: kafai@fb.com, andreyknvl@google.com,
-        David Ahern <dsa@cumulusnetworks.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net-next v4 0/2] net_sched: clean up tc filter destroy and delete logic
+Date: Wed, 19 Apr 2017 14:21:20 -0700
+Message-ID: <1492636882-19571-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: Cong Wang <xiyou.wangcong@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f177.google.com ([209.85.223.177]:35584 "EHLO
-        mail-io0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S967679AbdDSVTw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2017 17:19:52 -0400
-Received: by mail-io0-f177.google.com with SMTP id r16so37217984ioi.2
-        for <netdev@vger.kernel.org>; Wed, 19 Apr 2017 14:19:52 -0700 (PDT)
+Received: from mail-io0-f196.google.com ([209.85.223.196]:32841 "EHLO
+        mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S938234AbdDSVVf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2017 17:21:35 -0400
+Received: by mail-io0-f196.google.com with SMTP id k87so7601261ioi.0
+        for <netdev@vger.kernel.org>; Wed, 19 Apr 2017 14:21:35 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andrey reported a fault in the IPv6 route code:
+The first patch fixes a potenial race condition, the second one
+is pure cleanup.
 
-kasan: GPF could be caused by NULL-ptr deref or user memory access
-general protection fault: 0000 [#1] SMP KASAN
-Modules linked in:
-CPU: 1 PID: 4035 Comm: a.out Not tainted 4.11.0-rc7+ #250
-Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
-task: ffff880069809600 task.stack: ffff880062dc8000
-RIP: 0010:ip6_rt_cache_alloc+0xa6/0x560 net/ipv6/route.c:975
-RSP: 0018:ffff880062dced30 EFLAGS: 00010206
-RAX: dffffc0000000000 RBX: ffff8800670561c0 RCX: 0000000000000006
-RDX: 0000000000000003 RSI: ffff880062dcfb28 RDI: 0000000000000018
-RBP: ffff880062dced68 R08: 0000000000000001 R09: 0000000000000000
-R10: 0000000000000000 R11: 0000000000000000 R12: 0000000000000000
-R13: ffff880062dcfb28 R14: dffffc0000000000 R15: 0000000000000000
-FS:  00007feebe37e7c0(0000) GS:ffff88006cb00000(0000) knlGS:0000000000000000
-CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-CR2: 00000000205a0fe4 CR3: 000000006b5c9000 CR4: 00000000000006e0
-Call Trace:
- ip6_pol_route+0x1512/0x1f20 net/ipv6/route.c:1128
- ip6_pol_route_output+0x4c/0x60 net/ipv6/route.c:1212
-...
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-Andrey's syzkaller program passes rtmsg.rtmsg_flags with the RTF_PCPU bit
-set. Flags passed to the kernel are blindly copied to the allocated
-rt6_info by ip6_route_info_create making a newly inserted route appear
-as though it is a per-cpu route. ip6_rt_cache_alloc sees the flag set
-and expects rt->dst.from to be set - which it is not since it is not
-really a per-cpu copy. The subsequent call to __ip6_dst_alloc then
-generates the fault.
-
-Fix by checking for the flag and failing with EINVAL.
-
-Fixes: d52d3997f843f ("ipv6: Create percpu rt6_info")
-Reported-by: Andrey Konovalov <andreyknvl@google.com>
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
- include/uapi/linux/ipv6_route.h | 2 +-
- net/ipv6/route.c                | 4 ++++
- 2 files changed, 5 insertions(+), 1 deletion(-)
+v4: split the patch and update changelog
+v3: fix a compiler warning
+v2: rebase
 
-diff --git a/include/uapi/linux/ipv6_route.h b/include/uapi/linux/ipv6_route.h
-index 85bbb1799df3..d496c02e14bc 100644
---- a/include/uapi/linux/ipv6_route.h
-+++ b/include/uapi/linux/ipv6_route.h
-@@ -35,7 +35,7 @@
- #define RTF_PREF(pref)	((pref) << 27)
- #define RTF_PREF_MASK	0x18000000
- 
--#define RTF_PCPU	0x40000000
-+#define RTF_PCPU	0x40000000	/* read-only: can not be set by user */
- #define RTF_LOCAL	0x80000000
- 
- 
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 4ba7c49872ff..a1bf426c959b 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -1854,6 +1854,10 @@ static struct rt6_info *ip6_route_info_create(struct fib6_config *cfg)
- 	int addr_type;
- 	int err = -EINVAL;
- 
-+	/* RTF_PCPU is an internal flag; can not be set by userspace */
-+	if (cfg->fc_flags & RTF_PCPU)
-+		goto out;
-+
- 	if (cfg->fc_dst_len > 128 || cfg->fc_src_len > 128)
- 		goto out;
- #ifndef CONFIG_IPV6_SUBTREES
+Cong Wang (2):
+  net_sched: move the empty tp check from ->destroy() to ->delete()
+  net_sched: remove useless NULL to tp->root
+
+ include/net/sch_generic.h |  4 +--
+ net/sched/cls_api.c       | 27 +++++++++---------
+ net/sched/cls_basic.c     | 10 +++----
+ net/sched/cls_bpf.c       | 11 ++++----
+ net/sched/cls_cgroup.c    |  8 ++----
+ net/sched/cls_flow.c      | 10 +++----
+ net/sched/cls_flower.c    | 10 ++-----
+ net/sched/cls_fw.c        | 30 +++++++++++---------
+ net/sched/cls_matchall.c  |  7 ++---
+ net/sched/cls_route.c     | 44 ++++++++++-------------------
+ net/sched/cls_rsvp.h      | 36 ++++++++++++------------
+ net/sched/cls_tcindex.c   | 14 +++++-----
+ net/sched/cls_u32.c       | 71 +++++++++++++++++++++++++++--------------------
+ 13 files changed, 134 insertions(+), 148 deletions(-)
+
 -- 
-2.9.3
+2.5.5
