@@ -1,168 +1,59 @@
-From: Nathan Fontenot <nfont@linux.vnet.ibm.com>
-Subject: [PATCH net-next 10/10] ibmvnic: Remove unused bouce buffer
-Date: Wed, 19 Apr 2017 13:45:22 -0400
-Message-ID: <20170419174522.37372.8560.stgit@ltcalpine2-lp23.aus.stglabs.ibm.com>
-References: <20170419174015.37372.48544.stgit@ltcalpine2-lp23.aus.stglabs.ibm.com>
+From: Lance Richardson <lrichard@redhat.com>
+Subject: Re: [PATCH net 3/4] qed: Fix possible system hang in the
+ dcbnl-getdcbx() path.
+Date: Wed, 19 Apr 2017 09:56:36 -0400 (EDT)
+Message-ID: <1873138594.16006381.1492610196115.JavaMail.zimbra@redhat.com>
+References: <20170419101955.26444-1-sudarsana.kalluru@cavium.com> <20170419101955.26444-4-sudarsana.kalluru@cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: brking@linux.vnet.ibm.com, jallen@linux.vnet.ibm.com,
-        muvic@linux.vnet.ibm.com, tlfalcon@linux.vnet.ibm.com
-To: netdev@vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+        Yuval Mintz <Yuval.Mintz@cavium.com>
+To: Sudarsana Reddy Kalluru <sudarsana.kalluru@cavium.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:46287 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S934640AbdDSN4Z (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2017 09:56:25 -0400
-Received: from pps.filterd (m0098396.ppops.net [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v3JDrhmm045100
-        for <netdev@vger.kernel.org>; Wed, 19 Apr 2017 09:56:24 -0400
-Received: from e15.ny.us.ibm.com (e15.ny.us.ibm.com [129.33.205.205])
-        by mx0a-001b2d01.pphosted.com with ESMTP id 29x760xmbe-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Wed, 19 Apr 2017 09:56:24 -0400
-Received: from localhost
-        by e15.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <nfont@linux.vnet.ibm.com>;
-        Wed, 19 Apr 2017 09:56:23 -0400
-In-Reply-To: <20170419174015.37372.48544.stgit@ltcalpine2-lp23.aus.stglabs.ibm.com>
+Received: from mx1.redhat.com ([209.132.183.28]:51010 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S934640AbdDSN4h (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 19 Apr 2017 09:56:37 -0400
+In-Reply-To: <20170419101955.26444-4-sudarsana.kalluru@cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The bounce buffer is not used in the ibmvnic driver, just
-get rid of it.
+> From: "Sudarsana Reddy Kalluru" <sudarsana.kalluru@cavium.com>
+> To: davem@davemloft.net
+> Cc: netdev@vger.kernel.org, "Yuval Mintz" <Yuval.Mintz@cavium.com>
+> Sent: Wednesday, 19 April, 2017 6:19:54 AM
+> Subject: [PATCH net 3/4] qed: Fix possible system hang in the dcbnl-getdcbx() path.
+> 
+> qed_dcbnl_get_dcbx() API uses kmalloc in GFT_KERNEL mode. The API gets
+> invoked in the interrupt context by qed_dcbnl_getdcbx callback. Need
+> to invoke this kmalloc in atomic mode.
+> 
+> Signed-off-by: Sudarsana Reddy Kalluru <Sudarsana.Kalluru@cavium.com>
+> Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
+> ---
+>  drivers/net/ethernet/qlogic/qed/qed_dcbx.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/qlogic/qed/qed_dcbx.c
+> b/drivers/net/ethernet/qlogic/qed/qed_dcbx.c
+> index ff058a3..8f0783a 100644
+> --- a/drivers/net/ethernet/qlogic/qed/qed_dcbx.c
+> +++ b/drivers/net/ethernet/qlogic/qed/qed_dcbx.c
+> @@ -1264,7 +1264,7 @@ static struct qed_dcbx_get *qed_dcbnl_get_dcbx(struct
+> qed_hwfn *hwfn,
+>  {
+>  	struct qed_dcbx_get *dcbx_info;
+>  
+> -	dcbx_info = kzalloc(sizeof(*dcbx_info), GFP_KERNEL);
+> +	dcbx_info = kmalloc(sizeof(*dcbx_info), GFP_ATOMIC);
 
-Signed-off-by: Nathan Fontenot <nfont@linux.vnet.ibm.com>
----
- drivers/net/ethernet/ibm/ibmvnic.c |   53 ------------------------------------
- drivers/net/ethernet/ibm/ibmvnic.h |    4 ---
- 2 files changed, 57 deletions(-)
+You are changing a kzalloc to kmalloc, was that intentional?
 
-diff --git a/drivers/net/ethernet/ibm/ibmvnic.c b/drivers/net/ethernet/ibm/ibmvnic.c
-index 221d652..e8c72ab 100644
---- a/drivers/net/ethernet/ibm/ibmvnic.c
-+++ b/drivers/net/ethernet/ibm/ibmvnic.c
-@@ -502,50 +502,6 @@ static int init_tx_pools(struct net_device *netdev)
- 	return 0;
- }
- 
--static void release_bounce_buffer(struct ibmvnic_adapter *adapter)
--{
--	struct device *dev = &adapter->vdev->dev;
--
--	if (!adapter->bounce_buffer)
--		return;
--
--	if (!dma_mapping_error(dev, adapter->bounce_buffer_dma)) {
--		dma_unmap_single(dev, adapter->bounce_buffer_dma,
--				 adapter->bounce_buffer_size,
--				 DMA_BIDIRECTIONAL);
--		adapter->bounce_buffer_dma = DMA_ERROR_CODE;
--	}
--
--	kfree(adapter->bounce_buffer);
--	adapter->bounce_buffer = NULL;
--}
--
--static int init_bounce_buffer(struct net_device *netdev)
--{
--	struct ibmvnic_adapter *adapter = netdev_priv(netdev);
--	struct device *dev = &adapter->vdev->dev;
--	char *buf;
--	int buf_sz;
--	dma_addr_t map_addr;
--
--	buf_sz = (netdev->mtu + ETH_HLEN - 1) / PAGE_SIZE + 1;
--	buf = kmalloc(adapter->bounce_buffer_size, GFP_KERNEL);
--	if (!buf)
--		return -1;
--
--	map_addr = dma_map_single(dev, buf, buf_sz, DMA_TO_DEVICE);
--	if (dma_mapping_error(dev, map_addr)) {
--		dev_err(dev, "Couldn't map bounce buffer\n");
--		kfree(buf);
--		return -1;
--	}
--
--	adapter->bounce_buffer = buf;
--	adapter->bounce_buffer_size = buf_sz;
--	adapter->bounce_buffer_dma = map_addr;
--	return 0;
--}
--
- static void release_error_buffers(struct ibmvnic_adapter *adapter)
- {
- 	struct device *dev = &adapter->vdev->dev;
-@@ -597,7 +553,6 @@ static int ibmvnic_login(struct net_device *netdev)
- 
- static void release_resources(struct ibmvnic_adapter *adapter)
- {
--	release_bounce_buffer(adapter);
- 	release_tx_pools(adapter);
- 	release_rx_pools(adapter);
- 
-@@ -656,10 +611,6 @@ static int ibmvnic_open(struct net_device *netdev)
- 	if (rc)
- 		goto ibmvnic_open_fail;
- 
--	rc = init_bounce_buffer(netdev);
--	if (rc)
--		goto ibmvnic_open_fail;
--
- 	replenish_pools(adapter);
- 
- 	/* We're ready to receive frames, enable the sub-crq interrupts and
-@@ -880,7 +831,6 @@ static int ibmvnic_xmit(struct sk_buff *skb, struct net_device *netdev)
- 	unsigned int tx_bytes = 0;
- 	dma_addr_t data_dma_addr;
- 	struct netdev_queue *txq;
--	bool used_bounce = false;
- 	unsigned long lpar_rc;
- 	union sub_crq tx_crq;
- 	unsigned int offset;
-@@ -921,7 +871,6 @@ static int ibmvnic_xmit(struct sk_buff *skb, struct net_device *netdev)
- 	tx_buff->index = index;
- 	tx_buff->pool_index = queue_num;
- 	tx_buff->last_frag = true;
--	tx_buff->used_bounce = used_bounce;
- 
- 	memset(&tx_crq, 0, sizeof(tx_crq));
- 	tx_crq.v1.first = IBMVNIC_CRQ_CMD;
-@@ -1517,7 +1466,6 @@ static int ibmvnic_complete_tx(struct ibmvnic_adapter *adapter,
- 					continue;
- 
- 				txbuff->data_dma[j] = 0;
--				txbuff->used_bounce = false;
- 			}
- 			/* if sub_crq was sent indirectly */
- 			first = txbuff->indir_arr[0].generic.first;
-@@ -3343,7 +3291,6 @@ static unsigned long ibmvnic_get_desired_dma(struct vio_dev *vdev)
- 	adapter = netdev_priv(netdev);
- 
- 	ret += PAGE_SIZE; /* the crq message queue */
--	ret += adapter->bounce_buffer_size;
- 	ret += IOMMU_PAGE_ALIGN(sizeof(struct ibmvnic_statistics), tbl);
- 
- 	for (i = 0; i < adapter->req_tx_queues + adapter->req_rx_queues; i++)
-diff --git a/drivers/net/ethernet/ibm/ibmvnic.h b/drivers/net/ethernet/ibm/ibmvnic.h
-index 8fbe05d..355225c 100644
---- a/drivers/net/ethernet/ibm/ibmvnic.h
-+++ b/drivers/net/ethernet/ibm/ibmvnic.h
-@@ -868,7 +868,6 @@ struct ibmvnic_tx_buff {
- 	int index;
- 	int pool_index;
- 	bool last_frag;
--	bool used_bounce;
- 	union sub_crq indir_arr[6];
- 	u8 hdr_data[140];
- 	dma_addr_t indir_dma;
-@@ -924,9 +923,6 @@ struct ibmvnic_adapter {
- 	dma_addr_t ip_offload_ctrl_tok;
- 	bool migrated;
- 	u32 msg_enable;
--	void *bounce_buffer;
--	int bounce_buffer_size;
--	dma_addr_t bounce_buffer_dma;
- 
- 	/* Statistics */
- 	struct ibmvnic_statistics stats;
+>  	if (!dcbx_info)
+>  		return NULL;
+>  
+> --
+> 1.8.3.1
+> 
+> 
