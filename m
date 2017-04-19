@@ -1,42 +1,35 @@
-From: David Lebrun <david.lebrun@uclouvain.be>
-Subject: [PATCH net] ipv6: sr: fix double free of skb after handling invalid SRH
-Date: Wed, 19 Apr 2017 16:10:19 +0200
-Message-ID: <20170419141019.8193-1-david.lebrun@uclouvain.be>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v4] smsc95xx: Use skb_cow_head to deal with cloned skbs
+Date: Wed, 19 Apr 2017 07:13:51 -0700
+Message-ID: <1492611231.10587.165.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20170419101340.27929-1-james.hughes@raspberrypi.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: David Lebrun <david.lebrun@uclouvain.be>,
-        Dan Carpenter <dan.carpenter@oracle.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+        Steve Glendinning <steve.glendinning@shawell.net>,
+        Microchip Linux Driver Support <UNGLinuxDriver@microchip.com>
+To: James Hughes <james.hughes@raspberrypi.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:41556 "EHLO
-        smtp4.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1764068AbdDSOKT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2017 10:10:19 -0400
+Received: from mail-it0-f67.google.com ([209.85.214.67]:35996 "EHLO
+        mail-it0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1761087AbdDSONz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2017 10:13:55 -0400
+Received: by mail-it0-f67.google.com with SMTP id a140so3161837ita.3
+        for <netdev@vger.kernel.org>; Wed, 19 Apr 2017 07:13:54 -0700 (PDT)
+In-Reply-To: <20170419101340.27929-1-james.hughes@raspberrypi.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The icmpv6_param_prob() function already does a kfree_skb(),
-this patch removes the duplicate one.
+On Wed, 2017-04-19 at 11:13 +0100, James Hughes wrote:
+> The driver was failing to check that the SKB wasn't cloned
+> before adding checksum data.
+> Replace existing handling to extend/copy the header buffer
+> with skb_cow_head.
+> 
+> Signed-off-by: James Hughes <james.hughes@raspberrypi.org>
+> ---
 
-Fixes: 1ababeba4a21f3dba3da3523c670b207fb2feb62 ("ipv6: implement dataplane support for rthdr type 4 (Segment Routing Header)")
-Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
-Cc: Dan Carpenter <dan.carpenter@oracle.com>
-Signed-off-by: David Lebrun <david.lebrun@uclouvain.be>
----
- net/ipv6/exthdrs.c | 1 -
- 1 file changed, 1 deletion(-)
+Acked-by: Eric Dumazet <edumazet@google.com>
 
-diff --git a/net/ipv6/exthdrs.c b/net/ipv6/exthdrs.c
-index 275cac6..25192a3 100644
---- a/net/ipv6/exthdrs.c
-+++ b/net/ipv6/exthdrs.c
-@@ -388,7 +388,6 @@ static int ipv6_srh_rcv(struct sk_buff *skb)
- 		icmpv6_param_prob(skb, ICMPV6_HDR_FIELD,
- 				  ((&hdr->segments_left) -
- 				   skb_network_header(skb)));
--		kfree_skb(skb);
- 		return -1;
- 	}
- 
--- 
-2.10.2
+Thanks James
