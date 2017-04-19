@@ -1,40 +1,52 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: [PATCH net-next 2/2] Add Jiri Pirko as TC subsystem co-maintainer
-Date: Tue, 18 Apr 2017 21:24:00 -0400
-Message-ID: <1492565040-29102-2-git-send-email-jhs@emojatatu.com>
-References: <1492565040-29102-1-git-send-email-jhs@emojatatu.com>
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com, jiri@resnulli.us,
-        xiyou.wangcong@gmail.com, Jamal Hadi Salim <jhs@mojatatu.com>
-To: davem@davemloft.net
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 2/2 v2] net sched actions: add time filter for
+ action dumping
+Date: Tue, 18 Apr 2017 18:35:38 -0700
+Message-ID: <1492565738.10587.155.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1492564489-28854-1-git-send-email-jhs@emojatatu.com>
+         <1492564489-28854-2-git-send-email-jhs@emojatatu.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org, jiri@resnulli.us,
+        xiyou.wangcong@gmail.com
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f194.google.com ([209.85.223.194]:36559 "EHLO
-        mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1758879AbdDSBYM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 21:24:12 -0400
-Received: by mail-io0-f194.google.com with SMTP id x86so1967181ioe.3
-        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 18:24:12 -0700 (PDT)
-In-Reply-To: <1492565040-29102-1-git-send-email-jhs@emojatatu.com>
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:35887 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1758204AbdDSBfl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 21:35:41 -0400
+Received: by mail-pg0-f66.google.com with SMTP id 34so1605808pgx.3
+        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 18:35:41 -0700 (PDT)
+In-Reply-To: <1492564489-28854-2-git-send-email-jhs@emojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jamal Hadi Salim <jhs@mojatatu.com>
+On Tue, 2017-04-18 at 21:14 -0400, Jamal Hadi Salim wrote:
+> From: Jamal Hadi Salim <jhs@mojatatu.com>
+> 
 
-Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
----
- MAINTAINERS | 1 +
- 1 file changed, 1 insertion(+)
+> +	if (tcaa[TCAA_ACT_TIME_FILTER])
+> +		msecs_filter = nla_get_u32(tcaa[TCAA_ACT_TIME_FILTER]);
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 749bd84..a9df81e 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -12190,6 +12190,7 @@ F:	kernel/taskstats.c
- TC subsystem
- M:	Jamal Hadi Salim <jhs@mojatatu.com>
- M:	Cong Wang <xiyou.wangcong@gmail.com>
-+M:	Jiri Pirko <jiri@resnulli.us>
- L:	netdev@vger.kernel.org
- S:	Maintained
- F:	include/net/pkt_cls.h
--- 
-1.9.1
+
+You forgot to add TCAA_ACT_TIME_FILTER in tcaa_policy
+
+There is no guarantee user passed 32bit data here.
+
+> +
+>  	nlh = nlmsg_put(skb, NETLINK_CB(cb->skb).portid, cb->nlh->nlmsg_seq,
+>  			cb->nlh->nlmsg_type, sizeof(*t), 0);
+>  	if (!nlh)
+>  		goto out_module_put;
+>  
+> +	if (msecs_filter) {
+> +		unsigned long jiffy_msecs = msecs_to_jiffies(msecs_filter);
+> +		jiffy_wanted = jiffies - jiffy_msecs;
+> +	}
+> +
+>  	cb->args[2] = act_flags;
+> +	cb->args[3] = jiffy_wanted;
+>  
+>  	t = nlmsg_data(nlh);
+>  	t->tca_family = AF_UNSPEC;
