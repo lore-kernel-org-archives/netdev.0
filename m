@@ -1,194 +1,60 @@
-From: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>
-Subject: Re: [PATCH net-next v6 09/11] seccomp: Enhance test_harness with an
- assert step mechanism
-Date: Thu, 20 Apr 2017 00:05:35 +0200
-Message-ID: <df0e6143-6db3-b7aa-f239-e879455316fa@digikod.net>
-References: <20170328234650.19695-1-mic@digikod.net>
- <20170328234650.19695-10-mic@digikod.net>
- <CAGXu5j+D-FP8Kt9unNOqKrQJP4DYTpmgkJxWykZyrYiVPz3Y3Q@mail.gmail.com>
- <94ac6ddc-eaac-8548-f83f-826ddf05ac69@digikod.net>
- <CAGXu5jJfnA=XeUNc4eAsUvXCja725riA7Vaod=BmM2ZbXdfQ4A@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="Xh3kFodRXOvR8KOieMI8EPxuRxTmxhTkN"
-Cc: LKML <linux-kernel@vger.kernel.org>, Alexei Starovoitov <ast@kernel.org>,
-        Andy Lutomirski <luto@amacapital.net>,
-        Arnaldo Carvalho de Melo <acme@kernel.org>,
-        Casey Schaufler <casey@schaufler-ca.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        David Drysdale
- <drysdale@google.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        "Eric W . Biederman" <ebiederm@xmission.com>,
-        James Morris <james.l.morris@oracle.com>, Jann Horn <jann@thejh.net>,
-        Jonathan Corbet <corbet@lwn.net>,
-        Matthew Garrett <mjg59@srcf.ucam.org>,
-        Michael Kerrisk <mtk.manpages@gmail.com>,
-        Paul Moore <paul@paul-moore.com>, Sargun Dhillon <sargun@sargun.me>,
-        "Serge E . Hallyn" <serge@hallyn.com>, Shuah Khan <shuah@kernel.org>,
-        Tejun Heo <tj@kernel.org>, Thomas Graf <tgraf@suug.ch>,
-        Will Drewry <wad@chromium.org>
-To: Kees Cook <keescook@chromium.org>
-Return-path: <kernel-hardening-return-7430-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-In-Reply-To: <CAGXu5jJfnA=XeUNc4eAsUvXCja725riA7Vaod=BmM2ZbXdfQ4A@mail.gmail.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH net-next] brcmfmac: fix build without CONFIG_BRCMFMAC_PROTO_BCDC
+Date: Thu, 20 Apr 2017 00:10:24 +0200
+Message-ID: <20170419221133.2180685-1-arnd@arndb.de>
+Cc: Arnd Bergmann <arnd@arndb.de>,
+        Franky Lin <franky.lin@broadcom.com>,
+        Hante Meuleman <hante.meuleman@broadcom.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        Pieter-Paul Giesberts <pieter-paul.giesberts@broadcom.com>,
+        "Michael S. Tsirkin" <mst@redhat.com>,
+        linux-wireless@vger.kernel.org,
+        brcm80211-dev-list.pdl@broadcom.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Arend van Spriel <arend.vanspriel@broadcom.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---Xh3kFodRXOvR8KOieMI8EPxuRxTmxhTkN
-Content-Type: multipart/mixed; boundary="EkGVdDnj6v9DhNwDxX0VXwKPftfbEesU8";
- protected-headers="v1"
-From: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>
-To: Kees Cook <keescook@chromium.org>
-Cc: LKML <linux-kernel@vger.kernel.org>, Alexei Starovoitov <ast@kernel.org>,
- Andy Lutomirski <luto@amacapital.net>,
- Arnaldo Carvalho de Melo <acme@kernel.org>,
- Casey Schaufler <casey@schaufler-ca.com>,
- Daniel Borkmann <daniel@iogearbox.net>, David Drysdale
- <drysdale@google.com>, "David S . Miller" <davem@davemloft.net>,
- "Eric W . Biederman" <ebiederm@xmission.com>,
- James Morris <james.l.morris@oracle.com>, Jann Horn <jann@thejh.net>,
- Jonathan Corbet <corbet@lwn.net>, Matthew Garrett <mjg59@srcf.ucam.org>,
- Michael Kerrisk <mtk.manpages@gmail.com>, Paul Moore <paul@paul-moore.com>,
- Sargun Dhillon <sargun@sargun.me>, "Serge E . Hallyn" <serge@hallyn.com>,
- Shuah Khan <shuah@kernel.org>, Tejun Heo <tj@kernel.org>,
- Thomas Graf <tgraf@suug.ch>, Will Drewry <wad@chromium.org>,
- "kernel-hardening@lists.openwall.com" <kernel-hardening@lists.openwall.com>,
- Linux API <linux-api@vger.kernel.org>,
- linux-security-module <linux-security-module@vger.kernel.org>,
- Network Development <netdev@vger.kernel.org>
-Message-ID: <df0e6143-6db3-b7aa-f239-e879455316fa@digikod.net>
-Subject: Re: [PATCH net-next v6 09/11] seccomp: Enhance test_harness with an
- assert step mechanism
-References: <20170328234650.19695-1-mic@digikod.net>
- <20170328234650.19695-10-mic@digikod.net>
- <CAGXu5j+D-FP8Kt9unNOqKrQJP4DYTpmgkJxWykZyrYiVPz3Y3Q@mail.gmail.com>
- <94ac6ddc-eaac-8548-f83f-826ddf05ac69@digikod.net>
- <CAGXu5jJfnA=XeUNc4eAsUvXCja725riA7Vaod=BmM2ZbXdfQ4A@mail.gmail.com>
-In-Reply-To: <CAGXu5jJfnA=XeUNc4eAsUvXCja725riA7Vaod=BmM2ZbXdfQ4A@mail.gmail.com>
+With CONFIG_BRCMFMAC_PROTO_BCDC unset, we cannot build the fwsignal.c file:
 
---EkGVdDnj6v9DhNwDxX0VXwKPftfbEesU8
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+drivers/net/wireless/broadcom/brcm80211/brcmfmac/fwsignal.c: In function 'brcmf_fws_notify_credit_map':
+drivers/net/wireless/broadcom/brcm80211/brcmfmac/fwsignal.c:1590:31: error: implicit declaration of function 'drvr_to_fws'; did you mean 'dev_to_psd'? [-Werror=implicit-function-declaration]
+  struct brcmf_fws_info *fws = drvr_to_fws(ifp->drvr);
+drivers/net/wireless/broadcom/brcm80211/brcmfmac/fwsignal.c:1590:31: error: initialization makes pointer from integer without a cast [-Werror=int-conversion]
+drivers/net/wireless/broadcom/brcm80211/brcmfmac/fwsignal.c:1621:31: error: initialization makes pointer from integer without a cast [-Werror=int-conversion]
 
+However, as pointed out in the changeset description for the patch that caused
+the problem, fwsignal.c is only required when CONFIG_BRCMFMAC_PROTO_BCDC is
+enabled, so we can simply change the Makefile to build it conditionally.
 
+Fixes: acf8ac41dd73 ("brcmfmac: remove reference to fwsignal data from struct brcmf_pub")
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+---
+ drivers/net/wireless/broadcom/brcm80211/brcmfmac/Makefile | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-On 20/04/2017 00:02, Kees Cook wrote:
-> On Wed, Apr 19, 2017 at 2:51 PM, Micka=C3=ABl Sala=C3=BCn <mic@digikod.=
-net> wrote:
->>
->> On 19/04/2017 02:02, Kees Cook wrote:
->>> On Tue, Mar 28, 2017 at 4:46 PM, Micka=C3=ABl Sala=C3=BCn <mic@digiko=
-d.net> wrote:
->>>> This is useful to return an information about the error without bein=
-g
->>>> able to write to TH_LOG_STREAM.
->>>>
->>>> Helpers from test_harness.h may be useful outside of the seccomp
->>>> directory.
->>>>
->>>> Signed-off-by: Micka=C3=ABl Sala=C3=BCn <mic@digikod.net>
->>>> Cc: Andy Lutomirski <luto@amacapital.net>
->>>> Cc: Arnaldo Carvalho de Melo <acme@kernel.org>
->>>> Cc: Kees Cook <keescook@chromium.org>
->>>> Cc: Shuah Khan <shuah@kernel.org>
->>>> Cc: Will Drewry <wad@chromium.org>
->>>> ---
->>>>  tools/testing/selftests/seccomp/test_harness.h | 8 +++++++-
->>>>  1 file changed, 7 insertions(+), 1 deletion(-)
->>>>
->>>> diff --git a/tools/testing/selftests/seccomp/test_harness.h b/tools/=
-testing/selftests/seccomp/test_harness.h
->>>> index a786c69c7584..77e407663e06 100644
->>>> --- a/tools/testing/selftests/seccomp/test_harness.h
->>>> +++ b/tools/testing/selftests/seccomp/test_harness.h
->>>> @@ -397,7 +397,7 @@ struct __test_metadata {
->>>>         const char *name;
->>>>         void (*fn)(struct __test_metadata *);
->>>>         int termsig;
->>>> -       int passed;
->>>> +       __s8 passed;
->>>
->>> Why the reduction here? int is signed too?
->>
->> Because the return code of a process is capped to 8 bits and I use a
->> negative value to not mess with the current interpretation of 0 (error=
-)
->> and 1 (OK) for the "passed" variable.
->>
->>>
->>>>         int trigger; /* extra handler after the evaluation */
->>>>         struct __test_metadata *prev, *next;
->>>>  };
->>>> @@ -476,6 +476,12 @@ void __run_test(struct __test_metadata *t)
->>>>                                         "instead of by signal (code:=
- %d)\n",
->>>>                                         t->name,
->>>>                                         WEXITSTATUS(status));
->>>> +                       } else if (t->passed < 0) {
->>>> +                               fprintf(TH_LOG_STREAM,
->>>> +                                       "%s: Failed at step #%d\n",
->>>> +                                       t->name,
->>>> +                                       t->passed * -1);
->>>> +                               t->passed =3D 0;
->>>>                         }
->>>
->>> Instead of creating an overloaded mechanism here, perhaps have an
->>> option reporting mechanism that can be enabled. Like adding to
->>> __test_metadata "bool no_stream; int test_number;" and adding
->>> test_number++ to each ASSERT/EXCEPT call, and doing something like:
->>>
->>> if (t->no_stream) {
->>>                               fprintf(TH_LOG_STREAM,
->>>                                       "%s: Failed at step #%d\n",
->>>                                       t->name,
->>>                                        t->test_number);
->>> }
->>>
->>> It'd be a cleaner approach, maybe?
->>
->> Good idea, we will then be able to use 255 steps!
->>
->> Do you want me to send this as a separate patch?
->>
->> Can we move test_harness.h outside of the seccomp directory to be
->> available to other subsystems as well?
->=20
-> Yeah, I would do two patches, and send them out separately (to shuah
-> with lkml and me in cc at least), one to move test_hardness.h into
-> some include/ directory, and then to add the new logic for streamless
-> reporting.
->=20
-> Thanks!
->=20
-> -Kees
->=20
->=20
-
-Good, in which place and name would it fit better?
-
-
---EkGVdDnj6v9DhNwDxX0VXwKPftfbEesU8--
-
---Xh3kFodRXOvR8KOieMI8EPxuRxTmxhTkN
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEzBAEBCgAdFiEEUysCyY8er9Axt7hqIt7+33O9apUFAlj33y8ACgkQIt7+33O9
-apVk8Qf6A9txX+Ur7BiCQW88dhEGwn6UTW70UA+VLgOn1PTw+hc0NoD7JQ4iRZFq
-e4ehtjGu5aOvH/XW7oKi06ZzTXF26AF0kkTmjW30K7KkYd6O+1kl/PePbSDLi+Oa
-BNMY1mvGU12pIDeN2WmwiIEWmlz4MyMGVAFH7trzWIBkjMPWpQZwEJGPZYrNFvWX
-Sjuc1cgZdKGtXc8wMuOrULEWePs8+DRHwX3bIDYrzK1X7icS7mwh5JqXd2MQTlzy
-MVJPuAOpHlvBwLsp9wHImzEzCcmZdP0hRoWmteEdhI/TiqOHxt5etm/Yhlsv/CGS
-JoRIb0k/3cWRnVHTVmbptrWF8WH8Cg==
-=671j
------END PGP SIGNATURE-----
-
---Xh3kFodRXOvR8KOieMI8EPxuRxTmxhTkN--
+diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/Makefile b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/Makefile
+index 0383ba559edc..1f5a9b948abf 100644
+--- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/Makefile
++++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/Makefile
+@@ -25,7 +25,6 @@ brcmfmac-objs += \
+ 		chip.o \
+ 		fwil.o \
+ 		fweh.o \
+-		fwsignal.o \
+ 		p2p.o \
+ 		proto.o \
+ 		common.o \
+@@ -36,7 +35,8 @@ brcmfmac-objs += \
+ 		vendor.o \
+ 		pno.o
+ brcmfmac-$(CONFIG_BRCMFMAC_PROTO_BCDC) += \
+-		bcdc.o
++		bcdc.o \
++		fwsignal.o
+ brcmfmac-$(CONFIG_BRCMFMAC_PROTO_MSGBUF) += \
+ 		commonring.o \
+ 		flowring.o \
+-- 
+2.9.0
