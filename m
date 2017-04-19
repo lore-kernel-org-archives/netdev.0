@@ -1,197 +1,104 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: [PATCH net-next v4 2/2] net sched actions: add time filter for action dumping
-Date: Wed, 19 Apr 2017 07:57:30 -0400
-Message-ID: <1492603050-9318-2-git-send-email-jhs@emojatatu.com>
-References: <1492603050-9318-1-git-send-email-jhs@emojatatu.com>
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com, jiri@resnulli.us,
-        xiyou.wangcong@gmail.com, Jamal Hadi Salim <jhs@mojatatu.com>
-To: davem@davemloft.net
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: XDP question: best API for returning/setting egress port?
+Date: Wed, 19 Apr 2017 14:00:19 +0200
+Message-ID: <20170419140019.366fb1fb@redhat.com>
+References: <20170418215856.5fda7127@redhat.com>
+        <58F67D15.3050308@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Daniel Borkmann <borkmann@iogearbox.net>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Alexei Starovoitov <ast@fb.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "xdp-newbies@vger.kernel.org" <xdp-newbies@vger.kernel.org>,
+        brouer@redhat.com
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f193.google.com ([209.85.223.193]:35122 "EHLO
-        mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1762788AbdDSL5p (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2017 07:57:45 -0400
-Received: by mail-io0-f193.google.com with SMTP id d203so3156883iof.2
-        for <netdev@vger.kernel.org>; Wed, 19 Apr 2017 04:57:44 -0700 (PDT)
-In-Reply-To: <1492603050-9318-1-git-send-email-jhs@emojatatu.com>
+Received: from mx1.redhat.com ([209.132.183.28]:35304 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1762727AbdDSMBD (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 19 Apr 2017 08:01:03 -0400
+In-Reply-To: <58F67D15.3050308@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jamal Hadi Salim <jhs@mojatatu.com>
+On Tue, 18 Apr 2017 13:54:45 -0700
+John Fastabend <john.fastabend@gmail.com> wrote:
 
-This adds support for filtering based on time since last used.
-When we are dumping a large number of actions it is useful to
-have the option of filtering based on when the action was last
-used to reduce the amount of data crossing to user space.
+> On 17-04-18 12:58 PM, Jesper Dangaard Brouer wrote:
+> > 
+> > As I argued in NetConf presentation[1] (from slide #9) we need a port
+> > mapping table (instead of using ifindex'es).  Both for supporting
+> > other "port" types than net_devices (think sockets), and for
+> > sandboxing what XDP can bypass.
+> > 
+> > I want to create a new XDP action called XDP_REDIRECT, that instruct
+> > XDP to send the xdp_buff to another "port" (get translated into a
+> > net_device, or something else depending on internal port type).
+> > 
+> > Looking at the userspace/eBPF interface, I'm wondering what is the
+> > best API for "returning" this port number from eBPF?
+> > 
+> > The options I see is:
+> > 
+> > 1) Split-up the u32 action code, and e.g let the high-16-bit be the
+> >    port number and lower-16bit the (existing) action verdict.
+> > 
+> >  Pros: Simple API
+> >  Cons: Number of ports limited to 64K
+> > 
+> > 2) Extend both xdp_buff + xdp_md to contain a (u32) port number, allow
+> >    eBPF to update xdp_md->port.
+> > 
+> >  Pros: Larger number of ports.
+> >  Cons: This require some ebpf translation steps between xdp_buff <-> xdp_md.
+> >        (see xdp_convert_ctx_access)
+> > 
+> > 3) Extend only xdp_buff and create bpf_helper that set port in xdp_buff.
+> > 
+> >  Pros: Hides impl details, and allows helper to give eBPF code feedback
+> >        (on e.g. if port doesn't exist any longer)
+> >  Cons: Helper function call likely slower?
+> > 
+> >   
+> 
+> How about doing this the same way redirect is done in the tc case? I have this
+> patch under test,
+> 
+>  https://github.com/jrfastab/linux/commit/e78f5425d5e3c305b4170ddd85c61c2e15359fee
 
-With this patch the user space app sets the TCAA_ACT_TIME_FILTER
-attribute with the value in milliseconds with "time of interest
-since now".  The kernel converts this to jiffies and does the
-filtering comparison matching entries that have seen activity
-since then and returns them to user space.
-Old kernels and old tc continue to work in legacy mode since
-they dont specify this attribute.
+I have been looking at this approach, which is close to option #3 above.
 
-Some example (we have 400 actions bound to 400 filters); at installation
-time using  hacked tc which sets the time of interest to 120 seconds:
+The problem with your implementation that you use a per-cpu store.
+This creates the problem of storing state between packets. First packet
+can call helper bpf_xdp_redirect() setting an ifindex, but program can
+still return XDP_PASS.  Next packet can call XDP_REDIRECT and use the
+ifindex set from the first packet.  IMHO this is a problematic API to
+expose.
 
-prompt$ hackedtc actions ls action gact | grep index | wc -l
-400
+I do see that the TC interface that uses the same approach, via helper
+bpf_redirect().  Maybe it have the same API problem?  Looking at
+sch_handle_ingress() I don't see this is handled (e.g. by always
+clearing this_cpu_ptr(redirect_info)->ifindex = 0).
 
-go get some coffee and  wait for > 120 seconds and try again:
 
-prompt$ hackedtc actions ls action gact | grep index | wc -l
-0
+> that should give you some idea. It just needs a port mapping table in the
+> bpf_tx_xdp() call.
 
-Lets see a filter bound to one of these actions:
-..
-filter pref 10 u32
-filter pref 10 u32 fh 800: ht divisor 1
-filter pref 10 u32 fh 800::800 order 2048 key ht 800 bkt 0 flowid 1:10  (rule hit 2 success 1)
-  match 7f000002/ffffffff at 12 (success 1 )
-    action order 1: gact action pass
-     random type none pass val 0
-     index 23 ref 2 bind 1 installed 1145 sec used 802 sec
-    Action statistics:
-    Sent 84 bytes 1 pkt (dropped 0, overlimits 0 requeues 0)
-    backlog 0b 0p requeues 0
-....
+I'll take a closer look. I don't think we need the per-cpu-store
+approach for XDP, as we might as well store the port info in xdp_buff,
+or return it directly option #1.
 
-that coffee took long, no? It was good.
+(TC redirect need the per-cpu-store to avoid extending the SKB).
 
-Now lets ping -c 1 127.0.0.2, then run the actions again:
 
-prompt$ hackedtc actions ls action gact | grep index | wc -l
-1
+> > (Cc'ed xdp-newbies as end-users might have an opinion on UAPI?)
 
-More details please:
+I would still like people to comment on the above options?
 
-prompt$ hackedtc -s actions ls action gact
-
-    action order 0: gact action pass
-     random type none pass val 0
-     index 23 ref 2 bind 1 installed 1270 sec used 30 sec
-    Action statistics:
-    Sent 168 bytes 2 pkt (dropped 0, overlimits 0 requeues 0)
-    backlog 0b 0p requeues 0
-
-And the filter?
-
-filter pref 10 u32
-filter pref 10 u32 fh 800: ht divisor 1
-filter pref 10 u32 fh 800::800 order 2048 key ht 800 bkt 0 flowid 1:10  (rule hit 4 success 2)
-  match 7f000002/ffffffff at 12 (success 2 )
-    action order 1: gact action pass
-     random type none pass val 0
-     index 23 ref 2 bind 1 installed 1324 sec used 84 sec
-    Action statistics:
-    Sent 168 bytes 2 pkt (dropped 0, overlimits 0 requeues 0)
-    backlog 0b 0p requeues 0
-
-Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
----
- include/uapi/linux/rtnetlink.h |  1 +
- net/sched/act_api.c            | 25 +++++++++++++++++++++++--
- 2 files changed, 24 insertions(+), 2 deletions(-)
-
-diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
-index c7080ec..1b36cc0 100644
---- a/include/uapi/linux/rtnetlink.h
-+++ b/include/uapi/linux/rtnetlink.h
-@@ -680,6 +680,7 @@ enum {
- 	TCAA_ACT_TAB,
- 	TCAA_ACT_FLAGS,
- 	TCAA_ACT_COUNT,
-+	TCAA_ACT_TIME_FILTER,
- 	__TCAA_MAX
- };
- 
-diff --git a/net/sched/act_api.c b/net/sched/act_api.c
-index 45e1cf7..b03863a 100644
---- a/net/sched/act_api.c
-+++ b/net/sched/act_api.c
-@@ -84,11 +84,12 @@ static int tcf_dump_walker(struct tcf_hashinfo *hinfo, struct sk_buff *skb,
- {
- 	int err = 0, index = -1, i = 0, s_i = 0, n_i = 0;
- 	unsigned short act_flags = cb->args[2];
-+	unsigned long jiffy_filter = cb->args[3];
- 	struct nlattr *nest;
- 
- 	spin_lock_bh(&hinfo->lock);
- 
--	s_i = cb->args[0];
-+	s_i = cb->args[4];
- 
- 	for (i = 0; i < (hinfo->hmask + 1); i++) {
- 		struct hlist_head *head;
-@@ -101,6 +102,11 @@ static int tcf_dump_walker(struct tcf_hashinfo *hinfo, struct sk_buff *skb,
- 			if (index < s_i)
- 				continue;
- 
-+			if (jiffy_filter &&
-+			    time_after(jiffy_filter,
-+				       (unsigned long)p->tcfa_tm.lastuse))
-+				continue;
-+
- 			nest = nla_nest_start(skb, n_i);
- 			if (nest == NULL)
- 				goto nla_put_failure;
-@@ -118,6 +124,9 @@ static int tcf_dump_walker(struct tcf_hashinfo *hinfo, struct sk_buff *skb,
- 		}
- 	}
- done:
-+	if (index > 0)
-+		cb->args[4] = index + 1;
-+
- 	spin_unlock_bh(&hinfo->lock);
- 	if (n_i) {
- 		cb->args[0] += n_i;
-@@ -1000,6 +1009,7 @@ static int tcf_action_add(struct net *net, struct nlattr *nla,
- 
- static const struct nla_policy tcaa_policy[TCAA_MAX + 1] = {
- 	[TCAA_ACT_FLAGS]      = { .type = NLA_U32 },
-+	[TCAA_ACT_TIME_FILTER]      = { .type = NLA_U32 },
- };
- 
- static int tc_ctl_action(struct sk_buff *skb, struct nlmsghdr *n,
-@@ -1090,13 +1100,14 @@ static int tc_dump_action(struct sk_buff *skb, struct netlink_callback *cb)
- 	struct tcamsg *t = (struct tcamsg *) nlmsg_data(cb->nlh);
- 	struct nlattr *kind = NULL;
- 	u32 act_flags = 0;
-+	u32 msecs_filter = 0;
-+	unsigned long jiffy_wanted = 0;
- 
- 	ret = nlmsg_parse(cb->nlh, sizeof(struct tcamsg), tcaa, TCAA_MAX,
- 			  tcaa_policy, NULL);
- 	if (ret < 0)
- 		return ret;
- 
--
- 	kind = find_dump_kind(tcaa);
- 	if (kind == NULL) {
- 		pr_info("tc_dump_action: action bad kind\n");
-@@ -1110,12 +1121,22 @@ static int tc_dump_action(struct sk_buff *skb, struct netlink_callback *cb)
- 	if (tcaa[TCAA_ACT_FLAGS])
- 		act_flags = nla_get_u32(tcaa[TCAA_ACT_FLAGS]);
- 
-+	if (tcaa[TCAA_ACT_TIME_FILTER])
-+		msecs_filter = nla_get_u32(tcaa[TCAA_ACT_TIME_FILTER]);
-+
- 	nlh = nlmsg_put(skb, NETLINK_CB(cb->skb).portid, cb->nlh->nlmsg_seq,
- 			cb->nlh->nlmsg_type, sizeof(*t), 0);
- 	if (!nlh)
- 		goto out_module_put;
- 
-+	if (msecs_filter) {
-+		unsigned long jiffy_msecs = msecs_to_jiffies(msecs_filter);
-+
-+		jiffy_wanted = jiffies - jiffy_msecs;
-+	}
-+
- 	cb->args[2] = act_flags;
-+	cb->args[3] = jiffy_wanted;
- 
- 	t = nlmsg_data(nlh);
- 	t->tca_family = AF_UNSPEC;
 -- 
-1.9.1
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
