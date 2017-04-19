@@ -1,43 +1,47 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH v2 net 1/2] net sched actions: fix access to uninitialized
- data
-Date: Wed, 19 Apr 2017 11:02:58 +0200
-Message-ID: <58F727C2.70100@iogearbox.net>
-References: <20170418101322.27666-1-w.bumiller@proxmox.com>
+From: =?utf-8?B?U8O4cmVuc2VuLCBTdGVmYW4=?=
+        <Stefan.Sorensen@spectralink.com>
+Subject: Re: [PATCH] dp83640: don't recieve time stamps twice
+Date: Wed, 19 Apr 2017 09:16:56 +0000
+Message-ID: <1492593414.3108.1.camel@spectralink.com>
+References: <20170418191426.GA17838@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Cong Wang <xiyou.wangcong@gmail.com>
-To: Wolfgang Bumiller <w.bumiller@proxmox.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:41736 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1761394AbdDSJDF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2017 05:03:05 -0400
-In-Reply-To: <20170418101322.27666-1-w.bumiller@proxmox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "f.fainelli@gmail.com" <f.fainelli@gmail.com>,
+        "andrew@lunn.ch" <andrew@lunn.ch>,
+        "kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
+To: "dan.carpenter@oracle.com" <dan.carpenter@oracle.com>,
+        "richardcochran@gmail.com" <richardcochran@gmail.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <20170418191426.GA17838@mwanda>
+Content-Language: en-US
+Content-ID: <1D97270CA8024B4BBC935FF471BF1724@namprd07.prod.outlook.com>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Wolfgang,
-
-On 04/18/2017 12:13 PM, Wolfgang Bumiller wrote:
-[...]
-
-Since this patch goes to -net tree and is a bug fix, please
-also add a proper analysis into the commit log instead of
-just an empty commit message.
-
-A Fixes tag to your bug fix would also be appropriate, so
-that this helps tracking follow-ups to the original commit
-that introduced the code. For this one, should be:
-
-Fixes: 1045ba77a596 ("net sched actions: Add support for user cookies")
-
-> Signed-off-by: Wolfgang Bumiller <w.bumiller@proxmox.com>
-> Acked-by: Cong Wang <xiyou.wangcong@gmail.com>
-> Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
-
-Thanks,
-Daniel
+T24gVHVlLCAyMDE3LTA0LTE4IGF0IDIyOjE0ICswMzAwLCBEYW4gQ2FycGVudGVyIHdyb3RlOg0K
+PiBUaGlzIHBhdGNoIGlzIHByb21wdGVkIGJ5IGEgc3RhdGljIGNoZWNrZXIgd2FybmluZyBhYm91
+dCBhIHBvdGVudGlhbA0KPiB1c2UgYWZ0ZXIgZnJlZS7CoMKgVGhlIGNvbmNlcm4gaXMgdGhhdCBu
+ZXRpZl9yeF9uaSgpIGNhbiBmcmVlICJza2IiIGFuZA0KPiB3ZQ0KPiBjYWxsIGl0IHR3aWNlLg0K
+PiANCj4gV2hlbiBJIGxvb2sgYXQgdGhlIGNvbW1pdCB0aGF0IGFkZGVkIHRoaXMsIGl0IGxvb2tz
+IGxpa2Ugc29tZSBzdHJheQ0KPiBsaW5lcyB3ZXJlIGFkZGVkIGFjY2lkZW50YWxseS7CoMKgSXQg
+ZG9lc24ndCBtYWtlIHNlbnNlIHRvIG1lIHRoYXQgd2UNCj4gd291bGQgcmVjaWV2ZSB0aGUgc2Ft
+ZSBkYXRhIHR3byB0aW1lcy7CoMKgSSBhc2tlZCB0aGUgYXV0aG9yIGJ1dCBuZXZlcg0KPiByZWNp
+ZXZlZCBhIHJlc3BvbnNlLg0KPiANCj4gSSBjYW4ndCB0ZXN0IHRoaXMgY29kZSwgYnV0IEknbSBw
+cmV0dHkgc3VyZSBteSBwYXRjaCBpcyBjb3JyZWN0Lg0KDQpTb3JyeSBmb3Igbm90IGdldHRpbmcg
+YmFjayBlYXJsaWVyLCBJIGhhdmUgc3dhbXBlZCB3aXRoIG90aGVyIHN0dWZmLg0KDQpZb3UgYXJl
+IGNvcnJlY3QgdGhhdCB0aGVzZSBsaW5lcyB3YXMgYWRkZWQgYWNjaWRlbnRhbGx5Lg0KDQpBY2tl
+ZC1ieTogU3RlZmFuIFPDuHJlbnNlbiA8c3RlZmFuLnNvcmVuc2VuQHNwZWN0cmFsaW5rLmNvbT4N
+Cg0KPiANCj4gRml4ZXM6IDRiMDYzMjU4YWI5MyAoImRwODM2NDA6IERlbGF5IHNjaGVkdWxlZCB3
+b3JrLiIpDQo+IFNpZ25lZC1vZmYtYnk6IERhbiBDYXJwZW50ZXIgPGRhbi5jYXJwZW50ZXJAb3Jh
+Y2xlLmNvbT4NCj4gDQo+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9waHkvZHA4MzY0MC5jIGIv
+ZHJpdmVycy9uZXQvcGh5L2RwODM2NDAuYw0KPiBpbmRleCBlMjQ2MGE1N2U0YjEuLmVkMGQxMGY1
+NGYyNiAxMDA2NDQNCj4gLS0tIGEvZHJpdmVycy9uZXQvcGh5L2RwODM2NDAuYw0KPiArKysgYi9k
+cml2ZXJzL25ldC9waHkvZHA4MzY0MC5jDQo+IEBAIC0xNDM4LDggKzE0MzgsNiBAQCBzdGF0aWMg
+Ym9vbCBkcDgzNjQwX3J4dHN0YW1wKHN0cnVjdCBwaHlfZGV2aWNlDQo+ICpwaHlkZXYsDQo+IMKg
+CQlza2JfaW5mby0+dG1vID0gamlmZmllcyArIFNLQl9USU1FU1RBTVBfVElNRU9VVDsNCj4gwqAJ
+CXNrYl9xdWV1ZV90YWlsKCZkcDgzNjQwLT5yeF9xdWV1ZSwgc2tiKTsNCj4gwqAJCXNjaGVkdWxl
+X2RlbGF5ZWRfd29yaygmZHA4MzY0MC0+dHNfd29yaywNCj4gU0tCX1RJTUVTVEFNUF9USU1FT1VU
+KTsNCj4gLQl9IGVsc2Ugew0KPiAtCQluZXRpZl9yeF9uaShza2IpOw0KPiDCoAl9DQo+IMKgDQo+
+IMKgCXJldHVybiB0cnVlOw==
