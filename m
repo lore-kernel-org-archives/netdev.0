@@ -1,76 +1,39 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH v2 net 2/2] net sched actions: decrement module refcount
- earlier
-Date: Tue, 18 Apr 2017 22:21:12 -0400
-Message-ID: <b34fa5f5-5368-672a-be06-4c9801b8114e@mojatatu.com>
-References: <20170418101322.27666-1-w.bumiller@proxmox.com>
- <20170418101322.27666-2-w.bumiller@proxmox.com>
- <CAM_iQpWQYsqGD3TZp=iXyK0auprgo5uUbRZRvtpnFjQWwCj5Gw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>
-To: Cong Wang <xiyou.wangcong@gmail.com>,
-        Wolfgang Bumiller <w.bumiller@proxmox.com>
+From: Chema Gonzalez <chema@google.com>
+Subject: [PATCH net-next] tcp_cubic: fix typo in module param description
+Date: Tue, 18 Apr 2017 19:22:23 -0700
+Message-ID: <20170419022223.28318-1-chema@google.com>
+Cc: netdev@vger.kernel.org, Chema Gonzalez <chemag@gmail.com>
+To: David Miller <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f194.google.com ([209.85.223.194]:34513 "EHLO
-        mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1758587AbdDSCVP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 22:21:15 -0400
-Received: by mail-io0-f194.google.com with SMTP id h41so2079523ioi.1
-        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 19:21:14 -0700 (PDT)
-In-Reply-To: <CAM_iQpWQYsqGD3TZp=iXyK0auprgo5uUbRZRvtpnFjQWwCj5Gw@mail.gmail.com>
+Received: from mail-pf0-f179.google.com ([209.85.192.179]:34762 "EHLO
+        mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932779AbdDSCWa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 22:22:30 -0400
+Received: by mail-pf0-f179.google.com with SMTP id c198so5113486pfc.1
+        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 19:22:30 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17-04-18 01:03 PM, Cong Wang wrote:
-> On Tue, Apr 18, 2017 at 3:13 AM, Wolfgang Bumiller
-> <w.bumiller@proxmox.com> wrote:
+From: Chema Gonzalez <chemag@gmail.com>
 
-> police action...That is why I said we may need a TCA_POLICE_COOKIE.
->
+Signed-off-by: Chema Gonzalez <chemag@gmail.com>
+---
+ net/ipv4/tcp_cubic.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Unless it is very old user space code (which wouldnt know what a
-cookie is), dont think there's much use of direct policer access.
-
->> I'm thinking the first patch should be enough. (I've tested forcing the
->> other filters into the error path *without* this patch and couldn't
->> produce crashes or reference count problems (while with this patch
->> applied it was leaking reference counts on creation (which makes sense
->> considering tcf_hash_release is used and the ACT_P_CREATED case will
->> keep repeating)). (Whereas without both patches simply looking through
->> creating and deleting a policing filter pretty much always resulted in
->> crashes with various different backtraces.)
->>
->
-> The action API's suck here.
->
-> The idea is we should rollback everything when cookie setup fails.
->
-> Taking another look, it seems the current code (without this patch) is
-> correct:
->
-> 1) When ->init() returns ACT_P_CREATED, we should rollback both
-> act creation and module refcnt, the former is already taken care by
-> tcf_hash_release(), the latter is at err_mod.
->
-> 2) When ->init() returns !ACT_P_CREATED, we should rollback the
-> the modification to the existing action and module refcnt, the former is
-> impossible with current code (because we don't do copy and update)
-> so we only do tcf_hash_release(), module refcnt needs to rollback
-> like normal path.
->
-
-Indeed. Allocate the cookie before init? That way, we fail early
-and dont need to worry about restoring anything.
-In the case of a replace, do you really want to call tcf_hash_release?
-
-> Ideally, these action API's should handle it nicely, exposing the
-> module_put()/module_get() is ugly and confusing.
->
-
-lots of room for improvement.
-
-cheers,
-jamal
+diff --git a/net/ipv4/tcp_cubic.c b/net/ipv4/tcp_cubic.c
+index c99230efcd52..0683ba447d77 100644
+--- a/net/ipv4/tcp_cubic.c
++++ b/net/ipv4/tcp_cubic.c
+@@ -72,7 +72,7 @@ MODULE_PARM_DESC(tcp_friendliness, "turn on/off tcp friendliness");
+ module_param(hystart, int, 0644);
+ MODULE_PARM_DESC(hystart, "turn on/off hybrid slow start algorithm");
+ module_param(hystart_detect, int, 0644);
+-MODULE_PARM_DESC(hystart_detect, "hyrbrid slow start detection mechanisms"
++MODULE_PARM_DESC(hystart_detect, "hybrid slow start detection mechanisms"
+ 		 " 1: packet-train 2: delay 3: both packet-train and delay");
+ module_param(hystart_low_window, int, 0644);
+ MODULE_PARM_DESC(hystart_low_window, "lower bound cwnd for hybrid slow start");
+-- 
+2.12.2.816.g2cccc81164-goog
