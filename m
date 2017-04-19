@@ -1,54 +1,71 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] sh_eth: unmap DMA buffers when freeing rings
-Date: Wed, 19 Apr 2017 17:36:35 -0400 (EDT)
-Message-ID: <20170419.173635.467763181064731648.davem@davemloft.net>
-References: <20170417125532.826640693@cogentembedded.com>
-        <20170417.161051.805859402797991771.davem@redhat.com>
-        <de18ee2d-b401-5542-7901-c35cee0adc70@cogentembedded.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: XDP question: best API for returning/setting egress port?
+Date: Wed, 19 Apr 2017 23:42:30 +0200
+Message-ID: <58F7D9C6.5040707@iogearbox.net>
+References: <20170418215856.5fda7127@redhat.com> <20170419200259.GK4730@C02RW35GFVH8.dhcp.broadcom.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org,
-        horms@verge.net.au
-To: sergei.shtylyov@cogentembedded.com
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <de18ee2d-b401-5542-7901-c35cee0adc70@cogentembedded.com>
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Daniel Borkmann <borkmann@iogearbox.net>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Alexei Starovoitov <ast@fb.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "xdp-newbies@vger.kernel.org" <xdp-newbies@vger.kernel.org>,
+        John Fastabend <john.fastabend@gmail.com>
+To: Andy Gospodarek <andy@greyhouse.net>,
+        Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:39140 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S968108AbdDSVmh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2017 17:42:37 -0400
+In-Reply-To: <20170419200259.GK4730@C02RW35GFVH8.dhcp.broadcom.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Date: Wed, 19 Apr 2017 22:09:51 +0300
-
-> On 04/17/2017 11:10 PM, David Miller wrote:
-> 
->>> The DMA API debugging (when enabled) causes:
->>>
->>> WARNING: CPU: 0 PID: 1445 at lib/dma-debug.c:519
->>> add_dma_entry+0xe0/0x12c
->>> DMA-API: exceeded 7 overlapping mappings of cacheline 0x01b2974d
->>>
->>> to be  printed after repeated initialization of the Ether device, e.g.
->>> suspend/resume or 'ifconfig' up/down. This is because DMA buffers
->>> mapped
->>> using dma_map_single() in sh_eth_ring_format() and sh_eth_start_xmit()
->>> are
->>> never unmapped. Resolve this problem by unmapping the buffers when
->>> freeing
->>> the descriptor rings; in order to do it right, we'd have to add an
->>> extra
->>> parameter to sh_eth_txfree() (we rename this function to
->>> sh_eth_tx_free(),
->>> while at it).
->>>
->>> Based on the commit a47b70ea86bd ("ravb: unmap descriptors when
->>> freeing
->>> rings").
->>>
->>> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+On 04/19/2017 10:02 PM, Andy Gospodarek wrote:
+> On Tue, Apr 18, 2017 at 09:58:56PM +0200, Jesper Dangaard Brouer wrote:
 >>
->> Applied, thanks.
-> 
->    Please don;t forget to send it to -stable.
->    The bug seems to be there from the very beginning.
+>> As I argued in NetConf presentation[1] (from slide #9) we need a port
+>> mapping table (instead of using ifindex'es).  Both for supporting
+>> other "port" types than net_devices (think sockets), and for
+>> sandboxing what XDP can bypass.
+>>
+>> I want to create a new XDP action called XDP_REDIRECT, that instruct
+>> XDP to send the xdp_buff to another "port" (get translated into a
+>> net_device, or something else depending on internal port type).
+>>
+>> Looking at the userspace/eBPF interface, I'm wondering what is the
+>> best API for "returning" this port number from eBPF?
+>>
+>> The options I see is:
+>>
+>> 1) Split-up the u32 action code, and e.g let the high-16-bit be the
+>>     port number and lower-16bit the (existing) action verdict.
+>>
+>>   Pros: Simple API
+>>   Cons: Number of ports limited to 64K
+>
+> Practically speaking this may be seem reserving 64k for the port number
+> might be enough space, but I would also like to see a new return option
+> for flags so I start to get concerned about space.  Daniel also
+> hightlights the fact that encoding the port in the action may does not
+> leave room for flags and could get confusing.
+>
+> One unfortunate side-effect of dropping or transmitting frames with XDP
+> is that we lose the opportunity to statistically sample in netfilter
+> since the frames were dropped so early and I'd like to bring that back
+> with a call to parse flags and possibly call psample_sample_packet()
+> after the xdp action.  Packet sampling cannot simply be an action
+> since there are times when a frame should be dropped but should also be
+> sampled, so it seems logical to add this as a flag.
 
-Ok, queued up.
+Hmm, you can do that already today with bpf_xdp_event_output() helper
+and the program decides when to sample and what custom meta data to
+prepend along with the (partial or full) xdp packet, see also [1], slide
+11 for the "XDP dump" part.
+
+No need to change drivers for this, psample_sample_packet() would also
+be slower.
+
+   [1] http://netdevconf.org/2.1/slides/apr6/zhou-netdev-xdp-2017.pdf
