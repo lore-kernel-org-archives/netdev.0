@@ -1,56 +1,48 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH net-next] i40evf: hide unused variable
-Date: Wed, 19 Apr 2017 19:29:48 +0200
-Message-ID: <20170419173008.3648215-1-arnd@arndb.de>
+Subject: [PATCH net-next] liquidio: remove unnecessary variable assignment
+Date: Wed, 19 Apr 2017 19:30:59 +0200
+Message-ID: <20170419173109.3683437-1-arnd@arndb.de>
 Cc: Arnd Bergmann <arnd@arndb.de>,
-        Bimmy Pujari <bimmy.pujari@intel.com>,
-        Alexander Duyck <alexander.h.duyck@intel.com>,
-        Mitch Williams <mitch.a.williams@intel.com>,
-        Jacob Keller <jacob.e.keller@intel.com>,
-        Alan Brady <alan.brady@intel.com>,
-        Joe Perches <joe@perches.com>,
-        Anjali Singhai Jain <anjali.singhai@intel.com>,
-        Jesse Brandeburg <jesse.brandeburg@intel.com>,
-        Preethi Banala <preethi.banala@intel.com>,
-        intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+        "David S. Miller" <davem@davemloft.net>,
+        Prasad Kanneganti <prasad.kanneganti@cavium.com>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Derek Chickles <derek.chickles@caviumnetworks.com>,
+        Satanand Burla <satananda.burla@caviumnetworks.com>,
+        Felix Manlunas <felix.manlunas@caviumnetworks.com>,
+        Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.kundenserver.de ([212.227.17.24]:49500 "EHLO
+        mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S967462AbdDSRbV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2017 13:31:21 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On architectures with larger pages, we get a warning about an unused variable:
+gcc points out an useless assignment that was added during code refactoring:
 
-drivers/net/ethernet/intel/i40evf/i40evf_main.c: In function 'i40evf_configure_rx':
-drivers/net/ethernet/intel/i40evf/i40evf_main.c:690:21: error: unused variable 'netdev' [-Werror=unused-variable]
+drivers/net/ethernet/cavium/liquidio/lio_ethtool.c: In function 'octnet_intrmod_callback':
+drivers/net/ethernet/cavium/liquidio/lio_ethtool.c:1315:59: error: parameter 'oct_dev' set but not used [-Werror=unused-but-set-parameter]
 
-This moves the declaration into the #ifdef to avoid the warning.
+This is harmless but can clearly be remove to avoid the warning.
 
-Fixes: dab86afdbbd1 ("i40e/i40evf: Change the way we limit the maximum frame size for Rx")
+Fixes: 50c0add534d2 ("liquidio: refactor interrupt moderation code")
 Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 ---
- drivers/net/ethernet/intel/i40evf/i40evf_main.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/cavium/liquidio/lio_ethtool.c | 2 --
+ 1 file changed, 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index 12a930e879af..1bb13c864edd 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -687,13 +687,14 @@ static void i40evf_configure_tx(struct i40evf_adapter *adapter)
- static void i40evf_configure_rx(struct i40evf_adapter *adapter)
- {
- 	unsigned int rx_buf_len = I40E_RXBUFFER_2048;
--	struct net_device *netdev = adapter->netdev;
- 	struct i40e_hw *hw = &adapter->hw;
- 	int i;
+diff --git a/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c b/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c
+index dab10c7e4443..579dc7336f58 100644
+--- a/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c
++++ b/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c
+@@ -1323,8 +1323,6 @@ static void octnet_intrmod_callback(struct octeon_device *oct_dev,
  
- 	/* Legacy Rx will always default to a 2048 buffer size. */
- #if (PAGE_SIZE < 8192)
- 	if (!(adapter->flags & I40EVF_FLAG_LEGACY_RX)) {
-+		struct net_device *netdev = adapter->netdev;
-+
- 		/* For jumbo frames on systems with 4K pages we have to use
- 		 * an order 1 page, so we might as well increase the size
- 		 * of our Rx buffer to make better use of the available space
+ 	ctx->status = status;
+ 
+-	oct_dev = lio_get_device(ctx->octeon_id);
+-
+ 	WRITE_ONCE(ctx->cond, 1);
+ 
+ 	/* This barrier is required to be sure that the response has been
 -- 
 2.9.0
