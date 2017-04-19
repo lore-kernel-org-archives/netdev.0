@@ -1,104 +1,127 @@
-From: Martin KaFai Lau <kafai@fb.com>
-Subject: [RFC PATCH net] net/mlx5e: Race between mlx5e_update_stats() and getting the stats
-Date: Wed, 19 Apr 2017 11:29:36 -0700
-Message-ID: <20170419182936.788220-1-kafai@fb.com>
+From: Aleksander Morgado <aleksander-Dvg4H30XQSRVIjRurl1/8g@public.gmane.org>
+Subject: Re: [PATCH 1/1] drivers: net: usb: qmi_wwan: add QMI_QUIRK_SET_DTR
+ for Telit PID 0x1201
+Date: Wed, 19 Apr 2017 20:32:25 +0200
+Message-ID: <CAAP7ucL0KLCxVSaO4Vf0LH=T7vRCtm5R2p9VFov+5V0OJF8Xcg@mail.gmail.com>
+References: <1491838463-20299-1-git-send-email-dnlplm@gmail.com> <87efwob92t.fsf@miraculix.mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Saeed Mahameed <saeedm@mellanox.com>, <kernel-team@fb.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:55982 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S968910AbdDSS3j (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2017 14:29:39 -0400
-Received: from pps.filterd (m0044008.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v3JITHiE031971
-        for <netdev@vger.kernel.org>; Wed, 19 Apr 2017 11:29:38 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 29xd4hr0xh-1
-        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Wed, 19 Apr 2017 11:29:38 -0700
-Received: from facebook.com (2401:db00:11:d09a:face:0:41:0)     by
- mx-out.facebook.com (10.212.236.87) with ESMTP id
- 245c25f0252e11e79a380002c9521c9e-877eb9a0 for <netdev@vger.kernel.org>;        Wed,
- 19 Apr 2017 11:29:36 -0700
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Daniele Palmas <dnlplm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: =?UTF-8?Q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <87efwob92t.fsf-3F4PFWf5pNjpjLOzFPqGjWGXanvQGlWp@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-We have observed a sudden spike in rx/tx_packets and rx/tx_bytes
-reported under /proc/net/dev.  It seems there is a race in
-mlx5e_update_stats() and some of the get-stats functions (the
-one that we hit is the mlx5e_get_stats() which is called
-by ndo_get_stats64()).
+On Wed, Apr 19, 2017 at 7:28 PM, Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org> wrote:
+>> as a side note in latest kernels I had troubles with qmi devices
+>> (e.g. I/O error when using qmicli).
+>>
+>> I found your suggestion in libqmi mailing list to revert commit
+>>
+>> 833415a3e781a26fe480a34d45086bdb4fe1e4c0
+>> cdc-wdm: fix "out-of-sync" due to missing notifications
+>
+> I guess a revert of that commit should be done then..
+>
+> I have been stalling because I have been hoping to replace it with a
+> better fix instead of a plain revert. I believe there are several issues
+> playing badly together here.  That commit was _expected_ to cause
+> spurious EPIPE errors, which would be translated to EIO if they were
+> propagated.  But they should be filtered out rightaway, in theory. This
+> works for me.  I can see the EPIPEs with debugging, but I have never
+> seen any EIO from read.
+>
+> And there is the problem: I am unable to reproduce this problem.  I have
+> previously tested this back and forth with several MDM9200 and MDM9235
+> generation modems in QMI mode, as well as in MBIM mode.  And also with a
+> number of other MBIM modems.  Aleksander reported that he could
+> reproduce the issue using an MDM9x15 generation modem in QMI mode, but
+> not with any MDM9x00 or MDM9x35 modem.  So I have now tried any way I
+> can imagine to reproduce the issue with a Sierra Wireless EM7305, which
+> is the only MDM9x15 modem I have. The firmware is SWI9X15C_05.05.58.00.
+>
+> But unfortunately the testing is still without "success".  It plain
+> works for me, every time, using ModemManager, qmicli with or without
+> proxy, or uqmi.
+>
+> Would you mind describing in detail how you trigger the EIOs?  What
+> software and command sequence are you using?  Does it reliably reproduce
+> the issue, or do you have to try several times?  What modem chipset and
+> firmware is used?
 
-In particular, the very first thing mlx5e_update_sw_counters()
-does is 'memset(s, 0, sizeof(*s))'.  For example, if mlx5e_get_stats()
-is unlucky at one point, rx_bytes and rx_packets could be 0.  One second
-later, a normal (and much bigger than 0) value will be reported.
+Reliably, as in the second command I sent already showed the issue :/
+I meant to try to debug this issue myself a while ago, but got busy
+with other stuff, as usual... This is with a Sierra Wireless MC7304
+running SWI9X15C_05.05.67.00. If you want, I can give you SSH access
+to a system with this modem plugged in, or I can even send you a spare
+MC7354, whatever you prefer.
 
-This patch is not meant to be a proper fix.  It merely tries
-to show what I have suspected and start the discussion.
+I'm just running --dms-get-operating-mode multiple times, and getting
+errors frequently:
 
-Signed-off-by: Martin KaFai Lau <kafai@fb.com>
-Cc: Saeed Mahameed <saeedm@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c | 7 +++++--
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c    | 3 +++
- 2 files changed, 8 insertions(+), 2 deletions(-)
+aleksander@athena:~/Development/foss/libqmi:(master)$ sudo qmicli -d
+/dev/cdc-wdm3 --dms-get-operating-mode
+[/dev/cdc-wdm3] Operating mode retrieved:
+Mode: 'online'
+HW restricted: 'no'
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-index a004a5a1a4c2..d24916f720bb 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-@@ -313,7 +313,6 @@ static void mlx5e_get_ethtool_stats(struct net_device *dev,
- 	mutex_lock(&priv->state_lock);
- 	if (test_bit(MLX5E_STATE_OPENED, &priv->state))
- 		mlx5e_update_stats(priv);
--	mutex_unlock(&priv->state_lock);
- 
- 	for (i = 0; i < NUM_SW_COUNTERS; i++)
- 		data[idx++] = MLX5E_READ_CTR64_CPU(&priv->stats.sw,
-@@ -378,8 +377,10 @@ static void mlx5e_get_ethtool_stats(struct net_device *dev,
- 		data[idx++] = MLX5E_READ_CTR64_CPU(mlx5_priv->pme_stats.error_counters,
- 						   mlx5e_pme_error_desc, i);
- 
--	if (!test_bit(MLX5E_STATE_OPENED, &priv->state))
-+	if (!test_bit(MLX5E_STATE_OPENED, &priv->state)) {
-+		mutex_unlock(&priv->state_lock);
- 		return;
-+	}
- 
- 	/* per channel counters */
- 	for (i = 0; i < priv->params.num_channels; i++)
-@@ -393,6 +394,8 @@ static void mlx5e_get_ethtool_stats(struct net_device *dev,
- 			for (j = 0; j < NUM_SQ_STATS; j++)
- 				data[idx++] = MLX5E_READ_CTR64_CPU(&priv->channel[i]->sq[tc].stats,
- 								   sq_stats_desc, j);
-+
-+	mutex_unlock(&priv->state_lock);
- }
- 
- static u32 mlx5e_rx_wqes_to_packets(struct mlx5e_priv *priv, int rq_wq_type,
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 66c133757a5e..a4c100bea541 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -2748,6 +2748,8 @@ mlx5e_get_stats(struct net_device *dev, struct rtnl_link_stats64 *stats)
- 	struct mlx5e_vport_stats *vstats = &priv->stats.vport;
- 	struct mlx5e_pport_stats *pstats = &priv->stats.pport;
- 
-+	mutex_lock(&priv->state_lock);
-+
- 	if (mlx5e_is_uplink_rep(priv)) {
- 		stats->rx_packets = PPORT_802_3_GET(pstats, a_frames_received_ok);
- 		stats->rx_bytes   = PPORT_802_3_GET(pstats, a_octets_received_ok);
-@@ -2783,6 +2785,7 @@ mlx5e_get_stats(struct net_device *dev, struct rtnl_link_stats64 *stats)
- 	stats->multicast =
- 		VPORT_COUNTER_GET(vstats, received_eth_multicast.packets);
- 
-+	mutex_unlock(&priv->state_lock);
- }
- 
- static void mlx5e_set_rx_mode(struct net_device *dev)
--- 
-2.9.3
+aleksander@athena:~/Development/foss/libqmi:(master)$ sudo qmicli -d
+/dev/cdc-wdm3 --dms-get-operating-mode
+[19 abr 2017, 20:25:36] -Warning ** Error reading from istream: Error
+reading from file descriptor: Input/output error
+^[[A^Ccancelling the operation...
+error: couldn't create client for the 'dms' service: Operation was cancelle=
+d
+
+aleksander@athena:~/Development/foss/libqmi:(master)$ sudo qmicli -d
+/dev/cdc-wdm3 --dms-get-operating-mode
+[19 abr 2017, 20:25:38] -Warning ** Error reading from istream: Error
+reading from file descriptor: Input/output error
+^Ccancelling the operation...
+error: couldn't create client for the 'dms' service: Operation was cancelle=
+d
+
+aleksander@athena:~/Development/foss/libqmi:(master)$ sudo qmicli -d
+/dev/cdc-wdm3 --dms-get-operating-mode
+[/dev/cdc-wdm3] Operating mode retrieved:
+Mode: 'online'
+HW restricted: 'no'
+
+aleksander@athena:~/Development/foss/libqmi:(master)$ sudo qmicli -d
+/dev/cdc-wdm3 --dms-get-operating-mode
+[/dev/cdc-wdm3] Operating mode retrieved:
+Mode: 'online'
+HW restricted: 'no'
+
+aleksander@athena:~/Development/foss/libqmi:(master)$ sudo qmicli -d
+/dev/cdc-wdm3 --dms-get-operating-mode
+[/dev/cdc-wdm3] Operating mode retrieved:
+Mode: 'online'
+HW restricted: 'no'
+
+aleksander@athena:~/Development/foss/libqmi:(master)$ sudo qmicli -d
+/dev/cdc-wdm3 --dms-get-operating-mode
+[/dev/cdc-wdm3] Operating mode retrieved:
+Mode: 'online'
+HW restricted: 'no'
+
+aleksander@athena:~/Development/foss/libqmi:(master)$ sudo qmicli -d
+/dev/cdc-wdm3 --dms-get-operating-mode
+[19 abr 2017, 20:25:52] -Warning ** Error reading from istream: Error
+reading from file descriptor: Input/output error
+error: couldn't create client for the 'dms' service: CID allocation
+failed in the CTL client: Transaction timed out
+
+...
+
+--=20
+Aleksander
+https://aleksander.es
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
