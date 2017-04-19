@@ -1,134 +1,132 @@
-From: Roger Quadros <rogerq@ti.com>
-Subject: [PATCH] mdio_bus: Issue GPIO RESET to PHYs.
-Date: Wed, 19 Apr 2017 12:24:26 +0300
-Message-ID: <64d6494d-41d2-0faf-a434-057f796637fe@ti.com>
-References: <1491381237-24635-1-git-send-email-rogerq@ti.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH 2/2] sparc64: Add eBPF JIT.
+Date: Wed, 19 Apr 2017 11:35:39 +0200
+Message-ID: <58F72F6B.9060808@iogearbox.net>
+References: <20170418.145823.444134784458713460.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <tony@atomide.com>, <nsekhar@ti.com>, <jsarha@ti.com>,
-        <netdev@vger.kernel.org>, <linux-omap@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>, <rogerq@ti.com>
-To: <davem@davemloft.net>, Andrew Lunn <andrew@lunn.ch>,
-        Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1491381237-24635-1-git-send-email-rogerq@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, ast@kernel.org
+To: David Miller <davem@davemloft.net>, sparclinux@vger.kernel.org
+Return-path: <sparclinux-owner@vger.kernel.org>
+In-Reply-To: <20170418.145823.444134784458713460.davem@davemloft.net>
+Sender: sparclinux-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Some boards [1] leave the PHYs at an invalid state
-during system power-up or reset thus causing unreliability
-issues with the PHY which manifests as PHY not being detected
-or link not functional. To fix this, these PHYs need to be RESET
-via a GPIO connected to the PHY's RESET pin.
+On 04/18/2017 08:58 PM, David Miller wrote:
+>
+> This is an eBPF JIT for sparc64.  All major features are supported
+> except for tail calls.
+>
+> test_bpf passes with no failures and all tests are JIT'd, both with
+> and without hardening enabled.
+>
+> Signed-off-by: David S. Miller <davem@davemloft.net>
+[...]
 
-Some boards have a single GPIO controlling the PHY RESET pin of all
-PHYs on the bus whereas some others have separate GPIOs controlling
-individual PHY RESETs.
+While going over the code again, I noticed two minor
+things that could still be changed before applying:
 
-In both cases, the RESET de-assertion cannot be done in the PHY driver
-as the PHY will not probe till its reset is de-asserted.
-So do the RESET de-assertion in the MDIO bus driver.
+> +struct bpf_prog *bpf_int_jit_compile(struct bpf_prog *prog)
+> +{
+> +	struct bpf_prog *tmp, *orig_prog = prog;
+> +	struct bpf_binary_header *header;
+> +	bool tmp_blinded = false;
+> +	struct jit_ctx ctx;
+> +	u32 image_size;
+> +	u8 *image_ptr;
+> +	int pass;
+> +
+> +	if (!bpf_jit_enable)
+> +		return orig_prog;
+> +
+> +	if (!prog || !prog->len)
+> +		return orig_prog;
 
-[1] - am572x-idk, am571x-idk, a437x-idk
+This condition can be removed, see also 93a73d442d37
+("bpf, x86/arm64: remove useless checks on prog"), since
+there's no way we could land here under such circumstance.
 
-Signed-off-by: Roger Quadros <rogerq@ti.com>
----
- drivers/net/phy/mdio_bus.c | 26 ++++++++++++++++++++++++++
- drivers/of/of_mdio.c       |  4 ++++
- include/linux/phy.h        |  5 +++++
- 3 files changed, 35 insertions(+)
+> +	tmp = bpf_jit_blind_constants(prog);
+> +	/* If blinding was requested and we failed during blinding,
+> +	 * we must fall back to the interpreter.
+> +	 */
+> +	if (IS_ERR(tmp))
+> +		return orig_prog;
+> +	if (tmp != prog) {
+> +		tmp_blinded = true;
+> +		prog = tmp;
+> +	}
+> +
+> +	memset(&ctx, 0, sizeof(ctx));
+> +	ctx.prog = prog;
+> +
+> +	ctx.offset = kcalloc(prog->len, sizeof(unsigned int), GFP_KERNEL);
+> +	if (ctx.offset == NULL) {
+> +		prog = orig_prog;
+> +		goto out;
+> +	}
+> +
+> +	/* Fake pass to detect features used, and get an accurate assessment
+> +	 * of what the final image size will be.
+> +	 */
+> +	if (build_body(&ctx)) {
+> +		prog = orig_prog;
+> +		goto out_off;
+> +	}
+> +	build_prologue(&ctx);
+> +	build_epilogue(&ctx);
+> +
+> +	/* Now we know the actual image size. */
+> +	image_size = sizeof(u32) * ctx.idx;
+> +	header = bpf_jit_binary_alloc(image_size, &image_ptr,
+> +				      sizeof(u32), jit_fill_hole);
+> +	if (header == NULL) {
+> +		prog = orig_prog;
+> +		goto out_off;
+> +	}
+> +
+> +	ctx.image = (u32 *)image_ptr;
+> +
+> +	for (pass = 1; pass < 3; pass++) {
+> +		ctx.idx = 0;
+> +
+> +		build_prologue(&ctx);
+> +
+> +		if (build_body(&ctx)) {
+> +			bpf_jit_binary_free(header);
+> +			prog = orig_prog;
+> +			goto out_off;
+> +		}
+> +
+> +		build_epilogue(&ctx);
+> +
+> +		if (bpf_jit_enable > 1)
+> +			pr_info("Pass %d: shrink = %d, seen = [%c%c%c%c%c]\n", pass,
+> +				image_size - (ctx.idx * 4),
+> +				ctx.tmp_1_used ? '1' : ' ',
+> +				ctx.tmp_2_used ? '2' : ' ',
+> +				ctx.tmp_3_used ? '3' : ' ',
+> +				ctx.saw_ld_abs_ind ? 'L' : ' ',
+> +				ctx.saw_frame_pointer ? 'F' : ' ');
+> +	}
+> +
+> +	if (bpf_jit_enable > 1)
+> +		bpf_jit_dump(prog->len, image_size, pass, ctx.image);
+> +	bpf_flush_icache(ctx.image, ctx.image + image_size);
 
-diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
-index fa7d51f..25fda2b 100644
---- a/drivers/net/phy/mdio_bus.c
-+++ b/drivers/net/phy/mdio_bus.c
-@@ -22,8 +22,11 @@
- #include <linux/init.h>
- #include <linux/delay.h>
- #include <linux/device.h>
-+#include <linux/gpio.h>
-+#include <linux/gpio/consumer.h>
- #include <linux/of_device.h>
- #include <linux/of_mdio.h>
-+#include <linux/of_gpio.h>
- #include <linux/netdevice.h>
- #include <linux/etherdevice.h>
- #include <linux/skbuff.h>
-@@ -43,6 +46,8 @@
- 
- #include "mdio-boardinfo.h"
- 
-+#define DEFAULT_GPIO_RESET_DELAY	10	/* in microseconds */
-+
- int mdiobus_register_device(struct mdio_device *mdiodev)
- {
- 	if (mdiodev->bus->mdio_map[mdiodev->addr])
-@@ -307,6 +312,7 @@ int __mdiobus_register(struct mii_bus *bus, struct module *owner)
- {
- 	struct mdio_device *mdiodev;
- 	int i, err;
-+	struct gpio_desc *gpiod;
- 
- 	if (NULL == bus || NULL == bus->name ||
- 	    NULL == bus->read || NULL == bus->write)
-@@ -333,6 +339,26 @@ int __mdiobus_register(struct mii_bus *bus, struct module *owner)
- 	if (bus->reset)
- 		bus->reset(bus);
- 
-+	/* de-assert bus level PHY GPIO resets */
-+	for (i = 0; i < bus->num_reset_gpios; i++) {
-+		gpiod = devm_gpiod_get_index(&bus->dev, "reset", i,
-+					     GPIOD_OUT_LOW);
-+		if (IS_ERR(gpiod)) {
-+			err = PTR_ERR(gpiod);
-+			if (err != -ENOENT) {
-+				pr_err("mii_bus %s couldn't get reset GPIO\n",
-+				       bus->id);
-+				return err;
-+			}
-+		} else {
-+			gpiod_set_value_cansleep(gpiod, 1);
-+			if (!bus->reset_delay_us)
-+				bus->reset_delay_us = DEFAULT_GPIO_RESET_DELAY;
-+			udelay(bus->reset_delay_us);
-+			gpiod_set_value_cansleep(gpiod, 0);
-+		}
-+	}
-+
- 	for (i = 0; i < PHY_MAX_ADDR; i++) {
- 		if ((bus->phy_mask & (1 << i)) == 0) {
- 			struct phy_device *phydev;
-diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
-index 0b29798..83a62e4 100644
---- a/drivers/of/of_mdio.c
-+++ b/drivers/of/of_mdio.c
-@@ -221,6 +221,10 @@ int of_mdiobus_register(struct mii_bus *mdio, struct device_node *np)
- 
- 	mdio->dev.of_node = np;
- 
-+	/* Get bus level PHY reset GPIO details */
-+	of_property_read_u32(np, "reset-delay-us", &mdio->reset_delay_us);
-+	mdio->num_reset_gpios = of_gpio_named_count(np, "reset-gpios");
-+
- 	/* Register the MDIO bus */
- 	rc = mdiobus_register(mdio);
- 	if (rc)
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index 43a7748..80a6574 100644
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -217,6 +217,11 @@ struct mii_bus {
- 	 * matching its address
- 	 */
- 	int irq[PHY_MAX_ADDR];
-+
-+	/* GPIO reset pulse width in uS */
-+	int reset_delay_us;
-+	/* Number of reset GPIOs */
-+	int num_reset_gpios;
- };
- #define to_mii_bus(d) container_of(d, struct mii_bus, dev)
- 
--- 
-2.7.4
+Since remaining parts were filled through jit_fill_hole(),
+it would be better / more correct to flush the whole buffer,
+see also the recent ppc64 commit 10528b9c45cf ("powerpc/bpf:
+Flush the entire JIT buffer") that fixed it for their jit.
+
+> +	bpf_jit_binary_lock_ro(header);
+> +
+> +	prog->bpf_func = (void *)ctx.image;
+> +	prog->jited = 1;
+> +
+> +out_off:
+> +	kfree(ctx.offset);
+
+Thanks a lot,
+Daniel
