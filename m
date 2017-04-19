@@ -1,67 +1,88 @@
-From: Alexander Kochetkov <al.kochet@gmail.com>
-Subject: Re: [PATCH] net: arc_emac: switch to phy_start()/phy_stop()
-Date: Thu, 20 Apr 2017 00:19:11 +0300
-Message-ID: <E5D835FF-589E-4A87-9C08-A47B2CCF5645@gmail.com>
-References: <1492612195-16601-1-git-send-email-al.kochet@gmail.com> <5ed9e534-d134-2ba1-0276-0bc8bd949eb1@gmail.com>
-Mime-Version: 1.0 (Mac OS X Mail 9.3 \(3124\))
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Philippe Reynes <tremyfr@gmail.com>,
-        Peter Chen <peter.chen@nxp.com>,
-        Wei Yongjun <weiyongjun1@huawei.com>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Florian Fainelli <f.fainelli@gmail.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH net] net: ipv6: RTF_PCPU should not be settable from userspace
+Date: Wed, 19 Apr 2017 14:19:43 -0700
+Message-ID: <1492636783-29756-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: kafai@fb.com, andreyknvl@google.com,
+        David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f66.google.com ([209.85.215.66]:36041 "EHLO
-        mail-lf0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S967507AbdDSVTO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2017 17:19:14 -0400
-In-Reply-To: <5ed9e534-d134-2ba1-0276-0bc8bd949eb1@gmail.com>
+Received: from mail-io0-f177.google.com ([209.85.223.177]:35584 "EHLO
+        mail-io0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S967679AbdDSVTw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2017 17:19:52 -0400
+Received: by mail-io0-f177.google.com with SMTP id r16so37217984ioi.2
+        for <netdev@vger.kernel.org>; Wed, 19 Apr 2017 14:19:52 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Andrey reported a fault in the IPv6 route code:
 
-> 20 =D0=B0=D0=BF=D1=80. 2017 =D0=B3., =D0=B2 0:08, Florian Fainelli =
-<f.fainelli@gmail.com> =D0=BD=D0=B0=D0=BF=D0=B8=D1=81=D0=B0=D0=BB(=D0=B0):=
+kasan: GPF could be caused by NULL-ptr deref or user memory access
+general protection fault: 0000 [#1] SMP KASAN
+Modules linked in:
+CPU: 1 PID: 4035 Comm: a.out Not tainted 4.11.0-rc7+ #250
+Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+task: ffff880069809600 task.stack: ffff880062dc8000
+RIP: 0010:ip6_rt_cache_alloc+0xa6/0x560 net/ipv6/route.c:975
+RSP: 0018:ffff880062dced30 EFLAGS: 00010206
+RAX: dffffc0000000000 RBX: ffff8800670561c0 RCX: 0000000000000006
+RDX: 0000000000000003 RSI: ffff880062dcfb28 RDI: 0000000000000018
+RBP: ffff880062dced68 R08: 0000000000000001 R09: 0000000000000000
+R10: 0000000000000000 R11: 0000000000000000 R12: 0000000000000000
+R13: ffff880062dcfb28 R14: dffffc0000000000 R15: 0000000000000000
+FS:  00007feebe37e7c0(0000) GS:ffff88006cb00000(0000) knlGS:0000000000000000
+CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+CR2: 00000000205a0fe4 CR3: 000000006b5c9000 CR4: 00000000000006e0
+Call Trace:
+ ip6_pol_route+0x1512/0x1f20 net/ipv6/route.c:1128
+ ip6_pol_route_output+0x4c/0x60 net/ipv6/route.c:1212
+...
 
->=20
-> This looks fine. If you wanted to go further, you could move the
-> phy_connect(), phy_disconnect() calls down to the arc_emac_open()
-> respectively arc_emac_stop() as this would also allow the PHY device =
-to
-> be fully suspended when the interface is unused.
+Andrey's syzkaller program passes rtmsg.rtmsg_flags with the RTF_PCPU bit
+set. Flags passed to the kernel are blindly copied to the allocated
+rt6_info by ip6_route_info_create making a newly inserted route appear
+as though it is a per-cpu route. ip6_rt_cache_alloc sees the flag set
+and expects rt->dst.from to be set - which it is not since it is not
+really a per-cpu copy. The subsequent call to __ip6_dst_alloc then
+generates the fault.
 
+Fix by checking for the flag and failing with EINVAL.
 
-I=E2=80=99ve checked patch phy_connect() is called from arc_emac_open() =
-and
-phy_disconnect() is called from arc_emac_stop().
+Fixes: d52d3997f843f ("ipv6: Create percpu rt6_info")
+Reported-by: Andrey Konovalov <andreyknvl@google.com>
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+---
+ include/uapi/linux/ipv6_route.h | 2 +-
+ net/ipv6/route.c                | 4 ++++
+ 2 files changed, 5 insertions(+), 1 deletion(-)
 
-So, I=E2=80=99ve made mistake in the commit message.
-
-Thank you for review.
-
->=20
-> 19 =D0=B0=D0=BF=D1=80. 2017 =D0=B3., =D0=B2 21:22, Sergei Shtylyov =
-<sergei.shtylyov@cogentembedded.com> =D0=BD=D0=B0=D0=BF=D0=B8=D1=81=D0=B0=D0=
-=BB(=D0=B0):
->=20
-> On 04/19/2017 05:29 PM, Alexander Kochetkov wrote:
->=20
->> The patch replace phy_start_aneg() with phy_start(). phy_start() call
->=20
->   Replaces.
->=20
->> phy_start_aneg() as a part of startup sequence and allow recover from
->> error (PHY_HALTED) state.
->>=20
->> Also added call phy_stop() to arc_emac_remove() to stop PHY state =
-machine
->=20
->   To arc_emac_stop() maybe?
->=20
-
-Sergei, thanks for spell and gramma checking.
-
-Regards,
-Alexander.
+diff --git a/include/uapi/linux/ipv6_route.h b/include/uapi/linux/ipv6_route.h
+index 85bbb1799df3..d496c02e14bc 100644
+--- a/include/uapi/linux/ipv6_route.h
++++ b/include/uapi/linux/ipv6_route.h
+@@ -35,7 +35,7 @@
+ #define RTF_PREF(pref)	((pref) << 27)
+ #define RTF_PREF_MASK	0x18000000
+ 
+-#define RTF_PCPU	0x40000000
++#define RTF_PCPU	0x40000000	/* read-only: can not be set by user */
+ #define RTF_LOCAL	0x80000000
+ 
+ 
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 4ba7c49872ff..a1bf426c959b 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1854,6 +1854,10 @@ static struct rt6_info *ip6_route_info_create(struct fib6_config *cfg)
+ 	int addr_type;
+ 	int err = -EINVAL;
+ 
++	/* RTF_PCPU is an internal flag; can not be set by userspace */
++	if (cfg->fc_flags & RTF_PCPU)
++		goto out;
++
+ 	if (cfg->fc_dst_len > 128 || cfg->fc_src_len > 128)
+ 		goto out;
+ #ifndef CONFIG_IPV6_SUBTREES
+-- 
+2.9.3
