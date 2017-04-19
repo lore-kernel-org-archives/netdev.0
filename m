@@ -1,135 +1,116 @@
-From: <David.Cai@microchip.com>
-Subject: [PATCH net-next]smsc911x: Adding support for Micochip LAN9250
- Ethernet controller
-Date: Wed, 19 Apr 2017 00:29:45 +0000
-Message-ID: <C3C28FB10418274EB7FD7C2B85C796A44124623F@CHN-SV-EXMX02.mchp-main.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: question about size of sk_buff and skb_shared_info
+Date: Tue, 18 Apr 2017 17:47:23 -0700
+Message-ID: <1492562843.10587.153.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <CABGNecyP8tpBtbOPL_4fyhqnkTYEa80sHCuDrUJdm9gxihFX6w@mail.gmail.com>
+         <1492542021.10587.137.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CABGNecz7oRk8PZS_YzG2QzpMXi78rQX4zPpt_28ZgJYYZS-ytg@mail.gmail.com>
+         <1492559721.10587.150.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CABGNeczXNPkWnhkviHhXv5OpVope_0BGNoB-nsGwALOptrwWdA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: 8BIT
-Cc: <UNGLinuxDriver@microchip.com>, <steve.glendinning@shawell.net>,
-        <Ravi.Hegde@microchip.com>, <Woojung.Huh@microchip.com>
-To: <netdev@vger.kernel.org>, <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Code Soldier1 <codesoldier1@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from esa3.microchip.iphmx.com ([68.232.153.233]:32779 "EHLO
-        esa3.microchip.iphmx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757849AbdDSA3q (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 20:29:46 -0400
-Content-Language: en-US
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:33010 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756410AbdDSArZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 20:47:25 -0400
+Received: by mail-pg0-f67.google.com with SMTP id 63so1466897pgh.0
+        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 17:47:25 -0700 (PDT)
+In-Reply-To: <CABGNeczXNPkWnhkviHhXv5OpVope_0BGNoB-nsGwALOptrwWdA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Attached is a patch which adding support for Microchip LAN9250 Ethernet controller.
 
-Thanks,
+For the last time, do not top post on netdev.
 
-=====================
-David Cai
-Principle Software Engineer
-Microchip Technology Inc.
-=====================
+On Tue, 2017-04-18 at 17:15 -0700, Code Soldier1 wrote:
+> I am not suggesting that we do not do cache alignment. That is
+> required for performance. I have gone through this exercise because I
+> need to add a field to sk_buff and I want to do that without causing
+> any adverse effects.
+> 
+> Now that we have discovered that there are 40 bytes that can be used
+> without any adverse effect, may I increase skb->cb by 8 bytes ?
+> 
 
-Signed-off-by: David Cai <david.cai@microchip.com>
----
-drivers/net/ethernet/smsc/smsc911x.c | 32 +++++++++++++++++++++++++++-----
-drivers/net/ethernet/smsc/smsc911x.h |  3 +++
-2 files changed, 30 insertions(+), 5 deletions(-)
+skb->cb is already 48 bytes, not 40.
 
-diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
-index fa5ca09..22b1951 100644
---- a/drivers/net/ethernet/smsc/smsc911x.c
-+++ b/drivers/net/ethernet/smsc/smsc911x.c
-@@ -25,7 +25,7 @@
-  *   LAN9215, LAN9216, LAN9217, LAN9218
-  *   LAN9210, LAN9211
-  *   LAN9220, LAN9221
-- *   LAN89218
-+ *   LAN89218,LAN9250
-  *
-  */
+> If not then may I increase skb_shared_info -- However that would have
+> to be by 64bytes.
 
-@@ -104,6 +104,9 @@ struct smsc911x_data {
-               /* used to decide which workarounds apply */
-               unsigned int generation;
 
-+             /* used to decide which sub generation product work arounds to apply */
-+             unsigned int sub_generation;
-+
-               /* device configuration (copied from platform_data during probe) */
-               struct smsc911x_platform_config config;
+You will have a very hard time to convince us that this 8 byte field is
+needed on all skbs, regardless of current sk_buff size.
 
-@@ -1450,6 +1453,8 @@ static int smsc911x_soft_reset(struct smsc911x_data *pdata)
-               unsigned int timeout;
-               unsigned int temp;
-               int ret;
-+             unsigned int reset_offset = HW_CFG;
-+             unsigned int reset_mask = HW_CFG_SRST_;
 
-                /*
-                * Make sure to power-up the PHY chip before doing a reset, otherwise
-@@ -1476,15 +1481,23 @@ static int smsc911x_soft_reset(struct smsc911x_data *pdata)
-                               }
-               }
 
-+             if (pdata->sub_generation) {
-+                             /* special reset for  LAN9250 */
-+                             reset_offset = RESET_CTL;
-+                             reset_mask = RESET_CTL_DIGITAL_RST_;
-+             }
-+
-               /* Reset the LAN911x */
--              smsc911x_reg_write(pdata, HW_CFG, HW_CFG_SRST_);
-+             smsc911x_reg_write(pdata, reset_offset, reset_mask);
-+
-+             /* verify reset bit is cleared */
-               timeout = 10;
-               do {
-                               udelay(10);
--                              temp = smsc911x_reg_read(pdata, HW_CFG);
--              } while ((--timeout) && (temp & HW_CFG_SRST_));
-+                             temp = smsc911x_reg_read(pdata, reset_offset);
-+             } while ((--timeout) && (temp & reset_mask));
-
--              if (unlikely(temp & HW_CFG_SRST_)) {
-+             if (unlikely(temp & reset_mask)) {
-                               SMSC_WARN(pdata, drv, "Failed to complete reset");
-                               return -EIO;
-               }
-@@ -2251,6 +2264,9 @@ static int smsc911x_init(struct net_device *dev)
-               /* Default generation to zero (all workarounds apply) */
-               pdata->generation = 0;
-
-+             /* Default sub_generation to zero */
-+             pdata->sub_generation = 0;
-+
-               pdata->idrev = smsc911x_reg_read(pdata, ID_REV);
-               switch (pdata->idrev & 0xFFFF0000) {
-               case 0x01180000:
-@@ -2278,6 +2294,12 @@ static int smsc911x_init(struct net_device *dev)
-                               pdata->generation = 4;
-                               break;
-
-+             case 0x92500000:
-+                             /* LAN9250 */
-+                             pdata->generation = 4;
-+                             pdata->sub_generation = 1;
-+                             break;
-+
-               default:
-                               SMSC_WARN(pdata, probe, "LAN911x not identified, idrev: 0x%08X",
-                                                 pdata->idrev);
-diff --git a/drivers/net/ethernet/smsc/smsc911x.h b/drivers/net/ethernet/smsc/smsc911x.h
-index 54d6489..6b2d479 100644
---- a/drivers/net/ethernet/smsc/smsc911x.h
-+++ b/drivers/net/ethernet/smsc/smsc911x.h
-@@ -303,6 +303,9 @@
-#define E2P_DATA_EEPROM_DATA_                    0x000000FF
-#define LAN_REGISTER_EXTENT                              0x00000100
-
-+#define RESET_CTL                                       0x1F8
-+#define RESET_CTL_DIGITAL_RST_                       0x00000001
-+
-/*
-  * MAC Control and Status Register (Indirect Address)
-  * Offset (through the MAC_CSR CMD and DATA port)
--- 
-2.7.4
+> 
+> 
+> On Tue, Apr 18, 2017 at 4:55 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > Please do not top post on netdev
+> >
+> > On Tue, 2017-04-18 at 16:26 -0700, Code Soldier1 wrote:
+> >> Eric,
+> >>
+> >> This alignment flag is passed to the cache constructor and the
+> >> allocation is indeed cache aligned. However, since the allocated size
+> >> is not a multiple of the alignment, wont memory be wasted ?. We can
+> >> get 40 extra bytes without any side effects since they are on the same
+> >> cache line ?
+> >
+> > We _want_ to align skb to cache lines.
+> >
+> > Fact that few bytes might be wasted is unfortunate, but negligible.
+> >
+> > BTW, if you do kmalloc(1025), kmalloc() wastes 1023 bytes.
+> >
+> >
+> >>
+> >> kmem_cache_create() code does an ALIGN() to round up the size.
+> >>
+> >>         kasan_cache_create(cachep, &size, &flags);
+> >>
+> >>         size = ALIGN(size, cachep->align);
+> >>
+> >> This is the size used in calculate_slab_order() to calculate num. I am
+> >> assuming that in the non debug case gfp_order will be 0.
+> >>
+> >> Perhaps I am missing something.
+> >>
+> >>
+> >> On Tue, Apr 18, 2017 at 12:00 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> >> > On Tue, 2017-04-18 at 10:34 -0700, Code Soldier1 wrote:
+> >> >> Hi Folks,
+> >> >>
+> >> >> I am sure there is a reason for the current sizes of these structures,
+> >> >> However the reason is not obvious to me. So please help me understand.
+> >> >>
+> >> >> Currently the size of sk_buff on an x86_64 system is 232 bytes -- Why
+> >> >> is that. I expected it to be a multiple of 32/64 as they are the most
+> >> >> common cache lines. Since the alignment calculation will align the
+> >> >> structure with the hw cache line, it seems like we might be wasting
+> >> >> space ?
+> >> >>
+> >> >> skb_shared_info on the other hand is perfectly aligned with a size of 320 bytes.
+> >> >>
+> >> >> Thanks,
+> >> >>
+> >> >
+> >> > The alignment is there.
+> >> > Look at skb_init() code, using SLAB_HWCACHE_ALIGN
+> >> >
+> >> >
+> >> >
+> >> >
+> >> >
+> >>
+> >>
+> >>
+> >
+> >
+> 
+> 
+> 
