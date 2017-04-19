@@ -1,132 +1,96 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH 2/2] sparc64: Add eBPF JIT.
-Date: Wed, 19 Apr 2017 11:35:39 +0200
-Message-ID: <58F72F6B.9060808@iogearbox.net>
-References: <20170418.145823.444134784458713460.davem@davemloft.net>
+From: James Hughes <james.hughes@raspberrypi.org>
+Subject: Re: [PATCH v2] smsc95xx: Use skb_cow_head to deal with cloned skbs
+Date: Wed, 19 Apr 2017 10:40:18 +0100
+Message-ID: <CAE_XsM+b3vXGPYT8j0iM_FsAux_3AtYaj+HdUaTy-3QU0eKomg@mail.gmail.com>
+References: <20170418171706.21190-1-james.hughes@raspberrypi.org>
+ <1492541921.10587.135.camel@edumazet-glaptop3.roam.corp.google.com>
+ <9235D6609DB808459E95D78E17F2E43D40A477A5@CHN-SV-EXMX02.mchp-main.com>
+ <1492555561.10587.147.camel@edumazet-glaptop3.roam.corp.google.com> <CAE_XsMJhCVU4eHtiO7gs3=mRvA9vN4kiuh2JhXf+F_YgVXcWhQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ast@kernel.org
-To: David Miller <davem@davemloft.net>, sparclinux@vger.kernel.org
-Return-path: <sparclinux-owner@vger.kernel.org>
-In-Reply-To: <20170418.145823.444134784458713460.davem@davemloft.net>
-Sender: sparclinux-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Woojung.Huh@microchip.com, netdev@vger.kernel.org,
+        Steve Glendinning <steve.glendinning@shawell.net>,
+        Microchip Linux Driver Support <UNGLinuxDriver@microchip.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx08-00252a01.pphosted.com ([91.207.212.211]:51962 "EHLO
+        mx08-00252a01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1761817AbdDSJkV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2017 05:40:21 -0400
+Received: from pps.filterd (m0102629.ppops.net [127.0.0.1])
+        by mx08-00252a01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v3J9aZ3L015993
+        for <netdev@vger.kernel.org>; Wed, 19 Apr 2017 10:40:20 +0100
+Received: from mail-wr0-f198.google.com (mail-wr0-f198.google.com [209.85.128.198])
+        by mx08-00252a01.pphosted.com with ESMTP id 29wqp2895k-1
+        (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128 verify=OK)
+        for <netdev@vger.kernel.org>; Wed, 19 Apr 2017 10:40:19 +0100
+Received: by mail-wr0-f198.google.com with SMTP id c55so1843213wrc.22
+        for <netdev@vger.kernel.org>; Wed, 19 Apr 2017 02:40:19 -0700 (PDT)
+In-Reply-To: <CAE_XsMJhCVU4eHtiO7gs3=mRvA9vN4kiuh2JhXf+F_YgVXcWhQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04/18/2017 08:58 PM, David Miller wrote:
+On 19 April 2017 at 09:33, James Hughes <james.hughes@raspberrypi.org> wrote:
+> On 18 April 2017 at 23:46, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>> On Tue, 2017-04-18 at 22:09 +0000, Woojung.Huh@microchip.com wrote:
+>>> > > @@ -2067,13 +2067,9 @@ static struct sk_buff *smsc95xx_tx_fixup(struct
+>>> > usbnet *dev,
+>>> > >   /* We do not advertise SG, so skbs should be already linearized */
+>>> > >   BUG_ON(skb_shinfo(skb)->nr_frags);
+>>> > >
+>>> > > - if (skb_headroom(skb) < overhead) {
+>>> > > -         struct sk_buff *skb2 = skb_copy_expand(skb,
+>>> > > -                 overhead, 0, flags);
+>>> > > -         dev_kfree_skb_any(skb);
+>>> > > -         skb = skb2;
+>>> > > -         if (!skb)
+>>> > > -                 return NULL;
+>>> > > + /* Make writable and expand header space by overhead if required
+>>> > */
+>>> > > + if (skb_cow_head(skb, overhead)) {
+>>> >
+>>> > I believe you still need to
+>>> >             dev_kfree_skb_any(skb);
+>>> >
+>>> I think caller of usbnet_start_xmit() takes care of free when return NULL.
+>>
+>> I do not think so. Here is the code in usbnet_start_xmit() :
+>>
+>> if (info->tx_fixup) {
+>>    skb = info->tx_fixup (dev, skb, GFP_ATOMIC);
+>>
+>>    if (!skb) { // Note that skb is NULL now
+>>
+>>        if (info->flags & FLAG_MULTI_PACKET)
+>>              goto not_drop;
+>>         netif_dbg(dev, tx_err, dev->net, "can't tx_fixup skb\n");
+>>         goto drop;
+>>
+>>
+>> If you really think about it (even before double checking the code in
+>> usbnet_start_xmit()), that would have been a very serious bug.
+>>
+>> Calling dev_kfree_skb_any(skb) in this fixup code, then later from
+>> usbnet_start_xmit() would have been a double free, or use after free.
+>>
+>>
 >
-> This is an eBPF JIT for sparc64.  All major features are supported
-> except for tail calls.
+> So, I still need to return NULL (as per the code this is replacing) to
+> indicate failure, but need to free the skb prior to return, as per
+> fragment below.
 >
-> test_bpf passes with no failures and all tests are JIT'd, both with
-> and without hardening enabled.
+> /* Make writable and expand header space by overhead if required */
+> if (skb_cow_head(skb, overhead)) {
+>    dev_kfree_skb_any(skb);
+>    return NULL;
+> }
 >
-> Signed-off-by: David S. Miller <davem@davemloft.net>
-[...]
+> Once confirmed, I'll do a another patch.
 
-While going over the code again, I noticed two minor
-things that could still be changed before applying:
+Actually, having checked the code path, doing the free here does look
+like the correct operation. Returning NULL indicates to the caller
+that the call has failed, but also means the skb is not deallocated
+later on. It's seems rather a clunky mechanism for the driver to have
+to deallocate, but I guess that's 'just the way it is'.
 
-> +struct bpf_prog *bpf_int_jit_compile(struct bpf_prog *prog)
-> +{
-> +	struct bpf_prog *tmp, *orig_prog = prog;
-> +	struct bpf_binary_header *header;
-> +	bool tmp_blinded = false;
-> +	struct jit_ctx ctx;
-> +	u32 image_size;
-> +	u8 *image_ptr;
-> +	int pass;
-> +
-> +	if (!bpf_jit_enable)
-> +		return orig_prog;
-> +
-> +	if (!prog || !prog->len)
-> +		return orig_prog;
-
-This condition can be removed, see also 93a73d442d37
-("bpf, x86/arm64: remove useless checks on prog"), since
-there's no way we could land here under such circumstance.
-
-> +	tmp = bpf_jit_blind_constants(prog);
-> +	/* If blinding was requested and we failed during blinding,
-> +	 * we must fall back to the interpreter.
-> +	 */
-> +	if (IS_ERR(tmp))
-> +		return orig_prog;
-> +	if (tmp != prog) {
-> +		tmp_blinded = true;
-> +		prog = tmp;
-> +	}
-> +
-> +	memset(&ctx, 0, sizeof(ctx));
-> +	ctx.prog = prog;
-> +
-> +	ctx.offset = kcalloc(prog->len, sizeof(unsigned int), GFP_KERNEL);
-> +	if (ctx.offset == NULL) {
-> +		prog = orig_prog;
-> +		goto out;
-> +	}
-> +
-> +	/* Fake pass to detect features used, and get an accurate assessment
-> +	 * of what the final image size will be.
-> +	 */
-> +	if (build_body(&ctx)) {
-> +		prog = orig_prog;
-> +		goto out_off;
-> +	}
-> +	build_prologue(&ctx);
-> +	build_epilogue(&ctx);
-> +
-> +	/* Now we know the actual image size. */
-> +	image_size = sizeof(u32) * ctx.idx;
-> +	header = bpf_jit_binary_alloc(image_size, &image_ptr,
-> +				      sizeof(u32), jit_fill_hole);
-> +	if (header == NULL) {
-> +		prog = orig_prog;
-> +		goto out_off;
-> +	}
-> +
-> +	ctx.image = (u32 *)image_ptr;
-> +
-> +	for (pass = 1; pass < 3; pass++) {
-> +		ctx.idx = 0;
-> +
-> +		build_prologue(&ctx);
-> +
-> +		if (build_body(&ctx)) {
-> +			bpf_jit_binary_free(header);
-> +			prog = orig_prog;
-> +			goto out_off;
-> +		}
-> +
-> +		build_epilogue(&ctx);
-> +
-> +		if (bpf_jit_enable > 1)
-> +			pr_info("Pass %d: shrink = %d, seen = [%c%c%c%c%c]\n", pass,
-> +				image_size - (ctx.idx * 4),
-> +				ctx.tmp_1_used ? '1' : ' ',
-> +				ctx.tmp_2_used ? '2' : ' ',
-> +				ctx.tmp_3_used ? '3' : ' ',
-> +				ctx.saw_ld_abs_ind ? 'L' : ' ',
-> +				ctx.saw_frame_pointer ? 'F' : ' ');
-> +	}
-> +
-> +	if (bpf_jit_enable > 1)
-> +		bpf_jit_dump(prog->len, image_size, pass, ctx.image);
-> +	bpf_flush_icache(ctx.image, ctx.image + image_size);
-
-Since remaining parts were filled through jit_fill_hole(),
-it would be better / more correct to flush the whole buffer,
-see also the recent ppc64 commit 10528b9c45cf ("powerpc/bpf:
-Flush the entire JIT buffer") that fixed it for their jit.
-
-> +	bpf_jit_binary_lock_ro(header);
-> +
-> +	prog->bpf_func = (void *)ctx.image;
-> +	prog->jited = 1;
-> +
-> +out_off:
-> +	kfree(ctx.offset);
-
-Thanks a lot,
-Daniel
+I'll do another patch.
