@@ -1,40 +1,66 @@
-From: <kelley@colfaxcommunitynetwork.org>
-Subject: (unknown)
-Date: Wed, 19 Apr 2017 04:29:32 -0000
-Message-ID: <149257617208.22386.16098806058626569014@zaural.ru>
+From: Michael Ma <make0818@gmail.com>
+Subject: Re: Corrupted SKB
+Date: Tue, 18 Apr 2017 21:46:26 -0700
+Message-ID: <CAAmHdhy0N2VttXNXL+S+4G=4=mf4ihpW7KsNWUYpiOFXez3B7w@mail.gmail.com>
+References: <CAAmHdhx14ZH3ftE2SovFZfy8ZfOCEgsyqqcSbGPHqg87Wc+5SQ@mail.gmail.com>
+ <CAM_iQpVOi0FH_quusHHpvREdvpqq6=RjVOQvcjAWGbh1X0_5tA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: application/zip; name="EMAIL_42114478079_netdev.zip"
-Content-Transfer-Encoding: base64
-To: "netdev" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        jin.oyj@alibaba-inc.com
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ws147.zone31-163-137.zaural.ru ([31.163.137.147]:49611 "HELO
-        zaural.ru" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
-        id S1751583AbdDSE3g (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 19 Apr 2017 00:29:36 -0400
-Content-Disposition: attachment
-Subject: 
+Received: from mail-oi0-f49.google.com ([209.85.218.49]:34934 "EHLO
+        mail-oi0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752024AbdDSEq2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2017 00:46:28 -0400
+Received: by mail-oi0-f49.google.com with SMTP id j201so14952073oih.2
+        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 21:46:27 -0700 (PDT)
+In-Reply-To: <CAM_iQpVOi0FH_quusHHpvREdvpqq6=RjVOQvcjAWGbh1X0_5tA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-UEsDBBQAAAAIAIEik0pGAGGhPQQAAEAEAAAJAAAAMzE3MzYuemlwdZN5NBMAHMeHOdLBW5qVNkdT
-iiSTlZSS3GeYECO05q6c5aiem0QqFuut0maSjTfaUm5GJjJjbaRczTFH60BMOt7rvd7r93vv+33f
-z/v++3W0kQIqAQAAOcA1jTzrA3GRkFIpAOC27BpZo4j9SIShbuClZNeQMJ6eotibvKqebbCFll5B
-xeaQVU3l4t13e1nxO1/lGwDnwCCkYVIgL3HI77BeX9S90fwa0aBowKvIH5rft/xhZ53XkDsTdR91
-N9+y2r4ue7aOlB7M1WCcO1MZ925bZeaxuM2+VJ2ZrgvnkCZQGBXHKRnxbNIoJAZQfU0zUoR8Sggy
-Y0/wBgSzCHyHWtg3X6HZ4cqjJcBgWuJ9xvQNDmHe45SdVrGtATZFRHcZ680XvQcUKucnx3LaJcuf
-FqADWN/gKuiZxoOFeHSIfBIUxvWHYm642puB+JQHl3rSgmMY9jWg9WWhmKsHdm1B2R1XkrYqnorw
-YpLNTulv0lRcfyuASt/GnGDga/kwekgXYUWV1XxI3iJz6zG/1whiFfxuWdsWMULA1uvVdbu8omAn
-HMnaibZQDmVKrAMeKxB8BEZ6C9N10sEjY0eTDbGwvUeCcpAQhSU1pw9py5jEGJ2pTbi+J4r2IDBm
-0jz3FISeoxMLttGYNMPXgo4uQBRpvBYIlkbIEmEreonenVMM/DtxN2paZprSdLOWj521BFgYAq9n
-cwMoRqmP9u9itM/B5aqe3TRS07H1hCOXoV2RKeUNEN2Mx2DLSq2EZkR9W+OA6cEWtmaH7/D6magU
-BKfg9RV4UmSqSSbiOEt0HUXSV19UIk+zglOkU4QVWWPWBSi/8w0S5WRXsupUD2sHuwVnIIrnDmIX
-2tZFOKM3Lmw66jEU/UIbZ+AmcDDsb1Wj7zZWLkbbqkbDHUCMPUBnSsNX+1BRmIkVFkSxOr3B3XwS
-Fd355ZNdlYx4XXWY93PTnJU9nSddKFFU9XbrYUc/7MfBE60xTrrh2mIBPromqIRadTVUQaPm7bJ/
-P5r0udRovhEhivy0JJ7A6Cg/0gJJJ20llhmzPYe02Voe+tw4VpDtGKJhuzZ668loLmdRczxCBeXS
-DSQm41KdbvugOXIBBLwaTlZSvfkM6bH82RZN/dhei80TEy9nZT1HcyUdP3vsHa3WWk2td1tUyTDy
-YNKKwfEE9v4vghDbMALUE61FWpDodhbsvWzHZnicNw4pSalHFGNorsTwjuEk4o1nuRbfxfxFlUye
-0sbgN/4PCEesVGhXgOIdS9dqSUeWsr9m8YQvhdvy+nyRCXoGJlAOOUE5zwmmmxtYmrAxctxn/L0r
-zeUCz6dMStfeXAOjwDF86LSKjlLvnzDmzrU2RUwPtiLT8Hy7MgqgQtbGIDgwPBEKW5ZxtJGQNAH8
-b9FwwO9T+6V/9y3/h0gAIADeFHRYTO+R+NcdbaRlfnXW3mPNu6V+ph9QSwECPwAUAAAACACBIpNK
-RgBhoT0EAABABAAACQAkAAAAAAAAACAAAAAAAAAAMzE3MzYuemlwCgAgAAAAAAABABgAq7Ai4v64
-0gGrsCLi/rjSAauwIuL+uNIBUEsFBgAAAAABAAEAWwAAAGQEAAAAAA==
+2017-04-18 16:12 GMT-07:00 Cong Wang <xiyou.wangcong@gmail.com>:
+> On Mon, Apr 17, 2017 at 5:39 PM, Michael Ma <make0818@gmail.com> wrote:
+>> Hi -
+>>
+>> We've implemented a "glue" qdisc similar to mqprio which can associate
+>> one qdisc to multiple txqs as the root qdisc. Reference count of the
+>> child qdiscs have been adjusted properly in this case so that it
+>> represents the number of txqs it has been attached to. However when
+>> sending packets we saw the skb from dequeue_skb() corrupted with the
+>> following call stack:
+>>
+>>     [exception RIP: netif_skb_features+51]
+>>     RIP: ffffffff815292b3  RSP: ffff8817f6987940  RFLAGS: 00010246
+>>
+>>  #9 [ffff8817f6987968] validate_xmit_skb at ffffffff815294aa
+>> #10 [ffff8817f69879a0] validate_xmit_skb at ffffffff8152a0d9
+>> #11 [ffff8817f69879b0] __qdisc_run at ffffffff8154a193
+>> #12 [ffff8817f6987a00] dev_queue_xmit at ffffffff81529e03
+>>
+>> It looks like the skb has already been released since its dev pointer
+>> field is invalid.
+>>
+>> Any clue on how this can be investigated further? My current thought
+>> is to add some instrumentation to the place where skb is released and
+>> analyze whether there is any race condition happening there. However
+>
+> Either dropwatch or perf could do the work to instrument kfree_skb().
+
+Thanks - will try it out.
+>
+>> by looking through the existing code I think the case where one root
+>> qdisc is associated with multiple txqs already exists (when mqprio is
+>> not used) so not sure why it won't work when we group txqs and assign
+>> each group a root qdisc. Any insight on this issue would be much
+>> appreciated!
+>
+> How do you implement ->attach()? How does it work with netdev_pick_tx()?
+
+attach() essentially grafts the default qdisc(pfifo) to each "txq
+group" represented by a TC class. For netdev_pick_txq() we use classid
+of the socket to select a class based on a "class id base" and the
+class to txq mapping defined together with this glue qdisc - it's
+pretty much the same as mqprio with the difference of mapping one
+class to multiple txqs and selecting the txq through a hash.
