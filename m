@@ -1,7 +1,8 @@
 From: Nathan Fontenot <nfont@linux.vnet.ibm.com>
-Subject: [PATCH net-next 08/10] ibmvnic: Disable irq prior to close
-Date: Wed, 19 Apr 2017 13:45:10 -0400
-Message-ID: <20170419174510.37372.10291.stgit@ltcalpine2-lp23.aus.stglabs.ibm.com>
+Subject: [PATCH net-next 09/10] ibmvnic: Allocate zero-filled memory for sub
+ crqs
+Date: Wed, 19 Apr 2017 13:45:16 -0400
+Message-ID: <20170419174516.37372.58934.stgit@ltcalpine2-lp23.aus.stglabs.ibm.com>
 References: <20170419174015.37372.48544.stgit@ltcalpine2-lp23.aus.stglabs.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,105 +11,60 @@ Cc: brking@linux.vnet.ibm.com, jallen@linux.vnet.ibm.com,
         muvic@linux.vnet.ibm.com, tlfalcon@linux.vnet.ibm.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:51111 "EHLO
+Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:46122 "EHLO
         mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S934636AbdDSN4P (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2017 09:56:15 -0400
-Received: from pps.filterd (m0098409.ppops.net [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v3JDrfPp142354
-        for <netdev@vger.kernel.org>; Wed, 19 Apr 2017 09:56:15 -0400
-Received: from e13.ny.us.ibm.com (e13.ny.us.ibm.com [129.33.205.203])
-        by mx0a-001b2d01.pphosted.com with ESMTP id 29x74mppq5-1
+        by vger.kernel.org with ESMTP id S934640AbdDSN4U (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2017 09:56:20 -0400
+Received: from pps.filterd (m0098396.ppops.net [127.0.0.1])
+        by mx0a-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v3JDrh44045112
+        for <netdev@vger.kernel.org>; Wed, 19 Apr 2017 09:56:19 -0400
+Received: from e17.ny.us.ibm.com (e17.ny.us.ibm.com [129.33.205.207])
+        by mx0a-001b2d01.pphosted.com with ESMTP id 29x760xm6y-1
         (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Wed, 19 Apr 2017 09:56:13 -0400
+        for <netdev@vger.kernel.org>; Wed, 19 Apr 2017 09:56:19 -0400
 Received: from localhost
-        by e13.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        by e17.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
         for <netdev@vger.kernel.org> from <nfont@linux.vnet.ibm.com>;
-        Wed, 19 Apr 2017 09:56:12 -0400
+        Wed, 19 Apr 2017 09:56:18 -0400
 In-Reply-To: <20170419174015.37372.48544.stgit@ltcalpine2-lp23.aus.stglabs.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Brian King <brking@linux.vnet.ibm.com>
+Update the allocation of memory for the sub crq structs and their
+associated pages to allocate zero-filled memory.
 
-    Add some code to call disable_irq on all the vnic interface's irqs.
-    This fixes a crash observed when closing an active interface, as
-    seen in the oops below when we try to access a buffer in the interrupt
-    handler which we've already freed.
-
-    Unable to handle kernel paging request for data at address 0x00000001
-    Faulting instruction address: 0xd000000003886824
-    Oops: Kernel access of bad area, sig: 11 [#1]
-    SMP NR_CPUS=2048 NUMA pSeries
-    Modules linked in: ibmvnic(OEN) rpadlpar_io(X) rpaphp(X) tcp_diag udp_diag inet_diag unix_diag af_packet_diag netlink_diag rpcsec_
-    Supported: No, Unsupported modules are loaded
-    CPU: 8 PID: 0 Comm: swapper/8 Tainted: G           OE   NX 4.4.49-92.11-default #1
-    task: c00000007f990110 ti: c0000000fffa0000 task.ti: c00000007f9b8000
-    NIP: d000000003886824 LR: d000000003886824 CTR: c0000000007eff60
-    REGS: c0000000fffa3a70 TRAP: 0300   Tainted: G           OE   NX  (4.4.49-92.11-default)
-    MSR: 8000000000009033 <SF,EE,ME,IR,DR,RI,LE>  CR: 22008042  XER: 20000008
-    CFAR: c000000000008468 DAR: 0000000000000001 DSISR: 40000000 SOFTE: 0
-    GPR00: d000000003886824 c0000000fffa3cf0 d000000003894118 0000000000000000
-    GPR04: 0000000000000000 0000000000000000 c000000001249da0 0000000000000000
-    GPR08: 000000000000000e 0000000000000000 c0000000ccb00000 d000000003889180
-    GPR12: c0000000007eff60 c000000007af4c00 0000000000000001 c0000000010def30
-    GPR16: c00000007f9b8000 c000000000b98c30 c00000007f9b8080 c000000000bab858
-    GPR20: 0000000000000005 0000000000000000 c0000000ff5d7e80 c0000000f809f648
-    GPR24: c0000000ff5d7ec8 0000000000000000 0000000000000000 c0000000ccb001a0
-    GPR28: 000000000000000a c0000000f809f600 c0000000fd4cd900 c0000000f9cd5b00
-    NIP [d000000003886824] ibmvnic_interrupt_tx+0x114/0x380 [ibmvnic]
-    LR [d000000003886824] ibmvnic_interrupt_tx+0x114/0x380 [ibmvnic]
-    Call Trace:
-    [c0000000fffa3cf0] [d000000003886824] ibmvnic_interrupt_tx+0x114/0x380 [ibmvnic] (unreliable)
-    [c0000000fffa3dd0] [c000000000132940] __handle_irq_event_percpu+0x90/0x2e0
-    [c0000000fffa3e90] [c000000000132bcc] handle_irq_event_percpu+0x3c/0x90
-    [c0000000fffa3ed0] [c000000000132c88] handle_irq_event+0x68/0xc0
-    [c0000000fffa3f00] [c000000000137edc] handle_fasteoi_irq+0xec/0x250
-    [c0000000fffa3f30] [c000000000131b04] generic_handle_irq+0x54/0x80
-    [c0000000fffa3f60] [c000000000011190] __do_irq+0x80/0x1d0
-    [c0000000fffa3f90] [c0000000000248d8] call_do_irq+0x14/0x24
-    [c00000007f9bb9e0] [c000000000011380] do_IRQ+0xa0/0x120
-    [c00000007f9bba40] [c000000000002594] hardware_interrupt_common+0x114/0x180
-
-Signed-off-by: Brian King <brking@linux.vnet.ibm.com>
 Signed-off-by: Nathan Fontenot <nfont@linux.vnet.ibm.com>
 ---
- drivers/net/ethernet/ibm/ibmvnic.c |   18 ++++++++++++++++++
- 1 file changed, 18 insertions(+)
+ drivers/net/ethernet/ibm/ibmvnic.c |    9 +++------
+ 1 file changed, 3 insertions(+), 6 deletions(-)
 
 diff --git a/drivers/net/ethernet/ibm/ibmvnic.c b/drivers/net/ethernet/ibm/ibmvnic.c
-index a8b3c57..ce8b147 100644
+index ce8b147..221d652 100644
 --- a/drivers/net/ethernet/ibm/ibmvnic.c
 +++ b/drivers/net/ethernet/ibm/ibmvnic.c
-@@ -689,6 +689,23 @@ static int ibmvnic_open(struct net_device *netdev)
- 	return -ENOMEM;
- }
+@@ -1360,12 +1360,12 @@ static struct ibmvnic_sub_crq_queue *init_sub_crq_queue(struct ibmvnic_adapter
+ 	struct ibmvnic_sub_crq_queue *scrq;
+ 	int rc;
  
-+static void disable_sub_crqs(struct ibmvnic_adapter *adapter)
-+{
-+	int i;
-+
-+	if (adapter->tx_scrq) {
-+		for (i = 0; i < adapter->req_tx_queues; i++)
-+			if (adapter->tx_scrq[i])
-+				disable_irq(adapter->tx_scrq[i]->irq);
-+	}
-+
-+	if (adapter->rx_scrq) {
-+		for (i = 0; i < adapter->req_rx_queues; i++)
-+			if (adapter->rx_scrq[i])
-+				disable_irq(adapter->rx_scrq[i]->irq);
-+	}
-+}
-+
- static int ibmvnic_close(struct net_device *netdev)
- {
- 	struct ibmvnic_adapter *adapter = netdev_priv(netdev);
-@@ -696,6 +713,7 @@ static int ibmvnic_close(struct net_device *netdev)
- 	int i;
+-	scrq = kmalloc(sizeof(*scrq), GFP_ATOMIC);
++	scrq = kzalloc(sizeof(*scrq), GFP_ATOMIC);
+ 	if (!scrq)
+ 		return NULL;
  
- 	adapter->closing = true;
-+	disable_sub_crqs(adapter);
+-	scrq->msgs = (union sub_crq *)__get_free_pages(GFP_ATOMIC, 2);
+-	memset(scrq->msgs, 0, 4 * PAGE_SIZE);
++	scrq->msgs =
++		(union sub_crq *)__get_free_pages(GFP_ATOMIC | __GFP_ZERO, 2);
+ 	if (!scrq->msgs) {
+ 		dev_warn(dev, "Couldn't allocate crq queue messages page\n");
+ 		goto zero_page_failed;
+@@ -1393,9 +1393,6 @@ static struct ibmvnic_sub_crq_queue *init_sub_crq_queue(struct ibmvnic_adapter
  
- 	for (i = 0; i < adapter->req_rx_queues; i++)
- 		napi_disable(&adapter->napi[i]);
+ 	scrq->adapter = adapter;
+ 	scrq->size = 4 * PAGE_SIZE / sizeof(*scrq->msgs);
+-	scrq->cur = 0;
+-	atomic_set(&scrq->used, 0);
+-	scrq->rx_skb_top = NULL;
+ 	spin_lock_init(&scrq->lock);
+ 
+ 	netdev_dbg(adapter->netdev,
