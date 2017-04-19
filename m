@@ -1,140 +1,157 @@
-From: Gabriele Paoloni <gabriele.paoloni@huawei.com>
-Subject: RE: Re: [PATCH net-next 1/4] ixgbe: sparc: rename the
- ARCH_WANT_RELAX_ORDER to IXGBE_ALLOW_RELAXED_ORDER
-Date: Wed, 19 Apr 2017 14:46:19 +0000
-Message-ID: <EE11001F9E5DDD47B7634E2F8A612F2E2053543C@FRAEML521-MBX.china.huawei.com>
-References: <20170401.112603.1991545644693496714.davem@davemloft.net>
- <42428725-89f1-1508-4e3d-723e087b3bbb@huawei.com>
- <EE11001F9E5DDD47B7634E2F8A612F2E205199C0@FRAEML521-MBX.china.huawei.com>,<063D6719AE5E284EB5DD2968C1650D6DCFFD3C52@AcuExch.aculab.com>
- <DB5PR05MB138288172B04713EB0C1DB55D3190@DB5PR05MB1382.eurprd05.prod.outlook.com>
- <EE11001F9E5DDD47B7634E2F8A612F2E205352FC@FRAEML521-MBX.china.huawei.com>
+From: Wolfgang Bumiller <w.bumiller@proxmox.com>
+Subject: Re: [PATCH v2 net 2/2] net sched actions: decrement module refcount
+ earlier
+Date: Wed, 19 Apr 2017 17:03:12 +0200 (CEST)
+Message-ID: <1244443915.139.1492614192777@webmail.proxmox.com>
+References: <20170418101322.27666-1-w.bumiller@proxmox.com>
+ <20170418101322.27666-2-w.bumiller@proxmox.com>
+ <CAM_iQpWQYsqGD3TZp=iXyK0auprgo5uUbRZRvtpnFjQWwCj5Gw@mail.gmail.com>
+ <b34fa5f5-5368-672a-be06-4c9801b8114e@mojatatu.com>
+ <CAM_iQpVucDgy-=ToNrH1a9h1h7goK33hfY_o30e5Rz1Pqwj4_A@mail.gmail.com>
+ <462700507.23.1492589388406@webmail.proxmox.com>
+ <861dba23-1244-ee57-a980-a6dceffa2793@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: 8BIT
-Cc: Catalin Marinas <catalin.marinas@arm.com>,
-        Will Deacon <will.deacon@arm.com>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Robin Murphy <robin.murphy@arm.com>,
-        "jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
-        "alexander.duyck@gmail.com" <alexander.duyck@gmail.com>,
-        "linux-arm-kernel@lists.infradead.org"
-        <linux-arm-kernel@lists.infradead.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Dingtianhong <dingtianhong@huawei.com>,
-        Linuxarm <linuxarm@huawei.com>
-To: Amir Ancel <amira@mellanox.com>,
-        David Laight <David.Laight@ACULAB.COM>,
-        "davem@davemloft.net" <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>
+To: Jamal Hadi Salim <jhs@mojatatu.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([45.249.212.187]:5780 "EHLO
-        dggrg01-dlp.huawei.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S935388AbdDSOqs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2017 10:46:48 -0400
-In-Reply-To: <EE11001F9E5DDD47B7634E2F8A612F2E205352FC@FRAEML521-MBX.china.huawei.com>
-Content-Language: en-US
+Received: from proxmox.maurer-it.com ([212.186.127.180]:13789 "EHLO
+        proxmox.maurer-it.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752876AbdDSPDR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2017 11:03:17 -0400
+In-Reply-To: <861dba23-1244-ee57-a980-a6dceffa2793@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Amir
+> On April 19, 2017 at 1:32 PM Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+> 
+> 
+> On 17-04-19 04:09 AM, Wolfgang Bumiller wrote:
+> 
+> This solves one issue, but I am afraid the issue Cong mentioned is a
+> possibility still.
+> Lets say user did a replace and tried to also replace the cookie
+> in that transaction. The init() succeeds but the cookie allocation
+> fails. To be correct we'll have to undo the replace i.e something
+> like uninit() which will restore back the old values.
+> This is very complex and unnecessary.
+> 
+> My suggestion:
+> If we move the cookie allocation before init we can save it and
+> only when init succeeds do we attach it to the action, otherwise
+> we free it on error path.
+
+Shouldn't the old code have freed an old a->act_cookie as well before
+replacing it then? nla_memdup_cookie() starts off by assigning a->act_cookie.
+
+(I've been running this loop for a while now:
+# while : ; do tc actions change action ok index 500 cookie $i; let i++; done
+and memory usage *seems* to be growing faster with the loop running - still
+slow, but visible. (I stopped most but not all background processes in this
+VM))
+
+I don't see the growth with the change below (replacing both patches).
+(although given the freeing of the old act_cookie pointer I wonder if
+this needs additional locking?)
+
+diff --git a/net/sched/act_api.c b/net/sched/act_api.c
+index b70aa57319ea..e05b924618a0 100644
+--- a/net/sched/act_api.c
++++ b/net/sched/act_api.c
+@@ -529,20 +529,20 @@ int tcf_action_dump(struct sk_buff *skb, struct list_head *actions,
+ 	return err;
+ }
  
-> From: Amir Ancel [mailto:amira@mellanox.com]
-> Sent: 18 April 2017 21:18
-> To: David Laight; Gabriele Paoloni; davem@davemloft.net
-> Cc: Catalin Marinas; Will Deacon; Mark Rutland; Robin Murphy;
-> jeffrey.t.kirsher@intel.com; alexander.duyck@gmail.com; linux-arm-
-> kernel@lists.infradead.org; netdev@vger.kernel.org; Dingtianhong;
-> Linuxarm
-> Subject: Re: Re: [PATCH net-next 1/4] ixgbe: sparc: rename the
-> ARCH_WANT_RELAX_ORDER to IXGBE_ALLOW_RELAXED_ORDER
-> 
-> Hi,
-> mlx5 driver is planned to have RO support this year.
-> I believe drivers should be able to query whether the arch support it
-
-I guess that here when you say query you mean having a config symbol
-that is set accordingly to the host architecture, right?
-
-As already said I have looked around a bit and other drivers do not seem
-to enable/disable RO for their EP on the basis of the host architecture.
-So why should mlx5 do it according to the host?
-
-Also my understating is that some architectures (like ARM64 for example)
-can have different PCI host controller implementations depending on the
-vendor...therefore maybe it is not appropriate there to have a Kconfig
-symbol selected by the architecture...  
-
-Thanks
-Gab
-
-> or not and enable it in the network adapter accordingly.
-> 
-> -Amir
-> ________________________________________
-> From: netdev-owner@vger.kernel.org <netdev-owner@vger.kernel.org> on
-> behalf of David Laight <David.Laight@ACULAB.COM>
-> Sent: Tuesday, April 18, 2017 4:25:44 PM
-> To: 'Gabriele Paoloni'; davem@davemloft.net
-> Cc: Catalin Marinas; Will Deacon; Mark Rutland; Robin Murphy;
-> jeffrey.t.kirsher@intel.com; alexander.duyck@gmail.com; linux-arm-
-> kernel@lists.infradead.org; netdev@vger.kernel.org; Dingtianhong;
-> Linuxarm
-> Subject: RE: Re: [PATCH net-next 1/4] ixgbe: sparc: rename the
-> ARCH_WANT_RELAX_ORDER to IXGBE_ALLOW_RELAXED_ORDER
-> 
-> From: Gabriele Paoloni
-> > Sent: 13 April 2017 10:11
-> > > > Till now only the Intel ixgbe could support enable
-> > > > Relaxed ordering in the drivers for special architecture,
-> > > > but the ARCH_WANT_RELAX_ORDER is looks like a general name
-> > > > for all arch, so rename to a specific name for intel
-> > > > card looks more appropriate.
-> > > >
-> > > > Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
-> > >
-> > > This is not a driver specific facility.
-> > >
-> > > Any driver can test this symbol and act accordingly.
-> > >
-> > > Just because IXGBE is the first and only user, doesn't mean
-> > > the facility is driver specific.
-> >
-> >
-> > Please correct me if I am wrong but my understanding is that the
-> standard
-> > way to enable/disable relaxed ordering is to set/clear bit 4 of the
-> Device
-> > Control Register (PCI_EXP_DEVCTL_RELAX_EN 0x0010 /* Enable relaxed
-> > ordering */).
-> > Now I have looked up for all drivers either enabling or disabling
-> relaxed
-> > ordering and none of them seems to need a symbol to decide whether to
-> > enable it or not.
-> > Also it seems to me enabling/disabling relaxed ordering is never
-> bound to the
-> > host architecture.
-> >
-> > So why this should be (or it is expected to be) a generic symbol?
-> > Wouldn't it be more correct to have this as a driver specific symbol
-> now and
-> > move it to a generic one later once we have other drivers requiring
-> it?
-> 
-> 'Relaxed ordering' is a bit in the TLP header.
-> A device (like the ixgbe hardware) can set it for some transactions and
-> still have the transactions 'ordered enough' for the driver to work.
-> (If all transactions have 'relaxed ordering' set then I suspect it is
-> almost impossible to write a working driver.)
-> The host side could (probably does) have a bit to enable 'relaxed
-> ordering',
-> it could also enforce stronger ordering than required by the PCIe spec
-> (eg keeping reads in order).
-> 
-> Clearly, on some sparc64 systems, ixgbe needs to use 'relaxed
-> ordering'.
-> To me this requires two separate bits be enabled:
-> 1) to the ixgbe driver to generate the 'relaxed' TLP.
-> 2) to the host to actually act on them.
-> If the ixgbe driver works when both are enabled why have options to
-> disable either (except for bug-finding)?
-> 
->         David
+-static int nla_memdup_cookie(struct tc_action *a, struct nlattr **tb)
++static struct tc_cookie *nla_memdup_cookie(struct nlattr **tb)
+ {
+-	a->act_cookie = kzalloc(sizeof(*a->act_cookie), GFP_KERNEL);
+-	if (!a->act_cookie)
+-		return -ENOMEM;
++	struct tc_cookie *c = kzalloc(sizeof(*c), GFP_KERNEL);
++	if (!c)
++		return NULL;
+ 
+-	a->act_cookie->data = nla_memdup(tb[TCA_ACT_COOKIE], GFP_KERNEL);
+-	if (!a->act_cookie->data) {
+-		kfree(a->act_cookie);
+-		return -ENOMEM;
++	c->data = nla_memdup(tb[TCA_ACT_COOKIE], GFP_KERNEL);
++	if (!c->data) {
++		kfree(c);
++		return NULL;
+ 	}
+-	a->act_cookie->len = nla_len(tb[TCA_ACT_COOKIE]);
++	c->len = nla_len(tb[TCA_ACT_COOKIE]);
+ 
+-	return 0;
++	return c;
+ }
+ 
+ struct tc_action *tcf_action_init_1(struct net *net, struct nlattr *nla,
+@@ -551,6 +551,7 @@ struct tc_action *tcf_action_init_1(struct net *net, struct nlattr *nla,
+ {
+ 	struct tc_action *a;
+ 	struct tc_action_ops *a_o;
++	struct tc_cookie *cookie = NULL;
+ 	char act_name[IFNAMSIZ];
+ 	struct nlattr *tb[TCA_ACT_MAX + 1];
+ 	struct nlattr *kind;
+@@ -566,6 +567,18 @@ struct tc_action *tcf_action_init_1(struct net *net, struct nlattr *nla,
+ 			goto err_out;
+ 		if (nla_strlcpy(act_name, kind, IFNAMSIZ) >= IFNAMSIZ)
+ 			goto err_out;
++		if (tb[TCA_ACT_COOKIE]) {
++			int cklen = nla_len(tb[TCA_ACT_COOKIE]);
++
++			if (cklen > TC_COOKIE_MAX_SIZE)
++				goto err_out;
++
++			cookie = nla_memdup_cookie(tb);
++			if (!cookie) {
++				err = -ENOMEM;
++				goto err_out;
++			}
++		}
+ 	} else {
+ 		err = -EINVAL;
+ 		if (strlcpy(act_name, name, IFNAMSIZ) >= IFNAMSIZ)
+@@ -604,20 +617,12 @@ struct tc_action *tcf_action_init_1(struct net *net, struct nlattr *nla,
+ 	if (err < 0)
+ 		goto err_mod;
+ 
+-	if (tb[TCA_ACT_COOKIE]) {
+-		int cklen = nla_len(tb[TCA_ACT_COOKIE]);
+-
+-		if (cklen > TC_COOKIE_MAX_SIZE) {
+-			err = -EINVAL;
+-			tcf_hash_release(a, bind);
+-			goto err_mod;
+-		}
+-
+-		if (nla_memdup_cookie(a, tb) < 0) {
+-			err = -ENOMEM;
+-			tcf_hash_release(a, bind);
+-			goto err_mod;
++	if (name == NULL && tb[TCA_ACT_COOKIE]) {
++		if (a->act_cookie) {
++			kfree(a->act_cookie->data);
++			kfree(a->act_cookie);
+ 		}
++		a->act_cookie = cookie;
+ 	}
+ 
+ 	/* module count goes up only when brand new policy is created
+@@ -632,6 +637,10 @@ struct tc_action *tcf_action_init_1(struct net *net, struct nlattr *nla,
+ err_mod:
+ 	module_put(a_o->owner);
+ err_out:
++	if (cookie) {
++		kfree(cookie->data);
++		kfree(cookie);
++	}
+ 	return ERR_PTR(err);
+ }
