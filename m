@@ -1,59 +1,70 @@
 From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH net-next 1/2 v2] net sched actions: dump more than
- TCA_ACT_MAX_PRIO actions per batch
-Date: Tue, 18 Apr 2017 23:12:01 -0700
-Message-ID: <CAM_iQpVbgNB53L-fVwtSfJSfBmSDua4EttqoHALzNiuuJOUT3A@mail.gmail.com>
-References: <1492564489-28854-1-git-send-email-jhs@emojatatu.com>
- <1492566545.10587.159.camel@edumazet-glaptop3.roam.corp.google.com> <b00c5e30-47e9-0e71-7980-b57740ac09be@mojatatu.com>
+Subject: Re: [PATCH v2 net 2/2] net sched actions: decrement module refcount earlier
+Date: Tue, 18 Apr 2017 23:23:30 -0700
+Message-ID: <CAM_iQpVucDgy-=ToNrH1a9h1h7goK33hfY_o30e5Rz1Pqwj4_A@mail.gmail.com>
+References: <20170418101322.27666-1-w.bumiller@proxmox.com>
+ <20170418101322.27666-2-w.bumiller@proxmox.com> <CAM_iQpWQYsqGD3TZp=iXyK0auprgo5uUbRZRvtpnFjQWwCj5Gw@mail.gmail.com>
+ <b34fa5f5-5368-672a-be06-4c9801b8114e@mojatatu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        David Miller <davem@davemloft.net>,
+Cc: Wolfgang Bumiller <w.bumiller@proxmox.com>,
         Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Jiri Pirko <jiri@resnulli.us>
+        "David S. Miller" <davem@davemloft.net>
 To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:33242 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1759682AbdDSGMX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2017 02:12:23 -0400
-Received: by mail-wm0-f66.google.com with SMTP id o81so3014816wmb.0
-        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 23:12:22 -0700 (PDT)
-In-Reply-To: <b00c5e30-47e9-0e71-7980-b57740ac09be@mojatatu.com>
+Received: from mail-wm0-f51.google.com ([74.125.82.51]:36216 "EHLO
+        mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1760184AbdDSGXv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2017 02:23:51 -0400
+Received: by mail-wm0-f51.google.com with SMTP id o81so71601984wmb.1
+        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 23:23:51 -0700 (PDT)
+In-Reply-To: <b34fa5f5-5368-672a-be06-4c9801b8114e@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 18, 2017 at 7:32 PM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
-> On 17-04-18 09:49 PM, Eric Dumazet wrote:
->>
->> On Tue, 2017-04-18 at 21:14 -0400, Jamal Hadi Salim wrote:
->>>
->>> From: Jamal Hadi Salim <jhs@mojatatu.com>
->>
->>
->> So there is no more limit ? How user is supposed to size the buffer for
->> recvmsg() ?
->>
->
-> That part doesnt change.  Ok, I believe more clarity is needed:->
->
-> Current code allows only 32 actions to be dumped at a time.
-> This code:
->
-> So lets i have 128 actions. I can fit them into 10K.
-> I do recvmsg(..., 32K). This will make about 32K space for me to fill
-> up the 128 actions. But the code only allows me to send 32
-> TCA_ACT_MAX_PRIO which takes about 2-3K.
-> So I will do 4 runs from kernel->user to get 128 actions ;->
-> User space in tc is trained to expect no more than
-> TCA_ACT_MAX_PRIO in every batch.
->
-> With this change I ask the kernel to fit as many actions as
-> possible in the 32K (all these 128 will fit in one batch).
-> Then it has to tell user space how many are in that batch
-> using TCAA_ACT_COUNT attribute.
->
-> Make sense?
+On Tue, Apr 18, 2017 at 7:21 PM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+> Indeed. Allocate the cookie before init? That way, we fail early
+> and dont need to worry about restoring anything.
 
-Hmm? How do tc filters do dumping? There is no max and no
-COUNT attribute either, IIUC.
+No, a->act_cookie needs an action pointer first. ;)
+
+> In the case of a replace, do you really want to call tcf_hash_release?
+>
+
+Good point. Probably no, we already call it inside ->init().
+
+Something like this...
+
+diff --git a/net/sched/act_api.c b/net/sched/act_api.c
+index 82b1d48d91cc..29ffc348fe2f 100644
+--- a/net/sched/act_api.c
++++ b/net/sched/act_api.c
+@@ -609,14 +609,12 @@ struct tc_action *tcf_action_init_1(struct net
+*net, struct nlattr *nla,
+
+                if (cklen > TC_COOKIE_MAX_SIZE) {
+                        err = -EINVAL;
+-                       tcf_hash_release(a, bind);
+-                       goto err_mod;
++                       goto err_release;
+                }
+
+                if (nla_memdup_cookie(a, tb) < 0) {
+                        err = -ENOMEM;
+-                       tcf_hash_release(a, bind);
+-                       goto err_mod;
++                       goto err_release;
+                }
+        }
+
+@@ -629,6 +627,9 @@ struct tc_action *tcf_action_init_1(struct net
+*net, struct nlattr *nla,
+
+        return a;
+
++err_release:
++       if (err == ACT_P_CREATED)
++               tcf_hash_release(a, bind);
+ err_mod:
+        module_put(a_o->owner);
+ err_out:
