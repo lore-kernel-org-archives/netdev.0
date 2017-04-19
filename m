@@ -1,76 +1,67 @@
-From: =?UTF-8?Q?Andr=c3=a9_Przywara?= <andre.przywara@arm.com>
-Subject: Re: [PATCH v4 04/18] dt-bindings: syscon: Add DT bindings
- documentation for Allwinner syscon
-Date: Thu, 20 Apr 2017 00:38:50 +0100
-Message-ID: <9382f9ae-895a-397b-3d8c-846cb0bc4486@arm.com>
-References: <20170412111400.2296-1-clabbe.montjoie@gmail.com>
- <20170412111400.2296-5-clabbe.montjoie@gmail.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: net: heap out-of-bounds in fib6_clean_node/rt6_fill_node/fib6_age/fib6_prune_clone
+Date: Wed, 19 Apr 2017 16:47:21 -0700
+Message-ID: <CAM_iQpXyDN5GD+QLmWgJSc0bqV0ViK5LxSdwAV3XsHWr6vLJ2Q@mail.gmail.com>
+References: <CACT4Y+YrA45diWz_8f4St8oX6aTC1kuGXMUvniGRbqXSGwawZQ@mail.gmail.com>
+ <CACT4Y+aomj0W8M9JNr1GLsT8EFFHV9YsOTYzWkvwKZANE9hiBQ@mail.gmail.com>
+ <CACT4Y+aDzAYs9mbNGeFEkYSB2wTwomZTGEKn4hDH0PAb4uiLqw@mail.gmail.com>
+ <2b60b1b8-4766-0e36-f6fb-79914bf1925d@cumulusnetworks.com>
+ <CACT4Y+YpUZ+7f5bzPh1hATwUXaZaPTu4rYYdz0RY1MHA1WG3SA@mail.gmail.com>
+ <328b1fa7-2d97-6ae3-3b87-e33a0d564ad9@cumulusnetworks.com>
+ <CACT4Y+aQFe+M=ESuShQ4FYNWAd8CNEQ=0rW+aAB0P-tp=PpFyQ@mail.gmail.com>
+ <CACT4Y+aQgM=9QMkyfcXF2B5gGidvL07JP_m_inNXTPXU22i=aA@mail.gmail.com>
+ <CACT4Y+Yx1cgWCkC2c7bze1V1VaecgBfioMvKS2-FUeaRr4DGXg@mail.gmail.com>
+ <CACT4Y+bcMz13ad2kLaZGvct5sQ+RDki0StnOEbz3exAa8=zxqQ@mail.gmail.com>
+ <CACT4Y+Z6f4aOxMZW44WXdYEyDJbGBYLnjKsHBXfK800h+EkrxA@mail.gmail.com>
+ <2270c1ca-9481-60c1-9c29-87669223bded@cumulusnetworks.com>
+ <CACT4Y+aUROZgAczRfntp5Rgvzcypviz5ZWBPdE6MWSiO0-3jEg@mail.gmail.com>
+ <CAAeHK+zx6W_yxnoEQ2Pc1AT4uLXqYZaoi5oQBeuCntdGS38TQg@mail.gmail.com>
+ <580392d8-fa33-67bb-c5d6-27d262f1646a@cumulusnetworks.com> <CAAeHK+zZb=K4X9=NmSWQJL8bpgMbXoG+h4RasAyYDr+C5pkVYA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: devicetree@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, linux-sunxi@googlegroups.com,
-        linux-arm-kernel@lists.infradead.org
-To: Corentin Labbe <clabbe.montjoie@gmail.com>, robh+dt@kernel.org,
-        mark.rutland@arm.com, maxime.ripard@free-electrons.com,
-        wens@csie.org, linux@armlinux.org.uk, catalin.marinas@arm.com,
-        will.deacon@arm.com, peppe.cavallaro@st.com,
-        alexandre.torgue@st.com
+Content-Type: text/plain; charset=UTF-8
+Cc: David Ahern <dsa@cumulusnetworks.com>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        Mahesh Bandewar <maheshb@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        David Miller <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Andrey Konovalov <andreyknvl@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from foss.arm.com ([217.140.101.70]:48340 "EHLO foss.arm.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S940278AbdDSXkH (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 19 Apr 2017 19:40:07 -0400
-In-Reply-To: <20170412111400.2296-5-clabbe.montjoie@gmail.com>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:36578 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S967779AbdDSXrn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2017 19:47:43 -0400
+In-Reply-To: <CAAeHK+zZb=K4X9=NmSWQJL8bpgMbXoG+h4RasAyYDr+C5pkVYA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/04/17 12:13, Corentin Labbe wrote:
-> This patch adds documentation for Device-Tree bindings for the
-> syscon present in allwinner devices.
-> 
-> Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
-> ---
->  .../devicetree/bindings/misc/allwinner,syscon.txt     | 19 +++++++++++++++++++
->  1 file changed, 19 insertions(+)
->  create mode 100644 Documentation/devicetree/bindings/misc/allwinner,syscon.txt
-> 
-> diff --git a/Documentation/devicetree/bindings/misc/allwinner,syscon.txt b/Documentation/devicetree/bindings/misc/allwinner,syscon.txt
-> new file mode 100644
-> index 0000000..c056c5b
-> --- /dev/null
-> +++ b/Documentation/devicetree/bindings/misc/allwinner,syscon.txt
-> @@ -0,0 +1,19 @@
-> +* Allwinner sun8i system controller
-> +
-> +This file describes the bindings for the system controller present in
-> +Allwinner SoC H3, A83T and A64.
-> +The principal function of this syscon is to control EMAC PHY choice and
-> +config.
-> +
-> +Required properties for the system controller:
-> +- reg: address and length of the register for the device.
-> +- compatible: should be "syscon" and one of the following string:
-> +		"allwinner,sun8i-h3-system-controller"
-> +		"allwinner,sun8i-a64-system-controller"
+On Wed, Apr 19, 2017 at 9:12 AM, Andrey Konovalov <andreyknvl@google.com> wrote:
+>
+> Anyway, I just finished simplifying the reproducer. Give this one a try.
 
-While sun8i might make some sense technically, all 64-bit sunxi
-compatible strings use the sun50i prefix to follow the Allwinner naming.
-So this should read:
-		"allwinner,sun50i-a64-system-controller"
+Thanks for providing such a minimal reproducer!
 
-Also I am wondering if we should add a compatible string for the H5
-(support for that SoC is in -next already):
-		"allwinner,sun50i-h5-system-controller"
+The following patch could fix this crash, but I am not 100% sure if we should
+just clear these bits or reject them with an errno.
 
-Cheers,
-Andre.
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 9db14189..cf524c2 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -2086,7 +2086,7 @@ static struct rt6_info
+*ip6_route_info_create(struct fib6_config *cfg)
+        } else
+                rt->rt6i_prefsrc.plen = 0;
 
-> +		"allwinner,sun8i-a83t-system-controller"
-> +
-> +Example:
-> +syscon: syscon@01c00000 {
-> +	compatible = "allwinner,sun8i-h3-system-controller", "syscon";
-> +	reg = <0x01c00000 0x1000>;
-> +};
-> 
+-       rt->rt6i_flags = cfg->fc_flags;
++       rt->rt6i_flags = cfg->fc_flags & ~(RTF_PCPU | RTF_CACHE);
+
+ install_route:
+        rt->dst.dev = dev;
