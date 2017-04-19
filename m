@@ -1,41 +1,60 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] xen/9pfs: select CONFIG_XEN_XENBUS_FRONTEND
-Date: Wed, 19 Apr 2017 19:06:39 +0200
-Message-ID: <20170419170648.3041204-1-arnd@arndb.de>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH v4 net-next RFC] net: Generic XDP
+Date: Wed, 19 Apr 2017 10:17:56 -0700
+Message-ID: <20170419171753.GA12838@ast-mbp.thefacebook.com>
+References: <20170415005949.GB73685@ast-mbp.thefacebook.com>
+ <20170418190535.GG4730@C02RW35GFVH8.dhcp.broadcom.net>
+ <20170418.150708.1605529107204449972.davem@davemloft.net>
+ <20170418.152916.1361453741909754079.davem@davemloft.net>
+ <20170419142903.GJ4730@C02RW35GFVH8.dhcp.broadcom.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Latchesar Ionkov <lucho@ionkov.net>,
- Stefano Stabellini <sstabellini@kernel.org>, Arnd Bergmann <arnd@arndb.de>,
- Eric Van Hensbergen <ericvh@gmail.com>, netdev@vger.kernel.org, groug@kaod.org,
- linux-kernel@vger.kernel.org, Stefano Stabellini <stefano@aporeto.com>,
- v9fs-developer@lists.sourceforge.net, Ron Minnich <rminnich@sandia.gov>,
- xen-devel@lists.xenproject.org, boris.ostrovsky@oracle.com,
- "David S. Miller" <davem@davemloft.net>
-To: Juergen Gross <jgross@suse.com>
-Return-path: <xen-devel-bounces@lists.xen.org>
-List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xen.org>
-List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
-List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
-Errors-To: xen-devel-bounces@lists.xen.org
-Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, michael.chan@broadcom.com,
+        netdev@vger.kernel.org, xdp-newbies@vger.kernel.org
+To: Andy Gospodarek <andy@greyhouse.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yb0-f179.google.com ([209.85.213.179]:34997 "EHLO
+        mail-yb0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S967971AbdDSRSG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2017 13:18:06 -0400
+Content-Disposition: inline
+In-Reply-To: <20170419142903.GJ4730@C02RW35GFVH8.dhcp.broadcom.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-QWxsIFhlbiBmcm9udGVuZHMgbmVlZCB0byBzZWxlY3QgdGhpcyBzeW1ib2wgdG8gYXZvaWQgYSBs
-aW5rIGVycm9yOgoKbmV0L2J1aWx0LWluLm86IEluIGZ1bmN0aW9uIGBwOV90cmFuc194ZW5faW5p
-dCc6CjooLnRleHQrMHgxNDllOWMpOiB1bmRlZmluZWQgcmVmZXJlbmNlIHRvIGBfX3hlbmJ1c19y
-ZWdpc3Rlcl9mcm9udGVuZCcKCkZpeGVzOiBkNGI0MGEwMmY4MzcgKCJ4ZW4vOXBmczogYnVpbGQg
-OXBmcyBYZW4gdHJhbnNwb3J0IGRyaXZlciIpClNpZ25lZC1vZmYtYnk6IEFybmQgQmVyZ21hbm4g
-PGFybmRAYXJuZGIuZGU+Ci0tLQogbmV0LzlwL0tjb25maWcgfCAxICsKIDEgZmlsZSBjaGFuZ2Vk
-LCAxIGluc2VydGlvbigrKQoKZGlmZiAtLWdpdCBhL25ldC85cC9LY29uZmlnIGIvbmV0LzlwL0tj
-b25maWcKaW5kZXggM2YyODZmMWJkMWQzLi5lNjAxNGUwZTUxZjcgMTAwNjQ0Ci0tLSBhL25ldC85
-cC9LY29uZmlnCisrKyBiL25ldC85cC9LY29uZmlnCkBAIC0yNCw2ICsyNCw3IEBAIGNvbmZpZyBO
-RVRfOVBfVklSVElPCiAKIGNvbmZpZyBORVRfOVBfWEVOCiAJZGVwZW5kcyBvbiBYRU4KKwlzZWxl
-Y3QgWEVOX1hFTkJVU19GUk9OVEVORAogCXRyaXN0YXRlICI5UCBYZW4gVHJhbnNwb3J0IgogCWhl
-bHAKIAkgIFRoaXMgYnVpbGRzIHN1cHBvcnQgZm9yIGEgdHJhbnNwb3J0IGZvciA5cGZzIGJldHdl
-ZW4KLS0gCjIuOS4wCgoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX18KWGVuLWRldmVsIG1haWxpbmcgbGlzdApYZW4tZGV2ZWxAbGlzdHMueGVuLm9yZwpodHRw
-czovL2xpc3RzLnhlbi5vcmcveGVuLWRldmVsCg==
+On Wed, Apr 19, 2017 at 10:29:03AM -0400, Andy Gospodarek wrote:
+> 
+> I ran this on top of a card that uses the bnxt_en driver on a desktop
+> class system with an i7-6700 CPU @ 3.40GHz, sending a single stream of
+> UDP traffic with flow control disabled and saw the following (all stats
+> in Million PPS).
+> 
+>                 xdp1                xdp2            xdp_tx_tunnel
+> Generic XDP      7.8    5.5 (1.3 actual)         4.6 (1.1 actual)
+> Optimized XDP   11.7		     9.7                      4.6
+
+Nice! Thanks for testing.
+
+> One thing to note is that the Generic XDP case shows some different
+> results for reported by the application vs actual (seen on the wire).  I
+> did not debug where the drops are happening and what counter needs to be
+> incremented to note this -- I'll add that to my TODO list.  The
+> Optimized XDP case does not have a difference in reported vs actual
+> frames on the wire.
+
+The missed packets are probably due to xmit queue being full.
+We need 'xdp_tx_full' counter in:
++       if (free_skb) {
++               trace_xdp_exception(dev, xdp_prog, XDP_TX);
++               kfree_skb(skb);
++       }
+like in-driver xdp does.
+It's surprising that tx becomes full so often. May be bnxt specific behavior?
+
+> I agree with all those who have asserted that this is great tool for
+> those that want to get started with XDP but do not have hardware, so I'd
+> say it's ready to have the 'RFC' tag dropped.  Thanks for pushing this
+> forward, Dave!  :-)
+
++1
+ 
