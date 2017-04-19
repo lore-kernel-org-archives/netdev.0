@@ -1,116 +1,189 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: question about size of sk_buff and skb_shared_info
-Date: Tue, 18 Apr 2017 17:47:23 -0700
-Message-ID: <1492562843.10587.153.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <CABGNecyP8tpBtbOPL_4fyhqnkTYEa80sHCuDrUJdm9gxihFX6w@mail.gmail.com>
-         <1492542021.10587.137.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CABGNecz7oRk8PZS_YzG2QzpMXi78rQX4zPpt_28ZgJYYZS-ytg@mail.gmail.com>
-         <1492559721.10587.150.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CABGNeczXNPkWnhkviHhXv5OpVope_0BGNoB-nsGwALOptrwWdA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Code Soldier1 <codesoldier1@gmail.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: [PATCH net-next 2/2] net sched actions: add time filter for action dumping
+Date: Tue, 18 Apr 2017 21:08:02 -0400
+Message-ID: <1492564082-28685-2-git-send-email-jhs@emojatatu.com>
+References: <1492564082-28685-1-git-send-email-jhs@emojatatu.com>
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com, jiri@resnulli.us,
+        xiyou.wangcong@gmail.com, Jamal Hadi Salim <jhs@mojatatu.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:33010 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756410AbdDSArZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 20:47:25 -0400
-Received: by mail-pg0-f67.google.com with SMTP id 63so1466897pgh.0
-        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 17:47:25 -0700 (PDT)
-In-Reply-To: <CABGNeczXNPkWnhkviHhXv5OpVope_0BGNoB-nsGwALOptrwWdA@mail.gmail.com>
+Received: from mail-it0-f66.google.com ([209.85.214.66]:33066 "EHLO
+        mail-it0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1758841AbdDSBIr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 21:08:47 -0400
+Received: by mail-it0-f66.google.com with SMTP id z67so906767itb.0
+        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 18:08:47 -0700 (PDT)
+In-Reply-To: <1492564082-28685-1-git-send-email-jhs@emojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Jamal Hadi Salim <jhs@mojatatu.com>
 
-For the last time, do not top post on netdev.
+This adds support for filtering based on time since last used.
+When we are dumping a large number of actions it is useful to
+have the option of filtering based on when the action was last
+used to reduce the amount of data crossing to user space.
 
-On Tue, 2017-04-18 at 17:15 -0700, Code Soldier1 wrote:
-> I am not suggesting that we do not do cache alignment. That is
-> required for performance. I have gone through this exercise because I
-> need to add a field to sk_buff and I want to do that without causing
-> any adverse effects.
-> 
-> Now that we have discovered that there are 40 bytes that can be used
-> without any adverse effect, may I increase skb->cb by 8 bytes ?
-> 
+With this patch the user space app sets the TCAA_ACT_TIME_FILTER
+attribute with the value in milliseconds with "time of interest
+since now".  The kernel converts this to jiffies and does the
+filtering comparison matching entries that have seen activity
+since then and returns them to user space.
+Old kernels and old tc continue to work in legacy mode since
+they dont specify this attribute.
 
-skb->cb is already 48 bytes, not 40.
+Some example (we have 400 actions bound to 400 filters); at installation
+time using  hacked tc which sets the time of interest to 120 seconds:
 
-> If not then may I increase skb_shared_info -- However that would have
-> to be by 64bytes.
+prompt$ hackedtc actions ls action gact | grep index | wc -l
+400
 
+go get some coffee and  wait for > 120 seconds and try again:
 
-You will have a very hard time to convince us that this 8 byte field is
-needed on all skbs, regardless of current sk_buff size.
+prompt$ hackedtc actions ls action gact | grep index | wc -l
+0
 
+Lets see a filter bound to one of these actions:
+..
+filter pref 10 u32
+filter pref 10 u32 fh 800: ht divisor 1
+filter pref 10 u32 fh 800::800 order 2048 key ht 800 bkt 0 flowid 1:10  (rule hit 2 success 1)
+  match 7f000002/ffffffff at 12 (success 1 )
+    action order 1: gact action pass
+     random type none pass val 0
+     index 23 ref 2 bind 1 installed 1145 sec used 802 sec
+    Action statistics:
+    Sent 84 bytes 1 pkt (dropped 0, overlimits 0 requeues 0)
+    backlog 0b 0p requeues 0
+....
 
+that coffee took long, no?
 
-> 
-> 
-> On Tue, Apr 18, 2017 at 4:55 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > Please do not top post on netdev
-> >
-> > On Tue, 2017-04-18 at 16:26 -0700, Code Soldier1 wrote:
-> >> Eric,
-> >>
-> >> This alignment flag is passed to the cache constructor and the
-> >> allocation is indeed cache aligned. However, since the allocated size
-> >> is not a multiple of the alignment, wont memory be wasted ?. We can
-> >> get 40 extra bytes without any side effects since they are on the same
-> >> cache line ?
-> >
-> > We _want_ to align skb to cache lines.
-> >
-> > Fact that few bytes might be wasted is unfortunate, but negligible.
-> >
-> > BTW, if you do kmalloc(1025), kmalloc() wastes 1023 bytes.
-> >
-> >
-> >>
-> >> kmem_cache_create() code does an ALIGN() to round up the size.
-> >>
-> >>         kasan_cache_create(cachep, &size, &flags);
-> >>
-> >>         size = ALIGN(size, cachep->align);
-> >>
-> >> This is the size used in calculate_slab_order() to calculate num. I am
-> >> assuming that in the non debug case gfp_order will be 0.
-> >>
-> >> Perhaps I am missing something.
-> >>
-> >>
-> >> On Tue, Apr 18, 2017 at 12:00 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> >> > On Tue, 2017-04-18 at 10:34 -0700, Code Soldier1 wrote:
-> >> >> Hi Folks,
-> >> >>
-> >> >> I am sure there is a reason for the current sizes of these structures,
-> >> >> However the reason is not obvious to me. So please help me understand.
-> >> >>
-> >> >> Currently the size of sk_buff on an x86_64 system is 232 bytes -- Why
-> >> >> is that. I expected it to be a multiple of 32/64 as they are the most
-> >> >> common cache lines. Since the alignment calculation will align the
-> >> >> structure with the hw cache line, it seems like we might be wasting
-> >> >> space ?
-> >> >>
-> >> >> skb_shared_info on the other hand is perfectly aligned with a size of 320 bytes.
-> >> >>
-> >> >> Thanks,
-> >> >>
-> >> >
-> >> > The alignment is there.
-> >> > Look at skb_init() code, using SLAB_HWCACHE_ALIGN
-> >> >
-> >> >
-> >> >
-> >> >
-> >> >
-> >>
-> >>
-> >>
-> >
-> >
-> 
-> 
-> 
+Now lets ping -c 1 127.0.0.2, then run the actions again:
+
+prompt$ hackedtc actions ls action gact | grep index | wc -l
+1
+
+More details please:
+
+prompt$ hackedtc -s actions ls action gact
+total acts 1 flags 0x3
+
+    action order 0: gact action pass
+     random type none pass val 0
+     index 23 ref 2 bind 1 installed 1270 sec used 30 sec
+    Action statistics:
+    Sent 168 bytes 2 pkt (dropped 0, overlimits 0 requeues 0)
+    backlog 0b 0p requeues 0
+
+And the filter?
+
+filter pref 10 u32
+filter pref 10 u32 fh 800: ht divisor 1
+filter pref 10 u32 fh 800::800 order 2048 key ht 800 bkt 0 flowid 1:10  (rule hit 4 success 2)
+  match 7f000002/ffffffff at 12 (success 2 )
+    action order 1: gact action pass
+     random type none pass val 0
+     index 23 ref 2 bind 1 installed 1324 sec used 84 sec
+    Action statistics:
+    Sent 168 bytes 2 pkt (dropped 0, overlimits 0 requeues 0)
+    backlog 0b 0p requeues 0
+
+Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+---
+ include/uapi/linux/rtnetlink.h |  1 +
+ net/sched/act_api.c            | 23 +++++++++++++++++++++--
+ 2 files changed, 22 insertions(+), 2 deletions(-)
+
+diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
+index c7080ec..1b36cc0 100644
+--- a/include/uapi/linux/rtnetlink.h
++++ b/include/uapi/linux/rtnetlink.h
+@@ -680,6 +680,7 @@ enum {
+ 	TCAA_ACT_TAB,
+ 	TCAA_ACT_FLAGS,
+ 	TCAA_ACT_COUNT,
++	TCAA_ACT_TIME_FILTER,
+ 	__TCAA_MAX
+ };
+ 
+diff --git a/net/sched/act_api.c b/net/sched/act_api.c
+index 45e1cf7..cb5b23d 100644
+--- a/net/sched/act_api.c
++++ b/net/sched/act_api.c
+@@ -84,11 +84,12 @@ static int tcf_dump_walker(struct tcf_hashinfo *hinfo, struct sk_buff *skb,
+ {
+ 	int err = 0, index = -1, i = 0, s_i = 0, n_i = 0;
+ 	unsigned short act_flags = cb->args[2];
++	unsigned long jiffy_filter = cb->args[3];
+ 	struct nlattr *nest;
+ 
+ 	spin_lock_bh(&hinfo->lock);
+ 
+-	s_i = cb->args[0];
++	s_i = cb->args[4];
+ 
+ 	for (i = 0; i < (hinfo->hmask + 1); i++) {
+ 		struct hlist_head *head;
+@@ -101,6 +102,11 @@ static int tcf_dump_walker(struct tcf_hashinfo *hinfo, struct sk_buff *skb,
+ 			if (index < s_i)
+ 				continue;
+ 
++			if (jiffy_filter &&
++			    time_after(jiffy_filter,
++				       (unsigned long)p->tcfa_tm.lastuse))
++				continue;
++
+ 			nest = nla_nest_start(skb, n_i);
+ 			if (nest == NULL)
+ 				goto nla_put_failure;
+@@ -118,6 +124,9 @@ static int tcf_dump_walker(struct tcf_hashinfo *hinfo, struct sk_buff *skb,
+ 		}
+ 	}
+ done:
++	if (index > 0)
++		cb->args[4] = index + 1;
++
+ 	spin_unlock_bh(&hinfo->lock);
+ 	if (n_i) {
+ 		cb->args[0] += n_i;
+@@ -1090,13 +1099,14 @@ static int tc_dump_action(struct sk_buff *skb, struct netlink_callback *cb)
+ 	struct tcamsg *t = (struct tcamsg *) nlmsg_data(cb->nlh);
+ 	struct nlattr *kind = NULL;
+ 	u32 act_flags = 0;
++	u32 msecs_filter = 0;
++	unsigned long jiffy_wanted = 0;
+ 
+ 	ret = nlmsg_parse(cb->nlh, sizeof(struct tcamsg), tcaa, TCAA_MAX,
+ 			  tcaa_policy, NULL);
+ 	if (ret < 0)
+ 		return ret;
+ 
+-
+ 	kind = find_dump_kind(tcaa);
+ 	if (kind == NULL) {
+ 		pr_info("tc_dump_action: action bad kind\n");
+@@ -1110,12 +1120,21 @@ static int tc_dump_action(struct sk_buff *skb, struct netlink_callback *cb)
+ 	if (tcaa[TCAA_ACT_FLAGS])
+ 		act_flags = nla_get_u32(tcaa[TCAA_ACT_FLAGS]);
+ 
++	if (tcaa[TCAA_ACT_TIME_FILTER])
++		msecs_filter = nla_get_u32(tcaa[TCAA_ACT_TIME_FILTER]);
++
+ 	nlh = nlmsg_put(skb, NETLINK_CB(cb->skb).portid, cb->nlh->nlmsg_seq,
+ 			cb->nlh->nlmsg_type, sizeof(*t), 0);
+ 	if (!nlh)
+ 		goto out_module_put;
+ 
++	if (msecs_filter) {
++		unsigned long jiffy_msecs = msecs_to_jiffies(msecs_filter);
++		jiffy_wanted = jiffies - jiffy_msecs;
++	}
++
+ 	cb->args[2] = act_flags;
++	cb->args[3] = jiffy_wanted;
+ 
+ 	t = nlmsg_data(nlh);
+ 	t->tca_family = AF_UNSPEC;
+-- 
+1.9.1
