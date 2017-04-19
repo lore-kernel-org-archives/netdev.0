@@ -1,790 +1,131 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net-next v4 1/2] net_sched: move the empty tp check from ->destroy() to ->delete()
-Date: Wed, 19 Apr 2017 14:21:21 -0700
-Message-ID: <1492636882-19571-2-git-send-email-xiyou.wangcong@gmail.com>
-References: <1492636882-19571-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-        Roi Dayan <roid@mellanox.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        John Fastabend <john.fastabend@gmail.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>
-To: netdev@vger.kernel.org
+From: <David.Cai@microchip.com>
+Subject: [PATCH v2 net-next]smsc911x: Adding support for Micochip LAN9250
+ Ethernet controller
+Date: Wed, 19 Apr 2017 21:26:43 +0000
+Message-ID: <C3C28FB10418274EB7FD7C2B85C796A4412465FE@CHN-SV-EXMX02.mchp-main.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <UNGLinuxDriver@microchip.com>, <steve.glendinning@shawell.net>
+To: <netdev@vger.kernel.org>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f196.google.com ([209.85.223.196]:36516 "EHLO
-        mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S938246AbdDSVVg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2017 17:21:36 -0400
-Received: by mail-io0-f196.google.com with SMTP id x86so7650084ioe.3
-        for <netdev@vger.kernel.org>; Wed, 19 Apr 2017 14:21:36 -0700 (PDT)
-In-Reply-To: <1492636882-19571-1-git-send-email-xiyou.wangcong@gmail.com>
+Received: from esa2.microchip.iphmx.com ([68.232.149.84]:12724 "EHLO
+        esa2.microchip.iphmx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S938270AbdDSV0p (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2017 17:26:45 -0400
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We could have a race condition where in ->classify() path we
-dereference tp->root and meanwhile a parallel ->destroy() makes it
-a NULL. Daniel cured this bug in commit d936377414fa
-("net, sched: respect rcu grace period on cls destruction").
+Adding support for Microchip LAN9250 Ethernet controller.
 
-This happens when ->destroy() is called for deleting a filter to
-check if we are the last one in tp, this tp is still linked and
-visible at that time. The root cause of this problem is the semantic
-of ->destroy(), it does two things (for non-force case):
-
-1) check if tp is empty
-2) if tp is empty we could really destroy it
-
-and its caller, if cares, needs to check its return value to see if it
-is really destroyed. Therefore we can't unlink tp unless we know it is
-empty.
-
-As suggested by Daniel, we could actually move the test logic to ->delete()
-so that we can safely unlink tp after ->delete() tells us the last one is
-just deleted and before ->destroy().
-
-Fixes: 1e052be69d04 ("net_sched: destroy proto tp when all filters are gone")
-Cc: Roi Dayan <roid@mellanox.com>
-Cc: Daniel Borkmann <daniel@iogearbox.net>
-Cc: John Fastabend <john.fastabend@gmail.com>
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+Signed-off-by: David Cai <david.cai@microchip.com>
 ---
- include/net/sch_generic.h |  4 +--
- net/sched/cls_api.c       | 27 +++++++++---------
- net/sched/cls_basic.c     | 10 +++----
- net/sched/cls_bpf.c       | 11 ++++----
- net/sched/cls_cgroup.c    |  8 ++----
- net/sched/cls_flow.c      | 10 +++----
- net/sched/cls_flower.c    | 10 ++-----
- net/sched/cls_fw.c        | 29 +++++++++++--------
- net/sched/cls_matchall.c  |  7 ++---
- net/sched/cls_route.c     | 29 +++++++++----------
- net/sched/cls_rsvp.h      | 32 +++++++++++----------
- net/sched/cls_tcindex.c   | 14 +++++-----
- net/sched/cls_u32.c       | 71 +++++++++++++++++++++++++++--------------------
- 13 files changed, 134 insertions(+), 128 deletions(-)
+Changes
+V2
+ -  email format changed
+ - remove unnecessary text in commit log
 
-diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-index 65d5026..22e5209 100644
---- a/include/net/sch_generic.h
-+++ b/include/net/sch_generic.h
-@@ -204,14 +204,14 @@ struct tcf_proto_ops {
- 					    const struct tcf_proto *,
- 					    struct tcf_result *);
- 	int			(*init)(struct tcf_proto*);
--	bool			(*destroy)(struct tcf_proto*, bool);
-+	void			(*destroy)(struct tcf_proto*);
+ drivers/net/ethernet/smsc/smsc911x.c | 32 +++++++++++++++++++++++++++-----
+ drivers/net/ethernet/smsc/smsc911x.h |  3 +++
+ 2 files changed, 30 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
+index fa5ca09..22b1951 100644
+--- a/drivers/net/ethernet/smsc/smsc911x.c
++++ b/drivers/net/ethernet/smsc/smsc911x.c
+@@ -25,7 +25,7 @@
+  *   LAN9215, LAN9216, LAN9217, LAN9218
+  *   LAN9210, LAN9211
+  *   LAN9220, LAN9221
+- *   LAN89218
++ *   LAN89218,LAN9250
+  *
+  */
  
- 	unsigned long		(*get)(struct tcf_proto*, u32 handle);
- 	int			(*change)(struct net *net, struct sk_buff *,
- 					struct tcf_proto*, unsigned long,
- 					u32 handle, struct nlattr **,
- 					unsigned long *, bool);
--	int			(*delete)(struct tcf_proto*, unsigned long);
-+	int			(*delete)(struct tcf_proto*, unsigned long, bool*);
- 	void			(*walk)(struct tcf_proto*, struct tcf_walker *arg);
+@@ -104,6 +104,9 @@ struct smsc911x_data {
+ 	/* used to decide which workarounds apply */
+ 	unsigned int generation;
  
- 	/* rtnetlink specific */
-diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
-index a8da383..22f88b3 100644
---- a/net/sched/cls_api.c
-+++ b/net/sched/cls_api.c
-@@ -178,14 +178,11 @@ static struct tcf_proto *tcf_proto_create(const char *kind, u32 protocol,
- 	return ERR_PTR(err);
- }
- 
--static bool tcf_proto_destroy(struct tcf_proto *tp, bool force)
-+static void tcf_proto_destroy(struct tcf_proto *tp)
- {
--	if (tp->ops->destroy(tp, force)) {
--		module_put(tp->ops->owner);
--		kfree_rcu(tp, rcu);
--		return true;
--	}
--	return false;
-+	tp->ops->destroy(tp);
-+	module_put(tp->ops->owner);
-+	kfree_rcu(tp, rcu);
- }
- 
- void tcf_destroy_chain(struct tcf_proto __rcu **fl)
-@@ -194,7 +191,7 @@ void tcf_destroy_chain(struct tcf_proto __rcu **fl)
- 
- 	while ((tp = rtnl_dereference(*fl)) != NULL) {
- 		RCU_INIT_POINTER(*fl, tp->next);
--		tcf_proto_destroy(tp, true);
-+		tcf_proto_destroy(tp);
- 	}
- }
- EXPORT_SYMBOL(tcf_destroy_chain);
-@@ -361,7 +358,7 @@ static int tc_ctl_tfilter(struct sk_buff *skb, struct nlmsghdr *n,
- 			RCU_INIT_POINTER(*back, next);
- 			tfilter_notify(net, skb, n, tp, fh,
- 				       RTM_DELTFILTER, false);
--			tcf_proto_destroy(tp, true);
-+			tcf_proto_destroy(tp);
- 			err = 0;
- 			goto errout;
- 		}
-@@ -372,24 +369,28 @@ static int tc_ctl_tfilter(struct sk_buff *skb, struct nlmsghdr *n,
- 			goto errout;
- 		}
- 	} else {
-+		bool last;
++	/* used to decide which sub generation product work arounds to apply */
++	unsigned int sub_generation;
 +
- 		switch (n->nlmsg_type) {
- 		case RTM_NEWTFILTER:
- 			if (n->nlmsg_flags & NLM_F_EXCL) {
- 				if (tp_created)
--					tcf_proto_destroy(tp, true);
-+					tcf_proto_destroy(tp);
- 				err = -EEXIST;
- 				goto errout;
- 			}
- 			break;
- 		case RTM_DELTFILTER:
--			err = tp->ops->delete(tp, fh);
-+			err = tp->ops->delete(tp, fh, &last);
- 			if (err)
- 				goto errout;
- 			next = rtnl_dereference(tp->next);
- 			tfilter_notify(net, skb, n, tp, t->tcm_handle,
- 				       RTM_DELTFILTER, false);
--			if (tcf_proto_destroy(tp, false))
-+			if (last) {
- 				RCU_INIT_POINTER(*back, next);
-+				tcf_proto_destroy(tp);
-+			}
- 			goto errout;
- 		case RTM_GETTFILTER:
- 			err = tfilter_notify(net, skb, n, tp, fh,
-@@ -411,7 +412,7 @@ static int tc_ctl_tfilter(struct sk_buff *skb, struct nlmsghdr *n,
- 		tfilter_notify(net, skb, n, tp, fh, RTM_NEWTFILTER, false);
- 	} else {
- 		if (tp_created)
--			tcf_proto_destroy(tp, true);
-+			tcf_proto_destroy(tp);
- 	}
+ 	/* device configuration (copied from platform_data during probe) */
+ 	struct smsc911x_platform_config config;
  
- errout:
-diff --git a/net/sched/cls_basic.c b/net/sched/cls_basic.c
-index 422414f..c4fd63a 100644
---- a/net/sched/cls_basic.c
-+++ b/net/sched/cls_basic.c
-@@ -93,30 +93,28 @@ static void basic_delete_filter(struct rcu_head *head)
- 	kfree(f);
- }
+@@ -1450,6 +1453,8 @@ static int smsc911x_soft_reset(struct smsc911x_data *pdata)
+ 	unsigned int timeout;
+ 	unsigned int temp;
+ 	int ret;
++	unsigned int reset_offset = HW_CFG;
++	unsigned int reset_mask = HW_CFG_SRST_;
  
--static bool basic_destroy(struct tcf_proto *tp, bool force)
-+static void basic_destroy(struct tcf_proto *tp)
- {
- 	struct basic_head *head = rtnl_dereference(tp->root);
- 	struct basic_filter *f, *n;
- 
--	if (!force && !list_empty(&head->flist))
--		return false;
--
- 	list_for_each_entry_safe(f, n, &head->flist, link) {
- 		list_del_rcu(&f->link);
- 		tcf_unbind_filter(tp, &f->res);
- 		call_rcu(&f->rcu, basic_delete_filter);
- 	}
- 	kfree_rcu(head, rcu);
--	return true;
- }
- 
--static int basic_delete(struct tcf_proto *tp, unsigned long arg)
-+static int basic_delete(struct tcf_proto *tp, unsigned long arg, bool *last)
- {
-+	struct basic_head *head = rtnl_dereference(tp->root);
- 	struct basic_filter *f = (struct basic_filter *) arg;
- 
- 	list_del_rcu(&f->link);
- 	tcf_unbind_filter(tp, &f->res);
- 	call_rcu(&f->rcu, basic_delete_filter);
-+	*last = list_empty(&head->flist);
- 	return 0;
- }
- 
-diff --git a/net/sched/cls_bpf.c b/net/sched/cls_bpf.c
-index 7ddd08e..5ebeae9 100644
---- a/net/sched/cls_bpf.c
-+++ b/net/sched/cls_bpf.c
-@@ -274,25 +274,24 @@ static void __cls_bpf_delete(struct tcf_proto *tp, struct cls_bpf_prog *prog)
- 	call_rcu(&prog->rcu, cls_bpf_delete_prog_rcu);
- }
- 
--static int cls_bpf_delete(struct tcf_proto *tp, unsigned long arg)
-+static int cls_bpf_delete(struct tcf_proto *tp, unsigned long arg, bool *last)
- {
-+	struct cls_bpf_head *head = rtnl_dereference(tp->root);
-+
- 	__cls_bpf_delete(tp, (struct cls_bpf_prog *) arg);
-+	*last = list_empty(&head->plist);
- 	return 0;
- }
- 
--static bool cls_bpf_destroy(struct tcf_proto *tp, bool force)
-+static void cls_bpf_destroy(struct tcf_proto *tp)
- {
- 	struct cls_bpf_head *head = rtnl_dereference(tp->root);
- 	struct cls_bpf_prog *prog, *tmp;
- 
--	if (!force && !list_empty(&head->plist))
--		return false;
--
- 	list_for_each_entry_safe(prog, tmp, &head->plist, link)
- 		__cls_bpf_delete(tp, prog);
- 
- 	kfree_rcu(head, rcu);
--	return true;
- }
- 
- static unsigned long cls_bpf_get(struct tcf_proto *tp, u32 handle)
-diff --git a/net/sched/cls_cgroup.c b/net/sched/cls_cgroup.c
-index b5e7c1b..12ce547 100644
---- a/net/sched/cls_cgroup.c
-+++ b/net/sched/cls_cgroup.c
-@@ -131,20 +131,16 @@ static int cls_cgroup_change(struct net *net, struct sk_buff *in_skb,
- 	return err;
- }
- 
--static bool cls_cgroup_destroy(struct tcf_proto *tp, bool force)
-+static void cls_cgroup_destroy(struct tcf_proto *tp)
- {
- 	struct cls_cgroup_head *head = rtnl_dereference(tp->root);
- 
--	if (!force)
--		return false;
- 	/* Head can still be NULL due to cls_cgroup_init(). */
- 	if (head)
- 		call_rcu(&head->rcu, cls_cgroup_destroy_rcu);
--
--	return true;
- }
- 
--static int cls_cgroup_delete(struct tcf_proto *tp, unsigned long arg)
-+static int cls_cgroup_delete(struct tcf_proto *tp, unsigned long arg, bool *last)
- {
- 	return -EOPNOTSUPP;
- }
-diff --git a/net/sched/cls_flow.c b/net/sched/cls_flow.c
-index 008ba7e..3065752 100644
---- a/net/sched/cls_flow.c
-+++ b/net/sched/cls_flow.c
-@@ -562,12 +562,14 @@ static int flow_change(struct net *net, struct sk_buff *in_skb,
- 	return err;
- }
- 
--static int flow_delete(struct tcf_proto *tp, unsigned long arg)
-+static int flow_delete(struct tcf_proto *tp, unsigned long arg, bool *last)
- {
-+	struct flow_head *head = rtnl_dereference(tp->root);
- 	struct flow_filter *f = (struct flow_filter *)arg;
- 
- 	list_del_rcu(&f->list);
- 	call_rcu(&f->rcu, flow_destroy_filter);
-+	*last = list_empty(&head->filters);
- 	return 0;
- }
- 
-@@ -583,20 +585,16 @@ static int flow_init(struct tcf_proto *tp)
- 	return 0;
- }
- 
--static bool flow_destroy(struct tcf_proto *tp, bool force)
-+static void flow_destroy(struct tcf_proto *tp)
- {
- 	struct flow_head *head = rtnl_dereference(tp->root);
- 	struct flow_filter *f, *next;
- 
--	if (!force && !list_empty(&head->filters))
--		return false;
--
- 	list_for_each_entry_safe(f, next, &head->filters, list) {
- 		list_del_rcu(&f->list);
- 		call_rcu(&f->rcu, flow_destroy_filter);
- 	}
- 	kfree_rcu(head, rcu);
--	return true;
- }
- 
- static unsigned long flow_get(struct tcf_proto *tp, u32 handle)
-diff --git a/net/sched/cls_flower.c b/net/sched/cls_flower.c
-index 3e7bd78..31ee340 100644
---- a/net/sched/cls_flower.c
-+++ b/net/sched/cls_flower.c
-@@ -328,21 +328,16 @@ static void fl_destroy_rcu(struct rcu_head *rcu)
- 	schedule_work(&head->work);
- }
- 
--static bool fl_destroy(struct tcf_proto *tp, bool force)
-+static void fl_destroy(struct tcf_proto *tp)
- {
- 	struct cls_fl_head *head = rtnl_dereference(tp->root);
- 	struct cls_fl_filter *f, *next;
- 
--	if (!force && !list_empty(&head->filters))
--		return false;
--
- 	list_for_each_entry_safe(f, next, &head->filters, list)
- 		__fl_delete(tp, f);
- 
- 	__module_get(THIS_MODULE);
- 	call_rcu(&head->rcu, fl_destroy_rcu);
--
--	return true;
- }
- 
- static unsigned long fl_get(struct tcf_proto *tp, u32 handle)
-@@ -947,7 +942,7 @@ static int fl_change(struct net *net, struct sk_buff *in_skb,
- 	return err;
- }
- 
--static int fl_delete(struct tcf_proto *tp, unsigned long arg)
-+static int fl_delete(struct tcf_proto *tp, unsigned long arg, bool *last)
- {
- 	struct cls_fl_head *head = rtnl_dereference(tp->root);
- 	struct cls_fl_filter *f = (struct cls_fl_filter *) arg;
-@@ -956,6 +951,7 @@ static int fl_delete(struct tcf_proto *tp, unsigned long arg)
- 		rhashtable_remove_fast(&head->ht, &f->ht_node,
- 				       head->ht_params);
- 	__fl_delete(tp, f);
-+	*last = list_empty(&head->filters);
- 	return 0;
- }
- 
-diff --git a/net/sched/cls_fw.c b/net/sched/cls_fw.c
-index 9962090..78ccb4a 100644
---- a/net/sched/cls_fw.c
-+++ b/net/sched/cls_fw.c
-@@ -127,20 +127,14 @@ static void fw_delete_filter(struct rcu_head *head)
- 	kfree(f);
- }
- 
--static bool fw_destroy(struct tcf_proto *tp, bool force)
-+static void fw_destroy(struct tcf_proto *tp)
- {
- 	struct fw_head *head = rtnl_dereference(tp->root);
- 	struct fw_filter *f;
- 	int h;
- 
- 	if (head == NULL)
--		return true;
--
--	if (!force) {
--		for (h = 0; h < HTSIZE; h++)
--			if (rcu_access_pointer(head->ht[h]))
--				return false;
--	}
-+		return;
- 
- 	for (h = 0; h < HTSIZE; h++) {
- 		while ((f = rtnl_dereference(head->ht[h])) != NULL) {
-@@ -152,15 +146,16 @@ static bool fw_destroy(struct tcf_proto *tp, bool force)
- 	}
- 	RCU_INIT_POINTER(tp->root, NULL);
- 	kfree_rcu(head, rcu);
--	return true;
- }
- 
--static int fw_delete(struct tcf_proto *tp, unsigned long arg)
-+static int fw_delete(struct tcf_proto *tp, unsigned long arg, bool *last)
- {
- 	struct fw_head *head = rtnl_dereference(tp->root);
- 	struct fw_filter *f = (struct fw_filter *)arg;
- 	struct fw_filter __rcu **fp;
- 	struct fw_filter *pfp;
-+	int ret = -EINVAL;
-+	int h;
- 
- 	if (head == NULL || f == NULL)
- 		goto out;
-@@ -173,11 +168,21 @@ static int fw_delete(struct tcf_proto *tp, unsigned long arg)
- 			RCU_INIT_POINTER(*fp, rtnl_dereference(f->next));
- 			tcf_unbind_filter(tp, &f->res);
- 			call_rcu(&f->rcu, fw_delete_filter);
--			return 0;
-+			ret = 0;
-+			break;
+ 	/*
+ 	 * Make sure to power-up the PHY chip before doing a reset, otherwise
+@@ -1476,15 +1481,23 @@ static int smsc911x_soft_reset(struct smsc911x_data *pdata)
  		}
  	}
-+
-+	*last = true;
-+	for (h = 0; h < HTSIZE; h++) {
-+		if (rcu_access_pointer(head->ht[h])) {
-+			*last = false;
-+			break;
-+		}
+ 
++	if (pdata->sub_generation) {
++		/* special reset for  LAN9250 */
++		reset_offset = RESET_CTL;
++		reset_mask = RESET_CTL_DIGITAL_RST_;
 +	}
 +
- out:
--	return -EINVAL;
-+	return ret;
- }
+ 	/* Reset the LAN911x */
+-	smsc911x_reg_write(pdata, HW_CFG, HW_CFG_SRST_);
++	smsc911x_reg_write(pdata, reset_offset, reset_mask);
++
++	/* verify reset bit is cleared */
+ 	timeout = 10;
+ 	do {
+ 		udelay(10);
+-		temp = smsc911x_reg_read(pdata, HW_CFG);
+-	} while ((--timeout) && (temp & HW_CFG_SRST_));
++		temp = smsc911x_reg_read(pdata, reset_offset);
++	} while ((--timeout) && (temp & reset_mask));
  
- static const struct nla_policy fw_policy[TCA_FW_MAX + 1] = {
-diff --git a/net/sched/cls_matchall.c b/net/sched/cls_matchall.c
-index 0dbcca6..2efb36c 100644
---- a/net/sched/cls_matchall.c
-+++ b/net/sched/cls_matchall.c
-@@ -90,19 +90,18 @@ static void mall_destroy_hw_filter(struct tcf_proto *tp,
- 					     &offload);
- }
- 
--static bool mall_destroy(struct tcf_proto *tp, bool force)
-+static void mall_destroy(struct tcf_proto *tp)
- {
- 	struct cls_mall_head *head = rtnl_dereference(tp->root);
- 	struct net_device *dev = tp->q->dev_queue->dev;
- 
- 	if (!head)
--		return true;
-+		return;
- 
- 	if (tc_should_offload(dev, tp, head->flags))
- 		mall_destroy_hw_filter(tp, head, (unsigned long) head);
- 
- 	call_rcu(&head->rcu, mall_destroy_rcu);
--	return true;
- }
- 
- static unsigned long mall_get(struct tcf_proto *tp, u32 handle)
-@@ -216,7 +215,7 @@ static int mall_change(struct net *net, struct sk_buff *in_skb,
- 	return err;
- }
- 
--static int mall_delete(struct tcf_proto *tp, unsigned long arg)
-+static int mall_delete(struct tcf_proto *tp, unsigned long arg, bool *last)
- {
- 	return -EOPNOTSUPP;
- }
-diff --git a/net/sched/cls_route.c b/net/sched/cls_route.c
-index a371075..f4d687e 100644
---- a/net/sched/cls_route.c
-+++ b/net/sched/cls_route.c
-@@ -276,20 +276,13 @@ static void route4_delete_filter(struct rcu_head *head)
- 	kfree(f);
- }
- 
--static bool route4_destroy(struct tcf_proto *tp, bool force)
-+static void route4_destroy(struct tcf_proto *tp)
- {
- 	struct route4_head *head = rtnl_dereference(tp->root);
- 	int h1, h2;
- 
- 	if (head == NULL)
--		return true;
--
--	if (!force) {
--		for (h1 = 0; h1 <= 256; h1++) {
--			if (rcu_access_pointer(head->table[h1]))
--				return false;
--		}
--	}
-+		return;
- 
- 	for (h1 = 0; h1 <= 256; h1++) {
- 		struct route4_bucket *b;
-@@ -314,10 +307,9 @@ static bool route4_destroy(struct tcf_proto *tp, bool force)
+-	if (unlikely(temp & HW_CFG_SRST_)) {
++	if (unlikely(temp & reset_mask)) {
+ 		SMSC_WARN(pdata, drv, "Failed to complete reset");
+ 		return -EIO;
  	}
- 	RCU_INIT_POINTER(tp->root, NULL);
- 	kfree_rcu(head, rcu);
--	return true;
- }
+@@ -2251,6 +2264,9 @@ static int smsc911x_init(struct net_device *dev)
+ 	/* Default generation to zero (all workarounds apply) */
+ 	pdata->generation = 0;
  
--static int route4_delete(struct tcf_proto *tp, unsigned long arg)
-+static int route4_delete(struct tcf_proto *tp, unsigned long arg, bool *last)
- {
- 	struct route4_head *head = rtnl_dereference(tp->root);
- 	struct route4_filter *f = (struct route4_filter *)arg;
-@@ -325,7 +317,7 @@ static int route4_delete(struct tcf_proto *tp, unsigned long arg)
- 	struct route4_filter *nf;
- 	struct route4_bucket *b;
- 	unsigned int h = 0;
--	int i;
-+	int i, h1;
- 
- 	if (!head || !f)
- 		return -EINVAL;
-@@ -356,16 +348,25 @@ static int route4_delete(struct tcf_proto *tp, unsigned long arg)
- 
- 				rt = rtnl_dereference(b->ht[i]);
- 				if (rt)
--					return 0;
-+					goto out;
- 			}
- 
- 			/* OK, session has no flows */
- 			RCU_INIT_POINTER(head->table[to_hash(h)], NULL);
- 			kfree_rcu(b, rcu);
-+			break;
-+		}
-+	}
- 
--			return 0;
-+out:
-+	*last = true;
-+	for (h1 = 0; h1 <= 256; h1++) {
-+		if (rcu_access_pointer(head->table[h1])) {
-+			*last = false;
-+			break;
- 		}
- 	}
++	/* Default sub_generation to zero */
++	pdata->sub_generation = 0;
 +
- 	return 0;
- }
+ 	pdata->idrev = smsc911x_reg_read(pdata, ID_REV);
+ 	switch (pdata->idrev & 0xFFFF0000) {
+ 	case 0x01180000:
+@@ -2278,6 +2294,12 @@ static int smsc911x_init(struct net_device *dev)
+ 		pdata->generation = 4;
+ 		break;
  
-diff --git a/net/sched/cls_rsvp.h b/net/sched/cls_rsvp.h
-index d7f2923..18a9470 100644
---- a/net/sched/cls_rsvp.h
-+++ b/net/sched/cls_rsvp.h
-@@ -302,20 +302,13 @@ static void rsvp_delete_filter(struct tcf_proto *tp, struct rsvp_filter *f)
- 	call_rcu(&f->rcu, rsvp_delete_filter_rcu);
- }
- 
--static bool rsvp_destroy(struct tcf_proto *tp, bool force)
-+static void rsvp_destroy(struct tcf_proto *tp)
- {
- 	struct rsvp_head *data = rtnl_dereference(tp->root);
- 	int h1, h2;
- 
- 	if (data == NULL)
--		return true;
--
--	if (!force) {
--		for (h1 = 0; h1 < 256; h1++) {
--			if (rcu_access_pointer(data->ht[h1]))
--				return false;
--		}
--	}
-+		return;
- 
- 	RCU_INIT_POINTER(tp->root, NULL);
- 
-@@ -337,10 +330,9 @@ static bool rsvp_destroy(struct tcf_proto *tp, bool force)
- 		}
- 	}
- 	kfree_rcu(data, rcu);
--	return true;
- }
- 
--static int rsvp_delete(struct tcf_proto *tp, unsigned long arg)
-+static int rsvp_delete(struct tcf_proto *tp, unsigned long arg, bool *last)
- {
- 	struct rsvp_head *head = rtnl_dereference(tp->root);
- 	struct rsvp_filter *nfp, *f = (struct rsvp_filter *)arg;
-@@ -348,7 +340,7 @@ static int rsvp_delete(struct tcf_proto *tp, unsigned long arg)
- 	unsigned int h = f->handle;
- 	struct rsvp_session __rcu **sp;
- 	struct rsvp_session *nsp, *s = f->sess;
--	int i;
-+	int i, h1;
- 
- 	fp = &s->ht[(h >> 8) & 0xFF];
- 	for (nfp = rtnl_dereference(*fp); nfp;
-@@ -361,7 +353,7 @@ static int rsvp_delete(struct tcf_proto *tp, unsigned long arg)
- 
- 			for (i = 0; i <= 16; i++)
- 				if (s->ht[i])
--					return 0;
-+					goto out;
- 
- 			/* OK, session has no flows */
- 			sp = &head->ht[h & 0xFF];
-@@ -370,13 +362,23 @@ static int rsvp_delete(struct tcf_proto *tp, unsigned long arg)
- 				if (nsp == s) {
- 					RCU_INIT_POINTER(*sp, s->next);
- 					kfree_rcu(s, rcu);
--					return 0;
-+					goto out;
- 				}
- 			}
- 
--			return 0;
-+			break;
- 		}
- 	}
++	case 0x92500000:
++		/* LAN9250 */
++		pdata->generation = 4;
++		pdata->sub_generation = 1;
++		break;
 +
-+out:
-+	*last = true;
-+	for (h1 = 0; h1 < 256; h1++) {
-+		if (rcu_access_pointer(head->ht[h1])) {
-+			*last = false;
-+			break;
-+		}
-+	}
+ 	default:
+ 		SMSC_WARN(pdata, probe, "LAN911x not identified, idrev: 0x%08X",
+ 			  pdata->idrev);
+diff --git a/drivers/net/ethernet/smsc/smsc911x.h b/drivers/net/ethernet/smsc/smsc911x.h
+index 54d6489..6b2d479 100644
+--- a/drivers/net/ethernet/smsc/smsc911x.h
++++ b/drivers/net/ethernet/smsc/smsc911x.h
+@@ -303,6 +303,9 @@
+ #define E2P_DATA_EEPROM_DATA_		0x000000FF
+ #define LAN_REGISTER_EXTENT		0x00000100
+ 
++#define RESET_CTL			0x1F8
++#define RESET_CTL_DIGITAL_RST_		0x00000001
 +
- 	return 0;
- }
- 
-diff --git a/net/sched/cls_tcindex.c b/net/sched/cls_tcindex.c
-index 2ab0013..8a8a583 100644
---- a/net/sched/cls_tcindex.c
-+++ b/net/sched/cls_tcindex.c
-@@ -150,7 +150,7 @@ static void tcindex_destroy_fexts(struct rcu_head *head)
- 	kfree(f);
- }
- 
--static int tcindex_delete(struct tcf_proto *tp, unsigned long arg)
-+static int tcindex_delete(struct tcf_proto *tp, unsigned long arg, bool *last)
- {
- 	struct tcindex_data *p = rtnl_dereference(tp->root);
- 	struct tcindex_filter_result *r = (struct tcindex_filter_result *) arg;
-@@ -186,6 +186,8 @@ static int tcindex_delete(struct tcf_proto *tp, unsigned long arg)
- 		call_rcu(&f->rcu, tcindex_destroy_fexts);
- 	else
- 		call_rcu(&r->rcu, tcindex_destroy_rexts);
-+
-+	*last = false;
- 	return 0;
- }
- 
-@@ -193,7 +195,9 @@ static int tcindex_destroy_element(struct tcf_proto *tp,
- 				   unsigned long arg,
- 				   struct tcf_walker *walker)
- {
--	return tcindex_delete(tp, arg);
-+	bool last;
-+
-+	return tcindex_delete(tp, arg, &last);
- }
- 
- static void __tcindex_destroy(struct rcu_head *head)
-@@ -529,14 +533,11 @@ static void tcindex_walk(struct tcf_proto *tp, struct tcf_walker *walker)
- 	}
- }
- 
--static bool tcindex_destroy(struct tcf_proto *tp, bool force)
-+static void tcindex_destroy(struct tcf_proto *tp)
- {
- 	struct tcindex_data *p = rtnl_dereference(tp->root);
- 	struct tcf_walker walker;
- 
--	if (!force)
--		return false;
--
- 	pr_debug("tcindex_destroy(tp %p),p %p\n", tp, p);
- 	walker.count = 0;
- 	walker.skip = 0;
-@@ -544,7 +545,6 @@ static bool tcindex_destroy(struct tcf_proto *tp, bool force)
- 	tcindex_walk(tp, &walker);
- 
- 	call_rcu(&p->rcu, __tcindex_destroy);
--	return true;
- }
- 
- 
-diff --git a/net/sched/cls_u32.c b/net/sched/cls_u32.c
-index 9e2f330..d20e72a 100644
---- a/net/sched/cls_u32.c
-+++ b/net/sched/cls_u32.c
-@@ -585,37 +585,13 @@ static bool ht_empty(struct tc_u_hnode *ht)
- 	return true;
- }
- 
--static bool u32_destroy(struct tcf_proto *tp, bool force)
-+static void u32_destroy(struct tcf_proto *tp)
- {
- 	struct tc_u_common *tp_c = tp->data;
- 	struct tc_u_hnode *root_ht = rtnl_dereference(tp->root);
- 
- 	WARN_ON(root_ht == NULL);
- 
--	if (!force) {
--		if (root_ht) {
--			if (root_ht->refcnt > 1)
--				return false;
--			if (root_ht->refcnt == 1) {
--				if (!ht_empty(root_ht))
--					return false;
--			}
--		}
--
--		if (tp_c->refcnt > 1)
--			return false;
--
--		if (tp_c->refcnt == 1) {
--			struct tc_u_hnode *ht;
--
--			for (ht = rtnl_dereference(tp_c->hlist);
--			     ht;
--			     ht = rtnl_dereference(ht->next))
--				if (!ht_empty(ht))
--					return false;
--		}
--	}
--
- 	if (root_ht && --root_ht->refcnt == 0)
- 		u32_destroy_hnode(tp, root_ht);
- 
-@@ -640,20 +616,22 @@ static bool u32_destroy(struct tcf_proto *tp, bool force)
- 	}
- 
- 	tp->data = NULL;
--	return true;
- }
- 
--static int u32_delete(struct tcf_proto *tp, unsigned long arg)
-+static int u32_delete(struct tcf_proto *tp, unsigned long arg, bool *last)
- {
- 	struct tc_u_hnode *ht = (struct tc_u_hnode *)arg;
- 	struct tc_u_hnode *root_ht = rtnl_dereference(tp->root);
-+	struct tc_u_common *tp_c = tp->data;
-+	int ret = 0;
- 
- 	if (ht == NULL)
--		return 0;
-+		goto out;
- 
- 	if (TC_U32_KEY(ht->handle)) {
- 		u32_remove_hw_knode(tp, ht->handle);
--		return u32_delete_key(tp, (struct tc_u_knode *)ht);
-+		ret = u32_delete_key(tp, (struct tc_u_knode *)ht);
-+		goto out;
- 	}
- 
- 	if (root_ht == ht)
-@@ -666,7 +644,40 @@ static int u32_delete(struct tcf_proto *tp, unsigned long arg)
- 		return -EBUSY;
- 	}
- 
--	return 0;
-+out:
-+	*last = true;
-+	if (root_ht) {
-+		if (root_ht->refcnt > 1) {
-+			*last = false;
-+			goto ret;
-+		}
-+		if (root_ht->refcnt == 1) {
-+			if (!ht_empty(root_ht)) {
-+				*last = false;
-+				goto ret;
-+			}
-+		}
-+	}
-+
-+	if (tp_c->refcnt > 1) {
-+		*last = false;
-+		goto ret;
-+	}
-+
-+	if (tp_c->refcnt == 1) {
-+		struct tc_u_hnode *ht;
-+
-+		for (ht = rtnl_dereference(tp_c->hlist);
-+		     ht;
-+		     ht = rtnl_dereference(ht->next))
-+			if (!ht_empty(ht)) {
-+				*last = false;
-+				break;
-+			}
-+	}
-+
-+ret:
-+	return ret;
- }
- 
- #define NR_U32_NODE (1<<12)
+ /*
+  * MAC Control and Status Register (Indirect Address)
+  * Offset (through the MAC_CSR CMD and DATA port)
 -- 
-2.5.5
+2.7.4
