@@ -1,118 +1,125 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v2 net-next]smsc911x: Adding support for Micochip LAN9250
- Ethernet controller
-Date: Thu, 20 Apr 2017 00:01:54 +0200
-Message-ID: <20170419220154.GA16977@lunn.ch>
-References: <C3C28FB10418274EB7FD7C2B85C796A4412465FE@CHN-SV-EXMX02.mchp-main.com>
+From: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+Subject: Re: [PATCH net-next v6 09/11] seccomp: Enhance test_harness with an
+ assert step mechanism
+Date: Wed, 19 Apr 2017 15:02:34 -0700
+Message-ID: <CAGXu5jJfnA=XeUNc4eAsUvXCja725riA7Vaod=BmM2ZbXdfQ4A@mail.gmail.com>
+References: <20170328234650.19695-1-mic@digikod.net> <20170328234650.19695-10-mic@digikod.net>
+ <CAGXu5j+D-FP8Kt9unNOqKrQJP4DYTpmgkJxWykZyrYiVPz3Y3Q@mail.gmail.com> <94ac6ddc-eaac-8548-f83f-826ddf05ac69@digikod.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-        UNGLinuxDriver@microchip.com, steve.glendinning@shawell.net
-To: David.Cai@microchip.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:35242 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S935340AbdDSWB7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 19 Apr 2017 18:01:59 -0400
-Content-Disposition: inline
-In-Reply-To: <C3C28FB10418274EB7FD7C2B85C796A4412465FE@CHN-SV-EXMX02.mchp-main.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Alexei Starovoitov <ast-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
+        Arnaldo Carvalho de Melo <acme-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Casey Schaufler <casey-iSGtlc1asvQWG2LlvL+J4A@public.gmane.org>,
+        Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
+        David Drysdale <drysdale-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+        "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        "Eric W . Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
+        James Morris <james.l.morris-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
+        Jann Horn <jann-XZ1E9jl8jIdeoWH0uzbU5w@public.gmane.org>, Jonathan Corbet <corbet-T1hC0tSOHrs@public.gmane.org>,
+        Matthew Garrett <mjg59-1xO5oi07KQx4cg9Nei1l7Q@public.gmane.org>,
+        Michael Kerrisk <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Paul Moore <paul-r2n+y4ga6xFZroRs9YW3xA@public.gmane.org>,
+        Sargun Dhillon <sargun-GaZTRHToo+CzQB+pC5nmwQ@public.gmane.org>,
+        "Serge E . Hallyn" <serge-A9i7LUbDfNHQT0dZR+AlfA@public.gmane.org>,
+        Shuah Khan <shuah-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>, Will Drewry <wa
+To: =?UTF-8?B?TWlja2HDq2wgU2FsYcO8bg==?= <mic-WFhQfpSGs3bR7s880joybQ@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <94ac6ddc-eaac-8548-f83f-826ddf05ac69-WFhQfpSGs3bR7s880joybQ@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 19, 2017 at 09:26:43PM +0000, David.Cai@microchip.com wrote:
-> Adding support for Microchip LAN9250 Ethernet controller.
-> 
-> Signed-off-by: David Cai <david.cai@microchip.com>
-> ---
-> Changes
-> V2
->  -  email format changed
->  - remove unnecessary text in commit log
- 
-Much better, thanks.
-
->  drivers/net/ethernet/smsc/smsc911x.c | 32 +++++++++++++++++++++++++++-----
->  drivers/net/ethernet/smsc/smsc911x.h |  3 +++
->  2 files changed, 30 insertions(+), 5 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
-> index fa5ca09..22b1951 100644
-> --- a/drivers/net/ethernet/smsc/smsc911x.c
-> +++ b/drivers/net/ethernet/smsc/smsc911x.c
-> @@ -25,7 +25,7 @@
->   *   LAN9215, LAN9216, LAN9217, LAN9218
->   *   LAN9210, LAN9211
->   *   LAN9220, LAN9221
-> - *   LAN89218
-> + *   LAN89218,LAN9250
->   *
->   */
->  
-> @@ -104,6 +104,9 @@ struct smsc911x_data {
->  	/* used to decide which workarounds apply */
->  	unsigned int generation;
->  
-> +	/* used to decide which sub generation product work arounds to apply */
-> +	unsigned int sub_generation;
-> +
->  	/* device configuration (copied from platform_data during probe) */
->  	struct smsc911x_platform_config config;
->  
-> @@ -1450,6 +1453,8 @@ static int smsc911x_soft_reset(struct smsc911x_data *pdata)
->  	unsigned int timeout;
->  	unsigned int temp;
->  	int ret;
-> +	unsigned int reset_offset = HW_CFG;
-> +	unsigned int reset_mask = HW_CFG_SRST_;
->  
->  	/*
->  	 * Make sure to power-up the PHY chip before doing a reset, otherwise
-> @@ -1476,15 +1481,23 @@ static int smsc911x_soft_reset(struct smsc911x_data *pdata)
->  		}
->  	}
->  
-> +	if (pdata->sub_generation) {
-
-I know it does not make a difference at the moment, but shouldn't this
-be
-
-	if (pdata>generation == 4 && pdata->sub_generation) {
-
-at some point other sub-generations might become important, at which
-point your simpler code breaks.
-
-> +		/* special reset for  LAN9250 */
-> +		reset_offset = RESET_CTL;
-> +		reset_mask = RESET_CTL_DIGITAL_RST_;
-> +	}
-
-> @@ -2251,6 +2264,9 @@ static int smsc911x_init(struct net_device *dev)
->  	/* Default generation to zero (all workarounds apply) */
->  	pdata->generation = 0;
->  
-> +	/* Default sub_generation to zero */
-> +	pdata->sub_generation = 0;
-> +
-
-alloc_etherdev() uses kzalloc, so sub_generation is guaranteed to be
-0. No need to set it here.
-
->  	pdata->idrev = smsc911x_reg_read(pdata, ID_REV);
->  	switch (pdata->idrev & 0xFFFF0000) {
->  	case 0x01180000:
-> @@ -2278,6 +2294,12 @@ static int smsc911x_init(struct net_device *dev)
->  		pdata->generation = 4;
->  		break;
->  
-> +	case 0x92500000:
-> +		/* LAN9250 */
-> +		pdata->generation = 4;
-> +		pdata->sub_generation = 1;
-> +		break;
+On Wed, Apr 19, 2017 at 2:51 PM, Micka=C3=ABl Sala=C3=BCn <mic-WFhQfpSGs3bR7s880joybQ@public.gmane.org>=
+ wrote:
 >
+> On 19/04/2017 02:02, Kees Cook wrote:
+>> On Tue, Mar 28, 2017 at 4:46 PM, Micka=C3=ABl Sala=C3=BCn <mic@digikod.n=
+et> wrote:
+>>> This is useful to return an information about the error without being
+>>> able to write to TH_LOG_STREAM.
+>>>
+>>> Helpers from test_harness.h may be useful outside of the seccomp
+>>> directory.
+>>>
+>>> Signed-off-by: Micka=C3=ABl Sala=C3=BCn <mic-WFhQfpSGs3bR7s880joybQ@public.gmane.org>
+>>> Cc: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
+>>> Cc: Arnaldo Carvalho de Melo <acme-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+>>> Cc: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+>>> Cc: Shuah Khan <shuah-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+>>> Cc: Will Drewry <wad-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+>>> ---
+>>>  tools/testing/selftests/seccomp/test_harness.h | 8 +++++++-
+>>>  1 file changed, 7 insertions(+), 1 deletion(-)
+>>>
+>>> diff --git a/tools/testing/selftests/seccomp/test_harness.h b/tools/tes=
+ting/selftests/seccomp/test_harness.h
+>>> index a786c69c7584..77e407663e06 100644
+>>> --- a/tools/testing/selftests/seccomp/test_harness.h
+>>> +++ b/tools/testing/selftests/seccomp/test_harness.h
+>>> @@ -397,7 +397,7 @@ struct __test_metadata {
+>>>         const char *name;
+>>>         void (*fn)(struct __test_metadata *);
+>>>         int termsig;
+>>> -       int passed;
+>>> +       __s8 passed;
+>>
+>> Why the reduction here? int is signed too?
+>
+> Because the return code of a process is capped to 8 bits and I use a
+> negative value to not mess with the current interpretation of 0 (error)
+> and 1 (OK) for the "passed" variable.
+>
+>>
+>>>         int trigger; /* extra handler after the evaluation */
+>>>         struct __test_metadata *prev, *next;
+>>>  };
+>>> @@ -476,6 +476,12 @@ void __run_test(struct __test_metadata *t)
+>>>                                         "instead of by signal (code: %d=
+)\n",
+>>>                                         t->name,
+>>>                                         WEXITSTATUS(status));
+>>> +                       } else if (t->passed < 0) {
+>>> +                               fprintf(TH_LOG_STREAM,
+>>> +                                       "%s: Failed at step #%d\n",
+>>> +                                       t->name,
+>>> +                                       t->passed * -1);
+>>> +                               t->passed =3D 0;
+>>>                         }
+>>
+>> Instead of creating an overloaded mechanism here, perhaps have an
+>> option reporting mechanism that can be enabled. Like adding to
+>> __test_metadata "bool no_stream; int test_number;" and adding
+>> test_number++ to each ASSERT/EXCEPT call, and doing something like:
+>>
+>> if (t->no_stream) {
+>>                               fprintf(TH_LOG_STREAM,
+>>                                       "%s: Failed at step #%d\n",
+>>                                       t->name,
+>>                                        t->test_number);
+>> }
+>>
+>> It'd be a cleaner approach, maybe?
+>
+> Good idea, we will then be able to use 255 steps!
+>
+> Do you want me to send this as a separate patch?
+>
+> Can we move test_harness.h outside of the seccomp directory to be
+> available to other subsystems as well?
 
-Maybe it would be more readable in general to add some #defines for
-0x92500000 and all the other hex values, and then in smsc911x_init()
-look at the pdata->idrev?
+Yeah, I would do two patches, and send them out separately (to shuah
+with lkml and me in cc at least), one to move test_hardness.h into
+some include/ directory, and then to add the new logic for streamless
+reporting.
 
-     Andrew
+Thanks!
+
+-Kees
+
+
+--=20
+Kees Cook
+Pixel Security
