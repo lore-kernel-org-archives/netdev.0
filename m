@@ -1,60 +1,57 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH v4 net-next RFC] net: Generic XDP
-Date: Wed, 19 Apr 2017 10:17:56 -0700
-Message-ID: <20170419171753.GA12838@ast-mbp.thefacebook.com>
-References: <20170415005949.GB73685@ast-mbp.thefacebook.com>
- <20170418190535.GG4730@C02RW35GFVH8.dhcp.broadcom.net>
- <20170418.150708.1605529107204449972.davem@davemloft.net>
- <20170418.152916.1361453741909754079.davem@davemloft.net>
- <20170419142903.GJ4730@C02RW35GFVH8.dhcp.broadcom.net>
+From: Stefano Stabellini <sstabellini@kernel.org>
+Subject: Re: [PATCH] xen/9pfs: select CONFIG_XEN_XENBUS_FRONTEND
+Date: Wed, 19 Apr 2017 10:21:17 -0700 (PDT)
+Message-ID: <alpine.DEB.2.10.1704191020310.31486@sstabellini-ThinkPad-X260>
+References: <20170419170648.3041204-1-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, michael.chan@broadcom.com,
-        netdev@vger.kernel.org, xdp-newbies@vger.kernel.org
-To: Andy Gospodarek <andy@greyhouse.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yb0-f179.google.com ([209.85.213.179]:34997 "EHLO
-        mail-yb0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S967971AbdDSRSG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2017 13:18:06 -0400
-Content-Disposition: inline
-In-Reply-To: <20170419142903.GJ4730@C02RW35GFVH8.dhcp.broadcom.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Juergen Gross <jgross@suse.com>,
+        Stefano Stabellini <stefano@aporeto.com>,
+        boris.ostrovsky@oracle.com, groug@kaod.org,
+        xen-devel@lists.xenproject.org,
+        Eric Van Hensbergen <ericvh@gmail.com>,
+        Ron Minnich <rminnich@sandia.gov>,
+        Latchesar Ionkov <lucho@ionkov.net>,
+        "David S. Miller" <davem@davemloft.net>,
+        Stefano Stabellini <sstabellini@kernel.org>,
+        v9fs-developer@lists.sourceforge.net, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170419170648.3041204-1-arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 19, 2017 at 10:29:03AM -0400, Andy Gospodarek wrote:
+On Wed, 19 Apr 2017, Arnd Bergmann wrote:
+> All Xen frontends need to select this symbol to avoid a link error:
 > 
-> I ran this on top of a card that uses the bnxt_en driver on a desktop
-> class system with an i7-6700 CPU @ 3.40GHz, sending a single stream of
-> UDP traffic with flow control disabled and saw the following (all stats
-> in Million PPS).
+> net/built-in.o: In function `p9_trans_xen_init':
+> :(.text+0x149e9c): undefined reference to `__xenbus_register_frontend'
 > 
->                 xdp1                xdp2            xdp_tx_tunnel
-> Generic XDP      7.8    5.5 (1.3 actual)         4.6 (1.1 actual)
-> Optimized XDP   11.7		     9.7                      4.6
+> Fixes: d4b40a02f837 ("xen/9pfs: build 9pfs Xen transport driver")
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-Nice! Thanks for testing.
+Thank you for the fix!
 
-> One thing to note is that the Generic XDP case shows some different
-> results for reported by the application vs actual (seen on the wire).  I
-> did not debug where the drops are happening and what counter needs to be
-> incremented to note this -- I'll add that to my TODO list.  The
-> Optimized XDP case does not have a difference in reported vs actual
-> frames on the wire.
+Reviewed-by: Stefano Stabellini <sstabellini@kernel.org>
 
-The missed packets are probably due to xmit queue being full.
-We need 'xdp_tx_full' counter in:
-+       if (free_skb) {
-+               trace_xdp_exception(dev, xdp_prog, XDP_TX);
-+               kfree_skb(skb);
-+       }
-like in-driver xdp does.
-It's surprising that tx becomes full so often. May be bnxt specific behavior?
 
-> I agree with all those who have asserted that this is great tool for
-> those that want to get started with XDP but do not have hardware, so I'd
-> say it's ready to have the 'RFC' tag dropped.  Thanks for pushing this
-> forward, Dave!  :-)
-
-+1
- 
+> ---
+>  net/9p/Kconfig | 1 +
+>  1 file changed, 1 insertion(+)
+> 
+> diff --git a/net/9p/Kconfig b/net/9p/Kconfig
+> index 3f286f1bd1d3..e6014e0e51f7 100644
+> --- a/net/9p/Kconfig
+> +++ b/net/9p/Kconfig
+> @@ -24,6 +24,7 @@ config NET_9P_VIRTIO
+>  
+>  config NET_9P_XEN
+>  	depends on XEN
+> +	select XEN_XENBUS_FRONTEND
+>  	tristate "9P Xen Transport"
+>  	help
+>  	  This builds support for a transport for 9pfs between
+> -- 
+> 2.9.0
+> 
