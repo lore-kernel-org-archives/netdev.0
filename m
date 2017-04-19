@@ -1,114 +1,41 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [patch] socket.7: Document SO_INCOMING_CPU
-Date: Wed, 19 Apr 2017 10:05:35 -0700
-Message-ID: <1492621535.22296.8.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <CABNn7+rHfUTjMtm3Biqfx83G6Rr7pY-LuHXY=JqA6N3H_SstZg@mail.gmail.com>
-         <63815aac-9c8f-c599-9422-5c312cefc9e8@gmail.com>
-         <9c754f31-8ace-03f2-97f3-81e29eb6d997@gmail.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] xen/9pfs: select CONFIG_XEN_XENBUS_FRONTEND
+Date: Wed, 19 Apr 2017 19:06:39 +0200
+Message-ID: <20170419170648.3041204-1-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Francois Saint-Jacques <fsaintjacques@gmail.com>,
-        linux-man@vger.kernel.org, netdev@vger.kernel.org,
-        Eric Dumazet <edumazet@google.com>
-To: "Michael Kerrisk (man-pages)" <mtk.manpages@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f195.google.com ([209.85.223.195]:36053 "EHLO
-        mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S967812AbdDSRFn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2017 13:05:43 -0400
-In-Reply-To: <9c754f31-8ace-03f2-97f3-81e29eb6d997@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Latchesar Ionkov <lucho@ionkov.net>,
+ Stefano Stabellini <sstabellini@kernel.org>, Arnd Bergmann <arnd@arndb.de>,
+ Eric Van Hensbergen <ericvh@gmail.com>, netdev@vger.kernel.org, groug@kaod.org,
+ linux-kernel@vger.kernel.org, Stefano Stabellini <stefano@aporeto.com>,
+ v9fs-developer@lists.sourceforge.net, Ron Minnich <rminnich@sandia.gov>,
+ xen-devel@lists.xenproject.org, boris.ostrovsky@oracle.com,
+ "David S. Miller" <davem@davemloft.net>
+To: Juergen Gross <jgross@suse.com>
+Return-path: <xen-devel-bounces@lists.xen.org>
+List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Errors-To: xen-devel-bounces@lists.xen.org
+Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2017-04-19 at 15:20 +0200, Michael Kerrisk (man-pages) wrote:
-> Ping Eric!
-> 
-> Would you have a chance to review the proposed text below, please.
-> 
-> Thanks,
-> 
-
-Hi Michael
-
-Sorry for the delay.
-
-Note that setting the option is not supported if SO_REUSEPORT is used.
-
-Socket will be selected from an array, either by a hash or BPF program
-that has no access to this information.
-
-Thanks !
-
-
-> Michael
-> 
-> On 02/19/2017 09:55 PM, Michael Kerrisk (man-pages) wrote:
-> > [CC += Eric, so that he might review]
-> > 
-> > Hello Francois,
-> > 
-> > On 02/18/2017 05:06 AM, Francois Saint-Jacques wrote:
-> >> This socket option is undocumented. Applies on the latest version
-> >> (man-pages-4.09-511).
-> >>
-> >> diff --git a/man7/socket.7 b/man7/socket.7
-> >> index 3efd7a5d8..1a3ffa253 100644
-> >> --- a/man7/socket.7
-> >> +++ b/man7/socket.7
-> >> @@ -490,6 +490,26 @@ flag on a socket
-> >>  operation.
-> >>  Expects an integer boolean flag.
-> >>  .TP
-> >> +.BR SO_INCOMING_CPU " (getsockopt since Linux 3.19, setsockopt since
-> >> Linux 4.4)"
-> >> +.\" getsocktop 2c8c56e15df3d4c2af3d656e44feb18789f75837
-> >> +.\" setsocktop 70da268b569d32a9fddeea85dc18043de9d89f89
-> >> +Sets or gets the cpu affinity of a socket. Expects an integer flag.
-> >> +.sp
-> >> +.in +4n
-> >> +.nf
-> >> +int cpu = 1;
-> >> +socklen_t len = sizeof(cpu);
-> >> +setsockopt(fd, SOL_SOCKET, SO_INCOMING_CPU, &cpu, &len);
-> >> +.fi
-> >> +.in
-> >> +.sp
-> >> +The typical use case is one listener per RX queue, as the associated listener
-> >> +should only accept flows handled in softirq by the same cpu.  This provides
-> >> +optimal NUMA behavior and keep cpu caches hot.
-> >> +.TP
-> >>  .B SO_KEEPALIVE
-> >>  Enable sending of keep-alive messages on connection-oriented sockets.
-> >>  Expects an integer boolean flag.
-> > 
-> > Thank you! Patch applied.
-> > 
-> > I have tried to enhance the description somewhat. I'm not sure whether
-> > what I've written is quite correct (or whether it should be further
-> > extended). Eric, could you please take a look at the following, and let 
-> > me know if anything needs fixing:
-> > 
-> >        SO_INCOMING_CPU  (gettable  since Linux 3.19, settable since Linux
-> >        4.4)
-> >               Sets or gets the CPU affinity  of  a  socket.   Expects  an
-> >               integer flag.
-> > 
-> >                   int cpu = 1;
-> >                   socklen_t len = sizeof(cpu);
-> >                   setsockopt(fd, SOL_SOCKET, SO_INCOMING_CPU, &cpu, &len);
-> > 
-> >               Because  all  of the packets for a single stream (i.e., all
-> >               packets for the same 4-tuple) arrive on the single RX queue
-> >               that  is  associated with a particular CPU, the typical use
-> >               case is to employ one listening process per RX queue,  with
-> >               the  incoming  flow being handled by a listener on the same
-> >               CPU that is handling the RX queue.  This  provides  optimal
-> >               NUMA behavior and keeps CPU caches hot.
-> > 
-> > Cheers,
-> > 
-> > Michael
-> > 
-> 
-> 
+QWxsIFhlbiBmcm9udGVuZHMgbmVlZCB0byBzZWxlY3QgdGhpcyBzeW1ib2wgdG8gYXZvaWQgYSBs
+aW5rIGVycm9yOgoKbmV0L2J1aWx0LWluLm86IEluIGZ1bmN0aW9uIGBwOV90cmFuc194ZW5faW5p
+dCc6CjooLnRleHQrMHgxNDllOWMpOiB1bmRlZmluZWQgcmVmZXJlbmNlIHRvIGBfX3hlbmJ1c19y
+ZWdpc3Rlcl9mcm9udGVuZCcKCkZpeGVzOiBkNGI0MGEwMmY4MzcgKCJ4ZW4vOXBmczogYnVpbGQg
+OXBmcyBYZW4gdHJhbnNwb3J0IGRyaXZlciIpClNpZ25lZC1vZmYtYnk6IEFybmQgQmVyZ21hbm4g
+PGFybmRAYXJuZGIuZGU+Ci0tLQogbmV0LzlwL0tjb25maWcgfCAxICsKIDEgZmlsZSBjaGFuZ2Vk
+LCAxIGluc2VydGlvbigrKQoKZGlmZiAtLWdpdCBhL25ldC85cC9LY29uZmlnIGIvbmV0LzlwL0tj
+b25maWcKaW5kZXggM2YyODZmMWJkMWQzLi5lNjAxNGUwZTUxZjcgMTAwNjQ0Ci0tLSBhL25ldC85
+cC9LY29uZmlnCisrKyBiL25ldC85cC9LY29uZmlnCkBAIC0yNCw2ICsyNCw3IEBAIGNvbmZpZyBO
+RVRfOVBfVklSVElPCiAKIGNvbmZpZyBORVRfOVBfWEVOCiAJZGVwZW5kcyBvbiBYRU4KKwlzZWxl
+Y3QgWEVOX1hFTkJVU19GUk9OVEVORAogCXRyaXN0YXRlICI5UCBYZW4gVHJhbnNwb3J0IgogCWhl
+bHAKIAkgIFRoaXMgYnVpbGRzIHN1cHBvcnQgZm9yIGEgdHJhbnNwb3J0IGZvciA5cGZzIGJldHdl
+ZW4KLS0gCjIuOS4wCgoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX18KWGVuLWRldmVsIG1haWxpbmcgbGlzdApYZW4tZGV2ZWxAbGlzdHMueGVuLm9yZwpodHRw
+czovL2xpc3RzLnhlbi5vcmcveGVuLWRldmVsCg==
