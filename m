@@ -1,138 +1,100 @@
-From: Matthew Whitehead <tedheadster@gmail.com>
-Subject: [PATCH net-next] Replace 2 jiffies with sysctl netdev_budget_usecs to enable softirq tuning
-Date: Wed, 19 Apr 2017 12:37:10 -0400
-Message-ID: <1492619830-7561-1-git-send-email-tedheadster@gmail.com>
-Cc: Matthew Whitehead <tedheadster@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f194.google.com ([209.85.216.194]:35774 "EHLO
-        mail-qt0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S938166AbdDSQhS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2017 12:37:18 -0400
-Received: by mail-qt0-f194.google.com with SMTP id o36so3904135qtb.2
-        for <netdev@vger.kernel.org>; Wed, 19 Apr 2017 09:37:17 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: export pcie_flr and remove copies of it in drivers V2
+Date: Wed, 19 Apr 2017 19:40:01 +0300
+Message-ID: <20170419164001.GK14088@mtr-leonro.local>
+References: <20170414191131.14286-1-hch@lst.de>
+ <20170418183612.GC25295@bhelgaas-glaptop.roam.corp.google.com>
+ <20170419053737.GG14088@mtr-leonro.local>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha256;
+        protocol="application/pgp-signature"; boundary="YPJ8CVbwFUtL7OFW"
+Cc: Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>,
+        Bjorn Helgaas <bhelgaas-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+        Giovanni Cabiddu <giovanni.cabiddu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        Salvatore Benedetto <salvatore.benedetto-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        Mike Marciniszyn <mike.marciniszyn-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        Dennis Dalessandro <dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        Derek Chickles <derek.chickles-M3mlKVOIwJVv6pq1l3V1OdBPR1lH4CV8@public.gmane.org>,
+        Satanand Burla <satananda.burla-M3mlKVOIwJVv6pq1l3V1OdBPR1lH4CV8@public.gmane.org>,
+        Felix Manlunas <felix.manlunas-M3mlKVOIwJVv6pq1l3V1OdBPR1lH4CV8@public.gmane.org>,
+        Raghu Vatsavayi <raghu.vatsavayi-M3mlKVOIwJVv6pq1l3V1OdBPR1lH4CV8@public.gmane.org>,
+        Jeff Kirsher <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        linux-pci-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, qat-linux-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+        linux-crypto-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Bjorn Helgaas <helgaas-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20170419053737.GG14088-U/DQcQFIOTAAJjI8aNfphQ@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Constants used for tuning are generally a bad idea, especially as hardware
-changes over time. Replace the constant 2 jiffies with sysctl variable
-netdev_budget_usecs to enable sysadmins to tune the softirq processing.
-Also document the variable.
 
-For example, a very fast machine might tune this to 1000 microseconds,
-while my regression testing 486DX-25 needs it to be 4000 microseconds on
-a nearly idle network to prevent time_squeeze from being incremented.
+--YPJ8CVbwFUtL7OFW
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Version 2: changed jiffies to microseconds for predictable units.
+On Wed, Apr 19, 2017 at 08:37:37AM +0300, Leon Romanovsky wrote:
+> On Tue, Apr 18, 2017 at 01:36:12PM -0500, Bjorn Helgaas wrote:
+> > On Fri, Apr 14, 2017 at 09:11:24PM +0200, Christoph Hellwig wrote:
+> > > Hi all,
+> > >
+> > > this exports the PCI layer pcie_flr helper, and removes various opencoded
+> > > copies of it.
+> > >
+> > > Changes since V1:
+> > >  - rebase on top of the pci/virtualization branch
+> > >  - fixed the probe case in __pci_dev_reset
+> > >  - added ACKs from Bjorn
+> >
+> > Applied the first three patches:
+> >
+> >   bc13871ef35a PCI: Export pcie_flr()
+> >   e641c375d414 PCI: Call pcie_flr() from reset_intel_82599_sfp_virtfn()
+> >   40e0901ea4bf PCI: Call pcie_flr() from reset_chelsio_generic_dev()
+> >
+>
+> Bjorn,
+>
+> How do you suggest to proceed with other patches? They should be applied
+> to your tree either, because they depend on "bc13871ef35a PCI: Export
+> pcie_flr()".
 
-Signed-off-by: Matthew Whitehead <tedheadster@gmail.com>
----
- Documentation/sysctl/net.txt | 11 ++++++++++-
- include/linux/netdevice.h    |  1 +
- include/uapi/linux/sysctl.h  |  1 +
- kernel/sysctl_binary.c       |  1 +
- net/core/dev.c               |  4 +++-
- net/core/sysctl_net_core.c   |  8 ++++++++
- 6 files changed, 24 insertions(+), 2 deletions(-)
+I finally caught the old emails and found the answer by myself.
+http://marc.info/?l=linux-rdma&m=149218545228343&w=2
 
-diff --git a/Documentation/sysctl/net.txt b/Documentation/sysctl/net.txt
-index 2ebabc9..14db18c 100644
---- a/Documentation/sysctl/net.txt
-+++ b/Documentation/sysctl/net.txt
-@@ -188,7 +188,16 @@ netdev_budget
- 
- Maximum number of packets taken from all interfaces in one polling cycle (NAPI
- poll). In one polling cycle interfaces which are registered to polling are
--probed in a round-robin manner.
-+probed in a round-robin manner. Also, a polling cycle may not exceed
-+netdev_budget_usecs microseconds, even if netdev_budget has not been
-+exhausted.
-+
-+netdev_budget_usecs
-+---------------------
-+
-+Maximum number of microseconds in one NAPI polling cycle. Polling
-+will exit when either netdev_budget_usecs have elapsed during the
-+poll cycle or the number of packets processed reaches netdev_budget.
- 
- netdev_max_backlog
- ------------------
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 97456b25..2fc72a5 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -3305,6 +3305,7 @@ static __always_inline int ____dev_forward_skb(struct net_device *dev,
- void dev_queue_xmit_nit(struct sk_buff *skb, struct net_device *dev);
- 
- extern int		netdev_budget;
-+extern unsigned int	netdev_budget_usecs;
- 
- /* Called by rtnetlink.c:rtnl_unlock() */
- void netdev_run_todo(void);
-diff --git a/include/uapi/linux/sysctl.h b/include/uapi/linux/sysctl.h
-index d2b1215..a1f1f25 100644
---- a/include/uapi/linux/sysctl.h
-+++ b/include/uapi/linux/sysctl.h
-@@ -274,6 +274,7 @@ enum
- 	NET_CORE_AEVENT_ETIME=20,
- 	NET_CORE_AEVENT_RSEQTH=21,
- 	NET_CORE_WARNINGS=22,
-+	NET_CORE_BUDGET_USECS=23,
- };
- 
- /* /proc/sys/net/ethernet */
-diff --git a/kernel/sysctl_binary.c b/kernel/sysctl_binary.c
-index ece4b17..4ee3e49 100644
---- a/kernel/sysctl_binary.c
-+++ b/kernel/sysctl_binary.c
-@@ -197,6 +197,7 @@ struct bin_table {
- 	{ CTL_INT,	NET_CORE_AEVENT_ETIME,	"xfrm_aevent_etime" },
- 	{ CTL_INT,	NET_CORE_AEVENT_RSEQTH,	"xfrm_aevent_rseqth" },
- 	{ CTL_INT,	NET_CORE_WARNINGS,	"warnings" },
-+	{ CTL_INT,	NET_CORE_BUDGET_USECS,	"netdev_budget_usecs" },
- 	{},
- };
- 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 533a6d6..78627e5 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3441,6 +3441,7 @@ int dev_queue_xmit_accel(struct sk_buff *skb, void *accel_priv)
- 
- int netdev_tstamp_prequeue __read_mostly = 1;
- int netdev_budget __read_mostly = 300;
-+unsigned int __read_mostly netdev_budget_usecs = 2000;
- int weight_p __read_mostly = 64;           /* old backlog weight */
- int dev_weight_rx_bias __read_mostly = 1;  /* bias for backlog weight */
- int dev_weight_tx_bias __read_mostly = 1;  /* bias for output_queue quota */
-@@ -5310,7 +5311,8 @@ static int napi_poll(struct napi_struct *n, struct list_head *repoll)
- static __latent_entropy void net_rx_action(struct softirq_action *h)
- {
- 	struct softnet_data *sd = this_cpu_ptr(&softnet_data);
--	unsigned long time_limit = jiffies + 2;
-+	unsigned long time_limit = jiffies +
-+		usecs_to_jiffies(netdev_budget_usecs);
- 	int budget = netdev_budget;
- 	LIST_HEAD(list);
- 	LIST_HEAD(repoll);
-diff --git a/net/core/sysctl_net_core.c b/net/core/sysctl_net_core.c
-index 7f9cc40..ea23254 100644
---- a/net/core/sysctl_net_core.c
-+++ b/net/core/sysctl_net_core.c
-@@ -452,6 +452,14 @@ static int proc_do_rss_key(struct ctl_table *table, int write,
- 		.extra1		= &one,
- 		.extra2		= &max_skb_frags,
- 	},
-+	{
-+		.procname	= "netdev_budget_usecs",
-+		.data		= &netdev_budget_usecs,
-+		.maxlen		= sizeof(unsigned int),
-+		.mode		= 0644,
-+		.proc_handler	= proc_dointvec_minmax,
-+		.extra1		= &zero,
-+	},
- 	{ }
- };
- 
--- 
-1.8.3.1
+Thanks
+
+>
+> Thanks
+>
+>
+> > to pci/virtualization for v4.12, thanks!
+
+
+
+--YPJ8CVbwFUtL7OFW
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAlj3kuEACgkQ5GN7iDZy
+WKe9UA/6A11Wwv/G5iuMDuQlzercr2B7TKJ1/PlU403Xt1MaVTCZEIy6x5JGtJpd
+UnEEdKdqLT22FQ2jZfFYnrFb7CX9nKgmMyRj63HWMQVNPGo+88WGBQprgyd/QphS
+AUqQuV6cKvqQ/6s1i4gwPwkNzVu9MGNSq7Ud5kkoSxVQN4RDPlBFanL4p5ONd+XP
+ShN/NM5dp4unZysx/hg/n1vaB3meZ4iNZf398AruABe5nOdgadxb78AZG75l5PXM
+DpDa/91XhazAlmibloBPpdsInv9TaTDJFNwhEaYDBfXnGhhqJmZh/HAaPWY1Kq6C
+1C3uuKpUsYYgYWH0w1QGD9dFAu+G0RSYt7qTX2PlJ3KukOecV8HwJt5obOYk/H75
+IGHkjBNWe+KiJC5rTpJ9l2eQJWe2CcEBO1AJ0NU7H6E+7GZ6+rE03fS25lQfhIrg
+lRHedrj9UkR54zc3nbpyEDPoieek8IuC0yHmnRkrFIhh+/tOf/+NqfwJSh8+v5hP
+yOxIqjlb77RZXyXZTYoITcOlnMCh3XE3c4wKNJH0Qjj/12vP650+WnD530hUWins
+tH3NqMT7CsNG10DSDchKp/jZf3zRzFX3gTYR+0cPVE69Q24owlje7LdiZCaes9Jr
+JpvFXL/dwLks1E0OF+GzSIKDOofaHDvfdVrDZXvg7xbCAUppVm0=
+=NaHM
+-----END PGP SIGNATURE-----
+
+--YPJ8CVbwFUtL7OFW--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
