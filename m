@@ -1,74 +1,37 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: net: heap out-of-bounds in
- fib6_clean_node/rt6_fill_node/fib6_age/fib6_prune_clone
-Date: Wed, 19 Apr 2017 17:51:44 -0600
-Message-ID: <1dad955e-28c1-3f02-8876-90cce4a7d1f8@cumulusnetworks.com>
-References: <CACT4Y+YrA45diWz_8f4St8oX6aTC1kuGXMUvniGRbqXSGwawZQ@mail.gmail.com>
- <CACT4Y+YpUZ+7f5bzPh1hATwUXaZaPTu4rYYdz0RY1MHA1WG3SA@mail.gmail.com>
- <328b1fa7-2d97-6ae3-3b87-e33a0d564ad9@cumulusnetworks.com>
- <CACT4Y+aQFe+M=ESuShQ4FYNWAd8CNEQ=0rW+aAB0P-tp=PpFyQ@mail.gmail.com>
- <CACT4Y+aQgM=9QMkyfcXF2B5gGidvL07JP_m_inNXTPXU22i=aA@mail.gmail.com>
- <CACT4Y+Yx1cgWCkC2c7bze1V1VaecgBfioMvKS2-FUeaRr4DGXg@mail.gmail.com>
- <CACT4Y+bcMz13ad2kLaZGvct5sQ+RDki0StnOEbz3exAa8=zxqQ@mail.gmail.com>
- <CACT4Y+Z6f4aOxMZW44WXdYEyDJbGBYLnjKsHBXfK800h+EkrxA@mail.gmail.com>
- <2270c1ca-9481-60c1-9c29-87669223bded@cumulusnetworks.com>
- <CACT4Y+aUROZgAczRfntp5Rgvzcypviz5ZWBPdE6MWSiO0-3jEg@mail.gmail.com>
- <CAAeHK+zx6W_yxnoEQ2Pc1AT4uLXqYZaoi5oQBeuCntdGS38TQg@mail.gmail.com>
- <580392d8-fa33-67bb-c5d6-27d262f1646a@cumulusnetworks.com>
- <CAAeHK+zZb=K4X9=NmSWQJL8bpgMbXoG+h4RasAyYDr+C5pkVYA@mail.gmail.com>
- <CAM_iQpXyDN5GD+QLmWgJSc0bqV0ViK5LxSdwAV3XsHWr6vLJ2Q@mail.gmail.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: __sk_buff.data_end
+Date: Thu, 20 Apr 2017 01:51:55 +0200
+Message-ID: <58F7F81B.8040901@iogearbox.net>
+References: <1492637460.22185.6.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Dmitry Vyukov <dvyukov@google.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        Mahesh Bandewar <maheshb@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        David Miller <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>,
-        Andrey Konovalov <andreyknvl@google.com>
+Cc: netdev <netdev@vger.kernel.org>
+To: Johannes Berg <johannes@sipsolutions.net>,
+        Alexei Starovoitov <ast@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f175.google.com ([209.85.223.175]:36037 "EHLO
-        mail-io0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S968137AbdDSXvs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2017 19:51:48 -0400
-Received: by mail-io0-f175.google.com with SMTP id o22so46515015iod.3
-        for <netdev@vger.kernel.org>; Wed, 19 Apr 2017 16:51:47 -0700 (PDT)
-In-Reply-To: <CAM_iQpXyDN5GD+QLmWgJSc0bqV0ViK5LxSdwAV3XsHWr6vLJ2Q@mail.gmail.com>
+Received: from www62.your-server.de ([213.133.104.62]:54735 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934865AbdDSXwL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2017 19:52:11 -0400
+In-Reply-To: <1492637460.22185.6.camel@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 4/19/17 5:47 PM, Cong Wang wrote:
-> On Wed, Apr 19, 2017 at 9:12 AM, Andrey Konovalov <andreyknvl@google.com> wrote:
->>
->> Anyway, I just finished simplifying the reproducer. Give this one a try.
-> 
-> Thanks for providing such a minimal reproducer!
-> 
-> The following patch could fix this crash, but I am not 100% sure if we should
-> just clear these bits or reject them with an errno.
-> 
-> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-> index 9db14189..cf524c2 100644
-> --- a/net/ipv6/route.c
-> +++ b/net/ipv6/route.c
-> @@ -2086,7 +2086,7 @@ static struct rt6_info
-> *ip6_route_info_create(struct fib6_config *cfg)
->         } else
->                 rt->rt6i_prefsrc.plen = 0;
-> 
-> -       rt->rt6i_flags = cfg->fc_flags;
-> +       rt->rt6i_flags = cfg->fc_flags & ~(RTF_PCPU | RTF_CACHE);
-> 
->  install_route:
->         rt->dst.dev = dev;
-> 
+On 04/19/2017 11:31 PM, Johannes Berg wrote:
+> Hi Alexei, Daniel,
+>
+> I'm looking at adding the __wifi_sk_buff I talked about, and I notice
+> that it uses CB space to store data_end. Unfortunately, in a lot of
+> cases, we don't have any CB space to spare in wifi.
+>
+> Is there any way to generate a series of instructions that instead does
+> the necessary calculations? I don't actually *see* such a way, because
+> I don't see how I could have a scratch register or scratch stack space,
+> but perhaps there's a way to do it?
 
-I sent a patch returning EINVAL if RTF_PCPU is set in fc_flags
+One option would be, similarly as in bpf_prog_run_save_cb(), to just
+save / restore _only_ the data_end pointer portion for this. Calculating
+this inline via bpf_convert_ctx_access() would indeed need one more
+reg than just the dst reg available in order to perform the data_end
+calculation only as BPF insns.
