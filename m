@@ -1,119 +1,44 @@
-From: "Michael Kerrisk (man-pages)" <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [patch] socket.7: Document SO_INCOMING_CPU
-Date: Wed, 19 Apr 2017 20:48:12 +0200
-Message-ID: <326b99c3-cc86-3abd-1069-2b3a52d9ba47@gmail.com>
-References: <CABNn7+rHfUTjMtm3Biqfx83G6Rr7pY-LuHXY=JqA6N3H_SstZg@mail.gmail.com>
- <63815aac-9c8f-c599-9422-5c312cefc9e8@gmail.com>
- <9c754f31-8ace-03f2-97f3-81e29eb6d997@gmail.com>
- <1492621535.22296.8.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-        Francois Saint-Jacques <fsaintjacques-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1492621535.22296.8.camel-XN9IlZ5yJG9HTL0Zs8A6p+yfmBU6pStAUsxypvmhUTTZJqsBc5GL+g@public.gmane.org>
-Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH net-next] net: ipv6: send unsolicited NA if enabled for all interfaces
+Date: Wed, 19 Apr 2017 12:05:36 -0700
+Message-ID: <1492628736-26696-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: hannes@stressinduktion.org, David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yb0-f170.google.com ([209.85.213.170]:35653 "EHLO
+        mail-yb0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S969179AbdDSTFr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2017 15:05:47 -0400
+Received: by mail-yb0-f170.google.com with SMTP id 6so11727915ybq.2
+        for <netdev@vger.kernel.org>; Wed, 19 Apr 2017 12:05:47 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Eric,
+When arp_notify is set to 1 for either a specific interface or for 'all'
+interfaces, gratuitous arp requests are sent. Since ndisc_notify is the
+ipv6 equivalent to arp_notify, it should follow the same semantics.
+Commit 4a6e3c5def13 sends the NA on admin up. The final piece is checking
+devconf_all->ndisc_notify in addition to the per device setting. Add it.
 
-[reodering for clarity]
+Fixes: 5cb04436eef6 ("ipv6: add knob to send unsolicited ND on link-layer address change")
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+---
+ net/ipv6/ndisc.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
->> On 02/19/2017 09:55 PM, Michael Kerrisk (man-pages) wrote:
->>> [CC += Eric, so that he might review]
->>>
->>> Hello Francois,
->>>
->>> On 02/18/2017 05:06 AM, Francois Saint-Jacques wrote:
->>>> This socket option is undocumented. Applies on the latest version
->>>> (man-pages-4.09-511).
->>>>
->>>> diff --git a/man7/socket.7 b/man7/socket.7
->>>> index 3efd7a5d8..1a3ffa253 100644
->>>> --- a/man7/socket.7
->>>> +++ b/man7/socket.7
->>>> @@ -490,6 +490,26 @@ flag on a socket
->>>>  operation.
->>>>  Expects an integer boolean flag.
->>>>  .TP
->>>> +.BR SO_INCOMING_CPU " (getsockopt since Linux 3.19, setsockopt since
->>>> Linux 4.4)"
->>>> +.\" getsocktop 2c8c56e15df3d4c2af3d656e44feb18789f75837
->>>> +.\" setsocktop 70da268b569d32a9fddeea85dc18043de9d89f89
->>>> +Sets or gets the cpu affinity of a socket. Expects an integer flag.
->>>> +.sp
->>>> +.in +4n
->>>> +.nf
->>>> +int cpu = 1;
->>>> +socklen_t len = sizeof(cpu);
->>>> +setsockopt(fd, SOL_SOCKET, SO_INCOMING_CPU, &cpu, &len);
->>>> +.fi
->>>> +.in
->>>> +.sp
->>>> +The typical use case is one listener per RX queue, as the associated listener
->>>> +should only accept flows handled in softirq by the same cpu.  This provides
->>>> +optimal NUMA behavior and keep cpu caches hot.
->>>> +.TP
->>>>  .B SO_KEEPALIVE
->>>>  Enable sending of keep-alive messages on connection-oriented sockets.
->>>>  Expects an integer boolean flag.
->>>
->>> Thank you! Patch applied.
->>>
->>> I have tried to enhance the description somewhat. I'm not sure whether
->>> what I've written is quite correct (or whether it should be further
->>> extended). Eric, could you please take a look at the following, and let 
->>> me know if anything needs fixing:
->>>
->>>        SO_INCOMING_CPU  (gettable  since Linux 3.19, settable since Linux
->>>        4.4)
->>>               Sets or gets the CPU affinity  of  a  socket.   Expects  an
->>>               integer flag.
->>>
->>>                   int cpu = 1;
->>>                   socklen_t len = sizeof(cpu);
->>>                   setsockopt(fd, SOL_SOCKET, SO_INCOMING_CPU, &cpu, &len);
->>>
->>>               Because  all  of the packets for a single stream (i.e., all
->>>               packets for the same 4-tuple) arrive on the single RX queue
->>>               that  is  associated with a particular CPU, the typical use
->>>               case is to employ one listening process per RX queue,  with
->>>               the  incoming  flow being handled by a listener on the same
->>>               CPU that is handling the RX queue.  This  provides  optimal
->>>               NUMA behavior and keeps CPU caches hot.
-
-> Hi Michael
-> 
-> Sorry for the delay.
-
-Thanks for the reply, but I think you are assuming I know more than 
-I do. I'd like you to elaborate a little please. See below.
-
-> Note that setting the option is not supported if SO_REUSEPORT is used.
-
-Please define "not supported". Does this yield an API diagnostic?
-If so, what is it?
-
-> Socket will be selected from an array, either by a hash or BPF program
-> that has no access to this information.
-
-Sorry -- I'm lost here. How does this comment relate to the proposed
-man page text above?
-
-Thanks,
-
-Michael
-
-
+diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+index b23822e64228..d310dc41209a 100644
+--- a/net/ipv6/ndisc.c
++++ b/net/ipv6/ndisc.c
+@@ -1753,7 +1753,8 @@ static int ndisc_netdev_event(struct notifier_block *this, unsigned long event,
+ 		idev = in6_dev_get(dev);
+ 		if (!idev)
+ 			break;
+-		if (idev->cnf.ndisc_notify)
++		if (idev->cnf.ndisc_notify ||
++		    net->ipv6.devconf_all->ndisc_notify)
+ 			ndisc_send_unsol_na(dev);
+ 		in6_dev_put(idev);
+ 		break;
 -- 
-Michael Kerrisk
-Linux man-pages maintainer; http://www.kernel.org/doc/man-pages/
-Linux/UNIX System Programming Training: http://man7.org/training/
---
-To unsubscribe from this list: send the line "unsubscribe linux-man" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+2.1.4
