@@ -1,57 +1,41 @@
-From: Stefano Stabellini <sstabellini@kernel.org>
-Subject: Re: [PATCH] xen/9pfs: select CONFIG_XEN_XENBUS_FRONTEND
-Date: Wed, 19 Apr 2017 10:21:17 -0700 (PDT)
-Message-ID: <alpine.DEB.2.10.1704191020310.31486@sstabellini-ThinkPad-X260>
-References: <20170419170648.3041204-1-arnd@arndb.de>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH v2 net 2/2] net sched actions: decrement module refcount earlier
+Date: Wed, 19 Apr 2017 10:25:18 -0700
+Message-ID: <CAM_iQpUPBnWKVHOi2SS6qoeHDPssdj=h03Wg1DLhKk7hbL6_Bg@mail.gmail.com>
+References: <20170418101322.27666-1-w.bumiller@proxmox.com>
+ <20170418101322.27666-2-w.bumiller@proxmox.com> <CAM_iQpWQYsqGD3TZp=iXyK0auprgo5uUbRZRvtpnFjQWwCj5Gw@mail.gmail.com>
+ <b34fa5f5-5368-672a-be06-4c9801b8114e@mojatatu.com> <CAM_iQpVucDgy-=ToNrH1a9h1h7goK33hfY_o30e5Rz1Pqwj4_A@mail.gmail.com>
+ <462700507.23.1492589388406@webmail.proxmox.com> <861dba23-1244-ee57-a980-a6dceffa2793@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Juergen Gross <jgross@suse.com>,
-        Stefano Stabellini <stefano@aporeto.com>,
-        boris.ostrovsky@oracle.com, groug@kaod.org,
-        xen-devel@lists.xenproject.org,
-        Eric Van Hensbergen <ericvh@gmail.com>,
-        Ron Minnich <rminnich@sandia.gov>,
-        Latchesar Ionkov <lucho@ionkov.net>,
-        "David S. Miller" <davem@davemloft.net>,
-        Stefano Stabellini <sstabellini@kernel.org>,
-        v9fs-developer@lists.sourceforge.net, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170419170648.3041204-1-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Wolfgang Bumiller <w.bumiller@proxmox.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f49.google.com ([74.125.82.49]:35711 "EHLO
+        mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S968253AbdDSRZk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2017 13:25:40 -0400
+Received: by mail-wm0-f49.google.com with SMTP id w64so85893136wma.0
+        for <netdev@vger.kernel.org>; Wed, 19 Apr 2017 10:25:39 -0700 (PDT)
+In-Reply-To: <861dba23-1244-ee57-a980-a6dceffa2793@mojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 19 Apr 2017, Arnd Bergmann wrote:
-> All Xen frontends need to select this symbol to avoid a link error:
-> 
-> net/built-in.o: In function `p9_trans_xen_init':
-> :(.text+0x149e9c): undefined reference to `__xenbus_register_frontend'
-> 
-> Fixes: d4b40a02f837 ("xen/9pfs: build 9pfs Xen transport driver")
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+On Wed, Apr 19, 2017 at 4:32 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+> This solves one issue, but I am afraid the issue Cong mentioned is a
+> possibility still.
+> Lets say user did a replace and tried to also replace the cookie
+> in that transaction. The init() succeeds but the cookie allocation
+> fails. To be correct we'll have to undo the replace i.e something
+> like uninit() which will restore back the old values.
+> This is very complex and unnecessary.
 
-Thank you for the fix!
+It is not complex once we move to RCU completely, replacement
+is merely a pointer assignment, rollback is same.
 
-Reviewed-by: Stefano Stabellini <sstabellini@kernel.org>
-
-
-> ---
->  net/9p/Kconfig | 1 +
->  1 file changed, 1 insertion(+)
-> 
-> diff --git a/net/9p/Kconfig b/net/9p/Kconfig
-> index 3f286f1bd1d3..e6014e0e51f7 100644
-> --- a/net/9p/Kconfig
-> +++ b/net/9p/Kconfig
-> @@ -24,6 +24,7 @@ config NET_9P_VIRTIO
->  
->  config NET_9P_XEN
->  	depends on XEN
-> +	select XEN_XENBUS_FRONTEND
->  	tristate "9P Xen Transport"
->  	help
->  	  This builds support for a transport for 9pfs between
-> -- 
-> 2.9.0
-> 
+It is necessary too according to the rules of RCU, as I said before, the
+current code is broken, we can't modify an existing action with RCU,
+we have to make a copy. I do have plan to make actions truly RCU,
+but I have to redesign the action API's first.
