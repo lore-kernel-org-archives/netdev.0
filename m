@@ -1,63 +1,72 @@
-From: Martin KaFai Lau <kafai@fb.com>
-Subject: [PATCH net v2] net/mlx5e: Fix race in mlx5e_sw_stats and mlx5e_vport_stats
-Date: Wed, 19 Apr 2017 16:32:59 -0700
-Message-ID: <20170419233259.2255806-1-kafai@fb.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC PATCH net] net/mlx5e: Race between mlx5e_update_stats()
+ and getting the stats
+Date: Wed, 19 Apr 2017 16:35:38 -0700
+Message-ID: <1492644938.22296.19.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20170419182936.788220-1-kafai@fb.com>
+         <1492633478.22296.14.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20170419215338.vrbvzkceufktatoo@giedrius-mbp.dhcp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Saeed Mahameed <saeedm@mellanox.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>, <kernel-team@fb.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>,
+        kernel-team@fb.com
+To: Martin KaFai Lau <kafai@fb.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:42105 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S967234AbdDSXdC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2017 19:33:02 -0400
-Received: from pps.filterd (m0001255.ppops.net [127.0.0.1])
-        by mx0b-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v3JNVahe001778
-        for <netdev@vger.kernel.org>; Wed, 19 Apr 2017 16:33:01 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0b-00082601.pphosted.com with ESMTP id 29xg398cpd-1
-        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Wed, 19 Apr 2017 16:33:01 -0700
-Received: from facebook.com (2401:db00:11:d09a:face:0:41:0)     by
- mx-out.facebook.com (10.222.219.45) with ESMTP id
- 8632c5b6255811e7b4b224be05904660-e39f29a0 for <netdev@vger.kernel.org>;        Wed,
- 19 Apr 2017 16:32:59 -0700
+Received: from mail-io0-f195.google.com ([209.85.223.195]:35214 "EHLO
+        mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S967248AbdDSXfk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2017 19:35:40 -0400
+Received: by mail-io0-f195.google.com with SMTP id d203so8888543iof.2
+        for <netdev@vger.kernel.org>; Wed, 19 Apr 2017 16:35:40 -0700 (PDT)
+In-Reply-To: <20170419215338.vrbvzkceufktatoo@giedrius-mbp.dhcp.thefacebook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We have observed a sudden spike in rx/tx_packets and rx/tx_bytes
-reported under /proc/net/dev.  There is a race in mlx5e_update_stats()
-and some of the get-stats functions (the one that we hit is the
-mlx5e_get_stats() which is called by ndo_get_stats64()).
+On Wed, 2017-04-19 at 14:53 -0700, Martin KaFai Lau wrote:
 
-In particular, the very first thing mlx5e_update_sw_counters()
-does is 'memset(s, 0, sizeof(*s))'.  For example, if mlx5e_get_stats()
-is unlucky at one point, rx_bytes and rx_packets could be 0.  One second
-later, a normal (and much bigger than 0) value will be reported.
+> Right, a temp and a memcpy should be enough to solve our spike problem.
+> It may be the right fix for net.
+> 
+> Agree that using a spinlock is better (likely changing state_lock
+> to spinlock).  A quick grep shows 80 line changes.  Saeed, thoughts?
 
-This patch is to use a 'struct mlx5e_sw_stats temp' to avoid
-a direct memset zero on priv->stats.sw.
+I was not advising replacing the mutex (maybe it is a mutex for good
+reason), I simply suggested to use another spinlock only for this very
+specific section.
 
-mlx5e_update_vport_counters() has a similar race.  Hence, addressed
-together.
+Something like :
 
-I am lucky enough to catch this 0-reset in rx multicast:
-eth0: 41457665   76804   70    0    0    70          0     47085 15586634   87502    3    0    0     0       3          0
-eth0: 41459860   76815   70    0    0    70          0     47094 15588376   87516    3    0    0     0       3          0
-eth0: 41460577   76822   70    0    0    70          0         0 15589083   87521    3    0    0     0       3          0
-eth0: 41463293   76838   70    0    0    70          0     47108 15595872   87538    3    0    0     0       3          0
-eth0: 41463379   76839   70    0    0    70          0     47116 15596138   87539    3    0    0     0       3          0
-
-Cc: Saeed Mahameed <saeedm@mellanox.com>
-Suggested-by: Eric Dumazet <eric.dumazet@gmail.com>
-Signed-off-by: Martin KaFai Lau <kafai@fb.com>
----
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
-
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+index dc52053128bc752ccd398449330c24c0bdf8b3a1..9b2e1b79fded22d55e9409cb572308190679cfdd 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+@@ -722,6 +722,7 @@ struct mlx5e_priv {
+ 	struct mlx5_core_dev      *mdev;
+ 	struct net_device         *netdev;
+ 	struct mlx5e_stats         stats;
++	spinlock_t		   stats_lock;
+ 	struct mlx5e_tstamp        tstamp;
+ 	u16 q_counter;
+ #ifdef CONFIG_MLX5_CORE_EN_DCB
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+index a004a5a1a4c22a742ef3f9939769c6b5c9445f46..b4b7d43bf899cadca2c2a17151d35acac9773859 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+@@ -315,9 +315,11 @@ static void mlx5e_get_ethtool_stats(struct net_device *dev,
+ 		mlx5e_update_stats(priv);
+ 	mutex_unlock(&priv->state_lock);
+ 
++	spin_lock(&priv->stats_lock);
+ 	for (i = 0; i < NUM_SW_COUNTERS; i++)
+ 		data[idx++] = MLX5E_READ_CTR64_CPU(&priv->stats.sw,
+ 						   sw_stats_desc, i);
++	spin_unlock(&priv->stats_lock);
+ 
+ 	for (i = 0; i < MLX5E_NUM_Q_CNTRS(priv); i++)
+ 		data[idx++] = MLX5E_READ_CTR32_CPU(&priv->stats.qcnt,
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 66c133757a5e..246786bb861b 100644
+index 66c133757a5ee8daae122e93322306b1c5c44336..4d6672045b1126a8bab4d6f2035e6a9b830560d2 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
 @@ -174,7 +174,7 @@ static void mlx5e_tx_timeout_work(struct work_struct *work)
@@ -69,29 +78,36 @@ index 66c133757a5e..246786bb861b 100644
  	struct mlx5e_rq_stats *rq_stats;
  	struct mlx5e_sq_stats *sq_stats;
  	u64 tx_offload_none = 0;
-@@ -229,12 +229,14 @@ static void mlx5e_update_sw_counters(struct mlx5e_priv *priv)
+@@ -229,6 +229,9 @@ static void mlx5e_update_sw_counters(struct mlx5e_priv *priv)
  	s->link_down_events_phy = MLX5_GET(ppcnt_reg,
  				priv->stats.pport.phy_counters,
  				counter_set.phys_layer_cntrs.link_down_events);
++	spin_lock(&priv->stats_lock);
 +	memcpy(&priv->stats.sw, s, sizeof(*s));
++	spin_unlock(&priv->stats_lock);
  }
  
  static void mlx5e_update_vport_counters(struct mlx5e_priv *priv)
- {
-+	struct mlx5e_vport_stats temp;
- 	int outlen = MLX5_ST_SZ_BYTES(query_vport_counter_out);
--	u32 *out = (u32 *)priv->stats.vport.query_vport_out;
-+	u32 *out = (u32 *)temp.query_vport_out;
- 	u32 in[MLX5_ST_SZ_DW(query_vport_counter_in)] = {0};
- 	struct mlx5_core_dev *mdev = priv->mdev;
+@@ -2754,11 +2757,13 @@ mlx5e_get_stats(struct net_device *dev, struct rtnl_link_stats64 *stats)
+ 		stats->tx_packets = PPORT_802_3_GET(pstats, a_frames_transmitted_ok);
+ 		stats->tx_bytes   = PPORT_802_3_GET(pstats, a_octets_transmitted_ok);
+ 	} else {
++		spin_lock(&priv->stats_lock);
+ 		stats->rx_packets = sstats->rx_packets;
+ 		stats->rx_bytes   = sstats->rx_bytes;
+ 		stats->tx_packets = sstats->tx_packets;
+ 		stats->tx_bytes   = sstats->tx_bytes;
+ 		stats->tx_dropped = sstats->tx_queue_dropped;
++		spin_unlock(&priv->stats_lock);
+ 	}
  
-@@ -245,6 +247,7 @@ static void mlx5e_update_vport_counters(struct mlx5e_priv *priv)
+ 	stats->rx_dropped = priv->stats.qcnt.rx_out_of_buffer;
+@@ -3561,6 +3566,8 @@ static void mlx5e_build_nic_netdev_priv(struct mlx5_core_dev *mdev,
  
- 	memset(out, 0, outlen);
- 	mlx5_cmd_exec(mdev, in, sizeof(in), out, outlen);
-+	memcpy(priv->stats.vport.query_vport_out, out, outlen);
- }
+ 	mutex_init(&priv->state_lock);
  
- static void mlx5e_update_pport_counters(struct mlx5e_priv *priv)
--- 
-2.9.3
++	spin_lock_init(&priv->stats_lock);
++
+ 	INIT_WORK(&priv->update_carrier_work, mlx5e_update_carrier_work);
+ 	INIT_WORK(&priv->set_rx_mode_work, mlx5e_set_rx_mode_work);
+ 	INIT_WORK(&priv->tx_timeout_work, mlx5e_tx_timeout_work);
