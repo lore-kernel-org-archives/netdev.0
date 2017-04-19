@@ -1,43 +1,63 @@
-From: Sudarsana Reddy Kalluru <sudarsana.kalluru@cavium.com>
-Subject: [PATCH net 4/4] qed: Fix issue in populating the PFC config paramters.
-Date: Wed, 19 Apr 2017 03:19:55 -0700
-Message-ID: <20170419101955.26444-5-sudarsana.kalluru@cavium.com>
-References: <20170419101955.26444-1-sudarsana.kalluru@cavium.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH] dp83640: don't recieve time stamps twice
+Date: Wed, 19 Apr 2017 12:31:35 +0200
+Message-ID: <20170419103135.GA1670@localhost.localdomain>
+References: <20170418191426.GA17838@mwanda>
+ <1492593414.3108.1.camel@spectralink.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <Yuval.Mintz@cavium.com>
-To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam03on0071.outbound.protection.outlook.com ([104.47.42.71]:60480
-        "EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1762171AbdDSKUd (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 19 Apr 2017 06:20:33 -0400
-In-Reply-To: <20170419101955.26444-1-sudarsana.kalluru@cavium.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: "dan.carpenter@oracle.com" <dan.carpenter@oracle.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "f.fainelli@gmail.com" <f.fainelli@gmail.com>,
+        "andrew@lunn.ch" <andrew@lunn.ch>,
+        "kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
+To: =?iso-8859-1?B?U/hyZW5zZW4s?= Stefan
+        <Stefan.Sorensen@spectralink.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1492593414.3108.1.camel@spectralink.com>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Change ieee_setpfc() callback implementation to populate traffic class
-count with the user provided value.
+On Wed, Apr 19, 2017 at 09:16:56AM +0000, Sørensen, Stefan wrote:
+> You are correct that these lines was added accidentally.
 
-Signed-off-by: Sudarsana Reddy Kalluru <Sudarsana.Kalluru@cavium.com>
-Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
+Can we please fix this in another way?  There is no need to hold the
+spin lock during the callback into the networking stack.  Instead, how
+about the following diff, which also fixes the other call site...
+
+Thanks,
+Richard
+
 ---
- drivers/net/ethernet/qlogic/qed/qed_dcbx.c | 2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_dcbx.c b/drivers/net/ethernet/qlogic/qed/qed_dcbx.c
-index 8f0783a..a6e2bbe 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_dcbx.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_dcbx.c
-@@ -2082,6 +2082,8 @@ static int qed_dcbnl_ieee_setpfc(struct qed_dev *cdev, struct ieee_pfc *pfc)
- 	for (i = 0; i < QED_MAX_PFC_PRIORITIES; i++)
- 		dcbx_set.config.params.pfc.prio[i] = !!(pfc->pfc_en & BIT(i));
+diff --git a/drivers/net/phy/dp83640.c b/drivers/net/phy/dp83640.c
+index e2460a5..593e533 100644
+--- a/drivers/net/phy/dp83640.c
++++ b/drivers/net/phy/dp83640.c
+@@ -874,14 +874,15 @@ static void decode_rxts(struct dp83640_private *dp83640,
+ 			shhwtstamps = skb_hwtstamps(skb);
+ 			memset(shhwtstamps, 0, sizeof(*shhwtstamps));
+ 			shhwtstamps->hwtstamp = ns_to_ktime(rxts->ns);
+-			netif_rx_ni(skb);
+ 			list_add(&rxts->list, &dp83640->rxpool);
+ 			break;
+ 		}
+ 	}
+ 	spin_unlock(&dp83640->rx_queue.lock);
  
-+	dcbx_set.config.params.pfc.max_tc = pfc->pfc_cap;
-+
- 	ptt = qed_ptt_acquire(hwfn);
- 	if (!ptt)
- 		return -EINVAL;
--- 
-1.8.3.1
+-	if (!shhwtstamps)
++	if (shhwtstamps)
++		netif_rx_ni(skb);
++	else
+ 		list_add_tail(&rxts->list, &dp83640->rxts);
+ out:
+ 	spin_unlock_irqrestore(&dp83640->rx_lock, flags);
+@@ -1425,7 +1426,6 @@ static bool dp83640_rxtstamp(struct phy_device *phydev,
+ 			shhwtstamps = skb_hwtstamps(skb);
+ 			memset(shhwtstamps, 0, sizeof(*shhwtstamps));
+ 			shhwtstamps->hwtstamp = ns_to_ktime(rxts->ns);
+-			netif_rx_ni(skb);
+ 			list_del_init(&rxts->list);
+ 			list_add(&rxts->list, &dp83640->rxpool);
+ 			break;
