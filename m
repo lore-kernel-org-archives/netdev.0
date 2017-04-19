@@ -1,117 +1,103 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH net-next v4 1/2] net sched actions: dump more than
- TCA_ACT_MAX_PRIO actions per batch
-Date: Wed, 19 Apr 2017 12:07:48 -0400
-Message-ID: <56488055-1f4b-ee10-2357-5ce80f1fbc50@mojatatu.com>
-References: <1492603050-9318-1-git-send-email-jhs@emojatatu.com>
- <20170419123645.GB3357@nanopsycho.orion>
- <705a4d67-4a81-113f-e22a-0ca0bb6cf1eb@mojatatu.com>
- <20170419131323.GE3357@nanopsycho.orion>
- <e2a1e201-4830-e600-e668-91f83bcc9b32@mojatatu.com>
- <20170419155400.GH3357@nanopsycho.orion>
+From: Andrey Konovalov <andreyknvl@google.com>
+Subject: Re: net: heap out-of-bounds in fib6_clean_node/rt6_fill_node/fib6_age/fib6_prune_clone
+Date: Wed, 19 Apr 2017 18:12:32 +0200
+Message-ID: <CAAeHK+zZb=K4X9=NmSWQJL8bpgMbXoG+h4RasAyYDr+C5pkVYA@mail.gmail.com>
+References: <CACT4Y+YrA45diWz_8f4St8oX6aTC1kuGXMUvniGRbqXSGwawZQ@mail.gmail.com>
+ <CACT4Y+aomj0W8M9JNr1GLsT8EFFHV9YsOTYzWkvwKZANE9hiBQ@mail.gmail.com>
+ <CACT4Y+aDzAYs9mbNGeFEkYSB2wTwomZTGEKn4hDH0PAb4uiLqw@mail.gmail.com>
+ <2b60b1b8-4766-0e36-f6fb-79914bf1925d@cumulusnetworks.com>
+ <CACT4Y+YpUZ+7f5bzPh1hATwUXaZaPTu4rYYdz0RY1MHA1WG3SA@mail.gmail.com>
+ <328b1fa7-2d97-6ae3-3b87-e33a0d564ad9@cumulusnetworks.com>
+ <CACT4Y+aQFe+M=ESuShQ4FYNWAd8CNEQ=0rW+aAB0P-tp=PpFyQ@mail.gmail.com>
+ <CACT4Y+aQgM=9QMkyfcXF2B5gGidvL07JP_m_inNXTPXU22i=aA@mail.gmail.com>
+ <CACT4Y+Yx1cgWCkC2c7bze1V1VaecgBfioMvKS2-FUeaRr4DGXg@mail.gmail.com>
+ <CACT4Y+bcMz13ad2kLaZGvct5sQ+RDki0StnOEbz3exAa8=zxqQ@mail.gmail.com>
+ <CACT4Y+Z6f4aOxMZW44WXdYEyDJbGBYLnjKsHBXfK800h+EkrxA@mail.gmail.com>
+ <2270c1ca-9481-60c1-9c29-87669223bded@cumulusnetworks.com>
+ <CACT4Y+aUROZgAczRfntp5Rgvzcypviz5ZWBPdE6MWSiO0-3jEg@mail.gmail.com>
+ <CAAeHK+zx6W_yxnoEQ2Pc1AT4uLXqYZaoi5oQBeuCntdGS38TQg@mail.gmail.com> <580392d8-fa33-67bb-c5d6-27d262f1646a@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-        eric.dumazet@gmail.com, xiyou.wangcong@gmail.com
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f67.google.com ([209.85.214.67]:35863 "EHLO
-        mail-it0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1765996AbdDSQHv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2017 12:07:51 -0400
-Received: by mail-it0-f67.google.com with SMTP id a140so4054981ita.3
-        for <netdev@vger.kernel.org>; Wed, 19 Apr 2017 09:07:50 -0700 (PDT)
-In-Reply-To: <20170419155400.GH3357@nanopsycho.orion>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/mixed; boundary=94eb2c14f844c66e2d054d874a02
+Cc: Dmitry Vyukov <dvyukov@google.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        Mahesh Bandewar <maheshb@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        David Miller <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: David Ahern <dsa@cumulusnetworks.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <580392d8-fa33-67bb-c5d6-27d262f1646a@cumulusnetworks.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 17-04-19 11:54 AM, Jiri Pirko wrote:
-> Wed, Apr 19, 2017 at 05:37:15PM CEST, jhs@mojatatu.com wrote:
->> On 17-04-19 09:13 AM, Jiri Pirko wrote:
->>> Wed, Apr 19, 2017 at 03:03:59PM CEST, jhs@mojatatu.com wrote:
->>>> On 17-04-19 08:36 AM, Jiri Pirko wrote:
->>>>> Wed, Apr 19, 2017 at 01:57:29PM CEST, jhs@mojatatu.com wrote:
->>>>>> From: Jamal Hadi Salim <jhs@mojatatu.com>
->>>>
->>>>>> include/uapi/linux/rtnetlink.h | 21 +++++++++++++++++++--
->>>>>> net/sched/act_api.c            | 43 ++++++++++++++++++++++++++++++++----------
->>>>>> 3 files changed, 53 insertions(+), 12 deletions(-)
+--94eb2c14f844c66e2d054d874a02
+Content-Type: text/plain; charset=UTF-8
+
+On Wed, Apr 19, 2017 at 6:09 PM, David Ahern <dsa@cumulusnetworks.com> wrote:
+> On 4/18/17 2:43 PM, Andrey Konovalov wrote:
+>> Hi!
 >>
->>>>>> +#define TCAA_MAX (__TCAA_MAX - 1)
->>>>>> #define TA_RTA(r)  ((struct rtattr*)(((char*)(r)) + NLMSG_ALIGN(sizeof(struct tcamsg))))
->>>>>> #define TA_PAYLOAD(n) NLMSG_PAYLOAD(n,sizeof(struct tcamsg))
->>>>>> -#define TCA_ACT_TAB 1 /* attr type must be >=1 */	
->>>>>> -#define TCAA_MAX 1
->>>>>> +#define TCA_ACT_TAB TCAA_ACT_TAB
->>>>>
->>>>> This is mess. What does "TCAA" stand for?
->>>>
->>>> TC Actions Attributes.  What would you call it? I could have
->>>> called it TCA_ROOT etc. But maybe a comment to just call it
->>>> TC Actions Attributes would be enough?
->>>
->>> TCA_DUMP_X
->>>
->>> it is only for dumping. Naming it "attribute" seems weird. Same as if
->>> you have: int variable_something;
->>>
+>> I've finally managed to reproduce one of the crashes on commit
+>> 4f7d029b9bf009fbee76bb10c0c4351a1870d2f3 (4.11-rc7).
 >>
->> Jiri, this is not just for dumping. We are describing high level
->> attributes for tc actions.
+>> I'm not sure if this bug has the same root cause as the first one
+>> reported in this thread, but it definitely has to do with ipv6
+>> routing.
+>>
+>> C reproducer, syzkaller program and my .config are attached.
 >
-> This is already present:
-> enum {
->         TCA_ACT_UNSPEC,
->         TCA_ACT_KIND,
->         TCA_ACT_OPTIONS,
->         TCA_ACT_INDEX,
->         TCA_ACT_STATS,
->         TCA_ACT_PAD,
->         TCA_ACT_COOKIE,
->         __TCA_ACT_MAX
-> };
+> built a kernel with that config. booted the vm. ran the program. nada.
 >
-> This is nested inside the dump message (TCAA_MAX, TCA_ACT_TAB)
+> strace is showing:
 >
-> Looks like you are mixing these 2.
+> clone(child_stack=0x72ffb0,
+> flags=CLONE_NEWUTS|CLONE_NEWUSER|CLONE_NEWPID|CLONE_NEWNET) = -1 EINVAL
+> (Invalid argument)
 >
 
-No - That space is per action. The space i am defining is
-above that in the the hierarchy. There used to be only
-one attribute there (TCA_ACT_TAB) and now we are making
-it more generic.
+That's weird. I usually see this when I have CONFIG_USER_NS disabled.
 
->
->
+Anyway, I just finished simplifying the reproducer. Give this one a try.
 
->> It is a _lot_ of code to change! Note:
->> This is all the UAPI visible code (the same coding style for 20 years).
->> I am worried about this part.
->
-> We'll see. Lets do it in a sensitive way, in steps. But for new things,
-> I think it is good not to stick with old and outlived habits.
->
->
+--94eb2c14f844c66e2d054d874a02
+Content-Type: text/x-csrc; charset=US-ASCII; name="ip6_rt_cache_alloc-crash-poc2.c"
+Content-Disposition: attachment; filename="ip6_rt_cache_alloc-crash-poc2.c"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_j1p6erso0
 
-I know you have the muscle to get it done - so fine, i will start
-with this one change.
-
->
-> Netlink is TLV, should be used as TLV. I don't see how you can run out
-> any space. You tend to use Netlink in some weird hybrid mode, with only
-> argument being space. I think that couple of bytes wasted is not
-> a problem at all...
->
-
-You are not making sense to me still.
-What you describe as "a couple of bytes" adds up when you have
-a large number of objects. I am trying to cut down on data back
-and forth from user/kernel and a bitmap is a well understood entity.
-
-Even if i did use a TLV - when i am representing flags which require one
-bit each - it makes sense to use a bitmask encapsulated in a TLV. Not
-to waste a TLV per bit.
-
-cheers,
-jamal
+I2luY2x1ZGUgPHN5cy9pb2N0bC5oPgojaW5jbHVkZSA8c3lzL21tYW4uaD4KI2luY2x1ZGUgPHN5
+cy9tb3VudC5oPgojaW5jbHVkZSA8c3lzL3ByY3RsLmg+CiNpbmNsdWRlIDxzeXMvcmVzb3VyY2Uu
+aD4KI2luY2x1ZGUgPHN5cy9zb2NrZXQuaD4KI2luY2x1ZGUgPHN5cy9zdGF0Lmg+CiNpbmNsdWRl
+IDxzeXMvc3lzY2FsbC5oPgojaW5jbHVkZSA8c3lzL3RpbWUuaD4KI2luY2x1ZGUgPHN5cy90eXBl
+cy5oPgojaW5jbHVkZSA8c3lzL3dhaXQuaD4KCiNpbmNsdWRlIDxsaW51eC9jYXBhYmlsaXR5Lmg+
+CiNpbmNsdWRlIDxsaW51eC9pZi5oPgojaW5jbHVkZSA8bGludXgvaWZfdHVuLmg+CiNpbmNsdWRl
+IDxsaW51eC9rdm0uaD4KI2luY2x1ZGUgPGxpbnV4L3NjaGVkLmg+CiNpbmNsdWRlIDxuZXQvaWZf
+YXJwLmg+CiNpbmNsdWRlIDxuZXRpbmV0L2luLmg+CiNpbmNsdWRlIDxsaW51eC9pcHY2X3JvdXRl
+Lmg+CgojaW5jbHVkZSA8YXNzZXJ0Lmg+CiNpbmNsdWRlIDxkaXJlbnQuaD4KI2luY2x1ZGUgPGVy
+cm5vLmg+CiNpbmNsdWRlIDxmY250bC5oPgojaW5jbHVkZSA8Z3JwLmg+CiNpbmNsdWRlIDxwdGhy
+ZWFkLmg+CiNpbmNsdWRlIDxzZXRqbXAuaD4KI2luY2x1ZGUgPHNpZ25hbC5oPgojaW5jbHVkZSA8
+c3RkYXJnLmg+CiNpbmNsdWRlIDxzdGRib29sLmg+CiNpbmNsdWRlIDxzdGRkZWYuaD4KI2luY2x1
+ZGUgPHN0ZGludC5oPgojaW5jbHVkZSA8c3RkaW8uaD4KI2luY2x1ZGUgPHN0ZGxpYi5oPgojaW5j
+bHVkZSA8c3RyaW5nLmg+CiNpbmNsdWRlIDx1bmlzdGQuaD4KCnZvaWQgbG9vcCgpIHsKCWludCBz
+MCA9IHNvY2tldChBRl9JTkVUNiwgU09DS19TVFJFQU0sIDB4ODQpOwoKCXN0cnVjdCBpbjZfcnRt
+c2cgcnRtc2c7CgltZW1zZXQoJnJ0bXNnLnJ0bXNnX2RzdCwgMCwgc2l6ZW9mKHJ0bXNnLnJ0bXNn
+X2RzdCkpOwoJcnRtc2cucnRtc2dfc3JjID0gaW42YWRkcl9sb29wYmFjazsKCW1lbXNldCgmcnRt
+c2cucnRtc2dfZ2F0ZXdheSwgMCwgc2l6ZW9mKHJ0bXNnLnJ0bXNnX2dhdGV3YXkpKTsKCXJ0bXNn
+LnJ0bXNnX3R5cGUgPSAweDQ7CglydG1zZy5ydG1zZ19kc3RfbGVuID0gMHgwMDAwOwoJcnRtc2cu
+cnRtc2dfc3JjX2xlbiA9IDB4NzsKCXJ0bXNnLnJ0bXNnX21ldHJpYyA9IDB4MTAwOwoJcnRtc2cu
+cnRtc2dfaW5mbyA9IDB4ODAwMDAwMDE7CglydG1zZy5ydG1zZ19mbGFncyA9IDB4NDAwMDAwMDA7
+CglydG1zZy5ydG1zZ19pZmluZGV4ID0gaWZfbmFtZXRvaW5kZXgoImdyZTAiKTsKCWlvY3RsKHMw
+LCBTSU9DQUREUlQsICZydG1zZyk7CgoJaW50IHMxID0gc29ja2V0KEFGX0lORVQ2LCBTT0NLX1JB
+V3xTT0NLX05PTkJMT0NLLCBJUFBST1RPX1JBVyk7CgoJc3RydWN0IHNvY2thZGRyX2luNiBzaTsK
+CW1lbXNldCgmc2ksIDAsIHNpemVvZihzaSkpOwoJY2hhciBidWZmZXJbMV07CglzZW5kdG8oczEs
+ICZidWZmZXJbMF0sIDAsIE1TR19DT05GSVJNLCAoY29uc3Qgc3RydWN0IHNvY2thZGRyICopJnNp
+LCBzaXplb2Yoc2kpKTsKfQoKaW50IG1haW4oKSB7Cgl1bnNoYXJlKENMT05FX05FV1VTRVIpOwoJ
+dW5zaGFyZShDTE9ORV9ORVdORVQpOwoKCWxvb3AoKTsKCglyZXR1cm4gMDsKfQo=
+--94eb2c14f844c66e2d054d874a02--
