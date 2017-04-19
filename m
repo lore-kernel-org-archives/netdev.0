@@ -1,7 +1,7 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 2/2] af_key: Fix sadb_x_ipsecrequest parsing
-Date: Wed, 19 Apr 2017 07:10:36 +0200
-Message-ID: <1492578636-621-3-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH 1/2] af_key: Add lock to key dump
+Date: Wed, 19 Apr 2017 07:10:35 +0200
+Message-ID: <1492578636-621-2-git-send-email-steffen.klassert@secunet.com>
 References: <1492578636-621-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,152 +10,152 @@ Cc: Herbert Xu <herbert@gondor.apana.org.au>,
         <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:40724 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([62.96.220.36]:40738 "EHLO a.mx.secunet.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1759459AbdDSFKz (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 19 Apr 2017 01:10:55 -0400
+        id S1759640AbdDSFLF (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 19 Apr 2017 01:11:05 -0400
 In-Reply-To: <1492578636-621-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
+From: Yuejie Shi <syjcnss@gmail.com>
 
-The parsing of sadb_x_ipsecrequest is broken in a number of ways.
-First of all we're not verifying sadb_x_ipsecrequest_len.  This
-is needed when the structure carries addresses at the end.  Worse
-we don't even look at the length when we parse those optional
-addresses.
+A dump may come in the middle of another dump, modifying its dump
+structure members. This race condition will result in NULL pointer
+dereference in kernel. So add a lock to prevent that race.
 
-The migration code had similar parsing code that's better but
-it also has some deficiencies.  The length is overcounted first
-of all as it includes the header itself.  It also fails to check
-the length before dereferencing the sa_family field.
-
-This patch fixes those problems in parse_sockaddr_pair and then
-uses it in parse_ipsecrequest.
-
-Reported-by: Andrey Konovalov <andreyknvl@google.com>
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+Fixes: 83321d6b9872 ("[AF_KEY]: Dump SA/SP entries non-atomically")
+Signed-off-by: Yuejie Shi <syjcnss@gmail.com>
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- net/key/af_key.c | 47 ++++++++++++++++++++++++++---------------------
- 1 file changed, 26 insertions(+), 21 deletions(-)
+ net/key/af_key.c | 46 ++++++++++++++++++++++++++++++++++++++--------
+ 1 file changed, 38 insertions(+), 8 deletions(-)
 
 diff --git a/net/key/af_key.c b/net/key/af_key.c
-index 1b0ea80..be8cecc 100644
+index c6252ed..1b0ea80 100644
 --- a/net/key/af_key.c
 +++ b/net/key/af_key.c
-@@ -66,6 +66,10 @@ struct pfkey_sock {
- 	struct mutex dump_lock;
+@@ -63,6 +63,7 @@ struct pfkey_sock {
+ 		} u;
+ 		struct sk_buff	*skb;
+ 	} dump;
++	struct mutex dump_lock;
  };
  
-+static int parse_sockaddr_pair(struct sockaddr *sa, int ext_len,
-+			       xfrm_address_t *saddr, xfrm_address_t *daddr,
-+			       u16 *family);
-+
  static inline struct pfkey_sock *pfkey_sk(struct sock *sk)
+@@ -139,6 +140,7 @@ static int pfkey_create(struct net *net, struct socket *sock, int protocol,
  {
- 	return (struct pfkey_sock *)sk;
-@@ -1939,19 +1943,14 @@ parse_ipsecrequest(struct xfrm_policy *xp, struct sadb_x_ipsecrequest *rq)
+ 	struct netns_pfkey *net_pfkey = net_generic(net, pfkey_net_id);
+ 	struct sock *sk;
++	struct pfkey_sock *pfk;
+ 	int err;
  
- 	/* addresses present only in tunnel mode */
- 	if (t->mode == XFRM_MODE_TUNNEL) {
--		u8 *sa = (u8 *) (rq + 1);
--		int family, socklen;
-+		int err;
+ 	if (!ns_capable(net->user_ns, CAP_NET_ADMIN))
+@@ -153,6 +155,9 @@ static int pfkey_create(struct net *net, struct socket *sock, int protocol,
+ 	if (sk == NULL)
+ 		goto out;
  
--		family = pfkey_sockaddr_extract((struct sockaddr *)sa,
--						&t->saddr);
--		if (!family)
--			return -EINVAL;
--
--		socklen = pfkey_sockaddr_len(family);
--		if (pfkey_sockaddr_extract((struct sockaddr *)(sa + socklen),
--					   &t->id.daddr) != family)
--			return -EINVAL;
--		t->encap_family = family;
-+		err = parse_sockaddr_pair(
-+			(struct sockaddr *)(rq + 1),
-+			rq->sadb_x_ipsecrequest_len - sizeof(*rq),
-+			&t->saddr, &t->id.daddr, &t->encap_family);
-+		if (err)
-+			return err;
- 	} else
- 		t->encap_family = xp->family;
- 
-@@ -1971,7 +1970,11 @@ parse_ipsecrequests(struct xfrm_policy *xp, struct sadb_x_policy *pol)
- 	if (pol->sadb_x_policy_len * 8 < sizeof(struct sadb_x_policy))
- 		return -EINVAL;
- 
--	while (len >= sizeof(struct sadb_x_ipsecrequest)) {
-+	while (len >= sizeof(*rq)) {
-+		if (len < rq->sadb_x_ipsecrequest_len ||
-+		    rq->sadb_x_ipsecrequest_len < sizeof(*rq))
-+			return -EINVAL;
++	pfk = pfkey_sk(sk);
++	mutex_init(&pfk->dump_lock);
 +
- 		if ((err = parse_ipsecrequest(xp, rq)) < 0)
- 			return err;
- 		len -= rq->sadb_x_ipsecrequest_len;
-@@ -2434,7 +2437,6 @@ static int key_pol_get_resp(struct sock *sk, struct xfrm_policy *xp, const struc
- 	return err;
+ 	sock->ops = &pfkey_ops;
+ 	sock_init_data(sock, sk);
+ 
+@@ -281,13 +286,23 @@ static int pfkey_do_dump(struct pfkey_sock *pfk)
+ 	struct sadb_msg *hdr;
+ 	int rc;
+ 
++	mutex_lock(&pfk->dump_lock);
++	if (!pfk->dump.dump) {
++		rc = 0;
++		goto out;
++	}
++
+ 	rc = pfk->dump.dump(pfk);
+-	if (rc == -ENOBUFS)
+-		return 0;
++	if (rc == -ENOBUFS) {
++		rc = 0;
++		goto out;
++	}
+ 
+ 	if (pfk->dump.skb) {
+-		if (!pfkey_can_dump(&pfk->sk))
+-			return 0;
++		if (!pfkey_can_dump(&pfk->sk)) {
++			rc = 0;
++			goto out;
++		}
+ 
+ 		hdr = (struct sadb_msg *) pfk->dump.skb->data;
+ 		hdr->sadb_msg_seq = 0;
+@@ -298,6 +313,9 @@ static int pfkey_do_dump(struct pfkey_sock *pfk)
+ 	}
+ 
+ 	pfkey_terminate_dump(pfk);
++
++out:
++	mutex_unlock(&pfk->dump_lock);
+ 	return rc;
  }
  
--#ifdef CONFIG_NET_KEY_MIGRATE
- static int pfkey_sockaddr_pair_size(sa_family_t family)
- {
- 	return PFKEY_ALIGN8(pfkey_sockaddr_len(family) * 2);
-@@ -2446,7 +2448,7 @@ static int parse_sockaddr_pair(struct sockaddr *sa, int ext_len,
- {
- 	int af, socklen;
+@@ -1793,19 +1811,26 @@ static int pfkey_dump(struct sock *sk, struct sk_buff *skb, const struct sadb_ms
+ 	struct xfrm_address_filter *filter = NULL;
+ 	struct pfkey_sock *pfk = pfkey_sk(sk);
  
--	if (ext_len < pfkey_sockaddr_pair_size(sa->sa_family))
-+	if (ext_len < 2 || ext_len < pfkey_sockaddr_pair_size(sa->sa_family))
+-	if (pfk->dump.dump != NULL)
++	mutex_lock(&pfk->dump_lock);
++	if (pfk->dump.dump != NULL) {
++		mutex_unlock(&pfk->dump_lock);
+ 		return -EBUSY;
++	}
+ 
+ 	proto = pfkey_satype2proto(hdr->sadb_msg_satype);
+-	if (proto == 0)
++	if (proto == 0) {
++		mutex_unlock(&pfk->dump_lock);
  		return -EINVAL;
++	}
  
- 	af = pfkey_sockaddr_extract(sa, saddr);
-@@ -2462,6 +2464,7 @@ static int parse_sockaddr_pair(struct sockaddr *sa, int ext_len,
- 	return 0;
+ 	if (ext_hdrs[SADB_X_EXT_FILTER - 1]) {
+ 		struct sadb_x_filter *xfilter = ext_hdrs[SADB_X_EXT_FILTER - 1];
+ 
+ 		filter = kmalloc(sizeof(*filter), GFP_KERNEL);
+-		if (filter == NULL)
++		if (filter == NULL) {
++			mutex_unlock(&pfk->dump_lock);
+ 			return -ENOMEM;
++		}
+ 
+ 		memcpy(&filter->saddr, &xfilter->sadb_x_filter_saddr,
+ 		       sizeof(xfrm_address_t));
+@@ -1821,6 +1846,7 @@ static int pfkey_dump(struct sock *sk, struct sk_buff *skb, const struct sadb_ms
+ 	pfk->dump.dump = pfkey_dump_sa;
+ 	pfk->dump.done = pfkey_dump_sa_done;
+ 	xfrm_state_walk_init(&pfk->dump.u.state, proto, filter);
++	mutex_unlock(&pfk->dump_lock);
+ 
+ 	return pfkey_do_dump(pfk);
  }
- 
-+#ifdef CONFIG_NET_KEY_MIGRATE
- static int ipsecrequests_to_migrate(struct sadb_x_ipsecrequest *rq1, int len,
- 				    struct xfrm_migrate *m)
+@@ -2679,14 +2705,18 @@ static int pfkey_spddump(struct sock *sk, struct sk_buff *skb, const struct sadb
  {
-@@ -2469,13 +2472,14 @@ static int ipsecrequests_to_migrate(struct sadb_x_ipsecrequest *rq1, int len,
- 	struct sadb_x_ipsecrequest *rq2;
- 	int mode;
+ 	struct pfkey_sock *pfk = pfkey_sk(sk);
  
--	if (len <= sizeof(struct sadb_x_ipsecrequest) ||
--	    len < rq1->sadb_x_ipsecrequest_len)
-+	if (len < sizeof(*rq1) ||
-+	    len < rq1->sadb_x_ipsecrequest_len ||
-+	    rq1->sadb_x_ipsecrequest_len < sizeof(*rq1))
- 		return -EINVAL;
+-	if (pfk->dump.dump != NULL)
++	mutex_lock(&pfk->dump_lock);
++	if (pfk->dump.dump != NULL) {
++		mutex_unlock(&pfk->dump_lock);
+ 		return -EBUSY;
++	}
  
- 	/* old endoints */
- 	err = parse_sockaddr_pair((struct sockaddr *)(rq1 + 1),
--				  rq1->sadb_x_ipsecrequest_len,
-+				  rq1->sadb_x_ipsecrequest_len - sizeof(*rq1),
- 				  &m->old_saddr, &m->old_daddr,
- 				  &m->old_family);
- 	if (err)
-@@ -2484,13 +2488,14 @@ static int ipsecrequests_to_migrate(struct sadb_x_ipsecrequest *rq1, int len,
- 	rq2 = (struct sadb_x_ipsecrequest *)((u8 *)rq1 + rq1->sadb_x_ipsecrequest_len);
- 	len -= rq1->sadb_x_ipsecrequest_len;
+ 	pfk->dump.msg_version = hdr->sadb_msg_version;
+ 	pfk->dump.msg_portid = hdr->sadb_msg_pid;
+ 	pfk->dump.dump = pfkey_dump_sp;
+ 	pfk->dump.done = pfkey_dump_sp_done;
+ 	xfrm_policy_walk_init(&pfk->dump.u.policy, XFRM_POLICY_TYPE_MAIN);
++	mutex_unlock(&pfk->dump_lock);
  
--	if (len <= sizeof(struct sadb_x_ipsecrequest) ||
--	    len < rq2->sadb_x_ipsecrequest_len)
-+	if (len <= sizeof(*rq2) ||
-+	    len < rq2->sadb_x_ipsecrequest_len ||
-+	    rq2->sadb_x_ipsecrequest_len < sizeof(*rq2))
- 		return -EINVAL;
- 
- 	/* new endpoints */
- 	err = parse_sockaddr_pair((struct sockaddr *)(rq2 + 1),
--				  rq2->sadb_x_ipsecrequest_len,
-+				  rq2->sadb_x_ipsecrequest_len - sizeof(*rq2),
- 				  &m->new_saddr, &m->new_daddr,
- 				  &m->new_family);
- 	if (err)
+ 	return pfkey_do_dump(pfk);
+ }
 -- 
 2.7.4
