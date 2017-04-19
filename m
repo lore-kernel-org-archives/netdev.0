@@ -1,51 +1,63 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: pull request (net): ipsec 2017-04-19
-Date: Wed, 19 Apr 2017 07:10:34 +0200
-Message-ID: <1492578636-621-1-git-send-email-steffen.klassert@secunet.com>
+From: Code Soldier1 <codesoldier1@gmail.com>
+Subject: Re: question about size of sk_buff and skb_shared_info
+Date: Tue, 18 Apr 2017 22:20:32 -0700
+Message-ID: <CABGNeczts-LsPLVOp_G24b9V-XnZXCKojKtWcN822wAzXunpuw@mail.gmail.com>
+References: <CABGNecyP8tpBtbOPL_4fyhqnkTYEa80sHCuDrUJdm9gxihFX6w@mail.gmail.com>
+ <1492542021.10587.137.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CABGNecz7oRk8PZS_YzG2QzpMXi78rQX4zPpt_28ZgJYYZS-ytg@mail.gmail.com>
+ <1492559721.10587.150.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CABGNeczXNPkWnhkviHhXv5OpVope_0BGNoB-nsGwALOptrwWdA@mail.gmail.com> <1492562843.10587.153.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-        Steffen Klassert <steffen.klassert@secunet.com>,
-        <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:40808 "EHLO a.mx.secunet.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1759552AbdDSFPk (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 19 Apr 2017 01:15:40 -0400
+Received: from mail-io0-f182.google.com ([209.85.223.182]:36804 "EHLO
+        mail-io0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1759659AbdDSFUd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2017 01:20:33 -0400
+Received: by mail-io0-f182.google.com with SMTP id o22so14818950iod.3
+        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 22:20:33 -0700 (PDT)
+In-Reply-To: <1492562843.10587.153.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Two fixes for af_key:
+On Tue, Apr 18, 2017 at 5:47 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>
+> For the last time, do not top post on netdev.
 
-1) Add a lock to key dump to prevent a NULL pointer dereference.
-   From Yuejie Shi.
+Sorry about that.
+>
+> On Tue, 2017-04-18 at 17:15 -0700, Code Soldier1 wrote:
+>> I am not suggesting that we do not do cache alignment. That is
+>> required for performance. I have gone through this exercise because I
+>> need to add a field to sk_buff and I want to do that without causing
+>> any adverse effects.
+>>
+>> Now that we have discovered that there are 40 bytes that can be used
+>> without any adverse effect, may I increase skb->cb by 8 bytes ?
+>>
+>
+> skb->cb is already 48 bytes, not 40.
 
-2) Fix slab-out-of-bounds in parse_ipsecrequests.
-   From Herbert Xu.
+That is not what I am referring to above. What I am pointing out is
+that since skb is not a multiple of cache line size it accesses the
+whole cache line but uses only part of the cache line, leaving 40
+bytes unused. I would like to use 8 out of those 40 bytes to extend
+the size of skb->cb.
 
-Please pull or let me know if there are problems.
+>
+>> If not then may I increase skb_shared_info -- However that would have
+>> to be by 64bytes.
+>
+>
+> You will have a very hard time to convince us that this 8 byte field is
+> needed on all skbs, regardless of current sk_buff size.
+>
 
-Thanks!
+Protocols use as much space as needed and leave the rest for future
+use. Since there is no overhead, I don't understand the concern. Can
+you please elaborate.
 
-The following changes since commit 75514b6654859e0130b512396dc964d2a9e84967:
-
-  net: ethernet: ti: cpsw: wake tx queues on ndo_tx_timeout (2017-04-02 19:42:44 -0700)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/klassert/ipsec.git master
-
-for you to fetch changes up to 096f41d3a8fcbb8dde7f71379b1ca85fe213eded:
-
-  af_key: Fix sadb_x_ipsecrequest parsing (2017-04-18 08:26:03 +0200)
-
-----------------------------------------------------------------
-Herbert Xu (1):
-      af_key: Fix sadb_x_ipsecrequest parsing
-
-Yuejie Shi (1):
-      af_key: Add lock to key dump
-
- net/key/af_key.c | 93 ++++++++++++++++++++++++++++++++++++++------------------
- 1 file changed, 64 insertions(+), 29 deletions(-)
+-- 
+CS1
