@@ -1,7 +1,7 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Subject: Re: [PATCH v2] sh_eth: unmap DMA buffers when freeing rings
-Date: Wed, 19 Apr 2017 22:09:51 +0300
-Message-ID: <de18ee2d-b401-5542-7901-c35cee0adc70@cogentembedded.com>
+Date: Wed, 19 Apr 2017 22:10:04 +0300
+Message-ID: <98d12c54-608b-ed94-249b-e6d26628af0e@cogentembedded.com>
 References: <20170417125532.826640693@cogentembedded.com>
  <20170417.161051.805859402797991771.davem@redhat.com>
 Mime-Version: 1.0
@@ -10,10 +10,16 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org,
         horms@verge.net.au
 To: David Miller <davem@redhat.com>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f45.google.com ([209.85.215.45]:34963 "EHLO
+        mail-lf0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1031023AbdDSTKI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2017 15:10:08 -0400
+Received: by mail-lf0-f45.google.com with SMTP id 75so17601192lfs.2
+        for <netdev@vger.kernel.org>; Wed, 19 Apr 2017 12:10:07 -0700 (PDT)
 In-Reply-To: <20170417.161051.805859402797991771.davem@redhat.com>
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 On 04/17/2017 11:10 PM, David Miller wrote:
 
@@ -37,7 +43,7 @@ On 04/17/2017 11:10 PM, David Miller wrote:
 >
 > Applied, thanks.
 
-    Please don;t forget to send it to -stable.
+    Please don't forget to send this to -stable.
     The bug seems to be there from the very beginning.
 
 MBR, Sergei
