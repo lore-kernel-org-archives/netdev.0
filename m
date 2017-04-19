@@ -1,164 +1,156 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: XDP question: best API for returning/setting egress port?
-Date: Wed, 19 Apr 2017 17:24:20 +0200
-Message-ID: <20170419172420.43333be1@redhat.com>
-References: <20170418215856.5fda7127@redhat.com>
-        <58F67D15.3050308@gmail.com>
-        <20170419140019.366fb1fb@redhat.com>
-        <58F75917.1050409@iogearbox.net>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH net-next v4 1/2] net sched actions: dump more than
+ TCA_ACT_MAX_PRIO actions per batch
+Date: Wed, 19 Apr 2017 11:37:15 -0400
+Message-ID: <e2a1e201-4830-e600-e668-91f83bcc9b32@mojatatu.com>
+References: <1492603050-9318-1-git-send-email-jhs@emojatatu.com>
+ <20170419123645.GB3357@nanopsycho.orion>
+ <705a4d67-4a81-113f-e22a-0ca0bb6cf1eb@mojatatu.com>
+ <20170419131323.GE3357@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: John Fastabend <john.fastabend@gmail.com>,
-        Daniel Borkmann <borkmann@iogearbox.net>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Alexei Starovoitov <ast@fb.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "xdp-newbies@vger.kernel.org" <xdp-newbies@vger.kernel.org>,
-        brouer@redhat.com
-To: Daniel Borkmann <daniel@iogearbox.net>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+        eric.dumazet@gmail.com, xiyou.wangcong@gmail.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:56234 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1765479AbdDSPYc (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 19 Apr 2017 11:24:32 -0400
-In-Reply-To: <58F75917.1050409@iogearbox.net>
+Received: from mail-io0-f195.google.com ([209.85.223.195]:34262 "EHLO
+        mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1766004AbdDSPhY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2017 11:37:24 -0400
+Received: by mail-io0-f195.google.com with SMTP id h41so4471292ioi.1
+        for <netdev@vger.kernel.org>; Wed, 19 Apr 2017 08:37:24 -0700 (PDT)
+In-Reply-To: <20170419131323.GE3357@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 19 Apr 2017 14:33:27 +0200
-Daniel Borkmann <daniel@iogearbox.net> wrote:
+On 17-04-19 09:13 AM, Jiri Pirko wrote:
+> Wed, Apr 19, 2017 at 03:03:59PM CEST, jhs@mojatatu.com wrote:
+>> On 17-04-19 08:36 AM, Jiri Pirko wrote:
+>>> Wed, Apr 19, 2017 at 01:57:29PM CEST, jhs@mojatatu.com wrote:
+>>>> From: Jamal Hadi Salim <jhs@mojatatu.com>
+>>
+>>>> include/uapi/linux/rtnetlink.h | 21 +++++++++++++++++++--
+>>>> net/sched/act_api.c            | 43 ++++++++++++++++++++++++++++++++----------
+>>>> 3 files changed, 53 insertions(+), 12 deletions(-)
 
-> On 04/19/2017 02:00 PM, Jesper Dangaard Brouer wrote:
-> > On Tue, 18 Apr 2017 13:54:45 -0700
-> > John Fastabend <john.fastabend@gmail.com> wrote:  
-> >> On 17-04-18 12:58 PM, Jesper Dangaard Brouer wrote:  
-> >>>
-> >>> As I argued in NetConf presentation[1] (from slide #9) we need a port
-> >>> mapping table (instead of using ifindex'es).  Both for supporting
-> >>> other "port" types than net_devices (think sockets), and for
-> >>> sandboxing what XDP can bypass.
-> >>>
-> >>> I want to create a new XDP action called XDP_REDIRECT, that instruct
-> >>> XDP to send the xdp_buff to another "port" (get translated into a
-> >>> net_device, or something else depending on internal port type).
-> >>>
-> >>> Looking at the userspace/eBPF interface, I'm wondering what is the
-> >>> best API for "returning" this port number from eBPF?
-> >>>
-> >>> The options I see is:
-> >>>
-> >>> 1) Split-up the u32 action code, and e.g let the high-16-bit be the
-> >>>     port number and lower-16bit the (existing) action verdict.
-> >>>
-> >>>   Pros: Simple API
-> >>>   Cons: Number of ports limited to 64K
-> >>>
-> >>> 2) Extend both xdp_buff + xdp_md to contain a (u32) port number, allow
-> >>>     eBPF to update xdp_md->port.
-> >>>
-> >>>   Pros: Larger number of ports.
-> >>>   Cons: This require some ebpf translation steps between xdp_buff <-> xdp_md.
-> >>>         (see xdp_convert_ctx_access)
-> >>>
-> >>> 3) Extend only xdp_buff and create bpf_helper that set port in xdp_buff.
-> >>>
-> >>>   Pros: Hides impl details, and allows helper to give eBPF code feedback
-> >>>         (on e.g. if port doesn't exist any longer)
-> >>>   Cons: Helper function call likely slower?  
-> >>
-> >> How about doing this the same way redirect is done in the tc case? I have this
-> >> patch under test,
-> >>
-> >>   https://github.com/jrfastab/linux/commit/e78f5425d5e3c305b4170ddd85c61c2e15359fee  
-> >
-> > I have been looking at this approach, which is close to option #3 above.
-> >
-> > The problem with your implementation that you use a per-cpu store.
-> > This creates the problem of storing state between packets. First packet
-> > can call helper bpf_xdp_redirect() setting an ifindex, but program can
-> > still return XDP_PASS.  Next packet can call XDP_REDIRECT and use the
-> > ifindex set from the first packet.  IMHO this is a problematic API to
-> > expose.
-> >
-> > I do see that the TC interface that uses the same approach, via helper
-> > bpf_redirect().  Maybe it have the same API problem?  Looking at
-> > sch_handle_ingress() I don't see this is handled (e.g. by always
-> > clearing this_cpu_ptr(redirect_info)->ifindex = 0).  
-> 
-> It's cleared in {skb,xdp}_do_redirect() right after fetching the
-> ifindex. I think this approach is just fine. The example described
-> above is a misuse of the API by a buggy program calling bpf_xdp_redirect()
-> and returning XDP_PASS while another time it returns XDP_REDIRECT
-> without the bpf_xdp_redirect() helper, sounds very exotic, but it's
-> as buggy as, say, a program doing the csum update wrong, a program
-> writing the wrong data to the packet, doing adjust head on the wrong
-> header offset, jumping into the wrong tail call entry and other things.
+>>>> +#define TCAA_MAX (__TCAA_MAX - 1)
+>>>> #define TA_RTA(r)  ((struct rtattr*)(((char*)(r)) + NLMSG_ALIGN(sizeof(struct tcamsg))))
+>>>> #define TA_PAYLOAD(n) NLMSG_PAYLOAD(n,sizeof(struct tcamsg))
+>>>> -#define TCA_ACT_TAB 1 /* attr type must be >=1 */	
+>>>> -#define TCAA_MAX 1
+>>>> +#define TCA_ACT_TAB TCAA_ACT_TAB
+>>>
+>>> This is mess. What does "TCAA" stand for?
+>>
+>> TC Actions Attributes.  What would you call it? I could have
+>> called it TCA_ROOT etc. But maybe a comment to just call it
+>> TC Actions Attributes would be enough?
+>
+> TCA_DUMP_X
+>
+> it is only for dumping. Naming it "attribute" seems weird. Same as if
+> you have: int variable_something;
+>
 
-For TC I guess it is fine to keep it as is, because it is needed to
-avoid extending skb.  IHMO for XDP I see no reason to keep a
-per-cpu-store (which besides will be slower), simply update
-xdp_buff.port should be sufficient (which is only relevant for this
-packet).
+Jiri, this is not just for dumping. We are describing high level
+attributes for tc actions.
 
-As noted in option#3, my concern is that calling a helper function call
-will be slower, than simply returning the needed port info? 
+>
+>>
+>>> I suggest some more meaningful naming of the enum items and define
+>>> TCA_ACT_TAB and TCAA_MAX to the new values in order to maintain UAPI
+>>
+>>
+>> Thats what the above does (for UAPI) maintainance, no?
+>
+> It does it for TCA_ACT_TAB. We need to do it for both TCA_ACT_TAB and TCAA_MAX
+>
 
-Maybe some bpf experts can tell me if such helper call could be
-optimized out with some bpf magic?
+TCAA_XXX is the namespace selected. You dont like that name and
+adding DUMP doesnt make sense to me. How about TCA_ACT_ROOT?
 
-> I think encoding this into an action code is rather limiting, f.e.
-> where would we place a flags argument if needed in future? Would
-> that mean, we need a XDP_REDIRECT2 return code that also allows for
-> encoding flags?
+>>
+>>> Also, please put X_MAX = __X_MAX - 1 into enum
+>>
+>> That is diverting from the norm which defines it outside
+>> of the enum. A good reason could be: You, Jiri, plan to go and
+>> cleanup all the netlink stuff which uses this style.
+>> Or you think we should start a trend which leads us
+>> to a new clean style.
+>
+> I would start now. I can take of the follow-up patch to change the rest.
+>
 
-Nope, it will be extensible.
+It is a _lot_ of code to change! Note:
+This is all the UAPI visible code (the same coding style for 20 years).
+I am worried about this part.
 
-We can start with:
+>>>
+>>>> +/* tcamsg flags stored in attribute TCAA_ACT_FLAGS
+>>>> + *
+>>>> + * ACT_LARGE_DUMP_ON user->kernel to request for larger than TCA_ACT_MAX_PRIO
+>>>> + * actions in a dump. All dump responses will contain the number of actions
+>>>> + * being dumped stored in for user app's consumption in TCAA_ACT_COUNT
+>>>> + *
+>>>> + */
+>>>> +#define ACT_LARGE_DUMP_ON		(1 << 0)
+>>>
+>>> Use "BIT(0)"
+>>>
+>>
+>> Same question as before.
+>
+> Same answer :)
+>
 
- struct xdp_ret {
-     union {
-         __u32 act;
-         struct {
-             __u16 action;
-             __u16 port;
-         };
- };
+I will change this one - it is a lot simpler coding style
+wide/wise than the other one.
 
-And later change it to:
+>> Are you planning to cleanup the rest of the code which
 
- struct xdp_ret {
-     union {
-         __u32 act;
-         struct {
-             __u8  action;
-             __u8  flags;
-             __u16 port;
-         };
- };
+>> So you are using 8 bits for one flag which requires one bit?
+>> + the TLV header? Sounds like overkill.
+>> Note: We dont need more than 1 or 2 bits for this case.
+>> Even 32 bits is overkill for what I am doing.
+>> When do i need to extend a single bit representation?
+>
+> I don't see any problem adding couple of bytes if it increases cleannes
+> and easy extendability.
+>
 
-If actions does not go above 255.  I would prefer that we start with
-the latter, else people would argue that we need to extend the
-structure like:
+How do you extend one bit? Seriously. If i want to add another bit I
+will add one more to existing bit map not 64 (T + L + 8bits + pad).
+If i ran out of space i will add a new TLV.
 
- struct xdp_ret {
-     union {
-         __u32 act;
-         struct {
-             union {
-                 __u16 action;
-                 struct {
-                     __u8 action2;
-                     __u8 flags;
-                 };
-             };
-             __u16 port;
-         };
- };
+>>>
+>>>> 	struct net *net = sock_net(skb->sk);
+>>>> -	struct nlattr *tca[TCA_ACT_MAX + 1];
+>>>> +	struct nlattr *tca[TCAA_MAX + 1];
+>>>
+>>> This is certainly wrong.
+>>>
+>>
+>> Why is it wrong?
+>
+> Because you use existing TCA_ACT_ attr enum.
+>
 
+Is there a programming mistake or you  just dont like the name?
+AFAIK, and based on my testing that code is correct.
 
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
+>>>> -	ret = nlmsg_parse(n, sizeof(struct tcamsg), tca, TCA_ACT_MAX, NULL,
+>>>> +	ret = nlmsg_parse(n, sizeof(struct tcamsg), tca, TCAA_MAX, tcaa_policy,
+>>>
+>>> This is certainly wrong.
+>>>
+>>
+>> Same question as above.
+>
+> Same answer.
+>
+
+And same question still.
+
+cheers,
+jamal
