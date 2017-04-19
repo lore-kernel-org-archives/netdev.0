@@ -1,39 +1,47 @@
-From: Chema Gonzalez <chema@google.com>
-Subject: [PATCH net-next] tcp_cubic: fix typo in module param description
-Date: Tue, 18 Apr 2017 19:22:23 -0700
-Message-ID: <20170419022223.28318-1-chema@google.com>
-Cc: netdev@vger.kernel.org, Chema Gonzalez <chemag@gmail.com>
-To: David Miller <davem@davemloft.net>,
-        Eric Dumazet <edumazet@google.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next]smsc911x: Adding support for Micochip LAN9250
+ Ethernet controller
+Date: Wed, 19 Apr 2017 04:24:31 +0200
+Message-ID: <20170419022431.GA20301@lunn.ch>
+References: <C3C28FB10418274EB7FD7C2B85C796A44124623F@CHN-SV-EXMX02.mchp-main.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+        UNGLinuxDriver@microchip.com, steve.glendinning@shawell.net,
+        Ravi.Hegde@microchip.com, Woojung.Huh@microchip.com
+To: David.Cai@microchip.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f179.google.com ([209.85.192.179]:34762 "EHLO
-        mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932779AbdDSCWa (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 22:22:30 -0400
-Received: by mail-pf0-f179.google.com with SMTP id c198so5113486pfc.1
-        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 19:22:30 -0700 (PDT)
+Received: from vps0.lunn.ch ([178.209.37.122]:33984 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754738AbdDSCYg (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 18 Apr 2017 22:24:36 -0400
+Content-Disposition: inline
+In-Reply-To: <C3C28FB10418274EB7FD7C2B85C796A44124623F@CHN-SV-EXMX02.mchp-main.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Chema Gonzalez <chemag@gmail.com>
+On Wed, Apr 19, 2017 at 12:29:45AM +0000, David.Cai@microchip.com wrote:
+> Attached is a patch which adding support for Microchip LAN9250 Ethernet controller.
 
-Signed-off-by: Chema Gonzalez <chemag@gmail.com>
----
- net/ipv4/tcp_cubic.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Hi David
 
-diff --git a/net/ipv4/tcp_cubic.c b/net/ipv4/tcp_cubic.c
-index c99230efcd52..0683ba447d77 100644
---- a/net/ipv4/tcp_cubic.c
-+++ b/net/ipv4/tcp_cubic.c
-@@ -72,7 +72,7 @@ MODULE_PARM_DESC(tcp_friendliness, "turn on/off tcp friendliness");
- module_param(hystart, int, 0644);
- MODULE_PARM_DESC(hystart, "turn on/off hybrid slow start algorithm");
- module_param(hystart_detect, int, 0644);
--MODULE_PARM_DESC(hystart_detect, "hyrbrid slow start detection mechanisms"
-+MODULE_PARM_DESC(hystart_detect, "hybrid slow start detection mechanisms"
- 		 " 1: packet-train 2: delay 3: both packet-train and delay");
- module_param(hystart_low_window, int, 0644);
- MODULE_PARM_DESC(hystart_low_window, "lower bound cwnd for hybrid slow start");
--- 
-2.12.2.816.g2cccc81164-goog
+It looks like your mail system mangled your patch. Please use git
+send-email.
+
+> 
+> Thanks,
+> 
+> =====================
+> David Cai
+> Principle Software Engineer
+> Microchip Technology Inc.
+> =====================
+> 
+> Signed-off-by: David Cai <david.cai@microchip.com>
+> ---
+
+You should probably also read the SubmittingPatches Documentation.
+
+Everything before the --- is included in the commit log.
+
+	   Andrew
