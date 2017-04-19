@@ -1,62 +1,114 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH net 6/6] kaweth: use skb_cow_head() to deal with cloned skbs
-Date: Wed, 19 Apr 2017 09:59:26 -0700
-Message-ID: <20170419165926.30631-7-edumazet@google.com>
-References: <20170419165926.30631-1-edumazet@google.com>
-Cc: netdev <netdev@vger.kernel.org>,
-        James Hughes <james.hughes@raspberrypi.org>,
-        Eric Dumazet <edumazet@google.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>
-To: "David S . Miller" <davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [patch] socket.7: Document SO_INCOMING_CPU
+Date: Wed, 19 Apr 2017 10:05:35 -0700
+Message-ID: <1492621535.22296.8.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <CABNn7+rHfUTjMtm3Biqfx83G6Rr7pY-LuHXY=JqA6N3H_SstZg@mail.gmail.com>
+         <63815aac-9c8f-c599-9422-5c312cefc9e8@gmail.com>
+         <9c754f31-8ace-03f2-97f3-81e29eb6d997@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Francois Saint-Jacques <fsaintjacques@gmail.com>,
+        linux-man@vger.kernel.org, netdev@vger.kernel.org,
+        Eric Dumazet <edumazet@google.com>
+To: "Michael Kerrisk (man-pages)" <mtk.manpages@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yb0-f174.google.com ([209.85.213.174]:33742 "EHLO
-        mail-yb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S967313AbdDSRCI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2017 13:02:08 -0400
-Received: by mail-yb0-f174.google.com with SMTP id 81so8939783ybp.0
-        for <netdev@vger.kernel.org>; Wed, 19 Apr 2017 10:02:08 -0700 (PDT)
-In-Reply-To: <20170419165926.30631-1-edumazet@google.com>
+Received: from mail-io0-f195.google.com ([209.85.223.195]:36053 "EHLO
+        mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S967812AbdDSRFn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2017 13:05:43 -0400
+In-Reply-To: <9c754f31-8ace-03f2-97f3-81e29eb6d997@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We can use skb_cow_head() to properly deal with clones,
-especially the ones coming from TCP stack that allow their head being
-modified. This avoids a copy.
+On Wed, 2017-04-19 at 15:20 +0200, Michael Kerrisk (man-pages) wrote:
+> Ping Eric!
+> 
+> Would you have a chance to review the proposed text below, please.
+> 
+> Thanks,
+> 
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: James Hughes <james.hughes@raspberrypi.org>
----
- drivers/net/usb/kaweth.c | 18 ++++++------------
- 1 file changed, 6 insertions(+), 12 deletions(-)
+Hi Michael
 
-diff --git a/drivers/net/usb/kaweth.c b/drivers/net/usb/kaweth.c
-index 876f02f4945eafdc2fb5cfa0f9dcb54d9b498af4..2a2c3edb6bad0b3bd257c3a101d100ad3b00cc59 100644
---- a/drivers/net/usb/kaweth.c
-+++ b/drivers/net/usb/kaweth.c
-@@ -803,18 +803,12 @@ static netdev_tx_t kaweth_start_xmit(struct sk_buff *skb,
- 	}
- 
- 	/* We now decide whether we can put our special header into the sk_buff */
--	if (skb_cloned(skb) || skb_headroom(skb) < 2) {
--		/* no such luck - we make our own */
--		struct sk_buff *copied_skb;
--		copied_skb = skb_copy_expand(skb, 2, 0, GFP_ATOMIC);
--		dev_kfree_skb_irq(skb);
--		skb = copied_skb;
--		if (!copied_skb) {
--			kaweth->stats.tx_errors++;
--			netif_start_queue(net);
--			spin_unlock_irq(&kaweth->device_lock);
--			return NETDEV_TX_OK;
--		}
-+	if (skb_cow_head(skb, 2)) {
-+		kaweth->stats.tx_errors++;
-+		netif_start_queue(net);
-+		spin_unlock_irq(&kaweth->device_lock);
-+		dev_kfree_skb_any(skb);
-+		return NETDEV_TX_OK;
- 	}
- 
- 	private_header = (__le16 *)__skb_push(skb, 2);
--- 
-2.12.2.816.g2cccc81164-goog
+Sorry for the delay.
+
+Note that setting the option is not supported if SO_REUSEPORT is used.
+
+Socket will be selected from an array, either by a hash or BPF program
+that has no access to this information.
+
+Thanks !
+
+
+> Michael
+> 
+> On 02/19/2017 09:55 PM, Michael Kerrisk (man-pages) wrote:
+> > [CC += Eric, so that he might review]
+> > 
+> > Hello Francois,
+> > 
+> > On 02/18/2017 05:06 AM, Francois Saint-Jacques wrote:
+> >> This socket option is undocumented. Applies on the latest version
+> >> (man-pages-4.09-511).
+> >>
+> >> diff --git a/man7/socket.7 b/man7/socket.7
+> >> index 3efd7a5d8..1a3ffa253 100644
+> >> --- a/man7/socket.7
+> >> +++ b/man7/socket.7
+> >> @@ -490,6 +490,26 @@ flag on a socket
+> >>  operation.
+> >>  Expects an integer boolean flag.
+> >>  .TP
+> >> +.BR SO_INCOMING_CPU " (getsockopt since Linux 3.19, setsockopt since
+> >> Linux 4.4)"
+> >> +.\" getsocktop 2c8c56e15df3d4c2af3d656e44feb18789f75837
+> >> +.\" setsocktop 70da268b569d32a9fddeea85dc18043de9d89f89
+> >> +Sets or gets the cpu affinity of a socket. Expects an integer flag.
+> >> +.sp
+> >> +.in +4n
+> >> +.nf
+> >> +int cpu = 1;
+> >> +socklen_t len = sizeof(cpu);
+> >> +setsockopt(fd, SOL_SOCKET, SO_INCOMING_CPU, &cpu, &len);
+> >> +.fi
+> >> +.in
+> >> +.sp
+> >> +The typical use case is one listener per RX queue, as the associated listener
+> >> +should only accept flows handled in softirq by the same cpu.  This provides
+> >> +optimal NUMA behavior and keep cpu caches hot.
+> >> +.TP
+> >>  .B SO_KEEPALIVE
+> >>  Enable sending of keep-alive messages on connection-oriented sockets.
+> >>  Expects an integer boolean flag.
+> > 
+> > Thank you! Patch applied.
+> > 
+> > I have tried to enhance the description somewhat. I'm not sure whether
+> > what I've written is quite correct (or whether it should be further
+> > extended). Eric, could you please take a look at the following, and let 
+> > me know if anything needs fixing:
+> > 
+> >        SO_INCOMING_CPU  (gettable  since Linux 3.19, settable since Linux
+> >        4.4)
+> >               Sets or gets the CPU affinity  of  a  socket.   Expects  an
+> >               integer flag.
+> > 
+> >                   int cpu = 1;
+> >                   socklen_t len = sizeof(cpu);
+> >                   setsockopt(fd, SOL_SOCKET, SO_INCOMING_CPU, &cpu, &len);
+> > 
+> >               Because  all  of the packets for a single stream (i.e., all
+> >               packets for the same 4-tuple) arrive on the single RX queue
+> >               that  is  associated with a particular CPU, the typical use
+> >               case is to employ one listening process per RX queue,  with
+> >               the  incoming  flow being handled by a listener on the same
+> >               CPU that is handling the RX queue.  This  provides  optimal
+> >               NUMA behavior and keeps CPU caches hot.
+> > 
+> > Cheers,
+> > 
+> > Michael
+> > 
+> 
+> 
