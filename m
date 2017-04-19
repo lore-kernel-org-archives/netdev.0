@@ -1,122 +1,115 @@
-From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [patch] socket.7: Document SO_INCOMING_CPU
-Date: Wed, 19 Apr 2017 13:13:21 -0700
-Message-ID: <1492632801.22296.11.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <CABNn7+rHfUTjMtm3Biqfx83G6Rr7pY-LuHXY=JqA6N3H_SstZg@mail.gmail.com>
-         <63815aac-9c8f-c599-9422-5c312cefc9e8@gmail.com>
-         <9c754f31-8ace-03f2-97f3-81e29eb6d997@gmail.com>
-         <1492621535.22296.8.camel@edumazet-glaptop3.roam.corp.google.com>
-         <326b99c3-cc86-3abd-1069-2b3a52d9ba47@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC PATCH net] net/mlx5e: Race between mlx5e_update_stats()
+ and getting the stats
+Date: Wed, 19 Apr 2017 13:24:38 -0700
+Message-ID: <1492633478.22296.14.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20170419182936.788220-1-kafai@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Francois Saint-Jacques <fsaintjacques-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-To: "Michael Kerrisk (man-pages)" <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <326b99c3-cc86-3abd-1069-2b3a52d9ba47-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>,
+        kernel-team@fb.com
+To: Martin KaFai Lau <kafai@fb.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yb0-f196.google.com ([209.85.213.196]:35484 "EHLO
+        mail-yb0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S939380AbdDSUYl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2017 16:24:41 -0400
+Received: by mail-yb0-f196.google.com with SMTP id 19so2277947ybl.2
+        for <netdev@vger.kernel.org>; Wed, 19 Apr 2017 13:24:41 -0700 (PDT)
+In-Reply-To: <20170419182936.788220-1-kafai@fb.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2017-04-19 at 20:48 +0200, Michael Kerrisk (man-pages) wrote:
-> Hi Eric,
+On Wed, 2017-04-19 at 11:29 -0700, Martin KaFai Lau wrote:
+> We have observed a sudden spike in rx/tx_packets and rx/tx_bytes
+> reported under /proc/net/dev.  It seems there is a race in
+> mlx5e_update_stats() and some of the get-stats functions (the
+> one that we hit is the mlx5e_get_stats() which is called
+> by ndo_get_stats64()).
 > 
-> [reodering for clarity]
+> In particular, the very first thing mlx5e_update_sw_counters()
+> does is 'memset(s, 0, sizeof(*s))'.  For example, if mlx5e_get_stats()
+> is unlucky at one point, rx_bytes and rx_packets could be 0.  One second
+> later, a normal (and much bigger than 0) value will be reported.
 > 
-> >> On 02/19/2017 09:55 PM, Michael Kerrisk (man-pages) wrote:
-> >>> [CC += Eric, so that he might review]
-> >>>
-> >>> Hello Francois,
-> >>>
-> >>> On 02/18/2017 05:06 AM, Francois Saint-Jacques wrote:
-> >>>> This socket option is undocumented. Applies on the latest version
-> >>>> (man-pages-4.09-511).
-> >>>>
-> >>>> diff --git a/man7/socket.7 b/man7/socket.7
-> >>>> index 3efd7a5d8..1a3ffa253 100644
-> >>>> --- a/man7/socket.7
-> >>>> +++ b/man7/socket.7
-> >>>> @@ -490,6 +490,26 @@ flag on a socket
-> >>>>  operation.
-> >>>>  Expects an integer boolean flag.
-> >>>>  .TP
-> >>>> +.BR SO_INCOMING_CPU " (getsockopt since Linux 3.19, setsockopt since
-> >>>> Linux 4.4)"
-> >>>> +.\" getsocktop 2c8c56e15df3d4c2af3d656e44feb18789f75837
-> >>>> +.\" setsocktop 70da268b569d32a9fddeea85dc18043de9d89f89
-> >>>> +Sets or gets the cpu affinity of a socket. Expects an integer flag.
-> >>>> +.sp
-> >>>> +.in +4n
-> >>>> +.nf
-> >>>> +int cpu = 1;
-> >>>> +socklen_t len = sizeof(cpu);
-> >>>> +setsockopt(fd, SOL_SOCKET, SO_INCOMING_CPU, &cpu, &len);
-> >>>> +.fi
-> >>>> +.in
-> >>>> +.sp
-> >>>> +The typical use case is one listener per RX queue, as the associated listener
-> >>>> +should only accept flows handled in softirq by the same cpu.  This provides
-> >>>> +optimal NUMA behavior and keep cpu caches hot.
-> >>>> +.TP
-> >>>>  .B SO_KEEPALIVE
-> >>>>  Enable sending of keep-alive messages on connection-oriented sockets.
-> >>>>  Expects an integer boolean flag.
-> >>>
-> >>> Thank you! Patch applied.
-> >>>
-> >>> I have tried to enhance the description somewhat. I'm not sure whether
-> >>> what I've written is quite correct (or whether it should be further
-> >>> extended). Eric, could you please take a look at the following, and let 
-> >>> me know if anything needs fixing:
-> >>>
-> >>>        SO_INCOMING_CPU  (gettable  since Linux 3.19, settable since Linux
-> >>>        4.4)
-> >>>               Sets or gets the CPU affinity  of  a  socket.   Expects  an
-> >>>               integer flag.
-> >>>
-> >>>                   int cpu = 1;
-> >>>                   socklen_t len = sizeof(cpu);
-> >>>                   setsockopt(fd, SOL_SOCKET, SO_INCOMING_CPU, &cpu, &len);
-> >>>
-> >>>               Because  all  of the packets for a single stream (i.e., all
-> >>>               packets for the same 4-tuple) arrive on the single RX queue
-> >>>               that  is  associated with a particular CPU, the typical use
-> >>>               case is to employ one listening process per RX queue,  with
-> >>>               the  incoming  flow being handled by a listener on the same
-> >>>               CPU that is handling the RX queue.  This  provides  optimal
-> >>>               NUMA behavior and keeps CPU caches hot.
+> This patch is not meant to be a proper fix.  It merely tries
+> to show what I have suspected and start the discussion.
 > 
-> > Hi Michael
-> > 
-> > Sorry for the delay.
+> Signed-off-by: Martin KaFai Lau <kafai@fb.com>
+> Cc: Saeed Mahameed <saeedm@mellanox.com>
+> ---
+>  drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c | 7 +++++--
+>  drivers/net/ethernet/mellanox/mlx5/core/en_main.c    | 3 +++
+>  2 files changed, 8 insertions(+), 2 deletions(-)
 > 
-> Thanks for the reply, but I think you are assuming I know more than 
-> I do. I'd like you to elaborate a little please. See below.
-> 
-> > Note that setting the option is not supported if SO_REUSEPORT is used.
-> 
-> Please define "not supported". Does this yield an API diagnostic?
-> If so, what is it?
-> 
-> > Socket will be selected from an array, either by a hash or BPF program
-> > that has no access to this information.
-> 
-> Sorry -- I'm lost here. How does this comment relate to the proposed
-> man page text above?
+> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+> index a004a5a1a4c2..d24916f720bb 100644
+> --- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+> +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+> @@ -313,7 +313,6 @@ static void mlx5e_get_ethtool_stats(struct net_device *dev,
+>  	mutex_lock(&priv->state_lock);
+>  	if (test_bit(MLX5E_STATE_OPENED, &priv->state))
+>  		mlx5e_update_stats(priv);
+> -	mutex_unlock(&priv->state_lock);
+>  
+>  	for (i = 0; i < NUM_SW_COUNTERS; i++)
+>  		data[idx++] = MLX5E_READ_CTR64_CPU(&priv->stats.sw,
+> @@ -378,8 +377,10 @@ static void mlx5e_get_ethtool_stats(struct net_device *dev,
+>  		data[idx++] = MLX5E_READ_CTR64_CPU(mlx5_priv->pme_stats.error_counters,
+>  						   mlx5e_pme_error_desc, i);
+>  
+> -	if (!test_bit(MLX5E_STATE_OPENED, &priv->state))
+> +	if (!test_bit(MLX5E_STATE_OPENED, &priv->state)) {
+> +		mutex_unlock(&priv->state_lock);
+>  		return;
+> +	}
+>  
+>  	/* per channel counters */
+>  	for (i = 0; i < priv->params.num_channels; i++)
+> @@ -393,6 +394,8 @@ static void mlx5e_get_ethtool_stats(struct net_device *dev,
+>  			for (j = 0; j < NUM_SQ_STATS; j++)
+>  				data[idx++] = MLX5E_READ_CTR64_CPU(&priv->channel[i]->sq[tc].stats,
+>  								   sq_stats_desc, j);
+> +
+> +	mutex_unlock(&priv->state_lock);
+>  }
+>  
+>  static u32 mlx5e_rx_wqes_to_packets(struct mlx5e_priv *priv, int rq_wq_type,
+> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+> index 66c133757a5e..a4c100bea541 100644
+> --- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+> +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+> @@ -2748,6 +2748,8 @@ mlx5e_get_stats(struct net_device *dev, struct rtnl_link_stats64 *stats)
+>  	struct mlx5e_vport_stats *vstats = &priv->stats.vport;
+>  	struct mlx5e_pport_stats *pstats = &priv->stats.pport;
+>  
+> +	mutex_lock(&priv->state_lock);
+> +
 
-Simply that :
+We can not sleep from ndo_get_stats() ( look at bonding driver )
 
-If an application uses both SO_INCOMING_CPU and SO_REUSEPORT, then
-SO_REUSEPORT logic, selecting the socket to receive the packet, ignores
-SO_INCOMING_CPU setting.
+What about the following ?
 
-This does not need to be documented, because it is an implementation
-detail/bug that could be changed, if someone cares enough.
-
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-man" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 66c133757a5ee8daae122e93322306b1c5c44336..b9fea146a0ca18498a8dfa5698dca7dea06e3c5e 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -174,7 +174,7 @@ static void mlx5e_tx_timeout_work(struct work_struct *work)
+ 
+ static void mlx5e_update_sw_counters(struct mlx5e_priv *priv)
+ {
+-	struct mlx5e_sw_stats *s = &priv->stats.sw;
++	struct mlx5e_sw_stats temp, *s = &temp;
+ 	struct mlx5e_rq_stats *rq_stats;
+ 	struct mlx5e_sq_stats *sq_stats;
+ 	u64 tx_offload_none = 0;
+@@ -229,6 +229,8 @@ static void mlx5e_update_sw_counters(struct mlx5e_priv *priv)
+ 	s->link_down_events_phy = MLX5_GET(ppcnt_reg,
+ 				priv->stats.pport.phy_counters,
+ 				counter_set.phys_layer_cntrs.link_down_events);
++	/* A bit racy (depending on memcpy() sanity...) , we probably should use a spinlock */
++	memcpy(&priv->stats.sw, s, sizeof(*s));
+ }
+ 
+ static void mlx5e_update_vport_counters(struct mlx5e_priv *priv)
