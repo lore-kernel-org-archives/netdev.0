@@ -1,86 +1,48 @@
-From: James Hughes <james.hughes@raspberrypi.org>
-Subject: Re: [PATCH v2] smsc95xx: Use skb_cow_head to deal with cloned skbs
-Date: Wed, 19 Apr 2017 09:33:14 +0100
-Message-ID: <CAE_XsMJhCVU4eHtiO7gs3=mRvA9vN4kiuh2JhXf+F_YgVXcWhQ@mail.gmail.com>
-References: <20170418171706.21190-1-james.hughes@raspberrypi.org>
- <1492541921.10587.135.camel@edumazet-glaptop3.roam.corp.google.com>
- <9235D6609DB808459E95D78E17F2E43D40A477A5@CHN-SV-EXMX02.mchp-main.com> <1492555561.10587.147.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Sekhar Nori <nsekhar@ti.com>
+Subject: [PATCH] MAINTAINERS: update entry for TI's CPSW driver
+Date: Wed, 19 Apr 2017 14:08:24 +0530
+Message-ID: <8c950dd8642b7b8d778da36ea944674c9cab587c.1492590838.git.nsekhar@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Woojung.Huh@microchip.com, netdev@vger.kernel.org,
-        Steve Glendinning <steve.glendinning@shawell.net>,
-        Microchip Linux Driver Support <UNGLinuxDriver@microchip.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain
+Cc: Grygorii Strashko <grygorii.strashko@ti.com>,
+        Linux OMAP Mailing List <linux-omap@vger.kernel.org>,
+        Linux netdev Mailing List <netdev@vger.kernel.org>
+To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx07-00252a01.pphosted.com ([62.209.51.214]:35538 "EHLO
-        mx07-00252a01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1761077AbdDSIdR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2017 04:33:17 -0400
-Received: from pps.filterd (m0102628.ppops.net [127.0.0.1])
-        by mx07-00252a01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v3J8SOZD022239
-        for <netdev@vger.kernel.org>; Wed, 19 Apr 2017 09:33:15 +0100
-Received: from mail-wm0-f71.google.com (mail-wm0-f71.google.com [74.125.82.71])
-        by mx07-00252a01.pphosted.com with ESMTP id 29wqp2r8gy-1
-        (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128 verify=OK)
-        for <netdev@vger.kernel.org>; Wed, 19 Apr 2017 09:33:15 +0100
-Received: by mail-wm0-f71.google.com with SMTP id m123so941015wma.5
-        for <netdev@vger.kernel.org>; Wed, 19 Apr 2017 01:33:15 -0700 (PDT)
-In-Reply-To: <1492555561.10587.147.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from fllnx210.ext.ti.com ([198.47.19.17]:26214 "EHLO
+        fllnx210.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1760789AbdDSIia (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2017 04:38:30 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 18 April 2017 at 23:46, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Tue, 2017-04-18 at 22:09 +0000, Woojung.Huh@microchip.com wrote:
->> > > @@ -2067,13 +2067,9 @@ static struct sk_buff *smsc95xx_tx_fixup(struct
->> > usbnet *dev,
->> > >   /* We do not advertise SG, so skbs should be already linearized */
->> > >   BUG_ON(skb_shinfo(skb)->nr_frags);
->> > >
->> > > - if (skb_headroom(skb) < overhead) {
->> > > -         struct sk_buff *skb2 = skb_copy_expand(skb,
->> > > -                 overhead, 0, flags);
->> > > -         dev_kfree_skb_any(skb);
->> > > -         skb = skb2;
->> > > -         if (!skb)
->> > > -                 return NULL;
->> > > + /* Make writable and expand header space by overhead if required
->> > */
->> > > + if (skb_cow_head(skb, overhead)) {
->> >
->> > I believe you still need to
->> >             dev_kfree_skb_any(skb);
->> >
->> I think caller of usbnet_start_xmit() takes care of free when return NULL.
->
-> I do not think so. Here is the code in usbnet_start_xmit() :
->
-> if (info->tx_fixup) {
->    skb = info->tx_fixup (dev, skb, GFP_ATOMIC);
->
->    if (!skb) { // Note that skb is NULL now
->
->        if (info->flags & FLAG_MULTI_PACKET)
->              goto not_drop;
->         netif_dbg(dev, tx_err, dev->net, "can't tx_fixup skb\n");
->         goto drop;
->
->
-> If you really think about it (even before double checking the code in
-> usbnet_start_xmit()), that would have been a very serious bug.
->
-> Calling dev_kfree_skb_any(skb) in this fixup code, then later from
-> usbnet_start_xmit() would have been a double free, or use after free.
->
->
+Mugunthan V N, who was reviewing TI's CPSW driver patches is
+not working for TI anymore and wont be reviewing patches for
+that driver.
 
-So, I still need to return NULL (as per the code this is replacing) to
-indicate failure, but need to free the skb prior to return, as per
-fragment below.
+Drop Mugunthan as the maintiainer for this driver.
 
-/* Make writable and expand header space by overhead if required */
-if (skb_cow_head(skb, overhead)) {
-   dev_kfree_skb_any(skb);
-   return NULL;
-}
+Grygorii continues to be a reviewer. Dave Miller applies the
+patches directly and adding a maintainer is actually
+misleading since get_maintainer.pl script stops suggesting
+that Dave Miller be copied.
 
-Once confirmed, I'll do a another patch.
+Signed-off-by: Sekhar Nori <nsekhar@ti.com>
+---
+ MAINTAINERS | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 860dacbb5be3..c6d89f004e25 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -12684,7 +12684,6 @@ F:	drivers/clk/ti/
+ F:	include/linux/clk/ti.h
+ 
+ TI ETHERNET SWITCH DRIVER (CPSW)
+-M:	Mugunthan V N <mugunthanvnm@ti.com>
+ R:	Grygorii Strashko <grygorii.strashko@ti.com>
+ L:	linux-omap@vger.kernel.org
+ L:	netdev@vger.kernel.org
+-- 
+2.9.0
