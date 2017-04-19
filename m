@@ -1,51 +1,58 @@
-From: Alexander Kochetkov <al.kochet@gmail.com>
-Subject: Re: [PATCH] net: phy: fix auto-negotiation stall due to unavailable interrupt
-Date: Wed, 19 Apr 2017 19:53:24 +0300
-Message-ID: <EA84802B-82E6-4485-A92E-E2751A84D4D0@gmail.com>
-References: <1492609604-16359-1-git-send-email-al.kochet@gmail.com> <24E19B31-CCD8-4032-B17B-D226D4DB881D@gmail.com> <754f7cfe-6914-570a-d0e5-4a26b6787281@gmail.com>
-Mime-Version: 1.0 (Mac OS X Mail 9.3 \(3124\))
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        andrew@lunn.ch, Roger Quadros <rogerq@ti.com>, nsekhar@ti.com,
-        kyle.roeschley@ni.com
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <754f7cfe-6914-570a-d0e5-4a26b6787281@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <edumazet@google.com>
+Subject: [PATCH net 5/6] ch9200: use skb_cow_head() to deal with cloned skbs
+Date: Wed, 19 Apr 2017 09:59:25 -0700
+Message-ID: <20170419165926.30631-6-edumazet@google.com>
+References: <20170419165926.30631-1-edumazet@google.com>
+Cc: netdev <netdev@vger.kernel.org>,
+        James Hughes <james.hughes@raspberrypi.org>,
+        Eric Dumazet <edumazet@google.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        Matthew Garrett <mjg59@srcf.ucam.org>
+To: "David S . Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yb0-f173.google.com ([209.85.213.173]:35956 "EHLO
+        mail-yb0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S967453AbdDSQ7n (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2017 12:59:43 -0400
+Received: by mail-yb0-f173.google.com with SMTP id s22so9067026ybe.3
+        for <netdev@vger.kernel.org>; Wed, 19 Apr 2017 09:59:43 -0700 (PDT)
+In-Reply-To: <20170419165926.30631-1-edumazet@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+We need to ensure there is enough headroom to push extra header,
+but we also need to check if we are allowed to change headers.
 
-> 19 =D0=B0=D0=BF=D1=80. 2017 =D0=B3., =D0=B2 19:32, Florian Fainelli =
-<f.fainelli@gmail.com> =D0=BD=D0=B0=D0=BF=D0=B8=D1=81=D0=B0=D0=BB(=D0=B0):=
+skb_cow_head() is the proper helper to deal with this.
 
->=20
-> http://patchwork.ozlabs.org/patch/743773/
->=20
-> Roger can you also test Alexander's patch?
+Fixes: 4a476bd6d1d9 ("usbnet: New driver for QinHeng CH9200 devices")
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: James Hughes <james.hughes@raspberrypi.org>
+Cc: Matthew Garrett <mjg59@srcf.ucam.org>
+---
+ drivers/net/usb/ch9200.c | 9 ++-------
+ 1 file changed, 2 insertions(+), 7 deletions(-)
 
-If MAC use phy_start_aneg() instead of phy_start() my patch will not =
-work as
-expected. Roger, if patch don=E2=80=99t work for you please check what =
-MAC bring up PHY using
-phy_start():
-
-http://patchwork.ozlabs.org/patch/752308/
-
-Is it correct to start PHY inside MAC probe using phy_start_aneg()? Or =
-phy_start() must be used?
-
-And probably this tags should be added for my patch:
-Fixes: 3c293f4e08b5 ("net: phy: Trigger state machine on state change =
-and not polling.")
-Cc: stable <stable@vger.kernel.org> # v4.9+
-
-Because I bisected to commit 529ed1275263 ("net: phy: phy drivers
-should not set SUPPORTED_[Asym_]Pause=C2=BB) that looks pretty good.
-
-Also, there is another issue I found. link_timeout doesn=E2=80=99t work =
-for interrupt driven PHY.
-It is possible to implement timer to handle this case.
-Florian, what do you think? Should this be fixed?
-
-Alexander.
+diff --git a/drivers/net/usb/ch9200.c b/drivers/net/usb/ch9200.c
+index 8a40202c0a1732850da1b2eb64af21470b9c85b4..c4f1c363e24b89404c6834312074f8a4451ded50 100644
+--- a/drivers/net/usb/ch9200.c
++++ b/drivers/net/usb/ch9200.c
+@@ -254,14 +254,9 @@ static struct sk_buff *ch9200_tx_fixup(struct usbnet *dev, struct sk_buff *skb,
+ 	tx_overhead = 0x40;
+ 
+ 	len = skb->len;
+-	if (skb_headroom(skb) < tx_overhead) {
+-		struct sk_buff *skb2;
+-
+-		skb2 = skb_copy_expand(skb, tx_overhead, 0, flags);
++	if (skb_cow_head(skb, tx_overhead)) {
+ 		dev_kfree_skb_any(skb);
+-		skb = skb2;
+-		if (!skb)
+-			return NULL;
++		return NULL;
+ 	}
+ 
+ 	__skb_push(skb, tx_overhead);
+-- 
+2.12.2.816.g2cccc81164-goog
