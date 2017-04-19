@@ -1,92 +1,104 @@
-From: <ilant@mellanox.com>
-Subject: [PATCH net] gso: Validate assumption of frag_list segementation
-Date: Wed, 19 Apr 2017 21:26:07 +0300
-Message-ID: <20170419182607.2342-1-ilant@mellanox.com>
+From: Martin KaFai Lau <kafai@fb.com>
+Subject: [RFC PATCH net] net/mlx5e: Race between mlx5e_update_stats() and getting the stats
+Date: Wed, 19 Apr 2017 11:29:36 -0700
+Message-ID: <20170419182936.788220-1-kafai@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>,
-        Alexander Duyck <alexander.h.duyck@intel.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        Steffen Klassert <steffen.klassert@secunet.com>,
-        Boris Pismenny <borisp@mellanox.com>,
-        Ilya Lesokhin <ilyal@mellanox.com>,
-        Ilan Tayari <ilant@mellanox.com>
-To: David Miller <davem@davemloft.net>
+Cc: Saeed Mahameed <saeedm@mellanox.com>, <kernel-team@fb.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-he1eur01on0044.outbound.protection.outlook.com ([104.47.0.44]:23053
-        "EHLO EUR01-HE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1030686AbdDSS0V (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 19 Apr 2017 14:26:21 -0400
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:55982 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S968910AbdDSS3j (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2017 14:29:39 -0400
+Received: from pps.filterd (m0044008.ppops.net [127.0.0.1])
+        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v3JITHiE031971
+        for <netdev@vger.kernel.org>; Wed, 19 Apr 2017 11:29:38 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+        by mx0a-00082601.pphosted.com with ESMTP id 29xd4hr0xh-1
+        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Wed, 19 Apr 2017 11:29:38 -0700
+Received: from facebook.com (2401:db00:11:d09a:face:0:41:0)     by
+ mx-out.facebook.com (10.212.236.87) with ESMTP id
+ 245c25f0252e11e79a380002c9521c9e-877eb9a0 for <netdev@vger.kernel.org>;        Wed,
+ 19 Apr 2017 11:29:36 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ilan Tayari <ilant@mellanox.com>
+We have observed a sudden spike in rx/tx_packets and rx/tx_bytes
+reported under /proc/net/dev.  It seems there is a race in
+mlx5e_update_stats() and some of the get-stats functions (the
+one that we hit is the mlx5e_get_stats() which is called
+by ndo_get_stats64()).
 
-Commit 07b26c9454a2 ("gso: Support partial splitting at the frag_list
-pointer") assumes that all SKBs in a frag_list (except maybe the last
-one) contain the same amount of GSO payload.
+In particular, the very first thing mlx5e_update_sw_counters()
+does is 'memset(s, 0, sizeof(*s))'.  For example, if mlx5e_get_stats()
+is unlucky at one point, rx_bytes and rx_packets could be 0.  One second
+later, a normal (and much bigger than 0) value will be reported.
 
-This assumption is not always correct, resulting in the following
-warning message in the log:
-    skb_segment: too many frags
+This patch is not meant to be a proper fix.  It merely tries
+to show what I have suspected and start the discussion.
 
-For example, mlx5 driver in Striding RQ mode creates some RX SKBs with
-one frag, and some with 2 frags.
-After GRO, the frag_list SKBs end up having different amounts of payload.
-If this frag_list SKB is then forwarded, the aforementioned assumption
-is violated.
-
-Validate the assumption, and fall back to software GSO if it not true.
-
-Change-Id: Ia03983f4a47b6534dd987d7a2aad96d54d46d212
-Fixes: 07b26c9454a2 ("gso: Support partial splitting at the frag_list pointer")
-Signed-off-by: Ilan Tayari <ilant@mellanox.com>
-Signed-off-by: Ilya Lesokhin <ilyal@mellanox.com>
+Signed-off-by: Martin KaFai Lau <kafai@fb.com>
+Cc: Saeed Mahameed <saeedm@mellanox.com>
 ---
- net/core/skbuff.c | 18 ++++++++++++++----
- 1 file changed, 14 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c | 7 +++++--
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c    | 3 +++
+ 2 files changed, 8 insertions(+), 2 deletions(-)
 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 35c1e2460206..f86bf69cfb8d 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -3082,22 +3082,32 @@ struct sk_buff *skb_segment(struct sk_buff *head_skb,
- 	if (sg && csum && (mss != GSO_BY_FRAGS))  {
- 		if (!(features & NETIF_F_GSO_PARTIAL)) {
- 			struct sk_buff *iter;
-+			unsigned int frag_len;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+index a004a5a1a4c2..d24916f720bb 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+@@ -313,7 +313,6 @@ static void mlx5e_get_ethtool_stats(struct net_device *dev,
+ 	mutex_lock(&priv->state_lock);
+ 	if (test_bit(MLX5E_STATE_OPENED, &priv->state))
+ 		mlx5e_update_stats(priv);
+-	mutex_unlock(&priv->state_lock);
  
- 			if (!list_skb ||
- 			    !net_gso_ok(features, skb_shinfo(head_skb)->gso_type))
- 				goto normal;
+ 	for (i = 0; i < NUM_SW_COUNTERS; i++)
+ 		data[idx++] = MLX5E_READ_CTR64_CPU(&priv->stats.sw,
+@@ -378,8 +377,10 @@ static void mlx5e_get_ethtool_stats(struct net_device *dev,
+ 		data[idx++] = MLX5E_READ_CTR64_CPU(mlx5_priv->pme_stats.error_counters,
+ 						   mlx5e_pme_error_desc, i);
  
--			/* Split the buffer at the frag_list pointer.
--			 * This is based on the assumption that all
--			 * buffers in the chain excluding the last
--			 * containing the same amount of data.
-+			/* If we get here then all the required
-+			 * GSO features except frag_list are supported.
-+			 * Try to split the SKB to multiple GSO SKBs
-+			 * with no frag_list.
-+			 * Currently we can do that only when the buffers don't
-+			 * have a linear part and all the buffers except
-+			 * the last are of the same length.
- 			 */
-+			frag_len = list_skb->len;
- 			skb_walk_frags(head_skb, iter) {
-+				if (frag_len != iter->len && iter->next)
-+					goto normal;
- 				if (skb_headlen(iter))
- 					goto normal;
+-	if (!test_bit(MLX5E_STATE_OPENED, &priv->state))
++	if (!test_bit(MLX5E_STATE_OPENED, &priv->state)) {
++		mutex_unlock(&priv->state_lock);
+ 		return;
++	}
  
- 				len -= iter->len;
- 			}
+ 	/* per channel counters */
+ 	for (i = 0; i < priv->params.num_channels; i++)
+@@ -393,6 +394,8 @@ static void mlx5e_get_ethtool_stats(struct net_device *dev,
+ 			for (j = 0; j < NUM_SQ_STATS; j++)
+ 				data[idx++] = MLX5E_READ_CTR64_CPU(&priv->channel[i]->sq[tc].stats,
+ 								   sq_stats_desc, j);
 +
-+			if (len != frag_len)
-+				goto normal;
- 		}
++	mutex_unlock(&priv->state_lock);
+ }
  
- 		/* GSO partial only requires that we trim off any excess that
+ static u32 mlx5e_rx_wqes_to_packets(struct mlx5e_priv *priv, int rq_wq_type,
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 66c133757a5e..a4c100bea541 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -2748,6 +2748,8 @@ mlx5e_get_stats(struct net_device *dev, struct rtnl_link_stats64 *stats)
+ 	struct mlx5e_vport_stats *vstats = &priv->stats.vport;
+ 	struct mlx5e_pport_stats *pstats = &priv->stats.pport;
+ 
++	mutex_lock(&priv->state_lock);
++
+ 	if (mlx5e_is_uplink_rep(priv)) {
+ 		stats->rx_packets = PPORT_802_3_GET(pstats, a_frames_received_ok);
+ 		stats->rx_bytes   = PPORT_802_3_GET(pstats, a_octets_received_ok);
+@@ -2783,6 +2785,7 @@ mlx5e_get_stats(struct net_device *dev, struct rtnl_link_stats64 *stats)
+ 	stats->multicast =
+ 		VPORT_COUNTER_GET(vstats, received_eth_multicast.packets);
+ 
++	mutex_unlock(&priv->state_lock);
+ }
+ 
+ static void mlx5e_set_rx_mode(struct net_device *dev)
 -- 
-2.11.0
+2.9.3
