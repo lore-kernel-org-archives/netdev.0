@@ -1,78 +1,164 @@
-From: Joao Pinto <Joao.Pinto@synopsys.com>
-Subject: Re: [PATCH net-next v3] bindings: net: stmmac: add missing note about
- LPI interrupt
-Date: Wed, 19 Apr 2017 16:22:10 +0100
-Message-ID: <d721ecfb-0c65-d654-3f36-75083d8c058a@synopsys.com>
-References: <20170418123955.21335-1-niklass@axis.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: XDP question: best API for returning/setting egress port?
+Date: Wed, 19 Apr 2017 17:24:20 +0200
+Message-ID: <20170419172420.43333be1@redhat.com>
+References: <20170418215856.5fda7127@redhat.com>
+        <58F67D15.3050308@gmail.com>
+        <20170419140019.366fb1fb@redhat.com>
+        <58F75917.1050409@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 8bit
-Cc: <netdev@vger.kernel.org>, <devicetree@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>
-To: Niklas Cassel <niklas.cassel@axis.com>,
-        Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Joao Pinto <Joao.Pinto@synopsys.com>,
-        Niklas Cassel <niklass@axis.com>,
-        Alexandre TORGUE <alexandre.torgue@st.com>,
-        Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
-        Thierry Reding <treding@nvidia.com>,
-        Eric Engestrom <eric@engestrom.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170418123955.21335-1-niklass@axis.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: John Fastabend <john.fastabend@gmail.com>,
+        Daniel Borkmann <borkmann@iogearbox.net>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Alexei Starovoitov <ast@fb.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "xdp-newbies@vger.kernel.org" <xdp-newbies@vger.kernel.org>,
+        brouer@redhat.com
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:56234 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1765479AbdDSPYc (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 19 Apr 2017 11:24:32 -0400
+In-Reply-To: <58F75917.1050409@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Niklas,
+On Wed, 19 Apr 2017 14:33:27 +0200
+Daniel Borkmann <daniel@iogearbox.net> wrote:
 
-Às 1:39 PM de 4/18/2017, Niklas Cassel escreveu:
-> From: Niklas Cassel <niklas.cassel@axis.com>
+> On 04/19/2017 02:00 PM, Jesper Dangaard Brouer wrote:
+> > On Tue, 18 Apr 2017 13:54:45 -0700
+> > John Fastabend <john.fastabend@gmail.com> wrote:  
+> >> On 17-04-18 12:58 PM, Jesper Dangaard Brouer wrote:  
+> >>>
+> >>> As I argued in NetConf presentation[1] (from slide #9) we need a port
+> >>> mapping table (instead of using ifindex'es).  Both for supporting
+> >>> other "port" types than net_devices (think sockets), and for
+> >>> sandboxing what XDP can bypass.
+> >>>
+> >>> I want to create a new XDP action called XDP_REDIRECT, that instruct
+> >>> XDP to send the xdp_buff to another "port" (get translated into a
+> >>> net_device, or something else depending on internal port type).
+> >>>
+> >>> Looking at the userspace/eBPF interface, I'm wondering what is the
+> >>> best API for "returning" this port number from eBPF?
+> >>>
+> >>> The options I see is:
+> >>>
+> >>> 1) Split-up the u32 action code, and e.g let the high-16-bit be the
+> >>>     port number and lower-16bit the (existing) action verdict.
+> >>>
+> >>>   Pros: Simple API
+> >>>   Cons: Number of ports limited to 64K
+> >>>
+> >>> 2) Extend both xdp_buff + xdp_md to contain a (u32) port number, allow
+> >>>     eBPF to update xdp_md->port.
+> >>>
+> >>>   Pros: Larger number of ports.
+> >>>   Cons: This require some ebpf translation steps between xdp_buff <-> xdp_md.
+> >>>         (see xdp_convert_ctx_access)
+> >>>
+> >>> 3) Extend only xdp_buff and create bpf_helper that set port in xdp_buff.
+> >>>
+> >>>   Pros: Hides impl details, and allows helper to give eBPF code feedback
+> >>>         (on e.g. if port doesn't exist any longer)
+> >>>   Cons: Helper function call likely slower?  
+> >>
+> >> How about doing this the same way redirect is done in the tc case? I have this
+> >> patch under test,
+> >>
+> >>   https://github.com/jrfastab/linux/commit/e78f5425d5e3c305b4170ddd85c61c2e15359fee  
+> >
+> > I have been looking at this approach, which is close to option #3 above.
+> >
+> > The problem with your implementation that you use a per-cpu store.
+> > This creates the problem of storing state between packets. First packet
+> > can call helper bpf_xdp_redirect() setting an ifindex, but program can
+> > still return XDP_PASS.  Next packet can call XDP_REDIRECT and use the
+> > ifindex set from the first packet.  IMHO this is a problematic API to
+> > expose.
+> >
+> > I do see that the TC interface that uses the same approach, via helper
+> > bpf_redirect().  Maybe it have the same API problem?  Looking at
+> > sch_handle_ingress() I don't see this is handled (e.g. by always
+> > clearing this_cpu_ptr(redirect_info)->ifindex = 0).  
 > 
-> The hardware has a LPI interrupt.
-> There is already code in the stmmac driver to parse and handle the
-> interrupt. However, this information was missing from the DT binding.
-> 
-> At the same time, improve the description of the existing interrupts.
-> 
-> Signed-off-by: Niklas Cassel <niklas.cassel@axis.com>
-> ---
->  Documentation/devicetree/bindings/net/stmmac.txt | 13 ++++++++-----
->  1 file changed, 8 insertions(+), 5 deletions(-)
-> 
-> diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
-> index f652b0c384ce..c3a7be6615c5 100644
-> --- a/Documentation/devicetree/bindings/net/stmmac.txt
-> +++ b/Documentation/devicetree/bindings/net/stmmac.txt
-> @@ -7,9 +7,12 @@ Required properties:
->  - interrupt-parent: Should be the phandle for the interrupt controller
->    that services interrupts for this device
->  - interrupts: Should contain the STMMAC interrupts
-> -- interrupt-names: Should contain the interrupt names "macirq"
-> -  "eth_wake_irq" if this interrupt is supported in the "interrupts"
-> -  property
-> +- interrupt-names: Should contain a list of interrupt names corresponding to
-> +	the interrupts in the interrupts property, if available.
-> +	Valid interrupt names are:
-> +  - "macirq" (combined signal for various interrupt events)
-> +  - "eth_wake_irq" (the interrupt to manage the remote wake-up packet detection)
-> +  - "eth_lpi" (the interrupt that occurs when Tx or Rx enters/exits LPI state)
->  - phy-mode: See ethernet.txt file in the same directory.
->  - snps,reset-gpio 	gpio number for phy reset.
->  - snps,reset-active-low boolean flag to indicate if phy reset is active low.
-> @@ -152,8 +155,8 @@ Examples:
->  		compatible = "st,spear600-gmac";
->  		reg = <0xe0800000 0x8000>;
->  		interrupt-parent = <&vic1>;
-> -		interrupts = <24 23>;
-> -		interrupt-names = "macirq", "eth_wake_irq";
-> +		interrupts = <24 23 22>;
-> +		interrupt-names = "macirq", "eth_wake_irq", "eth_lpi";
->  		mac-address = [000000000000]; /* Filled in by U-Boot */
->  		max-frame-size = <3800>;
->  		phy-mode = "gmii";
-> 
+> It's cleared in {skb,xdp}_do_redirect() right after fetching the
+> ifindex. I think this approach is just fine. The example described
+> above is a misuse of the API by a buggy program calling bpf_xdp_redirect()
+> and returning XDP_PASS while another time it returns XDP_REDIRECT
+> without the bpf_xdp_redirect() helper, sounds very exotic, but it's
+> as buggy as, say, a program doing the csum update wrong, a program
+> writing the wrong data to the packet, doing adjust head on the wrong
+> header offset, jumping into the wrong tail call entry and other things.
 
-Acked-By: Joao Pinto <jpinto@synopsys.com>
+For TC I guess it is fine to keep it as is, because it is needed to
+avoid extending skb.  IHMO for XDP I see no reason to keep a
+per-cpu-store (which besides will be slower), simply update
+xdp_buff.port should be sufficient (which is only relevant for this
+packet).
 
-Regards!
+As noted in option#3, my concern is that calling a helper function call
+will be slower, than simply returning the needed port info? 
+
+Maybe some bpf experts can tell me if such helper call could be
+optimized out with some bpf magic?
+
+> I think encoding this into an action code is rather limiting, f.e.
+> where would we place a flags argument if needed in future? Would
+> that mean, we need a XDP_REDIRECT2 return code that also allows for
+> encoding flags?
+
+Nope, it will be extensible.
+
+We can start with:
+
+ struct xdp_ret {
+     union {
+         __u32 act;
+         struct {
+             __u16 action;
+             __u16 port;
+         };
+ };
+
+And later change it to:
+
+ struct xdp_ret {
+     union {
+         __u32 act;
+         struct {
+             __u8  action;
+             __u8  flags;
+             __u16 port;
+         };
+ };
+
+If actions does not go above 255.  I would prefer that we start with
+the latter, else people would argue that we need to extend the
+structure like:
+
+ struct xdp_ret {
+     union {
+         __u32 act;
+         struct {
+             union {
+                 __u16 action;
+                 struct {
+                     __u8 action2;
+                     __u8 flags;
+                 };
+             };
+             __u16 port;
+         };
+ };
+
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
