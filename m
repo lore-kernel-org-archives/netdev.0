@@ -1,113 +1,76 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC PATCH net] net/mlx5e: Race between mlx5e_update_stats()
- and getting the stats
-Date: Wed, 19 Apr 2017 16:35:38 -0700
-Message-ID: <1492644938.22296.19.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20170419182936.788220-1-kafai@fb.com>
-         <1492633478.22296.14.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20170419215338.vrbvzkceufktatoo@giedrius-mbp.dhcp.thefacebook.com>
+From: =?UTF-8?Q?Andr=c3=a9_Przywara?= <andre.przywara@arm.com>
+Subject: Re: [PATCH v4 04/18] dt-bindings: syscon: Add DT bindings
+ documentation for Allwinner syscon
+Date: Thu, 20 Apr 2017 00:38:50 +0100
+Message-ID: <9382f9ae-895a-397b-3d8c-846cb0bc4486@arm.com>
+References: <20170412111400.2296-1-clabbe.montjoie@gmail.com>
+ <20170412111400.2296-5-clabbe.montjoie@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>,
-        kernel-team@fb.com
-To: Martin KaFai Lau <kafai@fb.com>
+Cc: devicetree@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, linux-sunxi@googlegroups.com,
+        linux-arm-kernel@lists.infradead.org
+To: Corentin Labbe <clabbe.montjoie@gmail.com>, robh+dt@kernel.org,
+        mark.rutland@arm.com, maxime.ripard@free-electrons.com,
+        wens@csie.org, linux@armlinux.org.uk, catalin.marinas@arm.com,
+        will.deacon@arm.com, peppe.cavallaro@st.com,
+        alexandre.torgue@st.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f195.google.com ([209.85.223.195]:35214 "EHLO
-        mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S967248AbdDSXfk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2017 19:35:40 -0400
-Received: by mail-io0-f195.google.com with SMTP id d203so8888543iof.2
-        for <netdev@vger.kernel.org>; Wed, 19 Apr 2017 16:35:40 -0700 (PDT)
-In-Reply-To: <20170419215338.vrbvzkceufktatoo@giedrius-mbp.dhcp.thefacebook.com>
+Received: from foss.arm.com ([217.140.101.70]:48340 "EHLO foss.arm.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S940278AbdDSXkH (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 19 Apr 2017 19:40:07 -0400
+In-Reply-To: <20170412111400.2296-5-clabbe.montjoie@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2017-04-19 at 14:53 -0700, Martin KaFai Lau wrote:
-
-> Right, a temp and a memcpy should be enough to solve our spike problem.
-> It may be the right fix for net.
+On 12/04/17 12:13, Corentin Labbe wrote:
+> This patch adds documentation for Device-Tree bindings for the
+> syscon present in allwinner devices.
 > 
-> Agree that using a spinlock is better (likely changing state_lock
-> to spinlock).  A quick grep shows 80 line changes.  Saeed, thoughts?
+> Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
+> ---
+>  .../devicetree/bindings/misc/allwinner,syscon.txt     | 19 +++++++++++++++++++
+>  1 file changed, 19 insertions(+)
+>  create mode 100644 Documentation/devicetree/bindings/misc/allwinner,syscon.txt
+> 
+> diff --git a/Documentation/devicetree/bindings/misc/allwinner,syscon.txt b/Documentation/devicetree/bindings/misc/allwinner,syscon.txt
+> new file mode 100644
+> index 0000000..c056c5b
+> --- /dev/null
+> +++ b/Documentation/devicetree/bindings/misc/allwinner,syscon.txt
+> @@ -0,0 +1,19 @@
+> +* Allwinner sun8i system controller
+> +
+> +This file describes the bindings for the system controller present in
+> +Allwinner SoC H3, A83T and A64.
+> +The principal function of this syscon is to control EMAC PHY choice and
+> +config.
+> +
+> +Required properties for the system controller:
+> +- reg: address and length of the register for the device.
+> +- compatible: should be "syscon" and one of the following string:
+> +		"allwinner,sun8i-h3-system-controller"
+> +		"allwinner,sun8i-a64-system-controller"
 
-I was not advising replacing the mutex (maybe it is a mutex for good
-reason), I simply suggested to use another spinlock only for this very
-specific section.
+While sun8i might make some sense technically, all 64-bit sunxi
+compatible strings use the sun50i prefix to follow the Allwinner naming.
+So this should read:
+		"allwinner,sun50i-a64-system-controller"
 
-Something like :
+Also I am wondering if we should add a compatible string for the H5
+(support for that SoC is in -next already):
+		"allwinner,sun50i-h5-system-controller"
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-index dc52053128bc752ccd398449330c24c0bdf8b3a1..9b2e1b79fded22d55e9409cb572308190679cfdd 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-@@ -722,6 +722,7 @@ struct mlx5e_priv {
- 	struct mlx5_core_dev      *mdev;
- 	struct net_device         *netdev;
- 	struct mlx5e_stats         stats;
-+	spinlock_t		   stats_lock;
- 	struct mlx5e_tstamp        tstamp;
- 	u16 q_counter;
- #ifdef CONFIG_MLX5_CORE_EN_DCB
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-index a004a5a1a4c22a742ef3f9939769c6b5c9445f46..b4b7d43bf899cadca2c2a17151d35acac9773859 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-@@ -315,9 +315,11 @@ static void mlx5e_get_ethtool_stats(struct net_device *dev,
- 		mlx5e_update_stats(priv);
- 	mutex_unlock(&priv->state_lock);
- 
-+	spin_lock(&priv->stats_lock);
- 	for (i = 0; i < NUM_SW_COUNTERS; i++)
- 		data[idx++] = MLX5E_READ_CTR64_CPU(&priv->stats.sw,
- 						   sw_stats_desc, i);
-+	spin_unlock(&priv->stats_lock);
- 
- 	for (i = 0; i < MLX5E_NUM_Q_CNTRS(priv); i++)
- 		data[idx++] = MLX5E_READ_CTR32_CPU(&priv->stats.qcnt,
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 66c133757a5ee8daae122e93322306b1c5c44336..4d6672045b1126a8bab4d6f2035e6a9b830560d2 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -174,7 +174,7 @@ static void mlx5e_tx_timeout_work(struct work_struct *work)
- 
- static void mlx5e_update_sw_counters(struct mlx5e_priv *priv)
- {
--	struct mlx5e_sw_stats *s = &priv->stats.sw;
-+	struct mlx5e_sw_stats temp, *s = &temp;
- 	struct mlx5e_rq_stats *rq_stats;
- 	struct mlx5e_sq_stats *sq_stats;
- 	u64 tx_offload_none = 0;
-@@ -229,6 +229,9 @@ static void mlx5e_update_sw_counters(struct mlx5e_priv *priv)
- 	s->link_down_events_phy = MLX5_GET(ppcnt_reg,
- 				priv->stats.pport.phy_counters,
- 				counter_set.phys_layer_cntrs.link_down_events);
-+	spin_lock(&priv->stats_lock);
-+	memcpy(&priv->stats.sw, s, sizeof(*s));
-+	spin_unlock(&priv->stats_lock);
- }
- 
- static void mlx5e_update_vport_counters(struct mlx5e_priv *priv)
-@@ -2754,11 +2757,13 @@ mlx5e_get_stats(struct net_device *dev, struct rtnl_link_stats64 *stats)
- 		stats->tx_packets = PPORT_802_3_GET(pstats, a_frames_transmitted_ok);
- 		stats->tx_bytes   = PPORT_802_3_GET(pstats, a_octets_transmitted_ok);
- 	} else {
-+		spin_lock(&priv->stats_lock);
- 		stats->rx_packets = sstats->rx_packets;
- 		stats->rx_bytes   = sstats->rx_bytes;
- 		stats->tx_packets = sstats->tx_packets;
- 		stats->tx_bytes   = sstats->tx_bytes;
- 		stats->tx_dropped = sstats->tx_queue_dropped;
-+		spin_unlock(&priv->stats_lock);
- 	}
- 
- 	stats->rx_dropped = priv->stats.qcnt.rx_out_of_buffer;
-@@ -3561,6 +3566,8 @@ static void mlx5e_build_nic_netdev_priv(struct mlx5_core_dev *mdev,
- 
- 	mutex_init(&priv->state_lock);
- 
-+	spin_lock_init(&priv->stats_lock);
-+
- 	INIT_WORK(&priv->update_carrier_work, mlx5e_update_carrier_work);
- 	INIT_WORK(&priv->set_rx_mode_work, mlx5e_set_rx_mode_work);
- 	INIT_WORK(&priv->tx_timeout_work, mlx5e_tx_timeout_work);
+Cheers,
+Andre.
+
+> +		"allwinner,sun8i-a83t-system-controller"
+> +
+> +Example:
+> +syscon: syscon@01c00000 {
+> +	compatible = "allwinner,sun8i-h3-system-controller", "syscon";
+> +	reg = <0x01c00000 0x1000>;
+> +};
+> 
