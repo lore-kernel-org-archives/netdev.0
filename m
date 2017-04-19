@@ -1,164 +1,101 @@
-From: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>
-Subject: Re: [PATCH net-next v6 00/11] Landlock LSM: Toward unprivileged
- sandboxing
-Date: Wed, 19 Apr 2017 02:12:16 +0200
-Message-ID: <a5597574-6a8c-b2ee-336c-48734071e6ff@digikod.net>
-References: <20170328234650.19695-1-mic@digikod.net>
- <CAGXu5jLpM13xmFf2_bcWH=db7LEavfpZswvPbAM3+66dBPtMTg@mail.gmail.com>
+From: Code Soldier1 <codesoldier1@gmail.com>
+Subject: Re: question about size of sk_buff and skb_shared_info
+Date: Tue, 18 Apr 2017 17:15:35 -0700
+Message-ID: <CABGNeczXNPkWnhkviHhXv5OpVope_0BGNoB-nsGwALOptrwWdA@mail.gmail.com>
+References: <CABGNecyP8tpBtbOPL_4fyhqnkTYEa80sHCuDrUJdm9gxihFX6w@mail.gmail.com>
+ <1492542021.10587.137.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CABGNecz7oRk8PZS_YzG2QzpMXi78rQX4zPpt_28ZgJYYZS-ytg@mail.gmail.com> <1492559721.10587.150.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="1t0Rfgn2t0N37lfjAhevO2o0vT1jVARoG"
-Cc: LKML <linux-kernel@vger.kernel.org>, Alexei Starovoitov <ast@kernel.org>,
-        Andy Lutomirski <luto@amacapital.net>,
-        Arnaldo Carvalho de Melo <acme@kernel.org>,
-        Casey Schaufler <casey@schaufler-ca.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        David Drysdale
- <drysdale@google.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        "Eric W . Biederman" <ebiederm@xmission.com>,
-        James Morris <james.l.morris@oracle.com>, Jann Horn <jann@thejh.net>,
-        Jonathan Corbet <corbet@lwn.net>,
-        Matthew Garrett <mjg59@srcf.ucam.org>,
-        Michael Kerrisk <mtk.manpages@gmail.com>,
-        Paul Moore <paul@paul-moore.com>, Sargun Dhillon <sargun@sargun.me>,
-        "Serge E . Hallyn" <serge@hallyn.com>, Shuah Khan <shuah@kernel.org>,
-        Tejun Heo <tj@kernel.org>, Thomas Graf <tgraf@suug.ch>,
-        Will Drewry <wad@chromium.org>
-To: Kees Cook <keescook@chromium.org>
-Return-path: <kernel-hardening-return-7419-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-In-Reply-To: <CAGXu5jLpM13xmFf2_bcWH=db7LEavfpZswvPbAM3+66dBPtMTg@mail.gmail.com>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f196.google.com ([209.85.223.196]:35933 "EHLO
+        mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757528AbdDSAPm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 20:15:42 -0400
+Received: by mail-io0-f196.google.com with SMTP id x86so1848049ioe.3
+        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 17:15:41 -0700 (PDT)
+In-Reply-To: <1492559721.10587.150.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---1t0Rfgn2t0N37lfjAhevO2o0vT1jVARoG
-Content-Type: multipart/mixed; boundary="Hpm5fgWkkDoOkHvQhhfQ3l4mKAP3UvFsp";
- protected-headers="v1"
-From: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>
-To: Kees Cook <keescook@chromium.org>
-Cc: LKML <linux-kernel@vger.kernel.org>, Alexei Starovoitov <ast@kernel.org>,
- Andy Lutomirski <luto@amacapital.net>,
- Arnaldo Carvalho de Melo <acme@kernel.org>,
- Casey Schaufler <casey@schaufler-ca.com>,
- Daniel Borkmann <daniel@iogearbox.net>, David Drysdale
- <drysdale@google.com>, "David S . Miller" <davem@davemloft.net>,
- "Eric W . Biederman" <ebiederm@xmission.com>,
- James Morris <james.l.morris@oracle.com>, Jann Horn <jann@thejh.net>,
- Jonathan Corbet <corbet@lwn.net>, Matthew Garrett <mjg59@srcf.ucam.org>,
- Michael Kerrisk <mtk.manpages@gmail.com>, Paul Moore <paul@paul-moore.com>,
- Sargun Dhillon <sargun@sargun.me>, "Serge E . Hallyn" <serge@hallyn.com>,
- Shuah Khan <shuah@kernel.org>, Tejun Heo <tj@kernel.org>,
- Thomas Graf <tgraf@suug.ch>, Will Drewry <wad@chromium.org>,
- "kernel-hardening@lists.openwall.com" <kernel-hardening@lists.openwall.com>,
- Linux API <linux-api@vger.kernel.org>,
- linux-security-module <linux-security-module@vger.kernel.org>,
- Network Development <netdev@vger.kernel.org>
-Message-ID: <a5597574-6a8c-b2ee-336c-48734071e6ff@digikod.net>
-Subject: Re: [PATCH net-next v6 00/11] Landlock LSM: Toward unprivileged
- sandboxing
-References: <20170328234650.19695-1-mic@digikod.net>
- <CAGXu5jLpM13xmFf2_bcWH=db7LEavfpZswvPbAM3+66dBPtMTg@mail.gmail.com>
-In-Reply-To: <CAGXu5jLpM13xmFf2_bcWH=db7LEavfpZswvPbAM3+66dBPtMTg@mail.gmail.com>
+I am not suggesting that we do not do cache alignment. That is
+required for performance. I have gone through this exercise because I
+need to add a field to sk_buff and I want to do that without causing
+any adverse effects.
 
---Hpm5fgWkkDoOkHvQhhfQ3l4mKAP3UvFsp
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+Now that we have discovered that there are 40 bytes that can be used
+without any adverse effect, may I increase skb->cb by 8 bytes ?
+
+If not then may I increase skb_shared_info -- However that would have
+to be by 64bytes.
 
 
-On 19/04/2017 01:26, Kees Cook wrote:
-> On Tue, Mar 28, 2017 at 4:46 PM, Micka=C3=ABl Sala=C3=BCn <mic@digikod.=
-net> wrote:
->> This sixth series add some changes to the previous one [1], including =
-a simpler
->> rule inheritance hierarchy (similar to seccomp-bpf), a ptrace scope pr=
-otection,
->> some file renaming (better feature identification per file), a future-=
-proof
->> eBPF subtype and miscellaneous cosmetic fixes.
->=20
-> Sorry for the delay in review! I finally had a chunk of time I could
-> devote to this. I really like how it's heading. I still wonder about
-> its overlap with seccomp (it's really only using the syscall now...),
-> but that's just a detail. Getting the abstraction away from direct LSM
-> hooks looks good.
->=20
->> There is as yet no way to allow a process to access only a subset of t=
-he
->> filesystem where the subset is specified via a path or a file descript=
-or.  This
->> feature is intentionally left out so as to minimize the amount of code=
- of this
->> patch series but will come in a following series.  However, it is poss=
-ible to
->> check the file type, as done in the following example.
->=20
-> I understand why you've taken a progressive approach here, but I think
-> there are two fundamental areas where people will use Landlock: path
-> evaluation and network address evaluation. I think it's worth
-> expanding this series to include those two confinement examples, since
-> that can help people understand what the "general" case will look
-> like.
-
-I agree that it would be more useful to add a path/FS evaluation,
-however we agreed at LPC that it would be another patch series:
-https://lkml.kernel.org/r/5828776A.1010104@digikod.net
-It brings more complexity and a new kind of BPF map, which should be
-reviewed in a separate series.
-
->=20
-> As I mentioned in one of the patch review emails, I think there needs
-> to be a clearer explanation of how usage counting works vs the
-> "events" (which I think of as "rule tables" not events -- maybe it
-> needs a new name?) and "rule" lists. I think I understand it, but I
-> spent a lot of time trying to get there. More comments would help.
-
-I though about different names and the previous one was PDP (for Policy
-Decision Point) which is used in the literature, but "event" seems
-easier to understand and close enough with "hook". Rule tables doesn't
-seems to express what is the meaning to register an event/hook.
-
-I'll add more comments to explain how it works.
-
->=20
-> Finally, another thing I'm curious about is how to deal with the
-> thread-sync issue. Seccomp uses its TSYNC thing, and I'd expect we'd
-> want something similar for landlock... but that looks really hairy as
-> far as locking goes. Perhaps it's already solved by using the same
-> locking seccomp uses, in which case I'm less inclined to kick landlock
-> out of seccomp.c. :)
-
-I didn't work on it but it should be really similar to seccomp-bpf.
-
->=20
-> Looks like it's coming along nicely! Thanks for continuing to work on t=
-his!
->=20
-> -Kees
->=20
+On Tue, Apr 18, 2017 at 4:55 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> Please do not top post on netdev
+>
+> On Tue, 2017-04-18 at 16:26 -0700, Code Soldier1 wrote:
+>> Eric,
+>>
+>> This alignment flag is passed to the cache constructor and the
+>> allocation is indeed cache aligned. However, since the allocated size
+>> is not a multiple of the alignment, wont memory be wasted ?. We can
+>> get 40 extra bytes without any side effects since they are on the same
+>> cache line ?
+>
+> We _want_ to align skb to cache lines.
+>
+> Fact that few bytes might be wasted is unfortunate, but negligible.
+>
+> BTW, if you do kmalloc(1025), kmalloc() wastes 1023 bytes.
+>
+>
+>>
+>> kmem_cache_create() code does an ALIGN() to round up the size.
+>>
+>>         kasan_cache_create(cachep, &size, &flags);
+>>
+>>         size = ALIGN(size, cachep->align);
+>>
+>> This is the size used in calculate_slab_order() to calculate num. I am
+>> assuming that in the non debug case gfp_order will be 0.
+>>
+>> Perhaps I am missing something.
+>>
+>>
+>> On Tue, Apr 18, 2017 at 12:00 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>> > On Tue, 2017-04-18 at 10:34 -0700, Code Soldier1 wrote:
+>> >> Hi Folks,
+>> >>
+>> >> I am sure there is a reason for the current sizes of these structures,
+>> >> However the reason is not obvious to me. So please help me understand.
+>> >>
+>> >> Currently the size of sk_buff on an x86_64 system is 232 bytes -- Why
+>> >> is that. I expected it to be a multiple of 32/64 as they are the most
+>> >> common cache lines. Since the alignment calculation will align the
+>> >> structure with the hw cache line, it seems like we might be wasting
+>> >> space ?
+>> >>
+>> >> skb_shared_info on the other hand is perfectly aligned with a size of 320 bytes.
+>> >>
+>> >> Thanks,
+>> >>
+>> >
+>> > The alignment is there.
+>> > Look at skb_init() code, using SLAB_HWCACHE_ALIGN
+>> >
+>> >
+>> >
+>> >
+>> >
+>>
+>>
+>>
+>
+>
 
 
---Hpm5fgWkkDoOkHvQhhfQ3l4mKAP3UvFsp--
 
---1t0Rfgn2t0N37lfjAhevO2o0vT1jVARoG
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEzBAEBCgAdFiEEUysCyY8er9Axt7hqIt7+33O9apUFAlj2q2AACgkQIt7+33O9
-apXxaAgAqVIZOsS3/3lornGMYaKG2m8KBlzBftzgrX5SV0s6fqOCG97kNRoFlCVR
-6bOs/rsNoUzUa8ILtH65xMzk4bVpOKwMIj/UT86/BikZsRJUitYi4ZpmlUVo5/gN
-REEGrBT7SB1WSxMAEBJWLLfGfLEG60D2WkiDLlUvqQxto1xtx9s7w5Z5jQC1tskM
-Y6Z4Ne9+OIz1hcrUJwpNcZ/yet7XRza2xd9QFCbEK9aR1L4rPrpq1snqBzTYifNL
-gFtKPSX56YsUNzWYEq8XM20kgGeerEWUX0dyaUwBUJWoOt/+5xsAqQubqr4mVDK4
-p+da9VzFcv8nCyeIOYHunES9czJlfg==
-=P+pX
------END PGP SIGNATURE-----
-
---1t0Rfgn2t0N37lfjAhevO2o0vT1jVARoG--
+-- 
+CS1
