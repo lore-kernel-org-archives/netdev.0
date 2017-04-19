@@ -1,48 +1,54 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH net-next] liquidio: remove unnecessary variable assignment
-Date: Wed, 19 Apr 2017 19:30:59 +0200
-Message-ID: <20170419173109.3683437-1-arnd@arndb.de>
+Subject: [PATCH] ieee802154: don't select COMMON_CLK
+Date: Wed, 19 Apr 2017 19:32:25 +0200
+Message-ID: <20170419173233.3726121-1-arnd@arndb.de>
 Cc: Arnd Bergmann <arnd@arndb.de>,
-        "David S. Miller" <davem@davemloft.net>,
-        Prasad Kanneganti <prasad.kanneganti@cavium.com>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Derek Chickles <derek.chickles@caviumnetworks.com>,
-        Satanand Burla <satananda.burla@caviumnetworks.com>,
-        Felix Manlunas <felix.manlunas@caviumnetworks.com>,
-        Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.17.24]:49500 "EHLO
-        mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S967462AbdDSRbV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2017 13:31:21 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+        Harry Morris <harrymorris12@gmail.com>,
+        linux-wpan@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Marcel Holtmann <marcel@holtmann.org>,
+        Alexander Aring <aar@pengutronix.de>,
+        Stefan Schmidt <stefan@osg.samsung.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-gcc points out an useless assignment that was added during code refactoring:
+A device driver must not select the COMMON_CLK subsystem, as that conflicts
+with platforms that provide a legacy implementation of the clk API:
 
-drivers/net/ethernet/cavium/liquidio/lio_ethtool.c: In function 'octnet_intrmod_callback':
-drivers/net/ethernet/cavium/liquidio/lio_ethtool.c:1315:59: error: parameter 'oct_dev' set but not used [-Werror=unused-but-set-parameter]
+drivers/clk/clk.o: In function `clk_enable':
+clk.c:(.text.clk_enable+0x0): multiple definition of `clk_enable'
+arch/arm/mach-sa1100/clock.o:clock.c:(.text.clk_enable+0x0): first defined here
+drivers/clk/clk.o: In function `clk_round_rate':
+clk.c:(.text.clk_round_rate+0x0): multiple definition of `clk_round_rate'
+arch/arm/mach-sa1100/clock.o:clock.c:(.text.clk_round_rate+0x0): first defined here
+drivers/clk/clk.o: In function `clk_get_parent':
+clk.c:(.text.clk_get_parent+0x0): multiple definition of `clk_get_parent'
+arch/arm/mach-sa1100/clock.o:clock.c:(.text.clk_get_parent+0x0): first defined here
+drivers/clk/clk.o: In function `clk_get_rate':
+clk.c:(.text.clk_get_rate+0x0): multiple definition of `clk_get_rate'
 
-This is harmless but can clearly be remove to avoid the warning.
+This changes the 'select' into 'depends on', as all other similar drivers do.
 
-Fixes: 50c0add534d2 ("liquidio: refactor interrupt moderation code")
+Fixes: d931acd575d6 ("ieee802154: Add CA8210 IEEE 802.15.4 device driver")
 Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 ---
- drivers/net/ethernet/cavium/liquidio/lio_ethtool.c | 2 --
- 1 file changed, 2 deletions(-)
+ drivers/net/ieee802154/Kconfig | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c b/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c
-index dab10c7e4443..579dc7336f58 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c
-@@ -1323,8 +1323,6 @@ static void octnet_intrmod_callback(struct octeon_device *oct_dev,
- 
- 	ctx->status = status;
- 
--	oct_dev = lio_get_device(ctx->octeon_id);
--
- 	WRITE_ONCE(ctx->cond, 1);
- 
- 	/* This barrier is required to be sure that the response has been
+diff --git a/drivers/net/ieee802154/Kconfig b/drivers/net/ieee802154/Kconfig
+index ce4864dc3c6e..303ba4133920 100644
+--- a/drivers/net/ieee802154/Kconfig
++++ b/drivers/net/ieee802154/Kconfig
+@@ -86,8 +86,8 @@ config IEEE802154_ADF7242
+ config IEEE802154_CA8210
+ 	tristate "Cascoda CA8210 transceiver driver"
+ 	depends on IEEE802154_DRIVERS && MAC802154
++	depends on COMMON_CLK
+ 	depends on SPI
+-	select COMMON_CLK
+ 	---help---
+ 	  Say Y here to enable the CA8210 SPI 802.15.4 wireless
+ 	  controller.
 -- 
 2.9.0
