@@ -1,21 +1,20 @@
 From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH net 4/6] lan78xx: use skb_cow_head() to deal with cloned skbs
-Date: Wed, 19 Apr 2017 09:59:24 -0700
-Message-ID: <20170419165926.30631-5-edumazet@google.com>
+Subject: [PATCH net 2/6] cx82310_eth: use skb_cow_head() to deal with cloned skbs
+Date: Wed, 19 Apr 2017 09:59:22 -0700
+Message-ID: <20170419165926.30631-3-edumazet@google.com>
 References: <20170419165926.30631-1-edumazet@google.com>
 Cc: netdev <netdev@vger.kernel.org>,
         James Hughes <james.hughes@raspberrypi.org>,
         Eric Dumazet <edumazet@google.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        Woojung Huh <woojung.huh@microchip.com>
+        Eric Dumazet <eric.dumazet@gmail.com>
 To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yb0-f182.google.com ([209.85.213.182]:35653 "EHLO
-        mail-yb0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S967463AbdDSQ7v (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2017 12:59:51 -0400
-Received: by mail-yb0-f182.google.com with SMTP id 6so7397392ybq.2
-        for <netdev@vger.kernel.org>; Wed, 19 Apr 2017 09:59:45 -0700 (PDT)
+Received: from mail-yb0-f180.google.com ([209.85.213.180]:32799 "EHLO
+        mail-yb0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752788AbdDSQ7w (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2017 12:59:52 -0400
+Received: by mail-yb0-f180.google.com with SMTP id 81so8846520ybp.0
+        for <netdev@vger.kernel.org>; Wed, 19 Apr 2017 09:59:46 -0700 (PDT)
 In-Reply-To: <20170419165926.30631-1-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -25,34 +24,31 @@ but we also need to check if we are allowed to change headers.
 
 skb_cow_head() is the proper helper to deal with this.
 
-Fixes: 55d7de9de6c3 ("Microchip's LAN7800 family USB 2/3 to 10/100/1000 Ethernet device driver")
+Fixes: cc28a20e77b2 ("introduce cx82310_eth: Conexant CX82310-based ADSL router USB ethernet driver")
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 Cc: James Hughes <james.hughes@raspberrypi.org>
-Cc: Woojung Huh <woojung.huh@microchip.com>
 ---
- drivers/net/usb/lan78xx.c | 9 ++-------
- 1 file changed, 2 insertions(+), 7 deletions(-)
+ drivers/net/usb/cx82310_eth.c | 7 ++-----
+ 1 file changed, 2 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/usb/lan78xx.c b/drivers/net/usb/lan78xx.c
-index 9889a70ff4f6fece5bfabbfb45a3470f721a5a32..636f48f19d1eacae67c050de4fc3e651bffdf825 100644
---- a/drivers/net/usb/lan78xx.c
-+++ b/drivers/net/usb/lan78xx.c
-@@ -2607,14 +2607,9 @@ static struct sk_buff *lan78xx_tx_prep(struct lan78xx_net *dev,
+diff --git a/drivers/net/usb/cx82310_eth.c b/drivers/net/usb/cx82310_eth.c
+index e221bfcee76b40a3ad7ba60ec4d348f4b8f4cc73..947bea81d924124c3827e87f75e732e35adb2acd 100644
+--- a/drivers/net/usb/cx82310_eth.c
++++ b/drivers/net/usb/cx82310_eth.c
+@@ -293,12 +293,9 @@ static struct sk_buff *cx82310_tx_fixup(struct usbnet *dev, struct sk_buff *skb,
  {
- 	u32 tx_cmd_a, tx_cmd_b;
+ 	int len = skb->len;
  
--	if (skb_headroom(skb) < TX_OVERHEAD) {
--		struct sk_buff *skb2;
--
--		skb2 = skb_copy_expand(skb, TX_OVERHEAD, 0, flags);
-+	if (skb_cow_head(skb, TX_OVERHEAD)) {
+-	if (skb_headroom(skb) < 2) {
+-		struct sk_buff *skb2 = skb_copy_expand(skb, 2, 0, flags);
++	if (skb_cow_head(skb, 2)) {
  		dev_kfree_skb_any(skb);
 -		skb = skb2;
 -		if (!skb)
 -			return NULL;
 +		return NULL;
  	}
+ 	skb_push(skb, 2);
  
- 	if (lan78xx_linearize(skb) < 0)
 -- 
 2.12.2.816.g2cccc81164-goog
