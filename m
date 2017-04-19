@@ -1,56 +1,67 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [Intel-wired-lan] NFS over NAT causes e1000e transmit hangs
-Date: Wed, 19 Apr 2017 14:15:34 -0700
-Message-ID: <50732fb0-d2b6-9395-d982-6eca8c09aedd@gmail.com>
-References: <42af0e78-3107-1605-f8e1-d73a8c441ff0@gmail.com>
- <1492542204.10587.138.camel@edumazet-glaptop3.roam.corp.google.com>
- <9fa24846-3a2d-26d3-2963-f5e6ec6808a5@gmail.com>
- <f79d2748-849e-acc6-5e5c-2dc82548fa69@intel.com>
-Mime-Version: 1.0
+From: Alexander Kochetkov <al.kochet@gmail.com>
+Subject: Re: [PATCH] net: arc_emac: switch to phy_start()/phy_stop()
+Date: Thu, 20 Apr 2017 00:19:11 +0300
+Message-ID: <E5D835FF-589E-4A87-9C08-A47B2CCF5645@gmail.com>
+References: <1492612195-16601-1-git-send-email-al.kochet@gmail.com> <5ed9e534-d134-2ba1-0276-0bc8bd949eb1@gmail.com>
+Mime-Version: 1.0 (Mac OS X Mail 9.3 \(3124\))
 Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org
-To: "Neftin, Sasha" <sasha.neftin@intel.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>
+Content-Transfer-Encoding: quoted-printable
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Philippe Reynes <tremyfr@gmail.com>,
+        Peter Chen <peter.chen@nxp.com>,
+        Wei Yongjun <weiyongjun1@huawei.com>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f196.google.com ([209.85.161.196]:34539 "EHLO
-        mail-yw0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S967344AbdDSVPg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2017 17:15:36 -0400
-Received: by mail-yw0-f196.google.com with SMTP id u70so3837548ywe.1
-        for <netdev@vger.kernel.org>; Wed, 19 Apr 2017 14:15:36 -0700 (PDT)
-In-Reply-To: <f79d2748-849e-acc6-5e5c-2dc82548fa69@intel.com>
+Received: from mail-lf0-f66.google.com ([209.85.215.66]:36041 "EHLO
+        mail-lf0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S967507AbdDSVTO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2017 17:19:14 -0400
+In-Reply-To: <5ed9e534-d134-2ba1-0276-0bc8bd949eb1@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/19/2017 01:52 AM, Neftin, Sasha wrote:
-> On 4/18/2017 22:05, Florian Fainelli wrote:
->> On 04/18/2017 12:03 PM, Eric Dumazet wrote:
->>> On Tue, 2017-04-18 at 11:18 -0700, Florian Fainelli wrote:
->>>> Hi,
->>>>
->>>> I am using NFS over a NAT with two e1000e adapters and with eth1 being
->>>> the LAN interface and eth0 the WAN interface. The kernel is Ubuntu's
->>>> 16.10 kernel: 4.8.0-46-generic. The device doing NAT over NFS is just
->>>> mounting a remote folder and doing normal execution/file accesses. It's
->>>> enough to untar a file from this device onto a NFS share to expose the
->>>> problem.
->>>>
->>>> The transmit hangs look like the ones below, doing a rmmod/insmod does
->>>> not help eliminated the problem, nor does a power cycle. Stopping the
->>>> NFS over NAT definitively does let the adapter recover.
->>> Is this NFS over TCP or UDP ?
->> This is NFS over TCP mounted with the following:
->>
->> type nfs
->> (rw,relatime,vers=3,rsize=1048576,wsize=1048576,namlen=255,hard,proto=tcp,port=2049,timeo=70,retrans=3,sec=sys,local_lock=none,addr=X.X.X.X)
->>
->>
->> Thanks Eric!
-> 
-> Please, try disable TCP segmentation offload: ethtool -K <adapter> tso off.
 
-I am not able to reproduce the hangs with TSO turned off. Is there a
-specific patch you would want me to try?
--- 
-Florian
+> 20 =D0=B0=D0=BF=D1=80. 2017 =D0=B3., =D0=B2 0:08, Florian Fainelli =
+<f.fainelli@gmail.com> =D0=BD=D0=B0=D0=BF=D0=B8=D1=81=D0=B0=D0=BB(=D0=B0):=
+
+>=20
+> This looks fine. If you wanted to go further, you could move the
+> phy_connect(), phy_disconnect() calls down to the arc_emac_open()
+> respectively arc_emac_stop() as this would also allow the PHY device =
+to
+> be fully suspended when the interface is unused.
+
+
+I=E2=80=99ve checked patch phy_connect() is called from arc_emac_open() =
+and
+phy_disconnect() is called from arc_emac_stop().
+
+So, I=E2=80=99ve made mistake in the commit message.
+
+Thank you for review.
+
+>=20
+> 19 =D0=B0=D0=BF=D1=80. 2017 =D0=B3., =D0=B2 21:22, Sergei Shtylyov =
+<sergei.shtylyov@cogentembedded.com> =D0=BD=D0=B0=D0=BF=D0=B8=D1=81=D0=B0=D0=
+=BB(=D0=B0):
+>=20
+> On 04/19/2017 05:29 PM, Alexander Kochetkov wrote:
+>=20
+>> The patch replace phy_start_aneg() with phy_start(). phy_start() call
+>=20
+>   Replaces.
+>=20
+>> phy_start_aneg() as a part of startup sequence and allow recover from
+>> error (PHY_HALTED) state.
+>>=20
+>> Also added call phy_stop() to arc_emac_remove() to stop PHY state =
+machine
+>=20
+>   To arc_emac_stop() maybe?
+>=20
+
+Sergei, thanks for spell and gramma checking.
+
+Regards,
+Alexander.
