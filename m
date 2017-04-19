@@ -1,117 +1,63 @@
-From: Andy Duan <fugang.duan@nxp.com>
-Subject: Re: FEC on i.MX 7 transmit queue timeout
-Date: Wed, 19 Apr 2017 02:24:42 +0000
-Message-ID: <ed24e51d-499f-597b-0c9f-7f180e257acb@nxp.com>
-References: <c6b66956c48f981a952048da6b2ddd54@agner.ch>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH RFC] sparc64: eBPF JIT
+Date: Tue, 18 Apr 2017 22:27:03 -0400 (EDT)
+Message-ID: <20170418.222703.574792250384665834.davem@davemloft.net>
+References: <20170418054444.GA36377@ast-mbp.thefacebook.com>
+        <20170418.143732.1494140903085244508.davem@davemloft.net>
+        <20170418225707.GA65449@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Stefan Agner <stefan@agner.ch>,
-        "fugang.duan@freescale.com" <fugang.duan@freescale.com>,
-        "festevam@gmail.com" <festevam@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve1eur01on0070.outbound.protection.outlook.com ([104.47.1.70]:64115
-        "EHLO EUR01-VE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1758300AbdDSCYq (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 18 Apr 2017 22:24:46 -0400
-In-Reply-To: <c6b66956c48f981a952048da6b2ddd54@agner.ch>
-Content-Language: en-US
-Content-ID: <74CF06E20D43F747895B61E73857DF94@eurprd04.prod.outlook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: sparclinux@vger.kernel.org, netdev@vger.kernel.org, ast@kernel.org,
+        daniel@iogearbox.net
+To: alexei.starovoitov@gmail.com
+Return-path: <sparclinux-owner@vger.kernel.org>
+In-Reply-To: <20170418225707.GA65449@ast-mbp.thefacebook.com>
+Sender: sparclinux-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-DQpPbiAyMDE35bm0MDTmnIgxOeaXpSAwMzo0NiwgU3RlZmFuIEFnbmVyIHdyb3RlOg0KPiBIaSwN
-Cj4NCj4gSSBub3RpY2VkIGxhc3Qgd2VlayBvbiB1cHN0cmVhbSAodjQuMTEtcmM2KSBvbiBhIENv
-bGlicmkgaU1YNyBib2FyZCB0aGF0DQo+IGFmdGVyIGEgd2hpbGUgKH4xMCBtaW51dGVzKSB0aGUg
-ZGV0ZGV2IHdhY2hkb2cgcHJpbnRzIGEgc3RhY2t0cmFjZSBhbmQNCj4gdGhlIGRyaXZlciB0aGVu
-IGNvbnRpbnVvdXNseSBkdW1wcyB0aGUgVFggcmluZy4gSSB0aGVuIGRpZCBhIHF1aWNrIHRlc3QN
-Cj4gd2l0aCA0LjEwLCBhbmQgcmVhbGl6ZWQgaXQgYWN0dWFsbHkgc3VmZmVycyB0aGUgc2FtZSBp
-c3N1ZSwgc28gaXQgc2VlbXMNCj4gbm90IHRvIGJlIGEgcmVncmVzc2lvbi4gSSB1c2UgYSByb290
-ZnMgbW91bnRlZCBvdmVyIE5GUy4uLg0KPg0KPiAtLS0tLS0tLS0tLS1bIGN1dCBoZXJlIF0tLS0t
-LS0tLS0tLS0NCj4gV0FSTklORzogQ1BVOiAwIFBJRDogMCBhdCBuZXQvc2NoZWQvc2NoX2dlbmVy
-aWMuYzozMTYNCj4gZGV2X3dhdGNoZG9nKzB4MjQwLzB4MjQ0DQo+IE5FVERFViBXQVRDSERPRzog
-ZXRoMCAoZmVjKTogdHJhbnNtaXQgcXVldWUgMiB0aW1lZCBvdXQNCj4gTW9kdWxlcyBsaW5rZWQg
-aW46DQo+IENQVTogMCBQSUQ6IDAgQ29tbTogc3dhcHBlci8wIE5vdCB0YWludGVkDQo+IDQuMTEu
-MC1yYzctMDAwMzAtZzJjNGU2YmQwYzRmMC1kaXJ0eSAjMzMwDQo+IEhhcmR3YXJlIG5hbWU6IEZy
-ZWVzY2FsZSBpLk1YNyBEdWFsIChEZXZpY2UgVHJlZSkNCj4gWzxjMDIyOTNmMD5dICh1bndpbmRf
-YmFja3RyYWNlKSBmcm9tIFs8YzAyMjU4MjA+XSAoc2hvd19zdGFjaysweDEwLzB4MTQpDQo+IFs8
-YzAyMjU4MjA+XSAoc2hvd19zdGFjaykgZnJvbSBbPGMwNTBkYjZjPl0gKGR1bXBfc3RhY2srMHg5
-MC8weGEwKQ0KPiBbPGMwNTBkYjZjPl0gKGR1bXBfc3RhY2spIGZyb20gWzxjMDIzYWU2OD5dIChf
-X3dhcm4rMHhhYy8weDExYykNCj4gWzxjMDIzYWU2OD5dIChfX3dhcm4pIGZyb20gWzxjMDIzYWYx
-MD5dICh3YXJuX3Nsb3dwYXRoX2ZtdCsweDM4LzB4NDgpDQo+IFs8YzAyM2FmMTA+XSAod2Fybl9z
-bG93cGF0aF9mbXQpIGZyb20gWzxjMDg4YmI4Yz5dDQo+IChkZXZfd2F0Y2hkb2crMHgyNDAvMHgy
-NDQpDQo+IFs8YzA4OGJiOGM+XSAoZGV2X3dhdGNoZG9nKSBmcm9tIFs8YzAyOTQ3OTg+XQ0KPiAo
-cnVuX3RpbWVyX3NvZnRpcnErMHgyNGMvMHg3MDgpDQo+IFs8YzAyOTQ3OTg+XSAocnVuX3RpbWVy
-X3NvZnRpcnEpIGZyb20gWzxjMDIzZjU4ND5dDQo+IChfX2RvX3NvZnRpcnErMHgxMmMvMHgyYTgp
-DQo+IFs8YzAyM2Y1ODQ+XSAoX19kb19zb2Z0aXJxKSBmcm9tIFs8YzAyM2Y4YzQ+XSAoaXJxX2V4
-aXQrMHhkYy8weDEzYykNCj4gWzxjMDIzZjhjND5dIChpcnFfZXhpdCkgZnJvbSBbPGMwMjgxOGFj
-Pl0NCj4gKF9faGFuZGxlX2RvbWFpbl9pcnErMHhhNC8weGY4KQ0KPiBbPGMwMjgxOGFjPl0gKF9f
-aGFuZGxlX2RvbWFpbl9pcnEpIGZyb20gWzxjMDIwMTYyND5dDQo+IChnaWNfaGFuZGxlX2lycSsw
-eDM0LzB4YTQpDQo+IFs8YzAyMDE2MjQ+XSAoZ2ljX2hhbmRsZV9pcnEpIGZyb20gWzxjMDIyNjMz
-OD5dIChfX2lycV9zdmMrMHg1OC8weDhjKQ0KPiBFeGNlcHRpb24gc3RhY2soMHhjMTIwMWYzMCB0
-byAweGMxMjAxZjc4KQ0KPiAxZjIwOiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICBjMDIzMzMyMCAwMDAwMDAwMCAwMDAwMDAwMA0KPiAwMTQwMDAwMA0KPiAxZjQwOiBjMTIwM2Q4
-MCBmZmZmZTAwMCAwMDAwMDAwMCAwMDAwMDAwMCBjMTA3YmYxMCBjMGUwNTViNSBjMTIwM2QzNA0K
-PiAwMDAwMDAwMQ0KPiAxZjYwOiBjMDdkMjMyNCBjMTIwMWY4MCBjMDIyMmFjOCBjMDIyMmFjYyA2
-MDAwMDAxMyBmZmZmZmZmZg0KPiBbPGMwMjI2MzM4Pl0gKF9faXJxX3N2YykgZnJvbSBbPGMwMjIy
-YWNjPl0gKGFyY2hfY3B1X2lkbGUrMHgzOC8weDNjKQ0KPiBbPGMwMjIyYWNjPl0gKGFyY2hfY3B1
-X2lkbGUpIGZyb20gWzxjMDI3NWYyND5dIChkb19pZGxlKzB4YTgvMHgyNTApDQo+IFs8YzAyNzVm
-MjQ+XSAoZG9faWRsZSkgZnJvbSBbPGMwMjc2MGU0Pl0gKGNwdV9zdGFydHVwX2VudHJ5KzB4MTgv
-MHgxYykNCj4gWzxjMDI3NjBlND5dIChjcHVfc3RhcnR1cF9lbnRyeSkgZnJvbSBbPGMxMDAwYWEw
-Pl0NCj4gKHN0YXJ0X2tlcm5lbCsweDNmYy8weDQ1YykNCj4gLS0tWyBlbmQgdHJhY2UgNWIwYzZk
-YzM0NjZhNzkxOCBdLS0tDQo+IGZlYyAzMGJlMDAwMC5ldGhlcm5ldCBldGgwOiBUWCByaW5nIGR1
-bXANCj4gTnIgICAgIFNDICAgICBhZGRyICAgICAgIGxlbiAgU0tCDQo+ICAgIDAgICAgMHgxYzAw
-IDB4MDAwMDAwMDAgIDU5MCAgIChudWxsKQ0KPiAgICAxICAgIDB4MWMwMCAweDAwMDAwMDAwICA1
-OTAgICAobnVsbCkNCj4gICAgMiAgICAweDFjMDAgMHgwMDAwMDAwMCAgIDQyICAgKG51bGwpDQo+
-ICAgIDMgIEggMHgxYzAwIDB4MDAwMDAwMDAgICA0MiAgIChudWxsKQ0KPiAgICA0IFMgIDB4MDAw
-MCAweDAwMDAwMDAwICAgIDAgICAobnVsbCkNCj4gICAgNSAgICAweDAwMDAgMHgwMDAwMDAwMCAg
-ICAwICAgKG51bGwpDQo+ICAgIDYgICAgMHgwMDAwIDB4MDAwMDAwMDAgICAgMCAgIChudWxsKQ0K
-PiAgICA3ICAgIDB4MDAwMCAweDAwMDAwMDAwICAgIDAgICAobnVsbCkNCj4gICAgOCAgICAweDAw
-MDAgMHgwMDAwMDAwMCAgICAwICAgKG51bGwpDQo+ICAgIDkgICAgMHgwMDAwIDB4MDAwMDAwMDAg
-ICAgMCAgIChudWxsKQ0KPiAgIDEwICAgIDB4MDAwMCAweDAwMDAwMDAwICAgIDAgICAobnVsbCkN
-Cj4gICAxMSAgICAweDAwMDAgMHgwMDAwMDAwMCAgICAwICAgKG51bGwpDQo+ICAgMTIgICAgMHgw
-MDAwIDB4MDAwMDAwMDAgICAgMCAgIChudWxsKQ0KPiAgIDEzICAgIDB4MDAwMCAweDAwMDAwMDAw
-ICAgIDAgICAobnVsbCkNCj4gICAxNCAgICAweDAwMDAgMHgwMDAwMDAwMCAgICAwICAgKG51bGwp
-DQo+ICAgMTUgICAgMHgwMDAwIDB4MDAwMDAwMDAgICAgMCAgIChudWxsKQ0KPiAgIDE2ICAgIDB4
-MDAwMCAweDAwMDAwMDAwICAgIDAgICAobnVsbCkNCj4gICAxNyAgICAweDAwMDAgMHgwMDAwMDAw
-MCAgICAwICAgKG51bGwpDQo+ICAgMTggICAgMHgwMDAwIDB4MDAwMDAwMDAgICAgMCAgIChudWxs
-KQ0KPiAuLi4NCj4NCj4NCj4gQSBzZWNvbmQgVFggcmluZyBkdW1wIGZyb20gNC4xMDoNCj4gZmVj
-IDMwYmUwMDAwLmV0aGVybmV0IGV0aDA6IFRYIHJpbmcgZHVtcA0KPiBOciAgICAgU0MgICAgIGFk
-ZHIgICAgICAgbGVuICBTS0INCj4gICAgMCAgICAweDFjMDAgMHgwMDAwMDAwMCAgIDQyICAgKG51
-bGwpDQo+ICAgIDEgICAgMHgxYzAwIDB4MDAwMDAwMDAgICA0MiAgIChudWxsKQ0KPiAgICAyICAg
-IDB4MWMwMCAweDAwMDAwMDAwICAgOTAgICAobnVsbCkNCj4gICAgMyAgICAweDFjMDAgMHgwMDAw
-MDAwMCAgIDkwICAgKG51bGwpDQo+ICAgIDQgICAgMHgxYzAwIDB4MDAwMDAwMDAgICA5MCAgIChu
-dWxsKQ0KPiAgICA1ICAgIDB4MWMwMCAweDAwMDAwMDAwICAyMTggICAobnVsbCkNCj4gICAgNiAg
-ICAweDFjMDAgMHgwMDAwMDAwMCAgMjE4ICAgKG51bGwpDQo+ICAgIDcgICAgMHgxYzAwIDB4MDAw
-MDAwMDAgIDIxOCAgIChudWxsKQ0KPiAgICA4ICAgIDB4MWMwMCAweDAwMDAwMDAwICAgOTAgICAo
-bnVsbCkNCj4gICAgOSAgICAweDFjMDAgMHgwMDAwMDAwMCAgMjA2ICAgKG51bGwpDQo+ICAgMTAg
-ICAgMHgxYzAwIDB4MDAwMDAwMDAgIDIxNiAgIChudWxsKQ0KPiAgIDExICAgIDB4MWMwMCAweDAw
-MDAwMDAwICAyMTYgICAobnVsbCkNCj4gICAxMiAgICAweDFjMDAgMHgwMDAwMDAwMCAgMjE2ICAg
-KG51bGwpDQo+ICAgMTMgICAgMHgxYzAwIDB4MDAwMDAwMDAgIDMxMSAgIChudWxsKQ0KPiAgIDE0
-ICAgIDB4MWMwMCAweDAwMDAwMDAwICAxNzggICAobnVsbCkNCj4gICAxNSAgICAweDFjMDAgMHgw
-MDAwMDAwMCAgMzExICAgKG51bGwpDQo+ICAgMTYgICAgMHgxYzAwIDB4MDAwMDAwMDAgIDIwNiAg
-IChudWxsKQ0KPiAgIDE3ICBIIDB4MWMwMCAweDAwMDAwMDAwICAzMTEgICAobnVsbCkNCj4gICAx
-OCBTICAweDAwMDAgMHgwMDAwMDAwMCAgICAwICAgKG51bGwpDQo+ICAgMTkgICAgMHgwMDAwIDB4
-MDAwMDAwMDAgICAgMCAgIChudWxsKQ0KVGhlIGR1bXAgc2hvdyB0eCByaW5nIGlzIGZpbmUuDQoN
-Cj4NCj4gVGhlIHJpbmcgZHVtcCBwcmludHMgY29udGlub3VzbHksIGJ1dCBJIGNhbiBhY2Nlc3Mg
-Y29uc29sZSBldmVyeSBub3cgYW5kDQo+IHRoZW4uIEkgbm90aWNlZCB0aGF0IHRoZSBzZWNvbmQg
-aW50ZXJydXB0IHNlZW1zIHN0YXRpYyAoNjY0NDEsIFRYDQo+IGludGVycnVwdD8pOg0KPiAgIDU4
-OiAgICAgICAgIDE4ICAgICBHSUMtMCAxNTAgTGV2ZWwgICAgIDMwYmUwMDAwLmV0aGVybmV0DQo+
-ICAgNTk6ICAgICAgNjY0NDEgICAgIEdJQy0wIDE1MSBMZXZlbCAgICAgMzBiZTAwMDAuZXRoZXJu
-ZXQNCj4gICA2MDogICAgICA3MDQ3NyAgICAgR0lDLTAgMTUyIExldmVsICAgICAzMGJlMDAwMC5l
-dGhlcm5ldA0KMTUwIGlycSBudW1iZXIgaXMgZm9yIHR4L3J4IHF1ZXVlIDEgcmVjZWl2ZS90cmFu
-c21pdCBidWZmZXIvZnJhbWUgZG9uZS4NCjE1MSBpcnEgbnVtYmVyIGlzIGZvciB0eC9yeCBxdWV1
-ZSAyIHJlY2VpdmUvdHJhbnNtaXQgYnVmZmVyL2ZyYW1lIGRvbmUuDQoxNTIgaXJxIG51bWJlciBp
-cyBmb3IgdHgvcnggcXVldWUgMCByZWNlaXZlL3RyYW5zbWl0IGJ1ZmZlci9mcmFtZSBkb25lLCAN
-Cm1paSBpbnRlcnJ1cHQgYW5kIG90aGVycy4NCg0KaS5NWDdEIGVuZXQgaGFzIHRocmVlIHF1ZXVl
-cyBmb3IgdHggYW5kIHJ4Lg0KSXQgc2VlbXMgbmV0ZGV2IHBpY2sgdHggcXVldWUgMSByYXRlIGlz
-IHZlcnkgcmFyZSBieSBfX25ldGRldl9waWNrX3R4KCkuDQo+IEFueWJvZHkgZWxzZSBzZWVuIHRo
-aXM/IEFueSBpZGVhPw0KPg0KPiBJbiA0LjEwIGFzIHdlbGwgYXMgNC4xMS1yYzYgdGhlIGludGVy
-cnVwdCBjb3VudHMgd2VyZSBqdXN0IG92ZXIgNjU1MzYuLi4NCj4gcHVyZSBjaGFuY2U/DQo+DQo+
-DQp5b3UgY2FuIHVzZSBldGh0b29sIHRvIHNldCB0aGUgaXJxIGNvYWxlc2NlIGxpa2U6DQpldGh0
-b29sIC1jIGV0aDAgcngtZnJhbWVzIDgwDQpldGh0b29sIC1jIGV0aDAgcngtdXNlY3MgNjAwDQpl
-dGh0b29sIC1jIGV0aDAgdHgtZnJhbWVzIDY0DQpldGh0b29sIC1jIGV0aDAgdHgtdXNlbmMgNzAw
-DQoNCg0KWW91IGRvbid0IHJ1biBhbnkgdGVzdCBjYXNlLCBqdXN0IG5mcyBtb3VudCByb290ZnMg
-Pw0KSSB3aWxsIHNldHVwIG9uZSBpbXg3ZCBzZGIgYm9hcmQgdG8gcnVuIGl0Lg0KDQpBbmR5
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Date: Tue, 18 Apr 2017 15:57:09 -0700
+
+> On Tue, Apr 18, 2017 at 02:37:32PM -0400, David Miller wrote:
+>> From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+>> Date: Mon, 17 Apr 2017 22:44:47 -0700
+>> 
+>> > The way llvm generates stack access is:
+>> > rX = r10
+>> > rX += imm
+>> > and that's the only thing verifier recognizes as valid ptr_to_stack.
+>> > Like rX -= imm will not be recognized as proper stack offset,
+>> > since llvm never does it.
+>> 
+>> That simplifies things significantly for me.
+>> 
+>> I only allow moves from the frame pointer to another register,
+>> and when I see that I rewrite it to "add FP, STACK_BIAS, DST_REG"
+> 
+> Sounds good to me. Alternative idea: can the above
+> 'add FP, STACK_BIAS, one_of_local_regs' be done once in prologue
+> and that register used as substitue for R10 ?
+> (assuming non-leaf function)
+> I completely forgot by now how 2047 magic works.
+
+Well, I'm trying to understand what that would buy us.
+
+If I'm always going to see that kind of sequence:
+
+	rX = r10
+	rx += offset
+
+then I always have that "r10" move available to deal with the bias.
+It comes for free.
+
+Right now the current version of the sparc64 JIT will emit:
+
+	add	%fp, 2047, bpf2sparc[rX]
+	add	bpf2sparc[rX], offset, bpf2sparc[rX]
+
+for that BPF sequence.
+
+Anyways, thanks to your and Daniel's feedback I'm very confident
+with the code now.  All that's really left is tail calls, and I'll
+set up a BPF compilation and test environment for that.
