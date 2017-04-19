@@ -1,65 +1,55 @@
-From: James Hughes <james.hughes@raspberrypi.org>
-Subject: [PATCH v3] smsc95xx: Use skb_cow_head to deal with cloned skbs
-Date: Wed, 19 Apr 2017 11:07:22 +0100
-Message-ID: <20170419100722.27832-1-james.hughes@raspberrypi.org>
-Cc: James Hughes <james.hughes@raspberrypi.org>
-To: netdev@vger.kernel.org,
-        Steve Glendinning <steve.glendinning@shawell.net>,
-        Microchip Linux Driver Support <UNGLinuxDriver@microchip.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx08-00252a01.pphosted.com ([91.207.212.211]:52594 "EHLO
-        mx08-00252a01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1761631AbdDSKHj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2017 06:07:39 -0400
-Received: from pps.filterd (m0102629.ppops.net [127.0.0.1])
-        by mx08-00252a01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v3JA0PLM029951
-        for <netdev@vger.kernel.org>; Wed, 19 Apr 2017 11:07:38 +0100
-Received: from mail-wr0-f200.google.com (mail-wr0-f200.google.com [209.85.128.200])
-        by mx08-00252a01.pphosted.com with ESMTP id 29wqp289ft-1
-        (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128 verify=OK)
-        for <netdev@vger.kernel.org>; Wed, 19 Apr 2017 11:07:38 +0100
-Received: by mail-wr0-f200.google.com with SMTP id v52so1931503wrb.14
-        for <netdev@vger.kernel.org>; Wed, 19 Apr 2017 03:07:38 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Leon Romanovsky <leonro@mellanox.com>
+Subject: Re: [PATCH net-next] net/mlx5e: IPoIB, Fix error handling in
+ mlx5_rdma_netdev_alloc()
+Date: Wed, 19 Apr 2017 13:11:45 +0300
+Message-ID: <20170419101145.GJ14088@mtr-leonro.local>
+References: <20170419095914.GB4266@mwanda>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha256;
+        protocol="application/pgp-signature"; boundary="+ZmrHH5cGjskQnY1"
+Cc: Saeed Mahameed <saeedm@mellanox.com>,
+        Matan Barak <matanb@mellanox.com>, <netdev@vger.kernel.org>,
+        <linux-rdma@vger.kernel.org>, <kernel-janitors@vger.kernel.org>
+To: Dan Carpenter <dan.carpenter@oracle.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170419095914.GB4266@mwanda>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The driver was failing to check that the SKB wasn't cloned
-before adding checksum data.
-Replace existing handling to extend/copy the header buffer
-with skb_cow_head.
+--+ZmrHH5cGjskQnY1
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Signed-off-by: James Hughes <james.hughes@raspberrypi.org>
----
-Change for V3
-- Added the dev_kfree_skb_any, otherwise the skb would not 
-  be deallocated due to returning NULL.
+On Wed, Apr 19, 2017 at 12:59:15PM +0300, Dan Carpenter wrote:
+> The labels were out of order, so it either could result in an Oops or a
+> leak.
+>
+> Fixes: 48935bbb7ae8 ("net/mlx5e: IPoIB, Add netdevice profile skeleton")
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+>
 
- drivers/net/usb/smsc95xx.c | 12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+Thanks,
+Acked-by: Leon Romanovsky <leonro@mellanox.com>
 
-diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
-index df60c98..4cb8144 100644
---- a/drivers/net/usb/smsc95xx.c
-+++ b/drivers/net/usb/smsc95xx.c
-@@ -2067,13 +2067,13 @@ static struct sk_buff *smsc95xx_tx_fixup(struct usbnet *dev,
- 	/* We do not advertise SG, so skbs should be already linearized */
- 	BUG_ON(skb_shinfo(skb)->nr_frags);
- 
--	if (skb_headroom(skb) < overhead) {
--		struct sk_buff *skb2 = skb_copy_expand(skb,
--			overhead, 0, flags);
-+	/* Make writable and expand header space by overhead if required */
-+	if (skb_cow_head(skb, overhead)) {
-+		/* Must reallocate here as returning NULL to indicate error
-+		 * means the skb won't be deallocated in the caller.
-+		 */
- 		dev_kfree_skb_any(skb);
--		skb = skb2;
--		if (!skb)
--			return NULL;
-+		return NULL;
- 	}
- 
- 	if (csum) {
--- 
-2.9.3
+--+ZmrHH5cGjskQnY1
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAlj3N+EACgkQ5GN7iDZy
+WKf4aw//funXLakxh4Z2ypf2K50fPDMYg4vJxJyfUbGt8F2Homz3g1oZ28D3jvts
+EQxMQpl5BSy5oRNWIUe0Rn6ABJLpLt0hWU5DoM5UDaU2/j0apL7L1D08KP/M2G+A
+2XSNlm+t7uJ4EqGaQEoIR7FecWUiLq1JM2uYWZvW4WvYyQjQNA+V2OLI2JAr21aN
+c8fQ5TXaootuVSxZsNOrvn5lkmqkxLwwzkp4ICZigm77Stfu37XUby8bsPmcYox5
+C5I6FBXdr//2AmNDJ3PXAx9ELopdi4PehnPct5oObbsVuj876OrzM8f6HrEw2S5J
+GPR1z2ttRC8zMWMoy9LOzQ/2EqCFlLW0/Y+qQrg2WL7JKIH/BbZpT8nC+d4pyxO8
+pk0pCya/9m7y8D344/lwG/VmGLDKgognDszXnmy68AY4vJmddsLQPFgRh4JheZTt
+TNjyelx94hK+ljSmRDJIHCv/kaV/urbcU1WLRWO83m9+qhvdGUslXST/xu4Tutx/
+zc6gJJx4kjp/HGfMgiY1tzlWwLFgrI19b05cAjiAAdvPdKIdyrZ4ul/KGbOJjgYV
+u1nNxVLaRwM6zLvDEzgvO+vjBPVDhoZv4RpU87uDXEJC9zL0Ov0OnQHOHLuCOZRF
+e1/kfDMhHhxSAbGQxNf6SwsfkCQw3CrpCAa3FgIRoVjbLBMTAQc=
+=nPF6
+-----END PGP SIGNATURE-----
+
+--+ZmrHH5cGjskQnY1--
