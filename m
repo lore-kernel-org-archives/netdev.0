@@ -1,75 +1,82 @@
-From: "Keller, Jacob E" <jacob.e.keller@intel.com>
-Subject: RE: [PATCH net-next] i40evf: hide unused variable
-Date: Wed, 19 Apr 2017 20:47:58 +0000
-Message-ID: <02874ECE860811409154E81DA85FBB5857E088EB@ORSMSX115.amr.corp.intel.com>
-References: <20170419173008.3648215-1-arnd@arndb.de>
+From: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH v3 1/4] dt-bindings: net: Add TI WiLink shared transport binding
+Date: Wed, 19 Apr 2017 15:49:28 -0500
+Message-ID: <CAL_JsqLdeVnYRROmgj37Yh09h9eHtPWT8UhS_uTwjGj2FT2TYQ@mail.gmail.com>
+References: <20170413150353.7389-1-robh@kernel.org> <20170413150353.7389-2-robh@kernel.org>
+ <CAHCN7x+HhwmXGxZn_31LuzdkEdoAnOSxukAdXULrGbSeKmrtRQ@mail.gmail.com>
+ <CAHCN7xLHZmS_3+JygQgRxi_tX0mXL22D1Nj9T8jkrMz3-8eQDg@mail.gmail.com> <CAHCN7x+G_jbQTDfyPBZ4Er8vz46tEojrWf29Eztq56c9zBnMeA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Pujari, Bimmy" <bimmy.pujari@intel.com>,
-        "Duyck, Alexander H" <alexander.h.duyck@intel.com>,
-        "Williams, Mitch A" <mitch.a.williams@intel.com>,
-        "Brady, Alan" <alan.brady@intel.com>,
-        "Joe Perches" <joe@perches.com>,
-        "Singhai, Anjali" <anjali.singhai@intel.com>,
-        "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-        "Banala, Preethi" <preethi.banala@intel.com>,
-        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Arnd Bergmann <arnd@arndb.de>,
-        "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:47655 "EHLO mga14.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S939581AbdDSUsF (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 19 Apr 2017 16:48:05 -0400
-In-Reply-To: <20170419173008.3648215-1-arnd@arndb.de>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Wei Xu <xuwei5-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>, Eyal Reizer <eyalr-l0cyMroinI0@public.gmane.org>,
+        "devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "open list:BLUETOOTH DRIVERS" <linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Gustavo Padovan <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>,
+        Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
+        Satish Patel <satish.patel-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+        "linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
+        <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+        netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Adam Ford <aford173-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAHCN7x+G_jbQTDfyPBZ4Er8vz46tEojrWf29Eztq56c9zBnMeA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBBcm5kIEJlcmdtYW5uIFttYWls
-dG86YXJuZEBhcm5kYi5kZV0NCj4gU2VudDogV2VkbmVzZGF5LCBBcHJpbCAxOSwgMjAxNyAxMDoz
-MCBBTQ0KPiBUbzogS2lyc2hlciwgSmVmZnJleSBUIDxqZWZmcmV5LnQua2lyc2hlckBpbnRlbC5j
-b20+DQo+IENjOiBBcm5kIEJlcmdtYW5uIDxhcm5kQGFybmRiLmRlPjsgUHVqYXJpLCBCaW1teQ0K
-PiA8YmltbXkucHVqYXJpQGludGVsLmNvbT47IER1eWNrLCBBbGV4YW5kZXIgSA0KPiA8YWxleGFu
-ZGVyLmguZHV5Y2tAaW50ZWwuY29tPjsgV2lsbGlhbXMsIE1pdGNoIEENCj4gPG1pdGNoLmEud2ls
-bGlhbXNAaW50ZWwuY29tPjsgS2VsbGVyLCBKYWNvYiBFIDxqYWNvYi5lLmtlbGxlckBpbnRlbC5j
-b20+OyBCcmFkeSwNCj4gQWxhbiA8YWxhbi5icmFkeUBpbnRlbC5jb20+OyBKb2UgUGVyY2hlcyA8
-am9lQHBlcmNoZXMuY29tPjsgU2luZ2hhaSwgQW5qYWxpDQo+IDxhbmphbGkuc2luZ2hhaUBpbnRl
-bC5jb20+OyBCcmFuZGVidXJnLCBKZXNzZSA8amVzc2UuYnJhbmRlYnVyZ0BpbnRlbC5jb20+Ow0K
-PiBCYW5hbGEsIFByZWV0aGkgPHByZWV0aGkuYmFuYWxhQGludGVsLmNvbT47IGludGVsLXdpcmVk
-LWxhbkBsaXN0cy5vc3Vvc2wub3JnOw0KPiBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBsaW51eC1r
-ZXJuZWxAdmdlci5rZXJuZWwub3JnDQo+IFN1YmplY3Q6IFtQQVRDSCBuZXQtbmV4dF0gaTQwZXZm
-OiBoaWRlIHVudXNlZCB2YXJpYWJsZQ0KPiANCj4gT24gYXJjaGl0ZWN0dXJlcyB3aXRoIGxhcmdl
-ciBwYWdlcywgd2UgZ2V0IGEgd2FybmluZyBhYm91dCBhbiB1bnVzZWQgdmFyaWFibGU6DQo+IA0K
-PiBkcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pNDBldmYvaTQwZXZmX21haW4uYzogSW4gZnVu
-Y3Rpb24NCj4gJ2k0MGV2Zl9jb25maWd1cmVfcngnOg0KPiBkcml2ZXJzL25ldC9ldGhlcm5ldC9p
-bnRlbC9pNDBldmYvaTQwZXZmX21haW4uYzo2OTA6MjE6IGVycm9yOiB1bnVzZWQgdmFyaWFibGUN
-Cj4gJ25ldGRldicgWy1XZXJyb3I9dW51c2VkLXZhcmlhYmxlXQ0KPiANCj4gVGhpcyBtb3ZlcyB0
-aGUgZGVjbGFyYXRpb24gaW50byB0aGUgI2lmZGVmIHRvIGF2b2lkIHRoZSB3YXJuaW5nLg0KPiAN
-Cg0KTWFrZXMgc2Vuc2UuDQoNCkFja2VkLWJ5OiBKYWNvYiBLZWxsZXIgPGphY29iLmUua2VsbGVy
-QGludGVsLmNvbT4NCg0KPiBGaXhlczogZGFiODZhZmRiYmQxICgiaTQwZS9pNDBldmY6IENoYW5n
-ZSB0aGUgd2F5IHdlIGxpbWl0IHRoZSBtYXhpbXVtIGZyYW1lDQo+IHNpemUgZm9yIFJ4IikNCj4g
-U2lnbmVkLW9mZi1ieTogQXJuZCBCZXJnbWFubiA8YXJuZEBhcm5kYi5kZT4NCj4gLS0tDQo+ICBk
-cml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pNDBldmYvaTQwZXZmX21haW4uYyB8IDMgKystDQo+
-ICAxIGZpbGUgY2hhbmdlZCwgMiBpbnNlcnRpb25zKCspLCAxIGRlbGV0aW9uKC0pDQo+IA0KPiBk
-aWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaTQwZXZmL2k0MGV2Zl9tYWlu
-LmMNCj4gYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pNDBldmYvaTQwZXZmX21haW4uYw0K
-PiBpbmRleCAxMmE5MzBlODc5YWYuLjFiYjEzYzg2NGVkZCAxMDA2NDQNCj4gLS0tIGEvZHJpdmVy
-cy9uZXQvZXRoZXJuZXQvaW50ZWwvaTQwZXZmL2k0MGV2Zl9tYWluLmMNCj4gKysrIGIvZHJpdmVy
-cy9uZXQvZXRoZXJuZXQvaW50ZWwvaTQwZXZmL2k0MGV2Zl9tYWluLmMNCj4gQEAgLTY4NywxMyAr
-Njg3LDE0IEBAIHN0YXRpYyB2b2lkIGk0MGV2Zl9jb25maWd1cmVfdHgoc3RydWN0IGk0MGV2Zl9h
-ZGFwdGVyDQo+ICphZGFwdGVyKQ0KPiAgc3RhdGljIHZvaWQgaTQwZXZmX2NvbmZpZ3VyZV9yeChz
-dHJ1Y3QgaTQwZXZmX2FkYXB0ZXIgKmFkYXB0ZXIpDQo+ICB7DQo+ICAJdW5zaWduZWQgaW50IHJ4
-X2J1Zl9sZW4gPSBJNDBFX1JYQlVGRkVSXzIwNDg7DQo+IC0Jc3RydWN0IG5ldF9kZXZpY2UgKm5l
-dGRldiA9IGFkYXB0ZXItPm5ldGRldjsNCj4gIAlzdHJ1Y3QgaTQwZV9odyAqaHcgPSAmYWRhcHRl
-ci0+aHc7DQo+ICAJaW50IGk7DQo+IA0KPiAgCS8qIExlZ2FjeSBSeCB3aWxsIGFsd2F5cyBkZWZh
-dWx0IHRvIGEgMjA0OCBidWZmZXIgc2l6ZS4gKi8NCj4gICNpZiAoUEFHRV9TSVpFIDwgODE5MikN
-Cj4gIAlpZiAoIShhZGFwdGVyLT5mbGFncyAmIEk0MEVWRl9GTEFHX0xFR0FDWV9SWCkpIHsNCj4g
-KwkJc3RydWN0IG5ldF9kZXZpY2UgKm5ldGRldiA9IGFkYXB0ZXItPm5ldGRldjsNCj4gKw0KPiAg
-CQkvKiBGb3IganVtYm8gZnJhbWVzIG9uIHN5c3RlbXMgd2l0aCA0SyBwYWdlcyB3ZSBoYXZlIHRv
-IHVzZQ0KPiAgCQkgKiBhbiBvcmRlciAxIHBhZ2UsIHNvIHdlIG1pZ2h0IGFzIHdlbGwgaW5jcmVh
-c2UgdGhlIHNpemUNCj4gIAkJICogb2Ygb3VyIFJ4IGJ1ZmZlciB0byBtYWtlIGJldHRlciB1c2Ug
-b2YgdGhlIGF2YWlsYWJsZSBzcGFjZQ0KPiAtLQ0KPiAyLjkuMA0KDQo=
+On Sun, Apr 16, 2017 at 9:09 AM, Adam Ford <aford173-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+>
+>
+> On Apr 13, 2017 10:04 AM, "Rob Herring" <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org> wrote:
+>
+> Add serial slave device binding for the TI WiLink series of Bluetooth/FM/GPS
+> devices.
+>
+> Signed-off-by: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+> Cc: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>
+> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> ---
+> v3:
+> - rebase on bluetooth-next
+>
+>  .../devicetree/bindings/net/ti,wilink-st.txt       | 35
+> ++++++++++++++++++++++
+>  1 file changed, 35 insertions(+)
+>  create mode 100644 Documentation/devicetree/bindings/net/ti,wilink-st.txt
+>
+> diff --git a/Documentation/devicetree/bindings/net/ti,wilink-st.txt
+> b/Documentation/devicetree/bindings/net/ti,wilink-st.txt
+> new file mode 100644
+> index 000000000000..cbad73a84ac4
+> --- /dev/null
+> +++ b/Documentation/devicetree/bindings/net/ti,wilink-st.txt
+> @@ -0,0 +1,35 @@
+> +TI WiLink 7/8 (wl12xx/wl18xx) Shared Transport BT/FM/GPS devices
+> +
+> +TI WiLink devices have a UART interface for providing Bluetooth, FM radio,
+> +and GPS over what's called "shared transport". The shared transport is
+> +standard BT HCI protocol with additional channels for the other functions.
+> +
+> +These devices also have a separate WiFi interface as described in
+> +wireless/ti,wlcore.txt.
+> +
+> +This bindings follows the UART slave device binding in
+> +../serial/slave-device.txt.
+> +
+> +Required properties:
+> + - compatible: should be one of the following:
+> +    "ti,wl1271-st"
+> +    "ti,wl1273-st"
+> +    "ti,wl1831-st"
+> +    "ti,wl1835-st"
+> +    "ti,wl1837-st"
+> +
+>
+>
+> Would you expect the wl1283 chipset too?
+
+Probably, but I left it out as there's no public information.
+
+> I can help test this if you like after the holiday weekend. I have a board
+> with WL1283 and currently using pdata-quirks to support it.
