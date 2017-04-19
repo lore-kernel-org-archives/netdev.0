@@ -1,48 +1,46 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH net-next 2/2 v2] net sched actions: add time filter for
- action dumping
-Date: Tue, 18 Apr 2017 21:39:40 -0400
-Message-ID: <6cf32a44-9d79-fc47-8ec0-d8933db71e49@mojatatu.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 1/2 v2] net sched actions: dump more than
+ TCA_ACT_MAX_PRIO actions per batch
+Date: Tue, 18 Apr 2017 18:49:05 -0700
+Message-ID: <1492566545.10587.159.camel@edumazet-glaptop3.roam.corp.google.com>
 References: <1492564489-28854-1-git-send-email-jhs@emojatatu.com>
- <1492564489-28854-2-git-send-email-jhs@emojatatu.com>
- <1492565738.10587.155.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: davem@davemloft.net, netdev@vger.kernel.org, jiri@resnulli.us,
         xiyou.wangcong@gmail.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f182.google.com ([209.85.223.182]:35127 "EHLO
-        mail-io0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751997AbdDSBjn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 21:39:43 -0400
-Received: by mail-io0-f182.google.com with SMTP id r16so12391909ioi.2
-        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 18:39:43 -0700 (PDT)
-In-Reply-To: <1492565738.10587.155.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:32841 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1758851AbdDSBtI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2017 21:49:08 -0400
+Received: by mail-pg0-f68.google.com with SMTP id 63so1663905pgh.0
+        for <netdev@vger.kernel.org>; Tue, 18 Apr 2017 18:49:07 -0700 (PDT)
+In-Reply-To: <1492564489-28854-1-git-send-email-jhs@emojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17-04-18 09:35 PM, Eric Dumazet wrote:
-> On Tue, 2017-04-18 at 21:14 -0400, Jamal Hadi Salim wrote:
->> From: Jamal Hadi Salim <jhs@mojatatu.com>
->>
->
->> +	if (tcaa[TCAA_ACT_TIME_FILTER])
->> +		msecs_filter = nla_get_u32(tcaa[TCAA_ACT_TIME_FILTER]);
->
->
-> You forgot to add TCAA_ACT_TIME_FILTER in tcaa_policy
->
+On Tue, 2017-04-18 at 21:14 -0400, Jamal Hadi Salim wrote:
+> From: Jamal Hadi Salim <jhs@mojatatu.com>
 
-I will fix that.
+So there is no more limit ? How user is supposed to size the buffer for
+recvmsg() ?
 
-> There is no guarantee user passed 32bit data here.
->
-
-Did you mean because we dont have the tcaa_policy or
-is it for some other reason?
+>  	t->tca__pad1 = 0;
+> @@ -1113,6 +1133,9 @@ static int tc_dump_action(struct sk_buff *skb, struct netlink_callback *cb)
+>  	if (ret > 0) {
+>  		nla_nest_end(skb, nest);
+>  		ret = skb->len;
+> +		if (nla_put_u32(skb, TCAA_ACT_COUNT, cb->args[1]))
+> +			goto out_module_put;
+> +		cb->args[1] = 0;
 
 
-cheers,
-jamal
+I really do not see how you manage to get room to add one additional
+attribute, if dump had to stop at N actions, filling whole skb.
+
+You might be lucky because nla_put_u32() wants a bit less space than an
+action ?
+
+Presumably you need to reserve space before the dump of actions.
