@@ -1,48 +1,59 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH 11/16] esp: Use a synchronous crypto algorithm on
- offloading.
-Date: Thu, 20 Apr 2017 12:50:29 +0200
-Message-ID: <20170420105029.GJ2649@secunet.com>
-References: <1492678515-14347-1-git-send-email-steffen.klassert@secunet.com>
- <1492678515-14347-12-git-send-email-steffen.klassert@secunet.com>
- <20170420090617.GA8325@gondor.apana.org.au>
- <20170420091752.GH2649@secunet.com>
- <20170420095235.GA8580@gondor.apana.org.au>
+From: Alexander Kochetkov <al.kochet@gmail.com>
+Subject: =?UTF-8?q?=5BPATCH=20v1=5D=20net=3A=20phy=3A=20fix=20auto-negotiation=20stall=20due=20to=20unavailable=20interrupt?=
+Date: Thu, 20 Apr 2017 14:00:03 +0300
+Message-ID: <1492686004-30527-1-git-send-email-al.kochet@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: Alexander Kochetkov <al.kochet@gmail.com>
+To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        Roger Quadros <rogerq@ti.com>,
+        Madalin Bucur <madalin.bucur@nxp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:55094 "EHLO a.mx.secunet.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S943143AbdDTKuc (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 20 Apr 2017 06:50:32 -0400
-Content-Disposition: inline
-In-Reply-To: <20170420095235.GA8580@gondor.apana.org.au>
+Received: from mail-lf0-f66.google.com ([209.85.215.66]:36181 "EHLO
+        mail-lf0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754062AbdDTLAL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 07:00:11 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 20, 2017 at 05:52:35PM +0800, Herbert Xu wrote:
-> On Thu, Apr 20, 2017 at 11:17:52AM +0200, Steffen Klassert wrote:
-> >
-> > I tried to use async algorithms but it lead to serveral problems.
-> > The GSO layer can't handle async returns, we'd need callbacks
-> > for all the GSO handlers. Also we need something where we can
-> > requeue packets if the driver is busy etc.
-> 
-> Why would we need to requeue? As it is if you get an EBUSY on
-> an IPsec packet it's simply dropped.
+Hello Florian, Roger and Madalin!
 
-Yes we could do this, but the GSO problem remain.
+This is slightly modified version of previous patch[1].
 
-We discussed this last year at netdevconf but could not come
-up with an acceptable solutuion.
+It take into account that phy_start_aneg() may be called from
+differend places not only from PHY state machine. So the patch
+use phy_trigger_machine() to schedule link state update
+correctly.
 
-> 
-> The main AES implementation on x86 is now async so I think it's
-> pretty important that we support it out-of-the-box.
+I borrow some text from Roger's commit message.
 
-For now this is just a fallback to make hardware offloading
-possible at all, so this is slowpath anyway. Allowing async
-algorithms can (and should) be done in a second step once we
-found a not too intrusive solution.
+Added 'Cc: stable <stable@vger.kernel.org> tag'
+because the problem exist on 4.9 and 4.10 branches.
+
+Don't know what commit brake the code, so I don't add
+Fixes tag.
+
+Roger, could you please test this one patch?
+
+Madalin, I found, that you tested Roger’s patch[2] and this
+one patch will get upstream instead of patch[2]. Could you
+please test it?
+
+Regards,
+Alexander.
+
+[1] http://patchwork.ozlabs.org/patch/743773/
+[2] https://lkml.org/lkml/2017/3/30/517
+
+Alexander Kochetkov (1):
+  net: phy: fix auto-negotiation stall due to unavailable interrupt
+
+ drivers/net/phy/phy.c |   40 ++++++++++++++++++++++++++++++++++++----
+ include/linux/phy.h   |    1 +
+ 2 files changed, 37 insertions(+), 4 deletions(-)
+
+-- 
+1.7.9.5
