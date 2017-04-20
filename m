@@ -1,103 +1,53 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH V2 net] netdevice: Include NETIF_F_HW_CSUM when
- intersecting features
-Date: Thu, 20 Apr 2017 15:31:51 -0700
-Message-ID: <CAKgT0UcHtWYQDcYda+i8R8WhBKeWbOBZRHDcAmJXZYuP1RM7-Q@mail.gmail.com>
-References: <1492715844-30273-1-git-send-email-vyasevic@redhat.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 0/3] l3mdev: Improve use with main table
+Date: Thu, 20 Apr 2017 16:36:59 -0600
+Message-ID: <3bdb570e-4d7d-6e5c-3270-0bf0064ef73a@cumulusnetworks.com>
+References: <1491834122-26252-1-git-send-email-rshearma@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>,
-        Vladislav Yasevich <vyasevic@redhat.com>,
-        Michal Kubecek <mkubecek@suse.cz>,
-        Tom Herbert <tom@herbertland.com>
-To: Vladislav Yasevich <vyasevich@gmail.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Robert Shearman <rshearma@brocade.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f194.google.com ([209.85.223.194]:35051 "EHLO
-        mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S970504AbdDTWbx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 18:31:53 -0400
-Received: by mail-io0-f194.google.com with SMTP id d203so21759495iof.2
-        for <netdev@vger.kernel.org>; Thu, 20 Apr 2017 15:31:53 -0700 (PDT)
-In-Reply-To: <1492715844-30273-1-git-send-email-vyasevic@redhat.com>
+Received: from mail-oi0-f42.google.com ([209.85.218.42]:34685 "EHLO
+        mail-oi0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S939254AbdDTWhC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 18:37:02 -0400
+Received: by mail-oi0-f42.google.com with SMTP id x184so71475552oia.1
+        for <netdev@vger.kernel.org>; Thu, 20 Apr 2017 15:37:02 -0700 (PDT)
+In-Reply-To: <1491834122-26252-1-git-send-email-rshearma@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 20, 2017 at 12:17 PM, Vladislav Yasevich
-<vyasevich@gmail.com> wrote:
-> While hardware device use either NETIF_F_(IP|IPV6)_CSUM or
-> NETIF_F_HW_CSUM, all of the software devices use HW_CSUM.
-> This results in an interesting situation when the software
-> device is configured on top of hw device using (IP|IPV6)_CSUM.
-> In this situation, the user can't turn off checksum offloading
-> features on the software device.
+On 4/10/17 8:21 AM, Robert Shearman wrote:
+> Attempting to create a TCP socket not bound to a VRF device when a TCP
+> socket bound to a VRF device with the same port exists (and vice
+> versa) fails with EADDRINUSE. This limits the ability to use programs
+> in selected mixed VRF/non-VRF contexts.
+> 
+> This patch series solves the problem by extending the l3mdev be aware
+> of the special semantics of the main table and fixing issues arising
+> from the split local/main tables. A VRF master device created linking
+> to the main table and used for these programs in the same way as those
+> created for VRF tables can.
+> 
+> Robert Shearman (3):
+>   ipv6: Fix route handling when using l3mdev set to main table
+>   ipv4: Fix route handling when using l3mdev set to main table
+>   l3mdev: Fix lookup in local table when using main table
+> 
+>  net/ipv4/af_inet.c      |  4 +++-
+>  net/ipv4/fib_frontend.c | 14 +++++++++-----
+>  net/ipv4/raw.c          |  5 ++++-
+>  net/ipv6/addrconf.c     | 12 +++++++++---
+>  net/ipv6/route.c        | 23 ++++++++++++++++++-----
+>  net/l3mdev/l3mdev.c     | 26 ++++++++++++++++++++------
+>  6 files changed, 63 insertions(+), 21 deletions(-)
+> 
 
-Why wouldn't they be able to? It seems like the software device
-shouldn't be setting IP_CSUM or IPV6_CSUM feature flags, but they will
-be set in the intersect features. The result won't have
-NETIF_F_HW_CSUM set, but it should advertise the features of the lower
-device instead.
-
-> This patch resolves that by adding NETIF_F_HW_CSUM to the mask
-> if a feature set includes only IP|IPV6 csum.  This allows the user
-> to control the upper (software) device checksum, while at the same
-> time correctly propagating lower device changes up.
-
-You can't go this way. HW_CSUM is an all inclusive feature flag,
-whereas IP_CSUM and IPV6_CSUM specify only specific offload types.
-With your change the lower device could disable IPV6_CSUM for instance
-but you would still end up advertising checksum offload via HW_CSUM.
-
-> CC: Michal Kubecek <mkubecek@suse.cz>
-> CC: Alexander Duyck <alexander.duyck@gmail.com>
-> CC: Tom Herbert <tom@herbertland.com>
-> Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
->
-> ---
->
-> V2: Addressed comments from Alex Duyck.  I tested this with hacked virtio
-> device that set IP|IPV6 checksums instead of HW.  Configuring a vlan on
-> top gave the vlan device with 'ip-generic: on' setting (using HW checksum).
-> This allows me to change vlan checksum offloads independent of virt-io nic.
-> Changes to virtio-nic propagated up to vlan, turning off the offloading
-> correctly.
->
->  include/linux/netdevice.h | 8 ++++----
->  1 file changed, 4 insertions(+), 4 deletions(-)
->
-> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> index b0aa089..81aed2f 100644
-> --- a/include/linux/netdevice.h
-> +++ b/include/linux/netdevice.h
-> @@ -4009,10 +4009,10 @@ static inline netdev_features_t netdev_intersect_features(netdev_features_t f1,
->                                                           netdev_features_t f2)
->  {
->         if ((f1 ^ f2) & NETIF_F_HW_CSUM) {
-> -               if (f1 & NETIF_F_HW_CSUM)
-> -                       f1 |= (NETIF_F_IP_CSUM|NETIF_F_IPV6_CSUM);
-> -               else
-> -                       f2 |= (NETIF_F_IP_CSUM|NETIF_F_IPV6_CSUM);
-> +               if (f1 & (NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM))
-> +                       f1 |= NETIF_F_HW_CSUM;
-> +               if(f2 & (NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM))
-> +                       f2 |= NETIF_F_HW_CSUM;
->         }
->
->         return f1 & f2;
-> --
-> 2.7.4
->
-
-This doesn't work. "NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM" doesn't
-equate to "NETIF_F_HW_CSUM". The problem is NETIF_F_HW_CSUM is a
-catch-all, the IP and IPV6 CSUM flags are not. Right now you would
-introduce escapes on devices that enable IP but not IPv6, or the other
-way around.
-
-Can you point to the exact case where this code is an issue? It seems
-like maybe you are wanting to have NETIF_F_HW_CSUM set if you support
-offloading a given protocol. You might want to look at how we dealt
-with this in the GSO code path so that if we could offload the
-checksum we set NETIF_F_HW_CSUM based on protocol and the CSUM offload
-feature bit for that protocol.
-
-- Alex
+With the change I mentioned earlier to fix the refcnt issue on top of
+this patch set I see a number of failures:
+- local IPv4 with 127.0.0.1 address - ping, tcp, udp tests fail
+- all of the IPv4 multicast tests fail
+- IPv6 linklocal and mcast addresses generally fail
+- IPv6 global address on vrf device
