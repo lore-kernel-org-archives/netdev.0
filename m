@@ -1,49 +1,134 @@
-From: Robert Shearman <rshearma@brocade.com>
-Subject: Re: [PATCH net] ipv4: Avoid caching dsts when lookup skipped nh oif
- check
-Date: Thu, 20 Apr 2017 15:39:43 +0100
-Message-ID: <ec8e470e-73d0-b357-4f65-a4f7e020db7f@brocade.com>
-References: <1492693132-4708-1-git-send-email-rshearma@brocade.com>
- <bed3d38c-dc00-1f98-371c-852170af0a0e@cumulusnetworks.com>
+From: "Michael Kerrisk (man-pages)" <mtk.manpages@gmail.com>
+Subject: Re: [patch] socket.7: Document SO_INCOMING_CPU
+Date: Thu, 20 Apr 2017 16:43:14 +0200
+Message-ID: <1d21aa72-ab2a-0a02-b8d3-dc8b4dd49333@gmail.com>
+References: <CABNn7+rHfUTjMtm3Biqfx83G6Rr7pY-LuHXY=JqA6N3H_SstZg@mail.gmail.com>
+ <63815aac-9c8f-c599-9422-5c312cefc9e8@gmail.com>
+ <9c754f31-8ace-03f2-97f3-81e29eb6d997@gmail.com>
+ <1492621535.22296.8.camel@edumazet-glaptop3.roam.corp.google.com>
+ <326b99c3-cc86-3abd-1069-2b3a52d9ba47@gmail.com>
+ <1492632801.22296.11.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: David Ahern <dsa@cumulusnetworks.com>, <davem@davemloft.net>
+Cc: mtk.manpages@gmail.com,
+        Francois Saint-Jacques <fsaintjacques@gmail.com>,
+        linux-man@vger.kernel.org, netdev@vger.kernel.org,
+        Eric Dumazet <edumazet@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:42817 "EHLO
-        mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S941847AbdDTOj5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 10:39:57 -0400
-In-Reply-To: <bed3d38c-dc00-1f98-371c-852170af0a0e@cumulusnetworks.com>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:32973 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1032744AbdDTOnT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 10:43:19 -0400
+In-Reply-To: <1492632801.22296.11.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 20/04/17 15:21, David Ahern wrote:
-> On 4/20/17 6:58 AM, Robert Shearman wrote:
->> David reported that doing the following:
+On 04/19/2017 10:13 PM, Eric Dumazet wrote:
+> On Wed, 2017-04-19 at 20:48 +0200, Michael Kerrisk (man-pages) wrote:
+>> Hi Eric,
 >>
->>     ip li add red type vrf table 10
->>     ip link set dev eth1 vrf red
->>     ip addr add 127.0.0.1/8 dev red
->>     ip link set dev eth1 up
->>     ip li set red up
->>     ping -c1 -w1 -I red 127.0.0.1
->>     ip li del red
+>> [reodering for clarity]
 >>
->> results in a hang with this message:
+>>>> On 02/19/2017 09:55 PM, Michael Kerrisk (man-pages) wrote:
+>>>>> [CC += Eric, so that he might review]
+>>>>>
+>>>>> Hello Francois,
+>>>>>
+>>>>> On 02/18/2017 05:06 AM, Francois Saint-Jacques wrote:
+>>>>>> This socket option is undocumented. Applies on the latest version
+>>>>>> (man-pages-4.09-511).
+>>>>>>
+>>>>>> diff --git a/man7/socket.7 b/man7/socket.7
+>>>>>> index 3efd7a5d8..1a3ffa253 100644
+>>>>>> --- a/man7/socket.7
+>>>>>> +++ b/man7/socket.7
+>>>>>> @@ -490,6 +490,26 @@ flag on a socket
+>>>>>>  operation.
+>>>>>>  Expects an integer boolean flag.
+>>>>>>  .TP
+>>>>>> +.BR SO_INCOMING_CPU " (getsockopt since Linux 3.19, setsockopt since
+>>>>>> Linux 4.4)"
+>>>>>> +.\" getsocktop 2c8c56e15df3d4c2af3d656e44feb18789f75837
+>>>>>> +.\" setsocktop 70da268b569d32a9fddeea85dc18043de9d89f89
+>>>>>> +Sets or gets the cpu affinity of a socket. Expects an integer flag.
+>>>>>> +.sp
+>>>>>> +.in +4n
+>>>>>> +.nf
+>>>>>> +int cpu = 1;
+>>>>>> +socklen_t len = sizeof(cpu);
+>>>>>> +setsockopt(fd, SOL_SOCKET, SO_INCOMING_CPU, &cpu, &len);
+>>>>>> +.fi
+>>>>>> +.in
+>>>>>> +.sp
+>>>>>> +The typical use case is one listener per RX queue, as the associated listener
+>>>>>> +should only accept flows handled in softirq by the same cpu.  This provides
+>>>>>> +optimal NUMA behavior and keep cpu caches hot.
+>>>>>> +.TP
+>>>>>>  .B SO_KEEPALIVE
+>>>>>>  Enable sending of keep-alive messages on connection-oriented sockets.
+>>>>>>  Expects an integer boolean flag.
+>>>>>
+>>>>> Thank you! Patch applied.
+>>>>>
+>>>>> I have tried to enhance the description somewhat. I'm not sure whether
+>>>>> what I've written is quite correct (or whether it should be further
+>>>>> extended). Eric, could you please take a look at the following, and let 
+>>>>> me know if anything needs fixing:
+>>>>>
+>>>>>        SO_INCOMING_CPU  (gettable  since Linux 3.19, settable since Linux
+>>>>>        4.4)
+>>>>>               Sets or gets the CPU affinity  of  a  socket.   Expects  an
+>>>>>               integer flag.
+>>>>>
+>>>>>                   int cpu = 1;
+>>>>>                   socklen_t len = sizeof(cpu);
+>>>>>                   setsockopt(fd, SOL_SOCKET, SO_INCOMING_CPU, &cpu, &len);
+>>>>>
+>>>>>               Because  all  of the packets for a single stream (i.e., all
+>>>>>               packets for the same 4-tuple) arrive on the single RX queue
+>>>>>               that  is  associated with a particular CPU, the typical use
+>>>>>               case is to employ one listening process per RX queue,  with
+>>>>>               the  incoming  flow being handled by a listener on the same
+>>>>>               CPU that is handling the RX queue.  This  provides  optimal
+>>>>>               NUMA behavior and keeps CPU caches hot.
 >>
->>     unregister_netdevice: waiting for red to become free. Usage count = 1
->
-> I think you misunderstood my comment. The above works fine today. There
-> is no bug with refcnts.
->
-> It breaks with your patches wanting to use a VRF device with the main
-> table (254).
+>>> Hi Michael
+>>>
+>>> Sorry for the delay.
+>>
+>> Thanks for the reply, but I think you are assuming I know more than 
+>> I do. I'd like you to elaborate a little please. See below.
+>>
+>>> Note that setting the option is not supported if SO_REUSEPORT is used.
+>>
+>> Please define "not supported". Does this yield an API diagnostic?
+>> If so, what is it?
+>>
+>>> Socket will be selected from an array, either by a hash or BPF program
+>>> that has no access to this information.
+>>
+>> Sorry -- I'm lost here. How does this comment relate to the proposed
+>> man page text above?
+> 
+> Simply that :
+> 
+> If an application uses both SO_INCOMING_CPU and SO_REUSEPORT, then
+> SO_REUSEPORT logic, selecting the socket to receive the packet, ignores
+> SO_INCOMING_CPU setting.
+> 
+> This does not need to be documented, because it is an implementation
+> detail/bug that could be changed, if someone cares enough.
 
-That doesn't seem to match with my experience. I can reproduce this on 
-the net tree with the listed commands and the behaviour matches what I 
-see in the code.
+Okay, thanks, Eric. I'll just merge the page text as it currently 
+is then.
 
-Thanks,
-Rob
+Cheers,
+
+Michael
+
+-- 
+Michael Kerrisk
+Linux man-pages maintainer; http://www.kernel.org/doc/man-pages/
+Linux/UNIX System Programming Training: http://man7.org/training/
