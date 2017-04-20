@@ -1,44 +1,32 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH ipsec-next] esp4/6: Fix GSO path for non-GSO SW-crypto
- packets
-Date: Thu, 20 Apr 2017 07:16:46 +0200
-Message-ID: <20170420051645.GA3976@secunet.com>
-References: <20170419054101.16738-1-ilant@mellanox.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [net-next 00/15][pull request] 10GbE Intel Wired LAN Driver
+ Updates 2017-04-18
+Date: Wed, 19 Apr 2017 22:25:16 -0700
+Message-ID: <20170420052515.GA77954@ast-mbp.thefacebook.com>
+References: <20170418230205.37223-1-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>, Boris Pismenny <borisp@mellanox.com>,
-        "Yevgeny Kliteynik" <kliteyn@mellanox.com>,
-        Yossi Kuperman <yossiku@mellanox.com>
-To: <ilant@mellanox.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org, nhorman@redhat.com,
+        sassmann@redhat.com, jogreene@redhat.com
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:45190 "EHLO a.mx.secunet.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1764847AbdDTFRP (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 20 Apr 2017 01:17:15 -0400
+Received: from mail-io0-f193.google.com ([209.85.223.193]:32786 "EHLO
+        mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1765920AbdDTFZW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 01:25:22 -0400
+Received: by mail-io0-f193.google.com with SMTP id k87so12096355ioi.0
+        for <netdev@vger.kernel.org>; Wed, 19 Apr 2017 22:25:21 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20170419054101.16738-1-ilant@mellanox.com>
+In-Reply-To: <20170418230205.37223-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 19, 2017 at 08:41:01AM +0300, ilant@mellanox.com wrote:
-> From: Ilan Tayari <ilant@mellanox.com>
-> 
-> If esp*_offload module is loaded, outbound packets take the
-> GSO code path, being encapsulated at layer 3, but encrypted
-> in layer 2. validate_xmit_xfrm calls esp*_xmit for that.
-> 
-> esp*_xmit was wrongfully detecting these packets as going
-> through hardware crypto offload, while in fact they should
-> be encrypted in software, causing plaintext leakage to
-> the network, and also dropping at the receiver side.
-> 
-> Perform the encryption in esp*_xmit, if the SA doesn't have
-> a hardware offload_handle.
-> 
-> Also, align esp6 code to esp4 logic.
-> 
-> Fixes: fca11ebde3f0 ("esp4: Reorganize esp_output")
-> Fixes: 383d0350f2cc ("esp6: Reorganize esp_output")
-> Signed-off-by: Ilan Tayari <ilant@mellanox.com>
+On Tue, Apr 18, 2017 at 04:01:50PM -0700, Jeff Kirsher wrote:
+> The following are changes since commit 4116c97689b9b1732ac5b68afd922406f9fc842e:
+>   Merge branch 'ftgmac100-batch5-features'
+> and are available in the git repository at:
+>   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 10GbE
 
-Applied to ipsec-next, thanks Ilan!
+Nothing against this set of commits,
+but I saw ixgbe xdp support in there pending for few months.
+Now it's gone. What happened?
