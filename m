@@ -1,89 +1,60 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: [PATCH] ipvs: explicitly forbid ipv6 service/dest creation if ipv6 mod is disabled
-Date: Thu, 20 Apr 2017 11:44:16 +0200
-Message-ID: <2a5c88ca5670baade900e2b1f05a0dcc9927a29d.1492681122.git.pabeni@redhat.com>
-Cc: lvs-devel@vger.kernel.org, Wensong Zhang <wensong@linux-vs.org>,
-        Simon Horman <horms@verge.net.au>,
-        Julian Anastasov <ja@ssi.bg>, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH net] xfrm: calculate L4 checksums also for GSO case
+ before encrypting packets
+Date: Thu, 20 Apr 2017 11:47:43 +0200
+Message-ID: <20170420094743.GI2649@secunet.com>
+References: <1491849727-32008-1-git-send-email-aatteka@ovn.org>
+ <20170411070755.GW5092@secunet.com>
+ <CAMQa7Biajree5Kc1fOWQN42R1UDDGp7ZevZZRtUMZOKDWTk-Vw@mail.gmail.com>
+ <20170418090919.GD30104@secunet.com>
+ <CAMQa7Bimd378QJgsv6yBP0ULH+__C9gjjcXa39wx1z7p_9mT=g@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Cc: Ansis Atteka <aatteka@ovn.org>, <netdev@vger.kernel.org>
+To: Ansis Atteka <ansisatteka@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:46602 "EHLO mx1.redhat.com"
+Received: from a.mx.secunet.com ([62.96.220.36]:53488 "EHLO a.mx.secunet.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S944172AbdDTJoq (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 20 Apr 2017 05:44:46 -0400
+        id S944144AbdDTJry (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 20 Apr 2017 05:47:54 -0400
+Content-Disposition: inline
+In-Reply-To: <CAMQa7Bimd378QJgsv6yBP0ULH+__C9gjjcXa39wx1z7p_9mT=g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When creating a new ipvs service, ipv6 addresses are always accepted
-if CONFIG_IP_VS_IPV6 is enabled. On dest creation the address family
-is not explicitly checked.
+On Tue, Apr 18, 2017 at 07:10:03PM -0700, Ansis Atteka wrote:
+> 
+> However, after taking pointers from your patch I came up with this one
+> that may solve this problem once and for all (note, that I was seeing
+> this bug only with ixgbe NIC that supports tx csum offloads). I hope
+> it does not break any other IPsec tests that you have.
+> 
+> diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
+> index b2be1d9..7812501 100644
+> --- a/net/ipv4/udp_offload.c
+> +++ b/net/ipv4/udp_offload.c
+> @@ -29,6 +29,7 @@ static struct sk_buff
+> *__skb_udp_tunnel_segment(struct sk_buff *skb,
+>         u16 mac_len = skb->mac_len;
+>         int udp_offset, outer_hlen;
+>         __wsum partial;
+> +       bool need_ipsec;
+> 
+>         if (unlikely(!pskb_may_pull(skb, tnl_hlen)))
+>                 goto out;
+> @@ -62,8 +63,10 @@ static struct sk_buff
+> *__skb_udp_tunnel_segment(struct sk_buff *skb,
+> 
+>         ufo = !!(skb_shinfo(skb)->gso_type & SKB_GSO_UDP);
+> 
+> +       need_ipsec = skb_dst(skb) && dst_xfrm(skb_dst(skb));
+>         /* Try to offload checksum if possible */
+>         offload_csum = !!(need_csum &&
+> +                         !need_ipsec &&
+>                           (skb->dev->features &
+>                            (is_ipv6 ? (NETIF_F_HW_CSUM | NETIF_F_IPV6_CSUM) :
+>                                       (NETIF_F_HW_CSUM | NETIF_F_IP_CSUM))));
 
-This allows the user-space to configure ipvs services even if the
-system is booted with ipv6.disable=1. On specific configuration, ipvs
-can try to call ipv6 routing code at setup time, causing the kernel to
-oops due to fib6_rules_ops being NULL.
+This looks good, but we should fix udp4_ufo_fragment() too.
 
-This change addresses the issue adding a check for the ipv6
-module being enabled while validating ipv6 service operations and
-adding the same validation for dest operations.
-
-According to git history, this issue is apparently present since
-the introduction of ipv6 support, and the oops can be triggered
-since commit 09571c7ae30865ad ("IPVS: Add function to determine
-if IPv6 address is local")
-
-Fixes: 09571c7ae30865ad ("IPVS: Add function to determine if IPv6 address is local")
-Signed-off-by: Paolo Abeni <pabeni@redhat.com>
----
- net/netfilter/ipvs/ip_vs_ctl.c | 22 +++++++++++++++++-----
- 1 file changed, 17 insertions(+), 5 deletions(-)
-
-diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-index 5aeb0dd..4d753be 100644
---- a/net/netfilter/ipvs/ip_vs_ctl.c
-+++ b/net/netfilter/ipvs/ip_vs_ctl.c
-@@ -3078,6 +3078,17 @@ static int ip_vs_genl_dump_services(struct sk_buff *skb,
- 	return skb->len;
- }
- 
-+static bool ip_vs_is_af_valid(int af)
-+{
-+	if (af == AF_INET)
-+		return true;
-+#ifdef CONFIG_IP_VS_IPV6
-+	if (af == AF_INET6 && ipv6_mod_enabled())
-+		return true;
-+#endif
-+	return false;
-+}
-+
- static int ip_vs_genl_parse_service(struct netns_ipvs *ipvs,
- 				    struct ip_vs_service_user_kern *usvc,
- 				    struct nlattr *nla, int full_entry,
-@@ -3104,11 +3115,7 @@ static int ip_vs_genl_parse_service(struct netns_ipvs *ipvs,
- 	memset(usvc, 0, sizeof(*usvc));
- 
- 	usvc->af = nla_get_u16(nla_af);
--#ifdef CONFIG_IP_VS_IPV6
--	if (usvc->af != AF_INET && usvc->af != AF_INET6)
--#else
--	if (usvc->af != AF_INET)
--#endif
-+	if (!ip_vs_is_af_valid(usvc->af))
- 		return -EAFNOSUPPORT;
- 
- 	if (nla_fwmark) {
-@@ -3610,6 +3617,11 @@ static int ip_vs_genl_set_cmd(struct sk_buff *skb, struct genl_info *info)
- 		if (udest.af == 0)
- 			udest.af = svc->af;
- 
-+		if (!ip_vs_is_af_valid(udest.af)) {
-+			ret = -EAFNOSUPPORT;
-+			goto out;
-+		}
-+
- 		if (udest.af != svc->af && cmd != IPVS_CMD_DEL_DEST) {
- 			/* The synchronization protocol is incompatible
- 			 * with mixed family services
--- 
-2.9.3
+Thanks!
