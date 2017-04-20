@@ -1,79 +1,63 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] brcm80211: brcmfmac: Ensure that incoming skb's are
- writable
-Date: Thu, 20 Apr 2017 05:49:29 -0700
-Message-ID: <1492692569.22296.37.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20170420111651.10213-1-james.hughes@raspberrypi.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: macvlan: Fix device ref leak when purging bc_queue
+Date: Thu, 20 Apr 2017 20:55:12 +0800
+Message-ID: <20170420125512.GA9113@gondor.apana.org.au>
+References: <1492618528011.11322@Dell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-        Arend van Spriel <arend.vanspriel@broadcom.com>,
-        Franky Lin <franky.lin@broadcom.com>,
-        Hante Meuleman <hante.meuleman@broadcom.com>,
-        Kalle Valo <kvalo@codeaurora.org>
-To: James Hughes <james.hughes@raspberrypi.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, Clifford.Wichmann@dell.com,
+        netdev@vger.kernel.org
+To: Joe.Ghalam@dell.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f194.google.com ([209.85.223.194]:34503 "EHLO
-        mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S965942AbdDTMtc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 08:49:32 -0400
-Received: by mail-io0-f194.google.com with SMTP id h41so16107890ioi.1
-        for <netdev@vger.kernel.org>; Thu, 20 Apr 2017 05:49:32 -0700 (PDT)
-In-Reply-To: <20170420111651.10213-1-james.hughes@raspberrypi.org>
+Received: from [198.176.57.175] ([198.176.57.175]:36838 "EHLO
+        deadmen.hmeau.com" rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org
+        with ESMTP id S941359AbdDTM4W (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 08:56:22 -0400
+Content-Disposition: inline
+In-Reply-To: <1492618528011.11322@Dell.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2017-04-20 at 12:16 +0100, James Hughes wrote:
-> The driver was adding header information to incoming skb
-> without ensuring the head was uncloned and hence writable.
-> 
-> skb_cow_head has been used to ensure they are writable, however,
-> this required some changes to error handling to ensure that
-> if skb_cow_head failed it was not ignored.
-> 
-> This really needs to be reviewed by someone who is more familiar
-> with this code base to ensure any deallocation of skb's is
-> still correct.
-> 
-> Signed-off-by: James Hughes <james.hughes@raspberrypi.org>
-> ---
+When a parent macvlan device is destroyed we end up purging its
+broadcast queue without dropping the device reference count on
+the packet source device.  This causes the source device to linger.
 
-You mention incoming skb in patch title, yet you change part of TX path.
+This patch drops that reference count.
 
-Please split your changes in individual ones, to ease future bisections,
-and ease backports as well.
+Fixes: 260916dfb48c ("macvlan: Fix potential use-after free for...")
+Reported-by: Joe Ghalam <Joe.Ghalam@dell.com>
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-
-Also, while it is known that TX path can deal with cloned skbs,
-it is not clear why RX path has clones.
-
-Most drivers allocate an skb, fill it, and pass it to network stack.
-
-So please make sure all these changes are really needed.
-
-> diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/sdio.c b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/sdio.c
-> index d138260..0e53c8a 100644
-> --- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/sdio.c
-> +++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/sdio.c
-> @@ -2719,7 +2719,7 @@ static bool brcmf_sdio_prec_enq(struct pktq *q, struct sk_buff *pkt, int prec)
->  
->  static int brcmf_sdio_bus_txdata(struct device *dev, struct sk_buff *pkt)
->  {
-> -	int ret = -EBADE;
-> +	int ret = -EBADE, err;
->  	uint prec;
->  	struct brcmf_bus *bus_if = dev_get_drvdata(dev);
->  	struct brcmf_sdio_dev *sdiodev = bus_if->bus_priv.sdio;
-> @@ -2729,6 +2729,11 @@ static int brcmf_sdio_bus_txdata(struct device *dev, struct sk_buff *pkt)
->  	if (sdiodev->state != BRCMF_SDIOD_DATA)
->  		return -EIO;
->  
-> +	err = skb_cow_head(pkt, bus->tx_hdrlen);
-> +
-> +	if (err)
-> +		return err;
-> +
->  	/* Add space for the header */
->  	skb_push(pkt, bus->tx_hdrlen);
->  	/* precondition: IS_ALIGNED((unsigned long)(pkt->data), 2) */
+diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+index 9261722..b34eaaa 100644
+--- a/drivers/net/macvlan.c
++++ b/drivers/net/macvlan.c
+@@ -1139,6 +1139,7 @@ static int macvlan_port_create(struct net_device *dev)
+ static void macvlan_port_destroy(struct net_device *dev)
+ {
+ 	struct macvlan_port *port = macvlan_port_get_rtnl(dev);
++	struct sk_buff *skb;
+ 
+ 	dev->priv_flags &= ~IFF_MACVLAN_PORT;
+ 	netdev_rx_handler_unregister(dev);
+@@ -1147,7 +1148,15 @@ static void macvlan_port_destroy(struct net_device *dev)
+ 	 * but we need to cancel it and purge left skbs if any.
+ 	 */
+ 	cancel_work_sync(&port->bc_work);
+-	__skb_queue_purge(&port->bc_queue);
++
++	while ((skb = __skb_dequeue(&port->bc_queue))) {
++		const struct macvlan_dev *src = MACVLAN_SKB_CB(skb)->src;
++
++		if (src)
++			dev_put(src->dev);
++
++		kfree_skb(skb);
++	}
+ 
+ 	kfree(port);
+ }
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
