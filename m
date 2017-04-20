@@ -1,51 +1,49 @@
-From: Stefan Agner <stefan@agner.ch>
-Subject: [PATCH] mac80211: fix enumeration type
-Date: Thu, 20 Apr 2017 00:02:36 -0700
-Message-ID: <20170420070236.8334-1-stefan@agner.ch>
-Cc: davem@davemloft.net, linux-wireless@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Stefan Agner <stefan@agner.ch>
-To: johannes@sipsolutions.net
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: mwifiex: MAC randomization should not be persistent
+Date: Thu, 20 Apr 2017 07:17:24 +0000 (UTC)
+Message-ID: <20170420071724.6D77E60FFC@smtp.codeaurora.org>
+References: <20170405222640.4494-1-briannorris@chromium.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Nishant Sarmukadam <nishants@marvell.com>,
+        Ganapathi Bhat <gbhat@marvell.com>,
+        Xinming Hu <huxm@marvell.com>, <linux-kernel@vger.kernel.org>,
+        Dmitry Torokhov <dmitry.torokhov@gmail.com>,
+        netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+        Brian Norris <briannorris@chromium.org>
+To: Brian Norris <briannorris@chromium.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kmu-office.ch ([178.209.48.109]:44432 "EHLO
-        mail.kmu-office.ch" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S942565AbdDTHBA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 03:01:00 -0400
+Received: from smtp.codeaurora.org ([198.145.29.96]:58942 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S940033AbdDTHRZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 03:17:25 -0400
+In-Reply-To: <20170405222640.4494-1-briannorris@chromium.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use enum nl80211_channel_type for cfg80211_chandef_create function
-calls. This does not has an effect in practise since the enum values
-are equal. This fixes a warning when compiling with clang:
-  warning: implicit conversion from enumeration type 'enum nl80211_chan_width'
-  to different enumeration type 'enum nl80211_channel_type'
+Brian Norris <briannorris@chromium.org> wrote:
+> nl80211 provides the NL80211_SCAN_FLAG_RANDOM_ADDR for every scan
+> request that should be randomized; the absence of such a flag means we
+> should not randomize. However, mwifiex was stashing the latest
+> randomization request and *always* using it for future scans, even those
+> that didn't set the flag.
+> 
+> Let's zero out the randomization info whenever we get a scan request
+> without NL80211_SCAN_FLAG_RANDOM_ADDR. I'd prefer to remove
+> priv->random_mac entirely (and plumb the randomization MAC properly
+> through the call sequence), but the spaghetti is a little difficult to
+> unravel here for me.
+> 
+> Fixes: c2a8f0ff9c6c ("mwifiex: support random MAC address for scanning")
+> Cc: <stable@vger.kernel.org> # 4.9+
+> Signed-off-by: Brian Norris <briannorris@chromium.org>
 
-Signed-off-by: Stefan Agner <stefan@agner.ch>
----
- net/mac80211/ibss.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+Patch applied to wireless-drivers-next.git, thanks.
 
-diff --git a/net/mac80211/ibss.c b/net/mac80211/ibss.c
-index 98999d3d5262..5b748025147d 100644
---- a/net/mac80211/ibss.c
-+++ b/net/mac80211/ibss.c
-@@ -425,7 +425,7 @@ static void ieee80211_sta_join_ibss(struct ieee80211_sub_if_data *sdata,
- 	case NL80211_CHAN_WIDTH_5:
- 	case NL80211_CHAN_WIDTH_10:
- 		cfg80211_chandef_create(&chandef, cbss->channel,
--					NL80211_CHAN_WIDTH_20_NOHT);
-+					NL80211_CHAN_HT20);
- 		chandef.width = sdata->u.ibss.chandef.width;
- 		break;
- 	case NL80211_CHAN_WIDTH_80:
-@@ -437,7 +437,7 @@ static void ieee80211_sta_join_ibss(struct ieee80211_sub_if_data *sdata,
- 	default:
- 		/* fall back to 20 MHz for unsupported modes */
- 		cfg80211_chandef_create(&chandef, cbss->channel,
--					NL80211_CHAN_WIDTH_20_NOHT);
-+					NL80211_CHAN_HT20);
- 		break;
- 	}
- 
+7e2f18f06408 mwifiex: MAC randomization should not be persistent
+
 -- 
-2.12.2
+https://patchwork.kernel.org/patch/9665813/
+
+https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
