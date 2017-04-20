@@ -1,7 +1,7 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 04/16] xfrm: Add mode handlers for IPsec on layer 2
-Date: Thu, 20 Apr 2017 10:55:03 +0200
-Message-ID: <1492678515-14347-5-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH 03/16] xfrm: Move device notifications to a sepatate file
+Date: Thu, 20 Apr 2017 10:55:02 +0200
+Message-ID: <1492678515-14347-4-git-send-email-steffen.klassert@secunet.com>
 References: <1492678515-14347-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,235 +10,133 @@ Cc: Herbert Xu <herbert@gondor.apana.org.au>,
         <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:51576 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([62.96.220.36]:51586 "EHLO a.mx.secunet.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S943309AbdDTI4c (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 20 Apr 2017 04:56:32 -0400
+        id S943390AbdDTI4r (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 20 Apr 2017 04:56:47 -0400
 In-Reply-To: <1492678515-14347-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds a gso_segment and xmit callback for the
-xfrm_mode and implement these functions for tunnel and
-transport mode.
+This is needed for the upcomming IPsec device offloading.
 
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- include/net/xfrm.h              | 10 ++++++++++
- net/ipv4/xfrm4_mode_transport.c | 32 ++++++++++++++++++++++++++++++++
- net/ipv4/xfrm4_mode_tunnel.c    | 25 +++++++++++++++++++++++++
- net/ipv6/xfrm6_mode_transport.c | 33 +++++++++++++++++++++++++++++++++
- net/ipv6/xfrm6_mode_tunnel.c    | 24 ++++++++++++++++++++++++
- 5 files changed, 124 insertions(+)
+ include/net/xfrm.h     |  1 +
+ net/xfrm/Makefile      |  2 +-
+ net/xfrm/xfrm_device.c | 43 +++++++++++++++++++++++++++++++++++++++++++
+ net/xfrm/xfrm_policy.c | 17 +----------------
+ 4 files changed, 46 insertions(+), 17 deletions(-)
+ create mode 100644 net/xfrm/xfrm_device.c
 
 diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index ac984da..54515d9 100644
+index 159342f..ac984da 100644
 --- a/include/net/xfrm.h
 +++ b/include/net/xfrm.h
-@@ -444,6 +444,16 @@ struct xfrm_mode {
- 	 */
- 	int (*output)(struct xfrm_state *x, struct sk_buff *skb);
+@@ -1443,6 +1443,7 @@ struct xfrm6_tunnel {
+ void xfrm_init(void);
+ void xfrm4_init(void);
+ int xfrm_state_init(struct net *net);
++void xfrm_dev_init(void);
+ void xfrm_state_fini(struct net *net);
+ void xfrm4_state_init(void);
+ void xfrm4_protocol_init(void);
+diff --git a/net/xfrm/Makefile b/net/xfrm/Makefile
+index c0e9619..55b2ac3 100644
+--- a/net/xfrm/Makefile
++++ b/net/xfrm/Makefile
+@@ -4,7 +4,7 @@
  
-+	/*
-+	 * Adjust pointers into the packet and do GSO segmentation.
-+	 */
-+	struct sk_buff *(*gso_segment)(struct xfrm_state *x, struct sk_buff *skb, netdev_features_t features);
+ obj-$(CONFIG_XFRM) := xfrm_policy.o xfrm_state.o xfrm_hash.o \
+ 		      xfrm_input.o xfrm_output.o \
+-		      xfrm_sysctl.o xfrm_replay.o
++		      xfrm_sysctl.o xfrm_replay.o xfrm_device.o
+ obj-$(CONFIG_XFRM_STATISTICS) += xfrm_proc.o
+ obj-$(CONFIG_XFRM_ALGO) += xfrm_algo.o
+ obj-$(CONFIG_XFRM_USER) += xfrm_user.o
+diff --git a/net/xfrm/xfrm_device.c b/net/xfrm/xfrm_device.c
+new file mode 100644
+index 0000000..34a260a
+--- /dev/null
++++ b/net/xfrm/xfrm_device.c
+@@ -0,0 +1,43 @@
++/*
++ * xfrm_device.c - IPsec device offloading code.
++ *
++ * Copyright (c) 2015 secunet Security Networks AG
++ *
++ * Author:
++ * Steffen Klassert <steffen.klassert@secunet.com>
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * as published by the Free Software Foundation; either version
++ * 2 of the License, or (at your option) any later version.
++ */
 +
-+	/*
-+	 * Adjust pointers into the packet when IPsec is done at layer2.
-+	 */
-+	void (*xmit)(struct xfrm_state *x, struct sk_buff *skb);
++#include <linux/errno.h>
++#include <linux/module.h>
++#include <linux/netdevice.h>
++#include <linux/skbuff.h>
++#include <linux/slab.h>
++#include <linux/spinlock.h>
++#include <net/dst.h>
++#include <net/xfrm.h>
++#include <linux/notifier.h>
 +
- 	struct xfrm_state_afinfo *afinfo;
- 	struct module *owner;
- 	unsigned int encap;
-diff --git a/net/ipv4/xfrm4_mode_transport.c b/net/ipv4/xfrm4_mode_transport.c
-index 4acc050..6c2411d 100644
---- a/net/ipv4/xfrm4_mode_transport.c
-+++ b/net/ipv4/xfrm4_mode_transport.c
-@@ -12,6 +12,7 @@
- #include <net/dst.h>
- #include <net/ip.h>
- #include <net/xfrm.h>
-+#include <net/protocol.h>
++static int xfrm_dev_event(struct notifier_block *this, unsigned long event, void *ptr)
++{
++	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
++
++	switch (event) {
++	case NETDEV_DOWN:
++		xfrm_garbage_collect(dev_net(dev));
++	}
++	return NOTIFY_DONE;
++}
++
++static struct notifier_block xfrm_dev_notifier = {
++	.notifier_call	= xfrm_dev_event,
++};
++
++void __net_init xfrm_dev_init(void)
++{
++	register_netdevice_notifier(&xfrm_dev_notifier);
++}
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index 236cbbc..7befca2 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -2929,21 +2929,6 @@ void xfrm_policy_unregister_afinfo(const struct xfrm_policy_afinfo *afinfo)
+ }
+ EXPORT_SYMBOL(xfrm_policy_unregister_afinfo);
  
- /* Add encapsulation header.
-  *
-@@ -56,9 +57,40 @@ static int xfrm4_transport_input(struct xfrm_state *x, struct sk_buff *skb)
+-static int xfrm_dev_event(struct notifier_block *this, unsigned long event, void *ptr)
+-{
+-	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
+-
+-	switch (event) {
+-	case NETDEV_DOWN:
+-		xfrm_garbage_collect(dev_net(dev));
+-	}
+-	return NOTIFY_DONE;
+-}
+-
+-static struct notifier_block xfrm_dev_notifier = {
+-	.notifier_call	= xfrm_dev_event,
+-};
+-
+ #ifdef CONFIG_XFRM_STATISTICS
+ static int __net_init xfrm_statistics_init(struct net *net)
+ {
+@@ -3020,7 +3005,7 @@ static int __net_init xfrm_policy_init(struct net *net)
+ 	INIT_WORK(&net->xfrm.policy_hash_work, xfrm_hash_resize);
+ 	INIT_WORK(&net->xfrm.policy_hthresh.work, xfrm_hash_rebuild);
+ 	if (net_eq(net, &init_net))
+-		register_netdevice_notifier(&xfrm_dev_notifier);
++		xfrm_dev_init();
  	return 0;
- }
  
-+static struct sk_buff *xfrm4_transport_gso_segment(struct xfrm_state *x,
-+						   struct sk_buff *skb,
-+						   netdev_features_t features)
-+{
-+	const struct net_offload *ops;
-+	struct sk_buff *segs = ERR_PTR(-EINVAL);
-+	struct xfrm_offload *xo = xfrm_offload(skb);
-+
-+	skb->transport_header += x->props.header_len;
-+	ops = rcu_dereference(inet_offloads[xo->proto]);
-+	if (likely(ops && ops->callbacks.gso_segment))
-+		segs = ops->callbacks.gso_segment(skb, features);
-+
-+	return segs;
-+}
-+
-+static void xfrm4_transport_xmit(struct xfrm_state *x, struct sk_buff *skb)
-+{
-+	struct xfrm_offload *xo = xfrm_offload(skb);
-+
-+	skb_reset_mac_len(skb);
-+	pskb_pull(skb, skb->mac_len + sizeof(struct iphdr) + x->props.header_len);
-+
-+	if (xo->flags & XFRM_GSO_SEGMENT) {
-+		 skb_reset_transport_header(skb);
-+		 skb->transport_header -= x->props.header_len;
-+	}
-+}
-+
- static struct xfrm_mode xfrm4_transport_mode = {
- 	.input = xfrm4_transport_input,
- 	.output = xfrm4_transport_output,
-+	.gso_segment = xfrm4_transport_gso_segment,
-+	.xmit = xfrm4_transport_xmit,
- 	.owner = THIS_MODULE,
- 	.encap = XFRM_MODE_TRANSPORT,
- };
-diff --git a/net/ipv4/xfrm4_mode_tunnel.c b/net/ipv4/xfrm4_mode_tunnel.c
-index 35feda6..d3f2434 100644
---- a/net/ipv4/xfrm4_mode_tunnel.c
-+++ b/net/ipv4/xfrm4_mode_tunnel.c
-@@ -96,11 +96,36 @@ static int xfrm4_mode_tunnel_input(struct xfrm_state *x, struct sk_buff *skb)
- 	return err;
- }
- 
-+static struct sk_buff *xfrm4_mode_tunnel_gso_segment(struct xfrm_state *x,
-+						     struct sk_buff *skb,
-+						     netdev_features_t features)
-+{
-+	__skb_push(skb, skb->mac_len);
-+	return skb_mac_gso_segment(skb, features);
-+
-+}
-+
-+static void xfrm4_mode_tunnel_xmit(struct xfrm_state *x, struct sk_buff *skb)
-+{
-+	struct xfrm_offload *xo = xfrm_offload(skb);
-+
-+	if (xo->flags & XFRM_GSO_SEGMENT) {
-+		skb->network_header = skb->network_header - x->props.header_len;
-+		skb->transport_header = skb->network_header +
-+					sizeof(struct iphdr);
-+	}
-+
-+	skb_reset_mac_len(skb);
-+	pskb_pull(skb, skb->mac_len + x->props.header_len);
-+}
-+
- static struct xfrm_mode xfrm4_tunnel_mode = {
- 	.input2 = xfrm4_mode_tunnel_input,
- 	.input = xfrm_prepare_input,
- 	.output2 = xfrm4_mode_tunnel_output,
- 	.output = xfrm4_prepare_output,
-+	.gso_segment = xfrm4_mode_tunnel_gso_segment,
-+	.xmit = xfrm4_mode_tunnel_xmit,
- 	.owner = THIS_MODULE,
- 	.encap = XFRM_MODE_TUNNEL,
- 	.flags = XFRM_MODE_FLAG_TUNNEL,
-diff --git a/net/ipv6/xfrm6_mode_transport.c b/net/ipv6/xfrm6_mode_transport.c
-index 4439ee4..eb9b36b 100644
---- a/net/ipv6/xfrm6_mode_transport.c
-+++ b/net/ipv6/xfrm6_mode_transport.c
-@@ -13,6 +13,7 @@
- #include <net/dst.h>
- #include <net/ipv6.h>
- #include <net/xfrm.h>
-+#include <net/protocol.h>
- 
- /* Add encapsulation header.
-  *
-@@ -61,9 +62,41 @@ static int xfrm6_transport_input(struct xfrm_state *x, struct sk_buff *skb)
- 	return 0;
- }
- 
-+static struct sk_buff *xfrm4_transport_gso_segment(struct xfrm_state *x,
-+						   struct sk_buff *skb,
-+						   netdev_features_t features)
-+{
-+	const struct net_offload *ops;
-+	struct sk_buff *segs = ERR_PTR(-EINVAL);
-+	struct xfrm_offload *xo = xfrm_offload(skb);
-+
-+	skb->transport_header += x->props.header_len;
-+	ops = rcu_dereference(inet6_offloads[xo->proto]);
-+	if (likely(ops && ops->callbacks.gso_segment))
-+		segs = ops->callbacks.gso_segment(skb, features);
-+
-+	return segs;
-+}
-+
-+static void xfrm6_transport_xmit(struct xfrm_state *x, struct sk_buff *skb)
-+{
-+	struct xfrm_offload *xo = xfrm_offload(skb);
-+
-+	skb_reset_mac_len(skb);
-+	pskb_pull(skb, skb->mac_len + sizeof(struct ipv6hdr) + x->props.header_len);
-+
-+	if (xo->flags & XFRM_GSO_SEGMENT) {
-+		 skb_reset_transport_header(skb);
-+		 skb->transport_header -= x->props.header_len;
-+	}
-+}
-+
-+
- static struct xfrm_mode xfrm6_transport_mode = {
- 	.input = xfrm6_transport_input,
- 	.output = xfrm6_transport_output,
-+	.gso_segment = xfrm4_transport_gso_segment,
-+	.xmit = xfrm6_transport_xmit,
- 	.owner = THIS_MODULE,
- 	.encap = XFRM_MODE_TRANSPORT,
- };
-diff --git a/net/ipv6/xfrm6_mode_tunnel.c b/net/ipv6/xfrm6_mode_tunnel.c
-index 372855e..19a60fc 100644
---- a/net/ipv6/xfrm6_mode_tunnel.c
-+++ b/net/ipv6/xfrm6_mode_tunnel.c
-@@ -96,11 +96,35 @@ static int xfrm6_mode_tunnel_input(struct xfrm_state *x, struct sk_buff *skb)
- 	return err;
- }
- 
-+static struct sk_buff *xfrm6_mode_tunnel_gso_segment(struct xfrm_state *x,
-+						     struct sk_buff *skb,
-+						     netdev_features_t features)
-+{
-+	__skb_push(skb, skb->mac_len);
-+	return skb_mac_gso_segment(skb, features);
-+
-+}
-+
-+static void xfrm6_mode_tunnel_xmit(struct xfrm_state *x, struct sk_buff *skb)
-+{
-+	struct xfrm_offload *xo = xfrm_offload(skb);
-+
-+	if (xo->flags & XFRM_GSO_SEGMENT) {
-+		skb->network_header = skb->network_header - x->props.header_len;
-+		skb->transport_header = skb->network_header + sizeof(struct ipv6hdr);
-+	}
-+
-+	skb_reset_mac_len(skb);
-+	pskb_pull(skb, skb->mac_len + x->props.header_len);
-+}
-+
- static struct xfrm_mode xfrm6_tunnel_mode = {
- 	.input2 = xfrm6_mode_tunnel_input,
- 	.input = xfrm_prepare_input,
- 	.output2 = xfrm6_mode_tunnel_output,
- 	.output = xfrm6_prepare_output,
-+	.gso_segment = xfrm6_mode_tunnel_gso_segment,
-+	.xmit = xfrm6_mode_tunnel_xmit,
- 	.owner = THIS_MODULE,
- 	.encap = XFRM_MODE_TUNNEL,
- 	.flags = XFRM_MODE_FLAG_TUNNEL,
+ out_bydst:
 -- 
 2.7.4
