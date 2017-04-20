@@ -1,107 +1,49 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next v5 1/2] net sched actions: dump more than
- TCA_ACT_MAX_PRIO actions per batch
-Date: Thu, 20 Apr 2017 16:33:13 +0200
-Message-ID: <20170420143313.GA19004@nanopsycho.orion>
-References: <1492693582-26810-1-git-send-email-jhs@emojatatu.com>
- <1492693582-26810-2-git-send-email-jhs@emojatatu.com>
- <20170420135915.GE1886@nanopsycho.orion>
- <67dc8e10-b0df-c0c5-7c46-ac4147c1c797@mojatatu.com>
+From: Robert Shearman <rshearma@brocade.com>
+Subject: Re: [PATCH net] ipv4: Avoid caching dsts when lookup skipped nh oif
+ check
+Date: Thu, 20 Apr 2017 15:39:43 +0100
+Message-ID: <ec8e470e-73d0-b357-4f65-a4f7e020db7f@brocade.com>
+References: <1492693132-4708-1-git-send-email-rshearma@brocade.com>
+ <bed3d38c-dc00-1f98-371c-852170af0a0e@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, xiyou.wangcong@gmail.com,
-        eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>
+To: David Ahern <dsa@cumulusnetworks.com>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:35083 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1032766AbdDTOdQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 10:33:16 -0400
-Received: by mail-wm0-f68.google.com with SMTP id d79so11224971wmi.2
-        for <netdev@vger.kernel.org>; Thu, 20 Apr 2017 07:33:15 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <67dc8e10-b0df-c0c5-7c46-ac4147c1c797@mojatatu.com>
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:42817 "EHLO
+        mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S941847AbdDTOj5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 10:39:57 -0400
+In-Reply-To: <bed3d38c-dc00-1f98-371c-852170af0a0e@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thu, Apr 20, 2017 at 04:25:11PM CEST, jhs@mojatatu.com wrote:
->On 17-04-20 09:59 AM, Jiri Pirko wrote:
->> Thu, Apr 20, 2017 at 03:06:21PM CEST, jhs@mojatatu.com wrote:
->> > From: Jamal Hadi Salim <jhs@mojatatu.com>
->> > 
->> > When you dump hundreds of thousands of actions, getting only 32 per
->> > dump batch even when the socket buffer and memory allocations allow
->> > is inefficient.
->> > 
->> > With this change, the user will get as many as possibly fitting
->> > within the given constraints available to the kernel.
->> > 
->> > A new top level TLV space is introduced. An attribute
->> > TCAA_ACT_FLAGS is used to carry the flags indicating the user
->> > is capable of processing these large dumps. Older user space which
->> > doesn't set this flag doesn't get the large (than 32) batches.
->> > The kernel uses the TCAA_ACT_COUNT attribute to tell the user how many
->> > actions are put in a single batch. As such user space app knows how long
->> > to iterate (independent of the type of action being dumped)
->> > instead of hardcoded maximum of 32.
->> > 
->> > Some results dumping 1.5M actions, first unpatched tc which the
->> > kernel doesn't help:
->> > 
->> > prompt$ time -p tc actions ls action gact | grep index | wc -l
->> > 1500000
->> > real 1388.43
->> > user 2.07
->> > sys 1386.79
->> > 
->> > Now lets see a patched tc which sets the correct flags when requesting
->> > a dump:
->> > 
->> > prompt$ time -p updatedtc actions ls action gact | grep index | wc -l
->> > 1500000
->> > real 178.13
->> > user 2.02
->> > sys 176.96
->> > 
->> > Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
->> > ---
->> > include/uapi/linux/rtnetlink.h | 21 +++++++++++++++++--
->> > net/sched/act_api.c            | 46 +++++++++++++++++++++++++++++++++---------
->> > 2 files changed, 55 insertions(+), 12 deletions(-)
->> > 
->> > diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
->> > index cce0613..d7d28ec 100644
->> > --- a/include/uapi/linux/rtnetlink.h
->> > +++ b/include/uapi/linux/rtnetlink.h
->> > @@ -674,10 +674,27 @@ struct tcamsg {
->> > 	unsigned char	tca__pad1;
->> > 	unsigned short	tca__pad2;
->> > };
->> > +
->> > +enum {
->> > +	TCAA_UNSPEC,
->> 
->> TCAA stands for "traffic control action action". I don't get it :(
+On 20/04/17 15:21, David Ahern wrote:
+> On 4/20/17 6:58 AM, Robert Shearman wrote:
+>> David reported that doing the following:
+>>
+>>     ip li add red type vrf table 10
+>>     ip link set dev eth1 vrf red
+>>     ip addr add 127.0.0.1/8 dev red
+>>     ip link set dev eth1 up
+>>     ip li set red up
+>>     ping -c1 -w1 -I red 127.0.0.1
+>>     ip li del red
+>>
+>> results in a hang with this message:
+>>
+>>     unregister_netdevice: waiting for red to become free. Usage count = 1
 >
->TC Action Attributes == TCAA.
+> I think you misunderstood my comment. The above works fine today. There
+> is no bug with refcnts.
 >
->> Prefix still sounds wrong to me, sorry :/
->> Should be:
->> TCA_SOMETHING_*
->> 
->
->TCA_ATTR_XXX ?
+> It breaks with your patches wanting to use a VRF device with the main
+> table (254).
 
-Of course it is an attribute. No need to have "attr" in the name. No
-other enum has it. Does not make sense.
+That doesn't seem to match with my experience. I can reproduce this on 
+the net tree with the listed commands and the behaviour matches what I 
+see in the code.
 
-The name should contain the group name. What group this enum defines?
-
-
->
->I have another opportunity to make a change  where we should close
->the discussion on this. We cant drag it forever.
->
->cheers,
->jamal
->
+Thanks,
+Rob
