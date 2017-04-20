@@ -1,7 +1,8 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: pull request (net-next): ipsec-next 2017-04-20
-Date: Thu, 20 Apr 2017 10:54:59 +0200
-Message-ID: <1492678515-14347-1-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH 02/16] xfrm: Add a xfrm type offload.
+Date: Thu, 20 Apr 2017 10:55:01 +0200
+Message-ID: <1492678515-14347-3-git-send-email-steffen.klassert@secunet.com>
+References: <1492678515-14347-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Herbert Xu <herbert@gondor.apana.org.au>,
@@ -9,114 +10,174 @@ Cc: Herbert Xu <herbert@gondor.apana.org.au>,
         <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:51542 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([62.96.220.36]:51562 "EHLO a.mx.secunet.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S939519AbdDTIzy (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 20 Apr 2017 04:55:54 -0400
+        id S939519AbdDTI4M (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 20 Apr 2017 04:56:12 -0400
+In-Reply-To: <1492678515-14347-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This adds the basic infrastructure for IPsec hardware
-offloading, it creates a configuration API and adjusts
-the packet path.
+We add a struct  xfrm_type_offload so that we have the offloaded
+codepath separated to the non offloaded codepath. With this the
+non offloade and the offloaded codepath can coexist.
 
-1) Add the needed netdev features to configure IPsec offloads.
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+---
+ include/net/xfrm.h    | 28 +++++++++++++++-----
+ net/xfrm/xfrm_state.c | 73 +++++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 95 insertions(+), 6 deletions(-)
 
-2) Add the IPsec hardware offloading API.
-
-3) Prepare the ESP packet path for hardware offloading.
-
-4) Add gso handlers for esp4 and esp6, this implements
-   the software fallback for GSO packets.
-
-5) Add xfrm replay handler functions for offloading.
-
-6) Change ESP to use a synchronous crypto algorithm on
-   offloading, we don't have the option for asynchronous
-   returns when we handle IPsec at layer2.
-
-7) Add a xfrm validate function to validate_xmit_skb. This
-   implements the software fallback for non GSO packets.
-
-8) Set the inner_network and inner_transport members of
-   the SKB, as well as encapsulation, to reflect the actual
-   positions of these headers, and removes them only once
-   encryption is done on the payload.
-   From Ilan Tayari.
-
-9) Prepare the ESP GRO codepath for hardware offloading.
-
-10) Fix incorrect null pointer check in esp6.
-    From Colin Ian King.
-
-11) Fix for the GSO software fallback path to detect the
-    fallback correctly.
-    From Ilan Tayari.
-
-Please pull or let me know if there are problems.
-
-Thanks!
-
-The following changes since commit f221dcd91d20cdcb893cf6e9c8894b7d6c97d649:
-
-  Merge branch 'net-smc-next' (2017-04-11 23:01:15 -0400)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/klassert/ipsec-next.git master
-
-for you to fetch changes up to 8f92e03ecca390beed3d5ccc81023d050f0369fd:
-
-  esp4/6: Fix GSO path for non-GSO SW-crypto packets (2017-04-19 07:48:57 +0200)
-
-----------------------------------------------------------------
-Colin Ian King (1):
-      esp6: fix incorrect null pointer check on xo
-
-Ilan Tayari (2):
-      xfrm: Add encapsulation header offsets while SKB is not encrypted
-      esp4/6: Fix GSO path for non-GSO SW-crypto packets
-
-Steffen Klassert (13):
-      net: Add ESP offload features
-      xfrm: Add a xfrm type offload.
-      xfrm: Move device notifications to a sepatate file
-      xfrm: Add mode handlers for IPsec on layer 2
-      xfrm: Add an IPsec hardware offloading API
-      esp6: Remame esp_input_done2
-      esp4: Reorganize esp_output
-      esp6: Reorganize esp_output
-      esp: Add gso handlers for esp4 and esp6
-      xfrm: Add xfrm_replay_overflow functions for offloading
-      esp: Use a synchronous crypto algorithm on offloading.
-      net: Add a xfrm validate function to validate_xmit_skb
-      xfrm: Prepare the GRO codepath for hardware offloading.
-
- include/linux/netdev_features.h |   8 +-
- include/linux/netdevice.h       |  15 ++
- include/linux/skbuff.h          |   2 +
- include/net/esp.h               |  19 +++
- include/net/xfrm.h              | 108 +++++++++++-
- include/uapi/linux/xfrm.h       |   8 +
- net/core/dev.c                  |   3 +
- net/core/ethtool.c              |   3 +
- net/ipv4/esp4.c                 | 370 ++++++++++++++++++++++------------------
- net/ipv4/esp4_offload.c         | 231 +++++++++++++++++++++++--
- net/ipv4/xfrm4_mode_transport.c |  34 ++++
- net/ipv4/xfrm4_mode_tunnel.c    |  28 +++
- net/ipv4/xfrm4_output.c         |   3 +-
- net/ipv6/esp6.c                 | 292 +++++++++++++++++--------------
- net/ipv6/esp6_offload.c         | 233 +++++++++++++++++++++++--
- net/ipv6/xfrm6_mode_transport.c |  34 ++++
- net/ipv6/xfrm6_mode_tunnel.c    |  27 +++
- net/ipv6/xfrm6_output.c         |   9 +-
- net/xfrm/Makefile               |   1 +
- net/xfrm/xfrm_device.c          | 208 ++++++++++++++++++++++
- net/xfrm/xfrm_input.c           |  41 ++++-
- net/xfrm/xfrm_output.c          |  46 ++++-
- net/xfrm/xfrm_policy.c          |  27 +--
- net/xfrm/xfrm_replay.c          | 162 +++++++++++++++++-
- net/xfrm/xfrm_state.c           | 147 ++++++++++++++++
- net/xfrm/xfrm_user.c            |  28 +++
- 26 files changed, 1717 insertions(+), 370 deletions(-)
- create mode 100644 net/xfrm/xfrm_device.c
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index 9e3dc7b..159342f 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -222,6 +222,8 @@ struct xfrm_state {
+ 	struct xfrm_mode	*inner_mode_iaf;
+ 	struct xfrm_mode	*outer_mode;
+ 
++	const struct xfrm_type_offload	*type_offload;
++
+ 	/* Security context */
+ 	struct xfrm_sec_ctx	*security;
+ 
+@@ -314,12 +316,14 @@ void km_state_expired(struct xfrm_state *x, int hard, u32 portid);
+ int __xfrm_state_delete(struct xfrm_state *x);
+ 
+ struct xfrm_state_afinfo {
+-	unsigned int		family;
+-	unsigned int		proto;
+-	__be16			eth_proto;
+-	struct module		*owner;
+-	const struct xfrm_type	*type_map[IPPROTO_MAX];
+-	struct xfrm_mode	*mode_map[XFRM_MODE_MAX];
++	unsigned int			family;
++	unsigned int			proto;
++	__be16				eth_proto;
++	struct module			*owner;
++	const struct xfrm_type		*type_map[IPPROTO_MAX];
++	const struct xfrm_type_offload	*type_offload_map[IPPROTO_MAX];
++	struct xfrm_mode		*mode_map[XFRM_MODE_MAX];
++
+ 	int			(*init_flags)(struct xfrm_state *x);
+ 	void			(*init_tempsel)(struct xfrm_selector *sel,
+ 						const struct flowi *fl);
+@@ -380,6 +384,18 @@ struct xfrm_type {
+ int xfrm_register_type(const struct xfrm_type *type, unsigned short family);
+ int xfrm_unregister_type(const struct xfrm_type *type, unsigned short family);
+ 
++struct xfrm_type_offload {
++	char		*description;
++	struct module	*owner;
++	u8		proto;
++	void		(*encap)(struct xfrm_state *, struct sk_buff *pskb);
++	int		(*input_tail)(struct xfrm_state *x, struct sk_buff *skb);
++	int		(*xmit)(struct xfrm_state *, struct sk_buff *pskb, netdev_features_t features);
++};
++
++int xfrm_register_type_offload(const struct xfrm_type_offload *type, unsigned short family);
++int xfrm_unregister_type_offload(const struct xfrm_type_offload *type, unsigned short family);
++
+ struct xfrm_mode {
+ 	/*
+ 	 * Remove encapsulation header.
+diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+index 5a597db..47fefe9 100644
+--- a/net/xfrm/xfrm_state.c
++++ b/net/xfrm/xfrm_state.c
+@@ -251,6 +251,75 @@ static void xfrm_put_type(const struct xfrm_type *type)
+ 	module_put(type->owner);
+ }
+ 
++static DEFINE_SPINLOCK(xfrm_type_offload_lock);
++int xfrm_register_type_offload(const struct xfrm_type_offload *type,
++			       unsigned short family)
++{
++	struct xfrm_state_afinfo *afinfo = xfrm_state_get_afinfo(family);
++	const struct xfrm_type_offload **typemap;
++	int err = 0;
++
++	if (unlikely(afinfo == NULL))
++		return -EAFNOSUPPORT;
++	typemap = afinfo->type_offload_map;
++	spin_lock_bh(&xfrm_type_offload_lock);
++
++	if (likely(typemap[type->proto] == NULL))
++		typemap[type->proto] = type;
++	else
++		err = -EEXIST;
++	spin_unlock_bh(&xfrm_type_offload_lock);
++	rcu_read_unlock();
++	return err;
++}
++EXPORT_SYMBOL(xfrm_register_type_offload);
++
++int xfrm_unregister_type_offload(const struct xfrm_type_offload *type,
++				 unsigned short family)
++{
++	struct xfrm_state_afinfo *afinfo = xfrm_state_get_afinfo(family);
++	const struct xfrm_type_offload **typemap;
++	int err = 0;
++
++	if (unlikely(afinfo == NULL))
++		return -EAFNOSUPPORT;
++	typemap = afinfo->type_offload_map;
++	spin_lock_bh(&xfrm_type_offload_lock);
++
++	if (unlikely(typemap[type->proto] != type))
++		err = -ENOENT;
++	else
++		typemap[type->proto] = NULL;
++	spin_unlock_bh(&xfrm_type_offload_lock);
++	rcu_read_unlock();
++	return err;
++}
++EXPORT_SYMBOL(xfrm_unregister_type_offload);
++
++static const struct xfrm_type_offload *xfrm_get_type_offload(u8 proto, unsigned short family)
++{
++	struct xfrm_state_afinfo *afinfo;
++	const struct xfrm_type_offload **typemap;
++	const struct xfrm_type_offload *type;
++
++	afinfo = xfrm_state_get_afinfo(family);
++	if (unlikely(afinfo == NULL))
++		return NULL;
++	typemap = afinfo->type_offload_map;
++
++	type = typemap[proto];
++	if ((type && !try_module_get(type->owner)))
++		type = NULL;
++
++	rcu_read_unlock();
++	return type;
++}
++
++static void xfrm_put_type_offload(const struct xfrm_type_offload *type)
++{
++	module_put(type->owner);
++}
++
+ static DEFINE_SPINLOCK(xfrm_mode_lock);
+ int xfrm_register_mode(struct xfrm_mode *mode, int family)
+ {
+@@ -365,6 +434,8 @@ static void xfrm_state_gc_destroy(struct xfrm_state *x)
+ 		xfrm_put_mode(x->inner_mode_iaf);
+ 	if (x->outer_mode)
+ 		xfrm_put_mode(x->outer_mode);
++	if (x->type_offload)
++		xfrm_put_type_offload(x->type_offload);
+ 	if (x->type) {
+ 		x->type->destructor(x);
+ 		xfrm_put_type(x->type);
+@@ -2077,6 +2148,8 @@ int __xfrm_init_state(struct xfrm_state *x, bool init_replay)
+ 	if (x->type == NULL)
+ 		goto error;
+ 
++	x->type_offload = xfrm_get_type_offload(x->id.proto, family);
++
+ 	err = x->type->init_state(x);
+ 	if (err)
+ 		goto error;
+-- 
+2.7.4
