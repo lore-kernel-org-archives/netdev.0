@@ -1,37 +1,42 @@
-From: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
-Subject: Re: [PATCH net] netfilter: xt_TCPMSS: add more sanity tests on
- tcph->doff
-Date: Thu, 20 Apr 2017 21:14:55 +0300
-Message-ID: <57943637ed28d314172e2a9ad0f4d99f@nuclearcat.com>
-References: <6c6e2f7505f969d8c2998efff24063ba@nuclearcat.com>
- <1491132259.10124.3.camel@edumazet-glaptop3.roam.corp.google.com>
- <1491242111.10124.32.camel@edumazet-glaptop3.roam.corp.google.com>
- <20170408202443.GA3373@salvia>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
- format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        netfilter-devel@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20170408202443.GA3373@salvia>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Myungho Jung <mhjungk@gmail.com>
+Subject: [PATCH] p54: Prevent from dereferencing null pointer when releasing SKB
+Date: Thu, 20 Apr 2017 11:25:23 -0700
+Message-ID: <1492712723-9350-1-git-send-email-mhjungk@gmail.com>
+Cc: netdev@vger.kernel.org
+To: edumazet@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f65.google.com ([209.85.218.65]:34189 "EHLO
+        mail-oi0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S971290AbdDTSZZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 14:25:25 -0400
+Received: by mail-oi0-f65.google.com with SMTP id y11so10025222oie.1
+        for <netdev@vger.kernel.org>; Thu, 20 Apr 2017 11:25:25 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2017-04-08 23:24, Pablo Neira Ayuso wrote:
-> On Mon, Apr 03, 2017 at 10:55:11AM -0700, Eric Dumazet wrote:
->> From: Eric Dumazet <edumazet@google.com>
->> 
->> Denys provided an awesome KASAN report pointing to an use
->> after free in xt_TCPMSS
->> 
->> I have provided three patches to fix this issue, either in xt_TCPMSS 
->> or
->> in xt_tcpudp.c. It seems xt_TCPMSS patch has the smallest possible
->> impact.
-> 
-> Applied to nf.git, thanks!
-Any plans to queue it to stable trees?
-It seems affected kernel for years.
+Added NULL check to make __dev_kfree_skb_irq consistent with kfree
+family of functions.
+
+Link: https://bugzilla.kernel.org/show_bug.cgi?id=195289
+
+Signed-off-by: Myungho Jung <mhjungk@gmail.com>
+---
+ net/core/dev.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 7869ae3..22be2a6 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2450,6 +2450,9 @@ void __dev_kfree_skb_irq(struct sk_buff *skb, enum skb_free_reason reason)
+ {
+ 	unsigned long flags;
+ 
++	if (unlikely(!skb))
++		return;
++
+ 	if (likely(atomic_read(&skb->users) == 1)) {
+ 		smp_rmb();
+ 		atomic_set(&skb->users, 0);
+-- 
+2.7.4
