@@ -1,83 +1,56 @@
-From: =?UTF-8?q?Roman=20Spycha=C5=82a?= <roed@onet.eu>
-Subject: [PATCH] usb: plusb: Add support for PL-27A1
-Date: Thu, 20 Apr 2017 12:04:10 +0200
-Message-ID: <20170420100410.3296-1-roed@onet.eu>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net] Fix net/hsr/hsr_device to check for freed skb buffer.
+Date: Thu, 20 Apr 2017 13:15:43 +0300
+Message-ID: <f9b4402d-3af8-ae34-c8c8-bea1ff72a844@cogentembedded.com>
+References: <0102015b8a4332ea-1e523746-5fd0-48d9-9045-d9de973fcd1a-000000@eu-west-1.amazonses.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        =?UTF-8?q?Roman=20Spycha=C5=82a?= <roed@onet.eu>
-To: linux-usb@vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Peter Heise <mail@pheise.de>, Arvid Brodin <arvid.brodin@alten.se>,
+        "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpo47.poczta.onet.pl ([213.180.142.178]:43455 "EHLO
-        smtpo47.poczta.onet.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1031193AbdDTKNj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 06:13:39 -0400
+Received: from mail-lf0-f41.google.com ([209.85.215.41]:34875 "EHLO
+        mail-lf0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1031410AbdDTKPo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 06:15:44 -0400
+Received: by mail-lf0-f41.google.com with SMTP id 75so26181702lfs.2
+        for <netdev@vger.kernel.org>; Thu, 20 Apr 2017 03:15:43 -0700 (PDT)
+In-Reply-To: <0102015b8a4332ea-1e523746-5fd0-48d9-9045-d9de973fcd1a-000000@eu-west-1.amazonses.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roman Spychała <roed@onet.eu>
+Hello!
 
-This patch adds support for the PL-27A1 by adding the appropriate
-USB ID's. This chip is used in the goobay Active USB 3.0 Data Link
-and Unitek Y-3501 cables.
+On 4/20/2017 10:28 AM, Peter Heise wrote:
 
-Signed-off-by: Roman Spychała <roed@onet.eu>
----
- drivers/net/usb/Kconfig |  2 +-
- drivers/net/usb/plusb.c | 15 +++++++++++++--
- 2 files changed, 14 insertions(+), 3 deletions(-)
+> Fixed an unchecked call of skb_put_padto. Return value was ignored
+> before, however, skb_put_padto frees skb buffer in case of error.
+>
+> As reported by Dan Carpenter on kernel-janitors.
+>
+> Signed-off-by: Peter Heise <mail@pheise.de>
+> ---
+>  net/hsr/hsr_device.c | 3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
+>
+> diff --git a/net/hsr/hsr_device.c b/net/hsr/hsr_device.c
+> index c73160fb11e7..22d693f213be 100644
+> --- a/net/hsr/hsr_device.c
+> +++ b/net/hsr/hsr_device.c
+> @@ -314,7 +314,8 @@ static void send_hsr_supervision_frame(struct hsr_port *master,
+>  	hsr_sp = (typeof(hsr_sp)) skb_put(skb, sizeof(struct hsr_sup_payload));
+>  	ether_addr_copy(hsr_sp->MacAddressA, master->dev->dev_addr);
+>
+> -	skb_put_padto(skb, ETH_ZLEN + HSR_HLEN);
+> +	if(skb_put_padto(skb, ETH_ZLEN + HSR_HLEN))
 
-diff --git a/drivers/net/usb/Kconfig b/drivers/net/usb/Kconfig
-index 3dd490f53e48..f28bd74ac275 100644
---- a/drivers/net/usb/Kconfig
-+++ b/drivers/net/usb/Kconfig
-@@ -369,7 +369,7 @@ config USB_NET_NET1080
- 	  optionally with LEDs that indicate traffic
- 
- config USB_NET_PLUSB
--	tristate "Prolific PL-2301/2302/25A1 based cables"
-+	tristate "Prolific PL-2301/2302/25A1/27A1 based cables"
- 	# if the handshake/init/reset problems, from original 'plusb',
- 	# are ever resolved ... then remove "experimental"
- 	depends on USB_USBNET
-diff --git a/drivers/net/usb/plusb.c b/drivers/net/usb/plusb.c
-index 22e1a9a99a7d..6fe59373cba9 100644
---- a/drivers/net/usb/plusb.c
-+++ b/drivers/net/usb/plusb.c
-@@ -102,7 +102,7 @@ static int pl_reset(struct usbnet *dev)
- }
- 
- static const struct driver_info	prolific_info = {
--	.description =	"Prolific PL-2301/PL-2302/PL-25A1",
-+	.description =	"Prolific PL-2301/PL-2302/PL-25A1/PL-27A1",
- 	.flags =	FLAG_POINTTOPOINT | FLAG_NO_SETINT,
- 		/* some PL-2302 versions seem to fail usb_set_interface() */
- 	.reset =	pl_reset,
-@@ -139,6 +139,17 @@ static const struct usb_device_id	products [] = {
- 					 * Host-to-Host Cable
- 					 */
- 	.driver_info =  (unsigned long) &prolific_info,
-+
-+},
-+
-+/* super speed cables */
-+{
-+	USB_DEVICE(0x067b, 0x27a1),     /* PL-27A1, no eeprom
-+					 * also: goobay Active USB 3.0
-+					 * Data Link,
-+					 * Unitek Y-3501
-+					 */
-+	.driver_info =  (unsigned long) &prolific_info,
- },
- 
- 	{ },		// END
-@@ -158,5 +169,5 @@ static struct usb_driver plusb_driver = {
- module_usb_driver(plusb_driver);
- 
- MODULE_AUTHOR("David Brownell");
--MODULE_DESCRIPTION("Prolific PL-2301/2302/25A1 USB Host to Host Link Driver");
-+MODULE_DESCRIPTION("Prolific PL-2301/2302/25A1/27A1 USB Host to Host Link Driver");
- MODULE_LICENSE("GPL");
--- 
-2.12.2
+    Need a space after *if*. Pleae run your patches thru scripts/checkpatch.pl 
+before sending.
+
+> +		return;
+>
+>  	hsr_forward_skb(skb, master);
+>  	return;
+
+MBR, Seregi
