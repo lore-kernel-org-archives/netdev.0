@@ -1,55 +1,53 @@
-From: Robert Shearman <rshearma@brocade.com>
-Subject: Re: [PATCH net] ipv4: Avoid caching dsts when lookup skipped nh oif
- check
-Date: Thu, 20 Apr 2017 16:35:16 +0100
-Message-ID: <f3a3ab2d-4a32-a3ec-6a72-071e56577017@brocade.com>
-References: <1492693132-4708-1-git-send-email-rshearma@brocade.com>
- <bed3d38c-dc00-1f98-371c-852170af0a0e@cumulusnetworks.com>
- <ec8e470e-73d0-b357-4f65-a4f7e020db7f@brocade.com>
- <8dcaa797-c566-a9dc-d9a1-99e8d1acfe15@cumulusnetworks.com>
- <277d8c4b-5a18-cda2-6edc-66837cae6469@brocade.com>
- <7204751a-70f9-5803-d5af-06b62530b762@cumulusnetworks.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: net: heap out-of-bounds in
+ fib6_clean_node/rt6_fill_node/fib6_age/fib6_prune_clone
+Date: Thu, 20 Apr 2017 09:35:51 -0600
+Message-ID: <623b6343-14f4-945d-a1bd-c9971b9566c2@cumulusnetworks.com>
+References: <CACT4Y+YrA45diWz_8f4St8oX6aTC1kuGXMUvniGRbqXSGwawZQ@mail.gmail.com>
+ <CACT4Y+Yx1cgWCkC2c7bze1V1VaecgBfioMvKS2-FUeaRr4DGXg@mail.gmail.com>
+ <CACT4Y+bcMz13ad2kLaZGvct5sQ+RDki0StnOEbz3exAa8=zxqQ@mail.gmail.com>
+ <CACT4Y+Z6f4aOxMZW44WXdYEyDJbGBYLnjKsHBXfK800h+EkrxA@mail.gmail.com>
+ <2270c1ca-9481-60c1-9c29-87669223bded@cumulusnetworks.com>
+ <CACT4Y+aUROZgAczRfntp5Rgvzcypviz5ZWBPdE6MWSiO0-3jEg@mail.gmail.com>
+ <CAAeHK+zx6W_yxnoEQ2Pc1AT4uLXqYZaoi5oQBeuCntdGS38TQg@mail.gmail.com>
+ <580392d8-fa33-67bb-c5d6-27d262f1646a@cumulusnetworks.com>
+ <CAAeHK+zZb=K4X9=NmSWQJL8bpgMbXoG+h4RasAyYDr+C5pkVYA@mail.gmail.com>
+ <CAM_iQpXyDN5GD+QLmWgJSc0bqV0ViK5LxSdwAV3XsHWr6vLJ2Q@mail.gmail.com>
+ <1dad955e-28c1-3f02-8876-90cce4a7d1f8@cumulusnetworks.com>
+ <CACT4Y+amFHj1DV3pmj+eJVxg52+GLdE-fEin5M86dOKubea7DQ@mail.gmail.com>
+ <CAAeHK+zWO1COcZDp9q4eHP9YN9Qv8CXLOJu8dJgCbihcFSK3jg@mail.gmail.com>
+ <CAAeHK+zSe82vc5gCRgr_EoUwiALPnWVdWJBPwJZBpbxYz=kGJw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: David Ahern <dsa@cumulusnetworks.com>, <davem@davemloft.net>
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        Mahesh Bandewar <maheshb@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        David Miller <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Andrey Konovalov <andreyknvl@google.com>,
+        Dmitry Vyukov <dvyukov@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:56900 "EHLO
-        mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S970369AbdDTPfi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 11:35:38 -0400
-In-Reply-To: <7204751a-70f9-5803-d5af-06b62530b762@cumulusnetworks.com>
+Received: from mail-yb0-f171.google.com ([209.85.213.171]:33842 "EHLO
+        mail-yb0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S970695AbdDTPfy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 11:35:54 -0400
+Received: by mail-yb0-f171.google.com with SMTP id 11so27034669ybw.1
+        for <netdev@vger.kernel.org>; Thu, 20 Apr 2017 08:35:54 -0700 (PDT)
+In-Reply-To: <CAAeHK+zSe82vc5gCRgr_EoUwiALPnWVdWJBPwJZBpbxYz=kGJw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 20/04/17 16:16, David Ahern wrote:
-> On 4/20/17 9:05 AM, Robert Shearman wrote:
->> The key thing I think is the ip rules:
->>
->> $ ip rule
->> 0:    from all lookup local
->> 1000:    from all lookup [l3mdev-table]
->> 32766:    from all lookup main
->> 32767:    from all lookup default
->>
->> Maybe you have the local rule moved down at startup?
->
-> yes that would be a problem. With this test the 127.0.0.1 lookup is
-> matching on the wrong table:
->
-> perf probe fib_table_lookup%return ret=%ax
-> perf record -e fib:*,probe:* -a -- ping -c1 -w1 -I red 127.0.0.1
-> ...
-> perf script
->
-...
-> Table 255 is the wrong table. That is the ultimate problem here.
->
+On 4/20/17 9:28 AM, Andrey Konovalov wrote:
+> This one seems to be much closer to what Dmitry reported intially.
 
-The table used for the lookup could be retrieved from the oif, but the 
-check I introduced would still be required to cope with the unusual, but 
-not disallowed, case of two VRF master devices referring to the same table.
+does not repro here; I ran in a loop and nothing.
 
-Thanks,
-Rob
+can you send output of "sysctl -a --pattern 'net.ipv6'"
