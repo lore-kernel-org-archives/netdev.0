@@ -1,110 +1,157 @@
-From: Stefan Hajnoczi <stefanha@redhat.com>
-Subject: Re: [PATCH v4 3/3] VSOCK: Add virtio vsock vsockmon hooks
-Date: Thu, 20 Apr 2017 11:32:06 +0100
-Message-ID: <20170420103206.GB28129@stefanha-x1.localdomain>
-References: <20170413161811.8953-1-stefanha@redhat.com>
- <20170413161811.8953-4-stefanha@redhat.com>
- <20170413214410-mutt-send-email-mst@kernel.org>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH net-next v4 1/2] net sched actions: dump more than
+ TCA_ACT_MAX_PRIO actions per batch
+Date: Thu, 20 Apr 2017 06:42:55 -0400
+Message-ID: <f0e84f44-ba3a-7eb4-8b22-9764048d9406@mojatatu.com>
+References: <1492603050-9318-1-git-send-email-jhs@emojatatu.com>
+ <20170419123645.GB3357@nanopsycho.orion>
+ <705a4d67-4a81-113f-e22a-0ca0bb6cf1eb@mojatatu.com>
+ <20170419131323.GE3357@nanopsycho.orion>
+ <e2a1e201-4830-e600-e668-91f83bcc9b32@mojatatu.com>
+ <20170419155400.GH3357@nanopsycho.orion>
+ <56488055-1f4b-ee10-2357-5ce80f1fbc50@mojatatu.com>
+ <20170419161736.GJ3357@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="A6N2fC+uXW/VQSAv"
-Cc: netdev@vger.kernel.org, Zhu Yanjun <zyjzyj2000@gmail.com>,
-        Gerard Garcia <ggarcia@abra.uab.cat>,
-        Jorgen Hansen <jhansen@vmware.com>
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+        eric.dumazet@gmail.com, xiyou.wangcong@gmail.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60744 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S942223AbdDTKcV (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 20 Apr 2017 06:32:21 -0400
-Content-Disposition: inline
-In-Reply-To: <20170413214410-mutt-send-email-mst@kernel.org>
+Received: from mail-io0-f195.google.com ([209.85.223.195]:35872 "EHLO
+        mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S943005AbdDTKm6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 06:42:58 -0400
+Received: by mail-io0-f195.google.com with SMTP id x86so14893983ioe.3
+        for <netdev@vger.kernel.org>; Thu, 20 Apr 2017 03:42:57 -0700 (PDT)
+In-Reply-To: <20170419161736.GJ3357@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 17-04-19 12:17 PM, Jiri Pirko wrote:
+> Wed, Apr 19, 2017 at 06:07:48PM CEST, jhs@mojatatu.com wrote:
+>> On 17-04-19 11:54 AM, Jiri Pirko wrote:
+>>> Wed, Apr 19, 2017 at 05:37:15PM CEST, jhs@mojatatu.com wrote:
+>>>> On 17-04-19 09:13 AM, Jiri Pirko wrote:
+>>>>> Wed, Apr 19, 2017 at 03:03:59PM CEST, jhs@mojatatu.com wrote:
+>>>>>> On 17-04-19 08:36 AM, Jiri Pirko wrote:
+>>>>>>> Wed, Apr 19, 2017 at 01:57:29PM CEST, jhs@mojatatu.com wrote:
+>>>>>>>> From: Jamal Hadi Salim <jhs@mojatatu.com>
+>>>>>>
+>>>>>>>> include/uapi/linux/rtnetlink.h | 21 +++++++++++++++++++--
+>>>>>>>> net/sched/act_api.c            | 43 ++++++++++++++++++++++++++++++++----------
+>>>>>>>> 3 files changed, 53 insertions(+), 12 deletions(-)
+>>>>
+>>>>>>>> +#define TCAA_MAX (__TCAA_MAX - 1)
+>>>>>>>> #define TA_RTA(r)  ((struct rtattr*)(((char*)(r)) + NLMSG_ALIGN(sizeof(struct tcamsg))))
+>>>>>>>> #define TA_PAYLOAD(n) NLMSG_PAYLOAD(n,sizeof(struct tcamsg))
+>>>>>>>> -#define TCA_ACT_TAB 1 /* attr type must be >=1 */	
+>>>>>>>> -#define TCAA_MAX 1
+>>>>>>>> +#define TCA_ACT_TAB TCAA_ACT_TAB
+>>>>>>>
+>>>>>>> This is mess. What does "TCAA" stand for?
+>>>>>>
+>>>>>> TC Actions Attributes.  What would you call it? I could have
+>>>>>> called it TCA_ROOT etc. But maybe a comment to just call it
+>>>>>> TC Actions Attributes would be enough?
+>>>>>
+>>>>> TCA_DUMP_X
+>>>>>
+>>>>> it is only for dumping. Naming it "attribute" seems weird. Same as if
+>>>>> you have: int variable_something;
+>>>>>
+>>>>
+>>>> Jiri, this is not just for dumping. We are describing high level
+>>>> attributes for tc actions.
+>>>
+>>> This is already present:
+>>> enum {
+>>>         TCA_ACT_UNSPEC,
+>>>         TCA_ACT_KIND,
+>>>         TCA_ACT_OPTIONS,
+>>>         TCA_ACT_INDEX,
+>>>         TCA_ACT_STATS,
+>>>         TCA_ACT_PAD,
+>>>         TCA_ACT_COOKIE,
+>>>         __TCA_ACT_MAX
+>>> };
+>>>
+>>> This is nested inside the dump message (TCAA_MAX, TCA_ACT_TAB)
+>>>
+>>> Looks like you are mixing these 2.
+>>>
+>>
+>> No - That space is per action. The space i am defining is
+>> above that in the the hierarchy. There used to be only
+>> one attribute there (TCA_ACT_TAB) and now we are making
+>> it more generic.
+>
+> Right. That's what I say. And that higher level is used only for
+> dumping. That's why I suggested TCA_ACT_DUMP prefix.
+>
 
---A6N2fC+uXW/VQSAv
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+DUMP is not right. _TAB is used for SET/DEL as well.
+why dont we leave this alone so we can progress?
+You can submit changes later if it bothers you still.
 
-On Thu, Apr 13, 2017 at 09:47:08PM +0300, Michael S. Tsirkin wrote:
-> On Thu, Apr 13, 2017 at 05:18:11PM +0100, Stefan Hajnoczi wrote:
-> > diff --git a/net/vmw_vsock/virtio_transport_common.c b/net/vmw_vsock/vi=
-rtio_transport_common.c
-> > index af087b4..aae60c1 100644
-> > --- a/net/vmw_vsock/virtio_transport_common.c
-> > +++ b/net/vmw_vsock/virtio_transport_common.c
-> > @@ -16,6 +16,7 @@
-> >  #include <linux/virtio_ids.h>
-> >  #include <linux/virtio_config.h>
-> >  #include <linux/virtio_vsock.h>
-> > +#include <uapi/linux/vsockmon.h>
-> > =20
-> >  #include <net/sock.h>
-> >  #include <net/af_vsock.h>
-> > @@ -85,6 +86,63 @@ virtio_transport_alloc_pkt(struct virtio_vsock_pkt_i=
-nfo *info,
-> >  	return NULL;
-> >  }
-> > =20
-> > +/* Packet capture */
-> > +void virtio_transport_deliver_tap_pkt(struct virtio_vsock_pkt *pkt)
-> > +{
-> > +	struct sk_buff *skb;
-> > +	struct af_vsockmon_hdr *hdr;
-> > +	unsigned char *t_hdr, *payload;
-> > +
-> > +	skb =3D alloc_skb(sizeof(*hdr) + sizeof(pkt->hdr) + pkt->len,
-> > +			GFP_ATOMIC);
-> > +	if (!skb)
-> > +		return; /* nevermind if we cannot capture the packet */
-> > +
-> > +	hdr =3D (struct af_vsockmon_hdr *)skb_put(skb, sizeof(*hdr));
-> > +
-> > +	/* pkt->hdr is little-endian so no need to byteswap here */
->=20
-> Comment does not seem to make sense. Drop it?
+>
+>>
+>>>
+>>>
+>>
+>>>> It is a _lot_ of code to change! Note:
+>>>> This is all the UAPI visible code (the same coding style for 20 years).
+>>>> I am worried about this part.
+>>>
+>>> We'll see. Lets do it in a sensitive way, in steps. But for new things,
+>>> I think it is good not to stick with old and outlived habits.
+>>>
+>>>
+>>
+>> I know you have the muscle to get it done - so fine, i will start
+>> with this one change.
+>>
+>>>
+>>> Netlink is TLV, should be used as TLV. I don't see how you can run out
+>>> any space. You tend to use Netlink in some weird hybrid mode, with only
+>>> argument being space. I think that couple of bytes wasted is not
+>>> a problem at all...
+>>>
+>>
+>> You are not making sense to me still.
+>> What you describe as "a couple of bytes" adds up when you have
+>> a large number of objects. I am trying to cut down on data back
+>> and forth from user/kernel and a bitmap is a well understood entity.
+>
+> The attributes in question are per-message, not per-object
+>
+>
+>>
+>> Even if i did use a TLV - when i am representing flags which require one
+>> bit each - it makes sense to use a bitmask encapsulated in a TLV. Not
+>> to waste a TLV per bit.
+>
+> That is the only correct way. For example, in future the kernel may
+> report in extended ack that it does not support some specific attribute
+> user passed. If you pack it all in one attr, that would not be possible.
+> Also, what prevents user from passing random data on bit flag positions
+> that you are not using? Current kernel would ignore it. Next kernel will
+> do something different according to the flag bit. That is UAPI break.
+> Essentialy the same thing what DaveM said about the struct. You have to
+> define this completely, at the beginning, not possible to use the unused
+> bits for other things in the future.
+>
 
-All fields in pkt->hdr are little-endian.  All fields in the
-af_vsockmon_hdr are little-endian too.
 
-Normally code operating on either of these structs byteswaps the fields.
-Therefore it seemed worth a comment to clarify that it's okay to omit
-byteswaps.  The comment will help anyone auditing the code for
-endianness bugs.
+They are not the same issue Jiri. We have used bitmasks fine on netlink
+message for a millenia. Nobody sets garbage on a bitmask they are not
+supposed to touch. The struct padding thing is a shame the way it
+turned out - now netlink can no longer have a claim to be a (good)
+wire protocol.
+Other thing: I know you feel strongly about this but I dont agree that
+everything has to be a TLV and in no way, as a matter of principle, you 
+are going to convince me  (even when the cows come home) that I have to
+use 64 bits to carry a single bit just so I can use TLVs.
 
-Why do you say it doesn't make sense?
-
-> > +	hdr->src_cid =3D pkt->hdr.src_cid;
-> > +	hdr->src_port =3D pkt->hdr.src_port;
-> > +	hdr->dst_cid =3D pkt->hdr.dst_cid;
-> > +	hdr->dst_port =3D pkt->hdr.dst_port;
-> > +
-> > +	hdr->transport =3D cpu_to_le16(AF_VSOCK_TRANSPORT_VIRTIO);
-> > +	hdr->len =3D cpu_to_le16(sizeof(pkt->hdr));
-> > +	hdr->reserved[0] =3D hdr->reserved[1] =3D 0;
-> > +
-> > +	switch(cpu_to_le16(pkt->hdr.op)) {
->=20
-> I'd expect this to be le16_to_cpu.
-> Does this pass check build?
-
-You are right, make C=3D2 warns about this and it should be le16_to_cpu().
-I'll run check builds from now on.
-
---A6N2fC+uXW/VQSAv
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEcBAEBAgAGBQJY+I4mAAoJEJykq7OBq3PIzw0H/236+jigwdt58+xh2z1D7gRy
-e3CPekZPrV7dch1i1g2WpybdkYiB+KndhqTW/Va6K/a2c6bcZMePXD3x6x+nSDjG
-nTkwhmiArTx9Sqkzv0W47kqLxH/RWiAnlPFUWNhPBFBlSjiklRnKLmlWeWln8YaV
-xpDtzK1Vjbb04KMAzzjpR0WEBGrqNb9Wo6yFNi9+Ol37D36WGzCeQRVaTTQqXqKt
-hmU0kx38QzbQ7TksMg8hgVXwmKITN0vr+jXFgEgjQDxyaTRtvtlatGuPw/c5Ms7A
-fC7c55KGK+SesKEUOUfLno4TC7rUQXOHcM3Yfq4UowuZ/iKvSbMo4mAXsvip22g=
-=PdWb
------END PGP SIGNATURE-----
-
---A6N2fC+uXW/VQSAv--
+cheers,
+jamal
