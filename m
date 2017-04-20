@@ -1,103 +1,68 @@
-From: Andrey Konovalov <andreyknvl@google.com>
-Subject: Re: [PATCH net] net: ipv6: RTF_PCPU should not be settable from userspace
-Date: Thu, 20 Apr 2017 14:09:20 +0200
-Message-ID: <CAAeHK+zw3LX8rDJUrfaU5of8MrkUXsmwyLtUBMPaLtVykCUTQw@mail.gmail.com>
-References: <1492636783-29756-1-git-send-email-dsa@cumulusnetworks.com> <20170419215232.2lu7kaebwg75ikn3@giedrius-mbp.dhcp.thefacebook.com>
+From: James Hughes <james.hughes@raspberrypi.org>
+Subject: Re: [PATCH] brcm80211: brcmfmac: Ensure that incoming skb's are writable
+Date: Thu, 20 Apr 2017 13:09:20 +0100
+Message-ID: <CAE_XsMJGpKKdZ4E90tkzYwe+7KJ8JB5Rwrzga6aUi1LZG+wH4w@mail.gmail.com>
+References: <20170420111651.10213-1-james.hughes@raspberrypi.org> <87y3uv48nv.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: David Ahern <dsa@cumulusnetworks.com>,
-        netdev <netdev@vger.kernel.org>
-To: Martin KaFai Lau <kafai@fb.com>
+Cc: netdev@vger.kernel.org,
+        Arend van Spriel <arend.vanspriel@broadcom.com>,
+        Franky Lin <franky.lin@broadcom.com>,
+        Hante Meuleman <hante.meuleman@broadcom.com>,
+        linux-wireless@vger.kernel.org
+To: Kalle Valo <kvalo@codeaurora.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yb0-f174.google.com ([209.85.213.174]:33779 "EHLO
-        mail-yb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S969158AbdDTMJV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 08:09:21 -0400
-Received: by mail-yb0-f174.google.com with SMTP id 81so24230472ybp.0
+Received: from mx07-00252a01.pphosted.com ([62.209.51.214]:47373 "EHLO
+        mx07-00252a01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S969221AbdDTMJX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 08:09:23 -0400
+Received: from pps.filterd (m0102628.ppops.net [127.0.0.1])
+        by mx07-00252a01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v3KC9L3Y002202
+        for <netdev@vger.kernel.org>; Thu, 20 Apr 2017 13:09:21 +0100
+Received: from mail-wr0-f198.google.com (mail-wr0-f198.google.com [209.85.128.198])
+        by mx07-00252a01.pphosted.com with ESMTP id 29wqp2rta0-1
+        (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128 verify=OK)
+        for <netdev@vger.kernel.org>; Thu, 20 Apr 2017 13:09:21 +0100
+Received: by mail-wr0-f198.google.com with SMTP id v6so5401378wrc.21
         for <netdev@vger.kernel.org>; Thu, 20 Apr 2017 05:09:21 -0700 (PDT)
-In-Reply-To: <20170419215232.2lu7kaebwg75ikn3@giedrius-mbp.dhcp.thefacebook.com>
+In-Reply-To: <87y3uv48nv.fsf@kamboji.qca.qualcomm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thanks!
-
-Tested-by: Andrey Konovalov <andreyknvl@google.com>
-
-On Wed, Apr 19, 2017 at 11:52 PM, Martin KaFai Lau <kafai@fb.com> wrote:
-> On Wed, Apr 19, 2017 at 02:19:43PM -0700, David Ahern wrote:
->> Andrey reported a fault in the IPv6 route code:
->>
->> kasan: GPF could be caused by NULL-ptr deref or user memory access
->> general protection fault: 0000 [#1] SMP KASAN
->> Modules linked in:
->> CPU: 1 PID: 4035 Comm: a.out Not tainted 4.11.0-rc7+ #250
->> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
->> task: ffff880069809600 task.stack: ffff880062dc8000
->> RIP: 0010:ip6_rt_cache_alloc+0xa6/0x560 net/ipv6/route.c:975
->> RSP: 0018:ffff880062dced30 EFLAGS: 00010206
->> RAX: dffffc0000000000 RBX: ffff8800670561c0 RCX: 0000000000000006
->> RDX: 0000000000000003 RSI: ffff880062dcfb28 RDI: 0000000000000018
->> RBP: ffff880062dced68 R08: 0000000000000001 R09: 0000000000000000
->> R10: 0000000000000000 R11: 0000000000000000 R12: 0000000000000000
->> R13: ffff880062dcfb28 R14: dffffc0000000000 R15: 0000000000000000
->> FS:  00007feebe37e7c0(0000) GS:ffff88006cb00000(0000) knlGS:0000000000000000
->> CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
->> CR2: 00000000205a0fe4 CR3: 000000006b5c9000 CR4: 00000000000006e0
->> Call Trace:
->>  ip6_pol_route+0x1512/0x1f20 net/ipv6/route.c:1128
->>  ip6_pol_route_output+0x4c/0x60 net/ipv6/route.c:1212
->> ...
->>
->> Andrey's syzkaller program passes rtmsg.rtmsg_flags with the RTF_PCPU bit
->> set. Flags passed to the kernel are blindly copied to the allocated
->> rt6_info by ip6_route_info_create making a newly inserted route appear
->> as though it is a per-cpu route. ip6_rt_cache_alloc sees the flag set
->> and expects rt->dst.from to be set - which it is not since it is not
->> really a per-cpu copy. The subsequent call to __ip6_dst_alloc then
->> generates the fault.
->>
->> Fix by checking for the flag and failing with EINVAL.
-> Thanks for the fix.
+On 20 April 2017 at 12:31, Kalle Valo <kvalo@codeaurora.org> wrote:
+> + linux-wireless
 >
-> Acked-by: Martin KaFai Lau <kafai@fb.com>
+> James Hughes <james.hughes@raspberrypi.org> writes:
 >
+>> The driver was adding header information to incoming skb
+>> without ensuring the head was uncloned and hence writable.
 >>
->> Fixes: d52d3997f843f ("ipv6: Create percpu rt6_info")
->> Reported-by: Andrey Konovalov <andreyknvl@google.com>
->> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
->> ---
->>  include/uapi/linux/ipv6_route.h | 2 +-
->>  net/ipv6/route.c                | 4 ++++
->>  2 files changed, 5 insertions(+), 1 deletion(-)
+>> skb_cow_head has been used to ensure they are writable, however,
+>> this required some changes to error handling to ensure that
+>> if skb_cow_head failed it was not ignored.
 >>
->> diff --git a/include/uapi/linux/ipv6_route.h b/include/uapi/linux/ipv6_route.h
->> index 85bbb1799df3..d496c02e14bc 100644
->> --- a/include/uapi/linux/ipv6_route.h
->> +++ b/include/uapi/linux/ipv6_route.h
->> @@ -35,7 +35,7 @@
->>  #define RTF_PREF(pref)       ((pref) << 27)
->>  #define RTF_PREF_MASK        0x18000000
+>> This really needs to be reviewed by someone who is more familiar
+>> with this code base to ensure any deallocation of skb's is
+>> still correct.
 >>
->> -#define RTF_PCPU     0x40000000
->> +#define RTF_PCPU     0x40000000      /* read-only: can not be set by user */
->>  #define RTF_LOCAL    0x80000000
->>
->>
->> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
->> index 4ba7c49872ff..a1bf426c959b 100644
->> --- a/net/ipv6/route.c
->> +++ b/net/ipv6/route.c
->> @@ -1854,6 +1854,10 @@ static struct rt6_info *ip6_route_info_create(struct fib6_config *cfg)
->>       int addr_type;
->>       int err = -EINVAL;
->>
->> +     /* RTF_PCPU is an internal flag; can not be set by userspace */
->> +     if (cfg->fc_flags & RTF_PCPU)
->> +             goto out;
->> +
->>       if (cfg->fc_dst_len > 128 || cfg->fc_src_len > 128)
->>               goto out;
->>  #ifndef CONFIG_IPV6_SUBTREES
->> --
->> 2.9.3
->>
+>> Signed-off-by: James Hughes <james.hughes@raspberrypi.org>
+>
+> You should also CC linux-wireless, otherwise patchwork won't see it.
+>
+> --
+> Kalle Valo
+
+Thanks Kalle, I wasn't subscribed to wireless, but have now done so. I
+also failed to read the MAINTAINERS list correctly..
+
+With regard to this particular patch, this is related to the recent
+patches to use skb_cow_head in a number of USB net drivers to ensure
+they can write headers correctly, and I suspect the same fault is
+possible/likely in other drivers outside the USB net realm, as this
+patch shows.
+
+I'm not overly happy with the error handling in this patch, but that
+said, the error handling over this entire driver does strike me as
+suspect. Quite a few places where return codes are ignored, just in my
+quick examination. So not really sure how to proceed past this patch,
+if at all.
