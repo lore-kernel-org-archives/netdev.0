@@ -1,40 +1,59 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [net-next 04/14] i40e: dump VF information in debugfs
-Date: Thu, 20 Apr 2017 09:16:12 +0300
-Message-ID: <CAJ3xEMiCuV5A_Ccy7=mKSjc9xxhg4enUxDq-MM-cO3YjSa439A@mail.gmail.com>
-References: <20170420015750.6828-1-jeffrey.t.kirsher@intel.com> <20170420015750.6828-5-jeffrey.t.kirsher@intel.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net-next v2 5/5] virtio-net: keep tx interrupts disabled
+	unless kick
+Date: Thu, 20 Apr 2017 14:17:21 +0800
+Message-ID: <72551dd3-ba91-812e-9065-d153bf8a7024@redhat.com>
+References: <20170418202108.61920-1-willemdebruijn.kernel@gmail.com>
+	<20170418202108.61920-6-willemdebruijn.kernel@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        "nhorman@redhat.com" <nhorman@redhat.com>,
-        "sassmann@redhat.com" <sassmann@redhat.com>,
-        "jogreene@redhat.com" <jogreene@redhat.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        Mitch Williams <mitch.a.williams@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f52.google.com ([209.85.218.52]:34427 "EHLO
-        mail-oi0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S941326AbdDTGQN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 02:16:13 -0400
-Received: by mail-oi0-f52.google.com with SMTP id x184so36096097oia.1
-        for <netdev@vger.kernel.org>; Wed, 19 Apr 2017 23:16:12 -0700 (PDT)
-In-Reply-To: <20170420015750.6828-5-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Transfer-Encoding: base64
+Cc: Willem de Bruijn <willemb@google.com>,
+	virtualization@lists.linux-foundation.org, davem@davemloft.net,
+	mst@redhat.com
+To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>, netdev@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20170418202108.61920-6-willemdebruijn.kernel@gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 20, 2017 at 4:57 AM, Jeff Kirsher
-<jeffrey.t.kirsher@intel.com> wrote:
-> From: Mitch Williams <mitch.a.williams@intel.com>
->
-> Dump some internal state about VFs through debugfs. This provides
-> information not available with 'ip link show'.
-
-such as?
-
-donnwantobethedebugfspolice, but still, in the 2-3 times we tried to
-push debugfs to MLNX NIC
-drivers, Dave disallowed that, and lately the switch team even went
-further and deleted that
-portion of the mlxsw driver -- all to all,  I don't see much point for
-these type of changes, thoughts?
+CgpPbiAyMDE35bm0MDTmnIgxOeaXpSAwNDoyMSwgV2lsbGVtIGRlIEJydWlqbiB3cm90ZToKPiBG
+cm9tOiBXaWxsZW0gZGUgQnJ1aWpuIDx3aWxsZW1iQGdvb2dsZS5jb20+Cj4KPiBUeCBuYXBpIG1v
+ZGUgaW5jcmVhc2VzIHRoZSByYXRlIG9mIHRyYW5zbWl0IGludGVycnVwdHMuIFN1cHByZXNzIHNv
+bWUKPiBieSBtYXNraW5nIGludGVycnVwdHMgd2hpbGUgbW9yZSBwYWNrZXRzIGFyZSBleHBlY3Rl
+ZC4gVGhlIGludGVycnVwdHMKPiB3aWxsIGJlIHJlZW5hYmxlZCBiZWZvcmUgdGhlIGxhc3QgcGFj
+a2V0IGlzIHNlbnQuCj4KPiBUaGlzIG9wdGltaXphdGlvbiByZWR1Y2VzIHRoZSB0aHJvdWdwdXQg
+ZHJvcCB3aXRoIHR4IG5hcGkgZm9yCj4gdW5pZGlyZWN0aW9uYWwgZmxvd3Mgc3VjaCBhcyBVRFBf
+U1RSRUFNIHRoYXQgZG8gbm90IGJlbmVmaXQgZnJvbQo+IGNsZWFuaW5nIHR4IGNvbXBsZXRpb25z
+IGluIHRoZSB0aGUgcmVjZWl2ZSBuYXBpIGhhbmRsZXIuCj4KPiBTaWduZWQtb2ZmLWJ5OiBXaWxs
+ZW0gZGUgQnJ1aWpuIDx3aWxsZW1iQGdvb2dsZS5jb20+Cj4gLS0tCj4gICBkcml2ZXJzL25ldC92
+aXJ0aW9fbmV0LmMgfCA4ICsrKysrKystCj4gICAxIGZpbGUgY2hhbmdlZCwgNyBpbnNlcnRpb25z
+KCspLCAxIGRlbGV0aW9uKC0pCj4KPiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvdmlydGlvX25l
+dC5jIGIvZHJpdmVycy9uZXQvdmlydGlvX25ldC5jCj4gaW5kZXggYjE0YzgyY2UwMDMyLi5iMTA3
+YWUwMTE2MzIgMTAwNjQ0Cj4gLS0tIGEvZHJpdmVycy9uZXQvdmlydGlvX25ldC5jCj4gKysrIGIv
+ZHJpdmVycy9uZXQvdmlydGlvX25ldC5jCj4gQEAgLTExOTYsOCArMTE5NiwxNCBAQCBzdGF0aWMg
+bmV0ZGV2X3R4X3Qgc3RhcnRfeG1pdChzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBzdHJ1Y3QgbmV0X2Rl
+dmljZSAqZGV2KQo+ICAgCWJvb2wgdXNlX25hcGkgPSBzcS0+bmFwaS53ZWlnaHQ7Cj4gICAKPiAg
+IAkvKiBGcmVlIHVwIGFueSBwZW5kaW5nIG9sZCBidWZmZXJzIGJlZm9yZSBxdWV1ZWluZyBuZXcg
+b25lcy4gKi8KPiAtCWlmICghdXNlX25hcGkpCj4gKwlpZiAodXNlX25hcGkpIHsKPiArCQlpZiAo
+a2ljaykKPiArCQkJdmlydHF1ZXVlX2VuYWJsZV9jYl9kZWxheWVkKHNxLT52cSk7Cj4gKwkJZWxz
+ZQo+ICsJCQl2aXJ0cXVldWVfZGlzYWJsZV9jYihzcS0+dnEpOwoKU2luY2UgdmlydHF1ZXVlX2Rp
+c2FibGVfY2IoKSBkbyBub3RoaW5nIGZvciBldmVudCBpZHguIEkgd29uZGVyIHdoZXRoZXIgCm9y
+IG5vdCBqdXN0IGNhbGxpbmcgZW5hYmxlX2NiX2RlYWx5ZWQoKSBpcyBvayBoZXJlLgoKQnR3LCBp
+dCBkb2VzIG5vdCBkaXNhYmxlIGludGVycnVwdCBhdCBhbGwsIEkgcHJvcG9zZSBhIHBhdGNoIGlu
+IHRoZSBwYXN0IAp3aGljaCBjYW4gZG8gbW9yZSB0aGFuIHRoaXM6CgpodHRwczovL3BhdGNod29y
+ay5rZXJuZWwub3JnL3BhdGNoLzY0NzI2MDEvCgpUaGFua3MKCgoKPiArCX0gZWxzZSB7Cj4gICAJ
+CWZyZWVfb2xkX3htaXRfc2ticyhzcSk7Cj4gKwl9Cj4gICAKPiAgIAkvKiB0aW1lc3RhbXAgcGFj
+a2V0IGluIHNvZnR3YXJlICovCj4gICAJc2tiX3R4X3RpbWVzdGFtcChza2IpOwoKX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KVmlydHVhbGl6YXRpb24gbWFp
+bGluZyBsaXN0ClZpcnR1YWxpemF0aW9uQGxpc3RzLmxpbnV4LWZvdW5kYXRpb24ub3JnCmh0dHBz
+Oi8vbGlzdHMubGludXhmb3VuZGF0aW9uLm9yZy9tYWlsbWFuL2xpc3RpbmZvL3ZpcnR1YWxpemF0
+aW9u
