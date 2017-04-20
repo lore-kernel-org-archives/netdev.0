@@ -1,7 +1,7 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 16/16] esp4/6: Fix GSO path for non-GSO SW-crypto packets
-Date: Thu, 20 Apr 2017 10:55:15 +0200
-Message-ID: <1492678515-14347-17-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH 13/16] xfrm: Add encapsulation header offsets while SKB is not encrypted
+Date: Thu, 20 Apr 2017 10:55:12 +0200
+Message-ID: <1492678515-14347-14-git-send-email-steffen.klassert@secunet.com>
 References: <1492678515-14347-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,9 +10,9 @@ Cc: Herbert Xu <herbert@gondor.apana.org.au>,
         <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:51678 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([62.96.220.36]:51686 "EHLO a.mx.secunet.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S970103AbdDTI5s (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S970093AbdDTI5s (ORCPT <rfc822;netdev@vger.kernel.org>);
         Thu, 20 Apr 2017 04:57:48 -0400
 In-Reply-To: <1492678515-14347-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
@@ -20,69 +20,99 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Ilan Tayari <ilant@mellanox.com>
 
-If esp*_offload module is loaded, outbound packets take the
-GSO code path, being encapsulated at layer 3, but encrypted
-in layer 2. validate_xmit_xfrm calls esp*_xmit for that.
+Both esp4 and esp6 used to assume that the SKB payload is encrypted
+and therefore the inner_network and inner_transport offsets are
+not relevant.
+When doing crypto offload in the NIC, this is no longer the case
+and the NIC driver needs these offsets so it can do TX TCP checksum
+offloading.
+This patch sets the inner_network and inner_transport members of
+the SKB, as well as encapsulation, to reflect the actual positions
+of these headers, and removes them only once encryption is done
+on the payload.
 
-esp*_xmit was wrongfully detecting these packets as going
-through hardware crypto offload, while in fact they should
-be encrypted in software, causing plaintext leakage to
-the network, and also dropping at the receiver side.
-
-Perform the encryption in esp*_xmit, if the SA doesn't have
-a hardware offload_handle.
-
-Also, align esp6 code to esp4 logic.
-
-Fixes: fca11ebde3f0 ("esp4: Reorganize esp_output")
-Fixes: 383d0350f2cc ("esp6: Reorganize esp_output")
 Signed-off-by: Ilan Tayari <ilant@mellanox.com>
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- net/ipv4/esp4_offload.c | 4 ++--
- net/ipv6/esp6_offload.c | 7 ++++---
- 2 files changed, 6 insertions(+), 5 deletions(-)
+ net/ipv4/xfrm4_mode_transport.c | 2 ++
+ net/ipv4/xfrm4_mode_tunnel.c    | 3 +++
+ net/ipv6/xfrm6_mode_transport.c | 1 +
+ net/ipv6/xfrm6_mode_tunnel.c    | 3 +++
+ net/xfrm/xfrm_output.c          | 2 ++
+ 5 files changed, 11 insertions(+)
 
-diff --git a/net/ipv4/esp4_offload.c b/net/ipv4/esp4_offload.c
-index f3e33c2..e066601 100644
---- a/net/ipv4/esp4_offload.c
-+++ b/net/ipv4/esp4_offload.c
-@@ -209,8 +209,8 @@ static int esp_xmit(struct xfrm_state *x, struct sk_buff *skb,  netdev_features_
- 	if (!xo)
- 		return -EINVAL;
+diff --git a/net/ipv4/xfrm4_mode_transport.c b/net/ipv4/xfrm4_mode_transport.c
+index 6c2411d..3d36644 100644
+--- a/net/ipv4/xfrm4_mode_transport.c
++++ b/net/ipv4/xfrm4_mode_transport.c
+@@ -24,6 +24,8 @@ static int xfrm4_transport_output(struct xfrm_state *x, struct sk_buff *skb)
+ 	struct iphdr *iph = ip_hdr(skb);
+ 	int ihl = iph->ihl * 4;
  
--	if (!(features & NETIF_F_HW_ESP) ||
--	    (x->xso.offload_handle &&  x->xso.dev != skb->dev)) {
-+	if (!(features & NETIF_F_HW_ESP) || !x->xso.offload_handle ||
-+	    (x->xso.dev != skb->dev)) {
- 		xo->flags |= CRYPTO_FALLBACK;
- 		hw_offload = false;
- 	}
-diff --git a/net/ipv6/esp6_offload.c b/net/ipv6/esp6_offload.c
-index 95f10728..d950d43 100644
---- a/net/ipv6/esp6_offload.c
-+++ b/net/ipv6/esp6_offload.c
-@@ -211,9 +211,10 @@ static int esp6_xmit(struct xfrm_state *x, struct sk_buff *skb,  netdev_features
- 	if (!xo)
- 		return -EINVAL;
++	skb_set_inner_transport_header(skb, skb_transport_offset(skb));
++
+ 	skb_set_network_header(skb, -x->props.header_len);
+ 	skb->mac_header = skb->network_header +
+ 			  offsetof(struct iphdr, protocol);
+diff --git a/net/ipv4/xfrm4_mode_tunnel.c b/net/ipv4/xfrm4_mode_tunnel.c
+index d3f2434..e6265e2 100644
+--- a/net/ipv4/xfrm4_mode_tunnel.c
++++ b/net/ipv4/xfrm4_mode_tunnel.c
+@@ -33,6 +33,9 @@ static int xfrm4_mode_tunnel_output(struct xfrm_state *x, struct sk_buff *skb)
+ 	struct iphdr *top_iph;
+ 	int flags;
  
--	if (!(features & NETIF_F_HW_ESP) ||
--	    (x->xso.offload_handle &&  x->xso.dev != skb->dev)) {
-+	if (!(features & NETIF_F_HW_ESP) || !x->xso.offload_handle ||
-+	    (x->xso.dev != skb->dev)) {
- 		xo->flags |= CRYPTO_FALLBACK;
-+		hw_offload = false;
- 	}
++	skb_set_inner_network_header(skb, skb_network_offset(skb));
++	skb_set_inner_transport_header(skb, skb_transport_offset(skb));
++
+ 	skb_set_network_header(skb, -x->props.header_len);
+ 	skb->mac_header = skb->network_header +
+ 			  offsetof(struct iphdr, protocol);
+diff --git a/net/ipv6/xfrm6_mode_transport.c b/net/ipv6/xfrm6_mode_transport.c
+index eb9b36b..7a92c0f 100644
+--- a/net/ipv6/xfrm6_mode_transport.c
++++ b/net/ipv6/xfrm6_mode_transport.c
+@@ -27,6 +27,7 @@ static int xfrm6_transport_output(struct xfrm_state *x, struct sk_buff *skb)
+ 	int hdr_len;
  
- 	esp.proto = xo->proto;
-@@ -254,7 +255,7 @@ static int esp6_xmit(struct xfrm_state *x, struct sk_buff *skb,  netdev_features
- 		ipv6_hdr(skb)->payload_len = htons(len);
- 	}
+ 	iph = ipv6_hdr(skb);
++	skb_set_inner_transport_header(skb, skb_transport_offset(skb));
  
--	if (x->xso.offload_handle && !(xo->flags & CRYPTO_FALLBACK))
-+	if (hw_offload)
- 		return 0;
+ 	hdr_len = x->type->hdr_offset(x, skb, &prevhdr);
+ 	skb_set_mac_header(skb, (prevhdr - x->props.header_len) - skb->data);
+diff --git a/net/ipv6/xfrm6_mode_tunnel.c b/net/ipv6/xfrm6_mode_tunnel.c
+index 19a60fc..02556e3 100644
+--- a/net/ipv6/xfrm6_mode_tunnel.c
++++ b/net/ipv6/xfrm6_mode_tunnel.c
+@@ -36,6 +36,9 @@ static int xfrm6_mode_tunnel_output(struct xfrm_state *x, struct sk_buff *skb)
+ 	struct ipv6hdr *top_iph;
+ 	int dsfield;
  
- 	esp.seqno = cpu_to_be64(xo->seq.low + ((u64)xo->seq.hi << 32));
++	skb_set_inner_network_header(skb, skb_network_offset(skb));
++	skb_set_inner_transport_header(skb, skb_transport_offset(skb));
++
+ 	skb_set_network_header(skb, -x->props.header_len);
+ 	skb->mac_header = skb->network_header +
+ 			  offsetof(struct ipv6hdr, nexthdr);
+diff --git a/net/xfrm/xfrm_output.c b/net/xfrm/xfrm_output.c
+index a150886..8c0b672 100644
+--- a/net/xfrm/xfrm_output.c
++++ b/net/xfrm/xfrm_output.c
+@@ -205,6 +205,7 @@ int xfrm_output(struct sock *sk, struct sk_buff *skb)
+ 	int err;
+ 
+ 	secpath_reset(skb);
++	skb->encapsulation = 0;
+ 
+ 	if (xfrm_dev_offload_ok(skb, x)) {
+ 		struct sec_path *sp;
+@@ -218,6 +219,7 @@ int xfrm_output(struct sock *sk, struct sk_buff *skb)
+ 		if (skb->sp)
+ 			secpath_put(skb->sp);
+ 		skb->sp = sp;
++		skb->encapsulation = 1;
+ 
+ 		sp->olen++;
+ 		sp->xvec[skb->sp->len++] = x;
 -- 
 2.7.4
