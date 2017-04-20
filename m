@@ -1,63 +1,70 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: macvlan: Fix device ref leak when purging bc_queue
-Date: Thu, 20 Apr 2017 20:55:12 +0800
-Message-ID: <20170420125512.GA9113@gondor.apana.org.au>
-References: <1492618528011.11322@Dell.com>
+From: Robert Shearman <rshearma@brocade.com>
+Subject: [PATCH net] ipv4: Avoid caching dsts when lookup skipped nh oif check
+Date: Thu, 20 Apr 2017 13:58:52 +0100
+Message-ID: <1492693132-4708-1-git-send-email-rshearma@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, Clifford.Wichmann@dell.com,
-        netdev@vger.kernel.org
-To: Joe.Ghalam@dell.com
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, David Ahern <dsa@cumulusnetworks.com>,
+        "Robert Shearman" <rshearma@brocade.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [198.176.57.175] ([198.176.57.175]:36838 "EHLO
-        deadmen.hmeau.com" rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org
-        with ESMTP id S941359AbdDTM4W (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 08:56:22 -0400
-Content-Disposition: inline
-In-Reply-To: <1492618528011.11322@Dell.com>
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:60782 "EHLO
+        mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1764767AbdDTM70 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 08:59:26 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When a parent macvlan device is destroyed we end up purging its
-broadcast queue without dropping the device reference count on
-the packet source device.  This causes the source device to linger.
+David reported that doing the following:
 
-This patch drops that reference count.
+    ip li add red type vrf table 10
+    ip link set dev eth1 vrf red
+    ip addr add 127.0.0.1/8 dev red
+    ip link set dev eth1 up
+    ip li set red up
+    ping -c1 -w1 -I red 127.0.0.1
+    ip li del red
 
-Fixes: 260916dfb48c ("macvlan: Fix potential use-after free for...")
-Reported-by: Joe Ghalam <Joe.Ghalam@dell.com>
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+results in a hang with this message:
 
-diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index 9261722..b34eaaa 100644
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@ -1139,6 +1139,7 @@ static int macvlan_port_create(struct net_device *dev)
- static void macvlan_port_destroy(struct net_device *dev)
- {
- 	struct macvlan_port *port = macvlan_port_get_rtnl(dev);
-+	struct sk_buff *skb;
+    unregister_netdevice: waiting for red to become free. Usage count = 1
+
+The problem is caused by caching the dst used for sending the packet
+out of the specified interface on the route that the lookup returned
+from the local table when the rule for the lookup in the local table
+is ordered before the rule for lookups using l3mdevs. Thus the dst
+could stay around until the route in the local table is deleted which
+may be never.
+
+Address the problem by not allocating a cacheable output dst if
+FLOWI_FLAG_SKIP_NH_OIF is set and the nh device differs from the
+device used for the dst.
+
+Fixes: ebfc102c566d ("net: vrf: Flip IPv4 output path from FIB lookup hook to out hook")
+Reported-by: David Ahern <dsa@cumulusnetworks.com>
+Signed-off-by: Robert Shearman <rshearma@brocade.com>
+---
+ net/ipv4/route.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index acd69cfe2951..f667783ffd19 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -2125,6 +2125,14 @@ static struct rtable *__mkroute_output(const struct fib_result *res,
+ 		fi = NULL;
+ 	}
  
- 	dev->priv_flags &= ~IFF_MACVLAN_PORT;
- 	netdev_rx_handler_unregister(dev);
-@@ -1147,7 +1148,15 @@ static void macvlan_port_destroy(struct net_device *dev)
- 	 * but we need to cancel it and purge left skbs if any.
- 	 */
- 	cancel_work_sync(&port->bc_work);
--	__skb_queue_purge(&port->bc_queue);
++	/* If the flag to skip the nh oif check is set then the output
++	 * device may not match the nh device, so cannot use or add to
++	 * cache in that case.
++	 */
++	if (unlikely(fl4->flowi4_flags & FLOWI_FLAG_SKIP_NH_OIF &&
++		     FIB_RES_NH(*res).nh_dev != dev_out))
++		do_cache = false;
 +
-+	while ((skb = __skb_dequeue(&port->bc_queue))) {
-+		const struct macvlan_dev *src = MACVLAN_SKB_CB(skb)->src;
-+
-+		if (src)
-+			dev_put(src->dev);
-+
-+		kfree_skb(skb);
-+	}
- 
- 	kfree(port);
- }
+ 	fnhe = NULL;
+ 	do_cache &= fi != NULL;
+ 	if (do_cache) {
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+2.1.4
