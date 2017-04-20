@@ -1,69 +1,77 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: more on FP operations
-Date: Thu, 20 Apr 2017 23:52:44 +0200
-Message-ID: <58F92DAC.3010706@iogearbox.net>
-References: <20170420.140617.91794616324352770.davem@davemloft.net>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH 1/1] bonding: use 'M' or 'G' based on the speed
+Date: Thu, 20 Apr 2017 14:53:19 -0700
+Message-ID: <20170420145319.17ed4296@xeon-e3>
+References: <1492679195-19938-1-git-send-email-yanjun.zhu@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: borkmann@iogearbox.net, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>, ast@fb.com
+Cc: j.vosburgh@gmail.com, vfalico@gmail.com, andy@greyhouse.net,
+        netdev@vger.kernel.org
+To: Zhu Yanjun <yanjun.zhu@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:48708 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S947818AbdDTVwy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 17:52:54 -0400
-In-Reply-To: <20170420.140617.91794616324352770.davem@davemloft.net>
+Received: from mail-io0-f179.google.com ([209.85.223.179]:33920 "EHLO
+        mail-io0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S947832AbdDTVxZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 17:53:25 -0400
+Received: by mail-io0-f179.google.com with SMTP id a103so89575465ioj.1
+        for <netdev@vger.kernel.org>; Thu, 20 Apr 2017 14:53:24 -0700 (PDT)
+In-Reply-To: <1492679195-19938-1-git-send-email-yanjun.zhu@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/20/2017 08:06 PM, David Miller wrote:
->
-> I'm running test_verifier for testing, and I notice in my JIT that a
-> 32-bit move from the frame pointer (BPF_REG_10) ends up in the JIT.
->
-> It is from this test:
->
-> 		"unpriv: partial copy of pointer",
-> 		.insns = {
-> 			BPF_MOV32_REG(BPF_REG_1, BPF_REG_10),
-> 			BPF_MOV64_IMM(BPF_REG_0, 0),
-> 			BPF_EXIT_INSN(),
-> 		},
-> 		.errstr_unpriv = "R10 partial copy",
-> 		.result_unpriv = REJECT,
-> 		.result = ACCEPT,
->
-> It seems to suggest that privileged code is allowed to do this, but I
-> can't think of a legitimate usage.
+On Thu, 20 Apr 2017 05:06:35 -0400
+Zhu Yanjun <yanjun.zhu@oracle.com> wrote:
 
-One thing I could think of right now would be for use in 32 bit
-archs, but that would still need to be taught to the verifier
-first. Other patterns f.e. like ...
+> If the speed of the slave netdev is more than 1000M,
+> it is better to use 'G' instead of 'M'.
+> 
+> Signed-off-by: Zhu Yanjun <yanjun.zhu@oracle.com>
+> ---
+>  drivers/net/bonding/bond_main.c   | 8 ++++++--
+>  drivers/net/bonding/bond_procfs.c | 6 +++++-
+>  2 files changed, 11 insertions(+), 3 deletions(-)
+> 
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+> index af9f0ce..1aad13d 100644
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -2147,9 +2147,13 @@ static void bond_miimon_commit(struct bonding *bond)
+>  				bond_set_backup_slave(slave);
+>  			}
+>  
+> -			netdev_info(bond->dev, "link status definitely up for interface %s, %u Mbps %s duplex\n",
+> +			netdev_info(bond->dev, "link status definitely up for interface %s, %u%sbps %s duplex\n",
+>  				    slave->dev->name,
+> -				    slave->speed == SPEED_UNKNOWN ? 0 : slave->speed,
+> +				    slave->speed == SPEED_UNKNOWN ? 0 :
+> +				    (slave->speed > 1000 ?
+> +				    slave->speed / 1000 : slave->speed),
+> +				    slave->speed > 1000 ?
+> +				    slave->speed % 1000 ? ".5 G" : " G" : " M",
+>  				    slave->duplex ? "full" : "half");
 
-         {
-                 "unpriv: adding of fp",
-                 .insns = {
-                         BPF_MOV64_IMM(BPF_REG_1, 0),
-                         BPF_ALU64_REG(BPF_ADD, BPF_REG_1, BPF_REG_10),
-                         BPF_MOV64_IMM(BPF_REG_0, 0),
-                         BPF_EXIT_INSN(),
-                 },
-                 .errstr_unpriv = "pointer arithmetic prohibited",
-                 .result_unpriv = REJECT,
-                 .result = ACCEPT,
-         },
+Or drop the message all together. This is just log noise in a production system.
 
-... are currently also possible, but in the above and the partial
-copy r1 is always considered as UNKNOWN_VALUE from that point onward
-and there's not really much we could do with it anymore, except
-perhaps passing to bpf_probe_read() for inspection in tracing for
-some reason. Since there are also various other pointers, it is
-really only the FP that needs to be special cased for sparc JIT,
-right?
 
-> I really want to be able to JIT anything the verifier accepts, but I
-> have a hard time justifying adding 32-bit FP register move support,
-> adjusting for the stack bias, etc.
->
-> Thanks.
+>  
+>  			/* notify ad that the link status has changed */
+> diff --git a/drivers/net/bonding/bond_procfs.c b/drivers/net/bonding/bond_procfs.c
+> index f514fe5..4c31055 100644
+> --- a/drivers/net/bonding/bond_procfs.c
+> +++ b/drivers/net/bonding/bond_procfs.c
+> @@ -173,7 +173,11 @@ static void bond_info_show_slave(struct seq_file *seq,
+>  	if (slave->speed == SPEED_UNKNOWN)
+>  		seq_printf(seq, "Speed: %s\n", "Unknown");
+>  	else
+> -		seq_printf(seq, "Speed: %d Mbps\n", slave->speed);
+> +		seq_printf(seq, "Speed: %d%sbps\n",
+> +			   slave->speed > 1000 ?
+> +			   slave->speed / 1000 : slave->speed,
+> +			   slave->speed > 1000 ?
+> +			   (slave->speed % 1000 ? ".5 G" : " G") : " M");
+>  
+>  	if (slave->duplex == DUPLEX_UNKNOWN)
+>  		seq_printf(seq, "Duplex: %s\n", "Unknown");
+
+You can't change output formats of /proc since it technically and kernel/userspace ABI.
