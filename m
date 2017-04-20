@@ -1,16 +1,16 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 12/14] i40e: split some code in i40e_reset_vf into helpers
-Date: Wed, 19 Apr 2017 18:57:48 -0700
-Message-ID: <20170420015750.6828-13-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 11/14] i40e: remove I40E_FLAG_IN_NETPOLL entirely
+Date: Wed, 19 Apr 2017 18:57:47 -0700
+Message-ID: <20170420015750.6828-12-jeffrey.t.kirsher@intel.com>
 References: <20170420015750.6828-1-jeffrey.t.kirsher@intel.com>
 Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga07.intel.com ([134.134.136.100]:29694 "EHLO mga07.intel.com"
+Received: from mga07.intel.com ([134.134.136.100]:20804 "EHLO mga07.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S939108AbdDTB6C (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S939107AbdDTB6C (ORCPT <rfc822;netdev@vger.kernel.org>);
         Wed, 19 Apr 2017 21:58:02 -0400
 In-Reply-To: <20170420015750.6828-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,163 +18,38 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Jacob Keller <jacob.e.keller@intel.com>
 
-A future patch is going to want to re-use some of the code in
-i40e_reset_vf, so lets break up the beginning and ending parts into
-their own helper functions. The first function will be used to
-initialize the reset on a VF, while the second function will be used to
-finalize the reset and restore functionality.
+This flag was originally intended to be used to let some
+driver code know when we were running from netpoll.
+Ultimately this was not necessary and we never used it.
+Let's remove it
 
-Change-ID: I48df808b8bf09de3c2ed8c521f57b3f0ab9e5907
+Change-ID: I43b72483d91c1638071d2a7f389ab171ec5b796a
 Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 109 ++++++++++++++-------
- 1 file changed, 72 insertions(+), 37 deletions(-)
+ drivers/net/ethernet/intel/i40evf/i40evf.h | 2 --
+ 1 file changed, 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index 65c95ffc15ec..9a75ce3f1564 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -923,22 +923,19 @@ static int i40e_quiesce_vf_pci(struct i40e_vf *vf)
- }
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf.h b/drivers/net/ethernet/intel/i40evf/i40evf.h
+index 7bbd11abed08..40f56e2335df 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf.h
++++ b/drivers/net/ethernet/intel/i40evf/i40evf.h
+@@ -202,7 +202,6 @@ struct i40evf_adapter {
  
- /**
-- * i40e_reset_vf
-+ * i40e_trigger_vf_reset
-  * @vf: pointer to the VF structure
-  * @flr: VFLR was issued or not
-  *
-- * reset the VF
-+ * Trigger hardware to start a reset for a particular VF. Expects the caller
-+ * to wait the proper amount of time to allow hardware to reset the VF before
-+ * it cleans up and restores VF functionality.
-  **/
--void i40e_reset_vf(struct i40e_vf *vf, bool flr)
-+static void i40e_trigger_vf_reset(struct i40e_vf *vf, bool flr)
- {
- 	struct i40e_pf *pf = vf->pf;
- 	struct i40e_hw *hw = &pf->hw;
- 	u32 reg, reg_idx, bit_idx;
--	bool rsd = false;
--	int i;
--
--	if (test_and_set_bit(__I40E_VF_DISABLE, &pf->state))
--		return;
- 
- 	/* warn the VF */
- 	clear_bit(I40E_VF_STAT_ACTIVE, &vf->vf_states);
-@@ -970,37 +967,22 @@ void i40e_reset_vf(struct i40e_vf *vf, bool flr)
- 	if (i40e_quiesce_vf_pci(vf))
- 		dev_err(&pf->pdev->dev, "VF %d PCI transactions stuck\n",
- 			vf->vf_id);
-+}
- 
--	/* poll VPGEN_VFRSTAT reg to make sure
--	 * that reset is complete
--	 */
--	for (i = 0; i < 10; i++) {
--		/* VF reset requires driver to first reset the VF and then
--		 * poll the status register to make sure that the reset
--		 * completed successfully. Due to internal HW FIFO flushes,
--		 * we must wait 10ms before the register will be valid.
--		 */
--		usleep_range(10000, 20000);
--		reg = rd32(hw, I40E_VPGEN_VFRSTAT(vf->vf_id));
--		if (reg & I40E_VPGEN_VFRSTAT_VFRD_MASK) {
--			rsd = true;
--			break;
--		}
--	}
--
--	if (flr)
--		usleep_range(10000, 20000);
--
--	if (!rsd)
--		dev_err(&pf->pdev->dev, "VF reset check timeout on VF %d\n",
--			vf->vf_id);
--
--	/* On initial reset, we won't have any queues */
--	if (vf->lan_vsi_idx == 0)
--		goto complete_reset;
-+/**
-+ * i40e_cleanup_reset_vf
-+ * @vf: pointer to the VF structure
-+ *
-+ * Cleanup a VF after the hardware reset is finished. Expects the caller to
-+ * have verified whether the reset is finished properly, and ensure the
-+ * minimum amount of wait time has passed.
-+ **/
-+static void i40e_cleanup_reset_vf(struct i40e_vf *vf)
-+{
-+	struct i40e_pf *pf = vf->pf;
-+	struct i40e_hw *hw = &pf->hw;
-+	u32 reg;
- 
--	i40e_vsi_stop_rings(pf->vsi[vf->lan_vsi_idx]);
--complete_reset:
- 	/* free VF resources to begin resetting the VSI state */
- 	i40e_free_vf_res(vf);
- 
-@@ -1035,6 +1017,59 @@ void i40e_reset_vf(struct i40e_vf *vf, bool flr)
- 	 * request resources immediately after setting this flag.
- 	 */
- 	wr32(hw, I40E_VFGEN_RSTAT1(vf->vf_id), I40E_VFR_VFACTIVE);
-+}
-+
-+/**
-+ * i40e_reset_vf
-+ * @vf: pointer to the VF structure
-+ * @flr: VFLR was issued or not
-+ *
-+ * reset the VF
-+ **/
-+void i40e_reset_vf(struct i40e_vf *vf, bool flr)
-+{
-+	struct i40e_pf *pf = vf->pf;
-+	struct i40e_hw *hw = &pf->hw;
-+	bool rsd = false;
-+	u32 reg;
-+	int i;
-+
-+	/* If VFs have been disabled, there is no need to reset */
-+	if (test_and_set_bit(__I40E_VF_DISABLE, &pf->state))
-+		return;
-+
-+	i40e_trigger_vf_reset(vf, flr);
-+
-+	/* poll VPGEN_VFRSTAT reg to make sure
-+	 * that reset is complete
-+	 */
-+	for (i = 0; i < 10; i++) {
-+		/* VF reset requires driver to first reset the VF and then
-+		 * poll the status register to make sure that the reset
-+		 * completed successfully. Due to internal HW FIFO flushes,
-+		 * we must wait 10ms before the register will be valid.
-+		 */
-+		usleep_range(10000, 20000);
-+		reg = rd32(hw, I40E_VPGEN_VFRSTAT(vf->vf_id));
-+		if (reg & I40E_VPGEN_VFRSTAT_VFRD_MASK) {
-+			rsd = true;
-+			break;
-+		}
-+	}
-+
-+	if (flr)
-+		usleep_range(10000, 20000);
-+
-+	if (!rsd)
-+		dev_err(&pf->pdev->dev, "VF reset check timeout on VF %d\n",
-+			vf->vf_id);
-+	usleep_range(10000, 20000);
-+
-+	/* On initial reset, we don't have any queues to disable */
-+	if (vf->lan_vsi_idx != 0)
-+		i40e_vsi_stop_rings(pf->vsi[vf->lan_vsi_idx]);
-+
-+	i40e_cleanup_reset_vf(vf);
- 
- 	i40e_flush(hw);
- 	clear_bit(__I40E_VF_DISABLE, &pf->state);
+ 	u32 flags;
+ #define I40EVF_FLAG_RX_CSUM_ENABLED		BIT(0)
+-#define I40EVF_FLAG_IN_NETPOLL			BIT(4)
+ #define I40EVF_FLAG_IMIR_ENABLED		BIT(5)
+ #define I40EVF_FLAG_MQ_CAPABLE			BIT(6)
+ #define I40EVF_FLAG_PF_COMMS_FAILED		BIT(8)
+@@ -221,7 +220,6 @@ struct i40evf_adapter {
+ /* duplicates for common code */
+ #define I40E_FLAG_FDIR_ATR_ENABLED		0
+ #define I40E_FLAG_DCB_ENABLED			0
+-#define I40E_FLAG_IN_NETPOLL			I40EVF_FLAG_IN_NETPOLL
+ #define I40E_FLAG_RX_CSUM_ENABLED		I40EVF_FLAG_RX_CSUM_ENABLED
+ #define I40E_FLAG_WB_ON_ITR_CAPABLE		I40EVF_FLAG_WB_ON_ITR_CAPABLE
+ #define I40E_FLAG_OUTER_UDP_CSUM_CAPABLE	I40EVF_FLAG_OUTER_UDP_CSUM_CAPABLE
 -- 
 2.12.2
