@@ -1,718 +1,830 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 05/14] i40e/i40evf: Add tracepoints
-Date: Wed, 19 Apr 2017 18:57:41 -0700
-Message-ID: <20170420015750.6828-6-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 06/14] i40e: new AQ commands
+Date: Wed, 19 Apr 2017 18:57:42 -0700
+Message-ID: <20170420015750.6828-7-jeffrey.t.kirsher@intel.com>
 References: <20170420015750.6828-1-jeffrey.t.kirsher@intel.com>
-Cc: Scott Peterson <scott.d.peterson@intel.com>,
-        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-        jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Jingjing Wu <jingjing.wu@intel.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga07.intel.com ([134.134.136.100]:20804 "EHLO mga07.intel.com"
+Received: from mga07.intel.com ([134.134.136.100]:29694 "EHLO mga07.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S939039AbdDTB55 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 19 Apr 2017 21:57:57 -0400
+        id S939046AbdDTB56 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 19 Apr 2017 21:57:58 -0400
 In-Reply-To: <20170420015750.6828-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Scott Peterson <scott.d.peterson@intel.com>
+From: Jingjing Wu <jingjing.wu@intel.com>
 
-This patch adds tracepoints to the i40e and i40evf drivers to which
-BPF programs can be attached for feature testing and verification.
-It's expected that an attached BPF program will identify and count or
-log some interesting subset of traffic. The bcc-tools package is
-helpful there for containing all the BPF arcana in a handy Python
-wrapper. Though you can make these tracepoints log trace messages, the
-messages themselves probably won't be very useful (other to verify the
-tracepoint is being called while you're debugging your BPF program).
+Add admin queue functions for Pipeline Personalization Profile AQ
+commands:
+ - Write Recipe Command buffer (Opcode: 0x0270)
+ - Get Applied Profiles list (Opcode: 0x0271)
 
-The idea here is that tracepoints have such low performance cost when
-disabled that we can leave these in the upstream drivers. This may
-eventually enable the instrumentation of unmodified customer systems
-should the need arise to verify a NIC feature is working as expected.
-In general this enables one set of feature verification tools to be
-used on these drivers whether they're built with the kernel or
-separately.
-
-Users are advised against using these tracepoints for anything other
-than a diagnostic tool. They have a performance impact when enabled,
-and their exact placement and form may change as we see how well they
-work in practice for the purposes above.
-
-Change-ID: Id6014a7322c0e6d08068114dd20bd156f2f6435e
-Signed-off-by: Scott Peterson <scott.d.peterson@intel.com>
+Change-ID: I558b4145364140f624013af48d4bbf79d21ebb0d
+Signed-off-by: Jingjing Wu <jingjing.wu@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/Makefile        |   3 +
- drivers/net/ethernet/intel/i40e/i40e_main.c     |   6 +
- drivers/net/ethernet/intel/i40e/i40e_trace.h    | 229 ++++++++++++++++++++++++
- drivers/net/ethernet/intel/i40e/i40e_txrx.c     |   9 +
- drivers/net/ethernet/intel/i40evf/Makefile      |   3 +
- drivers/net/ethernet/intel/i40evf/i40e_trace.h  | 229 ++++++++++++++++++++++++
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c   |   9 +
- drivers/net/ethernet/intel/i40evf/i40evf_main.c |   7 +
- 8 files changed, 495 insertions(+)
- create mode 100644 drivers/net/ethernet/intel/i40e/i40e_trace.h
- create mode 100644 drivers/net/ethernet/intel/i40evf/i40e_trace.h
+ drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h  |  34 ++++
+ drivers/net/ethernet/intel/i40e/i40e_common.c      | 212 +++++++++++++++++++++
+ drivers/net/ethernet/intel/i40e/i40e_prototype.h   |  17 ++
+ drivers/net/ethernet/intel/i40e/i40e_type.h        |  80 ++++++++
+ .../net/ethernet/intel/i40evf/i40e_adminq_cmd.h    |  34 ++++
+ drivers/net/ethernet/intel/i40evf/i40e_common.c    | 212 +++++++++++++++++++++
+ drivers/net/ethernet/intel/i40evf/i40e_prototype.h |  17 ++
+ drivers/net/ethernet/intel/i40evf/i40e_type.h      |  80 ++++++++
+ 8 files changed, 686 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/i40e/Makefile b/drivers/net/ethernet/intel/i40e/Makefile
-index 4f454d364d0d..3da482c3d68d 100644
---- a/drivers/net/ethernet/intel/i40e/Makefile
-+++ b/drivers/net/ethernet/intel/i40e/Makefile
-@@ -28,6 +28,9 @@
- # Makefile for the Intel(R) Ethernet Connection XL710 (i40e.ko) driver
- #
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
+index 251074c677c4..5eb04114e13f 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
+@@ -190,6 +190,10 @@ enum i40e_admin_queue_opc {
+ 	i40e_aqc_opc_add_mirror_rule	= 0x0260,
+ 	i40e_aqc_opc_delete_mirror_rule	= 0x0261,
  
-+ccflags-y += -I$(src)
-+subdir-ccflags-y += -I$(src)
++	/* Pipeline Personalization Profile */
++	i40e_aqc_opc_write_personalization_profile	= 0x0270,
++	i40e_aqc_opc_get_personalization_profile_list	= 0x0271,
 +
- obj-$(CONFIG_I40E) += i40e.o
+ 	/* DCB commands */
+ 	i40e_aqc_opc_dcb_ignore_pfc	= 0x0301,
+ 	i40e_aqc_opc_dcb_updated	= 0x0302,
+@@ -1431,6 +1435,36 @@ struct i40e_aqc_add_delete_mirror_rule_completion {
  
- i40e-objs := i40e_main.o \
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index b6ec9beeebff..5e625e0c73ac 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -32,6 +32,12 @@
- #include "i40e.h"
- #include "i40e_diag.h"
- #include <net/udp_tunnel.h>
-+/* All i40e tracepoints are defined by the include below, which
-+ * must be included exactly once across the whole kernel with
-+ * CREATE_TRACE_POINTS defined
-+ */
-+#define CREATE_TRACE_POINTS
-+#include "i40e_trace.h"
+ I40E_CHECK_CMD_LENGTH(i40e_aqc_add_delete_mirror_rule_completion);
  
- const char i40e_driver_name[] = "i40e";
- static const char i40e_driver_string[] =
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_trace.h b/drivers/net/ethernet/intel/i40e/i40e_trace.h
-new file mode 100644
-index 000000000000..d3e55f54a05e
---- /dev/null
-+++ b/drivers/net/ethernet/intel/i40e/i40e_trace.h
-@@ -0,0 +1,229 @@
-+/*******************************************************************************
-+ *
-+ * Intel(R) 40-10 Gigabit Ethernet Connection Network Driver
-+ * Copyright(c) 2013 - 2017 Intel Corporation.
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+ * more details.
-+ *
-+ * The full GNU General Public License is included in this distribution in
-+ * the file called "COPYING".
-+ *
-+ * Contact Information:
-+ * e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
-+ * Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
-+ *
-+ ******************************************************************************/
++/* Pipeline Personalization Profile */
++struct i40e_aqc_write_personalization_profile {
++	u8      flags;
++	u8      reserved[3];
++	__le32  profile_track_id;
++	__le32  addr_high;
++	__le32  addr_low;
++};
 +
-+/* Modeled on trace-events-sample.h */
++I40E_CHECK_CMD_LENGTH(i40e_aqc_write_personalization_profile);
 +
-+/* The trace subsystem name for i40e will be "i40e".
-+ *
-+ * This file is named i40e_trace.h.
-+ *
-+ * Since this include file's name is different from the trace
-+ * subsystem name, we'll have to define TRACE_INCLUDE_FILE at the end
-+ * of this file.
-+ */
-+#undef TRACE_SYSTEM
-+#define TRACE_SYSTEM i40e
++struct i40e_aqc_write_ppp_resp {
++	__le32 error_offset;
++	__le32 error_info;
++	__le32 addr_high;
++	__le32 addr_low;
++};
 +
-+/* See trace-events-sample.h for a detailed description of why this
-+ * guard clause is different from most normal include files.
-+ */
-+#if !defined(_I40E_TRACE_H_) || defined(TRACE_HEADER_MULTI_READ)
-+#define _I40E_TRACE_H_
++struct i40e_aqc_get_applied_profiles {
++	u8      flags;
++#define I40E_AQC_GET_PPP_GET_CONF	0x1
++#define I40E_AQC_GET_PPP_GET_RDPU_CONF	0x2
++	u8      rsv[3];
++	__le32  reserved;
++	__le32  addr_high;
++	__le32  addr_low;
++};
 +
-+#include <linux/tracepoint.h>
++I40E_CHECK_CMD_LENGTH(i40e_aqc_get_applied_profiles);
++
+ /* DCB 0x03xx*/
+ 
+ /* PFC Ignore (direct 0x0301)
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
+index f9db95aa3a20..24f020655291 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_common.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
+@@ -5042,3 +5042,215 @@ void i40e_write_rx_ctl(struct i40e_hw *hw, u32 reg_addr, u32 reg_val)
+ 	if (status || use_register)
+ 		wr32(hw, reg_addr, reg_val);
+ }
 +
 +/**
-+ * i40e_trace() macro enables shared code to refer to trace points
-+ * like:
-+ *
-+ * trace_i40e{,vf}_example(args...)
-+ *
-+ * ... as:
-+ *
-+ * i40e_trace(example, args...)
-+ *
-+ * ... to resolve to the PF or VF version of the tracepoint without
-+ * ifdefs, and to allow tracepoints to be disabled entirely at build
-+ * time.
-+ *
-+ * Trace point should always be referred to in the driver via this
-+ * macro.
-+ *
-+ * Similarly, i40e_trace_enabled(trace_name) wraps references to
-+ * trace_i40e{,vf}_<trace_name>_enabled() functions.
-+ */
-+#define _I40E_TRACE_NAME(trace_name) (trace_ ## i40e ## _ ## trace_name)
-+#define I40E_TRACE_NAME(trace_name) _I40E_TRACE_NAME(trace_name)
++ * i40e_aq_write_ppp - Write pipeline personalization profile (ppp)
++ * @hw: pointer to the hw struct
++ * @buff: command buffer (size in bytes = buff_size)
++ * @buff_size: buffer size in bytes
++ * @track_id: package tracking id
++ * @error_offset: returns error offset
++ * @error_info: returns error information
++ * @cmd_details: pointer to command details structure or NULL
++ **/
++enum
++i40e_status_code i40e_aq_write_ppp(struct i40e_hw *hw, void *buff,
++				   u16 buff_size, u32 track_id,
++				   u32 *error_offset, u32 *error_info,
++				   struct i40e_asq_cmd_details *cmd_details)
++{
++	struct i40e_aq_desc desc;
++	struct i40e_aqc_write_personalization_profile *cmd =
++		(struct i40e_aqc_write_personalization_profile *)
++		&desc.params.raw;
++	struct i40e_aqc_write_ppp_resp *resp;
++	i40e_status status;
 +
-+#define i40e_trace(trace_name, args...) I40E_TRACE_NAME(trace_name)(args)
++	i40e_fill_default_direct_cmd_desc(&desc,
++					  i40e_aqc_opc_write_personalization_profile);
 +
-+#define i40e_trace_enabled(trace_name) I40E_TRACE_NAME(trace_name##_enabled)()
++	desc.flags |= cpu_to_le16(I40E_AQ_FLAG_BUF | I40E_AQ_FLAG_RD);
++	if (buff_size > I40E_AQ_LARGE_BUF)
++		desc.flags |= cpu_to_le16((u16)I40E_AQ_FLAG_LB);
 +
-+/* Events common to PF and VF. Corresponding versions will be defined
-+ * for both, named trace_i40e_* and trace_i40evf_*. The i40e_trace()
-+ * macro above will select the right trace point name for the driver
-+ * being built from shared code.
-+ */
++	desc.datalen = cpu_to_le16(buff_size);
 +
-+/* Events related to a vsi & ring */
-+DECLARE_EVENT_CLASS(
-+	i40e_tx_template,
++	cmd->profile_track_id = cpu_to_le32(track_id);
 +
-+	TP_PROTO(struct i40e_ring *ring,
-+		 struct i40e_tx_desc *desc,
-+		 struct i40e_tx_buffer *buf),
++	status = i40e_asq_send_command(hw, &desc, buff, buff_size, cmd_details);
++	if (!status) {
++		resp = (struct i40e_aqc_write_ppp_resp *)&desc.params.raw;
++		if (error_offset)
++			*error_offset = le32_to_cpu(resp->error_offset);
++		if (error_info)
++			*error_info = le32_to_cpu(resp->error_info);
++	}
 +
-+	TP_ARGS(ring, desc, buf),
-+
-+	/* The convention here is to make the first fields in the
-+	 * TP_STRUCT match the TP_PROTO exactly. This enables the use
-+	 * of the args struct generated by the tplist tool (from the
-+	 * bcc-tools package) to be used for those fields. To access
-+	 * fields other than the tracepoint args will require the
-+	 * tplist output to be adjusted.
-+	 */
-+	TP_STRUCT__entry(
-+		__field(void*, ring)
-+		__field(void*, desc)
-+		__field(void*, buf)
-+		__string(devname, ring->netdev->name)
-+	),
-+
-+	TP_fast_assign(
-+		__entry->ring = ring;
-+		__entry->desc = desc;
-+		__entry->buf = buf;
-+		__assign_str(devname, ring->netdev->name);
-+	),
-+
-+	TP_printk(
-+		"netdev: %s ring: %p desc: %p buf %p",
-+		__get_str(devname), __entry->ring,
-+		__entry->desc, __entry->buf)
-+);
-+
-+DEFINE_EVENT(
-+	i40e_tx_template, i40e_clean_tx_irq,
-+	TP_PROTO(struct i40e_ring *ring,
-+		 struct i40e_tx_desc *desc,
-+		 struct i40e_tx_buffer *buf),
-+
-+	TP_ARGS(ring, desc, buf));
-+
-+DEFINE_EVENT(
-+	i40e_tx_template, i40e_clean_tx_irq_unmap,
-+	TP_PROTO(struct i40e_ring *ring,
-+		 struct i40e_tx_desc *desc,
-+		 struct i40e_tx_buffer *buf),
-+
-+	TP_ARGS(ring, desc, buf));
-+
-+DECLARE_EVENT_CLASS(
-+	i40e_rx_template,
-+
-+	TP_PROTO(struct i40e_ring *ring,
-+		 union i40e_32byte_rx_desc *desc,
-+		 struct sk_buff *skb),
-+
-+	TP_ARGS(ring, desc, skb),
-+
-+	TP_STRUCT__entry(
-+		__field(void*, ring)
-+		__field(void*, desc)
-+		__field(void*, skb)
-+		__string(devname, ring->netdev->name)
-+	),
-+
-+	TP_fast_assign(
-+		__entry->ring = ring;
-+		__entry->desc = desc;
-+		__entry->skb = skb;
-+		__assign_str(devname, ring->netdev->name);
-+	),
-+
-+	TP_printk(
-+		"netdev: %s ring: %p desc: %p skb %p",
-+		__get_str(devname), __entry->ring,
-+		__entry->desc, __entry->skb)
-+);
-+
-+DEFINE_EVENT(
-+	i40e_rx_template, i40e_clean_rx_irq,
-+	TP_PROTO(struct i40e_ring *ring,
-+		 union i40e_32byte_rx_desc *desc,
-+		 struct sk_buff *skb),
-+
-+	TP_ARGS(ring, desc, skb));
-+
-+DEFINE_EVENT(
-+	i40e_rx_template, i40e_clean_rx_irq_rx,
-+	TP_PROTO(struct i40e_ring *ring,
-+		 union i40e_32byte_rx_desc *desc,
-+		 struct sk_buff *skb),
-+
-+	TP_ARGS(ring, desc, skb));
-+
-+DECLARE_EVENT_CLASS(
-+	i40e_xmit_template,
-+
-+	TP_PROTO(struct sk_buff *skb,
-+		 struct i40e_ring *ring),
-+
-+	TP_ARGS(skb, ring),
-+
-+	TP_STRUCT__entry(
-+		__field(void*, skb)
-+		__field(void*, ring)
-+		__string(devname, ring->netdev->name)
-+	),
-+
-+	TP_fast_assign(
-+		__entry->skb = skb;
-+		__entry->ring = ring;
-+		__assign_str(devname, ring->netdev->name);
-+	),
-+
-+	TP_printk(
-+		"netdev: %s skb: %p ring: %p",
-+		__get_str(devname), __entry->skb,
-+		__entry->ring)
-+);
-+
-+DEFINE_EVENT(
-+	i40e_xmit_template, i40e_xmit_frame_ring,
-+	TP_PROTO(struct sk_buff *skb,
-+		 struct i40e_ring *ring),
-+
-+	TP_ARGS(skb, ring));
-+
-+DEFINE_EVENT(
-+	i40e_xmit_template, i40e_xmit_frame_ring_drop,
-+	TP_PROTO(struct sk_buff *skb,
-+		 struct i40e_ring *ring),
-+
-+	TP_ARGS(skb, ring));
-+
-+/* Events unique to the PF. */
-+
-+#endif /* _I40E_TRACE_H_ */
-+/* This must be outside ifdef _I40E_TRACE_H */
-+
-+/* This trace include file is not located in the .../include/trace
-+ * with the kernel tracepoint definitions, because we're a loadable
-+ * module.
-+ */
-+#undef TRACE_INCLUDE_PATH
-+#define TRACE_INCLUDE_PATH .
-+#undef TRACE_INCLUDE_FILE
-+#define TRACE_INCLUDE_FILE i40e_trace
-+#include <trace/define_trace.h>
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index 843d7ffe1784..1531a0f9fcc6 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -27,6 +27,7 @@
- #include <linux/prefetch.h>
- #include <net/busy_poll.h>
- #include "i40e.h"
-+#include "i40e_trace.h"
- #include "i40e_prototype.h"
- 
- static inline __le64 build_ctob(u32 td_cmd, u32 td_offset, unsigned int size,
-@@ -765,6 +766,7 @@ static bool i40e_clean_tx_irq(struct i40e_vsi *vsi,
- 		/* prevent any other reads prior to eop_desc */
- 		read_barrier_depends();
- 
-+		i40e_trace(clean_tx_irq, tx_ring, tx_desc, tx_buf);
- 		/* we have caught up to head, no work left to do */
- 		if (tx_head == tx_desc)
- 			break;
-@@ -791,6 +793,8 @@ static bool i40e_clean_tx_irq(struct i40e_vsi *vsi,
- 
- 		/* unmap remaining buffers */
- 		while (tx_desc != eop_desc) {
-+			i40e_trace(clean_tx_irq_unmap,
-+				   tx_ring, tx_desc, tx_buf);
- 
- 			tx_buf++;
- 			tx_desc++;
-@@ -2005,6 +2009,7 @@ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
- 		if (!size)
- 			break;
- 
-+		i40e_trace(clean_rx_irq, rx_ring, rx_desc, skb);
- 		rx_buffer = i40e_get_rx_buffer(rx_ring, size);
- 
- 		/* retrieve a buffer from the ring */
-@@ -2057,6 +2062,7 @@ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
- 		vlan_tag = (qword & BIT(I40E_RX_DESC_STATUS_L2TAG1P_SHIFT)) ?
- 			   le16_to_cpu(rx_desc->wb.qword0.lo_dword.l2tag1) : 0;
- 
-+		i40e_trace(clean_rx_irq_rx, rx_ring, rx_desc, skb);
- 		i40e_receive_skb(rx_ring, skb, vlan_tag);
- 		skb = NULL;
- 
-@@ -3138,6 +3144,8 @@ static netdev_tx_t i40e_xmit_frame_ring(struct sk_buff *skb,
- 	/* prefetch the data, we'll need it later */
- 	prefetch(skb->data);
- 
-+	i40e_trace(xmit_frame_ring, skb, tx_ring);
-+
- 	count = i40e_xmit_descriptor_count(skb);
- 	if (i40e_chk_linearize(skb, count)) {
- 		if (__skb_linearize(skb)) {
-@@ -3216,6 +3224,7 @@ static netdev_tx_t i40e_xmit_frame_ring(struct sk_buff *skb,
- 	return NETDEV_TX_OK;
- 
- out_drop:
-+	i40e_trace(xmit_frame_ring_drop, first->skb, tx_ring);
- 	dev_kfree_skb_any(first->skb);
- 	first->skb = NULL;
- 	return NETDEV_TX_OK;
-diff --git a/drivers/net/ethernet/intel/i40evf/Makefile b/drivers/net/ethernet/intel/i40evf/Makefile
-index 827c7a6ed0ba..a393f4a07f06 100644
---- a/drivers/net/ethernet/intel/i40evf/Makefile
-+++ b/drivers/net/ethernet/intel/i40evf/Makefile
-@@ -29,6 +29,9 @@
- #
- #
- 
-+ccflags-y += -I$(src)
-+subdir-ccflags-y += -I$(src)
-+
- obj-$(CONFIG_I40EVF) += i40evf.o
- 
- i40evf-objs :=	i40evf_main.o i40evf_ethtool.o i40evf_virtchnl.o \
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_trace.h b/drivers/net/ethernet/intel/i40evf/i40e_trace.h
-new file mode 100644
-index 000000000000..9a5100b2b7c7
---- /dev/null
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_trace.h
-@@ -0,0 +1,229 @@
-+/*******************************************************************************
-+ *
-+ * Intel(R) 40-10 Gigabit Ethernet Virtual Function Driver
-+ * Copyright(c) 2013 - 2017 Intel Corporation.
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+ * more details.
-+ *
-+ * The full GNU General Public License is included in this distribution in
-+ * the file called "COPYING".
-+ *
-+ * Contact Information:
-+ * e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
-+ * Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
-+ *
-+ ******************************************************************************/
-+
-+/* Modeled on trace-events-sample.h */
-+
-+/* The trace subsystem name for i40evf will be "i40evf".
-+ *
-+ * This file is named i40e_trace.h.
-+ *
-+ * Since this include file's name is different from the trace
-+ * subsystem name, we'll have to define TRACE_INCLUDE_FILE at the end
-+ * of this file.
-+ */
-+#undef TRACE_SYSTEM
-+#define TRACE_SYSTEM i40evf
-+
-+/* See trace-events-sample.h for a detailed description of why this
-+ * guard clause is different from most normal include files.
-+ */
-+#if !defined(_I40E_TRACE_H_) || defined(TRACE_HEADER_MULTI_READ)
-+#define _I40E_TRACE_H_
-+
-+#include <linux/tracepoint.h>
++	return status;
++}
 +
 +/**
-+ * i40e_trace() macro enables shared code to refer to trace points
-+ * like:
++ * i40e_aq_get_ppp_list - Read pipeline personalization profile (ppp)
++ * @hw: pointer to the hw struct
++ * @buff: command buffer (size in bytes = buff_size)
++ * @buff_size: buffer size in bytes
++ * @cmd_details: pointer to command details structure or NULL
++ **/
++enum
++i40e_status_code i40e_aq_get_ppp_list(struct i40e_hw *hw, void *buff,
++				      u16 buff_size, u8 flags,
++				      struct i40e_asq_cmd_details *cmd_details)
++{
++	struct i40e_aq_desc desc;
++	struct i40e_aqc_get_applied_profiles *cmd =
++		(struct i40e_aqc_get_applied_profiles *)&desc.params.raw;
++	i40e_status status;
++
++	i40e_fill_default_direct_cmd_desc(&desc,
++					  i40e_aqc_opc_get_personalization_profile_list);
++
++	desc.flags |= cpu_to_le16((u16)I40E_AQ_FLAG_BUF);
++	if (buff_size > I40E_AQ_LARGE_BUF)
++		desc.flags |= cpu_to_le16((u16)I40E_AQ_FLAG_LB);
++	desc.datalen = cpu_to_le16(buff_size);
++
++	cmd->flags = flags;
++
++	status = i40e_asq_send_command(hw, &desc, buff, buff_size, cmd_details);
++
++	return status;
++}
++
++/**
++ * i40e_find_segment_in_package
++ * @segment_type: the segment type to search for (i.e., SEGMENT_TYPE_I40E)
++ * @pkg_hdr: pointer to the package header to be searched
 + *
-+ * trace_i40e{,vf}_example(args...)
++ * This function searches a package file for a particular segment type. On
++ * success it returns a pointer to the segment header, otherwise it will
++ * return NULL.
++ **/
++struct i40e_generic_seg_header *
++i40e_find_segment_in_package(u32 segment_type,
++			     struct i40e_package_header *pkg_hdr)
++{
++	struct i40e_generic_seg_header *segment;
++	u32 i;
++
++	/* Search all package segments for the requested segment type */
++	for (i = 0; i < pkg_hdr->segment_count; i++) {
++		segment =
++			(struct i40e_generic_seg_header *)((u8 *)pkg_hdr +
++			 pkg_hdr->segment_offset[i]);
++
++		if (segment->type == segment_type)
++			return segment;
++	}
++
++	return NULL;
++}
++
++/**
++ * i40e_write_profile
++ * @hw: pointer to the hardware structure
++ * @profile: pointer to the profile segment of the package to be downloaded
++ * @track_id: package tracking id
 + *
-+ * ... as:
-+ *
-+ * i40e_trace(example, args...)
-+ *
-+ * ... to resolve to the PF or VF version of the tracepoint without
-+ * ifdefs, and to allow tracepoints to be disabled entirely at build
-+ * time.
-+ *
-+ * Trace point should always be referred to in the driver via this
-+ * macro.
-+ *
-+ * Similarly, i40e_trace_enabled(trace_name) wraps references to
-+ * trace_i40e{,vf}_<trace_name>_enabled() functions.
++ * Handles the download of a complete package.
 + */
-+#define _I40E_TRACE_NAME(trace_name) (trace_ ## i40evf ## _ ## trace_name)
-+#define I40E_TRACE_NAME(trace_name) _I40E_TRACE_NAME(trace_name)
++enum i40e_status_code
++i40e_write_profile(struct i40e_hw *hw, struct i40e_profile_segment *profile,
++		   u32 track_id)
++{
++	i40e_status status = 0;
++	struct i40e_section_table *sec_tbl;
++	struct i40e_profile_section_header *sec = NULL;
++	u32 dev_cnt;
++	u32 vendor_dev_id;
++	u32 *nvm;
++	u32 section_size = 0;
++	u32 offset = 0, info = 0;
++	u32 i;
 +
-+#define i40e_trace(trace_name, args...) I40E_TRACE_NAME(trace_name)(args)
++	if (!track_id) {
++		i40e_debug(hw, I40E_DEBUG_PACKAGE, "Track_id can't be 0.");
++		return I40E_NOT_SUPPORTED;
++	}
 +
-+#define i40e_trace_enabled(trace_name) I40E_TRACE_NAME(trace_name##_enabled)()
++	dev_cnt = profile->device_table_count;
 +
-+/* Events common to PF and VF. Corresponding versions will be defined
-+ * for both, named trace_i40e_* and trace_i40evf_*. The i40e_trace()
-+ * macro above will select the right trace point name for the driver
-+ * being built from shared code.
++	for (i = 0; i < dev_cnt; i++) {
++		vendor_dev_id = profile->device_table[i].vendor_dev_id;
++		if ((vendor_dev_id >> 16) == PCI_VENDOR_ID_INTEL)
++			if (hw->device_id == (vendor_dev_id & 0xFFFF))
++				break;
++	}
++	if (i == dev_cnt) {
++		i40e_debug(hw, I40E_DEBUG_PACKAGE, "Device doesn't support PPP");
++		return I40E_ERR_DEVICE_NOT_SUPPORTED;
++	}
++
++	nvm = (u32 *)&profile->device_table[dev_cnt];
++	sec_tbl = (struct i40e_section_table *)&nvm[nvm[0] + 1];
++
++	for (i = 0; i < sec_tbl->section_count; i++) {
++		sec = (struct i40e_profile_section_header *)((u8 *)profile +
++					     sec_tbl->section_offset[i]);
++
++		/* Skip 'AQ', 'note' and 'name' sections */
++		if (sec->section.type != SECTION_TYPE_MMIO)
++			continue;
++
++		section_size = sec->section.size +
++			sizeof(struct i40e_profile_section_header);
++
++		/* Write profile */
++		status = i40e_aq_write_ppp(hw, (void *)sec, (u16)section_size,
++					   track_id, &offset, &info, NULL);
++		if (status) {
++			i40e_debug(hw, I40E_DEBUG_PACKAGE,
++				   "Failed to write profile: offset %d, info %d",
++				   offset, info);
++			break;
++		}
++	}
++	return status;
++}
++
++/**
++ * i40e_add_pinfo_to_list
++ * @hw: pointer to the hardware structure
++ * @profile: pointer to the profile segment of the package
++ * @profile_info_sec: buffer for information section
++ * @track_id: package tracking id
++ *
++ * Register a profile to the list of loaded profiles.
 + */
++enum i40e_status_code
++i40e_add_pinfo_to_list(struct i40e_hw *hw,
++		       struct i40e_profile_segment *profile,
++		       u8 *profile_info_sec, u32 track_id)
++{
++	i40e_status status = 0;
++	struct i40e_profile_section_header *sec = NULL;
++	struct i40e_profile_info *pinfo;
++	u32 offset = 0, info = 0;
 +
-+/* Events related to a vsi & ring */
-+DECLARE_EVENT_CLASS(
-+	i40evf_tx_template,
++	sec = (struct i40e_profile_section_header *)profile_info_sec;
++	sec->tbl_size = 1;
++	sec->data_end = sizeof(struct i40e_profile_section_header) +
++			sizeof(struct i40e_profile_info);
++	sec->section.type = SECTION_TYPE_INFO;
++	sec->section.offset = sizeof(struct i40e_profile_section_header);
++	sec->section.size = sizeof(struct i40e_profile_info);
++	pinfo = (struct i40e_profile_info *)(profile_info_sec +
++					     sec->section.offset);
++	pinfo->track_id = track_id;
++	pinfo->version = profile->version;
++	pinfo->op = I40E_PPP_ADD_TRACKID;
++	memcpy(pinfo->name, profile->name, I40E_PPP_NAME_SIZE);
 +
-+	TP_PROTO(struct i40e_ring *ring,
-+		 struct i40e_tx_desc *desc,
-+		 struct i40e_tx_buffer *buf),
++	status = i40e_aq_write_ppp(hw, (void *)sec, sec->data_end,
++				   track_id, &offset, &info, NULL);
++	return status;
++}
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_prototype.h b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
+index dfc5e5901be5..c56d976cf85a 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_prototype.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
+@@ -377,4 +377,21 @@ i40e_status i40e_write_phy_register(struct i40e_hw *hw, u8 page, u16 reg,
+ u8 i40e_get_phy_address(struct i40e_hw *hw, u8 dev_num);
+ i40e_status i40e_blink_phy_link_led(struct i40e_hw *hw,
+ 				    u32 time, u32 interval);
++i40e_status i40e_aq_write_ppp(struct i40e_hw *hw, void *buff,
++			      u16 buff_size, u32 track_id,
++			      u32 *error_offset, u32 *error_info,
++			      struct i40e_asq_cmd_details *cmd_details);
++i40e_status i40e_aq_get_ppp_list(struct i40e_hw *hw, void *buff,
++				 u16 buff_size, u8 flags,
++				 struct i40e_asq_cmd_details *cmd_details);
++struct i40e_generic_seg_header *
++i40e_find_segment_in_package(u32 segment_type,
++			     struct i40e_package_header *pkg_header);
++enum i40e_status_code
++i40e_write_profile(struct i40e_hw *hw, struct i40e_profile_segment *i40e_seg,
++		   u32 track_id);
++enum i40e_status_code
++i40e_add_pinfo_to_list(struct i40e_hw *hw,
++		       struct i40e_profile_segment *profile,
++		       u8 *profile_info_sec, u32 track_id);
+ #endif /* _I40E_PROTOTYPE_H_ */
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
+index 9200f2d9c752..3a18ed13edc4 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_type.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
+@@ -78,6 +78,7 @@ enum i40e_debug_mask {
+ 	I40E_DEBUG_DCB			= 0x00000400,
+ 	I40E_DEBUG_DIAG			= 0x00000800,
+ 	I40E_DEBUG_FD			= 0x00001000,
++	I40E_DEBUG_PACKAGE		= 0x00002000,
+ 	I40E_DEBUG_IWARP		= 0x00F00000,
+ 	I40E_DEBUG_AQ_MESSAGE		= 0x01000000,
+ 	I40E_DEBUG_AQ_DESCRIPTOR	= 0x02000000,
+@@ -1462,4 +1463,83 @@ struct i40e_lldp_variables {
+ #define I40E_FLEX_56_MASK		(0x1ULL << I40E_FLEX_56_SHIFT)
+ #define I40E_FLEX_57_SHIFT		6
+ #define I40E_FLEX_57_MASK		(0x1ULL << I40E_FLEX_57_SHIFT)
 +
-+	TP_ARGS(ring, desc, buf),
++/* Version format for PPP */
++struct i40e_ppp_version {
++	u8 major;
++	u8 minor;
++	u8 update;
++	u8 draft;
++};
 +
-+	/* The convention here is to make the first fields in the
-+	 * TP_STRUCT match the TP_PROTO exactly. This enables the use
-+	 * of the args struct generated by the tplist tool (from the
-+	 * bcc-tools package) to be used for those fields. To access
-+	 * fields other than the tracepoint args will require the
-+	 * tplist output to be adjusted.
-+	 */
-+	TP_STRUCT__entry(
-+		__field(void*, ring)
-+		__field(void*, desc)
-+		__field(void*, buf)
-+		__string(devname, ring->netdev->name)
-+	),
++#define I40E_PPP_NAME_SIZE	32
 +
-+	TP_fast_assign(
-+		__entry->ring = ring;
-+		__entry->desc = desc;
-+		__entry->buf = buf;
-+		__assign_str(devname, ring->netdev->name);
-+	),
++/* Package header */
++struct i40e_package_header {
++	struct i40e_ppp_version version;
++	u32 segment_count;
++	u32 segment_offset[1];
++};
 +
-+	TP_printk(
-+		"netdev: %s ring: %p desc: %p buf %p",
-+		__get_str(devname), __entry->ring,
-+		__entry->desc, __entry->buf)
-+);
++/* Generic segment header */
++struct i40e_generic_seg_header {
++#define SEGMENT_TYPE_METADATA	0x00000001
++#define SEGMENT_TYPE_NOTES	0x00000002
++#define SEGMENT_TYPE_I40E	0x00000011
++#define SEGMENT_TYPE_X722	0x00000012
++	u32 type;
++	struct i40e_ppp_version version;
++	u32 size;
++	char name[I40E_PPP_NAME_SIZE];
++};
 +
-+DEFINE_EVENT(
-+	i40evf_tx_template, i40evf_clean_tx_irq,
-+	TP_PROTO(struct i40e_ring *ring,
-+		 struct i40e_tx_desc *desc,
-+		 struct i40e_tx_buffer *buf),
++struct i40e_metadata_segment {
++	struct i40e_generic_seg_header header;
++	struct i40e_ppp_version version;
++	u32 track_id;
++	char name[I40E_PPP_NAME_SIZE];
++};
 +
-+	TP_ARGS(ring, desc, buf));
++struct i40e_device_id_entry {
++	u32 vendor_dev_id;
++	u32 sub_vendor_dev_id;
++};
 +
-+DEFINE_EVENT(
-+	i40evf_tx_template, i40evf_clean_tx_irq_unmap,
-+	TP_PROTO(struct i40e_ring *ring,
-+		 struct i40e_tx_desc *desc,
-+		 struct i40e_tx_buffer *buf),
++struct i40e_profile_segment {
++	struct i40e_generic_seg_header header;
++	struct i40e_ppp_version version;
++	char name[I40E_PPP_NAME_SIZE];
++	u32 device_table_count;
++	struct i40e_device_id_entry device_table[1];
++};
 +
-+	TP_ARGS(ring, desc, buf));
++struct i40e_section_table {
++	u32 section_count;
++	u32 section_offset[1];
++};
 +
-+DECLARE_EVENT_CLASS(
-+	i40evf_rx_template,
++struct i40e_profile_section_header {
++	u16 tbl_size;
++	u16 data_end;
++	struct {
++#define SECTION_TYPE_INFO	0x00000010
++#define SECTION_TYPE_MMIO	0x00000800
++#define SECTION_TYPE_AQ		0x00000801
++#define SECTION_TYPE_NOTE	0x80000000
++#define SECTION_TYPE_NAME	0x80000001
++		u32 type;
++		u32 offset;
++		u32 size;
++	} section;
++};
 +
-+	TP_PROTO(struct i40e_ring *ring,
-+		 union i40e_32byte_rx_desc *desc,
-+		 struct sk_buff *skb),
++struct i40e_profile_info {
++	u32 track_id;
++	struct i40e_ppp_version version;
++	u8 op;
++#define I40E_PPP_ADD_TRACKID		0x01
++#define I40E_PPP_REMOVE_TRACKID	0x02
++	u8 reserved[7];
++	u8 name[I40E_PPP_NAME_SIZE];
++};
+ #endif /* _I40E_TYPE_H_ */
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h b/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
+index c28cb8f27243..91d8786d386d 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
+@@ -190,6 +190,10 @@ enum i40e_admin_queue_opc {
+ 	i40e_aqc_opc_add_mirror_rule	= 0x0260,
+ 	i40e_aqc_opc_delete_mirror_rule	= 0x0261,
+ 
++	/* Pipeline Personalization Profile */
++	i40e_aqc_opc_write_personalization_profile	= 0x0270,
++	i40e_aqc_opc_get_personalization_profile_list	= 0x0271,
 +
-+	TP_ARGS(ring, desc, skb),
+ 	/* DCB commands */
+ 	i40e_aqc_opc_dcb_ignore_pfc	= 0x0301,
+ 	i40e_aqc_opc_dcb_updated	= 0x0302,
+@@ -1426,6 +1430,36 @@ struct i40e_aqc_add_delete_mirror_rule_completion {
+ 
+ I40E_CHECK_CMD_LENGTH(i40e_aqc_add_delete_mirror_rule_completion);
+ 
++/* Pipeline Personalization Profile */
++struct i40e_aqc_write_personalization_profile {
++	u8      flags;
++	u8      reserved[3];
++	__le32  profile_track_id;
++	__le32  addr_high;
++	__le32  addr_low;
++};
 +
-+	TP_STRUCT__entry(
-+		__field(void*, ring)
-+		__field(void*, desc)
-+		__field(void*, skb)
-+		__string(devname, ring->netdev->name)
-+	),
++I40E_CHECK_CMD_LENGTH(i40e_aqc_write_personalization_profile);
 +
-+	TP_fast_assign(
-+		__entry->ring = ring;
-+		__entry->desc = desc;
-+		__entry->skb = skb;
-+		__assign_str(devname, ring->netdev->name);
-+	),
++struct i40e_aqc_write_ppp_resp {
++	__le32 error_offset;
++	__le32 error_info;
++	__le32 addr_high;
++	__le32 addr_low;
++};
 +
-+	TP_printk(
-+		"netdev: %s ring: %p desc: %p skb %p",
-+		__get_str(devname), __entry->ring,
-+		__entry->desc, __entry->skb)
-+);
++struct i40e_aqc_get_applied_profiles {
++	u8      flags;
++#define I40E_AQC_GET_PPP_GET_CONF	0x1
++#define I40E_AQC_GET_PPP_GET_RDPU_CONF	0x2
++	u8      rsv[3];
++	__le32  reserved;
++	__le32  addr_high;
++	__le32  addr_low;
++};
 +
-+DEFINE_EVENT(
-+	i40evf_rx_template, i40evf_clean_rx_irq,
-+	TP_PROTO(struct i40e_ring *ring,
-+		 union i40e_32byte_rx_desc *desc,
-+		 struct sk_buff *skb),
++I40E_CHECK_CMD_LENGTH(i40e_aqc_get_applied_profiles);
 +
-+	TP_ARGS(ring, desc, skb));
+ /* DCB 0x03xx*/
+ 
+ /* PFC Ignore (direct 0x0301)
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_common.c b/drivers/net/ethernet/intel/i40evf/i40e_common.c
+index 626fbf1ead4d..43f10761f4ba 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_common.c
++++ b/drivers/net/ethernet/intel/i40evf/i40e_common.c
+@@ -1131,3 +1131,215 @@ i40e_status i40e_vf_reset(struct i40e_hw *hw)
+ 	return i40e_aq_send_msg_to_pf(hw, I40E_VIRTCHNL_OP_RESET_VF,
+ 				      0, NULL, 0, NULL);
+ }
 +
-+DEFINE_EVENT(
-+	i40evf_rx_template, i40evf_clean_rx_irq_rx,
-+	TP_PROTO(struct i40e_ring *ring,
-+		 union i40e_32byte_rx_desc *desc,
-+		 struct sk_buff *skb),
++/**
++ * i40evf_aq_write_ppp - Write pipeline personalization profile (ppp)
++ * @hw: pointer to the hw struct
++ * @buff: command buffer (size in bytes = buff_size)
++ * @buff_size: buffer size in bytes
++ * @track_id: package tracking id
++ * @error_offset: returns error offset
++ * @error_info: returns error information
++ * @cmd_details: pointer to command details structure or NULL
++ **/
++enum
++i40e_status_code i40evf_aq_write_ppp(struct i40e_hw *hw, void *buff,
++				     u16 buff_size, u32 track_id,
++				     u32 *error_offset, u32 *error_info,
++				     struct i40e_asq_cmd_details *cmd_details)
++{
++	struct i40e_aq_desc desc;
++	struct i40e_aqc_write_personalization_profile *cmd =
++		(struct i40e_aqc_write_personalization_profile *)
++		&desc.params.raw;
++	struct i40e_aqc_write_ppp_resp *resp;
++	i40e_status status;
 +
-+	TP_ARGS(ring, desc, skb));
++	i40evf_fill_default_direct_cmd_desc(&desc,
++					    i40e_aqc_opc_write_personalization_profile);
 +
-+DECLARE_EVENT_CLASS(
-+	i40evf_xmit_template,
++	desc.flags |= cpu_to_le16(I40E_AQ_FLAG_BUF | I40E_AQ_FLAG_RD);
++	if (buff_size > I40E_AQ_LARGE_BUF)
++		desc.flags |= cpu_to_le16((u16)I40E_AQ_FLAG_LB);
 +
-+	TP_PROTO(struct sk_buff *skb,
-+		 struct i40e_ring *ring),
++	desc.datalen = cpu_to_le16(buff_size);
 +
-+	TP_ARGS(skb, ring),
++	cmd->profile_track_id = cpu_to_le32(track_id);
 +
-+	TP_STRUCT__entry(
-+		__field(void*, skb)
-+		__field(void*, ring)
-+		__string(devname, ring->netdev->name)
-+	),
++	status = i40evf_asq_send_command(hw, &desc, buff, buff_size, cmd_details);
++	if (!status) {
++		resp = (struct i40e_aqc_write_ppp_resp *)&desc.params.raw;
++		if (error_offset)
++			*error_offset = le32_to_cpu(resp->error_offset);
++		if (error_info)
++			*error_info = le32_to_cpu(resp->error_info);
++	}
 +
-+	TP_fast_assign(
-+		__entry->skb = skb;
-+		__entry->ring = ring;
-+		__assign_str(devname, ring->netdev->name);
-+	),
++	return status;
++}
 +
-+	TP_printk(
-+		"netdev: %s skb: %p ring: %p",
-+		__get_str(devname), __entry->skb,
-+		__entry->ring)
-+);
++/**
++ * i40evf_aq_get_ppp_list - Read pipeline personalization profile (ppp)
++ * @hw: pointer to the hw struct
++ * @buff: command buffer (size in bytes = buff_size)
++ * @buff_size: buffer size in bytes
++ * @cmd_details: pointer to command details structure or NULL
++ **/
++enum
++i40e_status_code i40evf_aq_get_ppp_list(struct i40e_hw *hw, void *buff,
++					u16 buff_size, u8 flags,
++				      struct i40e_asq_cmd_details *cmd_details)
++{
++	struct i40e_aq_desc desc;
++	struct i40e_aqc_get_applied_profiles *cmd =
++		(struct i40e_aqc_get_applied_profiles *)&desc.params.raw;
++	i40e_status status;
 +
-+DEFINE_EVENT(
-+	i40evf_xmit_template, i40evf_xmit_frame_ring,
-+	TP_PROTO(struct sk_buff *skb,
-+		 struct i40e_ring *ring),
++	i40evf_fill_default_direct_cmd_desc(&desc,
++					    i40e_aqc_opc_get_personalization_profile_list);
 +
-+	TP_ARGS(skb, ring));
++	desc.flags |= cpu_to_le16((u16)I40E_AQ_FLAG_BUF);
++	if (buff_size > I40E_AQ_LARGE_BUF)
++		desc.flags |= cpu_to_le16((u16)I40E_AQ_FLAG_LB);
++	desc.datalen = cpu_to_le16(buff_size);
 +
-+DEFINE_EVENT(
-+	i40evf_xmit_template, i40evf_xmit_frame_ring_drop,
-+	TP_PROTO(struct sk_buff *skb,
-+		 struct i40e_ring *ring),
++	cmd->flags = flags;
 +
-+	TP_ARGS(skb, ring));
++	status = i40evf_asq_send_command(hw, &desc, buff, buff_size, cmd_details);
 +
-+/* Events unique to the VF. */
++	return status;
++}
 +
-+#endif /* _I40E_TRACE_H_ */
-+/* This must be outside ifdef _I40E_TRACE_H */
++/**
++ * i40evf_find_segment_in_package
++ * @segment_type: the segment type to search for (i.e., SEGMENT_TYPE_I40E)
++ * @pkg_hdr: pointer to the package header to be searched
++ *
++ * This function searches a package file for a particular segment type. On
++ * success it returns a pointer to the segment header, otherwise it will
++ * return NULL.
++ **/
++struct i40e_generic_seg_header *
++i40evf_find_segment_in_package(u32 segment_type,
++			       struct i40e_package_header *pkg_hdr)
++{
++	struct i40e_generic_seg_header *segment;
++	u32 i;
 +
-+/* This trace include file is not located in the .../include/trace
-+ * with the kernel tracepoint definitions, because we're a loadable
-+ * module.
++	/* Search all package segments for the requested segment type */
++	for (i = 0; i < pkg_hdr->segment_count; i++) {
++		segment =
++			(struct i40e_generic_seg_header *)((u8 *)pkg_hdr +
++			 pkg_hdr->segment_offset[i]);
++
++		if (segment->type == segment_type)
++			return segment;
++	}
++
++	return NULL;
++}
++
++/**
++ * i40evf_write_profile
++ * @hw: pointer to the hardware structure
++ * @profile: pointer to the profile segment of the package to be downloaded
++ * @track_id: package tracking id
++ *
++ * Handles the download of a complete package.
 + */
-+#undef TRACE_INCLUDE_PATH
-+#define TRACE_INCLUDE_PATH .
-+#undef TRACE_INCLUDE_FILE
-+#define TRACE_INCLUDE_FILE i40e_trace
-+#include <trace/define_trace.h>
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-index 80931e3f9445..34e96d98251a 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-@@ -28,6 +28,7 @@
- #include <net/busy_poll.h>
- 
- #include "i40evf.h"
-+#include "i40e_trace.h"
- #include "i40e_prototype.h"
- 
- static inline __le64 build_ctob(u32 td_cmd, u32 td_offset, unsigned int size,
-@@ -180,6 +181,7 @@ static bool i40e_clean_tx_irq(struct i40e_vsi *vsi,
- 		/* prevent any other reads prior to eop_desc */
- 		read_barrier_depends();
- 
-+		i40e_trace(clean_tx_irq, tx_ring, tx_desc, tx_buf);
- 		/* if the descriptor isn't done, no work yet to do */
- 		if (!(eop_desc->cmd_type_offset_bsz &
- 		      cpu_to_le64(I40E_TX_DESC_DTYPE_DESC_DONE)))
-@@ -207,6 +209,8 @@ static bool i40e_clean_tx_irq(struct i40e_vsi *vsi,
- 
- 		/* unmap remaining buffers */
- 		while (tx_desc != eop_desc) {
-+			i40e_trace(clean_tx_irq_unmap,
-+				   tx_ring, tx_desc, tx_buf);
- 
- 			tx_buf++;
- 			tx_desc++;
-@@ -1329,6 +1333,7 @@ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
- 		if (!size)
- 			break;
- 
-+		i40e_trace(clean_rx_irq, rx_ring, rx_desc, skb);
- 		rx_buffer = i40e_get_rx_buffer(rx_ring, size);
- 
- 		/* retrieve a buffer from the ring */
-@@ -1382,6 +1387,7 @@ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
- 		vlan_tag = (qword & BIT(I40E_RX_DESC_STATUS_L2TAG1P_SHIFT)) ?
- 			   le16_to_cpu(rx_desc->wb.qword0.lo_dword.l2tag1) : 0;
- 
-+		i40e_trace(clean_rx_irq_rx, rx_ring, rx_desc, skb);
- 		i40e_receive_skb(rx_ring, skb, vlan_tag);
- 		skb = NULL;
- 
-@@ -2223,6 +2229,8 @@ static netdev_tx_t i40e_xmit_frame_ring(struct sk_buff *skb,
- 	/* prefetch the data, we'll need it later */
- 	prefetch(skb->data);
- 
-+	i40e_trace(xmit_frame_ring, skb, tx_ring);
++enum i40e_status_code
++i40evf_write_profile(struct i40e_hw *hw, struct i40e_profile_segment *profile,
++		     u32 track_id)
++{
++	i40e_status status = 0;
++	struct i40e_section_table *sec_tbl;
++	struct i40e_profile_section_header *sec = NULL;
++	u32 dev_cnt;
++	u32 vendor_dev_id;
++	u32 *nvm;
++	u32 section_size = 0;
++	u32 offset = 0, info = 0;
++	u32 i;
 +
- 	count = i40e_xmit_descriptor_count(skb);
- 	if (i40e_chk_linearize(skb, count)) {
- 		if (__skb_linearize(skb)) {
-@@ -2290,6 +2298,7 @@ static netdev_tx_t i40e_xmit_frame_ring(struct sk_buff *skb,
- 	return NETDEV_TX_OK;
- 
- out_drop:
-+	i40e_trace(xmit_frame_ring_drop, first->skb, tx_ring);
- 	dev_kfree_skb_any(first->skb);
- 	first->skb = NULL;
- 	return NETDEV_TX_OK;
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index 671913c74bf8..5915273c372f 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -27,6 +27,13 @@
- #include "i40evf.h"
- #include "i40e_prototype.h"
- #include "i40evf_client.h"
-+/* All i40evf tracepoints are defined by the include below, which must
-+ * be included exactly once across the whole kernel with
-+ * CREATE_TRACE_POINTS defined
++	if (!track_id) {
++		i40e_debug(hw, I40E_DEBUG_PACKAGE, "Track_id can't be 0.");
++		return I40E_NOT_SUPPORTED;
++	}
++
++	dev_cnt = profile->device_table_count;
++
++	for (i = 0; i < dev_cnt; i++) {
++		vendor_dev_id = profile->device_table[i].vendor_dev_id;
++		if ((vendor_dev_id >> 16) == PCI_VENDOR_ID_INTEL)
++			if (hw->device_id == (vendor_dev_id & 0xFFFF))
++				break;
++	}
++	if (i == dev_cnt) {
++		i40e_debug(hw, I40E_DEBUG_PACKAGE, "Device doesn't support PPP");
++		return I40E_ERR_DEVICE_NOT_SUPPORTED;
++	}
++
++	nvm = (u32 *)&profile->device_table[dev_cnt];
++	sec_tbl = (struct i40e_section_table *)&nvm[nvm[0] + 1];
++
++	for (i = 0; i < sec_tbl->section_count; i++) {
++		sec = (struct i40e_profile_section_header *)((u8 *)profile +
++					     sec_tbl->section_offset[i]);
++
++		/* Skip 'AQ', 'note' and 'name' sections */
++		if (sec->section.type != SECTION_TYPE_MMIO)
++			continue;
++
++		section_size = sec->section.size +
++			sizeof(struct i40e_profile_section_header);
++
++		/* Write profile */
++		status = i40evf_aq_write_ppp(hw, (void *)sec, (u16)section_size,
++					     track_id, &offset, &info, NULL);
++		if (status) {
++			i40e_debug(hw, I40E_DEBUG_PACKAGE,
++				   "Failed to write profile: offset %d, info %d",
++				   offset, info);
++			break;
++		}
++	}
++	return status;
++}
++
++/**
++ * i40evf_add_pinfo_to_list
++ * @hw: pointer to the hardware structure
++ * @profile: pointer to the profile segment of the package
++ * @profile_info_sec: buffer for information section
++ * @track_id: package tracking id
++ *
++ * Register a profile to the list of loaded profiles.
 + */
-+#define CREATE_TRACE_POINTS
-+#include "i40e_trace.h"
++enum i40e_status_code
++i40evf_add_pinfo_to_list(struct i40e_hw *hw,
++			 struct i40e_profile_segment *profile,
++			 u8 *profile_info_sec, u32 track_id)
++{
++	i40e_status status = 0;
++	struct i40e_profile_section_header *sec = NULL;
++	struct i40e_profile_info *pinfo;
++	u32 offset = 0, info = 0;
 +
- static int i40evf_setup_all_tx_resources(struct i40evf_adapter *adapter);
- static int i40evf_setup_all_rx_resources(struct i40evf_adapter *adapter);
- static int i40evf_close(struct net_device *netdev);
++	sec = (struct i40e_profile_section_header *)profile_info_sec;
++	sec->tbl_size = 1;
++	sec->data_end = sizeof(struct i40e_profile_section_header) +
++			sizeof(struct i40e_profile_info);
++	sec->section.type = SECTION_TYPE_INFO;
++	sec->section.offset = sizeof(struct i40e_profile_section_header);
++	sec->section.size = sizeof(struct i40e_profile_info);
++	pinfo = (struct i40e_profile_info *)(profile_info_sec +
++					     sec->section.offset);
++	pinfo->track_id = track_id;
++	pinfo->version = profile->version;
++	pinfo->op = I40E_PPP_ADD_TRACKID;
++	memcpy(pinfo->name, profile->name, I40E_PPP_NAME_SIZE);
++
++	status = i40evf_aq_write_ppp(hw, (void *)sec, sec->data_end,
++				     track_id, &offset, &info, NULL);
++	return status;
++}
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_prototype.h b/drivers/net/ethernet/intel/i40evf/i40e_prototype.h
+index ba6c6bda0e22..741223d5d809 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_prototype.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_prototype.h
+@@ -122,4 +122,21 @@ i40e_status i40e_write_phy_register(struct i40e_hw *hw, u8 page, u16 reg,
+ u8 i40e_get_phy_address(struct i40e_hw *hw, u8 dev_num);
+ i40e_status i40e_blink_phy_link_led(struct i40e_hw *hw,
+ 				    u32 time, u32 interval);
++i40e_status i40evf_aq_write_ppp(struct i40e_hw *hw, void *buff,
++				u16 buff_size, u32 track_id,
++				u32 *error_offset, u32 *error_info,
++				struct i40e_asq_cmd_details *cmd_details);
++i40e_status i40evf_aq_get_ppp_list(struct i40e_hw *hw, void *buff,
++				   u16 buff_size, u8 flags,
++				   struct i40e_asq_cmd_details *cmd_details);
++struct i40e_generic_seg_header *
++i40evf_find_segment_in_package(u32 segment_type,
++			       struct i40e_package_header *pkg_header);
++enum i40e_status_code
++i40evf_write_profile(struct i40e_hw *hw, struct i40e_profile_segment *i40e_seg,
++		     u32 track_id);
++enum i40e_status_code
++i40evf_add_pinfo_to_list(struct i40e_hw *hw,
++			 struct i40e_profile_segment *profile,
++			 u8 *profile_info_sec, u32 track_id);
+ #endif /* _I40E_PROTOTYPE_H_ */
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_type.h b/drivers/net/ethernet/intel/i40evf/i40e_type.h
+index 16bb88084bb9..bde7f24af1c6 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_type.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_type.h
+@@ -78,6 +78,7 @@ enum i40e_debug_mask {
+ 	I40E_DEBUG_DCB			= 0x00000400,
+ 	I40E_DEBUG_DIAG			= 0x00000800,
+ 	I40E_DEBUG_FD			= 0x00001000,
++	I40E_DEBUG_PACKAGE		= 0x00002000,
+ 
+ 	I40E_DEBUG_AQ_MESSAGE		= 0x01000000,
+ 	I40E_DEBUG_AQ_DESCRIPTOR	= 0x02000000,
+@@ -1396,4 +1397,83 @@ enum i40e_reset_type {
+ #define I40E_FD_INSET_FLEX_WORD57_SHIFT		10
+ #define I40E_FD_INSET_FLEX_WORD57_MASK		(0x1ULL << \
+ 					I40E_FD_INSET_FLEX_WORD57_SHIFT)
++
++/* Version format for PPP */
++struct i40e_ppp_version {
++	u8 major;
++	u8 minor;
++	u8 update;
++	u8 draft;
++};
++
++#define I40E_PPP_NAME_SIZE	32
++
++/* Package header */
++struct i40e_package_header {
++	struct i40e_ppp_version version;
++	u32 segment_count;
++	u32 segment_offset[1];
++};
++
++/* Generic segment header */
++struct i40e_generic_seg_header {
++#define SEGMENT_TYPE_METADATA	0x00000001
++#define SEGMENT_TYPE_NOTES	0x00000002
++#define SEGMENT_TYPE_I40E	0x00000011
++#define SEGMENT_TYPE_X722	0x00000012
++	u32 type;
++	struct i40e_ppp_version version;
++	u32 size;
++	char name[I40E_PPP_NAME_SIZE];
++};
++
++struct i40e_metadata_segment {
++	struct i40e_generic_seg_header header;
++	struct i40e_ppp_version version;
++	u32 track_id;
++	char name[I40E_PPP_NAME_SIZE];
++};
++
++struct i40e_device_id_entry {
++	u32 vendor_dev_id;
++	u32 sub_vendor_dev_id;
++};
++
++struct i40e_profile_segment {
++	struct i40e_generic_seg_header header;
++	struct i40e_ppp_version version;
++	char name[I40E_PPP_NAME_SIZE];
++	u32 device_table_count;
++	struct i40e_device_id_entry device_table[1];
++};
++
++struct i40e_section_table {
++	u32 section_count;
++	u32 section_offset[1];
++};
++
++struct i40e_profile_section_header {
++	u16 tbl_size;
++	u16 data_end;
++	struct {
++#define SECTION_TYPE_INFO	0x00000010
++#define SECTION_TYPE_MMIO	0x00000800
++#define SECTION_TYPE_AQ		0x00000801
++#define SECTION_TYPE_NOTE	0x80000000
++#define SECTION_TYPE_NAME	0x80000001
++		u32 type;
++		u32 offset;
++		u32 size;
++	} section;
++};
++
++struct i40e_profile_info {
++	u32 track_id;
++	struct i40e_ppp_version version;
++	u8 op;
++#define I40E_PPP_ADD_TRACKID		0x01
++#define I40E_PPP_REMOVE_TRACKID	0x02
++	u8 reserved[7];
++	u8 name[I40E_PPP_NAME_SIZE];
++};
+ #endif /* _I40E_TYPE_H_ */
 -- 
 2.12.2
