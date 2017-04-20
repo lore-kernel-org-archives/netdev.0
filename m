@@ -1,55 +1,78 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: __sk_buff.data_end
-Date: Thu, 20 Apr 2017 16:48:11 +0200
-Message-ID: <1492699691.3109.11.camel@sipsolutions.net>
-References: <1492637460.22185.6.camel@sipsolutions.net>
-                                         (sfid-20170419_233114_060429_CAFE85B8) <1492640459.22185.7.camel@sipsolutions.net>
-                                 <58F7FA6D.5030000@iogearbox.net>
-                         <1492668065.3109.1.camel@sipsolutions.net>
-                 <58F8C160.6010905@iogearbox.net>
-         <1492697865.3109.7.camel@sipsolutions.net>
-                 <58F8C59F.1040009@iogearbox.net>
-         <1492698752.3109.8.camel@sipsolutions.net> <58F8C9BA.3090707@iogearbox.net>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net] ipv4: Avoid caching dsts when lookup skipped nh oif
+ check
+Date: Thu, 20 Apr 2017 08:59:30 -0600
+Message-ID: <8dcaa797-c566-a9dc-d9a1-99e8d1acfe15@cumulusnetworks.com>
+References: <1492693132-4708-1-git-send-email-rshearma@brocade.com>
+ <bed3d38c-dc00-1f98-371c-852170af0a0e@cumulusnetworks.com>
+ <ec8e470e-73d0-b357-4f65-a4f7e020db7f@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Daniel Borkmann <daniel@iogearbox.net>,
-        Alexei Starovoitov <ast@kernel.org>
+Cc: netdev@vger.kernel.org
+To: Robert Shearman <rshearma@brocade.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:57652 "EHLO sipsolutions.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1032934AbdDTOsQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 20 Apr 2017 10:48:16 -0400
-In-Reply-To: <58F8C9BA.3090707@iogearbox.net>
+Received: from mail-yb0-f179.google.com ([209.85.213.179]:34249 "EHLO
+        mail-yb0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S970233AbdDTO7c (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 10:59:32 -0400
+Received: by mail-yb0-f179.google.com with SMTP id 11so25824137ybw.1
+        for <netdev@vger.kernel.org>; Thu, 20 Apr 2017 07:59:32 -0700 (PDT)
+In-Reply-To: <ec8e470e-73d0-b357-4f65-a4f7e020db7f@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2017-04-20 at 16:46 +0200, Daniel Borkmann wrote:
-> > Hmm. I don't see what "somewhere else" I could possibly have
-> > though, given that I want the (kernel-side) context to be "struct
-> > sk_buff *" to allow the skb helpers?
+On 4/20/17 8:39 AM, Robert Shearman wrote:
+> On 20/04/17 15:21, David Ahern wrote:
+>> On 4/20/17 6:58 AM, Robert Shearman wrote:
+>>> David reported that doing the following:
+>>>
+>>>     ip li add red type vrf table 10
+>>>     ip link set dev eth1 vrf red
+>>>     ip addr add 127.0.0.1/8 dev red
+>>>     ip link set dev eth1 up
+>>>     ip li set red up
+>>>     ping -c1 -w1 -I red 127.0.0.1
+>>>     ip li del red
+>>>
+>>> results in a hang with this message:
+>>>
+>>>     unregister_netdevice: waiting for red to become free. Usage count
+>>> = 1
+>>
+>> I think you misunderstood my comment. The above works fine today. There
+>> is no bug with refcnts.
+>>
+>> It breaks with your patches wanting to use a VRF device with the main
+>> table (254).
 > 
-> I have not enough context on the wireless side, perhaps could be
-> somewhere under skb->dev->ieee80211_ptr or so, iff suitable. 
+> That doesn't seem to match with my experience. I can reproduce this on
+> the net tree with the listed commands and the behaviour matches what I
+> see in the code.
 
-I don't think I even have skb->dev assigned at this point :)
+Our mileage varies:
 
-> But
-> it also really doesn't matter much since this is all transparently
-> handled in the kernel, meaning these kind of rewrites can still be
-> changed at a later point in time, f.e. if it's only 'u64 boottime_ns'
-> right now, that could live directly in the cb[] w/o extra pointer,
-> and should that grow to more members, then it could be moved behind
-> a pointer later on and it still works as-is from the program point
-> of view.
+root@kenny-jessie3:~# ip li add red type vrf table 10
+root@kenny-jessie3:~#     ip link set dev eth1 vrf red
+root@kenny-jessie3:~#     ip addr add 127.0.0.1/8 dev red
+root@kenny-jessie3:~#     ip link set dev eth1 up
+root@kenny-jessie3:~#     ip li set red up
+root@kenny-jessie3:~#     ping -c1 -w1 -I red 127.0.0.1
+PING 127.0.0.1 (127.0.0.1) from 127.0.0.1 red: 56(84) bytes of data.
+64 bytes from 127.0.0.1: icmp_seq=1 ttl=64 time=0.059 ms
 
-Well, there are 48 bytes in the cb already, so doing this would mean
-moving two pointer-sized things out, but yeah - as long as we don't add
-everything right now we can keep those things that are available to BPF
-in the cb and move something else out.
+--- 127.0.0.1 ping statistics ---
+1 packets transmitted, 1 received, 0% packet loss, time 0ms
+rtt min/avg/max/mdev = 0.059/0.059/0.059/0.000 ms
+root@kenny-jessie3:~#     ip li del red
+root@kenny-jessie3:~# uname -a
+Linux kenny-jessie3 4.11.0-rc6+ #8 SMP Wed Apr 19 11:53:48 PDT 2017
+x86_64 GNU/Linux
 
-As long as what I described there with the indirect load works, I'm
-fine with this, and I can even do data_end pretty easily then.
+The above is one of many tests I run and never hit a problem deleting a
+VRF device. dst's attached to fnhe_rth_output and fnhe_rth_input appear
+to be properly flushed and device references released when the device is
+deleted (NETDEV_DOWN and then NETDEV_UNREGISTER).
 
-johannes
+Can you send me your kernel config and "sysctl -a --pattern 'net.ipv4'"?
+Perhaps you have something enabled I don't.
