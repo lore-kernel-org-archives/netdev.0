@@ -1,88 +1,54 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: Re: [PATCH net-next 2/2] tcp: remove poll() flakes with FastOpen
-Date: Wed, 19 Apr 2017 22:55:50 -0700
-Message-ID: <CAK6E8=d7jcvgxd02tXSkS4c=sj57RPpqxmgpBs4aktaE8W1PCA@mail.gmail.com>
-References: <20170418164552.29261-1-edumazet@google.com> <20170418164552.29261-3-edumazet@google.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: __sk_buff.data_end
+Date: Thu, 20 Apr 2017 08:01:05 +0200
+Message-ID: <1492668065.3109.1.camel@sipsolutions.net>
+References: <1492637460.22185.6.camel@sipsolutions.net>
+                 (sfid-20170419_233114_060429_CAFE85B8) <1492640459.22185.7.camel@sipsolutions.net>
+         <58F7FA6D.5030000@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S . Miller" <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Eric Dumazet <eric.dumazet@gmail.com>
-To: Eric Dumazet <edumazet@google.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Daniel Borkmann <daniel@iogearbox.net>,
+        Alexei Starovoitov <ast@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f175.google.com ([209.85.223.175]:36008 "EHLO
-        mail-io0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S939217AbdDTF4c (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 01:56:32 -0400
-Received: by mail-io0-f175.google.com with SMTP id o22so59772074iod.3
-        for <netdev@vger.kernel.org>; Wed, 19 Apr 2017 22:56:31 -0700 (PDT)
-In-Reply-To: <20170418164552.29261-3-edumazet@google.com>
+Received: from s3.sipsolutions.net ([5.9.151.49]:51074 "EHLO sipsolutions.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1765656AbdDTGBM (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 20 Apr 2017 02:01:12 -0400
+In-Reply-To: <58F7FA6D.5030000@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 18, 2017 at 9:45 AM, Eric Dumazet <edumazet@google.com> wrote:
->
-> When using TCP FastOpen for an active session, we send one wakeup event
-> from tcp_finish_connect(), right before the data eventually contained in
-> the received SYNACK is queued to sk->sk_receive_queue.
->
-> This means that depending on machine load or luck, poll() users
-> might receive POLLOUT events instead of POLLIN|POLLOUT
->
-> To fix this, we need to move the call to sk->sk_state_change()
-> after the (optional) call to tcp_rcv_fastopen_synack()
->
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-Acked-by: Yuchung Cheng <ycheng@google.com>
+On Thu, 2017-04-20 at 02:01 +0200, Daniel Borkmann wrote:
+> 
+> Yeah, should work as well for the 32 bit archs, on 64 bit we
+> have this effectively already:
 
-Thanks for the fix!
+Right.
 
-> ---
->  net/ipv4/tcp_input.c | 16 +++++++++-------
->  1 file changed, 9 insertions(+), 7 deletions(-)
->
-> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-> index 37e2aa925f62395cfb48145cd3a76b6afebb64b1..341f021f02a2931cd75b2e1e71af9729fc4c7895 100644
-> --- a/net/ipv4/tcp_input.c
-> +++ b/net/ipv4/tcp_input.c
-> @@ -5580,10 +5580,6 @@ void tcp_finish_connect(struct sock *sk, struct sk_buff *skb)
->         else
->                 tp->pred_flags = 0;
->
-> -       if (!sock_flag(sk, SOCK_DEAD)) {
-> -               sk->sk_state_change(sk);
-> -               sk_wake_async(sk, SOCK_WAKE_IO, POLL_OUT);
-> -       }
->  }
->
->  static bool tcp_rcv_fastopen_synack(struct sock *sk, struct sk_buff *synack,
-> @@ -5652,6 +5648,7 @@ static int tcp_rcv_synsent_state_process(struct sock *sk, struct sk_buff *skb,
->         struct tcp_sock *tp = tcp_sk(sk);
->         struct tcp_fastopen_cookie foc = { .len = -1 };
->         int saved_clamp = tp->rx_opt.mss_clamp;
-> +       bool fastopen_fail;
->
->         tcp_parse_options(skb, &tp->rx_opt, 0, &foc);
->         if (tp->rx_opt.saw_tstamp && tp->rx_opt.rcv_tsecr)
-> @@ -5755,10 +5752,15 @@ static int tcp_rcv_synsent_state_process(struct sock *sk, struct sk_buff *skb,
->
->                 tcp_finish_connect(sk, skb);
->
-> -               if ((tp->syn_fastopen || tp->syn_data) &&
-> -                   tcp_rcv_fastopen_synack(sk, skb, &foc))
-> -                       return -1;
-> +               fastopen_fail = (tp->syn_fastopen || tp->syn_data) &&
-> +                               tcp_rcv_fastopen_synack(sk, skb, &foc);
->
-> +               if (!sock_flag(sk, SOCK_DEAD)) {
-> +                       sk->sk_state_change(sk);
-> +                       sk_wake_async(sk, SOCK_WAKE_IO, POLL_OUT);
-> +               }
-> +               if (fastopen_fail)
-> +                       return -1;
->                 if (sk->sk_write_pending ||
->                     icsk->icsk_accept_queue.rskq_defer_accept ||
->                     icsk->icsk_ack.pingpong) {
-> --
-> 2.12.2.762.g0e3151a226-goog
->
+[...]
+
+> Can you elaborate on why this works for mac80211? It uses cb
+> only up to that point from where you invoke the prog?
+
+No, it works because then I can move a u64 field to the same offset,
+and save/restore it across the BPF call :)
+
+But I don't have a *pointer* field to move there, and no space for the
+alignment anyway (already using all 48 bytes).
+
+Come to think of it - somebody had proposed extensions to this by
+passing an on-stack pointer in addition to the data in the cb.
+
+Perhaps we can extend BPF to have an optional second argument, and
+track a second context around the verifier, if applicable? Then we can
+solve all of this really easily, because it means we don't always have
+to go from the SKB context but could go from the other one (which could
+be that on-stack buffer).
+
+Alternatively I can clear another pointer (u64) in the CB, store a
+pointer there, and always emit code following that pointer - should be
+possible right?
+
+johannes
