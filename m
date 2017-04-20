@@ -1,136 +1,166 @@
-From: Alexander Kochetkov <al.kochet@gmail.com>
-Subject: [PATCH v1] net: phy: fix auto-negotiation stall due to unavailable interrupt
-Date: Thu, 20 Apr 2017 14:00:04 +0300
-Message-ID: <1492686004-30527-2-git-send-email-al.kochet@gmail.com>
-References: <1492686004-30527-1-git-send-email-al.kochet@gmail.com>
-Cc: Alexander Kochetkov <al.kochet@gmail.com>
-To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-        Roger Quadros <rogerq@ti.com>,
-        Madalin Bucur <madalin.bucur@nxp.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1492686004-30527-1-git-send-email-al.kochet@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Matthias Brugger <matthias.bgg@gmail.com>
+Subject: Re: [PATCH net-next 2/3] net: hns: support deferred probe when no
+ mdio
+Date: Thu, 20 Apr 2017 13:13:07 +0200
+Message-ID: <5c299e38-88f0-9801-5e7b-477e6fa0db18@gmail.com>
+References: <1492510354-11300-1-git-send-email-yankejian@huawei.com>
+ <1492510354-11300-3-git-send-email-yankejian@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, charles.chenxin@huawei.com,
+        linuxarm@huawei.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [195.159.176.226] ([195.159.176.226]:39877 "EHLO
+        blaine.gmane.org" rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org
+        with ESMTP id S944755AbdDTLNR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 07:13:17 -0400
+Received: from list by blaine.gmane.org with local (Exim 4.84_2)
+        (envelope-from <linux-netdev-2@m.gmane.org>)
+        id 1d1A1M-0007YC-I2
+        for netdev@vger.kernel.org; Thu, 20 Apr 2017 13:13:08 +0200
+In-Reply-To: <1492510354-11300-3-git-send-email-yankejian@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The Ethernet link on an interrupt driven PHY was not coming up if the Ethernet
-cable was plugged before the Ethernet interface was brought up.
+On 18/04/17 12:12, Yankejian wrote:
+> From: lipeng <lipeng321@huawei.com>
+>
+> In the hip06 and hip07 SoCs, phy connect to mdio bus.The mdio
+> module is probed with module_init, and, as such,
+> is not guaranteed to probe before the HNS driver. So we need
+> to support deferred probe.
+>
+> We check for probe deferral in the mac init, so we not init DSAF
+> when there is no mdio, and free all resource, to later learn that
+> we need to defer the probe.
+>
+> Signed-off-by: lipeng <lipeng321@huawei.com>
 
-The patch trigger PHY state machine to update link state if PHY was requested to
-do auto-negotiation and auto-negotiation complete flag already set.
+on which kernel version is this patch based?
+I checked against next-20170420 and it does not apply.
 
-During power-up cycle the PHY do auto-negotiation, generate interrupt and set
-auto-negotiation complete flag. Interrupt is handled by PHY state machine but
-doesn't update link state because PHY is in PHY_READY state. After some time
-MAC bring up, start and request PHY to do auto-negotiation. If there are no new
-settings to advertise genphy_config_aneg() doesn't start PHY auto-negotiation.
-PHY continue to stay in auto-negotiation complete state and doesn't fire
-interrupt. At the same time PHY state machine expect that PHY started
-auto-negotiation and is waiting for interrupt from PHY and it won't get it.
 
-Signed-off-by: Alexander Kochetkov <al.kochet@gmail.com>
-Cc: stable <stable@vger.kernel.org> # v4.9+
----
- drivers/net/phy/phy.c |   40 ++++++++++++++++++++++++++++++++++++----
- include/linux/phy.h   |    1 +
- 2 files changed, 37 insertions(+), 4 deletions(-)
+> ---
+>  drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c | 34 +++++++++++++++++++----
+>  1 file changed, 28 insertions(+), 6 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
+> index bdd8cdd..284ebfe 100644
+> --- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
+> +++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
+> @@ -735,6 +735,8 @@ static int hns_mac_init_ex(struct hns_mac_cb *mac_cb)
+>  	rc = phy_device_register(phy);
+>  	if (rc) {
+>  		phy_device_free(phy);
+> +		dev_err(&mdio->dev, "registered phy fail at address %i\n",
+> +			addr);
+>  		return -ENODEV;
+>  	}
+>
+> @@ -745,7 +747,7 @@ static int hns_mac_init_ex(struct hns_mac_cb *mac_cb)
+>  	return 0;
+>  }
+>
+> -static void hns_mac_register_phy(struct hns_mac_cb *mac_cb)
+> +static int hns_mac_register_phy(struct hns_mac_cb *mac_cb)
+>  {
+>  	struct acpi_reference_args args;
+>  	struct platform_device *pdev;
+> @@ -755,24 +757,39 @@ static void hns_mac_register_phy(struct hns_mac_cb *mac_cb)
+>
+>  	/* Loop over the child nodes and register a phy_device for each one */
+>  	if (!to_acpi_device_node(mac_cb->fw_port))
+> -		return;
+> +		return 0;
 
-diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-index 7cc1b7d..2d9975b 100644
---- a/drivers/net/phy/phy.c
-+++ b/drivers/net/phy/phy.c
-@@ -591,16 +591,18 @@ int phy_mii_ioctl(struct phy_device *phydev, struct ifreq *ifr, int cmd)
- EXPORT_SYMBOL(phy_mii_ioctl);
- 
- /**
-- * phy_start_aneg - start auto-negotiation for this PHY device
-+ * phy_start_aneg_priv - start auto-negotiation for this PHY device
-  * @phydev: the phy_device struct
-+ * @sync: indicate whether we should wait for the workqueue cancelation
-  *
-  * Description: Sanitizes the settings (if we're not autonegotiating
-  *   them), and then calls the driver's config_aneg function.
-  *   If the PHYCONTROL Layer is operating, we change the state to
-  *   reflect the beginning of Auto-negotiation or forcing.
-  */
--int phy_start_aneg(struct phy_device *phydev)
-+static int phy_start_aneg_priv(struct phy_device *phydev, bool sync)
- {
-+	bool trigger = 0;
- 	int err;
- 
- 	mutex_lock(&phydev->lock);
-@@ -625,10 +627,40 @@ int phy_start_aneg(struct phy_device *phydev)
- 		}
- 	}
- 
-+	/* Re-schedule a PHY state machine to check PHY status because
-+	 * negotiation may already be done and aneg interrupt may not be
-+	 * generated.
-+	 */
-+	if (phy_interrupt_is_valid(phydev) && (phydev->state == PHY_AN)) {
-+		err = phy_aneg_done(phydev);
-+		if (err > 0) {
-+			trigger = true;
-+			err = 0;
-+		}
-+	}
-+
- out_unlock:
- 	mutex_unlock(&phydev->lock);
-+
-+	if (trigger)
-+		phy_trigger_machine(phydev, sync);
-+
- 	return err;
- }
-+
-+/**
-+ * phy_start_aneg - start auto-negotiation for this PHY device
-+ * @phydev: the phy_device struct
-+ *
-+ * Description: Sanitizes the settings (if we're not autonegotiating
-+ *   them), and then calls the driver's config_aneg function.
-+ *   If the PHYCONTROL Layer is operating, we change the state to
-+ *   reflect the beginning of Auto-negotiation or forcing.
-+ */
-+int phy_start_aneg(struct phy_device *phydev)
-+{
-+	return phy_start_aneg_priv(phydev, true);
-+}
- EXPORT_SYMBOL(phy_start_aneg);
- 
- /**
-@@ -656,7 +688,7 @@ void phy_start_machine(struct phy_device *phydev)
-  *   state machine runs.
-  */
- 
--static void phy_trigger_machine(struct phy_device *phydev, bool sync)
-+void phy_trigger_machine(struct phy_device *phydev, bool sync)
- {
- 	if (sync)
- 		cancel_delayed_work_sync(&phydev->state_queue);
-@@ -1151,7 +1183,7 @@ void phy_state_machine(struct work_struct *work)
- 	mutex_unlock(&phydev->lock);
- 
- 	if (needs_aneg)
--		err = phy_start_aneg(phydev);
-+		err = phy_start_aneg_priv(phydev, false);
- 	else if (do_suspend)
- 		phy_suspend(phydev);
- 
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index 7fc1105..b19ae66 100644
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -840,6 +840,7 @@ int phy_drivers_register(struct phy_driver *new_driver, int n,
- void phy_mac_interrupt(struct phy_device *phydev, int new_link);
- void phy_start_machine(struct phy_device *phydev);
- void phy_stop_machine(struct phy_device *phydev);
-+void phy_trigger_machine(struct phy_device *phydev, bool sync);
- int phy_ethtool_sset(struct phy_device *phydev, struct ethtool_cmd *cmd);
- int phy_ethtool_gset(struct phy_device *phydev, struct ethtool_cmd *cmd);
- int phy_ethtool_ksettings_get(struct phy_device *phydev,
--- 
-1.7.9.5
+Please return appropriate errno.
+
+>
+>  	rc = acpi_node_get_property_reference(
+>  			mac_cb->fw_port, "mdio-node", 0, &args);
+>  	if (rc)
+> -		return;
+> +		return 0;
+
+Please return appropriate errno.
+
+>
+>  	addr = hns_mac_phy_parse_addr(mac_cb->dev, mac_cb->fw_port);
+>  	if (addr < 0)
+> -		return;
+> +		return 0;
+
+Shouldn't we just error out here by returning addr?
+
+>
+>  	/* dev address in adev */
+>  	pdev = hns_dsaf_find_platform_device(acpi_fwnode_handle(args.adev));
+> +	if (!pdev) {
+> +		dev_err(mac_cb->dev, "mac%d mdio pdev is NULL\n",
+> +			mac_cb->mac_id);
+> +		return 0;
+
+Please return appropriate errno.
+
+Regards,
+Matthias
+
+> +	}
+> +
+>  	mii_bus = platform_get_drvdata(pdev);
+> +	if (!mii_bus) {
+> +		dev_err(mac_cb->dev,
+> +			"mac%d mdio is NULL, dsaf will probe again later\n",
+> +			mac_cb->mac_id);
+> +		return -EPROBE_DEFER;
+> +	}
+> +
+>  	rc = hns_mac_register_phydev(mii_bus, mac_cb, addr);
+>  	if (!rc)
+>  		dev_dbg(mac_cb->dev, "mac%d register phy addr:%d\n",
+>  			mac_cb->mac_id, addr);
+> +
+> +	return rc;
+>  }
+>
+>  #define MAC_MEDIA_TYPE_MAX_LEN		16
+> @@ -793,7 +810,7 @@ static void hns_mac_register_phy(struct hns_mac_cb *mac_cb)
+>   *@np:device node
+>   * return: 0 --success, negative --fail
+>   */
+> -static int  hns_mac_get_info(struct hns_mac_cb *mac_cb)
+> +static int hns_mac_get_info(struct hns_mac_cb *mac_cb)
+>  {
+>  	struct device_node *np;
+>  	struct regmap *syscon;
+> @@ -903,7 +920,10 @@ static int  hns_mac_get_info(struct hns_mac_cb *mac_cb)
+>  			}
+>  		}
+>  	} else if (is_acpi_node(mac_cb->fw_port)) {
+> -		hns_mac_register_phy(mac_cb);
+> +		ret = hns_mac_register_phy(mac_cb);
+> +
+> +		if (ret)
+> +			return ret;
+>  	} else {
+>  		dev_err(mac_cb->dev, "mac%d cannot find phy node\n",
+>  			mac_cb->mac_id);
+> @@ -1065,6 +1085,7 @@ int hns_mac_init(struct dsaf_device *dsaf_dev)
+>  			dsaf_dev->mac_cb[port_id] = mac_cb;
+>  		}
+>  	}
+> +
+>  	/* init mac_cb for all port */
+>  	for (port_id = 0; port_id < max_port_num; port_id++) {
+>  		mac_cb = dsaf_dev->mac_cb[port_id];
+> @@ -1074,6 +1095,7 @@ int hns_mac_init(struct dsaf_device *dsaf_dev)
+>  		ret = hns_mac_get_cfg(dsaf_dev, mac_cb);
+>  		if (ret)
+>  			return ret;
+> +
+>  		ret = hns_mac_init_ex(mac_cb);
+>  		if (ret)
+>  			return ret;
+>
