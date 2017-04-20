@@ -1,62 +1,36 @@
-From: Zhu Yanjun <yanjun.zhu@oracle.com>
-Subject: [PATCH 1/1] bonding: use 'M' or 'G' based on the speed
-Date: Thu, 20 Apr 2017 05:06:35 -0400
-Message-ID: <1492679195-19938-1-git-send-email-yanjun.zhu@oracle.com>
-To: j.vosburgh@gmail.com, vfalico@gmail.com, andy@greyhouse.net,
-        netdev@vger.kernel.org
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 11/16] esp: Use a synchronous crypto algorithm on
+ offloading.
+Date: Thu, 20 Apr 2017 17:06:17 +0800
+Message-ID: <20170420090617.GA8325@gondor.apana.org.au>
+References: <1492678515-14347-1-git-send-email-steffen.klassert@secunet.com>
+ <1492678515-14347-12-git-send-email-steffen.klassert@secunet.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:41634 "EHLO
-        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S943690AbdDTJGs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 05:06:48 -0400
+Received: from [198.176.57.175] ([198.176.57.175]:32808 "EHLO
+        deadmen.hmeau.com" rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org
+        with ESMTP id S943925AbdDTJHD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 05:07:03 -0400
+Content-Disposition: inline
+In-Reply-To: <1492678515-14347-12-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If the speed of the slave netdev is more than 1000M,
-it is better to use 'G' instead of 'M'.
+On Thu, Apr 20, 2017 at 10:55:10AM +0200, Steffen Klassert wrote:
+> We need a fallback algorithm for crypto offloading to a NIC.
+> This is because packets can be rerouted to other NICs that
+> don't support crypto offloading. The fallback is going to be
+> implemented at layer2 where we know the final output device
+> but can't handle asynchronous returns fron the crypto layer.
 
-Signed-off-by: Zhu Yanjun <yanjun.zhu@oracle.com>
----
- drivers/net/bonding/bond_main.c   | 8 ++++++--
- drivers/net/bonding/bond_procfs.c | 6 +++++-
- 2 files changed, 11 insertions(+), 3 deletions(-)
+Can you explain why we can't handle async algorithms on the fallback
+path?
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index af9f0ce..1aad13d 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -2147,9 +2147,13 @@ static void bond_miimon_commit(struct bonding *bond)
- 				bond_set_backup_slave(slave);
- 			}
- 
--			netdev_info(bond->dev, "link status definitely up for interface %s, %u Mbps %s duplex\n",
-+			netdev_info(bond->dev, "link status definitely up for interface %s, %u%sbps %s duplex\n",
- 				    slave->dev->name,
--				    slave->speed == SPEED_UNKNOWN ? 0 : slave->speed,
-+				    slave->speed == SPEED_UNKNOWN ? 0 :
-+				    (slave->speed > 1000 ?
-+				    slave->speed / 1000 : slave->speed),
-+				    slave->speed > 1000 ?
-+				    slave->speed % 1000 ? ".5 G" : " G" : " M",
- 				    slave->duplex ? "full" : "half");
- 
- 			/* notify ad that the link status has changed */
-diff --git a/drivers/net/bonding/bond_procfs.c b/drivers/net/bonding/bond_procfs.c
-index f514fe5..4c31055 100644
---- a/drivers/net/bonding/bond_procfs.c
-+++ b/drivers/net/bonding/bond_procfs.c
-@@ -173,7 +173,11 @@ static void bond_info_show_slave(struct seq_file *seq,
- 	if (slave->speed == SPEED_UNKNOWN)
- 		seq_printf(seq, "Speed: %s\n", "Unknown");
- 	else
--		seq_printf(seq, "Speed: %d Mbps\n", slave->speed);
-+		seq_printf(seq, "Speed: %d%sbps\n",
-+			   slave->speed > 1000 ?
-+			   slave->speed / 1000 : slave->speed,
-+			   slave->speed > 1000 ?
-+			   (slave->speed % 1000 ? ".5 G" : " G") : " M");
- 
- 	if (slave->duplex == DUPLEX_UNKNOWN)
- 		seq_printf(seq, "Duplex: %s\n", "Unknown");
+Thanks,
 -- 
-2.7.4
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
