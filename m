@@ -1,134 +1,64 @@
-From: "Michael Kerrisk (man-pages)" <mtk.manpages@gmail.com>
-Subject: Re: [patch] socket.7: Document SO_INCOMING_CPU
-Date: Thu, 20 Apr 2017 16:43:14 +0200
-Message-ID: <1d21aa72-ab2a-0a02-b8d3-dc8b4dd49333@gmail.com>
-References: <CABNn7+rHfUTjMtm3Biqfx83G6Rr7pY-LuHXY=JqA6N3H_SstZg@mail.gmail.com>
- <63815aac-9c8f-c599-9422-5c312cefc9e8@gmail.com>
- <9c754f31-8ace-03f2-97f3-81e29eb6d997@gmail.com>
- <1492621535.22296.8.camel@edumazet-glaptop3.roam.corp.google.com>
- <326b99c3-cc86-3abd-1069-2b3a52d9ba47@gmail.com>
- <1492632801.22296.11.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: __sk_buff.data_end
+Date: Thu, 20 Apr 2017 16:46:18 +0200
+Message-ID: <58F8C9BA.3090707@iogearbox.net>
+References: <1492637460.22185.6.camel@sipsolutions.net>                          (sfid-20170419_233114_060429_CAFE85B8) <1492640459.22185.7.camel@sipsolutions.net>                      <58F7FA6D.5030000@iogearbox.net>                <1492668065.3109.1.camel@sipsolutions.net>      <58F8C160.6010905@iogearbox.net> <1492697865.3109.7.camel@sipsolutions.net>     <58F8C59F.1040009@iogearbox.net> <1492698752.3109.8.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: mtk.manpages@gmail.com,
-        Francois Saint-Jacques <fsaintjacques@gmail.com>,
-        linux-man@vger.kernel.org, netdev@vger.kernel.org,
-        Eric Dumazet <edumazet@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: netdev <netdev@vger.kernel.org>
+To: Johannes Berg <johannes@sipsolutions.net>,
+        Alexei Starovoitov <ast@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:32973 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1032744AbdDTOnT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 10:43:19 -0400
-In-Reply-To: <1492632801.22296.11.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from www62.your-server.de ([213.133.104.62]:39887 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S942331AbdDTOqY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 10:46:24 -0400
+In-Reply-To: <1492698752.3109.8.camel@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/19/2017 10:13 PM, Eric Dumazet wrote:
-> On Wed, 2017-04-19 at 20:48 +0200, Michael Kerrisk (man-pages) wrote:
->> Hi Eric,
+On 04/20/2017 04:32 PM, Johannes Berg wrote:
+> On Thu, 2017-04-20 at 16:28 +0200, Daniel Borkmann wrote:
 >>
->> [reodering for clarity]
+>> I see what you mean now. Yes, that's fine. We already do something
+>> similar essentially with skb->ifindex access already (skb->dev +
+>> dev->ifindex), f.e.:
 >>
->>>> On 02/19/2017 09:55 PM, Michael Kerrisk (man-pages) wrote:
->>>>> [CC += Eric, so that he might review]
->>>>>
->>>>> Hello Francois,
->>>>>
->>>>> On 02/18/2017 05:06 AM, Francois Saint-Jacques wrote:
->>>>>> This socket option is undocumented. Applies on the latest version
->>>>>> (man-pages-4.09-511).
->>>>>>
->>>>>> diff --git a/man7/socket.7 b/man7/socket.7
->>>>>> index 3efd7a5d8..1a3ffa253 100644
->>>>>> --- a/man7/socket.7
->>>>>> +++ b/man7/socket.7
->>>>>> @@ -490,6 +490,26 @@ flag on a socket
->>>>>>  operation.
->>>>>>  Expects an integer boolean flag.
->>>>>>  .TP
->>>>>> +.BR SO_INCOMING_CPU " (getsockopt since Linux 3.19, setsockopt since
->>>>>> Linux 4.4)"
->>>>>> +.\" getsocktop 2c8c56e15df3d4c2af3d656e44feb18789f75837
->>>>>> +.\" setsocktop 70da268b569d32a9fddeea85dc18043de9d89f89
->>>>>> +Sets or gets the cpu affinity of a socket. Expects an integer flag.
->>>>>> +.sp
->>>>>> +.in +4n
->>>>>> +.nf
->>>>>> +int cpu = 1;
->>>>>> +socklen_t len = sizeof(cpu);
->>>>>> +setsockopt(fd, SOL_SOCKET, SO_INCOMING_CPU, &cpu, &len);
->>>>>> +.fi
->>>>>> +.in
->>>>>> +.sp
->>>>>> +The typical use case is one listener per RX queue, as the associated listener
->>>>>> +should only accept flows handled in softirq by the same cpu.  This provides
->>>>>> +optimal NUMA behavior and keep cpu caches hot.
->>>>>> +.TP
->>>>>>  .B SO_KEEPALIVE
->>>>>>  Enable sending of keep-alive messages on connection-oriented sockets.
->>>>>>  Expects an integer boolean flag.
->>>>>
->>>>> Thank you! Patch applied.
->>>>>
->>>>> I have tried to enhance the description somewhat. I'm not sure whether
->>>>> what I've written is quite correct (or whether it should be further
->>>>> extended). Eric, could you please take a look at the following, and let 
->>>>> me know if anything needs fixing:
->>>>>
->>>>>        SO_INCOMING_CPU  (gettable  since Linux 3.19, settable since Linux
->>>>>        4.4)
->>>>>               Sets or gets the CPU affinity  of  a  socket.   Expects  an
->>>>>               integer flag.
->>>>>
->>>>>                   int cpu = 1;
->>>>>                   socklen_t len = sizeof(cpu);
->>>>>                   setsockopt(fd, SOL_SOCKET, SO_INCOMING_CPU, &cpu, &len);
->>>>>
->>>>>               Because  all  of the packets for a single stream (i.e., all
->>>>>               packets for the same 4-tuple) arrive on the single RX queue
->>>>>               that  is  associated with a particular CPU, the typical use
->>>>>               case is to employ one listening process per RX queue,  with
->>>>>               the  incoming  flow being handled by a listener on the same
->>>>>               CPU that is handling the RX queue.  This  provides  optimal
->>>>>               NUMA behavior and keeps CPU caches hot.
+>> [...]
+>> 	case offsetof(struct __sk_buff, ifindex):
+>> 		BUILD_BUG_ON(FIELD_SIZEOF(struct net_device, ifindex)
+>> != 4);
 >>
->>> Hi Michael
->>>
->>> Sorry for the delay.
->>
->> Thanks for the reply, but I think you are assuming I know more than 
->> I do. I'd like you to elaborate a little please. See below.
->>
->>> Note that setting the option is not supported if SO_REUSEPORT is used.
->>
->> Please define "not supported". Does this yield an API diagnostic?
->> If so, what is it?
->>
->>> Socket will be selected from an array, either by a hash or BPF program
->>> that has no access to this information.
->>
->> Sorry -- I'm lost here. How does this comment relate to the proposed
->> man page text above?
-> 
-> Simply that :
-> 
-> If an application uses both SO_INCOMING_CPU and SO_REUSEPORT, then
-> SO_REUSEPORT logic, selecting the socket to receive the packet, ignores
-> SO_INCOMING_CPU setting.
-> 
-> This does not need to be documented, because it is an implementation
-> detail/bug that could be changed, if someone cares enough.
+>> 		*insn++ = BPF_LDX_MEM(BPF_FIELD_SIZEOF(struct sk_buff,
+>> dev),
+>> 				      si->dst_reg, si->src_reg,
+>> 				      offsetof(struct sk_buff, dev));
+>> 		*insn++ = BPF_JMP_IMM(BPF_JEQ, si->dst_reg, 0, 1);
+>> 		*insn++ = BPF_LDX_MEM(BPF_W, si->dst_reg, si->dst_reg,
+>> 				      offsetof(struct net_device,
+>> ifindex));
+>> 		break;
+>> [...]
+>
+> Oh, right, good point.
+>
+>> Which is not too different from the above. You'd probably need to
+>> populate the struct wifi_data each time if you place it onto the
+>> stack, but perhaps could be optimized by storing that somewhere
+>> else (e.g. somewhere via netdev, etc) and walking the pointer from
+>> there, which would also spare you the cb[] save/restore.
+>
+> Hmm. I don't see what "somewhere else" I could possibly have though,
+> given that I want the (kernel-side) context to be "struct sk_buff *"
+> to allow the skb helpers?
 
-Okay, thanks, Eric. I'll just merge the page text as it currently 
-is then.
-
-Cheers,
-
-Michael
-
--- 
-Michael Kerrisk
-Linux man-pages maintainer; http://www.kernel.org/doc/man-pages/
-Linux/UNIX System Programming Training: http://man7.org/training/
+I have not enough context on the wireless side, perhaps could be
+somewhere under skb->dev->ieee80211_ptr or so, iff suitable. But
+it also really doesn't matter much since this is all transparently
+handled in the kernel, meaning these kind of rewrites can still be
+changed at a later point in time, f.e. if it's only 'u64 boottime_ns'
+right now, that could live directly in the cb[] w/o extra pointer,
+and should that grow to more members, then it could be moved behind
+a pointer later on and it still works as-is from the program point
+of view.
