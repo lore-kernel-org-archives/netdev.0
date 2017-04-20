@@ -1,157 +1,48 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH net-next v4 1/2] net sched actions: dump more than
- TCA_ACT_MAX_PRIO actions per batch
-Date: Thu, 20 Apr 2017 06:42:55 -0400
-Message-ID: <f0e84f44-ba3a-7eb4-8b22-9764048d9406@mojatatu.com>
-References: <1492603050-9318-1-git-send-email-jhs@emojatatu.com>
- <20170419123645.GB3357@nanopsycho.orion>
- <705a4d67-4a81-113f-e22a-0ca0bb6cf1eb@mojatatu.com>
- <20170419131323.GE3357@nanopsycho.orion>
- <e2a1e201-4830-e600-e668-91f83bcc9b32@mojatatu.com>
- <20170419155400.GH3357@nanopsycho.orion>
- <56488055-1f4b-ee10-2357-5ce80f1fbc50@mojatatu.com>
- <20170419161736.GJ3357@nanopsycho.orion>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH 11/16] esp: Use a synchronous crypto algorithm on
+ offloading.
+Date: Thu, 20 Apr 2017 12:50:29 +0200
+Message-ID: <20170420105029.GJ2649@secunet.com>
+References: <1492678515-14347-1-git-send-email-steffen.klassert@secunet.com>
+ <1492678515-14347-12-git-send-email-steffen.klassert@secunet.com>
+ <20170420090617.GA8325@gondor.apana.org.au>
+ <20170420091752.GH2649@secunet.com>
+ <20170420095235.GA8580@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-        eric.dumazet@gmail.com, xiyou.wangcong@gmail.com
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset="us-ascii"
+Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f195.google.com ([209.85.223.195]:35872 "EHLO
-        mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S943005AbdDTKm6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 06:42:58 -0400
-Received: by mail-io0-f195.google.com with SMTP id x86so14893983ioe.3
-        for <netdev@vger.kernel.org>; Thu, 20 Apr 2017 03:42:57 -0700 (PDT)
-In-Reply-To: <20170419161736.GJ3357@nanopsycho.orion>
+Received: from a.mx.secunet.com ([62.96.220.36]:55094 "EHLO a.mx.secunet.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S943143AbdDTKuc (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 20 Apr 2017 06:50:32 -0400
+Content-Disposition: inline
+In-Reply-To: <20170420095235.GA8580@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17-04-19 12:17 PM, Jiri Pirko wrote:
-> Wed, Apr 19, 2017 at 06:07:48PM CEST, jhs@mojatatu.com wrote:
->> On 17-04-19 11:54 AM, Jiri Pirko wrote:
->>> Wed, Apr 19, 2017 at 05:37:15PM CEST, jhs@mojatatu.com wrote:
->>>> On 17-04-19 09:13 AM, Jiri Pirko wrote:
->>>>> Wed, Apr 19, 2017 at 03:03:59PM CEST, jhs@mojatatu.com wrote:
->>>>>> On 17-04-19 08:36 AM, Jiri Pirko wrote:
->>>>>>> Wed, Apr 19, 2017 at 01:57:29PM CEST, jhs@mojatatu.com wrote:
->>>>>>>> From: Jamal Hadi Salim <jhs@mojatatu.com>
->>>>>>
->>>>>>>> include/uapi/linux/rtnetlink.h | 21 +++++++++++++++++++--
->>>>>>>> net/sched/act_api.c            | 43 ++++++++++++++++++++++++++++++++----------
->>>>>>>> 3 files changed, 53 insertions(+), 12 deletions(-)
->>>>
->>>>>>>> +#define TCAA_MAX (__TCAA_MAX - 1)
->>>>>>>> #define TA_RTA(r)  ((struct rtattr*)(((char*)(r)) + NLMSG_ALIGN(sizeof(struct tcamsg))))
->>>>>>>> #define TA_PAYLOAD(n) NLMSG_PAYLOAD(n,sizeof(struct tcamsg))
->>>>>>>> -#define TCA_ACT_TAB 1 /* attr type must be >=1 */	
->>>>>>>> -#define TCAA_MAX 1
->>>>>>>> +#define TCA_ACT_TAB TCAA_ACT_TAB
->>>>>>>
->>>>>>> This is mess. What does "TCAA" stand for?
->>>>>>
->>>>>> TC Actions Attributes.  What would you call it? I could have
->>>>>> called it TCA_ROOT etc. But maybe a comment to just call it
->>>>>> TC Actions Attributes would be enough?
->>>>>
->>>>> TCA_DUMP_X
->>>>>
->>>>> it is only for dumping. Naming it "attribute" seems weird. Same as if
->>>>> you have: int variable_something;
->>>>>
->>>>
->>>> Jiri, this is not just for dumping. We are describing high level
->>>> attributes for tc actions.
->>>
->>> This is already present:
->>> enum {
->>>         TCA_ACT_UNSPEC,
->>>         TCA_ACT_KIND,
->>>         TCA_ACT_OPTIONS,
->>>         TCA_ACT_INDEX,
->>>         TCA_ACT_STATS,
->>>         TCA_ACT_PAD,
->>>         TCA_ACT_COOKIE,
->>>         __TCA_ACT_MAX
->>> };
->>>
->>> This is nested inside the dump message (TCAA_MAX, TCA_ACT_TAB)
->>>
->>> Looks like you are mixing these 2.
->>>
->>
->> No - That space is per action. The space i am defining is
->> above that in the the hierarchy. There used to be only
->> one attribute there (TCA_ACT_TAB) and now we are making
->> it more generic.
->
-> Right. That's what I say. And that higher level is used only for
-> dumping. That's why I suggested TCA_ACT_DUMP prefix.
->
+On Thu, Apr 20, 2017 at 05:52:35PM +0800, Herbert Xu wrote:
+> On Thu, Apr 20, 2017 at 11:17:52AM +0200, Steffen Klassert wrote:
+> >
+> > I tried to use async algorithms but it lead to serveral problems.
+> > The GSO layer can't handle async returns, we'd need callbacks
+> > for all the GSO handlers. Also we need something where we can
+> > requeue packets if the driver is busy etc.
+> 
+> Why would we need to requeue? As it is if you get an EBUSY on
+> an IPsec packet it's simply dropped.
 
-DUMP is not right. _TAB is used for SET/DEL as well.
-why dont we leave this alone so we can progress?
-You can submit changes later if it bothers you still.
+Yes we could do this, but the GSO problem remain.
 
->
->>
->>>
->>>
->>
->>>> It is a _lot_ of code to change! Note:
->>>> This is all the UAPI visible code (the same coding style for 20 years).
->>>> I am worried about this part.
->>>
->>> We'll see. Lets do it in a sensitive way, in steps. But for new things,
->>> I think it is good not to stick with old and outlived habits.
->>>
->>>
->>
->> I know you have the muscle to get it done - so fine, i will start
->> with this one change.
->>
->>>
->>> Netlink is TLV, should be used as TLV. I don't see how you can run out
->>> any space. You tend to use Netlink in some weird hybrid mode, with only
->>> argument being space. I think that couple of bytes wasted is not
->>> a problem at all...
->>>
->>
->> You are not making sense to me still.
->> What you describe as "a couple of bytes" adds up when you have
->> a large number of objects. I am trying to cut down on data back
->> and forth from user/kernel and a bitmap is a well understood entity.
->
-> The attributes in question are per-message, not per-object
->
->
->>
->> Even if i did use a TLV - when i am representing flags which require one
->> bit each - it makes sense to use a bitmask encapsulated in a TLV. Not
->> to waste a TLV per bit.
->
-> That is the only correct way. For example, in future the kernel may
-> report in extended ack that it does not support some specific attribute
-> user passed. If you pack it all in one attr, that would not be possible.
-> Also, what prevents user from passing random data on bit flag positions
-> that you are not using? Current kernel would ignore it. Next kernel will
-> do something different according to the flag bit. That is UAPI break.
-> Essentialy the same thing what DaveM said about the struct. You have to
-> define this completely, at the beginning, not possible to use the unused
-> bits for other things in the future.
->
+We discussed this last year at netdevconf but could not come
+up with an acceptable solutuion.
 
+> 
+> The main AES implementation on x86 is now async so I think it's
+> pretty important that we support it out-of-the-box.
 
-They are not the same issue Jiri. We have used bitmasks fine on netlink
-message for a millenia. Nobody sets garbage on a bitmask they are not
-supposed to touch. The struct padding thing is a shame the way it
-turned out - now netlink can no longer have a claim to be a (good)
-wire protocol.
-Other thing: I know you feel strongly about this but I dont agree that
-everything has to be a TLV and in no way, as a matter of principle, you 
-are going to convince me  (even when the cows come home) that I have to
-use 64 bits to carry a single bit just so I can use TLVs.
-
-cheers,
-jamal
+For now this is just a fallback to make hardware offloading
+possible at all, so this is slowpath anyway. Allowing async
+algorithms can (and should) be done in a second step once we
+found a not too intrusive solution.
