@@ -1,201 +1,93 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH v6 1/4] net: dsa: add support for the SMSC-LAN9303 tagging
- format
-Date: Thu, 20 Apr 2017 10:23:50 -0700
-Message-ID: <24eebd3a-f397-d650-9466-f59ae2e82c39@gmail.com>
-References: <20170418084827.19613-1-jbe@pengutronix.de>
- <20170418084827.19613-2-jbe@pengutronix.de>
+From: Andrey Konovalov <andreyknvl@google.com>
+Subject: Re: net/xfrm: stack-out-of-bounds in xfrm_state_find
+Date: Thu, 20 Apr 2017 19:30:27 +0200
+Message-ID: <CAAeHK+yAwS0ttN3hQFTgc8AyBx93UGtFm_nJUky0wKR+K6BRRg@mail.gmail.com>
+References: <CAAeHK+xGJF-at3B6qRb8TFqCgufpus4USu8m4tXFJKo7UsFZiw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, kernel@pengutronix.de,
-        andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
-        davem@davemloft.net
-To: Juergen Borleis <jbe@pengutronix.de>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <edumazet@google.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Steffen Klassert <steffen.klassert@secunet.com>,
+        Herbert Xu <herbert@gondor.apana.org.au>,
+        "David S. Miller" <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f194.google.com ([209.85.220.194]:33586 "EHLO
-        mail-qk0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753646AbdDTRXz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 13:23:55 -0400
-In-Reply-To: <20170418084827.19613-2-jbe@pengutronix.de>
+Received: from mail-yb0-f169.google.com ([209.85.213.169]:32987 "EHLO
+        mail-yb0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S943101AbdDTRa3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 13:30:29 -0400
+Received: by mail-yb0-f169.google.com with SMTP id 81so33634058ybp.0
+        for <netdev@vger.kernel.org>; Thu, 20 Apr 2017 10:30:29 -0700 (PDT)
+In-Reply-To: <CAAeHK+xGJF-at3B6qRb8TFqCgufpus4USu8m4tXFJKo7UsFZiw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/18/2017 01:48 AM, Juergen Borleis wrote:
-> To define the outgoing port and to discover the incoming port a regular
-> VLAN tag is used by the LAN9303. But its VID meaning is 'special'.
-> 
-> This tag handler/filter depends on some hardware features which must be
-> enabled in the device to provide and make use of this special VLAN tag
-> to control the destination and the source of an ethernet packet.
-> 
-> Signed-off-by: Juergen Borleis <jbe@pengutronix.de>
-> ---
->  include/net/dsa.h     |   1 +
->  net/dsa/Kconfig       |   4 ++
->  net/dsa/Makefile      |   1 +
->  net/dsa/dsa.c         |   3 ++
->  net/dsa/dsa_priv.h    |   3 ++
->  net/dsa/tag_lan9303.c | 141 ++++++++++++++++++++++++++++++++++++++++++++++++++
->  6 files changed, 153 insertions(+)
->  create mode 100644 net/dsa/tag_lan9303.c
-> 
-> diff --git a/include/net/dsa.h b/include/net/dsa.h
-> index 9b1c1eb4147a1..51aac97a735fd 100644
-> --- a/include/net/dsa.h
-> +++ b/include/net/dsa.h
-> @@ -33,6 +33,7 @@ enum dsa_tag_protocol {
->  	DSA_TAG_PROTO_BRCM,
->  	DSA_TAG_PROTO_QCA,
->  	DSA_TAG_PROTO_MTK,
-> +	DSA_TAG_PROTO_LAN9303,
->  	DSA_TAG_LAST,		/* MUST BE LAST */
->  };
->  
-> diff --git a/net/dsa/Kconfig b/net/dsa/Kconfig
-> index aa21f49f12156..81a0868edb1d6 100644
-> --- a/net/dsa/Kconfig
-> +++ b/net/dsa/Kconfig
-> @@ -33,4 +33,8 @@ config NET_DSA_TAG_QCA
->  
->  config NET_DSA_TAG_MTK
->  	bool
-> +
-> +config NET_DSA_TAG_LAN9303
-> +	bool
-> +
->  endif
-> diff --git a/net/dsa/Makefile b/net/dsa/Makefile
-> index 9b1d478f3713f..2cc661eab5528 100644
-> --- a/net/dsa/Makefile
-> +++ b/net/dsa/Makefile
-> @@ -9,3 +9,4 @@ dsa_core-$(CONFIG_NET_DSA_TAG_EDSA) += tag_edsa.o
->  dsa_core-$(CONFIG_NET_DSA_TAG_TRAILER) += tag_trailer.o
->  dsa_core-$(CONFIG_NET_DSA_TAG_QCA) += tag_qca.o
->  dsa_core-$(CONFIG_NET_DSA_TAG_MTK) += tag_mtk.o
-> +dsa_core-$(CONFIG_NET_DSA_TAG_LAN9303) += tag_lan9303.o
-> diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-> index 1fb9cf7aaaf49..c88466ecfa97b 100644
-> --- a/net/dsa/dsa.c
-> +++ b/net/dsa/dsa.c
-> @@ -58,6 +58,9 @@ const struct dsa_device_ops *dsa_device_ops[DSA_TAG_LAST] = {
->  #ifdef CONFIG_NET_DSA_TAG_MTK
->  	[DSA_TAG_PROTO_MTK] = &mtk_netdev_ops,
->  #endif
-> +#ifdef CONFIG_NET_DSA_TAG_LAN9303
-> +	[DSA_TAG_PROTO_LAN9303] = &lan9303_netdev_ops,
-> +#endif
->  	[DSA_TAG_PROTO_NONE] = &none_ops,
->  };
->  
-> diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
-> index 107138a55bd86..1f8a12859bd2a 100644
-> --- a/net/dsa/dsa_priv.h
-> +++ b/net/dsa/dsa_priv.h
-> @@ -89,4 +89,7 @@ extern const struct dsa_device_ops qca_netdev_ops;
->  /* tag_mtk.c */
->  extern const struct dsa_device_ops mtk_netdev_ops;
->  
-> +/* tag_lan9303.c */
-> +extern const struct dsa_device_ops lan9303_netdev_ops;
-> +
->  #endif
-> diff --git a/net/dsa/tag_lan9303.c b/net/dsa/tag_lan9303.c
-> new file mode 100644
-> index 0000000000000..563b6c8fe445e
-> --- /dev/null
-> +++ b/net/dsa/tag_lan9303.c
-> @@ -0,0 +1,141 @@
-> +/*
-> + * Copyright (C) 2017 Pengutronix, Juergen Borleis <jbe@pengutronix.de>
-> + *
-> + * This program is free software; you can redistribute it and/or
-> + * modify it under the terms of the GNU General Public License
-> + * version 2, as published by the Free Software Foundation.
-> + *
-> + * This program is distributed in the hope that it will be useful,
-> + * but WITHOUT ANY WARRANTY; without even the implied warranty of
-> + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-> + * GNU General Public License for more details.
-> + *
-> + */
-> +#include <linux/etherdevice.h>
-> +#include <linux/list.h>
-> +#include <linux/slab.h>
-> +#include <net/dsa.h>
-> +#include "dsa_priv.h"
-> +
-> +/* To define the outgoing port and to discover the incoming port a regular
-> + * VLAN tag is used by the LAN9303. But its VID meaning is 'special':
-> + *
-> + *       Dest MAC       Src MAC        TAG    Type
-> + * ...| 1 2 3 4 5 6 | 1 2 3 4 5 6 | 1 2 3 4 | 1 2 |...
-> + *                                |<------->|
-> + * TAG:
-> + *    |<------------->|
-> + *    |  1  2 | 3  4  |
-> + *      TPID    VID
-> + *     0x8100
-> + *
-> + * VID bit 3 indicates a request for an ALR lookup.
-> + *
-> + * If VID bit 3 is zero, then bits 0 and 1 specify the destination port
-> + * (0, 1, 2) or broadcast (3) or the source port (1, 2).
-> + *
-> + * VID bit 4 is used to specify if the STP port state should be overridden.
-> + * Required when no forwarding between the external ports should happen.
-> + */
-> +
-> +#define LAN9303_TAG_LEN 4
-> +#define LAN9303_MAX_PORTS 3
-> +
-> +static struct sk_buff *lan9303_xmit(struct sk_buff *skb, struct net_device *dev)
-> +{
-> +	struct dsa_slave_priv *p = netdev_priv(dev);
-> +	u16 *lan9303_tag;
-> +
-> +	/* insert a special VLAN tag between the MAC addresses
-> +	 * and the current ethertype field.
-> +	 */
-> +	if (skb_cow_head(skb, LAN9303_TAG_LEN) < 0) {
-> +		dev_dbg(&dev->dev,
-> +			"Cannot make room for the special tag. Dropping packet\n");
-> +		goto out_free;
-> +	}
-> +
-> +	/* provide 'LAN9303_TAG_LEN' bytes additional space */
-> +	skb_push(skb, LAN9303_TAG_LEN);
-> +
-> +	/* make room between MACs and Ether-Type */
-> +	memmove(skb->data, skb->data + LAN9303_TAG_LEN, 2 * ETH_ALEN);
-> +
-> +	lan9303_tag = (u16 *)(skb->data + 2 * ETH_ALEN);
-> +	lan9303_tag[0] = htons(ETH_P_8021Q);
-> +	lan9303_tag[1] = htons(p->dp->index | BIT(4));
-> +
-> +	return skb;
-> +out_free:
-> +	kfree_skb(skb);
-> +	return NULL;
-> +}
-> +
-> +static struct sk_buff *lan9303_rcv(struct sk_buff *skb, struct net_device *dev,
-> +			struct packet_type *pt, struct net_device *orig_dev)
-> +{
-> +	u16 *lan9303_tag;
-> +	struct dsa_switch_tree *dst = dev->dsa_ptr;
-> +	struct dsa_switch *ds;
-> +	unsigned int source_port;
-> +
-> +	if (unlikely(!dst)) {
-> +		dev_warn_ratelimited(&dev->dev, "Dropping packet, due to missing switch tree device\n");
-> +		return NULL;
-> +	}
+On Thu, Apr 20, 2017 at 6:47 PM, Andrey Konovalov <andreyknvl@google.com> wrote:
+> Hi,
+>
+> I've got the following error report while fuzzing the kernel with syzkaller.
+>
+> On linux-next commit 4f7d029b9bf009fbee76bb10c0c4351a1870d2f3 (4.11-rc7).
+>
+> A reproducer and .config are attached.
+>
+> ==================================================================
+> BUG: KASAN: stack-out-of-bounds in xfrm_state_find+0x2ce7/0x2f70 at
+> addr ffff88006654f790
+> Read of size 4 by task a.out/4065
+> page:ffffea00019953c0 count:0 mapcount:0 mapping:          (null) index:0x0
+> flags: 0x100000000000000()
+> raw: 0100000000000000 0000000000000000 0000000000000000 00000000ffffffff
+> raw: 0000000000000000 ffffea00019953e0 0000000000000000 0000000000000000
+> page dumped because: kasan: bad access detected
+> CPU: 1 PID: 4065 Comm: a.out Not tainted 4.11.0-rc7+ #251
+> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+> Call Trace:
+>  __dump_stack lib/dump_stack.c:16
+>  dump_stack+0x292/0x398 lib/dump_stack.c:52
+>  kasan_report_error mm/kasan/report.c:212
+>  kasan_report+0x4d8/0x510 mm/kasan/report.c:347
+>  __asan_report_load4_noabort+0x14/0x20 mm/kasan/report.c:367
+>  xfrm_state_find+0x2ce7/0x2f70 net/xfrm/xfrm_state.c:897
 
-This check is done by dsa_switch_rcv(), no need to duplicate it here.
+I'm not sure if the line numbers in the report are correct.
 
-Other than that:
+My guess is that the guilty line is actually this one:
 
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
--- 
-Florian
+h = xfrm_dst_hash(net, daddr, saddr, tmpl->reqid, encap_family);
+
+but I might be wrong.
+
+>  xfrm_tmpl_resolve_one net/xfrm/xfrm_policy.c:1470
+>  xfrm_tmpl_resolve+0x308/0xc90 net/xfrm/xfrm_policy.c:1514
+>  xfrm_resolve_and_create_bundle+0x16e/0x2590 net/xfrm/xfrm_policy.c:1889
+>  xfrm_lookup+0xd72/0x1170 net/xfrm/xfrm_policy.c:2253
+>  xfrm_lookup_route+0x39/0x1a0 net/xfrm/xfrm_policy.c:2375
+>  ip_route_output_flow+0x7f/0xa0 net/ipv4/route.c:2483
+>  udp_sendmsg+0x1565/0x2cd0 net/ipv4/udp.c:1015
+>  udpv6_sendmsg+0x8af/0x3500 net/ipv6/udp.c:1083
+>  inet_sendmsg+0x164/0x5b0 net/ipv4/af_inet.c:762
+>  sock_sendmsg_nosec net/socket.c:633
+>  sock_sendmsg+0xca/0x110 net/socket.c:643
+>  SYSC_sendto+0x660/0x810 net/socket.c:1696
+>  SyS_sendto+0x40/0x50 net/socket.c:1664
+>  entry_SYSCALL_64_fastpath+0x1f/0xc2 arch/x86/entry/entry_64.S:204
+> RIP: 0033:0x7f3daefd0b79
+> RSP: 002b:00007ffdb39bb0b8 EFLAGS: 00000206 ORIG_RAX: 000000000000002c
+> RAX: ffffffffffffffda RBX: 00007ffdb39bb210 RCX: 00007f3daefd0b79
+> RDX: 0000000000000000 RSI: 0000000020001000 RDI: 0000000000000003
+> RBP: 00000000004004a0 R08: 0000000020013ff0 R09: 0000000000000010
+> R10: 0000000020000000 R11: 0000000000000206 R12: 0000000000000000
+> R13: 00007ffdb39bb210 R14: 0000000000000000 R15: 0000000000000000
+> Memory state around the buggy address:
+>  ffff88006654f680: f1 f1 f1 00 f2 f2 f2 f2 f2 f2 f2 f8 f2 f2 f2 f2
+>  ffff88006654f700: f2 f2 f2 00 00 00 00 f2 f2 f2 f2 00 00 00 00 00
+>>ffff88006654f780: 00 00 f2 f2 f2 f2 f2 00 00 00 00 00 00 00 00 00
+>                          ^
+>  ffff88006654f800: f2 f2 f2 f3 f3 f3 f3 00 00 00 00 00 00 00 00 00
+>  ffff88006654f880: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+> ==================================================================
