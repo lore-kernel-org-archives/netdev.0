@@ -1,166 +1,68 @@
-From: Roger Quadros <rogerq@ti.com>
-Subject: [PATCH v2] mdio_bus: Issue GPIO RESET to PHYs.
-Date: Thu, 20 Apr 2017 11:39:20 +0300
-Message-ID: <daa29a99-0a17-d316-57eb-3e6162938d8d@ti.com>
-References: <1491381237-24635-1-git-send-email-rogerq@ti.com>
- <64d6494d-41d2-0faf-a434-057f796637fe@ti.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [net-next 00/15][pull request] 10GbE Intel Wired LAN Driver
+ Updates 2017-04-18
+Date: Thu, 20 Apr 2017 01:44:22 -0700
+Message-ID: <1492677862.3627.1.camel@intel.com>
+References: <20170418230205.37223-1-jeffrey.t.kirsher@intel.com>
+         <20170420052515.GA77954@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
+Content-Type: multipart/signed; micalg="pgp-sha256";
+        protocol="application/pgp-signature"; boundary="=-ijD+9J/6TCLk/w6V6aSa"
+Cc: davem@davemloft.net, netdev@vger.kernel.org, nhorman@redhat.com,
+        sassmann@redhat.com, jogreene@redhat.com
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga06.intel.com ([134.134.136.31]:62289 "EHLO mga06.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S938696AbdDTIob (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 20 Apr 2017 04:44:31 -0400
+In-Reply-To: <20170420052515.GA77954@ast-mbp.thefacebook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+
+--=-ijD+9J/6TCLk/w6V6aSa
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Wed, 2017-04-19 at 22:25 -0700, Alexei Starovoitov wrote:
+> On Tue, Apr 18, 2017 at 04:01:50PM -0700, Jeff Kirsher wrote:
+> > The following are changes since commit
+> > 4116c97689b9b1732ac5b68afd922406f9fc842e:
+> > =C2=A0=C2=A0 Merge branch 'ftgmac100-batch5-features'
+> > and are available in the git repository at:
+> > =C2=A0=C2=A0 git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/nex=
+t-
+> > queue 10GbE
+>=20
+> Nothing against this set of commits,
+> but I saw ixgbe xdp support in there pending for few months.
+> Now it's gone. What happened?
+
+XDP is in the next series of patches, per Dave, we need to keep patch
+series smaller to help in revue.  Next series will contain what you are
+looking for, just need to get this up before I can push the next
+series.
+--=-ijD+9J/6TCLk/w6V6aSa
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
 Content-Transfer-Encoding: 7bit
-Cc: <tony@atomide.com>, <nsekhar@ti.com>, <jsarha@ti.com>,
-        <netdev@vger.kernel.org>, <linux-omap@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>, <rogerq@ti.com>
-To: <davem@davemloft.net>, Andrew Lunn <andrew@lunn.ch>,
-        Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <64d6494d-41d2-0faf-a434-057f796637fe@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
 
-Some boards [1] leave the PHYs at an invalid state
-during system power-up or reset thus causing unreliability
-issues with the PHY which manifests as PHY not being detected
-or link not functional. To fix this, these PHYs need to be RESET
-via a GPIO connected to the PHY's RESET pin.
+-----BEGIN PGP SIGNATURE-----
 
-Some boards have a single GPIO controlling the PHY RESET pin of all
-PHYs on the bus whereas some others have separate GPIOs controlling
-individual PHY RESETs.
+iQIzBAABCAAdFiEEiTyZWz+nnTrOJ1LZ5W/vlVpL7c4FAlj4dOYACgkQ5W/vlVpL
+7c6aKg//b5ELyYYZghFhymR//7bi+Er2hEHMCycIIDA4zvo2gMgW5LKXm4wg0XMB
+Phutj5DONnCMza1Ga1YPCWf2eFbf8WqcILW6Ztf5zkXC/qCfEGKom5tqYJ2qr1PA
+wFRHSr1n0XV6erQ7+lWbIJ4BWFVGNGhSdX2AtpXC5ujWyIzyr4wEJX9coHBV0JUY
+wlrfSUZSbFcOPTbZWebzDTHS9Tu5MKBtWKAAveDoXJVFqGNAma7Jq0ZApXPpooY5
+mFPo6bkLG7IUIilyq1iXbfyI79tO+krX1Z6snfyXkhhsbtJ1BDmXNYYsP1A+XOEn
+nnfX7Z3SfX0jtZCZ2xB9SzTtQsjNmpYK/t4wkOsr9XX8FTDMKn8dLCYbCns0KQWa
+3dpy0RS2tEOE49bkkUTJAlrsytcAKIaD1F8U9rrug3g2FmzvCfGnvNl+msUah0ah
+mxkBCz+I4BJRYHe9fwHO/yqF8M0OoJXiA8CU21GbhBYzJBk3BvjmIMxcK9IFJnQ8
+bIvIaR3Zxq3P4TaacmnYchMD7vPwRa5sM08nH2dIvfLDCLcMokeR6aGOFpZzCpuc
+4HUTQ12u5XDZ87JMT75Flh3BHttD91bStgtnRQBq/Ryi5/xN6PI3CeASUzih6x97
+00PNqYkiXk8cHzvuBae3RxaCh0038+VjQLIXAR4YZTO67HLdkQs=
+=yajc
+-----END PGP SIGNATURE-----
 
-In both cases, the RESET de-assertion cannot be done in the PHY driver
-as the PHY will not probe till its reset is de-asserted.
-So do the RESET de-assertion in the MDIO bus driver.
-
-[1] - am572x-idk, am571x-idk, a437x-idk
-
-Signed-off-by: Roger Quadros <rogerq@ti.com>
----
-v2:
-- add device tree binding document (mdio.txt)
-- specify default reset delay in of_mdio.c instead of mdio_bus.c
-
- Documentation/devicetree/bindings/net/mdio.txt | 20 ++++++++++++++++++++
- drivers/net/phy/mdio_bus.c                     | 22 ++++++++++++++++++++++
- drivers/of/of_mdio.c                           |  7 +++++++
- include/linux/phy.h                            |  5 +++++
- 4 files changed, 54 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/net/mdio.txt
-
-diff --git a/Documentation/devicetree/bindings/net/mdio.txt b/Documentation/devicetree/bindings/net/mdio.txt
-new file mode 100644
-index 0000000..6e703d7
---- /dev/null
-+++ b/Documentation/devicetree/bindings/net/mdio.txt
-@@ -0,0 +1,20 @@
-+Common MDIO bus properties.
-+
-+These are generic properties that can apply to any MDIO bus.
-+
-+Optional properties:
-+- reset-gpios: List of one or more GPIOs that control the RESET lines
-+  of the PHYs on that MDIO bus.
-+- reset-delay-us: RESET pulse width as per PHY datasheet.
-+
-+Example :
-+
-+	davinci_mdio: ethernet@0x5c030000 {
-+		compatible = "ti,davinci_mdio";
-+		ti,hwmods = "davinci_mdio";
-+		reg = <0x5c030000 0x1000>;
-+		#address-cells = <1>;
-+		#size-cells = <0>;
-+		reset-gpios = <&gpio2 5 GPIO_ACTIVE_LOW>;
-+		reset-delay-us = <2>;   /* PHY datasheet states 1uS min */
-+	};
-diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
-index fa7d51f..b353d99 100644
---- a/drivers/net/phy/mdio_bus.c
-+++ b/drivers/net/phy/mdio_bus.c
-@@ -22,8 +22,11 @@
- #include <linux/init.h>
- #include <linux/delay.h>
- #include <linux/device.h>
-+#include <linux/gpio.h>
-+#include <linux/gpio/consumer.h>
- #include <linux/of_device.h>
- #include <linux/of_mdio.h>
-+#include <linux/of_gpio.h>
- #include <linux/netdevice.h>
- #include <linux/etherdevice.h>
- #include <linux/skbuff.h>
-@@ -307,6 +310,7 @@ int __mdiobus_register(struct mii_bus *bus, struct module *owner)
- {
- 	struct mdio_device *mdiodev;
- 	int i, err;
-+	struct gpio_desc *gpiod;
- 
- 	if (NULL == bus || NULL == bus->name ||
- 	    NULL == bus->read || NULL == bus->write)
-@@ -333,6 +337,24 @@ int __mdiobus_register(struct mii_bus *bus, struct module *owner)
- 	if (bus->reset)
- 		bus->reset(bus);
- 
-+	/* de-assert bus level PHY GPIO resets */
-+	for (i = 0; i < bus->num_reset_gpios; i++) {
-+		gpiod = devm_gpiod_get_index(&bus->dev, "reset", i,
-+					     GPIOD_OUT_LOW);
-+		if (IS_ERR(gpiod)) {
-+			err = PTR_ERR(gpiod);
-+			if (err != -ENOENT) {
-+				pr_err("mii_bus %s couldn't get reset GPIO\n",
-+				       bus->id);
-+				return err;
-+			}
-+		} else {
-+			gpiod_set_value_cansleep(gpiod, 1);
-+			udelay(bus->reset_delay_us);
-+			gpiod_set_value_cansleep(gpiod, 0);
-+		}
-+	}
-+
- 	for (i = 0; i < PHY_MAX_ADDR; i++) {
- 		if ((bus->phy_mask & (1 << i)) == 0) {
- 			struct phy_device *phydev;
-diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
-index 0b29798..7e4c80f 100644
---- a/drivers/of/of_mdio.c
-+++ b/drivers/of/of_mdio.c
-@@ -22,6 +22,8 @@
- #include <linux/of_net.h>
- #include <linux/module.h>
- 
-+#define DEFAULT_GPIO_RESET_DELAY	10	/* in microseconds */
-+
- MODULE_AUTHOR("Grant Likely <grant.likely@secretlab.ca>");
- MODULE_LICENSE("GPL");
- 
-@@ -221,6 +223,11 @@ int of_mdiobus_register(struct mii_bus *mdio, struct device_node *np)
- 
- 	mdio->dev.of_node = np;
- 
-+	/* Get bus level PHY reset GPIO details */
-+	mdio->reset_delay_us = DEFAULT_GPIO_RESET_DELAY;
-+	of_property_read_u32(np, "reset-delay-us", &mdio->reset_delay_us);
-+	mdio->num_reset_gpios = of_gpio_named_count(np, "reset-gpios");
-+
- 	/* Register the MDIO bus */
- 	rc = mdiobus_register(mdio);
- 	if (rc)
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index 43a7748..80a6574 100644
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -217,6 +217,11 @@ struct mii_bus {
- 	 * matching its address
- 	 */
- 	int irq[PHY_MAX_ADDR];
-+
-+	/* GPIO reset pulse width in uS */
-+	int reset_delay_us;
-+	/* Number of reset GPIOs */
-+	int num_reset_gpios;
- };
- #define to_mii_bus(d) container_of(d, struct mii_bus, dev)
- 
--- 
-2.7.4
+--=-ijD+9J/6TCLk/w6V6aSa--
