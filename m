@@ -1,42 +1,34 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH net] ipv4: Avoid caching dsts when lookup skipped nh oif
- check
-Date: Thu, 20 Apr 2017 08:21:15 -0600
-Message-ID: <bed3d38c-dc00-1f98-371c-852170af0a0e@cumulusnetworks.com>
-References: <1492693132-4708-1-git-send-email-rshearma@brocade.com>
+From: Stefan Agner <stefan-XLVq0VzYD2Y@public.gmane.org>
+Subject: Re: [PATCH] nl80211: fix enumeration type
+Date: Thu, 20 Apr 2017 07:21:40 -0700
+Message-ID: <cbdee27002a2f285221bb83af835430a@agner.ch>
+References: <20170420065513.1930-1-stefan@agner.ch>
+ <1492672926.3109.5.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Robert Shearman <rshearma@brocade.com>, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yb0-f178.google.com ([209.85.213.178]:36144 "EHLO
-        mail-yb0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S946368AbdDTOVV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 10:21:21 -0400
-Received: by mail-yb0-f178.google.com with SMTP id s22so28059564ybe.3
-        for <netdev@vger.kernel.org>; Thu, 20 Apr 2017 07:21:20 -0700 (PDT)
-In-Reply-To: <1492693132-4708-1-git-send-email-rshearma@brocade.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1492672926.3109.5.camel-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 4/20/17 6:58 AM, Robert Shearman wrote:
-> David reported that doing the following:
+On 2017-04-20 00:22, Johannes Berg wrote:
+> On Wed, 2017-04-19 at 23:55 -0700, Stefan Agner wrote:
+>> Use type enum nl80211_rate_info for bitrate information. This fixes
+>> a warning when compiling with clang:
+>>   warning: implicit conversion from enumeration type 'enum
+>> nl80211_rate_info'
+>>   to different enumeration type 'enum nl80211_attrs'
 > 
->     ip li add red type vrf table 10
->     ip link set dev eth1 vrf red
->     ip addr add 127.0.0.1/8 dev red
->     ip link set dev eth1 up
->     ip li set red up
->     ping -c1 -w1 -I red 127.0.0.1
->     ip li del red
+> I'm pretty sure I just applied exactly these two patches very recently.
 > 
-> results in a hang with this message:
-> 
->     unregister_netdevice: waiting for red to become free. Usage count = 1
+> What made *two* people suddenly see this?
 
-I think you misunderstood my comment. The above works fine today. There
-is no bug with refcnts.
+There has been renewed work on compiling Linux using clang... Sorry for
+the clash.
 
-It breaks with your patches wanting to use a VRF device with the main
-table (254).
+--
+Stefan
