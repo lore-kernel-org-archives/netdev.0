@@ -1,78 +1,114 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH] Fix values type used in test_maps
-Date: Thu, 20 Apr 2017 15:53:49 -0700
-Message-ID: <20170420225347.GA17554@ast-mbp.thefacebook.com>
-References: <20170420.152016.2219427430519868937.davem@davemloft.net>
- <58F92725.5050304@iogearbox.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, ast@fb.com,
-        borkmann@iogearbox.net, netdev@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>
+From: Tushar Dave <tushar.n.dave@oracle.com>
+Subject: [PATCH v2] netpoll: Check for skb->queue_mapping
+Date: Thu, 20 Apr 2017 15:57:31 -0700
+Message-ID: <1492729051-4269-1-git-send-email-tushar.n.dave@oracle.com>
+Cc: sowmini.varadhan@oracle.com
+To: davem@davemloft.net, brouer@redhat.com, edumazet@google.com,
+        netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f193.google.com ([209.85.223.193]:32788 "EHLO
-        mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S947917AbdDTWxy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 18:53:54 -0400
-Received: by mail-io0-f193.google.com with SMTP id k87so21780006ioi.0
-        for <netdev@vger.kernel.org>; Thu, 20 Apr 2017 15:53:54 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <58F92725.5050304@iogearbox.net>
+Received: from aserp1040.oracle.com ([141.146.126.69]:51086 "EHLO
+        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1032755AbdDTW7N (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 18:59:13 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 20, 2017 at 11:24:53PM +0200, Daniel Borkmann wrote:
-> On 04/20/2017 09:20 PM, David Miller wrote:
-> >
-> >Maps of per-cpu type have their value element size adjusted to 8 if it
-> >is specified smaller during various map operations.
-> >
-> >This makes test_maps as a 32-bit binary fail, in fact the kernel
-> >writes past the end of the value's array on the user's stack.
-> >
-> >To be quite honest, I think the kernel should reject creation of a
-> >per-cpu map that doesn't have a value size of at least 8 if that's
-> >what the kernel is going to silently adjust to later.
-> 
-> It's unintuitive, agree, and it's in fact a round_up(value_size, 8),
-> so rejecting a value size smaller than 8 doesn't really help; commit
-> 15a07b33814d ("bpf: add lookup/update support for per-cpu hash and
-> array maps") explained the rationale a bit. Hmm, we should probably
-> move at least the bpf_num_possible_cpus() and round_up(val_size, 8)
-> calculation as a single wrapper function to be used for determining
-> the array size into bpf_util.h, so that it's slightly easier to deal
-> with.
+Reducing real_num_tx_queues needs to be in sync with skb queue_mapping
+otherwise skbs with queue_mapping greater than real_num_tx_queues
+can be sent to the underlying driver and can result in kernel panic.
 
-yes.
-The reason even non-percpu array does round_up(value_size, 8) is
-to make sure that all elements are aligned, so when bpf prog does
-struct foo *value = bpf_map_lookup(key)
-..value->field.. // here the verifier can check alignment of ld/st properly
+One such event is running netconsole and enabling VF on the same
+device. Or running netconsole and changing number of tx queues via
+ethtool on same device.
 
-The reason we don't reject array value_size < 8 is to allow less
-than 64-bit counters. Like this set:
-struct array_value {
-  __u32 cnt1;
-  __u32 cnt2;
-  __u32 cnt3;
-};
+e.g.
+Unable to handle kernel NULL pointer dereference
+tsk->{mm,active_mm}->context = 0000000000001525
+tsk->{mm,active_mm}->pgd = fff800130ff9a000
+              \|/ ____ \|/
+              "@'/ .. \`@"
+              /_| \__/ |_\
+                 \__U_/
+kworker/48:1(475): Oops [#1]
+CPU: 48 PID: 475 Comm: kworker/48:1 Tainted: G           OE
+4.11.0-rc3-davem-net+ #7
+Workqueue: events queue_process
+task: fff80013113299c0 task.stack: fff800131132c000
+TSTATE: 0000004480e01600 TPC: 00000000103f9e3c TNPC: 00000000103f9e40 Y:
+00000000    Tainted: G           OE
+TPC: <ixgbe_xmit_frame_ring+0x7c/0x6c0 [ixgbe]>
+g0: 0000000000000000 g1: 0000000000003fff g2: 0000000000000000 g3:
+0000000000000001
+g4: fff80013113299c0 g5: fff8001fa6808000 g6: fff800131132c000 g7:
+00000000000000c0
+o0: fff8001fa760c460 o1: fff8001311329a50 o2: fff8001fa7607504 o3:
+0000000000000003
+o4: fff8001f96e63a40 o5: fff8001311d77ec0 sp: fff800131132f0e1 ret_pc:
+000000000049ed94
+RPC: <set_next_entity+0x34/0xb80>
+l0: 0000000000000000 l1: 0000000000000800 l2: 0000000000000000 l3:
+0000000000000000
+l4: 000b2aa30e34b10d l5: 0000000000000000 l6: 0000000000000000 l7:
+fff8001fa7605028
+i0: fff80013111a8a00 i1: fff80013155a0780 i2: 0000000000000000 i3:
+0000000000000000
+i4: 0000000000000000 i5: 0000000000100000 i6: fff800131132f1a1 i7:
+00000000103fa4b0
+I7: <ixgbe_xmit_frame+0x30/0xa0 [ixgbe]>
+Call Trace:
+ [00000000103fa4b0] ixgbe_xmit_frame+0x30/0xa0 [ixgbe]
+ [0000000000998c74] netpoll_start_xmit+0xf4/0x200
+ [0000000000998e10] queue_process+0x90/0x160
+ [0000000000485fa8] process_one_work+0x188/0x480
+ [0000000000486410] worker_thread+0x170/0x4c0
+ [000000000048c6b8] kthread+0xd8/0x120
+ [0000000000406064] ret_from_fork+0x1c/0x2c
+ [0000000000000000]           (null)
+Disabling lock debugging due to kernel taint
+Caller[00000000103fa4b0]: ixgbe_xmit_frame+0x30/0xa0 [ixgbe]
+Caller[0000000000998c74]: netpoll_start_xmit+0xf4/0x200
+Caller[0000000000998e10]: queue_process+0x90/0x160
+Caller[0000000000485fa8]: process_one_work+0x188/0x480
+Caller[0000000000486410]: worker_thread+0x170/0x4c0
+Caller[000000000048c6b8]: kthread+0xd8/0x120
+Caller[0000000000406064]: ret_from_fork+0x1c/0x2c
+Caller[0000000000000000]:           (null)
 
-is valid and from bpf program only these 3 counters are accessible.
-The kernel will allocate 16-byte for it and will copy it to user space
-via bpf_long_memcpy(), since kernel doesn't know the contents of
-the hash/array values.
-I agree that is non intuitive and we need a helper in bpf_util.h
-to let user space do 'char buf[round_up(value_size, 8)][nr_cpus]' cleanly.
+Signed-off-by: Tushar Dave <tushar.n.dave@oracle.com>
+---
+v1->v2:
+- addressed comments from Eric Dumazet.
 
-> >If the user passed something smaller, it is a sizeof() calcualtion
-> >based upon the type they will actually use (just like in this testcase
-> >code) in later calls to the map operations.
-> 
-> Fixes: df570f577231 ("samples/bpf: unit test for BPF_MAP_TYPE_PERCPU_ARRAY")
-> 
-> >Signed-off-by: David S. Miller <davem@davemloft.net>
-> 
-> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+ net/core/netpoll.c | 10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)
 
-For this test it's indeed a good fix.
-Acked-by: Alexei Starovoitov <ast@kernel.org>
+diff --git a/net/core/netpoll.c b/net/core/netpoll.c
+index 9424673..29be246 100644
+--- a/net/core/netpoll.c
++++ b/net/core/netpoll.c
+@@ -105,15 +105,21 @@ static void queue_process(struct work_struct *work)
+ 	while ((skb = skb_dequeue(&npinfo->txq))) {
+ 		struct net_device *dev = skb->dev;
+ 		struct netdev_queue *txq;
++		unsigned int q_index;
+ 
+ 		if (!netif_device_present(dev) || !netif_running(dev)) {
+ 			kfree_skb(skb);
+ 			continue;
+ 		}
+ 
+-		txq = skb_get_tx_queue(dev, skb);
+-
+ 		local_irq_save(flags);
++		/* check if skb->queue_mapping is still valid */
++		q_index = skb_get_queue_mapping(skb);
++		if (unlikely(q_index >= dev->real_num_tx_queues)) {
++			q_index = q_index % dev->real_num_tx_queues;
++			skb_set_queue_mapping(skb, q_index);
++		}
++		txq = netdev_get_tx_queue(dev, q_index);
+ 		HARD_TX_LOCK(dev, txq, smp_processor_id());
+ 		if (netif_xmit_frozen_or_stopped(txq) ||
+ 		    netpoll_start_xmit(skb, dev, txq) != NETDEV_TX_OK) {
+-- 
+1.9.1
