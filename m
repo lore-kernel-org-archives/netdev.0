@@ -1,36 +1,54 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 11/16] esp: Use a synchronous crypto algorithm on
- offloading.
-Date: Thu, 20 Apr 2017 17:06:17 +0800
-Message-ID: <20170420090617.GA8325@gondor.apana.org.au>
-References: <1492678515-14347-1-git-send-email-steffen.klassert@secunet.com>
- <1492678515-14347-12-git-send-email-steffen.klassert@secunet.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [Patch net-next v4 1/2] net_sched: move the empty tp check from
+ ->destroy() to ->delete()
+Date: Thu, 20 Apr 2017 11:10:48 +0200
+Message-ID: <58F87B18.7000008@iogearbox.net>
+References: <1492636882-19571-1-git-send-email-xiyou.wangcong@gmail.com> <1492636882-19571-2-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Steffen Klassert <steffen.klassert@secunet.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Roi Dayan <roid@mellanox.com>,
+        John Fastabend <john.fastabend@gmail.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [198.176.57.175] ([198.176.57.175]:32808 "EHLO
-        deadmen.hmeau.com" rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org
-        with ESMTP id S943925AbdDTJHD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 05:07:03 -0400
-Content-Disposition: inline
-In-Reply-To: <1492678515-14347-12-git-send-email-steffen.klassert@secunet.com>
+Received: from www62.your-server.de ([213.133.104.62]:44131 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S938800AbdDTJKv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 05:10:51 -0400
+In-Reply-To: <1492636882-19571-2-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 20, 2017 at 10:55:10AM +0200, Steffen Klassert wrote:
-> We need a fallback algorithm for crypto offloading to a NIC.
-> This is because packets can be rerouted to other NICs that
-> don't support crypto offloading. The fallback is going to be
-> implemented at layer2 where we know the final output device
-> but can't handle asynchronous returns fron the crypto layer.
+On 04/19/2017 11:21 PM, Cong Wang wrote:
+> We could have a race condition where in ->classify() path we
+> dereference tp->root and meanwhile a parallel ->destroy() makes it
+> a NULL. Daniel cured this bug in commit d936377414fa
+> ("net, sched: respect rcu grace period on cls destruction").
+>
+> This happens when ->destroy() is called for deleting a filter to
+> check if we are the last one in tp, this tp is still linked and
+> visible at that time. The root cause of this problem is the semantic
+> of ->destroy(), it does two things (for non-force case):
+>
+> 1) check if tp is empty
+> 2) if tp is empty we could really destroy it
+>
+> and its caller, if cares, needs to check its return value to see if it
+> is really destroyed. Therefore we can't unlink tp unless we know it is
+> empty.
+>
+> As suggested by Daniel, we could actually move the test logic to ->delete()
+> so that we can safely unlink tp after ->delete() tells us the last one is
+> just deleted and before ->destroy().
+>
+> Fixes: 1e052be69d04 ("net_sched: destroy proto tp when all filters are gone")
+> Cc: Roi Dayan <roid@mellanox.com>
+> Cc: Daniel Borkmann <daniel@iogearbox.net>
+> Cc: John Fastabend <john.fastabend@gmail.com>
+> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-Can you explain why we can't handle async algorithms on the fallback
-path?
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
 
-Thanks,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Thanks!
