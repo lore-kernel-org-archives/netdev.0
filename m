@@ -1,43 +1,70 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net-next v2 2/5] virtio-net: transmit napi
-Date: Thu, 20 Apr 2017 14:27:03 +0800
-Message-ID: <2ae5889b-69d4-3041-d7fd-a7ea38e8c4e2@redhat.com>
-References: <20170418202108.61920-1-willemdebruijn.kernel@gmail.com>
-	<20170418202108.61920-3-willemdebruijn.kernel@gmail.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: XDP question: best API for returning/setting egress port?
+Date: Thu, 20 Apr 2017 08:39:29 +0200
+Message-ID: <20170420083929.3eec20ee@redhat.com>
+References: <20170418215856.5fda7127@redhat.com>
+        <20170419200259.GK4730@C02RW35GFVH8.dhcp.broadcom.net>
+        <58F7E9F3.5090604@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: Willem de Bruijn <willemb@google.com>,
-	virtualization@lists.linux-foundation.org, davem@davemloft.net,
-	mst@redhat.com
-To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>, netdev@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20170418202108.61920-3-willemdebruijn.kernel@gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Andy Gospodarek <andy@greyhouse.net>,
+        Daniel Borkmann <borkmann@iogearbox.net>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Alexei Starovoitov <ast@fb.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "xdp-newbies@vger.kernel.org" <xdp-newbies@vger.kernel.org>,
+        John Fastabend <john.fastabend@gmail.com>, brouer@redhat.com
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:50672 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S966233AbdDTGjh (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 20 Apr 2017 02:39:37 -0400
+In-Reply-To: <58F7E9F3.5090604@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-CgpPbiAyMDE35bm0MDTmnIgxOeaXpSAwNDoyMSwgV2lsbGVtIGRlIEJydWlqbiB3cm90ZToKPiAr
-c3RhdGljIHZvaWQgdmlydG5ldF9uYXBpX3R4X2VuYWJsZShzdHJ1Y3QgdmlydG5ldF9pbmZvICp2
-aSwKPiArCQkJCSAgIHN0cnVjdCB2aXJ0cXVldWUgKnZxLAo+ICsJCQkJICAgc3RydWN0IG5hcGlf
-c3RydWN0ICpuYXBpKQo+ICt7Cj4gKwlpZiAoIW5hcGktPndlaWdodCkKPiArCQlyZXR1cm47Cj4g
-Kwo+ICsJaWYgKCF2aS0+YWZmaW5pdHlfaGludF9zZXQpIHsKPiArCQluYXBpLT53ZWlnaHQgPSAw
-Owo+ICsJCXJldHVybjsKPiArCX0KPiArCj4gKwlyZXR1cm4gdmlydG5ldF9uYXBpX2VuYWJsZSh2
-cSwgbmFwaSk7Cj4gK30KPiArCj4gICBzdGF0aWMgdm9pZCByZWZpbGxfd29yayhzdHJ1Y3Qgd29y
-a19zdHJ1Y3QgKndvcmspCgpNYXliZSBJIHdhcyB3cm9uZywgYnV0IGFjY29yZGluZyB0byBNaWNo
-YWVsJ3MgY29tbWVudCBpdCBsb29rcyBsaWtlIGhlIAp3YW50IGNoZWNrIGFmZmluaXR5X2hpbnRf
-c2V0IGp1c3QgZm9yIHNwZWN1bGF0aXZlIHR4IHBvbGxpbmcgb24gcnggbmFwaSAKaW5zdGVhZCBv
-ZiBkaXNhYmxpbmcgaXQgYXQgYWxsLgoKQW5kIEknbSBub3QgY29udmluY2VkIHRoaXMgaXMgcmVh
-bGx5IG5lZWRlZCwgZHJpdmVyIG9ubHkgcHJvdmlkZSAKYWZmaW5pdHkgaGludCBpbnN0ZWFkIG9m
-IGFmZmluaXR5LCBzbyBpdCdzIG5vdCBndWFyYW50ZWVkIHRoYXQgdHggYW5kIHJ4IAppbnRlcnJ1
-cHQgYXJlIGluIHRoZSBzYW1lIHZjcHVzLgoKVGhhbmtzCl9fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fClZpcnR1YWxpemF0aW9uIG1haWxpbmcgbGlzdApWaXJ0
-dWFsaXphdGlvbkBsaXN0cy5saW51eC1mb3VuZGF0aW9uLm9yZwpodHRwczovL2xpc3RzLmxpbnV4
-Zm91bmRhdGlvbi5vcmcvbWFpbG1hbi9saXN0aW5mby92aXJ0dWFsaXphdGlvbg==
+On Thu, 20 Apr 2017 00:51:31 +0200
+Daniel Borkmann <daniel@iogearbox.net> wrote:
+
+> On 04/19/2017 10:02 PM, Andy Gospodarek wrote:
+> [...]
+> > and then lookup this dest in a table we have the option to make that
+> > dest an ifindex/socket/other.
+> >
+> > I did also look at JohnF's patch and I do like the simplicity of the redirect
+> > action and new ndo_xdp_xmit and how it moves towards a way to transmit the
+> > frame.  The downside is that it presumes an ifindex, so it might not be ideal
+> > we want the lookup to return something other than an ifindex.
+> >  
+> [...]
+> > would be handled.  If we are ultimately going to need a new netdev op to
+> > handle the redirect then what may be the issue with not providing the
+> > destination port the return code and the option proposed by JohnF looks
+> > good to me with maybe a small tweak to not presume ifindex in some manner.  
+> 
+> Is there a concrete reason that all the proposed future cases like sockets
+> have to be handled within the very same XDP_REDIRECT return code? F.e. why
+> not XDP_TX_NIC that only assumes ifindex as proposed in the patch, and future
+> ones would get a different return code f.e. XDP_TX_SK only handling sockets
+> when we get there implementation-wise?
+
+The concrete reason for an "unified" return code is to simplify changes
+needed in the drivers.  The purpose is moving code out of the drivers
+into the core.  IMHO we should keep drivers as simple as possible and
+stop adding more return action codes. XDP_REDIRECT combined with a
+port-table should be the last action-code needed in the drivers.
+As the port table will know the "type" of the port.
+
+Keeping action XDP_DROP and XDP_TX inside the drivers make sense,
+because it allow for driver level optimizations. Actions that want to
+transfer the packet/xdp_buff "outside" the driver should call a core
+function (given it will be called with the xdp_buff struct, you can
+hide all your extra extensions there without changing the driver code).
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
