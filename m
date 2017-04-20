@@ -1,177 +1,133 @@
-From: Alexander Kochetkov <al.kochet@gmail.com>
-Subject: Re: [PATCH v1] net: phy: fix auto-negotiation stall due to unavailable interrupt
-Date: Thu, 20 Apr 2017 18:33:38 +0300
-Message-ID: <40A85DD3-9569-409E-B732-37CAC0E45515@gmail.com>
-References: <1492686004-30527-1-git-send-email-al.kochet@gmail.com> <1492686004-30527-2-git-send-email-al.kochet@gmail.com>
-Mime-Version: 1.0 (Mac OS X Mail 9.3 \(3124\))
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-To: Alexandre Belloni <alexandre.belloni@free-electrons.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f65.google.com ([209.85.215.65]:32853 "EHLO
-        mail-lf0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S970664AbdDTPdm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 11:33:42 -0400
-In-Reply-To: <1492686004-30527-2-git-send-email-al.kochet@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH RFC (resend) net-next 0/6] virtio-net: Add support for
+ virtio-net header extensions
+Date: Thu, 20 Apr 2017 11:34:57 -0400
+Message-ID: <f52fa31e-5ca2-34dc-d48b-417a34061359@redhat.com>
+References: <1492274298-17362-1-git-send-email-vyasevic@redhat.com>
+ <0d9216af-e3db-e06b-f70d-d77f519c3fd4@redhat.com>
+Reply-To: vyasevic@redhat.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: virtio-dev@lists.oasis-open.org, mst@redhat.com,
+ maxime.coquelin@redhat.com, virtualization@lists.linux-foundation.org
+To: Jason Wang <jasowang@redhat.com>, Vladislav Yasevich
+ <vyasevich@gmail.com>, netdev@vger.kernel.org
+Return-path: <virtio-dev-return-2120-gcvd-virtio-dev=m.gmane.org@lists.oasis-open.org>
+Sender: <virtio-dev@lists.oasis-open.org>
+List-Post: <mailto:virtio-dev@lists.oasis-open.org>
+List-Help: <mailto:virtio-dev-help@lists.oasis-open.org>
+List-Unsubscribe: <mailto:virtio-dev-unsubscribe@lists.oasis-open.org>
+List-Subscribe: <mailto:virtio-dev-subscribe@lists.oasis-open.org>
+In-Reply-To: <0d9216af-e3db-e06b-f70d-d77f519c3fd4@redhat.com>
+List-Id: netdev.vger.kernel.org
 
-Hi, Alexandre!
+On 04/17/2017 11:01 PM, Jason Wang wrote:
+> 
+> 
+> On 2017年04月16日 00:38, Vladislav Yasevich wrote:
+>> Curreclty virtion net header is fixed size and adding things to it is rather
+>> difficult to do.  This series attempt to add the infrastructure as well as some
+>> extensions that try to resolve some deficiencies we currently have.
+>>
+>> First, vnet header only has space for 16 flags.  This may not be enough
+>> in the future.  The extensions will provide space for 32 possbile extension
+>> flags and 32 possible extensions.   These flags will be carried in the
+>> first pseudo extension header, the presense of which will be determined by
+>> the flag in the virtio net header.
+>>
+>> The extensions themselves will immidiately follow the extension header itself.
+>> They will be added to the packet in the same order as they appear in the
+>> extension flags.  No padding is placed between the extensions and any
+>> extensions negotiated, but not used need by a given packet will convert to
+>> trailing padding.
+> 
+> Do we need a explicit padding (e.g an extension) which could be controlled by each side?
 
-Just found that you've fixed similar problem for Micrel PHY:
-=
-https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/=
-?id=3D99f81afc139c6edd14d77a91ee91685a414a1c66
+I don't think so.  The size of the vnet header is set based on the extensions negotiated.
+The one part I am not crazy about is that in the case of packet not using any extensions,
+the data is still placed after the entire vnet header, which essentially adds a lot
+of padding.  However, that's really no different then if we simply grew the vnet header.
 
-Could you please test if my patch[1] fix your problem?
+The other thing I've tried before is putting extensions into their own sg buffer, but that
+made it slower.
 
-As reverting your patch will speedup MAC startup time for boards with =
-Micrel PHY
-on 3~5 sec (auto-negotiation time[2]). Could you check that also?
+> 
+>>
+>> For example:
+>>   | vnet mrg hdr | ext hdr | ext 1 | ext 2 | ext 5 | .. pad .. | packet data |
+> 
+> Just some rough thoughts:
+> 
+> - Is this better to use TLV instead of bitmap here? One advantage of TLV is that the
+> length is not limited by the length of bitmap.
 
-Regards,
-Alexander.
+but the disadvantage is that we add at least 4 bytes per extension of just TL data.  That
+makes this thing even longer.
 
-[1] https://lkml.org/lkml/2017/4/20/357
-[2] http://www.ieee802.org/3/af/public/jan02/brown_1_0102.pdf
+> - For 1.1, do we really want something like vnet header? AFAIK, it was not used by modern
+> NICs, is this better to pack all meta-data into descriptor itself? This may need a some
+> changes in tun/macvtap, but looks more PCIE friendly.
 
+That would really be ideal and I've looked at this.  There are small issues of exposing
+the 'net metadata' of the descriptor to taps so they can be filled in.  The alternative
+is to use a different control structure for tap->qemu|vhost channel (that can be
+implementation specific) and have qemu|vhost populate the 'net metadata' of the descriptor.
 
-> 20 =D0=B0=D0=BF=D1=80. 2017 =D0=B3., =D0=B2 14:00, Alexander Kochetkov =
-<al.kochet@gmail.com> =D0=BD=D0=B0=D0=BF=D0=B8=D1=81=D0=B0=D0=BB(=D0=B0):
->=20
-> The Ethernet link on an interrupt driven PHY was not coming up if the =
-Ethernet
-> cable was plugged before the Ethernet interface was brought up.
->=20
-> The patch trigger PHY state machine to update link state if PHY was =
-requested to
-> do auto-negotiation and auto-negotiation complete flag already set.
->=20
-> During power-up cycle the PHY do auto-negotiation, generate interrupt =
-and set
-> auto-negotiation complete flag. Interrupt is handled by PHY state =
-machine but
-> doesn't update link state because PHY is in PHY_READY state. After =
-some time
-> MAC bring up, start and request PHY to do auto-negotiation. If there =
-are no new
-> settings to advertise genphy_config_aneg() doesn't start PHY =
-auto-negotiation.
-> PHY continue to stay in auto-negotiation complete state and doesn't =
-fire
-> interrupt. At the same time PHY state machine expect that PHY started
-> auto-negotiation and is waiting for interrupt from PHY and it won't =
-get it.
->=20
-> Signed-off-by: Alexander Kochetkov <al.kochet@gmail.com>
-> Cc: stable <stable@vger.kernel.org> # v4.9+
-> ---
-> drivers/net/phy/phy.c |   40 ++++++++++++++++++++++++++++++++++++----
-> include/linux/phy.h   |    1 +
-> 2 files changed, 37 insertions(+), 4 deletions(-)
->=20
-> diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-> index 7cc1b7d..2d9975b 100644
-> --- a/drivers/net/phy/phy.c
-> +++ b/drivers/net/phy/phy.c
-> @@ -591,16 +591,18 @@ int phy_mii_ioctl(struct phy_device *phydev, =
-struct ifreq *ifr, int cmd)
-> EXPORT_SYMBOL(phy_mii_ioctl);
->=20
-> /**
-> - * phy_start_aneg - start auto-negotiation for this PHY device
-> + * phy_start_aneg_priv - start auto-negotiation for this PHY device
->  * @phydev: the phy_device struct
-> + * @sync: indicate whether we should wait for the workqueue =
-cancelation
->  *
->  * Description: Sanitizes the settings (if we're not autonegotiating
->  *   them), and then calls the driver's config_aneg function.
->  *   If the PHYCONTROL Layer is operating, we change the state to
->  *   reflect the beginning of Auto-negotiation or forcing.
->  */
-> -int phy_start_aneg(struct phy_device *phydev)
-> +static int phy_start_aneg_priv(struct phy_device *phydev, bool sync)
-> {
-> +	bool trigger =3D 0;
-> 	int err;
->=20
-> 	mutex_lock(&phydev->lock);
-> @@ -625,10 +627,40 @@ int phy_start_aneg(struct phy_device *phydev)
-> 		}
-> 	}
->=20
-> +	/* Re-schedule a PHY state machine to check PHY status because
-> +	 * negotiation may already be done and aneg interrupt may not be
-> +	 * generated.
-> +	 */
-> +	if (phy_interrupt_is_valid(phydev) && (phydev->state =3D=3D =
-PHY_AN)) {
-> +		err =3D phy_aneg_done(phydev);
-> +		if (err > 0) {
-> +			trigger =3D true;
-> +			err =3D 0;
-> +		}
-> +	}
-> +
-> out_unlock:
-> 	mutex_unlock(&phydev->lock);
-> +
-> +	if (trigger)
-> +		phy_trigger_machine(phydev, sync);
-> +
-> 	return err;
-> }
-> +
-> +/**
-> + * phy_start_aneg - start auto-negotiation for this PHY device
-> + * @phydev: the phy_device struct
-> + *
-> + * Description: Sanitizes the settings (if we're not autonegotiating
-> + *   them), and then calls the driver's config_aneg function.
-> + *   If the PHYCONTROL Layer is operating, we change the state to
-> + *   reflect the beginning of Auto-negotiation or forcing.
-> + */
-> +int phy_start_aneg(struct phy_device *phydev)
-> +{
-> +	return phy_start_aneg_priv(phydev, true);
-> +}
-> EXPORT_SYMBOL(phy_start_aneg);
->=20
-> /**
-> @@ -656,7 +688,7 @@ void phy_start_machine(struct phy_device *phydev)
->  *   state machine runs.
->  */
->=20
-> -static void phy_trigger_machine(struct phy_device *phydev, bool sync)
-> +void phy_trigger_machine(struct phy_device *phydev, bool sync)
-> {
-> 	if (sync)
-> 		cancel_delayed_work_sync(&phydev->state_queue);
-> @@ -1151,7 +1183,7 @@ void phy_state_machine(struct work_struct *work)
-> 	mutex_unlock(&phydev->lock);
->=20
-> 	if (needs_aneg)
-> -		err =3D phy_start_aneg(phydev);
-> +		err =3D phy_start_aneg_priv(phydev, false);
-> 	else if (do_suspend)
-> 		phy_suspend(phydev);
->=20
-> diff --git a/include/linux/phy.h b/include/linux/phy.h
-> index 7fc1105..b19ae66 100644
-> --- a/include/linux/phy.h
-> +++ b/include/linux/phy.h
-> @@ -840,6 +840,7 @@ int phy_drivers_register(struct phy_driver =
-*new_driver, int n,
-> void phy_mac_interrupt(struct phy_device *phydev, int new_link);
-> void phy_start_machine(struct phy_device *phydev);
-> void phy_stop_machine(struct phy_device *phydev);
-> +void phy_trigger_machine(struct phy_device *phydev, bool sync);
-> int phy_ethtool_sset(struct phy_device *phydev, struct ethtool_cmd =
-*cmd);
-> int phy_ethtool_gset(struct phy_device *phydev, struct ethtool_cmd =
-*cmd);
-> int phy_ethtool_ksettings_get(struct phy_device *phydev,
-> --=20
-> 1.7.9.5
->=20
+Thanks
+-vlad
+
+> 
+> Thanks
+> 
+>>
+>> Extensions proposed in this series are:
+>>   - IPv6 fragment id extension
+>>     * Currently, the guest generated fragment id is discarded and the host
+>>       generates an IPv6 fragment id if the packet has to be fragmented.  The
+>>       code attempts to add time based perturbation to id generation to make
+>>       it harder to guess the next fragment id to be used.  However, doing this
+>>       on the host may result is less perturbation (due to differnet timing)
+>>       and might make id guessing easier.  Ideally, the ids generated by the
+>>       guest should be used.  One could also argue that we a "violating" the
+>>       IPv6 protocol in the if the _strict_ interpretation of the spec.
+>>
+>>   - VLAN header acceleration
+>>     * Currently virtio doesn't not do vlan header acceleration and instead
+>>       uses software tagging.  One of the first things that the host will do is
+>>       strip the vlan header out.  When passing the packet the a guest the
+>>       vlan header is re-inserted in to the packet.  We can skip all that work
+>>       if we can pass the vlan data in accelearted format.  Then the host will
+>>       not do any extra work.  However, so far, this yeilded a very small
+>>       perf bump (only ~1%).  I am still looking into this.
+>>
+>>   - UDP tunnel offload
+>>     * Similar to vlan acceleration, with this extension we can pass additional
+>>       data to host for support GSO with udp tunnel and possible other
+>>       encapsulations.  This yeilds a significant perfromance improvement
+>>      (still testing remote checksum code).
+>>
+>> An addition extension that is unfinished (due to still testing for any
+>> side-effects) is checksum passthrough to support drivers that set
+>> CHECKSUM_COMPLETE.  This would eliminate the need for guests to compute
+>> the software checksum.
+>>
+>> This series only takes care of virtio net.  I have addition patches for the
+>> host side (vhost and tap/macvtap as well as qemu), but wanted to get feedback
+>> on the general approach first.
+>>
+>> Vladislav Yasevich (6):
+>>    virtio-net: Remove the use the padded vnet_header structure
+>>    virtio-net: make header length handling uniform
+>>    virtio_net: Add basic skeleton for handling vnet header extensions.
+>>    virtio-net: Add support for IPv6 fragment id vnet header extension.
+>>    virtio-net: Add support for vlan acceleration vnet header extension.
+>>    virtio-net: Add support for UDP tunnel offload and extension.
+>>
+>>   drivers/net/virtio_net.c        | 132 +++++++++++++++++++++++++++++++++-------
+>>   include/linux/skbuff.h          |   5 ++
+>>   include/linux/virtio_net.h      |  91 ++++++++++++++++++++++++++-
+>>   include/uapi/linux/virtio_net.h |  38 ++++++++++++
+>>   4 files changed, 242 insertions(+), 24 deletions(-)
+>>
+> 
