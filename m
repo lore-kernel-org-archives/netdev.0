@@ -1,82 +1,103 @@
-From: "Williams, Mitch A" <mitch.a.williams@intel.com>
-Subject: RE: [net-next 04/14] i40e: dump VF information in debugfs
-Date: Thu, 20 Apr 2017 22:25:03 +0000
-Message-ID: <AAEA33E297BCAC4B9BB20A7C2DF0AB8D80551D1A@FMSMSX113.amr.corp.intel.com>
-References: <20170420015750.6828-5-jeffrey.t.kirsher@intel.com>
-        <CAJ3xEMiCuV5A_Ccy7=mKSjc9xxhg4enUxDq-MM-cO3YjSa439A@mail.gmail.com>
-        <BL2PR07MB23064C036E994DC63475F7388D1B0@BL2PR07MB2306.namprd07.prod.outlook.com>
- <20170420.112021.167483274923043370.davem@davemloft.net>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH V2 net] netdevice: Include NETIF_F_HW_CSUM when
+ intersecting features
+Date: Thu, 20 Apr 2017 15:31:51 -0700
+Message-ID: <CAKgT0UcHtWYQDcYda+i8R8WhBKeWbOBZRHDcAmJXZYuP1RM7-Q@mail.gmail.com>
+References: <1492715844-30273-1-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "gerlitz.or@gmail.com" <gerlitz.or@gmail.com>,
-        "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "nhorman@redhat.com" <nhorman@redhat.com>,
-        "sassmann@redhat.com" <sassmann@redhat.com>,
-        "jogreene@redhat.com" <jogreene@redhat.com>
-To: 'David Miller' <davem@davemloft.net>,
-        "Yuval.Mintz@cavium.com" <Yuval.Mintz@cavium.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>,
+        Vladislav Yasevich <vyasevic@redhat.com>,
+        Michal Kubecek <mkubecek@suse.cz>,
+        Tom Herbert <tom@herbertland.com>
+To: Vladislav Yasevich <vyasevich@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:36284 "EHLO mga01.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S944361AbdDTWZF (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 20 Apr 2017 18:25:05 -0400
-In-Reply-To: <20170420.112021.167483274923043370.davem@davemloft.net>
-Content-Language: en-US
+Received: from mail-io0-f194.google.com ([209.85.223.194]:35051 "EHLO
+        mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S970504AbdDTWbx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 18:31:53 -0400
+Received: by mail-io0-f194.google.com with SMTP id d203so21759495iof.2
+        for <netdev@vger.kernel.org>; Thu, 20 Apr 2017 15:31:53 -0700 (PDT)
+In-Reply-To: <1492715844-30273-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, Apr 20, 2017 at 12:17 PM, Vladislav Yasevich
+<vyasevich@gmail.com> wrote:
+> While hardware device use either NETIF_F_(IP|IPV6)_CSUM or
+> NETIF_F_HW_CSUM, all of the software devices use HW_CSUM.
+> This results in an interesting situation when the software
+> device is configured on top of hw device using (IP|IPV6)_CSUM.
+> In this situation, the user can't turn off checksum offloading
+> features on the software device.
 
+Why wouldn't they be able to? It seems like the software device
+shouldn't be setting IP_CSUM or IPV6_CSUM feature flags, but they will
+be set in the intersect features. The result won't have
+NETIF_F_HW_CSUM set, but it should advertise the features of the lower
+device instead.
 
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On
-> Behalf Of David Miller
-> Sent: Thursday, April 20, 2017 8:20 AM
-> To: Yuval.Mintz@cavium.com
-> Cc: gerlitz.or@gmail.com; Kirsher, Jeffrey T <jeffrey.t.kirsher@intel.com>;
-> Williams, Mitch A <mitch.a.williams@intel.com>; netdev@vger.kernel.org;
-> nhorman@redhat.com; sassmann@redhat.com; jogreene@redhat.com
-> Subject: Re: [net-next 04/14] i40e: dump VF information in debugfs
-> 
-> From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
-> Date: Thu, 20 Apr 2017 10:09:28 +0000
-> 
-> >> > Dump some internal state about VFs through debugfs. This provides
-> >> > information not available with 'ip link show'.
-> >>
-> >> such as?
-> >>
-> >> donnwantobethedebugfspolice, but still, in the 2-3 times we tried to push
-> >> debugfs to MLNX NIC drivers, Dave disallowed that, and lately the switch
-> >> team even went further and deleted that portion of the mlxsw driver --
-> all to
-> >> all,  I don't see much point for these type of changes, thoughts?
-> >
-> > Don't want to hikjack your thread, but continuing this topic -
-> > Is there some flat-out disapproval for debugfs in net-next now?
-> >
-> > We're currently internally engaged with adding qed support for register
-> dumps
-> > [~equivalents for `ethtool -d' outputs] through debugfs, on behalf of
-> storage
-> > drivers [qedi/qedf] lacking the API for doing that.
-> 
-> I really hate to see debugfs things in networking drivers.  It's a
-> complete cop out for doing things properly.
-> 
-> I push back, but I can only fight too much.  If people want to keep
-> adding stupid poorly designed crap endlessly to their drivers there
-> is only so much I can do...
+> This patch resolves that by adding NETIF_F_HW_CSUM to the mask
+> if a feature set includes only IP|IPV6 csum.  This allows the user
+> to control the upper (software) device checksum, while at the same
+> time correctly propagating lower device changes up.
 
-Honestly, Dave, I try very hard not to put random crap into debugfs. I felt that there was enough utility here to send this one up.
+You can't go this way. HW_CSUM is an all inclusive feature flag,
+whereas IP_CSUM and IPV6_CSUM specify only specific offload types.
+With your change the lower device could disable IPV6_CSUM for instance
+but you would still end up advertising checksum offload via HW_CSUM.
 
-We already have debugfs hooks upstream that allow us to dump information about a specific VSI. This just adds a tiny bit to that to allow us to link a VF with its specific VSI. It's the missing link, if you will.
+> CC: Michal Kubecek <mkubecek@suse.cz>
+> CC: Alexander Duyck <alexander.duyck@gmail.com>
+> CC: Tom Herbert <tom@herbertland.com>
+> Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
+>
+> ---
+>
+> V2: Addressed comments from Alex Duyck.  I tested this with hacked virtio
+> device that set IP|IPV6 checksums instead of HW.  Configuring a vlan on
+> top gave the vlan device with 'ip-generic: on' setting (using HW checksum).
+> This allows me to change vlan checksum offloads independent of virt-io nic.
+> Changes to virtio-nic propagated up to vlan, turning off the offloading
+> correctly.
+>
+>  include/linux/netdevice.h | 8 ++++----
+>  1 file changed, 4 insertions(+), 4 deletions(-)
+>
+> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> index b0aa089..81aed2f 100644
+> --- a/include/linux/netdevice.h
+> +++ b/include/linux/netdevice.h
+> @@ -4009,10 +4009,10 @@ static inline netdev_features_t netdev_intersect_features(netdev_features_t f1,
+>                                                           netdev_features_t f2)
+>  {
+>         if ((f1 ^ f2) & NETIF_F_HW_CSUM) {
+> -               if (f1 & NETIF_F_HW_CSUM)
+> -                       f1 |= (NETIF_F_IP_CSUM|NETIF_F_IPV6_CSUM);
+> -               else
+> -                       f2 |= (NETIF_F_IP_CSUM|NETIF_F_IPV6_CSUM);
+> +               if (f1 & (NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM))
+> +                       f1 |= NETIF_F_HW_CSUM;
+> +               if(f2 & (NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM))
+> +                       f2 |= NETIF_F_HW_CSUM;
+>         }
+>
+>         return f1 & f2;
+> --
+> 2.7.4
+>
 
-I'm not adding backdoor hooks to do naughty things, I'm just (very slightly) enhancing what's already there.
+This doesn't work. "NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM" doesn't
+equate to "NETIF_F_HW_CSUM". The problem is NETIF_F_HW_CSUM is a
+catch-all, the IP and IPV6 CSUM flags are not. Right now you would
+introduce escapes on devices that enable IP but not IPv6, or the other
+way around.
 
-This particular piece has been very useful for my debugging, and we have customers that have asked for it as well.
+Can you point to the exact case where this code is an issue? It seems
+like maybe you are wanting to have NETIF_F_HW_CSUM set if you support
+offloading a given protocol. You might want to look at how we dealt
+with this in the GSO code path so that if we could offload the
+checksum we set NETIF_F_HW_CSUM based on protocol and the CSUM offload
+feature bit for that protocol.
 
-If you still want to reject this, I won't fight and cry and stomp my little feet. But I honestly think that this a) has genuine utility, b) is fairly device specific, and c) isn't crap.
-
--Mitch
+- Alex
