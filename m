@@ -1,32 +1,31 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net-next] net/mlx5e: IPoIB, Fix error handling in
- mlx5_rdma_netdev_alloc()
-Date: Thu, 20 Apr 2017 16:28:52 -0400 (EDT)
-Message-ID: <20170420.162852.296854885919530460.davem@davemloft.net>
-References: <20170419095914.GB4266@mwanda>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v4] smsc95xx: Use skb_cow_head to deal with cloned skbs
+Date: Thu, 20 Apr 2017 16:28:59 -0400 (EDT)
+Message-ID: <20170420.162859.2258254560926857767.davem@davemloft.net>
+References: <20170419101340.27929-1-james.hughes@raspberrypi.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170419095914.GB4266@mwanda>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, steve.glendinning@shawell.net,
+        UNGLinuxDriver@microchip.com
+To: james.hughes@raspberrypi.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:49120 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S943098AbdDTU3G (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 16:29:06 -0400
+In-Reply-To: <20170419101340.27929-1-james.hughes@raspberrypi.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Date: Wed, 19 Apr 2017 12:59:15 +0300
+From: James Hughes <james.hughes@raspberrypi.org>
+Date: Wed, 19 Apr 2017 11:13:40 +0100
 
-> The labels were out of order, so it either could result in an Oops or a
-> leak.
+> The driver was failing to check that the SKB wasn't cloned
+> before adding checksum data.
+> Replace existing handling to extend/copy the header buffer
+> with skb_cow_head.
 > 
-> Fixes: 48935bbb7ae8 ("net/mlx5e: IPoIB, Add netdevice profile skeleton")
-> Signed-off-by: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+> Signed-off-by: James Hughes <james.hughes@raspberrypi.org>
 
 Applied.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
