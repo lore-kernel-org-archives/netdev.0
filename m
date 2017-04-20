@@ -1,60 +1,107 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: __sk_buff.data_end
-Date: Thu, 20 Apr 2017 16:32:32 +0200
-Message-ID: <1492698752.3109.8.camel@sipsolutions.net>
-References: <1492637460.22185.6.camel@sipsolutions.net>
-                                 (sfid-20170419_233114_060429_CAFE85B8) <1492640459.22185.7.camel@sipsolutions.net>
-                         <58F7FA6D.5030000@iogearbox.net>
-                 <1492668065.3109.1.camel@sipsolutions.net>
-         <58F8C160.6010905@iogearbox.net> <1492697865.3109.7.camel@sipsolutions.net>
-         <58F8C59F.1040009@iogearbox.net>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next v5 1/2] net sched actions: dump more than
+ TCA_ACT_MAX_PRIO actions per batch
+Date: Thu, 20 Apr 2017 16:33:13 +0200
+Message-ID: <20170420143313.GA19004@nanopsycho.orion>
+References: <1492693582-26810-1-git-send-email-jhs@emojatatu.com>
+ <1492693582-26810-2-git-send-email-jhs@emojatatu.com>
+ <20170420135915.GE1886@nanopsycho.orion>
+ <67dc8e10-b0df-c0c5-7c46-ac4147c1c797@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Daniel Borkmann <daniel@iogearbox.net>,
-        Alexei Starovoitov <ast@kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, xiyou.wangcong@gmail.com,
+        eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:57418 "EHLO sipsolutions.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1032747AbdDTOcn (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 20 Apr 2017 10:32:43 -0400
-In-Reply-To: <58F8C59F.1040009@iogearbox.net>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:35083 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1032766AbdDTOdQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 10:33:16 -0400
+Received: by mail-wm0-f68.google.com with SMTP id d79so11224971wmi.2
+        for <netdev@vger.kernel.org>; Thu, 20 Apr 2017 07:33:15 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <67dc8e10-b0df-c0c5-7c46-ac4147c1c797@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2017-04-20 at 16:28 +0200, Daniel Borkmann wrote:
-> 
-> I see what you mean now. Yes, that's fine. We already do something
-> similar essentially with skb->ifindex access already (skb->dev +
-> dev->ifindex), f.e.:
-> 
-> [...]
-> 	case offsetof(struct __sk_buff, ifindex):
-> 		BUILD_BUG_ON(FIELD_SIZEOF(struct net_device, ifindex)
-> != 4);
-> 
-> 		*insn++ = BPF_LDX_MEM(BPF_FIELD_SIZEOF(struct sk_buff,
-> dev),
-> 				      si->dst_reg, si->src_reg,
-> 				      offsetof(struct sk_buff, dev));
-> 		*insn++ = BPF_JMP_IMM(BPF_JEQ, si->dst_reg, 0, 1);
-> 		*insn++ = BPF_LDX_MEM(BPF_W, si->dst_reg, si->dst_reg,
-> 				      offsetof(struct net_device,
-> ifindex));
-> 		break;
-> [...]
+Thu, Apr 20, 2017 at 04:25:11PM CEST, jhs@mojatatu.com wrote:
+>On 17-04-20 09:59 AM, Jiri Pirko wrote:
+>> Thu, Apr 20, 2017 at 03:06:21PM CEST, jhs@mojatatu.com wrote:
+>> > From: Jamal Hadi Salim <jhs@mojatatu.com>
+>> > 
+>> > When you dump hundreds of thousands of actions, getting only 32 per
+>> > dump batch even when the socket buffer and memory allocations allow
+>> > is inefficient.
+>> > 
+>> > With this change, the user will get as many as possibly fitting
+>> > within the given constraints available to the kernel.
+>> > 
+>> > A new top level TLV space is introduced. An attribute
+>> > TCAA_ACT_FLAGS is used to carry the flags indicating the user
+>> > is capable of processing these large dumps. Older user space which
+>> > doesn't set this flag doesn't get the large (than 32) batches.
+>> > The kernel uses the TCAA_ACT_COUNT attribute to tell the user how many
+>> > actions are put in a single batch. As such user space app knows how long
+>> > to iterate (independent of the type of action being dumped)
+>> > instead of hardcoded maximum of 32.
+>> > 
+>> > Some results dumping 1.5M actions, first unpatched tc which the
+>> > kernel doesn't help:
+>> > 
+>> > prompt$ time -p tc actions ls action gact | grep index | wc -l
+>> > 1500000
+>> > real 1388.43
+>> > user 2.07
+>> > sys 1386.79
+>> > 
+>> > Now lets see a patched tc which sets the correct flags when requesting
+>> > a dump:
+>> > 
+>> > prompt$ time -p updatedtc actions ls action gact | grep index | wc -l
+>> > 1500000
+>> > real 178.13
+>> > user 2.02
+>> > sys 176.96
+>> > 
+>> > Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+>> > ---
+>> > include/uapi/linux/rtnetlink.h | 21 +++++++++++++++++--
+>> > net/sched/act_api.c            | 46 +++++++++++++++++++++++++++++++++---------
+>> > 2 files changed, 55 insertions(+), 12 deletions(-)
+>> > 
+>> > diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
+>> > index cce0613..d7d28ec 100644
+>> > --- a/include/uapi/linux/rtnetlink.h
+>> > +++ b/include/uapi/linux/rtnetlink.h
+>> > @@ -674,10 +674,27 @@ struct tcamsg {
+>> > 	unsigned char	tca__pad1;
+>> > 	unsigned short	tca__pad2;
+>> > };
+>> > +
+>> > +enum {
+>> > +	TCAA_UNSPEC,
+>> 
+>> TCAA stands for "traffic control action action". I don't get it :(
+>
+>TC Action Attributes == TCAA.
+>
+>> Prefix still sounds wrong to me, sorry :/
+>> Should be:
+>> TCA_SOMETHING_*
+>> 
+>
+>TCA_ATTR_XXX ?
 
-Oh, right, good point.
+Of course it is an attribute. No need to have "attr" in the name. No
+other enum has it. Does not make sense.
 
-> Which is not too different from the above. You'd probably need to
-> populate the struct wifi_data each time if you place it onto the
-> stack, but perhaps could be optimized by storing that somewhere
-> else (e.g. somewhere via netdev, etc) and walking the pointer from
-> there, which would also spare you the cb[] save/restore.
+The name should contain the group name. What group this enum defines?
 
-Hmm. I don't see what "somewhere else" I could possibly have though,
-given that I want the (kernel-side) context to be "struct sk_buff *"
-to allow the skb helpers?
 
-johannes
+>
+>I have another opportunity to make a change  where we should close
+>the discussion on this. We cant drag it forever.
+>
+>cheers,
+>jamal
+>
