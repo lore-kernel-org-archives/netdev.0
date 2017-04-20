@@ -1,41 +1,89 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH 11/16] esp: Use a synchronous crypto algorithm on
- offloading.
-Date: Thu, 20 Apr 2017 11:17:52 +0200
-Message-ID: <20170420091752.GH2649@secunet.com>
-References: <1492678515-14347-1-git-send-email-steffen.klassert@secunet.com>
- <1492678515-14347-12-git-send-email-steffen.klassert@secunet.com>
- <20170420090617.GA8325@gondor.apana.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: [PATCH] ipvs: explicitly forbid ipv6 service/dest creation if ipv6 mod is disabled
+Date: Thu, 20 Apr 2017 11:44:16 +0200
+Message-ID: <2a5c88ca5670baade900e2b1f05a0dcc9927a29d.1492681122.git.pabeni@redhat.com>
+Cc: lvs-devel@vger.kernel.org, Wensong Zhang <wensong@linux-vs.org>,
+        Simon Horman <horms@verge.net.au>,
+        Julian Anastasov <ja@ssi.bg>, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:52624 "EHLO a.mx.secunet.com"
+Received: from mx1.redhat.com ([209.132.183.28]:46602 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S941662AbdDTJVt (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 20 Apr 2017 05:21:49 -0400
-Content-Disposition: inline
-In-Reply-To: <20170420090617.GA8325@gondor.apana.org.au>
+        id S944172AbdDTJoq (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 20 Apr 2017 05:44:46 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 20, 2017 at 05:06:17PM +0800, Herbert Xu wrote:
-> On Thu, Apr 20, 2017 at 10:55:10AM +0200, Steffen Klassert wrote:
-> > We need a fallback algorithm for crypto offloading to a NIC.
-> > This is because packets can be rerouted to other NICs that
-> > don't support crypto offloading. The fallback is going to be
-> > implemented at layer2 where we know the final output device
-> > but can't handle asynchronous returns fron the crypto layer.
-> 
-> Can you explain why we can't handle async algorithms on the fallback
-> path?
+When creating a new ipvs service, ipv6 addresses are always accepted
+if CONFIG_IP_VS_IPV6 is enabled. On dest creation the address family
+is not explicitly checked.
 
-I tried to use async algorithms but it lead to serveral problems.
-The GSO layer can't handle async returns, we'd need callbacks
-for all the GSO handlers. Also we need something where we can
-requeue packets if the driver is busy etc.
+This allows the user-space to configure ipvs services even if the
+system is booted with ipv6.disable=1. On specific configuration, ipvs
+can try to call ipv6 routing code at setup time, causing the kernel to
+oops due to fib6_rules_ops being NULL.
 
-This would require a lot of changes in the generic code,
-so I decided to use a synchronous fallback algorithm for
-now.
+This change addresses the issue adding a check for the ipv6
+module being enabled while validating ipv6 service operations and
+adding the same validation for dest operations.
+
+According to git history, this issue is apparently present since
+the introduction of ipv6 support, and the oops can be triggered
+since commit 09571c7ae30865ad ("IPVS: Add function to determine
+if IPv6 address is local")
+
+Fixes: 09571c7ae30865ad ("IPVS: Add function to determine if IPv6 address is local")
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+---
+ net/netfilter/ipvs/ip_vs_ctl.c | 22 +++++++++++++++++-----
+ 1 file changed, 17 insertions(+), 5 deletions(-)
+
+diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+index 5aeb0dd..4d753be 100644
+--- a/net/netfilter/ipvs/ip_vs_ctl.c
++++ b/net/netfilter/ipvs/ip_vs_ctl.c
+@@ -3078,6 +3078,17 @@ static int ip_vs_genl_dump_services(struct sk_buff *skb,
+ 	return skb->len;
+ }
+ 
++static bool ip_vs_is_af_valid(int af)
++{
++	if (af == AF_INET)
++		return true;
++#ifdef CONFIG_IP_VS_IPV6
++	if (af == AF_INET6 && ipv6_mod_enabled())
++		return true;
++#endif
++	return false;
++}
++
+ static int ip_vs_genl_parse_service(struct netns_ipvs *ipvs,
+ 				    struct ip_vs_service_user_kern *usvc,
+ 				    struct nlattr *nla, int full_entry,
+@@ -3104,11 +3115,7 @@ static int ip_vs_genl_parse_service(struct netns_ipvs *ipvs,
+ 	memset(usvc, 0, sizeof(*usvc));
+ 
+ 	usvc->af = nla_get_u16(nla_af);
+-#ifdef CONFIG_IP_VS_IPV6
+-	if (usvc->af != AF_INET && usvc->af != AF_INET6)
+-#else
+-	if (usvc->af != AF_INET)
+-#endif
++	if (!ip_vs_is_af_valid(usvc->af))
+ 		return -EAFNOSUPPORT;
+ 
+ 	if (nla_fwmark) {
+@@ -3610,6 +3617,11 @@ static int ip_vs_genl_set_cmd(struct sk_buff *skb, struct genl_info *info)
+ 		if (udest.af == 0)
+ 			udest.af = svc->af;
+ 
++		if (!ip_vs_is_af_valid(udest.af)) {
++			ret = -EAFNOSUPPORT;
++			goto out;
++		}
++
+ 		if (udest.af != svc->af && cmd != IPVS_CMD_DEL_DEST) {
+ 			/* The synchronization protocol is incompatible
+ 			 * with mixed family services
+-- 
+2.9.3
