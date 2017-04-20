@@ -1,120 +1,47 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH stable 4.4] tipc: fix crash during node removal
-Date: Thu, 20 Apr 2017 21:33:58 +0200
-Message-ID: <1492716838-9182-1-git-send-email-jon.maloy@ericsson.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] mac80211: reject ToDS broadcast data frames
+Date: Thu, 20 Apr 2017 15:38:09 -0400 (EDT)
+Message-ID: <20170420.153809.763038513182171279.davem@davemloft.net>
+References: <20170420193216.17087-1-johannes@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <parthasarathy.bhuvaragan@ericsson.com>, <ying.xue@windriver.com>,
-        <tipc-discussion@lists.sourceforge.net>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+        johannes.berg@intel.com
+To: johannes@sipsolutions.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sesbmg23.ericsson.net ([193.180.251.37]:63073 "EHLO
-        sesbmg23.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S947061AbdDTTeS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 15:34:18 -0400
+Received: from shards.monkeyblade.net ([184.105.139.130]:48216 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S947066AbdDTTiM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 15:38:12 -0400
+In-Reply-To: <20170420193216.17087-1-johannes@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jon Paul Maloy <jon.maloy@ericsson.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Date: Thu, 20 Apr 2017 21:32:16 +0200
 
-commit d25a01257e422a4bdeb426f69529d57c73b235fe upstream
+> From: Johannes Berg <johannes.berg@intel.com>
+> 
+> AP/AP_VLAN modes don't accept any real 802.11 multicast data
+> frames, but since they do need to accept broadcast management
+> frames the same is currently permitted for data frames. This
+> opens a security problem because such frames would be decrypted
+> with the GTK, and could even contain unicast L3 frames.
+> 
+> Since the spec says that ToDS frames must always have the BSSID
+> as the RA (addr1), reject any other data frames.
+> 
+> The problem was originally reported in "Predicting, Decrypting,
+> and Abusing WPA2/802.11 Group Keys" at usenix
+> https://www.usenix.org/conference/usenixsecurity16/technical-sessions/presentation/vanhoef
+> and brought to my attention by Jouni.
+> 
+> Cc: stable@vger.kernel.org
+> Reported-by: Jouni Malinen <j@w1.fi>
+> Signed-off-by: Johannes Berg <johannes.berg@intel.com>
+> --
+> Dave, I didn't want to send you a new pull request for a single
+> commit yet again - can you apply this one patch as is?
 
-When the TIPC module is unloaded, we have identified a race condition
-that allows a node reference counter to go to zero and the node instance
-being freed before the node timer is finished with accessing it. This
-leads to occasional crashes, especially in multi-namespace environments.
-
-The scenario goes as follows:
-
-CPU0:(node_stop)                       CPU1:(node_timeout)  // ref == 2
-
-1:                                          if(!mod_timer())
-2: if (del_timer())
-3:   tipc_node_put()                                        // ref -> 1
-4: tipc_node_put()                                          // ref -> 0
-5:   kfree_rcu(node);
-6:                                               tipc_node_get(node)
-7:                                               // BOOM!
-
-We now clean up this functionality as follows:
-
-1) We remove the node pointer from the node lookup table before we
-   attempt deactivating the timer. This way, we reduce the risk that
-   tipc_node_find() may obtain a valid pointer to an instance marked
-   for deletion; a harmless but undesirable situation.
-
-2) We use del_timer_sync() instead of del_timer() to safely deactivate
-   the node timer without any risk that it might be reactivated by the
-   timeout handler. There is no risk of deadlock here, since the two
-   functions never touch the same spinlocks.
-
-3: We remove a pointless tipc_node_get() + tipc_node_put() from the
-   timeout handler.
-
-Reported-by: Zhijiang Hu <huzhijiang@gmail.com>
-Acked-by: Ying Xue <ying.xue@windriver.com>
-Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- net/tipc/node.c | 24 +++++++++++-------------
- 1 file changed, 11 insertions(+), 13 deletions(-)
-
-diff --git a/net/tipc/node.c b/net/tipc/node.c
-index 3926b56..d468aad 100644
---- a/net/tipc/node.c
-+++ b/net/tipc/node.c
-@@ -102,9 +102,10 @@ static unsigned int tipc_hashfn(u32 addr)
- 
- static void tipc_node_kref_release(struct kref *kref)
- {
--	struct tipc_node *node = container_of(kref, struct tipc_node, kref);
-+	struct tipc_node *n = container_of(kref, struct tipc_node, kref);
- 
--	tipc_node_delete(node);
-+	kfree(n->bc_entry.link);
-+	kfree_rcu(n, rcu);
- }
- 
- void tipc_node_put(struct tipc_node *node)
-@@ -216,21 +217,20 @@ static void tipc_node_delete(struct tipc_node *node)
- {
- 	list_del_rcu(&node->list);
- 	hlist_del_rcu(&node->hash);
--	kfree(node->bc_entry.link);
--	kfree_rcu(node, rcu);
-+	tipc_node_put(node);
-+
-+	del_timer_sync(&node->timer);
-+	tipc_node_put(node);
- }
- 
- void tipc_node_stop(struct net *net)
- {
--	struct tipc_net *tn = net_generic(net, tipc_net_id);
-+	struct tipc_net *tn = tipc_net(net);
- 	struct tipc_node *node, *t_node;
- 
- 	spin_lock_bh(&tn->node_list_lock);
--	list_for_each_entry_safe(node, t_node, &tn->node_list, list) {
--		if (del_timer(&node->timer))
--			tipc_node_put(node);
--		tipc_node_put(node);
--	}
-+	list_for_each_entry_safe(node, t_node, &tn->node_list, list)
-+		tipc_node_delete(node);
- 	spin_unlock_bh(&tn->node_list_lock);
- }
- 
-@@ -313,9 +313,7 @@ static void tipc_node_timeout(unsigned long data)
- 		if (rc & TIPC_LINK_DOWN_EVT)
- 			tipc_node_link_down(n, bearer_id, false);
- 	}
--	if (!mod_timer(&n->timer, jiffies + n->keepalive_intv))
--		tipc_node_get(n);
--	tipc_node_put(n);
-+	mod_timer(&n->timer, jiffies + n->keepalive_intv);
- }
- 
- /**
--- 
-2.1.4
+Sure, done.
