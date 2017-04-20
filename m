@@ -1,89 +1,98 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH net] netdevice: Prefer NETIF_F_HW_CSUM when intersecting
- features
-Date: Thu, 20 Apr 2017 15:07:45 -0400
-Message-ID: <4c47351b-083c-1390-02ce-d889c700553b@redhat.com>
-References: <1492650743-28164-1-git-send-email-vyasevic@redhat.com>
- <CAKgT0Ue67jdAcFeyXqv4Nr8+A-oKNBk7+xV_WmcfWdrNRgRGTQ@mail.gmail.com>
-Reply-To: vyasevic@redhat.com
+From: tndave <tushar.n.dave@oracle.com>
+Subject: Re: [PATCH] netpoll: Check for skb->queue_mapping
+Date: Thu, 20 Apr 2017 12:08:42 -0700
+Message-ID: <a94139a3-9eaf-6682-3dff-cfb161e62d32@oracle.com>
+References: <1491444383-29017-1-git-send-email-tushar.n.dave@oracle.com>
+ <1491474377.10124.57.camel@edumazet-glaptop3.roam.corp.google.com>
+ <5927b630-865e-b7af-33a1-1a6b772e3fb7@oracle.com>
+ <1491506056.10124.81.camel@edumazet-glaptop3.roam.corp.google.com>
+ <b98cb4f6-2e4c-71ba-1431-1824bf334f8e@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>, Tom Herbert <tom@herbertland.com>,
-        Michal Kubecek <mkubecek@suse.cz>
-To: Alexander Duyck <alexander.duyck@gmail.com>,
-        Vladislav Yasevich <vyasevich@gmail.com>
+Cc: davem@davemloft.net, edumazet@google.com, brouer@redhat.com,
+        netdev@vger.kernel.org, sowmini.varadhan@oracle.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:56494 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S943375AbdDTTHr (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 20 Apr 2017 15:07:47 -0400
-In-Reply-To: <CAKgT0Ue67jdAcFeyXqv4Nr8+A-oKNBk7+xV_WmcfWdrNRgRGTQ@mail.gmail.com>
+Received: from aserp1040.oracle.com ([141.146.126.69]:17018 "EHLO
+        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S938784AbdDTTKF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 15:10:05 -0400
+In-Reply-To: <b98cb4f6-2e4c-71ba-1431-1824bf334f8e@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/20/2017 02:36 PM, Alexander Duyck wrote:
-> On Wed, Apr 19, 2017 at 6:12 PM, Vladislav Yasevich <vyasevich@gmail.com> wrote:
->> While hardware device use either NETIF_F_(IP|IPV6)_CSUM or
->> NETIF_F_HW_CSUM, all of the software devices use HW_CSUM.
->> This results in an interesting situation when the software
->> device is configured on top of hw device using (IP|IPV6)_CSUM.
->> In this situation, the user can't turn off checksum offloading
->> features on the software device.
+
+
+On 04/12/2017 03:37 PM, tndave wrote:
+>
+>
+> On 04/06/2017 12:14 PM, Eric Dumazet wrote:
+>> On Thu, 2017-04-06 at 12:07 -0700, tndave wrote:
 >>
->> This patch resolves that by prefering the NETIF_F_HW_CSUM setting
->> when computing a feature intersect.
+>>>> +            q_index = q_index % dev->real_num_tx_queues;
+>>> cpu interrupted here and dev->real_num_tx_queues has reduced!
+>>>> +            skb_set_queue_mapping(skb, q_index);
+>>>> +        }
+>>>> +        txq = netdev_get_tx_queue(dev, q_index);
+>>> or cpu interrupted here and dev->real_num_tx_queues has reduced!
 >>
->> Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
->> ---
->>  include/linux/netdevice.h | 4 ++--
->>  1 file changed, 2 insertions(+), 2 deletions(-)
+>> If dev->real_num_tx_queues can be changed while this code is running we
+>> are in deep deep trouble.
 >>
->> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
->> index 97456b25..3d811c1 100644
->> --- a/include/linux/netdevice.h
->> +++ b/include/linux/netdevice.h
->> @@ -4019,9 +4019,9 @@ static inline netdev_features_t netdev_intersect_features(netdev_features_t f1,
->>  {
->>         if ((f1 ^ f2) & NETIF_F_HW_CSUM) {
->>                 if (f1 & NETIF_F_HW_CSUM)
->> -                       f1 |= (NETIF_F_IP_CSUM|NETIF_F_IPV6_CSUM);
->> +                       f2 |= NETIF_F_HW_CSUM;
->>                 else
->> -                       f2 |= (NETIF_F_IP_CSUM|NETIF_F_IPV6_CSUM);
->> +                       f1 |= NETIF_F_HW_CSUM;
->>         }
+>> Better make sure that when control path does this change, device (and/pr
+>> netpoll) is frozen and no packet can be sent.
+> When control path is making change to real_num_tx_queues, underlying
+> device is disabled; also netdev tx queues are stopped/disabled so
+> certainly no transmit is happening.
+>
+>
+> The corner case I was referring is if netpoll's queue_process() code is
+> interrupted and while it is not running, control path makes change to
+> dev->real_num_tx_queues and exits. Later on, interrupted queue_process()
+> resume execution and it can end up with wrong skb->queue_mapping and txq.
+> We can prevent this case with below change:
+>
+> diff --git a/net/core/netpoll.c b/net/core/netpoll.c
+> index 9424673..29be246 100644
+> --- a/net/core/netpoll.c
+> +++ b/net/core/netpoll.c
+> @@ -105,15 +105,21 @@ static void queue_process(struct work_struct *work)
+>         while ((skb = skb_dequeue(&npinfo->txq))) {
+>                 struct net_device *dev = skb->dev;
+>                 struct netdev_queue *txq;
+> +               unsigned int q_index;
+>
+>                 if (!netif_device_present(dev) || !netif_running(dev)) {
+>                         kfree_skb(skb);
+>                         continue;
+>                 }
+>
+> -               txq = skb_get_tx_queue(dev, skb);
+> -
+>                 local_irq_save(flags);
+> +               /* check if skb->queue_mapping is still valid */
+> +               q_index = skb_get_queue_mapping(skb);
+> +               if (unlikely(q_index >= dev->real_num_tx_queues)) {
+> +                       q_index = q_index % dev->real_num_tx_queues;
+> +                       skb_set_queue_mapping(skb, q_index);
+> +               }
+> +               txq = netdev_get_tx_queue(dev, q_index);
+>                 HARD_TX_LOCK(dev, txq, smp_processor_id());
+>                 if (netif_xmit_frozen_or_stopped(txq) ||
+>                     netpoll_start_xmit(skb, dev, txq) != NETDEV_TX_OK) {
+>
+>
+> Thanks for your patience.
+Eric,
+
+Let me know if you are okay with above changes and me sending v2.
+
+-Tushar
+>
+> -Tushar
 >>
->>         return f1 & f2;
->> --
->> 2.7.4
 >>
-> 
-> This doesn't seem right to me. I can see promoting NETIF_F_HW_CSUM to
-> also include IP_CSUM and IPV6_CSUM but all this seems to do is force
-> NETIF_F_HW_CSUM on always if either side has it enabled. That doesn't
-> seem like an intersection at all to me.
-
-I think it needs to be the other way around.  At least that's what I've
-been observing...
-
-
-> 
-> What this code is supposed to do is make it so that if we are testing
-> for NETIF_F_IP_CSUM and NETIF_F_HW_CSUM is set it will return true.
-> The code as it is now will always return true if we test for
-> NETIF_F_HW_CSUM since it will just set it on the other side for us.
-> 
-
-Yes, you are right.  The way the code is now, if we turn off checksum
-offload on the lower device, the upper device doesn't change.
-
-What we really want to do is add HW_CSUM to the mask if IP|IPV6 is set.
-That way, if lower device has IP|IPV6,  it will end up with IP|IPV6|HW.
-This way, controlling IP csums on the lower device will turn off the
-checksum on the upper, while at the same time give us the ability to
-control the checksum offload on the upper device itself.
-
-Thanks.  I'll resubmit a v2.
-
--vlad
+>>
+>>
+>
