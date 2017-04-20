@@ -1,53 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 0/3] uapi glibc compat: fix musl libc compatibility
-Date: Thu, 20 Apr 2017 16:07:39 -0400 (EDT)
-Message-ID: <20170420.160739.1263793303398330801.davem@davemloft.net>
-References: <20170418210036.26039-1-hauke@hauke-m.de>
+From: Rob Herring <robh@kernel.org>
+Subject: Re: [PATCH net-next v3] bindings: net: stmmac: add missing note
+ about LPI interrupt
+Date: Thu, 20 Apr 2017 15:10:49 -0500
+Message-ID: <20170420201049.gynbmvksfaqnut35@rob-hp-laptop>
+References: <20170418123955.21335-1-niklass@axis.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        jarod@redhat.com, jogo@openwrt.org, david.heidelberger@ixit.cz,
-        maillist-linux@barfooze.de, mikko.rapeli@iki.fi,
-        dwmw2@infradead.org
-To: hauke@hauke-m.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170418210036.26039-1-hauke@hauke-m.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Mark Rutland <mark.rutland@arm.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Joao Pinto <Joao.Pinto@synopsys.com>,
+        Niklas Cassel <niklass@axis.com>,
+        Alexandre TORGUE <alexandre.torgue@st.com>,
+        Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
+        Thierry Reding <treding@nvidia.com>,
+        Eric Engestrom <eric@engestrom.ch>, netdev@vger.kernel.org,
+        devicetree@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Niklas Cassel <niklas.cassel@axis.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f67.google.com ([209.85.218.67]:33319 "EHLO
+        mail-oi0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1031158AbdDTUKw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 16:10:52 -0400
+Content-Disposition: inline
+In-Reply-To: <20170418123955.21335-1-niklass@axis.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Hauke Mehrtens <hauke@hauke-m.de>
-Date: Tue, 18 Apr 2017 23:00:33 +0200
-
-> The code from libc-compat.h depends on some glibc specific defines and 
-> causes compile problems with the musl libc. These patches remove some 
-> of the glibc dependencies. With these patches the LEDE (OpenWrt) base 
-> user space applications can be build with unmodified kernel headers and 
-> musl libc.
+On Tue, Apr 18, 2017 at 02:39:53PM +0200, Niklas Cassel wrote:
+> From: Niklas Cassel <niklas.cassel@axis.com>
 > 
-> This was compile tested with the user space from LEDE (OpenWrt) with 
-> musl 1.1.16, glibc 2.25 and uClibc-ng 1.0.22.
+> The hardware has a LPI interrupt.
+> There is already code in the stmmac driver to parse and handle the
+> interrupt. However, this information was missing from the DT binding.
 > 
-> Changes since v1:
->  - fix typo in commit message
->  - combine two changes
+> At the same time, improve the description of the existing interrupts.
+> 
+> Signed-off-by: Niklas Cassel <niklas.cassel@axis.com>
+> ---
+>  Documentation/devicetree/bindings/net/stmmac.txt | 13 ++++++++-----
+>  1 file changed, 8 insertions(+), 5 deletions(-)
 
-I think I have to put the brakes on this patch series, after much
-consideration.
-
-It does not scale if we continually add a hodge-podge of different
-ifdef tests to the UAPI headers in order to prevent mutliple
-definitions.
-
-We will add that IFF_ECHO ifdef for MUSL libc today, and for another
-libc we will add another such hack.  And so on and so forth...
-
-Instead, LIBC implementation must adopt the ifdef protections which
-have standard names and are being adopted by GLIBC and hopefully
-others.
-
-So please instead adjust the musl headers so that they interact
-properly with the framework we've designed specifically for this
-purpose.
-
-Thank you.
+Acked-by: Rob Herring <robh@kernel.org>
