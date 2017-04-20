@@ -1,107 +1,117 @@
-From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: [PATCH net v2] net/mlx5e: Fix race in mlx5e_sw_stats and mlx5e_vport_stats
-Date: Thu, 20 Apr 2017 17:00:13 +0300
-Message-ID: <CALzJLG_r4x2PvVTG8vdDRFfGBfRe-totyUaPtV8ehmqiL0dURA@mail.gmail.com>
-References: <20170419233259.2255806-1-kafai@fb.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH net-next v4 1/2] net sched actions: dump more than
+ TCA_ACT_MAX_PRIO actions per batch
+Date: Thu, 20 Apr 2017 10:03:55 -0400
+Message-ID: <d582d8bc-f5d4-f136-a654-9ebcd5b53d5d@mojatatu.com>
+References: <1492603050-9318-1-git-send-email-jhs@emojatatu.com>
+ <20170419123645.GB3357@nanopsycho.orion>
+ <705a4d67-4a81-113f-e22a-0ca0bb6cf1eb@mojatatu.com>
+ <20170419131323.GE3357@nanopsycho.orion>
+ <e2a1e201-4830-e600-e668-91f83bcc9b32@mojatatu.com>
+ <20170419155400.GH3357@nanopsycho.orion>
+ <56488055-1f4b-ee10-2357-5ce80f1fbc50@mojatatu.com>
+ <20170419161736.GJ3357@nanopsycho.orion>
+ <f0e84f44-ba3a-7eb4-8b22-9764048d9406@mojatatu.com>
+ <20170420113540.GC1886@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        Kernel Team <kernel-team@fb.com>
-To: Martin KaFai Lau <kafai@fb.com>, Gal Pressman <galp@mellanox.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+        eric.dumazet@gmail.com, xiyou.wangcong@gmail.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f194.google.com ([209.85.220.194]:35779 "EHLO
-        mail-qk0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1031971AbdDTOAe (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 10:00:34 -0400
-Received: by mail-qk0-f194.google.com with SMTP id k139so7912038qke.2
-        for <netdev@vger.kernel.org>; Thu, 20 Apr 2017 07:00:34 -0700 (PDT)
-In-Reply-To: <20170419233259.2255806-1-kafai@fb.com>
+Received: from mail-io0-f193.google.com ([209.85.223.193]:33289 "EHLO
+        mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1031637AbdDTOD7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 10:03:59 -0400
+Received: by mail-io0-f193.google.com with SMTP id k87so16668908ioi.0
+        for <netdev@vger.kernel.org>; Thu, 20 Apr 2017 07:03:59 -0700 (PDT)
+In-Reply-To: <20170420113540.GC1886@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 20, 2017 at 2:32 AM, Martin KaFai Lau <kafai@fb.com> wrote:
-> We have observed a sudden spike in rx/tx_packets and rx/tx_bytes
-> reported under /proc/net/dev.  There is a race in mlx5e_update_stats()
-> and some of the get-stats functions (the one that we hit is the
-> mlx5e_get_stats() which is called by ndo_get_stats64()).
+On 17-04-20 07:35 AM, Jiri Pirko wrote:
+> Thu, Apr 20, 2017 at 12:42:55PM CEST, jhs@mojatatu.com wrote:
+>> On 17-04-19 12:17 PM, Jiri Pirko wrote:
 >
-> In particular, the very first thing mlx5e_update_sw_counters()
-> does is 'memset(s, 0, sizeof(*s))'.  For example, if mlx5e_get_stats()
-> is unlucky at one point, rx_bytes and rx_packets could be 0.  One second
-> later, a normal (and much bigger than 0) value will be reported.
+> Ha. So the current code is wrong, I see it now. Following is needed:
 >
-> This patch is to use a 'struct mlx5e_sw_stats temp' to avoid
-> a direct memset zero on priv->stats.sw.
+> diff --git a/net/sched/act_api.c b/net/sched/act_api.c
+> index 82b1d48..c432b22 100644
+> --- a/net/sched/act_api.c
+> +++ b/net/sched/act_api.c
+> @@ -1005,7 +1005,7 @@ static int tc_ctl_action(struct sk_buff *skb, struct nlmsghdr *n,
+>  	    !netlink_capable(skb, CAP_NET_ADMIN))
+>  		return -EPERM;
 >
-> mlx5e_update_vport_counters() has a similar race.  Hence, addressed
-> together.
+> -	ret = nlmsg_parse(n, sizeof(struct tcamsg), tca, TCA_ACT_MAX, NULL,
+> +	ret = nlmsg_parse(n, sizeof(struct tcamsg), tca, TCAA_MAX, NULL,
+>  			  extack);
+>  	if (ret < 0)
+>  		return ret;
 >
-> I am lucky enough to catch this 0-reset in rx multicast:
-> eth0: 41457665   76804   70    0    0    70          0     47085 15586634   87502    3    0    0     0       3          0
-> eth0: 41459860   76815   70    0    0    70          0     47094 15588376   87516    3    0    0     0       3          0
-> eth0: 41460577   76822   70    0    0    70          0         0 15589083   87521    3    0    0     0       3          0
-> eth0: 41463293   76838   70    0    0    70          0     47108 15595872   87538    3    0    0     0       3          0
-> eth0: 41463379   76839   70    0    0    70          0     47116 15596138   87539    3    0    0     0       3          0
+> You confused me squashing the change to this patch.
 >
-> Cc: Saeed Mahameed <saeedm@mellanox.com>
-> Suggested-by: Eric Dumazet <eric.dumazet@gmail.com>
-> Signed-off-by: Martin KaFai Lau <kafai@fb.com>
-> ---
->  drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 7 +++++--
->  1 file changed, 5 insertions(+), 2 deletions(-)
+> Ok, so the name could be:
+> TCA_ACTS_*
+> ?
+> I believe it is crucial to figure this out right now. TC UAPI is in deep
+> mess already, no need to push it even more.
 >
-> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-> index 66c133757a5e..246786bb861b 100644
-> --- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-> +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-> @@ -174,7 +174,7 @@ static void mlx5e_tx_timeout_work(struct work_struct *work)
->
->  static void mlx5e_update_sw_counters(struct mlx5e_priv *priv)
->  {
-> -       struct mlx5e_sw_stats *s = &priv->stats.sw;
-> +       struct mlx5e_sw_stats temp, *s = &temp;
->         struct mlx5e_rq_stats *rq_stats;
->         struct mlx5e_sq_stats *sq_stats;
->         u64 tx_offload_none = 0;
-> @@ -229,12 +229,14 @@ static void mlx5e_update_sw_counters(struct mlx5e_priv *priv)
->         s->link_down_events_phy = MLX5_GET(ppcnt_reg,
->                                 priv->stats.pport.phy_counters,
->                                 counter_set.phys_layer_cntrs.link_down_events);
-> +       memcpy(&priv->stats.sw, s, sizeof(*s));
->  }
->
->  static void mlx5e_update_vport_counters(struct mlx5e_priv *priv)
->  {
-> +       struct mlx5e_vport_stats temp;
->         int outlen = MLX5_ST_SZ_BYTES(query_vport_counter_out);
-> -       u32 *out = (u32 *)priv->stats.vport.query_vport_out;
-> +       u32 *out = (u32 *)temp.query_vport_out;
->         u32 in[MLX5_ST_SZ_DW(query_vport_counter_in)] = {0};
->         struct mlx5_core_dev *mdev = priv->mdev;
->
-> @@ -245,6 +247,7 @@ static void mlx5e_update_vport_counters(struct mlx5e_priv *priv)
->
->         memset(out, 0, outlen);
 
-Actually you don't need any temp here, it is safe to just remove this
-redundant memset
-and mlx5_cmd_exec will do the copy for you.
+I could change that name. Look at the last series i sent, add any extra
+comments to that  and i will get to it by tomorrow.
 
->         mlx5_cmd_exec(mdev, in, sizeof(in), out, outlen);
-> +       memcpy(priv->stats.vport.query_vport_out, out, outlen);
->  }
+>> They are not the same issue Jiri. We have used bitmasks fine on netlink
+>
+> Howcome they are not the same? I'm pretty certain they are.
+>
 
-Anyway we still need a spin lock here, and also for all the counters
-under priv->stats which are affected by this race as well.
-
-If you want I can accept this as a temporary  fix for net and Gal will
-work on a spin lock based mechanism to fix the memcpy race for all the
-counters.
+They are not Jiri. I challenge you to point me to one netlink bitmask
+representation used that has some bits that were not being used that
+someone or some compiler is going to set some random values on.
+Typically flags are u64/32/16
 
 >
->  static void mlx5e_update_pport_counters(struct mlx5e_priv *priv)
-> --
-> 2.9.3
+>> message for a millenia. Nobody sets garbage on a bitmask they are not
+>> supposed to touch. The struct padding thing is a shame the way it
+>> turned out - now netlink can no longer have a claim to be a (good)
+>> wire protocol.
+>> Other thing: I know you feel strongly about this but I dont agree that
+>> everything has to be a TLV and in no way, as a matter of principle, you are
+>> going to convince me  (even when the cows come home) that I have to
+>> use 64 bits to carry a single bit just so I can use TLVs.
 >
+> Then I guess we have to agree to disagree. I believe that your approach
+> is wrong and will break users in future when you add even a single flag.
+> Argument that "we are doing this for ages-therefore it is correct" has
+> simply 0 value.
+>
+
+"doing these for 80 years" is not the main driving point.
+I appreciate that data structures - even when fields are
+annotated as "pads" there is no guarantee when i allocate one
+the pads will be zeroes.
+
+Bitmasks are atomic in nature and therefore used in whole - not complex
+like structs. Thats the difference. I dont define this u32 bitmap that
+has 8 bits that are "pads" because that concept doesnt make sense for
+atomic fields.
+This implies that 6 months down the road I dont regret and say "shit, I
+need 2 more bits for flagbits but some idiot or compiler was setting
+those fields so i cant use them now because the kernel wont tell the
+difference between what s/he is doing and real values".
+Allocations of data structures I can understand, unless we enforce
+always reset to zeroes all the struct members as part of creation.
+
+But lets agree to disagree if you are still not convinced.
+
+On your "everything must be a TLV". Caveat is: there is a balance
+between  performance and flexibility. I should be able to pack aligned
+complex data structures in a TLV for performance reasons.
+One lesson is: in the future we can make these extra service header like
+tcamsg very small and always use all their fields instead of defining
+pads.
+
+cheers,
+jamal
