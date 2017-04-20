@@ -1,47 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] mac80211: reject ToDS broadcast data frames
-Date: Thu, 20 Apr 2017 15:38:09 -0400 (EDT)
-Message-ID: <20170420.153809.763038513182171279.davem@davemloft.net>
-References: <20170420193216.17087-1-johannes@sipsolutions.net>
+Subject: Re: [PATCH net] selftests/net: Fixes psock_fanout CBPF test case
+Date: Thu, 20 Apr 2017 15:39:53 -0400 (EDT)
+Message-ID: <20170420.153953.2254487909608010855.davem@davemloft.net>
+References: <20170418151416.17858-1-maloneykernel@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
-        johannes.berg@intel.com
-To: johannes@sipsolutions.net
+Cc: netdev@vger.kernel.org, sowmini.varadhan@oracle.com,
+        maloney@google.com
+To: maloneykernel@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:48216 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:48230 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S947066AbdDTTiM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 15:38:12 -0400
-In-Reply-To: <20170420193216.17087-1-johannes@sipsolutions.net>
+        with ESMTP id S947122AbdDTTjz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 15:39:55 -0400
+In-Reply-To: <20170418151416.17858-1-maloneykernel@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes@sipsolutions.net>
-Date: Thu, 20 Apr 2017 21:32:16 +0200
+From: Mike Maloney <maloneykernel@gmail.com>
+Date: Tue, 18 Apr 2017 11:14:16 -0400
 
-> From: Johannes Berg <johannes.berg@intel.com>
+> From: Mike Maloney <maloney@google.com>
 > 
-> AP/AP_VLAN modes don't accept any real 802.11 multicast data
-> frames, but since they do need to accept broadcast management
-> frames the same is currently permitted for data frames. This
-> opens a security problem because such frames would be decrypted
-> with the GTK, and could even contain unicast L3 frames.
+> 'psock_fanout' has been failing since commit 4d7b9dc1f36a9 ("tools:
+> psock_lib: harden socket filter used by psock tests").  That commit
+> changed the CBPF filter to examine the full ethernet frame, and was
+> tested on 'psock_tpacket' which uses SOCK_RAW.  But 'psock_fanout' was
+> also using this same CBPF in two places, for filtering and fanout, on a
+> SOCK_DGRAM socket.
 > 
-> Since the spec says that ToDS frames must always have the BSSID
-> as the RA (addr1), reject any other data frames.
+> Change 'psock_fanout' to use SOCK_RAW so that the CBPF program used with
+> SO_ATTACH_FILTER can examine the entire frame.  Create a new CBPF
+> program for use with PACKET_FANOUT_DATA which ignores the header, as it
+> cannot see the ethernet header.
 > 
-> The problem was originally reported in "Predicting, Decrypting,
-> and Abusing WPA2/802.11 Group Keys" at usenix
-> https://www.usenix.org/conference/usenixsecurity16/technical-sessions/presentation/vanhoef
-> and brought to my attention by Jouni.
+> Tested: Ran tools/testing/selftests/net/psock_{fanout,tpacket} 10 times,
+> and they all passed.
 > 
-> Cc: stable@vger.kernel.org
-> Reported-by: Jouni Malinen <j@w1.fi>
-> Signed-off-by: Johannes Berg <johannes.berg@intel.com>
-> --
-> Dave, I didn't want to send you a new pull request for a single
-> commit yet again - can you apply this one patch as is?
+> Fixes: 4d7b9dc1f36a9 ("tools: psock_lib: harden socket filter used by psock tests")
+> Signed-off-by: 'Mike Maloney <maloneykernel@gmail.com>'
 
-Sure, done.
+Applied, thanks.
