@@ -1,74 +1,113 @@
-From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
-Subject: RE: [net-next 04/14] i40e: dump VF information in debugfs
-Date: Thu, 20 Apr 2017 13:57:08 +0000
-Message-ID: <BL2PR07MB2306DEC60F085B88BA230C3A8D1B0@BL2PR07MB2306.namprd07.prod.outlook.com>
-References: <20170420015750.6828-1-jeffrey.t.kirsher@intel.com>
- <20170420015750.6828-5-jeffrey.t.kirsher@intel.com>
- <CAJ3xEMiCuV5A_Ccy7=mKSjc9xxhg4enUxDq-MM-cO3YjSa439A@mail.gmail.com>
- <BL2PR07MB23064C036E994DC63475F7388D1B0@BL2PR07MB2306.namprd07.prod.outlook.com>
- <20170420113942.GD1886@nanopsycho.orion>
+From: Roger Quadros <rogerq@ti.com>
+Subject: Re: [PATCH v2] mdio_bus: Issue GPIO RESET to PHYs.
+Date: Thu, 20 Apr 2017 16:56:19 +0300
+Message-ID: <7a4ef761-f56b-0f4d-e092-211401a8ba30@ti.com>
+References: <1491381237-24635-1-git-send-email-rogerq@ti.com>
+ <64d6494d-41d2-0faf-a434-057f796637fe@ti.com>
+ <daa29a99-0a17-d316-57eb-3e6162938d8d@ti.com> <20170420131305.GB6152@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: Or Gerlitz <gerlitz.or@gmail.com>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        Mitch Williams <mitch.a.williams@intel.com>,
-        David Miller <davem@davemloft.net>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        "nhorman@redhat.com" <nhorman@redhat.com>,
-        "sassmann@redhat.com" <sassmann@redhat.com>,
-        "jogreene@redhat.com" <jogreene@redhat.com>
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn3nam01on0086.outbound.protection.outlook.com ([104.47.33.86]:59968
-        "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1031895AbdDTN5P (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 20 Apr 2017 09:57:15 -0400
-In-Reply-To: <20170420113942.GD1886@nanopsycho.orion>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, Florian Fainelli <f.fainelli@gmail.com>,
+        <tony@atomide.com>, <nsekhar@ti.com>, <jsarha@ti.com>,
+        <netdev@vger.kernel.org>, <linux-omap@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170420131305.GB6152@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> >> > Dump some internal state about VFs through debugfs. This provides
-> >> > information not available with 'ip link show'.
-> >>
-> >> such as?
-> >>
-> >> donnwantobethedebugfspolice, but still, in the 2-3 times we tried to
-> >> push debugfs to MLNX NIC drivers, Dave disallowed that, and lately
-> >> the switch team even went further and deleted that portion of the
-> >> mlxsw driver -- all to all,  I don't see much point for these type of =
-changes,
-> thoughts?
-> >
-> >Don't want to hikjack your thread, but continuing this topic - Is there
-> >some flat-out disapproval for debugfs in net-next now?
->=20
-> It was mentioned by DaveM on the list multiple times.
+On 20/04/17 16:13, Andrew Lunn wrote:
+> On Thu, Apr 20, 2017 at 11:39:20AM +0300, Roger Quadros wrote:
+>> Some boards [1] leave the PHYs at an invalid state
+>> during system power-up or reset thus causing unreliability
+>> issues with the PHY which manifests as PHY not being detected
+>> or link not functional. To fix this, these PHYs need to be RESET
+>> via a GPIO connected to the PHY's RESET pin.
+>>
+>> Some boards have a single GPIO controlling the PHY RESET pin of all
+>> PHYs on the bus whereas some others have separate GPIOs controlling
+>> individual PHY RESETs.
+>>
+>> In both cases, the RESET de-assertion cannot be done in the PHY driver
+>> as the PHY will not probe till its reset is de-asserted.
+>> So do the RESET de-assertion in the MDIO bus driver.
+> 
+> Hi Roger
+> 
+> Networking patches should include in the subject line which tree they
+> are for. In this case, net-next. So please make the Subject
+> 
+> [patch v3 net-next] .....
+> 
+>> [1] - am572x-idk, am571x-idk, a437x-idk
+>>
+>> Signed-off-by: Roger Quadros <rogerq@ti.com>
+>> ---
+>> v2:
+>> - add device tree binding document (mdio.txt)
+>> - specify default reset delay in of_mdio.c instead of mdio_bus.c
+>>
+>>  Documentation/devicetree/bindings/net/mdio.txt | 20 ++++++++++++++++++++
+>>  drivers/net/phy/mdio_bus.c                     | 22 ++++++++++++++++++++++
+>>  drivers/of/of_mdio.c                           |  7 +++++++
+>>  include/linux/phy.h                            |  5 +++++
+>>  4 files changed, 54 insertions(+)
+>>  create mode 100644 Documentation/devicetree/bindings/net/mdio.txt
+>>
+>> diff --git a/Documentation/devicetree/bindings/net/mdio.txt b/Documentation/devicetree/bindings/net/mdio.txt
+>> new file mode 100644
+>> index 0000000..6e703d7
+>> --- /dev/null
+>> +++ b/Documentation/devicetree/bindings/net/mdio.txt
+>> @@ -0,0 +1,20 @@
+>> +Common MDIO bus properties.
+>> +
+>> +These are generic properties that can apply to any MDIO bus.
+>> +
+>> +Optional properties:
+>> +- reset-gpios: List of one or more GPIOs that control the RESET lines
+>> +  of the PHYs on that MDIO bus.
+>> +- reset-delay-us: RESET pulse width as per PHY datasheet.
+> 
+> It would be good to explicitly say that it is in uS as part of the
+> comment.
+> 
+> Also, please document that we expect a list of child nodes, one per
+> device on the bus. These should follow the generic phy.txt, or a
+> device specific binding document.
+> 
+>> +
+>> +Example :
+>> +
+> 
+> It would be good to say something like:
+> 
+> This example shows these optional properties, plus other properties
+> required for the TI Davinci MDIO driver.
+> 
+> Pointing this out may stop people cut/past the ti,hwmods property.
+> 
+>> +	davinci_mdio: ethernet@0x5c030000 {
+>> +		compatible = "ti,davinci_mdio";
+>> +		ti,hwmods = "davinci_mdio";
+>> +		reg = <0x5c030000 0x1000>;
+>> +		#address-cells = <1>;
+>> +		#size-cells = <0>;
+>> +		reset-gpios = <&gpio2 5 GPIO_ACTIVE_LOW>;
+>> +		reset-delay-us = <2>;   /* PHY datasheet states 1uS min */
+>> +	};
+> 
+> And please include at least one PHY on the bus.
+> 
+> Sorry for asking for so much in the documentation. That is the problem
+> with the documentation being missing to start with.
+> 
+> The code looks good now.
+> 
 
-> >
-> >We're currently internally engaged with adding qed support for register
-> >dumps [~equivalents for `ethtool -d' outputs] through debugfs, on
-> >behalf of storage drivers [qedi/qedf] lacking the API for doing that.
->=20
-> That sounds wrong. Either introduce a generic infra to expose the info yo=
-u
-> need or you don't do that.
+OK Andrew. I'll post a v3 with your suggestions.
 
-I agree this surely isn't *our* convention, but for scsi  using debugfs
-[or sysfs] is a common practice for debug purposes.
-
-Also, our HW debug capabilities are highly-customable, and I want to
-have the ability to configure those on the fly [E.g., dynamically
-configuring various HW events to be recorded].
-Each such configuration involves multiple register writes and reads
-according to user provided inputs.
-I don't really see how to generalize the information collection in a way
-that would benefit anyone else.
-
-> For your inhouse debugging, you should have oot
-> patch to expose whatever you need.
-
-I don't want in-house debugging capabilities -
-I want field debug capabilities.
+cheers,
+-roger
