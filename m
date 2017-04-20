@@ -1,33 +1,201 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 net-next 5/8] net/ncsi: Dump NCSI packet statistics
-Date: Thu, 20 Apr 2017 13:21:03 -0400 (EDT)
-Message-ID: <20170420.132103.454438573956782815.davem@davemloft.net>
-References: <1492498295-14385-1-git-send-email-gwshan@linux.vnet.ibm.com>
-        <1492498295-14385-6-git-send-email-gwshan@linux.vnet.ibm.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH v6 1/4] net: dsa: add support for the SMSC-LAN9303 tagging
+ format
+Date: Thu, 20 Apr 2017 10:23:50 -0700
+Message-ID: <24eebd3a-f397-d650-9466-f59ae2e82c39@gmail.com>
+References: <20170418084827.19613-1-jbe@pengutronix.de>
+ <20170418084827.19613-2-jbe@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, joe@perches.com, kubakici@wp.pl
-To: gwshan@linux.vnet.ibm.com
+Cc: linux-kernel@vger.kernel.org, kernel@pengutronix.de,
+        andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
+        davem@davemloft.net
+To: Juergen Borleis <jbe@pengutronix.de>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:45644 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S971561AbdDTRVF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 13:21:05 -0400
-In-Reply-To: <1492498295-14385-6-git-send-email-gwshan@linux.vnet.ibm.com>
+Received: from mail-qk0-f194.google.com ([209.85.220.194]:33586 "EHLO
+        mail-qk0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753646AbdDTRXz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 13:23:55 -0400
+In-Reply-To: <20170418084827.19613-2-jbe@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gavin Shan <gwshan@linux.vnet.ibm.com>
-Date: Tue, 18 Apr 2017 16:51:32 +1000
-
-> This creates /sys/kernel/debug/ncsi/<eth0>/stats to dump the NCSI
-> packets sent and received over all packages and channels. It's useful
-> to diagnose NCSI problems, especially when NCSI packages and channels
-> aren't probed properly. The statistics can be gained from debugfs file
-> as below:
+On 04/18/2017 01:48 AM, Juergen Borleis wrote:
+> To define the outgoing port and to discover the incoming port a regular
+> VLAN tag is used by the LAN9303. But its VID meaning is 'special'.
 > 
->  # cat /sys/kernel/debug/ncsi/eth0/stats
+> This tag handler/filter depends on some hardware features which must be
+> enabled in the device to provide and make use of this special VLAN tag
+> to control the destination and the source of an ethernet packet.
+> 
+> Signed-off-by: Juergen Borleis <jbe@pengutronix.de>
+> ---
+>  include/net/dsa.h     |   1 +
+>  net/dsa/Kconfig       |   4 ++
+>  net/dsa/Makefile      |   1 +
+>  net/dsa/dsa.c         |   3 ++
+>  net/dsa/dsa_priv.h    |   3 ++
+>  net/dsa/tag_lan9303.c | 141 ++++++++++++++++++++++++++++++++++++++++++++++++++
+>  6 files changed, 153 insertions(+)
+>  create mode 100644 net/dsa/tag_lan9303.c
+> 
+> diff --git a/include/net/dsa.h b/include/net/dsa.h
+> index 9b1c1eb4147a1..51aac97a735fd 100644
+> --- a/include/net/dsa.h
+> +++ b/include/net/dsa.h
+> @@ -33,6 +33,7 @@ enum dsa_tag_protocol {
+>  	DSA_TAG_PROTO_BRCM,
+>  	DSA_TAG_PROTO_QCA,
+>  	DSA_TAG_PROTO_MTK,
+> +	DSA_TAG_PROTO_LAN9303,
+>  	DSA_TAG_LAST,		/* MUST BE LAST */
+>  };
+>  
+> diff --git a/net/dsa/Kconfig b/net/dsa/Kconfig
+> index aa21f49f12156..81a0868edb1d6 100644
+> --- a/net/dsa/Kconfig
+> +++ b/net/dsa/Kconfig
+> @@ -33,4 +33,8 @@ config NET_DSA_TAG_QCA
+>  
+>  config NET_DSA_TAG_MTK
+>  	bool
+> +
+> +config NET_DSA_TAG_LAN9303
+> +	bool
+> +
+>  endif
+> diff --git a/net/dsa/Makefile b/net/dsa/Makefile
+> index 9b1d478f3713f..2cc661eab5528 100644
+> --- a/net/dsa/Makefile
+> +++ b/net/dsa/Makefile
+> @@ -9,3 +9,4 @@ dsa_core-$(CONFIG_NET_DSA_TAG_EDSA) += tag_edsa.o
+>  dsa_core-$(CONFIG_NET_DSA_TAG_TRAILER) += tag_trailer.o
+>  dsa_core-$(CONFIG_NET_DSA_TAG_QCA) += tag_qca.o
+>  dsa_core-$(CONFIG_NET_DSA_TAG_MTK) += tag_mtk.o
+> +dsa_core-$(CONFIG_NET_DSA_TAG_LAN9303) += tag_lan9303.o
+> diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+> index 1fb9cf7aaaf49..c88466ecfa97b 100644
+> --- a/net/dsa/dsa.c
+> +++ b/net/dsa/dsa.c
+> @@ -58,6 +58,9 @@ const struct dsa_device_ops *dsa_device_ops[DSA_TAG_LAST] = {
+>  #ifdef CONFIG_NET_DSA_TAG_MTK
+>  	[DSA_TAG_PROTO_MTK] = &mtk_netdev_ops,
+>  #endif
+> +#ifdef CONFIG_NET_DSA_TAG_LAN9303
+> +	[DSA_TAG_PROTO_LAN9303] = &lan9303_netdev_ops,
+> +#endif
+>  	[DSA_TAG_PROTO_NONE] = &none_ops,
+>  };
+>  
+> diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
+> index 107138a55bd86..1f8a12859bd2a 100644
+> --- a/net/dsa/dsa_priv.h
+> +++ b/net/dsa/dsa_priv.h
+> @@ -89,4 +89,7 @@ extern const struct dsa_device_ops qca_netdev_ops;
+>  /* tag_mtk.c */
+>  extern const struct dsa_device_ops mtk_netdev_ops;
+>  
+> +/* tag_lan9303.c */
+> +extern const struct dsa_device_ops lan9303_netdev_ops;
+> +
+>  #endif
+> diff --git a/net/dsa/tag_lan9303.c b/net/dsa/tag_lan9303.c
+> new file mode 100644
+> index 0000000000000..563b6c8fe445e
+> --- /dev/null
+> +++ b/net/dsa/tag_lan9303.c
+> @@ -0,0 +1,141 @@
+> +/*
+> + * Copyright (C) 2017 Pengutronix, Juergen Borleis <jbe@pengutronix.de>
+> + *
+> + * This program is free software; you can redistribute it and/or
+> + * modify it under the terms of the GNU General Public License
+> + * version 2, as published by the Free Software Foundation.
+> + *
+> + * This program is distributed in the hope that it will be useful,
+> + * but WITHOUT ANY WARRANTY; without even the implied warranty of
+> + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+> + * GNU General Public License for more details.
+> + *
+> + */
+> +#include <linux/etherdevice.h>
+> +#include <linux/list.h>
+> +#include <linux/slab.h>
+> +#include <net/dsa.h>
+> +#include "dsa_priv.h"
+> +
+> +/* To define the outgoing port and to discover the incoming port a regular
+> + * VLAN tag is used by the LAN9303. But its VID meaning is 'special':
+> + *
+> + *       Dest MAC       Src MAC        TAG    Type
+> + * ...| 1 2 3 4 5 6 | 1 2 3 4 5 6 | 1 2 3 4 | 1 2 |...
+> + *                                |<------->|
+> + * TAG:
+> + *    |<------------->|
+> + *    |  1  2 | 3  4  |
+> + *      TPID    VID
+> + *     0x8100
+> + *
+> + * VID bit 3 indicates a request for an ALR lookup.
+> + *
+> + * If VID bit 3 is zero, then bits 0 and 1 specify the destination port
+> + * (0, 1, 2) or broadcast (3) or the source port (1, 2).
+> + *
+> + * VID bit 4 is used to specify if the STP port state should be overridden.
+> + * Required when no forwarding between the external ports should happen.
+> + */
+> +
+> +#define LAN9303_TAG_LEN 4
+> +#define LAN9303_MAX_PORTS 3
+> +
+> +static struct sk_buff *lan9303_xmit(struct sk_buff *skb, struct net_device *dev)
+> +{
+> +	struct dsa_slave_priv *p = netdev_priv(dev);
+> +	u16 *lan9303_tag;
+> +
+> +	/* insert a special VLAN tag between the MAC addresses
+> +	 * and the current ethertype field.
+> +	 */
+> +	if (skb_cow_head(skb, LAN9303_TAG_LEN) < 0) {
+> +		dev_dbg(&dev->dev,
+> +			"Cannot make room for the special tag. Dropping packet\n");
+> +		goto out_free;
+> +	}
+> +
+> +	/* provide 'LAN9303_TAG_LEN' bytes additional space */
+> +	skb_push(skb, LAN9303_TAG_LEN);
+> +
+> +	/* make room between MACs and Ether-Type */
+> +	memmove(skb->data, skb->data + LAN9303_TAG_LEN, 2 * ETH_ALEN);
+> +
+> +	lan9303_tag = (u16 *)(skb->data + 2 * ETH_ALEN);
+> +	lan9303_tag[0] = htons(ETH_P_8021Q);
+> +	lan9303_tag[1] = htons(p->dp->index | BIT(4));
+> +
+> +	return skb;
+> +out_free:
+> +	kfree_skb(skb);
+> +	return NULL;
+> +}
+> +
+> +static struct sk_buff *lan9303_rcv(struct sk_buff *skb, struct net_device *dev,
+> +			struct packet_type *pt, struct net_device *orig_dev)
+> +{
+> +	u16 *lan9303_tag;
+> +	struct dsa_switch_tree *dst = dev->dsa_ptr;
+> +	struct dsa_switch *ds;
+> +	unsigned int source_port;
+> +
+> +	if (unlikely(!dst)) {
+> +		dev_warn_ratelimited(&dev->dev, "Dropping packet, due to missing switch tree device\n");
+> +		return NULL;
+> +	}
 
-There is no reason you cannot use ethtool statistics to provide this
-information to the user.
+This check is done by dsa_switch_rcv(), no need to duplicate it here.
+
+Other than that:
+
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+-- 
+Florian
