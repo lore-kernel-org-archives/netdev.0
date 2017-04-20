@@ -1,56 +1,73 @@
-From: Alexander Kochetkov <al.kochet@gmail.com>
-Subject: [PATCH v2] net: arc_emac: switch to phy_start()/phy_stop()
-Date: Thu, 20 Apr 2017 16:29:34 +0300
-Message-ID: <1492694974-31023-1-git-send-email-al.kochet@gmail.com>
-Cc: Alexander Kochetkov <al.kochet@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>,
-        Philippe Reynes <tremyfr@gmail.com>,
-        Peter Chen <peter.chen@nxp.com>,
-        Wei Yongjun <weiyongjun1@huawei.com>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Davide Caratti <dcaratti@redhat.com>
+Subject: [PATCH RFC net-next v4 0/7] net: improve support for SCTP checksums
+Date: Thu, 20 Apr 2017 15:38:06 +0200
+Message-ID: <cover.1492692976.git.dcaratti@redhat.com>
+References: <CALx6S36rem=OuN_At6qYA=se5cpuYM1N2R8efoaszvo8b8Tz5A@mail.gmail.com>
+Cc: "David S . Miller" <davem@davemloft.net>,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        netdev@vger.kernel.org, linux-sctp@vger.kernel.org
+To: Tom Herbert <tom@herbertland.com>,
+        Alexander Duyck <alexander.duyck@gmail.com>,
+        David Laight <David.Laight@aculab.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:35370 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S946031AbdDTNib (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 20 Apr 2017 09:38:31 -0400
+In-Reply-To: <CALx6S36rem=OuN_At6qYA=se5cpuYM1N2R8efoaszvo8b8Tz5A@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Currently driver use phy_start_aneg() in arc_emac_open() to bring
-up PHY. But phy_start() function is more appropriate for this purposes.
-Besides that it call phy_start_aneg() as part of PHY startup sequence
-it also can correctly bring up PHY from error and suspended states.
-So the patch replace phy_start_aneg() to phy_start().
+hello Tom,
 
-Also the patch add call to phy_stop() to arc_emac_stop() to allow
-the PHY device to be fully suspended when the interface is unused.
+On Fri, 2017-04-07 at 11:11 -0700, Tom Herbert wrote:
+> maybe just call it csum_not_ip then. Then just do "if
+> (unlikely(skb->csum_not_ip)) ..."
 
-Signed-off-by: Alexander Kochetkov <al.kochet@gmail.com>
----
+Ok, done. V4 uses this bit for SCTP only and leaves unmodified behavior
+when offloaded FCoE frames are processed. Further work is still possible
+to extend this fix for FCoE, if needed, either by using additional sk_buff
+bits, or using skb->csum_not_ip and use other data (e.g. skb->csum_offset)
+to distinguish SCTP from FCoE.
 
-Changes in v2:
-- Updated commit message to clarify changes
+> the only case where this new bit is relevant is when
+> CHECKSUM_PARTIAL for a CRC is being done. When it's set for offloading
+> sctp crc it must be set. When CRC is resolved, in the helper for
+> instance, it must be cleared.
 
- drivers/net/ethernet/arc/emac_main.c |    4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+in V4 the bit is set when SCTP packets with offloaded checksum are
+generated; the bit is cleared when CRC32c is resolved for such packets
+(i.e. skb->ip_summed transitions from CHECKSUM_PARTIAL to CHECKSUM_NONE).
 
-diff --git a/drivers/net/ethernet/arc/emac_main.c b/drivers/net/ethernet/arc/emac_main.c
-index abc9f2a..188676d 100644
---- a/drivers/net/ethernet/arc/emac_main.c
-+++ b/drivers/net/ethernet/arc/emac_main.c
-@@ -434,7 +434,7 @@ static int arc_emac_open(struct net_device *ndev)
- 	/* Enable EMAC */
- 	arc_reg_or(priv, R_CTRL, EN_MASK);
- 
--	phy_start_aneg(ndev->phydev);
-+	phy_start(ndev->phydev);
- 
- 	netif_start_queue(ndev);
- 
-@@ -556,6 +556,8 @@ static int arc_emac_stop(struct net_device *ndev)
- 	napi_disable(&priv->napi);
- 	netif_stop_queue(ndev);
- 
-+	phy_stop(ndev->phydev);
-+
- 	/* Disable interrupts */
- 	arc_reg_clr(priv, R_ENABLE, RXINT_MASK | TXINT_MASK | ERR_MASK);
- 
+Any feedbacks are appreciated!
+thank you in advance,
+--
+davide
+
+
+Davide Caratti (7):
+  skbuff: add stub to help computing crc32c on SCTP packets
+  net: introduce skb_crc32c_csum_help
+  sk_buff: remove support for csum_bad in sk_buff
+  net: use skb->csum_not_inet to identify packets needing crc32c
+  net: more accurate checksumming in validate_xmit_skb()
+  openvswitch: more accurate checksumming in queue_userspace_packet()
+  sk_buff.h: improve description of CHECKSUM_{COMPLETE,UNNECESSARY}
+
+ Documentation/networking/checksum-offloads.txt   | 11 +++--
+ drivers/net/ethernet/aquantia/atlantic/aq_ring.c |  2 +-
+ include/linux/netdevice.h                        |  8 +--
+ include/linux/skbuff.h                           | 58 +++++++++-------------
+ net/bridge/netfilter/nft_reject_bridge.c         |  5 +-
+ net/core/dev.c                                   | 63 +++++++++++++++++++++---
+ net/core/skbuff.c                                | 24 +++++++++
+ net/ipv4/netfilter/nf_reject_ipv4.c              |  2 +-
+ net/ipv6/netfilter/nf_reject_ipv6.c              |  3 --
+ net/openvswitch/datapath.c                       |  2 +-
+ net/sched/act_csum.c                             |  1 +
+ net/sctp/offload.c                               |  8 +++
+ net/sctp/output.c                                |  1 +
+ 13 files changed, 128 insertions(+), 60 deletions(-)
+
 -- 
-1.7.9.5
+2.7.4
