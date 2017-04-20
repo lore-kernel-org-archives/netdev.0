@@ -1,133 +1,55 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH RFC (resend) net-next 0/6] virtio-net: Add support for
- virtio-net header extensions
-Date: Thu, 20 Apr 2017 11:34:57 -0400
-Message-ID: <f52fa31e-5ca2-34dc-d48b-417a34061359@redhat.com>
-References: <1492274298-17362-1-git-send-email-vyasevic@redhat.com>
- <0d9216af-e3db-e06b-f70d-d77f519c3fd4@redhat.com>
-Reply-To: vyasevic@redhat.com
+From: Robert Shearman <rshearma@brocade.com>
+Subject: Re: [PATCH net] ipv4: Avoid caching dsts when lookup skipped nh oif
+ check
+Date: Thu, 20 Apr 2017 16:35:16 +0100
+Message-ID: <f3a3ab2d-4a32-a3ec-6a72-071e56577017@brocade.com>
+References: <1492693132-4708-1-git-send-email-rshearma@brocade.com>
+ <bed3d38c-dc00-1f98-371c-852170af0a0e@cumulusnetworks.com>
+ <ec8e470e-73d0-b357-4f65-a4f7e020db7f@brocade.com>
+ <8dcaa797-c566-a9dc-d9a1-99e8d1acfe15@cumulusnetworks.com>
+ <277d8c4b-5a18-cda2-6edc-66837cae6469@brocade.com>
+ <7204751a-70f9-5803-d5af-06b62530b762@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: virtio-dev@lists.oasis-open.org, mst@redhat.com,
- maxime.coquelin@redhat.com, virtualization@lists.linux-foundation.org
-To: Jason Wang <jasowang@redhat.com>, Vladislav Yasevich
- <vyasevich@gmail.com>, netdev@vger.kernel.org
-Return-path: <virtio-dev-return-2120-gcvd-virtio-dev=m.gmane.org@lists.oasis-open.org>
-Sender: <virtio-dev@lists.oasis-open.org>
-List-Post: <mailto:virtio-dev@lists.oasis-open.org>
-List-Help: <mailto:virtio-dev-help@lists.oasis-open.org>
-List-Unsubscribe: <mailto:virtio-dev-unsubscribe@lists.oasis-open.org>
-List-Subscribe: <mailto:virtio-dev-subscribe@lists.oasis-open.org>
-In-Reply-To: <0d9216af-e3db-e06b-f70d-d77f519c3fd4@redhat.com>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>
+To: David Ahern <dsa@cumulusnetworks.com>, <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:56900 "EHLO
+        mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S970369AbdDTPfi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 11:35:38 -0400
+In-Reply-To: <7204751a-70f9-5803-d5af-06b62530b762@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04/17/2017 11:01 PM, Jason Wang wrote:
-> 
-> 
-> On 2017年04月16日 00:38, Vladislav Yasevich wrote:
->> Curreclty virtion net header is fixed size and adding things to it is rather
->> difficult to do.  This series attempt to add the infrastructure as well as some
->> extensions that try to resolve some deficiencies we currently have.
+On 20/04/17 16:16, David Ahern wrote:
+> On 4/20/17 9:05 AM, Robert Shearman wrote:
+>> The key thing I think is the ip rules:
 >>
->> First, vnet header only has space for 16 flags.  This may not be enough
->> in the future.  The extensions will provide space for 32 possbile extension
->> flags and 32 possible extensions.   These flags will be carried in the
->> first pseudo extension header, the presense of which will be determined by
->> the flag in the virtio net header.
+>> $ ip rule
+>> 0:    from all lookup local
+>> 1000:    from all lookup [l3mdev-table]
+>> 32766:    from all lookup main
+>> 32767:    from all lookup default
 >>
->> The extensions themselves will immidiately follow the extension header itself.
->> They will be added to the packet in the same order as they appear in the
->> extension flags.  No padding is placed between the extensions and any
->> extensions negotiated, but not used need by a given packet will convert to
->> trailing padding.
-> 
-> Do we need a explicit padding (e.g an extension) which could be controlled by each side?
+>> Maybe you have the local rule moved down at startup?
+>
+> yes that would be a problem. With this test the 127.0.0.1 lookup is
+> matching on the wrong table:
+>
+> perf probe fib_table_lookup%return ret=%ax
+> perf record -e fib:*,probe:* -a -- ping -c1 -w1 -I red 127.0.0.1
+> ...
+> perf script
+>
+...
+> Table 255 is the wrong table. That is the ultimate problem here.
+>
 
-I don't think so.  The size of the vnet header is set based on the extensions negotiated.
-The one part I am not crazy about is that in the case of packet not using any extensions,
-the data is still placed after the entire vnet header, which essentially adds a lot
-of padding.  However, that's really no different then if we simply grew the vnet header.
+The table used for the lookup could be retrieved from the oif, but the 
+check I introduced would still be required to cope with the unusual, but 
+not disallowed, case of two VRF master devices referring to the same table.
 
-The other thing I've tried before is putting extensions into their own sg buffer, but that
-made it slower.
-
-> 
->>
->> For example:
->>   | vnet mrg hdr | ext hdr | ext 1 | ext 2 | ext 5 | .. pad .. | packet data |
-> 
-> Just some rough thoughts:
-> 
-> - Is this better to use TLV instead of bitmap here? One advantage of TLV is that the
-> length is not limited by the length of bitmap.
-
-but the disadvantage is that we add at least 4 bytes per extension of just TL data.  That
-makes this thing even longer.
-
-> - For 1.1, do we really want something like vnet header? AFAIK, it was not used by modern
-> NICs, is this better to pack all meta-data into descriptor itself? This may need a some
-> changes in tun/macvtap, but looks more PCIE friendly.
-
-That would really be ideal and I've looked at this.  There are small issues of exposing
-the 'net metadata' of the descriptor to taps so they can be filled in.  The alternative
-is to use a different control structure for tap->qemu|vhost channel (that can be
-implementation specific) and have qemu|vhost populate the 'net metadata' of the descriptor.
-
-Thanks
--vlad
-
-> 
-> Thanks
-> 
->>
->> Extensions proposed in this series are:
->>   - IPv6 fragment id extension
->>     * Currently, the guest generated fragment id is discarded and the host
->>       generates an IPv6 fragment id if the packet has to be fragmented.  The
->>       code attempts to add time based perturbation to id generation to make
->>       it harder to guess the next fragment id to be used.  However, doing this
->>       on the host may result is less perturbation (due to differnet timing)
->>       and might make id guessing easier.  Ideally, the ids generated by the
->>       guest should be used.  One could also argue that we a "violating" the
->>       IPv6 protocol in the if the _strict_ interpretation of the spec.
->>
->>   - VLAN header acceleration
->>     * Currently virtio doesn't not do vlan header acceleration and instead
->>       uses software tagging.  One of the first things that the host will do is
->>       strip the vlan header out.  When passing the packet the a guest the
->>       vlan header is re-inserted in to the packet.  We can skip all that work
->>       if we can pass the vlan data in accelearted format.  Then the host will
->>       not do any extra work.  However, so far, this yeilded a very small
->>       perf bump (only ~1%).  I am still looking into this.
->>
->>   - UDP tunnel offload
->>     * Similar to vlan acceleration, with this extension we can pass additional
->>       data to host for support GSO with udp tunnel and possible other
->>       encapsulations.  This yeilds a significant perfromance improvement
->>      (still testing remote checksum code).
->>
->> An addition extension that is unfinished (due to still testing for any
->> side-effects) is checksum passthrough to support drivers that set
->> CHECKSUM_COMPLETE.  This would eliminate the need for guests to compute
->> the software checksum.
->>
->> This series only takes care of virtio net.  I have addition patches for the
->> host side (vhost and tap/macvtap as well as qemu), but wanted to get feedback
->> on the general approach first.
->>
->> Vladislav Yasevich (6):
->>    virtio-net: Remove the use the padded vnet_header structure
->>    virtio-net: make header length handling uniform
->>    virtio_net: Add basic skeleton for handling vnet header extensions.
->>    virtio-net: Add support for IPv6 fragment id vnet header extension.
->>    virtio-net: Add support for vlan acceleration vnet header extension.
->>    virtio-net: Add support for UDP tunnel offload and extension.
->>
->>   drivers/net/virtio_net.c        | 132 +++++++++++++++++++++++++++++++++-------
->>   include/linux/skbuff.h          |   5 ++
->>   include/linux/virtio_net.h      |  91 ++++++++++++++++++++++++++-
->>   include/uapi/linux/virtio_net.h |  38 ++++++++++++
->>   4 files changed, 242 insertions(+), 24 deletions(-)
->>
-> 
+Thanks,
+Rob
