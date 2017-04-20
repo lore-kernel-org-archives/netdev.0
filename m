@@ -1,67 +1,79 @@
-From: "Jorgen S. Hansen" <jhansen@vmware.com>
-Subject: Re: [PATCH v4 3/3] VSOCK: Add virtio vsock vsockmon hooks
-Date: Thu, 20 Apr 2017 12:35:40 +0000
-Message-ID: <5E1B910C-0113-494A-A46D-41F9686BD525@vmware.com>
-References: <20170413161811.8953-1-stefanha@redhat.com>
- <20170413161811.8953-4-stefanha@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] brcm80211: brcmfmac: Ensure that incoming skb's are
+ writable
+Date: Thu, 20 Apr 2017 05:49:29 -0700
+Message-ID: <1492692569.22296.37.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20170420111651.10213-1-james.hughes@raspberrypi.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Zhu Yanjun <zyjzyj2000@gmail.com>,
-        "Michael S. Tsirkin" <mst@redhat.com>,
-        Gerard Garcia <ggarcia@abra.uab.cat>
-To: Stefan Hajnoczi <stefanha@redhat.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+        Arend van Spriel <arend.vanspriel@broadcom.com>,
+        Franky Lin <franky.lin@broadcom.com>,
+        Hante Meuleman <hante.meuleman@broadcom.com>,
+        Kalle Valo <kvalo@codeaurora.org>
+To: James Hughes <james.hughes@raspberrypi.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-co1nam03on0074.outbound.protection.outlook.com ([104.47.40.74]:4000
-        "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S944995AbdDTMfn (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 20 Apr 2017 08:35:43 -0400
-In-Reply-To: <20170413161811.8953-4-stefanha@redhat.com>
-Content-Language: en-US
-Content-ID: <F741FB1B907FAF4381F534F63BBB0BFC@namprd05.prod.outlook.com>
+Received: from mail-io0-f194.google.com ([209.85.223.194]:34503 "EHLO
+        mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S965942AbdDTMtc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 08:49:32 -0400
+Received: by mail-io0-f194.google.com with SMTP id h41so16107890ioi.1
+        for <netdev@vger.kernel.org>; Thu, 20 Apr 2017 05:49:32 -0700 (PDT)
+In-Reply-To: <20170420111651.10213-1-james.hughes@raspberrypi.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiANCj4gKy8qIFBhY2tldCBjYXB0dXJlICovDQo+ICt2b2lkIHZpcnRpb190cmFuc3BvcnRfZGVs
-aXZlcl90YXBfcGt0KHN0cnVjdCB2aXJ0aW9fdnNvY2tfcGt0ICpwa3QpDQo+ICt7DQo+ICsJc3Ry
-dWN0IHNrX2J1ZmYgKnNrYjsNCj4gKwlzdHJ1Y3QgYWZfdnNvY2ttb25faGRyICpoZHI7DQo+ICsJ
-dW5zaWduZWQgY2hhciAqdF9oZHIsICpwYXlsb2FkOw0KPiArDQo+ICsJc2tiID0gYWxsb2Nfc2ti
-KHNpemVvZigqaGRyKSArIHNpemVvZihwa3QtPmhkcikgKyBwa3QtPmxlbiwNCj4gKwkJCUdGUF9B
-VE9NSUMpOw0KDQpTbyB3aXRoIHRoZSBjdXJyZW50IEFQSSwgYW4gc2tiIHdpbGwgYWx3YXlzIGJl
-IGFsbG9jYXRlZCwgZXZlbiBpZiB0aGVyZSBhcmUgbm8gbGlzdGVuZXJzPyBBbmQgd2XigJlsbCBj
-b3B5IHRoZSBwYXlsb2FkIGludG8gdGhlIHNrYiBhcyB3ZWxsLCBpZiB0aGVyZSBpcyBhbnkuIFdv
-dWxkIGl0IG1ha2Ugc2Vuc2UgdG8gaW50cm9kdWNlIGEgY2hlY2sgaGVyZSAoZXhwb3NlZCBhcyBw
-YXJ0IG9mIHRoZSB2c29jayB0YXAgQVBJKSwgdGhhdCBza2lwcyBhbGwgdGhhdCBpbiB0aGUgY2Fz
-ZSBvZiBubyBsaXN0ZW5lcnM/IEluIHRoZSBjb21tb24gY2FzZSwgdGhlcmUgd29u4oCZdCBiZSBh
-bnkgbGlzdGVuZXJzLCBzbyBpdCB3b3VsZCBzYXZlIHNvbWUgY3ljbGVzLg0KDQo+ICsJaWYgKCFz
-a2IpDQo+ICsJCXJldHVybjsgLyogbmV2ZXJtaW5kIGlmIHdlIGNhbm5vdCBjYXB0dXJlIHRoZSBw
-YWNrZXQgKi8NCj4gKw0KPiArCWhkciA9IChzdHJ1Y3QgYWZfdnNvY2ttb25faGRyICopc2tiX3B1
-dChza2IsIHNpemVvZigqaGRyKSk7DQo+ICsNCj4gKwkvKiBwa3QtPmhkciBpcyBsaXR0bGUtZW5k
-aWFuIHNvIG5vIG5lZWQgdG8gYnl0ZXN3YXAgaGVyZSAqLw0KPiArCWhkci0+c3JjX2NpZCA9IHBr
-dC0+aGRyLnNyY19jaWQ7DQo+ICsJaGRyLT5zcmNfcG9ydCA9IHBrdC0+aGRyLnNyY19wb3J0Ow0K
-PiArCWhkci0+ZHN0X2NpZCA9IHBrdC0+aGRyLmRzdF9jaWQ7DQo+ICsJaGRyLT5kc3RfcG9ydCA9
-IHBrdC0+aGRyLmRzdF9wb3J0Ow0KPiArDQo+ICsJaGRyLT50cmFuc3BvcnQgPSBjcHVfdG9fbGUx
-NihBRl9WU09DS19UUkFOU1BPUlRfVklSVElPKTsNCj4gKwloZHItPmxlbiA9IGNwdV90b19sZTE2
-KHNpemVvZihwa3QtPmhkcikpOw0KPiArCWhkci0+cmVzZXJ2ZWRbMF0gPSBoZHItPnJlc2VydmVk
-WzFdID0gMDsNCj4gKw0KPiArCXN3aXRjaChjcHVfdG9fbGUxNihwa3QtPmhkci5vcCkpIHsNCj4g
-KwljYXNlIFZJUlRJT19WU09DS19PUF9SRVFVRVNUOg0KPiArCWNhc2UgVklSVElPX1ZTT0NLX09Q
-X1JFU1BPTlNFOg0KPiArCQloZHItPm9wID0gY3B1X3RvX2xlMTYoQUZfVlNPQ0tfT1BfQ09OTkVD
-VCk7DQo+ICsJCWJyZWFrOw0KPiArCWNhc2UgVklSVElPX1ZTT0NLX09QX1JTVDoNCj4gKwljYXNl
-IFZJUlRJT19WU09DS19PUF9TSFVURE9XTjoNCj4gKwkJaGRyLT5vcCA9IGNwdV90b19sZTE2KEFG
-X1ZTT0NLX09QX0RJU0NPTk5FQ1QpOw0KPiArCQlicmVhazsNCj4gKwljYXNlIFZJUlRJT19WU09D
-S19PUF9SVzoNCj4gKwkJaGRyLT5vcCA9IGNwdV90b19sZTE2KEFGX1ZTT0NLX09QX1BBWUxPQUQp
-Ow0KPiArCQlicmVhazsNCj4gKwljYXNlIFZJUlRJT19WU09DS19PUF9DUkVESVRfVVBEQVRFOg0K
-PiArCWNhc2UgVklSVElPX1ZTT0NLX09QX0NSRURJVF9SRVFVRVNUOg0KPiArCQloZHItPm9wID0g
-Y3B1X3RvX2xlMTYoQUZfVlNPQ0tfT1BfQ09OVFJPTCk7DQo+ICsJCWJyZWFrOw0KPiArCWRlZmF1
-bHQ6DQo+ICsJCWhkci0+b3AgPSBjcHVfdG9fbGUxNihBRl9WU09DS19PUF9VTktOT1dOKTsNCj4g
-KwkJYnJlYWs7DQo+ICsJfQ0KPiArDQo+ICsJdF9oZHIgPSBza2JfcHV0KHNrYiwgc2l6ZW9mKHBr
-dC0+aGRyKSk7DQo+ICsJbWVtY3B5KHRfaGRyLCAmcGt0LT5oZHIsIHNpemVvZihwa3QtPmhkcikp
-Ow0KPiArDQo+ICsJaWYgKHBrdC0+bGVuKSB7DQo+ICsJCXBheWxvYWQgPSBza2JfcHV0KHNrYiwg
-cGt0LT5sZW4pOw0KPiArCQltZW1jcHkocGF5bG9hZCwgcGt0LT5idWYsIHBrdC0+bGVuKTsNCj4g
-Kwl9DQo+ICsNCj4gKwl2c29ja19kZWxpdmVyX3RhcChza2IpOw0KPiArfQ0KPiArRVhQT1JUX1NZ
-TUJPTF9HUEwodmlydGlvX3RyYW5zcG9ydF9kZWxpdmVyX3RhcF9wa3QpOw0KPiArDQo+IHN0YXRp
-YyBpbnQgdmlydGlvX3RyYW5zcG9ydF9zZW5kX3BrdF9pbmZvKHN0cnVjdCB2c29ja19zb2NrICp2
-c2ssDQo+IAkJCQkJICBzdHJ1Y3QgdmlydGlvX3Zzb2NrX3BrdF9pbmZvICppbmZvKQ0KPiB7DQo+
-IC0tIA0KPiAyLjkuMw0KPiANCg0K
+On Thu, 2017-04-20 at 12:16 +0100, James Hughes wrote:
+> The driver was adding header information to incoming skb
+> without ensuring the head was uncloned and hence writable.
+> 
+> skb_cow_head has been used to ensure they are writable, however,
+> this required some changes to error handling to ensure that
+> if skb_cow_head failed it was not ignored.
+> 
+> This really needs to be reviewed by someone who is more familiar
+> with this code base to ensure any deallocation of skb's is
+> still correct.
+> 
+> Signed-off-by: James Hughes <james.hughes@raspberrypi.org>
+> ---
+
+You mention incoming skb in patch title, yet you change part of TX path.
+
+Please split your changes in individual ones, to ease future bisections,
+and ease backports as well.
+
+
+Also, while it is known that TX path can deal with cloned skbs,
+it is not clear why RX path has clones.
+
+Most drivers allocate an skb, fill it, and pass it to network stack.
+
+So please make sure all these changes are really needed.
+
+> diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/sdio.c b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/sdio.c
+> index d138260..0e53c8a 100644
+> --- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/sdio.c
+> +++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/sdio.c
+> @@ -2719,7 +2719,7 @@ static bool brcmf_sdio_prec_enq(struct pktq *q, struct sk_buff *pkt, int prec)
+>  
+>  static int brcmf_sdio_bus_txdata(struct device *dev, struct sk_buff *pkt)
+>  {
+> -	int ret = -EBADE;
+> +	int ret = -EBADE, err;
+>  	uint prec;
+>  	struct brcmf_bus *bus_if = dev_get_drvdata(dev);
+>  	struct brcmf_sdio_dev *sdiodev = bus_if->bus_priv.sdio;
+> @@ -2729,6 +2729,11 @@ static int brcmf_sdio_bus_txdata(struct device *dev, struct sk_buff *pkt)
+>  	if (sdiodev->state != BRCMF_SDIOD_DATA)
+>  		return -EIO;
+>  
+> +	err = skb_cow_head(pkt, bus->tx_hdrlen);
+> +
+> +	if (err)
+> +		return err;
+> +
+>  	/* Add space for the header */
+>  	skb_push(pkt, bus->tx_hdrlen);
+>  	/* precondition: IS_ALIGNED((unsigned long)(pkt->data), 2) */
