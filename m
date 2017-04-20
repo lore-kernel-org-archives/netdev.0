@@ -1,102 +1,165 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: xdp_redirect ifindex vs port. Was: best API for
- returning/setting egress port?
-Date: Thu, 20 Apr 2017 08:10:51 +0200
-Message-ID: <20170420081051.77a41aa8@redhat.com>
-References: <20170418215856.5fda7127@redhat.com>
-        <20170419200259.GK4730@C02RW35GFVH8.dhcp.broadcom.net>
-        <58F7E9F3.5090604@iogearbox.net>
-        <20170420025611.GA53935@ast-mbp.thefacebook.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net-next v2 2/5] virtio-net: transmit napi
+Date: Thu, 20 Apr 2017 14:12:42 +0800
+Message-ID: <9f57a790-9157-db4d-621d-cf359c8f0718@redhat.com>
+References: <20170418202108.61920-1-willemdebruijn.kernel@gmail.com>
+ <20170418202108.61920-3-willemdebruijn.kernel@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-        Andy Gospodarek <andy@greyhouse.net>,
-        Daniel Borkmann <borkmann@iogearbox.net>,
-        Alexei Starovoitov <ast@fb.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "xdp-newbies@vger.kernel.org" <xdp-newbies@vger.kernel.org>,
-        John Fastabend <john.fastabend@gmail.com>, brouer@redhat.com
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: mst@redhat.com, virtualization@lists.linux-foundation.org,
+        davem@davemloft.net, Willem de Bruijn <willemb@google.com>
+To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>,
+        netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:46452 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:37380 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S941306AbdDTGK7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 20 Apr 2017 02:10:59 -0400
-In-Reply-To: <20170420025611.GA53935@ast-mbp.thefacebook.com>
+        id S941367AbdDTGMw (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 20 Apr 2017 02:12:52 -0400
+In-Reply-To: <20170418202108.61920-3-willemdebruijn.kernel@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 19 Apr 2017 19:56:13 -0700
-Alexei Starovoitov <alexei.starovoitov@gmail.com> wrote:
 
-> On Thu, Apr 20, 2017 at 12:51:31AM +0200, Daniel Borkmann wrote:
-> > 
-> > Is there a concrete reason that all the proposed future cases like sockets
-> > have to be handled within the very same XDP_REDIRECT return code? F.e. why
-> > not XDP_TX_NIC that only assumes ifindex as proposed in the patch, and future
-> > ones would get a different return code f.e. XDP_TX_SK only handling sockets
-> > when we get there implementation-wise?  
-> 
-> yeah. let's keep redirect to sockets, tunnels, crypto and exotic things
-> out of this discussion.
-> XDP_REDIRECT should assume L2 raw packet is being redirected to another L2 netdev.
-> If we make it too generic it will lose performance.
-> 
-> For cls_bpf the ifindex concept is symmetric. The program can access it as
-> skb->ifindex on receive and can redirect to another ifindex via bpf_redirect() helper.
-> Since netdev is not locked, it's actually big plus, since container management
-> control plane can simply delete netns+veth and it goes away. The program can
-> have dangling ifindex (if control plane is buggy and didn't update the bpf side),
-> but it's harmless. Packets that redirect to non-existing ifindex are dropped.
-> This approach already understood and works well, so for XDP I suggest to use
-> the same approach initially before starting to reinvent the wheel.
-> struct xdp_md needs ifindex field and xdp_redirect() helper that redirects
-> to L2 netdev only. That's it. Simple and easy.
-> I think the main use cases in John's and Jesper's minds is something like
-> xdpswitch where packets are coming from VMs and from physical eths and
-> being redirected to either physical eth or to VM via upcoming vhost+xdp support.
-> This xdp_md->ifindex + xdp_redirect(to_ifindex) will solve it just fine.
-> 
-> Once we have vhost+xdp and all other bits implemented, we must come back
-> to this discussion about having port mapping table. As I mentioned
-> during netconf I think it's very useful, but I don't think we should
-> gate vhost+xdp and xdp_redirect work on this discussion.
-> As far as this port mapping table we would need 'port' field in xdp_md as well
-> and xdp_redirect_port() done via helper or via extra 'out_port' field in xdp_md
-> plus another XDP_REDIRECT_PORT action code.
 
-Guess it would be easier to talk about if we name it "ingress_port" and
-"egress_port".
+On 2017年04月19日 04:21, Willem de Bruijn wrote:
+> From: Willem de Bruijn <willemb@google.com>
+>
+> Convert virtio-net to a standard napi tx completion path. This enables
+> better TCP pacing using TCP small queues and increases single stream
+> throughput.
+>
+> The virtio-net driver currently cleans tx descriptors on transmission
+> of new packets in ndo_start_xmit. Latency depends on new traffic, so
+> is unbounded. To avoid deadlock when a socket reaches its snd limit,
+> packets are orphaned on tranmission. This breaks socket backpressure,
+> including TSQ.
+>
+> Napi increases the number of interrupts generated compared to the
+> current model, which keeps interrupts disabled as long as the ring
+> has enough free descriptors. Keep tx napi optional and disabled for
+> now. Follow-on patches will reduce the interrupt cost.
+>
+> Signed-off-by: Willem de Bruijn <willemb@google.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> ---
+>   drivers/net/virtio_net.c | 77 +++++++++++++++++++++++++++++++++++++++++-------
+>   1 file changed, 67 insertions(+), 10 deletions(-)
+>
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index b9c1df29892c..c173e85dc7b8 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -33,9 +33,10 @@
+>   static int napi_weight = NAPI_POLL_WEIGHT;
+>   module_param(napi_weight, int, 0444);
+>   
+> -static bool csum = true, gso = true;
+> +static bool csum = true, gso = true, napi_tx;
+>   module_param(csum, bool, 0444);
+>   module_param(gso, bool, 0444);
+> +module_param(napi_tx, bool, 0644);
+>   
+>   /* FIXME: MTU in config. */
+>   #define GOOD_PACKET_LEN (ETH_HLEN + VLAN_HLEN + ETH_DATA_LEN)
+> @@ -86,6 +87,8 @@ struct send_queue {
+>   
+>   	/* Name of the send queue: output.$index */
+>   	char name[40];
+> +
+> +	struct napi_struct napi;
+>   };
+>   
+>   /* Internal representation of a receive virtqueue */
+> @@ -262,12 +265,16 @@ static void virtqueue_napi_complete(struct napi_struct *napi,
+>   static void skb_xmit_done(struct virtqueue *vq)
+>   {
+>   	struct virtnet_info *vi = vq->vdev->priv;
+> +	struct napi_struct *napi = &vi->sq[vq2txq(vq)].napi;
+>   
+>   	/* Suppress further interrupts. */
+>   	virtqueue_disable_cb(vq);
+>   
+> -	/* We were probably waiting for more output buffers. */
+> -	netif_wake_subqueue(vi->dev, vq2txq(vq));
+> +	if (napi->weight)
+> +		virtqueue_napi_schedule(napi, vq);
+> +	else
+> +		/* We were probably waiting for more output buffers. */
+> +		netif_wake_subqueue(vi->dev, vq2txq(vq));
+>   }
+>   
+>   static unsigned int mergeable_ctx_to_buf_truesize(unsigned long mrg_ctx)
+> @@ -972,6 +979,21 @@ static void virtnet_napi_enable(struct virtqueue *vq, struct napi_struct *napi)
+>   	local_bh_enable();
+>   }
+>   
+> +static void virtnet_napi_tx_enable(struct virtnet_info *vi,
+> +				   struct virtqueue *vq,
+> +				   struct napi_struct *napi)
+> +{
+> +	if (!napi->weight)
+> +		return;
+> +
+> +	if (!vi->affinity_hint_set) {
+> +		napi->weight = 0;
+> +		return;
+> +	}
+> +
+> +	return virtnet_napi_enable(vq, napi);
+> +}
+> +
+>   static void refill_work(struct work_struct *work)
+>   {
+>   	struct virtnet_info *vi =
+> @@ -1046,6 +1068,7 @@ static int virtnet_open(struct net_device *dev)
+>   			if (!try_fill_recv(vi, &vi->rq[i], GFP_KERNEL))
+>   				schedule_delayed_work(&vi->refill, 0);
+>   		virtnet_napi_enable(vi->rq[i].vq, &vi->rq[i].napi);
+> +		virtnet_napi_tx_enable(vi, vi->sq[i].vq, &vi->sq[i].napi);
+>   	}
+>   
+>   	return 0;
+> @@ -1081,6 +1104,25 @@ static void free_old_xmit_skbs(struct send_queue *sq)
+>   	u64_stats_update_end(&stats->tx_syncp);
+>   }
+>   
+> +static int virtnet_poll_tx(struct napi_struct *napi, int budget)
+> +{
+> +	struct send_queue *sq = container_of(napi, struct send_queue, napi);
+> +	struct virtnet_info *vi = sq->vq->vdev->priv;
+> +	struct netdev_queue *txq = netdev_get_tx_queue(vi->dev, vq2txq(sq->vq));
+> +
+> +	if (__netif_tx_trylock(txq)) {
+> +		free_old_xmit_skbs(sq);
+> +		__netif_tx_unlock(txq);
+> +	}
+> +
+> +	virtqueue_napi_complete(napi, sq->vq, 0);
+> +
+> +	if (sq->vq->num_free >= 2 + MAX_SKB_FRAGS)
+> +		netif_tx_wake_queue(txq);
+> +
+> +	return 0;
+> +}
+> +
+>   static int xmit_skb(struct send_queue *sq, struct sk_buff *skb)
+>   {
+>   	struct virtio_net_hdr_mrg_rxbuf *hdr;
+> @@ -1130,9 +1172,11 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
+>   	int err;
+>   	struct netdev_queue *txq = netdev_get_tx_queue(dev, qnum);
+>   	bool kick = !skb->xmit_more;
+> +	bool use_napi = sq->napi.weight;
+>   
+>   	/* Free up any pending old buffers before queueing new ones. */
+> -	free_old_xmit_skbs(sq);
+> +	if (!use_napi)
+> +		free_old_xmit_skbs(sq);
 
-> The actual port table (array) should be populated by user space with netdevs
-> and these netdev will have their refcnt incremented. Then we'll have discussion
-> what to do with netdev_unregister notifiers, whether they should be auto-removed
-> from port table or bpf should have a chance to be notified and act on it.
-> Such port mapping will allow us to optimize inevitable call
-> dev_get_by_index_rcu(dev_net(skb->dev), ri->ifindex);
-> away, since netdevs will be stored in the port table and direct deref
-> port_map_array[xdp_md->out_port] will give us target netdev quickly.
+I'm not sure this is best or even correct. Consider we clean xmit 
+packets speculatively in virtnet_poll_tx(), we need call 
+free_old_xmit_skbs() unconditionally. This can also help to reduce the 
+possible of napi rescheduling in virtnet_poll_tx().
 
-I agree with above paragraph, and is happy that you can see that this
-will actually be faster than using ifindex'es.
-
-> It's nice optimization and there are other more powerful optimizations we
-> can do with such port table (since we will know in advance which netdevs
-> the program will be redirecting too), but I still think we should do
-> ifindex based xdp_redirect first and only add this port table later.
-
-No, we cannot first do an ifindex based xdp_redirect. The point of the
-port table is to sandbox which ports XDP can use.
-
-XDP is different than TC/cls_bpf, as it does "bypass", there is no
-other layer that can stop or inspect these packets. The TC hooks
-redirect into the network stack, which have all the usual facilities
-available for filtering, inspection and debugging what is going on
-(e.g. tcpdump works for TC redirect).
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
+Thanks
