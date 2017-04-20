@@ -1,49 +1,32 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: mwifiex: MAC randomization should not be persistent
-Date: Thu, 20 Apr 2017 07:17:24 +0000 (UTC)
-Message-ID: <20170420071724.6D77E60FFC@smtp.codeaurora.org>
-References: <20170405222640.4494-1-briannorris@chromium.org>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH] nl80211: fix enumeration type
+Date: Thu, 20 Apr 2017 09:22:06 +0200
+Message-ID: <1492672926.3109.5.camel@sipsolutions.net>
+References: <20170420065513.1930-1-stefan@agner.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Nishant Sarmukadam <nishants@marvell.com>,
-        Ganapathi Bhat <gbhat@marvell.com>,
-        Xinming Hu <huxm@marvell.com>, <linux-kernel@vger.kernel.org>,
-        Dmitry Torokhov <dmitry.torokhov@gmail.com>,
-        netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
-        Brian Norris <briannorris@chromium.org>
-To: Brian Norris <briannorris@chromium.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: davem@davemloft.net, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Stefan Agner <stefan@agner.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:58942 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S940033AbdDTHRZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 03:17:25 -0400
-In-Reply-To: <20170405222640.4494-1-briannorris@chromium.org>
+Received: from s3.sipsolutions.net ([5.9.151.49]:51914 "EHLO sipsolutions.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S943023AbdDTHWP (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 20 Apr 2017 03:22:15 -0400
+In-Reply-To: <20170420065513.1930-1-stefan@agner.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Brian Norris <briannorris@chromium.org> wrote:
-> nl80211 provides the NL80211_SCAN_FLAG_RANDOM_ADDR for every scan
-> request that should be randomized; the absence of such a flag means we
-> should not randomize. However, mwifiex was stashing the latest
-> randomization request and *always* using it for future scans, even those
-> that didn't set the flag.
-> 
-> Let's zero out the randomization info whenever we get a scan request
-> without NL80211_SCAN_FLAG_RANDOM_ADDR. I'd prefer to remove
-> priv->random_mac entirely (and plumb the randomization MAC properly
-> through the call sequence), but the spaghetti is a little difficult to
-> unravel here for me.
-> 
-> Fixes: c2a8f0ff9c6c ("mwifiex: support random MAC address for scanning")
-> Cc: <stable@vger.kernel.org> # 4.9+
-> Signed-off-by: Brian Norris <briannorris@chromium.org>
+On Wed, 2017-04-19 at 23:55 -0700, Stefan Agner wrote:
+> Use type enum nl80211_rate_info for bitrate information. This fixes
+> a warning when compiling with clang:
+>   warning: implicit conversion from enumeration type 'enum
+> nl80211_rate_info'
+>   to different enumeration type 'enum nl80211_attrs'
 
-Patch applied to wireless-drivers-next.git, thanks.
+I'm pretty sure I just applied exactly these two patches very recently.
 
-7e2f18f06408 mwifiex: MAC randomization should not be persistent
+What made *two* people suddenly see this?
 
--- 
-https://patchwork.kernel.org/patch/9665813/
-
-https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
+johannes
