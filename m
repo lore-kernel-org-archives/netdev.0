@@ -1,38 +1,70 @@
-From: Martin KaFai Lau <kafai@fb.com>
-Subject: Re: [PATCH net] net: ipv6: RTF_PCPU should not be settable from
- userspace
-Date: Thu, 20 Apr 2017 16:38:13 -0700
-Message-ID: <20170420233813.zeoi6eq3lifcnefs@kafai-mba.dhcp.thefacebook.com>
-References: <1492636783-29756-1-git-send-email-dsa@cumulusnetworks.com>
- <CAM_iQpUbuzie86Cf96Q9F53UiamJixr-aVkAKtgvZFtiKPngUw@mail.gmail.com>
- <c6f4f382-26ac-6679-adba-605e8f29cf6a@cumulusnetworks.com>
+From: Gavin Shan <gwshan@linux.vnet.ibm.com>
+Subject: Re: [PATCH v3 net-next 5/8] net/ncsi: Dump NCSI packet statistics
+Date: Fri, 21 Apr 2017 09:38:12 +1000
+Message-ID: <20170420233812.GA7223@gwshan>
+References: <1492498295-14385-1-git-send-email-gwshan@linux.vnet.ibm.com>
+ <1492498295-14385-6-git-send-email-gwshan@linux.vnet.ibm.com>
+ <20170420.132103.454438573956782815.davem@davemloft.net>
+Reply-To: Gavin Shan <gwshan@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Andrey Konovalov <andreyknvl@google.com>
-To: David Ahern <dsa@cumulusnetworks.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: gwshan@linux.vnet.ibm.com, netdev@vger.kernel.org, joe@perches.com,
+        kubakici@wp.pl
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:41036 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S948023AbdDTXiT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 19:38:19 -0400
+Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:52251 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1030773AbdDTXjP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 19:39:15 -0400
+Received: from pps.filterd (m0098393.ppops.net [127.0.0.1])
+        by mx0a-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v3KNcZYm034672
+        for <netdev@vger.kernel.org>; Thu, 20 Apr 2017 19:39:15 -0400
+Received: from e23smtp08.au.ibm.com (e23smtp08.au.ibm.com [202.81.31.141])
+        by mx0a-001b2d01.pphosted.com with ESMTP id 29xxm25t8d-1
+        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Thu, 20 Apr 2017 19:39:15 -0400
+Received: from localhost
+        by e23smtp08.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        for <netdev@vger.kernel.org> from <gwshan@linux.vnet.ibm.com>;
+        Fri, 21 Apr 2017 09:39:12 +1000
+Received: from d23av02.au.ibm.com (d23av02.au.ibm.com [9.190.235.138])
+        by d23relay07.au.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id v3KNd22g7012624
+        for <netdev@vger.kernel.org>; Fri, 21 Apr 2017 09:39:10 +1000
+Received: from d23av02.au.ibm.com (localhost [127.0.0.1])
+        by d23av02.au.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id v3KNcWUh026460
+        for <netdev@vger.kernel.org>; Fri, 21 Apr 2017 09:38:33 +1000
 Content-Disposition: inline
-In-Reply-To: <c6f4f382-26ac-6679-adba-605e8f29cf6a@cumulusnetworks.com>
+In-Reply-To: <20170420.132103.454438573956782815.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 20, 2017 at 04:43:03PM -0600, David Ahern wrote:
-> On 4/20/17 4:39 PM, Cong Wang wrote:
-> > On Wed, Apr 19, 2017 at 2:19 PM, David Ahern <dsa@cumulusnetworks.com> wrote:
-> >>
-> >> Fix by checking for the flag and failing with EINVAL.
-> >>
-> >
-> > I am still not sure about this. There are a few unused bits in
-> > this flag, we simply ignore the rest, right? Why should we
-> > reject this one instead of all of those we don't use?
-> >
+On Thu, Apr 20, 2017 at 01:21:03PM -0400, David Miller wrote:
+>From: Gavin Shan <gwshan@linux.vnet.ibm.com>
+>Date: Tue, 18 Apr 2017 16:51:32 +1000
 >
-> RTF_PCPU most definitely should not be set by userspace.
-+1
+>> This creates /sys/kernel/debug/ncsi/<eth0>/stats to dump the NCSI
+>> packets sent and received over all packages and channels. It's useful
+>> to diagnose NCSI problems, especially when NCSI packages and channels
+>> aren't probed properly. The statistics can be gained from debugfs file
+>> as below:
+>> 
+>>  # cat /sys/kernel/debug/ncsi/eth0/stats
+>
+>There is no reason you cannot use ethtool statistics to provide this
+>information to the user.
+>
+
+It can be dumped by ethtool, but it's more reasonable to dump them
+through debugfs for couple of reasons: (1) ethtool usually dumps
+statistics collected by hardware, but this debugfs file dumps the
+statistics of packets seen (collected) by software. They are different
+things. Note that NCSI channel collects statistics in hardware and it's
+not exposed or dumped by this patchset. They are candidates for ethtool.
+(2) To expose this through ethtool relies on the availability of the tool.
+It's nicer not to depend on it. (3) This interface can be used to check
+the debug packet has been sent successfully through /sys/kernel/debug/ncsi/eth0/pkt,
+dumping the statistics through debugfs make this (debugging) mechanism
+consistent.
+
+Thanks,
+Gavin 
