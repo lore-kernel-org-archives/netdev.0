@@ -1,144 +1,70 @@
-From: Roger Quadros <rogerq@ti.com>
-Subject: Re: [PATCH] mdio_bus: Issue GPIO RESET to PHYs.
-Date: Thu, 20 Apr 2017 10:58:36 +0300
-Message-ID: <47d66f57-d477-4cde-9ac5-26d5397861a6@ti.com>
-References: <1491381237-24635-1-git-send-email-rogerq@ti.com>
- <64d6494d-41d2-0faf-a434-057f796637fe@ti.com>
- <20170419113951.GA31908@lunn.ch>
- <f8624649-3e49-f68c-f364-ee73f1cc514d@ti.com> <20170419133853.GA2696@lunn.ch>
+From: Dmitry Vyukov <dvyukov@google.com>
+Subject: Re: net: heap out-of-bounds in fib6_clean_node/rt6_fill_node/fib6_age/fib6_prune_clone
+Date: Thu, 20 Apr 2017 10:35:54 +0200
+Message-ID: <CACT4Y+amFHj1DV3pmj+eJVxg52+GLdE-fEin5M86dOKubea7DQ@mail.gmail.com>
+References: <CACT4Y+YrA45diWz_8f4St8oX6aTC1kuGXMUvniGRbqXSGwawZQ@mail.gmail.com>
+ <CACT4Y+YpUZ+7f5bzPh1hATwUXaZaPTu4rYYdz0RY1MHA1WG3SA@mail.gmail.com>
+ <328b1fa7-2d97-6ae3-3b87-e33a0d564ad9@cumulusnetworks.com>
+ <CACT4Y+aQFe+M=ESuShQ4FYNWAd8CNEQ=0rW+aAB0P-tp=PpFyQ@mail.gmail.com>
+ <CACT4Y+aQgM=9QMkyfcXF2B5gGidvL07JP_m_inNXTPXU22i=aA@mail.gmail.com>
+ <CACT4Y+Yx1cgWCkC2c7bze1V1VaecgBfioMvKS2-FUeaRr4DGXg@mail.gmail.com>
+ <CACT4Y+bcMz13ad2kLaZGvct5sQ+RDki0StnOEbz3exAa8=zxqQ@mail.gmail.com>
+ <CACT4Y+Z6f4aOxMZW44WXdYEyDJbGBYLnjKsHBXfK800h+EkrxA@mail.gmail.com>
+ <2270c1ca-9481-60c1-9c29-87669223bded@cumulusnetworks.com>
+ <CACT4Y+aUROZgAczRfntp5Rgvzcypviz5ZWBPdE6MWSiO0-3jEg@mail.gmail.com>
+ <CAAeHK+zx6W_yxnoEQ2Pc1AT4uLXqYZaoi5oQBeuCntdGS38TQg@mail.gmail.com>
+ <580392d8-fa33-67bb-c5d6-27d262f1646a@cumulusnetworks.com>
+ <CAAeHK+zZb=K4X9=NmSWQJL8bpgMbXoG+h4RasAyYDr+C5pkVYA@mail.gmail.com>
+ <CAM_iQpXyDN5GD+QLmWgJSc0bqV0ViK5LxSdwAV3XsHWr6vLJ2Q@mail.gmail.com> <1dad955e-28c1-3f02-8876-90cce4a7d1f8@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, Florian Fainelli <f.fainelli@gmail.com>,
-        <tony@atomide.com>, <nsekhar@ti.com>, <jsarha@ti.com>,
-        <netdev@vger.kernel.org>, <linux-omap@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from lelnx194.ext.ti.com ([198.47.27.80]:38701 "EHLO
-        lelnx194.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S937259AbdDTH6y (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 03:58:54 -0400
-In-Reply-To: <20170419133853.GA2696@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+        Andrey Konovalov <andreyknvl@google.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        Mahesh Bandewar <maheshb@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        David Miller <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        syzkaller <syzkaller@googlegroups.com>
+To: David Ahern <dsa@cumulusnetworks.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1dad955e-28c1-3f02-8876-90cce4a7d1f8@cumulusnetworks.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 19/04/17 16:38, Andrew Lunn wrote:
-> On Wed, Apr 19, 2017 at 02:56:48PM +0300, Roger Quadros wrote:
->> Hi,
+On Thu, Apr 20, 2017 at 1:51 AM, David Ahern <dsa@cumulusnetworks.com> wrote:
+> On 4/19/17 5:47 PM, Cong Wang wrote:
+>> On Wed, Apr 19, 2017 at 9:12 AM, Andrey Konovalov <andreyknvl@google.com> wrote:
+>>>
+>>> Anyway, I just finished simplifying the reproducer. Give this one a try.
 >>
->> On 19/04/17 14:39, Andrew Lunn wrote:
->>> On Wed, Apr 19, 2017 at 12:24:26PM +0300, Roger Quadros wrote:
->>>> Some boards [1] leave the PHYs at an invalid state
->>>> during system power-up or reset thus causing unreliability
->>>> issues with the PHY which manifests as PHY not being detected
->>>> or link not functional. To fix this, these PHYs need to be RESET
->>>> via a GPIO connected to the PHY's RESET pin.
->>>>
->>>> Some boards have a single GPIO controlling the PHY RESET pin of all
->>>> PHYs on the bus whereas some others have separate GPIOs controlling
->>>> individual PHY RESETs.
->>>>
->>>> In both cases, the RESET de-assertion cannot be done in the PHY driver
->>>> as the PHY will not probe till its reset is de-asserted.
->>>> So do the RESET de-assertion in the MDIO bus driver.
->>>>
->>>> [1] - am572x-idk, am571x-idk, a437x-idk
->>>>
->>>> Signed-off-by: Roger Quadros <rogerq@ti.com>
->>>> ---
->>>>  drivers/net/phy/mdio_bus.c | 26 ++++++++++++++++++++++++++
->>>>  drivers/of/of_mdio.c       |  4 ++++
->>>>  include/linux/phy.h        |  5 +++++
->>>>  3 files changed, 35 insertions(+)
->>>
->>> Hi Roger
->>>
->>> Thanks for making this generic.
->>>
->>> Please add device tree binding documentation. I think that actually
->>> means you have to document MDIO in general, since there currently is
->>> not a binding document.
+>> Thanks for providing such a minimal reproducer!
 >>
->> OK.
+>> The following patch could fix this crash, but I am not 100% sure if we should
+>> just clear these bits or reject them with an errno.
 >>
->>>
->>>> diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
->>>> index fa7d51f..25fda2b 100644
->>>> --- a/drivers/net/phy/mdio_bus.c
->>>> +++ b/drivers/net/phy/mdio_bus.c
->>>> @@ -22,8 +22,11 @@
->>>>  #include <linux/init.h>
->>>>  #include <linux/delay.h>
->>>>  #include <linux/device.h>
->>>> +#include <linux/gpio.h>
->>>> +#include <linux/gpio/consumer.h>
->>>>  #include <linux/of_device.h>
->>>>  #include <linux/of_mdio.h>
->>>> +#include <linux/of_gpio.h>
->>>>  #include <linux/netdevice.h>
->>>>  #include <linux/etherdevice.h>
->>>>  #include <linux/skbuff.h>
->>>> @@ -43,6 +46,8 @@
->>>>  
->>>>  #include "mdio-boardinfo.h"
->>>>  
->>>> +#define DEFAULT_GPIO_RESET_DELAY	10	/* in microseconds */
->>>> +
->>>>  int mdiobus_register_device(struct mdio_device *mdiodev)
->>>>  {
->>>>  	if (mdiodev->bus->mdio_map[mdiodev->addr])
->>>> @@ -307,6 +312,7 @@ int __mdiobus_register(struct mii_bus *bus, struct module *owner)
->>>>  {
->>>>  	struct mdio_device *mdiodev;
->>>>  	int i, err;
->>>> +	struct gpio_desc *gpiod;
->>>>  
->>>>  	if (NULL == bus || NULL == bus->name ||
->>>>  	    NULL == bus->read || NULL == bus->write)
->>>> @@ -333,6 +339,26 @@ int __mdiobus_register(struct mii_bus *bus, struct module *owner)
->>>>  	if (bus->reset)
->>>>  		bus->reset(bus);
->>>>  
->>>> +	/* de-assert bus level PHY GPIO resets */
->>>> +	for (i = 0; i < bus->num_reset_gpios; i++) {
->>>> +		gpiod = devm_gpiod_get_index(&bus->dev, "reset", i,
->>>> +					     GPIOD_OUT_LOW);
->>>> +		if (IS_ERR(gpiod)) {
->>>> +			err = PTR_ERR(gpiod);
->>>> +			if (err != -ENOENT) {
->>>> +				pr_err("mii_bus %s couldn't get reset GPIO\n",
->>>> +				       bus->id);
->>>> +				return err;
->>>> +			}
->>>> +		} else {
->>>> +			gpiod_set_value_cansleep(gpiod, 1);
->>>
->>>
->>>> +			if (!bus->reset_delay_us)
->>>> +				bus->reset_delay_us = DEFAULT_GPIO_RESET_DELAY;
->>>
->>> Maybe do this once, where you read the device tree property.
+>> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+>> index 9db14189..cf524c2 100644
+>> --- a/net/ipv6/route.c
+>> +++ b/net/ipv6/route.c
+>> @@ -2086,7 +2086,7 @@ static struct rt6_info
+>> *ip6_route_info_create(struct fib6_config *cfg)
+>>         } else
+>>                 rt->rt6i_prefsrc.plen = 0;
 >>
->> I was thinking from point of view that GPIO RESET code should work even without
->> device tree. Although I'm not sure if there would be any users or not.
-> 
-> Hi Roger
-> 
-> I don't see how this would work. What would devm_gpiod_get_index()
-> return? Something from ACPI? But then there would be something
+>> -       rt->rt6i_flags = cfg->fc_flags;
+>> +       rt->rt6i_flags = cfg->fc_flags & ~(RTF_PCPU | RTF_CACHE);
+>>
+>>  install_route:
+>>         rt->dst.dev = dev;
+>>
+>
+> I sent a patch returning EINVAL if RTF_PCPU is set in fc_flags
 
-Yes or just lookup tables based on platform data.
 
-> equivalent for getting the delay.
-
-I'm not sure about delay part.
-
-> 
-> Lets keep it simple and OF only. If there is a real need for something
-> in addition to OF, it can be added later.
-
-OK. I'll revise the patch based on your comments.
-
-cheers,
--roger
+Andrey, does it fix the other crashes?
