@@ -1,266 +1,107 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next v5 1/2] net sched actions: dump more than
- TCA_ACT_MAX_PRIO actions per batch
-Date: Thu, 20 Apr 2017 15:59:15 +0200
-Message-ID: <20170420135915.GE1886@nanopsycho.orion>
-References: <1492693582-26810-1-git-send-email-jhs@emojatatu.com>
- <1492693582-26810-2-git-send-email-jhs@emojatatu.com>
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Subject: Re: [PATCH net v2] net/mlx5e: Fix race in mlx5e_sw_stats and mlx5e_vport_stats
+Date: Thu, 20 Apr 2017 17:00:13 +0300
+Message-ID: <CALzJLG_r4x2PvVTG8vdDRFfGBfRe-totyUaPtV8ehmqiL0dURA@mail.gmail.com>
+References: <20170419233259.2255806-1-kafai@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, xiyou.wangcong@gmail.com,
-        eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        Kernel Team <kernel-team@fb.com>
+To: Martin KaFai Lau <kafai@fb.com>, Gal Pressman <galp@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:35331 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1031932AbdDTN7Y (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 09:59:24 -0400
-Received: by mail-wm0-f67.google.com with SMTP id d79so11032856wmi.2
-        for <netdev@vger.kernel.org>; Thu, 20 Apr 2017 06:59:18 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1492693582-26810-2-git-send-email-jhs@emojatatu.com>
+Received: from mail-qk0-f194.google.com ([209.85.220.194]:35779 "EHLO
+        mail-qk0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1031971AbdDTOAe (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 10:00:34 -0400
+Received: by mail-qk0-f194.google.com with SMTP id k139so7912038qke.2
+        for <netdev@vger.kernel.org>; Thu, 20 Apr 2017 07:00:34 -0700 (PDT)
+In-Reply-To: <20170419233259.2255806-1-kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thu, Apr 20, 2017 at 03:06:21PM CEST, jhs@mojatatu.com wrote:
->From: Jamal Hadi Salim <jhs@mojatatu.com>
+On Thu, Apr 20, 2017 at 2:32 AM, Martin KaFai Lau <kafai@fb.com> wrote:
+> We have observed a sudden spike in rx/tx_packets and rx/tx_bytes
+> reported under /proc/net/dev.  There is a race in mlx5e_update_stats()
+> and some of the get-stats functions (the one that we hit is the
+> mlx5e_get_stats() which is called by ndo_get_stats64()).
 >
->When you dump hundreds of thousands of actions, getting only 32 per
->dump batch even when the socket buffer and memory allocations allow
->is inefficient.
+> In particular, the very first thing mlx5e_update_sw_counters()
+> does is 'memset(s, 0, sizeof(*s))'.  For example, if mlx5e_get_stats()
+> is unlucky at one point, rx_bytes and rx_packets could be 0.  One second
+> later, a normal (and much bigger than 0) value will be reported.
 >
->With this change, the user will get as many as possibly fitting
->within the given constraints available to the kernel.
+> This patch is to use a 'struct mlx5e_sw_stats temp' to avoid
+> a direct memset zero on priv->stats.sw.
 >
->A new top level TLV space is introduced. An attribute
->TCAA_ACT_FLAGS is used to carry the flags indicating the user
->is capable of processing these large dumps. Older user space which
->doesn't set this flag doesn't get the large (than 32) batches.
->The kernel uses the TCAA_ACT_COUNT attribute to tell the user how many
->actions are put in a single batch. As such user space app knows how long
->to iterate (independent of the type of action being dumped)
->instead of hardcoded maximum of 32.
+> mlx5e_update_vport_counters() has a similar race.  Hence, addressed
+> together.
 >
->Some results dumping 1.5M actions, first unpatched tc which the
->kernel doesn't help:
+> I am lucky enough to catch this 0-reset in rx multicast:
+> eth0: 41457665   76804   70    0    0    70          0     47085 15586634   87502    3    0    0     0       3          0
+> eth0: 41459860   76815   70    0    0    70          0     47094 15588376   87516    3    0    0     0       3          0
+> eth0: 41460577   76822   70    0    0    70          0         0 15589083   87521    3    0    0     0       3          0
+> eth0: 41463293   76838   70    0    0    70          0     47108 15595872   87538    3    0    0     0       3          0
+> eth0: 41463379   76839   70    0    0    70          0     47116 15596138   87539    3    0    0     0       3          0
 >
->prompt$ time -p tc actions ls action gact | grep index | wc -l
->1500000
->real 1388.43
->user 2.07
->sys 1386.79
+> Cc: Saeed Mahameed <saeedm@mellanox.com>
+> Suggested-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Martin KaFai Lau <kafai@fb.com>
+> ---
+>  drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 7 +++++--
+>  1 file changed, 5 insertions(+), 2 deletions(-)
 >
->Now lets see a patched tc which sets the correct flags when requesting
->a dump:
+> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+> index 66c133757a5e..246786bb861b 100644
+> --- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+> +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+> @@ -174,7 +174,7 @@ static void mlx5e_tx_timeout_work(struct work_struct *work)
 >
->prompt$ time -p updatedtc actions ls action gact | grep index | wc -l
->1500000
->real 178.13
->user 2.02
->sys 176.96
+>  static void mlx5e_update_sw_counters(struct mlx5e_priv *priv)
+>  {
+> -       struct mlx5e_sw_stats *s = &priv->stats.sw;
+> +       struct mlx5e_sw_stats temp, *s = &temp;
+>         struct mlx5e_rq_stats *rq_stats;
+>         struct mlx5e_sq_stats *sq_stats;
+>         u64 tx_offload_none = 0;
+> @@ -229,12 +229,14 @@ static void mlx5e_update_sw_counters(struct mlx5e_priv *priv)
+>         s->link_down_events_phy = MLX5_GET(ppcnt_reg,
+>                                 priv->stats.pport.phy_counters,
+>                                 counter_set.phys_layer_cntrs.link_down_events);
+> +       memcpy(&priv->stats.sw, s, sizeof(*s));
+>  }
 >
->Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
->---
-> include/uapi/linux/rtnetlink.h | 21 +++++++++++++++++--
-> net/sched/act_api.c            | 46 +++++++++++++++++++++++++++++++++---------
-> 2 files changed, 55 insertions(+), 12 deletions(-)
+>  static void mlx5e_update_vport_counters(struct mlx5e_priv *priv)
+>  {
+> +       struct mlx5e_vport_stats temp;
+>         int outlen = MLX5_ST_SZ_BYTES(query_vport_counter_out);
+> -       u32 *out = (u32 *)priv->stats.vport.query_vport_out;
+> +       u32 *out = (u32 *)temp.query_vport_out;
+>         u32 in[MLX5_ST_SZ_DW(query_vport_counter_in)] = {0};
+>         struct mlx5_core_dev *mdev = priv->mdev;
 >
->diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
->index cce0613..d7d28ec 100644
->--- a/include/uapi/linux/rtnetlink.h
->+++ b/include/uapi/linux/rtnetlink.h
->@@ -674,10 +674,27 @@ struct tcamsg {
-> 	unsigned char	tca__pad1;
-> 	unsigned short	tca__pad2;
-> };
->+
->+enum {
->+	TCAA_UNSPEC,
+> @@ -245,6 +247,7 @@ static void mlx5e_update_vport_counters(struct mlx5e_priv *priv)
+>
+>         memset(out, 0, outlen);
 
-TCAA stands for "traffic control action action". I don't get it :( 
-Prefix still sounds wrong to me, sorry :/
-Should be:
-TCA_SOMETHING_*
+Actually you don't need any temp here, it is safe to just remove this
+redundant memset
+and mlx5_cmd_exec will do the copy for you.
 
+>         mlx5_cmd_exec(mdev, in, sizeof(in), out, outlen);
+> +       memcpy(priv->stats.vport.query_vport_out, out, outlen);
+>  }
 
->+	TCAA_ACT_TAB,
->+#define TCA_ACT_TAB TCAA_ACT_TAB
->+	TCAA_ACT_FLAGS,
->+	TCAA_ACT_COUNT,
->+	__TCAA_MAX,
->+#define	TCAA_MAX (__TCAA_MAX - 1)
->+};
->+
-> #define TA_RTA(r)  ((struct rtattr*)(((char*)(r)) + NLMSG_ALIGN(sizeof(struct tcamsg))))
-> #define TA_PAYLOAD(n) NLMSG_PAYLOAD(n,sizeof(struct tcamsg))
->-#define TCA_ACT_TAB 1 /* attr type must be >=1 */	
->-#define TCAA_MAX 1
->+/* tcamsg flags stored in attribute TCAA_ACT_FLAGS
->+ *
->+ * ACT_LARGE_DUMP_ON user->kernel to request for larger than TCA_ACT_MAX_PRIO
->+ * actions in a dump. All dump responses will contain the number of actions
->+ * being dumped stored in for user app's consumption in TCAA_ACT_COUNT
->+ *
->+ */
->+#define ACT_LARGE_DUMP_ON		BIT(0)
+Anyway we still need a spin lock here, and also for all the counters
+under priv->stats which are affected by this race as well.
 
-Please put some prefix to the name, as I asked for in the previous
-version.	
-	
-	
-> 
-> /* New extended info filters for IFLA_EXT_MASK */
-> #define RTEXT_FILTER_VF		(1 << 0)
->diff --git a/net/sched/act_api.c b/net/sched/act_api.c
->index 82b1d48..f85b8fd 100644
->--- a/net/sched/act_api.c
->+++ b/net/sched/act_api.c
->@@ -83,6 +83,7 @@ static int tcf_dump_walker(struct tcf_hashinfo *hinfo, struct sk_buff *skb,
-> 			   struct netlink_callback *cb)
-> {
-> 	int err = 0, index = -1, i = 0, s_i = 0, n_i = 0;
->+	unsigned short act_flags = cb->args[2];
-> 	struct nlattr *nest;
-> 
-> 	spin_lock_bh(&hinfo->lock);
->@@ -111,14 +112,18 @@ static int tcf_dump_walker(struct tcf_hashinfo *hinfo, struct sk_buff *skb,
-> 			}
-> 			nla_nest_end(skb, nest);
-> 			n_i++;
->-			if (n_i >= TCA_ACT_MAX_PRIO)
->+			if (!(act_flags & ACT_LARGE_DUMP_ON) &&
->+			    n_i >= TCA_ACT_MAX_PRIO)
-> 				goto done;
-> 		}
-> 	}
-> done:
-> 	spin_unlock_bh(&hinfo->lock);
->-	if (n_i)
->+	if (n_i) {
-> 		cb->args[0] += n_i;
->+		if (act_flags & ACT_LARGE_DUMP_ON)
->+			cb->args[1] = n_i;
->+	}
-> 	return n_i;
-> 
-> nla_put_failure:
->@@ -993,11 +998,15 @@ static int tcf_action_add(struct net *net, struct nlattr *nla,
-> 	return tcf_add_notify(net, n, &actions, portid);
-> }
-> 
->+static const struct nla_policy tcaa_policy[TCAA_MAX + 1] = {
->+	[TCAA_ACT_FLAGS]      = { .type = NLA_U32 },
->+};
->+
-> static int tc_ctl_action(struct sk_buff *skb, struct nlmsghdr *n,
-> 			 struct netlink_ext_ack *extack)
-> {
-> 	struct net *net = sock_net(skb->sk);
->-	struct nlattr *tca[TCA_ACT_MAX + 1];
->+	struct nlattr *tca[TCAA_MAX + 1];
-> 	u32 portid = skb ? NETLINK_CB(skb).portid : 0;
-> 	int ret = 0, ovr = 0;
-> 
->@@ -1005,7 +1014,7 @@ static int tc_ctl_action(struct sk_buff *skb, struct nlmsghdr *n,
-> 	    !netlink_capable(skb, CAP_NET_ADMIN))
-> 		return -EPERM;
-> 
->-	ret = nlmsg_parse(n, sizeof(struct tcamsg), tca, TCA_ACT_MAX, NULL,
->+	ret = nlmsg_parse(n, sizeof(struct tcamsg), tca, TCAA_MAX, tcaa_policy,
+If you want I can accept this as a temporary  fix for net and Gal will
+work on a spin lock based mechanism to fix the memcpy race for all the
+counters.
 
-Please do this in a separate patch. It is an unrelated bug fix.
-
-
-
-> 			  extack);
-> 	if (ret < 0)
-> 		return ret;
->@@ -1046,16 +1055,12 @@ static int tc_ctl_action(struct sk_buff *skb, struct nlmsghdr *n,
-> 	return ret;
-> }
-> 
->-static struct nlattr *find_dump_kind(const struct nlmsghdr *n)
->+static struct nlattr *find_dump_kind(struct nlattr **nla)
-> {
-> 	struct nlattr *tb1, *tb2[TCA_ACT_MAX + 1];
-> 	struct nlattr *tb[TCA_ACT_MAX_PRIO + 1];
->-	struct nlattr *nla[TCAA_MAX + 1];
-> 	struct nlattr *kind;
-> 
->-	if (nlmsg_parse(n, sizeof(struct tcamsg), nla, TCAA_MAX,
->-			NULL, NULL) < 0)
->-		return NULL;
-> 	tb1 = nla[TCA_ACT_TAB];
-> 	if (tb1 == NULL)
-> 		return NULL;
->@@ -1081,9 +1086,18 @@ static int tc_dump_action(struct sk_buff *skb, struct netlink_callback *cb)
-> 	struct nlattr *nest;
-> 	struct tc_action_ops *a_o;
-> 	int ret = 0;
->+	struct nlattr *tcaa[TCAA_MAX + 1];
-
-"tcaa" again, now as a variable :/
-Just use "tb" as the rest of the code does.
-
-
-> 	struct tcamsg *t = (struct tcamsg *) nlmsg_data(cb->nlh);
->-	struct nlattr *kind = find_dump_kind(cb->nlh);
->+	struct nlattr *kind = NULL;
->+	struct nlattr *count_attr = NULL;
->+	u32 act_flags = 0;
->+
->+	ret = nlmsg_parse(cb->nlh, sizeof(struct tcamsg), tcaa, TCAA_MAX,
->+			  tcaa_policy, NULL);
->+	if (ret < 0)
->+		return ret;
-> 
->+	kind = find_dump_kind(tcaa);
-> 	if (kind == NULL) {
-> 		pr_info("tc_dump_action: action bad kind\n");
-> 		return 0;
->@@ -1093,14 +1107,23 @@ static int tc_dump_action(struct sk_buff *skb, struct netlink_callback *cb)
-> 	if (a_o == NULL)
-> 		return 0;
-> 
->+	if (tcaa[TCAA_ACT_FLAGS])
->+		act_flags = nla_get_u32(tcaa[TCAA_ACT_FLAGS]);
-
-I still believe this is wrong. Should be a separate attr per flag.
-For user experience breakage reasons: 
-2 kernels should not behave differently on the exact same value passed
-from userspace:
-User passes 0x2. Now the kernel will ignore the set bit, the next kernel
-will recognize it as a valid flag and do something.
-Please let the discussion reach a consensus before pushing this again.
-
-
->+
-> 	nlh = nlmsg_put(skb, NETLINK_CB(cb->skb).portid, cb->nlh->nlmsg_seq,
-> 			cb->nlh->nlmsg_type, sizeof(*t), 0);
-> 	if (!nlh)
-> 		goto out_module_put;
->+
->+	cb->args[2] = act_flags;
->+
-> 	t = nlmsg_data(nlh);
-> 	t->tca_family = AF_UNSPEC;
-> 	t->tca__pad1 = 0;
-> 	t->tca__pad2 = 0;
->+	count_attr = nla_reserve(skb, TCAA_ACT_COUNT, sizeof(u32));
->+	if (!count_attr)
->+		goto out_module_put;
-> 
-> 	nest = nla_nest_start(skb, TCA_ACT_TAB);
-> 	if (nest == NULL)
->@@ -1113,6 +1136,8 @@ static int tc_dump_action(struct sk_buff *skb, struct netlink_callback *cb)
-> 	if (ret > 0) {
-> 		nla_nest_end(skb, nest);
-> 		ret = skb->len;
->+		memcpy(nla_data(count_attr), &cb->args[1], sizeof(u32));
->+		cb->args[1] = 0;
-> 	} else
-> 		nlmsg_trim(skb, b);
-> 
->-- 
->1.9.1
+>
+>  static void mlx5e_update_pport_counters(struct mlx5e_priv *priv)
+> --
+> 2.9.3
 >
