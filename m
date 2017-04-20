@@ -1,62 +1,53 @@
-From: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH net-next 00/16] Mellanox, mlx5 RDMA net device support
-Date: Thu, 20 Apr 2017 16:45:43 -0400
-Message-ID: <1492721143.3041.20.camel@redhat.com>
-References: <20170413033706.19016-1-saeedm@mellanox.com>
-         <20170417.110851.1496380796999919507.davem@davemloft.net>
-         <1492713677.3041.3.camel@redhat.com>
-         <20170420184955.GU14088@mtr-leonro.local>
+From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
+Subject: RE: [net-next 04/14] i40e: dump VF information in debugfs
+Date: Thu, 20 Apr 2017 20:50:55 +0000
+Message-ID: <BL2PR07MB230655E4217E619BABCA54D18D1B0@BL2PR07MB2306.namprd07.prod.outlook.com>
+References: <BL2PR07MB23063D7F1341E629E9345F578D1B0@BL2PR07MB2306.namprd07.prod.outlook.com>
+        <20170420.125841.799913763607507081.davem@davemloft.net>
+        <BL2PR07MB23064B547F325DD002E513FC8D1B0@BL2PR07MB2306.namprd07.prod.outlook.com>
+ <20170420.163548.662307112452546016.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org,
-        niranjana.vishwanathapura-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
-To: Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170420184955.GU14088-U/DQcQFIOTAAJjI8aNfphQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "jiri@resnulli.us" <jiri@resnulli.us>,
+        "gerlitz.or@gmail.com" <gerlitz.or@gmail.com>,
+        "jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
+        "mitch.a.williams@intel.com" <mitch.a.williams@intel.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "nhorman@redhat.com" <nhorman@redhat.com>,
+        "sassmann@redhat.com" <sassmann@redhat.com>,
+        "jogreene@redhat.com" <jogreene@redhat.com>,
+        "Dupuis, Chad" <Chad.Dupuis@cavium.com>,
+        "Rangankar, Manish" <Manish.Rangankar@cavium.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bn3nam01on0045.outbound.protection.outlook.com ([104.47.33.45]:38373
+        "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1032143AbdDTUvB (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 20 Apr 2017 16:51:01 -0400
+In-Reply-To: <20170420.163548.662307112452546016.davem@davemloft.net>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2017-04-20 at 21:49 +0300, Leon Romanovsky wrote:
-> On Thu, Apr 20, 2017 at 02:41:17PM -0400, Doug Ledford wrote:
-> > 
-> > On Mon, 2017-04-17 at 11:08 -0400, David Miller wrote:
-> > > 
-> > > From: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-> > > Date: Thu, 13 Apr 2017 06:36:50 +0300
-> > > 
-> > > > 
-> > > > This series provides the lower level mlx5 support of RDMA
-> > > > netdevice
-> > > > creation API [1] suggested and introduced by Intel's HFI OPA
-> > > > VNIC
-> > > > netdevice driver [2], to enable IPoIB mlx5 RDMA netdevice
-> > > > creation.
-> > > 
-> > > Series applied to net-next.
-> > 
-> > I've pulled Dave's net-next into a branch in my tree for the IPoIB
-> > patches to go on top of so that way it can hold the final touchup
-> > patch
-> > without any conflicts anywhere.
-> 
-> Thanks,
-> 
-> How and when do you want us to forward it?
+> > I surely wouldn't want to write a million lines of code just to
+> > provide such a detailed abstraction.
+>=20
+> So now the argument has gone from "it's not possible" to "it's going to b=
+e a
+> HUGE amount of code."
 
-The branch in question is already pushed for 0day and linux-next
-testing, so you can send the fixup patch to linux-rdma based upon my
-k.o/for-4.12-rdma-netdevice branch any time.
+Nothing here's is strictly impossible - you can always create a simulated H=
+W
+model in SW, and have a one-to-one mapping with the HW entities.
+But "unreasonable amount of code" comes very close to it.
 
--- 
-Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-    GPG KeyID: B826A3330E572FDD
-   
-Key fingerprint = AE6B 1BDA 122B 23B4 265B  1274 B826 A333 0E57 2FDD
+> I wonder what the next argument will be when I shoot this one down.
+>=20
+> If you simply don't want to do the hard work necessary to implement this
+> properly, which is fine, just say so.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Nope, I don't mind doing the work. What I would appreciate is some
+constructive suggestions on a seemingly feasible approach that might work.
+I feel like I've been bashed enough for one day. :-)
