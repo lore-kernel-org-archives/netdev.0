@@ -1,39 +1,32 @@
-From: Martin KaFai Lau <kafai@fb.com>
-Subject: Re: [PATCH net v2] net/mlx5e: Fix race in mlx5e_sw_stats and
- mlx5e_vport_stats
-Date: Thu, 20 Apr 2017 09:50:11 -0700
-Message-ID: <20170420165011.66lx7gm5e3bk7k67@kafai-mba.dhcp.thefacebook.com>
-References: <20170419233259.2255806-1-kafai@fb.com>
- <CALzJLG_r4x2PvVTG8vdDRFfGBfRe-totyUaPtV8ehmqiL0dURA@mail.gmail.com>
- <20170420141526.maq6b6rgqfjcdyn6@kafai-mba.dhcp.thefacebook.com>
- <1492700441.22296.41.camel@edumazet-glaptop3.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next 04/14] i40e: dump VF information in debugfs
+Date: Thu, 20 Apr 2017 12:58:41 -0400 (EDT)
+Message-ID: <20170420.125841.799913763607507081.davem@davemloft.net>
+References: <BL2PR07MB2306DEC60F085B88BA230C3A8D1B0@BL2PR07MB2306.namprd07.prod.outlook.com>
+        <20170420.115153.1510206006505486594.davem@davemloft.net>
+        <BL2PR07MB23063D7F1341E629E9345F578D1B0@BL2PR07MB2306.namprd07.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Saeed Mahameed <saeedm@dev.mellanox.co.il>,
-        Gal Pressman <galp@mellanox.com>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Kernel Team <kernel-team@fb.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jiri@resnulli.us, gerlitz.or@gmail.com,
+        jeffrey.t.kirsher@intel.com, mitch.a.williams@intel.com,
+        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+        jogreene@redhat.com, Chad.Dupuis@cavium.com,
+        Manish.Rangankar@cavium.com
+To: Yuval.Mintz@cavium.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:36818 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S944067AbdDTQuW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 12:50:22 -0400
-Content-Disposition: inline
-In-Reply-To: <1492700441.22296.41.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:45200 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S971374AbdDTQ6q (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 12:58:46 -0400
+In-Reply-To: <BL2PR07MB23063D7F1341E629E9345F578D1B0@BL2PR07MB2306.namprd07.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 20, 2017 at 08:00:41AM -0700, Eric Dumazet wrote:
-> On Thu, 2017-04-20 at 07:15 -0700, Martin KaFai Lau wrote:
->
-> > A follow-up patch approach by Gal will be nice.
->
-> Note that I had a similar issue on mlx4.
->
-> Stats are cleared/reset at open time, but in an asynchronous way.
->
-> Using a bonding device ( and fix in
-> https://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git/commit/?id=142c6594acbcc32391af9c15f8cd65c6c177698f ) worked around the problem.
-We also drop the X->0 delta now but does not drop the 0->Y delta.
+From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
+Date: Thu, 20 Apr 2017 16:24:51 +0000
+
+> the HW pipeline itself can't be abstracted in this case.
+
+I've heard that argument before, and I'm glad Jiri didn't drink the
+koolaide and instead wrote dpipe.
