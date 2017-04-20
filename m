@@ -1,125 +1,198 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 04/14] i40e: dump VF information in debugfs
-Date: Wed, 19 Apr 2017 18:57:40 -0700
-Message-ID: <20170420015750.6828-5-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 03/14] i40e: Fix support for flow director programming status
+Date: Wed, 19 Apr 2017 18:57:39 -0700
+Message-ID: <20170420015750.6828-4-jeffrey.t.kirsher@intel.com>
 References: <20170420015750.6828-1-jeffrey.t.kirsher@intel.com>
-Cc: Mitch Williams <mitch.a.williams@intel.com>,
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
         netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
         jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga07.intel.com ([134.134.136.100]:29694 "EHLO mga07.intel.com"
+Received: from mga07.intel.com ([134.134.136.100]:47224 "EHLO mga07.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S939037AbdDTB54 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S939035AbdDTB54 (ORCPT <rfc822;netdev@vger.kernel.org>);
         Wed, 19 Apr 2017 21:57:56 -0400
 In-Reply-To: <20170420015750.6828-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mitch Williams <mitch.a.williams@intel.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-Dump some internal state about VFs through debugfs. This provides
-information not available with 'ip link show'. To use, write "dump vf
-<id>" to the command file, or just "dump vf" to dump information on all
-of the VFs.
+This patch fixes an issue I introduced when I converted the code over to
+using the length field to determine if a descriptor was done or not. It
+turns out that we are also processing programming descriptors in the Rx
+path and need to have these processed even though the length field will be
+0 on these packets.  What will happen with a programming descriptor is that
+we will receive a descriptor that has the SPH bit set, and the header
+length and packet length fields cleared.
 
-Change-ID: Ibe32b7f4ae55d4358c0b903217475f708ada1ecd
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+To account for this we should be checking for the bit for split header
+being set even though we aren't actually using header split. This bit is
+set in the length field to indicate if a programming descriptor response is
+contained in the descriptor. Since we don't support header split we don't
+need to perform the extra checks of using a fixed value for the entire
+length field.
+
+In addition I am moving the function for checking if a filter is a
+programming status filter into the i40e_txrx.c file since there is no
+longer support for FCoE it doesn't make sense to keep this file in i40e.h.
+
+Change-ID: I12c359c3dc70adb9d6b92b27324bb2c7f04c1a06
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_debugfs.c | 51 ++++++++++++++++++++++++++
- 1 file changed, 51 insertions(+)
+ drivers/net/ethernet/intel/i40e/i40e.h        | 15 --------
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c   | 50 ++++++++++++++++++++-------
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c |  9 ++---
+ 3 files changed, 43 insertions(+), 31 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-index c5f68cc1edcd..a3d7ec62b76c 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-@@ -384,6 +384,8 @@ static void i40e_dbg_dump_vsi_seid(struct i40e_pf *pf, int seid)
- 		 "    base_queue = %d, num_queue_pairs = %d, num_desc = %d\n",
- 		 vsi->base_queue, vsi->num_queue_pairs, vsi->num_desc);
- 	dev_info(&pf->pdev->dev, "    type = %i\n", vsi->type);
-+	if (vsi->type == I40E_VSI_SRIOV)
-+		dev_info(&pf->pdev->dev, "    VF ID = %i\n", vsi->vf_id);
- 	dev_info(&pf->pdev->dev,
- 		 "    info: valid_sections = 0x%04x, switch_id = 0x%04x\n",
- 		 vsi->info.valid_sections, vsi->info.switch_id);
-@@ -694,6 +696,47 @@ static void i40e_dbg_dump_veb_all(struct i40e_pf *pf)
- 	}
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index e987503f8517..b629f3adcecb 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -763,21 +763,6 @@ static inline void i40e_vsi_setup_irqhandler(struct i40e_vsi *vsi,
  }
  
-+/**
-+ * i40e_dbg_dump_vf - dump VF info
-+ * @pf: the i40e_pf created in command write
-+ * @vf_id: the vf_id from the user
-+ **/
-+static void i40e_dbg_dump_vf(struct i40e_pf *pf, int vf_id)
-+{
-+	struct i40e_vf *vf;
-+	struct i40e_vsi *vsi;
-+
-+	if (!pf->num_alloc_vfs) {
-+		dev_info(&pf->pdev->dev, "no VFs allocated\n");
-+	} else if ((vf_id >= 0) && (vf_id < pf->num_alloc_vfs)) {
-+		vf = &pf->vf[vf_id];
-+		vsi = pf->vsi[vf->lan_vsi_idx];
-+		dev_info(&pf->pdev->dev, "vf %2d: VSI id=%d, seid=%d, qps=%d\n",
-+			 vf_id, vf->lan_vsi_id, vsi->seid, vf->num_queue_pairs);
-+		dev_info(&pf->pdev->dev, "       num MDD=%lld, invalid msg=%lld, valid msg=%lld\n",
-+			 vf->num_mdd_events,
-+			 vf->num_invalid_msgs,
-+			 vf->num_valid_msgs);
-+	} else {
-+		dev_info(&pf->pdev->dev, "invalid VF id %d\n", vf_id);
-+	}
-+}
-+
-+/**
-+ * i40e_dbg_dump_vf_all - dump VF info for all VFs
-+ * @pf: the i40e_pf created in command write
-+ **/
-+static void i40e_dbg_dump_vf_all(struct i40e_pf *pf)
-+{
-+	int i;
-+
-+	if (!pf->num_alloc_vfs)
-+		dev_info(&pf->pdev->dev, "no VFs enabled!\n");
-+	else
-+		for (i = 0; i < pf->num_alloc_vfs; i++)
-+			i40e_dbg_dump_vf(pf, i);
-+}
-+
- #define I40E_MAX_DEBUG_OUT_BUFFER (4096*4)
  /**
-  * i40e_dbg_command_write - write into command datum
-@@ -712,6 +755,7 @@ static ssize_t i40e_dbg_command_write(struct file *filp,
- 	struct i40e_vsi *vsi;
- 	int vsi_seid;
- 	int veb_seid;
-+	int vf_id;
- 	int cnt;
+- * i40e_rx_is_programming_status - check for programming status descriptor
+- * @qw: the first quad word of the program status descriptor
+- *
+- * The value of in the descriptor length field indicate if this
+- * is a programming status descriptor for flow director or FCoE
+- * by the value of I40E_RX_PROG_STATUS_DESC_LENGTH, otherwise
+- * it is a packet descriptor.
+- **/
+-static inline bool i40e_rx_is_programming_status(u64 qw)
+-{
+-	return I40E_RX_PROG_STATUS_DESC_LENGTH ==
+-		(qw >> I40E_RX_PROG_STATUS_DESC_LENGTH_SHIFT);
+-}
+-
+-/**
+  * i40e_get_fd_cnt_all - get the total FD filter space available
+  * @pf: pointer to the PF struct
+  **/
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+index 20691d2bf113..843d7ffe1784 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+@@ -1038,9 +1038,29 @@ static bool i40e_set_new_dynamic_itr(struct i40e_ring_container *rc)
+ }
  
- 	/* don't allow partial writes */
-@@ -914,6 +958,12 @@ static ssize_t i40e_dbg_command_write(struct file *filp,
- 				i40e_dbg_dump_veb_seid(pf, vsi_seid);
- 			else
- 				i40e_dbg_dump_veb_all(pf);
-+		} else if (strncmp(&cmd_buf[5], "vf", 2) == 0) {
-+			cnt = sscanf(&cmd_buf[7], "%i", &vf_id);
-+			if (cnt > 0)
-+				i40e_dbg_dump_vf(pf, vf_id);
-+			else
-+				i40e_dbg_dump_vf_all(pf);
- 		} else if (strncmp(&cmd_buf[5], "desc", 4) == 0) {
- 			int ring_id, desc_n;
- 			if (strncmp(&cmd_buf[10], "rx", 2) == 0) {
-@@ -1109,6 +1159,7 @@ static ssize_t i40e_dbg_command_write(struct file *filp,
- 			dev_info(&pf->pdev->dev, "dump vsi [seid]\n");
- 			dev_info(&pf->pdev->dev, "dump reset stats\n");
- 			dev_info(&pf->pdev->dev, "dump port\n");
-+			dev_info(&pf->pdev->dev, "dump vf [vf_id]\n");
- 			dev_info(&pf->pdev->dev,
- 				 "dump debug fwdata <cluster_id> <table_id> <index>\n");
- 		}
+ /**
++ * i40e_rx_is_programming_status - check for programming status descriptor
++ * @qw: qword representing status_error_len in CPU ordering
++ *
++ * The value of in the descriptor length field indicate if this
++ * is a programming status descriptor for flow director or FCoE
++ * by the value of I40E_RX_PROG_STATUS_DESC_LENGTH, otherwise
++ * it is a packet descriptor.
++ **/
++static inline bool i40e_rx_is_programming_status(u64 qw)
++{
++	/* The Rx filter programming status and SPH bit occupy the same
++	 * spot in the descriptor. Since we don't support packet split we
++	 * can just reuse the bit as an indication that this is a
++	 * programming status descriptor.
++	 */
++	return qw & I40E_RXD_QW1_LENGTH_SPH_MASK;
++}
++
++/**
+  * i40e_clean_programming_status - clean the programming status descriptor
+  * @rx_ring: the rx ring that has this descriptor
+  * @rx_desc: the rx descriptor written back by HW
++ * @qw: qword representing status_error_len in CPU ordering
+  *
+  * Flow director should handle FD_FILTER_STATUS to check its filter programming
+  * status being successful or not and take actions accordingly. FCoE should
+@@ -1048,12 +1068,18 @@ static bool i40e_set_new_dynamic_itr(struct i40e_ring_container *rc)
+  *
+  **/
+ static void i40e_clean_programming_status(struct i40e_ring *rx_ring,
+-					  union i40e_rx_desc *rx_desc)
++					  union i40e_rx_desc *rx_desc,
++					  u64 qw)
+ {
+-	u64 qw;
++	u32 ntc = rx_ring->next_to_clean + 1;
+ 	u8 id;
+ 
+-	qw = le64_to_cpu(rx_desc->wb.qword1.status_error_len);
++	/* fetch, update, and store next to clean */
++	ntc = (ntc < rx_ring->count) ? ntc : 0;
++	rx_ring->next_to_clean = ntc;
++
++	prefetch(I40E_RX_DESC(rx_ring, ntc));
++
+ 	id = (qw & I40E_RX_PROG_STATUS_DESC_QW1_PROGID_MASK) >>
+ 		  I40E_RX_PROG_STATUS_DESC_QW1_PROGID_SHIFT;
+ 
+@@ -1911,11 +1937,6 @@ static bool i40e_is_non_eop(struct i40e_ring *rx_ring,
+ 
+ 	prefetch(I40E_RX_DESC(rx_ring, ntc));
+ 
+-#define staterrlen rx_desc->wb.qword1.status_error_len
+-	if (unlikely(i40e_rx_is_programming_status(le64_to_cpu(staterrlen)))) {
+-		i40e_clean_programming_status(rx_ring, rx_desc);
+-		return true;
+-	}
+ 	/* if we are the last buffer then there is nothing else to do */
+ #define I40E_RXD_EOF BIT(I40E_RX_DESC_STATUS_EOF_SHIFT)
+ 	if (likely(i40e_test_staterr(rx_desc, I40E_RXD_EOF)))
+@@ -1968,10 +1989,6 @@ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
+ 		 * hardware wrote DD then the length will be non-zero
+ 		 */
+ 		qword = le64_to_cpu(rx_desc->wb.qword1.status_error_len);
+-		size = (qword & I40E_RXD_QW1_LENGTH_PBUF_MASK) >>
+-		       I40E_RXD_QW1_LENGTH_PBUF_SHIFT;
+-		if (!size)
+-			break;
+ 
+ 		/* This memory barrier is needed to keep us from reading
+ 		 * any other fields out of the rx_desc until we have
+@@ -1979,6 +1996,15 @@ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
+ 		 */
+ 		dma_rmb();
+ 
++		if (unlikely(i40e_rx_is_programming_status(qword))) {
++			i40e_clean_programming_status(rx_ring, rx_desc, qword);
++			continue;
++		}
++		size = (qword & I40E_RXD_QW1_LENGTH_PBUF_MASK) >>
++		       I40E_RXD_QW1_LENGTH_PBUF_SHIFT;
++		if (!size)
++			break;
++
+ 		rx_buffer = i40e_get_rx_buffer(rx_ring, size);
+ 
+ 		/* retrieve a buffer from the ring */
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+index fc4b14af370d..80931e3f9445 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+@@ -1317,10 +1317,6 @@ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
+ 		 * hardware wrote DD then the length will be non-zero
+ 		 */
+ 		qword = le64_to_cpu(rx_desc->wb.qword1.status_error_len);
+-		size = (qword & I40E_RXD_QW1_LENGTH_PBUF_MASK) >>
+-		       I40E_RXD_QW1_LENGTH_PBUF_SHIFT;
+-		if (!size)
+-			break;
+ 
+ 		/* This memory barrier is needed to keep us from reading
+ 		 * any other fields out of the rx_desc until we have
+@@ -1328,6 +1324,11 @@ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
+ 		 */
+ 		dma_rmb();
+ 
++		size = (qword & I40E_RXD_QW1_LENGTH_PBUF_MASK) >>
++		       I40E_RXD_QW1_LENGTH_PBUF_SHIFT;
++		if (!size)
++			break;
++
+ 		rx_buffer = i40e_get_rx_buffer(rx_ring, size);
+ 
+ 		/* retrieve a buffer from the ring */
 -- 
 2.12.2
