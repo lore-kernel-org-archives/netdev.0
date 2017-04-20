@@ -1,7 +1,7 @@
 From: Davide Caratti <dcaratti@redhat.com>
-Subject: [PATCH RFC net-next v4 0/7] net: improve support for SCTP checksums
-Date: Thu, 20 Apr 2017 15:38:06 +0200
-Message-ID: <cover.1492692976.git.dcaratti@redhat.com>
+Subject: [PATCH RFC net-next v4 1/7] skbuff: add stub to help computing crc32c on SCTP packets
+Date: Thu, 20 Apr 2017 15:38:07 +0200
+Message-ID: <7bc9fc9bd627567708391e19dfcca815fff7667b.1492692976.git.dcaratti@redhat.com>
 References: <CALx6S36rem=OuN_At6qYA=se5cpuYM1N2R8efoaszvo8b8Tz5A@mail.gmail.com>
 Cc: "David S . Miller" <davem@davemloft.net>,
         Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
@@ -10,64 +10,102 @@ To: Tom Herbert <tom@herbertland.com>,
         Alexander Duyck <alexander.duyck@gmail.com>,
         David Laight <David.Laight@aculab.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:35370 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:33222 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S946031AbdDTNib (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 20 Apr 2017 09:38:31 -0400
+        id S945050AbdDTNjY (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 20 Apr 2017 09:39:24 -0400
 In-Reply-To: <CALx6S36rem=OuN_At6qYA=se5cpuYM1N2R8efoaszvo8b8Tz5A@mail.gmail.com>
+In-Reply-To: <cover.1492692976.git.dcaratti@redhat.com>
+References: <cover.1492692976.git.dcaratti@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-hello Tom,
+sctp_compute_checksum requires crc32c symbol (provided by libcrc32c), so
+it can't be used in net core. Like it has been done previously with other
+symbols (e.g. ipv6_dst_lookup), introduce a stub struct skb_checksum_ops
+to allow computation of crc32c checksum in net core after sctp.ko (and thus
+libcrc32c) has been loaded.
 
-On Fri, 2017-04-07 at 11:11 -0700, Tom Herbert wrote:
-> maybe just call it csum_not_ip then. Then just do "if
-> (unlikely(skb->csum_not_ip)) ..."
+Reviewed-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Signed-off-by: Davide Caratti <dcaratti@redhat.com>
+---
+ include/linux/skbuff.h |  2 ++
+ net/core/skbuff.c      | 24 ++++++++++++++++++++++++
+ net/sctp/offload.c     |  7 +++++++
+ 3 files changed, 33 insertions(+)
 
-Ok, done. V4 uses this bit for SCTP only and leaves unmodified behavior
-when offloaded FCoE frames are processed. Further work is still possible
-to extend this fix for FCoE, if needed, either by using additional sk_buff
-bits, or using skb->csum_not_ip and use other data (e.g. skb->csum_offset)
-to distinguish SCTP from FCoE.
-
-> the only case where this new bit is relevant is when
-> CHECKSUM_PARTIAL for a CRC is being done. When it's set for offloading
-> sctp crc it must be set. When CRC is resolved, in the helper for
-> instance, it must be cleared.
-
-in V4 the bit is set when SCTP packets with offloaded checksum are
-generated; the bit is cleared when CRC32c is resolved for such packets
-(i.e. skb->ip_summed transitions from CHECKSUM_PARTIAL to CHECKSUM_NONE).
-
-Any feedbacks are appreciated!
-thank you in advance,
---
-davide
-
-
-Davide Caratti (7):
-  skbuff: add stub to help computing crc32c on SCTP packets
-  net: introduce skb_crc32c_csum_help
-  sk_buff: remove support for csum_bad in sk_buff
-  net: use skb->csum_not_inet to identify packets needing crc32c
-  net: more accurate checksumming in validate_xmit_skb()
-  openvswitch: more accurate checksumming in queue_userspace_packet()
-  sk_buff.h: improve description of CHECKSUM_{COMPLETE,UNNECESSARY}
-
- Documentation/networking/checksum-offloads.txt   | 11 +++--
- drivers/net/ethernet/aquantia/atlantic/aq_ring.c |  2 +-
- include/linux/netdevice.h                        |  8 +--
- include/linux/skbuff.h                           | 58 +++++++++-------------
- net/bridge/netfilter/nft_reject_bridge.c         |  5 +-
- net/core/dev.c                                   | 63 +++++++++++++++++++++---
- net/core/skbuff.c                                | 24 +++++++++
- net/ipv4/netfilter/nf_reject_ipv4.c              |  2 +-
- net/ipv6/netfilter/nf_reject_ipv6.c              |  3 --
- net/openvswitch/datapath.c                       |  2 +-
- net/sched/act_csum.c                             |  1 +
- net/sctp/offload.c                               |  8 +++
- net/sctp/output.c                                |  1 +
- 13 files changed, 128 insertions(+), 60 deletions(-)
-
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 741d75c..ba3ae21 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -3127,6 +3127,8 @@ struct skb_checksum_ops {
+ 	__wsum (*combine)(__wsum csum, __wsum csum2, int offset, int len);
+ };
+ 
++extern const struct skb_checksum_ops *crc32c_csum_stub __read_mostly;
++
+ __wsum __skb_checksum(const struct sk_buff *skb, int offset, int len,
+ 		      __wsum csum, const struct skb_checksum_ops *ops);
+ __wsum skb_checksum(const struct sk_buff *skb, int offset, int len,
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index ad2af56..182608b 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -2242,6 +2242,30 @@ __wsum skb_copy_and_csum_bits(const struct sk_buff *skb, int offset,
+ }
+ EXPORT_SYMBOL(skb_copy_and_csum_bits);
+ 
++static __wsum warn_crc32c_csum_update(const void *buff, int len, __wsum sum)
++{
++	net_warn_ratelimited(
++		"%s: attempt to compute crc32c without libcrc32c.ko\n",
++		__func__);
++	return 0;
++}
++
++static __wsum warn_crc32c_csum_combine(__wsum csum, __wsum csum2,
++				       int offset, int len)
++{
++	net_warn_ratelimited(
++		"%s: attempt to compute crc32c without libcrc32c.ko\n",
++		__func__);
++	return 0;
++}
++
++const struct skb_checksum_ops *crc32c_csum_stub __read_mostly =
++	&(struct skb_checksum_ops) {
++	.update  = warn_crc32c_csum_update,
++	.combine = warn_crc32c_csum_combine,
++};
++EXPORT_SYMBOL(crc32c_csum_stub);
++
+  /**
+  *	skb_zerocopy_headlen - Calculate headroom needed for skb_zerocopy()
+  *	@from: source buffer
+diff --git a/net/sctp/offload.c b/net/sctp/offload.c
+index 4f5a2b5..378f462 100644
+--- a/net/sctp/offload.c
++++ b/net/sctp/offload.c
+@@ -98,6 +98,12 @@ static const struct net_offload sctp6_offload = {
+ 	},
+ };
+ 
++static const struct skb_checksum_ops *crc32c_csum_ops __read_mostly =
++	&(struct skb_checksum_ops) {
++	.update  = sctp_csum_update,
++	.combine = sctp_csum_combine,
++};
++
+ int __init sctp_offload_init(void)
+ {
+ 	int ret;
+@@ -110,6 +116,7 @@ int __init sctp_offload_init(void)
+ 	if (ret)
+ 		goto ipv4;
+ 
++	crc32c_csum_stub = crc32c_csum_ops;
+ 	return ret;
+ 
+ ipv4:
 -- 
 2.7.4
