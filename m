@@ -1,82 +1,54 @@
-From: Andrey Konovalov <andreyknvl@google.com>
-Subject: Re: net: heap out-of-bounds in fib6_clean_node/rt6_fill_node/fib6_age/fib6_prune_clone
-Date: Thu, 20 Apr 2017 14:10:03 +0200
-Message-ID: <CAAeHK+zWO1COcZDp9q4eHP9YN9Qv8CXLOJu8dJgCbihcFSK3jg@mail.gmail.com>
-References: <CACT4Y+YrA45diWz_8f4St8oX6aTC1kuGXMUvniGRbqXSGwawZQ@mail.gmail.com>
- <CACT4Y+YpUZ+7f5bzPh1hATwUXaZaPTu4rYYdz0RY1MHA1WG3SA@mail.gmail.com>
- <328b1fa7-2d97-6ae3-3b87-e33a0d564ad9@cumulusnetworks.com>
- <CACT4Y+aQFe+M=ESuShQ4FYNWAd8CNEQ=0rW+aAB0P-tp=PpFyQ@mail.gmail.com>
- <CACT4Y+aQgM=9QMkyfcXF2B5gGidvL07JP_m_inNXTPXU22i=aA@mail.gmail.com>
- <CACT4Y+Yx1cgWCkC2c7bze1V1VaecgBfioMvKS2-FUeaRr4DGXg@mail.gmail.com>
- <CACT4Y+bcMz13ad2kLaZGvct5sQ+RDki0StnOEbz3exAa8=zxqQ@mail.gmail.com>
- <CACT4Y+Z6f4aOxMZW44WXdYEyDJbGBYLnjKsHBXfK800h+EkrxA@mail.gmail.com>
- <2270c1ca-9481-60c1-9c29-87669223bded@cumulusnetworks.com>
- <CACT4Y+aUROZgAczRfntp5Rgvzcypviz5ZWBPdE6MWSiO0-3jEg@mail.gmail.com>
- <CAAeHK+zx6W_yxnoEQ2Pc1AT4uLXqYZaoi5oQBeuCntdGS38TQg@mail.gmail.com>
- <580392d8-fa33-67bb-c5d6-27d262f1646a@cumulusnetworks.com>
- <CAAeHK+zZb=K4X9=NmSWQJL8bpgMbXoG+h4RasAyYDr+C5pkVYA@mail.gmail.com>
- <CAM_iQpXyDN5GD+QLmWgJSc0bqV0ViK5LxSdwAV3XsHWr6vLJ2Q@mail.gmail.com>
- <1dad955e-28c1-3f02-8876-90cce4a7d1f8@cumulusnetworks.com> <CACT4Y+amFHj1DV3pmj+eJVxg52+GLdE-fEin5M86dOKubea7DQ@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next v4 1/2] net sched actions: dump more than
+ TCA_ACT_MAX_PRIO actions per batch
+Date: Thu, 20 Apr 2017 05:18:14 -0700
+Message-ID: <1492690694.22296.32.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1492603050-9318-1-git-send-email-jhs@emojatatu.com>
+         <20170419123645.GB3357@nanopsycho.orion>
+         <705a4d67-4a81-113f-e22a-0ca0bb6cf1eb@mojatatu.com>
+         <20170419131323.GE3357@nanopsycho.orion>
+         <e2a1e201-4830-e600-e668-91f83bcc9b32@mojatatu.com>
+         <20170419155400.GH3357@nanopsycho.orion>
+         <56488055-1f4b-ee10-2357-5ce80f1fbc50@mojatatu.com>
+         <20170419161736.GJ3357@nanopsycho.orion>
+         <f0e84f44-ba3a-7eb4-8b22-9764048d9406@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Ahern <dsa@cumulusnetworks.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        Mahesh Bandewar <maheshb@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        David Miller <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Dmitry Vyukov <dvyukov@google.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Pirko <jiri@resnulli.us>, davem@davemloft.net,
+        netdev@vger.kernel.org, xiyou.wangcong@gmail.com
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yb0-f169.google.com ([209.85.213.169]:36082 "EHLO
-        mail-yb0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S969390AbdDTMKF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 08:10:05 -0400
-Received: by mail-yb0-f169.google.com with SMTP id s22so24449331ybe.3
-        for <netdev@vger.kernel.org>; Thu, 20 Apr 2017 05:10:04 -0700 (PDT)
-In-Reply-To: <CACT4Y+amFHj1DV3pmj+eJVxg52+GLdE-fEin5M86dOKubea7DQ@mail.gmail.com>
+Received: from mail-io0-f193.google.com ([209.85.223.193]:35341 "EHLO
+        mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751238AbdDTMSQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 08:18:16 -0400
+Received: by mail-io0-f193.google.com with SMTP id d203so15849513iof.2
+        for <netdev@vger.kernel.org>; Thu, 20 Apr 2017 05:18:16 -0700 (PDT)
+In-Reply-To: <f0e84f44-ba3a-7eb4-8b22-9764048d9406@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 20, 2017 at 10:35 AM, Dmitry Vyukov <dvyukov@google.com> wrote:
-> On Thu, Apr 20, 2017 at 1:51 AM, David Ahern <dsa@cumulusnetworks.com> wrote:
->> On 4/19/17 5:47 PM, Cong Wang wrote:
->>> On Wed, Apr 19, 2017 at 9:12 AM, Andrey Konovalov <andreyknvl@google.com> wrote:
->>>>
->>>> Anyway, I just finished simplifying the reproducer. Give this one a try.
->>>
->>> Thanks for providing such a minimal reproducer!
->>>
->>> The following patch could fix this crash, but I am not 100% sure if we should
->>> just clear these bits or reject them with an errno.
->>>
->>> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
->>> index 9db14189..cf524c2 100644
->>> --- a/net/ipv6/route.c
->>> +++ b/net/ipv6/route.c
->>> @@ -2086,7 +2086,7 @@ static struct rt6_info
->>> *ip6_route_info_create(struct fib6_config *cfg)
->>>         } else
->>>                 rt->rt6i_prefsrc.plen = 0;
->>>
->>> -       rt->rt6i_flags = cfg->fc_flags;
->>> +       rt->rt6i_flags = cfg->fc_flags & ~(RTF_PCPU | RTF_CACHE);
->>>
->>>  install_route:
->>>         rt->dst.dev = dev;
->>>
->>
->> I sent a patch returning EINVAL if RTF_PCPU is set in fc_flags
->
->
-> Andrey, does it fix the other crashes?
+On Thu, 2017-04-20 at 06:42 -0400, Jamal Hadi Salim wrote:
 
-No, still see them.
+> 
+> They are not the same issue Jiri. We have used bitmasks fine on netlink
+> message for a millenia. Nobody sets garbage on a bitmask they are not
+> supposed to touch. The struct padding thing is a shame the way it
+> turned out - now netlink can no longer have a claim to be a (good)
+> wire protocol.
 
-I'm working on reproducing those.
+Except that users wrote programs, and these programs work today.
+
+By changing the kernel and recognizing new flags in existing padding,
+you might break the programs.
+
+This is not acceptable. Period.
+
+Had we checked the padding being 0 in old kernels, this change would
+have been possible today.
+
+But because old kernels did not care of the padding contents, then there
+is no way new kernel can suddenly trust them at all.
+
+Please Jamal, you have to forget this nonsense.
