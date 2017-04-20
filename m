@@ -1,33 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request (net): ipsec 2017-04-19
-Date: Thu, 20 Apr 2017 16:20:17 -0400 (EDT)
-Message-ID: <20170420.162017.1677591279608729707.davem@davemloft.net>
-References: <1492578636-621-1-git-send-email-steffen.klassert@secunet.com>
+Subject: Re: [PATCH] MAINTAINERS: update entry for TI's CPSW driver
+Date: Thu, 20 Apr 2017 16:21:59 -0400 (EDT)
+Message-ID: <20170420.162159.1753573169625541718.davem@davemloft.net>
+References: <8c950dd8642b7b8d778da36ea944674c9cab587c.1492590838.git.nsekhar@ti.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
-To: steffen.klassert@secunet.com
+Cc: grygorii.strashko@ti.com, linux-omap@vger.kernel.org,
+        netdev@vger.kernel.org
+To: nsekhar@ti.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:48994 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:49018 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1033541AbdDTUUT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 16:20:19 -0400
-In-Reply-To: <1492578636-621-1-git-send-email-steffen.klassert@secunet.com>
+        with ESMTP id S1033349AbdDTUWB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 16:22:01 -0400
+In-Reply-To: <8c950dd8642b7b8d778da36ea944674c9cab587c.1492590838.git.nsekhar@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Date: Wed, 19 Apr 2017 07:10:34 +0200
+From: Sekhar Nori <nsekhar@ti.com>
+Date: Wed, 19 Apr 2017 14:08:24 +0530
 
-> Two fixes for af_key:
+> Mugunthan V N, who was reviewing TI's CPSW driver patches is
+> not working for TI anymore and wont be reviewing patches for
+> that driver.
 > 
-> 1) Add a lock to key dump to prevent a NULL pointer dereference.
->    From Yuejie Shi.
+> Drop Mugunthan as the maintiainer for this driver.
 > 
-> 2) Fix slab-out-of-bounds in parse_ipsecrequests.
->    From Herbert Xu.
+> Grygorii continues to be a reviewer. Dave Miller applies the
+> patches directly and adding a maintainer is actually
+> misleading since get_maintainer.pl script stops suggesting
+> that Dave Miller be copied.
 > 
-> Please pull or let me know if there are problems.
+> Signed-off-by: Sekhar Nori <nsekhar@ti.com>
 
-Pulled, thanks Steffen.
+Applied, thank you.
