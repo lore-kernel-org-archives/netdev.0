@@ -1,43 +1,40 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH net] net: ipv6: RTF_PCPU should not be settable from
- userspace
-Date: Thu, 20 Apr 2017 16:43:03 -0600
-Message-ID: <c6f4f382-26ac-6679-adba-605e8f29cf6a@cumulusnetworks.com>
-References: <1492636783-29756-1-git-send-email-dsa@cumulusnetworks.com>
- <CAM_iQpUbuzie86Cf96Q9F53UiamJixr-aVkAKtgvZFtiKPngUw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Martin KaFai Lau <kafai@fb.com>,
-        Andrey Konovalov <andreyknvl@google.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f176.google.com ([209.85.223.176]:35213 "EHLO
-        mail-io0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1030888AbdDTWnH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 18:43:07 -0400
-Received: by mail-io0-f176.google.com with SMTP id r16so86567569ioi.2
-        for <netdev@vger.kernel.org>; Thu, 20 Apr 2017 15:43:07 -0700 (PDT)
-In-Reply-To: <CAM_iQpUbuzie86Cf96Q9F53UiamJixr-aVkAKtgvZFtiKPngUw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next] net: dsa: Remove redundant NULL dst check
+Date: Thu, 20 Apr 2017 15:47:22 -0700
+Message-ID: <20170420224723.6916-1-f.fainelli@gmail.com>
+Cc: jbe@pengutronix.de, Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        linux-kernel@vger.kernel.org (open list)
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 4/20/17 4:39 PM, Cong Wang wrote:
-> On Wed, Apr 19, 2017 at 2:19 PM, David Ahern <dsa@cumulusnetworks.com> wrote:
->>
->> Fix by checking for the flag and failing with EINVAL.
->>
-> 
-> I am still not sure about this. There are a few unused bits in
-> this flag, we simply ignore the rest, right? Why should we
-> reject this one instead of all of those we don't use?
-> 
+tag_lan9303.c does check for a NULL dst but that's already checked by
+dsa_switch_rcv() one layer above.
 
-RTF_PCPU most definitely should not be set by userspace. arguably it
-should not be returned to userspace either, but it is part of the uapi.
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ net/dsa/tag_lan9303.c | 5 -----
+ 1 file changed, 5 deletions(-)
 
-
-I scanned the others. It is not clear that others should fail with
-EINVAL. Certainly a mask of unused flags can be added, but to me that is
-on top of this bug fix.
+diff --git a/net/dsa/tag_lan9303.c b/net/dsa/tag_lan9303.c
+index 563b6c8fe445..70130ed5c21a 100644
+--- a/net/dsa/tag_lan9303.c
++++ b/net/dsa/tag_lan9303.c
+@@ -79,11 +79,6 @@ static struct sk_buff *lan9303_rcv(struct sk_buff *skb, struct net_device *dev,
+ 	struct dsa_switch *ds;
+ 	unsigned int source_port;
+ 
+-	if (unlikely(!dst)) {
+-		dev_warn_ratelimited(&dev->dev, "Dropping packet, due to missing switch tree device\n");
+-		return NULL;
+-	}
+-
+ 	ds = dst->ds[0];
+ 
+ 	if (unlikely(!ds)) {
+-- 
+2.9.3
