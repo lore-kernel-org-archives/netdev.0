@@ -1,64 +1,53 @@
-From: Robert LeBlanc <robert@leblancnet.us>
-Subject: mlx5en not able to communicate between VF and PF
-Date: Thu, 20 Apr 2017 14:06:32 -0600
-Message-ID: <CAANLjFqWJVs=DsONedX0-TpGCDUQUuj6v3va2MXZaStoATFtzw@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 0/3] uapi glibc compat: fix musl libc compatibility
+Date: Thu, 20 Apr 2017 16:07:39 -0400 (EDT)
+Message-ID: <20170420.160739.1263793303398330801.davem@davemloft.net>
+References: <20170418210036.26039-1-hauke@hauke-m.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f48.google.com ([209.85.218.48]:35561 "EHLO
-        mail-oi0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S947376AbdDTUGd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 16:06:33 -0400
-Received: by mail-oi0-f48.google.com with SMTP id j201so65987996oih.2
-        for <netdev@vger.kernel.org>; Thu, 20 Apr 2017 13:06:33 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        jarod@redhat.com, jogo@openwrt.org, david.heidelberger@ixit.cz,
+        maillist-linux@barfooze.de, mikko.rapeli@iki.fi,
+        dwmw2@infradead.org
+To: hauke@hauke-m.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170418210036.26039-1-hauke@hauke-m.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-After figuring out that CentOS requires a newer version of iproute to
-enable trust mode on VFs, I'm now having a problem getting a VM on a
-bridge on a VF to communicate with the host on the PF or a different
-VF.
+From: Hauke Mehrtens <hauke@hauke-m.de>
+Date: Tue, 18 Apr 2017 23:00:33 +0200
 
-The set-up:
+> The code from libc-compat.h depends on some glibc specific defines and 
+> causes compile problems with the musl libc. These patches remove some 
+> of the glibc dependencies. With these patches the LEDE (OpenWrt) base 
+> user space applications can be build with unmodified kernel headers and 
+> musl libc.
+> 
+> This was compile tested with the user space from LEDE (OpenWrt) with 
+> musl 1.1.16, glibc 2.25 and uClibc-ng 1.0.22.
+> 
+> Changes since v1:
+>  - fix typo in commit message
+>  - combine two changes
 
-             Host1                                    Host2
+I think I have to put the brakes on this patch series, after much
+consideration.
 
- /--------------------------------------------\
- |                                            |
-PF - 192.168.13.13/24                        PF - 192.168.13.14/24
- +-- VF1 - (Move the address
- |          from PF for testing)
- \-- VF2 - br0
-            +-- VM1 - 192.168.13.101/24
-            +-- VM2 - 192.168.13.102/24
-            \-- VM3 - 192.168.13.103/24
+It does not scale if we continually add a hodge-podge of different
+ifdef tests to the UAPI headers in order to prevent mutliple
+definitions.
 
-Host1 and Host2 have a Mellanox ConnectX-4 100Gb single port adapter
-and are connected back-to-back with no switch between them. Host1 VF2
-has trust mode set to on. From Host2, I can ping any address on Host1
-(PF, VM1, VM2, VM3). From VM3, I can ping VM1, VM2 and Host2 PF. From
-Host1 PF, I can ping Host2 PF.
+We will add that IFF_ECHO ifdef for MUSL libc today, and for another
+libc we will add another such hack.  And so on and so forth...
 
-The problem is that none of the VMs can ping Host1 PF nor can the
-Host1 PF ping any of the VMs.
+Instead, LIBC implementation must adopt the ifdef protections which
+have standard names and are being adopted by GLIBC and hopefully
+others.
 
-While doing tcpdump on the interfaces and a ping from VM3, I can see
-the ARP request go through VF2, I can see the request and the response
-on PF, but the response never makes it back to VF2.
+So please instead adjust the musl headers so that they interact
+properly with the framework we've designed specifically for this
+purpose.
 
-When I ping from Host1 PF to VM3, I see the ARP request and response
-on both the PF and VF2, however the ICMP request is sent on the PF,
-but the VF2 never sees it.
-
-If I move the Host1 PF address to a VF, the same problem happens.
-
-It seems to me that some rule in the eswitch is getting in the way,
-but I don't know how to view/modify the rules in the eswitch.
-
-Any help getting this working is appreciated.
-
-Thank you,
-----------------
-Robert LeBlanc
-PGP Fingerprint 79A2 9CA4 6CC4 45DD A904  C70E E654 3BB2 FA62 B9F1
+Thank you.
