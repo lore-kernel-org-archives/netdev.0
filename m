@@ -1,59 +1,75 @@
-From: Davide Caratti <dcaratti@redhat.com>
-Subject: [PATCH RFC net-next v4 7/7] sk_buff.h: improve description of CHECKSUM_{COMPLETE,UNNECESSARY}
-Date: Thu, 20 Apr 2017 15:38:13 +0200
-Message-ID: <a6f87efa3d7a00deaaddd080cd41be8a5b34387e.1492692976.git.dcaratti@redhat.com>
-References: <CALx6S36rem=OuN_At6qYA=se5cpuYM1N2R8efoaszvo8b8Tz5A@mail.gmail.com>
-Cc: "David S . Miller" <davem@davemloft.net>,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-        netdev@vger.kernel.org, linux-sctp@vger.kernel.org
-To: Tom Herbert <tom@herbertland.com>,
-        Alexander Duyck <alexander.duyck@gmail.com>,
-        David Laight <David.Laight@aculab.com>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: sctp: deny peeloff operation on asocs with threads sleeping on it
+Date: Thu, 20 Apr 2017 10:54:42 -0300
+Message-ID: <273c17d9-d424-ae4d-f282-976b7a1daa8a@gmail.com>
+References: <20170420114405.mh7r5otmvpksacqd@lorien.valinor.li>
+ <20170420123257.GA11798@lorien.valinor.li>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Alexander Popov <alex.popov@linux.com>,
+        Ben Hutchings <ben@decadent.org.uk>,
+        Xin Long <lucien.xin@gmail.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+To: Salvatore Bonaccorso <carnil@debian.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33406 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S945050AbdDTNjg (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 20 Apr 2017 09:39:36 -0400
-In-Reply-To: <CALx6S36rem=OuN_At6qYA=se5cpuYM1N2R8efoaszvo8b8Tz5A@mail.gmail.com>
-In-Reply-To: <cover.1492692976.git.dcaratti@redhat.com>
-References: <cover.1492692976.git.dcaratti@redhat.com>
+Received: from mail-qk0-f195.google.com ([209.85.220.195]:33851 "EHLO
+        mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1031195AbdDTNyu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 09:54:50 -0400
+Received: by mail-qk0-f195.google.com with SMTP id d80so2908195qke.1
+        for <netdev@vger.kernel.org>; Thu, 20 Apr 2017 06:54:50 -0700 (PDT)
+In-Reply-To: <20170420123257.GA11798@lorien.valinor.li>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add FCoE to the list of protocols that can set CHECKSUM_UNNECESSARY; add a
-note to CHECKSUM_COMPLETE section to specify that it does not apply to SCTP
-and FCoE protocols.
+Em 20-04-2017 09:32, Salvatore Bonaccorso escreveu:
+> Hi
+> 
+> According to the documentation I should have sent this to
+> netdev@vger.kernel.org rather than stable@vger.kernel.org.
+> 
+> Rationale: Whilst 00eff2ebbd229758e90659907724c14dd5a18339 went to
+> stable, the dfcb9f4f99f1e9a49e43398a7bfbf56927544af1 commit is
+> missing.
 
-Suggested-by: Tom Herbert <tom@herbertland.com>
-Signed-off-by: Davide Caratti <dcaratti@redhat.com>
----
- include/linux/skbuff.h | 7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
+Cc'ing Greg too.
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 4002c11..c902b77 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -109,6 +109,7 @@
-  *       may perform further validation in this case.
-  *     GRE: only if the checksum is present in the header.
-  *     SCTP: indicates the CRC in SCTP header has been validated.
-+ *     FCOE: indicates the CRC in FC frame has been validated.
-  *
-  *   skb->csum_level indicates the number of consecutive checksums found in
-  *   the packet minus one that have been verified as CHECKSUM_UNNECESSARY.
-@@ -126,8 +127,10 @@
-  *   packet as seen by netif_rx() and fills out in skb->csum. Meaning, the
-  *   hardware doesn't need to parse L3/L4 headers to implement this.
-  *
-- *   Note: Even if device supports only some protocols, but is able to produce
-- *   skb->csum, it MUST use CHECKSUM_COMPLETE, not CHECKSUM_UNNECESSARY.
-+ *   Notes:
-+ *   - Even if device supports only some protocols, but is able to produce
-+ *     skb->csum, it MUST use CHECKSUM_COMPLETE, not CHECKSUM_UNNECESSARY.
-+ *   - CHECKSUM_COMPLETE is not applicable to SCTP and FCoE protocols.
-  *
-  * CHECKSUM_PARTIAL:
-  *
--- 
-2.7.4
+This is probably because I noticed this commit was missing when Greg 
+posted the commits being considered for backports, then I raised the 
+concern and Greg decided to pull it too before David replied.
+
+Not sure if this caused some out-of-the-process stuff.
+
+> 
+> Full quoting, my original misleaded mail:
+> 
+> On Thu, Apr 20, 2017 at 01:44:05PM +0200, Salvatore Bonaccorso wrote:
+>> Hi
+>>
+>> Apparently the following commit
+>>
+>> dfcb9f4f99f1e9a49e43398a7bfbf56927544af1 (sctp: deny peeloff operation
+>> on asocs with threads sleeping on it)
+>>
+>> (was not CC'ed stable@vger.kernel.org, but was already applied in
+>> 3.2.87 and 3.16.42) is missing from 4.9:
+>>
+>> 2dcab598484185dea7ec22219c76dcdd59e3cb90 was included in 4.9.11 via
+>> 00eff2ebbd229758e90659907724c14dd5a18339 . But
+>> dfcb9f4f99f1e9a49e43398a7bfbf56927544af1 is missing from 4.9.
+>>
+>> This was assigned CVE-2017-6353.
+>>
+>> Reference:
+>> https://marc.info/?l=linux-netdev&m=148785309416337&w=2
+>> http://www.openwall.com/lists/oss-security/2017/02/27/2
+>>
+>> Regards,
+>> Salvatore
+> 
+> Regards,
+> Salvatore
+> 
