@@ -1,68 +1,122 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net-next 00/15][pull request] 10GbE Intel Wired LAN Driver
- Updates 2017-04-18
-Date: Thu, 20 Apr 2017 01:44:22 -0700
-Message-ID: <1492677862.3627.1.camel@intel.com>
-References: <20170418230205.37223-1-jeffrey.t.kirsher@intel.com>
-         <20170420052515.GA77954@ast-mbp.thefacebook.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: pull request (net-next): ipsec-next 2017-04-20
+Date: Thu, 20 Apr 2017 10:54:59 +0200
+Message-ID: <1492678515-14347-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha256";
-        protocol="application/pgp-signature"; boundary="=-ijD+9J/6TCLk/w6V6aSa"
-Cc: davem@davemloft.net, netdev@vger.kernel.org, nhorman@redhat.com,
-        sassmann@redhat.com, jogreene@redhat.com
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Content-Type: text/plain
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+        Steffen Klassert <steffen.klassert@secunet.com>,
+        <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga06.intel.com ([134.134.136.31]:62289 "EHLO mga06.intel.com"
+Received: from a.mx.secunet.com ([62.96.220.36]:51542 "EHLO a.mx.secunet.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S938696AbdDTIob (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 20 Apr 2017 04:44:31 -0400
-In-Reply-To: <20170420052515.GA77954@ast-mbp.thefacebook.com>
+        id S939519AbdDTIzy (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 20 Apr 2017 04:55:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This adds the basic infrastructure for IPsec hardware
+offloading, it creates a configuration API and adjusts
+the packet path.
 
---=-ijD+9J/6TCLk/w6V6aSa
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+1) Add the needed netdev features to configure IPsec offloads.
 
-On Wed, 2017-04-19 at 22:25 -0700, Alexei Starovoitov wrote:
-> On Tue, Apr 18, 2017 at 04:01:50PM -0700, Jeff Kirsher wrote:
-> > The following are changes since commit
-> > 4116c97689b9b1732ac5b68afd922406f9fc842e:
-> > =C2=A0=C2=A0 Merge branch 'ftgmac100-batch5-features'
-> > and are available in the git repository at:
-> > =C2=A0=C2=A0 git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/nex=
-t-
-> > queue 10GbE
->=20
-> Nothing against this set of commits,
-> but I saw ixgbe xdp support in there pending for few months.
-> Now it's gone. What happened?
+2) Add the IPsec hardware offloading API.
 
-XDP is in the next series of patches, per Dave, we need to keep patch
-series smaller to help in revue.  Next series will contain what you are
-looking for, just need to get this up before I can push the next
-series.
---=-ijD+9J/6TCLk/w6V6aSa
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
+3) Prepare the ESP packet path for hardware offloading.
 
------BEGIN PGP SIGNATURE-----
+4) Add gso handlers for esp4 and esp6, this implements
+   the software fallback for GSO packets.
 
-iQIzBAABCAAdFiEEiTyZWz+nnTrOJ1LZ5W/vlVpL7c4FAlj4dOYACgkQ5W/vlVpL
-7c6aKg//b5ELyYYZghFhymR//7bi+Er2hEHMCycIIDA4zvo2gMgW5LKXm4wg0XMB
-Phutj5DONnCMza1Ga1YPCWf2eFbf8WqcILW6Ztf5zkXC/qCfEGKom5tqYJ2qr1PA
-wFRHSr1n0XV6erQ7+lWbIJ4BWFVGNGhSdX2AtpXC5ujWyIzyr4wEJX9coHBV0JUY
-wlrfSUZSbFcOPTbZWebzDTHS9Tu5MKBtWKAAveDoXJVFqGNAma7Jq0ZApXPpooY5
-mFPo6bkLG7IUIilyq1iXbfyI79tO+krX1Z6snfyXkhhsbtJ1BDmXNYYsP1A+XOEn
-nnfX7Z3SfX0jtZCZ2xB9SzTtQsjNmpYK/t4wkOsr9XX8FTDMKn8dLCYbCns0KQWa
-3dpy0RS2tEOE49bkkUTJAlrsytcAKIaD1F8U9rrug3g2FmzvCfGnvNl+msUah0ah
-mxkBCz+I4BJRYHe9fwHO/yqF8M0OoJXiA8CU21GbhBYzJBk3BvjmIMxcK9IFJnQ8
-bIvIaR3Zxq3P4TaacmnYchMD7vPwRa5sM08nH2dIvfLDCLcMokeR6aGOFpZzCpuc
-4HUTQ12u5XDZ87JMT75Flh3BHttD91bStgtnRQBq/Ryi5/xN6PI3CeASUzih6x97
-00PNqYkiXk8cHzvuBae3RxaCh0038+VjQLIXAR4YZTO67HLdkQs=
-=yajc
------END PGP SIGNATURE-----
+5) Add xfrm replay handler functions for offloading.
 
---=-ijD+9J/6TCLk/w6V6aSa--
+6) Change ESP to use a synchronous crypto algorithm on
+   offloading, we don't have the option for asynchronous
+   returns when we handle IPsec at layer2.
+
+7) Add a xfrm validate function to validate_xmit_skb. This
+   implements the software fallback for non GSO packets.
+
+8) Set the inner_network and inner_transport members of
+   the SKB, as well as encapsulation, to reflect the actual
+   positions of these headers, and removes them only once
+   encryption is done on the payload.
+   From Ilan Tayari.
+
+9) Prepare the ESP GRO codepath for hardware offloading.
+
+10) Fix incorrect null pointer check in esp6.
+    From Colin Ian King.
+
+11) Fix for the GSO software fallback path to detect the
+    fallback correctly.
+    From Ilan Tayari.
+
+Please pull or let me know if there are problems.
+
+Thanks!
+
+The following changes since commit f221dcd91d20cdcb893cf6e9c8894b7d6c97d649:
+
+  Merge branch 'net-smc-next' (2017-04-11 23:01:15 -0400)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/klassert/ipsec-next.git master
+
+for you to fetch changes up to 8f92e03ecca390beed3d5ccc81023d050f0369fd:
+
+  esp4/6: Fix GSO path for non-GSO SW-crypto packets (2017-04-19 07:48:57 +0200)
+
+----------------------------------------------------------------
+Colin Ian King (1):
+      esp6: fix incorrect null pointer check on xo
+
+Ilan Tayari (2):
+      xfrm: Add encapsulation header offsets while SKB is not encrypted
+      esp4/6: Fix GSO path for non-GSO SW-crypto packets
+
+Steffen Klassert (13):
+      net: Add ESP offload features
+      xfrm: Add a xfrm type offload.
+      xfrm: Move device notifications to a sepatate file
+      xfrm: Add mode handlers for IPsec on layer 2
+      xfrm: Add an IPsec hardware offloading API
+      esp6: Remame esp_input_done2
+      esp4: Reorganize esp_output
+      esp6: Reorganize esp_output
+      esp: Add gso handlers for esp4 and esp6
+      xfrm: Add xfrm_replay_overflow functions for offloading
+      esp: Use a synchronous crypto algorithm on offloading.
+      net: Add a xfrm validate function to validate_xmit_skb
+      xfrm: Prepare the GRO codepath for hardware offloading.
+
+ include/linux/netdev_features.h |   8 +-
+ include/linux/netdevice.h       |  15 ++
+ include/linux/skbuff.h          |   2 +
+ include/net/esp.h               |  19 +++
+ include/net/xfrm.h              | 108 +++++++++++-
+ include/uapi/linux/xfrm.h       |   8 +
+ net/core/dev.c                  |   3 +
+ net/core/ethtool.c              |   3 +
+ net/ipv4/esp4.c                 | 370 ++++++++++++++++++++++------------------
+ net/ipv4/esp4_offload.c         | 231 +++++++++++++++++++++++--
+ net/ipv4/xfrm4_mode_transport.c |  34 ++++
+ net/ipv4/xfrm4_mode_tunnel.c    |  28 +++
+ net/ipv4/xfrm4_output.c         |   3 +-
+ net/ipv6/esp6.c                 | 292 +++++++++++++++++--------------
+ net/ipv6/esp6_offload.c         | 233 +++++++++++++++++++++++--
+ net/ipv6/xfrm6_mode_transport.c |  34 ++++
+ net/ipv6/xfrm6_mode_tunnel.c    |  27 +++
+ net/ipv6/xfrm6_output.c         |   9 +-
+ net/xfrm/Makefile               |   1 +
+ net/xfrm/xfrm_device.c          | 208 ++++++++++++++++++++++
+ net/xfrm/xfrm_input.c           |  41 ++++-
+ net/xfrm/xfrm_output.c          |  46 ++++-
+ net/xfrm/xfrm_policy.c          |  27 +--
+ net/xfrm/xfrm_replay.c          | 162 +++++++++++++++++-
+ net/xfrm/xfrm_state.c           | 147 ++++++++++++++++
+ net/xfrm/xfrm_user.c            |  28 +++
+ 26 files changed, 1717 insertions(+), 370 deletions(-)
+ create mode 100644 net/xfrm/xfrm_device.c
