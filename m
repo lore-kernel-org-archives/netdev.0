@@ -1,49 +1,66 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: [PATCH net-next v2 5/5] virtio-net: keep tx interrupts disabled
- unless kick
-Date: Thu, 20 Apr 2017 10:03:26 -0400
-Message-ID: <CAF=yD-KVwRkkGr=pGDmTTXtrrTuAuD7SmTPVtQuwu9aufoBeEQ@mail.gmail.com>
-References: <20170418202108.61920-1-willemdebruijn.kernel@gmail.com>
- <20170418202108.61920-6-willemdebruijn.kernel@gmail.com> <72551dd3-ba91-812e-9065-d153bf8a7024@redhat.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: __sk_buff.data_end
+Date: Thu, 20 Apr 2017 16:10:40 +0200
+Message-ID: <58F8C160.6010905@iogearbox.net>
+References: <1492637460.22185.6.camel@sipsolutions.net>          (sfid-20170419_233114_060429_CAFE85B8) <1492640459.22185.7.camel@sipsolutions.net>      <58F7FA6D.5030000@iogearbox.net> <1492668065.3109.1.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Network Development <netdev@vger.kernel.org>,
-        "Michael S. Tsirkin" <mst@redhat.com>,
-        virtualization@lists.linux-foundation.org,
-        David Miller <davem@davemloft.net>,
-        Willem de Bruijn <willemb@google.com>
-To: Jason Wang <jasowang@redhat.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Johannes Berg <johannes@sipsolutions.net>,
+        Alexei Starovoitov <ast@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f175.google.com ([209.85.220.175]:34647 "EHLO
-        mail-qk0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1032098AbdDTOEI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 10:04:08 -0400
-Received: by mail-qk0-f175.google.com with SMTP id y63so16690970qkd.1
-        for <netdev@vger.kernel.org>; Thu, 20 Apr 2017 07:04:08 -0700 (PDT)
-In-Reply-To: <72551dd3-ba91-812e-9065-d153bf8a7024@redhat.com>
+Received: from www62.your-server.de ([213.133.104.62]:34892 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1032297AbdDTOLF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 10:11:05 -0400
+In-Reply-To: <1492668065.3109.1.camel@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->> -       if (!use_napi)
->> +       if (use_napi) {
->> +               if (kick)
->> +                       virtqueue_enable_cb_delayed(sq->vq);
->> +               else
->> +                       virtqueue_disable_cb(sq->vq);
+On 04/20/2017 08:01 AM, Johannes Berg wrote:
+> On Thu, 2017-04-20 at 02:01 +0200, Daniel Borkmann wrote:
+>>
+>> Yeah, should work as well for the 32 bit archs, on 64 bit we
+>> have this effectively already:
 >
+> Right.
 >
-> Since virtqueue_disable_cb() do nothing for event idx. I wonder whether or
-> not just calling enable_cb_dealyed() is ok here.
-
-Good point.
-
-> Btw, it does not disable interrupt at all, I propose a patch in the past
-> which can do more than this:
+> [...]
 >
-> https://patchwork.kernel.org/patch/6472601/
+>> Can you elaborate on why this works for mac80211? It uses cb
+>> only up to that point from where you invoke the prog?
+>
+> No, it works because then I can move a u64 field to the same offset,
+> and save/restore it across the BPF call :)
 
-Interesting. Yes, let me evaluate that variant.
+Right.
 
-Thanks for reviewing,
+> But I don't have a *pointer* field to move there, and no space for the
+> alignment anyway (already using all 48 bytes).
+>
+> Come to think of it - somebody had proposed extensions to this by
+> passing an on-stack pointer in addition to the data in the cb.
+>
+> Perhaps we can extend BPF to have an optional second argument, and
+> track a second context around the verifier, if applicable? Then we can
+> solve all of this really easily, because it means we don't always have
+> to go from the SKB context but could go from the other one (which could
+> be that on-stack buffer).
 
-  Willem
+I think this would be a rather more complex operation on the BPF side,
+it would need changes from LLVM (which assumes initial ctx sits in r1),
+verifier for tracking this ctx2, all the way down to JITs plus some way
+to handle 1 and 2 argument program calls generically. Much easier to
+pass additional meta data for the program via cb[], for example.
+
+> Alternatively I can clear another pointer (u64) in the CB, store a
+> pointer there, and always emit code following that pointer - should be
+> possible right?
+
+What kind of pointer? If it's something like data_end as read-only, then
+this needs to be tracked in the verifier in addition, of course. Other
+option you could do (depending on what you want to achieve) is to have
+a bpf_probe_read() version as a helper for your prog type that would
+further walk that pointer/struct (similar to tracing) where this comes
+w/o any backward compat guarantees, though.
