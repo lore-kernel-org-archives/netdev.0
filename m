@@ -1,94 +1,177 @@
-From: Andrey Konovalov <andreyknvl@google.com>
-Subject: Re: net: heap out-of-bounds in fib6_clean_node/rt6_fill_node/fib6_age/fib6_prune_clone
-Date: Thu, 20 Apr 2017 17:29:20 +0200
-Message-ID: <CAAeHK+zX2-eYuHscTKtP059H5tbX25t=hstGkCNtRvmcS1KDoQ@mail.gmail.com>
-References: <CACT4Y+YrA45diWz_8f4St8oX6aTC1kuGXMUvniGRbqXSGwawZQ@mail.gmail.com>
- <CACT4Y+YpUZ+7f5bzPh1hATwUXaZaPTu4rYYdz0RY1MHA1WG3SA@mail.gmail.com>
- <328b1fa7-2d97-6ae3-3b87-e33a0d564ad9@cumulusnetworks.com>
- <CACT4Y+aQFe+M=ESuShQ4FYNWAd8CNEQ=0rW+aAB0P-tp=PpFyQ@mail.gmail.com>
- <CACT4Y+aQgM=9QMkyfcXF2B5gGidvL07JP_m_inNXTPXU22i=aA@mail.gmail.com>
- <CACT4Y+Yx1cgWCkC2c7bze1V1VaecgBfioMvKS2-FUeaRr4DGXg@mail.gmail.com>
- <CACT4Y+bcMz13ad2kLaZGvct5sQ+RDki0StnOEbz3exAa8=zxqQ@mail.gmail.com>
- <CACT4Y+Z6f4aOxMZW44WXdYEyDJbGBYLnjKsHBXfK800h+EkrxA@mail.gmail.com>
- <2270c1ca-9481-60c1-9c29-87669223bded@cumulusnetworks.com>
- <CACT4Y+aUROZgAczRfntp5Rgvzcypviz5ZWBPdE6MWSiO0-3jEg@mail.gmail.com>
- <CAAeHK+zx6W_yxnoEQ2Pc1AT4uLXqYZaoi5oQBeuCntdGS38TQg@mail.gmail.com>
- <580392d8-fa33-67bb-c5d6-27d262f1646a@cumulusnetworks.com>
- <CAAeHK+zZb=K4X9=NmSWQJL8bpgMbXoG+h4RasAyYDr+C5pkVYA@mail.gmail.com>
- <CAM_iQpXyDN5GD+QLmWgJSc0bqV0ViK5LxSdwAV3XsHWr6vLJ2Q@mail.gmail.com>
- <1dad955e-28c1-3f02-8876-90cce4a7d1f8@cumulusnetworks.com>
- <CACT4Y+amFHj1DV3pmj+eJVxg52+GLdE-fEin5M86dOKubea7DQ@mail.gmail.com>
- <CAAeHK+zWO1COcZDp9q4eHP9YN9Qv8CXLOJu8dJgCbihcFSK3jg@mail.gmail.com> <CAAeHK+zSe82vc5gCRgr_EoUwiALPnWVdWJBPwJZBpbxYz=kGJw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Ahern <dsa@cumulusnetworks.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        Mahesh Bandewar <maheshb@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        David Miller <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Dmitry Vyukov <dvyukov@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAAeHK+zSe82vc5gCRgr_EoUwiALPnWVdWJBPwJZBpbxYz=kGJw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Alexander Kochetkov <al.kochet@gmail.com>
+Subject: Re: [PATCH v1] net: phy: fix auto-negotiation stall due to unavailable interrupt
+Date: Thu, 20 Apr 2017 18:33:38 +0300
+Message-ID: <40A85DD3-9569-409E-B732-37CAC0E45515@gmail.com>
+References: <1492686004-30527-1-git-send-email-al.kochet@gmail.com> <1492686004-30527-2-git-send-email-al.kochet@gmail.com>
+Mime-Version: 1.0 (Mac OS X Mail 9.3 \(3124\))
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+To: Alexandre Belloni <alexandre.belloni@free-electrons.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f65.google.com ([209.85.215.65]:32853 "EHLO
+        mail-lf0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S970664AbdDTPdm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 11:33:42 -0400
+In-Reply-To: <1492686004-30527-2-git-send-email-al.kochet@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 20, 2017 at 5:28 PM, Andrey Konovalov <andreyknvl@google.com> wrote:
-> I've extracted a reproducer for another bug.
+Hi, Alexandre!
 
-It works for me as is, but you might need to run it in a loop.
+Just found that you've fixed similar problem for Micrel PHY:
+=
+https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/=
+?id=3D99f81afc139c6edd14d77a91ee91685a414a1c66
 
->
-> This one seems to be much closer to what Dmitry reported intially.
->
-> ------------[ cut here ]------------
-> WARNING: CPU: 1 PID: 3892 at net/ipv6/ip6_fib.c:1472 fib6_del+0xa60/0xdc0
-> Modules linked in:
-> CPU: 1 PID: 3892 Comm: a.out Not tainted 4.11.0-rc7+ #251
-> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
-> Call Trace:
->  __dump_stack lib/dump_stack.c:16
->  dump_stack+0x292/0x398 lib/dump_stack.c:52
->  __warn+0x19f/0x1e0 kernel/panic.c:549
->  warn_slowpath_null+0x2c/0x40 kernel/panic.c:584
->  fib6_del+0xa60/0xdc0 net/ipv6/ip6_fib.c:1472
->  fib6_clean_node+0x3ce/0x550 net/ipv6/ip6_fib.c:1652
->  fib6_walk_continue+0x577/0x760 net/ipv6/ip6_fib.c:1578
->  fib6_walk+0x91/0xf0 net/ipv6/ip6_fib.c:1623
->  fib6_clean_tree+0x266/0x3c0 net/ipv6/ip6_fib.c:1695
->  __fib6_clean_all+0x1f7/0x3b0 net/ipv6/ip6_fib.c:1711
->  fib6_clean_all+0x27/0x30 net/ipv6/ip6_fib.c:1722
->  rt6_ifdown+0xf7/0x910 net/ipv6/route.c:2820
->  addrconf_ifdown+0x1a3/0x1aa0 net/ipv6/addrconf.c:3541
->  addrconf_notify+0x1bb/0x2570 net/ipv6/addrconf.c:3466
->  notifier_call_chain+0x145/0x2f0 kernel/notifier.c:93
->  __raw_notifier_call_chain kernel/notifier.c:394
->  raw_notifier_call_chain+0x2d/0x40 kernel/notifier.c:401
->  call_netdevice_notifiers_info+0x51/0x90 net/core/dev.c:1647
->  call_netdevice_notifiers net/core/dev.c:1663
->  __dev_notify_flags+0x1fd/0x320 net/core/dev.c:6499
->  dev_change_flags+0xf5/0x140 net/core/dev.c:6530
->  dev_ifsioc+0x62a/0x9f0 net/core/dev_ioctl.c:254
->  dev_ioctl+0x249/0x1160 net/core/dev_ioctl.c:532
->  sock_do_ioctl+0x94/0xb0 net/socket.c:913
->  sock_ioctl+0x28f/0x440 net/socket.c:1004
->  vfs_ioctl fs/ioctl.c:45
->  do_vfs_ioctl+0x1bf/0x1780 fs/ioctl.c:685
->  SYSC_ioctl fs/ioctl.c:700
->  SyS_ioctl+0x8f/0xc0 fs/ioctl.c:691
->  entry_SYSCALL_64_fastpath+0x1f/0xc2 arch/x86/entry/entry_64.S:204
-> RIP: 0033:0x7f575ded4347
-> RSP: 002b:00007fffc94d9948 EFLAGS: 00000217 ORIG_RAX: 0000000000000010
-> RAX: ffffffffffffffda RBX: 00007fffc94d9b30 RCX: 00007f575ded4347
-> RDX: 00007fffc94d9980 RSI: 0000000000008914 RDI: 0000000000000006
-> RBP: 00000000004004e0 R08: 0000000000000028 R09: 0101010101010101
-> R10: 0000000000000000 R11: 0000000000000217 R12: 0000000000000000
-> R13: 00007fffc94d9b30 R14: 0000000000000000 R15: 0000000000000000
-> ---[ end trace 9bda4459ad907043 ]---
+Could you please test if my patch[1] fix your problem?
+
+As reverting your patch will speedup MAC startup time for boards with =
+Micrel PHY
+on 3~5 sec (auto-negotiation time[2]). Could you check that also?
+
+Regards,
+Alexander.
+
+[1] https://lkml.org/lkml/2017/4/20/357
+[2] http://www.ieee802.org/3/af/public/jan02/brown_1_0102.pdf
+
+
+> 20 =D0=B0=D0=BF=D1=80. 2017 =D0=B3., =D0=B2 14:00, Alexander Kochetkov =
+<al.kochet@gmail.com> =D0=BD=D0=B0=D0=BF=D0=B8=D1=81=D0=B0=D0=BB(=D0=B0):
+>=20
+> The Ethernet link on an interrupt driven PHY was not coming up if the =
+Ethernet
+> cable was plugged before the Ethernet interface was brought up.
+>=20
+> The patch trigger PHY state machine to update link state if PHY was =
+requested to
+> do auto-negotiation and auto-negotiation complete flag already set.
+>=20
+> During power-up cycle the PHY do auto-negotiation, generate interrupt =
+and set
+> auto-negotiation complete flag. Interrupt is handled by PHY state =
+machine but
+> doesn't update link state because PHY is in PHY_READY state. After =
+some time
+> MAC bring up, start and request PHY to do auto-negotiation. If there =
+are no new
+> settings to advertise genphy_config_aneg() doesn't start PHY =
+auto-negotiation.
+> PHY continue to stay in auto-negotiation complete state and doesn't =
+fire
+> interrupt. At the same time PHY state machine expect that PHY started
+> auto-negotiation and is waiting for interrupt from PHY and it won't =
+get it.
+>=20
+> Signed-off-by: Alexander Kochetkov <al.kochet@gmail.com>
+> Cc: stable <stable@vger.kernel.org> # v4.9+
+> ---
+> drivers/net/phy/phy.c |   40 ++++++++++++++++++++++++++++++++++++----
+> include/linux/phy.h   |    1 +
+> 2 files changed, 37 insertions(+), 4 deletions(-)
+>=20
+> diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+> index 7cc1b7d..2d9975b 100644
+> --- a/drivers/net/phy/phy.c
+> +++ b/drivers/net/phy/phy.c
+> @@ -591,16 +591,18 @@ int phy_mii_ioctl(struct phy_device *phydev, =
+struct ifreq *ifr, int cmd)
+> EXPORT_SYMBOL(phy_mii_ioctl);
+>=20
+> /**
+> - * phy_start_aneg - start auto-negotiation for this PHY device
+> + * phy_start_aneg_priv - start auto-negotiation for this PHY device
+>  * @phydev: the phy_device struct
+> + * @sync: indicate whether we should wait for the workqueue =
+cancelation
+>  *
+>  * Description: Sanitizes the settings (if we're not autonegotiating
+>  *   them), and then calls the driver's config_aneg function.
+>  *   If the PHYCONTROL Layer is operating, we change the state to
+>  *   reflect the beginning of Auto-negotiation or forcing.
+>  */
+> -int phy_start_aneg(struct phy_device *phydev)
+> +static int phy_start_aneg_priv(struct phy_device *phydev, bool sync)
+> {
+> +	bool trigger =3D 0;
+> 	int err;
+>=20
+> 	mutex_lock(&phydev->lock);
+> @@ -625,10 +627,40 @@ int phy_start_aneg(struct phy_device *phydev)
+> 		}
+> 	}
+>=20
+> +	/* Re-schedule a PHY state machine to check PHY status because
+> +	 * negotiation may already be done and aneg interrupt may not be
+> +	 * generated.
+> +	 */
+> +	if (phy_interrupt_is_valid(phydev) && (phydev->state =3D=3D =
+PHY_AN)) {
+> +		err =3D phy_aneg_done(phydev);
+> +		if (err > 0) {
+> +			trigger =3D true;
+> +			err =3D 0;
+> +		}
+> +	}
+> +
+> out_unlock:
+> 	mutex_unlock(&phydev->lock);
+> +
+> +	if (trigger)
+> +		phy_trigger_machine(phydev, sync);
+> +
+> 	return err;
+> }
+> +
+> +/**
+> + * phy_start_aneg - start auto-negotiation for this PHY device
+> + * @phydev: the phy_device struct
+> + *
+> + * Description: Sanitizes the settings (if we're not autonegotiating
+> + *   them), and then calls the driver's config_aneg function.
+> + *   If the PHYCONTROL Layer is operating, we change the state to
+> + *   reflect the beginning of Auto-negotiation or forcing.
+> + */
+> +int phy_start_aneg(struct phy_device *phydev)
+> +{
+> +	return phy_start_aneg_priv(phydev, true);
+> +}
+> EXPORT_SYMBOL(phy_start_aneg);
+>=20
+> /**
+> @@ -656,7 +688,7 @@ void phy_start_machine(struct phy_device *phydev)
+>  *   state machine runs.
+>  */
+>=20
+> -static void phy_trigger_machine(struct phy_device *phydev, bool sync)
+> +void phy_trigger_machine(struct phy_device *phydev, bool sync)
+> {
+> 	if (sync)
+> 		cancel_delayed_work_sync(&phydev->state_queue);
+> @@ -1151,7 +1183,7 @@ void phy_state_machine(struct work_struct *work)
+> 	mutex_unlock(&phydev->lock);
+>=20
+> 	if (needs_aneg)
+> -		err =3D phy_start_aneg(phydev);
+> +		err =3D phy_start_aneg_priv(phydev, false);
+> 	else if (do_suspend)
+> 		phy_suspend(phydev);
+>=20
+> diff --git a/include/linux/phy.h b/include/linux/phy.h
+> index 7fc1105..b19ae66 100644
+> --- a/include/linux/phy.h
+> +++ b/include/linux/phy.h
+> @@ -840,6 +840,7 @@ int phy_drivers_register(struct phy_driver =
+*new_driver, int n,
+> void phy_mac_interrupt(struct phy_device *phydev, int new_link);
+> void phy_start_machine(struct phy_device *phydev);
+> void phy_stop_machine(struct phy_device *phydev);
+> +void phy_trigger_machine(struct phy_device *phydev, bool sync);
+> int phy_ethtool_sset(struct phy_device *phydev, struct ethtool_cmd =
+*cmd);
+> int phy_ethtool_gset(struct phy_device *phydev, struct ethtool_cmd =
+*cmd);
+> int phy_ethtool_ksettings_get(struct phy_device *phydev,
+> --=20
+> 1.7.9.5
+>=20
