@@ -1,39 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v4 1/2] net sched actions: dump more than
- TCA_ACT_MAX_PRIO actions per batch
-Date: Thu, 20 Apr 2017 11:50:00 -0400 (EDT)
-Message-ID: <20170420.115000.250335491542942036.davem@davemloft.net>
-References: <f0e84f44-ba3a-7eb4-8b22-9764048d9406@mojatatu.com>
-        <1492690694.22296.32.camel@edumazet-glaptop3.roam.corp.google.com>
-        <48ec5026-38bf-ebfd-98e5-78c8cb1d24f5@mojatatu.com>
+Subject: Re: [net-next 04/14] i40e: dump VF information in debugfs
+Date: Thu, 20 Apr 2017 11:51:53 -0400 (EDT)
+Message-ID: <20170420.115153.1510206006505486594.davem@davemloft.net>
+References: <BL2PR07MB23064C036E994DC63475F7388D1B0@BL2PR07MB2306.namprd07.prod.outlook.com>
+        <20170420113942.GD1886@nanopsycho.orion>
+        <BL2PR07MB2306DEC60F085B88BA230C3A8D1B0@BL2PR07MB2306.namprd07.prod.outlook.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, jiri@resnulli.us, netdev@vger.kernel.org,
-        xiyou.wangcong@gmail.com
-To: jhs@mojatatu.com
+Cc: jiri@resnulli.us, gerlitz.or@gmail.com,
+        jeffrey.t.kirsher@intel.com, mitch.a.williams@intel.com,
+        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+        jogreene@redhat.com
+To: Yuval.Mintz@cavium.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44276 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:44422 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S970831AbdDTPuC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 11:50:02 -0400
-In-Reply-To: <48ec5026-38bf-ebfd-98e5-78c8cb1d24f5@mojatatu.com>
+        with ESMTP id S970689AbdDTPvz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 11:51:55 -0400
+In-Reply-To: <BL2PR07MB2306DEC60F085B88BA230C3A8D1B0@BL2PR07MB2306.namprd07.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Date: Thu, 20 Apr 2017 09:27:00 -0400
+From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
+Date: Thu, 20 Apr 2017 13:57:08 +0000
 
-> The issue Jiri is bringing up is unrelated. He is talking about
-> a bitmap and conflating it with a data structure. They are not
-> the same issue.
+> I agree this surely isn't *our* convention, but for scsi  using debugfs
+> [or sysfs] is a common practice for debug purposes.
+> 
+> Also, our HW debug capabilities are highly-customable, and I want to
+> have the ability to configure those on the fly [E.g., dynamically
+> configuring various HW events to be recorded].
+> Each such configuration involves multiple register writes and reads
+> according to user provided inputs.
+> I don't really see how to generalize the information collection in a way
+> that would benefit anyone else.
 
-Bitmaps can have the same exact problem as padding if we didn't code
-it correctly.
+That's basically what everyone says who slaps random crap into debugfs.
 
-The issue is _purely_, "did we check unused 'fields' and enforce them
-to be a certain value"
+>> For your inhouse debugging, you should have oot
+>> patch to expose whatever you need.
+> 
+> I don't want in-house debugging capabilities -
+> I want field debug capabilities.
 
-If not, we lose, and can't use those "fields" in the future.
-
-This rule applies whether you are speaking about padding or a bitmask.
+Then it has to use a portable, well defined, set of interfaces.
