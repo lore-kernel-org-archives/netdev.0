@@ -1,59 +1,71 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Heads-up: two regressions in v4.11-rc series
-Date: Thu, 20 Apr 2017 11:00:42 +0200
-Message-ID: <20170420110042.73d01e0f@redhat.com>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [PATCH 1/1] drivers: net: usb: qmi_wwan: add QMI_QUIRK_SET_DTR for Telit PID 0x1201
+Date: Thu, 20 Apr 2017 11:02:08 +0200
+Message-ID: <87lgqva1v3.fsf@miraculix.mork.no>
+References: <1491838463-20299-1-git-send-email-dnlplm@gmail.com>
+        <87efwob92t.fsf@miraculix.mork.no>
+        <CAAP7ucL0KLCxVSaO4Vf0LH=T7vRCtm5R2p9VFov+5V0OJF8Xcg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: brouer@redhat.com, Mel Gorman <mgorman@techsingularity.net>, Tariq
- Toukan <tariqt@mellanox.com>, LKML <linux-kernel@vger.kernel.org>, linux-mm
- <linux-mm@kvack.org>, "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- peterz@infradead.org
-To: Linus Torvalds <torvalds@linux-foundation.org>, Andrew Morton
- <akpm@linux-foundation.org>, Frederic Weisbecker <fweisbec@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Daniele Palmas <dnlplm@gmail.com>,
+        "netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
+        linux-usb@vger.kernel.org
+To: Aleksander Morgado <aleksander@aleksander.es>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from canardo.mork.no ([148.122.252.1]:51397 "EHLO canardo.mork.no"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S935613AbdDTJCY (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 20 Apr 2017 05:02:24 -0400
+In-Reply-To: <CAAP7ucL0KLCxVSaO4Vf0LH=T7vRCtm5R2p9VFov+5V0OJF8Xcg@mail.gmail.com>
+        (Aleksander Morgado's message of "Wed, 19 Apr 2017 20:32:25 +0200")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Linus,
+Aleksander Morgado <aleksander@aleksander.es> writes:
 
-Just wanted to give a heads-up on two regressions in 4.11-rc series.
+> I'm just running --dms-get-operating-mode multiple times, and getting
+> errors frequently:
 
-(1) page allocator optimization revert
-
-Mel Gorman and I have been playing with optimizing the page allocator,
-but Tariq spotted that we caused a regression for (NIC) drivers that
-refill DMA RX rings in softirq context.
-
-The end result was a revert, and this is waiting in AKPMs quilt queue:
- http://ozlabs.org/~akpm/mmots/broken-out/revert-mm-page_alloc-only-use-per-cpu-allocator-for-irq-safe-requests.patch
-
-
-(2) Busy softirq can cause userspace not to be scheduled
-
-I bisected the problem to a499a5a14dbd ("sched/cputime: Increment
-kcpustat directly on irqtime account"). See email thread with
- Subject: Bisected softirq accounting issue in v4.11-rc1~170^2~28
- http://lkml.kernel.org/r/20170328101403.34a82fbf@redhat.com
-
-I don't know the scheduler code well enough to fix this, and will have
-to rely others to figure out this scheduler regression.
-
-To make it clear: I'm only seeing this scheduler regression when a
-remote host is sending many many network packets, towards the kernel
-which keeps NAPI/softirq busy all the time.  A possible hint: tool
-"top" only shows this in "si" column, while on v4.10 "top" also blames
-"ksoftirqd/N", plus "ps" reported cputime (0:00) seems wrong for ksoftirqd.
+Could you retry that with cdc-wdm debugging enabled (e.g.
+"echo 'module cdc_wdm +fp' > /sys/kernel/debug/dynamic_debug/control")
+and something like this:
 
 
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
+diff --git a/drivers/usb/class/cdc-wdm.c b/drivers/usb/class/cdc-wdm.c
+index 8fda45a45bd3..c0f25ace9fc6 100644
+--- a/drivers/usb/class/cdc-wdm.c
++++ b/drivers/usb/class/cdc-wdm.c
+@@ -211,6 +211,8 @@ static void wdm_in_callback(struct urb *urb)
+ 		}
+ 	}
+=20
++	dev_dbg(&desc->intf->dev, "rerr=3D%d, status=3D%d, length=3D%d, resp_coun=
+t=3D%d\n", desc->rerr, status, length, desc->resp_count);
++
+ 	/*
+ 	 * Handling devices with the WDM_DRAIN_ON_OPEN flag set:
+ 	 * If desc->resp_count is unset, then the urb was submitted
+@@ -516,6 +518,9 @@ static ssize_t wdm_read
+ 		return -ERESTARTSYS;
+=20
+ 	cntr =3D ACCESS_ONCE(desc->length);
++
++	dev_dbg(&desc->intf->dev, "rerr=3D%d, length=3D%d\n", desc->rerr, cntr);
++
+ 	if (cntr =3D=3D 0) {
+ 		desc->read =3D 0;
+ retry:
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+
+
+And/or a usbmon dump?  That would be.probably show us the sequence of
+events leading to this problem.
+
+Desperately trying to figure out some other way to solve the issue that
+commit  833415a3e781 ("cdc-wdm: fix "out-of-sync" due to missing
+notifications") was supposed to fix....
+
+
+
+Bj=C3=B8rn
