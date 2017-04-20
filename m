@@ -1,69 +1,41 @@
-From: Roger Quadros <rogerq@ti.com>
-Subject: Re: [PATCH] net: phy: fix auto-negotiation stall due to unavailable
- interrupt
-Date: Thu, 20 Apr 2017 12:21:10 +0300
-Message-ID: <3b0cca7f-bffe-0717-fbea-7d9ba47a858f@ti.com>
-References: <1492609604-16359-1-git-send-email-al.kochet@gmail.com>
- <24E19B31-CCD8-4032-B17B-D226D4DB881D@gmail.com>
- <754f7cfe-6914-570a-d0e5-4a26b6787281@gmail.com>
- <EA84802B-82E6-4485-A92E-E2751A84D4D0@gmail.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH 11/16] esp: Use a synchronous crypto algorithm on
+ offloading.
+Date: Thu, 20 Apr 2017 11:17:52 +0200
+Message-ID: <20170420091752.GH2649@secunet.com>
+References: <1492678515-14347-1-git-send-email-steffen.klassert@secunet.com>
+ <1492678515-14347-12-git-send-email-steffen.klassert@secunet.com>
+ <20170420090617.GA8325@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-        <andrew@lunn.ch>, <nsekhar@ti.com>, <kyle.roeschley@ni.com>
-To: Alexander Kochetkov <al.kochet@gmail.com>,
-        Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lelnx194.ext.ti.com ([198.47.27.80]:42744 "EHLO
-        lelnx194.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S940010AbdDTJVY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 05:21:24 -0400
-In-Reply-To: <EA84802B-82E6-4485-A92E-E2751A84D4D0@gmail.com>
+Received: from a.mx.secunet.com ([62.96.220.36]:52624 "EHLO a.mx.secunet.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S941662AbdDTJVt (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 20 Apr 2017 05:21:49 -0400
+Content-Disposition: inline
+In-Reply-To: <20170420090617.GA8325@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Thu, Apr 20, 2017 at 05:06:17PM +0800, Herbert Xu wrote:
+> On Thu, Apr 20, 2017 at 10:55:10AM +0200, Steffen Klassert wrote:
+> > We need a fallback algorithm for crypto offloading to a NIC.
+> > This is because packets can be rerouted to other NICs that
+> > don't support crypto offloading. The fallback is going to be
+> > implemented at layer2 where we know the final output device
+> > but can't handle asynchronous returns fron the crypto layer.
+> 
+> Can you explain why we can't handle async algorithms on the fallback
+> path?
 
-On 19/04/17 19:53, Alexander Kochetkov wrote:
-> 
->> 19 апр. 2017 г., в 19:32, Florian Fainelli <f.fainelli@gmail.com> написал(а):
->>
->> http://patchwork.ozlabs.org/patch/743773/
->>
->> Roger can you also test Alexander's patch?
+I tried to use async algorithms but it lead to serveral problems.
+The GSO layer can't handle async returns, we'd need callbacks
+for all the GSO handlers. Also we need something where we can
+requeue packets if the driver is busy etc.
 
-This patch fixes my problem and doesn't have the 1 second delay that my patch had.
-
-So,
-
-Tested-by: Roger Quadros <rogerq@ti.com>
-
-> 
-> If MAC use phy_start_aneg() instead of phy_start() my patch will not work as
-> expected. Roger, if patch don’t work for you please check what MAC bring up PHY using
-> phy_start():
-
-Our MAC driver is using phy_start() and I didn't face any issues with your patch.
-
-> 
-> http://patchwork.ozlabs.org/patch/752308/
-> 
-> Is it correct to start PHY inside MAC probe using phy_start_aneg()? Or phy_start() must be used?
-> 
-> And probably this tags should be added for my patch:
-> Fixes: 3c293f4e08b5 ("net: phy: Trigger state machine on state change and not polling.")
-> Cc: stable <stable@vger.kernel.org> # v4.9+
-> 
-> Because I bisected to commit 529ed1275263 ("net: phy: phy drivers
-> should not set SUPPORTED_[Asym_]Pause») that looks pretty good.
-> 
-> Also, there is another issue I found. link_timeout doesn’t work for interrupt driven PHY.
-> It is possible to implement timer to handle this case.
-> Florian, what do you think? Should this be fixed?
-> 
-> Alexander.
-> 
-
-cheers,
--roger
+This would require a lot of changes in the generic code,
+so I decided to use a synchronous fallback algorithm for
+now.
