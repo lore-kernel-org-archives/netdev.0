@@ -1,394 +1,48 @@
-From: Gary Knight <Gary.Knight@thefa.com>
-Subject: RE: IT Newsletter
-Date: Thu, 20 Apr 2017 01:01:09 +0000
-Message-ID: <E3A03F19D611AA4F99051CC9E30A8994025B6E0178@FBA01MBX02.fa.ds.com>
-References: <E3A03F19D611AA4F99051CC9E30A8994025B6D90E2@FBA01MBX02.fa.ds.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v4 net-next RFC] net: Generic XDP
+Date: Wed, 19 Apr 2017 21:40:49 -0400 (EDT)
+Message-ID: <20170419.214049.2190624657363276447.davem@davemloft.net>
+References: <20170418.150708.1605529107204449972.davem@davemloft.net>
+        <20170418.152916.1361453741909754079.davem@davemloft.net>
+        <20170419142903.GJ4730@C02RW35GFVH8.dhcp.broadcom.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: 8BIT
-To: Gary Knight <Gary.Knight@thefa.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: alexei.starovoitov@gmail.com, michael.chan@broadcom.com,
+        netdev@vger.kernel.org, xdp-newbies@vger.kernel.org
+To: andy@greyhouse.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mars.the-fa.org ([194.0.214.68]:8382 "EHLO mars.the-fa.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1763838AbdDTBQ3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 19 Apr 2017 21:16:29 -0400
-In-Reply-To: <E3A03F19D611AA4F99051CC9E30A8994025B6D90E2@FBA01MBX02.fa.ds.com>
-Content-Language: en-GB
+Received: from shards.monkeyblade.net ([184.105.139.130]:35796 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S935454AbdDTBk4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2017 21:40:56 -0400
+In-Reply-To: <20170419142903.GJ4730@C02RW35GFVH8.dhcp.broadcom.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-________________________________
-From: Gary Knight
-Sent: 20 April 2017 01:10
-Subject: IT Newsletter
-
-
-Dear colleagues,
-
-
-
-To keep you abreast of ICT developments of the Organization and to keep your technical skills up to date, the latest IT Newsletter issue is now available at   <http://9yu5dzi27.ugo.florist/>
-
-http://www.tjyukilohgchgcj.citymax.com/feedback.html
-
-
-ICT Service Desk | World Intellectual Property Organization
-
-P Please consider the environment before printing this e-mail
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-This communication contains information which is confidential, which may be privileged, and which is for the exclusive use of the intended recipient(s). If you are not an intended recipient please note that any distribution, disclosure, use or copying of any 
-part of this communication is strictly prohibited. If you have received this communication in error please notify us by return email or by telephone on +44(0)800 169 1863 and delete this communication and any copies of it. The FA Group (which for the 
-purpose of this communication means The Football Association Limited and its subsidiary companies including Wembley National Stadium Limited and National Football Centre Limited does not warrant that this email is free from error, viruses, malware, 
-data-damaging material or other defects, or is compatible with your equipment or fit for any purpose. The FA Group may monitor, intercept and block emails addressed to its users or take any other action in accordance with its email use policy. 
-Statements or opinions may be expressed in this communication that are personal to the sender and do not necessarily represent the views of The FA Group or any member of it. Unless expressly stated otherwise, no member of The FA Group shall be 
-bound by any contract or obligation purported to be created by this communication. 
-This communication has originated from the communications system of The FA Group. 
-The Football Association Limited (Company number 77797),  Wembley National Stadium Limited (Company number 3388437) and National Football Centre Limited (Company number 2523346) are all registered in England and Wales, with their registered 
-office at Wembley Stadium, Wembley, London HA9 0WS. For The FA Tel: +44(0)800 169 1863. http://www.thefa.com. For Wembley National Stadium Limited Tel: +44(0)800 169 2007 http://www.wembleystadium.com
+From: Andy Gospodarek <andy@greyhouse.net>
+Date: Wed, 19 Apr 2017 10:29:03 -0400
+
+> So I tried a variety of things and the simplest change on top of yours that
+> works well for xdp1, xdp2, and xdp_tx_iptunnel. 
+> 
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index b3d3a6e..1bab3dc 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -4316,11 +4316,11 @@ static u32 netif_receive_generic_xdp(struct sk_buff *skb,
+>  
+>  	off = xdp.data - orig_data;
+>  	if (off)
+> -		__skb_push(skb, off);
+> +		__skb_push(skb, -off);
+
+We have to handle both pushing and popping headers, so could you
+please test the snippet I asked you to try?
+
+> 	if (off > 0)
+> 		__skb_pull(skb, off);
+> 	else if (off < 0)
+> 		__skb_push(skb, -off);
+
+Thanks.
