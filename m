@@ -1,75 +1,74 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: sctp: deny peeloff operation on asocs with threads sleeping on it
-Date: Thu, 20 Apr 2017 10:54:42 -0300
-Message-ID: <273c17d9-d424-ae4d-f282-976b7a1daa8a@gmail.com>
-References: <20170420114405.mh7r5otmvpksacqd@lorien.valinor.li>
- <20170420123257.GA11798@lorien.valinor.li>
+From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
+Subject: RE: [net-next 04/14] i40e: dump VF information in debugfs
+Date: Thu, 20 Apr 2017 13:57:08 +0000
+Message-ID: <BL2PR07MB2306DEC60F085B88BA230C3A8D1B0@BL2PR07MB2306.namprd07.prod.outlook.com>
+References: <20170420015750.6828-1-jeffrey.t.kirsher@intel.com>
+ <20170420015750.6828-5-jeffrey.t.kirsher@intel.com>
+ <CAJ3xEMiCuV5A_Ccy7=mKSjc9xxhg4enUxDq-MM-cO3YjSa439A@mail.gmail.com>
+ <BL2PR07MB23064C036E994DC63475F7388D1B0@BL2PR07MB2306.namprd07.prod.outlook.com>
+ <20170420113942.GD1886@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Alexander Popov <alex.popov@linux.com>,
-        Ben Hutchings <ben@decadent.org.uk>,
-        Xin Long <lucien.xin@gmail.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-To: Salvatore Bonaccorso <carnil@debian.org>, netdev@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: Or Gerlitz <gerlitz.or@gmail.com>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        Mitch Williams <mitch.a.williams@intel.com>,
+        David Miller <davem@davemloft.net>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        "nhorman@redhat.com" <nhorman@redhat.com>,
+        "sassmann@redhat.com" <sassmann@redhat.com>,
+        "jogreene@redhat.com" <jogreene@redhat.com>
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f195.google.com ([209.85.220.195]:33851 "EHLO
-        mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1031195AbdDTNyu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 09:54:50 -0400
-Received: by mail-qk0-f195.google.com with SMTP id d80so2908195qke.1
-        for <netdev@vger.kernel.org>; Thu, 20 Apr 2017 06:54:50 -0700 (PDT)
-In-Reply-To: <20170420123257.GA11798@lorien.valinor.li>
+Received: from mail-bn3nam01on0086.outbound.protection.outlook.com ([104.47.33.86]:59968
+        "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1031895AbdDTN5P (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 20 Apr 2017 09:57:15 -0400
+In-Reply-To: <20170420113942.GD1886@nanopsycho.orion>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Em 20-04-2017 09:32, Salvatore Bonaccorso escreveu:
-> Hi
-> 
-> According to the documentation I should have sent this to
-> netdev@vger.kernel.org rather than stable@vger.kernel.org.
-> 
-> Rationale: Whilst 00eff2ebbd229758e90659907724c14dd5a18339 went to
-> stable, the dfcb9f4f99f1e9a49e43398a7bfbf56927544af1 commit is
-> missing.
+> >> > Dump some internal state about VFs through debugfs. This provides
+> >> > information not available with 'ip link show'.
+> >>
+> >> such as?
+> >>
+> >> donnwantobethedebugfspolice, but still, in the 2-3 times we tried to
+> >> push debugfs to MLNX NIC drivers, Dave disallowed that, and lately
+> >> the switch team even went further and deleted that portion of the
+> >> mlxsw driver -- all to all,  I don't see much point for these type of =
+changes,
+> thoughts?
+> >
+> >Don't want to hikjack your thread, but continuing this topic - Is there
+> >some flat-out disapproval for debugfs in net-next now?
+>=20
+> It was mentioned by DaveM on the list multiple times.
 
-Cc'ing Greg too.
+> >
+> >We're currently internally engaged with adding qed support for register
+> >dumps [~equivalents for `ethtool -d' outputs] through debugfs, on
+> >behalf of storage drivers [qedi/qedf] lacking the API for doing that.
+>=20
+> That sounds wrong. Either introduce a generic infra to expose the info yo=
+u
+> need or you don't do that.
 
-This is probably because I noticed this commit was missing when Greg 
-posted the commits being considered for backports, then I raised the 
-concern and Greg decided to pull it too before David replied.
+I agree this surely isn't *our* convention, but for scsi  using debugfs
+[or sysfs] is a common practice for debug purposes.
 
-Not sure if this caused some out-of-the-process stuff.
+Also, our HW debug capabilities are highly-customable, and I want to
+have the ability to configure those on the fly [E.g., dynamically
+configuring various HW events to be recorded].
+Each such configuration involves multiple register writes and reads
+according to user provided inputs.
+I don't really see how to generalize the information collection in a way
+that would benefit anyone else.
 
-> 
-> Full quoting, my original misleaded mail:
-> 
-> On Thu, Apr 20, 2017 at 01:44:05PM +0200, Salvatore Bonaccorso wrote:
->> Hi
->>
->> Apparently the following commit
->>
->> dfcb9f4f99f1e9a49e43398a7bfbf56927544af1 (sctp: deny peeloff operation
->> on asocs with threads sleeping on it)
->>
->> (was not CC'ed stable@vger.kernel.org, but was already applied in
->> 3.2.87 and 3.16.42) is missing from 4.9:
->>
->> 2dcab598484185dea7ec22219c76dcdd59e3cb90 was included in 4.9.11 via
->> 00eff2ebbd229758e90659907724c14dd5a18339 . But
->> dfcb9f4f99f1e9a49e43398a7bfbf56927544af1 is missing from 4.9.
->>
->> This was assigned CVE-2017-6353.
->>
->> Reference:
->> https://marc.info/?l=linux-netdev&m=148785309416337&w=2
->> http://www.openwall.com/lists/oss-security/2017/02/27/2
->>
->> Regards,
->> Salvatore
-> 
-> Regards,
-> Salvatore
-> 
+> For your inhouse debugging, you should have oot
+> patch to expose whatever you need.
+
+I don't want in-house debugging capabilities -
+I want field debug capabilities.
