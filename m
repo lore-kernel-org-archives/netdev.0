@@ -1,36 +1,39 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net] mlxsw: spectrum_acl_tcam: Get tcam_region_info
- returned by FW on PTAR
-Date: Thu, 20 Apr 2017 17:44:04 +0200
-Message-ID: <20170420154404.GC19004@nanopsycho.orion>
-References: <1492588470-1951-1-git-send-email-jiri@resnulli.us>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v4 1/2] net sched actions: dump more than
+ TCA_ACT_MAX_PRIO actions per batch
+Date: Thu, 20 Apr 2017 11:50:00 -0400 (EDT)
+Message-ID: <20170420.115000.250335491542942036.davem@davemloft.net>
+References: <f0e84f44-ba3a-7eb4-8b22-9764048d9406@mojatatu.com>
+        <1492690694.22296.32.camel@edumazet-glaptop3.roam.corp.google.com>
+        <48ec5026-38bf-ebfd-98e5-78c8cb1d24f5@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, idosch@mellanox.com, leonro@mellanox.com,
-        mlxsw@mellanox.com
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, jiri@resnulli.us, netdev@vger.kernel.org,
+        xiyou.wangcong@gmail.com
+To: jhs@mojatatu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:36697 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S970807AbdDTPoH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 11:44:07 -0400
-Received: by mail-wm0-f67.google.com with SMTP id u65so3876865wmu.3
-        for <netdev@vger.kernel.org>; Thu, 20 Apr 2017 08:44:07 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1492588470-1951-1-git-send-email-jiri@resnulli.us>
+Received: from shards.monkeyblade.net ([184.105.139.130]:44276 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S970831AbdDTPuC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 11:50:02 -0400
+In-Reply-To: <48ec5026-38bf-ebfd-98e5-78c8cb1d24f5@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wed, Apr 19, 2017 at 09:54:30AM CEST, jiri@resnulli.us wrote:
->From: Jiri Pirko <jiri@mellanox.com>
->
->During PTAR register access, FW processes tcam_region_info passed by
->driver and also returns modified tcam_region_info back. This needs to be
->stored by driver for any future calls.
->
->Fixes: 22a677661f56 ("mlxsw: spectrum: Introduce ACL core with simple TCAM implementation")
->Signed-off-by: Jiri Pirko <jiri@mellanox.com>
->Reviewed-by: Leon Romanovsky <leonro@mellanox.com>
->Reviewed-by: Ido Schimmel <idosch@mellanox.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Date: Thu, 20 Apr 2017 09:27:00 -0400
 
-This is actually not needed. Please drop.
+> The issue Jiri is bringing up is unrelated. He is talking about
+> a bitmap and conflating it with a data structure. They are not
+> the same issue.
+
+Bitmaps can have the same exact problem as padding if we didn't code
+it correctly.
+
+The issue is _purely_, "did we check unused 'fields' and enforce them
+to be a certain value"
+
+If not, we lose, and can't use those "fields" in the future.
+
+This rule applies whether you are speaking about padding or a bitmask.
