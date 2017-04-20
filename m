@@ -1,69 +1,56 @@
-From: Vladislav Yasevich <vyasevich@gmail.com>
-Subject: [PATCH V2 net] netdevice: Include NETIF_F_HW_CSUM when intersecting features
-Date: Thu, 20 Apr 2017 15:17:24 -0400
-Message-ID: <1492715844-30273-1-git-send-email-vyasevic@redhat.com>
-Cc: Vladislav Yasevich <vyasevic@redhat.com>,
-        Michal Kubecek <mkubecek@suse.cz>,
-        Alexander Duyck <alexander.duyck@gmail.com>,
-        Tom Herbert <tom@herbertland.com>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH] Fix values type used in test_maps
+Date: Thu, 20 Apr 2017 15:20:16 -0400 (EDT)
+Message-ID: <20170420.152016.2219427430519868937.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: borkmann@iogearbox.net, netdev@vger.kernel.org
+To: ast@fb.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f193.google.com ([209.85.216.193]:36676 "EHLO
-        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S947006AbdDTTRh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 15:17:37 -0400
-Received: by mail-qt0-f193.google.com with SMTP id t52so8927807qtb.3
-        for <netdev@vger.kernel.org>; Thu, 20 Apr 2017 12:17:37 -0700 (PDT)
+Received: from shards.monkeyblade.net ([184.105.139.130]:47710 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S946967AbdDTTUU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 15:20:20 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-While hardware device use either NETIF_F_(IP|IPV6)_CSUM or
-NETIF_F_HW_CSUM, all of the software devices use HW_CSUM.
-This results in an interesting situation when the software
-device is configured on top of hw device using (IP|IPV6)_CSUM.
-In this situation, the user can't turn off checksum offloading
-features on the software device.
 
-This patch resolves that by adding NETIF_F_HW_CSUM to the mask
-if a feature set includes only IP|IPV6 csum.  This allows the user
-to control the upper (software) device checksum, while at the same
-time correctly propagating lower device changes up.
+Maps of per-cpu type have their value element size adjusted to 8 if it
+is specified smaller during various map operations.
 
-CC: Michal Kubecek <mkubecek@suse.cz>
-CC: Alexander Duyck <alexander.duyck@gmail.com>
-CC: Tom Herbert <tom@herbertland.com>
-Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
+This makes test_maps as a 32-bit binary fail, in fact the kernel
+writes past the end of the value's array on the user's stack.
 
----
+To be quite honest, I think the kernel should reject creation of a
+per-cpu map that doesn't have a value size of at least 8 if that's
+what the kernel is going to silently adjust to later.
 
-V2: Addressed comments from Alex Duyck.  I tested this with hacked virtio
-device that set IP|IPV6 checksums instead of HW.  Configuring a vlan on
-top gave the vlan device with 'ip-generic: on' setting (using HW checksum).
-This allows me to change vlan checksum offloads independent of virt-io nic.
-Changes to virtio-nic propagated up to vlan, turning off the offloading
-correctly.
+If the user passed something smaller, it is a sizeof() calcualtion
+based upon the type they will actually use (just like in this testcase
+code) in later calls to the map operations.
 
- include/linux/netdevice.h | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+Signed-off-by: David S. Miller <davem@davemloft.net>
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index b0aa089..81aed2f 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -4009,10 +4009,10 @@ static inline netdev_features_t netdev_intersect_features(netdev_features_t f1,
- 							  netdev_features_t f2)
+diff --git a/tools/testing/selftests/bpf/test_maps.c b/tools/testing/selftests/bpf/test_maps.c
+index a0aa200..20f1871 100644
+--- a/tools/testing/selftests/bpf/test_maps.c
++++ b/tools/testing/selftests/bpf/test_maps.c
+@@ -282,7 +282,7 @@ static void test_arraymap_percpu(int task, void *data)
  {
- 	if ((f1 ^ f2) & NETIF_F_HW_CSUM) {
--		if (f1 & NETIF_F_HW_CSUM)
--			f1 |= (NETIF_F_IP_CSUM|NETIF_F_IPV6_CSUM);
--		else
--			f2 |= (NETIF_F_IP_CSUM|NETIF_F_IPV6_CSUM);
-+		if (f1 & (NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM))
-+			f1 |= NETIF_F_HW_CSUM;
-+		if(f2 & (NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM))
-+			f2 |= NETIF_F_HW_CSUM;
- 	}
+ 	unsigned int nr_cpus = bpf_num_possible_cpus();
+ 	int key, next_key, fd, i;
+-	long values[nr_cpus];
++	long long values[nr_cpus];
  
- 	return f1 & f2;
--- 
-2.7.4
+ 	fd = bpf_create_map(BPF_MAP_TYPE_PERCPU_ARRAY, sizeof(key),
+ 			    sizeof(values[0]), 2, 0);
+@@ -340,7 +340,7 @@ static void test_arraymap_percpu_many_keys(void)
+ 	 * allocator more than anything else
+ 	 */
+ 	unsigned int nr_keys = 2000;
+-	long values[nr_cpus];
++	long long values[nr_cpus];
+ 	int key, fd, i;
+ 
+ 	fd = bpf_create_map(BPF_MAP_TYPE_PERCPU_ARRAY, sizeof(key),
