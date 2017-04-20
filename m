@@ -1,55 +1,67 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 11/14] i40e: remove I40E_FLAG_IN_NETPOLL entirely
-Date: Wed, 19 Apr 2017 18:57:47 -0700
-Message-ID: <20170420015750.6828-12-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 07/14] i40e: don't hold RTNL lock while waiting for VF reset to finish
+Date: Wed, 19 Apr 2017 18:57:43 -0700
+Message-ID: <20170420015750.6828-8-jeffrey.t.kirsher@intel.com>
 References: <20170420015750.6828-1-jeffrey.t.kirsher@intel.com>
 Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga07.intel.com ([134.134.136.100]:20804 "EHLO mga07.intel.com"
+Received: from mga07.intel.com ([134.134.136.100]:47224 "EHLO mga07.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S939107AbdDTB6C (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 19 Apr 2017 21:58:02 -0400
+        id S939048AbdDTB56 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 19 Apr 2017 21:57:58 -0400
 In-Reply-To: <20170420015750.6828-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jacob Keller <jacob.e.keller@intel.com>
 
-This flag was originally intended to be used to let some
-driver code know when we were running from netpoll.
-Ultimately this was not necessary and we never used it.
-Let's remove it
+We made some effort to reduce the RTNL lock scope when resetting and
+rebuilding the PF. Unfortunately we still held the RTNL lock during the
+VF reset operation, which meant that multiple PFs could not reset in
+parallel due to the global lock. For now, further reduce the scope by
+not holding the RTNL lock while resetting VFs. This allows multiple PFs
+to reset in a timely manner.
 
-Change-ID: I43b72483d91c1638071d2a7f389ab171ec5b796a
+Change-ID: I2fbf823a0063f24dff67676cad09f0bbf83ee4ce
 Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40evf/i40evf.h | 2 --
- 1 file changed, 2 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 11 +++++++++--
+ 1 file changed, 9 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf.h b/drivers/net/ethernet/intel/i40evf/i40evf.h
-index 7bbd11abed08..40f56e2335df 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf.h
-@@ -202,7 +202,6 @@ struct i40evf_adapter {
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 5e625e0c73ac..5c2ceb247959 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -7108,6 +7108,10 @@ static void i40e_rebuild(struct i40e_pf *pf, bool reinit, bool lock_acquired)
+ 	/* restart the VSIs that were rebuilt and running before the reset */
+ 	i40e_pf_unquiesce_all_vsi(pf);
  
- 	u32 flags;
- #define I40EVF_FLAG_RX_CSUM_ENABLED		BIT(0)
--#define I40EVF_FLAG_IN_NETPOLL			BIT(4)
- #define I40EVF_FLAG_IMIR_ENABLED		BIT(5)
- #define I40EVF_FLAG_MQ_CAPABLE			BIT(6)
- #define I40EVF_FLAG_PF_COMMS_FAILED		BIT(8)
-@@ -221,7 +220,6 @@ struct i40evf_adapter {
- /* duplicates for common code */
- #define I40E_FLAG_FDIR_ATR_ENABLED		0
- #define I40E_FLAG_DCB_ENABLED			0
--#define I40E_FLAG_IN_NETPOLL			I40EVF_FLAG_IN_NETPOLL
- #define I40E_FLAG_RX_CSUM_ENABLED		I40EVF_FLAG_RX_CSUM_ENABLED
- #define I40E_FLAG_WB_ON_ITR_CAPABLE		I40EVF_FLAG_WB_ON_ITR_CAPABLE
- #define I40E_FLAG_OUTER_UDP_CSUM_CAPABLE	I40EVF_FLAG_OUTER_UDP_CSUM_CAPABLE
++	/* Release the RTNL lock before we start resetting VFs */
++	if (!lock_acquired)
++		rtnl_unlock();
++
+ 	if (pf->num_alloc_vfs) {
+ 		for (v = 0; v < pf->num_alloc_vfs; v++)
+ 			i40e_reset_vf(&pf->vf[v], true);
+@@ -7116,9 +7120,12 @@ static void i40e_rebuild(struct i40e_pf *pf, bool reinit, bool lock_acquired)
+ 	/* tell the firmware that we're starting */
+ 	i40e_send_version(pf);
+ 
++	/* We've already released the lock, so don't do it again */
++	goto end_core_reset;
++
+ end_unlock:
+-if (!lock_acquired)
+-	rtnl_unlock();
++	if (!lock_acquired)
++		rtnl_unlock();
+ end_core_reset:
+ 	clear_bit(__I40E_RESET_FAILED, &pf->state);
+ clear_recovery:
 -- 
 2.12.2
