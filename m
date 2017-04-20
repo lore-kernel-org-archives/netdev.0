@@ -1,32 +1,41 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH v6 2/4] net: dsa: add new DSA switch driver for the
- SMSC-LAN9303
-Date: Thu, 20 Apr 2017 10:41:27 -0700
-Message-ID: <40835651-8d27-13eb-e0df-e9438aefb117@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCHv6] net: dsa: add SMSC/Microchip LAN9303 three port
+ ethernet switch driver
+Date: Thu, 20 Apr 2017 13:50:16 -0400 (EDT)
+Message-ID: <20170420.135016.1255204402288999642.davem@davemloft.net>
 References: <20170418084827.19613-1-jbe@pengutronix.de>
- <20170418084827.19613-3-jbe@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, kernel@pengutronix.de,
-        andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
-        davem@davemloft.net
-To: Juergen Borleis <jbe@pengutronix.de>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170418084827.19613-3-jbe@pengutronix.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        f.fainelli@gmail.com, kernel@pengutronix.de, andrew@lunn.ch,
+        vivien.didelot@savoirfairelinux.com
+To: jbe@pengutronix.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:46114 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1033125AbdDTRuS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 13:50:18 -0400
+In-Reply-To: <20170418084827.19613-1-jbe@pengutronix.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04/18/2017 01:48 AM, Juergen Borleis wrote:
-> The SMSC/Microchip LAN9303 is an ethernet switch device with one CPU port
-> and two external ethernet ports with built-in phys.
-> 
-> This driver uses the DSA framework, but is currently only capable of
-> separating the two external ports. There is no offload support yet.
-> 
-> Signed-off-by: Juergen Borleis <jbe@pengutronix.de>
-> Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+From: Juergen Borleis <jbe@pengutronix.de>
+Date: Tue, 18 Apr 2017 10:48:23 +0200
 
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
--- 
-Florian
+> The LAN9303 is a three port 10/100 ethernet switch with integrated phys
+> for the two external ethernet ports. The third port is an RMII/MII
+> interface to a host master network interface (e.g. fixed link).
+> 
+> While the LAN9303 device itself supports offload packet processing, this
+> driver does not make use of it yet. This driver just configures the device
+> to provide two separate network interfaces (which is the default state of
+> a DSA device).
+> 
+> Please note: the "MDIO managed mode" driver part isn't tested yet. I have
+> used and tested the "I2C managed mode" only.
+> 
+> Changes in v6:
+ ...
+
+Series applied, thanks.
