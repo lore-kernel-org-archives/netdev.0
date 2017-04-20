@@ -1,8 +1,7 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: net: heap out-of-bounds in
- fib6_clean_node/rt6_fill_node/fib6_age/fib6_prune_clone
-Date: Thu, 20 Apr 2017 09:35:51 -0600
-Message-ID: <623b6343-14f4-945d-a1bd-c9971b9566c2@cumulusnetworks.com>
+From: Andrey Konovalov <andreyknvl@google.com>
+Subject: Re: net: heap out-of-bounds in fib6_clean_node/rt6_fill_node/fib6_age/fib6_prune_clone
+Date: Thu, 20 Apr 2017 17:39:14 +0200
+Message-ID: <CAAeHK+yzCYZ+OU+eTpNLy-_X=7HSNUDML6jcVBKK9sxJ2ByORg@mail.gmail.com>
 References: <CACT4Y+YrA45diWz_8f4St8oX6aTC1kuGXMUvniGRbqXSGwawZQ@mail.gmail.com>
  <CACT4Y+Yx1cgWCkC2c7bze1V1VaecgBfioMvKS2-FUeaRr4DGXg@mail.gmail.com>
  <CACT4Y+bcMz13ad2kLaZGvct5sQ+RDki0StnOEbz3exAa8=zxqQ@mail.gmail.com>
@@ -16,11 +15,11 @@ References: <CACT4Y+YrA45diWz_8f4St8oX6aTC1kuGXMUvniGRbqXSGwawZQ@mail.gmail.com>
  <1dad955e-28c1-3f02-8876-90cce4a7d1f8@cumulusnetworks.com>
  <CACT4Y+amFHj1DV3pmj+eJVxg52+GLdE-fEin5M86dOKubea7DQ@mail.gmail.com>
  <CAAeHK+zWO1COcZDp9q4eHP9YN9Qv8CXLOJu8dJgCbihcFSK3jg@mail.gmail.com>
- <CAAeHK+zSe82vc5gCRgr_EoUwiALPnWVdWJBPwJZBpbxYz=kGJw@mail.gmail.com>
+ <CAAeHK+zSe82vc5gCRgr_EoUwiALPnWVdWJBPwJZBpbxYz=kGJw@mail.gmail.com> <623b6343-14f4-945d-a1bd-c9971b9566c2@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+Content-Type: text/plain; charset=UTF-8
+Cc: Dmitry Vyukov <dvyukov@google.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
         Eric Dumazet <eric.dumazet@gmail.com>,
         Mahesh Bandewar <maheshb@google.com>,
         Eric Dumazet <edumazet@google.com>,
@@ -32,22 +31,22 @@ Cc: Cong Wang <xiyou.wangcong@gmail.com>,
         netdev <netdev@vger.kernel.org>,
         LKML <linux-kernel@vger.kernel.org>,
         syzkaller <syzkaller@googlegroups.com>
-To: Andrey Konovalov <andreyknvl@google.com>,
-        Dmitry Vyukov <dvyukov@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yb0-f171.google.com ([209.85.213.171]:33842 "EHLO
-        mail-yb0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S970695AbdDTPfy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 11:35:54 -0400
-Received: by mail-yb0-f171.google.com with SMTP id 11so27034669ybw.1
-        for <netdev@vger.kernel.org>; Thu, 20 Apr 2017 08:35:54 -0700 (PDT)
-In-Reply-To: <CAAeHK+zSe82vc5gCRgr_EoUwiALPnWVdWJBPwJZBpbxYz=kGJw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: David Ahern <dsa@cumulusnetworks.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <623b6343-14f4-945d-a1bd-c9971b9566c2@cumulusnetworks.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 4/20/17 9:28 AM, Andrey Konovalov wrote:
-> This one seems to be much closer to what Dmitry reported intially.
+On Thu, Apr 20, 2017 at 5:35 PM, David Ahern <dsa@cumulusnetworks.com> wrote:
+> On 4/20/17 9:28 AM, Andrey Konovalov wrote:
+>> This one seems to be much closer to what Dmitry reported intially.
+>
+> does not repro here; I ran in a loop and nothing.
 
-does not repro here; I ran in a loop and nothing.
+You use the attached config, right?
 
-can you send output of "sysctl -a --pattern 'net.ipv6'"
+>
+> can you send output of "sysctl -a --pattern 'net.ipv6'"
+
+Uploaded here:
+https://gist.github.com/xairy/7b6988c9cd8fda5458005df05584ff27
