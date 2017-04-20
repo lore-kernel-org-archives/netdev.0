@@ -1,77 +1,58 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH 1/1] bonding: use 'M' or 'G' based on the speed
-Date: Thu, 20 Apr 2017 14:53:19 -0700
-Message-ID: <20170420145319.17ed4296@xeon-e3>
-References: <1492679195-19938-1-git-send-email-yanjun.zhu@oracle.com>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: Re: [PATCH v4 net-next RFC] net: Generic XDP
+Date: Thu, 20 Apr 2017 18:09:51 -0400
+Message-ID: <20170420220951.GO4730@C02RW35GFVH8.dhcp.broadcom.net>
+References: <20170418.150708.1605529107204449972.davem@davemloft.net>
+ <20170418.152916.1361453741909754079.davem@davemloft.net>
+ <20170419142903.GJ4730@C02RW35GFVH8.dhcp.broadcom.net>
+ <20170419.214049.2190624657363276447.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: j.vosburgh@gmail.com, vfalico@gmail.com, andy@greyhouse.net,
-        netdev@vger.kernel.org
-To: Zhu Yanjun <yanjun.zhu@oracle.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: alexei.starovoitov@gmail.com, michael.chan@broadcom.com,
+        netdev@vger.kernel.org, xdp-newbies@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f179.google.com ([209.85.223.179]:33920 "EHLO
-        mail-io0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S947832AbdDTVxZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 17:53:25 -0400
-Received: by mail-io0-f179.google.com with SMTP id a103so89575465ioj.1
-        for <netdev@vger.kernel.org>; Thu, 20 Apr 2017 14:53:24 -0700 (PDT)
-In-Reply-To: <1492679195-19938-1-git-send-email-yanjun.zhu@oracle.com>
+Received: from mail-qt0-f193.google.com ([209.85.216.193]:36341 "EHLO
+        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S944867AbdDTWKA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 18:10:00 -0400
+Received: by mail-qt0-f193.google.com with SMTP id t52so9585561qtb.3
+        for <netdev@vger.kernel.org>; Thu, 20 Apr 2017 15:09:59 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20170419.214049.2190624657363276447.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 20 Apr 2017 05:06:35 -0400
-Zhu Yanjun <yanjun.zhu@oracle.com> wrote:
-
-> If the speed of the slave netdev is more than 1000M,
-> it is better to use 'G' instead of 'M'.
+On Wed, Apr 19, 2017 at 09:40:49PM -0400, David Miller wrote:
+> From: Andy Gospodarek <andy@greyhouse.net>
+> Date: Wed, 19 Apr 2017 10:29:03 -0400
 > 
-> Signed-off-by: Zhu Yanjun <yanjun.zhu@oracle.com>
-> ---
->  drivers/net/bonding/bond_main.c   | 8 ++++++--
->  drivers/net/bonding/bond_procfs.c | 6 +++++-
->  2 files changed, 11 insertions(+), 3 deletions(-)
+> > So I tried a variety of things and the simplest change on top of yours that
+> > works well for xdp1, xdp2, and xdp_tx_iptunnel. 
+> > 
+> > diff --git a/net/core/dev.c b/net/core/dev.c
+> > index b3d3a6e..1bab3dc 100644
+> > --- a/net/core/dev.c
+> > +++ b/net/core/dev.c
+> > @@ -4316,11 +4316,11 @@ static u32 netif_receive_generic_xdp(struct sk_buff *skb,
+> >  
+> >  	off = xdp.data - orig_data;
+> >  	if (off)
+> > -		__skb_push(skb, off);
+> > +		__skb_push(skb, -off);
 > 
-> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-> index af9f0ce..1aad13d 100644
-> --- a/drivers/net/bonding/bond_main.c
-> +++ b/drivers/net/bonding/bond_main.c
-> @@ -2147,9 +2147,13 @@ static void bond_miimon_commit(struct bonding *bond)
->  				bond_set_backup_slave(slave);
->  			}
->  
-> -			netdev_info(bond->dev, "link status definitely up for interface %s, %u Mbps %s duplex\n",
-> +			netdev_info(bond->dev, "link status definitely up for interface %s, %u%sbps %s duplex\n",
->  				    slave->dev->name,
-> -				    slave->speed == SPEED_UNKNOWN ? 0 : slave->speed,
-> +				    slave->speed == SPEED_UNKNOWN ? 0 :
-> +				    (slave->speed > 1000 ?
-> +				    slave->speed / 1000 : slave->speed),
-> +				    slave->speed > 1000 ?
-> +				    slave->speed % 1000 ? ".5 G" : " G" : " M",
->  				    slave->duplex ? "full" : "half");
+> We have to handle both pushing and popping headers, so could you
+> please test the snippet I asked you to try?
+> 
 
-Or drop the message all together. This is just log noise in a production system.
+I will tomorrow or by Monday of next week.
+
+I'm also going to hack^W write a quick test app to exercise it as well.
 
 
->  
->  			/* notify ad that the link status has changed */
-> diff --git a/drivers/net/bonding/bond_procfs.c b/drivers/net/bonding/bond_procfs.c
-> index f514fe5..4c31055 100644
-> --- a/drivers/net/bonding/bond_procfs.c
-> +++ b/drivers/net/bonding/bond_procfs.c
-> @@ -173,7 +173,11 @@ static void bond_info_show_slave(struct seq_file *seq,
->  	if (slave->speed == SPEED_UNKNOWN)
->  		seq_printf(seq, "Speed: %s\n", "Unknown");
->  	else
-> -		seq_printf(seq, "Speed: %d Mbps\n", slave->speed);
-> +		seq_printf(seq, "Speed: %d%sbps\n",
-> +			   slave->speed > 1000 ?
-> +			   slave->speed / 1000 : slave->speed,
-> +			   slave->speed > 1000 ?
-> +			   (slave->speed % 1000 ? ".5 G" : " G") : " M");
->  
->  	if (slave->duplex == DUPLEX_UNKNOWN)
->  		seq_printf(seq, "Duplex: %s\n", "Unknown");
-
-You can't change output formats of /proc since it technically and kernel/userspace ABI.
+> > 	if (off > 0)
+> > 		__skb_pull(skb, off);
+> > 	else if (off < 0)
+> > 		__skb_push(skb, -off);
+> 
+> Thanks.
