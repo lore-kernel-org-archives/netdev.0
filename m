@@ -1,118 +1,59 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 13/16] xfrm: Add encapsulation header offsets while SKB is not encrypted
-Date: Thu, 20 Apr 2017 10:55:12 +0200
-Message-ID: <1492678515-14347-14-git-send-email-steffen.klassert@secunet.com>
-References: <1492678515-14347-1-git-send-email-steffen.klassert@secunet.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Heads-up: two regressions in v4.11-rc series
+Date: Thu, 20 Apr 2017 11:00:42 +0200
+Message-ID: <20170420110042.73d01e0f@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-        Steffen Klassert <steffen.klassert@secunet.com>,
-        <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:51686 "EHLO a.mx.secunet.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S970093AbdDTI5s (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 20 Apr 2017 04:57:48 -0400
-In-Reply-To: <1492678515-14347-1-git-send-email-steffen.klassert@secunet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: brouer@redhat.com, Mel Gorman <mgorman@techsingularity.net>, Tariq
+ Toukan <tariqt@mellanox.com>, LKML <linux-kernel@vger.kernel.org>, linux-mm
+ <linux-mm@kvack.org>, "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ peterz@infradead.org
+To: Linus Torvalds <torvalds@linux-foundation.org>, Andrew Morton
+ <akpm@linux-foundation.org>, Frederic Weisbecker <fweisbec@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-From: Ilan Tayari <ilant@mellanox.com>
+Hi Linus,
 
-Both esp4 and esp6 used to assume that the SKB payload is encrypted
-and therefore the inner_network and inner_transport offsets are
-not relevant.
-When doing crypto offload in the NIC, this is no longer the case
-and the NIC driver needs these offsets so it can do TX TCP checksum
-offloading.
-This patch sets the inner_network and inner_transport members of
-the SKB, as well as encapsulation, to reflect the actual positions
-of these headers, and removes them only once encryption is done
-on the payload.
+Just wanted to give a heads-up on two regressions in 4.11-rc series.
 
-Signed-off-by: Ilan Tayari <ilant@mellanox.com>
-Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
----
- net/ipv4/xfrm4_mode_transport.c | 2 ++
- net/ipv4/xfrm4_mode_tunnel.c    | 3 +++
- net/ipv6/xfrm6_mode_transport.c | 1 +
- net/ipv6/xfrm6_mode_tunnel.c    | 3 +++
- net/xfrm/xfrm_output.c          | 2 ++
- 5 files changed, 11 insertions(+)
+(1) page allocator optimization revert
 
-diff --git a/net/ipv4/xfrm4_mode_transport.c b/net/ipv4/xfrm4_mode_transport.c
-index 6c2411d..3d36644 100644
---- a/net/ipv4/xfrm4_mode_transport.c
-+++ b/net/ipv4/xfrm4_mode_transport.c
-@@ -24,6 +24,8 @@ static int xfrm4_transport_output(struct xfrm_state *x, struct sk_buff *skb)
- 	struct iphdr *iph = ip_hdr(skb);
- 	int ihl = iph->ihl * 4;
- 
-+	skb_set_inner_transport_header(skb, skb_transport_offset(skb));
-+
- 	skb_set_network_header(skb, -x->props.header_len);
- 	skb->mac_header = skb->network_header +
- 			  offsetof(struct iphdr, protocol);
-diff --git a/net/ipv4/xfrm4_mode_tunnel.c b/net/ipv4/xfrm4_mode_tunnel.c
-index d3f2434..e6265e2 100644
---- a/net/ipv4/xfrm4_mode_tunnel.c
-+++ b/net/ipv4/xfrm4_mode_tunnel.c
-@@ -33,6 +33,9 @@ static int xfrm4_mode_tunnel_output(struct xfrm_state *x, struct sk_buff *skb)
- 	struct iphdr *top_iph;
- 	int flags;
- 
-+	skb_set_inner_network_header(skb, skb_network_offset(skb));
-+	skb_set_inner_transport_header(skb, skb_transport_offset(skb));
-+
- 	skb_set_network_header(skb, -x->props.header_len);
- 	skb->mac_header = skb->network_header +
- 			  offsetof(struct iphdr, protocol);
-diff --git a/net/ipv6/xfrm6_mode_transport.c b/net/ipv6/xfrm6_mode_transport.c
-index eb9b36b..7a92c0f 100644
---- a/net/ipv6/xfrm6_mode_transport.c
-+++ b/net/ipv6/xfrm6_mode_transport.c
-@@ -27,6 +27,7 @@ static int xfrm6_transport_output(struct xfrm_state *x, struct sk_buff *skb)
- 	int hdr_len;
- 
- 	iph = ipv6_hdr(skb);
-+	skb_set_inner_transport_header(skb, skb_transport_offset(skb));
- 
- 	hdr_len = x->type->hdr_offset(x, skb, &prevhdr);
- 	skb_set_mac_header(skb, (prevhdr - x->props.header_len) - skb->data);
-diff --git a/net/ipv6/xfrm6_mode_tunnel.c b/net/ipv6/xfrm6_mode_tunnel.c
-index 19a60fc..02556e3 100644
---- a/net/ipv6/xfrm6_mode_tunnel.c
-+++ b/net/ipv6/xfrm6_mode_tunnel.c
-@@ -36,6 +36,9 @@ static int xfrm6_mode_tunnel_output(struct xfrm_state *x, struct sk_buff *skb)
- 	struct ipv6hdr *top_iph;
- 	int dsfield;
- 
-+	skb_set_inner_network_header(skb, skb_network_offset(skb));
-+	skb_set_inner_transport_header(skb, skb_transport_offset(skb));
-+
- 	skb_set_network_header(skb, -x->props.header_len);
- 	skb->mac_header = skb->network_header +
- 			  offsetof(struct ipv6hdr, nexthdr);
-diff --git a/net/xfrm/xfrm_output.c b/net/xfrm/xfrm_output.c
-index a150886..8c0b672 100644
---- a/net/xfrm/xfrm_output.c
-+++ b/net/xfrm/xfrm_output.c
-@@ -205,6 +205,7 @@ int xfrm_output(struct sock *sk, struct sk_buff *skb)
- 	int err;
- 
- 	secpath_reset(skb);
-+	skb->encapsulation = 0;
- 
- 	if (xfrm_dev_offload_ok(skb, x)) {
- 		struct sec_path *sp;
-@@ -218,6 +219,7 @@ int xfrm_output(struct sock *sk, struct sk_buff *skb)
- 		if (skb->sp)
- 			secpath_put(skb->sp);
- 		skb->sp = sp;
-+		skb->encapsulation = 1;
- 
- 		sp->olen++;
- 		sp->xvec[skb->sp->len++] = x;
+Mel Gorman and I have been playing with optimizing the page allocator,
+but Tariq spotted that we caused a regression for (NIC) drivers that
+refill DMA RX rings in softirq context.
+
+The end result was a revert, and this is waiting in AKPMs quilt queue:
+ http://ozlabs.org/~akpm/mmots/broken-out/revert-mm-page_alloc-only-use-per-cpu-allocator-for-irq-safe-requests.patch
+
+
+(2) Busy softirq can cause userspace not to be scheduled
+
+I bisected the problem to a499a5a14dbd ("sched/cputime: Increment
+kcpustat directly on irqtime account"). See email thread with
+ Subject: Bisected softirq accounting issue in v4.11-rc1~170^2~28
+ http://lkml.kernel.org/r/20170328101403.34a82fbf@redhat.com
+
+I don't know the scheduler code well enough to fix this, and will have
+to rely others to figure out this scheduler regression.
+
+To make it clear: I'm only seeing this scheduler regression when a
+remote host is sending many many network packets, towards the kernel
+which keeps NAPI/softirq busy all the time.  A possible hint: tool
+"top" only shows this in "si" column, while on v4.10 "top" also blames
+"ksoftirqd/N", plus "ps" reported cputime (0:00) seems wrong for ksoftirqd.
+
+
 -- 
-2.7.4
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
