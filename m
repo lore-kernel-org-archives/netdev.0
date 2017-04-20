@@ -1,80 +1,64 @@
-From: <Joe.Ghalam@dell.com>
-Subject: Re: macvlan: Fix device ref leak when purging bc_queue
-Date: Thu, 20 Apr 2017 16:09:56 +0000
-Message-ID: <1492704599476.84165@Dell.com>
-References: <1492618528011.11322@Dell.com>,<20170420125512.GA9113@gondor.apana.org.au>
+From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
+Subject: RE: [net-next 04/14] i40e: dump VF information in debugfs
+Date: Thu, 20 Apr 2017 16:24:51 +0000
+Message-ID: <BL2PR07MB23063D7F1341E629E9345F578D1B0@BL2PR07MB2306.namprd07.prod.outlook.com>
+References: <BL2PR07MB23064C036E994DC63475F7388D1B0@BL2PR07MB2306.namprd07.prod.outlook.com>
+        <20170420113942.GD1886@nanopsycho.orion>
+        <BL2PR07MB2306DEC60F085B88BA230C3A8D1B0@BL2PR07MB2306.namprd07.prod.outlook.com>
+ <20170420.115153.1510206006505486594.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: quoted-printable
-Cc: <davem@davemloft.net>, <Clifford.Wichmann@dell.com>,
-        <netdev@vger.kernel.org>
-To: <herbert@gondor.apana.org.au>
+Cc: "jiri@resnulli.us" <jiri@resnulli.us>,
+        "gerlitz.or@gmail.com" <gerlitz.or@gmail.com>,
+        "jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
+        "mitch.a.williams@intel.com" <mitch.a.williams@intel.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "nhorman@redhat.com" <nhorman@redhat.com>,
+        "sassmann@redhat.com" <sassmann@redhat.com>,
+        "jogreene@redhat.com" <jogreene@redhat.com>,
+        "Dupuis, Chad" <Chad.Dupuis@cavium.com>,
+        "Rangankar, Manish" <Manish.Rangankar@cavium.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from esa7.dell-outbound.iphmx.com ([68.232.153.96]:31722 "EHLO
-        esa7.dell-outbound.iphmx.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1033329AbdDTQXP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 12:23:15 -0400
-In-Reply-To: <20170420125512.GA9113@gondor.apana.org.au>
+Received: from mail-sn1nam02on0081.outbound.protection.outlook.com ([104.47.36.81]:29258
+        "EHLO NAM02-SN1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S971155AbdDTQZA (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 20 Apr 2017 12:25:00 -0400
+In-Reply-To: <20170420.115153.1510206006505486594.davem@davemloft.net>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Herbert,=0A=
-I agree with this change, but the same purge would be needed for the macvla=
-n_dellink() call also. =0A=
-Thanks,=0A=
-Joe=0A=
-=0A=
-________________________________________=0A=
-From: Herbert Xu <herbert@gondor.apana.org.au>=0A=
-Sent: Thursday, April 20, 2017 5:55 AM=0A=
-To: Ghalam, Joe=0A=
-Cc: davem@davemloft.net; Wichmann, Clifford; netdev@vger.kernel.org=0A=
-Subject: macvlan: Fix device ref leak when purging bc_queue=0A=
-=0A=
-When a parent macvlan device is destroyed we end up purging its=0A=
-broadcast queue without dropping the device reference count on=0A=
-the packet source device.  This causes the source device to linger.=0A=
-=0A=
-This patch drops that reference count.=0A=
-=0A=
-Fixes: 260916dfb48c ("macvlan: Fix potential use-after free for...")=0A=
-Reported-by: Joe Ghalam <Joe.Ghalam@dell.com>=0A=
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>=0A=
-=0A=
-diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c=0A=
-index 9261722..b34eaaa 100644=0A=
---- a/drivers/net/macvlan.c=0A=
-+++ b/drivers/net/macvlan.c=0A=
-@@ -1139,6 +1139,7 @@ static int macvlan_port_create(struct net_device *dev=
-)=0A=
- static void macvlan_port_destroy(struct net_device *dev)=0A=
- {=0A=
-        struct macvlan_port *port =3D macvlan_port_get_rtnl(dev);=0A=
-+       struct sk_buff *skb;=0A=
-=0A=
-        dev->priv_flags &=3D ~IFF_MACVLAN_PORT;=0A=
-        netdev_rx_handler_unregister(dev);=0A=
-@@ -1147,7 +1148,15 @@ static void macvlan_port_destroy(struct net_device *=
-dev)=0A=
-         * but we need to cancel it and purge left skbs if any.=0A=
-         */=0A=
-        cancel_work_sync(&port->bc_work);=0A=
--       __skb_queue_purge(&port->bc_queue);=0A=
-+=0A=
-+       while ((skb =3D __skb_dequeue(&port->bc_queue))) {=0A=
-+               const struct macvlan_dev *src =3D MACVLAN_SKB_CB(skb)->src;=
-=0A=
-+=0A=
-+               if (src)=0A=
-+                       dev_put(src->dev);=0A=
-+=0A=
-+               kfree_skb(skb);=0A=
-+       }=0A=
-=0A=
-        kfree(port);=0A=
- }=0A=
---=0A=
-Email: Herbert Xu <herbert@gondor.apana.org.au>=0A=
-Home Page: http://gondor.apana.org.au/~herbert/=0A=
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt=
+> > I agree this surely isn't *our* convention, but for scsi  using
+> > debugfs [or sysfs] is a common practice for debug purposes.
+> >
+> > Also, our HW debug capabilities are highly-customable, and I want to
+> > have the ability to configure those on the fly [E.g., dynamically
+> > configuring various HW events to be recorded].
+> > Each such configuration involves multiple register writes and reads
+> > according to user provided inputs.
+> > I don't really see how to generalize the information collection in a
+> > way that would benefit anyone else.
+>=20
+> That's basically what everyone says who slaps random crap into debugfs.=20
+
+True; But assuming that means the suggestion to use debugfs means the
+content is random crap is a logical fallacy.
+
+> >> For your inhouse debugging, you should have oot patch to expose
+> >> whatever you need.
+> >
+> > I don't want in-house debugging capabilities - I want field debug
+> > capabilities.
+>=20
+> Then it has to use a portable, well defined, set of interfaces.
+
+How would you be able to describe something that is completely tied
+to a specific HW this way. E.g., let's assume you'd want to record
+some messages that pass between 2 internal processors that match
+some criteria?
+While you can probably standardize some format from such a matching
+[although that too would be very tied to different HW capabilities],
+the HW pipeline itself can't be abstracted in this case.
