@@ -1,148 +1,103 @@
-From: Wolfgang Bumiller <w.bumiller@proxmox.com>
-Subject: [PATCH v3 net] net sched actions: allocate act cookie early
-Date: Thu, 20 Apr 2017 14:08:26 +0200
-Message-ID: <20170420120826.7641-1-w.bumiller@proxmox.com>
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Cong Wang <xiyou.wangcong@gmail.com>
-To: netdev@vger.kernel.org
+From: Andrey Konovalov <andreyknvl@google.com>
+Subject: Re: [PATCH net] net: ipv6: RTF_PCPU should not be settable from userspace
+Date: Thu, 20 Apr 2017 14:09:20 +0200
+Message-ID: <CAAeHK+zw3LX8rDJUrfaU5of8MrkUXsmwyLtUBMPaLtVykCUTQw@mail.gmail.com>
+References: <1492636783-29756-1-git-send-email-dsa@cumulusnetworks.com> <20170419215232.2lu7kaebwg75ikn3@giedrius-mbp.dhcp.thefacebook.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: David Ahern <dsa@cumulusnetworks.com>,
+        netdev <netdev@vger.kernel.org>
+To: Martin KaFai Lau <kafai@fb.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from proxmox.maurer-it.com ([212.186.127.180]:12282 "EHLO
-        proxmox.maurer-it.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S967353AbdDTMIb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 08:08:31 -0400
+Received: from mail-yb0-f174.google.com ([209.85.213.174]:33779 "EHLO
+        mail-yb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S969158AbdDTMJV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 08:09:21 -0400
+Received: by mail-yb0-f174.google.com with SMTP id 81so24230472ybp.0
+        for <netdev@vger.kernel.org>; Thu, 20 Apr 2017 05:09:21 -0700 (PDT)
+In-Reply-To: <20170419215232.2lu7kaebwg75ikn3@giedrius-mbp.dhcp.thefacebook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Policing filters do not use the TCA_ACT_* enum and the tb[]
-nlattr array in tcf_action_init_1() doesn't get filled for
-them so we should not try to look for a TCA_ACT_COOKIE
-attribute in the then uninitialized array.
-The error handling in cookie allocation then calls
-tcf_hash_release() leading to invalid memory access later
-on.
-Additionally, if cookie allocation fails after an already
-existing non-policing filter has successfully been changed,
-tcf_action_release() should not be called, also we would
-have to roll back the changes in the error handling, so
-instead we now allocate the cookie early and assign it on
-success at the end.
+Thanks!
 
-CVE-2017-7979
-Fixes: 1045ba77a596 ("net sched actions: Add support for user cookies")
-Signed-off-by: Wolfgang Bumiller <w.bumiller@proxmox.com>
-Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
----
-This replaces both patches of the previous series:
-  - 1/2 net sched actions: fix access to uninitialized data
-   Changed: The affected code is now moved up into the first
-            (name==NULL) branch rather than adding this condition anew.
-  - 2/2 net sched actions: decrement module refcount earlier
-   Changed: Instead of moving the module_put above the cookie code,
-            the cookie code is moved as described in the commit
-            message.
+Tested-by: Andrey Konovalov <andreyknvl@google.com>
 
- net/sched/act_api.c | 55 +++++++++++++++++++++++++++++++----------------------
- 1 file changed, 32 insertions(+), 23 deletions(-)
-
-diff --git a/net/sched/act_api.c b/net/sched/act_api.c
-index b70aa57319ea..e05b924618a0 100644
---- a/net/sched/act_api.c
-+++ b/net/sched/act_api.c
-@@ -529,20 +529,20 @@ int tcf_action_dump(struct sk_buff *skb, struct list_head *actions,
- 	return err;
- }
- 
--static int nla_memdup_cookie(struct tc_action *a, struct nlattr **tb)
-+static struct tc_cookie *nla_memdup_cookie(struct nlattr **tb)
- {
--	a->act_cookie = kzalloc(sizeof(*a->act_cookie), GFP_KERNEL);
--	if (!a->act_cookie)
--		return -ENOMEM;
-+	struct tc_cookie *c = kzalloc(sizeof(*c), GFP_KERNEL);
-+	if (!c)
-+		return NULL;
- 
--	a->act_cookie->data = nla_memdup(tb[TCA_ACT_COOKIE], GFP_KERNEL);
--	if (!a->act_cookie->data) {
--		kfree(a->act_cookie);
--		return -ENOMEM;
-+	c->data = nla_memdup(tb[TCA_ACT_COOKIE], GFP_KERNEL);
-+	if (!c->data) {
-+		kfree(c);
-+		return NULL;
- 	}
--	a->act_cookie->len = nla_len(tb[TCA_ACT_COOKIE]);
-+	c->len = nla_len(tb[TCA_ACT_COOKIE]);
- 
--	return 0;
-+	return c;
- }
- 
- struct tc_action *tcf_action_init_1(struct net *net, struct nlattr *nla,
-@@ -551,6 +551,7 @@ struct tc_action *tcf_action_init_1(struct net *net, struct nlattr *nla,
- {
- 	struct tc_action *a;
- 	struct tc_action_ops *a_o;
-+	struct tc_cookie *cookie = NULL;
- 	char act_name[IFNAMSIZ];
- 	struct nlattr *tb[TCA_ACT_MAX + 1];
- 	struct nlattr *kind;
-@@ -566,6 +567,18 @@ struct tc_action *tcf_action_init_1(struct net *net, struct nlattr *nla,
- 			goto err_out;
- 		if (nla_strlcpy(act_name, kind, IFNAMSIZ) >= IFNAMSIZ)
- 			goto err_out;
-+		if (tb[TCA_ACT_COOKIE]) {
-+			int cklen = nla_len(tb[TCA_ACT_COOKIE]);
-+
-+			if (cklen > TC_COOKIE_MAX_SIZE)
-+				goto err_out;
-+
-+			cookie = nla_memdup_cookie(tb);
-+			if (!cookie) {
-+				err = -ENOMEM;
-+				goto err_out;
-+			}
-+		}
- 	} else {
- 		err = -EINVAL;
- 		if (strlcpy(act_name, name, IFNAMSIZ) >= IFNAMSIZ)
-@@ -604,20 +617,12 @@ struct tc_action *tcf_action_init_1(struct net *net, struct nlattr *nla,
- 	if (err < 0)
- 		goto err_mod;
- 
--	if (tb[TCA_ACT_COOKIE]) {
--		int cklen = nla_len(tb[TCA_ACT_COOKIE]);
--
--		if (cklen > TC_COOKIE_MAX_SIZE) {
--			err = -EINVAL;
--			tcf_hash_release(a, bind);
--			goto err_mod;
--		}
--
--		if (nla_memdup_cookie(a, tb) < 0) {
--			err = -ENOMEM;
--			tcf_hash_release(a, bind);
--			goto err_mod;
-+	if (name == NULL && tb[TCA_ACT_COOKIE]) {
-+		if (a->act_cookie) {
-+			kfree(a->act_cookie->data);
-+			kfree(a->act_cookie);
- 		}
-+		a->act_cookie = cookie;
- 	}
- 
- 	/* module count goes up only when brand new policy is created
-@@ -632,6 +637,10 @@ struct tc_action *tcf_action_init_1(struct net *net, struct nlattr *nla,
- err_mod:
- 	module_put(a_o->owner);
- err_out:
-+	if (cookie) {
-+		kfree(cookie->data);
-+		kfree(cookie);
-+	}
- 	return ERR_PTR(err);
- }
- 
--- 
-2.11.0
+On Wed, Apr 19, 2017 at 11:52 PM, Martin KaFai Lau <kafai@fb.com> wrote:
+> On Wed, Apr 19, 2017 at 02:19:43PM -0700, David Ahern wrote:
+>> Andrey reported a fault in the IPv6 route code:
+>>
+>> kasan: GPF could be caused by NULL-ptr deref or user memory access
+>> general protection fault: 0000 [#1] SMP KASAN
+>> Modules linked in:
+>> CPU: 1 PID: 4035 Comm: a.out Not tainted 4.11.0-rc7+ #250
+>> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+>> task: ffff880069809600 task.stack: ffff880062dc8000
+>> RIP: 0010:ip6_rt_cache_alloc+0xa6/0x560 net/ipv6/route.c:975
+>> RSP: 0018:ffff880062dced30 EFLAGS: 00010206
+>> RAX: dffffc0000000000 RBX: ffff8800670561c0 RCX: 0000000000000006
+>> RDX: 0000000000000003 RSI: ffff880062dcfb28 RDI: 0000000000000018
+>> RBP: ffff880062dced68 R08: 0000000000000001 R09: 0000000000000000
+>> R10: 0000000000000000 R11: 0000000000000000 R12: 0000000000000000
+>> R13: ffff880062dcfb28 R14: dffffc0000000000 R15: 0000000000000000
+>> FS:  00007feebe37e7c0(0000) GS:ffff88006cb00000(0000) knlGS:0000000000000000
+>> CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+>> CR2: 00000000205a0fe4 CR3: 000000006b5c9000 CR4: 00000000000006e0
+>> Call Trace:
+>>  ip6_pol_route+0x1512/0x1f20 net/ipv6/route.c:1128
+>>  ip6_pol_route_output+0x4c/0x60 net/ipv6/route.c:1212
+>> ...
+>>
+>> Andrey's syzkaller program passes rtmsg.rtmsg_flags with the RTF_PCPU bit
+>> set. Flags passed to the kernel are blindly copied to the allocated
+>> rt6_info by ip6_route_info_create making a newly inserted route appear
+>> as though it is a per-cpu route. ip6_rt_cache_alloc sees the flag set
+>> and expects rt->dst.from to be set - which it is not since it is not
+>> really a per-cpu copy. The subsequent call to __ip6_dst_alloc then
+>> generates the fault.
+>>
+>> Fix by checking for the flag and failing with EINVAL.
+> Thanks for the fix.
+>
+> Acked-by: Martin KaFai Lau <kafai@fb.com>
+>
+>>
+>> Fixes: d52d3997f843f ("ipv6: Create percpu rt6_info")
+>> Reported-by: Andrey Konovalov <andreyknvl@google.com>
+>> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+>> ---
+>>  include/uapi/linux/ipv6_route.h | 2 +-
+>>  net/ipv6/route.c                | 4 ++++
+>>  2 files changed, 5 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/include/uapi/linux/ipv6_route.h b/include/uapi/linux/ipv6_route.h
+>> index 85bbb1799df3..d496c02e14bc 100644
+>> --- a/include/uapi/linux/ipv6_route.h
+>> +++ b/include/uapi/linux/ipv6_route.h
+>> @@ -35,7 +35,7 @@
+>>  #define RTF_PREF(pref)       ((pref) << 27)
+>>  #define RTF_PREF_MASK        0x18000000
+>>
+>> -#define RTF_PCPU     0x40000000
+>> +#define RTF_PCPU     0x40000000      /* read-only: can not be set by user */
+>>  #define RTF_LOCAL    0x80000000
+>>
+>>
+>> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+>> index 4ba7c49872ff..a1bf426c959b 100644
+>> --- a/net/ipv6/route.c
+>> +++ b/net/ipv6/route.c
+>> @@ -1854,6 +1854,10 @@ static struct rt6_info *ip6_route_info_create(struct fib6_config *cfg)
+>>       int addr_type;
+>>       int err = -EINVAL;
+>>
+>> +     /* RTF_PCPU is an internal flag; can not be set by userspace */
+>> +     if (cfg->fc_flags & RTF_PCPU)
+>> +             goto out;
+>> +
+>>       if (cfg->fc_dst_len > 128 || cfg->fc_src_len > 128)
+>>               goto out;
+>>  #ifndef CONFIG_IPV6_SUBTREES
+>> --
+>> 2.9.3
+>>
