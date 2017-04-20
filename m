@@ -1,53 +1,34 @@
-From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
-Subject: RE: [net-next 04/14] i40e: dump VF information in debugfs
-Date: Thu, 20 Apr 2017 20:50:55 +0000
-Message-ID: <BL2PR07MB230655E4217E619BABCA54D18D1B0@BL2PR07MB2306.namprd07.prod.outlook.com>
-References: <BL2PR07MB23063D7F1341E629E9345F578D1B0@BL2PR07MB2306.namprd07.prod.outlook.com>
-        <20170420.125841.799913763607507081.davem@davemloft.net>
-        <BL2PR07MB23064B547F325DD002E513FC8D1B0@BL2PR07MB2306.namprd07.prod.outlook.com>
- <20170420.163548.662307112452546016.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next 04/14] i40e: dump VF information in debugfs
+Date: Thu, 20 Apr 2017 16:54:51 -0400 (EDT)
+Message-ID: <20170420.165451.2187580822981568025.davem@davemloft.net>
+References: <BL2PR07MB23064B547F325DD002E513FC8D1B0@BL2PR07MB2306.namprd07.prod.outlook.com>
+        <20170420.163548.662307112452546016.davem@davemloft.net>
+        <BL2PR07MB230655E4217E619BABCA54D18D1B0@BL2PR07MB2306.namprd07.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "jiri@resnulli.us" <jiri@resnulli.us>,
-        "gerlitz.or@gmail.com" <gerlitz.or@gmail.com>,
-        "jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
-        "mitch.a.williams@intel.com" <mitch.a.williams@intel.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "nhorman@redhat.com" <nhorman@redhat.com>,
-        "sassmann@redhat.com" <sassmann@redhat.com>,
-        "jogreene@redhat.com" <jogreene@redhat.com>,
-        "Dupuis, Chad" <Chad.Dupuis@cavium.com>,
-        "Rangankar, Manish" <Manish.Rangankar@cavium.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jiri@resnulli.us, gerlitz.or@gmail.com,
+        jeffrey.t.kirsher@intel.com, mitch.a.williams@intel.com,
+        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+        jogreene@redhat.com, Chad.Dupuis@cavium.com,
+        Manish.Rangankar@cavium.com
+To: Yuval.Mintz@cavium.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn3nam01on0045.outbound.protection.outlook.com ([104.47.33.45]:38373
-        "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1032143AbdDTUvB (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 20 Apr 2017 16:51:01 -0400
-In-Reply-To: <20170420.163548.662307112452546016.davem@davemloft.net>
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([184.105.139.130]:49508 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1034114AbdDTUyy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 16:54:54 -0400
+In-Reply-To: <BL2PR07MB230655E4217E619BABCA54D18D1B0@BL2PR07MB2306.namprd07.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> > I surely wouldn't want to write a million lines of code just to
-> > provide such a detailed abstraction.
->=20
-> So now the argument has gone from "it's not possible" to "it's going to b=
-e a
-> HUGE amount of code."
+From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
+Date: Thu, 20 Apr 2017 20:50:55 +0000
 
-Nothing here's is strictly impossible - you can always create a simulated H=
-W
-model in SW, and have a one-to-one mapping with the HW entities.
-But "unreasonable amount of code" comes very close to it.
+> Nope, I don't mind doing the work. What I would appreciate is some
+> constructive suggestions on a seemingly feasible approach that might work.
+> I feel like I've been bashed enough for one day. :-)
 
-> I wonder what the next argument will be when I shoot this one down.
->=20
-> If you simply don't want to do the hard work necessary to implement this
-> properly, which is fine, just say so.
-
-Nope, I don't mind doing the work. What I would appreciate is some
-constructive suggestions on a seemingly feasible approach that might work.
-I feel like I've been bashed enough for one day. :-)
+Well, it seems like the thing that you want to do is pull items out of
+an object.  Start with that as an abstraction and see where it goes.
