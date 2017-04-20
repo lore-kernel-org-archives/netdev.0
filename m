@@ -1,40 +1,33 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] net/mlx4: suppress 'may be used uninitialized' warning
-Date: Thu, 20 Apr 2017 13:19:49 -0400 (EDT)
-Message-ID: <20170420.131949.157388310132608724.davem@davemloft.net>
-References: <20170418062135.76698-1-gthelen@google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3 net-next 5/8] net/ncsi: Dump NCSI packet statistics
+Date: Thu, 20 Apr 2017 13:21:03 -0400 (EDT)
+Message-ID: <20170420.132103.454438573956782815.davem@davemloft.net>
+References: <1492498295-14385-1-git-send-email-gwshan@linux.vnet.ibm.com>
+        <1492498295-14385-6-git-send-email-gwshan@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org,
-        matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, idos-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, yishaih-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
-        amirv-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: gthelen-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170418062135.76698-1-gthelen-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, joe@perches.com, kubakici@wp.pl
+To: gwshan@linux.vnet.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:45644 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S971561AbdDTRVF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 13:21:05 -0400
+In-Reply-To: <1492498295-14385-6-git-send-email-gwshan@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Greg Thelen <gthelen-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-Date: Mon, 17 Apr 2017 23:21:35 -0700
+From: Gavin Shan <gwshan@linux.vnet.ibm.com>
+Date: Tue, 18 Apr 2017 16:51:32 +1000
 
-> gcc 4.8.4 complains that mlx4_SW2HW_MPT_wrapper() uses an uninitialized
-> 'mpt' variable:
->   drivers/net/ethernet/mellanox/mlx4/resource_tracker.c: In function 'mlx4_SW2HW_MPT_wrapper':
->   drivers/net/ethernet/mellanox/mlx4/resource_tracker.c:2802:12: warning: 'mpt' may be used uninitialized in this function [-Wmaybe-uninitialized]
->      mpt->mtt = mtt;
+> This creates /sys/kernel/debug/ncsi/<eth0>/stats to dump the NCSI
+> packets sent and received over all packages and channels. It's useful
+> to diagnose NCSI problems, especially when NCSI packages and channels
+> aren't probed properly. The statistics can be gained from debugfs file
+> as below:
 > 
-> I think this warning is a false complaint.  mpt is only used when
-> mr_res_start_move_to() return zero, and in all such cases it initializes
-> mpt.  But apparently gcc cannot see that.
-> 
-> Initialize mpt to avoid the warning.
-> 
-> Signed-off-by: Greg Thelen <gthelen-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+>  # cat /sys/kernel/debug/ncsi/eth0/stats
 
-Appied to net-next.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+There is no reason you cannot use ethtool statistics to provide this
+information to the user.
