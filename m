@@ -1,97 +1,35 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH net-next v5 1/2] net sched actions: dump more than
- TCA_ACT_MAX_PRIO actions per batch
-Date: Thu, 20 Apr 2017 10:25:11 -0400
-Message-ID: <67dc8e10-b0df-c0c5-7c46-ac4147c1c797@mojatatu.com>
-References: <1492693582-26810-1-git-send-email-jhs@emojatatu.com>
- <1492693582-26810-2-git-send-email-jhs@emojatatu.com>
- <20170420135915.GE1886@nanopsycho.orion>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 0/3] l3mdev: Improve use with main table
+Date: Thu, 20 Apr 2017 08:25:37 -0600
+Message-ID: <dae262ea-681b-db1f-bc97-30f2e3c13aad@cumulusnetworks.com>
+References: <1491834122-26252-1-git-send-email-rshearma@brocade.com>
+ <822ee9b5-09d6-6987-deb3-6af9d537c891@cumulusnetworks.com>
+ <a7204fbc-68b5-c6f4-c76c-d33b9c85d663@brocade.com>
+ <e9cbd091-bb51-6f30-f31b-9080145caa93@cumulusnetworks.com>
+ <256c2549-b831-2e7e-b18b-69243bb33ce3@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, xiyou.wangcong@gmail.com,
-        eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: Jiri Pirko <jiri@resnulli.us>
+Cc: netdev@vger.kernel.org
+To: Robert Shearman <rshearma@brocade.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f196.google.com ([209.85.223.196]:35694 "EHLO
-        mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S946258AbdDTOZQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 10:25:16 -0400
-Received: by mail-io0-f196.google.com with SMTP id d203so17008492iof.2
-        for <netdev@vger.kernel.org>; Thu, 20 Apr 2017 07:25:14 -0700 (PDT)
-In-Reply-To: <20170420135915.GE1886@nanopsycho.orion>
+Received: from mail-yb0-f176.google.com ([209.85.213.176]:35633 "EHLO
+        mail-yb0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1032303AbdDTOZj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 10:25:39 -0400
+Received: by mail-yb0-f176.google.com with SMTP id 6so26529921ybq.2
+        for <netdev@vger.kernel.org>; Thu, 20 Apr 2017 07:25:39 -0700 (PDT)
+In-Reply-To: <256c2549-b831-2e7e-b18b-69243bb33ce3@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17-04-20 09:59 AM, Jiri Pirko wrote:
-> Thu, Apr 20, 2017 at 03:06:21PM CEST, jhs@mojatatu.com wrote:
->> From: Jamal Hadi Salim <jhs@mojatatu.com>
->>
->> When you dump hundreds of thousands of actions, getting only 32 per
->> dump batch even when the socket buffer and memory allocations allow
->> is inefficient.
->>
->> With this change, the user will get as many as possibly fitting
->> within the given constraints available to the kernel.
->>
->> A new top level TLV space is introduced. An attribute
->> TCAA_ACT_FLAGS is used to carry the flags indicating the user
->> is capable of processing these large dumps. Older user space which
->> doesn't set this flag doesn't get the large (than 32) batches.
->> The kernel uses the TCAA_ACT_COUNT attribute to tell the user how many
->> actions are put in a single batch. As such user space app knows how long
->> to iterate (independent of the type of action being dumped)
->> instead of hardcoded maximum of 32.
->>
->> Some results dumping 1.5M actions, first unpatched tc which the
->> kernel doesn't help:
->>
->> prompt$ time -p tc actions ls action gact | grep index | wc -l
->> 1500000
->> real 1388.43
->> user 2.07
->> sys 1386.79
->>
->> Now lets see a patched tc which sets the correct flags when requesting
->> a dump:
->>
->> prompt$ time -p updatedtc actions ls action gact | grep index | wc -l
->> 1500000
->> real 178.13
->> user 2.02
->> sys 176.96
->>
->> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
->> ---
->> include/uapi/linux/rtnetlink.h | 21 +++++++++++++++++--
->> net/sched/act_api.c            | 46 +++++++++++++++++++++++++++++++++---------
->> 2 files changed, 55 insertions(+), 12 deletions(-)
->>
->> diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
->> index cce0613..d7d28ec 100644
->> --- a/include/uapi/linux/rtnetlink.h
->> +++ b/include/uapi/linux/rtnetlink.h
->> @@ -674,10 +674,27 @@ struct tcamsg {
->> 	unsigned char	tca__pad1;
->> 	unsigned short	tca__pad2;
->> };
->> +
->> +enum {
->> +	TCAA_UNSPEC,
->
-> TCAA stands for "traffic control action action". I don't get it :(
+On 4/20/17 7:01 AM, Robert Shearman wrote:
+>> The cached dst on sockets is one known place that causes a hang on a
+>> delete. Basically the delete stalls until the sockets are closed. I have
+>> a patch for sk_rx_dst which is the one I chased down last week.
 
-TC Action Attributes == TCAA.
-
-> Prefix still sounds wrong to me, sorry :/
-> Should be:
-> TCA_SOMETHING_*
->
-
-TCA_ATTR_XXX ?
-
-I have another opportunity to make a change  where we should close
-the discussion on this. We cant drag it forever.
-
-cheers,
-jamal
+I got to the bottom on the sk_rx_dst caching -- it is only a problem on
+older kernels (e.g., our 4.1 kernels) and only with multicast udp
+sockets. The early demux code in 4.1 is matching a listen socket when it
+should not. The early demux code for mcast had some changes unrelated to
+false matching that fixed the problem.
