@@ -1,71 +1,62 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH 1/1] drivers: net: usb: qmi_wwan: add QMI_QUIRK_SET_DTR for Telit PID 0x1201
-Date: Thu, 20 Apr 2017 11:02:08 +0200
-Message-ID: <87lgqva1v3.fsf@miraculix.mork.no>
-References: <1491838463-20299-1-git-send-email-dnlplm@gmail.com>
-        <87efwob92t.fsf@miraculix.mork.no>
-        <CAAP7ucL0KLCxVSaO4Vf0LH=T7vRCtm5R2p9VFov+5V0OJF8Xcg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Daniele Palmas <dnlplm@gmail.com>,
-        "netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
-        linux-usb@vger.kernel.org
-To: Aleksander Morgado <aleksander@aleksander.es>
+From: Zhu Yanjun <yanjun.zhu@oracle.com>
+Subject: [PATCH 1/1] bonding: use 'M' or 'G' based on the speed
+Date: Thu, 20 Apr 2017 05:06:35 -0400
+Message-ID: <1492679195-19938-1-git-send-email-yanjun.zhu@oracle.com>
+To: j.vosburgh@gmail.com, vfalico@gmail.com, andy@greyhouse.net,
+        netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:51397 "EHLO canardo.mork.no"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S935613AbdDTJCY (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 20 Apr 2017 05:02:24 -0400
-In-Reply-To: <CAAP7ucL0KLCxVSaO4Vf0LH=T7vRCtm5R2p9VFov+5V0OJF8Xcg@mail.gmail.com>
-        (Aleksander Morgado's message of "Wed, 19 Apr 2017 20:32:25 +0200")
+Received: from aserp1040.oracle.com ([141.146.126.69]:41634 "EHLO
+        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S943690AbdDTJGs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 05:06:48 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Aleksander Morgado <aleksander@aleksander.es> writes:
+If the speed of the slave netdev is more than 1000M,
+it is better to use 'G' instead of 'M'.
 
-> I'm just running --dms-get-operating-mode multiple times, and getting
-> errors frequently:
+Signed-off-by: Zhu Yanjun <yanjun.zhu@oracle.com>
+---
+ drivers/net/bonding/bond_main.c   | 8 ++++++--
+ drivers/net/bonding/bond_procfs.c | 6 +++++-
+ 2 files changed, 11 insertions(+), 3 deletions(-)
 
-Could you retry that with cdc-wdm debugging enabled (e.g.
-"echo 'module cdc_wdm +fp' > /sys/kernel/debug/dynamic_debug/control")
-and something like this:
-
-
-diff --git a/drivers/usb/class/cdc-wdm.c b/drivers/usb/class/cdc-wdm.c
-index 8fda45a45bd3..c0f25ace9fc6 100644
---- a/drivers/usb/class/cdc-wdm.c
-+++ b/drivers/usb/class/cdc-wdm.c
-@@ -211,6 +211,8 @@ static void wdm_in_callback(struct urb *urb)
- 		}
- 	}
-=20
-+	dev_dbg(&desc->intf->dev, "rerr=3D%d, status=3D%d, length=3D%d, resp_coun=
-t=3D%d\n", desc->rerr, status, length, desc->resp_count);
-+
- 	/*
- 	 * Handling devices with the WDM_DRAIN_ON_OPEN flag set:
- 	 * If desc->resp_count is unset, then the urb was submitted
-@@ -516,6 +518,9 @@ static ssize_t wdm_read
- 		return -ERESTARTSYS;
-=20
- 	cntr =3D ACCESS_ONCE(desc->length);
-+
-+	dev_dbg(&desc->intf->dev, "rerr=3D%d, length=3D%d\n", desc->rerr, cntr);
-+
- 	if (cntr =3D=3D 0) {
- 		desc->read =3D 0;
- retry:
-
-
-
-And/or a usbmon dump?  That would be.probably show us the sequence of
-events leading to this problem.
-
-Desperately trying to figure out some other way to solve the issue that
-commit  833415a3e781 ("cdc-wdm: fix "out-of-sync" due to missing
-notifications") was supposed to fix....
-
-
-
-Bj=C3=B8rn
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index af9f0ce..1aad13d 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -2147,9 +2147,13 @@ static void bond_miimon_commit(struct bonding *bond)
+ 				bond_set_backup_slave(slave);
+ 			}
+ 
+-			netdev_info(bond->dev, "link status definitely up for interface %s, %u Mbps %s duplex\n",
++			netdev_info(bond->dev, "link status definitely up for interface %s, %u%sbps %s duplex\n",
+ 				    slave->dev->name,
+-				    slave->speed == SPEED_UNKNOWN ? 0 : slave->speed,
++				    slave->speed == SPEED_UNKNOWN ? 0 :
++				    (slave->speed > 1000 ?
++				    slave->speed / 1000 : slave->speed),
++				    slave->speed > 1000 ?
++				    slave->speed % 1000 ? ".5 G" : " G" : " M",
+ 				    slave->duplex ? "full" : "half");
+ 
+ 			/* notify ad that the link status has changed */
+diff --git a/drivers/net/bonding/bond_procfs.c b/drivers/net/bonding/bond_procfs.c
+index f514fe5..4c31055 100644
+--- a/drivers/net/bonding/bond_procfs.c
++++ b/drivers/net/bonding/bond_procfs.c
+@@ -173,7 +173,11 @@ static void bond_info_show_slave(struct seq_file *seq,
+ 	if (slave->speed == SPEED_UNKNOWN)
+ 		seq_printf(seq, "Speed: %s\n", "Unknown");
+ 	else
+-		seq_printf(seq, "Speed: %d Mbps\n", slave->speed);
++		seq_printf(seq, "Speed: %d%sbps\n",
++			   slave->speed > 1000 ?
++			   slave->speed / 1000 : slave->speed,
++			   slave->speed > 1000 ?
++			   (slave->speed % 1000 ? ".5 G" : " G") : " M");
+ 
+ 	if (slave->duplex == DUPLEX_UNKNOWN)
+ 		seq_printf(seq, "Duplex: %s\n", "Unknown");
+-- 
+2.7.4
