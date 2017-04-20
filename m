@@ -1,140 +1,67 @@
-From: Salvatore Bonaccorso <carnil@debian.org>
-Subject: Re: sctp: deny peeloff operation on asocs with threads sleeping on it
-Date: Thu, 20 Apr 2017 14:32:57 +0200
-Message-ID: <20170420123257.GA11798@lorien.valinor.li>
-References: <20170420114405.mh7r5otmvpksacqd@lorien.valinor.li>
+From: "Jorgen S. Hansen" <jhansen@vmware.com>
+Subject: Re: [PATCH v4 3/3] VSOCK: Add virtio vsock vsockmon hooks
+Date: Thu, 20 Apr 2017 12:35:40 +0000
+Message-ID: <5E1B910C-0113-494A-A46D-41F9686BD525@vmware.com>
+References: <20170413161811.8953-1-stefanha@redhat.com>
+ <20170413161811.8953-4-stefanha@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="0OAP2g/MAC+5xKAE"
-Cc: Alexander Popov <alex.popov@linux.com>,
-        Ben Hutchings <ben@decadent.org.uk>,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-        Xin Long <lucien.xin@gmail.com>,
-        "David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Zhu Yanjun <zyjzyj2000@gmail.com>,
+        "Michael S. Tsirkin" <mst@redhat.com>,
+        Gerard Garcia <ggarcia@abra.uab.cat>
+To: Stefan Hajnoczi <stefanha@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f196.google.com ([209.85.161.196]:35460 "EHLO
-        mail-yw0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S945325AbdDTMdK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 08:33:10 -0400
-Received: by mail-yw0-f196.google.com with SMTP id k13so5920423ywk.2
-        for <netdev@vger.kernel.org>; Thu, 20 Apr 2017 05:33:10 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20170420114405.mh7r5otmvpksacqd@lorien.valinor.li>
+Received: from mail-co1nam03on0074.outbound.protection.outlook.com ([104.47.40.74]:4000
+        "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S944995AbdDTMfn (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 20 Apr 2017 08:35:43 -0400
+In-Reply-To: <20170413161811.8953-4-stefanha@redhat.com>
+Content-Language: en-US
+Content-ID: <F741FB1B907FAF4381F534F63BBB0BFC@namprd05.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
---0OAP2g/MAC+5xKAE
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-
-Hi 
-
-According to the documentation I should have sent this to
-netdev@vger.kernel.org rather than stable@vger.kernel.org.
-
-Rationale: Whilst 00eff2ebbd229758e90659907724c14dd5a18339 went to
-stable, the dfcb9f4f99f1e9a49e43398a7bfbf56927544af1 commit is
-missing.
-
-Full quoting, my original misleaded mail:
-
-On Thu, Apr 20, 2017 at 01:44:05PM +0200, Salvatore Bonaccorso wrote:
-> Hi
-> 
-> Apparently the following commit
-> 
-> dfcb9f4f99f1e9a49e43398a7bfbf56927544af1 (sctp: deny peeloff operation
-> on asocs with threads sleeping on it)
-> 
-> (was not CC'ed stable@vger.kernel.org, but was already applied in
-> 3.2.87 and 3.16.42) is missing from 4.9:
-> 
-> 2dcab598484185dea7ec22219c76dcdd59e3cb90 was included in 4.9.11 via
-> 00eff2ebbd229758e90659907724c14dd5a18339 . But
-> dfcb9f4f99f1e9a49e43398a7bfbf56927544af1 is missing from 4.9.
-> 
-> This was assigned CVE-2017-6353.
-> 
-> Reference:
-> https://marc.info/?l=linux-netdev&m=148785309416337&w=2
-> http://www.openwall.com/lists/oss-security/2017/02/27/2
-> 
-> Regards,
-> Salvatore
-
-Regards,
-Salvatore
-
---0OAP2g/MAC+5xKAE
-Content-Type: text/x-diff; charset=us-ascii
-Content-Disposition: attachment; filename="0001-sctp-deny-peeloff-operation-on-asocs-with-threads-sl.patch"
-
->From dfcb9f4f99f1e9a49e43398a7bfbf56927544af1 Mon Sep 17 00:00:00 2001
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Date: Thu, 23 Feb 2017 09:31:18 -0300
-Subject: [PATCH] sctp: deny peeloff operation on asocs with threads sleeping
- on it
-
-commit 2dcab5984841 ("sctp: avoid BUG_ON on sctp_wait_for_sndbuf")
-attempted to avoid a BUG_ON call when the association being used for a
-sendmsg() is blocked waiting for more sndbuf and another thread did a
-peeloff operation on such asoc, moving it to another socket.
-
-As Ben Hutchings noticed, then in such case it would return without
-locking back the socket and would cause two unlocks in a row.
-
-Further analysis also revealed that it could allow a double free if the
-application managed to peeloff the asoc that is created during the
-sendmsg call, because then sctp_sendmsg() would try to free the asoc
-that was created only for that call.
-
-This patch takes another approach. It will deny the peeloff operation
-if there is a thread sleeping on the asoc, so this situation doesn't
-exist anymore. This avoids the issues described above and also honors
-the syscalls that are already being handled (it can be multiple sendmsg
-calls).
-
-Joint work with Xin Long.
-
-Fixes: 2dcab5984841 ("sctp: avoid BUG_ON on sctp_wait_for_sndbuf")
-Cc: Alexander Popov <alex.popov@linux.com>
-Cc: Ben Hutchings <ben@decadent.org.uk>
-Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- net/sctp/socket.c | 8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
-
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index b532148..465a9c8 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -4862,6 +4862,12 @@ int sctp_do_peeloff(struct sock *sk, sctp_assoc_t id, struct socket **sockp)
- 	if (!asoc)
- 		return -EINVAL;
- 
-+	/* If there is a thread waiting on more sndbuf space for
-+	 * sending on this asoc, it cannot be peeled.
-+	 */
-+	if (waitqueue_active(&asoc->wait))
-+		return -EBUSY;
-+
- 	/* An association cannot be branched off from an already peeled-off
- 	 * socket, nor is this supported for tcp style sockets.
- 	 */
-@@ -7599,8 +7605,6 @@ static int sctp_wait_for_sndbuf(struct sctp_association *asoc, long *timeo_p,
- 		 */
- 		release_sock(sk);
- 		current_timeo = schedule_timeout(current_timeo);
--		if (sk != asoc->base.sk)
--			goto do_error;
- 		lock_sock(sk);
- 
- 		*timeo_p = current_timeo;
--- 
-2.1.4
-
-
---0OAP2g/MAC+5xKAE--
+PiANCj4gKy8qIFBhY2tldCBjYXB0dXJlICovDQo+ICt2b2lkIHZpcnRpb190cmFuc3BvcnRfZGVs
+aXZlcl90YXBfcGt0KHN0cnVjdCB2aXJ0aW9fdnNvY2tfcGt0ICpwa3QpDQo+ICt7DQo+ICsJc3Ry
+dWN0IHNrX2J1ZmYgKnNrYjsNCj4gKwlzdHJ1Y3QgYWZfdnNvY2ttb25faGRyICpoZHI7DQo+ICsJ
+dW5zaWduZWQgY2hhciAqdF9oZHIsICpwYXlsb2FkOw0KPiArDQo+ICsJc2tiID0gYWxsb2Nfc2ti
+KHNpemVvZigqaGRyKSArIHNpemVvZihwa3QtPmhkcikgKyBwa3QtPmxlbiwNCj4gKwkJCUdGUF9B
+VE9NSUMpOw0KDQpTbyB3aXRoIHRoZSBjdXJyZW50IEFQSSwgYW4gc2tiIHdpbGwgYWx3YXlzIGJl
+IGFsbG9jYXRlZCwgZXZlbiBpZiB0aGVyZSBhcmUgbm8gbGlzdGVuZXJzPyBBbmQgd2XigJlsbCBj
+b3B5IHRoZSBwYXlsb2FkIGludG8gdGhlIHNrYiBhcyB3ZWxsLCBpZiB0aGVyZSBpcyBhbnkuIFdv
+dWxkIGl0IG1ha2Ugc2Vuc2UgdG8gaW50cm9kdWNlIGEgY2hlY2sgaGVyZSAoZXhwb3NlZCBhcyBw
+YXJ0IG9mIHRoZSB2c29jayB0YXAgQVBJKSwgdGhhdCBza2lwcyBhbGwgdGhhdCBpbiB0aGUgY2Fz
+ZSBvZiBubyBsaXN0ZW5lcnM/IEluIHRoZSBjb21tb24gY2FzZSwgdGhlcmUgd29u4oCZdCBiZSBh
+bnkgbGlzdGVuZXJzLCBzbyBpdCB3b3VsZCBzYXZlIHNvbWUgY3ljbGVzLg0KDQo+ICsJaWYgKCFz
+a2IpDQo+ICsJCXJldHVybjsgLyogbmV2ZXJtaW5kIGlmIHdlIGNhbm5vdCBjYXB0dXJlIHRoZSBw
+YWNrZXQgKi8NCj4gKw0KPiArCWhkciA9IChzdHJ1Y3QgYWZfdnNvY2ttb25faGRyICopc2tiX3B1
+dChza2IsIHNpemVvZigqaGRyKSk7DQo+ICsNCj4gKwkvKiBwa3QtPmhkciBpcyBsaXR0bGUtZW5k
+aWFuIHNvIG5vIG5lZWQgdG8gYnl0ZXN3YXAgaGVyZSAqLw0KPiArCWhkci0+c3JjX2NpZCA9IHBr
+dC0+aGRyLnNyY19jaWQ7DQo+ICsJaGRyLT5zcmNfcG9ydCA9IHBrdC0+aGRyLnNyY19wb3J0Ow0K
+PiArCWhkci0+ZHN0X2NpZCA9IHBrdC0+aGRyLmRzdF9jaWQ7DQo+ICsJaGRyLT5kc3RfcG9ydCA9
+IHBrdC0+aGRyLmRzdF9wb3J0Ow0KPiArDQo+ICsJaGRyLT50cmFuc3BvcnQgPSBjcHVfdG9fbGUx
+NihBRl9WU09DS19UUkFOU1BPUlRfVklSVElPKTsNCj4gKwloZHItPmxlbiA9IGNwdV90b19sZTE2
+KHNpemVvZihwa3QtPmhkcikpOw0KPiArCWhkci0+cmVzZXJ2ZWRbMF0gPSBoZHItPnJlc2VydmVk
+WzFdID0gMDsNCj4gKw0KPiArCXN3aXRjaChjcHVfdG9fbGUxNihwa3QtPmhkci5vcCkpIHsNCj4g
+KwljYXNlIFZJUlRJT19WU09DS19PUF9SRVFVRVNUOg0KPiArCWNhc2UgVklSVElPX1ZTT0NLX09Q
+X1JFU1BPTlNFOg0KPiArCQloZHItPm9wID0gY3B1X3RvX2xlMTYoQUZfVlNPQ0tfT1BfQ09OTkVD
+VCk7DQo+ICsJCWJyZWFrOw0KPiArCWNhc2UgVklSVElPX1ZTT0NLX09QX1JTVDoNCj4gKwljYXNl
+IFZJUlRJT19WU09DS19PUF9TSFVURE9XTjoNCj4gKwkJaGRyLT5vcCA9IGNwdV90b19sZTE2KEFG
+X1ZTT0NLX09QX0RJU0NPTk5FQ1QpOw0KPiArCQlicmVhazsNCj4gKwljYXNlIFZJUlRJT19WU09D
+S19PUF9SVzoNCj4gKwkJaGRyLT5vcCA9IGNwdV90b19sZTE2KEFGX1ZTT0NLX09QX1BBWUxPQUQp
+Ow0KPiArCQlicmVhazsNCj4gKwljYXNlIFZJUlRJT19WU09DS19PUF9DUkVESVRfVVBEQVRFOg0K
+PiArCWNhc2UgVklSVElPX1ZTT0NLX09QX0NSRURJVF9SRVFVRVNUOg0KPiArCQloZHItPm9wID0g
+Y3B1X3RvX2xlMTYoQUZfVlNPQ0tfT1BfQ09OVFJPTCk7DQo+ICsJCWJyZWFrOw0KPiArCWRlZmF1
+bHQ6DQo+ICsJCWhkci0+b3AgPSBjcHVfdG9fbGUxNihBRl9WU09DS19PUF9VTktOT1dOKTsNCj4g
+KwkJYnJlYWs7DQo+ICsJfQ0KPiArDQo+ICsJdF9oZHIgPSBza2JfcHV0KHNrYiwgc2l6ZW9mKHBr
+dC0+aGRyKSk7DQo+ICsJbWVtY3B5KHRfaGRyLCAmcGt0LT5oZHIsIHNpemVvZihwa3QtPmhkcikp
+Ow0KPiArDQo+ICsJaWYgKHBrdC0+bGVuKSB7DQo+ICsJCXBheWxvYWQgPSBza2JfcHV0KHNrYiwg
+cGt0LT5sZW4pOw0KPiArCQltZW1jcHkocGF5bG9hZCwgcGt0LT5idWYsIHBrdC0+bGVuKTsNCj4g
+Kwl9DQo+ICsNCj4gKwl2c29ja19kZWxpdmVyX3RhcChza2IpOw0KPiArfQ0KPiArRVhQT1JUX1NZ
+TUJPTF9HUEwodmlydGlvX3RyYW5zcG9ydF9kZWxpdmVyX3RhcF9wa3QpOw0KPiArDQo+IHN0YXRp
+YyBpbnQgdmlydGlvX3RyYW5zcG9ydF9zZW5kX3BrdF9pbmZvKHN0cnVjdCB2c29ja19zb2NrICp2
+c2ssDQo+IAkJCQkJICBzdHJ1Y3QgdmlydGlvX3Zzb2NrX3BrdF9pbmZvICppbmZvKQ0KPiB7DQo+
+IC0tIA0KPiAyLjkuMw0KPiANCg0K
