@@ -1,66 +1,37 @@
-From: Dmitry Vyukov <dvyukov@google.com>
-Subject: Re: net: cleanup_net is slow
-Date: Fri, 21 Apr 2017 21:45:23 +0200
-Message-ID: <CACT4Y+biEu_ZcAaAbKNYEGoEtqPS2_tsKDCfHYvB4f+iKMUoxg@mail.gmail.com>
-References: <CAAeHK+yJXMo8kr_p8iM_dicVGQCtwQhdk=rdE+9dNbsoghAb6Q@mail.gmail.com>
- <CANn89i+iYtPLGDZpt3qk_cA-dq+004B=1qjP0ZygY3oREskQYA@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] netpoll: Check for skb->queue_mapping
+Date: Fri, 21 Apr 2017 15:45:54 -0400 (EDT)
+Message-ID: <20170421.154554.219059312422333404.davem@davemloft.net>
+References: <1492729051-4269-1-git-send-email-tushar.n.dave@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Andrey Konovalov <andreyknvl@google.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Kostya Serebryany <kcc@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Eric Dumazet <edumazet@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CANn89i+iYtPLGDZpt3qk_cA-dq+004B=1qjP0ZygY3oREskQYA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: brouer@redhat.com, edumazet@google.com, netdev@vger.kernel.org,
+        sowmini.varadhan@oracle.com
+To: tushar.n.dave@oracle.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:37728 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1425561AbdDUTqG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2017 15:46:06 -0400
+In-Reply-To: <1492729051-4269-1-git-send-email-tushar.n.dave@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 21, 2017 at 7:57 PM, Eric Dumazet <edumazet@google.com> wrote:
-> On Fri, Apr 21, 2017 at 10:50 AM, Andrey Konovalov
-> <andreyknvl@google.com> wrote:
->> Hi!
->>
->> We're investigating some approaches to improve isolation of syzkaller
->> programs. One of the ideas is run each program in it's own user/net
->> namespace. However, while I was experimenting with this, I stumbled
->> upon a problem.
->>
->> It seems that cleanup_net() might take a very long time to execute.
->>
->> I've attached the reproducer and kernel .config that I used. Run as
->> "./a.out 1". The reproducer just forks and does unshare(CLONE_NEWNET)
->> in a loop. Note, that I have a lot of network-related configs enabled,
->> which causes a few interfaces to be set up by default.
->>
->> What I see with this reproducer is that at first a huge number
->> (~200-300) net namespaces are created without any contention. But then
->> (probably when one of these namespaces gets destroyed) the program
->> hangs for a considerable amount of time (~100 seconds in my vm).
->> Nothing locks up inside the kernel and the CPU is mostly idle.
->>
->> Adding debug printfs showed that the part that takes almost all of
->> that time is the lines between synchronize_rcu() and
->> mutex_unlock(&net_mutex) in cleanup_net. Running perf showed that the
->> cause of this might be a lot of calls to synchronize_net that happen
->> while executing those lines.
->>
->> Is there any change that can be done to speed up the
->> creation/destruction of a huge number of net namespaces?
->>
->
-> We have batches, but fundamentally this is a hard problem to solve.
->
-> Every time we try, we add bugs :/
->
-> RTNL is the new BKL (Big Kernel Lock of early linux) of today.
->
-> Even the synchronize_rcu_expedited() done from synchronize_net() is a
-> serious issue on some platforms.
+From: Tushar Dave <tushar.n.dave@oracle.com>
+Date: Thu, 20 Apr 2017 15:57:31 -0700
 
-Not sure how hard it is (I suppose hard) but if whole cleanup_net is
-structured as series of call_rcu callbacks, it should give perfect
-batching across all possible dimensions (e.g. across different
-ops_exit_list calls and even across cleanup of different namespaces).
+> Reducing real_num_tx_queues needs to be in sync with skb queue_mapping
+> otherwise skbs with queue_mapping greater than real_num_tx_queues
+> can be sent to the underlying driver and can result in kernel panic.
+> 
+> One such event is running netconsole and enabling VF on the same
+> device. Or running netconsole and changing number of tx queues via
+> ethtool on same device.
+ ...
+> Signed-off-by: Tushar Dave <tushar.n.dave@oracle.com>
+> ---
+> v1->v2:
+> - addressed comments from Eric Dumazet.
+
+Applied and queued up for -stable, thanks!
