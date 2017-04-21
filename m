@@ -1,64 +1,53 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [PATCH net] ip6mr: fix notification device destruction
-Date: Fri, 21 Apr 2017 22:56:26 +0300
-Message-ID: <1e536c10-3bbb-f39b-d5dc-c397c121dce0@cumulusnetworks.com>
-References: <CAAeHK+zUZMGQuW=7Qhz3EWYjh6Zwv9eMBCiMCU79QrYNWox0-Q@mail.gmail.com>
- <1492796536-28781-1-git-send-email-nikolay@cumulusnetworks.com>
- <6d7dca26-4bc6-870c-8eb9-409f6c6b8fd5@cumulusnetworks.com>
- <20170421.153635.1878323052363882645.davem@davemloft.net>
- <44095170-e47c-ce85-d0f6-95a24da0e200@cumulusnetworks.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] Replace 2 jiffies with sysctl
+ netdev_budget_usecs to enable softirq tuning
+Date: Fri, 21 Apr 2017 12:57:02 -0700
+Message-ID: <1492804622.6453.32.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1492619830-7561-1-git-send-email-tedheadster@gmail.com>
+         <20170421.132245.1207278487695293623.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org,
-        dvyukov@google.com, kcc@google.com, syzkaller@googlegroups.com,
-        edumazet@google.com, roopa@cumulusnetworks.com,
-        torvalds@linux-foundation.org, linux-kernel@vger.kernel.org
+Cc: tedheadster@gmail.com, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <44095170-e47c-ce85-d0f6-95a24da0e200@cumulusnetworks.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f65.google.com ([209.85.218.65]:35943 "EHLO
+        mail-oi0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1425794AbdDUT5F (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2017 15:57:05 -0400
+Received: by mail-oi0-f65.google.com with SMTP id a3so17712885oii.3
+        for <netdev@vger.kernel.org>; Fri, 21 Apr 2017 12:57:05 -0700 (PDT)
+In-Reply-To: <20170421.132245.1207278487695293623.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 21/04/17 22:50, Nikolay Aleksandrov wrote:
-> On 21/04/17 22:36, David Miller wrote:
->> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
->> Date: Fri, 21 Apr 2017 21:30:42 +0300
->>
->>> On 21/04/17 20:42, Nikolay Aleksandrov wrote:
->>>> Andrey Konovalov reported a BUG caused by the ip6mr code which is caused
->>>> because we call unregister_netdevice_many for a device that is already
->>>> being destroyed. In IPv4's ipmr that has been resolved by two commits
->>>> long time ago by introducing the "notify" parameter to the delete
->>>> function and avoiding the unregister when called from a notifier, so
->>>> let's do the same for ip6mr.
->>  ...
->>> +CC LKML and Linus
->>
->> Applied, thanks Nikolay and thanks Andrey for the report and testing.
->>
->> Nikolay, how far does this bug go back?
->>
+On Fri, 2017-04-21 at 13:22 -0400, David Miller wrote:
+> From: Matthew Whitehead <tedheadster@gmail.com>
+> Date: Wed, 19 Apr 2017 12:37:10 -0400
 > 
-> Good question, AFAICS since ip6mr exists because it was copied from ipmr:
-> commit 7bc570c8b4f7
-> Author: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-> Date:   Thu Apr 3 09:22:53 2008 +0900
+> > Constants used for tuning are generally a bad idea, especially as hardware
+> > changes over time. Replace the constant 2 jiffies with sysctl variable
+> > netdev_budget_usecs to enable sysadmins to tune the softirq processing.
+> > Also document the variable.
+> > 
+> > For example, a very fast machine might tune this to 1000 microseconds,
+> > while my regression testing 486DX-25 needs it to be 4000 microseconds on
+> > a nearly idle network to prevent time_squeeze from being incremented.
+> > 
+> > Version 2: changed jiffies to microseconds for predictable units.
+> > 
+> > Signed-off-by: Matthew Whitehead <tedheadster@gmail.com>
 > 
->     [IPV6] MROUTE: Support multicast forwarding.
-> 
-> 
+> Applied, thanks.
 
-Oops no, my bad. That wouldn't cause it to BUG because it was already removed by mif6_delete
-earlier. So since it can be destroyed by a netns exiting, currently I don't see any other
-way which is outside of ip6mr for destroying that device.
+Can we revert the changes in kernel/sysctl_binary.c &
+include/uapi/linux/sysctl.h ?
 
-That should be:
-commit 8229efdaef1e
-Author: Benjamin Thery <benjamin.thery@bull.net>
-Date:   Wed Dec 10 16:30:15 2008 -0800
+{ CTL_INT,      NET_CORE_BUDGET_USECS,  "netdev_budget_usecs" },
 
-    netns: ip6mr: enable namespace support in ipv6 multicast forwarding code
+NET_CORE_BUDGET_USECS=23,
+
+Unless I am missing something, we should not add new binary sysctls.
 
 
-Which allowed the notifier to be executed for pimreg devices in other network namespaces.
+Thanks.
