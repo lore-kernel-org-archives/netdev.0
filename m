@@ -1,38 +1,96 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next 0/3] l3mdev: Improve use with main table
-Date: Fri, 21 Apr 2017 14:47:21 -0600
-Message-ID: <f25a8af5-cbdc-cdbf-29e2-de8acf5dbd9b@cumulusnetworks.com>
-References: <1491834122-26252-1-git-send-email-rshearma@brocade.com>
- <3bdb570e-4d7d-6e5c-3270-0bf0064ef73a@cumulusnetworks.com>
- <a4360e77-4386-2760-0b7e-72a21b3aad99@brocade.com>
+From: <Joe.Ghalam@dell.com>
+Subject: Re: macvlan: Fix device ref leak when purging bc_queue
+Date: Fri, 21 Apr 2017 20:37:56 +0000
+Message-ID: <1492807076414.83805@Dell.com>
+References: <1492618528011.11322@Dell.com>
+ <20170420125512.GA9113@gondor.apana.org.au> <1492704599476.84165@Dell.com>
+ <20170421044029.GA11695@gondor.apana.org.au>
+ <1492785652578.53801@Dell.com>,<CAF2d9jis_NcDO4bfOuf1OxPf_1XvOJQA1eo0OKW5SEk2O-Ny0A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Robert Shearman <rshearma@brocade.com>, davem@davemloft.net
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: <herbert@gondor.apana.org.au>, <davem@davemloft.net>,
+        <Clifford.Wichmann@dell.com>, <netdev@vger.kernel.org>
+To: <maheshb@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f170.google.com ([209.85.223.170]:34310 "EHLO
-        mail-io0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1162498AbdDUUrY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2017 16:47:24 -0400
-Received: by mail-io0-f170.google.com with SMTP id a103so134120291ioj.1
-        for <netdev@vger.kernel.org>; Fri, 21 Apr 2017 13:47:23 -0700 (PDT)
-In-Reply-To: <a4360e77-4386-2760-0b7e-72a21b3aad99@brocade.com>
+Received: from esa4.dell-outbound.iphmx.com ([68.232.149.214]:37929 "EHLO
+        esa4.dell-outbound.iphmx.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1162525AbdDUUrp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2017 16:47:45 -0400
+In-Reply-To: <CAF2d9jis_NcDO4bfOuf1OxPf_1XvOJQA1eo0OKW5SEk2O-Ny0A@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 4/21/17 11:44 AM, Robert Shearman wrote:
-> 
-> Can you send me some more details of your testing?
-
-It's a shell script that runs a long list of combinations of client,
-server and local traffic for ipv4 and ipv6 with addresses on the
-external interface, the vrf device and 127.0.0.1 on the VRF device and
-link local and mcast addresses for IPv6. Tests are run for icmp, tcp and
-udp - and includes negative testing to verify tcp resets or icmp
-unreachables are properly sent and received. There are so many
-combinations. And then you have to check tcp_l3mdev_accept = {0,1} and
-udp_l3mdev_accept = {0,1}.
-
-For your 'main table' vrf run through the different combinations and
-check IPv6 linklocal addressing to.
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwo+IEZyb206IE1haGVzaCBC
+YW5kZXdhciAo4KSu4KS54KWH4KS2IOCkrOCkguCkoeClh+CkteCkvuCksCkgPG1haGVzaGJAZ29v
+Z2xlLmNvbT4KPiBTZW50OiBGcmlkYXksIEFwcmlsIDIxLCAyMDE3IDEyOjIzIFBNCj4gVG86IEdo
+YWxhbSwgSm9lCj4gQ2M6IGhlcmJlcnRAZ29uZG9yLmFwYW5hLm9yZy5hdTsgRGF2aWQgTWlsbGVy
+OyBXaWNobWFubiwgQ2xpZmZvcmQ7IGxpbnV4LW5ldGRldgo+IFN1YmplY3Q6IFJlOiBtYWN2bGFu
+OiBGaXggZGV2aWNlIHJlZiBsZWFrIHdoZW4gcHVyZ2luZyBiY19xdWV1ZQoKPiBNYXkgYmUgdGhl
+IHN5c3RlbSBpcyBidXN5IGFuZCBzbmFwc2hvdCBpcyB0b28gc21hbGwsIGFuZCBldmVudHVhbGx5
+Cj4gcHJvY2Vzc19icm9hZGNhc3QoKSBzaG91bGQgZ2V0IGNhbGxlZC4gRGVsZXRpbmcgYSBzbGF2
+ZSBkb2VzIG5vdGhpbmcKPiBhYm91dCBjYW5jZWxsaW5nIHRoZSB3b3JrLXF1ZXVlIHNvIGl0IHdv
+dWxkIGhhcHBlbiBldmVudHVhbGx5LgoKPiBUaGUgY2hhbmdlIHRoYXQgSGVyYmVydCBwcm9wb3Nl
+ZCBpcyBjb3JyZWN0LiBXaGVuIHBhY2tldHMgYXJlIGVucXVldWVkCj4gZm9yIHByb2Nlc3Npbmcg
+bGF0ZXIgYSBkZXYgcmVmZXJlbmNlIGlzIHRha2VuIGFuZCBpdCdzIHJlbW92ZWQgd2hlbgo+IGl0
+J3MgcHJvY2Vzc2VkIHdoZW4gaXQgZ2V0cyBzY2hlZHVsZWQuIFRoZSBiYWNrbG9nIGlzIHBlciBw
+b3J0IHNvIGl0Cj4gbWFrZXMgc2Vuc2UgdG8gcmVtb3ZlIHJlZmVyZW5jZShzKSBiZWZvcmUgcHVy
+Z2luZyB0aGUgcXVldWUgcHJpb3IgdG8KPiBkZWxldGluZyB0aGUgcG9ydC4KCkkgb25seSBpbmNs
+dWRlZCB0aGUgc25hcHNob3Qgb2YgdGhlIGxvZ3MgdGhhdCdzIHJlbGV2YW50LiBUaGUgc3lzdGVt
+IGluIHF1ZXN0aW9uIGhhcyBiZWVuIGxlZnQgaW4gdGhhdCBzdGF0ZSBmb3IgaG91cnMsIHdpdGhv
+dXQgZXZlciBzZWVpbmcgcHJvY2Vzc19icm9hZGNhc3QoKSBiZWluZyBjYWxsZWQuIEFuZCwgeWVz
+IEkgZGlkIGNoZWNrIHRoZSBjcHUgbG9hZCwgYW5kIHRoZSBzeXN0ZW0gd2FzIHJ1bm5pbmcgYXQg
+YXJvdW5kIDIwJSBsb2FkLiBTbywgSSBkb24ndCB0aGluayB0aGF0J3MgdGhlIGNhc2UuIEkgd291
+bGQgc3VnZ2VzdCB0byB0YWtlIGNsb3NlciBsb29rIGF0IHRoZSBjb2RlIGluIG10YWN2bGFuX2Rl
+bGxpbmsoKSwgd2hlcmUgaXQgcGVyZm9ybXMgdW5saW5rIGFuZCB1bnJlZ2lzdGVyOgoKdm9pZCBt
+YWN2bGFuX2RlbGxpbmsoc3RydWN0IG5ldF9kZXZpY2UgKmRldiwgc3RydWN0IGxpc3RfaGVhZCAq
+aGVhZCkKewoJc3RydWN0IG1hY3ZsYW5fZGV2ICp2bGFuID0gbmV0ZGV2X3ByaXYoZGV2KTsKCWxp
+c3RfZGVsX3JjdSgmdmxhbi0+bGlzdCk7Cgl1bnJlZ2lzdGVyX25ldGRldmljZV9xdWV1ZShkZXYs
+IGhlYWQpOwoJbmV0ZGV2X3VwcGVyX2Rldl91bmxpbmsodmxhbi0+bG93ZXJkZXYsIGRldik7Cn0K
+CkFzIEkgc3RhdGVkIGluIG15IHJlcGx5IHRvIEhlcmJlcnQgaW5pdGlhbGx5LCB0aGUgY29kZSBj
+aGFuZ2UgaGUgc3VnZ2VzdGVkIGlzIGNvcnJlY3QgYW5kIG5lZWRlZCwgYnV0IG5vdCBlbm91Z2gu
+IFdlIGhhdmUgdGVzdGVkIHdpdGggaGlzIGNvZGUgY2hhbmdlIGFuZCBvYnNlcnZlZCB0aGUgc2Ft
+ZSBiZWhhdmlvci4gSSBjYW4gZ3VhcmFudGVlIHlvdSB0aGF0IHRoZSBjb2RlIGNoYW5nZSB0byBt
+YWN2bGFuX3BvcnRfZGVzdHJveSgpIGhhcyBubyBlZmZlY3Qgb24gdGhpcyBpc3N1ZSwgc2luY2Ug
+dGhlIGZ1bmN0aW9uIG1hY3ZsYW5fcG9ydF9kZXN0cm95ICgpIGlzIG5vdCBldmVuIGNhbGxlZCBk
+dXJpbmcgdGhlIG9wZXJhdGlvbi4gCgpIZXJlIGlzIHRoZSBmb3JjZWQgc3RhY2sgdHJhY2UgdGhh
+dCBJIGNhdXNlZCB0byBzaG93IHRoZSByZW1vdmFsIGNhbGw6CkFwciAyMCAwNjoyMzo0MCBPUzEw
+IGtlcm5lbDogIFs8ZmZmZmZmZmY4MTBkMzEyYz5dIF9fbmV0ZGV2X2FkamFjZW50X2Rldl9yZW1v
+dmUrMHgzYy8weDFhMApBcHIgMjAgMDY6MjM6NDAgT1MxMCBrZXJuZWw6ICBbPGZmZmZmZmZmODFi
+YjZlODc+XSBfX25ldGRldl9hZGphY2VudF9kZXZfdW5saW5rX2xpc3RzKzB4NjcvMHg2OQpBcHIg
+MjAgMDY6MjM6NDAgT1MxMCBrZXJuZWw6ICBbPGZmZmZmZmZmODEwZDMyYTA+XSBfX25ldGRldl9h
+ZGphY2VudF9kZXZfdW5saW5rKzB4ODIvMHg0MApBcHIgMjAgMDY6MjM6NDAgT1MxMCBrZXJuZWw6
+ICBbPGZmZmZmZmZmODExZDMxZTA+XSBuZXRkZXZfdXBwZXJfZGV2X3VubGluaysweDEwLzB4MjAK
+QXByIDIwIDA2OjIzOjQwIE9TMTAga2VybmVsOiAgWzxmZmZmZmZmZjgxODBlNzcwPl0gbWFjdmxh
+bl9kZWxsaW5rKzB4NTAvMHgxMzAKQXByIDIwIDA2OjIzOjQwIE9TMTAga2VybmVsOiAgWzxmZmZm
+ZmZmZjgxYTJjYTI3Pl0gcnRubF9kZWxsaW5rKzB4YjcvMHgxMjAKQXByIDIwIDA2OjIzOjQwIE9T
+MTAga2VybmVsOiAgWzxmZmZmZmZmZjgxYTYwOWFiPl0gPyBfX25ldGxpbmtfbnNfY2FwYWJsZSsw
+eDNiLzB4NDAKQXByIDIwIDA2OjIzOjQwIE9TMTAga2VybmVsOiAgWzxmZmZmZmZmZjgxYTJhNmM1
+Pl0gcnRuZXRsaW5rX3Jjdl9tc2crMHg5NS8weDI1MApBcHIgMjAgMDY6MjM6NDAgT1MxMCBrZXJu
+ZWw6ICBbPGZmZmZmZmZmODExYzE0OTk+XSA/IHpvbmVfc3RhdGlzdGljcysweDg5LzB4YTAKQXBy
+IDIwIDA2OjIzOjQwIE9TMTAga2VybmVsOiAgWzxmZmZmZmZmZjgxYTBhOWRlPl0gPyBfX2FsbG9j
+X3NrYisweDdlLzB4MmEwCkFwciAyMCAwNjoyMzo0MCBPUzEwIGtlcm5lbDogIFs8ZmZmZmZmZmY4
+MWEyYTYzMD5dID8gcnRuZXRsaW5rX3JjdisweDMwLzB4MzAKQXByIDIwIDA2OjIzOjQwIE9TMTAg
+a2VybmVsOiAgWzxmZmZmZmZmZjgxYTY0ZjU5Pl0gbmV0bGlua19yY3Zfc2tiKzB4YTkvMHhjMApB
+cHIgMjAgMDY6MjM6NDAgT1MxMCBrZXJuZWw6ICBbPGZmZmZmZmZmODFhMmE2Mjg+XSBydG5ldGxp
+bmtfcmN2KzB4MjgvMHgzMApBcHIgMjAgMDY6MjM6NDAgT1MxMCBrZXJuZWw6ICBbPGZmZmZmZmZm
+ODFhNjQ2MDM+XSBuZXRsaW5rX3VuaWNhc3QrMHhmMy8weDIwMApBcHIgMjAgMDY6MjM6NDAgT1Mx
+MCBrZXJuZWw6ICBbPGZmZmZmZmZmODFhNjRhMWU+XSBuZXRsaW5rX3NlbmRtc2crMHgzMGUvMHg2
+ODAKQXByIDIwIDA2OjIzOjQwIE9TMTAga2VybmVsOiAgWzxmZmZmZmZmZjgxYTAxNGZiPl0gc29j
+a19zZW5kbXNnKzB4OGIvMHhjMApBcHIgMjAgMDY6MjM6NDAgT1MxMCBrZXJuZWw6ICBbPGZmZmZm
+ZmZmODFhMDExZWU+XSA/IG1vdmVfYWRkcl90b19rZXJuZWwucGFydC4xOCsweDFlLzB4NjAKQXBy
+IDIwIDA2OjIzOjQwIE9TMTAga2VybmVsOiAgWzxmZmZmZmZmZjgxYTAxZmYxPl0gPyBtb3ZlX2Fk
+ZHJfdG9fa2VybmVsKzB4MjEvMHgzMApBcHIgMjAgMDY6MjM6NDAgT1MxMCBrZXJuZWw6ICBbPGZm
+ZmZmZmZmODFhMDE4ZjY+XSBfX19zeXNfc2VuZG1zZysweDM3Ni8weDM5MApBcHIgMjAgMDY6MjM6
+NDAgT1MxMCBrZXJuZWw6ICBbPGZmZmZmZmZmODFhMDAxOWY+XSA/IHNvY2tfZGVzdHJveV9pbm9k
+ZSsweDJmLzB4NDAKQXByIDIwIDA2OjIzOjQwIE9TMTAga2VybmVsOiAgWzxmZmZmZmZmZjgxMGEx
+NjFjPl0gPyBfX2RvX3BhZ2VfZmF1bHQrMHgyMGMvMHg1NjAKQXByIDIwIDA2OjIzOjQwIE9TMTAg
+a2VybmVsOiAgWzxmZmZmZmZmZjgxMjI3OWFkPl0gPyBkcHV0KzB4YWQvMHgxODAKQXByIDIwIDA2
+OjIzOjQwIE9TMTAga2VybmVsOiAgWzxmZmZmZmZmZjgxMjMwYTc0Pl0gPyBtbnRwdXQrMHgyNC8w
+eDQwCkFwciAyMCAwNjoyMzo0MCBPUzEwIGtlcm5lbDogIFs8ZmZmZmZmZmY4MTIxMmE1MD5dID8g
+X19mcHV0KzB4MTkwLzB4MjIwCkFwciAyMCAwNjoyMzo0MCBPUzEwIGtlcm5lbDogIFs8ZmZmZmZm
+ZmY4MWEwMjZiMj5dIF9fc3lzX3NlbmRtc2crMHg0Mi8weDgwCkFwciAyMCAwNjoyMzo0MCBPUzEw
+IGtlcm5lbDogIFs8ZmZmZmZmZmY4MWEwMjcwMj5dIFN5U19zZW5kbXNnKzB4MTIvMHgyMApBcHIg
+MjAgMDY6MjM6NDAgT1MxMCBrZXJuZWw6ICBbPGZmZmZmZmZmODFiYzg2Y2Q+XSBzeXN0ZW1fY2Fs
+bF9mYXN0X2NvbXBhcmVfZW5kKzB4MTAvMHgxNQ==
