@@ -1,53 +1,38 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH net-next v6 2/3] net sched actions: dump more than
  TCA_ACT_MAX_PRIO actions per batch
-Date: Fri, 21 Apr 2017 11:12:00 -0400
-Message-ID: <1dea2c80-9c86-353e-6a74-f5b86070df04@mojatatu.com>
-References: <1492772132-16559-1-git-send-email-jhs@emojatatu.com>
- <1492772132-16559-3-git-send-email-jhs@emojatatu.com>
- <20170421131220.GC1874@nanopsycho.orion>
+Date: Fri, 21 Apr 2017 12:07:19 -0400 (EDT)
+Message-ID: <20170421.120719.110454615745765701.davem@davemloft.net>
+References: <1dea2c80-9c86-353e-6a74-f5b86070df04@mojatatu.com>
+        <1492788031.6453.14.camel@edumazet-glaptop3.roam.corp.google.com>
+        <6b26ef20-972f-24bf-22bf-8462606ce16d@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, xiyou.wangcong@gmail.com,
-        eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: Jiri Pirko <jiri@resnulli.us>
+Cc: eric.dumazet@gmail.com, jiri@resnulli.us, xiyou.wangcong@gmail.com,
+        netdev@vger.kernel.org
+To: jhs@mojatatu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f194.google.com ([209.85.223.194]:35671 "EHLO
-        mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1162125AbdDURC3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2017 13:02:29 -0400
-Received: by mail-io0-f194.google.com with SMTP id d203so32450767iof.2
-        for <netdev@vger.kernel.org>; Fri, 21 Apr 2017 10:02:28 -0700 (PDT)
-In-Reply-To: <20170421131220.GC1874@nanopsycho.orion>
+Received: from shards.monkeyblade.net ([184.105.139.130]:35128 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1161852AbdDURCg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2017 13:02:36 -0400
+In-Reply-To: <6b26ef20-972f-24bf-22bf-8462606ce16d@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17-04-21 09:12 AM, Jiri Pirko wrote:
-> Fri, Apr 21, 2017 at 12:55:31PM CEST, jhs@mojatatu.com wrote:
->> From: Jamal Hadi Salim <jhs@mojatatu.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Date: Fri, 21 Apr 2017 11:40:00 -0400
 
->> +#define TCA_FLAG_LARGE_DUMP_ON		(1 << 0)
->
-> This is u32 "flags" that could not be extended for other use in future.
-> I'm missing the point. Also, you don't check the rest of the bits for 0
-> as requested by DaveM.
->
-> As far as this is unextendable, please have this as u8 with values 0 and 1
-> as I originally suggested.
->
-> I don't understand why are we running in circles about this...
->
+> Eric: Your are speaking in generalities and you starting premise is
+> wrong.
 
-If i have a 32 bit space of which i am using one bit.
-The sender (user space) zeroes the bits except the one they are 
-interested in. The kernel checks the bits they are interested in.
-Future - we add one more bit and the same philosophy applies.
-Older kernels dont see this bit but they dont have the feature
-to begin with. So where is the lack of extensibility?
+I disagree.
 
-Jiri, there is a balance between extensibility and performance.
-It is senseless to use a TLV just so i can set a 0/1(true/false).
+If we never checked, it is our problem and our issue.  Not that of
+the user.
 
-cheers,
-jamal
+If you want to start checking and verifying new attribute bitmasks
+now, great!  But we are stuck in the case of existing bitmasks
+and pads because we did not do so at the time we released them
+into the wild.
