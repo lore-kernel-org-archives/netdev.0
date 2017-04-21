@@ -1,131 +1,89 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: Re: [PATCH net-next 2/3] net/tcp_fastopen: Add snmp counter for
- blackhole detection
-Date: Thu, 20 Apr 2017 17:30:49 -0700
-Message-ID: <CAK6E8=eT7J-CRwbS_mNWj7duJ00RVUKe6BmauBbu+6+X3ezEJw@mail.gmail.com>
-References: <20170420214548.23666-1-tracywwnj@gmail.com> <20170420214548.23666-2-tracywwnj@gmail.com>
- <20170420214548.23666-3-tracywwnj@gmail.com>
+From: Gavin Shan <gwshan@linux.vnet.ibm.com>
+Subject: Re: [PATCH v3 net-next 5/8] net/ncsi: Dump NCSI packet statistics
+Date: Fri, 21 Apr 2017 10:44:35 +1000
+Message-ID: <20170421004435.GA18727@gwshan>
+References: <1492498295-14385-1-git-send-email-gwshan@linux.vnet.ibm.com>
+ <1492498295-14385-6-git-send-email-gwshan@linux.vnet.ibm.com>
+ <20170420.132103.454438573956782815.davem@davemloft.net>
+ <20170420233812.GA7223@gwshan>
+ <0289f0b2-36a8-f4a0-ef15-808aa66528fa@gmail.com>
+Reply-To: Gavin Shan <gwshan@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        Eric Dumazet <edumazet@google.com>
-To: Wei Wang <weiwan@google.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Gavin Shan <gwshan@linux.vnet.ibm.com>,
+        David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+        joe@perches.com, kubakici@wp.pl
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f176.google.com ([209.85.223.176]:32864 "EHLO
-        mail-io0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S948188AbdDUAbb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 20:31:31 -0400
-Received: by mail-io0-f176.google.com with SMTP id k87so94389332ioi.0
-        for <netdev@vger.kernel.org>; Thu, 20 Apr 2017 17:31:30 -0700 (PDT)
-In-Reply-To: <20170420214548.23666-3-tracywwnj@gmail.com>
+Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:47914 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S948211AbdDUAph (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 20:45:37 -0400
+Received: from pps.filterd (m0098393.ppops.net [127.0.0.1])
+        by mx0a-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v3L0iDk5010143
+        for <netdev@vger.kernel.org>; Thu, 20 Apr 2017 20:45:37 -0400
+Received: from e23smtp03.au.ibm.com (e23smtp03.au.ibm.com [202.81.31.145])
+        by mx0a-001b2d01.pphosted.com with ESMTP id 29xxm27p05-1
+        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Thu, 20 Apr 2017 20:45:36 -0400
+Received: from localhost
+        by e23smtp03.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        for <netdev@vger.kernel.org> from <gwshan@linux.vnet.ibm.com>;
+        Fri, 21 Apr 2017 10:45:34 +1000
+Received: from d23av05.au.ibm.com (d23av05.au.ibm.com [9.190.234.119])
+        by d23relay07.au.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id v3L0jOxt4456840
+        for <netdev@vger.kernel.org>; Fri, 21 Apr 2017 10:45:32 +1000
+Received: from d23av05.au.ibm.com (localhost [127.0.0.1])
+        by d23av05.au.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id v3L0j0lV022769
+        for <netdev@vger.kernel.org>; Fri, 21 Apr 2017 10:45:00 +1000
+Content-Disposition: inline
+In-Reply-To: <0289f0b2-36a8-f4a0-ef15-808aa66528fa@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 20, 2017 at 2:45 PM, Wei Wang <weiwan@google.com> wrote:
-> From: Wei Wang <weiwan@google.com>
+On Thu, Apr 20, 2017 at 05:26:14PM -0700, Florian Fainelli wrote:
+>On 04/20/2017 04:38 PM, Gavin Shan wrote:
+>> On Thu, Apr 20, 2017 at 01:21:03PM -0400, David Miller wrote:
+>>> From: Gavin Shan <gwshan@linux.vnet.ibm.com>
+>>> Date: Tue, 18 Apr 2017 16:51:32 +1000
+>>>
+>>>> This creates /sys/kernel/debug/ncsi/<eth0>/stats to dump the NCSI
+>>>> packets sent and received over all packages and channels. It's useful
+>>>> to diagnose NCSI problems, especially when NCSI packages and channels
+>>>> aren't probed properly. The statistics can be gained from debugfs file
+>>>> as below:
+>>>>
+>>>>  # cat /sys/kernel/debug/ncsi/eth0/stats
+>>>
+>>> There is no reason you cannot use ethtool statistics to provide this
+>>> information to the user.
+>>>
+>> 
+>> It can be dumped by ethtool, but it's more reasonable to dump them
+>> through debugfs for couple of reasons: (1) ethtool usually dumps
+>> statistics collected by hardware, but this debugfs file dumps the
+>> statistics of packets seen (collected) by software. They are different
+>> things. Note that NCSI channel collects statistics in hardware and it's
+>> not exposed or dumped by this patchset. They are candidates for ethtool.
+>> (2) To expose this through ethtool relies on the availability of the tool.
+>> It's nicer not to depend on it. (3) This interface can be used to check
+>> the debug packet has been sent successfully through /sys/kernel/debug/ncsi/eth0/pkt,
+>> dumping the statistics through debugfs make this (debugging) mechanism
+>> consistent.
 >
-> This counter records the number of times the firewall blackhole issue is
-> detected and active TFO is disabled.
->
-> Signed-off-by: Wei Wang <weiwan@google.com>
-Acked-by: Yuchung Cheng <ycheng@google.com>
+>Can't you create a ncsi folder under /sys/class/net/eth0/nsci/ and then
+>put your stats in there? That would at least look slightly consistent
+>with what is already existing for the non-NC-SI networking stack.
 
-> ---
->  include/net/tcp.h         | 2 +-
->  include/uapi/linux/snmp.h | 1 +
->  net/ipv4/proc.c           | 1 +
->  net/ipv4/tcp_fastopen.c   | 5 +++--
->  net/ipv4/tcp_input.c      | 4 ++--
->  5 files changed, 8 insertions(+), 5 deletions(-)
->
-> diff --git a/include/net/tcp.h b/include/net/tcp.h
-> index c1abc2abbdcb..da28bef1d82b 100644
-> --- a/include/net/tcp.h
-> +++ b/include/net/tcp.h
-> @@ -1507,7 +1507,7 @@ struct tcp_fastopen_context {
->  };
->
->  extern unsigned int sysctl_tcp_fastopen_blackhole_timeout;
-> -void tcp_fastopen_active_disable(void);
-> +void tcp_fastopen_active_disable(struct sock *sk);
->  bool tcp_fastopen_active_should_disable(struct sock *sk);
->  void tcp_fastopen_active_disable_ofo_check(struct sock *sk);
->  void tcp_fastopen_active_timeout_reset(void);
-> diff --git a/include/uapi/linux/snmp.h b/include/uapi/linux/snmp.h
-> index cec0e171d20c..95cffcb21dfd 100644
-> --- a/include/uapi/linux/snmp.h
-> +++ b/include/uapi/linux/snmp.h
-> @@ -259,6 +259,7 @@ enum
->         LINUX_MIB_TCPFASTOPENPASSIVEFAIL,       /* TCPFastOpenPassiveFail */
->         LINUX_MIB_TCPFASTOPENLISTENOVERFLOW,    /* TCPFastOpenListenOverflow */
->         LINUX_MIB_TCPFASTOPENCOOKIEREQD,        /* TCPFastOpenCookieReqd */
-> +       LINUX_MIB_TCPFASTOPENBLACKHOLE,         /* TCPFastOpenBlackholeDetect */
-/* TCPFastOpenBlackhole */
+Do you think it's good place to have /sys/class/net/eth0/ncsi/pkt?
+Note this file accepts commands to send NCSI comands and dumps the
+corresponding response on read. Also, it's a debugging interface
+and disabled (invisible) for the most time. I think all directories
+and files in /sys/class/net/eth0/ should be visible and the structure
+is stable all the time.
 
->         LINUX_MIB_TCPSPURIOUS_RTX_HOSTQUEUES, /* TCPSpuriousRtxHostQueues */
->         LINUX_MIB_BUSYPOLLRXPACKETS,            /* BusyPollRxPackets */
->         LINUX_MIB_TCPAUTOCORKING,               /* TCPAutoCorking */
-> diff --git a/net/ipv4/proc.c b/net/ipv4/proc.c
-> index 4ccbf464d1ac..fa44e752a9a3 100644
-> --- a/net/ipv4/proc.c
-> +++ b/net/ipv4/proc.c
-> @@ -281,6 +281,7 @@ static const struct snmp_mib snmp4_net_list[] = {
->         SNMP_MIB_ITEM("TCPFastOpenPassiveFail", LINUX_MIB_TCPFASTOPENPASSIVEFAIL),
->         SNMP_MIB_ITEM("TCPFastOpenListenOverflow", LINUX_MIB_TCPFASTOPENLISTENOVERFLOW),
->         SNMP_MIB_ITEM("TCPFastOpenCookieReqd", LINUX_MIB_TCPFASTOPENCOOKIEREQD),
-> +       SNMP_MIB_ITEM("TCPFastOpenBlackhole", LINUX_MIB_TCPFASTOPENBLACKHOLE),
->         SNMP_MIB_ITEM("TCPSpuriousRtxHostQueues", LINUX_MIB_TCPSPURIOUS_RTX_HOSTQUEUES),
->         SNMP_MIB_ITEM("BusyPollRxPackets", LINUX_MIB_BUSYPOLLRXPACKETS),
->         SNMP_MIB_ITEM("TCPAutoCorking", LINUX_MIB_TCPAUTOCORKING),
-> diff --git a/net/ipv4/tcp_fastopen.c b/net/ipv4/tcp_fastopen.c
-> index ff2d30ffc6f3..4af82b914dd4 100644
-> --- a/net/ipv4/tcp_fastopen.c
-> +++ b/net/ipv4/tcp_fastopen.c
-> @@ -410,10 +410,11 @@ static unsigned long tfo_active_disable_stamp __read_mostly;
->  /* Disable active TFO and record current jiffies and
->   * tfo_active_disable_times
->   */
-> -void tcp_fastopen_active_disable(void)
-> +void tcp_fastopen_active_disable(struct sock *sk)
->  {
->         atomic_inc(&tfo_active_disable_times);
->         tfo_active_disable_stamp = jiffies;
-> +       NET_INC_STATS(sock_net(sk), LINUX_MIB_TCPFASTOPENBLACKHOLE);
->  }
->
->  /* Reset tfo_active_disable_times to 0 */
-> @@ -469,7 +470,7 @@ void tcp_fastopen_active_disable_ofo_check(struct sock *sk)
->                 if (p && !rb_next(p)) {
->                         skb = rb_entry(p, struct sk_buff, rbnode);
->                         if (TCP_SKB_CB(skb)->tcp_flags & TCPHDR_FIN) {
-> -                               tcp_fastopen_active_disable();
-> +                               tcp_fastopen_active_disable(sk);
->                                 return;
->                         }
->                 }
-> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-> index 9f342a67dc74..5af2f04f8859 100644
-> --- a/net/ipv4/tcp_input.c
-> +++ b/net/ipv4/tcp_input.c
-> @@ -5307,7 +5307,7 @@ static bool tcp_validate_incoming(struct sock *sk, struct sk_buff *skb,
->                          */
->                         if (tp->syn_fastopen && !tp->data_segs_in &&
->                             sk->sk_state == TCP_ESTABLISHED)
-> -                               tcp_fastopen_active_disable();
-> +                               tcp_fastopen_active_disable(sk);
->                         tcp_send_challenge_ack(sk, skb);
->                 }
->                 goto discard;
-> @@ -6061,7 +6061,7 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb)
->                     after(TCP_SKB_CB(skb)->end_seq - th->fin, tp->rcv_nxt)) {
->                         /* Receive out of order FIN after close() */
->                         if (tp->syn_fastopen && th->fin)
-> -                               tcp_fastopen_active_disable();
-> +                               tcp_fastopen_active_disable(sk);
->                         tcp_done(sk);
->                         NET_INC_STATS(sock_net(sk), LINUX_MIB_TCPABORTONDATA);
->                         return 1;
-> --
-> 2.12.2.816.g2cccc81164-goog
->
+Actually, I used procfs initially and replaced by debugfs according
+to Joe's suggestion. I think debugfs is good enough for this case.
+
+Cheers,
+Gavin
