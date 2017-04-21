@@ -1,100 +1,110 @@
-From: Benjamin Poirier <bpoirier@suse.com>
-Subject: [PATCH 2/2] igb: Remove useless argument
-Date: Fri, 21 Apr 2017 14:20:12 -0700
-Message-ID: <20170421212012.25950-2-bpoirier@suse.com>
-References: <20170421212012.25950-1-bpoirier@suse.com>
-Cc: Stefan Priebe <s.priebe@profihost.ag>,
-        intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+From: Ansis Atteka <ansisatteka@gmail.com>
+Subject: Re: [PATCH net] xfrm: calculate L4 checksums also for GSO case before
+ encrypting packets
+Date: Fri, 21 Apr 2017 14:45:17 -0700
+Message-ID: <CAMQa7Bgn58eWhwH-tOJcoNoF7ATs5yBpAyu1rR4JN5=8pBdaMA@mail.gmail.com>
+References: <1491849727-32008-1-git-send-email-aatteka@ovn.org>
+ <20170411070755.GW5092@secunet.com> <CAMQa7Biajree5Kc1fOWQN42R1UDDGp7ZevZZRtUMZOKDWTk-Vw@mail.gmail.com>
+ <20170418090919.GD30104@secunet.com> <CAMQa7Bimd378QJgsv6yBP0ULH+__C9gjjcXa39wx1z7p_9mT=g@mail.gmail.com>
+ <20170420094743.GI2649@secunet.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Ansis Atteka <aatteka@ovn.org>, netdev@vger.kernel.org
+To: Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f196.google.com ([209.85.223.196]:34436 "EHLO
+Received: from mail-io0-f196.google.com ([209.85.223.196]:35731 "EHLO
         mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1161738AbdDUVUk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2017 17:20:40 -0400
-Received: by mail-io0-f196.google.com with SMTP id h41so34537711ioi.1
-        for <netdev@vger.kernel.org>; Fri, 21 Apr 2017 14:20:40 -0700 (PDT)
-In-Reply-To: <20170421212012.25950-1-bpoirier@suse.com>
+        with ESMTP id S1037537AbdDUVpS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2017 17:45:18 -0400
+Received: by mail-io0-f196.google.com with SMTP id d203so34715560iof.2
+        for <netdev@vger.kernel.org>; Fri, 21 Apr 2017 14:45:18 -0700 (PDT)
+In-Reply-To: <20170420094743.GI2649@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Given that all callers of igb_update_stats() pass the same two arguments:
-(adapter, &adapter->stats64), the second argument can be removed.
+On 20 April 2017 at 02:47, Steffen Klassert
+<steffen.klassert@secunet.com> wrote:
+> On Tue, Apr 18, 2017 at 07:10:03PM -0700, Ansis Atteka wrote:
+>>
+>> However, after taking pointers from your patch I came up with this one
+>> that may solve this problem once and for all (note, that I was seeing
+>> this bug only with ixgbe NIC that supports tx csum offloads). I hope
+>> it does not break any other IPsec tests that you have.
+>>
+>> diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
+>> index b2be1d9..7812501 100644
+>> --- a/net/ipv4/udp_offload.c
+>> +++ b/net/ipv4/udp_offload.c
+>> @@ -29,6 +29,7 @@ static struct sk_buff
+>> *__skb_udp_tunnel_segment(struct sk_buff *skb,
+>>         u16 mac_len = skb->mac_len;
+>>         int udp_offset, outer_hlen;
+>>         __wsum partial;
+>> +       bool need_ipsec;
+>>
+>>         if (unlikely(!pskb_may_pull(skb, tnl_hlen)))
+>>                 goto out;
+>> @@ -62,8 +63,10 @@ static struct sk_buff
+>> *__skb_udp_tunnel_segment(struct sk_buff *skb,
+>>
+>>         ufo = !!(skb_shinfo(skb)->gso_type & SKB_GSO_UDP);
+>>
+>> +       need_ipsec = skb_dst(skb) && dst_xfrm(skb_dst(skb));
+>>         /* Try to offload checksum if possible */
+>>         offload_csum = !!(need_csum &&
+>> +                         !need_ipsec &&
+>>                           (skb->dev->features &
+>>                            (is_ipv6 ? (NETIF_F_HW_CSUM | NETIF_F_IPV6_CSUM) :
+>>                                       (NETIF_F_HW_CSUM | NETIF_F_IP_CSUM))));
+>
+> This looks good, but we should fix udp4_ufo_fragment() too.
+>
+> Thanks!
 
-Signed-off-by: Benjamin Poirier <bpoirier@suse.com>
----
- drivers/net/ethernet/intel/igb/igb.h         |  2 +-
- drivers/net/ethernet/intel/igb/igb_ethtool.c |  2 +-
- drivers/net/ethernet/intel/igb/igb_main.c    | 10 +++++-----
- 3 files changed, 7 insertions(+), 7 deletions(-)
+I removed Geneve tunneling from equation and tried to run a simple
+iperf underlay UDP test while IPsec was still enabled to observe
+issues with the udp4_ufo_fragment() case.
 
-diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
-index acbc3abe2ddd..3f0c06847fc2 100644
---- a/drivers/net/ethernet/intel/igb/igb.h
-+++ b/drivers/net/ethernet/intel/igb/igb.h
-@@ -593,7 +593,7 @@ void igb_setup_rctl(struct igb_adapter *);
- netdev_tx_t igb_xmit_frame_ring(struct sk_buff *, struct igb_ring *);
- void igb_unmap_and_free_tx_resource(struct igb_ring *, struct igb_tx_buffer *);
- void igb_alloc_rx_buffers(struct igb_ring *, u16);
--void igb_update_stats(struct igb_adapter *, struct rtnl_link_stats64 *);
-+void igb_update_stats(struct igb_adapter *);
- bool igb_has_link(struct igb_adapter *adapter);
- void igb_set_ethtool_ops(struct net_device *);
- void igb_power_up_link(struct igb_adapter *);
-diff --git a/drivers/net/ethernet/intel/igb/igb_ethtool.c b/drivers/net/ethernet/intel/igb/igb_ethtool.c
-index 737b664d004c..8c913958c2eb 100644
---- a/drivers/net/ethernet/intel/igb/igb_ethtool.c
-+++ b/drivers/net/ethernet/intel/igb/igb_ethtool.c
-@@ -2287,7 +2287,7 @@ static void igb_get_ethtool_stats(struct net_device *netdev,
- 	char *p;
- 
- 	spin_lock(&adapter->stats64_lock);
--	igb_update_stats(adapter, net_stats);
-+	igb_update_stats(adapter);
- 
- 	for (i = 0; i < IGB_GLOBAL_STATS_LEN; i++) {
- 		p = (char *)adapter + igb_gstrings_stats[i].stat_offset;
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index be456bae8169..20da5e9d9d3c 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -1815,7 +1815,7 @@ void igb_down(struct igb_adapter *adapter)
- 
- 	/* record the stats before reset*/
- 	spin_lock(&adapter->stats64_lock);
--	igb_update_stats(adapter, &adapter->stats64);
-+	igb_update_stats(adapter);
- 	spin_unlock(&adapter->stats64_lock);
- 
- 	adapter->link_speed = 0;
-@@ -4628,7 +4628,7 @@ static void igb_watchdog_task(struct work_struct *work)
- 	}
- 
- 	spin_lock(&adapter->stats64_lock);
--	igb_update_stats(adapter, &adapter->stats64);
-+	igb_update_stats(adapter);
- 	spin_unlock(&adapter->stats64_lock);
- 
- 	for (i = 0; i < adapter->num_tx_queues; i++) {
-@@ -5410,7 +5410,7 @@ static void igb_get_stats64(struct net_device *netdev,
- 	struct igb_adapter *adapter = netdev_priv(netdev);
- 
- 	spin_lock(&adapter->stats64_lock);
--	igb_update_stats(adapter, &adapter->stats64);
-+	igb_update_stats(adapter);
- 	memcpy(stats, &adapter->stats64, sizeof(*stats));
- 	spin_unlock(&adapter->stats64_lock);
- }
-@@ -5459,9 +5459,9 @@ static int igb_change_mtu(struct net_device *netdev, int new_mtu)
-  *  igb_update_stats - Update the board statistics counters
-  *  @adapter: board private structure
-  **/
--void igb_update_stats(struct igb_adapter *adapter,
--		      struct rtnl_link_stats64 *net_stats)
-+void igb_update_stats(struct igb_adapter *adapter)
- {
-+	struct rtnl_link_stats64 *net_stats = &adapter->stats64;
- 	struct e1000_hw *hw = &adapter->hw;
- 	struct pci_dev *pdev = adapter->pdev;
- 	u32 reg, mpc;
--- 
-2.12.2
+Unfortunately, as can be seen from kernel tracer output below, I was
+unable to come up with a test case where udp4_ufo_fragment function
+would ever be invoked while IPsec is enabled:
+
+admin1@ubuntu1:~/xfrm_test/net$ ifconfig em2.4001 | grep "inet addr"
+          inet addr:192.168.1.1  Bcast:192.168.1.255  Mask:255.255.255.0
+admin1@ubuntu1:~/xfrm_test/net$ ethtool -k em2.4001 | grep
+udp-fragmentation-offload
+udp-fragmentation-offload: on
+admin1@ubuntu1:~/xfrm_test/net$ sudo trace-cmd record -p
+function_graph -c -F iperf -c 192.168.1.2 -u -l20000
+admin1@ubuntu1:~/xfrm_test/net$ trace-cmd report | grep udp4
+admin1@ubuntu1:~/xfrm_test/net$
+
+
+Nevertheless, after disabling IPsec and leaving everything else the
+same, I start to see that udp4_ufo_fragment() gets invoked:
+
+admin1@ubuntu1:~/xfrm_test/net$ trace-cmd report | grep udp4
+           iperf-25466 [004] 242431.203307: funcgraph_entry:
+0.113 us   |                  udp4_hwcsum();
+           iperf-25466 [004] 242431.203360: funcgraph_entry:
+        |
+udp4_ufo_fragment() {
+           iperf-25466 [004] 242431.508436: funcgraph_entry:
+0.080 us   |                  udp4_hwcsum();
+           iperf-25466 [004] 242431.508542: funcgraph_entry:
+        |
+udp4_ufo_fragment() {
+
+
+However, non-IPsec case really does not have this ESP packet
+corruption problem, because then the packets are in plain and can
+utilize checksum offloads. Do we really have a problem there for
+IPsec? I did not have time yet to look into the code to understand why
+exactly udp4_ufo_fragment() is not called for IPsec case, but since I
+can't come up with a real life test case, then for now I will simply
+resubmit the previous patch as-is to netdev mailinglist to solve the
+problem I encountered previously for Geneve tunneling case.
+
+If you could drop more hints on how to come up with an IPsec test case
+where udp4_ufo_fragment() is still invoked and packets get corrupted,
+then I can later send another patch for that.
