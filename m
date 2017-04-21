@@ -1,78 +1,45 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: [PATCH] macsec: avoid heap overflow in skb_to_sgvec
-Date: Fri, 21 Apr 2017 23:14:48 +0200
-Message-ID: <20170421211448.16995-1-Jason@zx2c4.com>
-Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>, stable@vger.kernel.org,
-        security@kernel.org
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        davem@davemloft.net
-Return-path: <stable-owner@vger.kernel.org>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Benjamin Poirier <bpoirier@suse.com>
+Subject: [PATCH 1/2] e1000e: Don't return uninitialized stats
+Date: Fri, 21 Apr 2017 14:20:11 -0700
+Message-ID: <20170421212012.25950-1-bpoirier@suse.com>
+Cc: Stefan Priebe <s.priebe@profihost.ag>,
+        intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-it0-f66.google.com ([209.85.214.66]:35340 "EHLO
+        mail-it0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1041465AbdDUVUd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2017 17:20:33 -0400
+Received: by mail-it0-f66.google.com with SMTP id e132so270390ite.2
+        for <netdev@vger.kernel.org>; Fri, 21 Apr 2017 14:20:33 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-While this may appear as a humdrum one line change, it's actually quite
-important. An sk_buff stores data in three places:
+Some statistics passed to ethtool are garbage because e1000e_get_stats64()
+doesn't write them, for example: tx_heartbeat_errors. This leaks kernel
+memory to userspace and confuses users.
 
-1. A linear chunk of allocated memory in skb->data. This is the easiest
-   one to work with, but it precludes using scatterdata since the memory
-   must be linear.
-2. The array skb_shinfo(skb)->frags, which is of maximum length
-   MAX_SKB_FRAGS. This is nice for scattergather, since these fragments
-   can point to different pages.
-3. skb_shinfo(skb)->frag_list, which is a pointer to another sk_buff,
-   which in turn can have data in either (1) or (2).
+Do like ixgbe and use dev_get_stats() which first zeroes out
+rtnl_link_stats64.
 
-The first two are rather easy to deal with, since they're of a fixed
-maximum length, while the third one is not, since there can be
-potentially limitless chains of fragments. Fortunately dealing with
-frag_list is opt-in for drivers, so drivers don't actually have to deal
-with this mess. For whatever reason, macsec decided it wanted pain, and
-so it explicitly specified NETIF_F_FRAGLIST.
-
-Because dealing with (1), (2), and (3) is insane, most users of sk_buff
-doing any sort of crypto or paging operation calls a convenient function
-called skb_to_sgvec (which happens to be recursive if (3) is in use!).
-This takes a sk_buff as input, and writes into its output pointer an
-array of scattergather list items. Sometimes people like to declare a
-fixed size scattergather list on the stack; othertimes people like to
-allocate a fixed size scattergather list on the heap. However, if you're
-doing it in a fixed-size fashion, you really shouldn't be using
-NETIF_F_FRAGLIST too (unless you're also ensuring the sk_buff and its
-frag_list children arent't shared and then you check the number of
-fragments in total required.)
-
-Macsec specifically does this:
-
-        size += sizeof(struct scatterlist) * (MAX_SKB_FRAGS + 1);
-        tmp = kmalloc(size, GFP_ATOMIC);
-        *sg = (struct scatterlist *)(tmp + sg_offset);
-	...
-        sg_init_table(sg, MAX_SKB_FRAGS + 1);
-        skb_to_sgvec(skb, sg, 0, skb->len);
-
-Specifying MAX_SKB_FRAGS + 1 is the right answer usually, but not if you're
-using NETIF_F_FRAGLIST, in which case the call to skb_to_sgvec will
-overflow the heap, and disaster ensues.
-
-Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
-Cc: stable@vger.kernel.org
-Cc: security@kernel.org
+Reported-by: Stefan Priebe <s.priebe@profihost.ag>
+Signed-off-by: Benjamin Poirier <bpoirier@suse.com>
 ---
- drivers/net/macsec.c | 2 +-
+ drivers/net/ethernet/intel/e1000e/ethtool.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/macsec.c b/drivers/net/macsec.c
-index ff0a5ed3ca80..dbab05afcdbe 100644
---- a/drivers/net/macsec.c
-+++ b/drivers/net/macsec.c
-@@ -2716,7 +2716,7 @@ static netdev_tx_t macsec_start_xmit(struct sk_buff *skb,
- }
+diff --git a/drivers/net/ethernet/intel/e1000e/ethtool.c b/drivers/net/ethernet/intel/e1000e/ethtool.c
+index 7aff68a4a4df..f117b90cdc2f 100644
+--- a/drivers/net/ethernet/intel/e1000e/ethtool.c
++++ b/drivers/net/ethernet/intel/e1000e/ethtool.c
+@@ -2063,7 +2063,7 @@ static void e1000_get_ethtool_stats(struct net_device *netdev,
  
- #define MACSEC_FEATURES \
--	(NETIF_F_SG | NETIF_F_HIGHDMA | NETIF_F_FRAGLIST)
-+	(NETIF_F_SG | NETIF_F_HIGHDMA)
- static struct lock_class_key macsec_netdev_addr_lock_key;
+ 	pm_runtime_get_sync(netdev->dev.parent);
  
- static int macsec_dev_init(struct net_device *dev)
+-	e1000e_get_stats64(netdev, &net_stats);
++	dev_get_stats(netdev, &net_stats);
+ 
+ 	pm_runtime_put_sync(netdev->dev.parent);
+ 
 -- 
 2.12.2
