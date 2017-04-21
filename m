@@ -1,55 +1,136 @@
-From: Jamie Bainbridge <jbainbri@redhat.com>
-Subject: [PATCH 2/2] ipv6: don't deliver packets with zero length to raw sockets
-Date: Fri, 21 Apr 2017 13:58:44 +1000
-Message-ID: <1492747124-31821-2-git-send-email-jbainbri@redhat.com>
-References: <1492747124-31821-1-git-send-email-jbainbri@redhat.com>
-Cc: Jamie Bainbridge <jbainbri@redhat.com>
-To: "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:51930 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1035016AbdDUD7D (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 20 Apr 2017 23:59:03 -0400
-In-Reply-To: <1492747124-31821-1-git-send-email-jbainbri@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH RFC (resend) net-next 0/6] virtio-net: Add support for
+ virtio-net header extensions
+Date: Fri, 21 Apr 2017 12:05:15 +0800
+Message-ID: <2b70ab98-c5cc-25c7-dd42-4bb570b6aec6@redhat.com>
+References: <1492274298-17362-1-git-send-email-vyasevic@redhat.com>
+ <0d9216af-e3db-e06b-f70d-d77f519c3fd4@redhat.com>
+ <f52fa31e-5ca2-34dc-d48b-417a34061359@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: virtio-dev@lists.oasis-open.org, mst@redhat.com,
+ maxime.coquelin@redhat.com, virtualization@lists.linux-foundation.org
+To: vyasevic@redhat.com, Vladislav Yasevich <vyasevich@gmail.com>,
+ netdev@vger.kernel.org
+Return-path: <virtio-dev-return-2121-gcvd-virtio-dev=m.gmane.org@lists.oasis-open.org>
+Sender: <virtio-dev@lists.oasis-open.org>
+List-Post: <mailto:virtio-dev@lists.oasis-open.org>
+List-Help: <mailto:virtio-dev-help@lists.oasis-open.org>
+List-Unsubscribe: <mailto:virtio-dev-unsubscribe@lists.oasis-open.org>
+List-Subscribe: <mailto:virtio-dev-subscribe@lists.oasis-open.org>
+In-Reply-To: <f52fa31e-5ca2-34dc-d48b-417a34061359@redhat.com>
+List-Id: netdev.vger.kernel.org
 
-IPv6 assumes there is data after the network header and blindly delivers
-skbs to raw sockets without checking the presence of data.
 
-With an application in a common loop where it checks select/poll/epoll
-then ioctl(SIOCINQ/FIONREAD) is positive before continuing to
-recvfrom(), this behaviour can cause the application to loop forever
-on ioctl() because there is a zero-length skb to receive.
 
-With this, it is very easy to make a Denial of Service attack by
-crafting a packet which declares a Next Header in the IPv6 header but
-does not actually supply a transport header and/or payload.
+On 2017年04月20日 23:34, Vlad Yasevich wrote:
+> On 04/17/2017 11:01 PM, Jason Wang wrote:
+>>
+>> On 2017年04月16日 00:38, Vladislav Yasevich wrote:
+>>> Curreclty virtion net header is fixed size and adding things to it is rather
+>>> difficult to do.  This series attempt to add the infrastructure as well as some
+>>> extensions that try to resolve some deficiencies we currently have.
+>>>
+>>> First, vnet header only has space for 16 flags.  This may not be enough
+>>> in the future.  The extensions will provide space for 32 possbile extension
+>>> flags and 32 possible extensions.   These flags will be carried in the
+>>> first pseudo extension header, the presense of which will be determined by
+>>> the flag in the virtio net header.
+>>>
+>>> The extensions themselves will immidiately follow the extension header itself.
+>>> They will be added to the packet in the same order as they appear in the
+>>> extension flags.  No padding is placed between the extensions and any
+>>> extensions negotiated, but not used need by a given packet will convert to
+>>> trailing padding.
+>> Do we need a explicit padding (e.g an extension) which could be controlled by each side?
+> I don't think so.  The size of the vnet header is set based on the extensions negotiated.
+> The one part I am not crazy about is that in the case of packet not using any extensions,
+> the data is still placed after the entire vnet header, which essentially adds a lot
+> of padding.  However, that's really no different then if we simply grew the vnet header.
+>
+> The other thing I've tried before is putting extensions into their own sg buffer, but that
+> made it slower.h
 
-skb->len is already correctly set in ip6_input_finish() with pskb_pull()
-so check this length before delivering zero data to raw sockets.
+Yes.
 
-Signed-off-by: Jamie Bainbridge <jbainbri@redhat.com>
----
- net/ipv6/raw.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+>
+>>> For example:
+>>>    | vnet mrg hdr | ext hdr | ext 1 | ext 2 | ext 5 | .. pad .. | packet data |
+>> Just some rough thoughts:
+>>
+>> - Is this better to use TLV instead of bitmap here? One advantage of TLV is that the
+>> length is not limited by the length of bitmap.
+> but the disadvantage is that we add at least 4 bytes per extension of just TL data.  That
+> makes this thing even longer.
 
-diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
-index 0da6a12b5472e322d679572c7244e5c9bc467741..29dfdcefe1cc5f4c082ed919026e49e70320605e 100644
---- a/net/ipv6/raw.c
-+++ b/net/ipv6/raw.c
-@@ -174,7 +174,7 @@ static bool ipv6_raw_deliver(struct sk_buff *skb, int nexthdr)
- 	read_lock(&raw_v6_hashinfo.lock);
- 	sk = sk_head(&raw_v6_hashinfo.ht[hash]);
- 
--	if (!sk)
-+	if (!sk || !(skb->len))
- 		goto out;
- 
- 	net = dev_net(skb->dev);
--- 
-1.8.3.1
+Yes, and it looks like the length is still limited by e.g the length of T.
+
+>
+>> - For 1.1, do we really want something like vnet header? AFAIK, it was not used by modern
+>> NICs, is this better to pack all meta-data into descriptor itself? This may need a some
+>> changes in tun/macvtap, but looks more PCIE friendly.
+> That would really be ideal and I've looked at this.  There are small issues of exposing
+> the 'net metadata' of the descriptor to taps so they can be filled in.  The alternative
+> is to use a different control structure for tap->qemu|vhost channel (that can be
+> implementation specific) and have qemu|vhost populate the 'net metadata' of the descriptor.
+
+Yes, this needs some thought. For vhost, things looks a little bit 
+easier, we can probably use msg_control.
+
+Thanks
+
+> Thanks
+> -vlad
+>
+>> Thanks
+>>
+>>> Extensions proposed in this series are:
+>>>    - IPv6 fragment id extension
+>>>      * Currently, the guest generated fragment id is discarded and the host
+>>>        generates an IPv6 fragment id if the packet has to be fragmented.  The
+>>>        code attempts to add time based perturbation to id generation to make
+>>>        it harder to guess the next fragment id to be used.  However, doing this
+>>>        on the host may result is less perturbation (due to differnet timing)
+>>>        and might make id guessing easier.  Ideally, the ids generated by the
+>>>        guest should be used.  One could also argue that we a "violating" the
+>>>        IPv6 protocol in the if the _strict_ interpretation of the spec.
+>>>
+>>>    - VLAN header acceleration
+>>>      * Currently virtio doesn't not do vlan header acceleration and instead
+>>>        uses software tagging.  One of the first things that the host will do is
+>>>        strip the vlan header out.  When passing the packet the a guest the
+>>>        vlan header is re-inserted in to the packet.  We can skip all that work
+>>>        if we can pass the vlan data in accelearted format.  Then the host will
+>>>        not do any extra work.  However, so far, this yeilded a very small
+>>>        perf bump (only ~1%).  I am still looking into this.
+>>>
+>>>    - UDP tunnel offload
+>>>      * Similar to vlan acceleration, with this extension we can pass additional
+>>>        data to host for support GSO with udp tunnel and possible other
+>>>        encapsulations.  This yeilds a significant perfromance improvement
+>>>       (still testing remote checksum code).
+>>>
+>>> An addition extension that is unfinished (due to still testing for any
+>>> side-effects) is checksum passthrough to support drivers that set
+>>> CHECKSUM_COMPLETE.  This would eliminate the need for guests to compute
+>>> the software checksum.
+>>>
+>>> This series only takes care of virtio net.  I have addition patches for the
+>>> host side (vhost and tap/macvtap as well as qemu), but wanted to get feedback
+>>> on the general approach first.
+>>>
+>>> Vladislav Yasevich (6):
+>>>     virtio-net: Remove the use the padded vnet_header structure
+>>>     virtio-net: make header length handling uniform
+>>>     virtio_net: Add basic skeleton for handling vnet header extensions.
+>>>     virtio-net: Add support for IPv6 fragment id vnet header extension.
+>>>     virtio-net: Add support for vlan acceleration vnet header extension.
+>>>     virtio-net: Add support for UDP tunnel offload and extension.
+>>>
+>>>    drivers/net/virtio_net.c        | 132 +++++++++++++++++++++++++++++++++-------
+>>>    include/linux/skbuff.h          |   5 ++
+>>>    include/linux/virtio_net.h      |  91 ++++++++++++++++++++++++++-
+>>>    include/uapi/linux/virtio_net.h |  38 ++++++++++++
+>>>    4 files changed, 242 insertions(+), 24 deletions(-)
+>>>
