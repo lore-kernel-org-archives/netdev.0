@@ -1,57 +1,42 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: [PATCH net-next v6 1/3] net sched actions: User proper root attribute table for actions
-Date: Fri, 21 Apr 2017 06:55:30 -0400
-Message-ID: <1492772132-16559-2-git-send-email-jhs@emojatatu.com>
-References: <1492772132-16559-1-git-send-email-jhs@emojatatu.com>
-Cc: jiri@resnulli.us, xiyou.wangcong@gmail.com, eric.dumazet@gmail.com,
-        netdev@vger.kernel.org, Jamal Hadi Salim <jhs@mojatatu.com>
-To: davem@davemloft.net
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH net] xfrm: fix stack access out of bounds with
+ CONFIG_XFRM_SUB_POLICY
+Date: Fri, 21 Apr 2017 19:06:44 +0800
+Message-ID: <20170421110643.GA13809@gondor.apana.org.au>
+References: <17208ec89e09ed7223ffd2302abfa3475255c384.1492769294.git.sd@queasysnail.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org,
+        Steffen Klassert <steffen.klassert@secunet.com>
+To: Sabrina Dubroca <sd@queasysnail.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f194.google.com ([209.85.223.194]:35841 "EHLO
-        mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755827AbdDUKzw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2017 06:55:52 -0400
-Received: by mail-io0-f194.google.com with SMTP id x86so28994375ioe.3
-        for <netdev@vger.kernel.org>; Fri, 21 Apr 2017 03:55:52 -0700 (PDT)
-In-Reply-To: <1492772132-16559-1-git-send-email-jhs@emojatatu.com>
+Received: from [198.176.57.175] ([198.176.57.175]:42786 "EHLO
+        deadmen.hmeau.com" rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1038266AbdDULHK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2017 07:07:10 -0400
+Content-Disposition: inline
+In-Reply-To: <17208ec89e09ed7223ffd2302abfa3475255c384.1492769294.git.sd@queasysnail.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jamal Hadi Salim <jhs@mojatatu.com>
+On Fri, Apr 21, 2017 at 12:14:51PM +0200, Sabrina Dubroca wrote:
+> When CONFIG_XFRM_SUB_POLICY=y, xfrm_dst stores a copy of the flowi for
+> that dst. Unfortunately, the code that allocates and fills this copy
+> doesn't care about what type of flowi (flowi, flowi4, flowi6) gets
+> passed. In multiple code paths (from raw_sendmsg, from TCP when
+> replying to a FIN, in vxlan, geneve, and gre), the flowi that gets
+> passed to xfrm is actually an on-stack flowi4, so we end up reading
+> memory on the stack past the end of the flowi4 struct.
+> 
+> Since xfrm_dst->origin isn't used anywhere, just get rid of it.
+> xfrm_dst->partner isn't used either, so get rid of that too.
+> 
+> Fixes: ca116922afa8 ("xfrm: Eliminate "fl" and "pol" args to xfrm_bundle_ok().")
 
-Bug fix for an issue which has been around for about a decade.
-We got away with it because the enumeration was larger than needed.
+The commit you refer to here doesn't seem to have caused this bug.
 
-Fixes commit 7ba699c604ab ("[NET_SCHED]: Convert actions from rtnetlink to new netlink API")
-
-Thanks to Jiri Pirko for spotting it.
-
-Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
----
- net/sched/act_api.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/sched/act_api.c b/net/sched/act_api.c
-index 82b1d48..9ce22b7 100644
---- a/net/sched/act_api.c
-+++ b/net/sched/act_api.c
-@@ -997,7 +997,7 @@ static int tc_ctl_action(struct sk_buff *skb, struct nlmsghdr *n,
- 			 struct netlink_ext_ack *extack)
- {
- 	struct net *net = sock_net(skb->sk);
--	struct nlattr *tca[TCA_ACT_MAX + 1];
-+	struct nlattr *tca[TCAA_MAX + 1];
- 	u32 portid = skb ? NETLINK_CB(skb).portid : 0;
- 	int ret = 0, ovr = 0;
- 
-@@ -1005,7 +1005,7 @@ static int tc_ctl_action(struct sk_buff *skb, struct nlmsghdr *n,
- 	    !netlink_capable(skb, CAP_NET_ADMIN))
- 		return -EPERM;
- 
--	ret = nlmsg_parse(n, sizeof(struct tcamsg), tca, TCA_ACT_MAX, NULL,
-+	ret = nlmsg_parse(n, sizeof(struct tcamsg), tca, TCAA_MAX, NULL,
- 			  extack);
- 	if (ret < 0)
- 		return ret;
+Thanks,
 -- 
-1.9.1
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
