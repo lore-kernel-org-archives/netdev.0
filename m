@@ -1,141 +1,251 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: [PATCH v2 0/3] uapi glibc compat: fix musl libc compatibility
-Date: Fri, 21 Apr 2017 14:17:53 +0100
-Message-ID: <1492780673.5876.1.camel@infradead.org>
-References: <20170418210036.26039-1-hauke@hauke-m.de>
-         <20170420.160739.1263793303398330801.davem@davemloft.net>
-         <1492719277.8404.16.camel@infradead.org>
-         <20170420.163630.313375940241598525.davem@davemloft.net>
-         <25477d46-b100-ce87-98d9-8c5e02d409b8@hauke-m.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [regression v4.11] 617f01211baf ("8139too: use
+ napi_complete_done()")
+Date: Fri, 21 Apr 2017 06:29:35 -0700
+Message-ID: <1492781375.6453.1.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20170407181754.GL30290@intel.com>
+         <20170421114001.GJ30290@intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="sha-256"; protocol="application/x-pkcs7-signature"; boundary="=-dELIqwdnzAKuzhf4MxxV"
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        jarod@redhat.com, jogo@openwrt.org, david.heidelberger@ixit.cz,
-        maillist-linux@barfooze.de, mikko.rapeli@iki.fi,
-        musl@lists.openwall.com
-To: Hauke Mehrtens <hauke@hauke-m.de>,
-        David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: Eric Dumazet <edumazet@google.com>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Ville =?ISO-8859-1?Q?Syrj=E4l=E4?= <ville.syrjala@linux.intel.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <25477d46-b100-ce87-98d9-8c5e02d409b8@hauke-m.de>
+In-Reply-To: <20170421114001.GJ30290@intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Fri, 2017-04-21 at 14:40 +0300, Ville Syrjälä wrote:
+> BTW I've also been getting some lockdep grief from r8169 netpoll stuff
+> recently. Not sure if it might be related to these changes or not, but
+> I don't remember seeing this sort of stuff until quite recently.
+> 
+> [  251.911044] ======================================================
+> [  251.911044] [ INFO: HARDIRQ-safe -> HARDIRQ-unsafe lock order detected ]
+> [  251.911045] 4.11.0-rc6-elk+ #101 Not tainted
+> [  251.911045] ------------------------------------------------------
+> [  251.911046] kms_plane_blink/2132 [HC0[0]:SC0[0]:HE0:SE1] is trying to acquire:
+> [  251.911046]  (&syncp->seq#2){+.-...}, at: [<c14398a3>] netpoll_poll_dev+0xb3/0x2a0
+> [  251.911048] 
+> [  251.911048] and this task is already holding:
+> [  251.911049]  (target_list_lock){-.....}, at: [<f858693f>] write_msg+0x3f/0xd0 [netconsole]
+> [  251.911050] which would create a new lock dependency:
+> [  251.911050]  (target_list_lock){-.....} -> (&syncp->seq#2){+.-...}
+> [  251.911053] 
+> [  251.911053] but this new dependency connects a HARDIRQ-irq-safe lock:
+> [  251.911054]  (target_list_lock){-.....}
+> [  251.911055] ... which became HARDIRQ-irq-safe at:
+> [  251.911055]   __lock_acquire+0x6ec/0x1440
+> [  251.911056]   lock_acquire+0x7e/0x1a0
+> [  251.911056]   _raw_spin_lock_irqsave+0x2b/0x40
+> [  251.911056]   write_msg+0x3f/0xd0 [netconsole]
+> [  251.911057]   console_unlock+0x41c/0x570
+> [  251.911057]   vprintk_emit+0x26d/0x350
+> [  251.911058]   vprintk_default+0x12/0x20
+> [  251.911058]   vprintk_func+0x1c/0x50
+> [  251.911058]   printk+0xe/0x10
+> [  251.911059]   drm_printk+0x5a/0x60 [drm]
+> [  251.911059]   intel_get_hpd_pins+0x87/0xa0 [i915]
+> [  251.911060]   i9xx_hpd_irq_handler+0x96/0xe0 [i915]
+> [  251.911060]   i965_irq_handler+0x2c8/0x2f0 [i915]
+> [  251.911060]   __handle_irq_event_percpu+0x38/0x360
+> [  251.911061]   handle_irq_event_percpu+0x19/0x50
+> [  251.911061]   handle_irq_event+0x29/0x50
+> [  251.911062]   handle_edge_irq+0x65/0x110
+> [  251.911062]   handle_irq+0x9f/0xc0
+> [  251.911062]   do_IRQ+0x4f/0x110
+> [  251.911063]   common_interrupt+0x36/0x3c
+> [  251.911063]   cpuidle_enter_state+0xcc/0x390
+> [  251.911064]   cpuidle_enter+0xf/0x20
+> [  251.911064]   call_cpuidle+0x1c/0x40
+> [  251.911064]   do_idle+0x164/0x1d0
+> [  251.911065]   cpu_startup_entry+0x1d/0x20
+> [  251.911065]   start_secondary+0x104/0x170
+> [  251.911066]   startup_32_smp+0x16b/0x16d
+> [  251.911066] 
+> [  251.911066] to a HARDIRQ-irq-unsafe lock:
+> [  251.911067]  (&syncp->seq#2){+.-...}
+> [  251.911068] ... which became HARDIRQ-irq-unsafe at:
+> [  251.911068] ...  __lock_acquire+0x5d7/0x1440
+> [  251.911069]   lock_acquire+0x7e/0x1a0
+> [  251.911069]   rtl8169_poll+0x474/0x620 [r8169]
+> [  251.911070]   net_rx_action+0x1d0/0x3f0
+> [  251.911070]   __do_softirq+0x17d/0x460
+> [  251.911070]   do_softirq_own_stack+0x1d/0x30
+> [  251.911071]   irq_exit+0xa5/0xb0
+> [  251.911071]   do_IRQ+0x58/0x110
+> [  251.911072]   common_interrupt+0x36/0x3c
+> [  251.911072]   cpuidle_enter_state+0xcc/0x390
+> [  251.911072]   cpuidle_enter+0xf/0x20
+> [  251.911073]   call_cpuidle+0x1c/0x40
+> [  251.911073]   do_idle+0x164/0x1d0
+> [  251.911073]   cpu_startup_entry+0x1d/0x20
+> [  251.911074]   rest_init+0x10c/0x120
+> [  251.911074]   start_kernel+0x30d/0x312
+> [  251.911075]   i386_start_kernel+0x85/0x89
+> [  251.911075]   startup_32_smp+0x16b/0x16d
+> [  251.911075] 
+> [  251.911076] other info that might help us debug this:
+> [  251.911076] 
+> [  251.911077]  Possible interrupt unsafe locking scenario:
+> [  251.911077] 
+> [  251.911077]        CPU0                    CPU1
+> [  251.911078]        ----                    ----
+> [  251.911078]   lock(&syncp->seq#2);
+> [  251.911079]                                local_irq_disable();
+> [  251.911080]                                lock(target_list_lock);
+> [  251.911081]                                lock(&syncp->seq#2);
+> [  251.911082]   <Interrupt>
+> [  251.911082]     lock(target_list_lock);
+> [  251.911083] 
+> [  251.911084]  *** DEADLOCK ***
+> [  251.911084] 
+> [  251.911084] 2 locks held by kms_plane_blink/2132:
+> [  251.911085]  #0:  (console_lock){+.+.+.}, at: [<c10ad3b4>] vprintk_emit+0x264/0x350
+> [  251.911086]  #1:  (target_list_lock){-.....}, at: [<f858693f>] write_msg+0x3f/0xd0 [netconsole]
+> [  251.911088] 
+> [  251.911088] the dependencies between HARDIRQ-irq-safe lock and the holding lock:
+> [  251.911089] -> (target_list_lock){-.....} ops: 482 {
+> [  251.911090]    IN-HARDIRQ-W at:
+> [  251.911091]                        __lock_acquire+0x6ec/0x1440
+> [  251.911092]                        lock_acquire+0x7e/0x1a0
+> [  251.911092]                        _raw_spin_lock_irqsave+0x2b/0x40
+> [  251.911092]                        write_msg+0x3f/0xd0 [netconsole]
+> [  251.911093]                        console_unlock+0x41c/0x570
+> [  251.911093]                        vprintk_emit+0x26d/0x350
+> [  251.911094]                        vprintk_default+0x12/0x20
+> [  251.911094]                        vprintk_func+0x1c/0x50
+> [  251.911095]                        printk+0xe/0x10
+> [  251.911095]                        drm_printk+0x5a/0x60 [drm]
+> [  251.911096]                        intel_get_hpd_pins+0x87/0xa0 [i915]
+> [  251.911096]                        i9xx_hpd_irq_handler+0x96/0xe0 [i915]
+> [  251.911097]                        i965_irq_handler+0x2c8/0x2f0 [i915]
+> [  251.911097]                        __handle_irq_event_percpu+0x38/0x360
+> [  251.911098]                        handle_irq_event_percpu+0x19/0x50
+> [  251.911098]                        handle_irq_event+0x29/0x50
+> [  251.911098]                        handle_edge_irq+0x65/0x110
+> [  251.911099]                        handle_irq+0x9f/0xc0
+> [  251.911099]                        do_IRQ+0x4f/0x110
+> [  251.911100]                        common_interrupt+0x36/0x3c
+> [  251.911100]                        cpuidle_enter_state+0xcc/0x390
+> [  251.911101]                        cpuidle_enter+0xf/0x20
+> [  251.911101]                        call_cpuidle+0x1c/0x40
+> [  251.911102]                        do_idle+0x164/0x1d0
+> [  251.911102]                        cpu_startup_entry+0x1d/0x20
+> [  251.911102]                        start_secondary+0x104/0x170
+> [  251.911103]                        startup_32_smp+0x16b/0x16d
+> [  251.911103]    INITIAL USE at:
+> [  251.911104]                       __lock_acquire+0x221/0x1440
+> [  251.911104]                       lock_acquire+0x7e/0x1a0
+> [  251.911105]                       _raw_spin_lock_irqsave+0x2b/0x40
+> [  251.911105]                       make_netconsole_target+0x80/0xab [netconsole]
+> [  251.911106]                       configfs_mkdir+0x312/0x3b0 [configfs]
+> [  251.911106]                       vfs_mkdir+0xd2/0x1b0
+> [  251.911107]                       SyS_mkdir+0x57/0xc0
+> [  251.911107]                       do_fast_syscall_32+0x80/0x430
+> [  251.911108]                       entry_SYSENTER_32+0x4c/0x7b
+> [  251.911108]  }
+> [  251.911108]  ... key      at: [<f85882f0>] target_list_lock+0x10/0xffffed20 [netconsole]
+> [  251.911109]  ... acquired at:
+> [  251.911109]    check_irq_usage+0x42/0xb0
+> [  251.911110]    __lock_acquire+0xfbf/0x1440
+> [  251.911110]    lock_acquire+0x7e/0x1a0
+> [  251.911110]    rtl8169_poll+0x474/0x620 [r8169]
+> [  251.911111]    netpoll_poll_dev+0xb3/0x2a0
+> [  251.911111]    netpoll_send_skb_on_dev+0x180/0x240
+> [  251.911112]    netpoll_send_udp+0x292/0x440
+> [  251.911112]    write_msg+0x9c/0xd0 [netconsole]
+> [  251.911112]    console_unlock+0x41c/0x570
+> [  251.911113]    vprintk_emit+0x26d/0x350
+> [  251.911113]    printk_emit+0x1b/0x1d
+> [  251.911114]    devkmsg_write+0xeb/0x140
+> [  251.911114]    __vfs_write+0xb0/0x110
+> [  251.911114]    vfs_write+0xa1/0x1e0
+> [  251.911115]    SyS_write+0x3d/0x90
+> [  251.911115]    do_fast_syscall_32+0x80/0x430
+> [  251.911116]    entry_SYSENTER_32+0x4c/0x7b
+> [  251.911116] 
+> [  251.911116] 
+> [  251.911117] the dependencies between the lock to be acquired and HARDIRQ-irq-unsafe lock:
+> [  251.911117] -> (&syncp->seq#2){+.-...} ops: 7439 {
+> [  251.911119]    HARDIRQ-ON-W at:
+> [  251.911120]                        __lock_acquire+0x5d7/0x1440
+> [  251.911120]                        lock_acquire+0x7e/0x1a0
+> [  251.911121]                        rtl8169_poll+0x474/0x620 [r8169]
+> [  251.911121]                        net_rx_action+0x1d0/0x3f0
+> [  251.911122]                        __do_softirq+0x17d/0x460
+> [  251.911122]                        do_softirq_own_stack+0x1d/0x30
+> [  251.911122]                        irq_exit+0xa5/0xb0
+> [  251.911123]                        do_IRQ+0x58/0x110
+> [  251.911123]                        common_interrupt+0x36/0x3c
+> [  251.911124]                        cpuidle_enter_state+0xcc/0x390
+> [  251.911124]                        cpuidle_enter+0xf/0x20
+> [  251.911125]                        call_cpuidle+0x1c/0x40
+> [  251.911125]                        do_idle+0x164/0x1d0
+> [  251.911126]                        cpu_startup_entry+0x1d/0x20
+> [  251.911126]                        rest_init+0x10c/0x120
+> [  251.911127]                        start_kernel+0x30d/0x312
+> [  251.911127]                        i386_start_kernel+0x85/0x89
+> [  251.911127]                        startup_32_smp+0x16b/0x16d
+> [  251.911128]    IN-SOFTIRQ-W at:
+> [  251.911129]                        __lock_acquire+0x5b5/0x1440
+> [  251.911129]                        lock_acquire+0x7e/0x1a0
+> [  251.911129]                        rtl8169_poll+0x474/0x620 [r8169]
+> [  251.911130]                        net_rx_action+0x1d0/0x3f0
+> [  251.911130]                        __do_softirq+0x17d/0x460
+> [  251.911131]                        do_softirq_own_stack+0x1d/0x30
+> [  251.911131]                        irq_exit+0xa5/0xb0
+> [  251.911132]                        do_IRQ+0x58/0x110
+> [  251.911132]                        common_interrupt+0x36/0x3c
+> [  251.911133]                        cpuidle_enter_state+0xcc/0x390
+> [  251.911133]                        cpuidle_enter+0xf/0x20
+> [  251.911133]                        call_cpuidle+0x1c/0x40
+> [  251.911134]                        do_idle+0x164/0x1d0
+> [  251.911134]                        cpu_startup_entry+0x1d/0x20
+> [  251.911135]                        rest_init+0x10c/0x120
+> [  251.911135]                        start_kernel+0x30d/0x312
+> [  251.911136]                        i386_start_kernel+0x85/0x89
+> [  251.911136]                        startup_32_smp+0x16b/0x16d
+> [  251.911136]    INITIAL USE at:
+> [  251.911137]                       __lock_acquire+0x221/0x1440
+> [  251.911138]                       lock_acquire+0x7e/0x1a0
+> [  251.911138]                       rtl8169_get_stats64+0x81/0x320 [r8169]
+> [  251.911139]                       dev_get_stats+0x30/0xa0
+> [  251.911139]                       rtnl_fill_stats+0x30/0x110
+> [  251.911139]                       rtnl_fill_ifinfo+0x4be/0xd80
+> [  251.911140]                       rtmsg_ifinfo_build_skb+0x45/0xc0
+> [  251.911140]                       rtmsg_ifinfo.part.33+0xd/0x30
+> [  251.911141]                       rtmsg_ifinfo+0x1b/0x20
+> [  251.911141]                       register_netdevice+0x495/0x5e0
+> [  251.911142]                       register_netdev+0x12/0x20
+> [  251.911142]                       rtl_init_one+0x86d/0x1060 [r8169]
+> [  251.911143]                       pci_device_probe+0x8b/0x100
+> [  251.911143]                       driver_probe_device+0x1ad/0x2a0
+> [  251.911144]                       __driver_attach+0x89/0x90
+> [  251.911144]                       bus_for_each_dev+0x4f/0x80
+> [  251.911144]                       driver_attach+0x14/0x20
+> [  251.911145]                 
+> [  251.911146] Lost 63 message(s)!
+> 
 
---=-dELIqwdnzAKuzhf4MxxV
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Thanks for this report.
 
-On Fri, 2017-04-21 at 15:14 +0200, Hauke Mehrtens wrote:
->=20
-> On 04/20/2017 10:36 PM, David Miller wrote:
-> >=20
-> > From: David Woodhouse <dwmw2@infradead.org>
-> > Date: Thu, 20 Apr 2017 21:14:37 +0100
-> >=20
-> > >=20
-> > > I agree, except I don't think you're going far enough. Those
-> > > "standard
-> > > names" you mention... some of this stuff actually depends on
-> > > __GLIBC__,
-> > > and *that* isn't right either.
-> > Yep, that's something that needs correcting.
-> >=20
-> Should all libc implementations define __GLIBC__ or could we at least
-> switch the kernel UAPI to !__KERNEL__ here?
+Interesting to see how many drivers got the netpoll stuff wrong :/
 
-I'd start with the patch I referenced yesterday...
---=-dELIqwdnzAKuzhf4MxxV
-Content-Type: application/x-pkcs7-signature; name="smime.p7s"
-Content-Disposition: attachment; filename="smime.p7s"
-Content-Transfer-Encoding: base64
+Can you try :
 
-MIAGCSqGSIb3DQEHAqCAMIACAQExDzANBglghkgBZQMEAgEFADCABgkqhkiG9w0BBwEAAKCCDzUw
-ggSvMIIDl6ADAgECAhEA4CPLFRKDU4mtYW56VGdrITANBgkqhkiG9w0BAQsFADBvMQswCQYDVQQG
-EwJTRTEUMBIGA1UEChMLQWRkVHJ1c3QgQUIxJjAkBgNVBAsTHUFkZFRydXN0IEV4dGVybmFsIFRU
-UCBOZXR3b3JrMSIwIAYDVQQDExlBZGRUcnVzdCBFeHRlcm5hbCBDQSBSb290MB4XDTE0MTIyMjAw
-MDAwMFoXDTIwMDUzMDEwNDgzOFowgZsxCzAJBgNVBAYTAkdCMRswGQYDVQQIExJHcmVhdGVyIE1h
-bmNoZXN0ZXIxEDAOBgNVBAcTB1NhbGZvcmQxGjAYBgNVBAoTEUNPTU9ETyBDQSBMaW1pdGVkMUEw
-PwYDVQQDEzhDT01PRE8gU0hBLTI1NiBDbGllbnQgQXV0aGVudGljYXRpb24gYW5kIFNlY3VyZSBF
-bWFpbCBDQTCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAImxDdp6UxlOcFIdvFamBia3
-uEngludRq/HwWhNJFaO0jBtgvHpRQqd5jKQi3xdhTpHVdiMKFNNKAn+2HQmAbqUEPdm6uxb+oYep
-LkNSQxZ8rzJQyKZPWukI2M+TJZx7iOgwZOak+FaA/SokFDMXmaxE5WmLo0YGS8Iz1OlAnwawsayT
-QLm1CJM6nCpToxDbPSBhPFUDjtlOdiUCISn6o3xxdk/u4V+B6ftUgNvDezVSt4TeIj0sMC0xf1m9
-UjewM2ktQ+v61qXxl3dnUYzZ7ifrvKUHOHaMpKk4/9+M9QOsSb7K93OZOg8yq5yVOhM9DkY6V3Rh
-UL7GQD/L5OKfoiECAwEAAaOCARcwggETMB8GA1UdIwQYMBaAFK29mHo0tCb3+sQmVO8DveAky1Qa
-MB0GA1UdDgQWBBSSYWuC4aKgqk/sZ/HCo/e0gADB7DAOBgNVHQ8BAf8EBAMCAYYwEgYDVR0TAQH/
-BAgwBgEB/wIBADAdBgNVHSUEFjAUBggrBgEFBQcDAgYIKwYBBQUHAwQwEQYDVR0gBAowCDAGBgRV
-HSAAMEQGA1UdHwQ9MDswOaA3oDWGM2h0dHA6Ly9jcmwudXNlcnRydXN0LmNvbS9BZGRUcnVzdEV4
-dGVybmFsQ0FSb290LmNybDA1BggrBgEFBQcBAQQpMCcwJQYIKwYBBQUHMAGGGWh0dHA6Ly9vY3Nw
-LnVzZXJ0cnVzdC5jb20wDQYJKoZIhvcNAQELBQADggEBABsqbqxVwTqriMXY7c1V86prYSvACRAj
-mQ/FZmpvsfW0tXdeDwJhAN99Bf4Ss6SAgAD8+x1banICCkG8BbrBWNUmwurVTYT7/oKYz1gb4yJj
-nFL4uwU2q31Ypd6rO2Pl2tVz7+zg+3vio//wQiOcyraNTT7kSxgDsqgt1Ni7QkuQaYUQ26Y3NOh7
-4AEQpZzKOsefT4g0bopl0BqKu6ncyso20fT8wmQpNa/WsadxEdIDQ7GPPprsnjJT9HaSyoY0B7ks
-yuYcStiZDcGG4pCS+1pCaiMhEOllx/XVu37qjIUgAmLq0ToHLFnFmTPyOInltukWeh95FPZKEBom
-+nyK+5swggU9MIIEJaADAgECAhBqC1BYlVMtBFBN4igR/howMA0GCSqGSIb3DQEBCwUAMIGbMQsw
-CQYDVQQGEwJHQjEbMBkGA1UECBMSR3JlYXRlciBNYW5jaGVzdGVyMRAwDgYDVQQHEwdTYWxmb3Jk
-MRowGAYDVQQKExFDT01PRE8gQ0EgTGltaXRlZDFBMD8GA1UEAxM4Q09NT0RPIFNIQS0yNTYgQ2xp
-ZW50IEF1dGhlbnRpY2F0aW9uIGFuZCBTZWN1cmUgRW1haWwgQ0EwHhcNMTYxMjIwMDAwMDAwWhcN
-MTcxMjIwMjM1OTU5WjAkMSIwIAYJKoZIhvcNAQkBFhNkd213MkBpbmZyYWRlYWQub3JnMIIBIjAN
-BgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwbTrFaiGdvN2pThnR9q+4eaXB2wQZQNqhter5ZrJ
-pPO47e87bZ+f1tmYoh6+rB90G/XN24NErPRfvU4zVzNT9pCtCzSSVnBlZQBpaEYMKhcXo5PGKNsm
-An8BoGwNXjlxwbBNRaNO+ky0wNCaMNd1JLxEuvqg9J7rrcpHhWmnpXD5IKa8gv9GyVAJgOpiBOts
-p91sShc2kHvWJ5waPEWPCHDH9J+twGGKqKIIU7fdbURLUgUL1wlDSAHf/lgIAVCSj2H2HpoGqHpy
-HgOAClX9iRSLNa0Znj8HTaqfOwxXevsz1KkLFY+Ahm426GIEqdfkK2iT6Hhgc7tjNO3f8i5ALQID
-AQABo4IB8TCCAe0wHwYDVR0jBBgwFoAUkmFrguGioKpP7GfxwqP3tIAAwewwHQYDVR0OBBYEFILE
-dmHLtK6oxmFJZvBhTQhvqrS0MA4GA1UdDwEB/wQEAwIFoDAMBgNVHRMBAf8EAjAAMCAGA1UdJQQZ
-MBcGCCsGAQUFBwMEBgsrBgEEAbIxAQMFAjARBglghkgBhvhCAQEEBAMCBSAwRgYDVR0gBD8wPTA7
-BgwrBgEEAbIxAQIBAQEwKzApBggrBgEFBQcCARYdaHR0cHM6Ly9zZWN1cmUuY29tb2RvLm5ldC9D
-UFMwXQYDVR0fBFYwVDBSoFCgToZMaHR0cDovL2NybC5jb21vZG9jYS5jb20vQ09NT0RPU0hBMjU2
-Q2xpZW50QXV0aGVudGljYXRpb25hbmRTZWN1cmVFbWFpbENBLmNybDCBkAYIKwYBBQUHAQEEgYMw
-gYAwWAYIKwYBBQUHMAKGTGh0dHA6Ly9jcnQuY29tb2RvY2EuY29tL0NPTU9ET1NIQTI1NkNsaWVu
-dEF1dGhlbnRpY2F0aW9uYW5kU2VjdXJlRW1haWxDQS5jcnQwJAYIKwYBBQUHMAGGGGh0dHA6Ly9v
-Y3NwLmNvbW9kb2NhLmNvbTAeBgNVHREEFzAVgRNkd213MkBpbmZyYWRlYWQub3JnMA0GCSqGSIb3
-DQEBCwUAA4IBAQA+AfvNhFwtapF5Lzjapgul3zYuEnMfR538Ya1vhP8wuOkcoJeT2gEFXzVO2WUu
-eWM0g0/DumnRB53htV/Qq/+vsL0i6a2+iOO7kHi5O7bZkgbdNv0t2lzonDUHi6LTa7NUj+tv+j6y
-hW+iNquC3ACP1dIZH8gJmicHblW63qRgp6wxhn315MLBeavi3uiSag2eeKFePiTIwJjN2UYq6kWg
-PL5G/Ycf9x/xN1XBTfJiURc0FsXhrA98VMWnt52C5Lo4txhGjzTI+IZg40b3YDs6E7mTYb5KKmbc
-QZA9priOFDdj1z5W9BdWhU6I/D0P9y8Z4Tr6+ZscMUVD0RqWy2LeMIIFPTCCBCWgAwIBAgIQagtQ
-WJVTLQRQTeIoEf4aMDANBgkqhkiG9w0BAQsFADCBmzELMAkGA1UEBhMCR0IxGzAZBgNVBAgTEkdy
-ZWF0ZXIgTWFuY2hlc3RlcjEQMA4GA1UEBxMHU2FsZm9yZDEaMBgGA1UEChMRQ09NT0RPIENBIExp
-bWl0ZWQxQTA/BgNVBAMTOENPTU9ETyBTSEEtMjU2IENsaWVudCBBdXRoZW50aWNhdGlvbiBhbmQg
-U2VjdXJlIEVtYWlsIENBMB4XDTE2MTIyMDAwMDAwMFoXDTE3MTIyMDIzNTk1OVowJDEiMCAGCSqG
-SIb3DQEJARYTZHdtdzJAaW5mcmFkZWFkLm9yZzCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoC
-ggEBAMG06xWohnbzdqU4Z0favuHmlwdsEGUDaobXq+WayaTzuO3vO22fn9bZmKIevqwfdBv1zduD
-RKz0X71OM1czU/aQrQs0klZwZWUAaWhGDCoXF6OTxijbJgJ/AaBsDV45ccGwTUWjTvpMtMDQmjDX
-dSS8RLr6oPSe663KR4Vpp6Vw+SCmvIL/RslQCYDqYgTrbKfdbEoXNpB71iecGjxFjwhwx/SfrcBh
-iqiiCFO33W1ES1IFC9cJQ0gB3/5YCAFQko9h9h6aBqh6ch4DgApV/YkUizWtGZ4/B02qnzsMV3r7
-M9SpCxWPgIZuNuhiBKnX5Ctok+h4YHO7YzTt3/IuQC0CAwEAAaOCAfEwggHtMB8GA1UdIwQYMBaA
-FJJha4LhoqCqT+xn8cKj97SAAMHsMB0GA1UdDgQWBBSCxHZhy7SuqMZhSWbwYU0Ib6q0tDAOBgNV
-HQ8BAf8EBAMCBaAwDAYDVR0TAQH/BAIwADAgBgNVHSUEGTAXBggrBgEFBQcDBAYLKwYBBAGyMQED
-BQIwEQYJYIZIAYb4QgEBBAQDAgUgMEYGA1UdIAQ/MD0wOwYMKwYBBAGyMQECAQEBMCswKQYIKwYB
-BQUHAgEWHWh0dHBzOi8vc2VjdXJlLmNvbW9kby5uZXQvQ1BTMF0GA1UdHwRWMFQwUqBQoE6GTGh0
-dHA6Ly9jcmwuY29tb2RvY2EuY29tL0NPTU9ET1NIQTI1NkNsaWVudEF1dGhlbnRpY2F0aW9uYW5k
-U2VjdXJlRW1haWxDQS5jcmwwgZAGCCsGAQUFBwEBBIGDMIGAMFgGCCsGAQUFBzAChkxodHRwOi8v
-Y3J0LmNvbW9kb2NhLmNvbS9DT01PRE9TSEEyNTZDbGllbnRBdXRoZW50aWNhdGlvbmFuZFNlY3Vy
-ZUVtYWlsQ0EuY3J0MCQGCCsGAQUFBzABhhhodHRwOi8vb2NzcC5jb21vZG9jYS5jb20wHgYDVR0R
-BBcwFYETZHdtdzJAaW5mcmFkZWFkLm9yZzANBgkqhkiG9w0BAQsFAAOCAQEAPgH7zYRcLWqReS84
-2qYLpd82LhJzH0ed/GGtb4T/MLjpHKCXk9oBBV81TtllLnljNINPw7pp0Qed4bVf0Kv/r7C9Iumt
-vojju5B4uTu22ZIG3Tb9Ldpc6Jw1B4ui02uzVI/rb/o+soVvojargtwAj9XSGR/ICZonB25Vut6k
-YKesMYZ99eTCwXmr4t7okmoNnnihXj4kyMCYzdlGKupFoDy+Rv2HH/cf8TdVwU3yYlEXNBbF4awP
-fFTFp7edguS6OLcYRo80yPiGYONG92A7OhO5k2G+Sipm3EGQPaa4jhQ3Y9c+VvQXVoVOiPw9D/cv
-GeE6+vmbHDFFQ9Ealsti3jGCA9MwggPPAgEBMIGwMIGbMQswCQYDVQQGEwJHQjEbMBkGA1UECBMS
-R3JlYXRlciBNYW5jaGVzdGVyMRAwDgYDVQQHEwdTYWxmb3JkMRowGAYDVQQKExFDT01PRE8gQ0Eg
-TGltaXRlZDFBMD8GA1UEAxM4Q09NT0RPIFNIQS0yNTYgQ2xpZW50IEF1dGhlbnRpY2F0aW9uIGFu
-ZCBTZWN1cmUgRW1haWwgQ0ECEGoLUFiVUy0EUE3iKBH+GjAwDQYJYIZIAWUDBAIBBQCgggHzMBgG
-CSqGSIb3DQEJAzELBgkqhkiG9w0BBwEwHAYJKoZIhvcNAQkFMQ8XDTE3MDQyMTEzMTc1M1owLwYJ
-KoZIhvcNAQkEMSIEIDD0SwEG2VnYg3JxTeRgWAw9CAG7MhXUha3CH7Uey6rFMIHBBgkrBgEEAYI3
-EAQxgbMwgbAwgZsxCzAJBgNVBAYTAkdCMRswGQYDVQQIExJHcmVhdGVyIE1hbmNoZXN0ZXIxEDAO
-BgNVBAcTB1NhbGZvcmQxGjAYBgNVBAoTEUNPTU9ETyBDQSBMaW1pdGVkMUEwPwYDVQQDEzhDT01P
-RE8gU0hBLTI1NiBDbGllbnQgQXV0aGVudGljYXRpb24gYW5kIFNlY3VyZSBFbWFpbCBDQQIQagtQ
-WJVTLQRQTeIoEf4aMDCBwwYLKoZIhvcNAQkQAgsxgbOggbAwgZsxCzAJBgNVBAYTAkdCMRswGQYD
-VQQIExJHcmVhdGVyIE1hbmNoZXN0ZXIxEDAOBgNVBAcTB1NhbGZvcmQxGjAYBgNVBAoTEUNPTU9E
-TyBDQSBMaW1pdGVkMUEwPwYDVQQDEzhDT01PRE8gU0hBLTI1NiBDbGllbnQgQXV0aGVudGljYXRp
-b24gYW5kIFNlY3VyZSBFbWFpbCBDQQIQagtQWJVTLQRQTeIoEf4aMDANBgkqhkiG9w0BAQEFAASC
-AQCFp1EBDZJMoR+t894dyZCoOIOxNUM4oE5TAvnLEV5hw3XNGILOUBt5l0LJKMW9/2tEjpU4uPko
-bu800e6TjlpW7LEiw75CpKauAC6slunPLZKWPIVvMYw5CWQk1QO4tW7s1znQJg5GpYIdCRdt6unp
-4d72gWNLlxTzS9QREGNLS0gRNyRE1uQKHg9nGS93TR+5xyf9WHOrBmUsM27C8SF8Eng7+SQVNgCN
-bfht41hLgAstuur43poaJjU9L+vRLgKh14SI7ue7KXSe10QpznmQ4xObPkgywI0tHVFbCIbsPnZx
-49CJbb2nHSL7xhB4iuj2PtCHz0xYCw0UQYfQ7YZbAAAAAAAA
-
-
---=-dELIqwdnzAKuzhf4MxxV--
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index 81f18a8335276495a59fa93219c4607c2b8a47aa..74e4c72c331d5a6cc5b653970ef4133c8ddf9999 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -7668,7 +7668,7 @@ static void rtl8169_netpoll(struct net_device *dev)
+ {
+ 	struct rtl8169_private *tp = netdev_priv(dev);
+ 
+-	rtl8169_interrupt(tp->pci_dev->irq, dev);
++	napi_schedule(&tp->napi);
+ }
+ #endif
+ 
