@@ -1,36 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ip6mr: fix notification device destruction
-Date: Fri, 21 Apr 2017 15:36:35 -0400 (EDT)
-Message-ID: <20170421.153635.1878323052363882645.davem@davemloft.net>
+Subject: Re: net/core: BUG in unregister_netdevice_many
+Date: Fri, 21 Apr 2017 15:37:02 -0400 (EDT)
+Message-ID: <20170421.153702.1599786428994860703.davem@davemloft.net>
 References: <CAAeHK+zUZMGQuW=7Qhz3EWYjh6Zwv9eMBCiMCU79QrYNWox0-Q@mail.gmail.com>
-        <1492796536-28781-1-git-send-email-nikolay@cumulusnetworks.com>
-        <6d7dca26-4bc6-870c-8eb9-409f6c6b8fd5@cumulusnetworks.com>
+        <CA+55aFwg=OtMWmU153uM27Fwk5eVv5ZBGBA9phQqVqn3nNAy6Q@mail.gmail.com>
+        <CA+55aFyTFzML+_8E_kDjX=YFkaDi_ejGo15UgGtAT29244UwgA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org,
-        dvyukov@google.com, kcc@google.com, syzkaller@googlegroups.com,
-        edumazet@google.com, roopa@cumulusnetworks.com,
-        torvalds@linux-foundation.org, linux-kernel@vger.kernel.org
-To: nikolay@cumulusnetworks.com
+Cc: andreyknvl@google.com, edumazet@google.com, kuznet@ms2.inr.ac.ru,
+        jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        alexander.h.duyck@intel.com, dsa@cumulusnetworks.com,
+        daniel@iogearbox.net, me@tobin.cc, jiri@mellanox.com,
+        stephen@networkplumber.org, dvyukov@google.com, kcc@google.com,
+        syzkaller@googlegroups.com
+To: torvalds@linux-foundation.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <6d7dca26-4bc6-870c-8eb9-409f6c6b8fd5@cumulusnetworks.com>
+In-Reply-To: <CA+55aFyTFzML+_8E_kDjX=YFkaDi_ejGo15UgGtAT29244UwgA@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Date: Fri, 21 Apr 2017 21:30:42 +0300
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Date: Fri, 21 Apr 2017 10:42:48 -0700
 
-> On 21/04/17 20:42, Nikolay Aleksandrov wrote:
->> Andrey Konovalov reported a BUG caused by the ip6mr code which is caused
->> because we call unregister_netdevice_many for a device that is already
->> being destroyed. In IPv4's ipmr that has been resolved by two commits
->> long time ago by introducing the "notify" parameter to the delete
->> function and avoiding the unregister when called from a notifier, so
->> let's do the same for ip6mr.
- ...
-> +CC LKML and Linus
+> Over to Eric and networking people. This oops is user-triggerable, and
+> leaves the machine in a bad state (the original BUG_ON() and the new
+> GP fault both happen while holding the RTNL, so networking is not
+> healthy afterwards.
 
-Applied, thanks Nikolay and thanks Andrey for the report and testing.
-
-Nikolay, how far does this bug go back?
+I have the fix in my tree and will push it to shortly.
