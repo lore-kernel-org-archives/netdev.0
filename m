@@ -1,68 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RFC] sparc64: eBPF JIT
-Date: Fri, 21 Apr 2017 15:02:26 -0400 (EDT)
-Message-ID: <20170421.150226.825217448288272000.davem@davemloft.net>
-References: <58F50D13.3090001@iogearbox.net>
-        <20170421.124640.1134810340055330244.davem@davemloft.net>
-        <20170421184935.GA86324@ast-mbp.thefacebook.com>
+From: bert hubert <bert.hubert@powerdns.com>
+Subject: new documentation: IP_TRANSPARENT, is it correct?
+Date: Fri, 21 Apr 2017 20:59:33 +0200
+Message-ID: <20170421185933.GF4183@server.ds9a.nl>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: daniel@iogearbox.net, sparclinux@vger.kernel.org,
-        netdev@vger.kernel.org, ast@kernel.org
-To: alexei.starovoitov@gmail.com
-Return-path: <sparclinux-owner@vger.kernel.org>
-In-Reply-To: <20170421184935.GA86324@ast-mbp.thefacebook.com>
-Sender: sparclinux-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from tmpmail.powerdns.com ([128.199.32.142]:51156 "EHLO
+        tmpmail.powerdns.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1424470AbdDUTGR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2017 15:06:17 -0400
+Received: from localhost (localhost [127.0.0.1])
+        by tmpmail.powerdns.com (Postfix) with ESMTP id 59CE96D937
+        for <netdev@vger.kernel.org>; Fri, 21 Apr 2017 14:59:37 -0400 (EDT)
+Received: from tmpmail.powerdns.com ([127.0.0.1])
+        by localhost (tmpmail.powerdns.com [127.0.0.1]) (amavisd-new, port 10024)
+        with ESMTP id cRSl_fG-JIkx for <netdev@vger.kernel.org>;
+        Fri, 21 Apr 2017 14:59:36 -0400 (EDT)
+Received: from server.ds9a.nl (unknown [IPv6:2001:470:1f15:bba::42])
+        by tmpmail.powerdns.com (Postfix) with ESMTP id 729AF6D935
+        for <netdev@vger.kernel.org>; Fri, 21 Apr 2017 14:59:36 -0400 (EDT)
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Date: Fri, 21 Apr 2017 11:49:37 -0700
+Hi everyone,
 
-> On Fri, Apr 21, 2017 at 12:46:40PM -0400, David Miller wrote:
->> From: Daniel Borkmann <daniel@iogearbox.net>
->> Date: Mon, 17 Apr 2017 20:44:35 +0200
->> 
->> > There is samples/bpf/sockex3_kern.c, which exercises it. To
->> > run it, it would be (clang/llvm needed due to BPF backend not
->> > available in gcc):
->> > 
->> > # cd samples/bpf
->> > # make
->> > # ./sockex3
->> > IP     src.port -> dst.port               bytes      packets
->> > 127.0.0.1.12865 -> 127.0.0.1.49711          148            2
->> > 127.0.0.1.49711 -> 127.0.0.1.12865          108            2
->> > [...]
->> > 
->> > Inside parse_eth_proto(), it will do tail calls based on the
->> > eth protocol. Over time, we'll move such C based tests over to
->> > tools/testing/selftests/bpf/.
->> 
->> Ok, after a lot of work setting up an LLVM/CLANG environment and other
->> things, 
-> 
-> was it painful because of sparc environment?
+10 years after lartc.org I decided to document a little bit more of Linux
+networking, and I hope I got it right. This email asks for your help in
+making sure.
 
-Yes, primarily this was the reason.
+Recently I attempted to use IP_TRANSPARENT as outlined in
+https://www.kernel.org/doc/Documentation/networking/tproxy.txt but I could
+not figure out how it really worked from there (although I could copy paste
+my way to some working code).  The web also mostly offered little in the way
+of (correct) explanation.
 
-It wasn't just a matter of building llvm/clang, I had to install a
-whole new version of gcc because of llvm/clang build requirements.
+I think I have it figured out by now, but I'm sure there are nuances I have
+missed. I'm especially interested in understanding _exactly_ what the
+IP_TRANSPARENT socket option does, because it appears somewhat arbitrary
+right now:
 
-Also, it isn't clear what is supposed to happen when the system
-include files are older than the one in the kernel tree.  I thought it
-should just work and the selftests and samples would pick up the ones
-in the tree properly.
+"The IP_TRANSPARENT socket option enables:
 
-> redhat folks have been back and forth on adding bpf support to gcc.
-> The backend itself was fully functional before it was abandoned.
-> Last time we discussed it the lack of integrated asm in gcc was the main blocker.
-> Can we bend gcc rules and let bpf backend emit custom binary and/or elf?
+* Binding to addresses that are not (usually) considered local
+* Receiving connections and packets from iptables TPROXY redirected sessions"
 
-I don't see why you can't just do a proper GNU as/ld port.
+https://ds9a.nl/tproxy/tproxy.md.html has somewhat prettified Markdown that
+requires Javascript, plain Markdown is on
+https://github.com/ahupowerdns/tproxydoc/blob/master/tproxy.md
 
-Frankly I would love to write foo.s BFD assembler files just like for
-any other target and them feed them to binutils.
+If you could give this a read and a comment on things I got wrong, that
+would be most appreciated. Pointers to other relevant documentation are also
+very welcome.
 
-And then once you have BFD support for BPF ELF you get lots of tooling
-and you can start going for gdb support.
+Thanks!
+
+	Bert
+	
