@@ -1,170 +1,93 @@
-From: Rafa Corvillo <rafael.corvillo@aoifes.com>
-Subject: [ISSUE: sky2 - rx error] Link stops working under heavy traffic load
- connected to a mv88e6176
-Date: Fri, 21 Apr 2017 14:39:00 +0200
-Message-ID: <58F9FD64.80506@aoifes.com>
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: Re: [PATCH 2/2] ipv6: don't deliver packets with zero length to raw
+ sockets
+Date: Fri, 21 Apr 2017 14:47:35 +0200
+Message-ID: <20170421124735.GA15749@bistromath.localdomain>
+References: <1492747124-31821-1-git-send-email-jbainbri@redhat.com>
+ <1492747124-31821-2-git-send-email-jbainbri@redhat.com>
+ <20170421100112.GA4824@bistromath.localdomain>
+ <CAOTh05AEQe=QMoStwdXckQ7pPW_ZuDAAj5W78rNqSR-6hNZGSQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+To: Jamie Bainbridge <jbainbri@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-relay-01-3.dondominio.net ([31.214.176.26]:39990 "EHLO
-        smtp-relay-01-3.dondominio.net" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1038749AbdDUMps (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2017 08:45:48 -0400
-Received: from mail-node.dondominio.com
-        by smtp-relay.dondominio.com (Postfix) with ESMTP id 4176E43126
-        for <netdev@vger.kernel.org>; Fri, 21 Apr 2017 14:39:02 +0200 (CEST)
-Received: from [192.168.100.99] (unknown [217.130.92.202])
-        (Authenticated sender: rafael.corvillo@aoifes.com)
-        by mail-node.dondominio.com (Postfix) with ESMTPA id 18CAF406F7
-        for <netdev@vger.kernel.org>; Fri, 21 Apr 2017 14:39:02 +0200 (CEST)
+Received: from mx1.redhat.com ([209.132.183.28]:57764 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1039281AbdDUMrj (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 21 Apr 2017 08:47:39 -0400
+Content-Disposition: inline
+In-Reply-To: <CAOTh05AEQe=QMoStwdXckQ7pPW_ZuDAAj5W78rNqSR-6hNZGSQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We are working in an ARMv7 embedded system running kernel 4.9 (LEDE build).
-It is an imx6 board with 2 ethernet interfaces. One of them is connected to
-a Marvell switch.
+2017-04-21, 21:18:00 +1000, Jamie Bainbridge wrote:
+> Hi Sabrina,
+> 
+> On Fri, Apr 21, 2017 at 8:01 PM, Sabrina Dubroca <sd@queasysnail.net> wrote:
+> > Hi Jamie,
+> >
+> > 2017-04-21, 13:58:44 +1000, Jamie Bainbridge wrote:
+> >> IPv6 assumes there is data after the network header and blindly delivers
+> >> skbs to raw sockets without checking the presence of data.
+> >>
+> >> With an application in a common loop where it checks select/poll/epoll
+> >> then ioctl(SIOCINQ/FIONREAD) is positive before continuing to
+> >> recvfrom(), this behaviour can cause the application to loop forever
+> >> on ioctl() because there is a zero-length skb to receive.
+> >>
+> >> With this, it is very easy to make a Denial of Service attack by
+> >> crafting a packet which declares a Next Header in the IPv6 header but
+> >> does not actually supply a transport header and/or payload.
+> >>
+> >> skb->len is already correctly set in ip6_input_finish() with pskb_pull()
+> >> so check this length before delivering zero data to raw sockets.
+> >
+> > Isn't that changing behavior? recv() currently returns 0 when a packet
+> > that stops right after the IP header arrives. After this, the userspace
+> > program won't receive anything in this case?
+> 
+> The recv() never occurs. The skb will not be cloned or passed into
+> rawv6_rcv(), the socket notification method (select/poll/epoll) will
+> not trigger, and the userspace program won't be informed the packet
+> has arrived. The behaviour is the same as if there was no raw socket,
+> or as if the Next Header did not match the raw socket's protocol.
+> 
+> As you know, IPv6 raw sockets do not offer access to the network
+> header by design (RFC3542). An IPv6 raw socket only receives data
+> after the network header. It's not like IPv4 where the raw socket
+> would still get the network header in the same situation.
+> 
+> If the raw socket is watching for data with valid transport headers,
+> or the user has implemented their own transport protocol, or the user
+> is sending raw data with no transport header, those are still
+> correctly cloned and passed to rawv6_rcv() to be received by the raw
+> socket. Nothing is broken for cases where there is data after the
+> network header, I tested both paged and unpaged skbs and both worked
+> properly.
+> 
+> I cannot see the use in delivering a skb with zero bytes after the
+> network header to a raw socket.
 
-The schema of the system is the following:
+Knowing that a message was received, even if it's malformed. I don't
+see a fundamental difference between NextHeader == UDP without any
+payload at all and NextHeader == UDP with 1B payload.
+Also, with recvmsg, you would get back msg_name.
 
-  +-------------------+ eth0
-  |                   +--+
-  |                   |  |
-  | Embedded system   +--+
-  |                   |
-  |      ARMv7        |
-  |                   | Marvell 88E8057(sky2) +-------------+
-  |                   +--+ +--+             +--+ eth1
-  |                   |  +---------------------+ |             |  +------+
-  |                   +--+      CPU port       +--+ mv88e6176  +--+
-  +------+--+---------+ |             |
-emulated|  | |             |
-GPIO    +--+ +--+             +--+ eth2
-MDIO      +-----------------------------------+ |             |  +------+
-                               MDIO +--+             +--+
-+-------------+
+> That is like suggesting a TCP ACK with
+> no data payload should result in a 0-byte skb being delivered to a
+> stream socket
 
-There is a bridge (br-lan) which includes eth0/eth1/eth2
+Not really. IMHO that's a difference between datagram and stream. An
+empty message is different from no message at all.
 
-If I connect the eth1/eth2, the link is up and I can do ping through it. 
-But, once
-I start sending a heavy traffic load the link fails and the kernel sends the
-following messages:
+> which is obviously wrong and would result in many
+> notification-ioctl loops just like it has here.
 
-[   48.557140] sky2 0000:04:00.0 marvell: rx error, status 0x5f20010 
-length 1518
-[   48.564964] sky2 0000:04:00.0 marvell: rx error, status 0x5f20010 
-length 1518
-[   48.572110] sky2 0000:04:00.0 marvell: rx error, status 0x5f20010 
-length 1518
-[   48.579263] sky2 0000:04:00.0 marvell: rx error, status 0x5f20010 
-length 1518
-[   48.586417] sky2 0000:04:00.0 marvell: rx error, status 0x5f20010 
-length 1518
-[   48.593573] sky2 0000:04:00.0 marvell: rx error, status 0x5f20010 
-length 1518
-[   48.600718] sky2 0000:04:00.0 marvell: rx error, status 0x5f20010 
-length 1518
-[   54.877567] net_ratelimit: 6 callbacks suppressed
-[   54.882293] sky2 0000:04:00.0 marvell: rx error, status 0x5f20010 
-length 1518
-[   61.413552] sky2 0000:04:00.0 marvell: rx error, status 0x5f20010 
-length 1518
 
-I have a modified device-tree of imx6 which includes the mdio and dsa 
-nodes. This
-device-tree works in a kernel 4.1.6, but I know that these parts of the 
-kernel have
-a lot of changes. The changes included for mdio and dsa in the 
-device-tree are the
-following (diff arch/arm/boot/dts/imx6qdl-gw53xx.dtsi 
-arch/arm/boot/dts/imx6qdl-gw53xx-mdio.dtsi):
-
-16a17,18
- >     can0 = &can1;
- >     ethernet0 = &fec;
-21a24
- >     sky2 = &eth1;
-24a28,29
- >     usdhc2 = &usdhc3;
- >     mdio-gpio0 = &mdio0;
-62a68,125
- >   mdio0: mdio {
- >     compatible = "virtual,mdio-gpio";
- >     #address-cells = <1>;
- >     #size-cells = <0>;
- >     /* MDC = gpio-17, MDIO = gpio-20 */
- >     gpios =  <&gpio1 17 1
- >         &gpio1 20 0>;
- >                 ethernet-phy@0  {
- >           compatible = "marvell,dsa";
- >                 };
- >   };
- >
- >   dsa {
- >     compatible = "marvell,dsa";
- >     #address-cells = <2>;
- >     #size-cells = <0>;
- >
- >     interrupts = <10>;
- >     dsa,ethernet = <&eth1>;
- >     dsa,mii-bus = <&mdio0>;
- >
- >     switch@0 {
- >       #address-cells = <1>;
- >       #size-cells = <0>;
- >       reg = <0 0>;  /* MDIO address 0, switch 0 in tree */
- >
- >       port@0 {
- >         reg = <0>;
- >         label = "cpu";
- >       };
- >
- >       port@1 {
- >         reg = <1>;
- >         label = "eth1";
- >       };
- >
- >       port@2 {
- >         reg = <2>;
- >         label = "eth2";
- >       };
- >
- >       port@3 {
- >         reg = <3>;
- >         label = "eth3";
- >       };
- >
- >       port@4 {
- >         reg = <4>;
- >         label = "eth4";
- >       };
- >     };
- >   };
- >
-361a425,430
- > &mdio0 {
- >   pinctrl-names = "default";
- >   pinctrl-0 = <&pinctrl_mdio>;
- >   status = "okay";
- > };
- >
-363c432
-<   imx6qdl-gw53xx {
----
- >   imx6qdl-gw53xx-mdio {
-448a518,524
- >       >;
- >     };
- >
- >     pinctrl_mdio: mdiogrp {
- >       fsl,pins = <
- >         MX6QDL_PAD_SD1_DAT1__GPIO1_IO17   0x1b0b9
- >         MX6QDL_PAD_SD1_CLK__GPIO1_IO20    0x1b0b9
-
-Do you know of any possible reason why this could be happening?
-
-Thanks in advance.
-
-Rafa
+-- 
+Sabrina
