@@ -1,52 +1,33 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: net/core: BUG in unregister_netdevice_many
-Date: Fri, 21 Apr 2017 11:55:04 -0700
-Message-ID: <CAM_iQpUoWzeZPSKTCm13tumvOa7fLMJnz_0F_LSq4odYvWtRaQ@mail.gmail.com>
-References: <CAAeHK+zUZMGQuW=7Qhz3EWYjh6Zwv9eMBCiMCU79QrYNWox0-Q@mail.gmail.com>
- <CA+55aFwg=OtMWmU153uM27Fwk5eVv5ZBGBA9phQqVqn3nNAy6Q@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/2] ipv6: don't deliver packets with zero length to
+ raw sockets
+Date: Fri, 21 Apr 2017 10:53:32 -0400 (EDT)
+Message-ID: <20170421.105332.1898209845543083717.davem@davemloft.net>
+References: <1492747124-31821-2-git-send-email-jbainbri@redhat.com>
+        <20170421100112.GA4824@bistromath.localdomain>
+        <CAOTh05AEQe=QMoStwdXckQ7pPW_ZuDAAj5W78rNqSR-6hNZGSQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Andrey Konovalov <andreyknvl@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Alexander Duyck <alexander.h.duyck@intel.com>,
-        David Ahern <dsa@cumulusnetworks.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        tcharding <me@tobin.cc>, Jiri Pirko <jiri@mellanox.com>,
-        stephen hemminger <stephen@networkplumber.org>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Kostya Serebryany <kcc@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CA+55aFwg=OtMWmU153uM27Fwk5eVv5ZBGBA9phQqVqn3nNAy6Q@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: sd@queasysnail.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+        yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org
+To: jbainbri@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:36894 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1424205AbdDUS5b (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2017 14:57:31 -0400
+In-Reply-To: <CAOTh05AEQe=QMoStwdXckQ7pPW_ZuDAAj5W78rNqSR-6hNZGSQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 21, 2017 at 10:25 AM, Linus Torvalds
-<torvalds@linux-foundation.org> wrote:
-> On Fri, Apr 21, 2017 at 5:48 AM, Andrey Konovalov <andreyknvl@google.com> wrote:
->>
->> I've got the following error report while fuzzing the kernel with syzkaller.
->>
->> ------------[ cut here ]------------
->> kernel BUG at net/core/dev.c:6813!
->
-> Another useless BUG_ON() that
+From: Jamie Bainbridge <jbainbri@redhat.com>
+Date: Fri, 21 Apr 2017 21:18:00 +1000
 
-I think we are double-unregister'ing the pim6reg device,
-we probably need something like:
+> I cannot see the use in delivering a skb with zero bytes after the
+> network header to a raw socket.
 
-commit 7dc00c82cbb0119cf4663f65bbaa2cc55f961db2
-Author: Wang Chen <wangchen@cn.fujitsu.com>
-Date:   Mon Jul 14 20:56:34 2008 -0700
+Then it cannot be used to look at zero length UDP packets, which are
+completely legal and used.
 
-    ipv4: Fix ipmr unregister device oops
-
-    An oops happens during device unregister.
+So we must deliver it.
