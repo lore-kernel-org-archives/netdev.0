@@ -1,35 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net: arc_emac: switch to phy_start()/phy_stop()
-Date: Fri, 21 Apr 2017 15:24:09 -0400 (EDT)
-Message-ID: <20170421.152409.337926359354412729.davem@davemloft.net>
-References: <1492694974-31023-1-git-send-email-al.kochet@gmail.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH net-next v6 3/3] net sched actions: add time filter for
+ action dumping
+Date: Fri, 21 Apr 2017 11:13:37 -0400
+Message-ID: <3463713e-235a-32f4-0956-d621b7305d7e@mojatatu.com>
+References: <1492772132-16559-1-git-send-email-jhs@emojatatu.com>
+ <1492772132-16559-4-git-send-email-jhs@emojatatu.com>
+ <20170421131347.GD1874@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: tremyfr@gmail.com, peter.chen@nxp.com, weiyongjun1@huawei.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: al.kochet@gmail.com
+Cc: davem@davemloft.net, xiyou.wangcong@gmail.com,
+        eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:37278 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1424850AbdDUTYL (ORCPT
+Received: from mail-io0-f194.google.com ([209.85.223.194]:33286 "EHLO
+        mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1424844AbdDUTYL (ORCPT
         <rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2017 15:24:11 -0400
-In-Reply-To: <1492694974-31023-1-git-send-email-al.kochet@gmail.com>
+Received: by mail-io0-f194.google.com with SMTP id k87so33499042ioi.0
+        for <netdev@vger.kernel.org>; Fri, 21 Apr 2017 12:24:06 -0700 (PDT)
+In-Reply-To: <20170421131347.GD1874@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Kochetkov <al.kochet@gmail.com>
-Date: Thu, 20 Apr 2017 16:29:34 +0300
+On 17-04-21 09:13 AM, Jiri Pirko wrote:
+> Fri, Apr 21, 2017 at 12:55:32PM CEST, jhs@mojatatu.com wrote:
+>> From: Jamal Hadi Salim <jhs@mojatatu.com>
+>>
 
-> Currently driver use phy_start_aneg() in arc_emac_open() to bring
-> up PHY. But phy_start() function is more appropriate for this purposes.
-> Besides that it call phy_start_aneg() as part of PHY startup sequence
-> it also can correctly bring up PHY from error and suspended states.
-> So the patch replace phy_start_aneg() to phy_start().
-> 
-> Also the patch add call to phy_stop() to arc_emac_stop() to allow
-> the PHY device to be fully suspended when the interface is unused.
-> 
-> Signed-off-by: Alexander Kochetkov <al.kochet@gmail.com>
+>> @@ -1000,6 +1008,7 @@ static int tcf_action_add(struct net *net, struct nlattr *nla,
+>>
+>> static const struct nla_policy tcaa_policy[TCA_ROOT_MAX + 1] = {
+>> 	[TCA_ROOT_FLAGS]      = { .type = NLA_U32 },
+>> +	[TCA_ROOT_TIME_DELTA]      = { .type = NLA_U32 },
+>
+> Align these assignments please.
+>
 
-Applied to net-next, thanks.
+Will do next update.
+
+cheers,
+jamal
