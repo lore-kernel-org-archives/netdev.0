@@ -1,53 +1,42 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH net-next] net: dsa: LAN9303: add I2C dependency
-Date: Fri, 21 Apr 2017 18:22:40 +0200
-Message-ID: <20170421162259.3312997-1-arnd@arndb.de>
-Cc: Arnd Bergmann <arnd@arndb.de>,
-        "David S. Miller" <davem@davemloft.net>,
-        Rob Herring <robh@kernel.org>,
-        Juergen Beisert <jbe@pengutronix.de>,
-        Sean Wang <sean.wang@mediatek.com>,
-        John Crispin <john@phrozen.org>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH] MAINTAINERS: Add "B:" field for networking.
+Date: Fri, 21 Apr 2017 10:45:30 -0400 (EDT)
+Message-ID: <20170421.104530.783586906821012854.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:36338 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1041719AbdDUSWb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2017 14:22:31 -0400
+Received: from localhost (unknown [38.140.131.194])
+        (Authenticated sender: davem-davemloft)
+        by shards.monkeyblade.net (Postfix) with ESMTPSA id A5875121303EA
+        for <netdev@vger.kernel.org>; Fri, 21 Apr 2017 07:04:08 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-With CONFIG_I2C=m and NET_DSA_SMSC_LAN9303=y, we run into a link error:
 
-drivers/base/regmap/regmap-i2c.o: In function `regmap_smbus_byte_reg_read':
-regmap-i2c.c:(.text.regmap_smbus_byte_reg_read+0x18): undefined reference to `i2c_smbus_read_byte_data'
-drivers/base/regmap/regmap-i2c.o: In function `regmap_smbus_byte_reg_write':
-regmap-i2c.c:(.text.regmap_smbus_byte_reg_write+0x18): undefined reference to `i2c_smbus_write_byte_data'
-drivers/base/regmap/regmap-i2c.o: In function `regmap_smbus_word_reg_read':
-regmap-i2c.c:(.text.regmap_smbus_word_reg_read+0x18): undefined reference to `i2c_smbus_read_word_data'
-drivers/base/regmap/regmap-i2c.o: In function `regmap_smbus_word_read_swapped':
-regmap-i2c.c:(.text.regmap_smbus_word_read_swapped+0x18): undefined reference to `i2c_smbus_read_word_data'
-drivers/base/regmap/regmap-i2c.o: In function `regmap_smbus_word_write_swapped':
+We want people to report bugs to the netdev list.
 
-This adds a Kconfig dependency to avoid the broken configuration.
-
-Fixes: be4e119f9914 ("net: dsa: LAN9303: add I2C managed mode support")
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- drivers/net/dsa/Kconfig | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ MAINTAINERS | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/dsa/Kconfig b/drivers/net/dsa/Kconfig
-index 131a5b1cbfc8..862ee22303c2 100644
---- a/drivers/net/dsa/Kconfig
-+++ b/drivers/net/dsa/Kconfig
-@@ -59,7 +59,7 @@ config NET_DSA_SMSC_LAN9303
- 
- config NET_DSA_SMSC_LAN9303_I2C
- 	tristate "SMSC/Microchip LAN9303 3-ports 10/100 ethernet switch in I2C managed mode"
--	depends on NET_DSA
-+	depends on NET_DSA && I2C
- 	select NET_DSA_SMSC_LAN9303
- 	select REGMAP_I2C
- 	---help---
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 63f8abc..08950e5 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -8761,6 +8761,7 @@ W:	http://www.linuxfoundation.org/en/Net
+ Q:	http://patchwork.ozlabs.org/project/netdev/list/
+ T:	git git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git
+ T:	git git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git
++B:	mailto:netdev@vger.kernel.org
+ S:	Maintained
+ F:	net/
+ F:	include/net/
 -- 
-2.9.0
+2.4.11
