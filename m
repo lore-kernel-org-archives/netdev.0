@@ -1,82 +1,150 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH net v2] ipv4: Avoid caching l3mdev dst on mismatched local
- route
-Date: Fri, 21 Apr 2017 14:37:56 -0600
-Message-ID: <e9fe3b0a-2ff8-b597-c13e-e8e6bfa4a7c5@cumulusnetworks.com>
-References: <f3a3ab2d-4a32-a3ec-6a72-071e56577017@brocade.com>
- <1492806899-6215-1-git-send-email-rshearma@brocade.com>
+From: Nathan Fontenot <nfont@linux.vnet.ibm.com>
+Subject: [PATCH net-next 3/7] ibmvnic: Only retrieve error info if present
+Date: Fri, 21 Apr 2017 15:38:52 -0400
+Message-ID: <20170421193852.11030.51923.stgit@ltcalpine2-lp23.aus.stglabs.ibm.com>
+References: <20170421193627.11030.34813.stgit@ltcalpine2-lp23.aus.stglabs.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Robert Shearman <rshearma@brocade.com>, davem@davemloft.net
+Cc: brking@linux.vnet.ibm.com, jallen@linux.vnet.ibm.com,
+        muvic@linux.vnet.ibm.com, tlfalcon@linux.vnet.ibm.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f178.google.com ([209.85.223.178]:34582 "EHLO
-        mail-io0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1162468AbdDUUh7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2017 16:37:59 -0400
-Received: by mail-io0-f178.google.com with SMTP id a103so133946864ioj.1
-        for <netdev@vger.kernel.org>; Fri, 21 Apr 2017 13:37:58 -0700 (PDT)
-In-Reply-To: <1492806899-6215-1-git-send-email-rshearma@brocade.com>
+Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:50691 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1162474AbdDUUjv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2017 16:39:51 -0400
+Received: from pps.filterd (m0098414.ppops.net [127.0.0.1])
+        by mx0b-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v3LFmk51139271
+        for <netdev@vger.kernel.org>; Fri, 21 Apr 2017 11:49:57 -0400
+Received: from e14.ny.us.ibm.com (e14.ny.us.ibm.com [129.33.205.204])
+        by mx0b-001b2d01.pphosted.com with ESMTP id 29ycjdrgpx-1
+        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Fri, 21 Apr 2017 11:49:57 -0400
+Received: from localhost
+        by e14.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        for <netdev@vger.kernel.org> from <nfont@linux.vnet.ibm.com>;
+        Fri, 21 Apr 2017 11:49:57 -0400
+In-Reply-To: <20170421193627.11030.34813.stgit@ltcalpine2-lp23.aus.stglabs.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 4/21/17 2:34 PM, Robert Shearman wrote:
-> David reported that doing the following:
-> 
->     ip li add red type vrf table 10
->     ip link set dev eth1 vrf red
->     ip addr add 127.0.0.1/8 dev red
->     ip link set dev eth1 up
->     ip li set red up
->     ping -c1 -w1 -I red 127.0.0.1
->     ip li del red
-> 
-> when either policy routing IP rules are present or the local table
-> lookup ip rule is before the l3mdev lookup results in a hang with
-> these messages:
-> 
->     unregister_netdevice: waiting for red to become free. Usage count = 1
-> 
-> The problem is caused by caching the dst used for sending the packet
-> out of the specified interface on a local route with a different
-> nexthop interface. Thus the dst could stay around until the route in
-> the table the lookup was done is deleted which may be never.
-> 
-> Address the problem by not forcing output device to be the l3mdev in
-> the flow's output interface if the lookup didn't use the l3mdev. This
-> then results in the dst using the right device according to the route.
-> 
-> Changes in v2:
->  - make the dev_out passed in by __ip_route_output_key_hash correct
->    instead of checking the nh dev if FLOWI_FLAG_SKIP_NH_OIF is set as
->    suggested by David.
-> 
-> Fixes: 5f02ce24c2696 ("net: l3mdev: Allow the l3mdev to be a loopback")
-> Reported-by: David Ahern <dsa@cumulusnetworks.com>
-> Suggested-by: David Ahern <dsa@cumulusnetworks.com>
-> Signed-off-by: Robert Shearman <rshearma@brocade.com>
-> ---
->  net/ipv4/route.c | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
-> 
-> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-> index acd69cfe2951..d9724889ff09 100644
-> --- a/net/ipv4/route.c
-> +++ b/net/ipv4/route.c
-> @@ -2359,7 +2359,8 @@ struct rtable *__ip_route_output_key_hash(struct net *net, struct flowi4 *fl4,
->  		}
->  
->  		/* L3 master device is the loopback for that domain */
-> -		dev_out = l3mdev_master_dev_rcu(dev_out) ? : net->loopback_dev;
-> +		dev_out = l3mdev_master_dev_rcu(FIB_RES_DEV(res)) ? :
-> +			net->loopback_dev;
->  		fl4->flowi4_oif = dev_out->ifindex;
->  		flags |= RTCF_LOCAL;
->  		goto make_route;
-> 
+When handling a fatal error in the driver, there can be additional
+error information provided by the vios. This information is not
+always present, so only retrieve the additional error information
+when present.
 
-LGTM
+Signed-off-by: Nathan Fontenot <nfont@linux.vnet.ibm.com>
+---
+ drivers/net/ethernet/ibm/ibmvnic.c |   71 ++++++++++++++++++++++++++----------
+ 1 file changed, 51 insertions(+), 20 deletions(-)
 
-Acked-by: David Ahern <dsa@cumulusnetworks.com>
-Tested-by: David Ahern <dsa@cumulusnetworks.com>
+diff --git a/drivers/net/ethernet/ibm/ibmvnic.c b/drivers/net/ethernet/ibm/ibmvnic.c
+index 0f359543..cc34bf9 100644
+--- a/drivers/net/ethernet/ibm/ibmvnic.c
++++ b/drivers/net/ethernet/ibm/ibmvnic.c
+@@ -2361,25 +2361,22 @@ static void handle_error_info_rsp(union ibmvnic_crq *crq,
+ 	kfree(error_buff);
+ }
+ 
+-static void handle_error_indication(union ibmvnic_crq *crq,
+-				    struct ibmvnic_adapter *adapter)
++static void request_error_information(struct ibmvnic_adapter *adapter,
++				      union ibmvnic_crq *err_crq)
+ {
+-	int detail_len = be32_to_cpu(crq->error_indication.detail_error_sz);
+ 	struct device *dev = &adapter->vdev->dev;
++	struct net_device *netdev = adapter->netdev;
+ 	struct ibmvnic_error_buff *error_buff;
+-	union ibmvnic_crq new_crq;
++	unsigned long timeout = msecs_to_jiffies(30000);
++	union ibmvnic_crq crq;
+ 	unsigned long flags;
+-
+-	dev_err(dev, "Firmware reports %serror id %x, cause %d\n",
+-		crq->error_indication.
+-		    flags & IBMVNIC_FATAL_ERROR ? "FATAL " : "",
+-		be32_to_cpu(crq->error_indication.error_id),
+-		be16_to_cpu(crq->error_indication.error_cause));
++	int rc, detail_len;
+ 
+ 	error_buff = kmalloc(sizeof(*error_buff), GFP_ATOMIC);
+ 	if (!error_buff)
+ 		return;
+ 
++	detail_len = be32_to_cpu(err_crq->error_indication.detail_error_sz);
+ 	error_buff->buff = kmalloc(detail_len, GFP_ATOMIC);
+ 	if (!error_buff->buff) {
+ 		kfree(error_buff);
+@@ -2389,27 +2386,61 @@ static void handle_error_indication(union ibmvnic_crq *crq,
+ 	error_buff->dma = dma_map_single(dev, error_buff->buff, detail_len,
+ 					 DMA_FROM_DEVICE);
+ 	if (dma_mapping_error(dev, error_buff->dma)) {
+-		if (!firmware_has_feature(FW_FEATURE_CMO))
+-			dev_err(dev, "Couldn't map error buffer\n");
++		netdev_err(netdev, "Couldn't map error buffer\n");
+ 		kfree(error_buff->buff);
+ 		kfree(error_buff);
+ 		return;
+ 	}
+ 
+ 	error_buff->len = detail_len;
+-	error_buff->error_id = crq->error_indication.error_id;
++	error_buff->error_id = err_crq->error_indication.error_id;
+ 
+ 	spin_lock_irqsave(&adapter->error_list_lock, flags);
+ 	list_add_tail(&error_buff->list, &adapter->errors);
+ 	spin_unlock_irqrestore(&adapter->error_list_lock, flags);
+ 
+-	memset(&new_crq, 0, sizeof(new_crq));
+-	new_crq.request_error_info.first = IBMVNIC_CRQ_CMD;
+-	new_crq.request_error_info.cmd = REQUEST_ERROR_INFO;
+-	new_crq.request_error_info.ioba = cpu_to_be32(error_buff->dma);
+-	new_crq.request_error_info.len = cpu_to_be32(detail_len);
+-	new_crq.request_error_info.error_id = crq->error_indication.error_id;
+-	ibmvnic_send_crq(adapter, &new_crq);
++	memset(&crq, 0, sizeof(crq));
++	crq.request_error_info.first = IBMVNIC_CRQ_CMD;
++	crq.request_error_info.cmd = REQUEST_ERROR_INFO;
++	crq.request_error_info.ioba = cpu_to_be32(error_buff->dma);
++	crq.request_error_info.len = cpu_to_be32(detail_len);
++	crq.request_error_info.error_id = err_crq->error_indication.error_id;
++
++	rc = ibmvnic_send_crq(adapter, &crq);
++	if (rc) {
++		netdev_err(netdev, "failed to request error information\n");
++		goto err_info_fail;
++	}
++
++	if (!wait_for_completion_timeout(&adapter->init_done, timeout)) {
++		netdev_err(netdev, "timeout waiting for error information\n");
++		goto err_info_fail;
++	}
++
++	return;
++
++err_info_fail:
++	spin_lock_irqsave(&adapter->error_list_lock, flags);
++	list_del(&error_buff->list);
++	spin_unlock_irqrestore(&adapter->error_list_lock, flags);
++
++	kfree(error_buff->buff);
++	kfree(error_buff);
++}
++
++static void handle_error_indication(union ibmvnic_crq *crq,
++				    struct ibmvnic_adapter *adapter)
++{
++	struct device *dev = &adapter->vdev->dev;
++
++	dev_err(dev, "Firmware reports %serror id %x, cause %d\n",
++		crq->error_indication.flags
++			& IBMVNIC_FATAL_ERROR ? "FATAL " : "",
++		be32_to_cpu(crq->error_indication.error_id),
++		be16_to_cpu(crq->error_indication.error_cause));
++
++	if (be32_to_cpu(crq->error_indication.error_id))
++		request_error_information(adapter, crq);
+ }
+ 
+ static void handle_change_mac_rsp(union ibmvnic_crq *crq,
