@@ -1,57 +1,65 @@
-From: <scotte@kincaidlaw.com>
-Subject: (unknown)
-Date: Fri, 21 Apr 2017 08:30:15 -0000
-Message-ID: <149276341506.20066.6444276006343967478@mts-nn.ru>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH 11/16] esp: Use a synchronous crypto algorithm on
+ offloading.
+Date: Fri, 21 Apr 2017 10:33:17 +0200
+Message-ID: <20170421083317.GN2649@secunet.com>
+References: <1492678515-14347-1-git-send-email-steffen.klassert@secunet.com>
+ <1492678515-14347-12-git-send-email-steffen.klassert@secunet.com>
+ <20170420090617.GA8325@gondor.apana.org.au>
+ <20170420091752.GH2649@secunet.com>
+ <20170420095235.GA8580@gondor.apana.org.au>
+ <20170420105029.GJ2649@secunet.com>
+ <20170421052934.GA12702@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: application/zip; name="EMAIL_73239390_netdev.zip"
-Content-Transfer-Encoding: base64
-To: "netdev" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 109-184-92-251.dynamic.mts-nn.ru ([109.184.92.251]:45830 "HELO
-        mts-nn.ru" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-        id S1036607AbdDUIaU (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 21 Apr 2017 04:30:20 -0400
-Content-Disposition: attachment
-Subject: 
+Received: from a.mx.secunet.com ([62.96.220.36]:53112 "EHLO a.mx.secunet.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1036636AbdDUIkz (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 21 Apr 2017 04:40:55 -0400
+Content-Disposition: inline
+In-Reply-To: <20170421052934.GA12702@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-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
+On Fri, Apr 21, 2017 at 01:29:34PM +0800, Herbert Xu wrote:
+> On Thu, Apr 20, 2017 at 12:50:29PM +0200, Steffen Klassert wrote:
+> > On Thu, Apr 20, 2017 at 05:52:35PM +0800, Herbert Xu wrote:
+> > > On Thu, Apr 20, 2017 at 11:17:52AM +0200, Steffen Klassert wrote:
+> > > >
+> > > > I tried to use async algorithms but it lead to serveral problems.
+> > > > The GSO layer can't handle async returns, we'd need callbacks
+> > > > for all the GSO handlers. Also we need something where we can
+> > > > requeue packets if the driver is busy etc.
+> > > 
+> > > Why would we need to requeue? As it is if you get an EBUSY on
+> > > an IPsec packet it's simply dropped.
+> > 
+> > Yes we could do this, but the GSO problem remain.
+> > 
+> > We discussed this last year at netdevconf but could not come
+> > up with an acceptable solutuion.
+> 
+> Why is it a problem exactly?
+
+My solution for this added some extra code to the generic networking
+path, this was seen as too intrusive for this very special usecase.
+
+I still think we can get this to work, but it needs some extra care.
+
+> 
+> > For now this is just a fallback to make hardware offloading
+> > possible at all, so this is slowpath anyway. Allowing async
+> > algorithms can (and should) be done in a second step once we
+> > found a not too intrusive solution.
+> 
+> OK, as long as nobody gets silently switched from async to sync
+> then it's fine with me.
+
+The user has to explicitely ask for a offloaded state, so
+we don't hide anything here. In this case the user wants
+to use the crypto engine of the NIC, we just need a software
+fallback to catch some corner cases where the NIC can't
+do the crypto operation.
