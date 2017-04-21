@@ -1,51 +1,51 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: [PATCH net-next v2 5/5] virtio-net: keep tx interrupts disabled
- unless kick
-Date: Fri, 21 Apr 2017 19:13:57 -0400
-Message-ID: <CAF=yD-LE1q=jYzEWS5aFb3OcNWDEL3agkSm495xC=ns0PJWFqw@mail.gmail.com>
-References: <20170418202108.61920-1-willemdebruijn.kernel@gmail.com>
- <20170418202108.61920-6-willemdebruijn.kernel@gmail.com> <72551dd3-ba91-812e-9065-d153bf8a7024@redhat.com>
- <CAF=yD-KVwRkkGr=pGDmTTXtrrTuAuD7SmTPVtQuwu9aufoBeEQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Network Development <netdev@vger.kernel.org>,
-        "Michael S. Tsirkin" <mst@redhat.com>,
-        virtualization@lists.linux-foundation.org,
-        David Miller <davem@davemloft.net>,
-        Willem de Bruijn <willemb@google.com>
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f195.google.com ([209.85.220.195]:36024 "EHLO
-        mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1042822AbdDUXOi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2017 19:14:38 -0400
-Received: by mail-qk0-f195.google.com with SMTP id y63so4648853qkd.3
-        for <netdev@vger.kernel.org>; Fri, 21 Apr 2017 16:14:38 -0700 (PDT)
-In-Reply-To: <CAF=yD-KVwRkkGr=pGDmTTXtrrTuAuD7SmTPVtQuwu9aufoBeEQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Icenowy Zheng <icenowy-h8G6r0blFSE@public.gmane.org>
+Subject: [PATCH 0/4] RTL8211E-specified hacks
+Date: Sat, 22 Apr 2017 07:24:32 +0800
+Message-ID: <20170421232436.10924-1-icenowy@aosc.io>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org, Icenowy Zheng <icenowy-h8G6r0blFSE@public.gmane.org>
+To: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
+        Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 20, 2017 at 10:03 AM, Willem de Bruijn
-<willemdebruijn.kernel@gmail.com> wrote:
->>> -       if (!use_napi)
->>> +       if (use_napi) {
->>> +               if (kick)
->>> +                       virtqueue_enable_cb_delayed(sq->vq);
->>> +               else
->>> +                       virtqueue_disable_cb(sq->vq);
->>
->>
->> Since virtqueue_disable_cb() do nothing for event idx. I wonder whether or
->> not just calling enable_cb_dealyed() is ok here.
->
-> Good point.
->
->> Btw, it does not disable interrupt at all, I propose a patch in the past
->> which can do more than this:
->>
->> https://patchwork.kernel.org/patch/6472601/
->
-> Interesting. Yes, let me evaluate that variant.
+Some Pine64 boards are reported to have broken RTL8211E PHYs, which will fail
+to work at 1000BASE-T mode if not workarounded.
 
-In initial tests I don't see a significant change, but we can look
-into this more closely as a follow-on patch.
+The workaround is retrieved from Pine64, and is said to be from Realtek
+engineer. It's undocumented but effective. (Tested on my Pine64 with GbE
+broken)
+
+The first patch is a small tweak for Realtek PHY driver, which removed the
+"F" in page select register name, as RTL8211E also uses the same register
+as page select (although with some different difinition).
+
+The second patch adds a binding for the PHY, specified for this hack.
+
+The third patch is the real driver part of this hack, which contains
+some magic numbers from Pine64/Realtek.
+
+The fourth patch is for reference only and should not be merged -- to
+use it you will need sun8i-emac or dwmac-sun8i patchset applied.
+
+Icenowy Zheng (4):
+  net: phy: realtek: change macro name for page select register
+  dt-bindings: add binding for RTL8211E Ethernet PHY
+  net: phy: realtek: add disable RX delay hack for RTL8211E
+  [DO NOT MERGE] arm64: allwinner: a64: enable RTL8211E PHY workaround
+
+ .../devicetree/bindings/net/realtek,rtl8211e.txt   | 22 ++++++++++
+ .../boot/dts/allwinner/sun50i-a64-pine64-plus.dts  |  4 ++
+ drivers/net/phy/realtek.c                          | 48 +++++++++++++++++++---
+ 3 files changed, 69 insertions(+), 5 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/net/realtek,rtl8211e.txt
+
+-- 
+2.12.2
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
