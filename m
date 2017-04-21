@@ -1,7 +1,8 @@
 From: Yankejian <yankejian@huawei.com>
-Subject: [PATCH net v2 0/3] net: hns: bug fix for HNS driver
-Date: Fri, 21 Apr 2017 15:44:41 +0800
-Message-ID: <1492760684-117205-1-git-send-email-yankejian@huawei.com>
+Subject: [PATCH net v2 1/3] net: hns: support deferred probe when can not obtain irq
+Date: Fri, 21 Apr 2017 15:44:42 +0800
+Message-ID: <1492760684-117205-2-git-send-email-yankejian@huawei.com>
+References: <1492760684-117205-1-git-send-email-yankejian@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <charles.chenxin@huawei.com>,
@@ -10,33 +11,54 @@ To: <davem@davemloft.net>, <salil.mehta@huawei.com>,
         <yisen.zhuang@huawei.com>, <lipeng321@huawei.com>,
         <huangdaode@hisilicon.com>, <zhouhuiru@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([45.249.212.188]:5376 "EHLO
+Received: from szxga02-in.huawei.com ([45.249.212.188]:5377 "EHLO
         dggrg02-dlp.huawei.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1035950AbdDUHYi (ORCPT
+        with ESMTP id S1035963AbdDUHYi (ORCPT
         <rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2017 03:24:38 -0400
+In-Reply-To: <1492760684-117205-1-git-send-email-yankejian@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: lipeng <lipeng321@huawei.com>
 
-This series adds support defered probe when mdio or mbigen module
-insmod behind HNS driver, and fixes a bug that a skb has been
-freed, but it may be still used in driver.
+In the hip06 and hip07 SoCs, the interrupt lines from the
+DSAF controllers are connected to mbigen hw module.
+The mbigen module is probed with module_init, and, as such,
+is not guaranteed to probe before the HNS driver. So we need
+to support deferred probe.
 
-change log:
-V1 -> V2:
-1. Return appropriate errno in hns_mac_register_phy;
+We check for probe deferral in the hw layer probe, so we not
+probe into the main layer and memories, etc., to later learn
+that we need to defer the probe.
 
-lipeng (3):
-  net: hns: support deferred probe when can not obtain irq
-  net: hns: support deferred probe when no mdio
-  net: hns: fixed bug that skb used after kfree
+Signed-off-by: lipeng <lipeng321@huawei.com>
+Reviewed-by: Yisen Zhuang <yisen.zhuang@huawei.com>
+---
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
 
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c  | 39 ++++++++++++++++++----
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c | 12 +++++++
- drivers/net/ethernet/hisilicon/hns/hns_enet.c      | 22 ++++++------
- drivers/net/ethernet/hisilicon/hns/hns_enet.h      |  6 ++--
- 4 files changed, 58 insertions(+), 21 deletions(-)
-
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
+index 403ea9d..2da5b42 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
+@@ -2971,6 +2971,18 @@ static int hns_dsaf_probe(struct platform_device *pdev)
+ 	struct dsaf_device *dsaf_dev;
+ 	int ret;
+ 
++	/*
++	 * Check if we should defer the probe before we probe the
++	 * dsaf, as it's hard to defer later on.
++	 */
++	ret = platform_get_irq(pdev, 0);
++	if (ret < 0) {
++		if (ret != -EPROBE_DEFER)
++			dev_err(&pdev->dev, "Cannot obtain irq\n");
++
++		return ret;
++	}
++
+ 	dsaf_dev = hns_dsaf_alloc_dev(&pdev->dev, sizeof(struct dsaf_drv_priv));
+ 	if (IS_ERR(dsaf_dev)) {
+ 		ret = PTR_ERR(dsaf_dev);
 -- 
 1.9.1
