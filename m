@@ -1,93 +1,126 @@
-From: Nathan Fontenot <nfont@linux.vnet.ibm.com>
-Subject: [PATCH net-next 7/7] ibmvnic: Free skb's in cases of failure in
- transmit
-Date: Fri, 21 Apr 2017 15:39:16 -0400
-Message-ID: <20170421193916.11030.78879.stgit@ltcalpine2-lp23.aus.stglabs.ibm.com>
-References: <20170421193627.11030.34813.stgit@ltcalpine2-lp23.aus.stglabs.ibm.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: net/core: BUG in unregister_netdevice_many
+Date: Fri, 21 Apr 2017 10:25:33 -0700
+Message-ID: <CA+55aFwg=OtMWmU153uM27Fwk5eVv5ZBGBA9phQqVqn3nNAy6Q@mail.gmail.com>
+References: <CAAeHK+zUZMGQuW=7Qhz3EWYjh6Zwv9eMBCiMCU79QrYNWox0-Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: brking@linux.vnet.ibm.com, jallen@linux.vnet.ibm.com,
-        muvic@linux.vnet.ibm.com, tlfalcon@linux.vnet.ibm.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:49953 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1041432AbdDUS1h (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2017 14:27:37 -0400
-Received: from pps.filterd (m0098421.ppops.net [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v3LFmiRp020570
-        for <netdev@vger.kernel.org>; Fri, 21 Apr 2017 11:50:21 -0400
-Received: from e14.ny.us.ibm.com (e14.ny.us.ibm.com [129.33.205.204])
-        by mx0a-001b2d01.pphosted.com with ESMTP id 29ygy25mdj-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Fri, 21 Apr 2017 11:50:20 -0400
-Received: from localhost
-        by e14.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <nfont@linux.vnet.ibm.com>;
-        Fri, 21 Apr 2017 11:50:20 -0400
-In-Reply-To: <20170421193627.11030.34813.stgit@ltcalpine2-lp23.aus.stglabs.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/mixed; boundary=001a113ed55a8d60c0054db08b25
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Alexander Duyck <alexander.h.duyck@intel.com>,
+        David Ahern <dsa@cumulusnetworks.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        tcharding <me@tobin.cc>, Jiri Pirko <jiri@mellanox.com>,
+        stephen hemminger <stephen@networkplumber.org>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Andrey Konovalov <andreyknvl@google.com>,
+        Eric Dumazet <edumazet@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAAeHK+zUZMGQuW=7Qhz3EWYjh6Zwv9eMBCiMCU79QrYNWox0-Q@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+--001a113ed55a8d60c0054db08b25
+Content-Type: text/plain; charset=UTF-8
 
-When an error is encountered during transmit we need to free the
-skb instead of returning TX_BUSY.
+On Fri, Apr 21, 2017 at 5:48 AM, Andrey Konovalov <andreyknvl@google.com> wrote:
+>
+> I've got the following error report while fuzzing the kernel with syzkaller.
+>
+> ------------[ cut here ]------------
+> kernel BUG at net/core/dev.c:6813!
 
-Signed-off-by: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
----
- drivers/net/ethernet/ibm/ibmvnic.c |   18 +++++++++++++++---
- 1 file changed, 15 insertions(+), 3 deletions(-)
+Another useless BUG_ON() that
 
-diff --git a/drivers/net/ethernet/ibm/ibmvnic.c b/drivers/net/ethernet/ibm/ibmvnic.c
-index 5a916a2..51bf337 100644
---- a/drivers/net/ethernet/ibm/ibmvnic.c
-+++ b/drivers/net/ethernet/ibm/ibmvnic.c
-@@ -908,9 +908,13 @@ static int ibmvnic_xmit(struct sk_buff *skb, struct net_device *netdev)
- 				   be32_to_cpu(adapter->login_rsp_buf->
- 					       off_txsubm_subcrqs));
- 	if (adapter->migrated) {
-+		if (!netif_subqueue_stopped(netdev, skb))
-+			netif_stop_subqueue(netdev, queue_num);
-+		dev_kfree_skb_any(skb);
-+
- 		tx_send_failed++;
- 		tx_dropped++;
--		ret = NETDEV_TX_BUSY;
-+		ret = NETDEV_TX_OK;
- 		goto out;
- 	}
- 
-@@ -976,11 +980,13 @@ static int ibmvnic_xmit(struct sk_buff *skb, struct net_device *netdev)
- 						    sizeof(tx_buff->indir_arr),
- 						    DMA_TO_DEVICE);
- 		if (dma_mapping_error(dev, tx_buff->indir_dma)) {
-+			dev_kfree_skb_any(skb);
-+			tx_buff->skb = NULL;
- 			if (!firmware_has_feature(FW_FEATURE_CMO))
- 				dev_err(dev, "tx: unable to map descriptor array\n");
- 			tx_map_failed++;
- 			tx_dropped++;
--			ret = NETDEV_TX_BUSY;
-+			ret = NETDEV_TX_OK;
- 			goto out;
- 		}
- 		lpar_rc = send_subcrq_indirect(adapter, handle_array[queue_num],
-@@ -999,9 +1005,15 @@ static int ibmvnic_xmit(struct sk_buff *skb, struct net_device *netdev)
- 		else
- 			tx_pool->consumer_index--;
- 
-+		dev_kfree_skb_any(skb);
-+		tx_buff->skb = NULL;
-+
-+		if (lpar_rc == H_CLOSED)
-+			netif_stop_subqueue(netdev, queue_num);
-+
- 		tx_send_failed++;
- 		tx_dropped++;
--		ret = NETDEV_TX_BUSY;
-+		ret = NETDEV_TX_OK;
- 		goto out;
- 	}
- 
+ (a) kills the machine
+ (b) doesn't tell the actual useful information.
+
+Grr.
+
+But that BUG_ON() is ancient, and actually goes back to pre-git days.
+So you do seem to have triggered some code-path that doesn't ever
+happen in any normal use.
+
+This code looks odd:
+
+  void unregister_netdevice_many(struct list_head *head)
+  {
+        struct net_device *dev;
+
+        if (!list_empty(head)) {
+                rollback_registered_many(head);
+                list_for_each_entry(dev, head, unreg_list)
+                        net_set_todo(dev);
+                list_del(head);
+        }
+  }
+
+In particular the pattern of "look if list is empty, do something to
+the list, and then delete the list" is a rather nasty pattern.
+
+Why? That final "delete the list" looks like garbage to me.
+
+Either that list is never used again - in which case the list_del() is
+pointless - or it _is_ used again, in which case the list_del is
+wrong.
+
+Why is it wrong? Because "list_del()" only removes the list from the
+head, but leaves the head itself untouched. So it will still end up
+pointing to the list entries that we've just walked.
+
+Now, almost every single case I looked at, the head is always a
+temporary list that was created just for this
+"unregister_netdevice_many()", so the code works fine, and it's a case
+of "that list_del() is just pointless".
+
+But it's a very dangerous pattern. Either the list head should be left
+alone, or it should be cleaned up with list_del_init()
+
+Anyway, because each user seems fine, and really just uses it as a
+temporary list, this is not the cause of the bug.
+
+I'm assuming that the real cause is simply that "dev->reg_state" ends
+up being NETREG_UNREGISTERING or something. Maybe the BUG_ON() could
+be just removed, and replaced by the previous warning about
+NETREG_UNINITIALIZED.
+
+Something like the attached (TOTALLY UNTESTED) patch.
+
+We really shouldn't have BUG_ON()'s in the kernel, particularly for
+cases that we already have error handling for and are ignoring. But
+whatever.
+
+Eric Dumazet seems to be the main person to look at this.
+
+                  Linus
+
+--001a113ed55a8d60c0054db08b25
+Content-Type: text/plain; charset=US-ASCII; name="patch.diff"
+Content-Disposition: attachment; filename="patch.diff"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_j1s3wym00
+
+IG5ldC9jb3JlL2Rldi5jIHwgOCArKystLS0tLQogMSBmaWxlIGNoYW5nZWQsIDMgaW5zZXJ0aW9u
+cygrKSwgNSBkZWxldGlvbnMoLSkKCmRpZmYgLS1naXQgYS9uZXQvY29yZS9kZXYuYyBiL25ldC9j
+b3JlL2Rldi5jCmluZGV4IDUzM2E2ZDZmNjA5Mi4uNGU1MGIyZmIzYTkwIDEwMDY0NAotLS0gYS9u
+ZXQvY29yZS9kZXYuYworKysgYi9uZXQvY29yZS9kZXYuYwpAQCAtNjgwMSwxNiArNjgwMSwxNCBA
+QCBzdGF0aWMgdm9pZCByb2xsYmFja19yZWdpc3RlcmVkX21hbnkoc3RydWN0IGxpc3RfaGVhZCAq
+aGVhZCkKIAkJICogZm9yIGluaXRpYWxpemF0aW9uIHVud2luZC4gUmVtb3ZlIHRob3NlCiAJCSAq
+IGRldmljZXMgYW5kIHByb2NlZWQgd2l0aCB0aGUgcmVtYWluaW5nLgogCQkgKi8KLQkJaWYgKGRl
+di0+cmVnX3N0YXRlID09IE5FVFJFR19VTklOSVRJQUxJWkVEKSB7Ci0JCQlwcl9kZWJ1ZygidW5y
+ZWdpc3Rlcl9uZXRkZXZpY2U6IGRldmljZSAlcy8lcCBuZXZlciB3YXMgcmVnaXN0ZXJlZFxuIiwK
+LQkJCQkgZGV2LT5uYW1lLCBkZXYpOworCQlpZiAoV0FSTl9PTl9PTkNFKGRldi0+cmVnX3N0YXRl
+ICE9IE5FVFJFR19SRUdJU1RFUkVEKSkgeworCQkJcHJpbnRrKCJ1bnJlZ2lzdGVyX25ldGRldmlj
+ZTogZGV2aWNlICVzLyVwIHdhcyBub3QgcmVnaXN0ZXJlZCAoJWQpXG4iLAorCQkJCSBkZXYtPm5h
+bWUsIGRldiwgZGV2LT5yZWdfc3RhdGUpOwogCi0JCQlXQVJOX09OKDEpOwogCQkJbGlzdF9kZWwo
+JmRldi0+dW5yZWdfbGlzdCk7CiAJCQljb250aW51ZTsKIAkJfQogCQlkZXYtPmRpc21hbnRsZSA9
+IHRydWU7Ci0JCUJVR19PTihkZXYtPnJlZ19zdGF0ZSAhPSBORVRSRUdfUkVHSVNURVJFRCk7CiAJ
+fQogCiAJLyogSWYgZGV2aWNlIGlzIHJ1bm5pbmcsIGNsb3NlIGl0IGZpcnN0LiAqLwo=
+--001a113ed55a8d60c0054db08b25--
