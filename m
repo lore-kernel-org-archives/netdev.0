@@ -1,47 +1,33 @@
-From: Rich Felker <dalias@libc.org>
-Subject: Re: Re: [PATCH v2 0/3] uapi glibc compat: fix musl libc
- compatibility
-Date: Fri, 21 Apr 2017 10:41:51 -0400
-Message-ID: <20170421144151.GF17319@brightrain.aerifal.cx>
-References: <20170418210036.26039-1-hauke@hauke-m.de>
- <20170420.160739.1263793303398330801.davem@davemloft.net>
- <1492719277.8404.16.camel@infradead.org>
- <20170420.163630.313375940241598525.davem@davemloft.net>
- <25477d46-b100-ce87-98d9-8c5e02d409b8@hauke-m.de>
-Reply-To: musl@lists.openwall.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH stable 4.4] tipc: fix crash during
+	node removal
+Date: Fri, 21 Apr 2017 11:00:03 -0400 (EDT)
+Message-ID: <20170421.110003.668256495995251556.davem@davemloft.net>
+References: <1492716838-9182-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, dwmw2@infradead.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jarod@redhat.com, jogo@openwrt.org, david.heidelberger@ixit.cz,
-	maillist-linux@barfooze.de, mikko.rapeli@iki.fi,
-	musl@lists.openwall.com
-To: Hauke Mehrtens <hauke@hauke-m.de>
-Return-path: <musl-return-11272-gllmg-musl=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:musl@lists.openwall.com>
-List-Help: <mailto:musl-help@lists.openwall.com>
-List-Unsubscribe: <mailto:musl-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:musl-subscribe@lists.openwall.com>
-Content-Disposition: inline
-In-Reply-To: <25477d46-b100-ce87-98d9-8c5e02d409b8@hauke-m.de>
-Sender: Rich Felker <dalias@aerifal.cx>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net
+To: jon.maloy@ericsson.com
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+In-Reply-To: <1492716838-9182-1-git-send-email-jon.maloy@ericsson.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Fri, Apr 21, 2017 at 03:14:21PM +0200, Hauke Mehrtens wrote:
-> 
-> 
-> On 04/20/2017 10:36 PM, David Miller wrote:
-> > From: David Woodhouse <dwmw2@infradead.org>
-> > Date: Thu, 20 Apr 2017 21:14:37 +0100
-> > 
-> >> I agree, except I don't think you're going far enough. Those "standard
-> >> names" you mention... some of this stuff actually depends on __GLIBC__,
-> >> and *that* isn't right either.
-> > 
-> > Yep, that's something that needs correcting.
-> > 
-> Should all libc implementations define __GLIBC__
 
-Absolutely not.
+Please submit this directly to stable@vger.kernel.org, I only submit
+changes back to the two most recent -stable trees which right now
+is 4.10.x and 4.9.x
 
-Rich
+Thank you.
+
+------------------------------------------------------------------------------
+Check out the vibrant tech community on one of the world's most
+engaging tech sites, Slashdot.org! http://sdm.link/slashdot
