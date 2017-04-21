@@ -1,77 +1,57 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>
-Subject: Re: [PATCH net-next v3] bindings: net: stmmac: add missing note about
- LPI interrupt
-Date: Fri, 21 Apr 2017 07:26:39 +0200
-Message-ID: <8d41bee9-9564-ef47-ba58-7becb97ab672@st.com>
-References: <20170418123955.21335-1-niklass@axis.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 11/16] esp: Use a synchronous crypto algorithm on
+ offloading.
+Date: Fri, 21 Apr 2017 13:29:34 +0800
+Message-ID: <20170421052934.GA12702@gondor.apana.org.au>
+References: <1492678515-14347-1-git-send-email-steffen.klassert@secunet.com>
+ <1492678515-14347-12-git-send-email-steffen.klassert@secunet.com>
+ <20170420090617.GA8325@gondor.apana.org.au>
+ <20170420091752.GH2649@secunet.com>
+ <20170420095235.GA8580@gondor.apana.org.au>
+ <20170420105029.GJ2649@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Niklas Cassel <niklas.cassel-VrBV9hrLPhE@public.gmane.org>,
-        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Joao Pinto <Joao.Pinto-HKixBCOQz3hWk0Htik3J/w@public.gmane.org>,
-        Niklas Cassel <niklass-VrBV9hrLPhE@public.gmane.org>,
-        Alexandre TORGUE <alexandre.torgue-qxv4g6HH51o@public.gmane.org>,
-        Thierry Reding <treding-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>,
-        Eric Engestrom <eric-op+oiCINJLTt9jDmeYuA0g@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170418123955.21335-1-niklass-VrBV9hrLPhE@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Steffen Klassert <steffen.klassert@secunet.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [198.176.57.175] ([198.176.57.175]:42652 "EHLO
+        deadmen.hmeau.com" rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1035396AbdDUFag (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2017 01:30:36 -0400
+Content-Disposition: inline
+In-Reply-To: <20170420105029.GJ2649@secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 4/18/2017 2:39 PM, Niklas Cassel wrote:
-> From: Niklas Cassel <niklas.cassel-VrBV9hrLPhE@public.gmane.org>
->
-> The hardware has a LPI interrupt.
-> There is already code in the stmmac driver to parse and handle the
-> interrupt. However, this information was missing from the DT binding.
->
-> At the same time, improve the description of the existing interrupts.
->
-> Signed-off-by: Niklas Cassel <niklas.cassel-VrBV9hrLPhE@public.gmane.org>
-> ---
->   Documentation/devicetree/bindings/net/stmmac.txt | 13 ++++++++-----
->   1 file changed, 8 insertions(+), 5 deletions(-)
->
-> diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
-> index f652b0c384ce..c3a7be6615c5 100644
-> --- a/Documentation/devicetree/bindings/net/stmmac.txt
-> +++ b/Documentation/devicetree/bindings/net/stmmac.txt
-> @@ -7,9 +7,12 @@ Required properties:
->   - interrupt-parent: Should be the phandle for the interrupt controller
->     that services interrupts for this device
->   - interrupts: Should contain the STMMAC interrupts
-> -- interrupt-names: Should contain the interrupt names "macirq"
-> -  "eth_wake_irq" if this interrupt is supported in the "interrupts"
-> -  property
-> +- interrupt-names: Should contain a list of interrupt names corresponding to
-> +	the interrupts in the interrupts property, if available.
-> +	Valid interrupt names are:
-> +  - "macirq" (combined signal for various interrupt events)
-> +  - "eth_wake_irq" (the interrupt to manage the remote wake-up packet detection)
-> +  - "eth_lpi" (the interrupt that occurs when Tx or Rx enters/exits LPI state)
->   - phy-mode: See ethernet.txt file in the same directory.
->   - snps,reset-gpio 	gpio number for phy reset.
->   - snps,reset-active-low boolean flag to indicate if phy reset is active low.
-> @@ -152,8 +155,8 @@ Examples:
->   		compatible = "st,spear600-gmac";
->   		reg = <0xe0800000 0x8000>;
->   		interrupt-parent = <&vic1>;
-> -		interrupts = <24 23>;
-> -		interrupt-names = "macirq", "eth_wake_irq";
-> +		interrupts = <24 23 22>;
-> +		interrupt-names = "macirq", "eth_wake_irq", "eth_lpi";
->   		mac-address = [000000000000]; /* Filled in by U-Boot */
->   		max-frame-size = <3800>;
->   		phy-mode = "gmii";
+On Thu, Apr 20, 2017 at 12:50:29PM +0200, Steffen Klassert wrote:
+> On Thu, Apr 20, 2017 at 05:52:35PM +0800, Herbert Xu wrote:
+> > On Thu, Apr 20, 2017 at 11:17:52AM +0200, Steffen Klassert wrote:
+> > >
+> > > I tried to use async algorithms but it lead to serveral problems.
+> > > The GSO layer can't handle async returns, we'd need callbacks
+> > > for all the GSO handlers. Also we need something where we can
+> > > requeue packets if the driver is busy etc.
+> > 
+> > Why would we need to requeue? As it is if you get an EBUSY on
+> > an IPsec packet it's simply dropped.
+> 
+> Yes we could do this, but the GSO problem remain.
+> 
+> We discussed this last year at netdevconf but could not come
+> up with an acceptable solutuion.
 
-Acked-by: Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>
+Why is it a problem exactly?
 
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> For now this is just a fallback to make hardware offloading
+> possible at all, so this is slowpath anyway. Allowing async
+> algorithms can (and should) be done in a second step once we
+> found a not too intrusive solution.
+
+OK, as long as nobody gets silently switched from async to sync
+then it's fine with me.
+
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
