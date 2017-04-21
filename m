@@ -1,130 +1,59 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: [PATCH net-next 2/3] packet: add PACKET_FANOUT_FLAG_UNIQUEID to assign new fanout group id.
-Date: Fri, 21 Apr 2017 10:56:11 -0400
-Message-ID: <20170421145612.106869-3-willemdebruijn.kernel@gmail.com>
-References: <20170421145612.106869-1-willemdebruijn.kernel@gmail.com>
-Cc: maloneykernel@gmail.com, davem@davemloft.net,
-        Mike Maloney <maloney@google.com>
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: [PATCH net-next v2 0/5] nfp: DMA flags, adjust head and fixes
+Date: Fri, 21 Apr 2017 12:23:05 -0700
+Message-ID: <20170421192310.193875-1-jakub.kicinski@netronome.com>
+Cc: oss-drivers@netronome.com, kubakici@wp.pl,
+        Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f194.google.com ([209.85.220.194]:33310 "EHLO
-        mail-qk0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1424798AbdDUTUy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2017 15:20:54 -0400
-Received: by mail-qk0-f194.google.com with SMTP id o85so2356511qkh.0
-        for <netdev@vger.kernel.org>; Fri, 21 Apr 2017 12:20:53 -0700 (PDT)
-In-Reply-To: <20170421145612.106869-1-willemdebruijn.kernel@gmail.com>
+Received: from mail-oi0-f45.google.com ([209.85.218.45]:34725 "EHLO
+        mail-oi0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1424785AbdDUTXV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2017 15:23:21 -0400
+Received: by mail-oi0-f45.google.com with SMTP id x184so109562203oia.1
+        for <netdev@vger.kernel.org>; Fri, 21 Apr 2017 12:23:21 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mike Maloney <maloney@google.com>
+Hi!
 
-Fanout uses a per net global namespace. A process that intends to create
-a new fanout group can accidentally join an existing group. It is not
-possible to detect this.
+This series takes advantage of Alex's DMA_ATTR_SKIP_CPU_SYNC to make 
+XDP packet modifications "correct" from DMA API point of view.  It 
+also allows us to parse the metadata before we run XDP at no additional
+DMA sync cost.  That way we can get rid of the metadata memcpy, and 
+remove the last upstream user of bpf_prog->xdp_adjust_head.
 
-Add socket option PACKET_FANOUT_FLAG_UNIQUEID.  When specified the
-supplied fanout group id must be set to 0, and the kernel chooses an id
-that is not already in use.  This is an ephemeral flag so that
-other sockets can be added to this group using setsockopt, but NOT
-specifying this flag.  The current getsockopt(..., PACKET_FANOUT, ...)
-can be used to retrieve the new group id.
+David's patch adds a way to read capabilities from the management
+firmware.
 
-We assume that there are not a lot of fanout groups and that this is not
-a high frequency call.
-
-The method assigns ids starting at zero and increases until it finds an
-unused id.  It keeps track of the last assigned id, and uses it as a
-starting point to find new ids.
-
-Signed-off-by: Mike Maloney <maloney@google.com>
-Acked-by: Willem de Bruijn <willemb@google.com>
+There are also two net-next fixes.  Patch 4 which fixes what seems to
+be a result of a botched rebase on my part.  Patch 5 corrects locking
+when state of ethernet ports is being refreshed.
 
 ---
- include/uapi/linux/if_packet.h |  1 +
- net/packet/af_packet.c         | 44 ++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 45 insertions(+)
+v2: sync rx buffers before giving them to the card (Alex)
 
-diff --git a/include/uapi/linux/if_packet.h b/include/uapi/linux/if_packet.h
-index 9e7edfd8141e..4df96a7dd4fa 100644
---- a/include/uapi/linux/if_packet.h
-+++ b/include/uapi/linux/if_packet.h
-@@ -66,6 +66,7 @@ struct sockaddr_ll {
- #define PACKET_FANOUT_CBPF		6
- #define PACKET_FANOUT_EBPF		7
- #define PACKET_FANOUT_FLAG_ROLLOVER	0x1000
-+#define PACKET_FANOUT_FLAG_UNIQUEID	0x2000
- #define PACKET_FANOUT_FLAG_DEFRAG	0x8000
- 
- struct tpacket_stats {
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 8489beff5c25..94052f42058b 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -1496,6 +1496,7 @@ static int packet_rcv_fanout(struct sk_buff *skb, struct net_device *dev,
- DEFINE_MUTEX(fanout_mutex);
- EXPORT_SYMBOL_GPL(fanout_mutex);
- static LIST_HEAD(fanout_list);
-+static u16 fanout_next_id;
- 
- static void __fanout_link(struct sock *sk, struct packet_sock *po)
- {
-@@ -1629,6 +1630,36 @@ static void fanout_release_data(struct packet_fanout *f)
- 	};
- }
- 
-+static bool __fanout_id_is_free(struct sock *sk, u16 candidate_id)
-+{
-+	struct packet_fanout *f;
-+
-+	list_for_each_entry(f, &fanout_list, list) {
-+		if (f->id == candidate_id &&
-+		    read_pnet(&f->net) == sock_net(sk)) {
-+			return false;
-+		}
-+	}
-+	return true;
-+}
-+
-+static bool fanout_find_new_id(struct sock *sk, u16 *new_id)
-+{
-+	u16 id = fanout_next_id;
-+
-+	do {
-+		if (__fanout_id_is_free(sk, id)) {
-+			*new_id = id;
-+			fanout_next_id = id + 1;
-+			return true;
-+		}
-+
-+		id++;
-+	} while (id != fanout_next_id);
-+
-+	return false;
-+}
-+
- static int fanout_add(struct sock *sk, u16 id, u16 type_flags)
- {
- 	struct packet_rollover *rollover = NULL;
-@@ -1676,6 +1707,19 @@ static int fanout_add(struct sock *sk, u16 id, u16 type_flags)
- 		po->rollover = rollover;
- 	}
- 
-+	if (type_flags & PACKET_FANOUT_FLAG_UNIQUEID) {
-+		if (id != 0) {
-+			err = -EINVAL;
-+			goto out;
-+		}
-+		if (!fanout_find_new_id(sk, &id)) {
-+			err = -ENOMEM;
-+			goto out;
-+		}
-+		/* ephemeral flag for the first socket in the group: drop it */
-+		flags &= ~(PACKET_FANOUT_FLAG_UNIQUEID >> 8);
-+	}
-+
- 	match = NULL;
- 	list_for_each_entry(f, &fanout_list, list) {
- 		if (f->id == id &&
+David Brunecz (1):
+  nfp: add NSP routine to get static information
+
+Jakub Kicinski (4):
+  nfp: make use of the DMA_ATTR_SKIP_CPU_SYNC flag
+  nfp: parse metadata prepend before XDP runs
+  nfp: fix free list buffer size reporting
+  nfp: remove the refresh of all ports optimization
+
+ drivers/net/ethernet/netronome/nfp/Makefile        |   1 +
+ drivers/net/ethernet/netronome/nfp/nfp_main.c      |   7 ++
+ drivers/net/ethernet/netronome/nfp/nfp_net.h       |   9 +-
+ .../net/ethernet/netronome/nfp/nfp_net_common.c    | 126 ++++++++++++---------
+ .../net/ethernet/netronome/nfp/nfp_net_ethtool.c   |  13 ++-
+ drivers/net/ethernet/netronome/nfp/nfp_net_main.c  |  67 +++++++----
+ drivers/net/ethernet/netronome/nfp/nfpcore/nfp.h   |   1 +
+ .../net/ethernet/netronome/nfp/nfpcore/nfp_nsp.c   |   7 ++
+ .../net/ethernet/netronome/nfp/nfpcore/nfp_nsp.h   |  24 ++++
+ .../ethernet/netronome/nfp/nfpcore/nfp_nsp_cmds.c  |  89 +++++++++++++++
+ 10 files changed, 266 insertions(+), 78 deletions(-)
+ create mode 100644 drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp_cmds.c
+
 -- 
-2.12.2.816.g2cccc81164-goog
+2.11.0
