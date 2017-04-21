@@ -1,55 +1,61 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net-next 2/3] mlx5: fix warning about missing prototype
-Date: Fri, 21 Apr 2017 11:15:57 -0700
-Message-ID: <20170421181558.5414-3-sthemmin@microsoft.com>
-References: <20170421181558.5414-1-sthemmin@microsoft.com>
-Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
-        Stephen Hemminger <sthemmin@microsoft.com>
-To: davem@davemloft.net, saeedm@mellanox.com, matanb@mellanox.com,
-        leonro@mellanox.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yb0-f181.google.com ([209.85.213.181]:35625 "EHLO
-        mail-yb0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1162349AbdDUSYT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2017 14:24:19 -0400
-Received: by mail-yb0-f181.google.com with SMTP id 6so47033211ybq.2
-        for <netdev@vger.kernel.org>; Fri, 21 Apr 2017 11:24:19 -0700 (PDT)
-In-Reply-To: <20170421181558.5414-1-sthemmin@microsoft.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: net: heap out-of-bounds in
+ fib6_clean_node/rt6_fill_node/fib6_age/fib6_prune_clone
+Date: Fri, 21 Apr 2017 12:25:33 -0600
+Message-ID: <75e4e5bb-7ce9-9317-4aca-8be41a8161d7@cumulusnetworks.com>
+References: <CACT4Y+YrA45diWz_8f4St8oX6aTC1kuGXMUvniGRbqXSGwawZQ@mail.gmail.com>
+ <CAAeHK+zx6W_yxnoEQ2Pc1AT4uLXqYZaoi5oQBeuCntdGS38TQg@mail.gmail.com>
+ <580392d8-fa33-67bb-c5d6-27d262f1646a@cumulusnetworks.com>
+ <CAAeHK+zZb=K4X9=NmSWQJL8bpgMbXoG+h4RasAyYDr+C5pkVYA@mail.gmail.com>
+ <CAM_iQpXyDN5GD+QLmWgJSc0bqV0ViK5LxSdwAV3XsHWr6vLJ2Q@mail.gmail.com>
+ <1dad955e-28c1-3f02-8876-90cce4a7d1f8@cumulusnetworks.com>
+ <CACT4Y+amFHj1DV3pmj+eJVxg52+GLdE-fEin5M86dOKubea7DQ@mail.gmail.com>
+ <CAAeHK+zWO1COcZDp9q4eHP9YN9Qv8CXLOJu8dJgCbihcFSK3jg@mail.gmail.com>
+ <CAAeHK+zSe82vc5gCRgr_EoUwiALPnWVdWJBPwJZBpbxYz=kGJw@mail.gmail.com>
+ <623b6343-14f4-945d-a1bd-c9971b9566c2@cumulusnetworks.com>
+ <CAAeHK+yzCYZ+OU+eTpNLy-_X=7HSNUDML6jcVBKK9sxJ2ByORg@mail.gmail.com>
+ <CAAeHK+xUnYqzPOs3jnUn=89Ey_sUZCspW8=--_tP1x=sE=K23w@mail.gmail.com>
+ <e64e9ae6-5de9-1fc8-6a79-1724ef03c252@cumulusnetworks.com>
+ <1492793238.6453.30.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Andrey Konovalov <andreyknvl@google.com>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Mahesh Bandewar <maheshb@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        David Miller <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1492793238.6453.30.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Fix sparse warning about missing prototypes. The rx/tx code path
-defines functions with prototypes in ipoib.h.
+On 4/21/17 10:47 AM, Eric Dumazet wrote:
+> On Fri, 2017-04-21 at 08:27 -0600, David Ahern wrote:
+>> On 4/20/17 10:09 AM, Andrey Konovalov wrote:
+>>> On Thu, Apr 20, 2017 at 5:39 PM, Andrey Konovalov <andreyknvl@google.com> wrote:
+>>>> On Thu, Apr 20, 2017 at 5:35 PM, David Ahern <dsa@cumulusnetworks.com> wrote:
+>>>>> On 4/20/17 9:28 AM, Andrey Konovalov wrote:
+>>>>>> This one seems to be much closer to what Dmitry reported intially.
+>>>>> does not repro here; I ran in a loop and nothing.
+>>> Here's strace log, maybe it'll help figuring out why it doesn't reproduce:
+>>
+>> reproduced. working on it.
+> 
+> Thanks guys for working on this ;)
+> 
 
-Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
----
- drivers/net/ethernet/mellanox/mlx5/core/en_rx.c | 1 +
- drivers/net/ethernet/mellanox/mlx5/core/en_tx.c | 1 +
- 2 files changed, 2 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-index 43308243f519..ae66fad98244 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-@@ -39,6 +39,7 @@
- #include "en.h"
- #include "en_tc.h"
- #include "eswitch.h"
-+#include "ipoib.h"
- 
- static inline bool mlx5e_rx_hw_stamp(struct mlx5e_tstamp *tstamp)
- {
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-index dda7db503043..ab3bb026ff9e 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-@@ -33,6 +33,7 @@
- #include <linux/tcp.h>
- #include <linux/if_vlan.h>
- #include "en.h"
-+#include "ipoib.h"
- 
- #define MLX5E_SQ_NOPS_ROOM  MLX5_SEND_WQE_MAX_WQEBBS
- #define MLX5E_SQ_STOP_ROOM (MLX5_SEND_WQE_MAX_WQEBBS +\
--- 
-2.11.0
+Reliable reproducer is the key.
+
+I see what's going on - why the WARN_ON is hit; just looking for the
+right fix.
