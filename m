@@ -1,101 +1,214 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH net-next v4 1/2] net sched actions: dump more than
- TCA_ACT_MAX_PRIO actions per batch
-Date: Fri, 21 Apr 2017 11:55:40 -0400
-Message-ID: <c2d61246-b92d-efef-cd07-005f8a8dacc0@mojatatu.com>
-References: <ed5c82c7-0e59-d377-fefc-3b97764d2843@mojatatu.com>
- <20170421.105156.736001860584596934.davem@davemloft.net>
- <82a6c32b-d58e-aeed-bfb5-546f328eaf35@mojatatu.com>
- <20170421.113800.1367091481085913667.davem@davemloft.net>
+From: "Jorgen S. Hansen" <jhansen@vmware.com>
+Subject: Re: [PATCH v5 3/3] VSOCK: Add virtio vsock vsockmon hooks
+Date: Fri, 21 Apr 2017 14:41:30 +0000
+Message-ID: <35F88D8F-5705-4B8C-AF6A-FEBE072FC8D9@vmware.com>
+References: <20170421091046.5599-1-stefanha@redhat.com>
+ <20170421091046.5599-4-stefanha@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, jiri@resnulli.us, netdev@vger.kernel.org,
-        xiyou.wangcong@gmail.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Zhu Yanjun <zyjzyj2000@gmail.com>,
+        "Michael S. Tsirkin" <mst@redhat.com>,
+        Gerard Garcia <ggarcia@abra.uab.cat>
+To: Stefan Hajnoczi <stefanha@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f195.google.com ([209.85.223.195]:35611 "EHLO
-        mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1161808AbdDUPzq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2017 11:55:46 -0400
-Received: by mail-io0-f195.google.com with SMTP id d203so31813326iof.2
-        for <netdev@vger.kernel.org>; Fri, 21 Apr 2017 08:55:46 -0700 (PDT)
-In-Reply-To: <20170421.113800.1367091481085913667.davem@davemloft.net>
+Received: from mail-by2nam01on0072.outbound.protection.outlook.com ([104.47.34.72]:53366
+        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1041386AbdDUQji (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 21 Apr 2017 12:39:38 -0400
+In-Reply-To: <20170421091046.5599-4-stefanha@redhat.com>
+Content-Language: en-US
+Content-ID: <AE9C5BEC9B27C64CB292A764DC9F6368@namprd05.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17-04-21 11:38 AM, David Miller wrote:
-> From: Jamal Hadi Salim <jhs@mojatatu.com>
-> Date: Fri, 21 Apr 2017 11:29:19 -0400
->
 
->
-> You don't know this because the kernel has never verified it.
-> Jamal, you cannot walk past this important point, nothing can
-> be argued further because of it.
->
->> Old kernels ignore them. New kernels look at the new ones.
->> We'll be in a lot of trouble if this was not the case
->> for things today;-> People add bits all the time in TLVs
->> and in netlink headers that are labeled as flags.
->
-> And when we do things that way it's broken, and why we have such
-> crappy behavior.
->
-> We made a very bad decision a long time ago to ignore unrecognized
-> things in netlink and it was a grave error which we must start
-> correcting now.
->
+> On Apr 21, 2017, at 11:10 AM, Stefan Hajnoczi <stefanha@redhat.com> wrote=
+:
+>=20
+> From: Gerard Garcia <ggarcia@deic.uab.cat>
+>=20
+> The virtio drivers deal with struct virtio_vsock_pkt.  Add
+> virtio_transport_deliver_tap_pkt(pkt) for handing packets to the
+> vsockmon device.
+>=20
+> We call virtio_transport_deliver_tap_pkt(pkt) from
+> net/vmw_vsock/virtio_transport.c and drivers/vhost/vsock.c instead of
+> common code.  This is because the drivers may drop packets before
+> handing them to common code - we still want to capture them.
+>=20
+> Signed-off-by: Gerard Garcia <ggarcia@deic.uab.cat>
+> Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+> ---
+> v5:
+> * s/cpu_to_le16(pkt->hdr.op)/le16_to_cpu(pkt->hdr.op)/ [Michael]
+> * checkpatch.pl fixes
+> v3:
+> * Hook virtio_transport.c (guest driver), not just
+>   drivers/vhost/vsock.c (host driver)
+> ---
+> include/linux/virtio_vsock.h            |  1 +
+> drivers/vhost/vsock.c                   |  8 +++++
+> net/vmw_vsock/virtio_transport.c        |  3 ++
+> net/vmw_vsock/virtio_transport_common.c | 64 ++++++++++++++++++++++++++++=
++++++
+> 4 files changed, 76 insertions(+)
+>=20
+> diff --git a/include/linux/virtio_vsock.h b/include/linux/virtio_vsock.h
+> index 584f9a6..ab13f07 100644
+> --- a/include/linux/virtio_vsock.h
+> +++ b/include/linux/virtio_vsock.h
+> @@ -153,5 +153,6 @@ void virtio_transport_free_pkt(struct virtio_vsock_pk=
+t *pkt);
+> void virtio_transport_inc_tx_pkt(struct virtio_vsock_sock *vvs, struct vi=
+rtio_vsock_pkt *pkt);
+> u32 virtio_transport_get_credit(struct virtio_vsock_sock *vvs, u32 wanted=
+);
+> void virtio_transport_put_credit(struct virtio_vsock_sock *vvs, u32 credi=
+t);
+> +void virtio_transport_deliver_tap_pkt(struct virtio_vsock_pkt *pkt);
+>=20
+> #endif /* _LINUX_VIRTIO_VSOCK_H */
+> diff --git a/drivers/vhost/vsock.c b/drivers/vhost/vsock.c
+> index 44eed8e..d939ac1 100644
+> --- a/drivers/vhost/vsock.c
+> +++ b/drivers/vhost/vsock.c
+> @@ -176,6 +176,11 @@ vhost_transport_do_send_pkt(struct vhost_vsock *vsoc=
+k,
+> 				restart_tx =3D true;
+> 		}
+>=20
+> +		/* Deliver to monitoring devices all correctly transmitted
+> +		 * packets.
+> +		 */
+> +		virtio_transport_deliver_tap_pkt(pkt);
+> +
+> 		virtio_transport_free_pkt(pkt);
+> 	}
+> 	if (added)
+> @@ -383,6 +388,9 @@ static void vhost_vsock_handle_tx_kick(struct vhost_w=
+ork *work)
+>=20
+> 		len =3D pkt->len;
+>=20
+> +		/* Deliver to monitoring devices all received packets */
+> +		virtio_transport_deliver_tap_pkt(pkt);
+> +
+> 		/* Only accept correctly addressed packets */
+> 		if (le64_to_cpu(pkt->hdr.src_cid) =3D=3D vsock->guest_cid)
+> 			virtio_transport_recv_pkt(pkt);
+> diff --git a/net/vmw_vsock/virtio_transport.c b/net/vmw_vsock/virtio_tran=
+sport.c
+> index 68675a1..9dffe02 100644
+> --- a/net/vmw_vsock/virtio_transport.c
+> +++ b/net/vmw_vsock/virtio_transport.c
+> @@ -144,6 +144,8 @@ virtio_transport_send_pkt_work(struct work_struct *wo=
+rk)
+> 		list_del_init(&pkt->list);
+> 		spin_unlock_bh(&vsock->send_pkt_list_lock);
+>=20
+> +		virtio_transport_deliver_tap_pkt(pkt);
+> +
+> 		reply =3D pkt->reply;
+>=20
+> 		sg_init_one(&hdr, &pkt->hdr, sizeof(pkt->hdr));
+> @@ -370,6 +372,7 @@ static void virtio_transport_rx_work(struct work_stru=
+ct *work)
+> 			}
+>=20
+> 			pkt->len =3D len - sizeof(pkt->hdr);
+> +			virtio_transport_deliver_tap_pkt(pkt);
+> 			virtio_transport_recv_pkt(pkt);
+> 		}
+> 	} while (!virtqueue_enable_cb(vq));
+> diff --git a/net/vmw_vsock/virtio_transport_common.c b/net/vmw_vsock/virt=
+io_transport_common.c
+> index af087b4..18e2479 100644
+> --- a/net/vmw_vsock/virtio_transport_common.c
+> +++ b/net/vmw_vsock/virtio_transport_common.c
+> @@ -16,6 +16,7 @@
+> #include <linux/virtio_ids.h>
+> #include <linux/virtio_config.h>
+> #include <linux/virtio_vsock.h>
+> +#include <uapi/linux/vsockmon.h>
+>=20
+> #include <net/sock.h>
+> #include <net/af_vsock.h>
+> @@ -85,6 +86,69 @@ virtio_transport_alloc_pkt(struct virtio_vsock_pkt_inf=
+o *info,
+> 	return NULL;
+> }
+>=20
+> +/* Packet capture */
+> +static struct sk_buff *virtio_transport_build_skb(void *opaque)
+> +{
+> +	struct virtio_vsock_pkt *pkt =3D opaque;
+> +	unsigned char *t_hdr, *payload;
+> +	struct af_vsockmon_hdr *hdr;
+> +	struct sk_buff *skb;
+> +
+> +	skb =3D alloc_skb(sizeof(*hdr) + sizeof(pkt->hdr) + pkt->len,
+> +			GFP_ATOMIC);
+> +	if (!skb)
+> +		return NULL;
+> +
+> +	hdr =3D (struct af_vsockmon_hdr *)skb_put(skb, sizeof(*hdr));
+> +
+> +	/* pkt->hdr is little-endian so no need to byteswap here */
+> +	hdr->src_cid =3D pkt->hdr.src_cid;
+> +	hdr->src_port =3D pkt->hdr.src_port;
+> +	hdr->dst_cid =3D pkt->hdr.dst_cid;
+> +	hdr->dst_port =3D pkt->hdr.dst_port;
+> +
+> +	hdr->transport =3D cpu_to_le16(AF_VSOCK_TRANSPORT_VIRTIO);
+> +	hdr->len =3D cpu_to_le16(sizeof(pkt->hdr));
+> +	memset(hdr->reserved, 0, sizeof(hdr->reserved));
+> +
+> +	switch (le16_to_cpu(pkt->hdr.op)) {
+> +	case VIRTIO_VSOCK_OP_REQUEST:
+> +	case VIRTIO_VSOCK_OP_RESPONSE:
+> +		hdr->op =3D cpu_to_le16(AF_VSOCK_OP_CONNECT);
+> +		break;
+> +	case VIRTIO_VSOCK_OP_RST:
+> +	case VIRTIO_VSOCK_OP_SHUTDOWN:
+> +		hdr->op =3D cpu_to_le16(AF_VSOCK_OP_DISCONNECT);
+> +		break;
+> +	case VIRTIO_VSOCK_OP_RW:
+> +		hdr->op =3D cpu_to_le16(AF_VSOCK_OP_PAYLOAD);
+> +		break;
+> +	case VIRTIO_VSOCK_OP_CREDIT_UPDATE:
+> +	case VIRTIO_VSOCK_OP_CREDIT_REQUEST:
+> +		hdr->op =3D cpu_to_le16(AF_VSOCK_OP_CONTROL);
+> +		break;
+> +	default:
+> +		hdr->op =3D cpu_to_le16(AF_VSOCK_OP_UNKNOWN);
+> +		break;
+> +	}
+> +
+> +	t_hdr =3D skb_put(skb, sizeof(pkt->hdr));
+> +	memcpy(t_hdr, &pkt->hdr, sizeof(pkt->hdr));
+> +
+> +	if (pkt->len) {
+> +		payload =3D skb_put(skb, pkt->len);
+> +		memcpy(payload, pkt->buf, pkt->len);
+> +	}
+> +
+> +	return skb;
+> +}
+> +
+> +void virtio_transport_deliver_tap_pkt(struct virtio_vsock_pkt *pkt)
+> +{
+> +	vsock_deliver_tap(virtio_transport_build_skb, pkt);
+> +}
+> +EXPORT_SYMBOL_GPL(virtio_transport_deliver_tap_pkt);
+> +
+> static int virtio_transport_send_pkt_info(struct vsock_sock *vsk,
+> 					  struct virtio_vsock_pkt_info *info)
+> {
+> --=20
+> 2.9.3
+>=20
 
-Dave, that is a different argument which i can appreciate.
-
-> If a user says "enable X" and it just gets simply ignored by older
-> kernels, that can't work properly.  What if "enable X" is something
-> like "turn on encryption"?  Are you OK with the user getting no
-> feedback that their stuff is not going to be encrypted?
->
-
-For this specific use case:
-Dont they need a newer kernel which supports "enable encryption"?
-
-> Even something as benign as "give melarger action dumps" _must_ still
-> have the same behavior because the user has no alternative action plan
-> possible if it cannot tell if the kernel supports the facility or not.
->
-
-So you are seeing this as feature discovery as well then.
-
->> Dave, I dont think you are suggesting we should use a TLV for every
->> bit
->> we want to  send to the kernel (as Jiri is), are you?
->
-> Jiri is not suggesting this, he is instead saying if you want to
-> support more bits in the future then you must check that the unused
-> bits are zero _now_ so that we can prove that userland clears them
-> properly.
->
-> And if you don't have any direct plans for more bits in the future,
-> use just a single attribute with the smallest integer type possible.
->
-
-Ok, lets move with that premise then in our discussion.
-
->> I think you as suggesting we should from now on enforce a rule that
->> in the kernel we start checking that bits in a bitmap received for
->> things we are not interested in. So if a bit i dont understand shows
->> up in the kernel what should i do?
->
-> Reject it.
->
-
-It may be case by case basis, no?
-
-I can understand rejecting for something that will break operations.
-Example "i want you to encrypt this".
-But i think there are other cases like "please give me a large
-dump" which require less harsh reaction in particular because
-I have alternative means in the kernel to achieve the dump.
-Would logging or no reaction be fine then?
-
-cheers,
-jamal
+Reviewed-by: Jorgen Hansen <jhansen@vmware.com>
