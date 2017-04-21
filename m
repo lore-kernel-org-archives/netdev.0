@@ -1,139 +1,46 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 11/11] ixgbevf: Check for RSS key before setting value
-Date: Thu, 20 Apr 2017 18:50:29 -0700
-Message-ID: <20170421015029.18994-12-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 06/11] ixgbevf: fix size of queue stats length
+Date: Thu, 20 Apr 2017 18:50:24 -0700
+Message-ID: <20170421015029.18994-7-jeffrey.t.kirsher@intel.com>
 References: <20170421015029.18994-1-jeffrey.t.kirsher@intel.com>
-Cc: Tony Nguyen <anthony.l.nguyen@intel.com>, netdev@vger.kernel.org,
+Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga04.intel.com ([192.55.52.120]:48798 "EHLO mga04.intel.com"
+Received: from mga04.intel.com ([192.55.52.120]:53037 "EHLO mga04.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1034441AbdDUBvH (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 20 Apr 2017 21:51:07 -0400
+        id S1034423AbdDUBu7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 20 Apr 2017 21:50:59 -0400
 In-Reply-To: <20170421015029.18994-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tony Nguyen <anthony.l.nguyen@intel.com>
+From: Emil Tantilov <emil.s.tantilov@intel.com>
 
-The RSS key is being repopulated every time the interface is brought up
-regardless of whether there is an existing value. If the user sets the RSS
-key and the interface is brought up (e.g. reset), the user specified RSS
-key will be overwritten.
+IXGBEVF_QUEUE_STATS_LEN is based on ixgebvf_stats, not ixgbe_stats.
 
-This patch changes the rss_key to a pointer so we can check to see if the
-key has been populated and preserve it accordingly.
+This change fixes a bug where ethtool -S displayed some empty fields.
 
-Signed-off-by: Tony Nguyen <anthony.l.nguyen@intel.com>
+Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbevf/ethtool.c      |  3 ++-
- drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      |  2 +-
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 33 +++++++++++++++++++++--
- 3 files changed, 34 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/intel/ixgbevf/ethtool.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/intel/ixgbevf/ethtool.c b/drivers/net/ethernet/intel/ixgbevf/ethtool.c
-index 43b70cd55bc6..ff9d05f308ee 100644
+index 6bf740945260..43b70cd55bc6 100644
 --- a/drivers/net/ethernet/intel/ixgbevf/ethtool.c
 +++ b/drivers/net/ethernet/intel/ixgbevf/ethtool.c
-@@ -855,7 +855,8 @@ static int ixgbevf_get_rxfh(struct net_device *netdev, u32 *indir, u8 *key,
+@@ -80,7 +80,7 @@ static struct ixgbe_stats ixgbevf_gstrings_stats[] = {
+ #define IXGBEVF_QUEUE_STATS_LEN ( \
+ 	(((struct ixgbevf_adapter *)netdev_priv(netdev))->num_tx_queues + \
+ 	 ((struct ixgbevf_adapter *)netdev_priv(netdev))->num_rx_queues) * \
+-	 (sizeof(struct ixgbe_stats) / sizeof(u64)))
++	 (sizeof(struct ixgbevf_stats) / sizeof(u64)))
+ #define IXGBEVF_GLOBAL_STATS_LEN ARRAY_SIZE(ixgbevf_gstrings_stats)
  
- 	if (adapter->hw.mac.type >= ixgbe_mac_X550_vf) {
- 		if (key)
--			memcpy(key, adapter->rss_key, sizeof(adapter->rss_key));
-+			memcpy(key, adapter->rss_key,
-+			       ixgbevf_get_rxfh_key_size(netdev));
- 
- 		if (indir) {
- 			int i;
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
-index a8cbc2dda0dd..581f44bbd7b3 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
-+++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
-@@ -319,7 +319,7 @@ struct ixgbevf_adapter {
- 	spinlock_t mbx_lock;
- 	unsigned long last_reset;
- 
--	u32 rss_key[IXGBEVF_VFRSSRK_REGS];
-+	u32 *rss_key;
- 	u8 rss_indir_tbl[IXGBEVF_X550_VFRETA_SIZE];
- };
- 
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-index 80bab261a0ec..eee29bddddc1 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-@@ -1660,6 +1660,28 @@ static void ixgbevf_rx_desc_queue_enable(struct ixgbevf_adapter *adapter,
- 		       reg_idx);
- }
- 
-+/**
-+ * ixgbevf_init_rss_key - Initialize adapter RSS key
-+ * @adapter: device handle
-+ *
-+ * Allocates and initializes the RSS key if it is not allocated.
-+ **/
-+static inline int ixgbevf_init_rss_key(struct ixgbevf_adapter *adapter)
-+{
-+	u32 *rss_key;
-+
-+	if (!adapter->rss_key) {
-+		rss_key = kzalloc(IXGBEVF_RSS_HASH_KEY_SIZE, GFP_KERNEL);
-+		if (unlikely(!rss_key))
-+			return -ENOMEM;
-+
-+		netdev_rss_key_fill(rss_key, IXGBEVF_RSS_HASH_KEY_SIZE);
-+		adapter->rss_key = rss_key;
-+	}
-+
-+	return 0;
-+}
-+
- static void ixgbevf_setup_vfmrqc(struct ixgbevf_adapter *adapter)
- {
- 	struct ixgbe_hw *hw = &adapter->hw;
-@@ -1668,9 +1690,8 @@ static void ixgbevf_setup_vfmrqc(struct ixgbevf_adapter *adapter)
- 	u8 i, j;
- 
- 	/* Fill out hash function seeds */
--	netdev_rss_key_fill(adapter->rss_key, sizeof(adapter->rss_key));
- 	for (i = 0; i < IXGBEVF_VFRSSRK_REGS; i++)
--		IXGBE_WRITE_REG(hw, IXGBE_VFRSSRK(i), adapter->rss_key[i]);
-+		IXGBE_WRITE_REG(hw, IXGBE_VFRSSRK(i), *(adapter->rss_key + i));
- 
- 	for (i = 0, j = 0; i < IXGBEVF_X550_VFRETA_SIZE; i++, j++) {
- 		if (j == rss_i)
-@@ -2611,6 +2632,12 @@ static int ixgbevf_sw_init(struct ixgbevf_adapter *adapter)
- 
- 	hw->mbx.ops.init_params(hw);
- 
-+	if (hw->mac.type >= ixgbe_mac_X550_vf) {
-+		err = ixgbevf_init_rss_key(adapter);
-+		if (err)
-+			goto out;
-+	}
-+
- 	/* assume legacy case in which PF would only give VF 2 queues */
- 	hw->mac.max_tx_queues = 2;
- 	hw->mac.max_rx_queues = 2;
-@@ -4127,6 +4154,7 @@ static int ixgbevf_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- err_sw_init:
- 	ixgbevf_reset_interrupt_capability(adapter);
- 	iounmap(adapter->io_addr);
-+	kfree(adapter->rss_key);
- err_ioremap:
- 	disable_dev = !test_and_set_bit(__IXGBEVF_DISABLED, &adapter->state);
- 	free_netdev(netdev);
-@@ -4173,6 +4201,7 @@ static void ixgbevf_remove(struct pci_dev *pdev)
- 
- 	hw_dbg(&adapter->hw, "Remove complete\n");
- 
-+	kfree(adapter->rss_key);
- 	disable_dev = !test_and_set_bit(__IXGBEVF_DISABLED, &adapter->state);
- 	free_netdev(netdev);
- 
+ #define IXGBEVF_STATS_LEN (IXGBEVF_GLOBAL_STATS_LEN + IXGBEVF_QUEUE_STATS_LEN)
 -- 
 2.12.2
