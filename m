@@ -1,36 +1,41 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH v3 net-next 5/8] net/ncsi: Dump NCSI packet statistics
-Date: Thu, 20 Apr 2017 18:43:06 -0700
-Message-ID: <1492738986.30293.16.camel@perches.com>
-References: <1492498295-14385-1-git-send-email-gwshan@linux.vnet.ibm.com>
-         <1492498295-14385-6-git-send-email-gwshan@linux.vnet.ibm.com>
-         <20170420.132103.454438573956782815.davem@davemloft.net>
-         <20170420233812.GA7223@gwshan>
-         <0289f0b2-36a8-f4a0-ef15-808aa66528fa@gmail.com>
-         <20170421004435.GA18727@gwshan>
-         <6b310c50-bab4-b5a7-0317-5a430c55917a@gmail.com>
-         <20170421013527.GA26300@gwshan>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/2] sparc64: Add eBPF JIT.
+Date: Thu, 20 Apr 2017 18:49:34 -0700 (PDT)
+Message-ID: <20170420.184934.719100622429060115.davem@davemloft.net>
+References: <20170418.145823.444134784458713460.davem@davemloft.net>
+        <58F72F6B.9060808@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-        kubakici@wp.pl
-To: Gavin Shan <gwshan@linux.vnet.ibm.com>,
-        Florian Fainelli <f.fainelli@gmail.com>
+Cc: sparclinux@vger.kernel.org, netdev@vger.kernel.org, ast@kernel.org
+To: daniel@iogearbox.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0149.hostedemail.com ([216.40.44.149]:46884 "EHLO
-        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1034278AbdDUBnM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 21:43:12 -0400
-In-Reply-To: <20170421013527.GA26300@gwshan>
+Received: from shards.monkeyblade.net ([184.105.139.130]:52802 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1034398AbdDUBt6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 21:49:58 -0400
+In-Reply-To: <58F72F6B.9060808@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2017-04-21 at 11:35 +1000, Gavin Shan wrote:
-> Yes, it's definitely good idea to cover everything using one interface.
-> It's for sure that the statistics collected by hardware should be dumped
-> by ethtool in future. I will move functionalities introduced by this
-> patchset to ethtool as well, as Dave suggested in another thread. Hope
-> Joe has no objection on this.
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Wed, 19 Apr 2017 11:35:39 +0200
 
-Of course not.
+> On 04/18/2017 08:58 PM, David Miller wrote:
+>> +	if (!prog || !prog->len)
+>> +		return orig_prog;
+> 
+> This condition can be removed, see also 93a73d442d37
+> ("bpf, x86/arm64: remove useless checks on prog"), since
+> there's no way we could land here under such circumstance.
+
+Ok.
+
+>> +	bpf_flush_icache(ctx.image, ctx.image + image_size);
+> 
+> Since remaining parts were filled through jit_fill_hole(),
+> it would be better / more correct to flush the whole buffer,
+> see also the recent ppc64 commit 10528b9c45cf ("powerpc/bpf:
+> Flush the entire JIT buffer") that fixed it for their jit.
+
+Ok, I've made that change too, thanks!
