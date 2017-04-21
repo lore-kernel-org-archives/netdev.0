@@ -1,149 +1,146 @@
-From: Roger Quadros <rogerq@ti.com>
-Subject: Re: [PATCH v1] net: phy: fix auto-negotiation stall due to
- unavailable interrupt
-Date: Fri, 21 Apr 2017 17:18:21 +0300
-Message-ID: <2f44a2db-da7a-2ca9-ea5e-6cc551c3008c@ti.com>
-References: <1492686004-30527-1-git-send-email-al.kochet@gmail.com>
- <1492686004-30527-2-git-send-email-al.kochet@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-To: Alexander Kochetkov <al.kochet@gmail.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-        Madalin Bucur <madalin.bucur@nxp.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1492686004-30527-2-git-send-email-al.kochet@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Slaby <jslaby@suse.cz>
+Subject: [PATCH v3 07/29] x86: bpf_jit, use ENTRY+ENDPROC
+Date: Fri, 21 Apr 2017 16:12:43 +0200
+Message-ID: <20170421141305.25180-7-jslaby@suse.cz>
+References: <20170421141305.25180-1-jslaby@suse.cz>
+Cc: tglx@linutronix.de, hpa@zytor.com, x86@kernel.org,
+        jpoimboe@redhat.com, linux-kernel@vger.kernel.org,
+        Jiri Slaby <jslaby@suse.cz>,
+        "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+To: mingo@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx2.suse.de ([195.135.220.15]:56071 "EHLO mx1.suse.de"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1040442AbdDUONM (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 21 Apr 2017 10:13:12 -0400
+In-Reply-To: <20170421141305.25180-1-jslaby@suse.cz>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 20/04/17 14:00, Alexander Kochetkov wrote:
-> The Ethernet link on an interrupt driven PHY was not coming up if the Ethernet
-> cable was plugged before the Ethernet interface was brought up.
-> 
-> The patch trigger PHY state machine to update link state if PHY was requested to
-> do auto-negotiation and auto-negotiation complete flag already set.
-> 
-> During power-up cycle the PHY do auto-negotiation, generate interrupt and set
-> auto-negotiation complete flag. Interrupt is handled by PHY state machine but
-> doesn't update link state because PHY is in PHY_READY state. After some time
-> MAC bring up, start and request PHY to do auto-negotiation. If there are no new
-> settings to advertise genphy_config_aneg() doesn't start PHY auto-negotiation.
-> PHY continue to stay in auto-negotiation complete state and doesn't fire
-> interrupt. At the same time PHY state machine expect that PHY started
-> auto-negotiation and is waiting for interrupt from PHY and it won't get it.
-> 
-> Signed-off-by: Alexander Kochetkov <al.kochet@gmail.com>
-> Cc: stable <stable@vger.kernel.org> # v4.9+
+Do not use a custom macro FUNC for starts of the global functions, use
+ENTRY instead.
 
-Tested-by: Roger Quadros <rogerq@ti.com>
+And while at it, annotate also ends of the functions by ENDPROC.
 
-I think the following commit broke functionality with interrupt driven PHYs
-3c293f4e08b5 ("net: phy: Trigger state machine on state change and not polling.")
+Signed-off-by: Jiri Slaby <jslaby@suse.cz>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Cc: James Morris <jmorris@namei.org>
+Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+Cc: Patrick McHardy <kaber@trash.net>
+Cc: Thomas Gleixner <tglx@linutronix.de>
+Cc: Ingo Molnar <mingo@redhat.com>
+Cc: "H. Peter Anvin" <hpa@zytor.com>
+Cc: x86@kernel.org
+Cc: netdev@vger.kernel.org
+---
+ arch/x86/net/bpf_jit.S | 32 ++++++++++++++++++--------------
+ 1 file changed, 18 insertions(+), 14 deletions(-)
 
-cheers,
--roger
-
-> ---
->  drivers/net/phy/phy.c |   40 ++++++++++++++++++++++++++++++++++++----
->  include/linux/phy.h   |    1 +
->  2 files changed, 37 insertions(+), 4 deletions(-)
-> 
-> diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-> index 7cc1b7d..2d9975b 100644
-> --- a/drivers/net/phy/phy.c
-> +++ b/drivers/net/phy/phy.c
-> @@ -591,16 +591,18 @@ int phy_mii_ioctl(struct phy_device *phydev, struct ifreq *ifr, int cmd)
->  EXPORT_SYMBOL(phy_mii_ioctl);
->  
->  /**
-> - * phy_start_aneg - start auto-negotiation for this PHY device
-> + * phy_start_aneg_priv - start auto-negotiation for this PHY device
->   * @phydev: the phy_device struct
-> + * @sync: indicate whether we should wait for the workqueue cancelation
->   *
->   * Description: Sanitizes the settings (if we're not autonegotiating
->   *   them), and then calls the driver's config_aneg function.
->   *   If the PHYCONTROL Layer is operating, we change the state to
->   *   reflect the beginning of Auto-negotiation or forcing.
->   */
-> -int phy_start_aneg(struct phy_device *phydev)
-> +static int phy_start_aneg_priv(struct phy_device *phydev, bool sync)
->  {
-> +	bool trigger = 0;
->  	int err;
->  
->  	mutex_lock(&phydev->lock);
-> @@ -625,10 +627,40 @@ int phy_start_aneg(struct phy_device *phydev)
->  		}
->  	}
->  
-> +	/* Re-schedule a PHY state machine to check PHY status because
-> +	 * negotiation may already be done and aneg interrupt may not be
-> +	 * generated.
-> +	 */
-> +	if (phy_interrupt_is_valid(phydev) && (phydev->state == PHY_AN)) {
-> +		err = phy_aneg_done(phydev);
-> +		if (err > 0) {
-> +			trigger = true;
-> +			err = 0;
-> +		}
-> +	}
-> +
->  out_unlock:
->  	mutex_unlock(&phydev->lock);
-> +
-> +	if (trigger)
-> +		phy_trigger_machine(phydev, sync);
-> +
->  	return err;
->  }
-> +
-> +/**
-> + * phy_start_aneg - start auto-negotiation for this PHY device
-> + * @phydev: the phy_device struct
-> + *
-> + * Description: Sanitizes the settings (if we're not autonegotiating
-> + *   them), and then calls the driver's config_aneg function.
-> + *   If the PHYCONTROL Layer is operating, we change the state to
-> + *   reflect the beginning of Auto-negotiation or forcing.
-> + */
-> +int phy_start_aneg(struct phy_device *phydev)
-> +{
-> +	return phy_start_aneg_priv(phydev, true);
-> +}
->  EXPORT_SYMBOL(phy_start_aneg);
->  
->  /**
-> @@ -656,7 +688,7 @@ void phy_start_machine(struct phy_device *phydev)
->   *   state machine runs.
->   */
->  
-> -static void phy_trigger_machine(struct phy_device *phydev, bool sync)
-> +void phy_trigger_machine(struct phy_device *phydev, bool sync)
->  {
->  	if (sync)
->  		cancel_delayed_work_sync(&phydev->state_queue);
-> @@ -1151,7 +1183,7 @@ void phy_state_machine(struct work_struct *work)
->  	mutex_unlock(&phydev->lock);
->  
->  	if (needs_aneg)
-> -		err = phy_start_aneg(phydev);
-> +		err = phy_start_aneg_priv(phydev, false);
->  	else if (do_suspend)
->  		phy_suspend(phydev);
->  
-> diff --git a/include/linux/phy.h b/include/linux/phy.h
-> index 7fc1105..b19ae66 100644
-> --- a/include/linux/phy.h
-> +++ b/include/linux/phy.h
-> @@ -840,6 +840,7 @@ int phy_drivers_register(struct phy_driver *new_driver, int n,
->  void phy_mac_interrupt(struct phy_device *phydev, int new_link);
->  void phy_start_machine(struct phy_device *phydev);
->  void phy_stop_machine(struct phy_device *phydev);
-> +void phy_trigger_machine(struct phy_device *phydev, bool sync);
->  int phy_ethtool_sset(struct phy_device *phydev, struct ethtool_cmd *cmd);
->  int phy_ethtool_gset(struct phy_device *phydev, struct ethtool_cmd *cmd);
->  int phy_ethtool_ksettings_get(struct phy_device *phydev,
-> 
+diff --git a/arch/x86/net/bpf_jit.S b/arch/x86/net/bpf_jit.S
+index f2a7faf4706e..762c29fb8832 100644
+--- a/arch/x86/net/bpf_jit.S
++++ b/arch/x86/net/bpf_jit.S
+@@ -23,16 +23,12 @@
+ 	32 /* space for rbx,r13,r14,r15 */ + \
+ 	8 /* space for skb_copy_bits */)
+ 
+-#define FUNC(name) \
+-	.globl name; \
+-	.type name, @function; \
+-	name:
+-
+-FUNC(sk_load_word)
++ENTRY(sk_load_word)
+ 	test	%esi,%esi
+ 	js	bpf_slow_path_word_neg
++ENDPROC(sk_load_word)
+ 
+-FUNC(sk_load_word_positive_offset)
++ENTRY(sk_load_word_positive_offset)
+ 	mov	%r9d,%eax		# hlen
+ 	sub	%esi,%eax		# hlen - offset
+ 	cmp	$3,%eax
+@@ -40,12 +36,14 @@ FUNC(sk_load_word_positive_offset)
+ 	mov     (SKBDATA,%rsi),%eax
+ 	bswap   %eax  			/* ntohl() */
+ 	ret
++ENDPROC(sk_load_word_positive_offset)
+ 
+-FUNC(sk_load_half)
++ENTRY(sk_load_half)
+ 	test	%esi,%esi
+ 	js	bpf_slow_path_half_neg
++ENDPROC(sk_load_half)
+ 
+-FUNC(sk_load_half_positive_offset)
++ENTRY(sk_load_half_positive_offset)
+ 	mov	%r9d,%eax
+ 	sub	%esi,%eax		#	hlen - offset
+ 	cmp	$1,%eax
+@@ -53,16 +51,19 @@ FUNC(sk_load_half_positive_offset)
+ 	movzwl	(SKBDATA,%rsi),%eax
+ 	rol	$8,%ax			# ntohs()
+ 	ret
++ENDPROC(sk_load_half_positive_offset)
+ 
+-FUNC(sk_load_byte)
++ENTRY(sk_load_byte)
+ 	test	%esi,%esi
+ 	js	bpf_slow_path_byte_neg
++ENDPROC(sk_load_byte)
+ 
+-FUNC(sk_load_byte_positive_offset)
++ENTRY(sk_load_byte_positive_offset)
+ 	cmp	%esi,%r9d   /* if (offset >= hlen) goto bpf_slow_path_byte */
+ 	jle	bpf_slow_path_byte
+ 	movzbl	(SKBDATA,%rsi),%eax
+ 	ret
++ENDPROC(sk_load_byte_positive_offset)
+ 
+ /* rsi contains offset and can be scratched */
+ #define bpf_slow_path_common(LEN)		\
+@@ -119,31 +120,34 @@ bpf_slow_path_word_neg:
+ 	cmp	SKF_MAX_NEG_OFF, %esi	/* test range */
+ 	jl	bpf_error	/* offset lower -> error  */
+ 
+-FUNC(sk_load_word_negative_offset)
++ENTRY(sk_load_word_negative_offset)
+ 	sk_negative_common(4)
+ 	mov	(%rax), %eax
+ 	bswap	%eax
+ 	ret
++ENDPROC(sk_load_word_negative_offset)
+ 
+ bpf_slow_path_half_neg:
+ 	cmp	SKF_MAX_NEG_OFF, %esi
+ 	jl	bpf_error
+ 
+-FUNC(sk_load_half_negative_offset)
++ENTRY(sk_load_half_negative_offset)
+ 	sk_negative_common(2)
+ 	mov	(%rax),%ax
+ 	rol	$8,%ax
+ 	movzwl	%ax,%eax
+ 	ret
++ENDPROC(sk_load_half_negative_offset)
+ 
+ bpf_slow_path_byte_neg:
+ 	cmp	SKF_MAX_NEG_OFF, %esi
+ 	jl	bpf_error
+ 
+-FUNC(sk_load_byte_negative_offset)
++ENTRY(sk_load_byte_negative_offset)
+ 	sk_negative_common(1)
+ 	movzbl	(%rax), %eax
+ 	ret
++ENDPROC(sk_load_byte_negative_offset)
+ 
+ bpf_error:
+ # force a return 0 from jit handler
+-- 
+2.12.2
