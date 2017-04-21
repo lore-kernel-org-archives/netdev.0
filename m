@@ -1,40 +1,103 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [PATCH] net: tc35815: move free after the dereference
-Date: Fri, 21 Apr 2017 13:49:37 +0300
-Message-ID: <20170421104937.7sxibmruc6pvp26p@mwanda>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Philippe Reynes <tremyfr@gmail.com>,
-        Jarod Wilson <jarod@redhat.com>, netdev@vger.kernel.org,
-        kernel-janitors@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>,
-        Atsushi Nemoto <anemo@mba.ocn.ne.jp>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: [PATCH net-next v6 0/3] net sched actions: improve dump performance
+Date: Fri, 21 Apr 2017 06:55:29 -0400
+Message-ID: <1492772132-16559-1-git-send-email-jhs@emojatatu.com>
+Cc: jiri@resnulli.us, xiyou.wangcong@gmail.com, eric.dumazet@gmail.com,
+        netdev@vger.kernel.org, Jamal Hadi Salim <jhs@mojatatu.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:26521 "EHLO
-        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1037605AbdDUKtz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2017 06:49:55 -0400
-Content-Disposition: inline
+Received: from mail-io0-f193.google.com ([209.85.223.193]:35372 "EHLO
+        mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1038143AbdDUKzl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2017 06:55:41 -0400
+Received: by mail-io0-f193.google.com with SMTP id d203so29079990iof.2
+        for <netdev@vger.kernel.org>; Fri, 21 Apr 2017 03:55:41 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We dereference "skb" to get "skb->len" so we should probably do that
-step before freeing the skb.
+From: Jamal Hadi Salim <jhs@mojatatu.com>
 
-Fixes: eea221ce4880 ("tc35815 driver update (take 2)")
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+Changes since v5:
+----------------
 
-diff --git a/drivers/net/ethernet/toshiba/tc35815.c b/drivers/net/ethernet/toshiba/tc35815.c
-index ad6db05b97d6..d9db8a06afd2 100644
---- a/drivers/net/ethernet/toshiba/tc35815.c
-+++ b/drivers/net/ethernet/toshiba/tc35815.c
-@@ -1017,8 +1017,8 @@ tc35815_free_queues(struct net_device *dev)
- 			BUG_ON(lp->tx_skbs[i].skb != skb);
- #endif
- 			if (skb) {
--				dev_kfree_skb(skb);
- 				pci_unmap_single(lp->pci_dev, lp->tx_skbs[i].skb_dma, skb->len, PCI_DMA_TODEVICE);
-+				dev_kfree_skb(skb);
- 				lp->tx_skbs[i].skb = NULL;
- 				lp->tx_skbs[i].skb_dma = 0;
- 			}
+0)
+Remove use of BIT() because it is kernel specific. Requires a separate
+patch (Jiri can submit that in his cleanups)
+
+1)To paraphrase Eric D.
+
+"memcpy(nla_data(count_attr), &cb->args[1], sizeof(u32));
+wont work on 64bit BE machines because cb->args[1]
+(which is 64 bit is larger in size than sizeof(u32))"
+
+Fixed
+
+2) Jiri Pirko
+
+i) Spotted a bug fix mixed in the patch for wrong TLV
+fix. Add patch 1/3 to address this. Make part of this
+series because of dependencies.
+
+ii) Rename ACT_LARGE_DUMP_ON -> TCA_FLAG_LARGE_DUMP_ON
+
+iii) Satisfy Jiri's obsession against the noun "tcaa"
+a)Rename struct nlattr *tcaa --> struct nlattr *tb
+b)Rename TCAA_ACT_XXX -> TCA_ROOT_XXX
+
+Changes since v4:
+-----------------
+
+1) Eric D.
+
+pointed out that when all skb space is used up by the dump
+there will be no space to insert the TCAA_ACT_COUNT attribute.
+
+2) Jiri:
+
+i) Change:
+
+enum {
+        TCAA_UNSPEC,
+        TCAA_ACT_TAB,
+        TCAA_ACT_FLAGS,
+        TCAA_ACT_COUNT,
+        TCAA_ACT_TIME_FILTER,
+        __TCAA_MAX
+};
+
+#define TCAA_MAX (__TCAA_MAX - 1)
+#define ACT_LARGE_DUMP_ON               (1 << 0)
+
+to:
+enum {
+       TCAA_UNSPEC,
+       TCAA_ACT_TAB,
+#define TCA_ACT_TAB TCAA_ACT_TAB
+       TCAA_ACT_FLAGS,
+       TCAA_ACT_COUNT,
+       __TCAA_MAX,
+#define        TCAA_MAX (__TCAA_MAX - 1)
+};
+
+#define ACT_LARGE_DUMP_ON              BIT(0)
+
+Jiri plans to followup with the rest of the code to make the
+style consistent.
+
+ii) Rename attribute TCAA_ACT_TIME_FILTER --> TCAA_ACT_TIME_DELTA
+
+iii) Rename variable jiffy_filter --> jiffy_since
+iv) Rename msecs_filter --> msecs_since
+v) get rid of unused cb->args[0] and rename cb->args[4] to cb->args[0]
+
+Jamal Hadi Salim (3):
+  net sched actions: User proper root attribute table for actions
+  net sched actions: dump more than TCA_ACT_MAX_PRIO actions per batch
+  net sched actions: add time filter for action dumping
+
+ include/uapi/linux/rtnetlink.h | 22 ++++++++++++--
+ net/sched/act_api.c            | 66 +++++++++++++++++++++++++++++++++++-------
+ 2 files changed, 75 insertions(+), 13 deletions(-)
+
+-- 
+1.9.1
