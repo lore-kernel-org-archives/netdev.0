@@ -1,37 +1,80 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH net-next 2/3] net/tcp_fastopen: Add snmp counter for
- blackhole detection
-Date: Thu, 20 Apr 2017 23:07:36 -0400
-Message-ID: <CADVnQyngdaeBVgkWYxR-Nf2j64BhxxuhQCko5WE55tHupNMDTQ@mail.gmail.com>
-References: <20170420214548.23666-1-tracywwnj@gmail.com> <20170420214548.23666-2-tracywwnj@gmail.com>
- <20170420214548.23666-3-tracywwnj@gmail.com> <CAK6E8=eT7J-CRwbS_mNWj7duJ00RVUKe6BmauBbu+6+X3ezEJw@mail.gmail.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net-next v2 2/5] virtio-net: transmit napi
+Date: Fri, 21 Apr 2017 11:53:17 +0800
+Message-ID: <118c5f96-6151-c012-7a31-16d24a835878@redhat.com>
+References: <20170418202108.61920-1-willemdebruijn.kernel@gmail.com>
+	<20170418202108.61920-3-willemdebruijn.kernel@gmail.com>
+	<2ae5889b-69d4-3041-d7fd-a7ea38e8c4e2@redhat.com>
+	<CAF=yD-K0Cwwcob+0nWXWTY_07_zwcae1GRHwdagF2pGrv8HwtA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Wei Wang <weiwan@google.com>, netdev <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        Eric Dumazet <edumazet@google.com>
-To: Yuchung Cheng <ycheng@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f45.google.com ([209.85.218.45]:35056 "EHLO
-        mail-oi0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1034879AbdDUDII (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 23:08:08 -0400
-Received: by mail-oi0-f45.google.com with SMTP id j201so76423055oih.2
-        for <netdev@vger.kernel.org>; Thu, 20 Apr 2017 20:08:08 -0700 (PDT)
-In-Reply-To: <CAK6E8=eT7J-CRwbS_mNWj7duJ00RVUKe6BmauBbu+6+X3ezEJw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Transfer-Encoding: base64
+Cc: Network Development <netdev@vger.kernel.org>,
+	Willem de Bruijn <willemb@google.com>,
+	virtualization@lists.linux-foundation.org,
+	David Miller <davem@davemloft.net>, "Michael S. Tsirkin" <mst@redhat.com>
+To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <CAF=yD-K0Cwwcob+0nWXWTY_07_zwcae1GRHwdagF2pGrv8HwtA@mail.gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 20, 2017 at 8:30 PM, Yuchung Cheng <ycheng@google.com> wrote:
-> On Thu, Apr 20, 2017 at 2:45 PM, Wei Wang <weiwan@google.com> wrote:
->> From: Wei Wang <weiwan@google.com>
->>
->> This counter records the number of times the firewall blackhole issue is
->> detected and active TFO is disabled.
->>
->> Signed-off-by: Wei Wang <weiwan@google.com>
-> Acked-by: Yuchung Cheng <ycheng@google.com>
-
-Acked-by: Neal Cardwell <ncardwell@google.com>
-
-neal
+CgpPbiAyMDE35bm0MDTmnIgyMOaXpSAyMTo1OCwgV2lsbGVtIGRlIEJydWlqbiB3cm90ZToKPiBP
+biBUaHUsIEFwciAyMCwgMjAxNyBhdCAyOjI3IEFNLCBKYXNvbiBXYW5nIDxqYXNvd2FuZ0ByZWRo
+YXQuY29tPiB3cm90ZToKPj4KPj4gT24gMjAxN+W5tDA05pyIMTnml6UgMDQ6MjEsIFdpbGxlbSBk
+ZSBCcnVpam4gd3JvdGU6Cj4+PiArc3RhdGljIHZvaWQgdmlydG5ldF9uYXBpX3R4X2VuYWJsZShz
+dHJ1Y3QgdmlydG5ldF9pbmZvICp2aSwKPj4+ICsgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgc3RydWN0IHZpcnRxdWV1ZSAqdnEsCj4+PiArICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgIHN0cnVjdCBuYXBpX3N0cnVjdCAqbmFwaSkKPj4+ICt7Cj4+PiArICAgICAgIGlm
+ICghbmFwaS0+d2VpZ2h0KQo+Pj4gKyAgICAgICAgICAgICAgIHJldHVybjsKPj4+ICsKPj4+ICsg
+ICAgICAgaWYgKCF2aS0+YWZmaW5pdHlfaGludF9zZXQpIHsKPj4+ICsgICAgICAgICAgICAgICBu
+YXBpLT53ZWlnaHQgPSAwOwo+Pj4gKyAgICAgICAgICAgICAgIHJldHVybjsKPj4+ICsgICAgICAg
+fQo+Pj4gKwo+Pj4gKyAgICAgICByZXR1cm4gdmlydG5ldF9uYXBpX2VuYWJsZSh2cSwgbmFwaSk7
+Cj4+PiArfQo+Pj4gKwo+Pj4gICAgc3RhdGljIHZvaWQgcmVmaWxsX3dvcmsoc3RydWN0IHdvcmtf
+c3RydWN0ICp3b3JrKQo+Pgo+PiBNYXliZSBJIHdhcyB3cm9uZywgYnV0IGFjY29yZGluZyB0byBN
+aWNoYWVsJ3MgY29tbWVudCBpdCBsb29rcyBsaWtlIGhlIHdhbnQKPj4gY2hlY2sgYWZmaW5pdHlf
+aGludF9zZXQganVzdCBmb3Igc3BlY3VsYXRpdmUgdHggcG9sbGluZyBvbiByeCBuYXBpIGluc3Rl
+YWQKPj4gb2YgZGlzYWJsaW5nIGl0IGF0IGFsbC4KPj4KPj4gQW5kIEknbSBub3QgY29udmluY2Vk
+IHRoaXMgaXMgcmVhbGx5IG5lZWRlZCwgZHJpdmVyIG9ubHkgcHJvdmlkZSBhZmZpbml0eQo+PiBo
+aW50IGluc3RlYWQgb2YgYWZmaW5pdHksIHNvIGl0J3Mgbm90IGd1YXJhbnRlZWQgdGhhdCB0eCBh
+bmQgcnggaW50ZXJydXB0Cj4+IGFyZSBpbiB0aGUgc2FtZSB2Y3B1cy4KPiBZb3UncmUgcmlnaHQu
+IEkgbWFkZSB0aGUgcmVzdHJpY3Rpb24gYnJvYWRlciB0aGFuIHRoZSByZXF1ZXN0LCB0byByZWFs
+bHkgZXJyCj4gb24gdGhlIHNpZGUgb2YgY2F1dGlvbiBmb3IgdGhlIGluaXRpYWwgbWVyZ2Ugb2Yg
+bmFwaSB0eC4gQW5kIGVuYWJsaW5nCj4gdGhlIG9wdGltaXphdGlvbiBpcyBhbHdheXMgYSB3aW4g
+b3ZlciBrZWVwaW5nIGl0IG9mZiwgZXZlbiB3aXRob3V0IGlycQo+IGFmZmluaXR5Lgo+Cj4gVGhl
+IGN5Y2xlIGNvc3QgaXMgc2lnbmlmaWNhbnQgd2l0aG91dCBhZmZpbml0eSByZWdhcmRsZXNzIG9m
+IHdoZXRoZXIgdGhlCj4gb3B0aW1pemF0aW9uIGlzIHVzZWQuCgpZZXMsIEkgbm90aWNlZCB0aGlz
+IGluIHRoZSBwYXN0IHRvby4KCj4gVGhvdWdoIHRoaXMgaXMgbm90IGxpbWl0ZWQgdG8gbmFwaS10
+eCwgaXQgaXMgbW9yZQo+IHByb25vdW5jZWQgaW4gdGhhdCBtb2RlIHRoYW4gd2l0aG91dCBuYXBp
+Lgo+Cj4gMXggVENQX1JSIGZvciBhZmZpbml0eSBjb25maWd1cmF0aW9uIHtwcm9jZXNzLCByeF9p
+cnEsIHR4X2lycX06Cj4KPiB1cHN0cmVhbToKPgo+IDEsMSwxOiAyODk4NSBNYnBzLCAyNzggR2N5
+Ywo+IDEsMCwyOiAzMDA2NyBNYnBzLCA0MDIgR2N5Ywo+Cj4gbmFwaSB0eDoKPgo+IDEsMSwxOiAz
+NDQ5MiBNYnBzLCAyNjkgR2N5Ywo+IDEsMCwyOiAzNjUyNyBNYnBzLCA1MzcgR2N5YyAoISkKPiAx
+LDAsMTogMzYyNjkgTWJwcywgMzk0IEdjeWMKPiAxLDAsMDogMzQ2NzQgTWJwcywgNDAyIEdjeWMK
+Pgo+IFRoaXMgaXMgYSBwYXJ0aWN1bGFybHkgc3Ryb25nIGV4YW1wbGUuIEl0IGlzIGFsc28gcmVw
+cmVzZW50YXRpdmUKPiBvZiBtb3N0IFJSIHRlc3RzLiBJdCBpcyBsZXNzIHByb25vdW5jZWQgaW4g
+b3RoZXIgc3RyZWFtaW5nIHRlc3RzLgo+IDEweCBUQ1BfUlIsIGZvciBpbnN0YW5jZToKPgo+IHVw
+c3RyZWFtOgo+Cj4gMSwxLDE6IDQyMjY3IE1icHMsIDMwMSBHY3ljCj4gMSwwLDI6IDQwNjYzIE1i
+cHMsIDQ0NSBHY3ljCj4KPiBuYXBpIHR4Ogo+Cj4gMSwxLDE6IDQyNDIwIE1icHMsIDMwMyBHY3lj
+Cj4gMSwwLDI6ICA0MjI2NyBNYnBzLCA0MzEgR2N5Ywo+Cj4gVGhlc2UgbnVtYmVycyB3ZXJlIG9i
+dGFpbmVkIHdpdGggdGhlIHZpcnRxdWV1ZV9lbmFibGVfY2JfZGVsYXllZAo+IG9wdGltaXphdGlv
+biBhZnRlciB4bWl0X3NrYiwgYnR3LiBJdCB0dXJucyBvdXQgdGhhdCBtb3ZpbmcgdGhhdCBiZWZv
+cmUKPiBpbmNyZWFzZXMgMXggVENQX1JSIGZ1cnRoZXIgdG8gfjM5IEdicHMsIGF0IHRoZSBjb3N0
+IG9mIHJlZHVjaW5nCj4gMTAweCBUQ1BfUlIgYSBiaXQuCgpJIHNlZSwgc28gSSB0aGluayB3ZSBj
+YW4gbGVhdmUgdGhlIGFmZmluaXR5IGhpbnQgb3B0aW1pemF0aW9uL2NoZWNrIGZvciAKZnV0dXJl
+IGludmVzdGlnYXRpb246CgotIHRvIGF2b2lkIGVuZGxlc3Mgb3B0aW1pemF0aW9uIChlLmcgd2Ug
+bWF5IHdhbnQgdG8gc2hhcmUgYSBzaW5nbGUgCnZlY3Rvci9uYXBpIGZvciB0eC9yeCBxdWV1ZSBw
+YWlycyBpbiB0aGUgZnV0dXJlKSBmb3IgdGhpcyBzZXJpZXMuCi0gdHggbmFwaSBpcyBkaXNhYmxl
+ZCBieSBkZWZhdWx0IHdoaWNoIG1lYW5zIHdlIGNhbiBkbyBvcHRpbWl6YXRpb24gb24gdG9wLgoK
+VGhhbmtzCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fClZp
+cnR1YWxpemF0aW9uIG1haWxpbmcgbGlzdApWaXJ0dWFsaXphdGlvbkBsaXN0cy5saW51eC1mb3Vu
+ZGF0aW9uLm9yZwpodHRwczovL2xpc3RzLmxpbnV4Zm91bmRhdGlvbi5vcmcvbWFpbG1hbi9saXN0
+aW5mby92aXJ0dWFsaXphdGlvbg==
