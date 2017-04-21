@@ -1,56 +1,50 @@
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 0/5] nfp: DMA flags, adjust head and fixes
-Date: Fri, 21 Apr 2017 07:20:47 -0700
-Message-ID: <20170421142052.107388-1-jakub.kicinski@netronome.com>
-Cc: oss-drivers@netronome.com, kubakici@wp.pl,
-        Jakub Kicinski <jakub.kicinski@netronome.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yb0-f172.google.com ([209.85.213.172]:34756 "EHLO
-        mail-yb0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1161661AbdDUOXH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2017 10:23:07 -0400
-Received: by mail-yb0-f172.google.com with SMTP id 11so40438943ybw.1
-        for <netdev@vger.kernel.org>; Fri, 21 Apr 2017 07:23:07 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: net: heap out-of-bounds in
+ fib6_clean_node/rt6_fill_node/fib6_age/fib6_prune_clone
+Date: Fri, 21 Apr 2017 08:27:57 -0600
+Message-ID: <e64e9ae6-5de9-1fc8-6a79-1724ef03c252@cumulusnetworks.com>
+References: <CACT4Y+YrA45diWz_8f4St8oX6aTC1kuGXMUvniGRbqXSGwawZQ@mail.gmail.com>
+ <2270c1ca-9481-60c1-9c29-87669223bded@cumulusnetworks.com>
+ <CACT4Y+aUROZgAczRfntp5Rgvzcypviz5ZWBPdE6MWSiO0-3jEg@mail.gmail.com>
+ <CAAeHK+zx6W_yxnoEQ2Pc1AT4uLXqYZaoi5oQBeuCntdGS38TQg@mail.gmail.com>
+ <580392d8-fa33-67bb-c5d6-27d262f1646a@cumulusnetworks.com>
+ <CAAeHK+zZb=K4X9=NmSWQJL8bpgMbXoG+h4RasAyYDr+C5pkVYA@mail.gmail.com>
+ <CAM_iQpXyDN5GD+QLmWgJSc0bqV0ViK5LxSdwAV3XsHWr6vLJ2Q@mail.gmail.com>
+ <1dad955e-28c1-3f02-8876-90cce4a7d1f8@cumulusnetworks.com>
+ <CACT4Y+amFHj1DV3pmj+eJVxg52+GLdE-fEin5M86dOKubea7DQ@mail.gmail.com>
+ <CAAeHK+zWO1COcZDp9q4eHP9YN9Qv8CXLOJu8dJgCbihcFSK3jg@mail.gmail.com>
+ <CAAeHK+zSe82vc5gCRgr_EoUwiALPnWVdWJBPwJZBpbxYz=kGJw@mail.gmail.com>
+ <623b6343-14f4-945d-a1bd-c9971b9566c2@cumulusnetworks.com>
+ <CAAeHK+yzCYZ+OU+eTpNLy-_X=7HSNUDML6jcVBKK9sxJ2ByORg@mail.gmail.com>
+ <CAAeHK+xUnYqzPOs3jnUn=89Ey_sUZCspW8=--_tP1x=sE=K23w@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Dmitry Vyukov <dvyukov@google.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        Mahesh Bandewar <maheshb@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        David Miller <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Andrey Konovalov <andreyknvl@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAAeHK+xUnYqzPOs3jnUn=89Ey_sUZCspW8=--_tP1x=sE=K23w@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi!
+On 4/20/17 10:09 AM, Andrey Konovalov wrote:
+> On Thu, Apr 20, 2017 at 5:39 PM, Andrey Konovalov <andreyknvl@google.com> wrote:
+>> On Thu, Apr 20, 2017 at 5:35 PM, David Ahern <dsa@cumulusnetworks.com> wrote:
+>>> On 4/20/17 9:28 AM, Andrey Konovalov wrote:
+>>>> This one seems to be much closer to what Dmitry reported intially.
+>>> does not repro here; I ran in a loop and nothing.
+> Here's strace log, maybe it'll help figuring out why it doesn't reproduce:
 
-This series takes advantage of Alex's DMA_ATTR_SKIP_CPU_SYNC to make 
-XDP packet modifications "correct" from DMA API point of view.  It 
-also allows us to parse the metadata before we run XDP at no additional
-DMA sync cost.  That way we can get rid of the metadata memcpy, and 
-remove the last upstream user of bpf_prog->xdp_adjust_head.
-
-David's patch adds a way to read capabilities from the management
-firmware.
-
-There are also two net-next fixes.  Patch 4 which fixes what seems to
-be a result of a botched rebase on my part.  Patch 5 corrects locking
-when state of ethernet ports is being refreshed.
-
-David Brunecz (1):
-  nfp: add NSP routine to get static information
-
-Jakub Kicinski (4):
-  nfp: make use of the DMA_ATTR_SKIP_CPU_SYNC flag
-  nfp: parse metadata prepend before XDP runs
-  nfp: fix free list buffer size reporting
-  nfp: remove the refresh of all ports optimization
-
- drivers/net/ethernet/netronome/nfp/Makefile        |   1 +
- drivers/net/ethernet/netronome/nfp/nfp_main.c      |   7 ++
- drivers/net/ethernet/netronome/nfp/nfp_net.h       |   9 +-
- .../net/ethernet/netronome/nfp/nfp_net_common.c    | 115 +++++++++++----------
- .../net/ethernet/netronome/nfp/nfp_net_ethtool.c   |  13 ++-
- drivers/net/ethernet/netronome/nfp/nfp_net_main.c  |  67 ++++++++----
- drivers/net/ethernet/netronome/nfp/nfpcore/nfp.h   |   1 +
- .../net/ethernet/netronome/nfp/nfpcore/nfp_nsp.c   |   7 ++
- .../net/ethernet/netronome/nfp/nfpcore/nfp_nsp.h   |  24 +++++
- .../ethernet/netronome/nfp/nfpcore/nfp_nsp_cmds.c  |  89 ++++++++++++++++
- 10 files changed, 255 insertions(+), 78 deletions(-)
- create mode 100644 drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp_cmds.c
-
--- 
-2.11.0
+reproduced. working on it.
