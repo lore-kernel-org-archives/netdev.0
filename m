@@ -1,83 +1,69 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net] ip6mr: avoid double unregister of pim6reg device
-Date: Fri, 21 Apr 2017 12:27:19 -0700
-Message-ID: <1492802839-16851-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: andreyknvl@google.com, Cong Wang <xiyou.wangcong@gmail.com>,
-        Linus Torvalds <torvalds@linux-foundation.org>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f68.google.com ([209.85.218.68]:34802 "EHLO
-        mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1162297AbdDUT1a (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2017 15:27:30 -0400
-Received: by mail-oi0-f68.google.com with SMTP id y11so20850017oie.1
-        for <netdev@vger.kernel.org>; Fri, 21 Apr 2017 12:27:29 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: net: cleanup_net is slow
+Date: Fri, 21 Apr 2017 21:27:29 +0200
+Message-ID: <20170421192729.GA8853@breakpoint.cc>
+References: <CAAeHK+yJXMo8kr_p8iM_dicVGQCtwQhdk=rdE+9dNbsoghAb6Q@mail.gmail.com>
+ <CANn89i+iYtPLGDZpt3qk_cA-dq+004B=1qjP0ZygY3oREskQYA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrey Konovalov <andreyknvl@google.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Eric Dumazet <edumazet@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CANn89i+iYtPLGDZpt3qk_cA-dq+004B=1qjP0ZygY3oREskQYA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-If we unregister the pim6reg device via default_device_exit_batch(),
-we will receive a notification and ip6mr_device_event() will
-unregister it again. This causes a kernel BUG at net/core/dev.c:6813.
+Eric Dumazet <edumazet@google.com> wrote:
+> On Fri, Apr 21, 2017 at 10:50 AM, Andrey Konovalov
+> <andreyknvl@google.com> wrote:
+> > Hi!
+> >
+> > We're investigating some approaches to improve isolation of syzkaller
+> > programs. One of the ideas is run each program in it's own user/net
+> > namespace. However, while I was experimenting with this, I stumbled
+> > upon a problem.
+> >
+> > It seems that cleanup_net() might take a very long time to execute.
+> >
+> > I've attached the reproducer and kernel .config that I used. Run as
+> > "./a.out 1". The reproducer just forks and does unshare(CLONE_NEWNET)
+> > in a loop. Note, that I have a lot of network-related configs enabled,
+> > which causes a few interfaces to be set up by default.
+> >
+> > What I see with this reproducer is that at first a huge number
+> > (~200-300) net namespaces are created without any contention. But then
+> > (probably when one of these namespaces gets destroyed) the program
+> > hangs for a considerable amount of time (~100 seconds in my vm).
+> > Nothing locks up inside the kernel and the CPU is mostly idle.
+> >
+> > Adding debug printfs showed that the part that takes almost all of
+> > that time is the lines between synchronize_rcu() and
+> > mutex_unlock(&net_mutex) in cleanup_net. Running perf showed that the
+> > cause of this might be a lot of calls to synchronize_net that happen
+> > while executing those lines.
+> >
+> > Is there any change that can be done to speed up the
+> > creation/destruction of a huge number of net namespaces?
+> >
+> 
+> We have batches, but fundamentally this is a hard problem to solve.
+> 
+> Every time we try, we add bugs :/
+> 
+> RTNL is the new BKL (Big Kernel Lock of early linux) of today.
+> 
+> Even the synchronize_rcu_expedited() done from synchronize_net() is a
+> serious issue on some platforms.
 
-Like commit 7dc00c82cbb0 ("ipv4: Fix ipmr unregister device oops")
-we should avoid double-unregister in netdevice notifier.
+Indeed.  Setting net.netfilter.nf_conntrack_default_on=0 cuts time
+cleanup time by 2/3 ...
 
-Reported-by: Andrey Konovalov <andreyknvl@google.com>
-Cc: Linus Torvalds <torvalds@linux-foundation.org>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
----
- net/ipv6/ip6mr.c | 11 ++++++-----
- 1 file changed, 6 insertions(+), 5 deletions(-)
-
-diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
-index 6ba6c90..72bee6d 100644
---- a/net/ipv6/ip6mr.c
-+++ b/net/ipv6/ip6mr.c
-@@ -774,7 +774,8 @@ static struct net_device *ip6mr_reg_vif(struct net *net, struct mr6_table *mrt)
-  *	Delete a VIF entry
-  */
- 
--static int mif6_delete(struct mr6_table *mrt, int vifi, struct list_head *head)
-+static int mif6_delete(struct mr6_table *mrt, int vifi, struct list_head *head,
-+		       bool unreg)
- {
- 	struct mif_device *v;
- 	struct net_device *dev;
-@@ -820,7 +821,7 @@ static int mif6_delete(struct mr6_table *mrt, int vifi, struct list_head *head)
- 					     dev->ifindex, &in6_dev->cnf);
- 	}
- 
--	if (v->flags & MIFF_REGISTER)
-+	if ((v->flags & MIFF_REGISTER) && unreg)
- 		unregister_netdevice_queue(dev, head);
- 
- 	dev_put(dev);
-@@ -1340,7 +1341,7 @@ static int ip6mr_device_event(struct notifier_block *this,
- 		v = &mrt->vif6_table[0];
- 		for (ct = 0; ct < mrt->maxvif; ct++, v++) {
- 			if (v->dev == dev)
--				mif6_delete(mrt, ct, &list);
-+				mif6_delete(mrt, ct, &list, false);
- 		}
- 	}
- 	unregister_netdevice_many(&list);
-@@ -1552,7 +1553,7 @@ static void mroute_clean_tables(struct mr6_table *mrt, bool all)
- 	for (i = 0; i < mrt->maxvif; i++) {
- 		if (!all && (mrt->vif6_table[i].flags & VIFF_STATIC))
- 			continue;
--		mif6_delete(mrt, i, &list);
-+		mif6_delete(mrt, i, &list, true);
- 	}
- 	unregister_netdevice_many(&list);
- 
-@@ -1707,7 +1708,7 @@ int ip6_mroute_setsockopt(struct sock *sk, int optname, char __user *optval, uns
- 		if (copy_from_user(&mifi, optval, sizeof(mifi_t)))
- 			return -EFAULT;
- 		rtnl_lock();
--		ret = mif6_delete(mrt, mifi, NULL);
-+		ret = mif6_delete(mrt, mifi, NULL, true);
- 		rtnl_unlock();
- 		return ret;
- 
--- 
-2.5.5
+nf unregister is way too happy to issue synchronize_net(), I'll work on
+a fix.
