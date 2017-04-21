@@ -1,68 +1,74 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH 1/1] drivers: net: usb: qmi_wwan: add QMI_QUIRK_SET_DTR for Telit PID 0x1201
-Date: Fri, 21 Apr 2017 15:02:47 +0200
-Message-ID: <8760hxzzew.fsf@miraculix.mork.no>
-References: <1491838463-20299-1-git-send-email-dnlplm@gmail.com>
-        <87efwob92t.fsf@miraculix.mork.no>
-        <CAGRyCJG2AV9fZEoSWDz4Dh=_Q9Edas1ZiDcfOehz77WEc5OQMw@mail.gmail.com>
-        <CAGRyCJGVH9ZhHM_9kau3Trjg0osgaUre5tQ_aWDPVprzH_3mTQ@mail.gmail.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next v6 1/3] net sched actions: User proper root
+ attribute table for actions
+Date: Fri, 21 Apr 2017 15:08:09 +0200
+Message-ID: <20170421130809.GB1874@nanopsycho.orion>
+References: <1492772132-16559-1-git-send-email-jhs@emojatatu.com>
+ <1492772132-16559-2-git-send-email-jhs@emojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@vger.kernel.org, linux-usb <linux-usb@vger.kernel.org>,
-        Aleksander Morgado <aleksander@aleksander.es>
-To: Daniele Palmas <dnlplm@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, xiyou.wangcong@gmail.com,
+        eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:47549 "EHLO canardo.mork.no"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1035334AbdDUNC7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 21 Apr 2017 09:02:59 -0400
-In-Reply-To: <CAGRyCJGVH9ZhHM_9kau3Trjg0osgaUre5tQ_aWDPVprzH_3mTQ@mail.gmail.com>
-        (Daniele Palmas's message of "Fri, 21 Apr 2017 14:22:28 +0200")
+Received: from mail-wr0-f193.google.com ([209.85.128.193]:32809 "EHLO
+        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1161154AbdDUNIM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2017 09:08:12 -0400
+Received: by mail-wr0-f193.google.com with SMTP id w50so7469939wrc.0
+        for <netdev@vger.kernel.org>; Fri, 21 Apr 2017 06:08:11 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1492772132-16559-2-git-send-email-jhs@emojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Daniele Palmas <dnlplm@gmail.com> writes:
+subj: s/user/use/
 
-> So, I applied your debug patch and this is what is happening:
 
-Thanks
-
-> [ 4306.730786] wdm_open: qmi_wwan 2-2:1.2: draining queued data
-> [ 4306.730955] wdm_write: qmi_wwan 2-2:1.2: Tx URB has been submitted ind=
-ex=3D2
+Fri, Apr 21, 2017 at 12:55:30PM CEST, jhs@mojatatu.com wrote:
+>From: Jamal Hadi Salim <jhs@mojatatu.com>
 >
-> Here qmicli is stuck. Then I disconnect the cable:
+>Bug fix for an issue which has been around for about a decade.
+>We got away with it because the enumeration was larger than needed.
+>
+>Fixes commit 7ba699c604ab ("[NET_SCHED]: Convert actions from rtnetlink to new netlink API")
 
-I guess this modem dislikes the unsolicted IN control request so much
-that it ignores the OUT control request. I have a feeling that this is
-violating the USB spec, since a STALL on the control pipe is supposed to
-be cleared by the next setup.
+^^^^^^^^^^^^^^^^^ this is incorrect format.
 
-But either way, we have to just accept whatever the device does.
+>
+>Thanks to Jiri Pirko for spotting it.
 
-
-> This is instead the output with the commit reverted:
-..
-> [ 9885.295723] wdm_write: qmi_wwan 2-2:1.2: Tx URB has been submitted ind=
-ex=3D2
-> [ 9885.296210] wdm_int_callback: qmi_wwan 2-2:1.2: NOTIFY_NETWORK_CONNECT=
-ION disconnected from network
-> [ 9885.328208] wdm_int_callback: qmi_wwan 2-2:1.2: NOTIFY_RESPONSE_AVAILA=
-BLE received: index 2 len 0
-> [ 9885.328216] wdm_int_callback: qmi_wwan 2-2:1.2: submit response URB 0
+Suggested-by: Jiri Pirko <jiri@mellanox.com>
 
 
-I note that you get a NETWORK_CONNECTION notification here, which you
-also did not receive in the failing case.  That's interesting.  Another
-indication that the device is completely stuck as a result of the IN
-control request.
-
-Thanks for this.  It shows that we can forget about any such automatic
-queue flushing for QMI devices. Any reimplementation of this feature
-must be limited to CDC MBIM. The "queue-out-of-sync" issue is mostly
-affecting Intel MBIM devices anyway.
-
-
-
-Bj=C3=B8rn
+>
+>Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+>---
+> net/sched/act_api.c | 4 ++--
+> 1 file changed, 2 insertions(+), 2 deletions(-)
+>
+>diff --git a/net/sched/act_api.c b/net/sched/act_api.c
+>index 82b1d48..9ce22b7 100644
+>--- a/net/sched/act_api.c
+>+++ b/net/sched/act_api.c
+>@@ -997,7 +997,7 @@ static int tc_ctl_action(struct sk_buff *skb, struct nlmsghdr *n,
+> 			 struct netlink_ext_ack *extack)
+> {
+> 	struct net *net = sock_net(skb->sk);
+>-	struct nlattr *tca[TCA_ACT_MAX + 1];
+>+	struct nlattr *tca[TCAA_MAX + 1];
+> 	u32 portid = skb ? NETLINK_CB(skb).portid : 0;
+> 	int ret = 0, ovr = 0;
+> 
+>@@ -1005,7 +1005,7 @@ static int tc_ctl_action(struct sk_buff *skb, struct nlmsghdr *n,
+> 	    !netlink_capable(skb, CAP_NET_ADMIN))
+> 		return -EPERM;
+> 
+>-	ret = nlmsg_parse(n, sizeof(struct tcamsg), tca, TCA_ACT_MAX, NULL,
+>+	ret = nlmsg_parse(n, sizeof(struct tcamsg), tca, TCAA_MAX, NULL,
+> 			  extack);
+> 	if (ret < 0)
+> 		return ret;
+>-- 
+>1.9.1
+>
