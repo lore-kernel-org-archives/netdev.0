@@ -1,7 +1,7 @@
 From: Stefan Hajnoczi <stefanha@redhat.com>
-Subject: [PATCH v5 2/3] VSOCK: Add vsockmon device
-Date: Fri, 21 Apr 2017 10:10:45 +0100
-Message-ID: <20170421091046.5599-3-stefanha@redhat.com>
+Subject: [PATCH v5 3/3] VSOCK: Add virtio vsock vsockmon hooks
+Date: Fri, 21 Apr 2017 10:10:46 +0100
+Message-ID: <20170421091046.5599-4-stefanha@redhat.com>
 References: <20170421091046.5599-1-stefanha@redhat.com>
 Cc: Zhu Yanjun <zyjzyj2000@gmail.com>,
         "Michael S. Tsirkin" <mst@redhat.com>,
@@ -10,345 +10,180 @@ Cc: Zhu Yanjun <zyjzyj2000@gmail.com>,
         Stefan Hajnoczi <stefanha@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:59062 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:43556 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S970148AbdDUJLQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 21 Apr 2017 05:11:16 -0400
+        id S1031928AbdDUJLR (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 21 Apr 2017 05:11:17 -0400
 In-Reply-To: <20170421091046.5599-1-stefanha@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Gerard Garcia <ggarcia@deic.uab.cat>
 
-Add vsockmon virtual network device that receives packets from the vsock
-transports and exposes them to user space.
+The virtio drivers deal with struct virtio_vsock_pkt.  Add
+virtio_transport_deliver_tap_pkt(pkt) for handing packets to the
+vsockmon device.
 
-Based on the nlmon device.
+We call virtio_transport_deliver_tap_pkt(pkt) from
+net/vmw_vsock/virtio_transport.c and drivers/vhost/vsock.c instead of
+common code.  This is because the drivers may drop packets before
+handing them to common code - we still want to capture them.
 
 Signed-off-by: Gerard Garcia <ggarcia@deic.uab.cat>
 Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
 ---
 v5:
- * Add vsockmon.[ch] entries in MAINTAINERS
+ * s/cpu_to_le16(pkt->hdr.op)/le16_to_cpu(pkt->hdr.op)/ [Michael]
  * checkpatch.pl fixes
-v4:
- * Add explicit reserved padding field to struct af_vsockmon_hdr and
-   drop __attribute__((packed)) [Michael, DaveM]
 v3:
- * Fix DEFAULT_MTU macro definition [Zhu Yanjun]
- * Rename af_vsockmon_hdr->t field ->transport for clarity
- * Update .ndo_get_stats64() return type since it has changed
+ * Hook virtio_transport.c (guest driver), not just
+   drivers/vhost/vsock.c (host driver)
 ---
- MAINTAINERS                   |   2 +
- drivers/net/Makefile          |   1 +
- include/uapi/linux/vsockmon.h |  60 +++++++++++++++
- drivers/net/vsockmon.c        | 170 ++++++++++++++++++++++++++++++++++++++++++
- drivers/net/Kconfig           |   8 ++
- include/uapi/linux/Kbuild     |   1 +
- 6 files changed, 242 insertions(+)
- create mode 100644 include/uapi/linux/vsockmon.h
- create mode 100644 drivers/net/vsockmon.c
+ include/linux/virtio_vsock.h            |  1 +
+ drivers/vhost/vsock.c                   |  8 +++++
+ net/vmw_vsock/virtio_transport.c        |  3 ++
+ net/vmw_vsock/virtio_transport_common.c | 64 +++++++++++++++++++++++++++++++++
+ 4 files changed, 76 insertions(+)
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 449e55f..2676f55 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -13276,9 +13276,11 @@ L:	netdev@vger.kernel.org
- S:	Maintained
- F:	include/linux/virtio_vsock.h
- F:	include/uapi/linux/virtio_vsock.h
-+F:	include/uapi/linux/vsockmon.h
- F:	net/vmw_vsock/af_vsock_tap.c
- F:	net/vmw_vsock/virtio_transport_common.c
- F:	net/vmw_vsock/virtio_transport.c
-+F:	drivers/net/vsockmon.c
- F:	drivers/vhost/vsock.c
- F:	drivers/vhost/vsock.h
+diff --git a/include/linux/virtio_vsock.h b/include/linux/virtio_vsock.h
+index 584f9a6..ab13f07 100644
+--- a/include/linux/virtio_vsock.h
++++ b/include/linux/virtio_vsock.h
+@@ -153,5 +153,6 @@ void virtio_transport_free_pkt(struct virtio_vsock_pkt *pkt);
+ void virtio_transport_inc_tx_pkt(struct virtio_vsock_sock *vvs, struct virtio_vsock_pkt *pkt);
+ u32 virtio_transport_get_credit(struct virtio_vsock_sock *vvs, u32 wanted);
+ void virtio_transport_put_credit(struct virtio_vsock_sock *vvs, u32 credit);
++void virtio_transport_deliver_tap_pkt(struct virtio_vsock_pkt *pkt);
  
-diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index 98ed4d9..2d54930 100644
---- a/drivers/net/Makefile
-+++ b/drivers/net/Makefile
-@@ -30,6 +30,7 @@ obj-$(CONFIG_GENEVE) += geneve.o
- obj-$(CONFIG_GTP) += gtp.o
- obj-$(CONFIG_NLMON) += nlmon.o
- obj-$(CONFIG_NET_VRF) += vrf.o
-+obj-$(CONFIG_VSOCKMON) += vsockmon.o
+ #endif /* _LINUX_VIRTIO_VSOCK_H */
+diff --git a/drivers/vhost/vsock.c b/drivers/vhost/vsock.c
+index 44eed8e..d939ac1 100644
+--- a/drivers/vhost/vsock.c
++++ b/drivers/vhost/vsock.c
+@@ -176,6 +176,11 @@ vhost_transport_do_send_pkt(struct vhost_vsock *vsock,
+ 				restart_tx = true;
+ 		}
  
- #
- # Networking Drivers
-diff --git a/include/uapi/linux/vsockmon.h b/include/uapi/linux/vsockmon.h
-new file mode 100644
-index 0000000..a08b522
---- /dev/null
-+++ b/include/uapi/linux/vsockmon.h
-@@ -0,0 +1,60 @@
-+#ifndef _UAPI_VSOCKMON_H
-+#define _UAPI_VSOCKMON_H
++		/* Deliver to monitoring devices all correctly transmitted
++		 * packets.
++		 */
++		virtio_transport_deliver_tap_pkt(pkt);
 +
-+#include <linux/virtio_vsock.h>
+ 		virtio_transport_free_pkt(pkt);
+ 	}
+ 	if (added)
+@@ -383,6 +388,9 @@ static void vhost_vsock_handle_tx_kick(struct vhost_work *work)
+ 
+ 		len = pkt->len;
+ 
++		/* Deliver to monitoring devices all received packets */
++		virtio_transport_deliver_tap_pkt(pkt);
 +
-+/*
-+ * vsockmon is the AF_VSOCK packet capture device.  Packets captured have the
-+ * following layout:
-+ *
-+ *   +-----------------------------------+
-+ *   |           vsockmon header         |
-+ *   |      (struct af_vsockmon_hdr)     |
-+ *   +-----------------------------------+
-+ *   |          transport header         |
-+ *   | (af_vsockmon_hdr->len bytes long) |
-+ *   +-----------------------------------+
-+ *   |              payload              |
-+ *   |       (until end of packet)       |
-+ *   +-----------------------------------+
-+ *
-+ * The vsockmon header is a transport-independent description of the packet.
-+ * It duplicates some of the information from the transport header so that
-+ * no transport-specific knowledge is necessary to process packets.
-+ *
-+ * The transport header is useful for low-level transport-specific packet
-+ * analysis.  Transport type is given in af_vsockmon_hdr->transport and
-+ * transport header length is given in af_vsockmon_hdr->len.
-+ *
-+ * If af_vsockmon_hdr->op is AF_VSOCK_OP_PAYLOAD then the payload follows the
-+ * transport header.  Other ops do not have a payload.
-+ */
+ 		/* Only accept correctly addressed packets */
+ 		if (le64_to_cpu(pkt->hdr.src_cid) == vsock->guest_cid)
+ 			virtio_transport_recv_pkt(pkt);
+diff --git a/net/vmw_vsock/virtio_transport.c b/net/vmw_vsock/virtio_transport.c
+index 68675a1..9dffe02 100644
+--- a/net/vmw_vsock/virtio_transport.c
++++ b/net/vmw_vsock/virtio_transport.c
+@@ -144,6 +144,8 @@ virtio_transport_send_pkt_work(struct work_struct *work)
+ 		list_del_init(&pkt->list);
+ 		spin_unlock_bh(&vsock->send_pkt_list_lock);
+ 
++		virtio_transport_deliver_tap_pkt(pkt);
 +
-+struct af_vsockmon_hdr {
-+	__le64 src_cid;
-+	__le64 dst_cid;
-+	__le32 src_port;
-+	__le32 dst_port;
-+	__le16 op;			/* enum af_vsockmon_op */
-+	__le16 transport;		/* enum af_vsockmon_transport */
-+	__le16 len;			/* Transport header length */
-+	__u8 reserved[2];
-+};
-+
-+enum af_vsockmon_op {
-+	AF_VSOCK_OP_UNKNOWN = 0,
-+	AF_VSOCK_OP_CONNECT = 1,
-+	AF_VSOCK_OP_DISCONNECT = 2,
-+	AF_VSOCK_OP_CONTROL = 3,
-+	AF_VSOCK_OP_PAYLOAD = 4,
-+};
-+
-+enum af_vsockmon_transport {
-+	AF_VSOCK_TRANSPORT_UNKNOWN = 0,
-+	AF_VSOCK_TRANSPORT_NO_INFO = 1,	/* No transport information */
-+
-+	/* Transport header type: struct virtio_vsock_hdr */
-+	AF_VSOCK_TRANSPORT_VIRTIO = 2,
-+};
-+
-+#endif
-diff --git a/drivers/net/vsockmon.c b/drivers/net/vsockmon.c
-new file mode 100644
-index 0000000..7f0136f
---- /dev/null
-+++ b/drivers/net/vsockmon.c
-@@ -0,0 +1,170 @@
-+#include <linux/module.h>
-+#include <linux/kernel.h>
-+#include <linux/if_arp.h>
-+#include <net/rtnetlink.h>
-+#include <net/sock.h>
-+#include <net/af_vsock.h>
+ 		reply = pkt->reply;
+ 
+ 		sg_init_one(&hdr, &pkt->hdr, sizeof(pkt->hdr));
+@@ -370,6 +372,7 @@ static void virtio_transport_rx_work(struct work_struct *work)
+ 			}
+ 
+ 			pkt->len = len - sizeof(pkt->hdr);
++			virtio_transport_deliver_tap_pkt(pkt);
+ 			virtio_transport_recv_pkt(pkt);
+ 		}
+ 	} while (!virtqueue_enable_cb(vq));
+diff --git a/net/vmw_vsock/virtio_transport_common.c b/net/vmw_vsock/virtio_transport_common.c
+index af087b4..18e2479 100644
+--- a/net/vmw_vsock/virtio_transport_common.c
++++ b/net/vmw_vsock/virtio_transport_common.c
+@@ -16,6 +16,7 @@
+ #include <linux/virtio_ids.h>
+ #include <linux/virtio_config.h>
+ #include <linux/virtio_vsock.h>
 +#include <uapi/linux/vsockmon.h>
-+#include <linux/virtio_vsock.h>
-+
-+/* Virtio transport max packet size plus header */
-+#define DEFAULT_MTU (VIRTIO_VSOCK_MAX_PKT_BUF_SIZE + \
-+		     sizeof(struct af_vsockmon_hdr))
-+
-+struct pcpu_lstats {
-+	u64 rx_packets;
-+	u64 rx_bytes;
-+	struct u64_stats_sync syncp;
-+};
-+
-+static int vsockmon_dev_init(struct net_device *dev)
+ 
+ #include <net/sock.h>
+ #include <net/af_vsock.h>
+@@ -85,6 +86,69 @@ virtio_transport_alloc_pkt(struct virtio_vsock_pkt_info *info,
+ 	return NULL;
+ }
+ 
++/* Packet capture */
++static struct sk_buff *virtio_transport_build_skb(void *opaque)
 +{
-+	dev->lstats = netdev_alloc_pcpu_stats(struct pcpu_lstats);
-+	if (!dev->lstats)
-+		return -ENOMEM;
-+	return 0;
-+}
++	struct virtio_vsock_pkt *pkt = opaque;
++	unsigned char *t_hdr, *payload;
++	struct af_vsockmon_hdr *hdr;
++	struct sk_buff *skb;
 +
-+static void vsockmon_dev_uninit(struct net_device *dev)
-+{
-+	free_percpu(dev->lstats);
-+}
++	skb = alloc_skb(sizeof(*hdr) + sizeof(pkt->hdr) + pkt->len,
++			GFP_ATOMIC);
++	if (!skb)
++		return NULL;
 +
-+struct vsockmon {
-+	struct vsock_tap vt;
-+};
++	hdr = (struct af_vsockmon_hdr *)skb_put(skb, sizeof(*hdr));
 +
-+static int vsockmon_open(struct net_device *dev)
-+{
-+	struct vsockmon *vsockmon = netdev_priv(dev);
++	/* pkt->hdr is little-endian so no need to byteswap here */
++	hdr->src_cid = pkt->hdr.src_cid;
++	hdr->src_port = pkt->hdr.src_port;
++	hdr->dst_cid = pkt->hdr.dst_cid;
++	hdr->dst_port = pkt->hdr.dst_port;
 +
-+	vsockmon->vt.dev = dev;
-+	vsockmon->vt.module = THIS_MODULE;
-+	return vsock_add_tap(&vsockmon->vt);
-+}
++	hdr->transport = cpu_to_le16(AF_VSOCK_TRANSPORT_VIRTIO);
++	hdr->len = cpu_to_le16(sizeof(pkt->hdr));
++	memset(hdr->reserved, 0, sizeof(hdr->reserved));
 +
-+static int vsockmon_close(struct net_device *dev)
-+{
-+	struct vsockmon *vsockmon = netdev_priv(dev);
-+
-+	return vsock_remove_tap(&vsockmon->vt);
-+}
-+
-+static netdev_tx_t vsockmon_xmit(struct sk_buff *skb, struct net_device *dev)
-+{
-+	int len = skb->len;
-+	struct pcpu_lstats *stats = this_cpu_ptr(dev->lstats);
-+
-+	u64_stats_update_begin(&stats->syncp);
-+	stats->rx_bytes += len;
-+	stats->rx_packets++;
-+	u64_stats_update_end(&stats->syncp);
-+
-+	dev_kfree_skb(skb);
-+
-+	return NETDEV_TX_OK;
-+}
-+
-+static void
-+vsockmon_get_stats64(struct net_device *dev, struct rtnl_link_stats64 *stats)
-+{
-+	int i;
-+	u64 bytes = 0, packets = 0;
-+
-+	for_each_possible_cpu(i) {
-+		const struct pcpu_lstats *vstats;
-+		u64 tbytes, tpackets;
-+		unsigned int start;
-+
-+		vstats = per_cpu_ptr(dev->lstats, i);
-+
-+		do {
-+			start = u64_stats_fetch_begin_irq(&vstats->syncp);
-+			tbytes = vstats->rx_bytes;
-+			tpackets = vstats->rx_packets;
-+		} while (u64_stats_fetch_retry_irq(&vstats->syncp, start));
-+
-+		packets += tpackets;
-+		bytes += tbytes;
++	switch (le16_to_cpu(pkt->hdr.op)) {
++	case VIRTIO_VSOCK_OP_REQUEST:
++	case VIRTIO_VSOCK_OP_RESPONSE:
++		hdr->op = cpu_to_le16(AF_VSOCK_OP_CONNECT);
++		break;
++	case VIRTIO_VSOCK_OP_RST:
++	case VIRTIO_VSOCK_OP_SHUTDOWN:
++		hdr->op = cpu_to_le16(AF_VSOCK_OP_DISCONNECT);
++		break;
++	case VIRTIO_VSOCK_OP_RW:
++		hdr->op = cpu_to_le16(AF_VSOCK_OP_PAYLOAD);
++		break;
++	case VIRTIO_VSOCK_OP_CREDIT_UPDATE:
++	case VIRTIO_VSOCK_OP_CREDIT_REQUEST:
++		hdr->op = cpu_to_le16(AF_VSOCK_OP_CONTROL);
++		break;
++	default:
++		hdr->op = cpu_to_le16(AF_VSOCK_OP_UNKNOWN);
++		break;
 +	}
 +
-+	stats->rx_packets = packets;
-+	stats->tx_packets = 0;
++	t_hdr = skb_put(skb, sizeof(pkt->hdr));
++	memcpy(t_hdr, &pkt->hdr, sizeof(pkt->hdr));
 +
-+	stats->rx_bytes = bytes;
-+	stats->tx_bytes = 0;
++	if (pkt->len) {
++		payload = skb_put(skb, pkt->len);
++		memcpy(payload, pkt->buf, pkt->len);
++	}
++
++	return skb;
 +}
 +
-+static int vsockmon_is_valid_mtu(int new_mtu)
++void virtio_transport_deliver_tap_pkt(struct virtio_vsock_pkt *pkt)
 +{
-+	return new_mtu >= (int)sizeof(struct af_vsockmon_hdr);
++	vsock_deliver_tap(virtio_transport_build_skb, pkt);
 +}
++EXPORT_SYMBOL_GPL(virtio_transport_deliver_tap_pkt);
 +
-+static int vsockmon_change_mtu(struct net_device *dev, int new_mtu)
-+{
-+	if (!vsockmon_is_valid_mtu(new_mtu))
-+		return -EINVAL;
-+
-+	dev->mtu = new_mtu;
-+	return 0;
-+}
-+
-+static const struct net_device_ops vsockmon_ops = {
-+	.ndo_init = vsockmon_dev_init,
-+	.ndo_uninit = vsockmon_dev_uninit,
-+	.ndo_open = vsockmon_open,
-+	.ndo_stop = vsockmon_close,
-+	.ndo_start_xmit = vsockmon_xmit,
-+	.ndo_get_stats64 = vsockmon_get_stats64,
-+	.ndo_change_mtu = vsockmon_change_mtu,
-+};
-+
-+static u32 always_on(struct net_device *dev)
-+{
-+	return 1;
-+}
-+
-+static const struct ethtool_ops vsockmon_ethtool_ops = {
-+	.get_link = always_on,
-+};
-+
-+static void vsockmon_setup(struct net_device *dev)
-+{
-+	dev->type = ARPHRD_VSOCKMON;
-+	dev->priv_flags |= IFF_NO_QUEUE;
-+
-+	dev->netdev_ops	= &vsockmon_ops;
-+	dev->ethtool_ops = &vsockmon_ethtool_ops;
-+	dev->destructor	= free_netdev;
-+
-+	dev->features = NETIF_F_SG | NETIF_F_FRAGLIST |
-+			NETIF_F_HIGHDMA | NETIF_F_LLTX;
-+
-+	dev->flags = IFF_NOARP;
-+
-+	dev->mtu = DEFAULT_MTU;
-+}
-+
-+static struct rtnl_link_ops vsockmon_link_ops __read_mostly = {
-+	.kind			= "vsockmon",
-+	.priv_size		= sizeof(struct vsockmon),
-+	.setup			= vsockmon_setup,
-+};
-+
-+static __init int vsockmon_register(void)
-+{
-+	return rtnl_link_register(&vsockmon_link_ops);
-+}
-+
-+static __exit void vsockmon_unregister(void)
-+{
-+	rtnl_link_unregister(&vsockmon_link_ops);
-+}
-+
-+module_init(vsockmon_register);
-+module_exit(vsockmon_unregister);
-+
-+MODULE_LICENSE("GPL v2");
-+MODULE_AUTHOR("Gerard Garcia <ggarcia@deic.uab.cat>");
-+MODULE_DESCRIPTION("Vsock monitoring device. Based on nlmon device.");
-+MODULE_ALIAS_RTNL_LINK("vsockmon");
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 100fbdc..83a1616 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -355,6 +355,14 @@ config NET_VRF
- 	  This option enables the support for mapping interfaces into VRF's. The
- 	  support enables VRF devices.
- 
-+config VSOCKMON
-+    tristate "Virtual vsock monitoring device"
-+    depends on VHOST_VSOCK
-+    ---help---
-+     This option enables a monitoring net device for vsock sockets. It is
-+     mostly intended for developers or support to debug vsock issues. If
-+     unsure, say N.
-+
- endif # NET_CORE
- 
- config SUNGEM_PHY
-diff --git a/include/uapi/linux/Kbuild b/include/uapi/linux/Kbuild
-index dd9820b..9165e87 100644
---- a/include/uapi/linux/Kbuild
-+++ b/include/uapi/linux/Kbuild
-@@ -476,6 +476,7 @@ header-y += virtio_types.h
- header-y += virtio_vsock.h
- header-y += virtio_crypto.h
- header-y += vm_sockets.h
-+header-y += vsockmon.h
- header-y += vt.h
- header-y += vtpm_proxy.h
- header-y += wait.h
+ static int virtio_transport_send_pkt_info(struct vsock_sock *vsk,
+ 					  struct virtio_vsock_pkt_info *info)
+ {
 -- 
 2.9.3
