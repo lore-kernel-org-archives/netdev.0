@@ -1,50 +1,47 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: net: heap out-of-bounds in
- fib6_clean_node/rt6_fill_node/fib6_age/fib6_prune_clone
-Date: Fri, 21 Apr 2017 08:27:57 -0600
-Message-ID: <e64e9ae6-5de9-1fc8-6a79-1724ef03c252@cumulusnetworks.com>
-References: <CACT4Y+YrA45diWz_8f4St8oX6aTC1kuGXMUvniGRbqXSGwawZQ@mail.gmail.com>
- <2270c1ca-9481-60c1-9c29-87669223bded@cumulusnetworks.com>
- <CACT4Y+aUROZgAczRfntp5Rgvzcypviz5ZWBPdE6MWSiO0-3jEg@mail.gmail.com>
- <CAAeHK+zx6W_yxnoEQ2Pc1AT4uLXqYZaoi5oQBeuCntdGS38TQg@mail.gmail.com>
- <580392d8-fa33-67bb-c5d6-27d262f1646a@cumulusnetworks.com>
- <CAAeHK+zZb=K4X9=NmSWQJL8bpgMbXoG+h4RasAyYDr+C5pkVYA@mail.gmail.com>
- <CAM_iQpXyDN5GD+QLmWgJSc0bqV0ViK5LxSdwAV3XsHWr6vLJ2Q@mail.gmail.com>
- <1dad955e-28c1-3f02-8876-90cce4a7d1f8@cumulusnetworks.com>
- <CACT4Y+amFHj1DV3pmj+eJVxg52+GLdE-fEin5M86dOKubea7DQ@mail.gmail.com>
- <CAAeHK+zWO1COcZDp9q4eHP9YN9Qv8CXLOJu8dJgCbihcFSK3jg@mail.gmail.com>
- <CAAeHK+zSe82vc5gCRgr_EoUwiALPnWVdWJBPwJZBpbxYz=kGJw@mail.gmail.com>
- <623b6343-14f4-945d-a1bd-c9971b9566c2@cumulusnetworks.com>
- <CAAeHK+yzCYZ+OU+eTpNLy-_X=7HSNUDML6jcVBKK9sxJ2ByORg@mail.gmail.com>
- <CAAeHK+xUnYqzPOs3jnUn=89Ey_sUZCspW8=--_tP1x=sE=K23w@mail.gmail.com>
+From: Rich Felker <dalias@libc.org>
+Subject: Re: Re: [PATCH v2 0/3] uapi glibc compat: fix musl libc
+ compatibility
+Date: Fri, 21 Apr 2017 10:41:51 -0400
+Message-ID: <20170421144151.GF17319@brightrain.aerifal.cx>
+References: <20170418210036.26039-1-hauke@hauke-m.de>
+ <20170420.160739.1263793303398330801.davem@davemloft.net>
+ <1492719277.8404.16.camel@infradead.org>
+ <20170420.163630.313375940241598525.davem@davemloft.net>
+ <25477d46-b100-ce87-98d9-8c5e02d409b8@hauke-m.de>
+Reply-To: musl@lists.openwall.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Dmitry Vyukov <dvyukov@google.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        Mahesh Bandewar <maheshb@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        David Miller <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Andrey Konovalov <andreyknvl@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAAeHK+xUnYqzPOs3jnUn=89Ey_sUZCspW8=--_tP1x=sE=K23w@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, dwmw2@infradead.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jarod@redhat.com, jogo@openwrt.org, david.heidelberger@ixit.cz,
+	maillist-linux@barfooze.de, mikko.rapeli@iki.fi,
+	musl@lists.openwall.com
+To: Hauke Mehrtens <hauke@hauke-m.de>
+Return-path: <musl-return-11272-gllmg-musl=m.gmane.org@lists.openwall.com>
+List-Post: <mailto:musl@lists.openwall.com>
+List-Help: <mailto:musl-help@lists.openwall.com>
+List-Unsubscribe: <mailto:musl-unsubscribe@lists.openwall.com>
+List-Subscribe: <mailto:musl-subscribe@lists.openwall.com>
+Content-Disposition: inline
+In-Reply-To: <25477d46-b100-ce87-98d9-8c5e02d409b8@hauke-m.de>
+Sender: Rich Felker <dalias@aerifal.cx>
 List-Id: netdev.vger.kernel.org
 
-On 4/20/17 10:09 AM, Andrey Konovalov wrote:
-> On Thu, Apr 20, 2017 at 5:39 PM, Andrey Konovalov <andreyknvl@google.com> wrote:
->> On Thu, Apr 20, 2017 at 5:35 PM, David Ahern <dsa@cumulusnetworks.com> wrote:
->>> On 4/20/17 9:28 AM, Andrey Konovalov wrote:
->>>> This one seems to be much closer to what Dmitry reported intially.
->>> does not repro here; I ran in a loop and nothing.
-> Here's strace log, maybe it'll help figuring out why it doesn't reproduce:
+On Fri, Apr 21, 2017 at 03:14:21PM +0200, Hauke Mehrtens wrote:
+> 
+> 
+> On 04/20/2017 10:36 PM, David Miller wrote:
+> > From: David Woodhouse <dwmw2@infradead.org>
+> > Date: Thu, 20 Apr 2017 21:14:37 +0100
+> > 
+> >> I agree, except I don't think you're going far enough. Those "standard
+> >> names" you mention... some of this stuff actually depends on __GLIBC__,
+> >> and *that* isn't right either.
+> > 
+> > Yep, that's something that needs correcting.
+> > 
+> Should all libc implementations define __GLIBC__
 
-reproduced. working on it.
+Absolutely not.
+
+Rich
