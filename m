@@ -1,96 +1,78 @@
-From: <Joe.Ghalam@dell.com>
-Subject: Re: macvlan: Fix device ref leak when purging bc_queue
-Date: Fri, 21 Apr 2017 20:37:56 +0000
-Message-ID: <1492807076414.83805@Dell.com>
-References: <1492618528011.11322@Dell.com>
- <20170420125512.GA9113@gondor.apana.org.au> <1492704599476.84165@Dell.com>
- <20170421044029.GA11695@gondor.apana.org.au>
- <1492785652578.53801@Dell.com>,<CAF2d9jis_NcDO4bfOuf1OxPf_1XvOJQA1eo0OKW5SEk2O-Ny0A@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: <herbert@gondor.apana.org.au>, <davem@davemloft.net>,
-        <Clifford.Wichmann@dell.com>, <netdev@vger.kernel.org>
-To: <maheshb@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from esa4.dell-outbound.iphmx.com ([68.232.149.214]:37929 "EHLO
-        esa4.dell-outbound.iphmx.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1162525AbdDUUrp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2017 16:47:45 -0400
-In-Reply-To: <CAF2d9jis_NcDO4bfOuf1OxPf_1XvOJQA1eo0OKW5SEk2O-Ny0A@mail.gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Subject: [PATCH] macsec: avoid heap overflow in skb_to_sgvec
+Date: Fri, 21 Apr 2017 23:14:48 +0200
+Message-ID: <20170421211448.16995-1-Jason@zx2c4.com>
+Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>, stable@vger.kernel.org,
+        security@kernel.org
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        davem@davemloft.net
+Return-path: <stable-owner@vger.kernel.org>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwo+IEZyb206IE1haGVzaCBC
-YW5kZXdhciAo4KSu4KS54KWH4KS2IOCkrOCkguCkoeClh+CkteCkvuCksCkgPG1haGVzaGJAZ29v
-Z2xlLmNvbT4KPiBTZW50OiBGcmlkYXksIEFwcmlsIDIxLCAyMDE3IDEyOjIzIFBNCj4gVG86IEdo
-YWxhbSwgSm9lCj4gQ2M6IGhlcmJlcnRAZ29uZG9yLmFwYW5hLm9yZy5hdTsgRGF2aWQgTWlsbGVy
-OyBXaWNobWFubiwgQ2xpZmZvcmQ7IGxpbnV4LW5ldGRldgo+IFN1YmplY3Q6IFJlOiBtYWN2bGFu
-OiBGaXggZGV2aWNlIHJlZiBsZWFrIHdoZW4gcHVyZ2luZyBiY19xdWV1ZQoKPiBNYXkgYmUgdGhl
-IHN5c3RlbSBpcyBidXN5IGFuZCBzbmFwc2hvdCBpcyB0b28gc21hbGwsIGFuZCBldmVudHVhbGx5
-Cj4gcHJvY2Vzc19icm9hZGNhc3QoKSBzaG91bGQgZ2V0IGNhbGxlZC4gRGVsZXRpbmcgYSBzbGF2
-ZSBkb2VzIG5vdGhpbmcKPiBhYm91dCBjYW5jZWxsaW5nIHRoZSB3b3JrLXF1ZXVlIHNvIGl0IHdv
-dWxkIGhhcHBlbiBldmVudHVhbGx5LgoKPiBUaGUgY2hhbmdlIHRoYXQgSGVyYmVydCBwcm9wb3Nl
-ZCBpcyBjb3JyZWN0LiBXaGVuIHBhY2tldHMgYXJlIGVucXVldWVkCj4gZm9yIHByb2Nlc3Npbmcg
-bGF0ZXIgYSBkZXYgcmVmZXJlbmNlIGlzIHRha2VuIGFuZCBpdCdzIHJlbW92ZWQgd2hlbgo+IGl0
-J3MgcHJvY2Vzc2VkIHdoZW4gaXQgZ2V0cyBzY2hlZHVsZWQuIFRoZSBiYWNrbG9nIGlzIHBlciBw
-b3J0IHNvIGl0Cj4gbWFrZXMgc2Vuc2UgdG8gcmVtb3ZlIHJlZmVyZW5jZShzKSBiZWZvcmUgcHVy
-Z2luZyB0aGUgcXVldWUgcHJpb3IgdG8KPiBkZWxldGluZyB0aGUgcG9ydC4KCkkgb25seSBpbmNs
-dWRlZCB0aGUgc25hcHNob3Qgb2YgdGhlIGxvZ3MgdGhhdCdzIHJlbGV2YW50LiBUaGUgc3lzdGVt
-IGluIHF1ZXN0aW9uIGhhcyBiZWVuIGxlZnQgaW4gdGhhdCBzdGF0ZSBmb3IgaG91cnMsIHdpdGhv
-dXQgZXZlciBzZWVpbmcgcHJvY2Vzc19icm9hZGNhc3QoKSBiZWluZyBjYWxsZWQuIEFuZCwgeWVz
-IEkgZGlkIGNoZWNrIHRoZSBjcHUgbG9hZCwgYW5kIHRoZSBzeXN0ZW0gd2FzIHJ1bm5pbmcgYXQg
-YXJvdW5kIDIwJSBsb2FkLiBTbywgSSBkb24ndCB0aGluayB0aGF0J3MgdGhlIGNhc2UuIEkgd291
-bGQgc3VnZ2VzdCB0byB0YWtlIGNsb3NlciBsb29rIGF0IHRoZSBjb2RlIGluIG10YWN2bGFuX2Rl
-bGxpbmsoKSwgd2hlcmUgaXQgcGVyZm9ybXMgdW5saW5rIGFuZCB1bnJlZ2lzdGVyOgoKdm9pZCBt
-YWN2bGFuX2RlbGxpbmsoc3RydWN0IG5ldF9kZXZpY2UgKmRldiwgc3RydWN0IGxpc3RfaGVhZCAq
-aGVhZCkKewoJc3RydWN0IG1hY3ZsYW5fZGV2ICp2bGFuID0gbmV0ZGV2X3ByaXYoZGV2KTsKCWxp
-c3RfZGVsX3JjdSgmdmxhbi0+bGlzdCk7Cgl1bnJlZ2lzdGVyX25ldGRldmljZV9xdWV1ZShkZXYs
-IGhlYWQpOwoJbmV0ZGV2X3VwcGVyX2Rldl91bmxpbmsodmxhbi0+bG93ZXJkZXYsIGRldik7Cn0K
-CkFzIEkgc3RhdGVkIGluIG15IHJlcGx5IHRvIEhlcmJlcnQgaW5pdGlhbGx5LCB0aGUgY29kZSBj
-aGFuZ2UgaGUgc3VnZ2VzdGVkIGlzIGNvcnJlY3QgYW5kIG5lZWRlZCwgYnV0IG5vdCBlbm91Z2gu
-IFdlIGhhdmUgdGVzdGVkIHdpdGggaGlzIGNvZGUgY2hhbmdlIGFuZCBvYnNlcnZlZCB0aGUgc2Ft
-ZSBiZWhhdmlvci4gSSBjYW4gZ3VhcmFudGVlIHlvdSB0aGF0IHRoZSBjb2RlIGNoYW5nZSB0byBt
-YWN2bGFuX3BvcnRfZGVzdHJveSgpIGhhcyBubyBlZmZlY3Qgb24gdGhpcyBpc3N1ZSwgc2luY2Ug
-dGhlIGZ1bmN0aW9uIG1hY3ZsYW5fcG9ydF9kZXN0cm95ICgpIGlzIG5vdCBldmVuIGNhbGxlZCBk
-dXJpbmcgdGhlIG9wZXJhdGlvbi4gCgpIZXJlIGlzIHRoZSBmb3JjZWQgc3RhY2sgdHJhY2UgdGhh
-dCBJIGNhdXNlZCB0byBzaG93IHRoZSByZW1vdmFsIGNhbGw6CkFwciAyMCAwNjoyMzo0MCBPUzEw
-IGtlcm5lbDogIFs8ZmZmZmZmZmY4MTBkMzEyYz5dIF9fbmV0ZGV2X2FkamFjZW50X2Rldl9yZW1v
-dmUrMHgzYy8weDFhMApBcHIgMjAgMDY6MjM6NDAgT1MxMCBrZXJuZWw6ICBbPGZmZmZmZmZmODFi
-YjZlODc+XSBfX25ldGRldl9hZGphY2VudF9kZXZfdW5saW5rX2xpc3RzKzB4NjcvMHg2OQpBcHIg
-MjAgMDY6MjM6NDAgT1MxMCBrZXJuZWw6ICBbPGZmZmZmZmZmODEwZDMyYTA+XSBfX25ldGRldl9h
-ZGphY2VudF9kZXZfdW5saW5rKzB4ODIvMHg0MApBcHIgMjAgMDY6MjM6NDAgT1MxMCBrZXJuZWw6
-ICBbPGZmZmZmZmZmODExZDMxZTA+XSBuZXRkZXZfdXBwZXJfZGV2X3VubGluaysweDEwLzB4MjAK
-QXByIDIwIDA2OjIzOjQwIE9TMTAga2VybmVsOiAgWzxmZmZmZmZmZjgxODBlNzcwPl0gbWFjdmxh
-bl9kZWxsaW5rKzB4NTAvMHgxMzAKQXByIDIwIDA2OjIzOjQwIE9TMTAga2VybmVsOiAgWzxmZmZm
-ZmZmZjgxYTJjYTI3Pl0gcnRubF9kZWxsaW5rKzB4YjcvMHgxMjAKQXByIDIwIDA2OjIzOjQwIE9T
-MTAga2VybmVsOiAgWzxmZmZmZmZmZjgxYTYwOWFiPl0gPyBfX25ldGxpbmtfbnNfY2FwYWJsZSsw
-eDNiLzB4NDAKQXByIDIwIDA2OjIzOjQwIE9TMTAga2VybmVsOiAgWzxmZmZmZmZmZjgxYTJhNmM1
-Pl0gcnRuZXRsaW5rX3Jjdl9tc2crMHg5NS8weDI1MApBcHIgMjAgMDY6MjM6NDAgT1MxMCBrZXJu
-ZWw6ICBbPGZmZmZmZmZmODExYzE0OTk+XSA/IHpvbmVfc3RhdGlzdGljcysweDg5LzB4YTAKQXBy
-IDIwIDA2OjIzOjQwIE9TMTAga2VybmVsOiAgWzxmZmZmZmZmZjgxYTBhOWRlPl0gPyBfX2FsbG9j
-X3NrYisweDdlLzB4MmEwCkFwciAyMCAwNjoyMzo0MCBPUzEwIGtlcm5lbDogIFs8ZmZmZmZmZmY4
-MWEyYTYzMD5dID8gcnRuZXRsaW5rX3JjdisweDMwLzB4MzAKQXByIDIwIDA2OjIzOjQwIE9TMTAg
-a2VybmVsOiAgWzxmZmZmZmZmZjgxYTY0ZjU5Pl0gbmV0bGlua19yY3Zfc2tiKzB4YTkvMHhjMApB
-cHIgMjAgMDY6MjM6NDAgT1MxMCBrZXJuZWw6ICBbPGZmZmZmZmZmODFhMmE2Mjg+XSBydG5ldGxp
-bmtfcmN2KzB4MjgvMHgzMApBcHIgMjAgMDY6MjM6NDAgT1MxMCBrZXJuZWw6ICBbPGZmZmZmZmZm
-ODFhNjQ2MDM+XSBuZXRsaW5rX3VuaWNhc3QrMHhmMy8weDIwMApBcHIgMjAgMDY6MjM6NDAgT1Mx
-MCBrZXJuZWw6ICBbPGZmZmZmZmZmODFhNjRhMWU+XSBuZXRsaW5rX3NlbmRtc2crMHgzMGUvMHg2
-ODAKQXByIDIwIDA2OjIzOjQwIE9TMTAga2VybmVsOiAgWzxmZmZmZmZmZjgxYTAxNGZiPl0gc29j
-a19zZW5kbXNnKzB4OGIvMHhjMApBcHIgMjAgMDY6MjM6NDAgT1MxMCBrZXJuZWw6ICBbPGZmZmZm
-ZmZmODFhMDExZWU+XSA/IG1vdmVfYWRkcl90b19rZXJuZWwucGFydC4xOCsweDFlLzB4NjAKQXBy
-IDIwIDA2OjIzOjQwIE9TMTAga2VybmVsOiAgWzxmZmZmZmZmZjgxYTAxZmYxPl0gPyBtb3ZlX2Fk
-ZHJfdG9fa2VybmVsKzB4MjEvMHgzMApBcHIgMjAgMDY6MjM6NDAgT1MxMCBrZXJuZWw6ICBbPGZm
-ZmZmZmZmODFhMDE4ZjY+XSBfX19zeXNfc2VuZG1zZysweDM3Ni8weDM5MApBcHIgMjAgMDY6MjM6
-NDAgT1MxMCBrZXJuZWw6ICBbPGZmZmZmZmZmODFhMDAxOWY+XSA/IHNvY2tfZGVzdHJveV9pbm9k
-ZSsweDJmLzB4NDAKQXByIDIwIDA2OjIzOjQwIE9TMTAga2VybmVsOiAgWzxmZmZmZmZmZjgxMGEx
-NjFjPl0gPyBfX2RvX3BhZ2VfZmF1bHQrMHgyMGMvMHg1NjAKQXByIDIwIDA2OjIzOjQwIE9TMTAg
-a2VybmVsOiAgWzxmZmZmZmZmZjgxMjI3OWFkPl0gPyBkcHV0KzB4YWQvMHgxODAKQXByIDIwIDA2
-OjIzOjQwIE9TMTAga2VybmVsOiAgWzxmZmZmZmZmZjgxMjMwYTc0Pl0gPyBtbnRwdXQrMHgyNC8w
-eDQwCkFwciAyMCAwNjoyMzo0MCBPUzEwIGtlcm5lbDogIFs8ZmZmZmZmZmY4MTIxMmE1MD5dID8g
-X19mcHV0KzB4MTkwLzB4MjIwCkFwciAyMCAwNjoyMzo0MCBPUzEwIGtlcm5lbDogIFs8ZmZmZmZm
-ZmY4MWEwMjZiMj5dIF9fc3lzX3NlbmRtc2crMHg0Mi8weDgwCkFwciAyMCAwNjoyMzo0MCBPUzEw
-IGtlcm5lbDogIFs8ZmZmZmZmZmY4MWEwMjcwMj5dIFN5U19zZW5kbXNnKzB4MTIvMHgyMApBcHIg
-MjAgMDY6MjM6NDAgT1MxMCBrZXJuZWw6ICBbPGZmZmZmZmZmODFiYzg2Y2Q+XSBzeXN0ZW1fY2Fs
-bF9mYXN0X2NvbXBhcmVfZW5kKzB4MTAvMHgxNQ==
+While this may appear as a humdrum one line change, it's actually quite
+important. An sk_buff stores data in three places:
+
+1. A linear chunk of allocated memory in skb->data. This is the easiest
+   one to work with, but it precludes using scatterdata since the memory
+   must be linear.
+2. The array skb_shinfo(skb)->frags, which is of maximum length
+   MAX_SKB_FRAGS. This is nice for scattergather, since these fragments
+   can point to different pages.
+3. skb_shinfo(skb)->frag_list, which is a pointer to another sk_buff,
+   which in turn can have data in either (1) or (2).
+
+The first two are rather easy to deal with, since they're of a fixed
+maximum length, while the third one is not, since there can be
+potentially limitless chains of fragments. Fortunately dealing with
+frag_list is opt-in for drivers, so drivers don't actually have to deal
+with this mess. For whatever reason, macsec decided it wanted pain, and
+so it explicitly specified NETIF_F_FRAGLIST.
+
+Because dealing with (1), (2), and (3) is insane, most users of sk_buff
+doing any sort of crypto or paging operation calls a convenient function
+called skb_to_sgvec (which happens to be recursive if (3) is in use!).
+This takes a sk_buff as input, and writes into its output pointer an
+array of scattergather list items. Sometimes people like to declare a
+fixed size scattergather list on the stack; othertimes people like to
+allocate a fixed size scattergather list on the heap. However, if you're
+doing it in a fixed-size fashion, you really shouldn't be using
+NETIF_F_FRAGLIST too (unless you're also ensuring the sk_buff and its
+frag_list children arent't shared and then you check the number of
+fragments in total required.)
+
+Macsec specifically does this:
+
+        size += sizeof(struct scatterlist) * (MAX_SKB_FRAGS + 1);
+        tmp = kmalloc(size, GFP_ATOMIC);
+        *sg = (struct scatterlist *)(tmp + sg_offset);
+	...
+        sg_init_table(sg, MAX_SKB_FRAGS + 1);
+        skb_to_sgvec(skb, sg, 0, skb->len);
+
+Specifying MAX_SKB_FRAGS + 1 is the right answer usually, but not if you're
+using NETIF_F_FRAGLIST, in which case the call to skb_to_sgvec will
+overflow the heap, and disaster ensues.
+
+Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
+Cc: stable@vger.kernel.org
+Cc: security@kernel.org
+---
+ drivers/net/macsec.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/macsec.c b/drivers/net/macsec.c
+index ff0a5ed3ca80..dbab05afcdbe 100644
+--- a/drivers/net/macsec.c
++++ b/drivers/net/macsec.c
+@@ -2716,7 +2716,7 @@ static netdev_tx_t macsec_start_xmit(struct sk_buff *skb,
+ }
+ 
+ #define MACSEC_FEATURES \
+-	(NETIF_F_SG | NETIF_F_HIGHDMA | NETIF_F_FRAGLIST)
++	(NETIF_F_SG | NETIF_F_HIGHDMA)
+ static struct lock_class_key macsec_netdev_addr_lock_key;
+ 
+ static int macsec_dev_init(struct net_device *dev)
+-- 
+2.12.2
