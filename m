@@ -1,80 +1,83 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH RFC] sparc64: eBPF JIT
-Date: Fri, 21 Apr 2017 12:26:21 -0700
-Message-ID: <20170421192619.GA91454@ast-mbp.thefacebook.com>
-References: <58F50D13.3090001@iogearbox.net>
- <20170421.124640.1134810340055330244.davem@davemloft.net>
- <20170421184935.GA86324@ast-mbp.thefacebook.com>
- <20170421.150226.825217448288272000.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: daniel@iogearbox.net, sparclinux@vger.kernel.org,
-        netdev@vger.kernel.org, ast@kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <sparclinux-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170421.150226.825217448288272000.davem@davemloft.net>
-Sender: sparclinux-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net] ip6mr: avoid double unregister of pim6reg device
+Date: Fri, 21 Apr 2017 12:27:19 -0700
+Message-ID: <1492802839-16851-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: andreyknvl@google.com, Cong Wang <xiyou.wangcong@gmail.com>,
+        Linus Torvalds <torvalds@linux-foundation.org>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f68.google.com ([209.85.218.68]:34802 "EHLO
+        mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1162297AbdDUT1a (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2017 15:27:30 -0400
+Received: by mail-oi0-f68.google.com with SMTP id y11so20850017oie.1
+        for <netdev@vger.kernel.org>; Fri, 21 Apr 2017 12:27:29 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 21, 2017 at 03:02:26PM -0400, David Miller wrote:
-> From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-> Date: Fri, 21 Apr 2017 11:49:37 -0700
-> 
-> > On Fri, Apr 21, 2017 at 12:46:40PM -0400, David Miller wrote:
-> >> From: Daniel Borkmann <daniel@iogearbox.net>
-> >> Date: Mon, 17 Apr 2017 20:44:35 +0200
-> >> 
-> >> > There is samples/bpf/sockex3_kern.c, which exercises it. To
-> >> > run it, it would be (clang/llvm needed due to BPF backend not
-> >> > available in gcc):
-> >> > 
-> >> > # cd samples/bpf
-> >> > # make
-> >> > # ./sockex3
-> >> > IP     src.port -> dst.port               bytes      packets
-> >> > 127.0.0.1.12865 -> 127.0.0.1.49711          148            2
-> >> > 127.0.0.1.49711 -> 127.0.0.1.12865          108            2
-> >> > [...]
-> >> > 
-> >> > Inside parse_eth_proto(), it will do tail calls based on the
-> >> > eth protocol. Over time, we'll move such C based tests over to
-> >> > tools/testing/selftests/bpf/.
-> >> 
-> >> Ok, after a lot of work setting up an LLVM/CLANG environment and other
-> >> things, 
-> > 
-> > was it painful because of sparc environment?
-> 
-> Yes, primarily this was the reason.
-> 
-> It wasn't just a matter of building llvm/clang, I had to install a
-> whole new version of gcc because of llvm/clang build requirements.
-> 
-> Also, it isn't clear what is supposed to happen when the system
-> include files are older than the one in the kernel tree.  I thought it
-> should just work and the selftests and samples would pick up the ones
-> in the tree properly.
+If we unregister the pim6reg device via default_device_exit_batch(),
+we will receive a notification and ip6mr_device_event() will
+unregister it again. This causes a kernel BUG at net/core/dev.c:6813.
 
-interesting...
-It should pick up local headers without touching /usr/include.
-In the past I used to do 'make headers_install' before doing a build
-in samples/bpf or selftests, but then suddenly it started working
-without that step, so I figured something got fixed in the build system.
-May be it's arch specific somehow.
+Like commit 7dc00c82cbb0 ("ipv4: Fix ipmr unregister device oops")
+we should avoid double-unregister in netdevice notifier.
 
-> > redhat folks have been back and forth on adding bpf support to gcc.
-> > The backend itself was fully functional before it was abandoned.
-> > Last time we discussed it the lack of integrated asm in gcc was the main blocker.
-> > Can we bend gcc rules and let bpf backend emit custom binary and/or elf?
-> 
-> I don't see why you can't just do a proper GNU as/ld port.
-> 
-> Frankly I would love to write foo.s BFD assembler files just like for
-> any other target and them feed them to binutils.
-> 
-> And then once you have BFD support for BPF ELF you get lots of tooling
-> and you can start going for gdb support.
+Reported-by: Andrey Konovalov <andreyknvl@google.com>
+Cc: Linus Torvalds <torvalds@linux-foundation.org>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+---
+ net/ipv6/ip6mr.c | 11 ++++++-----
+ 1 file changed, 6 insertions(+), 5 deletions(-)
 
-of course I agree :) That would be ideal. Just so far no one hacked BFD.
-
+diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
+index 6ba6c90..72bee6d 100644
+--- a/net/ipv6/ip6mr.c
++++ b/net/ipv6/ip6mr.c
+@@ -774,7 +774,8 @@ static struct net_device *ip6mr_reg_vif(struct net *net, struct mr6_table *mrt)
+  *	Delete a VIF entry
+  */
+ 
+-static int mif6_delete(struct mr6_table *mrt, int vifi, struct list_head *head)
++static int mif6_delete(struct mr6_table *mrt, int vifi, struct list_head *head,
++		       bool unreg)
+ {
+ 	struct mif_device *v;
+ 	struct net_device *dev;
+@@ -820,7 +821,7 @@ static int mif6_delete(struct mr6_table *mrt, int vifi, struct list_head *head)
+ 					     dev->ifindex, &in6_dev->cnf);
+ 	}
+ 
+-	if (v->flags & MIFF_REGISTER)
++	if ((v->flags & MIFF_REGISTER) && unreg)
+ 		unregister_netdevice_queue(dev, head);
+ 
+ 	dev_put(dev);
+@@ -1340,7 +1341,7 @@ static int ip6mr_device_event(struct notifier_block *this,
+ 		v = &mrt->vif6_table[0];
+ 		for (ct = 0; ct < mrt->maxvif; ct++, v++) {
+ 			if (v->dev == dev)
+-				mif6_delete(mrt, ct, &list);
++				mif6_delete(mrt, ct, &list, false);
+ 		}
+ 	}
+ 	unregister_netdevice_many(&list);
+@@ -1552,7 +1553,7 @@ static void mroute_clean_tables(struct mr6_table *mrt, bool all)
+ 	for (i = 0; i < mrt->maxvif; i++) {
+ 		if (!all && (mrt->vif6_table[i].flags & VIFF_STATIC))
+ 			continue;
+-		mif6_delete(mrt, i, &list);
++		mif6_delete(mrt, i, &list, true);
+ 	}
+ 	unregister_netdevice_many(&list);
+ 
+@@ -1707,7 +1708,7 @@ int ip6_mroute_setsockopt(struct sock *sk, int optname, char __user *optval, uns
+ 		if (copy_from_user(&mifi, optval, sizeof(mifi_t)))
+ 			return -EFAULT;
+ 		rtnl_lock();
+-		ret = mif6_delete(mrt, mifi, NULL);
++		ret = mif6_delete(mrt, mifi, NULL, true);
+ 		rtnl_unlock();
+ 		return ret;
+ 
+-- 
+2.5.5
