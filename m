@@ -1,189 +1,137 @@
-From: Stefan Hajnoczi <stefanha@redhat.com>
-Subject: [PATCH v5 3/3] VSOCK: Add virtio vsock vsockmon hooks
-Date: Fri, 21 Apr 2017 10:10:46 +0100
-Message-ID: <20170421091046.5599-4-stefanha@redhat.com>
-References: <20170421091046.5599-1-stefanha@redhat.com>
-Cc: Zhu Yanjun <zyjzyj2000@gmail.com>,
-        "Michael S. Tsirkin" <mst@redhat.com>,
-        Gerard Garcia <ggarcia@abra.uab.cat>,
-        Jorgen Hansen <jhansen@vmware.com>,
-        Stefan Hajnoczi <stefanha@redhat.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43556 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1031928AbdDUJLR (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 21 Apr 2017 05:11:17 -0400
-In-Reply-To: <20170421091046.5599-1-stefanha@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: James Hughes <james.hughes-FnsA7b+Nu9XbIbC87yuRow@public.gmane.org>
+Subject: Re: [PATCH] brcm80211: brcmfmac: Ensure that incoming skb's are writable
+Date: Fri, 21 Apr 2017 10:22:57 +0100
+Message-ID: <CAE_XsMKSO=P-h5AyPJy=59zDq=DmLFqBAX8Bqsofey=aAFD5dQ@mail.gmail.com>
+References: <20170420111651.10213-1-james.hughes@raspberrypi.org> <b6891d80-cc5f-3bcd-72aa-1de2d9bb9144@broadcom.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Franky Lin <franky.lin-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        Hante Meuleman <hante.meuleman-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+        linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Arend van Spriel <arend.vanspriel-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <b6891d80-cc5f-3bcd-72aa-1de2d9bb9144-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Gerard Garcia <ggarcia@deic.uab.cat>
+On 20 April 2017 at 20:48, Arend van Spriel
+<arend.vanspriel-dY08KVG/lbpWk0Htik3J/w@public.gmane.org> wrote:
+> + linux-wireless
+>
+> On 4/20/2017 1:16 PM, James Hughes wrote:
+>>
+>> The driver was adding header information to incoming skb
+>> without ensuring the head was uncloned and hence writable.
+>>
+>> skb_cow_head has been used to ensure they are writable, however,
+>> this required some changes to error handling to ensure that
+>> if skb_cow_head failed it was not ignored.
+>>
+>> This really needs to be reviewed by someone who is more familiar
+>> with this code base to ensure any deallocation of skb's is
+>> still correct.
+>>
+>> Signed-off-by: James Hughes <james.hughes-FnsA7b+Nu9XbIbC87yuRow@public.gmane.org>
+>> ---
+>>   .../wireless/broadcom/brcm80211/brcmfmac/bcdc.c    | 15 ++++++++--
+>>   .../wireless/broadcom/brcm80211/brcmfmac/core.c    | 23 +++++-----------
+>>   .../broadcom/brcm80211/brcmfmac/fwsignal.c         | 32
+>> +++++++++++++++++-----
+>>   .../wireless/broadcom/brcm80211/brcmfmac/sdio.c    |  7 ++++-
+>>   4 files changed, 51 insertions(+), 26 deletions(-)
+>>
+>
+> [...]
+>
+>> diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.c
+>> b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.c
+>> index 5eaac13..08272e8 100644
+>> --- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.c
+>> +++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.c
+>> @@ -198,7 +198,7 @@ static netdev_tx_t brcmf_netdev_start_xmit(struct
+>> sk_buff *skb,
+>>         int ret;
+>>         struct brcmf_if *ifp = netdev_priv(ndev);
+>>         struct brcmf_pub *drvr = ifp->drvr;
+>> -       struct ethhdr *eh = (struct ethhdr *)(skb->data);
+>> +       struct ethhdr *eh;
+>>         brcmf_dbg(DATA, "Enter, bsscfgidx=%d\n", ifp->bsscfgidx);
+>>   @@ -212,23 +212,14 @@ static netdev_tx_t brcmf_netdev_start_xmit(struct
+>> sk_buff *skb,
+>>         }
+>>         /* Make sure there's enough room for any header */
+>> -       if (skb_headroom(skb) < drvr->hdrlen) {
+>> -               struct sk_buff *skb2;
+>> -
+>> -               brcmf_dbg(INFO, "%s: insufficient headroom\n",
+>> -                         brcmf_ifname(ifp));
+>> -               drvr->bus_if->tx_realloc++;
+>> -               skb2 = skb_realloc_headroom(skb, drvr->hdrlen);
+>> -               dev_kfree_skb(skb);
+>> -               skb = skb2;
+>> -               if (skb == NULL) {
+>> -                       brcmf_err("%s: skb_realloc_headroom failed\n",
+>> -                                 brcmf_ifname(ifp));
+>> -                       ret = -ENOMEM;
+>> -                       goto done;
+>> -               }
+>
+>
+> What you are throwing away here is code that assures there is sufficient
+> headroom for protocol and bus layer in the tx path, because that is
+> determined by drvr->hdrlen. This is where the skb is handed to the driver so
+> if you could leave the functionality above *and* assure it is writeable that
+> would be the best solution as there is no need for all the other changes
+> down the tx path.
 
-The virtio drivers deal with struct virtio_vsock_pkt.  Add
-virtio_transport_deliver_tap_pkt(pkt) for handing packets to the
-vsockmon device.
+The skb_cow_head function takes the required headroom as a parameter
+and will ensure that there is enough space, so I don't think this code
+segment is
+required or have I misunderstood what you mean here?
 
-We call virtio_transport_deliver_tap_pkt(pkt) from
-net/vmw_vsock/virtio_transport.c and drivers/vhost/vsock.c instead of
-common code.  This is because the drivers may drop packets before
-handing them to common code - we still want to capture them.
+Is it safe to rely on the _cow_ being done here and not further down
+in the stack?
+Or at least checked further down in the stack. Previous comments from
+another patch
+requested that the _cow_ be done close to the actual addition of the
+header. I presume
+it is unlikely/impossible that the functions that add header
+information  down the stack
+will be called without the above being done first?
 
-Signed-off-by: Gerard Garcia <ggarcia@deic.uab.cat>
-Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
----
-v5:
- * s/cpu_to_le16(pkt->hdr.op)/le16_to_cpu(pkt->hdr.op)/ [Michael]
- * checkpatch.pl fixes
-v3:
- * Hook virtio_transport.c (guest driver), not just
-   drivers/vhost/vsock.c (host driver)
----
- include/linux/virtio_vsock.h            |  1 +
- drivers/vhost/vsock.c                   |  8 +++++
- net/vmw_vsock/virtio_transport.c        |  3 ++
- net/vmw_vsock/virtio_transport_common.c | 64 +++++++++++++++++++++++++++++++++
- 4 files changed, 76 insertions(+)
+>
+>> +       ret = skb_cow_head(skb, drvr->hdrlen);
+>> +       if (ret) {
+>
+>
+> So move the realloc code above here instead of simply freeing the skb.
+>
+>> +               dev_kfree_skb_any(skb);
+>> +               goto done;
+>>         }
+>>   +     eh = (struct ethhdr *)(skb->data);
+>
+>
+> Now this is actually a separate fix so I would like a separate patch for it.
+>
 
-diff --git a/include/linux/virtio_vsock.h b/include/linux/virtio_vsock.h
-index 584f9a6..ab13f07 100644
---- a/include/linux/virtio_vsock.h
-+++ b/include/linux/virtio_vsock.h
-@@ -153,5 +153,6 @@ void virtio_transport_free_pkt(struct virtio_vsock_pkt *pkt);
- void virtio_transport_inc_tx_pkt(struct virtio_vsock_sock *vvs, struct virtio_vsock_pkt *pkt);
- u32 virtio_transport_get_credit(struct virtio_vsock_sock *vvs, u32 wanted);
- void virtio_transport_put_credit(struct virtio_vsock_sock *vvs, u32 credit);
-+void virtio_transport_deliver_tap_pkt(struct virtio_vsock_pkt *pkt);
- 
- #endif /* _LINUX_VIRTIO_VSOCK_H */
-diff --git a/drivers/vhost/vsock.c b/drivers/vhost/vsock.c
-index 44eed8e..d939ac1 100644
---- a/drivers/vhost/vsock.c
-+++ b/drivers/vhost/vsock.c
-@@ -176,6 +176,11 @@ vhost_transport_do_send_pkt(struct vhost_vsock *vsock,
- 				restart_tx = true;
- 		}
- 
-+		/* Deliver to monitoring devices all correctly transmitted
-+		 * packets.
-+		 */
-+		virtio_transport_deliver_tap_pkt(pkt);
-+
- 		virtio_transport_free_pkt(pkt);
- 	}
- 	if (added)
-@@ -383,6 +388,9 @@ static void vhost_vsock_handle_tx_kick(struct vhost_work *work)
- 
- 		len = pkt->len;
- 
-+		/* Deliver to monitoring devices all received packets */
-+		virtio_transport_deliver_tap_pkt(pkt);
-+
- 		/* Only accept correctly addressed packets */
- 		if (le64_to_cpu(pkt->hdr.src_cid) == vsock->guest_cid)
- 			virtio_transport_recv_pkt(pkt);
-diff --git a/net/vmw_vsock/virtio_transport.c b/net/vmw_vsock/virtio_transport.c
-index 68675a1..9dffe02 100644
---- a/net/vmw_vsock/virtio_transport.c
-+++ b/net/vmw_vsock/virtio_transport.c
-@@ -144,6 +144,8 @@ virtio_transport_send_pkt_work(struct work_struct *work)
- 		list_del_init(&pkt->list);
- 		spin_unlock_bh(&vsock->send_pkt_list_lock);
- 
-+		virtio_transport_deliver_tap_pkt(pkt);
-+
- 		reply = pkt->reply;
- 
- 		sg_init_one(&hdr, &pkt->hdr, sizeof(pkt->hdr));
-@@ -370,6 +372,7 @@ static void virtio_transport_rx_work(struct work_struct *work)
- 			}
- 
- 			pkt->len = len - sizeof(pkt->hdr);
-+			virtio_transport_deliver_tap_pkt(pkt);
- 			virtio_transport_recv_pkt(pkt);
- 		}
- 	} while (!virtqueue_enable_cb(vq));
-diff --git a/net/vmw_vsock/virtio_transport_common.c b/net/vmw_vsock/virtio_transport_common.c
-index af087b4..18e2479 100644
---- a/net/vmw_vsock/virtio_transport_common.c
-+++ b/net/vmw_vsock/virtio_transport_common.c
-@@ -16,6 +16,7 @@
- #include <linux/virtio_ids.h>
- #include <linux/virtio_config.h>
- #include <linux/virtio_vsock.h>
-+#include <uapi/linux/vsockmon.h>
- 
- #include <net/sock.h>
- #include <net/af_vsock.h>
-@@ -85,6 +86,69 @@ virtio_transport_alloc_pkt(struct virtio_vsock_pkt_info *info,
- 	return NULL;
- }
- 
-+/* Packet capture */
-+static struct sk_buff *virtio_transport_build_skb(void *opaque)
-+{
-+	struct virtio_vsock_pkt *pkt = opaque;
-+	unsigned char *t_hdr, *payload;
-+	struct af_vsockmon_hdr *hdr;
-+	struct sk_buff *skb;
-+
-+	skb = alloc_skb(sizeof(*hdr) + sizeof(pkt->hdr) + pkt->len,
-+			GFP_ATOMIC);
-+	if (!skb)
-+		return NULL;
-+
-+	hdr = (struct af_vsockmon_hdr *)skb_put(skb, sizeof(*hdr));
-+
-+	/* pkt->hdr is little-endian so no need to byteswap here */
-+	hdr->src_cid = pkt->hdr.src_cid;
-+	hdr->src_port = pkt->hdr.src_port;
-+	hdr->dst_cid = pkt->hdr.dst_cid;
-+	hdr->dst_port = pkt->hdr.dst_port;
-+
-+	hdr->transport = cpu_to_le16(AF_VSOCK_TRANSPORT_VIRTIO);
-+	hdr->len = cpu_to_le16(sizeof(pkt->hdr));
-+	memset(hdr->reserved, 0, sizeof(hdr->reserved));
-+
-+	switch (le16_to_cpu(pkt->hdr.op)) {
-+	case VIRTIO_VSOCK_OP_REQUEST:
-+	case VIRTIO_VSOCK_OP_RESPONSE:
-+		hdr->op = cpu_to_le16(AF_VSOCK_OP_CONNECT);
-+		break;
-+	case VIRTIO_VSOCK_OP_RST:
-+	case VIRTIO_VSOCK_OP_SHUTDOWN:
-+		hdr->op = cpu_to_le16(AF_VSOCK_OP_DISCONNECT);
-+		break;
-+	case VIRTIO_VSOCK_OP_RW:
-+		hdr->op = cpu_to_le16(AF_VSOCK_OP_PAYLOAD);
-+		break;
-+	case VIRTIO_VSOCK_OP_CREDIT_UPDATE:
-+	case VIRTIO_VSOCK_OP_CREDIT_REQUEST:
-+		hdr->op = cpu_to_le16(AF_VSOCK_OP_CONTROL);
-+		break;
-+	default:
-+		hdr->op = cpu_to_le16(AF_VSOCK_OP_UNKNOWN);
-+		break;
-+	}
-+
-+	t_hdr = skb_put(skb, sizeof(pkt->hdr));
-+	memcpy(t_hdr, &pkt->hdr, sizeof(pkt->hdr));
-+
-+	if (pkt->len) {
-+		payload = skb_put(skb, pkt->len);
-+		memcpy(payload, pkt->buf, pkt->len);
-+	}
-+
-+	return skb;
-+}
-+
-+void virtio_transport_deliver_tap_pkt(struct virtio_vsock_pkt *pkt)
-+{
-+	vsock_deliver_tap(virtio_transport_build_skb, pkt);
-+}
-+EXPORT_SYMBOL_GPL(virtio_transport_deliver_tap_pkt);
-+
- static int virtio_transport_send_pkt_info(struct vsock_sock *vsk,
- 					  struct virtio_vsock_pkt_info *info)
- {
--- 
-2.9.3
+No problem, but see final paragraph below.
+
+
+> I have a RPi3 sitting on my desk so how can I replicate the issue. It was
+> something about broadcast/multicast traffic when using AP mode and a bridge,
+> right?
+>
+> Regards,
+> Arend
+
+See this issue for details on replication.
+https://github.com/raspberrypi/firmware/issues/673
+
+The bridge I use is setup using a similar procedure to that described
+here.  https://www.raspberrypi.org/documentation/configuration/wireless/access-point.md
+
+I'm happy to pass over this work to you guys if you think it is
+appropriate, you are the
+experts on the codebase.
