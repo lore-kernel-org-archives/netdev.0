@@ -1,40 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/1] netvsc: Deal with rescinded channels
- correctly
-Date: Fri, 21 Apr 2017 13:51:29 -0400 (EDT)
-Message-ID: <20170421.135129.972459595313792070.davem@davemloft.net>
-References: <1492635229-29075-1-git-send-email-kys@exchange.microsoft.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: Heads-up: two regressions in v4.11-rc series
+Date: Fri, 21 Apr 2017 10:52:29 -0700
+Message-ID: <CA+55aFznH8Y9_okyQ=dU1AeJL8rtHx=n5DqT3sGJj7kr6QMYXA@mail.gmail.com>
+References: <20170420110042.73d01e0f@redhat.com> <20170420143033.3nzi6nruqd5s3n7f@techsingularity.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, sthemmin@microsoft.com, netdev@vger.kernel.org,
- jasowang@redhat.com, linux-kernel@vger.kernel.org, marcelo.cerri@canonical.com,
- apw@canonical.com, devel@linuxdriverproject.org,
- leann.ogasawara@canonical.comi
-To: kys@microsoft.com, kys@exchange.microsoft.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1492635229-29075-1-git-send-email-kys@exchange.microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>, Andrew Morton <akpm@linux-foundation.org>,
+	Frederic Weisbecker <fweisbec@gmail.com>, Tariq Toukan <tariqt@mellanox.com>,
+	LKML <linux-kernel@vger.kernel.org>, linux-mm <linux-mm@kvack.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>, Peter Zijlstra <peterz@infradead.org>
+To: Mel Gorman <mgorman@techsingularity.net>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20170420143033.3nzi6nruqd5s3n7f@techsingularity.net>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-From: kys@exchange.microsoft.com
-Date: Wed, 19 Apr 2017 13:53:49 -0700
+On Thu, Apr 20, 2017 at 7:30 AM, Mel Gorman <mgorman@techsingularity.net> wrote:
+>> The end result was a revert, and this is waiting in AKPMs quilt queue:
+>>  http://ozlabs.org/~akpm/mmots/broken-out/revert-mm-page_alloc-only-use-per-cpu-allocator-for-irq-safe-requests.patch
+>>
+>
+> This was flagged to Andrew that it should go in for either 4.11 or if
+> there were concerns about how close to the release we are then put it in
+> for 4.11-stable. At worst, I can do a resubmit to -stable myself after
+> it gets merged in the next window if it falls between the cracks.
 
-> From: K. Y. Srinivasan <kys@microsoft.com>
-> 
-> We will not be able to send packets over a channel that has been
-> rescinded. Make necessary adjustments so we can properly cleanup
-> even when the channel is rescinded. This issue can be trigerred
-> in the NIC hot-remove path.
-> 
-> Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+This got merged (commit d34b0733b452: "Revert "mm, page_alloc: only
+use per-cpu allocator for irq-safe requests"").
 
-Applied, thanks.
+The other issue (caused by commit a499a5a14dbd: "sched/cputime:
+Increment kcpustat directly on irqtime account") is still open.
+
+Frederic? Revert? But I guess it's something we can delay for
+backporting, it's presumably not possible to hit maliciously except on
+some fast local network attacker just causing an effective DoS.
+
+                   Linus
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
