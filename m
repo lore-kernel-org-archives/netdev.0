@@ -1,47 +1,56 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2 next] bonding: fix wq initialization for links
- created via netlink
-Date: Fri, 21 Apr 2017 15:29:13 -0400 (EDT)
-Message-ID: <20170421.152913.1790106808332321956.davem@davemloft.net>
-References: <20170420194924.20829-1-mahesh@bandewar.net>
+Subject: Re: [PATCH] Fix values type used in test_maps
+Date: Fri, 21 Apr 2017 15:29:27 -0400 (EDT)
+Message-ID: <20170421.152927.791898060188963796.davem@davemloft.net>
+References: <20170420.152016.2219427430519868937.davem@davemloft.net>
+        <58F92725.5050304@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: j.vosburgh@gmail.com, andy@greyhouse.net, vfalico@gmail.com,
-        nikolay@redhat.com, edumazet@google.com, joe@ovn.org,
-        netdev@vger.kernel.org, maheshb@google.com
-To: mahesh@bandewar.net
+Cc: ast@fb.com, borkmann@iogearbox.net, netdev@vger.kernel.org
+To: daniel@iogearbox.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:37386 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:37404 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1425168AbdDUT3V (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2017 15:29:21 -0400
-In-Reply-To: <20170420194924.20829-1-mahesh@bandewar.net>
+        with ESMTP id S1424371AbdDUT3d (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2017 15:29:33 -0400
+In-Reply-To: <58F92725.5050304@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mahesh Bandewar <mahesh@bandewar.net>
-Date: Thu, 20 Apr 2017 12:49:24 -0700
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Thu, 20 Apr 2017 23:24:53 +0200
 
-> From: Mahesh Bandewar <maheshb@google.com>
+> On 04/20/2017 09:20 PM, David Miller wrote:
+>>
+>> Maps of per-cpu type have their value element size adjusted to 8 if it
+>> is specified smaller during various map operations.
+>>
+>> This makes test_maps as a 32-bit binary fail, in fact the kernel
+>> writes past the end of the value's array on the user's stack.
+>>
+>> To be quite honest, I think the kernel should reject creation of a
+>> per-cpu map that doesn't have a value size of at least 8 if that's
+>> what the kernel is going to silently adjust to later.
 > 
-> Earlier patch 4493b81bea ("bonding: initialize work-queues during
-> creation of bond") moved the work-queue initialization from bond_open()
-> to bond_create(). However this caused the link those are created using
-> netlink 'create bond option' (ip link add bondX type bond); create the
-> new trunk without initializing work-queues. Prior to the above mentioned
-> change, ndo_open was in both paths and things worked correctly. The
-> consequence is visible in the report shared by Joe Stringer -
+> It's unintuitive, agree, and it's in fact a round_up(value_size, 8),
+> so rejecting a value size smaller than 8 doesn't really help; commit
+> 15a07b33814d ("bpf: add lookup/update support for per-cpu hash and
+> array maps") explained the rationale a bit. Hmm, we should probably
+> move at least the bpf_num_possible_cpus() and round_up(val_size, 8)
+> calculation as a single wrapper function to be used for determining
+> the array size into bpf_util.h, so that it's slightly easier to deal
+> with.
 > 
-> I've noticed that this patch breaks bonding within namespaces if
-> you're not careful to perform device cleanup correctly.
+>> If the user passed something smaller, it is a sizeof() calcualtion
+>> based upon the type they will actually use (just like in this testcase
+>> code) in later calls to the map operations.
 > 
-> Here's my repro script, you can run on any net-next with this patch
-> and you'll start seeing some weird behaviour:
- ...
-> Fixes: 4493b81bea ("bonding: initialize work-queues during creation of bond")
-> Reported-by: Joe Stringer <joe@ovn.org>
-> Tested-by: Joe Stringer <joe@ovn.org>
-> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+> Fixes: df570f577231 ("samples/bpf: unit test for
+> BPF_MAP_TYPE_PERCPU_ARRAY")
+> 
+>> Signed-off-by: David S. Miller <davem@davemloft.net>
+> 
+> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
 
-Applied, thanks.
+Ok, applied to net-next, thanks to you and Alexei for reviewing.
