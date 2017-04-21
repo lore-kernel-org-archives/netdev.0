@@ -1,89 +1,55 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH net-next 1/3] net/tcp_fastopen: Disable active side TFO in
- certain scenarios
-Date: Thu, 20 Apr 2017 22:40:32 -0400
-Message-ID: <CADVnQyk6MEFpKg_qzLySYJcXT_zsb-bGYaBWUiOX=aEJkCafJQ@mail.gmail.com>
-References: <20170420214548.23666-1-tracywwnj@gmail.com> <20170420214548.23666-2-tracywwnj@gmail.com>
+From: Andy Duan <fugang.duan@nxp.com>
+Subject: Re: FEC on i.MX 7 transmit queue timeout
+Date: Fri, 21 Apr 2017 02:48:31 +0000
+Message-ID: <ab1fc814-4a81-9eb0-b20b-2cd325158ba8@nxp.com>
+References: <c6b66956c48f981a952048da6b2ddd54@agner.ch>
+ <ed24e51d-499f-597b-0c9f-7f180e257acb@nxp.com>
+ <e99d7c93b7819507c6448842015bf836@agner.ch>
+ <AM4PR0401MB2260EBCD552219D3402B68FEFF180@AM4PR0401MB2260.eurprd04.prod.outlook.com>
+ <86b63ee28acfff3426c4a0bf72d848c1@agner.ch>
+ <2bdd64ab-5644-e0a0-9bfe-b8dd2fca7abb@nxp.com>
+ <80191e7c9df5871cd450f13b9ea47a10@agner.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        Yuchung Cheng <ycheng@google.com>,
-        Eric Dumazet <edumazet@google.com>
-To: Wei Wang <weiwan@google.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "fugang.duan@freescale.com" <fugang.duan@freescale.com>,
+        "festevam@gmail.com" <festevam@gmail.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "netdev-owner@vger.kernel.org" <netdev-owner@vger.kernel.org>
+To: Stefan Agner <stefan@agner.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f47.google.com ([209.85.218.47]:33535 "EHLO
-        mail-oi0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1034435AbdDUClE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 22:41:04 -0400
-Received: by mail-oi0-f47.google.com with SMTP id y11so43754573oie.0
-        for <netdev@vger.kernel.org>; Thu, 20 Apr 2017 19:41:04 -0700 (PDT)
-In-Reply-To: <20170420214548.23666-2-tracywwnj@gmail.com>
+Received: from mail-he1eur01on0072.outbound.protection.outlook.com ([104.47.0.72]:30944
+        "EHLO EUR01-HE1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1034866AbdDUCsf (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 20 Apr 2017 22:48:35 -0400
+In-Reply-To: <80191e7c9df5871cd450f13b9ea47a10@agner.ch>
+Content-Language: en-US
+Content-ID: <412F54F769F7424CBA30DDC5C65775E6@eurprd04.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 20, 2017 at 5:45 PM, Wei Wang <weiwan@google.com> wrote:
-> From: Wei Wang <weiwan@google.com>
->
-> Middlebox firewall issues can potentially cause server's data being
-> blackholed after a successful 3WHS using TFO. Following are the related
-> reports from Apple:
-> https://www.nanog.org/sites/default/files/Paasch_Network_Support.pdf
-> Slide 31 identifies an issue where the client ACK to the server's data
-> sent during a TFO'd handshake is dropped.
-> C ---> syn-data ---> S
-> C <--- syn/ack ----- S
-> C (accept & write)
-> C <---- data ------- S
-> C ----- ACK -> X     S
->                 [retry and timeout]
->
-> https://www.ietf.org/proceedings/94/slides/slides-94-tcpm-13.pdf
-> Slide 5 shows a similar situation that the server's data gets dropped
-> after 3WHS.
-> C ---- syn-data ---> S
-> C <--- syn/ack ----- S
-> C ---- ack --------> S
-> S (accept & write)
-> C?  X <- data ------ S
->                 [retry and timeout]
->
-> This is the worst failure b/c the client can not detect such behavior to
-> mitigate the situation (such as disabling TFO). Failing to proceed, the
-> application (e.g., SSL library) may simply timeout and retry with TFO
-> again, and the process repeats indefinitely.
->
-> The proposed solution is to disable active TFO globally under the
-> following circumstances:
-> 1. client side TFO socket detects out of order FIN
-> 2. client side TFO socket receives out of order RST
->
-> We disable active side TFO globally for 1hr at first. Then if it
-> happens again, we disable it for 2h, then 4h, 8h, ...
-> And we reset the timeout to 1hr if a client side TFO sockets not opened
-> on loopback has successfully received data segs from server.
-> And we examine this condition during close().
->
-> The rational behind it is that when such firewall issue happens,
-> application running on the client should eventually close the socket as
-> it is not able to get the data it is expecting. Or application running
-> on the server should close the socket as it is not able to receive any
-> response from client.
-> In both cases, out of order FIN or RST will get received on the client
-> given that the firewall will not block them as no data are in those
-> frames.
-> And we want to disable active TFO globally as it helps if the middle box
-> is very close to the client and most of the connections are likely to
-> fail.
->
-> Also, add a debug sysctl:
->   tcp_fastopen_blackhole_detect_timeout_sec:
->     the initial timeout to use when firewall blackhole issue happens.
->     This can be set and read.
->     When setting it to 0, it means to disable the active disable logic.
->
-> Signed-off-by: Wei Wang <weiwan@google.com>
-
-Acked-by: Neal Cardwell <ncardwell@google.com>
-
-neal
+DQpPbiAyMDE35bm0MDTmnIgyMOaXpSAwNzoxNSwgU3RlZmFuIEFnbmVyIHdyb3RlOg0KPiBJIHRl
+c3RlZCBhZ2FpbiB3aXRoIGlteDZzeC1mZWMgY29tcGF0aWJsZSBzdHJpbmcuIEkgY291bGQgcmVw
+cm9kdWNlIGl0DQo+IG9uIGEgQ29saWJyaSB3aXRoIGkuTVggN0R1YWwuIEJ1dCBub3QgYWx3YXlz
+OiBJdCByZWFsbHkgZGVwZW5kcyB3aGV0aGVyDQo+IHF1ZXVlIDIgaXMgY291bnRpbmcgdXAgb3Ig
+bm90LiBKdXN0IGFmdGVyIGJvb3QsIEkgY2hlY2sgL3Byb2MvaW50ZXJydXB0cw0KPiB0d2ljZSwg
+aWYgcXVldWUgMiBpcyBjb3VudGluZyBpdCB3aWxsIGhhcHBlbiENCj4NCj4gQnV0IGlmIG9ubHkg
+cXVldWUgMCBpcyBtb3N0bHkgaW4gdXNlLCB0aGVuIGl0IHNlZW1zIHRvIHdvcmsganVzdCBmaW5l
+Lg0KSWYgeW91ciBjYXNlIGlzIG9ubHkgcnVubmluZyBiZXN0IGVmZm9ydCBsaWtlIHRjcC91ZHAs
+IHlvdSBjYW4gcmUtc2V0IA0KdGhlICJmc2wsbnVtLXR4LXF1ZXVlcyIgYW5kICJmc2wsbnVtLXJ4
+LXF1ZXVlcyIgdG8gMSBpbiBib2FyZCBkdHMgZmlsZS4NCk90aGVyIHR3byBxdWV1ZXMgYXJlIGZv
+ciBBVkIgYXVkaW8vdmlkZW8gcXVldWVzLCB0aGV5IGhhdmUgaGlnaCBwcmlvcml0eSANCnRoYW4g
+cXVldWUgMC4gSWYgcnVubmluZyBpcGVyZiB0Y3AgdGVzdCBvbiB0aGUgdGhyZWUgcXVldWVzLCB0
+aGVuDQp0aGUgdGNwIHNlZ21lbnQgbWF5IGJlIG91dC1vZi1vcmRlciB0aGF0IGNhdXNlIG5ldCB3
+YXRjaGRvZyB0aW1lb3V0Lg0KPg0KPiBJIGFsc28gdHJpZWQgaS5NWCA3RHVhbCBTYWJyZVNEIGhl
+cmUsIGFuZCB0aGUgc2FtZSB0aGluZy4gSSBoYWQgdG8NCj4gcmVib290IDMgdGltZXMsIHRoZW4g
+cXVldWUgMiB3YXMgY291bnRpbmc6DQo+ICAgNTc6ICAgICAgICAgIDggICAgIEdJQy0wIDE1MCBM
+ZXZlbCAgICAgMzBiZTAwMDAuZXRoZXJuZXQNCj4gICA1ODogICAgICAyMDEzNyAgICAgR0lDLTAg
+MTUxIExldmVsICAgICAzMGJlMDAwMC5ldGhlcm5ldA0KPiAgIDU5OiAgICAgICA5MjY5ICAgICBH
+SUMtMCAxNTIgTGV2ZWwgICAgIDMwYmUwMDAwLmV0aGVybmV0DQo+DQo+IEl0IHRvb2sgbWUgYWJv
+dXQgNDAgbWludXRlcyBvbiBTYWJyZSB1bnRpbCBpdCBoYXBwZW5lZCwgYW5kIEkgaGFkIHRvDQo+
+IGZvcmNlIGl0IHVzaW5nIGlwZXJmLCBidXQgdGhlbiBJIGdvdCB0aGUgcmluZyBkdW1wczoNCk15
+IGJvYXJkIGhhZCByYW4gbW9yZSB0aGFuIDQ3IGhvdXJzIHdpdGggbmZzIHJvb3RmcyBpbiA0LjEx
+LjAtcmM2LCBidXQgDQpub3QgcnVubmluZyBpcGVyZi4NCkkgYW0gdGVzdGluZyB3aXRoIGlwZXJm
+Lg0KDQpBbmR5
