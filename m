@@ -1,28 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request (net-next): ipsec-next 2017-04-20
-Date: Fri, 21 Apr 2017 15:14:05 -0400 (EDT)
-Message-ID: <20170421.151405.493464671744357716.davem@davemloft.net>
-References: <1492678515-14347-1-git-send-email-steffen.klassert@secunet.com>
+Subject: Re: [PATCH net-next 0/2] ip_tunnel: Allow policy-based routing
+ through tunnels
+Date: Fri, 21 Apr 2017 13:21:54 -0400 (EDT)
+Message-ID: <20170421.132154.675013808656729933.davem@davemloft.net>
+References: <20170419163054.31173-1-kraigatgoog@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
-To: steffen.klassert@secunet.com
+Cc: netdev@vger.kernel.org
+To: kraigatgoog@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:37198 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:37218 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1424688AbdDUTOH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2017 15:14:07 -0400
-In-Reply-To: <1492678515-14347-1-git-send-email-steffen.klassert@secunet.com>
+        with ESMTP id S1424623AbdDUTRf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2017 15:17:35 -0400
+In-Reply-To: <20170419163054.31173-1-kraigatgoog@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Date: Thu, 20 Apr 2017 10:54:59 +0200
+From: Craig Gallek <kraigatgoog@gmail.com>
+Date: Wed, 19 Apr 2017 12:30:52 -0400
 
-> This adds the basic infrastructure for IPsec hardware
-> offloading, it creates a configuration API and adjusts
-> the packet path.
- ...
+> iproute2 changes to follow.  Example usage:
+>   ip link add gre-test type gre local 10.0.0.1 remote 10.0.0.2 fwmark 0x4
+>   ip -detail link show gre-test
+>   ...
+>   ip link set gre-test type gre fwmark 0
 
-Looks great, pulled, thanks Steffen.
+Looks good, series applied, thanks.
