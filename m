@@ -1,46 +1,40 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [PATCH net] ip6mr: fix notification device destruction
-Date: Fri, 21 Apr 2017 22:50:35 +0300
-Message-ID: <44095170-e47c-ce85-d0f6-95a24da0e200@cumulusnetworks.com>
-References: <CAAeHK+zUZMGQuW=7Qhz3EWYjh6Zwv9eMBCiMCU79QrYNWox0-Q@mail.gmail.com>
- <1492796536-28781-1-git-send-email-nikolay@cumulusnetworks.com>
- <6d7dca26-4bc6-870c-8eb9-409f6c6b8fd5@cumulusnetworks.com>
- <20170421.153635.1878323052363882645.davem@davemloft.net>
+From: Ian Kumlien <ian.kumlien@gmail.com>
+Subject: Re: [RFC] change the default Kconfig value of mlx5_en
+Date: Fri, 21 Apr 2017 21:51:15 +0200
+Message-ID: <CAA85sZtBo5dORg4sj8X_SROBU0ySh3_CQh1WiYcVX-RVv4E+gA@mail.gmail.com>
+References: <CAA85sZumYPfUg_yA=5azrHneqq-XBmHiGNgRaEvBwbewVRj11w@mail.gmail.com>
+ <20170421.154745.182611990085743539.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org,
-        dvyukov@google.com, kcc@google.com, syzkaller@googlegroups.com,
-        edumazet@google.com, roopa@cumulusnetworks.com,
-        torvalds@linux-foundation.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: saeedm@mellanox.com,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170421.153635.1878323052363882645.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f46.google.com ([209.85.215.46]:35763 "EHLO
+        mail-lf0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1425602AbdDUTvh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2017 15:51:37 -0400
+Received: by mail-lf0-f46.google.com with SMTP id 75so49874056lfs.2
+        for <netdev@vger.kernel.org>; Fri, 21 Apr 2017 12:51:37 -0700 (PDT)
+In-Reply-To: <20170421.154745.182611990085743539.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 21/04/17 22:36, David Miller wrote:
-> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-> Date: Fri, 21 Apr 2017 21:30:42 +0300
-> 
->> On 21/04/17 20:42, Nikolay Aleksandrov wrote:
->>> Andrey Konovalov reported a BUG caused by the ip6mr code which is caused
->>> because we call unregister_netdevice_many for a device that is already
->>> being destroyed. In IPv4's ipmr that has been resolved by two commits
->>> long time ago by introducing the "notify" parameter to the delete
->>> function and avoiding the unregister when called from a notifier, so
->>> let's do the same for ip6mr.
->  ...
->> +CC LKML and Linus
-> 
-> Applied, thanks Nikolay and thanks Andrey for the report and testing.
-> 
-> Nikolay, how far does this bug go back?
-> 
+On Fri, Apr 21, 2017 at 9:47 PM, David Miller <davem@davemloft.net> wrote:
+> From: Ian Kumlien <ian.kumlien@gmail.com>
+> Date: Fri, 21 Apr 2017 21:45:00 +0200
+>
+>> The mellanox driver supports both ethernet and infiniband, but it
+>> is located in the ethernet drivers - the ethernet support should
+>> default to 'yes'.
+>
+> I don't have that card and I therefore perhaps don't want that driver
+> in my builds.
 
-Good question, AFAICS since ip6mr exists because it was copied from ipmr:
-commit 7bc570c8b4f7
-Author: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Date:   Thu Apr 3 09:22:53 2008 +0900
+Ah, sorry - really tired here, got it in to my head that this was just
+a flag for
+the driver to build the ethernet module, sorry
 
-    [IPV6] MROUTE: Support multicast forwarding.
+> This is not an appropriate change, sorry.
+
+Nope, completely agree... sorry for the noise
