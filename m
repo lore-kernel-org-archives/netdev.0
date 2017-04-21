@@ -1,149 +1,210 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 1/5] nfp: make use of the DMA_ATTR_SKIP_CPU_SYNC attr
-Date: Fri, 21 Apr 2017 07:20:48 -0700
-Message-ID: <20170421142052.107388-2-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 2/5] nfp: parse metadata prepend before XDP runs
+Date: Fri, 21 Apr 2017 07:20:49 -0700
+Message-ID: <20170421142052.107388-3-jakub.kicinski@netronome.com>
 References: <20170421142052.107388-1-jakub.kicinski@netronome.com>
 Cc: oss-drivers@netronome.com, kubakici@wp.pl,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yb0-f182.google.com ([209.85.213.182]:33530 "EHLO
-        mail-yb0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1161676AbdDUOXS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2017 10:23:18 -0400
-Received: by mail-yb0-f182.google.com with SMTP id 81so43849060ybp.0
-        for <netdev@vger.kernel.org>; Fri, 21 Apr 2017 07:23:08 -0700 (PDT)
+Received: from mail-oi0-f43.google.com ([209.85.218.43]:32898 "EHLO
+        mail-oi0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1161666AbdDUOXJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2017 10:23:09 -0400
+Received: by mail-oi0-f43.google.com with SMTP id y11so65045449oie.0
+        for <netdev@vger.kernel.org>; Fri, 21 Apr 2017 07:23:09 -0700 (PDT)
 In-Reply-To: <20170421142052.107388-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DMA unmap may destroy changes CPU made to the buffer.  To make XDP
-run correctly on non-x86 platforms we should use the
-DMA_ATTR_SKIP_CPU_SYNC attribute.
-
-Thanks to using the attribute we can now push the sync operation to 
-the common code path from XDP handler.
-
-A little bit of variable name reshuffling is required to bring the
-code back to readable state.
+Calling memcpy to shift metadata out of the way for XDP to run
+seems like an overkill.  The most common metadata contents are
+8 bytes containing type and flow hash.  Simply parse the metadata
+before we run XDP.
 
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 ---
- .../net/ethernet/netronome/nfp/nfp_net_common.c    | 43 +++++++++++++---------
- 1 file changed, 25 insertions(+), 18 deletions(-)
+ drivers/net/ethernet/netronome/nfp/nfp_net.h       |  6 ++
+ .../net/ethernet/netronome/nfp/nfp_net_common.c    | 67 +++++++++++-----------
+ 2 files changed, 40 insertions(+), 33 deletions(-)
 
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net.h b/drivers/net/ethernet/netronome/nfp/nfp_net.h
+index 052db9208fbb..8302a2d688da 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_net.h
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net.h
+@@ -284,6 +284,12 @@ struct nfp_net_rx_desc {
+ 
+ #define NFP_NET_META_FIELD_MASK GENMASK(NFP_NET_META_FIELD_SIZE - 1, 0)
+ 
++struct nfp_meta_parsed {
++	u32 hash_type;
++	u32 hash;
++	u32 mark;
++};
++
+ struct nfp_net_rx_hash {
+ 	__be32 hash_type;
+ 	__be32 hash;
 diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-index e2197160e4dc..1274a70c9a38 100644
+index 1274a70c9a38..edab27a211fa 100644
 --- a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
 +++ b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-@@ -87,16 +87,23 @@ void nfp_net_get_fw_version(struct nfp_net_fw_version *fw_ver,
- 
- static dma_addr_t nfp_net_dma_map_rx(struct nfp_net_dp *dp, void *frag)
- {
--	return dma_map_single(dp->dev, frag + NFP_NET_RX_BUF_HEADROOM,
--			      dp->fl_bufsz - NFP_NET_RX_BUF_NON_DATA,
--			      dp->rx_dma_dir);
-+	return dma_map_single_attrs(dp->dev, frag + NFP_NET_RX_BUF_HEADROOM,
-+				    dp->fl_bufsz - NFP_NET_RX_BUF_NON_DATA,
-+				    dp->rx_dma_dir, DMA_ATTR_SKIP_CPU_SYNC);
+@@ -1392,8 +1392,9 @@ static void nfp_net_rx_csum(struct nfp_net_dp *dp,
+ 	}
  }
  
- static void nfp_net_dma_unmap_rx(struct nfp_net_dp *dp, dma_addr_t dma_addr)
+-static void nfp_net_set_hash(struct net_device *netdev, struct sk_buff *skb,
+-			     unsigned int type, __be32 *hash)
++static void
++nfp_net_set_hash(struct net_device *netdev, struct nfp_meta_parsed *meta,
++		 unsigned int type, __be32 *hash)
  {
--	dma_unmap_single(dp->dev, dma_addr,
--			 dp->fl_bufsz - NFP_NET_RX_BUF_NON_DATA,
--			 dp->rx_dma_dir);
-+	dma_unmap_single_attrs(dp->dev, dma_addr,
-+			       dp->fl_bufsz - NFP_NET_RX_BUF_NON_DATA,
-+			       dp->rx_dma_dir, DMA_ATTR_SKIP_CPU_SYNC);
-+}
+ 	if (!(netdev->features & NETIF_F_RXHASH))
+ 		return;
+@@ -1402,16 +1403,18 @@ static void nfp_net_set_hash(struct net_device *netdev, struct sk_buff *skb,
+ 	case NFP_NET_RSS_IPV4:
+ 	case NFP_NET_RSS_IPV6:
+ 	case NFP_NET_RSS_IPV6_EX:
+-		skb_set_hash(skb, get_unaligned_be32(hash), PKT_HASH_TYPE_L3);
++		meta->hash_type = PKT_HASH_TYPE_L3;
+ 		break;
+ 	default:
+-		skb_set_hash(skb, get_unaligned_be32(hash), PKT_HASH_TYPE_L4);
++		meta->hash_type = PKT_HASH_TYPE_L4;
+ 		break;
+ 	}
 +
-+static void nfp_net_dma_sync_cpu_rx(struct nfp_net_dp *dp, dma_addr_t dma_addr,
-+				    unsigned int len)
-+{
-+	dma_sync_single_for_cpu(dp->dev, dma_addr - NFP_NET_RX_BUF_HEADROOM,
-+				len, dp->rx_dma_dir);
++	meta->hash = get_unaligned_be32(hash);
  }
  
- /* Firmware reconfig
-@@ -1569,7 +1576,7 @@ static int nfp_net_rx(struct nfp_net_rx_ring *rx_ring, int budget)
- 	tx_ring = r_vec->xdp_ring;
+ static void
+-nfp_net_set_hash_desc(struct net_device *netdev, struct sk_buff *skb,
++nfp_net_set_hash_desc(struct net_device *netdev, struct nfp_meta_parsed *meta,
+ 		      void *data, struct nfp_net_rx_desc *rxd)
+ {
+ 	struct nfp_net_rx_hash *rx_hash = data;
+@@ -1419,12 +1422,12 @@ nfp_net_set_hash_desc(struct net_device *netdev, struct sk_buff *skb,
+ 	if (!(rxd->rxd.flags & PCIE_DESC_RX_RSS))
+ 		return;
+ 
+-	nfp_net_set_hash(netdev, skb, get_unaligned_be32(&rx_hash->hash_type),
++	nfp_net_set_hash(netdev, meta, get_unaligned_be32(&rx_hash->hash_type),
+ 			 &rx_hash->hash);
+ }
+ 
+ static void *
+-nfp_net_parse_meta(struct net_device *netdev, struct sk_buff *skb,
++nfp_net_parse_meta(struct net_device *netdev, struct nfp_meta_parsed *meta,
+ 		   void *data, int meta_len)
+ {
+ 	u32 meta_info;
+@@ -1436,13 +1439,13 @@ nfp_net_parse_meta(struct net_device *netdev, struct sk_buff *skb,
+ 		switch (meta_info & NFP_NET_META_FIELD_MASK) {
+ 		case NFP_NET_META_HASH:
+ 			meta_info >>= NFP_NET_META_FIELD_SIZE;
+-			nfp_net_set_hash(netdev, skb,
++			nfp_net_set_hash(netdev, meta,
+ 					 meta_info & NFP_NET_META_FIELD_MASK,
+ 					 (__be32 *)data);
+ 			data += 4;
+ 			break;
+ 		case NFP_NET_META_MARK:
+-			skb->mark = get_unaligned_be32(data);
++			meta->mark = get_unaligned_be32(data);
+ 			data += 4;
+ 			break;
+ 		default:
+@@ -1577,12 +1580,11 @@ static int nfp_net_rx(struct nfp_net_rx_ring *rx_ring, int budget)
  
  	while (pkts_polled < budget) {
--		unsigned int meta_len, data_len, data_off, pkt_len;
-+		unsigned int meta_len, data_len, meta_off, pkt_len, pkt_off;
- 		u8 meta_prepend[NFP_NET_MAX_PREPEND];
+ 		unsigned int meta_len, data_len, meta_off, pkt_len, pkt_off;
+-		u8 meta_prepend[NFP_NET_MAX_PREPEND];
  		struct nfp_net_rx_buf *rxbuf;
  		struct nfp_net_rx_desc *rxd;
-@@ -1608,11 +1615,12 @@ static int nfp_net_rx(struct nfp_net_rx_ring *rx_ring, int budget)
- 		data_len = le16_to_cpu(rxd->rxd.data_len);
- 		pkt_len = data_len - meta_len;
++		struct nfp_meta_parsed meta;
+ 		dma_addr_t new_dma_addr;
+ 		void *new_frag;
+-		u8 *meta;
  
-+		pkt_off = NFP_NET_RX_BUF_HEADROOM + dp->rx_dma_off;
- 		if (dp->rx_offset == NFP_NET_CFG_RX_OFFSET_DYNAMIC)
--			data_off = NFP_NET_RX_BUF_HEADROOM + meta_len;
-+			pkt_off += meta_len;
- 		else
--			data_off = NFP_NET_RX_BUF_HEADROOM + dp->rx_offset;
--		data_off += dp->rx_dma_off;
-+			pkt_off += dp->rx_offset;
-+		meta_off = pkt_off - meta_len;
+ 		idx = rx_ring->rd_p & (rx_ring->cnt - 1);
  
- 		/* Stats update */
- 		u64_stats_update_begin(&r_vec->rx_sync);
-@@ -1621,7 +1629,7 @@ static int nfp_net_rx(struct nfp_net_rx_ring *rx_ring, int budget)
+@@ -1595,6 +1597,8 @@ static int nfp_net_rx(struct nfp_net_rx_ring *rx_ring, int budget)
+ 		 */
+ 		dma_rmb();
+ 
++		memset(&meta, 0, sizeof(meta));
++
+ 		rx_ring->rd_p++;
+ 		pkts_polled++;
+ 
+@@ -1628,9 +1632,6 @@ static int nfp_net_rx(struct nfp_net_rx_ring *rx_ring, int budget)
+ 		r_vec->rx_bytes += pkt_len;
  		u64_stats_update_end(&r_vec->rx_sync);
  
- 		/* Pointer to start of metadata */
--		meta = rxbuf->frag + data_off - meta_len;
-+		meta = rxbuf->frag + meta_off;
- 
+-		/* Pointer to start of metadata */
+-		meta = rxbuf->frag + meta_off;
+-
  		if (unlikely(meta_len > NFP_NET_MAX_PREPEND ||
  			     (dp->rx_offset && meta_len > dp->rx_offset))) {
-@@ -1631,6 +1639,9 @@ static int nfp_net_rx(struct nfp_net_rx_ring *rx_ring, int budget)
- 			continue;
- 		}
+ 			nn_dp_warn(dp, "oversized RX packet metadata %u\n",
+@@ -1642,6 +1643,23 @@ static int nfp_net_rx(struct nfp_net_rx_ring *rx_ring, int budget)
+ 		nfp_net_dma_sync_cpu_rx(dp, rxbuf->dma_addr + meta_off,
+ 					data_len);
  
-+		nfp_net_dma_sync_cpu_rx(dp, rxbuf->dma_addr + meta_off,
-+					data_len);
++		if (!dp->chained_metadata_format) {
++			nfp_net_set_hash_desc(dp->netdev, &meta,
++					      rxbuf->frag + meta_off, rxd);
++		} else if (meta_len) {
++			void *end;
++
++			end = nfp_net_parse_meta(dp->netdev, &meta,
++						 rxbuf->frag + meta_off,
++						 meta_len);
++			if (unlikely(end != rxbuf->frag + pkt_off)) {
++				nn_dp_warn(dp, "invalid RX packet metadata\n");
++				nfp_net_rx_drop(dp, r_vec, rx_ring, rxbuf,
++						NULL);
++				continue;
++			}
++		}
 +
  		if (xdp_prog && !(rxd->rxd.flags & PCIE_DESC_RX_BPF &&
  				  dp->bpf_offload_xdp)) {
  			unsigned int dma_off;
-@@ -1638,10 +1649,6 @@ static int nfp_net_rx(struct nfp_net_rx_ring *rx_ring, int budget)
- 			int act;
+@@ -1650,12 +1668,6 @@ static int nfp_net_rx(struct nfp_net_rx_ring *rx_ring, int budget)
  
  			hard_start = rxbuf->frag + NFP_NET_RX_BUF_HEADROOM;
--			dma_off = data_off - NFP_NET_RX_BUF_HEADROOM;
--			dma_sync_single_for_cpu(dp->dev, rxbuf->dma_addr,
--						dma_off + pkt_len,
--						DMA_BIDIRECTIONAL);
  
- 			/* Move prepend out of the way */
- 			if (xdp_prog->xdp_adjust_head) {
-@@ -1650,12 +1657,12 @@ static int nfp_net_rx(struct nfp_net_rx_ring *rx_ring, int budget)
- 			}
- 
+-			/* Move prepend out of the way */
+-			if (xdp_prog->xdp_adjust_head) {
+-				memcpy(meta_prepend, meta, meta_len);
+-				meta = meta_prepend;
+-			}
+-
  			act = nfp_net_run_xdp(xdp_prog, rxbuf->frag, hard_start,
--					      &data_off, &pkt_len);
-+					      &pkt_off, &pkt_len);
+ 					      &pkt_off, &pkt_len);
  			switch (act) {
- 			case XDP_PASS:
- 				break;
- 			case XDP_TX:
--				dma_off = data_off - NFP_NET_RX_BUF_HEADROOM;
-+				dma_off = pkt_off - NFP_NET_RX_BUF_HEADROOM;
- 				if (unlikely(!nfp_net_tx_xdp_buf(dp, rx_ring,
- 								 tx_ring, rxbuf,
- 								 dma_off,
-@@ -1689,7 +1696,7 @@ static int nfp_net_rx(struct nfp_net_rx_ring *rx_ring, int budget)
- 
- 		nfp_net_rx_give_one(dp, rx_ring, new_frag, new_dma_addr);
- 
--		skb_reserve(skb, data_off);
-+		skb_reserve(skb, pkt_off);
+@@ -1699,19 +1711,8 @@ static int nfp_net_rx(struct nfp_net_rx_ring *rx_ring, int budget)
+ 		skb_reserve(skb, pkt_off);
  		skb_put(skb, pkt_len);
  
- 		if (!dp->chained_metadata_format) {
+-		if (!dp->chained_metadata_format) {
+-			nfp_net_set_hash_desc(dp->netdev, skb, meta, rxd);
+-		} else if (meta_len) {
+-			void *end;
+-
+-			end = nfp_net_parse_meta(dp->netdev, skb, meta,
+-						 meta_len);
+-			if (unlikely(end != meta + meta_len)) {
+-				nn_dp_warn(dp, "invalid RX packet metadata\n");
+-				nfp_net_rx_drop(dp, r_vec, rx_ring, NULL, skb);
+-				continue;
+-			}
+-		}
++		skb->mark = meta.mark;
++		skb_set_hash(skb, meta.hash, meta.hash_type);
+ 
+ 		skb_record_rx_queue(skb, rx_ring->idx);
+ 		skb->protocol = eth_type_trans(skb, dp->netdev);
 -- 
 2.11.0
