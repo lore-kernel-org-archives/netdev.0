@@ -1,32 +1,234 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 0/4]  Bug fixes and fallback for AEAD
-Date: Fri, 21 Apr 2017 21:14:33 +0800
-Message-ID: <20170421131433.GA14803@gondor.apana.org.au>
-References: <cover.1491807106.git.harsh@chelsio.com>
+From: Roger Quadros <rogerq@ti.com>
+Subject: [PATCH v4 net-next] mdio_bus: Issue GPIO RESET to PHYs.
+Date: Fri, 21 Apr 2017 16:15:38 +0300
+Message-ID: <fe0b7ec5-2f83-ba06-579f-3ea0d5c4990c@ti.com>
+References: <1491381237-24635-1-git-send-email-rogerq@ti.com>
+ <64d6494d-41d2-0faf-a434-057f796637fe@ti.com>
+ <daa29a99-0a17-d316-57eb-3e6162938d8d@ti.com>
+ <f372db02-a919-55b4-9200-20726cd13482@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-crypto@vger.kernel.org, netdev@vger.kernel.org,
-        atul.gupta@chelsio.com, ganeshgr@chelsio.com
-To: Harsh Jain <harsh@chelsio.com>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <cover.1491807106.git.harsh@chelsio.com>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <tony@atomide.com>, <nsekhar@ti.com>, <jsarha@ti.com>,
+        <netdev@vger.kernel.org>, <linux-omap@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>, <rogerq@ti.com>
+To: <davem@davemloft.net>, Andrew Lunn <andrew@lunn.ch>,
+        Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fllnx209.ext.ti.com ([198.47.19.16]:31180 "EHLO
+        fllnx209.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1039793AbdDUNQp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2017 09:16:45 -0400
+In-Reply-To: <f372db02-a919-55b4-9200-20726cd13482@ti.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 10, 2017 at 06:23:57PM +0530, Harsh Jain wrote:
-> This series based on Herbert cryptodev-2.6.
-> It includes bug fixes and fallback for AEAD algos.
-> 
-> Harsh Jain (3):
->   chcr: Increase priority of AEAD algos.
->   chcr:Set hmac_ctrl bit to use HW register HMAC_CFG[456].
->   chcr: Add fallback for AEAD algos
-> Atul Gupta (1):
->   chcr: Fix txq ids
+Some boards [1] leave the PHYs at an invalid state
+during system power-up or reset thus causing unreliability
+issues with the PHY which manifests as PHY not being detected
+or link not functional. To fix this, these PHYs need to be RESET
+via a GPIO connected to the PHY's RESET pin.
 
-All applied.  Thanks.
+Some boards have a single GPIO controlling the PHY RESET pin of all
+PHYs on the bus whereas some others have separate GPIOs controlling
+individual PHY RESETs.
+
+In both cases, the RESET de-assertion cannot be done in the PHY driver
+as the PHY will not probe till its reset is de-asserted.
+So do the RESET de-assertion in the MDIO bus driver.
+
+[1] - am572x-idk, am571x-idk, a437x-idk
+
+Signed-off-by: Roger Quadros <rogerq@ti.com>
+---
+v4:
+- use dev_err() instead of pr_err()
+- put PHYs back in RESET on failure or mdiobus_unregister()
+- typo fixes uS -> us
+
+v3:
+- added more information in the DT binding document.
+
+v2:
+- add device tree binding document (mdio.txt)
+- specify default reset delay in of_mdio.c instead of mdio_bus.c
+
+ Documentation/devicetree/bindings/net/mdio.txt | 33 ++++++++++++++++++
+ drivers/net/phy/mdio_bus.c                     | 47 ++++++++++++++++++++++++++
+ drivers/of/of_mdio.c                           |  7 ++++
+ include/linux/phy.h                            |  7 ++++
+ 4 files changed, 94 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/net/mdio.txt
+
+diff --git a/Documentation/devicetree/bindings/net/mdio.txt b/Documentation/devicetree/bindings/net/mdio.txt
+new file mode 100644
+index 0000000..4ffbbac
+--- /dev/null
++++ b/Documentation/devicetree/bindings/net/mdio.txt
+@@ -0,0 +1,33 @@
++Common MDIO bus properties.
++
++These are generic properties that can apply to any MDIO bus.
++
++Optional properties:
++- reset-gpios: List of one or more GPIOs that control the RESET lines
++  of the PHYs on that MDIO bus.
++- reset-delay-us: RESET pulse width in microseconds as per PHY datasheet.
++
++A list of child nodes, one per device on the bus is expected. These
++should follow the generic phy.txt, or a device specific binding document.
++
++Example :
++This example shows these optional properties, plus other properties
++required for the TI Davinci MDIO driver.
++
++	davinci_mdio: ethernet@0x5c030000 {
++		compatible = "ti,davinci_mdio";
++		reg = <0x5c030000 0x1000>;
++		#address-cells = <1>;
++		#size-cells = <0>;
++
++		reset-gpios = <&gpio2 5 GPIO_ACTIVE_LOW>;
++		reset-delay-us = <2>;   /* PHY datasheet states 1us min */
++
++		ethphy0: ethernet-phy@1 {
++			reg = <1>;
++		};
++
++		ethphy1: ethernet-phy@3 {
++			reg = <3>;
++		};
++	};
+diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
+index fa7d51f..de927f7 100644
+--- a/drivers/net/phy/mdio_bus.c
++++ b/drivers/net/phy/mdio_bus.c
+@@ -22,8 +22,11 @@
+ #include <linux/init.h>
+ #include <linux/delay.h>
+ #include <linux/device.h>
++#include <linux/gpio.h>
++#include <linux/gpio/consumer.h>
+ #include <linux/of_device.h>
+ #include <linux/of_mdio.h>
++#include <linux/of_gpio.h>
+ #include <linux/netdevice.h>
+ #include <linux/etherdevice.h>
+ #include <linux/skbuff.h>
+@@ -307,6 +310,7 @@ int __mdiobus_register(struct mii_bus *bus, struct module *owner)
+ {
+ 	struct mdio_device *mdiodev;
+ 	int i, err;
++	struct gpio_desc *gpiod;
+ 
+ 	if (NULL == bus || NULL == bus->name ||
+ 	    NULL == bus->read || NULL == bus->write)
+@@ -333,6 +337,35 @@ int __mdiobus_register(struct mii_bus *bus, struct module *owner)
+ 	if (bus->reset)
+ 		bus->reset(bus);
+ 
++	/* de-assert bus level PHY GPIO resets */
++	if (bus->num_reset_gpios > 0) {
++		bus->reset_gpiod = devm_kcalloc(&bus->dev,
++						 bus->num_reset_gpios,
++						 sizeof(struct gpio_desc *),
++						 GFP_KERNEL);
++		if (!bus->reset_gpiod)
++			return -ENOMEM;
++	}
++
++	for (i = 0; i < bus->num_reset_gpios; i++) {
++		gpiod = devm_gpiod_get_index(&bus->dev, "reset", i,
++					     GPIOD_OUT_LOW);
++		if (IS_ERR(gpiod)) {
++			err = PTR_ERR(gpiod);
++			if (err != -ENOENT) {
++				dev_err(&bus->dev,
++					"mii_bus %s couldn't get reset GPIO\n",
++					bus->id);
++				return err;
++			}
++		} else {
++			bus->reset_gpiod[i] = gpiod;
++			gpiod_set_value_cansleep(gpiod, 1);
++			udelay(bus->reset_delay_us);
++			gpiod_set_value_cansleep(gpiod, 0);
++		}
++	}
++
+ 	for (i = 0; i < PHY_MAX_ADDR; i++) {
+ 		if ((bus->phy_mask & (1 << i)) == 0) {
+ 			struct phy_device *phydev;
+@@ -360,6 +393,13 @@ int __mdiobus_register(struct mii_bus *bus, struct module *owner)
+ 		mdiodev->device_remove(mdiodev);
+ 		mdiodev->device_free(mdiodev);
+ 	}
++
++	/* Put PHYs in RESET to save power */
++	for (i = 0; i < bus->num_reset_gpios; i++) {
++		if (bus->reset_gpiod[i])
++			gpiod_set_value_cansleep(bus->reset_gpiod[i], 1);
++	}
++
+ 	device_del(&bus->dev);
+ 	return err;
+ }
+@@ -381,6 +421,13 @@ void mdiobus_unregister(struct mii_bus *bus)
+ 		mdiodev->device_remove(mdiodev);
+ 		mdiodev->device_free(mdiodev);
+ 	}
++
++	/* Put PHYs in RESET to save power */
++	for (i = 0; i < bus->num_reset_gpios; i++) {
++		if (bus->reset_gpiod[i])
++			gpiod_set_value_cansleep(bus->reset_gpiod[i], 1);
++	}
++
+ 	device_del(&bus->dev);
+ }
+ EXPORT_SYMBOL(mdiobus_unregister);
+diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
+index 0b29798..7e4c80f 100644
+--- a/drivers/of/of_mdio.c
++++ b/drivers/of/of_mdio.c
+@@ -22,6 +22,8 @@
+ #include <linux/of_net.h>
+ #include <linux/module.h>
+ 
++#define DEFAULT_GPIO_RESET_DELAY	10	/* in microseconds */
++
+ MODULE_AUTHOR("Grant Likely <grant.likely@secretlab.ca>");
+ MODULE_LICENSE("GPL");
+ 
+@@ -221,6 +223,11 @@ int of_mdiobus_register(struct mii_bus *mdio, struct device_node *np)
+ 
+ 	mdio->dev.of_node = np;
+ 
++	/* Get bus level PHY reset GPIO details */
++	mdio->reset_delay_us = DEFAULT_GPIO_RESET_DELAY;
++	of_property_read_u32(np, "reset-delay-us", &mdio->reset_delay_us);
++	mdio->num_reset_gpios = of_gpio_named_count(np, "reset-gpios");
++
+ 	/* Register the MDIO bus */
+ 	rc = mdiobus_register(mdio);
+ 	if (rc)
+diff --git a/include/linux/phy.h b/include/linux/phy.h
+index 43a7748..8ce57f4 100644
+--- a/include/linux/phy.h
++++ b/include/linux/phy.h
+@@ -217,6 +217,13 @@ struct mii_bus {
+ 	 * matching its address
+ 	 */
+ 	int irq[PHY_MAX_ADDR];
++
++	/* GPIO reset pulse width in microseconds */
++	int reset_delay_us;
++	/* Number of reset GPIOs */
++	int num_reset_gpios;
++	/* Array of RESET GPIO descriptors */
++	struct gpio_desc **reset_gpiod;
+ };
+ #define to_mii_bus(d) container_of(d, struct mii_bus, dev)
+ 
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+2.7.4
