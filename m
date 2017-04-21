@@ -1,54 +1,56 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 4/5] nfp: fix free list buffer size reporting
-Date: Fri, 21 Apr 2017 07:20:51 -0700
-Message-ID: <20170421142052.107388-5-jakub.kicinski@netronome.com>
-References: <20170421142052.107388-1-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 0/5] nfp: DMA flags, adjust head and fixes
+Date: Fri, 21 Apr 2017 07:20:47 -0700
+Message-ID: <20170421142052.107388-1-jakub.kicinski@netronome.com>
 Cc: oss-drivers@netronome.com, kubakici@wp.pl,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yb0-f173.google.com ([209.85.213.173]:34790 "EHLO
-        mail-yb0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1161436AbdDUOXL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2017 10:23:11 -0400
-Received: by mail-yb0-f173.google.com with SMTP id 11so40440392ybw.1
-        for <netdev@vger.kernel.org>; Fri, 21 Apr 2017 07:23:11 -0700 (PDT)
-In-Reply-To: <20170421142052.107388-1-jakub.kicinski@netronome.com>
+Received: from mail-yb0-f172.google.com ([209.85.213.172]:34756 "EHLO
+        mail-yb0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1161661AbdDUOXH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2017 10:23:07 -0400
+Received: by mail-yb0-f172.google.com with SMTP id 11so40438943ybw.1
+        for <netdev@vger.kernel.org>; Fri, 21 Apr 2017 07:23:07 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-XDP headroom should not be included in free list buffer size.
+Hi!
 
-Fixes: 6fe0c3b43804 ("nfp: add support for xdp_adjust_head()")
-Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
----
- drivers/net/ethernet/netronome/nfp/nfp_net_common.c | 7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
+This series takes advantage of Alex's DMA_ATTR_SKIP_CPU_SYNC to make 
+XDP packet modifications "correct" from DMA API point of view.  It 
+also allows us to parse the metadata before we run XDP at no additional
+DMA sync cost.  That way we can get rid of the metadata memcpy, and 
+remove the last upstream user of bpf_prog->xdp_adjust_head.
 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-index edab27a211fa..3a025f019703 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-@@ -2155,7 +2155,7 @@ nfp_net_tx_ring_hw_cfg_write(struct nfp_net *nn,
-  */
- static int nfp_net_set_config_and_enable(struct nfp_net *nn)
- {
--	u32 new_ctrl, update = 0;
-+	u32 bufsz, new_ctrl, update = 0;
- 	unsigned int r;
- 	int err;
- 
-@@ -2189,8 +2189,9 @@ static int nfp_net_set_config_and_enable(struct nfp_net *nn)
- 	nfp_net_write_mac_addr(nn);
- 
- 	nn_writel(nn, NFP_NET_CFG_MTU, nn->dp.netdev->mtu);
--	nn_writel(nn, NFP_NET_CFG_FLBUFSZ,
--		  nn->dp.fl_bufsz - NFP_NET_RX_BUF_NON_DATA);
-+
-+	bufsz = nn->dp.fl_bufsz - nn->dp.rx_dma_off - NFP_NET_RX_BUF_NON_DATA;
-+	nn_writel(nn, NFP_NET_CFG_FLBUFSZ, bufsz);
- 
- 	/* Enable device */
- 	new_ctrl |= NFP_NET_CFG_CTRL_ENABLE;
+David's patch adds a way to read capabilities from the management
+firmware.
+
+There are also two net-next fixes.  Patch 4 which fixes what seems to
+be a result of a botched rebase on my part.  Patch 5 corrects locking
+when state of ethernet ports is being refreshed.
+
+David Brunecz (1):
+  nfp: add NSP routine to get static information
+
+Jakub Kicinski (4):
+  nfp: make use of the DMA_ATTR_SKIP_CPU_SYNC flag
+  nfp: parse metadata prepend before XDP runs
+  nfp: fix free list buffer size reporting
+  nfp: remove the refresh of all ports optimization
+
+ drivers/net/ethernet/netronome/nfp/Makefile        |   1 +
+ drivers/net/ethernet/netronome/nfp/nfp_main.c      |   7 ++
+ drivers/net/ethernet/netronome/nfp/nfp_net.h       |   9 +-
+ .../net/ethernet/netronome/nfp/nfp_net_common.c    | 115 +++++++++++----------
+ .../net/ethernet/netronome/nfp/nfp_net_ethtool.c   |  13 ++-
+ drivers/net/ethernet/netronome/nfp/nfp_net_main.c  |  67 ++++++++----
+ drivers/net/ethernet/netronome/nfp/nfpcore/nfp.h   |   1 +
+ .../net/ethernet/netronome/nfp/nfpcore/nfp_nsp.c   |   7 ++
+ .../net/ethernet/netronome/nfp/nfpcore/nfp_nsp.h   |  24 +++++
+ .../ethernet/netronome/nfp/nfpcore/nfp_nsp_cmds.c  |  89 ++++++++++++++++
+ 10 files changed, 255 insertions(+), 78 deletions(-)
+ create mode 100644 drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp_cmds.c
+
 -- 
 2.11.0
