@@ -1,60 +1,69 @@
-From: David Miller <davem@davemloft.net>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
 Subject: Re: [PATCH net-next v4 1/2] net sched actions: dump more than
  TCA_ACT_MAX_PRIO actions per batch
-Date: Fri, 21 Apr 2017 12:11:01 -0400 (EDT)
-Message-ID: <20170421.121101.2089838344873192132.davem@davemloft.net>
-References: <82a6c32b-d58e-aeed-bfb5-546f328eaf35@mojatatu.com>
-        <20170421.113800.1367091481085913667.davem@davemloft.net>
-        <c2d61246-b92d-efef-cd07-005f8a8dacc0@mojatatu.com>
+Date: Fri, 21 Apr 2017 14:11:00 -0400
+Message-ID: <c6333422-ae6d-149c-09ec-c5dfb43d68b3@mojatatu.com>
+References: <20170421.113800.1367091481085913667.davem@davemloft.net>
+ <c2d61246-b92d-efef-cd07-005f8a8dacc0@mojatatu.com>
+ <758ff636-365f-6180-9353-69da5d339a3a@mojatatu.com>
+ <20170421.121217.1268145592512455181.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: eric.dumazet@gmail.com, jiri@resnulli.us, netdev@vger.kernel.org,
         xiyou.wangcong@gmail.com
-To: jhs@mojatatu.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:36604 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1039979AbdDUShg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2017 14:37:36 -0400
-In-Reply-To: <c2d61246-b92d-efef-cd07-005f8a8dacc0@mojatatu.com>
+Received: from mail-io0-f195.google.com ([209.85.223.195]:36820 "EHLO
+        mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1162108AbdDUSk3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2017 14:40:29 -0400
+Received: by mail-io0-f195.google.com with SMTP id x86so33298176ioe.3
+        for <netdev@vger.kernel.org>; Fri, 21 Apr 2017 11:40:29 -0700 (PDT)
+In-Reply-To: <20170421.121217.1268145592512455181.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Date: Fri, 21 Apr 2017 11:55:40 -0400
+On 17-04-21 12:12 PM, David Miller wrote:
 
-> On 17-04-21 11:38 AM, David Miller wrote:
->> From: Jamal Hadi Salim <jhs@mojatatu.com>
->> Date: Fri, 21 Apr 2017 11:29:19 -0400
->>
->> Even something as benign as "give melarger action dumps" _must_ still
->> have the same behavior because the user has no alternative action plan
->> possible if it cannot tell if the kernel supports the facility or not.
->>
+> Yes for existing attributes we are stuck in the mud because of how
+> we've handled things in the past.  I'm not saying we should change
+> behavior for existing attributes.
+>
+> I'm talking about any newly added attribute from here on out, and
+> that we need to require checks for them.
+>
 
-   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Please bear with me. I want to make sure to get this right.
 
-I am pretty sure I was clear in my position above.  And then you say:
+Lets say I updated the kernel today to reject transactions with
+bits it didnt understand. Lets call this "old kernel". A tc that
+understands/sets these bits and nothing else. Call it "old tc".
+3 months later:
+I add one more bit setting to introduce a new feature in a new
+kernel version. Lets call this new "kernel". I update to
+understand new bits. Call it "new tc".
 
-> But i think there are other cases like "please give me a large
-> dump" which require less harsh reaction in particular because
-> I have alternative means in the kernel to achieve the dump.
-> Would logging or no reaction be fine then?
+The possibilities:
+a) old tc + old kernel combo. No problem
+b) new tc + new kernel combo. No problem.
+c) old tc + new kernel combo. No problem.
+d) new tc + old kernel. Rejection.
 
-I clearly said that the large dump should be handled the exactly the
-same way as other kinds of attributes and requests.  And I told you
-why, and it's because the user cannot act upon the situation if it
-wants to.
+For #d if i have a smart tc it would retry with a new combination
+which restores its behavior to old tc level. Of course this means
+apps would have to be rewritten going forward to understand these
+mechanics.
+Alternative is to request for capabilities first then doing a
+lowest common denominator request.
+But even that is a lot more code and crossing user/kernel twice.
 
-You give the user no way to perform alternative actions.
+There is a simpler approach that would work going forward.
+How about letting the user choose their fate? Set something maybe
+in the netlink header to tell the kernel "if you dont understand
+something I am asking for - please ignore it and do what you can".
+This would maintain current behavior but would force the user to
+explicitly state so.
 
-Any feature whatsoever, even "give me large dumps" may require the
-user to take alternative actions.  You give the user no option
-whatsoever by silently ignoring stuff, and that is simply
-unacceptable.
-
-Please get out of the mindset of "oh, ignoring this and silently
-proceeding in situation X is OK".
-
-Thanks.
+cheers,
+jamal
