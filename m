@@ -1,238 +1,202 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 3/5] nfp: add NSP routine to get static information
-Date: Fri, 21 Apr 2017 07:20:50 -0700
-Message-ID: <20170421142052.107388-4-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 5/5] nfp: remove the refresh of all ports optimization
+Date: Fri, 21 Apr 2017 07:20:52 -0700
+Message-ID: <20170421142052.107388-6-jakub.kicinski@netronome.com>
 References: <20170421142052.107388-1-jakub.kicinski@netronome.com>
 Cc: oss-drivers@netronome.com, kubakici@wp.pl,
-        David Brunecz <david.brunecz@netronome.com>,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f54.google.com ([209.85.218.54]:35059 "EHLO
-        mail-oi0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1161676AbdDUOXK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2017 10:23:10 -0400
-Received: by mail-oi0-f54.google.com with SMTP id j201so97205953oih.2
-        for <netdev@vger.kernel.org>; Fri, 21 Apr 2017 07:23:10 -0700 (PDT)
+Received: from mail-yb0-f182.google.com ([209.85.213.182]:36756 "EHLO
+        mail-yb0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1161682AbdDUOXR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2017 10:23:17 -0400
+Received: by mail-yb0-f182.google.com with SMTP id s22so44017016ybe.3
+        for <netdev@vger.kernel.org>; Fri, 21 Apr 2017 07:23:16 -0700 (PDT)
 In-Reply-To: <20170421142052.107388-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Brunecz <david.brunecz@netronome.com>
+The code refreshing the eth port state was trying to update state
+of all ports of the card.  Unfortunately to safely walk the port
+list we would have to hold the port lock, which we can't due to
+lock ordering constraints against rtnl.
 
-Retrieve identifying information from the NSP.  For now it only
-contains versions of firmware subcomponents.
+Make the per-port sync refresh and async refresh of all ports
+completely separate routines.
 
-Signed-off-by: David Brunecz <david.brunecz@netronome.com>
+Fixes: 172f638c93dd ("nfp: add port state refresh")
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 ---
- drivers/net/ethernet/netronome/nfp/Makefile        |  1 +
- drivers/net/ethernet/netronome/nfp/nfp_main.c      |  7 ++
- drivers/net/ethernet/netronome/nfp/nfpcore/nfp.h   |  1 +
- .../net/ethernet/netronome/nfp/nfpcore/nfp_nsp.c   |  7 ++
- .../net/ethernet/netronome/nfp/nfpcore/nfp_nsp.h   | 24 ++++++
- .../ethernet/netronome/nfp/nfpcore/nfp_nsp_cmds.c  | 89 ++++++++++++++++++++++
- 6 files changed, 129 insertions(+)
- create mode 100644 drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp_cmds.c
+ drivers/net/ethernet/netronome/nfp/nfp_net.h       |  3 +-
+ .../net/ethernet/netronome/nfp/nfp_net_ethtool.c   | 13 +++--
+ drivers/net/ethernet/netronome/nfp/nfp_net_main.c  | 67 +++++++++++++++-------
+ 3 files changed, 58 insertions(+), 25 deletions(-)
 
-diff --git a/drivers/net/ethernet/netronome/nfp/Makefile b/drivers/net/ethernet/netronome/nfp/Makefile
-index 4a5d13ef92a4..4b15f0f496aa 100644
---- a/drivers/net/ethernet/netronome/nfp/Makefile
-+++ b/drivers/net/ethernet/netronome/nfp/Makefile
-@@ -9,6 +9,7 @@ nfp-objs := \
- 	    nfpcore/nfp_mutex.o \
- 	    nfpcore/nfp_nffw.o \
- 	    nfpcore/nfp_nsp.o \
-+	    nfpcore/nfp_nsp_cmds.o \
- 	    nfpcore/nfp_nsp_eth.o \
- 	    nfpcore/nfp_resource.o \
- 	    nfpcore/nfp_rtsym.o \
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_main.c b/drivers/net/ethernet/netronome/nfp/nfp_main.c
-index bea2a1a6c211..dde35dae35c5 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_main.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_main.c
-@@ -253,6 +253,7 @@ nfp_fw_load(struct pci_dev *pdev, struct nfp_pf *pf, struct nfp_nsp *nsp)
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net.h b/drivers/net/ethernet/netronome/nfp/nfp_net.h
+index 8302a2d688da..8f20fdef0754 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_net.h
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net.h
+@@ -819,7 +819,8 @@ struct nfp_net_dp *nfp_net_clone_dp(struct nfp_net *nn);
+ int nfp_net_ring_reconfig(struct nfp_net *nn, struct nfp_net_dp *new);
  
- static int nfp_nsp_init(struct pci_dev *pdev, struct nfp_pf *pf)
- {
-+	struct nfp_nsp_identify *nspi;
- 	struct nfp_nsp *nsp;
- 	int err;
+ bool nfp_net_link_changed_read_clear(struct nfp_net *nn);
+-void nfp_net_refresh_port_config(struct nfp_net *nn);
++int nfp_net_refresh_eth_port(struct nfp_net *nn);
++void nfp_net_refresh_port_table(struct nfp_net *nn);
  
-@@ -269,6 +270,12 @@ static int nfp_nsp_init(struct pci_dev *pdev, struct nfp_pf *pf)
+ #ifdef CONFIG_NFP_DEBUG
+ void nfp_net_debugfs_create(void);
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c b/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c
+index 3328041ec290..6e27d1281425 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c
+@@ -211,10 +211,15 @@ nfp_net_get_link_ksettings(struct net_device *netdev,
+ 		return 0;
  
- 	pf->eth_tbl = __nfp_eth_read_ports(pf->cpp, nsp);
- 
-+	nspi = __nfp_nsp_identify(nsp);
-+	if (nspi) {
-+		dev_info(&pdev->dev, "BSP: %s\n", nspi->version);
-+		kfree(nspi);
-+	}
+ 	/* Use link speed from ETH table if available, otherwise try the BAR */
+-	if (nn->eth_port && nfp_net_link_changed_read_clear(nn))
+-		nfp_net_refresh_port_config(nn);
+-	/* Separate if - on FW error the port could've disappeared from table */
+ 	if (nn->eth_port) {
++		int err;
 +
- 	err = nfp_fw_load(pdev, pf, nsp);
- 	if (err < 0) {
- 		kfree(pf->eth_tbl);
-diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp.h b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp.h
-index 8afef7593f13..4df2ce261b3f 100644
---- a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp.h
-+++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp.h
-@@ -63,6 +63,7 @@ void nfp_nsp_config_clear_state(struct nfp_nsp *state);
- int nfp_nsp_read_eth_table(struct nfp_nsp *state, void *buf, unsigned int size);
- int nfp_nsp_write_eth_table(struct nfp_nsp *state,
- 			    const void *buf, unsigned int size);
-+int nfp_nsp_read_identify(struct nfp_nsp *state, void *buf, unsigned int size);
++		if (nfp_net_link_changed_read_clear(nn)) {
++			err = nfp_net_refresh_eth_port(nn);
++			if (err)
++				return err;
++		}
++
+ 		cmd->base.port = nn->eth_port->port_type;
+ 		cmd->base.speed = nn->eth_port->speed;
+ 		cmd->base.duplex = DUPLEX_FULL;
+@@ -273,7 +278,7 @@ nfp_net_set_link_ksettings(struct net_device *netdev,
+ 	if (err > 0)
+ 		return 0; /* no change */
  
- /* Implemented in nfp_resource.c */
+-	nfp_net_refresh_port_config(nn);
++	nfp_net_refresh_port_table(nn);
  
-diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp.c b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp.c
-index 4635f42e15b0..61797c98f5fe 100644
---- a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp.c
-@@ -93,6 +93,7 @@ enum nfp_nsp_cmd {
- 	SPCODE_FW_LOAD		= 6, /* Load fw from buffer, len in option */
- 	SPCODE_ETH_RESCAN	= 7, /* Rescan ETHs, write ETH_TABLE to buf */
- 	SPCODE_ETH_CONTROL	= 8, /* Update media config from buffer */
-+	SPCODE_NSP_IDENTIFY	= 13, /* Read NSP version */
+ 	return err;
  
- 	__MAX_SPCODE,
- };
-@@ -493,3 +494,9 @@ int nfp_nsp_write_eth_table(struct nfp_nsp *state,
- 	return nfp_nsp_command_buf(state, SPCODE_ETH_CONTROL, size, buf, size,
- 				   NULL, 0);
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_main.c b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
+index 4c6863a072d3..8cb87cbe1120 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
+@@ -176,13 +176,13 @@ nfp_net_get_mac_addr(struct nfp_net *nn, struct nfp_cpp *cpp, unsigned int id)
  }
-+
-+int nfp_nsp_read_identify(struct nfp_nsp *state, void *buf, unsigned int size)
-+{
-+	return nfp_nsp_command_buf(state, SPCODE_NSP_IDENTIFY, size, NULL, 0,
-+				   buf, size);
-+}
-diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp.h b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp.h
-index 7d34ff145fd7..36b21e4dc56d 100644
---- a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp.h
-+++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp.h
-@@ -147,4 +147,28 @@ int __nfp_eth_set_aneg(struct nfp_nsp *nsp, enum nfp_eth_aneg mode);
- int __nfp_eth_set_speed(struct nfp_nsp *nsp, unsigned int speed);
- int __nfp_eth_set_split(struct nfp_nsp *nsp, unsigned int lanes);
  
-+/**
-+ * struct nfp_nsp_identify - NSP static information
-+ * @version:      opaque version string
-+ * @flags:        version flags
-+ * @br_primary:   branch id of primary bootloader
-+ * @br_secondary: branch id of secondary bootloader
-+ * @br_nsp:       branch id of NSP
-+ * @primary:      version of primarary bootloader
-+ * @secondary:    version id of secondary bootloader
-+ * @nsp:          version id of NSP
-+ */
-+struct nfp_nsp_identify {
-+	char version[40];
-+	u8 flags;
-+	u8 br_primary;
-+	u8 br_secondary;
-+	u8 br_nsp;
-+	u16 primary;
-+	u16 secondary;
-+	u16 nsp;
-+};
+ static struct nfp_eth_table_port *
+-nfp_net_find_port(struct nfp_pf *pf, unsigned int id)
++nfp_net_find_port(struct nfp_eth_table *eth_tbl, unsigned int id)
+ {
+ 	int i;
+ 
+-	for (i = 0; pf->eth_tbl && i < pf->eth_tbl->count; i++)
+-		if (pf->eth_tbl->ports[i].eth_index == id)
+-			return &pf->eth_tbl->ports[i];
++	for (i = 0; eth_tbl && i < eth_tbl->count; i++)
++		if (eth_tbl->ports[i].eth_index == id)
++			return &eth_tbl->ports[i];
+ 
+ 	return NULL;
+ }
+@@ -367,7 +367,7 @@ nfp_net_pf_alloc_netdevs(struct nfp_pf *pf, void __iomem *ctrl_bar,
+ 		prev_tx_base = tgt_tx_base;
+ 		prev_rx_base = tgt_rx_base;
+ 
+-		eth_port = nfp_net_find_port(pf, i);
++		eth_port = nfp_net_find_port(pf->eth_tbl, i);
+ 		if (eth_port && eth_port->override_changed) {
+ 			nfp_warn(pf->cpp, "Config changed for port #%d, reboot required before port will be operational\n", i);
+ 		} else {
+@@ -485,6 +485,7 @@ static void nfp_net_refresh_netdevs(struct work_struct *work)
+ {
+ 	struct nfp_pf *pf = container_of(work, struct nfp_pf,
+ 					 port_refresh_work);
++	struct nfp_eth_table *eth_table;
+ 	struct nfp_net *nn, *next;
+ 
+ 	mutex_lock(&pf->port_lock);
+@@ -493,6 +494,27 @@ static void nfp_net_refresh_netdevs(struct work_struct *work)
+ 	if (list_empty(&pf->ports))
+ 		goto out;
+ 
++	list_for_each_entry(nn, &pf->ports, port_list)
++		nfp_net_link_changed_read_clear(nn);
 +
-+struct nfp_nsp_identify *__nfp_nsp_identify(struct nfp_nsp *nsp);
-+
- #endif
-diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp_cmds.c b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp_cmds.c
-new file mode 100644
-index 000000000000..e7a263de3731
---- /dev/null
-+++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp_cmds.c
-@@ -0,0 +1,89 @@
-+/*
-+ * Copyright (C) 2017 Netronome Systems, Inc.
-+ *
-+ * This software is dual licensed under the GNU General License Version 2,
-+ * June 1991 as shown in the file COPYING in the top-level directory of this
-+ * source tree or the BSD 2-Clause License provided below.  You have the
-+ * option to license this software under the complete terms of either license.
-+ *
-+ * The BSD 2-Clause License:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      1. Redistributions of source code must retain the above
-+ *         copyright notice, this list of conditions and the following
-+ *         disclaimer.
-+ *
-+ *      2. Redistributions in binary form must reproduce the above
-+ *         copyright notice, this list of conditions and the following
-+ *         disclaimer in the documentation and/or other materials
-+ *         provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
-+
-+#include <linux/kernel.h>
-+#include <linux/slab.h>
-+
-+#include "nfp.h"
-+#include "nfp_nsp.h"
-+
-+struct nsp_identify {
-+	u8 version[40];
-+	u8 flags;
-+	u8 br_primary;
-+	u8 br_secondary;
-+	u8 br_nsp;
-+	__le16 primary;
-+	__le16 secondary;
-+	__le16 nsp;
-+	__le16 reserved;
-+};
-+
-+struct nfp_nsp_identify *__nfp_nsp_identify(struct nfp_nsp *nsp)
-+{
-+	struct nfp_nsp_identify *nspi = NULL;
-+	struct nsp_identify *ni;
-+	int ret;
-+
-+	if (nfp_nsp_get_abi_ver_minor(nsp) < 15)
-+		return NULL;
-+
-+	ni = kzalloc(sizeof(*ni), GFP_KERNEL);
-+	if (!ni)
-+		return NULL;
-+
-+	ret = nfp_nsp_read_identify(nsp, ni, sizeof(*ni));
-+	if (ret < 0) {
-+		nfp_err(nfp_nsp_cpp(nsp), "reading bsp version failed %d\n",
-+			ret);
-+		goto exit_free;
++	eth_table = nfp_eth_read_ports(pf->cpp);
++	if (!eth_table) {
++		nfp_err(pf->cpp, "Error refreshing port config!\n");
++		goto out;
 +	}
 +
-+	nspi = kzalloc(sizeof(*nspi), GFP_KERNEL);
-+	if (!nspi)
-+		goto exit_free;
++	rtnl_lock();
++	list_for_each_entry(nn, &pf->ports, port_list) {
++		if (!nn->eth_port)
++			continue;
++		nn->eth_port = nfp_net_find_port(eth_table,
++						 nn->eth_port->eth_index);
++	}
++	rtnl_unlock();
 +
-+	memcpy(nspi->version, ni->version, sizeof(nspi->version));
-+	nspi->version[sizeof(nspi->version) - 1] = '\0';
-+	nspi->flags = ni->flags;
-+	nspi->br_primary = ni->br_primary;
-+	nspi->br_secondary = ni->br_secondary;
-+	nspi->br_nsp = ni->br_nsp;
-+	nspi->primary = le16_to_cpu(ni->primary);
-+	nspi->secondary = le16_to_cpu(ni->secondary);
-+	nspi->nsp = le16_to_cpu(ni->nsp);
++	kfree(pf->eth_tbl);
++	pf->eth_tbl = eth_table;
 +
-+exit_free:
-+	kfree(ni);
-+	return nspi;
+ 	list_for_each_entry_safe(nn, next, &pf->ports, port_list) {
+ 		if (!nn->eth_port) {
+ 			nfp_warn(pf->cpp, "Warning: port not present after reconfig\n");
+@@ -517,31 +539,36 @@ static void nfp_net_refresh_netdevs(struct work_struct *work)
+ 	mutex_unlock(&pf->port_lock);
+ }
+ 
+-void nfp_net_refresh_port_config(struct nfp_net *nn)
++void nfp_net_refresh_port_table(struct nfp_net *nn)
+ {
+ 	struct nfp_pf *pf = pci_get_drvdata(nn->pdev);
+-	struct nfp_eth_table *old_table;
+ 
+-	ASSERT_RTNL();
++	schedule_work(&pf->port_refresh_work);
 +}
+ 
+-	old_table = pf->eth_tbl;
++int nfp_net_refresh_eth_port(struct nfp_net *nn)
++{
++	struct nfp_eth_table_port *eth_port;
++	struct nfp_eth_table *eth_table;
+ 
+-	list_for_each_entry(nn, &pf->ports, port_list)
+-		nfp_net_link_changed_read_clear(nn);
++	eth_table = nfp_eth_read_ports(nn->cpp);
++	if (!eth_table) {
++		nn_err(nn, "Error refreshing port state table!\n");
++		return -EIO;
++	}
+ 
+-	pf->eth_tbl = nfp_eth_read_ports(pf->cpp);
+-	if (!pf->eth_tbl) {
+-		pf->eth_tbl = old_table;
+-		nfp_err(pf->cpp, "Error refreshing port config!\n");
+-		return;
++	eth_port = nfp_net_find_port(eth_table, nn->eth_port->eth_index);
++	if (!eth_port) {
++		nn_err(nn, "Error finding state of the port!\n");
++		kfree(eth_table);
++		return -EIO;
+ 	}
+ 
+-	list_for_each_entry(nn, &pf->ports, port_list)
+-		nn->eth_port = nfp_net_find_port(pf, nn->eth_port->eth_index);
++	memcpy(nn->eth_port, eth_port, sizeof(*eth_port));
+ 
+-	kfree(old_table);
++	kfree(eth_table);
+ 
+-	schedule_work(&pf->port_refresh_work);
++	return 0;
+ }
+ 
+ /*
 -- 
 2.11.0
