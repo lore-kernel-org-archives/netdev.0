@@ -1,44 +1,43 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [Patch net] ip6mr: avoid double unregister of pim6reg device
-Date: Fri, 21 Apr 2017 22:34:20 +0300
-Message-ID: <db28d88e-ed4d-de81-fea2-c404a5b89af0@cumulusnetworks.com>
-References: <1492802839-16851-1-git-send-email-xiyou.wangcong@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net: dsa: LAN9303: add I2C dependency
+Date: Fri, 21 Apr 2017 15:34:27 -0400 (EDT)
+Message-ID: <20170421.153427.1815929300963387314.davem@davemloft.net>
+References: <20170421162259.3312997-1-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: andreyknvl@google.com,
-        Linus Torvalds <torvalds@linux-foundation.org>
-To: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
+Cc: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
+        f.fainelli@gmail.com, robh@kernel.org, jbe@pengutronix.de,
+        sean.wang@mediatek.com, john@phrozen.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: arnd@arndb.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f47.google.com ([74.125.82.47]:38425 "EHLO
-        mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1425193AbdDUTe2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2017 15:34:28 -0400
-Received: by mail-wm0-f47.google.com with SMTP id r190so24843771wme.1
-        for <netdev@vger.kernel.org>; Fri, 21 Apr 2017 12:34:27 -0700 (PDT)
-In-Reply-To: <1492802839-16851-1-git-send-email-xiyou.wangcong@gmail.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:37468 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1425283AbdDUTea (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2017 15:34:30 -0400
+In-Reply-To: <20170421162259.3312997-1-arnd@arndb.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 21/04/17 22:27, Cong Wang wrote:
-> If we unregister the pim6reg device via default_device_exit_batch(),
-> we will receive a notification and ip6mr_device_event() will
-> unregister it again. This causes a kernel BUG at net/core/dev.c:6813.
-> 
-> Like commit 7dc00c82cbb0 ("ipv4: Fix ipmr unregister device oops")
-> we should avoid double-unregister in netdevice notifier.
-> 
-> Reported-by: Andrey Konovalov <andreyknvl@google.com>
-> Cc: Linus Torvalds <torvalds@linux-foundation.org>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
-> ---
->  net/ipv6/ip6mr.c | 11 ++++++-----
->  1 file changed, 6 insertions(+), 5 deletions(-)
-> 
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Fri, 21 Apr 2017 18:22:40 +0200
 
-Cong,
-Please read the full thread, I've already provided a fix which is similar.
-https://patchwork.ozlabs.org/patch/753531/
+> With CONFIG_I2C=m and NET_DSA_SMSC_LAN9303=y, we run into a link error:
+> 
+> drivers/base/regmap/regmap-i2c.o: In function `regmap_smbus_byte_reg_read':
+> regmap-i2c.c:(.text.regmap_smbus_byte_reg_read+0x18): undefined reference to `i2c_smbus_read_byte_data'
+> drivers/base/regmap/regmap-i2c.o: In function `regmap_smbus_byte_reg_write':
+> regmap-i2c.c:(.text.regmap_smbus_byte_reg_write+0x18): undefined reference to `i2c_smbus_write_byte_data'
+> drivers/base/regmap/regmap-i2c.o: In function `regmap_smbus_word_reg_read':
+> regmap-i2c.c:(.text.regmap_smbus_word_reg_read+0x18): undefined reference to `i2c_smbus_read_word_data'
+> drivers/base/regmap/regmap-i2c.o: In function `regmap_smbus_word_read_swapped':
+> regmap-i2c.c:(.text.regmap_smbus_word_read_swapped+0x18): undefined reference to `i2c_smbus_read_word_data'
+> drivers/base/regmap/regmap-i2c.o: In function `regmap_smbus_word_write_swapped':
+> 
+> This adds a Kconfig dependency to avoid the broken configuration.
+> 
+> Fixes: be4e119f9914 ("net: dsa: LAN9303: add I2C managed mode support")
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-Thanks,
- Nik
+Applied, thanks.
