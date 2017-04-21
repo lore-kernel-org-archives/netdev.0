@@ -1,91 +1,46 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: net/core: BUG in unregister_netdevice_many
-Date: Fri, 21 Apr 2017 10:42:48 -0700
-Message-ID: <CA+55aFyTFzML+_8E_kDjX=YFkaDi_ejGo15UgGtAT29244UwgA@mail.gmail.com>
-References: <CAAeHK+zUZMGQuW=7Qhz3EWYjh6Zwv9eMBCiMCU79QrYNWox0-Q@mail.gmail.com>
- <CA+55aFwg=OtMWmU153uM27Fwk5eVv5ZBGBA9phQqVqn3nNAy6Q@mail.gmail.com>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: [PATCH netnext 0/3] packet: Add option to create new fanout group
+ with unique id.
+Date: Fri, 21 Apr 2017 10:59:31 -0400
+Message-ID: <CAF=yD-J_tROiJv9eHsir+YYyZTKpXBueGecpGxbR8vkSqeSn=w@mail.gmail.com>
+References: <20170420192546.5567-1-maloneykernel@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Alexander Duyck <alexander.h.duyck@intel.com>,
-        David Ahern <dsa@cumulusnetworks.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        tcharding <me@tobin.cc>, Jiri Pirko <jiri@mellanox.com>,
-        stephen hemminger <stephen@networkplumber.org>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Kostya Serebryany <kcc@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Andrey Konovalov <andreyknvl@google.com>,
-        Eric Dumazet <edumazet@google.com>
+Cc: Network Development <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        Mike Maloney <maloney@google.com>
+To: Mike Maloney <maloneykernel@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f196.google.com ([209.85.223.196]:35773 "EHLO
-        mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1162272AbdDUSJr (ORCPT
+Received: from mail-qt0-f193.google.com ([209.85.216.193]:35747 "EHLO
+        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1162276AbdDUSJr (ORCPT
         <rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2017 14:09:47 -0400
-In-Reply-To: <CA+55aFwg=OtMWmU153uM27Fwk5eVv5ZBGBA9phQqVqn3nNAy6Q@mail.gmail.com>
+Received: by mail-qt0-f193.google.com with SMTP id o36so12869725qtb.2
+        for <netdev@vger.kernel.org>; Fri, 21 Apr 2017 11:09:47 -0700 (PDT)
+In-Reply-To: <20170420192546.5567-1-maloneykernel@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 21, 2017 at 10:25 AM, Linus Torvalds
-<torvalds@linux-foundation.org> wrote:
+On Thu, Apr 20, 2017 at 3:25 PM, Mike Maloney <maloneykernel@gmail.com> wrote:
+> From: Mike Maloney <maloney@google.com>
 >
-> I'm assuming that the real cause is simply that "dev->reg_state" ends
-> up being NETREG_UNREGISTERING or something. Maybe the BUG_ON() could
-> be just removed, and replaced by the previous warning about
-> NETREG_UNINITIALIZED.
+> Fanout uses a per net global namespace. A process that intends to create a
+> new fanout group can accidentally join an existing group. It is
+> not possible to detect this.
 >
-> Something like the attached (TOTALLY UNTESTED) patch.
+> Add a socket option to specify on the first call to
+> setsockopt(..., PACKET_FANOUT, ...) to ensure that a new group is created.
+> Also add tests.
+>
+> Mike Maloney (3):
+>   selftests/net: cleanup unused parameter in psock_fanout
+>   packet: add PACKET_FANOUT_FLAG_UNIQUEID to assign new fanout group id.
+>   selftests/net: add tests for PACKET_FANOUT_FLAG_UNIQUEID
+>
+>  include/uapi/linux/if_packet.h             |  1 +
+>  net/packet/af_packet.c                     | 44 ++++++++++++++
+>  tools/testing/selftests/net/psock_fanout.c | 93 ++++++++++++++++++++++++++----
+>  3 files changed, 128 insertions(+), 10 deletions(-)
 
-.. might as well test it.
-
-That patch doesn't fix the problem, but it does show that yes, it was
-NETREG_UNREGISTERING:
-
-  unregister_netdevice: device pim6reg/ffff962dc4606000 was not registered (2)
-
-but then immediately afterwards we get
-
-  general protection fault: 0000 [#1] SMP
-  Workqueue: netns cleanup_net
-  RIP: 0010:dev_shutdown+0xe/0xc0
-  Call Trace:
-     rollback_registered_many+0x2a5/0x440
-     unregister_netdevice_many+0x1e/0xb0
-     default_device_exit_batch+0x145/0x170
-
-which is due to a
-
-        mov    0x388(%rdi),%eax
-
-where %rdi is 0xdead000000000090. That is at the very beginning of
-dev_shutdown, it's "dev" itself that has that value, so it comes from
-(_another_) invocation of rollback_registered_many(), when it does
-that
-
-        list_for_each_entry(dev, head, unreg_list) {
-
-so it seems to be a case of another "list_del() leaves list in bad
-state", and it was the added test for "dev->reg_state !=
-NETREG_REGISTERED" that did that
-
-        list_del(&dev->unreg_list);
-
-and left random contents in the unreg_list.
-
-So that "handle error case" was almost certainly just buggy too.
-
-And the bug seems to be that we're trying to unregister a netdevice
-that has already been unregistered.
-
-Over to Eric and networking people. This oops is user-triggerable, and
-leaves the machine in a bad state (the original BUG_ON() and the new
-GP fault both happen while holding the RTNL, so networking is not
-healthy afterwards.
-
-                      Linus
+Gmail refused to send out the main patch (2/3) from a fresh account. I
+resubmitted the entire patchset on Mike's behalf.
