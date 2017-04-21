@@ -1,148 +1,26 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: [PATCH net] ip6mr: fix notification device destruction
-Date: Fri, 21 Apr 2017 20:42:16 +0300
-Message-ID: <1492796536-28781-1-git-send-email-nikolay@cumulusnetworks.com>
-References: <CAAeHK+zUZMGQuW=7Qhz3EWYjh6Zwv9eMBCiMCU79QrYNWox0-Q@mail.gmail.com>
-Cc: davem@davemloft.net, yoshfuji@linux-ipv6.org, dvyukov@google.com,
-        kcc@google.com, syzkaller@googlegroups.com, edumazet@google.com,
-        roopa@cumulusnetworks.com,
-        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: macvlan: Fix device ref leak when purging bc_queue
+Date: Fri, 21 Apr 2017 11:02:42 -0400 (EDT)
+Message-ID: <20170421.110242.1265153654338174910.davem@davemloft.net>
+References: <1492704599476.84165@Dell.com>
+        <20170421044029.GA11695@gondor.apana.org.au>
+        <1492785652578.53801@Dell.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au, Clifford.Wichmann@dell.com,
+        netdev@vger.kernel.org
+To: Joe.Ghalam@dell.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f47.google.com ([74.125.82.47]:38815 "EHLO
-        mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1162301AbdDUSrk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2017 14:47:40 -0400
-Received: by mail-wm0-f47.google.com with SMTP id r190so24039329wme.1
-        for <netdev@vger.kernel.org>; Fri, 21 Apr 2017 11:47:39 -0700 (PDT)
-In-Reply-To: <CAAeHK+zUZMGQuW=7Qhz3EWYjh6Zwv9eMBCiMCU79QrYNWox0-Q@mail.gmail.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:36726 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1162255AbdDUSrh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2017 14:47:37 -0400
+In-Reply-To: <1492785652578.53801@Dell.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andrey Konovalov reported a BUG caused by the ip6mr code which is caused
-because we call unregister_netdevice_many for a device that is already
-being destroyed. In IPv4's ipmr that has been resolved by two commits
-long time ago by introducing the "notify" parameter to the delete
-function and avoiding the unregister when called from a notifier, so
-let's do the same for ip6mr.
 
-The trace from Andrey:
-------------[ cut here ]------------
-kernel BUG at net/core/dev.c:6813!
-invalid opcode: 0000 [#1] SMP KASAN
-Modules linked in:
-CPU: 1 PID: 1165 Comm: kworker/u4:3 Not tainted 4.11.0-rc7+ #251
-Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs
-01/01/2011
-Workqueue: netns cleanup_net
-task: ffff880069208000 task.stack: ffff8800692d8000
-RIP: 0010:rollback_registered_many+0x348/0xeb0 net/core/dev.c:6813
-RSP: 0018:ffff8800692de7f0 EFLAGS: 00010297
-RAX: ffff880069208000 RBX: 0000000000000002 RCX: 0000000000000001
-RDX: 0000000000000000 RSI: 0000000000000000 RDI: ffff88006af90569
-RBP: ffff8800692de9f0 R08: ffff8800692dec60 R09: 0000000000000000
-R10: 0000000000000006 R11: 0000000000000000 R12: ffff88006af90070
-R13: ffff8800692debf0 R14: dffffc0000000000 R15: ffff88006af90000
-FS:  0000000000000000(0000) GS:ffff88006cb00000(0000)
-knlGS:0000000000000000
-CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-CR2: 00007fe7e897d870 CR3: 00000000657e7000 CR4: 00000000000006e0
-Call Trace:
- unregister_netdevice_many.part.105+0x87/0x440 net/core/dev.c:7881
- unregister_netdevice_many+0xc8/0x120 net/core/dev.c:7880
- ip6mr_device_event+0x362/0x3f0 net/ipv6/ip6mr.c:1346
- notifier_call_chain+0x145/0x2f0 kernel/notifier.c:93
- __raw_notifier_call_chain kernel/notifier.c:394
- raw_notifier_call_chain+0x2d/0x40 kernel/notifier.c:401
- call_netdevice_notifiers_info+0x51/0x90 net/core/dev.c:1647
- call_netdevice_notifiers net/core/dev.c:1663
- rollback_registered_many+0x919/0xeb0 net/core/dev.c:6841
- unregister_netdevice_many.part.105+0x87/0x440 net/core/dev.c:7881
- unregister_netdevice_many net/core/dev.c:7880
- default_device_exit_batch+0x4fa/0x640 net/core/dev.c:8333
- ops_exit_list.isra.4+0x100/0x150 net/core/net_namespace.c:144
- cleanup_net+0x5a8/0xb40 net/core/net_namespace.c:463
- process_one_work+0xc04/0x1c10 kernel/workqueue.c:2097
- worker_thread+0x223/0x19c0 kernel/workqueue.c:2231
- kthread+0x35e/0x430 kernel/kthread.c:231
- ret_from_fork+0x31/0x40 arch/x86/entry/entry_64.S:430
-Code: 3c 32 00 0f 85 70 0b 00 00 48 b8 00 02 00 00 00 00 ad de 49 89
-47 78 e9 93 fe ff ff 49 8d 57 70 49 8d 5f 78 eb 9e e8 88 7a 14 fe <0f>
-0b 48 8b 9d 28 fe ff ff e8 7a 7a 14 fe 48 b8 00 00 00 00 00
-RIP: rollback_registered_many+0x348/0xeb0 RSP: ffff8800692de7f0
----[ end trace e0b29c57e9b3292c ]---
+Please DO NOT top-post.
 
-Reported-by: Andrey Konovalov <andreyknvl@google.com>
-Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
----
-Andrey could you please test with this patch applied ?
-I have run the reproducer locally and can no longer trigger the bug.
-I've made "notify" an int instead of a bool only to be closer to the ipmr
-code for easier future patches.
-
- net/ipv6/ip6mr.c | 13 ++++++-------
- 1 file changed, 6 insertions(+), 7 deletions(-)
-
-diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
-index fb4546e80c82..374997d26488 100644
---- a/net/ipv6/ip6mr.c
-+++ b/net/ipv6/ip6mr.c
-@@ -774,7 +774,8 @@ static struct net_device *ip6mr_reg_vif(struct net *net, struct mr6_table *mrt)
-  *	Delete a VIF entry
-  */
- 
--static int mif6_delete(struct mr6_table *mrt, int vifi, struct list_head *head)
-+static int mif6_delete(struct mr6_table *mrt, int vifi, int notify,
-+		       struct list_head *head)
- {
- 	struct mif_device *v;
- 	struct net_device *dev;
-@@ -820,7 +821,7 @@ static int mif6_delete(struct mr6_table *mrt, int vifi, struct list_head *head)
- 					     dev->ifindex, &in6_dev->cnf);
- 	}
- 
--	if (v->flags & MIFF_REGISTER)
-+	if ((v->flags & MIFF_REGISTER) && !notify)
- 		unregister_netdevice_queue(dev, head);
- 
- 	dev_put(dev);
-@@ -1331,7 +1332,6 @@ static int ip6mr_device_event(struct notifier_block *this,
- 	struct mr6_table *mrt;
- 	struct mif_device *v;
- 	int ct;
--	LIST_HEAD(list);
- 
- 	if (event != NETDEV_UNREGISTER)
- 		return NOTIFY_DONE;
-@@ -1340,10 +1340,9 @@ static int ip6mr_device_event(struct notifier_block *this,
- 		v = &mrt->vif6_table[0];
- 		for (ct = 0; ct < mrt->maxvif; ct++, v++) {
- 			if (v->dev == dev)
--				mif6_delete(mrt, ct, &list);
-+				mif6_delete(mrt, ct, 1, NULL);
- 		}
- 	}
--	unregister_netdevice_many(&list);
- 
- 	return NOTIFY_DONE;
- }
-@@ -1552,7 +1551,7 @@ static void mroute_clean_tables(struct mr6_table *mrt, bool all)
- 	for (i = 0; i < mrt->maxvif; i++) {
- 		if (!all && (mrt->vif6_table[i].flags & VIFF_STATIC))
- 			continue;
--		mif6_delete(mrt, i, &list);
-+		mif6_delete(mrt, i, 0, &list);
- 	}
- 	unregister_netdevice_many(&list);
- 
-@@ -1708,7 +1707,7 @@ int ip6_mroute_setsockopt(struct sock *sk, int optname, char __user *optval, uns
- 		if (copy_from_user(&mifi, optval, sizeof(mifi_t)))
- 			return -EFAULT;
- 		rtnl_lock();
--		ret = mif6_delete(mrt, mifi, NULL);
-+		ret = mif6_delete(mrt, mifi, 0, NULL);
- 		rtnl_unlock();
- 		return ret;
- 
--- 
-2.1.4
+Thank you.
