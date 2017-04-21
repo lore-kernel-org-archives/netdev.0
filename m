@@ -1,64 +1,92 @@
-From: Vladislav Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH V2 net] netdevice: Include NETIF_F_HW_CSUM when
- intersecting features
-Date: Fri, 21 Apr 2017 13:33:58 -0400
-Message-ID: <CAGCdqXFM-+OeQFznZ9kcjpnyeBU=1gcdjv1v7RR3KEGPyiZ_GQ@mail.gmail.com>
-References: <1492715844-30273-1-git-send-email-vyasevic@redhat.com>
- <CAKgT0UcHtWYQDcYda+i8R8WhBKeWbOBZRHDcAmJXZYuP1RM7-Q@mail.gmail.com>
- <b34063e7-e0c2-583d-f809-02386fc175de@redhat.com> <20170421053325.GH13789@unicorn.suse.cz>
+From: <Joe.Ghalam@dell.com>
+Subject: Re: macvlan: Fix device ref leak when purging bc_queue
+Date: Fri, 21 Apr 2017 14:40:50 +0000
+Message-ID: <1492785652578.53801@Dell.com>
+References: <1492618528011.11322@Dell.com>
+ <20170420125512.GA9113@gondor.apana.org.au>
+ <1492704599476.84165@Dell.com>,<20170421044029.GA11695@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Vlad Yasevich <vyasevic@redhat.com>,
-        Alexander Duyck <alexander.duyck@gmail.com>,
-        Netdev <netdev@vger.kernel.org>,
-        Tom Herbert <tom@herbertland.com>
-To: Michal Kubecek <mkubecek@suse.cz>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: <davem@davemloft.net>, <Clifford.Wichmann@dell.com>,
+        <netdev@vger.kernel.org>
+To: <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f196.google.com ([209.85.128.196]:33601 "EHLO
-        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1041564AbdDURlM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2017 13:41:12 -0400
-Received: by mail-wr0-f196.google.com with SMTP id w50so8421226wrc.0
-        for <netdev@vger.kernel.org>; Fri, 21 Apr 2017 10:41:07 -0700 (PDT)
-In-Reply-To: <20170421053325.GH13789@unicorn.suse.cz>
+Received: from esa1.dell-outbound.iphmx.com ([68.232.153.90]:20953 "EHLO
+        esa1.dell-outbound.iphmx.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1038603AbdDURkr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2017 13:40:47 -0400
+In-Reply-To: <20170421044029.GA11695@gondor.apana.org.au>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 21, 2017 at 1:33 AM, Michal Kubecek <mkubecek@suse.cz> wrote:
-> On Thu, Apr 20, 2017 at 07:19:55PM -0400, Vlad Yasevich wrote:
->>
->> Having said that, the other alternative is to inherit hw_features from
->> lower devices.  BTW, bonding I think has a similar "issue" you are
->> describing since it prefers HW_CSUM if any of the slaves have it set.
->
-> It does but bonding uses netdev_increment_features() to combine slave
-> features and this function handles checksumming like "or", not "and"
-> (not only checksumming, also flags in NETIF_F_ONE_FOR_ALL).
->
-
-I am not saying that it doesn't.  What I am saying is that if you
-form a bond with two devices: one with only NETIF_F_IP_CSUM and the
-other with NETIF_F_HW_CSUM, then the bonding device will have NETIF_F_HW_CSUM
-set.  This is similar to what is being proposed in the patch.
-
-Alex's objection, at least as I understand it, is that we never want to
-allow the above condition.  However, it looks like we already allow it
-and correctly handle it.
-
-> That said, it's legitimate to ask if we want some of the features to be
-> handled differently when computing features for a vlan device. My point
-> before was that if the helper is called netdev_intersect_features(), it
-> shouldn't return any features that are not supported by both argument
-> sets, even if all its current users would benefit from slightly
-> different behaviour. If it does, it's a trap that someone might one day
-> fall in.
-
-Ok.  I think I understand, but we've always handled the checksum intersection
-stangely.  I'll see what I can figure out.
-
-Thanks
--vlad
-
->
->                                                          Michal Kubecek
->
+That's not true. macvlan_dellink() unregisters the queue, and macvlan_proce=
+ss_broadcast() will never get called. Please note that I'm not speculating.=
+ I have traced enabled on the dev_put and dev_hold, and I'm reporting a rea=
+l, reproducible issue.=0A=
+Her is a sequence of calls logged, when the issue happens. macvlan_process_=
+broadcast() never happens.=0A=
+=0A=
+Apr 19 04:35:39 OS10 kernel: e101-001-0.v257: dev_put 16 dst_destroy=0A=
+Apr 19 04:35:41 OS10 kernel: e101-001-0.v257: dev_hold 15 dev_get_by_index=
+=0A=
+Apr 19 04:35:41 OS10 kernel: e101-001-0.v257: dev_put 16 do_ip_setsockopt=
+=0A=
+Apr 19 04:35:41 OS10 kernel: e101-001-0.v257: dev_hold 15 dst_alloc=0A=
+Apr 19 04:35:41 OS10 kernel: e101-001-0.v257: dev_put 16 dst_destroy=0A=
+Apr 19 04:35:41 OS10 kernel: e101-001-0.v257: dev_hold 15 macvlan_broadcast=
+_enqueue=0A=
+Apr 19 04:35:41 OS10 kernel: e101-001-0.v257: dev_put 16 macvlan_process_br=
+oadcast=0A=
+Apr 19 04:35:41 OS10 kernel: e101-001-0.v257: dev_hold 15 macvlan_broadcast=
+_enqueue=0A=
+Apr 19 04:35:41 OS10 kernel: e101-001-0.v257: dev_put 16 macvlan_process_br=
+oadcast=0A=
+Apr 19 04:35:41 OS10 kernel: e101-001-0.v257: dev_hold 15 macvlan_broadcast=
+_enqueue    <---insert=0A=
+Apr 19 04:35:41 OS10 kernel: e101-001-0.v257: dev_put 16 neigh_destroy=0A=
+Apr 19 04:35:41 OS10 kernel: e101-001-0.v257: dev_put 15 neigh_destroy=0A=
+Apr 19 04:35:41 OS10 kernel: e101-001-0.v257: dev_put 14 neigh_destroy=0A=
+Apr 19 04:35:41 OS10 kernel: e101-001-0.v257: dev_put 13 dst_destroy=0A=
+Apr 19 04:35:41 OS10 kernel: e101-001-0.v257: dev_put 12 dst_destroy=0A=
+Apr 19 04:35:41 OS10 kernel: e101-001-0.v257: dev_put 11 __netdev_adjacent_=
+dev_remove <--- macvlan_dellink()=0A=
+Apr 19 04:35:41 OS10 kernel: e101-001-0.v257: dev_put 10 __netdev_adjacent_=
+dev_remove <--- macvlan_dellink()=0A=
+Apr 19 04:35:41 OS10 kernel: e101-001-0.v257: dev_put 9 neigh_parms_release=
+=0A=
+Apr 19 04:35:41 OS10 kernel: e101-001-0.v257: dev_put 8 neigh_parms_release=
+=0A=
+Apr 19 04:35:41 OS10 kernel: e101-001-0.v257: dev_put 7 in6_dev_finish_dest=
+roy=0A=
+Apr 19 04:35:41 OS10 kernel: e101-001-0.v257: dev_put 6 rx_queue_release=0A=
+Apr 19 04:35:41 OS10 kernel: e101-001-0.v257: dev_put 5 netdev_queue_releas=
+e=0A=
+Apr 19 04:35:41 OS10 kernel: e101-001-0.v257: dev_put 4 rollback_registered=
+_many=0A=
+Apr 19 04:35:41 OS10 kernel: e101-001-0.v257: dev_put 3 free_fib_info_rcu=
+=0A=
+=0A=
+________________________________________=0A=
+From: Herbert Xu <herbert@gondor.apana.org.au>=0A=
+Sent: Thursday, April 20, 2017 9:40 PM=0A=
+To: Ghalam, Joe=0A=
+Cc: davem@davemloft.net; Wichmann, Clifford; netdev@vger.kernel.org=0A=
+Subject: Re: macvlan: Fix device ref leak when purging bc_queue=0A=
+=0A=
+On Thu, Apr 20, 2017 at 04:09:56PM +0000, Joe.Ghalam@dell.com wrote:=0A=
+> I agree with this change, but the same purge would be needed for the macv=
+lan_dellink() call also.=0A=
+=0A=
+I don't think that's necessary because as long as the master=0A=
+device is still around it will continue to process the broadcast=0A=
+queue, thus removing any reference counts held.=0A=
+=0A=
+It's only when the queue is purged that we run into trouble.=0A=
+=0A=
+Cheers,=0A=
+--=0A=
+Email: Herbert Xu <herbert@gondor.apana.org.au>=0A=
+Home Page: http://gondor.apana.org.au/~herbert/=0A=
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt=
