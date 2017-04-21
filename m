@@ -1,129 +1,97 @@
-From: Sabrina Dubroca <sd@queasysnail.net>
-Subject: [PATCH net] xfrm: fix stack access out of bounds with CONFIG_XFRM_SUB_POLICY
-Date: Fri, 21 Apr 2017 12:14:51 +0200
-Message-ID: <17208ec89e09ed7223ffd2302abfa3475255c384.1492769294.git.sd@queasysnail.net>
-Cc: Sabrina Dubroca <sd@queasysnail.net>,
-        Steffen Klassert <steffen.klassert@secunet.com>,
-        Herbert Xu <herbert@gondor.apana.org.au>
-To: netdev@vger.kernel.org
+From: Daniele Palmas <dnlplm@gmail.com>
+Subject: Re: [PATCH 1/1] drivers: net: usb: qmi_wwan: add QMI_QUIRK_SET_DTR
+ for Telit PID 0x1201
+Date: Fri, 21 Apr 2017 12:30:20 +0200
+Message-ID: <CAGRyCJG2AV9fZEoSWDz4Dh=_Q9Edas1ZiDcfOehz77WEc5OQMw@mail.gmail.com>
+References: <1491838463-20299-1-git-send-email-dnlplm@gmail.com> <87efwob92t.fsf@miraculix.mork.no>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@vger.kernel.org, linux-usb <linux-usb@vger.kernel.org>,
+        Aleksander Morgado <aleksander@aleksander.es>
+To: =?UTF-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:46518 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1037752AbdDUKO5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 21 Apr 2017 06:14:57 -0400
+Received: from mail-oi0-f44.google.com ([209.85.218.44]:33573 "EHLO
+        mail-oi0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1037946AbdDUKaV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2017 06:30:21 -0400
+In-Reply-To: <87efwob92t.fsf@miraculix.mork.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When CONFIG_XFRM_SUB_POLICY=y, xfrm_dst stores a copy of the flowi for
-that dst. Unfortunately, the code that allocates and fills this copy
-doesn't care about what type of flowi (flowi, flowi4, flowi6) gets
-passed. In multiple code paths (from raw_sendmsg, from TCP when
-replying to a FIN, in vxlan, geneve, and gre), the flowi that gets
-passed to xfrm is actually an on-stack flowi4, so we end up reading
-memory on the stack past the end of the flowi4 struct.
+Hi Bj=C3=B8rn,
 
-Since xfrm_dst->origin isn't used anywhere, just get rid of it.
-xfrm_dst->partner isn't used either, so get rid of that too.
+2017-04-19 19:28 GMT+02:00 Bj=C3=B8rn Mork <bjorn@mork.no>:
+> Daniele Palmas <dnlplm@gmail.com> writes:
+>
+>> as a side note in latest kernels I had troubles with qmi devices
+>> (e.g. I/O error when using qmicli).
+>>
+>> I found your suggestion in libqmi mailing list to revert commit
+>>
+>> 833415a3e781a26fe480a34d45086bdb4fe1e4c0
+>> cdc-wdm: fix "out-of-sync" due to missing notifications
+>
+> I guess a revert of that commit should be done then..
+>
+> I have been stalling because I have been hoping to replace it with a
+> better fix instead of a plain revert. I believe there are several issues
+> playing badly together here.  That commit was _expected_ to cause
+> spurious EPIPE errors, which would be translated to EIO if they were
+> propagated.  But they should be filtered out rightaway, in theory. This
+> works for me.  I can see the EPIPEs with debugging, but I have never
+> seen any EIO from read.
+>
+> And there is the problem: I am unable to reproduce this problem.  I have
+> previously tested this back and forth with several MDM9200 and MDM9235
+> generation modems in QMI mode, as well as in MBIM mode.  And also with a
+> number of other MBIM modems.  Aleksander reported that he could
+> reproduce the issue using an MDM9x15 generation modem in QMI mode, but
+> not with any MDM9x00 or MDM9x35 modem.  So I have now tried any way I
+> can imagine to reproduce the issue with a Sierra Wireless EM7305, which
+> is the only MDM9x15 modem I have. The firmware is SWI9X15C_05.05.58.00.
+>
+> But unfortunately the testing is still without "success".  It plain
+> works for me, every time, using ModemManager, qmicli with or without
+> proxy, or uqmi.
+>
+> Would you mind describing in detail how you trigger the EIOs?  What
+> software and command sequence are you using?  Does it reliably reproduce
+> the issue, or do you have to try several times?  What modem chipset and
+> firmware is used?
+>
 
-Fixes: ca116922afa8 ("xfrm: Eliminate "fl" and "pol" args to xfrm_bundle_ok().")
-Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
----
- include/net/xfrm.h     | 10 ----------
- net/xfrm/xfrm_policy.c | 47 -----------------------------------------------
- 2 files changed, 57 deletions(-)
+sorry for the delay, I'm using latest qmicli in master:
 
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 14d82bf16692..85bc8e7ade2e 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -945,10 +945,6 @@ struct xfrm_dst {
- 	struct flow_cache_object flo;
- 	struct xfrm_policy *pols[XFRM_POLICY_TYPE_MAX];
- 	int num_pols, num_xfrms;
--#ifdef CONFIG_XFRM_SUB_POLICY
--	struct flowi *origin;
--	struct xfrm_selector *partner;
--#endif
- 	u32 xfrm_genid;
- 	u32 policy_genid;
- 	u32 route_mtu_cached;
-@@ -964,12 +960,6 @@ static inline void xfrm_dst_destroy(struct xfrm_dst *xdst)
- 	dst_release(xdst->route);
- 	if (likely(xdst->u.dst.xfrm))
- 		xfrm_state_put(xdst->u.dst.xfrm);
--#ifdef CONFIG_XFRM_SUB_POLICY
--	kfree(xdst->origin);
--	xdst->origin = NULL;
--	kfree(xdst->partner);
--	xdst->partner = NULL;
--#endif
- }
- #endif
- 
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index 236cbbc0ab9c..56fba8f073f5 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -1793,43 +1793,6 @@ static struct dst_entry *xfrm_bundle_create(struct xfrm_policy *policy,
- 	goto out;
- }
- 
--#ifdef CONFIG_XFRM_SUB_POLICY
--static int xfrm_dst_alloc_copy(void **target, const void *src, int size)
--{
--	if (!*target) {
--		*target = kmalloc(size, GFP_ATOMIC);
--		if (!*target)
--			return -ENOMEM;
--	}
--
--	memcpy(*target, src, size);
--	return 0;
--}
--#endif
--
--static int xfrm_dst_update_parent(struct dst_entry *dst,
--				  const struct xfrm_selector *sel)
--{
--#ifdef CONFIG_XFRM_SUB_POLICY
--	struct xfrm_dst *xdst = (struct xfrm_dst *)dst;
--	return xfrm_dst_alloc_copy((void **)&(xdst->partner),
--				   sel, sizeof(*sel));
--#else
--	return 0;
--#endif
--}
--
--static int xfrm_dst_update_origin(struct dst_entry *dst,
--				  const struct flowi *fl)
--{
--#ifdef CONFIG_XFRM_SUB_POLICY
--	struct xfrm_dst *xdst = (struct xfrm_dst *)dst;
--	return xfrm_dst_alloc_copy((void **)&(xdst->origin), fl, sizeof(*fl));
--#else
--	return 0;
--#endif
--}
--
- static int xfrm_expand_policies(const struct flowi *fl, u16 family,
- 				struct xfrm_policy **pols,
- 				int *num_pols, int *num_xfrms)
-@@ -1901,16 +1864,6 @@ xfrm_resolve_and_create_bundle(struct xfrm_policy **pols, int num_pols,
- 
- 	xdst = (struct xfrm_dst *)dst;
- 	xdst->num_xfrms = err;
--	if (num_pols > 1)
--		err = xfrm_dst_update_parent(dst, &pols[1]->selector);
--	else
--		err = xfrm_dst_update_origin(dst, fl);
--	if (unlikely(err)) {
--		dst_free(dst);
--		XFRM_INC_STATS(net, LINUX_MIB_XFRMOUTBUNDLECHECKERROR);
--		return ERR_PTR(err);
--	}
--
- 	xdst->num_pols = num_pols;
- 	memcpy(xdst->pols, pols, sizeof(struct xfrm_policy *) * num_pols);
- 	xdst->policy_genid = atomic_read(&pols[0]->genid);
--- 
-2.12.2
+danielepa@danielepa-OptiPlex-780:~/development/git/libqmi$ src/qmicli/qmicl=
+i -V
+
+qmicli 1.19.0
+
+and I was able to reproduce the issue simply asking for something like
+the manufacturer with qmicli.
+
+But I'm currently retrying it and it has become even worse (do not ask
+me why...): qmicli returns a transaction timed out error and got
+stuck. Only when detaching the USB cable qmicli exits.
+
+danielepa@danielepa-OptiPlex-780:~/development/git/libqmi$ sudo
+src/qmicli/qmicli -d /dev/cdc-wdm0 --dms-get-manufacturer
+[21 apr 2017, 12:15:33] -Warning ** [/dev/cdc-wdm0] requested auto
+mode but no MBIM QMUX support available
+error: couldn't create client for the 'dms' service: CID allocation
+failed in the CTL client: Transaction timed out
+
+I'm not sure I'm seeing here only problems related to your commit, but
+reverting the commit makes things to work again.
+
+The modem is a Telit LE920A4. I will try to collect more debug info.
+
+Thanks,
+Daniele
+
+>
+>
+>
+> Bj=C3=B8rn
+>
