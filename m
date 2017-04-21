@@ -1,49 +1,51 @@
-From: Ian Kumlien <ian.kumlien@gmail.com>
-Subject: Re: [RFC] change the default Kconfig value of mlx5_en
-Date: Sat, 22 Apr 2017 01:10:44 +0200
-Message-ID: <CAA85sZtr3N3Y8=R5qZHDTMgquV35ddw0x45qy8Kkf_tiVdu8ag@mail.gmail.com>
-References: <CAA85sZumYPfUg_yA=5azrHneqq-XBmHiGNgRaEvBwbewVRj11w@mail.gmail.com>
- <20170421.154745.182611990085743539.davem@davemloft.net> <CAA85sZtBo5dORg4sj8X_SROBU0ySh3_CQh1WiYcVX-RVv4E+gA@mail.gmail.com>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: [PATCH net-next v2 5/5] virtio-net: keep tx interrupts disabled
+ unless kick
+Date: Fri, 21 Apr 2017 19:13:57 -0400
+Message-ID: <CAF=yD-LE1q=jYzEWS5aFb3OcNWDEL3agkSm495xC=ns0PJWFqw@mail.gmail.com>
+References: <20170418202108.61920-1-willemdebruijn.kernel@gmail.com>
+ <20170418202108.61920-6-willemdebruijn.kernel@gmail.com> <72551dd3-ba91-812e-9065-d153bf8a7024@redhat.com>
+ <CAF=yD-KVwRkkGr=pGDmTTXtrrTuAuD7SmTPVtQuwu9aufoBeEQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: saeedm@mellanox.com,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: Network Development <netdev@vger.kernel.org>,
+        "Michael S. Tsirkin" <mst@redhat.com>,
+        virtualization@lists.linux-foundation.org,
+        David Miller <davem@davemloft.net>,
+        Willem de Bruijn <willemb@google.com>
+To: Jason Wang <jasowang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f68.google.com ([209.85.215.68]:34029 "EHLO
-        mail-lf0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1422875AbdDUXLG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2017 19:11:06 -0400
-Received: by mail-lf0-f68.google.com with SMTP id x72so10959620lfb.1
-        for <netdev@vger.kernel.org>; Fri, 21 Apr 2017 16:11:05 -0700 (PDT)
-In-Reply-To: <CAA85sZtBo5dORg4sj8X_SROBU0ySh3_CQh1WiYcVX-RVv4E+gA@mail.gmail.com>
+Received: from mail-qk0-f195.google.com ([209.85.220.195]:36024 "EHLO
+        mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1042822AbdDUXOi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2017 19:14:38 -0400
+Received: by mail-qk0-f195.google.com with SMTP id y63so4648853qkd.3
+        for <netdev@vger.kernel.org>; Fri, 21 Apr 2017 16:14:38 -0700 (PDT)
+In-Reply-To: <CAF=yD-KVwRkkGr=pGDmTTXtrrTuAuD7SmTPVtQuwu9aufoBeEQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sorry,
+On Thu, Apr 20, 2017 at 10:03 AM, Willem de Bruijn
+<willemdebruijn.kernel@gmail.com> wrote:
+>>> -       if (!use_napi)
+>>> +       if (use_napi) {
+>>> +               if (kick)
+>>> +                       virtqueue_enable_cb_delayed(sq->vq);
+>>> +               else
+>>> +                       virtqueue_disable_cb(sq->vq);
+>>
+>>
+>> Since virtqueue_disable_cb() do nothing for event idx. I wonder whether or
+>> not just calling enable_cb_dealyed() is ok here.
+>
+> Good point.
+>
+>> Btw, it does not disable interrupt at all, I propose a patch in the past
+>> which can do more than this:
+>>
+>> https://patchwork.kernel.org/patch/6472601/
+>
+> Interesting. Yes, let me evaluate that variant.
 
-Back again, fighting cold, hot whiskey has been consumed...
-
-Something like this would perhaps be a better solution:
-
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c
-b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-index 60154a175bd3..fe192e247601 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-@@ -1139,6 +1139,10 @@ static int mlx5_load_one(struct mlx5_core_dev
-*dev, struct mlx5_priv *priv,
-
- #ifdef CONFIG_MLX5_CORE_EN
-        mlx5_eswitch_attach(dev->priv.eswitch);
-+#else
-+       if (MLX5_CAP_GEN(dev, port_type) == MLX5_CAP_PORT_TYPE_ETH) {
-+               dev_info(&pdev->dev, "Ethernet device discovered but
-support not enabled in kernel.");
-+       }
- #endif
-
-        err = mlx5_sriov_attach(dev);
-
-This is in no way tested and just a thought for now - I suspect that a
-better message would be required though...
+In initial tests I don't see a significant change, but we can look
+into this more closely as a follow-on patch.
