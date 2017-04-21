@@ -1,74 +1,57 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: blocking ops when !TASK_RUNNING in vsock_stream_sendmsg() (again)
-Date: Fri, 21 Apr 2017 10:14:58 +0200
-Message-ID: <20170421081458.GI13789@unicorn.suse.cz>
+From: <scotte@kincaidlaw.com>
+Subject: (unknown)
+Date: Fri, 21 Apr 2017 08:30:15 -0000
+Message-ID: <149276341506.20066.6444276006343967478@mts-nn.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Andy King <acking@vmware.com>,
-        George Zhang <georgezhang@vmware.com>
-To: Claudio Imbrenda <imbrenda@linux.vnet.ibm.com>
+Content-Type: application/zip; name="EMAIL_73239390_netdev.zip"
+Content-Transfer-Encoding: base64
+To: "netdev" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:33748 "EHLO mx1.suse.de"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1036560AbdDUIPA (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 21 Apr 2017 04:15:00 -0400
-Content-Disposition: inline
+Received: from 109-184-92-251.dynamic.mts-nn.ru ([109.184.92.251]:45830 "HELO
+        mts-nn.ru" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+        id S1036607AbdDUIaU (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 21 Apr 2017 04:30:20 -0400
+Content-Disposition: attachment
+Subject: 
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
-
-one of openSUSE Leap 42.2 users encountered (repeatedly) a warning
-
-[ 4057.170653] WARNING: CPU: 1 PID: 3471 at ../kernel/sched/core.c:7913 __might_sleep+0x76/0x80()
-[ 4057.170661] do not call blocking ops when !TASK_RUNNING; state=1 set at [<ffffffff810c25ab>] prepare_to_wait+0x2b/0x80
-
-with stack
-
-[ 4057.170786]  [<ffffffff81019e69>] dump_trace+0x59/0x320
-[ 4057.170789]  [<ffffffff8101a22a>] show_stack_log_lvl+0xfa/0x180
-[ 4057.170792]  [<ffffffff8101afd1>] show_stack+0x21/0x40
-[ 4057.170798]  [<ffffffff81327657>] dump_stack+0x5c/0x85
-[ 4057.170803]  [<ffffffff8107e821>] warn_slowpath_common+0x81/0xb0
-[ 4057.170806]  [<ffffffff8107e89c>] warn_slowpath_fmt+0x4c/0x50
-[ 4057.170809]  [<ffffffff810a3106>] __might_sleep+0x76/0x80
-[ 4057.170814]  [<ffffffff816071ac>] mutex_lock+0x1c/0x38
-[ 4057.170822]  [<ffffffffa0cfb477>] vmci_qpair_produce_free_space+0x97/0xd0 [vmw_vmci]
-[ 4057.170848]  [<ffffffffa0d10d36>] vsock_stream_sendmsg+0x1f6/0x320 [vsock]
-[ 4057.170855]  [<ffffffff814f6fb0>] sock_sendmsg+0x30/0x40
-[ 4057.170859]  [<ffffffff814f7039>] sock_write_iter+0x79/0xd0
-[ 4057.170864]  [<ffffffff81204d49>] __vfs_write+0xa9/0xf0
-[ 4057.170867]  [<ffffffff8120534d>] vfs_write+0x9d/0x190
-[ 4057.170870]  [<ffffffff81206012>] SyS_write+0x42/0xa0
-[ 4057.170873]  [<ffffffff816093f2>] entry_SYSCALL_64_fastpath+0x16/0x71
-
-The kernel is 4.4.27 but it already has commit f7f9b5e7f8ec ("AF_VSOCK:
-Shrink the area influenced by prepare_to_wait") applied. The issue comes
-from this part of vsock_stream_sendmsg():
-
-                prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
-                while (vsock_stream_has_space(vsk) == 0 &&
-                       sk->sk_err == 0 &&
-                       !(sk->sk_shutdown & SEND_SHUTDOWN) &&
-                       !(vsk->peer_shutdown & RCV_SHUTDOWN)) {
-
-where vsock_stream_has_space() can sleep:
-
-  vsock_stream_has_space
-    vmci_transport_stream_has_space
-      vmci_qpair_produce_free_space
-        qp_lock
-          qp_acquire_queue_mutex
-            mutex_lock
-
-but this is not allowed between prepare_to_wait() and either the actual
-waiting or finish_wait().
-
-I tried to think about a solution but there doesn't seem to be an easy
-way to fix this in vmw_stream_sendmsg() as moving prepare_to_wait()
-inside the loop would result in missed wake-ups (that was the problem
-with the original fix); IMHO the right way to resolve the issue would be
-rewriting the vmci queue pair code to allow performing the has_space()
-check without taking a mutex.
-
-                                                        Michal Kubecek
+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
