@@ -1,155 +1,44 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH v3 07/29] x86: bpf_jit, use ENTRY+ENDPROC
-Date: Fri, 21 Apr 2017 12:32:15 -0700
-Message-ID: <20170421193213.GB91454@ast-mbp.thefacebook.com>
-References: <20170421141305.25180-1-jslaby@suse.cz>
- <20170421141305.25180-7-jslaby@suse.cz>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [Patch net] ip6mr: avoid double unregister of pim6reg device
+Date: Fri, 21 Apr 2017 22:34:20 +0300
+Message-ID: <db28d88e-ed4d-de81-fea2-c404a5b89af0@cumulusnetworks.com>
+References: <1492802839-16851-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: mingo@redhat.com, tglx@linutronix.de, hpa@zytor.com,
-        x86@kernel.org, jpoimboe@redhat.com, linux-kernel@vger.kernel.org,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Eric Dumazet <edumazet@google.com>
-To: Jiri Slaby <jslaby@suse.cz>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: andreyknvl@google.com,
+        Linus Torvalds <torvalds@linux-foundation.org>
+To: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f68.google.com ([209.85.218.68]:35437 "EHLO
-        mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1424996AbdDUTcT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2017 15:32:19 -0400
-Content-Disposition: inline
-In-Reply-To: <20170421141305.25180-7-jslaby@suse.cz>
+Received: from mail-wm0-f47.google.com ([74.125.82.47]:38425 "EHLO
+        mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1425193AbdDUTe2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2017 15:34:28 -0400
+Received: by mail-wm0-f47.google.com with SMTP id r190so24843771wme.1
+        for <netdev@vger.kernel.org>; Fri, 21 Apr 2017 12:34:27 -0700 (PDT)
+In-Reply-To: <1492802839-16851-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 21, 2017 at 04:12:43PM +0200, Jiri Slaby wrote:
-> Do not use a custom macro FUNC for starts of the global functions, use
-> ENTRY instead.
+On 21/04/17 22:27, Cong Wang wrote:
+> If we unregister the pim6reg device via default_device_exit_batch(),
+> we will receive a notification and ip6mr_device_event() will
+> unregister it again. This causes a kernel BUG at net/core/dev.c:6813.
 > 
-> And while at it, annotate also ends of the functions by ENDPROC.
+> Like commit 7dc00c82cbb0 ("ipv4: Fix ipmr unregister device oops")
+> we should avoid double-unregister in netdevice notifier.
 > 
-> Signed-off-by: Jiri Slaby <jslaby@suse.cz>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-> Cc: James Morris <jmorris@namei.org>
-> Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-> Cc: Patrick McHardy <kaber@trash.net>
-> Cc: Thomas Gleixner <tglx@linutronix.de>
-> Cc: Ingo Molnar <mingo@redhat.com>
-> Cc: "H. Peter Anvin" <hpa@zytor.com>
-> Cc: x86@kernel.org
-> Cc: netdev@vger.kernel.org
+> Reported-by: Andrey Konovalov <andreyknvl@google.com>
+> Cc: Linus Torvalds <torvalds@linux-foundation.org>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 > ---
->  arch/x86/net/bpf_jit.S | 32 ++++++++++++++++++--------------
->  1 file changed, 18 insertions(+), 14 deletions(-)
+>  net/ipv6/ip6mr.c | 11 ++++++-----
+>  1 file changed, 6 insertions(+), 5 deletions(-)
 > 
-> diff --git a/arch/x86/net/bpf_jit.S b/arch/x86/net/bpf_jit.S
-> index f2a7faf4706e..762c29fb8832 100644
-> --- a/arch/x86/net/bpf_jit.S
-> +++ b/arch/x86/net/bpf_jit.S
-> @@ -23,16 +23,12 @@
->  	32 /* space for rbx,r13,r14,r15 */ + \
->  	8 /* space for skb_copy_bits */)
->  
-> -#define FUNC(name) \
-> -	.globl name; \
-> -	.type name, @function; \
-> -	name:
-> -
-> -FUNC(sk_load_word)
-> +ENTRY(sk_load_word)
->  	test	%esi,%esi
->  	js	bpf_slow_path_word_neg
-> +ENDPROC(sk_load_word)
 
-this doens't look right.
-It will add alignment nops in critical paths of these pseudo functions.
-I'm also not sure whether it will still work afterwards.
-Was it tested?
-I'd prefer if this code kept as-is.
+Cong,
+Please read the full thread, I've already provided a fix which is similar.
+https://patchwork.ozlabs.org/patch/753531/
 
-> -FUNC(sk_load_word_positive_offset)
-> +ENTRY(sk_load_word_positive_offset)
->  	mov	%r9d,%eax		# hlen
->  	sub	%esi,%eax		# hlen - offset
->  	cmp	$3,%eax
-> @@ -40,12 +36,14 @@ FUNC(sk_load_word_positive_offset)
->  	mov     (SKBDATA,%rsi),%eax
->  	bswap   %eax  			/* ntohl() */
->  	ret
-> +ENDPROC(sk_load_word_positive_offset)
->  
-> -FUNC(sk_load_half)
-> +ENTRY(sk_load_half)
->  	test	%esi,%esi
->  	js	bpf_slow_path_half_neg
-> +ENDPROC(sk_load_half)
->  
-> -FUNC(sk_load_half_positive_offset)
-> +ENTRY(sk_load_half_positive_offset)
->  	mov	%r9d,%eax
->  	sub	%esi,%eax		#	hlen - offset
->  	cmp	$1,%eax
-> @@ -53,16 +51,19 @@ FUNC(sk_load_half_positive_offset)
->  	movzwl	(SKBDATA,%rsi),%eax
->  	rol	$8,%ax			# ntohs()
->  	ret
-> +ENDPROC(sk_load_half_positive_offset)
->  
-> -FUNC(sk_load_byte)
-> +ENTRY(sk_load_byte)
->  	test	%esi,%esi
->  	js	bpf_slow_path_byte_neg
-> +ENDPROC(sk_load_byte)
->  
-> -FUNC(sk_load_byte_positive_offset)
-> +ENTRY(sk_load_byte_positive_offset)
->  	cmp	%esi,%r9d   /* if (offset >= hlen) goto bpf_slow_path_byte */
->  	jle	bpf_slow_path_byte
->  	movzbl	(SKBDATA,%rsi),%eax
->  	ret
-> +ENDPROC(sk_load_byte_positive_offset)
->  
->  /* rsi contains offset and can be scratched */
->  #define bpf_slow_path_common(LEN)		\
-> @@ -119,31 +120,34 @@ bpf_slow_path_word_neg:
->  	cmp	SKF_MAX_NEG_OFF, %esi	/* test range */
->  	jl	bpf_error	/* offset lower -> error  */
->  
-> -FUNC(sk_load_word_negative_offset)
-> +ENTRY(sk_load_word_negative_offset)
->  	sk_negative_common(4)
->  	mov	(%rax), %eax
->  	bswap	%eax
->  	ret
-> +ENDPROC(sk_load_word_negative_offset)
->  
->  bpf_slow_path_half_neg:
->  	cmp	SKF_MAX_NEG_OFF, %esi
->  	jl	bpf_error
->  
-> -FUNC(sk_load_half_negative_offset)
-> +ENTRY(sk_load_half_negative_offset)
->  	sk_negative_common(2)
->  	mov	(%rax),%ax
->  	rol	$8,%ax
->  	movzwl	%ax,%eax
->  	ret
-> +ENDPROC(sk_load_half_negative_offset)
->  
->  bpf_slow_path_byte_neg:
->  	cmp	SKF_MAX_NEG_OFF, %esi
->  	jl	bpf_error
->  
-> -FUNC(sk_load_byte_negative_offset)
-> +ENTRY(sk_load_byte_negative_offset)
->  	sk_negative_common(1)
->  	movzbl	(%rax), %eax
->  	ret
-> +ENDPROC(sk_load_byte_negative_offset)
->  
->  bpf_error:
->  # force a return 0 from jit handler
-> -- 
-> 2.12.2
-> 
+Thanks,
+ Nik
