@@ -1,61 +1,49 @@
-From: Ansis Atteka <aatteka@ovn.org>
-Subject: [PATCH net] udp: disable inner UDP checksum offloads in IPsec case
-Date: Fri, 21 Apr 2017 15:23:05 -0700
-Message-ID: <1492813385-31736-1-git-send-email-aatteka@ovn.org>
-Cc: Ansis Atteka <aatteka@ovn.org>
-To: netdev@vger.kernel.org
+From: Ian Kumlien <ian.kumlien@gmail.com>
+Subject: Re: [RFC] change the default Kconfig value of mlx5_en
+Date: Sat, 22 Apr 2017 01:10:44 +0200
+Message-ID: <CAA85sZtr3N3Y8=R5qZHDTMgquV35ddw0x45qy8Kkf_tiVdu8ag@mail.gmail.com>
+References: <CAA85sZumYPfUg_yA=5azrHneqq-XBmHiGNgRaEvBwbewVRj11w@mail.gmail.com>
+ <20170421.154745.182611990085743539.davem@davemloft.net> <CAA85sZtBo5dORg4sj8X_SROBU0ySh3_CQh1WiYcVX-RVv4E+gA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: saeedm@mellanox.com,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay4-d.mail.gandi.net ([217.70.183.196]:53837 "EHLO
-        relay4-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1426087AbdDUWZT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2017 18:25:19 -0400
+Received: from mail-lf0-f68.google.com ([209.85.215.68]:34029 "EHLO
+        mail-lf0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1422875AbdDUXLG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2017 19:11:06 -0400
+Received: by mail-lf0-f68.google.com with SMTP id x72so10959620lfb.1
+        for <netdev@vger.kernel.org>; Fri, 21 Apr 2017 16:11:05 -0700 (PDT)
+In-Reply-To: <CAA85sZtBo5dORg4sj8X_SROBU0ySh3_CQh1WiYcVX-RVv4E+gA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Otherwise, UDP checksum offloads could corrupt ESP packets by attempting
-to calculate UDP checksum when this inner UDP packet is already protected
-by IPsec.
+Sorry,
 
-One way to reproduce this bug is to have a VM with virtio_net driver (UFO
-set to ON in the guest VM); and then encapsulate all guest's Ethernet
-frames in Geneve; and then further encrypt Geneve with IPsec.  In this
-case following symptoms are observed:
-1. If using ixgbe NIC, then it will complain with following error message:
-   ixgbe 0000:01:00.1: partial checksum but l4 proto=32!
-2. Receiving IPsec stack will drop all the corrupted ESP packets and
-   increase XfrmInStateProtoError counter in /proc/net/xfrm_stat.
-3. iperf UDP test from the VM with packet sizes above MTU will not work at
-   all.
-4. iperf TCP test from the VM will get ridiculously low performance because.
+Back again, fighting cold, hot whiskey has been consumed...
 
-Signed-off-by: Ansis Atteka <aatteka@ovn.org>
-Co-authored-by: Steffen Klassert <steffen.klassert@secunet.com>
----
- net/ipv4/udp_offload.c | 3 +++
- 1 file changed, 3 insertions(+)
+Something like this would perhaps be a better solution:
 
-diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
-index b2be1d9..7812501 100644
---- a/net/ipv4/udp_offload.c
-+++ b/net/ipv4/udp_offload.c
-@@ -29,6 +29,7 @@ static struct sk_buff *__skb_udp_tunnel_segment(struct sk_buff *skb,
- 	u16 mac_len = skb->mac_len;
- 	int udp_offset, outer_hlen;
- 	__wsum partial;
-+	bool need_ipsec;
- 
- 	if (unlikely(!pskb_may_pull(skb, tnl_hlen)))
- 		goto out;
-@@ -62,8 +63,10 @@ static struct sk_buff *__skb_udp_tunnel_segment(struct sk_buff *skb,
- 
- 	ufo = !!(skb_shinfo(skb)->gso_type & SKB_GSO_UDP);
- 
-+	need_ipsec = skb_dst(skb) && dst_xfrm(skb_dst(skb));
- 	/* Try to offload checksum if possible */
- 	offload_csum = !!(need_csum &&
-+			  !need_ipsec &&
- 			  (skb->dev->features &
- 			   (is_ipv6 ? (NETIF_F_HW_CSUM | NETIF_F_IPV6_CSUM) :
- 				      (NETIF_F_HW_CSUM | NETIF_F_IP_CSUM))));
--- 
-1.9.1
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c
+b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+index 60154a175bd3..fe192e247601 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+@@ -1139,6 +1139,10 @@ static int mlx5_load_one(struct mlx5_core_dev
+*dev, struct mlx5_priv *priv,
+
+ #ifdef CONFIG_MLX5_CORE_EN
+        mlx5_eswitch_attach(dev->priv.eswitch);
++#else
++       if (MLX5_CAP_GEN(dev, port_type) == MLX5_CAP_PORT_TYPE_ETH) {
++               dev_info(&pdev->dev, "Ethernet device discovered but
+support not enabled in kernel.");
++       }
+ #endif
+
+        err = mlx5_sriov_attach(dev);
+
+This is in no way tested and just a thought for now - I suspect that a
+better message would be required though...
