@@ -1,78 +1,139 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/11][pull request] 10GbE Intel Wired LAN Driver Updates 2017-04-20
-Date: Thu, 20 Apr 2017 18:50:18 -0700
-Message-ID: <20170421015029.18994-1-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
+Subject: [net-next 11/11] ixgbevf: Check for RSS key before setting value
+Date: Thu, 20 Apr 2017 18:50:29 -0700
+Message-ID: <20170421015029.18994-12-jeffrey.t.kirsher@intel.com>
+References: <20170421015029.18994-1-jeffrey.t.kirsher@intel.com>
+Cc: Tony Nguyen <anthony.l.nguyen@intel.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga04.intel.com ([192.55.52.120]:48798 "EHLO mga04.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1034324AbdDUBup (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 20 Apr 2017 21:50:45 -0400
+        id S1034441AbdDUBvH (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 20 Apr 2017 21:51:07 -0400
+In-Reply-To: <20170421015029.18994-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to ixgbe and ixgbevf only, most notable is
-the addition of XDP support to our 10GbE drivers.
+From: Tony Nguyen <anthony.l.nguyen@intel.com>
 
-Paul fixes ixgbe to acquire the PHY semaphore before accessing PHY
-registers when issuing a device reset.
+The RSS key is being repopulated every time the interface is brought up
+regardless of whether there is an existing value. If the user sets the RSS
+key and the interface is brought up (e.g. reset), the user specified RSS
+key will be overwritten.
 
-John adds XDP support (yeah!) for ixgbe.
+This patch changes the rss_key to a pointer so we can check to see if the
+key has been populated and preserve it accordingly.
 
-Emil fixes an issue by flushing the MACVLAN filters on VF reset to avoid
-conflicts with other VFs that may end up using the same MAC address.  Also
-fixed a bug where ethtool -S displayed some empty fields for ixgbevf
-because it was using ixgbe_stats instead ixgbevf_stats for
-IXGBEVF_QUEUE_STATS_LEN.
+Signed-off-by: Tony Nguyen <anthony.l.nguyen@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/ixgbevf/ethtool.c      |  3 ++-
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      |  2 +-
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 33 +++++++++++++++++++++--
+ 3 files changed, 34 insertions(+), 4 deletions(-)
 
-Tony adds the ability to specify a zero MAC address in order to clear the
-VF's MAC address from the RAR table.  Also adds support for a new
-1000Base-T device based on x550EM_X MAC type.  Fixed an issue where the
-RSS key specified by the user would be over-written with a pre-existing
-value, so change the rss_key to a pointer so we can check to see if the
-key has a value set before attempting to set it.  Fixed the logic for
-mailbox support for getting RETA and RSS values, which are only supported
-by 82599 and x540 devices.
-
-The following are changes since commit 6905e5a5c8d552ace1d65cacb43499a0eb1e0b89:
-  net/mlx5e: IPoIB, Fix error handling in mlx5_rdma_netdev_alloc()
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 10GbE
-
-Emil Tantilov (2):
-  ixgbe: clean macvlan MAC filter table on VF reset
-  ixgbevf: fix size of queue stats length
-
-John Fastabend (3):
-  ixgbe: add XDP support for pass and drop actions
-  ixgbe: add support for XDP_TX action
-  ixgbe: delay tail write to every 'n' packets
-
-Paul Greenwalt (2):
-  ixgbe: Acquire PHY semaphore before device reset
-  ixgbe: Add 1000Base-T device based on X550EM_X MAC
-
-Tony Nguyen (4):
-  ixgbe: Allow setting zero MAC address for VF
-  ixgbe: Check for RSS key before setting value
-  ixgbevf: Fix errors in retrieving RETA and RSS from PF
-  ixgbevf: Check for RSS key before setting value
-
- drivers/net/ethernet/intel/ixgbe/ixgbe.h          |  27 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c  |  33 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c      |  78 +++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c     | 472 +++++++++++++++++++---
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c    | 135 ++++---
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h     |   1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c     |   8 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c     |  53 ++-
- drivers/net/ethernet/intel/ixgbevf/ethtool.c      |   5 +-
- drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      |   2 +-
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |  33 +-
- drivers/net/ethernet/intel/ixgbevf/vf.c           |   6 +-
- 12 files changed, 701 insertions(+), 152 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ethtool.c b/drivers/net/ethernet/intel/ixgbevf/ethtool.c
+index 43b70cd55bc6..ff9d05f308ee 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ethtool.c
++++ b/drivers/net/ethernet/intel/ixgbevf/ethtool.c
+@@ -855,7 +855,8 @@ static int ixgbevf_get_rxfh(struct net_device *netdev, u32 *indir, u8 *key,
+ 
+ 	if (adapter->hw.mac.type >= ixgbe_mac_X550_vf) {
+ 		if (key)
+-			memcpy(key, adapter->rss_key, sizeof(adapter->rss_key));
++			memcpy(key, adapter->rss_key,
++			       ixgbevf_get_rxfh_key_size(netdev));
+ 
+ 		if (indir) {
+ 			int i;
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
+index a8cbc2dda0dd..581f44bbd7b3 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
+@@ -319,7 +319,7 @@ struct ixgbevf_adapter {
+ 	spinlock_t mbx_lock;
+ 	unsigned long last_reset;
+ 
+-	u32 rss_key[IXGBEVF_VFRSSRK_REGS];
++	u32 *rss_key;
+ 	u8 rss_indir_tbl[IXGBEVF_X550_VFRETA_SIZE];
+ };
+ 
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+index 80bab261a0ec..eee29bddddc1 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+@@ -1660,6 +1660,28 @@ static void ixgbevf_rx_desc_queue_enable(struct ixgbevf_adapter *adapter,
+ 		       reg_idx);
+ }
+ 
++/**
++ * ixgbevf_init_rss_key - Initialize adapter RSS key
++ * @adapter: device handle
++ *
++ * Allocates and initializes the RSS key if it is not allocated.
++ **/
++static inline int ixgbevf_init_rss_key(struct ixgbevf_adapter *adapter)
++{
++	u32 *rss_key;
++
++	if (!adapter->rss_key) {
++		rss_key = kzalloc(IXGBEVF_RSS_HASH_KEY_SIZE, GFP_KERNEL);
++		if (unlikely(!rss_key))
++			return -ENOMEM;
++
++		netdev_rss_key_fill(rss_key, IXGBEVF_RSS_HASH_KEY_SIZE);
++		adapter->rss_key = rss_key;
++	}
++
++	return 0;
++}
++
+ static void ixgbevf_setup_vfmrqc(struct ixgbevf_adapter *adapter)
+ {
+ 	struct ixgbe_hw *hw = &adapter->hw;
+@@ -1668,9 +1690,8 @@ static void ixgbevf_setup_vfmrqc(struct ixgbevf_adapter *adapter)
+ 	u8 i, j;
+ 
+ 	/* Fill out hash function seeds */
+-	netdev_rss_key_fill(adapter->rss_key, sizeof(adapter->rss_key));
+ 	for (i = 0; i < IXGBEVF_VFRSSRK_REGS; i++)
+-		IXGBE_WRITE_REG(hw, IXGBE_VFRSSRK(i), adapter->rss_key[i]);
++		IXGBE_WRITE_REG(hw, IXGBE_VFRSSRK(i), *(adapter->rss_key + i));
+ 
+ 	for (i = 0, j = 0; i < IXGBEVF_X550_VFRETA_SIZE; i++, j++) {
+ 		if (j == rss_i)
+@@ -2611,6 +2632,12 @@ static int ixgbevf_sw_init(struct ixgbevf_adapter *adapter)
+ 
+ 	hw->mbx.ops.init_params(hw);
+ 
++	if (hw->mac.type >= ixgbe_mac_X550_vf) {
++		err = ixgbevf_init_rss_key(adapter);
++		if (err)
++			goto out;
++	}
++
+ 	/* assume legacy case in which PF would only give VF 2 queues */
+ 	hw->mac.max_tx_queues = 2;
+ 	hw->mac.max_rx_queues = 2;
+@@ -4127,6 +4154,7 @@ static int ixgbevf_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ err_sw_init:
+ 	ixgbevf_reset_interrupt_capability(adapter);
+ 	iounmap(adapter->io_addr);
++	kfree(adapter->rss_key);
+ err_ioremap:
+ 	disable_dev = !test_and_set_bit(__IXGBEVF_DISABLED, &adapter->state);
+ 	free_netdev(netdev);
+@@ -4173,6 +4201,7 @@ static void ixgbevf_remove(struct pci_dev *pdev)
+ 
+ 	hw_dbg(&adapter->hw, "Remove complete\n");
+ 
++	kfree(adapter->rss_key);
+ 	disable_dev = !test_and_set_bit(__IXGBEVF_DISABLED, &adapter->state);
+ 	free_netdev(netdev);
+ 
 -- 
 2.12.2
