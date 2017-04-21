@@ -1,234 +1,141 @@
-From: Roger Quadros <rogerq@ti.com>
-Subject: [PATCH v4 net-next] mdio_bus: Issue GPIO RESET to PHYs.
-Date: Fri, 21 Apr 2017 16:15:38 +0300
-Message-ID: <fe0b7ec5-2f83-ba06-579f-3ea0d5c4990c@ti.com>
-References: <1491381237-24635-1-git-send-email-rogerq@ti.com>
- <64d6494d-41d2-0faf-a434-057f796637fe@ti.com>
- <daa29a99-0a17-d316-57eb-3e6162938d8d@ti.com>
- <f372db02-a919-55b4-9200-20726cd13482@ti.com>
+From: David Woodhouse <dwmw2@infradead.org>
+Subject: Re: [PATCH v2 0/3] uapi glibc compat: fix musl libc compatibility
+Date: Fri, 21 Apr 2017 14:17:53 +0100
+Message-ID: <1492780673.5876.1.camel@infradead.org>
+References: <20170418210036.26039-1-hauke@hauke-m.de>
+         <20170420.160739.1263793303398330801.davem@davemloft.net>
+         <1492719277.8404.16.camel@infradead.org>
+         <20170420.163630.313375940241598525.davem@davemloft.net>
+         <25477d46-b100-ce87-98d9-8c5e02d409b8@hauke-m.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: <tony@atomide.com>, <nsekhar@ti.com>, <jsarha@ti.com>,
-        <netdev@vger.kernel.org>, <linux-omap@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>, <rogerq@ti.com>
-To: <davem@davemloft.net>, Andrew Lunn <andrew@lunn.ch>,
-        Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fllnx209.ext.ti.com ([198.47.19.16]:31180 "EHLO
-        fllnx209.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1039793AbdDUNQp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2017 09:16:45 -0400
-In-Reply-To: <f372db02-a919-55b4-9200-20726cd13482@ti.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg="sha-256"; protocol="application/x-pkcs7-signature"; boundary="=-dELIqwdnzAKuzhf4MxxV"
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        jarod@redhat.com, jogo@openwrt.org, david.heidelberger@ixit.cz,
+        maillist-linux@barfooze.de, mikko.rapeli@iki.fi,
+        musl@lists.openwall.com
+To: Hauke Mehrtens <hauke@hauke-m.de>,
+        David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <25477d46-b100-ce87-98d9-8c5e02d409b8@hauke-m.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Some boards [1] leave the PHYs at an invalid state
-during system power-up or reset thus causing unreliability
-issues with the PHY which manifests as PHY not being detected
-or link not functional. To fix this, these PHYs need to be RESET
-via a GPIO connected to the PHY's RESET pin.
 
-Some boards have a single GPIO controlling the PHY RESET pin of all
-PHYs on the bus whereas some others have separate GPIOs controlling
-individual PHY RESETs.
+--=-dELIqwdnzAKuzhf4MxxV
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-In both cases, the RESET de-assertion cannot be done in the PHY driver
-as the PHY will not probe till its reset is de-asserted.
-So do the RESET de-assertion in the MDIO bus driver.
+On Fri, 2017-04-21 at 15:14 +0200, Hauke Mehrtens wrote:
+>=20
+> On 04/20/2017 10:36 PM, David Miller wrote:
+> >=20
+> > From: David Woodhouse <dwmw2@infradead.org>
+> > Date: Thu, 20 Apr 2017 21:14:37 +0100
+> >=20
+> > >=20
+> > > I agree, except I don't think you're going far enough. Those
+> > > "standard
+> > > names" you mention... some of this stuff actually depends on
+> > > __GLIBC__,
+> > > and *that* isn't right either.
+> > Yep, that's something that needs correcting.
+> >=20
+> Should all libc implementations define __GLIBC__ or could we at least
+> switch the kernel UAPI to !__KERNEL__ here?
 
-[1] - am572x-idk, am571x-idk, a437x-idk
+I'd start with the patch I referenced yesterday...
+--=-dELIqwdnzAKuzhf4MxxV
+Content-Type: application/x-pkcs7-signature; name="smime.p7s"
+Content-Disposition: attachment; filename="smime.p7s"
+Content-Transfer-Encoding: base64
 
-Signed-off-by: Roger Quadros <rogerq@ti.com>
----
-v4:
-- use dev_err() instead of pr_err()
-- put PHYs back in RESET on failure or mdiobus_unregister()
-- typo fixes uS -> us
+MIAGCSqGSIb3DQEHAqCAMIACAQExDzANBglghkgBZQMEAgEFADCABgkqhkiG9w0BBwEAAKCCDzUw
+ggSvMIIDl6ADAgECAhEA4CPLFRKDU4mtYW56VGdrITANBgkqhkiG9w0BAQsFADBvMQswCQYDVQQG
+EwJTRTEUMBIGA1UEChMLQWRkVHJ1c3QgQUIxJjAkBgNVBAsTHUFkZFRydXN0IEV4dGVybmFsIFRU
+UCBOZXR3b3JrMSIwIAYDVQQDExlBZGRUcnVzdCBFeHRlcm5hbCBDQSBSb290MB4XDTE0MTIyMjAw
+MDAwMFoXDTIwMDUzMDEwNDgzOFowgZsxCzAJBgNVBAYTAkdCMRswGQYDVQQIExJHcmVhdGVyIE1h
+bmNoZXN0ZXIxEDAOBgNVBAcTB1NhbGZvcmQxGjAYBgNVBAoTEUNPTU9ETyBDQSBMaW1pdGVkMUEw
+PwYDVQQDEzhDT01PRE8gU0hBLTI1NiBDbGllbnQgQXV0aGVudGljYXRpb24gYW5kIFNlY3VyZSBF
+bWFpbCBDQTCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAImxDdp6UxlOcFIdvFamBia3
+uEngludRq/HwWhNJFaO0jBtgvHpRQqd5jKQi3xdhTpHVdiMKFNNKAn+2HQmAbqUEPdm6uxb+oYep
+LkNSQxZ8rzJQyKZPWukI2M+TJZx7iOgwZOak+FaA/SokFDMXmaxE5WmLo0YGS8Iz1OlAnwawsayT
+QLm1CJM6nCpToxDbPSBhPFUDjtlOdiUCISn6o3xxdk/u4V+B6ftUgNvDezVSt4TeIj0sMC0xf1m9
+UjewM2ktQ+v61qXxl3dnUYzZ7ifrvKUHOHaMpKk4/9+M9QOsSb7K93OZOg8yq5yVOhM9DkY6V3Rh
+UL7GQD/L5OKfoiECAwEAAaOCARcwggETMB8GA1UdIwQYMBaAFK29mHo0tCb3+sQmVO8DveAky1Qa
+MB0GA1UdDgQWBBSSYWuC4aKgqk/sZ/HCo/e0gADB7DAOBgNVHQ8BAf8EBAMCAYYwEgYDVR0TAQH/
+BAgwBgEB/wIBADAdBgNVHSUEFjAUBggrBgEFBQcDAgYIKwYBBQUHAwQwEQYDVR0gBAowCDAGBgRV
+HSAAMEQGA1UdHwQ9MDswOaA3oDWGM2h0dHA6Ly9jcmwudXNlcnRydXN0LmNvbS9BZGRUcnVzdEV4
+dGVybmFsQ0FSb290LmNybDA1BggrBgEFBQcBAQQpMCcwJQYIKwYBBQUHMAGGGWh0dHA6Ly9vY3Nw
+LnVzZXJ0cnVzdC5jb20wDQYJKoZIhvcNAQELBQADggEBABsqbqxVwTqriMXY7c1V86prYSvACRAj
+mQ/FZmpvsfW0tXdeDwJhAN99Bf4Ss6SAgAD8+x1banICCkG8BbrBWNUmwurVTYT7/oKYz1gb4yJj
+nFL4uwU2q31Ypd6rO2Pl2tVz7+zg+3vio//wQiOcyraNTT7kSxgDsqgt1Ni7QkuQaYUQ26Y3NOh7
+4AEQpZzKOsefT4g0bopl0BqKu6ncyso20fT8wmQpNa/WsadxEdIDQ7GPPprsnjJT9HaSyoY0B7ks
+yuYcStiZDcGG4pCS+1pCaiMhEOllx/XVu37qjIUgAmLq0ToHLFnFmTPyOInltukWeh95FPZKEBom
++nyK+5swggU9MIIEJaADAgECAhBqC1BYlVMtBFBN4igR/howMA0GCSqGSIb3DQEBCwUAMIGbMQsw
+CQYDVQQGEwJHQjEbMBkGA1UECBMSR3JlYXRlciBNYW5jaGVzdGVyMRAwDgYDVQQHEwdTYWxmb3Jk
+MRowGAYDVQQKExFDT01PRE8gQ0EgTGltaXRlZDFBMD8GA1UEAxM4Q09NT0RPIFNIQS0yNTYgQ2xp
+ZW50IEF1dGhlbnRpY2F0aW9uIGFuZCBTZWN1cmUgRW1haWwgQ0EwHhcNMTYxMjIwMDAwMDAwWhcN
+MTcxMjIwMjM1OTU5WjAkMSIwIAYJKoZIhvcNAQkBFhNkd213MkBpbmZyYWRlYWQub3JnMIIBIjAN
+BgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwbTrFaiGdvN2pThnR9q+4eaXB2wQZQNqhter5ZrJ
+pPO47e87bZ+f1tmYoh6+rB90G/XN24NErPRfvU4zVzNT9pCtCzSSVnBlZQBpaEYMKhcXo5PGKNsm
+An8BoGwNXjlxwbBNRaNO+ky0wNCaMNd1JLxEuvqg9J7rrcpHhWmnpXD5IKa8gv9GyVAJgOpiBOts
+p91sShc2kHvWJ5waPEWPCHDH9J+twGGKqKIIU7fdbURLUgUL1wlDSAHf/lgIAVCSj2H2HpoGqHpy
+HgOAClX9iRSLNa0Znj8HTaqfOwxXevsz1KkLFY+Ahm426GIEqdfkK2iT6Hhgc7tjNO3f8i5ALQID
+AQABo4IB8TCCAe0wHwYDVR0jBBgwFoAUkmFrguGioKpP7GfxwqP3tIAAwewwHQYDVR0OBBYEFILE
+dmHLtK6oxmFJZvBhTQhvqrS0MA4GA1UdDwEB/wQEAwIFoDAMBgNVHRMBAf8EAjAAMCAGA1UdJQQZ
+MBcGCCsGAQUFBwMEBgsrBgEEAbIxAQMFAjARBglghkgBhvhCAQEEBAMCBSAwRgYDVR0gBD8wPTA7
+BgwrBgEEAbIxAQIBAQEwKzApBggrBgEFBQcCARYdaHR0cHM6Ly9zZWN1cmUuY29tb2RvLm5ldC9D
+UFMwXQYDVR0fBFYwVDBSoFCgToZMaHR0cDovL2NybC5jb21vZG9jYS5jb20vQ09NT0RPU0hBMjU2
+Q2xpZW50QXV0aGVudGljYXRpb25hbmRTZWN1cmVFbWFpbENBLmNybDCBkAYIKwYBBQUHAQEEgYMw
+gYAwWAYIKwYBBQUHMAKGTGh0dHA6Ly9jcnQuY29tb2RvY2EuY29tL0NPTU9ET1NIQTI1NkNsaWVu
+dEF1dGhlbnRpY2F0aW9uYW5kU2VjdXJlRW1haWxDQS5jcnQwJAYIKwYBBQUHMAGGGGh0dHA6Ly9v
+Y3NwLmNvbW9kb2NhLmNvbTAeBgNVHREEFzAVgRNkd213MkBpbmZyYWRlYWQub3JnMA0GCSqGSIb3
+DQEBCwUAA4IBAQA+AfvNhFwtapF5Lzjapgul3zYuEnMfR538Ya1vhP8wuOkcoJeT2gEFXzVO2WUu
+eWM0g0/DumnRB53htV/Qq/+vsL0i6a2+iOO7kHi5O7bZkgbdNv0t2lzonDUHi6LTa7NUj+tv+j6y
+hW+iNquC3ACP1dIZH8gJmicHblW63qRgp6wxhn315MLBeavi3uiSag2eeKFePiTIwJjN2UYq6kWg
+PL5G/Ycf9x/xN1XBTfJiURc0FsXhrA98VMWnt52C5Lo4txhGjzTI+IZg40b3YDs6E7mTYb5KKmbc
+QZA9priOFDdj1z5W9BdWhU6I/D0P9y8Z4Tr6+ZscMUVD0RqWy2LeMIIFPTCCBCWgAwIBAgIQagtQ
+WJVTLQRQTeIoEf4aMDANBgkqhkiG9w0BAQsFADCBmzELMAkGA1UEBhMCR0IxGzAZBgNVBAgTEkdy
+ZWF0ZXIgTWFuY2hlc3RlcjEQMA4GA1UEBxMHU2FsZm9yZDEaMBgGA1UEChMRQ09NT0RPIENBIExp
+bWl0ZWQxQTA/BgNVBAMTOENPTU9ETyBTSEEtMjU2IENsaWVudCBBdXRoZW50aWNhdGlvbiBhbmQg
+U2VjdXJlIEVtYWlsIENBMB4XDTE2MTIyMDAwMDAwMFoXDTE3MTIyMDIzNTk1OVowJDEiMCAGCSqG
+SIb3DQEJARYTZHdtdzJAaW5mcmFkZWFkLm9yZzCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoC
+ggEBAMG06xWohnbzdqU4Z0favuHmlwdsEGUDaobXq+WayaTzuO3vO22fn9bZmKIevqwfdBv1zduD
+RKz0X71OM1czU/aQrQs0klZwZWUAaWhGDCoXF6OTxijbJgJ/AaBsDV45ccGwTUWjTvpMtMDQmjDX
+dSS8RLr6oPSe663KR4Vpp6Vw+SCmvIL/RslQCYDqYgTrbKfdbEoXNpB71iecGjxFjwhwx/SfrcBh
+iqiiCFO33W1ES1IFC9cJQ0gB3/5YCAFQko9h9h6aBqh6ch4DgApV/YkUizWtGZ4/B02qnzsMV3r7
+M9SpCxWPgIZuNuhiBKnX5Ctok+h4YHO7YzTt3/IuQC0CAwEAAaOCAfEwggHtMB8GA1UdIwQYMBaA
+FJJha4LhoqCqT+xn8cKj97SAAMHsMB0GA1UdDgQWBBSCxHZhy7SuqMZhSWbwYU0Ib6q0tDAOBgNV
+HQ8BAf8EBAMCBaAwDAYDVR0TAQH/BAIwADAgBgNVHSUEGTAXBggrBgEFBQcDBAYLKwYBBAGyMQED
+BQIwEQYJYIZIAYb4QgEBBAQDAgUgMEYGA1UdIAQ/MD0wOwYMKwYBBAGyMQECAQEBMCswKQYIKwYB
+BQUHAgEWHWh0dHBzOi8vc2VjdXJlLmNvbW9kby5uZXQvQ1BTMF0GA1UdHwRWMFQwUqBQoE6GTGh0
+dHA6Ly9jcmwuY29tb2RvY2EuY29tL0NPTU9ET1NIQTI1NkNsaWVudEF1dGhlbnRpY2F0aW9uYW5k
+U2VjdXJlRW1haWxDQS5jcmwwgZAGCCsGAQUFBwEBBIGDMIGAMFgGCCsGAQUFBzAChkxodHRwOi8v
+Y3J0LmNvbW9kb2NhLmNvbS9DT01PRE9TSEEyNTZDbGllbnRBdXRoZW50aWNhdGlvbmFuZFNlY3Vy
+ZUVtYWlsQ0EuY3J0MCQGCCsGAQUFBzABhhhodHRwOi8vb2NzcC5jb21vZG9jYS5jb20wHgYDVR0R
+BBcwFYETZHdtdzJAaW5mcmFkZWFkLm9yZzANBgkqhkiG9w0BAQsFAAOCAQEAPgH7zYRcLWqReS84
+2qYLpd82LhJzH0ed/GGtb4T/MLjpHKCXk9oBBV81TtllLnljNINPw7pp0Qed4bVf0Kv/r7C9Iumt
+vojju5B4uTu22ZIG3Tb9Ldpc6Jw1B4ui02uzVI/rb/o+soVvojargtwAj9XSGR/ICZonB25Vut6k
+YKesMYZ99eTCwXmr4t7okmoNnnihXj4kyMCYzdlGKupFoDy+Rv2HH/cf8TdVwU3yYlEXNBbF4awP
+fFTFp7edguS6OLcYRo80yPiGYONG92A7OhO5k2G+Sipm3EGQPaa4jhQ3Y9c+VvQXVoVOiPw9D/cv
+GeE6+vmbHDFFQ9Ealsti3jGCA9MwggPPAgEBMIGwMIGbMQswCQYDVQQGEwJHQjEbMBkGA1UECBMS
+R3JlYXRlciBNYW5jaGVzdGVyMRAwDgYDVQQHEwdTYWxmb3JkMRowGAYDVQQKExFDT01PRE8gQ0Eg
+TGltaXRlZDFBMD8GA1UEAxM4Q09NT0RPIFNIQS0yNTYgQ2xpZW50IEF1dGhlbnRpY2F0aW9uIGFu
+ZCBTZWN1cmUgRW1haWwgQ0ECEGoLUFiVUy0EUE3iKBH+GjAwDQYJYIZIAWUDBAIBBQCgggHzMBgG
+CSqGSIb3DQEJAzELBgkqhkiG9w0BBwEwHAYJKoZIhvcNAQkFMQ8XDTE3MDQyMTEzMTc1M1owLwYJ
+KoZIhvcNAQkEMSIEIDD0SwEG2VnYg3JxTeRgWAw9CAG7MhXUha3CH7Uey6rFMIHBBgkrBgEEAYI3
+EAQxgbMwgbAwgZsxCzAJBgNVBAYTAkdCMRswGQYDVQQIExJHcmVhdGVyIE1hbmNoZXN0ZXIxEDAO
+BgNVBAcTB1NhbGZvcmQxGjAYBgNVBAoTEUNPTU9ETyBDQSBMaW1pdGVkMUEwPwYDVQQDEzhDT01P
+RE8gU0hBLTI1NiBDbGllbnQgQXV0aGVudGljYXRpb24gYW5kIFNlY3VyZSBFbWFpbCBDQQIQagtQ
+WJVTLQRQTeIoEf4aMDCBwwYLKoZIhvcNAQkQAgsxgbOggbAwgZsxCzAJBgNVBAYTAkdCMRswGQYD
+VQQIExJHcmVhdGVyIE1hbmNoZXN0ZXIxEDAOBgNVBAcTB1NhbGZvcmQxGjAYBgNVBAoTEUNPTU9E
+TyBDQSBMaW1pdGVkMUEwPwYDVQQDEzhDT01PRE8gU0hBLTI1NiBDbGllbnQgQXV0aGVudGljYXRp
+b24gYW5kIFNlY3VyZSBFbWFpbCBDQQIQagtQWJVTLQRQTeIoEf4aMDANBgkqhkiG9w0BAQEFAASC
+AQCFp1EBDZJMoR+t894dyZCoOIOxNUM4oE5TAvnLEV5hw3XNGILOUBt5l0LJKMW9/2tEjpU4uPko
+bu800e6TjlpW7LEiw75CpKauAC6slunPLZKWPIVvMYw5CWQk1QO4tW7s1znQJg5GpYIdCRdt6unp
+4d72gWNLlxTzS9QREGNLS0gRNyRE1uQKHg9nGS93TR+5xyf9WHOrBmUsM27C8SF8Eng7+SQVNgCN
+bfht41hLgAstuur43poaJjU9L+vRLgKh14SI7ue7KXSe10QpznmQ4xObPkgywI0tHVFbCIbsPnZx
+49CJbb2nHSL7xhB4iuj2PtCHz0xYCw0UQYfQ7YZbAAAAAAAA
 
-v3:
-- added more information in the DT binding document.
 
-v2:
-- add device tree binding document (mdio.txt)
-- specify default reset delay in of_mdio.c instead of mdio_bus.c
-
- Documentation/devicetree/bindings/net/mdio.txt | 33 ++++++++++++++++++
- drivers/net/phy/mdio_bus.c                     | 47 ++++++++++++++++++++++++++
- drivers/of/of_mdio.c                           |  7 ++++
- include/linux/phy.h                            |  7 ++++
- 4 files changed, 94 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/net/mdio.txt
-
-diff --git a/Documentation/devicetree/bindings/net/mdio.txt b/Documentation/devicetree/bindings/net/mdio.txt
-new file mode 100644
-index 0000000..4ffbbac
---- /dev/null
-+++ b/Documentation/devicetree/bindings/net/mdio.txt
-@@ -0,0 +1,33 @@
-+Common MDIO bus properties.
-+
-+These are generic properties that can apply to any MDIO bus.
-+
-+Optional properties:
-+- reset-gpios: List of one or more GPIOs that control the RESET lines
-+  of the PHYs on that MDIO bus.
-+- reset-delay-us: RESET pulse width in microseconds as per PHY datasheet.
-+
-+A list of child nodes, one per device on the bus is expected. These
-+should follow the generic phy.txt, or a device specific binding document.
-+
-+Example :
-+This example shows these optional properties, plus other properties
-+required for the TI Davinci MDIO driver.
-+
-+	davinci_mdio: ethernet@0x5c030000 {
-+		compatible = "ti,davinci_mdio";
-+		reg = <0x5c030000 0x1000>;
-+		#address-cells = <1>;
-+		#size-cells = <0>;
-+
-+		reset-gpios = <&gpio2 5 GPIO_ACTIVE_LOW>;
-+		reset-delay-us = <2>;   /* PHY datasheet states 1us min */
-+
-+		ethphy0: ethernet-phy@1 {
-+			reg = <1>;
-+		};
-+
-+		ethphy1: ethernet-phy@3 {
-+			reg = <3>;
-+		};
-+	};
-diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
-index fa7d51f..de927f7 100644
---- a/drivers/net/phy/mdio_bus.c
-+++ b/drivers/net/phy/mdio_bus.c
-@@ -22,8 +22,11 @@
- #include <linux/init.h>
- #include <linux/delay.h>
- #include <linux/device.h>
-+#include <linux/gpio.h>
-+#include <linux/gpio/consumer.h>
- #include <linux/of_device.h>
- #include <linux/of_mdio.h>
-+#include <linux/of_gpio.h>
- #include <linux/netdevice.h>
- #include <linux/etherdevice.h>
- #include <linux/skbuff.h>
-@@ -307,6 +310,7 @@ int __mdiobus_register(struct mii_bus *bus, struct module *owner)
- {
- 	struct mdio_device *mdiodev;
- 	int i, err;
-+	struct gpio_desc *gpiod;
- 
- 	if (NULL == bus || NULL == bus->name ||
- 	    NULL == bus->read || NULL == bus->write)
-@@ -333,6 +337,35 @@ int __mdiobus_register(struct mii_bus *bus, struct module *owner)
- 	if (bus->reset)
- 		bus->reset(bus);
- 
-+	/* de-assert bus level PHY GPIO resets */
-+	if (bus->num_reset_gpios > 0) {
-+		bus->reset_gpiod = devm_kcalloc(&bus->dev,
-+						 bus->num_reset_gpios,
-+						 sizeof(struct gpio_desc *),
-+						 GFP_KERNEL);
-+		if (!bus->reset_gpiod)
-+			return -ENOMEM;
-+	}
-+
-+	for (i = 0; i < bus->num_reset_gpios; i++) {
-+		gpiod = devm_gpiod_get_index(&bus->dev, "reset", i,
-+					     GPIOD_OUT_LOW);
-+		if (IS_ERR(gpiod)) {
-+			err = PTR_ERR(gpiod);
-+			if (err != -ENOENT) {
-+				dev_err(&bus->dev,
-+					"mii_bus %s couldn't get reset GPIO\n",
-+					bus->id);
-+				return err;
-+			}
-+		} else {
-+			bus->reset_gpiod[i] = gpiod;
-+			gpiod_set_value_cansleep(gpiod, 1);
-+			udelay(bus->reset_delay_us);
-+			gpiod_set_value_cansleep(gpiod, 0);
-+		}
-+	}
-+
- 	for (i = 0; i < PHY_MAX_ADDR; i++) {
- 		if ((bus->phy_mask & (1 << i)) == 0) {
- 			struct phy_device *phydev;
-@@ -360,6 +393,13 @@ int __mdiobus_register(struct mii_bus *bus, struct module *owner)
- 		mdiodev->device_remove(mdiodev);
- 		mdiodev->device_free(mdiodev);
- 	}
-+
-+	/* Put PHYs in RESET to save power */
-+	for (i = 0; i < bus->num_reset_gpios; i++) {
-+		if (bus->reset_gpiod[i])
-+			gpiod_set_value_cansleep(bus->reset_gpiod[i], 1);
-+	}
-+
- 	device_del(&bus->dev);
- 	return err;
- }
-@@ -381,6 +421,13 @@ void mdiobus_unregister(struct mii_bus *bus)
- 		mdiodev->device_remove(mdiodev);
- 		mdiodev->device_free(mdiodev);
- 	}
-+
-+	/* Put PHYs in RESET to save power */
-+	for (i = 0; i < bus->num_reset_gpios; i++) {
-+		if (bus->reset_gpiod[i])
-+			gpiod_set_value_cansleep(bus->reset_gpiod[i], 1);
-+	}
-+
- 	device_del(&bus->dev);
- }
- EXPORT_SYMBOL(mdiobus_unregister);
-diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
-index 0b29798..7e4c80f 100644
---- a/drivers/of/of_mdio.c
-+++ b/drivers/of/of_mdio.c
-@@ -22,6 +22,8 @@
- #include <linux/of_net.h>
- #include <linux/module.h>
- 
-+#define DEFAULT_GPIO_RESET_DELAY	10	/* in microseconds */
-+
- MODULE_AUTHOR("Grant Likely <grant.likely@secretlab.ca>");
- MODULE_LICENSE("GPL");
- 
-@@ -221,6 +223,11 @@ int of_mdiobus_register(struct mii_bus *mdio, struct device_node *np)
- 
- 	mdio->dev.of_node = np;
- 
-+	/* Get bus level PHY reset GPIO details */
-+	mdio->reset_delay_us = DEFAULT_GPIO_RESET_DELAY;
-+	of_property_read_u32(np, "reset-delay-us", &mdio->reset_delay_us);
-+	mdio->num_reset_gpios = of_gpio_named_count(np, "reset-gpios");
-+
- 	/* Register the MDIO bus */
- 	rc = mdiobus_register(mdio);
- 	if (rc)
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index 43a7748..8ce57f4 100644
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -217,6 +217,13 @@ struct mii_bus {
- 	 * matching its address
- 	 */
- 	int irq[PHY_MAX_ADDR];
-+
-+	/* GPIO reset pulse width in microseconds */
-+	int reset_delay_us;
-+	/* Number of reset GPIOs */
-+	int num_reset_gpios;
-+	/* Array of RESET GPIO descriptors */
-+	struct gpio_desc **reset_gpiod;
- };
- #define to_mii_bus(d) container_of(d, struct mii_bus, dev)
- 
--- 
-2.7.4
+--=-dELIqwdnzAKuzhf4MxxV--
