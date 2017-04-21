@@ -1,202 +1,149 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 5/5] nfp: remove the refresh of all ports optimization
-Date: Fri, 21 Apr 2017 07:20:52 -0700
-Message-ID: <20170421142052.107388-6-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 1/5] nfp: make use of the DMA_ATTR_SKIP_CPU_SYNC attr
+Date: Fri, 21 Apr 2017 07:20:48 -0700
+Message-ID: <20170421142052.107388-2-jakub.kicinski@netronome.com>
 References: <20170421142052.107388-1-jakub.kicinski@netronome.com>
 Cc: oss-drivers@netronome.com, kubakici@wp.pl,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yb0-f182.google.com ([209.85.213.182]:36756 "EHLO
+Received: from mail-yb0-f182.google.com ([209.85.213.182]:33530 "EHLO
         mail-yb0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1161682AbdDUOXR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2017 10:23:17 -0400
-Received: by mail-yb0-f182.google.com with SMTP id s22so44017016ybe.3
-        for <netdev@vger.kernel.org>; Fri, 21 Apr 2017 07:23:16 -0700 (PDT)
+        with ESMTP id S1161676AbdDUOXS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2017 10:23:18 -0400
+Received: by mail-yb0-f182.google.com with SMTP id 81so43849060ybp.0
+        for <netdev@vger.kernel.org>; Fri, 21 Apr 2017 07:23:08 -0700 (PDT)
 In-Reply-To: <20170421142052.107388-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The code refreshing the eth port state was trying to update state
-of all ports of the card.  Unfortunately to safely walk the port
-list we would have to hold the port lock, which we can't due to
-lock ordering constraints against rtnl.
+DMA unmap may destroy changes CPU made to the buffer.  To make XDP
+run correctly on non-x86 platforms we should use the
+DMA_ATTR_SKIP_CPU_SYNC attribute.
 
-Make the per-port sync refresh and async refresh of all ports
-completely separate routines.
+Thanks to using the attribute we can now push the sync operation to 
+the common code path from XDP handler.
 
-Fixes: 172f638c93dd ("nfp: add port state refresh")
+A little bit of variable name reshuffling is required to bring the
+code back to readable state.
+
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 ---
- drivers/net/ethernet/netronome/nfp/nfp_net.h       |  3 +-
- .../net/ethernet/netronome/nfp/nfp_net_ethtool.c   | 13 +++--
- drivers/net/ethernet/netronome/nfp/nfp_net_main.c  | 67 +++++++++++++++-------
- 3 files changed, 58 insertions(+), 25 deletions(-)
+ .../net/ethernet/netronome/nfp/nfp_net_common.c    | 43 +++++++++++++---------
+ 1 file changed, 25 insertions(+), 18 deletions(-)
 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net.h b/drivers/net/ethernet/netronome/nfp/nfp_net.h
-index 8302a2d688da..8f20fdef0754 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net.h
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net.h
-@@ -819,7 +819,8 @@ struct nfp_net_dp *nfp_net_clone_dp(struct nfp_net *nn);
- int nfp_net_ring_reconfig(struct nfp_net *nn, struct nfp_net_dp *new);
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
+index e2197160e4dc..1274a70c9a38 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
+@@ -87,16 +87,23 @@ void nfp_net_get_fw_version(struct nfp_net_fw_version *fw_ver,
  
- bool nfp_net_link_changed_read_clear(struct nfp_net *nn);
--void nfp_net_refresh_port_config(struct nfp_net *nn);
-+int nfp_net_refresh_eth_port(struct nfp_net *nn);
-+void nfp_net_refresh_port_table(struct nfp_net *nn);
- 
- #ifdef CONFIG_NFP_DEBUG
- void nfp_net_debugfs_create(void);
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c b/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c
-index 3328041ec290..6e27d1281425 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c
-@@ -211,10 +211,15 @@ nfp_net_get_link_ksettings(struct net_device *netdev,
- 		return 0;
- 
- 	/* Use link speed from ETH table if available, otherwise try the BAR */
--	if (nn->eth_port && nfp_net_link_changed_read_clear(nn))
--		nfp_net_refresh_port_config(nn);
--	/* Separate if - on FW error the port could've disappeared from table */
- 	if (nn->eth_port) {
-+		int err;
-+
-+		if (nfp_net_link_changed_read_clear(nn)) {
-+			err = nfp_net_refresh_eth_port(nn);
-+			if (err)
-+				return err;
-+		}
-+
- 		cmd->base.port = nn->eth_port->port_type;
- 		cmd->base.speed = nn->eth_port->speed;
- 		cmd->base.duplex = DUPLEX_FULL;
-@@ -273,7 +278,7 @@ nfp_net_set_link_ksettings(struct net_device *netdev,
- 	if (err > 0)
- 		return 0; /* no change */
- 
--	nfp_net_refresh_port_config(nn);
-+	nfp_net_refresh_port_table(nn);
- 
- 	return err;
- 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_main.c b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-index 4c6863a072d3..8cb87cbe1120 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-@@ -176,13 +176,13 @@ nfp_net_get_mac_addr(struct nfp_net *nn, struct nfp_cpp *cpp, unsigned int id)
+ static dma_addr_t nfp_net_dma_map_rx(struct nfp_net_dp *dp, void *frag)
+ {
+-	return dma_map_single(dp->dev, frag + NFP_NET_RX_BUF_HEADROOM,
+-			      dp->fl_bufsz - NFP_NET_RX_BUF_NON_DATA,
+-			      dp->rx_dma_dir);
++	return dma_map_single_attrs(dp->dev, frag + NFP_NET_RX_BUF_HEADROOM,
++				    dp->fl_bufsz - NFP_NET_RX_BUF_NON_DATA,
++				    dp->rx_dma_dir, DMA_ATTR_SKIP_CPU_SYNC);
  }
  
- static struct nfp_eth_table_port *
--nfp_net_find_port(struct nfp_pf *pf, unsigned int id)
-+nfp_net_find_port(struct nfp_eth_table *eth_tbl, unsigned int id)
+ static void nfp_net_dma_unmap_rx(struct nfp_net_dp *dp, dma_addr_t dma_addr)
  {
- 	int i;
- 
--	for (i = 0; pf->eth_tbl && i < pf->eth_tbl->count; i++)
--		if (pf->eth_tbl->ports[i].eth_index == id)
--			return &pf->eth_tbl->ports[i];
-+	for (i = 0; eth_tbl && i < eth_tbl->count; i++)
-+		if (eth_tbl->ports[i].eth_index == id)
-+			return &eth_tbl->ports[i];
- 
- 	return NULL;
- }
-@@ -367,7 +367,7 @@ nfp_net_pf_alloc_netdevs(struct nfp_pf *pf, void __iomem *ctrl_bar,
- 		prev_tx_base = tgt_tx_base;
- 		prev_rx_base = tgt_rx_base;
- 
--		eth_port = nfp_net_find_port(pf, i);
-+		eth_port = nfp_net_find_port(pf->eth_tbl, i);
- 		if (eth_port && eth_port->override_changed) {
- 			nfp_warn(pf->cpp, "Config changed for port #%d, reboot required before port will be operational\n", i);
- 		} else {
-@@ -485,6 +485,7 @@ static void nfp_net_refresh_netdevs(struct work_struct *work)
- {
- 	struct nfp_pf *pf = container_of(work, struct nfp_pf,
- 					 port_refresh_work);
-+	struct nfp_eth_table *eth_table;
- 	struct nfp_net *nn, *next;
- 
- 	mutex_lock(&pf->port_lock);
-@@ -493,6 +494,27 @@ static void nfp_net_refresh_netdevs(struct work_struct *work)
- 	if (list_empty(&pf->ports))
- 		goto out;
- 
-+	list_for_each_entry(nn, &pf->ports, port_list)
-+		nfp_net_link_changed_read_clear(nn);
-+
-+	eth_table = nfp_eth_read_ports(pf->cpp);
-+	if (!eth_table) {
-+		nfp_err(pf->cpp, "Error refreshing port config!\n");
-+		goto out;
-+	}
-+
-+	rtnl_lock();
-+	list_for_each_entry(nn, &pf->ports, port_list) {
-+		if (!nn->eth_port)
-+			continue;
-+		nn->eth_port = nfp_net_find_port(eth_table,
-+						 nn->eth_port->eth_index);
-+	}
-+	rtnl_unlock();
-+
-+	kfree(pf->eth_tbl);
-+	pf->eth_tbl = eth_table;
-+
- 	list_for_each_entry_safe(nn, next, &pf->ports, port_list) {
- 		if (!nn->eth_port) {
- 			nfp_warn(pf->cpp, "Warning: port not present after reconfig\n");
-@@ -517,31 +539,36 @@ static void nfp_net_refresh_netdevs(struct work_struct *work)
- 	mutex_unlock(&pf->port_lock);
- }
- 
--void nfp_net_refresh_port_config(struct nfp_net *nn)
-+void nfp_net_refresh_port_table(struct nfp_net *nn)
- {
- 	struct nfp_pf *pf = pci_get_drvdata(nn->pdev);
--	struct nfp_eth_table *old_table;
- 
--	ASSERT_RTNL();
-+	schedule_work(&pf->port_refresh_work);
+-	dma_unmap_single(dp->dev, dma_addr,
+-			 dp->fl_bufsz - NFP_NET_RX_BUF_NON_DATA,
+-			 dp->rx_dma_dir);
++	dma_unmap_single_attrs(dp->dev, dma_addr,
++			       dp->fl_bufsz - NFP_NET_RX_BUF_NON_DATA,
++			       dp->rx_dma_dir, DMA_ATTR_SKIP_CPU_SYNC);
 +}
- 
--	old_table = pf->eth_tbl;
-+int nfp_net_refresh_eth_port(struct nfp_net *nn)
++
++static void nfp_net_dma_sync_cpu_rx(struct nfp_net_dp *dp, dma_addr_t dma_addr,
++				    unsigned int len)
 +{
-+	struct nfp_eth_table_port *eth_port;
-+	struct nfp_eth_table *eth_table;
- 
--	list_for_each_entry(nn, &pf->ports, port_list)
--		nfp_net_link_changed_read_clear(nn);
-+	eth_table = nfp_eth_read_ports(nn->cpp);
-+	if (!eth_table) {
-+		nn_err(nn, "Error refreshing port state table!\n");
-+		return -EIO;
-+	}
- 
--	pf->eth_tbl = nfp_eth_read_ports(pf->cpp);
--	if (!pf->eth_tbl) {
--		pf->eth_tbl = old_table;
--		nfp_err(pf->cpp, "Error refreshing port config!\n");
--		return;
-+	eth_port = nfp_net_find_port(eth_table, nn->eth_port->eth_index);
-+	if (!eth_port) {
-+		nn_err(nn, "Error finding state of the port!\n");
-+		kfree(eth_table);
-+		return -EIO;
- 	}
- 
--	list_for_each_entry(nn, &pf->ports, port_list)
--		nn->eth_port = nfp_net_find_port(pf, nn->eth_port->eth_index);
-+	memcpy(nn->eth_port, eth_port, sizeof(*eth_port));
- 
--	kfree(old_table);
-+	kfree(eth_table);
- 
--	schedule_work(&pf->port_refresh_work);
-+	return 0;
++	dma_sync_single_for_cpu(dp->dev, dma_addr - NFP_NET_RX_BUF_HEADROOM,
++				len, dp->rx_dma_dir);
  }
  
- /*
+ /* Firmware reconfig
+@@ -1569,7 +1576,7 @@ static int nfp_net_rx(struct nfp_net_rx_ring *rx_ring, int budget)
+ 	tx_ring = r_vec->xdp_ring;
+ 
+ 	while (pkts_polled < budget) {
+-		unsigned int meta_len, data_len, data_off, pkt_len;
++		unsigned int meta_len, data_len, meta_off, pkt_len, pkt_off;
+ 		u8 meta_prepend[NFP_NET_MAX_PREPEND];
+ 		struct nfp_net_rx_buf *rxbuf;
+ 		struct nfp_net_rx_desc *rxd;
+@@ -1608,11 +1615,12 @@ static int nfp_net_rx(struct nfp_net_rx_ring *rx_ring, int budget)
+ 		data_len = le16_to_cpu(rxd->rxd.data_len);
+ 		pkt_len = data_len - meta_len;
+ 
++		pkt_off = NFP_NET_RX_BUF_HEADROOM + dp->rx_dma_off;
+ 		if (dp->rx_offset == NFP_NET_CFG_RX_OFFSET_DYNAMIC)
+-			data_off = NFP_NET_RX_BUF_HEADROOM + meta_len;
++			pkt_off += meta_len;
+ 		else
+-			data_off = NFP_NET_RX_BUF_HEADROOM + dp->rx_offset;
+-		data_off += dp->rx_dma_off;
++			pkt_off += dp->rx_offset;
++		meta_off = pkt_off - meta_len;
+ 
+ 		/* Stats update */
+ 		u64_stats_update_begin(&r_vec->rx_sync);
+@@ -1621,7 +1629,7 @@ static int nfp_net_rx(struct nfp_net_rx_ring *rx_ring, int budget)
+ 		u64_stats_update_end(&r_vec->rx_sync);
+ 
+ 		/* Pointer to start of metadata */
+-		meta = rxbuf->frag + data_off - meta_len;
++		meta = rxbuf->frag + meta_off;
+ 
+ 		if (unlikely(meta_len > NFP_NET_MAX_PREPEND ||
+ 			     (dp->rx_offset && meta_len > dp->rx_offset))) {
+@@ -1631,6 +1639,9 @@ static int nfp_net_rx(struct nfp_net_rx_ring *rx_ring, int budget)
+ 			continue;
+ 		}
+ 
++		nfp_net_dma_sync_cpu_rx(dp, rxbuf->dma_addr + meta_off,
++					data_len);
++
+ 		if (xdp_prog && !(rxd->rxd.flags & PCIE_DESC_RX_BPF &&
+ 				  dp->bpf_offload_xdp)) {
+ 			unsigned int dma_off;
+@@ -1638,10 +1649,6 @@ static int nfp_net_rx(struct nfp_net_rx_ring *rx_ring, int budget)
+ 			int act;
+ 
+ 			hard_start = rxbuf->frag + NFP_NET_RX_BUF_HEADROOM;
+-			dma_off = data_off - NFP_NET_RX_BUF_HEADROOM;
+-			dma_sync_single_for_cpu(dp->dev, rxbuf->dma_addr,
+-						dma_off + pkt_len,
+-						DMA_BIDIRECTIONAL);
+ 
+ 			/* Move prepend out of the way */
+ 			if (xdp_prog->xdp_adjust_head) {
+@@ -1650,12 +1657,12 @@ static int nfp_net_rx(struct nfp_net_rx_ring *rx_ring, int budget)
+ 			}
+ 
+ 			act = nfp_net_run_xdp(xdp_prog, rxbuf->frag, hard_start,
+-					      &data_off, &pkt_len);
++					      &pkt_off, &pkt_len);
+ 			switch (act) {
+ 			case XDP_PASS:
+ 				break;
+ 			case XDP_TX:
+-				dma_off = data_off - NFP_NET_RX_BUF_HEADROOM;
++				dma_off = pkt_off - NFP_NET_RX_BUF_HEADROOM;
+ 				if (unlikely(!nfp_net_tx_xdp_buf(dp, rx_ring,
+ 								 tx_ring, rxbuf,
+ 								 dma_off,
+@@ -1689,7 +1696,7 @@ static int nfp_net_rx(struct nfp_net_rx_ring *rx_ring, int budget)
+ 
+ 		nfp_net_rx_give_one(dp, rx_ring, new_frag, new_dma_addr);
+ 
+-		skb_reserve(skb, data_off);
++		skb_reserve(skb, pkt_off);
+ 		skb_put(skb, pkt_len);
+ 
+ 		if (!dp->chained_metadata_format) {
 -- 
 2.11.0
