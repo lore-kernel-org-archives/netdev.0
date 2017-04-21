@@ -1,39 +1,36 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v3 net-next] mdio_bus: Issue GPIO RESET to PHYs.
-Date: Fri, 21 Apr 2017 03:38:58 +0200
-Message-ID: <20170421013858.GB705@lunn.ch>
-References: <1491381237-24635-1-git-send-email-rogerq@ti.com>
- <64d6494d-41d2-0faf-a434-057f796637fe@ti.com>
- <daa29a99-0a17-d316-57eb-3e6162938d8d@ti.com>
- <f372db02-a919-55b4-9200-20726cd13482@ti.com>
- <fa24ae98-3d4f-4b11-bbb4-485b9ed41ed7@gmail.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH v3 net-next 5/8] net/ncsi: Dump NCSI packet statistics
+Date: Thu, 20 Apr 2017 18:43:06 -0700
+Message-ID: <1492738986.30293.16.camel@perches.com>
+References: <1492498295-14385-1-git-send-email-gwshan@linux.vnet.ibm.com>
+         <1492498295-14385-6-git-send-email-gwshan@linux.vnet.ibm.com>
+         <20170420.132103.454438573956782815.davem@davemloft.net>
+         <20170420233812.GA7223@gwshan>
+         <0289f0b2-36a8-f4a0-ef15-808aa66528fa@gmail.com>
+         <20170421004435.GA18727@gwshan>
+         <6b310c50-bab4-b5a7-0317-5a430c55917a@gmail.com>
+         <20170421013527.GA26300@gwshan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Roger Quadros <rogerq@ti.com>, davem@davemloft.net,
-        tony@atomide.com, nsekhar@ti.com, jsarha@ti.com,
-        netdev@vger.kernel.org, linux-omap@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+        kubakici@wp.pl
+To: Gavin Shan <gwshan@linux.vnet.ibm.com>,
+        Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:37039 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S948391AbdDUBjF (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 20 Apr 2017 21:39:05 -0400
-Content-Disposition: inline
-In-Reply-To: <fa24ae98-3d4f-4b11-bbb4-485b9ed41ed7@gmail.com>
+Received: from smtprelay0149.hostedemail.com ([216.40.44.149]:46884 "EHLO
+        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1034278AbdDUBnM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2017 21:43:12 -0400
+In-Reply-To: <20170421013527.GA26300@gwshan>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> > +			gpiod_set_value_cansleep(gpiod, 1);
-> > +			udelay(bus->reset_delay_us);
-> > +			gpiod_set_value_cansleep(gpiod, 0);
-> 
-> Does that work even if the polarity of the reset line is active low?
+On Fri, 2017-04-21 at 11:35 +1000, Gavin Shan wrote:
+> Yes, it's definitely good idea to cover everything using one interface.
+> It's for sure that the statistics collected by hardware should be dumped
+> by ethtool in future. I will move functionalities introduced by this
+> patchset to ethtool as well, as Dave suggested in another thread. Hope
+> Joe has no objection on this.
 
-Hi Florian
-
-Yes, it does. The gpiod_ API takes care of that, if you set the flag
-GPIO_ACTIVE_LOW in the device tree blob. This is one of the
-improvements over the gpio_ API.
-
-		Andrew
+Of course not.
