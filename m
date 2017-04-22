@@ -1,96 +1,48 @@
-From: Paul Menzel <paulepanter@users.sourceforge.net>
-Subject: r8169: Long link becomes ready times
-Date: Sat, 22 Apr 2017 11:05:08 +0200
-Message-ID: <1492851908.2760.222.camel@users.sourceforge.net>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [PATCH net] ravb: Double free on error in ravb_start_xmit()
+Date: Sat, 22 Apr 2017 13:46:56 +0300
+Message-ID: <20170422104656.jjnooh3or4x3lbw3@mwanda>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature";
-        boundary="=-NbzV+UO9bXTEuE9wCps4"
-Cc: netdev@vger.kernel.org
-To: Realtek linux nic maintainers <nic_swsd@realtek.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.gw90.de ([188.40.100.199]:47970 "EHLO mail.gw90.de"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751956AbdDVJlB (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 22 Apr 2017 05:41:01 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>,
+        Simon Horman <horms+renesas@verge.net.au>,
+        Yoshihiro Kaneko <ykaneko0929@gmail.com>,
+        Masaru Nagai <masaru.nagai.vx@renesas.com>,
+        Geert Uytterhoeven <geert+renesas@glider.be>,
+        Niklas =?iso-8859-1?Q?S=F6derlund?=
+        <niklas.soderlund+renesas@ragnatech.se>,
+        Philippe Reynes <tremyfr@gmail.com>, netdev@vger.kernel.org,
+        linux-renesas-soc@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-renesas-soc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+If skb_put_padto() fails then it frees the skb.  I shifted that code
+up a bit to make my error handling a little simpler.
 
---=-NbzV+UO9bXTEuE9wCps4
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Fixes: a0d2f20650e8 ("Renesas Ethernet AVB PTP clock driver")
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-Dear Linux folks,
-
-
-The ASRock E350M1 has a Realtek ethernet controller.
-
-It takes almost three seconds for the link to become ready. This is
-noticeable after resume from suspend, where the user wants to continue
-working but first has to wait for the network.
-
-This test is done with Linux 4.10.
-
-```
-$ sudo lspci -s 3:00.0 -nn -v
-03:00.0 Ethernet controller [0200]: Realtek Semiconductor Co., Ltd. RTL8111=
-/8168/8411 PCI Express Gigabit Ethernet Controller [10ec:8168] (rev 06)
-	Subsystem: ASRock Incorporation Motherboard (one of many) [1849:8168]
-	Flags: bus master, fast devsel, latency 0, IRQ 26
-	I/O ports at 1000 [size=3D256]
-	Memory at f0004000 (64-bit, prefetchable) [size=3D4K]
-	Memory at f0000000 (64-bit, prefetchable) [size=3D16K]
-	Capabilities: [40] Power Management version 3
-	Capabilities: [50] MSI: Enable+ Count=3D1/1 Maskable- 64bit+
-	Capabilities: [70] Express Endpoint, MSI 01
-	Capabilities: [b0] MSI-X: Enable- Count=3D4 Masked-
-	Capabilities: [d0] Vital Product Data
-	Capabilities: [100] Advanced Error Reporting
-	Capabilities: [140] Virtual Channel
-	Capabilities: [160] Device Serial Number 01-00-00-00-68-4c-e0-00
-	Kernel driver in use: r8169
-	Kernel modules: r8169
-```
-
-The test below is done, removing the module, and then inserting it.
-
-```
-Apr 22 10:56:11.919311 myasrocke350m1 kernel: r8169 0000:03:00.0 eth0: RTL8=
-168e/8111e at 0xf82ad000, bc:5f:f4:c8:d3:98, XID 0c200000 IRQ 26
-Apr 22 10:56:11.920631 myasrocke350m1 kernel: r8169 0000:03:00.0 eth0: jumb=
-o features [frames: 9200 bytes, tx checksumming: ko]
-Apr 22 10:56:11.967396 myasrocke350m1 kernel: r8169 0000:03:00.0 eth6: rena=
-med from eth0
-Apr 22 10:56:12.064323 myasrocke350m1 kernel: IPv6: ADDRCONF(NETDEV_UP): et=
-h6: link is not ready
-Apr 22 10:56:12.179106 myasrocke350m1 kernel: r8169 0000:03:00.0: firmware:=
- direct-loading firmware rtl_nic/rtl8168e-2.fw
-Apr 22 10:56:12.247858 myasrocke350m1 kernel: r8169 0000:03:00.0 eth6: link=
- down
-Apr 22 10:56:12.248593 myasrocke350m1 kernel: IPv6: ADDRCONF(NETDEV_UP): et=
-h6: link is not ready
-Apr 22 10:56:14.992108 myasrocke350m1 kernel: r8169 0000:03:00.0 eth6: link=
- up
-Apr 22 10:56:14.993299 myasrocke350m1 kernel: IPv6: ADDRCONF(NETDEV_CHANGE)=
-: eth6: link becomes ready
-```
-
-Is it possible to get this well below one second?
-
-
-Thanks,
-
-Paul
---=-NbzV+UO9bXTEuE9wCps4
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-
-iF0EABECAB0WIQQ8+w9d414FAVARIpk9fVorbA4dWAUCWPscxQAKCRA9fVorbA4d
-WIG6AJ9l9dRk6B6ruk1C3aoz0G+BI6e/owCfZr7VtUlU2k/I7ToPMoiQAFZ89v4=
-=s0z+
------END PGP SIGNATURE-----
-
---=-NbzV+UO9bXTEuE9wCps4--
+diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
+index 8cfc4a54f2dc..3cd7989c007d 100644
+--- a/drivers/net/ethernet/renesas/ravb_main.c
++++ b/drivers/net/ethernet/renesas/ravb_main.c
+@@ -1516,11 +1516,12 @@ static netdev_tx_t ravb_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+ 		spin_unlock_irqrestore(&priv->lock, flags);
+ 		return NETDEV_TX_BUSY;
+ 	}
+-	entry = priv->cur_tx[q] % (priv->num_tx_ring[q] * NUM_TX_DESC);
+-	priv->tx_skb[q][entry / NUM_TX_DESC] = skb;
+ 
+ 	if (skb_put_padto(skb, ETH_ZLEN))
+-		goto drop;
++		goto exit;
++
++	entry = priv->cur_tx[q] % (priv->num_tx_ring[q] * NUM_TX_DESC);
++	priv->tx_skb[q][entry / NUM_TX_DESC] = skb;
+ 
+ 	buffer = PTR_ALIGN(priv->tx_align[q], DPTR_ALIGN) +
+ 		 entry / NUM_TX_DESC * DPTR_ALIGN;
