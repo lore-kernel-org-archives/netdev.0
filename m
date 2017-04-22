@@ -1,41 +1,24 @@
-From: Fabio Estevam <festevam@gmail.com>
-Subject: Re: [PATCH] net: can: usb: gs_usb: Fix buffer on stack
-Date: Sat, 22 Apr 2017 14:30:25 -0300
-Message-ID: <CAOMZO5DLdR00FY01r2z=RvSrn4vNEZ+Z3OS0KWB95DGt=3fh2w@mail.gmail.com>
-References: <20170422165626.10534-1-maksim.salau@gmail.com>
+From: Kyle McMartin <kyle-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
+Subject: Re: [PATCH] rtl_bt: Update firmware for BT part of rtl8822be
+Date: Sat, 22 Apr 2017 11:25:11 -0700
+Message-ID: <20170422182511.GN13400@bombadil.infradead.org>
+References: <20170414055552.20762-1-Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Wolfgang Grandegger <wg@grandegger.com>,
-        Marc Kleine-Budde <mkl@pengutronix.de>,
-        Maximilian Schneider <max@schneidersoft.net>,
-        Hubert Denkmair <hubert@denkmair.de>,
-        Wolfram Sang <wsa-dev@sang-engineering.com>,
-        Ethan Zonca <e@ethanzonca.com>, linux-can@vger.kernel.org,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Maksim Salau <maksim.salau@gmail.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <20170422165626.10534-1-maksim.salau@gmail.com>
-Sender: linux-can-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-firmware-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
+To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20170414055552.20762-1-Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Apr 22, 2017 at 1:56 PM, Maksim Salau <maksim.salau@gmail.com> wrote:
-> Allocate buffer on HEAP instead of STACK for a local structure
-> that is to be sent using usb_control_msg().
->
-> Signed-off-by: Maksim Salau <maksim.salau@gmail.com>
-> ---
->  drivers/net/can/usb/gs_usb.c | 17 ++++++++++++-----
->  1 file changed, 12 insertions(+), 5 deletions(-)
->
-> diff --git a/drivers/net/can/usb/gs_usb.c b/drivers/net/can/usb/gs_usb.c
-> index a0dabd4..98f972a 100644
-> --- a/drivers/net/can/usb/gs_usb.c
-> +++ b/drivers/net/can/usb/gs_usb.c
-> @@ -740,13 +740,18 @@ static const struct net_device_ops gs_usb_netdev_ops = {
->  static int gs_usb_set_identify(struct net_device *netdev, bool do_identify)
->  {
->         struct gs_can *dev = netdev_priv(netdev);
-> -       struct gs_identify_mode imode;
-> +       struct gs_identify_mode *imode = NULL;
+On Fri, Apr 14, 2017 at 12:55:52AM -0500, Larry Finger wrote:
+> These files were supplied by Realtek.
+> 
+> Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
 
-No need to assign imode to NULL here.
+Applied, thanks Larry.
+
+--Kyle
