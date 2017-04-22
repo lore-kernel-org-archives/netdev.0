@@ -1,71 +1,69 @@
 From: Maksim Salau <maksim.salau@gmail.com>
-Subject: [PATCH] net: can: usb: gs_usb: Fix buffer on stack
-Date: Sat, 22 Apr 2017 19:56:26 +0300
-Message-ID: <20170422165626.10534-1-maksim.salau@gmail.com>
+Subject: [PATCH] net: wireless: orinoco: usb: Fix buffer on stack
+Date: Sat, 22 Apr 2017 20:03:06 +0300
+Message-ID: <20170422170306.11668-1-maksim.salau@gmail.com>
 Cc: Maksim Salau <maksim.salau@gmail.com>
-To: Wolfgang Grandegger <wg@grandegger.com>,
-        Marc Kleine-Budde <mkl@pengutronix.de>,
-        Maximilian Schneider <max@schneidersoft.net>,
-        Hubert Denkmair <hubert@denkmair.de>,
+To: Kalle Valo <kvalo@codeaurora.org>,
+        "David S . Miller" <davem@davemloft.net>,
         Wolfram Sang <wsa-dev@sang-engineering.com>,
-        Ethan Zonca <e@ethanzonca.com>, linux-can@vger.kernel.org,
-        netdev@vger.kernel.org
+        Mugunthan V N <mugunthanvnm@ti.com>,
+        Florian Westphal <fw@strlen.de>,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f66.google.com ([209.85.215.66]:34247 "EHLO
-        mail-lf0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1425924AbdDVQ46 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 22 Apr 2017 12:56:58 -0400
+Received: from mail-lf0-f67.google.com ([209.85.215.67]:35423 "EHLO
+        mail-lf0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1426070AbdDVRDy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 22 Apr 2017 13:03:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Allocate buffer on HEAP instead of STACK for a local structure
+Allocate buffer on HEAP instead of STACK for a local variable
 that is to be sent using usb_control_msg().
 
 Signed-off-by: Maksim Salau <maksim.salau@gmail.com>
 ---
- drivers/net/can/usb/gs_usb.c | 17 ++++++++++++-----
- 1 file changed, 12 insertions(+), 5 deletions(-)
+ drivers/net/wireless/intersil/orinoco/orinoco_usb.c | 21 +++++++++++++++++----
+ 1 file changed, 17 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/can/usb/gs_usb.c b/drivers/net/can/usb/gs_usb.c
-index a0dabd4..98f972a 100644
---- a/drivers/net/can/usb/gs_usb.c
-+++ b/drivers/net/can/usb/gs_usb.c
-@@ -740,13 +740,18 @@ static const struct net_device_ops gs_usb_netdev_ops = {
- static int gs_usb_set_identify(struct net_device *netdev, bool do_identify)
- {
- 	struct gs_can *dev = netdev_priv(netdev);
--	struct gs_identify_mode imode;
-+	struct gs_identify_mode *imode = NULL;
- 	int rc;
+diff --git a/drivers/net/wireless/intersil/orinoco/orinoco_usb.c b/drivers/net/wireless/intersil/orinoco/orinoco_usb.c
+index bca6935..eb4528b 100644
+--- a/drivers/net/wireless/intersil/orinoco/orinoco_usb.c
++++ b/drivers/net/wireless/intersil/orinoco/orinoco_usb.c
+@@ -770,18 +770,31 @@ static int ezusb_submit_in_urb(struct ezusb_priv *upriv)
  
-+	imode = kmalloc(sizeof(*imode), GFP_KERNEL);
+ static inline int ezusb_8051_cpucs(struct ezusb_priv *upriv, int reset)
+ {
+-	u8 res_val = reset;	/* avoid argument promotion */
++	int ret;
++	u8 *res_val = NULL;
+ 
+ 	if (!upriv->udev) {
+ 		err("%s: !upriv->udev", __func__);
+ 		return -EFAULT;
+ 	}
+-	return usb_control_msg(upriv->udev,
 +
-+	if (!imode)
++	res_val = kmalloc(sizeof(*res_val), GFP_KERNEL);
++
++	if (!res_val)
 +		return -ENOMEM;
 +
- 	if (do_identify)
--		imode.mode = GS_CAN_IDENTIFY_ON;
-+		imode->mode = GS_CAN_IDENTIFY_ON;
- 	else
--		imode.mode = GS_CAN_IDENTIFY_OFF;
-+		imode->mode = GS_CAN_IDENTIFY_OFF;
- 
- 	rc = usb_control_msg(interface_to_usbdev(dev->iface),
- 			     usb_sndctrlpipe(interface_to_usbdev(dev->iface),
-@@ -756,10 +761,12 @@ static int gs_usb_set_identify(struct net_device *netdev, bool do_identify)
- 			     USB_RECIP_INTERFACE,
- 			     dev->channel,
- 			     0,
--			     &imode,
--			     sizeof(imode),
-+			     imode,
-+			     sizeof(*imode),
- 			     100);
- 
-+	kfree(imode);
++	*res_val = reset;	/* avoid argument promotion */
 +
- 	return (rc > 0) ? 0 : rc;
++	ret =  usb_control_msg(upriv->udev,
+ 			       usb_sndctrlpipe(upriv->udev, 0),
+ 			       EZUSB_REQUEST_FW_TRANS,
+ 			       USB_TYPE_VENDOR | USB_RECIP_DEVICE |
+-			       USB_DIR_OUT, EZUSB_CPUCS_REG, 0, &res_val,
+-			       sizeof(res_val), DEF_TIMEOUT);
++			       USB_DIR_OUT, EZUSB_CPUCS_REG, 0, res_val,
++			       sizeof(*res_val), DEF_TIMEOUT);
++
++	kfree(res_val);
++
++	return ret;
  }
  
+ static int ezusb_firmware_download(struct ezusb_priv *upriv,
 -- 
 2.9.3
