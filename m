@@ -1,94 +1,99 @@
-From: Chuck Lever <chuck.lever@oracle.com>
-Subject: Re: [PATCH] xprtrdma: use offset_in_page() macro
-Date: Fri, 21 Apr 2017 23:37:31 -0400
-Message-ID: <DB24E2C7-5CA1-49B7-A748-B3DE435018F5@oracle.com>
-References: <4dbc77ccaaed98b183cf4dba58a4fa325fd65048.1492758503.git.geliangtang@gmail.com> <1b5bf5bd903ad97138a3a86aa6bcb9b2fc142c6e.1492762974.git.geliangtang@gmail.com>
-Mime-Version: 1.0 (Mac OS X Mail 9.3 \(3124\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: "J. Bruce Fields" <bfields@fieldses.org>,
-        Jeff Layton <jlayton@poochiereds.net>,
-        Trond Myklebust <trond.myklebust@primarydata.com>,
-        Anna Schumaker <anna.schumaker@netapp.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Sagi Grimberg <sagi@grimberg.me>,
-        Linux NFS Mailing List <linux-nfs@vger.kernel.org>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Geliang Tang <geliangtang@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1b5bf5bd903ad97138a3a86aa6bcb9b2fc142c6e.1492762974.git.geliangtang@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Martin KaFai Lau <kafai@fb.com>
+Subject: Re: [PATCH net] net: ipv6: regenerate host route if moved to gc list
+Date: Fri, 21 Apr 2017 22:57:03 -0700
+Message-ID: <20170422055703.uo4ghu5jfbctxvud@kafai-mba.dhcp.thefacebook.com>
+References: <1492818030-17640-1-git-send-email-dsa@cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>, <dvyukov@google.com>,
+        <andreyknvl@google.com>, <mmanning@brocade.com>
+To: David Ahern <dsa@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:47193 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1040722AbdDVF6V (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 22 Apr 2017 01:58:21 -0400
+Content-Disposition: inline
+In-Reply-To: <1492818030-17640-1-git-send-email-dsa@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Fri, Apr 21, 2017 at 04:40:30PM -0700, David Ahern wrote:
+> Taking down the loopback device wreaks havoc on IPv6 routes. By
+> extension, taking a VRF device wreaks havoc on its table.
+>
+> Dmitry and Andrey both reported heap out-of-bounds reports in the IPv6
+> FIB code while running syzkaller fuzzer. The root cause is a dead dst
+> that is on the garbage list gets reinserted into the IPv6 FIB. While on
+> the gc (or perhaps when it gets added to the gc list) the dst->next is
+> set to an IPv4 dst. A subsequent walk of the ipv6 tables causes the
+> out-of-bounds access.
+Thanks for the investigation and details explanation.
 
-> On Apr 21, 2017, at 9:21 PM, Geliang Tang <geliangtang@gmail.com> wrote:
-> 
-> Use offset_in_page() macro instead of open-coding.
-> 
-> Signed-off-by: Geliang Tang <geliangtang@gmail.com>
+It sounds like the dst is already in DST_OBSOLETE_DEAD during
+the second fib6_add().  Glad that the fib6_del() caught it.
+
+>
+> Andrey's reproducer was the key to getting to the bottom of this.
+>
+> With IPv6, host routes for an address have the dst->dev set to the
+> loopback device. When the 'lo' device is taken down, rt6_ifdown initiates
+> a walk of the fib evicting routes with the 'lo' device which means all
+> host routes are removed. That process moves the dst which is attached to
+> an inet6_ifaddr to the gc list and marks it as dead.
+>
+> The recent change to keep global IPv6 addresses added a new function
+> fixup_permanent_addr that is called on admin up. That function restarts
+> dad for an inet6_ifaddr and when it completes the host route attached
+> to it is inserted into the fib. Since the route was marked dead and
+> moved to the gc list, we get the reported out-of-bounds accesses. If
+> the device with the address is taken down or the address is removed, the
+> WARN_ON in fib6_del is triggered.
+>
+> All of those faults are fixed by regenerating the host route of the
+> existing one has been moved to the gc list, something that can be
+> determined by checking if the rt6i_ref counter is 0.
+>
+> The update of the route on the ifp is done using cmpxchg as suggested
+> by Li RongQing in a patch a year ago.
+>
+> Fixes: f1705ec197e7 ("net: ipv6: Make address flushing on ifdown optional")
+> Reported-by: Dmitry Vyukov <dvyukov@google.com>
+> Reported-by: Andrey Konovalov <andreyknvl@google.com>
+> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 > ---
-> net/sunrpc/xprtrdma/rpc_rdma.c        | 4 ++--
-> net/sunrpc/xprtrdma/svc_rdma_sendto.c | 3 +--
-> 2 files changed, 3 insertions(+), 4 deletions(-)
-> 
-> diff --git a/net/sunrpc/xprtrdma/rpc_rdma.c b/net/sunrpc/xprtrdma/rpc_rdma.c
-> index a044be2..429beea 100644
-> --- a/net/sunrpc/xprtrdma/rpc_rdma.c
-> +++ b/net/sunrpc/xprtrdma/rpc_rdma.c
-> @@ -540,7 +540,7 @@ rpcrdma_prepare_msg_sges(struct rpcrdma_ia *ia, struct rpcrdma_req *req,
-> 			goto out;
-> 
-> 		page = virt_to_page(xdr->tail[0].iov_base);
-> -		page_base = (unsigned long)xdr->tail[0].iov_base & ~PAGE_MASK;
-> +		page_base = offset_in_page(xdr->tail[0].iov_base);
-> 
-> 		/* If the content in the page list is an odd length,
-> 		 * xdr_write_pages() has added a pad at the beginning
-> @@ -587,7 +587,7 @@ rpcrdma_prepare_msg_sges(struct rpcrdma_ia *ia, struct rpcrdma_req *req,
-> 	 */
-> 	if (xdr->tail[0].iov_len) {
-> 		page = virt_to_page(xdr->tail[0].iov_base);
-> -		page_base = (unsigned long)xdr->tail[0].iov_base & ~PAGE_MASK;
-> +		page_base = offset_in_page(xdr->tail[0].iov_base);
-> 		len = xdr->tail[0].iov_len;
-> 
-> map_tail:
-
-There are several other sites that use PAGE_MASK in
-rpc_rdma.c. Should those be included in this patch?
-
-Do you have a way to test this change? If not I
-can take it (once the above comment is addressed),
-run it through the usual battery of NFS/RDMA
-testing, and then pass it along to Anna.
+>  net/ipv6/addrconf.c | 8 +++++---
+>  1 file changed, 5 insertions(+), 3 deletions(-)
+>
+> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+> index 08f9e8ea7a81..93555528a45b 100644
+> --- a/net/ipv6/addrconf.c
+> +++ b/net/ipv6/addrconf.c
+> @@ -3303,14 +3303,16 @@ static void addrconf_gre_config(struct net_device *dev)
+>  static int fixup_permanent_addr(struct inet6_dev *idev,
+>  				struct inet6_ifaddr *ifp)
+>  {
+> -	if (!ifp->rt) {
+> -		struct rt6_info *rt;
+> +	if (!ifp->rt || !atomic_read(&ifp->rt->rt6i_ref)) {
+> +		struct rt6_info *rt, *prev;
+>
+>  		rt = addrconf_dst_alloc(idev, &ifp->addr, false);
+>  		if (unlikely(IS_ERR(rt)))
+>  			return PTR_ERR(rt);
+>
+> -		ifp->rt = rt;
+> +		prev = cmpxchg(&ifp->rt, ifp->rt, rt);
+One small question.  Why cmpxchg is needed instead
+of a ip6_rt_put() and then assign?
+Is it fixing another bug?
 
 
-> diff --git a/net/sunrpc/xprtrdma/svc_rdma_sendto.c b/net/sunrpc/xprtrdma/svc_rdma_sendto.c
-> index 1736337..60b3f29 100644
-> --- a/net/sunrpc/xprtrdma/svc_rdma_sendto.c
-> +++ b/net/sunrpc/xprtrdma/svc_rdma_sendto.c
-> @@ -306,12 +306,11 @@ static int svc_rdma_dma_map_buf(struct svcxprt_rdma *rdma,
-> 				unsigned char *base,
-> 				unsigned int len)
-> {
-> -	unsigned long offset = (unsigned long)base & ~PAGE_MASK;
-> 	struct ib_device *dev = rdma->sc_cm_id->device;
-> 	dma_addr_t dma_addr;
-> 
-> 	dma_addr = ib_dma_map_page(dev, virt_to_page(base),
-> -				   offset, len, DMA_TO_DEVICE);
-> +				   offset_in_page(base), len, DMA_TO_DEVICE);
-> 	if (ib_dma_mapping_error(dev, dma_addr))
-> 		return -EIO;
-> 
-
-This hunk conflicts with a rewrite of svc_rdma_sendto.c that
-Bruce has already accepted for v4.12. I would prefer this
-be dropped.
-
-The rewritten code also has this issue. I can submit a patch
-separately that adds offset_in_page in the appropriate place.
-
-
---
-Chuck Lever
+> +		if (prev)
+> +			ip6_rt_put(prev);
+>  	}
+>
+>  	if (!(ifp->flags & IFA_F_NOPREFIXROUTE)) {
+> --
+> 2.1.4
+>
