@@ -1,129 +1,96 @@
-From: Ian Kumlien <ian.kumlien@gmail.com>
-Subject: Re: [RFC] change the default Kconfig value of mlx5_en
-Date: Sat, 22 Apr 2017 11:28:06 +0200
-Message-ID: <CAA85sZsH4JNczUzK0EfGC959y=+SK1b=T6_5zb_0e1b99xGtvA@mail.gmail.com>
-References: <CAA85sZumYPfUg_yA=5azrHneqq-XBmHiGNgRaEvBwbewVRj11w@mail.gmail.com>
- <20170421.154745.182611990085743539.davem@davemloft.net> <CAA85sZtBo5dORg4sj8X_SROBU0ySh3_CQh1WiYcVX-RVv4E+gA@mail.gmail.com>
- <CAA85sZtr3N3Y8=R5qZHDTMgquV35ddw0x45qy8Kkf_tiVdu8ag@mail.gmail.com>
- <CALzJLG9cLY8qqjFHGx6i=Gi-TH5EZ2Mq+TQOusX7=EoRDvx1tw@mail.gmail.com>
- <CAA85sZsUjOSZ9Ax6=YFVQfykexCUCRH8+qVxUHRHwt0cBtSqmQ@mail.gmail.com> <CALzJLG_+ubbpwYy+i=HixbT6C6PXB16ZA8_iySmggSsUD70bKA@mail.gmail.com>
+From: Paul Menzel <paulepanter@users.sourceforge.net>
+Subject: r8169: Long link becomes ready times
+Date: Sat, 22 Apr 2017 11:05:08 +0200
+Message-ID: <1492851908.2760.222.camel@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Leon Romanovsky <leonro@mellanox.com>,
-        Matan Barak <matanb@mellanox.com>,
-        David Miller <davem@davemloft.net>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature";
+        boundary="=-NbzV+UO9bXTEuE9wCps4"
+Cc: netdev@vger.kernel.org
+To: Realtek linux nic maintainers <nic_swsd@realtek.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f68.google.com ([209.85.215.68]:35694 "EHLO
-        mail-lf0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1043714AbdDVJ23 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 22 Apr 2017 05:28:29 -0400
-Received: by mail-lf0-f68.google.com with SMTP id i3so11717999lfh.2
-        for <netdev@vger.kernel.org>; Sat, 22 Apr 2017 02:28:28 -0700 (PDT)
-In-Reply-To: <CALzJLG_+ubbpwYy+i=HixbT6C6PXB16ZA8_iySmggSsUD70bKA@mail.gmail.com>
+Received: from mail.gw90.de ([188.40.100.199]:47970 "EHLO mail.gw90.de"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751956AbdDVJlB (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 22 Apr 2017 05:41:01 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Apr 22, 2017 at 3:07 AM, Saeed Mahameed
-<saeedm@dev.mellanox.co.il> wrote:
-> On Sat, Apr 22, 2017 at 3:47 AM, Ian Kumlien <ian.kumlien@gmail.com> wrote:
->> On Sat, Apr 22, 2017 at 2:34 AM, Saeed Mahameed
->> <saeedm@dev.mellanox.co.il> wrote:
->>> On Sat, Apr 22, 2017 at 2:10 AM, Ian Kumlien <ian.kumlien@gmail.com> wrote:
->>>> Sorry,
->>>>
->>>> Back again, fighting cold, hot whiskey has been consumed...
->>>>
->>>> Something like this would perhaps be a better solution:
->>>>
->>>> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c
->>>> b/drivers/net/ethernet/mellanox/mlx5/core/main.c
->>>> index 60154a175bd3..fe192e247601 100644
->>>> --- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
->>>> +++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
->>>> @@ -1139,6 +1139,10 @@ static int mlx5_load_one(struct mlx5_core_dev
->>>> *dev, struct mlx5_priv *priv,
->>>>
->>>>  #ifdef CONFIG_MLX5_CORE_EN
->>>>         mlx5_eswitch_attach(dev->priv.eswitch);
->>>> +#else
->>>> +       if (MLX5_CAP_GEN(dev, port_type) == MLX5_CAP_PORT_TYPE_ETH) {
->>>> +               dev_info(&pdev->dev, "Ethernet device discovered but
->>>> support not enabled in kernel.");
->>>> +       }
->>>>  #endif
->>>>
->>>
->>> Currently both MLX5_CORE=n and MLX5_CORE_EN=n as a default, the issue
->>> you are seeing can occur only if you explicitly  set MLX5_CORE=y and
->>> MLX5_CORE=n, Why would someone do this if he knows he wants Ethernet
->>> support as well ? IMHO this print is redundant .
->>
->> Well, I'm running a prebuilt kernel - which was configured this way,
->> and since there
->> is no mlx5_en module and it does state that the link is "Ethernet", it
->> just looks like the
->> driver is broken or in some kind of really weird state.
->>
->>> Anyway, Are you looking for RDMA support over ethernet (RoCE) ? and
->>> you are not interested to have ethernet netdev support ?
->>
->> ? RDMA is something we'll look at in the future, right now, having the
->> nics actually
->> work as nics is a priority ;)
->>
->
-> I see, i just wanted to understand your situation :)
->
->>> if yes, I think this is something that can be achieved, but the
->>> question is do we really need this ?
->>
->> It's really weird to see the driver load, to see everything register
->> and have no feedback.
->>
->
-> So, in your case you have mlx5 core support without MLX5_CORE_EN which
-> provides the eswitch and netdev functionality in ethernet.
 
-Yes
+--=-NbzV+UO9bXTEuE9wCps4
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-> But you will still have mlx5_ib register an RDMA interface and
-> theoretically it should work, the only thing you won't see is a
-> netdevice.
->
-> The weird thing is that you don't see a link up on the RDMA interface,
-> Leon/Matan can you please look into this ? do we really need a netdev
-> to have a functioning RDMA logical link in ethernet ?
+Dear Linux folks,
 
-The switch we have does support RDMA but the manual is sparse (as in
-nothing really there) wrt enabling/configuring the RDMA bit so something
-might be missing.
 
-I'll try to remember to do the same test when we setup the mellanox switches =)
+The ASRock E350M1 has a Realtek ethernet controller.
 
->> Including no network devices, but if you run the Infiniband commands,
->> they tell you that
->> you are connected to Ethernet but that the device is down and disabled.
->>
->> To me, down and disabled is not the same as in "Ethernet support is
->> not included" =)
->>
->> Basically, i would hate for someone else to end up in the same
->> situation since you only
->> get guides on how to enable infiniband/RDMA but what you really want
->> to do at that point
->> is to disable it and see if that gives you your network devices back =)
->>
->
-> Yes this is misleading, Maybe your kernel log warning is not so bad
-> after all, but let me dig more into this.
-> I will get back to you next week.
+It takes almost three seconds for the link to become ready. This is
+noticeable after resume from suspend, where the user wants to continue
+working but first has to wait for the network.
 
-Thanks, I bet that there is better ways to do it, this one was just
-one of the first ones i found =)
+This test is done with Linux 4.10.
 
->> I have had similar issues with some connectx3 devices while playing at
->> home but i suspect
->> that it's just a limitation of OFED packages available for the dist I'm running.
+```
+$ sudo lspci -s 3:00.0 -nn -v
+03:00.0 Ethernet controller [0200]: Realtek Semiconductor Co., Ltd. RTL8111=
+/8168/8411 PCI Express Gigabit Ethernet Controller [10ec:8168] (rev 06)
+	Subsystem: ASRock Incorporation Motherboard (one of many) [1849:8168]
+	Flags: bus master, fast devsel, latency 0, IRQ 26
+	I/O ports at 1000 [size=3D256]
+	Memory at f0004000 (64-bit, prefetchable) [size=3D4K]
+	Memory at f0000000 (64-bit, prefetchable) [size=3D16K]
+	Capabilities: [40] Power Management version 3
+	Capabilities: [50] MSI: Enable+ Count=3D1/1 Maskable- 64bit+
+	Capabilities: [70] Express Endpoint, MSI 01
+	Capabilities: [b0] MSI-X: Enable- Count=3D4 Masked-
+	Capabilities: [d0] Vital Product Data
+	Capabilities: [100] Advanced Error Reporting
+	Capabilities: [140] Virtual Channel
+	Capabilities: [160] Device Serial Number 01-00-00-00-68-4c-e0-00
+	Kernel driver in use: r8169
+	Kernel modules: r8169
+```
+
+The test below is done, removing the module, and then inserting it.
+
+```
+Apr 22 10:56:11.919311 myasrocke350m1 kernel: r8169 0000:03:00.0 eth0: RTL8=
+168e/8111e at 0xf82ad000, bc:5f:f4:c8:d3:98, XID 0c200000 IRQ 26
+Apr 22 10:56:11.920631 myasrocke350m1 kernel: r8169 0000:03:00.0 eth0: jumb=
+o features [frames: 9200 bytes, tx checksumming: ko]
+Apr 22 10:56:11.967396 myasrocke350m1 kernel: r8169 0000:03:00.0 eth6: rena=
+med from eth0
+Apr 22 10:56:12.064323 myasrocke350m1 kernel: IPv6: ADDRCONF(NETDEV_UP): et=
+h6: link is not ready
+Apr 22 10:56:12.179106 myasrocke350m1 kernel: r8169 0000:03:00.0: firmware:=
+ direct-loading firmware rtl_nic/rtl8168e-2.fw
+Apr 22 10:56:12.247858 myasrocke350m1 kernel: r8169 0000:03:00.0 eth6: link=
+ down
+Apr 22 10:56:12.248593 myasrocke350m1 kernel: IPv6: ADDRCONF(NETDEV_UP): et=
+h6: link is not ready
+Apr 22 10:56:14.992108 myasrocke350m1 kernel: r8169 0000:03:00.0 eth6: link=
+ up
+Apr 22 10:56:14.993299 myasrocke350m1 kernel: IPv6: ADDRCONF(NETDEV_CHANGE)=
+: eth6: link becomes ready
+```
+
+Is it possible to get this well below one second?
+
+
+Thanks,
+
+Paul
+--=-NbzV+UO9bXTEuE9wCps4
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+
+iF0EABECAB0WIQQ8+w9d414FAVARIpk9fVorbA4dWAUCWPscxQAKCRA9fVorbA4d
+WIG6AJ9l9dRk6B6ruk1C3aoz0G+BI6e/owCfZr7VtUlU2k/I7ToPMoiQAFZ89v4=
+=s0z+
+-----END PGP SIGNATURE-----
+
+--=-NbzV+UO9bXTEuE9wCps4--
