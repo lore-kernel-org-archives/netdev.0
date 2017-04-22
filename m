@@ -1,98 +1,73 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: compile issue in latest iproute2
-Date: Sat, 22 Apr 2017 18:18:58 +0200
-Message-ID: <58FB8272.5080306@iogearbox.net>
-References: <cecf76aa-2883-741e-1901-2f4850e2c188@mojatatu.com> <58FB7012.4080907@iogearbox.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jamal Hadi Salim <jhs@mojatatu.com>,
-        Stephen Hemminger <stephen@networkplumber.org>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH net-next] net: add rcu locking when changing early demux
+Date: Sat, 22 Apr 2017 09:33:16 -0700
+Message-ID: <1492878796-31328-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: subashab@codeaurora.org, David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:44975 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1425417AbdDVQTC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 22 Apr 2017 12:19:02 -0400
-In-Reply-To: <58FB7012.4080907@iogearbox.net>
+Received: from mail-it0-f49.google.com ([209.85.214.49]:36448 "EHLO
+        mail-it0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1425606AbdDVQd0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 22 Apr 2017 12:33:26 -0400
+Received: by mail-it0-f49.google.com with SMTP id g66so17339756ite.1
+        for <netdev@vger.kernel.org>; Sat, 22 Apr 2017 09:33:25 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/22/2017 05:00 PM, Daniel Borkmann wrote:
-> On 04/22/2017 02:31 PM, Jamal Hadi Salim wrote:
->>
->> I dont think is a kernel uapi - but it was failing compiling
->> when HAVE_ELF is false.
->> -----
->> jhs@jhs-UX:~/git-trees/others/iproute-with-ck$ git diff include/bpf_util.h
->> diff --git a/include/bpf_util.h b/include/bpf_util.h
->> index 5361dab..edca339 100644
->> --- a/include/bpf_util.h
->> +++ b/include/bpf_util.h
->> @@ -266,7 +266,7 @@ int bpf_send_map_fds(const char *path, const char *obj);
->>   int bpf_recv_map_fds(const char *path, int *fds, struct bpf_map_aux *aux,
->>                       unsigned int entries);
->>   #else
->> -static inline int bpf_send_map_fds(const char *path, const char *obj)
->> +inline int bpf_send_map_fds(const char *path, const char *obj)
->>   {
->>          return 0;
->>   }
->> -----
->>
->> Let me know if you want a formal patch or feel free to take it.
->
-> Will resolve it and send a patch later today, thanks!
+systemd-sysctl is triggering a suspicious RCU usage message when
+net.ipv4.tcp_early_demux or net.ipv4.udp_early_demux is changed via
+a sysctl config file:
 
-Hmm, I'm on latest f443565f8df6 ("ip vrf: Add command name next to
-pid") commit in master branch. Compiles fine for me with and without
-ELF support. I verified that there's no HAVE_ELF defined and I'm
-not seeing an error.
+[   33.896184] ===============================
+[   33.899558] [ ERR: suspicious RCU usage.  ]
+[   33.900624] 4.11.0-rc7+ #104 Not tainted
+[   33.901698] -------------------------------
+[   33.903059] /home/dsa/kernel-2.git/net/ipv4/sysctl_net_ipv4.c:305 suspicious rcu_dereference_check() usage!
+[   33.905724]
+other info that might help us debug this:
 
-Without ELF support:
+[   33.907656]
+rcu_scheduler_active = 2, debug_locks = 0
+[   33.909288] 1 lock held by systemd-sysctl/143:
+[   33.910373]  #0:  (sb_writers#5){.+.+.+}, at: [<ffffffff8123a370>] file_start_write+0x45/0x48
+[   33.912407]
+stack backtrace:
+[   33.914018] CPU: 0 PID: 143 Comm: systemd-sysctl Not tainted 4.11.0-rc7+ #104
+[   33.915631] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS 1.7.5-20140531_083030-gandalf 04/01/2014
+[   33.917870] Call Trace:
+[   33.918431]  dump_stack+0x81/0xb6
+[   33.919241]  lockdep_rcu_suspicious+0x10f/0x118
+[   33.920263]  proc_configure_early_demux+0x65/0x10a
+[   33.921391]  proc_udp_early_demux+0x3a/0x41
 
-# ./configure
-TC schedulers
-  ATM	no
+add rcu locking to proc_configure_early_demux.
 
-libc has setns: yes
-SELinux support: yes
-ELF support: no
-libmnl support: yes
-Berkeley DB: yes
+Fixes: dddb64bcb3461 ("net: Add sysctl to toggle early demux for tcp and udp")
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+---
+ net/ipv4/sysctl_net_ipv4.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-docs: latex: yes
-  pdflatex: yes
-  sgml2latex: no
-  WARNING: no LaTeX files can be build from SGML files
-  sgml2html: no
-  WARNING: no HTML docs can be built from SGML
-
-# make > /dev/null
-ssfilter.y: conflicts: 35 shift/reduce
-#
-
-With ELF support:
-
-# ./configure
-TC schedulers
-  ATM	no
-
-libc has setns: yes
-SELinux support: yes
-ELF support: yes
-libmnl support: yes
-Berkeley DB: yes
-
-docs: latex: yes
-  pdflatex: yes
-  sgml2latex: no
-  WARNING: no LaTeX files can be build from SGML files
-  sgml2html: no
-  WARNING: no HTML docs can be built from SGML
-
-# make > /dev/null
-ssfilter.y: conflicts: 35 shift/reduce
-#
-
-Anything I'm missing?
+diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
+index 6fb25693c00b..ddac9e64b702 100644
+--- a/net/ipv4/sysctl_net_ipv4.c
++++ b/net/ipv4/sysctl_net_ipv4.c
+@@ -302,6 +302,8 @@ static void proc_configure_early_demux(int enabled, int protocol)
+ 	struct inet6_protocol *ip6prot;
+ #endif
+ 
++	rcu_read_lock();
++
+ 	ipprot = rcu_dereference(inet_protos[protocol]);
+ 	if (ipprot)
+ 		ipprot->early_demux = enabled ? ipprot->early_demux_handler :
+@@ -313,6 +315,7 @@ static void proc_configure_early_demux(int enabled, int protocol)
+ 		ip6prot->early_demux = enabled ? ip6prot->early_demux_handler :
+ 						 NULL;
+ #endif
++	rcu_read_unlock();
+ }
+ 
+ static int proc_tcp_early_demux(struct ctl_table *table, int write,
+-- 
+2.1.4
