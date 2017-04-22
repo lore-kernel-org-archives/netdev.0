@@ -1,41 +1,25 @@
-From: Colin King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Subject: [PATCH] orinoco:  fix spelling mistake: "Registerred" -> "Registered"
-Date: Sat, 22 Apr 2017 14:21:49 +0100
-Message-ID: <20170422132149.10901-1-colin.king@canonical.com>
+From: prashantkumar dhotre <prashantkumardhotre@gmail.com>
+Subject: Why max netlink msg size is limited to 16k
+Date: Sat, 22 Apr 2017 19:43:20 +0530
+Message-ID: <CA+VDgmNYc=djp6ab=n49CTpyvof8CPgHvXRst5Vnm706e-nRvQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-        "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Tobias Klauser <tklauser-93Khv+1bN0NyDzI6CaY1VQ@public.gmane.org>,
-        Jarod Wilson <jarod-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f178.google.com ([209.85.220.178]:36849 "EHLO
+        mail-qk0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1424012AbdDVONW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 22 Apr 2017 10:13:22 -0400
+Received: by mail-qk0-f178.google.com with SMTP id d80so25734820qke.3
+        for <netdev@vger.kernel.org>; Sat, 22 Apr 2017 07:13:22 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+I am observing that max netlink msg that my kernel module can send to
+user app is close to 16K.
 
-trivial fix to spelling mistake in dbg_dbg message
+For larger sizes, genlmsg_unicast() succeeds but my app does not receive data.
 
-Signed-off-by: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
----
- drivers/net/wireless/intersil/orinoco/main.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+I have tried increasing RECV buffer size in my user app but that does not help.
 
-diff --git a/drivers/net/wireless/intersil/orinoco/main.c b/drivers/net/wireless/intersil/orinoco/main.c
-index 28cf97489001..d9128bb25e85 100644
---- a/drivers/net/wireless/intersil/orinoco/main.c
-+++ b/drivers/net/wireless/intersil/orinoco/main.c
-@@ -2283,7 +2283,7 @@ int orinoco_if_add(struct orinoco_private *priv,
- 	priv->ndev = dev;
- 
- 	/* Report what we've done */
--	dev_dbg(priv->dev, "Registerred interface %s.\n", dev->name);
-+	dev_dbg(priv->dev, "Registered interface %s.\n", dev->name);
- 
- 	return 0;
- 
--- 
-2.11.0
+Regards
