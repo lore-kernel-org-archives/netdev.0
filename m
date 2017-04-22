@@ -1,65 +1,61 @@
-From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 2/4] dt-bindings: add binding for RTL8211E
- Ethernet PHY
-Date: Fri, 21 Apr 2017 17:22:59 -0700
-Message-ID: <c7aa9d7a-5e97-0e7f-2b1c-584a4de00837@gmail.com>
-References: <20170421232436.10924-1-icenowy@aosc.io>
- <20170421232436.10924-3-icenowy@aosc.io>
-Reply-To: f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Subject: Re: [PATCH net v3] net/mlx5e: Fix race in mlx5e_sw_stats and mlx5e_vport_stats
+Date: Sat, 22 Apr 2017 03:24:16 +0300
+Message-ID: <CALzJLG-TOt4A8jE8ghYR1FJtJXgYk4vvpE+q9MF7rqoseErrig@mail.gmail.com>
+References: <20170421044012.1955130-1-kafai@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org, Icenowy Zheng <icenowy-ymACFijhrKM@public.gmane.org>
-To: Icenowy Zheng <icenowy-h8G6r0blFSE@public.gmane.org>, Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
- Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-sunxi+bncBCH67JWTV4DBBZWE5LDQKGQE5HWURHY-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-In-Reply-To: <20170421232436.10924-3-icenowy-h8G6r0blFSE@public.gmane.org>
-List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <https://groups.google.com/group/linux-sunxi
-List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
- <https://groups.google.com/group/linux-sunxi/subscribe>
-List-Id: netdev.vger.kernel.org
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        Kernel Team <kernel-team@fb.com>
+To: Martin KaFai Lau <kafai@fb.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f193.google.com ([209.85.220.193]:34438 "EHLO
+        mail-qk0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1042890AbdDVAYh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2017 20:24:37 -0400
+Received: by mail-qk0-f193.google.com with SMTP id d80so9365214qke.1
+        for <netdev@vger.kernel.org>; Fri, 21 Apr 2017 17:24:37 -0700 (PDT)
+In-Reply-To: <20170421044012.1955130-1-kafai@fb.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04/21/2017 04:24 PM, Icenowy Zheng wrote:
-> From: Icenowy Zheng <icenowy-ymACFijhrKM@public.gmane.org>
-> 
-> Some RTL8211E Ethernet PHY have an issue that needs a workaround
-> indicated with device tree.
-> 
-> Add the binding for a property that indicates this workaround.
-> 
-> Signed-off-by: Icenowy Zheng <icenowy-ymACFijhrKM@public.gmane.org>
+On Fri, Apr 21, 2017 at 7:40 AM, Martin KaFai Lau <kafai@fb.com> wrote:
+> We have observed a sudden spike in rx/tx_packets and rx/tx_bytes
+> reported under /proc/net/dev.  There is a race in mlx5e_update_stats()
+> and some of the get-stats functions (the one that we hit is the
+> mlx5e_get_stats() which is called by ndo_get_stats64()).
+>
+> In particular, the very first thing mlx5e_update_sw_counters()
+> does is 'memset(s, 0, sizeof(*s))'.  For example, if mlx5e_get_stats()
+> is unlucky at one point, rx_bytes and rx_packets could be 0.  One second
+> later, a normal (and much bigger than 0) value will be reported.
+>
+> This patch is to use a 'struct mlx5e_sw_stats temp' to avoid
+> a direct memset zero on priv->stats.sw.
+>
+> mlx5e_update_vport_counters() has a similar race.  Hence, addressed
+> together.  However, memset zero is removed instead because
+> it is not needed.
+>
+> I am lucky enough to catch this 0-reset in rx multicast:
+> eth0: 41457665   76804   70    0    0    70          0     47085 15586634   87502    3    0    0     0       3          0
+> eth0: 41459860   76815   70    0    0    70          0     47094 15588376   87516    3    0    0     0       3          0
+> eth0: 41460577   76822   70    0    0    70          0         0 15589083   87521    3    0    0     0       3          0
+> eth0: 41463293   76838   70    0    0    70          0     47108 15595872   87538    3    0    0     0       3          0
+> eth0: 41463379   76839   70    0    0    70          0     47116 15596138   87539    3    0    0     0       3          0
+>
+> v2: Remove memset zero from mlx5e_update_vport_counters()
+> v1: Use temp and memcpy
+>
+> Fixes: 9218b44dcc05 ("net/mlx5e: Statistics handling refactoring")
+> Suggested-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Suggested-by: Saeed Mahameed <saeedm@mellanox.com>
+> Signed-off-by: Martin KaFai Lau <kafai@fb.com>
 > ---
->  .../devicetree/bindings/net/realtek,rtl8211e.txt   | 22 ++++++++++++++++++++++
->  1 file changed, 22 insertions(+)
->  create mode 100644 Documentation/devicetree/bindings/net/realtek,rtl8211e.txt
-> 
-> diff --git a/Documentation/devicetree/bindings/net/realtek,rtl8211e.txt b/Documentation/devicetree/bindings/net/realtek,rtl8211e.txt
-> new file mode 100644
-> index 000000000000..c1913301bfe8
-> --- /dev/null
-> +++ b/Documentation/devicetree/bindings/net/realtek,rtl8211e.txt
-> @@ -0,0 +1,22 @@
-> +Realtek RTL8211E Ethernet PHY
-> +
-> +One batch of RTL8211E is slight broken, that needs some special (and
-> +full of magic numbers) tweaking in order to make GbE to operate properly.
-> +The only well-known board that used the broken batch is Pine64+.
-> +Configure it through an Ethernet OF device node.
-> +
-> +Optional properties:
-> +
-> +- realtek,disable-rx-delay:
-> +  If set, RX delay will be completely disabled (according to Realtek). This
-> +  will affect the performance on non-broken boards.
-> +  default: do not disable RX delay.
 
-Please don't introduce custom properties to do that, instead correct
-specify the "phy-mode" such that it is e.g: "rgmii-txid" which indicates
-that there should be no RX internal delay, but a TX internal delay added
-by the PHY.
--- 
-Florian
+Thank you Martin and Eric for the fix, we will follow up with the
+spinlock fix soon.
+
+Acked-by: Saeed Mahameed <saeedm@mellanox.com>
