@@ -1,115 +1,31 @@
-From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: [RFC] change the default Kconfig value of mlx5_en
-Date: Sat, 22 Apr 2017 04:07:06 +0300
-Message-ID: <CALzJLG_+ubbpwYy+i=HixbT6C6PXB16ZA8_iySmggSsUD70bKA@mail.gmail.com>
-References: <CAA85sZumYPfUg_yA=5azrHneqq-XBmHiGNgRaEvBwbewVRj11w@mail.gmail.com>
- <20170421.154745.182611990085743539.davem@davemloft.net> <CAA85sZtBo5dORg4sj8X_SROBU0ySh3_CQh1WiYcVX-RVv4E+gA@mail.gmail.com>
- <CAA85sZtr3N3Y8=R5qZHDTMgquV35ddw0x45qy8Kkf_tiVdu8ag@mail.gmail.com>
- <CALzJLG9cLY8qqjFHGx6i=Gi-TH5EZ2Mq+TQOusX7=EoRDvx1tw@mail.gmail.com> <CAA85sZsUjOSZ9Ax6=YFVQfykexCUCRH8+qVxUHRHwt0cBtSqmQ@mail.gmail.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net-next 0/3] mlx5: fix warnings
+Date: Fri, 21 Apr 2017 21:07:59 -0400 (EDT)
+Message-ID: <20170421.210759.1466062419659432316.davem@davemloft.net>
+References: <20170421181558.5414-1-sthemmin@microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Ian Kumlien <ian.kumlien@gmail.com>,
-        Leon Romanovsky <leonro@mellanox.com>,
-        Matan Barak <matanb@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f194.google.com ([209.85.220.194]:36803 "EHLO
-        mail-qk0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1424818AbdDVBH2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2017 21:07:28 -0400
-Received: by mail-qk0-f194.google.com with SMTP id y63so4866720qkd.3
-        for <netdev@vger.kernel.org>; Fri, 21 Apr 2017 18:07:27 -0700 (PDT)
-In-Reply-To: <CAA85sZsUjOSZ9Ax6=YFVQfykexCUCRH8+qVxUHRHwt0cBtSqmQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        sthemmin-0li6OtcxBFHby3iVrkZq2A@public.gmane.org
+To: stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170421181558.5414-1-sthemmin-0li6OtcxBFHby3iVrkZq2A@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Apr 22, 2017 at 3:47 AM, Ian Kumlien <ian.kumlien@gmail.com> wrote:
-> On Sat, Apr 22, 2017 at 2:34 AM, Saeed Mahameed
-> <saeedm@dev.mellanox.co.il> wrote:
->> On Sat, Apr 22, 2017 at 2:10 AM, Ian Kumlien <ian.kumlien@gmail.com> wrote:
->>> Sorry,
->>>
->>> Back again, fighting cold, hot whiskey has been consumed...
->>>
->>> Something like this would perhaps be a better solution:
->>>
->>> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c
->>> b/drivers/net/ethernet/mellanox/mlx5/core/main.c
->>> index 60154a175bd3..fe192e247601 100644
->>> --- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
->>> +++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
->>> @@ -1139,6 +1139,10 @@ static int mlx5_load_one(struct mlx5_core_dev
->>> *dev, struct mlx5_priv *priv,
->>>
->>>  #ifdef CONFIG_MLX5_CORE_EN
->>>         mlx5_eswitch_attach(dev->priv.eswitch);
->>> +#else
->>> +       if (MLX5_CAP_GEN(dev, port_type) == MLX5_CAP_PORT_TYPE_ETH) {
->>> +               dev_info(&pdev->dev, "Ethernet device discovered but
->>> support not enabled in kernel.");
->>> +       }
->>>  #endif
->>>
->>
->> Currently both MLX5_CORE=n and MLX5_CORE_EN=n as a default, the issue
->> you are seeing can occur only if you explicitly  set MLX5_CORE=y and
->> MLX5_CORE=n, Why would someone do this if he knows he wants Ethernet
->> support as well ? IMHO this print is redundant .
->
-> Well, I'm running a prebuilt kernel - which was configured this way,
-> and since there
-> is no mlx5_en module and it does state that the link is "Ethernet", it
-> just looks like the
-> driver is broken or in some kind of really weird state.
->
->> Anyway, Are you looking for RDMA support over ethernet (RoCE) ? and
->> you are not interested to have ethernet netdev support ?
->
-> ? RDMA is something we'll look at in the future, right now, having the
-> nics actually
-> work as nics is a priority ;)
->
+From: Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>
+Date: Fri, 21 Apr 2017 11:15:55 -0700
 
-I see, i just wanted to understand your situation :)
+> While looking for sparse and warning output in another driver,
+> I saw several trivial warnings from MLX5 driver. This patch
+> series fixes them.
 
->> if yes, I think this is something that can be achieved, but the
->> question is do we really need this ?
->
-> It's really weird to see the driver load, to see everything register
-> and have no feedback.
->
+Saeed, please merge the patches you are OK with into your tree.
 
-So, in your case you have mlx5 core support without MLX5_CORE_EN which
-provides the eswitch and netdev functionality in ethernet.
-
-But you will still have mlx5_ib register an RDMA interface and
-theoretically it should work, the only thing you won't see is a
-netdevice.
-
-The weird thing is that you don't see a link up on the RDMA interface,
-Leon/Matan can you please look into this ? do we really need a netdev
-to have a functioning RDMA logical link in ethernet ?
-
-> Including no network devices, but if you run the Infiniband commands,
-> they tell you that
-> you are connected to Ethernet but that the device is down and disabled.
->
-> To me, down and disabled is not the same as in "Ethernet support is
-> not included" =)
->
-> Basically, i would hate for someone else to end up in the same
-> situation since you only
-> get guides on how to enable infiniband/RDMA but what you really want
-> to do at that point
-> is to disable it and see if that gives you your network devices back =)
->
-
-Yes this is misleading, Maybe your kernel log warning is not so bad
-after all, but let me dig more into this.
-I will get back to you next week.
-
-> I have had similar issues with some connectx3 devices while playing at
-> home but i suspect
-> that it's just a limitation of OFED packages available for the dist I'm running.
+Thank you.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
