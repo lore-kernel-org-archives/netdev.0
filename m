@@ -1,61 +1,59 @@
 From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: [PATCH net v3] net/mlx5e: Fix race in mlx5e_sw_stats and mlx5e_vport_stats
-Date: Sat, 22 Apr 2017 03:24:16 +0300
-Message-ID: <CALzJLG-TOt4A8jE8ghYR1FJtJXgYk4vvpE+q9MF7rqoseErrig@mail.gmail.com>
-References: <20170421044012.1955130-1-kafai@fb.com>
+Subject: Re: [RFC] change the default Kconfig value of mlx5_en
+Date: Sat, 22 Apr 2017 03:34:06 +0300
+Message-ID: <CALzJLG9cLY8qqjFHGx6i=Gi-TH5EZ2Mq+TQOusX7=EoRDvx1tw@mail.gmail.com>
+References: <CAA85sZumYPfUg_yA=5azrHneqq-XBmHiGNgRaEvBwbewVRj11w@mail.gmail.com>
+ <20170421.154745.182611990085743539.davem@davemloft.net> <CAA85sZtBo5dORg4sj8X_SROBU0ySh3_CQh1WiYcVX-RVv4E+gA@mail.gmail.com>
+ <CAA85sZtr3N3Y8=R5qZHDTMgquV35ddw0x45qy8Kkf_tiVdu8ag@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
+Cc: David Miller <davem@davemloft.net>,
         Saeed Mahameed <saeedm@mellanox.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        Kernel Team <kernel-team@fb.com>
-To: Martin KaFai Lau <kafai@fb.com>
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Ian Kumlien <ian.kumlien@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f193.google.com ([209.85.220.193]:34438 "EHLO
-        mail-qk0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1042890AbdDVAYh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2017 20:24:37 -0400
-Received: by mail-qk0-f193.google.com with SMTP id d80so9365214qke.1
-        for <netdev@vger.kernel.org>; Fri, 21 Apr 2017 17:24:37 -0700 (PDT)
-In-Reply-To: <20170421044012.1955130-1-kafai@fb.com>
+Received: from mail-qt0-f196.google.com ([209.85.216.196]:34375 "EHLO
+        mail-qt0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1424193AbdDVAe2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2017 20:34:28 -0400
+Received: by mail-qt0-f196.google.com with SMTP id y33so13840708qta.1
+        for <netdev@vger.kernel.org>; Fri, 21 Apr 2017 17:34:27 -0700 (PDT)
+In-Reply-To: <CAA85sZtr3N3Y8=R5qZHDTMgquV35ddw0x45qy8Kkf_tiVdu8ag@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 21, 2017 at 7:40 AM, Martin KaFai Lau <kafai@fb.com> wrote:
-> We have observed a sudden spike in rx/tx_packets and rx/tx_bytes
-> reported under /proc/net/dev.  There is a race in mlx5e_update_stats()
-> and some of the get-stats functions (the one that we hit is the
-> mlx5e_get_stats() which is called by ndo_get_stats64()).
+On Sat, Apr 22, 2017 at 2:10 AM, Ian Kumlien <ian.kumlien@gmail.com> wrote:
+> Sorry,
 >
-> In particular, the very first thing mlx5e_update_sw_counters()
-> does is 'memset(s, 0, sizeof(*s))'.  For example, if mlx5e_get_stats()
-> is unlucky at one point, rx_bytes and rx_packets could be 0.  One second
-> later, a normal (and much bigger than 0) value will be reported.
+> Back again, fighting cold, hot whiskey has been consumed...
 >
-> This patch is to use a 'struct mlx5e_sw_stats temp' to avoid
-> a direct memset zero on priv->stats.sw.
+> Something like this would perhaps be a better solution:
 >
-> mlx5e_update_vport_counters() has a similar race.  Hence, addressed
-> together.  However, memset zero is removed instead because
-> it is not needed.
+> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c
+> b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+> index 60154a175bd3..fe192e247601 100644
+> --- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
+> +++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+> @@ -1139,6 +1139,10 @@ static int mlx5_load_one(struct mlx5_core_dev
+> *dev, struct mlx5_priv *priv,
 >
-> I am lucky enough to catch this 0-reset in rx multicast:
-> eth0: 41457665   76804   70    0    0    70          0     47085 15586634   87502    3    0    0     0       3          0
-> eth0: 41459860   76815   70    0    0    70          0     47094 15588376   87516    3    0    0     0       3          0
-> eth0: 41460577   76822   70    0    0    70          0         0 15589083   87521    3    0    0     0       3          0
-> eth0: 41463293   76838   70    0    0    70          0     47108 15595872   87538    3    0    0     0       3          0
-> eth0: 41463379   76839   70    0    0    70          0     47116 15596138   87539    3    0    0     0       3          0
+>  #ifdef CONFIG_MLX5_CORE_EN
+>         mlx5_eswitch_attach(dev->priv.eswitch);
+> +#else
+> +       if (MLX5_CAP_GEN(dev, port_type) == MLX5_CAP_PORT_TYPE_ETH) {
+> +               dev_info(&pdev->dev, "Ethernet device discovered but
+> support not enabled in kernel.");
+> +       }
+>  #endif
 >
-> v2: Remove memset zero from mlx5e_update_vport_counters()
-> v1: Use temp and memcpy
->
-> Fixes: 9218b44dcc05 ("net/mlx5e: Statistics handling refactoring")
-> Suggested-by: Eric Dumazet <eric.dumazet@gmail.com>
-> Suggested-by: Saeed Mahameed <saeedm@mellanox.com>
-> Signed-off-by: Martin KaFai Lau <kafai@fb.com>
-> ---
 
-Thank you Martin and Eric for the fix, we will follow up with the
-spinlock fix soon.
+Currently both MLX5_CORE=n and MLX5_CORE_EN=n as a default, the issue
+you are seeing can occur only if you explicitly  set MLX5_CORE=y and
+MLX5_CORE=n, Why would someone do this if he knows he wants Ethernet
+support as well ? IMHO this print is redundant .
 
-Acked-by: Saeed Mahameed <saeedm@mellanox.com>
+Anyway, Are you looking for RDMA support over ethernet (RoCE) ? and
+you are not interested to have ethernet netdev support ?
+
+if yes, I think this is something that can be achieved, but the
+question is do we really need this ?
