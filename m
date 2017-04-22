@@ -1,51 +1,34 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: compile issue in latest iproute2
-Date: Sat, 22 Apr 2017 16:06:57 -0400
-Message-ID: <0fc4caec-6dca-69a7-65f8-2d2b1285de13@mojatatu.com>
-References: <cecf76aa-2883-741e-1901-2f4850e2c188@mojatatu.com>
- <58FB7012.4080907@iogearbox.net> <58FB8272.5080306@iogearbox.net>
- <b6773e0d-a8cb-181c-4aee-15d51439675f@mojatatu.com>
- <20170422095434.730035b6@xeon-e3>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH] bpf: Add sparc support to tools and samples.
+Date: Sat, 22 Apr 2017 22:16:48 +0200
+Message-ID: <58FBBA30.5030303@iogearbox.net>
+References: <20170422.153846.1171688488318421720.davem@davemloft.net>        <58FBB326.5090409@iogearbox.net> <20170422.160246.303157283280813189.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Cc: alexei.starovoitov@gmail.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f42.google.com ([209.85.214.42]:38404 "EHLO
-        mail-it0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1161511AbdDVUHD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 22 Apr 2017 16:07:03 -0400
-Received: by mail-it0-f42.google.com with SMTP id e132so17893380ite.1
-        for <netdev@vger.kernel.org>; Sat, 22 Apr 2017 13:07:03 -0700 (PDT)
-In-Reply-To: <20170422095434.730035b6@xeon-e3>
+Received: from www62.your-server.de ([213.133.104.62]:53415 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1426892AbdDVUQx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 22 Apr 2017 16:16:53 -0400
+In-Reply-To: <20170422.160246.303157283280813189.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17-04-22 12:54 PM, Stephen Hemminger wrote:
-> On Sat, 22 Apr 2017 12:43:50 -0400
-> Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+On 04/22/2017 10:02 PM, David Miller wrote:
+> From: Daniel Borkmann <daniel@iogearbox.net>
+> Date: Sat, 22 Apr 2017 21:46:46 +0200
 >
->> On 17-04-22 12:18 PM, Daniel Borkmann wrote:
->> [..]
+>> On 04/22/2017 09:38 PM, David Miller wrote:
 >>>
->>> Anything I'm missing?
+>>> Signed-off-by: David S. Miller <davem@davemloft.net>
 >>
+>> LGTM, thanks!
 >>
->> Let me get back to that machine (couple of hours) and try to see how i
->> created the issue.
->> Shouldve cutnpasted the error msg. Cant create it on this laptop.
->>
->> cheers,
->> jamal
+>> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
 >
-> Current tip of iproute2 master compiles fine for me
-> both with and without HAVE_ELF
+> Great, this and the sparc64 eBPF JIT are now pushed out to net-next.
 
-
-Sorry - I cannot recreate it. I tried from scratch and did the patches
-I was testing on and it compiled cleanly. Apologies for the alarm.
-
-cheers,
-jamal
+Awesome, thanks for all the work!
