@@ -1,44 +1,51 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: compile issue in latest iproute2
-Date: Sat, 22 Apr 2017 17:00:34 +0200
-Message-ID: <58FB7012.4080907@iogearbox.net>
-References: <cecf76aa-2883-741e-1901-2f4850e2c188@mojatatu.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH 2/2] sparc64: Add eBPF JIT.
+Date: Sat, 22 Apr 2017 08:32:35 -0700
+Message-ID: <20170422153233.GA47144@ast-mbp.thefacebook.com>
+References: <20170421.201711.317784995765325131.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jamal Hadi Salim <jhs@mojatatu.com>,
-        Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:56650 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1424781AbdDVPAl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 22 Apr 2017 11:00:41 -0400
-In-Reply-To: <cecf76aa-2883-741e-1901-2f4850e2c188@mojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: sparclinux@vger.kernel.org, netdev@vger.kernel.org, ast@kernel.org,
+        daniel@iogearbox.net
+To: David Miller <davem@davemloft.net>
+Return-path: <sparclinux-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170421.201711.317784995765325131.davem@davemloft.net>
+Sender: sparclinux-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 04/22/2017 02:31 PM, Jamal Hadi Salim wrote:
->
-> I dont think is a kernel uapi - but it was failing compiling
-> when HAVE_ELF is false.
-> -----
-> jhs@jhs-UX:~/git-trees/others/iproute-with-ck$ git diff include/bpf_util.h
-> diff --git a/include/bpf_util.h b/include/bpf_util.h
-> index 5361dab..edca339 100644
-> --- a/include/bpf_util.h
-> +++ b/include/bpf_util.h
-> @@ -266,7 +266,7 @@ int bpf_send_map_fds(const char *path, const char *obj);
->   int bpf_recv_map_fds(const char *path, int *fds, struct bpf_map_aux *aux,
->                       unsigned int entries);
->   #else
-> -static inline int bpf_send_map_fds(const char *path, const char *obj)
-> +inline int bpf_send_map_fds(const char *path, const char *obj)
->   {
->          return 0;
->   }
-> -----
->
-> Let me know if you want a formal patch or feel free to take it.
+On Fri, Apr 21, 2017 at 08:17:11PM -0700, David Miller wrote:
+> 
+> This is an eBPF JIT for sparc64.  All major features are supported.
+> 
+> All tests under tools/testing/selftests/bpf/ pass.
+> 
+> Signed-off-by: David S. Miller <davem@davemloft.net>
+...
+> +	/* tail call */
+> +	case BPF_JMP | BPF_CALL |BPF_X:
+> +		emit_tail_call(ctx);
+> +
 
-Will resolve it and send a patch later today, thanks!
+I think 'break;' is missing here.
+When tail_call's target program is null the current program should
+continue instead of aborting.
+Like in our current ddos+lb setup the program looks like:
+ bpf_tail_call(ctx, &prog_array, 1);
+ bpf_tail_call(ctx, &prog_array, 2);
+ bpf_tail_call(ctx, &prog_array, 3);
+ return XDP_DROP;
+
+this way it will jump into the program that is installed in slot 1.
+If it's empty, it will try slot 2...
+If no programs installed it will drop the packet.
+
+> +	/* function return */
+> +	case BPF_JMP | BPF_EXIT:
+> +		/* Optimization: when last instruction is EXIT,
+> +		   simply fallthrough to epilogue. */
+> +		if (i == ctx->prog->len - 1)
+> +			break;
+> +		emit_branch(BA, ctx->idx, ctx->epilogue_offset, ctx);
+> +		emit_nop(ctx);
+
