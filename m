@@ -1,51 +1,37 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH 2/2] sparc64: Add eBPF JIT.
-Date: Sat, 22 Apr 2017 08:32:35 -0700
-Message-ID: <20170422153233.GA47144@ast-mbp.thefacebook.com>
-References: <20170421.201711.317784995765325131.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Why max netlink msg size is limited to 16k
+Date: Sat, 22 Apr 2017 08:36:21 -0700
+Message-ID: <1492875381.6453.34.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <CA+VDgmNYc=djp6ab=n49CTpyvof8CPgHvXRst5Vnm706e-nRvQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: sparclinux@vger.kernel.org, netdev@vger.kernel.org, ast@kernel.org,
-        daniel@iogearbox.net
-To: David Miller <davem@davemloft.net>
-Return-path: <sparclinux-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170421.201711.317784995765325131.davem@davemloft.net>
-Sender: sparclinux-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: prashantkumar dhotre <prashantkumardhotre@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-it0-f48.google.com ([209.85.214.48]:38564 "EHLO
+        mail-it0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1425091AbdDVPgY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 22 Apr 2017 11:36:24 -0400
+Received: by mail-it0-f48.google.com with SMTP id e132so14799913ite.1
+        for <netdev@vger.kernel.org>; Sat, 22 Apr 2017 08:36:24 -0700 (PDT)
+In-Reply-To: <CA+VDgmNYc=djp6ab=n49CTpyvof8CPgHvXRst5Vnm706e-nRvQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 21, 2017 at 08:17:11PM -0700, David Miller wrote:
+On Sat, 2017-04-22 at 19:43 +0530, prashantkumar dhotre wrote:
+> I am observing that max netlink msg that my kernel module can send to
+> user app is close to 16K.
 > 
-> This is an eBPF JIT for sparc64.  All major features are supported.
+> For larger sizes, genlmsg_unicast() succeeds but my app does not receive data.
 > 
-> All tests under tools/testing/selftests/bpf/ pass.
+> I have tried increasing RECV buffer size in my user app but that does not help.
 > 
-> Signed-off-by: David S. Miller <davem@davemloft.net>
-...
-> +	/* tail call */
-> +	case BPF_JMP | BPF_CALL |BPF_X:
-> +		emit_tail_call(ctx);
-> +
+> Regards
 
-I think 'break;' is missing here.
-When tail_call's target program is null the current program should
-continue instead of aborting.
-Like in our current ddos+lb setup the program looks like:
- bpf_tail_call(ctx, &prog_array, 1);
- bpf_tail_call(ctx, &prog_array, 2);
- bpf_tail_call(ctx, &prog_array, 3);
- return XDP_DROP;
 
-this way it will jump into the program that is installed in slot 1.
-If it's empty, it will try slot 2...
-If no programs installed it will drop the packet.
+You need a kernel >= linux-4.9 to get about 32KB 
 
-> +	/* function return */
-> +	case BPF_JMP | BPF_EXIT:
-> +		/* Optimization: when last instruction is EXIT,
-> +		   simply fallthrough to epilogue. */
-> +		if (i == ctx->prog->len - 1)
-> +			break;
-> +		emit_branch(BA, ctx->idx, ctx->epilogue_offset, ctx);
-> +		emit_nop(ctx);
+Why is this limited ? Please read 
 
+https://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git/commit/?id=d35c99ff77ecb2eb239731b799386f3b3637a31e
