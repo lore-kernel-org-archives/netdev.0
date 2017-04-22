@@ -1,48 +1,60 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [PATCH net] ravb: Double free on error in ravb_start_xmit()
-Date: Sat, 22 Apr 2017 13:46:56 +0300
-Message-ID: <20170422104656.jjnooh3or4x3lbw3@mwanda>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH] ipvs: explicitly forbid ipv6 service/dest creation if
+ ipv6 mod is disabled
+Date: Sat, 22 Apr 2017 14:16:34 +0300 (EEST)
+Message-ID: <alpine.LFD.2.20.1704221355290.1974@ja.home.ssi.bg>
+References: <2a5c88ca5670baade900e2b1f05a0dcc9927a29d.1492681122.git.pabeni@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>,
-        Simon Horman <horms+renesas@verge.net.au>,
-        Yoshihiro Kaneko <ykaneko0929@gmail.com>,
-        Masaru Nagai <masaru.nagai.vx@renesas.com>,
-        Geert Uytterhoeven <geert+renesas@glider.be>,
-        Niklas =?iso-8859-1?Q?S=F6derlund?=
-        <niklas.soderlund+renesas@ragnatech.se>,
-        Philippe Reynes <tremyfr@gmail.com>, netdev@vger.kernel.org,
-        linux-renesas-soc@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Cc: netfilter-devel@vger.kernel.org, lvs-devel@vger.kernel.org,
+        Wensong Zhang <wensong@linux-vs.org>,
+        Simon Horman <horms@verge.net.au>, netdev@vger.kernel.org
+To: Paolo Abeni <pabeni@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ja.ssi.bg ([178.16.129.10]:34982 "EHLO ja.ssi.bg"
+        rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1043850AbdDVLRE (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 22 Apr 2017 07:17:04 -0400
+In-Reply-To: <2a5c88ca5670baade900e2b1f05a0dcc9927a29d.1492681122.git.pabeni@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-If skb_put_padto() fails then it frees the skb.  I shifted that code
-up a bit to make my error handling a little simpler.
 
-Fixes: a0d2f20650e8 ("Renesas Ethernet AVB PTP clock driver")
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+	Hello,
 
-diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
-index 8cfc4a54f2dc..3cd7989c007d 100644
---- a/drivers/net/ethernet/renesas/ravb_main.c
-+++ b/drivers/net/ethernet/renesas/ravb_main.c
-@@ -1516,11 +1516,12 @@ static netdev_tx_t ravb_start_xmit(struct sk_buff *skb, struct net_device *ndev)
- 		spin_unlock_irqrestore(&priv->lock, flags);
- 		return NETDEV_TX_BUSY;
- 	}
--	entry = priv->cur_tx[q] % (priv->num_tx_ring[q] * NUM_TX_DESC);
--	priv->tx_skb[q][entry / NUM_TX_DESC] = skb;
- 
- 	if (skb_put_padto(skb, ETH_ZLEN))
--		goto drop;
-+		goto exit;
-+
-+	entry = priv->cur_tx[q] % (priv->num_tx_ring[q] * NUM_TX_DESC);
-+	priv->tx_skb[q][entry / NUM_TX_DESC] = skb;
- 
- 	buffer = PTR_ALIGN(priv->tx_align[q], DPTR_ALIGN) +
- 		 entry / NUM_TX_DESC * DPTR_ALIGN;
+On Thu, 20 Apr 2017, Paolo Abeni wrote:
+
+> When creating a new ipvs service, ipv6 addresses are always accepted
+> if CONFIG_IP_VS_IPV6 is enabled. On dest creation the address family
+> is not explicitly checked.
+> 
+> This allows the user-space to configure ipvs services even if the
+> system is booted with ipv6.disable=1. On specific configuration, ipvs
+> can try to call ipv6 routing code at setup time, causing the kernel to
+> oops due to fib6_rules_ops being NULL.
+> 
+> This change addresses the issue adding a check for the ipv6
+> module being enabled while validating ipv6 service operations and
+> adding the same validation for dest operations.
+> 
+> According to git history, this issue is apparently present since
+> the introduction of ipv6 support, and the oops can be triggered
+> since commit 09571c7ae30865ad ("IPVS: Add function to determine
+> if IPv6 address is local")
+> 
+> Fixes: 09571c7ae30865ad ("IPVS: Add function to determine if IPv6 address is local")
+> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+
+	Looks good to me but I see two places that can benefit
+from such check:
+
+- in ip_vs_genl_new_daemon() if we do not want to create IPv6 sockets
+for the sync protocol in make_send_sock() and make_receive_sock().
+Not sure if this can lead to crashes.
+
+- in ip_vs_proc_sync_conn() if we do not want backup server to accept 
+IPv6 conns because they may be created even when dests are missing.
+We may use retc = 10 there. Not fatal but may eat memory for
+conns that will not be used.
+
+Regards
