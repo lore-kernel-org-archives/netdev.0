@@ -1,34 +1,40 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH] bpf: Add sparc support to tools and samples.
-Date: Sat, 22 Apr 2017 22:16:48 +0200
-Message-ID: <58FBBA30.5030303@iogearbox.net>
-References: <20170422.153846.1171688488318421720.davem@davemloft.net>        <58FBB326.5090409@iogearbox.net> <20170422.160246.303157283280813189.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: alexei.starovoitov@gmail.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Benjamin LaHaise <benjamin.lahaise@netronome.com>
+Subject: [PATCH net-next 0/2] flower: add MPLS matching support
+Date: Sat, 22 Apr 2017 16:52:45 -0400
+Message-ID: <1492894367-11637-1-git-send-email-benjamin.lahaise@netronome.com>
+Cc: Benjamin LaHaise <bcrl@kvack.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:53415 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1426892AbdDVUQx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 22 Apr 2017 16:16:53 -0400
-In-Reply-To: <20170422.160246.303157283280813189.davem@davemloft.net>
+Received: from mail-qk0-f171.google.com ([209.85.220.171]:35291 "EHLO
+        mail-qk0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1425662AbdDVUx6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 22 Apr 2017 16:53:58 -0400
+Received: by mail-qk0-f171.google.com with SMTP id f76so13399617qke.2
+        for <netdev@vger.kernel.org>; Sat, 22 Apr 2017 13:53:58 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/22/2017 10:02 PM, David Miller wrote:
-> From: Daniel Borkmann <daniel@iogearbox.net>
-> Date: Sat, 22 Apr 2017 21:46:46 +0200
->
->> On 04/22/2017 09:38 PM, David Miller wrote:
->>>
->>> Signed-off-by: David S. Miller <davem@davemloft.net>
->>
->> LGTM, thanks!
->>
->> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
->
-> Great, this and the sparc64 eBPF JIT are now pushed out to net-next.
+From: Benjamin LaHaise <bcrl@kvack.org>
 
-Awesome, thanks for all the work!
+This patch series adds support for parsing MPLS flows in the flow dissector
+and the flower classifier.  Each of the MPLS TTL, BOS, TC and Label fields
+can be used for matching.
+
+v2: incorporate style feedback, move #defines to linux/include/mpls.h
+Note: this omits Jiri's request to remove tabs between the type and 
+field names in struct declarations.  This would be inconsistent with 
+numerous other struct definitions.
+
+Benjamin LaHaise (2):
+  flow_dissector: add mpls support (v2)
+  cls_flower: add support for matching MPLS fields (v2)
+
+ include/linux/mpls.h         |  5 +++
+ include/net/flow_dissector.h |  8 +++++
+ include/uapi/linux/pkt_cls.h |  5 +++
+ net/core/flow_dissector.c    | 25 +++++++++++++--
+ net/sched/cls_flower.c       | 74 ++++++++++++++++++++++++++++++++++++++++++++
+ 5 files changed, 114 insertions(+), 3 deletions(-)
+
+-- 
+2.7.4
