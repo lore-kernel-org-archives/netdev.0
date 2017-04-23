@@ -1,73 +1,42 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: Re: [PATCH 1/1] tipc: check return value of
-	nlmsg_new
-Date: Sun, 23 Apr 2017 13:33:09 +0000
-Message-ID: <DB5PR0701MB1958A4384C0B9C0571BD1DF99A1C0@DB5PR0701MB1958.eurprd07.prod.outlook.com>
-References: <1492931359-25004-1-git-send-email-bianpan2016@163.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH v2 net] net: ipv6: regenerate host route if moved to gc
+ list
+Date: Sun, 23 Apr 2017 08:08:05 -0600
+Message-ID: <607a26c5-4cb4-b84b-37a0-b79ea6b9df26@cumulusnetworks.com>
+References: <1492879237-31566-1-git-send-email-dsa@cumulusnetworks.com>
+ <20170422220041.wha72qa3zuy23hkf@kafai-mba.local>
+ <072e9af7-2163-ce53-ce74-a288e0934825@cumulusnetworks.com>
+ <20170423022801.t7lw3vuazo2ks6u4@kafai-mba.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"tipc-discussion@lists.sourceforge.net"
-	<tipc-discussion@lists.sourceforge.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Pan Bian <bianpan2016@163.com>, Ying Xue <ying.xue@windriver.com>, "David
-	S. Miller" <davem@davemloft.net>
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-In-Reply-To: <1492931359-25004-1-git-send-email-bianpan2016@163.com>
-Content-Language: en-US
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, dvyukov@google.com, andreyknvl@google.com,
+        mmanning@brocade.com
+To: Martin KaFai Lau <kafai@fb.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f54.google.com ([209.85.218.54]:34817 "EHLO
+        mail-oi0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1045566AbdDWOIH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 23 Apr 2017 10:08:07 -0400
+Received: by mail-oi0-f54.google.com with SMTP id j201so139170842oih.2
+        for <netdev@vger.kernel.org>; Sun, 23 Apr 2017 07:08:07 -0700 (PDT)
+In-Reply-To: <20170423022801.t7lw3vuazo2ks6u4@kafai-mba.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Acknowledged. Thank you for doing this job.
+On 4/22/17 8:28 PM, Martin KaFai Lau wrote:
+>> The code path to fixup_permanent_addr is under RTNL, so the if check on
+>> ifp->rt and rt6i_ref is ok -- neither can be changed since RTNL is held.
+>>
+>> Since ifp->rt can be accessed outside of RTNL, the spinlock is needed to
+>> change its value.
+> Got it. It is to protect the readers which are not under RTNL.
+> Many thanks for pointing out what I was missing.  It all makes sense now.
+> 
+>> Arguably only 'ifp->rt = rt;' needs the spinlock.
+> It still seems like the existing 'ifp->rt = rt;' needs protection
+> anyway regardless of the rt regeneration change.  It would be nice to
+> explain it in the commit log or even better separating it out
+> into another patch.
 
-///jon
-
-
-> -----Original Message-----
-> From: Pan Bian [mailto:bianpan2016@163.com]
-> Sent: Sunday, April 23, 2017 03:09 AM
-> To: Jon Maloy <jon.maloy@ericsson.com>; Ying Xue
-> <ying.xue@windriver.com>; David S. Miller <davem@davemloft.net>
-> Cc: netdev@vger.kernel.org; tipc-discussion@lists.sourceforge.net; linux-
-> kernel@vger.kernel.org; Pan Bian <bianpan2016@163.com>
-> Subject: [PATCH 1/1] tipc: check return value of nlmsg_new
-> 
-> Function nlmsg_new() will return a NULL pointer if there is no enough
-> memory, and its return value should be checked before it is used.
-> However, in function tipc_nl_node_get_monitor(), the validation of the
-> return value of function nlmsg_new() is missed. This patch fixes the bug.
-> 
-> Signed-off-by: Pan Bian <bianpan2016@163.com>
-> ---
->  net/tipc/node.c | 2 ++
->  1 file changed, 2 insertions(+)
-> 
-> diff --git a/net/tipc/node.c b/net/tipc/node.c index 4512e83..568e48d 100644
-> --- a/net/tipc/node.c
-> +++ b/net/tipc/node.c
-> @@ -2098,6 +2098,8 @@ int tipc_nl_node_get_monitor(struct sk_buff *skb,
-> struct genl_info *info)
->  	int err;
-> 
->  	msg.skb = nlmsg_new(NLMSG_GOODSIZE, GFP_KERNEL);
-> +	if (!msg.skb)
-> +		return -ENOMEM;
->  	msg.portid = info->snd_portid;
->  	msg.seq = info->snd_seq;
-> 
-> --
-> 1.9.1
-> 
-
-
-------------------------------------------------------------------------------
-Check out the vibrant tech community on one of the world's most
-engaging tech sites, Slashdot.org! http://sdm.link/slashdot
+I'll add a comment to the commit log when I send a v3 tomorrow morning.
