@@ -1,40 +1,31 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: tools/testing/selftests/bpf/Makefile
-Date: Sun, 23 Apr 2017 09:13:05 -0700
-Message-ID: <20170423161303.GA9335@ast-mbp.thefacebook.com>
-References: <20170422.154501.1876167225428231606.davem@davemloft.net>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2] gre6: fix copy/paste bugs in GREv6 attribute
+ manipulation
+Date: Sun, 23 Apr 2017 09:15:11 -0700
+Message-ID: <20170423091511.26586101@xeon-e3>
+References: <20170421181425.166260-1-kraigatgoog@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: daniel@iogearbox.net, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Craig Gallek <kraigatgoog@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f170.google.com ([209.85.223.170]:35272 "EHLO
-        mail-io0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1045890AbdDWQNK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 23 Apr 2017 12:13:10 -0400
-Received: by mail-io0-f170.google.com with SMTP id r16so153997410ioi.2
-        for <netdev@vger.kernel.org>; Sun, 23 Apr 2017 09:13:09 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20170422.154501.1876167225428231606.davem@davemloft.net>
+Received: from mail-it0-f42.google.com ([209.85.214.42]:35026 "EHLO
+        mail-it0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1045875AbdDWQPN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 23 Apr 2017 12:15:13 -0400
+Received: by mail-it0-f42.google.com with SMTP id 70so32553676ita.0
+        for <netdev@vger.kernel.org>; Sun, 23 Apr 2017 09:15:13 -0700 (PDT)
+In-Reply-To: <20170421181425.166260-1-kraigatgoog@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Apr 22, 2017 at 03:45:01PM -0400, David Miller wrote:
+On Fri, 21 Apr 2017 14:14:25 -0400
+Craig Gallek <kraigatgoog@gmail.com> wrote:
+
+> From: Craig Gallek <kraig@google.com>
 > 
-> Alexei, that unconditional -D__x86_64__ isn't going to work.  It in
-> fact makes the build break on sparc because the types.h asm headers
-> explicitly check for things like __sparc__ && __arch64__ etc.
+> Fixes: af89576d7a8c("iproute2: GRE over IPv6 tunnel support.")
+> Signed-off-by: Craig Gallek <kraig@google.com>
 
-yeah. it was a quick workaround for the following error:
-In file included from net-next/tools/testing/selftests/bpf/test_xdp.c:8:
-In file included from /usr/include/string.h:25:
-In file included from /usr/include/features.h:399:
-/usr/include/gnu/stubs.h:7:11: fatal error: 'gnu/stubs-32.h' file not found
-
-the bpf progs don't do any x86 specific things.
-
-> In every
-> 	arch/${ARCH}/Makefile
-> extract out the "-DXXX" stuff from CHECKFLAGS into a new Makefile
-
-that should work. Probably there is even simpler way.
+Thanks. Applied.
