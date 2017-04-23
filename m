@@ -1,64 +1,148 @@
-From: Jeff Silverman <jeffsilverm@gmail.com>
-Subject: I find one aspect of the ip link show command confusing and I'd like
- you to fix it, please
-Date: Sun, 23 Apr 2017 15:36:32 -0700
-Message-ID: <CAGu9dLLRVaiO-vHd_jzVuMM3O=sjLX_VOeu5n6-+eV6fEdhBug@mail.gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH RFC] ptr_ring: add ptr_ring_unconsume
+Date: Mon, 24 Apr 2017 02:28:42 +0300
+Message-ID: <20170424022711-mutt-send-email-mst@kernel.org>
+References: <1492384496-22644-1-git-send-email-mst@redhat.com>
+ <0defb746-3d4b-14b3-1ad7-82842048ebba@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Jason Wang <jasowang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f169.google.com ([209.85.216.169]:34026 "EHLO
-        mail-qt0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756898AbdDWWge (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 23 Apr 2017 18:36:34 -0400
-Received: by mail-qt0-f169.google.com with SMTP id c45so101271244qtb.1
-        for <netdev@vger.kernel.org>; Sun, 23 Apr 2017 15:36:34 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:48678 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1046288AbdDWX2o (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 23 Apr 2017 19:28:44 -0400
+Content-Disposition: inline
+In-Reply-To: <0defb746-3d4b-14b3-1ad7-82842048ebba@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-People,
+On Tue, Apr 18, 2017 at 11:07:42AM +0800, Jason Wang wrote:
+> 
+> 
+> On 2017年04月17日 07:19, Michael S. Tsirkin wrote:
+> > Applications that consume a batch of entries in one go
+> > can benefit from ability to return some of them back
+> > into the ring.
+> > 
+> > Add an API for that - assuming there's space. If there's no space
+> > naturally we can't do this and have to drop entries, but this implies
+> > ring is full so we'd likely drop some anyway.
+> > 
+> > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> > ---
+> > 
+> > Jason, in my mind the biggest issue with your batching patchset is the
+> > backet drops on disconnect.  This API will help avoid that in the common
+> > case.
+> 
+> Ok, I will rebase the series on top of this. (Though I don't think we care
+> the packet loss).
 
-When my NIC is up, but not connected, I see:
+E.g. I care - I often start sending packets to VM before it's
+fully booted. Several vhost resets might follow.
 
-root@jeff-desktop:~# ip link show enp3s0
-2: enp3s0: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc mq state
-DOWN mode DEFAULT group default qlen 1000
-    link/ether 00:10:18:cc:9c:77 brd ff:ff:ff:ff:ff:ff
-root@jeff-desktop:~# ip link show enp3s0
+> > 
+> > I would still prefer that we understand what's going on,
+> 
+> I try to reply in another thread, does it make sense?
+> 
+> >   and I would
+> > like to know what's the smallest batch size that's still helpful,
+> 
+> Yes, I've replied in another thread, the result is:
+> 
+> 
+> no batching   1.88Mpps
+> RX_BATCH=1    1.93Mpps
+> RX_BATCH=4    2.11Mpps
+> RX_BATCH=16   2.14Mpps
+> RX_BATCH=64   2.25Mpps
+> RX_BATCH=256  2.18Mpps
 
-NO-CARRIER makes sense to me - if the wire is unplugged, then the NIC
-isn't seeing the humm at the beginning of each packet.  That's clear.
-Note that even though my link isn't plugged in,  ip still notes that
-it is up.  That's great.
+Essentially 4 is enough, other stuf looks more like noise
+to me. What about 2?
 
-
-But if I down my NIC, there is no indication that it is DOWN other
-than you can't see the UP flag.  If somebody was new to linux, they
-would not see what's not there.
-
-2: enp3s0: <BROADCAST,MULTICAST> mtu 1500 qdisc mq state DOWN mode
-DEFAULT group default qlen 1000
-    link/ether 00:10:18:cc:9c:77 brd ff:ff:ff:ff:ff:ff
-
-
-What I would like you to do is modify the ip command so that if the
-NIC has been downed by something, then it explicitly says DOWN.
-
-What would be really nice would be if you enumerated all of the flags
-that an interface can have, and note if the flag is set or cleared.
-But that's more than what I want with this message.
-
-
-Many thanks,
-
-
-Jeff
-
--- 
-Jeff Silverman, linux sysadmin
-nine two four   twentieth avenue east
-Seattle, WA, nine eight one one two -3507
-(253) 459-2318
-jeffsilverm@gmail.c0m (note the zero!)
-http://www.commercialventvac.com
-See my portfolio of writings and talks
+> >   but
+> > I'm not going to block the patch on these grounds assuming packet drops
+> > are fixed.
+> 
+> Thanks a lot.
+> 
+> > 
+> > Lightly tested - this is on top of consumer batching patches.
+> > 
+> > Thanks!
+> > 
+> >   include/linux/ptr_ring.h | 57 ++++++++++++++++++++++++++++++++++++++++++++++++
+> >   1 file changed, 57 insertions(+)
+> > 
+> > diff --git a/include/linux/ptr_ring.h b/include/linux/ptr_ring.h
+> > index 783e7f5..5fbeab4 100644
+> > --- a/include/linux/ptr_ring.h
+> > +++ b/include/linux/ptr_ring.h
+> > @@ -457,6 +457,63 @@ static inline int ptr_ring_init(struct ptr_ring *r, int size, gfp_t gfp)
+> >   	return 0;
+> >   }
+> > +/*
+> > + * Return entries into ring. Destroy entries that don't fit.
+> > + *
+> > + * Note: this is expected to be a rare slow path operation.
+> > + *
+> > + * Note: producer lock is nested within consumer lock, so if you
+> > + * resize you must make sure all uses nest correctly.
+> > + * In particular if you consume ring in interrupt or BH context, you must
+> > + * disable interrupts/BH when doing so.
+> > + */
+> > +static inline void ptr_ring_unconsume(struct ptr_ring *r, void **batch, int n,
+> > +				      void (*destroy)(void *))
+> > +{
+> > +	unsigned long flags;
+> > +	int head;
+> > +
+> > +	spin_lock_irqsave(&(r)->consumer_lock, flags);
+> > +	spin_lock(&(r)->producer_lock);
+> > +
+> > +	if (!r->size)
+> > +		goto done;
+> > +
+> > +	/*
+> > +	 * Clean out buffered entries (for simplicity). This way following code
+> > +	 * can test entries for NULL and if not assume they are valid.
+> > +	 */
+> > +	head = r->consumer_head - 1;
+> > +	while (likely(head >= r->consumer_tail))
+> > +		r->queue[head--] = NULL;
+> > +	r->consumer_tail = r->consumer_head;
+> > +
+> > +	/*
+> > +	 * Go over entries in batch, start moving head back and copy entries.
+> > +	 * Stop when we run into previously unconsumed entries.
+> > +	 */
+> > +	while (n--) {
+> > +		head = r->consumer_head - 1;
+> > +		if (head < 0)
+> > +			head = r->size - 1;
+> > +		if (r->queue[head]) {
+> > +			/* This batch entry will have to be destroyed. */
+> > +			++n;
+> > +			goto done;
+> > +		}
+> > +		r->queue[head] = batch[n];
+> > +		r->consumer_tail = r->consumer_head = head;
+> > +	}
+> > +
+> > +done:
+> > +	/* Destroy all entries left in the batch. */
+> > +	while (n--) {
+> > +		destroy(batch[n]);
+> > +	}
+> > +	spin_unlock(&(r)->producer_lock);
+> > +	spin_unlock_irqrestore(&(r)->consumer_lock, flags);
+> > +}
+> > +
+> >   static inline void **__ptr_ring_swap_queue(struct ptr_ring *r, void **queue,
+> >   					   int size, gfp_t gfp,
+> >   					   void (*destroy)(void *))
