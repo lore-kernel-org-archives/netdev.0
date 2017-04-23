@@ -1,49 +1,41 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 1/1] tipc: check return value of nlmsg_new
-Date: Sun, 23 Apr 2017 01:16:05 -0700
-Message-ID: <1492935365.30293.45.camel@perches.com>
-References: <1492931359-25004-1-git-send-email-bianpan2016@163.com>
-         <1492931836.30293.43.camel@perches.com> <20170423080027.GA843@bp>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Ying Xue <ying.xue@windriver.com>,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        tipc-discussion@lists.sourceforge.net, linux-kernel@vger.kernel.org
-To: PanBian <bianpan2016@163.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170423080027.GA843@bp>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Pan Bian <bianpan201602@163.com>
+Subject: [PATCH 1/1] wan: pc300too: abort path on failure
+Date: Sun, 23 Apr 2017 17:38:35 +0800
+Message-ID: <1492940315-1462-1-git-send-email-bianpan201602@163.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Pan Bian <bianpan2016@163.com>
+To: Krzysztof Halasa <khc@pm.waw.pl>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from m50-132.163.com ([123.125.50.132]:37409 "EHLO m50-132.163.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1044391AbdDWJjP (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 23 Apr 2017 05:39:15 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2017-04-23 at 16:00 +0800, PanBian wrote:
-> On Sun, Apr 23, 2017 at 12:17:16AM -0700, Joe Perches wrote:
-> > On Sun, 2017-04-23 at 15:09 +0800, Pan Bian wrote:
-> > > Function nlmsg_new() will return a NULL pointer if there is no enough
-> > > memory, and its return value should be checked before it is used.
-> > > However, in function tipc_nl_node_get_monitor(), the validation of the
-> > > return value of function nlmsg_new() is missed. This patch fixes the
-> > > bug.
-> > 
-> > Hello.
-> > 
-> > Thanks for the patches.
-> > 
-> > Are you finding these via a tool or inspection?
-> > 
-> > If a tool is being used, could you please describe it?
-> > 
-> 
-> Yes. I developed a tool to find this kind of bugs.
-> 
-> The detecting idea is simple. In large systems like the Linux kernel, 
-> most implementations are correct, and incorrect ones are rare. Based on
-> this observation, we take programs that have different implementations
-> with others as bugs. For example, in most cases, the return vlaue of
-> nlmsg_new() is validated and it will not be passed to genlmsg_reply() if
-> its value is NULL. However, in function tipc_nl_node_get_monitor(), the
-> validation is missing. The abnormal behavior leads us to believe that
-> there is a bug.
+From: Pan Bian <bianpan2016@163.com>
 
-Perhaps adding __must_check to some of the appropriate function
-declarations/prototypes would help avoid new future misuses.
+In function pc300_pci_init_one(), on the ioremap error path, function
+pc300_pci_remove_one() is called to free the allocated memory. However,
+the path is not terminated, and the freed memory will be used later,
+resulting in use-after-free bugs. This path fixes the bug.
+
+Signed-off-by: Pan Bian <bianpan2016@163.com>
+---
+ drivers/net/wan/pc300too.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/net/wan/pc300too.c b/drivers/net/wan/pc300too.c
+index e1dd1ec..b9b934b 100644
+--- a/drivers/net/wan/pc300too.c
++++ b/drivers/net/wan/pc300too.c
+@@ -346,6 +346,7 @@ static int pc300_pci_init_one(struct pci_dev *pdev,
+ 	    card->rambase == NULL) {
+ 		pr_err("ioremap() failed\n");
+ 		pc300_pci_remove_one(pdev);
++		return -ENOMEM;
+ 	}
+ 
+ 	/* PLX PCI 9050 workaround for local configuration register read bug */
+-- 
+1.9.1
