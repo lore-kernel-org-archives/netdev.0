@@ -1,86 +1,78 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH v2 net] net: ipv6: regenerate host route if moved to gc
- list
-Date: Sat, 22 Apr 2017 19:12:34 -0600
-Message-ID: <072e9af7-2163-ce53-ce74-a288e0934825@cumulusnetworks.com>
-References: <1492879237-31566-1-git-send-email-dsa@cumulusnetworks.com>
- <20170422220041.wha72qa3zuy23hkf@kafai-mba.local>
+From: Jakub Kicinski <kubakici@wp.pl>
+Subject: Re: [net-next 03/11] ixgbe: add support for XDP_TX action
+Date: Sat, 22 Apr 2017 19:24:11 -0700
+Message-ID: <20170422192411.1d85793a@cakuba.lan>
+References: <20170421015029.18994-1-jeffrey.t.kirsher@intel.com>
+        <20170421015029.18994-4-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dvyukov@google.com, andreyknvl@google.com,
-        mmanning@brocade.com
-To: Martin KaFai Lau <kafai@fb.com>
+Cc: davem@davemloft.net, John Fastabend <john.fastabend@gmail.com>,
+        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+        jogreene@redhat.com, John Fastabend <john.r.fastabend@intel.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f172.google.com ([209.85.223.172]:33200 "EHLO
-        mail-io0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1427346AbdDWBMg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 22 Apr 2017 21:12:36 -0400
-Received: by mail-io0-f172.google.com with SMTP id k87so153211326ioi.0
-        for <netdev@vger.kernel.org>; Sat, 22 Apr 2017 18:12:36 -0700 (PDT)
-In-Reply-To: <20170422220041.wha72qa3zuy23hkf@kafai-mba.local>
+Received: from mx3.wp.pl ([212.77.101.10]:56132 "EHLO mx3.wp.pl"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1427441AbdDWCYa (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 22 Apr 2017 22:24:30 -0400
+In-Reply-To: <20170421015029.18994-4-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 4/22/17 4:00 PM, Martin KaFai Lau wrote:
-> On Sat, Apr 22, 2017 at 09:40:37AM -0700, David Ahern wrote:
-> [...]
->> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
->> index 08f9e8ea7a81..97e86158bbcb 100644
->> --- a/net/ipv6/addrconf.c
->> +++ b/net/ipv6/addrconf.c
->> @@ -3303,14 +3303,24 @@ static void addrconf_gre_config(struct net_device *dev)
->>  static int fixup_permanent_addr(struct inet6_dev *idev,
->>  				struct inet6_ifaddr *ifp)
->>  {
->> -	if (!ifp->rt) {
->> -		struct rt6_info *rt;
->> +	/* rt6i_ref == 0 means the host route was removed from the
->> +	 * FIB, for example, if 'lo' device is taken down. In that
->> +	 * case regenerate the host route.
->> +	 */
->> +	if (!ifp->rt || !atomic_read(&ifp->rt->rt6i_ref)) {
->> +		struct rt6_info *rt, *prev;
->>
->>  		rt = addrconf_dst_alloc(idev, &ifp->addr, false);
-> The rt regernation makes sense.
-> 
->>  		if (unlikely(IS_ERR(rt)))
->>  			return PTR_ERR(rt);
->>
->> +		spin_lock(&ifp->lock);
->> +		prev = ifp->rt;
->>  		ifp->rt = rt;
-> I am still missing something on the new spin_lock:
-> 1) Is there an existing race in the existing
->    ifp->rt modification ('ipf->rt = rt') which is
->    not related to this bug?
-> 2) If there is a race in ifp->rt, is the above if-checks
->    on ifp->rt racy and need protection also? F.e. 'ifp->rt->rt6i_ref'
->    since ifp->rt could be NULL or ifp->rt->rt6i_ref
->    may not be zero later if there is concurrent
->    modification on ifp->rt?
+On Thu, 20 Apr 2017 18:50:21 -0700, Jeff Kirsher wrote:
+> +static int ixgbe_xdp_queues(struct ixgbe_adapter *adapter)
+> +{
+> +	if (nr_cpu_ids > MAX_XDP_QUEUES)
+> +		return 0;
+> +
+> +	return adapter->xdp_prog ? nr_cpu_ids : 0;
+> +}
 
-As I understand it:
-- rt6i_ref is modified by the fib code (adding and removing to tree) and
-always under RTNL.
-- ifp->rt is only *set* under RTNL, but is accessed without (dad via
-workqueue and sysctl).
+Nit: AFAICT ixgbe_xdp_setup() will guarantee xdp_prog is not set if
+there are too many CPU ids.
 
-The code path to fixup_permanent_addr is under RTNL, so the if check on
-ifp->rt and rt6i_ref is ok -- neither can be changed since RTNL is held.
+> @@ -6120,10 +6193,21 @@ static int ixgbe_setup_all_tx_resources(struct ixgbe_adapter *adapter)
+>  		e_err(probe, "Allocation for Tx Queue %u failed\n", i);
+>  		goto err_setup_tx;
+>  	}
+> +	for (j = 0; j < adapter->num_xdp_queues; j++) {
+> +		err = ixgbe_setup_tx_resources(adapter->xdp_ring[j]);
+> +		if (!err)
+> +			continue;
+> +
+> +		e_err(probe, "Allocation for Tx Queue %u failed\n", j);
+> +		goto err_setup_tx;
+> +	}
+> +
+>  
 
-Since ifp->rt can be accessed outside of RTNL, the spinlock is needed to
-change its value. Arguably only 'ifp->rt = rt;' needs the spinlock.
+Nit: extra line here
 
-Let me know if I am missing something. There are many twists and turns
-with the ipv6 code.
+> @@ -9557,7 +9739,21 @@ static int ixgbe_xdp_setup(struct net_device *dev, struct bpf_prog *prog)
+>  			return -EINVAL;
+>  	}
+>  
+> +	if (nr_cpu_ids > MAX_XDP_QUEUES)
+> +		return -ENOMEM;
+> +
+>  	old_prog = xchg(&adapter->xdp_prog, prog);
+> +
+> +	/* If transitioning XDP modes reconfigure rings */
+> +	if (!!prog != !!old_prog) {
+> +		int err = ixgbe_setup_tc(dev, netdev_get_num_tc(dev));
+> +
+> +		if (err) {
+> +			rcu_assign_pointer(adapter->xdp_prog, old_prog);
+> +			return -EINVAL;
+> +		}
+> +	}
+> +
+>  	for (i = 0; i < adapter->num_rx_queues; i++)
+>  		xchg(&adapter->rx_ring[i]->xdp_prog, adapter->xdp_prog);
+>  
 
-> 
->> +		spin_unlock(&ifp->lock);
->> +
->> +		if (prev)
->> +			ip6_rt_put(prev);
-> Nit. ip6_rt_put() takes NULL.
-
-ok.
+In case of disabling XDP I assume ixgbe_setup_tc() will free the rings
+before the xdp_prog on the rings is swapped to NULL.  Is there anything
+preventing TX in that time window?  I think usual ordering would be to
+install the prog after reconfig but uninstall before.
