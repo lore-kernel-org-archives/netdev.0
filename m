@@ -1,41 +1,37 @@
 From: Pan Bian <bianpan201602@163.com>
-Subject: [PATCH 1/1] wan: pc300too: abort path on failure
-Date: Sun, 23 Apr 2017 17:38:35 +0800
-Message-ID: <1492940315-1462-1-git-send-email-bianpan201602@163.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Pan Bian <bianpan2016@163.com>
-To: Krzysztof Halasa <khc@pm.waw.pl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from m50-132.163.com ([123.125.50.132]:37409 "EHLO m50-132.163.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1044391AbdDWJjP (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 23 Apr 2017 05:39:15 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Subject: [PATCH 1/1] net: bcmgenet: fix incorrect return value checks
+Date: Sun, 23 Apr 2017 18:01:05 +0800
+Message-ID: <1492941665-17155-1-git-send-email-bianpan201602@163.com>
+Cc: linux-kernel@vger.kernel.org, Pan Bian <bianpan2016@163.com>
+To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Pan Bian <bianpan2016@163.com>
 
-In function pc300_pci_init_one(), on the ioremap error path, function
-pc300_pci_remove_one() is called to free the allocated memory. However,
-the path is not terminated, and the freed memory will be used later,
-resulting in use-after-free bugs. This path fixes the bug.
+Function platform_get_irq() will return a negative value on errors.
+However, in function bcmgenet_probe(), 0 is considered as a flag of
+error. This patch fixes the bug by checking whether the return value of
+platform_get_irq() is less than 0.
 
 Signed-off-by: Pan Bian <bianpan2016@163.com>
 ---
- drivers/net/wan/pc300too.c | 1 +
- 1 file changed, 1 insertion(+)
+ drivers/net/ethernet/broadcom/genet/bcmgenet.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/wan/pc300too.c b/drivers/net/wan/pc300too.c
-index e1dd1ec..b9b934b 100644
---- a/drivers/net/wan/pc300too.c
-+++ b/drivers/net/wan/pc300too.c
-@@ -346,6 +346,7 @@ static int pc300_pci_init_one(struct pci_dev *pdev,
- 	    card->rambase == NULL) {
- 		pr_err("ioremap() failed\n");
- 		pc300_pci_remove_one(pdev);
-+		return -ENOMEM;
- 	}
- 
- 	/* PLX PCI 9050 workaround for local configuration register read bug */
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+index 365895e..0bccf2b 100644
+--- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
++++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+@@ -3329,7 +3329,7 @@ static int bcmgenet_probe(struct platform_device *pdev)
+ 	priv->irq0 = platform_get_irq(pdev, 0);
+ 	priv->irq1 = platform_get_irq(pdev, 1);
+ 	priv->wol_irq = platform_get_irq(pdev, 2);
+-	if (!priv->irq0 || !priv->irq1) {
++	if (priv->irq0 < 0 || priv->irq1 < 0) {
+ 		dev_err(&pdev->dev, "can't find IRQs\n");
+ 		err = -EINVAL;
+ 		goto err;
 -- 
 1.9.1
