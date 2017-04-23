@@ -1,74 +1,82 @@
-From: Pravin Shelar <pshelar-LZ6Gd1LRuIk@public.gmane.org>
-Subject: Re: [PATCH 1/1] openvswitch: check return value of
-	nla_nest_start
-Date: Sun, 23 Apr 2017 13:22:53 -0700
-Message-ID: <CAOrHB_CVPKymgbKb-aNS5fqK9Mhe15FtGy0EhkNgSmJ_TSq2PA@mail.gmail.com>
-References: <1492929782-1112-1-git-send-email-bianpan2016@163.com>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: [PATCH 1/1] drivers:net:ethernet:adi:bfin_mac: Use FIELD_SIZEOF
+ defined kernel macro
+Date: Sun, 23 Apr 2017 22:56:38 +0200
+Message-ID: <CAMuHMdUo7GwRE5_o62+TDuut7y=WEpTxsq+Ys4KxAmGCFEb9ow@mail.gmail.com>
+References: <1492970524-12607-1-git-send-email-karim.eshapa@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
-	Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Pan Bian <bianpan2016-9Onoh4P/yGk@public.gmane.org>
-Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1492929782-1112-1-git-send-email-bianpan2016-9Onoh4P/yGk@public.gmane.org>
-List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
-List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Philippe Reynes <tremyfr@gmail.com>,
+        Antonio Quartulli <a@unstable.cc>,
+        Florian Westphal <fw@strlen.de>,
+        LABBE Corentin <clabbe.montjoie@gmail.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Jarod Wilson <jarod@redhat.com>,
+        "adi-buildroot-devel@lists.sourceforge.net"
+        <adi-buildroot-devel@lists.sourceforge.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Karim Eshapa <karim.eshapa@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-it0-f65.google.com ([209.85.214.65]:33289 "EHLO
+        mail-it0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1045923AbdDWU4k (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 23 Apr 2017 16:56:40 -0400
+In-Reply-To: <1492970524-12607-1-git-send-email-karim.eshapa@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Apr 22, 2017 at 11:43 PM, Pan Bian <bianpan2016-9Onoh4P/yGk@public.gmane.org> wrote:
-> Function nla_nest_start() will return a NULL pointer on error, and its
-> return value should be validated before it is used. However, in function
-> queue_userspace_packet(), its return value is ignored. This may result
-> in NULL dereference when calling nla_nest_end(). This patch fixes the
-> bug.
+Hi Karim,
+
+On Sun, Apr 23, 2017 at 8:02 PM, Karim Eshapa <karim.eshapa@gmail.com> wrote:
+> Use FIELD_SIZEOF defined kernel macro kernel.h
 >
-> Signed-off-by: Pan Bian <bianpan2016-9Onoh4P/yGk@public.gmane.org>
+> Signed-off-by: Karim Eshapa <karim.eshapa@gmail.com>
 > ---
->  net/openvswitch/datapath.c | 5 +++--
->  1 file changed, 3 insertions(+), 2 deletions(-)
+>  drivers/net/ethernet/adi/bfin_mac.c | 14 +++++++++-----
+>  1 file changed, 9 insertions(+), 5 deletions(-)
 >
-> diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-> index 9c62b63..34c0fbd 100644
-> --- a/net/openvswitch/datapath.c
-> +++ b/net/openvswitch/datapath.c
-> @@ -489,7 +489,8 @@ static int queue_userspace_packet(struct datapath *dp, struct sk_buff *skb,
->                 err = ovs_nla_put_tunnel_info(user_skb,
->                                               upcall_info->egress_tun_info);
->                 BUG_ON(err);
-> -               nla_nest_end(user_skb, nla);
-> +               if (nla)
-> +                       nla_nest_end(user_skb, nla);
-There is enough memory allocated for the netlink message accounting
-for all attributes beforehand. So it is not required to check retuned
-'nla' after each attributes addition to the msg.
+> diff --git a/drivers/net/ethernet/adi/bfin_mac.c b/drivers/net/ethernet/adi/bfin_mac.c
+> index a9ac58c..60346e0 100644
+> --- a/drivers/net/ethernet/adi/bfin_mac.c
+> +++ b/drivers/net/ethernet/adi/bfin_mac.c
+> @@ -452,10 +452,14 @@ static irqreturn_t bfin_mac_wake_interrupt(int irq, void *dev_id)
+>  static void bfin_mac_ethtool_getdrvinfo(struct net_device *dev,
+>                                         struct ethtool_drvinfo *info)
+>  {
+> -       strlcpy(info->driver, KBUILD_MODNAME, sizeof(info->driver));
+> -       strlcpy(info->version, DRV_VERSION, sizeof(info->version));
+> -       strlcpy(info->fw_version, "N/A", sizeof(info->fw_version));
+> -       strlcpy(info->bus_info, dev_name(&dev->dev), sizeof(info->bus_info));
+> +       strlcpy(info->driver, KBUILD_MODNAME, FIELD_SIZEOF(
+> +               struct ethtool_drvinfo, driver));
 
+IMHO this makes the code less safe and less future-proof.
+What if the type of info is ever changed?
+There's no safety check to validate that the FIELD_SIZEOF() operates on the
+same data as the strlcpy() destination.
 
->         }
+> +       strlcpy(info->version, DRV_VERSION, FIELD_SIZEOF(
+> +               struct ethtool_drvinfo, version));
+> +       strlcpy(info->fw_version, "N/A", FIELD_SIZEOF(
+> +               struct ethtool_drvinfo, fw_version));
+> +       strlcpy(info->bus_info, dev_name(&dev->dev), FIELD_SIZEOF(
+> +               struct ethtool_drvinfo, bus_info));
+>  }
 >
->         if (upcall_info->actions_len) {
-> @@ -497,7 +498,7 @@ static int queue_userspace_packet(struct datapath *dp, struct sk_buff *skb,
->                 err = ovs_nla_put_actions(upcall_info->actions,
->                                           upcall_info->actions_len,
->                                           user_skb);
-> -               if (!err)
-> +               if (!err && nla)
->                         nla_nest_end(user_skb, nla);
->                 else
->                         nla_nest_cancel(user_skb, nla);
-> --
-> 1.9.1
+>  static void bfin_mac_ethtool_getwol(struct net_device *dev,
+> @@ -785,7 +789,7 @@ static int bfin_mac_hwtstamp_get(struct net_device *netdev,
+>         struct bfin_mac_local *lp = netdev_priv(netdev);
 >
->
-> _______________________________________________
-> dev mailing list
-> dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-> https://mail.openvswitch.org/mailman/listinfo/ovs-dev
+>         return copy_to_user(ifr->ifr_data, &lp->stamp_cfg,
+> -                           sizeof(lp->stamp_cfg)) ?
+> +                           FILD_SIZEOF(struct bfin_mac_local, stamp_cfg)) ?
+
+As the kbuild test robot already told you, this doesn't compile.
+Please try to (at least) compile the code before sending patches.
+Thanks!
+
+Gr{oetje,eeting}s,
+
+                        Geert
