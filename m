@@ -1,72 +1,45 @@
-From: Jakub Kicinski <kubakici@wp.pl>
-Subject: Re: [net-next 03/11] ixgbe: add support for XDP_TX action
-Date: Sat, 22 Apr 2017 20:52:25 -0700
-Message-ID: <20170422205226.1389d2dc@cakuba.lan>
-References: <20170421015029.18994-1-jeffrey.t.kirsher@intel.com>
-        <20170421015029.18994-4-jeffrey.t.kirsher@intel.com>
-        <20170422192411.1d85793a@cakuba.lan>
-        <58FC2226.3070207@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net,
-        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-        jogreene@redhat.com, John Fastabend <john.r.fastabend@intel.com>
-To: John Fastabend <john.fastabend@gmail.com>
+From: Pan Bian <bianpan2016@163.com>
+Subject: [PATCH 1/1] lwtunnel: check return value of nla_nest_start
+Date: Sun, 23 Apr 2017 14:28:37 +0800
+Message-ID: <1492928917-25628-1-git-send-email-bianpan2016@163.com>
+Cc: David Ahern <dsa@cumulusnetworks.com>,
+        Roopa Prabhu <roopa@cumulusnetworks.com>,
+        Alexei Starovoitov <ast@kernel.org>,
+        David Lebrun <david.lebrun@uclouvain.be>,
+        Tom Herbert <tom@herbertland.com>,
+        Robert Shearman <rshearma@brocade.com>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, Pan Bian <bianpan2016@163.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx4.wp.pl ([212.77.101.11]:6208 "EHLO mx4.wp.pl"
+Received: from m50-134.163.com ([123.125.50.134]:41077 "EHLO m50-134.163.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1427506AbdDWDwt (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 22 Apr 2017 23:52:49 -0400
-In-Reply-To: <58FC2226.3070207@gmail.com>
+        id S933481AbdDWG31 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 23 Apr 2017 02:29:27 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 22 Apr 2017 20:40:22 -0700, John Fastabend wrote:
-> >> @@ -9557,7 +9739,21 @@ static int ixgbe_xdp_setup(struct net_device *dev, struct bpf_prog *prog)
-> >>  			return -EINVAL;
-> >>  	}
-> >>  
-> >> +	if (nr_cpu_ids > MAX_XDP_QUEUES)
-> >> +		return -ENOMEM;
-> >> +
-> >>  	old_prog = xchg(&adapter->xdp_prog, prog);
-> >> +
-> >> +	/* If transitioning XDP modes reconfigure rings */
-> >> +	if (!!prog != !!old_prog) {
-> >> +		int err = ixgbe_setup_tc(dev, netdev_get_num_tc(dev));
-> >> +
-> >> +		if (err) {
-> >> +			rcu_assign_pointer(adapter->xdp_prog, old_prog);
-> >> +			return -EINVAL;
-> >> +		}
-> >> +	}
-> >> +
-> >>  	for (i = 0; i < adapter->num_rx_queues; i++)
-> >>  		xchg(&adapter->rx_ring[i]->xdp_prog, adapter->xdp_prog);
-> >>    
-> > 
-> > In case of disabling XDP I assume ixgbe_setup_tc() will free the rings
-> > before the xdp_prog on the rings is swapped to NULL.  Is there anything
-> > preventing TX in that time window?  I think usual ordering would be to
-> > install the prog after reconfig but uninstall before.
-> >   
-> 
-> Well in the ixgbe_setup_tc() case we set the rx_ring->xdp_prog in
-> ixgbe_setup_rx_resorources(), while the dma engine is disabled, so the for
-> loop is just doing another set on the rx_ring assigning it to the program
-> already set previously.
-> 
-> Its not really buggy its just extra useless work so I'll change it to this,
-> 
-> 	if (!!prog != !!old_prog) {
-> 		...
-> 	} else {
-> 		for ( ... )
-> 			swap xdp prog
-> 	}
-> 
-> Nice spot, thanks for reviewing. And I missed a build error so I'll roll these
-> fixes in a resend.
+Function nla_nest_start() may return a NULL pointer on error. However,
+in function lwtunnel_fill_encap(), the return value of nla_nest_start()
+is not validated before it is used. This patch checks the return value
+of nla_nest_start() against NULL.
 
-Ah, thanks for explaining.  No bugs that I can spot then :)
+Signed-off-by: Pan Bian <bianpan2016@163.com>
+---
+ net/core/lwtunnel.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/net/core/lwtunnel.c b/net/core/lwtunnel.c
+index 6df9f8f..3471ce7 100644
+--- a/net/core/lwtunnel.c
++++ b/net/core/lwtunnel.c
+@@ -216,6 +216,8 @@ int lwtunnel_fill_encap(struct sk_buff *skb, struct lwtunnel_state *lwtstate)
+ 
+ 	ret = -EOPNOTSUPP;
+ 	nest = nla_nest_start(skb, RTA_ENCAP);
++	if (!nest)
++		goto nla_put_failure;
+ 	rcu_read_lock();
+ 	ops = rcu_dereference(lwtun_encaps[lwtstate->type]);
+ 	if (likely(ops && ops->fill_encap))
+-- 
+1.9.1
