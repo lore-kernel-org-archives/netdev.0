@@ -1,55 +1,70 @@
-From: "Neftin, Sasha" <sasha.neftin@intel.com>
-Subject: Re: [Intel-wired-lan] NFS over NAT causes e1000e transmit hangs
-Date: Sun, 23 Apr 2017 09:46:09 +0300
-Message-ID: <81dbcf7d-52f4-4dc0-2355-27198685da7b@intel.com>
-References: <42af0e78-3107-1605-f8e1-d73a8c441ff0@gmail.com>
- <1492542204.10587.138.camel@edumazet-glaptop3.roam.corp.google.com>
- <9fa24846-3a2d-26d3-2963-f5e6ec6808a5@gmail.com>
- <f79d2748-849e-acc6-5e5c-2dc82548fa69@intel.com>
- <50732fb0-d2b6-9395-d982-6eca8c09aedd@gmail.com>
+From: Pan Bian <bianpan2016@163.com>
+Subject: [PATCH 1/1] mt7601u: check return value of alloc_skb
+Date: Sun, 23 Apr 2017 15:00:23 +0800
+Message-ID: <1492930823-17249-1-git-send-email-bianpan2016@163.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org
-To: Florian Fainelli <f.fainelli@gmail.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:51074 "EHLO mga09.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1427580AbdDWGqN (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 23 Apr 2017 02:46:13 -0400
-In-Reply-To: <50732fb0-d2b6-9395-d982-6eca8c09aedd@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, Pan Bian <bianpan2016@163.com>,
+ linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
+ linux-mediatek@lists.infradead.org, linux-arm-kernel@lists.infradead.org
+To: Jakub Kicinski <kubakici@wp.pl>, Kalle Valo <kvalo@codeaurora.org>,
+ Matthias Brugger <matthias.bgg@gmail.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On 4/20/2017 00:15, Florian Fainelli wrote:
-> On 04/19/2017 01:52 AM, Neftin, Sasha wrote:
->> On 4/18/2017 22:05, Florian Fainelli wrote:
->>> On 04/18/2017 12:03 PM, Eric Dumazet wrote:
->>>> On Tue, 2017-04-18 at 11:18 -0700, Florian Fainelli wrote:
->>>>> Hi,
->>>>>
->>>>> I am using NFS over a NAT with two e1000e adapters and with eth1 being
->>>>> the LAN interface and eth0 the WAN interface. The kernel is Ubuntu's
->>>>> 16.10 kernel: 4.8.0-46-generic. The device doing NAT over NFS is just
->>>>> mounting a remote folder and doing normal execution/file accesses. It's
->>>>> enough to untar a file from this device onto a NFS share to expose the
->>>>> problem.
->>>>>
->>>>> The transmit hangs look like the ones below, doing a rmmod/insmod does
->>>>> not help eliminated the problem, nor does a power cycle. Stopping the
->>>>> NFS over NAT definitively does let the adapter recover.
->>>> Is this NFS over TCP or UDP ?
->>> This is NFS over TCP mounted with the following:
->>>
->>> type nfs
->>> (rw,relatime,vers=3,rsize=1048576,wsize=1048576,namlen=255,hard,proto=tcp,port=2049,timeo=70,retrans=3,sec=sys,local_lock=none,addr=X.X.X.X)
->>>
->>>
->>> Thanks Eric!
->> Please, try disable TCP segmentation offload: ethtool -K <adapter> tso off.
-> I am not able to reproduce the hangs with TSO turned off. Is there a
-> specific patch you would want me to try?
+Function alloc_skb() will return a NULL pointer if there is no enough
+memory. However, in function mt7601u_mcu_msg_alloc(), its return value
+is not validated before it is used. This patch fixes it.
 
-Please, work with TSO turned off so. There is no patch for this specific 
-problem.
+Signed-off-by: Pan Bian <bianpan2016@163.com>
+---
+ drivers/net/wireless/mediatek/mt7601u/mcu.c | 10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/wireless/mediatek/mt7601u/mcu.c b/drivers/net/wireless/mediatek/mt7601u/mcu.c
+index dbdfb3f..a9f5f39 100644
+--- a/drivers/net/wireless/mediatek/mt7601u/mcu.c
++++ b/drivers/net/wireless/mediatek/mt7601u/mcu.c
+@@ -66,8 +66,10 @@ static inline void trace_mt_mcu_msg_send_cs(struct mt7601u_dev *dev,
+ 	WARN_ON(len % 4); /* if length is not divisible by 4 we need to pad */
+ 
+ 	skb = alloc_skb(len + MT_DMA_HDR_LEN + 4, GFP_KERNEL);
+-	skb_reserve(skb, MT_DMA_HDR_LEN);
+-	memcpy(skb_put(skb, len), data, len);
++	if (skb) {
++		skb_reserve(skb, MT_DMA_HDR_LEN);
++		memcpy(skb_put(skb, len), data, len);
++	}
+ 
+ 	return skb;
+ }
+@@ -170,6 +172,8 @@ static int mt7601u_mcu_function_select(struct mt7601u_dev *dev,
+ 	};
+ 
+ 	skb = mt7601u_mcu_msg_alloc(dev, &msg, sizeof(msg));
++	if (!skb)
++		return -ENOMEM;
+ 	return mt7601u_mcu_msg_send(dev, skb, CMD_FUN_SET_OP, func == 5);
+ }
+ 
+@@ -205,6 +209,8 @@ int mt7601u_mcu_tssi_read_kick(struct mt7601u_dev *dev, int use_hvga)
+ 	};
+ 
+ 	skb = mt7601u_mcu_msg_alloc(dev, &msg, sizeof(msg));
++	if (!skb)
++		return -ENOMEM;
+ 	return mt7601u_mcu_msg_send(dev, skb, CMD_CALIBRATION_OP, true);
+ }
+ 
+-- 
+1.9.1
