@@ -1,44 +1,72 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [net-next 00/11][pull request] 10GbE Intel Wired LAN Driver
- Updates 2017-04-20
-Date: Sat, 22 Apr 2017 20:41:58 -0700
-Message-ID: <58FC2286.1090805@gmail.com>
+From: Jakub Kicinski <kubakici@wp.pl>
+Subject: Re: [net-next 03/11] ixgbe: add support for XDP_TX action
+Date: Sat, 22 Apr 2017 20:52:25 -0700
+Message-ID: <20170422205226.1389d2dc@cakuba.lan>
 References: <20170421015029.18994-1-jeffrey.t.kirsher@intel.com>
- <20170421.141809.1159225304098548850.davem@davemloft.net>
+        <20170421015029.18994-4-jeffrey.t.kirsher@intel.com>
+        <20170422192411.1d85793a@cakuba.lan>
+        <58FC2226.3070207@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-        jogreene@redhat.com
-To: David Miller <davem@davemloft.net>, jeffrey.t.kirsher@intel.com
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net,
+        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+        jogreene@redhat.com, John Fastabend <john.r.fastabend@intel.com>
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f66.google.com ([209.85.214.66]:34763 "EHLO
-        mail-it0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1427472AbdDWDmV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 22 Apr 2017 23:42:21 -0400
-Received: by mail-it0-f66.google.com with SMTP id 193so7776872itm.1
-        for <netdev@vger.kernel.org>; Sat, 22 Apr 2017 20:42:21 -0700 (PDT)
-In-Reply-To: <20170421.141809.1159225304098548850.davem@davemloft.net>
+Received: from mx4.wp.pl ([212.77.101.11]:6208 "EHLO mx4.wp.pl"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1427506AbdDWDwt (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 22 Apr 2017 23:52:49 -0400
+In-Reply-To: <58FC2226.3070207@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17-04-21 11:18 AM, David Miller wrote:
-> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> Date: Thu, 20 Apr 2017 18:50:18 -0700
+On Sat, 22 Apr 2017 20:40:22 -0700, John Fastabend wrote:
+> >> @@ -9557,7 +9739,21 @@ static int ixgbe_xdp_setup(struct net_device *dev, struct bpf_prog *prog)
+> >>  			return -EINVAL;
+> >>  	}
+> >>  
+> >> +	if (nr_cpu_ids > MAX_XDP_QUEUES)
+> >> +		return -ENOMEM;
+> >> +
+> >>  	old_prog = xchg(&adapter->xdp_prog, prog);
+> >> +
+> >> +	/* If transitioning XDP modes reconfigure rings */
+> >> +	if (!!prog != !!old_prog) {
+> >> +		int err = ixgbe_setup_tc(dev, netdev_get_num_tc(dev));
+> >> +
+> >> +		if (err) {
+> >> +			rcu_assign_pointer(adapter->xdp_prog, old_prog);
+> >> +			return -EINVAL;
+> >> +		}
+> >> +	}
+> >> +
+> >>  	for (i = 0; i < adapter->num_rx_queues; i++)
+> >>  		xchg(&adapter->rx_ring[i]->xdp_prog, adapter->xdp_prog);
+> >>    
+> > 
+> > In case of disabling XDP I assume ixgbe_setup_tc() will free the rings
+> > before the xdp_prog on the rings is swapped to NULL.  Is there anything
+> > preventing TX in that time window?  I think usual ordering would be to
+> > install the prog after reconfig but uninstall before.
+> >   
 > 
->> John adds XDP support (yeah!) for ixgbe.
+> Well in the ixgbe_setup_tc() case we set the rx_ring->xdp_prog in
+> ixgbe_setup_rx_resorources(), while the dma engine is disabled, so the for
+> loop is just doing another set on the rx_ring assigning it to the program
+> already set previously.
 > 
-> As excited and eager as I am about this, I want to see the build regression
-> for PAGE_SIZE>=8192 fixed before I pull this.
+> Its not really buggy its just extra useless work so I'll change it to this,
 > 
-> Thanks.
+> 	if (!!prog != !!old_prog) {
+> 		...
+> 	} else {
+> 		for ( ... )
+> 			swap xdp prog
+> 	}
 > 
+> Nice spot, thanks for reviewing. And I missed a build error so I'll roll these
+> fixes in a resend.
 
-Dang :(
-
-Jeff, Alex sent you a fix already for this, but Jakub had a few nice
-improvements. I'm thinking the easiest thing to do is for me to merge Alex's fix
-and Jakubs comments and resend the patches.
-
-Thanks,
-John
+Ah, thanks for explaining.  No bugs that I can spot then :)
