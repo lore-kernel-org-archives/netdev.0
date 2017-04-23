@@ -1,148 +1,89 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH RFC] ptr_ring: add ptr_ring_unconsume
-Date: Mon, 24 Apr 2017 02:28:42 +0300
-Message-ID: <20170424022711-mutt-send-email-mst@kernel.org>
-References: <1492384496-22644-1-git-send-email-mst@redhat.com>
- <0defb746-3d4b-14b3-1ad7-82842048ebba@redhat.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH v4 net-next] mdio_bus: Issue GPIO RESET to PHYs.
+Date: Mon, 24 Apr 2017 01:35:53 +0200
+Message-ID: <20170423233553.GA23498@lunn.ch>
+References: <1491381237-24635-1-git-send-email-rogerq@ti.com>
+ <64d6494d-41d2-0faf-a434-057f796637fe@ti.com>
+ <daa29a99-0a17-d316-57eb-3e6162938d8d@ti.com>
+ <f372db02-a919-55b4-9200-20726cd13482@ti.com>
+ <fe0b7ec5-2f83-ba06-579f-3ea0d5c4990c@ti.com>
+ <1c36aab1-3411-f76d-67f7-e3f6d9e9fda5@metafoo.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Jason Wang <jasowang@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Roger Quadros <rogerq@ti.com>, davem@davemloft.net,
+        Florian Fainelli <f.fainelli@gmail.com>, tony@atomide.com,
+        nsekhar@ti.com, jsarha@ti.com, netdev@vger.kernel.org,
+        linux-omap@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Lars-Peter Clausen <lars@metafoo.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48678 "EHLO mx1.redhat.com"
+Received: from vps0.lunn.ch ([178.209.37.122]:38710 "EHLO vps0.lunn.ch"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1046288AbdDWX2o (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 23 Apr 2017 19:28:44 -0400
+        id S1046288AbdDWXgG (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 23 Apr 2017 19:36:06 -0400
 Content-Disposition: inline
-In-Reply-To: <0defb746-3d4b-14b3-1ad7-82842048ebba@redhat.com>
+In-Reply-To: <1c36aab1-3411-f76d-67f7-e3f6d9e9fda5@metafoo.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 18, 2017 at 11:07:42AM +0800, Jason Wang wrote:
+On Fri, Apr 21, 2017 at 03:31:09PM +0200, Lars-Peter Clausen wrote:
+> On 04/21/2017 03:15 PM, Roger Quadros wrote:
+> > diff --git a/Documentation/devicetree/bindings/net/mdio.txt b/Documentation/devicetree/bindings/net/mdio.txt
+> > new file mode 100644
+> > index 0000000..4ffbbac
+> > --- /dev/null
+> > +++ b/Documentation/devicetree/bindings/net/mdio.txt
+> > @@ -0,0 +1,33 @@
+> > +Common MDIO bus properties.
+> > +
+> > +These are generic properties that can apply to any MDIO bus.
+> > +
+> > +Optional properties:
+> > +- reset-gpios: List of one or more GPIOs that control the RESET lines
+> > +  of the PHYs on that MDIO bus.
+> > +- reset-delay-us: RESET pulse width in microseconds as per PHY datasheet.
+> > +
+> > +A list of child nodes, one per device on the bus is expected. These
+> > +should follow the generic phy.txt, or a device specific binding document.
+> > +
+> > +Example :
+> > +This example shows these optional properties, plus other properties
+> > +required for the TI Davinci MDIO driver.
+> > +
+> > +	davinci_mdio: ethernet@0x5c030000 {
+> > +		compatible = "ti,davinci_mdio";
+> > +		reg = <0x5c030000 0x1000>;
+> > +		#address-cells = <1>;
+> > +		#size-cells = <0>;
+> > +
+> > +		reset-gpios = <&gpio2 5 GPIO_ACTIVE_LOW>;
+> > +		reset-delay-us = <2>;   /* PHY datasheet states 1us min */
 > 
-> 
-> On 2017年04月17日 07:19, Michael S. Tsirkin wrote:
-> > Applications that consume a batch of entries in one go
-> > can benefit from ability to return some of them back
-> > into the ring.
-> > 
-> > Add an API for that - assuming there's space. If there's no space
-> > naturally we can't do this and have to drop entries, but this implies
-> > ring is full so we'd likely drop some anyway.
-> > 
-> > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> > ---
-> > 
-> > Jason, in my mind the biggest issue with your batching patchset is the
-> > backet drops on disconnect.  This API will help avoid that in the common
-> > case.
-> 
-> Ok, I will rebase the series on top of this. (Though I don't think we care
-> the packet loss).
+> If this is the reset line of the PHY shouldn't it be a property of the PHY
+> node rather than of the MDIO controller node (which might have a reset on
+> its own)?
+> > +
+> > +		ethphy0: ethernet-phy@1 {
+> > +			reg = <1>;
+> > +		};
+> > +
+> > +		ethphy1: ethernet-phy@3 {
+> > +			reg = <3>;
+> > +		};
 
-E.g. I care - I often start sending packets to VM before it's
-fully booted. Several vhost resets might follow.
+Hi Lars-Peter
 
-> > 
-> > I would still prefer that we understand what's going on,
-> 
-> I try to reply in another thread, does it make sense?
-> 
-> >   and I would
-> > like to know what's the smallest batch size that's still helpful,
-> 
-> Yes, I've replied in another thread, the result is:
-> 
-> 
-> no batching   1.88Mpps
-> RX_BATCH=1    1.93Mpps
-> RX_BATCH=4    2.11Mpps
-> RX_BATCH=16   2.14Mpps
-> RX_BATCH=64   2.25Mpps
-> RX_BATCH=256  2.18Mpps
+We discussed this when the first proposal was made. There are two
+cases, to consider.
 
-Essentially 4 is enough, other stuf looks more like noise
-to me. What about 2?
+1) Here, one GPIO line resets all PHYs on the same MDIO bus. In this
+example, two PHYs.
 
-> >   but
-> > I'm not going to block the patch on these grounds assuming packet drops
-> > are fixed.
-> 
-> Thanks a lot.
-> 
-> > 
-> > Lightly tested - this is on top of consumer batching patches.
-> > 
-> > Thanks!
-> > 
-> >   include/linux/ptr_ring.h | 57 ++++++++++++++++++++++++++++++++++++++++++++++++
-> >   1 file changed, 57 insertions(+)
-> > 
-> > diff --git a/include/linux/ptr_ring.h b/include/linux/ptr_ring.h
-> > index 783e7f5..5fbeab4 100644
-> > --- a/include/linux/ptr_ring.h
-> > +++ b/include/linux/ptr_ring.h
-> > @@ -457,6 +457,63 @@ static inline int ptr_ring_init(struct ptr_ring *r, int size, gfp_t gfp)
-> >   	return 0;
-> >   }
-> > +/*
-> > + * Return entries into ring. Destroy entries that don't fit.
-> > + *
-> > + * Note: this is expected to be a rare slow path operation.
-> > + *
-> > + * Note: producer lock is nested within consumer lock, so if you
-> > + * resize you must make sure all uses nest correctly.
-> > + * In particular if you consume ring in interrupt or BH context, you must
-> > + * disable interrupts/BH when doing so.
-> > + */
-> > +static inline void ptr_ring_unconsume(struct ptr_ring *r, void **batch, int n,
-> > +				      void (*destroy)(void *))
-> > +{
-> > +	unsigned long flags;
-> > +	int head;
-> > +
-> > +	spin_lock_irqsave(&(r)->consumer_lock, flags);
-> > +	spin_lock(&(r)->producer_lock);
-> > +
-> > +	if (!r->size)
-> > +		goto done;
-> > +
-> > +	/*
-> > +	 * Clean out buffered entries (for simplicity). This way following code
-> > +	 * can test entries for NULL and if not assume they are valid.
-> > +	 */
-> > +	head = r->consumer_head - 1;
-> > +	while (likely(head >= r->consumer_tail))
-> > +		r->queue[head--] = NULL;
-> > +	r->consumer_tail = r->consumer_head;
-> > +
-> > +	/*
-> > +	 * Go over entries in batch, start moving head back and copy entries.
-> > +	 * Stop when we run into previously unconsumed entries.
-> > +	 */
-> > +	while (n--) {
-> > +		head = r->consumer_head - 1;
-> > +		if (head < 0)
-> > +			head = r->size - 1;
-> > +		if (r->queue[head]) {
-> > +			/* This batch entry will have to be destroyed. */
-> > +			++n;
-> > +			goto done;
-> > +		}
-> > +		r->queue[head] = batch[n];
-> > +		r->consumer_tail = r->consumer_head = head;
-> > +	}
-> > +
-> > +done:
-> > +	/* Destroy all entries left in the batch. */
-> > +	while (n--) {
-> > +		destroy(batch[n]);
-> > +	}
-> > +	spin_unlock(&(r)->producer_lock);
-> > +	spin_unlock_irqrestore(&(r)->consumer_lock, flags);
-> > +}
-> > +
-> >   static inline void **__ptr_ring_swap_queue(struct ptr_ring *r, void **queue,
-> >   					   int size, gfp_t gfp,
-> >   					   void (*destroy)(void *))
+2) There is one GPIO line per PHY. That is a separate case, and as you
+say, the reset line should probably be considered a PHY property, not
+an MDIO property. However, it can be messy, since in order to probe
+the MDIO bus, you probably need to take the PHY out of reset.
+
+Anyway, this patch addresses the first case, so should be accepted. If
+anybody wants to address the second case, they are free to do so.
+
+	Andrew
