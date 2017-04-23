@@ -1,42 +1,73 @@
-From: Pan Bian <bianpan201603-9Onoh4P/yGk@public.gmane.org>
-Subject: [PATCH 1/1] cfg80211: add return value validation
-Date: Sun, 23 Apr 2017 21:27:03 +0800
-Message-ID: <1492954023-8596-1-git-send-email-bianpan201603@163.com>
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Pan Bian <bianpan2016-9Onoh4P/yGk@public.gmane.org>
-To: Jussi Kivilinna <jussi.kivilinna-X3B1VOXEql0@public.gmane.org>,
-        Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: Re: [PATCH 1/1] tipc: check return value of
+	nlmsg_new
+Date: Sun, 23 Apr 2017 13:33:09 +0000
+Message-ID: <DB5PR0701MB1958A4384C0B9C0571BD1DF99A1C0@DB5PR0701MB1958.eurprd07.prod.outlook.com>
+References: <1492931359-25004-1-git-send-email-bianpan2016@163.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"tipc-discussion@lists.sourceforge.net"
+	<tipc-discussion@lists.sourceforge.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Pan Bian <bianpan2016@163.com>, Ying Xue <ying.xue@windriver.com>, "David
+	S. Miller" <davem@davemloft.net>
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+In-Reply-To: <1492931359-25004-1-git-send-email-bianpan2016@163.com>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-From: Pan Bian <bianpan2016-9Onoh4P/yGk@public.gmane.org>
+Acknowledged. Thank you for doing this job.
 
-Function create_singlethread_workqueue() will return a NULL pointer if
-there is no enough memory, and its return value should be validated
-before using. However, in function rndis_wlan_bind(), its return value
-is not checked. This may cause NULL dereference bugs. This patch fixes
-it.
+///jon
 
-Signed-off-by: Pan Bian <bianpan2016-9Onoh4P/yGk@public.gmane.org>
----
- drivers/net/wireless/rndis_wlan.c | 4 ++++
- 1 file changed, 4 insertions(+)
 
-diff --git a/drivers/net/wireless/rndis_wlan.c b/drivers/net/wireless/rndis_wlan.c
-index 785334f..92a1bde 100644
---- a/drivers/net/wireless/rndis_wlan.c
-+++ b/drivers/net/wireless/rndis_wlan.c
-@@ -3427,6 +3427,10 @@ static int rndis_wlan_bind(struct usbnet *usbdev, struct usb_interface *intf)
- 
- 	/* because rndis_command() sleeps we need to use workqueue */
- 	priv->workqueue = create_singlethread_workqueue("rndis_wlan");
-+	if (!priv->workqueue) {
-+		wiphy_free(wiphy);
-+		return -ENOMEM;
-+	}
- 	INIT_WORK(&priv->work, rndis_wlan_worker);
- 	INIT_DELAYED_WORK(&priv->dev_poller_work, rndis_device_poller);
- 	INIT_DELAYED_WORK(&priv->scan_work, rndis_get_scan_results);
--- 
-1.9.1
+> -----Original Message-----
+> From: Pan Bian [mailto:bianpan2016@163.com]
+> Sent: Sunday, April 23, 2017 03:09 AM
+> To: Jon Maloy <jon.maloy@ericsson.com>; Ying Xue
+> <ying.xue@windriver.com>; David S. Miller <davem@davemloft.net>
+> Cc: netdev@vger.kernel.org; tipc-discussion@lists.sourceforge.net; linux-
+> kernel@vger.kernel.org; Pan Bian <bianpan2016@163.com>
+> Subject: [PATCH 1/1] tipc: check return value of nlmsg_new
+> 
+> Function nlmsg_new() will return a NULL pointer if there is no enough
+> memory, and its return value should be checked before it is used.
+> However, in function tipc_nl_node_get_monitor(), the validation of the
+> return value of function nlmsg_new() is missed. This patch fixes the bug.
+> 
+> Signed-off-by: Pan Bian <bianpan2016@163.com>
+> ---
+>  net/tipc/node.c | 2 ++
+>  1 file changed, 2 insertions(+)
+> 
+> diff --git a/net/tipc/node.c b/net/tipc/node.c index 4512e83..568e48d 100644
+> --- a/net/tipc/node.c
+> +++ b/net/tipc/node.c
+> @@ -2098,6 +2098,8 @@ int tipc_nl_node_get_monitor(struct sk_buff *skb,
+> struct genl_info *info)
+>  	int err;
+> 
+>  	msg.skb = nlmsg_new(NLMSG_GOODSIZE, GFP_KERNEL);
+> +	if (!msg.skb)
+> +		return -ENOMEM;
+>  	msg.portid = info->snd_portid;
+>  	msg.seq = info->snd_seq;
+> 
+> --
+> 1.9.1
+> 
+
+
+------------------------------------------------------------------------------
+Check out the vibrant tech community on one of the world's most
+engaging tech sites, Slashdot.org! http://sdm.link/slashdot
