@@ -1,36 +1,43 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 1/1] tipc: check return value of nlmsg_new
-Date: Sun, 23 Apr 2017 00:17:16 -0700
-Message-ID: <1492931836.30293.43.camel@perches.com>
-References: <1492931359-25004-1-git-send-email-bianpan2016@163.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net,
-        linux-kernel@vger.kernel.org
-To: Pan Bian <bianpan2016@163.com>, Jon Maloy <jon.maloy@ericsson.com>,
-        Ying Xue <ying.xue@windriver.com>,
-        "David S. Miller" <davem@davemloft.net>
+From: Pan Bian <bianpan2016@163.com>
+Subject: [PATCH 1/2] team: fix memory leak
+Date: Sun, 23 Apr 2017 15:29:24 +0800
+Message-ID: <1492932564-722-1-git-send-email-bianpan2016@163.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Pan Bian <bianpan2016@163.com>
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0217.hostedemail.com ([216.40.44.217]:36090 "EHLO
-        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1427665AbdDWHRX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 23 Apr 2017 03:17:23 -0400
-In-Reply-To: <1492931359-25004-1-git-send-email-bianpan2016@163.com>
+Received: from m50-138.163.com ([123.125.50.138]:51182 "EHLO m50-138.163.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1044270AbdDWH3e (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 23 Apr 2017 03:29:34 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2017-04-23 at 15:09 +0800, Pan Bian wrote:
-> Function nlmsg_new() will return a NULL pointer if there is no enough
-> memory, and its return value should be checked before it is used.
-> However, in function tipc_nl_node_get_monitor(), the validation of the
-> return value of function nlmsg_new() is missed. This patch fixes the
-> bug.
+In function team_nl_send_port_list_get(), pointer skb keeps the return
+value of nlmsg_new(). When the call to genlmsg_put() fails, the memory
+is not freed. This will result in a memory leak bug. This patch fixes
+it.
 
-Hello.
+Signed-off-by: Pan Bian <bianpan2016@163.com>
+---
+ drivers/net/team/team.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-Thanks for the patches.
-
-Are you finding these via a tool or inspection?
-
-If a tool is being used, could you please describe it?
+diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+index f8c81f1..dd3a2e9 100644
+--- a/drivers/net/team/team.c
++++ b/drivers/net/team/team.c
+@@ -2634,8 +2634,10 @@ static int team_nl_send_port_list_get(struct team *team, u32 portid, u32 seq,
+ 
+ 	hdr = genlmsg_put(skb, portid, seq, &team_nl_family, flags | NLM_F_MULTI,
+ 			  TEAM_CMD_PORT_LIST_GET);
+-	if (!hdr)
++	if (!hdr) {
++		nlmsg_free(skb);
+ 		return -EMSGSIZE;
++	}
+ 
+ 	if (nla_put_u32(skb, TEAM_ATTR_TEAM_IFINDEX, team->dev->ifindex))
+ 		goto nla_put_failure;
+-- 
+1.9.1
