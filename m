@@ -1,82 +1,64 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH 1/1] drivers:net:ethernet:adi:bfin_mac: Use FIELD_SIZEOF
- defined kernel macro
-Date: Sun, 23 Apr 2017 22:56:38 +0200
-Message-ID: <CAMuHMdUo7GwRE5_o62+TDuut7y=WEpTxsq+Ys4KxAmGCFEb9ow@mail.gmail.com>
-References: <1492970524-12607-1-git-send-email-karim.eshapa@gmail.com>
+From: Jeff Silverman <jeffsilverm@gmail.com>
+Subject: I find one aspect of the ip link show command confusing and I'd like
+ you to fix it, please
+Date: Sun, 23 Apr 2017 15:36:32 -0700
+Message-ID: <CAGu9dLLRVaiO-vHd_jzVuMM3O=sjLX_VOeu5n6-+eV6fEdhBug@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Philippe Reynes <tremyfr@gmail.com>,
-        Antonio Quartulli <a@unstable.cc>,
-        Florian Westphal <fw@strlen.de>,
-        LABBE Corentin <clabbe.montjoie@gmail.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Jarod Wilson <jarod@redhat.com>,
-        "adi-buildroot-devel@lists.sourceforge.net"
-        <adi-buildroot-devel@lists.sourceforge.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Karim Eshapa <karim.eshapa@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f65.google.com ([209.85.214.65]:33289 "EHLO
-        mail-it0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1045923AbdDWU4k (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 23 Apr 2017 16:56:40 -0400
-In-Reply-To: <1492970524-12607-1-git-send-email-karim.eshapa@gmail.com>
+Received: from mail-qt0-f169.google.com ([209.85.216.169]:34026 "EHLO
+        mail-qt0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756898AbdDWWge (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 23 Apr 2017 18:36:34 -0400
+Received: by mail-qt0-f169.google.com with SMTP id c45so101271244qtb.1
+        for <netdev@vger.kernel.org>; Sun, 23 Apr 2017 15:36:34 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Karim,
+People,
 
-On Sun, Apr 23, 2017 at 8:02 PM, Karim Eshapa <karim.eshapa@gmail.com> wrote:
-> Use FIELD_SIZEOF defined kernel macro kernel.h
->
-> Signed-off-by: Karim Eshapa <karim.eshapa@gmail.com>
-> ---
->  drivers/net/ethernet/adi/bfin_mac.c | 14 +++++++++-----
->  1 file changed, 9 insertions(+), 5 deletions(-)
->
-> diff --git a/drivers/net/ethernet/adi/bfin_mac.c b/drivers/net/ethernet/adi/bfin_mac.c
-> index a9ac58c..60346e0 100644
-> --- a/drivers/net/ethernet/adi/bfin_mac.c
-> +++ b/drivers/net/ethernet/adi/bfin_mac.c
-> @@ -452,10 +452,14 @@ static irqreturn_t bfin_mac_wake_interrupt(int irq, void *dev_id)
->  static void bfin_mac_ethtool_getdrvinfo(struct net_device *dev,
->                                         struct ethtool_drvinfo *info)
->  {
-> -       strlcpy(info->driver, KBUILD_MODNAME, sizeof(info->driver));
-> -       strlcpy(info->version, DRV_VERSION, sizeof(info->version));
-> -       strlcpy(info->fw_version, "N/A", sizeof(info->fw_version));
-> -       strlcpy(info->bus_info, dev_name(&dev->dev), sizeof(info->bus_info));
-> +       strlcpy(info->driver, KBUILD_MODNAME, FIELD_SIZEOF(
-> +               struct ethtool_drvinfo, driver));
+When my NIC is up, but not connected, I see:
 
-IMHO this makes the code less safe and less future-proof.
-What if the type of info is ever changed?
-There's no safety check to validate that the FIELD_SIZEOF() operates on the
-same data as the strlcpy() destination.
+root@jeff-desktop:~# ip link show enp3s0
+2: enp3s0: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc mq state
+DOWN mode DEFAULT group default qlen 1000
+    link/ether 00:10:18:cc:9c:77 brd ff:ff:ff:ff:ff:ff
+root@jeff-desktop:~# ip link show enp3s0
 
-> +       strlcpy(info->version, DRV_VERSION, FIELD_SIZEOF(
-> +               struct ethtool_drvinfo, version));
-> +       strlcpy(info->fw_version, "N/A", FIELD_SIZEOF(
-> +               struct ethtool_drvinfo, fw_version));
-> +       strlcpy(info->bus_info, dev_name(&dev->dev), FIELD_SIZEOF(
-> +               struct ethtool_drvinfo, bus_info));
->  }
->
->  static void bfin_mac_ethtool_getwol(struct net_device *dev,
-> @@ -785,7 +789,7 @@ static int bfin_mac_hwtstamp_get(struct net_device *netdev,
->         struct bfin_mac_local *lp = netdev_priv(netdev);
->
->         return copy_to_user(ifr->ifr_data, &lp->stamp_cfg,
-> -                           sizeof(lp->stamp_cfg)) ?
-> +                           FILD_SIZEOF(struct bfin_mac_local, stamp_cfg)) ?
+NO-CARRIER makes sense to me - if the wire is unplugged, then the NIC
+isn't seeing the humm at the beginning of each packet.  That's clear.
+Note that even though my link isn't plugged in,  ip still notes that
+it is up.  That's great.
 
-As the kbuild test robot already told you, this doesn't compile.
-Please try to (at least) compile the code before sending patches.
-Thanks!
 
-Gr{oetje,eeting}s,
+But if I down my NIC, there is no indication that it is DOWN other
+than you can't see the UP flag.  If somebody was new to linux, they
+would not see what's not there.
 
-                        Geert
+2: enp3s0: <BROADCAST,MULTICAST> mtu 1500 qdisc mq state DOWN mode
+DEFAULT group default qlen 1000
+    link/ether 00:10:18:cc:9c:77 brd ff:ff:ff:ff:ff:ff
+
+
+What I would like you to do is modify the ip command so that if the
+NIC has been downed by something, then it explicitly says DOWN.
+
+What would be really nice would be if you enumerated all of the flags
+that an interface can have, and note if the flag is set or cleared.
+But that's more than what I want with this message.
+
+
+Many thanks,
+
+
+Jeff
+
+-- 
+Jeff Silverman, linux sysadmin
+nine two four   twentieth avenue east
+Seattle, WA, nine eight one one two -3507
+(253) 459-2318
+jeffsilverm@gmail.c0m (note the zero!)
+http://www.commercialventvac.com
+See my portfolio of writings and talks
