@@ -1,41 +1,58 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH iproute2 net 3/8] tc/pedit: Introduce 'add' operation
-Date: Sun, 23 Apr 2017 13:44:51 -0400
-Message-ID: <f358025b-2618-3f22-b593-2e4e70fb7a79@mojatatu.com>
-References: <20170423125356.1298-1-amir@vadai.me>
- <20170423125356.1298-4-amir@vadai.me>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>
-To: Amir Vadai <amir@vadai.me>,
-        Stephen Hemminger <stephen@networkplumber.org>
+From: Karim Eshapa <karim.eshapa@gmail.com>
+Subject: [PATCH 1/1] drivers:net:ethernet:adi:bfin_mac: Use FIELD_SIZEOF defined kernel macro
+Date: Sun, 23 Apr 2017 20:02:04 +0200
+Message-ID: <1492970524-12607-1-git-send-email-karim.eshapa@gmail.com>
+Cc: tremyfr@gmail.com, a@unstable.cc, fw@strlen.de,
+        clabbe.montjoie@gmail.com, edumazet@google.com, jarod@redhat.com,
+        adi-buildroot-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, Karim Eshapa <karim.eshapa@gmail.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f45.google.com ([209.85.214.45]:36561 "EHLO
-        mail-it0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1045819AbdDWRox (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 23 Apr 2017 13:44:53 -0400
-Received: by mail-it0-f45.google.com with SMTP id g66so33770161ite.1
-        for <netdev@vger.kernel.org>; Sun, 23 Apr 2017 10:44:53 -0700 (PDT)
-In-Reply-To: <20170423125356.1298-4-amir@vadai.me>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:33979 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1163076AbdDWSCN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 23 Apr 2017 14:02:13 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Use FIELD_SIZEOF defined kernel macro kernel.h
 
-Thanks for the excellent work.
+Signed-off-by: Karim Eshapa <karim.eshapa@gmail.com>
+---
+ drivers/net/ethernet/adi/bfin_mac.c | 14 +++++++++-----
+ 1 file changed, 9 insertions(+), 5 deletions(-)
 
-On 17-04-23 08:53 AM, Amir Vadai wrote:
-> This command could be useful to increase/decrease fields value.
->
-
-Does this contradict the "retain" feature? Example rule to
-retain the second nibble but set the first to 0xA
-(essentially it X-ORs):
-tc filter add dev lo parent ffff: protocol ip prio 10 \
-u32 match ip dst 127.0.0.1/32 flowid 1:1 \
-action pedit munge offset 0 u8 set 0x0A retain 0xF0
-
-Mostly curious about hardware handling.
-
-cheers,
-jamal
+diff --git a/drivers/net/ethernet/adi/bfin_mac.c b/drivers/net/ethernet/adi/bfin_mac.c
+index a9ac58c..60346e0 100644
+--- a/drivers/net/ethernet/adi/bfin_mac.c
++++ b/drivers/net/ethernet/adi/bfin_mac.c
+@@ -452,10 +452,14 @@ static irqreturn_t bfin_mac_wake_interrupt(int irq, void *dev_id)
+ static void bfin_mac_ethtool_getdrvinfo(struct net_device *dev,
+ 					struct ethtool_drvinfo *info)
+ {
+-	strlcpy(info->driver, KBUILD_MODNAME, sizeof(info->driver));
+-	strlcpy(info->version, DRV_VERSION, sizeof(info->version));
+-	strlcpy(info->fw_version, "N/A", sizeof(info->fw_version));
+-	strlcpy(info->bus_info, dev_name(&dev->dev), sizeof(info->bus_info));
++	strlcpy(info->driver, KBUILD_MODNAME, FIELD_SIZEOF(
++		struct ethtool_drvinfo, driver));
++	strlcpy(info->version, DRV_VERSION, FIELD_SIZEOF(
++		struct ethtool_drvinfo, version));
++	strlcpy(info->fw_version, "N/A", FIELD_SIZEOF(
++		struct ethtool_drvinfo, fw_version));
++	strlcpy(info->bus_info, dev_name(&dev->dev), FIELD_SIZEOF(
++		struct ethtool_drvinfo, bus_info));
+ }
+ 
+ static void bfin_mac_ethtool_getwol(struct net_device *dev,
+@@ -785,7 +789,7 @@ static int bfin_mac_hwtstamp_get(struct net_device *netdev,
+ 	struct bfin_mac_local *lp = netdev_priv(netdev);
+ 
+ 	return copy_to_user(ifr->ifr_data, &lp->stamp_cfg,
+-			    sizeof(lp->stamp_cfg)) ?
++			    FILD_SIZEOF(struct bfin_mac_local, stamp_cfg)) ?
+ 		-EFAULT : 0;
+ }
+ 
+-- 
+2.7.4
