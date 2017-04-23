@@ -1,57 +1,65 @@
-From: Alexei Starovoitov <ast@fb.com>
-Subject: [PATCH net-next] bpf, doc: update list of architectures that do eBPF JIT
-Date: Sun, 23 Apr 2017 09:01:00 -0700
-Message-ID: <20170423160100.1155435-1-ast@fb.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2 1/1] actions: Add support for user cookies
+Date: Sun, 23 Apr 2017 09:11:09 -0700
+Message-ID: <20170423091109.79d47f6b@xeon-e3>
+References: <1492864583-20892-1-git-send-email-jhs@emojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Daniel Borkmann <daniel@iogearbox.net>, <netdev@vger.kernel.org>
-To: "David S . Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:41552 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1045794AbdDWQBC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 23 Apr 2017 12:01:02 -0400
-Received: from pps.filterd (m0044008.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v3NFxA1v028587
-        for <netdev@vger.kernel.org>; Sun, 23 Apr 2017 09:01:02 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 2a02fwk4vh-1
-        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Sun, 23 Apr 2017 09:01:02 -0700
-Received: from facebook.com (2401:db00:11:d082:face:0:5:0)      by
- mx-out.facebook.com (10.223.100.99) with ESMTP id
- 0bbb4a68283e11e7a38b24be05956610-c43fb9a0 for <netdev@vger.kernel.org>;        Sun,
- 23 Apr 2017 09:01:01 -0700
+Received: from mail-io0-f172.google.com ([209.85.223.172]:35392 "EHLO
+        mail-io0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1045873AbdDWQLM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 23 Apr 2017 12:11:12 -0400
+Received: by mail-io0-f172.google.com with SMTP id r16so153952603ioi.2
+        for <netdev@vger.kernel.org>; Sun, 23 Apr 2017 09:11:12 -0700 (PDT)
+In-Reply-To: <1492864583-20892-1-git-send-email-jhs@emojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-update the list and remove 'in the future' statement,
-since all still alive 64-bit architectures now do eBPF JIT.
+On Sat, 22 Apr 2017 08:36:23 -0400
+Jamal Hadi Salim <jhs@mojatatu.com> wrote:
 
-Signed-off-by: Alexei Starovoitov <ast@kernel.org>
----
-mips64 is the only 'still alive' 64-bit arch without eBPF JIT :)
----
- Documentation/networking/filter.txt | 7 +++----
- 1 file changed, 3 insertions(+), 4 deletions(-)
+> From: Jamal Hadi Salim <jhs@mojatatu.com>
+> 
+> Make use of 128b user cookies
+> 
+> Introduce optional 128-bit action cookie.
+> Like all other cookie schemes in the networking world (eg in protocols
+> like http or existing kernel fib protocol field, etc) the idea is to
+> save user state that when retrieved serves as a correlator. The kernel
+> _should not_ intepret it. The user can store whatever they wish in the
+> 128 bits.
+> 
+> Sample exercise(showing variable length use of cookie)
+> 
+> .. create an accept action with cookie a1b2c3d4
+> sudo $TC actions add action ok index 1 cookie a1b2c3d4
+> 
+> .. dump all gact actions..
+> sudo $TC -s actions ls action gact
+> 
+>     action order 0: gact action pass
+>      random type none pass val 0
+>      index 1 ref 1 bind 0 installed 5 sec used 5 sec
+>     Action statistics:
+>     Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+>     backlog 0b 0p requeues 0
+>     cookie a1b2c3d4
+> 
+> .. bind the accept action to a filter..
+> sudo $TC filter add dev lo parent ffff: protocol ip prio 1 \
+> u32 match ip dst 127.0.0.1/32 flowid 1:1 action gact index 1
+> 
+> ... send some traffic..
+> $ ping 127.0.0.1 -c 3
+> PING 127.0.0.1 (127.0.0.1) 56(84) bytes of data.
+> 64 bytes from 127.0.0.1: icmp_seq=1 ttl=64 time=0.020 ms
+> 64 bytes from 127.0.0.1: icmp_seq=2 ttl=64 time=0.027 ms
+> 64 bytes from 127.0.0.1: icmp_seq=3 ttl=64 time=0.038 ms
+> 
+> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
 
-diff --git a/Documentation/networking/filter.txt b/Documentation/networking/filter.txt
-index 683ada5ad81d..b69b205501de 100644
---- a/Documentation/networking/filter.txt
-+++ b/Documentation/networking/filter.txt
-@@ -595,10 +595,9 @@ got from bpf_prog_create(), and 'ctx' the given context (e.g.
- skb pointer). All constraints and restrictions from bpf_check_classic() apply
- before a conversion to the new layout is being done behind the scenes!
- 
--Currently, the classic BPF format is being used for JITing on most of the
--architectures. x86-64, aarch64 and s390x perform JIT compilation from eBPF
--instruction set, however, future work will migrate other JIT compilers as well,
--so that they will profit from the very same benefits.
-+Currently, the classic BPF format is being used for JITing on most 32-bit
-+architectures, whereas x86-64, aarch64, s390x, powerpc64, sparc64 perform JIT
-+compilation from eBPF instruction set.
- 
- Some core changes of the new internal format:
- 
--- 
-2.9.3
+Applied. Please update man page as well.
