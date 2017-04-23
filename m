@@ -1,37 +1,23 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net] ravb: Double free on error in ravb_start_xmit()
-Date: Sun, 23 Apr 2017 21:16:37 +0300
-Message-ID: <7e22f555-eac0-d0cb-85a2-6f2337d32bcb@cogentembedded.com>
-References: <20170422104656.jjnooh3or4x3lbw3@mwanda>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: [PATCH 1/1] cfg80211: add return value validation
+Date: Sun, 23 Apr 2017 20:41:53 +0200
+Message-ID: <1492972913.5044.0.camel@sipsolutions.net>
+References: <1492954023-8596-1-git-send-email-bianpan201603@163.com>
+         (sfid-20170423_152758_130294_C8463A15)
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>,
-        Simon Horman <horms+renesas@verge.net.au>,
-        Yoshihiro Kaneko <ykaneko0929@gmail.com>,
-        Masaru Nagai <masaru.nagai.vx@renesas.com>,
-        Geert Uytterhoeven <geert+renesas@glider.be>,
-        =?UTF-8?Q?Niklas_S=c3=b6derlund?=
-        <niklas.soderlund+renesas@ragnatech.se>,
-        Philippe Reynes <tremyfr@gmail.com>, netdev@vger.kernel.org,
-        linux-renesas-soc@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <20170422104656.jjnooh3or4x3lbw3@mwanda>
-Sender: linux-renesas-soc-owner@vger.kernel.org
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Pan Bian <bianpan2016-9Onoh4P/yGk@public.gmane.org>
+To: Pan Bian <bianpan201603-9Onoh4P/yGk@public.gmane.org>,
+        Jussi Kivilinna <jussi.kivilinna-X3B1VOXEql0@public.gmane.org>,
+        Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1492954023-8596-1-git-send-email-bianpan201603-9Onoh4P/yGk@public.gmane.org> (sfid-20170423_152758_130294_C8463A15)
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hello!
+This is not a cfg80211 patch, please resend with the correct subject.
 
-On 04/22/2017 01:46 PM, Dan Carpenter wrote:
-
-> If skb_put_padto() fails then it frees the skb.  I shifted that code
-> up a bit to make my error handling a little simpler.
->
-> Fixes: a0d2f20650e8 ("Renesas Ethernet AVB PTP clock driver")
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-
-Acked-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-
-MBR, Sergei
+Thanks,
+johannes
