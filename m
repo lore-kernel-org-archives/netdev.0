@@ -1,35 +1,34 @@
-From: Maksim Salau <maksim.salau@gmail.com>
-Subject: Re: [PATCH] net: can: usb: gs_usb: Fix buffer on stack
-Date: Sun, 23 Apr 2017 20:18:03 +0300
-Message-ID: <20170423201803.59394deb@gmail.com>
-References: <20170422165626.10534-1-maksim.salau@gmail.com>
-        <CAOMZO5DLdR00FY01r2z=RvSrn4vNEZ+Z3OS0KWB95DGt=3fh2w@mail.gmail.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH iproute2 1/1] actions: Add support for user cookies
+Date: Sun, 23 Apr 2017 13:18:18 -0400
+Message-ID: <ed81f0f6-9fde-2f12-f99b-9c3326dda1bb@mojatatu.com>
+References: <1492864583-20892-1-git-send-email-jhs@emojatatu.com>
+ <20170423091109.79d47f6b@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Wolfgang Grandegger <wg@grandegger.com>,
-        Marc Kleine-Budde <mkl@pengutronix.de>,
-        Maximilian Schneider <max@schneidersoft.net>,
-        Hubert Denkmair <hubert@denkmair.de>,
-        Wolfram Sang <wsa-dev@sang-engineering.com>,
-        Ethan Zonca <e@ethanzonca.com>, linux-can@vger.kernel.org,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Fabio Estevam <festevam@gmail.com>
+Cc: netdev@vger.kernel.org, Lucas Bates <lucasb@mojatatu.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f68.google.com ([209.85.215.68]:35956 "EHLO
-        mail-lf0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1162385AbdDWRSL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 23 Apr 2017 13:18:11 -0400
-In-Reply-To: <CAOMZO5DLdR00FY01r2z=RvSrn4vNEZ+Z3OS0KWB95DGt=3fh2w@mail.gmail.com>
+Received: from mail-it0-f49.google.com ([209.85.214.49]:38184 "EHLO
+        mail-it0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1162609AbdDWRSV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 23 Apr 2017 13:18:21 -0400
+Received: by mail-it0-f49.google.com with SMTP id e132so30264292ite.1
+        for <netdev@vger.kernel.org>; Sun, 23 Apr 2017 10:18:20 -0700 (PDT)
+In-Reply-To: <20170423091109.79d47f6b@xeon-e3>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> > +       struct gs_identify_mode *imode = NULL;  
-> 
-> No need to assign imode to NULL here.
+On 17-04-23 12:11 PM, Stephen Hemminger wrote:
+> On Sat, 22 Apr 2017 08:36:23 -0400
 
-Thanks, Fabio.
+>
+> Applied. Please update man page as well.
+>
+>
 
-I'll fix this in v2.
+Will do.
 
-Maksim
+cheers,
+jamal
