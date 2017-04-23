@@ -1,141 +1,53 @@
-From: Matan Barak <matanb@mellanox.com>
-Subject: Re: [RFC] change the default Kconfig value of mlx5_en
-Date: Sun, 23 Apr 2017 10:54:01 +0300
-Message-ID: <9e2027ca-3533-2a37-6930-5064d3517878@mellanox.com>
-References: <CAA85sZumYPfUg_yA=5azrHneqq-XBmHiGNgRaEvBwbewVRj11w@mail.gmail.com>
- <20170421.154745.182611990085743539.davem@davemloft.net>
- <CAA85sZtBo5dORg4sj8X_SROBU0ySh3_CQh1WiYcVX-RVv4E+gA@mail.gmail.com>
- <CAA85sZtr3N3Y8=R5qZHDTMgquV35ddw0x45qy8Kkf_tiVdu8ag@mail.gmail.com>
- <CALzJLG9cLY8qqjFHGx6i=Gi-TH5EZ2Mq+TQOusX7=EoRDvx1tw@mail.gmail.com>
- <CAA85sZsUjOSZ9Ax6=YFVQfykexCUCRH8+qVxUHRHwt0cBtSqmQ@mail.gmail.com>
- <CALzJLG_+ubbpwYy+i=HixbT6C6PXB16ZA8_iySmggSsUD70bKA@mail.gmail.com>
- <CAA85sZsH4JNczUzK0EfGC959y=+SK1b=T6_5zb_0e1b99xGtvA@mail.gmail.com>
+From: PanBian <bianpan2016@163.com>
+Subject: Re: [PATCH 1/1] tipc: check return value of nlmsg_new
+Date: Sun, 23 Apr 2017 16:00:27 +0800
+Message-ID: <20170423080027.GA843@bp>
+References: <1492931359-25004-1-git-send-email-bianpan2016@163.com>
+ <1492931836.30293.43.camel@perches.com>
+Reply-To: PanBian <bianpan2016@163.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Leon Romanovsky <leonro@mellanox.com>,
-        David Miller <davem@davemloft.net>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Ian Kumlien <ian.kumlien@gmail.com>,
-        Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ying Xue <ying.xue@windriver.com>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        tipc-discussion@lists.sourceforge.net, linux-kernel@vger.kernel.org
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-he1eur01on0066.outbound.protection.outlook.com ([104.47.0.66]:47724
-        "EHLO EUR01-HE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S932354AbdDWHy4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 23 Apr 2017 03:54:56 -0400
-In-Reply-To: <CAA85sZsH4JNczUzK0EfGC959y=+SK1b=T6_5zb_0e1b99xGtvA@mail.gmail.com>
+Received: from m50-135.163.com ([123.125.50.135]:47221 "EHLO m50-135.163.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1427852AbdDWIBN (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 23 Apr 2017 04:01:13 -0400
+Content-Disposition: inline
+In-Reply-To: <1492931836.30293.43.camel@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 22/04/2017 12:28, Ian Kumlien wrote:
-> On Sat, Apr 22, 2017 at 3:07 AM, Saeed Mahameed
-> <saeedm@dev.mellanox.co.il> wrote:
->> On Sat, Apr 22, 2017 at 3:47 AM, Ian Kumlien <ian.kumlien@gmail.com> wrote:
->>> On Sat, Apr 22, 2017 at 2:34 AM, Saeed Mahameed
->>> <saeedm@dev.mellanox.co.il> wrote:
->>>> On Sat, Apr 22, 2017 at 2:10 AM, Ian Kumlien <ian.kumlien@gmail.com> wrote:
->>>>> Sorry,
->>>>>
->>>>> Back again, fighting cold, hot whiskey has been consumed...
->>>>>
->>>>> Something like this would perhaps be a better solution:
->>>>>
->>>>> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c
->>>>> b/drivers/net/ethernet/mellanox/mlx5/core/main.c
->>>>> index 60154a175bd3..fe192e247601 100644
->>>>> --- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
->>>>> +++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
->>>>> @@ -1139,6 +1139,10 @@ static int mlx5_load_one(struct mlx5_core_dev
->>>>> *dev, struct mlx5_priv *priv,
->>>>>
->>>>>  #ifdef CONFIG_MLX5_CORE_EN
->>>>>         mlx5_eswitch_attach(dev->priv.eswitch);
->>>>> +#else
->>>>> +       if (MLX5_CAP_GEN(dev, port_type) == MLX5_CAP_PORT_TYPE_ETH) {
->>>>> +               dev_info(&pdev->dev, "Ethernet device discovered but
->>>>> support not enabled in kernel.");
->>>>> +       }
->>>>>  #endif
->>>>>
->>>>
->>>> Currently both MLX5_CORE=n and MLX5_CORE_EN=n as a default, the issue
->>>> you are seeing can occur only if you explicitly  set MLX5_CORE=y and
->>>> MLX5_CORE=n, Why would someone do this if he knows he wants Ethernet
->>>> support as well ? IMHO this print is redundant .
->>>
->>> Well, I'm running a prebuilt kernel - which was configured this way,
->>> and since there
->>> is no mlx5_en module and it does state that the link is "Ethernet", it
->>> just looks like the
->>> driver is broken or in some kind of really weird state.
->>>
->>>> Anyway, Are you looking for RDMA support over ethernet (RoCE) ? and
->>>> you are not interested to have ethernet netdev support ?
->>>
->>> ? RDMA is something we'll look at in the future, right now, having the
->>> nics actually
->>> work as nics is a priority ;)
->>>
->>
->> I see, i just wanted to understand your situation :)
->>
->>>> if yes, I think this is something that can be achieved, but the
->>>> question is do we really need this ?
->>>
->>> It's really weird to see the driver load, to see everything register
->>> and have no feedback.
->>>
->>
->> So, in your case you have mlx5 core support without MLX5_CORE_EN which
->> provides the eswitch and netdev functionality in ethernet.
->
-> Yes
->
->> But you will still have mlx5_ib register an RDMA interface and
->> theoretically it should work, the only thing you won't see is a
->> netdevice.
->>
->> The weird thing is that you don't see a link up on the RDMA interface,
->> Leon/Matan can you please look into this ? do we really need a netdev
->> to have a functioning RDMA logical link in ethernet ?
->
+On Sun, Apr 23, 2017 at 12:17:16AM -0700, Joe Perches wrote:
+> On Sun, 2017-04-23 at 15:09 +0800, Pan Bian wrote:
+> > Function nlmsg_new() will return a NULL pointer if there is no enough
+> > memory, and its return value should be checked before it is used.
+> > However, in function tipc_nl_node_get_monitor(), the validation of the
+> > return value of function nlmsg_new() is missed. This patch fixes the
+> > bug.
+> 
+> Hello.
+> 
+> Thanks for the patches.
+> 
+> Are you finding these via a tool or inspection?
+> 
+> If a tool is being used, could you please describe it?
+> 
 
-The RDMA core subsystem listens to netdev events and configure RoCE GIDs
-accordingly. It currently relies on a RoCE dev to have an associated 
-netdev, as even default GIDs (the equivalent to IPv6 link local GIDs) 
-relies on a MAC address that comes from the netdev.
-In IB NICs, the case is different. There's no associated netdev for 
-that, so compiling MLX5_CORE_EN isn't required.
+Yes. I developed a tool to find this kind of bugs.
 
-> The switch we have does support RDMA but the manual is sparse (as in
-> nothing really there) wrt enabling/configuring the RDMA bit so something
-> might be missing.
->
-> I'll try to remember to do the same test when we setup the mellanox switches =)
->
->>> Including no network devices, but if you run the Infiniband commands,
->>> they tell you that
->>> you are connected to Ethernet but that the device is down and disabled.
->>>
->>> To me, down and disabled is not the same as in "Ethernet support is
->>> not included" =)
->>>
->>> Basically, i would hate for someone else to end up in the same
->>> situation since you only
->>> get guides on how to enable infiniband/RDMA but what you really want
->>> to do at that point
->>> is to disable it and see if that gives you your network devices back =)
->>>
->>
->> Yes this is misleading, Maybe your kernel log warning is not so bad
->> after all, but let me dig more into this.
->> I will get back to you next week.
->
-> Thanks, I bet that there is better ways to do it, this one was just
-> one of the first ones i found =)
->
->>> I have had similar issues with some connectx3 devices while playing at
->>> home but i suspect
->>> that it's just a limitation of OFED packages available for the dist I'm running.
+The detecting idea is simple. In large systems like the Linux kernel, 
+most implementations are correct, and incorrect ones are rare. Based on
+this observation, we take programs that have different implementations
+with others as bugs. For example, in most cases, the return vlaue of
+nlmsg_new() is validated and it will not be passed to genlmsg_reply() if
+its value is NULL. However, in function tipc_nl_node_get_monitor(), the
+validation is missing. The abnormal behavior leads us to believe that
+there is a bug.
+
+
+Thanks for your attention.
