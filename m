@@ -1,38 +1,48 @@
-From: Karim Eshapa <karim.eshapa@gmail.com>
-Subject: RE:PATCH drivers:net:cris/eth_v10: alternate string char arrary
-Date: Mon, 24 Apr 2017 21:54:42 +0200
-Message-ID: <1493063682-8560-1-git-send-email-karim.eshapa@gmail.com>
-References: <1493056179-6460-1-git-send-email-karim.eshapa@gmail.com>
-Cc: felipe.balbi@linux.intel.com, paul.gortmaker@windriver.com,
-        mugunthanvnm@ti.com, jarod@redhat.com, fw@strlen.de,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Karim Eshapa <karim.eshapa@gmail.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:34516 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S977210AbdDXTyx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 15:54:53 -0400
-In-Reply-To: <1493056179-6460-1-git-send-email-karim.eshapa@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Dennis Dalessandro <dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 5/7] IB/hfi1: use pcie_flr instead of duplicating it
+Date: Mon, 24 Apr 2017 16:00:50 -0400
+Message-ID: <cc79455c-5d22-5d78-9ea5-46a17961213b@intel.com>
+References: <20170414191131.14286-1-hch@lst.de>
+ <20170414191131.14286-6-hch@lst.de>
+ <A33E225544E47D4DB5713032774B132783960382@irsmsx105.ger.corp.intel.com>
+ <20170424143507.GA28812@lst.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Bjorn Helgaas <bhelgaas-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+        "Cabiddu, Giovanni" <giovanni.cabiddu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        "Benedetto, Salvatore" <salvatore.benedetto-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        "Marciniszyn, Mike" <mike.marciniszyn-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        Derek Chickles <derek.chickles-M3mlKVOIwJVv6pq1l3V1OdBPR1lH4CV8@public.gmane.org>,
+        Satanand Burla <satananda.burla-M3mlKVOIwJVv6pq1l3V1OdBPR1lH4CV8@public.gmane.org>,
+        Felix Manlunas <felix.manlunas-M3mlKVOIwJVv6pq1l3V1OdBPR1lH4CV8@public.gmane.org>,
+        Raghu Vatsavayi <raghu.vatsavayi-M3mlKVOIwJVv6pq1l3V1OdBPR1lH4CV8@public.gmane.org>,
+        "Kirsher, Jeffrey T" <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        "linux-pci-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-pci-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        qat-linux <qat-linux-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        "linux-crypto-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-crypto-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>,
+        "Byczkowski, Jakub" <jakub.byczkowski-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170424143507.GA28812-jcswGhMUV9g@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On  Mon, 24 Apr 2017 14:18:58 -0400 (EDT), David Miller wrote:
-> Mon, 24 Apr 2017 19:49:39 +0200, Karim Eshapa wrote:
->>
->> static char pointer creates two variables in final assembly.
->> static string and pointer to it according to
->> Jeff Garzik janitors TODO.
+On 04/24/2017 10:35 AM, Christoph Hellwig wrote:
+> On Mon, Apr 24, 2017 at 02:16:31PM +0000, Byczkowski, Jakub wrote:
+>> Tested-by: Jakub Byczkowski <jakub.byczkowski-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 >
-> Instead of trusting some document written more than 10 years ago on
-> the internet, why don't you build the source file in question and take
-> a look at what actually happens?
->
+> Are you (and Doug) ok with queueing this up in the PCI tree?
 
-I've just dumped the assembly and symbols. I didn't find 
-extraordinary difference between the two strings.
-sorry for that, but why is that still there in 
-TODO kerneljanitors at kernelnewbies.
+We are fine however Doug wants to handle it.
 
-Thanks,
-Karim
+-Denny
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
