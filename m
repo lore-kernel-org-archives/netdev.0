@@ -1,93 +1,84 @@
-From: Andreas Kemnade <andreas@kemnade.info>
-Subject: [PATCH] net: hso: fix module unloading
-Date: Mon, 24 Apr 2017 21:18:39 +0200
-Message-ID: <1493061519-15785-1-git-send-email-andreas@kemnade.info>
-Cc: Andreas Kemnade <andreas@kemnade.info>
-To: davem@davemloft.net, joe@perches.com, peter@hurleysoftware.com,
-        linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        Discussions about the Letux Kernel
-        <letux-kernel@openphoenux.org>
+From: Jan Kiszka <jan.kiszka@siemens.com>
+Subject: [PATCH] stmmac: Add support for SIMATIC IOT2000 platform
+Date: Mon, 24 Apr 2017 21:27:15 +0200
+Message-ID: <8c536123-6189-e0b6-1977-dc7a521718dd@siemens.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        Sascha Weisenberger <sascha.weisenberger@siemens.com>
+To: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+        Alexandre Torgue <alexandre.torgue@st.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-keep tty driver until usb driver is unregistered
-rmmod hso
-produces traces like this without that:
+The IOT2000 is industrial controller platform, derived from the Intel
+Galileo Gen2 board. The variant IOT2020 comes with one LAN port, the
+IOT2040 has two of them. They can be told apart based on the board asset
+tag in the DMI table.
 
-[40261.645904] usb 2-2: new high-speed USB device number 2 using ehci-omap
-[40261.854644] usb 2-2: New USB device found, idVendor=0af0, idProduct=8800
-[40261.862609] usb 2-2: New USB device strings: Mfr=3, Product=2, SerialNumber=0
-[40261.872772] usb 2-2: Product: Globetrotter HSUPA Modem
-[40261.880279] usb 2-2: Manufacturer: Option N.V.
-[40262.021270] hso 2-2:1.5: Not our interface
-[40265.556945] hso: unloaded
-[40265.559875] usbcore: deregistering interface driver hso
-[40265.595947] Unable to handle kernel NULL pointer dereference at virtual address 00000033
-[40265.604522] pgd = ecb14000
-[40265.611877] [00000033] *pgd=00000000
-[40265.617034] Internal error: Oops: 5 [#1] PREEMPT SMP ARM
-[40265.622650] Modules linked in: hso(-) bnep bluetooth ipv6 arc4 twl4030_madc_hwmon wl18xx wlcore mac80211 cfg80211 snd_soc_simple_card snd_soc_simple_card_utils snd_soc_omap_twl4030 snd_soc_gtm601 generic_adc_battery extcon_gpio omap3_isp videobuf2_dma_contig videobuf2_memops wlcore_sdio videobuf2_v4l2 videobuf2_core ov9650 bmp280_i2c v4l2_common bmp280 bmg160_i2c bmg160_core at24 nvmem_core videodev bmc150_accel_i2c bmc150_magn_i2c media bmc150_accel_core tsc2007 bmc150_magn leds_tca6507 bno055 snd_soc_omap_mcbsp industrialio_triggered_buffer snd_soc_omap kfifo_buf snd_pcm_dmaengine gpio_twl4030 snd_soc_twl4030 twl4030_vibra twl4030_madc wwan_on_off ehci_omap pwm_bl pwm_omap_dmtimer panel_tpo_td028ttec1 encoder_opa362 connector_analog_tv omapdrm drm_kms_helper cfbfillrect syscopyarea cf
- bimgblt sysfillrect
-[40265.698211]  sysimgblt fb_sys_fops cfbcopyarea drm omapdss usb_f_ecm g_ether usb_f_rndis u_ether libcomposite configfs omap2430 phy_twl4030_usb musb_hdrc twl4030_charger industrialio w2sg0004 twl4030_pwrbutton bq27xxx_battery w1_bq27000 omap_hdq [last unloaded: hso]
-[40265.723175] CPU: 0 PID: 2701 Comm: rmmod Not tainted 4.11.0-rc6-letux+ #6
-[40265.730346] Hardware name: Generic OMAP36xx (Flattened Device Tree)
-[40265.736938] task: ecb81100 task.stack: ecb82000
-[40265.741729] PC is at cdev_del+0xc/0x2c
-[40265.745666] LR is at tty_unregister_device+0x40/0x50
-[40265.750915] pc : [<c027472c>]    lr : [<c04b3ecc>]    psr: 600b0113
-sp : ecb83ea8  ip : eca4f898  fp : 00000000
-[40265.763000] r10: 00000000  r9 : 00000000  r8 : 00000001
-[40265.768493] r7 : eca4f800  r6 : 00000003  r5 : 00000000  r4 : ffffffff
-[40265.775360] r3 : c1458d54  r2 : 00000000  r1 : 00000004  r0 : ffffffff
-[40265.782257] Flags: nZCv  IRQs on  FIQs on  Mode SVC_32  ISA ARM  Segment none
-[40265.789764] Control: 10c5387d  Table: acb14019  DAC: 00000051
-[40265.795806] Process rmmod (pid: 2701, stack limit = 0xecb82218)
-[40265.802062] Stack: (0xecb83ea8 to 0xecb84000)
-[40265.806640] 3ea0:                   ec9e8100 c04b3ecc bf737378 ed5b7c00 00000003 bf7327ec
-[40265.815277] 3ec0: eca4f800 00000000 ec9fd800 eca4f800 bf737070 bf7328bc eca4f820 c05a9a04
-[40265.823883] 3ee0: eca4f820 00000000 00000001 eca4f820 ec9fd870 bf737070 eca4f854 ec9fd8a4
-[40265.832519] 3f00: ecb82000 00000000 00000000 c04e6960 eca4f820 bf737070 bf737048 00000081
-[40265.841125] 3f20: c01071e4 c04e6a60 ecb81100 bf737070 bf737070 c04e5d94 bf737020 c05a8f88
-[40265.849731] 3f40: bf737100 00000800 7f5fa254 00000081 c01071e4 c01c4afc 00000000 006f7368
-[40265.858367] 3f60: ecb815f4 00000000 c0cac9c4 c01071e4 ecb82000 00000000 00000000 c01512f4
-[40265.866973] 3f80: ed5b3200 c01071e4 7f5fa220 7f5fa220 bea78ec9 0010711c 7f5fa220 7f5fa220
-[40265.875579] 3fa0: bea78ec9 c0107040 7f5fa220 7f5fa220 7f5fa254 00000800 dd35b800 dd35b800
-[40265.884216] 3fc0: 7f5fa220 7f5fa220 bea78ec9 00000081 bea78dcc 00000000 bea78bd8 00000000
-[40265.892822] 3fe0: b6f70521 bea78b6c 7f5dd613 b6f70526 80070030 7f5fa254 ffffffff ffffffff
-[40265.901458] [<c027472c>] (cdev_del) from [<c04b3ecc>] (tty_unregister_device+0x40/0x50)
-[40265.909942] [<c04b3ecc>] (tty_unregister_device) from [<bf7327ec>] (hso_free_interface+0x80/0x144 [hso])
-[40265.919982] [<bf7327ec>] (hso_free_interface [hso]) from [<bf7328bc>] (hso_disconnect+0xc/0x18 [hso])
-[40265.929718] [<bf7328bc>] (hso_disconnect [hso]) from [<c05a9a04>] (usb_unbind_interface+0x84/0x200)
-[40265.939239] [<c05a9a04>] (usb_unbind_interface) from [<c04e6960>] (device_release_driver_internal+0x138/0x1cc)
-[40265.949798] [<c04e6960>] (device_release_driver_internal) from [<c04e6a60>] (driver_detach+0x60/0x6c)
-[40265.959503] [<c04e6a60>] (driver_detach) from [<c04e5d94>] (bus_remove_driver+0x64/0x8c)
-[40265.968017] [<c04e5d94>] (bus_remove_driver) from [<c05a8f88>] (usb_deregister+0x5c/0xb8)
-[40265.976654] [<c05a8f88>] (usb_deregister) from [<c01c4afc>] (SyS_delete_module+0x160/0x1dc)
-[40265.985443] [<c01c4afc>] (SyS_delete_module) from [<c0107040>] (ret_fast_syscall+0x0/0x1c)
-[40265.994171] Code: c1458d54 e59f3020 e92d4010 e1a04000 (e5941034)
-[40266.016693] ---[ end trace 9d5ac43c7e41075c ]---
+Based on patch by Sascha Weisenberger.
 
-Signed-off-by: Andreas Kemnade <andreas@kemnade.info>
+Signed-off-by: Jan Kiszka <jan.kiszka@siemens.com>
+Signed-off-by: Sascha Weisenberger <sascha.weisenberger@siemens.com>
 ---
- drivers/net/usb/hso.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c | 23 ++++++++++++++++++++++-
+ 1 file changed, 22 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
-index 2e66340..b75e23f 100644
---- a/drivers/net/usb/hso.c
-+++ b/drivers/net/usb/hso.c
-@@ -3293,9 +3293,9 @@ static void __exit hso_exit(void)
- 	pr_info("unloaded\n");
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
+index 5c9e462276b9..de87c329fb5c 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
+@@ -32,6 +32,7 @@
+  */
+ struct stmmac_pci_dmi_data {
+ 	const char *name;
++	const char *asset_tag;
+ 	unsigned int func;
+ 	int phy_addr;
+ };
+@@ -46,6 +47,7 @@ struct stmmac_pci_info {
+ static int stmmac_pci_find_phy_addr(struct stmmac_pci_info *info)
+ {
+ 	const char *name = dmi_get_system_info(DMI_BOARD_NAME);
++	const char *asset_tag = dmi_get_system_info(DMI_BOARD_ASSET_TAG);
+ 	unsigned int func = PCI_FUNC(info->pdev->devfn);
+ 	struct stmmac_pci_dmi_data *dmi;
  
- 	tty_unregister_driver(tty_drv);
--	put_tty_driver(tty_drv);
- 	/* deregister the usb driver */
- 	usb_deregister(&hso_driver);
-+	put_tty_driver(tty_drv);
- }
+@@ -57,7 +59,8 @@ static int stmmac_pci_find_phy_addr(struct stmmac_pci_info *info)
+ 		return 1;
  
- /* Module definitions */
--- 
-2.1.4
+ 	for (dmi = info->dmi; dmi->name && *dmi->name; dmi++) {
+-		if (!strcmp(dmi->name, name) && dmi->func == func)
++		if (dmi->func == func && !strcmp(dmi->name, name) &&
++		    (!dmi->asset_tag || !strcmp(dmi->asset_tag, asset_tag)))
+ 			return dmi->phy_addr;
+ 	}
+ 
+@@ -142,6 +145,24 @@ static struct stmmac_pci_dmi_data quark_pci_dmi_data[] = {
+ 		.func = 6,
+ 		.phy_addr = 1,
+ 	},
++	{
++		.name = "SIMATIC IOT2000",
++		.asset_tag = "6ES7647-0AA00-0YA2",
++		.func = 6,
++		.phy_addr = 1,
++	},
++	{
++		.name = "SIMATIC IOT2000",
++		.asset_tag = "6ES7647-0AA00-1YA2",
++		.func = 6,
++		.phy_addr = 1,
++	},
++	{
++		.name = "SIMATIC IOT2000",
++		.asset_tag = "6ES7647-0AA00-1YA2",
++		.func = 7,
++		.phy_addr = 1,
++	},
+ 	{}
+ };
+ 
