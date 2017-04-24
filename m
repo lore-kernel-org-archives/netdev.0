@@ -1,70 +1,80 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [net 1/1] team: fix memory leaks
-Date: Mon, 24 Apr 2017 11:43:31 +0200
-Message-ID: <20170424094331.GD4126@nanopsycho.orion>
-References: <1493026612-12383-1-git-send-email-bianpan2016@163.com>
+From: Lorenzo Colitti <lorenzo@google.com>
+Subject: Re: [PATCH] net: ipv6: check route protocol when deleting routes
+Date: Mon, 24 Apr 2017 18:48:57 +0900
+Message-ID: <CAKD1Yr3cv+zZgZdjLMt7oac9kKAjFcht+j+JskFD_RsR61LRtA@mail.gmail.com>
+References: <20161216083059.251368-1-grawity@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Pan Bian <bianpan2016@163.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:34934 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1168154AbdDXJnd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 05:43:33 -0400
-Received: by mail-wm0-f65.google.com with SMTP id d79so15941523wmi.2
-        for <netdev@vger.kernel.org>; Mon, 24 Apr 2017 02:43:33 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1493026612-12383-1-git-send-email-bianpan2016@163.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        lkml <linux-kernel@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        Joel Scherpelz <jscherpelz@google.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>,
+        Greg KH <gregkh@google.com>
+To: =?UTF-8?Q?Mantas_Mikul=C4=97nas?= <grawity@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161216083059.251368-1-grawity@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Plus since you have only one patch, please do not do "1/1" in the
-email subject.  Thanks.
+On Fri, Dec 16, 2016 at 5:30 PM, Mantas Mikul=C4=97nas <grawity@gmail.com> =
+wrote:
+> The protocol field is checked when deleting IPv4 routes, but ignored for
+> IPv6, which causes problems with routing daemons accidentally deleting
+> externally set routes (observed by multiple bird6 users).
+>
+> This can be verified using `ip -6 route del <prefix> proto something`.
 
+I think this change might have broken userspace deleting routes that
+were created by RAs. This is because the rtm_protocol returned to
+userspace is actually synthesized only at route dump time by
+rt6_fill_node:
 
-Mon, Apr 24, 2017 at 11:36:52AM CEST, bianpan2016@163.com wrote:
->In functions team_nl_send_port_list_get() and
->team_nl_send_options_get(), pointer skb keeps the return value of
->nlmsg_new(). When the call to genlmsg_put() fails, the memory is not
->freed(). This will result in memory leak bugs.
->
->Fixes: 9b00cf2d1024 ("team: implement multipart netlink messages for
->options transfers")
->Signed-off-by: Pan Bian <bianpan2016@163.com>
->---
-> drivers/net/team/team.c | 8 ++++++--
-> 1 file changed, 6 insertions(+), 2 deletions(-)
->
->diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
->index f8c81f1..85c0124 100644
->--- a/drivers/net/team/team.c
->+++ b/drivers/net/team/team.c
->@@ -2361,8 +2361,10 @@ static int team_nl_send_options_get(struct team *team, u32 portid, u32 seq,
-> 
-> 	hdr = genlmsg_put(skb, portid, seq, &team_nl_family, flags | NLM_F_MULTI,
-> 			  TEAM_CMD_OPTIONS_GET);
->-	if (!hdr)
->+	if (!hdr) {
->+		nlmsg_free(skb);
-> 		return -EMSGSIZE;
->+	}
-> 
-> 	if (nla_put_u32(skb, TEAM_ATTR_TEAM_IFINDEX, team->dev->ifindex))
-> 		goto nla_put_failure;
->@@ -2634,8 +2636,10 @@ static int team_nl_send_port_list_get(struct team *team, u32 portid, u32 seq,
-> 
-> 	hdr = genlmsg_put(skb, portid, seq, &team_nl_family, flags | NLM_F_MULTI,
-> 			  TEAM_CMD_PORT_LIST_GET);
->-	if (!hdr)
->+	if (!hdr) {
->+		nlmsg_free(skb);
-> 		return -EMSGSIZE;
->+	}
-> 
-> 	if (nla_put_u32(skb, TEAM_ATTR_TEAM_IFINDEX, team->dev->ifindex))
-> 		goto nla_put_failure;
->-- 
->1.9.1
->
->
+        else if (rt->rt6i_flags & RTF_ADDRCONF) {
+                if (rt->rt6i_flags & (RTF_DEFAULT | RTF_ROUTEINFO))
+                        rtm->rtm_protocol =3D RTPROT_RA;
+                else
+                        rtm->rtm_protocol =3D RTPROT_KERNEL;
+        }
+
+but rt6_add_dflt_router and rt6_add_route_info add the route with a
+protocol of 0, and 0 is silently upgraded to RTPROT_BOOT by
+ip6_route_info_create.
+
+        if (cfg->fc_protocol =3D=3D RTPROT_UNSPEC)
+                cfg->fc_protocol =3D RTPROT_BOOT;
+        rt->rt6i_protocol =3D cfg->fc_protocol;
+
+So an app that was previously trying to delete routes looking at
+rtm_proto, and issuing a delete with whatever rtm_proto was returned
+by netlink, will result in this check failing because its passed-in
+protocol (RTPROT_RA or RTPROT_KERNEL) will not match the actual FIB
+value, which is RTPROT_BOOT.
+
+I can't easily test on a vanilla kernel, but on a system running a
+slightly modified 4.4.63, I see the code fail like this:
+
+# ip -6 route show
+2001:db8:64::/64 dev nettest100  proto kernel  metric 256  expires 291sec
+fe80::/64 dev nettest100  proto kernel  metric 256
+default via fe80::6400 dev nettest100  proto ra  metric 1024  expires 291se=
+c
+# ip -6 route flush
+Failed to send flush request: No such process
+# ip -6 route show
+default via fe80::6400 dev nettest100  proto ra  metric 1024  expires 286se=
+c
+
+If so, it seems unfortunate to have brought this into -stable.
+
+For non-stable kernels, it seems that the proper fix would be:
+
+1. Ensure that when an RA creates a route, it properly sets
+rtm_protocol at time of route creation.
+2. When we dump routes to userspace, we don't overwrite the rtm_protocol.
+
+I can try to write that up, but I'm not sure why the code doesn't do
+this already. Perhaps there's a good reason for it. Yoshifuji, Hannes,
+any thoughts?
