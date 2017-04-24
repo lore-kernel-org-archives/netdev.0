@@ -1,160 +1,129 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH RFC] ptr_ring: add ptr_ring_unconsume
-Date: Mon, 24 Apr 2017 19:54:18 +0800
-Message-ID: <21a19608-40be-38d4-9843-088a273fd71a@redhat.com>
-References: <1492384496-22644-1-git-send-email-mst@redhat.com>
- <0defb746-3d4b-14b3-1ad7-82842048ebba@redhat.com>
- <20170424022711-mutt-send-email-mst@kernel.org>
+From: Andrey Konovalov <andreyknvl@google.com>
+Subject: Re: net: cleanup_net is slow
+Date: Mon, 24 Apr 2017 13:58:20 +0200
+Message-ID: <CAAeHK+zwsdzVrgwLccbXs7QUEsFkeTL13_AfNKMD1G2BkOr0eg@mail.gmail.com>
+References: <CAAeHK+yJXMo8kr_p8iM_dicVGQCtwQhdk=rdE+9dNbsoghAb6Q@mail.gmail.com>
+ <CANn89i+iYtPLGDZpt3qk_cA-dq+004B=1qjP0ZygY3oREskQYA@mail.gmail.com>
+ <20170421192729.GA8853@breakpoint.cc> <20170421194515.GB8853@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <edumazet@google.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Florian Westphal <fw@strlen.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170424022711-mutt-send-email-mst@kernel.org>
+In-Reply-To: <20170421194515.GB8853@breakpoint.cc>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-
-On 2017年04月24日 07:28, Michael S. Tsirkin wrote:
-> On Tue, Apr 18, 2017 at 11:07:42AM +0800, Jason Wang wrote:
+On Fri, Apr 21, 2017 at 9:45 PM, Florian Westphal <fw@strlen.de> wrote:
+> Florian Westphal <fw@strlen.de> wrote:
+>> Indeed.  Setting net.netfilter.nf_conntrack_default_on=0 cuts time
+>> cleanup time by 2/3 ...
 >>
->> On 2017年04月17日 07:19, Michael S. Tsirkin wrote:
->>> Applications that consume a batch of entries in one go
->>> can benefit from ability to return some of them back
->>> into the ring.
->>>
->>> Add an API for that - assuming there's space. If there's no space
->>> naturally we can't do this and have to drop entries, but this implies
->>> ring is full so we'd likely drop some anyway.
->>>
->>> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
->>> ---
->>>
->>> Jason, in my mind the biggest issue with your batching patchset is the
->>> backet drops on disconnect.  This API will help avoid that in the common
->>> case.
->> Ok, I will rebase the series on top of this. (Though I don't think we care
->> the packet loss).
-> E.g. I care - I often start sending packets to VM before it's
-> fully booted. Several vhost resets might follow.
+>> nf unregister is way too happy to issue synchronize_net(), I'll work on
+>> a fix.
+>
+> I'll test this patch as a start.  Maybe we can also leverage exit_batch
+> more on netfilter side.
 
-Ok.
+Hi Florian,
+
+Your patch improves fuzzing speed at least twice, which is a great start!
+
+Thanks!
 
 >
->>> I would still prefer that we understand what's going on,
->> I try to reply in another thread, does it make sense?
->>
->>>    and I would
->>> like to know what's the smallest batch size that's still helpful,
->> Yes, I've replied in another thread, the result is:
->>
->>
->> no batching   1.88Mpps
->> RX_BATCH=1    1.93Mpps
->> RX_BATCH=4    2.11Mpps
->> RX_BATCH=16   2.14Mpps
->> RX_BATCH=64   2.25Mpps
->> RX_BATCH=256  2.18Mpps
-> Essentially 4 is enough, other stuf looks more like noise
-> to me. What about 2?
-
-The numbers are pretty stable, so probably not noise. Retested on top of 
-batch zeroing:
-
-no  1.97Mpps
-1   2.09Mpps
-2   2.11Mpps
-4   2.16Mpps
-8   2.19Mpps
-16  2.21Mpps
-32  2.25Mpps
-64  2.30Mpps
-128 2.21Mpps
-256 2.21Mpps
-
-64 performs best.
-
-Thanks
-
+> diff --git a/net/netfilter/core.c b/net/netfilter/core.c
+> index a87a6f8a74d8..08fe1f526265 100644
+> --- a/net/netfilter/core.c
+> +++ b/net/netfilter/core.c
+> @@ -126,14 +126,15 @@ int nf_register_net_hook(struct net *net, const struct nf_hook_ops *reg)
+>  }
+>  EXPORT_SYMBOL(nf_register_net_hook);
 >
->>>    but
->>> I'm not going to block the patch on these grounds assuming packet drops
->>> are fixed.
->> Thanks a lot.
->>
->>> Lightly tested - this is on top of consumer batching patches.
->>>
->>> Thanks!
->>>
->>>    include/linux/ptr_ring.h | 57 ++++++++++++++++++++++++++++++++++++++++++++++++
->>>    1 file changed, 57 insertions(+)
->>>
->>> diff --git a/include/linux/ptr_ring.h b/include/linux/ptr_ring.h
->>> index 783e7f5..5fbeab4 100644
->>> --- a/include/linux/ptr_ring.h
->>> +++ b/include/linux/ptr_ring.h
->>> @@ -457,6 +457,63 @@ static inline int ptr_ring_init(struct ptr_ring *r, int size, gfp_t gfp)
->>>    	return 0;
->>>    }
->>> +/*
->>> + * Return entries into ring. Destroy entries that don't fit.
->>> + *
->>> + * Note: this is expected to be a rare slow path operation.
->>> + *
->>> + * Note: producer lock is nested within consumer lock, so if you
->>> + * resize you must make sure all uses nest correctly.
->>> + * In particular if you consume ring in interrupt or BH context, you must
->>> + * disable interrupts/BH when doing so.
->>> + */
->>> +static inline void ptr_ring_unconsume(struct ptr_ring *r, void **batch, int n,
->>> +				      void (*destroy)(void *))
->>> +{
->>> +	unsigned long flags;
->>> +	int head;
->>> +
->>> +	spin_lock_irqsave(&(r)->consumer_lock, flags);
->>> +	spin_lock(&(r)->producer_lock);
->>> +
->>> +	if (!r->size)
->>> +		goto done;
->>> +
->>> +	/*
->>> +	 * Clean out buffered entries (for simplicity). This way following code
->>> +	 * can test entries for NULL and if not assume they are valid.
->>> +	 */
->>> +	head = r->consumer_head - 1;
->>> +	while (likely(head >= r->consumer_tail))
->>> +		r->queue[head--] = NULL;
->>> +	r->consumer_tail = r->consumer_head;
->>> +
->>> +	/*
->>> +	 * Go over entries in batch, start moving head back and copy entries.
->>> +	 * Stop when we run into previously unconsumed entries.
->>> +	 */
->>> +	while (n--) {
->>> +		head = r->consumer_head - 1;
->>> +		if (head < 0)
->>> +			head = r->size - 1;
->>> +		if (r->queue[head]) {
->>> +			/* This batch entry will have to be destroyed. */
->>> +			++n;
->>> +			goto done;
->>> +		}
->>> +		r->queue[head] = batch[n];
->>> +		r->consumer_tail = r->consumer_head = head;
->>> +	}
->>> +
->>> +done:
->>> +	/* Destroy all entries left in the batch. */
->>> +	while (n--) {
->>> +		destroy(batch[n]);
->>> +	}
->>> +	spin_unlock(&(r)->producer_lock);
->>> +	spin_unlock_irqrestore(&(r)->consumer_lock, flags);
->>> +}
->>> +
->>>    static inline void **__ptr_ring_swap_queue(struct ptr_ring *r, void **queue,
->>>    					   int size, gfp_t gfp,
->>>    					   void (*destroy)(void *))
+> -void nf_unregister_net_hook(struct net *net, const struct nf_hook_ops *reg)
+> +static struct nf_hook_entry *
+> +__nf_unregister_net_hook(struct net *net, const struct nf_hook_ops *reg)
+>  {
+>         struct nf_hook_entry __rcu **pp;
+>         struct nf_hook_entry *p;
+>
+>         pp = nf_hook_entry_head(net, reg);
+>         if (WARN_ON_ONCE(!pp))
+> -               return;
+> +               return NULL;
+>
+>         mutex_lock(&nf_hook_mutex);
+>         for (; (p = nf_entry_dereference(*pp)) != NULL; pp = &p->next) {
+> @@ -145,7 +146,7 @@ void nf_unregister_net_hook(struct net *net, const struct nf_hook_ops *reg)
+>         mutex_unlock(&nf_hook_mutex);
+>         if (!p) {
+>                 WARN(1, "nf_unregister_net_hook: hook not found!\n");
+> -               return;
+> +               return NULL;
+>         }
+>  #ifdef CONFIG_NETFILTER_INGRESS
+>         if (reg->pf == NFPROTO_NETDEV && reg->hooknum == NF_NETDEV_INGRESS)
+> @@ -154,6 +155,17 @@ void nf_unregister_net_hook(struct net *net, const struct nf_hook_ops *reg)
+>  #ifdef HAVE_JUMP_LABEL
+>         static_key_slow_dec(&nf_hooks_needed[reg->pf][reg->hooknum]);
+>  #endif
+> +
+> +       return p;
+> +}
+> +
+> +void nf_unregister_net_hook(struct net *net, const struct nf_hook_ops *reg)
+> +{
+> +       struct nf_hook_entry *p = __nf_unregister_net_hook(net, reg);
+> +
+> +       if (!p)
+> +               return;
+> +
+>         synchronize_net();
+>         nf_queue_nf_hook_drop(net, p);
+>         /* other cpu might still process nfqueue verdict that used reg */
+> @@ -183,10 +195,36 @@ int nf_register_net_hooks(struct net *net, const struct nf_hook_ops *reg,
+>  EXPORT_SYMBOL(nf_register_net_hooks);
+>
+>  void nf_unregister_net_hooks(struct net *net, const struct nf_hook_ops *reg,
+> -                            unsigned int n)
+> +                            unsigned int hookcount)
+>  {
+> -       while (n-- > 0)
+> -               nf_unregister_net_hook(net, &reg[n]);
+> +       struct nf_hook_entry *to_free[16];
+> +       unsigned int i, n;
+> +
+> +       WARN_ON_ONCE(hookcount > ARRAY_SIZE(to_free));
+> +
+> + next_round:
+> +       n = min_t(unsigned int, hookcount, ARRAY_SIZE(to_free));
+> +
+> +       for (i = 0; i < n; i++)
+> +               to_free[i] = __nf_unregister_net_hook(net, &reg[i]);
+> +
+> +       synchronize_net();
+> +
+> +       for (i = 0; i < n; i++) {
+> +               if (to_free[i])
+> +                       nf_queue_nf_hook_drop(net, to_free[i]);
+> +       }
+> +
+> +       synchronize_net();
+> +
+> +       for (i = 0; i < n; i++)
+> +               kfree(to_free[i]);
+> +
+> +       if (n < hookcount) {
+> +               hookcount -= n;
+> +               reg += n;
+> +               goto next_round;
+> +       }
+>  }
+>  EXPORT_SYMBOL(nf_unregister_net_hooks);
+>
