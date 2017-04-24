@@ -1,60 +1,92 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH 1/2] team: fix memory leak
-Date: Mon, 24 Apr 2017 07:40:48 +0200
-Message-ID: <20170424054048.GA1886@nanopsycho.orion>
-References: <1492932564-722-1-git-send-email-bianpan2016@163.com>
+From: Jiri Slaby <jslaby@suse.cz>
+Subject: Re: [PATCH v3 07/29] x86: bpf_jit, use ENTRY+ENDPROC
+Date: Mon, 24 Apr 2017 08:45:11 +0200
+Message-ID: <697947f4-0a2c-1480-0995-9919556dc020@suse.cz>
+References: <20170421141305.25180-1-jslaby@suse.cz>
+ <20170421141305.25180-7-jslaby@suse.cz>
+ <20170421193213.GB91454@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Pan Bian <bianpan2016@163.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: mingo@redhat.com, tglx@linutronix.de, hpa@zytor.com,
+        x86@kernel.org, jpoimboe@redhat.com, linux-kernel@vger.kernel.org,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Eric Dumazet <edumazet@google.com>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f193.google.com ([209.85.128.193]:35196 "EHLO
-        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1046165AbdDXFkw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 01:40:52 -0400
-Received: by mail-wr0-f193.google.com with SMTP id g12so1070772wrg.2
-        for <netdev@vger.kernel.org>; Sun, 23 Apr 2017 22:40:51 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1492932564-722-1-git-send-email-bianpan2016@163.com>
+Received: from mail-wr0-f194.google.com ([209.85.128.194]:36038 "EHLO
+        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1165504AbdDXGpO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 02:45:14 -0400
+In-Reply-To: <20170421193213.GB91454@ast-mbp.thefacebook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sun, Apr 23, 2017 at 09:29:24AM CEST, bianpan2016@163.com wrote:
->In function team_nl_send_port_list_get(), pointer skb keeps the return
->value of nlmsg_new(). When the call to genlmsg_put() fails, the memory
->is not freed. This will result in a memory leak bug. This patch fixes
->it.
->
-
-
-Looks good. Please adjust subject so the both patches have a specific
-one. Also, please add "Fixes" tag (see git log for details).
-Also, is is good to say which tree this patches are generated against
-("-net")
-
-
->Signed-off-by: Pan Bian <bianpan2016@163.com>
->---
-> drivers/net/team/team.c | 4 +++-
-> 1 file changed, 3 insertions(+), 1 deletion(-)
->
->diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
->index f8c81f1..dd3a2e9 100644
->--- a/drivers/net/team/team.c
->+++ b/drivers/net/team/team.c
->@@ -2634,8 +2634,10 @@ static int team_nl_send_port_list_get(struct team *team, u32 portid, u32 seq,
+On 04/21/2017, 09:32 PM, Alexei Starovoitov wrote:
+> On Fri, Apr 21, 2017 at 04:12:43PM +0200, Jiri Slaby wrote:
+>> Do not use a custom macro FUNC for starts of the global functions, use
+>> ENTRY instead.
+>>
+>> And while at it, annotate also ends of the functions by ENDPROC.
+>>
+>> Signed-off-by: Jiri Slaby <jslaby@suse.cz>
+>> Cc: "David S. Miller" <davem@davemloft.net>
+>> Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+>> Cc: James Morris <jmorris@namei.org>
+>> Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+>> Cc: Patrick McHardy <kaber@trash.net>
+>> Cc: Thomas Gleixner <tglx@linutronix.de>
+>> Cc: Ingo Molnar <mingo@redhat.com>
+>> Cc: "H. Peter Anvin" <hpa@zytor.com>
+>> Cc: x86@kernel.org
+>> Cc: netdev@vger.kernel.org
+>> ---
+>>  arch/x86/net/bpf_jit.S | 32 ++++++++++++++++++--------------
+>>  1 file changed, 18 insertions(+), 14 deletions(-)
+>>
+>> diff --git a/arch/x86/net/bpf_jit.S b/arch/x86/net/bpf_jit.S
+>> index f2a7faf4706e..762c29fb8832 100644
+>> --- a/arch/x86/net/bpf_jit.S
+>> +++ b/arch/x86/net/bpf_jit.S
+>> @@ -23,16 +23,12 @@
+>>  	32 /* space for rbx,r13,r14,r15 */ + \
+>>  	8 /* space for skb_copy_bits */)
+>>  
+>> -#define FUNC(name) \
+>> -	.globl name; \
+>> -	.type name, @function; \
+>> -	name:
+>> -
+>> -FUNC(sk_load_word)
+>> +ENTRY(sk_load_word)
+>>  	test	%esi,%esi
+>>  	js	bpf_slow_path_word_neg
+>> +ENDPROC(sk_load_word)
 > 
-> 	hdr = genlmsg_put(skb, portid, seq, &team_nl_family, flags | NLM_F_MULTI,
-> 			  TEAM_CMD_PORT_LIST_GET);
->-	if (!hdr)
->+	if (!hdr) {
->+		nlmsg_free(skb);
-> 		return -EMSGSIZE;
->+	}
-> 
-> 	if (nla_put_u32(skb, TEAM_ATTR_TEAM_IFINDEX, team->dev->ifindex))
-> 		goto nla_put_failure;
->-- 
->1.9.1
->
->
+> this doens't look right.
+> It will add alignment nops in critical paths of these pseudo functions.
+> I'm also not sure whether it will still work afterwards.
+> Was it tested?
+> I'd prefer if this code kept as-is.
+
+It cannot stay as-is simply because we want to know where the functions
+end to inject debuginfo properly. The code above does not warrant for
+any exception.
+
+Executing a nop takes a little and having externally-callable functions
+aligned can actually help performance (no, I haven't measured nor tested
+the code). But sure, the tool is generic, so I can introduce a local
+macros to avoid alignments in the functions:
+
+#define BPF_FUNC_START_LOCAL(name) \
+		SYM_START(name, SYM_V_LOCAL, SYM_A_NONE)
+#define BPF_FUNC_START(name) \
+		SYM_START(name, SYM_V_GLOBAL, SYM_A_NONE)
+
+#define BPF_FUNC_END(name) SYM_FUNC_END(name)
+
+thanks,
+-- 
+js
+suse labs
