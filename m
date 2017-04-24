@@ -1,34 +1,70 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] qlcnic: fix unchecked return value
-Date: Mon, 24 Apr 2017 16:11:16 -0400 (EDT)
-Message-ID: <20170424.161116.271050954695792950.davem@davemloft.net>
-References: <1492949044-23580-1-git-send-email-bianpan201602@163.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: harish.patil@cavium.com, manish.chopra@cavium.com,
-        Dept-GELinuxNICDev@cavium.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, bianpan2016@163.com
-To: bianpan201602@163.com
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net-next] bpf: make bpf_xdp_adjust_head support mandatory
+Date: Mon, 24 Apr 2017 22:14:35 +0200
+Message-ID: <6e25ef44c5de02d1feb8b4cc8a2cf60adb4a596e.1493064530.git.daniel@iogearbox.net>
+Cc: ast@fb.com, netdev@vger.kernel.org,
+        Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:57174 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1174089AbdDXULS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 16:11:18 -0400
-In-Reply-To: <1492949044-23580-1-git-send-email-bianpan201602@163.com>
+Received: from www62.your-server.de ([213.133.104.62]:59773 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1174102AbdDXUOv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 16:14:51 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-aFrom: Pan Bian <bianpan201602@163.com>
-Date: Sun, 23 Apr 2017 20:04:04 +0800
+Now that also the last in-tree user of the xdp_adjust_head bit has
+been removed, we can remove the flag from struct bpf_prog altogether.
 
-> From: Pan Bian <bianpan2016@163.com>
-> 
-> Function pci_find_ext_capability() may return 0, which is an invalid
-> address. In function qlcnic_sriov_virtid_fn(), its return value is used
-> without validation. This may result in invalid memory access bugs. This
-> patch fixes the bug.
-> 
-> Signed-off-by: Pan Bian <bianpan2016@163.com>
+This, at the same time, also makes sure that any future driver for
+XDP comes with bpf_xdp_adjust_head() support right away.
 
-Applied.
+A rejection based on this flag would also mean that tail calls
+couldn't be used with such driver as per c2002f983767 ("bpf: fix
+checking xdp_adjust_head on tail calls") fix, thus lets not allow
+for it in the first place.
+
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Acked-by: Alexei Starovoitov <ast@kernel.org>
+---
+ include/linux/filter.h | 3 +--
+ kernel/bpf/verifier.c  | 3 ---
+ 2 files changed, 1 insertion(+), 5 deletions(-)
+
+diff --git a/include/linux/filter.h b/include/linux/filter.h
+index 511fe91..9a7786d 100644
+--- a/include/linux/filter.h
++++ b/include/linux/filter.h
+@@ -413,8 +413,7 @@ struct bpf_prog {
+ 				locked:1,	/* Program image locked? */
+ 				gpl_compatible:1, /* Is filter GPL compatible? */
+ 				cb_access:1,	/* Is control block accessed? */
+-				dst_needed:1,	/* Do we need dst entry? */
+-				xdp_adjust_head:1; /* Adjusting pkt head? */
++				dst_needed:1;	/* Do we need dst entry? */
+ 	kmemcheck_bitfield_end(meta);
+ 	enum bpf_prog_type	type;		/* Type of BPF program */
+ 	u32			len;		/* Number of filter blocks */
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index ca15cf2..6f8b6ed 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -3346,8 +3346,6 @@ static int fixup_bpf_calls(struct bpf_verifier_env *env)
+ 			prog->dst_needed = 1;
+ 		if (insn->imm == BPF_FUNC_get_prandom_u32)
+ 			bpf_user_rnd_init_once();
+-		if (insn->imm == BPF_FUNC_xdp_adjust_head)
+-			prog->xdp_adjust_head = 1;
+ 		if (insn->imm == BPF_FUNC_tail_call) {
+ 			/* If we tail call into other programs, we
+ 			 * cannot make any assumptions since they can
+@@ -3355,7 +3353,6 @@ static int fixup_bpf_calls(struct bpf_verifier_env *env)
+ 			 * the program array.
+ 			 */
+ 			prog->cb_access = 1;
+-			prog->xdp_adjust_head = 1;
+ 
+ 			/* mark bpf_tail_call as different opcode to avoid
+ 			 * conditional branch in the interpeter for every normal
+-- 
+1.9.3
