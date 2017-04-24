@@ -1,58 +1,112 @@
-From: Mike Manning <mmanning@brocade.com>
-Subject: [PATCH] net: bridge: suppress broadcast when multicast flood is disabled
-Date: Mon, 24 Apr 2017 15:09:04 +0100
-Message-ID: <1493042944-4005-1-git-send-email-mmanning@brocade.com>
+From: "Byczkowski, Jakub" <jakub.byczkowski@intel.com>
+Subject: RE: [PATCH 5/7] IB/hfi1: use pcie_flr instead of duplicating it
+Date: Mon, 24 Apr 2017 14:16:31 +0000
+Message-ID: <A33E225544E47D4DB5713032774B132783960382@irsmsx105.ger.corp.intel.com>
+References: <20170414191131.14286-1-hch@lst.de>
+ <20170414191131.14286-6-hch@lst.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:57280 "EHLO
-        mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1171115AbdDXOJ3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 10:09:29 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+        qat-linux <qat-linux@intel.com>,
+        "linux-crypto@vger.kernel.org" <linux-crypto@vger.kernel.org>,
+        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Christoph Hellwig <hch@lst.de>,
+        Bjorn Helgaas <bhelgaas@google.com>,
+        "Cabiddu, Giovanni" <giovanni.cabiddu@intel.com>,
+        "Benedetto, Salvatore" <salvatore.benedetto@intel.com>,
+        "Marciniszyn, Mike" <mike.marciniszyn@intel.com>,
+        "Dalessandro, Dennis" <dennis.dalessandro@intel.com>,
+        Derek Chickles <derek.chickles@caviumnetworks.com>,
+        Satanand Burla <satananda.burla@caviumnetworks.com>,
+        Felix Manlunas <felix.manlunas@caviumnetworks.com>,
+        Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>,
+        "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <20170414191131.14286-6-hch@lst.de>
+Content-Language: en-US
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Flood suppression for packets that are not unicast needs to be handled
-consistently by also not flooding broadcast packets. As broadcast is a
-special case of multicast, the same kernel parameter should be used to
-suppress flooding for both of these packet types.
+Tested-by: Jakub Byczkowski <jakub.byczkowski@intel.com>
 
-Fixes: b6cb5ac8331b ("net: bridge: add per-port multicast flood flag")
-Cc: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Signed-off-by: Mike Manning <mmanning@brocade.com>
+-----Original Message-----
+From: linux-rdma-owner@vger.kernel.org [mailto:linux-rdma-owner@vger.kernel.org] On Behalf Of Christoph Hellwig
+Sent: Friday, April 14, 2017 9:11 PM
+To: Bjorn Helgaas <bhelgaas@google.com>; Cabiddu, Giovanni <giovanni.cabiddu@intel.com>; Benedetto, Salvatore <salvatore.benedetto@intel.com>; Marciniszyn, Mike <mike.marciniszyn@intel.com>; Dalessandro, Dennis <dennis.dalessandro@intel.com>; Derek Chickles <derek.chickles@caviumnetworks.com>; Satanand Burla <satananda.burla@caviumnetworks.com>; Felix Manlunas <felix.manlunas@caviumnetworks.com>; Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>; Kirsher, Jeffrey T <jeffrey.t.kirsher@intel.com>
+Cc: linux-pci@vger.kernel.org; qat-linux <qat-linux@intel.com>; linux-crypto@vger.kernel.org; linux-rdma@vger.kernel.org; netdev@vger.kernel.org; linux-kernel@vger.kernel.org
+Subject: [PATCH 5/7] IB/hfi1: use pcie_flr instead of duplicating it
+
+Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
- net/bridge/br_forward.c | 17 ++++++++++-------
- 1 file changed, 10 insertions(+), 7 deletions(-)
+ drivers/infiniband/hw/hfi1/chip.c |  4 ++--  drivers/infiniband/hw/hfi1/hfi.h  |  1 -  drivers/infiniband/hw/hfi1/pcie.c | 30 ------------------------------
+ 3 files changed, 2 insertions(+), 33 deletions(-)
 
-diff --git a/net/bridge/br_forward.c b/net/bridge/br_forward.c
-index 902af6b..a61c7ad 100644
---- a/net/bridge/br_forward.c
-+++ b/net/bridge/br_forward.c
-@@ -183,13 +183,16 @@ void br_flood(struct net_bridge *br, struct sk_buff *skb,
- 	struct net_bridge_port *p;
+diff --git a/drivers/infiniband/hw/hfi1/chip.c b/drivers/infiniband/hw/hfi1/chip.c
+index 121a4c920f1b..d037f72e4d96 100644
+--- a/drivers/infiniband/hw/hfi1/chip.c
++++ b/drivers/infiniband/hw/hfi1/chip.c
+@@ -13610,14 +13610,14 @@ static void init_chip(struct hfi1_devdata *dd)
+ 		dd_dev_info(dd, "Resetting CSRs with FLR\n");
  
- 	list_for_each_entry_rcu(p, &br->port_list, list) {
--		/* Do not flood unicast traffic to ports that turn it off */
--		if (pkt_type == BR_PKT_UNICAST && !(p->flags & BR_FLOOD))
--			continue;
--		/* Do not flood if mc off, except for traffic we originate */
--		if (pkt_type == BR_PKT_MULTICAST &&
--		    !(p->flags & BR_MCAST_FLOOD) && skb->dev != br->dev)
--			continue;
-+		/* Do not flood unicast traffic to ports that turn it off, nor
-+		 * other traffic if mc flood off except for traffic we originate
-+		 */
-+		if (pkt_type == BR_PKT_UNICAST) {
-+			if (!(p->flags & BR_FLOOD))
-+				continue;
-+		} else {
-+			if (!(p->flags & BR_MCAST_FLOOD) && skb->dev != br->dev)
-+				continue;
-+		}
+ 		/* do the FLR, the DC reset will remain */
+-		hfi1_pcie_flr(dd);
++		pcie_flr(dd->pcidev);
  
- 		/* Do not flood to ports that enable proxy ARP */
- 		if (p->flags & BR_PROXYARP)
--- 
-2.1.4
+ 		/* restore command and BARs */
+ 		restore_pci_variables(dd);
+ 
+ 		if (is_ax(dd)) {
+ 			dd_dev_info(dd, "Resetting CSRs with FLR\n");
+-			hfi1_pcie_flr(dd);
++			pcie_flr(dd->pcidev);
+ 			restore_pci_variables(dd);
+ 		}
+ 	} else {
+diff --git a/drivers/infiniband/hw/hfi1/hfi.h b/drivers/infiniband/hw/hfi1/hfi.h
+index 0808e3c3ba39..40d7559fa723 100644
+--- a/drivers/infiniband/hw/hfi1/hfi.h
++++ b/drivers/infiniband/hw/hfi1/hfi.h
+@@ -1764,7 +1764,6 @@ int hfi1_pcie_init(struct pci_dev *, const struct pci_device_id *);  void hfi1_pcie_cleanup(struct pci_dev *);  int hfi1_pcie_ddinit(struct hfi1_devdata *, struct pci_dev *);  void hfi1_pcie_ddcleanup(struct hfi1_devdata *); -void hfi1_pcie_flr(struct hfi1_devdata *);  int pcie_speeds(struct hfi1_devdata *);  void request_msix(struct hfi1_devdata *, u32 *, struct hfi1_msix_entry *);  void hfi1_enable_intx(struct pci_dev *); diff --git a/drivers/infiniband/hw/hfi1/pcie.c b/drivers/infiniband/hw/hfi1/pcie.c
+index 0829fce06172..c81556e84831 100644
+--- a/drivers/infiniband/hw/hfi1/pcie.c
++++ b/drivers/infiniband/hw/hfi1/pcie.c
+@@ -240,36 +240,6 @@ void hfi1_pcie_ddcleanup(struct hfi1_devdata *dd)
+ 		iounmap(dd->piobase);
+ }
+ 
+-/*
+- * Do a Function Level Reset (FLR) on the device.
+- * Based on static function drivers/pci/pci.c:pcie_flr().
+- */
+-void hfi1_pcie_flr(struct hfi1_devdata *dd) -{
+-	int i;
+-	u16 status;
+-
+-	/* no need to check for the capability - we know the device has it */
+-
+-	/* wait for Transaction Pending bit to clear, at most a few ms */
+-	for (i = 0; i < 4; i++) {
+-		if (i)
+-			msleep((1 << (i - 1)) * 100);
+-
+-		pcie_capability_read_word(dd->pcidev, PCI_EXP_DEVSTA, &status);
+-		if (!(status & PCI_EXP_DEVSTA_TRPND))
+-			goto clear;
+-	}
+-
+-	dd_dev_err(dd, "Transaction Pending bit is not clearing, proceeding with reset anyway\n");
+-
+-clear:
+-	pcie_capability_set_word(dd->pcidev, PCI_EXP_DEVCTL,
+-				 PCI_EXP_DEVCTL_BCR_FLR);
+-	/* PCIe spec requires the function to be back within 100ms */
+-	msleep(100);
+-}
+-
+ static void msix_setup(struct hfi1_devdata *dd, int pos, u32 *msixcnt,
+ 		       struct hfi1_msix_entry *hfi1_msix_entry)  {
+--
+2.11.0
