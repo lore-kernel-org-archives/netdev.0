@@ -1,41 +1,75 @@
-From: Paul Menzel <pmenzel@molgen.mpg.de>
-Subject: Re: [Intel-wired-lan] [PATCH 1/2] e1000e: Don't return uninitialized
- stats
-Date: Mon, 24 Apr 2017 10:23:48 +0200
-Message-ID: <71d8032d-5ed1-8242-83e6-16ce65718966@molgen.mpg.de>
-References: <20170421212012.25950-1-bpoirier@suse.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH v2 2/2] iproute2: add support for invisible qdisc dumping
+Date: Mon, 24 Apr 2017 10:43:10 +0200
+Message-ID: <20170424084310.GB4126@nanopsycho.orion>
+References: <alpine.LSU.2.20.1703081303490.31814@cbobk.fhfr.pm>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-        intel-wired-lan@lists.osuosl.org,
-        Stefan Priebe <s.priebe@profihost.ag>
-To: Benjamin Poirier <bpoirier@suse.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.molgen.mpg.de ([141.14.17.11]:35402 "EHLO mx1.molgen.mpg.de"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1166622AbdDXIXu (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 24 Apr 2017 04:23:50 -0400
-In-Reply-To: <20170421212012.25950-1-bpoirier@suse.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Phil Sutter <phil@nwl.cc>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Jiri Kosina <jikos@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.LSU.2.20.1703081303490.31814@cbobk.fhfr.pm>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Dear Benjamin,
+Wed, Mar 08, 2017 at 01:04:42PM CET, jikos@kernel.org wrote:
+>From: Jiri Kosina <jkosina@suse.cz>
+>
+>Support the new TCA_DUMP_INVISIBLE netlink attribute that allows asking 
+>kernel to perform 'full qdisc dump', as for historical reasons some of the 
+>default qdiscs are being hidden by the kernel.
+>
+>The command syntax is being extended by voluntary 'invisible' argument to
+>'tc qdisc show'.
+>
+>Signed-off-by: Jiri Kosina <jkosina@suse.cz>
+>---
+
+[...]
 
 
-Thank you for your fix.
+>@@ -325,7 +328,25 @@ static int tc_qdisc_list(int argc, char **argv)
+> 		filter_ifindex = t.tcm_ifindex;
+> 	}
+> 
+>-	if (rtnl_dump_request(&rth, RTM_GETQDISC, &t, sizeof(t)) < 0) {
+>+	if (dump_invisible) {
+>+		struct {
+>+			struct nlmsghdr n;
+>+			struct tcmsg t;
+>+			char buf[256];
+>+		} req = {
+>+			.n.nlmsg_type = RTM_GETQDISC,
+>+			.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct tcmsg)),
+>+		};
+>+
+>+		req.t.tcm_family = AF_UNSPEC;
+>+
+>+		addattr(&req.n, 256, TCA_DUMP_INVISIBLE);
+>+		if (rtnl_dump_request_n(&rth, &req.n) < 0) {
 
-On 04/21/17 23:20, Benjamin Poirier wrote:
-> Some statistics passed to ethtool are garbage because e1000e_get_stats64()
-> doesn't write them, for example: tx_heartbeat_errors. This leaks kernel
-> memory to userspace and confuses users.
-
-Could you please give specific examples to reproduce the issue? That way 
-your fix can also be tested.
-
-[…]
+Jirko, you ignore the values that were previously set in "t". I think
+that you can change this to do rtnl_dump_request_n always and simplify
+the code a bit.
 
 
-Kind regards,
-
-Paul
+>+			perror("Cannot send dump request");
+>+			return 1;
+>+		}
+>+
+>+	} else if (rtnl_dump_request(&rth, RTM_GETQDISC, &t, sizeof(t)) < 0) {
+> 		perror("Cannot send dump request");
+> 		return 1;
+> 	}
+>-- 
+>Jiri Kosina
+>SUSE Labs
+>
