@@ -1,37 +1,112 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH RFC (resend) net-next 0/6] virtio-net: Add support for
- virtio-net header extensions
-Date: Mon, 24 Apr 2017 20:04:43 +0300
-Message-ID: <20170424200232-mutt-send-email-mst@kernel.org>
-References: <1492274298-17362-1-git-send-email-vyasevic@redhat.com>
- <0d9216af-e3db-e06b-f70d-d77f519c3fd4@redhat.com>
- <f52fa31e-5ca2-34dc-d48b-417a34061359@redhat.com>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: [PATCH net-next v2 2/5] virtio-net: transmit napi
+Date: Mon, 24 Apr 2017 13:05:45 -0400
+Message-ID: <CAF=yD-Lv8BptfhV+Many0iaG1Dz+LmkT2VVv5Kgo=TU31PJPHQ@mail.gmail.com>
+References: <20170418202108.61920-1-willemdebruijn.kernel@gmail.com>
+ <20170418202108.61920-3-willemdebruijn.kernel@gmail.com> <2ae5889b-69d4-3041-d7fd-a7ea38e8c4e2@redhat.com>
+ <CAF=yD-K0Cwwcob+0nWXWTY_07_zwcae1GRHwdagF2pGrv8HwtA@mail.gmail.com>
+ <118c5f96-6151-c012-7a31-16d24a835878@redhat.com> <CAF=yD-KdtvXV+=ZROcLPHJxB55wbnJOmV0MJn2AJPHugoofR0g@mail.gmail.com>
+ <20170424194015-mutt-send-email-mst@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
 Cc: Jason Wang <jasowang@redhat.com>,
-	Vladislav Yasevich <vyasevich@gmail.com>, netdev@vger.kernel.org,
-	virtio-dev@lists.oasis-open.org, maxime.coquelin@redhat.com,
-	virtualization@lists.linux-foundation.org
-To: Vlad Yasevich <vyasevic@redhat.com>
-Return-path: <virtio-dev-return-2134-gcvd-virtio-dev=m.gmane.org@lists.oasis-open.org>
-Sender: <virtio-dev@lists.oasis-open.org>
-List-Post: <mailto:virtio-dev@lists.oasis-open.org>
-List-Help: <mailto:virtio-dev-help@lists.oasis-open.org>
-List-Unsubscribe: <mailto:virtio-dev-unsubscribe@lists.oasis-open.org>
-List-Subscribe: <mailto:virtio-dev-subscribe@lists.oasis-open.org>
-Content-Disposition: inline
-In-Reply-To: <f52fa31e-5ca2-34dc-d48b-417a34061359@redhat.com>
-List-Id: netdev.vger.kernel.org
+        Network Development <netdev@vger.kernel.org>,
+        virtualization@lists.linux-foundation.org,
+        David Miller <davem@davemloft.net>,
+        Willem de Bruijn <willemb@google.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qt0-f194.google.com ([209.85.216.194]:33991 "EHLO
+        mail-qt0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S975286AbdDXRG1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 13:06:27 -0400
+Received: by mail-qt0-f194.google.com with SMTP id y33so21315848qta.1
+        for <netdev@vger.kernel.org>; Mon, 24 Apr 2017 10:06:27 -0700 (PDT)
+In-Reply-To: <20170424194015-mutt-send-email-mst@kernel.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 20, 2017 at 11:34:57AM -0400, Vlad Yasevich wrote:
-> > - For 1.1, do we really want something like vnet header? AFAIK, it was not used by modern
-> > NICs, is this better to pack all meta-data into descriptor itself? This may need a some
-> > changes in tun/macvtap, but looks more PCIE friendly.
-> 
-> That would really be ideal and I've looked at this.
+On Mon, Apr 24, 2017 at 12:40 PM, Michael S. Tsirkin <mst@redhat.com> wrote:
+> On Fri, Apr 21, 2017 at 10:50:12AM -0400, Willem de Bruijn wrote:
+>> >>> Maybe I was wrong, but according to Michael's comment it looks like he
+>> >>> want
+>> >>> check affinity_hint_set just for speculative tx polling on rx napi
+>> >>> instead
+>> >>> of disabling it at all.
+>> >>>
+>> >>> And I'm not convinced this is really needed, driver only provide affinity
+>> >>> hint instead of affinity, so it's not guaranteed that tx and rx interrupt
+>> >>> are in the same vcpus.
+>> >>
+>> >> You're right. I made the restriction broader than the request, to really
+>> >> err
+>> >> on the side of caution for the initial merge of napi tx. And enabling
+>> >> the optimization is always a win over keeping it off, even without irq
+>> >> affinity.
+>> >>
+>> >> The cycle cost is significant without affinity regardless of whether the
+>> >> optimization is used.
+>> >
+>> >
+>> > Yes, I noticed this in the past too.
+>> >
+>> >> Though this is not limited to napi-tx, it is more
+>> >> pronounced in that mode than without napi.
+>> >>
+>> >> 1x TCP_RR for affinity configuration {process, rx_irq, tx_irq}:
+>> >>
+>> >> upstream:
+>> >>
+>> >> 1,1,1: 28985 Mbps, 278 Gcyc
+>> >> 1,0,2: 30067 Mbps, 402 Gcyc
+>> >>
+>> >> napi tx:
+>> >>
+>> >> 1,1,1: 34492 Mbps, 269 Gcyc
+>> >> 1,0,2: 36527 Mbps, 537 Gcyc (!)
+>> >> 1,0,1: 36269 Mbps, 394 Gcyc
+>> >> 1,0,0: 34674 Mbps, 402 Gcyc
+>> >>
+>> >> This is a particularly strong example. It is also representative
+>> >> of most RR tests. It is less pronounced in other streaming tests.
+>> >> 10x TCP_RR, for instance:
+>> >>
+>> >> upstream:
+>> >>
+>> >> 1,1,1: 42267 Mbps, 301 Gcyc
+>> >> 1,0,2: 40663 Mbps, 445 Gcyc
+>> >>
+>> >> napi tx:
+>> >>
+>> >> 1,1,1: 42420 Mbps, 303 Gcyc
+>> >> 1,0,2:  42267 Mbps, 431 Gcyc
+>> >>
+>> >> These numbers were obtained with the virtqueue_enable_cb_delayed
+>> >> optimization after xmit_skb, btw. It turns out that moving that before
+>> >> increases 1x TCP_RR further to ~39 Gbps, at the cost of reducing
+>> >> 100x TCP_RR a bit.
+>> >
+>> >
+>> > I see, so I think we can leave the affinity hint optimization/check for
+>> > future investigation:
+>> >
+>> > - to avoid endless optimization (e.g we may want to share a single
+>> > vector/napi for tx/rx queue pairs in the future) for this series.
+>> > - tx napi is disabled by default which means we can do optimization on top.
+>>
+>> Okay. I'll drop the vi->affinity_hint_set from the patch set for now.
+>
+> I kind of like it, let's be conservative. But I'd prefer a comment
+> near it explaining why it's there.
 
-We already have at least 16 unused bits in the used ring
-(head is 16 bit we are using 32 for it).
+I don't feel strongly. Was minutes away from sending a v3 with this
+code reverted, but I'll reinstate it and add a comment. Other planned
+changes based on Jason's feedback to v2:
 
--- 
-MST
+  v2 -> v3:
+    - convert __netif_tx_trylock to __netif_tx_lock on tx napi poll
+          ensure that the handler always cleans, to avoid deadlock
+    - unconditionally clean in start_xmit
+          avoid adding an unnecessary "if (use_napi)" branch
+    - remove virtqueue_disable_cb in patch 5/5
+          a noop in the common event_idx based loop
