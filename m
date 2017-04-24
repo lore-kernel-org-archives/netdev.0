@@ -1,85 +1,47 @@
-From: Alexander Potapenko <glider@google.com>
-Subject: [PATCH v2] net/packet: initialize val in packet_getsockopt()
-Date: Mon, 24 Apr 2017 14:59:14 +0200
-Message-ID: <20170424125914.43270-1-glider@google.com>
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: dvyukov@google.com, kcc@google.com, edumazet@google.com,
-        davem@davemloft.net, kuznet@ms2.inr.ac.ru
+From: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
+Subject: [PATCH net v1 1/2] tipc: fix socket flow control accounting error at tipc_send_stream
+Date: Mon, 24 Apr 2017 15:00:42 +0200
+Message-ID: <1493038843-30621-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <tipc-discussion@lists.sourceforge.net>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f180.google.com ([209.85.128.180]:34358 "EHLO
-        mail-wr0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1170447AbdDXM7U (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 08:59:20 -0400
-Received: by mail-wr0-f180.google.com with SMTP id z109so91298329wrb.1
-        for <netdev@vger.kernel.org>; Mon, 24 Apr 2017 05:59:19 -0700 (PDT)
+Received: from sesbmg23.ericsson.net ([193.180.251.37]:42358 "EHLO
+        sesbmg23.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1170464AbdDXNDD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 09:03:03 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In the case getsockopt() is called with PACKET_HDRLEN and optlen < 4
-|val| remains uninitialized and the syscall may behave differently
-depending on its value. This doesn't have security consequences (as the
-uninit bytes aren't copied back), but it's still cleaner to initialize
-|val| and ensure optlen is not less than sizeof(int).
+Until now in tipc_send_stream(), we return -1 when the socket
+encounters link congestion even if the socket had successfully
+sent partial data. This is incorrect as the application resends
+the same the partial data leading to data corruption at
+receiver's end.
 
-This bug has been detected with KMSAN.
+In this commit, we return the partially sent bytes as the return
+value at link congestion.
 
-Signed-off-by: Alexander Potapenko <glider@google.com>
+Fixes: 10724cc7bb78 ("tipc: redesign connection-level flow control")
+Signed-off-by: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
+Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
 ---
-v2: - if len < sizeof(int), make it 0
+ net/tipc/socket.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-KMSAN report below:
-
-==================================================================
-BUG: KMSAN: use of unitialized memory in packet_getsockopt+0xb9b/0xbe0
-inter: 0
-CPU: 0 PID: 1036 Comm: probe Tainted: G    B           4.11.0-rc5+ #2444
-Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
-Call Trace:
- __dump_stack lib/dump_stack.c:16
- dump_stack+0x143/0x1b0 lib/dump_stack.c:52
- kmsan_report+0x16b/0x1e0 mm/kmsan/kmsan.c:1078
- __kmsan_warning_32+0x5c/0xa0 mm/kmsan/kmsan_instr.c:510
- packet_getsockopt+0xb9b/0xbe0 net/packet/af_packet.c:3839
- SYSC_getsockopt+0x495/0x540 net/socket.c:1829
- SyS_getsockopt+0xb0/0xd0 net/socket.c:1811
- entry_SYSCALL_64_fastpath+0x13/0x94 arch/x86/entry/entry_64.S:204
-RIP: 0033:0x436d8a
-RSP: 002b:00007ffce54e52c8 EFLAGS: 00000203 ORIG_RAX: 0000000000000037
-RAX: ffffffffffffffda RBX: 0000000000000000 RCX: 0000000000436d8a
-RDX: 000000000000000b RSI: 0000000000000107 RDI: 0000000000000003
-RBP: 00007ffce54e52b0 R08: 00007ffce54e52d8 R09: 0000000000000004
-R10: 00007ffce54e52d4 R11: 0000000000000203 R12: 00007ffce54e53c8
-R13: 00007ffce54e53d8 R14: 0000000000000002 R15: 0000000000000000
-origin description: ----val@packet_getsockopt (origin=00000000f6600052)
-local variable created at:
- packet_getsockopt+0xcd/0xbe0 net/packet/af_packet.c:3789
- SYSC_getsockopt+0x495/0x540 net/socket.c:1829
-==================================================================
----
- net/packet/af_packet.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
-
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 8489beff5c25..dfc762df5da9 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -3787,7 +3787,7 @@ static int packet_getsockopt(struct socket *sock, int level, int optname,
- 			     char __user *optval, int __user *optlen)
- {
- 	int len;
--	int val, lv = sizeof(val);
-+	int val = 0, lv = sizeof(val);
- 	struct sock *sk = sock->sk;
- 	struct packet_sock *po = pkt_sk(sk);
- 	void *data = &val;
-@@ -3836,6 +3836,8 @@ static int packet_getsockopt(struct socket *sock, int level, int optname,
- 	case PACKET_HDRLEN:
- 		if (len > sizeof(int))
- 			len = sizeof(int);
-+		if (len < sizeof(int))
-+			len = 0;
- 		if (copy_from_user(&val, optval, len))
- 			return -EFAULT;
- 		switch (val) {
+diff --git a/net/tipc/socket.c b/net/tipc/socket.c
+index 7130e73bd42c..b28e94f1c739 100644
+--- a/net/tipc/socket.c
++++ b/net/tipc/socket.c
+@@ -1083,7 +1083,7 @@ static int __tipc_sendstream(struct socket *sock, struct msghdr *m, size_t dlen)
+ 		}
+ 	} while (sent < dlen && !rc);
+ 
+-	return rc ? rc : sent;
++	return sent ? sent : rc;
+ }
+ 
+ /**
 -- 
-2.12.2.816.g2cccc81164-goog
+2.1.4
