@@ -1,45 +1,33 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH net-next 0/2] flower: add MPLS matching support
-Date: Mon, 24 Apr 2017 21:25:27 -0400
-Message-ID: <21a6a034-31e2-b74e-731c-33f2e41f6546@mojatatu.com>
-References: <1492894367-11637-1-git-send-email-benjamin.lahaise@netronome.com>
- <20170424.143257.1003081554810761464.davem@davemloft.net>
- <d54cca4b-6212-bf7d-93e2-8314177df42c@mojatatu.com>
- <20170425010558.GC24425@nvt-d.home.kvack.org>
+From: "IT Department" <"gomathy."@careind.net>
+Subject: MONTHLY UPDATE
+Date: Tue, 25 Apr 2017 00:17:28 +0100
+Message-ID: <20170424230915.644FC2860D7F@cams.careind.net>
+Reply-To: lisaquam011@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-        bcrl@kvack.org, Jiri Pirko <jiri@resnulli.us>
-To: Benjamin LaHaise <benjamin.lahaise@netronome.com>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 8BIT
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f171.google.com ([209.85.223.171]:33653 "EHLO
-        mail-io0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S979686AbdDYBZg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 21:25:36 -0400
-Received: by mail-io0-f171.google.com with SMTP id k87so207772776ioi.0
-        for <netdev@vger.kernel.org>; Mon, 24 Apr 2017 18:25:35 -0700 (PDT)
-In-Reply-To: <20170425010558.GC24425@nvt-d.home.kvack.org>
+Received: from cams.careind.net ([1.23.164.19]:55011 "EHLO cams.careind.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S979692AbdDYBZu (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 24 Apr 2017 21:25:50 -0400
+Received: from localhost (localhost.localdomain [127.0.0.1])
+        by cams.careind.net (Postfix) with ESMTP id E906D286059F
+        for <netdev@vger.kernel.org>; Tue, 25 Apr 2017 04:44:02 +0530 (IST)
+Received: from cams.careind.net ([127.0.0.1])
+        by localhost (cams.careind.net [127.0.0.1]) (amavisd-new, port 10024)
+        with ESMTP id OjP9tFPDs8Ni for <netdev@vger.kernel.org>;
+        Tue, 25 Apr 2017 04:44:02 +0530 (IST)
+Received: from [192.168.10.100] (unknown [192.168.0.31])
+        by cams.careind.net (Postfix) with ESMTPSA id 644FC2860D7F
+        for <netdev@vger.kernel.org>; Tue, 25 Apr 2017 04:39:15 +0530 (IST)
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17-04-24 09:05 PM, Benjamin LaHaise wrote:
-> On Mon, Apr 24, 2017 at 08:58:18PM -0400, Jamal Hadi Salim wrote:
->> On 17-04-24 02:32 PM, David Miller wrote:
+Recently, we have detect some unusual activity on your account and as a result, all email users are urged to update their email account within 24 hours of receiving this e-mail, please click the link http://beam.to/6128 to confirm that your email account is up to date with the institution requirement.
 
->> You have 3 TLVs, one of which is u8 that only allows use of 3 bits.
->> The other is a u32 which allows only 20 bits to be set.
->
-> What are the new rules for TLVs -- do you want a new type added for the
-> subset values that are limited to the number of bits actually used?  A
-> pointed here would be helpful.
->
-
-The rules are to check for bits that are not used.
-For example in the BOS TLV it would be required to
-verify that the user did not set any other bit other than the
-bos field. It is required to reject the whole thing if the user
-set any other of the u8 bits.
-
-cheers,
-jamal
+---
+This email has been checked for viruses by Avast antivirus software.
+https://www.avast.com/antivirus
