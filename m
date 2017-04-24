@@ -1,65 +1,34 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Blogpost evaluation this [PATCH v4 net-next RFC] net: Generic XDP
-Date: Mon, 24 Apr 2017 16:24:05 +0200
-Message-ID: <20170424162405.1183f2e7@redhat.com>
-References: <20170413.120925.2082322246776478766.davem@davemloft.net>
+From: Christoph Hellwig <hch@lst.de>
+Subject: Re: [PATCH 5/7] IB/hfi1: use pcie_flr instead of duplicating it
+Date: Mon, 24 Apr 2017 16:35:07 +0200
+Message-ID: <20170424143507.GA28812@lst.de>
+References: <20170414191131.14286-1-hch@lst.de> <20170414191131.14286-6-hch@lst.de> <A33E225544E47D4DB5713032774B132783960382@irsmsx105.ger.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, brouer@redhat.com,
-        Andy Gospodarek <andy@greyhouse.net>
-To: David Miller <davem@davemloft.net>, xdp-newbies@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:57852 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1764064AbdDXOYM (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 24 Apr 2017 10:24:12 -0400
-In-Reply-To: <20170413.120925.2082322246776478766.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Christoph Hellwig <hch@lst.de>,
+        Bjorn Helgaas <bhelgaas@google.com>,
+        "Cabiddu, Giovanni" <giovanni.cabiddu@intel.com>,
+        "Benedetto, Salvatore" <salvatore.benedetto@intel.com>,
+        "Marciniszyn, Mike" <mike.marciniszyn@intel.com>,
+        "Dalessandro, Dennis" <dennis.dalessandro@intel.com>,
+        Derek Chickles <derek.chickles@caviumnetworks.com>,
+        Satanand Burla <satananda.burla@caviumnetworks.com>,
+        Felix Manlunas <felix.manlunas@caviumnetworks.com>,
+        Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>,
+        "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+        "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+        qat-linux <qat-linux@intel.com>,
+        "linux-crypto@vger.kernel.org" <linux-crypto@vger.kernel.org>,
+        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
+        "netdev@vger.kernel.or
+To: "Byczkowski, Jakub" <jakub.byczkowski@intel.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <A33E225544E47D4DB5713032774B132783960382@irsmsx105.ger.corp.intel.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Mon, Apr 24, 2017 at 02:16:31PM +0000, Byczkowski, Jakub wrote:
+> Tested-by: Jakub Byczkowski <jakub.byczkowski@intel.com>
 
-I've done a very detailed evaluation of this patch, and I've created a
-blogpost like report here:
-
- https://prototype-kernel.readthedocs.io/en/latest/blogposts/xdp25_eval_generic_xdp_tx.html
-
-I didn't evaluate the adjust_head part, so I hope Andy is still
-planning to validate that part?
-
---Jesper
-
-
-
-On Thu, 13 Apr 2017 12:09:25 -0400 (EDT)
-David Miller <davem@davemloft.net> wrote:
-
-> This provides a generic SKB based non-optimized XDP path which is used
-> if either the driver lacks a specific XDP implementation, or the user
-> requests it via a new IFLA_XDP_FLAGS value named XDP_FLAGS_SKB_MODE.
-> 
-> It is arguable that perhaps I should have required something like
-> this as part of the initial XDP feature merge.
-> 
-> I believe this is critical for two reasons:
-> 
-> 1) Accessibility.  More people can play with XDP with less
->    dependencies.  Yes I know we have XDP support in virtio_net, but
->    that just creates another depedency for learning how to use this
->    facility.
-> 
->    I wrote this to make life easier for the XDP newbies.
-> 
-> 2) As a model for what the expected semantics are.  If there is a pure
->    generic core implementation, it serves as a semantic example for
->    driver folks adding XDP support.
-> 
-> This is just a rough draft and is untested.
-
-
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
+Are you (and Doug) ok with queueing this up in the PCI tree?
