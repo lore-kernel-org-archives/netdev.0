@@ -1,173 +1,106 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH RFC] ptr_ring: add ptr_ring_unconsume
-Date: Mon, 24 Apr 2017 15:00:10 +0300
-Message-ID: <20170424145632-mutt-send-email-mst@kernel.org>
-References: <1492384496-22644-1-git-send-email-mst@redhat.com>
- <0defb746-3d4b-14b3-1ad7-82842048ebba@redhat.com>
- <20170424022711-mutt-send-email-mst@kernel.org>
- <21a19608-40be-38d4-9843-088a273fd71a@redhat.com>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH net] bridge: shutdown bridge device before removing it
+Date: Mon, 24 Apr 2017 15:07:26 +0300
+Message-ID: <6144408f-4cfd-dd87-7444-8c61269b105a@cumulusnetworks.com>
+References: <a8b2b2c876f416431dac031a0beb7ce079c7d0a9.1493018730.git.lucien.xin@gmail.com>
+ <3d77b47d-c8c3-de57-946e-59096a88964e@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Jason Wang <jasowang@redhat.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        "bridge@lists.linux-foundation.org"
+        <bridge@lists.linux-foundation.org>
+To: Xin Long <lucien.xin@gmail.com>,
+        network dev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:58504 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1169169AbdDXMAy (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 24 Apr 2017 08:00:54 -0400
-Content-Disposition: inline
-In-Reply-To: <21a19608-40be-38d4-9843-088a273fd71a@redhat.com>
+Received: from mail-wr0-f178.google.com ([209.85.128.178]:32803 "EHLO
+        mail-wr0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1169486AbdDXMH3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 08:07:29 -0400
+Received: by mail-wr0-f178.google.com with SMTP id w50so67016005wrc.0
+        for <netdev@vger.kernel.org>; Mon, 24 Apr 2017 05:07:28 -0700 (PDT)
+In-Reply-To: <3d77b47d-c8c3-de57-946e-59096a88964e@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 24, 2017 at 07:54:18PM +0800, Jason Wang wrote:
+On 24/04/17 14:01, Nikolay Aleksandrov wrote:
+> On 24/04/17 10:25, Xin Long wrote:
+>> During removing a bridge device, if the bridge is still up, a new mdb entry
+>> still can be added in br_multicast_add_group() after all mdb entries are
+>> removed in br_multicast_dev_del(). Like the path:
+>>
+>>   mld_ifc_timer_expire ->
+>>     mld_sendpack -> ...
+>>       br_multicast_rcv ->
+>>         br_multicast_add_group
+>>
+>> The new mp's timer will be set up. If the timer expires after the bridge
+>> is freed, it may cause use-after-free panic in br_multicast_group_expired.
+>> This can happen when ip link remove a bridge or destroy a netns with a
+>> bridge device inside.
+>>
+>> As we can see in br_del_bridge, brctl is also supposed to remove a bridge
+>> device after it's shutdown.
+>>
+>> This patch is to call dev_close at the beginning of br_dev_delete so that
+>> netif_running check in br_multicast_add_group can avoid this issue. But
+>> to keep consistent with before, it will not remove the IFF_UP check in
+>> br_del_bridge for brctl.
+>>
+>> Reported-by: Jianwen Ji <jiji@redhat.com>
+>> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+>> ---
+>>  net/bridge/br_if.c | 2 ++
+>>  1 file changed, 2 insertions(+)
+>>
+> 
+> +CC bridge maintainers
+> 
+> I can see how this could happen, could you also provide the traceback ?
+> 
+> The patch looks good to me, actually I think it fixes another issue with
+> mcast stats where the percpu pointer can be accessed after it's freed if
+> an mcast packet can get sent via br->dev after the br_multicast_dev_del() call.
+> This is definitely stable material, if I'm not mistaken the issue is there since
+> the introduction of br_dev_delete:
+> commit e10177abf842
+> Author: Satish Ashok <sashok@cumulusnetworks.com>
+> Date:   Wed Jul 15 07:16:51 2015 -0700
+> 
+>     bridge: multicast: fix handling of temp and perm entries
 > 
 > 
-> On 2017年04月24日 07:28, Michael S. Tsirkin wrote:
-> > On Tue, Apr 18, 2017 at 11:07:42AM +0800, Jason Wang wrote:
-> > > 
-> > > On 2017年04月17日 07:19, Michael S. Tsirkin wrote:
-> > > > Applications that consume a batch of entries in one go
-> > > > can benefit from ability to return some of them back
-> > > > into the ring.
-> > > > 
-> > > > Add an API for that - assuming there's space. If there's no space
-> > > > naturally we can't do this and have to drop entries, but this implies
-> > > > ring is full so we'd likely drop some anyway.
-> > > > 
-> > > > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> > > > ---
-> > > > 
-> > > > Jason, in my mind the biggest issue with your batching patchset is the
-> > > > backet drops on disconnect.  This API will help avoid that in the common
-> > > > case.
-> > > Ok, I will rebase the series on top of this. (Though I don't think we care
-> > > the packet loss).
-> > E.g. I care - I often start sending packets to VM before it's
-> > fully booted. Several vhost resets might follow.
 > 
-> Ok.
+> Acked-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 > 
-> > 
-> > > > I would still prefer that we understand what's going on,
-> > > I try to reply in another thread, does it make sense?
-> > > 
-> > > >    and I would
-> > > > like to know what's the smallest batch size that's still helpful,
-> > > Yes, I've replied in another thread, the result is:
-> > > 
-> > > 
-> > > no batching   1.88Mpps
-> > > RX_BATCH=1    1.93Mpps
-> > > RX_BATCH=4    2.11Mpps
-> > > RX_BATCH=16   2.14Mpps
-> > > RX_BATCH=64   2.25Mpps
-> > > RX_BATCH=256  2.18Mpps
-> > Essentially 4 is enough, other stuf looks more like noise
-> > to me. What about 2?
-> 
-> The numbers are pretty stable, so probably not noise. Retested on top of
-> batch zeroing:
-> 
-> no  1.97Mpps
-> 1   2.09Mpps
-> 2   2.11Mpps
-> 4   2.16Mpps
-> 8   2.19Mpps
-> 16  2.21Mpps
-> 32  2.25Mpps
-> 64  2.30Mpps
-> 128 2.21Mpps
-> 256 2.21Mpps
-> 
-> 64 performs best.
-> 
-> Thanks
 
-OK but it might be e.g. a function of the ring size, host cache size or
-whatever. As we don't really understand the why, if we just optimize for
-your setup we risk regressions in others.  64 entries is a lot, it
-increases the queue size noticeably.  Could this be part of the effect?
-Could you try changing the queue size to see what happens?
+Actually I have a better idea for a fix because dev_close() for a single device is rather heavy.
+Why don't you move the mdb flush logic in the bridge's ndo_uninit() callback ?
+That should have the same effect and be much faster.
 
-> > 
-> > > >    but
-> > > > I'm not going to block the patch on these grounds assuming packet drops
-> > > > are fixed.
-> > > Thanks a lot.
-> > > 
-> > > > Lightly tested - this is on top of consumer batching patches.
-> > > > 
-> > > > Thanks!
-> > > > 
-> > > >    include/linux/ptr_ring.h | 57 ++++++++++++++++++++++++++++++++++++++++++++++++
-> > > >    1 file changed, 57 insertions(+)
-> > > > 
-> > > > diff --git a/include/linux/ptr_ring.h b/include/linux/ptr_ring.h
-> > > > index 783e7f5..5fbeab4 100644
-> > > > --- a/include/linux/ptr_ring.h
-> > > > +++ b/include/linux/ptr_ring.h
-> > > > @@ -457,6 +457,63 @@ static inline int ptr_ring_init(struct ptr_ring *r, int size, gfp_t gfp)
-> > > >    	return 0;
-> > > >    }
-> > > > +/*
-> > > > + * Return entries into ring. Destroy entries that don't fit.
-> > > > + *
-> > > > + * Note: this is expected to be a rare slow path operation.
-> > > > + *
-> > > > + * Note: producer lock is nested within consumer lock, so if you
-> > > > + * resize you must make sure all uses nest correctly.
-> > > > + * In particular if you consume ring in interrupt or BH context, you must
-> > > > + * disable interrupts/BH when doing so.
-> > > > + */
-> > > > +static inline void ptr_ring_unconsume(struct ptr_ring *r, void **batch, int n,
-> > > > +				      void (*destroy)(void *))
-> > > > +{
-> > > > +	unsigned long flags;
-> > > > +	int head;
-> > > > +
-> > > > +	spin_lock_irqsave(&(r)->consumer_lock, flags);
-> > > > +	spin_lock(&(r)->producer_lock);
-> > > > +
-> > > > +	if (!r->size)
-> > > > +		goto done;
-> > > > +
-> > > > +	/*
-> > > > +	 * Clean out buffered entries (for simplicity). This way following code
-> > > > +	 * can test entries for NULL and if not assume they are valid.
-> > > > +	 */
-> > > > +	head = r->consumer_head - 1;
-> > > > +	while (likely(head >= r->consumer_tail))
-> > > > +		r->queue[head--] = NULL;
-> > > > +	r->consumer_tail = r->consumer_head;
-> > > > +
-> > > > +	/*
-> > > > +	 * Go over entries in batch, start moving head back and copy entries.
-> > > > +	 * Stop when we run into previously unconsumed entries.
-> > > > +	 */
-> > > > +	while (n--) {
-> > > > +		head = r->consumer_head - 1;
-> > > > +		if (head < 0)
-> > > > +			head = r->size - 1;
-> > > > +		if (r->queue[head]) {
-> > > > +			/* This batch entry will have to be destroyed. */
-> > > > +			++n;
-> > > > +			goto done;
-> > > > +		}
-> > > > +		r->queue[head] = batch[n];
-> > > > +		r->consumer_tail = r->consumer_head = head;
-> > > > +	}
-> > > > +
-> > > > +done:
-> > > > +	/* Destroy all entries left in the batch. */
-> > > > +	while (n--) {
-> > > > +		destroy(batch[n]);
-> > > > +	}
-> > > > +	spin_unlock(&(r)->producer_lock);
-> > > > +	spin_unlock_irqrestore(&(r)->consumer_lock, flags);
-> > > > +}
-> > > > +
-> > > >    static inline void **__ptr_ring_swap_queue(struct ptr_ring *r, void **queue,
-> > > >    					   int size, gfp_t gfp,
-> > > >    					   void (*destroy)(void *))
+By the way I just noticed that there's also a memory leak - the mdb hash is reallocated
+and not freed due to the mdb rehash, here's also kmemleak's object:
+
+unreferenced object 0xffff8800540ba800 (size 2048):
+  comm "softirq", pid 0, jiffies 4520588901 (age 5787.284s)
+  hex dump (first 32 bytes):
+    00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+    00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  backtrace:
+    [<ffffffff816e2287>] kmemleak_alloc+0x67/0xc0
+    [<ffffffff81260bea>] __kmalloc+0x1ba/0x3e0
+    [<ffffffffa05c60ee>] br_mdb_rehash+0x5e/0x340 [bridge]
+    [<ffffffffa05c74af>] br_multicast_new_group+0x43f/0x6e0 [bridge]
+    [<ffffffffa05c7aa3>] br_multicast_add_group+0x203/0x260 [bridge]
+    [<ffffffffa05ca4b5>] br_multicast_rcv+0x945/0x11d0 [bridge]
+    [<ffffffffa05b6b10>] br_dev_xmit+0x180/0x470 [bridge]
+    [<ffffffff815c781b>] dev_hard_start_xmit+0xbb/0x3d0
+    [<ffffffff815c8743>] __dev_queue_xmit+0xb13/0xc10
+    [<ffffffff815c8850>] dev_queue_xmit+0x10/0x20
+    [<ffffffffa02f8d7a>] ip6_finish_output2+0x5ca/0xac0 [ipv6]
+    [<ffffffffa02fbfc6>] ip6_finish_output+0x126/0x2c0 [ipv6]
+    [<ffffffffa02fc245>] ip6_output+0xe5/0x390 [ipv6]
+    [<ffffffffa032b92c>] NF_HOOK.constprop.44+0x6c/0x240 [ipv6]
+    [<ffffffffa032bd16>] mld_sendpack+0x216/0x3e0 [ipv6]
+    [<ffffffffa032d5eb>] mld_ifc_timer_expire+0x18b/0x2b0 [ipv6]
