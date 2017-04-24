@@ -1,55 +1,96 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 07/29] x86: bpf_jit, use ENTRY+ENDPROC
-Date: Mon, 24 Apr 2017 11:08:44 -0400 (EDT)
-Message-ID: <20170424.110844.1321374394090353753.davem@davemloft.net>
-References: <697947f4-0a2c-1480-0995-9919556dc020@suse.cz>
-        <20170424.104132.950580313142367896.davem@davemloft.net>
-        <f7a94f4e-6d93-a447-a62f-3f290e66c647@suse.cz>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: alexei.starovoitov@gmail.com, mingo@redhat.com, tglx@linutronix.de,
-        hpa@zytor.com, x86@kernel.org, jpoimboe@redhat.com,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        daniel@iogearbox.net, edumazet@google.com
-To: jslaby@suse.cz
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH v3 net] net: ipv6: regenerate host route if moved to gc list
+Date: Mon, 24 Apr 2017 08:09:09 -0700
+Message-ID: <1493046549-17420-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: dvyukov@google.com, andreyknvl@google.com, mmanning@brocade.com,
+        kafai@fb.com, David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:49808 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1171891AbdDXPIr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 11:08:47 -0400
-In-Reply-To: <f7a94f4e-6d93-a447-a62f-3f290e66c647@suse.cz>
+Received: from mail-pf0-f173.google.com ([209.85.192.173]:33354 "EHLO
+        mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1171750AbdDXPJQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 11:09:16 -0400
+Received: by mail-pf0-f173.google.com with SMTP id a188so13721606pfa.0
+        for <netdev@vger.kernel.org>; Mon, 24 Apr 2017 08:09:16 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Slaby <jslaby@suse.cz>
-Date: Mon, 24 Apr 2017 16:52:43 +0200
+Taking down the loopback device wreaks havoc on IPv6 routing. By
+extension, taking down a VRF device wreaks havoc on its table.
 
-> On 04/24/2017, 04:41 PM, David Miller wrote:
->>> It cannot stay as-is simply because we want to know where the functions
->>> end to inject debuginfo properly. The code above does not warrant for
->>> any exception.
->> 
->> I totally and completely disagree.
-> 
-> You can disagree as you wish but there is really nothing special on the
-> bpf code with respect to annotations.
-> 
->>> Executing a nop takes a little and having externally-callable functions
->>> aligned can actually help performance (no, I haven't measured nor tested
->>> the code). But sure, the tool is generic, so I can introduce a local
->>> macros to avoid alignments in the functions:
->> 
->> Not for this case, it's a bunch of entry points all packed together
->> intentionally so that SKB accesses of different access sizes (which is
->> almost always the case) from BPF programs use the smallest amount of
->> I-cache as possible.
-> 
-> And for that reason I suggested the special macros for the code (see the
-> macros in the e-mail you replied to again). So what problem do you
-> actually have with the suggested solution?
+Dmitry and Andrey both reported heap out-of-bounds reports in the IPv6
+FIB code while running syzkaller fuzzer. The root cause is a dead dst
+that is on the garbage list gets reinserted into the IPv6 FIB. While on
+the gc (or perhaps when it gets added to the gc list) the dst->next is
+set to an IPv4 dst. A subsequent walk of the ipv6 tables causes the
+out-of-bounds access.
 
-If you align the entry points, then the code sequence as a whole is
-are no longer densely packed.
+Andrey's reproducer was the key to getting to the bottom of this.
 
-Or do I misunderstand how your macros work?
+With IPv6, host routes for an address have the dst->dev set to the
+loopback device. When the 'lo' device is taken down, rt6_ifdown initiates
+a walk of the fib evicting routes with the 'lo' device which means all
+host routes are removed. That process moves the dst which is attached to
+an inet6_ifaddr to the gc list and marks it as dead.
+
+The recent change to keep global IPv6 addresses added a new function,
+fixup_permanent_addr, that is called on admin up. That function restarts
+dad for an inet6_ifaddr and when it completes the host route attached
+to it is inserted into the fib. Since the route was marked dead and
+moved to the gc list, re-inserting the route causes the reported
+out-of-bounds accesses. If the device with the address is taken down
+or the address is removed, the WARN_ON in fib6_del is triggered.
+
+All of those faults are fixed by regenerating the host route if the
+existing one has been moved to the gc list, something that can be
+determined by checking if the rt6i_ref counter is 0.
+
+Fixes: f1705ec197e7 ("net: ipv6: Make address flushing on ifdown optional")
+Reported-by: Dmitry Vyukov <dvyukov@google.com>
+Reported-by: Andrey Konovalov <andreyknvl@google.com>
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+---
+v3
+- removed 'if (prev)' and just call ip6_rt_put; added comment about spinlock
+
+v2
+- change ifp->rt under spinlock vs cmpxchg
+- add comment about rt6i_ref == 0
+
+ net/ipv6/addrconf.c | 15 +++++++++++++--
+ 1 file changed, 13 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 80ce478c4851..93f81d9cd85f 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -3271,14 +3271,25 @@ static void addrconf_gre_config(struct net_device *dev)
+ static int fixup_permanent_addr(struct inet6_dev *idev,
+ 				struct inet6_ifaddr *ifp)
+ {
+-	if (!ifp->rt) {
+-		struct rt6_info *rt;
++	/* rt6i_ref == 0 means the host route was removed from the
++	 * FIB, for example, if 'lo' device is taken down. In that
++	 * case regenerate the host route.
++	 */
++	if (!ifp->rt || !atomic_read(&ifp->rt->rt6i_ref)) {
++		struct rt6_info *rt, *prev;
+ 
+ 		rt = addrconf_dst_alloc(idev, &ifp->addr, false);
+ 		if (unlikely(IS_ERR(rt)))
+ 			return PTR_ERR(rt);
+ 
++		prev = ifp->rt;
++
++		/* ifp->rt can be accessed outside of rtnl */
++		spin_lock(&ifp->lock);
+ 		ifp->rt = rt;
++		spin_unlock(&ifp->lock);
++
++		ip6_rt_put(prev);
+ 	}
+ 
+ 	if (!(ifp->flags & IFA_F_NOPREFIXROUTE)) {
+-- 
+2.1.4
