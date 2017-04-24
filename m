@@ -1,76 +1,62 @@
 From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH net-next v5 1/2] net sched actions: dump more than
+Subject: Re: [PATCH net-next v4 1/2] net sched actions: dump more than
  TCA_ACT_MAX_PRIO actions per batch
-Date: Mon, 24 Apr 2017 08:49:00 -0400
-Message-ID: <2ca4266f-a164-d2ad-37fa-45f7ae354eb8@mojatatu.com>
-References: <1492693582-26810-1-git-send-email-jhs@emojatatu.com>
- <1492693582-26810-2-git-send-email-jhs@emojatatu.com>
- <20170420135915.GE1886@nanopsycho.orion>
- <a0d70dc5-b0cb-c54e-7d98-93099b68c247@mojatatu.com>
- <20170420142453.GF1886@nanopsycho.orion>
- <20170424091455.GA25218@vergenet.net>
+Date: Mon, 24 Apr 2017 08:54:19 -0400
+Message-ID: <f2ca8953-ba18-3593-aaf2-13b474574147@mojatatu.com>
+References: <20170421.113800.1367091481085913667.davem@davemloft.net>
+ <c2d61246-b92d-efef-cd07-005f8a8dacc0@mojatatu.com>
+ <758ff636-365f-6180-9353-69da5d339a3a@mojatatu.com>
+ <20170421.121217.1268145592512455181.davem@davemloft.net>
+ <c6333422-ae6d-149c-09ec-c5dfb43d68b3@mojatatu.com>
+ <20170424092754.GB25218@vergenet.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, xiyou.wangcong@gmail.com,
-        eric.dumazet@gmail.com, netdev@vger.kernel.org,
-        Tom Herbert <tom@herbertland.com>,
-        Pablo Neira Ayuso <pablo@netfilter.org>
-To: Simon Horman <simon.horman@netronome.com>,
-        Jiri Pirko <jiri@resnulli.us>
+Cc: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
+        jiri@resnulli.us, netdev@vger.kernel.org, xiyou.wangcong@gmail.com
+To: Simon Horman <simon.horman@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f194.google.com ([209.85.223.194]:33180 "EHLO
-        mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1170130AbdDXMtE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 08:49:04 -0400
-Received: by mail-io0-f194.google.com with SMTP id k87so48857837ioi.0
-        for <netdev@vger.kernel.org>; Mon, 24 Apr 2017 05:49:04 -0700 (PDT)
-In-Reply-To: <20170424091455.GA25218@vergenet.net>
+Received: from mail-it0-f66.google.com ([209.85.214.66]:33308 "EHLO
+        mail-it0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1170316AbdDXMyW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 08:54:22 -0400
+Received: by mail-it0-f66.google.com with SMTP id z67so17039477itb.0
+        for <netdev@vger.kernel.org>; Mon, 24 Apr 2017 05:54:21 -0700 (PDT)
+In-Reply-To: <20170424092754.GB25218@vergenet.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17-04-24 05:14 AM, Simon Horman wrote:
-[..]
+On 17-04-24 05:27 AM, Simon Horman wrote:
+> On Fri, Apr 21, 2017 at 02:11:00PM -0400, Jamal Hadi Salim wrote:
+>> On 17-04-21 12:12 PM, David Miller wrote:
 
-> Jamal, I am confused about why are you so concerned about the space
-> consumed by this attribute, it's per-message, right? Is it the bigger
-> picture you are worried about - a similar per-entry flag at some point in
-> the future?
+>
+> From my PoV, for #d user-space has to either get smart or fail.
+>
+> Creating new tc involved work in order to support the new feature.
+> Part of that work would be a decision weather or not to provide
+> compatibility for old kernel or to bail out gracefully.
+>
 
+But not that much work as is being ascribed now.
+This is a big change to user space code. Are we planning to
+change all netlink apps (everything in iproute2) to now discover
+by testing whether their flags are accepted or not? One extra
+crossing to the kernel just to test the waters.
 
-To me the two worries are one and the same.
-
-Jiri strongly believes (from a big picture view) we must use
-TLVs for extensibility.
-While I agree with him in general i have strong reservations
-in this case because i can get both extensibility and
-build for performance with using a flag bitmask as the
-content of the TLV.
-
-A TLV consumes 64 bits minimum. It doesnt matter if we decide
-to use a u8 or a u16, we are still sending 64 bits on that
-TLV with the rest being PADding. Not to be melodramatic, but
-the worst case scenario of putting everything in a TLV for 32
-flags is using about 30x more space than using a bitmask.
-
-Yes, space is important and if i can express upto 32 flags
-with one TLV rather than 32 TLVs i choose one TLV.
-I am always looking for ways to filter out crap i dont need
-when i do stats collection. I have numerous wounds from fdb
-entries which decided to use a TLV per flag.
-
-The design approach we have used in netlink is: flags start
-as a bitmap (whether they are on main headers or TLVs); they may be
-complemented with a bitmask/selector (refer to IFLINK messages).
-
-Lets look at this specific patch I have sending. I have already
-changed it 3 times and involved a churn of 3 different flags.
-If you asked me in the beggining i wouldve scratched my head
-thinking for a near term use for bit #3, #4 etc,
-
-I am fine with the counter-Postel view of having the kernel
-validate that appropriate bits are set as long as we dont make
-user space to now start learning how to play acrobatics.
+I think there's a middle ground and see which idea takes off.
+Refer to the last patch I sent which implements the idea below.
 
 cheers,
 jamal
+
+>> There is a simpler approach that would work going forward.
+>> How about letting the user choose their fate? Set something maybe
+>> in the netlink header to tell the kernel "if you dont understand
+>> something I am asking for - please ignore it and do what you can".
+>> This would maintain current behavior but would force the user to
+>> explicitly state so.
+>>
+>> cheers,
+>> jamal
+>>
