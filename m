@@ -1,29 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Networking security fixes
-Date: Mon, 24 Apr 2017 16:07:54 -0400 (EDT)
-Message-ID: <20170424.160754.2119121657456029872.davem@davemloft.net>
-References: <1493063249.10415.78.camel@codethink.co.uk>
+Subject: Re: [PATCH 1/1] qlcnic: fix unchecked return value
+Date: Mon, 24 Apr 2017 16:11:16 -0400 (EDT)
+Message-ID: <20170424.161116.271050954695792950.davem@davemloft.net>
+References: <1492949044-23580-1-git-send-email-bianpan201602@163.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: stable@vger.kernel.org, netdev@vger.kernel.org
-To: ben.hutchings@codethink.co.uk
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1493063249.10415.78.camel@codethink.co.uk>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: harish.patil@cavium.com, manish.chopra@cavium.com,
+        Dept-GELinuxNICDev@cavium.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, bianpan2016@163.com
+To: bianpan201602@163.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:57174 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1174089AbdDXULS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 16:11:18 -0400
+In-Reply-To: <1492949044-23580-1-git-send-email-bianpan201602@163.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <ben.hutchings@codethink.co.uk>
-Date: Mon, 24 Apr 2017 20:47:29 +0100
+aFrom: Pan Bian <bianpan201602@163.com>
+Date: Sun, 23 Apr 2017 20:04:04 +0800
 
-> Please queue up these fixes for 4.10.y:
+> From: Pan Bian <bianpan2016@163.com>
 > 
-> 8605330aac5a tcp: fix SCM_TIMESTAMPING_OPT_STATS for normal skbs
-> 4ef1b2869447 tcp: mark skbs with SCM_TIMESTAMPING_OPT_STATS
+> Function pci_find_ext_capability() may return 0, which is an invalid
+> address. In function qlcnic_sriov_virtid_fn(), its return value is used
+> without validation. This may result in invalid memory access bugs. This
+> patch fixes the bug.
+> 
+> Signed-off-by: Pan Bian <bianpan2016@163.com>
 
-Ok, queued up, thanks.
-
-> Please can you also send the pending fixes to Greg soon, as the
-> AF_PACKET issue is quite serious?
-
-I will get to it as soon as I can.
+Applied.
