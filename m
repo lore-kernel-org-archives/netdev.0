@@ -1,62 +1,79 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH net-next v4 1/2] net sched actions: dump more than
- TCA_ACT_MAX_PRIO actions per batch
-Date: Mon, 24 Apr 2017 08:54:19 -0400
-Message-ID: <f2ca8953-ba18-3593-aaf2-13b474574147@mojatatu.com>
-References: <20170421.113800.1367091481085913667.davem@davemloft.net>
- <c2d61246-b92d-efef-cd07-005f8a8dacc0@mojatatu.com>
- <758ff636-365f-6180-9353-69da5d339a3a@mojatatu.com>
- <20170421.121217.1268145592512455181.davem@davemloft.net>
- <c6333422-ae6d-149c-09ec-c5dfb43d68b3@mojatatu.com>
- <20170424092754.GB25218@vergenet.net>
+From: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
+Subject: Re: [PATCH v4 13/18] arm64: allwinner: sun50i-a64: add
+ dwmac-sun8i Ethernet driver
+Date: Mon, 24 Apr 2017 20:58:44 +0800
+Message-ID: <CAGb2v66_=dPovgjh-t3ocsAkh7zMNJfa8aRJOUP59K=-zrVb-g@mail.gmail.com>
+References: <20170412111400.2296-1-clabbe.montjoie@gmail.com>
+ <20170412111400.2296-14-clabbe.montjoie@gmail.com> <20170412124153.q6zvdvqkroizaxgb@lukather>
+ <20170424122411.GA9349@Red>
+Reply-To: wens-jdAy2FN1RRM@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
-        jiri@resnulli.us, netdev@vger.kernel.org, xiyou.wangcong@gmail.com
-To: Simon Horman <simon.horman@netronome.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f66.google.com ([209.85.214.66]:33308 "EHLO
-        mail-it0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1170316AbdDXMyW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 08:54:22 -0400
-Received: by mail-it0-f66.google.com with SMTP id z67so17039477itb.0
-        for <netdev@vger.kernel.org>; Mon, 24 Apr 2017 05:54:21 -0700 (PDT)
-In-Reply-To: <20170424092754.GB25218@vergenet.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>, Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>,
+	Russell King <linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>, Catalin Marinas <catalin.marinas-5wv7dgnIgG8@public.gmane.org>,
+	Will Deacon <will.deacon-5wv7dgnIgG8@public.gmane.org>, Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>, alexandre.torgue-qxv4g6HH51o@public.gmane.org,
+	linux-sunxi <linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>, devicetree <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-arm-kernel <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+To: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-sunxi+bncBCMILY6JWQBBBHPN67DQKGQEG62EWBA-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+In-Reply-To: <20170424122411.GA9349@Red>
+List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <https://groups.google.com/group/linux-sunxi
+List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+ <https://groups.google.com/group/linux-sunxi/subscribe>
+List-Id: netdev.vger.kernel.org
 
-On 17-04-24 05:27 AM, Simon Horman wrote:
-> On Fri, Apr 21, 2017 at 02:11:00PM -0400, Jamal Hadi Salim wrote:
->> On 17-04-21 12:12 PM, David Miller wrote:
-
->
-> From my PoV, for #d user-space has to either get smart or fail.
->
-> Creating new tc involved work in order to support the new feature.
-> Part of that work would be a decision weather or not to provide
-> compatibility for old kernel or to bail out gracefully.
->
-
-But not that much work as is being ascribed now.
-This is a big change to user space code. Are we planning to
-change all netlink apps (everything in iproute2) to now discover
-by testing whether their flags are accepted or not? One extra
-crossing to the kernel just to test the waters.
-
-I think there's a middle ground and see which idea takes off.
-Refer to the last patch I sent which implements the idea below.
-
-cheers,
-jamal
-
->> There is a simpler approach that would work going forward.
->> How about letting the user choose their fate? Set something maybe
->> in the netlink header to tell the kernel "if you dont understand
->> something I am asking for - please ignore it and do what you can".
->> This would maintain current behavior but would force the user to
->> explicitly state so.
+On Mon, Apr 24, 2017 at 8:24 PM, Corentin Labbe
+<clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> On Wed, Apr 12, 2017 at 02:41:53PM +0200, Maxime Ripard wrote:
+>> On Wed, Apr 12, 2017 at 01:13:55PM +0200, Corentin Labbe wrote:
+>> > The dwmac-sun8i is an Ethernet MAC that supports 10/100/1000 Mbit
+>> > connections. It is very similar to the device found in the Allwinner
+>> > H3, but lacks the internal 100 Mbit PHY and its associated control
+>> > bits.
+>> > This adds the necessary bits to the Allwinner A64 SoC .dtsi, but keeps
+>> > it disabled at this level.
+>> >
+>> > Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+>> > ---
+>> >  arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi | 37 +++++++++++++++++++++++++++
+>> >  1 file changed, 37 insertions(+)
+>> >
+>> > diff --git a/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi b/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi
+>> > index 0b0f4ab..2569827 100644
+>> > --- a/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi
+>> > +++ b/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi
+>> > @@ -287,6 +287,23 @@
+>> >                             bias-pull-up;
+>> >                     };
+>> >
+>> > +                   rmii_pins: rmii_pins {
+>> > +                           pins = "PD10", "PD11", "PD13", "PD14",
+>> > +                                           "PD17", "PD18", "PD19", "PD20",
+>> > +                                           "PD22", "PD23";
 >>
->> cheers,
->> jamal
+>> Please align the wrapped lines on the first pin.
 >>
+>
+> OK
+>
+>> > +                           function = "emac";
+>> > +                           drive-strength = <40>;
+>>
+>> Do you actually need that for all the boards, or only a few of them?
+>
+> I have tried to use lower value without success on some boards. (opipc/pine64 in my memory)
+
+FYI we need them for all the boards that use RGMII.
+The signals at gigabit speed run at 125 MHz DDR.
+
+For RMII we probably don't need it. Even at 100 Mbps,
+it's only 50 MHz SDR. drive-strength = <30> should be
+enough.
+
+ChenYu
