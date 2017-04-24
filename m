@@ -1,48 +1,38 @@
-From: Dennis Dalessandro <dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 5/7] IB/hfi1: use pcie_flr instead of duplicating it
-Date: Mon, 24 Apr 2017 16:00:50 -0400
-Message-ID: <cc79455c-5d22-5d78-9ea5-46a17961213b@intel.com>
-References: <20170414191131.14286-1-hch@lst.de>
- <20170414191131.14286-6-hch@lst.de>
- <A33E225544E47D4DB5713032774B132783960382@irsmsx105.ger.corp.intel.com>
- <20170424143507.GA28812@lst.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [pull request][net 0/7] Mellanox, mlx5 fixes 2017-04-22
+Date: Mon, 24 Apr 2017 16:01:43 -0400 (EDT)
+Message-ID: <20170424.160143.1233208091847623161.davem@davemloft.net>
+References: <20170423100802.27630-1-saeedm@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Bjorn Helgaas <bhelgaas-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-        "Cabiddu, Giovanni" <giovanni.cabiddu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        "Benedetto, Salvatore" <salvatore.benedetto-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        "Marciniszyn, Mike" <mike.marciniszyn-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        Derek Chickles <derek.chickles-M3mlKVOIwJVv6pq1l3V1OdBPR1lH4CV8@public.gmane.org>,
-        Satanand Burla <satananda.burla-M3mlKVOIwJVv6pq1l3V1OdBPR1lH4CV8@public.gmane.org>,
-        Felix Manlunas <felix.manlunas-M3mlKVOIwJVv6pq1l3V1OdBPR1lH4CV8@public.gmane.org>,
-        Raghu Vatsavayi <raghu.vatsavayi-M3mlKVOIwJVv6pq1l3V1OdBPR1lH4CV8@public.gmane.org>,
-        "Kirsher, Jeffrey T" <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        "linux-pci-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-pci-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        qat-linux <qat-linux-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        "linux-crypto-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-crypto-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>,
-        "Byczkowski, Jakub" <jakub.byczkowski-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170424143507.GA28812-jcswGhMUV9g@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: saeedm@mellanox.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:57002 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S977415AbdDXUB4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 16:01:56 -0400
+In-Reply-To: <20170423100802.27630-1-saeedm@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04/24/2017 10:35 AM, Christoph Hellwig wrote:
-> On Mon, Apr 24, 2017 at 02:16:31PM +0000, Byczkowski, Jakub wrote:
->> Tested-by: Jakub Byczkowski <jakub.byczkowski-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
->
-> Are you (and Doug) ok with queueing this up in the PCI tree?
+From: Saeed Mahameed <saeedm@mellanox.com>
+Date: Sun, 23 Apr 2017 13:07:55 +0300
 
-We are fine however Doug wants to handle it.
+> This series contains some mlx5 fixes for net.
+> 
+> For your convenience, the series doesn't introduce any conflict with
+> the ongoing net-next pull request.
+> 
+> Please pull and let me know if there's any problem.
 
--Denny
+Pulled.
 
+> For -stable:
+> ("net/mlx5: E-Switch, Correctly deal with inline mode on ConnectX-5") kernels >= 4.10
+> ("net/mlx5e: Fix ETHTOOL_GRXCLSRLALL handling") kernels >= 4.8
+> ("net/mlx5e: Fix small packet threshold")       kernels >= 4.7
+> ("net/mlx5: Fix driver load bad flow when having fw initializing timeout") kernels >= 4.4
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Queued up, thanks.
