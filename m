@@ -1,72 +1,140 @@
-From: Will Deacon <will.deacon@arm.com>
-Subject: Re: Re: [PATCH net-next 1/4] ixgbe: sparc: rename the
- ARCH_WANT_RELAX_ORDER to IXGBE_ALLOW_RELAXED_ORDER
-Date: Mon, 24 Apr 2017 15:53:04 +0100
-Message-ID: <20170424145304.GK12323@arm.com>
-References: <20170401.112603.1991545644693496714.davem@davemloft.net>
- <42428725-89f1-1508-4e3d-723e087b3bbb@huawei.com>
- <EE11001F9E5DDD47B7634E2F8A612F2E205199C0@FRAEML521-MBX.china.huawei.com>
- <063D6719AE5E284EB5DD2968C1650D6DCFFD3C52@AcuExch.aculab.com>
- <DB5PR05MB138288172B04713EB0C1DB55D3190@DB5PR05MB1382.eurprd05.prod.outlook.com>
- <EE11001F9E5DDD47B7634E2F8A612F2E205352FC@FRAEML521-MBX.china.huawei.com>
- <EE11001F9E5DDD47B7634E2F8A612F2E2053543C@FRAEML521-MBX.china.huawei.com>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH net] bridge: shutdown bridge device before
+	removing it
+Date: Mon, 24 Apr 2017 17:53:25 +0300
+Message-ID: <940af2e3-8742-46b0-0550-0bba5e0a3f71@cumulusnetworks.com>
+References: <a8b2b2c876f416431dac031a0beb7ce079c7d0a9.1493018730.git.lucien.xin@gmail.com>
+	<3d77b47d-c8c3-de57-946e-59096a88964e@cumulusnetworks.com>
+	<6144408f-4cfd-dd87-7444-8c61269b105a@cumulusnetworks.com>
+	<CADvbK_ckVO19iPnhVLoSKXsRPLcb3kJ_H+fN-UEwaF4T=JY0dQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Amir Ancel <amira@mellanox.com>,
-        David Laight <David.Laight@ACULAB.COM>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        Catalin Marinas <catalin.marinas@arm.com>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Robin Murphy <robin.murphy@arm.com>,
-        "jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
-        "alexander.duyck@gmail.com" <alexander.duyck@gmail.com>,
-        "linux-arm-kernel@lists.infradead.org"
-        <linux-arm-kernel@lists.infradead.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Dingtianhong <dingtianhong@huawei.com>,
-        Linuxarm <linuxarm@huawei.com>
-To: Gabriele Paoloni <gabriele.paoloni@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from foss.arm.com ([217.140.101.70]:57768 "EHLO foss.arm.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1172972AbdDXOxL (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 24 Apr 2017 10:53:11 -0400
-Content-Disposition: inline
-In-Reply-To: <EE11001F9E5DDD47B7634E2F8A612F2E2053543C@FRAEML521-MBX.china.huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: network dev <netdev@vger.kernel.org>,
+	"bridge@lists.linux-foundation.org" <bridge@lists.linux-foundation.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Xin Long <lucien.xin@gmail.com>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <CADvbK_ckVO19iPnhVLoSKXsRPLcb3kJ_H+fN-UEwaF4T=JY0dQ@mail.gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 19, 2017 at 02:46:19PM +0000, Gabriele Paoloni wrote:
-> > From: Amir Ancel [mailto:amira@mellanox.com]
-> > Sent: 18 April 2017 21:18
-> > To: David Laight; Gabriele Paoloni; davem@davemloft.net
-> > Cc: Catalin Marinas; Will Deacon; Mark Rutland; Robin Murphy;
-> > jeffrey.t.kirsher@intel.com; alexander.duyck@gmail.com; linux-arm-
-> > kernel@lists.infradead.org; netdev@vger.kernel.org; Dingtianhong;
-> > Linuxarm
-> > Subject: Re: Re: [PATCH net-next 1/4] ixgbe: sparc: rename the
-> > ARCH_WANT_RELAX_ORDER to IXGBE_ALLOW_RELAXED_ORDER
-> > 
-> > Hi,
-> > mlx5 driver is planned to have RO support this year.
-> > I believe drivers should be able to query whether the arch support it
+On 24/04/17 17:41, Xin Long wrote:
+> On Mon, Apr 24, 2017 at 8:07 PM, Nikolay Aleksandrov
+> <nikolay@cumulusnetworks.com> wrote:
+>> On 24/04/17 14:01, Nikolay Aleksandrov wrote:
+>>> On 24/04/17 10:25, Xin Long wrote:
+>>>> During removing a bridge device, if the bridge is still up, a new mdb entry
+>>>> still can be added in br_multicast_add_group() after all mdb entries are
+>>>> removed in br_multicast_dev_del(). Like the path:
+>>>>
+>>>>   mld_ifc_timer_expire ->
+>>>>     mld_sendpack -> ...
+>>>>       br_multicast_rcv ->
+>>>>         br_multicast_add_group
+>>>>
+>>>> The new mp's timer will be set up. If the timer expires after the bridge
+>>>> is freed, it may cause use-after-free panic in br_multicast_group_expired.
+>>>> This can happen when ip link remove a bridge or destroy a netns with a
+>>>> bridge device inside.
+>>>>
+>>>> As we can see in br_del_bridge, brctl is also supposed to remove a bridge
+>>>> device after it's shutdown.
+>>>>
+>>>> This patch is to call dev_close at the beginning of br_dev_delete so that
+>>>> netif_running check in br_multicast_add_group can avoid this issue. But
+>>>> to keep consistent with before, it will not remove the IFF_UP check in
+>>>> br_del_bridge for brctl.
+>>>>
+>>>> Reported-by: Jianwen Ji <jiji@redhat.com>
+>>>> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+>>>> ---
+>>>>  net/bridge/br_if.c | 2 ++
+>>>>  1 file changed, 2 insertions(+)
+>>>>
+>>>
+>>> +CC bridge maintainers
+>>>
+>>> I can see how this could happen, could you also provide the traceback ?
+>>>
+>>> The patch looks good to me, actually I think it fixes another issue with
+>>> mcast stats where the percpu pointer can be accessed after it's freed if
+>>> an mcast packet can get sent via br->dev after the br_multicast_dev_del() call.
+>>> This is definitely stable material, if I'm not mistaken the issue is there since
+>>> the introduction of br_dev_delete:
+>>> commit e10177abf842
+>>> Author: Satish Ashok <sashok@cumulusnetworks.com>
+>>> Date:   Wed Jul 15 07:16:51 2015 -0700
+>>>
+>>>     bridge: multicast: fix handling of temp and perm entries
+>>>
+>>>
+>>>
+>>> Acked-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+>>>
+>>
+>> Actually I have a better idea for a fix because dev_close() for a single device is rather heavy.
+>> Why don't you move the mdb flush logic in the bridge's ndo_uninit() callback ?
+>> That should have the same effect and be much faster.
+> Yes. But it seems that all cleanups for bridge should be done after
+> it's shutdown since beginning according to brctl. I'm not sure if there
+> are still other problems caused by this. maybe safer to use dev_close.
+> I need to check more to confirm this.
 > 
-> I guess that here when you say query you mean having a config symbol
-> that is set accordingly to the host architecture, right?
-> 
-> As already said I have looked around a bit and other drivers do not seem
-> to enable/disable RO for their EP on the basis of the host architecture.
-> So why should mlx5 do it according to the host?
-> 
-> Also my understating is that some architectures (like ARM64 for example)
-> can have different PCI host controller implementations depending on the
-> vendor...therefore maybe it is not appropriate there to have a Kconfig
-> symbol selected by the architecture...  
 
-Indeed. We're not able to determine whether or not RO is supported at
-compile time, so we'd have to detect this dynamically if we want to support
-it for arm64 with a single kernel Image. That means either passing something
-through firmware, having the PCI host controller opt-in or something coarse
-like a command-line option.
+ndo_uninit() is after the device has been stopped, so it is the same as
+your fix as I said.
 
-Will
+> I also have another question about mp->timer removing.
+> As we can see, now it removes this timer with del_timer, instead of
+> del_timer_sync. What if the timer is running when del_timer ?
+> How can we be sure that br_multicast_group_expired will be done
+> before the bridge dev is freed. synchronize_net ?
+> 
+
+Yeah, I've been thinking about that and the only race is that the timer
+might have fired and waiting for the lock while the mdb is being flushed
+thus the cancel_timer() won't affect it and then it will enter and see
+that !netif_running(br->dev), but unfortunately there's a bug because we
+cannot guarantee that br->dev still exists at that point.
+This is a different bug though.
+
+>>
+>> By the way I just noticed that there's also a memory leak - the mdb hash is reallocated
+>> and not freed due to the mdb rehash, here's also kmemleak's object:
+>>
+> yeps, ;-)
+> 
+>> unreferenced object 0xffff8800540ba800 (size 2048):
+>>   comm "softirq", pid 0, jiffies 4520588901 (age 5787.284s)
+>>   hex dump (first 32 bytes):
+>>     00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+>>     00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+>>   backtrace:
+>>     [<ffffffff816e2287>] kmemleak_alloc+0x67/0xc0
+>>     [<ffffffff81260bea>] __kmalloc+0x1ba/0x3e0
+>>     [<ffffffffa05c60ee>] br_mdb_rehash+0x5e/0x340 [bridge]
+>>     [<ffffffffa05c74af>] br_multicast_new_group+0x43f/0x6e0 [bridge]
+>>     [<ffffffffa05c7aa3>] br_multicast_add_group+0x203/0x260 [bridge]
+>>     [<ffffffffa05ca4b5>] br_multicast_rcv+0x945/0x11d0 [bridge]
+>>     [<ffffffffa05b6b10>] br_dev_xmit+0x180/0x470 [bridge]
+>>     [<ffffffff815c781b>] dev_hard_start_xmit+0xbb/0x3d0
+>>     [<ffffffff815c8743>] __dev_queue_xmit+0xb13/0xc10
+>>     [<ffffffff815c8850>] dev_queue_xmit+0x10/0x20
+>>     [<ffffffffa02f8d7a>] ip6_finish_output2+0x5ca/0xac0 [ipv6]
+>>     [<ffffffffa02fbfc6>] ip6_finish_output+0x126/0x2c0 [ipv6]
+>>     [<ffffffffa02fc245>] ip6_output+0xe5/0x390 [ipv6]
+>>     [<ffffffffa032b92c>] NF_HOOK.constprop.44+0x6c/0x240 [ipv6]
+>>     [<ffffffffa032bd16>] mld_sendpack+0x216/0x3e0 [ipv6]
+>>     [<ffffffffa032d5eb>] mld_ifc_timer_expire+0x18b/0x2b0 [ipv6]
+>>
+>>
+>>
