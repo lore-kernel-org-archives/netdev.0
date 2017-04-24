@@ -1,47 +1,34 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2] brcmfmac: Make skb header writable before use
-Date: Mon, 24 Apr 2017 11:09:42 -0700
-Message-ID: <1493057382.6453.39.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20170424130322.476-1-james.hughes@raspberrypi.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [pull request][net-next 0/5] Mellanox, mlx5 updates 2017-04-22
+Date: Mon, 24 Apr 2017 14:11:33 -0400 (EDT)
+Message-ID: <20170424.141133.1755320976871720750.davem@davemloft.net>
+References: <20170422184507.26569-1-saeedm@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Arend van Spriel <arend.vanspriel@broadcom.com>,
-        Franky Lin <franky.lin@broadcom.com>,
-        Hante Meuleman <hante.meuleman@broadcom.com>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        linux-wireless@vger.kernel.org,
-        brcm80211-dev-list.pdl@broadcom.com, netdev@vger.kernel.org
-To: James Hughes <james.hughes@raspberrypi.org>
+Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com, roid@mellanox.com,
+        stephen@networkplumber.org
+To: saeedm@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:33491 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S976572AbdDXSJo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 14:09:44 -0400
-In-Reply-To: <20170424130322.476-1-james.hughes@raspberrypi.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:55704 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S972521AbdDXSLj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 14:11:39 -0400
+In-Reply-To: <20170422184507.26569-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2017-04-24 at 14:03 +0100, James Hughes wrote:
-> The driver was making changes to the skb_header without
-> ensuring it was writable (i.e. uncloned).
-> This patch also removes some boiler plate header size
-> checking/adjustment code as that is also handled by the
-> skb_cow_header function used to make header writable.
-> 
-> This patch depends on
-> brcmfmac: Ensure pointer correctly set if skb data location changes
-> 
-> Signed-off-by: James Hughes <james.hughes@raspberrypi.org>
-> ---
-> Changes in v2
->   Makes the _cow_ call at the entry point of the skb in to the
->   stack, means only needs to be done once, and error handling
->   is easier.
->   Split a separate minor bug fix off to a separate patch (which
->   this patch depends on)
+From: Saeed Mahameed <saeedm@mellanox.com>
+Date: Sat, 22 Apr 2017 21:45:02 +0300
 
-Best way to handle dependencies is to send a patch series.
+> This series contains some updates to mlx5 driver.
+> 
+> Sparse and compiler warnings fixes from Stephen Hemminger.
+> 
+> From Roi Dayan and Or Gerlitz, Add devlink and mlx5 support for controlling
+> E-Switch encapsulation mode, this knob will enable HW support for applying
+> encapsulation/decapsulation to VF traffic as part of SRIOV e-switch offloading.
+> 
+> Please pull and let me know if there's any problem.
 
-1/2 brcmfmac: Ensure pointer correctly set if skb data location changes
-2/2 brcmfmac: Make skb header writable before use
+Applied, thank you.
