@@ -1,30 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ravb: Double free on error in ravb_start_xmit()
-Date: Mon, 24 Apr 2017 13:59:05 -0400 (EDT)
-Message-ID: <20170424.135905.515581977383181185.davem@davemloft.net>
-References: <20170422104656.jjnooh3or4x3lbw3@mwanda>
+Subject: Re: [PATCH] net: netcp: fix spelling mistake: "memomry" -> "memory"
+Date: Mon, 24 Apr 2017 13:59:50 -0400 (EDT)
+Message-ID: <20170424.135950.1657770904078993100.davem@davemloft.net>
+References: <20170422122201.7979-1-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sergei.shtylyov@cogentembedded.com,
-        kazuya.mizuguchi.ks@renesas.com, horms+renesas@verge.net.au,
-        ykaneko0929@gmail.com, masaru.nagai.vx@renesas.com,
-        geert+renesas@glider.be, niklas.soderlund+renesas@ragnatech.se,
-        tremyfr@gmail.com, netdev@vger.kernel.org,
-        linux-renesas-soc@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: dan.carpenter@oracle.com
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <20170422104656.jjnooh3or4x3lbw3@mwanda>
-Sender: linux-renesas-soc-owner@vger.kernel.org
+Cc: w-kwok2@ti.com, m-karicheri2@ti.com, netdev@vger.kernel.org,
+        kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: colin.king@canonical.com
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <20170422122201.7979-1-colin.king@canonical.com>
+Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Date: Sat, 22 Apr 2017 13:46:56 +0300
+From: Colin King <colin.king@canonical.com>
+Date: Sat, 22 Apr 2017 13:22:01 +0100
 
-> If skb_put_padto() fails then it frees the skb.  I shifted that code
-> up a bit to make my error handling a little simpler.
+> From: Colin Ian King <colin.king@canonical.com>
 > 
-> Fixes: a0d2f20650e8 ("Renesas Ethernet AVB PTP clock driver")
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> Trivial fix to spelling mistake in dev_err message and rejoin
+> line.
+> 
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
 
 Applied.
