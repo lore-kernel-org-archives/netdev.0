@@ -1,42 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 07/29] x86: bpf_jit, use ENTRY+ENDPROC
-Date: Mon, 24 Apr 2017 14:24:20 -0400 (EDT)
-Message-ID: <20170424.142420.290668473718207530.davem@davemloft.net>
-References: <71301a81-1c61-fd4d-5b1b-5154fa723859@suse.cz>
-        <20170424164717.GA80404@ast-mbp.thefacebook.com>
-        <26f5afd7-d70b-effa-e528-8d0a2b95717a@suse.cz>
+Subject: Re: [PATCH net-next 0/3] net/tcp_fastopen: Fix for various TFO
+ firewall issues
+Date: Mon, 24 Apr 2017 14:27:34 -0400 (EDT)
+Message-ID: <20170424.142734.798240634807249124.davem@davemloft.net>
+References: <20170420214548.23666-1-tracywwnj@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: alexei.starovoitov@gmail.com, mingo@kernel.org, mingo@redhat.com,
-        tglx@linutronix.de, hpa@zytor.com, x86@kernel.org,
-        jpoimboe@redhat.com, linux-kernel@vger.kernel.org,
-        netdev@vger.kernel.org, daniel@iogearbox.net, edumazet@google.com
-To: jslaby@suse.cz
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <26f5afd7-d70b-effa-e528-8d0a2b95717a@suse.cz>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, ycheng@google.com, edumazet@google.com
+To: weiwan@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:55916 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S976644AbdDXS1g (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 14:27:36 -0400
+In-Reply-To: <20170420214548.23666-1-tracywwnj@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Slaby <jslaby@suse.cz>
-Date: Mon, 24 Apr 2017 19:51:54 +0200
+From: Wei Wang <weiwan@google.com>
+Date: Thu, 20 Apr 2017 14:45:45 -0700
 
-> For example what's the point of making the sk_load_word_positive_offset
-> label a global, callable function? Note that this is exactly the reason
-> why this particular two hunks look weird to you even though the
-> annotations only mechanically paraphrase what is in the current code.
+> Currently there are still some firewall issues in the middlebox
+> which make the middlebox drop packets silently for TFO sockets.
+> This kind of issue is hard to be detected by the end client.
+> 
+> This patch series tries to detect such issues in the kernel and disable
+> TFO temporarily.
+> More details about the issues and the fixes are included in the following
+> patches.
 
-So that it can be referenced by the eBPF JIT, because these are
-helpers for eBPF JIT generated code.  Every architecture implementing
-an eBPF JIT has this "mess".
-
-You can't even put a tracepoint or kprobe on these things and expect
-to see "arguments" or "return PC" values in the usual spots.  This
-code has special calling conventions and register usage as Alexei
-explained.
-
-I would suggest that you read and understand how this assembler is
-designed, how it is called from the generated JIT code, and what it's
-semantics and register usage are, before trying to annotating it.
-
-Thank you.
+Series applied, thanks.
