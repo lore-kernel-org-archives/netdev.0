@@ -1,30 +1,38 @@
-From: Ben Hutchings <ben.hutchings@codethink.co.uk>
-Subject: Networking security fixes
-Date: Mon, 24 Apr 2017 20:47:29 +0100
-Message-ID: <1493063249.10415.78.camel@codethink.co.uk>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/1] net: bcmgenet: fix incorrect return value checks
+Date: Mon, 24 Apr 2017 15:48:06 -0400 (EDT)
+Message-ID: <20170424.154806.387657447648095027.davem@davemloft.net>
+References: <1492941665-17155-1-git-send-email-bianpan201602@163.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: stable <stable@vger.kernel.org>, netdev <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <stable-owner@vger.kernel.org>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, bianpan2016@163.com
+To: bianpan201602@163.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:56774 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S972541AbdDXTsL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 15:48:11 -0400
+In-Reply-To: <1492941665-17155-1-git-send-email-bianpan201602@163.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Please queue up these fixes for 4.10.y:
+From: Pan Bian <bianpan201602@163.com>
+Date: Sun, 23 Apr 2017 18:01:05 +0800
 
-8605330aac5a tcp: fix SCM_TIMESTAMPING_OPT_STATS for normal skbs
-4ef1b2869447 tcp: mark skbs with SCM_TIMESTAMPING_OPT_STATS
+> From: Pan Bian <bianpan2016@163.com>
+> 
+> Function platform_get_irq() will return a negative value on errors.
+> However, in function bcmgenet_probe(), 0 is considered as a flag of
+> error. This patch fixes the bug by checking whether the return value of
+> platform_get_irq() is less than 0.
+> 
+> Signed-off-by: Pan Bian <bianpan2016@163.com>
 
-If I understand correctly, you are no longer sending Greg fixes for
-4.4.y or older stable branches, so I'll send stable requests for those
-older versions directly.
+I'm definitely not confident enough to apply this.
 
-Please can you also send the pending fixes to Greg soon, as the
-AF_PACKET issue is quite serious?
+On some platform zero IRQs are invalid.
 
-Ben.
-
--- 
-Ben Hutchings
-Software Developer, Codethink Ltd.
+There are also lots of pieces of code that check the return value ">
+0" as success.
