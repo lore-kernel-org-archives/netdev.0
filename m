@@ -1,43 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] flower: add MPLS matching support
-Date: Mon, 24 Apr 2017 14:32:57 -0400 (EDT)
-Message-ID: <20170424.143257.1003081554810761464.davem@davemloft.net>
-References: <1492894367-11637-1-git-send-email-benjamin.lahaise@netronome.com>
+Subject: Re: [PATCH net-next v3 0/5] nfp: DMA flags, adjust head and fixes
+Date: Mon, 24 Apr 2017 14:36:04 -0400 (EDT)
+Message-ID: <20170424.143604.1133862806777963968.davem@davemloft.net>
+References: <20170423031756.94429-1-jakub.kicinski@netronome.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bcrl@kvack.org
-To: benjamin.lahaise@netronome.com
+Cc: netdev@vger.kernel.org, kubakici@wp.pl, oss-drivers@netronome.com
+To: jakub.kicinski@netronome.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:55966 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:55998 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1760184AbdDXSc7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 14:32:59 -0400
-In-Reply-To: <1492894367-11637-1-git-send-email-benjamin.lahaise@netronome.com>
+        with ESMTP id S1172539AbdDXSgG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 14:36:06 -0400
+In-Reply-To: <20170423031756.94429-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Benjamin LaHaise <benjamin.lahaise@netronome.com>
-Date: Sat, 22 Apr 2017 16:52:45 -0400
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Date: Sat, 22 Apr 2017 20:17:51 -0700
 
-> From: Benjamin LaHaise <bcrl@kvack.org>
+> This series takes advantage of Alex's DMA_ATTR_SKIP_CPU_SYNC to make 
+> XDP packet modifications "correct" from DMA API point of view.  It 
+> also allows us to parse the metadata before we run XDP at no additional
+> DMA sync cost.  That way we can get rid of the metadata memcpy, and 
+> remove the last upstream user of bpf_prog->xdp_adjust_head.
 > 
-> This patch series adds support for parsing MPLS flows in the flow dissector
-> and the flower classifier.  Each of the MPLS TTL, BOS, TC and Label fields
-> can be used for matching.
+> David's patch adds a way to read capabilities from the management
+> firmware.
 > 
-> v2: incorporate style feedback, move #defines to linux/include/mpls.h
-> Note: this omits Jiri's request to remove tabs between the type and 
-> field names in struct declarations.  This would be inconsistent with 
-> numerous other struct definitions.
+> There are also two net-next fixes.  Patch 4 which fixes what seems to
+> be a result of a botched rebase on my part.  Patch 5 corrects locking
+> when state of ethernet ports is being refreshed.
+> 
+> ---
+> v3: move the sync from alloc func to the actual give to hw func
+> v2: sync rx buffers before giving them to the card (Alex)
 
-Series applied, but in the future:
-
-1) Put the "v2", "v3", whatever in the inital [PATCH xxx] bracketed
-   part of the subject line, otherwise it ends up in the GIT commit
-   message header line and that's not desired.
-
-2) Please cut it with these double signoffs, and add an appropriate
-   entry to the email aliases file.
-
-Thanks.
+Series applied, thanks Jakub.
