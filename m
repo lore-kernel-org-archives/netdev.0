@@ -1,66 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] macsec: avoid heap overflow in skb_to_sgvec
-Date: Mon, 24 Apr 2017 13:47:26 -0400 (EDT)
-Message-ID: <20170424.134726.1314464394825506301.davem@davemloft.net>
-References: <20170421211448.16995-1-Jason@zx2c4.com>
+Subject: Re: [PATCH net] udp: disable inner UDP checksum offloads in IPsec
+ case
+Date: Mon, 24 Apr 2017 13:49:13 -0400 (EDT)
+Message-ID: <20170424.134913.859328581317183203.davem@davemloft.net>
+References: <1492813385-31736-1-git-send-email-aatteka@ovn.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        stable@vger.kernel.org, security@kernel.org
-To: Jason@zx2c4.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170421211448.16995-1-Jason@zx2c4.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: aatteka@ovn.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:55230 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S973087AbdDXRtO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 13:49:14 -0400
+In-Reply-To: <1492813385-31736-1-git-send-email-aatteka@ovn.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Date: Fri, 21 Apr 2017 23:14:48 +0200
+From: Ansis Atteka <aatteka@ovn.org>
+Date: Fri, 21 Apr 2017 15:23:05 -0700
 
-> While this may appear as a humdrum one line change, it's actually quite
-> important. An sk_buff stores data in three places:
+> Otherwise, UDP checksum offloads could corrupt ESP packets by attempting
+> to calculate UDP checksum when this inner UDP packet is already protected
+> by IPsec.
 > 
-> 1. A linear chunk of allocated memory in skb->data. This is the easiest
->    one to work with, but it precludes using scatterdata since the memory
->    must be linear.
-> 2. The array skb_shinfo(skb)->frags, which is of maximum length
->    MAX_SKB_FRAGS. This is nice for scattergather, since these fragments
->    can point to different pages.
-> 3. skb_shinfo(skb)->frag_list, which is a pointer to another sk_buff,
->    which in turn can have data in either (1) or (2).
+> One way to reproduce this bug is to have a VM with virtio_net driver (UFO
+> set to ON in the guest VM); and then encapsulate all guest's Ethernet
+> frames in Geneve; and then further encrypt Geneve with IPsec.  In this
+> case following symptoms are observed:
+> 1. If using ixgbe NIC, then it will complain with following error message:
+>    ixgbe 0000:01:00.1: partial checksum but l4 proto=32!
+> 2. Receiving IPsec stack will drop all the corrupted ESP packets and
+>    increase XfrmInStateProtoError counter in /proc/net/xfrm_stat.
+> 3. iperf UDP test from the VM with packet sizes above MTU will not work at
+>    all.
+> 4. iperf TCP test from the VM will get ridiculously low performance because.
 > 
-> The first two are rather easy to deal with, since they're of a fixed
-> maximum length, while the third one is not, since there can be
-> potentially limitless chains of fragments. Fortunately dealing with
-> frag_list is opt-in for drivers, so drivers don't actually have to deal
-> with this mess. For whatever reason, macsec decided it wanted pain, and
-> so it explicitly specified NETIF_F_FRAGLIST.
-> 
-> Because dealing with (1), (2), and (3) is insane, most users of sk_buff
-> doing any sort of crypto or paging operation calls a convenient function
-> called skb_to_sgvec (which happens to be recursive if (3) is in use!).
-> This takes a sk_buff as input, and writes into its output pointer an
-> array of scattergather list items. Sometimes people like to declare a
-> fixed size scattergather list on the stack; othertimes people like to
-> allocate a fixed size scattergather list on the heap. However, if you're
-> doing it in a fixed-size fashion, you really shouldn't be using
-> NETIF_F_FRAGLIST too (unless you're also ensuring the sk_buff and its
-> frag_list children arent't shared and then you check the number of
-> fragments in total required.)
-> 
-> Macsec specifically does this:
-> 
->         size += sizeof(struct scatterlist) * (MAX_SKB_FRAGS + 1);
->         tmp = kmalloc(size, GFP_ATOMIC);
->         *sg = (struct scatterlist *)(tmp + sg_offset);
-> 	...
->         sg_init_table(sg, MAX_SKB_FRAGS + 1);
->         skb_to_sgvec(skb, sg, 0, skb->len);
-> 
-> Specifying MAX_SKB_FRAGS + 1 is the right answer usually, but not if you're
-> using NETIF_F_FRAGLIST, in which case the call to skb_to_sgvec will
-> overflow the heap, and disaster ensues.
-> 
-> Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
+> Signed-off-by: Ansis Atteka <aatteka@ovn.org>
+> Co-authored-by: Steffen Klassert <steffen.klassert@secunet.com>
 
-This is definitely the simplest fix for now, applied, thanks.
+Applied, thanks.
