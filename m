@@ -1,45 +1,61 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH net-next v5 1/2] net sched actions: dump more than
- TCA_ACT_MAX_PRIO actions per batch
-Date: Mon, 24 Apr 2017 18:58:33 -0400
-Message-ID: <70133247-4f2f-1563-161e-9c84cb97ed4f@mojatatu.com>
-References: <2ca4266f-a164-d2ad-37fa-45f7ae354eb8@mojatatu.com>
- <20170424.163033.797679814568299306.davem@davemloft.net>
- <ebfe9e52-f130-3733-9348-aac022a18748@mojatatu.com>
- <20170424.182453.1488000441860994588.davem@davemloft.net>
+From: "Singh, Krishneil K" <krishneil.k.singh@intel.com>
+Subject: RE: [Intel-wired-lan] [PATCH] ixgbe: initialize u64_stats_sync
+        structures early at ixgbe_probe
+Date: Mon, 24 Apr 2017 23:00:23 +0000
+Message-ID: <EF50CC0C76A53A44BAD798C58E0A157E50B87CBB@ORSMSX103.amr.corp.intel.com>
+References: <1480909244-16460-1-git-send-email-liwei.song@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: simon.horman@netronome.com, jiri@resnulli.us,
-        xiyou.wangcong@gmail.com, eric.dumazet@gmail.com,
-        netdev@vger.kernel.org, tom@herbertland.com, pablo@netfilter.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f193.google.com ([209.85.223.193]:34735 "EHLO
-        mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S978537AbdDXW6m (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 18:58:42 -0400
-Received: by mail-io0-f193.google.com with SMTP id h41so51786642ioi.1
-        for <netdev@vger.kernel.org>; Mon, 24 Apr 2017 15:58:41 -0700 (PDT)
-In-Reply-To: <20170424.182453.1488000441860994588.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "Song, Liwei (Wind River)" <liwei.song@windriver.com>
+To: "Song, Liwei (Wind River)" <liwei.song@windriver.com>,
+        "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1480909244-16460-1-git-send-email-liwei.song@windriver.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 17-04-24 06:24 PM, David Miller wrote:
 
->
-> I think we should eat the pain now and use the strict checks
-> for all new features like this.
->
-> I'm sorry if this makes more work for you, but this is really
-> how we have to proceed moving forward.
->
 
-There is no work for me to do in tc if i push this in without
-the liberal flag i was suggesting.
-This is more about the next flag change that will fail with
-older kernels unless the large tc change happens
-i.e future ones after this kernel patch.
 
-cheers,
-jamal
+-----Original Message-----
+From: Intel-wired-lan [mailto:intel-wired-lan-bounces@lists.osuosl.org] On Behalf Of Liwei Song
+Sent: Sunday, December 4, 2016 7:41 PM
+To: Kirsher, Jeffrey T <jeffrey.t.kirsher@intel.com>
+Cc: netdev@vger.kernel.org; intel-wired-lan@lists.osuosl.org; linux-kernel@vger.kernel.org; Song, Liwei (Wind River) <liwei.song@windriver.com>
+Subject: [Intel-wired-lan] [PATCH] ixgbe: initialize u64_stats_sync structures early at ixgbe_probe
+
+Fix the following CallTrace:
+INFO: trying to register non-static key.
+the code is fine but needs lockdep annotation.
+turning off the locking correctness validator.
+CPU: 71 PID: 1 Comm: swapper/0 Not tainted 4.8.8-WR9.0.0.1_standard #11 Hardware name: Intel Corporation S2600WTT/S2600WTT, BIOS GRNDSDP1.86B.0036.R05.1407140519 07/14/2014
+ 00200086 00200086 eb5e1ab8 c144dd70 00000000 00000000 eb5e1af8 c10af89a
+ c1d23de4 eb5e1af8 00000009 eb5d8600 eb5d8638 eb5e1af8 c10b14d8 00000009  0000000a c1d32911 00000000 00000000 e44c826c eb5d8000 eb5e1b74 c10b214e Call Trace:
+ [<c144dd70>] dump_stack+0x5f/0x8f
+ [<c10af89a>] register_lock_class+0x25a/0x4c0  [<c10b14d8>] ? check_irq_usage+0x88/0xc0  [<c10b214e>] __lock_acquire+0x5e/0x17a0  [<c1abdb9b>] ? _raw_spin_unlock_irqrestore+0x3b/0x70
+ [<c10cf14a>] ? rcu_read_lock_sched_held+0x8a/0x90
+ [<c10b3c5f>] lock_acquire+0x9f/0x1f0
+ [<c1922dcf>] ? dev_get_stats+0x5f/0x110  [<c176e6b3>] ixgbe_get_stats64+0x113/0x320  [<c1922dcf>] ? dev_get_stats+0x5f/0x110  [<c1922dcf>] dev_get_stats+0x5f/0x110  [<c1ab5415>] rtnl_fill_stats+0x40/0x105  [<c193dd45>] rtnl_fill_ifinfo+0x4c5/0xd20  [<c11c5115>] ? __kmalloc_node_track_caller+0x1a5/0x410
+ [<c1917487>] ? __kmalloc_reserve.isra.42+0x27/0x80
+ [<c191754f>] ? __alloc_skb+0x6f/0x270
+ [<c1942291>] rtmsg_ifinfo_build_skb+0x71/0xd0  [<c194230a>] rtmsg_ifinfo.part.23+0x1a/0x50  [<c1923dad>] ? call_netdevice_notifiers_info+0x2d/0x60
+ [<c194236b>] rtmsg_ifinfo+0x2b/0x40
+ [<c192f997>] register_netdevice+0x3d7/0x4d0  [<c192faa7>] register_netdev+0x17/0x30  [<c177b83d>] ixgbe_probe+0x118d/0x1610  [<c1498202>] local_pci_probe+0x32/0x80  [<c1498172>] ? pci_match_device+0xd2/0x100  [<c14991e0>] pci_device_probe+0xc0/0x110  [<c1652cc5>] driver_probe_device+0x1c5/0x280  [<c1498172>] ? pci_match_device+0xd2/0x100  [<c1652e09>] __driver_attach+0x89/0x90  [<c1652d80>] ? driver_probe_device+0x280/0x280  [<c165114f>] bus_for_each_dev+0x4f/0x80  [<c165269e>] driver_attach+0x1e/0x20  [<c1652d80>] ? driver_probe_device+0x280/0x280  [<c1652317>] bus_add_driver+0x1a7/0x220  [<c1653a79>] driver_register+0x59/0xe0  [<c1f897b8>] ? igb_init_module+0x49/0x49  [<c1497b2a>] __pci_register_driver+0x4a/0x50  [<c1f8985d>] ixgbe_init_module+0xa5/0xc4  [<c1000485>] do_one_initcall+0x3
+ 5/0x150  [<c107e818>] ? parameq+0x18/0x70  [<c1f395d8>] ? repair_env_string+0x12/0x51  [<c107ead0>] ? parse_args+0x260/0x3b0  [<c1074f73>] ? __usermodehelper_set_disable_depth+0x43/0x50
+ [<c1f39e90>] kernel_init_freeable+0x19b/0x267  [<c1f395c6>] ? set_debug_rodata+0xf/0xf  [<c10b1e7b>] ? trace_hardirqs_on+0xb/0x10  [<c1abdc02>] ? _raw_spin_unlock_irq+0x32/0x50  [<c1085f0b>] ? finish_task_switch+0xab/0x1f0  [<c1085ec9>] ? finish_task_switch+0x69/0x1f0  [<c1ab6a30>] kernel_init+0x10/0x110  [<c108bd65>] ? schedule_tail+0x25/0x80  [<c1abe422>] ret_from_kernel_thread+0xe/0x24  [<c1ab6a20>] ? rest_init+0x130/0x130
+
+This CallTrace occurred on 32-bit kernel with CONFIG_PROVE_LOCKING enabled.
+
+This happens at ixgbe driver probe hardware stage, when comes to ixgbe_get_stats64, the seqcount/seqlock still not initialize, although this was initialize in TX/RX resources setup routin, but it was too late, then lockdep give this Warning.
+
+To fix this, move the u64_stats_init function to driver probe stage, which before we get the status of seqcount and after the RX/TX ring was finished init.
+
+Signed-off-by: Liwei Song <liwei.song@windriver.com>
+---
+
+Tested-by: Krishneil Singh  <krishneil.k.singh@intel.com>
