@@ -1,65 +1,53 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH v3 net] net: ipv6: regenerate host route if moved to gc
- list
-Date: Mon, 24 Apr 2017 13:37:00 -0600
-Message-ID: <0ebdefd9-3f89-1876-ba03-1a8277ff79e2@cumulusnetworks.com>
-References: <1493046549-17420-1-git-send-email-dsa@cumulusnetworks.com>
- <1493051946.6453.37.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: Get amount of fast retransmissions from TCP info
+Date: Mon, 24 Apr 2017 15:42:24 -0400
+Message-ID: <CADVnQyk9-OGKBKBvQ76itP5JwbVBPt40S8KJ+6oY506hVpMEYA@mail.gmail.com>
+References: <CAF0XkCCFwxuyJ5bc4SUHjdDJb_E-CqYC-3k3nzi+0i3H9D2zPA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dvyukov@google.com, andreyknvl@google.com,
-        mmanning@brocade.com, kafai@fb.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: LKML <linux-kernel@vger.kernel.org>,
+        Netdev <netdev@vger.kernel.org>
+To: =?UTF-8?Q?Lars_Erik_Storbuk=C3=A5s?= <storbukas.dev@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f43.google.com ([209.85.214.43]:37447 "EHLO
-        mail-it0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S972348AbdDXThE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 15:37:04 -0400
-Received: by mail-it0-f43.google.com with SMTP id x188so63116899itb.0
-        for <netdev@vger.kernel.org>; Mon, 24 Apr 2017 12:37:04 -0700 (PDT)
-In-Reply-To: <1493051946.6453.37.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-oi0-f48.google.com ([209.85.218.48]:35584 "EHLO
+        mail-oi0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S974793AbdDXTm4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 15:42:56 -0400
+Received: by mail-oi0-f48.google.com with SMTP id j201so147866720oih.2
+        for <netdev@vger.kernel.org>; Mon, 24 Apr 2017 12:42:56 -0700 (PDT)
+In-Reply-To: <CAF0XkCCFwxuyJ5bc4SUHjdDJb_E-CqYC-3k3nzi+0i3H9D2zPA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 4/24/17 10:39 AM, Eric Dumazet wrote:
-> 
-> Very nice changelog !
+On Mon, Apr 24, 2017 at 3:11 PM, Lars Erik Storbuk=C3=A5s
+<storbukas.dev@gmail.com> wrote:
+> I'm trying to get amount of congestion events in TCP caused by
+> DUPACK's (fast retransmissions), and can't seem to find any variable
+> in the TCP info struct which hold that value. There are three
+> variables in the TCP info struct that seem to hold similar congestion
+> values: __u8 tcpi_retransmits;__u32 tcpi_retrans; __u32
+> tcpi_total_retrans;
+>
+> Does anyone have any pointers on how to find this value in the TCP code?
+>
+> Please CC me personally if answering this question. Any help is
+> greatly appreciated.
 
+[I'm cc-ing the netdev list.]
 
-Thanks. Given my aggressive brain cell recycling program, I needed to
-write down the analysis.
+Do you need this per-socket? On a per-socket basis, I do not think
+there are separate totals for fast retransmits and timeout
+retransmits.
 
+If a global number is good enough, then you can get that number from
+the global network statistics. In "nstat" output they look like:
 
+  TcpExtTCPFastRetrans =3D packets sent in fast retransmit / fast recovery
 
->> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
->> index 80ce478c4851..93f81d9cd85f 100644
->> --- a/net/ipv6/addrconf.c
->> +++ b/net/ipv6/addrconf.c
->> @@ -3271,14 +3271,25 @@ static void addrconf_gre_config(struct net_device *dev)
->>  static int fixup_permanent_addr(struct inet6_dev *idev,
->>  				struct inet6_ifaddr *ifp)
->>  {
->> -	if (!ifp->rt) {
->> -		struct rt6_info *rt;
->> +	/* rt6i_ref == 0 means the host route was removed from the
->> +	 * FIB, for example, if 'lo' device is taken down. In that
->> +	 * case regenerate the host route.
->> +	 */
->> +	if (!ifp->rt || !atomic_read(&ifp->rt->rt6i_ref)) {
->> +		struct rt6_info *rt, *prev;
->>  
->>  		rt = addrconf_dst_alloc(idev, &ifp->addr, false);
->>  		if (unlikely(IS_ERR(rt)))
->>  			return PTR_ERR(rt);
->>  
->> +		prev = ifp->rt;
-> 
-> I would feel more comfortable if this was moved after the spin_lock() ?
+  TcpExtTCPSlowStartRetrans =3D packets sent in timeout recovery
 
-That's what I had in v2; it reads better to me even if it is not
-technically required (all changes to ifp->rt happen under rtnl).
+It sounds like TcpExtTCPFastRetrans is what you are after.
 
-Martin you agree?
-
-I'll send a v3 tomorrow -- allow more time for other comments.
+Hope that helps,
+neal
