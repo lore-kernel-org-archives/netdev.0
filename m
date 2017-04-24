@@ -1,57 +1,66 @@
-From: Tony Lindgren <tony@atomide.com>
-Subject: Re: cpsw regression in mainline with "cpsw/netcp: cpts depends on
- posix_timers"
-Date: Mon, 24 Apr 2017 10:44:13 -0700
-Message-ID: <20170424174413.GD3780@atomide.com>
-References: <20170424165104.GC3780@atomide.com>
- <CAK8P3a3kvMubq5Mtu3XKnityAgRv5R35dMtTX=BO8Qv_iX9=VQ@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] macsec: avoid heap overflow in skb_to_sgvec
+Date: Mon, 24 Apr 2017 13:47:26 -0400 (EDT)
+Message-ID: <20170424.134726.1314464394825506301.davem@davemloft.net>
+References: <20170421211448.16995-1-Jason@zx2c4.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Grygorii Strashko <grygorii.strashko@ti.com>,
-        Networking <netdev@vger.kernel.org>, linux-omap@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from muru.com ([72.249.23.125]:45208 "EHLO muru.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1171992AbdDXRoQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 24 Apr 2017 13:44:16 -0400
-Content-Disposition: inline
-In-Reply-To: <CAK8P3a3kvMubq5Mtu3XKnityAgRv5R35dMtTX=BO8Qv_iX9=VQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        stable@vger.kernel.org, security@kernel.org
+To: Jason@zx2c4.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170421211448.16995-1-Jason@zx2c4.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-* Arnd Bergmann <arnd@arndb.de> [170424 10:38]:
-> On Mon, Apr 24, 2017 at 6:51 PM, Tony Lindgren <tony@atomide.com> wrote:
-> > Hi,
-> >
-> > Looks like commit 07fef3623407 ("cpsw/netcp: cpts depends on posix_timers")
-> > in mainline started triggering the following oops at least on j5eco-evm.
-> >
-> > Adding CONFIG_PTP_1588_CLOCK to .config solves it, but the oops hints
-> > something is wrong with the dependencies.. CONFIG_TI_CPTS defaults to N
-> > and not selecting it causes the oops.
-> >
-> > Any ideas what's needed to properly fix this?
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Date: Fri, 21 Apr 2017 23:14:48 +0200
+
+> While this may appear as a humdrum one line change, it's actually quite
+> important. An sk_buff stores data in three places:
 > 
-> Does your configuration have POSIX_TIMERS enabled? If not, then CPTS
-> is now also disabled. There are two issues here that we need to solve:
+> 1. A linear chunk of allocated memory in skb->data. This is the easiest
+>    one to work with, but it precludes using scatterdata since the memory
+>    must be linear.
+> 2. The array skb_shinfo(skb)->frags, which is of maximum length
+>    MAX_SKB_FRAGS. This is nice for scattergather, since these fragments
+>    can point to different pages.
+> 3. skb_shinfo(skb)->frag_list, which is a pointer to another sk_buff,
+>    which in turn can have data in either (1) or (2).
 > 
-> a) find out why POSIX_TIMERS got disabled, and make sure it's always
->     turned on for normal users
+> The first two are rather easy to deal with, since they're of a fixed
+> maximum length, while the third one is not, since there can be
+> potentially limitless chains of fragments. Fortunately dealing with
+> frag_list is opt-in for drivers, so drivers don't actually have to deal
+> with this mess. For whatever reason, macsec decided it wanted pain, and
+> so it explicitly specified NETIF_F_FRAGLIST.
+> 
+> Because dealing with (1), (2), and (3) is insane, most users of sk_buff
+> doing any sort of crypto or paging operation calls a convenient function
+> called skb_to_sgvec (which happens to be recursive if (3) is in use!).
+> This takes a sk_buff as input, and writes into its output pointer an
+> array of scattergather list items. Sometimes people like to declare a
+> fixed size scattergather list on the stack; othertimes people like to
+> allocate a fixed size scattergather list on the heap. However, if you're
+> doing it in a fixed-size fashion, you really shouldn't be using
+> NETIF_F_FRAGLIST too (unless you're also ensuring the sk_buff and its
+> frag_list children arent't shared and then you check the number of
+> fragments in total required.)
+> 
+> Macsec specifically does this:
+> 
+>         size += sizeof(struct scatterlist) * (MAX_SKB_FRAGS + 1);
+>         tmp = kmalloc(size, GFP_ATOMIC);
+>         *sg = (struct scatterlist *)(tmp + sg_offset);
+> 	...
+>         sg_init_table(sg, MAX_SKB_FRAGS + 1);
+>         skb_to_sgvec(skb, sg, 0, skb->len);
+> 
+> Specifying MAX_SKB_FRAGS + 1 is the right answer usually, but not if you're
+> using NETIF_F_FRAGLIST, in which case the call to skb_to_sgvec will
+> overflow the heap, and disaster ensues.
+> 
+> Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
 
-$ make omap2plus_defconfig
-...
-CONFIG_POSIX_TIMERS=y
-# CONFIG_PTP_1588_CLOCK is not set
-
-So CONFIG_TI_CPTS is unselectable.
-
-> b) find out what's wrong with the driver when CPTS is disabled. This would
->     be an existing problem that you just never saw because CPTS was
->     always enabled so far.
-
-See a) above, yes seems there are two problems here.
-
-Regards,
-
-Tony
+This is definitely the simplest fix for now, applied, thanks.
