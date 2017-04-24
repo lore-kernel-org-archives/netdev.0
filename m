@@ -1,42 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Blogpost evaluation this [PATCH v4 net-next RFC] net: Generic
- XDP
-Date: Mon, 24 Apr 2017 18:26:43 -0400 (EDT)
-Message-ID: <20170424.182643.485613135674690555.davem@davemloft.net>
-References: <20170413.120925.2082322246776478766.davem@davemloft.net>
-        <20170424162405.1183f2e7@redhat.com>
+Subject: Re: [PATCH net 0/3] net: dsa: b53: BCM58xx devices fixes
+Date: Mon, 24 Apr 2017 18:29:44 -0400 (EDT)
+Message-ID: <20170424.182944.1278817219386472501.davem@davemloft.net>
+References: <20170424212723.15407-1-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: xdp-newbies@vger.kernel.org, netdev@vger.kernel.org,
-        andy@greyhouse.net
-To: brouer@redhat.com
+Cc: netdev@vger.kernel.org, andrew@lunn.ch,
+        vivien.didelot@savoifairelinux.com, eric@anholt.net,
+        jon.mason@broadcom.com
+To: f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:58552 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:58578 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S967445AbdDXW0p (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 18:26:45 -0400
-In-Reply-To: <20170424162405.1183f2e7@redhat.com>
+        with ESMTP id S977457AbdDXW3w (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 18:29:52 -0400
+In-Reply-To: <20170424212723.15407-1-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Date: Mon, 24 Apr 2017 16:24:05 +0200
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Mon, 24 Apr 2017 14:27:20 -0700
 
-> I've done a very detailed evaluation of this patch, and I've created a
-> blogpost like report here:
-> 
->  https://prototype-kernel.readthedocs.io/en/latest/blogposts/xdp25_eval_generic_xdp_tx.html
+> This patch series contains fixes for the 58xx devices (Broadcom Northstar
+> Plus), which were identified thanks to the help of Eric Anholt.
 
-Thanks for doing this Jesper.
-
-> I didn't evaluate the adjust_head part, so I hope Andy is still
-> planning to validate that part?
-
-I was hoping he would post some results today as well.
-
-Andy, how goes it? :)
-
-Once the basic patch is ready and integrated in we can try to do
-xmit_more in generic XDP and see what that does for XDP_TX
-performance.
+Series applied, thanks Florian.
