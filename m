@@ -1,50 +1,56 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH] man: ip-rule.8: Further clarify how to interpret priority value
-Date: Mon, 24 Apr 2017 17:35:37 +0200
-Message-ID: <20170424153537.15072-1-phil@nwl.cc>
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+From: Jiri Slaby <jslaby@suse.cz>
+Subject: Re: [PATCH v3 07/29] x86: bpf_jit, use ENTRY+ENDPROC
+Date: Mon, 24 Apr 2017 17:41:06 +0200
+Message-ID: <614ca52b-8a43-244e-8a3a-c39145ecc3e8@suse.cz>
+References: <697947f4-0a2c-1480-0995-9919556dc020@suse.cz>
+ <20170424.104132.950580313142367896.davem@davemloft.net>
+ <f7a94f4e-6d93-a447-a62f-3f290e66c647@suse.cz>
+ <20170424.110844.1321374394090353753.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: alexei.starovoitov@gmail.com, mingo@redhat.com, tglx@linutronix.de,
+        hpa@zytor.com, x86@kernel.org, jpoimboe@redhat.com,
+        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        daniel@iogearbox.net, edumazet@google.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:36081 "EHLO mail.nwl.cc"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S964813AbdDXPfw (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 24 Apr 2017 11:35:52 -0400
+Received: from mail-wr0-f194.google.com ([209.85.128.194]:33183 "EHLO
+        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S972010AbdDXPlJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 11:41:09 -0400
+In-Reply-To: <20170424.110844.1321374394090353753.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Despite the past changes, users seemed to get confused by the seemingly
-contradictory relation of priority value and actual rule priority.
+On 04/24/2017, 05:08 PM, David Miller wrote:
+> If you align the entry points, then the code sequence as a whole is
+> are no longer densely packed.
 
-Signed-off-by: Phil Sutter <phil@nwl.cc>
----
- man/man8/ip-rule.8 | 8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
+Sure.
 
-diff --git a/man/man8/ip-rule.8 b/man/man8/ip-rule.8
-index 7de80f3e6db9f..a5c479811927f 100644
---- a/man/man8/ip-rule.8
-+++ b/man/man8/ip-rule.8
-@@ -95,7 +95,10 @@ Each policy routing rule consists of a
- .B selector
- and an
- .B action predicate.
--The RPDB is scanned in order of decreasing priority. The selector
-+The RPDB is scanned in order of decreasing priority (note that lower number
-+means higher priority, see the description of
-+.I PREFERENCE
-+below). The selector
- of each rule is applied to {source address, destination address, incoming
- interface, tos, fwmark} and, if the selector matches the packet,
- the action is performed. The action predicate may return with success.
-@@ -225,7 +228,8 @@ value to match.
- .BI priority " PREFERENCE"
- the priority of this rule.
- .I PREFERENCE
--is an unsigned integer value, higher number means lower priority.  Each rule
-+is an unsigned integer value, higher number means lower priority, and rules get
-+processed in order of increasing number. Each rule
- should have an explicitly set
- .I unique
- priority value.
+> Or do I misunderstand how your macros work?
+
+Perhaps. So the suggested macros for the code are:
+#define BPF_FUNC_START_LOCAL(name) \
+		SYM_START(name, SYM_V_LOCAL, SYM_A_NONE)
+#define BPF_FUNC_START(name) \
+		SYM_START(name, SYM_V_GLOBAL, SYM_A_NONE)
+
+and they differ from the standard ones:
+#define SYM_FUNC_START_LOCAL(name)                      \
+        SYM_START(name, SYM_V_LOCAL, SYM_A_ALIGN)
+#define SYM_FUNC_START(name)                            \
+        SYM_START(name, SYM_V_GLOBAL, SYM_A_ALIGN)
+
+
+The difference is SYM_A_NONE vs. SYM_A_ALIGN, which means:
+#define SYM_A_ALIGN                             ALIGN
+#define SYM_A_NONE                              /* nothing */
+
+Does it look OK now?
+
+thanks,
 -- 
-2.11.0
+js
+suse labs
