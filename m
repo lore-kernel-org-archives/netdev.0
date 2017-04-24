@@ -1,53 +1,72 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [PATCH iproute2 net 3/8] tc/pedit: Introduce 'add' operation
-Date: Mon, 24 Apr 2017 14:04:40 +0300
-Message-ID: <CAJ3xEMjwZV5Ky_XEmmY7O0yHFtMDTFJnF+L94Zmb2D5iWi++tw@mail.gmail.com>
-References: <20170423125356.1298-1-amir@vadai.me> <20170423125356.1298-4-amir@vadai.me>
- <f358025b-2618-3f22-b593-2e4e70fb7a79@mojatatu.com> <20170424075203.GA3265@office.localdomain>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH] macsec: avoid heap overflow in skb_to_sgvec
+Date: Mon, 24 Apr 2017 11:02:56 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DCFFD9487@AcuExch.aculab.com>
+References: <20170421211448.16995-1-Jason@zx2c4.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        Or Gerlitz <ogerlitz@mellanox.com>
-To: Amir Vadai <amir@vadai.me>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f174.google.com ([209.85.223.174]:35400 "EHLO
-        mail-io0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1168989AbdDXLEn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 07:04:43 -0400
-Received: by mail-io0-f174.google.com with SMTP id r16so181926486ioi.2
-        for <netdev@vger.kernel.org>; Mon, 24 Apr 2017 04:04:43 -0700 (PDT)
-In-Reply-To: <20170424075203.GA3265@office.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "stable@vger.kernel.org" <stable@vger.kernel.org>,
+        "security@kernel.org" <security@kernel.org>
+To: "'Jason A. Donenfeld'" <Jason@zx2c4.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "davem@davemloft.net" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170421211448.16995-1-Jason@zx2c4.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 24, 2017 at 10:52 AM, Amir Vadai <amir@vadai.me> wrote:
-> On Sun, Apr 23, 2017 at 01:44:51PM -0400, Jamal Hadi Salim wrote:
->> Thanks for the excellent work.
+From: Jason A. Donenfeld
+> Sent: 21 April 2017 22:15
+> While this may appear as a humdrum one line change, it's actually quite
+> important. An sk_buff stores data in three places:
+> 
+> 1. A linear chunk of allocated memory in skb->data. This is the easiest
+>    one to work with, but it precludes using scatterdata since the memory
+>    must be linear.
+> 2. The array skb_shinfo(skb)->frags, which is of maximum length
+>    MAX_SKB_FRAGS. This is nice for scattergather, since these fragments
+>    can point to different pages.
+> 3. skb_shinfo(skb)->frag_list, which is a pointer to another sk_buff,
+>    which in turn can have data in either (1) or (2).
+> 
+> The first two are rather easy to deal with, since they're of a fixed
+> maximum length, while the third one is not, since there can be
+> potentially limitless chains of fragments. Fortunately dealing with
+> frag_list is opt-in for drivers, so drivers don't actually have to deal
+> with this mess. For whatever reason, macsec decided it wanted pain, and
+> so it explicitly specified NETIF_F_FRAGLIST.
+> 
+> Because dealing with (1), (2), and (3) is insane, most users of sk_buff
+> doing any sort of crypto or paging operation calls a convenient function
+> called skb_to_sgvec (which happens to be recursive if (3) is in use!).
+> This takes a sk_buff as input, and writes into its output pointer an
+> array of scattergather list items. Sometimes people like to declare a
+> fixed size scattergather list on the stack; othertimes people like to
+> allocate a fixed size scattergather list on the heap. However, if you're
+> doing it in a fixed-size fashion, you really shouldn't be using
+> NETIF_F_FRAGLIST too (unless you're also ensuring the sk_buff and its
+> frag_list children arent't shared and then you check the number of
+> fragments in total required.)
+> 
+> Macsec specifically does this:
+> 
+>         size += sizeof(struct scatterlist) * (MAX_SKB_FRAGS + 1);
+>         tmp = kmalloc(size, GFP_ATOMIC);
+>         *sg = (struct scatterlist *)(tmp + sg_offset);
+> 	...
+>         sg_init_table(sg, MAX_SKB_FRAGS + 1);
+>         skb_to_sgvec(skb, sg, 0, skb->len);
+> 
+> Specifying MAX_SKB_FRAGS + 1 is the right answer usually, but not if you're
+> using NETIF_F_FRAGLIST, in which case the call to skb_to_sgvec will
+> overflow the heap, and disaster ensues.
+...
 
-sure, it's Amir, you know..
+Shouldn't skb_to_sgvec() be checking the number of fragments against
+the size of the sg list?
+The callers would then all need auditing to allow for failure.
 
->> On 17-04-23 08:53 AM, Amir Vadai wrote:
-
->> Mostly curious about hardware handling.
-
-> As to hardware handling, Or did the implementation so he will answer
-> better. AFAIK, current implementation doesn't allow partial field
-> setting/adding, so such a rule can't be offloaded. I think it is only to
-> make things simple and because there was no use case for that.
-> To my knowledge, hardware should support such thing if needed.
-
-yeah (currently no partial setting) and yeah (in the future yes, will
-support partial setting of offset into
-field and partial length to set from there) and no for partial addition.
-
-The reason we decided to disallow partial addition in the FW API was
-what do you do with the carry, e.g you
-add a value to the 2nd nibble of IP address and there are carry bits,
-where do you take them? this becomes
-even more ugly if you are dealing with mac addresses. I guess once
-there's use case for partial add offload,
-we will revisit that.
-
-Or.
+	David
