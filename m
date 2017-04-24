@@ -1,57 +1,71 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: [PATCH net] ipv6: move stub initialization after ipv6 setup completion
-Date: Mon, 24 Apr 2017 14:18:28 +0200
-Message-ID: <fd7c85f650661466a782a71485f227f0b84454a7.1493035843.git.pabeni@redhat.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60686 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1169634AbdDXMTk (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 24 Apr 2017 08:19:40 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH v4 13/18] arm64: allwinner: sun50i-a64: add
+ dwmac-sun8i Ethernet driver
+Date: Mon, 24 Apr 2017 14:24:11 +0200
+Message-ID: <20170424122411.GA9349@Red>
+References: <20170412111400.2296-1-clabbe.montjoie@gmail.com>
+ <20170412111400.2296-14-clabbe.montjoie@gmail.com>
+ <20170412124153.q6zvdvqkroizaxgb@lukather>
+Reply-To: clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org,
+	linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org, will.deacon-5wv7dgnIgG8@public.gmane.org,
+	peppe.cavallaro-qxv4g6HH51o@public.gmane.org, alexandre.torgue-qxv4g6HH51o@public.gmane.org,
+	linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+To: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+Return-path: <linux-sunxi+bncBD7YLCN32UNBB4G467DQKGQEJXDRXGY-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+Content-Disposition: inline
+In-Reply-To: <20170412124153.q6zvdvqkroizaxgb@lukather>
+List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <https://groups.google.com/group/linux-sunxi
+List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+ <https://groups.google.com/group/linux-sunxi/subscribe>
+List-Id: netdev.vger.kernel.org
 
-The ipv6 stub pointer is currently initialized before the ipv6
-routing subsystem: a 3rd party can access and use such stub
-before the routing data is ready.
-Moreover, such pointer is not cleared in case of initialization
-error, possibly leading to dangling pointers usage.
+On Wed, Apr 12, 2017 at 02:41:53PM +0200, Maxime Ripard wrote:
+> On Wed, Apr 12, 2017 at 01:13:55PM +0200, Corentin Labbe wrote:
+> > The dwmac-sun8i is an Ethernet MAC that supports 10/100/1000 Mbit
+> > connections. It is very similar to the device found in the Allwinner
+> > H3, but lacks the internal 100 Mbit PHY and its associated control
+> > bits.
+> > This adds the necessary bits to the Allwinner A64 SoC .dtsi, but keeps
+> > it disabled at this level.
+> > 
+> > Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> > ---
+> >  arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi | 37 +++++++++++++++++++++++++++
+> >  1 file changed, 37 insertions(+)
+> > 
+> > diff --git a/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi b/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi
+> > index 0b0f4ab..2569827 100644
+> > --- a/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi
+> > +++ b/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi
+> > @@ -287,6 +287,23 @@
+> >  				bias-pull-up;
+> >  			};
+> >  
+> > +			rmii_pins: rmii_pins {
+> > +				pins = "PD10", "PD11", "PD13", "PD14",
+> > +						"PD17", "PD18", "PD19", "PD20",
+> > +						"PD22", "PD23";
+> 
+> Please align the wrapped lines on the first pin.
+> 
 
-This change addresses the above moving the stub initialization
-at the end of ipv6 init code.
+OK
 
-Fixes: 5f81bd2e5d80 ("ipv6: export a stub for IPv6 symbols used by vxlan")
-Signed-off-by: Paolo Abeni <pabeni@redhat.com>
----
- net/ipv6/af_inet6.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+> > +				function = "emac";
+> > +				drive-strength = <40>;
+> 
+> Do you actually need that for all the boards, or only a few of them?
 
-diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
-index a9a9553..e82e59f 100644
---- a/net/ipv6/af_inet6.c
-+++ b/net/ipv6/af_inet6.c
-@@ -933,8 +933,6 @@ static int __init inet6_init(void)
- 	if (err)
- 		goto igmp_fail;
- 
--	ipv6_stub = &ipv6_stub_impl;
--
- 	err = ipv6_netfilter_init();
- 	if (err)
- 		goto netfilter_fail;
-@@ -1010,6 +1008,10 @@ static int __init inet6_init(void)
- 	if (err)
- 		goto sysctl_fail;
- #endif
-+
-+	/* ensure that ipv6 stubs are visible only after ipv6 is ready */
-+	wmb();
-+	ipv6_stub = &ipv6_stub_impl;
- out:
- 	return err;
- 
--- 
-2.9.3
+I have tried to use lower value without success on some boards. (opipc/pine64 in my memory)
+
+Regards
+Corentin Labbe
