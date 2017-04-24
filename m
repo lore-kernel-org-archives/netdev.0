@@ -1,34 +1,42 @@
-From: Christoph Hellwig <hch@lst.de>
-Subject: Re: [PATCH 5/7] IB/hfi1: use pcie_flr instead of duplicating it
-Date: Mon, 24 Apr 2017 16:35:07 +0200
-Message-ID: <20170424143507.GA28812@lst.de>
-References: <20170414191131.14286-1-hch@lst.de> <20170414191131.14286-6-hch@lst.de> <A33E225544E47D4DB5713032774B132783960382@irsmsx105.ger.corp.intel.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next 1/3] samples/bpf: add -Wno-unknown-warning-option
+ to clang
+Date: Mon, 24 Apr 2017 16:37:41 +0200
+Message-ID: <58FE0DB5.20802@iogearbox.net>
+References: <20170424133108.31595-1-alexander@alemayhu.com> <20170424133108.31595-2-alexander@alemayhu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Christoph Hellwig <hch@lst.de>,
-        Bjorn Helgaas <bhelgaas@google.com>,
-        "Cabiddu, Giovanni" <giovanni.cabiddu@intel.com>,
-        "Benedetto, Salvatore" <salvatore.benedetto@intel.com>,
-        "Marciniszyn, Mike" <mike.marciniszyn@intel.com>,
-        "Dalessandro, Dennis" <dennis.dalessandro@intel.com>,
-        Derek Chickles <derek.chickles@caviumnetworks.com>,
-        Satanand Burla <satananda.burla@caviumnetworks.com>,
-        Felix Manlunas <felix.manlunas@caviumnetworks.com>,
-        Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>,
-        "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-        "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-        qat-linux <qat-linux@intel.com>,
-        "linux-crypto@vger.kernel.org" <linux-crypto@vger.kernel.org>,
-        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
-        "netdev@vger.kernel.or
-To: "Byczkowski, Jakub" <jakub.byczkowski@intel.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <A33E225544E47D4DB5713032774B132783960382@irsmsx105.ger.corp.intel.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: ast@fb.com
+To: Alexander Alemayhu <alexander@alemayhu.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:57490 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1172619AbdDXOho (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 10:37:44 -0400
+In-Reply-To: <20170424133108.31595-2-alexander@alemayhu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 24, 2017 at 02:16:31PM +0000, Byczkowski, Jakub wrote:
-> Tested-by: Jakub Byczkowski <jakub.byczkowski@intel.com>
+On 04/24/2017 03:31 PM, Alexander Alemayhu wrote:
+> I was initially going to remove '-Wno-address-of-packed-member' because I
+> thought it was not supposed to be there but Daniel suggested using
+> '-Wno-unknown-warning-option'.
+>
+> This silences several warnings similiar to the one below
+>
+> warning: unknown warning option '-Wno-address-of-packed-member' [-Wunknown-warning-option]
+> 1 warning generated.
 
-Are you (and Doug) ok with queueing this up in the PCI tree?
+Yeah, that feature seems fairly new (Feb 2017 accepted if I
+see this correctly): https://reviews.llvm.org/D20561
+
+Given the -Wno-address-of-packed-member was there to silence
+warnings in the first place, we should also silence warnings
+when -Wno-address-of-packed-member is unknown to clang/llvm.
+
+[...]
+>
+> Signed-off-by: Alexander Alemayhu <alexander@alemayhu.com>
+
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
