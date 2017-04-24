@@ -1,38 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v5 1/2] net sched actions: dump more than
- TCA_ACT_MAX_PRIO actions per batch
-Date: Mon, 24 Apr 2017 16:30:33 -0400 (EDT)
-Message-ID: <20170424.163033.797679814568299306.davem@davemloft.net>
-References: <20170420142453.GF1886@nanopsycho.orion>
-        <20170424091455.GA25218@vergenet.net>
-        <2ca4266f-a164-d2ad-37fa-45f7ae354eb8@mojatatu.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: simon.horman@netronome.com, jiri@resnulli.us,
-        xiyou.wangcong@gmail.com, eric.dumazet@gmail.com,
-        netdev@vger.kernel.org, tom@herbertland.com, pablo@netfilter.org
-To: jhs@mojatatu.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:57386 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S977560AbdDXUah (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 16:30:37 -0400
-In-Reply-To: <2ca4266f-a164-d2ad-37fa-45f7ae354eb8@mojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+Subject: [PATCH] net: ethernet: ti: netcp_core: remove unused compl queue mapping
+Date: Mon, 24 Apr 2017 23:54:06 +0300
+Message-ID: <1493067246-3247-1-git-send-email-ivan.khoronzhuk@linaro.org>
+Cc: linux-kernel@vger.kernel.org, grygorii.strashko@ti.com,
+        Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+To: netdev@vger.kernel.org, w-kwok2@ti.com, m-karicheri2@ti.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Date: Mon, 24 Apr 2017 08:49:00 -0400
+This code is unused and probably was unintentionally left while
+moving completion queue mapping in submit function.
 
-> Yes, space is important and if i can express upto 32 flags
-> with one TLV rather than 32 TLVs i choose one TLV.
+Signed-off-by: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+---
+Based on net-next/master
 
-Which is fine.  But two things:
+ drivers/net/ethernet/ti/netcp_core.c | 4 ----
+ 1 file changed, 4 deletions(-)
 
-1) Again, bits you aren't using now, make sure userspace doesn't
-   set them.  And if it does, reject.
-
-2) If you are worried about performance, we're talking about a TLV in
-   the request here not the dump response itself so performance isn't
-   a real issue as Pablo mentioned.
+diff --git a/drivers/net/ethernet/ti/netcp_core.c b/drivers/net/ethernet/ti/netcp_core.c
+index 9027c9c..729a7da 100644
+--- a/drivers/net/ethernet/ti/netcp_core.c
++++ b/drivers/net/ethernet/ti/netcp_core.c
+@@ -1134,7 +1134,6 @@ netcp_tx_map_skb(struct sk_buff *skb, struct netcp_intf *netcp)
+ 		u32 buf_len = skb_frag_size(frag);
+ 		dma_addr_t desc_dma;
+ 		u32 desc_dma_32;
+-		u32 pkt_info;
+ 
+ 		dma_addr = dma_map_page(dev, page, page_offset, buf_len,
+ 					DMA_TO_DEVICE);
+@@ -1151,9 +1150,6 @@ netcp_tx_map_skb(struct sk_buff *skb, struct netcp_intf *netcp)
+ 		}
+ 
+ 		desc_dma = knav_pool_desc_virt_to_dma(netcp->tx_pool, ndesc);
+-		pkt_info =
+-			(netcp->tx_compl_qid & KNAV_DMA_DESC_RETQ_MASK) <<
+-				KNAV_DMA_DESC_RETQ_SHIFT;
+ 		set_pkt_info(dma_addr, buf_len, 0, ndesc);
+ 		desc_dma_32 = (u32)desc_dma;
+ 		set_words(&desc_dma_32, 1, &pdesc->next_desc);
+-- 
+2.7.4
