@@ -1,79 +1,85 @@
-From: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
-Subject: Re: [PATCH v4 13/18] arm64: allwinner: sun50i-a64: add
- dwmac-sun8i Ethernet driver
-Date: Mon, 24 Apr 2017 20:58:44 +0800
-Message-ID: <CAGb2v66_=dPovgjh-t3ocsAkh7zMNJfa8aRJOUP59K=-zrVb-g@mail.gmail.com>
-References: <20170412111400.2296-1-clabbe.montjoie@gmail.com>
- <20170412111400.2296-14-clabbe.montjoie@gmail.com> <20170412124153.q6zvdvqkroizaxgb@lukather>
- <20170424122411.GA9349@Red>
-Reply-To: wens-jdAy2FN1RRM@public.gmane.org
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>, Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>,
-	Russell King <linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>, Catalin Marinas <catalin.marinas-5wv7dgnIgG8@public.gmane.org>,
-	Will Deacon <will.deacon-5wv7dgnIgG8@public.gmane.org>, Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>, alexandre.torgue-qxv4g6HH51o@public.gmane.org,
-	linux-sunxi <linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>, devicetree <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-arm-kernel <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-To: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-sunxi+bncBCMILY6JWQBBBHPN67DQKGQEG62EWBA-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-In-Reply-To: <20170424122411.GA9349@Red>
-List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <https://groups.google.com/group/linux-sunxi
-List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
- <https://groups.google.com/group/linux-sunxi/subscribe>
-List-Id: netdev.vger.kernel.org
+From: Alexander Potapenko <glider@google.com>
+Subject: [PATCH v2] net/packet: initialize val in packet_getsockopt()
+Date: Mon, 24 Apr 2017 14:59:14 +0200
+Message-ID: <20170424125914.43270-1-glider@google.com>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: dvyukov@google.com, kcc@google.com, edumazet@google.com,
+        davem@davemloft.net, kuznet@ms2.inr.ac.ru
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f180.google.com ([209.85.128.180]:34358 "EHLO
+        mail-wr0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1170447AbdDXM7U (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 08:59:20 -0400
+Received: by mail-wr0-f180.google.com with SMTP id z109so91298329wrb.1
+        for <netdev@vger.kernel.org>; Mon, 24 Apr 2017 05:59:19 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 24, 2017 at 8:24 PM, Corentin Labbe
-<clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> On Wed, Apr 12, 2017 at 02:41:53PM +0200, Maxime Ripard wrote:
->> On Wed, Apr 12, 2017 at 01:13:55PM +0200, Corentin Labbe wrote:
->> > The dwmac-sun8i is an Ethernet MAC that supports 10/100/1000 Mbit
->> > connections. It is very similar to the device found in the Allwinner
->> > H3, but lacks the internal 100 Mbit PHY and its associated control
->> > bits.
->> > This adds the necessary bits to the Allwinner A64 SoC .dtsi, but keeps
->> > it disabled at this level.
->> >
->> > Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
->> > ---
->> >  arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi | 37 +++++++++++++++++++++++++++
->> >  1 file changed, 37 insertions(+)
->> >
->> > diff --git a/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi b/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi
->> > index 0b0f4ab..2569827 100644
->> > --- a/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi
->> > +++ b/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi
->> > @@ -287,6 +287,23 @@
->> >                             bias-pull-up;
->> >                     };
->> >
->> > +                   rmii_pins: rmii_pins {
->> > +                           pins = "PD10", "PD11", "PD13", "PD14",
->> > +                                           "PD17", "PD18", "PD19", "PD20",
->> > +                                           "PD22", "PD23";
->>
->> Please align the wrapped lines on the first pin.
->>
->
-> OK
->
->> > +                           function = "emac";
->> > +                           drive-strength = <40>;
->>
->> Do you actually need that for all the boards, or only a few of them?
->
-> I have tried to use lower value without success on some boards. (opipc/pine64 in my memory)
+In the case getsockopt() is called with PACKET_HDRLEN and optlen < 4
+|val| remains uninitialized and the syscall may behave differently
+depending on its value. This doesn't have security consequences (as the
+uninit bytes aren't copied back), but it's still cleaner to initialize
+|val| and ensure optlen is not less than sizeof(int).
 
-FYI we need them for all the boards that use RGMII.
-The signals at gigabit speed run at 125 MHz DDR.
+This bug has been detected with KMSAN.
 
-For RMII we probably don't need it. Even at 100 Mbps,
-it's only 50 MHz SDR. drive-strength = <30> should be
-enough.
+Signed-off-by: Alexander Potapenko <glider@google.com>
+---
+v2: - if len < sizeof(int), make it 0
 
-ChenYu
+KMSAN report below:
+
+==================================================================
+BUG: KMSAN: use of unitialized memory in packet_getsockopt+0xb9b/0xbe0
+inter: 0
+CPU: 0 PID: 1036 Comm: probe Tainted: G    B           4.11.0-rc5+ #2444
+Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+Call Trace:
+ __dump_stack lib/dump_stack.c:16
+ dump_stack+0x143/0x1b0 lib/dump_stack.c:52
+ kmsan_report+0x16b/0x1e0 mm/kmsan/kmsan.c:1078
+ __kmsan_warning_32+0x5c/0xa0 mm/kmsan/kmsan_instr.c:510
+ packet_getsockopt+0xb9b/0xbe0 net/packet/af_packet.c:3839
+ SYSC_getsockopt+0x495/0x540 net/socket.c:1829
+ SyS_getsockopt+0xb0/0xd0 net/socket.c:1811
+ entry_SYSCALL_64_fastpath+0x13/0x94 arch/x86/entry/entry_64.S:204
+RIP: 0033:0x436d8a
+RSP: 002b:00007ffce54e52c8 EFLAGS: 00000203 ORIG_RAX: 0000000000000037
+RAX: ffffffffffffffda RBX: 0000000000000000 RCX: 0000000000436d8a
+RDX: 000000000000000b RSI: 0000000000000107 RDI: 0000000000000003
+RBP: 00007ffce54e52b0 R08: 00007ffce54e52d8 R09: 0000000000000004
+R10: 00007ffce54e52d4 R11: 0000000000000203 R12: 00007ffce54e53c8
+R13: 00007ffce54e53d8 R14: 0000000000000002 R15: 0000000000000000
+origin description: ----val@packet_getsockopt (origin=00000000f6600052)
+local variable created at:
+ packet_getsockopt+0xcd/0xbe0 net/packet/af_packet.c:3789
+ SYSC_getsockopt+0x495/0x540 net/socket.c:1829
+==================================================================
+---
+ net/packet/af_packet.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 8489beff5c25..dfc762df5da9 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -3787,7 +3787,7 @@ static int packet_getsockopt(struct socket *sock, int level, int optname,
+ 			     char __user *optval, int __user *optlen)
+ {
+ 	int len;
+-	int val, lv = sizeof(val);
++	int val = 0, lv = sizeof(val);
+ 	struct sock *sk = sock->sk;
+ 	struct packet_sock *po = pkt_sk(sk);
+ 	void *data = &val;
+@@ -3836,6 +3836,8 @@ static int packet_getsockopt(struct socket *sock, int level, int optname,
+ 	case PACKET_HDRLEN:
+ 		if (len > sizeof(int))
+ 			len = sizeof(int);
++		if (len < sizeof(int))
++			len = 0;
+ 		if (copy_from_user(&val, optval, len))
+ 			return -EFAULT;
+ 		switch (val) {
+-- 
+2.12.2.816.g2cccc81164-goog
