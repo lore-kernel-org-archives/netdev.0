@@ -1,190 +1,73 @@
-From: James Hughes <james.hughes@raspberrypi.org>
-Subject: Re: [PATCH] brcm80211: brcmfmac: Ensure that incoming skb's are writable
-Date: Mon, 24 Apr 2017 09:45:04 +0100
-Message-ID: <CAE_XsMJup_TVdebPxgP0p0Ks50LY5=dva9RT+LhTOK3HV28+RQ@mail.gmail.com>
-References: <20170420111651.10213-1-james.hughes@raspberrypi.org>
- <b6891d80-cc5f-3bcd-72aa-1de2d9bb9144@broadcom.com> <CAE_XsMKSO=P-h5AyPJy=59zDq=DmLFqBAX8Bqsofey=aAFD5dQ@mail.gmail.com>
- <e2e5d950-d186-1a27-4b30-4ae2e9838103@broadcom.com>
+From: Miroslav Lichvar <mlichvar@redhat.com>
+Subject: Re: [RFC PATCH 3/7] net: add option to get information about
+ timestamped packets
+Date: Mon, 24 Apr 2017 11:00:43 +0200
+Message-ID: <20170424090043.GF8847@localhost>
+References: <20170412141737.5881-1-mlichvar@redhat.com>
+ <20170412141737.5881-4-mlichvar@redhat.com>
+ <CAF=yD-Lsbr7f7aPUsFF3gCtFdyR8yb1=VBPJGQuxv_JbrJud6Q@mail.gmail.com>
+ <20170413151806.GA26613@localhost>
+ <CAF=yD-+tJpY7XJrqxga=0_kn-FjS0M=yuu59m_ZRRrrcpJCbZw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, Franky Lin <franky.lin@broadcom.com>,
-        Hante Meuleman <hante.meuleman@broadcom.com>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        linux-wireless <linux-wireless@vger.kernel.org>
-To: Arend Van Spriel <arend.vanspriel@broadcom.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Network Development <netdev@vger.kernel.org>,
+        Richard Cochran <richardcochran@gmail.com>,
+        Willem de Bruijn <willemb@google.com>,
+        Soheil Hassas Yeganeh <soheil@google.com>,
+        "Keller, Jacob E" <jacob.e.keller@intel.com>,
+        Denny Page <dennypage@me.com>, Jiri Benc <jbenc@redhat.com>
+To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx07-00252a01.pphosted.com ([62.209.51.214]:11587 "EHLO
-        mx07-00252a01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S971412AbdDXIpI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 04:45:08 -0400
-Received: from pps.filterd (m0102628.ppops.net [127.0.0.1])
-        by mx07-00252a01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v3O8h8WW005699
-        for <netdev@vger.kernel.org>; Mon, 24 Apr 2017 09:45:06 +0100
-Received: from mail-wm0-f69.google.com (mail-wm0-f69.google.com [74.125.82.69])
-        by mx07-00252a01.pphosted.com with ESMTP id 29yvjyrypm-1
-        (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128 verify=OK)
-        for <netdev@vger.kernel.org>; Mon, 24 Apr 2017 09:45:06 +0100
-Received: by mail-wm0-f69.google.com with SMTP id d79so4307080wma.0
-        for <netdev@vger.kernel.org>; Mon, 24 Apr 2017 01:45:06 -0700 (PDT)
-In-Reply-To: <e2e5d950-d186-1a27-4b30-4ae2e9838103@broadcom.com>
+Received: from mx1.redhat.com ([209.132.183.28]:49908 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1167290AbdDXJAr (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 24 Apr 2017 05:00:47 -0400
+Content-Disposition: inline
+In-Reply-To: <CAF=yD-+tJpY7XJrqxga=0_kn-FjS0M=yuu59m_ZRRrrcpJCbZw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 23 April 2017 at 20:34, Arend Van Spriel
-<arend.vanspriel@broadcom.com> wrote:
-> On 21-4-2017 11:22, James Hughes wrote:
->> On 20 April 2017 at 20:48, Arend van Spriel
->> <arend.vanspriel@broadcom.com> wrote:
->>> + linux-wireless
->>>
->>> On 4/20/2017 1:16 PM, James Hughes wrote:
->>>>
->>>> The driver was adding header information to incoming skb
->>>> without ensuring the head was uncloned and hence writable.
->>>>
->>>> skb_cow_head has been used to ensure they are writable, however,
->>>> this required some changes to error handling to ensure that
->>>> if skb_cow_head failed it was not ignored.
->>>>
->>>> This really needs to be reviewed by someone who is more familiar
->>>> with this code base to ensure any deallocation of skb's is
->>>> still correct.
->>>>
->>>> Signed-off-by: James Hughes <james.hughes@raspberrypi.org>
->>>> ---
->>>>   .../wireless/broadcom/brcm80211/brcmfmac/bcdc.c    | 15 ++++++++--
->>>>   .../wireless/broadcom/brcm80211/brcmfmac/core.c    | 23 +++++-----------
->>>>   .../broadcom/brcm80211/brcmfmac/fwsignal.c         | 32
->>>> +++++++++++++++++-----
->>>>   .../wireless/broadcom/brcm80211/brcmfmac/sdio.c    |  7 ++++-
->>>>   4 files changed, 51 insertions(+), 26 deletions(-)
->>>>
->>>
->>> [...]
->>>
->>>> diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.c
->>>> b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.c
->>>> index 5eaac13..08272e8 100644
->>>> --- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.c
->>>> +++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.c
->>>> @@ -198,7 +198,7 @@ static netdev_tx_t brcmf_netdev_start_xmit(struct
->>>> sk_buff *skb,
->>>>         int ret;
->>>>         struct brcmf_if *ifp = netdev_priv(ndev);
->>>>         struct brcmf_pub *drvr = ifp->drvr;
->>>> -       struct ethhdr *eh = (struct ethhdr *)(skb->data);
->>>> +       struct ethhdr *eh;
->>>>         brcmf_dbg(DATA, "Enter, bsscfgidx=%d\n", ifp->bsscfgidx);
->>>>   @@ -212,23 +212,14 @@ static netdev_tx_t brcmf_netdev_start_xmit(struct
->>>> sk_buff *skb,
->>>>         }
->>>>         /* Make sure there's enough room for any header */
->>>> -       if (skb_headroom(skb) < drvr->hdrlen) {
->>>> -               struct sk_buff *skb2;
->>>> -
->>>> -               brcmf_dbg(INFO, "%s: insufficient headroom\n",
->>>> -                         brcmf_ifname(ifp));
->>>> -               drvr->bus_if->tx_realloc++;
->>>> -               skb2 = skb_realloc_headroom(skb, drvr->hdrlen);
->>>> -               dev_kfree_skb(skb);
->>>> -               skb = skb2;
->>>> -               if (skb == NULL) {
->>>> -                       brcmf_err("%s: skb_realloc_headroom failed\n",
->>>> -                                 brcmf_ifname(ifp));
->>>> -                       ret = -ENOMEM;
->>>> -                       goto done;
->>>> -               }
->>>
->>>
->>> What you are throwing away here is code that assures there is sufficient
->>> headroom for protocol and bus layer in the tx path, because that is
->>> determined by drvr->hdrlen. This is where the skb is handed to the driver so
->>> if you could leave the functionality above *and* assure it is writeable that
->>> would be the best solution as there is no need for all the other changes
->>> down the tx path.
->>
->> The skb_cow_head function takes the required headroom as a parameter
->> and will ensure that there is enough space, so I don't think this code
->> segment is
->> required or have I misunderstood what you mean here?
->
-> I looked more into what skb_cow_head() and skb_realloc_headroom()
-> actually do and it seems you are right.
->
->> Is it safe to rely on the _cow_ being done here and not further down
->> in the stack?
->> Or at least checked further down in the stack. Previous comments from
->> another patch
->> requested that the _cow_ be done close to the actual addition of the
->> header. I presume
->> it is unlikely/impossible that the functions that add header
->> information  down the stack
->> will be called without the above being done first?
->
-> It is safe. During probe sequence each layer in the driver stack
-> increments drvr->hdrlen with headroom it needs. So drvr->hdrlen will
-> indicate the total headroom needed when .start_xmit() is called. And
-> yes, the .start_xmit() is the single point of entry in the transmit
-> path. So the other locations where skb_push() is done are safe.
->
+On Thu, Apr 13, 2017 at 12:16:09PM -0400, Willem de Bruijn wrote:
+> On Thu, Apr 13, 2017 at 11:18 AM, Miroslav Lichvar <mlichvar@redhat.com> wrote:
+> > On Thu, Apr 13, 2017 at 10:37:07AM -0400, Willem de Bruijn wrote:
+> >> Why is this L2 length needed?
+> >
+> > It's needed for incoming packets to allow converting of preamble
+> > timestamps to trailer timestamps.
+> 
+> Receiving the mac length of a packet sounds like a feature independent
+> from timestamping.
 
-OK, I will redo the patch (making it v3 + changelogs), taking this in
-to account.
+I agree, but so far nobody suggested another use for this information.
+Do you have any suggestions?
 
+The idea was that if it is useful only with HW timestamping, it would
+be better to save it only with the timestamp, so there is no
+performance impact in the more common case when HW timestamping is
+disabled. Am I overly cautious here?
 
->>>
->>>> +       ret = skb_cow_head(skb, drvr->hdrlen);
->>>> +       if (ret) {
->>>
->>>
->>> So move the realloc code above here instead of simply freeing the skb.
->>>
->>>> +               dev_kfree_skb_any(skb);
->>>> +               goto done;
->>>>         }
->>>>   +     eh = (struct ethhdr *)(skb->data);
->>>
->>>
->>> Now this is actually a separate fix so I would like a separate patch for it.
->>>
->>
->> No problem, but see final paragraph below.
->
-> Let me see...
+> Either an ioctl similar to SIOCGIFMTU or, if it may
+> vary due to existince of vlan headers, a new independent cmsg at the
+> SOL_SOCKET layer.
 
-I'll split this fix out, but should I issue it in the same patch set
-or as a separate patch?
-And for a different patch, should I base it on the _cow_ version patch
-or the original version?
+It's not just the VLAN headers. The length of the IP header may vary
+with IP options, so the offset of the UDP data in the packet cannot be
+assumed to be constant.
 
->
->>> I have a RPi3 sitting on my desk so how can I replicate the issue. It was
->>> something about broadcast/multicast traffic when using AP mode and a bridge,
->>> right?
->>>
->>> Regards,
->>> Arend
->>
->> See this issue for details on replication.
->> https://github.com/raspberrypi/firmware/issues/673
->>
->> The bridge I use is setup using a similar procedure to that described
->> here.  https://www.raspberrypi.org/documentation/configuration/wireless/access-point.md
->>
->> I'm happy to pass over this work to you guys if you think it is
->> appropriate, you are the
->> experts on the codebase.
->
-> Sure. However, I must say you did an excellent job digging into the
-> issue and root causing it. We always were under the impression that we
-> could treat the skb as our own when handed to us in .start_xmit() callback.
->
-> Regards,
-> Arend
+Now I'm wondering if it's actually necessary to save the original
+value of skb->mac_len + skb->len. Would "skb->data - skb->head -
+skb->mac_header + skb->len" always work as the L2 length for received
+packets at the time when the cmsg is prepared?
 
-Thanks! I suspect that a few drivers are making the same mistake, Eric
-found 6 over and above the smsc95xx and this one that I originally
-found.
+As for the original ifindex, it seems to me it does need to be saved
+to a new field since __netif_receive_skb_core() intentionally
+overwrites skb->skb_iif. What would be the best place for it, sk_buff
+or skb_shared_info?
 
-Regards
-James
+And would it really be acceptable to save it for all packets in
+__netif_receive_skb_core(), even when HW timestamping is disabled?
+Seeing how the code and the data structures were optimized over time,
+I have a feeling it would not be accepted.
+
+-- 
+Miroslav Lichvar
