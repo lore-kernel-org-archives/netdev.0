@@ -1,44 +1,34 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: Re: [PATCH] macsec: avoid heap overflow in skb_to_sgvec
-Date: Mon, 24 Apr 2017 14:15:19 +0200
-Message-ID: <CAHmME9ppLZdpqf2Q2rigVvydHEG=-X1whh-BHB3bYFS3J_XDGw@mail.gmail.com>
-References: <20170421211448.16995-1-Jason@zx2c4.com> <063D6719AE5E284EB5DD2968C1650D6DCFFD9487@AcuExch.aculab.com>
+From: Guillaume Nault <g.nault@alphalink.fr>
+Subject: [PATCH net-next 0/2] l2tp: add informations about l2tpeth interfaces
+ in /sys
+Date: Mon, 24 Apr 2017 14:16:04 +0200
+Message-ID: <cover.1493035407.git.g.nault@alphalink.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "stable@vger.kernel.org" <stable@vger.kernel.org>,
-        "security@kernel.org" <security@kernel.org>
-To: David Laight <David.Laight@aculab.com>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DCFFD9487@AcuExch.aculab.com>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: James Chapman <jchapman@katalix.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from zimbra.alphalink.fr ([217.15.80.77]:41034 "EHLO
+        zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1044560AbdDXMQH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 08:16:07 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 24, 2017 at 1:02 PM, David Laight <David.Laight@aculab.com> wrote:
-> ...
->
-> Shouldn't skb_to_sgvec() be checking the number of fragments against
-> the size of the sg list?
-> The callers would then all need auditing to allow for failure.
+Patch #1 lets userspace retrieve the naming scheme of an l2tpeth
+interface, using /sys/class/net/<iface>/name_assign_type.
 
-This has never been done before, since this is one of those operations
-that simply _shouldn't fail_ this late in the driver's path. There's
-an easy way to use a fixed size array of MAX_SKB_FRAGS+1, and then
-just not specify FRAGLIST as a device feature. Then the function
-succeeds every time, rather than dropping packets. Alternatively, if
-the array is being allocated dynamically (kmalloc), a call to
-skb_cow_data returns the number of fragments needed; since usually
-people using scattergather are going to be modifying the skb anyway, I
-believe this function should be being called anyway...
+Patch #2 adds the DEVTYPE field in /sys/class/net/<iface>/uevent so
+that userspace can reliably know if a device is an l2tpeth interface.
 
-It would be possible to do as you suggest, though, by using sg_is_last
-in skb_to_sgvec. In this case we'd need to change every call site of
-skb_to_sgvec to ensure the return value is being checked as well as
-making sure that the sglist is initialized with sg_init_table to
-ensure the last frag is properly marked. I wouldn't be opposed to
-this, though it is potentially error prone work.
 
-In any case, this patch here follows the pattern of the entire rest of
-the present-day kernel, so it ought to be merged as-is.
+Guillaume Nault (2):
+  l2tp: set name_assign_type for devices created by l2tp_eth.c
+  l2tp: define "l2tpeth" device type
+
+ net/l2tp/l2tp_eth.c | 13 +++++++++++--
+ 1 file changed, 11 insertions(+), 2 deletions(-)
+
+-- 
+2.11.0
