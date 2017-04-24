@@ -1,128 +1,84 @@
 From: Benjamin Poirier <bpoirier@suse.com>
 Subject: Re: [Intel-wired-lan] [PATCH 1/2] e1000e: Don't return uninitialized
  stats
-Date: Mon, 24 Apr 2017 12:01:51 -0700
-Message-ID: <20170424190151.cbmbbeyjspoolpho@f1.synalogic.ca>
+Date: Mon, 24 Apr 2017 12:10:26 -0700
+Message-ID: <20170424191026.wpnpyhdaurfjixl7@f1.synalogic.ca>
 References: <20170421212012.25950-1-bpoirier@suse.com>
- <71d8032d-5ed1-8242-83e6-16ce65718966@molgen.mpg.de>
+ <630A6B92B7EDEB45A87E20D3D286660171182EED@hasmsx109.ger.corp.intel.com>
+ <caef8d69-9e47-bbcc-0758-e5900e1cb291@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
         intel-wired-lan@lists.osuosl.org,
+        "Ruinskiy, Dima" <dima.ruinskiy@intel.com>,
+        Kirsher@f1.synalogic.ca, Jeffrey T <jeffrey.t.kirsher@intel.com>,
         Stefan Priebe <s.priebe@profihost.ag>
-To: Paul Menzel <pmenzel@molgen.mpg.de>
+To: "Neftin, Sasha" <sasha.neftin@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:45357 "EHLO mx1.suse.de"
+Received: from mx2.suse.de ([195.135.220.15]:46477 "EHLO mx1.suse.de"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S972730AbdDXTB5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 24 Apr 2017 15:01:57 -0400
+        id S968234AbdDXTKc (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 24 Apr 2017 15:10:32 -0400
 Content-Disposition: inline
-In-Reply-To: <71d8032d-5ed1-8242-83e6-16ce65718966@molgen.mpg.de>
+In-Reply-To: <caef8d69-9e47-bbcc-0758-e5900e1cb291@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2017/04/24 10:23, Paul Menzel wrote:
-> Dear Benjamin,
+Sasha, please use reply-all to keep everyone in cc (including me...).
+
+On 2017/04/24 11:17, Neftin, Sasha wrote:
+> On 4/23/2017 15:53, Neftin, Sasha wrote:
+> > -----Original Message-----
+> > From: Intel-wired-lan [mailto:intel-wired-lan-bounces@lists.osuosl.org] On Behalf Of Benjamin Poirier
+> > Sent: Saturday, April 22, 2017 00:20
+> > To: Kirsher, Jeffrey T <jeffrey.t.kirsher@intel.com>
+> > Cc: netdev@vger.kernel.org; intel-wired-lan@lists.osuosl.org; Stefan Priebe <s.priebe@profihost.ag>
+> > Subject: [Intel-wired-lan] [PATCH 1/2] e1000e: Don't return uninitialized stats
+> > 
+> > Some statistics passed to ethtool are garbage because e1000e_get_stats64() doesn't write them, for example: tx_heartbeat_errors. This leaks kernel memory to userspace and confuses users.
+> > 
+> > Do like ixgbe and use dev_get_stats() which first zeroes out rtnl_link_stats64.
+> > 
+> > Reported-by: Stefan Priebe <s.priebe@profihost.ag>
+> > Signed-off-by: Benjamin Poirier <bpoirier@suse.com>
+> > ---
+> >   drivers/net/ethernet/intel/e1000e/ethtool.c | 2 +-
+> >   1 file changed, 1 insertion(+), 1 deletion(-)
+> > 
+> > diff --git a/drivers/net/ethernet/intel/e1000e/ethtool.c b/drivers/net/ethernet/intel/e1000e/ethtool.c
+> > index 7aff68a4a4df..f117b90cdc2f 100644
+> > --- a/drivers/net/ethernet/intel/e1000e/ethtool.c
+> > +++ b/drivers/net/ethernet/intel/e1000e/ethtool.c
+> > @@ -2063,7 +2063,7 @@ static void e1000_get_ethtool_stats(struct net_device *netdev,
+> >   	pm_runtime_get_sync(netdev->dev.parent);
+> > -	e1000e_get_stats64(netdev, &net_stats);
+> > +	dev_get_stats(netdev, &net_stats);
+> >   	pm_runtime_put_sync(netdev->dev.parent);
+> > --
+> > 2.12.2
+> > 
+> > _______________________________________________
+> > Intel-wired-lan mailing list
+> > Intel-wired-lan@lists.osuosl.org
+> > http://lists.osuosl.org/mailman/listinfo/intel-wired-lan
 > 
+> Hello,
 > 
-> Thank you for your fix.
+> We would like to not accept this patch. Suggested generic method
+> '*dev_get_stats' (net/core/dev.c) calls 'ops->ndo_get_stats64' method which
+> eventually calls e1000e_get_stats64 (netdev.c) - so there is same
+> functionality. Also, see that 'e1000e_get_stats64' method in netdev.c (line
+
+No, it's not the same functionality because dev_get_stats() does a
+memset on the rtnl_link_stats64 struct.
+
+> 5928) calls 'memset' with 0's before update statistics.  Local sanity check
+
+I don't see any memset in e1000e_get_stats64(). What kernel version are
+you looking at?
+
+> in our lab shows 'tx_heartbeat_errors' counter reported as 0.
 > 
-> On 04/21/17 23:20, Benjamin Poirier wrote:
-> > Some statistics passed to ethtool are garbage because e1000e_get_stats64()
-> > doesn't write them, for example: tx_heartbeat_errors. This leaks kernel
-> > memory to userspace and confuses users.
-> 
-> Could you please give specific examples to reproduce the issue? That way
-> your fix can also be tested.
-> 
 
-Some fields in e1000_get_ethtool_stats()'s net_stats are not initialized
-by e1000e_get_stats64(). The structure is allocated on the stack,
-therefore, the value of those fields depends on previous stack content;
-that in turns depends on kernel version, compiler and previous execution
-path. I've tried on 8 machines with different kernel versions and it
-reproduced on 3.
-
-root@linux-zxe0:/usr/local/src/linux# git log -n1 --oneline
-fc1f8f4f310a net: ipv6: send unsolicited NA if enabled for all interfaces
-root@linux-zxe0:/usr/local/src/linux# ethtool -i eth0
-driver: e1000e
-[...]
-root@linux-zxe0:/usr/local/src/linux# ethtool -S eth0
-NIC statistics:
-     rx_packets: 217
-     tx_packets: 153
-     rx_bytes: 23091
-     tx_bytes: 20533
-     rx_broadcast: 0
-     tx_broadcast: 6
-     rx_multicast: 0
-     tx_multicast: 10
-     rx_errors: 0
-     tx_errors: 0
-     tx_dropped: 18446683600612146192
-     multicast: 0
-     collisions: 0
-     rx_length_errors: 0
-     rx_over_errors: 70364470214850
-     rx_crc_errors: 0
-     rx_frame_errors: 0
-     rx_no_buffer_count: 0
-     rx_missed_errors: 0
-     tx_aborted_errors: 0
-     tx_carrier_errors: 0
-     tx_fifo_errors: 18446744072101618112
-     tx_heartbeat_errors: 18446612150964469760
-[...]
-
-(gdb) p /x 18446683600612146192
-$1 = 0xffffc9000282bc10
-(gdb) p /x 18446744072101618112
-$2 = 0xffffffffa028e1c0
-(gdb) p /x 18446612150964469760
-$3 = 0xffff880457a44000
-... a bunch of kernel addresses
-
-Inserting a dummy memset is a reliable way to show the issue:
-
---- a/drivers/net/ethernet/intel/e1000e/ethtool.c
-+++ b/drivers/net/ethernet/intel/e1000e/ethtool.c
-@@ -2061,6 +2061,8 @@ static void e1000_get_ethtool_stats(struct net_device *netdev,
-        int i;
-        char *p = NULL;
-
-+       memset(&net_stats, 0xff, sizeof(net_stats));
-+
-        pm_runtime_get_sync(netdev->dev.parent);
-
-        e1000e_get_stats64(netdev, &net_stats);
-
-root@linux-zxe0:/usr/local/src/linux# ethtool -S eth0
-NIC statistics:
-     rx_packets: 30
-     tx_packets: 29
-     rx_bytes: 2924
-     tx_bytes: 3012
-     rx_broadcast: 0
-     tx_broadcast: 6
-     rx_multicast: 0
-     tx_multicast: 7
-     rx_errors: 0
-     tx_errors: 0
-     tx_dropped: 18446744073709551615
-     multicast: 0
-     collisions: 0
-     rx_length_errors: 0
-     rx_over_errors: 18446744073709551615
-     rx_crc_errors: 0
-     rx_frame_errors: 0
-     rx_no_buffer_count: 0
-     rx_missed_errors: 0
-     tx_aborted_errors: 0
-     tx_carrier_errors: 0
-     tx_fifo_errors: 18446744073709551615
-     tx_heartbeat_errors: 18446744073709551615
-[...]
-
-(gdb) p /x 18446744073709551615
-$1 = 0xffffffffffffffff
+Please see the mail I just sent to Paul Menzel <pmenzel@molgen.mpg.de>
+for more information about the issue and how to reproduce it.
