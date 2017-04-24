@@ -1,92 +1,175 @@
-From: Jiri Slaby <jslaby@suse.cz>
-Subject: Re: [PATCH v3 07/29] x86: bpf_jit, use ENTRY+ENDPROC
-Date: Mon, 24 Apr 2017 08:45:11 +0200
-Message-ID: <697947f4-0a2c-1480-0995-9919556dc020@suse.cz>
-References: <20170421141305.25180-1-jslaby@suse.cz>
- <20170421141305.25180-7-jslaby@suse.cz>
- <20170421193213.GB91454@ast-mbp.thefacebook.com>
+From: Rafa Corvillo <rafael.corvillo@aoifes.com>
+Subject: Re: [ISSUE: sky2 - rx error] Link stops working under heavy traffic
+ load connected to a mv88e6176
+Date: Mon, 24 Apr 2017 08:45:26 +0200
+Message-ID: <58FD9F06.4040804@aoifes.com>
+References: <58F9FD64.80506@aoifes.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: mingo@redhat.com, tglx@linutronix.de, hpa@zytor.com,
-        x86@kernel.org, jpoimboe@redhat.com, linux-kernel@vger.kernel.org,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Eric Dumazet <edumazet@google.com>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f194.google.com ([209.85.128.194]:36038 "EHLO
-        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1165504AbdDXGpO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 02:45:14 -0400
-In-Reply-To: <20170421193213.GB91454@ast-mbp.thefacebook.com>
+Received: from smtp-relay-03-3.dondominio.net ([31.214.176.46]:35446 "EHLO
+        smtp-relay-03-3.dondominio.net" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1165749AbdDXGpa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 02:45:30 -0400
+Received: from mail-node.dondominio.com
+        by smtp-relay.dondominio.com (Postfix) with ESMTP id A022A41516
+        for <netdev@vger.kernel.org>; Mon, 24 Apr 2017 08:45:27 +0200 (CEST)
+Received: from [192.168.100.99] (unknown [217.130.92.202])
+        (Authenticated sender: rafael.corvillo@aoifes.com)
+        by mail-node.dondominio.com (Postfix) with ESMTPA id 7728440719
+        for <netdev@vger.kernel.org>; Mon, 24 Apr 2017 08:45:27 +0200 (CEST)
+In-Reply-To: <58F9FD64.80506@aoifes.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/21/2017, 09:32 PM, Alexei Starovoitov wrote:
-> On Fri, Apr 21, 2017 at 04:12:43PM +0200, Jiri Slaby wrote:
->> Do not use a custom macro FUNC for starts of the global functions, use
->> ENTRY instead.
->>
->> And while at it, annotate also ends of the functions by ENDPROC.
->>
->> Signed-off-by: Jiri Slaby <jslaby@suse.cz>
->> Cc: "David S. Miller" <davem@davemloft.net>
->> Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
->> Cc: James Morris <jmorris@namei.org>
->> Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
->> Cc: Patrick McHardy <kaber@trash.net>
->> Cc: Thomas Gleixner <tglx@linutronix.de>
->> Cc: Ingo Molnar <mingo@redhat.com>
->> Cc: "H. Peter Anvin" <hpa@zytor.com>
->> Cc: x86@kernel.org
->> Cc: netdev@vger.kernel.org
->> ---
->>  arch/x86/net/bpf_jit.S | 32 ++++++++++++++++++--------------
->>  1 file changed, 18 insertions(+), 14 deletions(-)
->>
->> diff --git a/arch/x86/net/bpf_jit.S b/arch/x86/net/bpf_jit.S
->> index f2a7faf4706e..762c29fb8832 100644
->> --- a/arch/x86/net/bpf_jit.S
->> +++ b/arch/x86/net/bpf_jit.S
->> @@ -23,16 +23,12 @@
->>  	32 /* space for rbx,r13,r14,r15 */ + \
->>  	8 /* space for skb_copy_bits */)
->>  
->> -#define FUNC(name) \
->> -	.globl name; \
->> -	.type name, @function; \
->> -	name:
->> -
->> -FUNC(sk_load_word)
->> +ENTRY(sk_load_word)
->>  	test	%esi,%esi
->>  	js	bpf_slow_path_word_neg
->> +ENDPROC(sk_load_word)
-> 
-> this doens't look right.
-> It will add alignment nops in critical paths of these pseudo functions.
-> I'm also not sure whether it will still work afterwards.
-> Was it tested?
-> I'd prefer if this code kept as-is.
+I resend the mail with the schema fixed. Sorry for the inconvenience.
 
-It cannot stay as-is simply because we want to know where the functions
-end to inject debuginfo properly. The code above does not warrant for
-any exception.
+We are working in an ARMv7 embedded system running kernel 4.9 (LEDE build).
+It is an imx6 board with 2 ethernet interfaces. One of them is connected to
+a Marvell switch.
 
-Executing a nop takes a little and having externally-callable functions
-aligned can actually help performance (no, I haven't measured nor tested
-the code). But sure, the tool is generic, so I can introduce a local
-macros to avoid alignments in the functions:
+The schema of the system is the following:
 
-#define BPF_FUNC_START_LOCAL(name) \
-		SYM_START(name, SYM_V_LOCAL, SYM_A_NONE)
-#define BPF_FUNC_START(name) \
-		SYM_START(name, SYM_V_GLOBAL, SYM_A_NONE)
++-------------------+ eth0
+  |                   +--+
+  |                   |  |
+  | Embedded system   +--+
+  |                   |
+  |      ARMv7        |
+  |                   | Marvell 88E8057(sky2) +-------------+
+  |                   +--+ +--+             +--+ eth1
+  |                   |  +---------------------+ |             |  +------+
+  |                   +--+      CPU port       +--+ mv88e6176  +--+
+  +------+--+---------+ |             |
+emulated|  | |             |
+GPIO    +--+ +--+             +--+ eth2
+MDIO      +-----------------------------------+ |             |  +------+
+                               MDIO +--+             +--+
++-------------+
 
-#define BPF_FUNC_END(name) SYM_FUNC_END(name)
+There is a bridge (br-lan) which includes eth0/eth1/eth2
 
-thanks,
--- 
-js
-suse labs
+If I connect the eth1/eth2, the link is up and I can do ping through it. 
+But, once
+I start sending a heavy traffic load the link fails and the kernel sends 
+the
+following messages:
+
+[   48.557140] sky2 0000:04:00.0 marvell: rx error, status 0x5f20010 
+length 1518
+[   48.564964] sky2 0000:04:00.0 marvell: rx error, status 0x5f20010 
+length 1518
+[   48.572110] sky2 0000:04:00.0 marvell: rx error, status 0x5f20010 
+length 1518
+[   48.579263] sky2 0000:04:00.0 marvell: rx error, status 0x5f20010 
+length 1518
+[   48.586417] sky2 0000:04:00.0 marvell: rx error, status 0x5f20010 
+length 1518
+[   48.593573] sky2 0000:04:00.0 marvell: rx error, status 0x5f20010 
+length 1518
+[   48.600718] sky2 0000:04:00.0 marvell: rx error, status 0x5f20010 
+length 1518
+[   54.877567] net_ratelimit: 6 callbacks suppressed
+[   54.882293] sky2 0000:04:00.0 marvell: rx error, status 0x5f20010 
+length 1518
+[   61.413552] sky2 0000:04:00.0 marvell: rx error, status 0x5f20010 
+length 1518
+
+I have a modified device-tree of imx6 which includes the mdio and dsa 
+nodes. This
+device-tree works in a kernel 4.1.6, but I know that these parts of the 
+kernel have
+a lot of changes. The changes included for mdio and dsa in the 
+device-tree are the
+following (diff arch/arm/boot/dts/imx6qdl-gw53xx.dtsi 
+arch/arm/boot/dts/imx6qdl-gw53xx-mdio.dtsi):
+
+16a17,18
+ >     can0 = &can1;
+ >     ethernet0 = &fec;
+21a24
+ >     sky2 = &eth1;
+24a28,29
+ >     usdhc2 = &usdhc3;
+ >     mdio-gpio0 = &mdio0;
+62a68,125
+ >   mdio0: mdio {
+ >     compatible = "virtual,mdio-gpio";
+ >     #address-cells = <1>;
+ >     #size-cells = <0>;
+ >     /* MDC = gpio-17, MDIO = gpio-20 */
+ >     gpios =  <&gpio1 17 1
+ >         &gpio1 20 0>;
+ >                 ethernet-phy@0  {
+ >           compatible = "marvell,dsa";
+ >                 };
+ >   };
+ >
+ >   dsa {
+ >     compatible = "marvell,dsa";
+ >     #address-cells = <2>;
+ >     #size-cells = <0>;
+ >
+ >     interrupts = <10>;
+ >     dsa,ethernet = <&eth1>;
+ >     dsa,mii-bus = <&mdio0>;
+ >
+ >     switch@0 {
+ >       #address-cells = <1>;
+ >       #size-cells = <0>;
+ >       reg = <0 0>;  /* MDIO address 0, switch 0 in tree */
+ >
+ >       port@0 {
+ >         reg = <0>;
+ >         label = "cpu";
+ >       };
+ >
+ >       port@1 {
+ >         reg = <1>;
+ >         label = "eth1";
+ >       };
+ >
+ >       port@2 {
+ >         reg = <2>;
+ >         label = "eth2";
+ >       };
+ >
+ >       port@3 {
+ >         reg = <3>;
+ >         label = "eth3";
+ >       };
+ >
+ >       port@4 {
+ >         reg = <4>;
+ >         label = "eth4";
+ >       };
+ >     };
+ >   };
+ >
+361a425,430
+ > &mdio0 {
+ >   pinctrl-names = "default";
+ >   pinctrl-0 = <&pinctrl_mdio>;
+ >   status = "okay";
+ > };
+ >
+363c432
+<   imx6qdl-gw53xx {
+---
+ >   imx6qdl-gw53xx-mdio {
+448a518,524
+ >       >;
+ >     };
+ >
+ >     pinctrl_mdio: mdiogrp {
+ >       fsl,pins = <
+ >         MX6QDL_PAD_SD1_DAT1__GPIO1_IO17   0x1b0b9
+ >         MX6QDL_PAD_SD1_CLK__GPIO1_IO20    0x1b0b9
+
+Do you know of any possible reason why this could be happening?
+
+Thanks in advance.
+
+Rafa
