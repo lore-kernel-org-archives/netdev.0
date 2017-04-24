@@ -1,40 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3 0/5] nfp: DMA flags, adjust head and fixes
-Date: Mon, 24 Apr 2017 14:36:04 -0400 (EDT)
-Message-ID: <20170424.143604.1133862806777963968.davem@davemloft.net>
-References: <20170423031756.94429-1-jakub.kicinski@netronome.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: PROBLEM: IPVS incorrectly reverse-NATs traffic to LVS host
+Date: Mon, 24 Apr 2017 21:42:52 +0300 (EEST)
+Message-ID: <alpine.LFD.2.20.1704242140290.2690@ja.home.ssi.bg>
+References: <CAEo=OUnG+Bn04XaEkwHpL2bt6bEZXP_F6RSa9HDN=VjXdOxpoQ@mail.gmail.com> <alpine.LFD.2.20.1704221417080.1974@ja.home.ssi.bg> <CAEo=OUmQb0FGQ2Lm+H4RNKTZD7hVKBJ+LTe2Sjy+BgW84yJ_ug@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kubakici@wp.pl, oss-drivers@netronome.com
-To: jakub.kicinski@netronome.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:55998 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1172539AbdDXSgG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 14:36:06 -0400
-In-Reply-To: <20170423031756.94429-1-jakub.kicinski@netronome.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Cc: Wensong Zhang <wensong@linux-vs.org>,
+        Simon Horman <horms@verge.net.au>, netdev@vger.kernel.org,
+        lvs-devel@vger.kernel.org
+To: Nick Moriarty <nick.moriarty@york.ac.uk>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <CAEo=OUmQb0FGQ2Lm+H4RNKTZD7hVKBJ+LTe2Sjy+BgW84yJ_ug@mail.gmail.com>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Date: Sat, 22 Apr 2017 20:17:51 -0700
 
-> This series takes advantage of Alex's DMA_ATTR_SKIP_CPU_SYNC to make 
-> XDP packet modifications "correct" from DMA API point of view.  It 
-> also allows us to parse the metadata before we run XDP at no additional
-> DMA sync cost.  That way we can get rid of the metadata memcpy, and 
-> remove the last upstream user of bpf_prog->xdp_adjust_head.
-> 
-> David's patch adds a way to read capabilities from the management
-> firmware.
-> 
-> There are also two net-next fixes.  Patch 4 which fixes what seems to
-> be a result of a botched rebase on my part.  Patch 5 corrects locking
-> when state of ethernet ports is being refreshed.
-> 
-> ---
-> v3: move the sync from alloc func to the actual give to hw func
-> v2: sync rx buffers before giving them to the card (Alex)
+	Hello,
 
-Series applied, thanks Jakub.
+On Mon, 24 Apr 2017, Nick Moriarty wrote:
+
+> Many thanks for your prompt fix!  I've now tested this patch against
+> the 4.11.0-rc8 kernel on Ubuntu, and I can confirm that my check
+> script is no longer seeing incorrect addresses in its responses.
+> 
+> Could you please keep me posted as this is merged?
+
+	Sure. Thanks for the confirmation! I'll do some
+tests and will post official patch in few days.
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
