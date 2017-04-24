@@ -1,44 +1,105 @@
-From: Alexei Starovoitov <ast@fb.com>
-Subject: Re: test_progs packed...
-Date: Mon, 24 Apr 2017 16:16:49 -0700
-Message-ID: <ba98a264-e398-af62-fc65-b5f34317b016@fb.com>
-References: <20170424.190601.2066346847263955701.davem@davemloft.net>
+From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 1/2] net: dsa: b53: Add compatible strings for the
+ Cygnus-family BCM11360.
+Date: Mon, 24 Apr 2017 16:17:17 -0700
+Message-ID: <b9bcd9a4-b53e-914e-8f7f-3a3f67e1c745@gmail.com>
+References: <20170424215022.30382-1-eric@anholt.net>
+ <20170424215022.30382-2-eric@anholt.net>
+ <ee265657-8175-b6c7-a0dc-cec216cd9ede@broadcom.com>
+ <173c8ff2-6a31-5460-9a3f-8d8ac445a336@gmail.com>
+ <1361654c-e4eb-e0a0-3397-b43235b5ff60@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: <daniel@iogearbox.net>, <kafai@fb.com>, <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:54901 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S977612AbdDXXRL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 19:17:11 -0400
-In-Reply-To: <20170424.190601.2066346847263955701.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        bcm-kernel-feedback-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, Ray Jui <rjui-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        Scott Branden <sbranden-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        Jon Mason <jonmason-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+To: Arun Parameswaran <arun.parameswaran-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        Eric Anholt <eric-WhKQ6XTQaPysTnJN9+BGXg@public.gmane.org>,
+        Vivien Didelot <vivien.didelot-4ysUXcep3aM1wj+D4I0NRVaTQe2KTcn/@public.gmane.org>,
+        Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1361654c-e4eb-e0a0-3397-b43235b5ff60-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 4/24/17 4:06 PM, David Miller wrote:
->
-> Alexei, why the packed attribute usage in test_progs.c?
->
-> There should be no reason for this and it results in the object(s)
-> having odd addresses (and thus be unaligned) on sparc.
+On 04/24/2017 04:15 PM, Arun Parameswaran wrote:
+> 
+> 
+> On 17-04-24 04:07 PM, Florian Fainelli wrote:
+>> On 04/24/2017 04:03 PM, Arun Parameswaran wrote:
+>>> Hi Eric
+>>>
+>>> A comment on the Device ID.
+>>>
+>>>
+>>> On 17-04-24 02:50 PM, Eric Anholt wrote:
+>>>> Cygnus is a small family of SoCs, of which we currently have
+>>>> devicetree for BCM11360 and BCM58300.  The 11360's B53 is mostly the
+>>>> same as 58xx, just requiring a tiny bit of setup that was previously
+>>>> missing.
+>>>>
+>>>> Signed-off-by: Eric Anholt <eric-WhKQ6XTQaPysTnJN9+BGXg@public.gmane.org>
+>>>> ---
+>>>>  Documentation/devicetree/bindings/net/dsa/b53.txt | 3 +++
+>>>>  drivers/net/dsa/b53/b53_srab.c                    | 2 ++
+>>>>  2 files changed, 5 insertions(+)
+>>>>
+>>>> diff --git a/Documentation/devicetree/bindings/net/dsa/b53.txt b/Documentation/devicetree/bindings/net/dsa/b53.txt
+>>>> index d6c6e41648d4..49c93d3c0839 100644
+>>>> --- a/Documentation/devicetree/bindings/net/dsa/b53.txt
+>>>> +++ b/Documentation/devicetree/bindings/net/dsa/b53.txt
+>>>> @@ -29,6 +29,9 @@ Required properties:
+>>>>        "brcm,bcm58625-srab"
+>>>>        "brcm,bcm88312-srab" and the mandatory "brcm,nsp-srab string
+>>>>  
+>>>> +  For the BCM11360 SoC, must be:
+>>>> +      "brcm,bcm11360-srab" and the mandatory "brcm,cygnus-srab string
+>>>> +
+>>>>    For the BCM63xx/33xx SoCs with an integrated switch, must be one of:
+>>>>        "brcm,bcm3384-switch"
+>>>>        "brcm,bcm6328-switch"
+>>>> diff --git a/drivers/net/dsa/b53/b53_srab.c b/drivers/net/dsa/b53/b53_srab.c
+>>>> index 8a62b6a69703..c37ffd1b6833 100644
+>>>> --- a/drivers/net/dsa/b53/b53_srab.c
+>>>> +++ b/drivers/net/dsa/b53/b53_srab.c
+>>>> @@ -364,6 +364,7 @@ static const struct of_device_id b53_srab_of_match[] = {
+>>>>  	{ .compatible = "brcm,bcm53018-srab" },
+>>>>  	{ .compatible = "brcm,bcm53019-srab" },
+>>>>  	{ .compatible = "brcm,bcm5301x-srab" },
+>>>> +	{ .compatible = "brcm,bcm11360-srab", .data = (void *)BCM58XX_DEVICE_ID },
+>>>>  	{ .compatible = "brcm,bcm58522-srab", .data = (void *)BCM58XX_DEVICE_ID },
+>>>>  	{ .compatible = "brcm,bcm58525-srab", .data = (void *)BCM58XX_DEVICE_ID },
+>>>>  	{ .compatible = "brcm,bcm58535-srab", .data = (void *)BCM58XX_DEVICE_ID },
+>>>> @@ -371,6 +372,7 @@ static const struct of_device_id b53_srab_of_match[] = {
+>>>>  	{ .compatible = "brcm,bcm58623-srab", .data = (void *)BCM58XX_DEVICE_ID },
+>>>>  	{ .compatible = "brcm,bcm58625-srab", .data = (void *)BCM58XX_DEVICE_ID },
+>>>>  	{ .compatible = "brcm,bcm88312-srab", .data = (void *)BCM58XX_DEVICE_ID },
+>>>> +	{ .compatible = "brcm,cygnus-srab", .data = (void *)BCM58XX_DEVICE_ID },
+>>> The device ID should be 0xd300. This is the actual value read from the switch regs.
+>>> This also requires an entry in the 'b53_switch_chips' structure in b53_common.c.
+>> These are not real ID numbers, these are values that indicate the
+>> generation of the switch being embedded into the SoC. Within
+>> b53_common.c we don't have to differentiate a Starfighter 2 embedded in
+>> BCM11360, NSP, or 7445 or 7278, which is why using 58XX_DEVICE_ID should
+>> be good enough.
+> Ok. Thanks.
+> 
+> I was under the impression, that these id's could be used in the b53_switch_detect()
+> API to auto detect the switch. In that API, the switch ID is read from the
+> Management page register.
 
-because in:
-static struct {
-         struct ethhdr eth;
-         struct iphdr iph;
-         struct tcphdr tcp;
-} __packed pkt_v4 = {
+For external switches that is the case, but for internal/integrated
+switches, the ID is not always representative of the switch. This is why
+the choice of a chip-type ID was used here while adding support for NSP
+to the b53 driver.
 
-iph is 4 byte aligned and eth is 2-byte.
-We can add 2 byte hole in front of eth, but it's ugly since clean:
-bpf_prog_test_run(prog_fd, 100000, &pkt_v4, sizeof(pkt_v4),
-would need to deal with this extra padding explicitly.
-
-It's only a user space thing and not in critical path,
-so inefficient loads shouldn't be a problem.
-
-You're bringing a good point that bpf_prog_test_run_skb() on
-the kernel side should probably do:
-skb_reserve(skb, NET_SKB_PAD + NET_IP_ALIGN);
+-- 
+Florian
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
