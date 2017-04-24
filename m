@@ -1,43 +1,153 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] udp: disable inner UDP checksum offloads in IPsec
- case
-Date: Mon, 24 Apr 2017 13:49:13 -0400 (EDT)
-Message-ID: <20170424.134913.859328581317183203.davem@davemloft.net>
-References: <1492813385-31736-1-git-send-email-aatteka@ovn.org>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: aatteka@ovn.org
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: [PATCH net-next v3 1/5] virtio-net: napi helper functions
+Date: Mon, 24 Apr 2017 13:49:26 -0400
+Message-ID: <20170424174930.82623-2-willemdebruijn.kernel@gmail.com>
+References: <20170424174930.82623-1-willemdebruijn.kernel@gmail.com>
+Cc: mst@redhat.com, jasowang@redhat.com,
+        virtualization@lists.linux-foundation.org, davem@davemloft.net,
+        Willem de Bruijn <willemb@google.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:55230 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S973087AbdDXRtO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 13:49:14 -0400
-In-Reply-To: <1492813385-31736-1-git-send-email-aatteka@ovn.org>
+Received: from mail-qk0-f195.google.com ([209.85.220.195]:34966 "EHLO
+        mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S973125AbdDXRtf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 13:49:35 -0400
+Received: by mail-qk0-f195.google.com with SMTP id a19so4071979qkg.2
+        for <netdev@vger.kernel.org>; Mon, 24 Apr 2017 10:49:34 -0700 (PDT)
+In-Reply-To: <20170424174930.82623-1-willemdebruijn.kernel@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ansis Atteka <aatteka@ovn.org>
-Date: Fri, 21 Apr 2017 15:23:05 -0700
+From: Willem de Bruijn <willemb@google.com>
 
-> Otherwise, UDP checksum offloads could corrupt ESP packets by attempting
-> to calculate UDP checksum when this inner UDP packet is already protected
-> by IPsec.
-> 
-> One way to reproduce this bug is to have a VM with virtio_net driver (UFO
-> set to ON in the guest VM); and then encapsulate all guest's Ethernet
-> frames in Geneve; and then further encrypt Geneve with IPsec.  In this
-> case following symptoms are observed:
-> 1. If using ixgbe NIC, then it will complain with following error message:
->    ixgbe 0000:01:00.1: partial checksum but l4 proto=32!
-> 2. Receiving IPsec stack will drop all the corrupted ESP packets and
->    increase XfrmInStateProtoError counter in /proc/net/xfrm_stat.
-> 3. iperf UDP test from the VM with packet sizes above MTU will not work at
->    all.
-> 4. iperf TCP test from the VM will get ridiculously low performance because.
-> 
-> Signed-off-by: Ansis Atteka <aatteka@ovn.org>
-> Co-authored-by: Steffen Klassert <steffen.klassert@secunet.com>
+Prepare virtio-net for tx napi by converting existing napi code to
+use helper functions. This also deduplicates some logic.
 
-Applied, thanks.
+Signed-off-by: Willem de Bruijn <willemb@google.com>
+Signed-off-by: Jason Wang <jasowang@redhat.com>
+---
+ drivers/net/virtio_net.c | 65 ++++++++++++++++++++++++++----------------------
+ 1 file changed, 35 insertions(+), 30 deletions(-)
+
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 666ada6130ab..b9c1df29892c 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -239,6 +239,26 @@ static struct page *get_a_page(struct receive_queue *rq, gfp_t gfp_mask)
+ 	return p;
+ }
+ 
++static void virtqueue_napi_schedule(struct napi_struct *napi,
++				    struct virtqueue *vq)
++{
++	if (napi_schedule_prep(napi)) {
++		virtqueue_disable_cb(vq);
++		__napi_schedule(napi);
++	}
++}
++
++static void virtqueue_napi_complete(struct napi_struct *napi,
++				    struct virtqueue *vq, int processed)
++{
++	int opaque;
++
++	opaque = virtqueue_enable_cb_prepare(vq);
++	if (napi_complete_done(napi, processed) &&
++	    unlikely(virtqueue_poll(vq, opaque)))
++		virtqueue_napi_schedule(napi, vq);
++}
++
+ static void skb_xmit_done(struct virtqueue *vq)
+ {
+ 	struct virtnet_info *vi = vq->vdev->priv;
+@@ -936,27 +956,20 @@ static void skb_recv_done(struct virtqueue *rvq)
+ 	struct virtnet_info *vi = rvq->vdev->priv;
+ 	struct receive_queue *rq = &vi->rq[vq2rxq(rvq)];
+ 
+-	/* Schedule NAPI, Suppress further interrupts if successful. */
+-	if (napi_schedule_prep(&rq->napi)) {
+-		virtqueue_disable_cb(rvq);
+-		__napi_schedule(&rq->napi);
+-	}
++	virtqueue_napi_schedule(&rq->napi, rvq);
+ }
+ 
+-static void virtnet_napi_enable(struct receive_queue *rq)
++static void virtnet_napi_enable(struct virtqueue *vq, struct napi_struct *napi)
+ {
+-	napi_enable(&rq->napi);
++	napi_enable(napi);
+ 
+ 	/* If all buffers were filled by other side before we napi_enabled, we
+-	 * won't get another interrupt, so process any outstanding packets
+-	 * now.  virtnet_poll wants re-enable the queue, so we disable here.
+-	 * We synchronize against interrupts via NAPI_STATE_SCHED */
+-	if (napi_schedule_prep(&rq->napi)) {
+-		virtqueue_disable_cb(rq->vq);
+-		local_bh_disable();
+-		__napi_schedule(&rq->napi);
+-		local_bh_enable();
+-	}
++	 * won't get another interrupt, so process any outstanding packets now.
++	 * Call local_bh_enable after to trigger softIRQ processing.
++	 */
++	local_bh_disable();
++	virtqueue_napi_schedule(napi, vq);
++	local_bh_enable();
+ }
+ 
+ static void refill_work(struct work_struct *work)
+@@ -971,7 +984,7 @@ static void refill_work(struct work_struct *work)
+ 
+ 		napi_disable(&rq->napi);
+ 		still_empty = !try_fill_recv(vi, rq, GFP_KERNEL);
+-		virtnet_napi_enable(rq);
++		virtnet_napi_enable(rq->vq, &rq->napi);
+ 
+ 		/* In theory, this can happen: if we don't get any buffers in
+ 		 * we will *never* try to fill again.
+@@ -1011,21 +1024,13 @@ static int virtnet_poll(struct napi_struct *napi, int budget)
+ {
+ 	struct receive_queue *rq =
+ 		container_of(napi, struct receive_queue, napi);
+-	unsigned int r, received;
++	unsigned int received;
+ 
+ 	received = virtnet_receive(rq, budget);
+ 
+ 	/* Out of packets? */
+-	if (received < budget) {
+-		r = virtqueue_enable_cb_prepare(rq->vq);
+-		if (napi_complete_done(napi, received)) {
+-			if (unlikely(virtqueue_poll(rq->vq, r)) &&
+-			    napi_schedule_prep(napi)) {
+-				virtqueue_disable_cb(rq->vq);
+-				__napi_schedule(napi);
+-			}
+-		}
+-	}
++	if (received < budget)
++		virtqueue_napi_complete(napi, rq->vq, received);
+ 
+ 	return received;
+ }
+@@ -1040,7 +1045,7 @@ static int virtnet_open(struct net_device *dev)
+ 			/* Make sure we have some buffers: if oom use wq. */
+ 			if (!try_fill_recv(vi, &vi->rq[i], GFP_KERNEL))
+ 				schedule_delayed_work(&vi->refill, 0);
+-		virtnet_napi_enable(&vi->rq[i]);
++		virtnet_napi_enable(vi->rq[i].vq, &vi->rq[i].napi);
+ 	}
+ 
+ 	return 0;
+@@ -1747,7 +1752,7 @@ static int virtnet_restore_up(struct virtio_device *vdev)
+ 				schedule_delayed_work(&vi->refill, 0);
+ 
+ 		for (i = 0; i < vi->max_queue_pairs; i++)
+-			virtnet_napi_enable(&vi->rq[i]);
++			virtnet_napi_enable(vi->rq[i].vq, &vi->rq[i].napi);
+ 	}
+ 
+ 	netif_device_attach(vi->dev);
+-- 
+2.12.2.816.g2cccc81164-goog
