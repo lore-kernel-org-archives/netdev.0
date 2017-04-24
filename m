@@ -1,71 +1,76 @@
-From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH v4 13/18] arm64: allwinner: sun50i-a64: add
- dwmac-sun8i Ethernet driver
-Date: Mon, 24 Apr 2017 14:24:11 +0200
-Message-ID: <20170424122411.GA9349@Red>
-References: <20170412111400.2296-1-clabbe.montjoie@gmail.com>
- <20170412111400.2296-14-clabbe.montjoie@gmail.com>
- <20170412124153.q6zvdvqkroizaxgb@lukather>
-Reply-To: clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH net-next v5 1/2] net sched actions: dump more than
+ TCA_ACT_MAX_PRIO actions per batch
+Date: Mon, 24 Apr 2017 08:49:00 -0400
+Message-ID: <2ca4266f-a164-d2ad-37fa-45f7ae354eb8@mojatatu.com>
+References: <1492693582-26810-1-git-send-email-jhs@emojatatu.com>
+ <1492693582-26810-2-git-send-email-jhs@emojatatu.com>
+ <20170420135915.GE1886@nanopsycho.orion>
+ <a0d70dc5-b0cb-c54e-7d98-93099b68c247@mojatatu.com>
+ <20170420142453.GF1886@nanopsycho.orion>
+ <20170424091455.GA25218@vergenet.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org,
-	linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org, will.deacon-5wv7dgnIgG8@public.gmane.org,
-	peppe.cavallaro-qxv4g6HH51o@public.gmane.org, alexandre.torgue-qxv4g6HH51o@public.gmane.org,
-	linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Return-path: <linux-sunxi+bncBD7YLCN32UNBB4G467DQKGQEJXDRXGY-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-Content-Disposition: inline
-In-Reply-To: <20170412124153.q6zvdvqkroizaxgb@lukather>
-List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <https://groups.google.com/group/linux-sunxi
-List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
- <https://groups.google.com/group/linux-sunxi/subscribe>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, xiyou.wangcong@gmail.com,
+        eric.dumazet@gmail.com, netdev@vger.kernel.org,
+        Tom Herbert <tom@herbertland.com>,
+        Pablo Neira Ayuso <pablo@netfilter.org>
+To: Simon Horman <simon.horman@netronome.com>,
+        Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f194.google.com ([209.85.223.194]:33180 "EHLO
+        mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1170130AbdDXMtE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 08:49:04 -0400
+Received: by mail-io0-f194.google.com with SMTP id k87so48857837ioi.0
+        for <netdev@vger.kernel.org>; Mon, 24 Apr 2017 05:49:04 -0700 (PDT)
+In-Reply-To: <20170424091455.GA25218@vergenet.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 12, 2017 at 02:41:53PM +0200, Maxime Ripard wrote:
-> On Wed, Apr 12, 2017 at 01:13:55PM +0200, Corentin Labbe wrote:
-> > The dwmac-sun8i is an Ethernet MAC that supports 10/100/1000 Mbit
-> > connections. It is very similar to the device found in the Allwinner
-> > H3, but lacks the internal 100 Mbit PHY and its associated control
-> > bits.
-> > This adds the necessary bits to the Allwinner A64 SoC .dtsi, but keeps
-> > it disabled at this level.
-> > 
-> > Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> > ---
-> >  arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi | 37 +++++++++++++++++++++++++++
-> >  1 file changed, 37 insertions(+)
-> > 
-> > diff --git a/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi b/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi
-> > index 0b0f4ab..2569827 100644
-> > --- a/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi
-> > +++ b/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi
-> > @@ -287,6 +287,23 @@
-> >  				bias-pull-up;
-> >  			};
-> >  
-> > +			rmii_pins: rmii_pins {
-> > +				pins = "PD10", "PD11", "PD13", "PD14",
-> > +						"PD17", "PD18", "PD19", "PD20",
-> > +						"PD22", "PD23";
-> 
-> Please align the wrapped lines on the first pin.
-> 
+On 17-04-24 05:14 AM, Simon Horman wrote:
+[..]
 
-OK
+> Jamal, I am confused about why are you so concerned about the space
+> consumed by this attribute, it's per-message, right? Is it the bigger
+> picture you are worried about - a similar per-entry flag at some point in
+> the future?
 
-> > +				function = "emac";
-> > +				drive-strength = <40>;
-> 
-> Do you actually need that for all the boards, or only a few of them?
 
-I have tried to use lower value without success on some boards. (opipc/pine64 in my memory)
+To me the two worries are one and the same.
 
-Regards
-Corentin Labbe
+Jiri strongly believes (from a big picture view) we must use
+TLVs for extensibility.
+While I agree with him in general i have strong reservations
+in this case because i can get both extensibility and
+build for performance with using a flag bitmask as the
+content of the TLV.
+
+A TLV consumes 64 bits minimum. It doesnt matter if we decide
+to use a u8 or a u16, we are still sending 64 bits on that
+TLV with the rest being PADding. Not to be melodramatic, but
+the worst case scenario of putting everything in a TLV for 32
+flags is using about 30x more space than using a bitmask.
+
+Yes, space is important and if i can express upto 32 flags
+with one TLV rather than 32 TLVs i choose one TLV.
+I am always looking for ways to filter out crap i dont need
+when i do stats collection. I have numerous wounds from fdb
+entries which decided to use a TLV per flag.
+
+The design approach we have used in netlink is: flags start
+as a bitmap (whether they are on main headers or TLVs); they may be
+complemented with a bitmask/selector (refer to IFLINK messages).
+
+Lets look at this specific patch I have sending. I have already
+changed it 3 times and involved a churn of 3 different flags.
+If you asked me in the beggining i wouldve scratched my head
+thinking for a near term use for bit #3, #4 etc,
+
+I am fine with the counter-Postel view of having the kernel
+validate that appropriate bits are set as long as we dont make
+user space to now start learning how to play acrobatics.
+
+cheers,
+jamal
