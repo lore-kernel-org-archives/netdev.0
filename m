@@ -1,71 +1,106 @@
-From: Ingo Molnar <mingo@kernel.org>
-Subject: Re: [PATCH v3 07/29] x86: bpf_jit, use ENTRY+ENDPROC
-Date: Mon, 24 Apr 2017 18:40:28 +0200
-Message-ID: <20170424164028.yonp5pl77euxalwb@gmail.com>
-References: <697947f4-0a2c-1480-0995-9919556dc020@suse.cz>
- <20170424.104132.950580313142367896.davem@davemloft.net>
- <f7a94f4e-6d93-a447-a62f-3f290e66c647@suse.cz>
- <20170424.110844.1321374394090353753.davem@davemloft.net>
- <614ca52b-8a43-244e-8a3a-c39145ecc3e8@suse.cz>
- <20170424155507.miyqef7ld4hbmsej@gmail.com>
- <71301a81-1c61-fd4d-5b1b-5154fa723859@suse.cz>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net-next v2 2/5] virtio-net: transmit napi
+Date: Mon, 24 Apr 2017 19:40:53 +0300
+Message-ID: <20170424194015-mutt-send-email-mst@kernel.org>
+References: <20170418202108.61920-1-willemdebruijn.kernel@gmail.com>
+	<20170418202108.61920-3-willemdebruijn.kernel@gmail.com>
+	<2ae5889b-69d4-3041-d7fd-a7ea38e8c4e2@redhat.com>
+	<CAF=yD-K0Cwwcob+0nWXWTY_07_zwcae1GRHwdagF2pGrv8HwtA@mail.gmail.com>
+	<118c5f96-6151-c012-7a31-16d24a835878@redhat.com>
+	<CAF=yD-KdtvXV+=ZROcLPHJxB55wbnJOmV0MJn2AJPHugoofR0g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, alexei.starovoitov@gmail.com,
-        mingo@redhat.com, tglx@linutronix.de, hpa@zytor.com,
-        x86@kernel.org, jpoimboe@redhat.com, linux-kernel@vger.kernel.org,
-        netdev@vger.kernel.org, daniel@iogearbox.net, edumazet@google.com
-To: Jiri Slaby <jslaby@suse.cz>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Willem de Bruijn <willemb@google.com>,
+	Network Development <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	virtualization@lists.linux-foundation.org
+To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
 Content-Disposition: inline
-In-Reply-To: <71301a81-1c61-fd4d-5b1b-5154fa723859@suse.cz>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <CAF=yD-KdtvXV+=ZROcLPHJxB55wbnJOmV0MJn2AJPHugoofR0g@mail.gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-
-* Jiri Slaby <jslaby@suse.cz> wrote:
-
-> On 04/24/2017, 05:55 PM, Ingo Molnar wrote:
-> > * Jiri Slaby <jslaby@suse.cz> wrote:
-> > 
-> >> On 04/24/2017, 05:08 PM, David Miller wrote:
-> >>> If you align the entry points, then the code sequence as a whole is
-> >>> are no longer densely packed.
+On Fri, Apr 21, 2017 at 10:50:12AM -0400, Willem de Bruijn wrote:
+> >>> Maybe I was wrong, but according to Michael's comment it looks like he
+> >>> want
+> >>> check affinity_hint_set just for speculative tx polling on rx napi
+> >>> instead
+> >>> of disabling it at all.
+> >>>
+> >>> And I'm not convinced this is really needed, driver only provide affinity
+> >>> hint instead of affinity, so it's not guaranteed that tx and rx interrupt
+> >>> are in the same vcpus.
 > >>
-> >> Sure.
+> >> You're right. I made the restriction broader than the request, to really
+> >> err
+> >> on the side of caution for the initial merge of napi tx. And enabling
+> >> the optimization is always a win over keeping it off, even without irq
+> >> affinity.
 > >>
-> >>> Or do I misunderstand how your macros work?
+> >> The cycle cost is significant without affinity regardless of whether the
+> >> optimization is used.
+> >
+> >
+> > Yes, I noticed this in the past too.
+> >
+> >> Though this is not limited to napi-tx, it is more
+> >> pronounced in that mode than without napi.
 > >>
-> >> Perhaps. So the suggested macros for the code are:
-> >> #define BPF_FUNC_START_LOCAL(name) \
-> >> 		SYM_START(name, SYM_V_LOCAL, SYM_A_NONE)
-> >> #define BPF_FUNC_START(name) \
-> >> 		SYM_START(name, SYM_V_GLOBAL, SYM_A_NONE)
+> >> 1x TCP_RR for affinity configuration {process, rx_irq, tx_irq}:
 > >>
-> >> and they differ from the standard ones:
-> >> #define SYM_FUNC_START_LOCAL(name)                      \
-> >>         SYM_START(name, SYM_V_LOCAL, SYM_A_ALIGN)
-> >> #define SYM_FUNC_START(name)                            \
-> >>         SYM_START(name, SYM_V_GLOBAL, SYM_A_ALIGN)
+> >> upstream:
 > >>
+> >> 1,1,1: 28985 Mbps, 278 Gcyc
+> >> 1,0,2: 30067 Mbps, 402 Gcyc
 > >>
-> >> The difference is SYM_A_NONE vs. SYM_A_ALIGN, which means:
-> >> #define SYM_A_ALIGN                             ALIGN
-> >> #define SYM_A_NONE                              /* nothing */
+> >> napi tx:
 > >>
-> >> Does it look OK now?
-> > 
-> > No, the patch changes alignment which is undesirable, it needs to preserve the 
-> > existing (non-)alignment of the symbols!
+> >> 1,1,1: 34492 Mbps, 269 Gcyc
+> >> 1,0,2: 36527 Mbps, 537 Gcyc (!)
+> >> 1,0,1: 36269 Mbps, 394 Gcyc
+> >> 1,0,0: 34674 Mbps, 402 Gcyc
+> >>
+> >> This is a particularly strong example. It is also representative
+> >> of most RR tests. It is less pronounced in other streaming tests.
+> >> 10x TCP_RR, for instance:
+> >>
+> >> upstream:
+> >>
+> >> 1,1,1: 42267 Mbps, 301 Gcyc
+> >> 1,0,2: 40663 Mbps, 445 Gcyc
+> >>
+> >> napi tx:
+> >>
+> >> 1,1,1: 42420 Mbps, 303 Gcyc
+> >> 1,0,2:  42267 Mbps, 431 Gcyc
+> >>
+> >> These numbers were obtained with the virtqueue_enable_cb_delayed
+> >> optimization after xmit_skb, btw. It turns out that moving that before
+> >> increases 1x TCP_RR further to ~39 Gbps, at the cost of reducing
+> >> 100x TCP_RR a bit.
+> >
+> >
+> > I see, so I think we can leave the affinity hint optimization/check for
+> > future investigation:
+> >
+> > - to avoid endless optimization (e.g we may want to share a single
+> > vector/napi for tx/rx queue pairs in the future) for this series.
+> > - tx napi is disabled by default which means we can do optimization on top.
 > 
-> OK, so I am not expressing myself explicitly enough, it seems.
-> 
-> So, correct, the patch v3 adds alignments. I suggested in the discussion
-> the macros above. They do not add alignments. If everybody is OK with
-> that, v4 of the patch won't add alignments. OK?
+> Okay. I'll drop the vi->affinity_hint_set from the patch set for now.
 
-Yes.
+I kind of like it, let's be conservative. But I'd prefer a comment
+near it explaining why it's there.
 
-Thanks,
-
-	Ingo
+-- 
+MST
