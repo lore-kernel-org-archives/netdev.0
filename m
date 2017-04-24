@@ -1,46 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v5 1/2] net sched actions: dump more than
- TCA_ACT_MAX_PRIO actions per batch
-Date: Mon, 24 Apr 2017 18:24:53 -0400 (EDT)
-Message-ID: <20170424.182453.1488000441860994588.davem@davemloft.net>
-References: <2ca4266f-a164-d2ad-37fa-45f7ae354eb8@mojatatu.com>
-        <20170424.163033.797679814568299306.davem@davemloft.net>
-        <ebfe9e52-f130-3733-9348-aac022a18748@mojatatu.com>
+Subject: Re: Blogpost evaluation this [PATCH v4 net-next RFC] net: Generic
+ XDP
+Date: Mon, 24 Apr 2017 18:26:43 -0400 (EDT)
+Message-ID: <20170424.182643.485613135674690555.davem@davemloft.net>
+References: <20170413.120925.2082322246776478766.davem@davemloft.net>
+        <20170424162405.1183f2e7@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: simon.horman@netronome.com, jiri@resnulli.us,
-        xiyou.wangcong@gmail.com, eric.dumazet@gmail.com,
-        netdev@vger.kernel.org, tom@herbertland.com, pablo@netfilter.org
-To: jhs@mojatatu.com
+Cc: xdp-newbies@vger.kernel.org, netdev@vger.kernel.org,
+        andy@greyhouse.net
+To: brouer@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:58526 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:58552 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S978821AbdDXWY6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 18:24:58 -0400
-In-Reply-To: <ebfe9e52-f130-3733-9348-aac022a18748@mojatatu.com>
+        with ESMTP id S967445AbdDXW0p (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 18:26:45 -0400
+In-Reply-To: <20170424162405.1183f2e7@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Date: Mon, 24 Apr 2017 18:18:42 -0400
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Date: Mon, 24 Apr 2017 16:24:05 +0200
 
-> With the posted patch: unknow bits set will result in a kernel
-> rejection unless the user space explicitly ask the kernel to ignore
-> flags it doesnt understand and just handles what it knows. This
-> reduces the amount of work in tc.
-...
-> [1]
-> This is because i worry about making large changes to
-> the behavior of user space apps like tc. If I reject I will need to
-> change tc to detect this rejection and retry (and I dont think
-> extended ACKs in their current shape are ready to provide any
-> meaningful detail).
+> I've done a very detailed evaluation of this patch, and I've created a
+> blogpost like report here:
+> 
+>  https://prototype-kernel.readthedocs.io/en/latest/blogposts/xdp25_eval_generic_xdp_tx.html
 
-I think we should eat the pain now and use the strict checks
-for all new features like this.
+Thanks for doing this Jesper.
 
-I'm sorry if this makes more work for you, but this is really
-how we have to proceed moving forward.
+> I didn't evaluate the adjust_head part, so I hope Andy is still
+> planning to validate that part?
 
-Thanks.
+I was hoping he would post some results today as well.
+
+Andy, how goes it? :)
+
+Once the basic patch is ready and integrated in we can try to do
+xmit_more in generic XDP and see what that does for XDP_TX
+performance.
