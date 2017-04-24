@@ -1,387 +1,89 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH] sparc64: Support cbcond instructions in eBPF JIT.
-Date: Mon, 24 Apr 2017 19:02:28 -0400 (EDT)
-Message-ID: <20170424.190228.571734658408906331.davem@davemloft.net>
+From: Arun Parameswaran <arun.parameswaran-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH 1/2] net: dsa: b53: Add compatible strings for the
+ Cygnus-family BCM11360.
+Date: Mon, 24 Apr 2017 16:03:40 -0700
+Message-ID: <ee265657-8175-b6c7-a0dc-cec216cd9ede@broadcom.com>
+References: <20170424215022.30382-1-eric@anholt.net>
+ <20170424215022.30382-2-eric@anholt.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: ast@fb.com, daniel@iogearbox.net
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:58938 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S976790AbdDXXD0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 19:03:26 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        bcm-kernel-feedback-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, Ray Jui <rjui-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        Scott Branden <sbranden-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        Jon Mason <jonmason-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+To: Eric Anholt <eric-WhKQ6XTQaPysTnJN9+BGXg@public.gmane.org>,
+        Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Vivien Didelot <vivien.didelot-4ysUXcep3aM1wj+D4I0NRVaTQe2KTcn/@public.gmane.org>,
+        Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170424215022.30382-2-eric-WhKQ6XTQaPysTnJN9+BGXg@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
+
+Hi Eric
+
+A comment on the Device ID.
 
 
-cbcond combines a compare with a branch into a single instruction.
+On 17-04-24 02:50 PM, Eric Anholt wrote:
+> Cygnus is a small family of SoCs, of which we currently have
+> devicetree for BCM11360 and BCM58300.  The 11360's B53 is mostly the
+> same as 58xx, just requiring a tiny bit of setup that was previously
+> missing.
+>
+> Signed-off-by: Eric Anholt <eric-WhKQ6XTQaPysTnJN9+BGXg@public.gmane.org>
+> ---
+>  Documentation/devicetree/bindings/net/dsa/b53.txt | 3 +++
+>  drivers/net/dsa/b53/b53_srab.c                    | 2 ++
+>  2 files changed, 5 insertions(+)
+>
+> diff --git a/Documentation/devicetree/bindings/net/dsa/b53.txt b/Documentation/devicetree/bindings/net/dsa/b53.txt
+> index d6c6e41648d4..49c93d3c0839 100644
+> --- a/Documentation/devicetree/bindings/net/dsa/b53.txt
+> +++ b/Documentation/devicetree/bindings/net/dsa/b53.txt
+> @@ -29,6 +29,9 @@ Required properties:
+>        "brcm,bcm58625-srab"
+>        "brcm,bcm88312-srab" and the mandatory "brcm,nsp-srab string
+>  
+> +  For the BCM11360 SoC, must be:
+> +      "brcm,bcm11360-srab" and the mandatory "brcm,cygnus-srab string
+> +
+>    For the BCM63xx/33xx SoCs with an integrated switch, must be one of:
+>        "brcm,bcm3384-switch"
+>        "brcm,bcm6328-switch"
+> diff --git a/drivers/net/dsa/b53/b53_srab.c b/drivers/net/dsa/b53/b53_srab.c
+> index 8a62b6a69703..c37ffd1b6833 100644
+> --- a/drivers/net/dsa/b53/b53_srab.c
+> +++ b/drivers/net/dsa/b53/b53_srab.c
+> @@ -364,6 +364,7 @@ static const struct of_device_id b53_srab_of_match[] = {
+>  	{ .compatible = "brcm,bcm53018-srab" },
+>  	{ .compatible = "brcm,bcm53019-srab" },
+>  	{ .compatible = "brcm,bcm5301x-srab" },
+> +	{ .compatible = "brcm,bcm11360-srab", .data = (void *)BCM58XX_DEVICE_ID },
+>  	{ .compatible = "brcm,bcm58522-srab", .data = (void *)BCM58XX_DEVICE_ID },
+>  	{ .compatible = "brcm,bcm58525-srab", .data = (void *)BCM58XX_DEVICE_ID },
+>  	{ .compatible = "brcm,bcm58535-srab", .data = (void *)BCM58XX_DEVICE_ID },
+> @@ -371,6 +372,7 @@ static const struct of_device_id b53_srab_of_match[] = {
+>  	{ .compatible = "brcm,bcm58623-srab", .data = (void *)BCM58XX_DEVICE_ID },
+>  	{ .compatible = "brcm,bcm58625-srab", .data = (void *)BCM58XX_DEVICE_ID },
+>  	{ .compatible = "brcm,bcm88312-srab", .data = (void *)BCM58XX_DEVICE_ID },
+> +	{ .compatible = "brcm,cygnus-srab", .data = (void *)BCM58XX_DEVICE_ID },
+The device ID should be 0xd300. This is the actual value read from the switch regs.
+This also requires an entry in the 'b53_switch_chips' structure in b53_common.c.
+>  	{ .compatible = "brcm,nsp-srab", .data = (void *)BCM58XX_DEVICE_ID },
+>  	{ /* sentinel */ },
+>  };
+Other wise this patch set looks good.
 
-The limitations are:
+I was testing a similar change (except for the above, which doesn't
+affect the functionality) to get the switch working and it works.
 
-1) Only newer chips support it
-
-2) For immediate compares we are limited to 5-bit signed immediate
-   values
-
-3) The branch displacement is limited to 10-bit signed
-
-4) We cannot use it for JSET
-
-Also, cbcond (unlike all other sparc control transfers) lacks a delay
-slot.
-
-Currently we don't have a useful instruction we can push into the
-delay slot of normal branches.  So using cbcond pretty much always
-increases code density, and is therefore a win.
-
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
-
-Example output from "ALU_ADD_K: 0 + 0x80008000 = 0xffffffff80008000":
-
-0000000000000000 <foo>:
-   0:   9d e3 bf 50     save  %sp, -176, %sp
-   4:   01 00 00 00     nop
-   8:   90 10 00 18     mov  %i0, %o0
-   c:   03 00 00 00     sethi  %hi(0), %g1
-  10:   82 10 60 00     mov  %g1, %g1   ! 0 <foo>
-  14:   13 00 00 00     sethi  %hi(0), %o1
-  18:   92 12 60 00     mov  %o1, %o1   ! 0 <foo>
-  1c:   83 28 70 20     sllx  %g1, 0x20, %g1
-  20:   92 12 40 01     or  %o1, %g1, %o1
-  24:   03 3f ff ff     sethi  %hi(0xfffffc00), %g1
-  28:   82 10 63 ff     or  %g1, 0x3ff, %g1     ! ffffffff <foo+0xffffffff>
-  2c:   15 20 00 20     sethi  %hi(0x80008000), %o2
-  30:   94 12 a0 00     mov  %o2, %o2   ! 80008000 <foo+0x80008000>
-  34:   83 28 70 20     sllx  %g1, 0x20, %g1
-  38:   94 12 80 01     or  %o2, %g1, %o2
-  3c:   03 1f ff df     sethi  %hi(0x7fff7c00), %g1
-  40:   82 18 7c 00     xor  %g1, -1024, %g1
-  44:   92 02 40 01     add  %o1, %g1, %o1
-  48:   12 e2 40 8a     cxbe  %o1, %o2, 58 <foo+0x58>
-  4c:   9a 10 20 02     mov  2, %o5
-  50:   10 60 00 03     b,pn   %xcc, 5c <foo+0x5c>
-  54:   01 00 00 00     nop
-  58:   9a 10 20 01     mov  1, %o5     ! 1 <foo+0x1>
-  5c:   81 c7 e0 08     ret
-  60:   91 eb 40 00     restore  %o5, %g0, %o0
-
- arch/sparc/net/bpf_jit_comp_64.c | 238 ++++++++++++++++++++++++++++++---------
- 1 file changed, 184 insertions(+), 54 deletions(-)
-
-diff --git a/arch/sparc/net/bpf_jit_comp_64.c b/arch/sparc/net/bpf_jit_comp_64.c
-index 43bef1c..2b2f3c3 100644
---- a/arch/sparc/net/bpf_jit_comp_64.c
-+++ b/arch/sparc/net/bpf_jit_comp_64.c
-@@ -18,6 +18,16 @@ static inline bool is_simm13(unsigned int value)
- 	return value + 0x1000 < 0x2000;
- }
- 
-+static inline bool is_simm10(unsigned int value)
-+{
-+	return value + 0x200 < 0x400;
-+}
-+
-+static inline bool is_simm5(unsigned int value)
-+{
-+	return value + 0x10 < 0x20;
-+}
-+
- static void bpf_flush_icache(void *start_, void *end_)
- {
- 	/* Cheetah's I-cache is fully coherent.  */
-@@ -39,6 +49,7 @@ static void bpf_flush_icache(void *start_, void *end_)
- #define SEEN_MEM     4 /* use mem[] for temporary storage */
- 
- #define S13(X)		((X) & 0x1fff)
-+#define S5(X)		((X) & 0x1f)
- #define IMMED		0x00002000
- #define RD(X)		((X) << 25)
- #define RS1(X)		((X) << 14)
-@@ -46,7 +57,8 @@ static void bpf_flush_icache(void *start_, void *end_)
- #define OP(X)		((X) << 30)
- #define OP2(X)		((X) << 22)
- #define OP3(X)		((X) << 19)
--#define COND(X)		((X) << 25)
-+#define COND(X)		(((X) & 0xf) << 25)
-+#define CBCOND(X)	(((X) & 0x1f) << 25)
- #define F1(X)		OP(X)
- #define F2(X, Y)	(OP(X) | OP2(Y))
- #define F3(X, Y)	(OP(X) | OP3(Y))
-@@ -75,10 +87,39 @@ static void bpf_flush_icache(void *start_, void *end_)
- #define WDISP22(X)	(((X) >> 2) & 0x3fffff)
- #define WDISP19(X)	(((X) >> 2) & 0x7ffff)
- 
-+/* The 10-bit branch displacement for CBCOND is split into two fields */
-+static u32 WDISP10(u32 off)
-+{
-+	u32 ret = ((off >> 2) & 0xff) << 5;
-+
-+	ret |= ((off >> (2 + 8)) & 0x03) << 19;
-+
-+	return ret;
-+}
-+
-+#define CBCONDE		CBCOND(0x09)
-+#define CBCONDLE	CBCOND(0x0a)
-+#define CBCONDL		CBCOND(0x0b)
-+#define CBCONDLEU	CBCOND(0x0c)
-+#define CBCONDCS	CBCOND(0x0d)
-+#define CBCONDN		CBCOND(0x0e)
-+#define CBCONDVS	CBCOND(0x0f)
-+#define CBCONDNE	CBCOND(0x19)
-+#define CBCONDG		CBCOND(0x1a)
-+#define CBCONDGE	CBCOND(0x1b)
-+#define CBCONDGU	CBCOND(0x1c)
-+#define CBCONDCC	CBCOND(0x1d)
-+#define CBCONDPOS	CBCOND(0x1e)
-+#define CBCONDVC	CBCOND(0x1f)
-+
-+#define CBCONDGEU	CBCONDCC
-+#define CBCONDLU	CBCONDCS
-+
- #define ANNUL		(1 << 29)
- #define XCC		(1 << 21)
- 
- #define BRANCH		(F2(0, 1) | XCC)
-+#define CBCOND_OP	(F2(0, 3) | XCC)
- 
- #define BA		(BRANCH | CONDA)
- #define BG		(BRANCH | CONDG)
-@@ -351,6 +392,22 @@ static void emit_branch(unsigned int br_opc, unsigned int from_idx, unsigned int
- 		emit(br_opc | WDISP22(off << 2), ctx);
- }
- 
-+static void emit_cbcond(unsigned int cb_opc, unsigned int from_idx, unsigned int to_idx,
-+			const u8 dst, const u8 src, struct jit_ctx *ctx)
-+{
-+	unsigned int off = to_idx - from_idx;
-+
-+	emit(cb_opc | WDISP10(off << 2) | RS1(dst) | RS2(src), ctx);
-+}
-+
-+static void emit_cbcondi(unsigned int cb_opc, unsigned int from_idx, unsigned int to_idx,
-+			 const u8 dst, s32 imm, struct jit_ctx *ctx)
-+{
-+	unsigned int off = to_idx - from_idx;
-+
-+	emit(cb_opc | IMMED | WDISP10(off << 2) | RS1(dst) | S5(imm), ctx);
-+}
-+
- #define emit_read_y(REG, CTX)	emit(RD_Y | RD(REG), CTX)
- #define emit_write_y(REG, CTX)	emit(WR_Y | IMMED | RS1(REG) | S13(0), CTX)
- 
-@@ -358,7 +415,7 @@ static void emit_branch(unsigned int br_opc, unsigned int from_idx, unsigned int
- 	emit(SUBCC | RS1(R1) | RS2(R2) | RD(G0), CTX)
- 
- #define emit_cmpi(R1, IMM, CTX)				\
--	emit(SUBCC | IMMED | RS1(R1) | S13(IMM) | RD(G0), CTX);
-+	emit(SUBCC | IMMED | RS1(R1) | S13(IMM) | RD(G0), CTX)
- 
- #define emit_btst(R1, R2, CTX)				\
- 	emit(ANDCC | RS1(R1) | RS2(R2) | RD(G0), CTX)
-@@ -366,6 +423,117 @@ static void emit_branch(unsigned int br_opc, unsigned int from_idx, unsigned int
- #define emit_btsti(R1, IMM, CTX)			\
- 	emit(ANDCC | IMMED | RS1(R1) | S13(IMM) | RD(G0), CTX)
- 
-+static int emit_compare_and_branch(const u8 code, const u8 dst, u8 src,
-+				   const s32 imm, bool is_imm, int branch_dst,
-+				   struct jit_ctx *ctx)
-+{
-+	bool use_cbcond = (sparc64_elf_hwcap & AV_SPARC_CBCOND) != 0;
-+	const u8 tmp = bpf2sparc[TMP_REG_1];
-+
-+	branch_dst = ctx->offset[branch_dst];
-+
-+	if (!is_simm10(branch_dst - ctx->idx) ||
-+	    BPF_OP(code) == BPF_JSET)
-+		use_cbcond = false;
-+
-+	if (is_imm) {
-+		bool fits = true;
-+
-+		if (use_cbcond) {
-+			if (!is_simm5(imm))
-+				fits = false;
-+		} else if (!is_simm13(imm)) {
-+			fits = false;
-+		}
-+		if (!fits) {
-+			ctx->tmp_1_used = true;
-+			emit_loadimm_sext(imm, tmp, ctx);
-+			src = tmp;
-+			is_imm = false;
-+		}
-+	}
-+
-+	if (!use_cbcond) {
-+		u32 br_opcode;
-+
-+		if (BPF_OP(code) == BPF_JSET) {
-+			if (is_imm)
-+				emit_btsti(dst, imm, ctx);
-+			else
-+				emit_btst(dst, src, ctx);
-+		} else {
-+			if (is_imm)
-+				emit_cmpi(dst, imm, ctx);
-+			else
-+				emit_cmp(dst, src, ctx);
-+		}
-+		switch (BPF_OP(code)) {
-+		case BPF_JEQ:
-+			br_opcode = BE;
-+			break;
-+		case BPF_JGT:
-+			br_opcode = BGU;
-+			break;
-+		case BPF_JGE:
-+			br_opcode = BGEU;
-+			break;
-+		case BPF_JSET:
-+		case BPF_JNE:
-+			br_opcode = BNE;
-+			break;
-+		case BPF_JSGT:
-+			br_opcode = BG;
-+			break;
-+		case BPF_JSGE:
-+			br_opcode = BGE;
-+			break;
-+		default:
-+			/* Make sure we dont leak kernel information to the
-+			 * user.
-+			 */
-+			return -EFAULT;
-+		}
-+		emit_branch(br_opcode, ctx->idx, branch_dst, ctx);
-+		emit_nop(ctx);
-+	} else {
-+		u32 cbcond_opcode;
-+
-+		switch (BPF_OP(code)) {
-+		case BPF_JEQ:
-+			cbcond_opcode = CBCONDE;
-+			break;
-+		case BPF_JGT:
-+			cbcond_opcode = CBCONDGU;
-+			break;
-+		case BPF_JGE:
-+			cbcond_opcode = CBCONDGEU;
-+			break;
-+		case BPF_JNE:
-+			cbcond_opcode = CBCONDNE;
-+			break;
-+		case BPF_JSGT:
-+			cbcond_opcode = CBCONDG;
-+			break;
-+		case BPF_JSGE:
-+			cbcond_opcode = CBCONDGE;
-+			break;
-+		default:
-+			/* Make sure we dont leak kernel information to the
-+			 * user.
-+			 */
-+			return -EFAULT;
-+		}
-+		cbcond_opcode |= CBCOND_OP;
-+		if (is_imm)
-+			emit_cbcondi(cbcond_opcode, ctx->idx, branch_dst,
-+				     dst, imm, ctx);
-+		else
-+			emit_cbcond(cbcond_opcode, ctx->idx, branch_dst,
-+				    dst, src, ctx);
-+	}
-+	return 0;
-+}
-+
- static void load_skb_regs(struct jit_ctx *ctx, u8 r_skb)
- {
- 	const u8 r_headlen = bpf2sparc[SKB_HLEN_REG];
-@@ -765,44 +933,15 @@ static int build_insn(const struct bpf_insn *insn, struct jit_ctx *ctx)
- 	case BPF_JMP | BPF_JGE | BPF_X:
- 	case BPF_JMP | BPF_JNE | BPF_X:
- 	case BPF_JMP | BPF_JSGT | BPF_X:
--	case BPF_JMP | BPF_JSGE | BPF_X: {
--		u32 br_opcode;
-+	case BPF_JMP | BPF_JSGE | BPF_X:
-+	case BPF_JMP | BPF_JSET | BPF_X: {
-+		int err;
- 
--		emit_cmp(dst, src, ctx);
--emit_cond_jmp:
--		switch (BPF_OP(code)) {
--		case BPF_JEQ:
--			br_opcode = BE;
--			break;
--		case BPF_JGT:
--			br_opcode = BGU;
--			break;
--		case BPF_JGE:
--			br_opcode = BGEU;
--			break;
--		case BPF_JSET:
--		case BPF_JNE:
--			br_opcode = BNE;
--			break;
--		case BPF_JSGT:
--			br_opcode = BG;
--			break;
--		case BPF_JSGE:
--			br_opcode = BGE;
--			break;
--		default:
--			/* Make sure we dont leak kernel information to the
--			 * user.
--			 */
--			return -EFAULT;
--		}
--		emit_branch(br_opcode, ctx->idx, ctx->offset[i + off], ctx);
--		emit_nop(ctx);
-+		err = emit_compare_and_branch(code, dst, src, 0, false, i + off, ctx);
-+		if (err)
-+			return err;
- 		break;
- 	}
--	case BPF_JMP | BPF_JSET | BPF_X:
--		emit_btst(dst, src, ctx);
--		goto emit_cond_jmp;
- 	/* IF (dst COND imm) JUMP off */
- 	case BPF_JMP | BPF_JEQ | BPF_K:
- 	case BPF_JMP | BPF_JGT | BPF_K:
-@@ -810,23 +949,14 @@ static int build_insn(const struct bpf_insn *insn, struct jit_ctx *ctx)
- 	case BPF_JMP | BPF_JNE | BPF_K:
- 	case BPF_JMP | BPF_JSGT | BPF_K:
- 	case BPF_JMP | BPF_JSGE | BPF_K:
--		if (is_simm13(imm)) {
--			emit_cmpi(dst, imm, ctx);
--		} else {
--			ctx->tmp_1_used = true;
--			emit_loadimm_sext(imm, bpf2sparc[TMP_REG_1], ctx);
--			emit_cmp(dst, bpf2sparc[TMP_REG_1], ctx);
--		}
--		goto emit_cond_jmp;
--	case BPF_JMP | BPF_JSET | BPF_K:
--		if (is_simm13(imm)) {
--			emit_btsti(dst, imm, ctx);
--		} else {
--			ctx->tmp_1_used = true;
--			emit_loadimm_sext(imm, bpf2sparc[TMP_REG_1], ctx);
--			emit_btst(dst, bpf2sparc[TMP_REG_1], ctx);
--		}
--		goto emit_cond_jmp;
-+	case BPF_JMP | BPF_JSET | BPF_K: {
-+		int err;
-+
-+		err = emit_compare_and_branch(code, dst, 0, imm, true, i + off, ctx);
-+		if (err)
-+			return err;
-+		break;
-+	}
- 
- 	/* function call */
- 	case BPF_JMP | BPF_CALL:
--- 
-2.1.2.532.g19b5d50
+Thanks
+Arun
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
