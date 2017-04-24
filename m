@@ -1,46 +1,75 @@
-From: Pan Bian <bianpan201603@163.com>
-Subject: [PATCH 1/1] rndis_wlan: add return value validation
-Date: Mon, 24 Apr 2017 08:40:28 +0800
-Message-ID: <1492994428-16090-1-git-send-email-bianpan201603@163.com>
-Cc: linux-kernel@vger.kernel.org, Pan Bian <bianpan2016@163.com>
-To: Jussi Kivilinna <jussi.kivilinna@iki.fi>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next V3 2/2] rtnl: Add support for netdev event
+ attribute to link messages
+Date: Sun, 23 Apr 2017 19:07:56 -0600
+Message-ID: <877efb54-2aef-4d1e-c0b4-2ce6aa6562df@cumulusnetworks.com>
+References: <1492795881-11914-1-git-send-email-vyasevic@redhat.com>
+ <1492795881-11914-3-git-send-email-vyasevic@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Vladislav Yasevich <vyasevic@redhat.com>,
+        roopa <roopa@cumulusnetworks.com>, Jiri Pirko <jiri@resnulli.us>
+To: Vladislav Yasevich <vyasevich@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from m12-11.163.com ([220.181.12.11]:60973 "EHLO m12-11.163.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1163769AbdDXAko (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 23 Apr 2017 20:40:44 -0400
+Received: from mail-it0-f43.google.com ([209.85.214.43]:38113 "EHLO
+        mail-it0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1163875AbdDXBIS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 23 Apr 2017 21:08:18 -0400
+Received: by mail-it0-f43.google.com with SMTP id e132so35815142ite.1
+        for <netdev@vger.kernel.org>; Sun, 23 Apr 2017 18:08:18 -0700 (PDT)
+In-Reply-To: <1492795881-11914-3-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pan Bian <bianpan2016@163.com>
+On 4/21/17 11:31 AM, Vladislav Yasevich wrote:
+> @@ -1276,9 +1277,40 @@ static int rtnl_xdp_fill(struct sk_buff *skb, struct net_device *dev)
+>  	return err;
+>  }
+>  
+> +static int rtnl_fill_link_event(struct sk_buff *skb, unsigned long event)
+> +{
+> +	u32 rtnl_event;
+> +
+> +	switch (event) {
+> +	case NETDEV_REBOOT:
+> +		rtnl_event = IFLA_EVENT_REBOOT;
+> +		break;
+> +	case NETDEV_FEAT_CHANGE:
+> +		rtnl_event = IFLA_EVENT_FEAT_CHANGE;
+> +		break;
+> +	case NETDEV_BONDING_FAILOVER:
+> +		rtnl_event = IFLA_EVENT_BONDING_FAILOVER;
+> +		break;
+> +	case NETDEV_NOTIFY_PEERS:
+> +		rtnl_event = IFLA_EVENT_NOTIFY_PEERS;
+> +		break;
+> +	case NETDEV_RESEND_IGMP:
+> +		rtnl_event = IFLA_EVENT_RESEND_IGMP;
+> +		break;
+> +	case NETDEV_CHANGEINFODATA:
+> +		rtnl_event = IFLA_EVENT_CHANGE_INFO_DATA;
+> +		break;
+> +	default:
+> +		return 0;
+> +	}
+> +
+> +	return nla_put_u32(skb, IFLA_EVENT, rtnl_event);
+> +}
+> +
 
-Function create_singlethread_workqueue() will return a NULL pointer if
-there is no enough memory, and its return value should be validated
-before using. However, in function rndis_wlan_bind(), its return value
-is not checked. This may cause NULL dereference bugs. This patch fixes
-it.
+I still have doubts about encoding kernel events into a uapi.
 
-Signed-off-by: Pan Bian <bianpan2016@163.com>
----
- drivers/net/wireless/rndis_wlan.c | 4 ++++
- 1 file changed, 4 insertions(+)
+For example, NETDEV_CHANGEINFODATA is only for bonds though nothing
+about the name suggests it is a bonding notification. This one was added
+specifically to notify userspace (d4261e5650004), yet seems to happen
+only during a changelink and that already generates a RTM_NEWLINK
+message via do_setlink. Since the rtnetlink_event message does not
+contain anything "NETDEV_CHANGEINFODATA" related what purpose does it
+really serve besides duplicating netlink messages to userspace.
 
-diff --git a/drivers/net/wireless/rndis_wlan.c b/drivers/net/wireless/rndis_wlan.c
-index 785334f..92a1bde 100644
---- a/drivers/net/wireless/rndis_wlan.c
-+++ b/drivers/net/wireless/rndis_wlan.c
-@@ -3427,6 +3427,10 @@ static int rndis_wlan_bind(struct usbnet *usbdev, struct usb_interface *intf)
- 
- 	/* because rndis_command() sleeps we need to use workqueue */
- 	priv->workqueue = create_singlethread_workqueue("rndis_wlan");
-+	if (!priv->workqueue) {
-+		wiphy_free(wiphy);
-+		return -ENOMEM;
-+	}
- 	INIT_WORK(&priv->work, rndis_wlan_worker);
- 	INIT_DELAYED_WORK(&priv->dev_poller_work, rndis_device_poller);
- 	INIT_DELAYED_WORK(&priv->scan_work, rndis_get_scan_results);
--- 
-1.9.1
+The REBOOT, IGMP, FEAT_CHANGE and BONDING_FAILOVER seem to be unique
+messages (code analysis only) which I get for notifying userspace.
+
+NETDEV_NOTIFY_PEERS is not so clear in how often it duplicates other
+messages.
