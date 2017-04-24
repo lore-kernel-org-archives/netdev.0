@@ -1,86 +1,65 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH net-next v5 1/2] net sched actions: dump more than
- TCA_ACT_MAX_PRIO actions per batch
-Date: Mon, 24 Apr 2017 16:20:58 +0200
-Message-ID: <20170424142058.GA26625@salvia>
-References: <1492693582-26810-1-git-send-email-jhs@emojatatu.com>
- <1492693582-26810-2-git-send-email-jhs@emojatatu.com>
- <20170420135915.GE1886@nanopsycho.orion>
- <a0d70dc5-b0cb-c54e-7d98-93099b68c247@mojatatu.com>
- <20170420142453.GF1886@nanopsycho.orion>
- <20170424091455.GA25218@vergenet.net>
- <2ca4266f-a164-d2ad-37fa-45f7ae354eb8@mojatatu.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Blogpost evaluation this [PATCH v4 net-next RFC] net: Generic XDP
+Date: Mon, 24 Apr 2017 16:24:05 +0200
+Message-ID: <20170424162405.1183f2e7@redhat.com>
+References: <20170413.120925.2082322246776478766.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Simon Horman <simon.horman@netronome.com>,
-        Jiri Pirko <jiri@resnulli.us>, davem@davemloft.net,
-        xiyou.wangcong@gmail.com, eric.dumazet@gmail.com,
-        netdev@vger.kernel.org, Tom Herbert <tom@herbertland.com>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, brouer@redhat.com,
+        Andy Gospodarek <andy@greyhouse.net>
+To: David Miller <davem@davemloft.net>, xdp-newbies@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:36456 "EHLO mail.us.es"
+Received: from mx1.redhat.com ([209.132.183.28]:57852 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1172137AbdDXOVF (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 24 Apr 2017 10:21:05 -0400
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id EFD07E0427
-        for <netdev@vger.kernel.org>; Mon, 24 Apr 2017 16:20:58 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id DDBFAFF2CF
-        for <netdev@vger.kernel.org>; Mon, 24 Apr 2017 16:20:58 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 7B00DA728
-        for <netdev@vger.kernel.org>; Mon, 24 Apr 2017 16:20:55 +0200 (CEST)
-Content-Disposition: inline
-In-Reply-To: <2ca4266f-a164-d2ad-37fa-45f7ae354eb8@mojatatu.com>
+        id S1764064AbdDXOYM (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 24 Apr 2017 10:24:12 -0400
+In-Reply-To: <20170413.120925.2082322246776478766.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 24, 2017 at 08:49:00AM -0400, Jamal Hadi Salim wrote:
-> On 17-04-24 05:14 AM, Simon Horman wrote:
-> [..]
-> 
-> >Jamal, I am confused about why are you so concerned about the space
-> >consumed by this attribute, it's per-message, right? Is it the bigger
-> >picture you are worried about - a similar per-entry flag at some point in
-> >the future?
-> 
-> 
-> To me the two worries are one and the same.
-> 
-> Jiri strongly believes (from a big picture view) we must use
-> TLVs for extensibility.
-> While I agree with him in general i have strong reservations
-> in this case because i can get both extensibility and
-> build for performance with using a flag bitmask as the
-> content of the TLV.
-> 
-> A TLV consumes 64 bits minimum. It doesnt matter if we decide
-> to use a u8 or a u16, we are still sending 64 bits on that
-> TLV with the rest being PADding. Not to be melodramatic, but
-> the worst case scenario of putting everything in a TLV for 32
-> flags is using about 30x more space than using a bitmask.
-> 
-> Yes, space is important and if i can express upto 32 flags
-> with one TLV rather than 32 TLVs i choose one TLV.
-> I am always looking for ways to filter out crap i dont need
-> when i do stats collection. I have numerous wounds from fdb
-> entries which decided to use a TLV per flag.
-> 
-> The design approach we have used in netlink is: flags start
-> as a bitmap (whether they are on main headers or TLVs); they may be
-> complemented with a bitmask/selector (refer to IFLINK messages).
-> 
-> Lets look at this specific patch I have sending. I have already
-> changed it 3 times and involved a churn of 3 different flags.
-> If you asked me in the beggining i wouldve scratched my head
-> thinking for a near term use for bit #3, #4 etc,
-> 
-> I am fine with the counter-Postel view of having the kernel
-> validate that appropriate bits are set as long as we dont make
-> user space to now start learning how to play acrobatics.
 
-jamal, what performance concern you have in building this error
-message? TLVs is the most flexible way. And this is error path, so we
-should build this message rarely, only if the user sends us something
-incorrect, why bother...
+I've done a very detailed evaluation of this patch, and I've created a
+blogpost like report here:
+
+ https://prototype-kernel.readthedocs.io/en/latest/blogposts/xdp25_eval_generic_xdp_tx.html
+
+I didn't evaluate the adjust_head part, so I hope Andy is still
+planning to validate that part?
+
+--Jesper
+
+
+
+On Thu, 13 Apr 2017 12:09:25 -0400 (EDT)
+David Miller <davem@davemloft.net> wrote:
+
+> This provides a generic SKB based non-optimized XDP path which is used
+> if either the driver lacks a specific XDP implementation, or the user
+> requests it via a new IFLA_XDP_FLAGS value named XDP_FLAGS_SKB_MODE.
+> 
+> It is arguable that perhaps I should have required something like
+> this as part of the initial XDP feature merge.
+> 
+> I believe this is critical for two reasons:
+> 
+> 1) Accessibility.  More people can play with XDP with less
+>    dependencies.  Yes I know we have XDP support in virtio_net, but
+>    that just creates another depedency for learning how to use this
+>    facility.
+> 
+>    I wrote this to make life easier for the XDP newbies.
+> 
+> 2) As a model for what the expected semantics are.  If there is a pure
+>    generic core implementation, it serves as a semantic example for
+>    driver folks adding XDP support.
+> 
+> This is just a rough draft and is untested.
+
+
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
