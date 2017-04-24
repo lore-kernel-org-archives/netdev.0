@@ -1,72 +1,41 @@
-From: Amir Vadai <amir@vadai.me>
-Subject: Re: [PATCH iproute2 net 3/8] tc/pedit: Introduce 'add' operation
-Date: Mon, 24 Apr 2017 10:52:03 +0300
-Message-ID: <20170424075203.GA3265@office.localdomain>
-References: <20170423125356.1298-1-amir@vadai.me>
- <20170423125356.1298-4-amir@vadai.me>
- <f358025b-2618-3f22-b593-2e4e70fb7a79@mojatatu.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: macvlan: Fix device ref leak when purging bc_queue
+Date: Mon, 24 Apr 2017 15:56:07 +0800
+Message-ID: <20170424075606.GA19926@gondor.apana.org.au>
+References: <1492618528011.11322@Dell.com>
+ <20170420125512.GA9113@gondor.apana.org.au>
+ <1492704599476.84165@Dell.com>
+ <20170421044029.GA11695@gondor.apana.org.au>
+ <1492785652578.53801@Dell.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-        netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Cc: davem@davemloft.net, Clifford.Wichmann@dell.com,
+        netdev@vger.kernel.org
+To: Joe.Ghalam@dell.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f44.google.com ([74.125.82.44]:34887 "EHLO
-        mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1166215AbdDXHwH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 03:52:07 -0400
-Received: by mail-wm0-f44.google.com with SMTP id w64so54515832wma.0
-        for <netdev@vger.kernel.org>; Mon, 24 Apr 2017 00:52:07 -0700 (PDT)
+Received: from [198.176.57.175] ([198.176.57.175]:43624 "EHLO
+        deadmen.hmeau.com" rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1166260AbdDXH5Q (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 03:57:16 -0400
 Content-Disposition: inline
-In-Reply-To: <f358025b-2618-3f22-b593-2e4e70fb7a79@mojatatu.com>
+In-Reply-To: <1492785652578.53801@Dell.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Apr 23, 2017 at 01:44:51PM -0400, Jamal Hadi Salim wrote:
-> 
-> Thanks for the excellent work.
-> 
-> On 17-04-23 08:53 AM, Amir Vadai wrote:
-> > This command could be useful to increase/decrease fields value.
-> > 
-> 
-> Does this contradict the "retain" feature? Example rule to
-> retain the second nibble but set the first to 0xA
-> (essentially it X-ORs):
-> tc filter add dev lo parent ffff: protocol ip prio 10 \
-> u32 match ip dst 127.0.0.1/32 flowid 1:1 \
-> action pedit munge offset 0 u8 set 0x0A retain 0xF0
+On Fri, Apr 21, 2017 at 02:40:50PM +0000, Joe.Ghalam@dell.com wrote:
+> That's not true. macvlan_dellink() unregisters the queue, and macvlan_process_broadcast() will never get called. Please note that I'm not speculating. I have traced enabled on the dev_put and dev_hold, and I'm reporting a real, reproducible issue.
 
-You mean, for example increasing a single nible in an ipv4 address?
-If so, then it should work:
-# tc filter add dev veth0 parent ffff:  u32 \
-    match ip dport 23 0xffff \
-		action pedit ex \
-		  munge ip src add 1.0.0.0 retain 0xff000000
+The only thing that can stop macvlan_process_broadcast from getting
+called is macvlan_port_destroy.  Nothing else can stop the work
+queue, unless of course the work queue mechanism itself is broken.
 
-# tc -s filter show dev veth0 parent ffff:
-filter protocol all pref 49151 u32
-filter protocol all pref 49151 u32 fh 801: ht divisor 1
-filter protocol all pref 49151 u32 fh 801::800 order 2048 key ht 801 bkt 0 terminal flowid ???  (rule hit 0 success 0)
-  match 00000017/0000ffff at 20 (success 0 )
-	action order 1:  pedit action pass keys 1
- 	 index 48 ref 1 bind 1 installed 1 sec used 1 sec
-	 key #0  at ipv4+12: add 01000000 mask 00ffffff
- 	Action statistics:
-	Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-	backlog 0b 0p requeues 0
+So if you're sure macvlan_port_destroy is never even called in
+your case, then you'll need to start debugging the kernel work
+queue mechanism to see why macvlan_process_broadcast is not getting
+called.
 
-> 
-> Mostly curious about hardware handling.
-As to hardware handling, Or did the implementation so he will answer
-better. AFAIK, current implementation doesn't allow partial field
-setting/adding, so such a rule can't be offloaded. I think it is only to
-make things simple and because there was no use case for that.
-To my knowledge, hardware should support such thing if needed.
-
-Amir
-
-> 
-> cheers,
-> jamal
-> 
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
