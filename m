@@ -1,62 +1,193 @@
-From: James Hughes <james.hughes@raspberrypi.org>
-Subject: [PATCH] brcmfmac: Ensure pointer correctly set if skb data location changes
-Date: Mon, 24 Apr 2017 11:52:19 +0100
-Message-ID: <20170424105219.18797-1-james.hughes@raspberrypi.org>
-Cc: James Hughes <james.hughes@raspberrypi.org>
-To: Arend van Spriel <arend.vanspriel@broadcom.com>,
-        Franky Lin <franky.lin@broadcom.com>,
-        Hante Meuleman <hante.meuleman@broadcom.com>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        linux-wireless@vger.kernel.org,
-        brcm80211-dev-list.pdl@broadcom.com, netdev@vger.kernel.org
+From: Nick Moriarty <nick.moriarty@york.ac.uk>
+Subject: Re: PROBLEM: IPVS incorrectly reverse-NATs traffic to LVS host
+Date: Mon, 24 Apr 2017 11:55:55 +0100
+Message-ID: <CAEo=OUmQb0FGQ2Lm+H4RNKTZD7hVKBJ+LTe2Sjy+BgW84yJ_ug@mail.gmail.com>
+References: <CAEo=OUnG+Bn04XaEkwHpL2bt6bEZXP_F6RSa9HDN=VjXdOxpoQ@mail.gmail.com>
+ <alpine.LFD.2.20.1704221417080.1974@ja.home.ssi.bg>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Wensong Zhang <wensong@linux-vs.org>,
+        Simon Horman <horms@verge.net.au>, netdev@vger.kernel.org,
+        lvs-devel@vger.kernel.org
+To: Julian Anastasov <ja@ssi.bg>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx07-00252a01.pphosted.com ([62.209.51.214]:14807 "EHLO
-        mx07-00252a01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1168626AbdDXKw3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 06:52:29 -0400
-Received: from pps.filterd (m0102628.ppops.net [127.0.0.1])
-        by mx07-00252a01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v3OAmuJs011775
-        for <netdev@vger.kernel.org>; Mon, 24 Apr 2017 11:52:27 +0100
-Received: from mail-wm0-f72.google.com (mail-wm0-f72.google.com [74.125.82.72])
-        by mx07-00252a01.pphosted.com with ESMTP id 29yvjys19w-1
-        (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128 verify=OK)
-        for <netdev@vger.kernel.org>; Mon, 24 Apr 2017 11:52:27 +0100
-Received: by mail-wm0-f72.google.com with SMTP id h19so4490265wmi.10
-        for <netdev@vger.kernel.org>; Mon, 24 Apr 2017 03:52:27 -0700 (PDT)
+Received: from mail-qt0-f193.google.com ([209.85.216.193]:34441 "EHLO
+        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1168988AbdDXK4R (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 06:56:17 -0400
+Received: by mail-qt0-f193.google.com with SMTP id y33so19723786qta.1
+        for <netdev@vger.kernel.org>; Mon, 24 Apr 2017 03:56:16 -0700 (PDT)
+In-Reply-To: <alpine.LFD.2.20.1704221417080.1974@ja.home.ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The incoming skb header may be resized if header space is
-insufficient, which might change the data adddress in the skb.
-Ensure that a cached pointer to that data is correctly set by
-moving assignment to after any possible changes.
+Hi Julian,
 
-Signed-off-by: James Hughes <james.hughes@raspberrypi.org>
----
- drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+Many thanks for your prompt fix!  I've now tested this patch against
+the 4.11.0-rc8 kernel on Ubuntu, and I can confirm that my check
+script is no longer seeing incorrect addresses in its responses.
 
-diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.c b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.c
-index 5eaac13e2317..934fe00e28a0 100644
---- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.c
-+++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.c
-@@ -198,7 +198,7 @@ static netdev_tx_t brcmf_netdev_start_xmit(struct sk_buff *skb,
- 	int ret;
- 	struct brcmf_if *ifp = netdev_priv(ndev);
- 	struct brcmf_pub *drvr = ifp->drvr;
--	struct ethhdr *eh = (struct ethhdr *)(skb->data);
-+	struct ethhdr *eh;
- 
- 	brcmf_dbg(DATA, "Enter, bsscfgidx=%d\n", ifp->bsscfgidx);
- 
-@@ -229,6 +229,8 @@ static netdev_tx_t brcmf_netdev_start_xmit(struct sk_buff *skb,
- 		}
- 	}
- 
-+	eh = (struct ethhdr *)(skb->data);
-+
- 	/* validate length for ether packet */
- 	if (skb->len < sizeof(*eh)) {
- 		ret = -EINVAL;
+Could you please keep me posted as this is merged?
+
+Thanks again
+
+On 22 April 2017 at 18:06, Julian Anastasov <ja@ssi.bg> wrote:
+>
+>         Hello,
+>
+> On Wed, 12 Apr 2017, Nick Moriarty wrote:
+>
+>> Hi,
+>>
+>> I've experienced a problem in how traffic returning to an LVS host is
+>> handled in certain circumstances.  Please find a bug report below - if
+>> there's any further information you'd like, please let me know.
+>>
+>> [1.] One line summary of the problem:
+>> IPVS incorrectly reverse-NATs traffic to LVS host
+>>
+>> [2.] Full description of the problem/report:
+>> When using IPVS in direct-routing mode, normal traffic from the LVS
+>> host to a back-end server is sometimes incorrectly NATed on the way
+>> back into the LVS host.  Using tcpdump shows that the return packets
+>> have the correct source IP, but by the time it makes it back to the
+>> application, it's been changed.
+>>
+>> To reproduce this, a configuration such as the following will work:
+>> - Set up an LVS system with a VIP serving UDP to a backend DNS server
+>> using the direct-routing method in IPVS
+>> - Make an outgoing UDP request to the VIP from the LVS system itself
+>> (this causes a connection to be added to the IPVS connection table)
+>> - The request should succeed as normal
+>> - Note the UDP source port used
+>> - Within 5 minutes (before the UDP connection entry expires), make an
+>> outgoing UDP request directly to the backend DNS server
+>> - The request will fail as the reply is incorrectly modified on its
+>> way back and appears to return from the VIP
+>>
+>> Monitoring the above sequence with tcpdump verifies that the returned
+>> packet (as it enters the host) is from the DNS IP, even though the
+>> application sees the VIP.
+>>
+>> If an outgoing request direct to the DNS server is made from a port
+>> not in the connection table, everything is fine.
+>
+>         Thanks for the detailed report! I think, I fixed the
+> problem. Let me know if you are able to test the appended fix.
+>
+>> I expect that somewhere, something (e.g. functionality for IPVS MASQ
+>> responses) is applying IPVS connection
+>> information to incoming traffic, matching a DROUTE rule, and treating
+>> it as NAT traffic.
+>
+>         Yep, that is what happens.
+>
+> ================================================================
+>
+> [PATCH net] ipvs: SNAT packet replies only for NATed connections
+>
+> We do not check if packet from real server is for NAT
+> connection before performing SNAT. This causes problems
+> for setups that use DR/TUN and allow local clients to
+> access the real server directly, for example:
+>
+> - local client in director creates IPVS-DR/TUN connection
+> CIP->VIP and the request packets are routed to RIP.
+> Talks are finished but IPVS connection is not expired yet.
+>
+> - second local client creates non-IPVS connection CIP->RIP
+> with same reply tuple RIP->CIP and when replies are received
+> on LOCAL_IN we wrongly assign them for the first client
+> connection because RIP->CIP matches the reply direction.
+>
+> The problem is more visible to local UDP clients but in rare
+> cases it can happen also for TCP or remote clients when the
+> real server sends the reply traffic via the director.
+>
+> So, better to be more precise for the reply traffic.
+> As replies are not expected for DR/TUN connections, better
+> to not touch them.
+>
+> Reported-by: Nick Moriarty <nick.moriarty@york.ac.uk>
+> Signed-off-by: Julian Anastasov <ja@ssi.bg>
+> ---
+>  net/netfilter/ipvs/ip_vs_core.c | 19 ++++++++++++++-----
+>  1 file changed, 14 insertions(+), 5 deletions(-)
+>
+> diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
+> index db40050..ee44ed5 100644
+> --- a/net/netfilter/ipvs/ip_vs_core.c
+> +++ b/net/netfilter/ipvs/ip_vs_core.c
+> @@ -849,10 +849,8 @@ static int handle_response_icmp(int af, struct sk_buff *skb,
+>  {
+>         unsigned int verdict = NF_DROP;
+>
+> -       if (IP_VS_FWD_METHOD(cp) != 0) {
+> -               pr_err("shouldn't reach here, because the box is on the "
+> -                      "half connection in the tun/dr module.\n");
+> -       }
+> +       if (IP_VS_FWD_METHOD(cp) != IP_VS_CONN_F_MASQ)
+> +               goto ignore_cp;
+>
+>         /* Ensure the checksum is correct */
+>         if (!skb_csum_unnecessary(skb) && ip_vs_checksum_complete(skb, ihl)) {
+> @@ -886,6 +884,8 @@ static int handle_response_icmp(int af, struct sk_buff *skb,
+>                 ip_vs_notrack(skb);
+>         else
+>                 ip_vs_update_conntrack(skb, cp, 0);
+> +
+> +ignore_cp:
+>         verdict = NF_ACCEPT;
+>
+>  out:
+> @@ -1385,8 +1385,11 @@ ip_vs_out(struct netns_ipvs *ipvs, unsigned int hooknum, struct sk_buff *skb, in
+>          */
+>         cp = pp->conn_out_get(ipvs, af, skb, &iph);
+>
+> -       if (likely(cp))
+> +       if (likely(cp)) {
+> +               if (IP_VS_FWD_METHOD(cp) != IP_VS_CONN_F_MASQ)
+> +                       goto ignore_cp;
+>                 return handle_response(af, skb, pd, cp, &iph, hooknum);
+> +       }
+>
+>         /* Check for real-server-started requests */
+>         if (atomic_read(&ipvs->conn_out_counter)) {
+> @@ -1444,9 +1447,15 @@ ip_vs_out(struct netns_ipvs *ipvs, unsigned int hooknum, struct sk_buff *skb, in
+>                         }
+>                 }
+>         }
+> +
+> +out:
+>         IP_VS_DBG_PKT(12, af, pp, skb, iph.off,
+>                       "ip_vs_out: packet continues traversal as normal");
+>         return NF_ACCEPT;
+> +
+> +ignore_cp:
+> +       __ip_vs_conn_put(cp);
+> +       goto out;
+>  }
+>
+>  /*
+> --
+> 2.9.3
+>
+> Regards
+>
+> --
+> Julian Anastasov <ja@ssi.bg>
+
+
+
 -- 
-2.11.0
+Nick Moriarty
+Linux Systems Administrator and Developer
+
+IT Services
+Computer Science Building
+University of York
+York
+YO10 5GH
++44 (0)1904 32 3484
+
+e-mail disclaimer: http://www.york.ac.uk/docs/disclaimer/email.htm
