@@ -1,98 +1,77 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH v3 07/29] x86: bpf_jit, use ENTRY+ENDPROC
-Date: Mon, 24 Apr 2017 09:47:19 -0700
-Message-ID: <20170424164717.GA80404@ast-mbp.thefacebook.com>
-References: <697947f4-0a2c-1480-0995-9919556dc020@suse.cz>
- <20170424.104132.950580313142367896.davem@davemloft.net>
- <f7a94f4e-6d93-a447-a62f-3f290e66c647@suse.cz>
- <20170424.110844.1321374394090353753.davem@davemloft.net>
- <614ca52b-8a43-244e-8a3a-c39145ecc3e8@suse.cz>
- <20170424155507.miyqef7ld4hbmsej@gmail.com>
- <71301a81-1c61-fd4d-5b1b-5154fa723859@suse.cz>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: net/ipv6: slab-out-of-bounds in ip6_tnl_xmit
+Date: Mon, 24 Apr 2017 09:47:12 -0700
+Message-ID: <CAM_iQpXLHx=NhSNYU_o4F_V6nNXUHGBSdV=QQnML0B+HD7MbBQ@mail.gmail.com>
+References: <CAAeHK+w-EYicrLHhBR0LHMMTc22GjsB=PTmgswm44w4VpfQ_hA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ingo Molnar <mingo@kernel.org>, David Miller <davem@davemloft.net>,
-        mingo@redhat.com, tglx@linutronix.de, hpa@zytor.com,
-        x86@kernel.org, jpoimboe@redhat.com, linux-kernel@vger.kernel.org,
-        netdev@vger.kernel.org, daniel@iogearbox.net, edumazet@google.com
-To: Jiri Slaby <jslaby@suse.cz>
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Eric Dumazet <edumazet@google.com>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Andrey Konovalov <andreyknvl@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:33307 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S974880AbdDXQrX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 12:47:23 -0400
-Content-Disposition: inline
-In-Reply-To: <71301a81-1c61-fd4d-5b1b-5154fa723859@suse.cz>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:34475 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S975052AbdDXQro (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 12:47:44 -0400
+In-Reply-To: <CAAeHK+w-EYicrLHhBR0LHMMTc22GjsB=PTmgswm44w4VpfQ_hA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 24, 2017 at 06:02:51PM +0200, Jiri Slaby wrote:
-> On 04/24/2017, 05:55 PM, Ingo Molnar wrote:
-> > * Jiri Slaby <jslaby@suse.cz> wrote:
-> > 
-> >> On 04/24/2017, 05:08 PM, David Miller wrote:
-> >>> If you align the entry points, then the code sequence as a whole is
-> >>> are no longer densely packed.
-> >>
-> >> Sure.
-> >>
-> >>> Or do I misunderstand how your macros work?
-> >>
-> >> Perhaps. So the suggested macros for the code are:
-> >> #define BPF_FUNC_START_LOCAL(name) \
-> >> 		SYM_START(name, SYM_V_LOCAL, SYM_A_NONE)
-> >> #define BPF_FUNC_START(name) \
-> >> 		SYM_START(name, SYM_V_GLOBAL, SYM_A_NONE)
-> >>
-> >> and they differ from the standard ones:
-> >> #define SYM_FUNC_START_LOCAL(name)                      \
-> >>         SYM_START(name, SYM_V_LOCAL, SYM_A_ALIGN)
-> >> #define SYM_FUNC_START(name)                            \
-> >>         SYM_START(name, SYM_V_GLOBAL, SYM_A_ALIGN)
-> >>
-> >>
-> >> The difference is SYM_A_NONE vs. SYM_A_ALIGN, which means:
-> >> #define SYM_A_ALIGN                             ALIGN
-> >> #define SYM_A_NONE                              /* nothing */
-> >>
-> >> Does it look OK now?
-> > 
-> > No, the patch changes alignment which is undesirable, it needs to preserve the 
-> > existing (non-)alignment of the symbols!
-> 
-> OK, so I am not expressing myself explicitly enough, it seems.
-> 
-> So, correct, the patch v3 adds alignments. I suggested in the discussion
-> the macros above. They do not add alignments. If everybody is OK with
-> that, v4 of the patch won't add alignments. OK?
+On Mon, Apr 24, 2017 at 8:03 AM, Andrey Konovalov <andreyknvl@google.com> wrote:
+> Hi,
+>
+> I've got the following error report while fuzzing the kernel with syzkaller.
+>
+> On commit 5a7ad1146caa895ad718a534399e38bd2ba721b7 (4.11-rc8).
+>
+> Unfortunately it's not reproducible.
+>
+> The issue might be similar to this one:
+> https://groups.google.com/forum/#!topic/syzkaller/IDoQHFmrnRI
+>
+> ==================================================================
+> BUG: KASAN: slab-out-of-bounds in ip6_tnl_xmit+0x25dd/0x28f0
+> net/ipv6/ip6_tunnel.c:1078 at addr ffff88005dcc5f98
+> Read of size 16 by task syz-executor7/8076
+> CPU: 3 PID: 8076 Comm: syz-executor7 Not tainted 4.11.0-rc8+ #266
+> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+> Call Trace:
+>  __dump_stack lib/dump_stack.c:16 [inline]
+>  dump_stack+0x192/0x22d lib/dump_stack.c:52
+>  kasan_object_err+0x1c/0x70 mm/kasan/report.c:164
+>  print_address_description mm/kasan/report.c:202 [inline]
+>  kasan_report_error mm/kasan/report.c:291 [inline]
+>  kasan_report+0x252/0x510 mm/kasan/report.c:347
+>  __asan_report_load_n_noabort+0xf/0x20 mm/kasan/report.c:378
+>  ip6_tnl_xmit+0x25dd/0x28f0 net/ipv6/ip6_tunnel.c:1078
+>  ip4ip6_tnl_xmit net/ipv6/ip6_tunnel.c:1268 [inline]
+>  ip6_tnl_start_xmit+0xc1e/0x1890 net/ipv6/ip6_tunnel.c:1370
 
-can we go back to what problem this patch set is trying to solve?
-Sounds like you want to add _function_ start/end marks to aid debugging?
-Debugging with what? What tool will recognize this stuff?
 
-Take a look at what your patch does:
-+ENTRY(sk_load_word)
-        test    %esi,%esi
-        js      bpf_slow_path_word_neg
-+ENDPROC(sk_load_word)
+We use ipv4 dst in ip6_tunnel and cast an IPv4 neigh key as an
+IPv6 address...
 
-Does above two assembler instructions look like a function?
 
-or this:
-+ENTRY(sk_load_byte_positive_offset)
-        cmp     %esi,%r9d   /* if (offset >= hlen) goto bpf_slow_path_byte */
-        jle     bpf_slow_path_byte
-        movzbl  (SKBDATA,%rsi),%eax
-        ret
-+ENDPROC(sk_load_byte_positive_offset)
+                neigh = dst_neigh_lookup(skb_dst(skb),
+                                         &ipv6_hdr(skb)->daddr);
+                if (!neigh)
+                        goto tx_err_link_failure;
 
-This assembler code doesn't represent functions. There is no prologue/epilogue
-and no stack frame. JITed code uses 'call' insn to jump into them, but they're
-not your typical C functions.
-Take a look at bpf_slow_path_common() macro that creates the frame before
-calling into C code with 'call skb_copy_bits;'
+                addr6 = (struct in6_addr *)&neigh->primary_key; // <=== HERE
+                addr_type = ipv6_addr_type(addr6);
 
-I still think that this code should be left alone.
-Even macro names you're proposing:
- #define BPF_FUNC_START_LOCAL
-don't sound right. These are not functions.
+                if (addr_type == IPV6_ADDR_ANY)
+                        addr6 = &ipv6_hdr(skb)->daddr;
+
+                memcpy(&fl6->daddr, addr6, sizeof(fl6->daddr));
+
+Also the network header of the skb at this point should be still IPv4?
