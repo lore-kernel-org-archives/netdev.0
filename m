@@ -1,72 +1,25 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] macsec: avoid heap overflow in skb_to_sgvec
-Date: Mon, 24 Apr 2017 11:02:56 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DCFFD9487@AcuExch.aculab.com>
-References: <20170421211448.16995-1-Jason@zx2c4.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net] team: fix memory leaks
+Date: Mon, 24 Apr 2017 13:04:05 +0200
+Message-ID: <20170424110405.GE4126@nanopsycho.orion>
+References: <1493029756-13171-1-git-send-email-bianpan2016@163.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "stable@vger.kernel.org" <stable@vger.kernel.org>,
-        "security@kernel.org" <security@kernel.org>
-To: "'Jason A. Donenfeld'" <Jason@zx2c4.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "davem@davemloft.net" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Pan Bian <bianpan2016@163.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170421211448.16995-1-Jason@zx2c4.com>
-Content-Language: en-US
+Content-Disposition: inline
+In-Reply-To: <1493029756-13171-1-git-send-email-bianpan2016@163.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jason A. Donenfeld
-> Sent: 21 April 2017 22:15
-> While this may appear as a humdrum one line change, it's actually quite
-> important. An sk_buff stores data in three places:
-> 
-> 1. A linear chunk of allocated memory in skb->data. This is the easiest
->    one to work with, but it precludes using scatterdata since the memory
->    must be linear.
-> 2. The array skb_shinfo(skb)->frags, which is of maximum length
->    MAX_SKB_FRAGS. This is nice for scattergather, since these fragments
->    can point to different pages.
-> 3. skb_shinfo(skb)->frag_list, which is a pointer to another sk_buff,
->    which in turn can have data in either (1) or (2).
-> 
-> The first two are rather easy to deal with, since they're of a fixed
-> maximum length, while the third one is not, since there can be
-> potentially limitless chains of fragments. Fortunately dealing with
-> frag_list is opt-in for drivers, so drivers don't actually have to deal
-> with this mess. For whatever reason, macsec decided it wanted pain, and
-> so it explicitly specified NETIF_F_FRAGLIST.
-> 
-> Because dealing with (1), (2), and (3) is insane, most users of sk_buff
-> doing any sort of crypto or paging operation calls a convenient function
-> called skb_to_sgvec (which happens to be recursive if (3) is in use!).
-> This takes a sk_buff as input, and writes into its output pointer an
-> array of scattergather list items. Sometimes people like to declare a
-> fixed size scattergather list on the stack; othertimes people like to
-> allocate a fixed size scattergather list on the heap. However, if you're
-> doing it in a fixed-size fashion, you really shouldn't be using
-> NETIF_F_FRAGLIST too (unless you're also ensuring the sk_buff and its
-> frag_list children arent't shared and then you check the number of
-> fragments in total required.)
-> 
-> Macsec specifically does this:
-> 
->         size += sizeof(struct scatterlist) * (MAX_SKB_FRAGS + 1);
->         tmp = kmalloc(size, GFP_ATOMIC);
->         *sg = (struct scatterlist *)(tmp + sg_offset);
-> 	...
->         sg_init_table(sg, MAX_SKB_FRAGS + 1);
->         skb_to_sgvec(skb, sg, 0, skb->len);
-> 
-> Specifying MAX_SKB_FRAGS + 1 is the right answer usually, but not if you're
-> using NETIF_F_FRAGLIST, in which case the call to skb_to_sgvec will
-> overflow the heap, and disaster ensues.
-...
+Mon, Apr 24, 2017 at 12:29:16PM CEST, bianpan2016@163.com wrote:
+>In functions team_nl_send_port_list_get() and
+>team_nl_send_options_get(), pointer skb keeps the return value of
+>nlmsg_new(). When the call to genlmsg_put() fails, the memory is not
+>freed(). This will result in memory leak bugs.
+>
+>Fixes: 9b00cf2d1024 ("team: implement multipart netlink messages for options transfers")
+>Signed-off-by: Pan Bian <bianpan2016@163.com>
 
-Shouldn't skb_to_sgvec() be checking the number of fragments against
-the size of the sg list?
-The callers would then all need auditing to allow for failure.
-
-	David
+Acked-by: Jiri Pirko <jiri@mellanox.com>
