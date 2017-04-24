@@ -1,109 +1,71 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v3 net] net: ipv6: regenerate host route if moved to gc
- list
-Date: Mon, 24 Apr 2017 09:39:06 -0700
-Message-ID: <1493051946.6453.37.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1493046549-17420-1-git-send-email-dsa@cumulusnetworks.com>
+From: Ingo Molnar <mingo@kernel.org>
+Subject: Re: [PATCH v3 07/29] x86: bpf_jit, use ENTRY+ENDPROC
+Date: Mon, 24 Apr 2017 18:40:28 +0200
+Message-ID: <20170424164028.yonp5pl77euxalwb@gmail.com>
+References: <697947f4-0a2c-1480-0995-9919556dc020@suse.cz>
+ <20170424.104132.950580313142367896.davem@davemloft.net>
+ <f7a94f4e-6d93-a447-a62f-3f290e66c647@suse.cz>
+ <20170424.110844.1321374394090353753.davem@davemloft.net>
+ <614ca52b-8a43-244e-8a3a-c39145ecc3e8@suse.cz>
+ <20170424155507.miyqef7ld4hbmsej@gmail.com>
+ <71301a81-1c61-fd4d-5b1b-5154fa723859@suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dvyukov@google.com, andreyknvl@google.com,
-        mmanning@brocade.com, kafai@fb.com
-To: David Ahern <dsa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f66.google.com ([209.85.214.66]:35920 "EHLO
-        mail-it0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S974821AbdDXQjK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 12:39:10 -0400
-Received: by mail-it0-f66.google.com with SMTP id x188so17517247itb.3
-        for <netdev@vger.kernel.org>; Mon, 24 Apr 2017 09:39:09 -0700 (PDT)
-In-Reply-To: <1493046549-17420-1-git-send-email-dsa@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, alexei.starovoitov@gmail.com,
+        mingo@redhat.com, tglx@linutronix.de, hpa@zytor.com,
+        x86@kernel.org, jpoimboe@redhat.com, linux-kernel@vger.kernel.org,
+        netdev@vger.kernel.org, daniel@iogearbox.net, edumazet@google.com
+To: Jiri Slaby <jslaby@suse.cz>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <71301a81-1c61-fd4d-5b1b-5154fa723859@suse.cz>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2017-04-24 at 08:09 -0700, David Ahern wrote:
-> Taking down the loopback device wreaks havoc on IPv6 routing. By
-> extension, taking down a VRF device wreaks havoc on its table.
-> 
-> Dmitry and Andrey both reported heap out-of-bounds reports in the IPv6
-> FIB code while running syzkaller fuzzer. The root cause is a dead dst
-> that is on the garbage list gets reinserted into the IPv6 FIB. While on
-> the gc (or perhaps when it gets added to the gc list) the dst->next is
-> set to an IPv4 dst. A subsequent walk of the ipv6 tables causes the
-> out-of-bounds access.
-> 
-> Andrey's reproducer was the key to getting to the bottom of this.
-> 
-> With IPv6, host routes for an address have the dst->dev set to the
-> loopback device. When the 'lo' device is taken down, rt6_ifdown initiates
-> a walk of the fib evicting routes with the 'lo' device which means all
-> host routes are removed. That process moves the dst which is attached to
-> an inet6_ifaddr to the gc list and marks it as dead.
-> 
-> The recent change to keep global IPv6 addresses added a new function,
-> fixup_permanent_addr, that is called on admin up. That function restarts
-> dad for an inet6_ifaddr and when it completes the host route attached
-> to it is inserted into the fib. Since the route was marked dead and
-> moved to the gc list, re-inserting the route causes the reported
-> out-of-bounds accesses. If the device with the address is taken down
-> or the address is removed, the WARN_ON in fib6_del is triggered.
-> 
-> All of those faults are fixed by regenerating the host route if the
-> existing one has been moved to the gc list, something that can be
-> determined by checking if the rt6i_ref counter is 0.
 
-Very nice changelog !
+* Jiri Slaby <jslaby@suse.cz> wrote:
 
+> On 04/24/2017, 05:55 PM, Ingo Molnar wrote:
+> > * Jiri Slaby <jslaby@suse.cz> wrote:
+> > 
+> >> On 04/24/2017, 05:08 PM, David Miller wrote:
+> >>> If you align the entry points, then the code sequence as a whole is
+> >>> are no longer densely packed.
+> >>
+> >> Sure.
+> >>
+> >>> Or do I misunderstand how your macros work?
+> >>
+> >> Perhaps. So the suggested macros for the code are:
+> >> #define BPF_FUNC_START_LOCAL(name) \
+> >> 		SYM_START(name, SYM_V_LOCAL, SYM_A_NONE)
+> >> #define BPF_FUNC_START(name) \
+> >> 		SYM_START(name, SYM_V_GLOBAL, SYM_A_NONE)
+> >>
+> >> and they differ from the standard ones:
+> >> #define SYM_FUNC_START_LOCAL(name)                      \
+> >>         SYM_START(name, SYM_V_LOCAL, SYM_A_ALIGN)
+> >> #define SYM_FUNC_START(name)                            \
+> >>         SYM_START(name, SYM_V_GLOBAL, SYM_A_ALIGN)
+> >>
+> >>
+> >> The difference is SYM_A_NONE vs. SYM_A_ALIGN, which means:
+> >> #define SYM_A_ALIGN                             ALIGN
+> >> #define SYM_A_NONE                              /* nothing */
+> >>
+> >> Does it look OK now?
+> > 
+> > No, the patch changes alignment which is undesirable, it needs to preserve the 
+> > existing (non-)alignment of the symbols!
 > 
-> Fixes: f1705ec197e7 ("net: ipv6: Make address flushing on ifdown optional")
-> Reported-by: Dmitry Vyukov <dvyukov@google.com>
-> Reported-by: Andrey Konovalov <andreyknvl@google.com>
-> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
-> ---
-> v3
-> - removed 'if (prev)' and just call ip6_rt_put; added comment about spinlock
+> OK, so I am not expressing myself explicitly enough, it seems.
 > 
-> v2
-> - change ifp->rt under spinlock vs cmpxchg
-> - add comment about rt6i_ref == 0
-> 
->  net/ipv6/addrconf.c | 15 +++++++++++++--
->  1 file changed, 13 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-> index 80ce478c4851..93f81d9cd85f 100644
-> --- a/net/ipv6/addrconf.c
-> +++ b/net/ipv6/addrconf.c
-> @@ -3271,14 +3271,25 @@ static void addrconf_gre_config(struct net_device *dev)
->  static int fixup_permanent_addr(struct inet6_dev *idev,
->  				struct inet6_ifaddr *ifp)
->  {
-> -	if (!ifp->rt) {
-> -		struct rt6_info *rt;
-> +	/* rt6i_ref == 0 means the host route was removed from the
-> +	 * FIB, for example, if 'lo' device is taken down. In that
-> +	 * case regenerate the host route.
-> +	 */
-> +	if (!ifp->rt || !atomic_read(&ifp->rt->rt6i_ref)) {
-> +		struct rt6_info *rt, *prev;
->  
->  		rt = addrconf_dst_alloc(idev, &ifp->addr, false);
->  		if (unlikely(IS_ERR(rt)))
->  			return PTR_ERR(rt);
->  
-> +		prev = ifp->rt;
+> So, correct, the patch v3 adds alignments. I suggested in the discussion
+> the macros above. They do not add alignments. If everybody is OK with
+> that, v4 of the patch won't add alignments. OK?
 
-I would feel more comfortable if this was moved after the spin_lock() ?
+Yes.
 
-> +
-> +		/* ifp->rt can be accessed outside of rtnl */
-> +		spin_lock(&ifp->lock);
->  		ifp->rt = rt;
-> +		spin_unlock(&ifp->lock);
-> +
-> +		ip6_rt_put(prev);
->  	}
->  
->  	if (!(ifp->flags & IFA_F_NOPREFIXROUTE)) {
+Thanks,
 
-Thanks !
+	Ingo
