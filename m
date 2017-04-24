@@ -1,61 +1,387 @@
-From: "Singh, Krishneil K" <krishneil.k.singh@intel.com>
-Subject: RE: [Intel-wired-lan] [PATCH] ixgbe: initialize u64_stats_sync
-        structures early at ixgbe_probe
-Date: Mon, 24 Apr 2017 23:00:23 +0000
-Message-ID: <EF50CC0C76A53A44BAD798C58E0A157E50B87CBB@ORSMSX103.amr.corp.intel.com>
-References: <1480909244-16460-1-git-send-email-liwei.song@windriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH] sparc64: Support cbcond instructions in eBPF JIT.
+Date: Mon, 24 Apr 2017 19:02:28 -0400 (EDT)
+Message-ID: <20170424.190228.571734658408906331.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "Song, Liwei (Wind River)" <liwei.song@windriver.com>
-To: "Song, Liwei (Wind River)" <liwei.song@windriver.com>,
-        "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1480909244-16460-1-git-send-email-liwei.song@windriver.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ast@fb.com, daniel@iogearbox.net
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:58938 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S976790AbdDXXD0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 19:03:26 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
+cbcond combines a compare with a branch into a single instruction.
 
+The limitations are:
 
------Original Message-----
-From: Intel-wired-lan [mailto:intel-wired-lan-bounces@lists.osuosl.org] On Behalf Of Liwei Song
-Sent: Sunday, December 4, 2016 7:41 PM
-To: Kirsher, Jeffrey T <jeffrey.t.kirsher@intel.com>
-Cc: netdev@vger.kernel.org; intel-wired-lan@lists.osuosl.org; linux-kernel@vger.kernel.org; Song, Liwei (Wind River) <liwei.song@windriver.com>
-Subject: [Intel-wired-lan] [PATCH] ixgbe: initialize u64_stats_sync structures early at ixgbe_probe
+1) Only newer chips support it
 
-Fix the following CallTrace:
-INFO: trying to register non-static key.
-the code is fine but needs lockdep annotation.
-turning off the locking correctness validator.
-CPU: 71 PID: 1 Comm: swapper/0 Not tainted 4.8.8-WR9.0.0.1_standard #11 Hardware name: Intel Corporation S2600WTT/S2600WTT, BIOS GRNDSDP1.86B.0036.R05.1407140519 07/14/2014
- 00200086 00200086 eb5e1ab8 c144dd70 00000000 00000000 eb5e1af8 c10af89a
- c1d23de4 eb5e1af8 00000009 eb5d8600 eb5d8638 eb5e1af8 c10b14d8 00000009  0000000a c1d32911 00000000 00000000 e44c826c eb5d8000 eb5e1b74 c10b214e Call Trace:
- [<c144dd70>] dump_stack+0x5f/0x8f
- [<c10af89a>] register_lock_class+0x25a/0x4c0  [<c10b14d8>] ? check_irq_usage+0x88/0xc0  [<c10b214e>] __lock_acquire+0x5e/0x17a0  [<c1abdb9b>] ? _raw_spin_unlock_irqrestore+0x3b/0x70
- [<c10cf14a>] ? rcu_read_lock_sched_held+0x8a/0x90
- [<c10b3c5f>] lock_acquire+0x9f/0x1f0
- [<c1922dcf>] ? dev_get_stats+0x5f/0x110  [<c176e6b3>] ixgbe_get_stats64+0x113/0x320  [<c1922dcf>] ? dev_get_stats+0x5f/0x110  [<c1922dcf>] dev_get_stats+0x5f/0x110  [<c1ab5415>] rtnl_fill_stats+0x40/0x105  [<c193dd45>] rtnl_fill_ifinfo+0x4c5/0xd20  [<c11c5115>] ? __kmalloc_node_track_caller+0x1a5/0x410
- [<c1917487>] ? __kmalloc_reserve.isra.42+0x27/0x80
- [<c191754f>] ? __alloc_skb+0x6f/0x270
- [<c1942291>] rtmsg_ifinfo_build_skb+0x71/0xd0  [<c194230a>] rtmsg_ifinfo.part.23+0x1a/0x50  [<c1923dad>] ? call_netdevice_notifiers_info+0x2d/0x60
- [<c194236b>] rtmsg_ifinfo+0x2b/0x40
- [<c192f997>] register_netdevice+0x3d7/0x4d0  [<c192faa7>] register_netdev+0x17/0x30  [<c177b83d>] ixgbe_probe+0x118d/0x1610  [<c1498202>] local_pci_probe+0x32/0x80  [<c1498172>] ? pci_match_device+0xd2/0x100  [<c14991e0>] pci_device_probe+0xc0/0x110  [<c1652cc5>] driver_probe_device+0x1c5/0x280  [<c1498172>] ? pci_match_device+0xd2/0x100  [<c1652e09>] __driver_attach+0x89/0x90  [<c1652d80>] ? driver_probe_device+0x280/0x280  [<c165114f>] bus_for_each_dev+0x4f/0x80  [<c165269e>] driver_attach+0x1e/0x20  [<c1652d80>] ? driver_probe_device+0x280/0x280  [<c1652317>] bus_add_driver+0x1a7/0x220  [<c1653a79>] driver_register+0x59/0xe0  [<c1f897b8>] ? igb_init_module+0x49/0x49  [<c1497b2a>] __pci_register_driver+0x4a/0x50  [<c1f8985d>] ixgbe_init_module+0xa5/0xc4  [<c1000485>] do_one_initcall+0x3
- 5/0x150  [<c107e818>] ? parameq+0x18/0x70  [<c1f395d8>] ? repair_env_string+0x12/0x51  [<c107ead0>] ? parse_args+0x260/0x3b0  [<c1074f73>] ? __usermodehelper_set_disable_depth+0x43/0x50
- [<c1f39e90>] kernel_init_freeable+0x19b/0x267  [<c1f395c6>] ? set_debug_rodata+0xf/0xf  [<c10b1e7b>] ? trace_hardirqs_on+0xb/0x10  [<c1abdc02>] ? _raw_spin_unlock_irq+0x32/0x50  [<c1085f0b>] ? finish_task_switch+0xab/0x1f0  [<c1085ec9>] ? finish_task_switch+0x69/0x1f0  [<c1ab6a30>] kernel_init+0x10/0x110  [<c108bd65>] ? schedule_tail+0x25/0x80  [<c1abe422>] ret_from_kernel_thread+0xe/0x24  [<c1ab6a20>] ? rest_init+0x130/0x130
+2) For immediate compares we are limited to 5-bit signed immediate
+   values
 
-This CallTrace occurred on 32-bit kernel with CONFIG_PROVE_LOCKING enabled.
+3) The branch displacement is limited to 10-bit signed
 
-This happens at ixgbe driver probe hardware stage, when comes to ixgbe_get_stats64, the seqcount/seqlock still not initialize, although this was initialize in TX/RX resources setup routin, but it was too late, then lockdep give this Warning.
+4) We cannot use it for JSET
 
-To fix this, move the u64_stats_init function to driver probe stage, which before we get the status of seqcount and after the RX/TX ring was finished init.
+Also, cbcond (unlike all other sparc control transfers) lacks a delay
+slot.
 
-Signed-off-by: Liwei Song <liwei.song@windriver.com>
+Currently we don't have a useful instruction we can push into the
+delay slot of normal branches.  So using cbcond pretty much always
+increases code density, and is therefore a win.
+
+Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
 
-Tested-by: Krishneil Singh  <krishneil.k.singh@intel.com>
+Example output from "ALU_ADD_K: 0 + 0x80008000 = 0xffffffff80008000":
+
+0000000000000000 <foo>:
+   0:   9d e3 bf 50     save  %sp, -176, %sp
+   4:   01 00 00 00     nop
+   8:   90 10 00 18     mov  %i0, %o0
+   c:   03 00 00 00     sethi  %hi(0), %g1
+  10:   82 10 60 00     mov  %g1, %g1   ! 0 <foo>
+  14:   13 00 00 00     sethi  %hi(0), %o1
+  18:   92 12 60 00     mov  %o1, %o1   ! 0 <foo>
+  1c:   83 28 70 20     sllx  %g1, 0x20, %g1
+  20:   92 12 40 01     or  %o1, %g1, %o1
+  24:   03 3f ff ff     sethi  %hi(0xfffffc00), %g1
+  28:   82 10 63 ff     or  %g1, 0x3ff, %g1     ! ffffffff <foo+0xffffffff>
+  2c:   15 20 00 20     sethi  %hi(0x80008000), %o2
+  30:   94 12 a0 00     mov  %o2, %o2   ! 80008000 <foo+0x80008000>
+  34:   83 28 70 20     sllx  %g1, 0x20, %g1
+  38:   94 12 80 01     or  %o2, %g1, %o2
+  3c:   03 1f ff df     sethi  %hi(0x7fff7c00), %g1
+  40:   82 18 7c 00     xor  %g1, -1024, %g1
+  44:   92 02 40 01     add  %o1, %g1, %o1
+  48:   12 e2 40 8a     cxbe  %o1, %o2, 58 <foo+0x58>
+  4c:   9a 10 20 02     mov  2, %o5
+  50:   10 60 00 03     b,pn   %xcc, 5c <foo+0x5c>
+  54:   01 00 00 00     nop
+  58:   9a 10 20 01     mov  1, %o5     ! 1 <foo+0x1>
+  5c:   81 c7 e0 08     ret
+  60:   91 eb 40 00     restore  %o5, %g0, %o0
+
+ arch/sparc/net/bpf_jit_comp_64.c | 238 ++++++++++++++++++++++++++++++---------
+ 1 file changed, 184 insertions(+), 54 deletions(-)
+
+diff --git a/arch/sparc/net/bpf_jit_comp_64.c b/arch/sparc/net/bpf_jit_comp_64.c
+index 43bef1c..2b2f3c3 100644
+--- a/arch/sparc/net/bpf_jit_comp_64.c
++++ b/arch/sparc/net/bpf_jit_comp_64.c
+@@ -18,6 +18,16 @@ static inline bool is_simm13(unsigned int value)
+ 	return value + 0x1000 < 0x2000;
+ }
+ 
++static inline bool is_simm10(unsigned int value)
++{
++	return value + 0x200 < 0x400;
++}
++
++static inline bool is_simm5(unsigned int value)
++{
++	return value + 0x10 < 0x20;
++}
++
+ static void bpf_flush_icache(void *start_, void *end_)
+ {
+ 	/* Cheetah's I-cache is fully coherent.  */
+@@ -39,6 +49,7 @@ static void bpf_flush_icache(void *start_, void *end_)
+ #define SEEN_MEM     4 /* use mem[] for temporary storage */
+ 
+ #define S13(X)		((X) & 0x1fff)
++#define S5(X)		((X) & 0x1f)
+ #define IMMED		0x00002000
+ #define RD(X)		((X) << 25)
+ #define RS1(X)		((X) << 14)
+@@ -46,7 +57,8 @@ static void bpf_flush_icache(void *start_, void *end_)
+ #define OP(X)		((X) << 30)
+ #define OP2(X)		((X) << 22)
+ #define OP3(X)		((X) << 19)
+-#define COND(X)		((X) << 25)
++#define COND(X)		(((X) & 0xf) << 25)
++#define CBCOND(X)	(((X) & 0x1f) << 25)
+ #define F1(X)		OP(X)
+ #define F2(X, Y)	(OP(X) | OP2(Y))
+ #define F3(X, Y)	(OP(X) | OP3(Y))
+@@ -75,10 +87,39 @@ static void bpf_flush_icache(void *start_, void *end_)
+ #define WDISP22(X)	(((X) >> 2) & 0x3fffff)
+ #define WDISP19(X)	(((X) >> 2) & 0x7ffff)
+ 
++/* The 10-bit branch displacement for CBCOND is split into two fields */
++static u32 WDISP10(u32 off)
++{
++	u32 ret = ((off >> 2) & 0xff) << 5;
++
++	ret |= ((off >> (2 + 8)) & 0x03) << 19;
++
++	return ret;
++}
++
++#define CBCONDE		CBCOND(0x09)
++#define CBCONDLE	CBCOND(0x0a)
++#define CBCONDL		CBCOND(0x0b)
++#define CBCONDLEU	CBCOND(0x0c)
++#define CBCONDCS	CBCOND(0x0d)
++#define CBCONDN		CBCOND(0x0e)
++#define CBCONDVS	CBCOND(0x0f)
++#define CBCONDNE	CBCOND(0x19)
++#define CBCONDG		CBCOND(0x1a)
++#define CBCONDGE	CBCOND(0x1b)
++#define CBCONDGU	CBCOND(0x1c)
++#define CBCONDCC	CBCOND(0x1d)
++#define CBCONDPOS	CBCOND(0x1e)
++#define CBCONDVC	CBCOND(0x1f)
++
++#define CBCONDGEU	CBCONDCC
++#define CBCONDLU	CBCONDCS
++
+ #define ANNUL		(1 << 29)
+ #define XCC		(1 << 21)
+ 
+ #define BRANCH		(F2(0, 1) | XCC)
++#define CBCOND_OP	(F2(0, 3) | XCC)
+ 
+ #define BA		(BRANCH | CONDA)
+ #define BG		(BRANCH | CONDG)
+@@ -351,6 +392,22 @@ static void emit_branch(unsigned int br_opc, unsigned int from_idx, unsigned int
+ 		emit(br_opc | WDISP22(off << 2), ctx);
+ }
+ 
++static void emit_cbcond(unsigned int cb_opc, unsigned int from_idx, unsigned int to_idx,
++			const u8 dst, const u8 src, struct jit_ctx *ctx)
++{
++	unsigned int off = to_idx - from_idx;
++
++	emit(cb_opc | WDISP10(off << 2) | RS1(dst) | RS2(src), ctx);
++}
++
++static void emit_cbcondi(unsigned int cb_opc, unsigned int from_idx, unsigned int to_idx,
++			 const u8 dst, s32 imm, struct jit_ctx *ctx)
++{
++	unsigned int off = to_idx - from_idx;
++
++	emit(cb_opc | IMMED | WDISP10(off << 2) | RS1(dst) | S5(imm), ctx);
++}
++
+ #define emit_read_y(REG, CTX)	emit(RD_Y | RD(REG), CTX)
+ #define emit_write_y(REG, CTX)	emit(WR_Y | IMMED | RS1(REG) | S13(0), CTX)
+ 
+@@ -358,7 +415,7 @@ static void emit_branch(unsigned int br_opc, unsigned int from_idx, unsigned int
+ 	emit(SUBCC | RS1(R1) | RS2(R2) | RD(G0), CTX)
+ 
+ #define emit_cmpi(R1, IMM, CTX)				\
+-	emit(SUBCC | IMMED | RS1(R1) | S13(IMM) | RD(G0), CTX);
++	emit(SUBCC | IMMED | RS1(R1) | S13(IMM) | RD(G0), CTX)
+ 
+ #define emit_btst(R1, R2, CTX)				\
+ 	emit(ANDCC | RS1(R1) | RS2(R2) | RD(G0), CTX)
+@@ -366,6 +423,117 @@ static void emit_branch(unsigned int br_opc, unsigned int from_idx, unsigned int
+ #define emit_btsti(R1, IMM, CTX)			\
+ 	emit(ANDCC | IMMED | RS1(R1) | S13(IMM) | RD(G0), CTX)
+ 
++static int emit_compare_and_branch(const u8 code, const u8 dst, u8 src,
++				   const s32 imm, bool is_imm, int branch_dst,
++				   struct jit_ctx *ctx)
++{
++	bool use_cbcond = (sparc64_elf_hwcap & AV_SPARC_CBCOND) != 0;
++	const u8 tmp = bpf2sparc[TMP_REG_1];
++
++	branch_dst = ctx->offset[branch_dst];
++
++	if (!is_simm10(branch_dst - ctx->idx) ||
++	    BPF_OP(code) == BPF_JSET)
++		use_cbcond = false;
++
++	if (is_imm) {
++		bool fits = true;
++
++		if (use_cbcond) {
++			if (!is_simm5(imm))
++				fits = false;
++		} else if (!is_simm13(imm)) {
++			fits = false;
++		}
++		if (!fits) {
++			ctx->tmp_1_used = true;
++			emit_loadimm_sext(imm, tmp, ctx);
++			src = tmp;
++			is_imm = false;
++		}
++	}
++
++	if (!use_cbcond) {
++		u32 br_opcode;
++
++		if (BPF_OP(code) == BPF_JSET) {
++			if (is_imm)
++				emit_btsti(dst, imm, ctx);
++			else
++				emit_btst(dst, src, ctx);
++		} else {
++			if (is_imm)
++				emit_cmpi(dst, imm, ctx);
++			else
++				emit_cmp(dst, src, ctx);
++		}
++		switch (BPF_OP(code)) {
++		case BPF_JEQ:
++			br_opcode = BE;
++			break;
++		case BPF_JGT:
++			br_opcode = BGU;
++			break;
++		case BPF_JGE:
++			br_opcode = BGEU;
++			break;
++		case BPF_JSET:
++		case BPF_JNE:
++			br_opcode = BNE;
++			break;
++		case BPF_JSGT:
++			br_opcode = BG;
++			break;
++		case BPF_JSGE:
++			br_opcode = BGE;
++			break;
++		default:
++			/* Make sure we dont leak kernel information to the
++			 * user.
++			 */
++			return -EFAULT;
++		}
++		emit_branch(br_opcode, ctx->idx, branch_dst, ctx);
++		emit_nop(ctx);
++	} else {
++		u32 cbcond_opcode;
++
++		switch (BPF_OP(code)) {
++		case BPF_JEQ:
++			cbcond_opcode = CBCONDE;
++			break;
++		case BPF_JGT:
++			cbcond_opcode = CBCONDGU;
++			break;
++		case BPF_JGE:
++			cbcond_opcode = CBCONDGEU;
++			break;
++		case BPF_JNE:
++			cbcond_opcode = CBCONDNE;
++			break;
++		case BPF_JSGT:
++			cbcond_opcode = CBCONDG;
++			break;
++		case BPF_JSGE:
++			cbcond_opcode = CBCONDGE;
++			break;
++		default:
++			/* Make sure we dont leak kernel information to the
++			 * user.
++			 */
++			return -EFAULT;
++		}
++		cbcond_opcode |= CBCOND_OP;
++		if (is_imm)
++			emit_cbcondi(cbcond_opcode, ctx->idx, branch_dst,
++				     dst, imm, ctx);
++		else
++			emit_cbcond(cbcond_opcode, ctx->idx, branch_dst,
++				    dst, src, ctx);
++	}
++	return 0;
++}
++
+ static void load_skb_regs(struct jit_ctx *ctx, u8 r_skb)
+ {
+ 	const u8 r_headlen = bpf2sparc[SKB_HLEN_REG];
+@@ -765,44 +933,15 @@ static int build_insn(const struct bpf_insn *insn, struct jit_ctx *ctx)
+ 	case BPF_JMP | BPF_JGE | BPF_X:
+ 	case BPF_JMP | BPF_JNE | BPF_X:
+ 	case BPF_JMP | BPF_JSGT | BPF_X:
+-	case BPF_JMP | BPF_JSGE | BPF_X: {
+-		u32 br_opcode;
++	case BPF_JMP | BPF_JSGE | BPF_X:
++	case BPF_JMP | BPF_JSET | BPF_X: {
++		int err;
+ 
+-		emit_cmp(dst, src, ctx);
+-emit_cond_jmp:
+-		switch (BPF_OP(code)) {
+-		case BPF_JEQ:
+-			br_opcode = BE;
+-			break;
+-		case BPF_JGT:
+-			br_opcode = BGU;
+-			break;
+-		case BPF_JGE:
+-			br_opcode = BGEU;
+-			break;
+-		case BPF_JSET:
+-		case BPF_JNE:
+-			br_opcode = BNE;
+-			break;
+-		case BPF_JSGT:
+-			br_opcode = BG;
+-			break;
+-		case BPF_JSGE:
+-			br_opcode = BGE;
+-			break;
+-		default:
+-			/* Make sure we dont leak kernel information to the
+-			 * user.
+-			 */
+-			return -EFAULT;
+-		}
+-		emit_branch(br_opcode, ctx->idx, ctx->offset[i + off], ctx);
+-		emit_nop(ctx);
++		err = emit_compare_and_branch(code, dst, src, 0, false, i + off, ctx);
++		if (err)
++			return err;
+ 		break;
+ 	}
+-	case BPF_JMP | BPF_JSET | BPF_X:
+-		emit_btst(dst, src, ctx);
+-		goto emit_cond_jmp;
+ 	/* IF (dst COND imm) JUMP off */
+ 	case BPF_JMP | BPF_JEQ | BPF_K:
+ 	case BPF_JMP | BPF_JGT | BPF_K:
+@@ -810,23 +949,14 @@ static int build_insn(const struct bpf_insn *insn, struct jit_ctx *ctx)
+ 	case BPF_JMP | BPF_JNE | BPF_K:
+ 	case BPF_JMP | BPF_JSGT | BPF_K:
+ 	case BPF_JMP | BPF_JSGE | BPF_K:
+-		if (is_simm13(imm)) {
+-			emit_cmpi(dst, imm, ctx);
+-		} else {
+-			ctx->tmp_1_used = true;
+-			emit_loadimm_sext(imm, bpf2sparc[TMP_REG_1], ctx);
+-			emit_cmp(dst, bpf2sparc[TMP_REG_1], ctx);
+-		}
+-		goto emit_cond_jmp;
+-	case BPF_JMP | BPF_JSET | BPF_K:
+-		if (is_simm13(imm)) {
+-			emit_btsti(dst, imm, ctx);
+-		} else {
+-			ctx->tmp_1_used = true;
+-			emit_loadimm_sext(imm, bpf2sparc[TMP_REG_1], ctx);
+-			emit_btst(dst, bpf2sparc[TMP_REG_1], ctx);
+-		}
+-		goto emit_cond_jmp;
++	case BPF_JMP | BPF_JSET | BPF_K: {
++		int err;
++
++		err = emit_compare_and_branch(code, dst, 0, imm, true, i + off, ctx);
++		if (err)
++			return err;
++		break;
++	}
+ 
+ 	/* function call */
+ 	case BPF_JMP | BPF_CALL:
+-- 
+2.1.2.532.g19b5d50
