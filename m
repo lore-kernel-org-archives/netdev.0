@@ -1,83 +1,60 @@
-From: prasad padiyar <prasad.padiyar@gmail.com>
-Subject: Regarding patch: vlan: avoid a synchronize_net when parent device
- goes down
-Date: Mon, 24 Apr 2017 10:40:12 +0530
-Message-ID: <CALSMR3VYVN-R3dmp57GbcdGBDScvC+vECnkSAGA-F_PdQfu6bg@mail.gmail.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH 1/2] team: fix memory leak
+Date: Mon, 24 Apr 2017 07:40:48 +0200
+Message-ID: <20170424054048.GA1886@nanopsycho.orion>
+References: <1492932564-722-1-git-send-email-bianpan2016@163.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Pan Bian <bianpan2016@163.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f170.google.com ([209.85.161.170]:34371 "EHLO
-        mail-yw0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1046129AbdDXFKN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 01:10:13 -0400
-Received: by mail-yw0-f170.google.com with SMTP id k11so25862800ywb.1
-        for <netdev@vger.kernel.org>; Sun, 23 Apr 2017 22:10:13 -0700 (PDT)
+Received: from mail-wr0-f193.google.com ([209.85.128.193]:35196 "EHLO
+        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1046165AbdDXFkw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 01:40:52 -0400
+Received: by mail-wr0-f193.google.com with SMTP id g12so1070772wrg.2
+        for <netdev@vger.kernel.org>; Sun, 23 Apr 2017 22:40:51 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1492932564-722-1-git-send-email-bianpan2016@163.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-
-I had a query regarding the patch in the subject line.
-
-
->From the patch pasted below
-
-             vlan = vlan_dev_priv(vlandev);
-             if (!(vlan->flags & VLAN_FLAG_LOOSE_BINDING))
--                dev_change_flags(vlandev, flgs & ~IFF_UP);
-+                list_add(&vlandev->close_list, &close_list);
-+        }
-+
-+        dev_close_many(&close_list, false);
-+
-+        list_for_each_entry_safe(vlandev, tmp, &close_list, close_list) {
-             netif_stacked_transfer_operstate(dev, vlandev);
-+            list_del_init(&vlandev->close_list);
-         }
-+        list_del(&close_list);
-
-"
-
-             if (!(vlan->flags & VLAN_FLAG_LOOSE_BINDING))
--                dev_change_flags(vlandev, flgs & ~IFF_UP);
-+                list_add(&vlandev->close_list, &close_list);
-+        }
-+
-+        dev_close_many(&close_list, false);
-+
-+        list_for_each_entry_safe(vlandev, tmp, &close_list, close_list) {
-             netif_stacked_transfer_operstate(dev, vlandev);
-+            list_del_init(&vlandev->close_list);
-         }
-+        list_del(&close_list);.
+Sun, Apr 23, 2017 at 09:29:24AM CEST, bianpan2016@163.com wrote:
+>In function team_nl_send_port_list_get(), pointer skb keeps the return
+>value of nlmsg_new(). When the call to genlmsg_put() fails, the memory
+>is not freed. This will result in a memory leak bug. This patch fixes
+>it.
+>
 
 
-i can see that dev_change_flags which was setting the vlan device to
-down state in case VLAN_FLAG_LOOSE_BINDING was not enabled.
-But setting the operstate when the VLAN real device goes admin down
-was quite independent of VLAN_FLAG_LOOSE_BINDING.
-
-Operstate was always getting transferred irrespective of LOOSE_BINDING flag.
+Looks good. Please adjust subject so the both patches have a specific
+one. Also, please add "Fixes" tag (see git log for details).
+Also, is is good to say which tree this patches are generated against
+("-net")
 
 
-But now with this patch, we see that control of transferring the
-operstate is based of VLAN_FLAG_LOOSE_BINDING. If
-VLAN_FLAG_LOOSE_BINDING is set then oper state is not changed as per
-its real iface.
-
-
-Is this the expected behavior. Does VLAN_FLAG_LOOSE_BINDING with this
-patch has to control the operstate as well which was not
-the case earlier without this patch. ?
-
-Can someone share your views about this.
-
-Kernel version: 4.4.20
-
-patch link:
-https://patchwork.ozlabs.org/patch/447837/
-
--- 
-Regards,
-Prasad
+>Signed-off-by: Pan Bian <bianpan2016@163.com>
+>---
+> drivers/net/team/team.c | 4 +++-
+> 1 file changed, 3 insertions(+), 1 deletion(-)
+>
+>diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+>index f8c81f1..dd3a2e9 100644
+>--- a/drivers/net/team/team.c
+>+++ b/drivers/net/team/team.c
+>@@ -2634,8 +2634,10 @@ static int team_nl_send_port_list_get(struct team *team, u32 portid, u32 seq,
+> 
+> 	hdr = genlmsg_put(skb, portid, seq, &team_nl_family, flags | NLM_F_MULTI,
+> 			  TEAM_CMD_PORT_LIST_GET);
+>-	if (!hdr)
+>+	if (!hdr) {
+>+		nlmsg_free(skb);
+> 		return -EMSGSIZE;
+>+	}
+> 
+> 	if (nla_put_u32(skb, TEAM_ATTR_TEAM_IFINDEX, team->dev->ifindex))
+> 		goto nla_put_failure;
+>-- 
+>1.9.1
+>
+>
