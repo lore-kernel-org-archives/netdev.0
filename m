@@ -1,84 +1,97 @@
-From: Benjamin Poirier <bpoirier@suse.com>
-Subject: Re: [Intel-wired-lan] [PATCH 1/2] e1000e: Don't return uninitialized
- stats
-Date: Mon, 24 Apr 2017 12:10:26 -0700
-Message-ID: <20170424191026.wpnpyhdaurfjixl7@f1.synalogic.ca>
-References: <20170421212012.25950-1-bpoirier@suse.com>
- <630A6B92B7EDEB45A87E20D3D286660171182EED@hasmsx109.ger.corp.intel.com>
- <caef8d69-9e47-bbcc-0758-e5900e1cb291@intel.com>
+From: Arend Van Spriel <arend.vanspriel@broadcom.com>
+Subject: Re: [PATCH v2] brcmfmac: Make skb header writable before use
+Date: Mon, 24 Apr 2017 21:14:11 +0200
+Message-ID: <e03e2f42-0439-5d49-d1aa-50ce2da4ff50@broadcom.com>
+References: <20170424130322.476-1-james.hughes@raspberrypi.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        intel-wired-lan@lists.osuosl.org,
-        "Ruinskiy, Dima" <dima.ruinskiy@intel.com>,
-        Kirsher@f1.synalogic.ca, Jeffrey T <jeffrey.t.kirsher@intel.com>,
-        Stefan Priebe <s.priebe@profihost.ag>
-To: "Neftin, Sasha" <sasha.neftin@intel.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+To: James Hughes <james.hughes@raspberrypi.org>,
+        Franky Lin <franky.lin@broadcom.com>,
+        Hante Meuleman <hante.meuleman@broadcom.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        linux-wireless@vger.kernel.org,
+        brcm80211-dev-list.pdl@broadcom.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:46477 "EHLO mx1.suse.de"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S968234AbdDXTKc (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 24 Apr 2017 15:10:32 -0400
-Content-Disposition: inline
-In-Reply-To: <caef8d69-9e47-bbcc-0758-e5900e1cb291@intel.com>
+Received: from mail-qk0-f180.google.com ([209.85.220.180]:34462 "EHLO
+        mail-qk0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S976468AbdDXTOQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 15:14:16 -0400
+Received: by mail-qk0-f180.google.com with SMTP id y63so96999882qkd.1
+        for <netdev@vger.kernel.org>; Mon, 24 Apr 2017 12:14:16 -0700 (PDT)
+In-Reply-To: <20170424130322.476-1-james.hughes@raspberrypi.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sasha, please use reply-all to keep everyone in cc (including me...).
-
-On 2017/04/24 11:17, Neftin, Sasha wrote:
-> On 4/23/2017 15:53, Neftin, Sasha wrote:
-> > -----Original Message-----
-> > From: Intel-wired-lan [mailto:intel-wired-lan-bounces@lists.osuosl.org] On Behalf Of Benjamin Poirier
-> > Sent: Saturday, April 22, 2017 00:20
-> > To: Kirsher, Jeffrey T <jeffrey.t.kirsher@intel.com>
-> > Cc: netdev@vger.kernel.org; intel-wired-lan@lists.osuosl.org; Stefan Priebe <s.priebe@profihost.ag>
-> > Subject: [Intel-wired-lan] [PATCH 1/2] e1000e: Don't return uninitialized stats
-> > 
-> > Some statistics passed to ethtool are garbage because e1000e_get_stats64() doesn't write them, for example: tx_heartbeat_errors. This leaks kernel memory to userspace and confuses users.
-> > 
-> > Do like ixgbe and use dev_get_stats() which first zeroes out rtnl_link_stats64.
-> > 
-> > Reported-by: Stefan Priebe <s.priebe@profihost.ag>
-> > Signed-off-by: Benjamin Poirier <bpoirier@suse.com>
-> > ---
-> >   drivers/net/ethernet/intel/e1000e/ethtool.c | 2 +-
-> >   1 file changed, 1 insertion(+), 1 deletion(-)
-> > 
-> > diff --git a/drivers/net/ethernet/intel/e1000e/ethtool.c b/drivers/net/ethernet/intel/e1000e/ethtool.c
-> > index 7aff68a4a4df..f117b90cdc2f 100644
-> > --- a/drivers/net/ethernet/intel/e1000e/ethtool.c
-> > +++ b/drivers/net/ethernet/intel/e1000e/ethtool.c
-> > @@ -2063,7 +2063,7 @@ static void e1000_get_ethtool_stats(struct net_device *netdev,
-> >   	pm_runtime_get_sync(netdev->dev.parent);
-> > -	e1000e_get_stats64(netdev, &net_stats);
-> > +	dev_get_stats(netdev, &net_stats);
-> >   	pm_runtime_put_sync(netdev->dev.parent);
-> > --
-> > 2.12.2
-> > 
-> > _______________________________________________
-> > Intel-wired-lan mailing list
-> > Intel-wired-lan@lists.osuosl.org
-> > http://lists.osuosl.org/mailman/listinfo/intel-wired-lan
+On 24-4-2017 15:03, James Hughes wrote:
+> The driver was making changes to the skb_header without
+> ensuring it was writable (i.e. uncloned).
+> This patch also removes some boiler plate header size
+> checking/adjustment code as that is also handled by the
+> skb_cow_header function used to make header writable.
 > 
-> Hello,
+> This patch depends on
+> brcmfmac: Ensure pointer correctly set if skb data location changes
+
+Hi James,
+
+I actually thought I was going to tackle this so I spend some time
+working on it today, but I will submit that as a subsequent patch. Below
+some comments but apart from that:
+
+Acked-by: Arend van Spriel <arend.vanspriel@broadcom.com>
+> Signed-off-by: James Hughes <james.hughes@raspberrypi.org>
+> ---
+> Changes in v2
+>   Makes the _cow_ call at the entry point of the skb in to the
+>   stack, means only needs to be done once, and error handling
+>   is easier.
+>   Split a separate minor bug fix off to a separate patch (which
+>   this patch depends on)
 > 
-> We would like to not accept this patch. Suggested generic method
-> '*dev_get_stats' (net/core/dev.c) calls 'ops->ndo_get_stats64' method which
-> eventually calls e1000e_get_stats64 (netdev.c) - so there is same
-> functionality. Also, see that 'e1000e_get_stats64' method in netdev.c (line
-
-No, it's not the same functionality because dev_get_stats() does a
-memset on the rtnl_link_stats64 struct.
-
-> 5928) calls 'memset' with 0's before update statistics.  Local sanity check
-
-I don't see any memset in e1000e_get_stats64(). What kernel version are
-you looking at?
-
-> in our lab shows 'tx_heartbeat_errors' counter reported as 0.
 > 
+> 
+>  .../net/wireless/broadcom/brcm80211/brcmfmac/core.c   | 19 ++++---------------
+>  1 file changed, 4 insertions(+), 15 deletions(-)
+> 
+> diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.c b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.c
+> index 9b7c19a508ac..88f8675a94c2 100644
+> --- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.c
+> +++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.c
+> @@ -211,22 +211,11 @@ static netdev_tx_t brcmf_netdev_start_xmit(struct sk_buff *skb,
+>  		goto done;
+>  	}
+>  
+> -	/* Make sure there's enough room for any header */
+> -	if (skb_headroom(skb) < drvr->hdrlen) {
+> -		struct sk_buff *skb2;
+> -
+> -		brcmf_dbg(INFO, "%s: insufficient headroom\n",
+> -			  brcmf_ifname(ifp));
+> -		drvr->bus_if->tx_realloc++;
+> -		skb2 = skb_realloc_headroom(skb, drvr->hdrlen);
+> +	/* Make sure there's enough room for any header, and make it writable */
+Please rephrase: /* Make sure there is enough writable headroom */
 
-Please see the mail I just sent to Paul Menzel <pmenzel@molgen.mpg.de>
-for more information about the issue and how to reproduce it.
+Just do:
+	ret = skb_cow_head(skb, drvr->hdrlen);
+	if (ret < 0) {
+		brcmf_err("%s: skb_cow_head failed\n",
+			  brcmf_ifname(ifp));
+> +	if (skb_cow_head(skb, drvr->hdrlen)) {
+>  		dev_kfree_skb(skb);
+> -		skb = skb2;
+> -		if (skb == NULL) {
+> -			brcmf_err("%s: skb_realloc_headroom failed\n",
+> -				  brcmf_ifname(ifp));
+> -			ret = -ENOMEM;
+> -			goto done;
+> -		}
+> +		ret = -ENOMEM;
+	... and drop this assignment.
+
+> +		goto done;
+>  	}
+>  
+>  	/* validate length for ether packet */
+> 
