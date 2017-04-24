@@ -1,75 +1,190 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH v2 2/2] iproute2: add support for invisible qdisc dumping
-Date: Mon, 24 Apr 2017 10:43:10 +0200
-Message-ID: <20170424084310.GB4126@nanopsycho.orion>
-References: <alpine.LSU.2.20.1703081303490.31814@cbobk.fhfr.pm>
+From: James Hughes <james.hughes@raspberrypi.org>
+Subject: Re: [PATCH] brcm80211: brcmfmac: Ensure that incoming skb's are writable
+Date: Mon, 24 Apr 2017 09:45:04 +0100
+Message-ID: <CAE_XsMJup_TVdebPxgP0p0Ks50LY5=dva9RT+LhTOK3HV28+RQ@mail.gmail.com>
+References: <20170420111651.10213-1-james.hughes@raspberrypi.org>
+ <b6891d80-cc5f-3bcd-72aa-1de2d9bb9144@broadcom.com> <CAE_XsMKSO=P-h5AyPJy=59zDq=DmLFqBAX8Bqsofey=aAFD5dQ@mail.gmail.com>
+ <e2e5d950-d186-1a27-4b30-4ae2e9838103@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Phil Sutter <phil@nwl.cc>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Jiri Kosina <jikos@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <alpine.LSU.2.20.1703081303490.31814@cbobk.fhfr.pm>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, Franky Lin <franky.lin@broadcom.com>,
+        Hante Meuleman <hante.meuleman@broadcom.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        linux-wireless <linux-wireless@vger.kernel.org>
+To: Arend Van Spriel <arend.vanspriel@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx07-00252a01.pphosted.com ([62.209.51.214]:11587 "EHLO
+        mx07-00252a01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S971412AbdDXIpI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 04:45:08 -0400
+Received: from pps.filterd (m0102628.ppops.net [127.0.0.1])
+        by mx07-00252a01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v3O8h8WW005699
+        for <netdev@vger.kernel.org>; Mon, 24 Apr 2017 09:45:06 +0100
+Received: from mail-wm0-f69.google.com (mail-wm0-f69.google.com [74.125.82.69])
+        by mx07-00252a01.pphosted.com with ESMTP id 29yvjyrypm-1
+        (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128 verify=OK)
+        for <netdev@vger.kernel.org>; Mon, 24 Apr 2017 09:45:06 +0100
+Received: by mail-wm0-f69.google.com with SMTP id d79so4307080wma.0
+        for <netdev@vger.kernel.org>; Mon, 24 Apr 2017 01:45:06 -0700 (PDT)
+In-Reply-To: <e2e5d950-d186-1a27-4b30-4ae2e9838103@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Wed, Mar 08, 2017 at 01:04:42PM CET, jikos@kernel.org wrote:
->From: Jiri Kosina <jkosina@suse.cz>
+On 23 April 2017 at 20:34, Arend Van Spriel
+<arend.vanspriel@broadcom.com> wrote:
+> On 21-4-2017 11:22, James Hughes wrote:
+>> On 20 April 2017 at 20:48, Arend van Spriel
+>> <arend.vanspriel@broadcom.com> wrote:
+>>> + linux-wireless
+>>>
+>>> On 4/20/2017 1:16 PM, James Hughes wrote:
+>>>>
+>>>> The driver was adding header information to incoming skb
+>>>> without ensuring the head was uncloned and hence writable.
+>>>>
+>>>> skb_cow_head has been used to ensure they are writable, however,
+>>>> this required some changes to error handling to ensure that
+>>>> if skb_cow_head failed it was not ignored.
+>>>>
+>>>> This really needs to be reviewed by someone who is more familiar
+>>>> with this code base to ensure any deallocation of skb's is
+>>>> still correct.
+>>>>
+>>>> Signed-off-by: James Hughes <james.hughes@raspberrypi.org>
+>>>> ---
+>>>>   .../wireless/broadcom/brcm80211/brcmfmac/bcdc.c    | 15 ++++++++--
+>>>>   .../wireless/broadcom/brcm80211/brcmfmac/core.c    | 23 +++++-----------
+>>>>   .../broadcom/brcm80211/brcmfmac/fwsignal.c         | 32
+>>>> +++++++++++++++++-----
+>>>>   .../wireless/broadcom/brcm80211/brcmfmac/sdio.c    |  7 ++++-
+>>>>   4 files changed, 51 insertions(+), 26 deletions(-)
+>>>>
+>>>
+>>> [...]
+>>>
+>>>> diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.c
+>>>> b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.c
+>>>> index 5eaac13..08272e8 100644
+>>>> --- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.c
+>>>> +++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.c
+>>>> @@ -198,7 +198,7 @@ static netdev_tx_t brcmf_netdev_start_xmit(struct
+>>>> sk_buff *skb,
+>>>>         int ret;
+>>>>         struct brcmf_if *ifp = netdev_priv(ndev);
+>>>>         struct brcmf_pub *drvr = ifp->drvr;
+>>>> -       struct ethhdr *eh = (struct ethhdr *)(skb->data);
+>>>> +       struct ethhdr *eh;
+>>>>         brcmf_dbg(DATA, "Enter, bsscfgidx=%d\n", ifp->bsscfgidx);
+>>>>   @@ -212,23 +212,14 @@ static netdev_tx_t brcmf_netdev_start_xmit(struct
+>>>> sk_buff *skb,
+>>>>         }
+>>>>         /* Make sure there's enough room for any header */
+>>>> -       if (skb_headroom(skb) < drvr->hdrlen) {
+>>>> -               struct sk_buff *skb2;
+>>>> -
+>>>> -               brcmf_dbg(INFO, "%s: insufficient headroom\n",
+>>>> -                         brcmf_ifname(ifp));
+>>>> -               drvr->bus_if->tx_realloc++;
+>>>> -               skb2 = skb_realloc_headroom(skb, drvr->hdrlen);
+>>>> -               dev_kfree_skb(skb);
+>>>> -               skb = skb2;
+>>>> -               if (skb == NULL) {
+>>>> -                       brcmf_err("%s: skb_realloc_headroom failed\n",
+>>>> -                                 brcmf_ifname(ifp));
+>>>> -                       ret = -ENOMEM;
+>>>> -                       goto done;
+>>>> -               }
+>>>
+>>>
+>>> What you are throwing away here is code that assures there is sufficient
+>>> headroom for protocol and bus layer in the tx path, because that is
+>>> determined by drvr->hdrlen. This is where the skb is handed to the driver so
+>>> if you could leave the functionality above *and* assure it is writeable that
+>>> would be the best solution as there is no need for all the other changes
+>>> down the tx path.
+>>
+>> The skb_cow_head function takes the required headroom as a parameter
+>> and will ensure that there is enough space, so I don't think this code
+>> segment is
+>> required or have I misunderstood what you mean here?
 >
->Support the new TCA_DUMP_INVISIBLE netlink attribute that allows asking 
->kernel to perform 'full qdisc dump', as for historical reasons some of the 
->default qdiscs are being hidden by the kernel.
+> I looked more into what skb_cow_head() and skb_realloc_headroom()
+> actually do and it seems you are right.
 >
->The command syntax is being extended by voluntary 'invisible' argument to
->'tc qdisc show'.
+>> Is it safe to rely on the _cow_ being done here and not further down
+>> in the stack?
+>> Or at least checked further down in the stack. Previous comments from
+>> another patch
+>> requested that the _cow_ be done close to the actual addition of the
+>> header. I presume
+>> it is unlikely/impossible that the functions that add header
+>> information  down the stack
+>> will be called without the above being done first?
 >
->Signed-off-by: Jiri Kosina <jkosina@suse.cz>
->---
-
-[...]
-
-
->@@ -325,7 +328,25 @@ static int tc_qdisc_list(int argc, char **argv)
-> 		filter_ifindex = t.tcm_ifindex;
-> 	}
-> 
->-	if (rtnl_dump_request(&rth, RTM_GETQDISC, &t, sizeof(t)) < 0) {
->+	if (dump_invisible) {
->+		struct {
->+			struct nlmsghdr n;
->+			struct tcmsg t;
->+			char buf[256];
->+		} req = {
->+			.n.nlmsg_type = RTM_GETQDISC,
->+			.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct tcmsg)),
->+		};
->+
->+		req.t.tcm_family = AF_UNSPEC;
->+
->+		addattr(&req.n, 256, TCA_DUMP_INVISIBLE);
->+		if (rtnl_dump_request_n(&rth, &req.n) < 0) {
-
-Jirko, you ignore the values that were previously set in "t". I think
-that you can change this to do rtnl_dump_request_n always and simplify
-the code a bit.
-
-
->+			perror("Cannot send dump request");
->+			return 1;
->+		}
->+
->+	} else if (rtnl_dump_request(&rth, RTM_GETQDISC, &t, sizeof(t)) < 0) {
-> 		perror("Cannot send dump request");
-> 		return 1;
-> 	}
->-- 
->Jiri Kosina
->SUSE Labs
+> It is safe. During probe sequence each layer in the driver stack
+> increments drvr->hdrlen with headroom it needs. So drvr->hdrlen will
+> indicate the total headroom needed when .start_xmit() is called. And
+> yes, the .start_xmit() is the single point of entry in the transmit
+> path. So the other locations where skb_push() is done are safe.
 >
+
+OK, I will redo the patch (making it v3 + changelogs), taking this in
+to account.
+
+
+>>>
+>>>> +       ret = skb_cow_head(skb, drvr->hdrlen);
+>>>> +       if (ret) {
+>>>
+>>>
+>>> So move the realloc code above here instead of simply freeing the skb.
+>>>
+>>>> +               dev_kfree_skb_any(skb);
+>>>> +               goto done;
+>>>>         }
+>>>>   +     eh = (struct ethhdr *)(skb->data);
+>>>
+>>>
+>>> Now this is actually a separate fix so I would like a separate patch for it.
+>>>
+>>
+>> No problem, but see final paragraph below.
+>
+> Let me see...
+
+I'll split this fix out, but should I issue it in the same patch set
+or as a separate patch?
+And for a different patch, should I base it on the _cow_ version patch
+or the original version?
+
+>
+>>> I have a RPi3 sitting on my desk so how can I replicate the issue. It was
+>>> something about broadcast/multicast traffic when using AP mode and a bridge,
+>>> right?
+>>>
+>>> Regards,
+>>> Arend
+>>
+>> See this issue for details on replication.
+>> https://github.com/raspberrypi/firmware/issues/673
+>>
+>> The bridge I use is setup using a similar procedure to that described
+>> here.  https://www.raspberrypi.org/documentation/configuration/wireless/access-point.md
+>>
+>> I'm happy to pass over this work to you guys if you think it is
+>> appropriate, you are the
+>> experts on the codebase.
+>
+> Sure. However, I must say you did an excellent job digging into the
+> issue and root causing it. We always were under the impression that we
+> could treat the skb as our own when handed to us in .start_xmit() callback.
+>
+> Regards,
+> Arend
+
+Thanks! I suspect that a few drivers are making the same mistake, Eric
+found 6 over and above the smsc95xx and this one that I originally
+found.
+
+Regards
+James
