@@ -1,43 +1,44 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: net: cleanup_net is slow
-Date: Mon, 24 Apr 2017 14:08:35 +0200
-Message-ID: <20170424120835.GA20444@breakpoint.cc>
-References: <CAAeHK+yJXMo8kr_p8iM_dicVGQCtwQhdk=rdE+9dNbsoghAb6Q@mail.gmail.com>
- <CANn89i+iYtPLGDZpt3qk_cA-dq+004B=1qjP0ZygY3oREskQYA@mail.gmail.com>
- <20170421192729.GA8853@breakpoint.cc>
- <20170421194515.GB8853@breakpoint.cc>
- <CAAeHK+zwsdzVrgwLccbXs7QUEsFkeTL13_AfNKMD1G2BkOr0eg@mail.gmail.com>
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Subject: Re: [PATCH] macsec: avoid heap overflow in skb_to_sgvec
+Date: Mon, 24 Apr 2017 14:15:19 +0200
+Message-ID: <CAHmME9ppLZdpqf2Q2rigVvydHEG=-X1whh-BHB3bYFS3J_XDGw@mail.gmail.com>
+References: <20170421211448.16995-1-Jason@zx2c4.com> <063D6719AE5E284EB5DD2968C1650D6DCFFD9487@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>,
-        Eric Dumazet <edumazet@google.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Kostya Serebryany <kcc@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Andrey Konovalov <andreyknvl@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAAeHK+zwsdzVrgwLccbXs7QUEsFkeTL13_AfNKMD1G2BkOr0eg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "stable@vger.kernel.org" <stable@vger.kernel.org>,
+        "security@kernel.org" <security@kernel.org>
+To: David Laight <David.Laight@aculab.com>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DCFFD9487@AcuExch.aculab.com>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andrey Konovalov <andreyknvl@google.com> wrote:
-> On Fri, Apr 21, 2017 at 9:45 PM, Florian Westphal <fw@strlen.de> wrote:
-> > Florian Westphal <fw@strlen.de> wrote:
-> >> Indeed.  Setting net.netfilter.nf_conntrack_default_on=0 cuts time
-> >> cleanup time by 2/3 ...
-> >>
-> >> nf unregister is way too happy to issue synchronize_net(), I'll work on
-> >> a fix.
-> >
-> > I'll test this patch as a start.  Maybe we can also leverage exit_batch
-> > more on netfilter side.
-> 
-> Hi Florian,
-> 
-> Your patch improves fuzzing speed at least twice, which is a great start!
+On Mon, Apr 24, 2017 at 1:02 PM, David Laight <David.Laight@aculab.com> wrote:
+> ...
+>
+> Shouldn't skb_to_sgvec() be checking the number of fragments against
+> the size of the sg list?
+> The callers would then all need auditing to allow for failure.
 
-Great.  I'll try to push the patches i have to nf-next ASAP.
+This has never been done before, since this is one of those operations
+that simply _shouldn't fail_ this late in the driver's path. There's
+an easy way to use a fixed size array of MAX_SKB_FRAGS+1, and then
+just not specify FRAGLIST as a device feature. Then the function
+succeeds every time, rather than dropping packets. Alternatively, if
+the array is being allocated dynamically (kmalloc), a call to
+skb_cow_data returns the number of fragments needed; since usually
+people using scattergather are going to be modifying the skb anyway, I
+believe this function should be being called anyway...
+
+It would be possible to do as you suggest, though, by using sg_is_last
+in skb_to_sgvec. In this case we'd need to change every call site of
+skb_to_sgvec to ensure the return value is being checked as well as
+making sure that the sglist is initialized with sg_init_table to
+ensure the last frag is properly marked. I wouldn't be opposed to
+this, though it is potentially error prone work.
+
+In any case, this patch here follows the pattern of the entire rest of
+the present-day kernel, so it ought to be merged as-is.
