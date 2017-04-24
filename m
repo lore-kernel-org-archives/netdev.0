@@ -1,53 +1,39 @@
-From: Arend Van Spriel <arend.vanspriel-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH v2] brcmfmac: Make skb header writable before use
-Date: Mon, 24 Apr 2017 20:59:02 +0200
-Message-ID: <254f7f48-e592-e30a-06db-605a37750e42@broadcom.com>
-References: <20170424130322.476-1-james.hughes@raspberrypi.org>
- <1493057382.6453.39.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH] net: bridge: suppress broadcast when multicast flood is
+ disabled
+Date: Mon, 24 Apr 2017 12:00:35 -0700
+Message-ID: <20170424120035.053b0a28@xeon-e3>
+References: <1493042944-4005-1-git-send-email-mmanning@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Franky Lin <franky.lin-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Hante Meuleman <hante.meuleman-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        brcm80211-dev-list.pdl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        James Hughes <james.hughes-FnsA7b+Nu9XbIbC87yuRow@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1493057382.6453.39.camel-XN9IlZ5yJG9HTL0Zs8A6p+yfmBU6pStAUsxypvmhUTTZJqsBc5GL+g@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>,
+        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+To: Mike Manning <mmanning@brocade.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f171.google.com ([209.85.192.171]:33060 "EHLO
+        mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S966095AbdDXTAn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 15:00:43 -0400
+Received: by mail-pf0-f171.google.com with SMTP id a188so16575614pfa.0
+        for <netdev@vger.kernel.org>; Mon, 24 Apr 2017 12:00:43 -0700 (PDT)
+In-Reply-To: <1493042944-4005-1-git-send-email-mmanning@brocade.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Mon, 24 Apr 2017 15:09:04 +0100
+Mike Manning <mmanning@brocade.com> wrote:
 
-
-On 24-4-2017 20:09, Eric Dumazet wrote:
-> On Mon, 2017-04-24 at 14:03 +0100, James Hughes wrote:
->> The driver was making changes to the skb_header without
->> ensuring it was writable (i.e. uncloned).
->> This patch also removes some boiler plate header size
->> checking/adjustment code as that is also handled by the
->> skb_cow_header function used to make header writable.
->>
->> This patch depends on
->> brcmfmac: Ensure pointer correctly set if skb data location changes
->>
->> Signed-off-by: James Hughes <james.hughes-FnsA7b+Nu9XbIbC87yuRow@public.gmane.org>
->> ---
->> Changes in v2
->>   Makes the _cow_ call at the entry point of the skb in to the
->>   stack, means only needs to be done once, and error handling
->>   is easier.
->>   Split a separate minor bug fix off to a separate patch (which
->>   this patch depends on)
+> Flood suppression for packets that are not unicast needs to be handled
+> consistently by also not flooding broadcast packets. As broadcast is a
+> special case of multicast, the same kernel parameter should be used to
+> suppress flooding for both of these packet types.
 > 
-> Best way to handle dependencies is to send a patch series.
-> 
-> 1/2 brcmfmac: Ensure pointer correctly set if skb data location changes
-> 2/2 brcmfmac: Make skb header writable before use
+> Fixes: b6cb5ac8331b ("net: bridge: add per-port multicast flood flag")
+> Cc: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+> Signed-off-by: Mike Manning <mmanning@brocade.com>
+> ---
 
-There is actually no real dependency. Both are valid fixes of course but
-either one applies to wireless-drivers-next/master on its own.
+Makes sense.
 
-Regards,
-Arend
+Reviewed-by: Stephen Hemminger <stephen@networkplumber.org>
