@@ -1,193 +1,73 @@
-From: Nick Moriarty <nick.moriarty@york.ac.uk>
-Subject: Re: PROBLEM: IPVS incorrectly reverse-NATs traffic to LVS host
-Date: Mon, 24 Apr 2017 11:55:55 +0100
-Message-ID: <CAEo=OUmQb0FGQ2Lm+H4RNKTZD7hVKBJ+LTe2Sjy+BgW84yJ_ug@mail.gmail.com>
-References: <CAEo=OUnG+Bn04XaEkwHpL2bt6bEZXP_F6RSa9HDN=VjXdOxpoQ@mail.gmail.com>
- <alpine.LFD.2.20.1704221417080.1974@ja.home.ssi.bg>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH net] bridge: shutdown bridge device before
+	removing it
+Date: Mon, 24 Apr 2017 14:01:10 +0300
+Message-ID: <3d77b47d-c8c3-de57-946e-59096a88964e@cumulusnetworks.com>
+References: <a8b2b2c876f416431dac031a0beb7ce079c7d0a9.1493018730.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Wensong Zhang <wensong@linux-vs.org>,
-        Simon Horman <horms@verge.net.au>, netdev@vger.kernel.org,
-        lvs-devel@vger.kernel.org
-To: Julian Anastasov <ja@ssi.bg>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f193.google.com ([209.85.216.193]:34441 "EHLO
-        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1168988AbdDXK4R (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 06:56:17 -0400
-Received: by mail-qt0-f193.google.com with SMTP id y33so19723786qta.1
-        for <netdev@vger.kernel.org>; Mon, 24 Apr 2017 03:56:16 -0700 (PDT)
-In-Reply-To: <alpine.LFD.2.20.1704221417080.1974@ja.home.ssi.bg>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: "bridge@lists.linux-foundation.org" <bridge@lists.linux-foundation.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Xin Long <lucien.xin@gmail.com>, network dev <netdev@vger.kernel.org>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <a8b2b2c876f416431dac031a0beb7ce079c7d0a9.1493018730.git.lucien.xin@gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Hi Julian,
-
-Many thanks for your prompt fix!  I've now tested this patch against
-the 4.11.0-rc8 kernel on Ubuntu, and I can confirm that my check
-script is no longer seeing incorrect addresses in its responses.
-
-Could you please keep me posted as this is merged?
-
-Thanks again
-
-On 22 April 2017 at 18:06, Julian Anastasov <ja@ssi.bg> wrote:
->
->         Hello,
->
-> On Wed, 12 Apr 2017, Nick Moriarty wrote:
->
->> Hi,
->>
->> I've experienced a problem in how traffic returning to an LVS host is
->> handled in certain circumstances.  Please find a bug report below - if
->> there's any further information you'd like, please let me know.
->>
->> [1.] One line summary of the problem:
->> IPVS incorrectly reverse-NATs traffic to LVS host
->>
->> [2.] Full description of the problem/report:
->> When using IPVS in direct-routing mode, normal traffic from the LVS
->> host to a back-end server is sometimes incorrectly NATed on the way
->> back into the LVS host.  Using tcpdump shows that the return packets
->> have the correct source IP, but by the time it makes it back to the
->> application, it's been changed.
->>
->> To reproduce this, a configuration such as the following will work:
->> - Set up an LVS system with a VIP serving UDP to a backend DNS server
->> using the direct-routing method in IPVS
->> - Make an outgoing UDP request to the VIP from the LVS system itself
->> (this causes a connection to be added to the IPVS connection table)
->> - The request should succeed as normal
->> - Note the UDP source port used
->> - Within 5 minutes (before the UDP connection entry expires), make an
->> outgoing UDP request directly to the backend DNS server
->> - The request will fail as the reply is incorrectly modified on its
->> way back and appears to return from the VIP
->>
->> Monitoring the above sequence with tcpdump verifies that the returned
->> packet (as it enters the host) is from the DNS IP, even though the
->> application sees the VIP.
->>
->> If an outgoing request direct to the DNS server is made from a port
->> not in the connection table, everything is fine.
->
->         Thanks for the detailed report! I think, I fixed the
-> problem. Let me know if you are able to test the appended fix.
->
->> I expect that somewhere, something (e.g. functionality for IPVS MASQ
->> responses) is applying IPVS connection
->> information to incoming traffic, matching a DROUTE rule, and treating
->> it as NAT traffic.
->
->         Yep, that is what happens.
->
-> ================================================================
->
-> [PATCH net] ipvs: SNAT packet replies only for NATed connections
->
-> We do not check if packet from real server is for NAT
-> connection before performing SNAT. This causes problems
-> for setups that use DR/TUN and allow local clients to
-> access the real server directly, for example:
->
-> - local client in director creates IPVS-DR/TUN connection
-> CIP->VIP and the request packets are routed to RIP.
-> Talks are finished but IPVS connection is not expired yet.
->
-> - second local client creates non-IPVS connection CIP->RIP
-> with same reply tuple RIP->CIP and when replies are received
-> on LOCAL_IN we wrongly assign them for the first client
-> connection because RIP->CIP matches the reply direction.
->
-> The problem is more visible to local UDP clients but in rare
-> cases it can happen also for TCP or remote clients when the
-> real server sends the reply traffic via the director.
->
-> So, better to be more precise for the reply traffic.
-> As replies are not expected for DR/TUN connections, better
-> to not touch them.
->
-> Reported-by: Nick Moriarty <nick.moriarty@york.ac.uk>
-> Signed-off-by: Julian Anastasov <ja@ssi.bg>
+On 24/04/17 10:25, Xin Long wrote:
+> During removing a bridge device, if the bridge is still up, a new mdb entry
+> still can be added in br_multicast_add_group() after all mdb entries are
+> removed in br_multicast_dev_del(). Like the path:
+> 
+>   mld_ifc_timer_expire ->
+>     mld_sendpack -> ...
+>       br_multicast_rcv ->
+>         br_multicast_add_group
+> 
+> The new mp's timer will be set up. If the timer expires after the bridge
+> is freed, it may cause use-after-free panic in br_multicast_group_expired.
+> This can happen when ip link remove a bridge or destroy a netns with a
+> bridge device inside.
+> 
+> As we can see in br_del_bridge, brctl is also supposed to remove a bridge
+> device after it's shutdown.
+> 
+> This patch is to call dev_close at the beginning of br_dev_delete so that
+> netif_running check in br_multicast_add_group can avoid this issue. But
+> to keep consistent with before, it will not remove the IFF_UP check in
+> br_del_bridge for brctl.
+> 
+> Reported-by: Jianwen Ji <jiji@redhat.com>
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
 > ---
->  net/netfilter/ipvs/ip_vs_core.c | 19 ++++++++++++++-----
->  1 file changed, 14 insertions(+), 5 deletions(-)
->
-> diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
-> index db40050..ee44ed5 100644
-> --- a/net/netfilter/ipvs/ip_vs_core.c
-> +++ b/net/netfilter/ipvs/ip_vs_core.c
-> @@ -849,10 +849,8 @@ static int handle_response_icmp(int af, struct sk_buff *skb,
->  {
->         unsigned int verdict = NF_DROP;
->
-> -       if (IP_VS_FWD_METHOD(cp) != 0) {
-> -               pr_err("shouldn't reach here, because the box is on the "
-> -                      "half connection in the tun/dr module.\n");
-> -       }
-> +       if (IP_VS_FWD_METHOD(cp) != IP_VS_CONN_F_MASQ)
-> +               goto ignore_cp;
->
->         /* Ensure the checksum is correct */
->         if (!skb_csum_unnecessary(skb) && ip_vs_checksum_complete(skb, ihl)) {
-> @@ -886,6 +884,8 @@ static int handle_response_icmp(int af, struct sk_buff *skb,
->                 ip_vs_notrack(skb);
->         else
->                 ip_vs_update_conntrack(skb, cp, 0);
-> +
-> +ignore_cp:
->         verdict = NF_ACCEPT;
->
->  out:
-> @@ -1385,8 +1385,11 @@ ip_vs_out(struct netns_ipvs *ipvs, unsigned int hooknum, struct sk_buff *skb, in
->          */
->         cp = pp->conn_out_get(ipvs, af, skb, &iph);
->
-> -       if (likely(cp))
-> +       if (likely(cp)) {
-> +               if (IP_VS_FWD_METHOD(cp) != IP_VS_CONN_F_MASQ)
-> +                       goto ignore_cp;
->                 return handle_response(af, skb, pd, cp, &iph, hooknum);
-> +       }
->
->         /* Check for real-server-started requests */
->         if (atomic_read(&ipvs->conn_out_counter)) {
-> @@ -1444,9 +1447,15 @@ ip_vs_out(struct netns_ipvs *ipvs, unsigned int hooknum, struct sk_buff *skb, in
->                         }
->                 }
->         }
-> +
-> +out:
->         IP_VS_DBG_PKT(12, af, pp, skb, iph.off,
->                       "ip_vs_out: packet continues traversal as normal");
->         return NF_ACCEPT;
-> +
-> +ignore_cp:
-> +       __ip_vs_conn_put(cp);
-> +       goto out;
->  }
->
->  /*
-> --
-> 2.9.3
->
-> Regards
->
-> --
-> Julian Anastasov <ja@ssi.bg>
+>  net/bridge/br_if.c | 2 ++
+>  1 file changed, 2 insertions(+)
+> 
+
++CC bridge maintainers
+
+I can see how this could happen, could you also provide the traceback ?
+
+The patch looks good to me, actually I think it fixes another issue with
+mcast stats where the percpu pointer can be accessed after it's freed if
+an mcast packet can get sent via br->dev after the br_multicast_dev_del() call.
+This is definitely stable material, if I'm not mistaken the issue is there since
+the introduction of br_dev_delete:
+commit e10177abf842
+Author: Satish Ashok <sashok@cumulusnetworks.com>
+Date:   Wed Jul 15 07:16:51 2015 -0700
+
+    bridge: multicast: fix handling of temp and perm entries
 
 
 
--- 
-Nick Moriarty
-Linux Systems Administrator and Developer
-
-IT Services
-Computer Science Building
-University of York
-York
-YO10 5GH
-+44 (0)1904 32 3484
-
-e-mail disclaimer: http://www.york.ac.uk/docs/disclaimer/email.htm
+Acked-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
