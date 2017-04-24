@@ -1,110 +1,57 @@
-From: =?UTF-8?Q?Lars_Erik_Storbuk=C3=A5s?= <storbukas.dev@gmail.com>
-Subject: Re: Get amount of fast retransmissions from TCP info
-Date: Mon, 24 Apr 2017 23:31:25 +0200
-Message-ID: <CAF0XkCAZJd7adZf6VHdDc2yesyKQ8DqQnDOv_uk8o8mOVGMRyA@mail.gmail.com>
-References: <CAF0XkCCFwxuyJ5bc4SUHjdDJb_E-CqYC-3k3nzi+0i3H9D2zPA@mail.gmail.com>
- <CADVnQyk9-OGKBKBvQ76itP5JwbVBPt40S8KJ+6oY506hVpMEYA@mail.gmail.com>
- <CAF0XkCDTexCTxPmGvM4+FZtVhQg13Ggsbm0QSbcKCSR5LGbs9w@mail.gmail.com> <CADVnQyn=6wYbVP0m3mepGU23LcEn_BK_TKoSNxVf=TUz9Q+f8g@mail.gmail.com>
+From: Eric Anholt <eric@anholt.net>
+Subject: Re: [PATCH net 0/3] net: dsa: b53: BCM58xx devices fixes
+Date: Mon, 24 Apr 2017 14:32:49 -0700
+Message-ID: <878tmpij9a.fsf@eliezer.anholt.net>
+References: <20170424212723.15407-1-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: LKML <linux-kernel@vger.kernel.org>,
-        Netdev <netdev@vger.kernel.org>
-To: Neal Cardwell <ncardwell@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CADVnQyn=6wYbVP0m3mepGU23LcEn_BK_TKoSNxVf=TUz9Q+f8g@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; boundary="=-=-=";
+        micalg=pgp-sha512; protocol="application/pgp-signature"
+Cc: andrew@lunn.ch, vivien.didelot@savoifairelinux.com,
+        jon.mason@broadcom.com, Florian Fainelli <f.fainelli@gmail.com>
+To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from anholt.net ([50.246.234.109]:36796 "EHLO anholt.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S977617AbdDXVc4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 24 Apr 2017 17:32:56 -0400
+In-Reply-To: <20170424212723.15407-1-f.fainelli@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2017-04-24 23:00 GMT+02:00 Neal Cardwell <ncardwell@google.com>:
-> On Mon, Apr 24, 2017 at 4:20 PM, Lars Erik Storbuk=C3=A5s
-> <storbukas.dev@gmail.com> wrote:
->> 2017-04-24 21:42 GMT+02:00 Neal Cardwell <ncardwell@google.com>:
->>> On Mon, Apr 24, 2017 at 3:11 PM, Lars Erik Storbuk=C3=A5s
->>> <storbukas.dev@gmail.com> wrote:
->>>> I'm trying to get amount of congestion events in TCP caused by
->>>> DUPACK's (fast retransmissions), and can't seem to find any variable
->>>> in the TCP info struct which hold that value. There are three
->>>> variables in the TCP info struct that seem to hold similar congestion
->>>> values: __u8 tcpi_retransmits;__u32 tcpi_retrans; __u32
->>>> tcpi_total_retrans;
->>>>
->>>> Does anyone have any pointers on how to find this value in the TCP cod=
-e?
->>>>
->>>> Please CC me personally if answering this question. Any help is
->>>> greatly appreciated.
->>>
->>> [I'm cc-ing the netdev list.]
->>>
->>> Do you need this per-socket? On a per-socket basis, I do not think
->>> there are separate totals for fast retransmits and timeout
->>> retransmits.
->>>
->>> If a global number is good enough, then you can get that number from
->>> the global network statistics. In "nstat" output they look like:
->>>
->>>   TcpExtTCPFastRetrans =3D packets sent in fast retransmit / fast recov=
-ery
->>>
->>>   TcpExtTCPSlowStartRetrans =3D packets sent in timeout recovery
->>>
->>> It sounds like TcpExtTCPFastRetrans is what you are after.
->>>
->>> Hope that helps,
->>> neal
->>
->> Thanks for your answer Neal.
->>
->> Yes, I need this information per-socket. What would be the most
->> appropriate place to update this value?
->
-> Is this for a custom kernel you are building? Or are you proposing
-> this for upstream?
+--=-=-=
+Content-Type: text/plain
 
-This is currently for a custom kernel.
+Florian Fainelli <f.fainelli@gmail.com> writes:
 
-> IMHO the best place to add this for your custom kernel would be in
-> _tcp_retransmit_skb() around the spot with the comment "Update global
-> and local TCP statistics". Something like:
+> Hi David,
 >
->   /* Update global and local TCP statistics. */
-> ...
->   tp->total_retrans +=3D segs;
->   if (icsk->icsk_ca_state =3D=3D TCP_CA_Loss)
->     tp->slow_retrans +=3D segs;
->   else
->     tp->fast_retrans +=3D segs;
->
+> This patch series contains fixes for the 58xx devices (Broadcom Northstar
+> Plus), which were identified thanks to the help of Eric Anholt.
 
-Excellent. That seems like a logical place.
+This series is:
 
->> If none of the variables (mentioned above) contain any value in
->> regards to fast retransmits, what does the different values represent?
->
-> tcpi_retransmits: consecutive retransmits of lowest-sequence outstanding =
-packet
->
-> tcpi_retrans: retransmitted packets estimated to be in-flight in the netw=
-ork now
->
-> tcpi_total_retrans: total number of retransmitted packets over the
-> life of the connection
->
-> Can you sketch out why you need to have separate counts for fast
-> retransmits and timeout/slow-start retransmits?
->
-> neal
+Tested-by: Eric Anholt <eric@anholt.net>
 
-I'm working on the implementation of a Deadline Aware, Less than Best
-Effort framework proposed by David A. Hayes, David Ros, Andreas
-Petlund. A framework for adding both LBE behaviour and awareness of
-=E2=80=9Csoft=E2=80=9D delivery deadlines to any congestion control (CC) al=
-gorithm,
-whether loss-based, delay- based or explicit signaling-based. This
-effectively allows it to turn an arbitrary CC protocol into a
-scavenger protocol that dynamically adapts its sending rate to network
-conditions and remaining time before the deadline, to balance
-timeliness and transmission aggressiveness.
+Thanks for all your help debugging this, Florian!  I'll send out my DT
+changes now.
 
-/Lars Erik
+--=-=-=
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAEBCgAdFiEE/JuuFDWp9/ZkuCBXtdYpNtH8nugFAlj+bwEACgkQtdYpNtH8
+nuiogRAAk/L37zGVScqzT4WGy8kIMBTrjYfe5UEahTJsfY1IVd7eZcucR7q7zxFd
+BJ2GHfcpVl0+dwdaWZZAnK5OsizRkwYFpbo86YYvbloDX7k3zcgGT1bVKuZLMJvO
+h/EfdvssA4OQlWuYJBSZGnALpoYbn3YX81TBWr38mUc1a/nmmELT9M8II/3o09Wl
+bOFBSxbptsaqKRXbN4e3h9Egnrp14hYpHWDf/Gxg4JCnNHUBh+0uOpW1NK9A021D
+2ahuYwDGHtpmnfHX0bynAo8T2jZ7wI6nj4SXMtn5gpKSzAMmScH1sa8J4TRakisj
+j9MmEvYu2aXi7UXpHwK+reQeG85/Z1T6wcDSheBEJztNDq++RCmcr8COl6IFZW9+
+aDJUajRFob0OZtePeo9wLN5LbbGFGOTT4DU2xEJvqm8nxtt7HfLEejzEI5AmmLF8
+ZFg4gioYqztDZpOUDnnBstVfM8NBrYM+dJTKWSymF6TOr3L0Bo2bAn4/gnG3lc3l
+zJlFlnCIYUkpX8505+wEyCbITze+DRRXCdDBXfjVmke3dHuucfv9Z+475CcNi0jG
+VK6Oe63QzMi+4QvfpieJRa2yaaJLKLenLjgXOV04xyOTpao25HDgMXFMl3OwXxoh
+9Tggoy3THkmEMvD0odIModFoY3MJf7U54xA7UZ7Abd9W61aSgy0=
+=mXfn
+-----END PGP SIGNATURE-----
+--=-=-=--
