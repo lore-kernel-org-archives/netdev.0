@@ -1,34 +1,31 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: PROBLEM: IPVS incorrectly reverse-NATs traffic to LVS host
-Date: Mon, 24 Apr 2017 21:42:52 +0300 (EEST)
-Message-ID: <alpine.LFD.2.20.1704242140290.2690@ja.home.ssi.bg>
-References: <CAEo=OUnG+Bn04XaEkwHpL2bt6bEZXP_F6RSa9HDN=VjXdOxpoQ@mail.gmail.com> <alpine.LFD.2.20.1704221417080.1974@ja.home.ssi.bg> <CAEo=OUmQb0FGQ2Lm+H4RNKTZD7hVKBJ+LTe2Sjy+BgW84yJ_ug@mail.gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [iproute PATCH] man: ip-rule.8: Further clarify how to
+ interpret priority value
+Date: Mon, 24 Apr 2017 11:44:05 -0700
+Message-ID: <20170424114405.2884a1ee@xeon-e3>
+References: <20170424153537.15072-1-phil@nwl.cc>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Cc: Wensong Zhang <wensong@linux-vs.org>,
-        Simon Horman <horms@verge.net.au>, netdev@vger.kernel.org,
-        lvs-devel@vger.kernel.org
-To: Nick Moriarty <nick.moriarty@york.ac.uk>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <CAEo=OUmQb0FGQ2Lm+H4RNKTZD7hVKBJ+LTe2Sjy+BgW84yJ_ug@mail.gmail.com>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Phil Sutter <phil@nwl.cc>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f53.google.com ([74.125.83.53]:36123 "EHLO
+        mail-pg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S972560AbdDXSoO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 14:44:14 -0400
+Received: by mail-pg0-f53.google.com with SMTP id g2so17189199pge.3
+        for <netdev@vger.kernel.org>; Mon, 24 Apr 2017 11:44:13 -0700 (PDT)
+In-Reply-To: <20170424153537.15072-1-phil@nwl.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Mon, 24 Apr 2017 17:35:37 +0200
+Phil Sutter <phil@nwl.cc> wrote:
 
-	Hello,
-
-On Mon, 24 Apr 2017, Nick Moriarty wrote:
-
-> Many thanks for your prompt fix!  I've now tested this patch against
-> the 4.11.0-rc8 kernel on Ubuntu, and I can confirm that my check
-> script is no longer seeing incorrect addresses in its responses.
+> Despite the past changes, users seemed to get confused by the seemingly
+> contradictory relation of priority value and actual rule priority.
 > 
-> Could you please keep me posted as this is merged?
+> Signed-off-by: Phil Sutter <phil@nwl.cc>
 
-	Sure. Thanks for the confirmation! I'll do some
-tests and will post official patch in few days.
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+Makes sense. Applied.
