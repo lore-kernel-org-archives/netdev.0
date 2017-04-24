@@ -1,31 +1,53 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [iproute PATCH] man: ip-rule.8: Further clarify how to
- interpret priority value
-Date: Mon, 24 Apr 2017 11:44:05 -0700
-Message-ID: <20170424114405.2884a1ee@xeon-e3>
-References: <20170424153537.15072-1-phil@nwl.cc>
+From: Arend Van Spriel <arend.vanspriel-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH v2] brcmfmac: Make skb header writable before use
+Date: Mon, 24 Apr 2017 20:59:02 +0200
+Message-ID: <254f7f48-e592-e30a-06db-605a37750e42@broadcom.com>
+References: <20170424130322.476-1-james.hughes@raspberrypi.org>
+ <1493057382.6453.39.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Phil Sutter <phil@nwl.cc>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f53.google.com ([74.125.83.53]:36123 "EHLO
-        mail-pg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S972560AbdDXSoO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 14:44:14 -0400
-Received: by mail-pg0-f53.google.com with SMTP id g2so17189199pge.3
-        for <netdev@vger.kernel.org>; Mon, 24 Apr 2017 11:44:13 -0700 (PDT)
-In-Reply-To: <20170424153537.15072-1-phil@nwl.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Franky Lin <franky.lin-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        Hante Meuleman <hante.meuleman-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        brcm80211-dev-list.pdl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        James Hughes <james.hughes-FnsA7b+Nu9XbIbC87yuRow@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1493057382.6453.39.camel-XN9IlZ5yJG9HTL0Zs8A6p+yfmBU6pStAUsxypvmhUTTZJqsBc5GL+g@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 24 Apr 2017 17:35:37 +0200
-Phil Sutter <phil@nwl.cc> wrote:
 
-> Despite the past changes, users seemed to get confused by the seemingly
-> contradictory relation of priority value and actual rule priority.
+
+On 24-4-2017 20:09, Eric Dumazet wrote:
+> On Mon, 2017-04-24 at 14:03 +0100, James Hughes wrote:
+>> The driver was making changes to the skb_header without
+>> ensuring it was writable (i.e. uncloned).
+>> This patch also removes some boiler plate header size
+>> checking/adjustment code as that is also handled by the
+>> skb_cow_header function used to make header writable.
+>>
+>> This patch depends on
+>> brcmfmac: Ensure pointer correctly set if skb data location changes
+>>
+>> Signed-off-by: James Hughes <james.hughes-FnsA7b+Nu9XbIbC87yuRow@public.gmane.org>
+>> ---
+>> Changes in v2
+>>   Makes the _cow_ call at the entry point of the skb in to the
+>>   stack, means only needs to be done once, and error handling
+>>   is easier.
+>>   Split a separate minor bug fix off to a separate patch (which
+>>   this patch depends on)
 > 
-> Signed-off-by: Phil Sutter <phil@nwl.cc>
+> Best way to handle dependencies is to send a patch series.
+> 
+> 1/2 brcmfmac: Ensure pointer correctly set if skb data location changes
+> 2/2 brcmfmac: Make skb header writable before use
 
-Makes sense. Applied.
+There is actually no real dependency. Both are valid fixes of course but
+either one applies to wireless-drivers-next/master on its own.
+
+Regards,
+Arend
