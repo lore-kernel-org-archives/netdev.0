@@ -1,54 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: add rcu locking when changing early demux
-Date: Mon, 24 Apr 2017 14:08:38 -0400 (EDT)
-Message-ID: <20170424.140838.1224449140831206697.davem@davemloft.net>
-References: <1492878796-31328-1-git-send-email-dsa@cumulusnetworks.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2] brcmfmac: Make skb header writable before use
+Date: Mon, 24 Apr 2017 11:09:42 -0700
+Message-ID: <1493057382.6453.39.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20170424130322.476-1-james.hughes@raspberrypi.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, subashab@codeaurora.org
-To: dsa@cumulusnetworks.com
+Cc: Arend van Spriel <arend.vanspriel@broadcom.com>,
+        Franky Lin <franky.lin@broadcom.com>,
+        Hante Meuleman <hante.meuleman@broadcom.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        linux-wireless@vger.kernel.org,
+        brcm80211-dev-list.pdl@broadcom.com, netdev@vger.kernel.org
+To: James Hughes <james.hughes@raspberrypi.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:55676 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S975257AbdDXSIk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 14:08:40 -0400
-In-Reply-To: <1492878796-31328-1-git-send-email-dsa@cumulusnetworks.com>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:33491 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S976572AbdDXSJo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 14:09:44 -0400
+In-Reply-To: <20170424130322.476-1-james.hughes@raspberrypi.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Ahern <dsa@cumulusnetworks.com>
-Date: Sat, 22 Apr 2017 09:33:16 -0700
+On Mon, 2017-04-24 at 14:03 +0100, James Hughes wrote:
+> The driver was making changes to the skb_header without
+> ensuring it was writable (i.e. uncloned).
+> This patch also removes some boiler plate header size
+> checking/adjustment code as that is also handled by the
+> skb_cow_header function used to make header writable.
+> 
+> This patch depends on
+> brcmfmac: Ensure pointer correctly set if skb data location changes
+> 
+> Signed-off-by: James Hughes <james.hughes@raspberrypi.org>
+> ---
+> Changes in v2
+>   Makes the _cow_ call at the entry point of the skb in to the
+>   stack, means only needs to be done once, and error handling
+>   is easier.
+>   Split a separate minor bug fix off to a separate patch (which
+>   this patch depends on)
 
-> systemd-sysctl is triggering a suspicious RCU usage message when
-> net.ipv4.tcp_early_demux or net.ipv4.udp_early_demux is changed via
-> a sysctl config file:
-> 
-> [   33.896184] ===============================
-> [   33.899558] [ ERR: suspicious RCU usage.  ]
-> [   33.900624] 4.11.0-rc7+ #104 Not tainted
-> [   33.901698] -------------------------------
-> [   33.903059] /home/dsa/kernel-2.git/net/ipv4/sysctl_net_ipv4.c:305 suspicious rcu_dereference_check() usage!
-> [   33.905724]
-> other info that might help us debug this:
-> 
-> [   33.907656]
-> rcu_scheduler_active = 2, debug_locks = 0
-> [   33.909288] 1 lock held by systemd-sysctl/143:
-> [   33.910373]  #0:  (sb_writers#5){.+.+.+}, at: [<ffffffff8123a370>] file_start_write+0x45/0x48
-> [   33.912407]
-> stack backtrace:
-> [   33.914018] CPU: 0 PID: 143 Comm: systemd-sysctl Not tainted 4.11.0-rc7+ #104
-> [   33.915631] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS 1.7.5-20140531_083030-gandalf 04/01/2014
-> [   33.917870] Call Trace:
-> [   33.918431]  dump_stack+0x81/0xb6
-> [   33.919241]  lockdep_rcu_suspicious+0x10f/0x118
-> [   33.920263]  proc_configure_early_demux+0x65/0x10a
-> [   33.921391]  proc_udp_early_demux+0x3a/0x41
-> 
-> add rcu locking to proc_configure_early_demux.
-> 
-> Fixes: dddb64bcb3461 ("net: Add sysctl to toggle early demux for tcp and udp")
-> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+Best way to handle dependencies is to send a patch series.
 
-Applied, thanks David.
+1/2 brcmfmac: Ensure pointer correctly set if skb data location changes
+2/2 brcmfmac: Make skb header writable before use
