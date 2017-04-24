@@ -1,73 +1,71 @@
-From: "Neftin, Sasha" <sasha.neftin@intel.com>
-Subject: Re: [Intel-wired-lan] [PATCH 1/2] e1000e: Don't return uninitialized
- stats
-Date: Mon, 24 Apr 2017 11:17:39 +0300
-Message-ID: <caef8d69-9e47-bbcc-0758-e5900e1cb291@intel.com>
-References: <20170421212012.25950-1-bpoirier@suse.com>
- <630A6B92B7EDEB45A87E20D3D286660171182EED@hasmsx109.ger.corp.intel.com>
+From: Juergen Borleis <jbe@pengutronix.de>
+Subject: Re: [PATCH net-next] net: dsa: LAN9303: add i2c dependency
+Date: Mon, 24 Apr 2017 10:22:04 +0200
+Message-ID: <201704241022.05686.jbe@pengutronix.de>
+References: <20170424080737.24897-1-tobias.regnery@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: intel-wired-lan@lists.osuosl.org,
-        "Ruinskiy, Dima" <dima.ruinskiy@intel.com>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:34475 "EHLO mga01.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1166559AbdDXIRm (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 24 Apr 2017 04:17:42 -0400
-In-Reply-To: <630A6B92B7EDEB45A87E20D3D286660171182EED@hasmsx109.ger.corp.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain;
+  charset="iso-8859-15"
+Content-Transfer-Encoding: 8BIT
+Cc: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
+        f.fainelli@gmail.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Tobias Regnery <tobias.regnery@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170424080737.24897-1-tobias.regnery@gmail.com>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 4/23/2017 15:53, Neftin, Sasha wrote:
-> -----Original Message-----
-> From: Intel-wired-lan [mailto:intel-wired-lan-bounces@lists.osuosl.org] On Behalf Of Benjamin Poirier
-> Sent: Saturday, April 22, 2017 00:20
-> To: Kirsher, Jeffrey T <jeffrey.t.kirsher@intel.com>
-> Cc: netdev@vger.kernel.org; intel-wired-lan@lists.osuosl.org; Stefan Priebe <s.priebe@profihost.ag>
-> Subject: [Intel-wired-lan] [PATCH 1/2] e1000e: Don't return uninitialized stats
+Hi Tobias,
+
+On Monday 24 April 2017 10:07:37 Tobias Regnery wrote:
+> The Kconfig symbol for the I2C mode of the LAN9303 driver selects
+> REGMAP_I2C. This symbol depends on I2C but the driver doesen't has a
+> dependency on I2C.
 >
-> Some statistics passed to ethtool are garbage because e1000e_get_stats64() doesn't write them, for example: tx_heartbeat_errors. This leaks kernel memory to userspace and confuses users.
+> With CONFIG_I2C=n kconfig fails to select REGMAP_I2C and we get the
+> following warning:
 >
-> Do like ixgbe and use dev_get_stats() which first zeroes out rtnl_link_stats64.
+> warning: (NET_DSA_SMSC_LAN9303_I2C) selects REGMAP_I2C which has unmet
+> direct dependencies (I2C)
 >
-> Reported-by: Stefan Priebe <s.priebe@profihost.ag>
-> Signed-off-by: Benjamin Poirier <bpoirier@suse.com>
+> This results in a build failure because the regmap-i2c functions aren't
+> available:
+>
+> drivers/base/regmap/regmap-i2c.c: In function 'regmap_smbus_byte_reg_read':
+> drivers/base/regmap/regmap-i2c.c:29:8: error: implicit declaration of function 'i2c_smbus_read_byte_data' [-Werror=implicit-function-declaration]
+>
+> drivers/base/regmap/regmap-i2c.c: In function 'regmap_smbus_byte_reg_write':
+> drivers/base/regmap/regmap-i2c.c:47:9: error: implicit declaration of function 'i2c_smbus_write_byte_data' [-Werror=implicit-function-declaration]
+> ... 
+>
+> Fix this by adding a kconfig dependency on the I2C subsystem.
+>
+> Fixes: be4e119f9914 ("net: dsa: LAN9303: add I2C managed mode support")
+> Signed-off-by: Tobias Regnery <tobias.regnery@gmail.com>
 > ---
->   drivers/net/ethernet/intel/e1000e/ethtool.c | 2 +-
->   1 file changed, 1 insertion(+), 1 deletion(-)
+>  drivers/net/dsa/Kconfig | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
 >
-> diff --git a/drivers/net/ethernet/intel/e1000e/ethtool.c b/drivers/net/ethernet/intel/e1000e/ethtool.c
-> index 7aff68a4a4df..f117b90cdc2f 100644
-> --- a/drivers/net/ethernet/intel/e1000e/ethtool.c
-> +++ b/drivers/net/ethernet/intel/e1000e/ethtool.c
-> @@ -2063,7 +2063,7 @@ static void e1000_get_ethtool_stats(struct net_device *netdev,
->   
->   	pm_runtime_get_sync(netdev->dev.parent);
->   
-> -	e1000e_get_stats64(netdev, &net_stats);
-> +	dev_get_stats(netdev, &net_stats);
->   
->   	pm_runtime_put_sync(netdev->dev.parent);
->   
-> --
-> 2.12.2
+> diff --git a/drivers/net/dsa/Kconfig b/drivers/net/dsa/Kconfig
+> index 131a5b1cbfc8..862ee22303c2 100644
+> --- a/drivers/net/dsa/Kconfig
+> +++ b/drivers/net/dsa/Kconfig
+> @@ -59,7 +59,7 @@ config NET_DSA_SMSC_LAN9303
 >
-> _______________________________________________
-> Intel-wired-lan mailing list
-> Intel-wired-lan@lists.osuosl.org
-> http://lists.osuosl.org/mailman/listinfo/intel-wired-lan
+>  config NET_DSA_SMSC_LAN9303_I2C
+>  	tristate "SMSC/Microchip LAN9303 3-ports 10/100 ethernet switch in I2C managed mode"
+> -	depends on NET_DSA 
+> +	depends on NET_DSA && I2C
+>  	select NET_DSA_SMSC_LAN9303
+>  	select REGMAP_I2C
+>  	---help---
 
-Hello,
+Thanks, but already found and fixed by Arnd Bergmann.
 
-We would like to not accept this patch. Suggested generic method 
-'*dev_get_stats' (net/core/dev.c) calls 'ops->ndo_get_stats64' method 
-which eventually calls e1000e_get_stats64 (netdev.c) - so there is same 
-functionality. Also, see that 'e1000e_get_stats64' method in netdev.c 
-(line 5928) calls 'memset' with 0's before update statistics.  Local 
-sanity check in our lab shows 'tx_heartbeat_errors' counter reported as 0.
+jb
 
-Thanks,
-
-Sasha
+-- 
+Pengutronix e.K.                             | Juergen Borleis             |
+Industrial Linux Solutions                   | http://www.pengutronix.de/  |
