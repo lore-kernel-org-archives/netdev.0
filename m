@@ -1,70 +1,160 @@
-From: James Hughes <james.hughes@raspberrypi.org>
-Subject: [PATCH v2] brcmfmac: Ensure pointer correctly set if skb data location changes
-Date: Mon, 24 Apr 2017 12:40:50 +0100
-Message-ID: <20170424114050.24948-1-james.hughes@raspberrypi.org>
-Cc: James Hughes <james.hughes@raspberrypi.org>
-To: Arend van Spriel <arend.vanspriel@broadcom.com>,
-        Franky Lin <franky.lin@broadcom.com>,
-        Hante Meuleman <hante.meuleman@broadcom.com>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        linux-wireless@vger.kernel.org,
-        brcm80211-dev-list.pdl@broadcom.com, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx07-00252a01.pphosted.com ([62.209.51.214]:9039 "EHLO
-        mx07-00252a01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1169138AbdDXLlD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 07:41:03 -0400
-Received: from pps.filterd (m0102628.ppops.net [127.0.0.1])
-        by mx07-00252a01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v3OBe6lm009014
-        for <netdev@vger.kernel.org>; Mon, 24 Apr 2017 12:41:02 +0100
-Received: from mail-wm0-f69.google.com (mail-wm0-f69.google.com [74.125.82.69])
-        by mx07-00252a01.pphosted.com with ESMTP id 29yvjys1vs-1
-        (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128 verify=OK)
-        for <netdev@vger.kernel.org>; Mon, 24 Apr 2017 12:41:01 +0100
-Received: by mail-wm0-f69.google.com with SMTP id 65so1744667wmi.2
-        for <netdev@vger.kernel.org>; Mon, 24 Apr 2017 04:41:01 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-The incoming skb header may be resized if header space is
-insufficient, which might change the data adddress in the skb.
-Ensure that a cached pointer to that data is correctly set by
-moving assignment to after any possible changes.
-
-Signed-off-by: James Hughes <james.hughes@raspberrypi.org>
-
-Acked-by: Arend van Spriel <arend.vanspriel@broadcom.com>
----
-Changes in v2
-
-Moved the assignment below the len check - saves a few cycles 
-if the length check fails. 
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH RFC] ptr_ring: add ptr_ring_unconsume
+Date: Mon, 24 Apr 2017 19:54:18 +0800
+Message-ID: <21a19608-40be-38d4-9843-088a273fd71a@redhat.com>
+References: <1492384496-22644-1-git-send-email-mst@redhat.com>
+ <0defb746-3d4b-14b3-1ad7-82842048ebba@redhat.com>
+ <20170424022711-mutt-send-email-mst@kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170424022711-mutt-send-email-mst@kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
- drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.c b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.c
-index 5eaac13e2317..9b7c19a508ac 100644
---- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.c
-+++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.c
-@@ -198,7 +198,7 @@ static netdev_tx_t brcmf_netdev_start_xmit(struct sk_buff *skb,
- 	int ret;
- 	struct brcmf_if *ifp = netdev_priv(ndev);
- 	struct brcmf_pub *drvr = ifp->drvr;
--	struct ethhdr *eh = (struct ethhdr *)(skb->data);
-+	struct ethhdr *eh;
- 
- 	brcmf_dbg(DATA, "Enter, bsscfgidx=%d\n", ifp->bsscfgidx);
- 
-@@ -236,6 +236,8 @@ static netdev_tx_t brcmf_netdev_start_xmit(struct sk_buff *skb,
- 		goto done;
- 	}
- 
-+	eh = (struct ethhdr *)(skb->data);
-+
- 	if (eh->h_proto == htons(ETH_P_PAE))
- 		atomic_inc(&ifp->pend_8021x_cnt);
- 
--- 
-2.11.0
+On 2017年04月24日 07:28, Michael S. Tsirkin wrote:
+> On Tue, Apr 18, 2017 at 11:07:42AM +0800, Jason Wang wrote:
+>>
+>> On 2017年04月17日 07:19, Michael S. Tsirkin wrote:
+>>> Applications that consume a batch of entries in one go
+>>> can benefit from ability to return some of them back
+>>> into the ring.
+>>>
+>>> Add an API for that - assuming there's space. If there's no space
+>>> naturally we can't do this and have to drop entries, but this implies
+>>> ring is full so we'd likely drop some anyway.
+>>>
+>>> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+>>> ---
+>>>
+>>> Jason, in my mind the biggest issue with your batching patchset is the
+>>> backet drops on disconnect.  This API will help avoid that in the common
+>>> case.
+>> Ok, I will rebase the series on top of this. (Though I don't think we care
+>> the packet loss).
+> E.g. I care - I often start sending packets to VM before it's
+> fully booted. Several vhost resets might follow.
+
+Ok.
+
+>
+>>> I would still prefer that we understand what's going on,
+>> I try to reply in another thread, does it make sense?
+>>
+>>>    and I would
+>>> like to know what's the smallest batch size that's still helpful,
+>> Yes, I've replied in another thread, the result is:
+>>
+>>
+>> no batching   1.88Mpps
+>> RX_BATCH=1    1.93Mpps
+>> RX_BATCH=4    2.11Mpps
+>> RX_BATCH=16   2.14Mpps
+>> RX_BATCH=64   2.25Mpps
+>> RX_BATCH=256  2.18Mpps
+> Essentially 4 is enough, other stuf looks more like noise
+> to me. What about 2?
+
+The numbers are pretty stable, so probably not noise. Retested on top of 
+batch zeroing:
+
+no  1.97Mpps
+1   2.09Mpps
+2   2.11Mpps
+4   2.16Mpps
+8   2.19Mpps
+16  2.21Mpps
+32  2.25Mpps
+64  2.30Mpps
+128 2.21Mpps
+256 2.21Mpps
+
+64 performs best.
+
+Thanks
+
+>
+>>>    but
+>>> I'm not going to block the patch on these grounds assuming packet drops
+>>> are fixed.
+>> Thanks a lot.
+>>
+>>> Lightly tested - this is on top of consumer batching patches.
+>>>
+>>> Thanks!
+>>>
+>>>    include/linux/ptr_ring.h | 57 ++++++++++++++++++++++++++++++++++++++++++++++++
+>>>    1 file changed, 57 insertions(+)
+>>>
+>>> diff --git a/include/linux/ptr_ring.h b/include/linux/ptr_ring.h
+>>> index 783e7f5..5fbeab4 100644
+>>> --- a/include/linux/ptr_ring.h
+>>> +++ b/include/linux/ptr_ring.h
+>>> @@ -457,6 +457,63 @@ static inline int ptr_ring_init(struct ptr_ring *r, int size, gfp_t gfp)
+>>>    	return 0;
+>>>    }
+>>> +/*
+>>> + * Return entries into ring. Destroy entries that don't fit.
+>>> + *
+>>> + * Note: this is expected to be a rare slow path operation.
+>>> + *
+>>> + * Note: producer lock is nested within consumer lock, so if you
+>>> + * resize you must make sure all uses nest correctly.
+>>> + * In particular if you consume ring in interrupt or BH context, you must
+>>> + * disable interrupts/BH when doing so.
+>>> + */
+>>> +static inline void ptr_ring_unconsume(struct ptr_ring *r, void **batch, int n,
+>>> +				      void (*destroy)(void *))
+>>> +{
+>>> +	unsigned long flags;
+>>> +	int head;
+>>> +
+>>> +	spin_lock_irqsave(&(r)->consumer_lock, flags);
+>>> +	spin_lock(&(r)->producer_lock);
+>>> +
+>>> +	if (!r->size)
+>>> +		goto done;
+>>> +
+>>> +	/*
+>>> +	 * Clean out buffered entries (for simplicity). This way following code
+>>> +	 * can test entries for NULL and if not assume they are valid.
+>>> +	 */
+>>> +	head = r->consumer_head - 1;
+>>> +	while (likely(head >= r->consumer_tail))
+>>> +		r->queue[head--] = NULL;
+>>> +	r->consumer_tail = r->consumer_head;
+>>> +
+>>> +	/*
+>>> +	 * Go over entries in batch, start moving head back and copy entries.
+>>> +	 * Stop when we run into previously unconsumed entries.
+>>> +	 */
+>>> +	while (n--) {
+>>> +		head = r->consumer_head - 1;
+>>> +		if (head < 0)
+>>> +			head = r->size - 1;
+>>> +		if (r->queue[head]) {
+>>> +			/* This batch entry will have to be destroyed. */
+>>> +			++n;
+>>> +			goto done;
+>>> +		}
+>>> +		r->queue[head] = batch[n];
+>>> +		r->consumer_tail = r->consumer_head = head;
+>>> +	}
+>>> +
+>>> +done:
+>>> +	/* Destroy all entries left in the batch. */
+>>> +	while (n--) {
+>>> +		destroy(batch[n]);
+>>> +	}
+>>> +	spin_unlock(&(r)->producer_lock);
+>>> +	spin_unlock_irqrestore(&(r)->consumer_lock, flags);
+>>> +}
+>>> +
+>>>    static inline void **__ptr_ring_swap_queue(struct ptr_ring *r, void **queue,
+>>>    					   int size, gfp_t gfp,
+>>>    					   void (*destroy)(void *))
