@@ -1,60 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2] ipv4: Avoid caching l3mdev dst on mismatched
- local route
-Date: Mon, 24 Apr 2017 12:52:52 -0400 (EDT)
-Message-ID: <20170424.125252.1943124382341210457.davem@davemloft.net>
-References: <f3a3ab2d-4a32-a3ec-6a72-071e56577017@brocade.com>
-        <1492806899-6215-1-git-send-email-rshearma@brocade.com>
+From: Manish Chopra <manish.chopra@cavium.com>
+Subject: [PATCH net-next 0/6] qed/qede: VF tunnelling support
+Date: Mon, 24 Apr 2017 10:00:43 -0700
+Message-ID: <20170424170049.16027-1-manish.chopra@cavium.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dsa@cumulusnetworks.com
-To: rshearma@brocade.com
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <Yuval.Mintz@cavium.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:54568 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S975060AbdDXQwy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 12:52:54 -0400
-In-Reply-To: <1492806899-6215-1-git-send-email-rshearma@brocade.com>
+Received: from mail-sn1nam01on0061.outbound.protection.outlook.com ([104.47.32.61]:33699
+        "EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S975226AbdDXRBU (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 24 Apr 2017 13:01:20 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Robert Shearman <rshearma@brocade.com>
-Date: Fri, 21 Apr 2017 21:34:59 +0100
+Hi David,
 
-> David reported that doing the following:
-> 
->     ip li add red type vrf table 10
->     ip link set dev eth1 vrf red
->     ip addr add 127.0.0.1/8 dev red
->     ip link set dev eth1 up
->     ip li set red up
->     ping -c1 -w1 -I red 127.0.0.1
->     ip li del red
-> 
-> when either policy routing IP rules are present or the local table
-> lookup ip rule is before the l3mdev lookup results in a hang with
-> these messages:
-> 
->     unregister_netdevice: waiting for red to become free. Usage count = 1
-> 
-> The problem is caused by caching the dst used for sending the packet
-> out of the specified interface on a local route with a different
-> nexthop interface. Thus the dst could stay around until the route in
-> the table the lookup was done is deleted which may be never.
-> 
-> Address the problem by not forcing output device to be the l3mdev in
-> the flow's output interface if the lookup didn't use the l3mdev. This
-> then results in the dst using the right device according to the route.
-> 
-> Changes in v2:
->  - make the dev_out passed in by __ip_route_output_key_hash correct
->    instead of checking the nh dev if FLOWI_FLAG_SKIP_NH_OIF is set as
->    suggested by David.
-> 
-> Fixes: 5f02ce24c2696 ("net: l3mdev: Allow the l3mdev to be a loopback")
-> Reported-by: David Ahern <dsa@cumulusnetworks.com>
-> Suggested-by: David Ahern <dsa@cumulusnetworks.com>
-> Signed-off-by: Robert Shearman <rshearma@brocade.com>
+With this series VFs can run vxlan/geneve/gre tunnels over it.
+Please consider applying this series to "net-next"
 
-Applied, thanks.
+Thanks,
+Manish
+
+Manish Chopra (6):
+  qed: refactor tunnelling - API/Structs
+  qed/qede: Enable tunnel offloads based on hw configuration
+  qede: Disable tunnel offloads for non offloaded UDP ports
+  qede: Configure UDP ports in local context.
+  qed/qede: Add UDP ports in bulletin board
+  qed - VF tunnelling support [VXLAN/GENEVE/GRE]
+
+ drivers/net/ethernet/qlogic/qed/qed.h             |  31 +-
+ drivers/net/ethernet/qlogic/qed/qed_dev.c         |  17 +-
+ drivers/net/ethernet/qlogic/qed/qed_dev_api.h     |   2 +-
+ drivers/net/ethernet/qlogic/qed/qed_l2.c          |  37 ++-
+ drivers/net/ethernet/qlogic/qed/qed_main.c        |  47 ++-
+ drivers/net/ethernet/qlogic/qed/qed_sp.h          |   4 +-
+ drivers/net/ethernet/qlogic/qed/qed_sp_commands.c | 330 +++++++++++-----------
+ drivers/net/ethernet/qlogic/qed/qed_sriov.c       | 240 ++++++++++++++++
+ drivers/net/ethernet/qlogic/qed/qed_sriov.h       |   9 +
+ drivers/net/ethernet/qlogic/qed/qed_vf.c          | 165 +++++++++++
+ drivers/net/ethernet/qlogic/qed/qed_vf.h          |  58 +++-
+ drivers/net/ethernet/qlogic/qede/qede.h           |   3 +-
+ drivers/net/ethernet/qlogic/qede/qede_filter.c    |  84 +++++-
+ drivers/net/ethernet/qlogic/qede/qede_fp.c        |  23 +-
+ drivers/net/ethernet/qlogic/qede/qede_main.c      |  56 ++--
+ include/linux/qed/qed_eth_if.h                    |   1 +
+ include/linux/qed/qed_if.h                        |   5 +
+ 17 files changed, 857 insertions(+), 255 deletions(-)
+
+-- 
+2.7.2
