@@ -1,106 +1,43 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [PATCH net] bridge: shutdown bridge device before removing it
-Date: Mon, 24 Apr 2017 15:07:26 +0300
-Message-ID: <6144408f-4cfd-dd87-7444-8c61269b105a@cumulusnetworks.com>
-References: <a8b2b2c876f416431dac031a0beb7ce079c7d0a9.1493018730.git.lucien.xin@gmail.com>
- <3d77b47d-c8c3-de57-946e-59096a88964e@cumulusnetworks.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: net: cleanup_net is slow
+Date: Mon, 24 Apr 2017 14:08:35 +0200
+Message-ID: <20170424120835.GA20444@breakpoint.cc>
+References: <CAAeHK+yJXMo8kr_p8iM_dicVGQCtwQhdk=rdE+9dNbsoghAb6Q@mail.gmail.com>
+ <CANn89i+iYtPLGDZpt3qk_cA-dq+004B=1qjP0ZygY3oREskQYA@mail.gmail.com>
+ <20170421192729.GA8853@breakpoint.cc>
+ <20170421194515.GB8853@breakpoint.cc>
+ <CAAeHK+zwsdzVrgwLccbXs7QUEsFkeTL13_AfNKMD1G2BkOr0eg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        "bridge@lists.linux-foundation.org"
-        <bridge@lists.linux-foundation.org>
-To: Xin Long <lucien.xin@gmail.com>,
-        network dev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f178.google.com ([209.85.128.178]:32803 "EHLO
-        mail-wr0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1169486AbdDXMH3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 08:07:29 -0400
-Received: by mail-wr0-f178.google.com with SMTP id w50so67016005wrc.0
-        for <netdev@vger.kernel.org>; Mon, 24 Apr 2017 05:07:28 -0700 (PDT)
-In-Reply-To: <3d77b47d-c8c3-de57-946e-59096a88964e@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Westphal <fw@strlen.de>,
+        Eric Dumazet <edumazet@google.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Andrey Konovalov <andreyknvl@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAAeHK+zwsdzVrgwLccbXs7QUEsFkeTL13_AfNKMD1G2BkOr0eg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 24/04/17 14:01, Nikolay Aleksandrov wrote:
-> On 24/04/17 10:25, Xin Long wrote:
->> During removing a bridge device, if the bridge is still up, a new mdb entry
->> still can be added in br_multicast_add_group() after all mdb entries are
->> removed in br_multicast_dev_del(). Like the path:
->>
->>   mld_ifc_timer_expire ->
->>     mld_sendpack -> ...
->>       br_multicast_rcv ->
->>         br_multicast_add_group
->>
->> The new mp's timer will be set up. If the timer expires after the bridge
->> is freed, it may cause use-after-free panic in br_multicast_group_expired.
->> This can happen when ip link remove a bridge or destroy a netns with a
->> bridge device inside.
->>
->> As we can see in br_del_bridge, brctl is also supposed to remove a bridge
->> device after it's shutdown.
->>
->> This patch is to call dev_close at the beginning of br_dev_delete so that
->> netif_running check in br_multicast_add_group can avoid this issue. But
->> to keep consistent with before, it will not remove the IFF_UP check in
->> br_del_bridge for brctl.
->>
->> Reported-by: Jianwen Ji <jiji@redhat.com>
->> Signed-off-by: Xin Long <lucien.xin@gmail.com>
->> ---
->>  net/bridge/br_if.c | 2 ++
->>  1 file changed, 2 insertions(+)
->>
+Andrey Konovalov <andreyknvl@google.com> wrote:
+> On Fri, Apr 21, 2017 at 9:45 PM, Florian Westphal <fw@strlen.de> wrote:
+> > Florian Westphal <fw@strlen.de> wrote:
+> >> Indeed.  Setting net.netfilter.nf_conntrack_default_on=0 cuts time
+> >> cleanup time by 2/3 ...
+> >>
+> >> nf unregister is way too happy to issue synchronize_net(), I'll work on
+> >> a fix.
+> >
+> > I'll test this patch as a start.  Maybe we can also leverage exit_batch
+> > more on netfilter side.
 > 
-> +CC bridge maintainers
+> Hi Florian,
 > 
-> I can see how this could happen, could you also provide the traceback ?
-> 
-> The patch looks good to me, actually I think it fixes another issue with
-> mcast stats where the percpu pointer can be accessed after it's freed if
-> an mcast packet can get sent via br->dev after the br_multicast_dev_del() call.
-> This is definitely stable material, if I'm not mistaken the issue is there since
-> the introduction of br_dev_delete:
-> commit e10177abf842
-> Author: Satish Ashok <sashok@cumulusnetworks.com>
-> Date:   Wed Jul 15 07:16:51 2015 -0700
-> 
->     bridge: multicast: fix handling of temp and perm entries
-> 
-> 
-> 
-> Acked-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-> 
+> Your patch improves fuzzing speed at least twice, which is a great start!
 
-Actually I have a better idea for a fix because dev_close() for a single device is rather heavy.
-Why don't you move the mdb flush logic in the bridge's ndo_uninit() callback ?
-That should have the same effect and be much faster.
-
-By the way I just noticed that there's also a memory leak - the mdb hash is reallocated
-and not freed due to the mdb rehash, here's also kmemleak's object:
-
-unreferenced object 0xffff8800540ba800 (size 2048):
-  comm "softirq", pid 0, jiffies 4520588901 (age 5787.284s)
-  hex dump (first 32 bytes):
-    00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
-    00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
-  backtrace:
-    [<ffffffff816e2287>] kmemleak_alloc+0x67/0xc0
-    [<ffffffff81260bea>] __kmalloc+0x1ba/0x3e0
-    [<ffffffffa05c60ee>] br_mdb_rehash+0x5e/0x340 [bridge]
-    [<ffffffffa05c74af>] br_multicast_new_group+0x43f/0x6e0 [bridge]
-    [<ffffffffa05c7aa3>] br_multicast_add_group+0x203/0x260 [bridge]
-    [<ffffffffa05ca4b5>] br_multicast_rcv+0x945/0x11d0 [bridge]
-    [<ffffffffa05b6b10>] br_dev_xmit+0x180/0x470 [bridge]
-    [<ffffffff815c781b>] dev_hard_start_xmit+0xbb/0x3d0
-    [<ffffffff815c8743>] __dev_queue_xmit+0xb13/0xc10
-    [<ffffffff815c8850>] dev_queue_xmit+0x10/0x20
-    [<ffffffffa02f8d7a>] ip6_finish_output2+0x5ca/0xac0 [ipv6]
-    [<ffffffffa02fbfc6>] ip6_finish_output+0x126/0x2c0 [ipv6]
-    [<ffffffffa02fc245>] ip6_output+0xe5/0x390 [ipv6]
-    [<ffffffffa032b92c>] NF_HOOK.constprop.44+0x6c/0x240 [ipv6]
-    [<ffffffffa032bd16>] mld_sendpack+0x216/0x3e0 [ipv6]
-    [<ffffffffa032d5eb>] mld_ifc_timer_expire+0x18b/0x2b0 [ipv6]
+Great.  I'll try to push the patches i have to nf-next ASAP.
