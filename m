@@ -1,29 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4 1/5] skbuff: return -EMSGSIZE in skb_to_sgvec to
- prevent overflow
-Date: Tue, 25 Apr 2017 11:17:17 -0400 (EDT)
-Message-ID: <20170425.111717.1973239615715123840.davem@davemloft.net>
-References: <20170425.104731.631398016575024152.davem@davemloft.net>
-	<20170425150419.2060-1-Jason@zx2c4.com>
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: Re: [PATCH] macsec: avoid heap overflow in skb_to_sgvec
+Date: Tue, 25 Apr 2017 17:12:48 +0200
+Message-ID: <20170425151248.GB25241@bistromath.localdomain>
+References: <20170421211448.16995-1-Jason@zx2c4.com>
+ <20170425145340.GA25241@bistromath.localdomain>
+ <CAHmME9ovUDJRDA+Td4Y0bfQZEG5pZQo1JC0nYDVqWMOdxAe5kQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
- David.Laight@aculab.com, kernel-hardening@lists.openwall.com
-To: Jason@zx2c4.com
-Return-path: <kernel-hardening-return-7563-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-In-Reply-To: <20170425150419.2060-1-Jason@zx2c4.com>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: Netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        David Miller <davem@davemloft.net>, stable@vger.kernel.org,
+        security@kernel.org
+To: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:52328 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1949160AbdDYPMw (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 25 Apr 2017 11:12:52 -0400
+Content-Disposition: inline
+In-Reply-To: <CAHmME9ovUDJRDA+Td4Y0bfQZEG5pZQo1JC0nYDVqWMOdxAe5kQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+2017-04-25, 17:08:28 +0200, Jason A. Donenfeld wrote:
+> Hi Sabrina,
+> 
+> On Tue, Apr 25, 2017 at 4:53 PM, Sabrina Dubroca <sd@queasysnail.net> wrote:
+> > Ugh, good catch :/
+> >
+> > AFAICT this patch doesn't really help, because NETIF_F_FRAGLIST
+> > doesn't get tested in paths that can lead to triggering this.
+> 
+> You're right. This fixes the xmit() path, but not the receive path,
+> which appears to take skbs directly from the upper device.
+> 
+> > I'll post a patch to allocate a properly-sized sg array.
+> 
+> I just posted this series, which should fix things in a robust way:
+> 
+> https://patchwork.ozlabs.org/patch/754861/
 
-John this isn't how it works.
+Yes, that prevents the overflow, but now you're just dropping
+packets. I'll review that later, let's fix the overflow without
+breaking connectivity for now.
 
-When you submit new versions of a patch that are part of a patch
-series, you must resubmit the entire series not just the patches which
-are changing.
-
-Thanks.
+-- 
+Sabrina
