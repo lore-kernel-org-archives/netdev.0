@@ -1,47 +1,83 @@
-From: Alexander Kochetkov <al.kochet@gmail.com>
-Subject: Re: [PATCH v1] net: phy: fix auto-negotiation stall due to unavailable interrupt
-Date: Tue, 25 Apr 2017 18:25:30 +0300
-Message-ID: <B99ADC0E-A793-4334-A086-9F2CE045AB7E@gmail.com>
-References: <1492686004-30527-1-git-send-email-al.kochet@gmail.com> <1492686004-30527-2-git-send-email-al.kochet@gmail.com> <20170425.103644.75674234677063517.davem@davemloft.net>
-Mime-Version: 1.0 (Mac OS X Mail 9.3 \(3124\))
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
-        LKML <linux-kernel@vger.kernel.org>,
-        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-        Roger Quadros <rogerq@ti.com>,
-        Madalin Bucur <madalin.bucur@nxp.com>,
-        Alexandre Belloni <alexandre.belloni@free-electrons.com>
-To: David Miller <davem@davemloft.net>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [ISSUE: sky2 - rx error] Link stops working under heavy traffic
+ load connected to a mv88e6176
+Date: Tue, 25 Apr 2017 08:27:41 -0700
+Message-ID: <20170425082741.59428876@xeon-e3>
+References: <58F9FD64.80506@aoifes.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Rafa Corvillo <rafael.corvillo@aoifes.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f65.google.com ([209.85.215.65]:34935 "EHLO
-        mail-lf0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1949932AbdDYPZe (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 11:25:34 -0400
-In-Reply-To: <20170425.103644.75674234677063517.davem@davemloft.net>
+Received: from mail-it0-f45.google.com ([209.85.214.45]:35939 "EHLO
+        mail-it0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1948960AbdDYP1y (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 11:27:54 -0400
+Received: by mail-it0-f45.google.com with SMTP id g66so20956884ite.1
+        for <netdev@vger.kernel.org>; Tue, 25 Apr 2017 08:27:54 -0700 (PDT)
+In-Reply-To: <58F9FD64.80506@aoifes.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello David!
+On Fri, 21 Apr 2017 14:39:00 +0200
+Rafa Corvillo <rafael.corvillo@aoifes.com> wrote:
 
-> 25 =D0=B0=D0=BF=D1=80. 2017 =D0=B3., =D0=B2 17:36, David Miller =
-<davem@davemloft.net> =D0=BD=D0=B0=D0=BF=D0=B8=D1=81=D0=B0=D0=BB(=D0=B0):
->=20
-> So... what are we doing here?
->=20
-> My understanding is that this should fix the same problem that commit
-> 99f81afc139c6edd14d77a91ee91685a414a1c66 ("phy: micrel: Disable auto
-> negotiation on startup") fixed and that this micrel commit should thus
-> be reverted to improve MAC startup times which regressed.
->=20
-> Florian, any guidance?
+> We are working in an ARMv7 embedded system running kernel 4.9 (LEDE build).
+> It is an imx6 board with 2 ethernet interfaces. One of them is connected to
+> a Marvell switch.
+> 
+> The schema of the system is the following:
+> 
+>   +-------------------+ eth0
+>   |                   +--+
+>   |                   |  |
+>   | Embedded system   +--+
+>   |                   |
+>   |      ARMv7        |
+>   |                   | Marvell 88E8057(sky2) +-------------+
+>   |                   +--+ +--+             +--+ eth1
+>   |                   |  +---------------------+ |             |  +------+
+>   |                   +--+      CPU port       +--+ mv88e6176  +--+
+>   +------+--+---------+ |             |
+> emulated|  | |             |
+> GPIO    +--+ +--+             +--+ eth2
+> MDIO      +-----------------------------------+ |             |  +------+
+>                                MDIO +--+             +--+
+> +-------------+
+> 
+> There is a bridge (br-lan) which includes eth0/eth1/eth2
+> 
+> If I connect the eth1/eth2, the link is up and I can do ping through it. 
+> But, once
+> I start sending a heavy traffic load the link fails and the kernel sends the
+> following messages:
+> 
+> [   48.557140] sky2 0000:04:00.0 marvell: rx error, status 0x5f20010 
+> length 1518
+> [   48.564964] sky2 0000:04:00.0 marvell: rx error, status 0x5f20010 
+> length 1518
+> [   48.572110] sky2 0000:04:00.0 marvell: rx error, status 0x5f20010 
+> length 1518
+> [   48.579263] sky2 0000:04:00.0 marvell: rx error, status 0x5f20010 
+> length 1518
+> [   48.586417] sky2 0000:04:00.0 marvell: rx error, status 0x5f20010 
+> length 1518
+> [   48.593573] sky2 0000:04:00.0 marvell: rx error, status 0x5f20010 
+> length 1518
+> [   48.600718] sky2 0000:04:00.0 marvell: rx error, status 0x5f20010 
+> length 1518
+> [   54.877567] net_ratelimit: 6 callbacks suppressed
+> [   54.882293] sky2 0000:04:00.0 marvell: rx error, status 0x5f20010 
+> length 1518
+> [   61.413552] sky2 0000:04:00.0 marvell: rx error, status 0x5f20010 
+> length 1518
 
-Yes, this should be done.
+The status error bits are in sky2.h
+0x5f20010 is
+     05f2 frame length => 1522 
+     0010 Too long err
 
-I aksed Alexandre to check if 99f81afc139c6edd14d77a91ee91685a414a1c66 =
-("phy: micrel: Disable auto
-negotiation on startup=C2=BB) can be reverted, and he answered what it =
-may do that
-sometime this/next week.
-
-Alexander.
+That means the packet was longer than the configured MTU.
+You are probably getting packets with VLAN tag but have not configured
+a VLAN.
