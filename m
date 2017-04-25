@@ -1,111 +1,40 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [Intel-wired-lan] [PATCH] ixgbe: initialize u64_stats_sync
- structures early at ixgbe_probe
-Date: Tue, 25 Apr 2017 08:07:49 -0700
-Message-ID: <CAKgT0UeTdY9j1qDHP=DscgAZF2pPFCb+=ACySqKBK+UuBsaNBA@mail.gmail.com>
-References: <1480909244-16460-1-git-send-email-liwei.song@windriver.com> <EF50CC0C76A53A44BAD798C58E0A157E50B87CBB@ORSMSX103.amr.corp.intel.com>
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Subject: Re: [PATCH] macsec: avoid heap overflow in skb_to_sgvec
+Date: Tue, 25 Apr 2017 17:08:28 +0200
+Message-ID: <CAHmME9ovUDJRDA+Td4Y0bfQZEG5pZQo1JC0nYDVqWMOdxAe5kQ@mail.gmail.com>
+References: <20170421211448.16995-1-Jason@zx2c4.com> <20170425145340.GA25241@bistromath.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: "Song, Liwei (Wind River)" <liwei.song@windriver.com>,
-        "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "Singh, Krishneil K" <krishneil.k.singh@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f193.google.com ([209.85.223.193]:33575 "EHLO
-        mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S968135AbdDYPHu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 11:07:50 -0400
-In-Reply-To: <EF50CC0C76A53A44BAD798C58E0A157E50B87CBB@ORSMSX103.amr.corp.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        David Miller <davem@davemloft.net>, stable@vger.kernel.org,
+        security@kernel.org
+To: Sabrina Dubroca <sd@queasysnail.net>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <20170425145340.GA25241@bistromath.localdomain>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 24, 2017 at 4:00 PM, Singh, Krishneil K
-<krishneil.k.singh@intel.com> wrote:
->
->
->
-> -----Original Message-----
-> From: Intel-wired-lan [mailto:intel-wired-lan-bounces@lists.osuosl.org] O=
-n Behalf Of Liwei Song
-> Sent: Sunday, December 4, 2016 7:41 PM
-> To: Kirsher, Jeffrey T <jeffrey.t.kirsher@intel.com>
-> Cc: netdev@vger.kernel.org; intel-wired-lan@lists.osuosl.org; linux-kerne=
-l@vger.kernel.org; Song, Liwei (Wind River) <liwei.song@windriver.com>
-> Subject: [Intel-wired-lan] [PATCH] ixgbe: initialize u64_stats_sync struc=
-tures early at ixgbe_probe
->
-> Fix the following CallTrace:
-> INFO: trying to register non-static key.
-> the code is fine but needs lockdep annotation.
-> turning off the locking correctness validator.
-> CPU: 71 PID: 1 Comm: swapper/0 Not tainted 4.8.8-WR9.0.0.1_standard #11 H=
-ardware name: Intel Corporation S2600WTT/S2600WTT, BIOS GRNDSDP1.86B.0036.R=
-05.1407140519 07/14/2014
->  00200086 00200086 eb5e1ab8 c144dd70 00000000 00000000 eb5e1af8 c10af89a
->  c1d23de4 eb5e1af8 00000009 eb5d8600 eb5d8638 eb5e1af8 c10b14d8 00000009 =
- 0000000a c1d32911 00000000 00000000 e44c826c eb5d8000 eb5e1b74 c10b214e Ca=
-ll Trace:
->  [<c144dd70>] dump_stack+0x5f/0x8f
->  [<c10af89a>] register_lock_class+0x25a/0x4c0  [<c10b14d8>] ? check_irq_u=
-sage+0x88/0xc0  [<c10b214e>] __lock_acquire+0x5e/0x17a0  [<c1abdb9b>] ? _ra=
-w_spin_unlock_irqrestore+0x3b/0x70
->  [<c10cf14a>] ? rcu_read_lock_sched_held+0x8a/0x90
->  [<c10b3c5f>] lock_acquire+0x9f/0x1f0
->  [<c1922dcf>] ? dev_get_stats+0x5f/0x110  [<c176e6b3>] ixgbe_get_stats64+=
-0x113/0x320  [<c1922dcf>] ? dev_get_stats+0x5f/0x110  [<c1922dcf>] dev_get_=
-stats+0x5f/0x110  [<c1ab5415>] rtnl_fill_stats+0x40/0x105  [<c193dd45>] rtn=
-l_fill_ifinfo+0x4c5/0xd20  [<c11c5115>] ? __kmalloc_node_track_caller+0x1a5=
-/0x410
->  [<c1917487>] ? __kmalloc_reserve.isra.42+0x27/0x80
->  [<c191754f>] ? __alloc_skb+0x6f/0x270
->  [<c1942291>] rtmsg_ifinfo_build_skb+0x71/0xd0  [<c194230a>] rtmsg_ifinfo=
-.part.23+0x1a/0x50  [<c1923dad>] ? call_netdevice_notifiers_info+0x2d/0x60
->  [<c194236b>] rtmsg_ifinfo+0x2b/0x40
->  [<c192f997>] register_netdevice+0x3d7/0x4d0  [<c192faa7>] register_netde=
-v+0x17/0x30  [<c177b83d>] ixgbe_probe+0x118d/0x1610  [<c1498202>] local_pci=
-_probe+0x32/0x80  [<c1498172>] ? pci_match_device+0xd2/0x100  [<c14991e0>] =
-pci_device_probe+0xc0/0x110  [<c1652cc5>] driver_probe_device+0x1c5/0x280  =
-[<c1498172>] ? pci_match_device+0xd2/0x100  [<c1652e09>] __driver_attach+0x=
-89/0x90  [<c1652d80>] ? driver_probe_device+0x280/0x280  [<c165114f>] bus_f=
-or_each_dev+0x4f/0x80  [<c165269e>] driver_attach+0x1e/0x20  [<c1652d80>] ?=
- driver_probe_device+0x280/0x280  [<c1652317>] bus_add_driver+0x1a7/0x220  =
-[<c1653a79>] driver_register+0x59/0xe0  [<c1f897b8>] ? igb_init_module+0x49=
-/0x49  [<c1497b2a>] __pci_register_driver+0x4a/0x50  [<c1f8985d>] ixgbe_ini=
-t_module+0xa5/0xc4  [<c1000485>] do_one_initcall+0x35/0x150  [<c107e818>] ?=
- parameq+0x18/0x70  [<c1f395d8>] ? repair_env_string+0x12/0x51  [<c107ead0>=
-] ? parse_args+0x260/0x3b0  [<c1074f73>] ? __usermodehelper_set_disable_dep=
-th+0x43/0x50
->  [<c1f39e90>] kernel_init_freeable+0x19b/0x267  [<c1f395c6>] ? set_debug_=
-rodata+0xf/0xf  [<c10b1e7b>] ? trace_hardirqs_on+0xb/0x10  [<c1abdc02>] ? _=
-raw_spin_unlock_irq+0x32/0x50  [<c1085f0b>] ? finish_task_switch+0xab/0x1f0=
-  [<c1085ec9>] ? finish_task_switch+0x69/0x1f0  [<c1ab6a30>] kernel_init+0x=
-10/0x110  [<c108bd65>] ? schedule_tail+0x25/0x80  [<c1abe422>] ret_from_ker=
-nel_thread+0xe/0x24  [<c1ab6a20>] ? rest_init+0x130/0x130
->
-> This CallTrace occurred on 32-bit kernel with CONFIG_PROVE_LOCKING enable=
-d.
->
-> This happens at ixgbe driver probe hardware stage, when comes to ixgbe_ge=
-t_stats64, the seqcount/seqlock still not initialize, although this was ini=
-tialize in TX/RX resources setup routin, but it was too late, then lockdep =
-give this Warning.
->
-> To fix this, move the u64_stats_init function to driver probe stage, whic=
-h before we get the status of seqcount and after the RX/TX ring was finishe=
-d init.
->
-> Signed-off-by: Liwei Song <liwei.song@windriver.com>
-> ---
->
-> Tested-by: Krishneil Singh  <krishneil.k.singh@intel.com>
+Hi Sabrina,
 
-This patch doesn't look right to me. I would suggest rejecting it.
+On Tue, Apr 25, 2017 at 4:53 PM, Sabrina Dubroca <sd@queasysnail.net> wrote:
+> Ugh, good catch :/
+>
+> AFAICT this patch doesn't really help, because NETIF_F_FRAGLIST
+> doesn't get tested in paths that can lead to triggering this.
 
-The call to initialize the stats should be done when the ring is
-allocated, not in ixgbe_probe(). This should probably be done in
-ixgbe_alloc_q_vector() instead.
+You're right. This fixes the xmit() path, but not the receive path,
+which appears to take skbs directly from the upper device.
 
-- Alex
+> I'll post a patch to allocate a properly-sized sg array.
+
+I just posted this series, which should fix things in a robust way:
+
+https://patchwork.ozlabs.org/patch/754861/
+
+If you want to handle fraglists, it might be a decent idea to allocate
+things of the proper size, I guess. It's a good opportunity to call
+skb_cow_data, which you need to do anyway when modifying skbs, I
+think.
+
+Jason
