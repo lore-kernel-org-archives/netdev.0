@@ -1,124 +1,79 @@
-From: Logan Gunthorpe <logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH v2 08/21] dm-crypt: Make use of the new sg_map helper in 4
- call sites
-Date: Tue, 25 Apr 2017 12:20:55 -0600
-Message-ID: <1493144468-22493-9-git-send-email-logang@deltatee.com>
+From: Logan Gunthorpe <logang@deltatee.com>
+Subject: [PATCH v2 05/21] drm/i915: Make use of the new sg_map
+	helper function
+Date: Tue, 25 Apr 2017 12:20:52 -0600
+Message-ID: <1493144468-22493-6-git-send-email-logang@deltatee.com>
 References: <1493144468-22493-1-git-send-email-logang@deltatee.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Jens Axboe <axboe-tSWWG44O7X1aa/9Udqfwiw@public.gmane.org>,
- "James E.J. Bottomley" <jejb-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
- Mike Snitzer <snitzer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
- "Martin K. Petersen" <martin.petersen-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
- Matthew Wilcox <mawilcox-0li6OtcxBFHby3iVrkZq2A@public.gmane.org>,
- Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
- Sumit Semwal <sumit.semwal-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>,
- Alasdair Kergon <agk-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-crypto-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org,
- intel-gfx-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org, linux-raid-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-nvdimm-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org,
- linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org,
- megaraidlinux.pdl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, sparmaintainer-GLv8BlqOqDDQT0dZR+AlfA@public.gmane.org,
- devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org, target-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dm-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
-Return-path: <linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
-In-Reply-To: <1493144468-22493-1-git-send-email-logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
-List-Unsubscribe: <https://lists.01.org/mailman/options/linux-nvdimm>,
- <mailto:linux-nvdimm-request-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.01.org/pipermail/linux-nvdimm/>
-List-Post: <mailto:linux-nvdimm-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
-List-Help: <mailto:linux-nvdimm-request-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.01.org/mailman/listinfo/linux-nvdimm>,
- <mailto:linux-nvdimm-request-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org?subject=subscribe>
-Errors-To: linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org
-Sender: "Linux-nvdimm" <linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Jens Axboe <axboe@kernel.dk>,
+ "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
+ "Martin K. Petersen" <martin.petersen@oracle.com>,
+ Matthew Wilcox <mawilcox@microsoft.com>,
+ Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+ Sumit Semwal <sumit.semwal@linaro.org>,
+ Ross Zwisler <ross.zwisler@linux.intel.com>,
+ Dan Williams <dan.j.williams@intel.com>, Stephen Bates <sbates@raithlin.com>,
+ Logan Gunthorpe <logang@deltatee.com>, Christoph Hellwig <hch@lst.de>
+To: linux-kernel@vger.kernel.org, linux-crypto@vger.kernel.org,
+ linux-media@vger.kernel.org, dri-devel@lists.freedesktop.org,
+ intel-gfx@lists.freedesktop.org, linux-raid@vger.kernel.org,
+ linux-mmc@vger.kernel.org, linux-nvdimm@lists.01.org,
+ linux-scsi@vger.kernel.org, open-iscsi@googlegroups.com,
+ megaraidlinux.pdl@broadcom.com, sparmaintainer@unisys.com,
+ devel@driverdev.osuosl.org, target-devel@vger.kernel.org,
+ netdev@vger.kernel.org, linux-rdma@vger.kernel.org, dm-devel@redhat.com
+Return-path: <intel-gfx-bounces@lists.freedesktop.org>
+In-Reply-To: <1493144468-22493-1-git-send-email-logang@deltatee.com>
+List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/intel-gfx>,
+ <mailto:intel-gfx-request@lists.freedesktop.org?subject=unsubscribe>
+List-Archive: <https://lists.freedesktop.org/archives/intel-gfx>
+List-Post: <mailto:intel-gfx@lists.freedesktop.org>
+List-Help: <mailto:intel-gfx-request@lists.freedesktop.org?subject=help>
+List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/intel-gfx>,
+ <mailto:intel-gfx-request@lists.freedesktop.org?subject=subscribe>
+Errors-To: intel-gfx-bounces@lists.freedesktop.org
+Sender: "Intel-gfx" <intel-gfx-bounces@lists.freedesktop.org>
 List-Id: netdev.vger.kernel.org
 
-Very straightforward conversion to the new function in all four spots.
-
-Signed-off-by: Logan Gunthorpe <logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
-Cc: Alasdair Kergon <agk-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Cc: Mike Snitzer <snitzer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
----
- drivers/md/dm-crypt.c | 39 ++++++++++++++++++++++++++-------------
- 1 file changed, 26 insertions(+), 13 deletions(-)
-
-diff --git a/drivers/md/dm-crypt.c b/drivers/md/dm-crypt.c
-index 8dbecf1..841f1fc 100644
---- a/drivers/md/dm-crypt.c
-+++ b/drivers/md/dm-crypt.c
-@@ -635,9 +635,12 @@ static int crypt_iv_lmk_gen(struct crypt_config *cc, u8 *iv,
- 
- 	if (bio_data_dir(dmreq->ctx->bio_in) == WRITE) {
- 		sg = crypt_get_sg_data(cc, dmreq->sg_in);
--		src = kmap_atomic(sg_page(sg));
--		r = crypt_iv_lmk_one(cc, iv, dmreq, src + sg->offset);
--		kunmap_atomic(src);
-+		src = sg_map(sg, 0, SG_KMAP_ATOMIC);
-+		if (IS_ERR(src))
-+			return PTR_ERR(src);
-+
-+		r = crypt_iv_lmk_one(cc, iv, dmreq, src);
-+		sg_unmap(sg, src, 0, SG_KMAP_ATOMIC);
- 	} else
- 		memset(iv, 0, cc->iv_size);
- 
-@@ -655,14 +658,18 @@ static int crypt_iv_lmk_post(struct crypt_config *cc, u8 *iv,
- 		return 0;
- 
- 	sg = crypt_get_sg_data(cc, dmreq->sg_out);
--	dst = kmap_atomic(sg_page(sg));
--	r = crypt_iv_lmk_one(cc, iv, dmreq, dst + sg->offset);
-+	dst = sg_map(sg, 0, SG_KMAP_ATOMIC);
-+	if (IS_ERR(dst))
-+		return PTR_ERR(dst);
-+
-+	r = crypt_iv_lmk_one(cc, iv, dmreq, dst);
- 
- 	/* Tweak the first block of plaintext sector */
- 	if (!r)
--		crypto_xor(dst + sg->offset, iv, cc->iv_size);
-+		crypto_xor(dst, iv, cc->iv_size);
-+
-+	sg_unmap(sg, dst, 0, SG_KMAP_ATOMIC);
- 
--	kunmap_atomic(dst);
- 	return r;
- }
- 
-@@ -786,9 +793,12 @@ static int crypt_iv_tcw_gen(struct crypt_config *cc, u8 *iv,
- 	/* Remove whitening from ciphertext */
- 	if (bio_data_dir(dmreq->ctx->bio_in) != WRITE) {
- 		sg = crypt_get_sg_data(cc, dmreq->sg_in);
--		src = kmap_atomic(sg_page(sg));
--		r = crypt_iv_tcw_whitening(cc, dmreq, src + sg->offset);
--		kunmap_atomic(src);
-+		src = sg_map(sg, 0, SG_KMAP_ATOMIC);
-+		if (IS_ERR(src))
-+			return PTR_ERR(src);
-+
-+		r = crypt_iv_tcw_whitening(cc, dmreq, src);
-+		sg_unmap(sg, src, 0, SG_KMAP_ATOMIC);
- 	}
- 
- 	/* Calculate IV */
-@@ -812,9 +822,12 @@ static int crypt_iv_tcw_post(struct crypt_config *cc, u8 *iv,
- 
- 	/* Apply whitening on ciphertext */
- 	sg = crypt_get_sg_data(cc, dmreq->sg_out);
--	dst = kmap_atomic(sg_page(sg));
--	r = crypt_iv_tcw_whitening(cc, dmreq, dst + sg->offset);
--	kunmap_atomic(dst);
-+	dst = sg_map(sg, 0, SG_KMAP_ATOMIC);
-+	if (IS_ERR(dst))
-+		return PTR_ERR(dst);
-+
-+	r = crypt_iv_tcw_whitening(cc, dmreq, dst);
-+	sg_unmap(sg, dst, 0, SG_KMAP_ATOMIC);
- 
- 	return r;
- }
--- 
-2.1.4
+VGhpcyBpcyBhIHNpbmdsZSBzdHJhaWdodGZvcndhcmQgY29udmVyc2lvbiBmcm9tIGttYXAgdG8g
+c2dfbWFwLgoKV2UgYWxzbyBjcmVhdGUgdGhlIGk5MTVfZ2VtX29iamVjdF91bm1hcCBmdW5jdGlv
+biB0byBjb21tb24gdXAgdGhlCnVubWFwIGNvZGUuCgpTaWduZWQtb2ZmLWJ5OiBMb2dhbiBHdW50
+aG9ycGUgPGxvZ2FuZ0BkZWx0YXRlZS5jb20+CkFja2VkLWJ5OiBEYW5pZWwgVmV0dGVyIDxkYW5p
+ZWwudmV0dGVyQGZmd2xsLmNoPgotLS0KIGRyaXZlcnMvZ3B1L2RybS9pOTE1L2k5MTVfZ2VtLmMg
+fCAyNyArKysrKysrKysrKysrKysrLS0tLS0tLS0tLS0KIDEgZmlsZSBjaGFuZ2VkLCAxNiBpbnNl
+cnRpb25zKCspLCAxMSBkZWxldGlvbnMoLSkKCmRpZmYgLS1naXQgYS9kcml2ZXJzL2dwdS9kcm0v
+aTkxNS9pOTE1X2dlbS5jIGIvZHJpdmVycy9ncHUvZHJtL2k5MTUvaTkxNV9nZW0uYwppbmRleCAw
+N2U5YjI3Li4yYzMzMDAwIDEwMDY0NAotLS0gYS9kcml2ZXJzL2dwdS9kcm0vaTkxNS9pOTE1X2dl
+bS5jCisrKyBiL2RyaXZlcnMvZ3B1L2RybS9pOTE1L2k5MTVfZ2VtLmMKQEAgLTIyMDIsNiArMjIw
+MiwxNSBAQCBzdGF0aWMgdm9pZCBfX2k5MTVfZ2VtX29iamVjdF9yZXNldF9wYWdlX2l0ZXIoc3Ry
+dWN0IGRybV9pOTE1X2dlbV9vYmplY3QgKm9iaikKIAkJcmFkaXhfdHJlZV9kZWxldGUoJm9iai0+
+bW0uZ2V0X3BhZ2UucmFkaXgsIGl0ZXIuaW5kZXgpOwogfQogCitzdGF0aWMgdm9pZCBpOTE1X2dl
+bV9vYmplY3RfdW5tYXAoY29uc3Qgc3RydWN0IGRybV9pOTE1X2dlbV9vYmplY3QgKm9iaiwKKwkJ
+CQkgIHZvaWQgKnB0cikKK3sKKwlpZiAoaXNfdm1hbGxvY19hZGRyKHB0cikpCisJCXZ1bm1hcChw
+dHIpOworCWVsc2UKKwkJc2dfdW5tYXAob2JqLT5tbS5wYWdlcy0+c2dsLCBwdHIsIDAsIFNHX0tN
+QVApOworfQorCiB2b2lkIF9faTkxNV9nZW1fb2JqZWN0X3B1dF9wYWdlcyhzdHJ1Y3QgZHJtX2k5
+MTVfZ2VtX29iamVjdCAqb2JqLAogCQkJCSBlbnVtIGk5MTVfbW1fc3ViY2xhc3Mgc3ViY2xhc3Mp
+CiB7CkBAIC0yMjI5LDEwICsyMjM4LDcgQEAgdm9pZCBfX2k5MTVfZ2VtX29iamVjdF9wdXRfcGFn
+ZXMoc3RydWN0IGRybV9pOTE1X2dlbV9vYmplY3QgKm9iaiwKIAkJdm9pZCAqcHRyOwogCiAJCXB0
+ciA9IHB0cl9tYXNrX2JpdHMob2JqLT5tbS5tYXBwaW5nKTsKLQkJaWYgKGlzX3ZtYWxsb2NfYWRk
+cihwdHIpKQotCQkJdnVubWFwKHB0cik7Ci0JCWVsc2UKLQkJCWt1bm1hcChrbWFwX3RvX3BhZ2Uo
+cHRyKSk7CisJCWk5MTVfZ2VtX29iamVjdF91bm1hcChvYmosIHB0cik7CiAKIAkJb2JqLT5tbS5t
+YXBwaW5nID0gTlVMTDsKIAl9CkBAIC0yNDk5LDggKzI1MDUsMTEgQEAgc3RhdGljIHZvaWQgKmk5
+MTVfZ2VtX29iamVjdF9tYXAoY29uc3Qgc3RydWN0IGRybV9pOTE1X2dlbV9vYmplY3QgKm9iaiwK
+IAl2b2lkICphZGRyOwogCiAJLyogQSBzaW5nbGUgcGFnZSBjYW4gYWx3YXlzIGJlIGttYXBwZWQg
+Ki8KLQlpZiAobl9wYWdlcyA9PSAxICYmIHR5cGUgPT0gSTkxNV9NQVBfV0IpCi0JCXJldHVybiBr
+bWFwKHNnX3BhZ2Uoc2d0LT5zZ2wpKTsKKwlpZiAobl9wYWdlcyA9PSAxICYmIHR5cGUgPT0gSTkx
+NV9NQVBfV0IpIHsKKwkJYWRkciA9IHNnX21hcChzZ3QtPnNnbCwgMCwgU0dfS01BUCk7CisJCWlm
+IChJU19FUlIoYWRkcikpCisJCQlyZXR1cm4gTlVMTDsKKwl9CiAKIAlpZiAobl9wYWdlcyA+IEFS
+UkFZX1NJWkUoc3RhY2tfcGFnZXMpKSB7CiAJCS8qIFRvbyBiaWcgZm9yIHN0YWNrIC0tIGFsbG9j
+YXRlIHRlbXBvcmFyeSBhcnJheSBpbnN0ZWFkICovCkBAIC0yNTY3LDExICsyNTc2LDcgQEAgdm9p
+ZCAqaTkxNV9nZW1fb2JqZWN0X3Bpbl9tYXAoc3RydWN0IGRybV9pOTE1X2dlbV9vYmplY3QgKm9i
+aiwKIAkJCWdvdG8gZXJyX3VucGluOwogCQl9CiAKLQkJaWYgKGlzX3ZtYWxsb2NfYWRkcihwdHIp
+KQotCQkJdnVubWFwKHB0cik7Ci0JCWVsc2UKLQkJCWt1bm1hcChrbWFwX3RvX3BhZ2UocHRyKSk7
+Ci0KKwkJaTkxNV9nZW1fb2JqZWN0X3VubWFwKG9iaiwgcHRyKTsKIAkJcHRyID0gb2JqLT5tbS5t
+YXBwaW5nID0gTlVMTDsKIAl9CiAKLS0gCjIuMS40CgpfX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fXwpJbnRlbC1nZnggbWFpbGluZyBsaXN0CkludGVsLWdmeEBs
+aXN0cy5mcmVlZGVza3RvcC5vcmcKaHR0cHM6Ly9saXN0cy5mcmVlZGVza3RvcC5vcmcvbWFpbG1h
+bi9saXN0aW5mby9pbnRlbC1nZngK
