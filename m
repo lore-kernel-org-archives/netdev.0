@@ -1,45 +1,71 @@
-From: Jakub Kicinski <kubakici@wp.pl>
-Subject: Re: [RFC 0/4] xdp: use netlink extended ACK reporting
-Date: Tue, 25 Apr 2017 14:05:28 -0700
-Message-ID: <20170425140528.6ba6479b@cakuba.netronome.com>
-References: <20170425080644.122536-1-jakub.kicinski@netronome.com>
-        <2fbd12c0-dfed-c8df-8c74-1686565168ab@cumulusnetworks.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH v1] net: phy: fix auto-negotiation stall due to
+ unavailable interrupt
+Date: Tue, 25 Apr 2017 14:07:28 -0700
+Message-ID: <56206647-5251-9387-b671-f84d6c6a0eb9@gmail.com>
+References: <20170425.103644.75674234677063517.davem@davemloft.net>
+ <B99ADC0E-A793-4334-A086-9F2CE045AB7E@gmail.com>
+ <20170425200911.d7zfakqs5k5zwisg@piout.net>
+ <20170425.162625.941066354018174414.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-        johannes@sipsolutions.net, daniel@iogearbox.net,
-        alexei.starovoitov@gmail.com, bblanco@gmail.com,
-        john.fastabend@gmail.com, oss-drivers@netronome.com
-To: David Ahern <dsa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx4.wp.pl ([212.77.101.12]:58415 "EHLO mx4.wp.pl"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1947587AbdDYVFw (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 25 Apr 2017 17:05:52 -0400
-In-Reply-To: <2fbd12c0-dfed-c8df-8c74-1686565168ab@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: al.kochet@gmail.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, sergei.shtylyov@cogentembedded.com,
+        rogerq@ti.com, madalin.bucur@nxp.com
+To: David Miller <davem@davemloft.net>,
+        alexandre.belloni@free-electrons.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170425.162625.941066354018174414.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 25 Apr 2017 08:53:35 -0600, David Ahern wrote:
-> On 4/25/17 2:06 AM, Jakub Kicinski wrote:
+On 04/25/2017 01:26 PM, David Miller wrote:
+> From: Alexandre Belloni <alexandre.belloni@free-electrons.com>
+> Date: Tue, 25 Apr 2017 22:09:11 +0200
 > 
-> > Also - is anyone working on adding proper extack support to iproute2?
-> > The code I have right now is a bit of a hack...  
+>> Hi,
+>>
+>> On 25/04/2017 at 18:25:30 +0300, Alexander Kochetkov wrote:
+>>> Hello David!
+>>>
+>>>> 25 апр. 2017 г., в 17:36, David Miller <davem@davemloft.net> написал(а):
+>>>>
+>>>> So... what are we doing here?
+>>>>
+>>>> My understanding is that this should fix the same problem that commit
+>>>> 99f81afc139c6edd14d77a91ee91685a414a1c66 ("phy: micrel: Disable auto
+>>>> negotiation on startup") fixed and that this micrel commit should thus
+>>>> be reverted to improve MAC startup times which regressed.
+>>>>
+>>>> Florian, any guidance?
+>>>
+>>> Yes, this should be done.
+>>>
+>>> I aksed Alexandre to check if 99f81afc139c6edd14d77a91ee91685a414a1c66 ("phy: micrel: Disable auto
+>>> negotiation on startup») can be reverted, and he answered what it may do that
+>>> sometime this/next week.
+>>>
+>>
+>> Yes, it can be safely reverted after Alexander's patch. I had to test on
+>> v4.7 because we are not using interrupts on those boards since v4.8
+>> (another issue to be fixed).
+>>
+>> As Florian pointed out, at the time I sent my patch, I didn't have time
+>> to investigate whether this was affecting other phys, see
+>> https://lkml.org/lkml/2016/2/26/766
+>>
+>> I can send the revert or you can do it.
 > 
-> This is what I have done:
->     https://github.com/dsahern/iproute2/commits/ext-ack
-> 
-> Basically, added the parsing code and then a new rtnl_talk_extack
-> function that takes a callback to invoke with the extack data. The last
-> patch (of 3) purposely breaks ip set link mtu -- sending the mtu as a
-> u16 rather than a u32 just to work on the plumbing for parsing the
-> returned message:
-> 
-> $ ip li set dummy1 mtu 1490
-> Error with rtnetlink attribute IFLA_MTU
-> 
-> If an errmsg is returned it is printed as well.
+> I can take care of it, thanks for testing.
 
-Great, that's much better than what I have.  It will make the XDP patch
-for iproute2 pretty trivial :)
+Thanks! Can you add the following Fixes tag:
+
+Fixes: 321beec5047a (net: phy: Use interrupts when available in NOLINK
+state)
+
+BTW, can you have the netdev patchwork instance automatically accepted
+Fixes: tag sent as replies to patches? (just like Acked-by, Reviewed-by
+and so on are already accepted)?
+-- 
+Florian
