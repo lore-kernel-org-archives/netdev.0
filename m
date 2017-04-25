@@ -1,31 +1,47 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [PATCH] net: ipv6: check route protocol when deleting routes
-Date: Tue, 25 Apr 2017 12:54:44 -0600
-Message-ID: <341a15e6-4da3-714b-f9f3-c9f3840619a6@gmail.com>
-References: <20161216083059.251368-1-grawity@gmail.com>
- <CAKD1Yr3cv+zZgZdjLMt7oac9kKAjFcht+j+JskFD_RsR61LRtA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        lkml <linux-kernel@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        Joel Scherpelz <jscherpelz@google.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>,
-        Greg KH <gregkh@google.com>
-To: Lorenzo Colitti <lorenzo@google.com>,
-        =?UTF-8?Q?Mantas_Mikul=c4=97nas?= <grawity@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAKD1Yr3cv+zZgZdjLMt7oac9kKAjFcht+j+JskFD_RsR61LRtA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Myungho Jung <mhjungk@gmail.com>
+Subject: [PATCH v3] net: core: Prevent from dereferencing null pointer when releasing SKB
+Date: Tue, 25 Apr 2017 11:58:15 -0700
+Message-ID: <1493146695-5387-1-git-send-email-mhjungk@gmail.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:36689 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1953664AbdDYS6R (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 14:58:17 -0400
+Received: by mail-pf0-f196.google.com with SMTP id v14so10952965pfd.3
+        for <netdev@vger.kernel.org>; Tue, 25 Apr 2017 11:58:17 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 4/24/17 3:48 AM, Lorenzo Colitti wrote:
-> For non-stable kernels, it seems that the proper fix would be:
-> 
-> 1. Ensure that when an RA creates a route, it properly sets
-> rtm_protocol at time of route creation.
-> 2. When we dump routes to userspace, we don't overwrite the rtm_protocol.
+Added NULL check to make __dev_kfree_skb_irq consistent with kfree
+family of functions.
 
-+1
+Link: https://bugzilla.kernel.org/show_bug.cgi?id=195289
+
+Signed-off-by: Myungho Jung <mhjungk@gmail.com>
+---
+Changes in v2:
+ - Correct category in subject
+Changes in v3:
+ - Fix typo in subject
+
+ net/core/dev.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 7869ae3..22be2a6 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2450,6 +2450,9 @@ void __dev_kfree_skb_irq(struct sk_buff *skb, enum skb_free_reason reason)
+ {
+ 	unsigned long flags;
+ 
++	if (unlikely(!skb))
++		return;
++
+ 	if (likely(atomic_read(&skb->users) == 1)) {
+ 		smp_rmb();
+ 		atomic_set(&skb->users, 0);
+-- 
+2.7.4
