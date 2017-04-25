@@ -1,77 +1,88 @@
-From: Andy Shevchenko <andy.shevchenko@gmail.com>
-Subject: Re: [PATCH] stmmac: Add support for SIMATIC IOT2000 platform
-Date: Tue, 25 Apr 2017 10:30:18 +0300
-Message-ID: <CAHp75VcTzBL4D6nobfDAPQOfEEp-RzBp4BANKYDSaaEtGCyj9A@mail.gmail.com>
-References: <8c536123-6189-e0b6-1977-dc7a521718dd@siemens.com>
- <CAHp75VcdpOXa+aQ6-iKamTAbX9KGZOWpukygSUS7Ef_E3UNvuw@mail.gmail.com> <feb4856b-fb66-3861-2121-d2834fb01899@siemens.com>
+From: Arend Van Spriel <arend.vanspriel@broadcom.com>
+Subject: Re: [PATCH v2] brcmfmac: Make skb header writable before use
+Date: Tue, 25 Apr 2017 09:38:39 +0200
+Message-ID: <ef75a194-2e0b-6586-7b31-2eb83128d2bc@broadcom.com>
+References: <20170424130322.476-1-james.hughes@raspberrypi.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-        Alexandre Torgue <alexandre.torgue@st.com>,
-        netdev <netdev@vger.kernel.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        Sascha Weisenberger <sascha.weisenberger@siemens.com>
-To: Jan Kiszka <jan.kiszka@siemens.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+To: James Hughes <james.hughes@raspberrypi.org>,
+        Franky Lin <franky.lin@broadcom.com>,
+        Hante Meuleman <hante.meuleman@broadcom.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        linux-wireless@vger.kernel.org,
+        brcm80211-dev-list.pdl@broadcom.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f180.google.com ([209.85.216.180]:36156 "EHLO
-        mail-qt0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1175902AbdDYHaU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 03:30:20 -0400
-In-Reply-To: <feb4856b-fb66-3861-2121-d2834fb01899@siemens.com>
+Received: from mail-wm0-f46.google.com ([74.125.82.46]:38221 "EHLO
+        mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S943081AbdDYHim (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 03:38:42 -0400
+Received: by mail-wm0-f46.google.com with SMTP id r190so87921408wme.1
+        for <netdev@vger.kernel.org>; Tue, 25 Apr 2017 00:38:42 -0700 (PDT)
+In-Reply-To: <20170424130322.476-1-james.hughes@raspberrypi.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 25, 2017 at 8:44 AM, Jan Kiszka <jan.kiszka@siemens.com> wrote:
-> On 2017-04-24 23:27, Andy Shevchenko wrote:
->> On Mon, Apr 24, 2017 at 10:27 PM, Jan Kiszka <jan.kiszka@siemens.com> wrote:
->>> The IOT2000 is industrial controller platform, derived from the Intel
->>> Galileo Gen2 board. The variant IOT2020 comes with one LAN port, the
->>> IOT2040 has two of them. They can be told apart based on the board asset
->>> tag in the DMI table.
+On 24-4-2017 15:03, James Hughes wrote:
+> The driver was making changes to the skb_header without
+> ensuring it was writable (i.e. uncloned).
+> This patch also removes some boiler plate header size
+> checking/adjustment code as that is also handled by the
+> skb_cow_header function used to make header writable.
+> 
+> This patch depends on
+> brcmfmac: Ensure pointer correctly set if skb data location changes
+> 
+> Signed-off-by: James Hughes <james.hughes@raspberrypi.org>
+> ---
+> Changes in v2
+>   Makes the _cow_ call at the entry point of the skb in to the
+>   stack, means only needs to be done once, and error handling
+>   is easier.
+>   Split a separate minor bug fix off to a separate patch (which
+>   this patch depends on)
 
->>> +       const char *asset_tag;
->>
->> I guess this is redundant. See below.
->>
->>> +       {
->>> +               .name = "SIMATIC IOT2000",
->>> +               .asset_tag = "6ES7647-0AA00-0YA2",
->>> +               .func = 6,
->>> +               .phy_addr = 1,
->>> +       },
->>
->> The below has same definition disregard on asset_tag.
->>
->
-> There is a small difference in the asset tag, just not at the last digit
-> where one may expect it, look:
->
-> ...-0YA2 -> IOT2020
-> ...-1YA2 -> IOT2040
+Hi James,
 
-Yes. And how does it change my statement? You may use one record here
-instead of two.
+Can you please indicate in this section that you want it applied for
+4.12 as it is an important fix. Probably will have to wait until after
+the merge window before it can get in the wireless-drivers repo.
 
->
->>> +       {
->>> +               .name = "SIMATIC IOT2000",
->>> +               .asset_tag = "6ES7647-0AA00-1YA2",
->>> +               .func = 6,
->>> +               .phy_addr = 1,
->>> +       },
+Regards,
+Arend
 
->>> +       {
->>> +               .name = "SIMATIC IOT2000",
->>> +               .asset_tag = "6ES7647-0AA00-1YA2",
->>> +               .func = 7,
->>> +               .phy_addr = 1,
->>> +       },
->>
->> How this supposed to work if phy_addr is the same?
-> That address space is MAC-local, and we have two different MACs here.
-
-Got it, though asset_tag here is redundant as well.
-
--- 
-With Best Regards,
-Andy Shevchenko
+>  .../net/wireless/broadcom/brcm80211/brcmfmac/core.c   | 19 ++++---------------
+>  1 file changed, 4 insertions(+), 15 deletions(-)
+> 
+> diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.c b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.c
+> index 9b7c19a508ac..88f8675a94c2 100644
+> --- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.c
+> +++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.c
+> @@ -211,22 +211,11 @@ static netdev_tx_t brcmf_netdev_start_xmit(struct sk_buff *skb,
+>  		goto done;
+>  	}
+>  
+> -	/* Make sure there's enough room for any header */
+> -	if (skb_headroom(skb) < drvr->hdrlen) {
+> -		struct sk_buff *skb2;
+> -
+> -		brcmf_dbg(INFO, "%s: insufficient headroom\n",
+> -			  brcmf_ifname(ifp));
+> -		drvr->bus_if->tx_realloc++;
+> -		skb2 = skb_realloc_headroom(skb, drvr->hdrlen);
+> +	/* Make sure there's enough room for any header, and make it writable */
+> +	if (skb_cow_head(skb, drvr->hdrlen)) {
+>  		dev_kfree_skb(skb);
+> -		skb = skb2;
+> -		if (skb == NULL) {
+> -			brcmf_err("%s: skb_realloc_headroom failed\n",
+> -				  brcmf_ifname(ifp));
+> -			ret = -ENOMEM;
+> -			goto done;
+> -		}
+> +		ret = -ENOMEM;
+> +		goto done;
+>  	}
+>  
+>  	/* validate length for ether packet */
+> 
