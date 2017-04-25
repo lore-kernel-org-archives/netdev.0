@@ -1,33 +1,42 @@
-From: "IT Department" <"gomathy."@careind.net>
-Subject: MONTHLY UPDATE
-Date: Tue, 25 Apr 2017 00:17:28 +0100
-Message-ID: <20170424230915.644FC2860D7F@cams.careind.net>
-Reply-To: lisaquam011@gmail.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: 8BIT
-To: netdev@vger.kernel.org
+From: Mike Maloney <maloneykernel@gmail.com>
+Subject: [PATCH net-next] selftests/net: Fix broken test case in psock_fanout
+Date: Mon, 24 Apr 2017 21:29:11 -0400
+Message-ID: <20170425012911.903-1-maloneykernel@gmail.com>
+Cc: Mike Maloney <maloney@google.com>
+To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cams.careind.net ([1.23.164.19]:55011 "EHLO cams.careind.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S979692AbdDYBZu (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 24 Apr 2017 21:25:50 -0400
-Received: from localhost (localhost.localdomain [127.0.0.1])
-        by cams.careind.net (Postfix) with ESMTP id E906D286059F
-        for <netdev@vger.kernel.org>; Tue, 25 Apr 2017 04:44:02 +0530 (IST)
-Received: from cams.careind.net ([127.0.0.1])
-        by localhost (cams.careind.net [127.0.0.1]) (amavisd-new, port 10024)
-        with ESMTP id OjP9tFPDs8Ni for <netdev@vger.kernel.org>;
-        Tue, 25 Apr 2017 04:44:02 +0530 (IST)
-Received: from [192.168.10.100] (unknown [192.168.0.31])
-        by cams.careind.net (Postfix) with ESMTPSA id 644FC2860D7F
-        for <netdev@vger.kernel.org>; Tue, 25 Apr 2017 04:39:15 +0530 (IST)
-Content-Description: Mail message body
+Received: from mail-yw0-f195.google.com ([209.85.161.195]:36498 "EHLO
+        mail-yw0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S965138AbdDYB3S (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 21:29:18 -0400
+Received: by mail-yw0-f195.google.com with SMTP id s39so1337244ywa.3
+        for <netdev@vger.kernel.org>; Mon, 24 Apr 2017 18:29:17 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Recently, we have detect some unusual activity on your account and as a result, all email users are urged to update their email account within 24 hours of receiving this e-mail, please click the link http://beam.to/6128 to confirm that your email account is up to date with the institution requirement.
+From: Mike Maloney <maloney@google.com>
 
+The error return falue form sock_fanout_open is -1, not zero.  One test
+case was checking for 0 instead of -1.
+
+Tested: Built and tested in clean client.
+Signed-off-by: Mike Maloney <maloney@google.com>
 ---
-This email has been checked for viruses by Avast antivirus software.
-https://www.avast.com/antivirus
+ tools/testing/selftests/net/psock_fanout.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/tools/testing/selftests/net/psock_fanout.c b/tools/testing/selftests/net/psock_fanout.c
+index b4b1d91fcea5..989f917068d1 100644
+--- a/tools/testing/selftests/net/psock_fanout.c
++++ b/tools/testing/selftests/net/psock_fanout.c
+@@ -305,7 +305,7 @@ static void test_unique_fanout_group_ids(void)
+ 		exit(1);
+ 	}
+ 
+-	if (sock_fanout_open(PACKET_FANOUT_CPU, first_group_id)) {
++	if (sock_fanout_open(PACKET_FANOUT_CPU, first_group_id) != -1) {
+ 		fprintf(stderr, "ERROR: joined group with wrong type.\n");
+ 		exit(1);
+ 	}
+-- 
+2.13.0.rc0.306.g87b477812d-goog
