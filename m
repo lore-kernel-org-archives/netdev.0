@@ -1,45 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net/packet: initialize val in packet_getsockopt()
-Date: Tue, 25 Apr 2017 12:32:01 -0400 (EDT)
-Message-ID: <20170425.123201.1910437101082999848.davem@davemloft.net>
-References: <20170424125914.43270-1-glider@google.com>
-        <20170425.114433.143144279134920277.davem@davemloft.net>
-        <CAG_fn=URNuXxc7wEaXd_p7B46RRCYYMTv5rOVc_U1CdvervzPQ@mail.gmail.com>
+From: Andrey Konovalov <andreyknvl@google.com>
+Subject: Re: [PATCH v3 net] net: ipv6: regenerate host route if moved to gc list
+Date: Tue, 25 Apr 2017 18:35:07 +0200
+Message-ID: <CAAeHK+xm9ycPbjn=mu8zmbeFtJzWeNR13mD2ttBiokJxzsGQWQ@mail.gmail.com>
+References: <1493046549-17420-1-git-send-email-dsa@cumulusnetworks.com>
+ <CAAeHK+yLe1PoFMqmGK0B6wXqfc0AZzRAmMLxks-vSkOp5Eq3VQ@mail.gmail.com> <c86e9056-151c-6b9d-9475-99158de0874b@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dvyukov@google.com, kcc@google.com, edumazet@google.com,
-        kuznet@ms2.inr.ac.ru, linux-kernel@vger.kernel.org,
-        netdev@vger.kernel.org
-To: glider@google.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAG_fn=URNuXxc7wEaXd_p7B46RRCYYMTv5rOVc_U1CdvervzPQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+        Dmitry Vyukov <dvyukov@google.com>, mmanning@brocade.com,
+        Martin KaFai Lau <kafai@fb.com>
+To: David Ahern <dsa@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f180.google.com ([209.85.161.180]:35857 "EHLO
+        mail-yw0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S980410AbdDYQfJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 12:35:09 -0400
+Received: by mail-yw0-f180.google.com with SMTP id l18so39133170ywh.3
+        for <netdev@vger.kernel.org>; Tue, 25 Apr 2017 09:35:09 -0700 (PDT)
+In-Reply-To: <c86e9056-151c-6b9d-9475-99158de0874b@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Potapenko <glider@google.com>
-Date: Tue, 25 Apr 2017 18:27:04 +0200
+On Tue, Apr 25, 2017 at 5:54 PM, David Ahern <dsa@cumulusnetworks.com> wrote:
+> On 4/25/17 6:50 AM, Andrey Konovalov wrote:
+>> I've been running syzkaller with your patch and got another report
+>> from ip6_pol_route.
+>
+> In general the existing patch cleans up all of the ipv6 fib kasan and
+> WARN_ON traces that were seen?
 
-> On Tue, Apr 25, 2017 at 5:44 PM, David Miller <davem@davemloft.net> wrote:
->> From: Alexander Potapenko <glider@google.com>
->> Date: Mon, 24 Apr 2017 14:59:14 +0200
+Before applying your patch I was hitting reports related to fib6 all the time.
+I've stopped seeing them for some time after I applied your patch.
+However today another one was triggered (the one I sent above).
+
+>
+>
 >>
->>> In the case getsockopt() is called with PACKET_HDRLEN and optlen < 4
->>> |val| remains uninitialized and the syscall may behave differently
->>> depending on its value. This doesn't have security consequences (as the
->>> uninit bytes aren't copied back), but it's still cleaner to initialize
->>> |val| and ensure optlen is not less than sizeof(int).
->>>
->>> This bug has been detected with KMSAN.
->>>
->>> Signed-off-by: Alexander Potapenko <glider@google.com>
->>> ---
->>> v2: - if len < sizeof(int), make it 0
->>
->> No, you should signal an error if the len is too small.
-> According to manpages, only setsockopt() may return EINVAL.
-> Is it ok to change the behavior of getsockopt() to return EINVAL in
-> this case? (I.e. won't we break existing users that don't expect it?)
-
-They are currently getting corrupt data depending upon the endianness,
-so -EINVAL is a serious improvement.
+>> It happened only once so far and I couldn't reproduce it.
+>
+> Some similarity in the sense of a ipv4 route in the ipv6 fib. That's
+> only going to happen if it hits the dst gc list and then back.
+>
+> This duplicates what Dmitry reported on March 3rd.
