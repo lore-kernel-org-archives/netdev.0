@@ -1,26 +1,75 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/6] qed/qede: VF tunnelling support
-Date: Tue, 25 Apr 2017 11:52:20 -0400 (EDT)
-Message-ID: <20170425.115220.1646618188110702610.davem@davemloft.net>
-References: <20170424170049.16027-1-manish.chopra@cavium.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Yuval.Mintz@cavium.com
-To: manish.chopra@cavium.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:41044 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1949835AbdDYPwW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 11:52:22 -0400
-In-Reply-To: <20170424170049.16027-1-manish.chopra@cavium.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Subject: [PATCH v5 1/5] skbuff: return -EMSGSIZE in skb_to_sgvec to prevent overflow
+Date: Tue, 25 Apr 2017 17:52:11 +0200
+Message-ID: <20170425155215.4835-1-Jason@zx2c4.com>
+References: <20170425.111717.1973239615715123840.davem@davemloft.net>
+Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>
+To: netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	David.Laight@aculab.com,
+	kernel-hardening@lists.openwall.com,
+	davem@davemloft.net
+Return-path: <kernel-hardening-return-7565-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+List-Post: <mailto:kernel-hardening@lists.openwall.com>
+List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
+List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
+List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
+In-Reply-To: <20170425.111717.1973239615715123840.davem@davemloft.net>
+List-Id: netdev.vger.kernel.org
 
-From: Manish Chopra <manish.chopra@cavium.com>
-Date: Mon, 24 Apr 2017 10:00:43 -0700
+This is a defense-in-depth measure in response to bugs like
+4d6fa57b4dab ("macsec: avoid heap overflow in skb_to_sgvec")
 
-> With this series VFs can run vxlan/geneve/gre tunnels over it.
-> Please consider applying this series to "net-next"
+Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
+---
+This is a resend of v4 with all the other child commits along with it.
 
-Series applied.
+ net/core/skbuff.c | 12 +++++++++++-
+ 1 file changed, 11 insertions(+), 1 deletion(-)
+
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index f86bf69cfb8d..e75640006d78 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -3489,7 +3489,9 @@ void __init skb_init(void)
+  *	@len: Length of buffer space to be mapped
+  *
+  *	Fill the specified scatter-gather list with mappings/pointers into a
+- *	region of the buffer space attached to a socket buffer.
++ *	region of the buffer space attached to a socket buffer. Returns either
++ *	the number of scatterlist items used, or -EMSGSIZE if the contents
++ *	could not fit.
+  */
+ static int
+ __skb_to_sgvec(struct sk_buff *skb, struct scatterlist *sg, int offset, int len)
+@@ -3517,6 +3519,8 @@ __skb_to_sgvec(struct sk_buff *skb, struct scatterlist *sg, int offset, int len)
+ 		end = start + skb_frag_size(&skb_shinfo(skb)->frags[i]);
+ 		if ((copy = end - offset) > 0) {
+ 			skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
++			if (elt && sg_is_last(&sg[elt - 1]))
++				return -EMSGSIZE;
+ 
+ 			if (copy > len)
+ 				copy = len;
+@@ -3537,6 +3541,9 @@ __skb_to_sgvec(struct sk_buff *skb, struct scatterlist *sg, int offset, int len)
+ 
+ 		end = start + frag_iter->len;
+ 		if ((copy = end - offset) > 0) {
++			if (elt && sg_is_last(&sg[elt - 1]))
++				return -EMSGSIZE;
++
+ 			if (copy > len)
+ 				copy = len;
+ 			elt += __skb_to_sgvec(frag_iter, sg+elt, offset - start,
+@@ -3581,6 +3588,9 @@ int skb_to_sgvec(struct sk_buff *skb, struct scatterlist *sg, int offset, int le
+ {
+ 	int nsg = __skb_to_sgvec(skb, sg, offset, len);
+ 
++	if (nsg <= 0)
++		return nsg;
++
+ 	sg_mark_end(&sg[nsg - 1]);
+ 
+ 	return nsg;
+-- 
+2.12.2
