@@ -1,109 +1,70 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCHv2 net] bridge: move bridge multicast cleanup to ndo_uninit
-Date: Tue, 25 Apr 2017 22:58:37 +0800
-Message-ID: <6e156e72cb1a5e279da8ac53bdb601eee5d654fe.1493132317.git.lucien.xin@gmail.com>
-Cc: davem@davemloft.net, nikolay@cumulusnetworks.com,
-        stephen@networkplumber.org
-To: network dev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:36092 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1948512AbdDYO6q (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 10:58:46 -0400
-Received: by mail-pg0-f65.google.com with SMTP id v1so4570403pgv.3
-        for <netdev@vger.kernel.org>; Tue, 25 Apr 2017 07:58:46 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Subject: [PATCH v4 1/5] skbuff: return -EMSGSIZE in skb_to_sgvec to prevent overflow
+Date: Tue, 25 Apr 2017 17:04:19 +0200
+Message-ID: <20170425150419.2060-1-Jason@zx2c4.com>
+References: <20170425.104731.631398016575024152.davem@davemloft.net>
+Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        davem@davemloft.net, David.Laight@aculab.com,
+        kernel-hardening@lists.openwall.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170425.104731.631398016575024152.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-During removing a bridge device, if the bridge is still up, a new mdb entry
-still can be added in br_multicast_add_group() after all mdb entries are
-removed in br_multicast_dev_del(). Like the path:
+This is a defense-in-depth measure in response to bugs like
+4d6fa57b4dab ("macsec: avoid heap overflow in skb_to_sgvec")
 
-  mld_ifc_timer_expire ->
-    mld_sendpack -> ...
-      br_multicast_rcv ->
-        br_multicast_add_group
-
-The new mp's timer will be set up. If the timer expires after the bridge
-is freed, it may cause use-after-free panic in br_multicast_group_expired.
-
-BUG: unable to handle kernel NULL pointer dereference at 0000000000000048
-IP: [<ffffffffa07ed2c8>] br_multicast_group_expired+0x28/0xb0 [bridge]
-Call Trace:
- <IRQ>
- [<ffffffff81094536>] call_timer_fn+0x36/0x110
- [<ffffffffa07ed2a0>] ? br_mdb_free+0x30/0x30 [bridge]
- [<ffffffff81096967>] run_timer_softirq+0x237/0x340
- [<ffffffff8108dcbf>] __do_softirq+0xef/0x280
- [<ffffffff8169889c>] call_softirq+0x1c/0x30
- [<ffffffff8102c275>] do_softirq+0x65/0xa0
- [<ffffffff8108e055>] irq_exit+0x115/0x120
- [<ffffffff81699515>] smp_apic_timer_interrupt+0x45/0x60
- [<ffffffff81697a5d>] apic_timer_interrupt+0x6d/0x80
-
-Nikolay also found it would cause a memory leak - the mdb hash is
-reallocated and not freed due to the mdb rehash.
-
-unreferenced object 0xffff8800540ba800 (size 2048):
-  backtrace:
-    [<ffffffff816e2287>] kmemleak_alloc+0x67/0xc0
-    [<ffffffff81260bea>] __kmalloc+0x1ba/0x3e0
-    [<ffffffffa05c60ee>] br_mdb_rehash+0x5e/0x340 [bridge]
-    [<ffffffffa05c74af>] br_multicast_new_group+0x43f/0x6e0 [bridge]
-    [<ffffffffa05c7aa3>] br_multicast_add_group+0x203/0x260 [bridge]
-    [<ffffffffa05ca4b5>] br_multicast_rcv+0x945/0x11d0 [bridge]
-    [<ffffffffa05b6b10>] br_dev_xmit+0x180/0x470 [bridge]
-    [<ffffffff815c781b>] dev_hard_start_xmit+0xbb/0x3d0
-    [<ffffffff815c8743>] __dev_queue_xmit+0xb13/0xc10
-    [<ffffffff815c8850>] dev_queue_xmit+0x10/0x20
-    [<ffffffffa02f8d7a>] ip6_finish_output2+0x5ca/0xac0 [ipv6]
-    [<ffffffffa02fbfc6>] ip6_finish_output+0x126/0x2c0 [ipv6]
-    [<ffffffffa02fc245>] ip6_output+0xe5/0x390 [ipv6]
-    [<ffffffffa032b92c>] NF_HOOK.constprop.44+0x6c/0x240 [ipv6]
-    [<ffffffffa032bd16>] mld_sendpack+0x216/0x3e0 [ipv6]
-    [<ffffffffa032d5eb>] mld_ifc_timer_expire+0x18b/0x2b0 [ipv6]
-
-This could happen when ip link remove a bridge or destroy a netns with a
-bridge device inside.
-
-With Nikolay's suggestion, this patch is to clean up bridge multicast in
-ndo_uninit after bridge dev is shutdown, instead of br_dev_delete, so
-that netif_running check in br_multicast_add_group can avoid this issue.
-
-v1->v2:
-  - fix this issue by moving br_multicast_dev_del to ndo_uninit, instead
-    of calling dev_close in br_dev_delete.
-
-Reported-by: Jianwen Ji <jiji@redhat.com>
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
+Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
 ---
- net/bridge/br_device.c | 1 +
- net/bridge/br_if.c     | 1 -
- 2 files changed, 1 insertion(+), 1 deletion(-)
+v4 fixes the commit message and moves the check into the inner-most if.
 
-diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
-index 90f49a1..430b53e 100644
---- a/net/bridge/br_device.c
-+++ b/net/bridge/br_device.c
-@@ -123,6 +123,7 @@ static void br_dev_uninit(struct net_device *dev)
+ net/core/skbuff.c | 12 +++++++++++-
+ 1 file changed, 11 insertions(+), 1 deletion(-)
+
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index f86bf69cfb8d..e75640006d78 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -3489,7 +3489,9 @@ void __init skb_init(void)
+  *	@len: Length of buffer space to be mapped
+  *
+  *	Fill the specified scatter-gather list with mappings/pointers into a
+- *	region of the buffer space attached to a socket buffer.
++ *	region of the buffer space attached to a socket buffer. Returns either
++ *	the number of scatterlist items used, or -EMSGSIZE if the contents
++ *	could not fit.
+  */
+ static int
+ __skb_to_sgvec(struct sk_buff *skb, struct scatterlist *sg, int offset, int len)
+@@ -3517,6 +3519,8 @@ __skb_to_sgvec(struct sk_buff *skb, struct scatterlist *sg, int offset, int len)
+ 		end = start + skb_frag_size(&skb_shinfo(skb)->frags[i]);
+ 		if ((copy = end - offset) > 0) {
+ 			skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
++			if (elt && sg_is_last(&sg[elt - 1]))
++				return -EMSGSIZE;
+ 
+ 			if (copy > len)
+ 				copy = len;
+@@ -3537,6 +3541,9 @@ __skb_to_sgvec(struct sk_buff *skb, struct scatterlist *sg, int offset, int len)
+ 
+ 		end = start + frag_iter->len;
+ 		if ((copy = end - offset) > 0) {
++			if (elt && sg_is_last(&sg[elt - 1]))
++				return -EMSGSIZE;
++
+ 			if (copy > len)
+ 				copy = len;
+ 			elt += __skb_to_sgvec(frag_iter, sg+elt, offset - start,
+@@ -3581,6 +3588,9 @@ int skb_to_sgvec(struct sk_buff *skb, struct scatterlist *sg, int offset, int le
  {
- 	struct net_bridge *br = netdev_priv(dev);
+ 	int nsg = __skb_to_sgvec(skb, sg, offset, len);
  
-+	br_multicast_dev_del(br);
- 	br_multicast_uninit_stats(br);
- 	br_vlan_flush(br);
- 	free_percpu(br->stats);
-diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
-index 56a2a72..a8d0ed2 100644
---- a/net/bridge/br_if.c
-+++ b/net/bridge/br_if.c
-@@ -311,7 +311,6 @@ void br_dev_delete(struct net_device *dev, struct list_head *head)
++	if (nsg <= 0)
++		return nsg;
++
+ 	sg_mark_end(&sg[nsg - 1]);
  
- 	br_fdb_delete_by_port(br, NULL, 0, 1);
- 
--	br_multicast_dev_del(br);
- 	cancel_delayed_work_sync(&br->gc_work);
- 
- 	br_sysfs_delbr(br->dev);
+ 	return nsg;
 -- 
-2.1.0
+2.12.2
