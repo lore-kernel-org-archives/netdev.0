@@ -1,107 +1,68 @@
-From: Logan Gunthorpe <logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH v2 07/21] crypto: shash,
- caam: Make use of the new sg_map helper function
-Date: Tue, 25 Apr 2017 12:20:54 -0600
-Message-ID: <1493144468-22493-8-git-send-email-logang@deltatee.com>
+From: Logan Gunthorpe <logang@deltatee.com>
+Subject: [PATCH v2 09/21] staging: unisys: visorbus: Make use of
+	the new sg_map helper function
+Date: Tue, 25 Apr 2017 12:20:56 -0600
+Message-ID: <1493144468-22493-10-git-send-email-logang@deltatee.com>
 References: <1493144468-22493-1-git-send-email-logang@deltatee.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Jens Axboe <axboe-tSWWG44O7X1aa/9Udqfwiw@public.gmane.org>,
- "James E.J. Bottomley" <jejb-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
- Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>,
- "Martin K. Petersen" <martin.petersen-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
- Matthew Wilcox <mawilcox-0li6OtcxBFHby3iVrkZq2A@public.gmane.org>,
- Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
- Sumit Semwal <sumit.semwal-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
- "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>
-To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-crypto-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org,
- intel-gfx-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org, linux-raid-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-nvdimm-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org,
- linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org,
- megaraidlinux.pdl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, sparmaintainer-GLv8BlqOqDDQT0dZR+AlfA@public.gmane.org,
- devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org, target-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dm-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
-Return-path: <linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
-In-Reply-To: <1493144468-22493-1-git-send-email-logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
-List-Unsubscribe: <https://lists.01.org/mailman/options/linux-nvdimm>,
- <mailto:linux-nvdimm-request-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.01.org/pipermail/linux-nvdimm/>
-List-Post: <mailto:linux-nvdimm-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
-List-Help: <mailto:linux-nvdimm-request-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.01.org/mailman/listinfo/linux-nvdimm>,
- <mailto:linux-nvdimm-request-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org?subject=subscribe>
-Errors-To: linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org
-Sender: "Linux-nvdimm" <linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Jens Axboe <axboe@kernel.dk>,
+ "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
+ "Martin K. Petersen" <martin.petersen@oracle.com>,
+ Matthew Wilcox <mawilcox@microsoft.com>,
+ Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+ Sumit Semwal <sumit.semwal@linaro.org>,
+ Ross Zwisler <ross.zwisler@linux.intel.com>,
+ Dan Williams <dan.j.williams@intel.com>, Stephen Bates <sbates@raithlin.com>,
+ Logan Gunthorpe <logang@deltatee.com>, Christoph Hellwig <hch@lst.de>
+To: linux-kernel@vger.kernel.org, linux-crypto@vger.kernel.org,
+ linux-media@vger.kernel.org, dri-devel@lists.freedesktop.org,
+ intel-gfx@lists.freedesktop.org, linux-raid@vger.kernel.org,
+ linux-mmc@vger.kernel.org, linux-nvdimm@lists.01.org,
+ linux-scsi@vger.kernel.org, open-iscsi@googlegroups.com,
+ megaraidlinux.pdl@broadcom.com, sparmaintainer@unisys.com,
+ devel@driverdev.osuosl.org, target-devel@vger.kernel.org,
+ netdev@vger.kernel.org, linux-rdma@vger.kernel.org, dm-devel@redhat.com
+Return-path: <intel-gfx-bounces@lists.freedesktop.org>
+In-Reply-To: <1493144468-22493-1-git-send-email-logang@deltatee.com>
+List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/intel-gfx>,
+ <mailto:intel-gfx-request@lists.freedesktop.org?subject=unsubscribe>
+List-Archive: <https://lists.freedesktop.org/archives/intel-gfx>
+List-Post: <mailto:intel-gfx@lists.freedesktop.org>
+List-Help: <mailto:intel-gfx-request@lists.freedesktop.org?subject=help>
+List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/intel-gfx>,
+ <mailto:intel-gfx-request@lists.freedesktop.org?subject=subscribe>
+Errors-To: intel-gfx-bounces@lists.freedesktop.org
+Sender: "Intel-gfx" <intel-gfx-bounces@lists.freedesktop.org>
 List-Id: netdev.vger.kernel.org
 
-Very straightforward conversion to the new function in the caam driver
-and shash library.
-
-Signed-off-by: Logan Gunthorpe <logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
-Cc: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
----
- crypto/shash.c                | 9 ++++++---
- drivers/crypto/caam/caamalg.c | 8 +++-----
- 2 files changed, 9 insertions(+), 8 deletions(-)
-
-diff --git a/crypto/shash.c b/crypto/shash.c
-index 5e31c8d..5914881 100644
---- a/crypto/shash.c
-+++ b/crypto/shash.c
-@@ -283,10 +283,13 @@ int shash_ahash_digest(struct ahash_request *req, struct shash_desc *desc)
- 	if (nbytes < min(sg->length, ((unsigned int)(PAGE_SIZE)) - offset)) {
- 		void *data;
- 
--		data = kmap_atomic(sg_page(sg));
--		err = crypto_shash_digest(desc, data + offset, nbytes,
-+		data = sg_map(sg, 0, SG_KMAP_ATOMIC);
-+		if (IS_ERR(data))
-+			return PTR_ERR(data);
-+
-+		err = crypto_shash_digest(desc, data, nbytes,
- 					  req->result);
--		kunmap_atomic(data);
-+		sg_unmap(sg, data, 0, SG_KMAP_ATOMIC);
- 		crypto_yield(desc->flags);
- 	} else
- 		err = crypto_shash_init(desc) ?:
-diff --git a/drivers/crypto/caam/caamalg.c b/drivers/crypto/caam/caamalg.c
-index 398807d..62d2f5d 100644
---- a/drivers/crypto/caam/caamalg.c
-+++ b/drivers/crypto/caam/caamalg.c
-@@ -89,7 +89,6 @@ static void dbg_dump_sg(const char *level, const char *prefix_str,
- 			struct scatterlist *sg, size_t tlen, bool ascii)
- {
- 	struct scatterlist *it;
--	void *it_page;
- 	size_t len;
- 	void *buf;
- 
-@@ -98,19 +97,18 @@ static void dbg_dump_sg(const char *level, const char *prefix_str,
- 		 * make sure the scatterlist's page
- 		 * has a valid virtual memory mapping
- 		 */
--		it_page = kmap_atomic(sg_page(it));
--		if (unlikely(!it_page)) {
-+		buf = sg_map(it, 0, SG_KMAP_ATOMIC);
-+		if (IS_ERR(buf)) {
- 			printk(KERN_ERR "dbg_dump_sg: kmap failed\n");
- 			return;
- 		}
- 
--		buf = it_page + it->offset;
- 		len = min_t(size_t, tlen, it->length);
- 		print_hex_dump(level, prefix_str, prefix_type, rowsize,
- 			       groupsize, buf, len, ascii);
- 		tlen -= len;
- 
--		kunmap_atomic(it_page);
-+		sg_unmap(it, buf, 0, SG_KMAP_ATOMIC);
- 	}
- }
- #endif
--- 
-2.1.4
+U3RyYWlnaHRmb3J3YXJkIGNvbnZlcnNpb24gdG8gdGhlIG5ldyBmdW5jdGlvbi4KClNpZ25lZC1v
+ZmYtYnk6IExvZ2FuIEd1bnRob3JwZSA8bG9nYW5nQGRlbHRhdGVlLmNvbT4KQWNrZWQtYnk6IERh
+dmlkIEtlcnNobmVyIDxkYXZpZC5rZXJzaG5lckB1bmlzeXMuY29tPgotLS0KIGRyaXZlcnMvc3Rh
+Z2luZy91bmlzeXMvdmlzb3JoYmEvdmlzb3JoYmFfbWFpbi5jIHwgMTIgKysrKysrKy0tLS0tCiAx
+IGZpbGUgY2hhbmdlZCwgNyBpbnNlcnRpb25zKCspLCA1IGRlbGV0aW9ucygtKQoKZGlmZiAtLWdp
+dCBhL2RyaXZlcnMvc3RhZ2luZy91bmlzeXMvdmlzb3JoYmEvdmlzb3JoYmFfbWFpbi5jIGIvZHJp
+dmVycy9zdGFnaW5nL3VuaXN5cy92aXNvcmhiYS92aXNvcmhiYV9tYWluLmMKaW5kZXggZDM3MjEx
+NS4uYzc3NDI2YyAxMDA2NDQKLS0tIGEvZHJpdmVycy9zdGFnaW5nL3VuaXN5cy92aXNvcmhiYS92
+aXNvcmhiYV9tYWluLmMKKysrIGIvZHJpdmVycy9zdGFnaW5nL3VuaXN5cy92aXNvcmhiYS92aXNv
+cmhiYV9tYWluLmMKQEAgLTg0Myw3ICs4NDMsNiBAQCBkb19zY3NpX25vbGludXhzdGF0KHN0cnVj
+dCB1aXNjbWRyc3AgKmNtZHJzcCwgc3RydWN0IHNjc2lfY21uZCAqc2NzaWNtZCkKIAlzdHJ1Y3Qg
+c2NhdHRlcmxpc3QgKnNnOwogCXVuc2lnbmVkIGludCBpOwogCWNoYXIgKnRoaXNfcGFnZTsKLQlj
+aGFyICp0aGlzX3BhZ2Vfb3JpZzsKIAlpbnQgYnVmaW5kID0gMDsKIAlzdHJ1Y3Qgdmlzb3JkaXNr
+X2luZm8gKnZkaXNrOwogCXN0cnVjdCB2aXNvcmhiYV9kZXZkYXRhICpkZXZkYXRhOwpAQCAtODcw
+LDExICs4NjksMTQgQEAgZG9fc2NzaV9ub2xpbnV4c3RhdChzdHJ1Y3QgdWlzY21kcnNwICpjbWRy
+c3AsIHN0cnVjdCBzY3NpX2NtbmQgKnNjc2ljbWQpCiAKIAkJc2cgPSBzY3NpX3NnbGlzdChzY3Np
+Y21kKTsKIAkJZm9yIChpID0gMDsgaSA8IHNjc2lfc2dfY291bnQoc2NzaWNtZCk7IGkrKykgewot
+CQkJdGhpc19wYWdlX29yaWcgPSBrbWFwX2F0b21pYyhzZ19wYWdlKHNnICsgaSkpOwotCQkJdGhp
+c19wYWdlID0gKHZvaWQgKikoKHVuc2lnbmVkIGxvbmcpdGhpc19wYWdlX29yaWcgfAotCQkJCQkg
+ICAgIHNnW2ldLm9mZnNldCk7CisJCQl0aGlzX3BhZ2UgPSBzZ19tYXAoc2cgKyBpLCAwLCBTR19L
+TUFQX0FUT01JQyk7CisJCQlpZiAoSVNfRVJSKHRoaXNfcGFnZSkpIHsKKwkJCQlzY3NpY21kLT5y
+ZXN1bHQgPSBESURfRVJST1IgPDwgMTY7CisJCQkJcmV0dXJuOworCQkJfQorCiAJCQltZW1jcHko
+dGhpc19wYWdlLCBidWYgKyBidWZpbmQsIHNnW2ldLmxlbmd0aCk7Ci0JCQlrdW5tYXBfYXRvbWlj
+KHRoaXNfcGFnZV9vcmlnKTsKKwkJCXNnX3VubWFwKHNnICsgaSwgdGhpc19wYWdlLCAwLCBTR19L
+TUFQX0FUT01JQyk7CiAJCX0KIAl9IGVsc2UgewogCQlkZXZkYXRhID0gKHN0cnVjdCB2aXNvcmhi
+YV9kZXZkYXRhICopc2NzaWRldi0+aG9zdC0+aG9zdGRhdGE7Ci0tIAoyLjEuNAoKX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KSW50ZWwtZ2Z4IG1haWxpbmcg
+bGlzdApJbnRlbC1nZnhAbGlzdHMuZnJlZWRlc2t0b3Aub3JnCmh0dHBzOi8vbGlzdHMuZnJlZWRl
+c2t0b3Aub3JnL21haWxtYW4vbGlzdGluZm8vaW50ZWwtZ2Z4Cg==
