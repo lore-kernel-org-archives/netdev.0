@@ -1,67 +1,84 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/1] net sched actions: Complete the JUMPX
- opcode
-Date: Tue, 25 Apr 2017 11:30:38 -0400 (EDT)
-Message-ID: <20170425.113038.1100817573569114056.davem@davemloft.net>
-References: <1492967848-10165-1-git-send-email-jhs@emojatatu.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: pull-request: can 2017-04-25
+Date: Tue, 25 Apr 2017 17:33:35 +0200
+Message-ID: <d9a6c753-cc92-f31e-47a6-9110040d7294@pengutronix.de>
+References: <20170425121645.9946-1-mkl@pengutronix.de>
+ <20170425.112126.232541678435322858.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jiri@resnulli.us, xiyou.wangcong@gmail.com,
-        daniel@iogearbox.net, alexei.starovoitov@gmail.com
-To: jhs@mojatatu.com
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="KBQ2hggjWbjaQpN0wcTxBAe5Bi9nrGMah"
+Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
+        kernel@pengutronix.de
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:40668 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1948884AbdDYPal (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 11:30:41 -0400
-In-Reply-To: <1492967848-10165-1-git-send-email-jhs@emojatatu.com>
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:34123 "EHLO
+        metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1950301AbdDYPdu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 11:33:50 -0400
+In-Reply-To: <20170425.112126.232541678435322858.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Date: Sun, 23 Apr 2017 13:17:28 -0400
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--KBQ2hggjWbjaQpN0wcTxBAe5Bi9nrGMah
+Content-Type: multipart/mixed; boundary="6IHlAq1Rs730a9fqDukvETcQKoHDuoCVX";
+ protected-headers="v1"
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org, kernel@pengutronix.de
+Message-ID: <d9a6c753-cc92-f31e-47a6-9110040d7294@pengutronix.de>
+Subject: Re: pull-request: can 2017-04-25
+References: <20170425121645.9946-1-mkl@pengutronix.de>
+ <20170425.112126.232541678435322858.davem@davemloft.net>
+In-Reply-To: <20170425.112126.232541678435322858.davem@davemloft.net>
 
-> From: Jamal Hadi Salim <jhs@mojatatu.com>
-> 
-> per discussion at netconf/netdev:
-> When we have an action that is capable of branching (example a policer),
-> we can achieve a continuation of the action graph by programming a
-> "continue" where we find an exact replica of the same filter rule with a lower
-> priority and the remainder of the action graph. When you have 100s of thousands
-> of filters which require such a feature it gets very inefficient to do two
-> lookups.
-> 
-> This patch completes a leftover feature of action codes. Its time has come.
-> 
-> Example below where a user labels packets with a different skbmark on ingress
-> of a port depending on whether they have/not exceeded the configured rate.
-> This mark is then used to make further decisions on some egress port.
-> 
->  #rate control, very low so we can easily see the effect
-> sudo $TC actions add action police rate 1kbit burst 90k \
-> conform-exceed pipe/jump 2 index 10
->  # skbedit index 11 will be used if the user conforms
-> sudo $TC actions add action skbedit mark 11 ok index 11
->  # skbedit index 12 will be used if the user does not conform
-> sudo $TC actions add action skbedit mark 12 ok index 12
-> 
->  #lets bind the user ..
-> sudo $TC filter add dev $ETH parent ffff: protocol ip prio 8 u32 \
-> match ip dst 127.0.0.8/32 flowid 1:10 \
-> action police index 10 \
-> action skbedit index 11 \
-> action skbedit index 12
-> 
->  #run a ping -f and see what happens..
->  #
-> jhs@foobar:~$ sudo $TC -s filter ls dev $ETH parent ffff: protocol ip
-> filter pref 8 u32
-> filter pref 8 u32 fh 800: ht divisor 1
-> filter pref 8 u32 fh 800::800 order 2048 key ht 800 bkt 0 flowid 1:10  (rule hit 2800 success 1005)
- ...
-> Not bad, about 28% non-conforming packets..
-> 
-> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+--6IHlAq1Rs730a9fqDukvETcQKoHDuoCVX
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-Applied, thanks Jamal.
+On 04/25/2017 05:21 PM, David Miller wrote:
+> From: Marc Kleine-Budde <mkl@pengutronix.de>
+> Date: Tue, 25 Apr 2017 14:16:42 +0200
+>=20
+>> this is a pull request of three patches for net/master.
+>>
+>> There are two patches by Stephane Grosjean for that add a new variant =
+to the
+>> PCAN-Chip USB driver. The other patch is by Maksim Salau, which swtich=
+es the
+>> memory for USB transfers from heap to stack.
+>=20
+> I think you meant "from stack to heap", but anyways pulled thanks!
+
+Yes and that's what the patch does.
+
+Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--6IHlAq1Rs730a9fqDukvETcQKoHDuoCVX--
+
+--KBQ2hggjWbjaQpN0wcTxBAe5Bi9nrGMah
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQEzBAEBCgAdFiEE4bay/IylYqM/npjQHv7KIOw4HPYFAlj/bE8ACgkQHv7KIOw4
+HPa+4ggAjlL79RNjN5SpLt6ACyWILfQhcEC27pcaadpT8Htom/k5X45eqDulV/8S
+srTjocUvUbKyU/53TEZ+QrIuI7k9GU3fFCgqevnl9ZPLV0BTCvDUDJuQ0kvHlfdF
+iMyDB2Mr2QlrHVg4jGTPJwjmH0WckUTh0by1t0IA5wTRkFT6VC9b1CrO2NWhFzyM
+4POsXvCnfkY/VPk3jd8q+VxgnKQWFSYQ4YMzGdZGDD9h96wqHn584ArskYzEvMkT
+gSlsdDXn66zwwUo6qAHxdSvYoN/MsRnp2KoMnYl571CQUYQ+odO9aYygXiDjIcMA
+YztFNl6TB5kjj4XJPtF7v/AAQjEJ4Q==
+=QK/y
+-----END PGP SIGNATURE-----
+
+--KBQ2hggjWbjaQpN0wcTxBAe5Bi9nrGMah--
