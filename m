@@ -1,7 +1,7 @@
 From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH net-next 01/10] tcp: add tp->tcp_mstamp field
-Date: Tue, 25 Apr 2017 10:15:32 -0700
-Message-ID: <20170425171541.3417-2-edumazet@google.com>
+Subject: [PATCH net-next 03/10] tcp: do not pass timestamp to tcp_rack_mark_lost()
+Date: Tue, 25 Apr 2017 10:15:34 -0700
+Message-ID: <20170425171541.3417-4-edumazet@google.com>
 References: <20170425171541.3417-1-edumazet@google.com>
 Cc: netdev <netdev@vger.kernel.org>,
         Soheil Hassas Yeganeh <soheil@google.com>,
@@ -9,70 +9,65 @@ Cc: netdev <netdev@vger.kernel.org>,
         Eric Dumazet <eric.dumazet@gmail.com>
 To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f52.google.com ([209.85.214.52]:37181 "EHLO
-        mail-it0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1951784AbdDYRPx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 13:15:53 -0400
-Received: by mail-it0-f52.google.com with SMTP id x188so80275129itb.0
-        for <netdev@vger.kernel.org>; Tue, 25 Apr 2017 10:15:53 -0700 (PDT)
+Received: from mail-it0-f41.google.com ([209.85.214.41]:37220 "EHLO
+        mail-it0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1951784AbdDYRP7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 13:15:59 -0400
+Received: by mail-it0-f41.google.com with SMTP id x188so80276816itb.0
+        for <netdev@vger.kernel.org>; Tue, 25 Apr 2017 10:15:58 -0700 (PDT)
 In-Reply-To: <20170425171541.3417-1-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We want to use precise timestamps in TCP stack, but we do not
-want to call possibly expensive kernel time services too often.
-
-tp->tcp_mstamp is guaranteed to be updated once per incoming packet.
-
-We will use it in the following patches, removing specific
-skb_mstamp_get() calls, and removing ack_time from
-struct tcp_sacktag_state.
+This is no longer used, since tcp_rack_detect_loss() takes
+the timestamp from tp->tcp_mstamp
 
 Signed-off-by: Eric Dumazet <edumazet@google.com>
+Acked-by: Soheil Hassas Yeganeh <soheil@google.com>
 ---
- include/linux/tcp.h  | 1 +
- net/ipv4/tcp_input.c | 3 +++
- 2 files changed, 4 insertions(+)
+ include/net/tcp.h       | 2 +-
+ net/ipv4/tcp_input.c    | 2 +-
+ net/ipv4/tcp_recovery.c | 2 +-
+ 3 files changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-index cbe5b602a2d349fdeb1e878305f37b4da1e6cc86..99a22f44c32e1587a6bf4835b65c7a4314807aa8 100644
---- a/include/linux/tcp.h
-+++ b/include/linux/tcp.h
-@@ -240,6 +240,7 @@ struct tcp_sock {
- 	u32	tlp_high_seq;	/* snd_nxt at the time of TLP retransmit. */
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index da28bef1d82b6773bbfcf7c7eafebb7a4932f25b..8b4433c4aaa221b83af90d2b44ba4b01a872a7af 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -1853,7 +1853,7 @@ void tcp_v4_init(void);
+ void tcp_init(void);
  
- /* RTT measurement */
-+	struct skb_mstamp tcp_mstamp; /* most recent packet received/sent */
- 	u32	srtt_us;	/* smoothed round trip time << 3 in usecs */
- 	u32	mdev_us;	/* medium deviation			*/
- 	u32	mdev_max_us;	/* maximal mdev for the last rtt period	*/
+ /* tcp_recovery.c */
+-extern void tcp_rack_mark_lost(struct sock *sk, const struct skb_mstamp *now);
++extern void tcp_rack_mark_lost(struct sock *sk);
+ extern void tcp_rack_advance(struct tcp_sock *tp, u8 sacked, u32 end_seq,
+ 			     const struct skb_mstamp *xmit_time,
+ 			     const struct skb_mstamp *ack_time);
 diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 5af2f04f885914491a7116c20056b3d2188d2d7d..bd18c65df4a9d9c2b66d8005f2cc4ff468140a73 100644
+index bd18c65df4a9d9c2b66d8005f2cc4ff468140a73..d4885f7a6a930ff1794b0ab931c0b73c274371b2 100644
 --- a/net/ipv4/tcp_input.c
 +++ b/net/ipv4/tcp_input.c
-@@ -5362,6 +5362,7 @@ void tcp_rcv_established(struct sock *sk, struct sk_buff *skb,
+@@ -2769,7 +2769,7 @@ static void tcp_rack_identify_loss(struct sock *sk, int *ack_flag,
+ 	if (sysctl_tcp_recovery & TCP_RACK_LOSS_DETECTION) {
+ 		u32 prior_retrans = tp->retrans_out;
+ 
+-		tcp_rack_mark_lost(sk, ack_time);
++		tcp_rack_mark_lost(sk);
+ 		if (prior_retrans > tp->retrans_out)
+ 			*ack_flag |= FLAG_LOST_RETRANS;
+ 	}
+diff --git a/net/ipv4/tcp_recovery.c b/net/ipv4/tcp_recovery.c
+index fdac262e277b2f25492f155bbb295d6d87e31d02..6ca8b5d9d803d872ec7043b02c72fffaec5c7270 100644
+--- a/net/ipv4/tcp_recovery.c
++++ b/net/ipv4/tcp_recovery.c
+@@ -104,7 +104,7 @@ static void tcp_rack_detect_loss(struct sock *sk, u32 *reo_timeout)
+ 	}
+ }
+ 
+-void tcp_rack_mark_lost(struct sock *sk, const struct skb_mstamp *now)
++void tcp_rack_mark_lost(struct sock *sk)
  {
  	struct tcp_sock *tp = tcp_sk(sk);
- 
-+	skb_mstamp_get(&tp->tcp_mstamp);
- 	if (unlikely(!sk->sk_rx_dst))
- 		inet_csk(sk)->icsk_af_ops->sk_rx_dst_set(sk, skb);
- 	/*
-@@ -5922,6 +5923,7 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb)
- 
- 	case TCP_SYN_SENT:
- 		tp->rx_opt.saw_tstamp = 0;
-+		skb_mstamp_get(&tp->tcp_mstamp);
- 		queued = tcp_rcv_synsent_state_process(sk, skb, th);
- 		if (queued >= 0)
- 			return queued;
-@@ -5933,6 +5935,7 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb)
- 		return 0;
- 	}
- 
-+	skb_mstamp_get(&tp->tcp_mstamp);
- 	tp->rx_opt.saw_tstamp = 0;
- 	req = tp->fastopen_rsk;
- 	if (req) {
+ 	u32 timeout;
 -- 
 2.13.0.rc0.306.g87b477812d-goog
