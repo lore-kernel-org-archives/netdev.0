@@ -1,84 +1,52 @@
-From: Martin KaFai Lau <kafai@fb.com>
-Subject: Re: [PATCH v4 net] net: ipv6: regenerate host route if moved to gc
- list
-Date: Tue, 25 Apr 2017 10:18:46 -0700
-Message-ID: <20170425171846.ldh3hwg2hrrqlffu@kafai-mba.local>
-References: <1493137049-16465-1-git-send-email-dsa@cumulusnetworks.com>
+From: Willem de Bruijn <willemb@google.com>
+Subject: Re: [RFC PATCH 3/7] net: add option to get information about
+ timestamped packets
+Date: Tue, 25 Apr 2017 13:23:41 -0400
+Message-ID: <CA+FuTScs9Kp4=Grr+b3HMVg_rGJ8kWYvDDN4kpbFQ0mpS6UdnA@mail.gmail.com>
+References: <20170412141737.5881-1-mlichvar@redhat.com> <20170412141737.5881-4-mlichvar@redhat.com>
+ <CAF=yD-Lsbr7f7aPUsFF3gCtFdyR8yb1=VBPJGQuxv_JbrJud6Q@mail.gmail.com>
+ <20170413151806.GA26613@localhost> <CAF=yD-+tJpY7XJrqxga=0_kn-FjS0M=yuu59m_ZRRrrcpJCbZw@mail.gmail.com>
+ <20170424090043.GF8847@localhost> <CAF=yD-+ErPH6Qb4y9TcAMi-7X+ebxW3epq3Zxch_vrt1r3gspQ@mail.gmail.com>
+ <20170425135642.GB27148@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>, <dvyukov@google.com>,
-        <andreyknvl@google.com>, <mmanning@brocade.com>,
-        <eric.dumazet@gmail.com>
-To: David Ahern <dsa@cumulusnetworks.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Willem de Bruijn <willemdebruijn.kernel@gmail.com>,
+        Network Development <netdev@vger.kernel.org>,
+        Richard Cochran <richardcochran@gmail.com>,
+        Soheil Hassas Yeganeh <soheil@google.com>,
+        "Keller, Jacob E" <jacob.e.keller@intel.com>,
+        Denny Page <dennypage@me.com>, Jiri Benc <jbenc@redhat.com>
+To: Miroslav Lichvar <mlichvar@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:55973 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1951780AbdDYRSx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 13:18:53 -0400
-Content-Disposition: inline
-In-Reply-To: <1493137049-16465-1-git-send-email-dsa@cumulusnetworks.com>
+Received: from mail-wm0-f42.google.com ([74.125.82.42]:35247 "EHLO
+        mail-wm0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1951948AbdDYRYN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 13:24:13 -0400
+Received: by mail-wm0-f42.google.com with SMTP id w64so29012978wma.0
+        for <netdev@vger.kernel.org>; Tue, 25 Apr 2017 10:24:12 -0700 (PDT)
+In-Reply-To: <20170425135642.GB27148@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 25, 2017 at 09:17:29AM -0700, David Ahern wrote:
-[...]
+On Tue, Apr 25, 2017 at 9:56 AM, Miroslav Lichvar <mlichvar@redhat.com> wrote:
+> On Mon, Apr 24, 2017 at 11:18:13AM -0400, Willem de Bruijn wrote:
+>> On Mon, Apr 24, 2017 at 5:00 AM, Miroslav Lichvar <mlichvar@redhat.com> wrote:
+>> > Would "skb->data - skb->head -
+>> > skb->mac_header + skb->len" always work as the L2 length for received
+>> > packets at the time when the cmsg is prepared?
+>>
+>> (skb->data - skb->head) - skb->mac_header computes the length
+>> of data before the mac, such as reserve?
 >
-> All of those faults are fixed by regenerating the host route if the
-> existing one has been moved to the gc list, something that can be
-> determined by checking if the rt6i_ref counter is 0.
-Acked-by: Martin KaFai Lau <kafai@fb.com>
+> data - head includes the reserve, but mac_header does too, so I think
+> it should be just the length of MAC header and everything up to the
+> data.
+>
+>> Do you mean skb->data -
+>> skb->mac_header (or - skb_mac_offset(skb))?
+>
+> That would give me a pointer? If I used skb_mac_offset(), the total
+> length would be just skb->len - skb_mac_offset()?
 
->
-> Fixes: f1705ec197e7 ("net: ipv6: Make address flushing on ifdown optional")
-> Reported-by: Dmitry Vyukov <dvyukov@google.com>
-> Reported-by: Andrey Konovalov <andreyknvl@google.com>
-> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
-
-> ---
-> v4
-> - move 'prev = ifp->rt;' under spinlock as requested by Eric
->
-> v3
-> - removed 'if (prev)' and just call ip6_rt_put; added comment about spinlock
->
-> v2
-> - change ifp->rt under spinlock vs cmpxchg
-> - add comment about rt6i_ref == 0
->
->  net/ipv6/addrconf.c | 14 ++++++++++++--
->  1 file changed, 12 insertions(+), 2 deletions(-)
->
-> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-> index 80ce478c4851..0ea96c4d334d 100644
-> --- a/net/ipv6/addrconf.c
-> +++ b/net/ipv6/addrconf.c
-> @@ -3271,14 +3271,24 @@ static void addrconf_gre_config(struct net_device *dev)
->  static int fixup_permanent_addr(struct inet6_dev *idev,
->  				struct inet6_ifaddr *ifp)
->  {
-> -	if (!ifp->rt) {
-> -		struct rt6_info *rt;
-> +	/* rt6i_ref == 0 means the host route was removed from the
-> +	 * FIB, for example, if 'lo' device is taken down. In that
-> +	 * case regenerate the host route.
-> +	 */
-> +	if (!ifp->rt || !atomic_read(&ifp->rt->rt6i_ref)) {
-> +		struct rt6_info *rt, *prev;
->
->  		rt = addrconf_dst_alloc(idev, &ifp->addr, false);
->  		if (unlikely(IS_ERR(rt)))
->  			return PTR_ERR(rt);
->
-> +		/* ifp->rt can be accessed outside of rtnl */
-> +		spin_lock(&ifp->lock);
-> +		prev = ifp->rt;
->  		ifp->rt = rt;
-> +		spin_unlock(&ifp->lock);
-> +
-> +		ip6_rt_put(prev);
->  	}
->
->  	if (!(ifp->flags & IFA_F_NOPREFIXROUTE)) {
-> --
-> 2.1.4
->
+It appears so. The only existing caller first checks
+skb_mac_header_was_set(skb).
