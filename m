@@ -1,39 +1,40 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net-next v3 2/5] virtio-net: transmit napi
-Date: Tue, 25 Apr 2017 16:36:57 +0800
-Message-ID: <2c5491c0-4473-75d1-fa0f-a0dbd4dc626d@redhat.com>
-References: <20170424174930.82623-1-willemdebruijn.kernel@gmail.com>
- <20170424174930.82623-3-willemdebruijn.kernel@gmail.com>
+From: Waldemar Rymarkiewicz <waldemar.rymarkiewicz@gmail.com>
+Subject: Network cooling device and how to control NIC speed on thermal condition
+Date: Tue, 25 Apr 2017 10:36:28 +0200
+Message-ID: <CAHKzcEMQPQzg6PYCSuv7Ufad+4AZ2gnqMgz3-VH5NTeb_pv4zQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: mst@redhat.com, virtualization@lists.linux-foundation.org,
-        davem@davemloft.net, Willem de Bruijn <willemb@google.com>
-To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>,
-        netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:38308 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S980909AbdDYIhF (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 25 Apr 2017 04:37:05 -0400
-In-Reply-To: <20170424174930.82623-3-willemdebruijn.kernel@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Hi,
 
+I am not much aware of linux networking architecture so I'd like to
+ask first before will start to dig into the code. Appreciate any
+feedback.
 
-On 2017年04月25日 01:49, Willem de Bruijn wrote:
-> @@ -1371,8 +1419,10 @@ static int virtnet_close(struct net_device *dev)
->   	/* Make sure refill_work doesn't re-enable napi! */
->   	cancel_delayed_work_sync(&vi->refill);
->   
-> -	for (i = 0; i < vi->max_queue_pairs; i++)
-> +	for (i = 0; i < vi->max_queue_pairs; i++) {
->   		napi_disable(&vi->rq[i].napi);
-> +		napi_disable(&vi->sq[i].napi);
-> +	}
+I am looking on Linux thermal framework and on how to cool down the
+system effectively when it hits thermal condition. Already existing
+cooling methods cpu_cooling and clock_cooling are good. However, I
+wanted to go further and dynamically control also a switch ports'
+speed based on thermal condition. Lowering speed means less power,
+less power means lower temp.
 
-Looks like this will wait for ever if napi_tx is false because we never 
-enable the NAPI so we will wait for NAPI_STATE_SCHED to be cleared.
+Is there any in-kernel interface to configure switch port/NIC from other driver?
 
-Thanks
+Is there any mechanism to power save, when port/interface is not
+really used (not much or low data traffic), embedded in networking
+stack  or is it a task for NIC driver itself ?
+
+I was thinking to create net_cooling device similarly to cpu_cooling
+device which cool down the system scaling down cpu freq.  net_cooling
+could lower down interface speed (or tune more parameters to achieve
+).  Do you thing could this work form networking stack perspective?
+
+Any pointers  to the code or a doc highly appreciated.
+
+Thanks,
+/Waldek
