@@ -1,74 +1,47 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: [PATCH v2 1/5] skbuff: return -EMSGSIZE in skb_to_sgvec to prevent overflow
-Date: Tue, 25 Apr 2017 16:16:09 +0200
-Message-ID: <20170425141609.28459-1-Jason@zx2c4.com>
-References: <20170425140809.23881-1-Jason@zx2c4.com>
-Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>
-To: netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	davem@davemloft.net,
-	David.Laight@aculab.com,
-	kernel-hardening@lists.openwall.com
-Return-path: <kernel-hardening-return-7557-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-In-Reply-To: <20170425140809.23881-1-Jason@zx2c4.com>
-List-Id: netdev.vger.kernel.org
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH net-next] rhashtable: remove insecure_max_entries param
+Date: Tue, 25 Apr 2017 16:17:49 +0200
+Message-ID: <20170425141749.GD11322@breakpoint.cc>
+References: <20170425094134.21885-1-fw@strlen.de>
+ <20170425110415.GA25167@gondor.apana.org.au>
+ <20170425112356.GB11322@breakpoint.cc>
+ <20170425132837.GA25657@gondor.apana.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:49484 "EHLO
+        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1763279AbdDYORz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 10:17:55 -0400
+Content-Disposition: inline
+In-Reply-To: <20170425132837.GA25657@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is a defense-in-depth measure in response to bugs like
-4d6fa57b4dab0d77f4d8e9d9c73d1e63f6fe8fee.
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
+> On Tue, Apr 25, 2017 at 01:23:56PM +0200, Florian Westphal wrote:
+> >
+> > What extra cost?
+> > 
+> > The only change is that ht->nelems has to be right-shifted by one,
+> > I don't think that warrants extra space in struct rhashtable, its
+> > already way too large (I think we can reduce its size further).
+> 
+> I see at least one hole on 64-bit which means that you can fit
+> it into struct rhashtable for free.
 
-Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
----
- net/core/skbuff.c | 13 ++++++++++++-
- 1 file changed, 12 insertions(+), 1 deletion(-)
+I'd rather close that hole by removing more stuff from rhastable and
+rhashtable_params structs instead.
 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index f86bf69cfb8d..7ed2cdf54c0a 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -3489,7 +3489,9 @@ void __init skb_init(void)
-  *	@len: Length of buffer space to be mapped
-  *
-  *	Fill the specified scatter-gather list with mappings/pointers into a
-- *	region of the buffer space attached to a socket buffer.
-+ *	region of the buffer space attached to a socket buffer. Returns either
-+ *	the number of scatterlist items used, or -EMSGSIZE if the contents
-+ *	could not fit.
-  */
- static int
- __skb_to_sgvec(struct sk_buff *skb, struct scatterlist *sg, int offset, int len)
-@@ -3512,6 +3514,9 @@ __skb_to_sgvec(struct sk_buff *skb, struct scatterlist *sg, int offset, int len)
- 	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
- 		int end;
- 
-+		if (elt && sg_is_last(&sg[elt - 1]))
-+			return -EMSGSIZE;
-+
- 		WARN_ON(start > offset + len);
- 
- 		end = start + skb_frag_size(&skb_shinfo(skb)->frags[i]);
-@@ -3535,6 +3540,9 @@ __skb_to_sgvec(struct sk_buff *skb, struct scatterlist *sg, int offset, int len)
- 
- 		WARN_ON(start > offset + len);
- 
-+		if (elt && sg_is_last(&sg[elt - 1]))
-+			return -EMSGSIZE;
-+
- 		end = start + frag_iter->len;
- 		if ((copy = end - offset) > 0) {
- 			if (copy > len)
-@@ -3581,6 +3589,9 @@ int skb_to_sgvec(struct sk_buff *skb, struct scatterlist *sg, int offset, int le
- {
- 	int nsg = __skb_to_sgvec(skb, sg, offset, len);
- 
-+	if (nsg < 0)
-+		return nsg;
-+
- 	sg_mark_end(&sg[nsg - 1]);
- 
- 	return nsg;
--- 
-2.12.2
+F.e. why do we need to have two key_len (one in params, one in
+struct rhashtable)?
+
+Or why does rhashtable use size_t in rhashtable_params to e.g. store
+a key offset? Just using 'unsigned int' instead would shrink
+rhashtable_params by 16 bytes.
+
+I'd have less of an issue with this if we'd be talking about
+something computationally expensive, but this is about storing
+an extra value inside a struct just to avoid one "shr" in insert path...
