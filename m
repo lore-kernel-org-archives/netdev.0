@@ -1,17 +1,20 @@
 From: Logan Gunthorpe <logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH v2 17/21] mmc: spi: Make use of the new sg_map helper function
-Date: Tue, 25 Apr 2017 12:21:04 -0600
-Message-ID: <1493144468-22493-18-git-send-email-logang@deltatee.com>
+Subject: [PATCH v2 11/21] scsi: ipr, pmcraid,
+ isci: Make use of the new sg_map helper
+Date: Tue, 25 Apr 2017 12:20:58 -0600
+Message-ID: <1493144468-22493-12-git-send-email-logang@deltatee.com>
 References: <1493144468-22493-1-git-send-email-logang@deltatee.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Jens Axboe <axboe-tSWWG44O7X1aa/9Udqfwiw@public.gmane.org>, Ulf Hansson <ulf.hansson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+Cc: Jens Axboe <axboe-tSWWG44O7X1aa/9Udqfwiw@public.gmane.org>,
  "James E.J. Bottomley" <jejb-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
  "Martin K. Petersen" <martin.petersen-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
  Matthew Wilcox <mawilcox-0li6OtcxBFHby3iVrkZq2A@public.gmane.org>,
  Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
- Sumit Semwal <sumit.semwal-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>
+ Sumit Semwal <sumit.semwal-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+ Artur Paszkiewicz <artur.paszkiewicz-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+ Brian King <brking-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>, Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>
 To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-crypto-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
  linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org,
  intel-gfx-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org, linux-raid-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
@@ -33,94 +36,229 @@ Errors-To: linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org
 Sender: "Linux-nvdimm" <linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-We use the sg_map helper but it's slightly more complicated
-as we only check for the error when the mapping actually gets used.
-Such that if the mapping failed but wasn't needed then no
-error occurs.
+Very straightforward conversion of three scsi drivers.
 
 Signed-off-by: Logan Gunthorpe <logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
-Cc: Ulf Hansson <ulf.hansson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Cc: Brian King <brking-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
+Cc: Artur Paszkiewicz <artur.paszkiewicz-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 ---
- drivers/mmc/host/mmc_spi.c | 26 +++++++++++++++++++-------
- 1 file changed, 19 insertions(+), 7 deletions(-)
+ drivers/scsi/ipr.c          | 27 ++++++++++++++-------------
+ drivers/scsi/isci/request.c | 42 +++++++++++++++++++++++++-----------------
+ drivers/scsi/pmcraid.c      | 19 ++++++++++++-------
+ 3 files changed, 51 insertions(+), 37 deletions(-)
 
-diff --git a/drivers/mmc/host/mmc_spi.c b/drivers/mmc/host/mmc_spi.c
-index 476e53d..d614f36 100644
---- a/drivers/mmc/host/mmc_spi.c
-+++ b/drivers/mmc/host/mmc_spi.c
-@@ -676,9 +676,15 @@ mmc_spi_writeblock(struct mmc_spi_host *host, struct spi_transfer *t,
- 	struct scratch		*scratch = host->data;
- 	u32			pattern;
+diff --git a/drivers/scsi/ipr.c b/drivers/scsi/ipr.c
+index b0c68d2..b2324e1 100644
+--- a/drivers/scsi/ipr.c
++++ b/drivers/scsi/ipr.c
+@@ -3895,7 +3895,7 @@ static void ipr_free_ucode_buffer(struct ipr_sglist *sglist)
+ static int ipr_copy_ucode_buffer(struct ipr_sglist *sglist,
+ 				 u8 *buffer, u32 len)
+ {
+-	int bsize_elem, i, result = 0;
++	int bsize_elem, i;
+ 	struct scatterlist *scatterlist;
+ 	void *kaddr;
  
--	if (host->mmc->use_spi_crc)
-+	if (host->mmc->use_spi_crc) {
-+		if (IS_ERR(t->tx_buf))
-+			return PTR_ERR(t->tx_buf);
-+
- 		scratch->crc_val = cpu_to_be16(
- 				crc_itu_t(0, t->tx_buf, t->len));
-+		t->tx_buf += t->len;
-+	}
-+
- 	if (host->dma_dev)
- 		dma_sync_single_for_device(host->dma_dev,
- 				host->data_dma, sizeof(*scratch),
-@@ -743,7 +749,6 @@ mmc_spi_writeblock(struct mmc_spi_host *host, struct spi_transfer *t,
- 		return status;
+@@ -3905,32 +3905,33 @@ static int ipr_copy_ucode_buffer(struct ipr_sglist *sglist,
+ 	scatterlist = sglist->scatterlist;
+ 
+ 	for (i = 0; i < (len / bsize_elem); i++, buffer += bsize_elem) {
+-		struct page *page = sg_page(&scatterlist[i]);
++		kaddr = sg_map(&scatterlist[i], 0, SG_KMAP);
++		if (IS_ERR(kaddr)) {
++			ipr_trace;
++			return PTR_ERR(kaddr);
++		}
+ 
+-		kaddr = kmap(page);
+ 		memcpy(kaddr, buffer, bsize_elem);
+-		kunmap(page);
++		sg_unmap(&scatterlist[i], kaddr, 0, SG_KMAP);
+ 
+ 		scatterlist[i].length = bsize_elem;
+-
+-		if (result != 0) {
+-			ipr_trace;
+-			return result;
+-		}
  	}
  
--	t->tx_buf += t->len;
- 	if (host->dma_dev)
- 		t->tx_dma += t->len;
+ 	if (len % bsize_elem) {
+-		struct page *page = sg_page(&scatterlist[i]);
++		kaddr = sg_map(&scatterlist[i], 0, SG_KMAP);
++		if (IS_ERR(kaddr)) {
++			ipr_trace;
++			return PTR_ERR(kaddr);
++		}
  
-@@ -809,6 +814,11 @@ mmc_spi_readblock(struct mmc_spi_host *host, struct spi_transfer *t,
+-		kaddr = kmap(page);
+ 		memcpy(kaddr, buffer, len % bsize_elem);
+-		kunmap(page);
++		sg_unmap(&scatterlist[i], kaddr, 0, SG_KMAP);
+ 
+ 		scatterlist[i].length = len % bsize_elem;
  	}
- 	leftover = status << 1;
  
-+	if (bitshift || host->mmc->use_spi_crc) {
-+		if (IS_ERR(t->rx_buf))
-+			return PTR_ERR(t->rx_buf);
-+	}
+ 	sglist->buffer_len = len;
+-	return result;
++	return 0;
+ }
+ 
+ /**
+diff --git a/drivers/scsi/isci/request.c b/drivers/scsi/isci/request.c
+index 47f66e9..6f5521b 100644
+--- a/drivers/scsi/isci/request.c
++++ b/drivers/scsi/isci/request.c
+@@ -1424,12 +1424,14 @@ sci_stp_request_pio_data_in_copy_data_buffer(struct isci_stp_request *stp_req,
+ 		sg = task->scatter;
+ 
+ 		while (total_len > 0) {
+-			struct page *page = sg_page(sg);
+-
+ 			copy_len = min_t(int, total_len, sg_dma_len(sg));
+-			kaddr = kmap_atomic(page);
+-			memcpy(kaddr + sg->offset, src_addr, copy_len);
+-			kunmap_atomic(kaddr);
++			kaddr = sg_map(sg, 0, SG_KMAP_ATOMIC);
++			if (IS_ERR(kaddr))
++				return SCI_FAILURE;
 +
- 	if (host->dma_dev) {
- 		dma_sync_single_for_device(host->dma_dev,
- 				host->data_dma, sizeof(*scratch),
-@@ -860,9 +870,10 @@ mmc_spi_readblock(struct mmc_spi_host *host, struct spi_transfer *t,
- 					scratch->crc_val, crc, t->len);
- 			return -EILSEQ;
++			memcpy(kaddr, src_addr, copy_len);
++			sg_unmap(sg, kaddr, 0, SG_KMAP_ATOMIC);
++
+ 			total_len -= copy_len;
+ 			src_addr += copy_len;
+ 			sg = sg_next(sg);
+@@ -1771,14 +1773,16 @@ sci_io_request_frame_handler(struct isci_request *ireq,
+ 	case SCI_REQ_SMP_WAIT_RESP: {
+ 		struct sas_task *task = isci_request_access_task(ireq);
+ 		struct scatterlist *sg = &task->smp_task.smp_resp;
+-		void *frame_header, *kaddr;
++		void *frame_header;
+ 		u8 *rsp;
+ 
+ 		sci_unsolicited_frame_control_get_header(&ihost->uf_control,
+ 							 frame_index,
+ 							 &frame_header);
+-		kaddr = kmap_atomic(sg_page(sg));
+-		rsp = kaddr + sg->offset;
++		rsp = sg_map(sg, 0, SG_KMAP_ATOMIC);
++		if (IS_ERR(rsp))
++			return SCI_FAILURE;
++
+ 		sci_swab32_cpy(rsp, frame_header, 1);
+ 
+ 		if (rsp[0] == SMP_RESPONSE) {
+@@ -1814,7 +1818,7 @@ sci_io_request_frame_handler(struct isci_request *ireq,
+ 			ireq->sci_status = SCI_FAILURE_CONTROLLER_SPECIFIC_IO_ERR;
+ 			sci_change_state(&ireq->sm, SCI_REQ_COMPLETED);
  		}
+-		kunmap_atomic(kaddr);
++		sg_unmap(sg, rsp, 0, SG_KMAP_ATOMIC);
+ 
+ 		sci_controller_release_frame(ihost, frame_index);
+ 
+@@ -2919,15 +2923,18 @@ static void isci_request_io_request_complete(struct isci_host *ihost,
+ 	case SAS_PROTOCOL_SMP: {
+ 		struct scatterlist *sg = &task->smp_task.smp_req;
+ 		struct smp_req *smp_req;
+-		void *kaddr;
+ 
+ 		dma_unmap_sg(&ihost->pdev->dev, sg, 1, DMA_TO_DEVICE);
+ 
+ 		/* need to swab it back in case the command buffer is re-used */
+-		kaddr = kmap_atomic(sg_page(sg));
+-		smp_req = kaddr + sg->offset;
++		smp_req = sg_map(sg, 0, SG_KMAP_ATOMIC);
++		if (IS_ERR(smp_req)) {
++			status = SAS_ABORTED_TASK;
++			break;
++		}
 +
-+		t->rx_buf += t->len;
+ 		sci_swab32_cpy(smp_req, smp_req, sg->length / sizeof(u32));
+-		kunmap_atomic(kaddr);
++		sg_unmap(sg, smp_req, 0, SG_KMAP_ATOMIC);
+ 		break;
  	}
+ 	default:
+@@ -3190,12 +3197,13 @@ sci_io_request_construct_smp(struct device *dev,
+ 	struct scu_task_context *task_context;
+ 	struct isci_port *iport;
+ 	struct smp_req *smp_req;
+-	void *kaddr;
+ 	u8 req_len;
+ 	u32 cmd;
  
--	t->rx_buf += t->len;
- 	if (host->dma_dev)
- 		t->rx_dma += t->len;
+-	kaddr = kmap_atomic(sg_page(sg));
+-	smp_req = kaddr + sg->offset;
++	smp_req = sg_map(sg, 0, SG_KMAP_ATOMIC);
++	if (IS_ERR(smp_req))
++		return SCI_FAILURE;
++
+ 	/*
+ 	 * Look at the SMP requests' header fields; for certain SAS 1.x SMP
+ 	 * functions under SAS 2.0, a zero request length really indicates
+@@ -3220,7 +3228,7 @@ sci_io_request_construct_smp(struct device *dev,
+ 	req_len = smp_req->req_len;
+ 	sci_swab32_cpy(smp_req, smp_req, sg->length / sizeof(u32));
+ 	cmd = *(u32 *) smp_req;
+-	kunmap_atomic(kaddr);
++	sg_unmap(sg, smp_req, 0, SG_KMAP_ATOMIC);
  
-@@ -933,11 +944,11 @@ mmc_spi_data_do(struct mmc_spi_host *host, struct mmc_command *cmd,
- 		}
+ 	if (!dma_map_sg(dev, sg, 1, DMA_TO_DEVICE))
+ 		return SCI_FAILURE;
+diff --git a/drivers/scsi/pmcraid.c b/drivers/scsi/pmcraid.c
+index 49e70a3..e0d041a 100644
+--- a/drivers/scsi/pmcraid.c
++++ b/drivers/scsi/pmcraid.c
+@@ -3342,9 +3342,12 @@ static int pmcraid_copy_sglist(
+ 	scatterlist = sglist->scatterlist;
  
- 		/* allow pio too; we don't allow highmem */
--		kmap_addr = kmap(sg_page(sg));
-+		kmap_addr = sg_map(sg, 0, SG_KMAP);
+ 	for (i = 0; i < (len / bsize_elem); i++, buffer += bsize_elem) {
+-		struct page *page = sg_page(&scatterlist[i]);
++		kaddr = sg_map(&scatterlist[i], 0, SG_KMAP);
++		if (IS_ERR(kaddr)) {
++			pmcraid_err("failed to copy user data into sg list\n");
++			return PTR_ERR(kaddr);
++		}
+ 
+-		kaddr = kmap(page);
  		if (direction == DMA_TO_DEVICE)
--			t->tx_buf = kmap_addr + sg->offset;
-+			t->tx_buf = kmap_addr;
+ 			rc = __copy_from_user(kaddr,
+ 					      (void *)buffer,
+@@ -3352,7 +3355,7 @@ static int pmcraid_copy_sglist(
  		else
--			t->rx_buf = kmap_addr + sg->offset;
-+			t->rx_buf = kmap_addr;
+ 			rc = __copy_to_user((void *)buffer, kaddr, bsize_elem);
  
- 		/* transfer each block, and update request status */
- 		while (length) {
-@@ -967,7 +978,8 @@ mmc_spi_data_do(struct mmc_spi_host *host, struct mmc_command *cmd,
- 		/* discard mappings */
- 		if (direction == DMA_FROM_DEVICE)
- 			flush_kernel_dcache_page(sg_page(sg));
--		kunmap(sg_page(sg));
-+		if (!IS_ERR(kmap_addr))
-+			sg_unmap(sg, kmap_addr, 0, SG_KMAP);
- 		if (dma_dev)
- 			dma_unmap_page(dma_dev, dma_addr, PAGE_SIZE, dir);
+-		kunmap(page);
++		sg_unmap(&scatterlist[i], kaddr, 0, SG_KMAP);
  
+ 		if (rc) {
+ 			pmcraid_err("failed to copy user data into sg list\n");
+@@ -3363,9 +3366,11 @@ static int pmcraid_copy_sglist(
+ 	}
+ 
+ 	if (len % bsize_elem) {
+-		struct page *page = sg_page(&scatterlist[i]);
+-
+-		kaddr = kmap(page);
++		kaddr = sg_map(&scatterlist[i], 0, SG_KMAP);
++		if (IS_ERR(kaddr)) {
++			pmcraid_err("failed to copy user data into sg list\n");
++			return PTR_ERR(kaddr);
++		}
+ 
+ 		if (direction == DMA_TO_DEVICE)
+ 			rc = __copy_from_user(kaddr,
+@@ -3376,7 +3381,7 @@ static int pmcraid_copy_sglist(
+ 					    kaddr,
+ 					    len % bsize_elem);
+ 
+-		kunmap(page);
++		sg_unmap(&scatterlist[i], kaddr, 0, SG_KMAP);
+ 
+ 		scatterlist[i].length = len % bsize_elem;
+ 	}
 -- 
 2.1.4
