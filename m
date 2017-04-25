@@ -1,39 +1,81 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC 3/4] nfp: make use of extended ack message reporting
-Date: Tue, 25 Apr 2017 10:20:22 -0400 (EDT)
-Message-ID: <20170425.102022.219410555949403896.davem@davemloft.net>
-References: <20170425080644.122536-1-jakub.kicinski@netronome.com>
-        <20170425080644.122536-4-jakub.kicinski@netronome.com>
-        <9765d004-de19-7cf2-fcfc-1d2e72cded43@mojatatu.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jakub.kicinski@netronome.com, netdev@vger.kernel.org,
-        johannes@sipsolutions.net, dsa@cumulusnetworks.com,
-        daniel@iogearbox.net, alexei.starovoitov@gmail.com,
-        bblanco@gmail.com, john.fastabend@gmail.com, kubakici@wp.pl,
-        oss-drivers@netronome.com
-To: jhs@mojatatu.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:39130 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1946494AbdDYOU0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 10:20:26 -0400
-In-Reply-To: <9765d004-de19-7cf2-fcfc-1d2e72cded43@mojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Subject: [PATCH v3 1/5] skbuff: return -EMSGSIZE in skb_to_sgvec to prevent overflow
+Date: Tue, 25 Apr 2017 16:21:12 +0200
+Message-ID: <20170425142112.29702-1-Jason@zx2c4.com>
+References: <20170425141609.28459-1-Jason@zx2c4.com>
+Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>
+To: netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	davem@davemloft.net,
+	David.Laight@aculab.com,
+	kernel-hardening@lists.openwall.com
+Return-path: <kernel-hardening-return-7559-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+List-Post: <mailto:kernel-hardening@lists.openwall.com>
+List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
+List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
+List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
+In-Reply-To: <20170425141609.28459-1-Jason@zx2c4.com>
+List-Id: netdev.vger.kernel.org
 
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Date: Tue, 25 Apr 2017 08:42:32 -0400
+This is a defense-in-depth measure in response to bugs like
+4d6fa57b4dab0d77f4d8e9d9c73d1e63f6fe8fee.
 
-> So are we going to standardize these strings?
+Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
+---
+Sorry for the completely stupid amount of churn - v1,v2,v3 in the span of
+two minutes. It's just that after noticing first that nsg needs to be checked,
+I also noticed something a bit worse: that there was a bug (exploitable?) where
+if skb_to_sgvec was called with empty values, there would be an out-of-bounds
+write into sg[0 - 1]. So, this third (and hopefully final!) patch fixes that
+bug while we're at it.
 
-No.
+ net/core/skbuff.c | 13 ++++++++++++-
+ 1 file changed, 12 insertions(+), 1 deletion(-)
 
-> i.e what if some user has written a bash script that depends on this
-> string and it gets changed later.
-
-They can't do that.
-
-It's free form extra information an application may or not provide
-to the user when the kernel emits it.
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index f86bf69cfb8d..d103134deddb 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -3489,7 +3489,9 @@ void __init skb_init(void)
+  *	@len: Length of buffer space to be mapped
+  *
+  *	Fill the specified scatter-gather list with mappings/pointers into a
+- *	region of the buffer space attached to a socket buffer.
++ *	region of the buffer space attached to a socket buffer. Returns either
++ *	the number of scatterlist items used, or -EMSGSIZE if the contents
++ *	could not fit.
+  */
+ static int
+ __skb_to_sgvec(struct sk_buff *skb, struct scatterlist *sg, int offset, int len)
+@@ -3512,6 +3514,9 @@ __skb_to_sgvec(struct sk_buff *skb, struct scatterlist *sg, int offset, int len)
+ 	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
+ 		int end;
+ 
++		if (elt && sg_is_last(&sg[elt - 1]))
++			return -EMSGSIZE;
++
+ 		WARN_ON(start > offset + len);
+ 
+ 		end = start + skb_frag_size(&skb_shinfo(skb)->frags[i]);
+@@ -3535,6 +3540,9 @@ __skb_to_sgvec(struct sk_buff *skb, struct scatterlist *sg, int offset, int len)
+ 
+ 		WARN_ON(start > offset + len);
+ 
++		if (elt && sg_is_last(&sg[elt - 1]))
++			return -EMSGSIZE;
++
+ 		end = start + frag_iter->len;
+ 		if ((copy = end - offset) > 0) {
+ 			if (copy > len)
+@@ -3581,6 +3589,9 @@ int skb_to_sgvec(struct sk_buff *skb, struct scatterlist *sg, int offset, int le
+ {
+ 	int nsg = __skb_to_sgvec(skb, sg, offset, len);
+ 
++	if (nsg <= 0)
++		return nsg;
++
+ 	sg_mark_end(&sg[nsg - 1]);
+ 
+ 	return nsg;
+-- 
+2.12.2
