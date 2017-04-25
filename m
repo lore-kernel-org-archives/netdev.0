@@ -1,76 +1,62 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: [PATCH net-next] virtio-net: on tx,
-	only call napi_disable if tx napi is on
-Date: Tue, 25 Apr 2017 15:59:17 -0400
-Message-ID: <20170425195917.54209-1-willemdebruijn.kernel@gmail.com>
+From: Alexandre Belloni <alexandre.belloni@free-electrons.com>
+Subject: Re: [PATCH v1] net: phy: fix auto-negotiation stall due to
+ unavailable interrupt
+Date: Tue, 25 Apr 2017 22:09:11 +0200
+Message-ID: <20170425200911.d7zfakqs5k5zwisg@piout.net>
+References: <1492686004-30527-1-git-send-email-al.kochet@gmail.com>
+ <1492686004-30527-2-git-send-email-al.kochet@gmail.com>
+ <20170425.103644.75674234677063517.davem@davemloft.net>
+ <B99ADC0E-A793-4334-A086-9F2CE045AB7E@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Willem de Bruijn <willemb@google.com>,
-	virtualization@lists.linux-foundation.org, davem@davemloft.net,
-	mst@redhat.com
-To: netdev@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: David Miller <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        Roger Quadros <rogerq@ti.com>,
+        Madalin Bucur <madalin.bucur@nxp.com>
+To: Alexander Kochetkov <al.kochet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <B99ADC0E-A793-4334-A086-9F2CE045AB7E@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Willem de Bruijn <willemb@google.com>
+Hi,
 
-As of tx napi, device down (`ip link set dev $dev down`) hangs unless
-tx napi is enabled. Else napi_enable is not called, so napi_disable
-will spin on test_and_set_bit NAPI_STATE_SCHED.
+On 25/04/2017 at 18:25:30 +0300, Alexander Kochetkov wrote:
+> Hello David!
+> 
+> > 25 апр. 2017 г., в 17:36, David Miller <davem@davemloft.net> написал(а):
+> > 
+> > So... what are we doing here?
+> > 
+> > My understanding is that this should fix the same problem that commit
+> > 99f81afc139c6edd14d77a91ee91685a414a1c66 ("phy: micrel: Disable auto
+> > negotiation on startup") fixed and that this micrel commit should thus
+> > be reverted to improve MAC startup times which regressed.
+> > 
+> > Florian, any guidance?
+> 
+> Yes, this should be done.
+> 
+> I aksed Alexandre to check if 99f81afc139c6edd14d77a91ee91685a414a1c66 ("phy: micrel: Disable auto
+> negotiation on startup») can be reverted, and he answered what it may do that
+> sometime this/next week.
+> 
 
-Only call napi_disable if tx napi is enabled.
+Yes, it can be safely reverted after Alexander's patch. I had to test on
+v4.7 because we are not using interrupts on those boards since v4.8
+(another issue to be fixed).
 
-Fixes: 5a719c2552ca ("virtio-net: transmit napi")
-Reported-by: Jason Wang <jasowang@redhat.com>
-Signed-off-by: Willem de Bruijn <willemb@google.com>
----
- drivers/net/virtio_net.c | 10 ++++++++--
- 1 file changed, 8 insertions(+), 2 deletions(-)
+As Florian pointed out, at the time I sent my patch, I didn't have time
+to investigate whether this was affecting other phys, see
+https://lkml.org/lkml/2016/2/26/766
 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 003143835766..82f1c3a73345 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -997,6 +997,12 @@ static void virtnet_napi_tx_enable(struct virtnet_info *vi,
- 	return virtnet_napi_enable(vq, napi);
- }
- 
-+static void virtnet_napi_tx_disable(struct napi_struct *napi)
-+{
-+	if (napi->weight)
-+		napi_disable(napi);
-+}
-+
- static void refill_work(struct work_struct *work)
- {
- 	struct virtnet_info *vi =
-@@ -1445,7 +1451,7 @@ static int virtnet_close(struct net_device *dev)
- 
- 	for (i = 0; i < vi->max_queue_pairs; i++) {
- 		napi_disable(&vi->rq[i].napi);
--		napi_disable(&vi->sq[i].napi);
-+		virtnet_napi_tx_disable(&vi->sq[i].napi);
- 	}
- 
- 	return 0;
-@@ -1803,7 +1809,7 @@ static void virtnet_freeze_down(struct virtio_device *vdev)
- 	if (netif_running(vi->dev)) {
- 		for (i = 0; i < vi->max_queue_pairs; i++) {
- 			napi_disable(&vi->rq[i].napi);
--			napi_disable(&vi->sq[i].napi);
-+			virtnet_napi_tx_disable(&vi->sq[i].napi);
- 		}
- 	}
- }
+I can send the revert or you can do it.
+
 -- 
-2.13.0.rc0.306.g87b477812d-goog
+Alexandre Belloni, Free Electrons
+Embedded Linux and Kernel engineering
+http://free-electrons.com
