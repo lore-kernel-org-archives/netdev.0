@@ -1,42 +1,45 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: Re: TCP fast open using experimental TCP option?
-Date: Tue, 25 Apr 2017 14:00:06 -0700
-Message-ID: <CAK6E8=dLkNfacnure8OsJxO8sN6=LYH-Pv7R25a9TqWBbat9jg@mail.gmail.com>
-References: <CALx6S36L4BbdcASbGNvn6mRMJDhJJ6n8y-uRTgVqteM=f6On6A@mail.gmail.com>
+From: Jakub Kicinski <kubakici@wp.pl>
+Subject: Re: [RFC 0/4] xdp: use netlink extended ACK reporting
+Date: Tue, 25 Apr 2017 14:05:28 -0700
+Message-ID: <20170425140528.6ba6479b@cakuba.netronome.com>
+References: <20170425080644.122536-1-jakub.kicinski@netronome.com>
+        <2fbd12c0-dfed-c8df-8c74-1686565168ab@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Jerry Chu <hkchu@google.com>
-To: Tom Herbert <tom@herbertland.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+        johannes@sipsolutions.net, daniel@iogearbox.net,
+        alexei.starovoitov@gmail.com, bblanco@gmail.com,
+        john.fastabend@gmail.com, oss-drivers@netronome.com
+To: David Ahern <dsa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f53.google.com ([209.85.214.53]:36197 "EHLO
-        mail-it0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1949344AbdDYVAs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 17:00:48 -0400
-Received: by mail-it0-f53.google.com with SMTP id g66so27331173ite.1
-        for <netdev@vger.kernel.org>; Tue, 25 Apr 2017 14:00:47 -0700 (PDT)
-In-Reply-To: <CALx6S36L4BbdcASbGNvn6mRMJDhJJ6n8y-uRTgVqteM=f6On6A@mail.gmail.com>
+Received: from mx4.wp.pl ([212.77.101.12]:58415 "EHLO mx4.wp.pl"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1947587AbdDYVFw (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 25 Apr 2017 17:05:52 -0400
+In-Reply-To: <2fbd12c0-dfed-c8df-8c74-1686565168ab@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 25, 2017 at 12:08 PM, Tom Herbert <tom@herbertland.com> wrote:
-> Looks like TCP fast open was using experimental TCP option at some. Is
-> this still needed? Technically this violates usage requirements of
-> experimental options. Can this be removed now since there is now an
-> assigned option number for TFO?
-Given that many clients (e.g. android) have not migrated to 4.0
-kernels that support TFO opt 34, I would keep it for backward
-compatibility for now.
+On Tue, 25 Apr 2017 08:53:35 -0600, David Ahern wrote:
+> On 4/25/17 2:06 AM, Jakub Kicinski wrote:
+> 
+> > Also - is anyone working on adding proper extack support to iproute2?
+> > The code I have right now is a bit of a hack...  
+> 
+> This is what I have done:
+>     https://github.com/dsahern/iproute2/commits/ext-ack
+> 
+> Basically, added the parsing code and then a new rtnl_talk_extack
+> function that takes a callback to invoke with the extack data. The last
+> patch (of 3) purposely breaks ip set link mtu -- sending the mtu as a
+> u16 rather than a u32 just to work on the plumbing for parsing the
+> returned message:
+> 
+> $ ip li set dummy1 mtu 1490
+> Error with rtnetlink attribute IFLA_MTU
+> 
+> If an errmsg is returned it is printed as well.
 
->
->                              case TCPOPT_EXP:
->                                 /* Fast Open option shares code 254 using a
->                                  * 16 bits magic number.
->                                  */
->                                 if (opsize >= TCPOLEN_EXP_FASTOPEN_BASE &&
->                                     get_unaligned_be16(ptr) ==
->                                     TCPOPT_FASTOPEN_MAGIC)
->                                         tcp_parse_fastopen_option(opsize -
->                                                 TCPOLEN_EXP_FASTOPEN_BASE,
->                                                 ptr + 2, th->syn, foc, true);
->                                 break;
+Great, that's much better than what I have.  It will make the XDP patch
+for iproute2 pretty trivial :)
