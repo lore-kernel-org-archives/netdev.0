@@ -1,43 +1,77 @@
-From: "Lino Sanfilippo" <LinoSanfilippo@gmx.de>
-Subject: Aw: Re: [Intel-wired-lan] [PATCH] ixgbe: initialize u64_stats_sync
- structures early at ixgbe_probe
-Date: Tue, 25 Apr 2017 17:39:35 +0200
-Message-ID: <trinity-a348af9b-9ef5-47a9-a14e-94265c880cf1-1493134775614@3capp-gmx-bs78>
-References: <1480909244-16460-1-git-send-email-liwei.song@windriver.com>
- <EF50CC0C76A53A44BAD798C58E0A157E50B87CBB@ORSMSX103.amr.corp.intel.com>,
- <CAKgT0UeTdY9j1qDHP=DscgAZF2pPFCb+=ACySqKBK+UuBsaNBA@mail.gmail.com>
+From: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH] IB/IPoIB: Check the headroom size
+Date: Tue, 25 Apr 2017 11:40:15 -0400
+Message-ID: <1493134815.3041.72.camel@redhat.com>
+References: <1493114155-12101-1-git-send-email-honli@redhat.com>
+         <CAJ3xEMg4_2ph7QwPsUb-tX-K4d2ppkqz98sPzytsmBCK=29WHw@mail.gmail.com>
+         <CAAk-MO8O19iC2Yn-BMn5pKTAYxaSzGPMyta=fwes3XSvzmz_cQ@mail.gmail.com>
+         <CAJ3xEMgw=9sj3rdahPEiST_yDfDJPNSZZLRn43tnb3bK4_RPzg@mail.gmail.com>
+         <CAAk-MO-B8Liv6RyGye_Fx-9OELCUrGMj5SwK9UsciC=khSO5fA@mail.gmail.com>
+         <CAJ3xEMgwS1Bq8+eZC1iAr6xi8ZPHrchsOJ5r4LNJxR8P+6VipA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "Singh, Krishneil K" <krishneil.k.singh@intel.com>,
-        "Song, Liwei (Wind River)" <liwei.song@windriver.com>,
-        "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "Alexander Duyck" <alexander.duyck@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAKgT0UeTdY9j1qDHP=DscgAZF2pPFCb+=ACySqKBK+UuBsaNBA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: Honggang LI <honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Erez Shitrit <erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Erez Shitrit <erezsh-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>,
+        Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAJ3xEMgwS1Bq8+eZC1iAr6xi8ZPHrchsOJ5r4LNJxR8P+6VipA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
-
-> This patch doesn't look right to me. I would suggest rejecting it.
+On Tue, 2017-04-25 at 17:39 +0300, Or Gerlitz wrote:
+> On Tue, Apr 25, 2017 at 2:43 PM, Erez Shitrit <erezsh-LDSdmyG8hGUWn1LaSxwUnA@public.gmane.org
+> .il> wrote:
+> > 
+> > On Tue, Apr 25, 2017 at 2:14 PM, Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> > wrote:
 > 
-> The call to initialize the stats should be done when the ring is
-> allocated, not in ixgbe_probe(). This should probably be done in
-> ixgbe_alloc_q_vector() instead.
+> > 
+> > > 
+> > > thanks for the info. Is this bug there since ipoib/bonding day
+> > > one (and hence my bug...)
+> > > or was indeed introduced later? if later, can you explain how
+> > > fc791b633515 introduced that or you only know it by bisection?
 > 
+> > 
+> > commit "fc791b633515" changes the size of the dev_hardlen to be 24
+> > and
+> > required 24 extra bytes in the skb, before it was only 4, if skb is
+> > aligned to eth "mode" it already has 14 bytes for hard-header.
+> > So only after that commit we have the issue.
+> 
+> If got you right, Paolo's commit introduced a regression, so we (I
+> guess you and
+> Paolo) need to either solve it or we (community) should consider a
+> revert, please suggest.
 
-AFAICS ixgbe_alloc_q_vector() is also called in probe() (by ixgbe_init_interrupt_scheme()).
-Furthermore it is also called in resume() which would lead to multiple initialization of
-the u64_stats_sync in case of resume.
+It's a little more complex than that.  Paolo's commit *re-introduced* a
+regression.  If you recall, long ago the IPoIB layer stuck the dgid
+into the skb, then pulled it out later.  However, we didn't actually
+declare things properly back then, but it worked anyway.  Then we had
+the commit you authored to start using the skb->cb to store the dgid,
+and our usage of hard header dropped to only 4 bytes.  Paolo's commit
+went back to the old way of doing things, but also did the proper
+accounting and setup to tell the netstack what we were doing (which the
+initial implementation never did IIRC).  So, this issue should be
+reproducible either after Paolo's commit or with any kernel prior to
+your commit to use the skb->cb area to store the DGID, but it probably
+requires the specific series of actions in this bug to trigger it.  A
+normal, clean shutdown of the interface doesn't demonstrate the issue.
 
-IMHO the u64_stats_sync variables have to be initialized before register_netdev() is called
-since this is the point from which userspace can call ixgbe_get_stats64(). I would say the
-best place to do so is the probe() function as it is done in this patch.
+> The bug is now in stable and distro kernels, so please act.
 
-Just my 2 cents.
+-- 
+Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+    GPG KeyID: B826A3330E572FDD
+   
+Key fingerprint = AE6B 1BDA 122B 23B4 265B  1274 B826 A333 0E57 2FDD
 
-Regards,
-Lino
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
