@@ -1,29 +1,70 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull-request: can-next 2017-04-25,pull-request: can-next
- 2017-04-25
-Date: Tue, 25 Apr 2017 10:53:41 -0400 (EDT)
-Message-ID: <20170425.105341.2070743183098079136.davem@davemloft.net>
-References: <5a2d15d7-eb0f-f423-5814-df0babe5b749@pengutronix.de>
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: Re: [PATCH] macsec: avoid heap overflow in skb_to_sgvec
+Date: Tue, 25 Apr 2017 16:53:40 +0200
+Message-ID: <20170425145340.GA25241@bistromath.localdomain>
+References: <20170421211448.16995-1-Jason@zx2c4.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, kernel@pengutronix.de,
-        linux-can@vger.kernel.org
-To: mkl@pengutronix.de
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <5a2d15d7-eb0f-f423-5814-df0babe5b749@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        davem@davemloft.net, stable@vger.kernel.org, security@kernel.org
+To: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170421211448.16995-1-Jason@zx2c4.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-RnJvbTogTWFyYyBLbGVpbmUtQnVkZGUgPG1rbEBwZW5ndXRyb25peC5kZT4NCkRhdGU6IFR1ZSwg
-MjUgQXByIDIwMTcgMTA6NDQ6MjYgKzAyMDANCg0KPiB0aGlzIGlzIGEgcHVsbCByZXF1ZXN0IG9m
-IDIxIHBhdGNoZXMgZm9yIG5ldC1uZXh0L21hc3Rlci4NCj4gDQo+IFRoZXJlIGFyZSA0IHBhdGNo
-ZXMgYnkgU3RlcGhhbmUgR3Jvc2plYW4gZm9yIHRoZSBQRUFLIFBDQU4tUENJZSBGRA0KPiBDQU4t
-RkQgYm9hcmRzLiBUaGUgbmV4dCA3IHBhdGNoZXMgYXJlIGJ5IE1hcmlvIEh1ZXR0ZWwsIHdoaWNo
-IGFkZA0KPiBzdXBwb3J0IGZvciBNX0NBTiBJUCB2ZXJzaW9uID49IHYzLjEueCB0byB0aGUgbV9j
-YW4gZHJpdmVyLiBBIHBhdGNoIGJ5DQo+IFJlbWlnaXVzeiBLb8WCxYLEhXRhaiBhZGRzIHN1cHBv
-cnQgZm9yIHRoZSBNaWNyb2NoaXAgQ0FOIEJVUyBBbmFseXplci4gOA0KPiBwYXRjaGVzIGJ5IE9s
-aXZlciBIYXJ0a29wcCBjb21wbGV0ZSB0aGUgaW5pdGlhbCBDQU4gbmV0d29yayBuYW1lc3BhY2UN
-Cj4gc3VwcG9ydC4gV2VpIFlvbmdqdW4ncyBwYXRjaCBmb3IgdGhlIHRpX2hlY2MgZHJpdmVyIGZp
-eGVzIHRoZSByZXR1cm4NCj4gdmFsdWUgY2hlY2sgaW4gdGhlIHByb2JlIGZ1bmN0aW9uLg0KDQpQ
-dWxsZWQsIHRoYW5rcyBNYXJjLg0K
+2017-04-21, 23:14:48 +0200, Jason A. Donenfeld wrote:
+> While this may appear as a humdrum one line change, it's actually quite
+> important. An sk_buff stores data in three places:
+> 
+> 1. A linear chunk of allocated memory in skb->data. This is the easiest
+>    one to work with, but it precludes using scatterdata since the memory
+>    must be linear.
+> 2. The array skb_shinfo(skb)->frags, which is of maximum length
+>    MAX_SKB_FRAGS. This is nice for scattergather, since these fragments
+>    can point to different pages.
+> 3. skb_shinfo(skb)->frag_list, which is a pointer to another sk_buff,
+>    which in turn can have data in either (1) or (2).
+> 
+> The first two are rather easy to deal with, since they're of a fixed
+> maximum length, while the third one is not, since there can be
+> potentially limitless chains of fragments. Fortunately dealing with
+> frag_list is opt-in for drivers, so drivers don't actually have to deal
+> with this mess. For whatever reason, macsec decided it wanted pain, and
+> so it explicitly specified NETIF_F_FRAGLIST.
+> 
+> Because dealing with (1), (2), and (3) is insane, most users of sk_buff
+> doing any sort of crypto or paging operation calls a convenient function
+> called skb_to_sgvec (which happens to be recursive if (3) is in use!).
+> This takes a sk_buff as input, and writes into its output pointer an
+> array of scattergather list items. Sometimes people like to declare a
+> fixed size scattergather list on the stack; othertimes people like to
+> allocate a fixed size scattergather list on the heap. However, if you're
+> doing it in a fixed-size fashion, you really shouldn't be using
+> NETIF_F_FRAGLIST too (unless you're also ensuring the sk_buff and its
+> frag_list children arent't shared and then you check the number of
+> fragments in total required.)
+> 
+> Macsec specifically does this:
+> 
+>         size += sizeof(struct scatterlist) * (MAX_SKB_FRAGS + 1);
+>         tmp = kmalloc(size, GFP_ATOMIC);
+>         *sg = (struct scatterlist *)(tmp + sg_offset);
+> 	...
+>         sg_init_table(sg, MAX_SKB_FRAGS + 1);
+>         skb_to_sgvec(skb, sg, 0, skb->len);
+> 
+> Specifying MAX_SKB_FRAGS + 1 is the right answer usually, but not if you're
+> using NETIF_F_FRAGLIST, in which case the call to skb_to_sgvec will
+> overflow the heap, and disaster ensues.
+
+Ugh, good catch :/
+
+AFAICT this patch doesn't really help, because NETIF_F_FRAGLIST
+doesn't get tested in paths that can lead to triggering this.
+
+I'll post a patch to allocate a properly-sized sg array.
+
+-- 
+Sabrina
