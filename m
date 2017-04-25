@@ -1,80 +1,44 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH 0/8] Fix and complete CAN namespace support
-Date: Tue, 25 Apr 2017 08:48:28 +0200
-Message-ID: <8fc17f07-f165-970b-f96a-1d920302fd00@pengutronix.de>
-References: <20170425061945.28722-1-socketcan@hartkopp.net>
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Subject: [PATCH net-next] qed: fix invalid use of sizeof in qed_alloc_qm_data()
+Date: Tue, 25 Apr 2017 07:07:18 +0000
+Message-ID: <20170425070718.14790-1-weiyj.lk@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="PvTaIU752o8Cm6RHWrkpgnIUrFtOWfR3h"
-Cc: dev@kicherer.org, netdev@vger.kernel.org
-To: Oliver Hartkopp <socketcan@hartkopp.net>,
-        linux-can@vger.kernel.org, davem@davemloft.net
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <20170425061945.28722-1-socketcan@hartkopp.net>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Wei Yongjun <weiyongjun1@huawei.com>, everest-linux-l2@cavium.com,
+        netdev@vger.kernel.org
+To: Yuval Mintz <Yuval.Mintz@cavium.com>,
+        Ariel Elior <Ariel.Elior@cavium.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:35388 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1168040AbdDYHHY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 03:07:24 -0400
+Received: by mail-pg0-f66.google.com with SMTP id g2so8962409pge.2
+        for <netdev@vger.kernel.org>; Tue, 25 Apr 2017 00:07:23 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---PvTaIU752o8Cm6RHWrkpgnIUrFtOWfR3h
-Content-Type: multipart/mixed; boundary="B7qBsTKB1X1b4wtIfqwQU4N9AJIvQL4vC";
- protected-headers="v1"
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-To: Oliver Hartkopp <socketcan@hartkopp.net>, linux-can@vger.kernel.org,
- davem@davemloft.net
-Cc: dev@kicherer.org, netdev@vger.kernel.org
-Message-ID: <8fc17f07-f165-970b-f96a-1d920302fd00@pengutronix.de>
-Subject: Re: [PATCH 0/8] Fix and complete CAN namespace support
-References: <20170425061945.28722-1-socketcan@hartkopp.net>
-In-Reply-To: <20170425061945.28722-1-socketcan@hartkopp.net>
+From: Wei Yongjun <weiyongjun1@huawei.com>
 
---B7qBsTKB1X1b4wtIfqwQU4N9AJIvQL4vC
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+sizeof() when applied to a pointer typed expression gives the
+size of the pointer, not that of the pointed data.
 
-On 04/25/2017 08:19 AM, Oliver Hartkopp wrote:
-> Hello Dave,
->=20
-> unfortunately the initial network namespace support by Mario Kicherer
-> (8e8cda6d737d) slipped into net-next without further review and Marc pu=
-shed
-> the code without my Acked-by. Due to the fact that this code was in net=
--next
-> now I spent some nights to fix, clean up, finalize and test the missing=
- pieces
-> for the namespace support for the CAN subsystem in net/can.
->=20
-> As Marc is currently *VERY* unresponsive on the mailing list due to his=
- 'real'
+Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
+---
+ drivers/net/ethernet/qlogic/qed/qed_dev.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-=2E.. and holidays :) But I'm back in the office now.
-
-Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---B7qBsTKB1X1b4wtIfqwQU4N9AJIvQL4vC--
-
---PvTaIU752o8Cm6RHWrkpgnIUrFtOWfR3h
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEzBAEBCgAdFiEE4bay/IylYqM/npjQHv7KIOw4HPYFAlj+8T8ACgkQHv7KIOw4
-HPZAVwgAt76bibjDKKqlpgxhv2NHztr7bgPbSH2oqTJ+lXbAcukXh1/RFeZMCvb5
-9gTgJOLoq+Erl3xYDvwkPk5MwzB74m313ivdYr35+NGb/cMVzUJP755EzVx8SvQC
-Kfg3bVRjYsL4I1SIu1ZdytOhIb7pTpcTXGBj7ha3rbuJNdXS9buey+kHSddGxpHu
-SyDKRJdkQUZdOLQcDp3terT4zkM9uX+R5VfgEYh82GSCa9/OTO8jcjFfEBZJ0aGQ
-rix4NmG6jdmOxGAEzL2DswJIeWhRz8XTyS9rfLQGcjjORk+4r4QKrVAuZycmCPam
-rP/ZxkaNSrxpbXcaMFPATeGl2HZxNA==
-=DZCC
------END PGP SIGNATURE-----
-
---PvTaIU752o8Cm6RHWrkpgnIUrFtOWfR3h--
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_dev.c b/drivers/net/ethernet/qlogic/qed/qed_dev.c
+index 2498785..4fa5a1e 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_dev.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_dev.c
+@@ -820,7 +820,7 @@ static int qed_alloc_qm_data(struct qed_hwfn *p_hwfn)
+ 	if (!qm_info->qm_vport_params)
+ 		goto alloc_err;
+ 
+-	qm_info->qm_port_params = kzalloc(sizeof(qm_info->qm_port_params) *
++	qm_info->qm_port_params = kzalloc(sizeof(*qm_info->qm_port_params) *
+ 					  p_hwfn->cdev->num_ports_in_engines,
+ 					  GFP_KERNEL);
+ 	if (!qm_info->qm_port_params)
