@@ -1,87 +1,60 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2 net] bridge: move bridge multicast cleanup to
- ndo_uninit
-Date: Tue, 25 Apr 2017 14:02:55 -0400 (EDT)
-Message-ID: <20170425.140255.1623259793119409754.davem@davemloft.net>
-References: <6e156e72cb1a5e279da8ac53bdb601eee5d654fe.1493132317.git.lucien.xin@gmail.com>
+Subject: Re: [PATCH v4 net] net: ipv6: regenerate host route if moved to gc
+ list
+Date: Tue, 25 Apr 2017 14:05:21 -0400 (EDT)
+Message-ID: <20170425.140521.1068673881149333554.davem@davemloft.net>
+References: <1493137049-16465-1-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nikolay@cumulusnetworks.com,
-        stephen@networkplumber.org
-To: lucien.xin@gmail.com
+Cc: netdev@vger.kernel.org, dvyukov@google.com, andreyknvl@google.com,
+        mmanning@brocade.com, kafai@fb.com, eric.dumazet@gmail.com
+To: dsa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:43200 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:43242 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1429367AbdDYSC5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 14:02:57 -0400
-In-Reply-To: <6e156e72cb1a5e279da8ac53bdb601eee5d654fe.1493132317.git.lucien.xin@gmail.com>
+        with ESMTP id S971581AbdDYSFX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 14:05:23 -0400
+In-Reply-To: <1493137049-16465-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Xin Long <lucien.xin@gmail.com>
-Date: Tue, 25 Apr 2017 22:58:37 +0800
+From: David Ahern <dsa@cumulusnetworks.com>
+Date: Tue, 25 Apr 2017 09:17:29 -0700
 
-> During removing a bridge device, if the bridge is still up, a new mdb entry
-> still can be added in br_multicast_add_group() after all mdb entries are
-> removed in br_multicast_dev_del(). Like the path:
+> Taking down the loopback device wreaks havoc on IPv6 routing. By
+> extension, taking down a VRF device wreaks havoc on its table.
 > 
->   mld_ifc_timer_expire ->
->     mld_sendpack -> ...
->       br_multicast_rcv ->
->         br_multicast_add_group
+> Dmitry and Andrey both reported heap out-of-bounds reports in the IPv6
+> FIB code while running syzkaller fuzzer. The root cause is a dead dst
+> that is on the garbage list gets reinserted into the IPv6 FIB. While on
+> the gc (or perhaps when it gets added to the gc list) the dst->next is
+> set to an IPv4 dst. A subsequent walk of the ipv6 tables causes the
+> out-of-bounds access.
 > 
-> The new mp's timer will be set up. If the timer expires after the bridge
-> is freed, it may cause use-after-free panic in br_multicast_group_expired.
+> Andrey's reproducer was the key to getting to the bottom of this.
 > 
-> BUG: unable to handle kernel NULL pointer dereference at 0000000000000048
-> IP: [<ffffffffa07ed2c8>] br_multicast_group_expired+0x28/0xb0 [bridge]
-> Call Trace:
->  <IRQ>
->  [<ffffffff81094536>] call_timer_fn+0x36/0x110
->  [<ffffffffa07ed2a0>] ? br_mdb_free+0x30/0x30 [bridge]
->  [<ffffffff81096967>] run_timer_softirq+0x237/0x340
->  [<ffffffff8108dcbf>] __do_softirq+0xef/0x280
->  [<ffffffff8169889c>] call_softirq+0x1c/0x30
->  [<ffffffff8102c275>] do_softirq+0x65/0xa0
->  [<ffffffff8108e055>] irq_exit+0x115/0x120
->  [<ffffffff81699515>] smp_apic_timer_interrupt+0x45/0x60
->  [<ffffffff81697a5d>] apic_timer_interrupt+0x6d/0x80
+> With IPv6, host routes for an address have the dst->dev set to the
+> loopback device. When the 'lo' device is taken down, rt6_ifdown initiates
+> a walk of the fib evicting routes with the 'lo' device which means all
+> host routes are removed. That process moves the dst which is attached to
+> an inet6_ifaddr to the gc list and marks it as dead.
 > 
-> Nikolay also found it would cause a memory leak - the mdb hash is
-> reallocated and not freed due to the mdb rehash.
+> The recent change to keep global IPv6 addresses added a new function,
+> fixup_permanent_addr, that is called on admin up. That function restarts
+> dad for an inet6_ifaddr and when it completes the host route attached
+> to it is inserted into the fib. Since the route was marked dead and
+> moved to the gc list, re-inserting the route causes the reported
+> out-of-bounds accesses. If the device with the address is taken down
+> or the address is removed, the WARN_ON in fib6_del is triggered.
 > 
-> unreferenced object 0xffff8800540ba800 (size 2048):
->   backtrace:
->     [<ffffffff816e2287>] kmemleak_alloc+0x67/0xc0
->     [<ffffffff81260bea>] __kmalloc+0x1ba/0x3e0
->     [<ffffffffa05c60ee>] br_mdb_rehash+0x5e/0x340 [bridge]
->     [<ffffffffa05c74af>] br_multicast_new_group+0x43f/0x6e0 [bridge]
->     [<ffffffffa05c7aa3>] br_multicast_add_group+0x203/0x260 [bridge]
->     [<ffffffffa05ca4b5>] br_multicast_rcv+0x945/0x11d0 [bridge]
->     [<ffffffffa05b6b10>] br_dev_xmit+0x180/0x470 [bridge]
->     [<ffffffff815c781b>] dev_hard_start_xmit+0xbb/0x3d0
->     [<ffffffff815c8743>] __dev_queue_xmit+0xb13/0xc10
->     [<ffffffff815c8850>] dev_queue_xmit+0x10/0x20
->     [<ffffffffa02f8d7a>] ip6_finish_output2+0x5ca/0xac0 [ipv6]
->     [<ffffffffa02fbfc6>] ip6_finish_output+0x126/0x2c0 [ipv6]
->     [<ffffffffa02fc245>] ip6_output+0xe5/0x390 [ipv6]
->     [<ffffffffa032b92c>] NF_HOOK.constprop.44+0x6c/0x240 [ipv6]
->     [<ffffffffa032bd16>] mld_sendpack+0x216/0x3e0 [ipv6]
->     [<ffffffffa032d5eb>] mld_ifc_timer_expire+0x18b/0x2b0 [ipv6]
+> All of those faults are fixed by regenerating the host route if the
+> existing one has been moved to the gc list, something that can be
+> determined by checking if the rt6i_ref counter is 0.
 > 
-> This could happen when ip link remove a bridge or destroy a netns with a
-> bridge device inside.
-> 
-> With Nikolay's suggestion, this patch is to clean up bridge multicast in
-> ndo_uninit after bridge dev is shutdown, instead of br_dev_delete, so
-> that netif_running check in br_multicast_add_group can avoid this issue.
-> 
-> v1->v2:
->   - fix this issue by moving br_multicast_dev_del to ndo_uninit, instead
->     of calling dev_close in br_dev_delete.
-> 
-> Reported-by: Jianwen Ji <jiji@redhat.com>
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> Fixes: f1705ec197e7 ("net: ipv6: Make address flushing on ifdown optional")
+> Reported-by: Dmitry Vyukov <dvyukov@google.com>
+> Reported-by: Andrey Konovalov <andreyknvl@google.com>
+> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 
-Applied and queued up for -stable, thanks.
+Applied and queued up for -stable, thanks David!
