@@ -1,42 +1,74 @@
-From: administrador <kepala.kanwil-sumbagsel@customs.go.id>
-Subject: admin
-Date: Tue, 25 Apr 2017 18:46:22 +0530
-Message-ID: <20170425131809.83B3213C810A@mail.customs.go.id>
-Reply-To: Sistemass_Adminss@mail2world.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: Recipients <kepala.kanwil-sumbagsel@customs.go.id>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.customs.go.id ([202.61.126.135]:59322 "EHLO
-        mail.customs.go.id" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1431615AbdDYONI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 10:13:08 -0400
-Content-Description: Mail message body
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Subject: [PATCH v2 1/5] skbuff: return -EMSGSIZE in skb_to_sgvec to prevent overflow
+Date: Tue, 25 Apr 2017 16:16:09 +0200
+Message-ID: <20170425141609.28459-1-Jason@zx2c4.com>
+References: <20170425140809.23881-1-Jason@zx2c4.com>
+Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>
+To: netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	davem@davemloft.net,
+	David.Laight@aculab.com,
+	kernel-hardening@lists.openwall.com
+Return-path: <kernel-hardening-return-7557-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+List-Post: <mailto:kernel-hardening@lists.openwall.com>
+List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
+List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
+List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
+In-Reply-To: <20170425140809.23881-1-Jason@zx2c4.com>
+List-Id: netdev.vger.kernel.org
 
-ATENCI=D3N;
+This is a defense-in-depth measure in response to bugs like
+4d6fa57b4dab0d77f4d8e9d9c73d1e63f6fe8fee.
 
-Su buz=F3n ha superado el l=EDmite de almacenamiento, que es de 5 GB defini=
-dos por el administrador, quien actualmente est=E1 ejecutando en 10.9GB, no=
- puede ser capaz de enviar o recibir correo nuevo hasta que vuelva a valida=
-r su buz=F3n de correo electr=F3nico. Para revalidar su buz=F3n de correo, =
-env=EDe la siguiente informaci=F3n a continuaci=F3n:
+Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
+---
+ net/core/skbuff.c | 13 ++++++++++++-
+ 1 file changed, 12 insertions(+), 1 deletion(-)
 
-nombre:
-Nombre de usuario:
-contrase=F1a:
-Confirmar contrase=F1a:
-E-mail:
-tel=E9fono:
-
-Si usted no puede revalidar su buz=F3n, el buz=F3n se deshabilitar=E1!
-
-
-Disculpa las molestias.
-C=F3digo de verificaci=F3n: es: Ar..No,hat2rq7hs;z.Ar
-Correo Soporte T=E9cnico =A9 2017
-
-=A1gracias
-Sistemas administrador
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index f86bf69cfb8d..7ed2cdf54c0a 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -3489,7 +3489,9 @@ void __init skb_init(void)
+  *	@len: Length of buffer space to be mapped
+  *
+  *	Fill the specified scatter-gather list with mappings/pointers into a
+- *	region of the buffer space attached to a socket buffer.
++ *	region of the buffer space attached to a socket buffer. Returns either
++ *	the number of scatterlist items used, or -EMSGSIZE if the contents
++ *	could not fit.
+  */
+ static int
+ __skb_to_sgvec(struct sk_buff *skb, struct scatterlist *sg, int offset, int len)
+@@ -3512,6 +3514,9 @@ __skb_to_sgvec(struct sk_buff *skb, struct scatterlist *sg, int offset, int len)
+ 	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
+ 		int end;
+ 
++		if (elt && sg_is_last(&sg[elt - 1]))
++			return -EMSGSIZE;
++
+ 		WARN_ON(start > offset + len);
+ 
+ 		end = start + skb_frag_size(&skb_shinfo(skb)->frags[i]);
+@@ -3535,6 +3540,9 @@ __skb_to_sgvec(struct sk_buff *skb, struct scatterlist *sg, int offset, int len)
+ 
+ 		WARN_ON(start > offset + len);
+ 
++		if (elt && sg_is_last(&sg[elt - 1]))
++			return -EMSGSIZE;
++
+ 		end = start + frag_iter->len;
+ 		if ((copy = end - offset) > 0) {
+ 			if (copy > len)
+@@ -3581,6 +3589,9 @@ int skb_to_sgvec(struct sk_buff *skb, struct scatterlist *sg, int offset, int le
+ {
+ 	int nsg = __skb_to_sgvec(skb, sg, offset, len);
+ 
++	if (nsg < 0)
++		return nsg;
++
+ 	sg_mark_end(&sg[nsg - 1]);
+ 
+ 	return nsg;
+-- 
+2.12.2
