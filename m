@@ -1,33 +1,207 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] qed: fix invalid use of sizeof in
- qed_alloc_qm_data()
-Date: Tue, 25 Apr 2017 12:00:01 -0400 (EDT)
-Message-ID: <20170425.120001.190819999818819545.davem@davemloft.net>
-References: <20170425070718.14790-1-weiyj.lk@gmail.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next v8 2/3] net sched actions: dump more than
+ TCA_ACT_MAX_PRIO actions per batch
+Date: Tue, 25 Apr 2017 18:04:45 +0200
+Message-ID: <20170425160445.GD1867@nanopsycho.orion>
+References: <1493121247-11863-1-git-send-email-jhs@emojatatu.com>
+ <1493121247-11863-3-git-send-email-jhs@emojatatu.com>
+ <20170425121338.GC1867@nanopsycho.orion>
+ <5e54edd8-3943-6f09-490f-ff04b83077f6@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Yuval.Mintz@cavium.com, Ariel.Elior@cavium.com,
-        weiyongjun1@huawei.com, everest-linux-l2@cavium.com,
-        netdev@vger.kernel.org
-To: weiyj.lk@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, xiyou.wangcong@gmail.com,
+        eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:41208 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1951116AbdDYQAD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 12:00:03 -0400
-In-Reply-To: <20170425070718.14790-1-weiyj.lk@gmail.com>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:33334 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1951220AbdDYQEu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 12:04:50 -0400
+Received: by mail-wm0-f65.google.com with SMTP id y10so15135711wmh.0
+        for <netdev@vger.kernel.org>; Tue, 25 Apr 2017 09:04:49 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <5e54edd8-3943-6f09-490f-ff04b83077f6@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Date: Tue, 25 Apr 2017 07:07:18 +0000
+Tue, Apr 25, 2017 at 03:01:22PM CEST, jhs@mojatatu.com wrote:
+>On 17-04-25 08:13 AM, Jiri Pirko wrote:
+>> Tue, Apr 25, 2017 at 01:54:06PM CEST, jhs@mojatatu.com wrote:
+>
+>
+>[..]
+>
+>> > -#define TCAA_MAX 1
+>> > +/* tcamsg flags stored in attribute TCA_ROOT_FLAGS
+>> > + *
+>> > + * TCA_FLAG_LARGE_DUMP_ON user->kernel to request for larger than TCA_ACT_MAX_PRIO
+>> > + * actions in a dump. All dump responses will contain the number of actions
+>> > + * being dumped stored in for user app's consumption in TCA_ROOT_COUNT
+>> > + *
+>> > + */
+>> > +#define TCA_FLAG_LARGE_DUMP_ON		(1 << 0)
+>> 
+>> BIT (I think I mentioned this before)
+>> 
+>
+>You did - but i took it out about two submissions back (per cover
+>letter) because it is no part of UAPI today. I noticed devlink was
+>using it but they defined  their own variant.
+>So if i added this, iproute2 doesnt compile. I could fix iproute2
+>to move it somewhere to a common header then restore this.
 
-> From: Wei Yongjun <weiyongjun1@huawei.com>
-> 
-> sizeof() when applied to a pointer typed expression gives the
-> size of the pointer, not that of the pointed data.
-> 
-> Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
+So fix iproute2. It is always first kernel, then iproute2.
 
-Applied with Yuval's Fixes: tag added.
+
+>
+>> > +#define VALID_TCA_FLAGS TCA_FLAG_LARGE_DUMP_ON
+>> 
+>> Again, namespace please. "TCA_ROOT_FLAGS_VALID"
+>
+>Good point.
+>
+>> Why is this UAPI?
+>> 
+>
+>Should not be. I will fix in next update.
+>
+>
+>> 
+>> > 
+>> > /* New extended info filters for IFLA_EXT_MASK */
+>> > #define RTEXT_FILTER_VF		(1 << 0)
+>> > diff --git a/net/sched/act_api.c b/net/sched/act_api.c
+>> > index 9ce22b7..2756213 100644
+>> > --- a/net/sched/act_api.c
+>> > +++ b/net/sched/act_api.c
+>> > @@ -83,6 +83,7 @@ static int tcf_dump_walker(struct tcf_hashinfo *hinfo, struct sk_buff *skb,
+>> > 			   struct netlink_callback *cb)
+>> > {
+>> > 	int err = 0, index = -1, i = 0, s_i = 0, n_i = 0;
+>> > +	u32 act_flags = cb->args[2];
+>> > 	struct nlattr *nest;
+>> > 
+>> > 	spin_lock_bh(&hinfo->lock);
+>> > @@ -111,14 +112,18 @@ static int tcf_dump_walker(struct tcf_hashinfo *hinfo, struct sk_buff *skb,
+>> > 			}
+>> > 			nla_nest_end(skb, nest);
+>> > 			n_i++;
+>> > -			if (n_i >= TCA_ACT_MAX_PRIO)
+>> > +			if (!(act_flags & TCA_FLAG_LARGE_DUMP_ON) &&
+>> > +			    n_i >= TCA_ACT_MAX_PRIO)
+>> > 				goto done;
+>> > 		}
+>> > 	}
+>> > done:
+>> > 	spin_unlock_bh(&hinfo->lock);
+>> > -	if (n_i)
+>> > +	if (n_i) {
+>> > 		cb->args[0] += n_i;
+>> > +		if (act_flags & TCA_FLAG_LARGE_DUMP_ON)
+>> > +			cb->args[1] = n_i;
+>> > +	}
+>> > 	return n_i;
+>> > 
+>> > nla_put_failure:
+>> > @@ -993,11 +998,15 @@ static int tcf_action_add(struct net *net, struct nlattr *nla,
+>> > 	return tcf_add_notify(net, n, &actions, portid);
+>> > }
+>> > 
+>> > +static const struct nla_policy tcaa_policy[TCA_ROOT_MAX + 1] = {
+>> > +	[TCA_ROOT_FLAGS]      = { .type = NLA_U32 },
+>> > +};
+>> > +
+>> > static int tc_ctl_action(struct sk_buff *skb, struct nlmsghdr *n,
+>> > 			 struct netlink_ext_ack *extack)
+>> > {
+>> > 	struct net *net = sock_net(skb->sk);
+>> > -	struct nlattr *tca[TCAA_MAX + 1];
+>> > +	struct nlattr *tca[TCA_ROOT_MAX + 1];
+>> > 	u32 portid = skb ? NETLINK_CB(skb).portid : 0;
+>> > 	int ret = 0, ovr = 0;
+>> > 
+>> > @@ -1005,7 +1014,7 @@ static int tc_ctl_action(struct sk_buff *skb, struct nlmsghdr *n,
+>> > 	    !netlink_capable(skb, CAP_NET_ADMIN))
+>> > 		return -EPERM;
+>> > 
+>> > -	ret = nlmsg_parse(n, sizeof(struct tcamsg), tca, TCAA_MAX, NULL,
+>> > +	ret = nlmsg_parse(n, sizeof(struct tcamsg), tca, TCA_ROOT_MAX, NULL,
+>> > 			  extack);
+>> > 	if (ret < 0)
+>> > 		return ret;
+>> > @@ -1046,16 +1055,12 @@ static int tc_ctl_action(struct sk_buff *skb, struct nlmsghdr *n,
+>> > 	return ret;
+>> > }
+>> > 
+>> > -static struct nlattr *find_dump_kind(const struct nlmsghdr *n)
+>> > +static struct nlattr *find_dump_kind(struct nlattr **nla)
+>> > {
+>> > 	struct nlattr *tb1, *tb2[TCA_ACT_MAX + 1];
+>> > 	struct nlattr *tb[TCA_ACT_MAX_PRIO + 1];
+>> > -	struct nlattr *nla[TCAA_MAX + 1];
+>> > 	struct nlattr *kind;
+>> > 
+>> > -	if (nlmsg_parse(n, sizeof(struct tcamsg), nla, TCAA_MAX,
+>> > -			NULL, NULL) < 0)
+>> > -		return NULL;
+>> > 	tb1 = nla[TCA_ACT_TAB];
+>> > 	if (tb1 == NULL)
+>> > 		return NULL;
+>> > @@ -1073,6 +1078,16 @@ static struct nlattr *find_dump_kind(const struct nlmsghdr *n)
+>> > 	return kind;
+>> > }
+>> > 
+>> > +static inline bool tca_flags_valid(u32 act_flags)
+>> > +{
+>> > +	u32 invalid_flags_mask  = ~VALID_TCA_FLAGS;
+>> > +
+>> > +	if (act_flags & invalid_flags_mask)
+>> > +		return false;
+>> 
+>> I don't see how this resolves anything. VALID_TCA_FLAGS is set in stone
+>> not going to change anytime in future, right?
+>
+>Every time a new bit gets added VALID_TCA_FLAGS changes.
+
+You mean flag that user can set? If that is the case, you are breaking
+UAPI for newer app running on older kernel.
+
+
+>
+>> Then the TCA_ROOT_FLAGS
+>> attr will always contain only one flag, right?
+>
+>Not true - forever. Just in this patch discussion:
+>I have added 2 other flags since removed. So I cant predict the
+>future. You keep coming back to this assumption there will always
+>ever be this one flag. I am not following how you reach this
+>conclusion.
+
+I read this paragraph 5 times, still I don't get what you say :/
+
+
+>
+>> Then, I don't see why do we need this dance... u8 flag attr resolves
+>> this in elegant way. I know I sound like a broken record. This is the
+>> last time I'm commenting on this. I give up.
+>> 
+>
+>Why is a u8 better than u32 Jiri?
+>The TLV space consumed is still 64 bits in both cases. If I define u8,
+>u16, u32 - it is still 64 bits being alloced. If i use a u8 then i have
+>24 bits which are pads - given current discussions I can never ever use
+>again!
+
+I don't care, use u8 or u32. Just 1 attr - 1 flag.
+
+
+>
+>If i keep 32 bits I am free to use those without ever changing the
+>data structure (except for the restrictions to now make sure nothing
+>gets set).
+
+what datastructure? I'm confused.
+
+>
+>cheers,
+>jamal
