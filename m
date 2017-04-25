@@ -1,35 +1,61 @@
-From: Arend Van Spriel <arend.vanspriel-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH v2] brcmfmac: Ensure pointer correctly set if skb data
- location changes
-Date: Tue, 25 Apr 2017 09:56:37 +0200
-Message-ID: <17dd69e6-1438-3474-aa0a-6c44e68855a5@broadcom.com>
-References: <20170424114050.24948-1-james.hughes@raspberrypi.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: James Hughes <james.hughes-FnsA7b+Nu9XbIbC87yuRow@public.gmane.org>,
-        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        brcm80211-dev-list.pdl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170424114050.24948-1-james.hughes-FnsA7b+Nu9XbIbC87yuRow@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: [RFC 0/4] xdp: use netlink extended ACK reporting
+Date: Tue, 25 Apr 2017 01:06:40 -0700
+Message-ID: <20170425080644.122536-1-jakub.kicinski@netronome.com>
+Cc: davem@davemloft.net, johannes@sipsolutions.net,
+        dsa@cumulusnetworks.com, daniel@iogearbox.net,
+        alexei.starovoitov@gmail.com, bblanco@gmail.com,
+        john.fastabend@gmail.com, kubakici@wp.pl,
+        oss-drivers@netronome.com,
+        Jakub Kicinski <jakub.kicinski@netronome.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f43.google.com ([74.125.83.43]:35403 "EHLO
+        mail-pg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1172282AbdDYIIN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 04:08:13 -0400
+Received: by mail-pg0-f43.google.com with SMTP id 72so24747663pge.2
+        for <netdev@vger.kernel.org>; Tue, 25 Apr 2017 01:08:13 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 24-4-2017 13:40, James Hughes wrote:
-> The incoming skb header may be resized if header space is
-> insufficient, which might change the data adddress in the skb.
-> Ensure that a cached pointer to that data is correctly set by
-> moving assignment to after any possible changes.
+Hi!
 
-Hi Kalle,
+This series is an attempt to make XDP more user friendly by 
+enabling exploiting the recently added netlink extended ACK 
+reporting to carry messages to user space.
 
-This one should go on 4.12 queue as well.
+I made iproute2 parse the extended messages and have it showing 
+the errors like this:
 
-Thanks,
-Arend
+# ip link set dev p4p1 xdp obj ipip_prepend.o sec ".text"
+RTNETLINK answers: Invalid argument (MTU too large w/ XDP enabled)
 
-> Signed-off-by: James Hughes <james.hughes-FnsA7b+Nu9XbIbC87yuRow@public.gmane.org>
-> 
-> Acked-by: Arend van Spriel <arend.vanspriel-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-> ---
+Where the message is coming directly from the driver.  There could
+still be a bit of a leap for a complete novice from the message 
+above to the right settings.  I wonder if it would be worthwhile
+adding #defines for the most common configuration conflicts?
+Sharing the messages verbatim between drivers could make them easier
+to google.
+
+Also - is anyone working on adding proper extack support to iproute2?
+The code I have right now is a bit of a hack...
+
+Jakub Kicinski (4):
+  netlink: make extended ACK setting NULL-friendly
+  xdp: propagate extended ack to XDP setup
+  nfp: make use of extended ack message reporting
+  virtio_net: make use of extended ack message reporting
+
+ drivers/net/ethernet/netronome/nfp/nfp_net.h       |  3 ++-
+ .../net/ethernet/netronome/nfp/nfp_net_common.c    | 22 +++++++++++++---------
+ .../net/ethernet/netronome/nfp/nfp_net_ethtool.c   |  4 ++--
+ drivers/net/virtio_net.c                           | 11 +++++++----
+ include/linux/netdevice.h                          | 10 ++++++++--
+ include/linux/netlink.h                            | 12 ++++++++----
+ net/core/dev.c                                     |  5 ++++-
+ net/core/rtnetlink.c                               | 13 ++++++++-----
+ 8 files changed, 52 insertions(+), 28 deletions(-)
+
+-- 
+2.11.0
