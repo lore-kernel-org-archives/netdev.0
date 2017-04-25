@@ -1,55 +1,99 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: Network cooling device and how to control NIC speed on thermal
- condition
-Date: Tue, 25 Apr 2017 15:17:57 +0200
-Message-ID: <20170425131757.GD26241@lunn.ch>
-References: <CAHKzcEMQPQzg6PYCSuv7Ufad+4AZ2gnqMgz3-VH5NTeb_pv4zQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Waldemar Rymarkiewicz <waldemar.rymarkiewicz@gmail.com>
+From: Alexander Potapenko <glider@google.com>
+Subject: [PATCH] ipv6: ensure message length for raw socket is at least sizeof(ipv6hdr)
+Date: Tue, 25 Apr 2017 15:18:27 +0200
+Message-ID: <20170425131827.66498-1-glider@google.com>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: dvyukov@google.com, kcc@google.com, edumazet@google.com,
+        davem@davemloft.net, kuznet@ms2.inr.ac.ru
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAHKzcEMQPQzg6PYCSuv7Ufad+4AZ2gnqMgz3-VH5NTeb_pv4zQ@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 25, 2017 at 10:36:28AM +0200, Waldemar Rymarkiewicz wrote:
-> Hi,
-> 
-> I am not much aware of linux networking architecture so I'd like to
-> ask first before will start to dig into the code. Appreciate any
-> feedback.
-> 
-> I am looking on Linux thermal framework and on how to cool down the
-> system effectively when it hits thermal condition. Already existing
-> cooling methods cpu_cooling and clock_cooling are good. However, I
-> wanted to go further and dynamically control also a switch ports'
-> speed based on thermal condition. Lowering speed means less power,
-> less power means lower temp.
-> 
-> Is there any in-kernel interface to configure switch port/NIC from other driver?
+rawv6_send_hdrinc() expects that the buffer copied from the userspace
+contains the IPv6 header, so if too few bytes are copied parts of the
+header may remain uninitialized.
 
-Hi Waldemar
+This bug has been detected with KMSAN.
 
-Linux models switch ports as network interfaces, so mostly, there is
-little difference between a NIC and a switch port. What you define for
-one, should work for the other. Mostly.
+Signed-off-by: Alexander Potapenko <glider@google.com>
+---
+For the record, the KMSAN report:
 
-However, i don't think you need to be too worried about the NIC level
-of the stack. You can mostly do this higher up in the stack. I would
-expect there is a relationship between Packets per Second and
-generated heat. You might want the NIC to give you some sort of
-heating coefficient, 1PPS is ~ 10uC. Given that, you want to throttle
-the PPS in the generic queuing layers. This sounds like a TC filter.
-You have userspace install a TC filter, which is a net_cooling device.
+==================================================================
+BUG: KMSAN: use of unitialized memory in nf_ct_frag6_gather+0xf5a/0x44a0
+inter: 0
+CPU: 0 PID: 1036 Comm: probe Not tainted 4.11.0-rc5+ #2455
+Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+Call Trace:
+ __dump_stack lib/dump_stack.c:16
+ dump_stack+0x143/0x1b0 lib/dump_stack.c:52
+ kmsan_report+0x16b/0x1e0 mm/kmsan/kmsan.c:1078
+ __kmsan_warning_32+0x5c/0xa0 mm/kmsan/kmsan_instr.c:510
+ nf_ct_frag6_gather+0xf5a/0x44a0 net/ipv6/netfilter/nf_conntrack_reasm.c:577
+ ipv6_defrag+0x1d9/0x280 net/ipv6/netfilter/nf_defrag_ipv6_hooks.c:68
+ nf_hook_entry_hookfn ./include/linux/netfilter.h:102
+ nf_hook_slow+0x13f/0x3c0 net/netfilter/core.c:310
+ nf_hook ./include/linux/netfilter.h:212
+ NF_HOOK ./include/linux/netfilter.h:255
+ rawv6_send_hdrinc net/ipv6/raw.c:673
+ rawv6_sendmsg+0x2fcb/0x41a0 net/ipv6/raw.c:919
+ inet_sendmsg+0x3f8/0x6d0 net/ipv4/af_inet.c:762
+ sock_sendmsg_nosec net/socket.c:633
+ sock_sendmsg net/socket.c:643
+ SYSC_sendto+0x6a5/0x7c0 net/socket.c:1696
+ SyS_sendto+0xbc/0xe0 net/socket.c:1664
+ do_syscall_64+0x72/0xa0 arch/x86/entry/common.c:285
+ entry_SYSCALL64_slow_path+0x25/0x25 arch/x86/entry/entry_64.S:246
+RIP: 0033:0x436e03
+RSP: 002b:00007ffce48baf38 EFLAGS: 00000246 ORIG_RAX: 000000000000002c
+RAX: ffffffffffffffda RBX: 00000000004002b0 RCX: 0000000000436e03
+RDX: 0000000000000000 RSI: 0000000000000000 RDI: 0000000000000003
+RBP: 00007ffce48baf90 R08: 00007ffce48baf50 R09: 000000000000001c
+R10: 0000000000000000 R11: 0000000000000246 R12: 0000000000000000
+R13: 0000000000401790 R14: 0000000000401820 R15: 0000000000000000
+origin: 00000000d9400053
+ save_stack_trace+0x16/0x20 arch/x86/kernel/stacktrace.c:59
+ kmsan_save_stack_with_flags mm/kmsan/kmsan.c:362
+ kmsan_internal_poison_shadow+0xb1/0x1a0 mm/kmsan/kmsan.c:257
+ kmsan_poison_shadow+0x6d/0xc0 mm/kmsan/kmsan.c:270
+ slab_alloc_node mm/slub.c:2735
+ __kmalloc_node_track_caller+0x1f4/0x390 mm/slub.c:4341
+ __kmalloc_reserve net/core/skbuff.c:138
+ __alloc_skb+0x2cd/0x740 net/core/skbuff.c:231
+ alloc_skb ./include/linux/skbuff.h:933
+ alloc_skb_with_frags+0x209/0xbc0 net/core/skbuff.c:4678
+ sock_alloc_send_pskb+0x9ff/0xe00 net/core/sock.c:1903
+ sock_alloc_send_skb+0xe4/0x100 net/core/sock.c:1920
+ rawv6_send_hdrinc net/ipv6/raw.c:638
+ rawv6_sendmsg+0x2918/0x41a0 net/ipv6/raw.c:919
+ inet_sendmsg+0x3f8/0x6d0 net/ipv4/af_inet.c:762
+ sock_sendmsg_nosec net/socket.c:633
+ sock_sendmsg net/socket.c:643
+ SYSC_sendto+0x6a5/0x7c0 net/socket.c:1696
+ SyS_sendto+0xbc/0xe0 net/socket.c:1664
+ do_syscall_64+0x72/0xa0 arch/x86/entry/common.c:285
+ return_from_SYSCALL_64+0x0/0x6a arch/x86/entry/entry_64.S:246
+==================================================================
 
-This however does not directly work for so called 'fastpath' traffic
-in switches. Frames which ingress one switch port and egress another
-switch port are mostly never seen by Linux. So a software TC filter
-will not affect them. However, there is infrastructure in place to
-accelerate TC filters by pushing them down into the hardware. So the
-same basic concept can be used for switch fastpath traffic, but
-requires a bit more work.
+, triggered by the following syscalls:
+  socket(PF_INET6, SOCK_RAW, IPPROTO_RAW) = 3
+  sendto(3, NULL, 0, 0, {sa_family=AF_INET6, sin6_port=htons(0), inet_pton(AF_INET6, "ff00::", &sin6_addr), sin6_flowinfo=0, sin6_scope_id=0}, 28) = -1 EPERM
+---
+ net/ipv6/raw.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-    Andrew
+diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
+index f174e76e6505..805464668bd8 100644
+--- a/net/ipv6/raw.c
++++ b/net/ipv6/raw.c
+@@ -632,6 +632,8 @@ static int rawv6_send_hdrinc(struct sock *sk, struct msghdr *msg, int length,
+ 		ipv6_local_error(sk, EMSGSIZE, fl6, rt->dst.dev->mtu);
+ 		return -EMSGSIZE;
+ 	}
++	if (length < sizeof(struct ipv6hdr))
++		return -EINVAL;
+ 	if (flags&MSG_PROBE)
+ 		goto out;
+ 
+-- 
+2.13.0.rc0.306.g87b477812d-goog
