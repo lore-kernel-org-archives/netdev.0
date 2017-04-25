@@ -1,98 +1,99 @@
-From: Murali Karicheri <m-karicheri2@ti.com>
-Subject: Re: IGMP on IPv6
-Date: Tue, 25 Apr 2017 12:16:22 -0400
-Message-ID: <58FF7656.8050506@ti.com>
-References: <1479111388-25383-1-git-send-email-liuhangbin@gmail.com>
- <58D29265.1020604@ti.com> <58EFA913.5060604@ti.com>
- <CAM_iQpWYuQdxF0AOEMHRy7BSmxMVUb-7w7OdgYeOKe6atATsFQ@mail.gmail.com>
- <58F648FB.10606@ti.com> <58F64ADB.8040900@ti.com>
- <CAM_iQpWJ_oPSWV-PBeBGj5LoddMHTmrimLbViXLJ-VKR21e4mQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Hangbin Liu <liuhangbin@gmail.com>,
-        "open list:TI NETCP ETHERNET DRIVER" <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH v4 net] net: ipv6: regenerate host route if moved to gc list
+Date: Tue, 25 Apr 2017 09:17:29 -0700
+Message-ID: <1493137049-16465-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: dvyukov@google.com, andreyknvl@google.com, mmanning@brocade.com,
+        kafai@fb.com, eric.dumazet@gmail.com,
+        David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fllnx209.ext.ti.com ([198.47.19.16]:17395 "EHLO
-        fllnx209.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1950463AbdDYQQn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 12:16:43 -0400
-In-Reply-To: <CAM_iQpWJ_oPSWV-PBeBGj5LoddMHTmrimLbViXLJ-VKR21e4mQ@mail.gmail.com>
+Received: from mail-io0-f180.google.com ([209.85.223.180]:33052 "EHLO
+        mail-io0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1950391AbdDYQRi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 12:17:38 -0400
+Received: by mail-io0-f180.google.com with SMTP id k87so220121215ioi.0
+        for <netdev@vger.kernel.org>; Tue, 25 Apr 2017 09:17:38 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/18/2017 06:37 PM, Cong Wang wrote:
-> On Tue, Apr 18, 2017 at 10:20 AM, Murali Karicheri <m-karicheri2@ti.com> wrote:
->> On 04/18/2017 01:12 PM, Murali Karicheri wrote:
->>> On 04/17/2017 05:38 PM, Cong Wang wrote:
->>>> Hello,
->>>>
->>>> On Thu, Apr 13, 2017 at 9:36 AM, Murali Karicheri <m-karicheri2@ti.com> wrote:
->>>>> On 03/22/2017 11:04 AM, Murali Karicheri wrote:
->>>>>> This is going directly to the slave Ethernet interface.
->>>>>>
->>>>>> When I put a WARN_ONCE, I found this is coming directly from
->>>>>> mld_ifc_timer_expire() -> mld_sendpack() -> ip6_output()
->>>>>>
->>>>>> Do you think this is fixed in latest kernel at master? If so, could
->>>>>> you point me to some commits.
->>>>>>
->>>>>>
->>>>> Ping... I see this behavior is also seen on v4.9.x Kernel. Any clue if
->>>>> this is fixed by some commit or I need to debug? I see IGMPv6 has some
->>>>> fixes on the list to make it similar to IGMPv4. So can someone clarify this is
->>>>> is a bug at IGMPv6 code or I need to look into the HSR driver code?
->>>>> Since IGMPv4 is going over the HSR interface I am assuming this is a
->>>>> bug in the IGMPv6 code. But since I have not experience with this code
->>>>> can some expert comment please?
->>>>>
->>>>
->>>> How did you configure your network interfaces and IPv4/IPv6 multicast?
->>>> IOW, how did you reproduce this? For example, did you change your
->>>> HSR setup when this happened since you mentioned
->>>> NETDEV_CHANGEUPPER?
->>>>
->>> Thanks for responding! Really appreciate.
->>>
->>> I didn't set up anything explicitly for IPv4/IPv6 multicast. As part of
->>> my testing, I dump the packets going through the slave interfaces attached
->>> to the hsr interface (for example my Ethernet interfaces eth2 and eth3
->>> are attached to the hsr interface and I dump the packets at the egress
->>> of eth2 and eth3 in my driver along with that at hsr xmit function). As
->>> soon as I create the hsr interface, I see a bunch of packets going directly
->>> through the lower interface, not through the upper one (i.e hsr interface)
->>> and these are of eth_type = 86 dd. Please ignore my reference to
->>> NETDEV_CHANGEUPPER for now as it was wild guess.
-> 
-> OK. Note: I know nothing about HSR, I assume it is similar to bonding
-> in your case?
-> 
+Taking down the loopback device wreaks havoc on IPv6 routing. By
+extension, taking down a VRF device wreaks havoc on its table.
 
-Similar in the sense it glues two standard Ethernet interfaces and run
-HSR protocol frames over it to support redundancy.
+Dmitry and Andrey both reported heap out-of-bounds reports in the IPv6
+FIB code while running syzkaller fuzzer. The root cause is a dead dst
+that is on the garbage list gets reinserted into the IPv6 FIB. While on
+the gc (or perhaps when it gets added to the gc list) the dst->next is
+set to an IPv4 dst. A subsequent walk of the ipv6 tables causes the
+out-of-bounds access.
 
->>>
->>> I have not done any debugging, but the WARN_ONCE which I have placed
->>> in the lower level driver looking for eth_type = 86 dd provided the
->>> above trace.
->>>
->> Here is the command I have used to create the hsr interface...
->>
->> ip link add name hsr0 type hsr slave1 eth2 slave2 eth3 supervision 45 version 1
-> 
-> Did you assign IPv4 and IPv6 addresses to the HSR master device?
+Andrey's reproducer was the key to getting to the bottom of this.
 
-No. I just used IPv4. From the trace mld_ifc_timer_expire() -> mld_sendpack() -> ip6_output()
-do you know what is it trying to do? Is it some neighbor discovery message or something
-going over the lower interface instead of the hsr interface?
+With IPv6, host routes for an address have the dst->dev set to the
+loopback device. When the 'lo' device is taken down, rt6_ifdown initiates
+a walk of the fib evicting routes with the 'lo' device which means all
+host routes are removed. That process moves the dst which is attached to
+an inet6_ifaddr to the gc list and marks it as dead.
 
-Murali
+The recent change to keep global IPv6 addresses added a new function,
+fixup_permanent_addr, that is called on admin up. That function restarts
+dad for an inet6_ifaddr and when it completes the host route attached
+to it is inserted into the fib. Since the route was marked dead and
+moved to the gc list, re-inserting the route causes the reported
+out-of-bounds accesses. If the device with the address is taken down
+or the address is removed, the WARN_ON in fib6_del is triggered.
 
-> 
+All of those faults are fixed by regenerating the host route if the
+existing one has been moved to the gc list, something that can be
+determined by checking if the rt6i_ref counter is 0.
 
+Fixes: f1705ec197e7 ("net: ipv6: Make address flushing on ifdown optional")
+Reported-by: Dmitry Vyukov <dvyukov@google.com>
+Reported-by: Andrey Konovalov <andreyknvl@google.com>
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+---
+v4
+- move 'prev = ifp->rt;' under spinlock as requested by Eric
 
+v3
+- removed 'if (prev)' and just call ip6_rt_put; added comment about spinlock
+
+v2
+- change ifp->rt under spinlock vs cmpxchg
+- add comment about rt6i_ref == 0
+
+ net/ipv6/addrconf.c | 14 ++++++++++++--
+ 1 file changed, 12 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 80ce478c4851..0ea96c4d334d 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -3271,14 +3271,24 @@ static void addrconf_gre_config(struct net_device *dev)
+ static int fixup_permanent_addr(struct inet6_dev *idev,
+ 				struct inet6_ifaddr *ifp)
+ {
+-	if (!ifp->rt) {
+-		struct rt6_info *rt;
++	/* rt6i_ref == 0 means the host route was removed from the
++	 * FIB, for example, if 'lo' device is taken down. In that
++	 * case regenerate the host route.
++	 */
++	if (!ifp->rt || !atomic_read(&ifp->rt->rt6i_ref)) {
++		struct rt6_info *rt, *prev;
+ 
+ 		rt = addrconf_dst_alloc(idev, &ifp->addr, false);
+ 		if (unlikely(IS_ERR(rt)))
+ 			return PTR_ERR(rt);
+ 
++		/* ifp->rt can be accessed outside of rtnl */
++		spin_lock(&ifp->lock);
++		prev = ifp->rt;
+ 		ifp->rt = rt;
++		spin_unlock(&ifp->lock);
++
++		ip6_rt_put(prev);
+ 	}
+ 
+ 	if (!(ifp->flags & IFA_F_NOPREFIXROUTE)) {
 -- 
-Murali Karicheri
-Linux Kernel, Keystone
+2.1.4
