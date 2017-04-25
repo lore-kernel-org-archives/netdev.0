@@ -1,44 +1,52 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: [PATCH net-next v3 2/5] virtio-net: transmit napi
-Date: Tue, 25 Apr 2017 10:32:45 -0400
-Message-ID: <CAF=yD-KJ_nFzOmOtmeUYXiO_+xO2yWB8xn_-jEm9zgycYzPOzQ@mail.gmail.com>
-References: <20170424174930.82623-1-willemdebruijn.kernel@gmail.com>
-	<20170424174930.82623-3-willemdebruijn.kernel@gmail.com>
-	<2c5491c0-4473-75d1-fa0f-a0dbd4dc626d@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v1] net: phy: fix auto-negotiation stall due to
+ unavailable interrupt
+Date: Tue, 25 Apr 2017 10:36:44 -0400 (EDT)
+Message-ID: <20170425.103644.75674234677063517.davem@davemloft.net>
+References: <1492686004-30527-1-git-send-email-al.kochet@gmail.com>
+        <1492686004-30527-2-git-send-email-al.kochet@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Network Development <netdev@vger.kernel.org>,
-	Willem de Bruijn <willemb@google.com>,
-	virtualization@lists.linux-foundation.org,
-	David Miller <davem@davemloft.net>, "Michael S. Tsirkin" <mst@redhat.com>
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <2c5491c0-4473-75d1-fa0f-a0dbd4dc626d@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, sergei.shtylyov@cogentembedded.com,
+        rogerq@ti.com, madalin.bucur@nxp.com
+To: al.kochet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:39512 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1948028AbdDYOgq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 10:36:46 -0400
+In-Reply-To: <1492686004-30527-2-git-send-email-al.kochet@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gVHVlLCBBcHIgMjUsIDIwMTcgYXQgNDozNiBBTSwgSmFzb24gV2FuZyA8amFzb3dhbmdAcmVk
-aGF0LmNvbT4gd3JvdGU6Cj4KPgo+IE9uIDIwMTflubQwNOaciDI15pelIDAxOjQ5LCBXaWxsZW0g
-ZGUgQnJ1aWpuIHdyb3RlOgo+Pgo+PiBAQCAtMTM3MSw4ICsxNDE5LDEwIEBAIHN0YXRpYyBpbnQg
-dmlydG5ldF9jbG9zZShzdHJ1Y3QgbmV0X2RldmljZSAqZGV2KQo+PiAgICAgICAgIC8qIE1ha2Ug
-c3VyZSByZWZpbGxfd29yayBkb2Vzbid0IHJlLWVuYWJsZSBuYXBpISAqLwo+PiAgICAgICAgIGNh
-bmNlbF9kZWxheWVkX3dvcmtfc3luYygmdmktPnJlZmlsbCk7Cj4+ICAgLSAgICAgZm9yIChpID0g
-MDsgaSA8IHZpLT5tYXhfcXVldWVfcGFpcnM7IGkrKykKPj4gKyAgICAgICBmb3IgKGkgPSAwOyBp
-IDwgdmktPm1heF9xdWV1ZV9wYWlyczsgaSsrKSB7Cj4+ICAgICAgICAgICAgICAgICBuYXBpX2Rp
-c2FibGUoJnZpLT5ycVtpXS5uYXBpKTsKPj4gKyAgICAgICAgICAgICAgIG5hcGlfZGlzYWJsZSgm
-dmktPnNxW2ldLm5hcGkpOwo+PiArICAgICAgIH0KPgo+Cj4gTG9va3MgbGlrZSB0aGlzIHdpbGwg
-d2FpdCBmb3IgZXZlciBpZiBuYXBpX3R4IGlzIGZhbHNlIGJlY2F1c2Ugd2UgbmV2ZXIKPiBlbmFi
-bGUgdGhlIE5BUEkgc28gd2Ugd2lsbCB3YWl0IGZvciBOQVBJX1NUQVRFX1NDSEVEIHRvIGJlIGNs
-ZWFyZWQuCgpJbmRlZWQsIHRoYW5rcyEgSSdsbCBzZW5kIGEgZml4LgpfX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpWaXJ0dWFsaXphdGlvbiBtYWlsaW5nIGxp
-c3QKVmlydHVhbGl6YXRpb25AbGlzdHMubGludXgtZm91bmRhdGlvbi5vcmcKaHR0cHM6Ly9saXN0
-cy5saW51eGZvdW5kYXRpb24ub3JnL21haWxtYW4vbGlzdGluZm8vdmlydHVhbGl6YXRpb24=
+From: Alexander Kochetkov <al.kochet@gmail.com>
+Date: Thu, 20 Apr 2017 14:00:04 +0300
+
+> The Ethernet link on an interrupt driven PHY was not coming up if the Ethernet
+> cable was plugged before the Ethernet interface was brought up.
+> 
+> The patch trigger PHY state machine to update link state if PHY was requested to
+> do auto-negotiation and auto-negotiation complete flag already set.
+> 
+> During power-up cycle the PHY do auto-negotiation, generate interrupt and set
+> auto-negotiation complete flag. Interrupt is handled by PHY state machine but
+> doesn't update link state because PHY is in PHY_READY state. After some time
+> MAC bring up, start and request PHY to do auto-negotiation. If there are no new
+> settings to advertise genphy_config_aneg() doesn't start PHY auto-negotiation.
+> PHY continue to stay in auto-negotiation complete state and doesn't fire
+> interrupt. At the same time PHY state machine expect that PHY started
+> auto-negotiation and is waiting for interrupt from PHY and it won't get it.
+> 
+> Signed-off-by: Alexander Kochetkov <al.kochet@gmail.com>
+> Cc: stable <stable@vger.kernel.org> # v4.9+
+
+So... what are we doing here?
+
+My understanding is that this should fix the same problem that commit
+99f81afc139c6edd14d77a91ee91685a414a1c66 ("phy: micrel: Disable auto
+negotiation on startup") fixed and that this micrel commit should thus
+be reverted to improve MAC startup times which regressed.
+
+Florian, any guidance?
