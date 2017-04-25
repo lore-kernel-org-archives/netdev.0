@@ -1,94 +1,95 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH RFC] ptr_ring: add ptr_ring_unconsume
-Date: Tue, 25 Apr 2017 12:07:01 +0800
-Message-ID: <91ae69e6-4dac-3db2-4778-c4163dfe6f91@redhat.com>
-References: <1492384496-22644-1-git-send-email-mst@redhat.com>
- <0defb746-3d4b-14b3-1ad7-82842048ebba@redhat.com>
- <20170424022711-mutt-send-email-mst@kernel.org>
- <21a19608-40be-38d4-9843-088a273fd71a@redhat.com>
- <20170424145632-mutt-send-email-mst@kernel.org>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: net/ipv6: slab-out-of-bounds in ip6_tnl_xmit
+Date: Mon, 24 Apr 2017 22:04:04 -0700
+Message-ID: <CAM_iQpWnPgn0+-y34nGTB0byonLWCdf3_VAKcH8tK5fdzF4CBg@mail.gmail.com>
+References: <CAAeHK+w-EYicrLHhBR0LHMMTc22GjsB=PTmgswm44w4VpfQ_hA@mail.gmail.com>
+ <CAM_iQpXLHx=NhSNYU_o4F_V6nNXUHGBSdV=QQnML0B+HD7MbBQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Content-Type: multipart/mixed; boundary=94eb2c1979e6538087054df6a8c2
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Eric Dumazet <edumazet@google.com>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Andrey Konovalov <andreyknvl@google.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170424145632-mutt-send-email-mst@kernel.org>
+In-Reply-To: <CAM_iQpXLHx=NhSNYU_o4F_V6nNXUHGBSdV=QQnML0B+HD7MbBQ@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+--94eb2c1979e6538087054df6a8c2
+Content-Type: text/plain; charset=UTF-8
 
-
-On 2017年04月24日 20:00, Michael S. Tsirkin wrote:
-> On Mon, Apr 24, 2017 at 07:54:18PM +0800, Jason Wang wrote:
->> On 2017年04月24日 07:28, Michael S. Tsirkin wrote:
->>> On Tue, Apr 18, 2017 at 11:07:42AM +0800, Jason Wang wrote:
->>>> On 2017年04月17日 07:19, Michael S. Tsirkin wrote:
->>>>> Applications that consume a batch of entries in one go
->>>>> can benefit from ability to return some of them back
->>>>> into the ring.
->>>>>
->>>>> Add an API for that - assuming there's space. If there's no space
->>>>> naturally we can't do this and have to drop entries, but this implies
->>>>> ring is full so we'd likely drop some anyway.
->>>>>
->>>>> Signed-off-by: Michael S. Tsirkin<mst@redhat.com>
->>>>> ---
->>>>>
->>>>> Jason, in my mind the biggest issue with your batching patchset is the
->>>>> backet drops on disconnect.  This API will help avoid that in the common
->>>>> case.
->>>> Ok, I will rebase the series on top of this. (Though I don't think we care
->>>> the packet loss).
->>> E.g. I care - I often start sending packets to VM before it's
->>> fully booted. Several vhost resets might follow.
->> Ok.
->>
->>>>> I would still prefer that we understand what's going on,
->>>> I try to reply in another thread, does it make sense?
->>>>
->>>>>     and I would
->>>>> like to know what's the smallest batch size that's still helpful,
->>>> Yes, I've replied in another thread, the result is:
->>>>
->>>>
->>>> no batching   1.88Mpps
->>>> RX_BATCH=1    1.93Mpps
->>>> RX_BATCH=4    2.11Mpps
->>>> RX_BATCH=16   2.14Mpps
->>>> RX_BATCH=64   2.25Mpps
->>>> RX_BATCH=256  2.18Mpps
->>> Essentially 4 is enough, other stuf looks more like noise
->>> to me. What about 2?
->> The numbers are pretty stable, so probably not noise. Retested on top of
->> batch zeroing:
->>
->> no  1.97Mpps
->> 1   2.09Mpps
->> 2   2.11Mpps
->> 4   2.16Mpps
->> 8   2.19Mpps
->> 16  2.21Mpps
->> 32  2.25Mpps
->> 64  2.30Mpps
->> 128 2.21Mpps
->> 256 2.21Mpps
->>
->> 64 performs best.
->>
->> Thanks
-> OK but it might be e.g. a function of the ring size, host cache size or
-> whatever. As we don't really understand the why, if we just optimize for
-> your setup we risk regressions in others.  64 entries is a lot, it
-> increases the queue size noticeably.  Could this be part of the effect?
-> Could you try changing the queue size to see what happens?
-
-I increase tx_queue_len to 1100, but only see less than 1% improvement 
-on pps number (batch = 1) in my machine. If you care about the 
-regression, we probably can leave the choice to user through e.g module 
-parameter. But I'm afraid we have already had too much choices for them. 
-Or I can test this with different CPU types.
-
-Thanks
-
+On Mon, Apr 24, 2017 at 9:47 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
 >
+> We use ipv4 dst in ip6_tunnel and cast an IPv4 neigh key as an
+> IPv6 address...
+>
+>
+>                 neigh = dst_neigh_lookup(skb_dst(skb),
+>                                          &ipv6_hdr(skb)->daddr);
+>                 if (!neigh)
+>                         goto tx_err_link_failure;
+>
+>                 addr6 = (struct in6_addr *)&neigh->primary_key; // <=== HERE
+>                 addr_type = ipv6_addr_type(addr6);
+>
+>                 if (addr_type == IPV6_ADDR_ANY)
+>                         addr6 = &ipv6_hdr(skb)->daddr;
+>
+>                 memcpy(&fl6->daddr, addr6, sizeof(fl6->daddr));
+>
+> Also the network header of the skb at this point should be still IPv4?
+
+Please try the attached patch.
+
+I am not sure how we could handle 4in6 case better than just relying on
+the config of ip6 tunnel.
+
+--94eb2c1979e6538087054df6a8c2
+Content-Type: text/plain; charset=US-ASCII; name="ip6_tunnel.diff"
+Content-Disposition: attachment; filename="ip6_tunnel.diff"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_j1x35b7z0
+
+ZGlmZiAtLWdpdCBhL25ldC9pcHY2L2lwNl90dW5uZWwuYyBiL25ldC9pcHY2L2lwNl90dW5uZWwu
+YwppbmRleCA3NWZhYzkzLi5hOTY5MmVjIDEwMDY0NAotLS0gYS9uZXQvaXB2Ni9pcDZfdHVubmVs
+LmMKKysrIGIvbmV0L2lwdjYvaXA2X3R1bm5lbC5jCkBAIC0xMDM3LDcgKzEwMzcsNyBAQCBpbnQg
+aXA2X3RubF94bWl0KHN0cnVjdCBza19idWZmICpza2IsIHN0cnVjdCBuZXRfZGV2aWNlICpkZXYs
+IF9fdTggZHNmaWVsZCwKIAlzdHJ1Y3QgaXA2X3RubCAqdCA9IG5ldGRldl9wcml2KGRldik7CiAJ
+c3RydWN0IG5ldCAqbmV0ID0gdC0+bmV0OwogCXN0cnVjdCBuZXRfZGV2aWNlX3N0YXRzICpzdGF0
+cyA9ICZ0LT5kZXYtPnN0YXRzOwotCXN0cnVjdCBpcHY2aGRyICppcHY2aCA9IGlwdjZfaGRyKHNr
+Yik7CisJc3RydWN0IGlwdjZoZHIgKmlwdjZoOwogCXN0cnVjdCBpcHY2X3RlbF90eG9wdGlvbiBv
+cHQ7CiAJc3RydWN0IGRzdF9lbnRyeSAqZHN0ID0gTlVMTCwgKm5kc3QgPSBOVUxMOwogCXN0cnVj
+dCBuZXRfZGV2aWNlICp0ZGV2OwpAQCAtMTA1NywyNiArMTA1NywyOCBAQCBpbnQgaXA2X3RubF94
+bWl0KHN0cnVjdCBza19idWZmICpza2IsIHN0cnVjdCBuZXRfZGV2aWNlICpkZXYsIF9fdTggZHNm
+aWVsZCwKIAogCS8qIE5CTUEgdHVubmVsICovCiAJaWYgKGlwdjZfYWRkcl9hbnkoJnQtPnBhcm1z
+LnJhZGRyKSkgewotCQlzdHJ1Y3QgaW42X2FkZHIgKmFkZHI2OwotCQlzdHJ1Y3QgbmVpZ2hib3Vy
+ICpuZWlnaDsKLQkJaW50IGFkZHJfdHlwZTsKKwkJaWYgKHNrYi0+cHJvdG9jb2wgPT0gaHRvbnMo
+RVRIX1BfSVBWNikpIHsKKwkJCXN0cnVjdCBpbjZfYWRkciAqYWRkcjY7CisJCQlzdHJ1Y3QgbmVp
+Z2hib3VyICpuZWlnaDsKKwkJCWludCBhZGRyX3R5cGU7CiAKLQkJaWYgKCFza2JfZHN0KHNrYikp
+Ci0JCQlnb3RvIHR4X2Vycl9saW5rX2ZhaWx1cmU7CisJCQlpZiAoIXNrYl9kc3Qoc2tiKSkKKwkJ
+CQlnb3RvIHR4X2Vycl9saW5rX2ZhaWx1cmU7CiAKLQkJbmVpZ2ggPSBkc3RfbmVpZ2hfbG9va3Vw
+KHNrYl9kc3Qoc2tiKSwKLQkJCQkJICZpcHY2X2hkcihza2IpLT5kYWRkcik7Ci0JCWlmICghbmVp
+Z2gpCi0JCQlnb3RvIHR4X2Vycl9saW5rX2ZhaWx1cmU7CisJCQluZWlnaCA9IGRzdF9uZWlnaF9s
+b29rdXAoc2tiX2RzdChza2IpLAorCQkJCQkJICZpcHY2X2hkcihza2IpLT5kYWRkcik7CisJCQlp
+ZiAoIW5laWdoKQorCQkJCWdvdG8gdHhfZXJyX2xpbmtfZmFpbHVyZTsKIAotCQlhZGRyNiA9IChz
+dHJ1Y3QgaW42X2FkZHIgKikmbmVpZ2gtPnByaW1hcnlfa2V5OwotCQlhZGRyX3R5cGUgPSBpcHY2
+X2FkZHJfdHlwZShhZGRyNik7CisJCQlhZGRyNiA9IChzdHJ1Y3QgaW42X2FkZHIgKikmbmVpZ2gt
+PnByaW1hcnlfa2V5OworCQkJYWRkcl90eXBlID0gaXB2Nl9hZGRyX3R5cGUoYWRkcjYpOwogCi0J
+CWlmIChhZGRyX3R5cGUgPT0gSVBWNl9BRERSX0FOWSkKLQkJCWFkZHI2ID0gJmlwdjZfaGRyKHNr
+YiktPmRhZGRyOworCQkJaWYgKGFkZHJfdHlwZSA9PSBJUFY2X0FERFJfQU5ZKQorCQkJCWFkZHI2
+ID0gJmlwdjZfaGRyKHNrYiktPmRhZGRyOwogCi0JCW1lbWNweSgmZmw2LT5kYWRkciwgYWRkcjYs
+IHNpemVvZihmbDYtPmRhZGRyKSk7Ci0JCW5laWdoX3JlbGVhc2UobmVpZ2gpOworCQkJbWVtY3B5
+KCZmbDYtPmRhZGRyLCBhZGRyNiwgc2l6ZW9mKGZsNi0+ZGFkZHIpKTsKKwkJCW5laWdoX3JlbGVh
+c2UobmVpZ2gpOworCQl9CiAJfSBlbHNlIGlmICghKHQtPnBhcm1zLmZsYWdzICYKIAkJICAgICAo
+SVA2X1ROTF9GX1VTRV9PUklHX1RDTEFTUyB8IElQNl9UTkxfRl9VU0VfT1JJR19GV01BUkspKSkg
+ewogCQkvKiBlbmFibGUgdGhlIGNhY2hlIG9ubHkgb25seSBpZiB0aGUgcm91dGluZyBkZWNpc2lv
+biBkb2VzCg==
+--94eb2c1979e6538087054df6a8c2--
