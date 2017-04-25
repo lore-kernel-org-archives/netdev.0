@@ -1,112 +1,54 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net] ipv6: check skb->protocol before lookup for nexthop
-Date: Tue, 25 Apr 2017 14:37:15 -0700
-Message-ID: <1493156235-9823-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: andreyknvl@google.com, Cong Wang <xiyou.wangcong@gmail.com>,
-        Steffen Klassert <steffen.klassert@secunet.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f194.google.com ([209.85.223.194]:32991 "EHLO
-        mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1432128AbdDYVh0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 17:37:26 -0400
-Received: by mail-io0-f194.google.com with SMTP id k87so55058967ioi.0
-        for <netdev@vger.kernel.org>; Tue, 25 Apr 2017 14:37:26 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH] IB/IPoIB: Check the headroom size
+Date: Wed, 26 Apr 2017 00:50:06 +0300
+Message-ID: <CAJ3xEMjqkJrKi+6ronuPBn2P6y8p6sdhVppDzFtMwQrhL13bzg@mail.gmail.com>
+References: <1493114155-12101-1-git-send-email-honli@redhat.com>
+ <CAJ3xEMg4_2ph7QwPsUb-tX-K4d2ppkqz98sPzytsmBCK=29WHw@mail.gmail.com>
+ <CAAk-MO8O19iC2Yn-BMn5pKTAYxaSzGPMyta=fwes3XSvzmz_cQ@mail.gmail.com>
+ <CAJ3xEMgw=9sj3rdahPEiST_yDfDJPNSZZLRn43tnb3bK4_RPzg@mail.gmail.com>
+ <CAAk-MO-B8Liv6RyGye_Fx-9OELCUrGMj5SwK9UsciC=khSO5fA@mail.gmail.com>
+ <CAJ3xEMgwS1Bq8+eZC1iAr6xi8ZPHrchsOJ5r4LNJxR8P+6VipA@mail.gmail.com> <1493134815.3041.72.camel@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Erez Shitrit <erezsh-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>,
+        Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        Honggang LI <honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        Erez Shitrit <erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1493134815.3041.72.camel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Andrey reported a out-of-bound access in ip6_tnl_xmit(), this
-is because we use an ipv4 dst in ip6_tnl_xmit() and cast an IPv4
-neigh key as an IPv6 address:
+On Tue, Apr 25, 2017 at 6:40 PM, Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
+> On Tue, 2017-04-25 at 17:39 +0300, Or Gerlitz wrote:
 
-        neigh = dst_neigh_lookup(skb_dst(skb),
-                                 &ipv6_hdr(skb)->daddr);
-        if (!neigh)
-                goto tx_err_link_failure;
+>> If got you right, Paolo's commit introduced a regression, so we (I
+>> guess you and Paolo) need to either solve it or we (community)
+>> should consider a revert, please suggest.
 
-        addr6 = (struct in6_addr *)&neigh->primary_key; // <=== HERE
-        addr_type = ipv6_addr_type(addr6);
+> [...] So, this issue should be
+> reproducible either after Paolo's commit or with any kernel prior to
+> your commit to use the skb->cb area to store the DGID, but it probably
+> requires the specific series of actions in this bug to trigger it.
 
-        if (addr_type == IPV6_ADDR_ANY)
-                addr6 = &ipv6_hdr(skb)->daddr;
+mmm
 
-        memcpy(&fl6->daddr, addr6, sizeof(fl6->daddr));
+> A normal, clean shutdown of the interface doesn't demonstrate the issue.
 
-Also the network header of the skb at this point should be still IPv4
-for 4in6 tunnels, we shold not just use it as IPv6 header.
+so maybe @ least for the time being, we should be picking Hong's patch
+with proper change log and without the giant stack dump till we have
+something better. If you agree, can you do the re-write of the change
+log?
 
-This patch fixes it by checking if skb->protocol is ETH_P_IPV6: if it
-is, we are safe to do the nexthop lookup using skb_dst() and
-ipv6_hdr(skb)->daddr; if not (aka IPv4), we have no clue about which
-dest address we can pick here, we have to rely on callers to fill it
-from tunnel config, so just fall to ip6_route_output() to make the
-decision.
+Or.
 
-Fixes: ea3dc9601bda ("ip6_tunnel: Add support for wildcard tunnel endpoints.")
-Reported-by: Andrey Konovalov <andreyknvl@google.com>
-Tested-by: Andrey Konovalov <andreyknvl@google.com>
-Cc: Steffen Klassert <steffen.klassert@secunet.com>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
----
- net/ipv6/ip6_tunnel.c | 34 ++++++++++++++++++----------------
- 1 file changed, 18 insertions(+), 16 deletions(-)
 
-diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
-index 75fac93..a9692ec 100644
---- a/net/ipv6/ip6_tunnel.c
-+++ b/net/ipv6/ip6_tunnel.c
-@@ -1037,7 +1037,7 @@ int ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev, __u8 dsfield,
- 	struct ip6_tnl *t = netdev_priv(dev);
- 	struct net *net = t->net;
- 	struct net_device_stats *stats = &t->dev->stats;
--	struct ipv6hdr *ipv6h = ipv6_hdr(skb);
-+	struct ipv6hdr *ipv6h;
- 	struct ipv6_tel_txoption opt;
- 	struct dst_entry *dst = NULL, *ndst = NULL;
- 	struct net_device *tdev;
-@@ -1057,26 +1057,28 @@ int ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev, __u8 dsfield,
- 
- 	/* NBMA tunnel */
- 	if (ipv6_addr_any(&t->parms.raddr)) {
--		struct in6_addr *addr6;
--		struct neighbour *neigh;
--		int addr_type;
-+		if (skb->protocol == htons(ETH_P_IPV6)) {
-+			struct in6_addr *addr6;
-+			struct neighbour *neigh;
-+			int addr_type;
- 
--		if (!skb_dst(skb))
--			goto tx_err_link_failure;
-+			if (!skb_dst(skb))
-+				goto tx_err_link_failure;
- 
--		neigh = dst_neigh_lookup(skb_dst(skb),
--					 &ipv6_hdr(skb)->daddr);
--		if (!neigh)
--			goto tx_err_link_failure;
-+			neigh = dst_neigh_lookup(skb_dst(skb),
-+						 &ipv6_hdr(skb)->daddr);
-+			if (!neigh)
-+				goto tx_err_link_failure;
- 
--		addr6 = (struct in6_addr *)&neigh->primary_key;
--		addr_type = ipv6_addr_type(addr6);
-+			addr6 = (struct in6_addr *)&neigh->primary_key;
-+			addr_type = ipv6_addr_type(addr6);
- 
--		if (addr_type == IPV6_ADDR_ANY)
--			addr6 = &ipv6_hdr(skb)->daddr;
-+			if (addr_type == IPV6_ADDR_ANY)
-+				addr6 = &ipv6_hdr(skb)->daddr;
- 
--		memcpy(&fl6->daddr, addr6, sizeof(fl6->daddr));
--		neigh_release(neigh);
-+			memcpy(&fl6->daddr, addr6, sizeof(fl6->daddr));
-+			neigh_release(neigh);
-+		}
- 	} else if (!(t->parms.flags &
- 		     (IP6_TNL_F_USE_ORIG_TCLASS | IP6_TNL_F_USE_ORIG_FWMARK))) {
- 		/* enable the cache only only if the routing decision does
--- 
-2.5.5
+>> The bug is now in stable and distro kernels, so please act.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
