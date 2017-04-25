@@ -1,69 +1,124 @@
-From: Logan Gunthorpe <logang@deltatee.com>
-Subject: [PATCH v2 02/21] libiscsi: Add an internal error code
-Date: Tue, 25 Apr 2017 12:20:49 -0600
-Message-ID: <1493144468-22493-3-git-send-email-logang@deltatee.com>
+From: Logan Gunthorpe <logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
+Subject: [PATCH v2 08/21] dm-crypt: Make use of the new sg_map helper in 4
+ call sites
+Date: Tue, 25 Apr 2017 12:20:55 -0600
+Message-ID: <1493144468-22493-9-git-send-email-logang@deltatee.com>
 References: <1493144468-22493-1-git-send-email-logang@deltatee.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Jens Axboe <axboe@kernel.dk>,
- "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
- "Martin K. Petersen" <martin.petersen@oracle.com>,
- Matthew Wilcox <mawilcox@microsoft.com>,
- Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
- Sumit Semwal <sumit.semwal@linaro.org>,
- Ross Zwisler <ross.zwisler@linux.intel.com>,
- Dan Williams <dan.j.williams@intel.com>, Stephen Bates <sbates@raithlin.com>,
- Logan Gunthorpe <logang@deltatee.com>, Christoph Hellwig <hch@lst.de>
-To: linux-kernel@vger.kernel.org, linux-crypto@vger.kernel.org,
- linux-media@vger.kernel.org, dri-devel@lists.freedesktop.org,
- intel-gfx@lists.freedesktop.org, linux-raid@vger.kernel.org,
- linux-mmc@vger.kernel.org, linux-nvdimm@lists.01.org,
- linux-scsi@vger.kernel.org, open-iscsi@googlegroups.com,
- megaraidlinux.pdl@broadcom.com, sparmaintainer@unisys.com,
- devel@driverdev.osuosl.org, target-devel@vger.kernel.org,
- netdev@vger.kernel.org, linux-rdma@vger.kernel.org, dm-devel@redhat.com
-Return-path: <intel-gfx-bounces@lists.freedesktop.org>
-In-Reply-To: <1493144468-22493-1-git-send-email-logang@deltatee.com>
-List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/intel-gfx>,
- <mailto:intel-gfx-request@lists.freedesktop.org?subject=unsubscribe>
-List-Archive: <https://lists.freedesktop.org/archives/intel-gfx>
-List-Post: <mailto:intel-gfx@lists.freedesktop.org>
-List-Help: <mailto:intel-gfx-request@lists.freedesktop.org?subject=help>
-List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/intel-gfx>,
- <mailto:intel-gfx-request@lists.freedesktop.org?subject=subscribe>
-Errors-To: intel-gfx-bounces@lists.freedesktop.org
-Sender: "Intel-gfx" <intel-gfx-bounces@lists.freedesktop.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Jens Axboe <axboe-tSWWG44O7X1aa/9Udqfwiw@public.gmane.org>,
+ "James E.J. Bottomley" <jejb-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
+ Mike Snitzer <snitzer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+ "Martin K. Petersen" <martin.petersen-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
+ Matthew Wilcox <mawilcox-0li6OtcxBFHby3iVrkZq2A@public.gmane.org>,
+ Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+ Sumit Semwal <sumit.semwal-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>,
+ Alasdair Kergon <agk-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-crypto-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org,
+ intel-gfx-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org, linux-raid-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-nvdimm-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org,
+ linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org,
+ megaraidlinux.pdl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, sparmaintainer-GLv8BlqOqDDQT0dZR+AlfA@public.gmane.org,
+ devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org, target-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dm-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+Return-path: <linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
+In-Reply-To: <1493144468-22493-1-git-send-email-logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
+List-Unsubscribe: <https://lists.01.org/mailman/options/linux-nvdimm>,
+ <mailto:linux-nvdimm-request-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.01.org/pipermail/linux-nvdimm/>
+List-Post: <mailto:linux-nvdimm-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
+List-Help: <mailto:linux-nvdimm-request-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.01.org/mailman/listinfo/linux-nvdimm>,
+ <mailto:linux-nvdimm-request-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org?subject=subscribe>
+Errors-To: linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org
+Sender: "Linux-nvdimm" <linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-VGhpcyBpcyBhIHByZXAgcGF0Y2ggdG8gYWRkIGEgbmV3IGVycm9yIGNvZGUgdG8gbGliaXNjc2ku
-IFdlIHdhbnQgdG8KcmV3b3JrIHNvbWUga21hcCBjYWxscyB0byBiZSBhYmxlIHRvIGZhaWwuIFdo
-ZW4gd2UgZG8sIHdlJ2QgbGlrZSB0bwp1c2UgdGhpcyBlcnJvciBjb2RlLgoKVGhpcyBwYXRjaCBz
-aW1wbHkgaW50cm9kdWNlcyBJU0NTSV9UQ1BfSU5URVJOQUxfRVJSIGFuZCBwcmludHMKIkludGVy
-bmFsIEVycm9yLiIgd2hlbiBpdCBnZXRzIGhpdC4KClNpZ25lZC1vZmYtYnk6IExvZ2FuIEd1bnRo
-b3JwZSA8bG9nYW5nQGRlbHRhdGVlLmNvbT4KLS0tCiBkcml2ZXJzL3Njc2kvY3hnYmkvbGliY3hn
-YmkuYyB8IDUgKysrKysKIGluY2x1ZGUvc2NzaS9saWJpc2NzaV90Y3AuaCAgIHwgMSArCiAyIGZp
-bGVzIGNoYW5nZWQsIDYgaW5zZXJ0aW9ucygrKQoKZGlmZiAtLWdpdCBhL2RyaXZlcnMvc2NzaS9j
-eGdiaS9saWJjeGdiaS5jIGIvZHJpdmVycy9zY3NpL2N4Z2JpL2xpYmN4Z2JpLmMKaW5kZXggYmQ3
-ZDM5ZS4uZTM4ZDBjMSAxMDA2NDQKLS0tIGEvZHJpdmVycy9zY3NpL2N4Z2JpL2xpYmN4Z2JpLmMK
-KysrIGIvZHJpdmVycy9zY3NpL2N4Z2JpL2xpYmN4Z2JpLmMKQEAgLTE1NTYsNiArMTU1NiwxMSBA
-QCBzdGF0aWMgaW5saW5lIGludCByZWFkX3BkdV9za2Ioc3RydWN0IGlzY3NpX2Nvbm4gKmNvbm4s
-CiAJCSAqLwogCQlpc2NzaV9jb25uX3ByaW50ayhLRVJOX0VSUiwgY29ubiwgIkludmFsaWQgcGR1
-IG9yIHNrYi4iKTsKIAkJcmV0dXJuIC1FRkFVTFQ7CisJY2FzZSBJU0NTSV9UQ1BfSU5URVJOQUxf
-RVJSOgorCQlwcl9pbmZvKCJza2IgMHglcCwgb2ZmICV1LCAlZCwgVENQX0lOVEVSTkFMX0VSUi5c
-biIsCisJCQlza2IsIG9mZnNldCwgb2ZmbG9hZGVkKTsKKwkJaXNjc2lfY29ubl9wcmludGsoS0VS
-Tl9FUlIsIGNvbm4sICJJbnRlcm5hbCBlcnJvci4iKTsKKwkJcmV0dXJuIC1FRkFVTFQ7CiAJY2Fz
-ZSBJU0NTSV9UQ1BfU0VHTUVOVF9ET05FOgogCQlsb2dfZGVidWcoMSA8PCBDWEdCSV9EQkdfUERV
-X1JYLAogCQkJInNrYiAweCVwLCBvZmYgJXUsICVkLCBUQ1BfU0VHX0RPTkUsIHJjICVkLlxuIiwK
-ZGlmZiAtLWdpdCBhL2luY2x1ZGUvc2NzaS9saWJpc2NzaV90Y3AuaCBiL2luY2x1ZGUvc2NzaS9s
-aWJpc2NzaV90Y3AuaAppbmRleCAzMDUyMGQ1Li45MDY5MWFkIDEwMDY0NAotLS0gYS9pbmNsdWRl
-L3Njc2kvbGliaXNjc2lfdGNwLmgKKysrIGIvaW5jbHVkZS9zY3NpL2xpYmlzY3NpX3RjcC5oCkBA
-IC05Miw2ICs5Miw3IEBAIGVudW0gewogCUlTQ1NJX1RDUF9TS0JfRE9ORSwJCS8qIHNrYiBpcyBv
-dXQgb2YgZGF0YSAqLwogCUlTQ1NJX1RDUF9DT05OX0VSUiwJCS8qIGlzY3NpIGxheWVyIGhhcyBm
-aXJlZCBhIGNvbm4gZXJyICovCiAJSVNDU0lfVENQX1NVU1BFTkRFRCwJCS8qIGNvbm4gaXMgc3Vz
-cGVuZGVkICovCisJSVNDU0lfVENQX0lOVEVSTkFMX0VSUiwgICAgICAgICAvKiBhbiBpbnRlcm5h
-bCBlcnJvciBvY2N1cnJlZCAqLwogfTsKIAogZXh0ZXJuIHZvaWQgaXNjc2lfdGNwX2hkcl9yZWN2
-X3ByZXAoc3RydWN0IGlzY3NpX3RjcF9jb25uICp0Y3BfY29ubik7Ci0tIAoyLjEuNAoKX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KSW50ZWwtZ2Z4IG1haWxp
-bmcgbGlzdApJbnRlbC1nZnhAbGlzdHMuZnJlZWRlc2t0b3Aub3JnCmh0dHBzOi8vbGlzdHMuZnJl
-ZWRlc2t0b3Aub3JnL21haWxtYW4vbGlzdGluZm8vaW50ZWwtZ2Z4Cg==
+Very straightforward conversion to the new function in all four spots.
+
+Signed-off-by: Logan Gunthorpe <logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
+Cc: Alasdair Kergon <agk-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Cc: Mike Snitzer <snitzer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+---
+ drivers/md/dm-crypt.c | 39 ++++++++++++++++++++++++++-------------
+ 1 file changed, 26 insertions(+), 13 deletions(-)
+
+diff --git a/drivers/md/dm-crypt.c b/drivers/md/dm-crypt.c
+index 8dbecf1..841f1fc 100644
+--- a/drivers/md/dm-crypt.c
++++ b/drivers/md/dm-crypt.c
+@@ -635,9 +635,12 @@ static int crypt_iv_lmk_gen(struct crypt_config *cc, u8 *iv,
+ 
+ 	if (bio_data_dir(dmreq->ctx->bio_in) == WRITE) {
+ 		sg = crypt_get_sg_data(cc, dmreq->sg_in);
+-		src = kmap_atomic(sg_page(sg));
+-		r = crypt_iv_lmk_one(cc, iv, dmreq, src + sg->offset);
+-		kunmap_atomic(src);
++		src = sg_map(sg, 0, SG_KMAP_ATOMIC);
++		if (IS_ERR(src))
++			return PTR_ERR(src);
++
++		r = crypt_iv_lmk_one(cc, iv, dmreq, src);
++		sg_unmap(sg, src, 0, SG_KMAP_ATOMIC);
+ 	} else
+ 		memset(iv, 0, cc->iv_size);
+ 
+@@ -655,14 +658,18 @@ static int crypt_iv_lmk_post(struct crypt_config *cc, u8 *iv,
+ 		return 0;
+ 
+ 	sg = crypt_get_sg_data(cc, dmreq->sg_out);
+-	dst = kmap_atomic(sg_page(sg));
+-	r = crypt_iv_lmk_one(cc, iv, dmreq, dst + sg->offset);
++	dst = sg_map(sg, 0, SG_KMAP_ATOMIC);
++	if (IS_ERR(dst))
++		return PTR_ERR(dst);
++
++	r = crypt_iv_lmk_one(cc, iv, dmreq, dst);
+ 
+ 	/* Tweak the first block of plaintext sector */
+ 	if (!r)
+-		crypto_xor(dst + sg->offset, iv, cc->iv_size);
++		crypto_xor(dst, iv, cc->iv_size);
++
++	sg_unmap(sg, dst, 0, SG_KMAP_ATOMIC);
+ 
+-	kunmap_atomic(dst);
+ 	return r;
+ }
+ 
+@@ -786,9 +793,12 @@ static int crypt_iv_tcw_gen(struct crypt_config *cc, u8 *iv,
+ 	/* Remove whitening from ciphertext */
+ 	if (bio_data_dir(dmreq->ctx->bio_in) != WRITE) {
+ 		sg = crypt_get_sg_data(cc, dmreq->sg_in);
+-		src = kmap_atomic(sg_page(sg));
+-		r = crypt_iv_tcw_whitening(cc, dmreq, src + sg->offset);
+-		kunmap_atomic(src);
++		src = sg_map(sg, 0, SG_KMAP_ATOMIC);
++		if (IS_ERR(src))
++			return PTR_ERR(src);
++
++		r = crypt_iv_tcw_whitening(cc, dmreq, src);
++		sg_unmap(sg, src, 0, SG_KMAP_ATOMIC);
+ 	}
+ 
+ 	/* Calculate IV */
+@@ -812,9 +822,12 @@ static int crypt_iv_tcw_post(struct crypt_config *cc, u8 *iv,
+ 
+ 	/* Apply whitening on ciphertext */
+ 	sg = crypt_get_sg_data(cc, dmreq->sg_out);
+-	dst = kmap_atomic(sg_page(sg));
+-	r = crypt_iv_tcw_whitening(cc, dmreq, dst + sg->offset);
+-	kunmap_atomic(dst);
++	dst = sg_map(sg, 0, SG_KMAP_ATOMIC);
++	if (IS_ERR(dst))
++		return PTR_ERR(dst);
++
++	r = crypt_iv_tcw_whitening(cc, dmreq, dst);
++	sg_unmap(sg, dst, 0, SG_KMAP_ATOMIC);
+ 
+ 	return r;
+ }
+-- 
+2.1.4
