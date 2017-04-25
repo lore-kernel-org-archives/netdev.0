@@ -1,39 +1,42 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH net-next] rhashtable: remove insecure_max_entries param
-Date: Tue, 25 Apr 2017 13:23:56 +0200
-Message-ID: <20170425112356.GB11322@breakpoint.cc>
-References: <20170425094134.21885-1-fw@strlen.de>
- <20170425110415.GA25167@gondor.apana.org.au>
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Subject: [PATCH net-next] drivers: net: xgene-v2: Fix error return code in xge_mdio_config()
+Date: Tue, 25 Apr 2017 11:36:50 +0000
+Message-ID: <20170425113650.22730-1-weiyj.lk@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Wei Yongjun <weiyongjun1@huawei.com>, netdev@vger.kernel.org
+To: Iyappan Subramanian <isubramanian@apm.com>,
+        Keyur Chudgar <kchudgar@apm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:48412 "EHLO
-        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1946697AbdDYLYG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 07:24:06 -0400
-Content-Disposition: inline
-In-Reply-To: <20170425110415.GA25167@gondor.apana.org.au>
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:36340 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1946890AbdDYLg5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 07:36:57 -0400
+Received: by mail-pg0-f67.google.com with SMTP id v1so3355880pgv.3
+        for <netdev@vger.kernel.org>; Tue, 25 Apr 2017 04:36:56 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
-> Florian Westphal <fw@strlen.de> wrote:
-> > no users in the tree, insecure_max_entries is always set to
-> > ht->p.max_size * 2 in rhtashtable_init().
-> > 
-> > Replace only spot that uses it with a ht->p.max_size check.
-> 
-> I'd suggest that as this needs to be computed every time we insert
-> an element that you keep the value in struct rhashtable, but as an
-> internal value as opposed to a paramter that is set by the user.
+From: Wei Yongjun <weiyongjun1@huawei.com>
 
-What extra cost?
+Fix to return error code -ENODEV from the no PHY found error
+handling case instead of 0, as done elsewhere in this function.
 
-The only change is that ht->nelems has to be right-shifted by one,
-I don't think that warrants extra space in struct rhashtable, its
-already way too large (I think we can reduce its size further).
+Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
+---
+ drivers/net/ethernet/apm/xgene-v2/mdio.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-Thanks,
-Florian
+diff --git a/drivers/net/ethernet/apm/xgene-v2/mdio.c b/drivers/net/ethernet/apm/xgene-v2/mdio.c
+index a583c6a..f5fe3bb 100644
+--- a/drivers/net/ethernet/apm/xgene-v2/mdio.c
++++ b/drivers/net/ethernet/apm/xgene-v2/mdio.c
+@@ -135,6 +135,7 @@ int xge_mdio_config(struct net_device *ndev)
+ 	phydev = phy_find_first(mdio_bus);
+ 	if (!phydev) {
+ 		dev_err(dev, "no PHY found\n");
++		ret = -ENODEV;
+ 		goto err;
+ 	}
+ 	phydev = phy_connect(ndev, phydev_name(phydev),
