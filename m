@@ -1,84 +1,119 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: pull-request: can 2017-04-25
-Date: Tue, 25 Apr 2017 17:33:35 +0200
-Message-ID: <d9a6c753-cc92-f31e-47a6-9110040d7294@pengutronix.de>
-References: <20170425121645.9946-1-mkl@pengutronix.de>
- <20170425.112126.232541678435322858.davem@davemloft.net>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH RFC] ptr_ring: add ptr_ring_unconsume
+Date: Tue, 25 Apr 2017 18:35:53 +0300
+Message-ID: <20170425182222-mutt-send-email-mst@kernel.org>
+References: <1492384496-22644-1-git-send-email-mst@redhat.com>
+ <0defb746-3d4b-14b3-1ad7-82842048ebba@redhat.com>
+ <20170424022711-mutt-send-email-mst@kernel.org>
+ <21a19608-40be-38d4-9843-088a273fd71a@redhat.com>
+ <20170424145632-mutt-send-email-mst@kernel.org>
+ <91ae69e6-4dac-3db2-4778-c4163dfe6f91@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="KBQ2hggjWbjaQpN0wcTxBAe5Bi9nrGMah"
-Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
-        kernel@pengutronix.de
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Jason Wang <jasowang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:34123 "EHLO
-        metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1950301AbdDYPdu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 11:33:50 -0400
-In-Reply-To: <20170425.112126.232541678435322858.davem@davemloft.net>
+Received: from mx1.redhat.com ([209.132.183.28]:55724 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1950167AbdDYPf7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 25 Apr 2017 11:35:59 -0400
+Content-Disposition: inline
+In-Reply-To: <91ae69e6-4dac-3db2-4778-c4163dfe6f91@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---KBQ2hggjWbjaQpN0wcTxBAe5Bi9nrGMah
-Content-Type: multipart/mixed; boundary="6IHlAq1Rs730a9fqDukvETcQKoHDuoCVX";
- protected-headers="v1"
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-To: David Miller <davem@davemloft.net>
-Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org, kernel@pengutronix.de
-Message-ID: <d9a6c753-cc92-f31e-47a6-9110040d7294@pengutronix.de>
-Subject: Re: pull-request: can 2017-04-25
-References: <20170425121645.9946-1-mkl@pengutronix.de>
- <20170425.112126.232541678435322858.davem@davemloft.net>
-In-Reply-To: <20170425.112126.232541678435322858.davem@davemloft.net>
+On Tue, Apr 25, 2017 at 12:07:01PM +0800, Jason Wang wrote:
+> 
+> 
+> On 2017年04月24日 20:00, Michael S. Tsirkin wrote:
+> > On Mon, Apr 24, 2017 at 07:54:18PM +0800, Jason Wang wrote:
+> > > On 2017年04月24日 07:28, Michael S. Tsirkin wrote:
+> > > > On Tue, Apr 18, 2017 at 11:07:42AM +0800, Jason Wang wrote:
+> > > > > On 2017年04月17日 07:19, Michael S. Tsirkin wrote:
+> > > > > > Applications that consume a batch of entries in one go
+> > > > > > can benefit from ability to return some of them back
+> > > > > > into the ring.
+> > > > > > 
+> > > > > > Add an API for that - assuming there's space. If there's no space
+> > > > > > naturally we can't do this and have to drop entries, but this implies
+> > > > > > ring is full so we'd likely drop some anyway.
+> > > > > > 
+> > > > > > Signed-off-by: Michael S. Tsirkin<mst@redhat.com>
+> > > > > > ---
+> > > > > > 
+> > > > > > Jason, in my mind the biggest issue with your batching patchset is the
+> > > > > > backet drops on disconnect.  This API will help avoid that in the common
+> > > > > > case.
+> > > > > Ok, I will rebase the series on top of this. (Though I don't think we care
+> > > > > the packet loss).
+> > > > E.g. I care - I often start sending packets to VM before it's
+> > > > fully booted. Several vhost resets might follow.
+> > > Ok.
+> > > 
+> > > > > > I would still prefer that we understand what's going on,
+> > > > > I try to reply in another thread, does it make sense?
+> > > > > 
+> > > > > >     and I would
+> > > > > > like to know what's the smallest batch size that's still helpful,
+> > > > > Yes, I've replied in another thread, the result is:
+> > > > > 
+> > > > > 
+> > > > > no batching   1.88Mpps
+> > > > > RX_BATCH=1    1.93Mpps
+> > > > > RX_BATCH=4    2.11Mpps
+> > > > > RX_BATCH=16   2.14Mpps
+> > > > > RX_BATCH=64   2.25Mpps
+> > > > > RX_BATCH=256  2.18Mpps
+> > > > Essentially 4 is enough, other stuf looks more like noise
+> > > > to me. What about 2?
+> > > The numbers are pretty stable, so probably not noise. Retested on top of
+> > > batch zeroing:
+> > > 
+> > > no  1.97Mpps
+> > > 1   2.09Mpps
+> > > 2   2.11Mpps
+> > > 4   2.16Mpps
+> > > 8   2.19Mpps
+> > > 16  2.21Mpps
+> > > 32  2.25Mpps
+> > > 64  2.30Mpps
+> > > 128 2.21Mpps
+> > > 256 2.21Mpps
+> > > 
+> > > 64 performs best.
+> > > 
+> > > Thanks
+> > OK but it might be e.g. a function of the ring size, host cache size or
+> > whatever. As we don't really understand the why, if we just optimize for
+> > your setup we risk regressions in others.  64 entries is a lot, it
+> > increases the queue size noticeably.  Could this be part of the effect?
+> > Could you try changing the queue size to see what happens?
+> 
+> I increase tx_queue_len to 1100, but only see less than 1% improvement on
+> pps number (batch = 1) in my machine. If you care about the regression, we
+> probably can leave the choice to user through e.g module parameter. But I'm
+> afraid we have already had too much choices for them. Or I can test this
+> with different CPU types.
+> 
+> Thanks
+> 
 
---6IHlAq1Rs730a9fqDukvETcQKoHDuoCVX
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+I agree here. Let's keep it a constant. Testing on more machines would
+be nice but not strictly required.  I just dislike not understanding why
+it helps because it means we can easily break it by mistake.  So my only
+request really is that you wrap access to this internal buffer in an
+API. Let's see - I think we need
 
-On 04/25/2017 05:21 PM, David Miller wrote:
-> From: Marc Kleine-Budde <mkl@pengutronix.de>
-> Date: Tue, 25 Apr 2017 14:16:42 +0200
->=20
->> this is a pull request of three patches for net/master.
->>
->> There are two patches by Stephane Grosjean for that add a new variant =
-to the
->> PCAN-Chip USB driver. The other patch is by Maksim Salau, which swtich=
-es the
->> memory for USB transfers from heap to stack.
->=20
-> I think you meant "from stack to heap", but anyways pulled thanks!
-
-Yes and that's what the patch does.
-
-Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+struct vhost_net_buf
+vhost_net_buf_get_ptr
+vhost_net_buf_get_size
+vhost_net_buf_is_empty
+vhost_net_buf_peek
+vhost_net_buf_consume
+vhost_net_buf_produce
 
 
---6IHlAq1Rs730a9fqDukvETcQKoHDuoCVX--
 
---KBQ2hggjWbjaQpN0wcTxBAe5Bi9nrGMah
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEzBAEBCgAdFiEE4bay/IylYqM/npjQHv7KIOw4HPYFAlj/bE8ACgkQHv7KIOw4
-HPa+4ggAjlL79RNjN5SpLt6ACyWILfQhcEC27pcaadpT8Htom/k5X45eqDulV/8S
-srTjocUvUbKyU/53TEZ+QrIuI7k9GU3fFCgqevnl9ZPLV0BTCvDUDJuQ0kvHlfdF
-iMyDB2Mr2QlrHVg4jGTPJwjmH0WckUTh0by1t0IA5wTRkFT6VC9b1CrO2NWhFzyM
-4POsXvCnfkY/VPk3jd8q+VxgnKQWFSYQ4YMzGdZGDD9h96wqHn584ArskYzEvMkT
-gSlsdDXn66zwwUo6qAHxdSvYoN/MsRnp2KoMnYl571CQUYQ+odO9aYygXiDjIcMA
-YztFNl6TB5kjj4XJPtF7v/AAQjEJ4Q==
-=QK/y
------END PGP SIGNATURE-----
-
---KBQ2hggjWbjaQpN0wcTxBAe5Bi9nrGMah--
+-- 
+MST
