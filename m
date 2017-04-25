@@ -1,7 +1,7 @@
 From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH net-next 10/10] tcp: switch rcv_rtt_est and rcvq_space to high resolution timestamps
-Date: Tue, 25 Apr 2017 10:15:41 -0700
-Message-ID: <20170425171541.3417-11-edumazet@google.com>
+Subject: [PATCH net-next 08/10] tcp: use tp->tcp_mstamp in tcp_clean_rtx_queue()
+Date: Tue, 25 Apr 2017 10:15:39 -0700
+Message-ID: <20170425171541.3417-9-edumazet@google.com>
 References: <20170425171541.3417-1-edumazet@google.com>
 Cc: netdev <netdev@vger.kernel.org>,
         Soheil Hassas Yeganeh <soheil@google.com>,
@@ -9,180 +9,39 @@ Cc: netdev <netdev@vger.kernel.org>,
         Eric Dumazet <eric.dumazet@gmail.com>
 To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f170.google.com ([209.85.223.170]:33387 "EHLO
-        mail-io0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1951798AbdDYRQP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 13:16:15 -0400
-Received: by mail-io0-f170.google.com with SMTP id k87so221383352ioi.0
-        for <netdev@vger.kernel.org>; Tue, 25 Apr 2017 10:16:15 -0700 (PDT)
+Received: from mail-it0-f50.google.com ([209.85.214.50]:33734 "EHLO
+        mail-it0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1951806AbdDYRQL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 13:16:11 -0400
+Received: by mail-it0-f50.google.com with SMTP id 70so20279834ita.0
+        for <netdev@vger.kernel.org>; Tue, 25 Apr 2017 10:16:10 -0700 (PDT)
 In-Reply-To: <20170425171541.3417-1-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some devices or distributions use HZ=100 or HZ=250
+Following patch will remove ack_time from struct tcp_sacktag_state
 
-TCP receive buffer autotuning has poor behavior caused by this choice.
-Since autotuning happens after 4 ms or 10 ms, short distance flows
-get their receive buffer tuned to a very high value, but after an initial
-period where it was frozen to (too small) initial value.
-
-With tp->tcp_mstamp introduction, we can switch to high resolution
-timestamps almost for free (at the expense of 8 additional bytes per
-TCP structure)
-
-Note that some TCP stacks use usec TCP timestamps where this
-patch makes even more sense : Many TCP flows have < 500 usec RTT.
-Hopefully this finer TS option can be standardized soon.
-
-Tested:
- HZ=100 kernel
- ./netperf -H lpaa24 -t TCP_RR -l 1000 -- -r 10000,10000 &
-
- Peer without patch :
- lpaa24:~# ss -tmi dst lpaa23
- ...
- skmem:(r0,rb8388608,...)
- rcv_rtt:10 rcv_space:3210000 minrtt:0.017
-
- Peer with the patch :
- lpaa23:~# ss -tmi dst lpaa24
- ...
- skmem:(r0,rb428800,...)
- rcv_rtt:0.069 rcv_space:30000 minrtt:0.017
-
-We can see saner RCVBUF, and more precise rcv_rtt information.
+Same info is now found in tp->tcp_mstamp
 
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 Acked-by: Soheil Hassas Yeganeh <soheil@google.com>
 ---
- include/linux/tcp.h  | 12 ++++++------
- net/ipv4/tcp.c       |  2 +-
- net/ipv4/tcp_input.c | 28 +++++++++++++++++-----------
- 3 files changed, 24 insertions(+), 18 deletions(-)
+ net/ipv4/tcp_input.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-index 99a22f44c32e1587a6bf4835b65c7a4314807aa8..b6d5adcee8fcb611de202993623cc80274d262e4 100644
---- a/include/linux/tcp.h
-+++ b/include/linux/tcp.h
-@@ -333,16 +333,16 @@ struct tcp_sock {
- 
- /* Receiver side RTT estimation */
- 	struct {
--		u32	rtt;
--		u32	seq;
--		u32	time;
-+		u32		rtt_us;
-+		u32		seq;
-+		struct skb_mstamp time;
- 	} rcv_rtt_est;
- 
- /* Receiver queue space */
- 	struct {
--		int	space;
--		u32	seq;
--		u32	time;
-+		int		space;
-+		u32		seq;
-+		struct skb_mstamp time;
- 	} rcvq_space;
- 
- /* TCP-specific MTU probe information. */
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index efc976ae66ae5b82d496323634c3030fb71c6c92..059dad7deefe883bd3a26c93f27637dc22ccefda 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -2853,7 +2853,7 @@ void tcp_get_info(struct sock *sk, struct tcp_info *info)
- 	info->tcpi_snd_ssthresh = tp->snd_ssthresh;
- 	info->tcpi_advmss = tp->advmss;
- 
--	info->tcpi_rcv_rtt = jiffies_to_usecs(tp->rcv_rtt_est.rtt)>>3;
-+	info->tcpi_rcv_rtt = tp->rcv_rtt_est.rtt_us >> 3;
- 	info->tcpi_rcv_space = tp->rcvq_space.space;
- 
- 	info->tcpi_total_retrans = tp->total_retrans;
 diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index f475f0b53bfe4cb67c19b7f30d9d68bd703ff23b..9739962bfb3fd2d39cb13f643def223f4f17fcb6 100644
+index 5485204853d3aefaea5027bcf6480ed20a1e8efa..f4e1836c696c9a45a545a32de8ba62ce3bd0dc12 100644
 --- a/net/ipv4/tcp_input.c
 +++ b/net/ipv4/tcp_input.c
-@@ -442,7 +442,8 @@ void tcp_init_buffer_space(struct sock *sk)
- 		tcp_sndbuf_expand(sk);
- 
- 	tp->rcvq_space.space = tp->rcv_wnd;
--	tp->rcvq_space.time = tcp_time_stamp;
-+	skb_mstamp_get(&tp->tcp_mstamp);
-+	tp->rcvq_space.time = tp->tcp_mstamp;
- 	tp->rcvq_space.seq = tp->copied_seq;
- 
- 	maxwin = tcp_full_space(sk);
-@@ -518,7 +519,7 @@ EXPORT_SYMBOL(tcp_initialize_rcv_mss);
-  */
- static void tcp_rcv_rtt_update(struct tcp_sock *tp, u32 sample, int win_dep)
+@@ -3056,8 +3056,8 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
  {
--	u32 new_sample = tp->rcv_rtt_est.rtt;
-+	u32 new_sample = tp->rcv_rtt_est.rtt_us;
- 	long m = sample;
- 
- 	if (m == 0)
-@@ -548,21 +549,23 @@ static void tcp_rcv_rtt_update(struct tcp_sock *tp, u32 sample, int win_dep)
- 		new_sample = m << 3;
- 	}
- 
--	if (tp->rcv_rtt_est.rtt != new_sample)
--		tp->rcv_rtt_est.rtt = new_sample;
-+	tp->rcv_rtt_est.rtt_us = new_sample;
- }
- 
- static inline void tcp_rcv_rtt_measure(struct tcp_sock *tp)
- {
--	if (tp->rcv_rtt_est.time == 0)
-+	u32 delta_us;
-+
-+	if (tp->rcv_rtt_est.time.v64 == 0)
- 		goto new_measure;
- 	if (before(tp->rcv_nxt, tp->rcv_rtt_est.seq))
- 		return;
--	tcp_rcv_rtt_update(tp, tcp_time_stamp - tp->rcv_rtt_est.time, 1);
-+	delta_us = skb_mstamp_us_delta(&tp->tcp_mstamp, &tp->rcv_rtt_est.time);
-+	tcp_rcv_rtt_update(tp, delta_us, 1);
- 
- new_measure:
- 	tp->rcv_rtt_est.seq = tp->rcv_nxt + tp->rcv_wnd;
--	tp->rcv_rtt_est.time = tcp_time_stamp;
-+	tp->rcv_rtt_est.time = tp->tcp_mstamp;
- }
- 
- static inline void tcp_rcv_rtt_measure_ts(struct sock *sk,
-@@ -572,7 +575,10 @@ static inline void tcp_rcv_rtt_measure_ts(struct sock *sk,
- 	if (tp->rx_opt.rcv_tsecr &&
- 	    (TCP_SKB_CB(skb)->end_seq -
- 	     TCP_SKB_CB(skb)->seq >= inet_csk(sk)->icsk_ack.rcv_mss))
--		tcp_rcv_rtt_update(tp, tcp_time_stamp - tp->rx_opt.rcv_tsecr, 0);
-+		tcp_rcv_rtt_update(tp,
-+				   jiffies_to_usecs(tcp_time_stamp -
-+						    tp->rx_opt.rcv_tsecr),
-+				   0);
- }
- 
- /*
-@@ -585,8 +591,8 @@ void tcp_rcv_space_adjust(struct sock *sk)
- 	int time;
- 	int copied;
- 
--	time = tcp_time_stamp - tp->rcvq_space.time;
--	if (time < (tp->rcv_rtt_est.rtt >> 3) || tp->rcv_rtt_est.rtt == 0)
-+	time = skb_mstamp_us_delta(&tp->tcp_mstamp, &tp->rcvq_space.time);
-+	if (time < (tp->rcv_rtt_est.rtt_us >> 3) || tp->rcv_rtt_est.rtt_us == 0)
- 		return;
- 
- 	/* Number of bytes copied to user in last RTT */
-@@ -642,7 +648,7 @@ void tcp_rcv_space_adjust(struct sock *sk)
- 
- new_measure:
- 	tp->rcvq_space.seq = tp->copied_seq;
--	tp->rcvq_space.time = tcp_time_stamp;
-+	tp->rcvq_space.time = tp->tcp_mstamp;
- }
- 
- /* There is something which you must keep in mind when you analyze the
+ 	const struct inet_connection_sock *icsk = inet_csk(sk);
+ 	struct skb_mstamp first_ackt, last_ackt;
+-	struct skb_mstamp *now = &sack->ack_time;
+ 	struct tcp_sock *tp = tcp_sk(sk);
++	struct skb_mstamp *now = &tp->tcp_mstamp;
+ 	u32 prior_sacked = tp->sacked_out;
+ 	u32 reord = tp->packets_out;
+ 	bool fully_acked = true;
 -- 
 2.13.0.rc0.306.g87b477812d-goog
