@@ -1,118 +1,212 @@
 From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: [PATCH v6 1/5] skbuff: return -EMSGSIZE in skb_to_sgvec to prevent overflow
-Date: Tue, 25 Apr 2017 20:47:30 +0200
-Message-ID: <20170425184734.26563-1-Jason@zx2c4.com>
+Subject: [PATCH v6 2/5] ipsec: check return value of skb_to_sgvec always
+Date: Tue, 25 Apr 2017 20:47:31 +0200
+Message-ID: <20170425184734.26563-2-Jason@zx2c4.com>
 References: <20170425155215.4835-1-Jason@zx2c4.com>
+ <20170425184734.26563-1-Jason@zx2c4.com>
 Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        David.Laight@aculab.com, kernel-hardening@lists.openwall.com,
-        davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from frisell.zx2c4.com ([192.95.5.64]:60783 "EHLO frisell.zx2c4.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1432015AbdDYSrn (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 25 Apr 2017 14:47:43 -0400
-In-Reply-To: <20170425155215.4835-1-Jason@zx2c4.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-This is a defense-in-depth measure in response to bugs like
-4d6fa57b4dab ("macsec: avoid heap overflow in skb_to_sgvec"). While
-we're at it, we also limit the amount of recursion this function is
-allowed to do. Not actually providing a bounded base case is a future
-diaster that we can easily avoid here.
+To: netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	David.Laight@aculab.com,
+	kernel-hardening@lists.openwall.com,
+	davem@davemloft.net
+Return-path: <kernel-hardening-return-7573-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+List-Post: <mailto:kernel-hardening@lists.openwall.com>
+List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
+List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
+List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
+In-Reply-To: <20170425184734.26563-1-Jason@zx2c4.com>
+List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
 ---
-Changes v5->v6:
-  * Use unlikely() for the rare overflow conditions.
-  * Also bound recursion, since this is a potential disaster we can avert.
+ net/ipv4/ah4.c  |  8 ++++++--
+ net/ipv4/esp4.c | 30 ++++++++++++++++++++----------
+ net/ipv6/ah6.c  |  8 ++++++--
+ net/ipv6/esp6.c | 31 +++++++++++++++++++++----------
+ 4 files changed, 53 insertions(+), 24 deletions(-)
 
- net/core/skbuff.c | 31 ++++++++++++++++++++++++-------
- 1 file changed, 24 insertions(+), 7 deletions(-)
-
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index f86bf69cfb8d..24fb53f8534e 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -3489,16 +3489,22 @@ void __init skb_init(void)
-  *	@len: Length of buffer space to be mapped
-  *
-  *	Fill the specified scatter-gather list with mappings/pointers into a
-- *	region of the buffer space attached to a socket buffer.
-+ *	region of the buffer space attached to a socket buffer. Returns either
-+ *	the number of scatterlist items used, or -EMSGSIZE if the contents
-+ *	could not fit.
-  */
- static int
--__skb_to_sgvec(struct sk_buff *skb, struct scatterlist *sg, int offset, int len)
-+__skb_to_sgvec(struct sk_buff *skb, struct scatterlist *sg, int offset, int len,
-+	       unsigned int recursion_level)
- {
- 	int start = skb_headlen(skb);
- 	int i, copy = start - offset;
- 	struct sk_buff *frag_iter;
- 	int elt = 0;
+diff --git a/net/ipv4/ah4.c b/net/ipv4/ah4.c
+index 22377c8ff14b..e8f862358518 100644
+--- a/net/ipv4/ah4.c
++++ b/net/ipv4/ah4.c
+@@ -220,7 +220,9 @@ static int ah_output(struct xfrm_state *x, struct sk_buff *skb)
+ 	ah->seq_no = htonl(XFRM_SKB_CB(skb)->seq.output.low);
  
-+	if (unlikely(recursion_level >= 32))
-+		return -EMSGSIZE;
+ 	sg_init_table(sg, nfrags + sglists);
+-	skb_to_sgvec_nomark(skb, sg, 0, skb->len);
++	err = skb_to_sgvec_nomark(skb, sg, 0, skb->len);
++	if (unlikely(err < 0))
++		goto out_free;
+ 
+ 	if (x->props.flags & XFRM_STATE_ESN) {
+ 		/* Attach seqhi sg right after packet payload */
+@@ -393,7 +395,9 @@ static int ah_input(struct xfrm_state *x, struct sk_buff *skb)
+ 	skb_push(skb, ihl);
+ 
+ 	sg_init_table(sg, nfrags + sglists);
+-	skb_to_sgvec_nomark(skb, sg, 0, skb->len);
++	err = skb_to_sgvec_nomark(skb, sg, 0, skb->len);
++	if (unlikely(err < 0))
++		goto out_free;
+ 
+ 	if (x->props.flags & XFRM_STATE_ESN) {
+ 		/* Attach seqhi sg right after packet payload */
+diff --git a/net/ipv4/esp4.c b/net/ipv4/esp4.c
+index b1e24446e297..42cb09cc8533 100644
+--- a/net/ipv4/esp4.c
++++ b/net/ipv4/esp4.c
+@@ -360,9 +360,13 @@ static int esp_output(struct xfrm_state *x, struct sk_buff *skb)
+ 			esph = esp_output_set_extra(skb, esph, extra);
+ 
+ 			sg_init_table(sg, nfrags);
+-			skb_to_sgvec(skb, sg,
+-				     (unsigned char *)esph - skb->data,
+-				     assoclen + ivlen + clen + alen);
++			err = skb_to_sgvec(skb, sg,
++				           (unsigned char *)esph - skb->data,
++				           assoclen + ivlen + clen + alen);
++			if (unlikely(err < 0)) {
++				spin_unlock_bh(&x->lock);
++				goto error;
++			}
+ 
+ 			allocsize = ALIGN(skb->data_len, L1_CACHE_BYTES);
+ 
+@@ -381,11 +385,13 @@ static int esp_output(struct xfrm_state *x, struct sk_buff *skb)
+ 			pfrag->offset = pfrag->offset + allocsize;
+ 
+ 			sg_init_table(dsg, skb_shinfo(skb)->nr_frags + 1);
+-			skb_to_sgvec(skb, dsg,
+-				     (unsigned char *)esph - skb->data,
+-				     assoclen + ivlen + clen + alen);
++			err = skb_to_sgvec(skb, dsg,
++				           (unsigned char *)esph - skb->data,
++				           assoclen + ivlen + clen + alen);
+ 
+ 			spin_unlock_bh(&x->lock);
++			if (unlikely(err < 0))
++				goto error;
+ 
+ 			goto skip_cow2;
+ 		}
+@@ -422,9 +428,11 @@ static int esp_output(struct xfrm_state *x, struct sk_buff *skb)
+ 	esph = esp_output_set_extra(skb, esph, extra);
+ 
+ 	sg_init_table(sg, nfrags);
+-	skb_to_sgvec(skb, sg,
+-		     (unsigned char *)esph - skb->data,
+-		     assoclen + ivlen + clen + alen);
++	err = skb_to_sgvec(skb, sg,
++		           (unsigned char *)esph - skb->data,
++		           assoclen + ivlen + clen + alen);
++	if (unlikely(err < 0))
++		goto error;
+ 
+ skip_cow2:
+ 	if ((x->props.flags & XFRM_STATE_ESN))
+@@ -658,7 +666,9 @@ static int esp_input(struct xfrm_state *x, struct sk_buff *skb)
+ 	esp_input_set_header(skb, seqhi);
+ 
+ 	sg_init_table(sg, nfrags);
+-	skb_to_sgvec(skb, sg, 0, skb->len);
++	err = skb_to_sgvec(skb, sg, 0, skb->len);
++	if (unlikely(err < 0))
++		goto out;
+ 
+ 	skb->ip_summed = CHECKSUM_NONE;
+ 
+diff --git a/net/ipv6/ah6.c b/net/ipv6/ah6.c
+index dda6035e3b84..755f38271dd5 100644
+--- a/net/ipv6/ah6.c
++++ b/net/ipv6/ah6.c
+@@ -423,7 +423,9 @@ static int ah6_output(struct xfrm_state *x, struct sk_buff *skb)
+ 	ah->seq_no = htonl(XFRM_SKB_CB(skb)->seq.output.low);
+ 
+ 	sg_init_table(sg, nfrags + sglists);
+-	skb_to_sgvec_nomark(skb, sg, 0, skb->len);
++	err = skb_to_sgvec_nomark(skb, sg, 0, skb->len);
++	if (unlikely(err < 0))
++		goto out_free;
+ 
+ 	if (x->props.flags & XFRM_STATE_ESN) {
+ 		/* Attach seqhi sg right after packet payload */
+@@ -606,7 +608,9 @@ static int ah6_input(struct xfrm_state *x, struct sk_buff *skb)
+ 	ip6h->hop_limit   = 0;
+ 
+ 	sg_init_table(sg, nfrags + sglists);
+-	skb_to_sgvec_nomark(skb, sg, 0, skb->len);
++	err = skb_to_sgvec_nomark(skb, sg, 0, skb->len);
++	if (unlikely(err < 0))
++		goto out_free;
+ 
+ 	if (x->props.flags & XFRM_STATE_ESN) {
+ 		/* Attach seqhi sg right after packet payload */
+diff --git a/net/ipv6/esp6.c b/net/ipv6/esp6.c
+index ff54faa75631..017e2c2d36e1 100644
+--- a/net/ipv6/esp6.c
++++ b/net/ipv6/esp6.c
+@@ -339,9 +339,13 @@ static int esp6_output(struct xfrm_state *x, struct sk_buff *skb)
+ 			esph = esp_output_set_esn(skb, esph, seqhi);
+ 
+ 			sg_init_table(sg, nfrags);
+-			skb_to_sgvec(skb, sg,
+-				     (unsigned char *)esph - skb->data,
+-				     assoclen + ivlen + clen + alen);
++			err = skb_to_sgvec(skb, sg,
++				           (unsigned char *)esph - skb->data,
++				           assoclen + ivlen + clen + alen);
++			if (unlikely(err < 0)) {
++				spin_unlock_bh(&x->lock);
++				goto error;
++			}
+ 
+ 			allocsize = ALIGN(skb->data_len, L1_CACHE_BYTES);
+ 
+@@ -360,12 +364,15 @@ static int esp6_output(struct xfrm_state *x, struct sk_buff *skb)
+ 			pfrag->offset = pfrag->offset + allocsize;
+ 
+ 			sg_init_table(dsg, skb_shinfo(skb)->nr_frags + 1);
+-			skb_to_sgvec(skb, dsg,
+-				     (unsigned char *)esph - skb->data,
+-				     assoclen + ivlen + clen + alen);
++			err = skb_to_sgvec(skb, dsg,
++				           (unsigned char *)esph - skb->data,
++				           assoclen + ivlen + clen + alen);
+ 
+ 			spin_unlock_bh(&x->lock);
+ 
++			if (unlikely(err < 0))
++				goto error;
 +
- 	if (copy > 0) {
- 		if (copy > len)
- 			copy = len;
-@@ -3517,6 +3523,8 @@ __skb_to_sgvec(struct sk_buff *skb, struct scatterlist *sg, int offset, int len)
- 		end = start + skb_frag_size(&skb_shinfo(skb)->frags[i]);
- 		if ((copy = end - offset) > 0) {
- 			skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
-+			if (unlikely(elt && sg_is_last(&sg[elt - 1])))
-+				return -EMSGSIZE;
- 
- 			if (copy > len)
- 				copy = len;
-@@ -3531,16 +3539,22 @@ __skb_to_sgvec(struct sk_buff *skb, struct scatterlist *sg, int offset, int len)
+ 			goto skip_cow2;
+ 		}
  	}
+@@ -403,9 +410,11 @@ static int esp6_output(struct xfrm_state *x, struct sk_buff *skb)
+ 	esph = esp_output_set_esn(skb, esph, seqhi);
  
- 	skb_walk_frags(skb, frag_iter) {
--		int end;
-+		int end, ret;
+ 	sg_init_table(sg, nfrags);
+-	skb_to_sgvec(skb, sg,
+-		     (unsigned char *)esph - skb->data,
+-		     assoclen + ivlen + clen + alen);
++	err = skb_to_sgvec(skb, sg,
++		           (unsigned char *)esph - skb->data,
++		           assoclen + ivlen + clen + alen);
++	if (unlikely(err < 0))
++		goto error;
  
- 		WARN_ON(start > offset + len);
+ skip_cow2:
+ 	if ((x->props.flags & XFRM_STATE_ESN))
+@@ -600,7 +609,9 @@ static int esp6_input(struct xfrm_state *x, struct sk_buff *skb)
+ 	esp_input_set_header(skb, seqhi);
  
- 		end = start + frag_iter->len;
- 		if ((copy = end - offset) > 0) {
-+			if (unlikely(elt && sg_is_last(&sg[elt - 1])))
-+				return -EMSGSIZE;
-+
- 			if (copy > len)
- 				copy = len;
--			elt += __skb_to_sgvec(frag_iter, sg+elt, offset - start,
--					      copy);
-+			ret = __skb_to_sgvec(frag_iter, sg+elt, offset - start,
-+					      copy, recursion_level + 1);
-+			if (unlikely(ret < 0))
-+				return ret;
-+			elt += ret;
- 			if ((len -= copy) == 0)
- 				return elt;
- 			offset += copy;
-@@ -3573,13 +3587,16 @@ __skb_to_sgvec(struct sk_buff *skb, struct scatterlist *sg, int offset, int len)
- int skb_to_sgvec_nomark(struct sk_buff *skb, struct scatterlist *sg,
- 			int offset, int len)
- {
--	return __skb_to_sgvec(skb, sg, offset, len);
-+	return __skb_to_sgvec(skb, sg, offset, len, 0);
- }
- EXPORT_SYMBOL_GPL(skb_to_sgvec_nomark);
+ 	sg_init_table(sg, nfrags);
+-	skb_to_sgvec(skb, sg, 0, skb->len);
++	ret = skb_to_sgvec(skb, sg, 0, skb->len);
++	if (unlikely(ret < 0))
++		goto out;
  
- int skb_to_sgvec(struct sk_buff *skb, struct scatterlist *sg, int offset, int len)
- {
--	int nsg = __skb_to_sgvec(skb, sg, offset, len);
-+	int nsg = __skb_to_sgvec(skb, sg, offset, len, 0);
-+
-+	if (nsg <= 0)
-+		return nsg;
- 
- 	sg_mark_end(&sg[nsg - 1]);
+ 	skb->ip_summed = CHECKSUM_NONE;
  
 -- 
 2.12.2
