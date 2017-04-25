@@ -1,81 +1,44 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH net-next v8 2/3] net sched actions: dump more than
- TCA_ACT_MAX_PRIO actions per batch
-Date: Tue, 25 Apr 2017 16:29:40 -0400
-Message-ID: <4b7789f7-69e0-4764-7029-f6e15d6e7d69@mojatatu.com>
-References: <1493121247-11863-1-git-send-email-jhs@emojatatu.com>
- <1493121247-11863-3-git-send-email-jhs@emojatatu.com>
- <20170425121338.GC1867@nanopsycho.orion>
- <5e54edd8-3943-6f09-490f-ff04b83077f6@mojatatu.com>
- <20170425160445.GD1867@nanopsycho.orion>
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: Re: [PATCH v2] macsec: dynamically allocate space for sglist
+Date: Tue, 25 Apr 2017 22:35:55 +0200
+Message-ID: <20170425203555.GA9378@bistromath.localdomain>
+References: <20170425163602.GA17973@bistromath.localdomain>
+ <20170425170818.32661-1-Jason@zx2c4.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, xiyou.wangcong@gmail.com,
-        eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f194.google.com ([209.85.223.194]:36782 "EHLO
-        mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1950932AbdDYU3n (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 16:29:43 -0400
-Received: by mail-io0-f194.google.com with SMTP id x86so55107466ioe.3
-        for <netdev@vger.kernel.org>; Tue, 25 Apr 2017 13:29:43 -0700 (PDT)
-In-Reply-To: <20170425160445.GD1867@nanopsycho.orion>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Cc: Netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        David Miller <davem@davemloft.net>, stable@vger.kernel.org,
+        security@kernel.org
+To: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Return-path: <stable-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170425170818.32661-1-Jason@zx2c4.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 17-04-25 12:04 PM, Jiri Pirko wrote:
-> Tue, Apr 25, 2017 at 03:01:22PM CEST, jhs@mojatatu.com wrote:
->> On 17-04-25 08:13 AM, Jiri Pirko wrote:
->>> Tue, Apr 25, 2017 at 01:54:06PM CEST, jhs@mojatatu.com wrote:
+2017-04-25, 19:08:18 +0200, Jason A. Donenfeld wrote:
+> We call skb_cow_data, which is good anyway to ensure we can actually
+> modify the skb as such (another error from prior). Now that we have the
+> number of fragments required, we can safely allocate exactly that amount
+> of memory.
+> 
+> Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
+> Cc: Sabrina Dubroca <sd@queasysnail.net>
+> Cc: security@kernel.org
+> Cc: stable@vger.kernel.org
 
->>>>
->>>> +static inline bool tca_flags_valid(u32 act_flags)
->>>> +{
->>>> +	u32 invalid_flags_mask  = ~VALID_TCA_FLAGS;
->>>> +
->>>> +	if (act_flags & invalid_flags_mask)
->>>> +		return false;
->>>
->>> I don't see how this resolves anything. VALID_TCA_FLAGS is set in stone
->>> not going to change anytime in future, right?
->>
->> Every time a new bit gets added VALID_TCA_FLAGS changes.
->
-> You mean flag that user can set? If that is the case, you are breaking
-> UAPI for newer app running on older kernel.
->
+Acked-by: Sabrina Dubroca <sd@queasysnail.net>
 
-Ok, let me try to explain with more clarity. The rules Iam
-trying to follow are:
-if i see any bit set that i dont understand I will reject.
+Fixes: c09440f7dcb3 ("macsec: introduce IEEE 802.1AE driver")
+Fixes: CVE-2017-7477
 
-So lets in first kernel I have support for bit 0.
-My validation check is to make sure only bit 0 is set.
-The valid_flags currently then only constitutes bit 0.
-i.e
-If you set bit 2 or 3, the function above will reject and i return
-the error to the user.
+David, this fix is essentially equivalent to my patch "macsec: avoid
+heap overflow in skb_to_sgvec on receive".  Feel free to pick my patch
+if you prefer (it's smaller), but this looks ok to me.
 
-That is expected behavior correct?
 
-3 months down the road:
-I add two flags - bit 1 and 2.
-So now my valid_flags changes to bits 1, 2 and 0.
+Thanks,
 
-The function above will now return true for bits 0-2 but
-will reject if you set bit 3.
-
-That is expected behavior, correct?
-
-On u32/16/8:
-I am choosing u32 so it allows me to add more upto 32 bit flags.
-Not all 32 are needed today but it is better insurance.
-If I used u8 then the 24 of those 32 bits i dont use will be used
-as pads in the TLV. So it doesnt make sense for me to use a u8/16.
-
-Does that make more sense?
-
-cheers,
-jamal
+-- 
+Sabrina
