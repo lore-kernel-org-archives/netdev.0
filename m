@@ -1,29 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] sfc: tx ring can only have 2048 entries for all
- EF10 NICs
-Date: Tue, 25 Apr 2017 11:19:33 -0400 (EDT)
-Message-ID: <20170425.111933.283273148045687814.davem@davemloft.net>
-References: <8a13989f-959d-7d93-c9a7-7e890514d99c@solarflare.com>
+From: <Joe.Ghalam@dell.com>
+Subject: Re: macvlan: Fix device ref leak when purging bc_queue
+Date: Tue, 25 Apr 2017 15:19:02 +0000
+Message-ID: <1493133542320.84322@Dell.com>
+References: <1492618528011.11322@Dell.com>
+        <20170420125512.GA9113@gondor.apana.org.au>,<20170425.104254.1884694182452846750.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.org, netdev@vger.kernel.org,
-        linux-net-drivers@solarflare.com, ptalbert@redhat.com
-To: bkenward@solarflare.com
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: <Clifford.Wichmann@dell.com>, <netdev@vger.kernel.org>
+To: <davem@davemloft.net>, <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:40536 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1948906AbdDYPTl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 11:19:41 -0400
-In-Reply-To: <8a13989f-959d-7d93-c9a7-7e890514d99c@solarflare.com>
+Received: from esa8.dell-outbound.iphmx.com ([68.232.149.218]:39686 "EHLO
+        esa8.dell-outbound.iphmx.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1949598AbdDYPTt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 11:19:49 -0400
+In-Reply-To: <20170425.104254.1884694182452846750.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bert Kenward <bkenward@solarflare.com>
-Date: Tue, 25 Apr 2017 13:44:54 +0100
-
-> Fixes: dd248f1bc65b ("sfc: Add PCI ID for Solarflare 8000 series 10/40G NIC")
-> Reported-by: Patrick Talbert <ptalbert@redhat.com>
-> Signed-off-by: Bert Kenward <bkenward@solarflare.com>
-
-Applied, thanks.
+From: David Miller <davem@davemloft.net>=0A=
+Sent: Tuesday, April 25, 2017 7:42 AM=0A=
+To: herbert@gondor.apana.org.au=0A=
+Cc: Ghalam, Joe; Wichmann, Clifford; netdev@vger.kernel.org=0A=
+Subject: Re: macvlan: Fix device ref leak when purging bc_queue=0A=
+=0A=
+> Applied and queued up for -stable, thanks Herbert.=0A=
+=0A=
+Herbert and David,=0A=
+Glad to report that we had 10 iterations of the test that was showing 100% =
+failure with Herbert's changes, and we have not seen any failures. The fix =
+is good.=0A=
+Thanks for the help.=0A=
+Joe=0A=
