@@ -1,30 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: ethernet: ti: netcp_core: remove unused compl
- queue mapping
-Date: Tue, 25 Apr 2017 11:55:14 -0400 (EDT)
-Message-ID: <20170425.115514.1448173522233772597.davem@davemloft.net>
-References: <1493067246-3247-1-git-send-email-ivan.khoronzhuk@linaro.org>
+Subject: Re: [PATCH net-next] selftests/net: Fix broken test case in
+ psock_fanout
+Date: Tue, 25 Apr 2017 11:56:29 -0400 (EDT)
+Message-ID: <20170425.115629.2245862027879936980.davem@davemloft.net>
+References: <20170425012911.903-1-maloneykernel@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, w-kwok2@ti.com, m-karicheri2@ti.com,
-        linux-kernel@vger.kernel.org, grygorii.strashko@ti.com
-To: ivan.khoronzhuk@linaro.org
+Cc: netdev@vger.kernel.org, maloney@google.com
+To: maloneykernel@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:41116 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:41142 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1950268AbdDYPzQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 11:55:16 -0400
-In-Reply-To: <1493067246-3247-1-git-send-email-ivan.khoronzhuk@linaro.org>
+        with ESMTP id S1951075AbdDYP4a (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 11:56:30 -0400
+In-Reply-To: <20170425012911.903-1-maloneykernel@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-Date: Mon, 24 Apr 2017 23:54:06 +0300
+From: Mike Maloney <maloneykernel@gmail.com>
+Date: Mon, 24 Apr 2017 21:29:11 -0400
 
-> This code is unused and probably was unintentionally left while
-> moving completion queue mapping in submit function.
+> From: Mike Maloney <maloney@google.com>
 > 
-> Signed-off-by: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+> The error return falue form sock_fanout_open is -1, not zero.  One test
+> case was checking for 0 instead of -1.
+> 
+> Tested: Built and tested in clean client.
+> Signed-off-by: Mike Maloney <maloney@google.com>
 
-Applied.
+Applied, thanks.
