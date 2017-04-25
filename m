@@ -1,47 +1,84 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH net-next 08/10] tcp: use tp->tcp_mstamp in tcp_clean_rtx_queue()
-Date: Tue, 25 Apr 2017 10:15:39 -0700
-Message-ID: <20170425171541.3417-9-edumazet@google.com>
-References: <20170425171541.3417-1-edumazet@google.com>
-Cc: netdev <netdev@vger.kernel.org>,
-        Soheil Hassas Yeganeh <soheil@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>
-To: "David S . Miller" <davem@davemloft.net>
+From: Martin KaFai Lau <kafai@fb.com>
+Subject: Re: [PATCH v4 net] net: ipv6: regenerate host route if moved to gc
+ list
+Date: Tue, 25 Apr 2017 10:18:46 -0700
+Message-ID: <20170425171846.ldh3hwg2hrrqlffu@kafai-mba.local>
+References: <1493137049-16465-1-git-send-email-dsa@cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>, <dvyukov@google.com>,
+        <andreyknvl@google.com>, <mmanning@brocade.com>,
+        <eric.dumazet@gmail.com>
+To: David Ahern <dsa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f50.google.com ([209.85.214.50]:33734 "EHLO
-        mail-it0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1951806AbdDYRQL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 13:16:11 -0400
-Received: by mail-it0-f50.google.com with SMTP id 70so20279834ita.0
-        for <netdev@vger.kernel.org>; Tue, 25 Apr 2017 10:16:10 -0700 (PDT)
-In-Reply-To: <20170425171541.3417-1-edumazet@google.com>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:55973 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1951780AbdDYRSx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 13:18:53 -0400
+Content-Disposition: inline
+In-Reply-To: <1493137049-16465-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Following patch will remove ack_time from struct tcp_sacktag_state
+On Tue, Apr 25, 2017 at 09:17:29AM -0700, David Ahern wrote:
+[...]
+>
+> All of those faults are fixed by regenerating the host route if the
+> existing one has been moved to the gc list, something that can be
+> determined by checking if the rt6i_ref counter is 0.
+Acked-by: Martin KaFai Lau <kafai@fb.com>
 
-Same info is now found in tp->tcp_mstamp
+>
+> Fixes: f1705ec197e7 ("net: ipv6: Make address flushing on ifdown optional")
+> Reported-by: Dmitry Vyukov <dvyukov@google.com>
+> Reported-by: Andrey Konovalov <andreyknvl@google.com>
+> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Acked-by: Soheil Hassas Yeganeh <soheil@google.com>
----
- net/ipv4/tcp_input.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 5485204853d3aefaea5027bcf6480ed20a1e8efa..f4e1836c696c9a45a545a32de8ba62ce3bd0dc12 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -3056,8 +3056,8 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
- {
- 	const struct inet_connection_sock *icsk = inet_csk(sk);
- 	struct skb_mstamp first_ackt, last_ackt;
--	struct skb_mstamp *now = &sack->ack_time;
- 	struct tcp_sock *tp = tcp_sk(sk);
-+	struct skb_mstamp *now = &tp->tcp_mstamp;
- 	u32 prior_sacked = tp->sacked_out;
- 	u32 reord = tp->packets_out;
- 	bool fully_acked = true;
--- 
-2.13.0.rc0.306.g87b477812d-goog
+> ---
+> v4
+> - move 'prev = ifp->rt;' under spinlock as requested by Eric
+>
+> v3
+> - removed 'if (prev)' and just call ip6_rt_put; added comment about spinlock
+>
+> v2
+> - change ifp->rt under spinlock vs cmpxchg
+> - add comment about rt6i_ref == 0
+>
+>  net/ipv6/addrconf.c | 14 ++++++++++++--
+>  1 file changed, 12 insertions(+), 2 deletions(-)
+>
+> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+> index 80ce478c4851..0ea96c4d334d 100644
+> --- a/net/ipv6/addrconf.c
+> +++ b/net/ipv6/addrconf.c
+> @@ -3271,14 +3271,24 @@ static void addrconf_gre_config(struct net_device *dev)
+>  static int fixup_permanent_addr(struct inet6_dev *idev,
+>  				struct inet6_ifaddr *ifp)
+>  {
+> -	if (!ifp->rt) {
+> -		struct rt6_info *rt;
+> +	/* rt6i_ref == 0 means the host route was removed from the
+> +	 * FIB, for example, if 'lo' device is taken down. In that
+> +	 * case regenerate the host route.
+> +	 */
+> +	if (!ifp->rt || !atomic_read(&ifp->rt->rt6i_ref)) {
+> +		struct rt6_info *rt, *prev;
+>
+>  		rt = addrconf_dst_alloc(idev, &ifp->addr, false);
+>  		if (unlikely(IS_ERR(rt)))
+>  			return PTR_ERR(rt);
+>
+> +		/* ifp->rt can be accessed outside of rtnl */
+> +		spin_lock(&ifp->lock);
+> +		prev = ifp->rt;
+>  		ifp->rt = rt;
+> +		spin_unlock(&ifp->lock);
+> +
+> +		ip6_rt_put(prev);
+>  	}
+>
+>  	if (!(ifp->flags & IFA_F_NOPREFIXROUTE)) {
+> --
+> 2.1.4
+>
