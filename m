@@ -1,47 +1,47 @@
-From: Nathan Fontenot <nfont@linux.vnet.ibm.com>
-Subject: [PATCH net-next 0/2] Move sub crq init out of interrupt context
-Date: Tue, 25 Apr 2017 15:00:58 -0400
-Message-ID: <20170425185704.41126.65738.stgit@ltcalpine2-lp23.aus.stglabs.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: jallen@linux.vnet.ibm.com, tlfalcon@linux.vnet.ibm.com
-To: netdev@vger.kernel.org
+From: Alexander Kochetkov <al.kochet@gmail.com>
+Subject: Re: [PATCH v1] net: phy: fix auto-negotiation stall due to unavailable interrupt
+Date: Tue, 25 Apr 2017 18:25:30 +0300
+Message-ID: <B99ADC0E-A793-4334-A086-9F2CE045AB7E@gmail.com>
+References: <1492686004-30527-1-git-send-email-al.kochet@gmail.com> <1492686004-30527-2-git-send-email-al.kochet@gmail.com> <20170425.103644.75674234677063517.davem@davemloft.net>
+Mime-Version: 1.0 (Mac OS X Mail 9.3 \(3124\))
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
+        LKML <linux-kernel@vger.kernel.org>,
+        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        Roger Quadros <rogerq@ti.com>,
+        Madalin Bucur <madalin.bucur@nxp.com>,
+        Alexandre Belloni <alexandre.belloni@free-electrons.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:38473 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1949064AbdDYPMJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 11:12:09 -0400
-Received: from pps.filterd (m0098421.ppops.net [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v3PF9LHA146591
-        for <netdev@vger.kernel.org>; Tue, 25 Apr 2017 11:12:07 -0400
-Received: from e13.ny.us.ibm.com (e13.ny.us.ibm.com [129.33.205.203])
-        by mx0a-001b2d01.pphosted.com with ESMTP id 2a26s4xrcj-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Tue, 25 Apr 2017 11:12:07 -0400
-Received: from localhost
-        by e13.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <nfont@linux.vnet.ibm.com>;
-        Tue, 25 Apr 2017 11:12:06 -0400
+Received: from mail-lf0-f65.google.com ([209.85.215.65]:34935 "EHLO
+        mail-lf0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1949932AbdDYPZe (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 11:25:34 -0400
+In-Reply-To: <20170425.103644.75674234677063517.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The sub crqs are currently intialized in interrupt context when
-handling a crq response fromn the vios server. There is no reason
-they must be initialized there.
+Hello David!
 
-Moving the initialization of the sub crqs to the ibmvnic_init routine
-allows us to do the initialization outside of interrupt context and
-make all of the allocations with GFP_KERNEL instead of GFP_ATOMIC.
+> 25 =D0=B0=D0=BF=D1=80. 2017 =D0=B3., =D0=B2 17:36, David Miller =
+<davem@davemloft.net> =D0=BD=D0=B0=D0=BF=D0=B8=D1=81=D0=B0=D0=BB(=D0=B0):
+>=20
+> So... what are we doing here?
+>=20
+> My understanding is that this should fix the same problem that commit
+> 99f81afc139c6edd14d77a91ee91685a414a1c66 ("phy: micrel: Disable auto
+> negotiation on startup") fixed and that this micrel commit should thus
+> be reverted to improve MAC startup times which regressed.
+>=20
+> Florian, any guidance?
 
--Nathan
+Yes, this should be done.
 
----
+I aksed Alexandre to check if 99f81afc139c6edd14d77a91ee91685a414a1c66 =
+("phy: micrel: Disable auto
+negotiation on startup=C2=BB) can be reverted, and he answered what it =
+may do that
+sometime this/next week.
 
-Nathan Fontenot (2):
-      ibmvnic: Split initialization of scrqs to its own routine
-      ibmvnic: Move initialization of sub crqs to ibmvnic_init
-
-
- drivers/net/ethernet/ibm/ibmvnic.c |  114 +++++++++++++++++++-----------------
- 1 file changed, 61 insertions(+), 53 deletions(-)
+Alexander.
