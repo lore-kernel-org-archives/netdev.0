@@ -1,7 +1,7 @@
 From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: [PATCH 8/8] can: enable module auto loading for virtual CAN interfaces
-Date: Tue, 25 Apr 2017 08:19:45 +0200
-Message-ID: <20170425061945.28722-9-socketcan@hartkopp.net>
+Subject: [PATCH 3/8] can: remove obsolete definitions
+Date: Tue, 25 Apr 2017 08:19:40 +0200
+Message-ID: <20170425061945.28722-4-socketcan@hartkopp.net>
 References: <20170425061945.28722-1-socketcan@hartkopp.net>
 Cc: Oliver Hartkopp <socketcan@hartkopp.net>, mkl@pengutronix.de,
         dev@kicherer.org, netdev@vger.kernel.org
@@ -11,49 +11,35 @@ In-Reply-To: <20170425061945.28722-1-socketcan@hartkopp.net>
 Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Autoload the vcan module when a vcan instance is to be created by
-'ip link add type vcan'
+can_rx_alldev_list is a per-net data structure now. Remove it's definition
+here and can_rx_dev_list too.
 
 Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
 ---
- drivers/net/can/vcan.c | 7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
+ net/can/af_can.h | 4 ----
+ 1 file changed, 4 deletions(-)
 
-diff --git a/drivers/net/can/vcan.c b/drivers/net/can/vcan.c
-index 674f367087c5..facca33d53e9 100644
---- a/drivers/net/can/vcan.c
-+++ b/drivers/net/can/vcan.c
-@@ -1,7 +1,7 @@
- /*
-  * vcan.c - Virtual CAN interface
-  *
-- * Copyright (c) 2002-2007 Volkswagen Group Electronic Research
-+ * Copyright (c) 2002-2017 Volkswagen Group Electronic Research
-  * All rights reserved.
-  *
-  * Redistribution and use in source and binary forms, with or without
-@@ -50,9 +50,12 @@
- #include <linux/slab.h>
- #include <net/rtnetlink.h>
- 
-+#define DRV_NAME "vcan"
-+
- MODULE_DESCRIPTION("virtual CAN interface");
- MODULE_LICENSE("Dual BSD/GPL");
- MODULE_AUTHOR("Urs Thuermann <urs.thuermann@volkswagen.de>");
-+MODULE_ALIAS_RTNL_LINK(DRV_NAME);
- 
- 
- /*
-@@ -164,7 +167,7 @@ static void vcan_setup(struct net_device *dev)
- }
- 
- static struct rtnl_link_ops vcan_link_ops __read_mostly = {
--	.kind	= "vcan",
-+	.kind	= DRV_NAME,
- 	.setup	= vcan_setup,
+diff --git a/net/can/af_can.h b/net/can/af_can.h
+index f273c9d9b129..84a35e97c5e0 100644
+--- a/net/can/af_can.h
++++ b/net/can/af_can.h
+@@ -110,9 +110,6 @@ struct s_pstats {
+ 	unsigned long rcv_entries_max;
  };
  
+-/* receive filters subscribed for 'all' CAN devices */
+-extern struct dev_rcv_lists can_rx_alldev_list;
+-
+ /* function prototypes for the CAN networklayer procfs (proc.c) */
+ void can_init_proc(struct net *net);
+ void can_remove_proc(struct net *net);
+@@ -122,6 +119,5 @@ void can_stat_update(unsigned long data);
+ extern struct timer_list can_stattimer;    /* timer for statistics update */
+ extern struct s_stats    can_stats;        /* packet statistics */
+ extern struct s_pstats   can_pstats;       /* receive list statistics */
+-extern struct hlist_head can_rx_dev_list;  /* rx dispatcher structures */
+ 
+ #endif /* AF_CAN_H */
 -- 
 2.11.0
 
