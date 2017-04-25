@@ -1,37 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ipv6: move stub initialization after ipv6 setup
- completion
-Date: Tue, 25 Apr 2017 11:43:29 -0400 (EDT)
-Message-ID: <20170425.114329.1246693615604825040.davem@davemloft.net>
-References: <fd7c85f650661466a782a71485f227f0b84454a7.1493035843.git.pabeni@redhat.com>
+Subject: Re: [PATCH v2] net/packet: initialize val in packet_getsockopt()
+Date: Tue, 25 Apr 2017 11:44:33 -0400 (EDT)
+Message-ID: <20170425.114433.143144279134920277.davem@davemloft.net>
+References: <20170424125914.43270-1-glider@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com,
-        hannes@stressinduktion.org
-To: pabeni@redhat.com
+Cc: dvyukov@google.com, kcc@google.com, edumazet@google.com,
+        kuznet@ms2.inr.ac.ru, linux-kernel@vger.kernel.org,
+        netdev@vger.kernel.org
+To: glider@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:40956 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:40976 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1032799AbdDYPnb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 11:43:31 -0400
-In-Reply-To: <fd7c85f650661466a782a71485f227f0b84454a7.1493035843.git.pabeni@redhat.com>
+        with ESMTP id S1950334AbdDYPof (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 11:44:35 -0400
+In-Reply-To: <20170424125914.43270-1-glider@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paolo Abeni <pabeni@redhat.com>
-Date: Mon, 24 Apr 2017 14:18:28 +0200
+From: Alexander Potapenko <glider@google.com>
+Date: Mon, 24 Apr 2017 14:59:14 +0200
 
-> The ipv6 stub pointer is currently initialized before the ipv6
-> routing subsystem: a 3rd party can access and use such stub
-> before the routing data is ready.
-> Moreover, such pointer is not cleared in case of initialization
-> error, possibly leading to dangling pointers usage.
+> In the case getsockopt() is called with PACKET_HDRLEN and optlen < 4
+> |val| remains uninitialized and the syscall may behave differently
+> depending on its value. This doesn't have security consequences (as the
+> uninit bytes aren't copied back), but it's still cleaner to initialize
+> |val| and ensure optlen is not less than sizeof(int).
 > 
-> This change addresses the above moving the stub initialization
-> at the end of ipv6 init code.
+> This bug has been detected with KMSAN.
 > 
-> Fixes: 5f81bd2e5d80 ("ipv6: export a stub for IPv6 symbols used by vxlan")
-> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+> Signed-off-by: Alexander Potapenko <glider@google.com>
+> ---
+> v2: - if len < sizeof(int), make it 0
 
-Applied, thanks.
+No, you should signal an error if the len is too small.
+
+Returning zero bytes to userspace silently makes the user think that
+he got the data he asked for.
