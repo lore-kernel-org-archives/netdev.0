@@ -1,35 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/packet: check length in getsockopt() called with
- PACKET_HDRLEN
-Date: Tue, 25 Apr 2017 14:06:04 -0400 (EDT)
-Message-ID: <20170425.140604.276789553615920800.davem@davemloft.net>
-References: <20170425165146.25075-1-glider@google.com>
+From: Eric Dumazet <edumazet@google.com>
+Subject: Re: [PATCH] ipv6: ensure message length for raw socket is at least sizeof(ipv6hdr)
+Date: Tue, 25 Apr 2017 11:10:22 -0700
+Message-ID: <CANn89iJ8gyhM+9pfJLnoth1e2BtNxJXtFOYs8nGoOTwJ5uGyqA@mail.gmail.com>
+References: <20170425131827.66498-1-glider@google.com> <20170425.135543.1706004185593424024.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dvyukov@google.com, kcc@google.com, edumazet@google.com,
-        kuznet@ms2.inr.ac.ru, linux-kernel@vger.kernel.org,
-        netdev@vger.kernel.org
-To: glider@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:43254 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1432573AbdDYSGG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 14:06:06 -0400
-In-Reply-To: <20170425165146.25075-1-glider@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Alexander Potapenko <glider@google.com>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        LKML <linux-kernel@vger.kernel.org>,
+        netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170425.135543.1706004185593424024.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Alexander Potapenko <glider@google.com>
-Date: Tue, 25 Apr 2017 18:51:46 +0200
+On Tue, Apr 25, 2017 at 10:55 AM, David Miller <davem@davemloft.net> wrote:
+> From: Alexander Potapenko <glider@google.com>
+> Date: Tue, 25 Apr 2017 15:18:27 +0200
+>
+>> rawv6_send_hdrinc() expects that the buffer copied from the userspace
+>> contains the IPv6 header, so if too few bytes are copied parts of the
+>> header may remain uninitialized.
+>>
+>> This bug has been detected with KMSAN.
+>>
+>> Signed-off-by: Alexander Potapenko <glider@google.com>
+>
+> Hmmm, ipv4 seems to lack this check as well.
+>
+> I think we need to be careful here and fully understand why KMSAN doesn't
+> seem to be triggering in the ipv4 case but for ipv6 it is before I apply
+> this.
 
-> In the case getsockopt() is called with PACKET_HDRLEN and optlen < 4
-> |val| remains uninitialized and the syscall may behave differently
-> depending on its value, and even copy garbage to userspace on certain
-> architectures. To fix this we now return -EINVAL if optlen is too small.
-> 
-> This bug has been detected with KMSAN.
-> 
-> Signed-off-by: Alexander Potapenko <glider@google.com>
-
-Applied, thanks.
+This could be a bug in nf_ct_frag6_gather() missing one pskb_may_pull()
