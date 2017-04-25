@@ -1,73 +1,66 @@
-From: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
-Subject: Re: [PATCH net] net: batman-adv: Fix possible
-	memleaks when fail to register_netdevice
-Date: Tue, 25 Apr 2017 15:53:19 +0200
-Message-ID: <1756616.320MP6AHYH@bentobox>
-References: <1493121800-28066-1-git-send-email-gfree.wind@foxmail.com>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
- <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: Miroslav Lichvar <mlichvar@redhat.com>
+Subject: Re: [RFC PATCH 3/7] net: add option to get information about
+ timestamped packets
+Date: Tue, 25 Apr 2017 15:56:42 +0200
+Message-ID: <20170425135642.GB27148@localhost>
+References: <20170412141737.5881-1-mlichvar@redhat.com>
+ <20170412141737.5881-4-mlichvar@redhat.com>
+ <CAF=yD-Lsbr7f7aPUsFF3gCtFdyR8yb1=VBPJGQuxv_JbrJud6Q@mail.gmail.com>
+ <20170413151806.GA26613@localhost>
+ <CAF=yD-+tJpY7XJrqxga=0_kn-FjS0M=yuu59m_ZRRrrcpJCbZw@mail.gmail.com>
+ <20170424090043.GF8847@localhost>
+ <CAF=yD-+ErPH6Qb4y9TcAMi-7X+ebxW3epq3Zxch_vrt1r3gspQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="nextPart1829633.f4Iu6E4eP0";
- micalg="pgp-sha512"; protocol="application/pgp-signature"
-Cc: mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, a@unstable.cc,
- Gao Feng <fgao-KlmEoCYek3zQT0dZR+AlfA@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, gfree.wind-H32Fclmsjq1BDgjK7y7TUQ@public.gmane.org
-To: b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <1493121800-28066-1-git-send-email-gfree.wind-H32Fclmsjq1BDgjK7y7TUQ@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Network Development <netdev@vger.kernel.org>,
+        Richard Cochran <richardcochran@gmail.com>,
+        Willem de Bruijn <willemb@google.com>,
+        Soheil Hassas Yeganeh <soheil@google.com>,
+        "Keller, Jacob E" <jacob.e.keller@intel.com>,
+        Denny Page <dennypage@me.com>, Jiri Benc <jbenc@redhat.com>
+To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:53034 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1947159AbdDYN4q (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 25 Apr 2017 09:56:46 -0400
+Content-Disposition: inline
+In-Reply-To: <CAF=yD-+ErPH6Qb4y9TcAMi-7X+ebxW3epq3Zxch_vrt1r3gspQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---nextPart1829633.f4Iu6E4eP0
-Content-Transfer-Encoding: 7Bit
-Content-Type: text/plain; charset="us-ascii"
-
-On Dienstag, 25. April 2017 20:03:20 CEST gfree.wind-H32Fclmsjq1BDgjK7y7TUQ@public.gmane.org wrote:
-> From: Gao Feng <fgao-KlmEoCYek3zQT0dZR+AlfA@public.gmane.org>
+On Mon, Apr 24, 2017 at 11:18:13AM -0400, Willem de Bruijn wrote:
+> On Mon, Apr 24, 2017 at 5:00 AM, Miroslav Lichvar <mlichvar@redhat.com> wrote:
+> > Would "skb->data - skb->head -
+> > skb->mac_header + skb->len" always work as the L2 length for received
+> > packets at the time when the cmsg is prepared?
 > 
-> Because the func batadv_softif_init_late allocate some resources and
-> it would be invoked in register_netdevice. So we need to invoke the
-> func batadv_softif_free instead of free_netdev to cleanup when fail
-> to register_netdevice.
+> (skb->data - skb->head) - skb->mac_header computes the length
+> of data before the mac, such as reserve?
 
-I could be wrong, but shouldn't the destructor be replaced with free_netdevice 
-and the batadv_softif_free (without the free_netdev) used as ndo_uninit? The 
-line you've changed should then be kept as free_netdevice.
+data - head includes the reserve, but mac_header does too, so I think
+it should be just the length of MAC header and everything up to the
+data.
 
-At least this seems to be important when using rtnl_newlink() instead of the 
-legacy sysfs netdev stuff from batman-adv. rtnl_newlink() would also only call 
-free_netdevice and thus also not run batadv_softif_free. This seems to be only 
-fixable by calling ndo_uninit.
+> Do you mean skb->data -
+> skb->mac_header (or - skb_mac_offset(skb))?
 
-Kind regards,
-	Sven
---nextPart1829633.f4Iu6E4eP0
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part.
-Content-Transfer-Encoding: 7Bit
+That would give me a pointer? If I used skb_mac_offset(), the total
+length would be just skb->len - skb_mac_offset()?
 
------BEGIN PGP SIGNATURE-----
+> > As for the original ifindex, it seems to me it does need to be saved
+> > to a new field since __netif_receive_skb_core() intentionally
+> > overwrites skb->skb_iif. What would be the best place for it, sk_buff
+> > or skb_shared_info?
+> 
+> Finding storage space on the receive path will not be easy.
+> 
+> One shortcut to avoid storing this information explicitly is to look up
+> the device from skb->napi_id.
 
-iQIzBAABCgAdFiEEF10rh2Elc9zjMuACXYcKB8Eme0YFAlj/VM8ACgkQXYcKB8Em
-e0Z9YhAAw25hf8lye40CPtVfOSvgC3dhUI5IQzSGtYaru0zeGCj0Zz0KExeqrgnI
-k/7woi6xS1Cot7UXFHxKEyWkYvZ4/8HnIQlreJBVgVFAghoyjWfiaO76QN3/rcS6
-BYCYnbxKlHUyfzMXZFsB6ae2UGW1HbhiBg0hHCZY7GqYn1G7cNywkeAqhCMMbnOJ
-DaOSX7cYSL0eJymyWMu3VPeB0+oP+YtJhYa/nRvhGGb+45Q4ETu85vg3lNTTUyxo
-onu+PZY5nKZd/WYwMIw1epiKp5GSjHahDZ2fQGtFcaj01XQ0cYrvAM0pb+xm20kD
-wA/tbqNVCGqzeM7Kn1ov5wbF8uuRW4Fv7dqCEYuzz23uDbb4gGDPhOErBGgFAv+5
-sJV4dNBWvqFUbMntlDYb3kEj+5X0Pgx+A9pJ8N7axNmRQmCkgfL0TPW2LEuQlI2Z
-KQavA3suqbSQHBKJGh/jeP3SniJXFDBY3ksW9Y8wSCy3owO4c7bCOGAko3kpHwk5
-faXoSIIPcI0qsK6ONdn+ft2B6b20y7egIMmLpY20hwXusUmp4juyZyFrtA4TTA9d
-lZQm9ayXY/Ca4dUm150pUEIL+kx76rwz5xGaz7WKGQGXlsnMvOr2WS+Y20I3DQz5
-rffehmN75TMNgIHeybOw9IdaMmSzCvi/EfG7EjpJ0MR1AJUwXpg=
-=zmrp
------END PGP SIGNATURE-----
+Thanks. This looks promising. It will depend on CONFIG_NET_RX_BUSY_POLL,
+but I guess that's ok. It nicely isolates all costs to the timestamping
+option.
 
---nextPart1829633.f4Iu6E4eP0--
+-- 
+Miroslav Lichvar
