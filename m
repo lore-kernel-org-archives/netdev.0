@@ -1,63 +1,56 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [RFC 1/4] netlink: make extended ACK setting NULL-friendly
-Date: Tue, 25 Apr 2017 11:12:11 +0200
-Message-ID: <58FF12EB.7090700@iogearbox.net>
-References: <20170425080644.122536-1-jakub.kicinski@netronome.com> <20170425080644.122536-2-jakub.kicinski@netronome.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, johannes@sipsolutions.net,
-        dsa@cumulusnetworks.com, alexei.starovoitov@gmail.com,
-        bblanco@gmail.com, john.fastabend@gmail.com, kubakici@wp.pl,
-        oss-drivers@netronome.com
-To: Jakub Kicinski <jakub.kicinski@netronome.com>,
-        netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:33634 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S943761AbdDYJMP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 05:12:15 -0400
-In-Reply-To: <20170425080644.122536-2-jakub.kicinski@netronome.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: James Hughes <james.hughes-FnsA7b+Nu9XbIbC87yuRow@public.gmane.org>
+Subject: [PATCH v3] brcmfmac: Make skb header writable before use
+Date: Tue, 25 Apr 2017 10:15:06 +0100
+Message-ID: <20170425091506.18224-1-james.hughes@raspberrypi.org>
+Cc: James Hughes <james.hughes-FnsA7b+Nu9XbIbC87yuRow@public.gmane.org>
+To: Arend van Spriel <arend.vanspriel-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        Franky Lin <franky.lin-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        Hante Meuleman <hante.meuleman-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        brcm80211-dev-list.pdl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 04/25/2017 10:06 AM, Jakub Kicinski wrote:
-> As we propagate extended ack reporting throughout various paths in
-> the kernel it may happen that the same function is called with the
-> extended ack parameter passed as NULL.  Make the NL_SET_ERR_MSG()
-> macro simply print the message to the logs if that happens.
->
-> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
-> ---
->   include/linux/netlink.h | 12 ++++++++----
->   1 file changed, 8 insertions(+), 4 deletions(-)
->
-> diff --git a/include/linux/netlink.h b/include/linux/netlink.h
-> index 8d2a8924705c..b59cfbf2e2c7 100644
-> --- a/include/linux/netlink.h
-> +++ b/include/linux/netlink.h
-> @@ -86,10 +86,14 @@ struct netlink_ext_ack {
->    * Currently string formatting is not supported (due
->    * to the lack of an output buffer.)
->    */
-> -#define NL_SET_ERR_MSG(extack, msg) do {	\
-> -	static const char _msg[] = (msg);	\
-> -						\
-> -	(extack)->_msg = _msg;			\
-> +#define NL_SET_ERR_MSG(extack, msg) do {		\
-> +	struct netlink_ext_ack *_extack = (extack);	\
-> +	static const char _msg[] = (msg);		\
-> +							\
-> +	if (_extack)					\
-> +		_extack->_msg = _msg;			\
-> +	else						\
-> +		pr_info("%s\n", _msg);			\
->   } while (0)
->
->   extern void netlink_kernel_release(struct sock *sk);
+The driver was making changes to the skb_header without
+ensuring it was writable (i.e. uncloned).
+This patch also removes some boiler plate header size
+checking/adjustment code as that is also handled by the
+skb_cow_header function used to make header writable.
 
-Probably makes sense to have a NL_MOD_SET_ERR_MSG(), which
-then also prepends a KBUILD_MODNAME ": " string to the
-message (similar to pr_*()), so that it's easier to identify
-whether the error came from a specific driver or rather
-common core code?
+Please apply to 4.12, important fix.
+
+This patch depends on
+brcmfmac: Ensure pointer correctly set if skb data location changes
+
+Signed-off-by: James Hughes <james.hughes-FnsA7b+Nu9XbIbC87yuRow@public.gmane.org>
+Acked-by: Arend van Spriel <arend.vanspriel-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+---
+
+Changes in v2
+   Makes the _cow_ call at the entry point of the skb in to the
+   stack, means only needs to be done once, and error handling
+   is easier.
+   Split a separate minor bug fix off to a separate patch (which
+   this patch depends on)
+
+Changes in v3
+   Minor change to the 'if' logic to reduce patch size as per
+   maintainers request.
+   Flagged as important fix for 4.12 in commit message
+
+ .../net/wireless/broadcom/brcm80211/brcmfmac/core.c | 21 ++++++---------------
+ 1 file changed, 6 insertions(+), 15 deletions(-)
+
+diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.c b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.c
+index 9b7c19a508ac..433f2c8408e9 100644
+--- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.c
++++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.c
+@@ -211,22 +211,13 @@ static netdev_tx_t brcmf_netdev_start_xmit(struct sk_buff *skb,
+ 		goto done;
+ 	}
+ 
+-	/* Make sure there's enough room for any header */
+-	if (skb_headroom(skb) < drvr->hdrlen) {
+-		struct sk_buff *skb2;
