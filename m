@@ -1,75 +1,62 @@
 From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: [PATCH v5 1/5] skbuff: return -EMSGSIZE in skb_to_sgvec to prevent overflow
-Date: Tue, 25 Apr 2017 17:52:11 +0200
-Message-ID: <20170425155215.4835-1-Jason@zx2c4.com>
+Subject: [PATCH v5 3/5] rxrpc: check return value of skb_to_sgvec always
+Date: Tue, 25 Apr 2017 17:52:13 +0200
+Message-ID: <20170425155215.4835-3-Jason@zx2c4.com>
 References: <20170425.111717.1973239615715123840.davem@davemloft.net>
+ <20170425155215.4835-1-Jason@zx2c4.com>
 Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>
 To: netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org,
 	David.Laight@aculab.com,
 	kernel-hardening@lists.openwall.com,
 	davem@davemloft.net
-Return-path: <kernel-hardening-return-7565-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+Return-path: <kernel-hardening-return-7566-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
 List-Post: <mailto:kernel-hardening@lists.openwall.com>
 List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
 List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
 List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-In-Reply-To: <20170425.111717.1973239615715123840.davem@davemloft.net>
+In-Reply-To: <20170425155215.4835-1-Jason@zx2c4.com>
 List-Id: netdev.vger.kernel.org
-
-This is a defense-in-depth measure in response to bugs like
-4d6fa57b4dab ("macsec: avoid heap overflow in skb_to_sgvec")
 
 Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
 ---
-This is a resend of v4 with all the other child commits along with it.
+ net/rxrpc/rxkad.c | 10 +++++++---
+ 1 file changed, 7 insertions(+), 3 deletions(-)
 
- net/core/skbuff.c | 12 +++++++++++-
- 1 file changed, 11 insertions(+), 1 deletion(-)
-
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index f86bf69cfb8d..e75640006d78 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -3489,7 +3489,9 @@ void __init skb_init(void)
-  *	@len: Length of buffer space to be mapped
-  *
-  *	Fill the specified scatter-gather list with mappings/pointers into a
-- *	region of the buffer space attached to a socket buffer.
-+ *	region of the buffer space attached to a socket buffer. Returns either
-+ *	the number of scatterlist items used, or -EMSGSIZE if the contents
-+ *	could not fit.
-  */
- static int
- __skb_to_sgvec(struct sk_buff *skb, struct scatterlist *sg, int offset, int len)
-@@ -3517,6 +3519,8 @@ __skb_to_sgvec(struct sk_buff *skb, struct scatterlist *sg, int offset, int len)
- 		end = start + skb_frag_size(&skb_shinfo(skb)->frags[i]);
- 		if ((copy = end - offset) > 0) {
- 			skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
-+			if (elt && sg_is_last(&sg[elt - 1]))
-+				return -EMSGSIZE;
+diff --git a/net/rxrpc/rxkad.c b/net/rxrpc/rxkad.c
+index 4374e7b9c7bf..dcf46c9c3ece 100644
+--- a/net/rxrpc/rxkad.c
++++ b/net/rxrpc/rxkad.c
+@@ -229,7 +229,9 @@ static int rxkad_secure_packet_encrypt(const struct rxrpc_call *call,
+ 	len &= ~(call->conn->size_align - 1);
  
- 			if (copy > len)
- 				copy = len;
-@@ -3537,6 +3541,9 @@ __skb_to_sgvec(struct sk_buff *skb, struct scatterlist *sg, int offset, int len)
+ 	sg_init_table(sg, nsg);
+-	skb_to_sgvec(skb, sg, 0, len);
++	err = skb_to_sgvec(skb, sg, 0, len);
++	if (unlikely(err < 0))
++		goto out;
+ 	skcipher_request_set_crypt(req, sg, sg, len, iv.x);
+ 	crypto_skcipher_encrypt(req);
  
- 		end = start + frag_iter->len;
- 		if ((copy = end - offset) > 0) {
-+			if (elt && sg_is_last(&sg[elt - 1]))
-+				return -EMSGSIZE;
-+
- 			if (copy > len)
- 				copy = len;
- 			elt += __skb_to_sgvec(frag_iter, sg+elt, offset - start,
-@@ -3581,6 +3588,9 @@ int skb_to_sgvec(struct sk_buff *skb, struct scatterlist *sg, int offset, int le
- {
- 	int nsg = __skb_to_sgvec(skb, sg, offset, len);
+@@ -342,7 +344,8 @@ static int rxkad_verify_packet_1(struct rxrpc_call *call, struct sk_buff *skb,
+ 		goto nomem;
  
-+	if (nsg <= 0)
-+		return nsg;
-+
- 	sg_mark_end(&sg[nsg - 1]);
+ 	sg_init_table(sg, nsg);
+-	skb_to_sgvec(skb, sg, offset, 8);
++	if (unlikely(skb_to_sgvec(skb, sg, offset, 8) < 0))
++		goto nomem;
  
- 	return nsg;
+ 	/* start the decryption afresh */
+ 	memset(&iv, 0, sizeof(iv));
+@@ -429,7 +432,8 @@ static int rxkad_verify_packet_2(struct rxrpc_call *call, struct sk_buff *skb,
+ 	}
+ 
+ 	sg_init_table(sg, nsg);
+-	skb_to_sgvec(skb, sg, offset, len);
++	if (unlikely(skb_to_sgvec(skb, sg, offset, len) < 0))
++		goto nomem;
+ 
+ 	/* decrypt from the session key */
+ 	token = call->conn->params.key->payload.data[0];
 -- 
 2.12.2
