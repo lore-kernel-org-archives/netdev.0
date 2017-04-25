@@ -1,99 +1,121 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH v4 net] net: ipv6: regenerate host route if moved to gc list
-Date: Tue, 25 Apr 2017 09:17:29 -0700
-Message-ID: <1493137049-16465-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: dvyukov@google.com, andreyknvl@google.com, mmanning@brocade.com,
-        kafai@fb.com, eric.dumazet@gmail.com,
-        David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f180.google.com ([209.85.223.180]:33052 "EHLO
-        mail-io0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1950391AbdDYQRi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 12:17:38 -0400
-Received: by mail-io0-f180.google.com with SMTP id k87so220121215ioi.0
-        for <netdev@vger.kernel.org>; Tue, 25 Apr 2017 09:17:38 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Lars-Peter Clausen <lars@metafoo.de>
+Subject: Re: [PATCH v4 net-next] mdio_bus: Issue GPIO RESET to PHYs.
+Date: Tue, 25 Apr 2017 18:22:25 +0200
+Message-ID: <5954130c-c08c-1555-4d34-83307ed68d92@metafoo.de>
+References: <1491381237-24635-1-git-send-email-rogerq@ti.com>
+ <64d6494d-41d2-0faf-a434-057f796637fe@ti.com>
+ <daa29a99-0a17-d316-57eb-3e6162938d8d@ti.com>
+ <f372db02-a919-55b4-9200-20726cd13482@ti.com>
+ <fe0b7ec5-2f83-ba06-579f-3ea0d5c4990c@ti.com>
+ <1c36aab1-3411-f76d-67f7-e3f6d9e9fda5@metafoo.de>
+ <20170423233553.GA23498@lunn.ch>
+ <551ee7a0-d153-3a36-e025-2c1f70f866b7@ti.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 8bit
+Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>,
+        tony@atomide.com, nsekhar@ti.com, jsarha@ti.com,
+        netdev@vger.kernel.org, linux-omap@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Roger Quadros <rogerq@ti.com>, Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <551ee7a0-d153-3a36-e025-2c1f70f866b7@ti.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Taking down the loopback device wreaks havoc on IPv6 routing. By
-extension, taking down a VRF device wreaks havoc on its table.
+On 04/24/2017 11:04 AM, Roger Quadros wrote:
+> On 24/04/17 02:35, Andrew Lunn wrote:
+>> On Fri, Apr 21, 2017 at 03:31:09PM +0200, Lars-Peter Clausen wrote:
+>>> On 04/21/2017 03:15 PM, Roger Quadros wrote:
+>>>> diff --git a/Documentation/devicetree/bindings/net/mdio.txt b/Documentation/devicetree/bindings/net/mdio.txt
+>>>> new file mode 100644
+>>>> index 0000000..4ffbbac
+>>>> --- /dev/null
+>>>> +++ b/Documentation/devicetree/bindings/net/mdio.txt
+>>>> @@ -0,0 +1,33 @@
+>>>> +Common MDIO bus properties.
+>>>> +
+>>>> +These are generic properties that can apply to any MDIO bus.
+>>>> +
+>>>> +Optional properties:
+>>>> +- reset-gpios: List of one or more GPIOs that control the RESET lines
+>>>> +  of the PHYs on that MDIO bus.
+>>>> +- reset-delay-us: RESET pulse width in microseconds as per PHY datasheet.
+>>>> +
+>>>> +A list of child nodes, one per device on the bus is expected. These
+>>>> +should follow the generic phy.txt, or a device specific binding document.
+>>>> +
+>>>> +Example :
+>>>> +This example shows these optional properties, plus other properties
+>>>> +required for the TI Davinci MDIO driver.
+>>>> +
+>>>> +	davinci_mdio: ethernet@0x5c030000 {
+>>>> +		compatible = "ti,davinci_mdio";
+>>>> +		reg = <0x5c030000 0x1000>;
+>>>> +		#address-cells = <1>;
+>>>> +		#size-cells = <0>;
+>>>> +
+>>>> +		reset-gpios = <&gpio2 5 GPIO_ACTIVE_LOW>;
+>>>> +		reset-delay-us = <2>;   /* PHY datasheet states 1us min */
+>>>
+>>> If this is the reset line of the PHY shouldn't it be a property of the PHY
+>>> node rather than of the MDIO controller node (which might have a reset on
+>>> its own)?
+>>>> +
+>>>> +		ethphy0: ethernet-phy@1 {
+>>>> +			reg = <1>;
+>>>> +		};
+>>>> +
+>>>> +		ethphy1: ethernet-phy@3 {
+>>>> +			reg = <3>;
+>>>> +		};
+>>
+>> Hi Lars-Peter
+>>
+>> We discussed this when the first proposal was made. There are two
+>> cases, to consider.
+>>
+>> 1) Here, one GPIO line resets all PHYs on the same MDIO bus. In this
+>> example, two PHYs.
+>>
+>> 2) There is one GPIO line per PHY. That is a separate case, and as you
+>> say, the reset line should probably be considered a PHY property, not
+>> an MDIO property. However, it can be messy, since in order to probe
+>> the MDIO bus, you probably need to take the PHY out of reset.
+>>
 
-Dmitry and Andrey both reported heap out-of-bounds reports in the IPv6
-FIB code while running syzkaller fuzzer. The root cause is a dead dst
-that is on the garbage list gets reinserted into the IPv6 FIB. While on
-the gc (or perhaps when it gets added to the gc list) the dst->next is
-set to an IPv4 dst. A subsequent walk of the ipv6 tables causes the
-out-of-bounds access.
+But the DT binding documentation says something else "List of one or more
+GPIOs that control the RESET lines of the PHYs on that MDIO bus".
 
-Andrey's reproducer was the key to getting to the bottom of this.
+>> Anyway, this patch addresses the first case, so should be accepted. If
+>> anybody wants to address the second case, they are free to do so.
 
-With IPv6, host routes for an address have the dst->dev set to the
-loopback device. When the 'lo' device is taken down, rt6_ifdown initiates
-a walk of the fib evicting routes with the 'lo' device which means all
-host routes are removed. That process moves the dst which is attached to
-an inet6_ifaddr to the gc list and marks it as dead.
+I think we all know that that's not going to happen. Once there is a working
+kludge there is no incentive to do a proper implementation anymore.
 
-The recent change to keep global IPv6 addresses added a new function,
-fixup_permanent_addr, that is called on admin up. That function restarts
-dad for an inet6_ifaddr and when it completes the host route attached
-to it is inserted into the fib. Since the route was marked dead and
-moved to the gc list, re-inserting the route causes the reported
-out-of-bounds accesses. If the device with the address is taken down
-or the address is removed, the WARN_ON in fib6_del is triggered.
 
-All of those faults are fixed by regenerating the host route if the
-existing one has been moved to the gc list, something that can be
-determined by checking if the rt6i_ref counter is 0.
+> Thanks for the explanation Andrew.
+> 
+> For the second case, even if the RESET GPIO property is specified
+> in the PHY node, the RESET *will* have to be done by the MDIO bus driver
+> else the PHY might not be probed at all.
 
-Fixes: f1705ec197e7 ("net: ipv6: Make address flushing on ifdown optional")
-Reported-by: Dmitry Vyukov <dvyukov@google.com>
-Reported-by: Andrey Konovalov <andreyknvl@google.com>
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
----
-v4
-- move 'prev = ifp->rt;' under spinlock as requested by Eric
+I'm not arguing with that, just that the hardware description should be
+truthful to the hardware topology and not to the software topology, i.e. the
+implementation details of the Linux kernel in this case. Reset GPIOs are not
+the only resource that is connected to the PHY that needs to be enabled
+before they can be enumerated. E.g. clocks and regulators fall into the same
+realm. And while you might argue that with a on-SoC phy controller node
+there wont be any conflicts in regard to the reset-gpios property, this not
+so very true for the clocks property.
 
-v3
-- removed 'if (prev)' and just call ip6_rt_put; added comment about spinlock
+And MDIO is not really special in this regard, other discoverable buses
+(like USB, SDIO, ULPI) have the very same issue. Having a standardized
+binding approach where the resources are declared as part as the child child
+is preferable in my opinion.
 
-v2
-- change ifp->rt under spinlock vs cmpxchg
-- add comment about rt6i_ref == 0
+> 
+> Whether we need additional code to just to make the DT look prettier is
+> questionable and if required can come as a separate patch.
 
- net/ipv6/addrconf.c | 14 ++++++++++++--
- 1 file changed, 12 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 80ce478c4851..0ea96c4d334d 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -3271,14 +3271,24 @@ static void addrconf_gre_config(struct net_device *dev)
- static int fixup_permanent_addr(struct inet6_dev *idev,
- 				struct inet6_ifaddr *ifp)
- {
--	if (!ifp->rt) {
--		struct rt6_info *rt;
-+	/* rt6i_ref == 0 means the host route was removed from the
-+	 * FIB, for example, if 'lo' device is taken down. In that
-+	 * case regenerate the host route.
-+	 */
-+	if (!ifp->rt || !atomic_read(&ifp->rt->rt6i_ref)) {
-+		struct rt6_info *rt, *prev;
- 
- 		rt = addrconf_dst_alloc(idev, &ifp->addr, false);
- 		if (unlikely(IS_ERR(rt)))
- 			return PTR_ERR(rt);
- 
-+		/* ifp->rt can be accessed outside of rtnl */
-+		spin_lock(&ifp->lock);
-+		prev = ifp->rt;
- 		ifp->rt = rt;
-+		spin_unlock(&ifp->lock);
-+
-+		ip6_rt_put(prev);
- 	}
- 
- 	if (!(ifp->flags & IFA_F_NOPREFIXROUTE)) {
--- 
-2.1.4
+Unfortunately not, once it is merged it can't be changed anymore.
