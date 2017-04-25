@@ -1,37 +1,43 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: Re: [PATCH net] macsec: avoid heap overflow in skb_to_sgvec on receive
-Date: Tue, 25 Apr 2017 17:39:09 +0200
-Message-ID: <CAHmME9rxdTEe1-5ApgUhdkqiJztSgJb0QuhV2uSemobeXm_oNg@mail.gmail.com>
-References: <f50ef5b9e525d83938f5e419557abb0307ee023b.1493133423.git.sd@queasysnail.net>
+From: "Lino Sanfilippo" <LinoSanfilippo@gmx.de>
+Subject: Aw: Re: [Intel-wired-lan] [PATCH] ixgbe: initialize u64_stats_sync
+ structures early at ixgbe_probe
+Date: Tue, 25 Apr 2017 17:39:35 +0200
+Message-ID: <trinity-a348af9b-9ef5-47a9-a14e-94265c880cf1-1493134775614@3capp-gmx-bs78>
+References: <1480909244-16460-1-git-send-email-liwei.song@windriver.com>
+ <EF50CC0C76A53A44BAD798C58E0A157E50B87CBB@ORSMSX103.amr.corp.intel.com>,
+ <CAKgT0UeTdY9j1qDHP=DscgAZF2pPFCb+=ACySqKBK+UuBsaNBA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>
-To: Sabrina Dubroca <sd@queasysnail.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from frisell.zx2c4.com ([192.95.5.64]:53657 "EHLO frisell.zx2c4.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S970510AbdDYPjN (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 25 Apr 2017 11:39:13 -0400
-Received: by frisell.zx2c4.com (ZX2C4 Mail Server) with ESMTP id 78171991
-        for <netdev@vger.kernel.org>;
-        Tue, 25 Apr 2017 15:30:31 +0000 (UTC)
-Received: by frisell.zx2c4.com (ZX2C4 Mail Server) with ESMTPSA id 040d473d (TLSv1.2:ECDHE-RSA-AES128-GCM-SHA256:128:NO)
-        for <netdev@vger.kernel.org>;
-        Tue, 25 Apr 2017 15:30:30 +0000 (UTC)
-Received: by mail-oi0-f41.google.com with SMTP id w12so64155884oiw.3
-        for <netdev@vger.kernel.org>; Tue, 25 Apr 2017 08:39:11 -0700 (PDT)
-In-Reply-To: <f50ef5b9e525d83938f5e419557abb0307ee023b.1493133423.git.sd@queasysnail.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Singh, Krishneil K" <krishneil.k.singh@intel.com>,
+        "Song, Liwei (Wind River)" <liwei.song@windriver.com>,
+        "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "Alexander Duyck" <alexander.duyck@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAKgT0UeTdY9j1qDHP=DscgAZF2pPFCb+=ACySqKBK+UuBsaNBA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Sabrina,
+Hi,
 
-I think I may have beaten you to the punch here by a few minutes. :)
+> This patch doesn't look right to me. I would suggest rejecting it.
+> 
+> The call to initialize the stats should be done when the ring is
+> allocated, not in ixgbe_probe(). This should probably be done in
+> ixgbe_alloc_q_vector() instead.
+> 
 
-The difference between our two versions is that you don't re-add the
-FRAGLIST attribute, whereas my patch does, and then it does the
-dynamic allocation. I suspect this might be a bit more robust. It also
-ensures that skb_cow_data is called on both paths. So perhaps let's
-roll with mine?
+AFAICS ixgbe_alloc_q_vector() is also called in probe() (by ixgbe_init_interrupt_scheme()).
+Furthermore it is also called in resume() which would lead to multiple initialization of
+the u64_stats_sync in case of resume.
 
-Jason
+IMHO the u64_stats_sync variables have to be initialized before register_netdev() is called
+since this is the point from which userspace can call ixgbe_get_stats64(). I would say the
+best place to do so is the probe() function as it is done in this patch.
+
+Just my 2 cents.
+
+Regards,
+Lino
