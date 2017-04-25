@@ -1,94 +1,154 @@
-From: Logan Gunthorpe <logang@deltatee.com>
-Subject: [PATCH v2 03/21] libiscsi: Make use of new the sg_map
-	helper function
-Date: Tue, 25 Apr 2017 12:20:50 -0600
-Message-ID: <1493144468-22493-4-git-send-email-logang@deltatee.com>
-References: <1493144468-22493-1-git-send-email-logang@deltatee.com>
+From: Logan Gunthorpe <logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
+Subject: [PATCH v2 00/21] Introduce common scatterlist map function
+Date: Tue, 25 Apr 2017 12:20:47 -0600
+Message-ID: <1493144468-22493-1-git-send-email-logang@deltatee.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Jens Axboe <axboe@kernel.dk>, Chris Leech <cleech@redhat.com>,
- "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
- "Martin K. Petersen" <martin.petersen@oracle.com>,
- Matthew Wilcox <mawilcox@microsoft.com>,
- Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
- Sumit Semwal <sumit.semwal@linaro.org>, Lee Duncan <lduncan@suse.com>,
- Ross Zwisler <ross.zwisler@linux.intel.com>,
- Dan Williams <dan.j.williams@intel.com>, Stephen Bates <sbates@raithlin.com>,
- Logan Gunthorpe <logang@deltatee.com>, Christoph Hellwig <hch@lst.de>
-To: linux-kernel@vger.kernel.org, linux-crypto@vger.kernel.org,
- linux-media@vger.kernel.org, dri-devel@lists.freedesktop.org,
- intel-gfx@lists.freedesktop.org, linux-raid@vger.kernel.org,
- linux-mmc@vger.kernel.org, linux-nvdimm@lists.01.org,
- linux-scsi@vger.kernel.org, open-iscsi@googlegroups.com,
- megaraidlinux.pdl@broadcom.com, sparmaintainer@unisys.com,
- devel@driverdev.osuosl.org, target-devel@vger.kernel.org,
- netdev@vger.kernel.org, linux-rdma@vger.kernel.org, dm-devel@redhat.com
-Return-path: <intel-gfx-bounces@lists.freedesktop.org>
-In-Reply-To: <1493144468-22493-1-git-send-email-logang@deltatee.com>
-List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/intel-gfx>,
- <mailto:intel-gfx-request@lists.freedesktop.org?subject=unsubscribe>
-List-Archive: <https://lists.freedesktop.org/archives/intel-gfx>
-List-Post: <mailto:intel-gfx@lists.freedesktop.org>
-List-Help: <mailto:intel-gfx-request@lists.freedesktop.org?subject=help>
-List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/intel-gfx>,
- <mailto:intel-gfx-request@lists.freedesktop.org?subject=subscribe>
-Errors-To: intel-gfx-bounces@lists.freedesktop.org
-Sender: "Intel-gfx" <intel-gfx-bounces@lists.freedesktop.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Jens Axboe <axboe-tSWWG44O7X1aa/9Udqfwiw@public.gmane.org>,
+ "James E.J. Bottomley" <jejb-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
+ "Martin K. Petersen" <martin.petersen-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
+ Matthew Wilcox <mawilcox-0li6OtcxBFHby3iVrkZq2A@public.gmane.org>,
+ Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+ Sumit Semwal <sumit.semwal-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>
+To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-crypto-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org,
+ intel-gfx-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org, linux-raid-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-nvdimm-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org,
+ linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org,
+ megaraidlinux.pdl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, sparmaintainer-GLv8BlqOqDDQT0dZR+AlfA@public.gmane.org,
+ devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org, target-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dm-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+Return-path: <linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
+List-Unsubscribe: <https://lists.01.org/mailman/options/linux-nvdimm>,
+ <mailto:linux-nvdimm-request-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.01.org/pipermail/linux-nvdimm/>
+List-Post: <mailto:linux-nvdimm-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
+List-Help: <mailto:linux-nvdimm-request-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.01.org/mailman/listinfo/linux-nvdimm>,
+ <mailto:linux-nvdimm-request-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org?subject=subscribe>
+Errors-To: linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org
+Sender: "Linux-nvdimm" <linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-Q29udmVydCB0aGUga21hcCBhbmQga21hcF9hdG9taWMgdXNlcyB0byB0aGUgc2dfbWFwIGZ1bmN0
-aW9uLiBXZSBub3cKc3RvcmUgdGhlIGZsYWdzIGZvciB0aGUga21hcCBpbnN0ZWFkIG9mIGEgYm9v
-bGVhbiB0byBpbmRpY2F0ZQphdG9taWNpdGl5LiBXZSB1c2UgSVNDU0lfVENQX0lOVEVSTkFMX0VS
-UiBlcnJvciB0eXBlIHRoYXQgd2FzIHByZXBhcmVkCmVhcmxpZXIgZm9yIHRoaXMuCgpTaWduZWQt
-b2ZmLWJ5OiBMb2dhbiBHdW50aG9ycGUgPGxvZ2FuZ0BkZWx0YXRlZS5jb20+CkNjOiBMZWUgRHVu
-Y2FuIDxsZHVuY2FuQHN1c2UuY29tPgpDYzogQ2hyaXMgTGVlY2ggPGNsZWVjaEByZWRoYXQuY29t
-PgotLS0KIGRyaXZlcnMvc2NzaS9saWJpc2NzaV90Y3AuYyB8IDMyICsrKysrKysrKysrKysrKysr
-KysrLS0tLS0tLS0tLS0tCiBpbmNsdWRlL3Njc2kvbGliaXNjc2lfdGNwLmggfCAgMiArLQogMiBm
-aWxlcyBjaGFuZ2VkLCAyMSBpbnNlcnRpb25zKCspLCAxMyBkZWxldGlvbnMoLSkKCmRpZmYgLS1n
-aXQgYS9kcml2ZXJzL3Njc2kvbGliaXNjc2lfdGNwLmMgYi9kcml2ZXJzL3Njc2kvbGliaXNjc2lf
-dGNwLmMKaW5kZXggNjNhMWQ2OS4uYTM0ZTI1YyAxMDA2NDQKLS0tIGEvZHJpdmVycy9zY3NpL2xp
-YmlzY3NpX3RjcC5jCisrKyBiL2RyaXZlcnMvc2NzaS9saWJpc2NzaV90Y3AuYwpAQCAtMTMzLDI1
-ICsxMzMsMjMgQEAgc3RhdGljIHZvaWQgaXNjc2lfdGNwX3NlZ21lbnRfbWFwKHN0cnVjdCBpc2Nz
-aV9zZWdtZW50ICpzZWdtZW50LCBpbnQgcmVjdikKIAlpZiAocGFnZV9jb3VudChzZ19wYWdlKHNn
-KSkgPj0gMSAmJiAhcmVjdikKIAkJcmV0dXJuOwogCi0JaWYgKHJlY3YpIHsKLQkJc2VnbWVudC0+
-YXRvbWljX21hcHBlZCA9IHRydWU7Ci0JCXNlZ21lbnQtPnNnX21hcHBlZCA9IGttYXBfYXRvbWlj
-KHNnX3BhZ2Uoc2cpKTsKLQl9IGVsc2UgewotCQlzZWdtZW50LT5hdG9taWNfbWFwcGVkID0gZmFs
-c2U7Ci0JCS8qIHRoZSB4bWl0IHBhdGggY2FuIHNsZWVwIHdpdGggdGhlIHBhZ2UgbWFwcGVkIHNv
-IHVzZSBrbWFwICovCi0JCXNlZ21lbnQtPnNnX21hcHBlZCA9IGttYXAoc2dfcGFnZShzZykpOwor
-CS8qIHRoZSB4bWl0IHBhdGggY2FuIHNsZWVwIHdpdGggdGhlIHBhZ2UgbWFwcGVkIHNvIGRvbid0
-IHVzZSBhdG9taWMgKi8KKwlzZWdtZW50LT5zZ19tYXBfZmxhZ3MgPSByZWN2ID8gU0dfS01BUF9B
-VE9NSUMgOiBTR19LTUFQOworCXNlZ21lbnQtPnNnX21hcHBlZCA9IHNnX21hcChzZywgMCwgc2Vn
-bWVudC0+c2dfbWFwX2ZsYWdzKTsKKworCWlmIChJU19FUlIoc2VnbWVudC0+c2dfbWFwcGVkKSkg
-eworCQlzZWdtZW50LT5zZ19tYXBwZWQgPSBOVUxMOworCQlyZXR1cm47CiAJfQogCi0Jc2VnbWVu
-dC0+ZGF0YSA9IHNlZ21lbnQtPnNnX21hcHBlZCArIHNnLT5vZmZzZXQgKyBzZWdtZW50LT5zZ19v
-ZmZzZXQ7CisJc2VnbWVudC0+ZGF0YSA9IHNlZ21lbnQtPnNnX21hcHBlZCArIHNlZ21lbnQtPnNn
-X29mZnNldDsKIH0KIAogdm9pZCBpc2NzaV90Y3Bfc2VnbWVudF91bm1hcChzdHJ1Y3QgaXNjc2lf
-c2VnbWVudCAqc2VnbWVudCkKIHsKIAlpZiAoc2VnbWVudC0+c2dfbWFwcGVkKSB7Ci0JCWlmIChz
-ZWdtZW50LT5hdG9taWNfbWFwcGVkKQotCQkJa3VubWFwX2F0b21pYyhzZWdtZW50LT5zZ19tYXBw
-ZWQpOwotCQllbHNlCi0JCQlrdW5tYXAoc2dfcGFnZShzZWdtZW50LT5zZykpOworCQlzZ191bm1h
-cChzZWdtZW50LT5zZywgc2VnbWVudC0+c2dfbWFwcGVkLCAwLAorCQkJIHNlZ21lbnQtPnNnX21h
-cF9mbGFncyk7CiAJCXNlZ21lbnQtPnNnX21hcHBlZCA9IE5VTEw7CiAJCXNlZ21lbnQtPmRhdGEg
-PSBOVUxMOwogCX0KQEAgLTMwNCw2ICszMDIsOSBAQCBpc2NzaV90Y3Bfc2VnbWVudF9yZWN2KHN0
-cnVjdCBpc2NzaV90Y3BfY29ubiAqdGNwX2Nvbm4sCiAJCQlicmVhazsKIAkJfQogCisJCWlmIChz
-ZWdtZW50LT5kYXRhKQorCQkJcmV0dXJuIC1FRkFVTFQ7CisKIAkJY29weSA9IG1pbihsZW4gLSBj
-b3BpZWQsIHNlZ21lbnQtPnNpemUgLSBzZWdtZW50LT5jb3BpZWQpOwogCQlJU0NTSV9EQkdfVENQ
-KHRjcF9jb25uLT5pc2NzaV9jb25uLCAiY29weWluZyAlZFxuIiwgY29weSk7CiAJCW1lbWNweShz
-ZWdtZW50LT5kYXRhICsgc2VnbWVudC0+Y29waWVkLCBwdHIgKyBjb3BpZWQsIGNvcHkpOwpAQCAt
-OTI3LDYgKzkyOCwxMyBAQCBpbnQgaXNjc2lfdGNwX3JlY3Zfc2tiKHN0cnVjdCBpc2NzaV9jb25u
-ICpjb25uLCBzdHJ1Y3Qgc2tfYnVmZiAqc2tiLAogCQkJICAgICAgYXZhaWwpOwogCQlyYyA9IGlz
-Y3NpX3RjcF9zZWdtZW50X3JlY3YodGNwX2Nvbm4sIHNlZ21lbnQsIHB0ciwgYXZhaWwpOwogCQlC
-VUdfT04ocmMgPT0gMCk7CisJCWlmIChyYyA8IDApIHsKKwkJCUlTQ1NJX0RCR19UQ1AoY29ubiwg
-Im1lbW9yeSBmYXVsdC4gQ29uc3VtZWQgJWRcbiIsCisJCQkJICAgICAgY29uc3VtZWQpOworCQkJ
-KnN0YXR1cyA9IElTQ1NJX1RDUF9JTlRFUk5BTF9FUlI7CisJCQlnb3RvIHNrYl9kb25lOworCQl9
-CisKIAkJY29uc3VtZWQgKz0gcmM7CiAKIAkJaWYgKHNlZ21lbnQtPnRvdGFsX2NvcGllZCA+PSBz
-ZWdtZW50LT50b3RhbF9zaXplKSB7CmRpZmYgLS1naXQgYS9pbmNsdWRlL3Njc2kvbGliaXNjc2lf
-dGNwLmggYi9pbmNsdWRlL3Njc2kvbGliaXNjc2lfdGNwLmgKaW5kZXggOTA2OTFhZC4uNThjNzlh
-ZiAxMDA2NDQKLS0tIGEvaW5jbHVkZS9zY3NpL2xpYmlzY3NpX3RjcC5oCisrKyBiL2luY2x1ZGUv
-c2NzaS9saWJpc2NzaV90Y3AuaApAQCAtNDcsNyArNDcsNyBAQCBzdHJ1Y3QgaXNjc2lfc2VnbWVu
-dCB7CiAJc3RydWN0IHNjYXR0ZXJsaXN0CSpzZzsKIAl2b2lkCQkJKnNnX21hcHBlZDsKIAl1bnNp
-Z25lZCBpbnQJCXNnX29mZnNldDsKLQlib29sCQkJYXRvbWljX21hcHBlZDsKKwlpbnQJCQlzZ19t
-YXBfZmxhZ3M7CiAKIAlpc2NzaV9zZWdtZW50X2RvbmVfZm5fdAkqZG9uZTsKIH07Ci0tIAoyLjEu
-NAoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KSW50ZWwt
-Z2Z4IG1haWxpbmcgbGlzdApJbnRlbC1nZnhAbGlzdHMuZnJlZWRlc2t0b3Aub3JnCmh0dHBzOi8v
-bGlzdHMuZnJlZWRlc2t0b3Aub3JnL21haWxtYW4vbGlzdGluZm8vaW50ZWwtZ2Z4Cg==
+Changes since v1:
+
+* Rebased onto next-20170424
+* Removed the _offset version of these functions per Christoph's
+  suggestion
+* Added an SG_MAP_MUST_NOT_FAIL flag which will BUG_ON in future cases
+  that can't gracefully fail. This removes a bunch of the noise added
+  in v1 to a couple of the drivers. (Per David Laight's suggestion)
+  This flag is only meant for old code
+* Split the libiscsi patch into two (per Christoph's suggestion)
+  the prep patch (patch 2 in this series) has already been
+  sent separately
+* Fixed a locking mistake in the target patch (pointed out by a bot)
+* Dropped the nvmet patch and handled it with a different patch
+  that has been sent separately
+* Dropped the chcr patch as they have already removed the code that
+  needed to be changed
+
+I'm still hoping to only get Patch 1 in the series merged. (Any
+volunteers?) I'm willing to chase down the maintainers for the remaining
+patches separately after the first patch is in.
+
+The patchset is based on next-20170424 and can be found in the sg_map_v2
+branch from this git tree:
+
+https://github.com/sbates130272/linux-p2pmem.git
+
+--
+
+Hi Everyone,
+
+As part of my effort to enable P2P DMA transactions with PCI cards,
+we've identified the need to be able to safely put IO memory into
+scatterlists (and eventually other spots). This probably involves a
+conversion from struct page to pfn_t but that migration is a ways off
+and those decisions are yet to be made.
+
+As an initial step in that direction, I've started cleaning up some of the
+scatterlist code by trying to carve out a better defined layer between it
+and it's users. The longer term goal would be to remove sg_page or replace
+it with something that can potentially fail.
+
+This patchset is the first step in that effort. I've introduced
+a common function to map scatterlist memory and converted all the common
+kmap(sg_page()) cases. This removes about 66 sg_page calls (of ~331).
+
+Seeing this is a fairly large cleanup set that touches a wide swath of
+the kernel I have limited the people I've sent this to. I'd suggest we look
+toward merging the first patch and then I can send the individual subsystem
+patches on to their respective maintainers and get them merged
+independantly. (This is to avoid the conflicts I created with my last
+cleanup set... Sorry) Though, I'm certainly open to other suggestions to get
+it merged.
+
+Logan Gunthorpe (21):
+  scatterlist: Introduce sg_map helper functions
+  libiscsi: Add an internal error code
+  libiscsi: Make use of new the sg_map helper function
+  target: Make use of the new sg_map function at 16 call sites
+  drm/i915: Make use of the new sg_map helper function
+  crypto: hifn_795x: Make use of the new sg_map helper function
+  crypto: shash, caam: Make use of the new sg_map helper function
+  dm-crypt: Make use of the new sg_map helper in 4 call sites
+  staging: unisys: visorbus: Make use of the new sg_map helper function
+  RDS: Make use of the new sg_map helper function
+  scsi: ipr, pmcraid, isci: Make use of the new sg_map helper
+  scsi: hisi_sas, mvsas, gdth: Make use of the new sg_map helper
+    function
+  scsi: arcmsr, ips, megaraid: Make use of the new sg_map helper
+    function
+  scsi: libfc, csiostor: Change to sg_copy_buffer in two drivers
+  xen-blkfront: Make use of the new sg_map helper function
+  mmc: sdhci: Make use of the new sg_map helper function
+  mmc: spi: Make use of the new sg_map helper function
+  mmc: tmio: Make use of the new sg_map helper function
+  mmc: sdricoh_cs: Make use of the new sg_map helper function
+  mmc: tifm_sd: Make use of the new sg_map helper function
+  memstick: Make use of the new sg_map helper function
+
+ crypto/shash.c                                  |   9 ++-
+ drivers/block/xen-blkfront.c                    |  20 ++---
+ drivers/crypto/caam/caamalg.c                   |   8 +-
+ drivers/crypto/hifn_795x.c                      |  32 +++++---
+ drivers/gpu/drm/i915/i915_gem.c                 |  27 ++++---
+ drivers/md/dm-crypt.c                           |  39 ++++++---
+ drivers/memstick/host/jmb38x_ms.c               |  11 +--
+ drivers/memstick/host/tifm_ms.c                 |  11 +--
+ drivers/mmc/host/mmc_spi.c                      |  26 ++++--
+ drivers/mmc/host/sdhci.c                        |  14 ++--
+ drivers/mmc/host/sdricoh_cs.c                   |  14 ++--
+ drivers/mmc/host/tifm_sd.c                      |  50 +++++++-----
+ drivers/mmc/host/tmio_mmc.h                     |   7 +-
+ drivers/mmc/host/tmio_mmc_pio.c                 |  12 +++
+ drivers/scsi/arcmsr/arcmsr_hba.c                |  16 +++-
+ drivers/scsi/csiostor/csio_scsi.c               |  54 +------------
+ drivers/scsi/cxgbi/libcxgbi.c                   |   5 ++
+ drivers/scsi/gdth.c                             |   9 ++-
+ drivers/scsi/hisi_sas/hisi_sas_v1_hw.c          |  14 ++--
+ drivers/scsi/hisi_sas/hisi_sas_v2_hw.c          |  13 ++-
+ drivers/scsi/ipr.c                              |  27 ++++---
+ drivers/scsi/ips.c                              |   8 +-
+ drivers/scsi/isci/request.c                     |  42 ++++++----
+ drivers/scsi/libfc/fc_libfc.c                   |  49 +++--------
+ drivers/scsi/libiscsi_tcp.c                     |  32 +++++---
+ drivers/scsi/megaraid.c                         |   9 ++-
+ drivers/scsi/mvsas/mv_sas.c                     |  10 +--
+ drivers/scsi/pmcraid.c                          |  19 +++--
+ drivers/staging/unisys/visorhba/visorhba_main.c |  12 +--
+ drivers/target/iscsi/iscsi_target.c             |  29 ++++---
+ drivers/target/target_core_rd.c                 |   3 +-
+ drivers/target/target_core_sbc.c                | 103 +++++++++++++++---------
+ drivers/target/target_core_transport.c          |  18 +++--
+ drivers/target/target_core_user.c               |  45 ++++++++---
+ include/linux/scatterlist.h                     |  85 +++++++++++++++++++
+ include/scsi/libiscsi_tcp.h                     |   3 +-
+ include/target/target_core_backend.h            |   4 +-
+ net/rds/ib_recv.c                               |   8 +-
+ 38 files changed, 553 insertions(+), 344 deletions(-)
+
+--
+2.1.4
