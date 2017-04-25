@@ -1,207 +1,79 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next v8 2/3] net sched actions: dump more than
- TCA_ACT_MAX_PRIO actions per batch
-Date: Tue, 25 Apr 2017 18:04:45 +0200
-Message-ID: <20170425160445.GD1867@nanopsycho.orion>
-References: <1493121247-11863-1-git-send-email-jhs@emojatatu.com>
- <1493121247-11863-3-git-send-email-jhs@emojatatu.com>
- <20170425121338.GC1867@nanopsycho.orion>
- <5e54edd8-3943-6f09-490f-ff04b83077f6@mojatatu.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: qed*: debug infrastructures
+Date: Tue, 25 Apr 2017 09:13:14 -0700
+Message-ID: <c8751a31-f493-45c1-5bf2-596b367ea034@gmail.com>
+References: <CY1PR0701MB1337FA26F1503FC9928B0340901F0@CY1PR0701MB1337.namprd07.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, xiyou.wangcong@gmail.com,
-        eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "Mintz, Yuval" <Yuval.Mintz@cavium.com>,
+        "Tayar, Tomer" <Tomer.Tayar@cavium.com>,
+        "Dupuis, Chad" <Chad.Dupuis@cavium.com>
+To: "Elior, Ariel" <Ariel.Elior@cavium.com>,
+        David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:33334 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1951220AbdDYQEu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 12:04:50 -0400
-Received: by mail-wm0-f65.google.com with SMTP id y10so15135711wmh.0
-        for <netdev@vger.kernel.org>; Tue, 25 Apr 2017 09:04:49 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <5e54edd8-3943-6f09-490f-ff04b83077f6@mojatatu.com>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:33221 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1951353AbdDYQNW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 12:13:22 -0400
+Received: by mail-pg0-f65.google.com with SMTP id 63so12286685pgh.0
+        for <netdev@vger.kernel.org>; Tue, 25 Apr 2017 09:13:22 -0700 (PDT)
+In-Reply-To: <CY1PR0701MB1337FA26F1503FC9928B0340901F0@CY1PR0701MB1337.namprd07.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tue, Apr 25, 2017 at 03:01:22PM CEST, jhs@mojatatu.com wrote:
->On 17-04-25 08:13 AM, Jiri Pirko wrote:
->> Tue, Apr 25, 2017 at 01:54:06PM CEST, jhs@mojatatu.com wrote:
->
->
->[..]
->
->> > -#define TCAA_MAX 1
->> > +/* tcamsg flags stored in attribute TCA_ROOT_FLAGS
->> > + *
->> > + * TCA_FLAG_LARGE_DUMP_ON user->kernel to request for larger than TCA_ACT_MAX_PRIO
->> > + * actions in a dump. All dump responses will contain the number of actions
->> > + * being dumped stored in for user app's consumption in TCA_ROOT_COUNT
->> > + *
->> > + */
->> > +#define TCA_FLAG_LARGE_DUMP_ON		(1 << 0)
->> 
->> BIT (I think I mentioned this before)
->> 
->
->You did - but i took it out about two submissions back (per cover
->letter) because it is no part of UAPI today. I noticed devlink was
->using it but they defined  their own variant.
->So if i added this, iproute2 doesnt compile. I could fix iproute2
->to move it somewhere to a common header then restore this.
+On 04/24/2017 10:38 AM, Elior, Ariel wrote:
+> Hi Dave,
+> 
+> According to the recent messages on the list indicating debugfs is not the way
+> to go, I am looking for some guidance on what is. dpipe approach was
+> mentioned as favorable, but I wanted to make sure molding our debug features to
+> this infrastructure will result in something acceptable. A few points:
+> 
+> 1.
+> One of our HW debug features is a signal recording feature. HW is configured to
+> output specific signals, which are then continuously dumped into a cyclic
+> buffer on host. There are ~8000 signals, which can be logically divided to ~100
+> groups. I believe this can be modeled in dpipe (or similar tool) as a set of
+> ~100 tables with ~80 entries each, and user would be able to see them all and
+> choose what they like. The output data itself is binary, and meaningless to
+> "the user". The amount of data is basically as large a contiguous buffer as
+> driver can allocate, i.e. usually 4MB. When user selects the signals, and sets
+> meta data regarding to mode of operations, some device configuration will have
+> to take place. Does that sound reasonable?
+> This debug feature already exists out of tree for bnx2x and qed* drivers and is
+> *very* effective in field deployments. I would very much like to see this as an
+> in-tree feature via some infrastructure or another.
 
-So fix iproute2. It is always first kernel, then iproute2.
-
-
->
->> > +#define VALID_TCA_FLAGS TCA_FLAG_LARGE_DUMP_ON
->> 
->> Again, namespace please. "TCA_ROOT_FLAGS_VALID"
->
->Good point.
->
->> Why is this UAPI?
->> 
->
->Should not be. I will fix in next update.
->
->
->> 
->> > 
->> > /* New extended info filters for IFLA_EXT_MASK */
->> > #define RTEXT_FILTER_VF		(1 << 0)
->> > diff --git a/net/sched/act_api.c b/net/sched/act_api.c
->> > index 9ce22b7..2756213 100644
->> > --- a/net/sched/act_api.c
->> > +++ b/net/sched/act_api.c
->> > @@ -83,6 +83,7 @@ static int tcf_dump_walker(struct tcf_hashinfo *hinfo, struct sk_buff *skb,
->> > 			   struct netlink_callback *cb)
->> > {
->> > 	int err = 0, index = -1, i = 0, s_i = 0, n_i = 0;
->> > +	u32 act_flags = cb->args[2];
->> > 	struct nlattr *nest;
->> > 
->> > 	spin_lock_bh(&hinfo->lock);
->> > @@ -111,14 +112,18 @@ static int tcf_dump_walker(struct tcf_hashinfo *hinfo, struct sk_buff *skb,
->> > 			}
->> > 			nla_nest_end(skb, nest);
->> > 			n_i++;
->> > -			if (n_i >= TCA_ACT_MAX_PRIO)
->> > +			if (!(act_flags & TCA_FLAG_LARGE_DUMP_ON) &&
->> > +			    n_i >= TCA_ACT_MAX_PRIO)
->> > 				goto done;
->> > 		}
->> > 	}
->> > done:
->> > 	spin_unlock_bh(&hinfo->lock);
->> > -	if (n_i)
->> > +	if (n_i) {
->> > 		cb->args[0] += n_i;
->> > +		if (act_flags & TCA_FLAG_LARGE_DUMP_ON)
->> > +			cb->args[1] = n_i;
->> > +	}
->> > 	return n_i;
->> > 
->> > nla_put_failure:
->> > @@ -993,11 +998,15 @@ static int tcf_action_add(struct net *net, struct nlattr *nla,
->> > 	return tcf_add_notify(net, n, &actions, portid);
->> > }
->> > 
->> > +static const struct nla_policy tcaa_policy[TCA_ROOT_MAX + 1] = {
->> > +	[TCA_ROOT_FLAGS]      = { .type = NLA_U32 },
->> > +};
->> > +
->> > static int tc_ctl_action(struct sk_buff *skb, struct nlmsghdr *n,
->> > 			 struct netlink_ext_ack *extack)
->> > {
->> > 	struct net *net = sock_net(skb->sk);
->> > -	struct nlattr *tca[TCAA_MAX + 1];
->> > +	struct nlattr *tca[TCA_ROOT_MAX + 1];
->> > 	u32 portid = skb ? NETLINK_CB(skb).portid : 0;
->> > 	int ret = 0, ovr = 0;
->> > 
->> > @@ -1005,7 +1014,7 @@ static int tc_ctl_action(struct sk_buff *skb, struct nlmsghdr *n,
->> > 	    !netlink_capable(skb, CAP_NET_ADMIN))
->> > 		return -EPERM;
->> > 
->> > -	ret = nlmsg_parse(n, sizeof(struct tcamsg), tca, TCAA_MAX, NULL,
->> > +	ret = nlmsg_parse(n, sizeof(struct tcamsg), tca, TCA_ROOT_MAX, NULL,
->> > 			  extack);
->> > 	if (ret < 0)
->> > 		return ret;
->> > @@ -1046,16 +1055,12 @@ static int tc_ctl_action(struct sk_buff *skb, struct nlmsghdr *n,
->> > 	return ret;
->> > }
->> > 
->> > -static struct nlattr *find_dump_kind(const struct nlmsghdr *n)
->> > +static struct nlattr *find_dump_kind(struct nlattr **nla)
->> > {
->> > 	struct nlattr *tb1, *tb2[TCA_ACT_MAX + 1];
->> > 	struct nlattr *tb[TCA_ACT_MAX_PRIO + 1];
->> > -	struct nlattr *nla[TCAA_MAX + 1];
->> > 	struct nlattr *kind;
->> > 
->> > -	if (nlmsg_parse(n, sizeof(struct tcamsg), nla, TCAA_MAX,
->> > -			NULL, NULL) < 0)
->> > -		return NULL;
->> > 	tb1 = nla[TCA_ACT_TAB];
->> > 	if (tb1 == NULL)
->> > 		return NULL;
->> > @@ -1073,6 +1078,16 @@ static struct nlattr *find_dump_kind(const struct nlmsghdr *n)
->> > 	return kind;
->> > }
->> > 
->> > +static inline bool tca_flags_valid(u32 act_flags)
->> > +{
->> > +	u32 invalid_flags_mask  = ~VALID_TCA_FLAGS;
->> > +
->> > +	if (act_flags & invalid_flags_mask)
->> > +		return false;
->> 
->> I don't see how this resolves anything. VALID_TCA_FLAGS is set in stone
->> not going to change anytime in future, right?
->
->Every time a new bit gets added VALID_TCA_FLAGS changes.
-
-You mean flag that user can set? If that is the case, you are breaking
-UAPI for newer app running on older kernel.
+By signals do you mean actual electrical signals coming from your chip's
+pins/balls? FWIW, there is kind of something similar existing with ARM
+Ltd's Embedded Trace Module which allows capturing a SoC's CPU activity
+(loads/stores/pc progression etc.) using a high speed interface. You may
+want to look at drivers/hwtracing/{coresight,stm}/ for examples on how
+this interfaces with Linux' perf events subsystems. There are existing
+trace buffers infrastructures and it sounds like your use case fits
+nicely within the perf events framework here where you may want the
+entire set or subset of these 8000 signals to be recorded in a buffer.
 
 
->
->> Then the TCA_ROOT_FLAGS
->> attr will always contain only one flag, right?
->
->Not true - forever. Just in this patch discussion:
->I have added 2 other flags since removed. So I cant predict the
->future. You keep coming back to this assumption there will always
->ever be this one flag. I am not following how you reach this
->conclusion.
+> 
+> 2.
+> Sometimes we want to debug the probe or removal flow of the driver. ethtool has
+> the disadvantage of only being available once network device is available. If a
+> bug stops the load flow before the ethtool debug paths are available, there is
+> no way to collect a dump. Similarly, removal flows which hit a bug but do remove
+> the network device, can't be debugged from ethtool. Does dpipe suffer from the
+> same problem? qed* (like mlx*) has a common-functionality module. This allows
+> creating debugfs nodes even before the network drivers are probed, providing a
+> solution for this (debug nodes are also available after network driver removal).
+> If dpipe does hold an answer here (e.g. provide preconfiguration which would
+> kick in when network device registers) then we might want to port all of our
+> register dump logic over there for this advantage. Does that sound reasonable?
 
-I read this paragraph 5 times, still I don't get what you say :/
-
-
->
->> Then, I don't see why do we need this dance... u8 flag attr resolves
->> this in elegant way. I know I sound like a broken record. This is the
->> last time I'm commenting on this. I give up.
->> 
->
->Why is a u8 better than u32 Jiri?
->The TLV space consumed is still 64 bits in both cases. If I define u8,
->u16, u32 - it is still 64 bits being alloced. If i use a u8 then i have
->24 bits which are pads - given current discussions I can never ever use
->again!
-
-I don't care, use u8 or u32. Just 1 attr - 1 flag.
-
-
->
->If i keep 32 bits I am free to use those without ever changing the
->data structure (except for the restrictions to now make sure nothing
->gets set).
-
-what datastructure? I'm confused.
-
->
->cheers,
->jamal
+Can you consider using tracing for that particular purpose with trace
+filters that are specific to the device of interest? That should allow
+you to get events down from the Linux device driver model all the way to
+when your driver actually gets initialized. Is that an option?
+-- 
+Florian
