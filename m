@@ -1,53 +1,96 @@
-From: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH 5/7] IB/hfi1: use pcie_flr instead of duplicating it
-Date: Tue, 25 Apr 2017 13:00:03 -0400
-Message-ID: <1493139603.3041.74.camel@redhat.com>
-References: <20170414191131.14286-1-hch@lst.de>
-         <20170414191131.14286-6-hch@lst.de>
-         <A33E225544E47D4DB5713032774B132783960382@irsmsx105.ger.corp.intel.com>
-         <20170424143507.GA28812@lst.de>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [PATCHv2 net] bridge: move bridge multicast cleanup to ndo_uninit
+Date: Tue, 25 Apr 2017 20:01:19 +0300
+Message-ID: <559257f0-aeba-bec0-4050-3aafc8d01b16@cumulusnetworks.com>
+References: <6e156e72cb1a5e279da8ac53bdb601eee5d654fe.1493132317.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: Bjorn Helgaas <bhelgaas-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-        "Cabiddu, Giovanni" <giovanni.cabiddu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        "Benedetto, Salvatore" <salvatore.benedetto-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        "Marciniszyn, Mike" <mike.marciniszyn-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        "Dalessandro, Dennis" <dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        Derek Chickles <derek.chickles-M3mlKVOIwJVv6pq1l3V1OdBPR1lH4CV8@public.gmane.org>,
-        Satanand Burla <satananda.burla-M3mlKVOIwJVv6pq1l3V1OdBPR1lH4CV8@public.gmane.org>,
-        Felix Manlunas <felix.manlunas-M3mlKVOIwJVv6pq1l3V1OdBPR1lH4CV8@public.gmane.org>,
-        Raghu Vatsavayi <raghu.vatsavayi-M3mlKVOIwJVv6pq1l3V1OdBPR1lH4CV8@public.gmane.org>,
-        "Kirsher, Jeffrey T" <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        "linux-pci-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-pci-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        qat-linux <qat-linux-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        "linux-crypto-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-crypto-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "li
-To: Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>,
-        "Byczkowski, Jakub" <jakub.byczkowski-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170424143507.GA28812-jcswGhMUV9g@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, stephen@networkplumber.org
+To: Xin Long <lucien.xin@gmail.com>,
+        network dev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f50.google.com ([74.125.82.50]:36730 "EHLO
+        mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1432374AbdDYRBX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 13:01:23 -0400
+Received: by mail-wm0-f50.google.com with SMTP id u65so28361670wmu.1
+        for <netdev@vger.kernel.org>; Tue, 25 Apr 2017 10:01:22 -0700 (PDT)
+In-Reply-To: <6e156e72cb1a5e279da8ac53bdb601eee5d654fe.1493132317.git.lucien.xin@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2017-04-24 at 16:35 +0200, Christoph Hellwig wrote:
-> On Mon, Apr 24, 2017 at 02:16:31PM +0000, Byczkowski, Jakub wrote:
-> > 
-> > Tested-by: Jakub Byczkowski <jakub.byczkowski-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+On 25/04/17 17:58, Xin Long wrote:
+> During removing a bridge device, if the bridge is still up, a new mdb entry
+> still can be added in br_multicast_add_group() after all mdb entries are
+> removed in br_multicast_dev_del(). Like the path:
 > 
-> Are you (and Doug) ok with queueing this up in the PCI tree?
+>   mld_ifc_timer_expire ->
+>     mld_sendpack -> ...
+>       br_multicast_rcv ->
+>         br_multicast_add_group
+> 
+> The new mp's timer will be set up. If the timer expires after the bridge
+> is freed, it may cause use-after-free panic in br_multicast_group_expired.
+> 
+> BUG: unable to handle kernel NULL pointer dereference at 0000000000000048
+> IP: [<ffffffffa07ed2c8>] br_multicast_group_expired+0x28/0xb0 [bridge]
+> Call Trace:
+>  <IRQ>
+>  [<ffffffff81094536>] call_timer_fn+0x36/0x110
+>  [<ffffffffa07ed2a0>] ? br_mdb_free+0x30/0x30 [bridge]
+>  [<ffffffff81096967>] run_timer_softirq+0x237/0x340
+>  [<ffffffff8108dcbf>] __do_softirq+0xef/0x280
+>  [<ffffffff8169889c>] call_softirq+0x1c/0x30
+>  [<ffffffff8102c275>] do_softirq+0x65/0xa0
+>  [<ffffffff8108e055>] irq_exit+0x115/0x120
+>  [<ffffffff81699515>] smp_apic_timer_interrupt+0x45/0x60
+>  [<ffffffff81697a5d>] apic_timer_interrupt+0x6d/0x80
+> 
+> Nikolay also found it would cause a memory leak - the mdb hash is
+> reallocated and not freed due to the mdb rehash.
+> 
+> unreferenced object 0xffff8800540ba800 (size 2048):
+>   backtrace:
+>     [<ffffffff816e2287>] kmemleak_alloc+0x67/0xc0
+>     [<ffffffff81260bea>] __kmalloc+0x1ba/0x3e0
+>     [<ffffffffa05c60ee>] br_mdb_rehash+0x5e/0x340 [bridge]
+>     [<ffffffffa05c74af>] br_multicast_new_group+0x43f/0x6e0 [bridge]
+>     [<ffffffffa05c7aa3>] br_multicast_add_group+0x203/0x260 [bridge]
+>     [<ffffffffa05ca4b5>] br_multicast_rcv+0x945/0x11d0 [bridge]
+>     [<ffffffffa05b6b10>] br_dev_xmit+0x180/0x470 [bridge]
+>     [<ffffffff815c781b>] dev_hard_start_xmit+0xbb/0x3d0
+>     [<ffffffff815c8743>] __dev_queue_xmit+0xb13/0xc10
+>     [<ffffffff815c8850>] dev_queue_xmit+0x10/0x20
+>     [<ffffffffa02f8d7a>] ip6_finish_output2+0x5ca/0xac0 [ipv6]
+>     [<ffffffffa02fbfc6>] ip6_finish_output+0x126/0x2c0 [ipv6]
+>     [<ffffffffa02fc245>] ip6_output+0xe5/0x390 [ipv6]
+>     [<ffffffffa032b92c>] NF_HOOK.constprop.44+0x6c/0x240 [ipv6]
+>     [<ffffffffa032bd16>] mld_sendpack+0x216/0x3e0 [ipv6]
+>     [<ffffffffa032d5eb>] mld_ifc_timer_expire+0x18b/0x2b0 [ipv6]
+> 
+> This could happen when ip link remove a bridge or destroy a netns with a
+> bridge device inside.
+> 
+> With Nikolay's suggestion, this patch is to clean up bridge multicast in
+> ndo_uninit after bridge dev is shutdown, instead of br_dev_delete, so
+> that netif_running check in br_multicast_add_group can avoid this issue.
+> 
+> v1->v2:
+>   - fix this issue by moving br_multicast_dev_del to ndo_uninit, instead
+>     of calling dev_close in br_dev_delete.
+> 
+> Reported-by: Jianwen Ji <jiji@redhat.com>
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> ---
+>  net/bridge/br_device.c | 1 +
+>  net/bridge/br_if.c     | 1 -
+>  2 files changed, 1 insertion(+), 1 deletion(-)
 
-I'm fine with that.  Feel free to add my Acked-by to the hfi1 patch.
+Thank you for modifying the fix to use ndo_uninit(). Important note -
+this fix is dependent on Ido's earlier ndo_uninit() patch:
+b6fe0440c637 ("bridge: implement missing ndo_uninit()")
 
--- 
-Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-    GPG KeyID: B826A3330E572FDD
-   
-Key fingerprint = AE6B 1BDA 122B 23B4 265B  1274 B826 A333 0E57 2FDD
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Fixes: e10177abf842 ("bridge: multicast: fix handling of temp and perm
+entries")
+Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
