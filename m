@@ -1,26 +1,57 @@
-From: James Chapman <jchapman@katalix.com>
-Subject: Re: [PATCH net-next 2/2] l2tp: define "l2tpeth" device type
-Date: Tue, 25 Apr 2017 11:41:22 +0100
-Message-ID: <b0a254a3-cb99-32bb-7443-0b2282d29e87@katalix.com>
-References: <cover.1493035407.git.g.nault@alphalink.fr>
- <f9c1eb350915a145978d7f5d485ad210c11ba5ca.1493035407.git.g.nault@alphalink.fr>
+From: Honggang LI <honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH] IB/IPoIB: Check the headroom size
+Date: Tue, 25 Apr 2017 18:57:25 +0800
+Message-ID: <20170425105725.GA14400@dhcp-13-42.nay.redhat.com>
+References: <1493114155-12101-1-git-send-email-honli@redhat.com>
+ <CAJ3xEMg4_2ph7QwPsUb-tX-K4d2ppkqz98sPzytsmBCK=29WHw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Guillaume Nault <g.nault@alphalink.fr>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.katalix.com ([82.103.140.233]:41135 "EHLO mail.katalix.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1428798AbdDYKlY (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 25 Apr 2017 06:41:24 -0400
-In-Reply-To: <f9c1eb350915a145978d7f5d485ad210c11ba5ca.1493035407.git.g.nault@alphalink.fr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Erez Shitrit <erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        "Hefty, Sean" <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Linux Kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <CAJ3xEMg4_2ph7QwPsUb-tX-K4d2ppkqz98sPzytsmBCK=29WHw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 24/04/17 13:16, Guillaume Nault wrote:
-> Export type of l2tpeth interfaces to userspace
-> (/sys/class/net/<iface>/uevent).
->
-> Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
-Acked-by: James Chapman <jchapman@katalix.com>
+On Tue, Apr 25, 2017 at 01:32:59PM +0300, Or Gerlitz wrote:
+> On Tue, Apr 25, 2017 at 12:55 PM, Honggang LI <honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
+> > From: Honggang Li <honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+> >
+> > Minimal hard_header_len set by bond_compute_features is ETH_HLEN, which
+> > is smaller than IPOIB_HARD_LEN. ipoib_hard_header should check the
+> > size of headroom to avoid skb_under_panic.
+> 
+> sounds terrible, ipoib bonding is supported since ~2007, thanks for
+> reporting on that.
+> 
+> > [  122.871493] ipoib_hard_header: skb->head= ffff8808179d9400, skb->data= ffff8808179d9420, skb_headroom= 0x20
+> > [  123.055400] bond0: Releasing backup interface mthca_ib1
+> > [  123.560529] bond_compute_features:1112 bond0 bond_dev->hard_header_len = 14
+> > [  123.568822] CPU: 0 PID: 12336 Comm: ifdown-ib Not tainted 4.9.0-debug #1
+> 
+> did you generate this trace by calling dump_stack or this is existing
+> kernel code.
+
+I inserted dump_stack to print this stack for debug.
+
+> 
+> > Fixes: fc791b633515 ('IB/ipoib: move back IB LL address into the hard header')
+> 
+> this is more of WA to avoid some crash or failure but not fixing the
+> actual problem
+> 
+> Erez, can you comment?
+> 
+> Or.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
