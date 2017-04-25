@@ -1,44 +1,52 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH net-next 0/2] flower: add MPLS matching support
-Date: Mon, 24 Apr 2017 20:58:18 -0400
-Message-ID: <d54cca4b-6212-bf7d-93e2-8314177df42c@mojatatu.com>
-References: <1492894367-11637-1-git-send-email-benjamin.lahaise@netronome.com>
- <20170424.143257.1003081554810761464.davem@davemloft.net>
+From: Myungho Jung <mhjungk@gmail.com>
+Subject: Re: [PATCH v2] net: core: Prevent from dereferencing null pointer
+ when
+Date: Mon, 24 Apr 2017 18:00:52 -0700
+Message-ID: <20170425010052.GA8717@fqdn.specialj.com>
+References: <1492732760-25081-1-git-send-email-mhjungk@gmail.com>
+ <20170424.120235.438297438450788048.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bcrl@kvack.org,
-        Jiri Pirko <jiri@resnulli.us>
-To: David Miller <davem@davemloft.net>, benjamin.lahaise@netronome.com
+Content-Type: text/plain; charset=us-ascii
+Cc: edumazet@google.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f170.google.com ([209.85.223.170]:33232 "EHLO
-        mail-io0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1171763AbdDYA6V (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 20:58:21 -0400
-Received: by mail-io0-f170.google.com with SMTP id k87so207503785ioi.0
-        for <netdev@vger.kernel.org>; Mon, 24 Apr 2017 17:58:21 -0700 (PDT)
-In-Reply-To: <20170424.143257.1003081554810761464.davem@davemloft.net>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:36649 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1174708AbdDYBBF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2017 21:01:05 -0400
+Received: by mail-pg0-f65.google.com with SMTP id v1so354596pgv.3
+        for <netdev@vger.kernel.org>; Mon, 24 Apr 2017 18:01:05 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20170424.120235.438297438450788048.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17-04-24 02:32 PM, David Miller wrote:
-> From: Benjamin LaHaise <benjamin.lahaise@netronome.com>
+On Mon, Apr 24, 2017 at 12:02:35PM -0400, David Miller wrote:
+> From: Myungho Jung <mhjungk@gmail.com>
+> Date: Thu, 20 Apr 2017 16:59:20 -0700
+> 
+> > Added NULL check to make __dev_kfree_skb_irq consistent with kfree
+> > family of functions.
+> > 
+> > Link: https://bugzilla.kernel.org/show_bug.cgi?id=195289
+> > 
+> > Signed-off-by: Myungho Jung <mhjungk@gmail.com>
+> > ---
+> > Changes in v2:
+> >  - Correct category in subject
+> 
+> This subject line is an incomplete sentence.
+> 
+> This patch prevents dereferenccing a null pointer when "what"?
 
->
-> Series applied, but in the future:
->
-> 1) Put the "v2", "v3", whatever in the inital [PATCH xxx] bracketed
->    part of the subject line, otherwise it ends up in the GIT commit
->    message header line and that's not desired.
->
-> 2) Please cut it with these double signoffs, and add an appropriate
->    entry to the email aliases file.
+As it was reported on bugzilla, it would happen when plugging p54 usb device
+to RPi2. But, i'm not 100% sure that this patch will resolve the issue because
+the reporter didn't try my patch yet and I don't have the device to test.
 
-I know i should have spoken earlier, wanted to but got distracted - but
-shouldnt the new rules have applied to this patch too? ;->
+And there might be some other places calling the function without checking
+null pointer. The thing is that only the function don't check null among
+kfree functions. So, I just hope this patch will prevent potential oops
+issues.
 
-You have 3 TLVs, one of which is u8 that only allows use of 3 bits.
-The other is a u32 which allows only 20 bits to be set.
-
-cheers,
-jamal
+Thanks,
+Myungho
