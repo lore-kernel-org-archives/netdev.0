@@ -1,129 +1,30 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: [PATCH v2] macsec: dynamically allocate space for sglist
-Date: Tue, 25 Apr 2017 19:08:18 +0200
-Message-ID: <20170425170818.32661-1-Jason@zx2c4.com>
-References: <20170425163602.GA17973@bistromath.localdomain>
-Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>
-To: Netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        David Miller <davem@davemloft.net>, stable@vger.kernel.org,
-        security@kernel.org, Sabrina Dubroca <sd@queasysnail.net>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <20170425163602.GA17973@bistromath.localdomain>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: llvm-objdump...
+Date: Tue, 25 Apr 2017 13:13:37 -0400 (EDT)
+Message-ID: <20170425.131337.2175176102097155053.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: daniel@iogearbox.net, netdev@vger.kernel.org
+To: ast@fb.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:42340 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1432408AbdDYRNs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 13:13:48 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-We call skb_cow_data, which is good anyway to ensure we can actually
-modify the skb as such (another error from prior). Now that we have the
-number of fragments required, we can safely allocate exactly that amount
-of memory.
 
-Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
-Cc: Sabrina Dubroca <sd@queasysnail.net>
-Cc: security@kernel.org
-Cc: stable@vger.kernel.org
----
-Changes v1 -> v2:
-  - sg_init_table now takes the correct argument.
+I think there are some endianness issues ;-)
 
- drivers/net/macsec.c | 29 ++++++++++++++++++++++-------
- 1 file changed, 22 insertions(+), 7 deletions(-)
+davem@patience:~/src/GIT/net-next/tools/testing/selftests/bpf$ llvm-objdump -S x.o
 
-diff --git a/drivers/net/macsec.c b/drivers/net/macsec.c
-index dbab05afcdbe..49ce4e9f4a0f 100644
---- a/drivers/net/macsec.c
-+++ b/drivers/net/macsec.c
-@@ -617,7 +617,8 @@ static void macsec_encrypt_done(struct crypto_async_request *base, int err)
- 
- static struct aead_request *macsec_alloc_req(struct crypto_aead *tfm,
- 					     unsigned char **iv,
--					     struct scatterlist **sg)
-+					     struct scatterlist **sg,
-+					     int num_frags)
- {
- 	size_t size, iv_offset, sg_offset;
- 	struct aead_request *req;
-@@ -629,7 +630,7 @@ static struct aead_request *macsec_alloc_req(struct crypto_aead *tfm,
- 
- 	size = ALIGN(size, __alignof__(struct scatterlist));
- 	sg_offset = size;
--	size += sizeof(struct scatterlist) * (MAX_SKB_FRAGS + 1);
-+	size += sizeof(struct scatterlist) * num_frags;
- 
- 	tmp = kmalloc(size, GFP_ATOMIC);
- 	if (!tmp)
-@@ -649,6 +650,7 @@ static struct sk_buff *macsec_encrypt(struct sk_buff *skb,
- {
- 	int ret;
- 	struct scatterlist *sg;
-+	struct sk_buff *trailer;
- 	unsigned char *iv;
- 	struct ethhdr *eth;
- 	struct macsec_eth_header *hh;
-@@ -723,7 +725,14 @@ static struct sk_buff *macsec_encrypt(struct sk_buff *skb,
- 		return ERR_PTR(-EINVAL);
- 	}
- 
--	req = macsec_alloc_req(tx_sa->key.tfm, &iv, &sg);
-+	ret = skb_cow_data(skb, 0, &trailer);
-+	if (unlikely(ret < 0)) {
-+		macsec_txsa_put(tx_sa);
-+		kfree_skb(skb);
-+		return ERR_PTR(ret);
-+	}
-+
-+	req = macsec_alloc_req(tx_sa->key.tfm, &iv, &sg, ret);
- 	if (!req) {
- 		macsec_txsa_put(tx_sa);
- 		kfree_skb(skb);
-@@ -732,7 +741,7 @@ static struct sk_buff *macsec_encrypt(struct sk_buff *skb,
- 
- 	macsec_fill_iv(iv, secy->sci, pn);
- 
--	sg_init_table(sg, MAX_SKB_FRAGS + 1);
-+	sg_init_table(sg, ret);
- 	skb_to_sgvec(skb, sg, 0, skb->len);
- 
- 	if (tx_sc->encrypt) {
-@@ -917,6 +926,7 @@ static struct sk_buff *macsec_decrypt(struct sk_buff *skb,
- {
- 	int ret;
- 	struct scatterlist *sg;
-+	struct sk_buff *trailer;
- 	unsigned char *iv;
- 	struct aead_request *req;
- 	struct macsec_eth_header *hdr;
-@@ -927,7 +937,12 @@ static struct sk_buff *macsec_decrypt(struct sk_buff *skb,
- 	if (!skb)
- 		return ERR_PTR(-ENOMEM);
- 
--	req = macsec_alloc_req(rx_sa->key.tfm, &iv, &sg);
-+	ret = skb_cow_data(skb, 0, &trailer);
-+	if (unlikely(ret < 0)) {
-+		kfree_skb(skb);
-+		return ERR_PTR(ret);
-+	}
-+	req = macsec_alloc_req(rx_sa->key.tfm, &iv, &sg, ret);
- 	if (!req) {
- 		kfree_skb(skb);
- 		return ERR_PTR(-ENOMEM);
-@@ -936,7 +951,7 @@ static struct sk_buff *macsec_decrypt(struct sk_buff *skb,
- 	hdr = (struct macsec_eth_header *)skb->data;
- 	macsec_fill_iv(iv, sci, ntohl(hdr->packet_number));
- 
--	sg_init_table(sg, MAX_SKB_FRAGS + 1);
-+	sg_init_table(sg, ret);
- 	skb_to_sgvec(skb, sg, 0, skb->len);
- 
- 	if (hdr->tci_an & MACSEC_TCI_E) {
-@@ -2716,7 +2731,7 @@ static netdev_tx_t macsec_start_xmit(struct sk_buff *skb,
- }
- 
- #define MACSEC_FEATURES \
--	(NETIF_F_SG | NETIF_F_HIGHDMA)
-+	(NETIF_F_SG | NETIF_F_HIGHDMA | NETIF_F_FRAGLIST)
- static struct lock_class_key macsec_netdev_addr_lock_key;
- 
- static int macsec_dev_init(struct net_device *dev)
--- 
-2.12.2
+x.o:    file format ELF64-BPF
+
+Disassembly of section test1:
+process:
+       0:       b7 00 00 00 00 00 00 02         r0 = 33554432
+       1:       61 21 00 50 00 00 00 00         r1 = *(u32 *)(r2 + 20480)
+
+That first instruction should be "r0 = 2"
