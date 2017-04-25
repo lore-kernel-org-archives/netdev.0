@@ -1,96 +1,129 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [PATCHv2 net] bridge: move bridge multicast cleanup to ndo_uninit
-Date: Tue, 25 Apr 2017 20:01:19 +0300
-Message-ID: <559257f0-aeba-bec0-4050-3aafc8d01b16@cumulusnetworks.com>
-References: <6e156e72cb1a5e279da8ac53bdb601eee5d654fe.1493132317.git.lucien.xin@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, stephen@networkplumber.org
-To: Xin Long <lucien.xin@gmail.com>,
-        network dev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f50.google.com ([74.125.82.50]:36730 "EHLO
-        mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1432374AbdDYRBX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 13:01:23 -0400
-Received: by mail-wm0-f50.google.com with SMTP id u65so28361670wmu.1
-        for <netdev@vger.kernel.org>; Tue, 25 Apr 2017 10:01:22 -0700 (PDT)
-In-Reply-To: <6e156e72cb1a5e279da8ac53bdb601eee5d654fe.1493132317.git.lucien.xin@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Subject: [PATCH v2] macsec: dynamically allocate space for sglist
+Date: Tue, 25 Apr 2017 19:08:18 +0200
+Message-ID: <20170425170818.32661-1-Jason@zx2c4.com>
+References: <20170425163602.GA17973@bistromath.localdomain>
+Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>
+To: Netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        David Miller <davem@davemloft.net>, stable@vger.kernel.org,
+        security@kernel.org, Sabrina Dubroca <sd@queasysnail.net>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <20170425163602.GA17973@bistromath.localdomain>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 25/04/17 17:58, Xin Long wrote:
-> During removing a bridge device, if the bridge is still up, a new mdb entry
-> still can be added in br_multicast_add_group() after all mdb entries are
-> removed in br_multicast_dev_del(). Like the path:
-> 
->   mld_ifc_timer_expire ->
->     mld_sendpack -> ...
->       br_multicast_rcv ->
->         br_multicast_add_group
-> 
-> The new mp's timer will be set up. If the timer expires after the bridge
-> is freed, it may cause use-after-free panic in br_multicast_group_expired.
-> 
-> BUG: unable to handle kernel NULL pointer dereference at 0000000000000048
-> IP: [<ffffffffa07ed2c8>] br_multicast_group_expired+0x28/0xb0 [bridge]
-> Call Trace:
->  <IRQ>
->  [<ffffffff81094536>] call_timer_fn+0x36/0x110
->  [<ffffffffa07ed2a0>] ? br_mdb_free+0x30/0x30 [bridge]
->  [<ffffffff81096967>] run_timer_softirq+0x237/0x340
->  [<ffffffff8108dcbf>] __do_softirq+0xef/0x280
->  [<ffffffff8169889c>] call_softirq+0x1c/0x30
->  [<ffffffff8102c275>] do_softirq+0x65/0xa0
->  [<ffffffff8108e055>] irq_exit+0x115/0x120
->  [<ffffffff81699515>] smp_apic_timer_interrupt+0x45/0x60
->  [<ffffffff81697a5d>] apic_timer_interrupt+0x6d/0x80
-> 
-> Nikolay also found it would cause a memory leak - the mdb hash is
-> reallocated and not freed due to the mdb rehash.
-> 
-> unreferenced object 0xffff8800540ba800 (size 2048):
->   backtrace:
->     [<ffffffff816e2287>] kmemleak_alloc+0x67/0xc0
->     [<ffffffff81260bea>] __kmalloc+0x1ba/0x3e0
->     [<ffffffffa05c60ee>] br_mdb_rehash+0x5e/0x340 [bridge]
->     [<ffffffffa05c74af>] br_multicast_new_group+0x43f/0x6e0 [bridge]
->     [<ffffffffa05c7aa3>] br_multicast_add_group+0x203/0x260 [bridge]
->     [<ffffffffa05ca4b5>] br_multicast_rcv+0x945/0x11d0 [bridge]
->     [<ffffffffa05b6b10>] br_dev_xmit+0x180/0x470 [bridge]
->     [<ffffffff815c781b>] dev_hard_start_xmit+0xbb/0x3d0
->     [<ffffffff815c8743>] __dev_queue_xmit+0xb13/0xc10
->     [<ffffffff815c8850>] dev_queue_xmit+0x10/0x20
->     [<ffffffffa02f8d7a>] ip6_finish_output2+0x5ca/0xac0 [ipv6]
->     [<ffffffffa02fbfc6>] ip6_finish_output+0x126/0x2c0 [ipv6]
->     [<ffffffffa02fc245>] ip6_output+0xe5/0x390 [ipv6]
->     [<ffffffffa032b92c>] NF_HOOK.constprop.44+0x6c/0x240 [ipv6]
->     [<ffffffffa032bd16>] mld_sendpack+0x216/0x3e0 [ipv6]
->     [<ffffffffa032d5eb>] mld_ifc_timer_expire+0x18b/0x2b0 [ipv6]
-> 
-> This could happen when ip link remove a bridge or destroy a netns with a
-> bridge device inside.
-> 
-> With Nikolay's suggestion, this patch is to clean up bridge multicast in
-> ndo_uninit after bridge dev is shutdown, instead of br_dev_delete, so
-> that netif_running check in br_multicast_add_group can avoid this issue.
-> 
-> v1->v2:
->   - fix this issue by moving br_multicast_dev_del to ndo_uninit, instead
->     of calling dev_close in br_dev_delete.
-> 
-> Reported-by: Jianwen Ji <jiji@redhat.com>
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
-> ---
->  net/bridge/br_device.c | 1 +
->  net/bridge/br_if.c     | 1 -
->  2 files changed, 1 insertion(+), 1 deletion(-)
+We call skb_cow_data, which is good anyway to ensure we can actually
+modify the skb as such (another error from prior). Now that we have the
+number of fragments required, we can safely allocate exactly that amount
+of memory.
 
-Thank you for modifying the fix to use ndo_uninit(). Important note -
-this fix is dependent on Ido's earlier ndo_uninit() patch:
-b6fe0440c637 ("bridge: implement missing ndo_uninit()")
+Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
+Cc: Sabrina Dubroca <sd@queasysnail.net>
+Cc: security@kernel.org
+Cc: stable@vger.kernel.org
+---
+Changes v1 -> v2:
+  - sg_init_table now takes the correct argument.
 
-Fixes: e10177abf842 ("bridge: multicast: fix handling of temp and perm
-entries")
-Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+ drivers/net/macsec.c | 29 ++++++++++++++++++++++-------
+ 1 file changed, 22 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/net/macsec.c b/drivers/net/macsec.c
+index dbab05afcdbe..49ce4e9f4a0f 100644
+--- a/drivers/net/macsec.c
++++ b/drivers/net/macsec.c
+@@ -617,7 +617,8 @@ static void macsec_encrypt_done(struct crypto_async_request *base, int err)
+ 
+ static struct aead_request *macsec_alloc_req(struct crypto_aead *tfm,
+ 					     unsigned char **iv,
+-					     struct scatterlist **sg)
++					     struct scatterlist **sg,
++					     int num_frags)
+ {
+ 	size_t size, iv_offset, sg_offset;
+ 	struct aead_request *req;
+@@ -629,7 +630,7 @@ static struct aead_request *macsec_alloc_req(struct crypto_aead *tfm,
+ 
+ 	size = ALIGN(size, __alignof__(struct scatterlist));
+ 	sg_offset = size;
+-	size += sizeof(struct scatterlist) * (MAX_SKB_FRAGS + 1);
++	size += sizeof(struct scatterlist) * num_frags;
+ 
+ 	tmp = kmalloc(size, GFP_ATOMIC);
+ 	if (!tmp)
+@@ -649,6 +650,7 @@ static struct sk_buff *macsec_encrypt(struct sk_buff *skb,
+ {
+ 	int ret;
+ 	struct scatterlist *sg;
++	struct sk_buff *trailer;
+ 	unsigned char *iv;
+ 	struct ethhdr *eth;
+ 	struct macsec_eth_header *hh;
+@@ -723,7 +725,14 @@ static struct sk_buff *macsec_encrypt(struct sk_buff *skb,
+ 		return ERR_PTR(-EINVAL);
+ 	}
+ 
+-	req = macsec_alloc_req(tx_sa->key.tfm, &iv, &sg);
++	ret = skb_cow_data(skb, 0, &trailer);
++	if (unlikely(ret < 0)) {
++		macsec_txsa_put(tx_sa);
++		kfree_skb(skb);
++		return ERR_PTR(ret);
++	}
++
++	req = macsec_alloc_req(tx_sa->key.tfm, &iv, &sg, ret);
+ 	if (!req) {
+ 		macsec_txsa_put(tx_sa);
+ 		kfree_skb(skb);
+@@ -732,7 +741,7 @@ static struct sk_buff *macsec_encrypt(struct sk_buff *skb,
+ 
+ 	macsec_fill_iv(iv, secy->sci, pn);
+ 
+-	sg_init_table(sg, MAX_SKB_FRAGS + 1);
++	sg_init_table(sg, ret);
+ 	skb_to_sgvec(skb, sg, 0, skb->len);
+ 
+ 	if (tx_sc->encrypt) {
+@@ -917,6 +926,7 @@ static struct sk_buff *macsec_decrypt(struct sk_buff *skb,
+ {
+ 	int ret;
+ 	struct scatterlist *sg;
++	struct sk_buff *trailer;
+ 	unsigned char *iv;
+ 	struct aead_request *req;
+ 	struct macsec_eth_header *hdr;
+@@ -927,7 +937,12 @@ static struct sk_buff *macsec_decrypt(struct sk_buff *skb,
+ 	if (!skb)
+ 		return ERR_PTR(-ENOMEM);
+ 
+-	req = macsec_alloc_req(rx_sa->key.tfm, &iv, &sg);
++	ret = skb_cow_data(skb, 0, &trailer);
++	if (unlikely(ret < 0)) {
++		kfree_skb(skb);
++		return ERR_PTR(ret);
++	}
++	req = macsec_alloc_req(rx_sa->key.tfm, &iv, &sg, ret);
+ 	if (!req) {
+ 		kfree_skb(skb);
+ 		return ERR_PTR(-ENOMEM);
+@@ -936,7 +951,7 @@ static struct sk_buff *macsec_decrypt(struct sk_buff *skb,
+ 	hdr = (struct macsec_eth_header *)skb->data;
+ 	macsec_fill_iv(iv, sci, ntohl(hdr->packet_number));
+ 
+-	sg_init_table(sg, MAX_SKB_FRAGS + 1);
++	sg_init_table(sg, ret);
+ 	skb_to_sgvec(skb, sg, 0, skb->len);
+ 
+ 	if (hdr->tci_an & MACSEC_TCI_E) {
+@@ -2716,7 +2731,7 @@ static netdev_tx_t macsec_start_xmit(struct sk_buff *skb,
+ }
+ 
+ #define MACSEC_FEATURES \
+-	(NETIF_F_SG | NETIF_F_HIGHDMA)
++	(NETIF_F_SG | NETIF_F_HIGHDMA | NETIF_F_FRAGLIST)
+ static struct lock_class_key macsec_netdev_addr_lock_key;
+ 
+ static int macsec_dev_init(struct net_device *dev)
+-- 
+2.12.2
