@@ -1,50 +1,28 @@
-From: Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] IB/IPoIB: Check the headroom size
-Date: Tue, 25 Apr 2017 13:32:59 +0300
-Message-ID: <CAJ3xEMg4_2ph7QwPsUb-tX-K4d2ppkqz98sPzytsmBCK=29WHw@mail.gmail.com>
-References: <1493114155-12101-1-git-send-email-honli@redhat.com>
+From: James Chapman <jchapman@katalix.com>
+Subject: Re: [PATCH net-next 1/2] l2tp: set name_assign_type for devices
+ created by l2tp_eth.c
+Date: Tue, 25 Apr 2017 11:40:13 +0100
+Message-ID: <77bfc1d7-32fe-6fcf-4e57-5fa999611372@katalix.com>
+References: <cover.1493035407.git.g.nault@alphalink.fr>
+ <062e3c5c1c8b9d6ddea34de74e98c159f78a2f0b.1493035407.git.g.nault@alphalink.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        "Hefty, Sean" <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Linux Kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Honggang LI <honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Erez Shitrit <erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1493114155-12101-1-git-send-email-honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8BIT
+Cc: Guillaume Nault <g.nault@alphalink.fr>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.katalix.com ([82.103.140.233]:41133 "EHLO mail.katalix.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1031494AbdDYKkQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 25 Apr 2017 06:40:16 -0400
+In-Reply-To: <062e3c5c1c8b9d6ddea34de74e98c159f78a2f0b.1493035407.git.g.nault@alphalink.fr>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 25, 2017 at 12:55 PM, Honggang LI <honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
-> From: Honggang Li <honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+On 24/04/17 13:16, Guillaume Nault wrote:
+> Export naming scheme used when creating l2tpeth interfaces
+> (/sys/class/net/<iface>/name_assign_type). This let userspace know if
+> the device's name has been generated automatically or defined manually.
 >
-> Minimal hard_header_len set by bond_compute_features is ETH_HLEN, which
-> is smaller than IPOIB_HARD_LEN. ipoib_hard_header should check the
-> size of headroom to avoid skb_under_panic.
-
-sounds terrible, ipoib bonding is supported since ~2007, thanks for
-reporting on that.
-
-> [  122.871493] ipoib_hard_header: skb->head= ffff8808179d9400, skb->data= ffff8808179d9420, skb_headroom= 0x20
-> [  123.055400] bond0: Releasing backup interface mthca_ib1
-> [  123.560529] bond_compute_features:1112 bond0 bond_dev->hard_header_len = 14
-> [  123.568822] CPU: 0 PID: 12336 Comm: ifdown-ib Not tainted 4.9.0-debug #1
-
-did you generate this trace by calling dump_stack or this is existing
-kernel code.
-
-> Fixes: fc791b633515 ('IB/ipoib: move back IB LL address into the hard header')
-
-this is more of WA to avoid some crash or failure but not fixing the
-actual problem
-
-Erez, can you comment?
-
-Or.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
+Acked-by: James Chapman <jchapman@katalix.com>
