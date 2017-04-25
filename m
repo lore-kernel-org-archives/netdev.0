@@ -1,49 +1,94 @@
-From: Sudarsana Reddy Kalluru <sudarsana.kalluru@cavium.com>
-Subject: [PATCH net 1/1] qed: Fix error in the dcbx app meta data initialization.
-Date: Mon, 24 Apr 2017 20:59:10 -0700
-Message-ID: <20170425035910.29296-1-sudarsana.kalluru@cavium.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH RFC] ptr_ring: add ptr_ring_unconsume
+Date: Tue, 25 Apr 2017 12:07:01 +0800
+Message-ID: <91ae69e6-4dac-3db2-4778-c4163dfe6f91@redhat.com>
+References: <1492384496-22644-1-git-send-email-mst@redhat.com>
+ <0defb746-3d4b-14b3-1ad7-82842048ebba@redhat.com>
+ <20170424022711-mutt-send-email-mst@kernel.org>
+ <21a19608-40be-38d4-9843-088a273fd71a@redhat.com>
+ <20170424145632-mutt-send-email-mst@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <Yuval.Mintz@cavium.com>
-To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam01on0070.outbound.protection.outlook.com ([104.47.34.70]:32683
-        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S980370AbdDYD7c (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 24 Apr 2017 23:59:32 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170424145632-mutt-send-email-mst@kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-DCBX app_data array is initialized with the incorrect values for
-personality field. This would  prevent offloaded protocols from
-honoring the PFC.
 
-Signed-off-by: Sudarsana Reddy Kalluru <Sudarsana.Kalluru@cavium.com>
----
- drivers/net/ethernet/qlogic/qed/qed_dcbx.c | 10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_dcbx.c b/drivers/net/ethernet/qlogic/qed/qed_dcbx.c
-index a6e2bbe..cfdadb6 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_dcbx.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_dcbx.c
-@@ -64,11 +64,11 @@
- 	((u32)(prio_tc_tbl >> ((7 - prio) * 4)) & 0x7)
- 
- static const struct qed_dcbx_app_metadata qed_dcbx_app_update[] = {
--	{DCBX_PROTOCOL_ISCSI, "ISCSI", QED_PCI_DEFAULT},
--	{DCBX_PROTOCOL_FCOE, "FCOE", QED_PCI_DEFAULT},
--	{DCBX_PROTOCOL_ROCE, "ROCE", QED_PCI_DEFAULT},
--	{DCBX_PROTOCOL_ROCE_V2, "ROCE_V2", QED_PCI_DEFAULT},
--	{DCBX_PROTOCOL_ETH, "ETH", QED_PCI_ETH}
-+	{DCBX_PROTOCOL_ISCSI, "ISCSI", QED_PCI_ISCSI},
-+	{DCBX_PROTOCOL_FCOE, "FCOE", QED_PCI_FCOE},
-+	{DCBX_PROTOCOL_ROCE, "ROCE", QED_PCI_ETH_ROCE},
-+	{DCBX_PROTOCOL_ROCE_V2, "ROCE_V2", QED_PCI_ETH_ROCE},
-+	{DCBX_PROTOCOL_ETH, "ETH", QED_PCI_ETH},
- };
- 
- static bool qed_dcbx_app_ethtype(u32 app_info_bitmap)
--- 
-1.8.3.1
+On 2017年04月24日 20:00, Michael S. Tsirkin wrote:
+> On Mon, Apr 24, 2017 at 07:54:18PM +0800, Jason Wang wrote:
+>> On 2017年04月24日 07:28, Michael S. Tsirkin wrote:
+>>> On Tue, Apr 18, 2017 at 11:07:42AM +0800, Jason Wang wrote:
+>>>> On 2017年04月17日 07:19, Michael S. Tsirkin wrote:
+>>>>> Applications that consume a batch of entries in one go
+>>>>> can benefit from ability to return some of them back
+>>>>> into the ring.
+>>>>>
+>>>>> Add an API for that - assuming there's space. If there's no space
+>>>>> naturally we can't do this and have to drop entries, but this implies
+>>>>> ring is full so we'd likely drop some anyway.
+>>>>>
+>>>>> Signed-off-by: Michael S. Tsirkin<mst@redhat.com>
+>>>>> ---
+>>>>>
+>>>>> Jason, in my mind the biggest issue with your batching patchset is the
+>>>>> backet drops on disconnect.  This API will help avoid that in the common
+>>>>> case.
+>>>> Ok, I will rebase the series on top of this. (Though I don't think we care
+>>>> the packet loss).
+>>> E.g. I care - I often start sending packets to VM before it's
+>>> fully booted. Several vhost resets might follow.
+>> Ok.
+>>
+>>>>> I would still prefer that we understand what's going on,
+>>>> I try to reply in another thread, does it make sense?
+>>>>
+>>>>>     and I would
+>>>>> like to know what's the smallest batch size that's still helpful,
+>>>> Yes, I've replied in another thread, the result is:
+>>>>
+>>>>
+>>>> no batching   1.88Mpps
+>>>> RX_BATCH=1    1.93Mpps
+>>>> RX_BATCH=4    2.11Mpps
+>>>> RX_BATCH=16   2.14Mpps
+>>>> RX_BATCH=64   2.25Mpps
+>>>> RX_BATCH=256  2.18Mpps
+>>> Essentially 4 is enough, other stuf looks more like noise
+>>> to me. What about 2?
+>> The numbers are pretty stable, so probably not noise. Retested on top of
+>> batch zeroing:
+>>
+>> no  1.97Mpps
+>> 1   2.09Mpps
+>> 2   2.11Mpps
+>> 4   2.16Mpps
+>> 8   2.19Mpps
+>> 16  2.21Mpps
+>> 32  2.25Mpps
+>> 64  2.30Mpps
+>> 128 2.21Mpps
+>> 256 2.21Mpps
+>>
+>> 64 performs best.
+>>
+>> Thanks
+> OK but it might be e.g. a function of the ring size, host cache size or
+> whatever. As we don't really understand the why, if we just optimize for
+> your setup we risk regressions in others.  64 entries is a lot, it
+> increases the queue size noticeably.  Could this be part of the effect?
+> Could you try changing the queue size to see what happens?
+
+I increase tx_queue_len to 1100, but only see less than 1% improvement 
+on pps number (batch = 1) in my machine. If you care about the 
+regression, we probably can leave the choice to user through e.g module 
+parameter. But I'm afraid we have already had too much choices for them. 
+Or I can test this with different CPU types.
+
+Thanks
+
+>
