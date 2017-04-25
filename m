@@ -1,109 +1,79 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: [PATCH] macsec: dynamically allocate space for sglist
-Date: Tue, 25 Apr 2017 17:23:00 +0200
-Message-ID: <20170425152300.3830-1-Jason@zx2c4.com>
-References: <CAHmME9rZ29X=R-quViXaEO_ouxeB2EpzR2bkR93rrN4n--QDqw@mail.gmail.com>
-Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>,
-        Sabrina Dubroca <sd@queasysnail.net>
-To: Netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        David Miller <davem@davemloft.net>, stable@vger.kernel.org,
-        security@kernel.org
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <CAHmME9rZ29X=R-quViXaEO_ouxeB2EpzR2bkR93rrN4n--QDqw@mail.gmail.com>
-Sender: stable-owner@vger.kernel.org
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 2/2] ARM: dts: Add the ethernet and ethernet PHY to the
+ cygnus core DT.
+Date: Tue, 25 Apr 2017 18:23:15 +0300
+Message-ID: <44d0c48c-d80f-271e-0e19-ac87a53e2e53@cogentembedded.com>
+References: <20170424215022.30382-1-eric@anholt.net>
+ <20170424215022.30382-3-eric@anholt.net>
+ <f870339f-2fa1-411d-5ce8-adbe8802d8a8@cogentembedded.com>
+ <CAC3K-4qn5oCXvyMCkFESGqMHqHXGiNUW6wfRx2LUZ8qZ39qroQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: Mark Rutland <mark.rutland@arm.com>, Andrew Lunn <andrew@lunn.ch>,
+ Florian Fainelli <f.fainelli@gmail.com>, Scott Branden <sbranden@broadcom.com>,
+ Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+ Jon Mason <jonmason@broadcom.com>,
+ Network Development <netdev@vger.kernel.org>,
+ open list <linux-kernel@vger.kernel.org>, Eric Anholt <eric@anholt.net>,
+ "open list:OPEN FIRMWARE AND FLATTENED DEVICE TREE BINDINGS"
+ <devicetree@vger.kernel.org>, Rob Herring <robh+dt@kernel.org>,
+ BCM Kernel Feedback <bcm-kernel-feedback-list@broadcom.com>,
+ Ray Jui <rjui@broadcom.com>,
+ linux-arm-kernel <linux-arm-kernel@lists.infradead.org>
+To: Jon Mason <jon.mason@broadcom.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <CAC3K-4qn5oCXvyMCkFESGqMHqHXGiNUW6wfRx2LUZ8qZ39qroQ@mail.gmail.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-We call skb_cow_data, which is good anyway to ensure we can actually
-modify the skb as such (another error from prior). Now that we have the
-number of fragments required, we can safely allocate exactly that amount
-of memory.
+Hello!
 
-Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
-Cc: Sabrina Dubroca <sd@queasysnail.net>
-Cc: security@kernel.org
-Cc: stable@vger.kernel.org
----
- drivers/net/macsec.c | 25 ++++++++++++++++++++-----
- 1 file changed, 20 insertions(+), 5 deletions(-)
+On 04/25/2017 06:15 PM, Jon Mason wrote:
 
-diff --git a/drivers/net/macsec.c b/drivers/net/macsec.c
-index dbab05afcdbe..56dafdee4c9c 100644
---- a/drivers/net/macsec.c
-+++ b/drivers/net/macsec.c
-@@ -617,7 +617,8 @@ static void macsec_encrypt_done(struct crypto_async_request *base, int err)
- 
- static struct aead_request *macsec_alloc_req(struct crypto_aead *tfm,
- 					     unsigned char **iv,
--					     struct scatterlist **sg)
-+					     struct scatterlist **sg,
-+					     int num_frags)
- {
- 	size_t size, iv_offset, sg_offset;
- 	struct aead_request *req;
-@@ -629,7 +630,7 @@ static struct aead_request *macsec_alloc_req(struct crypto_aead *tfm,
- 
- 	size = ALIGN(size, __alignof__(struct scatterlist));
- 	sg_offset = size;
--	size += sizeof(struct scatterlist) * (MAX_SKB_FRAGS + 1);
-+	size += sizeof(struct scatterlist) * num_frags;
- 
- 	tmp = kmalloc(size, GFP_ATOMIC);
- 	if (!tmp)
-@@ -649,6 +650,7 @@ static struct sk_buff *macsec_encrypt(struct sk_buff *skb,
- {
- 	int ret;
- 	struct scatterlist *sg;
-+	struct sk_buff *trailer;
- 	unsigned char *iv;
- 	struct ethhdr *eth;
- 	struct macsec_eth_header *hh;
-@@ -723,7 +725,14 @@ static struct sk_buff *macsec_encrypt(struct sk_buff *skb,
- 		return ERR_PTR(-EINVAL);
- 	}
- 
--	req = macsec_alloc_req(tx_sa->key.tfm, &iv, &sg);
-+	ret = skb_cow_data(skb, 0, &trailer);
-+	if (unlikely(ret < 0)) {
-+		macsec_txsa_put(tx_sa);
-+		kfree_skb(skb);
-+		return ERR_PTR(ret);
-+	}
-+
-+	req = macsec_alloc_req(tx_sa->key.tfm, &iv, &sg, ret);
- 	if (!req) {
- 		macsec_txsa_put(tx_sa);
- 		kfree_skb(skb);
-@@ -917,6 +926,7 @@ static struct sk_buff *macsec_decrypt(struct sk_buff *skb,
- {
- 	int ret;
- 	struct scatterlist *sg;
-+	struct sk_buff *trailer;
- 	unsigned char *iv;
- 	struct aead_request *req;
- 	struct macsec_eth_header *hdr;
-@@ -927,7 +937,12 @@ static struct sk_buff *macsec_decrypt(struct sk_buff *skb,
- 	if (!skb)
- 		return ERR_PTR(-ENOMEM);
- 
--	req = macsec_alloc_req(rx_sa->key.tfm, &iv, &sg);
-+	ret = skb_cow_data(skb, 0, &trailer);
-+	if (unlikely(ret < 0)) {
-+		kfree_skb(skb);
-+		return ERR_PTR(ret);
-+	}
-+	req = macsec_alloc_req(rx_sa->key.tfm, &iv, &sg, ret);
- 	if (!req) {
- 		kfree_skb(skb);
- 		return ERR_PTR(-ENOMEM);
-@@ -2716,7 +2731,7 @@ static netdev_tx_t macsec_start_xmit(struct sk_buff *skb,
- }
- 
- #define MACSEC_FEATURES \
--	(NETIF_F_SG | NETIF_F_HIGHDMA)
-+	(NETIF_F_SG | NETIF_F_HIGHDMA | NETIF_F_FRAGLIST)
- static struct lock_class_key macsec_netdev_addr_lock_key;
- 
- static int macsec_dev_init(struct net_device *dev)
--- 
-2.12.2
+>>> Cygnus has a single amac controller connected to the B53 switch with 2
+>>> PHYs.  On the BCM911360_EP platform, those two PHYs are connected to
+>>> the external ethernet jacks.
+
+[...]
+
+>>> Signed-off-by: Eric Anholt <eric@anholt.net>
+>>> ---
+>>>  arch/arm/boot/dts/bcm-cygnus.dtsi      | 60
+>>> ++++++++++++++++++++++++++++++++++
+>>>  arch/arm/boot/dts/bcm911360_entphn.dts |  8 +++++
+>>>  2 files changed, 68 insertions(+)
+>>>
+>>> diff --git a/arch/arm/boot/dts/bcm-cygnus.dtsi
+>>> b/arch/arm/boot/dts/bcm-cygnus.dtsi
+>>> index 009f1346b817..318899df9972 100644
+>>> --- a/arch/arm/boot/dts/bcm-cygnus.dtsi
+>>> +++ b/arch/arm/boot/dts/bcm-cygnus.dtsi
+[...]
+>>> @@ -295,6 +345,16 @@
+>>>                         status = "disabled";
+>>>                 };
+>>>
+>>> +               eth0: enet@18042000 {
+>>> +                       compatible = "brcm,amac";
+>>> +                       reg = <0x18042000 0x1000>,
+>>> +                             <0x18110000 0x1000>;
+>>> +                       reg-names = "amac_base", "idm_base";
+>>
+>>
+>>    I don't think "_base" suffixes are necessary here.
+>
+> 100% necessary, per the driver.  See
+> drivers/net/ethernet/broadcom/bgmac-platform.c
+
+    I'd recommend to fix the driver/bindings then...
+
+MBR, Sergei
