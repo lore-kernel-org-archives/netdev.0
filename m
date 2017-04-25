@@ -1,92 +1,75 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 2/2] ARM: dts: Add the ethernet and ethernet PHY to the
- cygnus core DT.
-Date: Tue, 25 Apr 2017 12:40:08 +0300
-Message-ID: <f870339f-2fa1-411d-5ce8-adbe8802d8a8@cogentembedded.com>
-References: <20170424215022.30382-1-eric@anholt.net>
- <20170424215022.30382-3-eric@anholt.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
-        bcm-kernel-feedback-list@broadcom.com, Ray Jui <rjui@broadcom.com>,
-        Scott Branden <sbranden@broadcom.com>,
-        Jon Mason <jonmason@broadcom.com>
-To: Eric Anholt <eric@anholt.net>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Andrew Lunn <andrew@lunn.ch>, netdev@vger.kernel.org,
-        Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>, devicetree@vger.kernel.org
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH net-next] rhashtable: remove insecure_max_entries param
+Date: Tue, 25 Apr 2017 11:41:34 +0200
+Message-ID: <20170425094134.21885-1-fw@strlen.de>
+Cc: Florian Westphal <fw@strlen.de>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f45.google.com ([209.85.215.45]:34564 "EHLO
-        mail-lf0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1177307AbdDYJkL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 05:40:11 -0400
-Received: by mail-lf0-f45.google.com with SMTP id t144so87615529lff.1
-        for <netdev@vger.kernel.org>; Tue, 25 Apr 2017 02:40:11 -0700 (PDT)
-In-Reply-To: <20170424215022.30382-3-eric@anholt.net>
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:47860 "EHLO
+        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1428728AbdDYJlW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 05:41:22 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+no users in the tree, insecure_max_entries is always set to
+ht->p.max_size * 2 in rhtashtable_init().
 
-On 4/25/2017 12:50 AM, Eric Anholt wrote:
+Replace only spot that uses it with a ht->p.max_size check.
 
-> Cygnus has a single amac controller connected to the B53 switch with 2
-> PHYs.  On the BCM911360_EP platform, those two PHYs are connected to
-> the external ethernet jacks.
+Signed-off-by: Florian Westphal <fw@strlen.de>
+---
+ include/linux/rhashtable.h | 6 ++----
+ lib/rhashtable.c           | 6 ------
+ 2 files changed, 2 insertions(+), 10 deletions(-)
 
-    My spell checker trips on "amac" and "ethernet" -- perhaps they need 
-capitalization?
-
-> Signed-off-by: Eric Anholt <eric@anholt.net>
-> ---
->  arch/arm/boot/dts/bcm-cygnus.dtsi      | 60 ++++++++++++++++++++++++++++++++++
->  arch/arm/boot/dts/bcm911360_entphn.dts |  8 +++++
->  2 files changed, 68 insertions(+)
->
-> diff --git a/arch/arm/boot/dts/bcm-cygnus.dtsi b/arch/arm/boot/dts/bcm-cygnus.dtsi
-> index 009f1346b817..318899df9972 100644
-> --- a/arch/arm/boot/dts/bcm-cygnus.dtsi
-> +++ b/arch/arm/boot/dts/bcm-cygnus.dtsi
-> @@ -142,6 +142,56 @@
->  			interrupts = <0>;
->  		};
->
-> +		mdio: mdio@18002000 {
-> +			compatible = "brcm,iproc-mdio";
-> +			reg = <0x18002000 0x8>;
-> +			#size-cells = <1>;
-> +			#address-cells = <0>;
-> +
-> +			gphy0: eth-gphy@0 {
-
-    The node anmes must be generic, the DT spec has standardized 
-"ethernet-phy" name for this case.
-
-> +				reg = <0>;
-> +				max-speed = <1000>;
-> +			};
-> +
-> +			gphy1: eth-gphy@1 {
-> +				reg = <1>;
-> +				max-speed = <1000>;
-> +			};
-> +		};
-[...]
-> @@ -295,6 +345,16 @@
->  			status = "disabled";
->  		};
->
-> +		eth0: enet@18042000 {
-> +			compatible = "brcm,amac";
-> +			reg = <0x18042000 0x1000>,
-> +			      <0x18110000 0x1000>;
-> +			reg-names = "amac_base", "idm_base";
-
-    I don't think "_base" suffixes are necessary here.
-
-[...]
-
-MBR, Sergei
+diff --git a/include/linux/rhashtable.h b/include/linux/rhashtable.h
+index ae87dcdf52d2..ae93b65d13d7 100644
+--- a/include/linux/rhashtable.h
++++ b/include/linux/rhashtable.h
+@@ -125,7 +125,6 @@ struct rhashtable;
+  * @key_len: Length of key
+  * @key_offset: Offset of key in struct to be hashed
+  * @head_offset: Offset of rhash_head in struct to be hashed
+- * @insecure_max_entries: Maximum number of entries (may be exceeded)
+  * @max_size: Maximum size while expanding
+  * @min_size: Minimum size while shrinking
+  * @nulls_base: Base value to generate nulls marker
+@@ -140,7 +139,6 @@ struct rhashtable_params {
+ 	size_t			key_len;
+ 	size_t			key_offset;
+ 	size_t			head_offset;
+-	unsigned int		insecure_max_entries;
+ 	unsigned int		max_size;
+ 	unsigned int		min_size;
+ 	u32			nulls_base;
+@@ -329,8 +327,8 @@ static inline bool rht_grow_above_100(const struct rhashtable *ht,
+ static inline bool rht_grow_above_max(const struct rhashtable *ht,
+ 				      const struct bucket_table *tbl)
+ {
+-	return ht->p.insecure_max_entries &&
+-	       atomic_read(&ht->nelems) >= ht->p.insecure_max_entries;
++	return ht->p.max_size &&
++	       (atomic_read(&ht->nelems) / 2u) >= ht->p.max_size;
+ }
+ 
+ /* The bucket lock is selected based on the hash and protects mutations
+diff --git a/lib/rhashtable.c b/lib/rhashtable.c
+index d22a5ef109fb..f3b82e0d417b 100644
+--- a/lib/rhashtable.c
++++ b/lib/rhashtable.c
+@@ -961,12 +961,6 @@ int rhashtable_init(struct rhashtable *ht,
+ 	if (params->max_size)
+ 		ht->p.max_size = rounddown_pow_of_two(params->max_size);
+ 
+-	if (params->insecure_max_entries)
+-		ht->p.insecure_max_entries =
+-			rounddown_pow_of_two(params->insecure_max_entries);
+-	else
+-		ht->p.insecure_max_entries = ht->p.max_size * 2;
+-
+ 	ht->p.min_size = max(ht->p.min_size, HASH_MIN_SIZE);
+ 
+ 	if (params->nelem_hint)
+-- 
+2.10.2
