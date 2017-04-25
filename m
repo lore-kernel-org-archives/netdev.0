@@ -1,102 +1,101 @@
-From: Logan Gunthorpe <logang@deltatee.com>
-Subject: [PATCH v2 15/21] xen-blkfront: Make use of the new
-	sg_map helper function
-Date: Tue, 25 Apr 2017 12:21:02 -0600
-Message-ID: <1493144468-22493-16-git-send-email-logang@deltatee.com>
+From: Logan Gunthorpe <logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
+Subject: [PATCH v2 18/21] mmc: tmio: Make use of the new sg_map helper function
+Date: Tue, 25 Apr 2017 12:21:05 -0600
+Message-ID: <1493144468-22493-19-git-send-email-logang@deltatee.com>
 References: <1493144468-22493-1-git-send-email-logang@deltatee.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Jens Axboe <axboe@kernel.dk>, Juergen Gross <jgross@suse.com>,
- "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
- "Martin K. Petersen" <martin.petersen@oracle.com>,
- Matthew Wilcox <mawilcox@microsoft.com>,
- Boris Ostrovsky <boris.ostrovsky@oracle.com>,
- Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
- Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
- Sumit Semwal <sumit.semwal@linaro.org>,
- Ross Zwisler <ross.zwisler@linux.intel.com>,
- Dan Williams <dan.j.williams@intel.com>, Stephen Bates <sbates@raithlin.com>,
- Logan Gunthorpe <logang@deltatee.com>, Christoph Hellwig <hch@lst.de>,
- =?UTF-8?q?Roger=20Pau=20Monn=C3=A9?= <roger.pau@citrix.com>
-To: linux-kernel@vger.kernel.org, linux-crypto@vger.kernel.org,
- linux-media@vger.kernel.org, dri-devel@lists.freedesktop.org,
- intel-gfx@lists.freedesktop.org, linux-raid@vger.kernel.org,
- linux-mmc@vger.kernel.org, linux-nvdimm@lists.01.org,
- linux-scsi@vger.kernel.org, open-iscsi@googlegroups.com,
- megaraidlinux.pdl@broadcom.com, sparmaintainer@unisys.com,
- devel@driverdev.osuosl.org, target-devel@vger.kernel.org,
- netdev@vger.kernel.org, linux-rdma@vger.kernel.org, dm-devel@redhat.com
-Return-path: <intel-gfx-bounces@lists.freedesktop.org>
-In-Reply-To: <1493144468-22493-1-git-send-email-logang@deltatee.com>
-List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/intel-gfx>,
- <mailto:intel-gfx-request@lists.freedesktop.org?subject=unsubscribe>
-List-Archive: <https://lists.freedesktop.org/archives/intel-gfx>
-List-Post: <mailto:intel-gfx@lists.freedesktop.org>
-List-Help: <mailto:intel-gfx-request@lists.freedesktop.org?subject=help>
-List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/intel-gfx>,
- <mailto:intel-gfx-request@lists.freedesktop.org?subject=subscribe>
-Errors-To: intel-gfx-bounces@lists.freedesktop.org
-Sender: "Intel-gfx" <intel-gfx-bounces@lists.freedesktop.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Jens Axboe <axboe-tSWWG44O7X1aa/9Udqfwiw@public.gmane.org>, Ulf Hansson <ulf.hansson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+ "James E.J. Bottomley" <jejb-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
+ "Martin K. Petersen" <martin.petersen-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
+ Matthew Wilcox <mawilcox-0li6OtcxBFHby3iVrkZq2A@public.gmane.org>,
+ Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+ Sumit Semwal <sumit.semwal-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+ Wolfram Sang <wsa+renesas-jBu1N2QxHDJrcw3mvpCnnVaTQe2KTcn/@public.gmane.org>,
+ Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>
+To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-crypto-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org,
+ intel-gfx-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org, linux-raid-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-nvdimm-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org,
+ linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org,
+ megaraidlinux.pdl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, sparmaintainer-GLv8BlqOqDDQT0dZR+AlfA@public.gmane.org,
+ devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org, target-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dm-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+Return-path: <linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
+In-Reply-To: <1493144468-22493-1-git-send-email-logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
+List-Unsubscribe: <https://lists.01.org/mailman/options/linux-nvdimm>,
+ <mailto:linux-nvdimm-request-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.01.org/pipermail/linux-nvdimm/>
+List-Post: <mailto:linux-nvdimm-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
+List-Help: <mailto:linux-nvdimm-request-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.01.org/mailman/listinfo/linux-nvdimm>,
+ <mailto:linux-nvdimm-request-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org?subject=subscribe>
+Errors-To: linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org
+Sender: "Linux-nvdimm" <linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-U3RyYWlnaHRmb3J3YXJkIGNvbnZlcnNpb24gdG8gdGhlIG5ldyBoZWxwZXIsIGV4Y2VwdCBkdWUg
-dG8gdGhlIGxhY2sKb2YgZXJyb3IgcGF0aCwgd2UgaGF2ZSB0byB1c2UgU0dfTUFQX01VU1RfTk9U
-X0ZBSUwgd2hpY2ggbWF5IEJVR19PTiBpbgpjZXJ0YWluIGNhc2VzIGluIHRoZSBmdXR1cmUuCgpT
-aWduZWQtb2ZmLWJ5OiBMb2dhbiBHdW50aG9ycGUgPGxvZ2FuZ0BkZWx0YXRlZS5jb20+CkNjOiBC
-b3JpcyBPc3Ryb3Zza3kgPGJvcmlzLm9zdHJvdnNreUBvcmFjbGUuY29tPgpDYzogSnVlcmdlbiBH
-cm9zcyA8amdyb3NzQHN1c2UuY29tPgpDYzogS29ucmFkIFJ6ZXN6dXRlayBXaWxrIDxrb25yYWQu
-d2lsa0BvcmFjbGUuY29tPgpDYzogIlJvZ2VyIFBhdSBNb25uw6kiIDxyb2dlci5wYXVAY2l0cml4
-LmNvbT4KLS0tCiBkcml2ZXJzL2Jsb2NrL3hlbi1ibGtmcm9udC5jIHwgMjAgKysrKysrKysrKyst
-LS0tLS0tLS0KIDEgZmlsZSBjaGFuZ2VkLCAxMSBpbnNlcnRpb25zKCspLCA5IGRlbGV0aW9ucygt
-KQoKZGlmZiAtLWdpdCBhL2RyaXZlcnMvYmxvY2sveGVuLWJsa2Zyb250LmMgYi9kcml2ZXJzL2Js
-b2NrL3hlbi1ibGtmcm9udC5jCmluZGV4IDM5NDU5NjMuLmVkNjIxNzUgMTAwNjQ0Ci0tLSBhL2Ry
-aXZlcnMvYmxvY2sveGVuLWJsa2Zyb250LmMKKysrIGIvZHJpdmVycy9ibG9jay94ZW4tYmxrZnJv
-bnQuYwpAQCAtODE2LDggKzgxNiw5IEBAIHN0YXRpYyBpbnQgYmxraWZfcXVldWVfcndfcmVxKHN0
-cnVjdCByZXF1ZXN0ICpyZXEsIHN0cnVjdCBibGtmcm9udF9yaW5nX2luZm8gKnJpCiAJCUJVR19P
-TihzZy0+b2Zmc2V0ICsgc2ctPmxlbmd0aCA+IFBBR0VfU0laRSk7CiAKIAkJaWYgKHNldHVwLm5l
-ZWRfY29weSkgewotCQkJc2V0dXAuYnZlY19vZmYgPSBzZy0+b2Zmc2V0OwotCQkJc2V0dXAuYnZl
-Y19kYXRhID0ga21hcF9hdG9taWMoc2dfcGFnZShzZykpOworCQkJc2V0dXAuYnZlY19vZmYgPSAw
-OworCQkJc2V0dXAuYnZlY19kYXRhID0gc2dfbWFwKHNnLCAwLCBTR19LTUFQX0FUT01JQyB8CisJ
-CQkJCQkgU0dfTUFQX01VU1RfTk9UX0ZBSUwpOwogCQl9CiAKIAkJZ250dGFiX2ZvcmVhY2hfZ3Jh
-bnRfaW5fcmFuZ2Uoc2dfcGFnZShzZyksCkBAIC04MjcsNyArODI4LDcgQEAgc3RhdGljIGludCBi
-bGtpZl9xdWV1ZV9yd19yZXEoc3RydWN0IHJlcXVlc3QgKnJlcSwgc3RydWN0IGJsa2Zyb250X3Jp
-bmdfaW5mbyAqcmkKIAkJCQkJICAgICAgJnNldHVwKTsKIAogCQlpZiAoc2V0dXAubmVlZF9jb3B5
-KQotCQkJa3VubWFwX2F0b21pYyhzZXR1cC5idmVjX2RhdGEpOworCQkJc2dfdW5tYXAoc2csIHNl
-dHVwLmJ2ZWNfZGF0YSwgMCwgU0dfS01BUF9BVE9NSUMpOwogCX0KIAlpZiAoc2V0dXAuc2VnbWVu
-dHMpCiAJCWt1bm1hcF9hdG9taWMoc2V0dXAuc2VnbWVudHMpOwpAQCAtMTA1Myw3ICsxMDU0LDcg
-QEAgc3RhdGljIGludCB4ZW5fdHJhbnNsYXRlX3ZkZXYoaW50IHZkZXZpY2UsIGludCAqbWlub3Is
-IHVuc2lnbmVkIGludCAqb2Zmc2V0KQogCQljYXNlIFhFTl9TQ1NJX0RJU0s1X01BSk9SOgogCQlj
-YXNlIFhFTl9TQ1NJX0RJU0s2X01BSk9SOgogCQljYXNlIFhFTl9TQ1NJX0RJU0s3X01BSk9SOgot
-CQkJKm9mZnNldCA9ICgqbWlub3IgLyBQQVJUU19QRVJfRElTSykgKyAKKwkJCSpvZmZzZXQgPSAo
-Km1pbm9yIC8gUEFSVFNfUEVSX0RJU0spICsKIAkJCQkoKG1ham9yIC0gWEVOX1NDU0lfRElTSzFf
-TUFKT1IgKyAxKSAqIDE2KSArCiAJCQkJRU1VTEFURURfU0RfRElTS19OQU1FX09GRlNFVDsKIAkJ
-CSptaW5vciA9ICptaW5vciArCkBAIC0xMDY4LDcgKzEwNjksNyBAQCBzdGF0aWMgaW50IHhlbl90
-cmFuc2xhdGVfdmRldihpbnQgdmRldmljZSwgaW50ICptaW5vciwgdW5zaWduZWQgaW50ICpvZmZz
-ZXQpCiAJCWNhc2UgWEVOX1NDU0lfRElTSzEzX01BSk9SOgogCQljYXNlIFhFTl9TQ1NJX0RJU0sx
-NF9NQUpPUjoKIAkJY2FzZSBYRU5fU0NTSV9ESVNLMTVfTUFKT1I6Ci0JCQkqb2Zmc2V0ID0gKCpt
-aW5vciAvIFBBUlRTX1BFUl9ESVNLKSArIAorCQkJKm9mZnNldCA9ICgqbWlub3IgLyBQQVJUU19Q
-RVJfRElTSykgKwogCQkJCSgobWFqb3IgLSBYRU5fU0NTSV9ESVNLOF9NQUpPUiArIDgpICogMTYp
-ICsKIAkJCQlFTVVMQVRFRF9TRF9ESVNLX05BTUVfT0ZGU0VUOwogCQkJKm1pbm9yID0gKm1pbm9y
-ICsKQEAgLTExMTksNyArMTEyMCw3IEBAIHN0YXRpYyBpbnQgeGx2YmRfYWxsb2NfZ2VuZGlzayhi
-bGtpZl9zZWN0b3JfdCBjYXBhY2l0eSwKIAlpZiAoIVZERVZfSVNfRVhURU5ERUQoaW5mby0+dmRl
-dmljZSkpIHsKIAkJZXJyID0geGVuX3RyYW5zbGF0ZV92ZGV2KGluZm8tPnZkZXZpY2UsICZtaW5v
-ciwgJm9mZnNldCk7CiAJCWlmIChlcnIpCi0JCQlyZXR1cm4gZXJyOwkJCisJCQlyZXR1cm4gZXJy
-OwogIAkJbnJfcGFydHMgPSBQQVJUU19QRVJfRElTSzsKIAl9IGVsc2UgewogCQltaW5vciA9IEJM
-S0lGX01JTk9SX0VYVChpbmZvLT52ZGV2aWNlKTsKQEAgLTE0ODMsOCArMTQ4NCw5IEBAIHN0YXRp
-YyBib29sIGJsa2lmX2NvbXBsZXRpb24odW5zaWduZWQgbG9uZyAqaWQsCiAJCWZvcl9lYWNoX3Nn
-KHMtPnNnLCBzZywgbnVtX3NnLCBpKSB7CiAJCQlCVUdfT04oc2ctPm9mZnNldCArIHNnLT5sZW5n
-dGggPiBQQUdFX1NJWkUpOwogCi0JCQlkYXRhLmJ2ZWNfb2Zmc2V0ID0gc2ctPm9mZnNldDsKLQkJ
-CWRhdGEuYnZlY19kYXRhID0ga21hcF9hdG9taWMoc2dfcGFnZShzZykpOworCQkJZGF0YS5idmVj
-X29mZnNldCA9IDA7CisJCQlkYXRhLmJ2ZWNfZGF0YSA9IHNnX21hcChzZywgMCwgU0dfS01BUF9B
-VE9NSUMgfAorCQkJCQkJU0dfTUFQX01VU1RfTk9UX0ZBSUwpOwogCiAJCQlnbnR0YWJfZm9yZWFj
-aF9ncmFudF9pbl9yYW5nZShzZ19wYWdlKHNnKSwKIAkJCQkJCSAgICAgIHNnLT5vZmZzZXQsCkBA
-IC0xNDkyLDcgKzE0OTQsNyBAQCBzdGF0aWMgYm9vbCBibGtpZl9jb21wbGV0aW9uKHVuc2lnbmVk
-IGxvbmcgKmlkLAogCQkJCQkJICAgICAgYmxraWZfY29weV9mcm9tX2dyYW50LAogCQkJCQkJICAg
-ICAgJmRhdGEpOwogCi0JCQlrdW5tYXBfYXRvbWljKGRhdGEuYnZlY19kYXRhKTsKKwkJCXNnX3Vu
-bWFwKHNnLCBkYXRhLmJ2ZWNfZGF0YSwgMCwgU0dfS01BUF9BVE9NSUMpOwogCQl9CiAJfQogCS8q
-IEFkZCB0aGUgcGVyc2lzdGVudCBncmFudCBpbnRvIHRoZSBsaXN0IG9mIGZyZWUgZ3JhbnRzICov
-Ci0tIAoyLjEuNAoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X18KSW50ZWwtZ2Z4IG1haWxpbmcgbGlzdApJbnRlbC1nZnhAbGlzdHMuZnJlZWRlc2t0b3Aub3Jn
-Cmh0dHBzOi8vbGlzdHMuZnJlZWRlc2t0b3Aub3JnL21haWxtYW4vbGlzdGluZm8vaW50ZWwtZ2Z4
-Cg==
+Straightforward conversion to sg_map helper. Seeing there is no
+cleare error path, SG_MAP_MUST_NOT_FAIL which may BUG_ON in certain
+cases in the future.
+
+Signed-off-by: Logan Gunthorpe <logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
+Cc: Wolfram Sang <wsa+renesas-jBu1N2QxHDJrcw3mvpCnnVaTQe2KTcn/@public.gmane.org>
+Cc: Ulf Hansson <ulf.hansson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+---
+ drivers/mmc/host/tmio_mmc.h     |  7 +++++--
+ drivers/mmc/host/tmio_mmc_pio.c | 12 ++++++++++++
+ 2 files changed, 17 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/mmc/host/tmio_mmc.h b/drivers/mmc/host/tmio_mmc.h
+index d0edb57..bc43eb0 100644
+--- a/drivers/mmc/host/tmio_mmc.h
++++ b/drivers/mmc/host/tmio_mmc.h
+@@ -202,17 +202,20 @@ void tmio_mmc_enable_mmc_irqs(struct tmio_mmc_host *host, u32 i);
+ void tmio_mmc_disable_mmc_irqs(struct tmio_mmc_host *host, u32 i);
+ irqreturn_t tmio_mmc_irq(int irq, void *devid);
+ 
++/* Note: this function may return PTR_ERR and must be checked! */
+ static inline char *tmio_mmc_kmap_atomic(struct scatterlist *sg,
+ 					 unsigned long *flags)
+ {
++	void *ret;
++
+ 	local_irq_save(*flags);
+-	return kmap_atomic(sg_page(sg)) + sg->offset;
++	return sg_map(sg, 0, SG_KMAP_ATOMIC | SG_MAP_MUST_NOT_FAIL);
+ }
+ 
+ static inline void tmio_mmc_kunmap_atomic(struct scatterlist *sg,
+ 					  unsigned long *flags, void *virt)
+ {
+-	kunmap_atomic(virt - sg->offset);
++	sg_unmap(sg, virt, 0, SG_KMAP_ATOMIC);
+ 	local_irq_restore(*flags);
+ }
+ 
+diff --git a/drivers/mmc/host/tmio_mmc_pio.c b/drivers/mmc/host/tmio_mmc_pio.c
+index a2d92f1..bbb4f19 100644
+--- a/drivers/mmc/host/tmio_mmc_pio.c
++++ b/drivers/mmc/host/tmio_mmc_pio.c
+@@ -506,6 +506,18 @@ static void tmio_mmc_check_bounce_buffer(struct tmio_mmc_host *host)
+ 	if (host->sg_ptr == &host->bounce_sg) {
+ 		unsigned long flags;
+ 		void *sg_vaddr = tmio_mmc_kmap_atomic(host->sg_orig, &flags);
++		if (IS_ERR(sg_vaddr)) {
++			/*
++			 * This should really never happen unless
++			 * the code is changed to use memory that is
++			 * not mappable in the sg. Seeing there doesn't
++			 * seem to be any error path out of here,
++			 * we can only WARN.
++			 */
++			WARN(1, "Non-mappable memory used in sg!");
++			return;
++		}
++
+ 		memcpy(sg_vaddr, host->bounce_buf, host->bounce_sg.length);
+ 		tmio_mmc_kunmap_atomic(host->sg_orig, &flags, sg_vaddr);
+ 	}
+-- 
+2.1.4
