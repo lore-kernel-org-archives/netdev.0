@@ -1,142 +1,77 @@
-From: Logan Gunthorpe <logang@deltatee.com>
-Subject: [PATCH v2 20/21] mmc: tifm_sd: Make use of the new
-	sg_map helper function
-Date: Tue, 25 Apr 2017 12:21:07 -0600
-Message-ID: <1493144468-22493-21-git-send-email-logang@deltatee.com>
+From: Logan Gunthorpe <logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
+Subject: [PATCH v2 10/21] RDS: Make use of the new sg_map helper function
+Date: Tue, 25 Apr 2017 12:20:57 -0600
+Message-ID: <1493144468-22493-11-git-send-email-logang@deltatee.com>
 References: <1493144468-22493-1-git-send-email-logang@deltatee.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Jens Axboe <axboe@kernel.dk>, Ulf Hansson <ulf.hansson@linaro.org>,
- "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>, Alex Dubov <oakad@yahoo.com>,
- "Martin K. Petersen" <martin.petersen@oracle.com>,
- Matthew Wilcox <mawilcox@microsoft.com>,
- Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
- Sumit Semwal <sumit.semwal@linaro.org>,
- Ross Zwisler <ross.zwisler@linux.intel.com>,
- Dan Williams <dan.j.williams@intel.com>, Stephen Bates <sbates@raithlin.com>,
- Logan Gunthorpe <logang@deltatee.com>, Christoph Hellwig <hch@lst.de>
-To: linux-kernel@vger.kernel.org, linux-crypto@vger.kernel.org,
- linux-media@vger.kernel.org, dri-devel@lists.freedesktop.org,
- intel-gfx@lists.freedesktop.org, linux-raid@vger.kernel.org,
- linux-mmc@vger.kernel.org, linux-nvdimm@lists.01.org,
- linux-scsi@vger.kernel.org, open-iscsi@googlegroups.com,
- megaraidlinux.pdl@broadcom.com, sparmaintainer@unisys.com,
- devel@driverdev.osuosl.org, target-devel@vger.kernel.org,
- netdev@vger.kernel.org, linux-rdma@vger.kernel.org, dm-devel@redhat.com
-Return-path: <intel-gfx-bounces@lists.freedesktop.org>
-In-Reply-To: <1493144468-22493-1-git-send-email-logang@deltatee.com>
-List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/intel-gfx>,
- <mailto:intel-gfx-request@lists.freedesktop.org?subject=unsubscribe>
-List-Archive: <https://lists.freedesktop.org/archives/intel-gfx>
-List-Post: <mailto:intel-gfx@lists.freedesktop.org>
-List-Help: <mailto:intel-gfx-request@lists.freedesktop.org?subject=help>
-List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/intel-gfx>,
- <mailto:intel-gfx-request@lists.freedesktop.org?subject=subscribe>
-Errors-To: intel-gfx-bounces@lists.freedesktop.org
-Sender: "Intel-gfx" <intel-gfx-bounces@lists.freedesktop.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Jens Axboe <axboe-tSWWG44O7X1aa/9Udqfwiw@public.gmane.org>,
+ "James E.J. Bottomley" <jejb-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
+ "Martin K. Petersen" <martin.petersen-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
+ Matthew Wilcox <mawilcox-0li6OtcxBFHby3iVrkZq2A@public.gmane.org>,
+ Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+ Santosh Shilimkar <santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
+ Sumit Semwal <sumit.semwal-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+ "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>
+To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-crypto-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org,
+ intel-gfx-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org, linux-raid-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-nvdimm-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org,
+ linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org,
+ megaraidlinux.pdl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, sparmaintainer-GLv8BlqOqDDQT0dZR+AlfA@public.gmane.org,
+ devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org, target-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dm-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+Return-path: <linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
+In-Reply-To: <1493144468-22493-1-git-send-email-logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
+List-Unsubscribe: <https://lists.01.org/mailman/options/linux-nvdimm>,
+ <mailto:linux-nvdimm-request-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.01.org/pipermail/linux-nvdimm/>
+List-Post: <mailto:linux-nvdimm-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
+List-Help: <mailto:linux-nvdimm-request-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.01.org/mailman/listinfo/linux-nvdimm>,
+ <mailto:linux-nvdimm-request-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org?subject=subscribe>
+Errors-To: linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org
+Sender: "Linux-nvdimm" <linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-VGhpcyBjb252ZXJzaW9uIGlzIGEgYml0IGNvbXBsaWNhdGVkLiBXZSBtb2RpeSB0aGUgcmVhZF9m
-aWZvLAp3cml0ZV9maWZvIGFuZCBjb3B5X3BhZ2UgZnVuY3Rpb25zIHRvIHRha2UgYSBzY2F0dGVy
-bGlzdCBpbnN0ZWFkIG9mIGEKcGFnZS4gVGh1cyB3ZSBjYW4gdXNlIHNnX21hcCBpbnN0ZWFkIG9m
-IGttYXBfYXRvbWljLiBUaGVyZSdzIGEgYml0IG9mCmFjY291bnRpbmcgdGhhdCBuZWVkZWQgdG8g
-YmUgZG9uZSBmb3IgdGhlIG9mZnNldCBmb3IgdGhpcyB0byB3b3JrLgooU2VlaW5nIHNnX21hcCB0
-YWtlcyBjYXJlIG9mIHRoZSBvZmZzZXQgYnV0IGl0J3MgYWxyZWFkeSBhZGRlZCBhbmQKdXNlZCBl
-YXJsaWVyIGluIHRoZSBjb2RlLikKClRoZXJlJ3MgYWxzbyBubyBlcnJvciBwYXRoLCBzbyB3ZSB1
-c2UgU0dfTUFQX01VU1RfTk9UX0ZBSUwgd2hpY2ggbWF5CkJVR19PTiBpbiBjZXJ0YWluIGNhc2Vz
-IGluIHRoZSBmdXR1cmUuCgpTaWduZWQtb2ZmLWJ5OiBMb2dhbiBHdW50aG9ycGUgPGxvZ2FuZ0Bk
-ZWx0YXRlZS5jb20+CkNjOiBBbGV4IER1Ym92IDxvYWthZEB5YWhvby5jb20+CkNjOiBVbGYgSGFu
-c3NvbiA8dWxmLmhhbnNzb25AbGluYXJvLm9yZz4KLS0tCiBkcml2ZXJzL21tYy9ob3N0L3RpZm1f
-c2QuYyB8IDUwICsrKysrKysrKysrKysrKysrKysrKysrKysrKy0tLS0tLS0tLS0tLS0tLS0tLS0K
-IDEgZmlsZSBjaGFuZ2VkLCAyOSBpbnNlcnRpb25zKCspLCAyMSBkZWxldGlvbnMoLSkKCmRpZmYg
-LS1naXQgYS9kcml2ZXJzL21tYy9ob3N0L3RpZm1fc2QuYyBiL2RyaXZlcnMvbW1jL2hvc3QvdGlm
-bV9zZC5jCmluZGV4IDkzYzRiNDAuLmU2NDM0NWEgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvbW1jL2hv
-c3QvdGlmbV9zZC5jCisrKyBiL2RyaXZlcnMvbW1jL2hvc3QvdGlmbV9zZC5jCkBAIC0xMTEsMTQg
-KzExMSwxNiBAQCBzdHJ1Y3QgdGlmbV9zZCB7CiB9OwogCiAvKiBmb3Igc29tZSByZWFzb24sIGhv
-c3Qgd29uJ3QgcmVzcG9uZCBjb3JyZWN0bHkgdG8gcmVhZHcvd3JpdGV3ICovCi1zdGF0aWMgdm9p
-ZCB0aWZtX3NkX3JlYWRfZmlmbyhzdHJ1Y3QgdGlmbV9zZCAqaG9zdCwgc3RydWN0IHBhZ2UgKnBn
-LAorc3RhdGljIHZvaWQgdGlmbV9zZF9yZWFkX2ZpZm8oc3RydWN0IHRpZm1fc2QgKmhvc3QsIHN0
-cnVjdCBzY2F0dGVybGlzdCAqc2csCiAJCQkgICAgICB1bnNpZ25lZCBpbnQgb2ZmLCB1bnNpZ25l
-ZCBpbnQgY250KQogewogCXN0cnVjdCB0aWZtX2RldiAqc29jayA9IGhvc3QtPmRldjsKIAl1bnNp
-Z25lZCBjaGFyICpidWY7CiAJdW5zaWduZWQgaW50IHBvcyA9IDAsIHZhbDsKIAotCWJ1ZiA9IGtt
-YXBfYXRvbWljKHBnKSArIG9mZjsKKwlidWYgPSBzZ19tYXAoc2csIG9mZiAtIHNnLT5vZmZzZXQs
-CisJCSAgICAgU0dfS01BUF9BVE9NSUMgfCBTR19NQVBfTVVTVF9OT1RfRkFJTCk7CisKIAlpZiAo
-aG9zdC0+Y21kX2ZsYWdzICYgREFUQV9DQVJSWSkgewogCQlidWZbcG9zKytdID0gaG9zdC0+Ym91
-bmNlX2J1Zl9kYXRhWzBdOwogCQlob3N0LT5jbWRfZmxhZ3MgJj0gfkRBVEFfQ0FSUlk7CkBAIC0x
-MzQsMTcgKzEzNiwxOSBAQCBzdGF0aWMgdm9pZCB0aWZtX3NkX3JlYWRfZmlmbyhzdHJ1Y3QgdGlm
-bV9zZCAqaG9zdCwgc3RydWN0IHBhZ2UgKnBnLAogCQl9CiAJCWJ1Zltwb3MrK10gPSAodmFsID4+
-IDgpICYgMHhmZjsKIAl9Ci0Ja3VubWFwX2F0b21pYyhidWYgLSBvZmYpOworCXNnX3VubWFwKHNn
-LCBidWYsIG9mZiAtIHNnLT5vZmZzZXQsIFNHX0tNQVBfQVRPTUlDKTsKIH0KIAotc3RhdGljIHZv
-aWQgdGlmbV9zZF93cml0ZV9maWZvKHN0cnVjdCB0aWZtX3NkICpob3N0LCBzdHJ1Y3QgcGFnZSAq
-cGcsCitzdGF0aWMgdm9pZCB0aWZtX3NkX3dyaXRlX2ZpZm8oc3RydWN0IHRpZm1fc2QgKmhvc3Qs
-IHN0cnVjdCBzY2F0dGVybGlzdCAqc2csCiAJCQkgICAgICAgdW5zaWduZWQgaW50IG9mZiwgdW5z
-aWduZWQgaW50IGNudCkKIHsKIAlzdHJ1Y3QgdGlmbV9kZXYgKnNvY2sgPSBob3N0LT5kZXY7CiAJ
-dW5zaWduZWQgY2hhciAqYnVmOwogCXVuc2lnbmVkIGludCBwb3MgPSAwLCB2YWw7CiAKLQlidWYg
-PSBrbWFwX2F0b21pYyhwZykgKyBvZmY7CisJYnVmID0gc2dfbWFwKHNnLCBvZmYgLSBzZy0+b2Zm
-c2V0LAorCQkgICAgIFNHX0tNQVBfQVRPTUlDIHwgU0dfTUFQX01VU1RfTk9UX0ZBSUwpOworCiAJ
-aWYgKGhvc3QtPmNtZF9mbGFncyAmIERBVEFfQ0FSUlkpIHsKIAkJdmFsID0gaG9zdC0+Ym91bmNl
-X2J1Zl9kYXRhWzBdIHwgKChidWZbcG9zKytdIDw8IDgpICYgMHhmZjAwKTsKIAkJd3JpdGVsKHZh
-bCwgc29jay0+YWRkciArIFNPQ0tfTU1DU0RfREFUQSk7CkBAIC0xNjEsNyArMTY1LDcgQEAgc3Rh
-dGljIHZvaWQgdGlmbV9zZF93cml0ZV9maWZvKHN0cnVjdCB0aWZtX3NkICpob3N0LCBzdHJ1Y3Qg
-cGFnZSAqcGcsCiAJCXZhbCB8PSAoYnVmW3BvcysrXSA8PCA4KSAmIDB4ZmYwMDsKIAkJd3JpdGVs
-KHZhbCwgc29jay0+YWRkciArIFNPQ0tfTU1DU0RfREFUQSk7CiAJfQotCWt1bm1hcF9hdG9taWMo
-YnVmIC0gb2ZmKTsKKwlzZ191bm1hcChzZywgYnVmLCBvZmYgLSBzZy0+b2Zmc2V0LCBTR19LTUFQ
-X0FUT01JQyk7CiB9CiAKIHN0YXRpYyB2b2lkIHRpZm1fc2RfdHJhbnNmZXJfZGF0YShzdHJ1Y3Qg
-dGlmbV9zZCAqaG9zdCkKQEAgLTE3MCw3ICsxNzQsNiBAQCBzdGF0aWMgdm9pZCB0aWZtX3NkX3Ry
-YW5zZmVyX2RhdGEoc3RydWN0IHRpZm1fc2QgKmhvc3QpCiAJc3RydWN0IHNjYXR0ZXJsaXN0ICpz
-ZyA9IHJfZGF0YS0+c2c7CiAJdW5zaWduZWQgaW50IG9mZiwgY250LCB0X3NpemUgPSBUSUZNX01N
-Q1NEX0ZJRk9fU0laRSAqIDI7CiAJdW5zaWduZWQgaW50IHBfb2ZmLCBwX2NudDsKLQlzdHJ1Y3Qg
-cGFnZSAqcGc7CiAKIAlpZiAoaG9zdC0+c2dfcG9zID09IGhvc3QtPnNnX2xlbikKIAkJcmV0dXJu
-OwpAQCAtMTkyLDMzICsxOTUsMzkgQEAgc3RhdGljIHZvaWQgdGlmbV9zZF90cmFuc2Zlcl9kYXRh
-KHN0cnVjdCB0aWZtX3NkICpob3N0KQogCQl9CiAJCW9mZiA9IHNnW2hvc3QtPnNnX3Bvc10ub2Zm
-c2V0ICsgaG9zdC0+YmxvY2tfcG9zOwogCi0JCXBnID0gbnRoX3BhZ2Uoc2dfcGFnZSgmc2dbaG9z
-dC0+c2dfcG9zXSksIG9mZiA+PiBQQUdFX1NISUZUKTsKIAkJcF9vZmYgPSBvZmZzZXRfaW5fcGFn
-ZShvZmYpOwogCQlwX2NudCA9IFBBR0VfU0laRSAtIHBfb2ZmOwogCQlwX2NudCA9IG1pbihwX2Nu
-dCwgY250KTsKIAkJcF9jbnQgPSBtaW4ocF9jbnQsIHRfc2l6ZSk7CiAKIAkJaWYgKHJfZGF0YS0+
-ZmxhZ3MgJiBNTUNfREFUQV9SRUFEKQotCQkJdGlmbV9zZF9yZWFkX2ZpZm8oaG9zdCwgcGcsIHBf
-b2ZmLCBwX2NudCk7CisJCQl0aWZtX3NkX3JlYWRfZmlmbyhob3N0LCAmc2dbaG9zdC0+c2dfcG9z
-XSwgcF9vZmYsCisJCQkJCSAgcF9jbnQpOwogCQllbHNlIGlmIChyX2RhdGEtPmZsYWdzICYgTU1D
-X0RBVEFfV1JJVEUpCi0JCQl0aWZtX3NkX3dyaXRlX2ZpZm8oaG9zdCwgcGcsIHBfb2ZmLCBwX2Nu
-dCk7CisJCQl0aWZtX3NkX3dyaXRlX2ZpZm8oaG9zdCwgJnNnW2hvc3QtPnNnX3Bvc10sIHBfb2Zm
-LAorCQkJCQkgICBwX2NudCk7CiAKIAkJdF9zaXplIC09IHBfY250OwogCQlob3N0LT5ibG9ja19w
-b3MgKz0gcF9jbnQ7CiAJfQogfQogCi1zdGF0aWMgdm9pZCB0aWZtX3NkX2NvcHlfcGFnZShzdHJ1
-Y3QgcGFnZSAqZHN0LCB1bnNpZ25lZCBpbnQgZHN0X29mZiwKLQkJCSAgICAgIHN0cnVjdCBwYWdl
-ICpzcmMsIHVuc2lnbmVkIGludCBzcmNfb2ZmLAorc3RhdGljIHZvaWQgdGlmbV9zZF9jb3B5X3Bh
-Z2Uoc3RydWN0IHNjYXR0ZXJsaXN0ICpkc3QsIHVuc2lnbmVkIGludCBkc3Rfb2ZmLAorCQkJICAg
-ICAgc3RydWN0IHNjYXR0ZXJsaXN0ICpzcmMsIHVuc2lnbmVkIGludCBzcmNfb2ZmLAogCQkJICAg
-ICAgdW5zaWduZWQgaW50IGNvdW50KQogewotCXVuc2lnbmVkIGNoYXIgKnNyY19idWYgPSBrbWFw
-X2F0b21pYyhzcmMpICsgc3JjX29mZjsKLQl1bnNpZ25lZCBjaGFyICpkc3RfYnVmID0ga21hcF9h
-dG9taWMoZHN0KSArIGRzdF9vZmY7CisJdW5zaWduZWQgY2hhciAqc3JjX2J1ZiwgKmRzdF9idWY7
-CisKKwlzcmNfb2ZmIC09IHNyYy0+b2Zmc2V0OworCWRzdF9vZmYgLT0gZHN0LT5vZmZzZXQ7CisK
-KwlzcmNfYnVmID0gc2dfbWFwKHNyYywgc3JjX29mZiwgU0dfS01BUF9BVE9NSUMgfCBTR19NQVBf
-TVVTVF9OT1RfRkFJTCk7CisJZHN0X2J1ZiA9IHNnX21hcChkc3QsIGRzdF9vZmYsIFNHX0tNQVBf
-QVRPTUlDIHwgU0dfTUFQX01VU1RfTk9UX0ZBSUwpOwogCiAJbWVtY3B5KGRzdF9idWYsIHNyY19i
-dWYsIGNvdW50KTsKIAotCWt1bm1hcF9hdG9taWMoZHN0X2J1ZiAtIGRzdF9vZmYpOwotCWt1bm1h
-cF9hdG9taWMoc3JjX2J1ZiAtIHNyY19vZmYpOworCXNnX3VubWFwKGRzdCwgZHN0X2J1ZiwgZHN0
-X29mZiwgU0dfS01BUF9BVE9NSUMpOworCXNnX3VubWFwKHNyYywgc3JjX2J1Ziwgc3JjX29mZiwg
-U0dfS01BUF9BVE9NSUMpOwogfQogCiBzdGF0aWMgdm9pZCB0aWZtX3NkX2JvdW5jZV9ibG9jayhz
-dHJ1Y3QgdGlmbV9zZCAqaG9zdCwgc3RydWN0IG1tY19kYXRhICpyX2RhdGEpCkBAIC0yMjcsNyAr
-MjM2LDYgQEAgc3RhdGljIHZvaWQgdGlmbV9zZF9ib3VuY2VfYmxvY2soc3RydWN0IHRpZm1fc2Qg
-Kmhvc3QsIHN0cnVjdCBtbWNfZGF0YSAqcl9kYXRhKQogCXVuc2lnbmVkIGludCB0X3NpemUgPSBy
-X2RhdGEtPmJsa3N6OwogCXVuc2lnbmVkIGludCBvZmYsIGNudDsKIAl1bnNpZ25lZCBpbnQgcF9v
-ZmYsIHBfY250OwotCXN0cnVjdCBwYWdlICpwZzsKIAogCWRldl9kYmcoJmhvc3QtPmRldi0+ZGV2
-LCAiYm91bmNpbmcgYmxvY2tcbiIpOwogCXdoaWxlICh0X3NpemUpIHsKQEAgLTI0MSwxOCArMjQ5
-LDE4IEBAIHN0YXRpYyB2b2lkIHRpZm1fc2RfYm91bmNlX2Jsb2NrKHN0cnVjdCB0aWZtX3NkICpo
-b3N0LCBzdHJ1Y3QgbW1jX2RhdGEgKnJfZGF0YSkKIAkJfQogCQlvZmYgPSBzZ1tob3N0LT5zZ19w
-b3NdLm9mZnNldCArIGhvc3QtPmJsb2NrX3BvczsKIAotCQlwZyA9IG50aF9wYWdlKHNnX3BhZ2Uo
-JnNnW2hvc3QtPnNnX3Bvc10pLCBvZmYgPj4gUEFHRV9TSElGVCk7CiAJCXBfb2ZmID0gb2Zmc2V0
-X2luX3BhZ2Uob2ZmKTsKIAkJcF9jbnQgPSBQQUdFX1NJWkUgLSBwX29mZjsKIAkJcF9jbnQgPSBt
-aW4ocF9jbnQsIGNudCk7CiAJCXBfY250ID0gbWluKHBfY250LCB0X3NpemUpOwogCiAJCWlmIChy
-X2RhdGEtPmZsYWdzICYgTU1DX0RBVEFfV1JJVEUpCi0JCQl0aWZtX3NkX2NvcHlfcGFnZShzZ19w
-YWdlKCZob3N0LT5ib3VuY2VfYnVmKSwKKwkJCXRpZm1fc2RfY29weV9wYWdlKCZob3N0LT5ib3Vu
-Y2VfYnVmLAogCQkJCQkgIHJfZGF0YS0+Ymxrc3ogLSB0X3NpemUsCi0JCQkJCSAgcGcsIHBfb2Zm
-LCBwX2NudCk7CisJCQkJCSAgJnNnW2hvc3QtPnNnX3Bvc10sIHBfb2ZmLCBwX2NudCk7CiAJCWVs
-c2UgaWYgKHJfZGF0YS0+ZmxhZ3MgJiBNTUNfREFUQV9SRUFEKQotCQkJdGlmbV9zZF9jb3B5X3Bh
-Z2UocGcsIHBfb2ZmLCBzZ19wYWdlKCZob3N0LT5ib3VuY2VfYnVmKSwKKwkJCXRpZm1fc2RfY29w
-eV9wYWdlKCZzZ1tob3N0LT5zZ19wb3NdLCBwX29mZiwKKwkJCQkJICAmaG9zdC0+Ym91bmNlX2J1
-ZiwKIAkJCQkJICByX2RhdGEtPmJsa3N6IC0gdF9zaXplLCBwX2NudCk7CiAKIAkJdF9zaXplIC09
-IHBfY250OwotLSAKMi4xLjQKCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fCkludGVsLWdmeCBtYWlsaW5nIGxpc3QKSW50ZWwtZ2Z4QGxpc3RzLmZyZWVkZXNr
-dG9wLm9yZwpodHRwczovL2xpc3RzLmZyZWVkZXNrdG9wLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2lu
-dGVsLWdmeAo=
+Straightforward conversion except there's no error path, so we
+make use of SG_MAP_MUST_NOT_FAIL which may BUG_ON in certain cases
+in the future.
+
+Signed-off-by: Logan Gunthorpe <logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
+Cc: Santosh Shilimkar <santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+---
+ net/rds/ib_recv.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/net/rds/ib_recv.c b/net/rds/ib_recv.c
+index e10624a..c665689 100644
+--- a/net/rds/ib_recv.c
++++ b/net/rds/ib_recv.c
+@@ -800,10 +800,10 @@ static void rds_ib_cong_recv(struct rds_connection *conn,
+ 
+ 		to_copy = min(RDS_FRAG_SIZE - frag_off, PAGE_SIZE - map_off);
+ 		BUG_ON(to_copy & 7); /* Must be 64bit aligned. */
++		addr = sg_map(&frag->f_sg, 0,
++			      SG_KMAP_ATOMIC | SG_MAP_MUST_NOT_FAIL);
+ 
+-		addr = kmap_atomic(sg_page(&frag->f_sg));
+-
+-		src = addr + frag->f_sg.offset + frag_off;
++		src = addr + frag_off;
+ 		dst = (void *)map->m_page_addrs[map_page] + map_off;
+ 		for (k = 0; k < to_copy; k += 8) {
+ 			/* Record ports that became uncongested, ie
+@@ -811,7 +811,7 @@ static void rds_ib_cong_recv(struct rds_connection *conn,
+ 			uncongested |= ~(*src) & *dst;
+ 			*dst++ = *src++;
+ 		}
+-		kunmap_atomic(addr);
++		sg_unmap(&frag->f_sg, addr, 0, SG_KMAP_ATOMIC);
+ 
+ 		copied += to_copy;
+ 
+-- 
+2.1.4
