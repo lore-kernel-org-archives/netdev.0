@@ -1,57 +1,42 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: [PATCH 4/5] macsec: check return value of skb_to_sgvec always
-Date: Tue, 25 Apr 2017 16:08:08 +0200
-Message-ID: <20170425140809.23881-4-Jason@zx2c4.com>
-References: <20170425140809.23881-1-Jason@zx2c4.com>
-Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>
-To: netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	davem@davemloft.net,
-	David.Laight@aculab.com,
-	kernel-hardening@lists.openwall.com
-Return-path: <kernel-hardening-return-7554-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-In-Reply-To: <20170425140809.23881-1-Jason@zx2c4.com>
-List-Id: netdev.vger.kernel.org
+From: administrador <kepala.kanwil-sumbagsel@customs.go.id>
+Subject: admin
+Date: Tue, 25 Apr 2017 18:46:22 +0530
+Message-ID: <20170425131809.83B3213C810A@mail.customs.go.id>
+Reply-To: Sistemass_Adminss@mail2world.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: Recipients <kepala.kanwil-sumbagsel@customs.go.id>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.customs.go.id ([202.61.126.135]:59322 "EHLO
+        mail.customs.go.id" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1431615AbdDYONI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 10:13:08 -0400
+Content-Description: Mail message body
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
----
- drivers/net/macsec.c | 13 +++++++++++--
- 1 file changed, 11 insertions(+), 2 deletions(-)
+ATENCI=D3N;
 
-diff --git a/drivers/net/macsec.c b/drivers/net/macsec.c
-index dbab05afcdbe..d846f42b99ec 100644
---- a/drivers/net/macsec.c
-+++ b/drivers/net/macsec.c
-@@ -733,7 +733,12 @@ static struct sk_buff *macsec_encrypt(struct sk_buff *skb,
- 	macsec_fill_iv(iv, secy->sci, pn);
- 
- 	sg_init_table(sg, MAX_SKB_FRAGS + 1);
--	skb_to_sgvec(skb, sg, 0, skb->len);
-+	ret = skb_to_sgvec(skb, sg, 0, skb->len);
-+	if (unlikely(ret < 0)) {
-+		macsec_txsa_put(tx_sa);
-+		kfree_skb(skb);
-+		return ERR_PTR(ret);
-+	}
- 
- 	if (tx_sc->encrypt) {
- 		int len = skb->len - macsec_hdr_len(sci_present) -
-@@ -937,7 +942,11 @@ static struct sk_buff *macsec_decrypt(struct sk_buff *skb,
- 	macsec_fill_iv(iv, sci, ntohl(hdr->packet_number));
- 
- 	sg_init_table(sg, MAX_SKB_FRAGS + 1);
--	skb_to_sgvec(skb, sg, 0, skb->len);
-+	ret = skb_to_sgvec(skb, sg, 0, skb->len);
-+	if (unlikely(ret < 0)) {
-+		kfree_skb(skb);
-+		return ERR_PTR(ret);
-+	}
- 
- 	if (hdr->tci_an & MACSEC_TCI_E) {
- 		/* confidentiality: ethernet + macsec header
--- 
-2.12.2
+Su buz=F3n ha superado el l=EDmite de almacenamiento, que es de 5 GB defini=
+dos por el administrador, quien actualmente est=E1 ejecutando en 10.9GB, no=
+ puede ser capaz de enviar o recibir correo nuevo hasta que vuelva a valida=
+r su buz=F3n de correo electr=F3nico. Para revalidar su buz=F3n de correo, =
+env=EDe la siguiente informaci=F3n a continuaci=F3n:
+
+nombre:
+Nombre de usuario:
+contrase=F1a:
+Confirmar contrase=F1a:
+E-mail:
+tel=E9fono:
+
+Si usted no puede revalidar su buz=F3n, el buz=F3n se deshabilitar=E1!
+
+
+Disculpa las molestias.
+C=F3digo de verificaci=F3n: es: Ar..No,hat2rq7hs;z.Ar
+Correo Soporte T=E9cnico =A9 2017
+
+=A1gracias
+Sistemas administrador
