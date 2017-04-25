@@ -1,99 +1,144 @@
-From: Logan Gunthorpe <logang@deltatee.com>
-Subject: [PATCH v2 06/21] crypto: hifn_795x: Make use of the new
-	sg_map helper function
-Date: Tue, 25 Apr 2017 12:20:53 -0600
-Message-ID: <1493144468-22493-7-git-send-email-logang@deltatee.com>
+From: Logan Gunthorpe <logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
+Subject: [PATCH v2 13/21] scsi: arcmsr, ips,
+ megaraid: Make use of the new sg_map helper function
+Date: Tue, 25 Apr 2017 12:21:00 -0600
+Message-ID: <1493144468-22493-14-git-send-email-logang@deltatee.com>
 References: <1493144468-22493-1-git-send-email-logang@deltatee.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Jens Axboe <axboe@kernel.dk>,
- "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
- Herbert Xu <herbert@gondor.apana.org.au>,
- "Martin K. Petersen" <martin.petersen@oracle.com>,
- Matthew Wilcox <mawilcox@microsoft.com>,
- Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
- Sumit Semwal <sumit.semwal@linaro.org>,
- "David S. Miller" <davem@davemloft.net>,
- Ross Zwisler <ross.zwisler@linux.intel.com>,
- Dan Williams <dan.j.williams@intel.com>, Stephen Bates <sbates@raithlin.com>,
- Logan Gunthorpe <logang@deltatee.com>, Christoph Hellwig <hch@lst.de>
-To: linux-kernel@vger.kernel.org, linux-crypto@vger.kernel.org,
- linux-media@vger.kernel.org, dri-devel@lists.freedesktop.org,
- intel-gfx@lists.freedesktop.org, linux-raid@vger.kernel.org,
- linux-mmc@vger.kernel.org, linux-nvdimm@lists.01.org,
- linux-scsi@vger.kernel.org, open-iscsi@googlegroups.com,
- megaraidlinux.pdl@broadcom.com, sparmaintainer@unisys.com,
- devel@driverdev.osuosl.org, target-devel@vger.kernel.org,
- netdev@vger.kernel.org, linux-rdma@vger.kernel.org, dm-devel@redhat.com
-Return-path: <intel-gfx-bounces@lists.freedesktop.org>
-In-Reply-To: <1493144468-22493-1-git-send-email-logang@deltatee.com>
-List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/intel-gfx>,
- <mailto:intel-gfx-request@lists.freedesktop.org?subject=unsubscribe>
-List-Archive: <https://lists.freedesktop.org/archives/intel-gfx>
-List-Post: <mailto:intel-gfx@lists.freedesktop.org>
-List-Help: <mailto:intel-gfx-request@lists.freedesktop.org?subject=help>
-List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/intel-gfx>,
- <mailto:intel-gfx-request@lists.freedesktop.org?subject=subscribe>
-Errors-To: intel-gfx-bounces@lists.freedesktop.org
-Sender: "Intel-gfx" <intel-gfx-bounces@lists.freedesktop.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Jens Axboe <axboe-tSWWG44O7X1aa/9Udqfwiw@public.gmane.org>,
+ "James E.J. Bottomley" <jejb-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
+ "Martin K. Petersen" <martin.petersen-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
+ Matthew Wilcox <mawilcox-0li6OtcxBFHby3iVrkZq2A@public.gmane.org>,
+ Shivasharan S <shivasharan.srikanteshwara-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+ Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+ Sumit Semwal <sumit.semwal-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+ Sumit Saxena <sumit.saxena-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+ Adaptec OEM Raid Solutions <aacraid-ugMvIWC9OiRBDgjK7y7TUQ@public.gmane.org>,
+ Kashyap Desai <kashyap.desai-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>, Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>
+To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-crypto-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org,
+ intel-gfx-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org, linux-raid-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-nvdimm-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org,
+ linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org,
+ megaraidlinux.pdl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, sparmaintainer-GLv8BlqOqDDQT0dZR+AlfA@public.gmane.org,
+ devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org, target-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dm-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+Return-path: <linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
+In-Reply-To: <1493144468-22493-1-git-send-email-logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
+List-Unsubscribe: <https://lists.01.org/mailman/options/linux-nvdimm>,
+ <mailto:linux-nvdimm-request-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.01.org/pipermail/linux-nvdimm/>
+List-Post: <mailto:linux-nvdimm-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
+List-Help: <mailto:linux-nvdimm-request-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.01.org/mailman/listinfo/linux-nvdimm>,
+ <mailto:linux-nvdimm-request-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org?subject=subscribe>
+Errors-To: linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org
+Sender: "Linux-nvdimm" <linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-Q29udmVyc2lvbiBvZiBhIGNvdXBsZSBrbWFwX2F0b21pYyBpbnN0YW5jZXMgdG8gdGhlIHNnX21h
-cCBoZWxwZXIKZnVuY3Rpb24uCgpIb3dldmVyLCBpdCBsb29rcyBsaWtlIHRoZXJlIHdhcyBhIGJ1
-ZyBpbiB0aGUgb3JpZ2luYWwgY29kZTogdGhlIHNvdXJjZQpzY2F0dGVyIGxpc3RzIG9mZnNldCAo
-dC0+b2Zmc2V0KSB3YXMgcGFzc2VkIHRvIGFibGtjaXBoZXJfZ2V0IHdoaWNoCmFkZGVkIGl0IHRv
-IHRoZSBkZXN0aW5hdGlvbiBhZGRyZXNzLiBUaGlzIGRvZXNuJ3QgbWFrZSBhIGxvdCBvZgpzZW5z
-ZSwgYnV0IHQtPm9mZnNldCBpcyBsaWtlbHkgYWx3YXlzIHplcm8gYW55d2F5LiBTbywgdGhpcyBw
-YXRjaCBjbGVhbnMKdGhhdCBicm9rZW5lc3MgdXAuCgpBbHNvLCBhIGNoYW5nZSB0byB0aGUgZXJy
-b3IgcGF0aDogaWYgYWJsa2NpcGhlcl9nZXQgZmFpbGVkLCBldmVyeXRoaW5nCnNlZW1lZCB0byBw
-cm9jZWVkIGFzIGlmIGl0IGhhZG4ndC4gU2V0dGluZyAnZXJyb3InIHNob3VsZCBob3BlZnVsbHkK
-Y2xlYXIgdGhhdCB1cC4KClNpZ25lZC1vZmYtYnk6IExvZ2FuIEd1bnRob3JwZSA8bG9nYW5nQGRl
-bHRhdGVlLmNvbT4KQ2M6IEhlcmJlcnQgWHUgPGhlcmJlcnRAZ29uZG9yLmFwYW5hLm9yZy5hdT4K
-Q2M6ICJEYXZpZCBTLiBNaWxsZXIiIDxkYXZlbUBkYXZlbWxvZnQubmV0PgotLS0KIGRyaXZlcnMv
-Y3J5cHRvL2hpZm5fNzk1eC5jIHwgMzIgKysrKysrKysrKysrKysrKysrKysrLS0tLS0tLS0tLS0K
-IDEgZmlsZSBjaGFuZ2VkLCAyMSBpbnNlcnRpb25zKCspLCAxMSBkZWxldGlvbnMoLSkKCmRpZmYg
-LS1naXQgYS9kcml2ZXJzL2NyeXB0by9oaWZuXzc5NXguYyBiL2RyaXZlcnMvY3J5cHRvL2hpZm5f
-Nzk1eC5jCmluZGV4IGUwOWQ0MDUuLjM0YjE4NzAgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvY3J5cHRv
-L2hpZm5fNzk1eC5jCisrKyBiL2RyaXZlcnMvY3J5cHRvL2hpZm5fNzk1eC5jCkBAIC0xNjE5LDcg
-KzE2MTksNyBAQCBzdGF0aWMgaW50IGhpZm5fc3RhcnRfZGV2aWNlKHN0cnVjdCBoaWZuX2Rldmlj
-ZSAqZGV2KQogCXJldHVybiAwOwogfQogCi1zdGF0aWMgaW50IGFibGtjaXBoZXJfZ2V0KHZvaWQg
-KnNhZGRyLCB1bnNpZ25lZCBpbnQgKnNyZXN0cCwgdW5zaWduZWQgaW50IG9mZnNldCwKK3N0YXRp
-YyBpbnQgYWJsa2NpcGhlcl9nZXQodm9pZCAqc2FkZHIsIHVuc2lnbmVkIGludCAqc3Jlc3RwLAog
-CQlzdHJ1Y3Qgc2NhdHRlcmxpc3QgKmRzdCwgdW5zaWduZWQgaW50IHNpemUsIHVuc2lnbmVkIGlu
-dCAqbmJ5dGVzcCkKIHsKIAl1bnNpZ25lZCBpbnQgc3Jlc3QgPSAqc3Jlc3RwLCBuYnl0ZXMgPSAq
-bmJ5dGVzcCwgY29weTsKQEAgLTE2MzIsMTUgKzE2MzIsMTcgQEAgc3RhdGljIGludCBhYmxrY2lw
-aGVyX2dldCh2b2lkICpzYWRkciwgdW5zaWduZWQgaW50ICpzcmVzdHAsIHVuc2lnbmVkIGludCBv
-ZmZzZXQKIAl3aGlsZSAoc2l6ZSkgewogCQljb3B5ID0gbWluMyhzcmVzdCwgZHN0LT5sZW5ndGgs
-IHNpemUpOwogCi0JCWRhZGRyID0ga21hcF9hdG9taWMoc2dfcGFnZShkc3QpKTsKLQkJbWVtY3B5
-KGRhZGRyICsgZHN0LT5vZmZzZXQgKyBvZmZzZXQsIHNhZGRyLCBjb3B5KTsKLQkJa3VubWFwX2F0
-b21pYyhkYWRkcik7CisJCWRhZGRyID0gc2dfbWFwKGRzdCwgMCwgU0dfS01BUF9BVE9NSUMpOwor
-CQlpZiAoSVNfRVJSKGRhZGRyKSkKKwkJCXJldHVybiBQVFJfRVJSKGRhZGRyKTsKKworCQltZW1j
-cHkoZGFkZHIsIHNhZGRyLCBjb3B5KTsKKwkJc2dfdW5tYXAoZHN0LCBkYWRkciwgMCwgU0dfS01B
-UF9BVE9NSUMpOwogCiAJCW5ieXRlcyAtPSBjb3B5OwogCQlzaXplIC09IGNvcHk7CiAJCXNyZXN0
-IC09IGNvcHk7CiAJCXNhZGRyICs9IGNvcHk7Ci0JCW9mZnNldCA9IDA7CiAKIAkJcHJfZGVidWco
-IiVzOiBjb3B5OiAldSwgc2l6ZTogJXUsIHNyZXN0OiAldSwgbmJ5dGVzOiAldS5cbiIsCiAJCQkg
-X19mdW5jX18sIGNvcHksIHNpemUsIHNyZXN0LCBuYnl0ZXMpOwpAQCAtMTY3MSwxMSArMTY3Mywx
-MiBAQCBzdGF0aWMgaW5saW5lIHZvaWQgaGlmbl9jb21wbGV0ZV9zYShzdHJ1Y3QgaGlmbl9kZXZp
-Y2UgKmRldiwgaW50IGkpCiAKIHN0YXRpYyB2b2lkIGhpZm5fcHJvY2Vzc19yZWFkeShzdHJ1Y3Qg
-YWJsa2NpcGhlcl9yZXF1ZXN0ICpyZXEsIGludCBlcnJvcikKIHsKKwlpbnQgZXJyOwogCXN0cnVj
-dCBoaWZuX3JlcXVlc3RfY29udGV4dCAqcmN0eCA9IGFibGtjaXBoZXJfcmVxdWVzdF9jdHgocmVx
-KTsKIAogCWlmIChyY3R4LT53YWxrLmZsYWdzICYgQVNZTkNfRkxBR1NfTUlTQUxJR05FRCkgewog
-CQl1bnNpZ25lZCBpbnQgbmJ5dGVzID0gcmVxLT5uYnl0ZXM7Ci0JCWludCBpZHggPSAwLCBlcnI7
-CisJCWludCBpZHggPSAwOwogCQlzdHJ1Y3Qgc2NhdHRlcmxpc3QgKmRzdCwgKnQ7CiAJCXZvaWQg
-KnNhZGRyOwogCkBAIC0xNjk1LDE3ICsxNjk4LDI0IEBAIHN0YXRpYyB2b2lkIGhpZm5fcHJvY2Vz
-c19yZWFkeShzdHJ1Y3QgYWJsa2NpcGhlcl9yZXF1ZXN0ICpyZXEsIGludCBlcnJvcikKIAkJCQlj
-b250aW51ZTsKIAkJCX0KIAotCQkJc2FkZHIgPSBrbWFwX2F0b21pYyhzZ19wYWdlKHQpKTsKKwkJ
-CXNhZGRyID0gc2dfbWFwKHQsIDAsIFNHX0tNQVBfQVRPTUlDKTsKKwkJCWlmIChJU19FUlIoc2Fk
-ZHIpKSB7CisJCQkJaWYgKCFlcnJvcikKKwkJCQkJZXJyb3IgPSBQVFJfRVJSKHNhZGRyKTsKKwkJ
-CQlicmVhazsKKwkJCX0KKworCQkJZXJyID0gYWJsa2NpcGhlcl9nZXQoc2FkZHIsICZ0LT5sZW5n
-dGgsCisJCQkJCSAgICAgZHN0LCBuYnl0ZXMsICZuYnl0ZXMpOworCQkJc2dfdW5tYXAodCwgc2Fk
-ZHIsIDAsIFNHX0tNQVBfQVRPTUlDKTsKIAotCQkJZXJyID0gYWJsa2NpcGhlcl9nZXQoc2FkZHIs
-ICZ0LT5sZW5ndGgsIHQtPm9mZnNldCwKLQkJCQkJZHN0LCBuYnl0ZXMsICZuYnl0ZXMpOwogCQkJ
-aWYgKGVyciA8IDApIHsKLQkJCQlrdW5tYXBfYXRvbWljKHNhZGRyKTsKKwkJCQlpZiAoIWVycm9y
-KQorCQkJCQllcnJvciA9IGVycjsKIAkJCQlicmVhazsKIAkJCX0KIAogCQkJaWR4ICs9IGVycjsK
-LQkJCWt1bm1hcF9hdG9taWMoc2FkZHIpOwogCQl9CiAKIAkJaGlmbl9jaXBoZXJfd2Fsa19leGl0
-KCZyY3R4LT53YWxrKTsKLS0gCjIuMS40CgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fXwpJbnRlbC1nZnggbWFpbGluZyBsaXN0CkludGVsLWdmeEBsaXN0cy5m
-cmVlZGVza3RvcC5vcmcKaHR0cHM6Ly9saXN0cy5mcmVlZGVza3RvcC5vcmcvbWFpbG1hbi9saXN0
-aW5mby9pbnRlbC1nZngK
+Very straightforward conversion of three scsi drivers
+
+Signed-off-by: Logan Gunthorpe <logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
+Cc: Adaptec OEM Raid Solutions <aacraid-ugMvIWC9OiRBDgjK7y7TUQ@public.gmane.org>
+Cc: Kashyap Desai <kashyap.desai-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Cc: Sumit Saxena <sumit.saxena-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Cc: Shivasharan S <shivasharan.srikanteshwara-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+---
+ drivers/scsi/arcmsr/arcmsr_hba.c | 16 ++++++++++++----
+ drivers/scsi/ips.c               |  8 ++++----
+ drivers/scsi/megaraid.c          |  9 +++++++--
+ 3 files changed, 23 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/scsi/arcmsr/arcmsr_hba.c b/drivers/scsi/arcmsr/arcmsr_hba.c
+index af032c4..8c2de17 100644
+--- a/drivers/scsi/arcmsr/arcmsr_hba.c
++++ b/drivers/scsi/arcmsr/arcmsr_hba.c
+@@ -2306,7 +2306,10 @@ static int arcmsr_iop_message_xfer(struct AdapterControlBlock *acb,
+ 
+ 	use_sg = scsi_sg_count(cmd);
+ 	sg = scsi_sglist(cmd);
+-	buffer = kmap_atomic(sg_page(sg)) + sg->offset;
++	buffer = sg_map(sg, 0, SG_KMAP_ATOMIC);
++	if (IS_ERR(buffer))
++		return ARCMSR_MESSAGE_FAIL;
++
+ 	if (use_sg > 1) {
+ 		retvalue = ARCMSR_MESSAGE_FAIL;
+ 		goto message_out;
+@@ -2539,7 +2542,7 @@ static int arcmsr_iop_message_xfer(struct AdapterControlBlock *acb,
+ message_out:
+ 	if (use_sg) {
+ 		struct scatterlist *sg = scsi_sglist(cmd);
+-		kunmap_atomic(buffer - sg->offset);
++		sg_unmap(sg, buffer, 0, SG_KMAP_ATOMIC);
+ 	}
+ 	return retvalue;
+ }
+@@ -2590,11 +2593,16 @@ static void arcmsr_handle_virtual_command(struct AdapterControlBlock *acb,
+ 		strncpy(&inqdata[32], "R001", 4); /* Product Revision */
+ 
+ 		sg = scsi_sglist(cmd);
+-		buffer = kmap_atomic(sg_page(sg)) + sg->offset;
++		buffer = sg_map(sg, 0, SG_KMAP_ATOMIC);
++		if (IS_ERR(buffer)) {
++			cmd->result = (DID_ERROR << 16);
++			cmd->scsi_done(cmd);
++			return;
++		}
+ 
+ 		memcpy(buffer, inqdata, sizeof(inqdata));
+ 		sg = scsi_sglist(cmd);
+-		kunmap_atomic(buffer - sg->offset);
++		sg_unmap(sg, buffer, 0, SG_KMAP_ATOMIC);
+ 
+ 		cmd->scsi_done(cmd);
+ 	}
+diff --git a/drivers/scsi/ips.c b/drivers/scsi/ips.c
+index 3419e1b..6e91729 100644
+--- a/drivers/scsi/ips.c
++++ b/drivers/scsi/ips.c
+@@ -1506,14 +1506,14 @@ static int ips_is_passthru(struct scsi_cmnd *SC)
+                 /* kmap_atomic() ensures addressability of the user buffer.*/
+                 /* local_irq_save() protects the KM_IRQ0 address slot.     */
+                 local_irq_save(flags);
+-                buffer = kmap_atomic(sg_page(sg)) + sg->offset;
+-                if (buffer && buffer[0] == 'C' && buffer[1] == 'O' &&
++                buffer = sg_map(sg, 0, SG_KMAP_ATOMIC);
++                if (!IS_ERR(buffer) && buffer[0] == 'C' && buffer[1] == 'O' &&
+                     buffer[2] == 'P' && buffer[3] == 'P') {
+-                        kunmap_atomic(buffer - sg->offset);
++                        sg_unmap(sg, buffer, 0, SG_KMAP_ATOMIC);
+                         local_irq_restore(flags);
+                         return 1;
+                 }
+-                kunmap_atomic(buffer - sg->offset);
++                sg_unmap(sg, buffer, 0, SG_KMAP_ATOMIC);
+                 local_irq_restore(flags);
+ 	}
+ 	return 0;
+diff --git a/drivers/scsi/megaraid.c b/drivers/scsi/megaraid.c
+index 3c63c29..f8aee59 100644
+--- a/drivers/scsi/megaraid.c
++++ b/drivers/scsi/megaraid.c
+@@ -663,10 +663,15 @@ mega_build_cmd(adapter_t *adapter, Scsi_Cmnd *cmd, int *busy)
+ 			struct scatterlist *sg;
+ 
+ 			sg = scsi_sglist(cmd);
+-			buf = kmap_atomic(sg_page(sg)) + sg->offset;
++			buf = sg_map(sg, 0, SG_KMAP_ATOMIC);
++			if (IS_ERR(buf)) {
++                                cmd->result = (DID_ERROR << 16);
++				cmd->scsi_done(cmd);
++				return NULL;
++			}
+ 
+ 			memset(buf, 0, cmd->cmnd[4]);
+-			kunmap_atomic(buf - sg->offset);
++			sg_unmap(sg, buf, 0, SG_KMAP_ATOMIC);
+ 
+ 			cmd->result = (DID_OK << 16);
+ 			cmd->scsi_done(cmd);
+-- 
+2.1.4
