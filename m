@@ -1,83 +1,135 @@
-From: Erez Shitrit <erezsh-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
-Subject: Re: [PATCH] IB/IPoIB: Check the headroom size
-Date: Tue, 25 Apr 2017 14:43:59 +0300
-Message-ID: <CAAk-MO-B8Liv6RyGye_Fx-9OELCUrGMj5SwK9UsciC=khSO5fA@mail.gmail.com>
-References: <1493114155-12101-1-git-send-email-honli@redhat.com>
- <CAJ3xEMg4_2ph7QwPsUb-tX-K4d2ppkqz98sPzytsmBCK=29WHw@mail.gmail.com>
- <CAAk-MO8O19iC2Yn-BMn5pKTAYxaSzGPMyta=fwes3XSvzmz_cQ@mail.gmail.com> <CAJ3xEMgw=9sj3rdahPEiST_yDfDJPNSZZLRn43tnb3bK4_RPzg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Honggang LI <honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Erez Shitrit <erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        "Hefty, Sean" <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Linux Kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAJ3xEMgw=9sj3rdahPEiST_yDfDJPNSZZLRn43tnb3bK4_RPzg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: [PATCH net-next v7 0/3] net sched actions: improve dump performance
+Date: Tue, 25 Apr 2017 07:49:44 -0400
+Message-ID: <1493120988-11765-1-git-send-email-jhs@emojatatu.com>
+Cc: jiri@resnulli.us, xiyou.wangcong@gmail.com, eric.dumazet@gmail.com,
+        netdev@vger.kernel.org, Jamal Hadi Salim <jhs@mojatatu.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-it0-f68.google.com ([209.85.214.68]:34091 "EHLO
+        mail-it0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1947045AbdDYLuE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 07:50:04 -0400
+Received: by mail-it0-f68.google.com with SMTP id c26so13377561itd.1
+        for <netdev@vger.kernel.org>; Tue, 25 Apr 2017 04:50:04 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 25, 2017 at 2:14 PM, Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> On Tue, Apr 25, 2017 at 2:11 PM, Erez Shitrit <erezsh-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org> wrote:
->> On Tue, Apr 25, 2017 at 1:32 PM, Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
->>> On Tue, Apr 25, 2017 at 12:55 PM, Honggang LI <honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
->>>> From: Honggang Li <honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
->>>>
->>>> Minimal hard_header_len set by bond_compute_features is ETH_HLEN, which
->>>> is smaller than IPOIB_HARD_LEN. ipoib_hard_header should check the
->>>> size of headroom to avoid skb_under_panic.
->>>
->>> sounds terrible, ipoib bonding is supported since ~2007, thanks for
->>> reporting on that.
->>>
->>>> [  122.871493] ipoib_hard_header: skb->head= ffff8808179d9400, skb->data= ffff8808179d9420, skb_headroom= 0x20
->>>> [  123.055400] bond0: Releasing backup interface mthca_ib1
->>>> [  123.560529] bond_compute_features:1112 bond0 bond_dev->hard_header_len = 14
->>>> [  123.568822] CPU: 0 PID: 12336 Comm: ifdown-ib Not tainted 4.9.0-debug #1
->>>
->>> did you generate this trace by calling dump_stack or this is existing
->>> kernel code.
->>>
->>>> Fixes: fc791b633515 ('IB/ipoib: move back IB LL address into the hard header')
->>>
->>> this is more of WA to avoid some crash or failure but not fixing the
->>> actual problem
->>>
->>> Erez, can you comment?
->>
->> We saw that after commit fc791b633515, it happened while removing bond
->> interface after its slaves (ipoib interface) removed.
->> At that point the bond interface sets its dev_harheader_len to be as
->> eth interfaces (14 instead of 24), and if a process which doesn't
->> aware of the slaves removal or was at the middle of the sending tries
->> to send (igmp) packet it goes to ipoib with no space in the skb for
->> it, and here comes the panic.
->
-> thanks for the info. Is this bug there since ipoib/bonding day one
-> (and hence my bug...)
-> or was indeed introduced later? if later, can you explain how
-> fc791b633515 introduced
-> that or you only know it by bisection?
+From: Jamal Hadi Salim <jhs@mojatatu.com>
 
-commit "fc791b633515" changes the size of the dev_hardlen to be 24 and
-required 24 extra bytes in the skb, before it was only 4, if skb is
-aligned to eth "mode" it already has 14 bytes for hard-header.
-So only after that commit we have the issue.
+changes since v6:
+-----------------
 
->
->> I agree with you that this fix is w/a, and it is a fix in the data
->> path for all the packets while the panic is in a control flow. It
->> probably should be fixed in the bonding driver.
->
-> so what's your suggestion? fc791b633515 is 6m old, and it means the bug
-> is in stable kernels and probably also in inbox drivers
->
-> Or.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+1) DaveM:
+New rules for netlink messages. From now on we are going to start
+checking for bits that are not used and rejecting anything we dont
+understand. In the future this is going to require major changes
+to user space code (tc etc). This is just a start.
+
+To quote, David:
+"
+ Again, bits you aren't using now, make sure userspace doesn't
+   set them.  And if it does, reject.
+"
+
+2) Jiri:
+a)Fix the commit message to properly use "Fixes" description
+b)Align assignments for nla_policy
+
+Changes since v5:
+----------------
+
+0)
+Remove use of BIT() because it is kernel specific. Requires a separate
+patch (Jiri can submit that in his cleanups)
+
+1)To paraphrase Eric D.
+
+"memcpy(nla_data(count_attr), &cb->args[1], sizeof(u32));
+wont work on 64bit BE machines because cb->args[1]
+(which is 64 bit is larger in size than sizeof(u32))"
+
+Fixed
+
+2) Jiri Pirko
+
+i) Spotted a bug fix mixed in the patch for wrong TLV
+fix. Add patch 1/3 to address this. Make part of this
+series because of dependencies.
+
+ii) Rename ACT_LARGE_DUMP_ON -> TCA_FLAG_LARGE_DUMP_ON
+
+iii) Satisfy Jiri's obsession against the noun "tcaa"
+a)Rename struct nlattr *tcaa --> struct nlattr *tb
+b)Rename TCAA_ACT_XXX -> TCA_ROOT_XXX
+
+Changes since v4:
+-----------------
+
+1) Eric D.
+
+pointed out that when all skb space is used up by the dump
+there will be no space to insert the TCAA_ACT_COUNT attribute.
+
+2) Jiri:
+
+i) Change:
+
+enum {
+        TCAA_UNSPEC,
+        TCAA_ACT_TAB,
+        TCAA_ACT_FLAGS,
+        TCAA_ACT_COUNT,
+        TCAA_ACT_TIME_FILTER,
+        __TCAA_MAX
+};
+
+#define TCAA_MAX (__TCAA_MAX - 1)
+#define ACT_LARGE_DUMP_ON               (1 << 0)
+
+to:
+enum {
+       TCAA_UNSPEC,
+       TCAA_ACT_TAB,
+#define TCA_ACT_TAB TCAA_ACT_TAB
+       TCAA_ACT_FLAGS,
+       TCAA_ACT_COUNT,
+       __TCAA_MAX,
+#define        TCAA_MAX (__TCAA_MAX - 1)
+};
+
+#define ACT_LARGE_DUMP_ON              BIT(0)
+
+Jiri plans to followup with the rest of the code to make the
+style consistent.
+
+ii) Rename attribute TCAA_ACT_TIME_FILTER --> TCAA_ACT_TIME_DELTA
+
+iii) Rename variable jiffy_filter --> jiffy_since
+iv) Rename msecs_filter --> msecs_since
+v) get rid of unused cb->args[0] and rename cb->args[4] to cb->args[0]
+
+Jamal Hadi Salim (3):
+  net sched actions: User proper root attribute table for actions
+  net sched actions: dump more than TCA_ACT_MAX_PRIO actions per batch
+  net sched actions: add time filter for action dumping
+
+ include/uapi/linux/rtnetlink.h | 22 ++++++++++++--
+ net/sched/act_api.c            | 66 +++++++++++++++++++++++++++++++++++-------
+ 2 files changed, 75 insertions(+), 13 deletions(-)
+
+-- 
+1.9.1
+
+
+Jamal Hadi Salim (3):
+  net sched actions: Use proper root attribute table for actions
+  net sched actions: dump more than TCA_ACT_MAX_PRIO actions per batch
+  net sched actions: add time filter for action dumping
+
+ include/uapi/linux/rtnetlink.h | 23 ++++++++++--
+ net/sched/act_api.c            | 79 ++++++++++++++++++++++++++++++++++++------
+ 2 files changed, 89 insertions(+), 13 deletions(-)
+
+-- 
+1.9.1
