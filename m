@@ -1,57 +1,34 @@
-From: Honggang LI <honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH] IB/IPoIB: Check the headroom size
-Date: Tue, 25 Apr 2017 18:57:25 +0800
-Message-ID: <20170425105725.GA14400@dhcp-13-42.nay.redhat.com>
-References: <1493114155-12101-1-git-send-email-honli@redhat.com>
- <CAJ3xEMg4_2ph7QwPsUb-tX-K4d2ppkqz98sPzytsmBCK=29WHw@mail.gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH net-next] rhashtable: remove insecure_max_entries param
+Date: Tue, 25 Apr 2017 19:04:15 +0800
+Message-ID: <20170425110415.GA25167@gondor.apana.org.au>
+References: <20170425094134.21885-1-fw@strlen.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Erez Shitrit <erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        "Hefty, Sean" <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Linux Kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: netdev@vger.kernel.org, fw@strlen.de
+To: Florian Westphal <fw@strlen.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [198.176.57.175] ([198.176.57.175]:47462 "EHLO
+        deadmen.hmeau.com" rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1031153AbdDYLFH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 07:05:07 -0400
 Content-Disposition: inline
-In-Reply-To: <CAJ3xEMg4_2ph7QwPsUb-tX-K4d2ppkqz98sPzytsmBCK=29WHw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20170425094134.21885-1-fw@strlen.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 25, 2017 at 01:32:59PM +0300, Or Gerlitz wrote:
-> On Tue, Apr 25, 2017 at 12:55 PM, Honggang LI <honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
-> > From: Honggang Li <honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-> >
-> > Minimal hard_header_len set by bond_compute_features is ETH_HLEN, which
-> > is smaller than IPOIB_HARD_LEN. ipoib_hard_header should check the
-> > size of headroom to avoid skb_under_panic.
+Florian Westphal <fw@strlen.de> wrote:
+> no users in the tree, insecure_max_entries is always set to
+> ht->p.max_size * 2 in rhtashtable_init().
 > 
-> sounds terrible, ipoib bonding is supported since ~2007, thanks for
-> reporting on that.
-> 
-> > [  122.871493] ipoib_hard_header: skb->head= ffff8808179d9400, skb->data= ffff8808179d9420, skb_headroom= 0x20
-> > [  123.055400] bond0: Releasing backup interface mthca_ib1
-> > [  123.560529] bond_compute_features:1112 bond0 bond_dev->hard_header_len = 14
-> > [  123.568822] CPU: 0 PID: 12336 Comm: ifdown-ib Not tainted 4.9.0-debug #1
-> 
-> did you generate this trace by calling dump_stack or this is existing
-> kernel code.
+> Replace only spot that uses it with a ht->p.max_size check.
 
-I inserted dump_stack to print this stack for debug.
+I'd suggest that as this needs to be computed every time we insert
+an element that you keep the value in struct rhashtable, but as an
+internal value as opposed to a paramter that is set by the user.
 
-> 
-> > Fixes: fc791b633515 ('IB/ipoib: move back IB LL address into the hard header')
-> 
-> this is more of WA to avoid some crash or failure but not fixing the
-> actual problem
-> 
-> Erez, can you comment?
-> 
-> Or.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
