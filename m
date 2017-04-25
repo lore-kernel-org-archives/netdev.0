@@ -1,7 +1,7 @@
 From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: [PATCH v6 3/5] rxrpc: check return value of skb_to_sgvec always
-Date: Tue, 25 Apr 2017 20:47:32 +0200
-Message-ID: <20170425184734.26563-3-Jason@zx2c4.com>
+Subject: [PATCH v6 4/5] macsec: check return value of skb_to_sgvec always
+Date: Tue, 25 Apr 2017 20:47:33 +0200
+Message-ID: <20170425184734.26563-4-Jason@zx2c4.com>
 References: <20170425155215.4835-1-Jason@zx2c4.com>
  <20170425184734.26563-1-Jason@zx2c4.com>
 Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>
@@ -10,7 +10,7 @@ To: netdev@vger.kernel.org,
 	David.Laight@aculab.com,
 	kernel-hardening@lists.openwall.com,
 	davem@davemloft.net
-Return-path: <kernel-hardening-return-7574-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+Return-path: <kernel-hardening-return-7575-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
 List-Post: <mailto:kernel-hardening@lists.openwall.com>
 List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
 List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
@@ -20,43 +20,39 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
 ---
- net/rxrpc/rxkad.c | 10 +++++++---
- 1 file changed, 7 insertions(+), 3 deletions(-)
+ drivers/net/macsec.c | 13 +++++++++++--
+ 1 file changed, 11 insertions(+), 2 deletions(-)
 
-diff --git a/net/rxrpc/rxkad.c b/net/rxrpc/rxkad.c
-index 4374e7b9c7bf..dcf46c9c3ece 100644
---- a/net/rxrpc/rxkad.c
-+++ b/net/rxrpc/rxkad.c
-@@ -229,7 +229,9 @@ static int rxkad_secure_packet_encrypt(const struct rxrpc_call *call,
- 	len &= ~(call->conn->size_align - 1);
+diff --git a/drivers/net/macsec.c b/drivers/net/macsec.c
+index dbab05afcdbe..d846f42b99ec 100644
+--- a/drivers/net/macsec.c
++++ b/drivers/net/macsec.c
+@@ -733,7 +733,12 @@ static struct sk_buff *macsec_encrypt(struct sk_buff *skb,
+ 	macsec_fill_iv(iv, secy->sci, pn);
  
- 	sg_init_table(sg, nsg);
--	skb_to_sgvec(skb, sg, 0, len);
-+	err = skb_to_sgvec(skb, sg, 0, len);
-+	if (unlikely(err < 0))
-+		goto out;
- 	skcipher_request_set_crypt(req, sg, sg, len, iv.x);
- 	crypto_skcipher_encrypt(req);
+ 	sg_init_table(sg, MAX_SKB_FRAGS + 1);
+-	skb_to_sgvec(skb, sg, 0, skb->len);
++	ret = skb_to_sgvec(skb, sg, 0, skb->len);
++	if (unlikely(ret < 0)) {
++		macsec_txsa_put(tx_sa);
++		kfree_skb(skb);
++		return ERR_PTR(ret);
++	}
  
-@@ -342,7 +344,8 @@ static int rxkad_verify_packet_1(struct rxrpc_call *call, struct sk_buff *skb,
- 		goto nomem;
+ 	if (tx_sc->encrypt) {
+ 		int len = skb->len - macsec_hdr_len(sci_present) -
+@@ -937,7 +942,11 @@ static struct sk_buff *macsec_decrypt(struct sk_buff *skb,
+ 	macsec_fill_iv(iv, sci, ntohl(hdr->packet_number));
  
- 	sg_init_table(sg, nsg);
--	skb_to_sgvec(skb, sg, offset, 8);
-+	if (unlikely(skb_to_sgvec(skb, sg, offset, 8) < 0))
-+		goto nomem;
+ 	sg_init_table(sg, MAX_SKB_FRAGS + 1);
+-	skb_to_sgvec(skb, sg, 0, skb->len);
++	ret = skb_to_sgvec(skb, sg, 0, skb->len);
++	if (unlikely(ret < 0)) {
++		kfree_skb(skb);
++		return ERR_PTR(ret);
++	}
  
- 	/* start the decryption afresh */
- 	memset(&iv, 0, sizeof(iv));
-@@ -429,7 +432,8 @@ static int rxkad_verify_packet_2(struct rxrpc_call *call, struct sk_buff *skb,
- 	}
- 
- 	sg_init_table(sg, nsg);
--	skb_to_sgvec(skb, sg, offset, len);
-+	if (unlikely(skb_to_sgvec(skb, sg, offset, len) < 0))
-+		goto nomem;
- 
- 	/* decrypt from the session key */
- 	token = call->conn->params.key->payload.data[0];
+ 	if (hdr->tci_an & MACSEC_TCI_E) {
+ 		/* confidentiality: ethernet + macsec header
 -- 
 2.12.2
