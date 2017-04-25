@@ -1,68 +1,180 @@
-From: Logan Gunthorpe <logang@deltatee.com>
-Subject: [PATCH v2 09/21] staging: unisys: visorbus: Make use of
-	the new sg_map helper function
-Date: Tue, 25 Apr 2017 12:20:56 -0600
-Message-ID: <1493144468-22493-10-git-send-email-logang@deltatee.com>
+From: Logan Gunthorpe <logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
+Subject: [PATCH v2 14/21] scsi: libfc,
+ csiostor: Change to sg_copy_buffer in two drivers
+Date: Tue, 25 Apr 2017 12:21:01 -0600
+Message-ID: <1493144468-22493-15-git-send-email-logang@deltatee.com>
 References: <1493144468-22493-1-git-send-email-logang@deltatee.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Jens Axboe <axboe@kernel.dk>,
- "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
- "Martin K. Petersen" <martin.petersen@oracle.com>,
- Matthew Wilcox <mawilcox@microsoft.com>,
- Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
- Sumit Semwal <sumit.semwal@linaro.org>,
- Ross Zwisler <ross.zwisler@linux.intel.com>,
- Dan Williams <dan.j.williams@intel.com>, Stephen Bates <sbates@raithlin.com>,
- Logan Gunthorpe <logang@deltatee.com>, Christoph Hellwig <hch@lst.de>
-To: linux-kernel@vger.kernel.org, linux-crypto@vger.kernel.org,
- linux-media@vger.kernel.org, dri-devel@lists.freedesktop.org,
- intel-gfx@lists.freedesktop.org, linux-raid@vger.kernel.org,
- linux-mmc@vger.kernel.org, linux-nvdimm@lists.01.org,
- linux-scsi@vger.kernel.org, open-iscsi@googlegroups.com,
- megaraidlinux.pdl@broadcom.com, sparmaintainer@unisys.com,
- devel@driverdev.osuosl.org, target-devel@vger.kernel.org,
- netdev@vger.kernel.org, linux-rdma@vger.kernel.org, dm-devel@redhat.com
-Return-path: <intel-gfx-bounces@lists.freedesktop.org>
-In-Reply-To: <1493144468-22493-1-git-send-email-logang@deltatee.com>
-List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/intel-gfx>,
- <mailto:intel-gfx-request@lists.freedesktop.org?subject=unsubscribe>
-List-Archive: <https://lists.freedesktop.org/archives/intel-gfx>
-List-Post: <mailto:intel-gfx@lists.freedesktop.org>
-List-Help: <mailto:intel-gfx-request@lists.freedesktop.org?subject=help>
-List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/intel-gfx>,
- <mailto:intel-gfx-request@lists.freedesktop.org?subject=subscribe>
-Errors-To: intel-gfx-bounces@lists.freedesktop.org
-Sender: "Intel-gfx" <intel-gfx-bounces@lists.freedesktop.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Jens Axboe <axboe-tSWWG44O7X1aa/9Udqfwiw@public.gmane.org>, Johannes Thumshirn <jth-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+ "James E.J. Bottomley" <jejb-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
+ "Martin K. Petersen" <martin.petersen-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
+ Matthew Wilcox <mawilcox-0li6OtcxBFHby3iVrkZq2A@public.gmane.org>,
+ Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+ Sumit Semwal <sumit.semwal-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>
+To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-crypto-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org,
+ intel-gfx-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org, linux-raid-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-nvdimm-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org,
+ linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org,
+ megaraidlinux.pdl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, sparmaintainer-GLv8BlqOqDDQT0dZR+AlfA@public.gmane.org,
+ devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org, target-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dm-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+Return-path: <linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
+In-Reply-To: <1493144468-22493-1-git-send-email-logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
+List-Unsubscribe: <https://lists.01.org/mailman/options/linux-nvdimm>,
+ <mailto:linux-nvdimm-request-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.01.org/pipermail/linux-nvdimm/>
+List-Post: <mailto:linux-nvdimm-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
+List-Help: <mailto:linux-nvdimm-request-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.01.org/mailman/listinfo/linux-nvdimm>,
+ <mailto:linux-nvdimm-request-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org?subject=subscribe>
+Errors-To: linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org
+Sender: "Linux-nvdimm" <linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-U3RyYWlnaHRmb3J3YXJkIGNvbnZlcnNpb24gdG8gdGhlIG5ldyBmdW5jdGlvbi4KClNpZ25lZC1v
-ZmYtYnk6IExvZ2FuIEd1bnRob3JwZSA8bG9nYW5nQGRlbHRhdGVlLmNvbT4KQWNrZWQtYnk6IERh
-dmlkIEtlcnNobmVyIDxkYXZpZC5rZXJzaG5lckB1bmlzeXMuY29tPgotLS0KIGRyaXZlcnMvc3Rh
-Z2luZy91bmlzeXMvdmlzb3JoYmEvdmlzb3JoYmFfbWFpbi5jIHwgMTIgKysrKysrKy0tLS0tCiAx
-IGZpbGUgY2hhbmdlZCwgNyBpbnNlcnRpb25zKCspLCA1IGRlbGV0aW9ucygtKQoKZGlmZiAtLWdp
-dCBhL2RyaXZlcnMvc3RhZ2luZy91bmlzeXMvdmlzb3JoYmEvdmlzb3JoYmFfbWFpbi5jIGIvZHJp
-dmVycy9zdGFnaW5nL3VuaXN5cy92aXNvcmhiYS92aXNvcmhiYV9tYWluLmMKaW5kZXggZDM3MjEx
-NS4uYzc3NDI2YyAxMDA2NDQKLS0tIGEvZHJpdmVycy9zdGFnaW5nL3VuaXN5cy92aXNvcmhiYS92
-aXNvcmhiYV9tYWluLmMKKysrIGIvZHJpdmVycy9zdGFnaW5nL3VuaXN5cy92aXNvcmhiYS92aXNv
-cmhiYV9tYWluLmMKQEAgLTg0Myw3ICs4NDMsNiBAQCBkb19zY3NpX25vbGludXhzdGF0KHN0cnVj
-dCB1aXNjbWRyc3AgKmNtZHJzcCwgc3RydWN0IHNjc2lfY21uZCAqc2NzaWNtZCkKIAlzdHJ1Y3Qg
-c2NhdHRlcmxpc3QgKnNnOwogCXVuc2lnbmVkIGludCBpOwogCWNoYXIgKnRoaXNfcGFnZTsKLQlj
-aGFyICp0aGlzX3BhZ2Vfb3JpZzsKIAlpbnQgYnVmaW5kID0gMDsKIAlzdHJ1Y3Qgdmlzb3JkaXNr
-X2luZm8gKnZkaXNrOwogCXN0cnVjdCB2aXNvcmhiYV9kZXZkYXRhICpkZXZkYXRhOwpAQCAtODcw
-LDExICs4NjksMTQgQEAgZG9fc2NzaV9ub2xpbnV4c3RhdChzdHJ1Y3QgdWlzY21kcnNwICpjbWRy
-c3AsIHN0cnVjdCBzY3NpX2NtbmQgKnNjc2ljbWQpCiAKIAkJc2cgPSBzY3NpX3NnbGlzdChzY3Np
-Y21kKTsKIAkJZm9yIChpID0gMDsgaSA8IHNjc2lfc2dfY291bnQoc2NzaWNtZCk7IGkrKykgewot
-CQkJdGhpc19wYWdlX29yaWcgPSBrbWFwX2F0b21pYyhzZ19wYWdlKHNnICsgaSkpOwotCQkJdGhp
-c19wYWdlID0gKHZvaWQgKikoKHVuc2lnbmVkIGxvbmcpdGhpc19wYWdlX29yaWcgfAotCQkJCQkg
-ICAgIHNnW2ldLm9mZnNldCk7CisJCQl0aGlzX3BhZ2UgPSBzZ19tYXAoc2cgKyBpLCAwLCBTR19L
-TUFQX0FUT01JQyk7CisJCQlpZiAoSVNfRVJSKHRoaXNfcGFnZSkpIHsKKwkJCQlzY3NpY21kLT5y
-ZXN1bHQgPSBESURfRVJST1IgPDwgMTY7CisJCQkJcmV0dXJuOworCQkJfQorCiAJCQltZW1jcHko
-dGhpc19wYWdlLCBidWYgKyBidWZpbmQsIHNnW2ldLmxlbmd0aCk7Ci0JCQlrdW5tYXBfYXRvbWlj
-KHRoaXNfcGFnZV9vcmlnKTsKKwkJCXNnX3VubWFwKHNnICsgaSwgdGhpc19wYWdlLCAwLCBTR19L
-TUFQX0FUT01JQyk7CiAJCX0KIAl9IGVsc2UgewogCQlkZXZkYXRhID0gKHN0cnVjdCB2aXNvcmhi
-YV9kZXZkYXRhICopc2NzaWRldi0+aG9zdC0+aG9zdGRhdGE7Ci0tIAoyLjEuNAoKX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KSW50ZWwtZ2Z4IG1haWxpbmcg
-bGlzdApJbnRlbC1nZnhAbGlzdHMuZnJlZWRlc2t0b3Aub3JnCmh0dHBzOi8vbGlzdHMuZnJlZWRl
-c2t0b3Aub3JnL21haWxtYW4vbGlzdGluZm8vaW50ZWwtZ2Z4Cg==
+These two drivers appear to duplicate the functionality of
+sg_copy_buffer. So we clean them up to use the common code.
+
+This helps us remove a couple of instances that would otherwise be
+slightly tricky sg_map usages.
+
+Signed-off-by: Logan Gunthorpe <logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
+Cc: Johannes Thumshirn <jth-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+---
+ drivers/scsi/csiostor/csio_scsi.c | 54 +++------------------------------------
+ drivers/scsi/libfc/fc_libfc.c     | 49 ++++++++---------------------------
+ 2 files changed, 14 insertions(+), 89 deletions(-)
+
+diff --git a/drivers/scsi/csiostor/csio_scsi.c b/drivers/scsi/csiostor/csio_scsi.c
+index a1ff75f..bd9d062 100644
+--- a/drivers/scsi/csiostor/csio_scsi.c
++++ b/drivers/scsi/csiostor/csio_scsi.c
+@@ -1489,60 +1489,14 @@ static inline uint32_t
+ csio_scsi_copy_to_sgl(struct csio_hw *hw, struct csio_ioreq *req)
+ {
+ 	struct scsi_cmnd *scmnd  = (struct scsi_cmnd *)csio_scsi_cmnd(req);
+-	struct scatterlist *sg;
+-	uint32_t bytes_left;
+-	uint32_t bytes_copy;
+-	uint32_t buf_off = 0;
+-	uint32_t start_off = 0;
+-	uint32_t sg_off = 0;
+-	void *sg_addr;
+-	void *buf_addr;
+ 	struct csio_dma_buf *dma_buf;
++	size_t copied;
+ 
+-	bytes_left = scsi_bufflen(scmnd);
+-	sg = scsi_sglist(scmnd);
+ 	dma_buf = (struct csio_dma_buf *)csio_list_next(&req->gen_list);
++	copied = sg_copy_from_buffer(scsi_sglist(scmnd), scsi_sg_count(scmnd),
++				     dma_buf->vaddr, scsi_bufflen(scmnd));
+ 
+-	/* Copy data from driver buffer to SGs of SCSI CMD */
+-	while (bytes_left > 0 && sg && dma_buf) {
+-		if (buf_off >= dma_buf->len) {
+-			buf_off = 0;
+-			dma_buf = (struct csio_dma_buf *)
+-					csio_list_next(dma_buf);
+-			continue;
+-		}
+-
+-		if (start_off >= sg->length) {
+-			start_off -= sg->length;
+-			sg = sg_next(sg);
+-			continue;
+-		}
+-
+-		buf_addr = dma_buf->vaddr + buf_off;
+-		sg_off = sg->offset + start_off;
+-		bytes_copy = min((dma_buf->len - buf_off),
+-				sg->length - start_off);
+-		bytes_copy = min((uint32_t)(PAGE_SIZE - (sg_off & ~PAGE_MASK)),
+-				 bytes_copy);
+-
+-		sg_addr = kmap_atomic(sg_page(sg) + (sg_off >> PAGE_SHIFT));
+-		if (!sg_addr) {
+-			csio_err(hw, "failed to kmap sg:%p of ioreq:%p\n",
+-				sg, req);
+-			break;
+-		}
+-
+-		csio_dbg(hw, "copy_to_sgl:sg_addr %p sg_off %d buf %p len %d\n",
+-				sg_addr, sg_off, buf_addr, bytes_copy);
+-		memcpy(sg_addr + (sg_off & ~PAGE_MASK), buf_addr, bytes_copy);
+-		kunmap_atomic(sg_addr);
+-
+-		start_off +=  bytes_copy;
+-		buf_off += bytes_copy;
+-		bytes_left -= bytes_copy;
+-	}
+-
+-	if (bytes_left > 0)
++	if (copied != scsi_bufflen(scmnd))
+ 		return DID_ERROR;
+ 	else
+ 		return DID_OK;
+diff --git a/drivers/scsi/libfc/fc_libfc.c b/drivers/scsi/libfc/fc_libfc.c
+index d623d08..ce0805a 100644
+--- a/drivers/scsi/libfc/fc_libfc.c
++++ b/drivers/scsi/libfc/fc_libfc.c
+@@ -113,45 +113,16 @@ u32 fc_copy_buffer_to_sglist(void *buf, size_t len,
+ 			     u32 *nents, size_t *offset,
+ 			     u32 *crc)
+ {
+-	size_t remaining = len;
+-	u32 copy_len = 0;
+-
+-	while (remaining > 0 && sg) {
+-		size_t off, sg_bytes;
+-		void *page_addr;
+-
+-		if (*offset >= sg->length) {
+-			/*
+-			 * Check for end and drop resources
+-			 * from the last iteration.
+-			 */
+-			if (!(*nents))
+-				break;
+-			--(*nents);
+-			*offset -= sg->length;
+-			sg = sg_next(sg);
+-			continue;
+-		}
+-		sg_bytes = min(remaining, sg->length - *offset);
+-
+-		/*
+-		 * The scatterlist item may be bigger than PAGE_SIZE,
+-		 * but we are limited to mapping PAGE_SIZE at a time.
+-		 */
+-		off = *offset + sg->offset;
+-		sg_bytes = min(sg_bytes,
+-			       (size_t)(PAGE_SIZE - (off & ~PAGE_MASK)));
+-		page_addr = kmap_atomic(sg_page(sg) + (off >> PAGE_SHIFT));
+-		if (crc)
+-			*crc = crc32(*crc, buf, sg_bytes);
+-		memcpy((char *)page_addr + (off & ~PAGE_MASK), buf, sg_bytes);
+-		kunmap_atomic(page_addr);
+-		buf += sg_bytes;
+-		*offset += sg_bytes;
+-		remaining -= sg_bytes;
+-		copy_len += sg_bytes;
+-	}
+-	return copy_len;
++	size_t copied;
++
++	copied = sg_pcopy_from_buffer(sg, sg_nents(sg),
++				      buf, len, *offset);
++
++	*offset += copied;
++	if (crc)
++		*crc = crc32(*crc, buf, copied);
++
++	return copied;
+ }
+ 
+ /**
+-- 
+2.1.4
