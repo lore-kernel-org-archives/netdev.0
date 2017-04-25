@@ -1,38 +1,87 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ipv6: fix source routing
-Date: Tue, 25 Apr 2017 13:59:50 -0400 (EDT)
-Message-ID: <20170425.135950.1293244907738125591.davem@davemloft.net>
-References: <1d451d4d6c04c259280dee65caeabf3e00e0eb94.1493128459.git.sd@queasysnail.net>
+Subject: Re: [PATCHv2 net] bridge: move bridge multicast cleanup to
+ ndo_uninit
+Date: Tue, 25 Apr 2017 14:02:55 -0400 (EDT)
+Message-ID: <20170425.140255.1623259793119409754.davem@davemloft.net>
+References: <6e156e72cb1a5e279da8ac53bdb601eee5d654fe.1493132317.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hannes@stressinduktion.org,
-        david.lebrun@uclouvain.be
-To: sd@queasysnail.net
+Cc: netdev@vger.kernel.org, nikolay@cumulusnetworks.com,
+        stephen@networkplumber.org
+To: lucien.xin@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:43182 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:43200 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1951605AbdDYR7w (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 13:59:52 -0400
-In-Reply-To: <1d451d4d6c04c259280dee65caeabf3e00e0eb94.1493128459.git.sd@queasysnail.net>
+        with ESMTP id S1429367AbdDYSC5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 14:02:57 -0400
+In-Reply-To: <6e156e72cb1a5e279da8ac53bdb601eee5d654fe.1493132317.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sabrina Dubroca <sd@queasysnail.net>
-Date: Tue, 25 Apr 2017 15:56:50 +0200
+From: Xin Long <lucien.xin@gmail.com>
+Date: Tue, 25 Apr 2017 22:58:37 +0800
 
-> Commit a149e7c7ce81 ("ipv6: sr: add support for SRH injection through
-> setsockopt") introduced handling of IPV6_SRCRT_TYPE_4, but at the same
-> time restricted it to only IPV6_SRCRT_TYPE_0 and
-> IPV6_SRCRT_TYPE_4. Previously, ipv6_push_exthdr() and fl6_update_dst()
-> would also handle other values (ie STRICT and TYPE_2).
+> During removing a bridge device, if the bridge is still up, a new mdb entry
+> still can be added in br_multicast_add_group() after all mdb entries are
+> removed in br_multicast_dev_del(). Like the path:
 > 
-> Restore previous source routing behavior, by handling IPV6_SRCRT_STRICT
-> and IPV6_SRCRT_TYPE_2 the same way as IPV6_SRCRT_TYPE_0 in
-> ipv6_push_exthdr() and fl6_update_dst().
+>   mld_ifc_timer_expire ->
+>     mld_sendpack -> ...
+>       br_multicast_rcv ->
+>         br_multicast_add_group
 > 
-> Fixes: a149e7c7ce81 ("ipv6: sr: add support for SRH injection through setsockopt")
-> Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
-> Reviewed-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> The new mp's timer will be set up. If the timer expires after the bridge
+> is freed, it may cause use-after-free panic in br_multicast_group_expired.
+> 
+> BUG: unable to handle kernel NULL pointer dereference at 0000000000000048
+> IP: [<ffffffffa07ed2c8>] br_multicast_group_expired+0x28/0xb0 [bridge]
+> Call Trace:
+>  <IRQ>
+>  [<ffffffff81094536>] call_timer_fn+0x36/0x110
+>  [<ffffffffa07ed2a0>] ? br_mdb_free+0x30/0x30 [bridge]
+>  [<ffffffff81096967>] run_timer_softirq+0x237/0x340
+>  [<ffffffff8108dcbf>] __do_softirq+0xef/0x280
+>  [<ffffffff8169889c>] call_softirq+0x1c/0x30
+>  [<ffffffff8102c275>] do_softirq+0x65/0xa0
+>  [<ffffffff8108e055>] irq_exit+0x115/0x120
+>  [<ffffffff81699515>] smp_apic_timer_interrupt+0x45/0x60
+>  [<ffffffff81697a5d>] apic_timer_interrupt+0x6d/0x80
+> 
+> Nikolay also found it would cause a memory leak - the mdb hash is
+> reallocated and not freed due to the mdb rehash.
+> 
+> unreferenced object 0xffff8800540ba800 (size 2048):
+>   backtrace:
+>     [<ffffffff816e2287>] kmemleak_alloc+0x67/0xc0
+>     [<ffffffff81260bea>] __kmalloc+0x1ba/0x3e0
+>     [<ffffffffa05c60ee>] br_mdb_rehash+0x5e/0x340 [bridge]
+>     [<ffffffffa05c74af>] br_multicast_new_group+0x43f/0x6e0 [bridge]
+>     [<ffffffffa05c7aa3>] br_multicast_add_group+0x203/0x260 [bridge]
+>     [<ffffffffa05ca4b5>] br_multicast_rcv+0x945/0x11d0 [bridge]
+>     [<ffffffffa05b6b10>] br_dev_xmit+0x180/0x470 [bridge]
+>     [<ffffffff815c781b>] dev_hard_start_xmit+0xbb/0x3d0
+>     [<ffffffff815c8743>] __dev_queue_xmit+0xb13/0xc10
+>     [<ffffffff815c8850>] dev_queue_xmit+0x10/0x20
+>     [<ffffffffa02f8d7a>] ip6_finish_output2+0x5ca/0xac0 [ipv6]
+>     [<ffffffffa02fbfc6>] ip6_finish_output+0x126/0x2c0 [ipv6]
+>     [<ffffffffa02fc245>] ip6_output+0xe5/0x390 [ipv6]
+>     [<ffffffffa032b92c>] NF_HOOK.constprop.44+0x6c/0x240 [ipv6]
+>     [<ffffffffa032bd16>] mld_sendpack+0x216/0x3e0 [ipv6]
+>     [<ffffffffa032d5eb>] mld_ifc_timer_expire+0x18b/0x2b0 [ipv6]
+> 
+> This could happen when ip link remove a bridge or destroy a netns with a
+> bridge device inside.
+> 
+> With Nikolay's suggestion, this patch is to clean up bridge multicast in
+> ndo_uninit after bridge dev is shutdown, instead of br_dev_delete, so
+> that netif_running check in br_multicast_add_group can avoid this issue.
+> 
+> v1->v2:
+>   - fix this issue by moving br_multicast_dev_del to ndo_uninit, instead
+>     of calling dev_close in br_dev_delete.
+> 
+> Reported-by: Jianwen Ji <jiji@redhat.com>
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
 
-Applied, thanks.
+Applied and queued up for -stable, thanks.
