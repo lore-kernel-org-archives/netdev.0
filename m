@@ -1,331 +1,185 @@
-From: "Gao Feng" <gfree.wind@foxmail.com>
-Subject: RE: [PATCH net] driver/net: Fix possible memleaks when fail to register_netdevice
-Date: Tue, 25 Apr 2017 20:51:00 +0800
-Message-ID: <000001d2bdc2$980b2ce0$c82186a0$@foxmail.com>
-References: <1493121710-27910-1-git-send-email-gfree.wind@foxmail.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH net-next v8 2/3] net sched actions: dump more than
+ TCA_ACT_MAX_PRIO actions per batch
+Date: Tue, 25 Apr 2017 09:01:22 -0400
+Message-ID: <5e54edd8-3943-6f09-490f-ff04b83077f6@mojatatu.com>
+References: <1493121247-11863-1-git-send-email-jhs@emojatatu.com>
+ <1493121247-11863-3-git-send-email-jhs@emojatatu.com>
+ <20170425121338.GC1867@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain;
-        charset="us-ascii"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-To: <gfree.wind@foxmail.com>, <jiri@resnulli.us>,
-        <davem@davemloft.net>, <kuznet@ms2.inr.ac.ru>, <jmorris@namei.org>,
-        <yoshfuji@linux-ipv6.org>, <kaber@trash.net>,
-        <steffen.klassert@secunet.com>, <herbert@gondor.apana.org.au>,
-        <netdev@vger.kernel.org>
+Cc: davem@davemloft.net, xiyou.wangcong@gmail.com,
+        eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpbg65.qq.com ([103.7.28.233]:8238 "EHLO smtpbg65.qq.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1946502AbdDYMvJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 25 Apr 2017 08:51:09 -0400
-In-Reply-To: <1493121710-27910-1-git-send-email-gfree.wind@foxmail.com>
-Content-Language: zh-cn
+Received: from mail-it0-f68.google.com ([209.85.214.68]:34843 "EHLO
+        mail-it0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1947458AbdDYNB0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 09:01:26 -0400
+Received: by mail-it0-f68.google.com with SMTP id 70so2784272ita.2
+        for <netdev@vger.kernel.org>; Tue, 25 Apr 2017 06:01:26 -0700 (PDT)
+In-Reply-To: <20170425121338.GC1867@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> From: Gao Feng <fgao@ikuai8.com>
-> 
-> These drivers allocate kinds of resources in init routine, and free some
-> resources in the destructor of net_device. It may cause memleak when some
-> errors happen after register_netdevice invokes the init callback. Because
-only
-> the uninit callback is invoked in the error handler of register_netdevice,
-but the
-> destructor not. As a result, some resources are lost forever.
-> 
-> Now invokes the destructor instead of free_netdev somewhere, and free the
-> left resources in the newlink func when fail to register_netdevice.
-> 
-> Signed-off-by: Gao Feng <fgao@ikuai8.com>
-> ---
->  drivers/net/dummy.c      |  2 +-
->  drivers/net/ifb.c        |  2 +-
->  drivers/net/loopback.c   |  2 +-
->  drivers/net/team/team.c  | 11 ++++++++++-
->  drivers/net/veth.c       |  4 ++--
->  net/8021q/vlan_netlink.c |  6 +++++-
->  net/ipv4/ip_tunnel.c     |  9 ++++++++-
->  net/ipv6/ip6_gre.c       |  6 +++++-
->  net/ipv6/ip6_tunnel.c    | 12 ++++++++++--
->  net/ipv6/ip6_vti.c       |  7 ++++++-
->  net/ipv6/sit.c           |  5 ++++-
->  11 files changed, 53 insertions(+), 13 deletions(-)
-> 
-> diff --git a/drivers/net/dummy.c b/drivers/net/dummy.c index
-> 2c80611..55b8a50 100644
-> --- a/drivers/net/dummy.c
-> +++ b/drivers/net/dummy.c
-> @@ -383,7 +383,7 @@ static int __init dummy_init_one(void)
->  	return 0;
-> 
->  err:
-> -	free_netdev(dev_dummy);
-> +	dummy_free_netdev(dev_dummy);
->  	return err;
->  }
-> 
-> diff --git a/drivers/net/ifb.c b/drivers/net/ifb.c index 312fce7..a298371
-100644
-> --- a/drivers/net/ifb.c
-> +++ b/drivers/net/ifb.c
-> @@ -318,7 +318,7 @@ static int __init ifb_init_one(int index)
->  	return 0;
-> 
->  err:
-> -	free_netdev(dev_ifb);
-> +	ifb_dev_free(dev_ifb);
->  	return err;
->  }
-> 
-> diff --git a/drivers/net/loopback.c b/drivers/net/loopback.c index
-> b23b719..c4e1d4c 100644
-> --- a/drivers/net/loopback.c
-> +++ b/drivers/net/loopback.c
-> @@ -208,7 +208,7 @@ static __net_init int loopback_net_init(struct net
-*net)
-> 
-> 
->  out_free_netdev:
-> -	free_netdev(dev);
-> +	loopback_dev_free(dev);
->  out:
->  	if (net_eq(net, &init_net))
->  		panic("loopback: Failed to register netdevice: %d\n", err);
-diff --git
-> a/drivers/net/team/team.c b/drivers/net/team/team.c index f8c81f1..0bc80fb
-> 100644
-> --- a/drivers/net/team/team.c
-> +++ b/drivers/net/team/team.c
-> @@ -2109,10 +2109,19 @@ static void team_setup(struct net_device *dev)
-> static int team_newlink(struct net *src_net, struct net_device *dev,
->  			struct nlattr *tb[], struct nlattr *data[])  {
-> +	int ret;
-> +
->  	if (tb[IFLA_ADDRESS] == NULL)
->  		eth_hw_addr_random(dev);
-> 
-> -	return register_netdevice(dev);
-> +	ret = register_netdevice(dev);
-> +	if (ret) {
-> +		struct team *team = netdev_priv(dev);
-> +
-> +		free_percpu(team->pcpu_stats);
-> +	}
-> +
-> +	return ret;
->  }
-> 
->  static int team_validate(struct nlattr *tb[], struct nlattr *data[]) diff
---git
-> a/drivers/net/veth.c b/drivers/net/veth.c index 8c39d6d..f60f5ee 100644
-> --- a/drivers/net/veth.c
-> +++ b/drivers/net/veth.c
-> @@ -457,13 +457,13 @@ static int veth_newlink(struct net *src_net, struct
-> net_device *dev,
->  	return 0;
-> 
->  err_register_dev:
-> -	/* nothing to do */
-> +	free_percpu(dev->vstats);
->  err_configure_peer:
->  	unregister_netdevice(peer);
->  	return err;
-> 
->  err_register_peer:
-> -	free_netdev(peer);
-> +	veth_dev_free(peer);
->  	return err;
->  }
-> 
-> diff --git a/net/8021q/vlan_netlink.c b/net/8021q/vlan_netlink.c index
-> 1270207..a15826a 100644
-> --- a/net/8021q/vlan_netlink.c
-> +++ b/net/8021q/vlan_netlink.c
-> @@ -156,7 +156,11 @@ static int vlan_newlink(struct net *src_net, struct
-> net_device *dev,
->  	if (err < 0)
->  		return err;
-> 
-> -	return register_vlan_dev(dev);
-> +	err = register_vlan_dev(dev);
-> +	if (err)
-> +		free_percpu(vlan->vlan_pcpu_stats);
-> +
-> +	return err;
->  }
-> 
->  static inline size_t vlan_qos_map_size(unsigned int n) diff --git
-> a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c index 823abae..4acb296
-> 100644
-> --- a/net/ipv4/ip_tunnel.c
-> +++ b/net/ipv4/ip_tunnel.c
-> @@ -63,6 +63,8 @@
->  #include <net/ip6_route.h>
->  #endif
-> 
-> +static void ip_tunnel_dev_free(struct net_device *dev);
-> +
->  static unsigned int ip_tunnel_hash(__be32 key, __be32 remote)  {
->  	return hash_32((__force u32)key ^ (__force u32)remote, @@ -285,7
-> +287,7 @@ static struct net_device *__ip_tunnel_create(struct net *net,
->  	return dev;
-> 
->  failed_free:
-> -	free_netdev(dev);
-> +	ip_tunnel_dev_free(dev);
->  failed:
->  	return ERR_PTR(err);
->  }
-> @@ -1099,7 +1101,12 @@ int ip_tunnel_newlink(struct net_device *dev,
-> struct nlattr *tb[],
->  		dev->mtu = mtu;
-> 
->  	ip_tunnel_add(itn, nt);
-> +
-> +	return 0;
->  out:
-> +	gro_cells_destroy(&nt->gro_cells);
-> +	dst_cache_destroy(&nt->dst_cache);
-> +	free_percpu(dev->tstats);
->  	return err;
->  }
->  EXPORT_SYMBOL_GPL(ip_tunnel_newlink);
-> diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c index
-6fcb7cb..d409ad1
-> 100644
-> --- a/net/ipv6/ip6_gre.c
-> +++ b/net/ipv6/ip6_gre.c
-> @@ -77,6 +77,7 @@ struct ip6gre_net {
->  static void ip6gre_tunnel_setup(struct net_device *dev);  static void
-> ip6gre_tunnel_link(struct ip6gre_net *ign, struct ip6_tnl *t);  static
-void
-> ip6gre_tnl_link_config(struct ip6_tnl *t, int set_mtu);
-> +static void ip6gre_dev_free(struct net_device *dev);
-> 
->  /* Tunnel hash table */
-> 
-> @@ -351,7 +352,7 @@ static struct ip6_tnl *ip6gre_tunnel_locate(struct net
-> *net,
->  	return nt;
-> 
->  failed_free:
-> -	free_netdev(dev);
-> +	ip6gre_dev_free(dev);
->  	return NULL;
->  }
-> 
-> @@ -1388,7 +1389,10 @@ static int ip6gre_newlink(struct net *src_net,
-struct
-> net_device *dev,
->  	dev_hold(dev);
->  	ip6gre_tunnel_link(ign, nt);
-> 
-> +	return 0;
->  out:
-> +	dst_cache_destroy(&nt->dst_cache);
-> +	free_percpu(dev->tstats);
->  	return err;
->  }
-> 
-> diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c index
-> 75fac93..95f512c 100644
-> --- a/net/ipv6/ip6_tunnel.c
-> +++ b/net/ipv6/ip6_tunnel.c
-> @@ -1960,11 +1960,12 @@ static int ip6_tnl_newlink(struct net *src_net,
-> struct net_device *dev,
->  	struct ip6_tnl_net *ip6n = net_generic(net, ip6_tnl_net_id);
->  	struct ip6_tnl *nt, *t;
->  	struct ip_tunnel_encap ipencap;
-> +	int err;
-> 
->  	nt = netdev_priv(dev);
-> 
->  	if (ip6_tnl_netlink_encap_parms(data, &ipencap)) {
-> -		int err = ip6_tnl_encap_setup(nt, &ipencap);
-> +		err = ip6_tnl_encap_setup(nt, &ipencap);
-> 
->  		if (err < 0)
->  			return err;
-> @@ -1981,7 +1982,14 @@ static int ip6_tnl_newlink(struct net *src_net,
-> struct net_device *dev,
->  			return -EEXIST;
->  	}
-> 
-> -	return ip6_tnl_create2(dev);
-> +	err = ip6_tnl_create2(dev);
-> +	if (err) {
-> +		gro_cells_destroy(&t->gro_cells);
-> +		dst_cache_destroy(&t->dst_cache);
-> +		free_percpu(dev->tstats);
-> +	}
-> +
-> +	return err;
->  }
-> 
->  static int ip6_tnl_changelink(struct net_device *dev, struct nlattr
-*tb[], diff
-> --git a/net/ipv6/ip6_vti.c b/net/ipv6/ip6_vti.c index 3d8a3b6..b201eef
-100644
-> --- a/net/ipv6/ip6_vti.c
-> +++ b/net/ipv6/ip6_vti.c
-> @@ -940,6 +940,7 @@ static int vti6_newlink(struct net *src_net, struct
-> net_device *dev,  {
->  	struct net *net = dev_net(dev);
->  	struct ip6_tnl *nt;
-> +	int ret;
-> 
->  	nt = netdev_priv(dev);
->  	vti6_netlink_parms(data, &nt->parms);
-> @@ -949,7 +950,11 @@ static int vti6_newlink(struct net *src_net, struct
-> net_device *dev,
->  	if (vti6_locate(net, &nt->parms, 0))
->  		return -EEXIST;
-> 
-> -	return vti6_tnl_create2(dev);
-> +	ret = vti6_tnl_create2(dev);
-> +	if (ret)
-> +		free_percpu(dev->tstats);
-> +
-> +	return ret;
->  }
-> 
->  static void vti6_dellink(struct net_device *dev, struct list_head *head)
-diff
-> --git a/net/ipv6/sit.c b/net/ipv6/sit.c index 99853c6..f45dc4a 100644
-> --- a/net/ipv6/sit.c
-> +++ b/net/ipv6/sit.c
-> @@ -1555,8 +1555,11 @@ static int ipip6_newlink(struct net *src_net,
-struct
-> net_device *dev,
->  		return -EEXIST;
-> 
->  	err = ipip6_tunnel_create(dev);
-> -	if (err < 0)
-> +	if (err < 0) {
-> +		dst_cache_destroy(&nt->dst_cache);
-> +		free_percpu(dev->tstats);
->  		return err;
-> +	}
-> 
->  #ifdef CONFIG_IPV6_SIT_6RD
->  	if (ipip6_netlink_6rd_parms(data, &ip6rd))
-> --
-> 1.9.1
+On 17-04-25 08:13 AM, Jiri Pirko wrote:
+> Tue, Apr 25, 2017 at 01:54:06PM CEST, jhs@mojatatu.com wrote:
 
-Actually I have another simpler solution to fix it. 
-When newlink failed, its caller "rtnl_newlink" invokes the destructor if it
-exists like the following:
-	if (dev->reg_state == NETREG_UNINITIALIZED)
-		if (dev->destructor)
-			dev->destructor(dev);
-		else
-			free_netdev(dev);
 
-There are two reasons I don't adopt this solution.
-1. I don't know if it is against the original purpose of dev->destructor and
-rtnl_newlink.
-2. It breaks the design rule that "who malloc, who free".
+[..]
 
-But it is one more simple fix, then what's your opinion?
+>> -#define TCAA_MAX 1
+>> +/* tcamsg flags stored in attribute TCA_ROOT_FLAGS
+>> + *
+>> + * TCA_FLAG_LARGE_DUMP_ON user->kernel to request for larger than TCA_ACT_MAX_PRIO
+>> + * actions in a dump. All dump responses will contain the number of actions
+>> + * being dumped stored in for user app's consumption in TCA_ROOT_COUNT
+>> + *
+>> + */
+>> +#define TCA_FLAG_LARGE_DUMP_ON		(1 << 0)
+>
+> BIT (I think I mentioned this before)
+>
 
-Best Regards
-Feng
+You did - but i took it out about two submissions back (per cover
+letter) because it is no part of UAPI today. I noticed devlink was
+using it but they defined  their own variant.
+So if i added this, iproute2 doesnt compile. I could fix iproute2
+to move it somewhere to a common header then restore this.
+
+>> +#define VALID_TCA_FLAGS TCA_FLAG_LARGE_DUMP_ON
+>
+> Again, namespace please. "TCA_ROOT_FLAGS_VALID"
+
+Good point.
+
+> Why is this UAPI?
+>
+
+Should not be. I will fix in next update.
+
+
+>
+>>
+>> /* New extended info filters for IFLA_EXT_MASK */
+>> #define RTEXT_FILTER_VF		(1 << 0)
+>> diff --git a/net/sched/act_api.c b/net/sched/act_api.c
+>> index 9ce22b7..2756213 100644
+>> --- a/net/sched/act_api.c
+>> +++ b/net/sched/act_api.c
+>> @@ -83,6 +83,7 @@ static int tcf_dump_walker(struct tcf_hashinfo *hinfo, struct sk_buff *skb,
+>> 			   struct netlink_callback *cb)
+>> {
+>> 	int err = 0, index = -1, i = 0, s_i = 0, n_i = 0;
+>> +	u32 act_flags = cb->args[2];
+>> 	struct nlattr *nest;
+>>
+>> 	spin_lock_bh(&hinfo->lock);
+>> @@ -111,14 +112,18 @@ static int tcf_dump_walker(struct tcf_hashinfo *hinfo, struct sk_buff *skb,
+>> 			}
+>> 			nla_nest_end(skb, nest);
+>> 			n_i++;
+>> -			if (n_i >= TCA_ACT_MAX_PRIO)
+>> +			if (!(act_flags & TCA_FLAG_LARGE_DUMP_ON) &&
+>> +			    n_i >= TCA_ACT_MAX_PRIO)
+>> 				goto done;
+>> 		}
+>> 	}
+>> done:
+>> 	spin_unlock_bh(&hinfo->lock);
+>> -	if (n_i)
+>> +	if (n_i) {
+>> 		cb->args[0] += n_i;
+>> +		if (act_flags & TCA_FLAG_LARGE_DUMP_ON)
+>> +			cb->args[1] = n_i;
+>> +	}
+>> 	return n_i;
+>>
+>> nla_put_failure:
+>> @@ -993,11 +998,15 @@ static int tcf_action_add(struct net *net, struct nlattr *nla,
+>> 	return tcf_add_notify(net, n, &actions, portid);
+>> }
+>>
+>> +static const struct nla_policy tcaa_policy[TCA_ROOT_MAX + 1] = {
+>> +	[TCA_ROOT_FLAGS]      = { .type = NLA_U32 },
+>> +};
+>> +
+>> static int tc_ctl_action(struct sk_buff *skb, struct nlmsghdr *n,
+>> 			 struct netlink_ext_ack *extack)
+>> {
+>> 	struct net *net = sock_net(skb->sk);
+>> -	struct nlattr *tca[TCAA_MAX + 1];
+>> +	struct nlattr *tca[TCA_ROOT_MAX + 1];
+>> 	u32 portid = skb ? NETLINK_CB(skb).portid : 0;
+>> 	int ret = 0, ovr = 0;
+>>
+>> @@ -1005,7 +1014,7 @@ static int tc_ctl_action(struct sk_buff *skb, struct nlmsghdr *n,
+>> 	    !netlink_capable(skb, CAP_NET_ADMIN))
+>> 		return -EPERM;
+>>
+>> -	ret = nlmsg_parse(n, sizeof(struct tcamsg), tca, TCAA_MAX, NULL,
+>> +	ret = nlmsg_parse(n, sizeof(struct tcamsg), tca, TCA_ROOT_MAX, NULL,
+>> 			  extack);
+>> 	if (ret < 0)
+>> 		return ret;
+>> @@ -1046,16 +1055,12 @@ static int tc_ctl_action(struct sk_buff *skb, struct nlmsghdr *n,
+>> 	return ret;
+>> }
+>>
+>> -static struct nlattr *find_dump_kind(const struct nlmsghdr *n)
+>> +static struct nlattr *find_dump_kind(struct nlattr **nla)
+>> {
+>> 	struct nlattr *tb1, *tb2[TCA_ACT_MAX + 1];
+>> 	struct nlattr *tb[TCA_ACT_MAX_PRIO + 1];
+>> -	struct nlattr *nla[TCAA_MAX + 1];
+>> 	struct nlattr *kind;
+>>
+>> -	if (nlmsg_parse(n, sizeof(struct tcamsg), nla, TCAA_MAX,
+>> -			NULL, NULL) < 0)
+>> -		return NULL;
+>> 	tb1 = nla[TCA_ACT_TAB];
+>> 	if (tb1 == NULL)
+>> 		return NULL;
+>> @@ -1073,6 +1078,16 @@ static struct nlattr *find_dump_kind(const struct nlmsghdr *n)
+>> 	return kind;
+>> }
+>>
+>> +static inline bool tca_flags_valid(u32 act_flags)
+>> +{
+>> +	u32 invalid_flags_mask  = ~VALID_TCA_FLAGS;
+>> +
+>> +	if (act_flags & invalid_flags_mask)
+>> +		return false;
+>
+> I don't see how this resolves anything. VALID_TCA_FLAGS is set in stone
+> not going to change anytime in future, right?
+
+Every time a new bit gets added VALID_TCA_FLAGS changes.
+
+>Then the TCA_ROOT_FLAGS
+> attr will always contain only one flag, right?
+
+Not true - forever. Just in this patch discussion:
+I have added 2 other flags since removed. So I cant predict the
+future. You keep coming back to this assumption there will always
+ever be this one flag. I am not following how you reach this
+conclusion.
+
+> Then, I don't see why do we need this dance... u8 flag attr resolves
+> this in elegant way. I know I sound like a broken record. This is the
+> last time I'm commenting on this. I give up.
+>
+
+Why is a u8 better than u32 Jiri?
+The TLV space consumed is still 64 bits in both cases. If I define u8,
+u16, u32 - it is still 64 bits being alloced. If i use a u8 then i have
+24 bits which are pads - given current discussions I can never ever use
+again!
+
+If i keep 32 bits I am free to use those without ever changing the
+data structure (except for the restrictions to now make sure nothing
+gets set).
+
+cheers,
+jamal
