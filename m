@@ -1,66 +1,77 @@
-From: Scott Branden <scott.branden-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH 1/2] net: dsa: b53: Add compatible strings for the
- Cygnus-family BCM11360.
-Date: Mon, 24 Apr 2017 16:57:45 -0700
-Message-ID: <8054ec9e-73d0-af1a-bb9a-fcdac782dc9c@broadcom.com>
-References: <20170424215022.30382-1-eric@anholt.net>
- <20170424215022.30382-2-eric@anholt.net>
- <a2f4f0c9-feea-291b-dae5-f4ed10f9c547@broadcom.com>
- <8760hte4zw.fsf@eliezer.anholt.net>
+From: Eric Anholt <eric@anholt.net>
+Subject: Re: [PATCH 2/2] ARM: dts: Add the ethernet and ethernet PHY to the cygnus core DT.
+Date: Mon, 24 Apr 2017 17:00:31 -0700
+Message-ID: <8737cxe4ps.fsf@eliezer.anholt.net>
+References: <20170424215022.30382-1-eric@anholt.net> <20170424215022.30382-3-eric@anholt.net> <20170424220842.GA26241@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        bcm-kernel-feedback-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, Ray Jui <rjui-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Scott Branden <sbranden-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Jon Mason <jonmason-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-To: Eric Anholt <eric-WhKQ6XTQaPysTnJN9+BGXg@public.gmane.org>,
-        Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Vivien Didelot <vivien.didelot-4ysUXcep3aM1wj+D4I0NRVaTQe2KTcn/@public.gmane.org>,
-        Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <8760hte4zw.fsf-omZaPlIz5HhaEpDpdNBo/KxOck334EZe@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; boundary="=-=-=";
+        micalg=pgp-sha512; protocol="application/pgp-signature"
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        netdev@vger.kernel.org, Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>,
+        devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+        linux-kernel@vger.kernel.org,
+        bcm-kernel-feedback-list@broadcom.com, Ray Jui <rjui@broadcom.com>,
+        Scott Branden <sbranden@broadcom.com>,
+        Jon Mason <jonmason@broadcom.com>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from anholt.net ([50.246.234.109]:38084 "EHLO anholt.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S979282AbdDYAAe (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 24 Apr 2017 20:00:34 -0400
+In-Reply-To: <20170424220842.GA26241@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+--=-=-=
+Content-Type: text/plain
 
+Andrew Lunn <andrew@lunn.ch> writes:
 
-On 17-04-24 04:54 PM, Eric Anholt wrote:
-> Scott Branden <scott.branden-dY08KVG/lbpWk0Htik3J/w@public.gmane.org> writes:
+>> +		mdio: mdio@18002000 {
+>> +			compatible = "brcm,iproc-mdio";
+>> +			reg = <0x18002000 0x8>;
+>> +			#size-cells = <1>;
+>> +			#address-cells = <0>;
+>> +
+>> +			gphy0: eth-gphy@0 {
+>> +				reg = <0>;
+>> +				max-speed = <1000>;
+>> +			};
+>> +
+>> +			gphy1: eth-gphy@1 {
+>> +				reg = <1>;
+>> +				max-speed = <1000>;
+>> +			};
+>> +		};
 >
->> Minor comment in line
->>
->> On 17-04-24 02:50 PM, Eric Anholt wrote:
->>> Cygnus is a small family of SoCs, of which we currently have
->>> devicetree for BCM11360 and BCM58300.  The 11360's B53 is mostly the
->>> same as 58xx, just requiring a tiny bit of setup that was previously
->>> missing.
->>>
->>> Signed-off-by: Eric Anholt <eric-WhKQ6XTQaPysTnJN9+BGXg@public.gmane.org>
->>> ---
->>>  Documentation/devicetree/bindings/net/dsa/b53.txt | 3 +++
->>>  drivers/net/dsa/b53/b53_srab.c                    | 2 ++
->>>  2 files changed, 5 insertions(+)
->>>
->>> diff --git a/Documentation/devicetree/bindings/net/dsa/b53.txt b/Documentation/devicetree/bindings/net/dsa/b53.txt
->>> index d6c6e41648d4..49c93d3c0839 100644
->>> --- a/Documentation/devicetree/bindings/net/dsa/b53.txt
->>> +++ b/Documentation/devicetree/bindings/net/dsa/b53.txt
->>> @@ -29,6 +29,9 @@ Required properties:
->>>        "brcm,bcm58625-srab"
->>>        "brcm,bcm88312-srab" and the mandatory "brcm,nsp-srab string
->>>
->>> +  For the BCM11360 SoC, must be:
->>> +      "brcm,bcm11360-srab" and the mandatory "brcm,cygnus-srab string
->>> +
->> place in alphabetical order in the doc?
+> Hi Eric
 >
-> Moved it above BCM5310x now.  I hope that's what you meant.
->
-Yes, sorry for not being more clear.
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Do these max-speed properties do anything useful? Is the PHY capable
+> of > 1Gbps?
+
+Not sure where I had those copy-and-pasted from, but they don't seem
+necessary.  Dropped.
+
+--=-=-=
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAEBCgAdFiEE/JuuFDWp9/ZkuCBXtdYpNtH8nugFAlj+kZ8ACgkQtdYpNtH8
+nujsHBAAgms3IywzvhT2FsQkDMaFyL7gmZJv9h0f8wMpgFKN/zmjTBkCrYPNU4IF
+lOazfhWs1pPcMSQnmRKjwL6R8oEwnzPuruQdH/USPeGF1tZuG5atGgBBGr0pbp+e
+14xPFpN4RLZW8qUk9G5VNanc+9Yhm0zZwYayh/JOlhHvWc+Vw/S6TefOTeXus6j3
+rJhvoiZNbC2kCCbFp2ht5fF/EEE6iH/JstMXDEKgNZE3a8Vxku3FpvL4dOnbMcV/
+sVnwEtSOFpHPVydxT/qcfGHyJPllu5Ws13U3OwlT5M7ryi2ZaL0stV9Nn+Dw8KN/
+zRJ4ZLgHMaSfBFnZCxbOD4S9cKRJLA58Hwrp9SWOB3QDgdo8mjTJUjAHt4IpDdN6
+MT28vMsvaIdHTqlqKU19X7QPR7aSMnOxFW+O8wSbuIclKx79a1ThZsytrzOj2xXd
+s5ci1BZaFyPpegp4rHueLxAr0+QM1xoQaxXzWwf5Ati5vraoJ8pROD4i6yOEJ3zr
+hmvUaTUKzSv0gJGSpx4x5IHf0w7BTDnIxul97zHG3+OzZbPUKA3I8ZwkFTqYOHVk
+KEUNYY5ovwSBcEFnwfGc0hlBB31ev15UlPEsMQOfnA+FnMrj6vTaC84c4KcOTdoS
+V40C2EDLYRORh1rugs5Ija+CLxxfOBFj13W/C+7uNgDkHHwoL54=
+=BAWs
+-----END PGP SIGNATURE-----
+--=-=-=--
