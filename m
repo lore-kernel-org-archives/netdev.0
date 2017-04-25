@@ -1,75 +1,39 @@
-From: Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] IB/IPoIB: Check the headroom size
-Date: Tue, 25 Apr 2017 14:14:37 +0300
-Message-ID: <CAJ3xEMgw=9sj3rdahPEiST_yDfDJPNSZZLRn43tnb3bK4_RPzg@mail.gmail.com>
-References: <1493114155-12101-1-git-send-email-honli@redhat.com>
- <CAJ3xEMg4_2ph7QwPsUb-tX-K4d2ppkqz98sPzytsmBCK=29WHw@mail.gmail.com> <CAAk-MO8O19iC2Yn-BMn5pKTAYxaSzGPMyta=fwes3XSvzmz_cQ@mail.gmail.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH net-next] rhashtable: remove insecure_max_entries param
+Date: Tue, 25 Apr 2017 13:23:56 +0200
+Message-ID: <20170425112356.GB11322@breakpoint.cc>
+References: <20170425094134.21885-1-fw@strlen.de>
+ <20170425110415.GA25167@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Honggang LI <honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Erez Shitrit <erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        "Hefty, Sean" <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Linux Kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Erez Shitrit <erezsh-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAAk-MO8O19iC2Yn-BMn5pKTAYxaSzGPMyta=fwes3XSvzmz_cQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:48412 "EHLO
+        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1946697AbdDYLYG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 07:24:06 -0400
+Content-Disposition: inline
+In-Reply-To: <20170425110415.GA25167@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 25, 2017 at 2:11 PM, Erez Shitrit <erezsh-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org> wrote:
-> On Tue, Apr 25, 2017 at 1:32 PM, Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
->> On Tue, Apr 25, 2017 at 12:55 PM, Honggang LI <honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
->>> From: Honggang Li <honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
->>>
->>> Minimal hard_header_len set by bond_compute_features is ETH_HLEN, which
->>> is smaller than IPOIB_HARD_LEN. ipoib_hard_header should check the
->>> size of headroom to avoid skb_under_panic.
->>
->> sounds terrible, ipoib bonding is supported since ~2007, thanks for
->> reporting on that.
->>
->>> [  122.871493] ipoib_hard_header: skb->head= ffff8808179d9400, skb->data= ffff8808179d9420, skb_headroom= 0x20
->>> [  123.055400] bond0: Releasing backup interface mthca_ib1
->>> [  123.560529] bond_compute_features:1112 bond0 bond_dev->hard_header_len = 14
->>> [  123.568822] CPU: 0 PID: 12336 Comm: ifdown-ib Not tainted 4.9.0-debug #1
->>
->> did you generate this trace by calling dump_stack or this is existing
->> kernel code.
->>
->>> Fixes: fc791b633515 ('IB/ipoib: move back IB LL address into the hard header')
->>
->> this is more of WA to avoid some crash or failure but not fixing the
->> actual problem
->>
->> Erez, can you comment?
->
-> We saw that after commit fc791b633515, it happened while removing bond
-> interface after its slaves (ipoib interface) removed.
-> At that point the bond interface sets its dev_harheader_len to be as
-> eth interfaces (14 instead of 24), and if a process which doesn't
-> aware of the slaves removal or was at the middle of the sending tries
-> to send (igmp) packet it goes to ipoib with no space in the skb for
-> it, and here comes the panic.
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
+> Florian Westphal <fw@strlen.de> wrote:
+> > no users in the tree, insecure_max_entries is always set to
+> > ht->p.max_size * 2 in rhtashtable_init().
+> > 
+> > Replace only spot that uses it with a ht->p.max_size check.
+> 
+> I'd suggest that as this needs to be computed every time we insert
+> an element that you keep the value in struct rhashtable, but as an
+> internal value as opposed to a paramter that is set by the user.
 
-thanks for the info. Is this bug there since ipoib/bonding day one
-(and hence my bug...)
-or was indeed introduced later? if later, can you explain how
-fc791b633515 introduced
-that or you only know it by bisection?
+What extra cost?
 
-> I agree with you that this fix is w/a, and it is a fix in the data
-> path for all the packets while the panic is in a control flow. It
-> probably should be fixed in the bonding driver.
+The only change is that ht->nelems has to be right-shifted by one,
+I don't think that warrants extra space in struct rhashtable, its
+already way too large (I think we can reduce its size further).
 
-so what's your suggestion? fc791b633515 is 6m old, and it means the bug
-is in stable kernels and probably also in inbox drivers
-
-Or.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks,
+Florian
