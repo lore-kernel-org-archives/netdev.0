@@ -1,48 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ipvlan: use pernet operations and restrict
- l3s hooks to master netns
-Date: Tue, 25 Apr 2017 10:43:49 -0400 (EDT)
-Message-ID: <20170425.104349.2185336124073374885.davem@davemloft.net>
-References: <20170420160815.7201-1-fw@strlen.de>
+Subject: Re: [PATCH 1/5] skbuff: return -EMSGSIZE in skb_to_sgvec to
+ prevent overflow
+Date: Tue, 25 Apr 2017 10:47:31 -0400 (EDT)
+Message-ID: <20170425.104731.631398016575024152.davem@davemloft.net>
+References: <20170425140809.23881-1-Jason@zx2c4.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, maheshb@google.com
-To: fw@strlen.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:39776 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1948189AbdDYOnx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 10:43:53 -0400
-In-Reply-To: <20170420160815.7201-1-fw@strlen.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        David.Laight@aculab.com, kernel-hardening@lists.openwall.com
+To: Jason@zx2c4.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170425140809.23881-1-Jason@zx2c4.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Florian Westphal <fw@strlen.de>
-Date: Thu, 20 Apr 2017 18:08:15 +0200
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Date: Tue, 25 Apr 2017 16:08:05 +0200
 
-> commit 4fbae7d83c98c30efc ("ipvlan: Introduce l3s mode") added
-> registration of netfilter hooks via nf_register_hooks().
+> This is a defense-in-depth measure in response to bugs like
+> 4d6fa57b4dab0d77f4d8e9d9c73d1e63f6fe8fee.
 > 
-> This API provides the illusion of 'global' netfilter hooks by placing the
-> hooks in all current and future network namespaces.
-> 
-> In case of ipvlan the hook appears to be only needed in the namespace
-> that contains the ipvlan master device (i.e., usually init_net), so
-> placing them in all namespaces is not needed.
-> 
-> This switches ipvlan driver to pernet operations, and then only registers
-> hooks in namespaces where a ipvlan master device is set to l3s mode.
-> 
-> Extra care has to be taken when the master device is moved to another
-> namespace, as we might have to 'move' the netfilter hooks too.
-> 
-> This is done by storing the namespace the ipvlan port was created in.
-> On REGISTER event, do (un)register operations in the old/new namespaces.
-> 
-> This will also allow removal of the nf_register_hooks() in a future patch.
-> 
-> Cc: Mahesh Bandewar <maheshb@google.com>
-> Signed-off-by: Florian Westphal <fw@strlen.de>
+> Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
 
-Applied, thanks Florian.
+Please refer to commits in the form:
+
+$(SHA1_ID) ("Commit header line.")
+
+That is, 12 bytes of SHA1_ID followed by the commit header line text
+in both double quotes and parenthesis, like this:
+
+4d6fa57b4dab ("macsec: avoid heap overflow in skb_to_sgvec")
+
+Otherwise when changes get backported or applied to different trees,
+they have different SHA1_ID values.  The commit header text removes
+any and all ambiguity.
+
+Thank you.
