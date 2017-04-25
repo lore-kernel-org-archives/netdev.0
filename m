@@ -1,84 +1,37 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next] virtio-net: on tx, only call napi_disable if tx
-	napi is on
-Date: Tue, 25 Apr 2017 23:44:42 +0300
-Message-ID: <20170425234434-mutt-send-email-mst@kernel.org>
-References: <20170425195917.54209-1-willemdebruijn.kernel@gmail.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: more test_progs...
+Date: Tue, 25 Apr 2017 22:49:53 +0200
+Message-ID: <58FFB671.9040907@iogearbox.net>
+References: <20170425.125217.1962662516948420246.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Willem de Bruijn <willemb@google.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, virtualization@lists.linux-foundation.org
-To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <20170425195917.54209-1-willemdebruijn.kernel@gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>, ast@fb.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:59498 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1954517AbdDYUt6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 16:49:58 -0400
+In-Reply-To: <20170425.125217.1962662516948420246.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 25, 2017 at 03:59:17PM -0400, Willem de Bruijn wrote:
-> From: Willem de Bruijn <willemb@google.com>
-> 
-> As of tx napi, device down (`ip link set dev $dev down`) hangs unless
-> tx napi is enabled. Else napi_enable is not called, so napi_disable
-> will spin on test_and_set_bit NAPI_STATE_SCHED.
-> 
-> Only call napi_disable if tx napi is enabled.
-> 
-> Fixes: 5a719c2552ca ("virtio-net: transmit napi")
-> Reported-by: Jason Wang <jasowang@redhat.com>
-> Signed-off-by: Willem de Bruijn <willemb@google.com>
+On 04/25/2017 06:52 PM, David Miller wrote:
+[...]
+> Load eth->h_proto
+>
+> 10: (15) if r3 == 0xdd86 goto pc+9
+>   R0=imm2,min_value=2,max_value=2 R1=pkt(id=0,off=0,r=14) R2=pkt_end R3=inv R4=pkt(id=0,off=14,r=14) R5=inv56 R10=fp
+>
+> Hmmm, endianness looks wrong here.  "-target bpf" defaults to the
+> endianness of whatever cpu that llvm was built for, right?
 
-Acked-by: Michael S. Tsirkin <mst@redhat.com>
+Hmm, would it show the right endianess when you compile
+with "-target bpfeb"?
 
-
-
-> ---
->  drivers/net/virtio_net.c | 10 ++++++++--
->  1 file changed, 8 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index 003143835766..82f1c3a73345 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -997,6 +997,12 @@ static void virtnet_napi_tx_enable(struct virtnet_info *vi,
->  	return virtnet_napi_enable(vq, napi);
->  }
->  
-> +static void virtnet_napi_tx_disable(struct napi_struct *napi)
-> +{
-> +	if (napi->weight)
-> +		napi_disable(napi);
-> +}
-> +
->  static void refill_work(struct work_struct *work)
->  {
->  	struct virtnet_info *vi =
-> @@ -1445,7 +1451,7 @@ static int virtnet_close(struct net_device *dev)
->  
->  	for (i = 0; i < vi->max_queue_pairs; i++) {
->  		napi_disable(&vi->rq[i].napi);
-> -		napi_disable(&vi->sq[i].napi);
-> +		virtnet_napi_tx_disable(&vi->sq[i].napi);
->  	}
->  
->  	return 0;
-> @@ -1803,7 +1809,7 @@ static void virtnet_freeze_down(struct virtio_device *vdev)
->  	if (netif_running(vi->dev)) {
->  		for (i = 0; i < vi->max_queue_pairs; i++) {
->  			napi_disable(&vi->rq[i].napi);
-> -			napi_disable(&vi->sq[i].napi);
-> +			virtnet_napi_tx_disable(&vi->sq[i].napi);
->  		}
->  	}
->  }
-> -- 
-> 2.13.0.rc0.306.g87b477812d-goog
+My understanding is that "-target bpf" defaults to host
+cpu's endianess, and since you likely built clang/llvm
+directly on sparc, it should also all run on target
+endianness anyway (so no potential mixup when compiling
+f.e. bpfeb on x86_64).
