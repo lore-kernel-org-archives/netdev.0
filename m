@@ -1,121 +1,108 @@
-From: Lars-Peter Clausen <lars@metafoo.de>
-Subject: Re: [PATCH v4 net-next] mdio_bus: Issue GPIO RESET to PHYs.
-Date: Tue, 25 Apr 2017 18:22:25 +0200
-Message-ID: <5954130c-c08c-1555-4d34-83307ed68d92@metafoo.de>
-References: <1491381237-24635-1-git-send-email-rogerq@ti.com>
- <64d6494d-41d2-0faf-a434-057f796637fe@ti.com>
- <daa29a99-0a17-d316-57eb-3e6162938d8d@ti.com>
- <f372db02-a919-55b4-9200-20726cd13482@ti.com>
- <fe0b7ec5-2f83-ba06-579f-3ea0d5c4990c@ti.com>
- <1c36aab1-3411-f76d-67f7-e3f6d9e9fda5@metafoo.de>
- <20170423233553.GA23498@lunn.ch>
- <551ee7a0-d153-3a36-e025-2c1f70f866b7@ti.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: Network cooling device and how to control NIC speed on thermal
+ condition
+Date: Tue, 25 Apr 2017 09:23:01 -0700
+Message-ID: <2c1e823f-29c8-1cf6-4923-ddb1f1e09891@gmail.com>
+References: <CAHKzcEMQPQzg6PYCSuv7Ufad+4AZ2gnqMgz3-VH5NTeb_pv4zQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 8bit
-Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>,
-        tony@atomide.com, nsekhar@ti.com, jsarha@ti.com,
-        netdev@vger.kernel.org, linux-omap@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Roger Quadros <rogerq@ti.com>, Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <551ee7a0-d153-3a36-e025-2c1f70f866b7@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+To: Waldemar Rymarkiewicz <waldemar.rymarkiewicz@gmail.com>,
+        netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f182.google.com ([209.85.220.182]:34241 "EHLO
+        mail-qk0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S980647AbdDYQXE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 12:23:04 -0400
+In-Reply-To: <CAHKzcEMQPQzg6PYCSuv7Ufad+4AZ2gnqMgz3-VH5NTeb_pv4zQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04/24/2017 11:04 AM, Roger Quadros wrote:
-> On 24/04/17 02:35, Andrew Lunn wrote:
->> On Fri, Apr 21, 2017 at 03:31:09PM +0200, Lars-Peter Clausen wrote:
->>> On 04/21/2017 03:15 PM, Roger Quadros wrote:
->>>> diff --git a/Documentation/devicetree/bindings/net/mdio.txt b/Documentation/devicetree/bindings/net/mdio.txt
->>>> new file mode 100644
->>>> index 0000000..4ffbbac
->>>> --- /dev/null
->>>> +++ b/Documentation/devicetree/bindings/net/mdio.txt
->>>> @@ -0,0 +1,33 @@
->>>> +Common MDIO bus properties.
->>>> +
->>>> +These are generic properties that can apply to any MDIO bus.
->>>> +
->>>> +Optional properties:
->>>> +- reset-gpios: List of one or more GPIOs that control the RESET lines
->>>> +  of the PHYs on that MDIO bus.
->>>> +- reset-delay-us: RESET pulse width in microseconds as per PHY datasheet.
->>>> +
->>>> +A list of child nodes, one per device on the bus is expected. These
->>>> +should follow the generic phy.txt, or a device specific binding document.
->>>> +
->>>> +Example :
->>>> +This example shows these optional properties, plus other properties
->>>> +required for the TI Davinci MDIO driver.
->>>> +
->>>> +	davinci_mdio: ethernet@0x5c030000 {
->>>> +		compatible = "ti,davinci_mdio";
->>>> +		reg = <0x5c030000 0x1000>;
->>>> +		#address-cells = <1>;
->>>> +		#size-cells = <0>;
->>>> +
->>>> +		reset-gpios = <&gpio2 5 GPIO_ACTIVE_LOW>;
->>>> +		reset-delay-us = <2>;   /* PHY datasheet states 1us min */
->>>
->>> If this is the reset line of the PHY shouldn't it be a property of the PHY
->>> node rather than of the MDIO controller node (which might have a reset on
->>> its own)?
->>>> +
->>>> +		ethphy0: ethernet-phy@1 {
->>>> +			reg = <1>;
->>>> +		};
->>>> +
->>>> +		ethphy1: ethernet-phy@3 {
->>>> +			reg = <3>;
->>>> +		};
->>
->> Hi Lars-Peter
->>
->> We discussed this when the first proposal was made. There are two
->> cases, to consider.
->>
->> 1) Here, one GPIO line resets all PHYs on the same MDIO bus. In this
->> example, two PHYs.
->>
->> 2) There is one GPIO line per PHY. That is a separate case, and as you
->> say, the reset line should probably be considered a PHY property, not
->> an MDIO property. However, it can be messy, since in order to probe
->> the MDIO bus, you probably need to take the PHY out of reset.
->>
+Hello,
 
-But the DT binding documentation says something else "List of one or more
-GPIOs that control the RESET lines of the PHYs on that MDIO bus".
-
->> Anyway, this patch addresses the first case, so should be accepted. If
->> anybody wants to address the second case, they are free to do so.
-
-I think we all know that that's not going to happen. Once there is a working
-kludge there is no incentive to do a proper implementation anymore.
-
-
-> Thanks for the explanation Andrew.
+On 04/25/2017 01:36 AM, Waldemar Rymarkiewicz wrote:
+> Hi,
 > 
-> For the second case, even if the RESET GPIO property is specified
-> in the PHY node, the RESET *will* have to be done by the MDIO bus driver
-> else the PHY might not be probed at all.
+> I am not much aware of linux networking architecture so I'd like to
+> ask first before will start to dig into the code. Appreciate any
+> feedback.
+> 
+> I am looking on Linux thermal framework and on how to cool down the
+> system effectively when it hits thermal condition. Already existing
+> cooling methods cpu_cooling and clock_cooling are good. However, I
+> wanted to go further and dynamically control also a switch ports'
+> speed based on thermal condition. Lowering speed means less power,
+> less power means lower temp.
+> 
+> Is there any in-kernel interface to configure switch port/NIC from other driver?
 
-I'm not arguing with that, just that the hardware description should be
-truthful to the hardware topology and not to the software topology, i.e. the
-implementation details of the Linux kernel in this case. Reset GPIOs are not
-the only resource that is connected to the PHY that needs to be enabled
-before they can be enumerated. E.g. clocks and regulators fall into the same
-realm. And while you might argue that with a on-SoC phy controller node
-there wont be any conflicts in regard to the reset-gpios property, this not
-so very true for the clocks property.
-
-And MDIO is not really special in this regard, other discoverable buses
-(like USB, SDIO, ULPI) have the very same issue. Having a standardized
-binding approach where the resources are declared as part as the child child
-is preferable in my opinion.
+Well, there is mostly under the form of notifiers though. For instance
+there are lots of devices that do converged FCoE/RoCE/Ethernet that have
+a two headed set of drivers, one for normal ethernet, and another one
+for RDMA/IB for instance. To some extent stacked devices (VLAN, bond,
+team, etc.) also call back down into their lower device, but in an
+abstracted way, at the net_device level of course (layering).
 
 > 
-> Whether we need additional code to just to make the DT look prettier is
-> questionable and if required can come as a separate patch.
+> Is there any mechanism to power save, when port/interface is not
+> really used (not much or low data traffic), embedded in networking
+> stack  or is it a task for NIC driver itself ?
 
-Unfortunately not, once it is merged it can't be changed anymore.
+The thing we did (currently out of tree) in the Starfighter 2 switch
+driver (drivers/net/dsa/bcm_sf2.c) is that any time a port is brought
+up/down (a port = a network device) we recalculate the switch core
+clock, and we also resize the buffers and that yields to a little bit of
+power savings  here and there. I don't recall the numbers from the top
+of my head, but it was significant enough our HW designers convinced me
+into doing it ;)
+
+> 
+> I was thinking to create net_cooling device similarly to cpu_cooling
+> device which cool down the system scaling down cpu freq.  net_cooling
+> could lower down interface speed (or tune more parameters to achieve
+> ).  Do you thing could this work form networking stack perspective?
+
+This sounds like a good idea, but it could be very tricky to get right,
+because even if you can somehow throttle your transmit activity (since
+the host is in control), you can't do that without being disruptive to
+the receive path (or not as effectively).
+
+Unlike any kind of host driven activity: CPU run queue, block devices,
+USB etc. (SPI, I2C and so on when no using slave driven interrupts) you
+cannot simply apply a "duty cycle" pattern where you turn on your HW
+just enough of time that is needed for you to set it up for transfer,
+signal transfer completion and go back to sleep. Networking needs to be
+able to asynchronously receive packets in a way that is usually not
+predictable although it could be for very specific workloads though.
+
+Another thing is that there is still a fair amount of energy that needs
+to be spent in maintaining the link, and the HW design may be entirely
+clocked based on the link speed. Depending on the HW architecture (store
+and forward, cut through etc.) there would still be a cost associated
+with maintaining RAMs in a state where they are operational and so on.
+
+You could imagine writing a queuing discipline driver that would
+throttle transmission based on temperature sensors present in your NIC,
+you could definitively do this in a way that is completely device driver
+agnostic by using Linux's thermal framework trip point and temperature
+notifications.
+
+For reception, if you are okay with dropping some packets, you could
+implement something similar, but chances are that your NIC would still
+need to receive packets, be able to fully process them before SW drops
+them, at which point, you have a myriad of solutions about how not to
+process incoming traffic.
+
+Hope this helps
+
+> 
+> Any pointers  to the code or a doc highly appreciated.
+> 
+> Thanks,
+> /Waldek
+> 
+
+
+-- 
+Florian
