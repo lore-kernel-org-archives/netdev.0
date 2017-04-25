@@ -1,82 +1,58 @@
-From: Jan Kiszka <jan.kiszka@siemens.com>
-Subject: Re: [PATCH] stmmac: Add support for SIMATIC IOT2000 platform
-Date: Tue, 25 Apr 2017 07:44:53 +0200
-Message-ID: <feb4856b-fb66-3861-2121-d2834fb01899@siemens.com>
-References: <8c536123-6189-e0b6-1977-dc7a521718dd@siemens.com>
- <CAHp75VcdpOXa+aQ6-iKamTAbX9KGZOWpukygSUS7Ef_E3UNvuw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-        Alexandre Torgue <alexandre.torgue@st.com>,
-        netdev <netdev@vger.kernel.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        Sascha Weisenberger <sascha.weisenberger@siemens.com>
-To: Andy Shevchenko <andy.shevchenko@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAHp75VcdpOXa+aQ6-iKamTAbX9KGZOWpukygSUS7Ef_E3UNvuw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: [PATCH 0/8] Fix and complete CAN namespace support
+Date: Tue, 25 Apr 2017 08:19:37 +0200
+Message-ID: <20170425061945.28722-1-socketcan@hartkopp.net>
+Cc: Oliver Hartkopp <socketcan@hartkopp.net>, mkl@pengutronix.de,
+        dev@kicherer.org, netdev@vger.kernel.org
+To: linux-can@vger.kernel.org, davem@davemloft.net
+Return-path: <linux-can-owner@vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 2017-04-24 23:27, Andy Shevchenko wrote:
-> On Mon, Apr 24, 2017 at 10:27 PM, Jan Kiszka <jan.kiszka@siemens.com> wrote:
->> The IOT2000 is industrial controller platform, derived from the Intel
->> Galileo Gen2 board. The variant IOT2020 comes with one LAN port, the
->> IOT2040 has two of them. They can be told apart based on the board asset
->> tag in the DMI table.
->>
->> Based on patch by Sascha Weisenberger.
->>
-> 
->> Signed-off-by: Jan Kiszka <jan.kiszka@siemens.com>
->> Signed-off-by: Sascha Weisenberger <sascha.weisenberger@siemens.com>
-> 
-> Shoudn't be ordered other way around?
+Hello Dave,
 
-Nope. My changes invalidated Sascha's signed-off on the original patch,
-but he signed off again on the final version.
+unfortunately the initial network namespace support by Mario Kicherer
+(8e8cda6d737d) slipped into net-next without further review and Marc pushed
+the code without my Acked-by. Due to the fact that this code was in net-next
+now I spent some nights to fix, clean up, finalize and test the missing pieces
+for the namespace support for the CAN subsystem in net/can.
 
-> 
->> +       const char *asset_tag;
-> 
-> I guess this is redundant. See below.
-> 
->> +       {
->> +               .name = "SIMATIC IOT2000",
->> +               .asset_tag = "6ES7647-0AA00-0YA2",
->> +               .func = 6,
->> +               .phy_addr = 1,
->> +       },
-> 
-> The below has same definition disregard on asset_tag.
-> 
+As Marc is currently *VERY* unresponsive on the mailing list due to his 'real'
+job I send this patch set directly to you to make sure it gets through the
+current merge window. We are already in -rc8 and I would like to avoid to push
+an incomplete functionality - that has to be fixed - to Linus.
 
-There is a small difference in the asset tag, just not at the last digit
-where one may expect it, look:
+This patch set is based on the latest net-next.
 
-...-0YA2 -> IOT2020
-...-1YA2 -> IOT2040
+Thanks,
+Oliver
 
->> +       {
->> +               .name = "SIMATIC IOT2000",
->> +               .asset_tag = "6ES7647-0AA00-1YA2",
->> +               .func = 6,
->> +               .phy_addr = 1,
->> +       },
->> +       {
->> +               .name = "SIMATIC IOT2000",
->> +               .asset_tag = "6ES7647-0AA00-1YA2",
->> +               .func = 7,
->> +               .phy_addr = 1,
->> +       },
-> 
-> How this supposed to work if phy_addr is the same?
-> 
+Oliver Hartkopp (8):
+  can: fix memory leak in initial namespace support
+  can: remove obsolete pernet_operations definitions
+  can: remove obsolete definitions
+  can: complete initial namespace support
+  can: network namespace support for CAN_BCM protocol
+  can: network namespace support for CAN gateway
+  can: add Virtual CAN Tunnel driver (vxcan)
+  can: enable module auto loading for virtual CAN interfaces
 
-That address space is MAC-local, and we have two different MACs here.
-
-Jan
+ drivers/net/can/Kconfig        |  18 +++
+ drivers/net/can/Makefile       |   1 +
+ drivers/net/can/vcan.c         |   7 +-
+ drivers/net/can/vxcan.c        | 316 +++++++++++++++++++++++++++++++++++++++++
+ include/linux/can/core.h       |   4 +-
+ include/net/netns/can.h        |   9 ++
+ include/uapi/linux/can/vxcan.h |  12 ++
+ net/can/af_can.c               |  77 +++++-----
+ net/can/af_can.h               |   9 --
+ net/can/bcm.c                  |  90 +++++++-----
+ net/can/gw.c                   |  72 ++++++----
+ net/can/proc.c                 | 141 +++++++++---------
+ 12 files changed, 580 insertions(+), 176 deletions(-)
+ create mode 100644 drivers/net/can/vxcan.c
+ create mode 100644 include/uapi/linux/can/vxcan.h
 
 -- 
-Siemens AG, Corporate Technology, CT RDA ITP SES-DE
-Corporate Competence Center Embedded Linux
+2.11.0
+
