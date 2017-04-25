@@ -1,99 +1,37 @@
-From: Alexander Potapenko <glider@google.com>
-Subject: [PATCH] ipv6: ensure message length for raw socket is at least sizeof(ipv6hdr)
-Date: Tue, 25 Apr 2017 15:18:27 +0200
-Message-ID: <20170425131827.66498-1-glider@google.com>
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: dvyukov@google.com, kcc@google.com, edumazet@google.com,
-        davem@davemloft.net, kuznet@ms2.inr.ac.ru
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH net-next] rhashtable: remove insecure_max_entries param
+Date: Tue, 25 Apr 2017 21:28:37 +0800
+Message-ID: <20170425132837.GA25657@gondor.apana.org.au>
+References: <20170425094134.21885-1-fw@strlen.de>
+ <20170425110415.GA25167@gondor.apana.org.au>
+ <20170425112356.GB11322@breakpoint.cc>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Florian Westphal <fw@strlen.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [198.176.57.175] ([198.176.57.175]:47514 "EHLO
+        deadmen.hmeau.com" rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1430559AbdDYN3D (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 09:29:03 -0400
+Content-Disposition: inline
+In-Reply-To: <20170425112356.GB11322@breakpoint.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-rawv6_send_hdrinc() expects that the buffer copied from the userspace
-contains the IPv6 header, so if too few bytes are copied parts of the
-header may remain uninitialized.
+On Tue, Apr 25, 2017 at 01:23:56PM +0200, Florian Westphal wrote:
+>
+> What extra cost?
+> 
+> The only change is that ht->nelems has to be right-shifted by one,
+> I don't think that warrants extra space in struct rhashtable, its
+> already way too large (I think we can reduce its size further).
 
-This bug has been detected with KMSAN.
+I see at least one hole on 64-bit which means that you can fit
+it into struct rhashtable for free.
 
-Signed-off-by: Alexander Potapenko <glider@google.com>
----
-For the record, the KMSAN report:
-
-==================================================================
-BUG: KMSAN: use of unitialized memory in nf_ct_frag6_gather+0xf5a/0x44a0
-inter: 0
-CPU: 0 PID: 1036 Comm: probe Not tainted 4.11.0-rc5+ #2455
-Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
-Call Trace:
- __dump_stack lib/dump_stack.c:16
- dump_stack+0x143/0x1b0 lib/dump_stack.c:52
- kmsan_report+0x16b/0x1e0 mm/kmsan/kmsan.c:1078
- __kmsan_warning_32+0x5c/0xa0 mm/kmsan/kmsan_instr.c:510
- nf_ct_frag6_gather+0xf5a/0x44a0 net/ipv6/netfilter/nf_conntrack_reasm.c:577
- ipv6_defrag+0x1d9/0x280 net/ipv6/netfilter/nf_defrag_ipv6_hooks.c:68
- nf_hook_entry_hookfn ./include/linux/netfilter.h:102
- nf_hook_slow+0x13f/0x3c0 net/netfilter/core.c:310
- nf_hook ./include/linux/netfilter.h:212
- NF_HOOK ./include/linux/netfilter.h:255
- rawv6_send_hdrinc net/ipv6/raw.c:673
- rawv6_sendmsg+0x2fcb/0x41a0 net/ipv6/raw.c:919
- inet_sendmsg+0x3f8/0x6d0 net/ipv4/af_inet.c:762
- sock_sendmsg_nosec net/socket.c:633
- sock_sendmsg net/socket.c:643
- SYSC_sendto+0x6a5/0x7c0 net/socket.c:1696
- SyS_sendto+0xbc/0xe0 net/socket.c:1664
- do_syscall_64+0x72/0xa0 arch/x86/entry/common.c:285
- entry_SYSCALL64_slow_path+0x25/0x25 arch/x86/entry/entry_64.S:246
-RIP: 0033:0x436e03
-RSP: 002b:00007ffce48baf38 EFLAGS: 00000246 ORIG_RAX: 000000000000002c
-RAX: ffffffffffffffda RBX: 00000000004002b0 RCX: 0000000000436e03
-RDX: 0000000000000000 RSI: 0000000000000000 RDI: 0000000000000003
-RBP: 00007ffce48baf90 R08: 00007ffce48baf50 R09: 000000000000001c
-R10: 0000000000000000 R11: 0000000000000246 R12: 0000000000000000
-R13: 0000000000401790 R14: 0000000000401820 R15: 0000000000000000
-origin: 00000000d9400053
- save_stack_trace+0x16/0x20 arch/x86/kernel/stacktrace.c:59
- kmsan_save_stack_with_flags mm/kmsan/kmsan.c:362
- kmsan_internal_poison_shadow+0xb1/0x1a0 mm/kmsan/kmsan.c:257
- kmsan_poison_shadow+0x6d/0xc0 mm/kmsan/kmsan.c:270
- slab_alloc_node mm/slub.c:2735
- __kmalloc_node_track_caller+0x1f4/0x390 mm/slub.c:4341
- __kmalloc_reserve net/core/skbuff.c:138
- __alloc_skb+0x2cd/0x740 net/core/skbuff.c:231
- alloc_skb ./include/linux/skbuff.h:933
- alloc_skb_with_frags+0x209/0xbc0 net/core/skbuff.c:4678
- sock_alloc_send_pskb+0x9ff/0xe00 net/core/sock.c:1903
- sock_alloc_send_skb+0xe4/0x100 net/core/sock.c:1920
- rawv6_send_hdrinc net/ipv6/raw.c:638
- rawv6_sendmsg+0x2918/0x41a0 net/ipv6/raw.c:919
- inet_sendmsg+0x3f8/0x6d0 net/ipv4/af_inet.c:762
- sock_sendmsg_nosec net/socket.c:633
- sock_sendmsg net/socket.c:643
- SYSC_sendto+0x6a5/0x7c0 net/socket.c:1696
- SyS_sendto+0xbc/0xe0 net/socket.c:1664
- do_syscall_64+0x72/0xa0 arch/x86/entry/common.c:285
- return_from_SYSCALL_64+0x0/0x6a arch/x86/entry/entry_64.S:246
-==================================================================
-
-, triggered by the following syscalls:
-  socket(PF_INET6, SOCK_RAW, IPPROTO_RAW) = 3
-  sendto(3, NULL, 0, 0, {sa_family=AF_INET6, sin6_port=htons(0), inet_pton(AF_INET6, "ff00::", &sin6_addr), sin6_flowinfo=0, sin6_scope_id=0}, 28) = -1 EPERM
----
- net/ipv6/raw.c | 2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
-index f174e76e6505..805464668bd8 100644
---- a/net/ipv6/raw.c
-+++ b/net/ipv6/raw.c
-@@ -632,6 +632,8 @@ static int rawv6_send_hdrinc(struct sock *sk, struct msghdr *msg, int length,
- 		ipv6_local_error(sk, EMSGSIZE, fl6, rt->dst.dev->mtu);
- 		return -EMSGSIZE;
- 	}
-+	if (length < sizeof(struct ipv6hdr))
-+		return -EINVAL;
- 	if (flags&MSG_PROBE)
- 		goto out;
- 
+Cheers,
 -- 
-2.13.0.rc0.306.g87b477812d-goog
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
