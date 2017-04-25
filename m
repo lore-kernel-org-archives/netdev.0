@@ -1,192 +1,109 @@
-From: Nathan Fontenot <nfont@linux.vnet.ibm.com>
-Subject: [PATCH net-next 1/2] ibmvnic: Split initialization of scrqs to its
- own routine
-Date: Tue, 25 Apr 2017 15:01:04 -0400
-Message-ID: <20170425190104.41126.22322.stgit@ltcalpine2-lp23.aus.stglabs.ibm.com>
-References: <20170425185704.41126.65738.stgit@ltcalpine2-lp23.aus.stglabs.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: jallen@linux.vnet.ibm.com, tlfalcon@linux.vnet.ibm.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:40261 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1949082AbdDYPMS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 11:12:18 -0400
-Received: from pps.filterd (m0098419.ppops.net [127.0.0.1])
-        by mx0b-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v3PF9PUA099587
-        for <netdev@vger.kernel.org>; Tue, 25 Apr 2017 11:12:17 -0400
-Received: from e12.ny.us.ibm.com (e12.ny.us.ibm.com [129.33.205.202])
-        by mx0b-001b2d01.pphosted.com with ESMTP id 2a1v50xpke-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Tue, 25 Apr 2017 11:12:17 -0400
-Received: from localhost
-        by e12.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <nfont@linux.vnet.ibm.com>;
-        Tue, 25 Apr 2017 11:12:16 -0400
-In-Reply-To: <20170425185704.41126.65738.stgit@ltcalpine2-lp23.aus.stglabs.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Subject: [PATCH] macsec: dynamically allocate space for sglist
+Date: Tue, 25 Apr 2017 17:23:00 +0200
+Message-ID: <20170425152300.3830-1-Jason@zx2c4.com>
+References: <CAHmME9rZ29X=R-quViXaEO_ouxeB2EpzR2bkR93rrN4n--QDqw@mail.gmail.com>
+Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>,
+        Sabrina Dubroca <sd@queasysnail.net>
+To: Netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        David Miller <davem@davemloft.net>, stable@vger.kernel.org,
+        security@kernel.org
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <CAHmME9rZ29X=R-quViXaEO_ouxeB2EpzR2bkR93rrN4n--QDqw@mail.gmail.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Split the sending of capability request crqs and the initialization
-of sub crqs into their own routines. This is a first step to moving
-the allocation of sub-crqs out of interrupt context.
+We call skb_cow_data, which is good anyway to ensure we can actually
+modify the skb as such (another error from prior). Now that we have the
+number of fragments required, we can safely allocate exactly that amount
+of memory.
 
-Signed-off-by: Nathan Fontenot <nfont@linux.vnet.ibm.com>
+Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
+Cc: Sabrina Dubroca <sd@queasysnail.net>
+Cc: security@kernel.org
+Cc: stable@vger.kernel.org
 ---
- drivers/net/ethernet/ibm/ibmvnic.c |  101 +++++++++++++++++++-----------------
- 1 file changed, 54 insertions(+), 47 deletions(-)
+ drivers/net/macsec.c | 25 ++++++++++++++++++++-----
+ 1 file changed, 20 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/ibm/ibmvnic.c b/drivers/net/ethernet/ibm/ibmvnic.c
-index 51bf337..c2e260c 100644
---- a/drivers/net/ethernet/ibm/ibmvnic.c
-+++ b/drivers/net/ethernet/ibm/ibmvnic.c
-@@ -1678,48 +1678,20 @@ static int init_sub_crq_irqs(struct ibmvnic_adapter *adapter)
- 	return rc;
- }
+diff --git a/drivers/net/macsec.c b/drivers/net/macsec.c
+index dbab05afcdbe..56dafdee4c9c 100644
+--- a/drivers/net/macsec.c
++++ b/drivers/net/macsec.c
+@@ -617,7 +617,8 @@ static void macsec_encrypt_done(struct crypto_async_request *base, int err)
  
--static void init_sub_crqs(struct ibmvnic_adapter *adapter, int retry)
-+static int init_sub_crqs(struct ibmvnic_adapter *adapter)
+ static struct aead_request *macsec_alloc_req(struct crypto_aead *tfm,
+ 					     unsigned char **iv,
+-					     struct scatterlist **sg)
++					     struct scatterlist **sg,
++					     int num_frags)
  {
- 	struct device *dev = &adapter->vdev->dev;
- 	struct ibmvnic_sub_crq_queue **allqueues;
- 	int registered_queues = 0;
--	union ibmvnic_crq crq;
- 	int total_queues;
- 	int more = 0;
- 	int i;
+ 	size_t size, iv_offset, sg_offset;
+ 	struct aead_request *req;
+@@ -629,7 +630,7 @@ static struct aead_request *macsec_alloc_req(struct crypto_aead *tfm,
  
--	if (!retry) {
--		/* Sub-CRQ entries are 32 byte long */
--		int entries_page = 4 * PAGE_SIZE / (sizeof(u64) * 4);
--
--		if (adapter->min_tx_entries_per_subcrq > entries_page ||
--		    adapter->min_rx_add_entries_per_subcrq > entries_page) {
--			dev_err(dev, "Fatal, invalid entries per sub-crq\n");
--			goto allqueues_failed;
--		}
--
--		/* Get the minimum between the queried max and the entries
--		 * that fit in our PAGE_SIZE
--		 */
--		adapter->req_tx_entries_per_subcrq =
--		    adapter->max_tx_entries_per_subcrq > entries_page ?
--		    entries_page : adapter->max_tx_entries_per_subcrq;
--		adapter->req_rx_add_entries_per_subcrq =
--		    adapter->max_rx_add_entries_per_subcrq > entries_page ?
--		    entries_page : adapter->max_rx_add_entries_per_subcrq;
--
--		adapter->req_tx_queues = adapter->opt_tx_comp_sub_queues;
--		adapter->req_rx_queues = adapter->opt_rx_comp_queues;
--		adapter->req_rx_add_queues = adapter->max_rx_add_queues;
--
--		adapter->req_mtu = adapter->netdev->mtu + ETH_HLEN;
--	}
--
- 	total_queues = adapter->req_tx_queues + adapter->req_rx_queues;
+ 	size = ALIGN(size, __alignof__(struct scatterlist));
+ 	sg_offset = size;
+-	size += sizeof(struct scatterlist) * (MAX_SKB_FRAGS + 1);
++	size += sizeof(struct scatterlist) * num_frags;
  
- 	allqueues = kcalloc(total_queues, sizeof(*allqueues), GFP_ATOMIC);
- 	if (!allqueues)
--		goto allqueues_failed;
-+		return -1;
- 
- 	for (i = 0; i < total_queues; i++) {
- 		allqueues[i] = init_sub_crq_queue(adapter);
-@@ -1776,6 +1748,56 @@ static void init_sub_crqs(struct ibmvnic_adapter *adapter, int retry)
- 		adapter->rx_scrq[i]->scrq_num = i;
+ 	tmp = kmalloc(size, GFP_ATOMIC);
+ 	if (!tmp)
+@@ -649,6 +650,7 @@ static struct sk_buff *macsec_encrypt(struct sk_buff *skb,
+ {
+ 	int ret;
+ 	struct scatterlist *sg;
++	struct sk_buff *trailer;
+ 	unsigned char *iv;
+ 	struct ethhdr *eth;
+ 	struct macsec_eth_header *hh;
+@@ -723,7 +725,14 @@ static struct sk_buff *macsec_encrypt(struct sk_buff *skb,
+ 		return ERR_PTR(-EINVAL);
  	}
  
-+	kfree(allqueues);
-+	return 0;
-+
-+rx_failed:
-+	kfree(adapter->tx_scrq);
-+	adapter->tx_scrq = NULL;
-+tx_failed:
-+	for (i = 0; i < registered_queues; i++)
-+		release_sub_crq_queue(adapter, allqueues[i]);
-+	kfree(allqueues);
-+	return -1;
-+}
-+
-+static void ibmvnic_send_req_caps(struct ibmvnic_adapter *adapter, int retry)
-+{
-+	struct device *dev = &adapter->vdev->dev;
-+	union ibmvnic_crq crq;
-+	int rc;
-+
-+	if (!retry) {
-+		/* Sub-CRQ entries are 32 byte long */
-+		int entries_page = 4 * PAGE_SIZE / (sizeof(u64) * 4);
-+
-+		if (adapter->min_tx_entries_per_subcrq > entries_page ||
-+		    adapter->min_rx_add_entries_per_subcrq > entries_page) {
-+			dev_err(dev, "Fatal, invalid entries per sub-crq\n");
-+			return;
-+		}
-+
-+		/* Get the minimum between the queried max and the entries
-+		 * that fit in our PAGE_SIZE
-+		 */
-+		adapter->req_tx_entries_per_subcrq =
-+		    adapter->max_tx_entries_per_subcrq > entries_page ?
-+		    entries_page : adapter->max_tx_entries_per_subcrq;
-+		adapter->req_rx_add_entries_per_subcrq =
-+		    adapter->max_rx_add_entries_per_subcrq > entries_page ?
-+		    entries_page : adapter->max_rx_add_entries_per_subcrq;
-+
-+		adapter->req_tx_queues = adapter->opt_tx_comp_sub_queues;
-+		adapter->req_rx_queues = adapter->opt_rx_comp_queues;
-+		adapter->req_rx_add_queues = adapter->max_rx_add_queues;
-+
-+		adapter->req_mtu = adapter->netdev->mtu + ETH_HLEN;
+-	req = macsec_alloc_req(tx_sa->key.tfm, &iv, &sg);
++	ret = skb_cow_data(skb, 0, &trailer);
++	if (unlikely(ret < 0)) {
++		macsec_txsa_put(tx_sa);
++		kfree_skb(skb);
++		return ERR_PTR(ret);
 +	}
 +
-+	rc = init_sub_crqs(adapter);
-+	if (rc)
-+		return;
-+
- 	memset(&crq, 0, sizeof(crq));
- 	crq.request_capability.first = IBMVNIC_CRQ_CMD;
- 	crq.request_capability.cmd = REQUEST_CAPABILITY;
-@@ -1829,20 +1851,6 @@ static void init_sub_crqs(struct ibmvnic_adapter *adapter, int retry)
- 		atomic_inc(&adapter->running_cap_crqs);
- 		ibmvnic_send_crq(adapter, &crq);
- 	}
--
--	kfree(allqueues);
--
--	return;
--
--rx_failed:
--	kfree(adapter->tx_scrq);
--	adapter->tx_scrq = NULL;
--tx_failed:
--	for (i = 0; i < registered_queues; i++)
--		release_sub_crq_queue(adapter, allqueues[i]);
--	kfree(allqueues);
--allqueues_failed:
--	ibmvnic_remove(adapter->vdev);
++	req = macsec_alloc_req(tx_sa->key.tfm, &iv, &sg, ret);
+ 	if (!req) {
+ 		macsec_txsa_put(tx_sa);
+ 		kfree_skb(skb);
+@@ -917,6 +926,7 @@ static struct sk_buff *macsec_decrypt(struct sk_buff *skb,
+ {
+ 	int ret;
+ 	struct scatterlist *sg;
++	struct sk_buff *trailer;
+ 	unsigned char *iv;
+ 	struct aead_request *req;
+ 	struct macsec_eth_header *hdr;
+@@ -927,7 +937,12 @@ static struct sk_buff *macsec_decrypt(struct sk_buff *skb,
+ 	if (!skb)
+ 		return ERR_PTR(-ENOMEM);
+ 
+-	req = macsec_alloc_req(rx_sa->key.tfm, &iv, &sg);
++	ret = skb_cow_data(skb, 0, &trailer);
++	if (unlikely(ret < 0)) {
++		kfree_skb(skb);
++		return ERR_PTR(ret);
++	}
++	req = macsec_alloc_req(rx_sa->key.tfm, &iv, &sg, ret);
+ 	if (!req) {
+ 		kfree_skb(skb);
+ 		return ERR_PTR(-ENOMEM);
+@@ -2716,7 +2731,7 @@ static netdev_tx_t macsec_start_xmit(struct sk_buff *skb,
  }
  
- static int pending_scrq(struct ibmvnic_adapter *adapter,
-@@ -2568,7 +2576,7 @@ static void handle_request_cap_rsp(union ibmvnic_crq *crq,
- 					       number), name);
- 		release_sub_crqs(adapter);
- 		*req_value = be64_to_cpu(crq->request_capability_rsp.number);
--		init_sub_crqs(adapter, 1);
-+		ibmvnic_send_req_caps(adapter, 1);
- 		return;
- 	default:
- 		dev_err(dev, "Error %d in request cap rsp\n",
-@@ -2881,8 +2889,7 @@ static void handle_query_cap_rsp(union ibmvnic_crq *crq,
- out:
- 	if (atomic_read(&adapter->running_cap_crqs) == 0) {
- 		adapter->wait_capability = false;
--		init_sub_crqs(adapter, 0);
--		/* We're done querying the capabilities, initialize sub-crqs */
-+		ibmvnic_send_req_caps(adapter, 0);
- 	}
- }
+ #define MACSEC_FEATURES \
+-	(NETIF_F_SG | NETIF_F_HIGHDMA)
++	(NETIF_F_SG | NETIF_F_HIGHDMA | NETIF_F_FRAGLIST)
+ static struct lock_class_key macsec_netdev_addr_lock_key;
  
+ static int macsec_dev_init(struct net_device *dev)
+-- 
+2.12.2
