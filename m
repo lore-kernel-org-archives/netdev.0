@@ -1,34 +1,76 @@
-From: Donatas Abraitis <donatas.abraitis@gmail.com>
-Subject: [PATCH -stable 3.10,backport] net: ipv6: drop non loopback packets
- claiming to originate from ::1
-Date: Tue, 25 Apr 2017 22:56:07 +0300
-Message-ID: <CAPF+HwXpCsn2DvwKJtiJKF_zHQMmUxfoMOrPPGFUdW9on95wJA@mail.gmail.com>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: [PATCH net-next] virtio-net: on tx,
+	only call napi_disable if tx napi is on
+Date: Tue, 25 Apr 2017 15:59:17 -0400
+Message-ID: <20170425195917.54209-1-willemdebruijn.kernel@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Willem de Bruijn <willemb@google.com>,
+	virtualization@lists.linux-foundation.org, davem@davemloft.net,
+	mst@redhat.com
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f44.google.com ([209.85.214.44]:35237 "EHLO
-        mail-it0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1433170AbdDYT4N (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 15:56:13 -0400
-Received: by mail-it0-f44.google.com with SMTP id 70so25783661ita.0
-        for <netdev@vger.kernel.org>; Tue, 25 Apr 2017 12:56:13 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-commit 0aa8c13eb512823bc4d60397d666a6b6260bb965 upstream.
+From: Willem de Bruijn <willemb@google.com>
 
-We lack a saddr check for ::1. This causes security issues e.g. with acls
-permitting connections from ::1 because of assumption that these originate
-from local machine.
+As of tx napi, device down (`ip link set dev $dev down`) hangs unless
+tx napi is enabled. Else napi_enable is not called, so napi_disable
+will spin on test_and_set_bit NAPI_STATE_SCHED.
 
-Assuming a source address of ::1 is local seems reasonable.
-RFC4291 doesn't allow such a source address either, so drop such packets.
+Only call napi_disable if tx napi is enabled.
 
-As IPv6 is getting faster pace, this patch should be included in older
-kernels, for instance, 3.10 (RHEL7 family). It could be solved with
-netfilter, but why do not apply this trivial patch to work as
-expected?
+Fixes: 5a719c2552ca ("virtio-net: transmit napi")
+Reported-by: Jason Wang <jasowang@redhat.com>
+Signed-off-by: Willem de Bruijn <willemb@google.com>
+---
+ drivers/net/virtio_net.c | 10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)
 
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 003143835766..82f1c3a73345 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -997,6 +997,12 @@ static void virtnet_napi_tx_enable(struct virtnet_info *vi,
+ 	return virtnet_napi_enable(vq, napi);
+ }
+ 
++static void virtnet_napi_tx_disable(struct napi_struct *napi)
++{
++	if (napi->weight)
++		napi_disable(napi);
++}
++
+ static void refill_work(struct work_struct *work)
+ {
+ 	struct virtnet_info *vi =
+@@ -1445,7 +1451,7 @@ static int virtnet_close(struct net_device *dev)
+ 
+ 	for (i = 0; i < vi->max_queue_pairs; i++) {
+ 		napi_disable(&vi->rq[i].napi);
+-		napi_disable(&vi->sq[i].napi);
++		virtnet_napi_tx_disable(&vi->sq[i].napi);
+ 	}
+ 
+ 	return 0;
+@@ -1803,7 +1809,7 @@ static void virtnet_freeze_down(struct virtio_device *vdev)
+ 	if (netif_running(vi->dev)) {
+ 		for (i = 0; i < vi->max_queue_pairs; i++) {
+ 			napi_disable(&vi->rq[i].napi);
+-			napi_disable(&vi->sq[i].napi);
++			virtnet_napi_tx_disable(&vi->sq[i].napi);
+ 		}
+ 	}
+ }
 -- 
-Donatas
+2.13.0.rc0.306.g87b477812d-goog
