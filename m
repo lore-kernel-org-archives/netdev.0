@@ -1,52 +1,72 @@
-From: Willem de Bruijn <willemb@google.com>
-Subject: Re: [RFC PATCH 3/7] net: add option to get information about
- timestamped packets
-Date: Tue, 25 Apr 2017 13:23:41 -0400
-Message-ID: <CA+FuTScs9Kp4=Grr+b3HMVg_rGJ8kWYvDDN4kpbFQ0mpS6UdnA@mail.gmail.com>
-References: <20170412141737.5881-1-mlichvar@redhat.com> <20170412141737.5881-4-mlichvar@redhat.com>
- <CAF=yD-Lsbr7f7aPUsFF3gCtFdyR8yb1=VBPJGQuxv_JbrJud6Q@mail.gmail.com>
- <20170413151806.GA26613@localhost> <CAF=yD-+tJpY7XJrqxga=0_kn-FjS0M=yuu59m_ZRRrrcpJCbZw@mail.gmail.com>
- <20170424090043.GF8847@localhost> <CAF=yD-+ErPH6Qb4y9TcAMi-7X+ebxW3epq3Zxch_vrt1r3gspQ@mail.gmail.com>
- <20170425135642.GB27148@localhost>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: Re: Blogpost evaluation this [PATCH v4 net-next RFC] net: Generic XDP
+Date: Tue, 25 Apr 2017 13:25:49 -0400
+Message-ID: <20170425172549.GQ4730@C02RW35GFVH8.dhcp.broadcom.net>
+References: <20170413.120925.2082322246776478766.davem@davemloft.net>
+ <20170424162405.1183f2e7@redhat.com>
+ <20170424.182643.485613135674690555.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Willem de Bruijn <willemdebruijn.kernel@gmail.com>,
-        Network Development <netdev@vger.kernel.org>,
-        Richard Cochran <richardcochran@gmail.com>,
-        Soheil Hassas Yeganeh <soheil@google.com>,
-        "Keller, Jacob E" <jacob.e.keller@intel.com>,
-        Denny Page <dennypage@me.com>, Jiri Benc <jbenc@redhat.com>
-To: Miroslav Lichvar <mlichvar@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: brouer@redhat.com, xdp-newbies@vger.kernel.org,
+        netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f42.google.com ([74.125.82.42]:35247 "EHLO
-        mail-wm0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1951948AbdDYRYN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 13:24:13 -0400
-Received: by mail-wm0-f42.google.com with SMTP id w64so29012978wma.0
-        for <netdev@vger.kernel.org>; Tue, 25 Apr 2017 10:24:12 -0700 (PDT)
-In-Reply-To: <20170425135642.GB27148@localhost>
+Received: from mail-qk0-f193.google.com ([209.85.220.193]:34683 "EHLO
+        mail-qk0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1951992AbdDYRZx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 13:25:53 -0400
+Received: by mail-qk0-f193.google.com with SMTP id u75so9722154qka.1
+        for <netdev@vger.kernel.org>; Tue, 25 Apr 2017 10:25:53 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20170424.182643.485613135674690555.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 25, 2017 at 9:56 AM, Miroslav Lichvar <mlichvar@redhat.com> wrote:
-> On Mon, Apr 24, 2017 at 11:18:13AM -0400, Willem de Bruijn wrote:
->> On Mon, Apr 24, 2017 at 5:00 AM, Miroslav Lichvar <mlichvar@redhat.com> wrote:
->> > Would "skb->data - skb->head -
->> > skb->mac_header + skb->len" always work as the L2 length for received
->> > packets at the time when the cmsg is prepared?
->>
->> (skb->data - skb->head) - skb->mac_header computes the length
->> of data before the mac, such as reserve?
->
-> data - head includes the reserve, but mac_header does too, so I think
-> it should be just the length of MAC header and everything up to the
-> data.
->
->> Do you mean skb->data -
->> skb->mac_header (or - skb_mac_offset(skb))?
->
-> That would give me a pointer? If I used skb_mac_offset(), the total
-> length would be just skb->len - skb_mac_offset()?
+On Mon, Apr 24, 2017 at 06:26:43PM -0400, David Miller wrote:
+> From: Jesper Dangaard Brouer <brouer@redhat.com>
+> Date: Mon, 24 Apr 2017 16:24:05 +0200
+> 
+> > I've done a very detailed evaluation of this patch, and I've created a
+> > blogpost like report here:
+> > 
+> >  https://prototype-kernel.readthedocs.io/en/latest/blogposts/xdp25_eval_generic_xdp_tx.html
+> 
+> Thanks for doing this Jesper.
 
-It appears so. The only existing caller first checks
-skb_mac_header_was_set(skb).
+Yes, this is excellent.  I'm not all the way thru it, but I looked at
+the data and corroborate the results you are seeing.
+
+My results for both optimized and generic XDP for
+xdp_bench01_mem_access_cost --action XDP_DROP --readmem are quite
+similar to yours (11.7Mpps and 7.8Mpps, respectively for me 11.7Mpps and
+8.4Mpps for you).
+
+I also noted (as you did) that there is no discernible difference
+running xdp_bench01_mem_access_cost with or without the --readmem
+option since the packet data is already being accessed that late it the
+stack.
+
+> 
+> > I didn't evaluate the adjust_head part, so I hope Andy is still
+> > planning to validate that part?
+> 
+> I was hoping he would post some results today as well.
+> 
+> Andy, how goes it? :)
+
+Sorry for the delayed response.  I was AFK yesterday, but based on
+testing from Friday and what I wrapped up today all looks good to me.
+
+On my system (i7-6700 CPU @ 3.40GHz) the reported and actual TX
+throughput for xdp_tx_iptunnel is 4.6Mpps for the optimized XDP.
+
+For generic XDP the reported throughput of xdp_tx_iptunnel is 4.6Mpps
+but only ~880kpps actually on the wire.  It seems to me that can be
+fixed with a follow-up for offending drivers or the stack if deemed that
+there is a real error there.
+
+> Once the basic patch is ready and integrated in we can try to do
+> xmit_more in generic XDP and see what that does for XDP_TX
+> performance.
+
+Agreed.
