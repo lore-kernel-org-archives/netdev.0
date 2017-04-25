@@ -1,79 +1,98 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: qed*: debug infrastructures
-Date: Tue, 25 Apr 2017 09:13:14 -0700
-Message-ID: <c8751a31-f493-45c1-5bf2-596b367ea034@gmail.com>
-References: <CY1PR0701MB1337FA26F1503FC9928B0340901F0@CY1PR0701MB1337.namprd07.prod.outlook.com>
+From: Murali Karicheri <m-karicheri2@ti.com>
+Subject: Re: IGMP on IPv6
+Date: Tue, 25 Apr 2017 12:16:22 -0400
+Message-ID: <58FF7656.8050506@ti.com>
+References: <1479111388-25383-1-git-send-email-liuhangbin@gmail.com>
+ <58D29265.1020604@ti.com> <58EFA913.5060604@ti.com>
+ <CAM_iQpWYuQdxF0AOEMHRy7BSmxMVUb-7w7OdgYeOKe6atATsFQ@mail.gmail.com>
+ <58F648FB.10606@ti.com> <58F64ADB.8040900@ti.com>
+ <CAM_iQpWJ_oPSWV-PBeBGj5LoddMHTmrimLbViXLJ-VKR21e4mQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "Mintz, Yuval" <Yuval.Mintz@cavium.com>,
-        "Tayar, Tomer" <Tomer.Tayar@cavium.com>,
-        "Dupuis, Chad" <Chad.Dupuis@cavium.com>
-To: "Elior, Ariel" <Ariel.Elior@cavium.com>,
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Hangbin Liu <liuhangbin@gmail.com>,
+        "open list:TI NETCP ETHERNET DRIVER" <netdev@vger.kernel.org>,
         David Miller <davem@davemloft.net>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:33221 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1951353AbdDYQNW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 12:13:22 -0400
-Received: by mail-pg0-f65.google.com with SMTP id 63so12286685pgh.0
-        for <netdev@vger.kernel.org>; Tue, 25 Apr 2017 09:13:22 -0700 (PDT)
-In-Reply-To: <CY1PR0701MB1337FA26F1503FC9928B0340901F0@CY1PR0701MB1337.namprd07.prod.outlook.com>
+Received: from fllnx209.ext.ti.com ([198.47.19.16]:17395 "EHLO
+        fllnx209.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1950463AbdDYQQn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 12:16:43 -0400
+In-Reply-To: <CAM_iQpWJ_oPSWV-PBeBGj5LoddMHTmrimLbViXLJ-VKR21e4mQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/24/2017 10:38 AM, Elior, Ariel wrote:
-> Hi Dave,
+On 04/18/2017 06:37 PM, Cong Wang wrote:
+> On Tue, Apr 18, 2017 at 10:20 AM, Murali Karicheri <m-karicheri2@ti.com> wrote:
+>> On 04/18/2017 01:12 PM, Murali Karicheri wrote:
+>>> On 04/17/2017 05:38 PM, Cong Wang wrote:
+>>>> Hello,
+>>>>
+>>>> On Thu, Apr 13, 2017 at 9:36 AM, Murali Karicheri <m-karicheri2@ti.com> wrote:
+>>>>> On 03/22/2017 11:04 AM, Murali Karicheri wrote:
+>>>>>> This is going directly to the slave Ethernet interface.
+>>>>>>
+>>>>>> When I put a WARN_ONCE, I found this is coming directly from
+>>>>>> mld_ifc_timer_expire() -> mld_sendpack() -> ip6_output()
+>>>>>>
+>>>>>> Do you think this is fixed in latest kernel at master? If so, could
+>>>>>> you point me to some commits.
+>>>>>>
+>>>>>>
+>>>>> Ping... I see this behavior is also seen on v4.9.x Kernel. Any clue if
+>>>>> this is fixed by some commit or I need to debug? I see IGMPv6 has some
+>>>>> fixes on the list to make it similar to IGMPv4. So can someone clarify this is
+>>>>> is a bug at IGMPv6 code or I need to look into the HSR driver code?
+>>>>> Since IGMPv4 is going over the HSR interface I am assuming this is a
+>>>>> bug in the IGMPv6 code. But since I have not experience with this code
+>>>>> can some expert comment please?
+>>>>>
+>>>>
+>>>> How did you configure your network interfaces and IPv4/IPv6 multicast?
+>>>> IOW, how did you reproduce this? For example, did you change your
+>>>> HSR setup when this happened since you mentioned
+>>>> NETDEV_CHANGEUPPER?
+>>>>
+>>> Thanks for responding! Really appreciate.
+>>>
+>>> I didn't set up anything explicitly for IPv4/IPv6 multicast. As part of
+>>> my testing, I dump the packets going through the slave interfaces attached
+>>> to the hsr interface (for example my Ethernet interfaces eth2 and eth3
+>>> are attached to the hsr interface and I dump the packets at the egress
+>>> of eth2 and eth3 in my driver along with that at hsr xmit function). As
+>>> soon as I create the hsr interface, I see a bunch of packets going directly
+>>> through the lower interface, not through the upper one (i.e hsr interface)
+>>> and these are of eth_type = 86 dd. Please ignore my reference to
+>>> NETDEV_CHANGEUPPER for now as it was wild guess.
 > 
-> According to the recent messages on the list indicating debugfs is not the way
-> to go, I am looking for some guidance on what is. dpipe approach was
-> mentioned as favorable, but I wanted to make sure molding our debug features to
-> this infrastructure will result in something acceptable. A few points:
+> OK. Note: I know nothing about HSR, I assume it is similar to bonding
+> in your case?
 > 
-> 1.
-> One of our HW debug features is a signal recording feature. HW is configured to
-> output specific signals, which are then continuously dumped into a cyclic
-> buffer on host. There are ~8000 signals, which can be logically divided to ~100
-> groups. I believe this can be modeled in dpipe (or similar tool) as a set of
-> ~100 tables with ~80 entries each, and user would be able to see them all and
-> choose what they like. The output data itself is binary, and meaningless to
-> "the user". The amount of data is basically as large a contiguous buffer as
-> driver can allocate, i.e. usually 4MB. When user selects the signals, and sets
-> meta data regarding to mode of operations, some device configuration will have
-> to take place. Does that sound reasonable?
-> This debug feature already exists out of tree for bnx2x and qed* drivers and is
-> *very* effective in field deployments. I would very much like to see this as an
-> in-tree feature via some infrastructure or another.
 
-By signals do you mean actual electrical signals coming from your chip's
-pins/balls? FWIW, there is kind of something similar existing with ARM
-Ltd's Embedded Trace Module which allows capturing a SoC's CPU activity
-(loads/stores/pc progression etc.) using a high speed interface. You may
-want to look at drivers/hwtracing/{coresight,stm}/ for examples on how
-this interfaces with Linux' perf events subsystems. There are existing
-trace buffers infrastructures and it sounds like your use case fits
-nicely within the perf events framework here where you may want the
-entire set or subset of these 8000 signals to be recorded in a buffer.
+Similar in the sense it glues two standard Ethernet interfaces and run
+HSR protocol frames over it to support redundancy.
 
+>>>
+>>> I have not done any debugging, but the WARN_ONCE which I have placed
+>>> in the lower level driver looking for eth_type = 86 dd provided the
+>>> above trace.
+>>>
+>> Here is the command I have used to create the hsr interface...
+>>
+>> ip link add name hsr0 type hsr slave1 eth2 slave2 eth3 supervision 45 version 1
+> 
+> Did you assign IPv4 and IPv6 addresses to the HSR master device?
+
+No. I just used IPv4. From the trace mld_ifc_timer_expire() -> mld_sendpack() -> ip6_output()
+do you know what is it trying to do? Is it some neighbor discovery message or something
+going over the lower interface instead of the hsr interface?
+
+Murali
 
 > 
-> 2.
-> Sometimes we want to debug the probe or removal flow of the driver. ethtool has
-> the disadvantage of only being available once network device is available. If a
-> bug stops the load flow before the ethtool debug paths are available, there is
-> no way to collect a dump. Similarly, removal flows which hit a bug but do remove
-> the network device, can't be debugged from ethtool. Does dpipe suffer from the
-> same problem? qed* (like mlx*) has a common-functionality module. This allows
-> creating debugfs nodes even before the network drivers are probed, providing a
-> solution for this (debug nodes are also available after network driver removal).
-> If dpipe does hold an answer here (e.g. provide preconfiguration which would
-> kick in when network device registers) then we might want to port all of our
-> register dump logic over there for this advantage. Does that sound reasonable?
 
-Can you consider using tracing for that particular purpose with trace
-filters that are specific to the device of interest? That should allow
-you to get events down from the Linux device driver model all the way to
-when your driver actually gets initialized. Is that an option?
+
 -- 
-Florian
+Murali Karicheri
+Linux Kernel, Keystone
