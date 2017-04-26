@@ -1,116 +1,132 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net-next 6/6] bpf: show bpf programs
-Date: Wed, 26 Apr 2017 20:24:19 +0200
-Message-ID: <20170426182419.14574-7-hannes@stressinduktion.org>
+Subject: [PATCH net-next 5/6] bpf: add skeleton for procfs printing of bpf_progs
+Date: Wed, 26 Apr 2017 20:24:18 +0200
+Message-ID: <20170426182419.14574-6-hannes@stressinduktion.org>
 References: <20170426182419.14574-1-hannes@stressinduktion.org>
 Cc: ast@kernel.org, daniel@iogearbox.com, jbenc@redhat.com,
         aconole@bytheb.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out4-smtp.messagingengine.com ([66.111.4.28]:34243 "EHLO
+Received: from out4-smtp.messagingengine.com ([66.111.4.28]:48037 "EHLO
         out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S933408AbdDZSYr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2017 14:24:47 -0400
+        by vger.kernel.org with ESMTP id S933328AbdDZSYz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2017 14:24:55 -0400
 In-Reply-To: <20170426182419.14574-1-hannes@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
- include/uapi/linux/bpf.h | 32 +++++++++++++++++++-------------
- kernel/bpf/core.c        | 30 +++++++++++++++++++++++++++++-
- 2 files changed, 48 insertions(+), 14 deletions(-)
+ kernel/bpf/core.c | 90 +++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 90 insertions(+)
 
-diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index e553529929f683..d6506e320953d5 100644
---- a/include/uapi/linux/bpf.h
-+++ b/include/uapi/linux/bpf.h
-@@ -101,20 +101,26 @@ enum bpf_map_type {
- 	BPF_MAP_TYPE_HASH_OF_MAPS,
- };
- 
-+#define BPF_PROG_TYPES			\
-+	X(BPF_PROG_TYPE_UNSPEC),	\
-+	X(BPF_PROG_TYPE_SOCKET_FILTER),	\
-+	X(BPF_PROG_TYPE_KPROBE),	\
-+	X(BPF_PROG_TYPE_SCHED_CLS),	\
-+	X(BPF_PROG_TYPE_SCHED_ACT),	\
-+	X(BPF_PROG_TYPE_TRACEPOINT),	\
-+	X(BPF_PROG_TYPE_XDP),		\
-+	X(BPF_PROG_TYPE_PERF_EVENT),	\
-+	X(BPF_PROG_TYPE_CGROUP_SKB),	\
-+	X(BPF_PROG_TYPE_CGROUP_SOCK),	\
-+	X(BPF_PROG_TYPE_LWT_IN),	\
-+	X(BPF_PROG_TYPE_LWT_OUT),	\
-+	X(BPF_PROG_TYPE_LWT_XMIT),
-+
-+
- enum bpf_prog_type {
--	BPF_PROG_TYPE_UNSPEC,
--	BPF_PROG_TYPE_SOCKET_FILTER,
--	BPF_PROG_TYPE_KPROBE,
--	BPF_PROG_TYPE_SCHED_CLS,
--	BPF_PROG_TYPE_SCHED_ACT,
--	BPF_PROG_TYPE_TRACEPOINT,
--	BPF_PROG_TYPE_XDP,
--	BPF_PROG_TYPE_PERF_EVENT,
--	BPF_PROG_TYPE_CGROUP_SKB,
--	BPF_PROG_TYPE_CGROUP_SOCK,
--	BPF_PROG_TYPE_LWT_IN,
--	BPF_PROG_TYPE_LWT_OUT,
--	BPF_PROG_TYPE_LWT_XMIT,
-+#define X(type) type
-+	BPF_PROG_TYPES
-+#undef X
- };
- 
- enum bpf_attach_type {
 diff --git a/kernel/bpf/core.c b/kernel/bpf/core.c
-index 3ba175a24e971a..685c1d0f31e029 100644
+index 048e2d79718a16..3ba175a24e971a 100644
 --- a/kernel/bpf/core.c
 +++ b/kernel/bpf/core.c
-@@ -536,13 +536,41 @@ static void ebpf_proc_stop(struct seq_file *s, void *v)
- 	rcu_read_unlock();
+@@ -32,6 +32,9 @@
+ #include <linux/kallsyms.h>
+ #include <linux/rcupdate.h>
+ 
++#include <linux/proc_fs.h>
++#include <linux/seq_file.h>
++
+ #include <asm/unaligned.h>
+ 
+ /* Registers */
+@@ -488,6 +491,93 @@ int bpf_get_kallsym(unsigned int symnum, unsigned long *value, char *type,
+ 	return ret;
  }
  
-+static const char *bpf_type_string(enum bpf_prog_type type)
++/* ebpf procfs implementation */
++
++static struct proc_dir_entry *ebpf_proc_dir;
++
++static void *ebpf_proc_start(struct seq_file *s, loff_t *pos)
++	__acquires(RCU_BH)
 +{
-+	static const char *bpf_type_names[] = {
-+#define X(type) #type
-+		BPF_PROG_TYPES
-+#undef X
-+	};
++	struct bpf_prog_aux *aux;
++	loff_t off = 0;
 +
-+	if (type >= ARRAY_SIZE(bpf_type_names))
-+		return "<unknown>";
++	rcu_read_lock();
 +
-+	return bpf_type_names[type];
++	if (*pos == 0)
++		return SEQ_START_TOKEN;
++
++	list_for_each_entry_rcu(aux, &bpf_progs, bpf_progs_head)
++		if (++off == *pos)
++			return aux;
++
++	return NULL;
 +}
 +
- static int ebpf_proc_show(struct seq_file *s, void *v)
- {
-+	struct bpf_prog *prog;
++static void *ebpf_proc_next(struct seq_file *s, void *v, loff_t *pos)
++{
 +	struct bpf_prog_aux *aux;
-+	char prog_tag[sizeof(prog->tag) * 2 + 1] = { };
 +
- 	if (v == SEQ_START_TOKEN) {
--		seq_printf(s, "# tag\n");
-+		seq_printf(s, "# tag\t\t\ttype\t\t\truntime\tcap\tmemlock\n");
- 		return 0;
- 	}
- 
++	++*pos;
++
++	if (v == SEQ_START_TOKEN)
++		return list_first_or_null_rcu(&bpf_progs, struct bpf_prog_aux,
++					      bpf_progs_head);
++
 +	aux = v;
-+	prog = aux->prog;
++	return list_next_or_null_rcu(&bpf_progs,
++				     &aux->bpf_progs_head,
++				     struct bpf_prog_aux,
++				     bpf_progs_head);
++}
 +
-+	bin2hex(prog_tag, prog->tag, sizeof(prog->tag));
-+	seq_printf(s, "%s\t%s\t%s\t%s\t%llu\n", prog_tag,
-+		   bpf_type_string(prog->type),
-+		   prog->jited ? "jit" : "int",
-+		   prog->priv_cap_sys_admin ? "priv" : "unpriv",
-+		   prog->pages * 1ULL << PAGE_SHIFT);
++static void ebpf_proc_stop(struct seq_file *s, void *v)
++	__releases(RCU_BH)
++{
++	rcu_read_unlock();
++}
 +
- 	return 0;
- }
- 
++static int ebpf_proc_show(struct seq_file *s, void *v)
++{
++	if (v == SEQ_START_TOKEN) {
++		seq_printf(s, "# tag\n");
++		return 0;
++	}
++
++	return 0;
++}
++
++static const struct seq_operations ebpf_seq_ops = {
++	.start = ebpf_proc_start,
++	.next = ebpf_proc_next,
++	.stop = ebpf_proc_stop,
++	.show = ebpf_proc_show,
++};
++
++static int ebpf_proc_open(struct inode *inode, struct file *file)
++{
++	return seq_open(file, &ebpf_seq_ops);
++}
++
++static const struct file_operations ebpf_proc_operations = {
++	.open = ebpf_proc_open,
++	.read = seq_read,
++	.llseek = seq_lseek,
++	.release = seq_release,
++};
++
++static int __init ebpf_proc_init(void)
++{
++	ebpf_proc_dir = proc_mkdir("bpf", NULL);
++	if (!ebpf_proc_dir)
++		return 0;
++	proc_create("programs", 0400, ebpf_proc_dir, &ebpf_proc_operations);
++	return 0;
++}
++
++device_initcall(ebpf_proc_init);
++
++/* end of bpf proc inmplementation */
++
+ struct bpf_binary_header *
+ bpf_jit_binary_alloc(unsigned int proglen, u8 **image_ptr,
+ 		     unsigned int alignment,
 -- 
 2.9.3
