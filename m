@@ -1,69 +1,186 @@
-From: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH] IB/IPoIB: Check the headroom size
-Date: Wed, 26 Apr 2017 09:50:38 -0400
-Message-ID: <1493214638.3041.110.camel@redhat.com>
-References: <CAJ3xEMg4_2ph7QwPsUb-tX-K4d2ppkqz98sPzytsmBCK=29WHw@mail.gmail.com>
-         <CAAk-MO8O19iC2Yn-BMn5pKTAYxaSzGPMyta=fwes3XSvzmz_cQ@mail.gmail.com>
-         <CAJ3xEMgw=9sj3rdahPEiST_yDfDJPNSZZLRn43tnb3bK4_RPzg@mail.gmail.com>
-         <CAAk-MO-B8Liv6RyGye_Fx-9OELCUrGMj5SwK9UsciC=khSO5fA@mail.gmail.com>
-         <CAJ3xEMgwS1Bq8+eZC1iAr6xi8ZPHrchsOJ5r4LNJxR8P+6VipA@mail.gmail.com>
-         <1493134815.3041.72.camel@redhat.com>
-         <CAJ3xEMjqkJrKi+6ronuPBn2P6y8p6sdhVppDzFtMwQrhL13bzg@mail.gmail.com>
-         <1493192794.2409.3.camel@redhat.com>
-         <20170426125230.GB19179@dhcp-13-42.nay.redhat.com>
-         <1493213258.3041.98.camel@redhat.com>
-         <20170426133353.GA7898@dhcp-13-42.nay.redhat.com>
-         <1493214483.3041.108.camel@redhat.com>
+From: <David.Cai@microchip.com>
+Subject: [PATCH v3 net-next]smsc911x: Adding support for Micochip LAN9250
+ Ethernet controller
+Date: Wed, 26 Apr 2017 13:55:52 +0000
+Message-ID: <C3C28FB10418274EB7FD7C2B85C796A441247573@CHN-SV-EXMX02.mchp-main.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Erez Shitrit <erezsh-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>,
-        Erez Shitrit <erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Honggang LI <honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1493214483.3041.108.camel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <UNGLinuxDriver@microchip.com>, <steve.glendinning@shawell.net>
+To: <netdev@vger.kernel.org>, <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from esa3.microchip.iphmx.com ([68.232.153.233]:47867 "EHLO
+        esa3.microchip.iphmx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S3000792AbdDZNzz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2017 09:55:55 -0400
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2017-04-26 at 09:48 -0400, Doug Ledford wrote:
-> On Wed, 2017-04-26 at 21:33 +0800, Honggang LI wrote:
-> > 
-> > Yes, it is during the process of removing the final slave. The
-> > reproducer looks like this:
-> > 
-> > ping remote_ip_over_bonding_interface &
-> > while 1; do
-> > 	ifdown bond0
-> > 	ifup   bond0
-> > done
+From: David Cai <david.cai@microchip.com>
 
-BTW, rerunning your test as:
+Adding support for Microchip LAN9250 Ethernet controller.
 
-ping remote_ip_over_bonding_interface &
-while 1; do
-    echo -n "Downing interface..."
-    ifdown bond0
-    echo "done."
-    sleep 1
-    echo -n "Bringing interface up..."
-    ifup bond0
-    echo "done."
-done
+Signed-off-by: David Cai <david.cai@microchip.com>
+---
+Changes
+V2
+ -  email format changed
+ - remove unnecessary text in commit log Changes
+V3
+ - defined all supported Ethernet controller chip ID.
+ - removed pdata->sub_generation = 0;
+ - changed 'if (pdata->sub_generation)' to 
+ 	 if (pdata>generation == 4 && pdata->sub_generation)
+ 
+ drivers/net/ethernet/smsc/smsc911x.c | 55 ++++++++++++++++++++++++------------
+ drivers/net/ethernet/smsc/smsc911x.h | 19 +++++++++++++
+ 2 files changed, 56 insertions(+), 18 deletions(-)
 
-will allow you to more precisely identify whether the failure is during
-the down or the up of the interface.
-
--- 
-Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-    GPG KeyID: B826A3330E572FDD
-   
-Key fingerprint = AE6B 1BDA 122B 23B4 265B  1274 B826 A333 0E57 2FDD
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
+index fa5ca09..e35fe96 100644
+--- a/drivers/net/ethernet/smsc/smsc911x.c
++++ b/drivers/net/ethernet/smsc/smsc911x.c
+@@ -25,7 +25,7 @@
+  *   LAN9215, LAN9216, LAN9217, LAN9218
+  *   LAN9210, LAN9211
+  *   LAN9220, LAN9221
+- *   LAN89218
++ *   LAN89218,LAN9250
+  *
+  */
+ 
+@@ -104,6 +104,9 @@ struct smsc911x_data {
+ 	/* used to decide which workarounds apply */
+ 	unsigned int generation;
+ 
++	/* used to decide which sub generation product work arounds to apply */
++	unsigned int sub_generation;
++
+ 	/* device configuration (copied from platform_data during probe) */
+ 	struct smsc911x_platform_config config;
+ 
+@@ -1450,6 +1453,8 @@ static int smsc911x_soft_reset(struct smsc911x_data *pdata)
+ 	unsigned int timeout;
+ 	unsigned int temp;
+ 	int ret;
++	unsigned int reset_offset = HW_CFG;
++	unsigned int reset_mask = HW_CFG_SRST_;
+ 
+ 	/*
+ 	 * Make sure to power-up the PHY chip before doing a reset, otherwise @@ -1476,15 +1481,23 @@ static int smsc911x_soft_reset(struct smsc911x_data *pdata)
+ 		}
+ 	}
+ 
++	if (pdata->generation == 4 && pdata->sub_generation) {
++		/* special reset for  LAN9250 */
++		reset_offset = RESET_CTL;
++		reset_mask = RESET_CTL_DIGITAL_RST_;
++	}
++
+ 	/* Reset the LAN911x */
+-	smsc911x_reg_write(pdata, HW_CFG, HW_CFG_SRST_);
++	smsc911x_reg_write(pdata, reset_offset, reset_mask);
++
++	/* verify reset bit is cleared */
+ 	timeout = 10;
+ 	do {
+ 		udelay(10);
+-		temp = smsc911x_reg_read(pdata, HW_CFG);
+-	} while ((--timeout) && (temp & HW_CFG_SRST_));
++		temp = smsc911x_reg_read(pdata, reset_offset);
++	} while ((--timeout) && (temp & reset_mask));
+ 
+-	if (unlikely(temp & HW_CFG_SRST_)) {
++	if (unlikely(temp & reset_mask)) {
+ 		SMSC_WARN(pdata, drv, "Failed to complete reset");
+ 		return -EIO;
+ 	}
+@@ -2253,31 +2266,37 @@ static int smsc911x_init(struct net_device *dev)
+ 
+ 	pdata->idrev = smsc911x_reg_read(pdata, ID_REV);
+ 	switch (pdata->idrev & 0xFFFF0000) {
+-	case 0x01180000:
+-	case 0x01170000:
+-	case 0x01160000:
+-	case 0x01150000:
+-	case 0x218A0000:
++	case LAN9118:
++	case LAN9117:
++	case LAN9116:
++	case LAN9115:
++	case LAN89218:
+ 		/* LAN911[5678] family */
+ 		pdata->generation = pdata->idrev & 0x0000FFFF;
+ 		break;
+ 
+-	case 0x118A0000:
+-	case 0x117A0000:
+-	case 0x116A0000:
+-	case 0x115A0000:
++	case LAN9218:
++	case LAN9217:
++	case LAN9216:
++	case LAN9215:
+ 		/* LAN921[5678] family */
+ 		pdata->generation = 3;
+ 		break;
+ 
+-	case 0x92100000:
+-	case 0x92110000:
+-	case 0x92200000:
+-	case 0x92210000:
++	case LAN9210:
++	case LAN9211:
++	case LAN9220:
++	case LAN9221:
+ 		/* LAN9210/LAN9211/LAN9220/LAN9221 */
+ 		pdata->generation = 4;
+ 		break;
+ 
++	case LAN9250:
++		/* LAN9250 */
++		pdata->generation = 4;
++		pdata->sub_generation = 1;
++		break;
++
+ 	default:
+ 		SMSC_WARN(pdata, probe, "LAN911x not identified, idrev: 0x%08X",
+ 			  pdata->idrev);
+diff --git a/drivers/net/ethernet/smsc/smsc911x.h b/drivers/net/ethernet/smsc/smsc911x.h
+index 54d6489..8d75508 100644
+--- a/drivers/net/ethernet/smsc/smsc911x.h
++++ b/drivers/net/ethernet/smsc/smsc911x.h
+@@ -20,6 +20,22 @@
+ #ifndef __SMSC911X_H__
+ #define __SMSC911X_H__
+ 
++/*Chip ID*/
++#define LAN9115	0x01150000
++#define LAN9116	0x01160000
++#define LAN9117	0x01170000
++#define LAN9118	0x01180000
++#define LAN9215	0x115A0000
++#define LAN9216	0x116A0000
++#define LAN9217	0x117A0000
++#define LAN9218	0x118A0000
++#define LAN9210	0x92100000
++#define LAN9211	0x92110000
++#define LAN9220	0x92200000
++#define LAN9221	0x92210000
++#define LAN9250	0x92500000
++#define LAN89218	0x218A0000
++
+ #define TX_FIFO_LOW_THRESHOLD	((u32)1600)
+ #define SMSC911X_EEPROM_SIZE	((u32)128)
+ #define USE_DEBUG		0
+@@ -303,6 +319,9 @@
+ #define E2P_DATA_EEPROM_DATA_		0x000000FF
+ #define LAN_REGISTER_EXTENT		0x00000100
+ 
++#define RESET_CTL			0x1F8
++#define RESET_CTL_DIGITAL_RST_		0x00000001
++
+ /*
+  * MAC Control and Status Register (Indirect Address)
+  * Offset (through the MAC_CSR CMD and DATA port)
