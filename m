@@ -1,103 +1,44 @@
-From: Ilan Tayari <ilant@mellanox.com>
-Subject: RE: [PATCH 07/16] esp4: Reorganize esp_output
-Date: Wed, 26 Apr 2017 11:52:47 +0000
-Message-ID: <AM4PR0501MB1940C8509F15D99381D19E2CDB110@AM4PR0501MB1940.eurprd05.prod.outlook.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH 07/16] esp4: Reorganize esp_output
+Date: Wed, 26 Apr 2017 14:06:43 +0200
+Message-ID: <20170426120643.GV2649@secunet.com>
 References: <1492678515-14347-1-git-send-email-steffen.klassert@secunet.com>
  <1492678515-14347-8-git-send-email-steffen.klassert@secunet.com>
+ <AM4PR0501MB1940C8509F15D99381D19E2CDB110@AM4PR0501MB1940.eurprd05.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset="us-ascii"
 Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Steffen Klassert <steffen.klassert@secunet.com>
+To: Ilan Tayari <ilant@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-he1eur01on0043.outbound.protection.outlook.com ([104.47.0.43]:47872
-        "EHLO EUR01-HE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1954292AbdDZLwz (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 26 Apr 2017 07:52:55 -0400
-In-Reply-To: <1492678515-14347-8-git-send-email-steffen.klassert@secunet.com>
-Content-Language: en-US
+Received: from a.mx.secunet.com ([62.96.220.36]:47136 "EHLO a.mx.secunet.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1954664AbdDZMHA (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 26 Apr 2017 08:07:00 -0400
+Content-Disposition: inline
+In-Reply-To: <AM4PR0501MB1940C8509F15D99381D19E2CDB110@AM4PR0501MB1940.eurprd05.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5r
-ZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZ10NCj4gU3ViamVj
-dDogW1BBVENIIDA3LzE2XSBlc3A0OiBSZW9yZ2FuaXplIGVzcF9vdXRwdXQNCj4gDQo+IFdlIG5l
-ZWQgYSBmYWxsYmFjayBmb3IgRVNQIGF0IGxheWVyIDIsIHNvIHNwbGl0IGVzcF9vdXRwdXQgaW50
-byBnZW5lcmljDQo+IGZ1bmN0aW9ucyB0aGF0IGNhbiBiZSB1c2VkIGF0IGxheWVyIDMgYW5kIGxh
-eWVyIDIgYW5kIHVzZSB0aGVtIGluDQo+IGVzcF9vdXRwdXQuIFdlIGFsc28gYWRkIGVzcF94bWl0
-IHdoaWNoIGlzIHVzZWQgZm9yIHRoZSBsYXllciAyIGZhbGxiYWNrLg0KPiANCj4gU2lnbmVkLW9m
-Zi1ieTogU3RlZmZlbiBLbGFzc2VydCA8c3RlZmZlbi5rbGFzc2VydEBzZWN1bmV0LmNvbT4NCj4g
-LS0tDQo+ICBpbmNsdWRlL25ldC9lc3AuaCAgICAgICB8ICAxNiArKysNCj4gIG5ldC9pcHY0L2Vz
-cDQuYyAgICAgICAgIHwgMzQxICsrKysrKysrKysrKysrKysrKysrKysrKysrLS0tLS0tLS0tLS0t
-LS0tLS0NCj4gLS0tLS0NCj4gIG5ldC9pcHY0L2VzcDRfb2ZmbG9hZC5jIHwgMTAyICsrKysrKysr
-KysrKysrKw0KPiAgMyBmaWxlcyBjaGFuZ2VkLCAzMDEgaW5zZXJ0aW9ucygrKSwgMTU4IGRlbGV0
-aW9ucygtKQ0KPiANCg0KU3RlZmZlbiwNCg0KLi4uDQoNCkluIHRoZSB0d28gcGxhY2VzIG1hcmtl
-ZCBiZWxvdzoNCg0KPiArc3RhdGljIGludCBlc3Bfb3V0cHV0KHN0cnVjdCB4ZnJtX3N0YXRlICp4
-LCBzdHJ1Y3Qgc2tfYnVmZiAqc2tiKSB7DQo+ICsJaW50IGFsZW47DQo+ICsJaW50IGJsa3NpemU7
-DQo+ICsJc3RydWN0IGlwX2VzcF9oZHIgKmVzcGg7DQo+ICsJc3RydWN0IGNyeXB0b19hZWFkICph
-ZWFkOw0KPiArCXN0cnVjdCBlc3BfaW5mbyBlc3A7DQo+ICsNCj4gKwllc3AuaW5wbGFjZSA9IHRy
-dWU7DQo+ICsNCj4gKwllc3AucHJvdG8gPSAqc2tiX21hY19oZWFkZXIoc2tiKTsNCj4gKwkqc2ti
-X21hY19oZWFkZXIoc2tiKSA9IElQUFJPVE9fRVNQOw0KPiArDQo+ICsJLyogc2tiIGlzIHB1cmUg
-cGF5bG9hZCB0byBlbmNyeXB0ICovDQo+ICsNCj4gKwlhZWFkID0geC0+ZGF0YTsNCj4gKwlhbGVu
-ID0gY3J5cHRvX2FlYWRfYXV0aHNpemUoYWVhZCk7DQo+ICsNCj4gKwllc3AudGZjbGVuID0gMDsN
-Cj4gKwlpZiAoeC0+dGZjcGFkKSB7DQo+ICsJCXN0cnVjdCB4ZnJtX2RzdCAqZHN0ID0gKHN0cnVj
-dCB4ZnJtX2RzdCAqKXNrYl9kc3Qoc2tiKTsNCj4gKwkJdTMyIHBhZHRvOw0KPiArDQo+ICsJCXBh
-ZHRvID0gbWluKHgtPnRmY3BhZCwgZXNwNF9nZXRfbXR1KHgsIGRzdC0NCj4gPmNoaWxkX210dV9j
-YWNoZWQpKTsNCj4gKwkJaWYgKHNrYi0+bGVuIDwgcGFkdG8pDQo+ICsJCQllc3AudGZjbGVuID0g
-cGFkdG8gLSBza2ItPmxlbjsNCj4gKwl9DQo+ICsJYmxrc2l6ZSA9IEFMSUdOKGNyeXB0b19hZWFk
-X2Jsb2Nrc2l6ZShhZWFkKSwgNCk7DQo+ICsJZXNwLmNsZW4gPSBBTElHTihza2ItPmxlbiArIDIg
-KyBlc3AudGZjbGVuLCBibGtzaXplKTsNCj4gKwllc3AucGxlbiA9IGVzcC5jbGVuIC0gc2tiLT5s
-ZW4gLSBlc3AudGZjbGVuOw0KPiArCWVzcC50YWlsZW4gPSBlc3AudGZjbGVuICsgZXNwLnBsZW4g
-KyBhbGVuOw0KPiArDQo+ICsJZXNwLmVzcGggPSBpcF9lc3BfaGRyKHNrYik7DQo+ICsNCj4gKwll
-c3AubmZyYWdzID0gZXNwX291dHB1dF9oZWFkKHgsIHNrYiwgJmVzcCk7DQo+ICsJaWYgKGVzcC5u
-ZnJhZ3MgPCAwKQ0KPiArCQlyZXR1cm4gZXNwLm5mcmFnczsNCj4gKw0KPiArCWVzcGggPSBlc3Au
-ZXNwaDsNCg0KSGVyZQ0KDQo+ICsJZXNwaC0+c3BpID0geC0+aWQuc3BpOw0KPiArDQo+ICsJZXNw
-aC0+c2VxX25vID0gaHRvbmwoWEZSTV9TS0JfQ0Ioc2tiKS0+c2VxLm91dHB1dC5sb3cpOw0KPiAr
-CWVzcC5zZXFubyA9IGNwdV90b19iZTY0KFhGUk1fU0tCX0NCKHNrYiktPnNlcS5vdXRwdXQubG93
-ICsNCj4gKwkJCQkgKCh1NjQpWEZSTV9TS0JfQ0Ioc2tiKS0+c2VxLm91dHB1dC5oaSA8PCAzMikp
-Ow0KPiArDQo+ICsJc2tiX3B1c2goc2tiLCAtc2tiX25ldHdvcmtfb2Zmc2V0KHNrYikpOw0KPiAr
-DQo+ICsJcmV0dXJuIGVzcF9vdXRwdXRfdGFpbCh4LCBza2IsICZlc3ApOw0KPiArfQ0KPiANCg0K
-Li4uDQoNCj4gK3N0YXRpYyBpbnQgZXNwX3htaXQoc3RydWN0IHhmcm1fc3RhdGUgKngsIHN0cnVj
-dCBza19idWZmICpza2IsDQo+ICtuZXRkZXZfZmVhdHVyZXNfdCBmZWF0dXJlcykgew0KPiArCWlu
-dCBlcnI7DQo+ICsJaW50IGFsZW47DQo+ICsJaW50IGJsa3NpemU7DQo+ICsJc3RydWN0IHhmcm1f
-b2ZmbG9hZCAqeG87DQo+ICsJc3RydWN0IGlwX2VzcF9oZHIgKmVzcGg7DQo+ICsJc3RydWN0IGNy
-eXB0b19hZWFkICphZWFkOw0KPiArCXN0cnVjdCBlc3BfaW5mbyBlc3A7DQo+ICsJYm9vbCBod19v
-ZmZsb2FkID0gdHJ1ZTsNCj4gKw0KPiArCWVzcC5pbnBsYWNlID0gdHJ1ZTsNCj4gKw0KPiArCXhv
-ID0geGZybV9vZmZsb2FkKHNrYik7DQo+ICsNCj4gKwlpZiAoIXhvKQ0KPiArCQlyZXR1cm4gLUVJ
-TlZBTDsNCj4gKw0KPiArCWlmICghKGZlYXR1cmVzICYgTkVUSUZfRl9IV19FU1ApIHx8DQo+ICsJ
-ICAgICh4LT54c28ub2ZmbG9hZF9oYW5kbGUgJiYgIHgtPnhzby5kZXYgIT0gc2tiLT5kZXYpKSB7
-DQo+ICsJCXhvLT5mbGFncyB8PSBDUllQVE9fRkFMTEJBQ0s7DQo+ICsJCWh3X29mZmxvYWQgPSBm
-YWxzZTsNCj4gKwl9DQo+ICsNCj4gKwllc3AucHJvdG8gPSB4by0+cHJvdG87DQo+ICsNCj4gKwkv
-KiBza2IgaXMgcHVyZSBwYXlsb2FkIHRvIGVuY3J5cHQgKi8NCj4gKw0KPiArCWFlYWQgPSB4LT5k
-YXRhOw0KPiArCWFsZW4gPSBjcnlwdG9fYWVhZF9hdXRoc2l6ZShhZWFkKTsNCj4gKw0KPiArCWVz
-cC50ZmNsZW4gPSAwOw0KPiArCS8qIFhYWDogQWRkIHN1cHBvcnQgZm9yIHRmYyBwYWRkaW5nIGhl
-cmUuICovDQo+ICsNCj4gKwlibGtzaXplID0gQUxJR04oY3J5cHRvX2FlYWRfYmxvY2tzaXplKGFl
-YWQpLCA0KTsNCj4gKwllc3AuY2xlbiA9IEFMSUdOKHNrYi0+bGVuICsgMiArIGVzcC50ZmNsZW4s
-IGJsa3NpemUpOw0KPiArCWVzcC5wbGVuID0gZXNwLmNsZW4gLSBza2ItPmxlbiAtIGVzcC50ZmNs
-ZW47DQo+ICsJZXNwLnRhaWxlbiA9IGVzcC50ZmNsZW4gKyBlc3AucGxlbiArIGFsZW47DQo+ICsN
-Cj4gKwllc3AuZXNwaCA9IGlwX2VzcF9oZHIoc2tiKTsNCj4gKw0KPiArDQo+ICsJaWYgKCFod19v
-ZmZsb2FkIHx8IChod19vZmZsb2FkICYmICFza2JfaXNfZ3NvKHNrYikpKSB7DQo+ICsJCWVzcC5u
-ZnJhZ3MgPSBlc3Bfb3V0cHV0X2hlYWQoeCwgc2tiLCAmZXNwKTsNCj4gKwkJaWYgKGVzcC5uZnJh
-Z3MgPCAwKQ0KPiArCQkJcmV0dXJuIGVzcC5uZnJhZ3M7DQo+ICsJfQ0KPiArDQo+ICsJZXNwaCA9
-IGVzcC5lc3BoOw0KDQpBbmQgaGVyZS4NCg0KZXNwX291dHB1dF9oZWFkKCkgbWlnaHQgZG8gYW4g
-c2tiX2Nvdywgd2hpY2ggdGhlbiBpbnZhbGlkYXRlcyB0aGUgZXNwLmVzcGggcG9pbnRlciBhbmQg
-Y2F1c2VzIGEgY3Jhc2ggbGF0ZXIgb24uDQpJIHdvdWxkIGV4cGVjdCB0aGUgaXBfZXNwX2hkcigp
-IGNhbGwgdG8gYmUgYWZ0ZXIgdGhlIGVzcF9vdXRwdXRfaGVhZCgpIGNhbGwuDQoNCkJ1dCBpdCBz
-ZWVtcyBsaWtlIHRoaXMgcG9pbnRlciB3YXMgc2F2ZWQgaGVyZSBhcm91bmQgdGhlIGNhbGwgdG8g
-ZXNwX291dHB1dF9oZWFkKCkgb24gcHVycG9zZS4NCklzIHRoYXQgcmVhbGx5IHNvPyANCg0KQWxz
-bywgZXNwNi9lc3A2X29mZmxvYWQgZG9uJ3QgbWFrZSB1c2Ugb2YgZXNwX2luZm8uZXNwaA0KT25s
-eSBlc3Bfb3V0cHV0X3RhaWwoKSB1c2VzIGl0LCBhbmQgY291bGQgaGF2ZSBkb25lIGV2ZXJ5dGhp
-bmcgaXQgZG9lcyB3aXRob3V0IGl0Lg0KU28gbWF5YmUgaXQncyB1bi1uZWVkZWQ/DQoNCkkgYW0g
-c3RpbGwgdGVzdGluZyBhIGZpeCBwYXRjaCBmb3IgdGhlIGNyYXNoLCB0aGVyZSBtYXkgYmUgYWxz
-byBzb21ldGhpbmcgc2ltaWxhciBvbiB0aGUgUlggcGF0aCwgdGhvdWdoLg0KDQo+ICsJZXNwaC0+
-c3BpID0geC0+aWQuc3BpOw0KPiArDQo+ICsJc2tiX3B1c2goc2tiLCAtc2tiX25ldHdvcmtfb2Zm
-c2V0KHNrYikpOw0KPiArDQo+ICsJaWYgKHhvLT5mbGFncyAmIFhGUk1fR1NPX1NFR01FTlQpIHsN
-Cj4gKwkJZXNwaC0+c2VxX25vID0gaHRvbmwoeG8tPnNlcS5sb3cpOw0KPiArCX0gZWxzZSB7DQo+
-ICsJCWlwX2hkcihza2IpLT50b3RfbGVuID0gaHRvbnMoc2tiLT5sZW4pOw0KPiArCQlpcF9zZW5k
-X2NoZWNrKGlwX2hkcihza2IpKTsNCj4gKwl9DQo+ICsNCj4gKwlpZiAoaHdfb2ZmbG9hZCkNCj4g
-KwkJcmV0dXJuIDA7DQo+ICsNCj4gKwllc3Auc2Vxbm8gPSBjcHVfdG9fYmU2NCh4by0+c2VxLmxv
-dyArICgodTY0KXhvLT5zZXEuaGkgPDwgMzIpKTsNCj4gKw0KPiArCWVyciA9IGVzcF9vdXRwdXRf
-dGFpbCh4LCBza2IsICZlc3ApOw0KPiArCWlmIChlcnIgPCAwKQ0KPiArCQlyZXR1cm4gZXJyOw0K
-PiArDQo+ICsJc2VjcGF0aF9yZXNldChza2IpOw0KPiArDQo+ICsJcmV0dXJuIDA7DQo+ICt9DQo+
-ICsNCg0K
+On Wed, Apr 26, 2017 at 11:52:47AM +0000, Ilan Tayari wrote:
+> 
+> esp_output_head() might do an skb_cow, which then invalidates the esp.esph pointer and causes a crash later on.
+> I would expect the ip_esp_hdr() call to be after the esp_output_head() call.
+> 
+> But it seems like this pointer was saved here around the call to esp_output_head() on purpose.
+> Is that really so? 
+
+Yes, it is needed for udpencap, this might also change esp.esph pointer.
+I guess this needs to be done also if skb_cow invalidates the esp.esph
+pointer.
+
+> 
+> Also, esp6/esp6_offload don't make use of esp_info.esph
+> Only esp_output_tail() uses it, and could have done everything it does without it.
+> So maybe it's un-needed?
+
+IPv6 does not have udpencap, so it might be not needed there.
+
+> 
+> I am still testing a fix patch for the crash, there may be also something similar on the RX path, though.
+
+Ok, thanks!
