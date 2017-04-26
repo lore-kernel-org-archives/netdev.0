@@ -1,64 +1,50 @@
-From: Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH] IB/IPoIB: Check the headroom size
-Date: Wed, 26 Apr 2017 09:46:34 +0200
-Message-ID: <1493192794.2409.3.camel@redhat.com>
-References: <1493114155-12101-1-git-send-email-honli@redhat.com>
-         <CAJ3xEMg4_2ph7QwPsUb-tX-K4d2ppkqz98sPzytsmBCK=29WHw@mail.gmail.com>
-         <CAAk-MO8O19iC2Yn-BMn5pKTAYxaSzGPMyta=fwes3XSvzmz_cQ@mail.gmail.com>
-         <CAJ3xEMgw=9sj3rdahPEiST_yDfDJPNSZZLRn43tnb3bK4_RPzg@mail.gmail.com>
-         <CAAk-MO-B8Liv6RyGye_Fx-9OELCUrGMj5SwK9UsciC=khSO5fA@mail.gmail.com>
-         <CAJ3xEMgwS1Bq8+eZC1iAr6xi8ZPHrchsOJ5r4LNJxR8P+6VipA@mail.gmail.com>
-         <1493134815.3041.72.camel@redhat.com>
-         <CAJ3xEMjqkJrKi+6ronuPBn2P6y8p6sdhVppDzFtMwQrhL13bzg@mail.gmail.com>
+From: Christoph Hellwig <hch@lst.de>
+Subject: Re: [PATCH v2 02/21] libiscsi: Add an internal error
+	code
+Date: Wed, 26 Apr 2017 09:48:48 +0200
+Message-ID: <20170426074848.GA8081@lst.de>
+References: <1493144468-22493-1-git-send-email-logang@deltatee.com>
+ <1493144468-22493-3-git-send-email-logang@deltatee.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: Erez Shitrit <erezsh-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>,
-        Honggang LI <honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        Erez Shitrit <erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAJ3xEMjqkJrKi+6ronuPBn2P6y8p6sdhVppDzFtMwQrhL13bzg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dri-devel@lists.freedesktop.org, Stephen Bates <sbates@raithlin.com>,
+ dm-devel@redhat.com, target-devel@vger.kernel.org,
+ Christoph Hellwig <hch@lst.de>, devel@driverdev.osuosl.org,
+ "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>, linux-scsi@vger.kernel.org,
+ linux-nvdimm@lists.01.org, linux-rdma@vger.kernel.org,
+ Sumit Semwal <sumit.semwal@linaro.org>,
+ Ross Zwisler <ross.zwisler@linux.intel.com>, open-iscsi@googlegroups.com,
+ linux-media@vger.kernel.org, intel-gfx@lists.freedesktop.org,
+ sparmaintainer@unisys.com, linux-raid@vger.kernel.org,
+ Dan Williams <dan.j.williams@intel.com>, megaraidlinux.pdl@broadcom.com,
+ Jens Axboe <axboe@kernel.dk>,
+ "Martin K. Petersen" <martin.petersen@oracle.com>, netdev@vger.kernel.org,
+ Matthew Wilcox <mawilcox@microsoft.com>, linux-mmc@vger.kernel.org,
+ linux-kernel@vger.kernel.org, linux-crypto@vger.kernel.org,
+ Greg Kroah-Hartman <gregkh@linu
+To: Logan Gunthorpe <logang@deltatee.com>
+Return-path: <intel-gfx-bounces@lists.freedesktop.org>
+Content-Disposition: inline
+In-Reply-To: <1493144468-22493-3-git-send-email-logang@deltatee.com>
+List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/intel-gfx>,
+ <mailto:intel-gfx-request@lists.freedesktop.org?subject=unsubscribe>
+List-Archive: <https://lists.freedesktop.org/archives/intel-gfx>
+List-Post: <mailto:intel-gfx@lists.freedesktop.org>
+List-Help: <mailto:intel-gfx-request@lists.freedesktop.org?subject=help>
+List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/intel-gfx>,
+ <mailto:intel-gfx-request@lists.freedesktop.org?subject=subscribe>
+Errors-To: intel-gfx-bounces@lists.freedesktop.org
+Sender: "Intel-gfx" <intel-gfx-bounces@lists.freedesktop.org>
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2017-04-26 at 00:50 +0300, Or Gerlitz wrote:
-> so maybe @ least for the time being, we should be picking Hong's patch
-> with proper change log and without the giant stack dump till we have
-> something better. If you agree, can you do the re-write of the change
-> log?
-
-I think that Hong's patch is following the correct way to fix the
-issue: ipoib_hard_header() can't assume that the skb headroom is at
-least IPOIB_HARD_LEN bytes, as wrongly implied by commit fc791b633515
-(my fault, I'm sorry).
-
-Perhaps we can make the code a little more robust with something
-alongside the following (only compile tested):
----
-diff --git a/drivers/infiniband/ulp/ipoib/ipoib_main.c b/drivers/infiniband/ulp/ipoib/ipoib_main.c
-index d1d3fb7..d53d2e1 100644
---- a/drivers/infiniband/ulp/ipoib/ipoib_main.c
-+++ b/drivers/infiniband/ulp/ipoib/ipoib_main.c
-@@ -1160,6 +1160,11 @@ static int ipoib_hard_header(struct sk_buff *skb,
-                             const void *daddr, const void *saddr, unsigned len)
- {
-        struct ipoib_header *header;
-+       int ret;
-+
-+       ret = skb_cow_head(skb, IPOIB_HARD_LEN);
-+       if (ret)
-+               return ret;
- 
-        header = (struct ipoib_header *) skb_push(skb, sizeof *header);
----
-
-Paolo
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+T24gVHVlLCBBcHIgMjUsIDIwMTcgYXQgMTI6MjA6NDlQTSAtMDYwMCwgTG9nYW4gR3VudGhvcnBl
+IHdyb3RlOgo+IFRoaXMgaXMgYSBwcmVwIHBhdGNoIHRvIGFkZCBhIG5ldyBlcnJvciBjb2RlIHRv
+IGxpYmlzY3NpLiBXZSB3YW50IHRvCj4gcmV3b3JrIHNvbWUga21hcCBjYWxscyB0byBiZSBhYmxl
+IHRvIGZhaWwuIFdoZW4gd2UgZG8sIHdlJ2QgbGlrZSB0bwo+IHVzZSB0aGlzIGVycm9yIGNvZGUu
+CgpUaGUga21hcCBjYXNlIGluIGlzY3NpX3RjcF9zZWdtZW50X21hcCBjYW4gYWxyZWFkeSBmYWls
+LiAgUGxlYXNlIGFkZApoYW5kbGluZyBvZiB0aGF0IGZhaWx1cmUgdG8gdGhpcyBwYXRjaCwgYW5k
+IHdlIHNob3VsZCBnZXQgaXQgbWVyZ2VkCkFTQVAuCl9fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fCkludGVsLWdmeCBtYWlsaW5nIGxpc3QKSW50ZWwtZ2Z4QGxp
+c3RzLmZyZWVkZXNrdG9wLm9yZwpodHRwczovL2xpc3RzLmZyZWVkZXNrdG9wLm9yZy9tYWlsbWFu
+L2xpc3RpbmZvL2ludGVsLWdmeAo=
