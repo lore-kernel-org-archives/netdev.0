@@ -1,65 +1,55 @@
-From: Jarod Wilson <jarod@redhat.com>
-Subject: Re: [Patch net 3/3] team: use a larger struct for mac address
-Date: Wed, 26 Apr 2017 11:55:42 -0400
-Message-ID: <7103fb6b-2483-37c0-48e5-19aa9fd4f386@redhat.com>
-References: <1493183003-884-1-git-send-email-xiyou.wangcong@gmail.com>
- <1493183003-884-4-git-send-email-xiyou.wangcong@gmail.com>
- <20170426054033.GA1867@nanopsycho.orion>
+From: Sudarsana Reddy Kalluru <sudarsana.kalluru@cavium.com>
+Subject: [PATCH net-next 0/5] qed*: PTP enhancements.
+Date: Wed, 26 Apr 2017 09:00:48 -0700
+Message-ID: <20170426160053.8356-1-sudarsana.kalluru@cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andreyknvl@google.com
-To: Jiri Pirko <jiri@resnulli.us>, Cong Wang <xiyou.wangcong@gmail.com>
+Content-Type: text/plain
+Cc: <richardcochran@gmail.com>, <netdev@vger.kernel.org>,
+        <Yuval.Mintz@cavium.com>,
+        Sudarsana Reddy Kalluru <Sudarsana.Kalluru@cavium.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:50572 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S935591AbdDZPzp (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 26 Apr 2017 11:55:45 -0400
-In-Reply-To: <20170426054033.GA1867@nanopsycho.orion>
-Content-Language: en-US
+Received: from mail-by2nam03on0076.outbound.protection.outlook.com ([104.47.42.76]:65056
+        "EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1753296AbdDZQBT (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 26 Apr 2017 12:01:19 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2017-04-26 1:40 AM, Jiri Pirko wrote:
-> Wed, Apr 26, 2017 at 07:03:23AM CEST, xiyou.wangcong@gmail.com wrote:
->> IPv6 tunnels use sizeof(struct in6_addr) as dev->addr_len,
->> but in many places especially bonding, we use struct sockaddr
->> to copy and set mac addr, this could lead to stack out-of-bounds
->> access.
->>
->> Fix it by using a larger address storage.
->>
->> Reported-by: Andrey Konovalov <andreyknvl@google.com>
->> Cc: Jiri Pirko <jiri@resnulli.us>
->> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
->> ---
->> drivers/net/team/team.c | 9 ++++++---
->> 1 file changed, 6 insertions(+), 3 deletions(-)
->>
->> diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
->> index 85c0124..88878f1 100644
->> --- a/drivers/net/team/team.c
->> +++ b/drivers/net/team/team.c
->> @@ -60,10 +60,13 @@ static struct team_port *team_port_get_rtnl(const struct net_device *dev)
->> static int __set_port_dev_addr(struct net_device *port_dev,
->> 			       const unsigned char *dev_addr)
->> {
->> -	struct sockaddr addr;
->> +	struct {
->> +		unsigned short type;
->> +		unsigned char addr[MAX_ADDR_LEN];
->> +	} addr;
-> 
-> Wouldn't it make sense to define this struct somewhere in the core
-> headers?
+From: Sudarsana Reddy Kalluru <Sudarsana.Kalluru@cavium.com>
 
-We already have struct sockaddr_storage that could be used throughout 
-this set as well. We just converted a few pieces of the bonding driver 
-over to using it for better support of ipoib bonds, via commit 
-faeeb317a5615076dff1ff44b51e862e6064dbd0. Might be better to just use 
-that in both bonding and team, rather than having different per-driver 
-structs, or Yet Another Address Storage implementation.
+The patch series contains set of enhancements for qed/qede ptp
+implementation.
+Patches (1)-(3) adds resource locking implementation to allow 
+PTP functionality only on the first detected ethernet PF of the port.
+The change is required as the adapter currently supports only one
+instance of the PTP client on a given port.
+Patch (4) removes the un-needed header file.
+Patch (5) moves the ptt-lock get/release logic to the ptp specific
+code.
+
+Please consider applying this series to "net-next" branch.
+
+Sudarsana Reddy Kalluru (5):
+  qed: Add support for MFW resource locking.
+  qed: Add support for PTP resource locking.
+  qede: Add support for PTP resource locking.
+  qed: Remove the un-needed ptp header file.
+  qed: Acquire/release ptt_ptp lock when enabling/disabling PTP.
+
+ drivers/net/ethernet/qlogic/qed/qed.h        |   8 +-
+ drivers/net/ethernet/qlogic/qed/qed_dev.c    |  26 +++--
+ drivers/net/ethernet/qlogic/qed/qed_main.c   |  12 ---
+ drivers/net/ethernet/qlogic/qed/qed_mcp.c    |  30 ++++++
+ drivers/net/ethernet/qlogic/qed/qed_mcp.h    |  22 +++-
+ drivers/net/ethernet/qlogic/qed/qed_ptp.c    | 103 +++++++++++++++++-
+ drivers/net/ethernet/qlogic/qed/qed_ptp.h    |  47 ---------
+ drivers/net/ethernet/qlogic/qede/qede_main.c |  18 +---
+ drivers/net/ethernet/qlogic/qede/qede_ptp.c  | 150 +++++++++++++--------------
+ drivers/net/ethernet/qlogic/qede/qede_ptp.h  |   6 +-
+ 10 files changed, 249 insertions(+), 173 deletions(-)
+ delete mode 100644 drivers/net/ethernet/qlogic/qed/qed_ptp.h
 
 -- 
-Jarod Wilson
-jarod@redhat.com
+1.8.3.1
