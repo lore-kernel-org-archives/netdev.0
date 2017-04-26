@@ -1,62 +1,84 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH net-next 1/4] ixgbe: sparc: rename the ARCH_WANT_RELAX_ORDER
- to IXGBE_ALLOW_RELAXED_ORDER
-Date: Wed, 26 Apr 2017 09:18:33 -0700
-Message-ID: <CAKgT0Uc4L=GgYbpO-Fm9OfN+_fLypbDP1c+X4T_ta90ecQiyGQ@mail.gmail.com>
-References: <20170401.112603.1991545644693496714.davem@davemloft.net>
- <42428725-89f1-1508-4e3d-723e087b3bbb@huawei.com> <EE11001F9E5DDD47B7634E2F8A612F2E205199C0@FRAEML521-MBX.china.huawei.com>
- <063D6719AE5E284EB5DD2968C1650D6DCFFD3C52@AcuExch.aculab.com>
- <DB5PR05MB138288172B04713EB0C1DB55D3190@DB5PR05MB1382.eurprd05.prod.outlook.com>
- <a2239141-a185-1bb8-0abd-7a05b9fde015@huawei.com>
+From: Wei Wang <weiwan@google.com>
+Subject: Re: [PATCH net-next] tcp: memset ca_priv data to 0 properly
+Date: Wed, 26 Apr 2017 09:25:06 -0700
+Message-ID: <CAEA6p_AasrTNV=MVFXZ9h8brAYndtDkiKkMkVkG0pkd8DLZ+Kg@mail.gmail.com>
+References: <20170426003802.40091-1-tracywwnj@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Amir Ancel <amira@mellanox.com>,
-        David Laight <David.Laight@aculab.com>,
-        Gabriele Paoloni <gabriele.paoloni@huawei.com>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        Catalin Marinas <catalin.marinas@arm.com>,
-        Will Deacon <will.deacon@arm.com>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Robin Murphy <robin.murphy@arm.com>,
-        "jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
-        "linux-arm-kernel@lists.infradead.org"
-        <linux-arm-kernel@lists.infradead.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        LinuxArm <linuxarm@huawei.com>,
-        "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>
-To: Ding Tianhong <dingtianhong@huawei.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <a2239141-a185-1bb8-0abd-7a05b9fde015@huawei.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Eric Dumazet <edumazet@google.com>,
+        Yuchung Cheng <ycheng@google.com>,
+        Neal Cardwell <ncardwell@google.com>,
+        Wei Wang <weiwan@google.com>
+To: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vk0-f53.google.com ([209.85.213.53]:34524 "EHLO
+        mail-vk0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753024AbdDZQZI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2017 12:25:08 -0400
+Received: by mail-vk0-f53.google.com with SMTP id k4so3334284vki.1
+        for <netdev@vger.kernel.org>; Wed, 26 Apr 2017 09:25:07 -0700 (PDT)
+In-Reply-To: <20170426003802.40091-1-tracywwnj@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 26, 2017 at 2:26 AM, Ding Tianhong <dingtianhong@huawei.com> wrote:
-> Hi Amir:
+This fix should target for net tree instead of net-next.
+Sorry for the wrong title.
+
+On Tue, Apr 25, 2017 at 5:38 PM, Wei Wang <weiwan@google.com> wrote:
+> From: Wei Wang <weiwan@google.com>
 >
-> It is really glad to hear that the mlx5 will support RO mode this year, if so, do you agree that enable it dynamic by ethtool -s xxx,
-> we have try it several month ago but there was only one drivers would use it at that time so the maintainer against it, it mlx5 would support RO,
-> we could try to restart this solution, what do you think about it. :)
+> Always zero out ca_priv data in tcp_assign_congestion_control() so that
+> ca_priv data is cleared out during socket creation.
+> Also always zero out ca_priv data in tcp_reinit_congestion_control() so
+> that when cc algorithm is changed, ca_priv data is cleared out as well.
+> We should still zero out ca_priv data even in TCP_CLOSE state because
+> user could call connect() on AF_UNSPEC to disconnect the socket and
+> leave it in TCP_CLOSE state and later call setsockopt() to switch cc
+> algorithm on this socket.
 >
-> Thanks
-> Ding
-
-Hi Ding,
-
-Enabing relaxed ordering really doesn't have any place in ethtool. It
-is a PCIe attribute that you are essentially wanting to enable.
-
-It might be worth while to take a look at updating the PCIe code path
-to handle this. Really what we should probably do is guarantee that
-the architectures that need relaxed ordering are setting it in the
-PCIe Device Control register and that the ones that don't are clearing
-the bit. It's possible that this is already occurring, but I don't
-know the state of handling those bits is in the kernel. Once we can
-guarantee that we could use that to have the drivers determine their
-behavior in regards to relaxed ordering. For example in the case of
-igb/ixgbe we could probably change the behavior so that it will bey
-default try to use relaxed ordering but if it is not enabled in PCIe
-Device Control register the hardware should not request to use it. It
-would simplify things in the drivers and allow for each architecture
-to control things as needed in their PCIe code.
-
-- Alex
+> Fixes: 2b0a8c9ee ("tcp: add CDG congestion control")
+> Reported-by: Andrey Konovalov  <andreyknvl@google.com>
+> Signed-off-by: Wei Wang <weiwan@google.com>
+> Acked-by: Eric Dumazet <edumazet@google.com>
+> Acked-by: Yuchung Cheng <ycheng@google.com>
+> Acked-by: Neal Cardwell <ncardwell@google.com>
+> ---
+>  net/ipv4/tcp_cong.c | 11 +++--------
+>  1 file changed, 3 insertions(+), 8 deletions(-)
+>
+> diff --git a/net/ipv4/tcp_cong.c b/net/ipv4/tcp_cong.c
+> index 79c4817abc94..6e3c512054a6 100644
+> --- a/net/ipv4/tcp_cong.c
+> +++ b/net/ipv4/tcp_cong.c
+> @@ -168,12 +168,8 @@ void tcp_assign_congestion_control(struct sock *sk)
+>         }
+>  out:
+>         rcu_read_unlock();
+> +       memset(icsk->icsk_ca_priv, 0, sizeof(icsk->icsk_ca_priv));
+>
+> -       /* Clear out private data before diag gets it and
+> -        * the ca has not been initialized.
+> -        */
+> -       if (ca->get_info)
+> -               memset(icsk->icsk_ca_priv, 0, sizeof(icsk->icsk_ca_priv));
+>         if (ca->flags & TCP_CONG_NEEDS_ECN)
+>                 INET_ECN_xmit(sk);
+>         else
+> @@ -200,11 +196,10 @@ static void tcp_reinit_congestion_control(struct sock *sk,
+>         tcp_cleanup_congestion_control(sk);
+>         icsk->icsk_ca_ops = ca;
+>         icsk->icsk_ca_setsockopt = 1;
+> +       memset(icsk->icsk_ca_priv, 0, sizeof(icsk->icsk_ca_priv));
+>
+> -       if (sk->sk_state != TCP_CLOSE) {
+> -               memset(icsk->icsk_ca_priv, 0, sizeof(icsk->icsk_ca_priv));
+> +       if (sk->sk_state != TCP_CLOSE)
+>                 tcp_init_congestion_control(sk);
+> -       }
+>  }
+>
+>  /* Manage refcounts on socket close. */
+> --
+> 2.13.0.rc0.306.g87b477812d-goog
+>
