@@ -1,69 +1,88 @@
-From: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
-Subject: [PATCH net v1 3/3] tipc: close the connection if
-	protocol messages contain errors
-Date: Wed, 26 Apr 2017 10:05:02 +0200
-Message-ID: <1493193902-18332-4-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
-References: <1493193902-18332-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: more test_progs...
+Date: Wed, 26 Apr 2017 10:14:42 +0200
+Message-ID: <590056F2.5010600@iogearbox.net>
+References: <20170425.125217.1962662516948420246.davem@davemloft.net> <470871b2-c4c0-ad23-7fda-1a38c2736679@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: tipc-discussion@lists.sourceforge.net
-To: <netdev@vger.kernel.org>
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-In-Reply-To: <1493193902-18332-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Alexei Starovoitov <ast@fb.com>, David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:57183 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1433917AbdDZIOs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2017 04:14:48 -0400
+In-Reply-To: <470871b2-c4c0-ad23-7fda-1a38c2736679@fb.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When a socket is shutting down, we notify the peer node about the
-connection termination by reusing an incoming message if possible.
-If the last received message was a connection acknowledgment
-message, we reverse this message and set the error code to
-TIPC_ERR_NO_PORT and send it to peer.
+On 04/26/2017 05:42 AM, Alexei Starovoitov wrote:
+> On 4/25/17 9:52 AM, David Miller wrote:
+>>
+>> 10: (15) if r3 == 0xdd86 goto pc+9
+>>  R0=imm2,min_value=2,max_value=2 R1=pkt(id=0,off=0,r=14) R2=pkt_end R3=inv R4=pkt(id=0,off=14,r=14) R5=inv56 R10=fp
+>>
+>> Hmmm, endianness looks wrong here.  "-target bpf" defaults to the
+>> endianness of whatever cpu that llvm was built for, right?
+>
+> yeah. so here the code comes from:
+>          } else if (eth->h_proto == _htons(ETH_P_IPV6)) {
+>
+> and in the beginning of that .c file:
+> #define _htons __builtin_bswap16
+> ^^^ that's the bug.
+> It should have been nop for sparc.
+> We cannot use htons() from system header, since it uses x86 inline asm.
 
-In tipc_sk_proto_rcv(), we never check for message errors while
-processing the connection acknowledgment or probe messages. Thus
-this message performs the usual flow control accounting and leaves
-the session hanging.
+Ahh yes, you're right! Wouldn't it be much easier for the above
+case to just include <asm/byteorder.h> and use __constant_htons()?
+(In fact, all htons() users in this file are constants.)
 
-In this commit, we terminate the connection when we receive such
-error messages.
+>>  R0=imm2,min_value=2,max_value=2 R1=inv56,min_value=6,max_value=6 R2=pkt_end R3=imm3,min_value=3,max_value=3 R4=pkt(id=1,off=14,r=34) R5=pkt(id=1,off=34,r=34) R10=fp
+>> 36: (07) r4 += 18
+>> 37: (2d) if r4 > r2 goto pc+5
+>>  R0=imm2,min_value=2,max_value=2 R1=inv56,min_value=6,max_value=6 R2=pkt_end R3=imm3,min_value=3,max_value=3 R4=pkt(id=1,off=32,r=34) R5=pkt(id=1,off=34,r=34) R10=fp
+>> 38: (b7) r0 = 0
+>> 39: (69) r1 = *(u16 *)(r4 +0)
+>> Unknown alignment. Only byte-sized access allowed in packet access.
+>>
+>> And this seems to load the urgent pointer as a u16 which is what the verifier rejects.
+>>
+>> Oh I see, this is guarded by CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS.
+>
+> yes. exactly.
+> Your analysis is correct and offending 16-bit load is this C code:
+>                  if (tcp->urg_ptr == 123)
+>
+> the parsing code before that line deals with variable length ip header:
+>                  tcp = (struct tcphdr *)((void *)(iph) + ihl_len);
+>
+> and at that point verifier cannot track the alignment of the pointer
+> anymore. It knows 'iph' alignment, but as soon as some variable is added
+> to it cannot assume good alignment anymore and from there on it
+> allows >1 byte accesses only on HAVE_EFFICIENT_UNALIGNED_ACCESS
+> architectures.
+> That's the 'if' that you found:
+>   'if (reg->id && size != 1) {'
+>
+> ref->id > 0 means that some variable was added to ptr_to_packet.
+>
+> That sucks for sparc, of course. I don't have good suggestions for
+> workaround other than marking tcphdr as packed :(
+>  From code efficiency point of view it still will be faster than
+> LD_ABS insn.
 
-Signed-off-by: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
-Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
----
- net/tipc/socket.c | 8 ++++++++
- 1 file changed, 8 insertions(+)
+Plus, ld_abs would also only work on skbs right now, and would
+need JIT support for XDP. But it's also cumbersome to use with
+f.e. IPv6, etc, so should not be encouraged, imo.
 
-diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index 38c367f6ced4..bdce99f9407a 100644
---- a/net/tipc/socket.c
-+++ b/net/tipc/socket.c
-@@ -866,6 +866,14 @@ static void tipc_sk_proto_rcv(struct tipc_sock *tsk, struct sk_buff *skb,
- 	if (!tsk_peer_msg(tsk, hdr))
- 		goto exit;
- 
-+	if (unlikely(msg_errcode(hdr))) {
-+		tipc_set_sk_state(sk, TIPC_DISCONNECTING);
-+		tipc_node_remove_conn(sock_net(sk), tsk_peer_node(tsk),
-+				      tsk_peer_port(tsk));
-+		sk->sk_state_change(sk);
-+		goto exit;
-+	}
-+
- 	tsk->probe_unacked = false;
- 
- 	if (mtyp == CONN_PROBE) {
--- 
-2.1.4
+One other option for !HAVE_EFFICIENT_UNALIGNED_ACCESS archs could
+be to provide a bpf_skb_load_bytes() helper equivalent for XDP,
+where you eventually do the memcpy() inside. We could see to inline
+the helper itself to optimize it slightly.
 
-
-------------------------------------------------------------------------------
-Check out the vibrant tech community on one of the world's most
-engaging tech sites, Slashdot.org! http://sdm.link/slashdot
+> Another idea is to try to track that ihl_len variable is also
+> somehow multiple of 4, but it will be quite complicated on
+> the verifier side in its existing architecture and maybe? worth
+> waiting until the verifier has proper dataflow analysis.
