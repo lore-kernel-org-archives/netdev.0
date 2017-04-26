@@ -1,190 +1,73 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: hmmm...
-Date: Tue, 25 Apr 2017 23:38:20 -0400 (EDT)
-Message-ID: <20170425.233820.1357836307906136732.davem@davemloft.net>
-References: <20170425.215232.727894789143301373.davem@davemloft.net>
-        <af3781d2-f8af-1c6e-b3a0-163d8c1de75a@fb.com>
+From: Alexei Starovoitov <ast@fb.com>
+Subject: Re: more test_progs...
+Date: Tue, 25 Apr 2017 20:42:26 -0700
+Message-ID: <470871b2-c4c0-ad23-7fda-1a38c2736679@fb.com>
+References: <20170425.125217.1962662516948420246.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ast@fb.com
+Cc: <daniel@iogearbox.net>, <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:48684 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1430753AbdDZDiY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 23:38:24 -0400
-In-Reply-To: <af3781d2-f8af-1c6e-b3a0-163d8c1de75a@fb.com>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:56688 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1039965AbdDZDmt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 23:42:49 -0400
+In-Reply-To: <20170425.125217.1962662516948420246.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexei Starovoitov <ast@fb.com>
-Date: Tue, 25 Apr 2017 19:56:06 -0700
+On 4/25/17 9:52 AM, David Miller wrote:
+>
+> 10: (15) if r3 == 0xdd86 goto pc+9
+>  R0=imm2,min_value=2,max_value=2 R1=pkt(id=0,off=0,r=14) R2=pkt_end R3=inv R4=pkt(id=0,off=14,r=14) R5=inv56 R10=fp
+>
+> Hmmm, endianness looks wrong here.  "-target bpf" defaults to the
+> endianness of whatever cpu that llvm was built for, right?
 
-> On 4/25/17 6:52 PM, David Miller wrote:
->>
->> Alexei, I found something strange on my computer :-)
->>
->> [davem@localhost binutils]$ ./objdump -d x.o
-> 
-> No way! :) I thought it will take weeks!
-> Ship it. Ship it. Ship it.
-> Cannot wait to pull.
-> This is awesome. Thanks a ton!
+yeah. so here the code comes from:
+         } else if (eth->h_proto == _htons(ETH_P_IPV6)) {
 
-Relax, it is in a very raw state still. :)
+and in the beginning of that .c file:
+#define _htons __builtin_bswap16
+^^^ that's the bug.
+It should have been nop for sparc.
+We cannot use htons() from system header, since it uses x86 inline asm.
 
-> What is the mnemonic for 32-bit alu ?
+>  R0=imm2,min_value=2,max_value=2 R1=inv56,min_value=6,max_value=6 R2=pkt_end R3=imm3,min_value=3,max_value=3 R4=pkt(id=1,off=14,r=34) R5=pkt(id=1,off=34,r=34) R10=fp
+> 36: (07) r4 += 18
+> 37: (2d) if r4 > r2 goto pc+5
+>  R0=imm2,min_value=2,max_value=2 R1=inv56,min_value=6,max_value=6 R2=pkt_end R3=imm3,min_value=3,max_value=3 R4=pkt(id=1,off=32,r=34) R5=pkt(id=1,off=34,r=34) R10=fp
+> 38: (b7) r0 = 0
+> 39: (69) r1 = *(u16 *)(r4 +0)
+> Unknown alignment. Only byte-sized access allowed in packet access.
+>
+> And this seems to load the urgent pointer as a u16 which is what the verifier rejects.
+>
+> Oh I see, this is guarded by CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS.
 
-It is of the form "xxx32".  Here is opcodes table below.
+yes. exactly.
+Your analysis is correct and offending 16-bit load is this C code:
+                 if (tcp->urg_ptr == 123)
 
-I think there are no formal mnenomics defined anywhere yet right?
-So just tell me what adjustments you want to make.
+the parsing code before that line deals with variable length ip header:
+                 tcp = (struct tcphdr *)((void *)(iph) + ihl_len);
 
-#include "sysdep.h"
-#include <stdio.h>
-#include "opcode/bpf.h"
+and at that point verifier cannot track the alignment of the pointer
+anymore. It knows 'iph' alignment, but as soon as some variable is added
+to it cannot assume good alignment anymore and from there on it
+allows >1 byte accesses only on HAVE_EFFICIENT_UNALIGNED_ACCESS
+architectures.
+That's the 'if' that you found:
+  'if (reg->id && size != 1) {'
 
-#define BPF_OPC_ALU64	0x07
-#define BPF_OPC_DW	0x18
-#define BPF_OPC_XADD	0xc0
-#define BPF_OPC_MOV	0xb0
-#define BPF_OPC_ARSH	0xc0
-#define BPF_OPC_END	0xd0
-#define BPF_OPC_TO_LE	0x00
-#define BPF_OPC_TO_BE	0x08
-#define BPF_OPC_JNE	0x50
-#define BPF_OPC_JSGT	0x60
-#define BPF_OPC_JSGE	0x70
-#define BPF_OPC_CALL	0x80
-#define BPF_OPC_EXIT	0x90
+ref->id > 0 means that some variable was added to ptr_to_packet.
 
-#define BPF_OPC_LD	0x00
-#define BPF_OPC_LDX	0x01
-#define BPF_OPC_ST	0x02
-#define BPF_OPC_STX	0x03
-#define BPF_OPC_ALU	0x04
-#define BPF_OPC_JMP	0x05
-#define BPF_OPC_RET	0x06
-#define BPF_OPC_MISC	0x07
-
-#define BPF_OPC_W	0x00
-#define BPF_OPC_H	0x08
-#define BPF_OPC_B	0x10
-
-#define BPF_OPC_IMM	0x00
-#define BPF_OPC_ABS	0x20
-#define BPF_OPC_IND	0x40
-#define BPF_OPC_MEM	0x60
-#define BPF_OPC_LEL	0x80
-#define BPF_OPC_MSH	0xa0
-
-#define BPF_OPC_ADD	0x00
-#define BPF_OPC_SUB	0x10
-#define BPF_OPC_MUL	0x20
-#define BPF_OPC_DIV	0x30
-#define BPF_OPC_OR	0x40
-#define BPF_OPC_AND	0x50
-#define BPF_OPC_LSH	0x60
-#define BPF_OPC_RSH	0x70
-#define BPF_OPC_NEG	0x80
-#define BPF_OPC_MOD	0x90
-#define BPF_OPC_XOR	0xa0
-
-#define BPF_OPC_JA	0x00
-#define BPF_OPC_JEQ	0x10
-#define BPF_OPC_JGT	0x20
-#define BPF_OPC_JGE	0x30
-#define BPF_OPC_JSET	0x40
-
-#define BPF_OPC_K	0x00
-#define BPF_OPC_X	0x08
-
-const struct bpf_opcode bpf_opcodes[] = {
-  { "mov32",   BPF_OPC_ALU   | BPF_OPC_MOV  | BPF_OPC_X,     "1,2" },
-  { "mov",     BPF_OPC_ALU64 | BPF_OPC_MOV  | BPF_OPC_X,     "1,2" },
-  { "add32",   BPF_OPC_ALU   | BPF_OPC_ADD  | BPF_OPC_X,     "1,2" },
-  { "add",     BPF_OPC_ALU64 | BPF_OPC_ADD  | BPF_OPC_X,     "1,2" },
-  { "sub32",   BPF_OPC_ALU   | BPF_OPC_SUB  | BPF_OPC_X,     "1,2" },
-  { "sub",     BPF_OPC_ALU64 | BPF_OPC_SUB  | BPF_OPC_X,     "1,2" },
-  { "and32",   BPF_OPC_ALU   | BPF_OPC_AND  | BPF_OPC_X,     "1,2" },
-  { "and",     BPF_OPC_ALU64 | BPF_OPC_AND  | BPF_OPC_X,     "1,2" },
-  { "or32",    BPF_OPC_ALU   | BPF_OPC_OR   | BPF_OPC_X,     "1,2" },
-  { "or",      BPF_OPC_ALU64 | BPF_OPC_OR   | BPF_OPC_X,     "1,2" },
-  { "xor32",   BPF_OPC_ALU   | BPF_OPC_XOR  | BPF_OPC_X,     "1,2" },
-  { "xor",     BPF_OPC_ALU64 | BPF_OPC_XOR  | BPF_OPC_X,     "1,2" },
-  { "mul32",   BPF_OPC_ALU   | BPF_OPC_MUL  | BPF_OPC_X,     "1,2" },
-  { "mul",     BPF_OPC_ALU64 | BPF_OPC_MUL  | BPF_OPC_X,     "1,2" },
-  { "div32",   BPF_OPC_ALU   | BPF_OPC_DIV  | BPF_OPC_X,     "1,2" },
-  { "div",     BPF_OPC_ALU64 | BPF_OPC_DIV  | BPF_OPC_X,     "1,2" },
-  { "mod32",   BPF_OPC_ALU   | BPF_OPC_MOD  | BPF_OPC_X,     "1,2" },
-  { "mod",     BPF_OPC_ALU64 | BPF_OPC_MOD  | BPF_OPC_X,     "1,2" },
-  { "lsh32",   BPF_OPC_ALU   | BPF_OPC_LSH  | BPF_OPC_X,     "1,2" },
-  { "lsh",     BPF_OPC_ALU64 | BPF_OPC_LSH  | BPF_OPC_X,     "1,2" },
-  { "rsh32",   BPF_OPC_ALU   | BPF_OPC_RSH  | BPF_OPC_X,     "1,2" },
-  { "rsh",     BPF_OPC_ALU64 | BPF_OPC_RSH  | BPF_OPC_X,     "1,2" },
-  { "arsh32",  BPF_OPC_ALU   | BPF_OPC_ARSH | BPF_OPC_X,     "1,2" },
-  { "arsh",    BPF_OPC_ALU64 | BPF_OPC_ARSH | BPF_OPC_X,     "1,2" },
-  { "neg32",   BPF_OPC_ALU   | BPF_OPC_NEG  | BPF_OPC_X,     "1" },
-  { "neg",     BPF_OPC_ALU64 | BPF_OPC_NEG  | BPF_OPC_X,     "1" },
-  { "endbe",   BPF_OPC_ALU   | BPF_OPC_END  | BPF_OPC_TO_BE, "1,i" },
-  { "endle",   BPF_OPC_ALU   | BPF_OPC_END  | BPF_OPC_TO_LE, "1,i" },
-  { "mov32",   BPF_OPC_ALU   | BPF_OPC_MOV  | BPF_OPC_K,     "1,i" },
-  { "mov",     BPF_OPC_ALU64 | BPF_OPC_MOV  | BPF_OPC_K,     "1,i" },
-  { "add32",   BPF_OPC_ALU   | BPF_OPC_ADD  | BPF_OPC_K,     "1,i" },
-  { "add",     BPF_OPC_ALU64 | BPF_OPC_ADD  | BPF_OPC_K,     "1,i" },
-  { "sub32",   BPF_OPC_ALU   | BPF_OPC_SUB  | BPF_OPC_K,     "1,i" },
-  { "sub",     BPF_OPC_ALU64 | BPF_OPC_SUB  | BPF_OPC_K,     "1,i" },
-  { "and32",   BPF_OPC_ALU   | BPF_OPC_AND  | BPF_OPC_K,     "1,i" },
-  { "and",     BPF_OPC_ALU64 | BPF_OPC_AND  | BPF_OPC_K,     "1,i" },
-  { "or32",    BPF_OPC_ALU   | BPF_OPC_XOR  | BPF_OPC_K,     "1,i" },
-  { "or",      BPF_OPC_ALU64 | BPF_OPC_XOR  | BPF_OPC_K,     "1,i" },
-  { "xor32",   BPF_OPC_ALU   | BPF_OPC_OR   | BPF_OPC_K,     "1,i" },
-  { "xor",     BPF_OPC_ALU64 | BPF_OPC_OR   | BPF_OPC_K,     "1,i" },
-  { "mul32",   BPF_OPC_ALU   | BPF_OPC_MUL  | BPF_OPC_K,     "1,i" },
-  { "mul",     BPF_OPC_ALU64 | BPF_OPC_MUL  | BPF_OPC_K,     "1,i" },
-  { "div32",   BPF_OPC_ALU   | BPF_OPC_DIV  | BPF_OPC_K,     "1,i" },
-  { "div",     BPF_OPC_ALU64 | BPF_OPC_DIV  | BPF_OPC_K,     "1,i" },
-  { "mod32",   BPF_OPC_ALU   | BPF_OPC_MOD  | BPF_OPC_K,     "1,i" },
-  { "mod",     BPF_OPC_ALU64 | BPF_OPC_MOD  | BPF_OPC_K,     "1,i" },
-  { "lsh32",   BPF_OPC_ALU   | BPF_OPC_LSH  | BPF_OPC_K,     "1,i" },
-  { "lsh",     BPF_OPC_ALU64 | BPF_OPC_LSH  | BPF_OPC_K,     "1,i" },
-  { "rsh32",   BPF_OPC_ALU   | BPF_OPC_RSH  | BPF_OPC_K,     "1,i" },
-  { "rsh",     BPF_OPC_ALU64 | BPF_OPC_RSH  | BPF_OPC_K,     "1,i" },
-  { "arsh32",  BPF_OPC_ALU   | BPF_OPC_ARSH | BPF_OPC_K,     "1,i" },
-  { "arsh",    BPF_OPC_ALU64 | BPF_OPC_ARSH | BPF_OPC_K,     "1,i" },
-  { "ja",      BPF_OPC_JMP   | BPF_OPC_JA,                   "L" },
-  { "jeq",     BPF_OPC_JMP   | BPF_OPC_JEQ  | BPF_OPC_X,     "1,2,L" },
-  { "jgt",     BPF_OPC_JMP   | BPF_OPC_JGT  | BPF_OPC_X,     "1,2,L" },
-  { "jge",     BPF_OPC_JMP   | BPF_OPC_JGE  | BPF_OPC_X,     "1,2,L" },
-  { "jne",     BPF_OPC_JMP   | BPF_OPC_JNE  | BPF_OPC_X,     "1,2,L" },
-  { "jsgt",    BPF_OPC_JMP   | BPF_OPC_JSGT | BPF_OPC_X,     "1,2,L" },
-  { "jsge",    BPF_OPC_JMP   | BPF_OPC_JSGE | BPF_OPC_X,     "1,2,L" },
-  { "jset",    BPF_OPC_JMP   | BPF_OPC_JSET | BPF_OPC_X,     "1,2,L" },
-  { "jeq",     BPF_OPC_JMP   | BPF_OPC_JEQ  | BPF_OPC_K,     "1,i,L" },
-  { "jgt",     BPF_OPC_JMP   | BPF_OPC_JGT  | BPF_OPC_K,     "1,i,L" },
-  { "jge",     BPF_OPC_JMP   | BPF_OPC_JGE  | BPF_OPC_K,     "1,i,L" },
-  { "jne",     BPF_OPC_JMP   | BPF_OPC_JNE  | BPF_OPC_K,     "1,i,L" },
-  { "jsgt",    BPF_OPC_JMP   | BPF_OPC_JSGT | BPF_OPC_K,     "1,i,L" },
-  { "jsge",    BPF_OPC_JMP   | BPF_OPC_JSGE | BPF_OPC_K,     "1,i,L" },
-  { "jset",    BPF_OPC_JMP   | BPF_OPC_JSET | BPF_OPC_K,     "1,i,L" },
-  { "call",    BPF_OPC_JMP   | BPF_OPC_CALL,                 "C" },
-  { "tailcall",BPF_OPC_JMP   | BPF_OPC_CALL | BPF_OPC_X,     "C" },
-  { "exit",    BPF_OPC_JMP   | BPF_OPC_EXIT,                 "" },
-  { "ldimm64", BPF_OPC_LD    | BPF_OPC_IMM  | BPF_OPC_DW,    "1,D" },
-  { "ldxw",    BPF_OPC_LDX   | BPF_OPC_MEM  | BPF_OPC_W,     "1,[2+O]" },
-  { "ldxh",    BPF_OPC_LDX   | BPF_OPC_MEM  | BPF_OPC_H,     "1,[2+O]" },
-  { "ldxb",    BPF_OPC_LDX   | BPF_OPC_MEM  | BPF_OPC_B,     "1,[2+O]" },
-  { "ldxdw",   BPF_OPC_LDX   | BPF_OPC_MEM  | BPF_OPC_DW,    "1,[2+O]" },
-  { "stw",     BPF_OPC_ST    | BPF_OPC_MEM  | BPF_OPC_W,     "[1+O],i" },
-  { "sth",     BPF_OPC_ST    | BPF_OPC_MEM  | BPF_OPC_H,     "[1+O],i" },
-  { "stb",     BPF_OPC_ST    | BPF_OPC_MEM  | BPF_OPC_B,     "[1+O],i" },
-  { "stdw",    BPF_OPC_ST    | BPF_OPC_MEM  | BPF_OPC_DW,    "[1+O],i" },
-  { "stw",     BPF_OPC_STX   | BPF_OPC_MEM  | BPF_OPC_W,     "[1+O],2" },
-  { "sth",     BPF_OPC_STX   | BPF_OPC_MEM  | BPF_OPC_H,     "[1+O],2" },
-  { "stb",     BPF_OPC_STX   | BPF_OPC_MEM  | BPF_OPC_B,     "[1+O],2" },
-  { "stdw",    BPF_OPC_STX   | BPF_OPC_MEM  | BPF_OPC_DW,    "[1+O],2" },
-  { "xaddw",   BPF_OPC_STX   | BPF_OPC_XADD | BPF_OPC_W,     "[1+O],2" },
-  { "xadddw",  BPF_OPC_STX   | BPF_OPC_XADD | BPF_OPC_DW,    "[1+O],2" },
-};
-const int bpf_num_opcodes = ((sizeof bpf_opcodes)/(sizeof bpf_opcodes[0]));
+That sucks for sparc, of course. I don't have good suggestions for
+workaround other than marking tcphdr as packed :(
+ From code efficiency point of view it still will be faster than
+LD_ABS insn.
+Another idea is to try to track that ihl_len variable is also
+somehow multiple of 4, but it will be quite complicated on
+the verifier side in its existing architecture and maybe? worth
+waiting until the verifier has proper dataflow analysis.
