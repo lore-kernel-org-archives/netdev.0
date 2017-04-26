@@ -1,57 +1,85 @@
-From: Vlad Zakharov <Vladislav.Zakharov@synopsys.com>
-Subject: Re: [PATCH] ezchip: nps_enet: check if napi has been completed
-Date: Wed, 26 Apr 2017 12:56:21 +0000
-Message-ID: <1493211381.20370.23.camel@synopsys.com>
-References: <1490784106-14489-1-git-send-email-vzakhar@synopsys.com>
-         <20170329.143014.2001816338079751776.davem@davemloft.net>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH net-next v8 2/3] net sched actions: dump more than
+ TCA_ACT_MAX_PRIO actions per batch
+Date: Wed, 26 Apr 2017 09:00:04 -0400
+Message-ID: <ac6da456-04b4-ba0c-683a-3beef49c9949@mojatatu.com>
+References: <1493121247-11863-1-git-send-email-jhs@emojatatu.com>
+ <1493121247-11863-3-git-send-email-jhs@emojatatu.com>
+ <20170425121338.GC1867@nanopsycho.orion>
+ <5e54edd8-3943-6f09-490f-ff04b83077f6@mojatatu.com>
+ <20170425160445.GD1867@nanopsycho.orion>
+ <4b7789f7-69e0-4764-7029-f6e15d6e7d69@mojatatu.com>
+ <20170426061904.GB1867@nanopsycho.orion>
+ <20170426110750.GB28251@vergenet.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "eladkan@mellanox.com" <eladkan@mellanox.com>,
-        "noamca@mellanox.com" <noamca@mellanox.com>,
-        "edumazet@google.com" <edumazet@google.com>,
-        "linux-snps-arc@lists.infradead.org"
-        <linux-snps-arc@lists.infradead.org>
-To: "davem@davemloft.net" <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, xiyou.wangcong@gmail.com,
+        eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: Simon Horman <simon.horman@netronome.com>,
+        Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay.synopsys.com ([198.182.60.111]:44002 "EHLO
-        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1946541AbdDZM40 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2017 08:56:26 -0400
-In-Reply-To: <20170329.143014.2001816338079751776.davem@davemloft.net>
-Content-Language: en-US
-Content-ID: <2E4D20F1EFFDC1428C7A02E397684085@internal.synopsys.com>
+Received: from mail-io0-f194.google.com ([209.85.223.194]:34171 "EHLO
+        mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757946AbdDZNAH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2017 09:00:07 -0400
+Received: by mail-io0-f194.google.com with SMTP id h41so352995ioi.1
+        for <netdev@vger.kernel.org>; Wed, 26 Apr 2017 06:00:06 -0700 (PDT)
+In-Reply-To: <20170426110750.GB28251@vergenet.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SGkgRGF2aWQsIGFsbCwNCg0KT24gV2VkLCAyMDE3LTAzLTI5IGF0IDE0OjMwIC0wNzAwLCBEYXZp
-ZCBNaWxsZXIgd3JvdGU6DQo+IEZyb206IFZsYWQgWmFraGFyb3YgPFZsYWRpc2xhdi5aYWtoYXJv
-dkBzeW5vcHN5cy5jb20+DQo+IERhdGU6IFdlZCwgMjkgTWFyIDIwMTcgMTM6NDE6NDYgKzAzMDAN
-Cj4gDQo+ID4gDQo+ID4gQWZ0ZXIgYSBuZXcgTkFQSV9TVEFURV9NSVNTRUQgc3RhdGUgd2FzIGFk
-ZGVkIHRvIE5BUEkgd2UgY2FuIGdldCBpbnRvDQo+ID4gdGhpcyBzdGF0ZSBhbmQgaW4gc3VjaCBj
-YXNlIHdlIGhhdmUgdG8gcmVzY2hlZHVsZSBOQVBJIGFzIHNvbWUgd29yayBpcw0KPiA+IHN0aWxs
-IHBlbmRpbmcgYW5kIHdlIGhhdmUgdG8gcHJvY2VzcyBpdC4gbmFwaV9jb21wbGV0ZV9kb25lKCkg
-ZnVuY3Rpb24NCj4gPiByZXR1cm5zIGZhbHNlIGlmIHdlIGhhdmUgdG8gcmVzY2hlZHVsZSBzb21l
-dGhpbmcgKGUuZy4gaW4gY2FzZSB3ZSB3ZXJlDQo+ID4gaW4gTUlTU0VEIHN0YXRlKSBhcyBjdXJy
-ZW50IHBvbGxpbmcgaGF2ZSBub3QgYmVlbiBjb21wbGV0ZWQgeWV0Lg0KPiA+IA0KPiA+IG5wc19l
-bmV0IGRyaXZlciBoYXNuJ3QgYmVlbiB2ZXJpZnlpbmcgdGhlIHJldHVybiB2YWx1ZSBvZg0KPiA+
-IG5hcGlfY29tcGxldGVfZG9uZSgpIGFuZCBoYXMgYmVlbiBmb3JjaWJseSBlbmFibGluZyBpbnRl
-cnJ1cHRzLiBUaGF0IGlzDQo+ID4gbm90IGNvcnJlY3QgYXMgd2Ugc2hvdWxkIG5vdCBlbmFibGUg
-aW50ZXJydXB0cyBiZWZvcmUgd2UgaGF2ZSBwcm9jZXNzZWQNCj4gPiBhbGwgc2NoZWR1bGVkIHdv
-cmsuIEFzIGEgcmVzdWx0IHdlIHdlcmUgZ2V0dGluZyB0cmFwcGVkIGluIGludGVycnVwdA0KPiA+
-IGhhbmxkZXIgY2hhaW4gYXMgd2UgaGFkIG5ldmVyIGJlZW4gYWJsZSB0byBkaXNhYmFsZSBldGhl
-cm5ldA0KPiA+IGludGVycnVwdHMgYWdhaW4uDQo+ID4gDQo+ID4gU28gdGhpcyBwYXRjaCBtYWtl
-cyBucHNfZW5ldF9wb2xsKCkgZnVuYyB2ZXJpZnkgcmV0dXJuIHZhbHVlIG9mDQo+ID4gbmFwaV9j
-b21wbGV0ZV9kb25lKCkgYW5kIGVuYWJsZSBpbnRlcnJ1cHRzIG9ubHkgaW4gY2FzZSBhbGwgc2No
-ZWR1bGVkDQo+ID4gd29yayBoYXMgYmVlbiBjb21wbGV0ZWQuDQo+ID4gDQo+ID4gU2lnbmVkLW9m
-Zi1ieTogVmxhZCBaYWtoYXJvdiA8dnpha2hhckBzeW5vcHN5cy5jb20+DQo+IA0KPiBBcHBsaWVk
-Lg0KPiANCj4gRXJpYywgaWYgdGhpcyBpcyByZWFsbHkgcmVxdWlyZWQgbm93LCB3ZSBoYXZlIDE0
-OCBicm9rZW4gZHJpdmVycyBzdGlsbC4NCg0KQ291bGQgeW91IHBsZWFzZSBiYWNrcG9ydCB0aGlz
-IHBhdGNoIHRvIHN0YWJsZSB0cmVlIChzdGFydGluZyBmcm9tIDQuMTApIGFzIGl0IGlzIHByZXR0
-eSBpbXBvcnRhbnQgYW5kIGZpeGVzIG5wc19lbmV0DQpkcml2ZXI/DQoNCkl0IGJlY2FtZSBhY3R1
-YWwgYWZ0ZXIgRXJpYydzIGNvbW1pdMKgMzllNmM4MjA4ZDdiIChuZXQ6IHNvbHZlIGEgTkFQSSBy
-YWNlKSB3aGljaCBoYXMgYWxyZWFkeSBiZWVuIGJhY2twb3J0ZWQgdG8gNC4xMC4NCg0KVGhhbmtz
-Lg0KDQotLSANCkJlc3QgcmVnYXJkcywNClZsYWQgWmFraGFyb3YgPHZ6YWtoYXJAc3lub3BzeXMu
-Y29tPg==
+On 17-04-26 07:07 AM, Simon Horman wrote:
+> On Wed, Apr 26, 2017 at 08:19:04AM +0200, Jiri Pirko wrote:
+>> Tue, Apr 25, 2017 at 10:29:40PM CEST, jhs@mojatatu.com wrote:
+>
+> ...
+>
+>>> So lets in first kernel I have support for bit 0.
+>>> My validation check is to make sure only bit 0 is set.
+>>> The valid_flags currently then only constitutes bit 0.
+>>> i.e
+>>> If you set bit 2 or 3, the function above will reject and i return
+>>> the error to the user.
+>>>
+>>> That is expected behavior correct?
+>>>
+>>> 3 months down the road:
+>>> I add two flags - bit 1 and 2.
+>>> So now my valid_flags changes to bits 1, 2 and 0.
+>>>
+>>> The function above will now return true for bits 0-2 but
+>>> will reject if you set bit 3.
+>>>
+>>> That is expected behavior, correct?
+>>
+>> The same app compiled against new kernel with bits (0, 1, 2) will run with
+>> this kernel good. But if you run it with older kernel, the kernel (0)
+>> would refuse. Is that ok?
+>
+> Conversely, if an app is compiled against a new kernel and uses ATTR0, ATTR1
+> and ATTR2 all will be well. But if you run it against the older kernel
+> ATTR1 and ATTR2 will be silently ignored. I believe that is how its always
+> been but is that ok?
+>
+
+I think the answer is much complex than ok/notok.
+
+If i have bits that when not supported by the kernel would result in
+bad operations then of course kernel ignoring their presence is a very
+bad thing (Dave's example is "I want you to encrypt" which an old
+kernel wont understand).
+There's also a security concern where flags are being set and are being
+randomly accepted by old kernels resulting in root access etc.
+
+The other side of the coin, if I really dont care if you dont understand
+the extra bits I have set i would like you to do what you can.
+Thats status quo upto now.
+
+So my overall view:
+Ignoring how it used to work is a revolution not an evolution.
+There will be a blood bath with existing apps before the new norm comes
+into proper effect.
+
+cheers,
+jamal
