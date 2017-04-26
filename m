@@ -1,156 +1,119 @@
-From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH v2 2/2] ARM: dts: Add the ethernet and ethernet PHY to the
- cygnus core DT.
-Date: Tue, 25 Apr 2017 16:59:55 -0700
-Message-ID: <0cb00eb7-41d0-0390-4687-d966499ed9f4@gmail.com>
-References: <20170425235357.7690-1-eric@anholt.net>
- <20170425235357.7690-2-eric@anholt.net>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH RFC] ptr_ring: add ptr_ring_unconsume
+Date: Wed, 26 Apr 2017 08:10:55 +0800
+Message-ID: <96dc3e90-b609-a1dc-7e86-95c9c533c58c@redhat.com>
+References: <1492384496-22644-1-git-send-email-mst@redhat.com>
+ <0defb746-3d4b-14b3-1ad7-82842048ebba@redhat.com>
+ <20170424022711-mutt-send-email-mst@kernel.org>
+ <21a19608-40be-38d4-9843-088a273fd71a@redhat.com>
+ <20170424145632-mutt-send-email-mst@kernel.org>
+ <91ae69e6-4dac-3db2-4778-c4163dfe6f91@redhat.com>
+ <20170425182222-mutt-send-email-mst@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        bcm-kernel-feedback-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, Ray Jui <rjui-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Scott Branden <sbranden-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Jon Mason <jonmason-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-To: Eric Anholt <eric-WhKQ6XTQaPysTnJN9+BGXg@public.gmane.org>,
-        Vivien Didelot <vivien.didelot-4ysUXcep3aM1wj+D4I0NRVaTQe2KTcn/@public.gmane.org>,
-        Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170425235357.7690-2-eric-WhKQ6XTQaPysTnJN9+BGXg@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170425182222-mutt-send-email-mst@kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 04/25/2017 04:53 PM, Eric Anholt wrote:
-> Cygnus has a single AMAC controller connected to the B53 switch with 2
-> PHYs.  On the BCM911360_EP platform, those two PHYs are connected to
-> the external ethernet jacks.
-> 
-> Signed-off-by: Eric Anholt <eric-WhKQ6XTQaPysTnJN9+BGXg@public.gmane.org>
-> Reviewed-by: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> ---
-> 
-> v2: Call the node "switch", just call the ports "port" (suggestions by
->     Florian), drop max-speed on the phys (suggestion by Andrew Lunn),
->     call the other nodes "ethernet" and "ethernet-phy" (suggestions by
->     Sergei Shtylyov)
-> 
->  arch/arm/boot/dts/bcm-cygnus.dtsi      | 58 ++++++++++++++++++++++++++++++++++
->  arch/arm/boot/dts/bcm911360_entphn.dts |  8 +++++
->  2 files changed, 66 insertions(+)
-> 
-> diff --git a/arch/arm/boot/dts/bcm-cygnus.dtsi b/arch/arm/boot/dts/bcm-cygnus.dtsi
-> index 009f1346b817..9fd89be0f5e0 100644
-> --- a/arch/arm/boot/dts/bcm-cygnus.dtsi
-> +++ b/arch/arm/boot/dts/bcm-cygnus.dtsi
-> @@ -142,6 +142,54 @@
->  			interrupts = <0>;
->  		};
->  
-> +		mdio: mdio@18002000 {
-> +			compatible = "brcm,iproc-mdio";
-> +			reg = <0x18002000 0x8>;
-> +			#size-cells = <1>;
-> +			#address-cells = <0>;
-
-Sorry for not noticing earlier, since you override this correctly in the
-board-level DTS file can you put a:
-
-			status = "disabled"
-
-property in there by default?
-
-Thanks!
-
-> +
-> +			gphy0: ethernet-phy@0 {
-> +				reg = <0>;
-> +			};
-> +
-> +			gphy1: ethernet-phy@1 {
-> +				reg = <1>;
-> +			};
-> +		};
-> +
-> +		switch: switch@18007000 {
-> +			compatible = "brcm,bcm11360-srab", "brcm,cygnus-srab";
-> +			reg = <0x18007000 0x1000>;
-> +			status = "disabled";
-> +
-> +			ports {
-> +				#address-cells = <1>;
-> +				#size-cells = <0>;
-> +
-> +				port@0 {
-> +					reg = <0>;
-> +					phy-handle = <&gphy0>;
-> +					phy-mode = "rgmii";
-> +				};
-> +
-> +				port@1 {
-> +					reg = <1>;
-> +					phy-handle = <&gphy1>;
-> +					phy-mode = "rgmii";
-> +				};
-> +
-> +				port@8 {
-> +					reg = <8>;
-> +					label = "cpu";
-> +					ethernet = <&eth0>;
-> +					fixed-link {
-> +						speed = <1000>;
-> +						full-duplex;
-> +					};
-> +				};
-> +			};
-> +		};
-> +
->  		i2c0: i2c@18008000 {
->  			compatible = "brcm,cygnus-iproc-i2c", "brcm,iproc-i2c";
->  			reg = <0x18008000 0x100>;
-> @@ -295,6 +343,16 @@
->  			status = "disabled";
->  		};
->  
-> +		eth0: ethernet@18042000 {
-> +			compatible = "brcm,amac";
-> +			reg = <0x18042000 0x1000>,
-> +			      <0x18110000 0x1000>;
-> +			reg-names = "amac_base", "idm_base";
-> +			interrupts = <GIC_SPI 110 IRQ_TYPE_LEVEL_HIGH>;
-> +			max-speed = <1000>;
-> +			status = "disabled";
-> +		};
-> +
->  		nand: nand@18046000 {
->  			compatible = "brcm,nand-iproc", "brcm,brcmnand-v6.1";
->  			reg = <0x18046000 0x600>, <0xf8105408 0x600>,
-> diff --git a/arch/arm/boot/dts/bcm911360_entphn.dts b/arch/arm/boot/dts/bcm911360_entphn.dts
-> index 8b3800f46288..e037dea63f4a 100644
-> --- a/arch/arm/boot/dts/bcm911360_entphn.dts
-> +++ b/arch/arm/boot/dts/bcm911360_entphn.dts
-> @@ -57,6 +57,14 @@
->  	};
->  };
->  
-> +&eth0 {
-> +	status = "okay";
-> +};
-> +
-> +&switch {
-> +	status = "okay";
-> +};
-> +
->  &uart3 {
->  	status = "okay";
->  };
-> 
 
 
--- 
-Florian
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+On 2017年04月25日 23:35, Michael S. Tsirkin wrote:
+> On Tue, Apr 25, 2017 at 12:07:01PM +0800, Jason Wang wrote:
+>>
+>> On 2017年04月24日 20:00, Michael S. Tsirkin wrote:
+>>> On Mon, Apr 24, 2017 at 07:54:18PM +0800, Jason Wang wrote:
+>>>> On 2017年04月24日 07:28, Michael S. Tsirkin wrote:
+>>>>> On Tue, Apr 18, 2017 at 11:07:42AM +0800, Jason Wang wrote:
+>>>>>> On 2017年04月17日 07:19, Michael S. Tsirkin wrote:
+>>>>>>> Applications that consume a batch of entries in one go
+>>>>>>> can benefit from ability to return some of them back
+>>>>>>> into the ring.
+>>>>>>>
+>>>>>>> Add an API for that - assuming there's space. If there's no space
+>>>>>>> naturally we can't do this and have to drop entries, but this implies
+>>>>>>> ring is full so we'd likely drop some anyway.
+>>>>>>>
+>>>>>>> Signed-off-by: Michael S. Tsirkin<mst@redhat.com>
+>>>>>>> ---
+>>>>>>>
+>>>>>>> Jason, in my mind the biggest issue with your batching patchset is the
+>>>>>>> backet drops on disconnect.  This API will help avoid that in the common
+>>>>>>> case.
+>>>>>> Ok, I will rebase the series on top of this. (Though I don't think we care
+>>>>>> the packet loss).
+>>>>> E.g. I care - I often start sending packets to VM before it's
+>>>>> fully booted. Several vhost resets might follow.
+>>>> Ok.
+>>>>
+>>>>>>> I would still prefer that we understand what's going on,
+>>>>>> I try to reply in another thread, does it make sense?
+>>>>>>
+>>>>>>>      and I would
+>>>>>>> like to know what's the smallest batch size that's still helpful,
+>>>>>> Yes, I've replied in another thread, the result is:
+>>>>>>
+>>>>>>
+>>>>>> no batching   1.88Mpps
+>>>>>> RX_BATCH=1    1.93Mpps
+>>>>>> RX_BATCH=4    2.11Mpps
+>>>>>> RX_BATCH=16   2.14Mpps
+>>>>>> RX_BATCH=64   2.25Mpps
+>>>>>> RX_BATCH=256  2.18Mpps
+>>>>> Essentially 4 is enough, other stuf looks more like noise
+>>>>> to me. What about 2?
+>>>> The numbers are pretty stable, so probably not noise. Retested on top of
+>>>> batch zeroing:
+>>>>
+>>>> no  1.97Mpps
+>>>> 1   2.09Mpps
+>>>> 2   2.11Mpps
+>>>> 4   2.16Mpps
+>>>> 8   2.19Mpps
+>>>> 16  2.21Mpps
+>>>> 32  2.25Mpps
+>>>> 64  2.30Mpps
+>>>> 128 2.21Mpps
+>>>> 256 2.21Mpps
+>>>>
+>>>> 64 performs best.
+>>>>
+>>>> Thanks
+>>> OK but it might be e.g. a function of the ring size, host cache size or
+>>> whatever. As we don't really understand the why, if we just optimize for
+>>> your setup we risk regressions in others.  64 entries is a lot, it
+>>> increases the queue size noticeably.  Could this be part of the effect?
+>>> Could you try changing the queue size to see what happens?
+>> I increase tx_queue_len to 1100, but only see less than 1% improvement on
+>> pps number (batch = 1) in my machine. If you care about the regression, we
+>> probably can leave the choice to user through e.g module parameter. But I'm
+>> afraid we have already had too much choices for them. Or I can test this
+>> with different CPU types.
+>>
+>> Thanks
+>>
+> I agree here. Let's keep it a constant. Testing on more machines would
+> be nice but not strictly required.
+
+Ok, I will give a full benchmark (batch=1,4,64) on TCP stream to see how 
+it will perform. Let's decide then.
+
+>   I just dislike not understanding why
+> it helps because it means we can easily break it by mistake.  So my only
+> request really is that you wrap access to this internal buffer in an
+> API. Let's see - I think we need
+>
+> struct vhost_net_buf
+> vhost_net_buf_get_ptr
+> vhost_net_buf_get_size
+> vhost_net_buf_is_empty
+> vhost_net_buf_peek
+> vhost_net_buf_consume
+> vhost_net_buf_produce
+
+Ok. Will do in next version.
+
+Thanks.
