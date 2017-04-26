@@ -1,135 +1,115 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: xdp_redirect ifindex vs port. Was: best API for
- returning/setting egress port?
-Date: Wed, 26 Apr 2017 11:11:58 +0200
-Message-ID: <20170426111158.578b925e@redhat.com>
-References: <20170418215856.5fda7127@redhat.com>
-        <20170419200259.GK4730@C02RW35GFVH8.dhcp.broadcom.net>
-        <58F7E9F3.5090604@iogearbox.net>
-        <20170420025611.GA53935@ast-mbp.thefacebook.com>
-        <20170420081051.77a41aa8@redhat.com>
-        <20170420171006.GA97067@ast-mbp.thefacebook.com>
-        <20170425113453.5c72080f@redhat.com>
-        <20170426002610.eihwmz4knbmrolfw@ast-mbp.dhcp.thefacebook.com>
-        <59000EF6.1050204@gmail.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH net-next 1/4] ixgbe: sparc: rename the
+ ARCH_WANT_RELAX_ORDER to IXGBE_ALLOW_RELAXED_ORDER
+Date: Wed, 26 Apr 2017 17:26:37 +0800
+Message-ID: <a2239141-a185-1bb8-0abd-7a05b9fde015@huawei.com>
+References: <20170401.112603.1991545644693496714.davem@davemloft.net>
+ <42428725-89f1-1508-4e3d-723e087b3bbb@huawei.com>
+ <EE11001F9E5DDD47B7634E2F8A612F2E205199C0@FRAEML521-MBX.china.huawei.com>
+ <063D6719AE5E284EB5DD2968C1650D6DCFFD3C52@AcuExch.aculab.com>
+ <DB5PR05MB138288172B04713EB0C1DB55D3190@DB5PR05MB1382.eurprd05.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Andy Gospodarek <andy@greyhouse.net>,
-        Daniel Borkmann <borkmann@iogearbox.net>,
-        Alexei Starovoitov <ast@fb.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "xdp-newbies@vger.kernel.org" <xdp-newbies@vger.kernel.org>,
-        brouer@redhat.com
-To: John Fastabend <john.fastabend@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:34128 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1437265AbdDZJMF (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 26 Apr 2017 05:12:05 -0400
-In-Reply-To: <59000EF6.1050204@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Mark Rutland <mark.rutland@arm.com>,
+ Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will.deacon@arm.com>,
+ LinuxArm <linuxarm@huawei.com>,
+ "alexander.duyck@gmail.com" <alexander.duyck@gmail.com>,
+ "jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ Robin Murphy <robin.murphy@arm.com>,
+ "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>
+To: Amir Ancel <amira@mellanox.com>, David Laight <David.Laight@ACULAB.COM>,
+ "'Gabriele Paoloni'" <gabriele.paoloni@huawei.com>, "davem@davemloft.net"
+ <davem@davemloft.net>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <DB5PR05MB138288172B04713EB0C1DB55D3190@DB5PR05MB1382.eurprd05.prod.outlook.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 25 Apr 2017 20:07:34 -0700
-John Fastabend <john.fastabend@gmail.com> wrote:
+Hi Amir:
 
-> On 17-04-25 05:26 PM, Alexei Starovoitov wrote:
-> > On Tue, Apr 25, 2017 at 11:34:53AM +0200, Jesper Dangaard Brouer wrote:  
-> >>> Note the very first bpf patchset years ago contained the port table
-> >>> abstraction. ovs has concept of vports as well. These two very
-> >>> different projects needed port table to provide a layer of
-> >>> indirection between ifindex==netdev and virtual port number.
-> >>> This is still the case and I'd like to see this port table to be
-> >>> implemented for both cls_bpf and xdp. In that sense xdp is not
-> >>> special.  
-> >>
-> >> Glad to hear you want to see this implemented, I will start coding on
-> >> this then.  Good point with cls_bpf, I was planning to make this port
-> >> table strongly connected to XDP, guess I should also think of cls_bpf.  
-> > 
-> > perfect.
-> > I think we should try to make all additions to bpf networking world
-> > to be usable for both tc and xdp, since both are actively used and
-> > it wouldn't be great to have cool feature for one, but not the other.
-> > I think port table is an excellent candidate that applies to both.  
+It is really glad to hear that the mlx5 will support RO mode this year, if so, do you agree that enable it dynamic by ethtool -s xxx,
+we have try it several month ago but there was only one drivers would use it at that time so the maintainer against it, it mlx5 would support RO,
+we could try to restart this solution, what do you think about it. :)
+
+Thanks
+Ding
+
+On 2017/4/19 4:17, Amir Ancel wrote:
+> Hi,
 > 
-> +1
+> mlx5 driver is planned to have RO support this year.
 > 
-> Jesper, I was working up the code for the redirect piece for ixgbe and
-> virtio, please use this as a base for your virtual port number table. I'll
-> push an update onto github tomorrow. I think the table should drop in fairly
-> nicely.
-
-Cool, I will do that. Then, I'll also have a redirect method to shape
-this around, and I would have to benchmark/test your ixgbe redirect.
-
-(John please let me know, what github tree we are talking about, and
-what branch)
-
-
-> One piece that isn't clear to me is how do you plan to instantiate and
-> program this table. Is it a new static bpf map that is created any
-> time we see the redirect command? I think this would be preferred.
-
-(This is difficult to explain without us misunderstanding each-other)
-
-As Alexei also mentioned before, ifindex vs port makes no real
-difference seen from the bpf program side.  It is userspace's
-responsibility to add ifindex/port's to the bpf-maps, according to how
-the bpf program "policy" want to "connect" these ports.  The
-port-table system add one extra step, of also adding this port to the
-port-table (which lives inside the kernel). 
-
-When loading the XDP program, we also need to pass along a port table
-"id" this XDP program is associated with (and if it doesn't exists you
-create it).  And your userspace "control-plane" application also need
-to know this port table "id", when adding a new port.
-
-The concept of having multiple port tables is key.  As this implies we
-can have several simultaneous "data-planes" that is *isolated* from
-each-other.  Think about how network-namespaces/containers want
-isolation. A subtle thing I'm afraid to mention, is that oppose to the
-ifindex model, a port table with mapping to a net_device pointer, would
-allow (faster) delivery into the container's inner net_device, which
-sort of violates the isolation, but I would argue it is not a problem
-as this net_device pointer could only be added from a process within the
-namespace.  I like this feature, but it could easily be disallowed via
-port insertion-time validation.
-
-   
-> >> I'm not worried about the DROP case, I agree that is fine (as you
-> >> also say).  The problem is unintentionally sending a packet to a
-> >> wrong ifindex.  This is clearly an eBPF program error, BUT with
-> >> XDP this becomes a very hard to debug program error.  With
-> >> TC-redirect/cls_bpf we can tcpdump the packets, with XDP there is
-> >> no visibility into this happening (the NSA is going to love this
-> >> "feature").  Maybe we could add yet-another tracepoint to allow
-> >> debugging this.  My proposal that we simply remove the possibility
-> >> for such program errors, by as you say move the validation from
-> >> run-time into static insertion-time, via a port table.  
-> > 
-> > I think lack of tcpdump-like debugging in xdp is a separate issue.
-> > As I was saying in the other thread we have trivial 'xdpdump'
-> > kern+user app that emits pcap file, but it's too specific to how we
-> > use tail_calls+prog_array in our xdp setup. I'm working on the
-> > program chaining that will be generic and allow us transparently
-> > add multiple xdp or tc progs to the same attachment point and will
-> > allow us to do 'xdpdump' at any point of this pipeline, so
-> > debugging of what happened to the packet will be easier and done in
-> > the same way for both tc and xdp.
-> > btw in our experience working with both tc and xdp the tc+bpf was
-> > actually harder to use and more bug prone.
-> >   
+> I believe drivers should be able to query whether the arch support it or not and enable it in the network adapter accordingly.
 > 
-> Nice, the tcpdump-like debugging looks interesting.
-
-Yes, this xdpdump sound like a very useful tool.
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
+>  
+> 
+> -Amir
+> 
+> ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+> *From:* netdev-owner@vger.kernel.org <netdev-owner@vger.kernel.org> on behalf of David Laight <David.Laight@ACULAB.COM>
+> *Sent:* Tuesday, April 18, 2017 4:25:44 PM
+> *To:* 'Gabriele Paoloni'; davem@davemloft.net
+> *Cc:* Catalin Marinas; Will Deacon; Mark Rutland; Robin Murphy; jeffrey.t.kirsher@intel.com; alexander.duyck@gmail.com; linux-arm-kernel@lists.infradead.org; netdev@vger.kernel.org; Dingtianhong; Linuxarm
+> *Subject:* RE: Re: [PATCH net-next 1/4] ixgbe: sparc: rename the ARCH_WANT_RELAX_ORDER to IXGBE_ALLOW_RELAXED_ORDER
+>  
+> From: Gabriele Paoloni
+>> Sent: 13 April 2017 10:11
+>> > > Till now only the Intel ixgbe could support enable
+>> > > Relaxed ordering in the drivers for special architecture,
+>> > > but the ARCH_WANT_RELAX_ORDER is looks like a general name
+>> > > for all arch, so rename to a specific name for intel
+>> > > card looks more appropriate.
+>> > >
+>> > > Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+>> >
+>> > This is not a driver specific facility.
+>> >
+>> > Any driver can test this symbol and act accordingly.
+>> >
+>> > Just because IXGBE is the first and only user, doesn't mean
+>> > the facility is driver specific.
+>> 
+>> 
+>> Please correct me if I am wrong but my understanding is that the standard
+>> way to enable/disable relaxed ordering is to set/clear bit 4 of the Device
+>> Control Register (PCI_EXP_DEVCTL_RELAX_EN 0x0010 /* Enable relaxed
+>> ordering */).
+>> Now I have looked up for all drivers either enabling or disabling relaxed
+>> ordering and none of them seems to need a symbol to decide whether to
+>> enable it or not.
+>> Also it seems to me enabling/disabling relaxed ordering is never bound to the
+>> host architecture.
+>> 
+>> So why this should be (or it is expected to be) a generic symbol?
+>> Wouldn't it be more correct to have this as a driver specific symbol now and
+>> move it to a generic one later once we have other drivers requiring it?
+> 
+> 'Relaxed ordering' is a bit in the TLP header.
+> A device (like the ixgbe hardware) can set it for some transactions and
+> still have the transactions 'ordered enough' for the driver to work.
+> (If all transactions have 'relaxed ordering' set then I suspect it is
+> almost impossible to write a working driver.)
+> The host side could (probably does) have a bit to enable 'relaxed ordering',
+> it could also enforce stronger ordering than required by the PCIe spec
+> (eg keeping reads in order).
+> 
+> Clearly, on some sparc64 systems, ixgbe needs to use 'relaxed ordering'.
+> To me this requires two separate bits be enabled:
+> 1) to the ixgbe driver to generate the 'relaxed' TLP.
+> 2) to the host to actually act on them.
+> If the ixgbe driver works when both are enabled why have options to
+> disable either (except for bug-finding)?
+> 
+>         David
+> 
