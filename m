@@ -1,73 +1,55 @@
-From: Alexandre Belloni <alexandre.belloni@free-electrons.com>
-Subject: Re: [PATCH v1] net: phy: fix auto-negotiation stall due to
- unavailable interrupt
-Date: Wed, 26 Apr 2017 12:21:21 +0200
-Message-ID: <20170426102121.traoy23tglmacjfl@piout.net>
-References: <1492686004-30527-1-git-send-email-al.kochet@gmail.com>
- <1492686004-30527-2-git-send-email-al.kochet@gmail.com>
- <20170425.103644.75674234677063517.davem@davemloft.net>
- <B99ADC0E-A793-4334-A086-9F2CE045AB7E@gmail.com>
- <20170425200911.d7zfakqs5k5zwisg@piout.net>
+From: Johan Hovold <johan@kernel.org>
+Subject: Re: [PATCH v2 0/8] NFC: fix device allocation and nfcmrvl crashes
+Date: Wed, 26 Apr 2017 12:36:28 +0200
+Message-ID: <20170426103628.GN2823@localhost>
+References: <20170330101542.15384-1-johan@kernel.org>
+ <20170418100916.GB2823@localhost>
+ <20170418232431.GB13724@zurbaran.ger.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: David Miller <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-        Roger Quadros <rogerq@ti.com>,
-        Madalin Bucur <madalin.bucur@nxp.com>
-To: Alexander Kochetkov <al.kochet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:45124 "EHLO
-        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1037687AbdDZKVX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2017 06:21:23 -0400
+Content-Type: text/plain; charset=us-ascii
+Cc: Johan Hovold <johan@kernel.org>, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Samuel Ortiz <sameo@linux.intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20170425200911.d7zfakqs5k5zwisg@piout.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20170418232431.GB13724@zurbaran.ger.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 25/04/2017 at 22:09:11 +0200, Alexandre Belloni wrote:
-> Hi,
-> 
-> On 25/04/2017 at 18:25:30 +0300, Alexander Kochetkov wrote:
-> > Hello David!
-> > 
-> > > 25 апр. 2017 г., в 17:36, David Miller <davem@davemloft.net> написал(а):
-> > > 
-> > > So... what are we doing here?
-> > > 
-> > > My understanding is that this should fix the same problem that commit
-> > > 99f81afc139c6edd14d77a91ee91685a414a1c66 ("phy: micrel: Disable auto
-> > > negotiation on startup") fixed and that this micrel commit should thus
-> > > be reverted to improve MAC startup times which regressed.
-> > > 
-> > > Florian, any guidance?
-> > 
-> > Yes, this should be done.
-> > 
-> > I aksed Alexandre to check if 99f81afc139c6edd14d77a91ee91685a414a1c66 ("phy: micrel: Disable auto
-> > negotiation on startup») can be reverted, and he answered what it may do that
-> > sometime this/next week.
-> > 
-> 
-> Yes, it can be safely reverted after Alexander's patch. I had to test on
-> v4.7 because we are not using interrupts on those boards since v4.8
-> (another issue to be fixed).
-> 
-> As Florian pointed out, at the time I sent my patch, I didn't have time
-> to investigate whether this was affecting other phys, see
-> https://lkml.org/lkml/2016/2/26/766
-> 
-> I can send the revert or you can do it.
-> 
+On Wed, Apr 19, 2017 at 01:24:31AM +0200, Samuel Ortiz wrote:
 
-I've now tested on linux-next after fixing phy interrupts in the macb
-driver and this also fixes the issue I was trying to solve with:
-https://lkml.org/lkml/2016/4/15/786
+> On Tue, Apr 18, 2017 at 12:09:16PM +0200, Johan Hovold wrote:
+> > On Thu, Mar 30, 2017 at 12:15:34PM +0200, Johan Hovold wrote:
+> > > This started out with the observation that the nfcmrvl_uart driver
+> > > unconditionally dereferenced the tty class device despite the fact that
+> > > not every tty has an associated struct device (Unix98 ptys). Some
+> > > further changes were needed in the common nfcmrvl code to fully address
+> > > this, some of which also incidentally fixed a few related bugs (e.g.
+> > > resource leaks in error paths).
+> > > 
+> > > While fixing this I stumbled over a regression in NFC core that lead to
+> > > broken registration error paths and misnamed workqueues.
+> > > 
+> > > Note that this has only been tested by configuring the n_hci line
+> > > discipline for different ttys without any actual NFC hardware connected.
+> > 
+> > > Johan Hovold (8):
+> > >   NFC: fix broken device allocation
+> > >   NFC: nfcmrvl_uart: add missing tty-device sanity check
+> > >   NFC: nfcmrvl: do not use device-managed resources
+> > >   NFC: nfcmrvl: use nfc-device for firmware download
+> > >   NFC: nfcmrvl: fix firmware-management initialisation
+> > >   NFC: nfcmrvl_uart: fix device-node leak during probe
+> > >   NFC: nfcmrvl_usb: use interface as phy device
+> > >   NFC: nfcmrvl: allow gpio 0 for reset signalling
+> > 
+> > Any chance of getting these into 4.12, Samuel?
 
--- 
-Alexandre Belloni, Free Electrons
-Embedded Linux and Kernel engineering
-http://free-electrons.com
+> I have yours and Mark Greer patchset pending. I'll push them to nfc-next
+> and see if I can send another pull request to Dave by the end of this
+> week.
+
+Any progress on this now that we got another week?
+
+Thanks,
+Johan
