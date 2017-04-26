@@ -1,192 +1,110 @@
-From: Yankejian <yankejian@huawei.com>
-Subject: [PATCH net v3 3/3] net: hns: fixed bug that skb used after kfree
-Date: Wed, 26 Apr 2017 15:00:22 +0800
-Message-ID: <1493190022-91343-4-git-send-email-yankejian@huawei.com>
-References: <1493190022-91343-1-git-send-email-yankejian@huawei.com>
+From: "Gao Feng" <gfree.wind-H32Fclmsjq1BDgjK7y7TUQ@public.gmane.org>
+Subject: Re: [PATCH net] net: batman-adv: Fix possible
+	memleaks when fail to register_netdevice
+Date: Wed, 26 Apr 2017 14:44:24 +0800
+Message-ID: <002101d2be58$8bcaaa00$a35ffe00$@foxmail.com>
+References: <1493121800-28066-1-git-send-email-gfree.wind@foxmail.com>
+ <1756616.320MP6AHYH@bentobox> <002901d2be25$d9092bd0$8b1b8370$@foxmail.com>
+ <3994535.Z9kqCnttI2@bentobox>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <linuxarm@huawei.com>
-To: <davem@davemloft.net>, <salil.mehta@huawei.com>,
-        <yisen.zhuang@huawei.com>, <matthias.bgg@gmail.com>,
-        <yankejian@huawei.com>, <lipeng321@huawei.com>,
-        <zhouhuiru@huawei.com>, <huangdaode@hisilicon.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([45.249.212.189]:5457 "EHLO
-        dggrg03-dlp.huawei.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1956146AbdDZGka (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2017 02:40:30 -0400
-In-Reply-To: <1493190022-91343-1-git-send-email-yankejian@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org, a@unstable.cc, 'Gao Feng' <fgao-KlmEoCYek3zQT0dZR+AlfA@public.gmane.org>,
+ davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: "'Sven Eckelmann'" <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <3994535.Z9kqCnttI2@bentobox>
+Content-Language: zh-cn
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-From: lipeng <lipeng321@huawei.com>
+> From: Sven Eckelmann [mailto:sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org]
+> Sent: Wednesday, April 26, 2017 1:58 PM
+> On Mittwoch, 26. April 2017 08:41:30 CEST Gao Feng wrote:
+> > On Dienstag, 25. April 2017 20:03:20 CEST gfree.wind-H32Fclmsjq1BDgjK7y7TUQ@public.gmane.org wrote:
+> > > From: Gao Feng <fgao-KlmEoCYek3zQT0dZR+AlfA@public.gmane.org>
+> > >
+> > > Because the func batadv_softif_init_late allocate some resources and
+> > > it would be invoked in register_netdevice. So we need to invoke the
+> > > func batadv_softif_free instead of free_netdev to cleanup when fail
+> > > to register_netdevice.
+> >
+> > I could be wrong, but shouldn't the destructor be replaced with
+> > free_netdevice and the batadv_softif_free (without the free_netdev)
+> > used as ndo_uninit? The line you've changed should then be kept as
+> free_netdevice.
+> >
+> > At least this seems to be important when using rtnl_newlink() instead
+> > of the legacy sysfs netdev stuff from batman-adv. rtnl_newlink() would
+> > also only call free_netdevice and thus also not run
+> > batadv_softif_free. This seems to be only fixable by calling ndo_uninit.
+> >
+> > Sorry, I don't get you.
+> > The net_dev is created in this func batadv_softif_create.
+> > Why couldn't invoke batadv_softif_free to cleanup when fail to
+> > register_netdevice?
+> >
+> 
+> Because it is the legacy way to create the batadv interfaces and there is
+a
+> "new" one. The new way is to use rtnl link (see batadv_link_ops).
+> 
+> The rtnl linke (rtnl_newlink) would not benefit from your fix and
+therefore still
+> show the old behavior. I think a different fix is necessary to solve the
+problem
+> for both ways to create an batadv interface.
+> 
+> Kind regards,
+> 	Sven
 
-There is KASAN warning which turn out it's a skb used after free:
+I get it now, thanks.
+Actually I sent another patch about the memleaks when invoke newlink and
+fail to register_netdev.
+You could refer to it by
+https://www.mail-archive.com/netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org/msg165253.html.
 
-    BUG: KASAN: use-after-free in hns_nic_net_xmit_hw+0x62c/0x940...
-    [17659.112635]      alloc_debug_processing+0x18c/0x1a0
-    [17659.117208]      __slab_alloc+0x52c/0x560
-    [17659.120909]      kmem_cache_alloc_node+0xac/0x2c0
-    [17659.125309]      __alloc_skb+0x6c/0x260
-    [17659.128837]      tcp_send_ack+0x8c/0x280
-    [17659.132449]      __tcp_ack_snd_check+0x9c/0xf0
-    [17659.136587]      tcp_rcv_established+0x5a4/0xa70
-    [17659.140899]      tcp_v4_do_rcv+0x27c/0x620
-    [17659.144687]      tcp_prequeue_process+0x108/0x170
-    [17659.149085]      tcp_recvmsg+0x940/0x1020
-    [17659.152787]      inet_recvmsg+0x124/0x180
-    [17659.156488]      sock_recvmsg+0x64/0x80
-    [17659.160012]      SyS_recvfrom+0xd8/0x180
-    [17659.163626]      __sys_trace_return+0x0/0x4
-    [17659.167506] INFO: Freed in kfree_skbmem+0xa0/0xb0 age=23 cpu=1 pid=13
-    [17659.174000]      free_debug_processing+0x1d4/0x2c0
-    [17659.178486]      __slab_free+0x240/0x390
-    [17659.182100]      kmem_cache_free+0x24c/0x270
-    [17659.186062]      kfree_skbmem+0xa0/0xb0
-    [17659.189587]      __kfree_skb+0x28/0x40
-    [17659.193025]      napi_gro_receive+0x168/0x1c0
-    [17659.197074]      hns_nic_rx_up_pro+0x58/0x90
-    [17659.201038]      hns_nic_rx_poll_one+0x518/0xbc0
-    [17659.205352]      hns_nic_common_poll+0x94/0x140
-    [17659.209576]      net_rx_action+0x458/0x5e0
-    [17659.213363]      __do_softirq+0x1b8/0x480
-    [17659.217062]      run_ksoftirqd+0x64/0x80
-    [17659.220679]      smpboot_thread_fn+0x224/0x310
-    [17659.224821]      kthread+0x150/0x170
-    [17659.228084]      ret_from_fork+0x10/0x40
+In this patch, I add the cleanup when fail to register_netdev.
+It would be more simple if modify the rtnl_newlink and invoke the destructor
+of netdev when failed.
+Like the following codes.
+	if (ops->newlink) {
+		err = ops->newlink(link_net ? : net, dev, tb, data);
+		if (err < 0) {
+			if (dev->reg_state == NETREG_UNINITIALIZED)
+				if (dev->destructor)
+					dev->destructor(dev)
+				else
+					free_netdev(dev);
+				goto out;
+			}
+		} else {
+			err = register_netdevice(dev);
+			if (err < 0) {
+				if (dev->destructor)
+					dev->destructor(dev);
+				else
+					free_netdev(dev);
+				goto out;
+			}
+	}
 
-    BUG: KASAN: use-after-free in hns_nic_net_xmit+0x8c/0xc0...
-    [17751.080490]      __slab_alloc+0x52c/0x560
-    [17751.084188]      kmem_cache_alloc+0x244/0x280
-    [17751.088238]      __build_skb+0x40/0x150
-    [17751.091764]      build_skb+0x28/0x100
-    [17751.095115]      __alloc_rx_skb+0x94/0x150
-    [17751.098900]      __napi_alloc_skb+0x34/0x90
-    [17751.102776]      hns_nic_rx_poll_one+0x180/0xbc0
-    [17751.107097]      hns_nic_common_poll+0x94/0x140
-    [17751.111333]      net_rx_action+0x458/0x5e0
-    [17751.115123]      __do_softirq+0x1b8/0x480
-    [17751.118823]      run_ksoftirqd+0x64/0x80
-    [17751.122437]      smpboot_thread_fn+0x224/0x310
-    [17751.126575]      kthread+0x150/0x170
-    [17751.129838]      ret_from_fork+0x10/0x40
-    [17751.133454] INFO: Freed in kfree_skbmem+0xa0/0xb0 age=19 cpu=7 pid=43
-    [17751.139951]      free_debug_processing+0x1d4/0x2c0
-    [17751.144436]      __slab_free+0x240/0x390
-    [17751.148051]      kmem_cache_free+0x24c/0x270
-    [17751.152014]      kfree_skbmem+0xa0/0xb0
-    [17751.155543]      __kfree_skb+0x28/0x40
-    [17751.159022]      napi_gro_receive+0x168/0x1c0
-    [17751.163074]      hns_nic_rx_up_pro+0x58/0x90
-    [17751.167041]      hns_nic_rx_poll_one+0x518/0xbc0
-    [17751.171358]      hns_nic_common_poll+0x94/0x140
-    [17751.175585]      net_rx_action+0x458/0x5e0
-    [17751.179373]      __do_softirq+0x1b8/0x480
-    [17751.183076]      run_ksoftirqd+0x64/0x80
-    [17751.186691]      smpboot_thread_fn+0x224/0x310
-    [17751.190826]      kthread+0x150/0x170
-    [17751.194093]      ret_from_fork+0x10/0x40
+But I don't know if it breaks the design newlink and destructor.
 
-in drivers/net/ethernet/hisilicon/hns/hns_enet.c
+BTW, I think although the batadv_softif_create is legacy, we should fix it
+when it still exists :)
 
-    static netdev_tx_t hns_nic_net_xmit(struct sk_buff *skb,
-                                        struct net_device *ndev)
-    {
-        struct hns_nic_priv *priv = netdev_priv(ndev);
-        int ret;
-
-        assert(skb->queue_mapping < ndev->ae_handle->q_num);
-        ret = hns_nic_net_xmit_hw(ndev, skb,
-                                  &tx_ring_data(priv, skb->queue_mapping));
-        if (ret == NETDEV_TX_OK) {
-                netif_trans_update(ndev);
-                ndev->stats.tx_bytes += skb->len;
-                ndev->stats.tx_packets++;
-        }
-         return (netdev_tx_t)ret;
-    }
-
-skb maybe freed in hns_nic_net_xmit_hw() and return NETDEV_TX_OK:
-
-    out_err_tx_ok:
-
-        dev_kfree_skb_any(skb);
-        return NETDEV_TX_OK;
-
-This patch fix this bug.
-
-Reported-by: Jun He <hjat2005@huawei.com>
-Signed-off-by: lipeng <lipeng321@huawei.com>
-Reviewed-by: Yisen Zhuang <yisen.zhuang@huawei.com>
----
- drivers/net/ethernet/hisilicon/hns/hns_enet.c | 22 ++++++++++------------
- drivers/net/ethernet/hisilicon/hns/hns_enet.h |  6 +++---
- 2 files changed, 13 insertions(+), 15 deletions(-)
-
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.c b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-index fca37e2..1e04df6 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-@@ -300,9 +300,9 @@ static void fill_tso_desc(struct hnae_ring *ring, void *priv,
- 			     mtu);
- }
- 
--int hns_nic_net_xmit_hw(struct net_device *ndev,
--			struct sk_buff *skb,
--			struct hns_nic_ring_data *ring_data)
-+netdev_tx_t hns_nic_net_xmit_hw(struct net_device *ndev,
-+				struct sk_buff *skb,
-+				struct hns_nic_ring_data *ring_data)
- {
- 	struct hns_nic_priv *priv = netdev_priv(ndev);
- 	struct hnae_ring *ring = ring_data->ring;
-@@ -361,6 +361,10 @@ int hns_nic_net_xmit_hw(struct net_device *ndev,
- 	dev_queue = netdev_get_tx_queue(ndev, skb->queue_mapping);
- 	netdev_tx_sent_queue(dev_queue, skb->len);
- 
-+	netif_trans_update(ndev);
-+	ndev->stats.tx_bytes += skb->len;
-+	ndev->stats.tx_packets++;
-+
- 	wmb(); /* commit all data before submit */
- 	assert(skb->queue_mapping < priv->ae_handle->q_num);
- 	hnae_queue_xmit(priv->ae_handle->qs[skb->queue_mapping], buf_num);
-@@ -1474,17 +1478,11 @@ static netdev_tx_t hns_nic_net_xmit(struct sk_buff *skb,
- 				    struct net_device *ndev)
- {
- 	struct hns_nic_priv *priv = netdev_priv(ndev);
--	int ret;
- 
- 	assert(skb->queue_mapping < ndev->ae_handle->q_num);
--	ret = hns_nic_net_xmit_hw(ndev, skb,
--				  &tx_ring_data(priv, skb->queue_mapping));
--	if (ret == NETDEV_TX_OK) {
--		netif_trans_update(ndev);
--		ndev->stats.tx_bytes += skb->len;
--		ndev->stats.tx_packets++;
--	}
--	return (netdev_tx_t)ret;
-+
-+	return hns_nic_net_xmit_hw(ndev, skb,
-+				   &tx_ring_data(priv, skb->queue_mapping));
- }
- 
- static int hns_nic_change_mtu(struct net_device *ndev, int new_mtu)
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.h b/drivers/net/ethernet/hisilicon/hns/hns_enet.h
-index 5b412de..7bc6a6e 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_enet.h
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.h
-@@ -91,8 +91,8 @@ struct hns_nic_priv {
- void hns_nic_net_reset(struct net_device *ndev);
- void hns_nic_net_reinit(struct net_device *netdev);
- int hns_nic_init_phy(struct net_device *ndev, struct hnae_handle *h);
--int hns_nic_net_xmit_hw(struct net_device *ndev,
--			struct sk_buff *skb,
--			struct hns_nic_ring_data *ring_data);
-+netdev_tx_t hns_nic_net_xmit_hw(struct net_device *ndev,
-+				struct sk_buff *skb,
-+				struct hns_nic_ring_data *ring_data);
- 
- #endif	/**__HNS_ENET_H */
--- 
-1.9.1
+Regards
+Feng
