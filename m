@@ -1,80 +1,96 @@
-From: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH] IB/IPoIB: Check the headroom size
-Date: Wed, 26 Apr 2017 10:25:04 -0400
-Message-ID: <1493216704.3041.115.camel@redhat.com>
-References: <CAAk-MO-B8Liv6RyGye_Fx-9OELCUrGMj5SwK9UsciC=khSO5fA@mail.gmail.com>
-         <CAJ3xEMgwS1Bq8+eZC1iAr6xi8ZPHrchsOJ5r4LNJxR8P+6VipA@mail.gmail.com>
-         <1493134815.3041.72.camel@redhat.com>
-         <CAJ3xEMjqkJrKi+6ronuPBn2P6y8p6sdhVppDzFtMwQrhL13bzg@mail.gmail.com>
-         <1493192794.2409.3.camel@redhat.com>
-         <20170426125230.GB19179@dhcp-13-42.nay.redhat.com>
-         <1493213258.3041.98.camel@redhat.com>
-         <20170426133353.GA7898@dhcp-13-42.nay.redhat.com>
-         <1493214483.3041.108.camel@redhat.com>
-         <1493214638.3041.110.camel@redhat.com>
-         <20170426141139.GA14635@dhcp-13-42.nay.redhat.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH v3 net-next]smsc911x: Adding support for Micochip LAN9250
+ Ethernet controller
+Date: Wed, 26 Apr 2017 16:34:13 +0200
+Message-ID: <20170426143413.GC665@lunn.ch>
+References: <C3C28FB10418274EB7FD7C2B85C796A441247573@CHN-SV-EXMX02.mchp-main.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Erez Shitrit <erezsh-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>,
-        Erez Shitrit <erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Honggang LI <honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170426141139.GA14635-Y5OA6DF/u0nid9cnFhDO8BcY2uh10dtjAL8bYrjMMd8@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+        UNGLinuxDriver@microchip.com, steve.glendinning@shawell.net
+To: David.Cai@microchip.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:42000 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1176582AbdDZOeQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 26 Apr 2017 10:34:16 -0400
+Content-Disposition: inline
+In-Reply-To: <C3C28FB10418274EB7FD7C2B85C796A441247573@CHN-SV-EXMX02.mchp-main.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2017-04-26 at 22:11 +0800, Honggang LI wrote:
-> On Wed, Apr 26, 2017 at 09:50:38AM -0400, Doug Ledford wrote:
-> > 
-> > On Wed, 2017-04-26 at 09:48 -0400, Doug Ledford wrote:
-> > > 
-> > > On Wed, 2017-04-26 at 21:33 +0800, Honggang LI wrote:
-> > > > 
-> > > > 
-> > > > Yes, it is during the process of removing the final slave. The
-> > > > reproducer looks like this:
-> > > > 
-> > > > ping remote_ip_over_bonding_interface &
-> > > > while 1; do
-> > > > 	ifdown bond0
-> > > > 	ifup   bond0
-> > > > done
-> > 
-> > BTW, rerunning your test as:
-> > 
-> > ping remote_ip_over_bonding_interface &
-> > while 1; do
-> >     echo -n "Downing interface..."
-> >     ifdown bond0
+On Wed, Apr 26, 2017 at 01:55:52PM +0000, David.Cai@microchip.com wrote:
+> From: David Cai <david.cai@microchip.com>
 > 
-> Confirmed panic in here.
+> Adding support for Microchip LAN9250 Ethernet controller.
+> 
+> Signed-off-by: David Cai <david.cai@microchip.com>
+> ---
+> Changes
+> V2
+>  -  email format changed
+>  - remove unnecessary text in commit log Changes
+> V3
+>  - defined all supported Ethernet controller chip ID.
+>  - removed pdata->sub_generation = 0;
+>  - changed 'if (pdata->sub_generation)' to 
+>  	 if (pdata>generation == 4 && pdata->sub_generation)
+>  
+>  drivers/net/ethernet/smsc/smsc911x.c | 55 ++++++++++++++++++++++++------------
+>  drivers/net/ethernet/smsc/smsc911x.h | 19 +++++++++++++
+>  2 files changed, 56 insertions(+), 18 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
+> index fa5ca09..e35fe96 100644
+> --- a/drivers/net/ethernet/smsc/smsc911x.c
+> +++ b/drivers/net/ethernet/smsc/smsc911x.c
+> @@ -25,7 +25,7 @@
+>   *   LAN9215, LAN9216, LAN9217, LAN9218
+>   *   LAN9210, LAN9211
+>   *   LAN9220, LAN9221
+> - *   LAN89218
+> + *   LAN89218,LAN9250
+>   *
+>   */
+>  
+> @@ -104,6 +104,9 @@ struct smsc911x_data {
+>  	/* used to decide which workarounds apply */
+>  	unsigned int generation;
+>  
+> +	/* used to decide which sub generation product work arounds to apply */
+> +	unsigned int sub_generation;
+> +
+>  	/* device configuration (copied from platform_data during probe) */
+>  	struct smsc911x_platform_config config;
+>  
+> @@ -1450,6 +1453,8 @@ static int smsc911x_soft_reset(struct smsc911x_data *pdata)
+>  	unsigned int timeout;
+>  	unsigned int temp;
+>  	int ret;
+> +	unsigned int reset_offset = HW_CFG;
+> +	unsigned int reset_mask = HW_CFG_SRST_;
+>  
+>  	/*
+>  	 * Make sure to power-up the PHY chip before doing a reset, otherwise @@ -1476,15 +1481,23 @@ static int smsc911x_soft_reset(struct smsc911x_data *pdata)
+>  		}
+>  	}
+>  
+> +	if (pdata->generation == 4 && pdata->sub_generation) {
+> +		/* special reset for  LAN9250 */
+> +		reset_offset = RESET_CTL;
+> +		reset_mask = RESET_CTL_DIGITAL_RST_;
+> +	}
 
-OK, this leads me to suspect that the bonding driver is possibly
-reconfiguring the skb setup to Ethernet mode before the last slave is
-fully dropped from the bond, and so the slave is seeing a packet to its
-hard header routine with the wrong headroom.  I think Paolo's patch is
-probably the best way to go.  The reason I say that is because we can't
-definitively say that this is the only pathway we will ever see that
-causes us to get a packet with Ethernet headroom on our IPoIB
-interface, and Paolo's patch gives us the possibility of recovering and
-sending the packet out.  Even in this case, we are downing the
-interface, but it isn't down entirely yet, so sending the packet out
-isn't necessarily wrong.  So a method of fix that allows us to
-recover/continue seems preferable to me.  Can you test Paolo's patch
-and see if it resolves the problem?
+Hi David
 
--- 
-Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-    GPG KeyID: B826A3330E572FDD
-   
-Key fingerprint = AE6B 1BDA 122B 23B4 265B  1274 B826 A333 0E57 2FDD
+Thanks for adding the chip ID #defines. But the point of doing that is
+that you can then change this above to:
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+  	if (pdata->idrev & 0xFFFF0000 == LAN9250) {
+		reset_offset = RESET_CTL;
+		reset_mask = RESET_CTL_DIGITAL_RST_;
+}
+
+which is much more readable.
+
+      Andrew
