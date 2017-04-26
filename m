@@ -1,56 +1,65 @@
 From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch net 3/3] team: use a larger struct for mac address
-Date: Wed, 26 Apr 2017 10:28:12 -0700
-Message-ID: <CAM_iQpUGSy7My+hLXhsreq-8wPEdAKzNkQRzu-aiP5nkk+wSdw@mail.gmail.com>
-References: <1493183003-884-1-git-send-email-xiyou.wangcong@gmail.com>
- <1493183003-884-4-git-send-email-xiyou.wangcong@gmail.com>
- <20170426054033.GA1867@nanopsycho.orion> <7103fb6b-2483-37c0-48e5-19aa9fd4f386@redhat.com>
- <CAM_iQpVXBuXNfVM_h894HEF_9hv2rWgDJcMbvEJG25xfm7DGUA@mail.gmail.com> <3f48c69c-3ff4-f895-3c0f-2e8c9c5f063a@redhat.com>
+Subject: Re: Corrupted SKB
+Date: Wed, 26 Apr 2017 10:38:23 -0700
+Message-ID: <CAM_iQpWw-z7Nt4fUDKpqysPuPmdRLWk9RjHe_zArEe6z4Sodiw@mail.gmail.com>
+References: <CAAmHdhx14ZH3ftE2SovFZfy8ZfOCEgsyqqcSbGPHqg87Wc+5SQ@mail.gmail.com>
+ <CAM_iQpVOi0FH_quusHHpvREdvpqq6=RjVOQvcjAWGbh1X0_5tA@mail.gmail.com>
+ <CAAmHdhy0N2VttXNXL+S+4G=4=mf4ihpW7KsNWUYpiOFXez3B7w@mail.gmail.com> <CAAmHdhwncVcbeKN+K4EnmWqwBRXPwuMOSFwtOfuwmgc6gw-5=g@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Jiri Pirko <jiri@resnulli.us>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Andrey Konovalov <andreyknvl@google.com>
-To: Jarod Wilson <jarod@redhat.com>
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        jin.oyj@alibaba-inc.com
+To: Michael Ma <make0818@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:33535 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753438AbdDZR2d (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2017 13:28:33 -0400
-Received: by mail-wm0-f66.google.com with SMTP id y10so2984128wmh.0
-        for <netdev@vger.kernel.org>; Wed, 26 Apr 2017 10:28:33 -0700 (PDT)
-In-Reply-To: <3f48c69c-3ff4-f895-3c0f-2e8c9c5f063a@redhat.com>
+Received: from mail-wm0-f52.google.com ([74.125.82.52]:38412 "EHLO
+        mail-wm0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752585AbdDZRip (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2017 13:38:45 -0400
+Received: by mail-wm0-f52.google.com with SMTP id r190so11848618wme.1
+        for <netdev@vger.kernel.org>; Wed, 26 Apr 2017 10:38:45 -0700 (PDT)
+In-Reply-To: <CAAmHdhwncVcbeKN+K4EnmWqwBRXPwuMOSFwtOfuwmgc6gw-5=g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 26, 2017 at 9:46 AM, Jarod Wilson <jarod@redhat.com> wrote:
-> On 2017-04-26 12:11 PM, Cong Wang wrote:
->>
->> On Wed, Apr 26, 2017 at 8:55 AM, Jarod Wilson <jarod@redhat.com> wrote:
+On Tue, Apr 25, 2017 at 9:42 PM, Michael Ma <make0818@gmail.com> wrote:
+> 2017-04-18 21:46 GMT-07:00 Michael Ma <make0818@gmail.com>:
+>> 2017-04-18 16:12 GMT-07:00 Cong Wang <xiyou.wangcong@gmail.com>:
+>>> On Mon, Apr 17, 2017 at 5:39 PM, Michael Ma <make0818@gmail.com> wrote:
+>>>> Hi -
+>>>>
+>>>> We've implemented a "glue" qdisc similar to mqprio which can associate
+>>>> one qdisc to multiple txqs as the root qdisc. Reference count of the
+>>>> child qdiscs have been adjusted properly in this case so that it
+>>>> represents the number of txqs it has been attached to. However when
+>>>> sending packets we saw the skb from dequeue_skb() corrupted with the
+>>>> following call stack:
+>>>>
+>>>>     [exception RIP: netif_skb_features+51]
+>>>>     RIP: ffffffff815292b3  RSP: ffff8817f6987940  RFLAGS: 00010246
+>>>>
+>>>>  #9 [ffff8817f6987968] validate_xmit_skb at ffffffff815294aa
+>>>> #10 [ffff8817f69879a0] validate_xmit_skb at ffffffff8152a0d9
+>>>> #11 [ffff8817f69879b0] __qdisc_run at ffffffff8154a193
+>>>> #12 [ffff8817f6987a00] dev_queue_xmit at ffffffff81529e03
+>>>>
+>>>> It looks like the skb has already been released since its dev pointer
+>>>> field is invalid.
+>>>>
+>>>> Any clue on how this can be investigated further? My current thought
+>>>> is to add some instrumentation to the place where skb is released and
+>>>> analyze whether there is any race condition happening there. However
 >>>
->>>
->>> We already have struct sockaddr_storage that could be used throughout
->>> this
->>> set as well. We just converted a few pieces of the bonding driver over to
->>> using it for better support of ipoib bonds, via commit
->>> faeeb317a5615076dff1ff44b51e862e6064dbd0. Might be better to just use
->>> that
->>> in both bonding and team, rather than having different per-driver
->>> structs,
->>> or Yet Another Address Storage implementation.
+>>> Either dropwatch or perf could do the work to instrument kfree_skb().
 >>
->>
->> Technically, struct sockaddr_storage is not enough either, given the
->> max is MAX_ADDR_LEN. This is why I gave up on sockaddr_storage.
+>> Thanks - will try it out.
 >
->
-> Wait, what? Am I missing something? MAX_ADDR_LEN is 32, and sockaddr_storage
-> is a #define for __kernel_sockaddr_storage, which has it's __data member
-> defined as being of size 128 - sizeof(unsigned short).
+> I'm using perf to collect the callstack for kfree_skb and trying to
+> correlate that with the corrupted SKB address however when system
+> crashes the perf.data file is also corrupted - how can I view this
+> file in case the system crashes before perf exits?
 
-My bad, I thought it is same with sizeof(in6addr) without looking into it.
-The question is, why do we waste 126 - 32 = 94 bytes on stack to just
-use struct sockaddr_storage?
+Hmm, KASAN is pretty good at detecting use-after-free,
+its report can nicely shows where we allocate/free it and the
+use after free.
 
-I totally understand we want a unified struct, but we already redefine
-it in multiple places in tree...
+https://01.org/linuxgraphics/gfx-docs/drm/dev-tools/kasan.html
