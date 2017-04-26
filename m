@@ -1,46 +1,45 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [RFC 1/4] netlink: make extended ACK setting NULL-friendly
-Date: Wed, 26 Apr 2017 09:17:48 +0200
-Message-ID: <1493191068.2464.4.camel@sipsolutions.net>
-References: <20170425080644.122536-1-jakub.kicinski@netronome.com>
-         <20170425080644.122536-2-jakub.kicinski@netronome.com>
-         <1493108014.2592.1.camel@sipsolutions.net>
-         <20170425135306.0ff1db27@cakuba.netronome.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-        dsa@cumulusnetworks.com, alexei.starovoitov@gmail.com,
-        bblanco@gmail.com, john.fastabend@gmail.com,
-        oss-drivers@netronome.com
-To: Jakub Kicinski <kubakici@wp.pl>, daniel@iogearbox.net
+From: Donatas Abraitis <donatas.abraitis@gmail.com>
+Subject: [PATCH net-next v1] net: ipv6: make sure multicast packets are not forwarded beyond the different scopes
+Date: Wed, 26 Apr 2017 10:15:48 +0300
+Message-ID: <20170426071548.73171-1-donatas.abraitis@gmail.com>
+Cc: netdev@vger.kernel.org, stable@vger.kernel.org,
+        donatas.abraitis@gmail.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:43594 "EHLO sipsolutions.net"
+Received: from mail.kvb.lt ([193.219.39.208]:55250 "EHLO list.kvb.lt"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1952746AbdDZHR6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 26 Apr 2017 03:17:58 -0400
-In-Reply-To: <20170425135306.0ff1db27@cakuba.netronome.com>
+        id S1953170AbdDZHXf (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 26 Apr 2017 03:23:35 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2017-04-25 at 13:53 -0700, Jakub Kicinski wrote:
-> On Tue, 25 Apr 2017 10:13:34 +0200, Johannes Berg wrote:
-> > On Tue, 2017-04-25 at 01:06 -0700, Jakub Kicinski wrote:
-> > 
-> > > +#define NL_SET_ERR_MSG(extack, msg) do {		\
-> > > +	struct netlink_ext_ack *_extack = (extack);	\
-> > > +	static const char _msg[] = (msg);		\
-> > > +							\
-> > > +	if (_extack)					\
-> > > +		_extack->_msg = _msg;			\
-> > > +	else						\
-> > > +		pr_info("%s\n", _msg);			\
-> > >  } while (0)  
+	    RFC4291 2.7 Routers must not forward any multicast packets
+	    beyond of the scope indicated by the scop field in the
+	    destination multicast address.
 
-> I'm leaning towards dropping the else clause and never printing, that
-> will add an incentive for people to convert more paths to provide the
-> ext ack.  Any thoughts on that?
+Signed-off-by: Donatas Abraitis <donatas.abraitis@gmail.com>
+---
+ net/ipv6/ip6_input.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
 
-Personally, I'm happy with that.
-
-johannes
+diff --git a/net/ipv6/ip6_input.c b/net/ipv6/ip6_input.c
+index 9ee208a..a834797 100644
+--- a/net/ipv6/ip6_input.c
++++ b/net/ipv6/ip6_input.c
+@@ -165,6 +165,14 @@ int ipv6_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt
+ 	    IPV6_ADDR_MC_SCOPE(&hdr->daddr) == 0)
+ 		goto err;
+ 
++	/* RFC4291 2.7
++	 * Routers must not forward any multicast packets beyond of the scope
++	 * indicated by the scop field in the destination multicast address.
++	*/
++	if (ipv6_addr_is_multicast(&hdr->daddr) &&
++	    IPV6_ADDR_MC_SCOPE(&hdr->daddr) != IPV6_ADDR_MC_SCOPE(&hdr->saddr)
++	        goto err;
++
+ 	/*
+ 	 * RFC4291 2.7
+ 	 * Multicast addresses must not be used as source addresses in IPv6
+-- 
+2.10.0
