@@ -1,56 +1,39 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net 3/3] team: use a larger struct for mac address
-Date: Tue, 25 Apr 2017 22:03:23 -0700
-Message-ID: <1493183003-884-4-git-send-email-xiyou.wangcong@gmail.com>
-References: <1493183003-884-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: andreyknvl@google.com, Cong Wang <xiyou.wangcong@gmail.com>,
-        Jiri Pirko <jiri@resnulli.us>
-To: netdev@vger.kernel.org
+From: Alexander Alemayhu <alexander@alemayhu.com>
+Subject: Re: [PATCH net-next 3/3] samples/bpf: check before defining offsetof
+Date: Wed, 26 Apr 2017 07:17:04 +0200
+Message-ID: <20170426051704.GA13467@gmail.com>
+References: <20170424133108.31595-1-alexander@alemayhu.com>
+ <20170424133108.31595-4-alexander@alemayhu.com>
+ <58FE0E96.9020403@iogearbox.net>
+ <063D6719AE5E284EB5DD2968C1650D6DCFFDAD25@AcuExch.aculab.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: 'Daniel Borkmann' <daniel@iogearbox.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "ast@fb.com" <ast@fb.com>
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:34175 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S2993372AbdDZFDk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2017 01:03:40 -0400
-Received: by mail-pf0-f194.google.com with SMTP id g23so13998257pfj.1
-        for <netdev@vger.kernel.org>; Tue, 25 Apr 2017 22:03:40 -0700 (PDT)
-In-Reply-To: <1493183003-884-1-git-send-email-xiyou.wangcong@gmail.com>
+Received: from mail-lf0-f41.google.com ([209.85.215.41]:34427 "EHLO
+        mail-lf0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1043708AbdDZFRI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2017 01:17:08 -0400
+Received: by mail-lf0-f41.google.com with SMTP id t144so101636694lff.1
+        for <netdev@vger.kernel.org>; Tue, 25 Apr 2017 22:17:07 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DCFFDAD25@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-IPv6 tunnels use sizeof(struct in6_addr) as dev->addr_len,
-but in many places especially bonding, we use struct sockaddr
-to copy and set mac addr, this could lead to stack out-of-bounds
-access.
+On Tue, Apr 25, 2017 at 02:27:16PM +0000, David Laight wrote:
+> 
+> Isn't the correct fix to include stddef.h ?
+>
+If you think it's the correct fix, please send a patch to netdev.
 
-Fix it by using a larger address storage.
+Thanks.
 
-Reported-by: Andrey Konovalov <andreyknvl@google.com>
-Cc: Jiri Pirko <jiri@resnulli.us>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
----
- drivers/net/team/team.c | 9 ++++++---
- 1 file changed, 6 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
-index 85c0124..88878f1 100644
---- a/drivers/net/team/team.c
-+++ b/drivers/net/team/team.c
-@@ -60,10 +60,13 @@ static struct team_port *team_port_get_rtnl(const struct net_device *dev)
- static int __set_port_dev_addr(struct net_device *port_dev,
- 			       const unsigned char *dev_addr)
- {
--	struct sockaddr addr;
-+	struct {
-+		unsigned short type;
-+		unsigned char addr[MAX_ADDR_LEN];
-+	} addr;
- 
--	memcpy(addr.sa_data, dev_addr, port_dev->addr_len);
--	addr.sa_family = port_dev->type;
-+	memcpy(addr.addr, dev_addr, port_dev->addr_len);
-+	addr.type = port_dev->type;
- 	return dev_set_mac_address(port_dev, &addr);
- }
- 
 -- 
-2.5.5
+Mit freundlichen Grüßen
+
+Alexander Alemayhu
