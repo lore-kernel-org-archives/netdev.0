@@ -1,48 +1,91 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v8 2/3] net sched actions: dump more than
- TCA_ACT_MAX_PRIO actions per batch
-Date: Wed, 26 Apr 2017 10:46:58 -0400 (EDT)
-Message-ID: <20170426.104658.547156121898948265.davem@davemloft.net>
-References: <20170426110241.GA28251@vergenet.net>
-        <2e09d117-60f9-97ed-9f63-c94130ddbb0c@mojatatu.com>
-        <20170426130506.GF1867@nanopsycho.orion>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jhs@mojatatu.com, simon.horman@netronome.com,
-        xiyou.wangcong@gmail.com, eric.dumazet@gmail.com,
-        netdev@vger.kernel.org
-To: jiri@resnulli.us
+From: Miroslav Lichvar <mlichvar@redhat.com>
+Subject: [PATCH v1 net-next 0/6] Extend socket timestamping API
+Date: Wed, 26 Apr 2017 16:50:29 +0200
+Message-ID: <20170426145035.25846-1-mlichvar@redhat.com>
+Cc: Richard Cochran <richardcochran@gmail.com>,
+        Willem de Bruijn <willemb@google.com>,
+        Soheil Hassas Yeganeh <soheil@google.com>,
+        "Keller, Jacob E" <jacob.e.keller@intel.com>,
+        Denny Page <dennypage@me.com>, Jiri Benc <jbenc@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:55984 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S3001389AbdDZOrA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2017 10:47:00 -0400
-In-Reply-To: <20170426130506.GF1867@nanopsycho.orion>
+Received: from mx1.redhat.com ([209.132.183.28]:50064 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S3001489AbdDZOuk (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 26 Apr 2017 10:50:40 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Wed, 26 Apr 2017 15:05:06 +0200
+Changes RFC->v1:
+- reworked SOF_TIMESTAMPING_OPT_PKTINFO patch to not add new fields to
+  skb shared info (net device is now looked up by napi_id), not require
+  any changes in drivers, and restrict the cmsg to incoming packets
+- renamed SOF_TIMESTAMPING_OPT_MULTIMSG to SOF_TIMESTAMPING_OPT_TX_SWHW
+  and fixed its description
+- moved struct scm_ts_pktinfo from errqueue.h to net_tstamp.h as it
+  can't be received from the error queue anymore
+- improved commit descriptions and removed incorrect comment
 
-> Wed, Apr 26, 2017 at 02:46:22PM CEST, jhs@mojatatu.com wrote:
->>On 17-04-26 07:02 AM, Simon Horman wrote:
->>> On Tue, Apr 25, 2017 at 06:04:45PM +0200, Jiri Pirko wrote:
->>[..]
->>
->>> > So fix iproute2. It is always first kernel, then iproute2.
->>> 
->>> Perhaps I am missing the point or somehow misguided but I would expect that
->>> if the UAPI uses BIT() it also provides BIT().
->>
->>There is a user of BIT() already in iproute2 (devlink). We can move
->>the code to be more generally available for other iproute2 users.
->>Then this UAPI change makes use of it.
-> 
-> Should be part of UAPI as well
-> I see that include/uapi/rdma/vmw_pvrdma-abi.h is using BIT macro.
-> I don't see BIT macro defined in UAPI (I thought it is). So either
-> define it there (not sure where) or just use "<<"
+This patchset adds new options to the timestamping API that will be
+useful for NTP implementations and possibly other applications.
 
-"BIT" is a pretty crazy small simple name to pollute into the global
-namespace, IMHO.
+The first patch specifies a timestamp filter for NTP packets. The second
+patch updates drivers that can timestamp all packets, or need to list
+the filter as unsupported. There is no attempt to add the support to the
+phyter driver.
+
+The third patch adds a new option to get a new control message with the
+L2 length and interface index for incoming packets with hardware
+timestamps.
+
+The fourth patch fixes the code to not make a false software TX
+timestamp when hardware timestamping is enabled. The fifth patch depends
+on this fix.
+
+The fifth patch adds a new option to request both software and hardware
+timestamps for outgoing packets. The sixth patch updates drivers that
+assumed software timestamping cannot be used together with hardware
+timestamping.
+
+The patches have been tested on x86_64 machines with igb and e1000e
+drivers.
+
+Miroslav Lichvar (6):
+  net: define receive timestamp filter for NTP
+  net: ethernet: update drivers to handle HWTSTAMP_FILTER_NTP_ALL
+  net: add new control message for incoming HW-timestamped packets
+  net: don't make false software transmit timestamps
+  net: allow simultaneous SW and HW transmit timestamping
+  net: ethernet: update drivers to make both SW and HW TX timestamps
+
+ Documentation/networking/timestamping.txt          | 22 ++++++++++++++--
+ drivers/net/ethernet/amd/xgbe/xgbe-drv.c           |  4 +--
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c   |  1 +
+ drivers/net/ethernet/cavium/liquidio/lio_main.c    |  1 +
+ drivers/net/ethernet/cavium/liquidio/lio_vf_main.c |  1 +
+ drivers/net/ethernet/cavium/octeon/octeon_mgmt.c   |  1 +
+ drivers/net/ethernet/intel/e1000e/netdev.c         |  5 ++--
+ drivers/net/ethernet/intel/i40e/i40e_ptp.c         |  1 +
+ drivers/net/ethernet/intel/igb/igb_ptp.c           |  1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c       |  1 +
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c     |  1 +
+ drivers/net/ethernet/mellanox/mlx5/core/en_clock.c |  1 +
+ drivers/net/ethernet/neterion/vxge/vxge-main.c     |  1 +
+ drivers/net/ethernet/qlogic/qede/qede_ptp.c        |  1 +
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c    |  3 +--
+ drivers/net/ethernet/sfc/ef10.c                    |  1 +
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |  7 +++--
+ drivers/net/ethernet/ti/cpsw.c                     |  1 +
+ drivers/net/ethernet/tile/tilegx.c                 |  1 +
+ include/linux/netdevice.h                          |  1 +
+ include/linux/skbuff.h                             |  3 +--
+ include/uapi/asm-generic/socket.h                  |  2 ++
+ include/uapi/linux/net_tstamp.h                    | 13 +++++++++-
+ net/core/dev.c                                     | 18 +++++++++++++
+ net/core/dev_ioctl.c                               |  1 +
+ net/core/skbuff.c                                  |  4 +++
+ net/socket.c                                       | 30 ++++++++++++++++++++--
+ 27 files changed, 110 insertions(+), 17 deletions(-)
+
+-- 
+2.9.3
