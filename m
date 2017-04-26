@@ -1,145 +1,74 @@
-From: Jakub Kicinski <kubakici@wp.pl>
-Subject: GSO + changing TX queues == crash?
-Date: Wed, 26 Apr 2017 11:35:55 -0700
-Message-ID: <20170426113555.2c0055dc@cakuba.netronome.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+From: Craig Gallek <kraigatgoog@gmail.com>
+Subject: [PATCH v2 net-next] ip6_tunnel: Fix missing tunnel encapsulation limit option
+Date: Wed, 26 Apr 2017 14:37:45 -0400
+Message-ID: <20170426183745.194717-1-kraigatgoog@gmail.com>
+References: <20170426170707.165201-1-kraigatgoog@gmail.com>
+Cc: netdev@vger.kernel.org
+To: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx4.wp.pl ([212.77.101.12]:34599 "EHLO mx4.wp.pl"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S936075AbdDZSg2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 26 Apr 2017 14:36:28 -0400
-Received: from unknown (HELO cakuba.netronome.com) (kubakici@wp.pl@[75.53.12.129])
-          (envelope-sender <kubakici@wp.pl>)
-          by smtp.wp.pl (WP-SMTPD) with ECDHE-RSA-AES256-GCM-SHA384 encrypted SMTP
-          for <netdev@vger.kernel.org>; 26 Apr 2017 20:36:10 +0200
+Received: from mail-qt0-f175.google.com ([209.85.216.175]:34681 "EHLO
+        mail-qt0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S965002AbdDZShr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2017 14:37:47 -0400
+Received: by mail-qt0-f175.google.com with SMTP id c45so8292968qtb.1
+        for <netdev@vger.kernel.org>; Wed, 26 Apr 2017 11:37:47 -0700 (PDT)
+In-Reply-To: <20170426170707.165201-1-kraigatgoog@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi!
+From: Craig Gallek <cgallek@google.com>
 
-I'm seeing crashes with GSO on when changing the number of TX rings.  I
-initially thought it was a nfp driver problem but I managed to
-reproduce it with i40e now.
+The IPv6 tunneling code tries to insert IPV6_TLV_TNL_ENCAP_LIMIT and
+IPV6_TLV_PADN options when an encapsulation limit is defined (the
+default is a limit of 4).  An MTU adjustment is done to account for
+these options as well.  However, the options are never present in the
+generated packets.
 
-What I run on the nfp was iperf sending two dozen streams.  Then I run
-this little script while 40Gbps is being sent:
+The issue appears to be a subtlety between IPV6_DSTOPTS and
+IPV6_RTHDRDSTOPTS defined in RFC 3542.  When the IPIP tunnel driver was
+written, the encap limit options were included as IPV6_RTHDRDSTOPTS in
+dst0opt of struct ipv6_txoptions.  Later, ipv6_push_nfrags_opts was
+(correctly) updated to require IPV6_RTHDR options when IPV6_RTHDRDSTOPTS
+are to be used.  This caused the options to no longer be included in v6
+encapsulated packets.
 
-bl() { 
-	tc -s qdisc show dev p4p1 | \
-		tail -$((MAX_TX*3)) | \
-		grep backlog | \
-		grep -v "backlog 0b"
-}
+The fix is to use IPV6_DSTOPTS (in dst1opt of struct ipv6_txoptions)
+instead.  IPV6_DSTOPTS do not have the additional IPV6_RTHDR requirement.
 
-while true
-do 
-	ethtool -L p4p1 tx 0
+Fixes: 1df64a8569c7: ("[IPV6]: Add ip6ip6 tunnel driver.")
+Fixes: 333fad5364d6: ("[IPV6]: Support several new sockopt / ancillary data in Advanced API (RFC3542)")
+Signed-off-by: Craig Gallek <kraig@google.com>
+---
 
-	a=$(bl | wc -l)
-	echo down $a
+v2: Change tunnel code to use dst1opt rather than making the checks for
+    dst0opt more permissive.
 
-	# there are 8 combined queues, we shouldn't see more backlog
-	[ $a -gt 8 ] && break  
-	
-	sleep 2
+ net/ipv6/ip6_tunnel.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-	ethtool -L p4p1 tx 10
-
-	echo up $(bl | wc -l)
-
-	sleep 2
-done
-
-The idea is to catch when after reconfig more queues have backlog than
-are configured.  Right after this script exits driver gets traffic on
-queues which are down.  It usually reproduces within a minute, I run it
-with tso on gso off and tso off gso off for 15 minutes and that didn't
-crash.
-
-i40e machine was running kernel 4.10, with the NFP driver I'm able to
-reproduce on net-next all the way back to 3.16 (I haven't tried older).
-
-FWIW the nfp driver is doing:
-
-netif_carrier_off()
-for enabled rings:
-	disable_irq()
-	napi_disable()
-netif_tx_disable()
-
-nfp's free_tx_bufs()
-
-netif_set_real_num_tx_queues()
-
-for enabled rings:
-	napi_enable()
-	enable_irq()
-netif_tx_wake_all_queues()
-nfp's read_link() # does netif_carrier_on()
-
-I was entirely convinced that it's a driver problem, but the fact I
-crashed the i40e made me worry :|
-
-This is a crash from i40e, it takes a bit longer to kill it than the
-nfp, maybe because it takes longer to reconfig:
-
-[  461.822381] BUG: unable to handle kernel NULL pointer dereference at 0000000000000008
-[  461.831229] IP: i40e_lan_xmit_frame+0xf1/0x1420 [i40e]
-[  461.837045] PGD 0 
-[  461.837046] 
-[  461.841089] Oops: 0002 [#1] SMP
-[  461.844665] Modules linked in: xfs nls_iso8859_1 ipmi_devintf ipt_MASQUERADE nf_nat_masquerade_ipv4 iptable_nat nf_nat_ipv4 nf_nat nf_conntrack_ipv4 nf_defrag_ipv4 xtc
-[  461.924168]  fscache tg3 i40e ptp ahci pps_core libahci fjes
-[  461.930595] CPU: 15 PID: 0 Comm: swapper/15 Not tainted 4.11.0-041100rc1-generic #201703051731
-[  461.940340] Hardware name: Dell Inc. PowerEdge R730/072T6D, BIOS 2.3.4 11/08/2016
-[  461.948823] task: ffffa087db2b0000 task.stack: ffffb9b903350000
-[  461.955546] RIP: 0010:i40e_lan_xmit_frame+0xf1/0x1420 [i40e]
-[  461.961965] RSP: 0018:ffffa087df1c3d80 EFLAGS: 00010293
-[  461.967899] RAX: 0000000000000000 RBX: ffffa087c3077d00 RCX: 0000000000000000
-[  461.975971] RDX: 0000000000000000 RSI: 0000000000000007 RDI: ffffa087b4e1d70c
-[  461.984044] RBP: ffffa087df1c3e20 R08: ffffa087d440349c R09: 0000000000000000
-[  461.992117] R10: ffffa087de821a08 R11: 0000000000000000 R12: ffffa087b7c60000
-[  462.000188] R13: 0000000000000002 R14: 00000000000005ea R15: ffffa087d97b3000
-[  462.008261] FS:  0000000000000000(0000) GS:ffffa087df1c0000(0000) knlGS:0000000000000000
-[  462.017423] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-[  462.023941] CR2: 0000000000000008 CR3: 00000006efe09000 CR4: 00000000003406e0
-[  462.032014] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-[  462.040083] DR3: 0000000000000000 DR6: 00000000fffe0ff0 DR7: 0000000000000400
-[  462.048154] Call Trace:
-[  462.050969]  <IRQ>
-[  462.053311]  ? update_load_avg+0x79/0x520
-[  462.057876]  ? sched_clock_cpu+0x11/0xb0
-[  462.062356]  dev_hard_start_xmit+0xa3/0x1f0
-[  462.067127]  sch_direct_xmit+0xfc/0x1c0
-[  462.071509]  __qdisc_run+0x122/0x270
-[  462.075598]  net_tx_action+0xfd/0x1e0
-[  462.079786]  __do_softirq+0x104/0x2af
-[  462.083973]  irq_exit+0xb6/0xc0
-[  462.087577]  smp_apic_timer_interrupt+0x3d/0x50
-[  462.092732]  apic_timer_interrupt+0x89/0x90
-[  462.097501] RIP: 0010:cpuidle_enter_state+0x122/0x2c0
-[  462.103240] RSP: 0018:ffffb9b903353e58 EFLAGS: 00000246 ORIG_RAX: ffffffffffffff10
-[  462.111818] RAX: 0000000000000000 RBX: 0000000000000004 RCX: 000000000000001f
-[  462.119890] RDX: 0000006b86c1bdc1 RSI: ffffa087df1d8998 RDI: 0000000000000000
-[  462.127962] RBP: ffffb9b903353e98 R08: 0000000000084c3f R09: 0000000000000018
-[  462.136032] R10: 00000000000310a2 R11: 0000000000055e38 R12: ffffa087df1e5800
-[  462.144094] R13: ffffffffb86ec998 R14: 0000000000000004 R15: ffffffffb86ec980
-[  462.152165]  </IRQ>
-[  462.154601]  ? cpuidle_enter_state+0x110/0x2c0
-[  462.159662]  cpuidle_enter+0x17/0x20
-[  462.163748]  call_cpuidle+0x23/0x40
-[  462.167740]  do_idle+0x189/0x200
-[  462.171438]  cpu_startup_entry+0x71/0x80
-[  462.175908]  start_secondary+0x154/0x190
-[  462.180384]  start_cpu+0x14/0x14
-[  462.184080] Code: 8d 75 05 66 39 c8 0f 86 e4 04 00 00 01 d0 0f b7 d1 29 d0 83 e8 01 39 c6 0f 8f ed 05 00 00 49 8b 44 24 20 48 8d 14 89 4c 8d 1c d0 <49> 89 5b 08 8b 83 
-[  462.205347] RIP: i40e_lan_xmit_frame+0xf1/0x1420 [i40e] RSP: ffffa087df1c3d80
-[  462.213418] CR2: 0000000000000008
-[  462.217226] ---[ end trace 0ee2eefbe09283a8 ]---
-[  462.272123] Kernel panic - not syncing: Fatal exception in interrupt
-[  462.279393] Kernel Offset: 0x36800000 from 0xffffffff81000000 (relocation range: 0xffffffff80000000-0xffffffffbfffffff)
-[  462.345422] ---[ end Kernel panic - not syncing: Fatal exception in interrupt
+diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+index ad15d38b41e8..c81f9541f1f7 100644
+--- a/net/ipv6/ip6_tunnel.c
++++ b/net/ipv6/ip6_tunnel.c
+@@ -954,7 +954,7 @@ static void init_tel_txopt(struct ipv6_tel_txoption *opt, __u8 encap_limit)
+ 	opt->dst_opt[5] = IPV6_TLV_PADN;
+ 	opt->dst_opt[6] = 1;
+ 
+-	opt->ops.dst0opt = (struct ipv6_opt_hdr *) opt->dst_opt;
++	opt->ops.dst1opt = (struct ipv6_opt_hdr *) opt->dst_opt;
+ 	opt->ops.opt_nflen = 8;
+ }
+ 
+@@ -1176,7 +1176,7 @@ int ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev, __u8 dsfield,
+ 
+ 	if (encap_limit >= 0) {
+ 		init_tel_txopt(&opt, encap_limit);
+-		ipv6_push_nfrag_opts(skb, &opt.ops, &proto, NULL, NULL);
++		ipv6_push_frag_opts(skb, &opt.ops, &proto);
+ 	}
+ 
+ 	/* Calculate max headroom for all the headers and adjust
+-- 
+2.13.0.rc0.306.g87b477812d-goog
