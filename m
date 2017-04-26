@@ -1,54 +1,104 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [oss-drivers] Re: [RFC 3/4] nfp: make use of extended ack
- message reporting
-Date: Wed, 26 Apr 2017 10:44:16 -0400 (EDT)
-Message-ID: <20170426.104416.270999555163740292.davem@davemloft.net>
-References: <9765d004-de19-7cf2-fcfc-1d2e72cded43@mojatatu.com>
-        <20170425.102022.219410555949403896.davem@davemloft.net>
-        <20170426111315.GC28251@vergenet.net>
+From: Honggang LI <honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH] IB/IPoIB: Check the headroom size
+Date: Wed, 26 Apr 2017 22:44:18 +0800
+Message-ID: <20170426144418.GB14635@dhcp-13-42.nay.redhat.com>
+References: <1493134815.3041.72.camel@redhat.com>
+ <CAJ3xEMjqkJrKi+6ronuPBn2P6y8p6sdhVppDzFtMwQrhL13bzg@mail.gmail.com>
+ <1493192794.2409.3.camel@redhat.com>
+ <20170426125230.GB19179@dhcp-13-42.nay.redhat.com>
+ <1493213258.3041.98.camel@redhat.com>
+ <20170426133353.GA7898@dhcp-13-42.nay.redhat.com>
+ <1493214483.3041.108.camel@redhat.com>
+ <1493214638.3041.110.camel@redhat.com>
+ <20170426141139.GA14635@dhcp-13-42.nay.redhat.com>
+ <1493216704.3041.115.camel@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jhs@mojatatu.com, jakub.kicinski@netronome.com,
-        netdev@vger.kernel.org, johannes@sipsolutions.net,
-        dsa@cumulusnetworks.com, daniel@iogearbox.net,
-        alexei.starovoitov@gmail.com, bblanco@gmail.com,
-        john.fastabend@gmail.com, kubakici@wp.pl, oss-drivers@netronome.com
-To: simon.horman@netronome.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:55890 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1434638AbdDZOoT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2017 10:44:19 -0400
-In-Reply-To: <20170426111315.GC28251@vergenet.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Erez Shitrit <erezsh-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>,
+        Erez Shitrit <erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1493216704.3041.115.camel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Simon Horman <simon.horman@netronome.com>
-Date: Wed, 26 Apr 2017 13:13:16 +0200
-
-> On Tue, Apr 25, 2017 at 10:20:22AM -0400, David Miller wrote:
->> From: Jamal Hadi Salim <jhs@mojatatu.com>
->> Date: Tue, 25 Apr 2017 08:42:32 -0400
->> 
->> > So are we going to standardize these strings?
->> 
->> No.
->> 
->> > i.e what if some user has written a bash script that depends on this
->> > string and it gets changed later.
->> 
->> They can't do that.
->> 
->> It's free form extra information an application may or not provide
->> to the user when the kernel emits it.
+On Wed, Apr 26, 2017 at 10:25:04AM -0400, Doug Ledford wrote:
+> On Wed, 2017-04-26 at 22:11 +0800, Honggang LI wrote:
+> > On Wed, Apr 26, 2017 at 09:50:38AM -0400, Doug Ledford wrote:
+> > > 
+> > > On Wed, 2017-04-26 at 09:48 -0400, Doug Ledford wrote:
+> > > > 
+> > > > On Wed, 2017-04-26 at 21:33 +0800, Honggang LI wrote:
+> > > > > 
+> > > > > 
+> > > > > Yes, it is during the process of removing the final slave. The
+> > > > > reproducer looks like this:
+> > > > > 
+> > > > > ping remote_ip_over_bonding_interface &
+> > > > > while 1; do
+> > > > > 	ifdown bond0
+> > > > > 	ifup   bond0
+> > > > > done
+> > > 
+> > > BTW, rerunning your test as:
+> > > 
+> > > ping remote_ip_over_bonding_interface &
+> > > while 1; do
+> > >     echo -n "Downing interface..."
+> > >     ifdown bond0
+> > 
+> > Confirmed panic in here.
 > 
-> I don't feel strongly about this and perhaps it can be revisited at some
-> point but perhaps it would be worth documenting that he strings do not
-> form part of the UAPI as my expectation would have been that they do f.e. to
-> facilitate internationalisation.
+> OK, this leads me to suspect that the bonding driver is possibly
+> reconfiguring the skb setup to Ethernet mode before the last slave is
+> fully dropped from the bond, and so the slave is seeing a packet to its
+> hard header routine with the wrong headroom.  I think Paolo's patch is
+> probably the best way to go.  The reason I say that is because we can't
+> definitively say that this is the only pathway we will ever see that
+> causes us to get a packet with Ethernet headroom on our IPoIB
+> interface, and Paolo's patch gives us the possibility of recovering and
+> sending the packet out.  Even in this case, we are downing the
+> interface, but it isn't down entirely yet, so sending the packet out
 
-These two things are entirely separate.
+Sending packet out over a removing interface looks bad. I'd like to drop
+backlog packet.
 
-We can maintain uptodate translations of the strings, yet document that
-they can change at any time and are thus not UAPI.
+> isn't necessarily wrong.  So a method of fix that allows us to
+> recover/continue seems preferable to me.  Can you test Paolo's patch
+> and see if it resolves the problem?
+
+Yes, Paolo's patch fixes the panic issue too. But it seems has side
+effort. For example:
+
+520 struct sk_buff *arp_create(int type, int ptype, __be32 dest_ip,
+.....
+538                 return NULL;
+539 
+540         skb_reserve(skb, hlen);
+541         skb_reset_network_header(skb); <-- it update skb->network_header
+
+
+But skb_cow_head seems does not touch skb->network_header. I have to say
+I did not test the network_header.
+
+> 
+> -- 
+> Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+>     GPG KeyID: B826A3330E572FDD
+>    
+> Key fingerprint = AE6B 1BDA 122B 23B4 265B  1274 B826 A333 0E57 2FDD
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
