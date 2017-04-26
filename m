@@ -1,18 +1,18 @@
 From: Iyappan Subramanian <isubramanian@apm.com>
-Subject: [PATCH net-next 4/9] drivers: net: xgene: Remove unused macros
-Date: Wed, 26 Apr 2017 16:38:50 -0700
-Message-ID: <1493249935-30759-5-git-send-email-isubramanian@apm.com>
+Subject: [PATCH net-next 3/9] drivers: net: xgene: Refactor statistics error parsing code
+Date: Wed, 26 Apr 2017 16:38:49 -0700
+Message-ID: <1493249935-30759-4-git-send-email-isubramanian@apm.com>
 References: <1493249935-30759-1-git-send-email-isubramanian@apm.com>
 Cc: linux-arm-kernel@lists.infradead.org, patches@apm.com,
         Quan Nguyen <qnguyen@apm.com>,
         Iyappan Subramanian <isubramanian@apm.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f170.google.com ([209.85.192.170]:35115 "EHLO
-        mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1032764AbdDZXgi (ORCPT
+Received: from mail-pf0-f180.google.com ([209.85.192.180]:36710 "EHLO
+        mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1032745AbdDZXgi (ORCPT
         <rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2017 19:36:38 -0400
-Received: by mail-pf0-f170.google.com with SMTP id v14so8273357pfd.2
+Received: by mail-pf0-f180.google.com with SMTP id 194so8269285pfv.3
         for <netdev@vger.kernel.org>; Wed, 26 Apr 2017 16:36:38 -0700 (PDT)
 In-Reply-To: <1493249935-30759-1-git-send-email-isubramanian@apm.com>
 Sender: netdev-owner@vger.kernel.org
@@ -20,30 +20,155 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Quan Nguyen <qnguyen@apm.com>
 
-This patch cleans up unused macros to improve readability.
+This patch fixes the tx error counters and adds more rx error counters.
 
 Signed-off-by: Quan Nguyen <qnguyen@apm.com>
 Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
 ---
- drivers/net/ethernet/apm/xgene/xgene_enet_hw.h | 6 ------
- 1 file changed, 6 deletions(-)
+ drivers/net/ethernet/apm/xgene/xgene_enet_hw.c   |  6 ------
+ drivers/net/ethernet/apm/xgene/xgene_enet_hw.h   |  2 --
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.c | 26 +++++++++++++++---------
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.h |  2 ++
+ 4 files changed, 18 insertions(+), 18 deletions(-)
 
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
+index 3697ba7..06bef14 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
+@@ -205,30 +205,24 @@ static u32 xgene_enet_ring_len(struct xgene_enet_desc_ring *ring)
+ }
+ 
+ void xgene_enet_parse_error(struct xgene_enet_desc_ring *ring,
+-			    struct xgene_enet_pdata *pdata,
+ 			    enum xgene_enet_err_code status)
+ {
+ 	switch (status) {
+ 	case INGRESS_CRC:
+ 		ring->rx_crc_errors++;
+-		ring->rx_dropped++;
+ 		break;
+ 	case INGRESS_CHECKSUM:
+ 	case INGRESS_CHECKSUM_COMPUTE:
+ 		ring->rx_errors++;
+-		ring->rx_dropped++;
+ 		break;
+ 	case INGRESS_TRUNC_FRAME:
+ 		ring->rx_frame_errors++;
+-		ring->rx_dropped++;
+ 		break;
+ 	case INGRESS_PKT_LEN:
+ 		ring->rx_length_errors++;
+-		ring->rx_dropped++;
+ 		break;
+ 	case INGRESS_PKT_UNDER:
+ 		ring->rx_frame_errors++;
+-		ring->rx_dropped++;
+ 		break;
+ 	case INGRESS_FIFO_OVERRUN:
+ 		ring->rx_fifo_errors++;
 diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h
-index c6b5bbd..5a9f9d5 100644
+index d250bfe..c6b5bbd 100644
 --- a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h
 +++ b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h
-@@ -217,12 +217,6 @@ enum xgene_enet_rm {
- #define FULL_DUPLEX2			BIT(0)
- #define PAD_CRC				BIT(2)
- #define LENGTH_CHK			BIT(4)
--#define SCAN_AUTO_INCR			BIT(5)
--#define TBYT_ADDR			0x38
--#define TPKT_ADDR			0x39
--#define TDRP_ADDR			0x45
--#define TFCS_ADDR			0x47
--#define TUND_ADDR			0x4a
+@@ -380,9 +380,7 @@ static inline u16 xgene_enet_get_numslots(u16 id, u32 size)
+ }
  
- #define TSO_IPPROTO_TCP			1
+ void xgene_enet_parse_error(struct xgene_enet_desc_ring *ring,
+-			    struct xgene_enet_pdata *pdata,
+ 			    enum xgene_enet_err_code status);
+-
+ int xgene_enet_mdio_config(struct xgene_enet_pdata *pdata);
+ void xgene_enet_mdio_remove(struct xgene_enet_pdata *pdata);
+ bool xgene_ring_mgr_init(struct xgene_enet_pdata *p);
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+index e4f2ef2..3f24b83 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+@@ -246,9 +246,9 @@ static int xgene_enet_tx_completion(struct xgene_enet_desc_ring *cp_ring,
+ 	skb_frag_t *frag;
+ 	dma_addr_t *frag_dma_addr;
+ 	u16 skb_index;
+-	u8 status;
+-	int i, ret = 0;
+ 	u8 mss_index;
++	u8 status;
++	int i;
  
+ 	skb_index = GET_VAL(USERINFO, le64_to_cpu(raw_desc->m0));
+ 	skb = cp_ring->cp_skb[skb_index];
+@@ -275,19 +275,17 @@ static int xgene_enet_tx_completion(struct xgene_enet_desc_ring *cp_ring,
+ 	/* Checking for error */
+ 	status = GET_VAL(LERR, le64_to_cpu(raw_desc->m0));
+ 	if (unlikely(status > 2)) {
+-		xgene_enet_parse_error(cp_ring, netdev_priv(cp_ring->ndev),
+-				       status);
+-		ret = -EIO;
++		cp_ring->tx_dropped++;
++		cp_ring->tx_errors++;
+ 	}
+ 
+ 	if (likely(skb)) {
+ 		dev_kfree_skb_any(skb);
+ 	} else {
+ 		netdev_err(cp_ring->ndev, "completion skb is NULL\n");
+-		ret = -EIO;
+ 	}
+ 
+-	return ret;
++	return 0;
+ }
+ 
+ static int xgene_enet_setup_mss(struct net_device *ndev, u32 mss)
+@@ -711,7 +709,8 @@ static int xgene_enet_rx_frame(struct xgene_enet_desc_ring *rx_ring,
+ 		if (!xgene_enet_errata_10GE_8(skb, datalen, status)) {
+ 			dev_kfree_skb_any(skb);
+ 			xgene_enet_free_pagepool(page_pool, raw_desc, exp_desc);
+-			xgene_enet_parse_error(rx_ring, pdata, status);
++			xgene_enet_parse_error(rx_ring, status);
++			rx_ring->rx_dropped++;
+ 			goto out;
+ 		}
+ 	}
+@@ -1477,6 +1476,8 @@ static void xgene_enet_get_stats64(
+ 		if (ring) {
+ 			stats->tx_packets += ring->tx_packets;
+ 			stats->tx_bytes += ring->tx_bytes;
++			stats->tx_dropped += ring->tx_dropped;
++			stats->tx_errors += ring->tx_errors;
+ 		}
+ 	}
+ 
+@@ -1485,11 +1486,16 @@ static void xgene_enet_get_stats64(
+ 		if (ring) {
+ 			stats->rx_packets += ring->rx_packets;
+ 			stats->rx_bytes += ring->rx_bytes;
+-			stats->rx_errors += ring->rx_length_errors +
++			stats->rx_dropped += ring->rx_dropped;
++			stats->rx_errors += ring->rx_errors +
++				ring->rx_length_errors +
+ 				ring->rx_crc_errors +
+ 				ring->rx_frame_errors +
+ 				ring->rx_fifo_errors;
+-			stats->rx_dropped += ring->rx_dropped;
++			stats->rx_length_errors += ring->rx_length_errors;
++			stats->rx_crc_errors += ring->rx_crc_errors;
++			stats->rx_frame_errors += ring->rx_frame_errors;
++			stats->rx_fifo_errors += ring->rx_fifo_errors;
+ 		}
+ 	}
+ }
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.h b/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
+index 5e6fd71..3bf6638 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
+@@ -138,6 +138,8 @@ struct xgene_enet_desc_ring {
+ 	__le64 *exp_bufs;
+ 	u64 tx_packets;
+ 	u64 tx_bytes;
++	u64 tx_dropped;
++	u64 tx_errors;
+ 	u64 rx_packets;
+ 	u64 rx_bytes;
+ 	u64 rx_dropped;
 -- 
 1.9.1
