@@ -1,63 +1,51 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 02/10] tcp: do not pass timestamp to
- tcp_rack_detect_loss()
-Date: Wed, 26 Apr 2017 16:03:14 -0700
-Message-ID: <1493247794.6453.90.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20170425171541.3417-1-edumazet@google.com>
-         <20170425171541.3417-3-edumazet@google.com>
+From: Logan Gunthorpe <logang@deltatee.com>
+Subject: Re: [PATCH v2 01/21] scatterlist: Introduce sg_map helper functions
+Date: Wed, 26 Apr 2017 17:30:47 -0600
+Message-ID: <5958e5fc-e73f-1457-781f-05378fa1fd46@deltatee.com>
+References: <1493144468-22493-1-git-send-email-logang@deltatee.com>
+ <1493144468-22493-2-git-send-email-logang@deltatee.com>
+ <5dfc5bf5-482c-b5bb-029c-7cee80925f37@amd.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "David S . Miller" <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Soheil Hassas Yeganeh <soheil@google.com>
-To: Eric Dumazet <edumazet@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:33986 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1032470AbdDZXDR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2017 19:03:17 -0400
-Received: by mail-pf0-f194.google.com with SMTP id g23so3445615pfj.1
-        for <netdev@vger.kernel.org>; Wed, 26 Apr 2017 16:03:17 -0700 (PDT)
-In-Reply-To: <20170425171541.3417-3-edumazet@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Jens Axboe <axboe@kernel.dk>,
+ "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
+ "Martin K. Petersen" <martin.petersen@oracle.com>,
+ Matthew Wilcox <mawilcox@microsoft.com>,
+ Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+ Stephen Bates <sbates@raithlin.com>,
+ Ross Zwisler <ross.zwisler@linux.intel.com>, Christoph Hellwig <hch@lst.de>,
+ Dan Williams <dan.j.williams@intel.com>
+To: =?UTF-8?Q?Christian_K=c3=b6nig?= <christian.koenig@amd.com>,
+ linux-kernel@vger.kernel.org, linux-crypto@vger.kernel.org,
+ linux-media@vger.kernel.org, dri-devel@lists.freedesktop.org,
+ intel-gfx@lists.freedesktop.org, linux-raid@vger.kernel.org,
+ linux-mmc@vger.kernel.org, linux-nvdimm@lists.01.org,
+ linux-scsi@vger.kernel.org, open-iscsi@googlegroups.com,
+ megaraidlinux.pdl@broadcom.com, sparmaintainer@unisys.com,
+ devel@driverdev.osuosl.org, target-devel@vger.kernel.org,
+ netdev@vger.kernel.org, linux-rdma@vger.kernel.org, dm-devel@redhat.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <5dfc5bf5-482c-b5bb-029c-7cee80925f37@amd.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2017-04-25 at 10:15 -0700, Eric Dumazet wrote:
-> We can use tp->tcp_mstamp as it contains a recent timestamp.
-> 
 
-> @@ -165,12 +164,10 @@ void tcp_rack_advance(struct tcp_sock *tp, u8 sacked, u32 end_seq,
->  void tcp_rack_reo_timeout(struct sock *sk)
->  {
->  	struct tcp_sock *tp = tcp_sk(sk);
-> -	struct skb_mstamp now;
->  	u32 timeout, prior_inflight;
->  
-> -	skb_mstamp_get(&now);
 
-Oh this is silly, a timer event is not updating tp->tcp_mstamp yet.
+On 26/04/17 02:59 AM,   wrote:
+> Good to know that somebody is working on this. Those problems troubled
+> us as well.
 
-I will provide a patch, after tests.
+Thanks Christian. It's a daunting problem and a there's a lot of work to
+do before we will ever be where we need to be so any help, even an ack,
+is greatly appreciated.
 
->  	prior_inflight = tcp_packets_in_flight(tp);
-> -	tcp_rack_detect_loss(sk, &now, &timeout);
-> +	tcp_rack_detect_loss(sk, &timeout);
->  	if (prior_inflight != tcp_packets_in_flight(tp)) {
->  		if (inet_csk(sk)->icsk_ca_state != TCP_CA_Recovery) {
->  			tcp_enter_recovery(sk, false);
-
-Something like :
-
-diff --git a/net/ipv4/tcp_recovery.c b/net/ipv4/tcp_recovery.c
-index fdac262e277b2f25492f155bbb295d6d87e31d02..75096becac21f09fd14466b5f87dffe5820325b5 100644
---- a/net/ipv4/tcp_recovery.c
-+++ b/net/ipv4/tcp_recovery.c
-@@ -167,6 +167,7 @@ void tcp_rack_reo_timeout(struct sock *sk)
- 	u32 timeout, prior_inflight;
- 
- 	prior_inflight = tcp_packets_in_flight(tp);
-+	skb_mstamp_get(&tp->tcp_mstamp);
- 	tcp_rack_detect_loss(sk, &timeout);
- 	if (prior_inflight != tcp_packets_in_flight(tp)) {
- 		if (inet_csk(sk)->icsk_ca_state != TCP_CA_Recovery) {
+Logan
