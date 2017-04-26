@@ -1,120 +1,42 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH RFC v2] ptr_ring: add ptr_ring_unconsume
-Date: Wed, 26 Apr 2017 17:09:42 +0800
-Message-ID: <ce6e1816-e3e0-4e6b-b017-05cfc54a0170@redhat.com>
-References: <1493049492-3229-1-git-send-email-mst@redhat.com>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [v3] brcmfmac: Make skb header writable before use
+Date: Wed, 26 Apr 2017 09:05:32 +0000 (UTC)
+Message-ID: <20170426090532.8686D61493@smtp.codeaurora.org>
+References: <20170425091506.18224-1-james.hughes@raspberrypi.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Arend van Spriel <arend.vanspriel@broadcom.com>,
+        Franky Lin <franky.lin@broadcom.com>,
+        Hante Meuleman <hante.meuleman@broadcom.com>,
+        linux-wireless@vger.kernel.org,
+        brcm80211-dev-list.pdl@broadcom.com, netdev@vger.kernel.org,
+        James Hughes <james.hughes@raspberrypi.org>
+To: James Hughes <james.hughes@raspberrypi.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:57742 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1036616AbdDZJJu (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 26 Apr 2017 05:09:50 -0400
-In-Reply-To: <1493049492-3229-1-git-send-email-mst@redhat.com>
+Received: from smtp.codeaurora.org ([198.145.29.96]:41976 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1030584AbdDZJFd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2017 05:05:33 -0400
+In-Reply-To: <20170425091506.18224-1-james.hughes@raspberrypi.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+James Hughes <james.hughes@raspberrypi.org> wrote:
+> The driver was making changes to the skb_header without
+> ensuring it was writable (i.e. uncloned).
+> This patch also removes some boiler plate header size
+> checking/adjustment code as that is also handled by the
+> skb_cow_header function used to make header writable.
+> 
+> Signed-off-by: James Hughes <james.hughes@raspberrypi.org>
+> Acked-by: Arend van Spriel <arend.vanspriel@broadcom.com>
 
+Patch applied to wireless-drivers-next.git, thanks.
 
-On 2017年04月25日 00:01, Michael S. Tsirkin wrote:
-> Applications that consume a batch of entries in one go
-> can benefit from ability to return some of them back
-> into the ring.
->
-> Add an API for that - assuming there's space. If there's no space
-> naturally can't do this and have to drop entries, but this implies ring
-> is full so we'd likely drop some anyway.
->
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> ---
->
-> Jason, if you add this and unconsume the outstanding packets
-> on backend disconnect, vhost close and reset, I think
-> we should apply your patch even if we don't yet know 100%
-> why it helps.
->
-> changes from v1:
-> - fix up coding style issues reported by Sergei Shtylyov
->
->
->   include/linux/ptr_ring.h | 56 ++++++++++++++++++++++++++++++++++++++++++++++++
->   1 file changed, 56 insertions(+)
->
-> diff --git a/include/linux/ptr_ring.h b/include/linux/ptr_ring.h
-> index 783e7f5..902afc2 100644
-> --- a/include/linux/ptr_ring.h
-> +++ b/include/linux/ptr_ring.h
-> @@ -457,6 +457,62 @@ static inline int ptr_ring_init(struct ptr_ring *r, int size, gfp_t gfp)
->   	return 0;
->   }
->   
-> +/*
-> + * Return entries into ring. Destroy entries that don't fit.
-> + *
-> + * Note: this is expected to be a rare slow path operation.
-> + *
-> + * Note: producer lock is nested within consumer lock, so if you
-> + * resize you must make sure all uses nest correctly.
-> + * In particular if you consume ring in interrupt or BH context, you must
-> + * disable interrupts/BH when doing so.
-> + */
-> +static inline void ptr_ring_unconsume(struct ptr_ring *r, void **batch, int n,
-> +				      void (*destroy)(void *))
-> +{
-> +	unsigned long flags;
-> +	int head;
-> +
-> +	spin_lock_irqsave(&r->consumer_lock, flags);
-> +	spin_lock(&r->producer_lock);
-> +
-> +	if (!r->size)
-> +		goto done;
-> +
-> +	/*
-> +	 * Clean out buffered entries (for simplicity). This way following code
-> +	 * can test entries for NULL and if not assume they are valid.
-> +	 */
-> +	head = r->consumer_head - 1;
-> +	while (likely(head >= r->consumer_tail))
-> +		r->queue[head--] = NULL;
-> +	r->consumer_tail = r->consumer_head;
-> +
-> +	/*
-> +	 * Go over entries in batch, start moving head back and copy entries.
-> +	 * Stop when we run into previously unconsumed entries.
-> +	 */
-> +	while (n--) {
-> +		head = r->consumer_head - 1;
-> +		if (head < 0)
-> +			head = r->size - 1;
-> +		if (r->queue[head]) {
-> +			/* This batch entry will have to be destroyed. */
-> +			++n;
-> +			goto done;
-> +		}
-> +		r->queue[head] = batch[n];
-> +		r->consumer_tail = r->consumer_head = head;
+9cc4b7cb86cb brcmfmac: Make skb header writable before use
 
-Looks like something wrong here (bad page state reported), uncomment the 
-above while() solving the issue. But after staring it for a while I 
-didn't find anything interesting, maybe you have some idea on this?
+-- 
+https://patchwork.kernel.org/patch/9697763/
 
-Thanks
-
-
-> +	}
-> +
-> +done:
-> +	/* Destroy all entries left in the batch. */
-> +	while (n--)
-> +		destroy(batch[n]);
-> +	spin_unlock(&r->producer_lock);
-> +	spin_unlock_irqrestore(&r->consumer_lock, flags);
-> +}
-> +
->   static inline void **__ptr_ring_swap_queue(struct ptr_ring *r, void **queue,
->   					   int size, gfp_t gfp,
->   					   void (*destroy)(void *))
+https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
