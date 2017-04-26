@@ -1,107 +1,43 @@
-From: Miroslav Lichvar <mlichvar@redhat.com>
-Subject: [PATCH v1 net-next 6/6] net: ethernet: update drivers to make both SW and HW TX timestamps
-Date: Wed, 26 Apr 2017 16:50:35 +0200
-Message-ID: <20170426145035.25846-7-mlichvar@redhat.com>
-References: <20170426145035.25846-1-mlichvar@redhat.com>
-Cc: Richard Cochran <richardcochran@gmail.com>,
-        Willem de Bruijn <willemb@google.com>,
-        Soheil Hassas Yeganeh <soheil@google.com>,
-        "Keller, Jacob E" <jacob.e.keller@intel.com>,
-        Denny Page <dennypage@me.com>, Jiri Benc <jbenc@redhat.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:55626 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S3001504AbdDZOuu (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 26 Apr 2017 10:50:50 -0400
-In-Reply-To: <20170426145035.25846-1-mlichvar@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Randy Dunlap <rdunlap@infradead.org>
+Subject: Re: linux-next: Tree for Apr 26 (net/can/bcm.c)
+Date: Wed, 26 Apr 2017 07:53:24 -0700
+Message-ID: <05bd24d8-6840-3551-a529-c464f3b26d0a@infradead.org>
+References: <20170426180321.3c8c16a2@canb.auug.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        linux-can@vger.kernel.org
+To: Stephen Rothwell <sfr@canb.auug.org.au>,
+        Linux-Next Mailing List <linux-next@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170426180321.3c8c16a2@canb.auug.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Some drivers were calling the skb_tx_timestamp() function only when
-a hardware timestamp was not requested. Now that applications can use
-the SOF_TIMESTAMPING_OPT_TX_SWHW option to request both software and
-hardware timestamps, the drivers need to be modified to unconditionally
-call skb_tx_timestamp().
+On 04/26/17 01:03, Stephen Rothwell wrote:
+> Hi all,
+> 
+> Changes since 20170424:
+> 
 
-CC: Richard Cochran <richardcochran@gmail.com>
-CC: Willem de Bruijn <willemb@google.com>
-Signed-off-by: Miroslav Lichvar <mlichvar@redhat.com>
----
- drivers/net/ethernet/amd/xgbe/xgbe-drv.c          | 3 +--
- drivers/net/ethernet/intel/e1000e/netdev.c        | 4 ++--
- drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c   | 3 +--
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 6 ++----
- 4 files changed, 6 insertions(+), 10 deletions(-)
+on x86_64:
 
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-index 89b21d7..5a2ad9c 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-@@ -1391,8 +1391,7 @@ static void xgbe_prep_tx_tstamp(struct xgbe_prv_data *pdata,
- 		spin_unlock_irqrestore(&pdata->tstamp_lock, flags);
- 	}
- 
--	if (!XGMAC_GET_BITS(packet->attributes, TX_PACKET_ATTRIBUTES, PTP))
--		skb_tx_timestamp(skb);
-+	skb_tx_timestamp(skb);
- }
- 
- static void xgbe_prep_vlan(struct sk_buff *skb, struct xgbe_packet_data *packet)
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 940a79e..a149dff 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -5856,10 +5856,10 @@ static netdev_tx_t e1000_xmit_frame(struct sk_buff *skb,
- 			adapter->tx_hwtstamp_skb = skb_get(skb);
- 			adapter->tx_hwtstamp_start = jiffies;
- 			schedule_work(&adapter->tx_hwtstamp_work);
--		} else {
--			skb_tx_timestamp(skb);
- 		}
- 
-+		skb_tx_timestamp(skb);
-+
- 		netdev_sent_queue(netdev, skb->len);
- 		e1000_tx_queue(tx_ring, tx_flags, count);
- 		/* Make sure there is space in the ring for the next send. */
-diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c b/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
-index d54490d..50c182c 100644
---- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
-+++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
-@@ -1418,8 +1418,7 @@ static netdev_tx_t sxgbe_xmit(struct sk_buff *skb, struct net_device *dev)
- 		priv->hw->desc->tx_enable_tstamp(first_desc);
- 	}
- 
--	if (!tqueue->hwts_tx_en)
--		skb_tx_timestamp(skb);
-+	skb_tx_timestamp(skb);
- 
- 	priv->hw->dma->enable_dma_transmission(priv->ioaddr, txq_index);
- 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 3115700..7f857ee 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -2880,8 +2880,7 @@ static netdev_tx_t stmmac_tso_xmit(struct sk_buff *skb, struct net_device *dev)
- 		priv->xstats.tx_set_ic_bit++;
- 	}
- 
--	if (!priv->hwts_tx_en)
--		skb_tx_timestamp(skb);
-+	skb_tx_timestamp(skb);
- 
- 	if (unlikely((skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP) &&
- 		     priv->hwts_tx_en)) {
-@@ -3084,8 +3083,7 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
- 		priv->xstats.tx_set_ic_bit++;
- 	}
- 
--	if (!priv->hwts_tx_en)
--		skb_tx_timestamp(skb);
-+	skb_tx_timestamp(skb);
- 
- 	/* Ready to fill the first descriptor and set the OWN bit w/o any
- 	 * problems because all the descriptors are actually ready to be
+when CONFIG_PROC_FS is not enabled:
+
+../net/can/bcm.c:1541:14: error: 'struct netns_can' has no member named 'bcmproc_dir'
+../net/can/bcm.c:1601:14: error: 'struct netns_can' has no member named 'bcmproc_dir'
+../net/can/bcm.c:1696:11: error: 'struct netns_can' has no member named 'bcmproc_dir'
+../net/can/bcm.c:1707:15: error: 'struct netns_can' has no member named 'bcmproc_dir'
+
+2 of those are "protected" by
+	if (IS_ENABLED(CONFIG_PROC_FS)) {
+but that doesn't seem to help/work here.
+
+gcc v4.8.5
+
+
+
 -- 
-2.9.3
+~Randy
