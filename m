@@ -1,46 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: more test_progs...
-Date: Wed, 26 Apr 2017 10:55:11 -0400 (EDT)
-Message-ID: <20170426.105511.742633353102583622.davem@davemloft.net>
-References: <20170425.125217.1962662516948420246.davem@davemloft.net>
-        <470871b2-c4c0-ad23-7fda-1a38c2736679@fb.com>
-        <590056F2.5010600@iogearbox.net>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ast@fb.com, netdev@vger.kernel.org
-To: daniel@iogearbox.net
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH net-next] net: vrf: Do not allow looback to be moved to a VRF
+Date: Wed, 26 Apr 2017 07:58:22 -0700
+Message-ID: <1493218702-10906-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: rshearma@brocade.com, David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:56134 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S638183AbdDZOzM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2017 10:55:12 -0400
-In-Reply-To: <590056F2.5010600@iogearbox.net>
+Received: from mail-pg0-f46.google.com ([74.125.83.46]:33637 "EHLO
+        mail-pg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1956183AbdDZO61 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2017 10:58:27 -0400
+Received: by mail-pg0-f46.google.com with SMTP id 63so1363315pgh.0
+        for <netdev@vger.kernel.org>; Wed, 26 Apr 2017 07:58:26 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <daniel@iogearbox.net>
-Date: Wed, 26 Apr 2017 10:14:42 +0200
+Moving the loopback into a VRF breaks networking for the default VRF.
+Since the VRF device is the loopback for VRF domains, there is no
+reason to move the loopback. Given the repercussions, block attempts
+to set lo into a VRF.
 
-> On 04/26/2017 05:42 AM, Alexei Starovoitov wrote:
->> That sucks for sparc, of course. I don't have good suggestions for
->> workaround other than marking tcphdr as packed :(
->>  From code efficiency point of view it still will be faster than
->> LD_ABS insn.
-> 
-> Plus, ld_abs would also only work on skbs right now, and would
-> need JIT support for XDP. But it's also cumbersome to use with
-> f.e. IPv6, etc, so should not be encouraged, imo.
-> 
-> One other option for !HAVE_EFFICIENT_UNALIGNED_ACCESS archs could
-> be to provide a bpf_skb_load_bytes() helper equivalent for XDP,
-> where you eventually do the memcpy() inside. We could see to inline
-> the helper itself to optimize it slightly.
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+---
+ drivers/net/vrf.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-We have to do something that works transparently and always,
-regardless of whether HAVE_EFFICIENT_UNALIGNED_ACCESS is in
-play or not.
-
-And no, marking objects with __packed is not the answer.
-
-What's happening right now is completely unacceptable.
+diff --git a/drivers/net/vrf.c b/drivers/net/vrf.c
+index aa5d30428bba..ceda5861da78 100644
+--- a/drivers/net/vrf.c
++++ b/drivers/net/vrf.c
+@@ -877,6 +877,12 @@ static int do_vrf_add_slave(struct net_device *dev, struct net_device *port_dev)
+ {
+ 	int ret;
+ 
++	/* do not allow loopback device to be enslaved to a VRF.
++	 * The vrf device acts as the loopback for the vrf.
++	 */
++	if (port_dev == dev_net(dev)->loopback_dev)
++		return -EOPNOTSUPP;
++
+ 	port_dev->priv_flags |= IFF_L3MDEV_SLAVE;
+ 	ret = netdev_master_upper_dev_link(port_dev, dev, NULL, NULL);
+ 	if (ret < 0)
+-- 
+2.1.4
