@@ -1,39 +1,47 @@
-From: Alexander Alemayhu <alexander@alemayhu.com>
-Subject: Re: [PATCH net-next 3/3] samples/bpf: check before defining offsetof
-Date: Wed, 26 Apr 2017 07:17:04 +0200
-Message-ID: <20170426051704.GA13467@gmail.com>
-References: <20170424133108.31595-1-alexander@alemayhu.com>
- <20170424133108.31595-4-alexander@alemayhu.com>
- <58FE0E96.9020403@iogearbox.net>
- <063D6719AE5E284EB5DD2968C1650D6DCFFDAD25@AcuExch.aculab.com>
+From: <kelley@colfaxcommunitynetwork.org>
+Subject: 47490 netdev
+Date: Wed, 26 Apr 2017 05:19:48 -0000
+Message-ID: <149318398834.31457.11241454356481692682@zaural.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: 'Daniel Borkmann' <daniel@iogearbox.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "ast@fb.com" <ast@fb.com>
-To: David Laight <David.Laight@ACULAB.COM>
+Content-Type: application/zip; name="47176743700.zip"
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f41.google.com ([209.85.215.41]:34427 "EHLO
-        mail-lf0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1043708AbdDZFRI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2017 01:17:08 -0400
-Received: by mail-lf0-f41.google.com with SMTP id t144so101636694lff.1
-        for <netdev@vger.kernel.org>; Tue, 25 Apr 2017 22:17:07 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DCFFDAD25@AcuExch.aculab.com>
+Received: from ws45.zone31-163-133.zaural.ru ([31.163.133.45]:39944 "HELO
+        zaural.ru" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
+        id S1434947AbdDZFTx (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 26 Apr 2017 01:19:53 -0400
+Content-Disposition: attachment
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 25, 2017 at 02:27:16PM +0000, David Laight wrote:
-> 
-> Isn't the correct fix to include stddef.h ?
->
-If you think it's the correct fix, please send a patch to netdev.
-
-Thanks.
-
--- 
-Mit freundlichen Grüßen
-
-Alexander Alemayhu
+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
+SwUGAAAAAAEAAQBbAAAAGQYAAAAA
