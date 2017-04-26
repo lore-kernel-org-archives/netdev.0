@@ -1,26 +1,61 @@
-From: "Ashraf Basit" <donotreply@sendinc.com>
-Subject: Get back to me
-Date: Wed, 26 Apr 2017 00:10:06 +0000
-Message-ID: <32603504776322855731590@vm1FF8510>
-Reply-To: ashrafbas@secsuremailer.com
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net-next] virtio-net: on tx, only call napi_disable if tx
+	napi is on
+Date: Wed, 26 Apr 2017 08:17:49 +0800
+Message-ID: <e63dd996-7b8e-b41b-7eb2-0044338be350@redhat.com>
+References: <20170425195917.54209-1-willemdebruijn.kernel@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 8BIT
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from host90-25-237-212.serverdedicati.aruba.it ([212.237.25.90]:36957
-        "EHLO mail.zenith.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1430757AbdDZAQf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 20:16:35 -0400
-Received: from 104.192.5.228 (unknown [104.192.5.228])
-        by mail.zenith.com (Postfix) with ESMTPA id 0CF5B61910
-        for <netdev@vger.kernel.org>; Wed, 26 Apr 2017 02:10:09 +0200 (CEST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Transfer-Encoding: base64
+Cc: Willem de Bruijn <willemb@google.com>,
+	virtualization@lists.linux-foundation.org, davem@davemloft.net,
+	mst@redhat.com
+To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>, netdev@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20170425195917.54209-1-willemdebruijn.kernel@gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Good day. Did you receive the business proposal I sent to you yesterday? I was waiting for your reply but I am not sure if you receive the message.  If for some reason you did not receive my previous email, I can resend the message to you. Please confirm as this is very urgent and important.
-
-Regards,
-
-Ashraf.
-ashrafbas@secsuremailer.com
+CgpPbiAyMDE35bm0MDTmnIgyNuaXpSAwMzo1OSwgV2lsbGVtIGRlIEJydWlqbiB3cm90ZToKPiBG
+cm9tOiBXaWxsZW0gZGUgQnJ1aWpuIDx3aWxsZW1iQGdvb2dsZS5jb20+Cj4KPiBBcyBvZiB0eCBu
+YXBpLCBkZXZpY2UgZG93biAoYGlwIGxpbmsgc2V0IGRldiAkZGV2IGRvd25gKSBoYW5ncyB1bmxl
+c3MKPiB0eCBuYXBpIGlzIGVuYWJsZWQuIEVsc2UgbmFwaV9lbmFibGUgaXMgbm90IGNhbGxlZCwg
+c28gbmFwaV9kaXNhYmxlCj4gd2lsbCBzcGluIG9uIHRlc3RfYW5kX3NldF9iaXQgTkFQSV9TVEFU
+RV9TQ0hFRC4KPgo+IE9ubHkgY2FsbCBuYXBpX2Rpc2FibGUgaWYgdHggbmFwaSBpcyBlbmFibGVk
+Lgo+Cj4gRml4ZXM6IDVhNzE5YzI1NTJjYSAoInZpcnRpby1uZXQ6IHRyYW5zbWl0IG5hcGkiKQo+
+IFJlcG9ydGVkLWJ5OiBKYXNvbiBXYW5nIDxqYXNvd2FuZ0ByZWRoYXQuY29tPgo+IFNpZ25lZC1v
+ZmYtYnk6IFdpbGxlbSBkZSBCcnVpam4gPHdpbGxlbWJAZ29vZ2xlLmNvbT4KPiAtLS0KPiAgIGRy
+aXZlcnMvbmV0L3ZpcnRpb19uZXQuYyB8IDEwICsrKysrKysrLS0KPiAgIDEgZmlsZSBjaGFuZ2Vk
+LCA4IGluc2VydGlvbnMoKyksIDIgZGVsZXRpb25zKC0pCj4KPiBkaWZmIC0tZ2l0IGEvZHJpdmVy
+cy9uZXQvdmlydGlvX25ldC5jIGIvZHJpdmVycy9uZXQvdmlydGlvX25ldC5jCj4gaW5kZXggMDAz
+MTQzODM1NzY2Li44MmYxYzNhNzMzNDUgMTAwNjQ0Cj4gLS0tIGEvZHJpdmVycy9uZXQvdmlydGlv
+X25ldC5jCj4gKysrIGIvZHJpdmVycy9uZXQvdmlydGlvX25ldC5jCj4gQEAgLTk5Nyw2ICs5OTcs
+MTIgQEAgc3RhdGljIHZvaWQgdmlydG5ldF9uYXBpX3R4X2VuYWJsZShzdHJ1Y3QgdmlydG5ldF9p
+bmZvICp2aSwKPiAgIAlyZXR1cm4gdmlydG5ldF9uYXBpX2VuYWJsZSh2cSwgbmFwaSk7Cj4gICB9
+Cj4gICAKPiArc3RhdGljIHZvaWQgdmlydG5ldF9uYXBpX3R4X2Rpc2FibGUoc3RydWN0IG5hcGlf
+c3RydWN0ICpuYXBpKQo+ICt7Cj4gKwlpZiAobmFwaS0+d2VpZ2h0KQo+ICsJCW5hcGlfZGlzYWJs
+ZShuYXBpKTsKPiArfQo+ICsKPiAgIHN0YXRpYyB2b2lkIHJlZmlsbF93b3JrKHN0cnVjdCB3b3Jr
+X3N0cnVjdCAqd29yaykKPiAgIHsKPiAgIAlzdHJ1Y3QgdmlydG5ldF9pbmZvICp2aSA9Cj4gQEAg
+LTE0NDUsNyArMTQ1MSw3IEBAIHN0YXRpYyBpbnQgdmlydG5ldF9jbG9zZShzdHJ1Y3QgbmV0X2Rl
+dmljZSAqZGV2KQo+ICAgCj4gICAJZm9yIChpID0gMDsgaSA8IHZpLT5tYXhfcXVldWVfcGFpcnM7
+IGkrKykgewo+ICAgCQluYXBpX2Rpc2FibGUoJnZpLT5ycVtpXS5uYXBpKTsKPiAtCQluYXBpX2Rp
+c2FibGUoJnZpLT5zcVtpXS5uYXBpKTsKPiArCQl2aXJ0bmV0X25hcGlfdHhfZGlzYWJsZSgmdmkt
+PnNxW2ldLm5hcGkpOwo+ICAgCX0KPiAgIAo+ICAgCXJldHVybiAwOwo+IEBAIC0xODAzLDcgKzE4
+MDksNyBAQCBzdGF0aWMgdm9pZCB2aXJ0bmV0X2ZyZWV6ZV9kb3duKHN0cnVjdCB2aXJ0aW9fZGV2
+aWNlICp2ZGV2KQo+ICAgCWlmIChuZXRpZl9ydW5uaW5nKHZpLT5kZXYpKSB7Cj4gICAJCWZvciAo
+aSA9IDA7IGkgPCB2aS0+bWF4X3F1ZXVlX3BhaXJzOyBpKyspIHsKPiAgIAkJCW5hcGlfZGlzYWJs
+ZSgmdmktPnJxW2ldLm5hcGkpOwo+IC0JCQluYXBpX2Rpc2FibGUoJnZpLT5zcVtpXS5uYXBpKTsK
+PiArCQkJdmlydG5ldF9uYXBpX3R4X2Rpc2FibGUoJnZpLT5zcVtpXS5uYXBpKTsKPiAgIAkJfQo+
+ICAgCX0KPiAgIH0KCkFja2VkLWJ5OiBKYXNvbiBXYW5nIDxqYXNvd2FuZ0ByZWRoYXQuY29tPgoK
+VGhhbmtzCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fClZp
+cnR1YWxpemF0aW9uIG1haWxpbmcgbGlzdApWaXJ0dWFsaXphdGlvbkBsaXN0cy5saW51eC1mb3Vu
+ZGF0aW9uLm9yZwpodHRwczovL2xpc3RzLmxpbnV4Zm91bmRhdGlvbi5vcmcvbWFpbG1hbi9saXN0
+aW5mby92aXJ0dWFsaXphdGlvbg==
