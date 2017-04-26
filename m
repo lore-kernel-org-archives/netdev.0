@@ -1,137 +1,103 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH net-next v8 2/3] net sched actions: dump more than
- TCA_ACT_MAX_PRIO actions per batch
-Date: Wed, 26 Apr 2017 07:48:29 -0400
-Message-ID: <8f1a1b14-ad9b-7840-1fa6-04f2a2e4f55d@mojatatu.com>
-References: <1493121247-11863-1-git-send-email-jhs@emojatatu.com>
- <1493121247-11863-3-git-send-email-jhs@emojatatu.com>
- <20170425121338.GC1867@nanopsycho.orion>
- <5e54edd8-3943-6f09-490f-ff04b83077f6@mojatatu.com>
- <20170425160445.GD1867@nanopsycho.orion>
- <4b7789f7-69e0-4764-7029-f6e15d6e7d69@mojatatu.com>
- <20170426061904.GB1867@nanopsycho.orion>
+From: Ilan Tayari <ilant@mellanox.com>
+Subject: RE: [PATCH 07/16] esp4: Reorganize esp_output
+Date: Wed, 26 Apr 2017 11:52:47 +0000
+Message-ID: <AM4PR0501MB1940C8509F15D99381D19E2CDB110@AM4PR0501MB1940.eurprd05.prod.outlook.com>
+References: <1492678515-14347-1-git-send-email-steffen.klassert@secunet.com>
+ <1492678515-14347-8-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, xiyou.wangcong@gmail.com,
-        eric.dumazet@gmail.com, netdev@vger.kernel.org,
-        Simon Horman <simon.horman@netronome.com>,
-        Benjamin LaHaise <bcrl@kvack.org>
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f66.google.com ([209.85.214.66]:36706 "EHLO
-        mail-it0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S2994178AbdDZLsi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2017 07:48:38 -0400
-Received: by mail-it0-f66.google.com with SMTP id x188so156368itb.3
-        for <netdev@vger.kernel.org>; Wed, 26 Apr 2017 04:48:38 -0700 (PDT)
-In-Reply-To: <20170426061904.GB1867@nanopsycho.orion>
+Received: from mail-he1eur01on0043.outbound.protection.outlook.com ([104.47.0.43]:47872
+        "EHLO EUR01-HE1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1954292AbdDZLwz (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 26 Apr 2017 07:52:55 -0400
+In-Reply-To: <1492678515-14347-8-git-send-email-steffen.klassert@secunet.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17-04-26 02:19 AM, Jiri Pirko wrote:
-> Tue, Apr 25, 2017 at 10:29:40PM CEST, jhs@mojatatu.com wrote:
->> On 17-04-25 12:04 PM, Jiri Pirko wrote:
-[..]
->> That is expected behavior correct?
->>
->> 3 months down the road:
->> I add two flags - bit 1 and 2.
->> So now my valid_flags changes to bits 1, 2 and 0.
->>
->> The function above will now return true for bits 0-2 but
->> will reject if you set bit 3.
->>
->> That is expected behavior, correct?
->
-> The same app compiled against new kernel with bits (0, 1, 2) will run with
-> this kernel good. But if you run it with older kernel, the kernel (0)
-> would refuse. Is that ok?
->
-
-
-Dave said that is what has to be done.
-To quote from the cover letter:
-
---------- START QUOTE -------------
-changes since v6:
------------------
-
-1) DaveM:
-New rules for netlink messages. From now on we are going to start
-checking for bits that are not used and rejecting anything we dont
-understand. In the future this is going to require major changes
-to user space code (tc etc). This is just a start.
-
-To quote, David:
-"
-  Again, bits you aren't using now, make sure userspace doesn't
-    set them.  And if it does, reject.
-"
-
----------- END QUOTE -----------
-
-I am going to send the patches - if you dont like this then speak up and
-David needs to be convinced.  This is UAPI - once patches are in it is
-cast in stone and I dont mind a discussion to make sure we get it right.
-
-> Jamal, note that I never suggested having more flags in a single attr.
-> Therefore I suggested u8 to carry a single flag.
->
-
-Jiri, thats our main difference unless I am misunderstanding you.
-
-I believe you should squeeze as many as you can in one single attribute.
-You believe you should have only one flag per attribute.
-
-Aesthetically a u8 looks good. Performance wise it is bad when you
-have many entries to deal with.
-
-
-> You say that it has performance impact having 3 flag attrs in compare to
-> one bit flag attr. Could you please provide some numbers?
->
-
-I have experience with dealing with a massive amount of various dumps
-and (batch) sets and it always boils down to one thing:
-_how much data is exchanged between user and kernel_
-3 flags encoded as bits in a u32 attribute cost 64 bits.
-Encoded separately cost 3x that.
-
-Believe me, it _does make a difference_ in performance.
-
-My least favorite subsystem is bridge. The bridge code has
-tons of flags in those entries that are sent to/from kernel as u8
-attributes. It is painful.
-
-For something more recent, lets look at this commit from Ben on Flower:
-+       TCA_FLOWER_KEY_MPLS_TTL,        /* u8 - 8 bits */
-+       TCA_FLOWER_KEY_MPLS_BOS,        /* u8 - 1 bit */
-+       TCA_FLOWER_KEY_MPLS_TC,         /* u8 - 3 bits */
-+       TCA_FLOWER_KEY_MPLS_LABEL,      /* be32 - 20 bits */
-
-Yes, that looks pretty, but:
-That would have fit in one attribute with a u32. Mask attributes would
-be eliminated with a second 32 bit - all in the same singular
-attribute.
-
-Imagine if i have 1M flower entries. If you add up the mask the cost
-of these things is about 3*2*64 bits more per entry compared to putting
-the mpls info/mask in one attribute.
-At 1M entries that is a few MBs of data being exchanged.
-
-> I expect that you will not be able to show the difference. And if there
-> is no difference in performance, your main argument goes away. And we
-> can do this in a nice, clear, TLV fashion.
->
-
-I love TLVs Jiri. But there is a difference between management and
-control. The former cares more about humans the later needs to get shit
-done faster. The extreme version of the later is using json. But you
-try to get the json guy to do setting or dumping 1M entries and you
-can take a long distance trip and come back and they are not done.
-
-I want to use TLVs but plan for optimization/performance as well.
-
-cheers,
-jamal
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5r
+ZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZ10NCj4gU3ViamVj
+dDogW1BBVENIIDA3LzE2XSBlc3A0OiBSZW9yZ2FuaXplIGVzcF9vdXRwdXQNCj4gDQo+IFdlIG5l
+ZWQgYSBmYWxsYmFjayBmb3IgRVNQIGF0IGxheWVyIDIsIHNvIHNwbGl0IGVzcF9vdXRwdXQgaW50
+byBnZW5lcmljDQo+IGZ1bmN0aW9ucyB0aGF0IGNhbiBiZSB1c2VkIGF0IGxheWVyIDMgYW5kIGxh
+eWVyIDIgYW5kIHVzZSB0aGVtIGluDQo+IGVzcF9vdXRwdXQuIFdlIGFsc28gYWRkIGVzcF94bWl0
+IHdoaWNoIGlzIHVzZWQgZm9yIHRoZSBsYXllciAyIGZhbGxiYWNrLg0KPiANCj4gU2lnbmVkLW9m
+Zi1ieTogU3RlZmZlbiBLbGFzc2VydCA8c3RlZmZlbi5rbGFzc2VydEBzZWN1bmV0LmNvbT4NCj4g
+LS0tDQo+ICBpbmNsdWRlL25ldC9lc3AuaCAgICAgICB8ICAxNiArKysNCj4gIG5ldC9pcHY0L2Vz
+cDQuYyAgICAgICAgIHwgMzQxICsrKysrKysrKysrKysrKysrKysrKysrKysrLS0tLS0tLS0tLS0t
+LS0tLS0NCj4gLS0tLS0NCj4gIG5ldC9pcHY0L2VzcDRfb2ZmbG9hZC5jIHwgMTAyICsrKysrKysr
+KysrKysrKw0KPiAgMyBmaWxlcyBjaGFuZ2VkLCAzMDEgaW5zZXJ0aW9ucygrKSwgMTU4IGRlbGV0
+aW9ucygtKQ0KPiANCg0KU3RlZmZlbiwNCg0KLi4uDQoNCkluIHRoZSB0d28gcGxhY2VzIG1hcmtl
+ZCBiZWxvdzoNCg0KPiArc3RhdGljIGludCBlc3Bfb3V0cHV0KHN0cnVjdCB4ZnJtX3N0YXRlICp4
+LCBzdHJ1Y3Qgc2tfYnVmZiAqc2tiKSB7DQo+ICsJaW50IGFsZW47DQo+ICsJaW50IGJsa3NpemU7
+DQo+ICsJc3RydWN0IGlwX2VzcF9oZHIgKmVzcGg7DQo+ICsJc3RydWN0IGNyeXB0b19hZWFkICph
+ZWFkOw0KPiArCXN0cnVjdCBlc3BfaW5mbyBlc3A7DQo+ICsNCj4gKwllc3AuaW5wbGFjZSA9IHRy
+dWU7DQo+ICsNCj4gKwllc3AucHJvdG8gPSAqc2tiX21hY19oZWFkZXIoc2tiKTsNCj4gKwkqc2ti
+X21hY19oZWFkZXIoc2tiKSA9IElQUFJPVE9fRVNQOw0KPiArDQo+ICsJLyogc2tiIGlzIHB1cmUg
+cGF5bG9hZCB0byBlbmNyeXB0ICovDQo+ICsNCj4gKwlhZWFkID0geC0+ZGF0YTsNCj4gKwlhbGVu
+ID0gY3J5cHRvX2FlYWRfYXV0aHNpemUoYWVhZCk7DQo+ICsNCj4gKwllc3AudGZjbGVuID0gMDsN
+Cj4gKwlpZiAoeC0+dGZjcGFkKSB7DQo+ICsJCXN0cnVjdCB4ZnJtX2RzdCAqZHN0ID0gKHN0cnVj
+dCB4ZnJtX2RzdCAqKXNrYl9kc3Qoc2tiKTsNCj4gKwkJdTMyIHBhZHRvOw0KPiArDQo+ICsJCXBh
+ZHRvID0gbWluKHgtPnRmY3BhZCwgZXNwNF9nZXRfbXR1KHgsIGRzdC0NCj4gPmNoaWxkX210dV9j
+YWNoZWQpKTsNCj4gKwkJaWYgKHNrYi0+bGVuIDwgcGFkdG8pDQo+ICsJCQllc3AudGZjbGVuID0g
+cGFkdG8gLSBza2ItPmxlbjsNCj4gKwl9DQo+ICsJYmxrc2l6ZSA9IEFMSUdOKGNyeXB0b19hZWFk
+X2Jsb2Nrc2l6ZShhZWFkKSwgNCk7DQo+ICsJZXNwLmNsZW4gPSBBTElHTihza2ItPmxlbiArIDIg
+KyBlc3AudGZjbGVuLCBibGtzaXplKTsNCj4gKwllc3AucGxlbiA9IGVzcC5jbGVuIC0gc2tiLT5s
+ZW4gLSBlc3AudGZjbGVuOw0KPiArCWVzcC50YWlsZW4gPSBlc3AudGZjbGVuICsgZXNwLnBsZW4g
+KyBhbGVuOw0KPiArDQo+ICsJZXNwLmVzcGggPSBpcF9lc3BfaGRyKHNrYik7DQo+ICsNCj4gKwll
+c3AubmZyYWdzID0gZXNwX291dHB1dF9oZWFkKHgsIHNrYiwgJmVzcCk7DQo+ICsJaWYgKGVzcC5u
+ZnJhZ3MgPCAwKQ0KPiArCQlyZXR1cm4gZXNwLm5mcmFnczsNCj4gKw0KPiArCWVzcGggPSBlc3Au
+ZXNwaDsNCg0KSGVyZQ0KDQo+ICsJZXNwaC0+c3BpID0geC0+aWQuc3BpOw0KPiArDQo+ICsJZXNw
+aC0+c2VxX25vID0gaHRvbmwoWEZSTV9TS0JfQ0Ioc2tiKS0+c2VxLm91dHB1dC5sb3cpOw0KPiAr
+CWVzcC5zZXFubyA9IGNwdV90b19iZTY0KFhGUk1fU0tCX0NCKHNrYiktPnNlcS5vdXRwdXQubG93
+ICsNCj4gKwkJCQkgKCh1NjQpWEZSTV9TS0JfQ0Ioc2tiKS0+c2VxLm91dHB1dC5oaSA8PCAzMikp
+Ow0KPiArDQo+ICsJc2tiX3B1c2goc2tiLCAtc2tiX25ldHdvcmtfb2Zmc2V0KHNrYikpOw0KPiAr
+DQo+ICsJcmV0dXJuIGVzcF9vdXRwdXRfdGFpbCh4LCBza2IsICZlc3ApOw0KPiArfQ0KPiANCg0K
+Li4uDQoNCj4gK3N0YXRpYyBpbnQgZXNwX3htaXQoc3RydWN0IHhmcm1fc3RhdGUgKngsIHN0cnVj
+dCBza19idWZmICpza2IsDQo+ICtuZXRkZXZfZmVhdHVyZXNfdCBmZWF0dXJlcykgew0KPiArCWlu
+dCBlcnI7DQo+ICsJaW50IGFsZW47DQo+ICsJaW50IGJsa3NpemU7DQo+ICsJc3RydWN0IHhmcm1f
+b2ZmbG9hZCAqeG87DQo+ICsJc3RydWN0IGlwX2VzcF9oZHIgKmVzcGg7DQo+ICsJc3RydWN0IGNy
+eXB0b19hZWFkICphZWFkOw0KPiArCXN0cnVjdCBlc3BfaW5mbyBlc3A7DQo+ICsJYm9vbCBod19v
+ZmZsb2FkID0gdHJ1ZTsNCj4gKw0KPiArCWVzcC5pbnBsYWNlID0gdHJ1ZTsNCj4gKw0KPiArCXhv
+ID0geGZybV9vZmZsb2FkKHNrYik7DQo+ICsNCj4gKwlpZiAoIXhvKQ0KPiArCQlyZXR1cm4gLUVJ
+TlZBTDsNCj4gKw0KPiArCWlmICghKGZlYXR1cmVzICYgTkVUSUZfRl9IV19FU1ApIHx8DQo+ICsJ
+ICAgICh4LT54c28ub2ZmbG9hZF9oYW5kbGUgJiYgIHgtPnhzby5kZXYgIT0gc2tiLT5kZXYpKSB7
+DQo+ICsJCXhvLT5mbGFncyB8PSBDUllQVE9fRkFMTEJBQ0s7DQo+ICsJCWh3X29mZmxvYWQgPSBm
+YWxzZTsNCj4gKwl9DQo+ICsNCj4gKwllc3AucHJvdG8gPSB4by0+cHJvdG87DQo+ICsNCj4gKwkv
+KiBza2IgaXMgcHVyZSBwYXlsb2FkIHRvIGVuY3J5cHQgKi8NCj4gKw0KPiArCWFlYWQgPSB4LT5k
+YXRhOw0KPiArCWFsZW4gPSBjcnlwdG9fYWVhZF9hdXRoc2l6ZShhZWFkKTsNCj4gKw0KPiArCWVz
+cC50ZmNsZW4gPSAwOw0KPiArCS8qIFhYWDogQWRkIHN1cHBvcnQgZm9yIHRmYyBwYWRkaW5nIGhl
+cmUuICovDQo+ICsNCj4gKwlibGtzaXplID0gQUxJR04oY3J5cHRvX2FlYWRfYmxvY2tzaXplKGFl
+YWQpLCA0KTsNCj4gKwllc3AuY2xlbiA9IEFMSUdOKHNrYi0+bGVuICsgMiArIGVzcC50ZmNsZW4s
+IGJsa3NpemUpOw0KPiArCWVzcC5wbGVuID0gZXNwLmNsZW4gLSBza2ItPmxlbiAtIGVzcC50ZmNs
+ZW47DQo+ICsJZXNwLnRhaWxlbiA9IGVzcC50ZmNsZW4gKyBlc3AucGxlbiArIGFsZW47DQo+ICsN
+Cj4gKwllc3AuZXNwaCA9IGlwX2VzcF9oZHIoc2tiKTsNCj4gKw0KPiArDQo+ICsJaWYgKCFod19v
+ZmZsb2FkIHx8IChod19vZmZsb2FkICYmICFza2JfaXNfZ3NvKHNrYikpKSB7DQo+ICsJCWVzcC5u
+ZnJhZ3MgPSBlc3Bfb3V0cHV0X2hlYWQoeCwgc2tiLCAmZXNwKTsNCj4gKwkJaWYgKGVzcC5uZnJh
+Z3MgPCAwKQ0KPiArCQkJcmV0dXJuIGVzcC5uZnJhZ3M7DQo+ICsJfQ0KPiArDQo+ICsJZXNwaCA9
+IGVzcC5lc3BoOw0KDQpBbmQgaGVyZS4NCg0KZXNwX291dHB1dF9oZWFkKCkgbWlnaHQgZG8gYW4g
+c2tiX2Nvdywgd2hpY2ggdGhlbiBpbnZhbGlkYXRlcyB0aGUgZXNwLmVzcGggcG9pbnRlciBhbmQg
+Y2F1c2VzIGEgY3Jhc2ggbGF0ZXIgb24uDQpJIHdvdWxkIGV4cGVjdCB0aGUgaXBfZXNwX2hkcigp
+IGNhbGwgdG8gYmUgYWZ0ZXIgdGhlIGVzcF9vdXRwdXRfaGVhZCgpIGNhbGwuDQoNCkJ1dCBpdCBz
+ZWVtcyBsaWtlIHRoaXMgcG9pbnRlciB3YXMgc2F2ZWQgaGVyZSBhcm91bmQgdGhlIGNhbGwgdG8g
+ZXNwX291dHB1dF9oZWFkKCkgb24gcHVycG9zZS4NCklzIHRoYXQgcmVhbGx5IHNvPyANCg0KQWxz
+bywgZXNwNi9lc3A2X29mZmxvYWQgZG9uJ3QgbWFrZSB1c2Ugb2YgZXNwX2luZm8uZXNwaA0KT25s
+eSBlc3Bfb3V0cHV0X3RhaWwoKSB1c2VzIGl0LCBhbmQgY291bGQgaGF2ZSBkb25lIGV2ZXJ5dGhp
+bmcgaXQgZG9lcyB3aXRob3V0IGl0Lg0KU28gbWF5YmUgaXQncyB1bi1uZWVkZWQ/DQoNCkkgYW0g
+c3RpbGwgdGVzdGluZyBhIGZpeCBwYXRjaCBmb3IgdGhlIGNyYXNoLCB0aGVyZSBtYXkgYmUgYWxz
+byBzb21ldGhpbmcgc2ltaWxhciBvbiB0aGUgUlggcGF0aCwgdGhvdWdoLg0KDQo+ICsJZXNwaC0+
+c3BpID0geC0+aWQuc3BpOw0KPiArDQo+ICsJc2tiX3B1c2goc2tiLCAtc2tiX25ldHdvcmtfb2Zm
+c2V0KHNrYikpOw0KPiArDQo+ICsJaWYgKHhvLT5mbGFncyAmIFhGUk1fR1NPX1NFR01FTlQpIHsN
+Cj4gKwkJZXNwaC0+c2VxX25vID0gaHRvbmwoeG8tPnNlcS5sb3cpOw0KPiArCX0gZWxzZSB7DQo+
+ICsJCWlwX2hkcihza2IpLT50b3RfbGVuID0gaHRvbnMoc2tiLT5sZW4pOw0KPiArCQlpcF9zZW5k
+X2NoZWNrKGlwX2hkcihza2IpKTsNCj4gKwl9DQo+ICsNCj4gKwlpZiAoaHdfb2ZmbG9hZCkNCj4g
+KwkJcmV0dXJuIDA7DQo+ICsNCj4gKwllc3Auc2Vxbm8gPSBjcHVfdG9fYmU2NCh4by0+c2VxLmxv
+dyArICgodTY0KXhvLT5zZXEuaGkgPDwgMzIpKTsNCj4gKw0KPiArCWVyciA9IGVzcF9vdXRwdXRf
+dGFpbCh4LCBza2IsICZlc3ApOw0KPiArCWlmIChlcnIgPCAwKQ0KPiArCQlyZXR1cm4gZXJyOw0K
+PiArDQo+ICsJc2VjcGF0aF9yZXNldChza2IpOw0KPiArDQo+ICsJcmV0dXJuIDA7DQo+ICt9DQo+
+ICsNCg0K
