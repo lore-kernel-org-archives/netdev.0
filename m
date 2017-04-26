@@ -1,43 +1,46 @@
-From: Randy Dunlap <rdunlap@infradead.org>
-Subject: Re: linux-next: Tree for Apr 26 (net/can/bcm.c)
-Date: Wed, 26 Apr 2017 07:53:24 -0700
-Message-ID: <05bd24d8-6840-3551-a529-c464f3b26d0a@infradead.org>
-References: <20170426180321.3c8c16a2@canb.auug.org.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: more test_progs...
+Date: Wed, 26 Apr 2017 10:55:11 -0400 (EDT)
+Message-ID: <20170426.105511.742633353102583622.davem@davemloft.net>
+References: <20170425.125217.1962662516948420246.davem@davemloft.net>
+        <470871b2-c4c0-ad23-7fda-1a38c2736679@fb.com>
+        <590056F2.5010600@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        linux-can@vger.kernel.org
-To: Stephen Rothwell <sfr@canb.auug.org.au>,
-        Linux-Next Mailing List <linux-next@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170426180321.3c8c16a2@canb.auug.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: ast@fb.com, netdev@vger.kernel.org
+To: daniel@iogearbox.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:56134 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S638183AbdDZOzM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2017 10:55:12 -0400
+In-Reply-To: <590056F2.5010600@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04/26/17 01:03, Stephen Rothwell wrote:
-> Hi all,
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Wed, 26 Apr 2017 10:14:42 +0200
+
+> On 04/26/2017 05:42 AM, Alexei Starovoitov wrote:
+>> That sucks for sparc, of course. I don't have good suggestions for
+>> workaround other than marking tcphdr as packed :(
+>>  From code efficiency point of view it still will be faster than
+>> LD_ABS insn.
 > 
-> Changes since 20170424:
+> Plus, ld_abs would also only work on skbs right now, and would
+> need JIT support for XDP. But it's also cumbersome to use with
+> f.e. IPv6, etc, so should not be encouraged, imo.
 > 
+> One other option for !HAVE_EFFICIENT_UNALIGNED_ACCESS archs could
+> be to provide a bpf_skb_load_bytes() helper equivalent for XDP,
+> where you eventually do the memcpy() inside. We could see to inline
+> the helper itself to optimize it slightly.
 
-on x86_64:
+We have to do something that works transparently and always,
+regardless of whether HAVE_EFFICIENT_UNALIGNED_ACCESS is in
+play or not.
 
-when CONFIG_PROC_FS is not enabled:
+And no, marking objects with __packed is not the answer.
 
-../net/can/bcm.c:1541:14: error: 'struct netns_can' has no member named 'bcmproc_dir'
-../net/can/bcm.c:1601:14: error: 'struct netns_can' has no member named 'bcmproc_dir'
-../net/can/bcm.c:1696:11: error: 'struct netns_can' has no member named 'bcmproc_dir'
-../net/can/bcm.c:1707:15: error: 'struct netns_can' has no member named 'bcmproc_dir'
-
-2 of those are "protected" by
-	if (IS_ENABLED(CONFIG_PROC_FS)) {
-but that doesn't seem to help/work here.
-
-gcc v4.8.5
-
-
-
--- 
-~Randy
+What's happening right now is completely unacceptable.
