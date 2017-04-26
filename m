@@ -1,53 +1,44 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: Re: net/tcp: warning in tcp_try_coalesce/skb_try_coalesce
-Date: Wed, 26 Apr 2017 07:16:13 -0700
-Message-ID: <CANn89i+w0Ydc+i0vykneT55L=83KE9OvuLbk4H9Y7wG89UZ+Tg@mail.gmail.com>
-References: <CAAeHK+xaFar2pj1xkbkhfjN+3ucLsfMpoHWFAKcHq3-F_Zm+mw@mail.gmail.com>
- <CAAeHK+yQJUuuv2XM6tQuaE12Zo1htujz6A7Qd_h+E9qCVEwDSg@mail.gmail.com>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH v2 net-next] bridge: add per-port broadcast flood flag
+Date: Wed, 26 Apr 2017 17:19:31 +0300
+Message-ID: <377cfb2f-dced-b164-6b7d-80ce2b5c7599@cumulusnetworks.com>
+References: <1493214489-9921-1-git-send-email-mmanning@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Kostya Serebryany <kcc@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Andrey Konovalov <andreyknvl@google.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+To: Mike Manning <mmanning@brocade.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f177.google.com ([209.85.161.177]:33814 "EHLO
-        mail-yw0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1433592AbdDZOQP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2017 10:16:15 -0400
-Received: by mail-yw0-f177.google.com with SMTP id k11so924496ywb.1
-        for <netdev@vger.kernel.org>; Wed, 26 Apr 2017 07:16:15 -0700 (PDT)
-In-Reply-To: <CAAeHK+yQJUuuv2XM6tQuaE12Zo1htujz6A7Qd_h+E9qCVEwDSg@mail.gmail.com>
+Received: from mail-wm0-f45.google.com ([74.125.82.45]:36214 "EHLO
+        mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1955451AbdDZOTe (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2017 10:19:34 -0400
+Received: by mail-wm0-f45.google.com with SMTP id u65so52005268wmu.1
+        for <netdev@vger.kernel.org>; Wed, 26 Apr 2017 07:19:33 -0700 (PDT)
+In-Reply-To: <1493214489-9921-1-git-send-email-mmanning@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 26, 2017 at 5:08 AM, Andrey Konovalov <andreyknvl@google.com> wrote:
-> On Tue, Jan 31, 2017 at 2:17 PM, Andrey Konovalov <andreyknvl@google.com> wrote:
->> Hi,
->>
->> I've got the following error report while running the syzkaller fuzzer.
->>
->> On commit 566cf877a1fcb6d6dc0126b076aad062054c2637 (4.10-rc6).
->>
->> The fuzzer hits this issue quite often, but I don't have a working reproducer.
->
-> I still see this on 5a7ad1146caa895ad718a534399e38bd2ba721b7 (4.11-rc8).
->
-> I also have a reproducer now, attached.
->
-> It takes around 10 seconds for the warning to trigger.
->
+On 26/04/17 16:48, Mike Manning wrote:
+> Support for l2 multicast flood control was added in commit b6cb5ac8331b
+> ("net: bridge: add per-port multicast flood flag"). It allows broadcast
+> as it was introduced specifically for unknown multicast flood control.
+> But as broadcast is a special case of multicast, this may also need to
+> be disabled. For this purpose, introduce a flag to disable the flooding
+> of received l2 broadcasts. This approach is backwards compatible and
+> provides flexibility in filtering for the desired packet types.
+> 
+> Cc: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+> Signed-off-by: Mike Manning <mmanning@brocade.com>
+> ---
+>  include/linux/if_bridge.h    |  1 +
+>  include/uapi/linux/if_link.h |  1 +
+>  net/bridge/br_forward.c      | 24 +++++++++++++++++-------
+>  net/bridge/br_if.c           |  2 +-
+>  net/bridge/br_netlink.c      |  3 +++
+>  net/bridge/br_sysfs_if.c     |  2 ++
+>  6 files changed, 25 insertions(+), 8 deletions(-)
+> 
 
-It does not trigger for me, but seeing that you use SO_ATTACH_FILTER,
-I have a pretty good idea how to remove this splat.
+Thank you, now we can control all types.
 
-A call to skb_condense() from ___pskb_trim() will likely help, I will
-post a patch after my commute.
-
-Thanks.
+Reviewed-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
