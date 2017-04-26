@@ -1,56 +1,71 @@
-From: "Elior, Ariel" <Ariel.Elior@cavium.com>
-Subject: RE: qed*: debug infrastructures
-Date: Wed, 26 Apr 2017 17:57:10 +0000
-Message-ID: <CY1PR0701MB13378024E287634400EA5ED490110@CY1PR0701MB1337.namprd07.prod.outlook.com>
-References: <CY1PR0701MB1337FA26F1503FC9928B0340901F0@CY1PR0701MB1337.namprd07.prod.outlook.com>
- <c8751a31-f493-45c1-5bf2-596b367ea034@gmail.com>
+From: Jarod Wilson <jarod@redhat.com>
+Subject: Re: [Patch net 3/3] team: use a larger struct for mac address
+Date: Wed, 26 Apr 2017 13:59:00 -0400
+Message-ID: <af281f03-e6a9-7197-c38c-d5f63abc3410@redhat.com>
+References: <1493183003-884-1-git-send-email-xiyou.wangcong@gmail.com>
+ <1493183003-884-4-git-send-email-xiyou.wangcong@gmail.com>
+ <20170426054033.GA1867@nanopsycho.orion>
+ <7103fb6b-2483-37c0-48e5-19aa9fd4f386@redhat.com>
+ <CAM_iQpVXBuXNfVM_h894HEF_9hv2rWgDJcMbvEJG25xfm7DGUA@mail.gmail.com>
+ <3f48c69c-3ff4-f895-3c0f-2e8c9c5f063a@redhat.com>
+ <CAM_iQpUGSy7My+hLXhsreq-8wPEdAKzNkQRzu-aiP5nkk+wSdw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "Mintz, Yuval" <Yuval.Mintz@cavium.com>,
-        "Tayar, Tomer" <Tomer.Tayar@cavium.com>,
-        "Dupuis, Chad" <Chad.Dupuis@cavium.com>
-To: Florian Fainelli <f.fainelli@gmail.com>,
-        David Miller <davem@davemloft.net>,
-        Jakub Kicinski <kubakici@wp.pl>, Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Pirko <jiri@resnulli.us>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Andrey Konovalov <andreyknvl@google.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-sn1nam02on0059.outbound.protection.outlook.com ([104.47.36.59]:53264
-        "EHLO NAM02-SN1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S932442AbdDZR5Q (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 26 Apr 2017 13:57:16 -0400
-In-Reply-To: <c8751a31-f493-45c1-5bf2-596b367ea034@gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:42914 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932408AbdDZR7C (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 26 Apr 2017 13:59:02 -0400
+In-Reply-To: <CAM_iQpUGSy7My+hLXhsreq-8wPEdAKzNkQRzu-aiP5nkk+wSdw@mail.gmail.com>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SmlyaSwgRmxvcmlhbiwgSmFrdWIsDQpUaGFua3MgYWxsIGZvciB5b3Ugc3VnZ2VzdGlvbnMuDQoN
-ClNvbWUgYW5zd2VycyB0byBxdWVzdGlvbnMgcG9zdGVkOiBUaGUgc2lnbmFsIHRyYWNpbmcgaW4g
-b3VyIGRldmljZSBjYW4gYmUgdXNlZCANCmZvciB0cmFjaW5nIHRoaW5ncyBsaWtlIGxvYWQvc3Rv
-cmUvcHJvZ3JhbV9jb3VudGVyIGZyb20gb3VyIGZhc3RwYXRoIHByb2Nlc3NvcnMNCih3aGljaCBo
-YW5kbGUgZXZlcnkgcGFja2V0KSB3aGljaCBjYW4gdGhlbiBiZSByZS1ydW4gaW4gYSBzaW11bGF0
-aXZlIGVudmlyb25tZW50DQoocmVjcmVhdGluZyB0aGUgcmVjb3JkZWQgc2NlbmFyaW8pLiBPdGhl
-ciBpbnRlcmVzdGluZyB1c2VzIGZvciB0aGlzIGZlYXR1cmUgY2FuDQpiZSBwYXJ0aWFsIHBjaSBy
-ZWNvcmRpbmcgb3IgcGFydGlhbCBuZXR3b3JrIHJlY29yZGluZyAocG9vciBtYW4ncyBhbmFseXpl
-cikNCndoaWNoIGNhbiBhbHNvIGJlIHZlcnkgZWZmZWN0aXZlIHdoZXJlIGZ1bGwgYmxvd24gbGFi
-IGVxdWlwbWVudCBpcyB1bmF2YWlsYWJsZS4NCg0KSSByZXZpZXdlZCB0aGUgY29kZSBvZiB0aGUg
-ZHJpdmVycyB1bmRlciBod190cmFjaW5nICh0aGFua3MgRmxvcmlhbikgYW5kIEkgdGhpbmsNCndl
-IG1pZ2h0IGJlIGEgZ29vZCBmaXQuDQoNCkppcmkgaW5kaWNhdGVkIGRwaXBlIHdhcyBub3QgaW50
-ZW5kZWQgZm9yIHRoaXMgc29ydCBvZiB0aGluZyBhbmQgc3VnZ2VzdGVkIGFuDQphZGRpdGlvbmFs
-IGRldiBsaW5rIG9iamVjdCwgYWx0aG91Z2ggaXQgc2VlbXMgdG8gbWUgdGhhdCB0aGlzIHdpbGwg
-aGF2ZSB0byBiZQ0KZWl0aGVyIGEgdmVyeSBnZW5lcmljIG9iamVjdCB3aGljaCB3b3VsZCBiZSBz
-dXNjZXB0aWJsZSB0byBhYnVzZSBzaW1pbGFyIHRvDQpkZWJ1Z2ZzLCBvciBpdCB3b3VsZCBiZSB0
-YWlsb3JlZCB0byBvdXIgZGV2aWNlIHNvIG11Y2ggdGhhdCBubyBvbmUgZWxzZSB3b3VsZA0KdXNl
-IGl0LCBzbyBJIGFtIHNvbWV3aGF0IGxlc3MgaW5jbGluZWQgdG8gZ28gZG93biB0aGlzIHBhdGgg
-KHRoZSBjb2RlDQphYnN0cmFjdGluZyBvdXIgZGVidWcgZmVhdHVyZSBpcyBhY2Nlc3NlZCB2aWEg
-fjIwIGFwaSBmdW5jdGlvbnMgYWNjZXB0aW5nIH4xMA0KcGFyYW1zIGVhY2gsIGkuZS4gcXVpdGUg
-YSBoYW5kZnVsIG9mIGNvbmZpZ3VyYWlvbiB0byBnZW5lcmFsaXplKS4NCg0KVGhlIGV0aHRvb2wg
-ZGVidWcgZHVtcCBwcmVzZXRzICh0aGFua3MgSmFrdWIpIGFyZSBmYXIgdG9vIG5hcnJvdyB0byBl
-bmNvbXBhc3MNCnRoZSBmdWxsIGZsZXhpYmlsaXR5IHJlcXVpcmVkIGhlcmUuDQoNCkRhdmUsIEkg
-dGhpbmsgbXkgbmV4dCBzdGVwIHdvdWxkIGJlIHRvIHNlbmQgYW4gUkZDIGFkZGluZyB0byBvdXIg
-Y29yZSBtb2R1bGUNCihxZWQpIHRoZSBuZWNlc3NhcnkgQVBJcyAobW9zdGx5IHRvIHByb3ZpZGUg
-c29tZSBkZXRhaWxzIHRvIHRoaXMgcmF0aGVyIGFic3RyYWN0DQpkaXNjdXNzaW9uKS4gSSB3aWxs
-IHBsYW4gdG8gY29ubmVjdCB0aG9zZSB0byBhIG5ldyBod3RyYWNpbmcgZHJpdmVyIEknbGwgY3Jl
-YXRlDQpmb3IgdGhpcyBwdXJwb3NlLCB1bmxlc3MgYSBkaWZmZXJlbnQgZGlyZWN0aW9uIGlzIHN1
-Z2dlc3RlZC4NCg0KVGhhbmtzLA0KQXJpZWwNCg==
+On 2017-04-26 1:28 PM, Cong Wang wrote:
+> On Wed, Apr 26, 2017 at 9:46 AM, Jarod Wilson <jarod@redhat.com> wrote:
+>> On 2017-04-26 12:11 PM, Cong Wang wrote:
+>>>
+>>> On Wed, Apr 26, 2017 at 8:55 AM, Jarod Wilson <jarod@redhat.com> wrote:
+>>>>
+>>>>
+>>>> We already have struct sockaddr_storage that could be used throughout
+>>>> this
+>>>> set as well. We just converted a few pieces of the bonding driver over to
+>>>> using it for better support of ipoib bonds, via commit
+>>>> faeeb317a5615076dff1ff44b51e862e6064dbd0. Might be better to just use
+>>>> that
+>>>> in both bonding and team, rather than having different per-driver
+>>>> structs,
+>>>> or Yet Another Address Storage implementation.
+>>>
+>>>
+>>> Technically, struct sockaddr_storage is not enough either, given the
+>>> max is MAX_ADDR_LEN. This is why I gave up on sockaddr_storage.
+>>
+>>
+>> Wait, what? Am I missing something? MAX_ADDR_LEN is 32, and sockaddr_storage
+>> is a #define for __kernel_sockaddr_storage, which has it's __data member
+>> defined as being of size 128 - sizeof(unsigned short).
+> 
+> My bad, I thought it is same with sizeof(in6addr) without looking into it.
+> The question is, why do we waste 126 - 32 = 94 bytes on stack to just
+> use struct sockaddr_storage?
+
+That's a fair point.
+
+> I totally understand we want a unified struct, but we already redefine
+> it in multiple places in tree...
+
+Something unified and centralized with a data storage of MAX_ADDR_LEN 
+does seem reasonable to get both consistency and minimized waste, and I 
+could certainly do a follow-up patch for the bonding driver to switch 
+the bits now using sockaddr_storage over to whatever new struct gets added.
+
+-- 
+Jarod Wilson
+jarod@redhat.com
