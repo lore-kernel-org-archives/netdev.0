@@ -1,61 +1,73 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net-next] virtio-net: on tx, only call napi_disable if tx
-	napi is on
-Date: Wed, 26 Apr 2017 08:17:49 +0800
-Message-ID: <e63dd996-7b8e-b41b-7eb2-0044338be350@redhat.com>
-References: <20170425195917.54209-1-willemdebruijn.kernel@gmail.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: xdp_redirect ifindex vs port. Was: best API for
+ returning/setting egress port?
+Date: Tue, 25 Apr 2017 17:26:11 -0700
+Message-ID: <20170426002610.eihwmz4knbmrolfw@ast-mbp.dhcp.thefacebook.com>
+References: <20170418215856.5fda7127@redhat.com>
+ <20170419200259.GK4730@C02RW35GFVH8.dhcp.broadcom.net>
+ <58F7E9F3.5090604@iogearbox.net>
+ <20170420025611.GA53935@ast-mbp.thefacebook.com>
+ <20170420081051.77a41aa8@redhat.com>
+ <20170420171006.GA97067@ast-mbp.thefacebook.com>
+ <20170425113453.5c72080f@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: Willem de Bruijn <willemb@google.com>,
-	virtualization@lists.linux-foundation.org, davem@davemloft.net,
-	mst@redhat.com
-To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>, netdev@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20170425195917.54209-1-willemdebruijn.kernel@gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+        Andy Gospodarek <andy@greyhouse.net>,
+        Daniel Borkmann <borkmann@iogearbox.net>,
+        Alexei Starovoitov <ast@fb.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "xdp-newbies@vger.kernel.org" <xdp-newbies@vger.kernel.org>,
+        John Fastabend <john.fastabend@gmail.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f43.google.com ([74.125.83.43]:33174 "EHLO
+        mail-pg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1432366AbdDZA0Z (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 20:26:25 -0400
+Content-Disposition: inline
+In-Reply-To: <20170425113453.5c72080f@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-CgpPbiAyMDE35bm0MDTmnIgyNuaXpSAwMzo1OSwgV2lsbGVtIGRlIEJydWlqbiB3cm90ZToKPiBG
-cm9tOiBXaWxsZW0gZGUgQnJ1aWpuIDx3aWxsZW1iQGdvb2dsZS5jb20+Cj4KPiBBcyBvZiB0eCBu
-YXBpLCBkZXZpY2UgZG93biAoYGlwIGxpbmsgc2V0IGRldiAkZGV2IGRvd25gKSBoYW5ncyB1bmxl
-c3MKPiB0eCBuYXBpIGlzIGVuYWJsZWQuIEVsc2UgbmFwaV9lbmFibGUgaXMgbm90IGNhbGxlZCwg
-c28gbmFwaV9kaXNhYmxlCj4gd2lsbCBzcGluIG9uIHRlc3RfYW5kX3NldF9iaXQgTkFQSV9TVEFU
-RV9TQ0hFRC4KPgo+IE9ubHkgY2FsbCBuYXBpX2Rpc2FibGUgaWYgdHggbmFwaSBpcyBlbmFibGVk
-Lgo+Cj4gRml4ZXM6IDVhNzE5YzI1NTJjYSAoInZpcnRpby1uZXQ6IHRyYW5zbWl0IG5hcGkiKQo+
-IFJlcG9ydGVkLWJ5OiBKYXNvbiBXYW5nIDxqYXNvd2FuZ0ByZWRoYXQuY29tPgo+IFNpZ25lZC1v
-ZmYtYnk6IFdpbGxlbSBkZSBCcnVpam4gPHdpbGxlbWJAZ29vZ2xlLmNvbT4KPiAtLS0KPiAgIGRy
-aXZlcnMvbmV0L3ZpcnRpb19uZXQuYyB8IDEwICsrKysrKysrLS0KPiAgIDEgZmlsZSBjaGFuZ2Vk
-LCA4IGluc2VydGlvbnMoKyksIDIgZGVsZXRpb25zKC0pCj4KPiBkaWZmIC0tZ2l0IGEvZHJpdmVy
-cy9uZXQvdmlydGlvX25ldC5jIGIvZHJpdmVycy9uZXQvdmlydGlvX25ldC5jCj4gaW5kZXggMDAz
-MTQzODM1NzY2Li44MmYxYzNhNzMzNDUgMTAwNjQ0Cj4gLS0tIGEvZHJpdmVycy9uZXQvdmlydGlv
-X25ldC5jCj4gKysrIGIvZHJpdmVycy9uZXQvdmlydGlvX25ldC5jCj4gQEAgLTk5Nyw2ICs5OTcs
-MTIgQEAgc3RhdGljIHZvaWQgdmlydG5ldF9uYXBpX3R4X2VuYWJsZShzdHJ1Y3QgdmlydG5ldF9p
-bmZvICp2aSwKPiAgIAlyZXR1cm4gdmlydG5ldF9uYXBpX2VuYWJsZSh2cSwgbmFwaSk7Cj4gICB9
-Cj4gICAKPiArc3RhdGljIHZvaWQgdmlydG5ldF9uYXBpX3R4X2Rpc2FibGUoc3RydWN0IG5hcGlf
-c3RydWN0ICpuYXBpKQo+ICt7Cj4gKwlpZiAobmFwaS0+d2VpZ2h0KQo+ICsJCW5hcGlfZGlzYWJs
-ZShuYXBpKTsKPiArfQo+ICsKPiAgIHN0YXRpYyB2b2lkIHJlZmlsbF93b3JrKHN0cnVjdCB3b3Jr
-X3N0cnVjdCAqd29yaykKPiAgIHsKPiAgIAlzdHJ1Y3QgdmlydG5ldF9pbmZvICp2aSA9Cj4gQEAg
-LTE0NDUsNyArMTQ1MSw3IEBAIHN0YXRpYyBpbnQgdmlydG5ldF9jbG9zZShzdHJ1Y3QgbmV0X2Rl
-dmljZSAqZGV2KQo+ICAgCj4gICAJZm9yIChpID0gMDsgaSA8IHZpLT5tYXhfcXVldWVfcGFpcnM7
-IGkrKykgewo+ICAgCQluYXBpX2Rpc2FibGUoJnZpLT5ycVtpXS5uYXBpKTsKPiAtCQluYXBpX2Rp
-c2FibGUoJnZpLT5zcVtpXS5uYXBpKTsKPiArCQl2aXJ0bmV0X25hcGlfdHhfZGlzYWJsZSgmdmkt
-PnNxW2ldLm5hcGkpOwo+ICAgCX0KPiAgIAo+ICAgCXJldHVybiAwOwo+IEBAIC0xODAzLDcgKzE4
-MDksNyBAQCBzdGF0aWMgdm9pZCB2aXJ0bmV0X2ZyZWV6ZV9kb3duKHN0cnVjdCB2aXJ0aW9fZGV2
-aWNlICp2ZGV2KQo+ICAgCWlmIChuZXRpZl9ydW5uaW5nKHZpLT5kZXYpKSB7Cj4gICAJCWZvciAo
-aSA9IDA7IGkgPCB2aS0+bWF4X3F1ZXVlX3BhaXJzOyBpKyspIHsKPiAgIAkJCW5hcGlfZGlzYWJs
-ZSgmdmktPnJxW2ldLm5hcGkpOwo+IC0JCQluYXBpX2Rpc2FibGUoJnZpLT5zcVtpXS5uYXBpKTsK
-PiArCQkJdmlydG5ldF9uYXBpX3R4X2Rpc2FibGUoJnZpLT5zcVtpXS5uYXBpKTsKPiAgIAkJfQo+
-ICAgCX0KPiAgIH0KCkFja2VkLWJ5OiBKYXNvbiBXYW5nIDxqYXNvd2FuZ0ByZWRoYXQuY29tPgoK
-VGhhbmtzCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fClZp
-cnR1YWxpemF0aW9uIG1haWxpbmcgbGlzdApWaXJ0dWFsaXphdGlvbkBsaXN0cy5saW51eC1mb3Vu
-ZGF0aW9uLm9yZwpodHRwczovL2xpc3RzLmxpbnV4Zm91bmRhdGlvbi5vcmcvbWFpbG1hbi9saXN0
-aW5mby92aXJ0dWFsaXphdGlvbg==
+On Tue, Apr 25, 2017 at 11:34:53AM +0200, Jesper Dangaard Brouer wrote:
+> > Note the very first bpf patchset years ago contained the port table
+> > abstraction. ovs has concept of vports as well. These two very
+> > different projects needed port table to provide a layer of
+> > indirection between ifindex==netdev and virtual port number.
+> > This is still the case and I'd like to see this port table to be
+> > implemented for both cls_bpf and xdp. In that sense xdp is not
+> > special.
+> 
+> Glad to hear you want to see this implemented, I will start coding on
+> this then.  Good point with cls_bpf, I was planning to make this port
+> table strongly connected to XDP, guess I should also think of cls_bpf.
+
+perfect.
+I think we should try to make all additions to bpf networking world
+to be usable for both tc and xdp, since both are actively used and
+it wouldn't be great to have cool feature for one, but not the other.
+I think port table is an excellent candidate that applies to both.
+
+> I'm not worried about the DROP case, I agree that is fine (as you also
+> say).  The problem is unintentionally sending a packet to a wrong
+> ifindex.  This is clearly an eBPF program error, BUT with XDP this
+> becomes a very hard to debug program error.  With TC-redirect/cls_bpf
+> we can tcpdump the packets, with XDP there is no visibility into this
+> happening (the NSA is going to love this "feature").  Maybe we could add
+> yet-another tracepoint to allow debugging this.  My proposal that we
+> simply remove the possibility for such program errors, by as you say
+> move the validation from run-time into static insertion-time, via a
+> port table.
+
+I think lack of tcpdump-like debugging in xdp is a separate issue.
+As I was saying in the other thread we have trivial 'xdpdump' kern+user
+app that emits pcap file, but it's too specific to how we use
+tail_calls+prog_array in our xdp setup. I'm working on the program
+chaining that will be generic and allow us transparently add multiple
+xdp or tc progs to the same attachment point and will allow us to
+do 'xdpdump' at any point of this pipeline, so debugging of what
+happened to the packet will be easier and done in the same way
+for both tc and xdp.
+btw in our experience working with both tc and xdp the tc+bpf was
+actually harder to use and more bug prone.
