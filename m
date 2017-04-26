@@ -1,98 +1,141 @@
 From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net 1/3] net: check mac address length for dev_set_mac_address()
-Date: Tue, 25 Apr 2017 22:03:21 -0700
-Message-ID: <1493183003-884-2-git-send-email-xiyou.wangcong@gmail.com>
+Subject: [Patch net 2/3] bonding: use a larger struct for mac address
+Date: Tue, 25 Apr 2017 22:03:22 -0700
+Message-ID: <1493183003-884-3-git-send-email-xiyou.wangcong@gmail.com>
 References: <1493183003-884-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: andreyknvl@google.com, Cong Wang <xiyou.wangcong@gmail.com>
+Cc: andreyknvl@google.com, Cong Wang <xiyou.wangcong@gmail.com>,
+        Jay Vosburgh <j.vosburgh@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:35044 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S2993375AbdDZFDh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2017 01:03:37 -0400
-Received: by mail-pg0-f66.google.com with SMTP id 68so992666pgj.2
-        for <netdev@vger.kernel.org>; Tue, 25 Apr 2017 22:03:37 -0700 (PDT)
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:35054 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S2993383AbdDZFDj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2017 01:03:39 -0400
+Received: by mail-pg0-f68.google.com with SMTP id 68so992804pgj.2
+        for <netdev@vger.kernel.org>; Tue, 25 Apr 2017 22:03:38 -0700 (PDT)
 In-Reply-To: <1493183003-884-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-dev_set_mac_address() accepts a struct sockaddr pointer as
-input but we have various types of mac addresse whose lengths
-are up to MAX_ADDR_LEN, this is confusing.
+IPv6 tunnels use sizeof(struct in6_addr) as dev->addr_len,
+but in many places especially bonding, we use struct sockaddr
+to copy and set mac addr, this could lead to stack out-of-bounds
+access.
 
-Make it void like ->ndo_set_mac_address() and let callers check
-its length before calling it. It is too late to fix dev_ifsioc()
-due to API compatiblity, so just reject those larger than
-sizeof(struct sockaddr).
-
-This is also a preparation for the following patches.
+Fix it by using a larger address storage.
 
 Reported-by: Andrey Konovalov <andreyknvl@google.com>
+Cc: Jay Vosburgh <j.vosburgh@gmail.com>
 Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 ---
- include/linux/netdevice.h |  2 +-
- net/core/dev.c            | 10 +++++++---
- net/core/dev_ioctl.c      |  2 ++
- 3 files changed, 10 insertions(+), 4 deletions(-)
+ drivers/net/bonding/bond_alb.c     |  8 ++++----
+ drivers/net/bonding/bond_main.c    | 17 +++++++++--------
+ drivers/net/bonding/bonding_priv.h |  6 ++++++
+ 3 files changed, 19 insertions(+), 12 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 97456b25..40e674c 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -3271,7 +3271,7 @@ int dev_set_alias(struct net_device *, const char *, size_t);
- int dev_change_net_namespace(struct net_device *, struct net *, const char *);
- int dev_set_mtu(struct net_device *, int);
- void dev_set_group(struct net_device *, int);
--int dev_set_mac_address(struct net_device *, struct sockaddr *);
-+int dev_set_mac_address(struct net_device *, void *);
- int dev_change_carrier(struct net_device *, bool new_carrier);
- int dev_get_phys_port_id(struct net_device *dev,
- 			 struct netdev_phys_item_id *ppid);
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 533a6d6..cc670e1 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -6610,13 +6610,17 @@ EXPORT_SYMBOL(dev_set_group);
- /**
-  *	dev_set_mac_address - Change Media Access Control Address
-  *	@dev: device
-- *	@sa: new address
-+ *	@addr: new address, whose type could be either struct sockaddr or
-+ *	any other compatible type whose length is up to MAX_ADDR_LEN depending
-+ *	on the dev->addr_len. Callers should check if its length is smaller than
-+ *	dev->addr_len!!
-  *
-  *	Change the hardware (MAC) address of the device
-  */
--int dev_set_mac_address(struct net_device *dev, struct sockaddr *sa)
-+int dev_set_mac_address(struct net_device *dev, void *addr)
+diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+index c80b023..0038266 100644
+--- a/drivers/net/bonding/bond_alb.c
++++ b/drivers/net/bonding/bond_alb.c
+@@ -39,7 +39,7 @@
+ #include <asm/byteorder.h>
+ #include <net/bonding.h>
+ #include <net/bond_alb.h>
+-
++#include "bonding_priv.h"
+ 
+ 
+ static const u8 mac_bcast[ETH_ALEN + 2] __long_aligned = {
+@@ -1234,7 +1234,7 @@ static int alb_set_mac_address(struct bonding *bond, void *addr)
  {
- 	const struct net_device_ops *ops = dev->netdev_ops;
+ 	struct slave *slave, *rollback_slave;
+ 	struct list_head *iter;
+-	struct sockaddr sa;
++	struct bond_mac_addr sa;
+ 	char tmp_addr[ETH_ALEN];
+ 	int res;
+ 
+@@ -1257,8 +1257,8 @@ static int alb_set_mac_address(struct bonding *bond, void *addr)
+ 	return 0;
+ 
+ unwind:
+-	memcpy(sa.sa_data, bond->dev->dev_addr, bond->dev->addr_len);
+-	sa.sa_family = bond->dev->type;
++	memcpy(sa.addr, bond->dev->dev_addr, bond->dev->addr_len);
++	sa.type = bond->dev->type;
+ 
+ 	/* unwind from head to the slave that failed */
+ 	bond_for_each_slave(bond, rollback_slave, iter) {
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 8a4ba8b..7a9bd30 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1330,7 +1330,7 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 	struct bonding *bond = netdev_priv(bond_dev);
+ 	const struct net_device_ops *slave_ops = slave_dev->netdev_ops;
+ 	struct slave *new_slave = NULL, *prev_slave;
+-	struct sockaddr addr;
++	struct bond_mac_addr addr;
+ 	int link_reporting;
+ 	int res = 0, i;
+ 
+@@ -1488,8 +1488,8 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 		/* Set slave to master's mac address.  The application already
+ 		 * set the master's mac address to that of the first slave
+ 		 */
+-		memcpy(addr.sa_data, bond_dev->dev_addr, bond_dev->addr_len);
+-		addr.sa_family = slave_dev->type;
++		memcpy(addr.addr, bond_dev->dev_addr, bond_dev->addr_len);
++		addr.type = slave_dev->type;
+ 		res = dev_set_mac_address(slave_dev, &addr);
+ 		if (res) {
+ 			netdev_dbg(bond_dev, "Error %d calling set_mac_address\n", res);
+@@ -1773,8 +1773,8 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 		 * MAC if this slave's MAC is in use by the bond, or at
+ 		 * least print a warning.
+ 		 */
+-		ether_addr_copy(addr.sa_data, new_slave->perm_hwaddr);
+-		addr.sa_family = slave_dev->type;
++		ether_addr_copy(addr.addr, new_slave->perm_hwaddr);
++		addr.type = slave_dev->type;
+ 		dev_set_mac_address(slave_dev, &addr);
+ 	}
+ 
+@@ -3619,7 +3619,8 @@ static int bond_set_mac_address(struct net_device *bond_dev, void *addr)
+ {
+ 	struct bonding *bond = netdev_priv(bond_dev);
+ 	struct slave *slave, *rollback_slave;
+-	struct sockaddr *sa = addr, tmp_sa;
 +	struct sockaddr *sa = addr;
- 	int err;
++	struct bond_mac_addr tmp_sa;
+ 	struct list_head *iter;
+ 	int res = 0;
  
- 	if (!ops->ndo_set_mac_address)
-@@ -6625,7 +6629,7 @@ int dev_set_mac_address(struct net_device *dev, struct sockaddr *sa)
- 		return -EINVAL;
- 	if (!netif_device_present(dev))
- 		return -ENODEV;
--	err = ops->ndo_set_mac_address(dev, sa);
-+	err = ops->ndo_set_mac_address(dev, addr);
- 	if (err)
- 		return err;
- 	dev->addr_assign_type = NET_ADDR_SET;
-diff --git a/net/core/dev_ioctl.c b/net/core/dev_ioctl.c
-index b94b1d2..11f262e 100644
---- a/net/core/dev_ioctl.c
-+++ b/net/core/dev_ioctl.c
-@@ -261,6 +261,8 @@ static int dev_ifsioc(struct net *net, struct ifreq *ifr, unsigned int cmd)
- 		return dev_set_mtu(dev, ifr->ifr_mtu);
+@@ -3659,8 +3660,8 @@ static int bond_set_mac_address(struct net_device *bond_dev, void *addr)
+ 	return 0;
  
- 	case SIOCSIFHWADDR:
-+		if (dev->addr_len > sizeof(struct sockaddr))
-+			return -EINVAL;
- 		return dev_set_mac_address(dev, &ifr->ifr_hwaddr);
+ unwind:
+-	memcpy(tmp_sa.sa_data, bond_dev->dev_addr, bond_dev->addr_len);
+-	tmp_sa.sa_family = bond_dev->type;
++	memcpy(tmp_sa.addr, bond_dev->dev_addr, bond_dev->addr_len);
++	tmp_sa.type = bond_dev->type;
  
- 	case SIOCSIFHWBROADCAST:
+ 	/* unwind from head to the slave that failed */
+ 	bond_for_each_slave(bond, rollback_slave, iter) {
+diff --git a/drivers/net/bonding/bonding_priv.h b/drivers/net/bonding/bonding_priv.h
+index 5a4d81a..8b3a7e3 100644
+--- a/drivers/net/bonding/bonding_priv.h
++++ b/drivers/net/bonding/bonding_priv.h
+@@ -22,4 +22,10 @@
+ 
+ #define bond_version DRV_DESCRIPTION ": v" DRV_VERSION " (" DRV_RELDATE ")\n"
+ 
++/* Must be compatible with struct sockaddr */
++struct bond_mac_addr {
++	unsigned short type;
++	unsigned char addr[MAX_ADDR_LEN];
++};
++
+ #endif
 -- 
 2.5.5
