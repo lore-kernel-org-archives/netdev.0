@@ -1,44 +1,48 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [oss-drivers] Re: [RFC 3/4] nfp: make use of extended ack message
- reporting
-Date: Wed, 26 Apr 2017 09:03:23 -0400
-Message-ID: <646e0fb0-1f10-f4d0-936c-7fdf96b6cc43@mojatatu.com>
-References: <20170425080644.122536-1-jakub.kicinski@netronome.com>
- <20170425080644.122536-4-jakub.kicinski@netronome.com>
- <9765d004-de19-7cf2-fcfc-1d2e72cded43@mojatatu.com>
- <20170425.102022.219410555949403896.davem@davemloft.net>
- <20170426111315.GC28251@vergenet.net>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next v8 2/3] net sched actions: dump more than
+ TCA_ACT_MAX_PRIO actions per batch
+Date: Wed, 26 Apr 2017 15:05:06 +0200
+Message-ID: <20170426130506.GF1867@nanopsycho.orion>
+References: <1493121247-11863-1-git-send-email-jhs@emojatatu.com>
+ <1493121247-11863-3-git-send-email-jhs@emojatatu.com>
+ <20170425121338.GC1867@nanopsycho.orion>
+ <5e54edd8-3943-6f09-490f-ff04b83077f6@mojatatu.com>
+ <20170425160445.GD1867@nanopsycho.orion>
+ <20170426110241.GA28251@vergenet.net>
+ <2e09d117-60f9-97ed-9f63-c94130ddbb0c@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: jakub.kicinski@netronome.com, netdev@vger.kernel.org,
-        johannes@sipsolutions.net, dsa@cumulusnetworks.com,
-        daniel@iogearbox.net, alexei.starovoitov@gmail.com,
-        bblanco@gmail.com, john.fastabend@gmail.com, kubakici@wp.pl,
-        oss-drivers@netronome.com
-To: Simon Horman <simon.horman@netronome.com>,
-        David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Simon Horman <simon.horman@netronome.com>, davem@davemloft.net,
+        xiyou.wangcong@gmail.com, eric.dumazet@gmail.com,
+        netdev@vger.kernel.org
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f196.google.com ([209.85.223.196]:36486 "EHLO
-        mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S3000008AbdDZND2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2017 09:03:28 -0400
-Received: by mail-io0-f196.google.com with SMTP id x86so352473ioe.3
-        for <netdev@vger.kernel.org>; Wed, 26 Apr 2017 06:03:28 -0700 (PDT)
-In-Reply-To: <20170426111315.GC28251@vergenet.net>
+Received: from mail-wr0-f193.google.com ([209.85.128.193]:32796 "EHLO
+        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S3000037AbdDZNFJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2017 09:05:09 -0400
+Received: by mail-wr0-f193.google.com with SMTP id w50so24701049wrc.0
+        for <netdev@vger.kernel.org>; Wed, 26 Apr 2017 06:05:08 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <2e09d117-60f9-97ed-9f63-c94130ddbb0c@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17-04-26 07:13 AM, Simon Horman wrote:
-
-> I don't feel strongly about this and perhaps it can be revisited at some
-> point but perhaps it would be worth documenting that he strings do not
-> form part of the UAPI as my expectation would have been that they do f.e. to
-> facilitate internationalisation.
+Wed, Apr 26, 2017 at 02:46:22PM CEST, jhs@mojatatu.com wrote:
+>On 17-04-26 07:02 AM, Simon Horman wrote:
+>> On Tue, Apr 25, 2017 at 06:04:45PM +0200, Jiri Pirko wrote:
+>[..]
 >
+>> > So fix iproute2. It is always first kernel, then iproute2.
+>> 
+>> Perhaps I am missing the point or somehow misguided but I would expect that
+>> if the UAPI uses BIT() it also provides BIT().
+>
+>There is a user of BIT() already in iproute2 (devlink). We can move
+>the code to be more generally available for other iproute2 users.
+>Then this UAPI change makes use of it.
 
-I thought people script against what iproute2 outputs today. We
-may have to change habits.
-
-cheers,
-jamal
+Should be part of UAPI as well
+I see that include/uapi/rdma/vmw_pvrdma-abi.h is using BIT macro.
+I don't see BIT macro defined in UAPI (I thought it is). So either
+define it there (not sure where) or just use "<<"
