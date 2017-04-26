@@ -1,65 +1,56 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 01/18] net: dsa: mv88e6xxx: add max VID to info
-Date: Wed, 26 Apr 2017 18:04:19 +0200
-Message-ID: <20170426160419.GB4489@lunn.ch>
-References: <20170426155336.5937-1-vivien.didelot@savoirfairelinux.com>
- <20170426155336.5937-2-vivien.didelot@savoirfairelinux.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] net: adjust skb->truesize in ___pskb_trim()
+Date: Wed, 26 Apr 2017 09:07:46 -0700
+Message-ID: <1493222866.6453.75.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+        Andrey Konovalov <andreyknvl@google.com>,
+        Willem de Bruijn <willemb@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:42172 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751736AbdDZQEY (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 26 Apr 2017 12:04:24 -0400
-Content-Disposition: inline
-In-Reply-To: <20170426155336.5937-2-vivien.didelot@savoirfairelinux.com>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:35188 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752029AbdDZQHs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2017 12:07:48 -0400
+Received: by mail-pf0-f193.google.com with SMTP id a188so1039503pfa.2
+        for <netdev@vger.kernel.org>; Wed, 26 Apr 2017 09:07:48 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 26, 2017 at 11:53:19AM -0400, Vivien Didelot wrote:
-> Some chips don't have a VLAN Table Unit, most of them do have a 4K
-> table, some others as the 88E6390 family has a 13th bit for the VID.
-> 
-> Add a new max_vid member to the info structure, used to check the
-> presence of a VTU as well as the value used to iterate from in VTU
-> GetNext operations.
-> 
-> This makes the MV88E6XXX_FLAG_VTU obsolete, thus remove it.
-> 
-> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-> ---
->  drivers/net/dsa/mv88e6xxx/chip.c      | 38 ++++++++++++++++++++++++++---------
->  drivers/net/dsa/mv88e6xxx/mv88e6xxx.h | 13 ++----------
->  2 files changed, 31 insertions(+), 20 deletions(-)
-> 
-> diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-> index 44ba8cff5631..e45ddf3e90e8 100644
-> --- a/drivers/net/dsa/mv88e6xxx/chip.c
-> +++ b/drivers/net/dsa/mv88e6xxx/chip.c
-> @@ -1440,7 +1440,7 @@ static int mv88e6xxx_port_vlan_dump(struct dsa_switch *ds, int port,
->  	u16 pvid;
->  	int err;
->  
-> -	if (!mv88e6xxx_has(chip, MV88E6XXX_FLAG_VTU))
-> +	if (!chip->info->max_vid)
->  		return -EOPNOTSUPP;
->  
->  	mutex_lock(&chip->reg_lock);
-> @@ -1478,7 +1478,7 @@ static int mv88e6xxx_port_vlan_dump(struct dsa_switch *ds, int port,
->  		err = cb(&vlan->obj);
->  		if (err)
->  			break;
-> -	} while (next.vid < GLOBAL_VTU_VID_MASK);
-> +	} while (next.vid < chip->info->max_vid);
+From: Eric Dumazet <edumazet@google.com>
 
-This change in itself is worth it. We should not be using a mask for
-this sort of comparison.
+Andrey found a way to trigger the WARN_ON_ONCE(delta < len) in
+skb_try_coalesce() using syzkaller and a filter attached to a TCP
+socket.
 
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+As we did recently in commit 158f323b9868 ("net: adjust skb->truesize in
+pskb_expand_head()") we can adjust skb->truesize from ___pskb_trim(),
+via a call to skb_condense().
 
-    Andrew
+If all frags were freed, then skb->truesize can be recomputed.
+
+This call can be done if skb is not yet owned, or destructor is
+sock_edemux().
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Reported-by: Andrey Konovalov <andreyknvl@google.com>
+Cc: Willem de Bruijn <willemb@google.com>
+---
+ net/core/skbuff.c |    2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index f86bf69cfb8d8bc17262cdba5d9f57a4726cd476..f1d04592ace02f32efa6e05df89c9a5e0023157f 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -1576,6 +1576,8 @@ int ___pskb_trim(struct sk_buff *skb, unsigned int len)
+ 		skb_set_tail_pointer(skb, len);
+ 	}
+ 
++	if (!skb->sk || skb->destructor == sock_edemux)
++		skb_condense(skb);
+ 	return 0;
+ }
+ EXPORT_SYMBOL(___pskb_trim);
