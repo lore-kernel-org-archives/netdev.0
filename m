@@ -1,95 +1,127 @@
-From: Eric Anholt <eric-WhKQ6XTQaPysTnJN9+BGXg@public.gmane.org>
-Subject: Re: [PATCH v2 2/2] ARM: dts: Add the ethernet and ethernet PHY to the cygnus core DT.
-Date: Wed, 26 Apr 2017 10:26:44 -0700
-Message-ID: <87r30fjd0r.fsf@eliezer.anholt.net>
-References: <20170425235357.7690-1-eric@anholt.net> <20170425235357.7690-2-eric@anholt.net> <0cb00eb7-41d0-0390-4687-d966499ed9f4@gmail.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="=-=-=";
-        micalg=pgp-sha512; protocol="application/pgp-signature"
-Cc: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        bcm-kernel-feedback-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, Ray Jui <rjui-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Scott Branden <sbranden-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Jon Mason <jonmason-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-To: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Vivien Didelot <vivien.didelot-4ysUXcep3aM1wj+D4I0NRVaTQe2KTcn/@public.gmane.org>,
-        Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <0cb00eb7-41d0-0390-4687-d966499ed9f4-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Andreas Kemnade <andreas@kemnade.info>
+Subject: [PATCH] net: hso: register netdev later to avoid a race condition
+Date: Wed, 26 Apr 2017 19:26:40 +0200
+Message-ID: <1493227600-10102-1-git-send-email-andreas@kemnade.info>
+Cc: Andreas Kemnade <andreas@kemnade.info>
+To: davem@davemloft.net, joe@perches.com, gregkh@linuxfoundation.org,
+        peter@hurleysoftware.com, hns@goldelico.com,
+        linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.andi.de1.cc ([85.214.239.24]:45065 "EHLO
+        h2641619.stratoserver.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753381AbdDZR1E (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2017 13:27:04 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---=-=-=
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+If the netdev is accessed before the urbs are initialized,
+there will be NULL pointer dereferences. That is avoided by
+registering it when it is fully initialized.
 
-Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
+This case occurs e.g. if dhcpcd is running in the background
+and the device is probed, either after insmod hso or
+when the device appears on the usb bus.
 
-> On 04/25/2017 04:53 PM, Eric Anholt wrote:
->> Cygnus has a single AMAC controller connected to the B53 switch with 2
->> PHYs.  On the BCM911360_EP platform, those two PHYs are connected to
->> the external ethernet jacks.
->>=20
->> Signed-off-by: Eric Anholt <eric-WhKQ6XTQaPysTnJN9+BGXg@public.gmane.org>
->> Reviewed-by: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
->> ---
->>=20
->> v2: Call the node "switch", just call the ports "port" (suggestions by
->>     Florian), drop max-speed on the phys (suggestion by Andrew Lunn),
->>     call the other nodes "ethernet" and "ethernet-phy" (suggestions by
->>     Sergei Shtylyov)
->>=20
->>  arch/arm/boot/dts/bcm-cygnus.dtsi      | 58 +++++++++++++++++++++++++++=
-+++++++
->>  arch/arm/boot/dts/bcm911360_entphn.dts |  8 +++++
->>  2 files changed, 66 insertions(+)
->>=20
->> diff --git a/arch/arm/boot/dts/bcm-cygnus.dtsi b/arch/arm/boot/dts/bcm-c=
-ygnus.dtsi
->> index 009f1346b817..9fd89be0f5e0 100644
->> --- a/arch/arm/boot/dts/bcm-cygnus.dtsi
->> +++ b/arch/arm/boot/dts/bcm-cygnus.dtsi
->> @@ -142,6 +142,54 @@
->>  			interrupts =3D <0>;
->>  		};
->>=20=20
->> +		mdio: mdio@18002000 {
->> +			compatible =3D "brcm,iproc-mdio";
->> +			reg =3D <0x18002000 0x8>;
->> +			#size-cells =3D <1>;
->> +			#address-cells =3D <0>;
->
-> Sorry for not noticing earlier, since you override this correctly in the
-> board-level DTS file can you put a:
->
-> 			status =3D "disabled"
->
-> property in there by default?
+A backtrace is the following:
 
-Done.
+[ 1357.356048] usb 1-2: new high-speed USB device number 12 using ehci-omap
+[ 1357.551177] usb 1-2: New USB device found, idVendor=0af0, idProduct=8800
+[ 1357.558654] usb 1-2: New USB device strings: Mfr=3, Product=2, SerialNumber=0
+[ 1357.568572] usb 1-2: Product: Globetrotter HSUPA Modem
+[ 1357.574096] usb 1-2: Manufacturer: Option N.V.
+[ 1357.685882] hso 1-2:1.5: Not our interface
+[ 1460.886352] hso: unloaded
+[ 1460.889984] usbcore: deregistering interface driver hso
+[ 1513.769134] hso: ../drivers/net/usb/hso.c: Option Wireless
+[ 1513.846771] Unable to handle kernel NULL pointer dereference at virtual address 00000030
+[ 1513.887664] hso 1-2:1.5: Not our interface
+[ 1513.906890] usbcore: registered new interface driver hso
+[ 1513.937988] pgd = ecdec000
+[ 1513.949890] [00000030] *pgd=acd15831, *pte=00000000, *ppte=00000000
+[ 1513.956573] Internal error: Oops: 817 [#1] PREEMPT SMP ARM
+[ 1513.962371] Modules linked in: hso usb_f_ecm omap2430 bnep bluetooth g_ether usb_f_rndis u_ether libcomposite configfs ipv6 arc4 wl18xx wlcore mac80211 cfg80211 bq27xxx_battery panel_tpo_td028ttec1 omapdrm drm_kms_helper cfbfillrect snd_soc_simple_card syscopyarea cfbimgblt snd_soc_simple_card_utils sysfillrect sysimgblt fb_sys_fops snd_soc_omap_twl4030 cfbcopyarea encoder_opa362 drm twl4030_madc_hwmon wwan_on_off snd_soc_gtm601 pwm_omap_dmtimer generic_adc_battery connector_analog_tv pwm_bl extcon_gpio omap3_isp wlcore_sdio videobuf2_dma_contig videobuf2_memops w1_bq27000 videobuf2_v4l2 videobuf2_core omap_hdq snd_soc_omap_mcbsp ov9650 snd_soc_omap bmp280_i2c bmg160_i2c v4l2_common snd_pcm_dmaengine bmp280 bmg160_core at24 bmc150_magn_i2c nvmem_core videodev phy_twl4030_usb bmc150_acce
+ l_i2c tsc2007
+[ 1514.037384]  bmc150_magn bmc150_accel_core media leds_tca6507 bno055 industrialio_triggered_buffer kfifo_buf gpio_twl4030 musb_hdrc snd_soc_twl4030 twl4030_vibra twl4030_madc twl4030_pwrbutton twl4030_charger industrialio w2sg0004 ehci_omap omapdss [last unloaded: hso]
+[ 1514.062622] CPU: 0 PID: 3433 Comm: dhcpcd Tainted: G        W       4.11.0-rc8-letux+ #1
+[ 1514.071136] Hardware name: Generic OMAP36xx (Flattened Device Tree)
+[ 1514.077758] task: ee748240 task.stack: ecdd6000
+[ 1514.082580] PC is at hso_start_net_device+0x50/0xc0 [hso]
+[ 1514.088287] LR is at hso_net_open+0x68/0x84 [hso]
+[ 1514.093231] pc : [<bf79c304>]    lr : [<bf79ced8>]    psr: a00f0013
+sp : ecdd7e20  ip : 00000000  fp : ffffffff
+[ 1514.105316] r10: 00000000  r9 : ed0e080c  r8 : ecd8fe2c
+[ 1514.110839] r7 : bf79cef4  r6 : ecd8fe00  r5 : 00000000  r4 : ed0dbd80
+[ 1514.117706] r3 : 00000000  r2 : c0020c80  r1 : 00000000  r0 : ecdb7800
+[ 1514.124572] Flags: NzCv  IRQs on  FIQs on  Mode SVC_32  ISA ARM  Segment none
+[ 1514.132110] Control: 10c5387d  Table: acdec019  DAC: 00000051
+[ 1514.138153] Process dhcpcd (pid: 3433, stack limit = 0xecdd6218)
+[ 1514.144470] Stack: (0xecdd7e20 to 0xecdd8000)
+[ 1514.149078] 7e20: ed0dbd80 ecd8fe98 00000001 00000000 ecd8f800 ecd8fe00 ecd8fe60 00000000
+[ 1514.157714] 7e40: ed0e080c bf79ced8 bf79ce70 ecd8f800 00000001 bf7a0258 ecd8f830 c068d958
+[ 1514.166320] 7e60: c068d8b8 ecd8f800 00000001 00001091 00001090 c068dba4 ecd8f800 00001090
+[ 1514.174926] 7e80: ecd8f940 ecd8f800 00000000 c068dc60 00000000 00000001 ed0e0800 ecd8f800
+[ 1514.183563] 7ea0: 00000000 c06feaa8 c0ca39c2 beea57dc 00000020 00000000 306f7368 00000000
+[ 1514.192169] 7ec0: 00000000 00000000 00001091 00000000 00000000 00000000 00000000 00008914
+[ 1514.200805] 7ee0: eaa9ab60 beea57dc c0c9bfc0 eaa9ab40 00000006 00000000 00046858 c066a948
+[ 1514.209411] 7f00: beea57dc eaa9ab60 ecc6b0c0 c02837b0 00000006 c0282c90 0000c000 c0283654
+[ 1514.218017] 7f20: c09b0c00 c098bc31 00000001 c0c5e513 c0c5e513 00000000 c0151354 c01a20c0
+[ 1514.226654] 7f40: c0c5e513 c01a3134 ecdd6000 c01a3160 ee7487f0 600f0013 00000000 ee748240
+[ 1514.235260] 7f60: ee748734 00000000 ecc6b0c0 ecc6b0c0 beea57dc 00008914 00000006 00000000
+[ 1514.243896] 7f80: 00046858 c02837b0 00001091 0003a1f0 00046608 0003a248 00000036 c01071e4
+[ 1514.252502] 7fa0: ecdd6000 c0107040 0003a1f0 00046608 00000006 00008914 beea57dc 00001091
+[ 1514.261108] 7fc0: 0003a1f0 00046608 0003a248 00000036 0003ac0c 00046608 00046610 00046858
+[ 1514.269744] 7fe0: 0003a0ac beea57d4 000167eb b6f23106 400f0030 00000006 00000000 00000000
+[ 1514.278411] [<bf79c304>] (hso_start_net_device [hso]) from [<bf79ced8>] (hso_net_open+0x68/0x84 [hso])
+[ 1514.288238] [<bf79ced8>] (hso_net_open [hso]) from [<c068d958>] (__dev_open+0xa0/0xf4)
+[ 1514.296600] [<c068d958>] (__dev_open) from [<c068dba4>] (__dev_change_flags+0x8c/0x130)
+[ 1514.305023] [<c068dba4>] (__dev_change_flags) from [<c068dc60>] (dev_change_flags+0x18/0x48)
+[ 1514.313934] [<c068dc60>] (dev_change_flags) from [<c06feaa8>] (devinet_ioctl+0x348/0x714)
+[ 1514.322540] [<c06feaa8>] (devinet_ioctl) from [<c066a948>] (sock_ioctl+0x2b0/0x308)
+[ 1514.330627] [<c066a948>] (sock_ioctl) from [<c0282c90>] (vfs_ioctl+0x20/0x34)
+[ 1514.338165] [<c0282c90>] (vfs_ioctl) from [<c0283654>] (do_vfs_ioctl+0x82c/0x93c)
+[ 1514.346038] [<c0283654>] (do_vfs_ioctl) from [<c02837b0>] (SyS_ioctl+0x4c/0x74)
+[ 1514.353759] [<c02837b0>] (SyS_ioctl) from [<c0107040>] (ret_fast_syscall+0x0/0x1c)
+[ 1514.361755] Code: e3822103 e3822080 e1822781 e5981014 (e5832030)
+[ 1514.510833] ---[ end trace dfb3e53c657f34a0 ]---
 
---=-=-=
-Content-Type: application/pgp-signature; name="signature.asc"
+Reported-by: H. Nikolaus Schaller <hns@goldelico.com>
+Signed-off-by: Andreas Kemnade <andreas@kemnade.info>
+---
+ drivers/net/usb/hso.c | 14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
 
------BEGIN PGP SIGNATURE-----
-
-iQIzBAEBCgAdFiEE/JuuFDWp9/ZkuCBXtdYpNtH8nugFAlkA2FQACgkQtdYpNtH8
-nuiG+RAAulmpDX7UD+c7qEvexcyuJLr7fZ5PPTXRXYmowA6JercWM3p3f+TQr/E8
-wEGP6zDKR017Ov77ubuQdMyPaiXXbAlVsD788gcP7s6+B2DDn7w6UOIIu+4O+xrD
-gt2a8ZbHnua9HCeupvTjHptU0e+459QV/1U9DNnF9xfF32dptEWx7/vK/cQfsOeC
-3ODouOTXBOVSatFLyyyW1TDr8wvQ2uCNaDuhmtzmRjfYwM3u78aQk0dRjxBFAw36
-oUHF2mHPeRuhu/USPs9qAa7gfSXkeVMwgTlKB3QzY/mNkCEt+p8mrhCw46Xa16yc
-9WpkZg/U5bCUCdZDx79epYOFHAc7jJHX4Bs52zEmipivXTI+0ANT0E1KtXqPJjkd
-xpqOj/bcKzhDNJ5azXygx7iqyefMdfcEecQ21FU25UbgW85V0/D/5DKVr5+gLuYX
-P+F6bxxaOIicncbufiiEBpA6USepC+8h9CCfkMuClGRwM59FceNFTvvFDaJDn/1t
-rP6a2uV39ui03WAEjYaVEK4N1g3jySv19f6j8x43aRo7v5em8g1lNJHU5ylMGGtD
-kEoYvkBbh7lb8YL1PIqm7TT4dR/ai6g/JgjKs9f5zVo08Fdr3o8MJfNzQMRBUCFd
-uOhxYLgzYuPjWtfV5xTfVk30Z7gEpngodJ9KyijZdHC/VkG9hX8=
-=IcQ2
------END PGP SIGNATURE-----
---=-=-=--
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
+index 93411a3..00067a0 100644
+--- a/drivers/net/usb/hso.c
++++ b/drivers/net/usb/hso.c
+@@ -2534,13 +2534,6 @@ static struct hso_device *hso_create_net_device(struct usb_interface *interface,
+ 	SET_NETDEV_DEV(net, &interface->dev);
+ 	SET_NETDEV_DEVTYPE(net, &hso_type);
+ 
+-	/* registering our net device */
+-	result = register_netdev(net);
+-	if (result) {
+-		dev_err(&interface->dev, "Failed to register device\n");
+-		goto exit;
+-	}
+-
+ 	/* start allocating */
+ 	for (i = 0; i < MUX_BULK_RX_BUF_COUNT; i++) {
+ 		hso_net->mux_bulk_rx_urb_pool[i] = usb_alloc_urb(0, GFP_KERNEL);
+@@ -2560,6 +2553,13 @@ static struct hso_device *hso_create_net_device(struct usb_interface *interface,
+ 
+ 	add_net_device(hso_dev);
+ 
++	/* registering our net device */
++	result = register_netdev(net);
++	if (result) {
++		dev_err(&interface->dev, "Failed to register device\n");
++		goto exit;
++	}
++
+ 	hso_log_port(hso_dev);
+ 
+ 	hso_create_rfkill(hso_dev, interface);
+-- 
+2.1.4
