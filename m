@@ -1,106 +1,117 @@
-From: Alexei Starovoitov <ast@fb.com>
-Subject: Re: xdp_redirect ifindex vs port. Was: best API for returning/setting
- egress port?
-Date: Wed, 26 Apr 2017 10:58:45 -0700
-Message-ID: <c9b3ff9b-8938-3274-da29-c04f9da2a314@fb.com>
-References: <20170418215856.5fda7127@redhat.com>
- <20170419200259.GK4730@C02RW35GFVH8.dhcp.broadcom.net>
- <58F7E9F3.5090604@iogearbox.net>
- <20170420025611.GA53935@ast-mbp.thefacebook.com>
- <20170420081051.77a41aa8@redhat.com>
- <20170420171006.GA97067@ast-mbp.thefacebook.com>
- <20170425113453.5c72080f@redhat.com>
- <20170426002610.eihwmz4knbmrolfw@ast-mbp.dhcp.thefacebook.com>
- <59000EF6.1050204@gmail.com> <20170426111158.578b925e@redhat.com>
- <5900CC41.2070502@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Andy Gospodarek <andy@greyhouse.net>,
-        Daniel Borkmann <borkmann@iogearbox.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "xdp-newbies@vger.kernel.org" <xdp-newbies@vger.kernel.org>
-To: John Fastabend <john.fastabend@gmail.com>,
-        Jesper Dangaard Brouer <brouer@redhat.com>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: [PATCH net-next] can: fix CAN BCM build with CONFIG_PROC_FS disabled
+Date: Wed, 26 Apr 2017 20:14:34 +0200
+Message-ID: <20170426181434.9635-1-socketcan@hartkopp.net>
+Cc: Oliver Hartkopp <socketcan@hartkopp.net>, mkl@pengutronix.de,
+        netdev@vger.kernel.org
+To: linux-can@vger.kernel.org, davem@davemloft.net,
+        rdunlap@infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:57923 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S932504AbdDZR7O (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2017 13:59:14 -0400
-In-Reply-To: <5900CC41.2070502@gmail.com>
+Received: from mo4-p00-ob.smtp.rzone.de ([81.169.146.220]:32768 "EHLO
+        mo4-p00-ob.smtp.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932942AbdDZSOv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2017 14:14:51 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 4/26/17 9:35 AM, John Fastabend wrote:
->
->> As Alexei also mentioned before, ifindex vs port makes no real
->> difference seen from the bpf program side.  It is userspace's
->> responsibility to add ifindex/port's to the bpf-maps, according to how
->> the bpf program "policy" want to "connect" these ports.  The
->> port-table system add one extra step, of also adding this port to the
->> port-table (which lives inside the kernel).
->>
->
-> I'm not sure I understand the "lives inside the kernel" bit. I assumed
-> the 'map' should be a bpf map and behave like any other bpf map.
->
-> I wanted a new map to be defined, something like this from the bpf programmer
-> side.
->
-> struct bpf_map_def SEC("maps") port_table =
-> 	.type = BPF_MAP_TYPE_PORT_CONNECTION,
-> 	.key_size = sizeof(u32),
-> 	.value_size = BPF_PORT_CONNECTION_SIZE,
-> 	.max_entries = 256,
-> };
+The introduced namespace support moved the BCM variables for procfs into a
+per-net data structure. This leads to a build failure with disabled procfs:
 
-I like the idea.
-We have prog_array, perf_event_array, cgroup_array map specializations.
-This one can be new netdev_array with some new bpf_redirect-like helper
-accessing it.
+on x86_64:
 
->> When loading the XDP program, we also need to pass along a port table
->> "id" this XDP program is associated with (and if it doesn't exists you
->> create it).  And your userspace "control-plane" application also need
->> to know this port table "id", when adding a new port.
->
-> So the user space application that is loading the program also needs
-> to handle this map. This seems correct to me. But I don't see the
-> value in making some new port table when we already have well understood
-> framework for maps.
+when CONFIG_PROC_FS is not enabled:
 
-+1
+../net/can/bcm.c:1541:14: error: 'struct netns_can' has no member named 'bcmproc_dir'
+../net/can/bcm.c:1601:14: error: 'struct netns_can' has no member named 'bcmproc_dir'
+../net/can/bcm.c:1696:11: error: 'struct netns_can' has no member named 'bcmproc_dir'
+../net/can/bcm.c:1707:15: error: 'struct netns_can' has no member named 'bcmproc_dir'
 
->>
->> The concept of having multiple port tables is key.  As this implies we
->> can have several simultaneous "data-planes" that is *isolated* from
->> each-other.  Think about how network-namespaces/containers want
->> isolation. A subtle thing I'm afraid to mention, is that oppose to the
->> ifindex model, a port table with mapping to a net_device pointer, would
->> allow (faster) delivery into the container's inner net_device, which
->> sort of violates the isolation, but I would argue it is not a problem
->> as this net_device pointer could only be added from a process within the
->> namespace.  I like this feature, but it could easily be disallowed via
->> port insertion-time validation.
->>
->
-> I think the above optimization should be allowed. And agree multiple port
-> tables (maps?) is needed. Again all this points to using standard maps
-> logic in my mind. For permissions and different domains, which I think
-> you were starting to touch on, it looks like we could extend the pinning API.
-> At the moment it does an inode_permission(inode, MAY_WRITE) check but I
-> presume this could be extended. None of this would be needed in v1 and
-> could be added subsequently. read-only maps seems doable.
+http://marc.info/?l=linux-can&m=149321842526524&w=2
 
-this is great idea. Once BPF_MAP_TYPE_NETDEV_ARRAY is populated
-the user space can make it readonly to prevent further changes.
+Reported-by: Randy Dunlap <rdunlap@infradead.org>
+Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
+---
+ net/can/bcm.c | 22 ++++++++++++++--------
+ 1 file changed, 14 insertions(+), 8 deletions(-)
 
- From user space it can be done similar to perf_events/cgroups as well.
-bpf_map_update_elem(&netdev_array, &port_num, &ifindex)
-should work.
-For bpf_map_lookup_elem() from such netdev_array we can return
-ifindex back.
-The bpf_map_show_fdinfo() can be customized as well to pretty print
-ifindexes of netdevs stored in there.
+diff --git a/net/can/bcm.c b/net/can/bcm.c
+index 0e855917b7e1..78409841b74c 100644
+--- a/net/can/bcm.c
++++ b/net/can/bcm.c
+@@ -147,6 +147,7 @@ static inline ktime_t bcm_timeval_to_ktime(struct bcm_timeval tv)
+ /*
+  * procfs functions
+  */
++#if IS_ENABLED(CONFIG_PROC_FS)
+ static char *bcm_proc_getifname(struct net *net, char *result, int ifindex)
+ {
+ 	struct net_device *dev;
+@@ -251,6 +252,7 @@ static const struct file_operations bcm_proc_fops = {
+ 	.llseek		= seq_lseek,
+ 	.release	= single_release,
+ };
++#endif /* CONFIG_PROC_FS */
+ 
+ /*
+  * bcm_can_tx - send the (next) CAN frame to the appropriate CAN interface
+@@ -1537,9 +1539,11 @@ static int bcm_release(struct socket *sock)
+ 		bcm_remove_op(op);
+ 	}
+ 
++#if IS_ENABLED(CONFIG_PROC_FS)
+ 	/* remove procfs entry */
+ 	if (net->can.bcmproc_dir && bo->bcm_proc_read)
+ 		remove_proc_entry(bo->procname, net->can.bcmproc_dir);
++#endif /* CONFIG_PROC_FS */
+ 
+ 	/* remove device reference */
+ 	if (bo->bound) {
+@@ -1598,6 +1602,7 @@ static int bcm_connect(struct socket *sock, struct sockaddr *uaddr, int len,
+ 		bo->ifindex = 0;
+ 	}
+ 
++#if IS_ENABLED(CONFIG_PROC_FS)
+ 	if (net->can.bcmproc_dir) {
+ 		/* unique socket address as filename */
+ 		sprintf(bo->procname, "%lu", sock_i_ino(sk));
+@@ -1609,6 +1614,7 @@ static int bcm_connect(struct socket *sock, struct sockaddr *uaddr, int len,
+ 			goto fail;
+ 		}
+ 	}
++#endif /* CONFIG_PROC_FS */
+ 
+ 	bo->bound = 1;
+ 
+@@ -1691,22 +1697,22 @@ static const struct can_proto bcm_can_proto = {
+ 
+ static int canbcm_pernet_init(struct net *net)
+ {
++#if IS_ENABLED(CONFIG_PROC_FS)
+ 	/* create /proc/net/can-bcm directory */
+-	if (IS_ENABLED(CONFIG_PROC_FS)) {
+-		net->can.bcmproc_dir =
+-			proc_net_mkdir(net, "can-bcm", net->proc_net);
+-	}
++	net->can.bcmproc_dir =
++		proc_net_mkdir(net, "can-bcm", net->proc_net);
++#endif /* CONFIG_PROC_FS */
+ 
+ 	return 0;
+ }
+ 
+ static void canbcm_pernet_exit(struct net *net)
+ {
++#if IS_ENABLED(CONFIG_PROC_FS)
+ 	/* remove /proc/net/can-bcm directory */
+-	if (IS_ENABLED(CONFIG_PROC_FS)) {
+-		if (net->can.bcmproc_dir)
+-			remove_proc_entry("can-bcm", net->proc_net);
+-	}
++	if (net->can.bcmproc_dir)
++		remove_proc_entry("can-bcm", net->proc_net);
++#endif /* CONFIG_PROC_FS */
+ }
+ 
+ static struct pernet_operations canbcm_pernet_ops __read_mostly = {
+-- 
+2.11.0
