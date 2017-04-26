@@ -1,49 +1,60 @@
-From: Jamie Bainbridge <jbainbri@redhat.com>
-Subject: [PATCH] ipv6: check raw payload size correctly in ioctl
-Date: Wed, 26 Apr 2017 10:43:27 +1000
-Message-ID: <1493167407-27969-1-git-send-email-jbainbri@redhat.com>
-Cc: Jamie Bainbridge <jbainbri@redhat.com>
-To: "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: TCP fast open using experimental TCP option?
+Date: Tue, 25 Apr 2017 17:39:31 -0700
+Message-ID: <CALx6S35e2_92sYUR88YO10m_OhseeTjTr-nGWvpairOAY0_APQ@mail.gmail.com>
+References: <CALx6S36L4BbdcASbGNvn6mRMJDhJJ6n8y-uRTgVqteM=f6On6A@mail.gmail.com>
+ <1493165636.6453.56.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Jerry Chu <hkchu@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:59188 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1433741AbdDZAoc (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 25 Apr 2017 20:44:32 -0400
+Received: from mail-qk0-f174.google.com ([209.85.220.174]:34718 "EHLO
+        mail-qk0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1433753AbdDZApo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 20:45:44 -0400
+Received: by mail-qk0-f174.google.com with SMTP id y63so130414500qkd.1
+        for <netdev@vger.kernel.org>; Tue, 25 Apr 2017 17:45:44 -0700 (PDT)
+In-Reply-To: <1493165636.6453.56.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In situations where an skb is paged, the transport header pointer and
-tail pointer can be the same because the skb contents are in frags.
+On Tue, Apr 25, 2017 at 5:13 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Tue, 2017-04-25 at 12:08 -0700, Tom Herbert wrote:
+>> Looks like TCP fast open was using experimental TCP option at some. Is
+>> this still needed? Technically this violates usage requirements of
+>> experimental options. Can this be removed now since there is now an
+>> assigned option number for TFO?
+>>
+>>                              case TCPOPT_EXP:
+>>                                 /* Fast Open option shares code 254 using a
+>>                                  * 16 bits magic number.
+>>                                  */
+>>                                 if (opsize >= TCPOLEN_EXP_FASTOPEN_BASE &&
+>>                                     get_unaligned_be16(ptr) ==
+>>                                     TCPOPT_FASTOPEN_MAGIC)
+>>                                         tcp_parse_fastopen_option(opsize -
+>>                                                 TCPOLEN_EXP_FASTOPEN_BASE,
+>>                                                 ptr + 2, th->syn, foc, true);
+>>                                 break;
+>
+> Hi Tom
+>
+> Client side was updated in linux-4.1 only two years ago.
+>
+> We lack counters telling how often the experimental option is used.
+>
+> RFC6994 ( 5.  Migration to Assigned Options ) guidelines are properly
+> met.
+>
+> Not sure why we should hurry ?
+>
+An IETFer was complaining that Linux indiscriminately violates TCP
+RFCs and gave the use of experimental options as example. Yuchung
+pointed out that this use is actually conformant to the spec so we're
+good (thanks Yuchung!).
 
-This results in ioctl(SIOCINQ/FIONREAD) incorrectly returning a
-length of 0 when the length to receive is actually greater than zero.
+Tom
 
-skb->len is already correctly set in ip6_input_finish() with
-pskb_pull(), so use skb->len as it always returns the correct result
-for both linear and paged data.
-
-Signed-off-by: Jamie Bainbridge <jbainbri@redhat.com>
----
- net/ipv6/raw.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
-
-diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
-index f174e76e6505d4045e940c9fceef765d2aaa937d..0da6a12b5472e322d679572c7244e5c9bc467741 100644
---- a/net/ipv6/raw.c
-+++ b/net/ipv6/raw.c
-@@ -1178,8 +1178,7 @@ static int rawv6_ioctl(struct sock *sk, int cmd, unsigned long arg)
- 		spin_lock_bh(&sk->sk_receive_queue.lock);
- 		skb = skb_peek(&sk->sk_receive_queue);
- 		if (skb)
--			amount = skb_tail_pointer(skb) -
--				skb_transport_header(skb);
-+			amount = skb->len;
- 		spin_unlock_bh(&sk->sk_receive_queue.lock);
- 		return put_user(amount, (int __user *)arg);
- 	}
--- 
-1.8.3.1
+>
