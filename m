@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 16/18] net: dsa: mv88e6xxx: simplify VTU entry getter
-Date: Wed, 26 Apr 2017 11:53:34 -0400
-Message-ID: <20170426155336.5937-17-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 15/18] net: dsa: mv88e6xxx: make VTU helpers static
+Date: Wed, 26 Apr 2017 11:53:33 -0400
+Message-ID: <20170426155336.5937-16-vivien.didelot@savoirfairelinux.com>
 References: <20170426155336.5937-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
@@ -9,127 +9,195 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         Andrew Lunn <andrew@lunn.ch>,
         Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:39120 "EHLO
-        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S935255AbdDZPzn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2017 11:55:43 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20170426155336.5937-1-vivien.didelot@savoirfairelinux.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Make the code which fetches or initializes a new VTU entry more concise.
-This allows us the get rid of the old underscore prefix naming.
+Now that we have chip operations for VTU accesses, mark all helpers from
+global1_vtu.c as static. Only the various implementations of the
+GetNext, LoadPurge and Flush operations need to be exposed.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/mv88e6xxx/chip.c | 64 ++++++++++++++++------------------------
- 1 file changed, 25 insertions(+), 39 deletions(-)
+ drivers/net/dsa/mv88e6xxx/global1.h     | 24 -----------------
+ drivers/net/dsa/mv88e6xxx/global1_vtu.c | 48 ++++++++++++++++-----------------
+ 2 files changed, 24 insertions(+), 48 deletions(-)
 
-diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index 51c8b2ff9760..aede0194e341 100644
---- a/drivers/net/dsa/mv88e6xxx/chip.c
-+++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -1359,33 +1359,8 @@ static int mv88e6xxx_atu_new(struct mv88e6xxx_chip *chip, u16 *fid)
- 	return mv88e6xxx_g1_atu_flush(chip, *fid, true);
+diff --git a/drivers/net/dsa/mv88e6xxx/global1.h b/drivers/net/dsa/mv88e6xxx/global1.h
+index 60dd7079c756..82e9812b8ba7 100644
+--- a/drivers/net/dsa/mv88e6xxx/global1.h
++++ b/drivers/net/dsa/mv88e6xxx/global1.h
+@@ -50,30 +50,6 @@ int mv88e6xxx_g1_atu_flush(struct mv88e6xxx_chip *chip, u16 fid, bool all);
+ int mv88e6xxx_g1_atu_remove(struct mv88e6xxx_chip *chip, u16 fid, int port,
+ 			    bool all);
+ 
+-int mv88e6xxx_g1_vtu_fid_read(struct mv88e6xxx_chip *chip,
+-			      struct mv88e6xxx_vtu_entry *entry);
+-int mv88e6xxx_g1_vtu_fid_write(struct mv88e6xxx_chip *chip,
+-			       struct mv88e6xxx_vtu_entry *entry);
+-int mv88e6xxx_g1_vtu_sid_read(struct mv88e6xxx_chip *chip,
+-			      struct mv88e6xxx_vtu_entry *entry);
+-int mv88e6xxx_g1_vtu_sid_write(struct mv88e6xxx_chip *chip,
+-			       struct mv88e6xxx_vtu_entry *entry);
+-int mv88e6xxx_g1_vtu_vid_read(struct mv88e6xxx_chip *chip,
+-			      struct mv88e6xxx_vtu_entry *entry);
+-int mv88e6xxx_g1_vtu_vid_write(struct mv88e6xxx_chip *chip,
+-			       struct mv88e6xxx_vtu_entry *entry);
+-int mv88e6185_g1_vtu_data_read(struct mv88e6xxx_chip *chip,
+-			       struct mv88e6xxx_vtu_entry *entry);
+-int mv88e6185_g1_vtu_data_write(struct mv88e6xxx_chip *chip,
+-				struct mv88e6xxx_vtu_entry *entry);
+-int mv88e6xxx_g1_vtu_op_wait(struct mv88e6xxx_chip *chip);
+-int mv88e6xxx_g1_vtu_op(struct mv88e6xxx_chip *chip, u16 op);
+-int mv88e6xxx_g1_vtu_getnext(struct mv88e6xxx_chip *chip,
+-			     struct mv88e6xxx_vtu_entry *entry);
+-int mv88e6xxx_g1_vtu_stu_getnext(struct mv88e6xxx_chip *chip,
+-				 struct mv88e6xxx_vtu_entry *vtu);
+-int mv88e6xxx_g1_vtu_stu_get(struct mv88e6xxx_chip *chip,
+-			     struct mv88e6xxx_vtu_entry *vtu);
+ int mv88e6185_g1_vtu_getnext(struct mv88e6xxx_chip *chip,
+ 			     struct mv88e6xxx_vtu_entry *entry);
+ int mv88e6185_g1_vtu_loadpurge(struct mv88e6xxx_chip *chip,
+diff --git a/drivers/net/dsa/mv88e6xxx/global1_vtu.c b/drivers/net/dsa/mv88e6xxx/global1_vtu.c
+index b594407ce4f7..cb0f3359d60b 100644
+--- a/drivers/net/dsa/mv88e6xxx/global1_vtu.c
++++ b/drivers/net/dsa/mv88e6xxx/global1_vtu.c
+@@ -16,8 +16,8 @@
+ 
+ /* Offset 0x02: VTU FID Register */
+ 
+-int mv88e6xxx_g1_vtu_fid_read(struct mv88e6xxx_chip *chip,
+-			      struct mv88e6xxx_vtu_entry *entry)
++static int mv88e6xxx_g1_vtu_fid_read(struct mv88e6xxx_chip *chip,
++				     struct mv88e6xxx_vtu_entry *entry)
+ {
+ 	u16 val;
+ 	int err;
+@@ -31,8 +31,8 @@ int mv88e6xxx_g1_vtu_fid_read(struct mv88e6xxx_chip *chip,
+ 	return 0;
  }
  
--static int _mv88e6xxx_vtu_new(struct mv88e6xxx_chip *chip, u16 vid,
+-int mv88e6xxx_g1_vtu_fid_write(struct mv88e6xxx_chip *chip,
+-			       struct mv88e6xxx_vtu_entry *entry)
++static int mv88e6xxx_g1_vtu_fid_write(struct mv88e6xxx_chip *chip,
++				      struct mv88e6xxx_vtu_entry *entry)
+ {
+ 	u16 val = entry->fid & GLOBAL_VTU_FID_MASK;
+ 
+@@ -41,8 +41,8 @@ int mv88e6xxx_g1_vtu_fid_write(struct mv88e6xxx_chip *chip,
+ 
+ /* Offset 0x03: VTU SID Register */
+ 
+-int mv88e6xxx_g1_vtu_sid_read(struct mv88e6xxx_chip *chip,
 -			      struct mv88e6xxx_vtu_entry *entry)
--{
--	struct dsa_switch *ds = chip->ds;
--	struct mv88e6xxx_vtu_entry vlan = {
--		.valid = true,
--		.vid = vid,
--	};
--	int i, err;
--
--	err = mv88e6xxx_atu_new(chip, &vlan.fid);
--	if (err)
--		return err;
--
--	/* exclude all ports except the CPU and DSA ports */
--	for (i = 0; i < mv88e6xxx_num_ports(chip); ++i)
--		vlan.member[i] = dsa_is_cpu_port(ds, i) ||
--			dsa_is_dsa_port(ds, i)
--			? GLOBAL_VTU_DATA_MEMBER_TAG_UNMODIFIED
--			: GLOBAL_VTU_DATA_MEMBER_TAG_NON_MEMBER;
--
--	*entry = vlan;
--	return 0;
--}
--
--static int _mv88e6xxx_vtu_get(struct mv88e6xxx_chip *chip, u16 vid,
--			      struct mv88e6xxx_vtu_entry *entry, bool creat)
-+static int mv88e6xxx_vtu_get(struct mv88e6xxx_chip *chip, u16 vid,
-+			     struct mv88e6xxx_vtu_entry *entry, bool new)
++static int mv88e6xxx_g1_vtu_sid_read(struct mv88e6xxx_chip *chip,
++				     struct mv88e6xxx_vtu_entry *entry)
+ {
+ 	u16 val;
+ 	int err;
+@@ -56,8 +56,8 @@ int mv88e6xxx_g1_vtu_sid_read(struct mv88e6xxx_chip *chip,
+ 	return 0;
+ }
+ 
+-int mv88e6xxx_g1_vtu_sid_write(struct mv88e6xxx_chip *chip,
+-			       struct mv88e6xxx_vtu_entry *entry)
++static int mv88e6xxx_g1_vtu_sid_write(struct mv88e6xxx_chip *chip,
++				      struct mv88e6xxx_vtu_entry *entry)
+ {
+ 	u16 val = entry->sid & GLOBAL_VTU_SID_MASK;
+ 
+@@ -66,12 +66,12 @@ int mv88e6xxx_g1_vtu_sid_write(struct mv88e6xxx_chip *chip,
+ 
+ /* Offset 0x05: VTU Operation Register */
+ 
+-int mv88e6xxx_g1_vtu_op_wait(struct mv88e6xxx_chip *chip)
++static int mv88e6xxx_g1_vtu_op_wait(struct mv88e6xxx_chip *chip)
+ {
+ 	return mv88e6xxx_g1_wait(chip, GLOBAL_VTU_OP, GLOBAL_VTU_OP_BUSY);
+ }
+ 
+-int mv88e6xxx_g1_vtu_op(struct mv88e6xxx_chip *chip, u16 op)
++static int mv88e6xxx_g1_vtu_op(struct mv88e6xxx_chip *chip, u16 op)
  {
  	int err;
  
-@@ -1399,17 +1374,28 @@ static int _mv88e6xxx_vtu_get(struct mv88e6xxx_chip *chip, u16 vid,
- 	if (err)
- 		return err;
+@@ -84,8 +84,8 @@ int mv88e6xxx_g1_vtu_op(struct mv88e6xxx_chip *chip, u16 op)
  
--	if (entry->vid != vid || !entry->valid) {
--		if (!creat)
--			return -EOPNOTSUPP;
--		/* -ENOENT would've been more appropriate, but switchdev expects
--		 * -EOPNOTSUPP to inform bridge about an eventual software VLAN.
--		 */
--
--		err = _mv88e6xxx_vtu_new(chip, vid, entry);
-+	if (entry->vid == vid && entry->valid)
-+		return 0;
-+
-+	if (new) {
-+		int i;
-+
-+		/* Initialize a fresh VLAN entry */
-+		memset(entry, 0, sizeof(*entry));
-+		entry->valid = true;
-+		entry->vid = vid;
-+
-+		/* Include only CPU and DSA ports */
-+		for (i = 0; i < mv88e6xxx_num_ports(chip); ++i)
-+			entry->member[i] = dsa_is_normal_port(chip->ds, i) ?
-+				GLOBAL_VTU_DATA_MEMBER_TAG_NON_MEMBER :
-+				GLOBAL_VTU_DATA_MEMBER_TAG_UNMODIFIED;
-+
-+		return mv88e6xxx_atu_new(chip, &entry->fid);
- 	}
+ /* Offset 0x06: VTU VID Register */
  
--	return err;
-+	/* switchdev expects -EOPNOTSUPP to honor software VLANs */
-+	return -EOPNOTSUPP;
+-int mv88e6xxx_g1_vtu_vid_read(struct mv88e6xxx_chip *chip,
+-			      struct mv88e6xxx_vtu_entry *entry)
++static int mv88e6xxx_g1_vtu_vid_read(struct mv88e6xxx_chip *chip,
++				     struct mv88e6xxx_vtu_entry *entry)
+ {
+ 	u16 val;
+ 	int err;
+@@ -100,8 +100,8 @@ int mv88e6xxx_g1_vtu_vid_read(struct mv88e6xxx_chip *chip,
+ 	return 0;
  }
  
- static int mv88e6xxx_port_check_hw_vlan(struct dsa_switch *ds, int port,
-@@ -1519,7 +1505,7 @@ static int _mv88e6xxx_port_vlan_add(struct mv88e6xxx_chip *chip, int port,
- 	struct mv88e6xxx_vtu_entry vlan;
+-int mv88e6xxx_g1_vtu_vid_write(struct mv88e6xxx_chip *chip,
+-			       struct mv88e6xxx_vtu_entry *entry)
++static int mv88e6xxx_g1_vtu_vid_write(struct mv88e6xxx_chip *chip,
++				      struct mv88e6xxx_vtu_entry *entry)
+ {
+ 	u16 val = entry->vid & 0xfff;
+ 
+@@ -116,8 +116,8 @@ int mv88e6xxx_g1_vtu_vid_write(struct mv88e6xxx_chip *chip,
+  * Offset 0x09: VTU/STU Data Register 3
+  */
+ 
+-int mv88e6185_g1_vtu_data_read(struct mv88e6xxx_chip *chip,
+-			       struct mv88e6xxx_vtu_entry *entry)
++static int mv88e6185_g1_vtu_data_read(struct mv88e6xxx_chip *chip,
++				      struct mv88e6xxx_vtu_entry *entry)
+ {
+ 	u16 regs[3];
+ 	int i;
+@@ -144,8 +144,8 @@ int mv88e6185_g1_vtu_data_read(struct mv88e6xxx_chip *chip,
+ 	return 0;
+ }
+ 
+-int mv88e6185_g1_vtu_data_write(struct mv88e6xxx_chip *chip,
+-				struct mv88e6xxx_vtu_entry *entry)
++static int mv88e6185_g1_vtu_data_write(struct mv88e6xxx_chip *chip,
++				       struct mv88e6xxx_vtu_entry *entry)
+ {
+ 	u16 regs[3] = { 0 };
+ 	int i;
+@@ -174,8 +174,8 @@ int mv88e6185_g1_vtu_data_write(struct mv88e6xxx_chip *chip,
+ 
+ /* VLAN Translation Unit Operations */
+ 
+-int mv88e6xxx_g1_vtu_stu_getnext(struct mv88e6xxx_chip *chip,
+-				 struct mv88e6xxx_vtu_entry *entry)
++static int mv88e6xxx_g1_vtu_stu_getnext(struct mv88e6xxx_chip *chip,
++					struct mv88e6xxx_vtu_entry *entry)
+ {
  	int err;
  
--	err = _mv88e6xxx_vtu_get(chip, vid, &vlan, true);
-+	err = mv88e6xxx_vtu_get(chip, vid, &vlan, true);
- 	if (err)
- 		return err;
+@@ -194,8 +194,8 @@ int mv88e6xxx_g1_vtu_stu_getnext(struct mv88e6xxx_chip *chip,
+ 	return mv88e6xxx_g1_vtu_vid_read(chip, entry);
+ }
  
-@@ -1564,7 +1550,7 @@ static int _mv88e6xxx_port_vlan_del(struct mv88e6xxx_chip *chip,
- 	struct mv88e6xxx_vtu_entry vlan;
- 	int i, err;
+-int mv88e6xxx_g1_vtu_stu_get(struct mv88e6xxx_chip *chip,
+-			     struct mv88e6xxx_vtu_entry *vtu)
++static int mv88e6xxx_g1_vtu_stu_get(struct mv88e6xxx_chip *chip,
++				    struct mv88e6xxx_vtu_entry *vtu)
+ {
+ 	struct mv88e6xxx_vtu_entry stu;
+ 	int err;
+@@ -216,8 +216,8 @@ int mv88e6xxx_g1_vtu_stu_get(struct mv88e6xxx_chip *chip,
+ 	return 0;
+ }
  
--	err = _mv88e6xxx_vtu_get(chip, vid, &vlan, false);
-+	err = mv88e6xxx_vtu_get(chip, vid, &vlan, false);
- 	if (err)
- 		return err;
- 
-@@ -1639,7 +1625,7 @@ static int mv88e6xxx_port_db_load_purge(struct mv88e6xxx_chip *chip, int port,
- 	if (vid == 0)
- 		err = mv88e6xxx_port_get_fid(chip, port, &vlan.fid);
- 	else
--		err = _mv88e6xxx_vtu_get(chip, vid, &vlan, false);
-+		err = mv88e6xxx_vtu_get(chip, vid, &vlan, false);
- 	if (err)
- 		return err;
+-int mv88e6xxx_g1_vtu_getnext(struct mv88e6xxx_chip *chip,
+-			     struct mv88e6xxx_vtu_entry *entry)
++static int mv88e6xxx_g1_vtu_getnext(struct mv88e6xxx_chip *chip,
++				    struct mv88e6xxx_vtu_entry *entry)
+ {
+ 	int err;
  
 -- 
 2.12.2
