@@ -1,40 +1,123 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v4 net-next] mdio_bus: Issue GPIO RESET to PHYs.
-Date: Wed, 26 Apr 2017 14:27:18 +0200
-Message-ID: <20170426122718.GE17172@lunn.ch>
-References: <64d6494d-41d2-0faf-a434-057f796637fe@ti.com>
- <daa29a99-0a17-d316-57eb-3e6162938d8d@ti.com>
- <f372db02-a919-55b4-9200-20726cd13482@ti.com>
- <fe0b7ec5-2f83-ba06-579f-3ea0d5c4990c@ti.com>
- <1c36aab1-3411-f76d-67f7-e3f6d9e9fda5@metafoo.de>
- <20170423233553.GA23498@lunn.ch>
- <551ee7a0-d153-3a36-e025-2c1f70f866b7@ti.com>
- <5954130c-c08c-1555-4d34-83307ed68d92@metafoo.de>
- <7c443bf0-03ac-cc1c-3776-a36287801e96@gmail.com>
- <acb28e07-0066-e4fe-6479-5edc3ee32d80@ti.com>
+From: Andrey Konovalov <andreyknvl@google.com>
+Subject: net/ipv6: use-after-free in __call_rcu/in6_dev_finish_destroy_rcu
+Date: Wed, 26 Apr 2017 14:34:15 +0200
+Message-ID: <CAAeHK+y=YqG0Kb2chQ=_2E8aPttMetQjZPCxFibHKCfktQS2PQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-        Lars-Peter Clausen <lars@metafoo.de>, davem@davemloft.net,
-        tony@atomide.com, nsekhar@ti.com, jsarha@ti.com,
-        netdev@vger.kernel.org, linux-omap@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Roger Quadros <rogerq@ti.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <edumazet@google.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Josh Triplett <josh@joshtriplett.org>,
+        Steven Rostedt <rostedt@goodmis.org>,
+        Mathieu Desnoyers <mathieu.desnoyers@efficios.com>,
+        Lai Jiangshan <jiangshanlai@gmail.com>,
+        "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:41854 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1432035AbdDZM1a (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 26 Apr 2017 08:27:30 -0400
-Content-Disposition: inline
-In-Reply-To: <acb28e07-0066-e4fe-6479-5edc3ee32d80@ti.com>
+Received: from mail-yw0-f172.google.com ([209.85.161.172]:34671 "EHLO
+        mail-yw0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1437624AbdDZMeR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2017 08:34:17 -0400
+Received: by mail-yw0-f172.google.com with SMTP id k11so62851275ywb.1
+        for <netdev@vger.kernel.org>; Wed, 26 Apr 2017 05:34:17 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Patch is already in net-next. How can we get this fixed? Should I send a v5?
+Hi,
 
-Hi Roger
+I've got the following error report while fuzzing the kernel with syzkaller.
 
-See the followup patch Florian submitted. Send your Reviewed-by: if
-you agree with it.
+On commit 5a7ad1146caa895ad718a534399e38bd2ba721b7 (4.11-rc8).
 
-      Andrew
+Unfortunately it's not reproducible.
+
+I'm not sure whether is is an issue with rcu or ipv6.
+
+==================================================================
+BUG: KASAN: use-after-free in __call_rcu.constprop.77+0x13be/0x1640
+kernel/rcu/tree.c:3269 at addr ffff88003b842280
+Write of size 8 by task kworker/u10:1/180
+CPU: 2 PID: 180 Comm: kworker/u10:1 Not tainted 4.11.0-rc8+ #270
+Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+Workqueue: events_unbound call_usermodehelper_exec_work
+Call Trace:
+ __dump_stack lib/dump_stack.c:16 [inline]
+ dump_stack+0x192/0x22d lib/dump_stack.c:52
+ kasan_object_err+0x1c/0x70 mm/kasan/report.c:164
+ print_address_description mm/kasan/report.c:202 [inline]
+ kasan_report_error mm/kasan/report.c:291 [inline]
+ kasan_report+0x252/0x510 mm/kasan/report.c:347
+ __asan_report_store8_noabort+0x17/0x20 mm/kasan/report.c:373
+ __call_rcu.constprop.77+0x13be/0x1640 kernel/rcu/tree.c:3269
+ call_rcu_sched+0x12/0x20 kernel/rcu/tree.c:3288
+ free_pid+0x446/0x5d0 kernel/pid.c:293
+ __change_pid+0x2a1/0x3d0 kernel/pid.c:411
+ detach_pid+0x1f/0x30 kernel/pid.c:416
+ __unhash_process kernel/exit.c:74 [inline]
+ __exit_signal kernel/exit.c:155 [inline]
+ release_task+0xbb0/0x1d90 kernel/exit.c:199
+ wait_task_zombie kernel/exit.c:1230 [inline]
+ wait_consider_task+0x11fe/0x3410 kernel/exit.c:1458
+ do_wait_thread kernel/exit.c:1521 [inline]
+ do_wait+0x3ea/0x8e0 kernel/exit.c:1592
+ SYSC_wait4 kernel/exit.c:1720 [inline]
+ SyS_wait4+0x208/0x340 kernel/exit.c:1689
+ call_usermodehelper_exec_sync kernel/kmod.c:292 [inline]
+ call_usermodehelper_exec_work+0x1a7/0x2b0 kernel/kmod.c:329
+ process_one_work+0x9f7/0x1580 kernel/workqueue.c:2097
+ worker_thread+0x1df/0x14b0 kernel/workqueue.c:2231
+ kthread+0x31f/0x3f0 kernel/kthread.c:231
+ ret_from_fork+0x2c/0x40 arch/x86/entry/entry_64.S:430
+Object at ffff88003b842018, in cache kmalloc-1024 size: 1024
+Allocated:
+PID = 1
+ save_stack_trace+0x16/0x20 arch/x86/kernel/stacktrace.c:59
+ save_stack+0x43/0xd0 mm/kasan/kasan.c:513
+ set_track mm/kasan/kasan.c:525 [inline]
+ kasan_kmalloc+0xad/0xe0 mm/kasan/kasan.c:616
+ kmem_cache_alloc_trace+0x61/0x170 mm/slub.c:2745
+ kmalloc include/linux/slab.h:490 [inline]
+ kzalloc include/linux/slab.h:663 [inline]
+ ipv6_add_dev+0x199/0x1380 net/ipv6/addrconf.c:380
+ addrconf_init+0xd0/0x29a net/ipv6/addrconf.c:6405
+ inet6_init+0x2f6/0x584 net/ipv6/af_inet6.c:962
+ do_one_initcall+0xf3/0x380 init/main.c:792
+ do_initcall_level init/main.c:858 [inline]
+ do_initcalls init/main.c:866 [inline]
+ do_basic_setup init/main.c:884 [inline]
+ kernel_init_freeable+0x54d/0x622 init/main.c:1035
+ kernel_init+0x13/0x180 init/main.c:959
+ ret_from_fork+0x2c/0x40 arch/x86/entry/entry_64.S:430
+Freed:
+PID = 6479
+ save_stack_trace+0x16/0x20 arch/x86/kernel/stacktrace.c:59
+ save_stack+0x43/0xd0 mm/kasan/kasan.c:513
+ set_track mm/kasan/kasan.c:525 [inline]
+ kasan_slab_free+0x73/0xc0 mm/kasan/kasan.c:589
+ slab_free_hook mm/slub.c:1357 [inline]
+ slab_free_freelist_hook mm/slub.c:1379 [inline]
+ slab_free mm/slub.c:2961 [inline]
+ kfree+0x91/0x190 mm/slub.c:3882
+ in6_dev_finish_destroy_rcu+0x97/0xc0 net/ipv6/addrconf_core.c:150
+ __rcu_reclaim kernel/rcu/rcu.h:118 [inline]
+ rcu_do_batch.isra.65+0x6de/0xbd0 kernel/rcu/tree.c:2879
+ invoke_rcu_callbacks kernel/rcu/tree.c:3142 [inline]
+ __rcu_process_callbacks kernel/rcu/tree.c:3109 [inline]
+ rcu_process_callbacks+0x23f/0x810 kernel/rcu/tree.c:3126
+ __do_softirq+0x253/0x78b kernel/softirq.c:284
+Memory state around the buggy address:
+ ffff88003b842180: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
+ ffff88003b842200: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
+>ffff88003b842280: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
+                   ^
+ ffff88003b842300: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
+ ffff88003b842380: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
+==================================================================
