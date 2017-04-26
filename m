@@ -1,79 +1,181 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH net-next v8 2/3] net sched actions: dump more than
- TCA_ACT_MAX_PRIO actions per batch
-Date: Wed, 26 Apr 2017 16:07:08 -0400
-Message-ID: <b32fb2fb-ffb1-aee8-5f1d-1f1e3c82b347@mojatatu.com>
-References: <1493121247-11863-1-git-send-email-jhs@emojatatu.com>
- <1493121247-11863-3-git-send-email-jhs@emojatatu.com>
- <20170425121338.GC1867@nanopsycho.orion>
- <5e54edd8-3943-6f09-490f-ff04b83077f6@mojatatu.com>
- <20170425160445.GD1867@nanopsycho.orion>
- <4b7789f7-69e0-4764-7029-f6e15d6e7d69@mojatatu.com>
- <20170426061904.GB1867@nanopsycho.orion>
- <8f1a1b14-ad9b-7840-1fa6-04f2a2e4f55d@mojatatu.com>
- <20170426120851.GE1867@nanopsycho.orion>
- <10fe2c22-8e76-543e-dd24-ddce5813ab69@mojatatu.com>
- <20170426135627.GI1867@nanopsycho.orion>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next 3/6] bpf: bpf_progs stores all loaded programs
+Date: Wed, 26 Apr 2017 22:44:49 +0200
+Message-ID: <590106C1.2080609@iogearbox.net>
+References: <20170426182419.14574-1-hannes@stressinduktion.org> <20170426182419.14574-4-hannes@stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, xiyou.wangcong@gmail.com,
-        eric.dumazet@gmail.com, netdev@vger.kernel.org,
-        Simon Horman <simon.horman@netronome.com>,
-        Benjamin LaHaise <bcrl@kvack.org>
-To: Jiri Pirko <jiri@resnulli.us>
+Cc: ast@kernel.org, jbenc@redhat.com, aconole@bytheb.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f65.google.com ([209.85.214.65]:33044 "EHLO
-        mail-it0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754218AbdDZUHL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2017 16:07:11 -0400
-Received: by mail-it0-f65.google.com with SMTP id z67so1809936itb.0
-        for <netdev@vger.kernel.org>; Wed, 26 Apr 2017 13:07:10 -0700 (PDT)
-In-Reply-To: <20170426135627.GI1867@nanopsycho.orion>
+Received: from www62.your-server.de ([213.133.104.62]:38741 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S935071AbdDZUow (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2017 16:44:52 -0400
+In-Reply-To: <20170426182419.14574-4-hannes@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17-04-26 09:56 AM, Jiri Pirko wrote:
-> Wed, Apr 26, 2017 at 03:14:38PM CEST, jhs@mojatatu.com wrote:
->> On 17-04-26 08:08 AM, Jiri Pirko wrote:
+[ -daniel@iogearbox.com (wrong address) ]
 
-[..]
-
->> Jiri, what are you arguing about if you have done the math? ;->
+On 04/26/2017 08:24 PM, Hannes Frederic Sowa wrote:
+> We later want to give users a quick dump of what is possible with procfs,
+> so store a list of all currently loaded bpf programs. Later this list
+> will be printed in procfs.
 >
-> I can do 3*2*64. What I cannot do is to figure out the real performance
-> impact.
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> ---
+>   include/linux/filter.h |  4 ++--
+>   kernel/bpf/core.c      | 51 +++++++++++++++++++++++---------------------------
+>   kernel/bpf/syscall.c   |  4 ++--
+>   3 files changed, 27 insertions(+), 32 deletions(-)
 >
-
-Jiri, I do a lot of very large data dumping and setting towards the
-kernel. You know that. It is why I even have these patches to begin
-with.
-
-The math should be convincing enough.
-48B per rule extra for just MPLS in a filter rule. I havent started
-testing the overhead of flower but i do plan to use it - with about a
-million rules for offloading. I will give you the numbers then.
-
-I think we are at a stalemate.
-You are not going to convince me to use an attribute with a
-u8 for a bit flag when I can fit 32 of them in one attribute (with
-the same cost). And I am not able to convince you that you are
-wrong to put beauty first.
-
->> Again: You are looking at this from a manageability point of view which
->> is useful but not the only input into a design. If i can squeeze more
->> data without killing usability - I am all for it. It just doesnt
->> compute that it is ok to use a flag per attribute because it looks
->> beautiful.
+> diff --git a/include/linux/filter.h b/include/linux/filter.h
+> index 9a7786db14fa53..63624c619e371b 100644
+> --- a/include/linux/filter.h
+> +++ b/include/linux/filter.h
+> @@ -753,8 +753,8 @@ bpf_address_lookup(unsigned long addr, unsigned long *size,
+>   	return ret;
+>   }
 >
-> Hmm. Now that I'm thinking about it, why don't we have NLA_FLAGS with
-> couple of helpers around it? It will be obvious what the attr is, all
-> kernel code would use the same helpers. Would be nice.
+> -void bpf_prog_kallsyms_add(struct bpf_prog *fp);
+> -void bpf_prog_kallsyms_del(struct bpf_prog *fp);
+> +void bpf_prog_link(struct bpf_prog *fp);
+> +void bpf_prog_unlink(struct bpf_prog *fp);
 >
+>   #else /* CONFIG_BPF_JIT */
+>
+> diff --git a/kernel/bpf/core.c b/kernel/bpf/core.c
+> index 043f634ff58d87..2139118258cdf8 100644
+> --- a/kernel/bpf/core.c
+> +++ b/kernel/bpf/core.c
+> @@ -365,22 +365,6 @@ static struct latch_tree_root bpf_tree __cacheline_aligned;
+>
+>   int bpf_jit_kallsyms __read_mostly;
+>
+> -static void bpf_prog_ksym_node_add(struct bpf_prog_aux *aux)
+> -{
+> -	WARN_ON_ONCE(!list_empty(&aux->bpf_progs_head));
+> -	list_add_tail_rcu(&aux->bpf_progs_head, &bpf_progs);
+> -	latch_tree_insert(&aux->ksym_tnode, &bpf_tree, &bpf_tree_ops);
+> -}
+> -
+> -static void bpf_prog_ksym_node_del(struct bpf_prog_aux *aux)
+> -{
+> -	if (list_empty(&aux->bpf_progs_head))
+> -		return;
+> -
+> -	latch_tree_erase(&aux->ksym_tnode, &bpf_tree, &bpf_tree_ops);
+> -	list_del_rcu(&aux->bpf_progs_head);
+> -}
+> -
+>   static bool bpf_prog_kallsyms_candidate(const struct bpf_prog *fp)
+>   {
+>   	return fp->jited && !bpf_prog_was_classic(fp);
+> @@ -392,38 +376,45 @@ static bool bpf_prog_kallsyms_verify_off(const struct bpf_prog *fp)
+>   	       fp->aux->bpf_progs_head.prev == LIST_POISON2;
+>   }
+>
+> -void bpf_prog_kallsyms_add(struct bpf_prog *fp)
+> +void bpf_prog_link(struct bpf_prog *fp)
+>   {
+> -	if (!bpf_prog_kallsyms_candidate(fp) ||
+> -	    !capable(CAP_SYS_ADMIN))
+> -		return;
+> +	struct bpf_prog_aux *aux = fp->aux;
+>
+>   	spin_lock_bh(&bpf_lock);
+> -	bpf_prog_ksym_node_add(fp->aux);
+> +	list_add_tail_rcu(&aux->bpf_progs_head, &bpf_progs);
+> +	if (bpf_prog_kallsyms_candidate(fp))
+> +		latch_tree_insert(&aux->ksym_tnode, &bpf_tree, &bpf_tree_ops);
 
-I think to have flags at that level is useful but it
-is a different hierarchy level. I am not sure the
-"actions dump large messages" is a fit for that level.
+Hmm, this has the side-effect that it will hook up all progs
+to kallsyms (I left out !capable(CAP_SYS_ADMIN) intentionally).
 
-cheers,
-jamal
+>   	spin_unlock_bh(&bpf_lock);
+>   }
+>
+> -void bpf_prog_kallsyms_del(struct bpf_prog *fp)
+> +void bpf_prog_unlink(struct bpf_prog *fp)
+>   {
+> -	if (!bpf_prog_kallsyms_candidate(fp))
+> -		return;
+> +	struct bpf_prog_aux *aux = fp->aux;
+>
+>   	spin_lock_bh(&bpf_lock);
+> -	bpf_prog_ksym_node_del(fp->aux);
+> +	list_del_rcu(&aux->bpf_progs_head);
+> +	if (bpf_prog_kallsyms_candidate(fp))
+> +		latch_tree_erase(&aux->ksym_tnode, &bpf_tree, &bpf_tree_ops);
+>   	spin_unlock_bh(&bpf_lock);
+>   }
+>
+>   static struct bpf_prog *bpf_prog_kallsyms_find(unsigned long addr)
+>   {
+>   	struct latch_tree_node *n;
+> +	struct bpf_prog *prog;
+>
+>   	if (!bpf_jit_kallsyms_enabled())
+>   		return NULL;
+>
+>   	n = latch_tree_find((void *)addr, &bpf_tree, &bpf_tree_ops);
+> -	return n ?
+> -	       container_of(n, struct bpf_prog_aux, ksym_tnode)->prog :
+> -	       NULL;
+> +	if (!n)
+> +		return NULL;
+> +
+> +	prog = container_of(n, struct bpf_prog_aux, ksym_tnode)->prog;
+> +	if (!prog->priv_cap_sys_admin)
+
+Where is this bit defined?
+
+If we return NULL on them anyway, why adding them to the tree
+in the first place, just wastes resources on the traversal?
+
+> +		return NULL;
+> +
+> +	return prog;
+>   }
+>
+>   const char *__bpf_address_lookup(unsigned long addr, unsigned long *size,
+> @@ -474,6 +465,10 @@ int bpf_get_kallsym(unsigned int symnum, unsigned long *value, char *type,
+>
+>   	rcu_read_lock();
+>   	list_for_each_entry_rcu(aux, &bpf_progs, bpf_progs_head) {
+> +		if (!bpf_prog_kallsyms_candidate(aux->prog) ||
+> +		    !aux->prog->priv_cap_sys_admin)
+
+Same here.
+
+> +			continue;
+> +
+>   		if (it++ != symnum)
+>   			continue;
+>
+> diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
+> index 13642c73dca0b4..d61d1bd3e6fee6 100644
+> --- a/kernel/bpf/syscall.c
+> +++ b/kernel/bpf/syscall.c
+> @@ -664,7 +664,7 @@ void bpf_prog_put(struct bpf_prog *prog)
+>   {
+>   	if (atomic_dec_and_test(&prog->aux->refcnt)) {
+>   		trace_bpf_prog_put_rcu(prog);
+> -		bpf_prog_kallsyms_del(prog);
+> +		bpf_prog_unlink(prog);
+>   		call_rcu(&prog->aux->rcu, __bpf_prog_put_rcu);
+>   	}
+>   }
+> @@ -858,7 +858,7 @@ static int bpf_prog_load(union bpf_attr *attr)
+>   		/* failed to allocate fd */
+>   		goto free_used_maps;
+>
+> -	bpf_prog_kallsyms_add(prog);
+> +	bpf_prog_link(prog);
+>   	trace_bpf_prog_load(prog, err);
+>   	return err;
+>
+>
