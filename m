@@ -1,45 +1,81 @@
-From: Donatas Abraitis <donatas.abraitis@gmail.com>
-Subject: [PATCH net-next v1] net: ipv6: make sure multicast packets are not forwarded beyond the different scopes
-Date: Wed, 26 Apr 2017 10:15:48 +0300
-Message-ID: <20170426071548.73171-1-donatas.abraitis@gmail.com>
-Cc: netdev@vger.kernel.org, stable@vger.kernel.org,
-        donatas.abraitis@gmail.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kvb.lt ([193.219.39.208]:55250 "EHLO list.kvb.lt"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1953170AbdDZHXf (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 26 Apr 2017 03:23:35 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Gao Feng" <gfree.wind-H32Fclmsjq1BDgjK7y7TUQ@public.gmane.org>
+Subject: Re: [PATCH net] net: batman-adv: Fix possible
+	memleaks when fail to register_netdevice
+Date: Wed, 26 Apr 2017 15:28:26 +0800
+Message-ID: <005501d2be5e$b2bb0550$18310ff0$@foxmail.com>
+References: <1493121800-28066-1-git-send-email-gfree.wind@foxmail.com>
+ <3994535.Z9kqCnttI2@bentobox> <002101d2be58$8bcaaa00$a35ffe00$@foxmail.com>
+ <2857108.moq831zFsU@bentobox>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org, a@unstable.cc, 'Gao Feng' <fgao-KlmEoCYek3zQT0dZR+AlfA@public.gmane.org>,
+ davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: "'Sven Eckelmann'" <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <2857108.moq831zFsU@bentobox>
+Content-Language: zh-cn
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-	    RFC4291 2.7 Routers must not forward any multicast packets
-	    beyond of the scope indicated by the scop field in the
-	    destination multicast address.
+> From: Sven Eckelmann [mailto:sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org]
+> Sent: Wednesday, April 26, 2017 3:17 PM
+> On Mittwoch, 26. April 2017 14:44:24 CEST Gao Feng wrote:
+> [...]
+> > I get it now, thanks.
+> [...]
+> > BTW, I think although the batadv_softif_create is legacy, we should
+> > fix it when it still exists :)
+> 
+> I didn't meant that we should not fix it. I just said that it looks to me
+like the fix
+> should look different to ensure that it actually fixes the sysfs and rtnl
+link
+> implementation for the batadv interface creation. Right now the ndo_uninit
+> (when it would be set by batadv) is called in the netdev core functions
+when an
+> error happens during the registration. This is not the case for the
+destructor.
 
-Signed-off-by: Donatas Abraitis <donatas.abraitis@gmail.com>
----
- net/ipv6/ip6_input.c | 8 ++++++++
- 1 file changed, 8 insertions(+)
+Thanks your answer.
+I assumed the destructor is not for this case before.. 
 
-diff --git a/net/ipv6/ip6_input.c b/net/ipv6/ip6_input.c
-index 9ee208a..a834797 100644
---- a/net/ipv6/ip6_input.c
-+++ b/net/ipv6/ip6_input.c
-@@ -165,6 +165,14 @@ int ipv6_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt
- 	    IPV6_ADDR_MC_SCOPE(&hdr->daddr) == 0)
- 		goto err;
+> Your patch would not change it. It therefore looks like you simply have to
+move
+> the current destructor (without the free_netdev) to ndo_uninit and change
+the
+> destructor to free_netdev.
+
+Yes, that patch didn't touch badman-adv. Because current badman-adv doesn't
+support newlink now.
+It would be good that cleanup the resource in ndo_uninit routine.
+
+Best Regards
+Feng
  
-+	/* RFC4291 2.7
-+	 * Routers must not forward any multicast packets beyond of the scope
-+	 * indicated by the scop field in the destination multicast address.
-+	*/
-+	if (ipv6_addr_is_multicast(&hdr->daddr) &&
-+	    IPV6_ADDR_MC_SCOPE(&hdr->daddr) != IPV6_ADDR_MC_SCOPE(&hdr->saddr)
-+	        goto err;
-+
- 	/*
- 	 * RFC4291 2.7
- 	 * Multicast addresses must not be used as source addresses in IPv6
--- 
-2.10.0
+> 
+> The batadv ops doesn't have a newlink function. It will therefore use the
+> register_netdevice code path which calls free_netdev on failures. The
+extra
+> cleanup you've added in
+> https://www.mail-archive.com/netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org/msg165253.html can
+> therefore not work for batman-adv. Actually, it is not touching anything
+> batman-adv related. The suggestion to change the register_netdevice ->
+> free_netdev part in rtnl_newlink was new in the reply to the batadv
+discussion.
+> It is therefore still an open discussion how it is correctly fixed.
+> 
+> Kind regards,
+> 	Sven
