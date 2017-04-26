@@ -1,117 +1,98 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: [PATCH net-next] can: fix CAN BCM build with CONFIG_PROC_FS disabled
-Date: Wed, 26 Apr 2017 20:14:34 +0200
-Message-ID: <20170426181434.9635-1-socketcan@hartkopp.net>
-Cc: Oliver Hartkopp <socketcan@hartkopp.net>, mkl@pengutronix.de,
-        netdev@vger.kernel.org
-To: linux-can@vger.kernel.org, davem@davemloft.net,
-        rdunlap@infradead.org
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: Bug and configuration MPLS error?
+Date: Wed, 26 Apr 2017 12:18:24 -0600
+Message-ID: <009bfda0-ca43-69ff-e53b-6f7c16c8af8a@gmail.com>
+References: <184081493141314@web16g.yandex.ru>
+ <a104e7e4-9ebc-329a-1bf0-7e860ea0d61a@gmail.com>
+ <1728581493210432@web45j.yandex.ru>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+To: =?UTF-8?B?0JDQu9C10LrRgdC10Lkg0JHQvtC70LTRi9GA0LXQsg==?=
+        <ne-vlezay80@yandex.ru>, netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo4-p00-ob.smtp.rzone.de ([81.169.146.220]:32768 "EHLO
-        mo4-p00-ob.smtp.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932942AbdDZSOv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2017 14:14:51 -0400
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:32998 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933001AbdDZSS1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2017 14:18:27 -0400
+Received: by mail-pf0-f195.google.com with SMTP id c198so1813731pfc.0
+        for <netdev@vger.kernel.org>; Wed, 26 Apr 2017 11:18:27 -0700 (PDT)
+In-Reply-To: <1728581493210432@web45j.yandex.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The introduced namespace support moved the BCM variables for procfs into a
-per-net data structure. This leads to a build failure with disabled procfs:
+On 4/26/17 6:40 AM, Алексей Болдырев wrote:
+> 
+> 
+> 26.04.2017, 05:23, "David Ahern" <dsahern@gmail.com>:
+>> On 4/25/17 11:28 AM, Алексей Болдырев wrote:
+>>>  226 sysctl -w net.mpls.conf.lo.input=1
+>>>  227 sysctl -w net.mpls.platform_labels=1048575
+>>>  228 ip link add veth0 type veth peer name veth1
+>>>  229 ip link add veth2 type veth peer name veth3
+>>>  230 sysctl -w net.mpls.conf.veth0.input=1
+>>>  231 sysctl -w net.mpls.conf.veth2.input=1
+>>>  232 ifconfig veth0 10.3.3.1 netmask 255.255.255.0
+>>>  233 ifconfig veth2 10.4.4.1 netmask 255.255.255.0
+>>>  234 ip netns add host1
+>>>  235 ip netns add host2
+>>>  236 ip link set veth1 netns host1
+>>>  237 ip link set veth3 netns host2
+>>>  238 ip netns exec host1 ifconfig veth1 10.3.3.2 netmask 255.255.255.0 up
+>>>  239 ip netns exec host2 ifconfig veth3 10.4.4.2 netmask 255.255.255.0 up
+>>>  240 ip netns exec host1 ip route add 10.10.10.2/32 encap mpls 112 via inet 10.3.3.1
+>>>  241 ip netns exec host2 ip route add 10.10.10.1/32 encap mpls 111 via inet 10.4.4.1
+>>>  242 ip -f mpls route add 111 via inet 10.3.3.2
+>>>  243 ip -f mpls route add 112 via inet 10.4.4.2
+>>
+>> your setup is incomplete.
+>>
+>> # ip netns exec host2 ping 10.10.10.1
+>> PING 10.10.10.1 (10.10.10.1) 56(84) bytes of data.
+>> ^C
+>> --- 10.10.10.1 ping statistics ---
+>> 2 packets transmitted, 0 received, 100% packet loss, time 1038ms
+>>
+>> If you run tcpdump on veth1 in host1 you see the packets come in but no
+>> response:
+>>
+>> # ip netns exec host1 tcpdump -n -i veth1
+>> tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
+>> listening on veth1, link-type EN10MB (Ethernet), capture size 262144 bytes
+>> 19:20:24.599529 IP6 fe80::347d:e3ff:fe93:944b > ff02::2: ICMP6, router
+>> solicitation, length 16
+>> 19:20:27.413901 IP 10.4.4.2 > 10.10.10.1: ICMP echo request, id 978, seq
+>> 1, length 64
+>> 19:20:28.439574 IP 10.4.4.2 > 10.10.10.1: ICMP echo request, id 978, seq
+>> 2, length 64
+>>
+>> and the lack of response is b/c:
+>> 1. host1 has no address for 10.10.10.1 and
+>> 2. even if it did, there is no return route to 10.4.4.2:
+>>
+>> # ip -netns host1 ro ls
+>> 10.3.3.0/24 dev veth1 proto kernel scope link src 10.3.3.2
+>> 10.10.10.2 encap mpls 112 via 10.3.3.1 dev veth1
+> 
+> As for ping, you need to enter this:
+> Ip netns exec host2 ping 10.10.10.1 -A 10.10.10.2
+> Here I published the results of testing on new (>4.9) cores. (in Russian):
+> http://forum.nag.ru/forum/index.php?s=d09f0e5186fda59b3099eb81ad07ee63&showtopic=128927
+> But on the old kernels:
+> http://forum.nag.ru/forum/index.php?showtopic=128927&view=findpost&p=1396067
+> 
 
-on x86_64:
+host1 does not have 10.10.10.1 as a local address.
+host2 does not have 10.10.10.2 as a local address.
 
-when CONFIG_PROC_FS is not enabled:
+Given that, host1 has no business replying to a ping destined to
+10.10.10.1, and host2 will not use 10.10.10.2 as a source address.
 
-../net/can/bcm.c:1541:14: error: 'struct netns_can' has no member named 'bcmproc_dir'
-../net/can/bcm.c:1601:14: error: 'struct netns_can' has no member named 'bcmproc_dir'
-../net/can/bcm.c:1696:11: error: 'struct netns_can' has no member named 'bcmproc_dir'
-../net/can/bcm.c:1707:15: error: 'struct netns_can' has no member named 'bcmproc_dir'
+I don't have time right now to build and test on older kernels, but
+based on the network config I do not see how it can work.
 
-http://marc.info/?l=linux-can&m=149321842526524&w=2
+If you add:
+  ip -netns host1 addr add dev lo 10.10.10.1/32
+  ip -netns host2 addr add dev lo 10.10.10.2/32
 
-Reported-by: Randy Dunlap <rdunlap@infradead.org>
-Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
----
- net/can/bcm.c | 22 ++++++++++++++--------
- 1 file changed, 14 insertions(+), 8 deletions(-)
-
-diff --git a/net/can/bcm.c b/net/can/bcm.c
-index 0e855917b7e1..78409841b74c 100644
---- a/net/can/bcm.c
-+++ b/net/can/bcm.c
-@@ -147,6 +147,7 @@ static inline ktime_t bcm_timeval_to_ktime(struct bcm_timeval tv)
- /*
-  * procfs functions
-  */
-+#if IS_ENABLED(CONFIG_PROC_FS)
- static char *bcm_proc_getifname(struct net *net, char *result, int ifindex)
- {
- 	struct net_device *dev;
-@@ -251,6 +252,7 @@ static const struct file_operations bcm_proc_fops = {
- 	.llseek		= seq_lseek,
- 	.release	= single_release,
- };
-+#endif /* CONFIG_PROC_FS */
- 
- /*
-  * bcm_can_tx - send the (next) CAN frame to the appropriate CAN interface
-@@ -1537,9 +1539,11 @@ static int bcm_release(struct socket *sock)
- 		bcm_remove_op(op);
- 	}
- 
-+#if IS_ENABLED(CONFIG_PROC_FS)
- 	/* remove procfs entry */
- 	if (net->can.bcmproc_dir && bo->bcm_proc_read)
- 		remove_proc_entry(bo->procname, net->can.bcmproc_dir);
-+#endif /* CONFIG_PROC_FS */
- 
- 	/* remove device reference */
- 	if (bo->bound) {
-@@ -1598,6 +1602,7 @@ static int bcm_connect(struct socket *sock, struct sockaddr *uaddr, int len,
- 		bo->ifindex = 0;
- 	}
- 
-+#if IS_ENABLED(CONFIG_PROC_FS)
- 	if (net->can.bcmproc_dir) {
- 		/* unique socket address as filename */
- 		sprintf(bo->procname, "%lu", sock_i_ino(sk));
-@@ -1609,6 +1614,7 @@ static int bcm_connect(struct socket *sock, struct sockaddr *uaddr, int len,
- 			goto fail;
- 		}
- 	}
-+#endif /* CONFIG_PROC_FS */
- 
- 	bo->bound = 1;
- 
-@@ -1691,22 +1697,22 @@ static const struct can_proto bcm_can_proto = {
- 
- static int canbcm_pernet_init(struct net *net)
- {
-+#if IS_ENABLED(CONFIG_PROC_FS)
- 	/* create /proc/net/can-bcm directory */
--	if (IS_ENABLED(CONFIG_PROC_FS)) {
--		net->can.bcmproc_dir =
--			proc_net_mkdir(net, "can-bcm", net->proc_net);
--	}
-+	net->can.bcmproc_dir =
-+		proc_net_mkdir(net, "can-bcm", net->proc_net);
-+#endif /* CONFIG_PROC_FS */
- 
- 	return 0;
- }
- 
- static void canbcm_pernet_exit(struct net *net)
- {
-+#if IS_ENABLED(CONFIG_PROC_FS)
- 	/* remove /proc/net/can-bcm directory */
--	if (IS_ENABLED(CONFIG_PROC_FS)) {
--		if (net->can.bcmproc_dir)
--			remove_proc_entry("can-bcm", net->proc_net);
--	}
-+	if (net->can.bcmproc_dir)
-+		remove_proc_entry("can-bcm", net->proc_net);
-+#endif /* CONFIG_PROC_FS */
- }
- 
- static struct pernet_operations canbcm_pernet_ops __read_mostly = {
--- 
-2.11.0
+Then it works.
