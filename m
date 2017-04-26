@@ -1,67 +1,58 @@
-From: Eric Anholt <eric@anholt.net>
-Subject: Re: [PATCH v2 2/2] ARM: dts: Add the ethernet and ethernet PHY to the cygnus core DT.
-Date: Wed, 26 Apr 2017 10:25:40 -0700
-Message-ID: <87vaprjd2j.fsf@eliezer.anholt.net>
-References: <20170425235357.7690-1-eric@anholt.net> <20170425235357.7690-2-eric@anholt.net> <20170426004907.GA9453@lunn.ch>
+From: David Miller <davem@davemloft.net>
+Subject: Re: hmmm...
+Date: Wed, 26 Apr 2017 13:25:48 -0400 (EDT)
+Message-ID: <20170426.132548.1260374401411231348.davem@davemloft.net>
+References: <af3781d2-f8af-1c6e-b3a0-163d8c1de75a@fb.com>
+        <20170425.233820.1357836307906136732.davem@davemloft.net>
+        <133d8e46-c5c1-1e0e-86a1-a7b5a2737bff@fb.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="=-=-=";
-        micalg=pgp-sha512; protocol="application/pgp-signature"
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        netdev@vger.kernel.org, Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-        linux-kernel@vger.kernel.org,
-        bcm-kernel-feedback-list@broadcom.com, Ray Jui <rjui@broadcom.com>,
-        Scott Branden <sbranden@broadcom.com>,
-        Jon Mason <jonmason@broadcom.com>
-To: Andrew Lunn <andrew@lunn.ch>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: ast@fb.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from anholt.net ([50.246.234.109]:53840 "EHLO anholt.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752974AbdDZRZn (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 26 Apr 2017 13:25:43 -0400
-In-Reply-To: <20170426004907.GA9453@lunn.ch>
+Received: from shards.monkeyblade.net ([184.105.139.130]:58442 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753035AbdDZRZw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2017 13:25:52 -0400
+In-Reply-To: <133d8e46-c5c1-1e0e-86a1-a7b5a2737bff@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---=-=-=
-Content-Type: text/plain
+From: Alexei Starovoitov <ast@fb.com>
+Date: Tue, 25 Apr 2017 22:31:06 -0700
 
-Andrew Lunn <andrew@lunn.ch> writes:
+> On 4/25/17 8:38 PM, David Miller wrote:
+> jgt/jge/jsgt/sge was a stumbling block for me as well,
+> since it still takes me longer than necessary to disambiguate
+> into > vs >= and signed/unsigned
 
->> +		eth0: ethernet@18042000 {
->> +			compatible = "brcm,amac";
->> +			reg = <0x18042000 0x1000>,
->> +			      <0x18110000 0x1000>;
->> +			reg-names = "amac_base", "idm_base";
->> +			interrupts = <GIC_SPI 110 IRQ_TYPE_LEVEL_HIGH>;
->> +			max-speed = <1000>;
->
-> Hi Eric
->
-> Sorry i missed this the first time. Does this Ethernet controller do >
-> 1Gbps? Does this max-speed do anything useful?
+I had this problem while writing Sparc JIT :)
 
-It doesn't look like it.  Dropped.
+> Though I think Daniel still prefers old classic bpf asm ;)
 
---=-=-=
-Content-Type: application/pgp-signature; name="signature.asc"
+I do too.
 
------BEGIN PGP SIGNATURE-----
+> Anyway, back to the question...
+> since BFD and GCC are so much entrenched into canonical style
+> of asm code, I don't mind that gnu toolchain will be using it.
 
-iQIzBAEBCgAdFiEE/JuuFDWp9/ZkuCBXtdYpNtH8nugFAlkA2BQACgkQtdYpNtH8
-nui2Cg/9HHWZyZl6ZyxmGCzJnCWmE2L0Xq05jK5uXFNdjHdrAXqzRva03jtPIXYd
-lX0FyvfiwQgYGVr71p6QZr1CNW/v82Ob9IyBn6YMVyxyRZNWG/nIpjeKULq5yCFD
-7klP3V17XiA2j1eQFZpjNaDEj9IKeYJQfvMFnCvpyqpk+Ef5wlC1rawqv9j1x6ob
-Gj6VsSoJFMoksdRLHT8u5uy3eo+HoBQnugbqNeqjkJvidkNyMg4ElCQMnZj9vngs
-D8l82v6QM96qCl5LU9e7Bn3hUzIVJxiJWwkmIyFUHdW4sXce71LKwFvNa8362dmE
-F+FpKumTO6PeV2uC1URt8zieig+GjMAcM0N2+zA1ge7aLVhOHlw3mVycdY9FEgW9
-ejP2yqn+3JMa58UU1BZQQ490QkABp6nnqHLzuBBphHfTM1THK1YwZeichH1NpZvo
-BlnXa7+PimnfJrFDkz0b2FkC0O3SzlsvsRql0/yYoMFoBQW15c996J5GqQ+FuKBV
-Ij/hzLCK2upDR7Pky9fLdwZDMlt0NkBHLphU9PmUFpRnP+3Qq0/3T1EFMIuptq4o
-iXOGZ/QFhfIjBzAajNz41sHTWy7x75sToKYS3yUF6/ClD7S4qRzK1VpHIdh+WtWf
-t+YsxqDkFRZ7QkmHy7qyN3K49dRjwG3gO/2+MEcQAj69dRPTR3s=
-=WuFm
------END PGP SIGNATURE-----
---=-=-=--
+Ok.  All data flows from right to left in the instructions so it will
+be familiar for x86 assembler hackers.
+
+> I like that you used 'dw' in 'ldxdw' instead of just 'd'
+> though 'x' can probably be dropped.
+
+Ok, dropped.
+
+> 'x' should be added here instead:
+>  { "stb", BPF_OPC_ST    | BPF_OPC_MEM  | BPF_OPC_B, "[1+O],i" },
+>  { "stb", BPF_OPC_STX   | BPF_OPC_MEM  | BPF_OPC_B, "[1+O],2" },
+
+The 'x' really isn't necessary, I would say.  Assembler can tell from
+context whether immediate or register variant is wanted and thus:
+
+	stb	[r1+8], 2
+	stb	[r1+8], r4
+
+are both assembled correctly.
