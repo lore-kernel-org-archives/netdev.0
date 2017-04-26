@@ -1,93 +1,33 @@
-From: Jukka Rissanen <jukka.rissanen-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Subject: Re: bluetooth 6lowpan interfaces are not virtual anymore
-Date: Wed, 26 Apr 2017 19:52:32 +0300
-Message-ID: <1493225552.3165.5.camel@linux.intel.com>
-References: <2d178eb8-3fbc-3385-6e0c-fa9941713959@pengutronix.de>
-         <28530.1492534783@obiwan.sandelman.ca>
-         <11cf222a-0c1f-4136-091d-719ee68824e1@pengutronix.de>
-         <383.1493218546@dooku.sandelman.ca>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH v1 net-next 0/6] Extend socket timestamping API
+Date: Wed, 26 Apr 2017 18:54:35 +0200
+Message-ID: <20170426165435.GA21114@localhost.localdomain>
+References: <20170426145035.25846-1-mlichvar@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Luiz Augusto von Dentz <luiz.dentz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        "linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Linux Bluetooth <linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Michael Richardson <mcr-SWp7JaYWvAQV+D8aMU/kSg@public.gmane.org>,
-        Alexander Aring <aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <383.1493218546-VaGMqW6d0iXFptTlUKWvmrDks+cytr/Z@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Willem de Bruijn <willemb@google.com>,
+        Soheil Hassas Yeganeh <soheil@google.com>,
+        "Keller, Jacob E" <jacob.e.keller@intel.com>,
+        Denny Page <dennypage@me.com>, Jiri Benc <jbenc@redhat.com>
+To: Miroslav Lichvar <mlichvar@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f170.google.com ([209.85.128.170]:35886 "EHLO
+        mail-wr0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752326AbdDZQyk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2017 12:54:40 -0400
+Received: by mail-wr0-f170.google.com with SMTP id l50so3528850wrc.3
+        for <netdev@vger.kernel.org>; Wed, 26 Apr 2017 09:54:39 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20170426145035.25846-1-mlichvar@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Michael,
+On Wed, Apr 26, 2017 at 04:50:29PM +0200, Miroslav Lichvar wrote:
+> This patchset adds new options to the timestamping API that will be
+> useful for NTP implementations and possibly other applications.
 
-On Wed, 2017-04-26 at 10:55 -0400, Michael Richardson wrote:
-> Alexander Aring <aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org> wrote:
->     >> In a classic SVR4 STREAMS works, it would have been just
-> another
->     >> module.  (No, I'm not a fan of *STREAMS* or of SVR4 in
-> general,
->     >> although I liked some of the ideas).
->     >>
-> 
->     > ok, I see you complain about "having a virtual on top of wpan
->     > interface", or?
-> 
->     > I wanted to talk at first about the queue handling which is
-> introduced
->     > when 6LoWPAN is not a virtual interface anymore. Or do you want
-> to have
->     > a queue in front of 6lowpan adaptation (see other mail reply
-> with ASCII
->     > graphics).
-> 
-> I would like to have a single queue, as close to the hardware as
-> possible,
-> such that BQL can do it's thing easily.  Should we rethink outgoing
-> fragment
-> handling for 6lowpan?  Clearly the BT people had a need.
-> I don't think they've had a chance to respond to your complaints.
+Are there any userland ntp patches floating around to exercise the new
+HW time stamping option?
 
-Note that the BT fragmentation (or actually it is called segmentation
-in BT) is totally different what 802.15.4 is doing. I do not think
-there is any need to add fragmentation handling into 6lo.
-
-Actually the 6lowpan kernel module could probably be simplified to be a
-library. We did this in Zephyr where we have compress() and
-uncompress() functions that do all the magic.  
-
-> 
->     > We can change that you can run multiple interfaces on one
->     > PHY. Currently we just allow one, because address filtering.
-> Disable
->     > address filtering
->     > we will loose ACK handling on hardware.
-> 
-> Yes, that's a limitation of some hardware, and if you enable multiple
-> PANIDs,
-> that might be the consequence....
-> 
->     > I can try to implement all stuff in software "for fun, maybe
-> see what
->     > we can do to handle ACK in software, etc" Then you can run
-> multiple
-> 
-> I'm not asking you to do it, I'm asking, now that we've gotten to a
-> certain
-> point, we have a better idea what the various requirements are, and
-> can we
-> re-evaluate things and maybe tweak some things.
-> 
-> --
-> ]               Never tell me the odds!                 | ipv6 mesh
-> networks [
-> ]   Michael Richardson, Sandelman Software Works        | network
-> architect  [
-> ]     mcr-SWp7JaYWvAQV+D8aMU/kSg@public.gmane.org  http://www.sandelman.ca/        |   ruby on
-> rails    [
-> 
-
-
-Cheers,
-Jukka
+Thanks,
+Richard
