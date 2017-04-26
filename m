@@ -1,73 +1,74 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: xdp_redirect ifindex vs port. Was: best API for
- returning/setting egress port?
-Date: Tue, 25 Apr 2017 17:26:11 -0700
-Message-ID: <20170426002610.eihwmz4knbmrolfw@ast-mbp.dhcp.thefacebook.com>
-References: <20170418215856.5fda7127@redhat.com>
- <20170419200259.GK4730@C02RW35GFVH8.dhcp.broadcom.net>
- <58F7E9F3.5090604@iogearbox.net>
- <20170420025611.GA53935@ast-mbp.thefacebook.com>
- <20170420081051.77a41aa8@redhat.com>
- <20170420171006.GA97067@ast-mbp.thefacebook.com>
- <20170425113453.5c72080f@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-        Andy Gospodarek <andy@greyhouse.net>,
-        Daniel Borkmann <borkmann@iogearbox.net>,
-        Alexei Starovoitov <ast@fb.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "xdp-newbies@vger.kernel.org" <xdp-newbies@vger.kernel.org>,
-        John Fastabend <john.fastabend@gmail.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+From: Wei Wang <weiwan@google.com>
+Subject: [PATCH net-next] tcp: memset ca_priv data to 0 properly
+Date: Tue, 25 Apr 2017 17:38:02 -0700
+Message-ID: <20170426003802.40091-1-tracywwnj@gmail.com>
+Cc: Eric Dumazet <edumazet@google.com>,
+        Yuchung Cheng <ycheng@google.com>,
+        Neal Cardwell <ncardwell@google.com>,
+        Wei Wang <weiwan@google.com>
+To: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f43.google.com ([74.125.83.43]:33174 "EHLO
-        mail-pg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1432366AbdDZA0Z (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 20:26:25 -0400
-Content-Disposition: inline
-In-Reply-To: <20170425113453.5c72080f@redhat.com>
+Received: from mail-pg0-f44.google.com ([74.125.83.44]:33450 "EHLO
+        mail-pg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1433671AbdDZAiO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2017 20:38:14 -0400
+Received: by mail-pg0-f44.google.com with SMTP id 63so35709804pgh.0
+        for <netdev@vger.kernel.org>; Tue, 25 Apr 2017 17:38:14 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 25, 2017 at 11:34:53AM +0200, Jesper Dangaard Brouer wrote:
-> > Note the very first bpf patchset years ago contained the port table
-> > abstraction. ovs has concept of vports as well. These two very
-> > different projects needed port table to provide a layer of
-> > indirection between ifindex==netdev and virtual port number.
-> > This is still the case and I'd like to see this port table to be
-> > implemented for both cls_bpf and xdp. In that sense xdp is not
-> > special.
-> 
-> Glad to hear you want to see this implemented, I will start coding on
-> this then.  Good point with cls_bpf, I was planning to make this port
-> table strongly connected to XDP, guess I should also think of cls_bpf.
+From: Wei Wang <weiwan@google.com>
 
-perfect.
-I think we should try to make all additions to bpf networking world
-to be usable for both tc and xdp, since both are actively used and
-it wouldn't be great to have cool feature for one, but not the other.
-I think port table is an excellent candidate that applies to both.
+Always zero out ca_priv data in tcp_assign_congestion_control() so that
+ca_priv data is cleared out during socket creation.
+Also always zero out ca_priv data in tcp_reinit_congestion_control() so
+that when cc algorithm is changed, ca_priv data is cleared out as well.
+We should still zero out ca_priv data even in TCP_CLOSE state because
+user could call connect() on AF_UNSPEC to disconnect the socket and
+leave it in TCP_CLOSE state and later call setsockopt() to switch cc
+algorithm on this socket.
 
-> I'm not worried about the DROP case, I agree that is fine (as you also
-> say).  The problem is unintentionally sending a packet to a wrong
-> ifindex.  This is clearly an eBPF program error, BUT with XDP this
-> becomes a very hard to debug program error.  With TC-redirect/cls_bpf
-> we can tcpdump the packets, with XDP there is no visibility into this
-> happening (the NSA is going to love this "feature").  Maybe we could add
-> yet-another tracepoint to allow debugging this.  My proposal that we
-> simply remove the possibility for such program errors, by as you say
-> move the validation from run-time into static insertion-time, via a
-> port table.
+Fixes: 2b0a8c9ee ("tcp: add CDG congestion control")
+Reported-by: Andrey Konovalov  <andreyknvl@google.com>
+Signed-off-by: Wei Wang <weiwan@google.com>
+Acked-by: Eric Dumazet <edumazet@google.com>
+Acked-by: Yuchung Cheng <ycheng@google.com>
+Acked-by: Neal Cardwell <ncardwell@google.com>
+---
+ net/ipv4/tcp_cong.c | 11 +++--------
+ 1 file changed, 3 insertions(+), 8 deletions(-)
 
-I think lack of tcpdump-like debugging in xdp is a separate issue.
-As I was saying in the other thread we have trivial 'xdpdump' kern+user
-app that emits pcap file, but it's too specific to how we use
-tail_calls+prog_array in our xdp setup. I'm working on the program
-chaining that will be generic and allow us transparently add multiple
-xdp or tc progs to the same attachment point and will allow us to
-do 'xdpdump' at any point of this pipeline, so debugging of what
-happened to the packet will be easier and done in the same way
-for both tc and xdp.
-btw in our experience working with both tc and xdp the tc+bpf was
-actually harder to use and more bug prone.
+diff --git a/net/ipv4/tcp_cong.c b/net/ipv4/tcp_cong.c
+index 79c4817abc94..6e3c512054a6 100644
+--- a/net/ipv4/tcp_cong.c
++++ b/net/ipv4/tcp_cong.c
+@@ -168,12 +168,8 @@ void tcp_assign_congestion_control(struct sock *sk)
+ 	}
+ out:
+ 	rcu_read_unlock();
++	memset(icsk->icsk_ca_priv, 0, sizeof(icsk->icsk_ca_priv));
+ 
+-	/* Clear out private data before diag gets it and
+-	 * the ca has not been initialized.
+-	 */
+-	if (ca->get_info)
+-		memset(icsk->icsk_ca_priv, 0, sizeof(icsk->icsk_ca_priv));
+ 	if (ca->flags & TCP_CONG_NEEDS_ECN)
+ 		INET_ECN_xmit(sk);
+ 	else
+@@ -200,11 +196,10 @@ static void tcp_reinit_congestion_control(struct sock *sk,
+ 	tcp_cleanup_congestion_control(sk);
+ 	icsk->icsk_ca_ops = ca;
+ 	icsk->icsk_ca_setsockopt = 1;
++	memset(icsk->icsk_ca_priv, 0, sizeof(icsk->icsk_ca_priv));
+ 
+-	if (sk->sk_state != TCP_CLOSE) {
+-		memset(icsk->icsk_ca_priv, 0, sizeof(icsk->icsk_ca_priv));
++	if (sk->sk_state != TCP_CLOSE)
+ 		tcp_init_congestion_control(sk);
+-	}
+ }
+ 
+ /* Manage refcounts on socket close. */
+-- 
+2.13.0.rc0.306.g87b477812d-goog
