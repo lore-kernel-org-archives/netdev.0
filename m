@@ -1,15 +1,15 @@
 From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next 4/5] bpf: fix _htons occurences in test_progs
-Date: Thu, 27 Apr 2017 01:39:34 +0200
-Message-ID: <5d70b8413026c1184d70bfa625f769345f1caf24.1493249192.git.daniel@iogearbox.net>
+Subject: [PATCH net-next 5/5] bpf: provide a generic macro for percpu values for selftests
+Date: Thu, 27 Apr 2017 01:39:35 +0200
+Message-ID: <9815eeb71f5507aa3f5335baf52d5c0cc7e7bdc0.1493249192.git.daniel@iogearbox.net>
 References: <cover.1493249192.git.daniel@iogearbox.net>
 Cc: ast@fb.com, netdev@vger.kernel.org,
         Daniel Borkmann <daniel@iogearbox.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:57407 "EHLO
+Received: from www62.your-server.de ([213.133.104.62]:57409 "EHLO
         www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754576AbdDZXk5 (ORCPT
+        with ESMTP id S1754581AbdDZXk5 (ORCPT
         <rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2017 19:40:57 -0400
 In-Reply-To: <cover.1493249192.git.daniel@iogearbox.net>
 In-Reply-To: <cover.1493249192.git.daniel@iogearbox.net>
@@ -17,178 +17,184 @@ References: <cover.1493249192.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dave reported that on sparc test_progs generates buggy swapped
-eth->h_proto protocol comparisons:
+To overcome bugs as described and fixed in 89087c456fb5 ("bpf: Fix
+values type used in test_maps"), provide a generic BPF_DECLARE_PERCPU()
+and bpf_percpu() accessor macro for all percpu map values used in
+tests.
 
-  10: (15) if r3 == 0xdd86 goto pc+9
-   R0=imm2,min_value=2,max_value=2 R1=pkt(id=0,off=0,r=14) R2=pkt_end R3=inv
-   R4=pkt(id=0,off=14,r=14) R5=inv56 R10=fp
+Declaring variables works as follows (also works for structs):
 
-This is due to the unconditional ...
+  BPF_DECLARE_PERCPU(uint32_t, my_value);
 
-  #define htons __builtin_bswap16
-  #define ntohs __builtin_bswap16
+They can then be accessed normally as uint32_t type through:
 
-... in test_progs that causes this. Make use of asm/byteorder.h
-and use __constant_htons() where possible and only perform the
-bswap16 when on little endian in non-constant case.
+  bpf_percpu(my_value, <cpu_nr>)
 
-Fixes: 6882804c916b ("selftests/bpf: add a test for overlapping packet range checks")
-Fixes: 37821613626e ("selftests/bpf: add l4 load balancer test based on sched_cls")
-Reported-by: David S. Miller <davem@davemloft.net>
+For example:
+
+  bpf_percpu(my_value, 0)++;
+
+Implicitly, we make sure that the passed type is allocated and aligned
+by gcc at least on a 8-byte boundary, so that it works together with
+the map lookup/update syscall for percpu maps. We use it as a usage
+example in test_maps, so that others are free to adapt this into their
+code when necessary.
+
 Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 Acked-by: Alexei Starovoitov <ast@kernel.org>
 ---
- tools/testing/selftests/bpf/bpf_util.h        | 19 +++++++++++++++++++
- tools/testing/selftests/bpf/test_l4lb.c       | 11 +++++------
- tools/testing/selftests/bpf/test_pkt_access.c |  6 +++---
- tools/testing/selftests/bpf/test_progs.c      | 10 ++++------
- 4 files changed, 31 insertions(+), 15 deletions(-)
+ tools/testing/selftests/bpf/bpf_util.h  |  7 +++++++
+ tools/testing/selftests/bpf/test_maps.c | 37 ++++++++++++++++++---------------
+ 2 files changed, 27 insertions(+), 17 deletions(-)
 
 diff --git a/tools/testing/selftests/bpf/bpf_util.h b/tools/testing/selftests/bpf/bpf_util.h
-index 84a5d18..7de2796 100644
+index 7de2796..369e7d7 100644
 --- a/tools/testing/selftests/bpf/bpf_util.h
 +++ b/tools/testing/selftests/bpf/bpf_util.h
-@@ -6,6 +6,25 @@
- #include <string.h>
- #include <errno.h>
+@@ -54,4 +54,11 @@ static inline unsigned int bpf_num_possible_cpus(void)
+ 	return possible_cpus;
+ }
  
-+#include <asm/byteorder.h>
++#define __bpf_percpu_val_align	__attribute__((__aligned__(8)))
 +
-+#if __BYTE_ORDER == __LITTLE_ENDIAN
-+# define __bpf_ntohs(x)		__builtin_bswap16(x)
-+# define __bpf_htons(x)		__builtin_bswap16(x)
-+#elif __BYTE_ORDER == __BIG_ENDIAN
-+# define __bpf_ntohs(x)		(x)
-+# define __bpf_htons(x)		(x)
-+#else
-+# error "Fix your __BYTE_ORDER?!"
-+#endif
++#define BPF_DECLARE_PERCPU(type, name)				\
++	struct { type v; /* padding */ } __bpf_percpu_val_align	\
++		name[bpf_num_possible_cpus()]
++#define bpf_percpu(name, cpu) name[(cpu)].v
 +
-+#define bpf_htons(x)				\
-+	(__builtin_constant_p(x) ?		\
-+	 __constant_htons(x) : __bpf_htons(x))
-+#define bpf_ntohs(x)				\
-+	(__builtin_constant_p(x) ?		\
-+	 __constant_ntohs(x) : __bpf_ntohs(x))
-+
- static inline unsigned int bpf_num_possible_cpus(void)
+ #endif /* __BPF_UTIL__ */
+diff --git a/tools/testing/selftests/bpf/test_maps.c b/tools/testing/selftests/bpf/test_maps.c
+index a977c4f..9331452 100644
+--- a/tools/testing/selftests/bpf/test_maps.c
++++ b/tools/testing/selftests/bpf/test_maps.c
+@@ -137,20 +137,20 @@ static void test_hashmap_sizes(int task, void *data)
+ static void test_hashmap_percpu(int task, void *data)
  {
- 	static const char *fcpu = "/sys/devices/system/cpu/possible";
-diff --git a/tools/testing/selftests/bpf/test_l4lb.c b/tools/testing/selftests/bpf/test_l4lb.c
-index 368bfe8..b68b212 100644
---- a/tools/testing/selftests/bpf/test_l4lb.c
-+++ b/tools/testing/selftests/bpf/test_l4lb.c
-@@ -19,9 +19,8 @@
- #include <linux/udp.h>
- #include "bpf_helpers.h"
- #include "test_iptunnel_common.h"
-+#include "bpf_util.h"
+ 	unsigned int nr_cpus = bpf_num_possible_cpus();
+-	long long value[nr_cpus];
++	BPF_DECLARE_PERCPU(long, value);
+ 	long long key, next_key, first_key;
+ 	int expected_key_mask = 0;
+ 	int fd, i;
  
--#define htons __builtin_bswap16
--#define ntohs __builtin_bswap16
- int _version SEC("version") = 1;
+ 	fd = bpf_create_map(BPF_MAP_TYPE_PERCPU_HASH, sizeof(key),
+-			    sizeof(value[0]), 2, map_flags);
++			    sizeof(bpf_percpu(value, 0)), 2, map_flags);
+ 	if (fd < 0) {
+ 		printf("Failed to create hashmap '%s'!\n", strerror(errno));
+ 		exit(1);
+ 	}
  
- static inline __u32 rol32(__u32 word, unsigned int shift)
-@@ -355,7 +354,7 @@ static __always_inline int process_packet(void *data, __u64 off, void *data_end,
- 		iph_len = sizeof(struct ipv6hdr);
- 		protocol = ip6h->nexthdr;
- 		pckt.proto = protocol;
--		pkt_bytes = ntohs(ip6h->payload_len);
-+		pkt_bytes = bpf_ntohs(ip6h->payload_len);
- 		off += iph_len;
- 		if (protocol == IPPROTO_FRAGMENT) {
- 			return TC_ACT_SHOT;
-@@ -377,7 +376,7 @@ static __always_inline int process_packet(void *data, __u64 off, void *data_end,
+ 	for (i = 0; i < nr_cpus; i++)
+-		value[i] = i + 100;
++		bpf_percpu(value, i) = i + 100;
  
- 		protocol = iph->protocol;
- 		pckt.proto = protocol;
--		pkt_bytes = ntohs(iph->tot_len);
-+		pkt_bytes = bpf_ntohs(iph->tot_len);
- 		off += IPV4_HDR_LEN_NO_OPT;
+ 	key = 1;
+ 	/* Insert key=1 element. */
+@@ -170,8 +170,9 @@ static void test_hashmap_percpu(int task, void *data)
+ 	/* Check that key=1 can be found. Value could be 0 if the lookup
+ 	 * was run from a different CPU.
+ 	 */
+-	value[0] = 1;
+-	assert(bpf_map_lookup_elem(fd, &key, value) == 0 && value[0] == 100);
++	bpf_percpu(value, 0) = 1;
++	assert(bpf_map_lookup_elem(fd, &key, value) == 0 &&
++	       bpf_percpu(value, 0) == 100);
  
- 		if (iph->frag_off & PCKT_FRAGMENTED)
-@@ -464,9 +463,9 @@ int balancer_ingress(struct __sk_buff *ctx)
- 	if (data + nh_off > data_end)
- 		return TC_ACT_SHOT;
- 	eth_proto = eth->eth_proto;
--	if (eth_proto == htons(ETH_P_IP))
-+	if (eth_proto == bpf_htons(ETH_P_IP))
- 		return process_packet(data, nh_off, data_end, false, ctx);
--	else if (eth_proto == htons(ETH_P_IPV6))
-+	else if (eth_proto == bpf_htons(ETH_P_IPV6))
- 		return process_packet(data, nh_off, data_end, true, ctx);
- 	else
- 		return TC_ACT_SHOT;
-diff --git a/tools/testing/selftests/bpf/test_pkt_access.c b/tools/testing/selftests/bpf/test_pkt_access.c
-index fd1e083..7113005 100644
---- a/tools/testing/selftests/bpf/test_pkt_access.c
-+++ b/tools/testing/selftests/bpf/test_pkt_access.c
-@@ -14,8 +14,8 @@
- #include <linux/tcp.h>
- #include <linux/pkt_cls.h>
- #include "bpf_helpers.h"
-+#include "bpf_util.h"
+ 	key = 2;
+ 	/* Check that key=2 is not found. */
+@@ -211,7 +212,7 @@ static void test_hashmap_percpu(int task, void *data)
+ 		assert(bpf_map_lookup_elem(fd, &next_key, value) == 0);
  
--#define _htons __builtin_bswap16
- #define barrier() __asm__ __volatile__("": : :"memory")
- int _version SEC("version") = 1;
+ 		for (i = 0; i < nr_cpus; i++)
+-			assert(value[i] == i + 100);
++			assert(bpf_percpu(value, i) == i + 100);
  
-@@ -32,7 +32,7 @@ int process(struct __sk_buff *skb)
- 	if (eth + 1 > data_end)
- 		return TC_ACT_SHOT;
+ 		key = next_key;
+ 	}
+@@ -296,34 +297,36 @@ static void test_arraymap(int task, void *data)
+ static void test_arraymap_percpu(int task, void *data)
+ {
+ 	unsigned int nr_cpus = bpf_num_possible_cpus();
++	BPF_DECLARE_PERCPU(long, values);
+ 	int key, next_key, fd, i;
+-	long long values[nr_cpus];
  
--	if (eth->h_proto == _htons(ETH_P_IP)) {
-+	if (eth->h_proto == bpf_htons(ETH_P_IP)) {
- 		struct iphdr *iph = (struct iphdr *)(eth + 1);
+ 	fd = bpf_create_map(BPF_MAP_TYPE_PERCPU_ARRAY, sizeof(key),
+-			    sizeof(values[0]), 2, 0);
++			    sizeof(bpf_percpu(values, 0)), 2, 0);
+ 	if (fd < 0) {
+ 		printf("Failed to create arraymap '%s'!\n", strerror(errno));
+ 		exit(1);
+ 	}
  
- 		if (iph + 1 > data_end)
-@@ -40,7 +40,7 @@ int process(struct __sk_buff *skb)
- 		ihl_len = iph->ihl * 4;
- 		proto = iph->protocol;
- 		tcp = (struct tcphdr *)((void *)(iph) + ihl_len);
--	} else if (eth->h_proto == _htons(ETH_P_IPV6)) {
-+	} else if (eth->h_proto == bpf_htons(ETH_P_IPV6)) {
- 		struct ipv6hdr *ip6h = (struct ipv6hdr *)(eth + 1);
+ 	for (i = 0; i < nr_cpus; i++)
+-		values[i] = i + 100;
++		bpf_percpu(values, i) = i + 100;
  
- 		if (ip6h + 1 > data_end)
-diff --git a/tools/testing/selftests/bpf/test_progs.c b/tools/testing/selftests/bpf/test_progs.c
-index 5275d4a..7c2d899 100644
---- a/tools/testing/selftests/bpf/test_progs.c
-+++ b/tools/testing/selftests/bpf/test_progs.c
-@@ -30,8 +30,6 @@
- #include "test_iptunnel_common.h"
- #include "bpf_util.h"
+ 	key = 1;
+ 	/* Insert key=1 element. */
+ 	assert(bpf_map_update_elem(fd, &key, values, BPF_ANY) == 0);
  
--#define _htons __builtin_bswap16
--
- static int error_cnt, pass_cnt;
+-	values[0] = 0;
++	bpf_percpu(values, 0) = 0;
+ 	assert(bpf_map_update_elem(fd, &key, values, BPF_NOEXIST) == -1 &&
+ 	       errno == EEXIST);
  
- #define MAGIC_BYTES 123
-@@ -42,10 +40,10 @@
- 	struct iphdr iph;
- 	struct tcphdr tcp;
- } __packed pkt_v4 = {
--	.eth.h_proto = _htons(ETH_P_IP),
-+	.eth.h_proto = bpf_htons(ETH_P_IP),
- 	.iph.ihl = 5,
- 	.iph.protocol = 6,
--	.iph.tot_len = _htons(MAGIC_BYTES),
-+	.iph.tot_len = bpf_htons(MAGIC_BYTES),
- 	.tcp.urg_ptr = 123,
- };
+ 	/* Check that key=1 can be found. */
+-	assert(bpf_map_lookup_elem(fd, &key, values) == 0 && values[0] == 100);
++	assert(bpf_map_lookup_elem(fd, &key, values) == 0 &&
++	       bpf_percpu(values, 0) == 100);
  
-@@ -55,9 +53,9 @@
- 	struct ipv6hdr iph;
- 	struct tcphdr tcp;
- } __packed pkt_v6 = {
--	.eth.h_proto = _htons(ETH_P_IPV6),
-+	.eth.h_proto = bpf_htons(ETH_P_IPV6),
- 	.iph.nexthdr = 6,
--	.iph.payload_len = _htons(MAGIC_BYTES),
-+	.iph.payload_len = bpf_htons(MAGIC_BYTES),
- 	.tcp.urg_ptr = 123,
- };
+ 	key = 0;
+ 	/* Check that key=0 is also found and zero initialized. */
+ 	assert(bpf_map_lookup_elem(fd, &key, values) == 0 &&
+-	       values[0] == 0 && values[nr_cpus - 1] == 0);
++	       bpf_percpu(values, 0) == 0 &&
++	       bpf_percpu(values, nr_cpus - 1) == 0);
  
+ 	/* Check that key=2 cannot be inserted due to max_entries limit. */
+ 	key = 2;
+@@ -353,15 +356,15 @@ static void test_arraymap_percpu(int task, void *data)
+ static void test_arraymap_percpu_many_keys(void)
+ {
+ 	unsigned int nr_cpus = bpf_num_possible_cpus();
++	BPF_DECLARE_PERCPU(long, values);
+ 	/* nr_keys is not too large otherwise the test stresses percpu
+ 	 * allocator more than anything else
+ 	 */
+ 	unsigned int nr_keys = 2000;
+-	long long values[nr_cpus];
+ 	int key, fd, i;
+ 
+ 	fd = bpf_create_map(BPF_MAP_TYPE_PERCPU_ARRAY, sizeof(key),
+-			    sizeof(values[0]), nr_keys, 0);
++			    sizeof(bpf_percpu(values, 0)), nr_keys, 0);
+ 	if (fd < 0) {
+ 		printf("Failed to create per-cpu arraymap '%s'!\n",
+ 		       strerror(errno));
+@@ -369,19 +372,19 @@ static void test_arraymap_percpu_many_keys(void)
+ 	}
+ 
+ 	for (i = 0; i < nr_cpus; i++)
+-		values[i] = i + 10;
++		bpf_percpu(values, i) = i + 10;
+ 
+ 	for (key = 0; key < nr_keys; key++)
+ 		assert(bpf_map_update_elem(fd, &key, values, BPF_ANY) == 0);
+ 
+ 	for (key = 0; key < nr_keys; key++) {
+ 		for (i = 0; i < nr_cpus; i++)
+-			values[i] = 0;
++			bpf_percpu(values, i) = 0;
+ 
+ 		assert(bpf_map_lookup_elem(fd, &key, values) == 0);
+ 
+ 		for (i = 0; i < nr_cpus; i++)
+-			assert(values[i] == i + 10);
++			assert(bpf_percpu(values, i) == i + 10);
+ 	}
+ 
+ 	close(fd);
 -- 
 1.9.3
