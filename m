@@ -1,123 +1,137 @@
-From: Andrey Konovalov <andreyknvl@google.com>
-Subject: net/ipv6: use-after-free in __call_rcu/in6_dev_finish_destroy_rcu
-Date: Wed, 26 Apr 2017 14:34:15 +0200
-Message-ID: <CAAeHK+y=YqG0Kb2chQ=_2E8aPttMetQjZPCxFibHKCfktQS2PQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <edumazet@google.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Kostya Serebryany <kcc@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Josh Triplett <josh@joshtriplett.org>,
-        Steven Rostedt <rostedt@goodmis.org>,
-        Mathieu Desnoyers <mathieu.desnoyers@efficios.com>,
-        Lai Jiangshan <jiangshanlai@gmail.com>,
-        "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: [PATCH net-next v9 0/3] net sched actions: improve dump performance
+Date: Wed, 26 Apr 2017 08:42:15 -0400
+Message-ID: <1493210538-21716-1-git-send-email-jhs@emojatatu.com>
+Cc: jiri@resnulli.us, xiyou.wangcong@gmail.com, eric.dumazet@gmail.com,
+        simon.horman@netronome.com, netdev@vger.kernel.org,
+        Jamal Hadi Salim <jhs@mojatatu.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f172.google.com ([209.85.161.172]:34671 "EHLO
-        mail-yw0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1437624AbdDZMeR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2017 08:34:17 -0400
-Received: by mail-yw0-f172.google.com with SMTP id k11so62851275ywb.1
-        for <netdev@vger.kernel.org>; Wed, 26 Apr 2017 05:34:17 -0700 (PDT)
+Received: from mail-io0-f195.google.com ([209.85.223.195]:33785 "EHLO
+        mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S2999756AbdDZMms (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2017 08:42:48 -0400
+Received: by mail-io0-f195.google.com with SMTP id k87so306760ioi.0
+        for <netdev@vger.kernel.org>; Wed, 26 Apr 2017 05:42:48 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Jamal Hadi Salim <jhs@mojatatu.com>
 
-I've got the following error report while fuzzing the kernel with syzkaller.
+Changes since v8:
+-----------------
 
-On commit 5a7ad1146caa895ad718a534399e38bd2ba721b7 (4.11-rc8).
+1) Jiri:
+-Add back the use of BIT(). Eventually fix iproute2 instead
+- Rename VALID_TCA_FLAGS to VALID_TCA_ROOT_FLAGS
 
-Unfortunately it's not reproducible.
+Changes since v7:
+-----------------
 
-I'm not sure whether is is an issue with rcu or ipv6.
+Jamal:
+Patch 1 went out twice. Resend without two copies of patch 1
 
-==================================================================
-BUG: KASAN: use-after-free in __call_rcu.constprop.77+0x13be/0x1640
-kernel/rcu/tree.c:3269 at addr ffff88003b842280
-Write of size 8 by task kworker/u10:1/180
-CPU: 2 PID: 180 Comm: kworker/u10:1 Not tainted 4.11.0-rc8+ #270
-Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
-Workqueue: events_unbound call_usermodehelper_exec_work
-Call Trace:
- __dump_stack lib/dump_stack.c:16 [inline]
- dump_stack+0x192/0x22d lib/dump_stack.c:52
- kasan_object_err+0x1c/0x70 mm/kasan/report.c:164
- print_address_description mm/kasan/report.c:202 [inline]
- kasan_report_error mm/kasan/report.c:291 [inline]
- kasan_report+0x252/0x510 mm/kasan/report.c:347
- __asan_report_store8_noabort+0x17/0x20 mm/kasan/report.c:373
- __call_rcu.constprop.77+0x13be/0x1640 kernel/rcu/tree.c:3269
- call_rcu_sched+0x12/0x20 kernel/rcu/tree.c:3288
- free_pid+0x446/0x5d0 kernel/pid.c:293
- __change_pid+0x2a1/0x3d0 kernel/pid.c:411
- detach_pid+0x1f/0x30 kernel/pid.c:416
- __unhash_process kernel/exit.c:74 [inline]
- __exit_signal kernel/exit.c:155 [inline]
- release_task+0xbb0/0x1d90 kernel/exit.c:199
- wait_task_zombie kernel/exit.c:1230 [inline]
- wait_consider_task+0x11fe/0x3410 kernel/exit.c:1458
- do_wait_thread kernel/exit.c:1521 [inline]
- do_wait+0x3ea/0x8e0 kernel/exit.c:1592
- SYSC_wait4 kernel/exit.c:1720 [inline]
- SyS_wait4+0x208/0x340 kernel/exit.c:1689
- call_usermodehelper_exec_sync kernel/kmod.c:292 [inline]
- call_usermodehelper_exec_work+0x1a7/0x2b0 kernel/kmod.c:329
- process_one_work+0x9f7/0x1580 kernel/workqueue.c:2097
- worker_thread+0x1df/0x14b0 kernel/workqueue.c:2231
- kthread+0x31f/0x3f0 kernel/kthread.c:231
- ret_from_fork+0x2c/0x40 arch/x86/entry/entry_64.S:430
-Object at ffff88003b842018, in cache kmalloc-1024 size: 1024
-Allocated:
-PID = 1
- save_stack_trace+0x16/0x20 arch/x86/kernel/stacktrace.c:59
- save_stack+0x43/0xd0 mm/kasan/kasan.c:513
- set_track mm/kasan/kasan.c:525 [inline]
- kasan_kmalloc+0xad/0xe0 mm/kasan/kasan.c:616
- kmem_cache_alloc_trace+0x61/0x170 mm/slub.c:2745
- kmalloc include/linux/slab.h:490 [inline]
- kzalloc include/linux/slab.h:663 [inline]
- ipv6_add_dev+0x199/0x1380 net/ipv6/addrconf.c:380
- addrconf_init+0xd0/0x29a net/ipv6/addrconf.c:6405
- inet6_init+0x2f6/0x584 net/ipv6/af_inet6.c:962
- do_one_initcall+0xf3/0x380 init/main.c:792
- do_initcall_level init/main.c:858 [inline]
- do_initcalls init/main.c:866 [inline]
- do_basic_setup init/main.c:884 [inline]
- kernel_init_freeable+0x54d/0x622 init/main.c:1035
- kernel_init+0x13/0x180 init/main.c:959
- ret_from_fork+0x2c/0x40 arch/x86/entry/entry_64.S:430
-Freed:
-PID = 6479
- save_stack_trace+0x16/0x20 arch/x86/kernel/stacktrace.c:59
- save_stack+0x43/0xd0 mm/kasan/kasan.c:513
- set_track mm/kasan/kasan.c:525 [inline]
- kasan_slab_free+0x73/0xc0 mm/kasan/kasan.c:589
- slab_free_hook mm/slub.c:1357 [inline]
- slab_free_freelist_hook mm/slub.c:1379 [inline]
- slab_free mm/slub.c:2961 [inline]
- kfree+0x91/0x190 mm/slub.c:3882
- in6_dev_finish_destroy_rcu+0x97/0xc0 net/ipv6/addrconf_core.c:150
- __rcu_reclaim kernel/rcu/rcu.h:118 [inline]
- rcu_do_batch.isra.65+0x6de/0xbd0 kernel/rcu/tree.c:2879
- invoke_rcu_callbacks kernel/rcu/tree.c:3142 [inline]
- __rcu_process_callbacks kernel/rcu/tree.c:3109 [inline]
- rcu_process_callbacks+0x23f/0x810 kernel/rcu/tree.c:3126
- __do_softirq+0x253/0x78b kernel/softirq.c:284
-Memory state around the buggy address:
- ffff88003b842180: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
- ffff88003b842200: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
->ffff88003b842280: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
-                   ^
- ffff88003b842300: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
- ffff88003b842380: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
-==================================================================
+changes since v6:
+-----------------
+
+1) DaveM:
+New rules for netlink messages. From now on we are going to start
+checking for bits that are not used and rejecting anything we dont
+understand. In the future this is going to require major changes
+to user space code (tc etc). This is just a start.
+
+To quote, David:
+"
+ Again, bits you aren't using now, make sure userspace doesn't
+   set them.  And if it does, reject.
+"
+
+2) Jiri:
+a)Fix the commit message to properly use "Fixes" description
+b)Align assignments for nla_policy
+
+Changes since v5:
+----------------
+
+0)
+Remove use of BIT() because it is kernel specific. Requires a separate
+patch (Jiri can submit that in his cleanups)
+
+1)To paraphrase Eric D.
+
+"memcpy(nla_data(count_attr), &cb->args[1], sizeof(u32));
+wont work on 64bit BE machines because cb->args[1]
+(which is 64 bit is larger in size than sizeof(u32))"
+
+Fixed
+
+2) Jiri Pirko
+
+i) Spotted a bug fix mixed in the patch for wrong TLV
+fix. Add patch 1/3 to address this. Make part of this
+series because of dependencies.
+
+ii) Rename ACT_LARGE_DUMP_ON -> TCA_FLAG_LARGE_DUMP_ON
+
+iii) Satisfy Jiri's obsession against the noun "tcaa"
+a)Rename struct nlattr *tcaa --> struct nlattr *tb
+b)Rename TCAA_ACT_XXX -> TCA_ROOT_XXX
+
+Changes since v4:
+-----------------
+
+1) Eric D.
+
+pointed out that when all skb space is used up by the dump
+there will be no space to insert the TCAA_ACT_COUNT attribute.
+
+2) Jiri:
+
+i) Change:
+
+enum {
+        TCAA_UNSPEC,
+        TCAA_ACT_TAB,
+        TCAA_ACT_FLAGS,
+        TCAA_ACT_COUNT,
+        TCAA_ACT_TIME_FILTER,
+        __TCAA_MAX
+};
+
+#define TCAA_MAX (__TCAA_MAX - 1)
+#define ACT_LARGE_DUMP_ON               (1 << 0)
+
+to:
+enum {
+       TCAA_UNSPEC,
+       TCAA_ACT_TAB,
+#define TCA_ACT_TAB TCAA_ACT_TAB
+       TCAA_ACT_FLAGS,
+       TCAA_ACT_COUNT,
+       __TCAA_MAX,
+#define        TCAA_MAX (__TCAA_MAX - 1)
+};
+
+#define ACT_LARGE_DUMP_ON              BIT(0)
+
+Jiri plans to followup with the rest of the code to make the
+style consistent.
+
+ii) Rename attribute TCAA_ACT_TIME_FILTER --> TCAA_ACT_TIME_DELTA
+
+iii) Rename variable jiffy_filter --> jiffy_since
+iv) Rename msecs_filter --> msecs_since
+v) get rid of unused cb->args[0] and rename cb->args[4] to cb->args[0]
+
+
+Jamal Hadi Salim (3):
+  net sched actions: Use proper root attribute table for actions
+  net sched actions: dump more than TCA_ACT_MAX_PRIO actions per batch
+  net sched actions: add time filter for action dumping
+
+ include/uapi/linux/rtnetlink.h | 22 ++++++++++--
+ net/sched/act_api.c            | 80 ++++++++++++++++++++++++++++++++++++------
+ 2 files changed, 89 insertions(+), 13 deletions(-)
+
+-- 
+1.9.1
