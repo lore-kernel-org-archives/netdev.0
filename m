@@ -1,43 +1,45 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v2 2/2] ARM: dts: Add the ethernet and ethernet PHY to
- the cygnus core DT.
-Date: Wed, 26 Apr 2017 02:49:07 +0200
-Message-ID: <20170426004907.GA9453@lunn.ch>
-References: <20170425235357.7690-1-eric@anholt.net>
- <20170425235357.7690-2-eric@anholt.net>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the kbuild tree
+Date: Wed, 26 Apr 2017 11:09:44 +1000
+Message-ID: <20170426110944.3d796e97@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        netdev@vger.kernel.org, Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-        linux-kernel@vger.kernel.org,
-        bcm-kernel-feedback-list@broadcom.com, Ray Jui <rjui@broadcom.com>,
-        Scott Branden <sbranden@broadcom.com>,
-        Jon Mason <jonmason@broadcom.com>
-To: Eric Anholt <eric@anholt.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:41238 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1432605AbdDZAtY (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 25 Apr 2017 20:49:24 -0400
-Content-Disposition: inline
-In-Reply-To: <20170425235357.7690-2-eric@anholt.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Linux-Next Mailing List <linux-next@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+        Gerard Garcia <ggarcia@abra.uab.cat>
+To: David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>,
+        Masahiro Yamada <yamada.masahiro@socionext.com>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> +		eth0: ethernet@18042000 {
-> +			compatible = "brcm,amac";
-> +			reg = <0x18042000 0x1000>,
-> +			      <0x18110000 0x1000>;
-> +			reg-names = "amac_base", "idm_base";
-> +			interrupts = <GIC_SPI 110 IRQ_TYPE_LEVEL_HIGH>;
-> +			max-speed = <1000>;
+Hi all,
 
-Hi Eric
+Today's linux-next merge of the net-next tree got a conflict in:
 
-Sorry i missed this the first time. Does this Ethernet controller do >
-1Gbps? Does this max-speed do anything useful?
+  include/uapi/linux/Kbuild
 
-       Andrew
+between commit:
+
+  65017bab8a9e ("uapi: export all headers under uapi directories")
+
+from the kbuild tree and commit:
+
+  0b2e66448ba2 ("VSOCK: Add vsockmon device")
+
+from the net-next tree.
+
+I fixed it up (I just used the kbuild tree version as new entries are not
+needed any more in this file) and can carry the fix as necessary. This
+is now fixed as far as linux-next is concerned, but any non trivial
+conflicts should be mentioned to your upstream maintainer when your tree
+is submitted for merging.  You may also want to consider cooperating
+with the maintainer of the conflicting tree to minimise any particularly
+complex conflicts.
+
+-- 
+Cheers,
+Stephen Rothwell
