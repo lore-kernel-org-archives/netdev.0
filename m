@@ -1,66 +1,155 @@
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Subject: [PATCH net-next] fib_rules: fix error return code
-Date: Wed, 26 Apr 2017 14:03:50 +0000
-Message-ID: <20170426140350.25451-1-weiyj.lk@gmail.com>
+From: Matthias Brugger <mbrugger@suse.com>
+Subject: Re: [PATCH net v3 2/3] net: hns: support deferred probe when no mdio
+Date: Wed, 26 Apr 2017 16:07:03 +0200
+Message-ID: <436024f5-f751-4389-1b1c-dc9b19df7b73@suse.com>
+References: <1493190022-91343-1-git-send-email-yankejian@huawei.com>
+ <1493190022-91343-3-git-send-email-yankejian@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Wei Yongjun <weiyongjun1@huawei.com>, netdev@vger.kernel.org
-To: Lorenzo Colitti <lorenzo@google.com>,
-        Ido Schimmel <idosch@mellanox.com>,
-        David Ahern <dsa@cumulusnetworks.com>,
-        Mateusz Bajorski <mateusz.bajorski@nokia.com>,
-        Johannes Berg <johannes.berg@intel.com>
+Cc: netdev@vger.kernel.org, linuxarm@huawei.com
+To: Yankejian <yankejian@huawei.com>, davem@davemloft.net,
+        salil.mehta@huawei.com, yisen.zhuang@huawei.com,
+        lipeng321@huawei.com, zhouhuiru@huawei.com,
+        huangdaode@hisilicon.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:34953 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S3000944AbdDZOEA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2017 10:04:00 -0400
-Received: by mail-pf0-f195.google.com with SMTP id a188so267128pfa.2
-        for <netdev@vger.kernel.org>; Wed, 26 Apr 2017 07:04:00 -0700 (PDT)
+Received: from smtp.nue.novell.com ([195.135.221.5]:53447 "EHLO
+        smtp.nue.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1431576AbdDZOHd (ORCPT
+        <rfc822;groupwise-netdev@vger.kernel.org:0:0>);
+        Wed, 26 Apr 2017 10:07:33 -0400
+In-Reply-To: <1493190022-91343-3-git-send-email-yankejian@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <weiyongjun1@huawei.com>
 
-Fix to return error code -EINVAL from the error handling
-case instead of 0, as done elsewhere in this function.
 
-Fixes: 622ec2c9d524 ("net: core: add UID to flows, rules, and routes")
-Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
----
- net/core/fib_rules.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+On 26/04/17 09:00, Yankejian wrote:
+> From: lipeng <lipeng321@huawei.com>
+>
+> In the hip06 and hip07 SoCs, phy connect to mdio bus.The mdio
+> module is probed with module_init, and, as such,
+> is not guaranteed to probe before the HNS driver. So we need
+> to support deferred probe.
+>
+> We check for probe deferral in the mac init, so we not init DSAF
+> when there is no mdio, and free all resource, to later learn that
+> we need to defer the probe.
+>
+> Signed-off-by: lipeng <lipeng321@huawei.com>
+> Reviewed-by: Yisen Zhuang <yisen.zhuang@huawei.com>
 
-diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
-index c58c1df..f21c4d3 100644
---- a/net/core/fib_rules.c
-+++ b/net/core/fib_rules.c
-@@ -440,6 +440,7 @@ int fib_nl_newrule(struct sk_buff *skb, struct nlmsghdr *nlh,
- 	if (tb[FRA_TUN_ID])
- 		rule->tun_id = nla_get_be64(tb[FRA_TUN_ID]);
- 
-+	err = -EINVAL;
- 	if (tb[FRA_L3MDEV]) {
- #ifdef CONFIG_NET_L3_MASTER_DEV
- 		rule->l3mdev = nla_get_u8(tb[FRA_L3MDEV]);
-@@ -461,7 +462,6 @@ int fib_nl_newrule(struct sk_buff *skb, struct nlmsghdr *nlh,
- 	else
- 		rule->suppress_ifgroup = -1;
- 
--	err = -EINVAL;
- 	if (tb[FRA_GOTO]) {
- 		if (rule->action != FR_ACT_GOTO)
- 			goto errout_free;
-@@ -592,8 +592,10 @@ int fib_nl_delrule(struct sk_buff *skb, struct nlmsghdr *nlh,
- 
- 	if (tb[FRA_UID_RANGE]) {
- 		range = nla_get_kuid_range(tb);
--		if (!uid_range_set(&range))
-+		if (!uid_range_set(&range)) {
-+			err = -EINVAL;
- 			goto errout;
-+		}
- 	} else {
- 		range = fib_kuid_range_unset;
- 	}
+Reviewed-by: Matthias Brugger <mbrugger@suse.com>
+
+> ---
+>  drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c | 39 +++++++++++++++++++----
+>  1 file changed, 33 insertions(+), 6 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
+> index bdd8cdd..8c00e09 100644
+> --- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
+> +++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
+> @@ -735,6 +735,8 @@ static int hns_mac_init_ex(struct hns_mac_cb *mac_cb)
+>  	rc = phy_device_register(phy);
+>  	if (rc) {
+>  		phy_device_free(phy);
+> +		dev_err(&mdio->dev, "registered phy fail at address %i\n",
+> +			addr);
+>  		return -ENODEV;
+>  	}
+>
+> @@ -745,7 +747,7 @@ static int hns_mac_init_ex(struct hns_mac_cb *mac_cb)
+>  	return 0;
+>  }
+>
+> -static void hns_mac_register_phy(struct hns_mac_cb *mac_cb)
+> +static int hns_mac_register_phy(struct hns_mac_cb *mac_cb)
+>  {
+>  	struct acpi_reference_args args;
+>  	struct platform_device *pdev;
+> @@ -755,24 +757,39 @@ static void hns_mac_register_phy(struct hns_mac_cb *mac_cb)
+>
+>  	/* Loop over the child nodes and register a phy_device for each one */
+>  	if (!to_acpi_device_node(mac_cb->fw_port))
+> -		return;
+> +		return -ENODEV;
+>
+>  	rc = acpi_node_get_property_reference(
+>  			mac_cb->fw_port, "mdio-node", 0, &args);
+>  	if (rc)
+> -		return;
+> +		return rc;
+>
+>  	addr = hns_mac_phy_parse_addr(mac_cb->dev, mac_cb->fw_port);
+>  	if (addr < 0)
+> -		return;
+> +		return addr;
+>
+>  	/* dev address in adev */
+>  	pdev = hns_dsaf_find_platform_device(acpi_fwnode_handle(args.adev));
+> +	if (!pdev) {
+> +		dev_err(mac_cb->dev, "mac%d mdio pdev is NULL\n",
+> +			mac_cb->mac_id);
+> +		return  -EINVAL;
+> +	}
+> +
+>  	mii_bus = platform_get_drvdata(pdev);
+> +	if (!mii_bus) {
+> +		dev_err(mac_cb->dev,
+> +			"mac%d mdio is NULL, dsaf will probe again later\n",
+> +			mac_cb->mac_id);
+> +		return -EPROBE_DEFER;
+> +	}
+> +
+>  	rc = hns_mac_register_phydev(mii_bus, mac_cb, addr);
+>  	if (!rc)
+>  		dev_dbg(mac_cb->dev, "mac%d register phy addr:%d\n",
+>  			mac_cb->mac_id, addr);
+> +
+> +	return rc;
+>  }
+>
+>  #define MAC_MEDIA_TYPE_MAX_LEN		16
+> @@ -793,7 +810,7 @@ static void hns_mac_register_phy(struct hns_mac_cb *mac_cb)
+>   *@np:device node
+>   * return: 0 --success, negative --fail
+>   */
+> -static int  hns_mac_get_info(struct hns_mac_cb *mac_cb)
+> +static int hns_mac_get_info(struct hns_mac_cb *mac_cb)
+>  {
+>  	struct device_node *np;
+>  	struct regmap *syscon;
+> @@ -903,7 +920,15 @@ static int  hns_mac_get_info(struct hns_mac_cb *mac_cb)
+>  			}
+>  		}
+>  	} else if (is_acpi_node(mac_cb->fw_port)) {
+> -		hns_mac_register_phy(mac_cb);
+> +		ret = hns_mac_register_phy(mac_cb);
+> +		/*
+> +		 * Mac can work well if there is phy or not.If the port don't
+> +		 * connect with phy, the return value will be ignored. Only
+> +		 * when there is phy but can't find mdio bus, the return value
+> +		 * will be handled.
+> +		 */
+> +		if (ret == -EPROBE_DEFER)
+> +			return ret;
+>  	} else {
+>  		dev_err(mac_cb->dev, "mac%d cannot find phy node\n",
+>  			mac_cb->mac_id);
+> @@ -1065,6 +1090,7 @@ int hns_mac_init(struct dsaf_device *dsaf_dev)
+>  			dsaf_dev->mac_cb[port_id] = mac_cb;
+>  		}
+>  	}
+> +
+>  	/* init mac_cb for all port */
+>  	for (port_id = 0; port_id < max_port_num; port_id++) {
+>  		mac_cb = dsaf_dev->mac_cb[port_id];
+> @@ -1074,6 +1100,7 @@ int hns_mac_init(struct dsaf_device *dsaf_dev)
+>  		ret = hns_mac_get_cfg(dsaf_dev, mac_cb);
+>  		if (ret)
+>  			return ret;
+> +
+>  		ret = hns_mac_init_ex(mac_cb);
+>  		if (ret)
+>  			return ret;
+>
