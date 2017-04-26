@@ -1,110 +1,52 @@
-From: "Gao Feng" <gfree.wind-H32Fclmsjq1BDgjK7y7TUQ@public.gmane.org>
-Subject: Re: [PATCH net] net: batman-adv: Fix possible
-	memleaks when fail to register_netdevice
-Date: Wed, 26 Apr 2017 14:44:24 +0800
-Message-ID: <002101d2be58$8bcaaa00$a35ffe00$@foxmail.com>
-References: <1493121800-28066-1-git-send-email-gfree.wind@foxmail.com>
- <1756616.320MP6AHYH@bentobox> <002901d2be25$d9092bd0$8b1b8370$@foxmail.com>
- <3994535.Z9kqCnttI2@bentobox>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
- <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org, a@unstable.cc, 'Gao Feng' <fgao-KlmEoCYek3zQT0dZR+AlfA@public.gmane.org>,
- davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: "'Sven Eckelmann'" <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <3994535.Z9kqCnttI2@bentobox>
-Content-Language: zh-cn
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+From: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+Subject: [iproute2] iplink: add support for IFLA_CARRIER attribute
+Date: Wed, 26 Apr 2017 15:08:39 +0800
+Message-ID: <1493190519-5518-1-git-send-email-zhangshengju@cmss.chinamobile.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cmccmta1.chinamobile.com ([221.176.66.79]:14072 "EHLO
+        cmccmta1.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1435197AbdDZHIt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2017 03:08:49 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> From: Sven Eckelmann [mailto:sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org]
-> Sent: Wednesday, April 26, 2017 1:58 PM
-> On Mittwoch, 26. April 2017 08:41:30 CEST Gao Feng wrote:
-> > On Dienstag, 25. April 2017 20:03:20 CEST gfree.wind-H32Fclmsjq1BDgjK7y7TUQ@public.gmane.org wrote:
-> > > From: Gao Feng <fgao-KlmEoCYek3zQT0dZR+AlfA@public.gmane.org>
-> > >
-> > > Because the func batadv_softif_init_late allocate some resources and
-> > > it would be invoked in register_netdevice. So we need to invoke the
-> > > func batadv_softif_free instead of free_netdev to cleanup when fail
-> > > to register_netdevice.
-> >
-> > I could be wrong, but shouldn't the destructor be replaced with
-> > free_netdevice and the batadv_softif_free (without the free_netdev)
-> > used as ndo_uninit? The line you've changed should then be kept as
-> free_netdevice.
-> >
-> > At least this seems to be important when using rtnl_newlink() instead
-> > of the legacy sysfs netdev stuff from batman-adv. rtnl_newlink() would
-> > also only call free_netdevice and thus also not run
-> > batadv_softif_free. This seems to be only fixable by calling ndo_uninit.
-> >
-> > Sorry, I don't get you.
-> > The net_dev is created in this func batadv_softif_create.
-> > Why couldn't invoke batadv_softif_free to cleanup when fail to
-> > register_netdevice?
-> >
-> 
-> Because it is the legacy way to create the batadv interfaces and there is
-a
-> "new" one. The new way is to use rtnl link (see batadv_link_ops).
-> 
-> The rtnl linke (rtnl_newlink) would not benefit from your fix and
-therefore still
-> show the old behavior. I think a different fix is necessary to solve the
-problem
-> for both ways to create an batadv interface.
-> 
-> Kind regards,
-> 	Sven
+Add support to set IFLA_CARRIER attribute.
 
-I get it now, thanks.
-Actually I sent another patch about the memleaks when invoke newlink and
-fail to register_netdev.
-You could refer to it by
-https://www.mail-archive.com/netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org/msg165253.html.
+Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+---
+ ip/iplink.c | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
 
-In this patch, I add the cleanup when fail to register_netdev.
-It would be more simple if modify the rtnl_newlink and invoke the destructor
-of netdev when failed.
-Like the following codes.
-	if (ops->newlink) {
-		err = ops->newlink(link_net ? : net, dev, tb, data);
-		if (err < 0) {
-			if (dev->reg_state == NETREG_UNINITIALIZED)
-				if (dev->destructor)
-					dev->destructor(dev)
-				else
-					free_netdev(dev);
-				goto out;
-			}
-		} else {
-			err = register_netdevice(dev);
-			if (err < 0) {
-				if (dev->destructor)
-					dev->destructor(dev);
-				else
-					free_netdev(dev);
-				goto out;
-			}
-	}
-
-But I don't know if it breaks the design newlink and destructor.
-
-BTW, I think although the batadv_softif_create is legacy, we should fix it
-when it still exists :)
-
-Regards
-Feng
+diff --git a/ip/iplink.c b/ip/iplink.c
+index 866ad72..263bfdd 100644
+--- a/ip/iplink.c
++++ b/ip/iplink.c
+@@ -72,6 +72,7 @@ void iplink_usage(void)
+ 		"	                  [ allmulticast { on | off } ]\n"
+ 		"	                  [ promisc { on | off } ]\n"
+ 		"	                  [ trailers { on | off } ]\n"
++		"	                  [ carrier { on | off } ]\n"
+ 		"	                  [ txqueuelen PACKETS ]\n"
+ 		"	                  [ name NEWNAME ]\n"
+ 		"	                  [ address LLADDR ]\n"
+@@ -673,6 +674,17 @@ int iplink_parse(int argc, char **argv, struct iplink_req *req,
+ 				req->i.ifi_flags |= IFF_NOARP;
+ 			else
+ 				return on_off("arp", *argv);
++		} else if (strcmp(*argv, "carrier") == 0) {
++			int carrier;
++			NEXT_ARG();
++			if (strcmp(*argv, "on") == 0)
++				carrier = 1;
++			else if (strcmp(*argv, "off") == 0)
++				carrier = 0;
++			else
++				return on_off("carrier", *argv);
++
++			addattr8(&req->n, sizeof(*req), IFLA_CARRIER, carrier);
+ 		} else if (strcmp(*argv, "vf") == 0) {
+ 			struct rtattr *vflist;
+ 
+-- 
+1.8.3.1
