@@ -1,47 +1,48 @@
-From: <kelley@colfaxcommunitynetwork.org>
-Subject: 47490 netdev
-Date: Wed, 26 Apr 2017 05:19:48 -0000
-Message-ID: <149318398834.31457.11241454356481692682@zaural.ru>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: IGMP on IPv6
+Date: Tue, 25 Apr 2017 22:24:58 -0700
+Message-ID: <CAM_iQpVNGLzVd5KfwTeP9zXEUOR8yf00RsB8gd2RWn6bySOifg@mail.gmail.com>
+References: <1479111388-25383-1-git-send-email-liuhangbin@gmail.com>
+ <58D29265.1020604@ti.com> <58EFA913.5060604@ti.com> <CAM_iQpWYuQdxF0AOEMHRy7BSmxMVUb-7w7OdgYeOKe6atATsFQ@mail.gmail.com>
+ <58F648FB.10606@ti.com> <58F64ADB.8040900@ti.com> <CAM_iQpWJ_oPSWV-PBeBGj5LoddMHTmrimLbViXLJ-VKR21e4mQ@mail.gmail.com>
+ <58FF7656.8050506@ti.com>
 Mime-Version: 1.0
-Content-Type: application/zip; name="47176743700.zip"
-Content-Transfer-Encoding: base64
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Hangbin Liu <liuhangbin@gmail.com>,
+        "open list:TI NETCP ETHERNET DRIVER" <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>
+To: Murali Karicheri <m-karicheri2@ti.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ws45.zone31-163-133.zaural.ru ([31.163.133.45]:39944 "HELO
-        zaural.ru" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
-        id S1434947AbdDZFTx (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 26 Apr 2017 01:19:53 -0400
-Content-Disposition: attachment
+Received: from mail-wm0-f54.google.com ([74.125.82.54]:37780 "EHLO
+        mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1949172AbdDZFZU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2017 01:25:20 -0400
+Received: by mail-wm0-f54.google.com with SMTP id m123so114162751wma.0
+        for <netdev@vger.kernel.org>; Tue, 25 Apr 2017 22:25:19 -0700 (PDT)
+In-Reply-To: <58FF7656.8050506@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-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
-SwUGAAAAAAEAAQBbAAAAGQYAAAAA
+On Tue, Apr 25, 2017 at 9:16 AM, Murali Karicheri <m-karicheri2@ti.com> wrote:
+> On 04/18/2017 06:37 PM, Cong Wang wrote:
+>> Did you assign IPv4 and IPv6 addresses to the HSR master device?
+>
+> No. I just used IPv4. From the trace mld_ifc_timer_expire() -> mld_sendpack() -> ip6_output()
+> do you know what is it trying to do? Is it some neighbor discovery message or something
+> going over the lower interface instead of the hsr interface?
+>
+
+IPv6 is special here because it has link-local address configured
+automatically for each device, so this mld_ifc_timer is armed
+for link-local multicasts. See:
+
+
+ 464         /* Join interface-local all-node multicast group */
+ 465         ipv6_dev_mc_inc(dev, &in6addr_interfacelocal_allnodes);
+ 466
+ 467         /* Join all-node multicast group */
+ 468         ipv6_dev_mc_inc(dev, &in6addr_linklocal_allnodes);
+ 469
+ 470         /* Join all-router multicast group if forwarding is set */
+ 471         if (ndev->cnf.forwarding && (dev->flags & IFF_MULTICAST))
+ 472                 ipv6_dev_mc_inc(dev, &in6addr_linklocal_allrouters);
