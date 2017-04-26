@@ -1,59 +1,63 @@
-From: Samuel Ortiz <sameo@linux.intel.com>
-Subject: Re: [PATCH v2 0/8] NFC: fix device allocation and nfcmrvl crashes
-Date: Thu, 27 Apr 2017 00:42:38 +0200
-Message-ID: <20170426224238.GB3717@zurbaran.ger.intel.com>
-References: <20170330101542.15384-1-johan@kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 02/10] tcp: do not pass timestamp to
+ tcp_rack_detect_loss()
+Date: Wed, 26 Apr 2017 16:03:14 -0700
+Message-ID: <1493247794.6453.90.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20170425171541.3417-1-edumazet@google.com>
+         <20170425171541.3417-3-edumazet@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Johan Hovold <johan@kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S . Miller" <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Soheil Hassas Yeganeh <soheil@google.com>
+To: Eric Dumazet <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga04.intel.com ([192.55.52.120]:29540 "EHLO mga04.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1031877AbdDZWnY (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 26 Apr 2017 18:43:24 -0400
-Content-Disposition: inline
-In-Reply-To: <20170330101542.15384-1-johan@kernel.org>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:33986 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1032470AbdDZXDR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2017 19:03:17 -0400
+Received: by mail-pf0-f194.google.com with SMTP id g23so3445615pfj.1
+        for <netdev@vger.kernel.org>; Wed, 26 Apr 2017 16:03:17 -0700 (PDT)
+In-Reply-To: <20170425171541.3417-3-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Johan,
+On Tue, 2017-04-25 at 10:15 -0700, Eric Dumazet wrote:
+> We can use tp->tcp_mstamp as it contains a recent timestamp.
+> 
 
-On Thu, Mar 30, 2017 at 12:15:34PM +0200, Johan Hovold wrote:
-> This started out with the observation that the nfcmrvl_uart driver
-> unconditionally dereferenced the tty class device despite the fact that
-> not every tty has an associated struct device (Unix98 ptys). Some
-> further changes were needed in the common nfcmrvl code to fully address
-> this, some of which also incidentally fixed a few related bugs (e.g.
-> resource leaks in error paths).
-> 
-> While fixing this I stumbled over a regression in NFC core that lead to
-> broken registration error paths and misnamed workqueues.
-> 
-> Note that this has only been tested by configuring the n_hci line
-> discipline for different ttys without any actual NFC hardware connected.
-> 
-> Johan
-> 
-> 
-> Changes in v2
->  - fix typo in commit message (1/8)
->  - release reset gpio in error paths (3/8)
->  - fix description of patch impact (3/8)
->  - allow gpio 0 to be used for reset signalling (8/8, new)
-> 
-> 
-> Johan Hovold (8):
->   NFC: fix broken device allocation
->   NFC: nfcmrvl_uart: add missing tty-device sanity check
->   NFC: nfcmrvl: do not use device-managed resources
->   NFC: nfcmrvl: use nfc-device for firmware download
->   NFC: nfcmrvl: fix firmware-management initialisation
->   NFC: nfcmrvl_uart: fix device-node leak during probe
->   NFC: nfcmrvl_usb: use interface as phy device
->   NFC: nfcmrvl: allow gpio 0 for reset signalling
-Applied, thanks.
+> @@ -165,12 +164,10 @@ void tcp_rack_advance(struct tcp_sock *tp, u8 sacked, u32 end_seq,
+>  void tcp_rack_reo_timeout(struct sock *sk)
+>  {
+>  	struct tcp_sock *tp = tcp_sk(sk);
+> -	struct skb_mstamp now;
+>  	u32 timeout, prior_inflight;
+>  
+> -	skb_mstamp_get(&now);
 
-Cheers,
-Samuel.
+Oh this is silly, a timer event is not updating tp->tcp_mstamp yet.
+
+I will provide a patch, after tests.
+
+>  	prior_inflight = tcp_packets_in_flight(tp);
+> -	tcp_rack_detect_loss(sk, &now, &timeout);
+> +	tcp_rack_detect_loss(sk, &timeout);
+>  	if (prior_inflight != tcp_packets_in_flight(tp)) {
+>  		if (inet_csk(sk)->icsk_ca_state != TCP_CA_Recovery) {
+>  			tcp_enter_recovery(sk, false);
+
+Something like :
+
+diff --git a/net/ipv4/tcp_recovery.c b/net/ipv4/tcp_recovery.c
+index fdac262e277b2f25492f155bbb295d6d87e31d02..75096becac21f09fd14466b5f87dffe5820325b5 100644
+--- a/net/ipv4/tcp_recovery.c
++++ b/net/ipv4/tcp_recovery.c
+@@ -167,6 +167,7 @@ void tcp_rack_reo_timeout(struct sock *sk)
+ 	u32 timeout, prior_inflight;
+ 
+ 	prior_inflight = tcp_packets_in_flight(tp);
++	skb_mstamp_get(&tp->tcp_mstamp);
+ 	tcp_rack_detect_loss(sk, &timeout);
+ 	if (prior_inflight != tcp_packets_in_flight(tp)) {
+ 		if (inet_csk(sk)->icsk_ca_state != TCP_CA_Recovery) {
