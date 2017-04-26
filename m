@@ -1,89 +1,102 @@
-From: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
-Subject: Re: [PATCH net] net: batman-adv: Fix possible
-	memleaks when fail to register_netdevice
-Date: Wed, 26 Apr 2017 07:57:44 +0200
-Message-ID: <3994535.Z9kqCnttI2@bentobox>
-References: <1493121800-28066-1-git-send-email-gfree.wind@foxmail.com>
- <1756616.320MP6AHYH@bentobox> <002901d2be25$d9092bd0$8b1b8370$@foxmail.com>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
- <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next v8 2/3] net sched actions: dump more than
+ TCA_ACT_MAX_PRIO actions per batch
+Date: Wed, 26 Apr 2017 08:19:04 +0200
+Message-ID: <20170426061904.GB1867@nanopsycho.orion>
+References: <1493121247-11863-1-git-send-email-jhs@emojatatu.com>
+ <1493121247-11863-3-git-send-email-jhs@emojatatu.com>
+ <20170425121338.GC1867@nanopsycho.orion>
+ <5e54edd8-3943-6f09-490f-ff04b83077f6@mojatatu.com>
+ <20170425160445.GD1867@nanopsycho.orion>
+ <4b7789f7-69e0-4764-7029-f6e15d6e7d69@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="nextPart3772731.Kub63pVygl";
- micalg="pgp-sha512"; protocol="application/pgp-signature"
-Cc: mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org, a@unstable.cc, 'Gao Feng' <fgao-KlmEoCYek3zQT0dZR+AlfA@public.gmane.org>,
- davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Gao Feng <gfree.wind-H32Fclmsjq1BDgjK7y7TUQ@public.gmane.org>
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <002901d2be25$d9092bd0$8b1b8370$@foxmail.com>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, xiyou.wangcong@gmail.com,
+        eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: Jamal Hadi Salim <jhs@mojatatu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f196.google.com ([209.85.128.196]:32796 "EHLO
+        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1954707AbdDZGTS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2017 02:19:18 -0400
+Received: by mail-wr0-f196.google.com with SMTP id w50so23338403wrc.0
+        for <netdev@vger.kernel.org>; Tue, 25 Apr 2017 23:19:12 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <4b7789f7-69e0-4764-7029-f6e15d6e7d69@mojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---nextPart3772731.Kub63pVygl
-Content-Transfer-Encoding: 7Bit
-Content-Type: text/plain; charset="us-ascii"
+Tue, Apr 25, 2017 at 10:29:40PM CEST, jhs@mojatatu.com wrote:
+>On 17-04-25 12:04 PM, Jiri Pirko wrote:
+>> Tue, Apr 25, 2017 at 03:01:22PM CEST, jhs@mojatatu.com wrote:
+>> > On 17-04-25 08:13 AM, Jiri Pirko wrote:
+>> > > Tue, Apr 25, 2017 at 01:54:06PM CEST, jhs@mojatatu.com wrote:
+>
+>> > > > 
+>> > > > +static inline bool tca_flags_valid(u32 act_flags)
+>> > > > +{
+>> > > > +	u32 invalid_flags_mask  = ~VALID_TCA_FLAGS;
+>> > > > +
+>> > > > +	if (act_flags & invalid_flags_mask)
+>> > > > +		return false;
+>> > > 
+>> > > I don't see how this resolves anything. VALID_TCA_FLAGS is set in stone
+>> > > not going to change anytime in future, right?
+>> > 
+>> > Every time a new bit gets added VALID_TCA_FLAGS changes.
+>> 
+>> You mean flag that user can set? If that is the case, you are breaking
+>> UAPI for newer app running on older kernel.
+>> 
+>
+>Ok, let me try to explain with more clarity. The rules Iam
+>trying to follow are:
+>if i see any bit set that i dont understand I will reject.
+>
+>So lets in first kernel I have support for bit 0.
+>My validation check is to make sure only bit 0 is set.
+>The valid_flags currently then only constitutes bit 0.
+>i.e
+>If you set bit 2 or 3, the function above will reject and i return
+>the error to the user.
+>
+>That is expected behavior correct?
+>
+>3 months down the road:
+>I add two flags - bit 1 and 2.
+>So now my valid_flags changes to bits 1, 2 and 0.
+>
+>The function above will now return true for bits 0-2 but
+>will reject if you set bit 3.
+>
+>That is expected behavior, correct?
 
-On Mittwoch, 26. April 2017 08:41:30 CEST Gao Feng wrote:
-> On Dienstag, 25. April 2017 20:03:20 CEST gfree.wind-H32Fclmsjq1BDgjK7y7TUQ@public.gmane.org wrote:
-> > From: Gao Feng <fgao-KlmEoCYek3zQT0dZR+AlfA@public.gmane.org>
-> > 
-> > Because the func batadv_softif_init_late allocate some resources and
-> > it would be invoked in register_netdevice. So we need to invoke the
-> > func batadv_softif_free instead of free_netdev to cleanup when fail
-> > to register_netdevice.
-> 
-> I could be wrong, but shouldn't the destructor be replaced with free_netdevice 
-> and the batadv_softif_free (without the free_netdev) used as ndo_uninit? The 
-> line you've changed should then be kept as free_netdevice.
-> 
-> At least this seems to be important when using rtnl_newlink() instead of the 
-> legacy sysfs netdev stuff from batman-adv. rtnl_newlink() would also only call 
-> free_netdevice and thus also not run batadv_softif_free. This seems to be only 
-> fixable by calling ndo_uninit.
-> 
-> Sorry, I don't get you.
-> The net_dev is created in this func batadv_softif_create.
-> Why couldn't invoke batadv_softif_free to cleanup when fail to
-> register_netdevice?
-> 
+The same app compiled against new kernel with bits (0, 1, 2) will run with
+this kernel good. But if you run it with older kernel, the kernel (0)
+would refuse. Is that ok?
 
-Because it is the legacy way to create the batadv interfaces and there is a 
-"new" one. The new way is to use rtnl link (see batadv_link_ops). 
 
-The rtnl linke (rtnl_newlink) would not benefit from your fix and therefore 
-still show the old behavior. I think a different fix is necessary to solve the 
-problem for both ways to create an batadv interface.
 
-Kind regards,
-	Sven
---nextPart3772731.Kub63pVygl
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part.
-Content-Transfer-Encoding: 7Bit
+>
+>On u32/16/8:
+>I am choosing u32 so it allows me to add more upto 32 bit flags.
+>Not all 32 are needed today but it is better insurance.
+>If I used u8 then the 24 of those 32 bits i dont use will be used
+>as pads in the TLV. So it doesnt make sense for me to use a u8/16.
 
------BEGIN PGP SIGNATURE-----
+Jamal, note that I never suggested having more flags in a single attr.
+Therefore I suggested u8 to carry a single flag.
 
-iQIzBAABCgAdFiEEF10rh2Elc9zjMuACXYcKB8Eme0YFAlkANtgACgkQXYcKB8Em
-e0ZVyA//Upbu4Lep+T49diKyjqfthpeUZLYA8UQnJ+NaHsDUV/uo68aGfQXJkdJt
-RZ7bubgMee8Qf1FE6qLxi6Tj6b54iapPO2YGf00Owc1EyCgAZpw9XTOcR7Pjt7/o
-fvYd5mK4cZoMtJloD+2j7UX4MtdtUGgNDt5Pv4q6Bq75DXs84oooAeJzdvv8PANF
-IfpIJ3zxY0tf5FeXkHH4FzuRAoT7dC2RLGtVgoWpjVeM6N8A20L7xnhOF47BGOyi
-1UY/Iu5dbU2VQJ6N4Yw4TreVI1kjztcf+yPH0C0SDb0xd131QQRVsCpDa8m06oQV
-U6G2AReJFTBUh9sulb4CGcTbLtBLIaxI/4PhuWmuT+dr3j0X2+uHk+cCwxSFz6Hb
-Dn6S3oPqDQhyxhUFlG1nofyamPqaAYuinLGegGn20ZD0/QFdTiKmkvYSXsvBQ7dc
-Qaor9YCBFdnA6aB01HFKZuZMtEC4bb4t+DCY7gQQWQJjkvlVE0EA8hv7T5rlL5bu
-ko9r/QcRkFl+R/hT8VY0GlA7hk55ssQ07AzgNS8ntlWEx0FErwX/ucUgwt+63Ijt
-0vc5JbMFkaWP20SDWxRKjr5bd6DDO+dNFFUYx7aXMEwKlBInWe5RaBI+5fPV5eH0
-sgL02AE6DTlS5Nf7Ujld4nPLXJgqd3lvPhZs+YshB6zQ5vUe/6A=
-=ykFc
------END PGP SIGNATURE-----
+You say that it has performance impact having 3 flag attrs in compare to
+one bit flag attr. Could you please provide some numbers?
 
---nextPart3772731.Kub63pVygl--
+I expect that you will not be able to show the difference. And if there
+is no difference in performance, your main argument goes away. And we
+can do this in a nice, clear, TLV fashion.
+
+
+>
+>Does that make more sense?
+>
+>cheers,
+>jamal
