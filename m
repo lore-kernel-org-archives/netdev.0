@@ -1,96 +1,77 @@
-From: Alexei Starovoitov <ast@fb.com>
-Subject: Re: more test_progs...
-Date: Wed, 26 Apr 2017 16:49:35 -0700
-Message-ID: <cb627763-4df8-13ad-9dfe-88a79cccef64@fb.com>
-References: <20170425.125217.1962662516948420246.davem@davemloft.net>
- <470871b2-c4c0-ad23-7fda-1a38c2736679@fb.com>
- <590056F2.5010600@iogearbox.net>
- <20170426.105511.742633353102583622.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>, <daniel@iogearbox.net>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: [PATCH] netvsc: make sure napi enabled before vmbus_open
+Date: Wed, 26 Apr 2017 16:58:30 -0700
+Message-ID: <20170426235830.14801-1-sthemmin@microsoft.com>
+Cc: netdev@vger.kernel.org, Stephen Hemminger <sthemmin@microsoft.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:40020 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1033095AbdDZXt7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2017 19:49:59 -0400
-In-Reply-To: <20170426.105511.742633353102583622.davem@davemloft.net>
+Received: from mail-pf0-f175.google.com ([209.85.192.175]:33928 "EHLO
+        mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S937889AbdDZX6q (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2017 19:58:46 -0400
+Received: by mail-pf0-f175.google.com with SMTP id c198so8715997pfc.1
+        for <netdev@vger.kernel.org>; Wed, 26 Apr 2017 16:58:46 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 4/26/17 7:55 AM, David Miller wrote:
-> From: Daniel Borkmann <daniel@iogearbox.net>
-> Date: Wed, 26 Apr 2017 10:14:42 +0200
->
->> On 04/26/2017 05:42 AM, Alexei Starovoitov wrote:
->>> That sucks for sparc, of course. I don't have good suggestions for
->>> workaround other than marking tcphdr as packed :(
->>>  From code efficiency point of view it still will be faster than
->>> LD_ABS insn.
->>
->> Plus, ld_abs would also only work on skbs right now, and would
->> need JIT support for XDP. But it's also cumbersome to use with
->> f.e. IPv6, etc, so should not be encouraged, imo.
->>
->> One other option for !HAVE_EFFICIENT_UNALIGNED_ACCESS archs could
->> be to provide a bpf_skb_load_bytes() helper equivalent for XDP,
->> where you eventually do the memcpy() inside. We could see to inline
->> the helper itself to optimize it slightly.
->
-> We have to do something that works transparently and always,
-> regardless of whether HAVE_EFFICIENT_UNALIGNED_ACCESS is in
-> play or not.
->
-> And no, marking objects with __packed is not the answer.
+This fixes a race where vmbus callback for new packet arriving
+could occur before NAPI is initialized. Happens more on WS2008
+which takes longer to setup channel.
 
-I'm not suggesting to mark everything as __packed.
-Why the following is not the answer?
-index fd1e0832d409..c215dffd7189 100644
---- a/tools/testing/selftests/bpf/test_pkt_access.c
-+++ b/tools/testing/selftests/bpf/test_pkt_access.c
-@@ -19,13 +19,52 @@
-  #define barrier() __asm__ __volatile__("": : :"memory")
-  int _version SEC("version") = 1;
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+---
+ drivers/net/hyperv/netvsc.c       | 8 +++++---
+ drivers/net/hyperv/rndis_filter.c | 4 +++-
+ 2 files changed, 8 insertions(+), 4 deletions(-)
 
-+struct __tcphdr {
-+       __u16  source;
-...
-+       __u16  window;
-+       __u16 check;
-+       __u16  urg_ptr;
-+}
-+#if defined(__sparc__) || defined(__s390__)
-+__packed
-+#endif
-+;
-  SEC("test1")
-  int process(struct __sk_buff *skb)
-  {
-         void *data_end = (void *)(long)skb->data_end;
-         void *data = (void *)(long)skb->data;
-         struct ethhdr *eth = (struct ethhdr *)(data);
--       struct tcphdr *tcp = NULL;
-+       struct __tcphdr *tcp = NULL;
-         __u8 proto = 255;
-
-It's only needed for test_pkt_access.c test,
-since it's being fancy and doing iph->ihl * 4.
-
-Also such tcp->urg_ptr access into packed struct is more efficient
-after JITing then sparc's own load_half_unaligned in asm, since it's
-done inline and doesn't need a call.
-
-Note that such tcphdr workaround is not necessary for more
-real programs: test_l4lb.c and test_xdp.c, since they do:
-if (iph->ihl != 5)
-    return drop;
-
-Another idea:
-x64, arm64, ppc have efficient unaligned.
-s390 and mips64 have special instructions to do unaligned
-access efficiently and we can make verifier convert unknown-align
-load/stores into special internal load/stores, so they can be
-executed differently by interpreter and by JITs.
-Does sparc64 have some special instructions like that?
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index f99651c03e0a..8150febb86d6 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -1323,6 +1323,10 @@ int netvsc_device_add(struct hv_device *device,
+ 		nvchan->channel = device->channel;
+ 	}
+ 
++	/* Enable NAPI handler before init callbacks */
++	netif_napi_add(ndev, &net_device->chan_table[0].napi,
++		       netvsc_poll, NAPI_POLL_WEIGHT);
++
+ 	/* Open the channel */
+ 	ret = vmbus_open(device->channel, ring_size * PAGE_SIZE,
+ 			 ring_size * PAGE_SIZE, NULL, 0,
+@@ -1330,6 +1334,7 @@ int netvsc_device_add(struct hv_device *device,
+ 			 net_device->chan_table);
+ 
+ 	if (ret != 0) {
++		netif_napi_del(&net_device->chan_table[0].napi);
+ 		netdev_err(ndev, "unable to open channel: %d\n", ret);
+ 		goto cleanup;
+ 	}
+@@ -1337,9 +1342,6 @@ int netvsc_device_add(struct hv_device *device,
+ 	/* Channel is opened */
+ 	netdev_dbg(ndev, "hv_netvsc channel opened successfully\n");
+ 
+-	/* Enable NAPI handler for init callbacks */
+-	netif_napi_add(ndev, &net_device->chan_table[0].napi,
+-		       netvsc_poll, NAPI_POLL_WEIGHT);
+ 	napi_enable(&net_device->chan_table[0].napi);
+ 
+ 	/* Writing nvdev pointer unlocks netvsc_send(), make sure chn_table is
+diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+index ab92c3c95951..a9e9fb4bb9c5 100644
+--- a/drivers/net/hyperv/rndis_filter.c
++++ b/drivers/net/hyperv/rndis_filter.c
+@@ -1017,8 +1017,10 @@ static void netvsc_sc_open(struct vmbus_channel *new_sc)
+ 			 netvsc_channel_cb, nvchan);
+ 	if (ret == 0)
+ 		napi_enable(&nvchan->napi);
+-	else
++	else {
++		netif_napi_del(&nvchan->napi);
+ 		netdev_err(ndev, "sub channel open failed (%d)\n", ret);
++	}
+ 
+ 	if (refcount_dec_and_test(&nvscdev->sc_offered))
+ 		complete(&nvscdev->channel_init_wait);
+-- 
+2.11.0
