@@ -1,7 +1,7 @@
 From: Eric Anholt <eric-WhKQ6XTQaPysTnJN9+BGXg@public.gmane.org>
 Subject: Re: [PATCH v2 2/2] ARM: dts: Add the ethernet and ethernet PHY to the cygnus core DT.
-Date: Wed, 26 Apr 2017 10:26:42 -0700
-Message-ID: <87shkvjd0t.fsf@eliezer.anholt.net>
+Date: Wed, 26 Apr 2017 10:26:44 -0700
+Message-ID: <87r30fjd0r.fsf@eliezer.anholt.net>
 References: <20170425235357.7690-1-eric@anholt.net> <20170425235357.7690-2-eric@anholt.net> <0cb00eb7-41d0-0390-4687-d966499ed9f4@gmail.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; boundary="=-=-=";
@@ -67,27 +67,26 @@ ygnus.dtsi
 >
 > property in there by default?
 
-I didn't have the override in the board file either, just switch and
-ethernet.  Fixed.
+Done.
 
 --=-=-=
 Content-Type: application/pgp-signature; name="signature.asc"
 
 -----BEGIN PGP SIGNATURE-----
 
-iQIzBAEBCgAdFiEE/JuuFDWp9/ZkuCBXtdYpNtH8nugFAlkA2FIACgkQtdYpNtH8
-nuh9xxAAmJvaM8oLdXzmbYFLz9bZJHNAPHH4SJrANGQYV53BXHDGkv4OskYg18vp
-Xvz+zrFdlZDm9vim4v+9zvYs4Diaz+zYbP7WltWjVHX3/HfUijoBsfZAmJlSuBP4
-nZPRM0ZoGoyjfsAU/hk1F1O95cv+kSi8HEVOLagS8qnlrfqbWC0oPyRjXy+BrvC/
-/LPjlOVlLXW8+EPktr+17NTiSA0TTuGTROtCsnXHRsL1LF2t6Mpbwj+cD7x/FESs
-zScXVwREDFxOIKI+ZFh8PO2InhmiqjCbv1itZQUFUdKZ9pXt5BDW2g7NcpkWQZ2d
-PjnrLFSOSkTLskJU2danT0Jfie1GZOYZUwveH4VmBNl053zlARtyGPyy5tobFfqW
-cLZ4BIksRVZgeQL/X06SZl8sR8usIkJsnBE3BjjMXhWFJt9QBGPhe6faaeQ7FTJF
-n0gLaCqL7Gbs62QFz3jjYLdbLZ548C8UQ+5PhAkuz2W3qkRienG0y34K4aXZBBoG
-qj9cHJwPySM1DDw193O/uDSVn1LP8GlPfyeOQu2/ScGf9VAgBN8ijETfBq5SkPez
-iLTXpkF3rMeVp46rhHQf2fpSMrOsjuszPrdjZv0UwOrEcEY9VW1k9QCIjTFhCb7g
-TBQoHYx7thyA36DeBTBxOOnYDS0qhj8S49e5HQ9LgwMjIa/pgNo=
-=d24z
+iQIzBAEBCgAdFiEE/JuuFDWp9/ZkuCBXtdYpNtH8nugFAlkA2FQACgkQtdYpNtH8
+nuiG+RAAulmpDX7UD+c7qEvexcyuJLr7fZ5PPTXRXYmowA6JercWM3p3f+TQr/E8
+wEGP6zDKR017Ov77ubuQdMyPaiXXbAlVsD788gcP7s6+B2DDn7w6UOIIu+4O+xrD
+gt2a8ZbHnua9HCeupvTjHptU0e+459QV/1U9DNnF9xfF32dptEWx7/vK/cQfsOeC
+3ODouOTXBOVSatFLyyyW1TDr8wvQ2uCNaDuhmtzmRjfYwM3u78aQk0dRjxBFAw36
+oUHF2mHPeRuhu/USPs9qAa7gfSXkeVMwgTlKB3QzY/mNkCEt+p8mrhCw46Xa16yc
+9WpkZg/U5bCUCdZDx79epYOFHAc7jJHX4Bs52zEmipivXTI+0ANT0E1KtXqPJjkd
+xpqOj/bcKzhDNJ5azXygx7iqyefMdfcEecQ21FU25UbgW85V0/D/5DKVr5+gLuYX
+P+F6bxxaOIicncbufiiEBpA6USepC+8h9CCfkMuClGRwM59FceNFTvvFDaJDn/1t
+rP6a2uV39ui03WAEjYaVEK4N1g3jySv19f6j8x43aRo7v5em8g1lNJHU5ylMGGtD
+kEoYvkBbh7lb8YL1PIqm7TT4dR/ai6g/JgjKs9f5zVo08Fdr3o8MJfNzQMRBUCFd
+uOhxYLgzYuPjWtfV5xTfVk30Z7gEpngodJ9KyijZdHC/VkG9hX8=
+=IcQ2
 -----END PGP SIGNATURE-----
 --=-=-=--
 --
