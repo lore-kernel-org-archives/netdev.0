@@ -1,81 +1,127 @@
-From: "Gao Feng" <gfree.wind-H32Fclmsjq1BDgjK7y7TUQ@public.gmane.org>
-Subject: Re: [PATCH net] net: batman-adv: Fix possible
-	memleaks when fail to register_netdevice
-Date: Wed, 26 Apr 2017 15:28:26 +0800
-Message-ID: <005501d2be5e$b2bb0550$18310ff0$@foxmail.com>
-References: <1493121800-28066-1-git-send-email-gfree.wind@foxmail.com>
- <3994535.Z9kqCnttI2@bentobox> <002101d2be58$8bcaaa00$a35ffe00$@foxmail.com>
- <2857108.moq831zFsU@bentobox>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
- <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: Roger Pau =?iso-8859-1?Q?Monn=E9?= <roger.pau-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH v2 15/21] xen-blkfront: Make use of the new sg_map helper
+ function
+Date: Wed, 26 Apr 2017 08:37:20 +0100
+Message-ID: <20170426073720.okv33ly2ldepilti@dhcp-3-128.uk.xensource.com>
+References: <1493144468-22493-1-git-send-email-logang@deltatee.com>
+ <1493144468-22493-16-git-send-email-logang@deltatee.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org, a@unstable.cc, 'Gao Feng' <fgao-KlmEoCYek3zQT0dZR+AlfA@public.gmane.org>,
- davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: "'Sven Eckelmann'" <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <2857108.moq831zFsU@bentobox>
-Content-Language: zh-cn
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: Boris Ostrovsky <boris.ostrovsky-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
+ dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org, dm-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+ target-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>,
+ devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org, "James E.J. Bottomley" <jejb-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
+ linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-nvdimm-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org,
+ linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Sumit Semwal <sumit.semwal-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+ open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org, linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ Juergen Gross <jgross-IBi9RG/b67k@public.gmane.org>, Julien Grall <julien.grall-5wv7dgnIgG8@public.gmane.org>,
+ intel-gfx-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org, sparmaintainer-GLv8BlqOqDDQT0dZR+AlfA@public.gmane.org,
+ linux-raid-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, megaraidlinux.pdl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
+ Jens Axboe <axboe-tSWWG44O7X1aa/9Udqfwiw@public.gmane.org>,
+ "Martin K. Petersen" <martin.petersen-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ Matthew Wilcox <mawilcox-0li6OtcxBFHby3iVrkZq2A@public.gmane.org>, linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-crypto-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ Greg Kroah-Hartman <gregkh@linuxfounda
+To: Logan Gunthorpe <logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1493144468-22493-16-git-send-email-logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
+List-Unsubscribe: <https://lists.01.org/mailman/options/linux-nvdimm>,
+ <mailto:linux-nvdimm-request-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.01.org/pipermail/linux-nvdimm/>
+List-Post: <mailto:linux-nvdimm-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
+List-Help: <mailto:linux-nvdimm-request-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.01.org/mailman/listinfo/linux-nvdimm>,
+ <mailto:linux-nvdimm-request-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org?subject=subscribe>
+Errors-To: linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org
+Sender: "Linux-nvdimm" <linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-> From: Sven Eckelmann [mailto:sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org]
-> Sent: Wednesday, April 26, 2017 3:17 PM
-> On Mittwoch, 26. April 2017 14:44:24 CEST Gao Feng wrote:
-> [...]
-> > I get it now, thanks.
-> [...]
-> > BTW, I think although the batadv_softif_create is legacy, we should
-> > fix it when it still exists :)
-> 
-> I didn't meant that we should not fix it. I just said that it looks to me
-like the fix
-> should look different to ensure that it actually fixes the sysfs and rtnl
-link
-> implementation for the batadv interface creation. Right now the ndo_uninit
-> (when it would be set by batadv) is called in the netdev core functions
-when an
-> error happens during the registration. This is not the case for the
-destructor.
+On Tue, Apr 25, 2017 at 12:21:02PM -0600, Logan Gunthorpe wrote:
+> Straightforward conversion to the new helper, except due to the lack
+> of error path, we have to use SG_MAP_MUST_NOT_FAIL which may BUG_ON in
+> certain cases in the future.
+> =
 
-Thanks your answer.
-I assumed the destructor is not for this case before.. 
+> Signed-off-by: Logan Gunthorpe <logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
+> Cc: Boris Ostrovsky <boris.ostrovsky-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+> Cc: Juergen Gross <jgross-IBi9RG/b67k@public.gmane.org>
+> Cc: Konrad Rzeszutek Wilk <konrad.wilk-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+> Cc: "Roger Pau Monn=E9" <roger.pau-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
+> ---
+>  drivers/block/xen-blkfront.c | 20 +++++++++++---------
+>  1 file changed, 11 insertions(+), 9 deletions(-)
+> =
 
-> Your patch would not change it. It therefore looks like you simply have to
-move
-> the current destructor (without the free_netdev) to ndo_uninit and change
-the
-> destructor to free_netdev.
+> diff --git a/drivers/block/xen-blkfront.c b/drivers/block/xen-blkfront.c
+> index 3945963..ed62175 100644
+> --- a/drivers/block/xen-blkfront.c
+> +++ b/drivers/block/xen-blkfront.c
+> @@ -816,8 +816,9 @@ static int blkif_queue_rw_req(struct request *req, st=
+ruct blkfront_ring_info *ri
+>  		BUG_ON(sg->offset + sg->length > PAGE_SIZE);
+>  =
 
-Yes, that patch didn't touch badman-adv. Because current badman-adv doesn't
-support newlink now.
-It would be good that cleanup the resource in ndo_uninit routine.
+>  		if (setup.need_copy) {
+> -			setup.bvec_off =3D sg->offset;
+> -			setup.bvec_data =3D kmap_atomic(sg_page(sg));
+> +			setup.bvec_off =3D 0;
+> +			setup.bvec_data =3D sg_map(sg, 0, SG_KMAP_ATOMIC |
+> +						 SG_MAP_MUST_NOT_FAIL);
 
-Best Regards
-Feng
- 
-> 
-> The batadv ops doesn't have a newlink function. It will therefore use the
-> register_netdevice code path which calls free_netdev on failures. The
-extra
-> cleanup you've added in
-> https://www.mail-archive.com/netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org/msg165253.html can
-> therefore not work for batman-adv. Actually, it is not touching anything
-> batman-adv related. The suggestion to change the register_netdevice ->
-> free_netdev part in rtnl_newlink was new in the reply to the batadv
-discussion.
-> It is therefore still an open discussion how it is correctly fixed.
-> 
-> Kind regards,
-> 	Sven
+I assume that sg_map already adds sg->offset to the address?
+
+Also wondering whether we can get rid of bvec_off and just increment bvec_d=
+ata,
+adding Julien who IIRC added this code.
+
+>  		}
+>  =
+
+>  		gnttab_foreach_grant_in_range(sg_page(sg),
+> @@ -827,7 +828,7 @@ static int blkif_queue_rw_req(struct request *req, st=
+ruct blkfront_ring_info *ri
+>  					      &setup);
+>  =
+
+>  		if (setup.need_copy)
+> -			kunmap_atomic(setup.bvec_data);
+> +			sg_unmap(sg, setup.bvec_data, 0, SG_KMAP_ATOMIC);
+>  	}
+>  	if (setup.segments)
+>  		kunmap_atomic(setup.segments);
+> @@ -1053,7 +1054,7 @@ static int xen_translate_vdev(int vdevice, int *min=
+or, unsigned int *offset)
+>  		case XEN_SCSI_DISK5_MAJOR:
+>  		case XEN_SCSI_DISK6_MAJOR:
+>  		case XEN_SCSI_DISK7_MAJOR:
+> -			*offset =3D (*minor / PARTS_PER_DISK) + =
+
+> +			*offset =3D (*minor / PARTS_PER_DISK) +
+>  				((major - XEN_SCSI_DISK1_MAJOR + 1) * 16) +
+>  				EMULATED_SD_DISK_NAME_OFFSET;
+>  			*minor =3D *minor +
+> @@ -1068,7 +1069,7 @@ static int xen_translate_vdev(int vdevice, int *min=
+or, unsigned int *offset)
+>  		case XEN_SCSI_DISK13_MAJOR:
+>  		case XEN_SCSI_DISK14_MAJOR:
+>  		case XEN_SCSI_DISK15_MAJOR:
+> -			*offset =3D (*minor / PARTS_PER_DISK) + =
+
+> +			*offset =3D (*minor / PARTS_PER_DISK) +
+>  				((major - XEN_SCSI_DISK8_MAJOR + 8) * 16) +
+>  				EMULATED_SD_DISK_NAME_OFFSET;
+>  			*minor =3D *minor +
+> @@ -1119,7 +1120,7 @@ static int xlvbd_alloc_gendisk(blkif_sector_t capac=
+ity,
+>  	if (!VDEV_IS_EXTENDED(info->vdevice)) {
+>  		err =3D xen_translate_vdev(info->vdevice, &minor, &offset);
+>  		if (err)
+> -			return err;		=
+
+> +			return err;
+
+Cosmetic changes should go in a separate patch please.
+
+Roger.
