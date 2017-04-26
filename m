@@ -1,106 +1,45 @@
-From: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH] IB/IPoIB: Check the headroom size
-Date: Wed, 26 Apr 2017 09:27:38 -0400
-Message-ID: <1493213258.3041.98.camel@redhat.com>
-References: <1493114155-12101-1-git-send-email-honli@redhat.com>
-         <CAJ3xEMg4_2ph7QwPsUb-tX-K4d2ppkqz98sPzytsmBCK=29WHw@mail.gmail.com>
-         <CAAk-MO8O19iC2Yn-BMn5pKTAYxaSzGPMyta=fwes3XSvzmz_cQ@mail.gmail.com>
-         <CAJ3xEMgw=9sj3rdahPEiST_yDfDJPNSZZLRn43tnb3bK4_RPzg@mail.gmail.com>
-         <CAAk-MO-B8Liv6RyGye_Fx-9OELCUrGMj5SwK9UsciC=khSO5fA@mail.gmail.com>
-         <CAJ3xEMgwS1Bq8+eZC1iAr6xi8ZPHrchsOJ5r4LNJxR8P+6VipA@mail.gmail.com>
-         <1493134815.3041.72.camel@redhat.com>
-         <CAJ3xEMjqkJrKi+6ronuPBn2P6y8p6sdhVppDzFtMwQrhL13bzg@mail.gmail.com>
-         <1493192794.2409.3.camel@redhat.com>
-         <20170426125230.GB19179@dhcp-13-42.nay.redhat.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [oss-drivers] Re: [RFC 3/4] nfp: make use of extended ack message
+ reporting
+Date: Wed, 26 Apr 2017 15:31:58 +0200
+Message-ID: <5900A14E.1030008@iogearbox.net>
+References: <20170425080644.122536-1-jakub.kicinski@netronome.com> <20170425080644.122536-4-jakub.kicinski@netronome.com> <9765d004-de19-7cf2-fcfc-1d2e72cded43@mojatatu.com> <20170425.102022.219410555949403896.davem@davemloft.net> <20170426111315.GC28251@vergenet.net> <646e0fb0-1f10-f4d0-936c-7fdf96b6cc43@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Erez Shitrit <erezsh-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>,
-        Erez Shitrit <erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Honggang LI <honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170426125230.GB19179-Y5OA6DF/u0nid9cnFhDO8BcY2uh10dtjAL8bYrjMMd8@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: jakub.kicinski@netronome.com, netdev@vger.kernel.org,
+        johannes@sipsolutions.net, dsa@cumulusnetworks.com,
+        alexei.starovoitov@gmail.com, bblanco@gmail.com,
+        john.fastabend@gmail.com, kubakici@wp.pl, oss-drivers@netronome.com
+To: Jamal Hadi Salim <jhs@mojatatu.com>,
+        Simon Horman <simon.horman@netronome.com>,
+        David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:53886 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1955326AbdDZNcH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2017 09:32:07 -0400
+In-Reply-To: <646e0fb0-1f10-f4d0-936c-7fdf96b6cc43@mojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2017-04-26 at 20:52 +0800, Honggang LI wrote:
-> On Wed, Apr 26, 2017 at 09:46:34AM +0200, Paolo Abeni wrote:
-> > 
-> > On Wed, 2017-04-26 at 00:50 +0300, Or Gerlitz wrote:
-> > > 
-> > > so maybe @ least for the time being, we should be picking Hong's
-> > > patch
-> > > with proper change log and without the giant stack dump till we
-> > > have
-> > > something better. If you agree, can you do the re-write of the
-> > > change
-> > > log?
-> > 
-> > I think that Hong's patch is following the correct way to fix the
-> > issue: ipoib_hard_header() can't assume that the skb headroom is at
-> > least IPOIB_HARD_LEN bytes, as wrongly implied by commit
-> > fc791b633515
-> > (my fault, I'm sorry).
-> > 
-> > Perhaps we can make the code a little more robust with something
-> > alongside the following (only compile tested):
-> > ---
-> > diff --git a/drivers/infiniband/ulp/ipoib/ipoib_main.c
-> > b/drivers/infiniband/ulp/ipoib/ipoib_main.c
-> > index d1d3fb7..d53d2e1 100644
-> > --- a/drivers/infiniband/ulp/ipoib/ipoib_main.c
-> > +++ b/drivers/infiniband/ulp/ipoib/ipoib_main.c
-> > @@ -1160,6 +1160,11 @@ static int ipoib_hard_header(struct sk_buff
-> > *skb,
-> >                              const void *daddr, const void *saddr,
-> > unsigned len)
-> >  {
-> >         struct ipoib_header *header;
-> > +       int ret;
-> > +
-> > +       ret = skb_cow_head(skb, IPOIB_HARD_LEN);
-> 
-> I don't think so. When this skb_under_panic arise, all slaves had
-> been
-> removed from a busy bonding interface,
+On 04/26/2017 03:03 PM, Jamal Hadi Salim wrote:
+> On 17-04-26 07:13 AM, Simon Horman wrote:
+>
+>> I don't feel strongly about this and perhaps it can be revisited at some
+>> point but perhaps it would be worth documenting that he strings do not
+>> form part of the UAPI as my expectation would have been that they do f.e. to
+>> facilitate internationalisation.
+>
+> I thought people script against what iproute2 outputs today. We
+> may have to change habits.
 
-I'm not sure this entirely makes sense.  If all slaves had been
-removed, then we should never end up in ipoib_hard_header.  That should
-only be called as long as there is at least one slave still attached to
-the bond.  It might be during the process of removing the final slave,
-but I don't think it can be after the final slave has been fully
-removed from the bond.  Paolo, what should the bond driver be doing
-once the slaves are gone?  Wouldn't it just be dropping every skb on
-the floor without calling anyone's hard header routine?
+I would strictly treat this kind of auxiliary information as
+non-stable error message data, and it should be documented
+as such, f.e. in the man page.
 
->  so it is better to immediately
-> give up and return error.
-> 
-> > 
-> > +       if (ret)
-> > +               return ret;
-> >  
-> >         header = (struct ipoib_header *) skb_push(skb, sizeof
-> > *header);
-> > ---
-> > 
-> > Paolo
-> > --
-> > To unsubscribe from this list: send the line "unsubscribe linux-
-> > rdma" in
-> > the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
--- 
-Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-    GPG KeyID: B826A3330E572FDD
-   
-Key fingerprint = AE6B 1BDA 122B 23B4 265B  1274 B826 A333 0E57 2FDD
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Every driver or subsystem using this could have different
+restrictions/semantics and thus error messages will not be
+the same everywhere anyway, so there's zero point in parsing
+this text from an application in the first place, it's just
+passing this through to the user to aide debugging.
