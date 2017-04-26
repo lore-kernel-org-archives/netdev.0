@@ -1,8 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 01/18] net: dsa: mv88e6xxx: add max VID to info
-Date: Wed, 26 Apr 2017 11:53:19 -0400
-Message-ID: <20170426155336.5937-2-vivien.didelot@savoirfairelinux.com>
-References: <20170426155336.5937-1-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 00/18] net: dsa: mv88e6xxx: 802.1s and 88E6390 VTU
+Date: Wed, 26 Apr 2017 11:53:18 -0400
+Message-ID: <20170426155336.5937-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
         Florian Fainelli <f.fainelli@gmail.com>,
@@ -10,363 +9,131 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170426155336.5937-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Some chips don't have a VLAN Table Unit, most of them do have a 4K
-table, some others as the 88E6390 family has a 13th bit for the VID.
+This patch series adds support for the VLAN Table Unit (a.k.a. the VTU)
+to the 88E6390 family of Marvell Ethernet switch chips. The plumbing for
+the per VLAN Spanning Tree support is added as a side effect of the
+necessary refactoring.
 
-Add a new max_vid member to the info structure, used to check the
-presence of a VTU as well as the value used to iterate from in VTU
-GetNext operations.
+The patchset is split up so that no duplication of code is introduced.
+With this patchset applied, the mv88e6xxx driver has 2 new function
+pointers for the VTU GetNext and VTU Load/Purge operations (with 3
+implementations), both handling programmation of 802.1q and 802.1s.
 
-This makes the MV88E6XXX_FLAG_VTU obsolete, thus remove it.
+On a ZII Rev C board (featuring 2 88E6390X chips) with all ports bridged
+together, we obtain the following hardware VLAN configuration:
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
----
- drivers/net/dsa/mv88e6xxx/chip.c      | 38 ++++++++++++++++++++++++++---------
- drivers/net/dsa/mv88e6xxx/mv88e6xxx.h | 13 ++----------
- 2 files changed, 31 insertions(+), 20 deletions(-)
+    # cat /sys/class/net/br0/bridge/vlan_filtering 
+    1
+    # cat /sys/class/net/br0/bridge/default_pvid
+    42
+    # bridge vlan add dev lan3 vid 666
+    # bridge vlan show
+    port    vlan ids
+    lan1     42 PVID Egress Untagged
 
-diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index 44ba8cff5631..e45ddf3e90e8 100644
---- a/drivers/net/dsa/mv88e6xxx/chip.c
-+++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -1440,7 +1440,7 @@ static int mv88e6xxx_port_vlan_dump(struct dsa_switch *ds, int port,
- 	u16 pvid;
- 	int err;
- 
--	if (!mv88e6xxx_has(chip, MV88E6XXX_FLAG_VTU))
-+	if (!chip->info->max_vid)
- 		return -EOPNOTSUPP;
- 
- 	mutex_lock(&chip->reg_lock);
-@@ -1478,7 +1478,7 @@ static int mv88e6xxx_port_vlan_dump(struct dsa_switch *ds, int port,
- 		err = cb(&vlan->obj);
- 		if (err)
- 			break;
--	} while (next.vid < GLOBAL_VTU_VID_MASK);
-+	} while (next.vid < chip->info->max_vid);
- 
- unlock:
- 	mutex_unlock(&chip->reg_lock);
-@@ -1640,7 +1640,7 @@ static int mv88e6xxx_atu_new(struct mv88e6xxx_chip *chip, u16 *fid)
- 			break;
- 
- 		set_bit(vlan.fid, fid_bitmap);
--	} while (vlan.vid < GLOBAL_VTU_VID_MASK);
-+	} while (vlan.vid < chip->info->max_vid);
- 
- 	/* The reset value 0x000 is used to indicate that multiple address
- 	 * databases are not needed. Return the next positive available.
-@@ -1799,7 +1799,7 @@ static int mv88e6xxx_port_vlan_filtering(struct dsa_switch *ds, int port,
- 		PORT_CONTROL_2_8021Q_DISABLED;
- 	int err;
- 
--	if (!mv88e6xxx_has(chip, MV88E6XXX_FLAG_VTU))
-+	if (!chip->info->max_vid)
- 		return -EOPNOTSUPP;
- 
- 	mutex_lock(&chip->reg_lock);
-@@ -1817,7 +1817,7 @@ mv88e6xxx_port_vlan_prepare(struct dsa_switch *ds, int port,
- 	struct mv88e6xxx_chip *chip = ds->priv;
- 	int err;
- 
--	if (!mv88e6xxx_has(chip, MV88E6XXX_FLAG_VTU))
-+	if (!chip->info->max_vid)
- 		return -EOPNOTSUPP;
- 
- 	/* If the requested port doesn't belong to the same bridge as the VLAN
-@@ -1860,7 +1860,7 @@ static void mv88e6xxx_port_vlan_add(struct dsa_switch *ds, int port,
- 	bool pvid = vlan->flags & BRIDGE_VLAN_INFO_PVID;
- 	u16 vid;
- 
--	if (!mv88e6xxx_has(chip, MV88E6XXX_FLAG_VTU))
-+	if (!chip->info->max_vid)
- 		return;
- 
- 	mutex_lock(&chip->reg_lock);
-@@ -1921,7 +1921,7 @@ static int mv88e6xxx_port_vlan_del(struct dsa_switch *ds, int port,
- 	u16 pvid, vid;
- 	int err = 0;
- 
--	if (!mv88e6xxx_has(chip, MV88E6XXX_FLAG_VTU))
-+	if (!chip->info->max_vid)
- 		return -EOPNOTSUPP;
- 
- 	mutex_lock(&chip->reg_lock);
-@@ -2090,7 +2090,7 @@ static int mv88e6xxx_port_db_dump(struct mv88e6xxx_chip *chip, int port,
- 				  int (*cb)(struct switchdev_obj *obj))
- {
- 	struct mv88e6xxx_vtu_entry vlan = {
--		.vid = GLOBAL_VTU_VID_MASK, /* all ones */
-+		.vid = chip->info->max_vid,
- 	};
- 	u16 fid;
- 	int err;
-@@ -2121,7 +2121,7 @@ static int mv88e6xxx_port_db_dump(struct mv88e6xxx_chip *chip, int port,
- 						 obj, cb);
- 		if (err)
- 			return err;
--	} while (vlan.vid < GLOBAL_VTU_VID_MASK);
-+	} while (vlan.vid < chip->info->max_vid);
- 
- 	return err;
- }
-@@ -3685,6 +3685,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.name = "Marvell 88E6085",
- 		.num_databases = 4096,
- 		.num_ports = 10,
-+		.max_vid = 4095,
- 		.port_base_addr = 0x10,
- 		.global1_addr = 0x1b,
- 		.age_time_coeff = 15000,
-@@ -3702,6 +3703,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.name = "Marvell 88E6095/88E6095F",
- 		.num_databases = 256,
- 		.num_ports = 11,
-+		.max_vid = 4095,
- 		.port_base_addr = 0x10,
- 		.global1_addr = 0x1b,
- 		.age_time_coeff = 15000,
-@@ -3718,6 +3720,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.name = "Marvell 88E6097/88E6097F",
- 		.num_databases = 4096,
- 		.num_ports = 11,
-+		.max_vid = 4095,
- 		.port_base_addr = 0x10,
- 		.global1_addr = 0x1b,
- 		.age_time_coeff = 15000,
-@@ -3735,6 +3738,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.name = "Marvell 88E6123",
- 		.num_databases = 4096,
- 		.num_ports = 3,
-+		.max_vid = 4095,
- 		.port_base_addr = 0x10,
- 		.global1_addr = 0x1b,
- 		.age_time_coeff = 15000,
-@@ -3752,6 +3756,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.name = "Marvell 88E6131",
- 		.num_databases = 256,
- 		.num_ports = 8,
-+		.max_vid = 4095,
- 		.port_base_addr = 0x10,
- 		.global1_addr = 0x1b,
- 		.age_time_coeff = 15000,
-@@ -3768,6 +3773,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.name = "Marvell 88E6341",
- 		.num_databases = 4096,
- 		.num_ports = 6,
-+		.max_vid = 4095,
- 		.port_base_addr = 0x10,
- 		.global1_addr = 0x1b,
- 		.age_time_coeff = 3750,
-@@ -3784,6 +3790,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.name = "Marvell 88E6161",
- 		.num_databases = 4096,
- 		.num_ports = 6,
-+		.max_vid = 4095,
- 		.port_base_addr = 0x10,
- 		.global1_addr = 0x1b,
- 		.age_time_coeff = 15000,
-@@ -3801,6 +3808,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.name = "Marvell 88E6165",
- 		.num_databases = 4096,
- 		.num_ports = 6,
-+		.max_vid = 4095,
- 		.port_base_addr = 0x10,
- 		.global1_addr = 0x1b,
- 		.age_time_coeff = 15000,
-@@ -3818,6 +3826,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.name = "Marvell 88E6171",
- 		.num_databases = 4096,
- 		.num_ports = 7,
-+		.max_vid = 4095,
- 		.port_base_addr = 0x10,
- 		.global1_addr = 0x1b,
- 		.age_time_coeff = 15000,
-@@ -3835,6 +3844,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.name = "Marvell 88E6172",
- 		.num_databases = 4096,
- 		.num_ports = 7,
-+		.max_vid = 4095,
- 		.port_base_addr = 0x10,
- 		.global1_addr = 0x1b,
- 		.age_time_coeff = 15000,
-@@ -3852,6 +3862,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.name = "Marvell 88E6175",
- 		.num_databases = 4096,
- 		.num_ports = 7,
-+		.max_vid = 4095,
- 		.port_base_addr = 0x10,
- 		.global1_addr = 0x1b,
- 		.age_time_coeff = 15000,
-@@ -3869,6 +3880,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.name = "Marvell 88E6176",
- 		.num_databases = 4096,
- 		.num_ports = 7,
-+		.max_vid = 4095,
- 		.port_base_addr = 0x10,
- 		.global1_addr = 0x1b,
- 		.age_time_coeff = 15000,
-@@ -3886,6 +3898,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.name = "Marvell 88E6185",
- 		.num_databases = 256,
- 		.num_ports = 10,
-+		.max_vid = 4095,
- 		.port_base_addr = 0x10,
- 		.global1_addr = 0x1b,
- 		.age_time_coeff = 15000,
-@@ -3953,6 +3966,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.name = "Marvell 88E6240",
- 		.num_databases = 4096,
- 		.num_ports = 7,
-+		.max_vid = 4095,
- 		.port_base_addr = 0x10,
- 		.global1_addr = 0x1b,
- 		.age_time_coeff = 15000,
-@@ -3987,6 +4001,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.name = "Marvell 88E6320",
- 		.num_databases = 4096,
- 		.num_ports = 7,
-+		.max_vid = 4095,
- 		.port_base_addr = 0x10,
- 		.global1_addr = 0x1b,
- 		.age_time_coeff = 15000,
-@@ -4004,6 +4019,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.name = "Marvell 88E6321",
- 		.num_databases = 4096,
- 		.num_ports = 7,
-+		.max_vid = 4095,
- 		.port_base_addr = 0x10,
- 		.global1_addr = 0x1b,
- 		.age_time_coeff = 15000,
-@@ -4020,6 +4036,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.name = "Marvell 88E6341",
- 		.num_databases = 4096,
- 		.num_ports = 6,
-+		.max_vid = 4095,
- 		.port_base_addr = 0x10,
- 		.global1_addr = 0x1b,
- 		.age_time_coeff = 3750,
-@@ -4036,6 +4053,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.name = "Marvell 88E6350",
- 		.num_databases = 4096,
- 		.num_ports = 7,
-+		.max_vid = 4095,
- 		.port_base_addr = 0x10,
- 		.global1_addr = 0x1b,
- 		.age_time_coeff = 15000,
-@@ -4053,6 +4071,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.name = "Marvell 88E6351",
- 		.num_databases = 4096,
- 		.num_ports = 7,
-+		.max_vid = 4095,
- 		.port_base_addr = 0x10,
- 		.global1_addr = 0x1b,
- 		.age_time_coeff = 15000,
-@@ -4070,6 +4089,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.name = "Marvell 88E6352",
- 		.num_databases = 4096,
- 		.num_ports = 7,
-+		.max_vid = 4095,
- 		.port_base_addr = 0x10,
- 		.global1_addr = 0x1b,
- 		.age_time_coeff = 15000,
-diff --git a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-index c8f54986996b..5695ca206620 100644
---- a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-+++ b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-@@ -567,7 +567,6 @@ enum mv88e6xxx_cap {
- #define MV88E6XXX_FLAG_G2_POT		BIT_ULL(MV88E6XXX_CAP_G2_POT)
- 
- #define MV88E6XXX_FLAG_STU		BIT_ULL(MV88E6XXX_CAP_STU)
--#define MV88E6XXX_FLAG_VTU		BIT_ULL(MV88E6XXX_CAP_VTU)
- 
- /* Ingress Rate Limit unit */
- #define MV88E6XXX_FLAGS_IRL		\
-@@ -587,7 +586,6 @@ enum mv88e6xxx_cap {
- #define MV88E6XXX_FLAGS_FAMILY_6095	\
- 	(MV88E6XXX_FLAG_GLOBAL2 |	\
- 	 MV88E6XXX_FLAG_G2_MGMT_EN_0X |	\
--	 MV88E6XXX_FLAG_VTU |		\
- 	 MV88E6XXX_FLAGS_MULTI_CHIP)
- 
- #define MV88E6XXX_FLAGS_FAMILY_6097	\
-@@ -598,7 +596,6 @@ enum mv88e6xxx_cap {
- 	 MV88E6XXX_FLAG_G2_MGMT_EN_0X |	\
- 	 MV88E6XXX_FLAG_G2_POT |	\
- 	 MV88E6XXX_FLAG_STU |		\
--	 MV88E6XXX_FLAG_VTU |		\
- 	 MV88E6XXX_FLAGS_IRL |		\
- 	 MV88E6XXX_FLAGS_MULTI_CHIP)
- 
-@@ -610,7 +607,6 @@ enum mv88e6xxx_cap {
- 	 MV88E6XXX_FLAG_G2_MGMT_EN_0X |	\
- 	 MV88E6XXX_FLAG_G2_POT |	\
- 	 MV88E6XXX_FLAG_STU |		\
--	 MV88E6XXX_FLAG_VTU |		\
- 	 MV88E6XXX_FLAGS_IRL |		\
- 	 MV88E6XXX_FLAGS_MULTI_CHIP)
- 
-@@ -618,8 +614,7 @@ enum mv88e6xxx_cap {
- 	(MV88E6XXX_FLAG_GLOBAL2 |	\
- 	 MV88E6XXX_FLAG_G2_INT |	\
- 	 MV88E6XXX_FLAG_G2_MGMT_EN_0X |	\
--	 MV88E6XXX_FLAGS_MULTI_CHIP |	\
--	 MV88E6XXX_FLAG_VTU)
-+	 MV88E6XXX_FLAGS_MULTI_CHIP)
- 
- #define MV88E6XXX_FLAGS_FAMILY_6320	\
- 	(MV88E6XXX_FLAG_EEE |		\
-@@ -627,7 +622,6 @@ enum mv88e6xxx_cap {
- 	 MV88E6XXX_FLAG_G2_MGMT_EN_2X |	\
- 	 MV88E6XXX_FLAG_G2_MGMT_EN_0X |	\
- 	 MV88E6XXX_FLAG_G2_POT |	\
--	 MV88E6XXX_FLAG_VTU |		\
- 	 MV88E6XXX_FLAGS_IRL |		\
- 	 MV88E6XXX_FLAGS_MULTI_CHIP)
- 
-@@ -638,7 +632,6 @@ enum mv88e6xxx_cap {
- 	 MV88E6XXX_FLAG_G2_INT |	\
- 	 MV88E6XXX_FLAG_G2_POT |	\
- 	 MV88E6XXX_FLAG_STU |		\
--	 MV88E6XXX_FLAG_VTU |		\
- 	 MV88E6XXX_FLAGS_IRL |		\
- 	 MV88E6XXX_FLAGS_MULTI_CHIP |	\
- 	 MV88E6XXX_FLAGS_SERDES)
-@@ -651,7 +644,6 @@ enum mv88e6xxx_cap {
- 	 MV88E6XXX_FLAG_G2_MGMT_EN_0X |	\
- 	 MV88E6XXX_FLAG_G2_POT |	\
- 	 MV88E6XXX_FLAG_STU |		\
--	 MV88E6XXX_FLAG_VTU |		\
- 	 MV88E6XXX_FLAGS_IRL |		\
- 	 MV88E6XXX_FLAGS_MULTI_CHIP)
- 
-@@ -664,7 +656,6 @@ enum mv88e6xxx_cap {
- 	 MV88E6XXX_FLAG_G2_MGMT_EN_0X |	\
- 	 MV88E6XXX_FLAG_G2_POT |	\
- 	 MV88E6XXX_FLAG_STU |		\
--	 MV88E6XXX_FLAG_VTU |		\
- 	 MV88E6XXX_FLAGS_IRL |		\
- 	 MV88E6XXX_FLAGS_MULTI_CHIP |	\
- 	 MV88E6XXX_FLAGS_SERDES)
-@@ -674,7 +665,6 @@ enum mv88e6xxx_cap {
- 	 MV88E6XXX_FLAG_GLOBAL2 |	\
- 	 MV88E6XXX_FLAG_G2_INT |        \
- 	 MV88E6XXX_FLAG_STU |		\
--	 MV88E6XXX_FLAG_VTU |		\
- 	 MV88E6XXX_FLAGS_IRL |		\
- 	 MV88E6XXX_FLAGS_MULTI_CHIP)
- 
-@@ -686,6 +676,7 @@ struct mv88e6xxx_info {
- 	const char *name;
- 	unsigned int num_databases;
- 	unsigned int num_ports;
-+	unsigned int max_vid;
- 	unsigned int port_base_addr;
- 	unsigned int global1_addr;
- 	unsigned int age_time_coeff;
+    lan1     42 PVID Egress Untagged
+
+    lan2     42 PVID Egress Untagged
+
+    lan2     42 PVID Egress Untagged
+
+    lan3     42 PVID Egress Untagged
+             666
+
+    lan3     42 PVID Egress Untagged
+             666
+
+    lan4     42 PVID Egress Untagged
+
+    lan4     42 PVID Egress Untagged
+
+    lan5     42 PVID Egress Untagged
+
+    lan5     42 PVID Egress Untagged
+
+    lan6     42 PVID Egress Untagged
+
+    lan6     42 PVID Egress Untagged
+
+    lan7     42 PVID Egress Untagged
+
+    lan7     42 PVID Egress Untagged
+
+    lan8     42 PVID Egress Untagged
+
+    lan8     42 PVID Egress Untagged
+
+    br0      42 PVID Egress Untagged
+
+Below are the technical details for the different implementations.
+
+All switch families have up to 3 dedicated VTU Data registers used to
+program 802.1q and 802.1s, both using 2-bit values.
+
+On 88E6185 and 88E6352 families, port membership and state are adjacent,
+while the 88E6390 family share the same bits:
+
+    Bits        88E6185/88E6352         88E6390
+    -----       -----------------       --------------------------
+    0-1         Port 0 membership       Port 0 membership or state
+    2-3         Port 0 state            Port 1 membership or state
+    4-5         Port 1 membership       Port 2 membership or state
+    6-7         Port 1 state            Port 3 membership or state
+    8-9         Port 2 membership       Port 4 membership or state
+    10-11       Port 2 state            Port 5 membership or state
+    ...         ...                     ...
+
+The 88E6185 family programs all ports membership and state in a single
+VTU GetNext or Load/Purge operation.
+
+The 88E6352 family introduced an indirect Spanning Tree Unit table
+(a.k.a. STU) which requires additional STU GetNext and Load/Purge
+operations to read and write the ports state bits.
+
+The 88E6390 family also has an STU and requires data bits to be accessed
+before and after every single VTU or STU operation.
+
+Finally, the 88E6390 family introduced a 13th bit for the VLAN ID, which
+must be taken care of regardless the VTU operating mode. This means that
+iterating over the VTU now starts or ends with value 8191, not 4095.
+
+Patch 1 adds a max_vid field to the chip info structure.
+Patch 2 adds 802.1q and 802.1s data to the generic VTU entry structure.
+Patches 3 to 10 move helpers to a dedicated file (later made static).
+Patches 11 and 12 abstract handling of the STU behind VTU operations.
+Patches 13 and 14 add the new function pointers for VTU operations.
+Patches 15 and 18 polish the VTU code and add VTU support for 88E6390.
+
+Vivien Didelot (18):
+  net: dsa: mv88e6xxx: add max VID to info
+  net: dsa: mv88e6xxx: split VTU entry data member
+  net: dsa: mv88e6xxx: move VTU Operation accessors
+  net: dsa: mv88e6xxx: move VTU flush
+  net: dsa: mv88e6xxx: move VTU FID accessors
+  net: dsa: mv88e6xxx: move VTU SID accessors
+  net: dsa: mv88e6xxx: move VTU VID accessors
+  net: dsa: mv88e6xxx: move generic VTU GetNext
+  net: dsa: mv88e6xxx: move VTU Data accessors
+  net: dsa: mv88e6xxx: move STU GetNext operation
+  net: dsa: mv88e6xxx: get STU entry on VTU GetNext
+  net: dsa: mv88e6xxx: load STU entry with VTU entry
+  net: dsa: mv88e6xxx: add VTU GetNext operation
+  net: dsa: mv88e6xxx: add VTU Load/Purge operation
+  net: dsa: mv88e6xxx: make VTU helpers static
+  net: dsa: mv88e6xxx: simplify VTU entry getter
+  net: dsa: mv88e6xxx: support the VTU Page bit
+  net: dsa: mv88e6xxx: add VTU support for 88E6390
+
+ drivers/net/dsa/mv88e6xxx/Makefile      |   1 +
+ drivers/net/dsa/mv88e6xxx/chip.c        | 568 +++++++++-----------------------
+ drivers/net/dsa/mv88e6xxx/global1.h     |  14 +
+ drivers/net/dsa/mv88e6xxx/global1_vtu.c | 505 ++++++++++++++++++++++++++++
+ drivers/net/dsa/mv88e6xxx/mv88e6xxx.h   |  31 +-
+ 5 files changed, 684 insertions(+), 435 deletions(-)
+ create mode 100644 drivers/net/dsa/mv88e6xxx/global1_vtu.c
+
 -- 
 2.12.2
