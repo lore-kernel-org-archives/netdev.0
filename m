@@ -1,58 +1,60 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] bpf: restore skb->sk before pskb_trim() call
-Date: Wed, 26 Apr 2017 09:09:23 -0700
-Message-ID: <1493222963.6453.77.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [Patch net 3/3] team: use a larger struct for mac address
+Date: Wed, 26 Apr 2017 09:10:00 -0700
+Message-ID: <CAM_iQpVZ2-GZ+M6VGhfF6yU2pE5E49u1emv7aAyU-9X81uOmQw@mail.gmail.com>
+References: <1493183003-884-1-git-send-email-xiyou.wangcong@gmail.com>
+ <1493183003-884-4-git-send-email-xiyou.wangcong@gmail.com> <20170426054033.GA1867@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-        Andrey Konovalov <andreyknvl@google.com>,
-        Willem de Bruijn <willemb@google.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Andrey Konovalov <andreyknvl@google.com>
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:34512 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751473AbdDZQJ0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2017 12:09:26 -0400
-Received: by mail-pg0-f65.google.com with SMTP id t7so1064301pgt.1
-        for <netdev@vger.kernel.org>; Wed, 26 Apr 2017 09:09:25 -0700 (PDT)
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:35090 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750803AbdDZQKV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2017 12:10:21 -0400
+Received: by mail-wm0-f68.google.com with SMTP id d79so2366510wmi.2
+        for <netdev@vger.kernel.org>; Wed, 26 Apr 2017 09:10:21 -0700 (PDT)
+In-Reply-To: <20170426054033.GA1867@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On Tue, Apr 25, 2017 at 10:40 PM, Jiri Pirko <jiri@resnulli.us> wrote:
+> Wed, Apr 26, 2017 at 07:03:23AM CEST, xiyou.wangcong@gmail.com wrote:
+>>IPv6 tunnels use sizeof(struct in6_addr) as dev->addr_len,
+>>but in many places especially bonding, we use struct sockaddr
+>>to copy and set mac addr, this could lead to stack out-of-bounds
+>>access.
+>>
+>>Fix it by using a larger address storage.
+>>
+>>Reported-by: Andrey Konovalov <andreyknvl@google.com>
+>>Cc: Jiri Pirko <jiri@resnulli.us>
+>>Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+>>---
+>> drivers/net/team/team.c | 9 ++++++---
+>> 1 file changed, 6 insertions(+), 3 deletions(-)
+>>
+>>diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+>>index 85c0124..88878f1 100644
+>>--- a/drivers/net/team/team.c
+>>+++ b/drivers/net/team/team.c
+>>@@ -60,10 +60,13 @@ static struct team_port *team_port_get_rtnl(const struct net_device *dev)
+>> static int __set_port_dev_addr(struct net_device *port_dev,
+>>                              const unsigned char *dev_addr)
+>> {
+>>-      struct sockaddr addr;
+>>+      struct {
+>>+              unsigned short type;
+>>+              unsigned char addr[MAX_ADDR_LEN];
+>>+      } addr;
+>
+> Wouldn't it make sense to define this struct somewhere in the core
+> headers?
 
-While testing a fix [1] in ___pskb_trim(), addressing the WARN_ON_ONCE()
-in skb_try_coalesce() reported by Andrey, I found that we had an skb
-with skb->sk set but no skb->destructor.
+I _did_ use a struct mac_addr until I found there are multiple places
+in the tree already defining it... We are in a similar situation to the union
+of struct in_addr and struct in6_addr, unfortunately.
 
-This invalidated heuristic found in commit 158f323b9868 ("net: adjust
-skb->truesize in pskb_expand_head()") and in cited patch.
-
-Considering the BUG_ON(skb->sk) we have in skb_orphan(), we should
-restrain the temporary setting to a minimal section.
-
-[1] https://patchwork.ozlabs.org/patch/755570/ 
-    net: adjust skb->truesize in ___pskb_trim()
-
-Fixes: 8f917bba0042 ("bpf: pass sk to helper functions")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Willem de Bruijn <willemb@google.com>
-Cc: Andrey Konovalov <andreyknvl@google.com>
----
- net/core/filter.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/core/filter.c b/net/core/filter.c
-index 9a37860a80fc78378705b681ec3b0468824cbcf4..a253a6197e6b37a7ae2fe451c646b01c861a3e22 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -98,8 +98,8 @@ int sk_filter_trim_cap(struct sock *sk, struct sk_buff *skb, unsigned int cap)
- 
- 		skb->sk = sk;
- 		pkt_len = bpf_prog_run_save_cb(filter->prog, skb);
--		err = pkt_len ? pskb_trim(skb, max(cap, pkt_len)) : -EPERM;
- 		skb->sk = save_sk;
-+		err = pkt_len ? pskb_trim(skb, max(cap, pkt_len)) : -EPERM;
- 	}
- 	rcu_read_unlock();
- 
+We can always clean up these for net-next.
