@@ -1,65 +1,129 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [iproute2] iplink: add support for IFLA_CARRIER attribute
-Date: Wed, 26 Apr 2017 08:07:32 -0700
-Message-ID: <20170426080732.51f56b8c@xeon-e3>
-References: <1493190519-5518-1-git-send-email-zhangshengju@cmss.chinamobile.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH RFC v2] ptr_ring: add ptr_ring_unconsume
+Date: Wed, 26 Apr 2017 18:54:47 +0300
+Message-ID: <20170426184956-mutt-send-email-mst@kernel.org>
+References: <1493049492-3229-1-git-send-email-mst@redhat.com>
+ <ce6e1816-e3e0-4e6b-b017-05cfc54a0170@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f173.google.com ([209.85.192.173]:36448 "EHLO
-        mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1437737AbdDZPJj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2017 11:09:39 -0400
-Received: by mail-pf0-f173.google.com with SMTP id 194so1432797pfv.3
-        for <netdev@vger.kernel.org>; Wed, 26 Apr 2017 08:09:39 -0700 (PDT)
-In-Reply-To: <1493190519-5518-1-git-send-email-zhangshengju@cmss.chinamobile.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <ce6e1816-e3e0-4e6b-b017-05cfc54a0170@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 26 Apr 2017 15:08:39 +0800
-Zhang Shengju <zhangshengju@cmss.chinamobile.com> wrote:
-
-> Add support to set IFLA_CARRIER attribute.
+On Wed, Apr 26, 2017 at 05:09:42PM +0800, Jason Wang wrote:
 > 
-> Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
-> ---
->  ip/iplink.c | 12 ++++++++++++
->  1 file changed, 12 insertions(+)
 > 
-> diff --git a/ip/iplink.c b/ip/iplink.c
-> index 866ad72..263bfdd 100644
-> --- a/ip/iplink.c
-> +++ b/ip/iplink.c
-> @@ -72,6 +72,7 @@ void iplink_usage(void)
->  		"	                  [ allmulticast { on | off } ]\n"
->  		"	                  [ promisc { on | off } ]\n"
->  		"	                  [ trailers { on | off } ]\n"
-> +		"	                  [ carrier { on | off } ]\n"
->  		"	                  [ txqueuelen PACKETS ]\n"
->  		"	                  [ name NEWNAME ]\n"
->  		"	                  [ address LLADDR ]\n"
-> @@ -673,6 +674,17 @@ int iplink_parse(int argc, char **argv, struct iplink_req *req,
->  				req->i.ifi_flags |= IFF_NOARP;
->  			else
->  				return on_off("arp", *argv);
-> +		} else if (strcmp(*argv, "carrier") == 0) {
-> +			int carrier;
-> +			NEXT_ARG();
-> +			if (strcmp(*argv, "on") == 0)
-> +				carrier = 1;
-> +			else if (strcmp(*argv, "off") == 0)
-> +				carrier = 0;
-> +			else
-> +				return on_off("carrier", *argv);
-> +
-> +			addattr8(&req->n, sizeof(*req), IFLA_CARRIER, carrier);
->  		} else if (strcmp(*argv, "vf") == 0) {
->  			struct rtattr *vflist;
->  
+> On 2017年04月25日 00:01, Michael S. Tsirkin wrote:
+> > Applications that consume a batch of entries in one go
+> > can benefit from ability to return some of them back
+> > into the ring.
+> > 
+> > Add an API for that - assuming there's space. If there's no space
+> > naturally can't do this and have to drop entries, but this implies ring
+> > is full so we'd likely drop some anyway.
+> > 
+> > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> > ---
+> > 
+> > Jason, if you add this and unconsume the outstanding packets
+> > on backend disconnect, vhost close and reset, I think
+> > we should apply your patch even if we don't yet know 100%
+> > why it helps.
+> > 
+> > changes from v1:
+> > - fix up coding style issues reported by Sergei Shtylyov
+> > 
+> > 
+> >   include/linux/ptr_ring.h | 56 ++++++++++++++++++++++++++++++++++++++++++++++++
+> >   1 file changed, 56 insertions(+)
+> > 
+> > diff --git a/include/linux/ptr_ring.h b/include/linux/ptr_ring.h
+> > index 783e7f5..902afc2 100644
+> > --- a/include/linux/ptr_ring.h
+> > +++ b/include/linux/ptr_ring.h
+> > @@ -457,6 +457,62 @@ static inline int ptr_ring_init(struct ptr_ring *r, int size, gfp_t gfp)
+> >   	return 0;
+> >   }
+> > +/*
+> > + * Return entries into ring. Destroy entries that don't fit.
+> > + *
+> > + * Note: this is expected to be a rare slow path operation.
+> > + *
+> > + * Note: producer lock is nested within consumer lock, so if you
+> > + * resize you must make sure all uses nest correctly.
+> > + * In particular if you consume ring in interrupt or BH context, you must
+> > + * disable interrupts/BH when doing so.
+> > + */
+> > +static inline void ptr_ring_unconsume(struct ptr_ring *r, void **batch, int n,
+> > +				      void (*destroy)(void *))
+> > +{
+> > +	unsigned long flags;
+> > +	int head;
+> > +
+> > +	spin_lock_irqsave(&r->consumer_lock, flags);
+> > +	spin_lock(&r->producer_lock);
+> > +
+> > +	if (!r->size)
+> > +		goto done;
+> > +
+> > +	/*
+> > +	 * Clean out buffered entries (for simplicity). This way following code
+> > +	 * can test entries for NULL and if not assume they are valid.
+> > +	 */
+> > +	head = r->consumer_head - 1;
+> > +	while (likely(head >= r->consumer_tail))
+> > +		r->queue[head--] = NULL;
+> > +	r->consumer_tail = r->consumer_head;
+> > +
+> > +	/*
+> > +	 * Go over entries in batch, start moving head back and copy entries.
+> > +	 * Stop when we run into previously unconsumed entries.
+> > +	 */
+> > +	while (n--) {
 
-The general policy of ip link command is all options should be invertable.
-There are some VPN's that use this to save and restore state. So if you add
-an option to set something there should be similar output under the detailed show command.
+Maybe this is called with n = 0?
+Should be while (n-- > 0) I guess so n = 0 is valid.
+
+
+> > +		head = r->consumer_head - 1;
+> > +		if (head < 0)
+> > +			head = r->size - 1;
+> > +		if (r->queue[head]) {
+> > +			/* This batch entry will have to be destroyed. */
+> > +			++n;
+> > +			goto done;
+> > +		}
+> > +		r->queue[head] = batch[n];
+> > +		r->consumer_tail = r->consumer_head = head;
+> 
+> Looks like something wrong here (bad page state reported), uncomment the
+> above while()
+
+I guess you mean comment out?
+
+> solving the issue. But after staring it for a while I didn't
+> find anything interesting, maybe you have some idea on this?
+> 
+> Thanks
+
+Add tracing to see what's going on?
+
+> 
+> > +	}
+> > +
+> > +done:
+> > +	/* Destroy all entries left in the batch. */
+> > +	while (n--)
+> > +		destroy(batch[n]);
+> > +	spin_unlock(&r->producer_lock);
+> > +	spin_unlock_irqrestore(&r->consumer_lock, flags);
+> > +}
+> > +
+> >   static inline void **__ptr_ring_swap_queue(struct ptr_ring *r, void **queue,
+> >   					   int size, gfp_t gfp,
+> >   					   void (*destroy)(void *))
