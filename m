@@ -1,76 +1,53 @@
-From: Honggang LI <honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH] IB/IPoIB: Check the headroom size
-Date: Wed, 26 Apr 2017 22:11:39 +0800
-Message-ID: <20170426141139.GA14635@dhcp-13-42.nay.redhat.com>
-References: <CAAk-MO-B8Liv6RyGye_Fx-9OELCUrGMj5SwK9UsciC=khSO5fA@mail.gmail.com>
- <CAJ3xEMgwS1Bq8+eZC1iAr6xi8ZPHrchsOJ5r4LNJxR8P+6VipA@mail.gmail.com>
- <1493134815.3041.72.camel@redhat.com>
- <CAJ3xEMjqkJrKi+6ronuPBn2P6y8p6sdhVppDzFtMwQrhL13bzg@mail.gmail.com>
- <1493192794.2409.3.camel@redhat.com>
- <20170426125230.GB19179@dhcp-13-42.nay.redhat.com>
- <1493213258.3041.98.camel@redhat.com>
- <20170426133353.GA7898@dhcp-13-42.nay.redhat.com>
- <1493214483.3041.108.camel@redhat.com>
- <1493214638.3041.110.camel@redhat.com>
+From: Eric Dumazet <edumazet@google.com>
+Subject: Re: net/tcp: warning in tcp_try_coalesce/skb_try_coalesce
+Date: Wed, 26 Apr 2017 07:16:13 -0700
+Message-ID: <CANn89i+w0Ydc+i0vykneT55L=83KE9OvuLbk4H9Y7wG89UZ+Tg@mail.gmail.com>
+References: <CAAeHK+xaFar2pj1xkbkhfjN+3ucLsfMpoHWFAKcHq3-F_Zm+mw@mail.gmail.com>
+ <CAAeHK+yQJUuuv2XM6tQuaE12Zo1htujz6A7Qd_h+E9qCVEwDSg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Erez Shitrit <erezsh-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>,
-        Erez Shitrit <erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1493214638.3041.110.camel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Andrey Konovalov <andreyknvl@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f177.google.com ([209.85.161.177]:33814 "EHLO
+        mail-yw0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1433592AbdDZOQP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2017 10:16:15 -0400
+Received: by mail-yw0-f177.google.com with SMTP id k11so924496ywb.1
+        for <netdev@vger.kernel.org>; Wed, 26 Apr 2017 07:16:15 -0700 (PDT)
+In-Reply-To: <CAAeHK+yQJUuuv2XM6tQuaE12Zo1htujz6A7Qd_h+E9qCVEwDSg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 26, 2017 at 09:50:38AM -0400, Doug Ledford wrote:
-> On Wed, 2017-04-26 at 09:48 -0400, Doug Ledford wrote:
-> > On Wed, 2017-04-26 at 21:33 +0800, Honggang LI wrote:
-> > > 
-> > > Yes, it is during the process of removing the final slave. The
-> > > reproducer looks like this:
-> > > 
-> > > ping remote_ip_over_bonding_interface &
-> > > while 1; do
-> > > 	ifdown bond0
-> > > 	ifup   bond0
-> > > done
-> 
-> BTW, rerunning your test as:
-> 
-> ping remote_ip_over_bonding_interface &
-> while 1; do
->     echo -n "Downing interface..."
->     ifdown bond0
+On Wed, Apr 26, 2017 at 5:08 AM, Andrey Konovalov <andreyknvl@google.com> wrote:
+> On Tue, Jan 31, 2017 at 2:17 PM, Andrey Konovalov <andreyknvl@google.com> wrote:
+>> Hi,
+>>
+>> I've got the following error report while running the syzkaller fuzzer.
+>>
+>> On commit 566cf877a1fcb6d6dc0126b076aad062054c2637 (4.10-rc6).
+>>
+>> The fuzzer hits this issue quite often, but I don't have a working reproducer.
+>
+> I still see this on 5a7ad1146caa895ad718a534399e38bd2ba721b7 (4.11-rc8).
+>
+> I also have a reproducer now, attached.
+>
+> It takes around 10 seconds for the warning to trigger.
+>
 
-Confirmed panic in here.
+It does not trigger for me, but seeing that you use SO_ATTACH_FILTER,
+I have a pretty good idea how to remove this splat.
 
->     echo "done."
->     sleep 1
->     echo -n "Bringing interface up..."
->     ifup bond0
->     echo "done."
-> done
-> 
-> will allow you to more precisely identify whether the failure is during
-> the down or the up of the interface.
-> 
-> -- 
-> Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
->     GPG KeyID: B826A3330E572FDD
->    
-> Key fingerprint = AE6B 1BDA 122B 23B4 265B  1274 B826 A333 0E57 2FDD
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+A call to skb_condense() from ___pskb_trim() will likely help, I will
+post a patch after my commute.
+
+Thanks.
