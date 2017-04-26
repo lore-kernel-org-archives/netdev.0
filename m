@@ -1,61 +1,40 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [PATCH net-next v8 2/3] net sched actions: dump more than
- TCA_ACT_MAX_PRIO actions per batch
-Date: Wed, 26 Apr 2017 13:02:42 +0200
-Message-ID: <20170426110241.GA28251@vergenet.net>
-References: <1493121247-11863-1-git-send-email-jhs@emojatatu.com>
- <1493121247-11863-3-git-send-email-jhs@emojatatu.com>
- <20170425121338.GC1867@nanopsycho.orion>
- <5e54edd8-3943-6f09-490f-ff04b83077f6@mojatatu.com>
- <20170425160445.GD1867@nanopsycho.orion>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>, davem@davemloft.net,
-        xiyou.wangcong@gmail.com, eric.dumazet@gmail.com,
-        netdev@vger.kernel.org
-To: Jiri Pirko <jiri@resnulli.us>
+From: gfree.wind@foxmail.com
+Subject: [PATCH] net: fib: Decrease one unnecessary rt cache flush in fib_disable_ip
+Date: Wed, 26 Apr 2017 19:04:04 +0800
+Message-ID: <1493204644-88477-1-git-send-email-gfree.wind@foxmail.com>
+Cc: Gao Feng <fgao@ikuai8.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f43.google.com ([74.125.82.43]:35206 "EHLO
-        mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S2998875AbdDZLCp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2017 07:02:45 -0400
-Received: by mail-wm0-f43.google.com with SMTP id w64so46863762wma.0
-        for <netdev@vger.kernel.org>; Wed, 26 Apr 2017 04:02:45 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20170425160445.GD1867@nanopsycho.orion>
+Received: from smtpbg202.qq.com ([184.105.206.29]:35384 "EHLO smtpbg202.qq.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S2998967AbdDZLES (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 26 Apr 2017 07:04:18 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 25, 2017 at 06:04:45PM +0200, Jiri Pirko wrote:
-> Tue, Apr 25, 2017 at 03:01:22PM CEST, jhs@mojatatu.com wrote:
-> >On 17-04-25 08:13 AM, Jiri Pirko wrote:
-> >> Tue, Apr 25, 2017 at 01:54:06PM CEST, jhs@mojatatu.com wrote:
-> >
-> >
-> >[..]
-> >
-> >> > -#define TCAA_MAX 1
-> >> > +/* tcamsg flags stored in attribute TCA_ROOT_FLAGS
-> >> > + *
-> >> > + * TCA_FLAG_LARGE_DUMP_ON user->kernel to request for larger than TCA_ACT_MAX_PRIO
-> >> > + * actions in a dump. All dump responses will contain the number of actions
-> >> > + * being dumped stored in for user app's consumption in TCA_ROOT_COUNT
-> >> > + *
-> >> > + */
-> >> > +#define TCA_FLAG_LARGE_DUMP_ON		(1 << 0)
-> >> 
-> >> BIT (I think I mentioned this before)
-> >> 
-> >
-> >You did - but i took it out about two submissions back (per cover
-> >letter) because it is no part of UAPI today. I noticed devlink was
-> >using it but they defined  their own variant.
-> >So if i added this, iproute2 doesnt compile. I could fix iproute2
-> >to move it somewhere to a common header then restore this.
-> 
-> So fix iproute2. It is always first kernel, then iproute2.
+From: Gao Feng <fgao@ikuai8.com>
 
-Perhaps I am missing the point or somehow misguided but I would expect that
-if the UAPI uses BIT() it also provides BIT().
+The func fib_flush already flushes the rt cache if necessary, so it
+is not necessary to invoke rt_cache_flush again in fib_disable_ip.
 
-...
+Signed-off-by: Gao Feng <fgao@ikuai8.com>
+---
+ net/ipv4/fib_frontend.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
+index 5a0e456..39bd1ed 100644
+--- a/net/ipv4/fib_frontend.c
++++ b/net/ipv4/fib_frontend.c
+@@ -1130,7 +1130,8 @@ static void fib_disable_ip(struct net_device *dev, unsigned long event,
+ {
+ 	if (fib_sync_down_dev(dev, event, force))
+ 		fib_flush(dev_net(dev));
+-	rt_cache_flush(dev_net(dev));
++	else
++		rt_cache_flush(dev_net(dev));
+ 	arp_ifdown(dev);
+ }
+ 
+-- 
+1.9.1
