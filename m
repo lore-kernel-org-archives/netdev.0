@@ -1,155 +1,76 @@
-From: Matthias Brugger <mbrugger@suse.com>
-Subject: Re: [PATCH net v3 2/3] net: hns: support deferred probe when no mdio
-Date: Wed, 26 Apr 2017 16:07:03 +0200
-Message-ID: <436024f5-f751-4389-1b1c-dc9b19df7b73@suse.com>
-References: <1493190022-91343-1-git-send-email-yankejian@huawei.com>
- <1493190022-91343-3-git-send-email-yankejian@huawei.com>
+From: Honggang LI <honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH] IB/IPoIB: Check the headroom size
+Date: Wed, 26 Apr 2017 22:11:39 +0800
+Message-ID: <20170426141139.GA14635@dhcp-13-42.nay.redhat.com>
+References: <CAAk-MO-B8Liv6RyGye_Fx-9OELCUrGMj5SwK9UsciC=khSO5fA@mail.gmail.com>
+ <CAJ3xEMgwS1Bq8+eZC1iAr6xi8ZPHrchsOJ5r4LNJxR8P+6VipA@mail.gmail.com>
+ <1493134815.3041.72.camel@redhat.com>
+ <CAJ3xEMjqkJrKi+6ronuPBn2P6y8p6sdhVppDzFtMwQrhL13bzg@mail.gmail.com>
+ <1493192794.2409.3.camel@redhat.com>
+ <20170426125230.GB19179@dhcp-13-42.nay.redhat.com>
+ <1493213258.3041.98.camel@redhat.com>
+ <20170426133353.GA7898@dhcp-13-42.nay.redhat.com>
+ <1493214483.3041.108.camel@redhat.com>
+ <1493214638.3041.110.camel@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxarm@huawei.com
-To: Yankejian <yankejian@huawei.com>, davem@davemloft.net,
-        salil.mehta@huawei.com, yisen.zhuang@huawei.com,
-        lipeng321@huawei.com, zhouhuiru@huawei.com,
-        huangdaode@hisilicon.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.nue.novell.com ([195.135.221.5]:53447 "EHLO
-        smtp.nue.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1431576AbdDZOHd (ORCPT
-        <rfc822;groupwise-netdev@vger.kernel.org:0:0>);
-        Wed, 26 Apr 2017 10:07:33 -0400
-In-Reply-To: <1493190022-91343-3-git-send-email-yankejian@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Erez Shitrit <erezsh-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>,
+        Erez Shitrit <erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1493214638.3041.110.camel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+On Wed, Apr 26, 2017 at 09:50:38AM -0400, Doug Ledford wrote:
+> On Wed, 2017-04-26 at 09:48 -0400, Doug Ledford wrote:
+> > On Wed, 2017-04-26 at 21:33 +0800, Honggang LI wrote:
+> > > 
+> > > Yes, it is during the process of removing the final slave. The
+> > > reproducer looks like this:
+> > > 
+> > > ping remote_ip_over_bonding_interface &
+> > > while 1; do
+> > > 	ifdown bond0
+> > > 	ifup   bond0
+> > > done
+> 
+> BTW, rerunning your test as:
+> 
+> ping remote_ip_over_bonding_interface &
+> while 1; do
+>     echo -n "Downing interface..."
+>     ifdown bond0
 
+Confirmed panic in here.
 
-On 26/04/17 09:00, Yankejian wrote:
-> From: lipeng <lipeng321@huawei.com>
->
-> In the hip06 and hip07 SoCs, phy connect to mdio bus.The mdio
-> module is probed with module_init, and, as such,
-> is not guaranteed to probe before the HNS driver. So we need
-> to support deferred probe.
->
-> We check for probe deferral in the mac init, so we not init DSAF
-> when there is no mdio, and free all resource, to later learn that
-> we need to defer the probe.
->
-> Signed-off-by: lipeng <lipeng321@huawei.com>
-> Reviewed-by: Yisen Zhuang <yisen.zhuang@huawei.com>
-
-Reviewed-by: Matthias Brugger <mbrugger@suse.com>
-
-> ---
->  drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c | 39 +++++++++++++++++++----
->  1 file changed, 33 insertions(+), 6 deletions(-)
->
-> diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
-> index bdd8cdd..8c00e09 100644
-> --- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
-> +++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
-> @@ -735,6 +735,8 @@ static int hns_mac_init_ex(struct hns_mac_cb *mac_cb)
->  	rc = phy_device_register(phy);
->  	if (rc) {
->  		phy_device_free(phy);
-> +		dev_err(&mdio->dev, "registered phy fail at address %i\n",
-> +			addr);
->  		return -ENODEV;
->  	}
->
-> @@ -745,7 +747,7 @@ static int hns_mac_init_ex(struct hns_mac_cb *mac_cb)
->  	return 0;
->  }
->
-> -static void hns_mac_register_phy(struct hns_mac_cb *mac_cb)
-> +static int hns_mac_register_phy(struct hns_mac_cb *mac_cb)
->  {
->  	struct acpi_reference_args args;
->  	struct platform_device *pdev;
-> @@ -755,24 +757,39 @@ static void hns_mac_register_phy(struct hns_mac_cb *mac_cb)
->
->  	/* Loop over the child nodes and register a phy_device for each one */
->  	if (!to_acpi_device_node(mac_cb->fw_port))
-> -		return;
-> +		return -ENODEV;
->
->  	rc = acpi_node_get_property_reference(
->  			mac_cb->fw_port, "mdio-node", 0, &args);
->  	if (rc)
-> -		return;
-> +		return rc;
->
->  	addr = hns_mac_phy_parse_addr(mac_cb->dev, mac_cb->fw_port);
->  	if (addr < 0)
-> -		return;
-> +		return addr;
->
->  	/* dev address in adev */
->  	pdev = hns_dsaf_find_platform_device(acpi_fwnode_handle(args.adev));
-> +	if (!pdev) {
-> +		dev_err(mac_cb->dev, "mac%d mdio pdev is NULL\n",
-> +			mac_cb->mac_id);
-> +		return  -EINVAL;
-> +	}
-> +
->  	mii_bus = platform_get_drvdata(pdev);
-> +	if (!mii_bus) {
-> +		dev_err(mac_cb->dev,
-> +			"mac%d mdio is NULL, dsaf will probe again later\n",
-> +			mac_cb->mac_id);
-> +		return -EPROBE_DEFER;
-> +	}
-> +
->  	rc = hns_mac_register_phydev(mii_bus, mac_cb, addr);
->  	if (!rc)
->  		dev_dbg(mac_cb->dev, "mac%d register phy addr:%d\n",
->  			mac_cb->mac_id, addr);
-> +
-> +	return rc;
->  }
->
->  #define MAC_MEDIA_TYPE_MAX_LEN		16
-> @@ -793,7 +810,7 @@ static void hns_mac_register_phy(struct hns_mac_cb *mac_cb)
->   *@np:device node
->   * return: 0 --success, negative --fail
->   */
-> -static int  hns_mac_get_info(struct hns_mac_cb *mac_cb)
-> +static int hns_mac_get_info(struct hns_mac_cb *mac_cb)
->  {
->  	struct device_node *np;
->  	struct regmap *syscon;
-> @@ -903,7 +920,15 @@ static int  hns_mac_get_info(struct hns_mac_cb *mac_cb)
->  			}
->  		}
->  	} else if (is_acpi_node(mac_cb->fw_port)) {
-> -		hns_mac_register_phy(mac_cb);
-> +		ret = hns_mac_register_phy(mac_cb);
-> +		/*
-> +		 * Mac can work well if there is phy or not.If the port don't
-> +		 * connect with phy, the return value will be ignored. Only
-> +		 * when there is phy but can't find mdio bus, the return value
-> +		 * will be handled.
-> +		 */
-> +		if (ret == -EPROBE_DEFER)
-> +			return ret;
->  	} else {
->  		dev_err(mac_cb->dev, "mac%d cannot find phy node\n",
->  			mac_cb->mac_id);
-> @@ -1065,6 +1090,7 @@ int hns_mac_init(struct dsaf_device *dsaf_dev)
->  			dsaf_dev->mac_cb[port_id] = mac_cb;
->  		}
->  	}
-> +
->  	/* init mac_cb for all port */
->  	for (port_id = 0; port_id < max_port_num; port_id++) {
->  		mac_cb = dsaf_dev->mac_cb[port_id];
-> @@ -1074,6 +1100,7 @@ int hns_mac_init(struct dsaf_device *dsaf_dev)
->  		ret = hns_mac_get_cfg(dsaf_dev, mac_cb);
->  		if (ret)
->  			return ret;
-> +
->  		ret = hns_mac_init_ex(mac_cb);
->  		if (ret)
->  			return ret;
->
+>     echo "done."
+>     sleep 1
+>     echo -n "Bringing interface up..."
+>     ifup bond0
+>     echo "done."
+> done
+> 
+> will allow you to more precisely identify whether the failure is during
+> the down or the up of the interface.
+> 
+> -- 
+> Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+>     GPG KeyID: B826A3330E572FDD
+>    
+> Key fingerprint = AE6B 1BDA 122B 23B4 265B  1274 B826 A333 0E57 2FDD
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
