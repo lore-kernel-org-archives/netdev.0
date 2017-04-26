@@ -1,46 +1,93 @@
-From: Jarod Wilson <jarod@redhat.com>
-Subject: Re: [Patch net 3/3] team: use a larger struct for mac address
-Date: Wed, 26 Apr 2017 12:46:31 -0400
-Message-ID: <3f48c69c-3ff4-f895-3c0f-2e8c9c5f063a@redhat.com>
-References: <1493183003-884-1-git-send-email-xiyou.wangcong@gmail.com>
- <1493183003-884-4-git-send-email-xiyou.wangcong@gmail.com>
- <20170426054033.GA1867@nanopsycho.orion>
- <7103fb6b-2483-37c0-48e5-19aa9fd4f386@redhat.com>
- <CAM_iQpVXBuXNfVM_h894HEF_9hv2rWgDJcMbvEJG25xfm7DGUA@mail.gmail.com>
+From: Jukka Rissanen <jukka.rissanen-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+Subject: Re: bluetooth 6lowpan interfaces are not virtual anymore
+Date: Wed, 26 Apr 2017 19:52:32 +0300
+Message-ID: <1493225552.3165.5.camel@linux.intel.com>
+References: <2d178eb8-3fbc-3385-6e0c-fa9941713959@pengutronix.de>
+         <28530.1492534783@obiwan.sandelman.ca>
+         <11cf222a-0c1f-4136-091d-719ee68824e1@pengutronix.de>
+         <383.1493218546@dooku.sandelman.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jiri Pirko <jiri@resnulli.us>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Andrey Konovalov <andreyknvl@google.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:45084 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751422AbdDZQqg (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 26 Apr 2017 12:46:36 -0400
-In-Reply-To: <CAM_iQpVXBuXNfVM_h894HEF_9hv2rWgDJcMbvEJG25xfm7DGUA@mail.gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Luiz Augusto von Dentz <luiz.dentz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        "linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Linux Bluetooth <linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Michael Richardson <mcr-SWp7JaYWvAQV+D8aMU/kSg@public.gmane.org>,
+        Alexander Aring <aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <383.1493218546-VaGMqW6d0iXFptTlUKWvmrDks+cytr/Z@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 2017-04-26 12:11 PM, Cong Wang wrote:
-> On Wed, Apr 26, 2017 at 8:55 AM, Jarod Wilson <jarod@redhat.com> wrote:
->>
->> We already have struct sockaddr_storage that could be used throughout this
->> set as well. We just converted a few pieces of the bonding driver over to
->> using it for better support of ipoib bonds, via commit
->> faeeb317a5615076dff1ff44b51e862e6064dbd0. Might be better to just use that
->> in both bonding and team, rather than having different per-driver structs,
->> or Yet Another Address Storage implementation.
+Hi Michael,
+
+On Wed, 2017-04-26 at 10:55 -0400, Michael Richardson wrote:
+> Alexander Aring <aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org> wrote:
+>     >> In a classic SVR4 STREAMS works, it would have been just
+> another
+>     >> module.  (No, I'm not a fan of *STREAMS* or of SVR4 in
+> general,
+>     >> although I liked some of the ideas).
+>     >>
 > 
-> Technically, struct sockaddr_storage is not enough either, given the
-> max is MAX_ADDR_LEN. This is why I gave up on sockaddr_storage.
+>     > ok, I see you complain about "having a virtual on top of wpan
+>     > interface", or?
+> 
+>     > I wanted to talk at first about the queue handling which is
+> introduced
+>     > when 6LoWPAN is not a virtual interface anymore. Or do you want
+> to have
+>     > a queue in front of 6lowpan adaptation (see other mail reply
+> with ASCII
+>     > graphics).
+> 
+> I would like to have a single queue, as close to the hardware as
+> possible,
+> such that BQL can do it's thing easily.  Should we rethink outgoing
+> fragment
+> handling for 6lowpan?  Clearly the BT people had a need.
+> I don't think they've had a chance to respond to your complaints.
 
-Wait, what? Am I missing something? MAX_ADDR_LEN is 32, and 
-sockaddr_storage is a #define for __kernel_sockaddr_storage, which has 
-it's __data member defined as being of size 128 - sizeof(unsigned short).
+Note that the BT fragmentation (or actually it is called segmentation
+in BT) is totally different what 802.15.4 is doing. I do not think
+there is any need to add fragmentation handling into 6lo.
 
--- 
-Jarod Wilson
-jarod@redhat.com
+Actually the 6lowpan kernel module could probably be simplified to be a
+library. We did this in Zephyr where we have compress() and
+uncompress() functions that do all the magic.  
+
+> 
+>     > We can change that you can run multiple interfaces on one
+>     > PHY. Currently we just allow one, because address filtering.
+> Disable
+>     > address filtering
+>     > we will loose ACK handling on hardware.
+> 
+> Yes, that's a limitation of some hardware, and if you enable multiple
+> PANIDs,
+> that might be the consequence....
+> 
+>     > I can try to implement all stuff in software "for fun, maybe
+> see what
+>     > we can do to handle ACK in software, etc" Then you can run
+> multiple
+> 
+> I'm not asking you to do it, I'm asking, now that we've gotten to a
+> certain
+> point, we have a better idea what the various requirements are, and
+> can we
+> re-evaluate things and maybe tweak some things.
+> 
+> --
+> ]               Never tell me the odds!                 | ipv6 mesh
+> networks [
+> ]   Michael Richardson, Sandelman Software Works        | network
+> architect  [
+> ]     mcr-SWp7JaYWvAQV+D8aMU/kSg@public.gmane.org  http://www.sandelman.ca/        |   ruby on
+> rails    [
+> 
+
+
+Cheers,
+Jukka
