@@ -1,57 +1,42 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: Re: stmmac still supporting spear600 ?
-Date: Thu, 27 Apr 2017 11:49:22 +0200
-Message-ID: <20170427114922.26324765@free-electrons.com>
-References: <20170309093412.33c0277d@free-electrons.com>
-        <373e2760-94c5-4349-33aa-158bc8f4b19e@st.com>
-        <20170309103236.3e16304f@free-electrons.com>
-        <79049eda-5d37-6b70-8945-2d3ab55e56b8@st.com>
-        <20170321155054.2f4cb921@free-electrons.com>
-        <63405ec5-099c-b935-2724-6c85012fc9f7@st.com>
-        <20170402233028.60acf612@free-electrons.com>
-        <0468e2fb-5a7d-97ec-c51c-2436a13dda69@st.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Alexandre Torgue <alexandre.torgue@st.com>,
-        <netdev@vger.kernel.org>, Viresh Kumar <vireshk@kernel.org>,
-        Shiraz Hashim <shiraz.linux.kernel@gmail.com>,
-        <linux-arm-kernel@lists.infradead.org>
-To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: [PATCH net] xfrm: fix GRO for !CONFIG_NETFILTER
+Date: Thu, 27 Apr 2017 12:03:37 +0200
+Message-ID: <f04ee7d4593b4eaf3f7fe19fddbf111da81261c7.1493287089.git.sd@queasysnail.net>
+Cc: Sabrina Dubroca <sd@queasysnail.net>,
+        Steffen Klassert <steffen.klassert@secunet.com>,
+        Herbert Xu <herbert@gondor.apana.org.au>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:36130 "EHLO
-        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752574AbdD0Jte (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 27 Apr 2017 05:49:34 -0400
-In-Reply-To: <0468e2fb-5a7d-97ec-c51c-2436a13dda69@st.com>
+Received: from mx1.redhat.com ([209.132.183.28]:39532 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751209AbdD0KDw (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 27 Apr 2017 06:03:52 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Giuseppe,
+In xfrm_input() when called from GRO, async == 0, and we end up
+skipping the processing in xfrm4_transport_finish(). GRO path will
+always skip the NF_HOOK, so we don't need the special-case for
+!NETFILTER during GRO processing.
 
-On Mon, 3 Apr 2017 08:16:50 +0200, Giuseppe CAVALLARO wrote:
+Fixes: 7785bba299a8 ("esp: Add a software GRO codepath")
+Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
+---
+ net/xfrm/xfrm_input.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-> I tested the SMSC on other platform (+ stmmac), not on SPEAr.
-> 
-> ok for reset, keep the radar on clock. Hmm, can you attach a piece of 
-> log file to see the failure?
-
-We finally identified the issue: in a MII configuration, the PS bit
-need to be set for the DMA reset procedure to work, but setting the DMA
-reset bit clears the PS bit. So you have to set the PS bit after
-asserting the DMA reset, and before polling for the DMA reset bit to
-clear.
-
-I have sent a fix that works for us (tested GMII and MII platforms),
-but not sure if the implementation is the most appropriate. Let me know
-if you have better suggestions.
-
-See: http://marc.info/?l=linux-netdev&m=149328635210461&w=2
-
-Thanks!
-
-Thomas
+diff --git a/net/xfrm/xfrm_input.c b/net/xfrm/xfrm_input.c
+index 46bdb4fbed0b..e23570b647ae 100644
+--- a/net/xfrm/xfrm_input.c
++++ b/net/xfrm/xfrm_input.c
+@@ -395,7 +395,7 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
+ 		if (xo)
+ 			xfrm_gro = xo->flags & XFRM_GRO;
+ 
+-		err = x->inner_mode->afinfo->transport_finish(skb, async);
++		err = x->inner_mode->afinfo->transport_finish(skb, xfrm_gro || async);
+ 		if (xfrm_gro) {
+ 			skb_dst_drop(skb);
+ 			gro_cells_receive(&gro_cells, skb);
 -- 
-Thomas Petazzoni, CTO, Free Electrons
-Embedded Linux and Kernel engineering
-http://free-electrons.com
+2.12.2
