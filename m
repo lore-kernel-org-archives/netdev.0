@@ -1,95 +1,100 @@
-From: Timmy Li <lixiaoping3@huawei.com>
-Subject: [PATCH net] net: hns: fix ethtool_get_strings overflow in hns driver
-Date: Thu, 27 Apr 2017 22:18:16 +0800
-Message-ID: <20170427141816.301212-1-lixiaoping3@huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <mbrugger@suse.com>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>, <linuxarm@huawei.com>,
-        Timmy Li <lixiaoping3@huawei.com>
-To: <davem@davemloft.net>, <huangdaode@hisilicon.com>,
-        <lipeng321@huawei.com>, <yisen.zhuang@huawei.com>,
-        <salil.mehta@huawei.com>, <yankejian@huawei.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH net-next] can: fix build error without CONFIG_PROC_FS
+Date: Thu, 27 Apr 2017 16:21:37 +0200
+Message-ID: <20170427142146.3107957-1-arnd@arndb.de>
+Cc: Arnd Bergmann <arnd@arndb.de>,
+        Thomas Gleixner <tglx@linutronix.de>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Mario Kicherer <dev@kicherer.org>,
+        Eric Dumazet <edumazet@google.com>, linux-can@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Oliver Hartkopp <socketcan@hartkopp.net>,
+        Marc Kleine-Budde <mkl@pengutronix.de>,
+        "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-can-owner@vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-hns_get_sset_count() returns HNS_NET_STATS_CNT and the data space allocated
-is not enough for ethtool_get_strings(), which will cause random memory
-corruption.
+The procfs dir entry was added inside of an #ifdef, causing a build error
+when we try to access it without CONFIG_PROC_FS set:
 
-When SLAB and DEBUG_SLAB are both enabled, memory corruptions like the
-the following can be observed without this patch:
-[   43.115200] Slab corruption (Not tainted): Acpi-ParseExt start=ffff801fb0b69030, len=80
-[   43.115206] Redzone: 0x9f911029d006462/0x5f78745f31657070.
-[   43.115208] Last user: [<5f7272655f746b70>](0x5f7272655f746b70)
-[   43.115214] 010: 70 70 65 31 5f 74 78 5f 70 6b 74 00 6b 6b 6b 6b  ppe1_tx_pkt.kkkk
-[   43.115217] 030: 70 70 65 31 5f 74 78 5f 70 6b 74 5f 6f 6b 00 6b  ppe1_tx_pkt_ok.k
-[   43.115218] Next obj: start=ffff801fb0b69098, len=80
-[   43.115220] Redzone: 0x706d655f6f666966/0x9f911029d74e35b.
-[   43.115229] Last user: [<ffff0000084b11b0>](acpi_os_release_object+0x28/0x38)
-[   43.115231] 000: 74 79 00 6b 6b 6b 6b 6b 70 70 65 31 5f 74 78 5f  ty.kkkkkppe1_tx_
-[   43.115232] 010: 70 6b 74 5f 65 72 72 5f 63 73 75 6d 5f 66 61 69  pkt_err_csum_fai
+net/can/bcm.c:1541:14: error: 'struct netns_can' has no member named 'bcmproc_dir'
+net/can/bcm.c: In function 'bcm_connect':
+net/can/bcm.c:1601:14: error: 'struct netns_can' has no member named 'bcmproc_dir'
+net/can/bcm.c: In function 'canbcm_pernet_init':
+net/can/bcm.c:1696:11: error: 'struct netns_can' has no member named 'bcmproc_dir'
+net/can/bcm.c: In function 'canbcm_pernet_exit':
+net/can/bcm.c:1707:15: error: 'struct netns_can' has no member named 'bcmproc_dir'
 
-Signed-off-by: Timmy Li <lixiaoping3@huawei.com>
+This adds the same #ifdef around all users of the pointer. Alternatively
+we could move the pointer outside of the #ifdef.
+
+Fixes: 384317ef4187 ("can: network namespace support for CAN_BCM protocol")
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 ---
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c  | 2 +-
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c   | 2 +-
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c   | 2 +-
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_xgmac.c | 2 +-
- 4 files changed, 4 insertions(+), 4 deletions(-)
+ net/can/bcm.c | 14 +++++++++-----
+ 1 file changed, 9 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c
-index 3382441..7faeb5b 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c
-@@ -672,7 +672,7 @@ static void hns_gmac_get_strings(u32 stringset, u8 *data)
+diff --git a/net/can/bcm.c b/net/can/bcm.c
+index 0e855917b7e1..e6d9df27400b 100644
+--- a/net/can/bcm.c
++++ b/net/can/bcm.c
+@@ -1538,8 +1538,10 @@ static int bcm_release(struct socket *sock)
+ 	}
  
- static int hns_gmac_get_sset_count(int stringset)
+ 	/* remove procfs entry */
++#ifdef CONFIG_PROC_FS
+ 	if (net->can.bcmproc_dir && bo->bcm_proc_read)
+ 		remove_proc_entry(bo->procname, net->can.bcmproc_dir);
++#endif
+ 
+ 	/* remove device reference */
+ 	if (bo->bound) {
+@@ -1597,7 +1599,7 @@ static int bcm_connect(struct socket *sock, struct sockaddr *uaddr, int len,
+ 		/* no interface reference for ifindex = 0 ('any' CAN device) */
+ 		bo->ifindex = 0;
+ 	}
+-
++#ifdef CONFIG_PROC_FS
+ 	if (net->can.bcmproc_dir) {
+ 		/* unique socket address as filename */
+ 		sprintf(bo->procname, "%lu", sock_i_ino(sk));
+@@ -1609,6 +1611,7 @@ static int bcm_connect(struct socket *sock, struct sockaddr *uaddr, int len,
+ 			goto fail;
+ 		}
+ 	}
++#endif
+ 
+ 	bo->bound = 1;
+ 
+@@ -1691,22 +1694,23 @@ static const struct can_proto bcm_can_proto = {
+ 
+ static int canbcm_pernet_init(struct net *net)
  {
--	if (stringset == ETH_SS_STATS)
-+	if ((stringset == ETH_SS_STATS) || (stringset == ETH_SS_PRIV_FLAGS))
- 		return ARRAY_SIZE(g_gmac_stats_string);
++#ifdef CONFIG_PROC_FS
+ 	/* create /proc/net/can-bcm directory */
+-	if (IS_ENABLED(CONFIG_PROC_FS)) {
+-		net->can.bcmproc_dir =
+-			proc_net_mkdir(net, "can-bcm", net->proc_net);
+-	}
++	net->can.bcmproc_dir = proc_net_mkdir(net, "can-bcm", net->proc_net);
++#endif
  
- 	return 0;
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
-index 6ea8722..e3e8772 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
-@@ -422,7 +422,7 @@ void hns_ppe_update_stats(struct hns_ppe_cb *ppe_cb)
- 
- int hns_ppe_get_sset_count(int stringset)
- {
--	if (stringset == ETH_SS_STATS)
-+	if ((stringset == ETH_SS_STATS) || (stringset == ETH_SS_PRIV_FLAGS))
- 		return ETH_PPE_STATIC_NUM;
  	return 0;
  }
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c
-index f0ed80d6..01a0a03 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c
-@@ -799,7 +799,7 @@ void hns_rcb_get_stats(struct hnae_queue *queue, u64 *data)
-  */
- int hns_rcb_get_ring_sset_count(int stringset)
- {
--	if (stringset == ETH_SS_STATS)
-+	if ((stringset == ETH_SS_STATS) || (stringset == ETH_SS_PRIV_FLAGS))
- 		return HNS_RING_STATIC_REG_NUM;
  
- 	return 0;
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_xgmac.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_xgmac.c
-index aae830a..f10b25c 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_xgmac.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_xgmac.c
-@@ -793,7 +793,7 @@ static void hns_xgmac_get_strings(u32 stringset, u8 *data)
-  */
- static int hns_xgmac_get_sset_count(int stringset)
+ static void canbcm_pernet_exit(struct net *net)
  {
--	if (stringset == ETH_SS_STATS)
-+	if ((stringset == ETH_SS_STATS) || (stringset == ETH_SS_PRIV_FLAGS))
- 		return ARRAY_SIZE(g_xgmac_stats_string);
++#ifdef CONFIG_PROC_FS
+ 	/* remove /proc/net/can-bcm directory */
+ 	if (IS_ENABLED(CONFIG_PROC_FS)) {
+ 		if (net->can.bcmproc_dir)
+ 			remove_proc_entry("can-bcm", net->proc_net);
+ 	}
++#endif
+ }
  
- 	return 0;
+ static struct pernet_operations canbcm_pernet_ops __read_mostly = {
 -- 
-1.9.1
+2.9.0
+
