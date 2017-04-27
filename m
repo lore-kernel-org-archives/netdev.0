@@ -1,101 +1,353 @@
-From: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Subject: Re: [PATCH v2 15/21] xen-blkfront: Make use of the new sg_map helper
- function
-Date: Thu, 27 Apr 2017 14:53:39 -0600
-Message-ID: <20170427205339.GB26330@obsidianresearch.com>
-References: <1493144468-22493-1-git-send-email-logang@deltatee.com>
- <1493144468-22493-16-git-send-email-logang@deltatee.com>
- <20170426073720.okv33ly2ldepilti@dhcp-3-128.uk.xensource.com>
- <df6586e2-7d45-6b0b-facb-4dea882df06e@deltatee.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: Boris Ostrovsky <boris.ostrovsky-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>, linux-nvdimm-y27Ovi1pjclAfugRpC6u6w@public.gmane.org,
- dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org, dm-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
- target-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>,
- devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org, "James E.J. Bottomley" <jejb-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
- linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Matthew Wilcox <mawilcox-0li6OtcxBFHby3iVrkZq2A@public.gmane.org>,
- linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Sumit Semwal <sumit.semwal-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
- open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org, linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- Juergen Gross <jgross-IBi9RG/b67k@public.gmane.org>, Julien Grall <julien.grall-5wv7dgnIgG8@public.gmane.org>,
- intel-gfx-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org, sparmaintainer-GLv8BlqOqDDQT0dZR+AlfA@public.gmane.org,
- linux-raid-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, megaraidlinux.pdl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
- Jens Axboe <axboe-tSWWG44O7X1aa/9Udqfwiw@public.gmane.org>,
- "Martin K. Petersen" <martin.petersen-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-crypto-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Greg Kroah-Hartman <gregkh@linuxfoundati
-To: Logan Gunthorpe <logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <df6586e2-7d45-6b0b-facb-4dea882df06e-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
-List-Unsubscribe: <https://lists.01.org/mailman/options/linux-nvdimm>,
- <mailto:linux-nvdimm-request-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.01.org/pipermail/linux-nvdimm/>
-List-Post: <mailto:linux-nvdimm-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
-List-Help: <mailto:linux-nvdimm-request-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.01.org/mailman/listinfo/linux-nvdimm>,
- <mailto:linux-nvdimm-request-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org?subject=subscribe>
-Errors-To: linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org
-Sender: "Linux-nvdimm" <linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+From: Tom Herbert <tom@herbertland.com>
+Subject: [PATCH RFC] ipv6: Implement limits on hop by hop and destination options
+Date: Thu, 27 Apr 2017 13:57:23 -0700
+Message-ID: <1493326643-6335-1-git-send-email-tom@herbertland.com>
+Cc: Tom Herbert <tom@herbertland.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:35336 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753957AbdD0U5k (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 27 Apr 2017 16:57:40 -0400
+Received: by mail-pf0-f194.google.com with SMTP id i4so306899pfc.2
+        for <netdev@vger.kernel.org>; Thu, 27 Apr 2017 13:57:40 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 27, 2017 at 02:19:24PM -0600, Logan Gunthorpe wrote:
-> =
+RFC 2460 (IPv6) defines hop by hop options and destination options
+extension headers. Both of these carry a list of TLVs which is
+only limited by the maximum length of the extension header (2048
+bytes). By the spec a host must process all the TLVs in these
+options, however these could be used as a fairly obvious
+denial of service attack. I think this could in fact be
+a significant DOS vector on the Internet, one mitigating
+factor might be that many FWs drop all packets with EH (and
+obviously this is only IPv6) so an Internet wide might not be so
+effective (yet!).
 
-> =
+By my calculation, the worse case packet with TLVs in a standard
+1500 byte MTU packet that would be processed by the stack contains
+1282 invidual TLVs (including pad TLVS) or 724 two byte TLVs. I
+wrote a quick test program that floods a whole bunch of these
+packets to a host and sure enough there is substantial time spent
+in ip6_parse_tlv. These packets contain nothing but unknown TLVS
+(that are ignored), TLV padding, and bogus UDP header with zero
+payload length.
 
-> On 26/04/17 01:37 AM, Roger Pau Monn=E9 wrote:
-> > On Tue, Apr 25, 2017 at 12:21:02PM -0600, Logan Gunthorpe wrote:
-> >> Straightforward conversion to the new helper, except due to the lack
-> >> of error path, we have to use SG_MAP_MUST_NOT_FAIL which may BUG_ON in
-> >> certain cases in the future.
-> >>
-> >> Signed-off-by: Logan Gunthorpe <logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
-> >> Cc: Boris Ostrovsky <boris.ostrovsky-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-> >> Cc: Juergen Gross <jgross-IBi9RG/b67k@public.gmane.org>
-> >> Cc: Konrad Rzeszutek Wilk <konrad.wilk-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-> >> Cc: "Roger Pau Monn=E9" <roger.pau-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
-> >>  drivers/block/xen-blkfront.c | 20 +++++++++++---------
-> >>  1 file changed, 11 insertions(+), 9 deletions(-)
-> >>
-> >> diff --git a/drivers/block/xen-blkfront.c b/drivers/block/xen-blkfront=
-.c
-> >> index 3945963..ed62175 100644
-> >> +++ b/drivers/block/xen-blkfront.c
-> >> @@ -816,8 +816,9 @@ static int blkif_queue_rw_req(struct request *req,=
- struct blkfront_ring_info *ri
-> >>  		BUG_ON(sg->offset + sg->length > PAGE_SIZE);
-> >>  =
+  25.38%  [kernel]                    [k] __fib6_clean_all
+  21.63%  [kernel]                    [k] ip6_parse_tlv
+   4.21%  [kernel]                    [k] __local_bh_enable_ip
+   2.18%  [kernel]                    [k] ip6_pol_route.isra.39
+   1.98%  [kernel]                    [k] fib6_walk_continue
+   1.88%  [kernel]                    [k] _raw_write_lock_bh
+   1.65%  [kernel]                    [k] dst_release
 
-> >>  		if (setup.need_copy) {
-> >> -			setup.bvec_off =3D sg->offset;
-> >> -			setup.bvec_data =3D kmap_atomic(sg_page(sg));
-> >> +			setup.bvec_off =3D 0;
-> >> +			setup.bvec_data =3D sg_map(sg, 0, SG_KMAP_ATOMIC |
-> >> +						 SG_MAP_MUST_NOT_FAIL);
-> > =
+This patches adds configurable limits to destination and hop by hop
+options. There are three limits that may be set:
+  - Limit the number of non-padding TLVs that may be in an extension header
+  - Limit the length of a hop by hop or destination options extension header
+  - Disallow unknown options
 
-> > I assume that sg_map already adds sg->offset to the address?
-> =
+The limits are set in corresponding sysctls:
 
-> Correct.
-> =
+  ipv6.sysctl.max_dst_opts_cnt
+  ipv6.sysctl.max_hbh_opts_cnt
+  ipv6.sysctl.max_dst_opts_len
+  ipv6.sysctl.max_hbh_opts_len
 
-> > Also wondering whether we can get rid of bvec_off and just increment bv=
-ec_data,
-> > adding Julien who IIRC added this code.
-> =
+If a max_*_opts_cnt is less than zero then unknown TLVs are disallowed.
+The number of known TLVs that are allowed is the absolute value of
+this number.
 
-> bvec_off is used to keep track of the offset within the current mapping
-> so it's not a great idea given that you'd want to kunmap_atomic the
-> original address and not something with an offset. It would be nice if
-> this could be converted to use the sg_miter interface but that's a much
-> more invasive change that would require someone who knows this code and
-> can properly test it. I'd be very grateful if someone actually took that =
-on.
+If a limit is exceeded when processing an extension header the packet is
+dropped.
 
-blkfront is one of the drivers I looked at, and it appears to only be
-memcpying with the bvec_data pointer, so I wonder why it does not use
-sg_copy_X_buffer instead..
+Default values are set to 8 for options counts, and set to INT_MAX
+for maximum length. Note the choice to limit options to 8 is an
+arbitrary guess (roughly based on the fact that the stack supports
+three HBH options and just one destination option).
 
-Jason
+Tested: I've only complied this code, working on getting a test
+environment set up which is why RFC. If anyone has resources and time
+to do some testing or development, let me know!
+---
+ Documentation/networking/ip-sysctl.txt | 22 +++++++++++++++++
+ include/net/ipv6.h                     | 33 +++++++++++++++++++++++++
+ include/net/netns/ipv6.h               |  4 ++++
+ net/ipv6/af_inet6.c                    |  4 ++++
+ net/ipv6/exthdrs.c                     | 44 ++++++++++++++++++++++++++++++----
+ net/ipv6/sysctl_net_ipv6.c             | 32 +++++++++++++++++++++++++
+ 6 files changed, 134 insertions(+), 5 deletions(-)
+
+diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+index 974ab47..476a5c5 100644
+--- a/Documentation/networking/ip-sysctl.txt
++++ b/Documentation/networking/ip-sysctl.txt
+@@ -1379,6 +1379,28 @@ mld_qrv - INTEGER
+ 	Default: 2 (as specified by RFC3810 9.1)
+ 	Minimum: 1 (as specified by RFC6636 4.5)
+ 
++max_dst_opts_cnt - INTEGER
++	Maximum number of non-padding TLVs allowed in a destination
++	options extension header. If this value is less than zero
++	then unknown options are disallowed and the number of known
++	TLVs allowed are the absolute value of this numer.
++
++	Default: 8
++
++max_hbh_opts_cnt - INTEGER
++	Maximum number of non-padding TLVs allowed in a hop by hop
++	options extension header. If this value is less than zero
++	then unknown options are disallowed and the number of known
++	TLVs allowed are the absolute value of this number.
++
++max dst_opts_len - INTEGER
++	Maximum length allowed for a destination options extension
++	header.
++
++max hbh_opts_len - INTEGER
++	Maximum length allowed for a hop by hop options extension
++	header.
++
+ IPv6 Fragmentation:
+ 
+ ip6frag_high_thresh - INTEGER
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+index dbf0abb..9f724ae 100644
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -50,6 +50,39 @@
+ #define IPV6_DEFAULT_HOPLIMIT   64
+ #define IPV6_DEFAULT_MCASTHOPS	1
+ 
++/* Limits on hop by hop and destination options.
++ *
++ * Per RFC2640 there is no limit on the maximum number or lengths of TLVs in
++ * hop by hop or destination options other then the packet must fit in an MTU.
++ * We allow configurable limits in order to mitigate potential denial of
++ * service attacks.
++ *
++ * There are three limits that may be set:
++ *   - Limit the number of non-padding TLVs that may be in an extension header
++ *   - Limit the length of a hop by hop or destination options extension header
++ *   - Disallow unknown options
++ *
++ * The limits are set in corresponding sysctls:
++ *
++ * ipv6.sysctl.max_dst_opts_cnt
++ * ipv6.sysctl.max_hbh_opts_cnt
++ * ipv6.sysctl.max_dst_opts_len
++ * ipv6.sysctl.max_hbh_opts_len
++ *
++ * If a max_*_opts_cnt is less than zero then unknown TLVs are disallowed.
++ * The number of known TLVs that are allowed is the absolute value of
++ * this number.
++ *
++ * If a limit is exceeded when processing an extension header the packet is
++ * dropped.
++ */
++
++/* Default limits for hop by hop and destination options */
++#define IP6_DEFAULT_MAX_DST_OPTS_CNT	8
++#define IP6_DEFAULT_MAX_HBH_OPTS_CNT	8
++#define IP6_DEFAULT_MAX_DST_OPTS_LEN	INT_MAX /* No limit */
++#define IP6_DEFAULT_MAX_HBH_OPTS_LEN	INT_MAX /* No limit */
++
+ /*
+  *	Addr type
+  *	
+diff --git a/include/net/netns/ipv6.h b/include/net/netns/ipv6.h
+index de7745e..655bd236 100644
+--- a/include/net/netns/ipv6.h
++++ b/include/net/netns/ipv6.h
+@@ -36,6 +36,10 @@ struct netns_sysctl_ipv6 {
+ 	int idgen_retries;
+ 	int idgen_delay;
+ 	int flowlabel_state_ranges;
++	int max_dst_opts_cnt;
++	int max_hbh_opts_cnt;
++	int max_dst_opts_len;
++	int max_hbh_opts_len;
+ };
+ 
+ struct netns_ipv6 {
+diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
+index a88b5b5..38e1079 100644
+--- a/net/ipv6/af_inet6.c
++++ b/net/ipv6/af_inet6.c
+@@ -807,6 +807,10 @@ static int __net_init inet6_net_init(struct net *net)
+ 	net->ipv6.sysctl.idgen_retries = 3;
+ 	net->ipv6.sysctl.idgen_delay = 1 * HZ;
+ 	net->ipv6.sysctl.flowlabel_state_ranges = 0;
++	net->ipv6.sysctl.max_dst_opts_cnt = IP6_DEFAULT_MAX_DST_OPTS_CNT;
++	net->ipv6.sysctl.max_hbh_opts_cnt = IP6_DEFAULT_MAX_HBH_OPTS_CNT;
++	net->ipv6.sysctl.max_dst_opts_len = IP6_DEFAULT_MAX_DST_OPTS_LEN;
++	net->ipv6.sysctl.max_hbh_opts_len = IP6_DEFAULT_MAX_HBH_OPTS_LEN;
+ 	atomic_set(&net->ipv6.fib6_sernum, 1);
+ 
+ 	err = ipv6_init_mibs(net);
+diff --git a/net/ipv6/exthdrs.c b/net/ipv6/exthdrs.c
+index d32e211..d86aebf 100644
+--- a/net/ipv6/exthdrs.c
++++ b/net/ipv6/exthdrs.c
+@@ -100,13 +100,22 @@ static bool ip6_tlvopt_unknown(struct sk_buff *skb, int optoff)
+ 
+ /* Parse tlv encoded option header (hop-by-hop or destination) */
+ 
+-static bool ip6_parse_tlv(const struct tlvtype_proc *procs, struct sk_buff *skb)
++static bool ip6_parse_tlv(const struct tlvtype_proc *procs,
++			  struct sk_buff *skb,
++			  int max_count)
+ {
+ 	const struct tlvtype_proc *curr;
+ 	const unsigned char *nh = skb_network_header(skb);
+ 	int off = skb_network_header_len(skb);
+ 	int len = (skb_transport_header(skb)[1] + 1) << 3;
+ 	int padlen = 0;
++	int tlv_count = 0;
++	bool disallow_unknowns = false;
++
++	if (unlikely(max_count < 0)) {
++		disallow_unknowns = true;
++		max_count = -max_count;
++	}
+ 
+ 	if (skb_transport_offset(skb) + len > skb_headlen(skb))
+ 		goto bad;
+@@ -148,6 +157,11 @@ static bool ip6_parse_tlv(const struct tlvtype_proc *procs, struct sk_buff *skb)
+ 		default: /* Other TLV code so scan list */
+ 			if (optlen > len)
+ 				goto bad;
++
++			tlv_count++;
++			if (tlv_count > max_count)
++				goto bad;
++
+ 			for (curr = procs; curr->type >= 0; curr++) {
+ 				if (curr->type == nh[off]) {
+ 					/* type specific length/alignment
+@@ -161,7 +175,10 @@ static bool ip6_parse_tlv(const struct tlvtype_proc *procs, struct sk_buff *skb)
+ 			if (curr->type < 0) {
+ 				if (ip6_tlvopt_unknown(skb, off) == 0)
+ 					return false;
++				if (disallow_unknowns)
++					goto bad;
+ 			}
++
+ 			padlen = 0;
+ 			break;
+ 		}
+@@ -260,23 +277,31 @@ static int ipv6_destopt_rcv(struct sk_buff *skb)
+ 	__u16 dstbuf;
+ #endif
+ 	struct dst_entry *dst = skb_dst(skb);
++	struct net *net = dev_net(skb->dev);
++	int extlen;
+ 
+ 	if (!pskb_may_pull(skb, skb_transport_offset(skb) + 8) ||
+ 	    !pskb_may_pull(skb, (skb_transport_offset(skb) +
+ 				 ((skb_transport_header(skb)[1] + 1) << 3)))) {
++fail_and_free:
+ 		__IP6_INC_STATS(dev_net(dst->dev), ip6_dst_idev(dst),
+ 				IPSTATS_MIB_INHDRERRORS);
+ 		kfree_skb(skb);
+ 		return -1;
+ 	}
+ 
++	extlen = (skb_transport_header(skb)[1] + 1) << 3;
++	if (extlen > net->ipv6.sysctl.max_dst_opts_len)
++		goto fail_and_free;
++
+ 	opt->lastopt = opt->dst1 = skb_network_header_len(skb);
+ #if IS_ENABLED(CONFIG_IPV6_MIP6)
+ 	dstbuf = opt->dst1;
+ #endif
+ 
+-	if (ip6_parse_tlv(tlvprocdestopt_lst, skb)) {
+-		skb->transport_header += (skb_transport_header(skb)[1] + 1) << 3;
++	if (ip6_parse_tlv(tlvprocdestopt_lst, skb,
++			  init_net.ipv6.sysctl.max_dst_opts_cnt)) {
++		skb->transport_header += extlen;
+ 		opt = IP6CB(skb);
+ #if IS_ENABLED(CONFIG_IPV6_MIP6)
+ 		opt->nhoff = dstbuf;
+@@ -804,6 +829,8 @@ static const struct tlvtype_proc tlvprochopopt_lst[] = {
+ int ipv6_parse_hopopts(struct sk_buff *skb)
+ {
+ 	struct inet6_skb_parm *opt = IP6CB(skb);
++	struct net *net = dev_net(skb->dev);
++	int extlen;
+ 
+ 	/*
+ 	 * skb_network_header(skb) is equal to skb->data, and
+@@ -818,9 +845,16 @@ int ipv6_parse_hopopts(struct sk_buff *skb)
+ 		return -1;
+ 	}
+ 
++	extlen = (skb_transport_header(skb)[1] + 1) << 3;
++	if (extlen > net->ipv6.sysctl.max_dst_opts_len) {
++		kfree_skb(skb);
++		return -1;
++	}
++
+ 	opt->flags |= IP6SKB_HOPBYHOP;
+-	if (ip6_parse_tlv(tlvprochopopt_lst, skb)) {
+-		skb->transport_header += (skb_transport_header(skb)[1] + 1) << 3;
++	if (ip6_parse_tlv(tlvprochopopt_lst, skb,
++			  init_net.ipv6.sysctl.max_hbh_opts_cnt)) {
++		skb->transport_header += extlen;
+ 		opt = IP6CB(skb);
+ 		opt->nhoff = sizeof(struct ipv6hdr);
+ 		return 1;
+diff --git a/net/ipv6/sysctl_net_ipv6.c b/net/ipv6/sysctl_net_ipv6.c
+index 69c50e7..054cabe 100644
+--- a/net/ipv6/sysctl_net_ipv6.c
++++ b/net/ipv6/sysctl_net_ipv6.c
+@@ -90,6 +90,34 @@ static struct ctl_table ipv6_table_template[] = {
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec
+ 	},
++	{
++		.procname	= "max_dst_opts_number",
++		.data		= &init_net.ipv6.sysctl.max_dst_opts_cnt,
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= proc_dointvec
++	},
++	{
++		.procname	= "max_hbh_opts_number",
++		.data		= &init_net.ipv6.sysctl.max_hbh_opts_cnt,
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= proc_dointvec
++	},
++	{
++		.procname	= "max_dst_opts_length",
++		.data		= &init_net.ipv6.sysctl.max_dst_opts_len,
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= proc_dointvec
++	},
++	{
++		.procname	= "max_hbh_length",
++		.data		= &init_net.ipv6.sysctl.max_hbh_opts_len,
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= proc_dointvec
++	},
+ 	{ }
+ };
+ 
+@@ -149,6 +177,10 @@ static int __net_init ipv6_sysctl_net_init(struct net *net)
+ 	ipv6_table[6].data = &net->ipv6.sysctl.idgen_delay;
+ 	ipv6_table[7].data = &net->ipv6.sysctl.flowlabel_state_ranges;
+ 	ipv6_table[8].data = &net->ipv6.sysctl.ip_nonlocal_bind;
++	ipv6_table[9].data = &net->ipv6.sysctl.max_dst_opts_cnt;
++	ipv6_table[10].data = &net->ipv6.sysctl.max_hbh_opts_cnt;
++	ipv6_table[11].data = &net->ipv6.sysctl.max_dst_opts_len;
++	ipv6_table[12].data = &net->ipv6.sysctl.max_hbh_opts_len;
+ 
+ 	ipv6_route_table = ipv6_route_sysctl_init(net);
+ 	if (!ipv6_route_table)
+-- 
+2.7.4
