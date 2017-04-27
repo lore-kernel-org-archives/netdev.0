@@ -1,72 +1,106 @@
-From: Logan Gunthorpe <logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH v2 15/21] xen-blkfront: Make use of the new sg_map helper
- function
-Date: Thu, 27 Apr 2017 17:03:45 -0600
-Message-ID: <3a7c0d27-0744-4e91-b37f-3885c50455e8@deltatee.com>
-References: <1493144468-22493-1-git-send-email-logang@deltatee.com>
- <1493144468-22493-16-git-send-email-logang@deltatee.com>
- <20170426073720.okv33ly2ldepilti@dhcp-3-128.uk.xensource.com>
- <df6586e2-7d45-6b0b-facb-4dea882df06e@deltatee.com>
- <20170427205339.GB26330@obsidianresearch.com>
- <02ba3c7b-5fab-a06c-fbbf-c3be1c0fae1b@deltatee.com>
- <20170427221132.GA30036@obsidianresearch.com>
+From: Jay Vosburgh <jay.vosburgh-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Subject: Re: [PATCH net] bonding: avoid defaulting hard_header_len to ETH_HLEN on slave removal
+Date: Thu, 27 Apr 2017 16:08:22 -0700
+Message-ID: <27018.1493334502@famine>
+References: <733d454d3c36e99b55de5374c7664364975b171d.1493313626.git.pabeni@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Boris Ostrovsky <boris.ostrovsky-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>, linux-nvdimm-y27Ovi1pjclAfugRpC6u6w@public.gmane.org,
- dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org, dm-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
- target-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>,
- devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org, "James E.J. Bottomley" <jejb-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
- linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Matthew Wilcox <mawilcox-0li6OtcxBFHby3iVrkZq2A@public.gmane.org>,
- linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Sumit Semwal <sumit.semwal-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
- open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org, linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- Juergen Gross <jgross-IBi9RG/b67k@public.gmane.org>, Julien Grall <julien.grall-5wv7dgnIgG8@public.gmane.org>,
- intel-gfx-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org, sparmaintainer-GLv8BlqOqDDQT0dZR+AlfA@public.gmane.org,
- linux-raid-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, megaraidlinux.pdl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
- Jens Axboe <axboe-tSWWG44O7X1aa/9Udqfwiw@public.gmane.org>,
- "Martin K. Petersen" <martin.petersen-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-crypto-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Greg Kroah-Hartman <gregkh@linuxfoundati
-To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Return-path: <linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
-In-Reply-To: <20170427221132.GA30036-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-List-Unsubscribe: <https://lists.01.org/mailman/options/linux-nvdimm>,
- <mailto:linux-nvdimm-request-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.01.org/pipermail/linux-nvdimm/>
-List-Post: <mailto:linux-nvdimm-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
-List-Help: <mailto:linux-nvdimm-request-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.01.org/mailman/listinfo/linux-nvdimm>,
- <mailto:linux-nvdimm-request-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org?subject=subscribe>
-Errors-To: linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org
-Sender: "Linux-nvdimm" <linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
+Content-Transfer-Encoding: 8BIT
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Honggang LI <honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-reply-to: <733d454d3c36e99b55de5374c7664364975b171d.1493313626.git.pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Content-ID: <27017.1493334502.1@famine>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
+
+>On slave list updates, the bonding driver computes its hard_header_len
+>as the maximum of all enslaved devices's hard_header_len.
+>If the slave list is empty, e.g. on last enslaved device removal,
+>ETH_HLEN is used.
+>
+>Since the bonding header_ops are set only when the first enslaved
+>device is attached, the above can lead to header_ops->create()
+>being called with the wrong skb headroom in place.
+>
+>If bond0 is configured on top of ipoib devices, with the
+>following commands:
+>
+>ifup bond0
+>for slave in $BOND_SLAVES_LIST; do
+>	ip link set dev $slave nomaster
+>done
+>ping -c 1 <ip on bond0 subnet>
+>
+>we will obtain a skb_under_panic() with a similar call trace:
+>	skb_push+0x3d/0x40
+>	push_pseudo_header+0x17/0x30 [ib_ipoib]
+>	ipoib_hard_header+0x4e/0x80 [ib_ipoib]
+>	arp_create+0x12f/0x220
+>	arp_send_dst.part.19+0x28/0x50
+>	arp_solicit+0x115/0x290
+>	neigh_probe+0x4d/0x70
+>	__neigh_event_send+0xa7/0x230
+>	neigh_resolve_output+0x12e/0x1c0
+>	ip_finish_output2+0x14b/0x390
+>	ip_finish_output+0x136/0x1e0
+>	ip_output+0x76/0xe0
+>	ip_local_out+0x35/0x40
+>	ip_send_skb+0x19/0x40
+>	ip_push_pending_frames+0x33/0x40
+>	raw_sendmsg+0x7d3/0xb50
+>	inet_sendmsg+0x31/0xb0
+>	sock_sendmsg+0x38/0x50
+>	SYSC_sendto+0x102/0x190
+>	SyS_sendto+0xe/0x10
+>	do_syscall_64+0x67/0x180
+>	entry_SYSCALL64_slow_path+0x25/0x25
+>
+>This change addresses the issue avoiding updating the bonding device
+>hard_header_len when the slaves list become empty, forbidding to
+>shrink it below the value used by header_ops->create().
+>
+>The bug is there since commit 54ef31371407 ("[PATCH] bonding: Handle large
+>hard_header_len") but the panic can be triggered only since
+>commit fc791b633515 ("IB/ipoib: move back IB LL address into the hard
+>header").
+>
+>Reported-by: Norbert P <noe-PRwTpj6vllL463JZfw7VRw@public.gmane.org>
+>Fixes: 54ef31371407 ("[PATCH] bonding: Handle large hard_header_len")
+>Fixes: fc791b633515 ("IB/ipoib: move back IB LL address into the hard header")
+>Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+>Signed-off-by: Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+
+Signed-off-by: Jay Vosburgh <jay.vosburgh-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
 
 
-On 27/04/17 04:11 PM, Jason Gunthorpe wrote:
-> On Thu, Apr 27, 2017 at 03:53:37PM -0600, Logan Gunthorpe wrote:
-> Well, that is in the current form, with more users it would make sense
-> to optimize for the single page case, eg by providing the existing
-> call, providing a faster single-page-only variant of the copy, perhaps
-> even one that is inlined.
-
-Ok, does it make sense then to have an sg_copy_page_to_buffer (or some
-such... I'm having trouble thinking of a sane name that isn't too long).
-That just does k(un)map_atomic and memcpy? I could try that if it makes
-sense to people.
-
->> Switching the for_each_sg to sg_miter is probably the nicer solution as
->> it takes care of the mapping and the offset/length accounting for you
->> and will have similar performance.
+> drivers/net/bonding/bond_main.c | 2 +-
+> 1 file changed, 1 insertion(+), 1 deletion(-)
+>
+>diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+>index 8a4ba8b..34481c9 100644
+>--- a/drivers/net/bonding/bond_main.c
+>+++ b/drivers/net/bonding/bond_main.c
+>@@ -1104,11 +1104,11 @@ static void bond_compute_features(struct bonding *bond)
+> 		gso_max_size = min(gso_max_size, slave->dev->gso_max_size);
+> 		gso_max_segs = min(gso_max_segs, slave->dev->gso_max_segs);
+> 	}
+>+	bond_dev->hard_header_len = max_hard_header_len;
 > 
-> sg_miter will still fail when the sg contains __iomem, however I would
-> expect that the sg_copy will work with iomem, by using the __iomem
-> memcpy variant.
-
-Yes, that's true. Any sg_miters that ever see iomem will need to be
-converted to support it. This isn't much different than the other
-kmap(sg_page()) users I was converting that will also fail if they see
-iomem. Though, I suspect an sg_miter user would be easier to convert to
-iomem than a random kmap user.
-
-Logan
+> done:
+> 	bond_dev->vlan_features = vlan_features;
+> 	bond_dev->hw_enc_features = enc_features | NETIF_F_GSO_ENCAP_ALL;
+>-	bond_dev->hard_header_len = max_hard_header_len;
+> 	bond_dev->gso_max_segs = gso_max_segs;
+> 	netif_set_gso_max_size(bond_dev, gso_max_size);
+> 
+>-- 
+>2.9.3
+>
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
