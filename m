@@ -1,38 +1,33 @@
-From: ammly <ammlyf@gmail.com>
-Subject: [PATCH] net: ath: tx99: fixed a spelling issue
-Date: Thu, 27 Apr 2017 19:31:37 +0300
-Message-ID: <1493310697-18610-1-git-send-email-ammly@gmail.com>
-Cc: kvalo@codeaurora.org, linux-wireless@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Ammly Fredrick <ammlyf@gmail.com>
-To: ath9k-devel@qca.qualcomm.com
+From: Alexei Starovoitov <ast@fb.com>
+Subject: Re: [PATCH net-next] samples/bpf: Add support for SKB_MODE to xdp1
+ and xdp_tx_iptunnel
+Date: Thu, 27 Apr 2017 09:38:37 -0700
+Message-ID: <085b8b0f-7751-0be4-d3b7-3c06f2cc602b@fb.com>
+References: <1493309473-27384-1-git-send-email-dsa@cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <daniel@iogearbox.net>
+To: David Ahern <dsa@cumulusnetworks.com>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:34441 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932722AbdD0Qbu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 27 Apr 2017 12:31:50 -0400
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:43994 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S932573AbdD0QjS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 27 Apr 2017 12:39:18 -0400
+In-Reply-To: <1493309473-27384-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fixed a spelling issue.
+On 4/27/17 9:11 AM, David Ahern wrote:
+> Add option to xdp1 and xdp_tx_iptunnel to insert xdp program in
+> SKB_MODE:
+>  - update set_link_xdp_fd to take a flags argument that is added to the
+>    RTM_SETLINK message
+>
+>  - Add -S option to xdp1 and xdp_tx_iptunnel user code. When passed in
+>    XDP_FLAGS_SKB_MODE is set in the flags arg passed to set_link_xdp_fd
+>
+> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 
-Signed-off-by: Ammly Fredrick <ammlyf@gmail.com>
----
- drivers/net/wireless/ath/ath9k/tx99.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/wireless/ath/ath9k/tx99.c b/drivers/net/wireless/ath/ath9k/tx99.c
-index 16aca9e28b77..a866cbda0799 100644
---- a/drivers/net/wireless/ath/ath9k/tx99.c
-+++ b/drivers/net/wireless/ath/ath9k/tx99.c
-@@ -153,7 +153,7 @@ static int ath9k_tx99_init(struct ath_softc *sc)
- 		sc->tx99_power,
- 		sc->tx99_power / 2);
- 
--	/* We leave the harware awake as it will be chugging on */
-+	/* We leave the hardware awake as it will be chugging on */
- 
- 	return 0;
- }
--- 
-2.11.0
+awesome. thanks!
+Acked-by: Alexei Starovoitov <ast@kernel.org>
