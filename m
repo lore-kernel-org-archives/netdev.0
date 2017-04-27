@@ -1,35 +1,32 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v6 1/5] skbuff: return -EMSGSIZE in skb_to_sgvec to
- prevent overflow
-Date: Thu, 27 Apr 2017 14:54:14 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DCFFE0675@AcuExch.aculab.com>
-References: <20170425155215.4835-1-Jason@zx2c4.com>
- <20170425184734.26563-1-Jason@zx2c4.com>
- <CAHmME9qDmcvzF_xeaxegC2RpBOs8PziJOaKEqv6Z_X1pUFbR0w@mail.gmail.com>
- <20170427113016.GA12448@bistromath.localdomain>
- <CAHmME9oa3LYsnBgguxFqbJwps1ai=cuHHEgSpfY36AQHAN5r1Q@mail.gmail.com>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH net-next 4/6] bpf: track if the bpf program was loaded
+ with SYS_ADMIN capabilities
+Date: Thu, 27 Apr 2017 16:56:45 +0200
+Message-ID: <20170427165645.4115a5ce@griffin>
+References: <CAADnVQ+GL6sYCff4eU4WXZYeZSi5BJ5amy6NQjuZk2=OjuM5+g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        "kernel-hardening@lists.openwall.com"
-        <kernel-hardening@lists.openwall.com>,
-        David Miller <davem@davemloft.net>
-To: "'Jason A. Donenfeld'" <Jason@zx2c4.com>,
-        Sabrina Dubroca <sd@queasysnail.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Alexei Starovoitov <ast@kernel.org>,
+        Aaron Conole <aconole@bytheb.org>,
+        Daniel Borkmann <daniel@iogearbox.net>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.183]:65151 "EHLO
-        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753979AbdD0Oya (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 27 Apr 2017 10:54:30 -0400
-In-Reply-To: <CAHmME9oa3LYsnBgguxFqbJwps1ai=cuHHEgSpfY36AQHAN5r1Q@mail.gmail.com>
-Content-Language: en-US
+Received: from mx1.redhat.com ([209.132.183.28]:60704 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1755239AbdD0O4t (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 27 Apr 2017 10:56:49 -0400
+In-Reply-To: <CAADnVQ+GL6sYCff4eU4WXZYeZSi5BJ5amy6NQjuZk2=OjuM5+g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogSmFzb24gQS4gRG9uZW5mZWxkDQo+IE9uIFRodSwgQXByIDI3LCAyMDE3IGF0IDE6MzAg
-UE0sIFNhYnJpbmEgRHVicm9jYSA8c2RAcXVlYXN5c25haWwubmV0PiB3cm90ZToNCj4gPiBIbW0s
-IEkgdGhpbmsgdGhpcyBjYW4gYWN0dWFsbHkgaGFwcGVuOg0KPiANCj4gQWxyaWdodCwgcGVyaGFw
-cyBiZXR0ZXIgdG8gZXJyIG9uIHRoZSBzaWRlIG9mIGNhdXRpb24sIHRoZW4uDQoNCllvdSBvbmx5
-IG5lZWQgdG8gcmVjdXJzZSBpZiBib3RoIHBvaW50ZXJzIGFyZSBzZXQuDQoNCglEYXZpZA0KDQo=
+On Thu, 27 Apr 2017 07:49:29 -0700, Alexei Starovoitov wrote:
+> there are bunch of other things that influence verifier.
+> should we add all of them ?
+
+Sure, why not? It's always good to be able to see the complete input
+conditions while debugging.
+
+ Jiri
