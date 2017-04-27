@@ -1,51 +1,44 @@
-From: Martin KaFai Lau <kafai@fb.com>
-Subject: [RFC net-next 0/2] Introduce bpf_prog ID and iteration
-Date: Wed, 26 Apr 2017 23:24:47 -0700
-Message-ID: <20170427062449.80290-1-kafai@fb.com>
+From: Christoph Hellwig <hch@lst.de>
+Subject: Re: [PATCH 5/7] IB/hfi1: use pcie_flr instead of duplicating it
+Date: Thu, 27 Apr 2017 08:47:58 +0200
+Message-ID: <20170427064758.GA20614@lst.de>
+References: <20170414191131.14286-1-hch@lst.de> <20170414191131.14286-6-hch@lst.de> <A33E225544E47D4DB5713032774B132783960382@irsmsx105.ger.corp.intel.com> <20170424143507.GA28812@lst.de> <20170425193955.GC29024@bhelgaas-glaptop.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Alexei Starovoitov <ast@fb.com>, <kernel-team@fb.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:55817 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751924AbdD0GYu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 27 Apr 2017 02:24:50 -0400
-Received: from pps.filterd (m0044010.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v3R6Oj2Y006284
-        for <netdev@vger.kernel.org>; Wed, 26 Apr 2017 23:24:50 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 2a34s4gwgg-1
-        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Wed, 26 Apr 2017 23:24:50 -0700
-Received: from facebook.com (2401:db00:11:d09a:face:0:41:0)     by
- mx-out.facebook.com (10.102.107.99) with ESMTP id
- 37226b602b1211e7a55a0002c99293a0-bfaf89a0 for <netdev@vger.kernel.org>;        Wed,
- 26 Apr 2017 23:24:49 -0700
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Christoph Hellwig <hch@lst.de>,
+        "Byczkowski, Jakub" <jakub.byczkowski@intel.com>,
+        Bjorn Helgaas <bhelgaas@google.com>,
+        "Cabiddu, Giovanni" <giovanni.cabiddu@intel.com>,
+        "Benedetto, Salvatore" <salvatore.benedetto@intel.com>,
+        "Marciniszyn, Mike" <mike.marciniszyn@intel.com>,
+        "Dalessandro, Dennis" <dennis.dalessandro@intel.com>,
+        Derek Chickles <derek.chickles@caviumnetworks.com>,
+        Satanand Burla <satananda.burla@caviumnetworks.com>,
+        Felix Manlunas <felix.manlunas@caviumnetworks.com>,
+        Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>,
+        "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+        "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+        qat-linux <qat-linux@intel.com>,
+        "linux-crypto@vger.kernel.org" <linux-crypto@vger.kernel.org>,
+        "linux-rdma@vger.kernel.org" <l
+To: Bjorn Helgaas <helgaas@kernel.org>
+Return-path: <linux-pci-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170425193955.GC29024@bhelgaas-glaptop.roam.corp.google.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patchset introduces the bpf_prog ID and a new bpf cmd to
-iterate all bpf_prog in the system.
+On Tue, Apr 25, 2017 at 02:39:55PM -0500, Bjorn Helgaas wrote:
+> This still leaves these:
+> 
+>   [PATCH 4/7] ixgbe: use pcie_flr instead of duplicating it
+>   [PATCH 6/7] crypto: qat: use pcie_flr instead of duplicating it
+>   [PATCH 7/7] liquidio: use pcie_flr instead of duplicating it
+> 
+> I haven't seen any response to 4 and 6.  Felix reported an unused
+> variable in 7.  Let me know if you'd like me to do anything with
+> these.
 
-It is still incomplete.  The idea can be extended to bpf_map.
-
-Martin KaFai Lau (2):
-  bpf: Introduce bpf_prog ID
-  bpf: Test for bpf_prog ID and BPF_PROG_GET_NEXT_ID
-
- include/linux/filter.h                     |  1 +
- include/uapi/linux/bpf.h                   |  6 ++
- kernel/bpf/syscall.c                       | 47 ++++++++++++++-
- tools/include/uapi/linux/bpf.h             |  6 ++
- tools/lib/bpf/bpf.c                        | 11 ++++
- tools/lib/bpf/bpf.h                        |  1 +
- tools/testing/selftests/bpf/Makefile       |  2 +-
- tools/testing/selftests/bpf/test_prog_id.c | 93 ++++++++++++++++++++++++++++++
- 8 files changed, 165 insertions(+), 2 deletions(-)
- create mode 100644 tools/testing/selftests/bpf/test_prog_id.c
-
--- 
-2.9.3
+Now that Jeff ACKed 4 it might be worth to add it to the pci tree last
+minute.  I'll resend liquidio and qat to the respective maintainers for
+the next merge window.
