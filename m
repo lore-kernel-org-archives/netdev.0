@@ -1,90 +1,56 @@
-From: Miroslav Lichvar <mlichvar@redhat.com>
-Subject: Re: [PATCH v1 net-next 3/6] net: add new control message for
- incoming HW-timestamped packets
-Date: Thu, 27 Apr 2017 12:15:54 +0200
-Message-ID: <20170427101554.GF5654@localhost>
-References: <20170426145035.25846-1-mlichvar@redhat.com>
- <20170426145035.25846-4-mlichvar@redhat.com>
- <CAF=yD-+XKGnGASVN4+W2u2A7CBqS9CRN2Jkvx6UoPQQ6jLpMkQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Network Development <netdev@vger.kernel.org>,
-        Richard Cochran <richardcochran@gmail.com>,
-        Willem de Bruijn <willemb@google.com>,
-        Soheil Hassas Yeganeh <soheil@google.com>,
-        "Keller, Jacob E" <jacob.e.keller@intel.com>,
-        Denny Page <dennypage@me.com>, Jiri Benc <jbenc@redhat.com>
-To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: [PATCH net] esp: skip GRO for fragmented packets
+Date: Thu, 27 Apr 2017 12:31:14 +0200
+Message-ID: <37d07f4c9bfaf9733d3cd90653927540e2639d39.1493288951.git.sd@queasysnail.net>
+Cc: Sabrina Dubroca <sd@queasysnail.net>,
+        Steffen Klassert <steffen.klassert@secunet.com>,
+        Herbert Xu <herbert@gondor.apana.org.au>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:54114 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:57020 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755345AbdD0KP6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 27 Apr 2017 06:15:58 -0400
-Content-Disposition: inline
-In-Reply-To: <CAF=yD-+XKGnGASVN4+W2u2A7CBqS9CRN2Jkvx6UoPQQ6jLpMkQ@mail.gmail.com>
+        id S1755406AbdD0Kb2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 27 Apr 2017 06:31:28 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thanks for the comments.
+Currently, ESP4 GRO doesn't work for fragmented packets, so let's send
+these through the normal path.
 
-On Wed, Apr 26, 2017 at 07:34:49PM -0400, Willem de Bruijn wrote:
-> > +struct net_device *dev_get_by_napi_id(unsigned int napi_id)
-> > +{
-> > +       struct net_device *dev = NULL;
-> > +       struct napi_struct *napi;
-> > +
-> > +       rcu_read_lock();
-> > +
-> > +       napi = napi_by_id(napi_id);
-> > +       if (napi)
-> > +               dev = napi->dev;
-> > +
-> > +       rcu_read_unlock();
-> > +
-> > +       return dev;
-> > +}
-> > +EXPORT_SYMBOL(dev_get_by_napi_id);
-> 
-> Returning dev without holding a reference is not safe. You'll probably
-> have to call this with rcu_read_lock held instead.
+Fixes: 7785bba299a8 ("esp: Add a software GRO codepath")
+Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
+---
+Steffen, if you prefer to drop this patch and fix this properly,
+that's okay for me. I can't look much deeper into this right now and
+it's broken on current net/master.
 
-How about changing the function to simply return the index instead of
-the device (e.g. dev_get_ifindex_by_napi_id())? Would that be too
-specific?
+It seems like the first fragment gets dropped, at least I don't see it
+on tcpdump on the RX machine.
 
-> >  /*
-> >   * called from sock_recv_timestamp() if sock_flag(sk, SOCK_RCVTSTAMP)
-> >   */
-> > @@ -699,8 +719,12 @@ void __sock_recv_timestamp(struct msghdr *msg, struct sock *sk,
-> >                 empty = 0;
-> >         if (shhwtstamps &&
-> >             (sk->sk_tsflags & SOF_TIMESTAMPING_RAW_HARDWARE) &&
-> 
-> This information is also informative with software timestamps.
+ net/ipv4/esp4_offload.c | 4 ++++
+ 1 file changed, 4 insertions(+)
 
-But is it useful and worth the cost? If I have two interfaces and only
-one has HW timestamping, or just one interface which can timestamp
-incoming packets at a limited rate, I would prefer to not waste CPU
-cycles preparing and processing useless data.
-
-> And getting the real iif is definitely useful outside timestamps.
-
-Do you have an example? We have asked that in the original thread,
-but no one suggested anything. For AF_PACKET there is PACKET_ORIGDEV.
-When I was searching the Internet on how to get the index with INET
-sockets, it looked like I was the only one who had this problem :).
-
-> An
-> alternative approach is to add versioning to IP_PKTINFO with a new
-> setsockopt IP_PKTINFO_VERSION plus a new struct in_pktinfo_v2
-> that extends in_pktinfo. Just a thought.
-
-The struct would contain both the original and last interface index,
-and the length as well? And similarly with in6_pktinfo?
-
-If there is an agreement that the information would useful also for
-other things than timestamping, I can try that. If not, I think it
-would be better to keep it tied to HW timestamping.
-
+diff --git a/net/ipv4/esp4_offload.c b/net/ipv4/esp4_offload.c
+index 1de442632406..ab5faca28e19 100644
+--- a/net/ipv4/esp4_offload.c
++++ b/net/ipv4/esp4_offload.c
+@@ -38,6 +38,9 @@ static struct sk_buff **esp4_gro_receive(struct sk_buff **head,
+ 	__be32 spi;
+ 	int err;
+ 
++	if (ip_is_fragment(ip_hdr(skb)))
++		goto flush;
++
+ 	skb_pull(skb, offset);
+ 
+ 	if ((err = xfrm_parse_spi(skb, IPPROTO_ESP, &spi, &seq)) != 0)
+@@ -78,6 +81,7 @@ static struct sk_buff **esp4_gro_receive(struct sk_buff **head,
+ 	return ERR_PTR(-EINPROGRESS);
+ out:
+ 	skb_push(skb, offset);
++flush:
+ 	NAPI_GRO_CB(skb)->same_flow = 0;
+ 	NAPI_GRO_CB(skb)->flush = 1;
+ 
 -- 
-Miroslav Lichvar
+2.12.2
