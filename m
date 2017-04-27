@@ -1,52 +1,86 @@
 From: Bjorn Helgaas <helgaas@kernel.org>
-Subject: Re: [PATCH 5/7] IB/hfi1: use pcie_flr instead of duplicating it
-Date: Thu, 27 Apr 2017 11:49:46 -0500
-Message-ID: <20170427164946.GA8309@bhelgaas-glaptop.roam.corp.google.com>
-References: <20170414191131.14286-1-hch@lst.de>
- <20170414191131.14286-6-hch@lst.de>
- <A33E225544E47D4DB5713032774B132783960382@irsmsx105.ger.corp.intel.com>
- <20170424143507.GA28812@lst.de>
- <20170425193955.GC29024@bhelgaas-glaptop.roam.corp.google.com>
- <20170427064758.GA20614@lst.de>
+Subject: Re: [PATCH net-next 1/4] ixgbe: sparc: rename the
+ ARCH_WANT_RELAX_ORDER to IXGBE_ALLOW_RELAXED_ORDER
+Date: Thu, 27 Apr 2017 12:19:38 -0500
+Message-ID: <20170427171938.GA10705@bhelgaas-glaptop.roam.corp.google.com>
+References: <20170401.112603.1991545644693496714.davem@davemloft.net>
+ <42428725-89f1-1508-4e3d-723e087b3bbb@huawei.com>
+ <EE11001F9E5DDD47B7634E2F8A612F2E205199C0@FRAEML521-MBX.china.huawei.com>
+ <063D6719AE5E284EB5DD2968C1650D6DCFFD3C52@AcuExch.aculab.com>
+ <DB5PR05MB138288172B04713EB0C1DB55D3190@DB5PR05MB1382.eurprd05.prod.outlook.com>
+ <a2239141-a185-1bb8-0abd-7a05b9fde015@huawei.com>
+ <CAKgT0Uc4L=GgYbpO-Fm9OfN+_fLypbDP1c+X4T_ta90ecQiyGQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "Byczkowski, Jakub" <jakub.byczkowski@intel.com>,
-        Bjorn Helgaas <bhelgaas@google.com>,
-        "Cabiddu, Giovanni" <giovanni.cabiddu@intel.com>,
-        "Benedetto, Salvatore" <salvatore.benedetto@intel.com>,
-        "Marciniszyn, Mike" <mike.marciniszyn@intel.com>,
-        "Dalessandro, Dennis" <dennis.dalessandro@intel.com>,
-        Derek Chickles <derek.chickles@caviumnetworks.com>,
-        Satanand Burla <satananda.burla@caviumnetworks.com>,
-        Felix Manlunas <felix.manlunas@caviumnetworks.com>,
-        Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>,
-        "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+Cc: Ding Tianhong <dingtianhong@huawei.com>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Amir Ancel <amira@mellanox.com>,
+        Gabriele Paoloni <gabriele.paoloni@huawei.com>,
         "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-        qat-linux <qat-linux@intel.com>,
-        "linux-crypto@vger.kernel.org" <linux-crypto@vger.kernel.org>,
-        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
-        "net
-To: Christoph Hellwig <hch@lst.de>
-Return-path: <linux-crypto-owner@vger.kernel.org>
+        Catalin Marinas <catalin.marinas@arm.com>,
+        Will Deacon <will.deacon@arm.com>,
+        LinuxArm <linuxarm@huawei.com>,
+        David Laight <David.Laight@aculab.com>,
+        "jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Robin Murphy <robin.murphy@arm.com>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "linux-arm-kernel@lists.infradead.org"
+        <linux-arm-kernel@lists.infradead.org>,
+        Casey Leedom <leedom@chelsio.com>
+To: Alexander Duyck <alexander.duyck@gmail.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20170427064758.GA20614@lst.de>
-Sender: linux-crypto-owner@vger.kernel.org
+In-Reply-To: <CAKgT0Uc4L=GgYbpO-Fm9OfN+_fLypbDP1c+X4T_ta90ecQiyGQ@mail.gmail.com>
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 27, 2017 at 08:47:58AM +0200, Christoph Hellwig wrote:
-> On Tue, Apr 25, 2017 at 02:39:55PM -0500, Bjorn Helgaas wrote:
-> > This still leaves these:
-> > 
-> >   [PATCH 4/7] ixgbe: use pcie_flr instead of duplicating it
-> >   [PATCH 6/7] crypto: qat: use pcie_flr instead of duplicating it
-> >   [PATCH 7/7] liquidio: use pcie_flr instead of duplicating it
-> > 
-> > I haven't seen any response to 4 and 6.  Felix reported an unused
-> > variable in 7.  Let me know if you'd like me to do anything with
-> > these.
-> 
-> Now that Jeff ACKed 4 it might be worth to add it to the pci tree last
-> minute.  I'll resend liquidio and qat to the respective maintainers for
-> the next merge window.
+[+cc Casey]
 
-I applied 4 with Jeff's ack to pci/virtualization for v4.12, thanks!
+On Wed, Apr 26, 2017 at 09:18:33AM -0700, Alexander Duyck wrote:
+> On Wed, Apr 26, 2017 at 2:26 AM, Ding Tianhong <dingtianhong@huawei.com> wrote:
+> > Hi Amir:
+> >
+> > It is really glad to hear that the mlx5 will support RO mode this year, if so, do you agree that enable it dynamic by ethtool -s xxx,
+> > we have try it several month ago but there was only one drivers would use it at that time so the maintainer against it, it mlx5 would support RO,
+> > we could try to restart this solution, what do you think about it. :)
+> >
+> > Thanks
+> > Ding
+> 
+> Hi Ding,
+> 
+> Enabing relaxed ordering really doesn't have any place in ethtool. It
+> is a PCIe attribute that you are essentially wanting to enable.
+> 
+> It might be worth while to take a look at updating the PCIe code path
+> to handle this. Really what we should probably do is guarantee that
+> the architectures that need relaxed ordering are setting it in the
+> PCIe Device Control register and that the ones that don't are clearing
+> the bit. It's possible that this is already occurring, but I don't
+> know the state of handling those bits is in the kernel. Once we can
+> guarantee that we could use that to have the drivers determine their
+> behavior in regards to relaxed ordering. For example in the case of
+> igb/ixgbe we could probably change the behavior so that it will bey
+> default try to use relaxed ordering but if it is not enabled in PCIe
+> Device Control register the hardware should not request to use it. It
+> would simplify things in the drivers and allow for each architecture
+> to control things as needed in their PCIe code.
+
+I thought Relaxed Ordering was an optimization.  Are there cases where
+it is actually required for correct behavior?
+
+The PCI core doesn't currently do anything with Relaxed Ordering.
+Some drivers enable/disable it directly.  I think it would probably be
+better if the core provided an interface for this.  One reason is
+because I think Casey has identified some systems where Relaxed
+Ordering doesn't work correctly, and I'd rather deal with them once in
+the core than in every driver.
+
+Are you hinting that the PCI core or arch code could actually *enable*
+Relaxed Ordering without the driver doing anything?  Is it safe to do
+that?  Is there such a thing as a device that is capable of using RO,
+but where the driver must be aware of it being enabled, so it programs
+the device appropriately?
+
+Bjorn
