@@ -1,18 +1,18 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
 Subject: [PATCH net-next] rhashtable: Make sure max_size is non zero
-Date: Thu, 27 Apr 2017 15:28:24 -0700
-Message-ID: <20170427222824.31936-1-florian.fainelli@broadcom.com>
+Date: Thu, 27 Apr 2017 15:30:24 -0700
+Message-ID: <20170427223024.32657-1-f.fainelli@gmail.com>
 References: <56843a86-9a09-16e8-acec-05a80396f282@gmail.com>
 Cc: davem@davemloft.net, herbert@gondor.apana.org.au, fw@strlen.de,
-        tgraf@suug.ch, Florian Fainelli <florian.fainelli@broadcom.com>
+        tgraf@suug.ch, Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f193.google.com ([209.85.223.193]:33448 "EHLO
-        mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1162044AbdD0W24 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 27 Apr 2017 18:28:56 -0400
-Received: by mail-io0-f193.google.com with SMTP id k87so6855330ioi.0
-        for <netdev@vger.kernel.org>; Thu, 27 Apr 2017 15:28:55 -0700 (PDT)
+Received: from mail-it0-f65.google.com ([209.85.214.65]:33303 "EHLO
+        mail-it0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1162212AbdD0Wa2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 27 Apr 2017 18:30:28 -0400
+Received: by mail-it0-f65.google.com with SMTP id z67so3883493itb.0
+        for <netdev@vger.kernel.org>; Thu, 27 Apr 2017 15:30:27 -0700 (PDT)
 In-Reply-To: <56843a86-9a09-16e8-acec-05a80396f282@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -49,7 +49,7 @@ and since ht->p.max_size = 0, we would set ht->max_elems to 0 as well.
 Fix this by taking this branch only when ht->p.max_size is non-zero
 
 Fixes: Fixes: 6d684e54690c ("rhashtable: Cap total number of entries to 2^31")
-Signed-off-by: Florian Fainelli <florian.fainelli@broadcom.com>
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
  lib/rhashtable.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
