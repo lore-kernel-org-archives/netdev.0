@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 09/10] net: sched: push tp down to action init callback
-Date: Thu, 27 Apr 2017 13:12:19 +0200
-Message-ID: <1493291540-2119-10-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 10/10] net: sched: extend gact to allow jumping to another filter chain
+Date: Thu, 27 Apr 2017 13:12:20 +0200
+Message-ID: <1493291540-2119-11-git-send-email-jiri@resnulli.us>
 References: <1493291540-2119-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         dsa@cumulusnetworks.com, edumazet@google.com,
@@ -10,446 +10,218 @@ Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         simon.horman@netronome.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:35425 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S936299AbdD0LMh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 27 Apr 2017 07:12:37 -0400
-Received: by mail-wm0-f67.google.com with SMTP id d79so3820944wmi.2
-        for <netdev@vger.kernel.org>; Thu, 27 Apr 2017 04:12:36 -0700 (PDT)
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:36700 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S936346AbdD0LMj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 27 Apr 2017 07:12:39 -0400
+Received: by mail-wm0-f66.google.com with SMTP id u65so3797941wmu.3
+        for <netdev@vger.kernel.org>; Thu, 27 Apr 2017 04:12:37 -0700 (PDT)
 In-Reply-To: <1493291540-2119-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-Tp pointer will be needed by the next patch in order to get the chain.
+Introduce new type of gact action called "goto_chain". This allows
+user to specify a chain to be processed. This action type is
+then processed as a return value in tcf_classify loop in similar
+way as "reclassify" is, only it does not reset to the first filter
+in chain but rather reset to the first filter of the desired chain.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- include/net/act_api.h      | 18 +++++++++---------
- net/sched/act_api.c        | 20 +++++++++++---------
- net/sched/act_bpf.c        |  6 +++---
- net/sched/act_connmark.c   |  6 +++---
- net/sched/act_csum.c       |  6 +++---
- net/sched/act_gact.c       |  6 +++---
- net/sched/act_ife.c        |  6 +++---
- net/sched/act_ipt.c        | 12 ++++++------
- net/sched/act_mirred.c     |  6 +++---
- net/sched/act_nat.c        |  3 ++-
- net/sched/act_pedit.c      |  6 +++---
- net/sched/act_police.c     |  6 +++---
- net/sched/act_sample.c     |  6 +++---
- net/sched/act_simple.c     |  6 +++---
- net/sched/act_skbedit.c    |  6 +++---
- net/sched/act_skbmod.c     |  6 +++---
- net/sched/act_tunnel_key.c |  6 +++---
- net/sched/act_vlan.c       |  6 +++---
- net/sched/cls_api.c        |  9 +++++----
- 19 files changed, 75 insertions(+), 71 deletions(-)
+ include/net/sch_generic.h           |  9 +++++--
+ include/net/tc_act/tc_gact.h        |  2 ++
+ include/uapi/linux/pkt_cls.h        |  1 +
+ include/uapi/linux/tc_act/tc_gact.h |  1 +
+ net/sched/act_gact.c                | 48 ++++++++++++++++++++++++++++++++++++-
+ net/sched/cls_api.c                 |  8 +++++--
+ 6 files changed, 64 insertions(+), 5 deletions(-)
 
-diff --git a/include/net/act_api.h b/include/net/act_api.h
-index cfa2ae3..816c5f5 100644
---- a/include/net/act_api.h
-+++ b/include/net/act_api.h
-@@ -114,9 +114,9 @@ struct tc_action_ops {
- 	int     (*dump)(struct sk_buff *, struct tc_action *, int, int);
- 	void	(*cleanup)(struct tc_action *, int bind);
- 	int     (*lookup)(struct net *, struct tc_action **, u32);
--	int     (*init)(struct net *net, struct nlattr *nla,
--			struct nlattr *est, struct tc_action **act, int ovr,
--			int bind);
-+	int     (*init)(struct net *net, struct tcf_proto *tp,
-+			struct nlattr *nla, struct nlattr *est,
-+			struct tc_action **act, int ovr, int bind);
- 	int     (*walk)(struct net *, struct sk_buff *,
- 			struct netlink_callback *, int, const struct tc_action_ops *);
- 	void	(*stats_update)(struct tc_action *, u64, u32, u64);
-@@ -180,12 +180,12 @@ int tcf_unregister_action(struct tc_action_ops *a,
- int tcf_action_destroy(struct list_head *actions, int bind);
- int tcf_action_exec(struct sk_buff *skb, struct tc_action **actions,
- 		    int nr_actions, struct tcf_result *res);
--int tcf_action_init(struct net *net, struct nlattr *nla,
--				  struct nlattr *est, char *n, int ovr,
--				  int bind, struct list_head *);
--struct tc_action *tcf_action_init_1(struct net *net, struct nlattr *nla,
--				    struct nlattr *est, char *n, int ovr,
--				    int bind);
-+int tcf_action_init(struct net *net, struct tcf_proto *tp, struct nlattr *nla,
-+		    struct nlattr *est, char *name, int ovr, int bind,
-+		    struct list_head *actions);
-+struct tc_action *tcf_action_init_1(struct net *net, struct tcf_proto *tp,
-+				    struct nlattr *nla, struct nlattr *est,
-+				    char *name, int ovr, int bind);
- int tcf_action_dump(struct sk_buff *skb, struct list_head *, int, int);
- int tcf_action_dump_old(struct sk_buff *skb, struct tc_action *a, int, int);
- int tcf_action_dump_1(struct sk_buff *skb, struct tc_action *a, int, int);
-diff --git a/net/sched/act_api.c b/net/sched/act_api.c
-index 7f2cd70..5646046 100644
---- a/net/sched/act_api.c
-+++ b/net/sched/act_api.c
-@@ -570,9 +570,9 @@ static struct tc_cookie *nla_memdup_cookie(struct nlattr **tb)
- 	return c;
- }
+diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
+index 569b565..3688501 100644
+--- a/include/net/sch_generic.h
++++ b/include/net/sch_generic.h
+@@ -193,8 +193,13 @@ struct Qdisc_ops {
  
--struct tc_action *tcf_action_init_1(struct net *net, struct nlattr *nla,
--				    struct nlattr *est, char *name, int ovr,
--				    int bind)
-+struct tc_action *tcf_action_init_1(struct net *net, struct tcf_proto *tp,
-+				    struct nlattr *nla, struct nlattr *est,
-+				    char *name, int ovr, int bind)
- {
- 	struct tc_action *a;
- 	struct tc_action_ops *a_o;
-@@ -636,9 +636,10 @@ struct tc_action *tcf_action_init_1(struct net *net, struct nlattr *nla,
  
- 	/* backward compatibility for policer */
- 	if (name == NULL)
--		err = a_o->init(net, tb[TCA_ACT_OPTIONS], est, &a, ovr, bind);
-+		err = a_o->init(net, tp, tb[TCA_ACT_OPTIONS], est,
-+				&a, ovr, bind);
- 	else
--		err = a_o->init(net, nla, est, &a, ovr, bind);
-+		err = a_o->init(net, tp, nla, est, &a, ovr, bind);
- 	if (err < 0)
- 		goto err_mod;
- 
-@@ -680,8 +681,9 @@ static void cleanup_a(struct list_head *actions, int ovr)
- 		a->tcfa_refcnt--;
- }
- 
--int tcf_action_init(struct net *net, struct nlattr *nla, struct nlattr *est,
--		    char *name, int ovr, int bind, struct list_head *actions)
-+int tcf_action_init(struct net *net, struct tcf_proto *tp, struct nlattr *nla,
-+		    struct nlattr *est, char *name, int ovr, int bind,
-+		    struct list_head *actions)
- {
- 	struct nlattr *tb[TCA_ACT_MAX_PRIO + 1];
- 	struct tc_action *act;
-@@ -693,7 +695,7 @@ int tcf_action_init(struct net *net, struct nlattr *nla, struct nlattr *est,
- 		return err;
- 
- 	for (i = 1; i <= TCA_ACT_MAX_PRIO && tb[i]; i++) {
--		act = tcf_action_init_1(net, tb[i], est, name, ovr, bind);
-+		act = tcf_action_init_1(net, tp, tb[i], est, name, ovr, bind);
- 		if (IS_ERR(act)) {
- 			err = PTR_ERR(act);
- 			goto err;
-@@ -1020,7 +1022,7 @@ static int tcf_action_add(struct net *net, struct nlattr *nla,
- 	int ret = 0;
- 	LIST_HEAD(actions);
- 
--	ret = tcf_action_init(net, nla, NULL, NULL, ovr, 0, &actions);
-+	ret = tcf_action_init(net, NULL, nla, NULL, NULL, ovr, 0, &actions);
- 	if (ret)
- 		return ret;
- 
-diff --git a/net/sched/act_bpf.c b/net/sched/act_bpf.c
-index d33947d..64bb273 100644
---- a/net/sched/act_bpf.c
-+++ b/net/sched/act_bpf.c
-@@ -268,9 +268,9 @@ static void tcf_bpf_prog_fill_cfg(const struct tcf_bpf *prog,
- 	cfg->bpf_name = prog->bpf_name;
- }
- 
--static int tcf_bpf_init(struct net *net, struct nlattr *nla,
--			struct nlattr *est, struct tc_action **act,
--			int replace, int bind)
-+static int tcf_bpf_init(struct net *net, struct tcf_proto *tp,
-+			struct nlattr *nla, struct nlattr *est,
-+			struct tc_action **act, int replace, int bind)
- {
- 	struct tc_action_net *tn = net_generic(net, bpf_net_id);
- 	struct nlattr *tb[TCA_ACT_BPF_MAX + 1];
-diff --git a/net/sched/act_connmark.c b/net/sched/act_connmark.c
-index 2155bc6..2f0f3b5 100644
---- a/net/sched/act_connmark.c
-+++ b/net/sched/act_connmark.c
-@@ -96,9 +96,9 @@ static const struct nla_policy connmark_policy[TCA_CONNMARK_MAX + 1] = {
- 	[TCA_CONNMARK_PARMS] = { .len = sizeof(struct tc_connmark) },
+ struct tcf_result {
+-	unsigned long	class;
+-	u32		classid;
++	union {
++		struct {
++			unsigned long	class;
++			u32		classid;
++		};
++		const struct tcf_proto *goto_tp;
++	};
  };
  
--static int tcf_connmark_init(struct net *net, struct nlattr *nla,
--			     struct nlattr *est, struct tc_action **a,
--			     int ovr, int bind)
-+static int tcf_connmark_init(struct net *net, struct tcf_proto *tp,
-+			     struct nlattr *nla, struct nlattr *est,
-+			     struct tc_action **a, int ovr, int bind)
- {
- 	struct tc_action_net *tn = net_generic(net, connmark_net_id);
- 	struct nlattr *tb[TCA_CONNMARK_MAX + 1];
-diff --git a/net/sched/act_csum.c b/net/sched/act_csum.c
-index ab6fdbd..ee3f339 100644
---- a/net/sched/act_csum.c
-+++ b/net/sched/act_csum.c
-@@ -46,9 +46,9 @@ static const struct nla_policy csum_policy[TCA_CSUM_MAX + 1] = {
- static unsigned int csum_net_id;
- static struct tc_action_ops act_csum_ops;
+ struct tcf_proto_ops {
+diff --git a/include/net/tc_act/tc_gact.h b/include/net/tc_act/tc_gact.h
+index b6f1739..58bee54 100644
+--- a/include/net/tc_act/tc_gact.h
++++ b/include/net/tc_act/tc_gact.h
+@@ -12,6 +12,8 @@ struct tcf_gact {
+ 	int			tcfg_paction;
+ 	atomic_t		packets;
+ #endif
++	struct tcf_chain	*goto_chain;
++	struct rcu_head		rcu;
+ };
+ #define to_gact(a) ((struct tcf_gact *)a)
  
--static int tcf_csum_init(struct net *net, struct nlattr *nla,
--			 struct nlattr *est, struct tc_action **a, int ovr,
--			 int bind)
-+static int tcf_csum_init(struct net *net, struct tcf_proto *tp,
-+			 struct nlattr *nla, struct nlattr *est,
-+			 struct tc_action **a, int ovr, int bind)
- {
- 	struct tc_action_net *tn = net_generic(net, csum_net_id);
- 	struct nlattr *tb[TCA_CSUM_MAX + 1];
+diff --git a/include/uapi/linux/pkt_cls.h b/include/uapi/linux/pkt_cls.h
+index f1129e3..e03ba27 100644
+--- a/include/uapi/linux/pkt_cls.h
++++ b/include/uapi/linux/pkt_cls.h
+@@ -37,6 +37,7 @@ enum {
+ #define TC_ACT_QUEUED		5
+ #define TC_ACT_REPEAT		6
+ #define TC_ACT_REDIRECT		7
++#define TC_ACT_GOTO_CHAIN	8
+ #define TC_ACT_JUMP		0x10000000
+ 
+ /* Action type identifiers*/
+diff --git a/include/uapi/linux/tc_act/tc_gact.h b/include/uapi/linux/tc_act/tc_gact.h
+index 70b536a..388733d 100644
+--- a/include/uapi/linux/tc_act/tc_gact.h
++++ b/include/uapi/linux/tc_act/tc_gact.h
+@@ -26,6 +26,7 @@ enum {
+ 	TCA_GACT_PARMS,
+ 	TCA_GACT_PROB,
+ 	TCA_GACT_PAD,
++	TCA_GACT_CHAIN,
+ 	__TCA_GACT_MAX
+ };
+ #define TCA_GACT_MAX (__TCA_GACT_MAX - 1)
 diff --git a/net/sched/act_gact.c b/net/sched/act_gact.c
-index 99afe8b..c527c11 100644
+index c527c11..d63aebd 100644
 --- a/net/sched/act_gact.c
 +++ b/net/sched/act_gact.c
-@@ -56,9 +56,9 @@ static const struct nla_policy gact_policy[TCA_GACT_MAX + 1] = {
+@@ -20,6 +20,7 @@
+ #include <linux/init.h>
+ #include <net/netlink.h>
+ #include <net/pkt_sched.h>
++#include <net/pkt_cls.h>
+ #include <linux/tc_act/tc_gact.h>
+ #include <net/tc_act/tc_gact.h>
+ 
+@@ -54,6 +55,7 @@ static g_rand gact_rand[MAX_RAND] = { NULL, gact_net_rand, gact_determ };
+ static const struct nla_policy gact_policy[TCA_GACT_MAX + 1] = {
+ 	[TCA_GACT_PARMS]	= { .len = sizeof(struct tc_gact) },
  	[TCA_GACT_PROB]		= { .len = sizeof(struct tc_gact_p) },
++	[TCA_GACT_CHAIN]	= { .type = NLA_U32 },
  };
  
--static int tcf_gact_init(struct net *net, struct nlattr *nla,
--			 struct nlattr *est, struct tc_action **a,
--			 int ovr, int bind)
-+static int tcf_gact_init(struct net *net, struct tcf_proto *tp,
-+			 struct nlattr *nla, struct nlattr *est,
-+			 struct tc_action **a, int ovr, int bind)
- {
- 	struct tc_action_net *tn = net_generic(net, gact_net_id);
- 	struct nlattr *tb[TCA_GACT_MAX + 1];
-diff --git a/net/sched/act_ife.c b/net/sched/act_ife.c
-index c5dec30..deea15c 100644
---- a/net/sched/act_ife.c
-+++ b/net/sched/act_ife.c
-@@ -427,9 +427,9 @@ static int populate_metalist(struct tcf_ife_info *ife, struct nlattr **tb,
- 	return rc;
+ static int tcf_gact_init(struct net *net, struct tcf_proto *tp,
+@@ -92,6 +94,9 @@ static int tcf_gact_init(struct net *net, struct tcf_proto *tp,
+ 	}
+ #endif
+ 
++	if (parm->action == TC_ACT_GOTO_CHAIN && !tb[TCA_GACT_CHAIN])
++		return -EINVAL;
++
+ 	if (!tcf_hash_check(tn, parm->index, a, bind)) {
+ 		ret = tcf_hash_create(tn, parm->index, est, a,
+ 				      &act_gact_ops, bind, true);
+@@ -121,11 +126,43 @@ static int tcf_gact_init(struct net *net, struct tcf_proto *tp,
+ 		gact->tcfg_ptype   = p_parm->ptype;
+ 	}
+ #endif
++
++	if (gact->tcf_action == TC_ACT_GOTO_CHAIN) {
++		u32 chain_index = nla_get_u32(tb[TCA_GACT_CHAIN]);
++
++		if (!tp) {
++			if (ret == ACT_P_CREATED)
++				tcf_hash_release(*a, bind);
++			return -EINVAL;
++		}
++		gact->goto_chain = tcf_chain_get(tp->chain->block, chain_index);
++		if (!gact->goto_chain) {
++			if (ret == ACT_P_CREATED)
++				tcf_hash_release(*a, bind);
++			return -ENOMEM;
++		}
++	}
++
+ 	if (ret == ACT_P_CREATED)
+ 		tcf_hash_insert(tn, *a);
+ 	return ret;
  }
  
--static int tcf_ife_init(struct net *net, struct nlattr *nla,
--			struct nlattr *est, struct tc_action **a,
--			int ovr, int bind)
-+static int tcf_ife_init(struct net *net, struct tcf_proto *tp,
-+			struct nlattr *nla, struct nlattr *est,
-+			struct tc_action **a, int ovr, int bind)
++static void tcf_gact_cleanup_rcu(struct rcu_head *rcu)
++{
++	struct tcf_gact *gact = container_of(rcu, struct tcf_gact, rcu);
++
++	if (gact->tcf_action == TC_ACT_GOTO_CHAIN)
++		tcf_chain_put(gact->goto_chain);
++}
++
++static void tcf_gact_cleanup(struct tc_action *a, int bind)
++{
++	struct tcf_gact *gact = to_gact(a);
++
++	call_rcu(&gact->rcu, tcf_gact_cleanup_rcu);
++}
++
+ static int tcf_gact(struct sk_buff *skb, const struct tc_action *a,
+ 		    struct tcf_result *res)
  {
- 	struct tc_action_net *tn = net_generic(net, ife_net_id);
- 	struct nlattr *tb[TCA_IFE_MAX + 1];
-diff --git a/net/sched/act_ipt.c b/net/sched/act_ipt.c
-index 36f0ced..011a1c6 100644
---- a/net/sched/act_ipt.c
-+++ b/net/sched/act_ipt.c
-@@ -189,18 +189,18 @@ static int __tcf_ipt_init(struct tc_action_net *tn, struct nlattr *nla,
- 	return err;
- }
+@@ -141,8 +178,13 @@ static int tcf_gact(struct sk_buff *skb, const struct tc_action *a,
+ 	}
+ #endif
+ 	bstats_cpu_update(this_cpu_ptr(gact->common.cpu_bstats), skb);
+-	if (action == TC_ACT_SHOT)
++	if (action == TC_ACT_SHOT) {
+ 		qstats_drop_inc(this_cpu_ptr(gact->common.cpu_qstats));
++	} else if (action == TC_ACT_GOTO_CHAIN) {
++		struct tcf_chain *chain = gact->goto_chain;
++
++		res->goto_tp = rcu_dereference_bh(chain->filter_chain);
++	}
  
--static int tcf_ipt_init(struct net *net, struct nlattr *nla,
--			struct nlattr *est, struct tc_action **a, int ovr,
--			int bind)
-+static int tcf_ipt_init(struct net *net, struct tcf_proto *tp,
-+			struct nlattr *nla, struct nlattr *est,
-+			struct tc_action **a, int ovr, int bind)
- {
- 	struct tc_action_net *tn = net_generic(net, ipt_net_id);
+ 	tcf_lastuse_update(&gact->tcf_tm);
  
- 	return __tcf_ipt_init(tn, nla, est, a, &act_ipt_ops, ovr, bind);
- }
+@@ -194,6 +236,9 @@ static int tcf_gact_dump(struct sk_buff *skb, struct tc_action *a,
+ 	tcf_tm_dump(&t, &gact->tcf_tm);
+ 	if (nla_put_64bit(skb, TCA_GACT_TM, sizeof(t), &t, TCA_GACT_PAD))
+ 		goto nla_put_failure;
++	if (gact->tcf_action == TC_ACT_GOTO_CHAIN &&
++	    nla_put_u32(skb, TCA_GACT_CHAIN, gact->goto_chain->index))
++		goto nla_put_failure;
+ 	return skb->len;
  
--static int tcf_xt_init(struct net *net, struct nlattr *nla,
--		       struct nlattr *est, struct tc_action **a, int ovr,
--		       int bind)
-+static int tcf_xt_init(struct net *net, struct tcf_proto *tp,
-+		       struct nlattr *nla, struct nlattr *est,
-+		       struct tc_action **a, int ovr, int bind)
- {
- 	struct tc_action_net *tn = net_generic(net, xt_net_id);
- 
-diff --git a/net/sched/act_mirred.c b/net/sched/act_mirred.c
-index 1b5549a..957711f 100644
---- a/net/sched/act_mirred.c
-+++ b/net/sched/act_mirred.c
-@@ -72,9 +72,9 @@ static const struct nla_policy mirred_policy[TCA_MIRRED_MAX + 1] = {
- static unsigned int mirred_net_id;
- static struct tc_action_ops act_mirred_ops;
- 
--static int tcf_mirred_init(struct net *net, struct nlattr *nla,
--			   struct nlattr *est, struct tc_action **a, int ovr,
--			   int bind)
-+static int tcf_mirred_init(struct net *net, struct tcf_proto *tp,
-+			   struct nlattr *nla, struct nlattr *est,
-+			   struct tc_action **a, int ovr, int bind)
- {
- 	struct tc_action_net *tn = net_generic(net, mirred_net_id);
- 	struct nlattr *tb[TCA_MIRRED_MAX + 1];
-diff --git a/net/sched/act_nat.c b/net/sched/act_nat.c
-index 9016ab8..50e2fa6 100644
---- a/net/sched/act_nat.c
-+++ b/net/sched/act_nat.c
-@@ -38,7 +38,8 @@ static const struct nla_policy nat_policy[TCA_NAT_MAX + 1] = {
- 	[TCA_NAT_PARMS]	= { .len = sizeof(struct tc_nat) },
- };
- 
--static int tcf_nat_init(struct net *net, struct nlattr *nla, struct nlattr *est,
-+static int tcf_nat_init(struct net *net, struct tcf_proto *tp,
-+			struct nlattr *nla, struct nlattr *est,
- 			struct tc_action **a, int ovr, int bind)
- {
- 	struct tc_action_net *tn = net_generic(net, nat_net_id);
-diff --git a/net/sched/act_pedit.c b/net/sched/act_pedit.c
-index 164b5ac..3445f96 100644
---- a/net/sched/act_pedit.c
-+++ b/net/sched/act_pedit.c
-@@ -130,9 +130,9 @@ static int tcf_pedit_key_ex_dump(struct sk_buff *skb,
- 	return 0;
- }
- 
--static int tcf_pedit_init(struct net *net, struct nlattr *nla,
--			  struct nlattr *est, struct tc_action **a,
--			  int ovr, int bind)
-+static int tcf_pedit_init(struct net *net, struct tcf_proto *tp,
-+			  struct nlattr *nla, struct nlattr *est,
-+			  struct tc_action **a, int ovr, int bind)
- {
- 	struct tc_action_net *tn = net_generic(net, pedit_net_id);
- 	struct nlattr *tb[TCA_PEDIT_MAX + 1];
-diff --git a/net/sched/act_police.c b/net/sched/act_police.c
-index f42008b..f5aeba2 100644
---- a/net/sched/act_police.c
-+++ b/net/sched/act_police.c
-@@ -74,9 +74,9 @@ static const struct nla_policy police_policy[TCA_POLICE_MAX + 1] = {
- 	[TCA_POLICE_RESULT]	= { .type = NLA_U32 },
- };
- 
--static int tcf_act_police_init(struct net *net, struct nlattr *nla,
--			       struct nlattr *est, struct tc_action **a,
--			       int ovr, int bind)
-+static int tcf_act_police_init(struct net *net, struct tcf_proto *tp,
-+			       struct nlattr *nla, struct nlattr *est,
-+			       struct tc_action **a, int ovr, int bind)
- {
- 	int ret = 0, err;
- 	struct nlattr *tb[TCA_POLICE_MAX + 1];
-diff --git a/net/sched/act_sample.c b/net/sched/act_sample.c
-index 59d6645..60080fb 100644
---- a/net/sched/act_sample.c
-+++ b/net/sched/act_sample.c
-@@ -36,9 +36,9 @@ static const struct nla_policy sample_policy[TCA_SAMPLE_MAX + 1] = {
- 	[TCA_SAMPLE_PSAMPLE_GROUP]	= { .type = NLA_U32 },
- };
- 
--static int tcf_sample_init(struct net *net, struct nlattr *nla,
--			   struct nlattr *est, struct tc_action **a, int ovr,
--			   int bind)
-+static int tcf_sample_init(struct net *net, struct tcf_proto *tp,
-+			   struct nlattr *nla, struct nlattr *est,
-+			   struct tc_action **a, int ovr, int bind)
- {
- 	struct tc_action_net *tn = net_generic(net, sample_net_id);
- 	struct nlattr *tb[TCA_SAMPLE_MAX + 1];
-diff --git a/net/sched/act_simple.c b/net/sched/act_simple.c
-index 43605e7..d4b5da4 100644
---- a/net/sched/act_simple.c
-+++ b/net/sched/act_simple.c
-@@ -79,9 +79,9 @@ static const struct nla_policy simple_policy[TCA_DEF_MAX + 1] = {
- 	[TCA_DEF_DATA]	= { .type = NLA_STRING, .len = SIMP_MAX_DATA },
- };
- 
--static int tcf_simp_init(struct net *net, struct nlattr *nla,
--			 struct nlattr *est, struct tc_action **a,
--			 int ovr, int bind)
-+static int tcf_simp_init(struct net *net, struct tcf_proto *tp,
-+			 struct nlattr *nla, struct nlattr *est,
-+			 struct tc_action **a, int ovr, int bind)
- {
- 	struct tc_action_net *tn = net_generic(net, simp_net_id);
- 	struct nlattr *tb[TCA_DEF_MAX + 1];
-diff --git a/net/sched/act_skbedit.c b/net/sched/act_skbedit.c
-index 6b3e65d..979d656 100644
---- a/net/sched/act_skbedit.c
-+++ b/net/sched/act_skbedit.c
-@@ -66,9 +66,9 @@ static const struct nla_policy skbedit_policy[TCA_SKBEDIT_MAX + 1] = {
- 	[TCA_SKBEDIT_MASK]		= { .len = sizeof(u32) },
- };
- 
--static int tcf_skbedit_init(struct net *net, struct nlattr *nla,
--			    struct nlattr *est, struct tc_action **a,
--			    int ovr, int bind)
-+static int tcf_skbedit_init(struct net *net, struct tcf_proto *tp,
-+			    struct nlattr *nla, struct nlattr *est,
-+			    struct tc_action **a, int ovr, int bind)
- {
- 	struct tc_action_net *tn = net_generic(net, skbedit_net_id);
- 	struct nlattr *tb[TCA_SKBEDIT_MAX + 1];
-diff --git a/net/sched/act_skbmod.c b/net/sched/act_skbmod.c
-index a73c4bb..56549b7 100644
---- a/net/sched/act_skbmod.c
-+++ b/net/sched/act_skbmod.c
-@@ -84,9 +84,9 @@ static const struct nla_policy skbmod_policy[TCA_SKBMOD_MAX + 1] = {
- 	[TCA_SKBMOD_ETYPE]		= { .type = NLA_U16 },
- };
- 
--static int tcf_skbmod_init(struct net *net, struct nlattr *nla,
--			   struct nlattr *est, struct tc_action **a,
--			   int ovr, int bind)
-+static int tcf_skbmod_init(struct net *net, struct tcf_proto *tp,
-+			   struct nlattr *nla, struct nlattr *est,
-+			   struct tc_action **a, int ovr, int bind)
- {
- 	struct tc_action_net *tn = net_generic(net, skbmod_net_id);
- 	struct nlattr *tb[TCA_SKBMOD_MAX + 1];
-diff --git a/net/sched/act_tunnel_key.c b/net/sched/act_tunnel_key.c
-index b9a2f24..9d37909 100644
---- a/net/sched/act_tunnel_key.c
-+++ b/net/sched/act_tunnel_key.c
-@@ -69,9 +69,9 @@ static const struct nla_policy tunnel_key_policy[TCA_TUNNEL_KEY_MAX + 1] = {
- 	[TCA_TUNNEL_KEY_ENC_DST_PORT] = {.type = NLA_U16},
- };
- 
--static int tunnel_key_init(struct net *net, struct nlattr *nla,
--			   struct nlattr *est, struct tc_action **a,
--			   int ovr, int bind)
-+static int tunnel_key_init(struct net *net, struct tcf_proto *tp,
-+			   struct nlattr *nla, struct nlattr *est,
-+			   struct tc_action **a, int ovr, int bind)
- {
- 	struct tc_action_net *tn = net_generic(net, tunnel_key_net_id);
- 	struct nlattr *tb[TCA_TUNNEL_KEY_MAX + 1];
-diff --git a/net/sched/act_vlan.c b/net/sched/act_vlan.c
-index 13ba3a8..525603f 100644
---- a/net/sched/act_vlan.c
-+++ b/net/sched/act_vlan.c
-@@ -103,9 +103,9 @@ static const struct nla_policy vlan_policy[TCA_VLAN_MAX + 1] = {
- 	[TCA_VLAN_PUSH_VLAN_PRIORITY]	= { .type = NLA_U8 },
- };
- 
--static int tcf_vlan_init(struct net *net, struct nlattr *nla,
--			 struct nlattr *est, struct tc_action **a,
--			 int ovr, int bind)
-+static int tcf_vlan_init(struct net *net, struct tcf_proto *tp,
-+			 struct nlattr *nla, struct nlattr *est,
-+			 struct tc_action **a, int ovr, int bind)
- {
- 	struct tc_action_net *tn = net_generic(net, vlan_net_id);
- 	struct nlattr *tb[TCA_VLAN_MAX + 1];
+ nla_put_failure:
+@@ -225,6 +270,7 @@ static struct tc_action_ops act_gact_ops = {
+ 	.stats_update	=	tcf_gact_stats_update,
+ 	.dump		=	tcf_gact_dump,
+ 	.init		=	tcf_gact_init,
++	.cleanup	=	tcf_gact_cleanup,
+ 	.walk		=	tcf_gact_walker,
+ 	.lookup		=	tcf_gact_search,
+ 	.size		=	sizeof(struct tcf_gact),
 diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
-index a4fab8f..dbc1348 100644
+index dbc1348..a2d6bc7 100644
 --- a/net/sched/cls_api.c
 +++ b/net/sched/cls_api.c
-@@ -822,8 +822,9 @@ int tcf_exts_validate(struct net *net, struct tcf_proto *tp, struct nlattr **tb,
- 		struct tc_action *act;
+@@ -304,10 +304,14 @@ int tcf_classify(struct sk_buff *skb, const struct tcf_proto *tp,
+ 			continue;
  
- 		if (exts->police && tb[exts->police]) {
--			act = tcf_action_init_1(net, tb[exts->police], rate_tlv,
--						"police", ovr, TCA_ACT_BIND);
-+			act = tcf_action_init_1(net, tp, tb[exts->police],
-+						rate_tlv, "police", ovr,
-+						TCA_ACT_BIND);
- 			if (IS_ERR(act))
- 				return PTR_ERR(act);
+ 		err = tp->classify(skb, tp, res);
+-		if (unlikely(err == TC_ACT_RECLASSIFY && !compat_mode))
++		if (err == TC_ACT_RECLASSIFY && !compat_mode) {
+ 			goto reset;
+-		if (err >= 0)
++		} else if (err == TC_ACT_GOTO_CHAIN) {
++			old_tp = res->goto_tp;
++			goto reset;
++		} else if (err >= 0) {
+ 			return err;
++		}
+ 	}
  
-@@ -834,8 +835,8 @@ int tcf_exts_validate(struct net *net, struct tcf_proto *tp, struct nlattr **tb,
- 			LIST_HEAD(actions);
- 			int err, i = 0;
- 
--			err = tcf_action_init(net, tb[exts->action], rate_tlv,
--					      NULL, ovr, TCA_ACT_BIND,
-+			err = tcf_action_init(net, tp, tb[exts->action],
-+					      rate_tlv, NULL, ovr, TCA_ACT_BIND,
- 					      &actions);
- 			if (err)
- 				return err;
+ 	return TC_ACT_UNSPEC; /* signal: continue lookup */
 -- 
 2.7.4
