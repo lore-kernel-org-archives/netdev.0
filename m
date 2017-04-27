@@ -1,37 +1,59 @@
-From: <ccc@mail.com>
-Subject: 728 netdev
-Date: Thu, 27 Apr 2017 00:25:53 -0000
-Message-ID: <149325275387.22262.11092090767313803546@vnpt-hanoi.com.vn>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: [PATCH net-next] bpf: restore skb->sk before pskb_trim() call
+Date: Wed, 26 Apr 2017 21:30:20 -0400
+Message-ID: <CA+FuTSe8Wgz2WWi5ZR5C5OUEzo7kau8nx0f8L9iC+brOKEC3nw@mail.gmail.com>
+References: <1493222963.6453.77.camel@edumazet-glaptop3.roam.corp.google.com> <20170426205322.fiixm7fvx3sg7luv@ast-mbp>
 Mime-Version: 1.0
-Content-Type: application/zip; name="0177575.zip"
-Content-Transfer-Encoding: base64
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+        David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Andrey Konovalov <andreyknvl@google.com>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static.vnpt-hanoi.com.vn ([113.190.227.154]:38926 "HELO
-        vnpt-hanoi.com.vn" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-        with SMTP id S1033250AbdD0A0E (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2017 20:26:04 -0400
-Content-Disposition: attachment
+Received: from mail-wr0-f194.google.com ([209.85.128.194]:36342 "EHLO
+        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752218AbdD0Bay (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2017 21:30:54 -0400
+Received: by mail-wr0-f194.google.com with SMTP id v42so2084915wrc.3
+        for <netdev@vger.kernel.org>; Wed, 26 Apr 2017 18:30:54 -0700 (PDT)
+Received: from mail-wm0-f52.google.com (mail-wm0-f52.google.com. [74.125.82.52])
+        by smtp.gmail.com with ESMTPSA id k63sm9116496wmf.9.2017.04.26.18.30.51
+        for <netdev@vger.kernel.org>
+        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+        Wed, 26 Apr 2017 18:30:52 -0700 (PDT)
+Received: by mail-wm0-f52.google.com with SMTP id u65so4295543wmu.1
+        for <netdev@vger.kernel.org>; Wed, 26 Apr 2017 18:30:51 -0700 (PDT)
+In-Reply-To: <20170426205322.fiixm7fvx3sg7luv@ast-mbp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-UEsDBBQAAAAIAEIAm0qvKbuIyAMAAJQXAAAFAAAAMS5kb2PtWM2O2zYQvhvwO+gWIEBtUvyRlGM3
-KIKckrZJL7xQFGmpkCVDlHezMPzuHXLkjdeJm2SbLdqsP4CaITnkcDjkcKCdGkZHla6sa3W3oiQV
-Sne+iR+zWdFUpGprUMIxKkimAkeUH33tqtLUoVFgte2xKrFaN/eqZXM3HnUxduCdjbWxtmsb6vdr
-oZenH+vGk/lsp5rO9Tult2PdD8mt3rxKP7ytV6+v3xH65uf9TvUbO+jx831msHps1up2SAnJ1bon
-qrrlqh6YWjcd5SAy2OvzEoyBxLUdfNN3FFhbQaOnBbBd7zZ6ZT1F/qYfKs8yrJhaD16QOPq5Mv16
-o7vbpPv1ffq6+eX61ct3V6vf3ooj2ZuDNOgCpRnL9/tge5n8bv2YvAFFycveLGLjc/Vh3XZ+LNtk
-hyxN6nHcvFguvYHN036xbszQ+96NC1C+7J1rjF2GJS7BSha5dYsqXN+PdkhUOw4bDRQ+ldq0uulC
-b1/+ac0YyboMZLup9GgDd0OLXAampoRKXBjUTKu9T/4ADQtY8XZtu3EBbp1W3rfWtL6pEvWMBDBC
-fiLk8Lk6cAgu1bOs2t9NDZp1QigRsTedpCg5Dx0+81lFjKPUEk1LSrWl5KsBV6AAIs900xN62nGy
-RmddxKm0e0TMZ+4J4ylZ/yku1p+gmqg9Q38gXHz/dHGx/ksSLKQXhhCRQQ6SAx8o5BUZxRL6RahD
-O4dXXEIGwHNs59AugwwUCdkBgyJSnEeAgCxJTFG4BcphjjAedMkM9Uh4/2nIKMSnL/9RJsGOMwRz
-YCK4JH+D+Sx8PzNPetwcNHFYCb8KFp2M+Xeg45roOS+RB+K8LTq/n6nNZxlHfwRfS/Bflk/+Dz6l
-6FMGO8g4+l/o6YyAByRHnodSoQyTOA+nH8+WnNriPOEMhDmgCGinKfrle+/B12I+CydYhFXCac0E
-3gqWYuHTSQ6WSLBQTjsReYoWMDHthETr4w7o6aZYHMMpWs+hZMV0c3Lc4QO+1w484CTTk/txuDF8
-omKi0637L2cNl8j/I+BhuFj/zzDFgZTkJ3HhDIRBCUtMYXVWuKLUxlKamxwiidYhfuqClJyjXHxf
-+FRCmAEJNeoySSHIpQ5DZQirGZuEUnycZDlRM/XDwNSijHQ4WRxPMRTH8FxgSI9yB+VBqcMHiVUY
-hkO/FPjwSUEu+J/i25+9u2P/SPIPRbwr7Oj5/QIeIXWl5N5NiH8gB+u37ZiEP+mtqZUzniZKO85S
-yeLfU2wkiWo6P/imgmRHFJQl+/1++oUZ/l/6sR9sElr+AlBLAQIfABQAAAAIAEIAm0qvKbuIyAMA
-AJQXAAAFACQAAAAAAAAAICAAAAAAAAAxLmRvYwoAIAAAAAAAAQAYABl/Q1vQvtIB/NfuWNC+0gGA
-qThb0L7SAVBLBQYAAAAAAQABAFcAAADrAwAAAAA=
+On Wed, Apr 26, 2017 at 4:53 PM, Alexei Starovoitov
+<alexei.starovoitov@gmail.com> wrote:
+> On Wed, Apr 26, 2017 at 09:09:23AM -0700, Eric Dumazet wrote:
+>> From: Eric Dumazet <edumazet@google.com>
+>>
+>> While testing a fix [1] in ___pskb_trim(), addressing the WARN_ON_ONCE()
+>> in skb_try_coalesce() reported by Andrey, I found that we had an skb
+>> with skb->sk set but no skb->destructor.
+>>
+>> This invalidated heuristic found in commit 158f323b9868 ("net: adjust
+>> skb->truesize in pskb_expand_head()") and in cited patch.
+>>
+>> Considering the BUG_ON(skb->sk) we have in skb_orphan(), we should
+>> restrain the temporary setting to a minimal section.
+>>
+>> [1] https://patchwork.ozlabs.org/patch/755570/
+>>     net: adjust skb->truesize in ___pskb_trim()
+>>
+>> Fixes: 8f917bba0042 ("bpf: pass sk to helper functions")
+>> Signed-off-by: Eric Dumazet <edumazet@google.com>
+>> Cc: Willem de Bruijn <willemb@google.com>
+>> Cc: Andrey Konovalov <andreyknvl@google.com>
+>
+> Ahh. Thanks for the fix.
+> Acked-by: Alexei Starovoitov <ast@kernel.org>
+
+Acked-by: Willem de Bruijn <willemb@google.com>
+
+Thanks, Eric.
