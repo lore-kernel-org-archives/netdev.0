@@ -1,36 +1,47 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch net-next] ipv4: get rid of ip_ra_lock
-Date: Thu, 27 Apr 2017 16:46:25 -0700
-Message-ID: <CAM_iQpXexP9OzzqyPJ-yHmyq-ZF=cNboaG8566yaxZKbn0+TTg@mail.gmail.com>
-References: <1493240115-779-1-git-send-email-xiyou.wangcong@gmail.com> <1493297179.6453.105.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2] routel: fix infinite loop in line parser
+Date: Thu, 27 Apr 2017 16:46:47 -0700
+Message-ID: <20170427164647.3f0e09bf@xeon-e3>
+References: <20170427094347.3EB63A0F1C@unicorn.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Michal Kubecek <mkubecek@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:33833 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754271AbdD0Xqq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 27 Apr 2017 19:46:46 -0400
-Received: by mail-wm0-f66.google.com with SMTP id z129so7811275wmb.1
-        for <netdev@vger.kernel.org>; Thu, 27 Apr 2017 16:46:46 -0700 (PDT)
-In-Reply-To: <1493297179.6453.105.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-pg0-f49.google.com ([74.125.83.49]:34701 "EHLO
+        mail-pg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754271AbdD0Xq4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 27 Apr 2017 19:46:56 -0400
+Received: by mail-pg0-f49.google.com with SMTP id v1so5757120pgv.1
+        for <netdev@vger.kernel.org>; Thu, 27 Apr 2017 16:46:55 -0700 (PDT)
+In-Reply-To: <20170427094347.3EB63A0F1C@unicorn.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 27, 2017 at 5:46 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Wed, 2017-04-26 at 13:55 -0700, Cong Wang wrote:
->> After commit 1215e51edad1 ("ipv4: fix a deadlock in ip_ra_control")
->> we always take RTNL lock for ip_ra_control() which is the only place
->> we update the list ip_ra_chain, so the ip_ra_lock is no longer needed,
->> we just need to disable BH there.
->>
->> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
->> ---
->
-> Looks great, but reading again this code, I believe we do not need to
-> disable BH at all ?
->
+On Thu, 27 Apr 2017 11:43:47 +0200 (CEST)
+Michal Kubecek <mkubecek@suse.cz> wrote:
 
-Hmm, if we don't disable BH here, a reader in BH could jump in and
-break this critical section? Or that is fine for RCU?
+> As noticed by one of the few users of routel script, it ends up in an
+> infinite loop when they pull out the cable from the NIC used for some
+> route. This is caused by its parser expecting the line of "ip route show"
+> output consists of "key value" pairs (except for the initial target range),
+> together with an old trap of Bourne style shells that "shift 2" does
+> nothing if there is only one argument left. Some keywords, e.g. "linkdown",
+> are not followed by a value.
+> 
+> Improve the parser to
+> 
+>   (1) only set variables for keywords we care about
+>   (2) recognize (currently) known keywords without value
+> 
+> This is still far from perfect (and certainly not future proof) but to
+> fully fix the script, one would probably have to rewrite the logic
+> completely (and I'm not sure it's worth the effort).
+> 
+> Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
+
+Appled, but this really needs to be done better.
+Either as a simplified output of route command. See ip -br link
+Or ip route should have a json output option and use python/perl/xss
+to reformat.
