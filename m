@@ -1,86 +1,40 @@
-From: Logan Gunthorpe <logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH v2 07/21] crypto: shash, caam: Make use of the new sg_map
- helper function
-Date: Thu, 27 Apr 2017 09:45:57 -0600
-Message-ID: <94123cbf-3287-f05e-7267-0bcf08ab0a8b@deltatee.com>
-References: <1493144468-22493-1-git-send-email-logang@deltatee.com>
- <1493144468-22493-8-git-send-email-logang@deltatee.com>
- <20170427035603.GA32212@gondor.apana.org.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] tcp: tcp_rack_reo_timeout() must update
+ tp->tcp_mstamp
+Date: Thu, 27 Apr 2017 11:46:46 -0400 (EDT)
+Message-ID: <20170427.114646.1132727678105640160.davem@davemloft.net>
+References: <1493266255.6453.103.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org, dm-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
- target-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>,
- devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org, "James E.J. Bottomley" <jejb-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
- linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-nvdimm-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org,
- linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Sumit Semwal <sumit.semwal-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
- open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org, linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- intel-gfx-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org, sparmaintainer-GLv8BlqOqDDQT0dZR+AlfA@public.gmane.org,
- linux-raid-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, megaraidlinux.pdl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
- Jens Axboe <axboe-tSWWG44O7X1aa/9Udqfwiw@public.gmane.org>,
- "Martin K. Petersen" <martin.petersen-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- Matthew Wilcox <mawilcox-0li6OtcxBFHby3iVrkZq2A@public.gmane.org>, linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-crypto-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
- "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-Return-path: <linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
-In-Reply-To: <20170427035603.GA32212-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-List-Unsubscribe: <https://lists.01.org/mailman/options/linux-nvdimm>,
- <mailto:linux-nvdimm-request-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.01.org/pipermail/linux-nvdimm/>
-List-Post: <mailto:linux-nvdimm-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
-List-Help: <mailto:linux-nvdimm-request-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.01.org/mailman/listinfo/linux-nvdimm>,
- <mailto:linux-nvdimm-request-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org?subject=subscribe>
-Errors-To: linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org
-Sender: "Linux-nvdimm" <linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, soheil@google.com, ncardwell@google.com,
+        ycheng@google.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:42314 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1031359AbdD0Pqz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 27 Apr 2017 11:46:55 -0400
+In-Reply-To: <1493266255.6453.103.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 26 Apr 2017 21:10:55 -0700
 
-
-On 26/04/17 09:56 PM, Herbert Xu wrote:
-> On Tue, Apr 25, 2017 at 12:20:54PM -0600, Logan Gunthorpe wrote:
->> Very straightforward conversion to the new function in the caam driver
->> and shash library.
->>
->> Signed-off-by: Logan Gunthorpe <logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
->> Cc: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
->> Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
->> ---
->>  crypto/shash.c                | 9 ++++++---
->>  drivers/crypto/caam/caamalg.c | 8 +++-----
->>  2 files changed, 9 insertions(+), 8 deletions(-)
->>
->> diff --git a/crypto/shash.c b/crypto/shash.c
->> index 5e31c8d..5914881 100644
->> --- a/crypto/shash.c
->> +++ b/crypto/shash.c
->> @@ -283,10 +283,13 @@ int shash_ahash_digest(struct ahash_request *req, struct shash_desc *desc)
->>  	if (nbytes < min(sg->length, ((unsigned int)(PAGE_SIZE)) - offset)) {
->>  		void *data;
->>  
->> -		data = kmap_atomic(sg_page(sg));
->> -		err = crypto_shash_digest(desc, data + offset, nbytes,
->> +		data = sg_map(sg, 0, SG_KMAP_ATOMIC);
->> +		if (IS_ERR(data))
->> +			return PTR_ERR(data);
->> +
->> +		err = crypto_shash_digest(desc, data, nbytes,
->>  					  req->result);
->> -		kunmap_atomic(data);
->> +		sg_unmap(sg, data, 0, SG_KMAP_ATOMIC);
->>  		crypto_yield(desc->flags);
->>  	} else
->>  		err = crypto_shash_init(desc) ?:
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Nack.  This is an optimisation for the special case of a single
-> SG list entry.  In fact in the common case the kmap_atomic should
-> disappear altogether in the no-highmem case.  So replacing it
-> with sg_map is not acceptable.
+> I wrongly assumed tp->tcp_mstamp was up to date at the time
+> tcp_rack_reo_timeout() was called.
+> 
+> It is not true, since we only update tcp->tcp_mstamp when receiving
+> a packet (as initially done in commit 69e996c58a35 ("tcp: add
+> tp->tcp_mstamp field")
+> 
+> tcp_rack_reo_timeout() being called by a timer and not an incoming
+> packet, we need to refresh tp->tcp_mstamp
+> 
+> Fixes: 7c1c7308592f ("tcp: do not pass timestamp to tcp_rack_detect_loss()")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-What you seem to have missed is that sg_map is just a thin wrapper
-around kmap_atomic. Perhaps with a future check for a mappable page.
-This change should have zero impact on performance.
-
-Logan
+Applied, thanks Eric.
