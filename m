@@ -1,124 +1,93 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [ISSUE: sky2 - rx error] Link stops working under heavy traffic
- load connected to a mv88e6176
-Date: Thu, 27 Apr 2017 15:04:50 +0200
-Message-ID: <20170427130450.GL17172@lunn.ch>
-References: <58F9FD64.80506@aoifes.com>
- <20170425082741.59428876@xeon-e3>
- <5901DE9F.1070005@aoifes.com>
+From: Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH net-next] mlx5: work around unused function warning
+Date: Thu, 27 Apr 2017 16:13:12 +0300
+Message-ID: <20170427131312.GI14088@mtr-leonro.local>
+References: <20170427110421.2431598-1-arnd@arndb.de>
+ <20170427115513.GH14088@mtr-leonro.local>
+ <CAK8P3a0kX4uNLBvLAHrhtmUc7eBLmD6dXA8=xxY+xJ4OsGFJbg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-        netdev@vger.kernel.org
-To: Rafa Corvillo <rafael.corvillo@aoifes.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:43290 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1033141AbdD0NEx (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 27 Apr 2017 09:04:53 -0400
+Content-Type: multipart/signed; micalg=pgp-sha256;
+        protocol="application/pgp-signature"; boundary="hdMwqcnXK86+cyrC"
+Cc: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Erez Shitrit <erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
+        Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
+        Networking <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <5901DE9F.1070005@aoifes.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <CAK8P3a0kX4uNLBvLAHrhtmUc7eBLmD6dXA8=xxY+xJ4OsGFJbg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 27, 2017 at 02:05:51PM +0200, Rafa Corvillo wrote:
-> On 25/04/17 17:27, Stephen Hemminger wrote:
-> >On Fri, 21 Apr 2017 14:39:00 +0200
-> >Rafa Corvillo <rafael.corvillo@aoifes.com> wrote:
-> >
-> >>We are working in an ARMv7 embedded system running kernel 4.9 (LEDE build).
-> >>It is an imx6 board with 2 ethernet interfaces. One of them is connected to
-> >>a Marvell switch.
+--hdMwqcnXK86+cyrC
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+
+On Thu, Apr 27, 2017 at 02:04:15PM +0200, Arnd Bergmann wrote:
+> On Thu, Apr 27, 2017 at 1:55 PM, Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org> wrote:
+> > On Thu, Apr 27, 2017 at 01:04:02PM +0200, Arnd Bergmann wrote:
+> >> The previous patch addressed a sparse warning but replaced it with a
+> >> compiler warning when CONFIG_MODULES is disabled:
 > >>
-> >>The schema of the system is the following:
+> >> drivers/net/ethernet/mellanox/mlx5/core/ipoib.c:485:13: error: 'mlx5_rdma_netdev_free' defined but not used [-Werror=unused-function]
+> >> drivers/net/ethernet/mellanox/mlx5/core/ipoib.c:423:27: error: 'mlx5_rdma_netdev_alloc' defined but not used [-Werror=unused-function]
 > >>
-
-Hi Rafa
-
-Your ASCII art got messed up somewhere. Is this the correct
-reconstruction?
-
-   +-------------------+ eth0
-   |                   +--+
-   |                   |  |
-   | Embedded system   +--+
-   |                   |
-   |      ARMv7        |
-   |                   | Marvell 88E8057(sky2)     +-------------+
-   |                   +--+                     +--+             +--+ eth1
-   |                   |  +---------------------+  |             |  +------+
-   |                   +--+      CPU port       +--+ mv88e6176   +--+
-   +------+--+---------+                           |             |
-emulated  |  |                                     |             |
-GPIO      +--+                                  +--+             +--+ eth2
-MDIO       +-----------------------------------+   |             |  +------+
-                                MDIO            +--+             +--+
-                                                   +-------------+
-
-I assume you are using DSA? Since this is LEDE, it could be swconfig,
-but the bridge configuration you mentioned would not make sense for
-swconfig.
-
-> >>If I connect the eth1/eth2, the link is up and I can do ping through it.
-> >>But, once
-> >>I start sending a heavy traffic load the link fails and the kernel sends the
-> >>following messages:
+> >> We should never export 'static' functions, so this makes them global
+> >> again but hides them in another #ifdef like the change before.
 > >>
-> >>[   48.557140] sky2 0000:04:00.0 marvell: rx error, status 0x5f20010
-> >>length 1518
-> >>[   48.564964] sky2 0000:04:00.0 marvell: rx error, status 0x5f20010
-> >>length 1518
-> >>[   48.572110] sky2 0000:04:00.0 marvell: rx error, status 0x5f20010
-> >>length 1518
-> >>[   48.579263] sky2 0000:04:00.0 marvell: rx error, status 0x5f20010
-> >>length 1518
-> >>[   48.586417] sky2 0000:04:00.0 marvell: rx error, status 0x5f20010
-> >>length 1518
-> >>[   48.593573] sky2 0000:04:00.0 marvell: rx error, status 0x5f20010
-> >>length 1518
-> >>[   48.600718] sky2 0000:04:00.0 marvell: rx error, status 0x5f20010
-> >>length 1518
-> >>[   54.877567] net_ratelimit: 6 callbacks suppressed
-> >>[   54.882293] sky2 0000:04:00.0 marvell: rx error, status 0x5f20010
-> >>length 1518
-> >>[   61.413552] sky2 0000:04:00.0 marvell: rx error, status 0x5f20010
-> >>length 1518
+> >> Fixes: a7082ef066f0 ("mlx5: hide unused functions")
+> >> Signed-off-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
 > >
-> >The status error bits are in sky2.h
-> >0x5f20010 is
-> >      05f2 frame length => 1522
-> >      0010 Too long err
+> > Hi Arnd,
 > >
-> >That means the packet was longer than the configured MTU.
-> >You are probably getting packets with VLAN tag but have not configured
-> >a VLAN.
+> > Thanks for the patch, but Stephen and Saeed already sent patch similar to it.
+> > http://marc.info/?l=linux-netdev&m=149288674816288&w=2
+>
+> That link is for the patch that introduced the warning that I'm fixing here,
+> it showed up yesterday in linux-next.
+>
+> Did you misread my patch, or just give the wrong link?
 
-Since you are using DSA, you will have DSA tags enabled on frames
-to/from the switch. This adds an extra 8 byte header in the frame.  My
-guess is, it is this header, not the VLAN tag which is causing you MTU
-issues.
+Sorry, I misread you patch, because I prepared patch which add users for
+these functions and didn't notice both "static" and EXPORT_SYMBOLS at the same time.
+I will send it in a couple of minutes.
 
-I think this is the first time i've seen sky2 used in a DSA
-setup. mv643xx or mvneta is generally what is used, when using Marvell
-chipsets. These drivers are more lenient about MTU, and are happy to
-pass frames with additional headers.
+Thanks
 
-> Thanks for the information. I have increased the MTU value to 1550
-> (workaround) and it works if sends traffic (with iperf) from my
-> computer to the unit. But, if I send traffic outside the unit, I get
-> a new error message and link goes down:
+>
+>       Arnd
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-Changing the MTU like this is not a good fix. It will allow you to
-receive frames which are bigger, but it also means the local network
-stack will generate bigger frames to be transmitted. You probably need
-to modify the sky2 driver to allow it to receive frames bigger than
-the interface MTU, by about 8 bytes.
- 
-> [ 4901.032989] sky2 0000:04:00.0 marvell: tx timeout
-> [ 4904.722670] sky2 0000:04:00.0 marvell: Link is up at 1000 Mbps,
-> full duplex, flow control both
+--hdMwqcnXK86+cyrC
+Content-Type: application/pgp-signature; name="signature.asc"
 
-Between the sky2 and the switch, do you have two back-to-back PHYs or
-are you connecting the RGMII interfaces together?
+-----BEGIN PGP SIGNATURE-----
 
-    Andrew
+iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAlkB7mgACgkQ5GN7iDZy
+WKfasg//c/K7nxVllkX26KHp0Vpmh1yNiqs/LJEG3vBc2GPv6hDytmupE0TMUEIU
+bo6oHowYUCe3MnBHNLeNDo9Bumq5kGwsmwPv6UP73NxqPE97qmhDAiXX0abBmrin
+GD76DejozoHEelGImceTrzFyZTRGbhH3SdBDRB1hs3Kz+VrTK+iJvFCVyz7/XbSK
+utC7AiQLDd8AAAmkzhITo++bHiJN/k2ks/2DGcDhhlDMCZv/9NzSU972SpGDj4NI
+tvaUDXHOweh8/hWnAkvvZqSNF8FZgCXNivhbSiyLup12t2MKOksbdyV9QkwahcJU
+vrx5s34ZFjV+RjFH8HrJGFYORf08DIFWHRV1qHWDK7FcSAhJOS9WITn1GKByl2R2
+qAQUX8Qhksg83AQs75EZDZNC7rj3RG2tB/nvxzDFWOagxRKi4L5ngYm2UFZYhG6M
+Oy8e/MynLN1O3KnaK5nrTz4sQvuFVhcyabsBX6Ooz6ixUIrNR1ghJP6uXRmi4Er4
+ti8BNIxmLmoWmKyQOCLkrwm0Up6VTK/eEsIj8TCMBvgVYLj+huyDnyE8syiFhVY3
+sFgOSuqkpoZL01AjIUZqQqzwLasGZuturYGZMnsVGp/+IVoIxNyruwGBgO3nW2Gm
+mkrwCfdMu4hgGZsYVrtCNyqPmxt2H2IIm/y8Fu/lndm4MHqZUGc=
+=hT5S
+-----END PGP SIGNATURE-----
+
+--hdMwqcnXK86+cyrC--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
