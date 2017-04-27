@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 08/10] net: sched: introduce multichain support for filters
-Date: Thu, 27 Apr 2017 13:12:18 +0200
-Message-ID: <1493291540-2119-9-git-send-email-jiri@resnulli.us>
+Subject: [patch iproute2 2/2] tc_gact: introduce support for goto chain action
+Date: Thu, 27 Apr 2017 13:15:55 +0200
+Message-ID: <1493291755-2215-2-git-send-email-jiri@resnulli.us>
 References: <1493291540-2119-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         dsa@cumulusnetworks.com, edumazet@google.com,
@@ -10,343 +10,152 @@ Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         simon.horman@netronome.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:33179 "EHLO
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:34484 "EHLO
         mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S936393AbdD0LMk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 27 Apr 2017 07:12:40 -0400
-Received: by mail-wm0-f66.google.com with SMTP id y10so3834218wmh.0
-        for <netdev@vger.kernel.org>; Thu, 27 Apr 2017 04:12:40 -0700 (PDT)
+        with ESMTP id S1754344AbdD0LQA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 27 Apr 2017 07:16:00 -0400
+Received: by mail-wm0-f66.google.com with SMTP id z129so3846979wmb.1
+        for <netdev@vger.kernel.org>; Thu, 27 Apr 2017 04:15:59 -0700 (PDT)
 In-Reply-To: <1493291540-2119-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-Instead of having only one filter per block, introduce a list of chains
-for every block. Create chain 0 by default. UAPI is extended so the user
-can specify which chain he wants to change. If the new attribute is not
-specified, chain 0 is used. That allows to maintain backward
-compatibility. If chain does not exist and user wants to manipulate with
-it, new chain is created with specified index. Also, when last filter is
-removed from the chain, the chain is destroyed.
+Allow user to set action "goto" with filter chain index as a parameter.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- include/net/pkt_cls.h          |   2 +
- include/net/sch_generic.h      |   9 +++-
- include/uapi/linux/rtnetlink.h |   1 +
- net/sched/cls_api.c            | 100 ++++++++++++++++++++++++++++++++++-------
- 4 files changed, 94 insertions(+), 18 deletions(-)
+ include/linux/pkt_cls.h        |  1 +
+ include/linux/tc_act/tc_gact.h |  1 +
+ tc/m_gact.c                    | 32 ++++++++++++++++++++++++++++----
+ tc/tc_util.c                   |  3 +++
+ 4 files changed, 33 insertions(+), 4 deletions(-)
 
-diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
-index e56e715..2c213a6 100644
---- a/include/net/pkt_cls.h
-+++ b/include/net/pkt_cls.h
-@@ -18,6 +18,8 @@ int register_tcf_proto_ops(struct tcf_proto_ops *ops);
- int unregister_tcf_proto_ops(struct tcf_proto_ops *ops);
+diff --git a/include/linux/pkt_cls.h b/include/linux/pkt_cls.h
+index 7a69f2a..4f347b0 100644
+--- a/include/linux/pkt_cls.h
++++ b/include/linux/pkt_cls.h
+@@ -37,6 +37,7 @@ enum {
+ #define TC_ACT_QUEUED		5
+ #define TC_ACT_REPEAT		6
+ #define TC_ACT_REDIRECT		7
++#define TC_ACT_GOTO_CHAIN	8
+ #define TC_ACT_JUMP		0x10000000
  
- #ifdef CONFIG_NET_CLS
-+struct tcf_chain *tcf_chain_get(struct tcf_block *block, u32 chain_index);
-+void tcf_chain_put(struct tcf_chain *chain);
- int tcf_block_get(struct tcf_block **p_block,
- 		  struct tcf_proto __rcu **p_filter_chain);
- void tcf_block_put(struct tcf_block *block);
-diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-index 52bceed..569b565 100644
---- a/include/net/sch_generic.h
-+++ b/include/net/sch_generic.h
-@@ -8,6 +8,7 @@
- #include <linux/pkt_cls.h>
- #include <linux/percpu.h>
- #include <linux/dynamic_queue_limits.h>
-+#include <linux/list.h>
- #include <net/gen_stats.h>
- #include <net/rtnetlink.h>
- 
-@@ -236,7 +237,7 @@ struct tcf_proto {
- 	struct Qdisc		*q;
- 	void			*data;
- 	const struct tcf_proto_ops	*ops;
--	struct tcf_block	*block;
-+	struct tcf_chain	*chain;
- 	struct rcu_head		rcu;
+ /* Action type identifiers*/
+diff --git a/include/linux/tc_act/tc_gact.h b/include/linux/tc_act/tc_gact.h
+index 70b536a..388733d 100644
+--- a/include/linux/tc_act/tc_gact.h
++++ b/include/linux/tc_act/tc_gact.h
+@@ -26,6 +26,7 @@ enum {
+ 	TCA_GACT_PARMS,
+ 	TCA_GACT_PROB,
+ 	TCA_GACT_PAD,
++	TCA_GACT_CHAIN,
+ 	__TCA_GACT_MAX
  };
- 
-@@ -251,10 +252,14 @@ struct qdisc_skb_cb {
- struct tcf_chain {
- 	struct tcf_proto __rcu *filter_chain;
- 	struct tcf_proto __rcu **p_filter_chain;
-+	struct list_head list;
-+	struct tcf_block *block;
-+	u32 index; /* chain index */
-+	unsigned int refcnt;
- };
- 
- struct tcf_block {
--	struct tcf_chain *chain;
-+	struct list_head chain_list;
- };
- 
- static inline void qdisc_cb_private_validate(const struct sk_buff *skb, int sz)
-diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
-index cce0613..6487b21 100644
---- a/include/uapi/linux/rtnetlink.h
-+++ b/include/uapi/linux/rtnetlink.h
-@@ -549,6 +549,7 @@ enum {
- 	TCA_STAB,
- 	TCA_PAD,
- 	TCA_DUMP_INVISIBLE,
-+	TCA_CHAIN,
- 	__TCA_MAX
- };
- 
-diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
-index 9f48061..a4fab8f 100644
---- a/net/sched/cls_api.c
-+++ b/net/sched/cls_api.c
-@@ -129,7 +129,7 @@ static inline u32 tcf_auto_prio(struct tcf_proto *tp)
- 
- static struct tcf_proto *tcf_proto_create(const char *kind, u32 protocol,
- 					  u32 prio, u32 parent, struct Qdisc *q,
--					  struct tcf_block *block)
-+					  struct tcf_chain *chain)
+ #define TCA_GACT_MAX (__TCA_GACT_MAX - 1)
+diff --git a/tc/m_gact.c b/tc/m_gact.c
+index 755a3be..f8d1c1e 100644
+--- a/tc/m_gact.c
++++ b/tc/m_gact.c
+@@ -43,19 +43,21 @@ static void
+ explain(void)
  {
- 	struct tcf_proto *tp;
- 	int err;
-@@ -165,7 +165,7 @@ static struct tcf_proto *tcf_proto_create(const char *kind, u32 protocol,
- 	tp->prio = prio;
- 	tp->classid = parent;
- 	tp->q = q;
--	tp->block = block;
-+	tp->chain = chain;
- 
- 	err = tp->ops->init(tp);
- 	if (err) {
-@@ -186,15 +186,26 @@ static void tcf_proto_destroy(struct tcf_proto *tp)
- 	kfree_rcu(tp, rcu);
+ #ifdef CONFIG_GACT_PROB
+-	fprintf(stderr, "Usage: ... gact <ACTION> [RAND] [INDEX]\n");
++	fprintf(stderr, "Usage: ... gact <ACTION> [RAND] [INDEX] [OPTIONS]\n");
+ 	fprintf(stderr,
+-		"Where: \tACTION := reclassify | drop | continue | pass | pipe\n"
++		"Where: \tACTION := reclassify | drop | continue | pass | pipe | goto\n"
+ 			"\tRAND := random <RANDTYPE> <ACTION> <VAL>\n"
+ 			"\tRANDTYPE := netrand | determ\n"
+ 			"\tVAL : = value not exceeding 10000\n"
+ 			"\tINDEX := index value used\n"
++			"\tOPTIONS: := chain <CHAIN_INDEX>\n"
+ 			"\n");
+ #else
+-	fprintf(stderr, "Usage: ... gact <ACTION> [INDEX]\n");
++	fprintf(stderr, "Usage: ... gact <ACTION> [INDEX] [OPTIONS]\n");
+ 	fprintf(stderr,
+-		"Where: \tACTION := reclassify | drop | continue | pass | pipe\n"
++		"Where: \tACTION := reclassify | drop | continue | pass | pipe | goto\n"
+ 		"\tINDEX := index value used\n"
++		"\tOPTIONS: := chain <CHAIN_INDEX>\n"
+ 		"\n");
+ #endif
  }
+@@ -93,6 +95,7 @@ parse_gact(struct action_util *a, int *argc_p, char ***argv_p,
+ 	int rd = 0;
+ 	struct tc_gact_p pp;
+ #endif
++	__u32 chain_index;
+ 	struct rtattr *tail;
  
--static struct tcf_chain *tcf_chain_create(void)
-+static struct tcf_chain *tcf_chain_create(struct tcf_block *block,
-+					  u32 chain_index)
- {
--	return kzalloc(sizeof(struct tcf_chain), GFP_KERNEL);
-+	struct tcf_chain *chain;
-+
-+	chain = kzalloc(sizeof(*chain), GFP_KERNEL);
-+	if (!chain)
-+		return NULL;
-+	list_add_tail(&chain->list, &block->chain_list);
-+	chain->block = block;
-+	chain->index = chain_index;
-+	chain->refcnt = 1;
-+	return chain;
- }
+ 	if (argc < 0)
+@@ -173,6 +176,23 @@ parse_gact(struct action_util *a, int *argc_p, char ***argv_p,
+ 		}
+ 	}
  
- static void tcf_chain_destroy(struct tcf_chain *chain)
- {
- 	struct tcf_proto *tp;
- 
-+	list_del(&chain->list);
- 	while ((tp = rtnl_dereference(chain->filter_chain)) != NULL) {
- 		RCU_INIT_POINTER(chain->filter_chain, tp->next);
- 		tcf_proto_destroy(tp);
-@@ -202,6 +213,30 @@ static void tcf_chain_destroy(struct tcf_chain *chain)
- 	kfree(chain);
- }
- 
-+struct tcf_chain *tcf_chain_get(struct tcf_block *block, u32 chain_index)
-+{
-+	struct tcf_chain *chain;
-+
-+	list_for_each_entry(chain, &block->chain_list, list) {
-+		if (chain->index == chain_index) {
-+			chain->refcnt++;
-+			return chain;
++	if (ok && action == TC_ACT_GOTO_CHAIN) {
++		if (matches(*argv, "chain") == 0) {
++			NEXT_ARG();
++			if (get_u32(&chain_index, *argv, 10)) {
++				fprintf(stderr, "Illegal \"chain index\"\n");
++				return -1;
++			}
++			argc--;
++			argv++;
++		} else if (matches(*argv, "help") == 0) {
++			usage();
++		} else {
++			fprintf(stderr, "\"chain\" needs to be specified for \"goto\" action\n");
++			return -1;
 +		}
 +	}
-+	return tcf_chain_create(block, chain_index);
-+}
-+EXPORT_SYMBOL(tcf_chain_get);
 +
-+void tcf_chain_put(struct tcf_chain *chain)
-+{
-+	/* Destroy unused chain, with exception of chain 0, which is the
-+	 * default one and has to be always present.
-+	 */
-+	if (--chain->refcnt == 0 && !chain->filter_chain && chain->index != 0)
-+		tcf_chain_destroy(chain);
-+}
-+EXPORT_SYMBOL(tcf_chain_put);
-+
- static void
- tcf_chain_filter_chain_ptr_set(struct tcf_chain *chain,
- 			       struct tcf_proto __rcu **p_filter_chain)
-@@ -213,16 +248,19 @@ int tcf_block_get(struct tcf_block **p_block,
- 		  struct tcf_proto __rcu **p_filter_chain)
- {
- 	struct tcf_block *block = kzalloc(sizeof(*block), GFP_KERNEL);
-+	struct tcf_chain *chain;
- 	int err;
+ 	if (!ok)
+ 		return -1;
  
- 	if (!block)
- 		return -ENOMEM;
--	block->chain = tcf_chain_create();
--	if (!block->chain) {
-+	INIT_LIST_HEAD(&block->chain_list);
-+	/* Create chain 0 by default, it has to be always present. */
-+	chain = tcf_chain_create(block, 0);
-+	if (!chain) {
- 		err = -ENOMEM;
- 		goto err_chain_create;
+@@ -184,6 +204,8 @@ parse_gact(struct action_util *a, int *argc_p, char ***argv_p,
+ 		addattr_l(n, MAX_MSG, TCA_GACT_PROB, &pp, sizeof(pp));
  	}
--	tcf_chain_filter_chain_ptr_set(block->chain, p_filter_chain);
-+	tcf_chain_filter_chain_ptr_set(chain, p_filter_chain);
- 	*p_block = block;
- 	return 0;
+ #endif
++	if (action == TC_ACT_GOTO_CHAIN)
++		addattr32(n, MAX_MSG, TCA_GACT_CHAIN, chain_index);
+ 	tail->rta_len = (void *) NLMSG_TAIL(n) - (void *) tail;
  
-@@ -234,9 +272,13 @@ EXPORT_SYMBOL(tcf_block_get);
+ 	*argc_p = argc;
+@@ -213,6 +235,8 @@ print_gact(struct action_util *au, FILE * f, struct rtattr *arg)
+ 	p = RTA_DATA(tb[TCA_GACT_PARMS]);
  
- void tcf_block_put(struct tcf_block *block)
- {
-+	struct tcf_chain *chain, *tmp;
-+
- 	if (!block)
- 		return;
--	tcf_chain_destroy(block->chain);
-+
-+	list_for_each_entry_safe(chain, tmp, &block->chain_list, list)
-+		tcf_chain_destroy(chain);
- 	kfree(block);
- }
- EXPORT_SYMBOL(tcf_block_put);
-@@ -354,10 +396,11 @@ static int tc_ctl_tfilter(struct sk_buff *skb, struct nlmsghdr *n,
- 	u32 prio;
- 	bool prio_allocate;
- 	u32 parent;
-+	u32 chain_index;
- 	struct net_device *dev;
- 	struct Qdisc  *q;
- 	struct tcf_chain_info chain_info;
--	struct tcf_chain *chain;
-+	struct tcf_chain *chain = NULL;
- 	struct tcf_block *block;
- 	struct tcf_proto *tp;
- 	const struct Qdisc_class_ops *cops;
-@@ -443,7 +486,13 @@ static int tc_ctl_tfilter(struct sk_buff *skb, struct nlmsghdr *n,
- 		err = -EINVAL;
- 		goto errout;
- 	}
--	chain = block->chain;
-+
-+	chain_index = tca[TCA_CHAIN] ? nla_get_u32(tca[TCA_CHAIN]) : 0;
-+	chain = tcf_chain_get(block, chain_index);
-+	if (!chain) {
-+		err = -ENOMEM;
-+		goto errout;
-+	}
+ 	fprintf(f, "gact action %s", action_n2a(p->action));
++	if (tb[TCA_GACT_CHAIN])
++		fprintf(f, " chain %u", rta_getattr_u32(tb[TCA_GACT_CHAIN]));
+ #ifdef CONFIG_GACT_PROB
+ 	if (tb[TCA_GACT_PROB] != NULL) {
+ 		pp = RTA_DATA(tb[TCA_GACT_PROB]);
+diff --git a/tc/tc_util.c b/tc/tc_util.c
+index 24ca1f1..a75367f 100644
+--- a/tc/tc_util.c
++++ b/tc/tc_util.c
+@@ -428,6 +428,8 @@ const char *action_n2a(int action)
+ 		return "pipe";
+ 	case TC_ACT_STOLEN:
+ 		return "stolen";
++	case TC_ACT_GOTO_CHAIN:
++		return "goto";
+ 	default:
+ 		snprintf(buf, 64, "%d", action);
+ 		buf[63] = '\0';
+@@ -459,6 +461,7 @@ int action_a2n(char *arg, int *result, bool allow_num)
+ 		{"ok", TC_ACT_OK},
+ 		{"reclassify", TC_ACT_RECLASSIFY},
+ 		{"pipe", TC_ACT_PIPE},
++		{"goto", TC_ACT_GOTO_CHAIN},
+ 		{ NULL },
+ 	}, *iter;
  
- 	if (n->nlmsg_type == RTM_DELTFILTER && prio == 0) {
- 		tfilter_notify_chain(net, skb, n, chain, RTM_DELTFILTER);
-@@ -477,7 +526,7 @@ static int tc_ctl_tfilter(struct sk_buff *skb, struct nlmsghdr *n,
- 			prio = tcf_auto_prio(tcf_chain_tp_prev(&chain_info));
- 
- 		tp = tcf_proto_create(nla_data(tca[TCA_KIND]),
--				      protocol, prio, parent, q, block);
-+				      protocol, prio, parent, q, chain);
- 		if (IS_ERR(tp)) {
- 			err = PTR_ERR(tp);
- 			goto errout;
-@@ -550,6 +599,8 @@ static int tc_ctl_tfilter(struct sk_buff *skb, struct nlmsghdr *n,
- 	}
- 
- errout:
-+	if (chain)
-+		tcf_chain_put(chain);
- 	if (cl)
- 		cops->put(q, cl);
- 	if (err == -EAGAIN)
-@@ -578,6 +629,8 @@ static int tcf_fill_node(struct net *net, struct sk_buff *skb,
- 	tcm->tcm_info = TC_H_MAKE(tp->prio, tp->protocol);
- 	if (nla_put_string(skb, TCA_KIND, tp->ops->kind))
- 		goto nla_put_failure;
-+	if (nla_put_u32(skb, TCA_CHAIN, tp->chain->index))
-+		goto nla_put_failure;
- 	tcm->tcm_handle = fh;
- 	if (RTM_DELTFILTER != event) {
- 		tcm->tcm_handle = 0;
-@@ -634,7 +687,7 @@ static int tcf_node_dump(struct tcf_proto *tp, unsigned long n,
- 			     RTM_NEWTFILTER);
- }
- 
--static void tcf_chain_dump(struct tcf_chain *chain, struct sk_buff *skb,
-+static bool tcf_chain_dump(struct tcf_chain *chain, struct sk_buff *skb,
- 			   struct netlink_callback *cb,
- 			   long index_start, long *p_index)
- {
-@@ -661,7 +714,7 @@ static void tcf_chain_dump(struct tcf_chain *chain, struct sk_buff *skb,
- 					  NETLINK_CB(cb->skb).portid,
- 					  cb->nlh->nlmsg_seq, NLM_F_MULTI,
- 					  RTM_NEWTFILTER) <= 0)
--				break;
-+				return false;
- 
- 			cb->args[1] = 1;
- 		}
-@@ -676,14 +729,16 @@ static void tcf_chain_dump(struct tcf_chain *chain, struct sk_buff *skb,
- 		tp->ops->walk(tp, &arg.w);
- 		cb->args[1] = arg.w.count + 1;
- 		if (arg.w.stop)
--			break;
-+			return false;
- 	}
-+	return true;
- }
- 
- /* called with RTNL */
- static int tc_dump_tfilter(struct sk_buff *skb, struct netlink_callback *cb)
- {
- 	struct net *net = sock_net(skb->sk);
-+	struct nlattr *tca[TCA_MAX + 1];
- 	struct net_device *dev;
- 	struct Qdisc *q;
- 	struct tcf_block *block;
-@@ -693,9 +748,15 @@ static int tc_dump_tfilter(struct sk_buff *skb, struct netlink_callback *cb)
- 	const struct Qdisc_class_ops *cops;
- 	long index_start;
- 	long index;
-+	int err;
- 
- 	if (nlmsg_len(cb->nlh) < sizeof(*tcm))
- 		return skb->len;
-+
-+	err = nlmsg_parse(cb->nlh, sizeof(*tcm), tca, TCA_MAX, NULL, NULL);
-+	if (err)
-+		return err;
-+
- 	dev = __dev_get_by_index(net, tcm->tcm_ifindex);
- 	if (!dev)
- 		return skb->len;
-@@ -719,11 +780,18 @@ static int tc_dump_tfilter(struct sk_buff *skb, struct netlink_callback *cb)
- 	block = cops->tcf_block(q, cl);
- 	if (!block)
- 		goto errout;
--	chain = block->chain;
- 
- 	index_start = cb->args[0];
- 	index = 0;
--	tcf_chain_dump(chain, skb, cb, index_start, &index);
-+
-+	list_for_each_entry(chain, &block->chain_list, list) {
-+		if (tca[TCA_CHAIN] &&
-+		    nla_get_u32(tca[TCA_CHAIN]) != chain->index)
-+			continue;
-+		if (!tcf_chain_dump(chain, skb, cb, index_start, &index))
-+			break;
-+	}
-+
- 	cb->args[0] = index;
- 
- errout:
 -- 
 2.7.4
