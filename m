@@ -1,54 +1,52 @@
-From: Greg Rose <gvrose8192@gmail.com>
-Subject: Re: [PATCH net-next] net: vrf: Do not allow looback to be moved to
- a VRF
-Date: Wed, 26 Apr 2017 19:44:25 -0700
-Message-ID: <1493261065.4737.5.camel@gmail.com>
-References: <1493218702-10906-1-git-send-email-dsa@cumulusnetworks.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: more test_progs...
+Date: Wed, 26 Apr 2017 22:23:39 -0400 (EDT)
+Message-ID: <20170426.222339.1486764869366311464.davem@davemloft.net>
+References: <590056F2.5010600@iogearbox.net>
+        <20170426.105511.742633353102583622.davem@davemloft.net>
+        <cb627763-4df8-13ad-9dfe-88a79cccef64@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rshearma@brocade.com
-To: David Ahern <dsa@cumulusnetworks.com>
+Cc: daniel@iogearbox.net, netdev@vger.kernel.org
+To: ast@fb.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:35581 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1033605AbdD0Co3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2017 22:44:29 -0400
-Received: by mail-pf0-f194.google.com with SMTP id a188so4956408pfa.2
-        for <netdev@vger.kernel.org>; Wed, 26 Apr 2017 19:44:28 -0700 (PDT)
-In-Reply-To: <1493218702-10906-1-git-send-email-dsa@cumulusnetworks.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:35354 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S938128AbdD0CXn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2017 22:23:43 -0400
+In-Reply-To: <cb627763-4df8-13ad-9dfe-88a79cccef64@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2017-04-26 at 07:58 -0700, David Ahern wrote:
-> Moving the loopback into a VRF breaks networking for the default VRF.
-> Since the VRF device is the loopback for VRF domains, there is no
-> reason to move the loopback. Given the repercussions, block attempts
-> to set lo into a VRF.
-> 
-> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
-> ---
->  drivers/net/vrf.c | 6 ++++++
->  1 file changed, 6 insertions(+)
-> 
-> diff --git a/drivers/net/vrf.c b/drivers/net/vrf.c
-> index aa5d30428bba..ceda5861da78 100644
-> --- a/drivers/net/vrf.c
-> +++ b/drivers/net/vrf.c
-> @@ -877,6 +877,12 @@ static int do_vrf_add_slave(struct net_device *dev, struct net_device *port_dev)
->  {
->  	int ret;
->  
-> +	/* do not allow loopback device to be enslaved to a VRF.
-> +	 * The vrf device acts as the loopback for the vrf.
-> +	 */
-> +	if (port_dev == dev_net(dev)->loopback_dev)
-> +		return -EOPNOTSUPP;
-> +
->  	port_dev->priv_flags |= IFF_L3MDEV_SLAVE;
->  	ret = netdev_master_upper_dev_link(port_dev, dev, NULL, NULL);
->  	if (ret < 0)
+From: Alexei Starovoitov <ast@fb.com>
+Date: Wed, 26 Apr 2017 16:49:35 -0700
 
-I think that's a great idea.
+> It's only needed for test_pkt_access.c test,
+> since it's being fancy and doing iph->ihl * 4.
 
-Reviewed-by: Greg Rose <gvrose8192@gmail.com>
+It is going to be a common idiom in anything looking at
+transport headers, no?
+
+> Also such tcp->urg_ptr access into packed struct is more efficient
+> after JITing then sparc's own load_half_unaligned in asm, since it's
+> done inline and doesn't need a call.
+> 
+> Note that such tcphdr workaround is not necessary for more
+> real programs: test_l4lb.c and test_xdp.c, since they do:
+> if (iph->ihl != 5)
+>    return drop;
+
+Hmmm...
+
+> Does sparc64 have some special instructions like that?
+
+Unfortunately not.
+
+I think we need to seriously consider tracking "Pointer
+incremented by power of 2 N" and stuff like that.
+
+I know it's not easy, but it is necessary.
+
+Having stuff like the packed thing above is just a completely
+unnecessary detail to expose to users writing these programs.
