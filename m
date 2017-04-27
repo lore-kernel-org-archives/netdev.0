@@ -1,52 +1,109 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next 4/6] bpf: track if the bpf program was loaded
- with SYS_ADMIN capabilities
-Date: Thu, 27 Apr 2017 13:39:24 +0200
-Message-ID: <2a6762cb-fbf5-42ce-ed41-4f1a6c84ae44@stressinduktion.org>
-References: <20170426182419.14574-1-hannes@stressinduktion.org>
- <20170426182419.14574-5-hannes@stressinduktion.org>
- <59010B5A.6060509@iogearbox.net>
+From: Andrey Konovalov <andreyknvl@google.com>
+Subject: Re: [PATCH net] tcp: do not underestimate skb->truesize in tcp_trim_head()
+Date: Thu, 27 Apr 2017 13:49:57 +0200
+Message-ID: <CAAeHK+xWDnPu05g4Hqt3wkHEsuW=Ry7p7rLnxL3ct1MuSLBXLw@mail.gmail.com>
+References: <1493222866.6453.75.camel@edumazet-glaptop3.roam.corp.google.com> <1493252140.6453.96.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: ast@kernel.org, daniel@iogearbox.com, jbenc@redhat.com,
-        aconole@bytheb.org
-To: Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out4-smtp.messagingengine.com ([66.111.4.28]:49435 "EHLO
-        out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S936006AbdD0Lj2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 27 Apr 2017 07:39:28 -0400
-In-Reply-To: <59010B5A.6060509@iogearbox.net>
-Content-Language: en-US
+Received: from mail-yb0-f172.google.com ([209.85.213.172]:32913 "EHLO
+        mail-yb0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S936292AbdD0LuE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 27 Apr 2017 07:50:04 -0400
+Received: by mail-yb0-f172.google.com with SMTP id 11so7252748yby.0
+        for <netdev@vger.kernel.org>; Thu, 27 Apr 2017 04:50:03 -0700 (PDT)
+In-Reply-To: <1493252140.6453.96.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 26.04.2017 23:04, Daniel Borkmann wrote:
-> On 04/26/2017 08:24 PM, Hannes Frederic Sowa wrote:
->> diff --git a/net/core/filter.c b/net/core/filter.c
->> index 9a37860a80fc78..dc020d40bb770a 100644
->> --- a/net/core/filter.c
->> +++ b/net/core/filter.c
->> @@ -1100,7 +1100,7 @@ int bpf_prog_create(struct bpf_prog **pfp,
->> struct sock_fprog_kern *fprog)
->>       if (!bpf_check_basics_ok(fprog->filter, fprog->len))
->>           return -EINVAL;
->>
->> -    fp = bpf_prog_alloc(bpf_prog_size(fprog->len), 0);
->> +    fp = bpf_prog_alloc(bpf_prog_size(fprog->len), 0, false);
->>       if (!fp)
->>           return -ENOMEM;
->>
-> 
-> Did you check that transferring allow_ptr_leaks doesn't have a side
-> effect on the nfp JIT? I believe it can also do cbpf migrations to
-> a certain extend.
+On Thu, Apr 27, 2017 at 2:15 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> From: Eric Dumazet <edumazet@google.com>
+>
+> Andrey found a way to trigger the WARN_ON_ONCE(delta < len) in
+> skb_try_coalesce() using syzkaller and a filter attached to a TCP
+> socket over loopback interface.
+>
+> I believe one issue with looped skbs is that tcp_trim_head() can end up
+> producing skb with under estimated truesize.
+>
+> It hardly matters for normal conditions, since packets sent over
+> loopback are never truncated.
+>
+> Bytes trimmed from skb->head should not change skb truesize, since
+> skb->head is not reallocated.
 
-Initially I grepped allow_ptr_leaks usages and didn't see it. I just
-looked through the code path and didn't see how it could have an impact.
-Also, cbpf programs shouldn't depend on allow_ptr_leak to the best of my
-knowledge, no?
+Hi Eric,
 
-Thanks,
-Hannes
+With all 3 of your patches applied to net-next I don't see the warning any more.
+
+Thanks!
+
+Tested-by: Andrey Konovalov <andreyknvl@google.com>
+
+>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Reported-by: Andrey Konovalov <andreyknvl@google.com>
+> ---
+>  net/ipv4/tcp_output.c |   19 ++++++++++++-------
+>  1 file changed, 12 insertions(+), 7 deletions(-)
+>
+> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+> index c3c082ed38796f65948e7a1042e37813b71d5abf..a85d863c44196e60fd22e25471cf773e72d2c133 100644
+> --- a/net/ipv4/tcp_output.c
+> +++ b/net/ipv4/tcp_output.c
+> @@ -1267,7 +1267,7 @@ int tcp_fragment(struct sock *sk, struct sk_buff *skb, u32 len,
+>   * eventually). The difference is that pulled data not copied, but
+>   * immediately discarded.
+>   */
+> -static void __pskb_trim_head(struct sk_buff *skb, int len)
+> +static int __pskb_trim_head(struct sk_buff *skb, int len)
+>  {
+>         struct skb_shared_info *shinfo;
+>         int i, k, eat;
+> @@ -1277,7 +1277,7 @@ static void __pskb_trim_head(struct sk_buff *skb, int len)
+>                 __skb_pull(skb, eat);
+>                 len -= eat;
+>                 if (!len)
+> -                       return;
+> +                       return 0;
+>         }
+>         eat = len;
+>         k = 0;
+> @@ -1303,23 +1303,28 @@ static void __pskb_trim_head(struct sk_buff *skb, int len)
+>         skb_reset_tail_pointer(skb);
+>         skb->data_len -= len;
+>         skb->len = skb->data_len;
+> +       return len;
+>  }
+>
+>  /* Remove acked data from a packet in the transmit queue. */
+>  int tcp_trim_head(struct sock *sk, struct sk_buff *skb, u32 len)
+>  {
+> +       u32 delta_truesize;
+> +
+>         if (skb_unclone(skb, GFP_ATOMIC))
+>                 return -ENOMEM;
+>
+> -       __pskb_trim_head(skb, len);
+> +       delta_truesize = __pskb_trim_head(skb, len);
+>
+>         TCP_SKB_CB(skb)->seq += len;
+>         skb->ip_summed = CHECKSUM_PARTIAL;
+>
+> -       skb->truesize        -= len;
+> -       sk->sk_wmem_queued   -= len;
+> -       sk_mem_uncharge(sk, len);
+> -       sock_set_flag(sk, SOCK_QUEUE_SHRUNK);
+> +       if (delta_truesize) {
+> +               skb->truesize      -= delta_truesize;
+> +               sk->sk_wmem_queued -= delta_truesize;
+> +               sk_mem_uncharge(sk, delta_truesize);
+> +               sock_set_flag(sk, SOCK_QUEUE_SHRUNK);
+> +       }
+>
+>         /* Any change of skb->len requires recalculation of tso factor. */
+>         if (tcp_skb_pcount(skb) > 1)
+>
+>
