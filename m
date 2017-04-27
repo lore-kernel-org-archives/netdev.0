@@ -1,97 +1,60 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH net-next] can: fix CAN BCM build with CONFIG_PROC_FS
- disabled
-Date: Thu, 27 Apr 2017 09:52:39 +0200
-Message-ID: <b8520a4a-0f1b-6410-f46c-1d0ca986bea3@pengutronix.de>
-References: <20170426181434.9635-1-socketcan@hartkopp.net>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="1mkcIJgnT0Fpu5nviLpofNPpoGdGeqx1R"
-Cc: netdev@vger.kernel.org
-To: Oliver Hartkopp <socketcan@hartkopp.net>,
-        linux-can@vger.kernel.org, davem@davemloft.net,
-        rdunlap@infradead.org
+From: Arkadi Sharshevsky <arkadis@mellanox.com>
+Subject: [PATCH net-next] net: bridge: Fix improper taking over HW learned FDB
+Date: Thu, 27 Apr 2017 11:08:05 +0300
+Message-ID: <1493280485-37845-1-git-send-email-arkadis@mellanox.com>
+Cc: davem@davemloft.net, stephen@networkplumber.org,
+        bridge@lists.linux-foundation.org,
+        Arkadi Sharshevsky <arkadis@mellanox.com>,
+        Ido Schimmel <idosch@mellanox.com>,
+        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:48157 "EHLO
-        metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S966017AbdD0Hwz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 27 Apr 2017 03:52:55 -0400
-In-Reply-To: <20170426181434.9635-1-socketcan@hartkopp.net>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:48364 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S967169AbdD0IHh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 27 Apr 2017 04:07:37 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---1mkcIJgnT0Fpu5nviLpofNPpoGdGeqx1R
-Content-Type: multipart/mixed; boundary="AbeWnrbnnI3TqV4hRNKhdvWMhnaVHPUuN";
- protected-headers="v1"
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-To: Oliver Hartkopp <socketcan@hartkopp.net>, linux-can@vger.kernel.org,
- davem@davemloft.net, rdunlap@infradead.org
-Cc: netdev@vger.kernel.org
-Message-ID: <b8520a4a-0f1b-6410-f46c-1d0ca986bea3@pengutronix.de>
-Subject: Re: [PATCH net-next] can: fix CAN BCM build with CONFIG_PROC_FS
- disabled
-References: <20170426181434.9635-1-socketcan@hartkopp.net>
-In-Reply-To: <20170426181434.9635-1-socketcan@hartkopp.net>
+Commit 7e26bf45e4cb ("net: bridge: allow SW learn to take over HW fdb
+entries") added the ability to "take over an entry which was previously
+learned via HW when it shows up from a SW port".
 
---AbeWnrbnnI3TqV4hRNKhdvWMhnaVHPUuN
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+However, if an entry was learned via HW and then a control packet
+(e.g., ARP request) was trapped to the CPU, the bridge driver will
+update the entry and remove the externally learned flag, although the
+entry is still present in HW. Instead, only clear the externally learned
+flag in case of roaming.
 
-On 04/26/2017 08:14 PM, Oliver Hartkopp wrote:
-> The introduced namespace support moved the BCM variables for procfs int=
-o a
-> per-net data structure. This leads to a build failure with disabled pro=
-cfs:
->=20
-> on x86_64:
->=20
-> when CONFIG_PROC_FS is not enabled:
->=20
-> ../net/can/bcm.c:1541:14: error: 'struct netns_can' has no member named=
- 'bcmproc_dir'
-> ../net/can/bcm.c:1601:14: error: 'struct netns_can' has no member named=
- 'bcmproc_dir'
-> ../net/can/bcm.c:1696:11: error: 'struct netns_can' has no member named=
- 'bcmproc_dir'
-> ../net/can/bcm.c:1707:15: error: 'struct netns_can' has no member named=
- 'bcmproc_dir'
->=20
-> http://marc.info/?l=3Dlinux-can&m=3D149321842526524&w=3D2
->=20
-> Reported-by: Randy Dunlap <rdunlap@infradead.org>
-> Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
+Fixes: 7e26bf45e4cb ("net: bridge: allow SW learn to take over HW fdb entries")
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Arkadi Sharashevsky <arkadis@mellanox.com>
+Cc: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+---
+ net/bridge/br_fdb.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-Applied to can-next.
-
-Thanks,
-Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---AbeWnrbnnI3TqV4hRNKhdvWMhnaVHPUuN--
-
---1mkcIJgnT0Fpu5nviLpofNPpoGdGeqx1R
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEzBAEBCgAdFiEE4bay/IylYqM/npjQHv7KIOw4HPYFAlkBo0cACgkQHv7KIOw4
-HPYy7Qf+M98SwsskCf0prHfGhdYmnMmNkXfyQSXRiNIdZ/CADEO0cY3mCQZSpHo/
-FYlxzlXMsfwk4G5oVtv5lXXNpFEo6rqf2GqsvmDkW3/d//UrMoRXK7kyEzxuyuGB
-ErSoef8PEW41bO5PfarECPwoDhFdTaoIXr+yXhWUgUrvOxCvAJKgWsJXWhNjT1OA
-iSBF0JWKkYvh9rXoJ0HWhx2gHDBLe5A3846EQwD00nsaMUB96m9KsoL5o57DyIIt
-pfUiNeoXiLIis/eTJZhFgs8GvNLYhWpXgXVQQZw/n/VEzev88PJaQMAdRfSRDvpM
-1bREUYiwB5rMduUj8AcnzeicibPnNg==
-=JU4b
------END PGP SIGNATURE-----
-
---1mkcIJgnT0Fpu5nviLpofNPpoGdGeqx1R--
+diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
+index 5a40a87..ab0c7cc 100644
+--- a/net/bridge/br_fdb.c
++++ b/net/bridge/br_fdb.c
+@@ -589,14 +589,14 @@ void br_fdb_update(struct net_bridge *br, struct net_bridge_port *source,
+ 			if (unlikely(source != fdb->dst)) {
+ 				fdb->dst = source;
+ 				fdb_modified = true;
++				/* Take over HW learned entry */
++				if (unlikely(fdb->added_by_external_learn))
++					fdb->added_by_external_learn = 0;
+ 			}
+ 			if (now != fdb->updated)
+ 				fdb->updated = now;
+ 			if (unlikely(added_by_user))
+ 				fdb->added_by_user = 1;
+-			/* Take over HW learned entry */
+-			if (unlikely(fdb->added_by_external_learn))
+-				fdb->added_by_external_learn = 0;
+ 			if (unlikely(fdb_modified))
+ 				fdb_notify(br, fdb, RTM_NEWNEIGH);
+ 		}
+-- 
+2.4.11
