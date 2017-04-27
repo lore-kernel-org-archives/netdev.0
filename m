@@ -1,52 +1,71 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [patch net-next 00/10] net: sched: introduce multichain support
- for filters
-Date: Thu, 27 Apr 2017 10:46:03 -0700
-Message-ID: <CAM_iQpXUs1301-OR1_bsO-0bU8sSBVo2BWRHy4qNhzdHxvJWaQ@mail.gmail.com>
-References: <1493291540-2119-1-git-send-email-jiri@resnulli.us>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH] igb: make a few local functions static
+Date: Thu, 27 Apr 2017 18:59:11 +0100
+Message-ID: <20170427175911.15477-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        David Ahern <dsa@cumulusnetworks.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Alexander Duyck <alexander.h.duyck@intel.com>,
-        mlxsw@mellanox.com, Simon Horman <simon.horman@netronome.com>
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:33022 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1163876AbdD0RqZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 27 Apr 2017 13:46:25 -0400
-Received: by mail-wm0-f67.google.com with SMTP id y10so6178583wmh.0
-        for <netdev@vger.kernel.org>; Thu, 27 Apr 2017 10:46:24 -0700 (PDT)
-In-Reply-To: <1493291540-2119-1-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 27, 2017 at 4:12 AM, Jiri Pirko <jiri@resnulli.us> wrote:
-> Simple example:
-> $ tc qdisc add dev eth0 ingress
-> $ tc filter add dev eth0 parent ffff: protocol ip pref 33 flower dst_mac 52:54:00:3d:c7:6d action goto chain 11
-> $ tc filter add dev eth0 parent ffff: protocol ip pref 22 chain 11 flower dst_ip 192.168.40.1 action drop
-> $ tc filter show dev eth0 root
+From: Colin Ian King <colin.king@canonical.com>
 
-Interesting.
+clean up a few sparse warnings, these following
+functions can be made static:
 
-I don't look into the code yet. If I understand the concepts correctly,
-so with your patchset we can mark either filter with a chain No. to
-choose which chain it belongs to _logically_ even though
-_physically_ it is still in the old-fashion chain (prio, proto)?
+drivers/net/ethernet/intel/igb/igb_main.c: warning: symbol
+  'igb_add_mac_filter' was not declared. Should it be static?
+drivers/net/ethernet/intel/igb/igb_main.c: warning: symbol
+  'igb_del_mac_filter' was not declared. Should it be static?
+drivers/net/ethernet/intel/igb/igb_main.c: warning: symbol
+  'igb_set_vf_mac_filter' was not declared. Should it be static?
 
-If so, you have to ensure proto is same since the protocol of
-the packet does not change dynamically? And the original
-priority becomes pointless with chains since we can just to
-any other chain in any order?
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ drivers/net/ethernet/intel/igb/igb_main.c | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
 
-By default, without any chain No., you use 0 for all the chains,
-so the old-fashion chain still works.
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index 1cf74aa4ebd9..b0021819b9d0 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -6457,8 +6457,8 @@ static void igb_set_default_mac_filter(struct igb_adapter *adapter)
+ 	igb_rar_set_index(adapter, 0);
+ }
+ 
+-int igb_add_mac_filter(struct igb_adapter *adapter, const u8 *addr,
+-		       const u8 queue)
++static int igb_add_mac_filter(struct igb_adapter *adapter, const u8 *addr,
++			      const u8 queue)
+ {
+ 	struct e1000_hw *hw = &adapter->hw;
+ 	int rar_entries = hw->mac.rar_entry_count -
+@@ -6487,8 +6487,8 @@ int igb_add_mac_filter(struct igb_adapter *adapter, const u8 *addr,
+ 	return -ENOSPC;
+ }
+ 
+-int igb_del_mac_filter(struct igb_adapter *adapter, const u8 *addr,
+-		       const u8 queue)
++static int igb_del_mac_filter(struct igb_adapter *adapter, const u8 *addr,
++			      const u8 queue)
+ {
+ 	struct e1000_hw *hw = &adapter->hw;
+ 	int rar_entries = hw->mac.rar_entry_count -
+@@ -6540,8 +6540,8 @@ static int igb_uc_unsync(struct net_device *netdev, const unsigned char *addr)
+ 	return 0;
+ }
+ 
+-int igb_set_vf_mac_filter(struct igb_adapter *adapter, const int vf,
+-			  const u32 info, const u8 *addr)
++static int igb_set_vf_mac_filter(struct igb_adapter *adapter, const int vf,
++				 const u32 info, const u8 *addr)
+ {
+ 	struct pci_dev *pdev = adapter->pdev;
+ 	struct vf_data_storage *vf_data = &adapter->vf_data[vf];
+-- 
+2.11.0
 
-Thanks.
