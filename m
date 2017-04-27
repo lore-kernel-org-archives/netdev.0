@@ -1,78 +1,89 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH net-next] rhashtable: compact struct rhashtable_params
-Date: Thu, 27 Apr 2017 17:28:09 +0200
-Message-ID: <20170427152809.6378-1-fw@strlen.de>
-Cc: Florian Westphal <fw@strlen.de>
-To: <netdev@vger.kernel.org>
+From: Piotr Gabriel Kosinski <pg.kosinski@gmail.com>
+Subject: Realtek RTL8101E PCI-E ethernet controller does not work with the
+ r8169 driver
+Date: Thu, 27 Apr 2017 17:31:56 +0200
+Message-ID: <CAFMLSdOBwO4zWZo48EymSGw=4i5DSDfc4VjrxBjWaM5h5DBknw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:59992 "EHLO
-        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S938567AbdD0P1w (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 27 Apr 2017 11:27:52 -0400
+Received: from mail-ua0-f171.google.com ([209.85.217.171]:35230 "EHLO
+        mail-ua0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S938953AbdD0PcD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 27 Apr 2017 11:32:03 -0400
+Received: by mail-ua0-f171.google.com with SMTP id f10so21718519uaa.2
+        for <netdev@vger.kernel.org>; Thu, 27 Apr 2017 08:31:58 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-By using smaller datatypes this struct shrinks considerably
-(80 -> 48 bytes on x86_64).
+The Realtek RTL8101E PCI Express ethernet controller does not work
+with the r8169 driver, on kernel 4.10 (it also did not work on earlier
+kernels). These are the messages from the kernel log:
 
-As this is embedded in other structs, this also reduces size of several
-others, e.g. cls_fl_head and nft_hash.
+[   11.359593] r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
+[   11.359611] r8169 0000:03:00.0: can't disable ASPM; OS doesn't have
+ASPM control
+[   11.359803] r8169 0000:03:00.0 (unnamed net_device)
+(uninitialized): unknown MAC, using family default
+[   11.369802] r8169 0000:03:00.0 (unnamed net_device)
+(uninitialized): rtl_chipcmd_cond == 1 (loop: 100, delay: 100).
+[   11.406668] r8169 0000:03:00.0 eth0: rtl_counters_cond == 1 (loop:
+1000, delay: 10).
+[   11.406815] r8169 0000:03:00.0 eth0: RTL8101e at
+0xffffb3140068d000, ff:ff:ff:ff:ff:ff, XID 9cf0f8ff IRQ 89
+[   11.482740] r8169 0000:03:00.0 enp3s0: renamed from eth0
+[   11.501187] r8169 0000:03:00.0 enp3s0: rtl_counters_cond == 1
+(loop: 1000, delay: 10).
+[   33.348246] r8169 0000:03:00.0 enp3s0: rtl_counters_cond == 1
+(loop: 1000, delay: 10).
+[   34.273602] r8169 0000:03:00.0 enp3s0: rtl_counters_cond == 1
+(loop: 1000, delay: 10).
+[   35.195420] r8169 0000:03:00.0 enp3s0: rtl_counters_cond == 1
+(loop: 1000, delay: 10).
+[   35.678908] r8169 0000:03:00.0 enp3s0: rtl_counters_cond == 1
+(loop: 1000, delay: 10).
+[   36.401291] IPv6: ADDRCONF(NETDEV_UP): enp3s0: link is not ready
+[   36.411989] r8169 0000:03:00.0 enp3s0: rtl_counters_cond == 1
+(loop: 1000, delay: 10).
 
-Signed-off-by: Florian Westphal <fw@strlen.de>
----
- include/linux/rhashtable.h | 18 +++++++++---------
- lib/rhashtable.c           |  2 +-
- 2 files changed, 10 insertions(+), 10 deletions(-)
+the rtl_counters_cond message is then regularly repeated.
 
-diff --git a/include/linux/rhashtable.h b/include/linux/rhashtable.h
-index 8e628feb8708..77cf43166383 100644
---- a/include/linux/rhashtable.h
-+++ b/include/linux/rhashtable.h
-@@ -127,23 +127,23 @@ struct rhashtable;
-  * @head_offset: Offset of rhash_head in struct to be hashed
-  * @max_size: Maximum size while expanding
-  * @min_size: Minimum size while shrinking
-- * @nulls_base: Base value to generate nulls marker
-- * @automatic_shrinking: Enable automatic shrinking of tables
-  * @locks_mul: Number of bucket locks to allocate per cpu (default: 128)
-+ * @automatic_shrinking: Enable automatic shrinking of tables
-+ * @nulls_base: Base value to generate nulls marker
-  * @hashfn: Hash function (default: jhash2 if !(key_len % 4), or jhash)
-  * @obj_hashfn: Function to hash object
-  * @obj_cmpfn: Function to compare key with object
-  */
- struct rhashtable_params {
--	size_t			nelem_hint;
--	size_t			key_len;
--	size_t			key_offset;
--	size_t			head_offset;
-+	u16			nelem_hint;
-+	u16			key_len;
-+	u16			key_offset;
-+	u16			head_offset;
- 	unsigned int		max_size;
--	unsigned int		min_size;
--	u32			nulls_base;
-+	u16			min_size;
- 	bool			automatic_shrinking;
--	size_t			locks_mul;
-+	u8			locks_mul;
-+	u32			nulls_base;
- 	rht_hashfn_t		hashfn;
- 	rht_obj_hashfn_t	obj_hashfn;
- 	rht_obj_cmpfn_t		obj_cmpfn;
-diff --git a/lib/rhashtable.c b/lib/rhashtable.c
-index 1fd7986aa9b4..4462676a26f2 100644
---- a/lib/rhashtable.c
-+++ b/lib/rhashtable.c
-@@ -961,7 +961,7 @@ int rhashtable_init(struct rhashtable *ht,
- 	if (params->max_size)
- 		ht->p.max_size = rounddown_pow_of_two(params->max_size);
- 
--	ht->p.min_size = max(ht->p.min_size, HASH_MIN_SIZE);
-+	ht->p.min_size = max_t(u16, ht->p.min_size, HASH_MIN_SIZE);
- 
- 	if (params->nelem_hint)
- 		size = rounded_hashtable_size(&ht->p);
--- 
-2.10.2
+ifconfig's ether address shows ff:ff:ff:ff:ff:ff
+
+
+If that is of any help - the controller works on FreeBSD's re driver,
+but only when the following two loader options are set:
+hw.re.msix_disable=1
+hw.re.prefer_iomap=1
+
+Both of these options must be set to 1. If prefer_iomap is not set,
+there are messages like:
+re0: reset never completed!
+re0: PHY write failed
+re0: attaching PHYs failed
+device_attach: re0 attach returned 6
+
+If msix_disable is not set (msix is enabled), there are no error
+messages and mac address is read correctly, but the controller does
+not work (no connection can be established, e.g. DHCP).
+
+If both of the above options are set to 1, the controller works fine,
+with the following messages:
+re0: <RealTek 810xE PCIe 10/100baseTX> port 0xe000-0xe0ff mem
+0xe0004000-0xe0004fff,0xe0000000-0xe0003fff at device 0.0 on pci2
+re0: Using 1 MSI message
+re0: Chip rev. 0x44800000
+re0: MAC rev. 0x00100000
+miibus0: <MII bus> on re0
+rlphy0: <RTL8201E 10/100 media interface> PHY 1 on miibus0
+rlphy0: 10baseT, 100baseT-FDX, 100baseTX, 100baseTX-FDX, auto, auto-flow
+re0: Using defaults for TSO: 65518/35/2048
+re0: netmap queues/slots: TX 1/256, RX 1/256
+re0: link state changed to DOWN
+re0: link state changed to UP
+
+The problem occurs e.g. on Intel Atom-based Toshiba NB10-A-104 Netbook.
+In the next mail I will attach lspci -vvv output.
+
+Thank you,
+Piotr.
