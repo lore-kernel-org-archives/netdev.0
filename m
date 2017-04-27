@@ -1,90 +1,36 @@
-From: Alexei Starovoitov <ast@fb.com>
-Subject: Re: xdp_redirect ifindex vs port. Was: best API for returning/setting
- egress port?
-Date: Thu, 27 Apr 2017 16:31:14 -0700
-Message-ID: <53e9dd2f-f40a-b43b-99c9-62f5ce3a665c@fb.com>
-References: <58F7E9F3.5090604@iogearbox.net>
- <20170420025611.GA53935@ast-mbp.thefacebook.com>
- <20170420081051.77a41aa8@redhat.com>
- <20170420171006.GA97067@ast-mbp.thefacebook.com>
- <20170425113453.5c72080f@redhat.com>
- <20170426002610.eihwmz4knbmrolfw@ast-mbp.dhcp.thefacebook.com>
- <59000EF6.1050204@gmail.com> <20170426111158.578b925e@redhat.com>
- <5900CC41.2070502@gmail.com> <c9b3ff9b-8938-3274-da29-c04f9da2a314@fb.com>
- <20170426205544.GA40859@C02RW35GFVH8> <20170427104121.32df2178@redhat.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [Patch net-next] ipv4: get rid of ip_ra_lock
+Date: Thu, 27 Apr 2017 16:46:25 -0700
+Message-ID: <CAM_iQpXexP9OzzqyPJ-yHmyq-ZF=cNboaG8566yaxZKbn0+TTg@mail.gmail.com>
+References: <1493240115-779-1-git-send-email-xiyou.wangcong@gmail.com> <1493297179.6453.105.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: John Fastabend <john.fastabend@gmail.com>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Daniel Borkmann <borkmann@iogearbox.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "xdp-newbies@vger.kernel.org" <xdp-newbies@vger.kernel.org>
-To: Jesper Dangaard Brouer <brouer@redhat.com>,
-        Andy Gospodarek <andy@greyhouse.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:43488 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1755227AbdD0Xbk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 27 Apr 2017 19:31:40 -0400
-In-Reply-To: <20170427104121.32df2178@redhat.com>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:33833 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754271AbdD0Xqq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 27 Apr 2017 19:46:46 -0400
+Received: by mail-wm0-f66.google.com with SMTP id z129so7811275wmb.1
+        for <netdev@vger.kernel.org>; Thu, 27 Apr 2017 16:46:46 -0700 (PDT)
+In-Reply-To: <1493297179.6453.105.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 4/27/17 1:41 AM, Jesper Dangaard Brouer wrote:
-> When registering/attaching a XDP/bpf program, we would just send the
-> file-descriptor for this port-map along (like we do with the bpf_prog
-> FD). Plus, it own ingress-port number this program is in the port-map.
+On Thu, Apr 27, 2017 at 5:46 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Wed, 2017-04-26 at 13:55 -0700, Cong Wang wrote:
+>> After commit 1215e51edad1 ("ipv4: fix a deadlock in ip_ra_control")
+>> we always take RTNL lock for ip_ra_control() which is the only place
+>> we update the list ip_ra_chain, so the ip_ra_lock is no longer needed,
+>> we just need to disable BH there.
+>>
+>> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+>> ---
 >
-> It is not clear to me, in-which-data-structure on the kernel-side we
-> store this reference to the port-map and ingress-port. As today we only
-> have the "raw" struct bpf_prog pointer. I see several options:
+> Looks great, but reading again this code, I believe we do not need to
+> disable BH at all ?
 >
-> 1. Create a new xdp_prog struct that contains existing bpf_prog,
-> a port-map pointer and ingress-port. (IMHO easiest solution)
->
-> 2. Just create a new pointer to port-map and store it in driver rx-ring
-> struct (like existing bpf_prog), but this create a race-challenge
-> replacing (cmpxchg) the program (or perhaps it's not a problem as it
-> runs under rcu and RTNL-lock).
->
-> 3. Extend bpf_prog to store this port-map and ingress-port, and have a
-> fast-way to access it.  I assume it will be accessible via
-> bpf_prog->bpf_prog_aux->used_maps[X] but it will be too slow for XDP.
 
-I'm not sure I completely follow the 3 proposals.
-Are you suggesting to have only one netdev_array per program?
-Why not to allow any number like we do for tailcall+prog_array, etc?
-We can teach verifier to allow new helper
-bpf_tx_port(netdev_array, port_num);
-to only be used with netdev_array map type.
-It will fetch netdevice pointer from netdev_array[port_num]
-and will tx the packet into it.
-We can make it similar to bpf_tail_call(), so that program will
-finish on successful bpf_tx_port() or
-make it into 'delayed' tx which will be executed when program finishes.
-Not sure which approach is better.
-
-We can also extend this netdev_array into broadcast/multicast. Like
-bpf_tx_allports(&netdev_array);
-call from the program will xmit the packet to all netdevices
-in that 'netdev_array' map type.
-
-The map-in-map support can be trivially extended to allow netdev_array,
-then the program can create N multicast groups of netdevices.
-Each multicast group == one netdev_array map.
-The user space will populate a hashmap with these netdev_arrays and
-bpf kernel side can select dynamically which multicast group to use
-to send the packets to.
-bpf kernel side may look like:
-struct bpf_netdev_array *netdev_array = bpf_map_lookup_elem(&hash, key);
-if (!netdev_array)
-   ...
-if (my_condition)
-    bpf_tx_allports(netdev_array);  /* broadcast to all netdevices */
-else
-    bpf_tx_port(netdev_array, port_num); /* tx into one netdevice */
-
-that's an artificial example. Just trying to point out
-that we shouldn't restrict the feature too soon.
+Hmm, if we don't disable BH here, a reader in BH could jump in and
+break this critical section? Or that is fine for RCU?
