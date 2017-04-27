@@ -1,47 +1,95 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH net-next] tcp: tcp_rack_reo_timeout() must update tp->tcp_mstamp
-Date: Thu, 27 Apr 2017 10:10:22 -0400
-Message-ID: <CADVnQykZguANOQSznrE6fp0YfyUgK1YbVG99ATtyFVqZFnLS-w@mail.gmail.com>
-References: <1493266255.6453.103.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Timmy Li <lixiaoping3@huawei.com>
+Subject: [PATCH net] net: hns: fix ethtool_get_strings overflow in hns driver
+Date: Thu, 27 Apr 2017 22:18:16 +0800
+Message-ID: <20170427141816.301212-1-lixiaoping3@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Soheil Hassas Yeganeh <soheil@google.com>,
-        Yuchung Cheng <ycheng@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f44.google.com ([209.85.218.44]:34672 "EHLO
-        mail-oi0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751184AbdD0OKx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 27 Apr 2017 10:10:53 -0400
-Received: by mail-oi0-f44.google.com with SMTP id x184so38956551oia.1
-        for <netdev@vger.kernel.org>; Thu, 27 Apr 2017 07:10:53 -0700 (PDT)
-In-Reply-To: <1493266255.6453.103.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <mbrugger@suse.com>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>, <linuxarm@huawei.com>,
+        Timmy Li <lixiaoping3@huawei.com>
+To: <davem@davemloft.net>, <huangdaode@hisilicon.com>,
+        <lipeng321@huawei.com>, <yisen.zhuang@huawei.com>,
+        <salil.mehta@huawei.com>, <yankejian@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 27, 2017 at 12:10 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> From: Eric Dumazet <edumazet@google.com>
->
-> I wrongly assumed tp->tcp_mstamp was up to date at the time
-> tcp_rack_reo_timeout() was called.
->
-> It is not true, since we only update tcp->tcp_mstamp when receiving
-> a packet (as initially done in commit 69e996c58a35 ("tcp: add
-> tp->tcp_mstamp field")
->
-> tcp_rack_reo_timeout() being called by a timer and not an incoming
-> packet, we need to refresh tp->tcp_mstamp
->
-> Fixes: 7c1c7308592f ("tcp: do not pass timestamp to tcp_rack_detect_loss()")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Soheil Hassas Yeganeh <soheil@google.com>
-> Cc: Neal Cardwell <ncardwell@google.com>
-> Cc: Yuchung Cheng <ycheng@google.com>
+hns_get_sset_count() returns HNS_NET_STATS_CNT and the data space allocated
+is not enough for ethtool_get_strings(), which will cause random memory
+corruption.
 
-Acked-by: Neal Cardwell <ncardwell@google.com>
+When SLAB and DEBUG_SLAB are both enabled, memory corruptions like the
+the following can be observed without this patch:
+[   43.115200] Slab corruption (Not tainted): Acpi-ParseExt start=ffff801fb0b69030, len=80
+[   43.115206] Redzone: 0x9f911029d006462/0x5f78745f31657070.
+[   43.115208] Last user: [<5f7272655f746b70>](0x5f7272655f746b70)
+[   43.115214] 010: 70 70 65 31 5f 74 78 5f 70 6b 74 00 6b 6b 6b 6b  ppe1_tx_pkt.kkkk
+[   43.115217] 030: 70 70 65 31 5f 74 78 5f 70 6b 74 5f 6f 6b 00 6b  ppe1_tx_pkt_ok.k
+[   43.115218] Next obj: start=ffff801fb0b69098, len=80
+[   43.115220] Redzone: 0x706d655f6f666966/0x9f911029d74e35b.
+[   43.115229] Last user: [<ffff0000084b11b0>](acpi_os_release_object+0x28/0x38)
+[   43.115231] 000: 74 79 00 6b 6b 6b 6b 6b 70 70 65 31 5f 74 78 5f  ty.kkkkkppe1_tx_
+[   43.115232] 010: 70 6b 74 5f 65 72 72 5f 63 73 75 6d 5f 66 61 69  pkt_err_csum_fai
 
-Thanks!
+Signed-off-by: Timmy Li <lixiaoping3@huawei.com>
+---
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c  | 2 +-
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c   | 2 +-
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c   | 2 +-
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_xgmac.c | 2 +-
+ 4 files changed, 4 insertions(+), 4 deletions(-)
 
-neal
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c
+index 3382441..7faeb5b 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c
+@@ -672,7 +672,7 @@ static void hns_gmac_get_strings(u32 stringset, u8 *data)
+ 
+ static int hns_gmac_get_sset_count(int stringset)
+ {
+-	if (stringset == ETH_SS_STATS)
++	if ((stringset == ETH_SS_STATS) || (stringset == ETH_SS_PRIV_FLAGS))
+ 		return ARRAY_SIZE(g_gmac_stats_string);
+ 
+ 	return 0;
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
+index 6ea8722..e3e8772 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
+@@ -422,7 +422,7 @@ void hns_ppe_update_stats(struct hns_ppe_cb *ppe_cb)
+ 
+ int hns_ppe_get_sset_count(int stringset)
+ {
+-	if (stringset == ETH_SS_STATS)
++	if ((stringset == ETH_SS_STATS) || (stringset == ETH_SS_PRIV_FLAGS))
+ 		return ETH_PPE_STATIC_NUM;
+ 	return 0;
+ }
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c
+index f0ed80d6..01a0a03 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c
+@@ -799,7 +799,7 @@ void hns_rcb_get_stats(struct hnae_queue *queue, u64 *data)
+  */
+ int hns_rcb_get_ring_sset_count(int stringset)
+ {
+-	if (stringset == ETH_SS_STATS)
++	if ((stringset == ETH_SS_STATS) || (stringset == ETH_SS_PRIV_FLAGS))
+ 		return HNS_RING_STATIC_REG_NUM;
+ 
+ 	return 0;
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_xgmac.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_xgmac.c
+index aae830a..f10b25c 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_xgmac.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_xgmac.c
+@@ -793,7 +793,7 @@ static void hns_xgmac_get_strings(u32 stringset, u8 *data)
+  */
+ static int hns_xgmac_get_sset_count(int stringset)
+ {
+-	if (stringset == ETH_SS_STATS)
++	if ((stringset == ETH_SS_STATS) || (stringset == ETH_SS_PRIV_FLAGS))
+ 		return ARRAY_SIZE(g_xgmac_stats_string);
+ 
+ 	return 0;
+-- 
+1.9.1
