@@ -1,45 +1,136 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [RFC net-next 0/2] Introduce bpf_prog ID and iteration
-Date: Thu, 27 Apr 2017 15:36:59 +0200
-Message-ID: <e81805c8-0499-a0a5-b788-0168947d9b8c@stressinduktion.org>
-References: <20170427062449.80290-1-kafai@fb.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-        Alexei Starovoitov <ast@fb.com>, kernel-team@fb.com
-To: Martin KaFai Lau <kafai@fb.com>, netdev@vger.kernel.org
+From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Subject: [PATCH v1 1/3] bnx2x: Replace custom scnprintf()
+Date: Thu, 27 Apr 2017 16:36:59 +0300
+Message-ID: <20170427133701.72701-1-andriy.shevchenko@linux.intel.com>
+Cc: Andy Shevchenko <andy.shevchenko@gmail.com>
+To: Yuval Mintz <Yuval.Mintz@qlogic.com>,
+        Ariel Elior <ariel.elior@cavium.com>,
+        everest-linux-l2@cavium.com,
+        "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out4-smtp.messagingengine.com ([66.111.4.28]:52515 "EHLO
-        out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751294AbdD0NhB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 27 Apr 2017 09:37:01 -0400
-In-Reply-To: <20170427062449.80290-1-kafai@fb.com>
-Content-Language: en-US
+Received: from mga09.intel.com ([134.134.136.24]:17339 "EHLO mga09.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751294AbdD0NhF (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 27 Apr 2017 09:37:05 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 27.04.2017 08:24, Martin KaFai Lau wrote:
-> This patchset introduces the bpf_prog ID and a new bpf cmd to
-> iterate all bpf_prog in the system.
-> 
-> It is still incomplete.  The idea can be extended to bpf_map.
-> 
-> Martin KaFai Lau (2):
->   bpf: Introduce bpf_prog ID
->   bpf: Test for bpf_prog ID and BPF_PROG_GET_NEXT_ID
+From: Andy Shevchenko <andy.shevchenko@gmail.com>
 
-Thanks Martin, I like the approach.
+Use scnprintf() when printing version instead of custom open coded variants.
 
-I think the progid is also much more suitable to be used in kallsyms
-because it handles collisions correctly and let's correctly walk the
-chain (for example imaging loading two identical programs but install
-them at different hooks, kallsysms doesn't allow to find out which
-program is installed where).
+Signed-off-by: Andy Shevchenko <andy.shevchenko@gmail.com>
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c | 79 +++---------------------
+ 1 file changed, 9 insertions(+), 70 deletions(-)
 
-It would help a lot if you could pass the prog_id back during program
-creation, otherwise it will be kind of difficult to get a hold on which
-program is where. ;)
-
-Thanks,
-Hannes
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
+index b209b7f6093e..2acc4f081818 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
+@@ -6163,94 +6163,33 @@ static void bnx2x_link_int_ack(struct link_params *params,
+ 
+ static int bnx2x_format_ver(u32 num, u8 *str, u16 *len)
+ {
+-	u8 *str_ptr = str;
+-	u32 mask = 0xf0000000;
+-	u8 shift = 8*4;
+-	u8 digit;
+-	u8 remove_leading_zeros = 1;
++	u16 ret;
++
+ 	if (*len < 10) {
+ 		/* Need more than 10chars for this format */
+-		*str_ptr = '\0';
++		*str = '\0';
+ 		(*len)--;
+ 		return -EINVAL;
+ 	}
+-	while (shift > 0) {
+ 
+-		shift -= 4;
+-		digit = ((num & mask) >> shift);
+-		if (digit == 0 && remove_leading_zeros) {
+-			*str_ptr = '0';
+-		} else {
+-			if (digit < 0xa)
+-				*str_ptr = digit + '0';
+-			else
+-				*str_ptr = digit - 0xa + 'a';
+-
+-			remove_leading_zeros = 0;
+-			str_ptr++;
+-			(*len)--;
+-		}
+-		mask = mask >> 4;
+-		if (shift == 4*4) {
+-			if (remove_leading_zeros) {
+-				str_ptr++;
+-				(*len)--;
+-			}
+-			*str_ptr = '.';
+-			str_ptr++;
+-			(*len)--;
+-			remove_leading_zeros = 1;
+-		}
+-	}
+-	if (remove_leading_zeros)
+-		(*len)--;
++	ret = scnprintf(str, *len, "%hx.%hx", num >> 16, num);
++	*len -= ret;
+ 	return 0;
+ }
+ 
+ static int bnx2x_3_seq_format_ver(u32 num, u8 *str, u16 *len)
+ {
+-	u8 *str_ptr = str;
+-	u32 mask = 0x00f00000;
+-	u8 shift = 8*3;
+-	u8 digit;
+-	u8 remove_leading_zeros = 1;
++	u16 ret;
+ 
+ 	if (*len < 10) {
+ 		/* Need more than 10chars for this format */
+-		*str_ptr = '\0';
++		*str = '\0';
+ 		(*len)--;
+ 		return -EINVAL;
+ 	}
+ 
+-	while (shift > 0) {
+-		shift -= 4;
+-		digit = ((num & mask) >> shift);
+-		if (digit == 0 && remove_leading_zeros) {
+-			*str_ptr = '0';
+-		} else {
+-			if (digit < 0xa)
+-				*str_ptr = digit + '0';
+-			else
+-				*str_ptr = digit - 0xa + 'a';
+-
+-			remove_leading_zeros = 0;
+-			str_ptr++;
+-			(*len)--;
+-		}
+-		mask = mask >> 4;
+-		if ((shift == 4*4) || (shift == 4*2)) {
+-			if (remove_leading_zeros) {
+-				str_ptr++;
+-				(*len)--;
+-			}
+-			*str_ptr = '.';
+-			str_ptr++;
+-			(*len)--;
+-			remove_leading_zeros = 1;
+-		}
+-	}
+-	if (remove_leading_zeros)
+-		(*len)--;
++	ret = scnprintf(str, *len, "%hhx.%hhx.%hhx", num >> 16, num >> 8, num);
++	*len -= ret;
+ 	return 0;
+ }
+ 
+-- 
+2.11.0
