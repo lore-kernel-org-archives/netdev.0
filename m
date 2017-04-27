@@ -1,47 +1,89 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [PATCH net-next] net: bridge: Fix improper taking over
- HW learned FDB
-Date: Thu, 27 Apr 2017 15:33:33 +0300
-Message-ID: <b096c9c6-481a-6d87-6d4e-99479d78a089@cumulusnetworks.com>
-References: <1493280485-37845-1-git-send-email-arkadis@mellanox.com>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [PATCH RFC net-next v4 0/7] net: improve support for SCTP
+ checksums
+Date: Thu, 27 Apr 2017 09:41:38 -0300
+Message-ID: <20170427124138.GB3216@localhost.localdomain>
+References: <CALx6S36rem=OuN_At6qYA=se5cpuYM1N2R8efoaszvo8b8Tz5A@mail.gmail.com>
+ <cover.1492692976.git.dcaratti@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Ido Schimmel <idosch@mellanox.com>, bridge@lists.linux-foundation.org,
-	davem@davemloft.net
-To: Arkadi Sharshevsky <arkadis@mellanox.com>, netdev@vger.kernel.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1493280485-37845-1-git-send-email-arkadis@mellanox.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Tom Herbert <tom@herbertland.com>,
+        Alexander Duyck <alexander.duyck@gmail.com>,
+        David Laight <David.Laight@aculab.com>,
+        "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        linux-sctp@vger.kernel.org
+To: Davide Caratti <dcaratti@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:49974 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1032217AbdD0Mln (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 27 Apr 2017 08:41:43 -0400
+Content-Disposition: inline
+In-Reply-To: <cover.1492692976.git.dcaratti@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 27/04/17 11:08, Arkadi Sharshevsky wrote:
-> Commit 7e26bf45e4cb ("net: bridge: allow SW learn to take over HW fdb
-> entries") added the ability to "take over an entry which was previously
-> learned via HW when it shows up from a SW port".
+On Thu, Apr 20, 2017 at 03:38:06PM +0200, Davide Caratti wrote:
+> hello Tom,
 > 
-> However, if an entry was learned via HW and then a control packet
-> (e.g., ARP request) was trapped to the CPU, the bridge driver will
-> update the entry and remove the externally learned flag, although the
-> entry is still present in HW. Instead, only clear the externally learned
-> flag in case of roaming.
+> On Fri, 2017-04-07 at 11:11 -0700, Tom Herbert wrote:
+> > maybe just call it csum_not_ip then. Then just do "if
+> > (unlikely(skb->csum_not_ip)) ..."
 > 
-> Fixes: 7e26bf45e4cb ("net: bridge: allow SW learn to take over HW fdb entries")
-> Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-> Signed-off-by: Arkadi Sharashevsky <arkadis@mellanox.com>
-> Cc: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-> ---
->  net/bridge/br_fdb.c | 6 +++---
->  1 file changed, 3 insertions(+), 3 deletions(-)
+> Ok, done. V4 uses this bit for SCTP only and leaves unmodified behavior
+> when offloaded FCoE frames are processed. Further work is still possible
+> to extend this fix for FCoE, if needed, either by using additional sk_buff
+> bits, or using skb->csum_not_ip and use other data (e.g. skb->csum_offset)
+> to distinguish SCTP from FCoE.
+> 
+> > the only case where this new bit is relevant is when
+> > CHECKSUM_PARTIAL for a CRC is being done. When it's set for offloading
+> > sctp crc it must be set. When CRC is resolved, in the helper for
+> > instance, it must be cleared.
+> 
+> in V4 the bit is set when SCTP packets with offloaded checksum are
+> generated; the bit is cleared when CRC32c is resolved for such packets
+> (i.e. skb->ip_summed transitions from CHECKSUM_PARTIAL to CHECKSUM_NONE).
+> 
+> Any feedbacks are appreciated!
+> thank you in advance,
+> --
+> davide
+> 
+> 
+> Davide Caratti (7):
+>   skbuff: add stub to help computing crc32c on SCTP packets
+>   net: introduce skb_crc32c_csum_help
+>   sk_buff: remove support for csum_bad in sk_buff
+>   net: use skb->csum_not_inet to identify packets needing crc32c
+>   net: more accurate checksumming in validate_xmit_skb()
+>   openvswitch: more accurate checksumming in queue_userspace_packet()
+>   sk_buff.h: improve description of CHECKSUM_{COMPLETE,UNNECESSARY}
 
-Thanks!
+Other than the comments I did on patch 2, this series LGTM.
 
-Acked-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+
+> 
+>  Documentation/networking/checksum-offloads.txt   | 11 +++--
+>  drivers/net/ethernet/aquantia/atlantic/aq_ring.c |  2 +-
+>  include/linux/netdevice.h                        |  8 +--
+>  include/linux/skbuff.h                           | 58 +++++++++-------------
+>  net/bridge/netfilter/nft_reject_bridge.c         |  5 +-
+>  net/core/dev.c                                   | 63 +++++++++++++++++++++---
+>  net/core/skbuff.c                                | 24 +++++++++
+>  net/ipv4/netfilter/nf_reject_ipv4.c              |  2 +-
+>  net/ipv6/netfilter/nf_reject_ipv6.c              |  3 --
+>  net/openvswitch/datapath.c                       |  2 +-
+>  net/sched/act_csum.c                             |  1 +
+>  net/sctp/offload.c                               |  8 +++
+>  net/sctp/output.c                                |  1 +
+>  13 files changed, 128 insertions(+), 60 deletions(-)
+> 
+> -- 
+> 2.7.4
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
