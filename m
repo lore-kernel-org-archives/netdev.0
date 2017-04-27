@@ -1,44 +1,82 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next 8/9] ipvlan: improve compiler hints
-Date: Thu, 27 Apr 2017 15:27:13 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DCFFE070F@AcuExch.aculab.com>
-References: <20170427145142.15830-1-marco.chiappero@intel.com>
- <20170427145142.15830-9-marco.chiappero@intel.com>
- <B1C1DF2ACD01FD4881736AA51731BAB2B2EFB2@ORSMSX107.amr.corp.intel.com>
+From: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Subject: Re: [PATCH v2 01/21] scatterlist: Introduce sg_map helper functions
+Date: Thu, 27 Apr 2017 09:27:20 -0600
+Message-ID: <20170427152720.GA7662@obsidianresearch.com>
+References: <1493144468-22493-1-git-send-email-logang@deltatee.com>
+ <1493144468-22493-2-git-send-email-logang@deltatee.com>
+ <20170426074416.GA7936@lst.de>
+ <4736d44e-bbcf-5d59-a1a9-317d0f4da847@deltatee.com>
+ <20170427065338.GA20677@lst.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "David S . Miller" <davem@davemloft.net>,
-        "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-        "Grandhi, Sainath" <sainath.grandhi@intel.com>,
-        Mahesh Bandewar <maheshb@google.com>
-To: "'Duyck, Alexander H'" <alexander.h.duyck@intel.com>,
-        "Chiappero, Marco" <marco.chiappero@intel.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.182]:63952 "EHLO
-        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S936346AbdD0P1Y (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 27 Apr 2017 11:27:24 -0400
-In-Reply-To: <B1C1DF2ACD01FD4881736AA51731BAB2B2EFB2@ORSMSX107.amr.corp.intel.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: linux-nvdimm-y27Ovi1pjclAfugRpC6u6w@public.gmane.org, dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org,
+ dm-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, target-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ Sumit Semwal <sumit.semwal-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org,
+ "James E.J. Bottomley" <jejb-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>, linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ Matthew Wilcox <mawilcox-0li6OtcxBFHby3iVrkZq2A@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org, linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ intel-gfx-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org, sparmaintainer-GLv8BlqOqDDQT0dZR+AlfA@public.gmane.org,
+ linux-raid-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, megaraidlinux.pdl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
+ Jens Axboe <axboe-tSWWG44O7X1aa/9Udqfwiw@public.gmane.org>,
+ "Martin K. Petersen" <martin.petersen-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
+ Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>, linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-crypto-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>
+Return-path: <linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20170427065338.GA20677-jcswGhMUV9g@public.gmane.org>
+List-Unsubscribe: <https://lists.01.org/mailman/options/linux-nvdimm>,
+ <mailto:linux-nvdimm-request-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.01.org/pipermail/linux-nvdimm/>
+List-Post: <mailto:linux-nvdimm-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
+List-Help: <mailto:linux-nvdimm-request-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.01.org/mailman/listinfo/linux-nvdimm>,
+ <mailto:linux-nvdimm-request-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org?subject=subscribe>
+Errors-To: linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org
+Sender: "Linux-nvdimm" <linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-From: Duyck, Alexander H
-> Sent: 27 April 2017 16:21
-...
-> > -unsigned int ipvlan_mac_hash(const unsigned char *addr)
-> > +inline unsigned int ipvlan_mac_hash(const unsigned char *addr)
-> >  {
-> >  	u32 hash = jhash_1word(__get_unaligned_cpu32(addr + 2),
-> >  			       ipvlan_jhash_secret);
+On Thu, Apr 27, 2017 at 08:53:38AM +0200, Christoph Hellwig wrote:
+
+> > The main difficulty we
+> > have now is that neither of those functions are expected to fail and we
+> > need them to be able to in cases where the page doesn't map to system
+> > RAM. This patch series is trying to address it for users of scatterlist.
+> > I'm certainly open to other suggestions.
 > 
-> I'm kind of surprised this isn't causing a problem with differing declarations between the declaration
-> here and the declaration in ipvlan.h. Normally for inlining something like this you would change it to
-> a "static inline" and move the entire declaration into the header file.
+> I think you'll need to follow the existing kmap semantics and never
+> fail the iomem version either.  Otherwise you'll have a special case
+> that's almost never used that has a different error path.
 
-You get a callable copy for external callers and local calls inlined.
-Not usually what you want.
+How about first switching as many call sites as possible to use
+sg_copy_X_buffer instead of kmap?
 
-	David
+A random audit of Logan's series suggests this is actually a fairly
+common thing.
+
+eg drivers/mmc/host/sdhci.c is only doing this:
+
+                                        buffer = sdhci_kmap_atomic(sg, &flags);
+                                        memcpy(buffer, align, size);
+                                        sdhci_kunmap_atomic(buffer, &flags);
+
+drivers/scsi/mvsas/mv_sas.c is this:
+
++			to = sg_map(sg_resp, 0, SG_KMAP_ATOMIC);
++			memcpy(to,
++			       slot->response + sizeof(struct mvs_err_info),
++			       sg_dma_len(sg_resp));
++			sg_unmap(sg_resp, to, 0, SG_KMAP_ATOMIC);
+
+etc.
+
+Lots of other places seem similar, if not sometimes a little bit more
+convoluted..
+
+Switching all the trivial cases to use copy might bring more clarity
+as to what is actually required for the remaining few users? If there
+are only a few then it may no longer matter if the API is not idyllic.
+
+Jason
