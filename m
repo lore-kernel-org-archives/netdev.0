@@ -1,96 +1,44 @@
-From: Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH net] bonding: avoid defaulting hard_header_len to ETH_HLEN on slave removal
-Date: Thu, 27 Apr 2017 19:29:34 +0200
-Message-ID: <733d454d3c36e99b55de5374c7664364975b171d.1493313626.git.pabeni@redhat.com>
-Cc: Jay Vosburgh <j.vosburgh-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Honggang LI <honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net v4 3/3] net: hns: fixed bug that skb used after kfree
+Date: Thu, 27 Apr 2017 10:38:29 -0700
+Message-ID: <eb7eaead-f32c-0ffb-3b24-0d6e11a60843@gmail.com>
+References: <1493261053-68197-1-git-send-email-yankejian@huawei.com>
+ <1493261053-68197-4-git-send-email-yankejian@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linuxarm@huawei.com
+To: Yankejian <yankejian@huawei.com>, davem@davemloft.net,
+        salil.mehta@huawei.com, yisen.zhuang@huawei.com,
+        matthias.bgg@gmail.com, lipeng321@huawei.com, zhouhuiru@huawei.com,
+        huangdaode@hisilicon.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f196.google.com ([209.85.128.196]:34861 "EHLO
+        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751355AbdD0Rif (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 27 Apr 2017 13:38:35 -0400
+Received: by mail-wr0-f196.google.com with SMTP id g12so4555956wrg.2
+        for <netdev@vger.kernel.org>; Thu, 27 Apr 2017 10:38:35 -0700 (PDT)
+In-Reply-To: <1493261053-68197-4-git-send-email-yankejian@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On slave list updates, the bonding driver computes its hard_header_len
-as the maximum of all enslaved devices's hard_header_len.
-If the slave list is empty, e.g. on last enslaved device removal,
-ETH_HLEN is used.
+On 04/26/2017 07:44 PM, Yankejian wrote:
+>  	struct hns_nic_priv *priv = netdev_priv(ndev);
+>  	struct hnae_ring *ring = ring_data->ring;
+> @@ -361,6 +361,10 @@ int hns_nic_net_xmit_hw(struct net_device *ndev,
+>  	dev_queue = netdev_get_tx_queue(ndev, skb->queue_mapping);
+>  	netdev_tx_sent_queue(dev_queue, skb->len);
+>  
+> +	netif_trans_update(ndev);
+> +	ndev->stats.tx_bytes += skb->len;
+> +	ndev->stats.tx_packets++;
 
-Since the bonding header_ops are set only when the first enslaved
-device is attached, the above can lead to header_ops->create()
-being called with the wrong skb headroom in place.
-
-If bond0 is configured on top of ipoib devices, with the
-following commands:
-
-ifup bond0
-for slave in $BOND_SLAVES_LIST; do
-	ip link set dev $slave nomaster
-done
-ping -c 1 <ip on bond0 subnet>
-
-we will obtain a skb_under_panic() with a similar call trace:
-	skb_push+0x3d/0x40
-	push_pseudo_header+0x17/0x30 [ib_ipoib]
-	ipoib_hard_header+0x4e/0x80 [ib_ipoib]
-	arp_create+0x12f/0x220
-	arp_send_dst.part.19+0x28/0x50
-	arp_solicit+0x115/0x290
-	neigh_probe+0x4d/0x70
-	__neigh_event_send+0xa7/0x230
-	neigh_resolve_output+0x12e/0x1c0
-	ip_finish_output2+0x14b/0x390
-	ip_finish_output+0x136/0x1e0
-	ip_output+0x76/0xe0
-	ip_local_out+0x35/0x40
-	ip_send_skb+0x19/0x40
-	ip_push_pending_frames+0x33/0x40
-	raw_sendmsg+0x7d3/0xb50
-	inet_sendmsg+0x31/0xb0
-	sock_sendmsg+0x38/0x50
-	SYSC_sendto+0x102/0x190
-	SyS_sendto+0xe/0x10
-	do_syscall_64+0x67/0x180
-	entry_SYSCALL64_slow_path+0x25/0x25
-
-This change addresses the issue avoiding updating the bonding device
-hard_header_len when the slaves list become empty, forbidding to
-shrink it below the value used by header_ops->create().
-
-The bug is there since commit 54ef31371407 ("[PATCH] bonding: Handle large
-hard_header_len") but the panic can be triggered only since
-commit fc791b633515 ("IB/ipoib: move back IB LL address into the hard
-header").
-
-Reported-by: Norbert P <noe-PRwTpj6vllL463JZfw7VRw@public.gmane.org>
-Fixes: 54ef31371407 ("[PATCH] bonding: Handle large hard_header_len")
-Fixes: fc791b633515 ("IB/ipoib: move back IB LL address into the hard header")
-Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Signed-off-by: Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
----
- drivers/net/bonding/bond_main.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 8a4ba8b..34481c9 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -1104,11 +1104,11 @@ static void bond_compute_features(struct bonding *bond)
- 		gso_max_size = min(gso_max_size, slave->dev->gso_max_size);
- 		gso_max_segs = min(gso_max_segs, slave->dev->gso_max_segs);
- 	}
-+	bond_dev->hard_header_len = max_hard_header_len;
- 
- done:
- 	bond_dev->vlan_features = vlan_features;
- 	bond_dev->hw_enc_features = enc_features | NETIF_F_GSO_ENCAP_ALL;
--	bond_dev->hard_header_len = max_hard_header_len;
- 	bond_dev->gso_max_segs = gso_max_segs;
- 	netif_set_gso_max_size(bond_dev, gso_max_size);
- 
+This is still wrong though, you should not update your TX statistics
+until you get a TX completion interrupt that confirms these packets were
+actually transmitted. This has the advantage of not causing use after
+free in your ndo_start_xmit() function (current bug), and also allows
+feeding information into BQL where it is appropriate, and in a central
+location: the TX completion handler.
 -- 
-2.9.3
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Florian
