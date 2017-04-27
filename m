@@ -1,57 +1,78 @@
-From: "Gao Feng" <gfree.wind@foxmail.com>
-Subject: RE: [PATCH net] driver/net: Fix possible memleaks when fail to register_netdevice
-Date: Thu, 27 Apr 2017 16:33:09 +0800
-Message-ID: <007001d2bf30$e751f850$b5f5e8f0$@foxmail.com>
-References: <1493121710-27910-1-git-send-email-gfree.wind@foxmail.com> <20170427081559.GA1058@gondor.apana.org.au>
+From: Johan Hovold <johan-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH] net: hso: register netdev later to avoid a race condition
+Date: Thu, 27 Apr 2017 10:44:01 +0200
+Message-ID: <20170427084401.GP2823@localhost>
+References: <1493227600-10102-1-git-send-email-andreas@kemnade.info>
 Mime-Version: 1.0
-Content-Type: text/plain;
-        charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: <jiri@resnulli.us>, <davem@davemloft.net>, <kuznet@ms2.inr.ac.ru>,
-        <jmorris@namei.org>, <yoshfuji@linux-ipv6.org>, <kaber@trash.net>,
-        <steffen.klassert@secunet.com>, <netdev@vger.kernel.org>,
-        "'Gao Feng'" <fgao@ikuai8.com>
-To: "'Herbert Xu'" <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpbgsg2.qq.com ([54.254.200.128]:48932 "EHLO smtpbgsg2.qq.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S933365AbdD0IdW (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 27 Apr 2017 04:33:22 -0400
-In-Reply-To: <20170427081559.GA1058@gondor.apana.org.au>
-Content-Language: zh-cn
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org, gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org,
+        peter-WaGBZJeGNqdsbIuE7sb01tBPR1lH4CV8@public.gmane.org, hns-xXXSsgcRVICgSpxsJD1C4w@public.gmane.org,
+        linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Andreas Kemnade <andreas-cLv4Z9ELZ06ZuzBka8ofvg@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1493227600-10102-1-git-send-email-andreas-cLv4Z9ELZ06ZuzBka8ofvg@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-> From: Herbert Xu [mailto:herbert@gondor.apana.org.au]
-> Sent: Thursday, April 27, 2017 4:16 PM
-> On Tue, Apr 25, 2017 at 08:01:50PM +0800, gfree.wind@foxmail.com wrote:
-> > From: Gao Feng <fgao@ikuai8.com>
-> >
-[...]
+On Wed, Apr 26, 2017 at 07:26:40PM +0200, Andreas Kemnade wrote:
+> If the netdev is accessed before the urbs are initialized,
+> there will be NULL pointer dereferences. That is avoided by
+> registering it when it is fully initialized.
+
+> Reported-by: H. Nikolaus Schaller <hns-xXXSsgcRVICgSpxsJD1C4w@public.gmane.org>
+> Signed-off-by: Andreas Kemnade <andreas-cLv4Z9ELZ06ZuzBka8ofvg@public.gmane.org>
+> ---
+>  drivers/net/usb/hso.c | 14 +++++++-------
+>  1 file changed, 7 insertions(+), 7 deletions(-)
 > 
-> This has the potential of creating future bugs, because there is no
-guarantee
-> that the ndo_init function has been invoked at all.
-> 
-> Wouldn't it be safer to move the freeing from the destructors into their
-> ndo_uninit functions instead?
+> diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
+> index 93411a3..00067a0 100644
+> --- a/drivers/net/usb/hso.c
+> +++ b/drivers/net/usb/hso.c
+> @@ -2534,13 +2534,6 @@ static struct hso_device *hso_create_net_device(struct usb_interface *interface,
+>  	SET_NETDEV_DEV(net, &interface->dev);
+>  	SET_NETDEV_DEVTYPE(net, &hso_type);
+>  
+> -	/* registering our net device */
+> -	result = register_netdev(net);
+> -	if (result) {
+> -		dev_err(&interface->dev, "Failed to register device\n");
+> -		goto exit;
+> -	}
+> -
+>  	/* start allocating */
+>  	for (i = 0; i < MUX_BULK_RX_BUF_COUNT; i++) {
+>  		hso_net->mux_bulk_rx_urb_pool[i] = usb_alloc_urb(0, GFP_KERNEL);
+> @@ -2560,6 +2553,13 @@ static struct hso_device *hso_create_net_device(struct usb_interface *interface,
+>  
+>  	add_net_device(hso_dev);
+>  
+> +	/* registering our net device */
+> +	result = register_netdev(net);
+> +	if (result) {
+> +		dev_err(&interface->dev, "Failed to register device\n");
+> +		goto exit;
 
-I considered about this solution, I am not sure if it is safe to move the
-freeing from destructors into ndo_uninit.
-Because when the free action is done in ndo_uninit, it is earlier than
-destructor. 
-I am not sure if it break the design of original driver.
+This all looks good, but you should consider cleaning up the error
+handling of this function as a follow-up as we should not be
+deregistering netdevs that have never been registered (e.g. if a
+required endpoint is missing or if registration fails for some reason).
 
-I just tested the team driver before. It is ok to free all mems in
-ndo_uninit.
-Is it possible that anyone are using the net_dev after ndo_uninit ?
+But just to be clear, this problem existed also before this change.
 
-If no one, i would like to update the patch. 
-Could you give me some guide please?
+> +	}
+> +
+>  	hso_log_port(hso_dev);
+>  
+>  	hso_create_rfkill(hso_dev, interface);
 
-Regards
-Feng
+Reviewed-by: Johan Hovold <johan-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
 
-> 
-> Thanks,
-> --
+Thanks,
+Johan
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
