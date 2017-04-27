@@ -1,84 +1,108 @@
-From: kbuild test robot <lkp@intel.com>
-Subject: Re: [PATCH net-next 4/6] bpf: track if the bpf program was loaded
- with SYS_ADMIN capabilities
-Date: Thu, 27 Apr 2017 18:09:14 +0800
-Message-ID: <201704271854.7PplYIu7%fengguang.wu@intel.com>
-References: <20170426182419.14574-5-hannes@stressinduktion.org>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: rhashtable - Cap total number of entries to 2^31
+Date: Thu, 27 Apr 2017 12:11:34 +0200
+Message-ID: <20170427101134.GB448@breakpoint.cc>
+References: <20170425112356.GB11322@breakpoint.cc>
+ <20170425132837.GA25657@gondor.apana.org.au>
+ <20170425141749.GD11322@breakpoint.cc>
+ <20170425.104822.1395000926293799711.davem@davemloft.net>
+ <20170427054451.GA529@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: kbuild-all@01.org, netdev@vger.kernel.org, ast@kernel.org,
-        daniel@iogearbox.com, jbenc@redhat.com, aconole@bytheb.org
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Cc: David Miller <davem@davemloft.net>, fw@strlen.de,
+        netdev@vger.kernel.org, Thomas Graf <tgraf@suug.ch>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:43315 "EHLO mga09.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751458AbdD0KJW (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 27 Apr 2017 06:09:22 -0400
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:58836 "EHLO
+        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1753996AbdD0KLq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 27 Apr 2017 06:11:46 -0400
 Content-Disposition: inline
-In-Reply-To: <20170426182419.14574-5-hannes@stressinduktion.org>
+In-Reply-To: <20170427054451.GA529@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Hannes,
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
+> On Tue, Apr 25, 2017 at 10:48:22AM -0400, David Miller wrote:
+> > From: Florian Westphal <fw@strlen.de>
+> > Date: Tue, 25 Apr 2017 16:17:49 +0200
+> > 
+> > > I'd have less of an issue with this if we'd be talking about
+> > > something computationally expensive, but this is about storing
+> > > an extra value inside a struct just to avoid one "shr" in insert path...
+> > 
+> > Agreed, this shift is probably filling an available cpu cycle :-)
+> 
+> OK, but we need to have an extra field for another reason anyway.
+> The problem is that we're not capping the total number of elements
+> in the hashtable when max_size is not set, this means that nelems
+> can overflow which will cause havoc with the automatic shrinking
+> when it tries to fit 2^32 entries into a minimum-sized table.
 
-[auto build test WARNING on net-next/master]
+Right, good catch.
 
-url:    https://github.com/0day-ci/linux/commits/Hannes-Frederic-Sowa/bpf-list-all-loaded-ebpf-programs-in-proc-bpf-programs/20170427-090839
-reproduce:
-        # apt-get install sparse
-        make ARCH=x86_64 allmodconfig
-        make C=1 CF=-D__CHECK_ENDIAN__
+I guess eventually we should get rid of min_size and max_size
+completely as parameters and keep actual sizing/bucket count internal to
+rhashtable.
 
+In fact I would not be surprised if some existing users did set
+max_size under assumption it is a 'max element count'.
 
-sparse warnings: (new ones prefixed by >>)
+> ---8<---
+> When max_size is not set or if it set to a sufficiently large
+> value, the nelems counter can overflow.  This would cause havoc
+> with the automatic shrinking as it would then attempt to fit a
+> huge number of entries into a tiny hash table.
+> 
+> This patch fixes this by adding max_elems to struct rhashtable
+> to cap the number of elements.  This is set to 2^31 as nelems is
+> not a precise count.  This is sufficiently smaller than UINT_MAX
+> that it should be safe.
+> 
+> When max_size is set max_elems will be lowered to at most twice
+> max_size as is the status quo.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-   include/linux/compiler.h:264:8: sparse: attribute 'no_sanitize_address': unknown attribute
-   lib/test_bpf.c:407:29: sparse: subtraction of functions? Share your drugs
-   lib/test_bpf.c:418:29: sparse: subtraction of functions? Share your drugs
->> lib/test_bpf.c:5613:36: sparse: not enough arguments for function bpf_prog_alloc
-   lib/test_bpf.c: In function 'generate_filter':
-   lib/test_bpf.c:5613:8: error: too few arguments to function 'bpf_prog_alloc'
-      fp = bpf_prog_alloc(bpf_prog_size(flen), 0);
-           ^~~~~~~~~~~~~~
-   In file included from lib/test_bpf.c:20:0:
-   include/linux/filter.h:619:18: note: declared here
-    struct bpf_prog *bpf_prog_alloc(unsigned int size, gfp_t gfp_extra_flags,
-                     ^~~~~~~~~~~~~~
+[..]
 
-vim +5613 lib/test_bpf.c
+> diff --git a/include/linux/rhashtable.h b/include/linux/rhashtable.h
+> @@ -165,6 +166,7 @@ struct rhashtable {
+>  	atomic_t			nelems;
+>  	unsigned int			key_len;
+>  	struct rhashtable_params	p;
+> +	unsigned int			max_elems;
+>  	bool				rhlist;
+>  	struct work_struct		run_work;
+>  	struct mutex                    mutex;
+> @@ -327,8 +329,7 @@ static inline bool rht_grow_above_100(const struct rhashtable *ht,
+>  static inline bool rht_grow_above_max(const struct rhashtable *ht,
+>  				      const struct bucket_table *tbl)
+>  {
+> -	return ht->p.max_size &&
+> -	       (atomic_read(&ht->nelems) / 2u) >= ht->p.max_size;
+> +	return atomic_read(&ht->nelems) >= ht->max_elems;
+>  }
+>  
+>  /* The bucket lock is selected based on the hash and protects mutations
+> diff --git a/lib/rhashtable.c b/lib/rhashtable.c
+> index f3b82e0..751630b 100644
+> --- a/lib/rhashtable.c
+> +++ b/lib/rhashtable.c
+> @@ -961,6 +961,11 @@ int rhashtable_init(struct rhashtable *ht,
+>  	if (params->max_size)
+>  		ht->p.max_size = rounddown_pow_of_two(params->max_size);
+>  
+> +	/* Cap total entries at 2^31 to avoid nelems overflow. */
+> +	ht->max_elems = 1u << 31;
+> +	if (ht->p.max_size < ht->max_elems / 2)
+> +		ht->max_elems = ht->p.max_size * 2;
+> +
 
-10f18e0ba Daniel Borkmann    2014-05-23  5597  				/* Verifier didn't reject the test that's
-10f18e0ba Daniel Borkmann    2014-05-23  5598  				 * bad enough, just return!
-10f18e0ba Daniel Borkmann    2014-05-23  5599  				 */
-10f18e0ba Daniel Borkmann    2014-05-23  5600  				*err = -EINVAL;
-10f18e0ba Daniel Borkmann    2014-05-23  5601  				return NULL;
-10f18e0ba Daniel Borkmann    2014-05-23  5602  			}
-10f18e0ba Daniel Borkmann    2014-05-23  5603  		}
-10f18e0ba Daniel Borkmann    2014-05-23  5604  		/* We don't expect to fail. */
-10f18e0ba Daniel Borkmann    2014-05-23  5605  		if (*err) {
-10f18e0ba Daniel Borkmann    2014-05-23  5606  			pr_cont("FAIL to attach err=%d len=%d\n",
-10f18e0ba Daniel Borkmann    2014-05-23  5607  				*err, fprog.len);
-10f18e0ba Daniel Borkmann    2014-05-23  5608  			return NULL;
-64a8946b4 Alexei Starovoitov 2014-05-08  5609  		}
-10f18e0ba Daniel Borkmann    2014-05-23  5610  		break;
-10f18e0ba Daniel Borkmann    2014-05-23  5611  
-10f18e0ba Daniel Borkmann    2014-05-23  5612  	case INTERNAL:
-60a3b2253 Daniel Borkmann    2014-09-02 @5613  		fp = bpf_prog_alloc(bpf_prog_size(flen), 0);
-10f18e0ba Daniel Borkmann    2014-05-23  5614  		if (fp == NULL) {
-10f18e0ba Daniel Borkmann    2014-05-23  5615  			pr_cont("UNEXPECTED_FAIL no memory left\n");
-10f18e0ba Daniel Borkmann    2014-05-23  5616  			*err = -ENOMEM;
-10f18e0ba Daniel Borkmann    2014-05-23  5617  			return NULL;
-10f18e0ba Daniel Borkmann    2014-05-23  5618  		}
-10f18e0ba Daniel Borkmann    2014-05-23  5619  
-10f18e0ba Daniel Borkmann    2014-05-23  5620  		fp->len = flen;
-4962fa10f Daniel Borkmann    2015-07-30  5621  		/* Type doesn't really matter here as long as it's not unspec. */
+Looks like instead of adding this max_elems you could instead have fixed this via
 
-:::::: The code at line 5613 was first introduced by commit
-:::::: 60a3b2253c413cf601783b070507d7dd6620c954 net: bpf: make eBPF interpreter images read-only
+if (!ht->p.max_size)
+	ht->p.max_size = INT_MAX / 2;
 
-:::::: TO: Daniel Borkmann <dborkman@redhat.com>
-:::::: CC: David S. Miller <davem@davemloft.net>
-
----
-0-DAY kernel test infrastructure                Open Source Technology Center
-https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
+if (ht->p.max_size > INT_MAX / 2)
+	return -EINVAL;
