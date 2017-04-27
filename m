@@ -1,240 +1,77 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next] samples/bpf: Add support for SKB_MODE to xdp1 and xdp_tx_iptunnel
-Date: Thu, 27 Apr 2017 09:11:13 -0700
-Message-ID: <1493309473-27384-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: ast@fb.com, daniel@iogearbox.net,
-        David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f181.google.com ([209.85.192.181]:34042 "EHLO
-        mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755467AbdD0QLV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 27 Apr 2017 12:11:21 -0400
-Received: by mail-pf0-f181.google.com with SMTP id c198so31289296pfc.1
-        for <netdev@vger.kernel.org>; Thu, 27 Apr 2017 09:11:20 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: [PATCH net-next] can: fix build error without CONFIG_PROC_FS
+Date: Thu, 27 Apr 2017 18:11:11 +0200
+Message-ID: <499a8b67-8180-487b-9e7f-9ec0dc85adad@hartkopp.net>
+References: <20170427142146.3107957-1-arnd@arndb.de>
+ <937e9144-c06c-d265-29eb-a1c6f96b6f89@pengutronix.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Thomas Gleixner <tglx@linutronix.de>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Mario Kicherer <dev@kicherer.org>,
+        Eric Dumazet <edumazet@google.com>, linux-can@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Marc Kleine-Budde <mkl@pengutronix.de>,
+        Arnd Bergmann <arnd@arndb.de>,
+        "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <937e9144-c06c-d265-29eb-a1c6f96b6f89@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Add option to xdp1 and xdp_tx_iptunnel to insert xdp program in
-SKB_MODE:
- - update set_link_xdp_fd to take a flags argument that is added to the
-   RTM_SETLINK message
+Hello Arnd,
 
- - Add -S option to xdp1 and xdp_tx_iptunnel user code. When passed in
-   XDP_FLAGS_SKB_MODE is set in the flags arg passed to set_link_xdp_fd
+many thanks for your patch.
 
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
----
- samples/bpf/bpf_load.c             | 19 +++++++++++++++---
- samples/bpf/bpf_load.h             |  2 +-
- samples/bpf/xdp1_user.c            | 40 ++++++++++++++++++++++++++++++--------
- samples/bpf/xdp_tx_iptunnel_user.c | 13 +++++++++----
- 4 files changed, 58 insertions(+), 16 deletions(-)
+Btw
 
-diff --git a/samples/bpf/bpf_load.c b/samples/bpf/bpf_load.c
-index 0d449d8032d1..d4433a47e6c3 100644
---- a/samples/bpf/bpf_load.c
-+++ b/samples/bpf/bpf_load.c
-@@ -563,7 +563,7 @@ struct ksym *ksym_search(long key)
- 	return &syms[0];
- }
- 
--int set_link_xdp_fd(int ifindex, int fd)
-+int set_link_xdp_fd(int ifindex, int fd, int flags)
- {
- 	struct sockaddr_nl sa;
- 	int sock, seq = 0, len, ret = -1;
-@@ -599,15 +599,28 @@ int set_link_xdp_fd(int ifindex, int fd)
- 	req.nh.nlmsg_seq = ++seq;
- 	req.ifinfo.ifi_family = AF_UNSPEC;
- 	req.ifinfo.ifi_index = ifindex;
-+
-+	/* started nested attribute for XDP */
- 	nla = (struct nlattr *)(((char *)&req)
- 				+ NLMSG_ALIGN(req.nh.nlmsg_len));
- 	nla->nla_type = NLA_F_NESTED | 43/*IFLA_XDP*/;
-+	nla->nla_len = NLA_HDRLEN;
- 
--	nla_xdp = (struct nlattr *)((char *)nla + NLA_HDRLEN);
-+	/* add XDP fd */
-+	nla_xdp = (struct nlattr *)((char *)nla + nla->nla_len);
- 	nla_xdp->nla_type = 1/*IFLA_XDP_FD*/;
- 	nla_xdp->nla_len = NLA_HDRLEN + sizeof(int);
- 	memcpy((char *)nla_xdp + NLA_HDRLEN, &fd, sizeof(fd));
--	nla->nla_len = NLA_HDRLEN + nla_xdp->nla_len;
-+	nla->nla_len += nla_xdp->nla_len;
-+
-+	/* if user passed in any flags, add those too */
-+	if (flags) {
-+		nla_xdp = (struct nlattr *)((char *)nla + nla->nla_len);
-+		nla_xdp->nla_type = 3/*IFLA_XDP_FLAGS*/;
-+		nla_xdp->nla_len = NLA_HDRLEN + sizeof(flags);
-+		memcpy((char *)nla_xdp + NLA_HDRLEN, &flags, sizeof(flags));
-+		nla->nla_len += nla_xdp->nla_len;
-+	}
- 
- 	req.nh.nlmsg_len += NLA_ALIGN(nla->nla_len);
- 
-diff --git a/samples/bpf/bpf_load.h b/samples/bpf/bpf_load.h
-index 68f6b2d22507..6bfd75ec6a16 100644
---- a/samples/bpf/bpf_load.h
-+++ b/samples/bpf/bpf_load.h
-@@ -47,5 +47,5 @@ struct ksym {
- 
- int load_kallsyms(void);
- struct ksym *ksym_search(long key);
--int set_link_xdp_fd(int ifindex, int fd);
-+int set_link_xdp_fd(int ifindex, int fd, int flags);
- #endif
-diff --git a/samples/bpf/xdp1_user.c b/samples/bpf/xdp1_user.c
-index d2be65d1fd86..deb05e630d84 100644
---- a/samples/bpf/xdp1_user.c
-+++ b/samples/bpf/xdp1_user.c
-@@ -5,6 +5,7 @@
-  * License as published by the Free Software Foundation.
-  */
- #include <linux/bpf.h>
-+#include <linux/if_link.h>
- #include <assert.h>
- #include <errno.h>
- #include <signal.h>
-@@ -12,16 +13,18 @@
- #include <stdlib.h>
- #include <string.h>
- #include <unistd.h>
-+#include <libgen.h>
- 
- #include "bpf_load.h"
- #include "bpf_util.h"
- #include "libbpf.h"
- 
- static int ifindex;
-+static int flags;
- 
- static void int_exit(int sig)
- {
--	set_link_xdp_fd(ifindex, -1);
-+	set_link_xdp_fd(ifindex, -1, flags);
- 	exit(0);
- }
- 
-@@ -54,18 +57,39 @@ static void poll_stats(int interval)
- 	}
- }
- 
--int main(int ac, char **argv)
-+static void usage(const char *prog)
- {
--	char filename[256];
-+	fprintf(stderr,
-+		"usage: %s [OPTS] IFINDEX\n\n"
-+		"OPTS:\n"
-+		"    -S    use skb-mode\n",
-+		prog);
-+}
- 
--	snprintf(filename, sizeof(filename), "%s_kern.o", argv[0]);
-+int main(int argc, char **argv)
-+{
-+	const char *optstr = "S";
-+	char filename[256];
-+	int opt;
-+
-+	while ((opt = getopt(argc, argv, optstr)) != -1) {
-+		switch (opt) {
-+		case 'S':
-+			flags |= XDP_FLAGS_SKB_MODE;
-+			break;
-+		default:
-+			usage(basename(argv[0]));
-+			return 1;
-+		}
-+	}
- 
--	if (ac != 2) {
--		printf("usage: %s IFINDEX\n", argv[0]);
-+	if (optind == argc) {
-+		usage(basename(argv[0]));
- 		return 1;
- 	}
-+	ifindex = strtoul(argv[optind], NULL, 0);
- 
--	ifindex = strtoul(argv[1], NULL, 0);
-+	snprintf(filename, sizeof(filename), "%s_kern.o", argv[0]);
- 
- 	if (load_bpf_file(filename)) {
- 		printf("%s", bpf_log_buf);
-@@ -79,7 +103,7 @@ int main(int ac, char **argv)
- 
- 	signal(SIGINT, int_exit);
- 
--	if (set_link_xdp_fd(ifindex, prog_fd[0]) < 0) {
-+	if (set_link_xdp_fd(ifindex, prog_fd[0], flags) < 0) {
- 		printf("link set xdp fd failed\n");
- 		return 1;
- 	}
-diff --git a/samples/bpf/xdp_tx_iptunnel_user.c b/samples/bpf/xdp_tx_iptunnel_user.c
-index 70e192fc61aa..cb2bda7b5346 100644
---- a/samples/bpf/xdp_tx_iptunnel_user.c
-+++ b/samples/bpf/xdp_tx_iptunnel_user.c
-@@ -5,6 +5,7 @@
-  * License as published by the Free Software Foundation.
-  */
- #include <linux/bpf.h>
-+#include <linux/if_link.h>
- #include <assert.h>
- #include <errno.h>
- #include <signal.h>
-@@ -28,7 +29,7 @@ static int ifindex = -1;
- static void int_exit(int sig)
- {
- 	if (ifindex > -1)
--		set_link_xdp_fd(ifindex, -1);
-+		set_link_xdp_fd(ifindex, -1, 0);
- 	exit(0);
- }
- 
-@@ -136,12 +137,13 @@ int main(int argc, char **argv)
- {
- 	unsigned char opt_flags[256] = {};
- 	unsigned int kill_after_s = 0;
--	const char *optstr = "i:a:p:s:d:m:T:P:h";
-+	const char *optstr = "i:a:p:s:d:m:T:P:Sh";
- 	int min_port = 0, max_port = 0;
- 	struct iptnl_info tnl = {};
- 	struct rlimit r = {RLIM_INFINITY, RLIM_INFINITY};
- 	struct vip vip = {};
- 	char filename[256];
-+	int flags = 0;
- 	int opt;
- 	int i;
- 
-@@ -201,6 +203,9 @@ int main(int argc, char **argv)
- 		case 'T':
- 			kill_after_s = atoi(optarg);
- 			break;
-+		case 'S':
-+			flags |= XDP_FLAGS_SKB_MODE;
-+			break;
- 		default:
- 			usage(argv[0]);
- 			return 1;
-@@ -243,14 +248,14 @@ int main(int argc, char **argv)
- 		}
- 	}
- 
--	if (set_link_xdp_fd(ifindex, prog_fd[0]) < 0) {
-+	if (set_link_xdp_fd(ifindex, prog_fd[0], flags) < 0) {
- 		printf("link set xdp fd failed\n");
- 		return 1;
- 	}
- 
- 	poll_stats(kill_after_s);
- 
--	set_link_xdp_fd(ifindex, -1);
-+	set_link_xdp_fd(ifindex, -1, flags);
- 
- 	return 0;
- }
--- 
-2.1.4
+ >  static void canbcm_pernet_exit(struct net *net)
+ >  {
+ > +#ifdef CONFIG_PROC_FS
+ >  	/* remove /proc/net/can-bcm directory */
+ >  	if (IS_ENABLED(CONFIG_PROC_FS)) {
+ >  		if (net->can.bcmproc_dir)
+ >  			remove_proc_entry("can-bcm", net->proc_net);
+ >  	}
+ > +#endif
+ >  }
+
+"if (IS_ENABLED(CONFIG_PROC_FS))"
+
+becomes obsolete too then ...
+
+So I would suggest to take my patch to fix my fault ;-)
+
+Best regards,
+Oliver
+
+On 04/27/2017 04:29 PM, Marc Kleine-Budde wrote:
+> Hello Arnd,
+>
+> On 04/27/2017 04:21 PM, Arnd Bergmann wrote:
+>> The procfs dir entry was added inside of an #ifdef, causing a build error
+>> when we try to access it without CONFIG_PROC_FS set:
+>>
+>> net/can/bcm.c:1541:14: error: 'struct netns_can' has no member named 'bcmproc_dir'
+>> net/can/bcm.c: In function 'bcm_connect':
+>> net/can/bcm.c:1601:14: error: 'struct netns_can' has no member named 'bcmproc_dir'
+>> net/can/bcm.c: In function 'canbcm_pernet_init':
+>> net/can/bcm.c:1696:11: error: 'struct netns_can' has no member named 'bcmproc_dir'
+>> net/can/bcm.c: In function 'canbcm_pernet_exit':
+>> net/can/bcm.c:1707:15: error: 'struct netns_can' has no member named 'bcmproc_dir'
+>>
+>> This adds the same #ifdef around all users of the pointer. Alternatively
+>> we could move the pointer outside of the #ifdef.
+>>
+>> Fixes: 384317ef4187 ("can: network namespace support for CAN_BCM protocol")
+>> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+>
+> A fix for this problem is part of the pull request I send to David
+> earlier today:
+>
+>     https://www.mail-archive.com/netdev@vger.kernel.org/msg165764.html
+>
+> regards,
+> Marc
+>
