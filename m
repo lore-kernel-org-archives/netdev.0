@@ -1,172 +1,105 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Subject: Re: [PATCH net-next 6/6] bpf: show bpf programs
-Date: Thu, 27 Apr 2017 15:22:49 +0200
-Message-ID: <5b1f23e3-86a7-69aa-91e2-1dc72125f22b@stressinduktion.org>
+Date: Thu, 27 Apr 2017 15:28:50 +0200
+Message-ID: <fed27cb3-4509-8cd1-c0a3-6b7ea8cb5831@stressinduktion.org>
 References: <20170426182419.14574-1-hannes@stressinduktion.org>
  <20170426182419.14574-7-hannes@stressinduktion.org>
- <590112BE.7040902@iogearbox.net>
+ <20170426212553.fq3uyhktfxvn36rv@ast-mbp>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: ast@kernel.org, daniel@iogearbox.com, jbenc@redhat.com,
-        aconole@bytheb.org
-To: Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, ast@kernel.org, daniel@iogearbox.com,
+        jbenc@redhat.com, aconole@bytheb.org,
+        Martin KaFai Lau <kafai@fb.com>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out4-smtp.messagingengine.com ([66.111.4.28]:38977 "EHLO
+Received: from out4-smtp.messagingengine.com ([66.111.4.28]:51799 "EHLO
         out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S935050AbdD0NWv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 27 Apr 2017 09:22:51 -0400
-In-Reply-To: <590112BE.7040902@iogearbox.net>
+        by vger.kernel.org with ESMTP id S938098AbdD0N2x (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 27 Apr 2017 09:28:53 -0400
+In-Reply-To: <20170426212553.fq3uyhktfxvn36rv@ast-mbp>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 26.04.2017 23:35, Daniel Borkmann wrote:
-> On 04/26/2017 08:24 PM, Hannes Frederic Sowa wrote:
->> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
->> ---
->>   include/uapi/linux/bpf.h | 32 +++++++++++++++++++-------------
->>   kernel/bpf/core.c        | 30 +++++++++++++++++++++++++++++-
->>   2 files changed, 48 insertions(+), 14 deletions(-)
->>
->> diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
->> index e553529929f683..d6506e320953d5 100644
->> --- a/include/uapi/linux/bpf.h
->> +++ b/include/uapi/linux/bpf.h
->> @@ -101,20 +101,26 @@ enum bpf_map_type {
->>       BPF_MAP_TYPE_HASH_OF_MAPS,
->>   };
->>
->> +#define BPF_PROG_TYPES            \
->> +    X(BPF_PROG_TYPE_UNSPEC),    \
->> +    X(BPF_PROG_TYPE_SOCKET_FILTER),    \
->> +    X(BPF_PROG_TYPE_KPROBE),    \
->> +    X(BPF_PROG_TYPE_SCHED_CLS),    \
->> +    X(BPF_PROG_TYPE_SCHED_ACT),    \
->> +    X(BPF_PROG_TYPE_TRACEPOINT),    \
->> +    X(BPF_PROG_TYPE_XDP),        \
->> +    X(BPF_PROG_TYPE_PERF_EVENT),    \
->> +    X(BPF_PROG_TYPE_CGROUP_SKB),    \
->> +    X(BPF_PROG_TYPE_CGROUP_SOCK),    \
->> +    X(BPF_PROG_TYPE_LWT_IN),    \
->> +    X(BPF_PROG_TYPE_LWT_OUT),    \
->> +    X(BPF_PROG_TYPE_LWT_XMIT),
->> +
->> +
->>   enum bpf_prog_type {
->> -    BPF_PROG_TYPE_UNSPEC,
->> -    BPF_PROG_TYPE_SOCKET_FILTER,
->> -    BPF_PROG_TYPE_KPROBE,
->> -    BPF_PROG_TYPE_SCHED_CLS,
->> -    BPF_PROG_TYPE_SCHED_ACT,
->> -    BPF_PROG_TYPE_TRACEPOINT,
->> -    BPF_PROG_TYPE_XDP,
->> -    BPF_PROG_TYPE_PERF_EVENT,
->> -    BPF_PROG_TYPE_CGROUP_SKB,
->> -    BPF_PROG_TYPE_CGROUP_SOCK,
->> -    BPF_PROG_TYPE_LWT_IN,
->> -    BPF_PROG_TYPE_LWT_OUT,
->> -    BPF_PROG_TYPE_LWT_XMIT,
->> +#define X(type) type
-> 
-> Defining X in uapi could clash easily with other headers e.g.
-> from application side.
-
-I think that X-macros are so much used that code review should catch
-that no X macro is leaked beyond its scope.
-
-I certainly can use some other macro names, maybe something along the
-line from bpf_types.h.
-
-> 
->> +    BPF_PROG_TYPES
->> +#undef X
->>   };
->>
->>   enum bpf_attach_type {
->> diff --git a/kernel/bpf/core.c b/kernel/bpf/core.c
->> index 3ba175a24e971a..685c1d0f31e029 100644
->> --- a/kernel/bpf/core.c
->> +++ b/kernel/bpf/core.c
->> @@ -536,13 +536,41 @@ static void ebpf_proc_stop(struct seq_file *s,
->> void *v)
->>       rcu_read_unlock();
->>   }
->>
+On 26.04.2017 23:25, Alexei Starovoitov wrote:
+> On Wed, Apr 26, 2017 at 08:24:19PM +0200, Hannes Frederic Sowa wrote:
+>>  
 >> +static const char *bpf_type_string(enum bpf_prog_type type)
 >> +{
->> +    static const char *bpf_type_names[] = {
+>> +	static const char *bpf_type_names[] = {
 >> +#define X(type) #type
->> +        BPF_PROG_TYPES
+>> +		BPF_PROG_TYPES
 >> +#undef X
->> +    };
+>> +	};
 >> +
->> +    if (type >= ARRAY_SIZE(bpf_type_names))
->> +        return "<unknown>";
+>> +	if (type >= ARRAY_SIZE(bpf_type_names))
+>> +		return "<unknown>";
 >> +
->> +    return bpf_type_names[type];
+>> +	return bpf_type_names[type];
 >> +}
 >> +
->>   static int ebpf_proc_show(struct seq_file *s, void *v)
->>   {
->> +    struct bpf_prog *prog;
->> +    struct bpf_prog_aux *aux;
->> +    char prog_tag[sizeof(prog->tag) * 2 + 1] = { };
+>>  static int ebpf_proc_show(struct seq_file *s, void *v)
+>>  {
+>> +	struct bpf_prog *prog;
+>> +	struct bpf_prog_aux *aux;
+>> +	char prog_tag[sizeof(prog->tag) * 2 + 1] = { };
 >> +
->>       if (v == SEQ_START_TOKEN) {
->> -        seq_printf(s, "# tag\n");
->> +        seq_printf(s, "# tag\t\t\ttype\t\t\truntime\tcap\tmemlock\n");
->>           return 0;
->>       }
->>
->> +    aux = v;
->> +    prog = aux->prog;
+>>  	if (v == SEQ_START_TOKEN) {
+>> -		seq_printf(s, "# tag\n");
+>> +		seq_printf(s, "# tag\t\t\ttype\t\t\truntime\tcap\tmemlock\n");
+>>  		return 0;
+>>  	}
+>>  
+>> +	aux = v;
+>> +	prog = aux->prog;
 >> +
->> +    bin2hex(prog_tag, prog->tag, sizeof(prog->tag));
->> +    seq_printf(s, "%s\t%s\t%s\t%s\t%llu\n", prog_tag,
->> +           bpf_type_string(prog->type),
->> +           prog->jited ? "jit" : "int",
->> +           prog->priv_cap_sys_admin ? "priv" : "unpriv",
->> +           prog->pages * 1ULL << PAGE_SHIFT);
+>> +	bin2hex(prog_tag, prog->tag, sizeof(prog->tag));
+>> +	seq_printf(s, "%s\t%s\t%s\t%s\t%llu\n", prog_tag,
+>> +		   bpf_type_string(prog->type),
+>> +		   prog->jited ? "jit" : "int",
+>> +		   prog->priv_cap_sys_admin ? "priv" : "unpriv",
+>> +		   prog->pages * 1ULL << PAGE_SHIFT);
 > 
-> Yeah, so that would be quite similar to what we dump in
-> bpf_prog_show_fdinfo() modulo the priv bit.
+> As I said several times already I'm strongly against procfs
+> style of exposing information about the programs.
 
-And, additionally, that you don't need to have a file descriptor handy
-to do so, which is my main point.
+I would not expand procfs interface to dump ebpf bytecode or jitcode,
+albeit I would prefer a file system abstraction for that.
 
-> I generally agree that a facility for dumping all progs is needed
-> and it was also on the TODO list after the bpf(2) cmd for dumping
-> program insns back to user space.
+> I don't want this to become debugfs for bpf.
 
-I think this is orthogonal.
+Right now it just prints a list of ebpf programs. You reject of where
+things are going or do you already reject this particular patch?
 
-> I think the procfs interface has pro and cons: the upside is that
-> you can use it with tools like cat to inspect it, but what you still
-> cannot do is to say that you want to see the prog insns for, say,
-> prog #4 from that list. If we could iterate over that list through fds
-> via bpf(2) syscall, you could i) present the same info you have above
-> via fdinfo already and ii) also dump the BPF insns from that specific
-> program through a BPF_PROG_DUMP bpf(2) command. Once that dump also
-> supports maps in progs, you could go further and fetch related map
-> fds for inspection, etc.
+> Maintaining the list of all loaded programs is fine
+> and we need a way to iterate through them, but procfs
+> is obviously not the interface to do that.
+> Programs/maps are binary whereas any fs interface is text.
 
-Sure, that sounds super. But so far Linux and most (maybe I should write
-all) subsystems always provided some easy way to get the insights of the
-kernel without having to code or rely on special tools so far. And I
-very much enjoyed that part on Linux. FreeBSD did very often abstract
-some details behind shared libraries and commands that has no easy
-pedant to use for with cat and grep.
+It should give admins only a high level overview of what is going on in
+there system. I don't want o print any kind of opcodes there, just
+giving people the possibility to see what is going on.
 
-> Such option of iterating through that would need a new BPF syscall
-> cmd aka BPF_PROG_GET_NEXT which returns the first prog from the list
-> and you would walk the next one by passing the current fd, which can
-> later also be closed as not needed anymore. We could restrict that
-> dump to capable(CAP_SYS_ADMIN), and the kernel tree would need to
-> ship a tool e.g. under tools/bpf/ that can be used for inspection.
-> 
-Martin already posted his patches which add a bpf_prog_id to ebpf
-programs. I will have alook at those and will comment over there.
+> It also doesn't scale with large number of programs/maps.
+> I prefer Daniel's suggestion on adding 'get_next' like API.
+> Also would be good if you can wait for Martin to finish his
+> prog->handle/id patches. Then user space will be able
+> to iterate through all the progs/maps and fetch all info about
+> them through syscall in extensible way.
+> And you wouldn't need to abuse kallsyms list for different purpose.
 
-Thansk for the review,
+I don't buy the scalability argument:
+
+What is the scalability issue with this O(1) approach on loading and
+O(n) (but also without any locks held) on dumping? You can't do any
+better. You can even dump several programs with one syscall instead of
+slowly iterating over them.
+
+Certainly I can wait with those patches until Martin presented his patches.
+
+And regarding abusing the list, I just renamed it. If you think I abuse
+something I can also add another list like bpf_prog_id patches do?
+
+Bye bye,
 Hannes
