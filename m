@@ -1,86 +1,96 @@
-From: Bjorn Helgaas <helgaas@kernel.org>
-Subject: Re: [PATCH net-next 1/4] ixgbe: sparc: rename the
- ARCH_WANT_RELAX_ORDER to IXGBE_ALLOW_RELAXED_ORDER
-Date: Thu, 27 Apr 2017 12:19:38 -0500
-Message-ID: <20170427171938.GA10705@bhelgaas-glaptop.roam.corp.google.com>
-References: <20170401.112603.1991545644693496714.davem@davemloft.net>
- <42428725-89f1-1508-4e3d-723e087b3bbb@huawei.com>
- <EE11001F9E5DDD47B7634E2F8A612F2E205199C0@FRAEML521-MBX.china.huawei.com>
- <063D6719AE5E284EB5DD2968C1650D6DCFFD3C52@AcuExch.aculab.com>
- <DB5PR05MB138288172B04713EB0C1DB55D3190@DB5PR05MB1382.eurprd05.prod.outlook.com>
- <a2239141-a185-1bb8-0abd-7a05b9fde015@huawei.com>
- <CAKgT0Uc4L=GgYbpO-Fm9OfN+_fLypbDP1c+X4T_ta90ecQiyGQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ding Tianhong <dingtianhong@huawei.com>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Amir Ancel <amira@mellanox.com>,
-        Gabriele Paoloni <gabriele.paoloni@huawei.com>,
-        "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-        Catalin Marinas <catalin.marinas@arm.com>,
-        Will Deacon <will.deacon@arm.com>,
-        LinuxArm <linuxarm@huawei.com>,
-        David Laight <David.Laight@aculab.com>,
-        "jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Robin Murphy <robin.murphy@arm.com>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "linux-arm-kernel@lists.infradead.org"
-        <linux-arm-kernel@lists.infradead.org>,
-        Casey Leedom <leedom@chelsio.com>
-To: Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAKgT0Uc4L=GgYbpO-Fm9OfN+_fLypbDP1c+X4T_ta90ecQiyGQ@mail.gmail.com>
-Sender: linux-pci-owner@vger.kernel.org
+From: Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH net] bonding: avoid defaulting hard_header_len to ETH_HLEN on slave removal
+Date: Thu, 27 Apr 2017 19:29:34 +0200
+Message-ID: <733d454d3c36e99b55de5374c7664364975b171d.1493313626.git.pabeni@redhat.com>
+Cc: Jay Vosburgh <j.vosburgh-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Honggang LI <honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-[+cc Casey]
+On slave list updates, the bonding driver computes its hard_header_len
+as the maximum of all enslaved devices's hard_header_len.
+If the slave list is empty, e.g. on last enslaved device removal,
+ETH_HLEN is used.
 
-On Wed, Apr 26, 2017 at 09:18:33AM -0700, Alexander Duyck wrote:
-> On Wed, Apr 26, 2017 at 2:26 AM, Ding Tianhong <dingtianhong@huawei.com> wrote:
-> > Hi Amir:
-> >
-> > It is really glad to hear that the mlx5 will support RO mode this year, if so, do you agree that enable it dynamic by ethtool -s xxx,
-> > we have try it several month ago but there was only one drivers would use it at that time so the maintainer against it, it mlx5 would support RO,
-> > we could try to restart this solution, what do you think about it. :)
-> >
-> > Thanks
-> > Ding
-> 
-> Hi Ding,
-> 
-> Enabing relaxed ordering really doesn't have any place in ethtool. It
-> is a PCIe attribute that you are essentially wanting to enable.
-> 
-> It might be worth while to take a look at updating the PCIe code path
-> to handle this. Really what we should probably do is guarantee that
-> the architectures that need relaxed ordering are setting it in the
-> PCIe Device Control register and that the ones that don't are clearing
-> the bit. It's possible that this is already occurring, but I don't
-> know the state of handling those bits is in the kernel. Once we can
-> guarantee that we could use that to have the drivers determine their
-> behavior in regards to relaxed ordering. For example in the case of
-> igb/ixgbe we could probably change the behavior so that it will bey
-> default try to use relaxed ordering but if it is not enabled in PCIe
-> Device Control register the hardware should not request to use it. It
-> would simplify things in the drivers and allow for each architecture
-> to control things as needed in their PCIe code.
+Since the bonding header_ops are set only when the first enslaved
+device is attached, the above can lead to header_ops->create()
+being called with the wrong skb headroom in place.
 
-I thought Relaxed Ordering was an optimization.  Are there cases where
-it is actually required for correct behavior?
+If bond0 is configured on top of ipoib devices, with the
+following commands:
 
-The PCI core doesn't currently do anything with Relaxed Ordering.
-Some drivers enable/disable it directly.  I think it would probably be
-better if the core provided an interface for this.  One reason is
-because I think Casey has identified some systems where Relaxed
-Ordering doesn't work correctly, and I'd rather deal with them once in
-the core than in every driver.
+ifup bond0
+for slave in $BOND_SLAVES_LIST; do
+	ip link set dev $slave nomaster
+done
+ping -c 1 <ip on bond0 subnet>
 
-Are you hinting that the PCI core or arch code could actually *enable*
-Relaxed Ordering without the driver doing anything?  Is it safe to do
-that?  Is there such a thing as a device that is capable of using RO,
-but where the driver must be aware of it being enabled, so it programs
-the device appropriately?
+we will obtain a skb_under_panic() with a similar call trace:
+	skb_push+0x3d/0x40
+	push_pseudo_header+0x17/0x30 [ib_ipoib]
+	ipoib_hard_header+0x4e/0x80 [ib_ipoib]
+	arp_create+0x12f/0x220
+	arp_send_dst.part.19+0x28/0x50
+	arp_solicit+0x115/0x290
+	neigh_probe+0x4d/0x70
+	__neigh_event_send+0xa7/0x230
+	neigh_resolve_output+0x12e/0x1c0
+	ip_finish_output2+0x14b/0x390
+	ip_finish_output+0x136/0x1e0
+	ip_output+0x76/0xe0
+	ip_local_out+0x35/0x40
+	ip_send_skb+0x19/0x40
+	ip_push_pending_frames+0x33/0x40
+	raw_sendmsg+0x7d3/0xb50
+	inet_sendmsg+0x31/0xb0
+	sock_sendmsg+0x38/0x50
+	SYSC_sendto+0x102/0x190
+	SyS_sendto+0xe/0x10
+	do_syscall_64+0x67/0x180
+	entry_SYSCALL64_slow_path+0x25/0x25
 
-Bjorn
+This change addresses the issue avoiding updating the bonding device
+hard_header_len when the slaves list become empty, forbidding to
+shrink it below the value used by header_ops->create().
+
+The bug is there since commit 54ef31371407 ("[PATCH] bonding: Handle large
+hard_header_len") but the panic can be triggered only since
+commit fc791b633515 ("IB/ipoib: move back IB LL address into the hard
+header").
+
+Reported-by: Norbert P <noe-PRwTpj6vllL463JZfw7VRw@public.gmane.org>
+Fixes: 54ef31371407 ("[PATCH] bonding: Handle large hard_header_len")
+Fixes: fc791b633515 ("IB/ipoib: move back IB LL address into the hard header")
+Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Signed-off-by: Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+---
+ drivers/net/bonding/bond_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 8a4ba8b..34481c9 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1104,11 +1104,11 @@ static void bond_compute_features(struct bonding *bond)
+ 		gso_max_size = min(gso_max_size, slave->dev->gso_max_size);
+ 		gso_max_segs = min(gso_max_segs, slave->dev->gso_max_segs);
+ 	}
++	bond_dev->hard_header_len = max_hard_header_len;
+ 
+ done:
+ 	bond_dev->vlan_features = vlan_features;
+ 	bond_dev->hw_enc_features = enc_features | NETIF_F_GSO_ENCAP_ALL;
+-	bond_dev->hard_header_len = max_hard_header_len;
+ 	bond_dev->gso_max_segs = gso_max_segs;
+ 	netif_set_gso_max_size(bond_dev, gso_max_size);
+ 
+-- 
+2.9.3
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
