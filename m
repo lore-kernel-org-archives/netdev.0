@@ -1,71 +1,46 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH] igb: make a few local functions static
-Date: Thu, 27 Apr 2017 18:59:11 +0100
-Message-ID: <20170427175911.15477-1-colin.king@canonical.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 02/18] net: dsa: mv88e6xxx: split VTU entry data
+ member
+Date: Thu, 27 Apr 2017 20:25:35 +0200
+Message-ID: <20170427182535.GD17364@lunn.ch>
+References: <20170426155336.5937-1-vivien.didelot@savoirfairelinux.com>
+ <20170426155336.5937-3-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:43657 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1164040AbdD0SZk (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 27 Apr 2017 14:25:40 -0400
+Content-Disposition: inline
+In-Reply-To: <20170426155336.5937-3-vivien.didelot@savoirfairelinux.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Colin Ian King <colin.king@canonical.com>
+On Wed, Apr 26, 2017 at 11:53:20AM -0400, Vivien Didelot wrote:
+> VLAN aware Marvell chips can program 802.1Q VLAN membership as well as
+> 802.1s per VLAN Spanning Tree state using the same 3 VTU Data registers.
+> 
+> Some chips such as 88E6185 use different Data registers offsets for
+> ports state and membership, and program them in a single operation.
+> 
+> Other chips such as 88E6352 use the same register layout but program
+> them in distinct operations (an indirect table is used for 802.1s.)
+> 
+> Newer chips such as 88E6390 use the same offsets for both state and
+> membership in distinct operations, thus require multiple data accesses.
+> 
+> To correctly abstract this, split the "data" structure member of
+> mv88e6xxx_vtu_entry in two "state" and "member" members, before adding
+> VTU support for newer chips.
+> 
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 
-clean up a few sparse warnings, these following
-functions can be made static:
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 
-drivers/net/ethernet/intel/igb/igb_main.c: warning: symbol
-  'igb_add_mac_filter' was not declared. Should it be static?
-drivers/net/ethernet/intel/igb/igb_main.c: warning: symbol
-  'igb_del_mac_filter' was not declared. Should it be static?
-drivers/net/ethernet/intel/igb/igb_main.c: warning: symbol
-  'igb_set_vf_mac_filter' was not declared. Should it be static?
-
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
----
- drivers/net/ethernet/intel/igb/igb_main.c | 12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 1cf74aa4ebd9..b0021819b9d0 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -6457,8 +6457,8 @@ static void igb_set_default_mac_filter(struct igb_adapter *adapter)
- 	igb_rar_set_index(adapter, 0);
- }
- 
--int igb_add_mac_filter(struct igb_adapter *adapter, const u8 *addr,
--		       const u8 queue)
-+static int igb_add_mac_filter(struct igb_adapter *adapter, const u8 *addr,
-+			      const u8 queue)
- {
- 	struct e1000_hw *hw = &adapter->hw;
- 	int rar_entries = hw->mac.rar_entry_count -
-@@ -6487,8 +6487,8 @@ int igb_add_mac_filter(struct igb_adapter *adapter, const u8 *addr,
- 	return -ENOSPC;
- }
- 
--int igb_del_mac_filter(struct igb_adapter *adapter, const u8 *addr,
--		       const u8 queue)
-+static int igb_del_mac_filter(struct igb_adapter *adapter, const u8 *addr,
-+			      const u8 queue)
- {
- 	struct e1000_hw *hw = &adapter->hw;
- 	int rar_entries = hw->mac.rar_entry_count -
-@@ -6540,8 +6540,8 @@ static int igb_uc_unsync(struct net_device *netdev, const unsigned char *addr)
- 	return 0;
- }
- 
--int igb_set_vf_mac_filter(struct igb_adapter *adapter, const int vf,
--			  const u32 info, const u8 *addr)
-+static int igb_set_vf_mac_filter(struct igb_adapter *adapter, const int vf,
-+				 const u32 info, const u8 *addr)
- {
- 	struct pci_dev *pdev = adapter->pdev;
- 	struct vf_data_storage *vf_data = &adapter->vf_data[vf];
--- 
-2.11.0
-
+    Andrew
