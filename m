@@ -1,29 +1,32 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH net] xfrm: fix GRO for !CONFIG_NETFILTER
-Date: Thu, 27 Apr 2017 13:04:38 +0200
-Message-ID: <20170427110438.GF2649@secunet.com>
-References: <f04ee7d4593b4eaf3f7fe19fddbf111da81261c7.1493287089.git.sd@queasysnail.net>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next] Fix inaccurate helper function description
+Date: Thu, 27 Apr 2017 13:10:27 +0200
+Message-ID: <5901D1A3.9090207@iogearbox.net>
+References: <1493250083-1954-1-git-send-email-chenbofeng.kernel@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>, Herbert Xu <herbert@gondor.apana.org.au>
-To: Sabrina Dubroca <sd@queasysnail.net>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, mic@digikod.net,
+        Chenbo Feng <fengc@google.com>
+To: Chenbo Feng <chenbofeng.kernel@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:60600 "EHLO a.mx.secunet.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S968509AbdD0LHK (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 27 Apr 2017 07:07:10 -0400
-Content-Disposition: inline
-In-Reply-To: <f04ee7d4593b4eaf3f7fe19fddbf111da81261c7.1493287089.git.sd@queasysnail.net>
+Received: from www62.your-server.de ([213.133.104.62]:53878 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S936152AbdD0LKj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 27 Apr 2017 07:10:39 -0400
+In-Reply-To: <1493250083-1954-1-git-send-email-chenbofeng.kernel@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 27, 2017 at 12:03:37PM +0200, Sabrina Dubroca wrote:
-> In xfrm_input() when called from GRO, async == 0, and we end up
-> skipping the processing in xfrm4_transport_finish(). GRO path will
-> always skip the NF_HOOK, so we don't need the special-case for
-> !NETFILTER during GRO processing.
-> 
-> Fixes: 7785bba299a8 ("esp: Add a software GRO codepath")
-> Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
+On 04/27/2017 01:41 AM, Chenbo Feng wrote:
+> From: Chenbo Feng <fengc@google.com>
+>
+> The description inside uapi/linux/bpf.h about bpf_get_socket_uid
+> helper function is no longer valid. It returns overflowuid rather
+> than 0 when failed.
+>
+> Signed-off-by: Chenbo Feng <fengc@google.com>
 
-Applied, thanks a lot Sabrina!
+"bpf: " prefix in patch subject line would have been good.
+
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
