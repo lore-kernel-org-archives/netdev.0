@@ -1,65 +1,81 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next v8 2/3] net sched actions: dump more than
- TCA_ACT_MAX_PRIO actions per batch
-Date: Thu, 27 Apr 2017 08:30:39 +0200
-Message-ID: <20170427063039.GB1870@nanopsycho.orion>
-References: <20170425121338.GC1867@nanopsycho.orion>
- <5e54edd8-3943-6f09-490f-ff04b83077f6@mojatatu.com>
- <20170425160445.GD1867@nanopsycho.orion>
- <4b7789f7-69e0-4764-7029-f6e15d6e7d69@mojatatu.com>
- <20170426061904.GB1867@nanopsycho.orion>
- <8f1a1b14-ad9b-7840-1fa6-04f2a2e4f55d@mojatatu.com>
- <20170426120851.GE1867@nanopsycho.orion>
- <10fe2c22-8e76-543e-dd24-ddce5813ab69@mojatatu.com>
- <20170426135627.GI1867@nanopsycho.orion>
- <b32fb2fb-ffb1-aee8-5f1d-1f1e3c82b347@mojatatu.com>
+From: =?gb2312?B?1cXKpL7Z?= <zhangshengju@cmss.chinamobile.com>
+Subject: RE: [iproute2] iplink: add support for IFLA_CARRIER attribute
+Date: Thu, 27 Apr 2017 14:35:01 +0800
+Message-ID: <002301d2bf20$6647b5c0$32d72140$@cmss.chinamobile.com>
+References: <1493190519-5518-1-git-send-email-zhangshengju@cmss.chinamobile.com> <20170426080732.51f56b8c@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, xiyou.wangcong@gmail.com,
-        eric.dumazet@gmail.com, netdev@vger.kernel.org,
-        Simon Horman <simon.horman@netronome.com>,
-        Benjamin LaHaise <bcrl@kvack.org>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Content-Type: text/plain;
+        charset="gb2312"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>
+To: "'Stephen Hemminger'" <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:33753 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753094AbdD0Gaw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 27 Apr 2017 02:30:52 -0400
-Received: by mail-wm0-f67.google.com with SMTP id y10so2326817wmh.0
-        for <netdev@vger.kernel.org>; Wed, 26 Apr 2017 23:30:51 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <b32fb2fb-ffb1-aee8-5f1d-1f1e3c82b347@mojatatu.com>
+Received: from cmccmta3.chinamobile.com ([221.176.66.81]:50425 "EHLO
+        cmccmta3.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1162110AbdD0GfE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 27 Apr 2017 02:35:04 -0400
+In-Reply-To: <20170426080732.51f56b8c@xeon-e3>
+Content-Language: en-us
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wed, Apr 26, 2017 at 10:07:08PM CEST, jhs@mojatatu.com wrote:
->On 17-04-26 09:56 AM, Jiri Pirko wrote:
->> Wed, Apr 26, 2017 at 03:14:38PM CEST, jhs@mojatatu.com wrote:
->> > On 17-04-26 08:08 AM, Jiri Pirko wrote:
->
->[..]
->
+> -----Original Message-----
+> From: Stephen Hemminger [mailto:stephen@networkplumber.org]
+> Sent: Wednesday, April 26, 2017 11:08 PM
+> To: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+> Cc: netdev@vger.kernel.org
+> Subject: Re: [iproute2] iplink: add support for IFLA_CARRIER attribute
+> 
+> On Wed, 26 Apr 2017 15:08:39 +0800
+> Zhang Shengju <zhangshengju@cmss.chinamobile.com> wrote:
+> 
+> > Add support to set IFLA_CARRIER attribute.
+> >
+> > Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+> > ---
+> >  ip/iplink.c | 12 ++++++++++++
+> >  1 file changed, 12 insertions(+)
+> >
+> > diff --git a/ip/iplink.c b/ip/iplink.c index 866ad72..263bfdd 100644
+> > --- a/ip/iplink.c
+> > +++ b/ip/iplink.c
+> > @@ -72,6 +72,7 @@ void iplink_usage(void)
+> >  		"	                  [ allmulticast { on | off } ]\n"
+> >  		"	                  [ promisc { on | off } ]\n"
+> >  		"	                  [ trailers { on | off } ]\n"
+> > +		"	                  [ carrier { on | off } ]\n"
+> >  		"	                  [ txqueuelen PACKETS ]\n"
+> >  		"	                  [ name NEWNAME ]\n"
+> >  		"	                  [ address LLADDR ]\n"
+> > @@ -673,6 +674,17 @@ int iplink_parse(int argc, char **argv, struct
+> iplink_req *req,
+> >  				req->i.ifi_flags |= IFF_NOARP;
+> >  			else
+> >  				return on_off("arp", *argv);
+> > +		} else if (strcmp(*argv, "carrier") == 0) {
+> > +			int carrier;
+> > +			NEXT_ARG();
+> > +			if (strcmp(*argv, "on") == 0)
+> > +				carrier = 1;
+> > +			else if (strcmp(*argv, "off") == 0)
+> > +				carrier = 0;
+> > +			else
+> > +				return on_off("carrier", *argv);
+> > +
+> > +			addattr8(&req->n, sizeof(*req), IFLA_CARRIER,
+> carrier);
+> >  		} else if (strcmp(*argv, "vf") == 0) {
+> >  			struct rtattr *vflist;
+> >
+> 
+> The general policy of ip link command is all options should be invertable.
+Yes, so I add 'on' and 'off' subcommand to make sure that it can be
+invertable.
 
-[...]
-
->
->> > Again: You are looking at this from a manageability point of view which
->> > is useful but not the only input into a design. If i can squeeze more
->> > data without killing usability - I am all for it. It just doesnt
->> > compute that it is ok to use a flag per attribute because it looks
->> > beautiful.
->> 
->> Hmm. Now that I'm thinking about it, why don't we have NLA_FLAGS with
->> couple of helpers around it? It will be obvious what the attr is, all
->> kernel code would use the same helpers. Would be nice.
->> 
->
->I think to have flags at that level is useful but it
->is a different hierarchy level. I am not sure the
->"actions dump large messages" is a fit for that level.
-
-Jamal, the idea is to have exactly what you want to have. Only does not
-use NLA_U32 attr for that but a special attr NLA_FLAGS which would have
-well defined semantics and set of helpers to work with and enforce it.
-
-Then, this could be easily reused in other subsystem that uses netlink
+> There are some VPN's that use this to save and restore state. So if you
+add
+> an option to set something there should be similar output under the
+detailed
+> show command.
+Currently, "show command" already can display 'carrier' status. Such as:
+ dummy0: <NO-CARRIER...>
