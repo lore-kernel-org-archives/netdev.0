@@ -1,89 +1,34 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCH RFC net-next v4 0/7] net: improve support for SCTP
- checksums
-Date: Thu, 27 Apr 2017 09:41:38 -0300
-Message-ID: <20170427124138.GB3216@localhost.localdomain>
-References: <CALx6S36rem=OuN_At6qYA=se5cpuYM1N2R8efoaszvo8b8Tz5A@mail.gmail.com>
- <cover.1492692976.git.dcaratti@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [Patch net-next] ipv4: get rid of ip_ra_lock
+Date: Thu, 27 Apr 2017 05:46:19 -0700
+Message-ID: <1493297179.6453.105.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1493240115-779-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Tom Herbert <tom@herbertland.com>,
-        Alexander Duyck <alexander.duyck@gmail.com>,
-        David Laight <David.Laight@aculab.com>,
-        "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        linux-sctp@vger.kernel.org
-To: Davide Caratti <dcaratti@redhat.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:49974 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1032217AbdD0Mln (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 27 Apr 2017 08:41:43 -0400
-Content-Disposition: inline
-In-Reply-To: <cover.1492692976.git.dcaratti@redhat.com>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:33837 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755535AbdD0MqW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 27 Apr 2017 08:46:22 -0400
+Received: by mail-pf0-f196.google.com with SMTP id g23so9912552pfj.1
+        for <netdev@vger.kernel.org>; Thu, 27 Apr 2017 05:46:21 -0700 (PDT)
+In-Reply-To: <1493240115-779-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 20, 2017 at 03:38:06PM +0200, Davide Caratti wrote:
-> hello Tom,
+On Wed, 2017-04-26 at 13:55 -0700, Cong Wang wrote:
+> After commit 1215e51edad1 ("ipv4: fix a deadlock in ip_ra_control")
+> we always take RTNL lock for ip_ra_control() which is the only place
+> we update the list ip_ra_chain, so the ip_ra_lock is no longer needed,
+> we just need to disable BH there.
 > 
-> On Fri, 2017-04-07 at 11:11 -0700, Tom Herbert wrote:
-> > maybe just call it csum_not_ip then. Then just do "if
-> > (unlikely(skb->csum_not_ip)) ..."
-> 
-> Ok, done. V4 uses this bit for SCTP only and leaves unmodified behavior
-> when offloaded FCoE frames are processed. Further work is still possible
-> to extend this fix for FCoE, if needed, either by using additional sk_buff
-> bits, or using skb->csum_not_ip and use other data (e.g. skb->csum_offset)
-> to distinguish SCTP from FCoE.
-> 
-> > the only case where this new bit is relevant is when
-> > CHECKSUM_PARTIAL for a CRC is being done. When it's set for offloading
-> > sctp crc it must be set. When CRC is resolved, in the helper for
-> > instance, it must be cleared.
-> 
-> in V4 the bit is set when SCTP packets with offloaded checksum are
-> generated; the bit is cleared when CRC32c is resolved for such packets
-> (i.e. skb->ip_summed transitions from CHECKSUM_PARTIAL to CHECKSUM_NONE).
-> 
-> Any feedbacks are appreciated!
-> thank you in advance,
-> --
-> davide
-> 
-> 
-> Davide Caratti (7):
->   skbuff: add stub to help computing crc32c on SCTP packets
->   net: introduce skb_crc32c_csum_help
->   sk_buff: remove support for csum_bad in sk_buff
->   net: use skb->csum_not_inet to identify packets needing crc32c
->   net: more accurate checksumming in validate_xmit_skb()
->   openvswitch: more accurate checksumming in queue_userspace_packet()
->   sk_buff.h: improve description of CHECKSUM_{COMPLETE,UNNECESSARY}
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> ---
 
-Other than the comments I did on patch 2, this series LGTM.
+Looks great, but reading again this code, I believe we do not need to
+disable BH at all ?
 
-
-> 
->  Documentation/networking/checksum-offloads.txt   | 11 +++--
->  drivers/net/ethernet/aquantia/atlantic/aq_ring.c |  2 +-
->  include/linux/netdevice.h                        |  8 +--
->  include/linux/skbuff.h                           | 58 +++++++++-------------
->  net/bridge/netfilter/nft_reject_bridge.c         |  5 +-
->  net/core/dev.c                                   | 63 +++++++++++++++++++++---
->  net/core/skbuff.c                                | 24 +++++++++
->  net/ipv4/netfilter/nf_reject_ipv4.c              |  2 +-
->  net/ipv6/netfilter/nf_reject_ipv6.c              |  3 --
->  net/openvswitch/datapath.c                       |  2 +-
->  net/sched/act_csum.c                             |  1 +
->  net/sctp/offload.c                               |  8 +++
->  net/sctp/output.c                                |  1 +
->  13 files changed, 128 insertions(+), 60 deletions(-)
-> 
-> -- 
-> 2.7.4
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+Thanks.
