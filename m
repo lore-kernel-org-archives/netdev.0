@@ -1,45 +1,36 @@
-From: Donatas Abraitis <donatas.abraitis@gmail.com>
-Subject: [PATCH net-next v2] net: ipv6: make sure multicast packets are not forwarded beyond the different scopes
-Date: Thu, 27 Apr 2017 10:12:02 +0300
-Message-ID: <20170427071202.84403-1-donatas.abraitis@gmail.com>
-Cc: netdev@vger.kernel.org, stable@vger.kernel.org,
-        donatas.abraitis@gmail.com
-To: davem@davemloft.net
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH net] xfrm: do the garbage collection after flushing policy
+Date: Thu, 27 Apr 2017 09:27:13 +0200
+Message-ID: <20170427072713.GW2649@secunet.com>
+References: <b55e4ad516bc1be8fe70f68de028a4b32055e43f.1493019219.git.lucien.xin@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Cc: network dev <netdev@vger.kernel.org>, <davem@davemloft.net>,
+        Herbert Xu <herbert@gondor.apana.org.au>, <fw@strlen.de>
+To: Xin Long <lucien.xin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kvb.lt ([193.219.39.208]:43193 "EHLO list.kvb.lt"
+Received: from a.mx.secunet.com ([62.96.220.36]:53554 "EHLO a.mx.secunet.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S938667AbdD0HMH (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 27 Apr 2017 03:12:07 -0400
+        id S933592AbdD0H1p (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 27 Apr 2017 03:27:45 -0400
+Content-Disposition: inline
+In-Reply-To: <b55e4ad516bc1be8fe70f68de028a4b32055e43f.1493019219.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-	    RFC4291 2.7 Routers must not forward any multicast packets
-	    beyond of the scope indicated by the scop field in the
-	    destination multicast address.
+On Mon, Apr 24, 2017 at 03:33:39PM +0800, Xin Long wrote:
+> Now xfrm garbage collection can be triggered by 'ip xfrm policy del'.
+> These is no reason not to do it after flushing policies, especially
+> considering that 'garbage collection deferred' is only triggered
+> when it reaches gc_thresh.
+> 
+> It's no good that the policy is gone but the xdst still hold there.
+> The worse thing is that xdst->route/orig_dst is also hold and can
+> not be released even if the orig_dst is already expired.
+> 
+> This patch is to do the garbage collection if there is any policy
+> removed in xfrm_policy_flush.
+> 
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
 
-Signed-off-by: Donatas Abraitis <donatas.abraitis@gmail.com>
----
- net/ipv6/ip6_input.c | 8 ++++++++
- 1 file changed, 8 insertions(+)
-
-diff --git a/net/ipv6/ip6_input.c b/net/ipv6/ip6_input.c
-index 9ee208a..cbe5eef 100644
---- a/net/ipv6/ip6_input.c
-+++ b/net/ipv6/ip6_input.c
-@@ -165,6 +165,14 @@ int ipv6_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt
- 	    IPV6_ADDR_MC_SCOPE(&hdr->daddr) == 0)
- 		goto err;
- 
-+	/* RFC4291 2.7
-+	 * Routers must not forward any multicast packets beyond of the scope
-+	 * indicated by the scop field in the destination multicast address.
-+	*/
-+	if (ipv6_addr_is_multicast(&hdr->daddr) &&
-+	    IPV6_ADDR_MC_SCOPE(&hdr->daddr) != IPV6_ADDR_MC_SCOPE(&hdr->saddr))
-+	        goto err;
-+
- 	/*
- 	 * RFC4291 2.7
- 	 * Multicast addresses must not be used as source addresses in IPv6
--- 
-2.10.0
+Applied to the ipsec tree, thanks!
