@@ -1,55 +1,86 @@
-From: Logan Gunthorpe <logang@deltatee.com>
-Subject: Re: [PATCH v2 01/21] scatterlist: Introduce sg_map
-	helper functions
-Date: Thu, 27 Apr 2017 09:44:18 -0600
-Message-ID: <3b7f3aba-d609-dca7-149f-107757d63fb0@deltatee.com>
+From: Logan Gunthorpe <logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH v2 07/21] crypto: shash, caam: Make use of the new sg_map
+ helper function
+Date: Thu, 27 Apr 2017 09:45:57 -0600
+Message-ID: <94123cbf-3287-f05e-7267-0bcf08ab0a8b@deltatee.com>
 References: <1493144468-22493-1-git-send-email-logang@deltatee.com>
- <1493144468-22493-2-git-send-email-logang@deltatee.com>
- <20170426074416.GA7936@lst.de>
- <4736d44e-bbcf-5d59-a1a9-317d0f4da847@deltatee.com>
- <20170427065338.GA20677@lst.de>
+ <1493144468-22493-8-git-send-email-logang@deltatee.com>
+ <20170427035603.GA32212@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dri-devel@lists.freedesktop.org, Stephen Bates <sbates@raithlin.com>,
- dm-devel@redhat.com, target-devel@vger.kernel.org,
- Sumit Semwal <sumit.semwal@linaro.org>, devel@driverdev.osuosl.org,
- "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>, linux-scsi@vger.kernel.org,
- linux-nvdimm@lists.01.org, linux-rdma@vger.kernel.org,
- Ross Zwisler <ross.zwisler@linux.intel.com>, open-iscsi@googlegroups.com,
- linux-media@vger.kernel.org, intel-gfx@lists.freedesktop.org,
- sparmaintainer@unisys.com, linux-raid@vger.kernel.org,
- Dan Williams <dan.j.williams@intel.com>, megaraidlinux.pdl@broadcom.com,
- Jens Axboe <axboe@kernel.dk>,
- "Martin K. Petersen" <martin.petersen@oracle.com>, netdev@vger.kernel.org,
- Matthew Wilcox <mawilcox@microsoft.com>, linux-mmc@vger.kernel.org,
- linux-kernel@vger.kernel.org, linux-crypto@vger.kernel.org,
- Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-To: Christoph Hellwig <hch@lst.de>
-Return-path: <intel-gfx-bounces@lists.freedesktop.org>
-In-Reply-To: <20170427065338.GA20677@lst.de>
-List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/intel-gfx>,
- <mailto:intel-gfx-request@lists.freedesktop.org?subject=unsubscribe>
-List-Archive: <https://lists.freedesktop.org/archives/intel-gfx>
-List-Post: <mailto:intel-gfx@lists.freedesktop.org>
-List-Help: <mailto:intel-gfx-request@lists.freedesktop.org?subject=help>
-List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/intel-gfx>,
- <mailto:intel-gfx-request@lists.freedesktop.org?subject=subscribe>
-Errors-To: intel-gfx-bounces@lists.freedesktop.org
-Sender: "Intel-gfx" <intel-gfx-bounces@lists.freedesktop.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org, dm-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+ target-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>,
+ devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org, "James E.J. Bottomley" <jejb-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
+ linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-nvdimm-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org,
+ linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Sumit Semwal <sumit.semwal-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+ open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org, linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ intel-gfx-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org, sparmaintainer-GLv8BlqOqDDQT0dZR+AlfA@public.gmane.org,
+ linux-raid-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, megaraidlinux.pdl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
+ Jens Axboe <axboe-tSWWG44O7X1aa/9Udqfwiw@public.gmane.org>,
+ "Martin K. Petersen" <martin.petersen-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ Matthew Wilcox <mawilcox-0li6OtcxBFHby3iVrkZq2A@public.gmane.org>, linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-crypto-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+ "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Return-path: <linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
+In-Reply-To: <20170427035603.GA32212-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+List-Unsubscribe: <https://lists.01.org/mailman/options/linux-nvdimm>,
+ <mailto:linux-nvdimm-request-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.01.org/pipermail/linux-nvdimm/>
+List-Post: <mailto:linux-nvdimm-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
+List-Help: <mailto:linux-nvdimm-request-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.01.org/mailman/listinfo/linux-nvdimm>,
+ <mailto:linux-nvdimm-request-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org?subject=subscribe>
+Errors-To: linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org
+Sender: "Linux-nvdimm" <linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-CgpPbiAyNy8wNC8xNyAxMjo1MyBBTSwgQ2hyaXN0b3BoIEhlbGx3aWcgd3JvdGU6Cj4gSSB0aGlu
-ayB5b3UnbGwgbmVlZCB0byBmb2xsb3cgdGhlIGV4aXN0aW5nIGttYXAgc2VtYW50aWNzIGFuZCBu
-ZXZlcgo+IGZhaWwgdGhlIGlvbWVtIHZlcnNpb24gZWl0aGVyLiAgT3RoZXJ3aXNlIHlvdSdsbCBo
-YXZlIGEgc3BlY2lhbCBjYXNlCj4gdGhhdCdzIGFsbW9zdCBuZXZlciB1c2VkIHRoYXQgaGFzIGEg
-ZGlmZmVyZW50IGVycm9yIHBhdGguCj4KPiBBZ2Fpbiwgd3Jvbmcgd2F5LiAgU3VkZGVubHkgbWFr
-aW5nIHRoaW5ncyBmYWlsIGZvciB5b3VyIHNwZWNpYWwgY2FzZQo+IHRoYXQgbm9ybWFsbHkgZG9u
-J3QgZmFpbCBpcyBhIHJlY2VpcGUgZm9yIGJ1Z3MuCgpJIGRvbid0IGRpc2FncmVlIGJ1dCB0aGVz
-ZSByZXN0cmljdGlvbnMgbWFrZSB0aGUgcHJvYmxlbSBpbXBvc3NpYmxlIHRvCnNvbHZlPyBJZiB0
-aGVyZSBpcyBpb21lbSBiZWhpbmQgYSBwYWdlIGluIGFuIFNHTCBhbmQgc29tZW9uZSB0cmllcyB0
-bwptYXAgaXQsIHdlIGVpdGhlciBoYXZlIHRvIGZhaWwgb3Igd2UgYnJlYWsgaW9tZW0gc2FmZXR5
-IHdoaWNoIHdhcyB5b3VyCm9yaWdpbmFsIGNvbmNlcm4uCgpMb2dhbgoKX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KSW50ZWwtZ2Z4IG1haWxpbmcgbGlzdApJ
-bnRlbC1nZnhAbGlzdHMuZnJlZWRlc2t0b3Aub3JnCmh0dHBzOi8vbGlzdHMuZnJlZWRlc2t0b3Au
-b3JnL21haWxtYW4vbGlzdGluZm8vaW50ZWwtZ2Z4Cg==
+
+
+On 26/04/17 09:56 PM, Herbert Xu wrote:
+> On Tue, Apr 25, 2017 at 12:20:54PM -0600, Logan Gunthorpe wrote:
+>> Very straightforward conversion to the new function in the caam driver
+>> and shash library.
+>>
+>> Signed-off-by: Logan Gunthorpe <logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
+>> Cc: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+>> Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+>> ---
+>>  crypto/shash.c                | 9 ++++++---
+>>  drivers/crypto/caam/caamalg.c | 8 +++-----
+>>  2 files changed, 9 insertions(+), 8 deletions(-)
+>>
+>> diff --git a/crypto/shash.c b/crypto/shash.c
+>> index 5e31c8d..5914881 100644
+>> --- a/crypto/shash.c
+>> +++ b/crypto/shash.c
+>> @@ -283,10 +283,13 @@ int shash_ahash_digest(struct ahash_request *req, struct shash_desc *desc)
+>>  	if (nbytes < min(sg->length, ((unsigned int)(PAGE_SIZE)) - offset)) {
+>>  		void *data;
+>>  
+>> -		data = kmap_atomic(sg_page(sg));
+>> -		err = crypto_shash_digest(desc, data + offset, nbytes,
+>> +		data = sg_map(sg, 0, SG_KMAP_ATOMIC);
+>> +		if (IS_ERR(data))
+>> +			return PTR_ERR(data);
+>> +
+>> +		err = crypto_shash_digest(desc, data, nbytes,
+>>  					  req->result);
+>> -		kunmap_atomic(data);
+>> +		sg_unmap(sg, data, 0, SG_KMAP_ATOMIC);
+>>  		crypto_yield(desc->flags);
+>>  	} else
+>>  		err = crypto_shash_init(desc) ?:
+> 
+> Nack.  This is an optimisation for the special case of a single
+> SG list entry.  In fact in the common case the kmap_atomic should
+> disappear altogether in the no-highmem case.  So replacing it
+> with sg_map is not acceptable.
+
+What you seem to have missed is that sg_map is just a thin wrapper
+around kmap_atomic. Perhaps with a future check for a mappable page.
+This change should have zero impact on performance.
+
+Logan
