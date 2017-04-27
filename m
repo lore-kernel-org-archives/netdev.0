@@ -1,13 +1,14 @@
-From: Logan Gunthorpe <logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
+From: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
 Subject: Re: [PATCH v2 15/21] xen-blkfront: Make use of the new sg_map helper
  function
-Date: Thu, 27 Apr 2017 15:53:37 -0600
-Message-ID: <02ba3c7b-5fab-a06c-fbbf-c3be1c0fae1b@deltatee.com>
+Date: Thu, 27 Apr 2017 16:11:32 -0600
+Message-ID: <20170427221132.GA30036@obsidianresearch.com>
 References: <1493144468-22493-1-git-send-email-logang@deltatee.com>
  <1493144468-22493-16-git-send-email-logang@deltatee.com>
  <20170426073720.okv33ly2ldepilti@dhcp-3-128.uk.xensource.com>
  <df6586e2-7d45-6b0b-facb-4dea882df06e@deltatee.com>
  <20170427205339.GB26330@obsidianresearch.com>
+ <02ba3c7b-5fab-a06c-fbbf-c3be1c0fae1b@deltatee.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -25,9 +26,10 @@ Cc: Boris Ostrovsky <boris.ostrovsky-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>, l
  "Martin K. Petersen" <martin.petersen-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
  linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
  linux-crypto-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Greg Kroah-Hartman <gregkh@linuxfoundati
-To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+To: Logan Gunthorpe <logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
 Return-path: <linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
-In-Reply-To: <20170427205339.GB26330-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <02ba3c7b-5fab-a06c-fbbf-c3be1c0fae1b-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
 List-Unsubscribe: <https://lists.01.org/mailman/options/linux-nvdimm>,
  <mailto:linux-nvdimm-request-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://lists.01.org/pipermail/linux-nvdimm/>
@@ -39,30 +41,33 @@ Errors-To: linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org
 Sender: "Linux-nvdimm" <linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
+On Thu, Apr 27, 2017 at 03:53:37PM -0600, Logan Gunthorpe wrote:
+> On 27/04/17 02:53 PM, Jason Gunthorpe wrote:
+> > blkfront is one of the drivers I looked at, and it appears to only be
+> > memcpying with the bvec_data pointer, so I wonder why it does not use
+> > sg_copy_X_buffer instead..
+> 
+> But you'd potentially end up calling sg_copy_to_buffer multiple times
+> per page within the sg (given that gnttab_foreach_grant_in_range might
+> call blkif_copy_from_grant/blkif_setup_rw_req_grant multiple times).
+> Even calling sg_copy_to_buffer once per page seems rather inefficient as
+> it uses sg_miter internally.
 
+Well, that is in the current form, with more users it would make sense
+to optimize for the single page case, eg by providing the existing
+call, providing a faster single-page-only variant of the copy, perhaps
+even one that is inlined.
 
-On 27/04/17 02:53 PM, Jason Gunthorpe wrote:
-> blkfront is one of the drivers I looked at, and it appears to only be
-> memcpying with the bvec_data pointer, so I wonder why it does not use
-> sg_copy_X_buffer instead..
+> Switching the for_each_sg to sg_miter is probably the nicer solution as
+> it takes care of the mapping and the offset/length accounting for you
+> and will have similar performance.
 
-Yes, sort of...
+sg_miter will still fail when the sg contains __iomem, however I would
+expect that the sg_copy will work with iomem, by using the __iomem
+memcpy variant.
 
-But you'd potentially end up calling sg_copy_to_buffer multiple times
-per page within the sg (given that gnttab_foreach_grant_in_range might
-call blkif_copy_from_grant/blkif_setup_rw_req_grant multiple times).
-Even calling sg_copy_to_buffer once per page seems rather inefficient as
-it uses sg_miter internally.
+So, sg_copy should always be preferred in this new world with mixed
+__iomem since it is the only primitive that can transparently handle
+it.
 
-Switching the for_each_sg to sg_miter is probably the nicer solution as
-it takes care of the mapping and the offset/length accounting for you
-and will have similar performance.
-
-But, yes, if performance is not an issue, switching it to
-sg_copy_to_buffer would be a less invasive change than sg_miter. Which
-the same might be said about a lot of these cases.
-
-Unfortunately, changing from kmap_atomic (which is a null operation in a
-lot of cases) to sg_copy_X_buffer is a pretty big performance hit.
-
-Logan
+Jason
