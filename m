@@ -1,7 +1,7 @@
 From: Marco Chiappero <marco.chiappero@intel.com>
-Subject: [PATCH net-next 7/9] ipvlan: relocate ipvlan_skb_crossing_ns calls
-Date: Thu, 27 Apr 2017 15:51:40 +0100
-Message-ID: <20170427145142.15830-8-marco.chiappero@intel.com>
+Subject: [PATCH net-next 6/9] ipvlan: reposition three functions
+Date: Thu, 27 Apr 2017 15:51:39 +0100
+Message-ID: <20170427145142.15830-7-marco.chiappero@intel.com>
 References: <20170427145142.15830-1-marco.chiappero@intel.com>
 Cc: "David S . Miller" <davem@davemloft.net>,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
@@ -11,100 +11,139 @@ Cc: "David S . Miller" <davem@davemloft.net>,
         Marco Chiappero <marco.chiappero@intel.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga07.intel.com ([134.134.136.100]:49079 "EHLO mga07.intel.com"
+Received: from mga07.intel.com ([134.134.136.100]:44550 "EHLO mga07.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S938853AbdD0Owq (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S937363AbdD0Owq (ORCPT <rfc822;netdev@vger.kernel.org>);
         Thu, 27 Apr 2017 10:52:46 -0400
 In-Reply-To: <20170427145142.15830-1-marco.chiappero@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Relocate ipvlan_skb_crossing_ns invocations across the code to reduce
-duplications and improve readability. Additionally introduce
-ipvlan_process_l2_outbound for the purpose, similarly to
-ipvlan_process_l3_outbound.
+Move ipvlan_multicast_enqueue, ipvlan_skb_crossing_ns and
+ipvlan_mac_hash close to their related siblings.
 
 Signed-off-by: Marco Chiappero <marco.chiappero@intel.com>
 ---
- drivers/net/ipvlan/ipvlan_core.c | 25 ++++++++++++++++---------
- 1 file changed, 16 insertions(+), 9 deletions(-)
+ drivers/net/ipvlan/ipvlan_core.c | 80 ++++++++++++++++++++--------------------
+ 1 file changed, 40 insertions(+), 40 deletions(-)
 
 diff --git a/drivers/net/ipvlan/ipvlan_core.c b/drivers/net/ipvlan/ipvlan_core.c
-index 81dc3e5..a9fc1b5 100644
+index 54c4e85..81dc3e5 100644
 --- a/drivers/net/ipvlan/ipvlan_core.c
 +++ b/drivers/net/ipvlan/ipvlan_core.c
-@@ -289,6 +289,8 @@ void ipvlan_process_multicast(struct work_struct *work)
- 		ethh = eth_hdr(skb);
- 		mac_hash = ipvlan_mac_hash(ethh->h_dest);
+@@ -88,6 +88,14 @@ void ipvlan_ht_addr_del(struct ipvl_addr *addr)
+ 	hlist_del_init_rcu(&addr->hlnode);
+ }
  
-+		ipvlan_skb_crossing_ns(skb, NULL);
++unsigned int ipvlan_mac_hash(const unsigned char *addr)
++{
++	u32 hash = jhash_1word(__get_unaligned_cpu32(addr + 2),
++			       ipvlan_jhash_secret);
 +
- 		if (ether_addr_equal(ethh->h_dest, port->dev->broadcast))
- 			pkt_type = PACKET_BROADCAST;
- 		else
-@@ -433,7 +435,8 @@ static int ipvlan_process_l3_outbound_v6(struct sk_buff *skb)
++	return hash & IPVLAN_MAC_FILTER_MASK;
++}
++
+ struct ipvl_addr *ipvlan_find_addr(const struct ipvl_dev *ipvlan,
+ 				   const void *iaddr, bool is_v6)
+ {
+@@ -195,12 +203,16 @@ static inline struct ipvl_addr *ipvlan_get_slave_addr_dst(struct sk_buff *skb,
+ 	return ipvlan_get_slave_addr(skb, port, true);
+ }
+ 
+-unsigned int ipvlan_mac_hash(const unsigned char *addr)
++static void ipvlan_skb_crossing_ns(struct sk_buff *skb, struct net_device *dev)
+ {
+-	u32 hash = jhash_1word(__get_unaligned_cpu32(addr + 2),
+-			       ipvlan_jhash_secret);
++	bool xnet = true;
+ 
+-	return hash & IPVLAN_MAC_FILTER_MASK;
++	if (dev)
++		xnet = !net_eq(dev_net(skb->dev), dev_net(dev));
++
++	skb_scrub_packet(skb, xnet);
++	if (dev)
++		skb->dev = dev;
+ }
+ 
+ static void ipvlan_dispatch_multicast(struct ipvl_port *port,
+@@ -286,16 +298,33 @@ void ipvlan_process_multicast(struct work_struct *work)
+ 	}
+ }
+ 
+-static void ipvlan_skb_crossing_ns(struct sk_buff *skb, struct net_device *dev)
++static void ipvlan_multicast_enqueue(struct ipvl_port *port,
++				     struct sk_buff *skb, bool tx_pkt)
+ {
+-	bool xnet = true;
++	if (skb->protocol == htons(ETH_P_PAUSE)) {
++		kfree_skb(skb);
++		return;
++	}
+ 
+-	if (dev)
+-		xnet = !net_eq(dev_net(skb->dev), dev_net(dev));
++	/* Record that the deferred packet is from TX or RX path. By
++	 * looking at mac-addresses on packet will lead to erronus decisions.
++	 * (This would be true for a loopback-mode on master device or a
++	 * hair-pin mode of the switch.)
++	 */
++	IPVL_SKB_CB(skb)->tx_pkt = tx_pkt;
+ 
+-	skb_scrub_packet(skb, xnet);
+-	if (dev)
+-		skb->dev = dev;
++	spin_lock(&port->backlog.lock);
++	if (skb_queue_len(&port->backlog) < IPVLAN_QBACKLOG_LIMIT) {
++		if (skb->dev)
++			dev_hold(skb->dev);
++		__skb_queue_tail(&port->backlog, skb);
++		spin_unlock(&port->backlog.lock);
++		schedule_work(&port->wq);
++	} else {
++		spin_unlock(&port->backlog.lock);
++		atomic_long_inc(&skb->dev->rx_dropped);
++		kfree_skb(skb);
++	}
+ }
+ 
+ static int ipvlan_rcv_int_frame(struct ipvl_addr *addr, struct sk_buff **pskb)
+@@ -440,35 +469,6 @@ static int ipvlan_process_l3_outbound(struct sk_buff *skb)
  	return ret;
  }
  
--static int ipvlan_process_l3_outbound(struct sk_buff *skb)
-+static int ipvlan_process_l3_outbound(struct sk_buff *skb,
-+				      struct net_device *dev)
+-static void ipvlan_multicast_enqueue(struct ipvl_port *port,
+-				     struct sk_buff *skb, bool tx_pkt)
+-{
+-	if (skb->protocol == htons(ETH_P_PAUSE)) {
+-		kfree_skb(skb);
+-		return;
+-	}
+-
+-	/* Record that the deferred packet is from TX or RX path. By
+-	 * looking at mac-addresses on packet will lead to erronus decisions.
+-	 * (This would be true for a loopback-mode on master device or a
+-	 * hair-pin mode of the switch.)
+-	 */
+-	IPVL_SKB_CB(skb)->tx_pkt = tx_pkt;
+-
+-	spin_lock(&port->backlog.lock);
+-	if (skb_queue_len(&port->backlog) < IPVLAN_QBACKLOG_LIMIT) {
+-		if (skb->dev)
+-			dev_hold(skb->dev);
+-		__skb_queue_tail(&port->backlog, skb);
+-		spin_unlock(&port->backlog.lock);
+-		schedule_work(&port->wq);
+-	} else {
+-		spin_unlock(&port->backlog.lock);
+-		atomic_long_inc(&skb->dev->rx_dropped);
+-		kfree_skb(skb);
+-	}
+-}
+-
+ static int ipvlan_xmit_mode_l3(struct sk_buff *skb, struct net_device *dev)
  {
- 	struct ethhdr *ethh = eth_hdr(skb);
- 	int ret = NET_XMIT_DROP;
-@@ -446,6 +449,8 @@ static int ipvlan_process_l3_outbound(struct sk_buff *skb)
- 		goto out;
- 	}
- 
-+	ipvlan_skb_crossing_ns(skb, dev);
-+
- 	/* The ipvlan is a pseudo-L2 device, so the packets that we receive
- 	 * will have L2; which need to discarded and processed further
- 	 * in the net-ns of the main-device.
-@@ -478,8 +483,14 @@ static int ipvlan_xmit_mode_l3(struct sk_buff *skb, struct net_device *dev)
- 	if (addr)
- 		return ipvlan_rcv_int_frame(addr, &skb);
- 
--	ipvlan_skb_crossing_ns(skb, ipvlan->phy_dev);
--	return ipvlan_process_l3_outbound(skb);
-+	return ipvlan_process_l3_outbound(skb, ipvlan->phy_dev);
-+}
-+
-+static inline int ipvlan_process_l2_outbound(struct sk_buff *skb,
-+					     struct net_device *dev)
-+{
-+	ipvlan_skb_crossing_ns(skb, dev);
-+	return dev_queue_xmit(skb);
- }
- 
- static int ipvlan_xmit_mode_l2(struct sk_buff *skb, struct net_device *dev)
-@@ -505,13 +516,11 @@ static int ipvlan_xmit_mode_l2(struct sk_buff *skb, struct net_device *dev)
- 		return dev_forward_skb(ipvlan->phy_dev, skb);
- 
- 	} else if (is_multicast_ether_addr(ethh->h_dest)) {
--		ipvlan_skb_crossing_ns(skb, NULL);
- 		ipvlan_multicast_enqueue(ipvlan->port, skb, true);
- 		return NET_XMIT_SUCCESS;
- 	}
- 
--	ipvlan_skb_crossing_ns(skb, ipvlan->phy_dev);
--	return dev_queue_xmit(skb);
-+	return ipvlan_process_l2_outbound(skb, ipvlan->phy_dev);
- }
- 
- int ipvlan_queue_xmit(struct sk_buff *skb, struct net_device *dev)
-@@ -587,10 +596,8 @@ static rx_handler_result_t ipvlan_handle_mode_l2(struct sk_buff **pskb,
- 			 * when work-queue processes this frame. This is
- 			 * achieved by returning RX_HANDLER_PASS.
- 			 */
--			if (nskb) {
--				ipvlan_skb_crossing_ns(nskb, NULL);
-+			if (nskb)
- 				ipvlan_multicast_enqueue(port, nskb, false);
--			}
- 		}
- 	} else {
- 		struct ipvl_addr *addr;
+ 	const struct ipvl_dev *ipvlan = netdev_priv(dev);
 -- 
 2.9.3
 
