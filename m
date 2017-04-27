@@ -1,7 +1,7 @@
 From: Marco Chiappero <marco.chiappero@intel.com>
-Subject: [PATCH net-next 2/9] ipvlan: refactor ipvlan_process_multicast for readability
-Date: Thu, 27 Apr 2017 15:51:35 +0100
-Message-ID: <20170427145142.15830-3-marco.chiappero@intel.com>
+Subject: [PATCH net-next 3/9] ipvlan: replace ipvlan_rcv_frame
+Date: Thu, 27 Apr 2017 15:51:36 +0100
+Message-ID: <20170427145142.15830-4-marco.chiappero@intel.com>
 References: <20170427145142.15830-1-marco.chiappero@intel.com>
 Cc: "David S . Miller" <davem@davemloft.net>,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
@@ -11,165 +11,149 @@ Cc: "David S . Miller" <davem@davemloft.net>,
         Marco Chiappero <marco.chiappero@intel.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga07.intel.com ([134.134.136.100]:49079 "EHLO mga07.intel.com"
+Received: from mga07.intel.com ([134.134.136.100]:46967 "EHLO mga07.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755630AbdD0Owg (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 27 Apr 2017 10:52:36 -0400
+        id S1755640AbdD0Owk (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 27 Apr 2017 10:52:40 -0400
 In-Reply-To: <20170427145142.15830-1-marco.chiappero@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The function ipvlan_process_multicast both dequeues and dispatches
-packets from/to ipvlan slaves. Decouple these two steps by introducing
-ipvlan_dispatch_multicast, in order to reduce indentation and improve
-the overall readability.
+So far the ipvlan_rcv_frame function handled the reception for slaves of
+both externally and internally (from the same port) originated packets.
+However they need significantly different processing, with almost no
+code to share.
+
+This patch modifies ipvlan_rcv_frame to deal with internal packets only,
+renaming it to ipvlan_rcv_int_frame, and introduces a new
+ipvlan_rcv_ext_frame function for externally originated ones.
 
 Signed-off-by: Marco Chiappero <marco.chiappero@intel.com>
 Tested-by: Marco Chiappero <marco.chiappero@intel.com>
 ---
- drivers/net/ipvlan/ipvlan_core.c | 107 +++++++++++++++++++++------------------
- 1 file changed, 57 insertions(+), 50 deletions(-)
+ drivers/net/ipvlan/ipvlan_core.c | 58 +++++++++++++++++++++-------------------
+ 1 file changed, 30 insertions(+), 28 deletions(-)
 
 diff --git a/drivers/net/ipvlan/ipvlan_core.c b/drivers/net/ipvlan/ipvlan_core.c
-index 1266f01..fd40c25 100644
+index fd40c25..4683bad 100644
 --- a/drivers/net/ipvlan/ipvlan_core.c
 +++ b/drivers/net/ipvlan/ipvlan_core.c
-@@ -185,18 +185,69 @@ unsigned int ipvlan_mac_hash(const unsigned char *addr)
- 	return hash & IPVLAN_MAC_FILTER_MASK;
+@@ -280,46 +280,36 @@ static void ipvlan_skb_crossing_ns(struct sk_buff *skb, struct net_device *dev)
+ 		skb->dev = dev;
  }
  
-+static void ipvlan_dispatch_multicast(struct ipvl_port *port,
-+				      struct sk_buff *skb, u8 pkt_type,
-+				      unsigned int mac_hash)
+-static int ipvlan_rcv_frame(struct ipvl_addr *addr, struct sk_buff **pskb,
+-			    bool local)
++static int ipvlan_rcv_int_frame(struct ipvl_addr *addr, struct sk_buff **pskb)
+ {
+ 	struct ipvl_dev *ipvlan = addr->master;
+ 	struct net_device *dev = ipvlan->dev;
+-	unsigned int len;
+-	rx_handler_result_t ret = RX_HANDLER_CONSUMED;
+-	bool success = false;
+ 	struct sk_buff *skb = *pskb;
++	unsigned int len = skb->len + ETH_HLEN;
++	bool success = false;
+ 
+-	len = skb->len + ETH_HLEN;
+ 	/* Only packets exchanged between two local slaves need to have
+ 	 * device-up check as well as skb-share check.
+ 	 */
+-	if (local) {
+-		if (unlikely(!(dev->flags & IFF_UP))) {
+-			kfree_skb(skb);
+-			goto out;
+-		}
++	if (unlikely(!(dev->flags & IFF_UP))) {
++		kfree_skb(skb);
++		goto out;
++	}
+ 
+-		skb = skb_share_check(skb, GFP_ATOMIC);
+-		if (!skb)
+-			goto out;
++	skb = skb_share_check(skb, GFP_ATOMIC);
++	if (unlikely(!skb))
++		goto out;
+ 
+-		*pskb = skb;
+-	}
++	*pskb = skb;
+ 	ipvlan_skb_crossing_ns(skb, dev);
++	skb->pkt_type = PACKET_HOST;
+ 
+-	if (local) {
+-		skb->pkt_type = PACKET_HOST;
+-		if (dev_forward_skb(ipvlan->dev, skb) == NET_RX_SUCCESS)
+-			success = true;
+-	} else {
+-		ret = RX_HANDLER_ANOTHER;
++	if (dev_forward_skb(ipvlan->dev, skb) == NET_RX_SUCCESS)
+ 		success = true;
+-	}
+ 
+ out:
+ 	ipvlan_count_rx(ipvlan, len, success, false);
+-	return ret;
++	return RX_HANDLER_CONSUMED;
+ }
+ 
+ static struct ipvl_addr *ipvlan_addr_lookup(struct ipvl_port *port,
+@@ -525,7 +515,7 @@ static int ipvlan_xmit_mode_l3(struct sk_buff *skb, struct net_device *dev)
+ 
+ 	addr = ipvlan_addr_lookup(ipvlan->port, lyr3h, addr_type, true);
+ 	if (addr)
+-		return ipvlan_rcv_frame(addr, &skb, true);
++		return ipvlan_rcv_int_frame(addr, &skb);
+ 
+ out:
+ 	ipvlan_skb_crossing_ns(skb, ipvlan->phy_dev);
+@@ -546,7 +536,7 @@ static int ipvlan_xmit_mode_l2(struct sk_buff *skb, struct net_device *dev)
+ 			addr = ipvlan_addr_lookup(ipvlan->port, lyr3h,
+ 						  addr_type, true);
+ 			if (addr)
+-				return ipvlan_rcv_frame(addr, &skb, true);
++				return ipvlan_rcv_int_frame(addr, &skb);
+ 		}
+ 		skb = skb_share_check(skb, GFP_ATOMIC);
+ 		if (!skb)
+@@ -616,6 +606,18 @@ static bool ipvlan_external_frame(struct sk_buff *skb, struct ipvl_port *port)
+ 	return true;
+ }
+ 
++static int ipvlan_rcv_ext_frame(struct ipvl_addr *addr, struct sk_buff *skb)
 +{
-+	struct ipvl_dev *ipvlan;
-+	struct sk_buff *nskb;
-+	struct net_device *dev = skb->dev;
-+	bool tx_pkt = IPVL_SKB_CB(skb)->tx_pkt;
-+	bool consumed = false;
-+	unsigned int len;
-+	int ret;
++	struct ipvl_dev *ipvlan = addr->master;
++	struct net_device *dev = ipvlan->dev;
++	unsigned int len = skb->len + ETH_HLEN;
 +
-+	/* dispatch to slaves */
-+	rcu_read_lock();
-+	list_for_each_entry_rcu(ipvlan, &port->ipvlans, pnode) {
-+		if (tx_pkt && (ipvlan->dev == skb->dev))
-+			continue;
-+		if (!test_bit(mac_hash, ipvlan->mac_filters))
-+			continue;
-+		if (!(ipvlan->dev->flags & IFF_UP))
-+			continue;
-+		ret = NET_RX_DROP;
-+		len = skb->len + ETH_HLEN;
-+		nskb = skb_clone(skb, GFP_ATOMIC);
-+		local_bh_disable();
-+		if (nskb) {
-+			consumed = true;
-+			nskb->pkt_type = pkt_type;
-+			nskb->dev = ipvlan->dev;
-+			if (tx_pkt)
-+				ret = dev_forward_skb(ipvlan->dev, nskb);
-+			else
-+				ret = netif_rx(nskb);
-+		}
-+		ipvlan_count_rx(ipvlan, len, ret == NET_RX_SUCCESS, true);
-+		local_bh_enable();
-+	}
-+	rcu_read_unlock();
++	ipvlan_skb_crossing_ns(skb, dev);
++	ipvlan_count_rx(ipvlan, len, true, false);
 +
-+	if (tx_pkt) {
-+		/* If the packet originated here, send it out. */
-+		skb->dev = port->dev;
-+		skb->pkt_type = pkt_type;
-+		dev_queue_xmit(skb);
-+	} else {
-+		if (consumed)
-+			consume_skb(skb);
-+		else
-+			kfree_skb(skb);
-+	}
-+
-+	if (dev)
-+		dev_put(dev);
++	return RX_HANDLER_ANOTHER;
 +}
 +
- void ipvlan_process_multicast(struct work_struct *work)
+ static rx_handler_result_t ipvlan_handle_mode_l3(struct sk_buff **pskb,
+ 						 struct ipvl_port *port)
  {
- 	struct ipvl_port *port = container_of(work, struct ipvl_port, wq);
- 	struct ethhdr *ethh;
--	struct ipvl_dev *ipvlan;
--	struct sk_buff *skb, *nskb;
-+	struct sk_buff *skb;
- 	struct sk_buff_head list;
--	unsigned int len;
- 	unsigned int mac_hash;
--	int ret;
- 	u8 pkt_type;
--	bool tx_pkt;
+@@ -631,7 +633,7 @@ static rx_handler_result_t ipvlan_handle_mode_l3(struct sk_buff **pskb,
  
- 	__skb_queue_head_init(&list);
+ 	addr = ipvlan_addr_lookup(port, lyr3h, addr_type, true);
+ 	if (addr)
+-		ret = ipvlan_rcv_frame(addr, pskb, false);
++		ret = ipvlan_rcv_ext_frame(addr, skb);
  
-@@ -205,11 +256,7 @@ void ipvlan_process_multicast(struct work_struct *work)
- 	spin_unlock_bh(&port->backlog.lock);
+ out:
+ 	return ret;
+@@ -670,7 +672,7 @@ static rx_handler_result_t ipvlan_handle_mode_l2(struct sk_buff **pskb,
  
- 	while ((skb = __skb_dequeue(&list)) != NULL) {
--		struct net_device *dev = skb->dev;
--		bool consumed = false;
--
- 		ethh = eth_hdr(skb);
--		tx_pkt = IPVL_SKB_CB(skb)->tx_pkt;
- 		mac_hash = ipvlan_mac_hash(ethh->h_dest);
- 
- 		if (ether_addr_equal(ethh->h_dest, port->dev->broadcast))
-@@ -217,47 +264,7 @@ void ipvlan_process_multicast(struct work_struct *work)
- 		else
- 			pkt_type = PACKET_MULTICAST;
- 
--		rcu_read_lock();
--		list_for_each_entry_rcu(ipvlan, &port->ipvlans, pnode) {
--			if (tx_pkt && (ipvlan->dev == skb->dev))
--				continue;
--			if (!test_bit(mac_hash, ipvlan->mac_filters))
--				continue;
--			if (!(ipvlan->dev->flags & IFF_UP))
--				continue;
--			ret = NET_RX_DROP;
--			len = skb->len + ETH_HLEN;
--			nskb = skb_clone(skb, GFP_ATOMIC);
--			local_bh_disable();
--			if (nskb) {
--				consumed = true;
--				nskb->pkt_type = pkt_type;
--				nskb->dev = ipvlan->dev;
--				if (tx_pkt)
--					ret = dev_forward_skb(ipvlan->dev,
--							      nskb);
--				else
--					ret = netif_rx(nskb);
--			}
--			ipvlan_count_rx(ipvlan, len, ret == NET_RX_SUCCESS,
--					true);
--			local_bh_enable();
--		}
--		rcu_read_unlock();
--
--		if (tx_pkt) {
--			/* If the packet originated here, send it out. */
--			skb->dev = port->dev;
--			skb->pkt_type = pkt_type;
--			dev_queue_xmit(skb);
--		} else {
--			if (consumed)
--				consume_skb(skb);
--			else
--				kfree_skb(skb);
--		}
--		if (dev)
--			dev_put(dev);
-+		ipvlan_dispatch_multicast(port, skb, pkt_type, mac_hash);
+ 		addr = ipvlan_addr_lookup(port, lyr3h, addr_type, true);
+ 		if (addr)
+-			ret = ipvlan_rcv_frame(addr, pskb, false);
++			ret = ipvlan_rcv_ext_frame(addr, skb);
  	}
- }
  
+ 	return ret;
 -- 
 2.9.3
 
