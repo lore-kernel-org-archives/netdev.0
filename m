@@ -1,8 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 07/10] net: sched: push chain dump to a separate function
-Date: Thu, 27 Apr 2017 13:12:17 +0200
-Message-ID: <1493291540-2119-8-git-send-email-jiri@resnulli.us>
-References: <1493291540-2119-1-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 00/10] net: sched: introduce multichain support for filters
+Date: Thu, 27 Apr 2017 13:12:10 +0200
+Message-ID: <1493291540-2119-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         dsa@cumulusnetworks.com, edumazet@google.com,
         stephen@networkplumber.org, daniel@iogearbox.net,
@@ -10,149 +9,115 @@ Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         simon.horman@netronome.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:36657 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S936152AbdD0LMe (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 27 Apr 2017 07:12:34 -0400
-Received: by mail-wm0-f65.google.com with SMTP id u65so3797602wmu.3
-        for <netdev@vger.kernel.org>; Thu, 27 Apr 2017 04:12:33 -0700 (PDT)
-In-Reply-To: <1493291540-2119-1-git-send-email-jiri@resnulli.us>
+Received: from mail-wr0-f195.google.com ([209.85.128.195]:33938 "EHLO
+        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754279AbdD0LMX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 27 Apr 2017 07:12:23 -0400
+Received: by mail-wr0-f195.google.com with SMTP id 6so3404136wrb.1
+        for <netdev@vger.kernel.org>; Thu, 27 Apr 2017 04:12:22 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-Since there will be multiple chains to dump, push chain dumping code to
-a separate function.
+Currently, each classful qdisc holds one chain of filters.
+This chain is traversed and each filter could be matched on, which
+may lead to execution of list of actions. One of such action
+could be "reclassify", which would "reset" the processing of the
+filter chain.
 
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- net/sched/cls_api.c | 95 +++++++++++++++++++++++++++++------------------------
- 1 file changed, 52 insertions(+), 43 deletions(-)
+So this filter chain could be looked at as a flat table.
+Sometimes it is convenient for user to configure a hierarchy
+of tables. Example usecase is encapsulation.
 
-diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
-index 6f2ea68..9f48061 100644
---- a/net/sched/cls_api.c
-+++ b/net/sched/cls_api.c
-@@ -634,21 +634,65 @@ static int tcf_node_dump(struct tcf_proto *tp, unsigned long n,
- 			     RTM_NEWTFILTER);
- }
+Hierarchy of tables is a common way how it is done in HW pipelines.
+So it is much more convenient to offload this.
+
+This patchset contains two major patches:
+8/10 - This patch introduces the support for having multiple
+       chains of filters. 
+10/10 - This patch extends existing gact action to allow
+        going to specified chain
+The rest of the patches are smaller or bigger depencies of those 2.
+Please see individual patch descriptions for details.
+
+Corresponding iproute2 patches are appended as a reply to this cover letter.
+
+Simple example:
+$ tc qdisc add dev eth0 ingress
+$ tc filter add dev eth0 parent ffff: protocol ip pref 33 flower dst_mac 52:54:00:3d:c7:6d action goto chain 11
+$ tc filter add dev eth0 parent ffff: protocol ip pref 22 chain 11 flower dst_ip 192.168.40.1 action drop
+$ tc filter show dev eth0 root
+filter parent ffff: protocol ip pref 33 flower chain 0 
+filter parent ffff: protocol ip pref 33 flower chain 0 handle 0x1 
+  dst_mac 52:54:00:3d:c7:6d
+  eth_type ipv4
+        action order 1: gact action goto chain 11
+         random type none pass val 0
+         index 2 ref 1 bind 1
  
-+static void tcf_chain_dump(struct tcf_chain *chain, struct sk_buff *skb,
-+			   struct netlink_callback *cb,
-+			   long index_start, long *p_index)
-+{
-+	struct net *net = sock_net(skb->sk);
-+	struct tcmsg *tcm = nlmsg_data(cb->nlh);
-+	struct tcf_dump_args arg;
-+	struct tcf_proto *tp;
-+
-+	for (tp = rtnl_dereference(chain->filter_chain);
-+	     tp; tp = rtnl_dereference(tp->next), (*p_index)++) {
-+		if (*p_index < index_start)
-+			continue;
-+		if (TC_H_MAJ(tcm->tcm_info) &&
-+		    TC_H_MAJ(tcm->tcm_info) != tp->prio)
-+			continue;
-+		if (TC_H_MIN(tcm->tcm_info) &&
-+		    TC_H_MIN(tcm->tcm_info) != tp->protocol)
-+			continue;
-+		if (*p_index > index_start)
-+			memset(&cb->args[1], 0,
-+			       sizeof(cb->args) - sizeof(cb->args[0]));
-+		if (cb->args[1] == 0) {
-+			if (tcf_fill_node(net, skb, tp, 0,
-+					  NETLINK_CB(cb->skb).portid,
-+					  cb->nlh->nlmsg_seq, NLM_F_MULTI,
-+					  RTM_NEWTFILTER) <= 0)
-+				break;
-+
-+			cb->args[1] = 1;
-+		}
-+		if (!tp->ops->walk)
-+			continue;
-+		arg.w.fn = tcf_node_dump;
-+		arg.skb = skb;
-+		arg.cb = cb;
-+		arg.w.stop = 0;
-+		arg.w.skip = cb->args[1] - 1;
-+		arg.w.count = 0;
-+		tp->ops->walk(tp, &arg.w);
-+		cb->args[1] = arg.w.count + 1;
-+		if (arg.w.stop)
-+			break;
-+	}
-+}
-+
- /* called with RTNL */
- static int tc_dump_tfilter(struct sk_buff *skb, struct netlink_callback *cb)
- {
- 	struct net *net = sock_net(skb->sk);
--	int t;
--	int s_t;
- 	struct net_device *dev;
- 	struct Qdisc *q;
- 	struct tcf_block *block;
--	struct tcf_proto *tp;
- 	struct tcf_chain *chain;
- 	struct tcmsg *tcm = nlmsg_data(cb->nlh);
- 	unsigned long cl = 0;
- 	const struct Qdisc_class_ops *cops;
--	struct tcf_dump_args arg;
-+	long index_start;
-+	long index;
- 
- 	if (nlmsg_len(cb->nlh) < sizeof(*tcm))
- 		return skb->len;
-@@ -677,45 +721,10 @@ static int tc_dump_tfilter(struct sk_buff *skb, struct netlink_callback *cb)
- 		goto errout;
- 	chain = block->chain;
- 
--	s_t = cb->args[0];
--
--	for (tp = rtnl_dereference(chain->filter_chain), t = 0;
--	     tp; tp = rtnl_dereference(tp->next), t++) {
--		if (t < s_t)
--			continue;
--		if (TC_H_MAJ(tcm->tcm_info) &&
--		    TC_H_MAJ(tcm->tcm_info) != tp->prio)
--			continue;
--		if (TC_H_MIN(tcm->tcm_info) &&
--		    TC_H_MIN(tcm->tcm_info) != tp->protocol)
--			continue;
--		if (t > s_t)
--			memset(&cb->args[1], 0,
--			       sizeof(cb->args)-sizeof(cb->args[0]));
--		if (cb->args[1] == 0) {
--			if (tcf_fill_node(net, skb, tp, 0,
--					  NETLINK_CB(cb->skb).portid,
--					  cb->nlh->nlmsg_seq, NLM_F_MULTI,
--					  RTM_NEWTFILTER) <= 0)
--				break;
--
--			cb->args[1] = 1;
--		}
--		if (tp->ops->walk == NULL)
--			continue;
--		arg.w.fn = tcf_node_dump;
--		arg.skb = skb;
--		arg.cb = cb;
--		arg.w.stop = 0;
--		arg.w.skip = cb->args[1] - 1;
--		arg.w.count = 0;
--		tp->ops->walk(tp, &arg.w);
--		cb->args[1] = arg.w.count + 1;
--		if (arg.w.stop)
--			break;
--	}
--
--	cb->args[0] = t;
-+	index_start = cb->args[0];
-+	index = 0;
-+	tcf_chain_dump(chain, skb, cb, index_start, &index);
-+	cb->args[0] = index;
- 
- errout:
- 	if (cl)
+filter parent ffff: protocol ip pref 22 flower chain 11 
+filter parent ffff: protocol ip pref 22 flower chain 11 handle 0x1 
+  eth_type ipv4
+  dst_ip 192.168.40.1
+        action order 1: gact action drop
+         random type none pass val 0
+         index 3 ref 1 bind 1
+
+Jiri Pirko (10):
+  net: sched: move tc_classify function to cls_api.c
+  net: sched: introduce tcf block infractructure
+  net: sched: rename tcf_destroy_chain helper
+  net: sched: replace nprio by a bool to make the function more readable
+  net: sched: move TC_H_MAJ macro call into tcf_auto_prio
+  net: sched: introduce helpers to work with filter chains
+  net: sched: push chain dump to a separate function
+  net: sched: introduce multichain support for filters
+  net: sched: push tp down to action init callback
+  net: sched: extend gact to allow jumping to another filter chain
+
+ include/net/act_api.h               |  18 +-
+ include/net/pkt_cls.h               |  24 ++-
+ include/net/pkt_sched.h             |   3 -
+ include/net/sch_generic.h           |  26 ++-
+ include/net/tc_act/tc_gact.h        |   2 +
+ include/uapi/linux/pkt_cls.h        |   1 +
+ include/uapi/linux/rtnetlink.h      |   1 +
+ include/uapi/linux/tc_act/tc_gact.h |   1 +
+ net/core/dev.c                      |   5 +-
+ net/sched/act_api.c                 |  20 +-
+ net/sched/act_bpf.c                 |   6 +-
+ net/sched/act_connmark.c            |   6 +-
+ net/sched/act_csum.c                |   6 +-
+ net/sched/act_gact.c                |  54 ++++-
+ net/sched/act_ife.c                 |   6 +-
+ net/sched/act_ipt.c                 |  12 +-
+ net/sched/act_mirred.c              |   6 +-
+ net/sched/act_nat.c                 |   3 +-
+ net/sched/act_pedit.c               |   6 +-
+ net/sched/act_police.c              |   6 +-
+ net/sched/act_sample.c              |   6 +-
+ net/sched/act_simple.c              |   6 +-
+ net/sched/act_skbedit.c             |   6 +-
+ net/sched/act_skbmod.c              |   6 +-
+ net/sched/act_tunnel_key.c          |   6 +-
+ net/sched/act_vlan.c                |   6 +-
+ net/sched/cls_api.c                 | 401 ++++++++++++++++++++++++++++--------
+ net/sched/sch_api.c                 |  50 +----
+ net/sched/sch_atm.c                 |  29 ++-
+ net/sched/sch_cbq.c                 |  21 +-
+ net/sched/sch_drr.c                 |  15 +-
+ net/sched/sch_dsmark.c              |  19 +-
+ net/sched/sch_fq_codel.c            |  17 +-
+ net/sched/sch_hfsc.c                |  21 +-
+ net/sched/sch_htb.c                 |  28 ++-
+ net/sched/sch_ingress.c             |  61 ++++--
+ net/sched/sch_multiq.c              |  16 +-
+ net/sched/sch_prio.c                |  19 +-
+ net/sched/sch_qfq.c                 |  16 +-
+ net/sched/sch_sfb.c                 |  17 +-
+ net/sched/sch_sfq.c                 |  17 +-
+ 41 files changed, 680 insertions(+), 315 deletions(-)
+
 -- 
 2.7.4
