@@ -1,64 +1,62 @@
-From: Iyappan Subramanian <isubramanian@apm.com>
-Subject: Re: [PATCH net-next 1/9] drivers: net: xgene: Protect indirect MAC access
-Date: Wed, 26 Apr 2017 21:12:16 -0700
-Message-ID: <CAKh23FnsvzvhwbxW0qp=NUnAs-YAs4858_A6-5+0o0NPL4=THQ@mail.gmail.com>
-References: <1493249935-30759-1-git-send-email-isubramanian@apm.com>
- <1493249935-30759-2-git-send-email-isubramanian@apm.com> <d23578a5-fedd-accd-c49b-12200440b9ca@gmail.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: ipsec doesn't route TCP with 4.11 kernel
+Date: Wed, 26 Apr 2017 22:01:34 -0700
+Message-ID: <CAM_iQpWT5tF5+LpoTP98JNJ=440jEkxHFkn8=jtAsZgondN49A@mail.gmail.com>
+References: <CADJev78Cs0VBdagtfU-71pv3HHC5Vq41UXQee856aVbUqEqAYg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>, Quan Nguyen <qnguyen@apm.com>,
-        patches <patches@apm.com>,
-        "linux-arm-kernel@lists.infradead.org"
-        <linux-arm-kernel@lists.infradead.org>
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ua0-f174.google.com ([209.85.217.174]:34311 "EHLO
-        mail-ua0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752066AbdD0EMR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 27 Apr 2017 00:12:17 -0400
-Received: by mail-ua0-f174.google.com with SMTP id h2so12693349uaa.1
-        for <netdev@vger.kernel.org>; Wed, 26 Apr 2017 21:12:17 -0700 (PDT)
-In-Reply-To: <d23578a5-fedd-accd-c49b-12200440b9ca@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        Steffen Klassert <steffen.klassert@secunet.com>,
+        Herbert Xu <herbert@gondor.apana.org.au>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Don Bowman <db@donbowman.ca>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CADJev78Cs0VBdagtfU-71pv3HHC5Vq41UXQee856aVbUqEqAYg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 26, 2017 at 5:06 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
-> On 04/26/2017 04:38 PM, Iyappan Subramanian wrote:
->> From: Quan Nguyen <qnguyen@apm.com>
->>
->> This patch adds lock to protect indirect mac access sequence.
->>
->> Signed-off-by: Quan Nguyen <qnguyen@apm.com>
->> Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
->> ---
->>  drivers/net/ethernet/apm/xgene/xgene_enet_hw.c    | 2 ++
->>  drivers/net/ethernet/apm/xgene/xgene_enet_main.c  | 1 +
->>  drivers/net/ethernet/apm/xgene/xgene_enet_main.h  | 1 +
->>  drivers/net/ethernet/apm/xgene/xgene_enet_sgmac.c | 7 ++++++-
->>  drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c | 2 ++
->>  5 files changed, 12 insertions(+), 1 deletion(-)
->>
->> diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
->> index 2a835e0..3697ba7 100644
->> --- a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
->> +++ b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
->> @@ -365,9 +365,11 @@ static void xgene_enet_rd_mcx_mac(struct xgene_enet_pdata *pdata,
->>       cmd = pdata->mcx_mac_addr + MAC_COMMAND_REG_OFFSET;
->>       cmd_done = pdata->mcx_mac_addr + MAC_COMMAND_DONE_REG_OFFSET;
->>
->> +     spin_lock(&pdata->mac_lock);
->>       if (!xgene_enet_rd_indirect(addr, rd, cmd, cmd_done, rd_addr, rd_data))
->>               netdev_err(pdata->ndev, "MCX mac read failed, addr: %04x\n",
->>                          rd_addr);
->> +     spin_unlock(&pdata->mac_lock);
+(Cc'ing netdev and IPSec maintainers)
+
+On Tue, Apr 25, 2017 at 6:08 PM, Don Bowman <db@donbowman.ca> wrote:
+> I'm not sure how to describe this.
 >
-> Why not fold the spinlock manipulation within xgenet_enet_rd_indirect()?
-> That way the caller does not have to know that acquiring the spinlock is
-> required and you avoid potential bugs in the future where you are
-> missing the spinlock on indirect accesses?
-
-Thanks.  We'll do that and post the next version.
-
-> --
-> Florian
+> 4.11rc2 worked, after that, no.
+>
+> My ipsec tunnel comes up ok. ICMP works. UDP works. But TCP, the
+> sender [which is the ipsec client] does not reach the destination.
+>
+> Its not a routing rule issue (since ICMP/UDP work).
+> Its not a traffic selector just selecting TCP (I think) since ipsec
+> status shows just a subnet, no protocol.
+>
+> Using tcpdump:
+> # iptables -t mangle -I PREROUTING -m policy --pol ipsec --dir in -j
+> NFLOG --nflog-group 5
+> # iptables -t mangle -I POSTROUTING -m policy --pol ipsec --dir out -j
+> NFLOG --nflog-group 5
+> # tcpdump -s 0 -n -i nflog:5
+>
+> I see that it thinks it is sending the TCP packet, but the server end
+> does not receive.
+>
+> Does anyone have any suggestion to try?
+>
+> strongswan is 5.5.1 [on ubuntu 17.04]
+> kernel is 4.11.0-041100rc8-generic
+>
+> My rightsubnet is
+> rightsubnet = 192.168.128.0/17,10.0.0.0/8
+>
+> so no specific protocol selected, the result is:
+> CHILD_SA sv{1} established with SPIs c05f1b6c_i 0d58815a_o and TS
+> 192.168.130.4/32 === 10.0.0.0/8 192.168.128.0/17
+>
+> I tried changing charondebug net=3, but i'm not sure how to interpret
+> the output:
+>
+> Apr 25 21:06:34 office charon: 04[NET] received packet: from
+> 64.7.137.180[4500] to 172.16.0.8[4500] (80 bytes)
+> Apr 25 21:06:34 office charon: 04[ENC] parsed INFORMATIONAL request 4 [ ]
+> Apr 25 21:06:34 office charon: 04[ENC] generating INFORMATIONAL response 4 [ ]
+> Apr 25 21:06:34 office charon: 04[NET] sending packet: from
+> 172.16.0.8[4500] to 64.7.137.180[4500] (80 bytes)
