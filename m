@@ -1,68 +1,106 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next] rhashtable: Make sure max_size is non zero
-Date: Thu, 27 Apr 2017 15:32:41 -0700
-Message-ID: <bb1475bc-a129-865f-be43-829a76e99dc9@gmail.com>
-References: <56843a86-9a09-16e8-acec-05a80396f282@gmail.com>
- <20170427222824.31936-1-florian.fainelli@broadcom.com>
+From: Marcelo Ricardo Leitner <marcelo.leitner-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net] bonding: avoid defaulting hard_header_len to
+ ETH_HLEN on slave removal
+Date: Thu, 27 Apr 2017 19:54:09 -0300
+Message-ID: <20170427225409.GA31018@localhost.localdomain>
+References: <733d454d3c36e99b55de5374c7664364975b171d.1493313626.git.pabeni@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, herbert@gondor.apana.org.au, fw@strlen.de,
-        tgraf@suug.ch
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f194.google.com ([209.85.220.194]:33784 "EHLO
-        mail-qk0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1423366AbdD0Wco (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 27 Apr 2017 18:32:44 -0400
-Received: by mail-qk0-f194.google.com with SMTP id o85so6766604qkh.0
-        for <netdev@vger.kernel.org>; Thu, 27 Apr 2017 15:32:43 -0700 (PDT)
-In-Reply-To: <20170427222824.31936-1-florian.fainelli@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Jay Vosburgh <j.vosburgh-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Honggang LI <honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <733d454d3c36e99b55de5374c7664364975b171d.1493313626.git.pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 04/27/2017 03:28 PM, Florian Fainelli wrote:
-> After commit 6d684e54690c ("rhashtable: Cap total number of
-> entries to 2^31"), we would be hitting a panic() in net/core/rtnetlink.c
-> during initialization. The call stack would look like this:
+On Thu, Apr 27, 2017 at 07:29:34PM +0200, Paolo Abeni wrote:
+> On slave list updates, the bonding driver computes its hard_header_len
+> as the maximum of all enslaved devices's hard_header_len.
+> If the slave list is empty, e.g. on last enslaved device removal,
+> ETH_HLEN is used.
 > 
-> register_pernet_subsys()
->     ...
->     ops->init()
-> 	rtnetlink_net_init()
-> 	  netlink_kernel_create()
-> 	     netlink_insert()
-> 		__netlink_insert()
-> 		   rhashtable_lookup_insert_key()
-> 		      __rhashtable_insert_fast()
-> 			rht_grow_above_max()
+> Since the bonding header_ops are set only when the first enslaved
+> device is attached, the above can lead to header_ops->create()
+> being called with the wrong skb headroom in place.
 > 
-> And here, we have rht_grow_above_max() return true, because ht->nelemts = 0 (legit)
-> && ht->max_elems = 0 (looks bogus).
+> If bond0 is configured on top of ipoib devices, with the
+> following commands:
 > 
-> Eventually, we would be return -E2BIG from __rhashtable_insert_fast()
-> and propagate this all the way back to the caller.
+> ifup bond0
+> for slave in $BOND_SLAVES_LIST; do
+> 	ip link set dev $slave nomaster
+> done
+> ping -c 1 <ip on bond0 subnet>
 > 
-> After commit 6d684e54690c what changed is that we would take the
-> following condition:
+> we will obtain a skb_under_panic() with a similar call trace:
+> 	skb_push+0x3d/0x40
+> 	push_pseudo_header+0x17/0x30 [ib_ipoib]
+> 	ipoib_hard_header+0x4e/0x80 [ib_ipoib]
+> 	arp_create+0x12f/0x220
+> 	arp_send_dst.part.19+0x28/0x50
+> 	arp_solicit+0x115/0x290
+> 	neigh_probe+0x4d/0x70
+> 	__neigh_event_send+0xa7/0x230
+> 	neigh_resolve_output+0x12e/0x1c0
+> 	ip_finish_output2+0x14b/0x390
+> 	ip_finish_output+0x136/0x1e0
+> 	ip_output+0x76/0xe0
+> 	ip_local_out+0x35/0x40
+> 	ip_send_skb+0x19/0x40
+> 	ip_push_pending_frames+0x33/0x40
+> 	raw_sendmsg+0x7d3/0xb50
+> 	inet_sendmsg+0x31/0xb0
+> 	sock_sendmsg+0x38/0x50
+> 	SYSC_sendto+0x102/0x190
+> 	SyS_sendto+0xe/0x10
+> 	do_syscall_64+0x67/0x180
+> 	entry_SYSCALL64_slow_path+0x25/0x25
 > 
-> if (ht->p.max_size < ht->max_elems / 2)
-> 	ht->max_elems = ht->p.max_size * 2;
+> This change addresses the issue avoiding updating the bonding device
+> hard_header_len when the slaves list become empty, forbidding to
+> shrink it below the value used by header_ops->create().
 > 
-> and since ht->p.max_size = 0, we would set ht->max_elems to 0 as well.
+> The bug is there since commit 54ef31371407 ("[PATCH] bonding: Handle large
+> hard_header_len") but the panic can be triggered only since
+> commit fc791b633515 ("IB/ipoib: move back IB LL address into the hard
+> header").
 > 
-> Fix this by taking this branch only when ht->p.max_size is non-zero
-> 
-> Fixes: Fixes: 6d684e54690c ("rhashtable: Cap total number of entries to 2^31")
-> Signed-off-by: Florian Fainelli <florian.fainelli@broadcom.com>
+> Reported-by: Norbert P <noe-PRwTpj6vllL463JZfw7VRw@public.gmane.org>
+> Fixes: 54ef31371407 ("[PATCH] bonding: Handle large hard_header_len")
+> Fixes: fc791b633515 ("IB/ipoib: move back IB LL address into the hard header")
+> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Signed-off-by: Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+> ---
 
-Sent another version with the correct email address and marked this one
-as superseded in patchwork, not that this email is not valid, but it's
-all about consistency.
+Thanks Paolo.
 
-David pleas apply this one instead:
-http://patchwork.ozlabs.org/patch/756172/
-
-/me remembers to stop switching between machines.
--- 
-Florian
+>  drivers/net/bonding/bond_main.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+> index 8a4ba8b..34481c9 100644
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -1104,11 +1104,11 @@ static void bond_compute_features(struct bonding *bond)
+>  		gso_max_size = min(gso_max_size, slave->dev->gso_max_size);
+>  		gso_max_segs = min(gso_max_segs, slave->dev->gso_max_segs);
+>  	}
+> +	bond_dev->hard_header_len = max_hard_header_len;
+>  
+>  done:
+>  	bond_dev->vlan_features = vlan_features;
+>  	bond_dev->hw_enc_features = enc_features | NETIF_F_GSO_ENCAP_ALL;
+> -	bond_dev->hard_header_len = max_hard_header_len;
+>  	bond_dev->gso_max_segs = gso_max_segs;
+>  	netif_set_gso_max_size(bond_dev, gso_max_size);
+>  
+> -- 
+> 2.9.3
+> 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
