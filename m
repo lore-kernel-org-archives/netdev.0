@@ -1,77 +1,64 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: [PATCH net-next] can: fix build error without CONFIG_PROC_FS
-Date: Thu, 27 Apr 2017 18:11:11 +0200
-Message-ID: <499a8b67-8180-487b-9e7f-9ec0dc85adad@hartkopp.net>
-References: <20170427142146.3107957-1-arnd@arndb.de>
- <937e9144-c06c-d265-29eb-a1c6f96b6f89@pengutronix.de>
+From: Miroslav Lichvar <mlichvar@redhat.com>
+Subject: Re: [PATCH v1 net-next 5/6] net: allow simultaneous SW and HW
+ transmit timestamping
+Date: Thu, 27 Apr 2017 18:17:00 +0200
+Message-ID: <20170427161700.GB3401@localhost>
+References: <20170426145035.25846-1-mlichvar@redhat.com>
+ <20170426145035.25846-6-mlichvar@redhat.com>
+ <CAF=yD-+GSK491AWQx8=6yd3=-HHwxdWq677ubwdjbV5AXzRbog@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Gleixner <tglx@linutronix.de>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Mario Kicherer <dev@kicherer.org>,
-        Eric Dumazet <edumazet@google.com>, linux-can@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Marc Kleine-Budde <mkl@pengutronix.de>,
-        Arnd Bergmann <arnd@arndb.de>,
-        "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <937e9144-c06c-d265-29eb-a1c6f96b6f89@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Network Development <netdev@vger.kernel.org>,
+        Richard Cochran <richardcochran@gmail.com>,
+        Willem de Bruijn <willemb@google.com>,
+        Soheil Hassas Yeganeh <soheil@google.com>,
+        "Keller, Jacob E" <jacob.e.keller@intel.com>,
+        Denny Page <dennypage@me.com>, Jiri Benc <jbenc@redhat.com>
+To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:52948 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S939250AbdD0QRE (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 27 Apr 2017 12:17:04 -0400
+Content-Disposition: inline
+In-Reply-To: <CAF=yD-+GSK491AWQx8=6yd3=-HHwxdWq677ubwdjbV5AXzRbog@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello Arnd,
+On Wed, Apr 26, 2017 at 08:00:02PM -0400, Willem de Bruijn wrote:
+> > +       if (!hwtstamps && !(sk->sk_tsflags & SOF_TIMESTAMPING_OPT_TX_SWHW) &&
+> > +           skb_shinfo(orig_skb)->tx_flags & SKBTX_IN_PROGRESS)
+> > +               return;
+> > +
+> 
+> This check should only happen for software transmit timestamps, so simpler to
+> revise the check in sw_tx_timestamp above to
+> 
+>   if (skb_shinfo(skb)->tx_flags & SKBTX_SW_TSTAMP &&
+> -        !(skb_shinfo(skb)->tx_flags & SKBTX_IN_PROGRESS))
+> +      (!(skb_shinfo(orig_skb)->tx_flags & SKBTX_IN_PROGRESS)) ||
+> +      (skb->sk && skb->sk->sk_tsflags & SOF_TIMESTAMPING_OPT_TX_SWHW)
 
-many thanks for your patch.
+Good point. This will avoid unnecessary calls of skb_tstamp_tx() in
+the common case when SOF_TIMESTAMPING_OPT_TX_SWHW will not be enabled.
 
-Btw
+> > @@ -720,6 +720,7 @@ void __sock_recv_timestamp(struct msghdr *msg, struct sock *sk,
+> >                 empty = 0;
+> >         if (shhwtstamps &&
+> >             (sk->sk_tsflags & SOF_TIMESTAMPING_RAW_HARDWARE) &&
+> > +           (empty || !skb_is_err_queue(skb)) &&
+> >             ktime_to_timespec_cond(shhwtstamps->hwtstamp, tss.ts + 2)) {
+> 
+> I find skb->tstamp == 0 easier to understand than the condition on empty.
+> 
+> Indeed, this is so non-obvious that I would suggest another helper function
+> skb_is_hwtx_tstamp with a concise comment about the race condition
+> between tx software and hardware timestamps (as in the last sentence of
+> the commit message).
 
- >  static void canbcm_pernet_exit(struct net *net)
- >  {
- > +#ifdef CONFIG_PROC_FS
- >  	/* remove /proc/net/can-bcm directory */
- >  	if (IS_ENABLED(CONFIG_PROC_FS)) {
- >  		if (net->can.bcmproc_dir)
- >  			remove_proc_entry("can-bcm", net->proc_net);
- >  	}
- > +#endif
- >  }
+Should it include also the skb_is_err_queue() check? If it returned
+true for both TX and RX HW timestamps, maybe it could be called
+skb_has_hw_tstamp?
 
-"if (IS_ENABLED(CONFIG_PROC_FS))"
-
-becomes obsolete too then ...
-
-So I would suggest to take my patch to fix my fault ;-)
-
-Best regards,
-Oliver
-
-On 04/27/2017 04:29 PM, Marc Kleine-Budde wrote:
-> Hello Arnd,
->
-> On 04/27/2017 04:21 PM, Arnd Bergmann wrote:
->> The procfs dir entry was added inside of an #ifdef, causing a build error
->> when we try to access it without CONFIG_PROC_FS set:
->>
->> net/can/bcm.c:1541:14: error: 'struct netns_can' has no member named 'bcmproc_dir'
->> net/can/bcm.c: In function 'bcm_connect':
->> net/can/bcm.c:1601:14: error: 'struct netns_can' has no member named 'bcmproc_dir'
->> net/can/bcm.c: In function 'canbcm_pernet_init':
->> net/can/bcm.c:1696:11: error: 'struct netns_can' has no member named 'bcmproc_dir'
->> net/can/bcm.c: In function 'canbcm_pernet_exit':
->> net/can/bcm.c:1707:15: error: 'struct netns_can' has no member named 'bcmproc_dir'
->>
->> This adds the same #ifdef around all users of the pointer. Alternatively
->> we could move the pointer outside of the #ifdef.
->>
->> Fixes: 384317ef4187 ("can: network namespace support for CAN_BCM protocol")
->> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
->
-> A fix for this problem is part of the pull request I send to David
-> earlier today:
->
->     https://www.mail-archive.com/netdev@vger.kernel.org/msg165764.html
->
-> regards,
-> Marc
->
+-- 
+Miroslav Lichvar
