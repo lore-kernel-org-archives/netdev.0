@@ -1,71 +1,48 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH net] xfrm: calculate L4 checksums also for GSO case
- before encrypting packets
-Date: Thu, 27 Apr 2017 11:04:04 +0200
-Message-ID: <20170427090404.GY2649@secunet.com>
-References: <1491849727-32008-1-git-send-email-aatteka@ovn.org>
- <20170411070755.GW5092@secunet.com>
- <CAMQa7Biajree5Kc1fOWQN42R1UDDGp7ZevZZRtUMZOKDWTk-Vw@mail.gmail.com>
- <20170418090919.GD30104@secunet.com>
- <CAMQa7Bimd378QJgsv6yBP0ULH+__C9gjjcXa39wx1z7p_9mT=g@mail.gmail.com>
- <20170420094743.GI2649@secunet.com>
- <CAMQa7Bgn58eWhwH-tOJcoNoF7ATs5yBpAyu1rR4JN5=8pBdaMA@mail.gmail.com>
+From: Miroslav Lichvar <mlichvar@redhat.com>
+Subject: Re: [PATCH v1 net-next 0/6] Extend socket timestamping API
+Date: Thu, 27 Apr 2017 11:28:09 +0200
+Message-ID: <20170427092809.GE5654@localhost>
+References: <20170426145035.25846-1-mlichvar@redhat.com>
+ <20170426165435.GA21114@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Ansis Atteka <aatteka@ovn.org>, <netdev@vger.kernel.org>
-To: Ansis Atteka <ansisatteka@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Willem de Bruijn <willemb@google.com>,
+        Soheil Hassas Yeganeh <soheil@google.com>,
+        "Keller, Jacob E" <jacob.e.keller@intel.com>,
+        Denny Page <dennypage@me.com>, Jiri Benc <jbenc@redhat.com>
+To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:57168 "EHLO a.mx.secunet.com"
+Received: from mx1.redhat.com ([209.132.183.28]:32994 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1032291AbdD0JXI (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 27 Apr 2017 05:23:08 -0400
+        id S1754607AbdD0J2O (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 27 Apr 2017 05:28:14 -0400
 Content-Disposition: inline
-In-Reply-To: <CAMQa7Bgn58eWhwH-tOJcoNoF7ATs5yBpAyu1rR4JN5=8pBdaMA@mail.gmail.com>
+In-Reply-To: <20170426165435.GA21114@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 21, 2017 at 02:45:17PM -0700, Ansis Atteka wrote:
+On Wed, Apr 26, 2017 at 06:54:35PM +0200, Richard Cochran wrote:
+> On Wed, Apr 26, 2017 at 04:50:29PM +0200, Miroslav Lichvar wrote:
+> > This patchset adds new options to the timestamping API that will be
+> > useful for NTP implementations and possibly other applications.
 > 
-> I removed Geneve tunneling from equation and tried to run a simple
-> iperf underlay UDP test while IPsec was still enabled to observe
-> issues with the udp4_ufo_fragment() case.
-> 
-> Unfortunately, as can be seen from kernel tracer output below, I was
-> unable to come up with a test case where udp4_ufo_fragment function
-> would ever be invoked while IPsec is enabled:
-> 
-> admin1@ubuntu1:~/xfrm_test/net$ ifconfig em2.4001 | grep "inet addr"
->           inet addr:192.168.1.1  Bcast:192.168.1.255  Mask:255.255.255.0
-> admin1@ubuntu1:~/xfrm_test/net$ ethtool -k em2.4001 | grep
-> udp-fragmentation-offload
-> udp-fragmentation-offload: on
-> admin1@ubuntu1:~/xfrm_test/net$ sudo trace-cmd record -p
-> function_graph -c -F iperf -c 192.168.1.2 -u -l20000
-> admin1@ubuntu1:~/xfrm_test/net$ trace-cmd report | grep udp4
-> admin1@ubuntu1:~/xfrm_test/net$
-> 
-> 
-> Nevertheless, after disabling IPsec and leaving everything else the
-> same, I start to see that udp4_ufo_fragment() gets invoked:
-> 
-> admin1@ubuntu1:~/xfrm_test/net$ trace-cmd report | grep udp4
->            iperf-25466 [004] 242431.203307: funcgraph_entry:
-> 0.113 us   |                  udp4_hwcsum();
->            iperf-25466 [004] 242431.203360: funcgraph_entry:
->         |
-> udp4_ufo_fragment() {
->            iperf-25466 [004] 242431.508436: funcgraph_entry:
-> 0.080 us   |                  udp4_hwcsum();
->            iperf-25466 [004] 242431.508542: funcgraph_entry:
->         |
-> udp4_ufo_fragment() {
-> 
-> 
-> However, non-IPsec case really does not have this ESP packet
-> corruption problem, because then the packets are in plain and can
-> utilize checksum offloads. Do we really have a problem there for
-> IPsec?
+> Are there any userland ntp patches floating around to exercise the new
+> HW time stamping option?
 
-Probably not, at least locally generated packets don't do
-ufo if they have an IPsec route. So it seems to be ok to
-leave udp4_ufo_fragment as it is.
+I'm not sure if anyone is working on support for HW timestamping in
+ntp. With chrony, you can test it with an experimental code in the
+hwts branch of https://github.com/mlichvar/chrony.
+
+$ ./configure --enable-debug && make
+# ./chronyd -d -d 'hwtimestamp *' 'server pool.ntp.org iburst' |& grep TIMESTAMP
+ TX SCM_TIMESTAMPING: swts=1493285228.512531924 hwts=0.000000000
+ TX SCM_TIMESTAMPING: swts=0.000000000 hwts=1493285226.073103885
+ SCM_TIMESTAMPING_PKTINFO: if=2 len=90
+ RX SCM_TIMESTAMPING: swts=1493285228.530657351 hwts=1493285226.091054104
+ TX SCM_TIMESTAMPING: swts=1493285230.553457791 hwts=0.000000000
+ TX SCM_TIMESTAMPING: swts=0.000000000 hwts=1493285228.113705104
+ SCM_TIMESTAMPING_PKTINFO: if=2 len=90
+ RX SCM_TIMESTAMPING: swts=1493285230.582817079 hwts=1493285228.142890229
+
+-- 
+Miroslav Lichvar
