@@ -1,50 +1,57 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH net] driver/net: Fix possible memleaks when fail to
- register_netdevice
-Date: Thu, 27 Apr 2017 16:15:59 +0800
-Message-ID: <20170427081559.GA1058@gondor.apana.org.au>
-References: <1493121710-27910-1-git-send-email-gfree.wind@foxmail.com>
+From: "Gao Feng" <gfree.wind@foxmail.com>
+Subject: RE: [PATCH net] driver/net: Fix possible memleaks when fail to register_netdevice
+Date: Thu, 27 Apr 2017 16:33:09 +0800
+Message-ID: <007001d2bf30$e751f850$b5f5e8f0$@foxmail.com>
+References: <1493121710-27910-1-git-send-email-gfree.wind@foxmail.com> <20170427081559.GA1058@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jiri@resnulli.us, davem@davemloft.net, kuznet@ms2.inr.ac.ru,
-        jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-        steffen.klassert@secunet.com, netdev@vger.kernel.org,
-        Gao Feng <fgao@ikuai8.com>
-To: gfree.wind@foxmail.com
+Content-Type: text/plain;
+        charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: <jiri@resnulli.us>, <davem@davemloft.net>, <kuznet@ms2.inr.ac.ru>,
+        <jmorris@namei.org>, <yoshfuji@linux-ipv6.org>, <kaber@trash.net>,
+        <steffen.klassert@secunet.com>, <netdev@vger.kernel.org>,
+        "'Gao Feng'" <fgao@ikuai8.com>
+To: "'Herbert Xu'" <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [198.176.57.175] ([198.176.57.175]:50208 "EHLO
-        deadmen.hmeau.com" rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1754268AbdD0IS0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 27 Apr 2017 04:18:26 -0400
-Content-Disposition: inline
-In-Reply-To: <1493121710-27910-1-git-send-email-gfree.wind@foxmail.com>
+Received: from smtpbgsg2.qq.com ([54.254.200.128]:48932 "EHLO smtpbgsg2.qq.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S933365AbdD0IdW (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 27 Apr 2017 04:33:22 -0400
+In-Reply-To: <20170427081559.GA1058@gondor.apana.org.au>
+Content-Language: zh-cn
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 25, 2017 at 08:01:50PM +0800, gfree.wind@foxmail.com wrote:
-> From: Gao Feng <fgao@ikuai8.com>
+> From: Herbert Xu [mailto:herbert@gondor.apana.org.au]
+> Sent: Thursday, April 27, 2017 4:16 PM
+> On Tue, Apr 25, 2017 at 08:01:50PM +0800, gfree.wind@foxmail.com wrote:
+> > From: Gao Feng <fgao@ikuai8.com>
+> >
+[...]
 > 
-> These drivers allocate kinds of resources in init routine, and free
-> some resources in the destructor of net_device. It may cause memleak
-> when some errors happen after register_netdevice invokes the init
-> callback. Because only the uninit callback is invoked in the error
-> handler of register_netdevice, but the destructor not. As a result,
-> some resources are lost forever.
+> This has the potential of creating future bugs, because there is no
+guarantee
+> that the ndo_init function has been invoked at all.
 > 
-> Now invokes the destructor instead of free_netdev somewhere, and free
-> the left resources in the newlink func when fail to register_netdevice.
+> Wouldn't it be safer to move the freeing from the destructors into their
+> ndo_uninit functions instead?
+
+I considered about this solution, I am not sure if it is safe to move the
+freeing from destructors into ndo_uninit.
+Because when the free action is done in ndo_uninit, it is earlier than
+destructor. 
+I am not sure if it break the design of original driver.
+
+I just tested the team driver before. It is ok to free all mems in
+ndo_uninit.
+Is it possible that anyone are using the net_dev after ndo_uninit ?
+
+If no one, i would like to update the patch. 
+Could you give me some guide please?
+
+Regards
+Feng
+
 > 
-> Signed-off-by: Gao Feng <fgao@ikuai8.com>
-
-This has the potential of creating future bugs, because there
-is no guarantee that the ndo_init function has been invoked at
-all.
-
-Wouldn't it be safer to move the freeing from the destructors
-into their ndo_uninit functions instead?
-
-Thanks,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> Thanks,
+> --
