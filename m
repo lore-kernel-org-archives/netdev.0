@@ -1,132 +1,148 @@
-From: "lipeng (Y)" <lipeng321@huawei.com>
-Subject: Re: [PATCH net v3 1/3] net: hns: support deferred probe when can not
- obtain irq
-Date: Thu, 27 Apr 2017 10:06:44 +0800
-Message-ID: <5debaff8-d8bf-8ab0-eda5-af27d9b11a5a@huawei.com>
-References: <1493190022-91343-1-git-send-email-yankejian@huawei.com>
- <1493190022-91343-2-git-send-email-yankejian@huawei.com>
- <acf5e830-d9bd-7caf-11d3-f4a6957f8496@suse.com>
+From: Yankejian <yankejian@huawei.com>
+Subject: [PATCH net v4 2/3] net: hns: support deferred probe when no mdio
+Date: Thu, 27 Apr 2017 10:44:12 +0800
+Message-ID: <1493261053-68197-3-git-send-email-yankejian@huawei.com>
+References: <1493261053-68197-1-git-send-email-yankejian@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <linuxarm@huawei.com>
-To: Matthias Brugger <mbrugger@suse.com>,
-        Yankejian <yankejian@huawei.com>, <davem@davemloft.net>,
-        <salil.mehta@huawei.com>, <yisen.zhuang@huawei.com>,
+To: <davem@davemloft.net>, <salil.mehta@huawei.com>,
+        <yisen.zhuang@huawei.com>, <matthias.bgg@gmail.com>,
+        <yankejian@huawei.com>, <lipeng321@huawei.com>,
         <zhouhuiru@huawei.com>, <huangdaode@hisilicon.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga04-in.huawei.com ([45.249.212.190]:2528 "EHLO
-        dggrg04-dlp.huawei.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1033481AbdD0CHX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2017 22:07:23 -0400
-In-Reply-To: <acf5e830-d9bd-7caf-11d3-f4a6957f8496@suse.com>
+Received: from szxga01-in.huawei.com ([45.249.212.187]:5804 "EHLO
+        dggrg01-dlp.huawei.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1033475AbdD0CYT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2017 22:24:19 -0400
+In-Reply-To: <1493261053-68197-1-git-send-email-yankejian@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: lipeng <lipeng321@huawei.com>
 
+In the hip06 and hip07 SoCs, phy connect to mdio bus.The mdio
+module is probed with module_init, and, as such,
+is not guaranteed to probe before the HNS driver. So we need
+to support deferred probe.
 
-On 2017/4/26 22:03, Matthias Brugger wrote:
->
->
-> On 26/04/17 09:00, Yankejian wrote:
->> From: lipeng <lipeng321@huawei.com>
->>
->> In the hip06 and hip07 SoCs, the interrupt lines from the
->> DSAF controllers are connected to mbigen hw module.
->> The mbigen module is probed with module_init, and, as such,
->> is not guaranteed to probe before the HNS driver. So we need
->> to support deferred probe.
->>
->> We check for probe deferral in the hw layer probe, so we not
->> probe into the main layer and memories, etc., to later learn
->> that we need to defer the probe.
->
-> This paragraph does not hold any more and should be deleted.
-OK , will delete it.
->
-> Other then this:
-> Reviewed-by: Matthias Brugger <mbrugger@suse.com>
->
+We check for probe deferral in the mac init, so we not init DSAF
+when there is no mdio, and free all resource, to later learn that
+we need to defer the probe.
 
-Thanks for your review
+Signed-off-by: lipeng <lipeng321@huawei.com>
+Reviewed-by: Yisen Zhuang <yisen.zhuang@huawei.com>
+Reviewed-by: Matthias Brugger <mbrugger@suse.com>
+---
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c | 39 +++++++++++++++++++----
+ 1 file changed, 33 insertions(+), 6 deletions(-)
 
->>
->> Signed-off-by: lipeng <lipeng321@huawei.com>
->> Reviewed-by: Yisen Zhuang <yisen.zhuang@huawei.com>
->> ---
->> V2 -> V3:
->> 1. Check return value when  platform_get_irq in hns_rcb_get_cfg;
->> ---
->>  drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c | 4 +++-
->>  drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c | 8 +++++++-
->>  drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.h | 2 +-
->>  3 files changed, 11 insertions(+), 3 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c 
->> b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
->> index 6ea8722..a41cf95 100644
->> --- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
->> +++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
->> @@ -510,7 +510,9 @@ int hns_ppe_init(struct dsaf_device *dsaf_dev)
->>
->>          hns_ppe_get_cfg(dsaf_dev->ppe_common[i]);
->>
->> -        hns_rcb_get_cfg(dsaf_dev->rcb_common[i]);
->> +        ret = hns_rcb_get_cfg(dsaf_dev->rcb_common[i]);
->> +        if (ret)
->> +            goto get_rcb_cfg_fail;
->>      }
->>
->>      for (i = 0; i < HNS_PPE_COM_NUM; i++)
->> diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c 
->> b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c
->> index f0ed80d6..673a5d3 100644
->> --- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c
->> +++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c
->> @@ -452,7 +452,7 @@ static int hns_rcb_get_base_irq_idx(struct 
->> rcb_common_cb *rcb_common)
->>   *hns_rcb_get_cfg - get rcb config
->>   *@rcb_common: rcb common device
->>   */
->> -void hns_rcb_get_cfg(struct rcb_common_cb *rcb_common)
->> +int hns_rcb_get_cfg(struct rcb_common_cb *rcb_common)
->>  {
->>      struct ring_pair_cb *ring_pair_cb;
->>      u32 i;
->> @@ -477,10 +477,16 @@ void hns_rcb_get_cfg(struct rcb_common_cb 
->> *rcb_common)
->>          ring_pair_cb->virq[HNS_RCB_IRQ_IDX_RX] =
->>          is_ver1 ? platform_get_irq(pdev, base_irq_idx + i * 2 + 1) :
->>                platform_get_irq(pdev, base_irq_idx + i * 3);
->> +        if ((ring_pair_cb->virq[HNS_RCB_IRQ_IDX_TX] == 
->> -EPROBE_DEFER) ||
->> +            (ring_pair_cb->virq[HNS_RCB_IRQ_IDX_RX] == -EPROBE_DEFER))
->> +            return -EPROBE_DEFER;
->> +
->>          ring_pair_cb->q.phy_base =
->>              RCB_COMM_BASE_TO_RING_BASE(rcb_common->phy_base, i);
->>          hns_rcb_ring_pair_get_cfg(ring_pair_cb);
->>      }
->> +
->> +    return 0;
->>  }
->>
->>  /**
->> diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.h 
->> b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.h
->> index 99b4e1b..3d7b484 100644
->> --- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.h
->> +++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.h
->> @@ -110,7 +110,7 @@ struct rcb_common_cb {
->>  void hns_rcb_common_free_cfg(struct dsaf_device *dsaf_dev, u32 
->> comm_index);
->>  int hns_rcb_common_init_hw(struct rcb_common_cb *rcb_common);
->>  void hns_rcb_start(struct hnae_queue *q, u32 val);
->> -void hns_rcb_get_cfg(struct rcb_common_cb *rcb_common);
->> +int hns_rcb_get_cfg(struct rcb_common_cb *rcb_common);
->>  void hns_rcb_get_queue_mode(enum dsaf_mode dsaf_mode,
->>                  u16 *max_vfn, u16 *max_q_per_vf);
->>
->>
-> .
->
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
+index bdd8cdd..8c00e09 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
+@@ -735,6 +735,8 @@ static int hns_mac_init_ex(struct hns_mac_cb *mac_cb)
+ 	rc = phy_device_register(phy);
+ 	if (rc) {
+ 		phy_device_free(phy);
++		dev_err(&mdio->dev, "registered phy fail at address %i\n",
++			addr);
+ 		return -ENODEV;
+ 	}
+ 
+@@ -745,7 +747,7 @@ static int hns_mac_init_ex(struct hns_mac_cb *mac_cb)
+ 	return 0;
+ }
+ 
+-static void hns_mac_register_phy(struct hns_mac_cb *mac_cb)
++static int hns_mac_register_phy(struct hns_mac_cb *mac_cb)
+ {
+ 	struct acpi_reference_args args;
+ 	struct platform_device *pdev;
+@@ -755,24 +757,39 @@ static void hns_mac_register_phy(struct hns_mac_cb *mac_cb)
+ 
+ 	/* Loop over the child nodes and register a phy_device for each one */
+ 	if (!to_acpi_device_node(mac_cb->fw_port))
+-		return;
++		return -ENODEV;
+ 
+ 	rc = acpi_node_get_property_reference(
+ 			mac_cb->fw_port, "mdio-node", 0, &args);
+ 	if (rc)
+-		return;
++		return rc;
+ 
+ 	addr = hns_mac_phy_parse_addr(mac_cb->dev, mac_cb->fw_port);
+ 	if (addr < 0)
+-		return;
++		return addr;
+ 
+ 	/* dev address in adev */
+ 	pdev = hns_dsaf_find_platform_device(acpi_fwnode_handle(args.adev));
++	if (!pdev) {
++		dev_err(mac_cb->dev, "mac%d mdio pdev is NULL\n",
++			mac_cb->mac_id);
++		return  -EINVAL;
++	}
++
+ 	mii_bus = platform_get_drvdata(pdev);
++	if (!mii_bus) {
++		dev_err(mac_cb->dev,
++			"mac%d mdio is NULL, dsaf will probe again later\n",
++			mac_cb->mac_id);
++		return -EPROBE_DEFER;
++	}
++
+ 	rc = hns_mac_register_phydev(mii_bus, mac_cb, addr);
+ 	if (!rc)
+ 		dev_dbg(mac_cb->dev, "mac%d register phy addr:%d\n",
+ 			mac_cb->mac_id, addr);
++
++	return rc;
+ }
+ 
+ #define MAC_MEDIA_TYPE_MAX_LEN		16
+@@ -793,7 +810,7 @@ static void hns_mac_register_phy(struct hns_mac_cb *mac_cb)
+  *@np:device node
+  * return: 0 --success, negative --fail
+  */
+-static int  hns_mac_get_info(struct hns_mac_cb *mac_cb)
++static int hns_mac_get_info(struct hns_mac_cb *mac_cb)
+ {
+ 	struct device_node *np;
+ 	struct regmap *syscon;
+@@ -903,7 +920,15 @@ static int  hns_mac_get_info(struct hns_mac_cb *mac_cb)
+ 			}
+ 		}
+ 	} else if (is_acpi_node(mac_cb->fw_port)) {
+-		hns_mac_register_phy(mac_cb);
++		ret = hns_mac_register_phy(mac_cb);
++		/*
++		 * Mac can work well if there is phy or not.If the port don't
++		 * connect with phy, the return value will be ignored. Only
++		 * when there is phy but can't find mdio bus, the return value
++		 * will be handled.
++		 */
++		if (ret == -EPROBE_DEFER)
++			return ret;
+ 	} else {
+ 		dev_err(mac_cb->dev, "mac%d cannot find phy node\n",
+ 			mac_cb->mac_id);
+@@ -1065,6 +1090,7 @@ int hns_mac_init(struct dsaf_device *dsaf_dev)
+ 			dsaf_dev->mac_cb[port_id] = mac_cb;
+ 		}
+ 	}
++
+ 	/* init mac_cb for all port */
+ 	for (port_id = 0; port_id < max_port_num; port_id++) {
+ 		mac_cb = dsaf_dev->mac_cb[port_id];
+@@ -1074,6 +1100,7 @@ int hns_mac_init(struct dsaf_device *dsaf_dev)
+ 		ret = hns_mac_get_cfg(dsaf_dev, mac_cb);
+ 		if (ret)
+ 			return ret;
++
+ 		ret = hns_mac_init_ex(mac_cb);
+ 		if (ret)
+ 			return ret;
+-- 
+1.9.1
