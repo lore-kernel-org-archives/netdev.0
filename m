@@ -1,49 +1,90 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: rhashtable - Cap total number of entries to 2^31
-Date: Thu, 27 Apr 2017 18:13:05 +0800
-Message-ID: <20170427101305.GA1701@gondor.apana.org.au>
-References: <20170425112356.GB11322@breakpoint.cc>
- <20170425132837.GA25657@gondor.apana.org.au>
- <20170425141749.GD11322@breakpoint.cc>
- <20170425.104822.1395000926293799711.davem@davemloft.net>
- <20170427054451.GA529@gondor.apana.org.au>
- <20170427101134.GB448@breakpoint.cc>
+From: Miroslav Lichvar <mlichvar@redhat.com>
+Subject: Re: [PATCH v1 net-next 3/6] net: add new control message for
+ incoming HW-timestamped packets
+Date: Thu, 27 Apr 2017 12:15:54 +0200
+Message-ID: <20170427101554.GF5654@localhost>
+References: <20170426145035.25846-1-mlichvar@redhat.com>
+ <20170426145035.25846-4-mlichvar@redhat.com>
+ <CAF=yD-+XKGnGASVN4+W2u2A7CBqS9CRN2Jkvx6UoPQQ6jLpMkQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-        Thomas Graf <tgraf@suug.ch>
-To: Florian Westphal <fw@strlen.de>
+Cc: Network Development <netdev@vger.kernel.org>,
+        Richard Cochran <richardcochran@gmail.com>,
+        Willem de Bruijn <willemb@google.com>,
+        Soheil Hassas Yeganeh <soheil@google.com>,
+        "Keller, Jacob E" <jacob.e.keller@intel.com>,
+        Denny Page <dennypage@me.com>, Jiri Benc <jbenc@redhat.com>
+To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [198.176.57.175] ([198.176.57.175]:50228 "EHLO
-        deadmen.hmeau.com" rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1755315AbdD0KO1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 27 Apr 2017 06:14:27 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:54114 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1755345AbdD0KP6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 27 Apr 2017 06:15:58 -0400
 Content-Disposition: inline
-In-Reply-To: <20170427101134.GB448@breakpoint.cc>
+In-Reply-To: <CAF=yD-+XKGnGASVN4+W2u2A7CBqS9CRN2Jkvx6UoPQQ6jLpMkQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 27, 2017 at 12:11:34PM +0200, Florian Westphal wrote:
->
-> > +	/* Cap total entries at 2^31 to avoid nelems overflow. */
-> > +	ht->max_elems = 1u << 31;
-> > +	if (ht->p.max_size < ht->max_elems / 2)
-> > +		ht->max_elems = ht->p.max_size * 2;
+Thanks for the comments.
+
+On Wed, Apr 26, 2017 at 07:34:49PM -0400, Willem de Bruijn wrote:
+> > +struct net_device *dev_get_by_napi_id(unsigned int napi_id)
+> > +{
+> > +       struct net_device *dev = NULL;
+> > +       struct napi_struct *napi;
 > > +
+> > +       rcu_read_lock();
+> > +
+> > +       napi = napi_by_id(napi_id);
+> > +       if (napi)
+> > +               dev = napi->dev;
+> > +
+> > +       rcu_read_unlock();
+> > +
+> > +       return dev;
+> > +}
+> > +EXPORT_SYMBOL(dev_get_by_napi_id);
 > 
-> Looks like instead of adding this max_elems you could instead have fixed this via
-> 
-> if (!ht->p.max_size)
-> 	ht->p.max_size = INT_MAX / 2;
-> 
-> if (ht->p.max_size > INT_MAX / 2)
-> 	return -EINVAL;
+> Returning dev without holding a reference is not safe. You'll probably
+> have to call this with rcu_read_lock held instead.
 
-No that doesn't do the same thing.  Setting max_size caps the table
-size and I don't want to do that at all.
+How about changing the function to simply return the index instead of
+the device (e.g. dev_get_ifindex_by_napi_id())? Would that be too
+specific?
 
-Cheers,
+> >  /*
+> >   * called from sock_recv_timestamp() if sock_flag(sk, SOCK_RCVTSTAMP)
+> >   */
+> > @@ -699,8 +719,12 @@ void __sock_recv_timestamp(struct msghdr *msg, struct sock *sk,
+> >                 empty = 0;
+> >         if (shhwtstamps &&
+> >             (sk->sk_tsflags & SOF_TIMESTAMPING_RAW_HARDWARE) &&
+> 
+> This information is also informative with software timestamps.
+
+But is it useful and worth the cost? If I have two interfaces and only
+one has HW timestamping, or just one interface which can timestamp
+incoming packets at a limited rate, I would prefer to not waste CPU
+cycles preparing and processing useless data.
+
+> And getting the real iif is definitely useful outside timestamps.
+
+Do you have an example? We have asked that in the original thread,
+but no one suggested anything. For AF_PACKET there is PACKET_ORIGDEV.
+When I was searching the Internet on how to get the index with INET
+sockets, it looked like I was the only one who had this problem :).
+
+> An
+> alternative approach is to add versioning to IP_PKTINFO with a new
+> setsockopt IP_PKTINFO_VERSION plus a new struct in_pktinfo_v2
+> that extends in_pktinfo. Just a thought.
+
+The struct would contain both the original and last interface index,
+and the length as well? And similarly with in6_pktinfo?
+
+If there is an agreement that the information would useful also for
+other things than timestamping, I can try that. If not, I think it
+would be better to keep it tied to HW timestamping.
+
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Miroslav Lichvar
