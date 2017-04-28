@@ -1,74 +1,54 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: Strange samples/bpf loading error for maps on net-next?
-Date: Fri, 28 Apr 2017 08:28:16 +0200
-Message-ID: <20170428082816.20a34395@redhat.com>
-References: <20170427131542.3c8dfa24@redhat.com>
-        <20170428054950.teh53ssg6ei4xkvx@ast-mbp>
+From: Yankejian <yankejian@huawei.com>
+Subject: [PATCH net-next v5 0/2] net: hns: bug fix for HNS driver
+Date: Fri, 28 Apr 2017 14:49:45 +0800
+Message-ID: <1493362187-51671-1-git-send-email-yankejian@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Daniel Borkmann <borkmann@iogearbox.net>,
-        Martin KaFai Lau <kafai@fb.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>, eric@regit.org,
-        brouer@redhat.com
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <linuxarm@huawei.com>
+To: <davem@davemloft.net>, <salil.mehta@huawei.com>,
+        <yisen.zhuang@huawei.com>, <matthias.bgg@gmail.com>,
+        <yankejian@huawei.com>, <lipeng321@huawei.com>,
+        <zhouhuiru@huawei.com>, <huangdaode@hisilicon.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:46618 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932078AbdD1G2X (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 28 Apr 2017 02:28:23 -0400
-In-Reply-To: <20170428054950.teh53ssg6ei4xkvx@ast-mbp>
+Received: from szxga02-in.huawei.com ([45.249.212.188]:5832 "EHLO
+        dggrg02-dlp.huawei.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S939416AbdD1G36 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 28 Apr 2017 02:29:58 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 27 Apr 2017 22:49:51 -0700
-Alexei Starovoitov <alexei.starovoitov@gmail.com> wrote:
+From: lipeng <lipeng321@huawei.com>
 
-> On Thu, Apr 27, 2017 at 01:15:42PM +0200, Jesper Dangaard Brouer wrote:
-> > 
-> > To provoke this bug, remember that you MUST call:
-> > 
-> >  make headers_install
-> > 
-> > In the kernels root directory, else you will be compiling samples/bpf/
-> > against the older headers previously installed.
-> > 
-> > The error looks like:
-> > 
-> >  $ sudo ./sockex1
-> >  bpf_load_program() err=22
-> >  fd 0 is not pointing to valid bpf_map
-> >  sockex1: [...]/samples/bpf/sockex1_user.c:26: main: Assertion `setsockopt(sock, SOL_SOCKET, SO_ATTACH_BPF, prog_fd, sizeof(prog_fd[0])) == 0' failed.
-> >  Aborted
-> > 
-> > I've found that the bug were introduced in
-> >  commit: fb30d4b71214 ("bpf: Add tests for map-in-map")  
-> 
-> Great debugging!
-> Indeed that change made samples/bpf/bpf_load.c to be incompatible with .o
-> generated earlier. We should really get rid of that loader and
-> switch to tools/lib/bpf/. I believe Eric Leblond already made it
-> resilient to 'struct bpf_map_def' changes.
+This patchset add support defered dsaf probe when mdio and
+mbigen module is not insmod.
 
-Yes, exactly it is problem in samples/bpf/bpf_load.c.  As it assumes
-the contents of the ELF file maps section will always chunks in
-sizeof(struct bpf_map_def) and just uses that directly as a pointer to
-an array of type struct bpf_map_def, which of-cause silently blows up
-when changing struct bpf_map_def.  That cost me many hours to discover
-that yesterday.
+For more details, please refer to individual patch.
 
-I started implementing more correct parsing of the ELF maps section, it
-is doable, but as you say, maybe we should just get rid of this loader?
-I will at least fixup bpf_load.c and perhaps just abort the program the
-program if I detect a difference between the ELF size and struct size.
-And send this as a patch later today...
+change log:
+V4 - > V5:
+1. Float on net-next;
+2. Delete patch "net: hns: fixed bug that skb used after kfree"
+   from this patchset;
 
-I've also looked at the loaded Daniel implemented[1] in iproute2, and
-it is much cleaner.
+V3 -> V4:
+1. Delete redundant commit message;
+2. Add Reviewed-by: Matthias Brugger <mbrugger@suse.com>;
 
-[1] https://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2.git/tree/lib/bpf.c
+V2 -> V3:
+1. Check return value when  platform_get_irq in hns_rcb_get_cfg;
+
+V1 -> V2:
+1. Return appropriate errno in hns_mac_register_phy;
+
+lipeng (2):
+  net: hns: support deferred probe when can not obtain irq
+  net: hns: support deferred probe when no mdio
+
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c | 39 +++++++++++++++++++----
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c |  4 ++-
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c |  8 ++++-
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.h |  2 +-
+ 4 files changed, 44 insertions(+), 9 deletions(-)
+
 -- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
+1.9.1
