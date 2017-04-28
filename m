@@ -1,43 +1,50 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: [PATCH 2/2] ipvs: change comparison on sync_refresh_period
-Date: Fri, 28 Apr 2017 12:11:59 +0200
-Message-ID: <20170428101159.9810-3-horms@verge.net.au>
-References: <20170428101159.9810-1-horms@verge.net.au>
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-        netfilter-devel@vger.kernel.org,
-        Wensong Zhang <wensong@linux-vs.org>,
-        Julian Anastasov <ja@ssi.bg>,
-        Aaron Conole <aconole@bytheb.org>,
-        Simon Horman <horms@verge.net.au>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <20170428101159.9810-1-horms@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: [PATCH net] ipv4: Don't pass IP fragments to upper layer GRO
+ handlers.
+Date: Fri, 28 Apr 2017 10:54:32 +0200
+Message-ID: <20170428085432.GH2649@secunet.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([62.96.220.36]:59860 "EHLO a.mx.secunet.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1034686AbdD1KNV (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 28 Apr 2017 06:13:21 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Aaron Conole <aconole@bytheb.org>
+Upper layer GRO handlers can not handle IP fragments, so
+exit GRO processing in this case.
 
-The sync_refresh_period variable is unsigned, so it can never be < 0.
+This fixes ESP GRO because the packet must be reassembled
+before we can decapsulate, otherwise we get authentication
+failures.
 
-Signed-off-by: Aaron Conole <aconole@bytheb.org>
-Signed-off-by: Simon Horman <horms@verge.net.au>
+It also aligns IPv4 to IPv6 where packets with fragmentation
+headers are not passed to upper layer GRO handlers.
+
+Fixes: 7785bba299a8 ("esp: Add a software GRO codepath")
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- net/netfilter/ipvs/ip_vs_sync.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/ipv4/af_inet.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
-index 30d6b2cc00a0..0e5b64a75da0 100644
---- a/net/netfilter/ipvs/ip_vs_sync.c
-+++ b/net/netfilter/ipvs/ip_vs_sync.c
-@@ -520,7 +520,7 @@ static int ip_vs_sync_conn_needed(struct netns_ipvs *ipvs,
- 		if (!(cp->flags & IP_VS_CONN_F_TEMPLATE) &&
- 		    pkts % sync_period != sysctl_sync_threshold(ipvs))
- 			return 0;
--	} else if (sync_refresh_period <= 0 &&
-+	} else if (!sync_refresh_period &&
- 		   pkts != sysctl_sync_threshold(ipvs))
- 		return 0;
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index 6b1fc6e..13a9a32 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -1343,6 +1343,9 @@ struct sk_buff **inet_gro_receive(struct sk_buff **head, struct sk_buff *skb)
+ 	if (*(u8 *)iph != 0x45)
+ 		goto out_unlock;
+ 
++	if (ip_is_fragment(iph))
++		goto out_unlock;
++
+ 	if (unlikely(ip_fast_csum((u8 *)iph, 5)))
+ 		goto out_unlock;
  
 -- 
-2.12.2.816.g2cccc81164
-
+2.7.4
