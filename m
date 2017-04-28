@@ -1,43 +1,46 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: pull request (net-next): ipsec-next 2017-04-28
-Date: Fri, 28 Apr 2017 10:42:37 +0200
-Message-ID: <1493368958-29609-1-git-send-email-steffen.klassert@secunet.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-        Steffen Klassert <steffen.klassert@secunet.com>,
-        <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:59784 "EHLO a.mx.secunet.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1165155AbdD1KLt (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 28 Apr 2017 06:11:49 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Simon Horman <horms@verge.net.au>
+Subject: [GIT PULL v2 0/1] IPVS Fixes for v4.11
+Date: Fri, 28 Apr 2017 12:11:53 +0200
+Message-ID: <20170428101154.9750-1-horms@verge.net.au>
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+        netfilter-devel@vger.kernel.org,
+        Wensong Zhang <wensong@linux-vs.org>,
+        Julian Anastasov <ja@ssi.bg>, Simon Horman <horms@verge.net.au>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Just one patch to fix a misplaced spin_unlock_bh in an error path.
+Hi Pablo,
 
-Please pull or let me know if there are problems.
+please consider this fix to IPVS for v4.11.
+Or if it is too late for v4.11 please consider it for v4.12.
+I would also like it considered for stable.
 
-Thanks!
+* Explicitly forbid ipv6 service/dest creation if ipv6 mod is disabled
+  to avoid oops caused by IPVS accesing IPv6 routing code in such
+  circumstances.
 
-The following changes since commit e2989ee9746b3f2e78d1a39bbc402d884e8b8bf1:
+Change since v1 of pull request:
+* Rebase on nf
+* Correct URL; it should be ipvs not ipvs-next
 
-  bpf, doc: update list of architectures that do eBPF JIT (2017-04-23 15:56:48 -0400)
+
+The following changes since commit 9dd2ab609eef736d5639e0de1bcc2e71e714b28e:
+
+  netfilter: Wrong icmp6 checksum for ICMPV6_TIME_EXCEED in reverse SNATv6 path (2017-04-25 11:10:38 +0200)
 
 are available in the git repository at:
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/klassert/ipsec-next.git master
+  http://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs.git ipvs-fixes-for-v4.11
 
-for you to fetch changes up to e892d2d40445a14a19530a2be8c489b87bcd7c19:
+for you to fetch changes up to 1442f6f7c1b77de1c508318164a527e240c24a4d:
 
-  esp: Fix misplaced spin_unlock_bh. (2017-04-24 07:56:31 +0200)
+  ipvs: explicitly forbid ipv6 service/dest creation if ipv6 mod is disabled (2017-04-28 12:04:35 +0200)
 
 ----------------------------------------------------------------
-Steffen Klassert (1):
-      esp: Fix misplaced spin_unlock_bh.
+Paolo Abeni (1):
+      ipvs: explicitly forbid ipv6 service/dest creation if ipv6 mod is disabled
 
- net/ipv4/esp4.c | 6 +-----
- net/ipv6/esp6.c | 6 +-----
- 2 files changed, 2 insertions(+), 10 deletions(-)
+ net/netfilter/ipvs/ip_vs_ctl.c | 22 +++++++++++++++++-----
+ 1 file changed, 17 insertions(+), 5 deletions(-)
