@@ -1,67 +1,39 @@
-From: <stef.ryckmans@kortenberg.be>
-Subject: 31868 netdev
-Date: Fri, 28 Apr 2017 11:03:44 -0000
-Message-ID: <149337742483.22262.7161692608758706949@candw.ag>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: rhashtable - Cap total number of entries to 2^31
+Date: Fri, 28 Apr 2017 19:31:45 +0800
+Message-ID: <20170428113145.GA7843@gondor.apana.org.au>
+References: <20170427054451.GA529@gondor.apana.org.au>
+ <0cd0286d-b81d-7bf4-d345-7ef098b9a998@broadcom.com>
+ <56843a86-9a09-16e8-acec-05a80396f282@gmail.com>
+ <acb22f3f-8286-01f2-e536-0ab44eb06b34@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: application/zip; name="051948408.zip"
-Content-Transfer-Encoding: base64
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 206-214-13-103.candw.ag ([206.214.13.103]:55278 "HELO candw.ag"
-        rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
-        id S937713AbdD1LD6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 28 Apr 2017 07:03:58 -0400
-Content-Disposition: attachment
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+        David Miller <davem@davemloft.net>, fw@strlen.de,
+        netdev@vger.kernel.org, Thomas Graf <tgraf@suug.ch>,
+        Stephen Rothwell <sfr@canb.auug.org.au>,
+        Linux-Next Mailing List <linux-next@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Christian Borntraeger <borntraeger@de.ibm.com>
+Return-path: <linux-next-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <acb22f3f-8286-01f2-e536-0ab44eb06b34@de.ibm.com>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-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
+On Fri, Apr 28, 2017 at 12:23:15PM +0200, Christian Borntraeger wrote:
+>
+> I can reproduce this boot failure on s390 bisected to 
+> commit 6d684e54690caef45cf14051ddeb7c71beeb681b
+>    rhashtable: Cap total number of entries to 2^31
+> in linux-next from Apr 28
+
+It should go away with
+
+https://patchwork.ozlabs.org/patch/756233/
+
+Thanks,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
