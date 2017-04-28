@@ -1,114 +1,115 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: prog ID and next steps. Was: [RFC net-next 0/2] Introduce bpf_prog
- ID and iteration
-Date: Fri, 28 Apr 2017 20:24:02 +0200
-Message-ID: <590388C2.7080000@iogearbox.net>
-References: <20170427062449.80290-1-kafai@fb.com> <e81805c8-0499-a0a5-b788-0168947d9b8c@stressinduktion.org> <40cf6893-4702-4773-1aaa-7dfdc51c6212@fb.com> <44cdb2d2-9f5c-5d28-2966-3e43e6d2a2ef@stressinduktion.org>
+From: Casey Leedom <leedom@chelsio.com>
+Subject: Re: [PATCH net-next 1/4] ixgbe: sparc: rename the
+ ARCH_WANT_RELAX_ORDER to IXGBE_ALLOW_RELAXED_ORDER
+Date: Fri, 28 Apr 2017 18:42:36 +0000
+Message-ID: <MWHPR12MB1600E090394DD648BC27E0FFC8130@MWHPR12MB1600.namprd12.prod.outlook.com>
+References: <20170401.112603.1991545644693496714.davem@davemloft.net>
+         <42428725-89f1-1508-4e3d-723e087b3bbb@huawei.com>
+         <EE11001F9E5DDD47B7634E2F8A612F2E205199C0@FRAEML521-MBX.china.huawei.com>
+         <063D6719AE5E284EB5DD2968C1650D6DCFFD3C52@AcuExch.aculab.com>
+         <DB5PR05MB138288172B04713EB0C1DB55D3190@DB5PR05MB1382.eurprd05.prod.outlook.com>
+         <a2239141-a185-1bb8-0abd-7a05b9fde015@huawei.com>
+         <CAKgT0Uc4L=GgYbpO-Fm9OfN+_fLypbDP1c+X4T_ta90ecQiyGQ@mail.gmail.com>
+         <20170427171938.GA10705@bhelgaas-glaptop.roam.corp.google.com>,<1493369471.13947.11.camel@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: kernel-team@fb.com, "David S. Miller" <davem@davemloft.net>,
-        Jesper Dangaard Brouer <brouer@redhat.com>,
-        John Fastabend <john.fastabend@gmail.com>,
-        Thomas Graf <tgraf@suug.ch>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Alexei Starovoitov <ast@fb.com>,
-        Martin KaFai Lau <kafai@fb.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:49222 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1163128AbdD1SYJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Apr 2017 14:24:09 -0400
-In-Reply-To: <44cdb2d2-9f5c-5d28-2966-3e43e6d2a2ef@stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: Alexander Duyck <alexander.duyck@gmail.com>,
+        Ding Tianhong <dingtianhong@huawei.com>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Amir Ancel <amira@mellanox.com>,
+        Gabriele Paoloni <gabriele.paoloni@huawei.com>,
+        "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+        Catalin Marinas <catalin.marinas@arm.com>,
+        Will Deacon <will.deacon@arm.com>,
+        LinuxArm <linuxarm@huawei.com>,
+        David Laight <David.Laight@aculab.com>,
+        "jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Robin Murphy <robin.murphy@arm.com>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "linux-arm-kernel@lists.infradead.org"
+        <linux-arm-kernel@lists.infradead.org>
+To: Lucas Stach <l.stach@pengutronix.de>,
+        Bjorn Helgaas <helgaas@kernel.org>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <1493369471.13947.11.camel@pengutronix.de>
+Content-Language: en-US
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 04/28/2017 01:50 PM, Hannes Frederic Sowa wrote:
-> On 28.04.2017 03:11, Alexei Starovoitov wrote:
-[...]
->> i disagree re: kallsyms. The goal of prog_tag is to let program writers
->> understand which program is running in a stable way.
->
-> But exactly it doesn't let program writers do that, it just confuses them:
->
-> ---
->
-> jit on:
->
-> perf record -e bpf_redirect -agR
->
-> The unwinder walks the stack, extracts address of upper function and
-> sends it to user space (perf) or handles it inside the kernel/kallsyms
-> (ftrace).
->
-> User takes tag of bpf program and wants to inspect related maps to the
-> program. Unfortunately the tag is not unique and thus we need to expand
-> the tag back to all possible programs with the same tag and expand that
-> to the union of all possible maps that those programs reference again.
->
-> That is what we present to the application developer. I would seriously
-> be very confused.
->
-> If application developer doesn't trust perf and uses instruction pointer
-> value from the stack directly he can't find out which program there is,
-> because fdinfo e.g. doesn't show the actual address of where the program
-> is allocated. I would use /dev/kmem now.
+| From: Lucas Stach <l.stach@pengutronix.de>
+| Sent: Friday, April 28, 2017 1:51 AM
+|    =20
+| Am Donnerstag, den 27.04.2017, 12:19 -0500 schrieb Bjorn Helgaas:
+| >=20
+| >=20
+| > I thought Relaxed Ordering was an optimization.  Are there cases where
+| > it is actually required for correct behavior?
+|=20
+| Yes, at least the Tegra 2 TRM claims that RO needs to be enabled on the
+| device side for correct operation with the following language:
+|=20
+| "Tegra 2 requires relaxed ordering for responses to downstream requests
+| (responses can pass writes). It is possible in some circumstances for PCI=
+e
+| transfers from an external bus masters (i.e. upstream transfers) to becom=
+e
+| blocked by a downstream read or non-posted write. The responses to these
+| downstream requests are blocked by upstream posted writes only when PCIe
+| strict ordering is imposed. It is therefore necessary to never impose str=
+ict
+| ordering that would block a response to a downstream NPW/read request and
+| always set the relaxed ordering bit to 1. Only devices that are capable o=
+f
+| relaxed ordering may be used with Tegra 2 devices."
 
-I don't think it would be reasonable to let fdinfo unconditionally
-dump the address of the program including unprivileged progs. We
-probably could add a run-time check into bpf_prog_show_fdinfo() and
-show it dynamically when user has cap_sys_admin.
+  (woof) Reading through the above paragraph is difficult because the autho=
+r
+seems to shift language and terminology mid sentence and isn't following
+standard PCI terminology conventions.  The Root Complex is "Upstream", a
+non-Root Complex Node in the PCIe Fabric is "Downstream", Requests that a
+Downstream Device (End Point) send to the Root Complex are called "Upstream
+Requests", responses that the Root Complex send to a Device are called
+"Downstream Responses" (or, even more pedantically, "Responses sent
+Downstream for an earlier Upstream Request").
 
-> ---
->
-> jit off:
->
-> perf probe -a '__bpf_prog_run ctx insn'
-> perf probe -a 'bpf_redirect flags ifindex'
-> perf record -e bpf_redirect -agR
->
-> Situation doesn't change. We do get the insn pointer thus have a unique
-> id for the program. That's it, no further introspection. I can read
-> /dev/kmem now.
->
-> ---
->
-> Personally I wouldn't rely on such infrastructure.
->
-> My proposal would be to maybe hash a map id into the program, so instead
-> of replacing the user space file descriptor with zero, take a map id
-> (like discussed below) or an inode number of the map into the register
-> and hash with that, so that those program have unique identifiers.
+  Because a Root Complex is Upstream, but the Requests it sent Downstream,
+and Downstream Devices send their Requests Upstream, it's very important
+that we use exceedingly precise language.
 
-I don't think that proposal would work, f.e. placing dev + inode number
-(inode itself wouldn't be sufficient either; map would also have to be
-pinned as anonymous inode from fd wouldn't work) or map id into insn
-won't give you out of a sudden a unique prog id, since maps can be shared
-among multiple progs, but also the same prog can be attached to, say,
-multiple attachment points.
+  So, it ~sounds like~ the nVidia Tegra 2 document is talking about the nee=
+d
+for Downstream Devices to echo the Relaxed Ordering Attribute in their
+Responses directed Upstream to Requests sent Downstream from the Root
+Complex.  Moreover, there's code in drivers/pci/host/pci-tegra.c:
+tegra_pcie_relax_enable() which appears to set the PCIe Capability Device
+Control[Enable Relaxed Ordering] bit on all PCIe Fabric Nodes.
 
-> Otherwise construct kallsym entries with prog id instead of tag.
->
-> I think that the hash should try to reassemble some kind of identity
-> function and mapping two programs to the same tag, that do something
-> completely differently is not good (based on we don't include the map).
->
-> Also I do think in future the difference between non-jit and jit
-> operation in regards to tracing should also be lifted. We could add a
-> manual tracing point into the interpreter for reporting the same event
-> as if the program was jitted.
->
-> Debugging should not be that different based on the sysctl flags.
+  If my reading of the intent of the nVidia document is correct -- and
+that's a Big If because of the extremely imprecise language used -- that
+means that the tegra_pcie_relax_enable() is completely bogus.  The PCIe 3.0
+Specification states that Responses MUST reflect the Relaxed Ordering and N=
+o
+Snoop Attributes of the Requests for which they are responding.  Section
+2.2.9 of PCI Express(r) Base Specification Revision 3.0 November 10, 2010:
+"Completion headers must supply the same values for the Attribute as were
+supplied in the header of the corresponding Request, except as explicitly
+allowed when IDO is used."
 
-With regards to tracing it's quite useful to see whether a program was
-JITed or not JITed (aka __bpf_prog_run()), so I don't think it makes
-sense to e.g. have everything named __bpf_prog_run(), at least the other
-way around wouldn't work for interpreter as far as I see.
+  And, specifically, the PCIe Capability Device Control[Enable Relaxed
+Ordering] bit _only_ affects the ability of that Device to originate
+Transaction Layer Packet Requests with the Relaxed Ordering Attribute set.
+Thus, tegra_pcie_relax_enable() setting those bits on all the Downstream
+Devices (and intervening Bridges) does not _cause_ those Devices to generat=
+e
+Requests with Relaxed Ordering set.  And, if the Devices are PCIe 3.0
+compliant, it also doesn't affect the Responses that they send back Upstrea=
+m
+to the Root Complex.
 
-But lets assume JIT is off for a moment, and you only see __bpf_prog_run().
-Then, in the stack trace you'll also see related functions that call this
-in the first place, for example, mlx4_en_poll_rx_cq() / mlx4_en_process_rx_cq()
-in case of XDP, meaning, you get the call path context as well, for which
-you later on (with the proposed infrastructure for getting fds from
-attachment points + dumping them) can return the attached prog fd and
-with that also dump the code or map data.
+  I apologize for the incredibly detailed nature of these responses, but
+it's very easy for people new to PCIe to get these things wrong and/or
+misinterpret the PCIe Specifications.
+
+Casey
