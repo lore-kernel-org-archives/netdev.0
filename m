@@ -1,45 +1,59 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH iproute2 net-next] bpf: add support for generic xdp
-Date: Fri, 28 Apr 2017 15:38:42 +0200
-Message-ID: <590345E2.7090907@iogearbox.net>
-References: <ebe1a4b9674922b8baa2b262c9d039407f047175.1493375407.git.daniel@iogearbox.net>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH/RFC net-next 0/4] net/sched: cls_flower: avoid false
+ matching of truncated packets
+Date: Fri, 28 Apr 2017 09:41:00 -0400
+Message-ID: <2c14754a-f3f5-cece-2cd7-361948a00c22@mojatatu.com>
+References: <20170428120035.15984-1-simon.horman@netronome.com>
+ <422d55da-f861-1bc6-983d-199fc383c113@mojatatu.com>
+ <20170428131155.GA30329@vergenet.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: alexei.starovoitov@gmail.com, davem@davemloft.net,
-        netdev@vger.kernel.org
-To: stephen@networkplumber.org
+Cc: Jiri Pirko <jiri@mellanox.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Dinan Gunawardena <dinan.gunawardena@netronome.com>,
+        netdev@vger.kernel.org, oss-drivers@netronome.com
+To: Simon Horman <simon.horman@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:38390 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S2997988AbdD1NjB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Apr 2017 09:39:01 -0400
-In-Reply-To: <ebe1a4b9674922b8baa2b262c9d039407f047175.1493375407.git.daniel@iogearbox.net>
+Received: from mail-io0-f172.google.com ([209.85.223.172]:35207 "EHLO
+        mail-io0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1423545AbdD1NlD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 28 Apr 2017 09:41:03 -0400
+Received: by mail-io0-f172.google.com with SMTP id r16so63808130ioi.2
+        for <netdev@vger.kernel.org>; Fri, 28 Apr 2017 06:41:03 -0700 (PDT)
+In-Reply-To: <20170428131155.GA30329@vergenet.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/28/2017 12:42 PM, Daniel Borkmann wrote:
-> Follow-up to commit c7272ca72009 ("bpf: add initial support for
-> attaching xdp progs") to also support generic XDP. This adds an
-> indicator for loaded generic XDP programs when programs are loaded
-> as shown in c7272ca72009, but the driver still lacks native XDP
-> support.
+On 17-04-28 09:11 AM, Simon Horman wrote:
+> On Fri, Apr 28, 2017 at 08:52:56AM -0400, Jamal Hadi Salim wrote:
+>> On 17-04-28 08:00 AM, Simon Horman wrote:
+>>> Hi,
+>>>
+>>> this series is intended to avoid false-positives which match
+>>> truncated packets against flower classifiers which match on:
+>>> * zero L4 ports or;
 >
->    # ip link
->    [...]
->    3: eno1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 xdpgeneric qdisc [...]
->        link/ether 0c:c4:7a:03:f9:25 brd ff:ff:ff:ff:ff:ff
->    [...]
+> How would you describe such a rule? The case that is being dealt with is
+> one where there is a parse error and thus nothing to match on from a flower
+> pov.
 >
-> In case the driver does support native XDP, but the user wants
-> to load the program as generic XDP (e.g. for testing purposes),
-> then this can be done with the same semantics as in c7272ca72009,
-> but with 'xdpgeneric' instead of 'xdp' command for loading:
->
->    # ip -force link set dev eno1 xdpgeneric obj xdp.o
->
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-> ---
->   ( Requires a header update to pull in XDP_FLAGS_SKB_MODE. )
 
-Scratch that, will send a v2 shortly.
+A default lower prio match all on udp or icmp?
+
+>> Example what would offloading of
+>> header_parse_err_action mean?
+>
+> Why would it need to differ semantically to the implementation in this
+> patch? I feel that I am missing something.
+>
+
+Unless I misunderstood:
+Isnt the issue the dissector that confused something missing L4 ports
+and said "port is zero"?
+
+Unless the hardware has the same "bug" as the dissector seems like would
+be a different semantic in the h/ware.
+
+cheers,
+jamal
