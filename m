@@ -1,48 +1,66 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: prog ID and next steps. Was: [RFC net-next 0/2] Introduce
- bpf_prog ID and iteration
-Date: Fri, 28 Apr 2017 20:57:08 +0200
-Message-ID: <5b211e10-3890-cd52-a4cd-92ce00a34cda@stressinduktion.org>
-References: <20170427062449.80290-1-kafai@fb.com>
- <e81805c8-0499-a0a5-b788-0168947d9b8c@stressinduktion.org>
- <40cf6893-4702-4773-1aaa-7dfdc51c6212@fb.com>
- <44cdb2d2-9f5c-5d28-2966-3e43e6d2a2ef@stressinduktion.org>
- <590388C2.7080000@iogearbox.net>
- <e4931eaa-c126-bd7f-4865-84a251624583@stressinduktion.org>
+From: Lance Richardson <lrichard@redhat.com>
+Subject: Re: [PATCH net-next] geneve: fix incorrect setting of UDP checksum
+ flag
+Date: Fri, 28 Apr 2017 14:59:37 -0400 (EDT)
+Message-ID: <909853218.2737359.1493405977273.JavaMail.zimbra@redhat.com>
+References: <1493327513-23247-1-git-send-email-girish.moodalbail@oracle.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: kernel-team@fb.com, "David S. Miller" <davem@davemloft.net>,
-        Jesper Dangaard Brouer <brouer@redhat.com>,
-        John Fastabend <john.fastabend@gmail.com>,
-        Thomas Graf <tgraf@suug.ch>
-To: Daniel Borkmann <daniel@iogearbox.net>,
-        Alexei Starovoitov <ast@fb.com>,
-        Martin KaFai Lau <kafai@fb.com>, netdev@vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org, pshelar@ovn.org
+To: Girish Moodalbail <girish.moodalbail@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out4-smtp.messagingengine.com ([66.111.4.28]:56467 "EHLO
-        out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1425368AbdD1S5M (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Apr 2017 14:57:12 -0400
-In-Reply-To: <e4931eaa-c126-bd7f-4865-84a251624583@stressinduktion.org>
-Content-Language: en-US
+Received: from mx1.redhat.com ([209.132.183.28]:52676 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1425419AbdD1S7i (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 28 Apr 2017 14:59:38 -0400
+In-Reply-To: <1493327513-23247-1-git-send-email-girish.moodalbail@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 28.04.2017 20:51, Hannes Frederic Sowa wrote:
-> Doesn't this break if I have 2 mlx4 cards in the system with different
-> XDP programs attached? I would have to add an additional parameter to
-> one of the mlx4 functions to extract the net_device pointer to make the
-> correlation then. Probably it will be much more difficult for other hooks.
+> From: "Girish Moodalbail" <girish.moodalbail@oracle.com>
+> To: davem@davemloft.net
+> Cc: netdev@vger.kernel.org, pshelar@ovn.org
+> Sent: Thursday, 27 April, 2017 5:11:53 PM
+> Subject: [PATCH net-next] geneve: fix incorrect setting of UDP checksum flag
+> 
+> Creating a geneve link with 'udpcsum' set results in a creation of link
+> for which UDP checksum will NOT be computed on outbound packets, as can
+> be seen below.
+> 
+> 11: gen0: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN
+>     link/ether c2:85:27:b6:b4:15 brd ff:ff:ff:ff:ff:ff promiscuity 0
+>     geneve id 200 remote 192.168.13.1 dstport 6081 noudpcsum
+> 
+> Similarly, creating a link with 'noudpcsum' set results in a creation
+> of link for which UDP checksum will be computed on outbound packets.
+> 
+> Fixes: 9b4437a5b870 ("geneve: Unify LWT and netdev handling.")
+> Signed-off-by: Girish Moodalbail <girish.moodalbail@oracle.com>
+> ---
+>  drivers/net/geneve.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
+> index 7074b40..dec5d56 100644
+> --- a/drivers/net/geneve.c
+> +++ b/drivers/net/geneve.c
+> @@ -1244,7 +1244,7 @@ static int geneve_newlink(struct net *net, struct
+> net_device *dev,
+>  		metadata = true;
+>  
+>  	if (data[IFLA_GENEVE_UDP_CSUM] &&
+> -	    !nla_get_u8(data[IFLA_GENEVE_UDP_CSUM]))
+> +	    nla_get_u8(data[IFLA_GENEVE_UDP_CSUM]))
+>  		info.key.tun_flags |= TUNNEL_CSUM;
+>  
+>  	if (data[IFLA_GENEVE_UDP_ZERO_CSUM6_TX] &&
+> --
+> 1.8.3.1
+> 
+> 
 
-Addendum:
+Verified issue on 4.10.10 kernel. Note that this doesn't impact
+lightweight geneve tunnels (e.g. as used by openvswitch).
 
-I am referring to same XDP programs attached to two mlx4 NICs which use
-different maps. It will be possible to correlate that with some more
-advanced perf magic, if the driver passes suitable pointers around so
-you can dereference the device name. Also, I am not sure where the
-support for multi-rx-queue XDP is heading. It might be even more
-difficult to understand it then.
-
-Bye,
-Hannes
+Acked-by: Lance Richardson <lrichard@redhat.com>
