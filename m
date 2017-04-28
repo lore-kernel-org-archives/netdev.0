@@ -1,41 +1,57 @@
-From: =?utf-8?B?0LDQtNC80LjQvdC40YHRgtGA0LDRgtC+0YA=?=
-        <contact@grdc.esdm.go.id>
-Subject: (unknown)
-Date: Fri, 28 Apr 2017 16:09:55 +0700 (WIT)
-Message-ID: <1495277960.117055.1493370595732.JavaMail.zimbra@grdc.esdm.go.id>
-Reply-To: Sistemass_Adminss@mail2world.com
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: [PATCH 1/2] xfrm: do the garbage collection after flushing policy
+Date: Fri, 28 Apr 2017 11:14:32 +0200
+Message-ID: <1493370873-30836-2-git-send-email-steffen.klassert@secunet.com>
+References: <1493370873-30836-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: base64
-To: unlisted-recipients:; (no To-header on input)
+Content-Type: text/plain
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+        Steffen Klassert <steffen.klassert@secunet.com>,
+        <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from server-09.grdc.esdm.go.id ([203.189.88.57]:36225 "EHLO
-        server-09.grdc.esdm.go.id" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752100AbdD1JWV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Apr 2017 05:22:21 -0400
-Subject: 
+Received: from a.mx.secunet.com ([62.96.220.36]:58090 "EHLO a.mx.secunet.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1163924AbdD1Js5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 28 Apr 2017 05:48:57 -0400
+In-Reply-To: <1493370873-30836-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-0LLQvdC40LzQsNC90LjRjzsKCtCS0LDRiNC4INGB0L7QvtCx0YnQtdC90LjRjyDQv9GA0LXQstGL
-0YHQuNC7INC70LjQvNC40YIg0L/QsNC80Y/RgtC4LCDQutC+0YLQvtGA0YvQuSDRgdC+0YHRgtCw
-0LLQu9GP0LXRgiA1INCT0LEsINC+0L/RgNC10LTQtdC70LXQvdC90YvRhSDQsNC00LzQuNC90LjR
-gdGC0YDQsNGC0L7RgNC+0LwsINC60L7RgtC+0YDRi9C5INCyINC90LDRgdGC0L7Rj9GJ0LXQtSDQ
-stGA0LXQvNGPINGA0LDQsdC+0YLQsNC10YIg0L3QsCAxMC45R0IsINCS0Ysg0L3QtSDRgdC80L7Q
-ttC10YLQtSDQvtGC0L/RgNCw0LLQuNGC0Ywg0LjQu9C4INC/0L7Qu9GD0YfQuNGC0Ywg0L3QvtCy
-0YPRjiDQv9C+0YfRgtGDLCDQv9C+0LrQsCDQstGLINC/0L7QstGC0L7RgNC90L4g0L3QtSDQv9GA
-0L7QstC10YDQuNGC0Ywg0LLQsNGIINC/0L7Rh9GC0L7QstGL0Lkg0Y/RidC40Log0L/QvtGH0YLR
-iy4g0KfRgtC+0LHRiyDQstC+0YHRgdGC0LDQvdC+0LLQuNGC0Ywg0YDQsNCx0L7RgtC+0YHQv9C+
-0YHQvtCx0L3QvtGB0YLRjCDQktCw0YjQtdCz0L4g0L/QvtGH0YLQvtCy0L7Qs9C+INGP0YnQuNC6
-0LAsINC+0YLQv9GA0LDQstGM0YLQtSDRgdC70LXQtNGD0Y7RidGD0Y4g0LjQvdGE0L7RgNC80LDR
-htC40Y4g0L3QuNC20LU6CgrQuNC80Y86CtCY0LzRjyDQv9C+0LvRjNC30L7QstCw0YLQtdC70Y86
-CtC/0LDRgNC+0LvRjDoK0J/QvtC00YLQstC10YDQttC00LXQvdC40LUg0L/QsNGA0L7Qu9GPOgrQ
-kNC00YDQtdGBINGN0LvQtdC60YLRgNC+0L3QvdC+0Lkg0L/QvtGH0YLRizoK0YLQtdC70LXRhNC+
-0L06CgrQldGB0LvQuCDQstGLINC90LUg0LIg0YHQvtGB0YLQvtGP0L3QuNC4INC/0LXRgNC10L/R
-gNC+0LLQtdGA0LjRgtGMINGB0L7QvtCx0YnQtdC90LjRjywg0LLQsNGIINC/0L7Rh9GC0L7QstGL
-0Lkg0Y/RidC40Log0LHRg9C00LXRgiDQvtGC0LrQu9GO0YfQtdC9IQoK0J/RgNC40L3QvtGB0LjQ
-vCDQuNC30LLQuNC90LXQvdC40Y8g0LfQsCDQvdC10YPQtNC+0LHRgdGC0LLQsC4K0J/RgNC+0LLQ
-tdGA0L7Rh9C90YvQuSDQutC+0LQ6IEVOOiBSdS4uLjYzNTgyOXdqeG54bC4uLi43NDk5MC5SVS4y
-MDE3CtCf0L7Rh9GC0Ysg0YLQtdGF0L3QuNGH0LXRgdC60L7QuSDQv9C+0LTQtNC10YDQttC60Lgg
-wqkyMDE3CgrRgdC/0LDRgdC40LHQvgrRgdC40YHRgtC10LzRiyDQsNC00LzQuNC90LjRgdGC0YDQ
-sNGC0L7RgA==
+From: Xin Long <lucien.xin@gmail.com>
+
+Now xfrm garbage collection can be triggered by 'ip xfrm policy del'.
+These is no reason not to do it after flushing policies, especially
+considering that 'garbage collection deferred' is only triggered
+when it reaches gc_thresh.
+
+It's no good that the policy is gone but the xdst still hold there.
+The worse thing is that xdst->route/orig_dst is also hold and can
+not be released even if the orig_dst is already expired.
+
+This patch is to do the garbage collection if there is any policy
+removed in xfrm_policy_flush.
+
+Signed-off-by: Xin Long <lucien.xin@gmail.com>
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+---
+ net/xfrm/xfrm_policy.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index 236cbbc..dfc77b9 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -1006,6 +1006,10 @@ int xfrm_policy_flush(struct net *net, u8 type, bool task_valid)
+ 		err = -ESRCH;
+ out:
+ 	spin_unlock_bh(&net->xfrm.xfrm_policy_lock);
++
++	if (cnt)
++		xfrm_garbage_collect(net);
++
+ 	return err;
+ }
+ EXPORT_SYMBOL(xfrm_policy_flush);
+-- 
+2.7.4
