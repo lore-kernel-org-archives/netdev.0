@@ -1,94 +1,82 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [ISSUE: sky2 - rx error] Link stops working under heavy traffic
- load connected to a mv88e6176
-Date: Fri, 28 Apr 2017 14:22:59 +0200
-Message-ID: <20170428122259.GH13231@lunn.ch>
-References: <58F9FD64.80506@aoifes.com>
- <20170425082741.59428876@xeon-e3>
- <5901DE9F.1070005@aoifes.com>
- <20170427130450.GL17172@lunn.ch>
- <59032D8B.1010801@aoifes.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [patch net-next 10/10] net: sched: extend gact to allow jumping
+ to another filter chain
+Date: Fri, 28 Apr 2017 08:23:34 -0400
+Message-ID: <a129147c-8992-9de4-e67c-379236b1f012@mojatatu.com>
+References: <1493291540-2119-1-git-send-email-jiri@resnulli.us>
+ <1493291540-2119-11-git-send-email-jiri@resnulli.us>
+ <bedf1246-4900-ebba-cf78-936989029db9@mojatatu.com>
+ <20170428065209.GA1886@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-        netdev@vger.kernel.org
-To: Rafa Corvillo <rafael.corvillo@aoifes.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+        xiyou.wangcong@gmail.com, dsa@cumulusnetworks.com,
+        edumazet@google.com, stephen@networkplumber.org,
+        daniel@iogearbox.net, alexander.h.duyck@intel.com,
+        mlxsw@mellanox.com, simon.horman@netronome.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:44366 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755494AbdD1MXC (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 28 Apr 2017 08:23:02 -0400
-Content-Disposition: inline
-In-Reply-To: <59032D8B.1010801@aoifes.com>
+Received: from mail-it0-f52.google.com ([209.85.214.52]:35198 "EHLO
+        mail-it0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755425AbdD1MXg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 28 Apr 2017 08:23:36 -0400
+Received: by mail-it0-f52.google.com with SMTP id 70so35375368ita.0
+        for <netdev@vger.kernel.org>; Fri, 28 Apr 2017 05:23:36 -0700 (PDT)
+In-Reply-To: <20170428065209.GA1886@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> >Since you are using DSA, you will have DSA tags enabled on frames
-> >to/from the switch. This adds an extra 8 byte header in the frame.  My
-> >guess is, it is this header, not the VLAN tag which is causing you MTU
-> >issues.
-> 
-> But it is strange because, as I have said above, we have the same
-> configuration working properly on a kernel 4.1 (with OpenWrt), and
-> we have the MTU set to 1500.
+On 17-04-28 02:52 AM, Jiri Pirko wrote:
+> Fri, Apr 28, 2017 at 03:41:08AM CEST, jhs@mojatatu.com wrote:
+>>
+>> Jiri,
+>>
+>> Good stuff!
+>> Thanks for the effort.
+>>
+>> I didnt review the details - will do. I wanted to raise one issue.
+>> This should work for all actions, not just gact (refer to the
+>> recent commit i made on the action jumping).
+>>
+>> Example policy for policer:
+>>
+>> #if packets destined for mac address 52:54:00:3d:c7:6d
+>> #exceed 90kbps with burst of 90K then jump to chain 11
+>> #for further classification, otherwise set their skb mark to 11
+>> # and proceed.
+>>
+>> tc filter add dev eth0 parent ffff: protocol ip pref 33 \
+>> flower dst_mac 52:54:00:3d:c7:6d \
+>> action police rate 1kbit burst 90k conform-exceed pipe/goto chain 11 \
+>> action skbedit mark 11
+>>
+>> But i should also be able to do this for any other action, etc.
+>
 
-If you look at sky2.c:
+[..]
 
-static unsigned sky2_get_rx_threshold(struct sky2_port *sky2)
-{
-        unsigned size;
+> You can have multiple actions in list and gact goto as the last one. Why
+> to do this ugliness?
 
-        /* Space needed for frame data + headers rounded up */
-        size = roundup(sky2->netdev->mtu + ETH_HLEN + VLAN_HLEN, 8);
+To be able to do what I described above ;-> Policer is always a good
+example because it can branch depending on whether a rate is exceeded
+or not.
 
-        /* Stopping point for hardware truncation */
-        return (size - 8) / sizeof(u32);
-}
+Another example:
+If you had two tables, one for flows that dont exceed their
+rate and another for flows exceed their rate.
+"match X
+	action police
+	    if exceed
+                 goto chain 12
+             else did not exceed
+                tag packet, goto chain 11
+"
 
-This is not going to be big enough for a frame with a DSA header.
+But it is not just the policer, other actions as well would benefit.
 
-> >I think this is the first time i've seen sky2 used in a DSA
-> >setup. mv643xx or mvneta is generally what is used, when using Marvell
-> >chipsets. These drivers are more lenient about MTU, and are happy to
-> >pass frames with additional headers.
-> >
-> 
-> We use the mv88e6xxx (as our switch is mv88e6176) and it depends on
-> DSA driver in the kernel (isn't it?).
+I am not sure you can achieve that with just gact.
 
-That is correct. But i was talking about the Ethernet interface. All
-the designs i've seen use an mv643xxx Ethernet interface, or an mvneta
-interface. This is the first time i've seen a sky2 used, which is why
-i'm not too surprised you have issues.
-
-> >Changing the MTU like this is not a good fix. It will allow you to
-> >receive frames which are bigger, but it also means the local network
-> >stack will generate bigger frames to be transmitted. You probably need
-> >to modify the sky2 driver to allow it to receive frames bigger than
-> >the interface MTU, by about 8 bytes.
-> 
-> Should the DSA driver remove the DSA tags before pass the frames to
-> sky2 interface?
-
-The DSA driver is adding the DSA tags to the frame and passing these
-tagged frames to the sky2 interface. Frames going to/from the switch
-will always have such tags.
-
-> >>[ 4901.032989] sky2 0000:04:00.0 marvell: tx timeout
-> >>[ 4904.722670] sky2 0000:04:00.0 marvell: Link is up at 1000 Mbps,
-> >>full duplex, flow control both
-> >
-> >Between the sky2 and the switch, do you have two back-to-back PHYs or
-> >are you connecting the RGMII interfaces together?
-> 
-> I think that we have two back-to-back PHYs, but I am going to double
-> check this with the hardware team.
-
-This could be your problem them. The mv88e6xxx switch driver assumes
-there is a straight rgmii-rgmii connection, no PHYs. So it hard
-configures the 'CPU' port to its fastest speed, with the link forced
-up. If you actually have a PHY there, this might not work so well. I
-don't know if the switch PHY is going to do autoneg correctly. Try
-using ethtool to look at the sky2 PHY and see what state it is in.
-
-      Andrew
+cheers,
+jamal
