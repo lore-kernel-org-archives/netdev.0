@@ -1,64 +1,154 @@
-From: Logan Gunthorpe <logang@deltatee.com>
-Subject: Re: [PATCH v2 07/21] crypto: shash,
- caam: Make use of the new sg_map helper function
-Date: Fri, 28 Apr 2017 13:01:39 -0600
-Message-ID: <d5242ef0-2670-63e4-02ce-a6d2368b7292@deltatee.com>
-References: <1493144468-22493-1-git-send-email-logang@deltatee.com>
- <1493144468-22493-8-git-send-email-logang@deltatee.com>
- <20170427035603.GA32212@gondor.apana.org.au>
- <94123cbf-3287-f05e-7267-0bcf08ab0a8b@deltatee.com>
- <20170428063039.GB6817@gondor.apana.org.au>
- <5a08708b-c3b8-41fe-96de-607a109eacbd@deltatee.com>
- <20170428175147.GA9596@gondor.apana.org.au>
+From: Alexei Starovoitov <ast@fb.com>
+Subject: Re: prog ID and next steps. Was: [RFC net-next 0/2] Introduce
+ bpf_prog ID and iteration
+Date: Fri, 28 Apr 2017 12:31:39 -0700
+Message-ID: <7f7e86bb-6475-3971-42a6-6f8f6b74979f@fb.com>
+References: <20170427062449.80290-1-kafai@fb.com>
+ <e81805c8-0499-a0a5-b788-0168947d9b8c@stressinduktion.org>
+ <40cf6893-4702-4773-1aaa-7dfdc51c6212@fb.com>
+ <44cdb2d2-9f5c-5d28-2966-3e43e6d2a2ef@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dri-devel@lists.freedesktop.org, Stephen Bates <sbates@raithlin.com>,
- dm-devel@redhat.com, target-devel@vger.kernel.org,
- Christoph Hellwig <hch@lst.de>, devel@driverdev.osuosl.org,
- "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>, linux-scsi@vger.kernel.org,
- linux-nvdimm@lists.01.org, linux-rdma@vger.kernel.org,
- Sumit Semwal <sumit.semwal@linaro.org>,
- Ross Zwisler <ross.zwisler@linux.intel.com>, open-iscsi@googlegroups.com,
- linux-media@vger.kernel.org, intel-gfx@lists.freedesktop.org,
- sparmaintainer@unisys.com, linux-raid@vger.kernel.org,
- Dan Williams <dan.j.williams@intel.com>, megaraidlinux.pdl@broadcom.com,
- Jens Axboe <axboe@kernel.dk>,
- "Martin K. Petersen" <martin.petersen@oracle.com>, netdev@vger.kernel.org,
- Matthew Wilcox <mawilcox@microsoft.com>, linux-mmc@vger.kernel.org,
- linux-kernel@vger.kernel.org, linux-crypto@vger.kernel.org,
- Greg Kroah-Hartman <gregkh@linu
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <intel-gfx-bounces@lists.freedesktop.org>
-In-Reply-To: <20170428175147.GA9596@gondor.apana.org.au>
-List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/intel-gfx>,
- <mailto:intel-gfx-request@lists.freedesktop.org?subject=unsubscribe>
-List-Archive: <https://lists.freedesktop.org/archives/intel-gfx>
-List-Post: <mailto:intel-gfx@lists.freedesktop.org>
-List-Help: <mailto:intel-gfx-request@lists.freedesktop.org?subject=help>
-List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/intel-gfx>,
- <mailto:intel-gfx-request@lists.freedesktop.org?subject=subscribe>
-Errors-To: intel-gfx-bounces@lists.freedesktop.org
-Sender: "Intel-gfx" <intel-gfx-bounces@lists.freedesktop.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Daniel Borkmann <daniel@iogearbox.net>, <kernel-team@fb.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Jesper Dangaard Brouer <brouer@redhat.com>,
+        John Fastabend <john.fastabend@gmail.com>,
+        Thomas Graf <tgraf@suug.ch>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Martin KaFai Lau <kafai@fb.com>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:60221 "EHLO
+        mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1423891AbdD1TcL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 28 Apr 2017 15:32:11 -0400
+In-Reply-To: <44cdb2d2-9f5c-5d28-2966-3e43e6d2a2ef@stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-CgpPbiAyOC8wNC8xNyAxMTo1MSBBTSwgSGVyYmVydCBYdSB3cm90ZToKPiBPbiBGcmksIEFwciAy
-OCwgMjAxNyBhdCAxMDo1Mzo0NUFNIC0wNjAwLCBMb2dhbiBHdW50aG9ycGUgd3JvdGU6Cj4+Cj4+
-Cj4+IE9uIDI4LzA0LzE3IDEyOjMwIEFNLCBIZXJiZXJ0IFh1IHdyb3RlOgo+Pj4gWW91IGFyZSBy
-aWdodC4gIEluZGVlZCB0aGUgZXhpc3RpbmcgY29kZSBsb29rcyBidWdneSBhcyB0aGV5Cj4+PiBk
-b24ndCB0YWtlIHNnLT5vZmZzZXQgaW50byBhY2NvdW50IHdoZW4gZG9pbmcgdGhlIGttYXAuICBD
-b3VsZAo+Pj4geW91IHNlbmQgbWUgc29tZSBwYXRjaGVzIHRoYXQgZml4IHRoZXNlIHByb2JsZW1z
-IGZpcnN0IHNvIHRoYXQKPj4+IHRoZXkgY2FuIGJlIGVhc2lseSBiYWNrcG9ydGVkPwo+Pgo+PiBP
-aywgSSB0aGluayB0aGUgb25seSBidWdneSBvbmUgaW4gY3J5cHRvIGlzIGhpZm5fNzk1eC4gU2hh
-c2ggYW5kIGNhYW0KPj4gYm90aCBkbyBoYXZlIHRoZSBzZy0+b2Zmc2V0IGFjY291bnRlZCBmb3Iu
-IEknbGwgc2VuZCBhIHBhdGNoIGZvciB0aGUKPj4gYnVnZ3kgb25lIHNob3J0bHkuCj4gCj4gSSB0
-aGluayB0aGV5J3JlIGFsbCBidWdneSB3aGVuIHNnLT5vZmZzZXQgaXMgZ3JlYXRlciB0aGFuIFBB
-R0VfU0laRS4KClllcywgdGVjaG5pY2FsbHkuIEJ1dCB0aGF0J3MgYSBfdmVyeV8gY29tbW9uIG1p
-c3Rha2UuIFByZXR0eSBuZWFybHkKZXZlcnkgY2FzZSBJIGxvb2tlZCBhdCBkaWQgbm90IHRha2Ug
-dGhhdCBpbnRvIGFjY291bnQuIEkgZG9uJ3QgdGhpbmsKc2cncyB0aGF0IHBvaW50IHRvIG1vcmUg
-dGhhbiBvbmUgY29udGludW91cyBwYWdlIGFyZSBhbGwgdGhhdCBjb21tb24uCgpGaXhpbmcgYWxs
-IHRob3NlIGNhc2VzIHdpdGhvdXQgbWFraW5nIGEgY29tbW9uIGZ1bmN0aW9uIGlzIGEgd2FzdGUg
-b2YKdGltZSBJTU8uCgpMb2dhbgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fXwpJbnRlbC1nZnggbWFpbGluZyBsaXN0CkludGVsLWdmeEBsaXN0cy5mcmVlZGVz
-a3RvcC5vcmcKaHR0cHM6Ly9saXN0cy5mcmVlZGVza3RvcC5vcmcvbWFpbG1hbi9saXN0aW5mby9p
-bnRlbC1nZngK
+On 4/28/17 4:50 AM, Hannes Frederic Sowa wrote:
+> Hello Alexei,
+>
+> On 28.04.2017 03:11, Alexei Starovoitov wrote:
+>> On 4/27/17 6:36 AM, Hannes Frederic Sowa wrote:
+>>> On 27.04.2017 08:24, Martin KaFai Lau wrote:
+>>>> This patchset introduces the bpf_prog ID and a new bpf cmd to
+>>>> iterate all bpf_prog in the system.
+>>>>
+>>>> It is still incomplete.  The idea can be extended to bpf_map.
+>>>>
+>>>> Martin KaFai Lau (2):
+>>>>   bpf: Introduce bpf_prog ID
+>>>>   bpf: Test for bpf_prog ID and BPF_PROG_GET_NEXT_ID
+>>>
+>>> Thanks Martin, I like the approach.
+>>>
+>>> I think the progid is also much more suitable to be used in kallsyms
+>>> because it handles collisions correctly and let's correctly walk the
+>>> chain (for example imaging loading two identical programs but install
+>>> them at different hooks, kallsysms doesn't allow to find out which
+>>> program is installed where).
+>>
+>> i disagree re: kallsyms. The goal of prog_tag is to let program writers
+>> understand which program is running in a stable way.
+>
+> But exactly it doesn't let program writers do that, it just confuses them:
+>
+> ---
+>
+> jit on:
+>
+> perf record -e bpf_redirect -agR
+>
+> The unwinder walks the stack, extracts address of upper function and
+> sends it to user space (perf) or handles it inside the kernel/kallsyms
+> (ftrace).
+>
+> User takes tag of bpf program and wants to inspect related maps to the
+> program. Unfortunately the tag is not unique and thus we need to expand
+> the tag back to all possible programs with the same tag and expand that
+> to the union of all possible maps that those programs reference again.
+
+'all possible programs with the same tag' == all exactly the same 
+programs == the same single program which was either compiled
+multiple times or loaded multiple times.
+
+When debugging you want to see which program is running.
+You don't care that it was loaded 10 times with different maps.
+Same prog_tag == same program code. We don't add maps into tag
+of the program, because it will only confuse users and makes such
+tag useless, since the user won't be able to correlate such reported tag
+with what they have on disk.
+
+The programs gets unloaded too and this 'perf record' and stack
+traces come from the past, hence the need for stable prog_tag.
+We can take a 'perf record' from yesterday and today find the program
+(if we have elf file for it) which was part of that trace.
+That's the key value of the prog_tag.
+The program ID is only valid at one point in time and adding it
+to kallsyms doesn't help much at all.
+Say, we added an id to kallsym, now in the stack trace you'll see
+bpf_prog_da4fc6a3f41761a2_12
+and
+bpf_prog_da4fc6a3f41761a2_25
+
+The only thing it tells you that the same program was loaded twice.
+The IDs 12 and 25 won't help to debug at all unless you have
+full crashdump of the system at the same exact time and can go and
+examine the memory.
+But if you have the crashdump, you don't need these IDs.
+All kernel data structures can be reconstructed without any IDs.
+
+> That is what we present to the application developer. I would seriously
+> be very confused.
+
+documentation needs to be improved. That's for sure.
+
+> ---
+>
+> jit off:
+>
+> perf probe -a '__bpf_prog_run ctx insn'
+> perf probe -a 'bpf_redirect flags ifindex'
+> perf record -e bpf_redirect -agR
+>
+> Situation doesn't change. We do get the insn pointer thus have a unique
+> id for the program.
+
+without JIT+kallsyms the situation is indeed not great, since
+__bpf_prog_run is the same for all programs and 'perf record' from
+yesterday is useless for debugging today.
+That's the reason why I very much in favor of enabling
+net.core.bpf_jit_kallsyms by default.
+
+> My proposal would be to maybe hash a map id into the program, so instead
+> of replacing the user space file descriptor with zero, take a map id
+> (like discussed below) or an inode number of the map into the register
+> and hash with that, so that those program have unique identifiers.
+>
+> Otherwise construct kallsym entries with prog id instead of tag.
+
+That doesn't make sense as explained above.
+
+> Also I do think in future the difference between non-jit and jit
+> operation in regards to tracing should also be lifted. We could add a
+> manual tracing point into the interpreter for reporting the same event
+> as if the program was jitted.
+
+When JIT is off, I'd like to be able to have different __bpf_prog_run
+appearing in stack traces for different programs, but don't see how 
+that's possible yet.
+
+> Debugging should not be that different based on the sysctl flags.
+
+debugging is already different depending which sysctl's are on.
+All the sysctl net.* knobs affect debugging.
+
+> Sure, what about tag -> id? Tag is being reported from tracing and thus
+> should be one of the starting points to explore which programs are running.
+
+based on prog_tag and list of elf files the user space can tell
+precisely which program was or is running.
+The elf file may have full debug info as well, so the user will
+see source code of the program too.
+Which is the ultimate goal of anyone doing debugging.
