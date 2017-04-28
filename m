@@ -1,66 +1,60 @@
 From: Jiri Pirko <jiri@resnulli.us>
 Subject: Re: [PATCH net-next v8 2/3] net sched actions: dump more than
  TCA_ACT_MAX_PRIO actions per batch
-Date: Fri, 28 Apr 2017 15:21:15 +0200
-Message-ID: <20170428132115.GD1886@nanopsycho.orion>
-References: <20170426061904.GB1867@nanopsycho.orion>
- <8f1a1b14-ad9b-7840-1fa6-04f2a2e4f55d@mojatatu.com>
- <20170426120851.GE1867@nanopsycho.orion>
- <10fe2c22-8e76-543e-dd24-ddce5813ab69@mojatatu.com>
- <20170426135627.GI1867@nanopsycho.orion>
- <b32fb2fb-ffb1-aee8-5f1d-1f1e3c82b347@mojatatu.com>
- <20170427063039.GB1870@nanopsycho.orion>
- <c1680135-8c9f-14d0-c65e-7a5bb7d8d661@mojatatu.com>
- <20170428070207.GC1886@nanopsycho.orion>
- <09120c61-cbdc-f048-d7bb-268e5af3e92d@mojatatu.com>
+Date: Fri, 28 Apr 2017 15:21:46 +0200
+Message-ID: <20170428132146.GE1886@nanopsycho.orion>
+References: <20170426110241.GA28251@vergenet.net>
+ <2e09d117-60f9-97ed-9f63-c94130ddbb0c@mojatatu.com>
+ <20170426130506.GF1867@nanopsycho.orion>
+ <20170426.104658.547156121898948265.davem@davemloft.net>
+ <20170428122131.GC19353@vergenet.net>
+ <9dbd92e4-506d-5267-9542-ae92a0511a4c@mojatatu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, xiyou.wangcong@gmail.com,
-        eric.dumazet@gmail.com, netdev@vger.kernel.org,
-        Simon Horman <simon.horman@netronome.com>,
-        Benjamin LaHaise <bcrl@kvack.org>
+Cc: Simon Horman <simon.horman@netronome.com>,
+        David Miller <davem@davemloft.net>, xiyou.wangcong@gmail.com,
+        eric.dumazet@gmail.com, netdev@vger.kernel.org
 To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f195.google.com ([209.85.128.195]:35437 "EHLO
-        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S969389AbdD1NVY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Apr 2017 09:21:24 -0400
-Received: by mail-wr0-f195.google.com with SMTP id g12so7095097wrg.2
-        for <netdev@vger.kernel.org>; Fri, 28 Apr 2017 06:21:23 -0700 (PDT)
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:34033 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S969389AbdD1NVt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 28 Apr 2017 09:21:49 -0400
+Received: by mail-wm0-f66.google.com with SMTP id z129so10931518wmb.1
+        for <netdev@vger.kernel.org>; Fri, 28 Apr 2017 06:21:49 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <09120c61-cbdc-f048-d7bb-268e5af3e92d@mojatatu.com>
+In-Reply-To: <9dbd92e4-506d-5267-9542-ae92a0511a4c@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fri, Apr 28, 2017 at 02:30:17PM CEST, jhs@mojatatu.com wrote:
->On 17-04-28 03:02 AM, Jiri Pirko wrote:
->> Fri, Apr 28, 2017 at 03:22:53AM CEST, jhs@mojatatu.com wrote:
+Fri, Apr 28, 2017 at 02:55:40PM CEST, jhs@mojatatu.com wrote:
+>On 17-04-28 08:21 AM, Simon Horman wrote:
+>> On Wed, Apr 26, 2017 at 10:46:58AM -0400, David Miller wrote:
+>> > From: Jiri Pirko <jiri@resnulli.us>
+>> > Date: Wed, 26 Apr 2017 15:05:06 +0200
+>> > 
 >
 >[..]
->> > Maybe I am misunderstanding:
->> > Recall, this is what it looks like with this patchset:
->> > <nlh><subsytem-header>[TCA_ROOT_XXXX]
+>> > > Should be part of UAPI as well
+>> > > I see that include/uapi/rdma/vmw_pvrdma-abi.h is using BIT macro.
+>> > > I don't see BIT macro defined in UAPI (I thought it is). So either
+>> > > define it there (not sure where) or just use "<<"
 >> > 
->> > TCA_ROOT_XXX is very subsystem specific. classifiers, qdiscs and many
->> > subsystems defined their own semantics for that TLV level. This specific
->> > "dump max" is very very specific to actions. They were crippled by the
->> > fact you could only send 32 at a time - this allows more to be sent.
->> > 
->> > I thought initially you meant:
->> > <nlh>[NLA_XXX]<subsytem-header>[TCA_ROOT_XXXX]
->> > 
->> > I think at the NLA_XXX you could fit netlink wide TLVs - but if i said
->> > "do a large dump" it is of no use to any other subsystem.
+>> > "BIT" is a pretty crazy small simple name to pollute into the global
+>> > namespace, IMHO.
 >> 
->> Okay, I'm sorry, I had couple of beers yesterday so that might be
->> the cause why your msg makes me totally confused :O
->> 
->> All I suggest is to replace NLA_U32 flags you want that does not
->> have any semantics with NLA_FLAGS flags, which eventually will carry
->> the exact same u32, but with predefined semantics, helpers, everything.
+>> It sounds to me that it would be best to just use "<<" rather than
+>> spending cycles posturing on how to add it to the UAPI. Existing users
+>> of BIT in the UAPI could also be updated to use "<<" to avoid having
+>> a misleading precedence in-tree.
 >> 
 >
->I didnt understand fully Jiri. Are you suggesting a new type called
->NLA_FLAGS which is re-usable elsewhere?
+>We need to convince Jiri ;-> He has plans to do a lot of cleanups and
+>I feel like I am pioneering (A lot of new things on my patchset).
+>Jiri, could this come in your cleanups later?
+ 
+Sure.
 
-Exactly. That's what I'm saying.
+>
+>cheers,
+>jamal
