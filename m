@@ -1,97 +1,74 @@
-From: Ralph Sennhauser <ralph.sennhauser@gmail.com>
-Subject: Re: [REGRESSION next-20170426] Commit 09515ef5ddad ("of/acpi:
- Configure dma operations at probe time for platform/amba/pci bus devices")
- causes oops in mvneta
-Date: Fri, 28 Apr 2017 08:19:19 +0200
-Message-ID: <20170428081919.21bb569d@gmail.com>
-References: <20170426181508.687b52af@gmail.com>
-        <2fb57b9b-3944-d9cc-1fac-8dcccaa0c37a@codeaurora.org>
-        <20170427164014.422a124c@gmail.com>
-        <524b7fc8-1eca-a7d8-7bc7-6743be17c208@codeaurora.org>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: Strange samples/bpf loading error for maps on net-next?
+Date: Fri, 28 Apr 2017 08:28:16 +0200
+Message-ID: <20170428082816.20a34395@redhat.com>
+References: <20170427131542.3c8dfa24@redhat.com>
+        <20170428054950.teh53ssg6ei4xkvx@ast-mbp>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "Rafael J. Wysocki" <rjw@rjwysocki.net>,
-        Joerg Roedel <jroedel@suse.de>,
-        Bjorn Helgaas <bhelgaas@google.com>,
-        linux-acpi@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-pci@vger.kernel.org,
-        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-        netdev@vger.kernel.org
-To: Sricharan R <sricharan@codeaurora.org>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <524b7fc8-1eca-a7d8-7bc7-6743be17c208@codeaurora.org>
-Sender: linux-acpi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Daniel Borkmann <borkmann@iogearbox.net>,
+        Martin KaFai Lau <kafai@fb.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>, eric@regit.org,
+        brouer@redhat.com
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:46618 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932078AbdD1G2X (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 28 Apr 2017 02:28:23 -0400
+In-Reply-To: <20170428054950.teh53ssg6ei4xkvx@ast-mbp>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 28 Apr 2017 11:13:33 +0530
-Sricharan R <sricharan@codeaurora.org> wrote:
+On Thu, 27 Apr 2017 22:49:51 -0700
+Alexei Starovoitov <alexei.starovoitov@gmail.com> wrote:
 
-> Hi Ralph,
-> 
-> On 4/27/2017 8:10 PM, Ralph Sennhauser wrote:
-> > On Thu, 27 Apr 2017 19:05:09 +0530
-> > Sricharan R <sricharan@codeaurora.org> wrote:
-> >   
-> >> Hi,
-> >>
-> >> On 4/26/2017 9:45 PM, Ralph Sennhauser wrote:  
-> >>> Hi Sricharan R,
-> >>>
-> >>> Commit 09515ef5ddad ("of/acpi: Configure dma operations at probe
-> >>> time for platform/amba/pci bus devices") causes a kernel panic as
-> >>> in the log below on an armada-385. Reverting the commit fixes the
-> >>> issue.
-> >>>
-> >>> Regards
-> >>> Ralph    
-> >>
-> >> Somehow not getting a obvious clue on whats going wrong with the
-> >> logs below. From the log and looking in to dts, the drivers seems
-> >> to the one for "marvell,armada-370-neta".  
+> On Thu, Apr 27, 2017 at 01:15:42PM +0200, Jesper Dangaard Brouer wrote:
 > > 
-> > Correct.
-> >   
-> >> Issue looks the data from the dma
-> >> has gone bad and subsequently referring the wrong data has resulted
-> >> in the crash. Looks like the dma_masks is the one going wrong.
-> >> Can i get some logs from mvneta_probe, about dev->dma_mask,
-> >> dev->coherent_dma_mask and dev->dma_ops with and without the patch
-> >> to see whats the difference ?  
+> > To provoke this bug, remember that you MUST call:
 > > 
-> > Not sure I understood what exactly you are after. Might be faster to
-> > just send me a patch with all debug print statements you like to
-> > see. 
+> >  make headers_install
+> > 
+> > In the kernels root directory, else you will be compiling samples/bpf/
+> > against the older headers previously installed.
+> > 
+> > The error looks like:
+> > 
+> >  $ sudo ./sockex1
+> >  bpf_load_program() err=22
+> >  fd 0 is not pointing to valid bpf_map
+> >  sockex1: [...]/samples/bpf/sockex1_user.c:26: main: Assertion `setsockopt(sock, SOL_SOCKET, SO_ATTACH_BPF, prog_fd, sizeof(prog_fd[0])) == 0' failed.
+> >  Aborted
+> > 
+> > I've found that the bug were introduced in
+> >  commit: fb30d4b71214 ("bpf: Add tests for map-in-map")  
 > 
-> Attached the patch with debug prints.
-> 
-> Regards,
->  Sricharan
-> 
+> Great debugging!
+> Indeed that change made samples/bpf/bpf_load.c to be incompatible with .o
+> generated earlier. We should really get rid of that loader and
+> switch to tools/lib/bpf/. I believe Eric Leblond already made it
+> resilient to 'struct bpf_map_def' changes.
 
-Hi Sricharan
+Yes, exactly it is problem in samples/bpf/bpf_load.c.  As it assumes
+the contents of the ELF file maps section will always chunks in
+sizeof(struct bpf_map_def) and just uses that directly as a pointer to
+an array of type struct bpf_map_def, which of-cause silently blows up
+when changing struct bpf_map_def.  That cost me many hours to discover
+that yesterday.
 
-With commit 09515ef5ddad
+I started implementing more correct parsing of the ELF maps section, it
+is doable, but as you say, maybe we should just get rid of this loader?
+I will at least fixup bpf_load.c and perhaps just abort the program the
+program if I detect a difference between the ELF size and struct size.
+And send this as a patch later today...
 
-[    1.288962] mvneta f1070000.ethernet: dev->dma_mask 0xffffffff
-[    1.294827] mvneta f1070000.ethernet: dev->coherent_dma_mask 0xffffffff
-[    1.301472] mvneta f1070000.ethernet: dev->dma_ops 0x40b00c0601460
+I've also looked at the loaded Daniel implemented[1] in iproute2, and
+it is much cleaner.
 
-[    1.322047] mvneta f1034000.ethernet: dev->dma_mask 0xffffffff
-[    1.327904] mvneta f1034000.ethernet: dev->coherent_dma_mask 0xffffffff
-[    1.334549] mvneta f1034000.ethernet: dev->dma_ops 0x40b00c0601460
-
-
-With the patch reverted, the build that works
-
-[    1.289001] mvneta f1070000.ethernet: dev->dma_mask 0xffffffff
-[    1.294866] mvneta f1070000.ethernet: dev->coherent_dma_mask 0xffffffff
-[    1.301511] mvneta f1070000.ethernet: dev->dma_ops 0x40b00c06014a8
-
-[    1.317005] mvneta f1034000.ethernet: dev->dma_mask 0xffffffff
-[    1.322867] mvneta f1034000.ethernet: dev->coherent_dma_mask 0xffffffff
-[    1.329508] mvneta f1034000.ethernet: dev->dma_ops 0x40b00c06014a8
-
-
-Regards
-Ralph
+[1] https://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2.git/tree/lib/bpf.c
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
