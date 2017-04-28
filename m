@@ -1,215 +1,112 @@
-From: Alexander Potapenko <glider@google.com>
-Subject: Re: [PATCH] ipv6: ensure message length for raw socket is at least sizeof(ipv6hdr)
-Date: Fri, 28 Apr 2017 16:28:12 +0200
-Message-ID: <CAG_fn=V_3UYfFFdtrVGMtUzf_wqNeMDfKA__Kwzd3pDAdu1svA@mail.gmail.com>
-References: <20170425131827.66498-1-glider@google.com> <20170425.135543.1706004185593424024.davem@davemloft.net>
- <CAG_fn=Xw-WTn4AsyNaaLMRaW1xqo1QOyp7JpYOW=z+hqpWdwLQ@mail.gmail.com> <CAG_fn=U--Ctc7mzy6J7Cvzie-ieysco0mWnPP8H+L_BO=Ci+-Q@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Dmitriy Vyukov <dvyukov@google.com>,
-        Kostya Serebryany <kcc@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Networking <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAG_fn=U--Ctc7mzy6J7Cvzie-ieysco0mWnPP8H+L_BO=Ci+-Q@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Romain Perier <romain.perier-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
+Subject: [PATCH v8 08/15] scsi: be2iscsi: Replace PCI pool old API
+Date: Fri, 28 Apr 2017 16:27:15 +0200
+Message-ID: <20170428142722.1282-9-romain.perier@collabora.com>
+References: <20170428142722.1282-1-romain.perier@collabora.com>
+Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Romain Perier <romain.perier-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>,
+        Peter Senna Tschudin <peter.senna-ZGY8ohtN/8pPYcu2f3hruQ@public.gmane.org>
+To: Dan Williams <dan.j.williams-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, stas.yakovlev-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+        "James E.J. Bottomley" <jejb-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
+        "Martin K. Petersen" <martin.petersen-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
+        Felipe Balbi <balbi-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170428142722.1282-1-romain.perier-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 26, 2017 at 3:00 PM, Alexander Potapenko <glider@google.com> wr=
-ote:
-> On Wed, Apr 26, 2017 at 10:54 AM, Alexander Potapenko <glider@google.com>=
- wrote:
->> On Tue, Apr 25, 2017 at 7:55 PM, David Miller <davem@davemloft.net> wrot=
-e:
->>> From: Alexander Potapenko <glider@google.com>
->>> Date: Tue, 25 Apr 2017 15:18:27 +0200
->>>
->>>> rawv6_send_hdrinc() expects that the buffer copied from the userspace
->>>> contains the IPv6 header, so if too few bytes are copied parts of the
->>>> header may remain uninitialized.
->>>>
->>>> This bug has been detected with KMSAN.
->>>>
->>>> Signed-off-by: Alexander Potapenko <glider@google.com>
->>>
->>> Hmmm, ipv4 seems to lack this check as well.
->>>
->>> I think we need to be careful here and fully understand why KMSAN doesn=
-'t
->>> seem to be triggering in the ipv4 case but for ipv6 it is before I appl=
-y
->>> this.
->> Maybe I just couldn't come up with a decent test case for ipv4 yet.
->> syzkaller generated the equivalent of the following program for ipv6:
->>
->> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
->> #define _GNU_SOURCE
->>
->> #include <netinet/in.h>
->> #include <string.h>
->> #include <sys/socket.h>
->> #include <error.h>
->>
->> int main()
->> {
->>   int sock =3D socket(PF_INET6, SOCK_RAW, IPPROTO_RAW);
->>   struct sockaddr_in6 dest_addr;
->>   memset(&dest_addr, 0, sizeof(dest_addr));
->>   dest_addr.sin6_family =3D AF_INET6;
->>   inet_pton(AF_INET6, "ff00::", &dest_addr.sin6_addr);
->>   int err =3D sendto(sock, 0, 0, 0, &dest_addr, sizeof(dest_addr));
->>   if (err =3D=3D -1)
->>     perror("sendto");
->>   return 0;
->> }
->> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
->>
->> I attempted to replace INET6 and such with INET and provide a legal
->> IPv4 address to inet_pton(), but couldn't trigger the warning.
-> syzkaller reports the following errors in the wild (although there's
-> no stable repro):
->
-> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-> BUG: KMSAN: use of unitialized memory in raw_send_hdrinc
-> net/ipv4/raw.c:407 [inline]
-> BUG: KMSAN: use of unitialized memory in raw_sendmsg+0x2c8b/0x3400
-> net/ipv4/raw.c:640
-> inter: 0
-> CPU: 3 PID: 2853 Comm: syz-executor1 Not tainted 4.11.0-rc5+ #2445
-> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2=
-011
-> Call Trace:
->  __dump_stack lib/dump_stack.c:16 [inline]
->  dump_stack+0x143/0x1b0 lib/dump_stack.c:52
->  kmsan_report+0x16b/0x1e0 mm/kmsan/kmsan.c:1078
->  __kmsan_warning_32+0x5c/0xa0 mm/kmsan/kmsan_instr.c:510
->  raw_send_hdrinc net/ipv4/raw.c:407 [inline]
->  raw_sendmsg+0x2c8b/0x3400 net/ipv4/raw.c:640
->  inet_sendmsg+0x3f8/0x6d0 net/ipv4/af_inet.c:762
->  sock_sendmsg_nosec net/socket.c:633 [inline]
->  sock_sendmsg net/socket.c:643 [inline]
->  ___sys_sendmsg+0xd4b/0x10f0 net/socket.c:1997
->  __sys_sendmsg net/socket.c:2031 [inline]
->  SYSC_sendmsg+0x2c6/0x3f0 net/socket.c:2042
->  SyS_sendmsg+0x87/0xb0 net/socket.c:2038
->  entry_SYSCALL_64_fastpath+0x13/0x94
-> RIP: 0033:0x44a669
-> RSP: 002b:00007f08d06edb58 EFLAGS: 00000286 ORIG_RAX: 000000000000002e
-> RAX: ffffffffffffffda RBX: 0000000000708000 RCX: 000000000044a669
-> RDX: 0000000000000000 RSI: 0000000020007fc8 RDI: 0000000000000017
-> RBP: 0000000000005080 R08: 0000000000000000 R09: 0000000000000000
-> R10: 0000000000000000 R11: 0000000000000286 R12: 00000000006e4140
-> R13: 0000000020b22000 R14: 0000000000000000 R15: 0000000000000000
-> origin: 00000000cb200085
->  save_stack_trace+0x16/0x20 arch/x86/kernel/stacktrace.c:59
->  kmsan_save_stack_with_flags mm/kmsan/kmsan.c:362 [inline]
->  kmsan_internal_poison_shadow+0xb1/0x1a0 mm/kmsan/kmsan.c:257
->  kmsan_poison_shadow+0x6d/0xc0 mm/kmsan/kmsan.c:270
->  slab_alloc_node mm/slub.c:2735 [inline]
->  __kmalloc_node_track_caller+0x1f4/0x390 mm/slub.c:4341
->  __kmalloc_reserve net/core/skbuff.c:138 [inline]
->  __alloc_skb+0x2cd/0x740 net/core/skbuff.c:231
->  alloc_skb include/linux/skbuff.h:933 [inline]
->  alloc_skb_with_frags+0x209/0xbc0 net/core/skbuff.c:4678
->  sock_alloc_send_pskb+0x9ff/0xe00 net/core/sock.c:1903
->  sock_alloc_send_skb+0xe4/0x100 net/core/sock.c:1920
->  raw_send_hdrinc net/ipv4/raw.c:366 [inline]
->  raw_sendmsg+0x1db4/0x3400 net/ipv4/raw.c:640
->  inet_sendmsg+0x3f8/0x6d0 net/ipv4/af_inet.c:762
->  sock_sendmsg_nosec net/socket.c:633 [inline]
->  sock_sendmsg net/socket.c:643 [inline]
->  ___sys_sendmsg+0xd4b/0x10f0 net/socket.c:1997
->  __sys_sendmsg net/socket.c:2031 [inline]
->  SYSC_sendmsg+0x2c6/0x3f0 net/socket.c:2042
->  SyS_sendmsg+0x87/0xb0 net/socket.c:2038
->  entry_SYSCALL_64_fastpath+0x13/0x94
-> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-Ok, there was a subtle bug in KMSAN instrumentation that made the IPv4
-case extremely hard to discover
-(http://bugs.llvm.org/show_bug.cgi?id=3D32842)
-After fixing it, the following syscalls:
-  socket(PF_INET, SOCK_RAW, IPPROTO_RAW)  =3D 3
-  sendto(3, NULL, 0, MSG_DONTWAIT, {sa_family=3DAF_INET,
-sin_port=3Dhtons(36895), sin_addr=3Dinet_addr("10.0.0.0")}, 16) =3D -1
-EINVAL (Invalid argument)
-reliably trigger the bug at line 404 here:
+The PCI pool API is deprecated. This commit replaces the PCI pool old
+API by the appropriate function with the DMA pool API.
 
- 342 static int raw_send_hdrinc(struct sock *sk, struct flowi4 *fl4,
- 343                            struct msghdr *msg, size_t length,
- 344                            struct rtable **rtp, unsigned int flags,
- 345                            const struct sockcm_cookie *sockc)
- 346 {
-...
- 391         if (memcpy_from_msg(iph, msg, length))
- 392                 goto error_free;
- 393
- 394         iphlen =3D iph->ihl * 4;
- 395
- 396         /*
- 397          * We don't want to modify the ip header, but we do need to
- 398          * be sure that it won't cause problems later along the networ=
-k
- 399          * stack.  Specifically we want to make sure that iph->ihl is =
-a
- 400          * sane value.  If ihl points beyond the length of the
-buffer passed
- 401          * in, reject the frame as invalid
- 402          */
- 403         err =3D -EINVAL;
- 404         if (iphlen > length)
- 405                 goto error_free;
+Signed-off-by: Romain Perier <romain.perier-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
+Acked-by: Peter Senna Tschudin <peter.senna-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
+Tested-by: Peter Senna Tschudin <peter.senna-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
+---
+ drivers/scsi/be2iscsi/be_iscsi.c | 6 +++---
+ drivers/scsi/be2iscsi/be_main.c  | 6 +++---
+ drivers/scsi/be2iscsi/be_main.h  | 2 +-
+ 3 files changed, 7 insertions(+), 7 deletions(-)
 
-I'll send the updated patch next week.
->
->>
->>
->>
->> --
->> Alexander Potapenko
->> Software Engineer
->>
->> Google Germany GmbH
->> Erika-Mann-Stra=C3=9Fe, 33
->> 80636 M=C3=BCnchen
->>
->> Gesch=C3=A4ftsf=C3=BChrer: Matthew Scott Sucherman, Paul Terence Manicle
->> Registergericht und -nummer: Hamburg, HRB 86891
->> Sitz der Gesellschaft: Hamburg
->
->
->
-> --
-> Alexander Potapenko
-> Software Engineer
->
-> Google Germany GmbH
-> Erika-Mann-Stra=C3=9Fe, 33
-> 80636 M=C3=BCnchen
->
-> Gesch=C3=A4ftsf=C3=BChrer: Matthew Scott Sucherman, Paul Terence Manicle
-> Registergericht und -nummer: Hamburg, HRB 86891
-> Sitz der Gesellschaft: Hamburg
+diff --git a/drivers/scsi/be2iscsi/be_iscsi.c b/drivers/scsi/be2iscsi/be_iscsi.c
+index 97dca4681784..43a80ce5ce6a 100644
+--- a/drivers/scsi/be2iscsi/be_iscsi.c
++++ b/drivers/scsi/be2iscsi/be_iscsi.c
+@@ -82,8 +82,8 @@ struct iscsi_cls_session *beiscsi_session_create(struct iscsi_endpoint *ep,
+ 		return NULL;
+ 	sess = cls_session->dd_data;
+ 	beiscsi_sess = sess->dd_data;
+-	beiscsi_sess->bhs_pool =  pci_pool_create("beiscsi_bhs_pool",
+-						   phba->pcidev,
++	beiscsi_sess->bhs_pool =  dma_pool_create("beiscsi_bhs_pool",
++						   &phba->pcidev->dev,
+ 						   sizeof(struct be_cmd_bhs),
+ 						   64, 0);
+ 	if (!beiscsi_sess->bhs_pool)
+@@ -108,7 +108,7 @@ void beiscsi_session_destroy(struct iscsi_cls_session *cls_session)
+ 	struct beiscsi_session *beiscsi_sess = sess->dd_data;
+ 
+ 	printk(KERN_INFO "In beiscsi_session_destroy\n");
+-	pci_pool_destroy(beiscsi_sess->bhs_pool);
++	dma_pool_destroy(beiscsi_sess->bhs_pool);
+ 	iscsi_session_teardown(cls_session);
+ }
+ 
+diff --git a/drivers/scsi/be2iscsi/be_main.c b/drivers/scsi/be2iscsi/be_main.c
+index f862332261f8..b4542e7e2ad5 100644
+--- a/drivers/scsi/be2iscsi/be_main.c
++++ b/drivers/scsi/be2iscsi/be_main.c
+@@ -4257,7 +4257,7 @@ static void beiscsi_cleanup_task(struct iscsi_task *task)
+ 	pwrb_context = &phwi_ctrlr->wrb_context[cri_index];
+ 
+ 	if (io_task->cmd_bhs) {
+-		pci_pool_free(beiscsi_sess->bhs_pool, io_task->cmd_bhs,
++		dma_pool_free(beiscsi_sess->bhs_pool, io_task->cmd_bhs,
+ 			      io_task->bhs_pa.u.a64.address);
+ 		io_task->cmd_bhs = NULL;
+ 		task->hdr = NULL;
+@@ -4374,7 +4374,7 @@ static int beiscsi_alloc_pdu(struct iscsi_task *task, uint8_t opcode)
+ 	struct beiscsi_session *beiscsi_sess = beiscsi_conn->beiscsi_sess;
+ 	dma_addr_t paddr;
+ 
+-	io_task->cmd_bhs = pci_pool_alloc(beiscsi_sess->bhs_pool,
++	io_task->cmd_bhs = dma_pool_alloc(beiscsi_sess->bhs_pool,
+ 					  GFP_ATOMIC, &paddr);
+ 	if (!io_task->cmd_bhs)
+ 		return -ENOMEM;
+@@ -4501,7 +4501,7 @@ static int beiscsi_alloc_pdu(struct iscsi_task *task, uint8_t opcode)
+ 	if (io_task->pwrb_handle)
+ 		free_wrb_handle(phba, pwrb_context, io_task->pwrb_handle);
+ 	io_task->pwrb_handle = NULL;
+-	pci_pool_free(beiscsi_sess->bhs_pool, io_task->cmd_bhs,
++	dma_pool_free(beiscsi_sess->bhs_pool, io_task->cmd_bhs,
+ 		      io_task->bhs_pa.u.a64.address);
+ 	io_task->cmd_bhs = NULL;
+ 	return -ENOMEM;
+diff --git a/drivers/scsi/be2iscsi/be_main.h b/drivers/scsi/be2iscsi/be_main.h
+index 338dbe0800c1..81ce3ffda968 100644
+--- a/drivers/scsi/be2iscsi/be_main.h
++++ b/drivers/scsi/be2iscsi/be_main.h
+@@ -438,7 +438,7 @@ struct beiscsi_hba {
+ 	 test_bit(BEISCSI_HBA_ONLINE, &phba->state))
+ 
+ struct beiscsi_session {
+-	struct pci_pool *bhs_pool;
++	struct dma_pool *bhs_pool;
+ };
+ 
+ /**
+-- 
+2.11.0
 
-
-
---=20
-Alexander Potapenko
-Software Engineer
-
-Google Germany GmbH
-Erika-Mann-Stra=C3=9Fe, 33
-80636 M=C3=BCnchen
-
-Gesch=C3=A4ftsf=C3=BChrer: Matthew Scott Sucherman, Paul Terence Manicle
-Registergericht und -nummer: Hamburg, HRB 86891
-Sitz der Gesellschaft: Hamburg
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
