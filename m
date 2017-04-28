@@ -1,81 +1,85 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net-next v2] ipv4: get rid of ip_ra_lock
-Date: Fri, 28 Apr 2017 10:04:29 -0700
-Message-ID: <1493399069-31743-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: Cong Wang <xiyou.wangcong@gmail.com>
-To: netdev@vger.kernel.org
+From: Aaron Conole <aconole@bytheb.org>
+Subject: Re: [PATCH v2 binutils] Add BPF support to binutils...
+Date: Fri, 28 Apr 2017 13:09:17 -0400
+Message-ID: <f7tfugssblu.fsf@redhat.com>
+References: <20170427.170934.891283291562287326.davem@davemloft.net>
+        <f7td1bwtthr.fsf@redhat.com>
+        <20170428.120457.408834081300892396.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: ast@fb.com, daniel@iogearbox.net, netdev@vger.kernel.org,
+        xdp-newbies@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:34099 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1424651AbdD1REi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Apr 2017 13:04:38 -0400
-Received: by mail-pg0-f67.google.com with SMTP id t7so6266096pgt.1
-        for <netdev@vger.kernel.org>; Fri, 28 Apr 2017 10:04:38 -0700 (PDT)
+Received: from mail-qk0-f196.google.com ([209.85.220.196]:36397 "EHLO
+        mail-qk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1424813AbdD1RJV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 28 Apr 2017 13:09:21 -0400
+Received: by mail-qk0-f196.google.com with SMTP id y63so9767663qkd.3
+        for <netdev@vger.kernel.org>; Fri, 28 Apr 2017 10:09:21 -0700 (PDT)
+In-Reply-To: <20170428.120457.408834081300892396.davem@davemloft.net> (David
+        Miller's message of "Fri, 28 Apr 2017 12:04:57 -0400 (EDT)")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-After commit 1215e51edad1 ("ipv4: fix a deadlock in ip_ra_control")
-we always take RTNL lock for ip_ra_control() which is the only place
-we update the list ip_ra_chain, so the ip_ra_lock is no longer needed.
+David Miller <davem@davemloft.net> writes:
 
-As Eric points out, BH does not need to disable either, RCU readers
-don't care.
+> From: Aaron Conole <aconole@bytheb.org>
+> Date: Fri, 28 Apr 2017 11:57:36 -0400
+>
+>> I'll get an arm board up and running to do some testing there.  As a
+>> teaser:
+>
+> Great.
+>
+> I started working on some more relocation stuff, so more of the
+> generic gas tests pass.
+>
+> For example, stuff like this now works properly:
+>
+> [davem@dhcp-10-15-49-210 build-bpf]$ cat gas/y.s
+> 	.data
+> 	.globl	foo
+> foo:	.xword	bar
+> [davem@dhcp-10-15-49-210 build-bpf]$ gas/as-new -o gas/y.o gas/y.s
+> [davem@dhcp-10-15-49-210 build-bpf]$ binutils/objdump -r gas/y.o
+>
+> gas/y.o:     file format elf64-bpfle
+>
+> RELOCATION RECORDS FOR [.data]:
+> OFFSET           TYPE              VALUE 
+> 0000000000000000 R_BPF_DATA_64     bar
+>
+>
+> [davem@dhcp-10-15-49-210 build-bpf]$
+>
+> It turned out that I needed to separate the R_BPF_* relocations into
+> data vs. insn ones.
+>
+> Another idea I am thinking about pursuing is adding BPF simulator
+> support under sim/ so that people can use gdb to step through BPF
+> programs.
+>
+> I hope we can make it work in a way that we can even step through
+> XDP programs and feed them simple test packets, stuff like that.
+>
+> Anyways, quick relative live patch against v2 from my tree for the
+> reloc stuff:
+>
+> diff --git a/bfd/elf64-bpf.c b/bfd/elf64-bpf.c
+> index 9944bb4..1be285d 100644
+> --- a/bfd/elf64-bpf.c
+> +++ b/bfd/elf64-bpf.c
+> @@ -1,8 +1,89 @@
+>  #include "sysdep.h"
+>  #include "bfd.h"
+> +#include "bfdlink.h"
+>  #include "libbfd.h"
+> +#include "libiberty.h"
+>  #include "elf-bfd.h"
+> +#include "elf/bpf.h"
+>  #include "opcode/bpf.h"
+> +#include "objalloc.h"
+> +#include "elf64-bpf.h"
 
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
----
- net/ipv4/ip_sockglue.c | 9 +--------
- 1 file changed, 1 insertion(+), 8 deletions(-)
-
-diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
-index 1d46d05..4c25458 100644
---- a/net/ipv4/ip_sockglue.c
-+++ b/net/ipv4/ip_sockglue.c
-@@ -330,7 +330,6 @@ int ip_cmsg_send(struct sock *sk, struct msghdr *msg, struct ipcm_cookie *ipc,
-    sent to multicast group to reach destination designated router.
-  */
- struct ip_ra_chain __rcu *ip_ra_chain;
--static DEFINE_SPINLOCK(ip_ra_lock);
- 
- 
- static void ip_ra_destroy_rcu(struct rcu_head *head)
-@@ -352,21 +351,17 @@ int ip_ra_control(struct sock *sk, unsigned char on,
- 
- 	new_ra = on ? kmalloc(sizeof(*new_ra), GFP_KERNEL) : NULL;
- 
--	spin_lock_bh(&ip_ra_lock);
- 	for (rap = &ip_ra_chain;
--	     (ra = rcu_dereference_protected(*rap,
--			lockdep_is_held(&ip_ra_lock))) != NULL;
-+	     (ra = rtnl_dereference(*rap)) != NULL;
- 	     rap = &ra->next) {
- 		if (ra->sk == sk) {
- 			if (on) {
--				spin_unlock_bh(&ip_ra_lock);
- 				kfree(new_ra);
- 				return -EADDRINUSE;
- 			}
- 			/* dont let ip_call_ra_chain() use sk again */
- 			ra->sk = NULL;
- 			RCU_INIT_POINTER(*rap, ra->next);
--			spin_unlock_bh(&ip_ra_lock);
- 
- 			if (ra->destructor)
- 				ra->destructor(sk);
-@@ -381,7 +376,6 @@ int ip_ra_control(struct sock *sk, unsigned char on,
- 		}
- 	}
- 	if (!new_ra) {
--		spin_unlock_bh(&ip_ra_lock);
- 		return -ENOBUFS;
- 	}
- 	new_ra->sk = sk;
-@@ -390,7 +384,6 @@ int ip_ra_control(struct sock *sk, unsigned char on,
- 	RCU_INIT_POINTER(new_ra->next, ra);
- 	rcu_assign_pointer(*rap, new_ra);
- 	sock_hold(sk);
--	spin_unlock_bh(&ip_ra_lock);
- 
- 	return 0;
- }
--- 
-2.5.5
+I get a compile error here.  I guess this file wasn't included.
