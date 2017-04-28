@@ -1,64 +1,72 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next 00/10] net: sched: introduce multichain support
- for filters
-Date: Fri, 28 Apr 2017 08:53:49 +0200
-Message-ID: <20170428065349.GB1886@nanopsycho.orion>
-References: <1493291540-2119-1-git-send-email-jiri@resnulli.us>
- <CAM_iQpXUs1301-OR1_bsO-0bU8sSBVo2BWRHy4qNhzdHxvJWaQ@mail.gmail.com>
+Subject: Re: [PATCH net-next v8 2/3] net sched actions: dump more than
+ TCA_ACT_MAX_PRIO actions per batch
+Date: Fri, 28 Apr 2017 09:02:07 +0200
+Message-ID: <20170428070207.GC1886@nanopsycho.orion>
+References: <20170425160445.GD1867@nanopsycho.orion>
+ <4b7789f7-69e0-4764-7029-f6e15d6e7d69@mojatatu.com>
+ <20170426061904.GB1867@nanopsycho.orion>
+ <8f1a1b14-ad9b-7840-1fa6-04f2a2e4f55d@mojatatu.com>
+ <20170426120851.GE1867@nanopsycho.orion>
+ <10fe2c22-8e76-543e-dd24-ddce5813ab69@mojatatu.com>
+ <20170426135627.GI1867@nanopsycho.orion>
+ <b32fb2fb-ffb1-aee8-5f1d-1f1e3c82b347@mojatatu.com>
+ <20170427063039.GB1870@nanopsycho.orion>
+ <c1680135-8c9f-14d0-c65e-7a5bb7d8d661@mojatatu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        David Ahern <dsa@cumulusnetworks.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Alexander Duyck <alexander.h.duyck@intel.com>,
-        mlxsw@mellanox.com, Simon Horman <simon.horman@netronome.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Cc: davem@davemloft.net, xiyou.wangcong@gmail.com,
+        eric.dumazet@gmail.com, netdev@vger.kernel.org,
+        Simon Horman <simon.horman@netronome.com>,
+        Benjamin LaHaise <bcrl@kvack.org>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f196.google.com ([209.85.128.196]:36617 "EHLO
-        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1424096AbdD1Gxx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Apr 2017 02:53:53 -0400
-Received: by mail-wr0-f196.google.com with SMTP id v42so6025503wrc.3
-        for <netdev@vger.kernel.org>; Thu, 27 Apr 2017 23:53:52 -0700 (PDT)
+Received: from mail-wr0-f195.google.com ([209.85.128.195]:35951 "EHLO
+        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754988AbdD1HCL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 28 Apr 2017 03:02:11 -0400
+Received: by mail-wr0-f195.google.com with SMTP id v42so6044881wrc.3
+        for <netdev@vger.kernel.org>; Fri, 28 Apr 2017 00:02:10 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <CAM_iQpXUs1301-OR1_bsO-0bU8sSBVo2BWRHy4qNhzdHxvJWaQ@mail.gmail.com>
+In-Reply-To: <c1680135-8c9f-14d0-c65e-7a5bb7d8d661@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thu, Apr 27, 2017 at 07:46:03PM CEST, xiyou.wangcong@gmail.com wrote:
->On Thu, Apr 27, 2017 at 4:12 AM, Jiri Pirko <jiri@resnulli.us> wrote:
->> Simple example:
->> $ tc qdisc add dev eth0 ingress
->> $ tc filter add dev eth0 parent ffff: protocol ip pref 33 flower dst_mac 52:54:00:3d:c7:6d action goto chain 11
->> $ tc filter add dev eth0 parent ffff: protocol ip pref 22 chain 11 flower dst_ip 192.168.40.1 action drop
->> $ tc filter show dev eth0 root
+Fri, Apr 28, 2017 at 03:22:53AM CEST, jhs@mojatatu.com wrote:
+>On 17-04-27 02:30 AM, Jiri Pirko wrote:
+>> Wed, Apr 26, 2017 at 10:07:08PM CEST, jhs@mojatatu.com wrote:
+>> > On 17-04-26 09:56 AM, Jiri Pirko wrote:
+>> > > Wed, Apr 26, 2017 at 03:14:38PM CEST, jhs@mojatatu.com wrote:
 >
->Interesting.
+>> > I think to have flags at that level is useful but it
+>> > is a different hierarchy level. I am not sure the
+>> > "actions dump large messages" is a fit for that level.
+>> 
+>> Jamal, the idea is to have exactly what you want to have. Only does not
+>> use NLA_U32 attr for that but a special attr NLA_FLAGS which would have
+>> well defined semantics and set of helpers to work with and enforce it.
+>> 
+>> Then, this could be easily reused in other subsystem that uses netlink
+>> 
 >
->I don't look into the code yet. If I understand the concepts correctly,
->so with your patchset we can mark either filter with a chain No. to
->choose which chain it belongs to _logically_ even though
->_physically_ it is still in the old-fashion chain (prio, proto)?
-
-You have to see the code :)
-
-There are physically multiple chains
-
-
+>Maybe I am misunderstanding:
+>Recall, this is what it looks like with this patchset:
+><nlh><subsytem-header>[TCA_ROOT_XXXX]
 >
->If so, you have to ensure proto is same since the protocol of
->the packet does not change dynamically? And the original
->priority becomes pointless with chains since we can just to
->any other chain in any order?
+>TCA_ROOT_XXX is very subsystem specific. classifiers, qdiscs and many
+>subsystems defined their own semantics for that TLV level. This specific
+>"dump max" is very very specific to actions. They were crippled by the
+>fact you could only send 32 at a time - this allows more to be sent.
 >
->By default, without any chain No., you use 0 for all the chains,
->so the old-fashion chain still works.
-
-Yes.
-
+>I thought initially you meant:
+><nlh>[NLA_XXX]<subsytem-header>[TCA_ROOT_XXXX]
 >
->Thanks.
+>I think at the NLA_XXX you could fit netlink wide TLVs - but if i said
+>"do a large dump" it is of no use to any other subsystem.
+
+Okay, I'm sorry, I had couple of beers yesterday so that might be
+the cause why your msg makes me totally confused :O
+
+All I suggest is to replace NLA_U32 flags you want that does not
+have any semantics with NLA_FLAGS flags, which eventually will carry
+the exact same u32, but with predefined semantics, helpers, everything.
