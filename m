@@ -1,49 +1,45 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 2/2] xfrm: fix GRO for !CONFIG_NETFILTER
-Date: Fri, 28 Apr 2017 11:14:33 +0200
-Message-ID: <1493370873-30836-3-git-send-email-steffen.klassert@secunet.com>
-References: <1493370873-30836-1-git-send-email-steffen.klassert@secunet.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-        Steffen Klassert <steffen.klassert@secunet.com>,
-        <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:58340 "EHLO a.mx.secunet.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1164565AbdD1Jty (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 28 Apr 2017 05:49:54 -0400
-In-Reply-To: <1493370873-30836-1-git-send-email-steffen.klassert@secunet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Simon Horman <horms@verge.net.au>
+Subject: [GIT 0/1] IPVS Fixes for v4.11
+Date: Fri, 28 Apr 2017 11:58:15 +0200
+Message-ID: <20170428095816.6588-1-horms@verge.net.au>
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+        netfilter-devel@vger.kernel.org,
+        Wensong Zhang <wensong@linux-vs.org>,
+        Julian Anastasov <ja@ssi.bg>, Simon Horman <horms@verge.net.au>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Sabrina Dubroca <sd@queasysnail.net>
+Hi Pablo,
 
-In xfrm_input() when called from GRO, async == 0, and we end up
-skipping the processing in xfrm4_transport_finish(). GRO path will
-always skip the NF_HOOK, so we don't need the special-case for
-!NETFILTER during GRO processing.
+please consider this fix to IPVS for v4.11.
+Or if it is too late for v4.11 please consider it for v4.12.
+I would also like it considered for stable.
 
-Fixes: 7785bba299a8 ("esp: Add a software GRO codepath")
-Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
-Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
----
- net/xfrm/xfrm_input.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+* Explicitly forbid ipv6 service/dest creation if ipv6 mod is disabled
+  to avoid oops caused by IPVS accesing IPv6 routing code in such
+  circumstances.
 
-diff --git a/net/xfrm/xfrm_input.c b/net/xfrm/xfrm_input.c
-index 46bdb4f..e23570b 100644
---- a/net/xfrm/xfrm_input.c
-+++ b/net/xfrm/xfrm_input.c
-@@ -395,7 +395,7 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
- 		if (xo)
- 			xfrm_gro = xo->flags & XFRM_GRO;
- 
--		err = x->inner_mode->afinfo->transport_finish(skb, async);
-+		err = x->inner_mode->afinfo->transport_finish(skb, xfrm_gro || async);
- 		if (xfrm_gro) {
- 			skb_dst_drop(skb);
- 			gro_cells_receive(&gro_cells, skb);
+The following changes since commit 1debdc8f9ebd07daf140e417b3841596911e0066:
+
+  sh_eth: unmap DMA buffers when freeing rings (2017-04-18 22:04:32 -0400)
+
+are available in the git repository at:
+
+  http://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs-next.git ipvs-fixes-for-v4.11
+
+for you to fetch changes up to 8f8688b0d483ff06236808ab5fc8bc83c5eaa8d9:
+
+  ipvs: explicitly forbid ipv6 service/dest creation if ipv6 mod is disabled (2017-04-24 11:53:55 +0200)
+
+----------------------------------------------------------------
+Paolo Abeni (1):
+      ipvs: explicitly forbid ipv6 service/dest creation if ipv6 mod is disabled
+
+ net/netfilter/ipvs/ip_vs_ctl.c | 22 +++++++++++++++++-----
+ 1 file changed, 17 insertions(+), 5 deletions(-)
+
 -- 
-2.7.4
+2.12.2.816.g2cccc81164
+
