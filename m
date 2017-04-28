@@ -1,119 +1,41 @@
-From: Gabriele Paoloni <gabriele.paoloni@huawei.com>
-Subject: RE: [PATCH net-next 1/4] ixgbe: sparc: rename the
- ARCH_WANT_RELAX_ORDER to IXGBE_ALLOW_RELAXED_ORDER
-Date: Fri, 28 Apr 2017 09:12:57 +0000
-Message-ID: <EE11001F9E5DDD47B7634E2F8A612F2E205620E4@FRAEML521-MBX.china.huawei.com>
-References: <20170401.112603.1991545644693496714.davem@davemloft.net>
- <42428725-89f1-1508-4e3d-723e087b3bbb@huawei.com>
- <EE11001F9E5DDD47B7634E2F8A612F2E205199C0@FRAEML521-MBX.china.huawei.com>
- <063D6719AE5E284EB5DD2968C1650D6DCFFD3C52@AcuExch.aculab.com>
- <DB5PR05MB138288172B04713EB0C1DB55D3190@DB5PR05MB1382.eurprd05.prod.outlook.com>
- <a2239141-a185-1bb8-0abd-7a05b9fde015@huawei.com>
- <CAKgT0Uc4L=GgYbpO-Fm9OfN+_fLypbDP1c+X4T_ta90ecQiyGQ@mail.gmail.com>,<20170427171938.GA10705@bhelgaas-glaptop.roam.corp.google.com>
- <MWHPR12MB1600CB0756EA24211C93E053C8100@MWHPR12MB1600.namprd12.prod.outlook.com>
+From: =?utf-8?B?0LDQtNC80LjQvdC40YHRgtGA0LDRgtC+0YA=?=
+        <contact@grdc.esdm.go.id>
+Subject: (unknown)
+Date: Fri, 28 Apr 2017 16:09:55 +0700 (WIT)
+Message-ID: <1495277960.117055.1493370595732.JavaMail.zimbra@grdc.esdm.go.id>
+Reply-To: Sistemass_Adminss@mail2world.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Dingtianhong <dingtianhong@huawei.com>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Amir Ancel <amira@mellanox.com>,
-        "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-        Catalin Marinas <catalin.marinas@arm.com>,
-        Will Deacon <will.deacon@arm.com>,
-        Linuxarm <linuxarm@huawei.com>,
-        David Laight <David.Laight@aculab.com>,
-        "jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Robin Murphy <robin.murphy@arm.com>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "linux-arm-kernel@lists.infradead.org"
-        <linux-arm-kernel@lists.infradead.org>
-To: Casey Leedom <leedom@chelsio.com>,
-        Bjorn Helgaas <helgaas@kernel.org>,
-        Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <MWHPR12MB1600CB0756EA24211C93E053C8100@MWHPR12MB1600.namprd12.prod.outlook.com>
-Content-Language: en-US
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: base64
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from server-09.grdc.esdm.go.id ([203.189.88.57]:36225 "EHLO
+        server-09.grdc.esdm.go.id" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752100AbdD1JWV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 28 Apr 2017 05:22:21 -0400
+Subject: 
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Casey
-
-Many thanks for the detailed explanation
-
-> -----Original Message-----
-> From: Casey Leedom [mailto:leedom@chelsio.com]
-> Sent: 27 April 2017 21:35
-> To: Bjorn Helgaas; Alexander Duyck
-> Cc: Dingtianhong; Mark Rutland; Amir Ancel; Gabriele Paoloni; linux-
-> pci@vger.kernel.org; Catalin Marinas; Will Deacon; Linuxarm; David
-> Laight; jeffrey.t.kirsher@intel.com; netdev@vger.kernel.org; Robin
-> Murphy; davem@davemloft.net; linux-arm-kernel@lists.infradead.org
-> Subject: Re: [PATCH net-next 1/4] ixgbe: sparc: rename the
-> ARCH_WANT_RELAX_ORDER to IXGBE_ALLOW_RELAXED_ORDER
-> 
-> | From: Bjorn Helgaas <helgaas@kernel.org>
-> | Sent: Thursday, April 27, 2017 10:19 AM
-> |
-> | Are you hinting that the PCI core or arch code could actually
-> *enable*
-> | Relaxed Ordering without the driver doing anything?  Is it safe to do
-> that?
-> | Is there such a thing as a device that is capable of using RO, but
-> where the
-> | driver must be aware of it being enabled, so it programs the device
-> | appropriately?
-> 
->   I forgot to reply to this portion of Bjorn's email.
-> 
->   The PCI Configuration Space PCI Capability Device Control[Enable
-> Relaxed
-> Ordering] bit governs enabling the _ability_ for the PCIe Device to
-> send
-> TLPs with the Relaxed Ordering Attribute set.  It does not _cause_ RO
-> to be
-> set on TLPs.  Doing that would almost certainly cause Data Corruption
-> Bugs
-> since you only want a subset of TLPs to have RO set.
-> 
->   For instance, we typically use RO for Ingress Packet Data delivery
-> but
-> non-RO for messages notifying the Host that an Ingress Packet has been
-> delivered.  This ensures that the "Ingress Packet Delivered" non-RO TLP
-> is
-> processed _after_ any preceding RO TLPs delivering the actual Ingress
-> Packet
-> Data.
-> 
->   In the above scenario, if one were to turn off Enable Relaxed
-> Ordering via
-> the PCIe Capability, then the on-chip PCIe engine would simply never
-> send a
-> TLP with the Relaxed Ordering Attribute set, regardless of any other
-> chip
-> programming.
-> 
->   And finally, just to be absolutely clear, using Relaxed Ordering
-> isn't and
-> "Architecture Thing".  It's a PCIe Fabric End Point Thing.  Many End
-> Points
-> simply ignore the Relaxed Ordering Attribute (except to reflect it back
-> in
-> Response TLPs).  In this sense, Relaxed Ordering simply provides
-> potentially useful optimization information to the PCIe End Point.
-
-I think your view matches what I found out about the current usage of the
-"Enable Relaxed Ordering" bit in Linux mainline: i.e. looking at where and
-why the other drivers set/clear the "Enable Relaxed Ordering" they do not
-look for any global symbol, nor they look at the host architecture.
-
-So with respect to this specific ixgbe driver I guess the main question is
-why RO was disabled by default by Intel for this EP (commit 3d5c520727ce
-mentions issues with "some chipsets"), then why it is safe to enable it back
-on SPARC....?
-
-Thanks
-Gab
-
-> 
-> Casey
+0LLQvdC40LzQsNC90LjRjzsKCtCS0LDRiNC4INGB0L7QvtCx0YnQtdC90LjRjyDQv9GA0LXQstGL
+0YHQuNC7INC70LjQvNC40YIg0L/QsNC80Y/RgtC4LCDQutC+0YLQvtGA0YvQuSDRgdC+0YHRgtCw
+0LLQu9GP0LXRgiA1INCT0LEsINC+0L/RgNC10LTQtdC70LXQvdC90YvRhSDQsNC00LzQuNC90LjR
+gdGC0YDQsNGC0L7RgNC+0LwsINC60L7RgtC+0YDRi9C5INCyINC90LDRgdGC0L7Rj9GJ0LXQtSDQ
+stGA0LXQvNGPINGA0LDQsdC+0YLQsNC10YIg0L3QsCAxMC45R0IsINCS0Ysg0L3QtSDRgdC80L7Q
+ttC10YLQtSDQvtGC0L/RgNCw0LLQuNGC0Ywg0LjQu9C4INC/0L7Qu9GD0YfQuNGC0Ywg0L3QvtCy
+0YPRjiDQv9C+0YfRgtGDLCDQv9C+0LrQsCDQstGLINC/0L7QstGC0L7RgNC90L4g0L3QtSDQv9GA
+0L7QstC10YDQuNGC0Ywg0LLQsNGIINC/0L7Rh9GC0L7QstGL0Lkg0Y/RidC40Log0L/QvtGH0YLR
+iy4g0KfRgtC+0LHRiyDQstC+0YHRgdGC0LDQvdC+0LLQuNGC0Ywg0YDQsNCx0L7RgtC+0YHQv9C+
+0YHQvtCx0L3QvtGB0YLRjCDQktCw0YjQtdCz0L4g0L/QvtGH0YLQvtCy0L7Qs9C+INGP0YnQuNC6
+0LAsINC+0YLQv9GA0LDQstGM0YLQtSDRgdC70LXQtNGD0Y7RidGD0Y4g0LjQvdGE0L7RgNC80LDR
+htC40Y4g0L3QuNC20LU6CgrQuNC80Y86CtCY0LzRjyDQv9C+0LvRjNC30L7QstCw0YLQtdC70Y86
+CtC/0LDRgNC+0LvRjDoK0J/QvtC00YLQstC10YDQttC00LXQvdC40LUg0L/QsNGA0L7Qu9GPOgrQ
+kNC00YDQtdGBINGN0LvQtdC60YLRgNC+0L3QvdC+0Lkg0L/QvtGH0YLRizoK0YLQtdC70LXRhNC+
+0L06CgrQldGB0LvQuCDQstGLINC90LUg0LIg0YHQvtGB0YLQvtGP0L3QuNC4INC/0LXRgNC10L/R
+gNC+0LLQtdGA0LjRgtGMINGB0L7QvtCx0YnQtdC90LjRjywg0LLQsNGIINC/0L7Rh9GC0L7QstGL
+0Lkg0Y/RidC40Log0LHRg9C00LXRgiDQvtGC0LrQu9GO0YfQtdC9IQoK0J/RgNC40L3QvtGB0LjQ
+vCDQuNC30LLQuNC90LXQvdC40Y8g0LfQsCDQvdC10YPQtNC+0LHRgdGC0LLQsC4K0J/RgNC+0LLQ
+tdGA0L7Rh9C90YvQuSDQutC+0LQ6IEVOOiBSdS4uLjYzNTgyOXdqeG54bC4uLi43NDk5MC5SVS4y
+MDE3CtCf0L7Rh9GC0Ysg0YLQtdGF0L3QuNGH0LXRgdC60L7QuSDQv9C+0LTQtNC10YDQttC60Lgg
+wqkyMDE3CgrRgdC/0LDRgdC40LHQvgrRgdC40YHRgtC10LzRiyDQsNC00LzQuNC90LjRgdGC0YDQ
+sNGC0L7RgA==
