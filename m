@@ -1,29 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netvsc: make sure napi enabled before vmbus_open
-Date: Fri, 28 Apr 2017 16:09:13 -0400 (EDT)
-Message-ID: <20170428.160913.1378797538282359486.davem@davemloft.net>
-References: <20170426235830.14801-1-sthemmin@microsoft.com>
+Subject: Re: [PATCH net] net: hns: fix ethtool_get_strings overflow in hns
+ driver
+Date: Fri, 28 Apr 2017 16:10:50 -0400 (EDT)
+Message-ID: <20170428.161050.111916772197901326.davem@davemloft.net>
+References: <20170427141816.301212-1-lixiaoping3@huawei.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sthemmin@microsoft.com
-To: stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:58782 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S642596AbdD1UJO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Apr 2017 16:09:14 -0400
-In-Reply-To: <20170426235830.14801-1-sthemmin@microsoft.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: huangdaode@hisilicon.com, lipeng321@huawei.com,
+        yisen.zhuang@huawei.com, salil.mehta@huawei.com,
+        yankejian@huawei.com, mbrugger@suse.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, linuxarm@huawei.com
+To: lixiaoping3@huawei.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170427141816.301212-1-lixiaoping3@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Wed, 26 Apr 2017 16:58:30 -0700
+From: Timmy Li <lixiaoping3@huawei.com>
+Date: Thu, 27 Apr 2017 22:18:16 +0800
 
-> This fixes a race where vmbus callback for new packet arriving
-> could occur before NAPI is initialized. Happens more on WS2008
-> which takes longer to setup channel.
-> 
-> Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+> @@ -672,7 +672,7 @@ static void hns_gmac_get_strings(u32 stringset, u8 *data)
+>  
+>  static int hns_gmac_get_sset_count(int stringset)
+>  {
+> -	if (stringset == ETH_SS_STATS)
+> +	if ((stringset == ETH_SS_STATS) || (stringset == ETH_SS_PRIV_FLAGS))
 
-This doesn't apply cleanly to 'net'.
+Excessive parenthesis, please fix this in your entire patch.
+
+Thank you.
