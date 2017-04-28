@@ -1,90 +1,74 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [PATCH net-next] samples/bpf: Add support for SKB_MODE to xdp1
- and xdp_tx_iptunnel
-Date: Fri, 28 Apr 2017 23:40:35 +0200
-Message-ID: <20170428234035.5f0beec6@redhat.com>
-References: <1493309473-27384-1-git-send-email-dsa@cumulusnetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: brouer@redhat.com, netdev@vger.kernel.org, ast@fb.com,
-        daniel@iogearbox.net
-To: David Ahern <dsa@cumulusnetworks.com>
+From: Eric Anholt <eric@anholt.net>
+Subject: [PATCH v3 1/2] net: dsa: b53: Add compatible strings for the Cygnus-family BCM11360.
+Date: Fri, 28 Apr 2017 15:22:03 -0700
+Message-ID: <20170428222204.7103-1-eric@anholt.net>
+Cc: linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
+        bcm-kernel-feedback-list@broadcom.com, Ray Jui <rjui@broadcom.com>,
+        Scott Branden <sbranden@broadcom.com>,
+        Jon Mason <jonmason@broadcom.com>,
+        Eric Anholt <eric@anholt.net>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Andrew Lunn <andrew@lunn.ch>, netdev@vger.kernel.org,
+        Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>, devicetree@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53546 "EHLO mx1.redhat.com"
+Received: from anholt.net ([50.246.234.109]:45098 "EHLO anholt.net"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1422932AbdD1Vkl (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 28 Apr 2017 17:40:41 -0400
-In-Reply-To: <1493309473-27384-1-git-send-email-dsa@cumulusnetworks.com>
+        id S1425893AbdD1WWI (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 28 Apr 2017 18:22:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 27 Apr 2017 09:11:13 -0700
-David Ahern <dsa@cumulusnetworks.com> wrote:
+Cygnus is a small family of SoCs, of which we currently have
+devicetree for BCM11360 and BCM58300.  The 11360's B53 is mostly the
+same as 58xx, just requiring a tiny bit of setup that was previously
+missing.
 
-> Add option to xdp1 and xdp_tx_iptunnel to insert xdp program in
-> SKB_MODE:
->  - update set_link_xdp_fd to take a flags argument that is added to the
->    RTM_SETLINK message
-> 
->  - Add -S option to xdp1 and xdp_tx_iptunnel user code. When passed in
->    XDP_FLAGS_SKB_MODE is set in the flags arg passed to set_link_xdp_fd
-> 
-> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+v2: Reorder the entry in the docs (suggestion by Scott Branden), add
+    missing '"'
 
-Thanks, this will make is a lot easier to measure the overhead of the
-network stack compared to XDP, like I did here:
- http://prototype-kernel.readthedocs.io/en/latest/blogposts/xdp25_eval_generic_xdp_tx.html
+Signed-off-by: Eric Anholt <eric@anholt.net>
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+Acked-by: Rob Herring <robh@kernel.org>
+---
+ Documentation/devicetree/bindings/net/dsa/b53.txt | 3 +++
+ drivers/net/dsa/b53/b53_srab.c                    | 2 ++
+ 2 files changed, 5 insertions(+)
 
-[...]
-> diff --git a/samples/bpf/bpf_load.c b/samples/bpf/bpf_load.c
-> index 0d449d8032d1..d4433a47e6c3 100644
-> --- a/samples/bpf/bpf_load.c
-> +++ b/samples/bpf/bpf_load.c
-> @@ -563,7 +563,7 @@ struct ksym *ksym_search(long key)
->  	return &syms[0];
->  }
->  
-> -int set_link_xdp_fd(int ifindex, int fd)
-> +int set_link_xdp_fd(int ifindex, int fd, int flags)
-
-Shouldn't the flags be a unsigned int, actually a __u32 ?
-
->  {
->  	struct sockaddr_nl sa;
->  	int sock, seq = 0, len, ret = -1;
-> @@ -599,15 +599,28 @@ int set_link_xdp_fd(int ifindex, int fd)
->  	req.nh.nlmsg_seq = ++seq;
->  	req.ifinfo.ifi_family = AF_UNSPEC;
->  	req.ifinfo.ifi_index = ifindex;
-> +
-> +	/* started nested attribute for XDP */
->  	nla = (struct nlattr *)(((char *)&req)
->  				+ NLMSG_ALIGN(req.nh.nlmsg_len));
->  	nla->nla_type = NLA_F_NESTED | 43/*IFLA_XDP*/;
-> +	nla->nla_len = NLA_HDRLEN;
->  
-> -	nla_xdp = (struct nlattr *)((char *)nla + NLA_HDRLEN);
-> +	/* add XDP fd */
-> +	nla_xdp = (struct nlattr *)((char *)nla + nla->nla_len);
->  	nla_xdp->nla_type = 1/*IFLA_XDP_FD*/;
->  	nla_xdp->nla_len = NLA_HDRLEN + sizeof(int);
->  	memcpy((char *)nla_xdp + NLA_HDRLEN, &fd, sizeof(fd));
-> -	nla->nla_len = NLA_HDRLEN + nla_xdp->nla_len;
-> +	nla->nla_len += nla_xdp->nla_len;
-> +
-> +	/* if user passed in any flags, add those too */
-> +	if (flags) {
-> +		nla_xdp = (struct nlattr *)((char *)nla + nla->nla_len);
-> +		nla_xdp->nla_type = 3/*IFLA_XDP_FLAGS*/;
-> +		nla_xdp->nla_len = NLA_HDRLEN + sizeof(flags);
-> +		memcpy((char *)nla_xdp + NLA_HDRLEN, &flags, sizeof(flags));
-> +		nla->nla_len += nla_xdp->nla_len;
-> +	}
->  
-
+diff --git a/Documentation/devicetree/bindings/net/dsa/b53.txt b/Documentation/devicetree/bindings/net/dsa/b53.txt
+index d6c6e41648d4..eb679e92d525 100644
+--- a/Documentation/devicetree/bindings/net/dsa/b53.txt
++++ b/Documentation/devicetree/bindings/net/dsa/b53.txt
+@@ -13,6 +13,9 @@ Required properties:
+       "brcm,bcm5397"
+       "brcm,bcm5398"
+ 
++  For the BCM11360 SoC, must be:
++      "brcm,bcm11360-srab" and the mandatory "brcm,cygnus-srab" string
++
+   For the BCM5310x SoCs with an integrated switch, must be one of:
+       "brcm,bcm53010-srab"
+       "brcm,bcm53011-srab"
+diff --git a/drivers/net/dsa/b53/b53_srab.c b/drivers/net/dsa/b53/b53_srab.c
+index 8a62b6a69703..c37ffd1b6833 100644
+--- a/drivers/net/dsa/b53/b53_srab.c
++++ b/drivers/net/dsa/b53/b53_srab.c
+@@ -364,6 +364,7 @@ static const struct of_device_id b53_srab_of_match[] = {
+ 	{ .compatible = "brcm,bcm53018-srab" },
+ 	{ .compatible = "brcm,bcm53019-srab" },
+ 	{ .compatible = "brcm,bcm5301x-srab" },
++	{ .compatible = "brcm,bcm11360-srab", .data = (void *)BCM58XX_DEVICE_ID },
+ 	{ .compatible = "brcm,bcm58522-srab", .data = (void *)BCM58XX_DEVICE_ID },
+ 	{ .compatible = "brcm,bcm58525-srab", .data = (void *)BCM58XX_DEVICE_ID },
+ 	{ .compatible = "brcm,bcm58535-srab", .data = (void *)BCM58XX_DEVICE_ID },
+@@ -371,6 +372,7 @@ static const struct of_device_id b53_srab_of_match[] = {
+ 	{ .compatible = "brcm,bcm58623-srab", .data = (void *)BCM58XX_DEVICE_ID },
+ 	{ .compatible = "brcm,bcm58625-srab", .data = (void *)BCM58XX_DEVICE_ID },
+ 	{ .compatible = "brcm,bcm88312-srab", .data = (void *)BCM58XX_DEVICE_ID },
++	{ .compatible = "brcm,cygnus-srab", .data = (void *)BCM58XX_DEVICE_ID },
+ 	{ .compatible = "brcm,nsp-srab", .data = (void *)BCM58XX_DEVICE_ID },
+ 	{ /* sentinel */ },
+ };
 -- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
+2.11.0
