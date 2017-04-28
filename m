@@ -1,44 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [4.11 regression] cpsw/netcp: refine cpts dependency
-Date: Fri, 28 Apr 2017 15:55:40 -0400 (EDT)
-Message-ID: <20170428.155540.1957134198035319334.davem@davemloft.net>
-References: <20170428150358.1537030-1-arnd@arndb.de>
+Subject: Re: [PATCH net] ipv4: Don't pass IP fragments to upper layer GRO
+ handlers.
+Date: Fri, 28 Apr 2017 16:01:00 -0400 (EDT)
+Message-ID: <20170428.160100.968014134264728727.davem@davemloft.net>
+References: <20170428085432.GH2649@secunet.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: grygorii.strashko@ti.com, nicolas.pitre@linaro.org, w-kwok2@ti.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        tony@atomide.com, linux-omap@vger.kernel.org
-To: arnd@arndb.de
+Cc: netdev@vger.kernel.org
+To: steffen.klassert@secunet.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:58462 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:58508 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1423598AbdD1Tzn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Apr 2017 15:55:43 -0400
-In-Reply-To: <20170428150358.1537030-1-arnd@arndb.de>
+        with ESMTP id S642167AbdD1UBC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 28 Apr 2017 16:01:02 -0400
+In-Reply-To: <20170428085432.GH2649@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Fri, 28 Apr 2017 17:03:58 +0200
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Date: Fri, 28 Apr 2017 10:54:32 +0200
 
-> Tony Lindgren reports a kernel oops that resulted from my compile-time
-> fix on the default config. This shows two problems:
+> Upper layer GRO handlers can not handle IP fragments, so
+> exit GRO processing in this case.
 > 
-> a) configurations that did not already enable PTP_1588_CLOCK will
->    now miss the cpts driver
+> This fixes ESP GRO because the packet must be reassembled
+> before we can decapsulate, otherwise we get authentication
+> failures.
 > 
-> b) when cpts support is disabled, the driver crashes. This is a
->    preexisting problem that we did not notice before my patch.
+> It also aligns IPv4 to IPv6 where packets with fragmentation
+> headers are not passed to upper layer GRO handlers.
 > 
-> While the second problem is still being investigated, this modifies
-> the dependencies again, getting us back to the original state, with
-> another 'select NET_PTP_CLASSIFY' added in to avoid the original
-> link error we got, and the 'depends on POSIX_TIMERS' to hide
-> the CPTS support when turning it on would be useless.
-> 
-> Cc: stable@vger.kernel.org # 4.11 needs this
-> Fixes: 07fef3623407 ("cpsw/netcp: cpts depends on posix_timers")
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> Fixes: 7785bba299a8 ("esp: Add a software GRO codepath")
+> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 
-Applied, thanks Arnd.
+Applied, thank you.
