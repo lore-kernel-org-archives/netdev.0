@@ -1,189 +1,71 @@
-From: <David.Cai@microchip.com>
-Subject: [PATCH v4 net-next]smsc911x: Adding support for Micochip LAN9250
- Ethernet controller
-Date: Fri, 28 Apr 2017 22:28:32 +0000
-Message-ID: <C3C28FB10418274EB7FD7C2B85C796A441247C58@CHN-SV-EXMX02.mchp-main.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next 00/10] net: sched: introduce multichain support
+ for filters
+Date: Sat, 29 Apr 2017 00:34:46 +0200
+Message-ID: <20170428223446.GB1905@nanopsycho.orion>
+References: <1493291540-2119-1-git-send-email-jiri@resnulli.us>
+ <CAM_iQpXUs1301-OR1_bsO-0bU8sSBVo2BWRHy4qNhzdHxvJWaQ@mail.gmail.com>
+ <20170428065349.GB1886@nanopsycho.orion>
+ <CAM_iQpXU0nKUMg3CqE=UOZ5R=mkxSAEFANObGt6+vKEeyXXXZg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <UNGLinuxDriver@microchip.com>, <steve.glendinning@shawell.net>
-To: <netdev@vger.kernel.org>, <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        David Ahern <dsa@cumulusnetworks.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Alexander Duyck <alexander.h.duyck@intel.com>,
+        mlxsw@mellanox.com, Simon Horman <simon.horman@netronome.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from esa4.microchip.iphmx.com ([68.232.154.123]:46580 "EHLO
-        esa4.microchip.iphmx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1035214AbdD1W2e (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Apr 2017 18:28:34 -0400
-Content-Language: en-US
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:34757 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S2999733AbdD1Wet (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 28 Apr 2017 18:34:49 -0400
+Received: by mail-wm0-f65.google.com with SMTP id z129so13482727wmb.1
+        for <netdev@vger.kernel.org>; Fri, 28 Apr 2017 15:34:49 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CAM_iQpXU0nKUMg3CqE=UOZ5R=mkxSAEFANObGt6+vKEeyXXXZg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Cai <david.cai@microchip.com>
+Fri, Apr 28, 2017 at 07:40:24PM CEST, xiyou.wangcong@gmail.com wrote:
+>On Thu, Apr 27, 2017 at 11:53 PM, Jiri Pirko <jiri@resnulli.us> wrote:
+>> Thu, Apr 27, 2017 at 07:46:03PM CEST, xiyou.wangcong@gmail.com wrote:
+>>>On Thu, Apr 27, 2017 at 4:12 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+>>>> Simple example:
+>>>> $ tc qdisc add dev eth0 ingress
+>>>> $ tc filter add dev eth0 parent ffff: protocol ip pref 33 flower dst_mac 52:54:00:3d:c7:6d action goto chain 11
+>>>> $ tc filter add dev eth0 parent ffff: protocol ip pref 22 chain 11 flower dst_ip 192.168.40.1 action drop
+>>>> $ tc filter show dev eth0 root
+>>>
+>>>Interesting.
+>>>
+>>>I don't look into the code yet. If I understand the concepts correctly,
+>>>so with your patchset we can mark either filter with a chain No. to
+>>>choose which chain it belongs to _logically_ even though
+>>>_physically_ it is still in the old-fashion chain (prio, proto)?
+>>
+>> You have to see the code :)
+>
+>I don't understand why I have to, these are high-level concepts
+>and should be put in your cover letter (aka. design doc). You miss
+>a lot of information about the ordering here.
 
-Adding support for Microchip LAN9250 Ethernet controller.
+Well, the description is one thing, but seeing the actual code should
+put the whole view. But if you are missing something, I can add it. What
+do you mean by "information about the ordering"?
 
-Signed-off-by: David Cai <david.cai@microchip.com>
----
-Changes
-V2
- - email format changed
- - remove unnecessary text in commit log Changes
-V3
- - defined all supported Ethernet controller chip ID.
-V4
- - changed 'if (pdata->generation == 4 && pdata->sub_generation)' to
-   'if ((pdata->idrev & 0xFFFF0000) == LAN9250)' for more readable
 
- drivers/net/ethernet/smsc/smsc911x.c | 55 ++++++++++++++++++++++++------------
- drivers/net/ethernet/smsc/smsc911x.h | 19 +++++++++++++
- 2 files changed, 56 insertions(+), 18 deletions(-)
+>
+>Also the terms you use are confusing too, without your patchset
+>we have chains too, struct tcf_proto is a chain, each kind of filter
+>defines their own way to store their filters into this chain (tp->root),
+	 
+Those are internal structures specific to each filter. Not "chains" per
+say.
 
-diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
-index fa5ca09..0cf956d 100644
---- a/drivers/net/ethernet/smsc/smsc911x.c
-+++ b/drivers/net/ethernet/smsc/smsc911x.c
-@@ -25,7 +25,7 @@
-  *   LAN9215, LAN9216, LAN9217, LAN9218
-  *   LAN9210, LAN9211
-  *   LAN9220, LAN9221
-- *   LAN89218
-+ *   LAN89218,LAN9250
-  *
-  */
- 
-@@ -104,6 +104,9 @@ struct smsc911x_data {
- 	/* used to decide which workarounds apply */
- 	unsigned int generation;
- 
-+	/* used to decide which sub generation product work arounds to apply */
-+	unsigned int sub_generation;
-+
- 	/* device configuration (copied from platform_data during probe) */
- 	struct smsc911x_platform_config config;
- 
-@@ -1450,6 +1453,8 @@ static int smsc911x_soft_reset(struct smsc911x_data *pdata)
- 	unsigned int timeout;
- 	unsigned int temp;
- 	int ret;
-+	unsigned int reset_offset = HW_CFG;
-+	unsigned int reset_mask = HW_CFG_SRST_;
- 
- 	/*
- 	 * Make sure to power-up the PHY chip before doing a reset, otherwise
-@@ -1476,15 +1481,23 @@ static int smsc911x_soft_reset(struct smsc911x_data *pdata)
- 		}
- 	}
- 
-+	if ((pdata->idrev & 0xFFFF0000) == LAN9250) {
-+		/* special reset for  LAN9250 */
-+		reset_offset = RESET_CTL;
-+		reset_mask = RESET_CTL_DIGITAL_RST_;
-+	}
-+
- 	/* Reset the LAN911x */
--	smsc911x_reg_write(pdata, HW_CFG, HW_CFG_SRST_);
-+	smsc911x_reg_write(pdata, reset_offset, reset_mask);
-+
-+	/* verify reset bit is cleared */
- 	timeout = 10;
- 	do {
- 		udelay(10);
--		temp = smsc911x_reg_read(pdata, HW_CFG);
--	} while ((--timeout) && (temp & HW_CFG_SRST_));
-+		temp = smsc911x_reg_read(pdata, reset_offset);
-+	} while ((--timeout) && (temp & reset_mask));
- 
--	if (unlikely(temp & HW_CFG_SRST_)) {
-+	if (unlikely(temp & reset_mask)) {
- 		SMSC_WARN(pdata, drv, "Failed to complete reset");
- 		return -EIO;
- 	}
-@@ -2253,31 +2266,37 @@ static int smsc911x_init(struct net_device *dev)
- 
- 	pdata->idrev = smsc911x_reg_read(pdata, ID_REV);
- 	switch (pdata->idrev & 0xFFFF0000) {
--	case 0x01180000:
--	case 0x01170000:
--	case 0x01160000:
--	case 0x01150000:
--	case 0x218A0000:
-+	case LAN9118:
-+	case LAN9117:
-+	case LAN9116:
-+	case LAN9115:
-+	case LAN89218:
- 		/* LAN911[5678] family */
- 		pdata->generation = pdata->idrev & 0x0000FFFF;
- 		break;
- 
--	case 0x118A0000:
--	case 0x117A0000:
--	case 0x116A0000:
--	case 0x115A0000:
-+	case LAN9218:
-+	case LAN9217:
-+	case LAN9216:
-+	case LAN9215:
- 		/* LAN921[5678] family */
- 		pdata->generation = 3;
- 		break;
- 
--	case 0x92100000:
--	case 0x92110000:
--	case 0x92200000:
--	case 0x92210000:
-+	case LAN9210:
-+	case LAN9211:
-+	case LAN9220:
-+	case LAN9221:
- 		/* LAN9210/LAN9211/LAN9220/LAN9221 */
- 		pdata->generation = 4;
- 		break;
- 
-+	case LAN9250:
-+		/* LAN9250 */
-+		pdata->generation = 4;
-+		pdata->sub_generation = 1;
-+		break;
-+
- 	default:
- 		SMSC_WARN(pdata, probe, "LAN911x not identified, idrev: 0x%08X",
- 			  pdata->idrev);
-diff --git a/drivers/net/ethernet/smsc/smsc911x.h b/drivers/net/ethernet/smsc/smsc911x.h
-index 54d6489..8d75508 100644
---- a/drivers/net/ethernet/smsc/smsc911x.h
-+++ b/drivers/net/ethernet/smsc/smsc911x.h
-@@ -20,6 +20,22 @@
- #ifndef __SMSC911X_H__
- #define __SMSC911X_H__
- 
-+/*Chip ID*/
-+#define LAN9115	0x01150000
-+#define LAN9116	0x01160000
-+#define LAN9117	0x01170000
-+#define LAN9118	0x01180000
-+#define LAN9215	0x115A0000
-+#define LAN9216	0x116A0000
-+#define LAN9217	0x117A0000
-+#define LAN9218	0x118A0000
-+#define LAN9210	0x92100000
-+#define LAN9211	0x92110000
-+#define LAN9220	0x92200000
-+#define LAN9221	0x92210000
-+#define LAN9250	0x92500000
-+#define LAN89218	0x218A0000
-+
- #define TX_FIFO_LOW_THRESHOLD	((u32)1600)
- #define SMSC911X_EEPROM_SIZE	((u32)128)
- #define USE_DEBUG		0
-@@ -303,6 +319,9 @@
- #define E2P_DATA_EEPROM_DATA_		0x000000FF
- #define LAN_REGISTER_EXTENT		0x00000100
- 
-+#define RESET_CTL			0x1F8
-+#define RESET_CTL_DIGITAL_RST_		0x00000001
-+
- /*
-  * MAC Control and Status Register (Indirect Address)
-  * Offset (through the MAC_CSR CMD and DATA port)
--- 
-2.7.4
+>and of course tp is chained in a singly-linked list too which turns
+>into multiple-chains.
