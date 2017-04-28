@@ -1,51 +1,45 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: Re: [PATCH v6 3/5] rxrpc: check return value of skb_to_sgvec always
-Date: Fri, 28 Apr 2017 15:29:45 +0200
-Message-ID: <CAHmME9oyCb5GJ6L=2fBs-eHEPjtm-_HtoA1a76_WSiw-t+Pmuw@mail.gmail.com>
-References: <20170425155215.4835-1-Jason@zx2c4.com> <20170425184734.26563-1-Jason@zx2c4.com>
- <20170425184734.26563-3-Jason@zx2c4.com> <20170428114131.GA31833@bistromath.localdomain>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH iproute2 net-next] bpf: add support for generic xdp
+Date: Fri, 28 Apr 2017 15:38:42 +0200
+Message-ID: <590345E2.7090907@iogearbox.net>
+References: <ebe1a4b9674922b8baa2b262c9d039407f047175.1493375407.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>, LKML <linux-kernel@vger.kernel.org>,
-	David Laight <David.Laight@aculab.com>, kernel-hardening@lists.openwall.com,
-	David Miller <davem@davemloft.net>
-To: Sabrina Dubroca <sd@queasysnail.net>
-Return-path: <kernel-hardening-return-7619-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-In-Reply-To: <20170428114131.GA31833@bistromath.localdomain>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: alexei.starovoitov@gmail.com, davem@davemloft.net,
+        netdev@vger.kernel.org
+To: stephen@networkplumber.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:38390 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S2997988AbdD1NjB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 28 Apr 2017 09:39:01 -0400
+In-Reply-To: <ebe1a4b9674922b8baa2b262c9d039407f047175.1493375407.git.daniel@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Sabrina,
-
-Thanks for the review.
-
-On Fri, Apr 28, 2017 at 1:41 PM, Sabrina Dubroca <sd@queasysnail.net> wrote:
-> >       sg_init_table(sg, nsg);
-> > -     skb_to_sgvec(skb, sg, offset, len);
-> > +     if (unlikely(skb_to_sgvec(skb, sg, offset, len) < 0))
-> > +             goto nomem;
+On 04/28/2017 12:42 PM, Daniel Borkmann wrote:
+> Follow-up to commit c7272ca72009 ("bpf: add initial support for
+> attaching xdp progs") to also support generic XDP. This adds an
+> indicator for loaded generic XDP programs when programs are loaded
+> as shown in c7272ca72009, but the driver still lacks native XDP
+> support.
 >
-> You're leaking sg when nsg > 4, you'll need to add this:
+>    # ip link
+>    [...]
+>    3: eno1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 xdpgeneric qdisc [...]
+>        link/ether 0c:c4:7a:03:f9:25 brd ff:ff:ff:ff:ff:ff
+>    [...]
 >
->         if (sg != _sg)
->                 kfree(sg);
-
-Nice catch. I'll fix this up in the next revision.
-
-
+> In case the driver does support native XDP, but the user wants
+> to load the program as generic XDP (e.g. for testing purposes),
+> then this can be done with the same semantics as in c7272ca72009,
+> but with 'xdpgeneric' instead of 'xdp' command for loading:
 >
+>    # ip -force link set dev eno1 xdpgeneric obj xdp.o
 >
->
-> BTW, when you resubmit, please Cc: the maintainers of the files you're
-> changing for each patch, so that they can review this stuff. And send
-> patch 1 to all of them, otherwise they might be surprised that we even
-> need <0 checking after calls to skb_to_sgvec.
->
-> You might also want to add a cover letter.
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+> ---
+>   ( Requires a header update to pull in XDP_FLAGS_SKB_MODE. )
 
-Both good ideas. Will do.
-
-Jason
+Scratch that, will send a v2 shortly.
