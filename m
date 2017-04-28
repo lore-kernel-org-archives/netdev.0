@@ -1,67 +1,90 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next v8 2/3] net sched actions: dump more than
- TCA_ACT_MAX_PRIO actions per batch
-Date: Fri, 28 Apr 2017 16:02:08 +0200
-Message-ID: <20170428140208.GG1886@nanopsycho.orion>
-References: <20170426120851.GE1867@nanopsycho.orion>
- <10fe2c22-8e76-543e-dd24-ddce5813ab69@mojatatu.com>
- <20170426135627.GI1867@nanopsycho.orion>
- <b32fb2fb-ffb1-aee8-5f1d-1f1e3c82b347@mojatatu.com>
- <20170427063039.GB1870@nanopsycho.orion>
- <c1680135-8c9f-14d0-c65e-7a5bb7d8d661@mojatatu.com>
- <20170428070207.GC1886@nanopsycho.orion>
- <09120c61-cbdc-f048-d7bb-268e5af3e92d@mojatatu.com>
- <20170428132115.GD1886@nanopsycho.orion>
- <5377f9a5-56db-537d-1079-ead60b67c71e@mojatatu.com>
+From: Simon Horman <simon.horman@netronome.com>
+Subject: Re: [PATCH/RFC net-next 0/4] net/sched: cls_flower: avoid false
+ matching of truncated packets
+Date: Fri, 28 Apr 2017 16:14:15 +0200
+Message-ID: <20170428141414.GA11256@vergenet.net>
+References: <20170428120035.15984-1-simon.horman@netronome.com>
+ <422d55da-f861-1bc6-983d-199fc383c113@mojatatu.com>
+ <20170428131155.GA30329@vergenet.net>
+ <2c14754a-f3f5-cece-2cd7-361948a00c22@mojatatu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, xiyou.wangcong@gmail.com,
-        eric.dumazet@gmail.com, netdev@vger.kernel.org,
-        Simon Horman <simon.horman@netronome.com>,
-        Benjamin LaHaise <bcrl@kvack.org>
+Cc: Jiri Pirko <jiri@mellanox.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Dinan Gunawardena <dinan.gunawardena@netronome.com>,
+        netdev@vger.kernel.org, oss-drivers@netronome.com
 To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:36355 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1426128AbdD1OCL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Apr 2017 10:02:11 -0400
-Received: by mail-wm0-f65.google.com with SMTP id u65so11101455wmu.3
-        for <netdev@vger.kernel.org>; Fri, 28 Apr 2017 07:02:10 -0700 (PDT)
+Received: from mail-wm0-f41.google.com ([74.125.82.41]:36238 "EHLO
+        mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S969469AbdD1OOS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 28 Apr 2017 10:14:18 -0400
+Received: by mail-wm0-f41.google.com with SMTP id u65so43472937wmu.1
+        for <netdev@vger.kernel.org>; Fri, 28 Apr 2017 07:14:18 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <5377f9a5-56db-537d-1079-ead60b67c71e@mojatatu.com>
+In-Reply-To: <2c14754a-f3f5-cece-2cd7-361948a00c22@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fri, Apr 28, 2017 at 03:42:31PM CEST, jhs@mojatatu.com wrote:
->On 17-04-28 09:21 AM, Jiri Pirko wrote:
->> Fri, Apr 28, 2017 at 02:30:17PM CEST, jhs@mojatatu.com wrote:
->> > On 17-04-28 03:02 AM, Jiri Pirko wrote:
->> > > Fri, Apr 28, 2017 at 03:22:53AM CEST, jhs@mojatatu.com wrote:
->> > 
->> > [..]
->> > > > Maybe I am misunderstanding:
->> > > > Recall, this is what it looks like with this patchset:
->> > > > <nlh><subsytem-header>[TCA_ROOT_XXXX]
->> > > > 
->> > > > TCA_ROOT_XXX is very subsystem specific. classifiers, qdiscs and many
->> > > > subsystems defined their own semantics for that TLV level. This specific
->> > > > "dump max" is very very specific to actions. They were crippled by the
->> > > > fact you could only send 32 at a time - this allows more to be sent.
->
->> > > 
->> > > All I suggest is to replace NLA_U32 flags you want that does not
->> > > have any semantics with NLA_FLAGS flags, which eventually will carry
->> > > the exact same u32, but with predefined semantics, helpers, everything.
->> > > 
->> > 
->> > I didnt understand fully Jiri. Are you suggesting a new type called
->> > NLA_FLAGS which is re-usable elsewhere?
->> 
->> Exactly. That's what I'm saying.
->> 
->
->If you want to make it general:
->I see the semantics of this thing as more detailed than what I had.
->It would have a u32 bitmap + u32 bitmask.
+On Fri, Apr 28, 2017 at 09:41:00AM -0400, Jamal Hadi Salim wrote:
+> On 17-04-28 09:11 AM, Simon Horman wrote:
+> >On Fri, Apr 28, 2017 at 08:52:56AM -0400, Jamal Hadi Salim wrote:
+> >>On 17-04-28 08:00 AM, Simon Horman wrote:
+> >>>Hi,
+> >>>
+> >>>this series is intended to avoid false-positives which match
+> >>>truncated packets against flower classifiers which match on:
+> >>>* zero L4 ports or;
+> >
+> >How would you describe such a rule? The case that is being dealt with is
+> >one where there is a parse error and thus nothing to match on from a flower
+> >pov.
+> >
+> 
+> A default lower prio match all on udp or icmp?
 
-Sure, lets make this nice.
+I'm certainly not opposed to exploring ideas here.
+
+The way that flower currently works is that a match on ip_proto ==
+UDP/TCP/SCTP/ICMP but not fields in the L4 header itself would not result in
+the dissector only dissecting the packet's L4 header and thus would not
+discover (or as in currently the case, silently ignore) the absence of the
+ports/ICMP type and code in the L4 header.
+
+What my patch attempts to do is to describe a policy of what to do if
+a given classifier invokes the dissector (to pull out the headers needed for
+the match in question) and that dissection fails. Its basically describing
+the error-path.
+
+> >>Example what would offloading of
+> >>header_parse_err_action mean?
+> >
+> >Why would it need to differ semantically to the implementation in this
+> >patch? I feel that I am missing something.
+> >
+> 
+> Unless I misunderstood:
+> Isnt the issue the dissector that confused something missing L4 ports
+> and said "port is zero"?
+> 
+> Unless the hardware has the same "bug" as the dissector seems like would
+> be a different semantic in the h/ware.
+
+There are two issues:
+
+1. As things stand, without this patch-set, flower does not differentiate
+   between a packet truncated at the end of the IP header and a packet with
+   zero ports. Likewise for icmp type and code of zero.
+
+   The first three patches of this series address that so that a match for
+   port == zero only matches if ports are present in the packet. Again,
+   likewise for ICMP.
+
+   This is a bug-fix to my way of thinking.
+
+2. The behaviour described above, prior to this patchset, might have been
+   utilised to f.e. drop packets that are either truncated or have port == 0
+   (because flower didn't differentiate between these cases).
+
+   So the question becomes if/how to provide such a feature.
+   The last patch is my attempt to answer that question.
