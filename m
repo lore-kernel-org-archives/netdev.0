@@ -1,36 +1,33 @@
 From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [PATCH net] qed: Unlock on error in qed_vf_pf_acquire()
-Date: Fri, 28 Apr 2017 15:56:09 +0300
-Message-ID: <20170428125608.djln5r7h4d53it5s@mwanda>
+Subject: [PATCH net] liquidio: silence a locking static checker warning
+Date: Fri, 28 Apr 2017 15:57:15 +0300
+Message-ID: <20170428125715.h6d5ttnfq7rdnpni@mwanda>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Ariel Elior <Ariel.Elior@cavium.com>, everest-linux-l2@cavium.com,
+Cc: Satanand Burla <satananda.burla@caviumnetworks.com>,
+        Felix Manlunas <felix.manlunas@caviumnetworks.com>,
+        Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>,
         netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Yuval Mintz <Yuval.Mintz@cavium.com>
+To: Derek Chickles <derek.chickles@caviumnetworks.com>
 Return-path: <kernel-janitors-owner@vger.kernel.org>
 Content-Disposition: inline
 Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-My static checker complains that we're holding a mutex on this error
-path.  Let's goto exit instead of returning directly.
+Presumably we never hit this return, but static checkers complain that
+we need to unlock so we may as well fix that.
 
-Fixes: b0bccb69eba3 ("qed: Change locking scheme for VF channel")
 Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
----
-Yuval, could you review this one a bit carefully and also check that my
-Fixes tag is correct because I'm not certain.
 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_vf.c b/drivers/net/ethernet/qlogic/qed/qed_vf.c
-index c4c4a408b40b..11d71e5eea14 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_vf.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_vf.c
-@@ -234,7 +234,7 @@ static int qed_vf_pf_acquire(struct qed_hwfn *p_hwfn)
- 		/* send acquire request */
- 		rc = qed_send_msg2pf(p_hwfn, &resp->hdr.status, sizeof(*resp));
- 		if (rc)
--			return rc;
-+			goto exit;
+diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_mailbox.c b/drivers/net/ethernet/cavium/liquidio/octeon_mailbox.c
+index 201b9875f9bb..5cca73b8880b 100644
+--- a/drivers/net/ethernet/cavium/liquidio/octeon_mailbox.c
++++ b/drivers/net/ethernet/cavium/liquidio/octeon_mailbox.c
+@@ -313,6 +313,7 @@ int octeon_mbox_process_message(struct octeon_mbox *mbox)
+ 		return 0;
+ 	}
  
- 		/* copy acquire response from buffer to p_hwfn */
- 		memcpy(&p_iov->acquire_resp, resp, sizeof(p_iov->acquire_resp));
++	spin_unlock_irqrestore(&mbox->lock, flags);
+ 	WARN_ON(1);
+ 
+ 	return 0;
