@@ -1,71 +1,47 @@
-From: Arkadi Sharshevsky <arkadis@mellanox.com>
-Subject: [PATCH net-next v2] net: bridge: Fix improper taking over
-	HW learned FDB
-Date: Fri, 28 Apr 2017 19:31:38 +0300
-Message-ID: <1493397098-38756-1-git-send-email-arkadis@mellanox.com>
-Cc: Ido Schimmel <idosch@mellanox.com>,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-	bridge@lists.linux-foundation.org,
-	Arkadi Sharshevsky <arkadis@mellanox.com>, davem@davemloft.net
-To: netdev@vger.kernel.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next V3 2/2] rtnl: Add support for netdev event
+ attribute to link messages
+Date: Fri, 28 Apr 2017 18:38:04 +0200
+Message-ID: <20170428163804.GH1886@nanopsycho.orion>
+References: <1492795881-11914-1-git-send-email-vyasevic@redhat.com>
+ <1492795881-11914-3-git-send-email-vyasevic@redhat.com>
+ <877efb54-2aef-4d1e-c0b4-2ce6aa6562df@cumulusnetworks.com>
+ <7b5396ae-0cf3-2a1e-9c49-5d6f031adf58@redhat.com>
+ <760db30a-859a-a365-e0f3-69a4433ef9bf@cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: vyasevic@redhat.com, Vladislav Yasevich <vyasevich@gmail.com>,
+        netdev@vger.kernel.org, roopa <roopa@cumulusnetworks.com>
+To: David Ahern <dsa@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:34310 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756811AbdD1QiJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 28 Apr 2017 12:38:09 -0400
+Received: by mail-wm0-f65.google.com with SMTP id z129so12022366wmb.1
+        for <netdev@vger.kernel.org>; Fri, 28 Apr 2017 09:38:07 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <760db30a-859a-a365-e0f3-69a4433ef9bf@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Commit 7e26bf45e4cb ("net: bridge: allow SW learn to take over HW fdb
-entries") added the ability to "take over an entry which was previously
-learned via HW when it shows up from a SW port".
+Thu, Apr 27, 2017 at 09:59:38PM CEST, dsa@cumulusnetworks.com wrote:
+>On 4/27/17 1:43 PM, Vlad Yasevich wrote:
+>>> For example, NETDEV_CHANGEINFODATA is only for bonds though nothing
+>>> about the name suggests it is a bonding notification. This one was added
+>>> specifically to notify userspace (d4261e5650004), yet seems to happen
+>>> only during a changelink and that already generates a RTM_NEWLINK
+>>> message via do_setlink. Since the rtnetlink_event message does not
+>>> contain anything "NETDEV_CHANGEINFODATA" related what purpose does it
+>>> really serve besides duplicating netlink messages to userspace.
+>>>
+>> 
+>> I am not sure about this one, but if you have an app trying to monitor
+>> for this event, it can't really since there is no info in the netlink message.
+>
+>I cc'ed Jiri on this thread hoping he would explain the intent.
+>
+>I propose it gets removed.
 
-However, if an entry was learned via HW and then a control packet
-(e.g., ARP request) was trapped to the CPU, the bridge driver will
-update the entry and remove the externally learned flag, although the
-entry is still present in HW. Instead, only clear the externally learned
-flag in case of roaming.
-
-Fixes: 7e26bf45e4cb ("net: bridge: allow SW learn to take over HW fdb entries")
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-Signed-off-by: Arkadi Sharashevsky <arkadis@mellanox.com>
-Cc: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
----
-v1->v2
-- net-next rebase.
----
- net/bridge/br_fdb.c | 10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
-
-diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-index de7988b..5905eb7 100644
---- a/net/bridge/br_fdb.c
-+++ b/net/bridge/br_fdb.c
-@@ -589,16 +589,16 @@ void br_fdb_update(struct net_bridge *br, struct net_bridge_port *source,
- 			if (unlikely(source != fdb->dst)) {
- 				fdb->dst = source;
- 				fdb_modified = true;
-+				/* Take over HW learned entry */
-+				if (unlikely(fdb->added_by_external_learn)) {
-+					fdb->added_by_external_learn = 0;
-+					fdb_modified = true;
-+				}
- 			}
- 			if (now != fdb->updated)
- 				fdb->updated = now;
- 			if (unlikely(added_by_user))
- 				fdb->added_by_user = 1;
--			/* Take over HW learned entry */
--			if (unlikely(fdb->added_by_external_learn)) {
--				fdb->added_by_external_learn = 0;
--				fdb_modified = true;
--			}
- 			if (unlikely(fdb_modified))
- 				fdb_notify(br, fdb, RTM_NEWNEIGH);
- 		}
--- 
-2.4.11
+Hmm, I don't really recall. But looking at it now, I agree it is
+redundant.
