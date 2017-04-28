@@ -1,208 +1,162 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH iproute2 net-next] bpf: add support for generic xdp
-Date: Fri, 28 Apr 2017 12:42:19 +0200
-Message-ID: <ebe1a4b9674922b8baa2b262c9d039407f047175.1493375407.git.daniel@iogearbox.net>
-Cc: alexei.starovoitov@gmail.com, davem@davemloft.net,
-        netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
-To: stephen@networkplumber.org
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: xdp_redirect ifindex vs port. Was: best API for
+ returning/setting egress port?
+Date: Fri, 28 Apr 2017 12:58:42 +0200
+Message-ID: <20170428125842.6b144d20@redhat.com>
+References: <58F7E9F3.5090604@iogearbox.net>
+        <20170420025611.GA53935@ast-mbp.thefacebook.com>
+        <20170420081051.77a41aa8@redhat.com>
+        <20170420171006.GA97067@ast-mbp.thefacebook.com>
+        <20170425113453.5c72080f@redhat.com>
+        <20170426002610.eihwmz4knbmrolfw@ast-mbp.dhcp.thefacebook.com>
+        <59000EF6.1050204@gmail.com>
+        <20170426111158.578b925e@redhat.com>
+        <5900CC41.2070502@gmail.com>
+        <c9b3ff9b-8938-3274-da29-c04f9da2a314@fb.com>
+        <20170426205544.GA40859@C02RW35GFVH8>
+        <20170427104121.32df2178@redhat.com>
+        <53e9dd2f-f40a-b43b-99c9-62f5ce3a665c@fb.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Andy Gospodarek <andy@greyhouse.net>,
+        John Fastabend <john.fastabend@gmail.com>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Daniel Borkmann <borkmann@iogearbox.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "xdp-newbies@vger.kernel.org" <xdp-newbies@vger.kernel.org>,
+        brouer@redhat.com
+To: Alexei Starovoitov <ast@fb.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:43237 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1033853AbdD1Km2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Apr 2017 06:42:28 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:28848 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1034955AbdD1K6u (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 28 Apr 2017 06:58:50 -0400
+In-Reply-To: <53e9dd2f-f40a-b43b-99c9-62f5ce3a665c@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Follow-up to commit c7272ca72009 ("bpf: add initial support for
-attaching xdp progs") to also support generic XDP. This adds an
-indicator for loaded generic XDP programs when programs are loaded
-as shown in c7272ca72009, but the driver still lacks native XDP
-support.
+On Thu, 27 Apr 2017 16:31:14 -0700
+Alexei Starovoitov <ast@fb.com> wrote:
 
-  # ip link
-  [...]
-  3: eno1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 xdpgeneric qdisc [...]
-      link/ether 0c:c4:7a:03:f9:25 brd ff:ff:ff:ff:ff:ff
-  [...]
+> On 4/27/17 1:41 AM, Jesper Dangaard Brouer wrote:
+> > When registering/attaching a XDP/bpf program, we would just send the
+> > file-descriptor for this port-map along (like we do with the bpf_prog
+> > FD). Plus, it own ingress-port number this program is in the port-map.
+> >
+> > It is not clear to me, in-which-data-structure on the kernel-side we
+> > store this reference to the port-map and ingress-port. As today we only
+> > have the "raw" struct bpf_prog pointer. I see several options:
+> >
+> > 1. Create a new xdp_prog struct that contains existing bpf_prog,
+> > a port-map pointer and ingress-port. (IMHO easiest solution)
+> >
+> > 2. Just create a new pointer to port-map and store it in driver rx-ring
+> > struct (like existing bpf_prog), but this create a race-challenge
+> > replacing (cmpxchg) the program (or perhaps it's not a problem as it
+> > runs under rcu and RTNL-lock).
+> >
+> > 3. Extend bpf_prog to store this port-map and ingress-port, and have a
+> > fast-way to access it.  I assume it will be accessible via
+> > bpf_prog->bpf_prog_aux->used_maps[X] but it will be too slow for XDP.  
+> 
+> I'm not sure I completely follow the 3 proposals.
+> Are you suggesting to have only one netdev_array per program?
 
-In case the driver does support native XDP, but the user wants
-to load the program as generic XDP (e.g. for testing purposes),
-then this can be done with the same semantics as in c7272ca72009,
-but with 'xdpgeneric' instead of 'xdp' command for loading:
+Yes, but I can see you have a more clever idea below.
 
-  # ip -force link set dev eno1 xdpgeneric obj xdp.o
+> Why not to allow any number like we do for tailcall+prog_array, etc?
 
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
----
- ( Requires a header update to pull in XDP_FLAGS_SKB_MODE. )
+> We can teach verifier to allow new helper
+>  bpf_tx_port(netdev_array, port_num);
+> to only be used with netdev_array map type.
+> It will fetch netdevice pointer from netdev_array[port_num]
+> and will tx the packet into it.
 
- ip/iplink.c           |  7 +++++--
- ip/iplink_xdp.c       | 46 +++++++++++++++++++++++++++++++++-------------
- ip/xdp.h              |  2 +-
- man/man8/ip-link.8.in | 19 +++++++++++++++++--
- 4 files changed, 56 insertions(+), 18 deletions(-)
+I love it. 
 
-diff --git a/ip/iplink.c b/ip/iplink.c
-index 866ad72..96b0da3 100644
---- a/ip/iplink.c
-+++ b/ip/iplink.c
-@@ -606,9 +606,12 @@ int iplink_parse(int argc, char **argv, struct iplink_req *req,
- 			if (get_integer(&mtu, *argv, 0))
- 				invarg("Invalid \"mtu\" value\n", *argv);
- 			addattr_l(&req->n, sizeof(*req), IFLA_MTU, &mtu, 4);
--		} else if (strcmp(*argv, "xdp") == 0) {
-+		} else if (strcmp(*argv, "xdpgeneric") == 0 ||
-+			   strcmp(*argv, "xdp") == 0) {
-+			bool generic = strcmp(*argv, "xdpgeneric") == 0;
-+
- 			NEXT_ARG();
--			if (xdp_parse(&argc, &argv, req))
-+			if (xdp_parse(&argc, &argv, req, generic))
- 				exit(-1);
- 		} else if (strcmp(*argv, "netns") == 0) {
- 			NEXT_ARG();
-diff --git a/ip/iplink_xdp.c b/ip/iplink_xdp.c
-index a81ed97..4a3343f 100644
---- a/ip/iplink_xdp.c
-+++ b/ip/iplink_xdp.c
-@@ -19,41 +19,56 @@
+I just don't like the "netdev" part of the name "netdev_array" as one
+basic ideas of a port tabel, is that a port can be anything that can
+consume a XDP_buff packet.  This generalization allow us to move code
+out of the drivers.  We might be on the same page, as I do imagine that
+netdev_array or port_array is just a struct bpf_map pointer, and the
+bpf_map->map_type will tell us that this bpf_map contains net_device
+pointers.  Thus, when later introducing a new type of redirect (like to
+a socket or remote-CPU) then we just add a new bpf_map_type for this,
+without needing to change anything in the drivers, right?
+
+Do you imagine that bpf-side bpf_tx_port() returns XDP_REDIRECT?
+Or does it return if the call was successful (e.g validate port_num
+existed in map)?
+
+On the kernel side, we need to receive this info "port_array" and
+"port_num", given you don't provide the call a xdp_buff/ctx, then I
+assume you want the per-CPU temp-store solution.  Then during the
+XDP_REDIRECT action we call a core redirect function that based on the
+bpf_map_type does a lookup, and find the net_device ptr.
+
+
+> We can make it similar to bpf_tail_call(), so that program will
+> finish on successful bpf_tx_port() or
+> make it into 'delayed' tx which will be executed when program finishes.
+> Not sure which approach is better.
+
+I know you are talking about something slightly different, about
+delaying TX.
+
+But I want to mention (as I've done before) that it is important (for
+me) that we get bulking working/integrated.   I imagine the driver will
+call a function that will delay the TX/redirect action and at the end
+of the NAPI cycle have a function that flush packets, bulk per
+destination port.
+
+I was wondering where to store these delayed TX packets, but now that
+we have an associated bpf_map data-structure (netdev_array), I'm thinking
+about storing packets (ordered by port) inside that.  And then have a
+bpf_tx_flush(netdev_array) call in the driver (for every port-table-map
+seen, which will likely be small).
+
+
+> We can also extend this netdev_array into broadcast/multicast. Like
+> bpf_tx_allports(&netdev_array);
+> call from the program will xmit the packet to all netdevices
+> in that 'netdev_array' map type.
+
+When broadcasting you often don't want to broadcast the packet out of
+the incoming interface.  How can you support this?
+
+Normally you would know your ingress port, and then excluded that port
+in the broadcast.  But with many netdev_array's how do the program know
+it's own ingress port.
+
+
+> The map-in-map support can be trivially extended to allow netdev_array,
+> then the program can create N multicast groups of netdevices.
+> Each multicast group == one netdev_array map.
+> The user space will populate a hashmap with these netdev_arrays and
+> bpf kernel side can select dynamically which multicast group to use
+> to send the packets to.
+> bpf kernel side may look like:
+> struct bpf_netdev_array *netdev_array = bpf_map_lookup_elem(&hash, key);
+> if (!netdev_array)
+>    ...
+> if (my_condition)
+>     bpf_tx_allports(netdev_array);  /* broadcast to all netdevices */
+> else
+>     bpf_tx_port(netdev_array, port_num); /* tx into one netdevice */
+> 
+> that's an artificial example. Just trying to point out
+> that we shouldn't restrict the feature too soon.
  
- extern int force;
- 
-+struct xdp_req {
-+	struct iplink_req *req;
-+	__u32 flags;
-+};
-+
- static void xdp_ebpf_cb(void *raw, int fd, const char *annotation)
- {
--	__u32 flags = !force ? XDP_FLAGS_UPDATE_IF_NOEXIST : 0;
--	struct iplink_req *req = raw;
--	struct rtattr *xdp;
-+	struct xdp_req *xdp = raw;
-+	struct iplink_req *req = xdp->req;
-+	struct rtattr *xdp_attr;
- 
--	xdp = addattr_nest(&req->n, sizeof(*req), IFLA_XDP);
-+	xdp_attr = addattr_nest(&req->n, sizeof(*req), IFLA_XDP);
- 	addattr32(&req->n, sizeof(*req), IFLA_XDP_FD, fd);
--	addattr32(&req->n, sizeof(*req), IFLA_XDP_FLAGS, flags);
--	addattr_nest_end(&req->n, xdp);
-+	if (xdp->flags)
-+		addattr32(&req->n, sizeof(*req), IFLA_XDP_FLAGS, xdp->flags);
-+	addattr_nest_end(&req->n, xdp_attr);
- }
- 
- static const struct bpf_cfg_ops bpf_cb_ops = {
- 	.ebpf_cb = xdp_ebpf_cb,
- };
- 
--static int xdp_delete(struct iplink_req *req)
-+static int xdp_delete(struct xdp_req *xdp)
- {
--	xdp_ebpf_cb(req, -1, NULL);
-+	xdp_ebpf_cb(xdp, -1, NULL);
- 	return 0;
- }
- 
--int xdp_parse(int *argc, char ***argv, struct iplink_req *req)
-+int xdp_parse(int *argc, char ***argv, struct iplink_req *req, bool generic)
- {
- 	struct bpf_cfg_in cfg = {
- 		.argc = *argc,
- 		.argv = *argv,
- 	};
-+	struct xdp_req xdp = {
-+		.req = req,
-+	};
- 
- 	if (*argc == 1) {
- 		if (strcmp(**argv, "none") == 0 ||
- 		    strcmp(**argv, "off") == 0)
--			return xdp_delete(req);
-+			return xdp_delete(&xdp);
- 	}
--	if (bpf_parse_common(BPF_PROG_TYPE_XDP, &cfg, &bpf_cb_ops, req))
-+
-+	if (!force)
-+		xdp.flags |= XDP_FLAGS_UPDATE_IF_NOEXIST;
-+	if (generic)
-+		xdp.flags |= XDP_FLAGS_SKB_MODE;
-+
-+	if (bpf_parse_common(BPF_PROG_TYPE_XDP, &cfg, &bpf_cb_ops, &xdp))
- 		return -1;
- 
- 	*argc = cfg.argc;
-@@ -64,12 +79,17 @@ int xdp_parse(int *argc, char ***argv, struct iplink_req *req)
- void xdp_dump(FILE *fp, struct rtattr *xdp)
- {
- 	struct rtattr *tb[IFLA_XDP_MAX + 1];
-+	__u32 flags = 0;
- 
- 	parse_rtattr_nested(tb, IFLA_XDP_MAX, xdp);
-+
- 	if (!tb[IFLA_XDP_ATTACHED] ||
- 	    !rta_getattr_u8(tb[IFLA_XDP_ATTACHED]))
- 		return;
- 
--	fprintf(fp, "xdp ");
--	/* More to come here in future for 'ip -d link' (digest, etc) ... */
-+	if (tb[IFLA_XDP_FLAGS])
-+		flags = rta_getattr_u32(tb[IFLA_XDP_FLAGS]);
-+
-+	fprintf(fp, "xdp%s ",
-+		flags & XDP_FLAGS_SKB_MODE ? "generic" : "");
- }
-diff --git a/ip/xdp.h b/ip/xdp.h
-index bc69645..1b95e0f 100644
---- a/ip/xdp.h
-+++ b/ip/xdp.h
-@@ -3,7 +3,7 @@
- 
- #include "utils.h"
- 
--int xdp_parse(int *argc, char ***argv, struct iplink_req *req);
-+int xdp_parse(int *argc, char ***argv, struct iplink_req *req, bool generic);
- void xdp_dump(FILE *fp, struct rtattr *tb);
- 
- #endif /* __XDP__ */
-diff --git a/man/man8/ip-link.8.in b/man/man8/ip-link.8.in
-index a5ddfe7..52571b7 100644
---- a/man/man8/ip-link.8.in
-+++ b/man/man8/ip-link.8.in
-@@ -126,7 +126,7 @@ ip-link \- network device configuration
- .RB "[ " port_guid " eui64 ] ]"
- .br
- .in -9
--.RB "[ " xdp  " { " off " | "
-+.RB "[ { " xdp " | " xdpgeneric  " } { " off " | "
- .br
- .in +8
- .BR object
-@@ -1572,8 +1572,23 @@ which may impact security and/or performance. (e.g. VF multicast promiscuous mod
- 
- .TP
- .B xdp object "|" pinned "|" off
--set (or unset) a XDP ("express data path") BPF program to run on every
-+set (or unset) a XDP ("eXpress Data Path") BPF program to run on every
- packet at driver level.
-+.B ip link
-+output will indicate a
-+.B xdp
-+flag for the networking device. If the driver does not have native XDP
-+support, the kernel will fall back to a slower, driver-independent "generic"
-+XDP variant. The
-+.B ip link
-+output will in that case indicate
-+.B xdpgeneric
-+instead of
-+.B xdp
-+only. If the driver does have native XDP support, but the program is
-+loaded under
-+.B xdpgeneric object "|" pinned
-+then the kernel will use the generic XDP variant instead of the native one.
- 
- .B off
- (or
+I like how you solve the multicast problem.  (But I do need to learn
+some more of the inner-workings of bpf map-in-map to follow this
+completely).
+
+Thanks a lot for all this input, I got a much more clear picture of how
+I can/should implement this :-)
 -- 
-1.9.3
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
